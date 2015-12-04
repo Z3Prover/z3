@@ -22,6 +22,7 @@ Revision History:
 #include"datatype_decl_plugin.h"
 #include"bv_decl_plugin.h"
 #include"arith_decl_plugin.h"
+#include"seq_decl_plugin.h"
 #include"ast_pp.h"
 #include"well_sorted.h"
 #include"pattern_validation.h"
@@ -65,6 +66,7 @@ namespace smt2 {
 
         scoped_ptr<bv_util>               m_bv_util;
         scoped_ptr<arith_util>            m_arith_util;
+        scoped_ptr<seq_util>              m_seq_util;
         scoped_ptr<pattern_validator>     m_pattern_validator;
         scoped_ptr<var_shifter>           m_var_shifter;
 
@@ -268,6 +270,12 @@ namespace smt2 {
             if (m_arith_util.get() == 0)
                 m_arith_util = alloc(arith_util, m());
             return *(m_arith_util.get());
+        }
+
+        seq_util & sutil() {
+            if (m_seq_util.get() == 0)
+                m_seq_util = alloc(seq_util, m());
+            return *(m_seq_util.get());
         }
 
         bv_util & butil() {
@@ -1059,6 +1067,13 @@ namespace smt2 {
             next();
         }
 
+        void parse_string_const() {
+            SASSERT(curr() == scanner::STRING_TOKEN);
+            expr_stack().push_back(sutil().mk_string(curr_id()));
+            TRACE("smt2parser", tout << "new string: " << mk_pp(expr_stack().back(), m()) << "\n";);
+            next();
+        }
+
         void push_pattern_frame() {
             // TODO: It seems the only reliable way to parse patterns is:
             // Parse as an S-Expr, then try to convert it to an useful pattern.
@@ -1723,6 +1738,9 @@ namespace smt2 {
                             break;
                         case scanner::KEYWORD_TOKEN:
                             throw parser_exception("invalid expression, unexpected keyword");
+                        case scanner::STRING_TOKEN:
+                            parse_string_const();
+                            break;
                         default:
                             throw parser_exception("invalid expression, unexpected input");
                         }
@@ -2609,6 +2627,7 @@ namespace smt2 {
             
             m_bv_util           = 0;
             m_arith_util        = 0;
+            m_seq_util          = 0;
             m_pattern_validator = 0;
             m_var_shifter       = 0;
         }

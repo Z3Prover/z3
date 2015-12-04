@@ -21,11 +21,14 @@ Revision History:
 #include "array_decl_plugin.h"
 #include <sstream>
 
-seq_decl_plugin::seq_decl_plugin(): m_init(false) {}
+seq_decl_plugin::seq_decl_plugin(): m_init(false), 
+                                    m_stringc_sym("String"),
+                                    m_string(0) {}
 
 void seq_decl_plugin::finalize() {
     for (unsigned i = 0; i < m_sigs.size(); ++i) 
         dealloc(m_sigs[i]);
+    m_manager->dec_ref(m_string);
 }
 
 bool seq_decl_plugin::is_sort_param(sort* s, unsigned& idx) {
@@ -119,9 +122,17 @@ void seq_decl_plugin::init() {
     m_init = true;
     sort* A = m.mk_uninterpreted_sort(symbol((unsigned)0));
     sort* B = m.mk_uninterpreted_sort(symbol((unsigned)1));
+    sort* strT = m_string;
     parameter paramA(A);
+    parameter paramS(strT);
     sort* seqA = m.mk_sort(m_family_id, SEQ_SORT, 1, &paramA);
     sort* reA  = m.mk_sort(m_family_id, RE_SORT, 1, &paramA);
+    sort* reT  = m.mk_sort(m_family_id, RE_SORT, 1, &paramS);
+    sort* boolT = m.mk_bool_sort();
+    sort* intT  = arith_util(m).mk_int();
+    sort* predA = array_util(m).mk_array_sort(A, boolT);
+    sort* u16T = 0;
+    sort* u32T = 0;
     sort* seqAseqA[2] = { seqA, seqA };
     sort* seqAA[2] = { seqA, A };
     sort* seqAB[2] = { seqA, B };
@@ -130,9 +141,11 @@ void seq_decl_plugin::init() {
     sort* reAreA[2] = { reA, reA };
     sort* AA[2] = { A, A };
     sort* seqABB[3] = { seqA, B, B };
-    sort* boolT = m.mk_bool_sort();
-    sort* intT  = arith_util(m).mk_int();
-    sort* predA = array_util(m).mk_array_sort(A, boolT);
+    sort* str2T[2] = { strT, strT };
+    sort* str3T[3] = { strT, strT, strT };
+    sort* strTint2T[3] { strT, intT, intT };
+    sort* re2T[2] = { reT, reT };
+    sort* strTreT[2] = { strT, reT };
     m_sigs.resize(LAST_SEQ_OP);
     // TBD: have (par ..) construct and load parameterized signature from premable.
     m_sigs[OP_SEQ_UNIT]      = alloc(psig, m, "seq-unit",   1, 1, &A, seqA);
@@ -158,14 +171,46 @@ void seq_decl_plugin::init() {
     m_sigs[OP_RE_UNION]      = alloc(psig, m, "re-union",   1, 2, reAreA, reA);
     m_sigs[OP_RE_INTERSECT]  = alloc(psig, m, "re-intersect",   1, 2, reAreA, reA);
     m_sigs[OP_RE_DIFFERENCE] = alloc(psig, m, "re-difference",   1, 2, reAreA, reA);
-    m_sigs[OP_RE_COMPLEMENT] = alloc(psig, m, "re-complement",   1, 1, &reA, reA);
-    m_sigs[OP_RE_LOOP]       = alloc(psig, m, "re-loop",    1, 1, &reA, reA);
+    m_sigs[OP_RE_COMPLEMENT]     = alloc(psig, m, "re-complement",   1, 1, &reA, reA);
+    m_sigs[OP_RE_LOOP]           = alloc(psig, m, "re-loop",    1, 1, &reA, reA);
     m_sigs[OP_RE_EMPTY_SEQ]      = alloc(psig, m, "re-empty-seq", 1, 0, 0, reA);
-    m_sigs[OP_RE_EMPTY_SET]    = alloc(psig, m, "re-empty-set", 1, 0, 0, reA);
-    m_sigs[OP_RE_FULL_SET]    = alloc(psig, m, "re-full-set", 1, 0, 0, reA);
-    m_sigs[OP_RE_OF_SEQ]     = alloc(psig, m, "re-of-seq",  1, 1, &seqA, reA);
-    m_sigs[OP_RE_OF_PRED]    = alloc(psig, m, "re-of-pred", 1, 1, &predA, reA);
-    m_sigs[OP_RE_MEMBER]     = alloc(psig, m, "re-member", 1, 2, seqAreA, boolT);
+    m_sigs[OP_RE_EMPTY_SET]      = alloc(psig, m, "re-empty-set", 1, 0, 0, reA);
+    m_sigs[OP_RE_FULL_SET]       = alloc(psig, m, "re-full-set", 1, 0, 0, reA);
+    m_sigs[OP_RE_OF_SEQ]         = alloc(psig, m, "re-of-seq",  1, 1, &seqA, reA);
+    m_sigs[OP_RE_OF_PRED]        = alloc(psig, m, "re-of-pred", 1, 1, &predA, reA);
+    m_sigs[OP_RE_MEMBER]         = alloc(psig, m, "re-member", 1, 2, seqAreA, boolT);
+    m_sigs[OP_STRING_CONST]      = 0;
+    m_sigs[OP_STRING_CONCAT]     = alloc(psig, m, "str.++", 0, 2, str2T, strT);
+    m_sigs[OP_STRING_LENGTH]     = alloc(psig, m, "str.len", 0, 1, &strT, intT);
+    m_sigs[OP_STRING_SUBSTR]     = alloc(psig, m, "str.substr", 0, 3, strTint2T, boolT);
+    m_sigs[OP_STRING_STRCTN]     = alloc(psig, m, "str.contains", 0, 2, str2T, boolT);
+    m_sigs[OP_STRING_CHARAT]     = alloc(psig, m, "str.at", 0, 2, strTint2T, strT);
+    m_sigs[OP_STRING_STRIDOF]    = alloc(psig, m, "str.indexof", 0, 2, str2T, intT);
+    m_sigs[OP_STRING_STRREPL]    = alloc(psig, m, "str.replace", 0, 3, str3T, strT);
+    m_sigs[OP_STRING_PREFIX]     = alloc(psig, m, "str.prefixof", 0, 2, str2T, boolT);
+    m_sigs[OP_STRING_SUFFIX]     = alloc(psig, m, "str.suffixof", 0, 2, str2T, boolT);
+    m_sigs[OP_STRING_ITOS]       = alloc(psig, m, "int.to.str", 0, 1, &intT, strT);
+    m_sigs[OP_STRING_STOI]       = alloc(psig, m, "str.to.int", 0, 1, &strT, intT);
+    //m_sigs[OP_STRING_U16TOS]   = alloc(psig, m, "u16.to.str", 0, 1, &intT, strT);
+    //m_sigs[OP_STRING_STOU16]   = alloc(psig, m, "str.to.u16", 0, 1, &strT, intT);
+    //m_sigs[OP_STRING_U32TOS]   = alloc(psig, m, "u32.to.str", 0, 1, &intT, strT);
+    //m_sigs[OP_STRING_STOU32]   = alloc(psig, m, "str.to.u32", 0, 1, &strT, intT);
+    m_sigs[OP_STRING_IN_REGEXP]  = alloc(psig, m, "str.in.re", 0, 2, strTreT, boolT);
+    m_sigs[OP_STRING_TO_REGEXP]  = alloc(psig, m, "str.to.re", 0, 1, &strT, reT);
+    m_sigs[OP_REGEXP_CONCAT]     = alloc(psig, m, "re.++", 0, 2, re2T, reT);
+    m_sigs[OP_REGEXP_UNION]      = alloc(psig, m, "re.union", 0, 2, re2T, reT);
+    m_sigs[OP_REGEXP_INTER]      = alloc(psig, m, "re.inter", 0, 2, re2T, reT);
+    m_sigs[OP_REGEXP_STAR]       = alloc(psig, m, "re.*", 0, 1, &reT, reT);
+    m_sigs[OP_REGEXP_PLUS]       = alloc(psig, m, "re.+", 0, 1, &reT, reT);
+    m_sigs[OP_REGEXP_OPT]        = alloc(psig, m, "re.opt", 0, 1, &reT, reT);
+    m_sigs[OP_REGEXP_RANGE]      = alloc(psig, m, "re.range", 0, 2, str2T, reT);
+    m_sigs[OP_REGEXP_LOOP]       = alloc(psig, m, "re.loop", 0, 2, strTint2T, reT); // maybe 3 arguments.
+}
+
+void seq_decl_plugin::set_manager(ast_manager* m, family_id id) {
+    decl_plugin::set_manager(m, id);
+    m_string = m->mk_sort(symbol("String"), sort_info(m_family_id, STRING_SORT, 0, (parameter const*)0));
+    m->inc_ref(m_string);
 }
 
 sort * seq_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) {
@@ -188,6 +233,8 @@ sort * seq_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter 
             m.raise_exception("invalid regex sort, parameter is not a sort");
         }
         return m.mk_sort(symbol("RegEx"), sort_info(m_family_id, RE_SORT, num_parameters, parameters));
+    case STRING_SORT:
+        return m_string;
     default:
         UNREACHABLE();
         return 0;
@@ -239,7 +286,38 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         if (num_parameters != 2 || !parameters[0].is_int() || !parameters[1].is_int()) {
             m.raise_exception("Expecting two numeral parameters to function re-loop");
         }
-        return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k, num_parameters, parameters));        
+        return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k, num_parameters, parameters));   
+    case OP_STRING_CONST:
+        if (!(num_parameters == 1 && arity == 0 && parameters[0].is_symbol())) {
+            m.raise_exception("invalid string declaration");
+        } 
+        return m.mk_const_decl(m_stringc_sym, m_string,
+                               func_decl_info(m_family_id, OP_STRING_CONST, num_parameters, parameters));
+        
+    case OP_STRING_CONCAT:
+    case OP_STRING_LENGTH:
+    case OP_STRING_SUBSTR:
+    case OP_STRING_STRCTN:
+    case OP_STRING_CHARAT:
+    case OP_STRING_STRIDOF:
+    case OP_STRING_STRREPL:
+    case OP_STRING_PREFIX:
+    case OP_STRING_SUFFIX:
+    case OP_STRING_ITOS:
+    case OP_STRING_STOI:
+    case OP_STRING_IN_REGEXP:
+    case OP_STRING_TO_REGEXP:
+    case OP_REGEXP_CONCAT:
+    case OP_REGEXP_UNION:
+    case OP_REGEXP_INTER:
+    case OP_REGEXP_STAR:
+    case OP_REGEXP_PLUS:
+    case OP_REGEXP_OPT:
+    case OP_REGEXP_RANGE:
+    case OP_REGEXP_LOOP:
+        match(*m_sigs[k], arity, domain, range, rng);
+        return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
+
     default:
         UNREACHABLE();
         return 0;
@@ -249,7 +327,9 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
 void seq_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
     init();
     for (unsigned i = 0; i < m_sigs.size(); ++i) {
-        op_names.push_back(builtin_name(m_sigs[i]->m_name.str().c_str(), i));
+        if (m_sigs[i]) {
+            op_names.push_back(builtin_name(m_sigs[i]->m_name.str().c_str(), i));
+        }
     }
 }
 
@@ -257,9 +337,21 @@ void seq_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol 
     init();
     sort_names.push_back(builtin_name("Seq",   SEQ_SORT));
     sort_names.push_back(builtin_name("RegEx", RE_SORT));
+    sort_names.push_back(builtin_name("String", STRING_SORT));
+}
+
+app* seq_decl_plugin::mk_string(symbol const& s) {
+    parameter param(s);
+    func_decl* f = m_manager->mk_const_decl(m_stringc_sym, m_string,
+                                   func_decl_info(m_family_id, OP_STRING_CONST, 1, &param));
+    return m_manager->mk_const(f);
 }
 
 bool seq_decl_plugin::is_value(app* e) const {
     // TBD: empty sequence is a value.
     return false;
+}
+
+app* seq_util::mk_string(symbol const& s) {
+    return seq.mk_string(s);
 }
