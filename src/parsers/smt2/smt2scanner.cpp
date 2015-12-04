@@ -171,11 +171,17 @@ namespace smt2 {
                 throw scanner_exception("unexpected end of string", m_line, m_spos);
             if (c == '\"') {
                 next();
-                m_string.push_back(0);
-                return STRING_TOKEN;
+                if (curr() == '\"') {
+                    m_string.push_back(c);
+                }
+                else {
+                    m_string.push_back(0);
+                    return STRING_TOKEN;
+                }
             }
-            if (c == '\n')
+            else if (c == '\n') {
                 new_line();
+            }
             else if (c == '\\') {
                 next();
                 c = curr();

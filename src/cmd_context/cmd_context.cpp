@@ -1493,6 +1493,11 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
 }
 
 void cmd_context::reset_assertions() {
+    if (!m_global_decls) {
+        reset(false);
+        return;
+    }
+
     if (m_opt) {
         m_opt = 0;
     }

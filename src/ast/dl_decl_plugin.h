@@ -50,7 +50,6 @@ namespace datalog {
         OP_DL_LT,
         OP_DL_REP,
         OP_DL_ABS,
-        OP_DL_MIN,
         LAST_RA_OP
     };
     
@@ -72,7 +71,6 @@ namespace datalog {
         symbol m_lt_sym;
         symbol m_le_sym;
         symbol m_rule_sym;
-        symbol m_min_sym;
 
         bool check_bounds(char const* msg, unsigned low, unsigned up, unsigned val) const;
         bool check_domain(unsigned low, unsigned up, unsigned val) const;
@@ -96,68 +94,12 @@ namespace datalog {
         func_decl * mk_compare(decl_kind k, symbol const& sym, sort*const* domain);
         func_decl * mk_clone(sort* r);
         func_decl * mk_rule(unsigned arity);
-        func_decl * mk_min(decl_kind k, unsigned num_parameters, parameter const * parameters);
                                 
         sort * mk_finite_sort(unsigned num_params, parameter const* params);
         sort * mk_relation_sort(unsigned num_params, parameter const* params);
         sort * mk_rule_sort();
 
     public:
-        /**
-        Is \c decl a min aggregation function?
-        */
-        static bool is_aggregate(const func_decl* const decl)
-        {
-            return decl->get_decl_kind() == OP_DL_MIN;
-        }
-
-        /**
-        \pre: is_aggregate(aggregate)
-
-        \returns function declaration of predicate which is subject to min aggregation function
-        */
-        static func_decl * min_func_decl(const func_decl* const aggregate)
-        {
-            SASSERT(is_aggregate(aggregate));
-            parameter const & relation_parameter = aggregate->get_parameter(0);
-            return to_func_decl(relation_parameter.get_ast());
-        }
-
-        /**
-        \pre: is_aggregate(aggregate)
-
-        \returns column identifier (starting at zero) which is minimized by aggregation function
-        */
-        static unsigned min_col(const func_decl* const aggregate)
-        {
-            SASSERT(is_aggregate(aggregate));
-            return (unsigned)aggregate->get_parameter(1).get_int();
-        }
-
-        /**
-        \pre: is_aggregate(aggregate)
-
-        \returns column identifiers for the "group by" in the given min aggregation function
-        */
-        static unsigned_vector group_by_cols(const func_decl* const aggregate)
-        {
-            SASSERT(is_aggregate(aggregate));
-            unsigned _min_col = min_col(aggregate);
-            if (aggregate->get_arity() == 0U)
-                return unsigned_vector();
-
-            unsigned col_num = 0;
-            unsigned_vector cols(aggregate->get_arity() - 1U);
-            for (unsigned i = 0; i < cols.size(); ++i, ++col_num)
-            {
-                if (col_num == _min_col)
-                    ++col_num;
-
-                cols[i] = col_num;
-            }
-
-            return cols;
-        }
 
         dl_decl_plugin();
         virtual ~dl_decl_plugin() {}
