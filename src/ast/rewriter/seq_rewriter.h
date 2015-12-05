@@ -20,6 +20,7 @@ Notes:
 #define SEQ_REWRITER_H_
 
 #include"seq_decl_plugin.h"
+#include"arith_decl_plugin.h"
 #include"rewriter_types.h"
 #include"params.h"
 #include"lbool.h"
@@ -30,6 +31,7 @@ Notes:
 */
 class seq_rewriter {
     seq_util       m_util;
+    arith_util     m_autil;
 
     br_status mk_str_concat(expr* a, expr* b, expr_ref& result);
     br_status mk_str_length(expr* a, expr_ref& result);
@@ -52,7 +54,7 @@ class seq_rewriter {
 
 public:    
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
-        m_util(m) {
+        m_util(m), m_autil(m) {
     }
     ast_manager & m() const { return m_util.get_manager(); }
     family_id get_fid() const { return m_util.get_family_id(); }

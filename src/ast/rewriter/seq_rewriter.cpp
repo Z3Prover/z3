@@ -126,11 +126,21 @@ br_status seq_rewriter::mk_str_concat(expr* a, expr* b, expr_ref& result) {
 br_status seq_rewriter::mk_str_length(expr* a, expr_ref& result) {
     std::string b;
     if (m_util.str.is_const(a, b)) {
-        result = arith_util(m()).mk_numeral(rational(b.length()), true);
+        result = m_autil.mk_numeral(rational(b.length()), true);
+        return BR_DONE;
     }
     return BR_FAILED;
 }
 br_status seq_rewriter::mk_str_substr(expr* a, expr* b, expr* c, expr_ref& result) {
+    std::string s;
+    rational pos, len;
+    if (m_util.str.is_const(a, s) && m_autil.is_numeral(b, pos) && m_autil.is_numeral(c, len) &&
+        pos.is_unsigned() && len.is_unsigned() && !pos.is_neg() && !len.is_neg() && pos.get_unsigned() <= s.length()) {
+        unsigned _pos = pos.get_unsigned();
+        unsigned _len = len.get_unsigned();
+        result = m_util.str.mk_string(s.substr(_pos, _len));
+        return BR_DONE;
+    }
     return BR_FAILED;
 }
 br_status seq_rewriter::mk_str_strctn(expr* a, expr* b, expr_ref& result) {
@@ -142,12 +152,45 @@ br_status seq_rewriter::mk_str_strctn(expr* a, expr* b, expr_ref& result) {
     return BR_FAILED;
 }
 br_status seq_rewriter::mk_str_charat(expr* a, expr* b, expr_ref& result) {
+    std::string c;
+    rational r;
+    if (m_util.str.is_const(a, c) && m_autil.is_numeral(b, r) && r.is_unsigned()) {
+        unsigned j = r.get_unsigned();
+        if (j < c.length()) {
+            char ch = c[j];
+            c[0] = ch;
+            c[1] = 0;
+            result = m_util.str.mk_string(c);
+            return BR_DONE;
+        }
+    }
     return BR_FAILED;
 }
 br_status seq_rewriter::mk_str_stridof(expr* a, expr* b, expr_ref& result) {
     return BR_FAILED;
 }
 br_status seq_rewriter::mk_str_strrepl(expr* a, expr* b, expr* c, expr_ref& result) {
+    std::string s1, s2, s3;
+    if (m_util.str.is_const(a, s1) && m_util.str.is_const(b, s2) && m_util.str.is_const(c, s3)) {
+        std::ostringstream buffer;
+        for (unsigned i = 0; i < s1.length(); ) {
+            if (strncmp(s1.c_str() + i, s2.c_str(), s2.length()) == 0) {
+                buffer << s3;
+                i += s2.length();
+            }
+            else {
+                buffer << s1[i];
+                ++i;
+            }
+        }
+        result = m_util.str.mk_string(buffer.str());
+        return BR_DONE;
+    }
+    if (b == c) {
+        result = a;
+        return BR_DONE;
+    }
+
     return BR_FAILED;
 }
 br_status seq_rewriter::mk_str_prefix(expr* a, expr* b, expr_ref& result) {
@@ -158,6 +201,10 @@ br_status seq_rewriter::mk_str_prefix(expr* a, expr* b, expr_ref& result) {
             prefix = s1[i] == s2[i];
         }
         result = m().mk_bool_val(prefix);
+        return BR_DONE;
+    }
+    if (m_util.str.is_const(a, s1) && s1.length() == 0) {
+        result = m().mk_true();
         return BR_DONE;
     }
     return BR_FAILED;
@@ -172,22 +219,31 @@ br_status seq_rewriter::mk_str_suffix(expr* a, expr* b, expr_ref& result) {
         result = m().mk_bool_val(suffix);
         return BR_DONE;
     }
+    if (m_util.str.is_const(a, s1) && s1.length() == 0) {
+        result = m().mk_true();
+        return BR_DONE;
+    }
     return BR_FAILED;
 }
 br_status seq_rewriter::mk_str_itos(expr* a, expr_ref& result) {
-    arith_util autil(m());
     rational r;
-    if (autil.is_numeral(a, r)) {
+    if (m_autil.is_numeral(a, r)) {
         result = m_util.str.mk_string(r.to_string());
         return BR_DONE;
     }
     return BR_FAILED;
 }
 br_status seq_rewriter::mk_str_stoi(expr* a, expr_ref& result) {
-    arith_util autil(m());
     std::string s;
     if (m_util.str.is_const(a, s)) {
-        
+        for (unsigned i = 0; i < s.length(); ++i) {
+            if (s[i] == '-') { if (i != 0) return BR_FAILED; }
+            else if ('0' <= s[i] && s[i] <= '9') continue;
+            return BR_FAILED;            
+        }
+        rational r(s.c_str());
+        result = m_autil.mk_numeral(r, true);
+        return BR_DONE;
     }
     return BR_FAILED;
 }
