@@ -29,6 +29,7 @@ Revision History:
 #include"array_decl_plugin.h"
 #include"fpa_decl_plugin.h"
 #include"dl_decl_plugin.h"
+#include"seq_decl_plugin.h"
 #include"smt2_util.h"
 
 class smt2_pp_environment {
@@ -47,6 +48,7 @@ public:
     virtual bv_util & get_bvutil() = 0;
     virtual array_util & get_arutil() = 0;
     virtual fpa_util & get_futil() = 0;
+    virtual seq_util & get_sutil() = 0;
     virtual datalog::dl_decl_util& get_dlutil() = 0;
     virtual bool uses(symbol const & s) const = 0; 
     virtual format_ns::format * pp_fdecl(func_decl * f, unsigned & len);
@@ -54,6 +56,7 @@ public:
     virtual format_ns::format * pp_arith_literal(app * t, bool decimal, unsigned prec);
     virtual format_ns::format * pp_float_literal(app * t, bool use_bv_lits, bool use_float_real_lits);
     virtual format_ns::format * pp_datalog_literal(app * t);
+    virtual format_ns::format * pp_string_literal(app * t);
     virtual format_ns::format * pp_sort(sort * s);
     virtual format_ns::format * pp_fdecl_ref(func_decl * f);
     format_ns::format * pp_fdecl_name(symbol const & fname, unsigned & len) const;
@@ -70,12 +73,14 @@ class smt2_pp_environment_dbg : public smt2_pp_environment {
     bv_util       m_bvutil;
     array_util    m_arutil;
     fpa_util      m_futil;
+    seq_util      m_sutil;
     datalog::dl_decl_util m_dlutil;
 public:
-    smt2_pp_environment_dbg(ast_manager & m):m_manager(m), m_autil(m), m_bvutil(m), m_arutil(m), m_futil(m), m_dlutil(m) {}
+    smt2_pp_environment_dbg(ast_manager & m):m_manager(m), m_autil(m), m_bvutil(m), m_arutil(m), m_futil(m), m_sutil(m), m_dlutil(m) {}
     virtual ast_manager & get_manager() const { return m_manager; }
     virtual arith_util & get_autil() { return m_autil; }
     virtual bv_util & get_bvutil() { return m_bvutil; }
+    virtual seq_util & get_sutil() { return m_sutil; }
     virtual array_util & get_arutil() { return m_arutil; }
     virtual fpa_util & get_futil() { return m_futil; }
     virtual datalog::dl_decl_util& get_dlutil() { return m_dlutil; }

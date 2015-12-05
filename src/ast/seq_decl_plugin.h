@@ -134,7 +134,7 @@ public:
 
     virtual ~seq_decl_plugin() {}
     virtual void finalize();
-    
+   
     virtual decl_plugin * mk_fresh() { return alloc(seq_decl_plugin); }
     
     virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters);
@@ -159,6 +159,8 @@ class seq_util {
     family_id m_fid;
 public:
 
+    ast_manager& get_manager() const { return m; }
+
     class str {
         seq_util&    u;
         ast_manager& m;
@@ -168,6 +170,7 @@ public:
 
         app* mk_string(symbol const& s);
         app* mk_string(char const* s) { return mk_string(symbol(s)); }
+        app* mk_string(std::string const& s) { return mk_string(symbol(s.c_str())); }
         app* mk_concat(expr* a, expr* b) { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_STRING_CONCAT, 2, es); }
         app* mk_length(expr* a) { return m.mk_app(m_fid, OP_STRING_LENGTH, 1, &a); }
         app* mk_substr(expr* a, expr* b, expr* c) { expr* es[3] = { a, b, c }; return m.mk_app(m_fid, OP_STRING_SUBSTR, 3, es); }
