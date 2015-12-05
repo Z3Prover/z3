@@ -671,12 +671,11 @@ def parse_options():
     # Handle the Python package directory
     if not IS_WINDOWS:
         if not PYTHON_PACKAGE_DIR.startswith(PREFIX):
-            printPythonPackageMessage("ERROR")
             print(("ERROR: The detected Python package directory (%s)"
                    " does not live under the installation prefix (%s)"
                    ". This would lead to a broken installation."
                    "Use --pypkgdir= to change the Python package directory") %
-                  (errorType, PYTHON_PACKAGE_DIR, PREFIX))
+                  (PYTHON_PACKAGE_DIR, PREFIX))
             sys.exit(1)
 
 # Return a list containing a file names included using '#include' in
