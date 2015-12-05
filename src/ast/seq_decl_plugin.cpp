@@ -143,7 +143,7 @@ void seq_decl_plugin::init() {
     sort* seqABB[3] = { seqA, B, B };
     sort* str2T[2] = { strT, strT };
     sort* str3T[3] = { strT, strT, strT };
-    sort* strTint2T[3] { strT, intT, intT };
+    sort* strTint2T[3] = { strT, intT, intT };
     sort* re2T[2] = { reT, reT };
     sort* strTreT[2] = { strT, reT };
     m_sigs.resize(LAST_SEQ_OP);
