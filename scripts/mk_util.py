@@ -34,6 +34,10 @@ OCAMLC=getenv("OCAMLC", "ocamlc")
 OCAMLOPT=getenv("OCAMLOPT", "ocamlopt")
 OCAML_LIB=getenv("OCAML_LIB", None)
 OCAMLFIND=getenv("OCAMLFIND", "ocamlfind")
+# Standard install directories relative to PREFIX
+INSTALL_BIN_DIR=getenv("Z3_INSTALL_BIN_DIR", "bin")
+INSTALL_LIB_DIR=getenv("Z3_INSTALL_LIB_DIR", "lib")
+INSTALL_INCLUDE_DIR=getenv("Z3_INSTALL_INCLUDE_DIR", "include")
 
 CXX_COMPILERS=['g++', 'clang++']
 C_COMPILERS=['gcc', 'clang']
@@ -550,6 +554,7 @@ def display_help(exit_code):
         print("  -p <dir>, --prefix=<dir>      installation prefix (default: %s)." % PREFIX)
     else:
         print("  --parallel=num                use cl option /MP with 'num' parallel processes")
+    print("  --pypkgdir=<dir>              Force a particular Python package directory (default %s)" % PYTHON_PACKAGE_DIR)
     print("  -b <sudir>, --build=<subdir>  subdirectory where Z3 will be built (default: build).")
     print("  --githash=hash                include the given hash in the binaries.")
     print("  -d, --debug                   compile Z3 in debug mode.")
@@ -586,6 +591,9 @@ def display_help(exit_code):
     print("  OCAMLC     Ocaml byte-code compiler (only relevant with --ml)")
     print("  OCAMLOPT   Ocaml native compiler (only relevant with --ml)")
     print("  OCAML_LIB  Ocaml library directory (only relevant with --ml)")
+    print("  Z3_INSTALL_BIN_DIR Install directory for binaries relative to install prefix")
+    print("  Z3_INSTALL_LIB_DIR Install directory for libraries relative to install prefix")
+    print("  Z3_INSTALL_INCLUDE_DIR Install directory for header files relative to install prefix")
     exit(exit_code)
 
 # Parse configuration option for mk_make script
@@ -598,7 +606,7 @@ def parse_options():
                                                'b:df:sxhmcvtnp:gj',
                                                ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj',
                                                 'trace', 'nodotnet', 'staticlib', 'prefix=', 'gmp', 'foci2=', 'java', 'parallel=', 'gprof',
-                                                'githash=', 'x86', 'ml', 'optimize', 'noomp'])
+                                                'githash=', 'x86', 'ml', 'optimize', 'noomp', 'pypkgdir='])
     except:
         print("ERROR: Invalid command line option")
         display_help(1)
@@ -637,10 +645,8 @@ def parse_options():
             SLOW_OPTIMIZE = True
         elif not IS_WINDOWS and opt in ('-p', '--prefix'):
             PREFIX = arg
-            PYTHON_PACKAGE_DIR = os.path.join(PREFIX, 'lib', 'python%s' % distutils.sysconfig.get_python_version(), 'dist-packages')
-            mk_dir(PYTHON_PACKAGE_DIR)
-            if sys.version >= "3":
-                mk_dir(os.path.join(PYTHON_PACKAGE_DIR, '__pycache__'))
+        elif opt in ('--pypkgdir'):
+            PYTHON_PACKAGE_DIR = arg
         elif IS_WINDOWS and opt == '--parallel':
             VS_PAR = True
             VS_PAR_NUM = int(arg)
@@ -662,6 +668,15 @@ def parse_options():
         else:
             print("ERROR: Invalid command line option '%s'" % opt)
             display_help(1)
+    # Handle the Python package directory
+    if not IS_WINDOWS:
+        if not PYTHON_PACKAGE_DIR.startswith(PREFIX):
+            print(("ERROR: The detected Python package directory (%s)"
+                   " does not live under the installation prefix (%s)"
+                   ". This would lead to a broken installation."
+                   "Use --pypkgdir= to change the Python package directory") %
+                  (PYTHON_PACKAGE_DIR, PREFIX))
+            sys.exit(1)
 
 # Return a list containing a file names included using '#include' in
 # the given C/C++ file named fname.
@@ -992,17 +1007,21 @@ class LibComponent(Component):
 
     def mk_install(self, out):
         for include in self.includes2install:
-            out.write('\t@cp %s %s\n' % (os.path.join(self.to_src_dir, include), os.path.join('$(PREFIX)', 'include', include)))
+            MakeRuleCmd.install_files(
+                out,
+                os.path.join(self.to_src_dir, include),
+                os.path.join(INSTALL_INCLUDE_DIR, include)
+            )
 
     def mk_uninstall(self, out):
         for include in self.includes2install:
-            out.write('\t@rm -f %s\n' % os.path.join('$(PREFIX)', 'include', include))
+            MakeRuleCmd.remove_installed_files(out, os.path.join(INSTALL_INCLUDE_DIR, include))
 
     def mk_win_dist(self, build_path, dist_path):
-        mk_dir(os.path.join(dist_path, 'include'))
+        mk_dir(os.path.join(dist_path, INSTALL_INCLUDE_DIR))
         for include in self.includes2install:
             shutil.copy(os.path.join(self.src_dir, include),
-                        os.path.join(dist_path, 'include', include))
+                        os.path.join(dist_path, INSTALL_INCLUDE_DIR, include))
 
     def mk_unix_dist(self, build_path, dist_path):
         self.mk_win_dist(build_path, dist_path)
@@ -1078,23 +1097,24 @@ class ExeComponent(Component):
     def mk_install(self, out):
         if self.install:
             exefile = '%s$(EXE_EXT)' % self.exe_name
-            out.write('\t@cp %s %s\n' % (exefile, os.path.join('$(PREFIX)', 'bin', exefile)))
+            MakeRuleCmd.install_files(out, exefile, os.path.join(INSTALL_BIN_DIR, exefile))
 
     def mk_uninstall(self, out):
-        exefile = '%s$(EXE_EXT)' % self.exe_name
-        out.write('\t@rm -f %s\n' % os.path.join('$(PREFIX)', 'bin', exefile))
+        if self.install:
+            exefile = '%s$(EXE_EXT)' % self.exe_name
+            MakeRuleCmd.remove_installed_files(out, os.path.join(INSTALL_BIN_DIR, exefile))
 
     def mk_win_dist(self, build_path, dist_path):
         if self.install:
-            mk_dir(os.path.join(dist_path, 'bin'))
+            mk_dir(os.path.join(dist_path, INSTALL_BIN_DIR))
             shutil.copy('%s.exe' % os.path.join(build_path, self.exe_name),
-                        '%s.exe' % os.path.join(dist_path, 'bin', self.exe_name))
+                        '%s.exe' % os.path.join(dist_path, INSTALL_BIN_DIR, self.exe_name))
 
     def mk_unix_dist(self, build_path, dist_path):
         if self.install:
-            mk_dir(os.path.join(dist_path, 'bin'))
+            mk_dir(os.path.join(dist_path, INSTALL_BIN_DIR))
             shutil.copy(os.path.join(build_path, self.exe_name),
-                        os.path.join(dist_path, 'bin', self.exe_name))
+                        os.path.join(dist_path, INSTALL_BIN_DIR, self.exe_name))
 
 
 class ExtraExeComponent(ExeComponent):
@@ -1224,36 +1244,45 @@ class DLLComponent(Component):
     def mk_install(self, out):
         if self.install:
             dllfile = '%s$(SO_EXT)' % self.dll_name
-            out.write('\t@cp %s %s\n' % (dllfile, os.path.join('$(PREFIX)', 'lib', dllfile)))
-            out.write('\t@cp %s %s\n' % (dllfile, os.path.join(PYTHON_PACKAGE_DIR, dllfile)))
+            dllInstallPath = os.path.join(INSTALL_LIB_DIR, dllfile)
+            MakeRuleCmd.install_files(out, dllfile, dllInstallPath)
+            pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
+            if IS_WINDOWS:
+                MakeRuleCmd.install_files(out, dllfile, os.path.join(pythonPkgDirWithoutPrefix, dllfile))
+            else:
+                # Create symbolic link to save space.
+                # It's important that this symbolic link be relative (rather
+                # than absolute) so that the install is relocatable (needed for
+                # staged installs that use DESTDIR).
+                MakeRuleCmd.create_relative_symbolic_link(out, dllInstallPath, os.path.join(pythonPkgDirWithoutPrefix, dllfile))
             if self.static:
                 libfile = '%s$(LIB_EXT)' % self.dll_name
-                out.write('\t@cp %s %s\n' % (libfile, os.path.join('$(PREFIX)', 'lib', libfile)))
-
+                MakeRuleCmd.install_files(out, libfile, os.path.join(INSTALL_LIB_DIR, libfile))
 
     def mk_uninstall(self, out):
         dllfile = '%s$(SO_EXT)' % self.dll_name
-        out.write('\t@rm -f %s\n' % os.path.join('$(PREFIX)', 'lib', dllfile))
-        out.write('\t@rm -f %s\n' % os.path.join(PYTHON_PACKAGE_DIR, dllfile))
+        MakeRuleCmd.remove_installed_files(out, os.path.join(INSTALL_LIB_DIR, dllfile))
+        pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
+        MakeRuleCmd.remove_installed_files(out, os.path.join(pythonPkgDirWithoutPrefix, dllfile))
         libfile = '%s$(LIB_EXT)' % self.dll_name
-        out.write('\t@rm -f %s\n' % os.path.join('$(PREFIX)', 'lib', libfile))
+        MakeRuleCmd.remove_installed_files(out, os.path.join(INSTALL_LIB_DIR, libfile))
 
     def mk_win_dist(self, build_path, dist_path):
         if self.install:
-            mk_dir(os.path.join(dist_path, 'bin'))
+            mk_dir(os.path.join(dist_path, INSTALL_BIN_DIR))
             shutil.copy('%s.dll' % os.path.join(build_path, self.dll_name),
-                        '%s.dll' % os.path.join(dist_path, 'bin', self.dll_name))
+                        '%s.dll' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
             shutil.copy('%s.lib' % os.path.join(build_path, self.dll_name),
-                        '%s.lib' % os.path.join(dist_path, 'bin', self.dll_name))
+                        '%s.lib' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
 
     def mk_unix_dist(self, build_path, dist_path):
         if self.install:
-            mk_dir(os.path.join(dist_path, 'bin'))
+            mk_dir(os.path.join(dist_path, INSTALL_BIN_DIR))
             so = get_so_ext()
             shutil.copy('%s.%s' % (os.path.join(build_path, self.dll_name), so),
-                        '%s.%s' % (os.path.join(dist_path, 'bin', self.dll_name), so))
+                        '%s.%s' % (os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name), so))
             shutil.copy('%s.a' % os.path.join(build_path, self.dll_name),
-                        '%s.a' % os.path.join(dist_path, 'bin', self.dll_name))
+                        '%s.a' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
 
 class DotNetDLLComponent(Component):
     def __init__(self, name, dll_name, path, deps, assembly_info_dir):
@@ -1306,14 +1335,14 @@ class DotNetDLLComponent(Component):
     def mk_win_dist(self, build_path, dist_path):
         if DOTNET_ENABLED:
             # Assuming all DotNET dll should be in the distribution
-            mk_dir(os.path.join(dist_path, 'bin'))
+            mk_dir(os.path.join(dist_path, INSTALL_BIN_DIR))
             shutil.copy('%s.dll' % os.path.join(build_path, self.dll_name),
-                        '%s.dll' % os.path.join(dist_path, 'bin', self.dll_name))
+                        '%s.dll' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
             shutil.copy('%s.xml' % os.path.join(build_path, self.dll_name),
-                        '%s.xml' % os.path.join(dist_path, 'bin', self.dll_name))
+                        '%s.xml' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
             if DEBUG_MODE:
                 shutil.copy('%s.pdb' % os.path.join(build_path, self.dll_name),
-                            '%s.pdb' % os.path.join(dist_path, 'bin', self.dll_name))
+                            '%s.pdb' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
 
 
 
@@ -1383,34 +1412,36 @@ class JavaDLLComponent(Component):
 
     def mk_win_dist(self, build_path, dist_path):
         if JAVA_ENABLED:
-            mk_dir(os.path.join(dist_path, 'bin'))
+            mk_dir(os.path.join(dist_path, INSTALL_BIN_DIR))
             shutil.copy('%s.jar' % os.path.join(build_path, self.package_name),
-                        '%s.jar' % os.path.join(dist_path, 'bin', self.package_name))
+                        '%s.jar' % os.path.join(dist_path, INSTALL_BIN_DIR, self.package_name))
             shutil.copy(os.path.join(build_path, 'libz3java.dll'),
-                        os.path.join(dist_path, 'bin', 'libz3java.dll'))
+                        os.path.join(dist_path, INSTALL_BIN_DIR, 'libz3java.dll'))
             shutil.copy(os.path.join(build_path, 'libz3java.lib'),
-                        os.path.join(dist_path, 'bin', 'libz3java.lib'))
+                        os.path.join(dist_path, INSTALL_BIN_DIR, 'libz3java.lib'))
 
     def mk_unix_dist(self, build_path, dist_path):
         if JAVA_ENABLED:
-            mk_dir(os.path.join(dist_path, 'bin'))
+            mk_dir(os.path.join(dist_path, INSTALL_BIN_DIR))
             shutil.copy('%s.jar' % os.path.join(build_path, self.package_name),
-                        '%s.jar' % os.path.join(dist_path, 'bin', self.package_name))
+                        '%s.jar' % os.path.join(dist_path, INSTALL_BIN_DIR, self.package_name))
             so = get_so_ext()
             shutil.copy(os.path.join(build_path, 'libz3java.%s' % so),
-                        os.path.join(dist_path, 'bin', 'libz3java.%s' % so))
+                        os.path.join(dist_path, INSTALL_BIN_DIR, 'libz3java.%s' % so))
 
     def mk_install(self, out):
         if is_java_enabled() and self.install:
             dllfile = '%s$(SO_EXT)' % self.dll_name
-            out.write('\t@cp %s %s\n' % (dllfile, os.path.join('$(PREFIX)', 'lib', dllfile)))
-            out.write('\t@cp %s.jar %s.jar\n' % (self.package_name, os.path.join('$(PREFIX)', 'lib', self.package_name)))
+            MakeRuleCmd.install_files(out, dllfile, os.path.join(INSTALL_LIB_DIR, dllfile))
+            jarfile = '{}.jar'.format(self.package_name)
+            MakeRuleCmd.install_files(out, jarfile, os.path.join(INSTALL_LIB_DIR, jarfile))
 
     def mk_uninstall(self, out):
         if is_java_enabled() and self.install:
             dllfile = '%s$(SO_EXT)' % self.dll_name
-            out.write('\t@rm %s\n' % (os.path.join('$(PREFIX)', 'lib', dllfile)))
-            out.write('\t@rm %s.jar\n' % (os.path.join('$(PREFIX)', 'lib', self.package_name)))
+            MakeRuleCmd.remove_installed_files(out, os.path.join(INSTALL_LIB_DIR, dllfile))
+            jarfile = '{}.jar'.format(self.package_name)
+            MakeRuleCmd.remove_installed_files(out, os.path.join(INSTALL_LIB_DIR, jarfile))
 
 class MLComponent(Component):
     def __init__(self, name, lib_name, path, deps):
@@ -2009,17 +2040,20 @@ def mk_install(out):
     if is_ml_enabled() and OCAMLFIND != '':
         out.write('ocamlfind_install')
     out.write('\n')
-    out.write('\t@mkdir -p %s\n' % os.path.join('$(PREFIX)', 'bin'))
-    out.write('\t@mkdir -p %s\n' % os.path.join('$(PREFIX)', 'include'))
-    out.write('\t@mkdir -p %s\n' % os.path.join('$(PREFIX)', 'lib'))
+    MakeRuleCmd.make_install_directory(out, INSTALL_BIN_DIR)
+    MakeRuleCmd.make_install_directory(out, INSTALL_INCLUDE_DIR)
+    MakeRuleCmd.make_install_directory(out, INSTALL_LIB_DIR)
+    pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
+    MakeRuleCmd.make_install_directory(out, pythonPkgDirWithoutPrefix)
     for c in get_components():
         c.mk_install(out)
-    out.write('\t@cp z3*.py %s\n' % PYTHON_PACKAGE_DIR)
+    MakeRuleCmd.install_files(out, 'z3*.py', pythonPkgDirWithoutPrefix)
     if sys.version >= "3":
-        out.write('\t@cp %s*.pyc %s\n' % (os.path.join('__pycache__', 'z3'),
-                                          os.path.join(PYTHON_PACKAGE_DIR, '__pycache__')))
+        pythonPycacheDir = os.path.join(pythonPkgDirWithoutPrefix, '__pycache__')
+        MakeRuleCmd.make_install_directory(out, pythonPycacheDir)
+        MakeRuleCmd.install_files(out, '{}*.pyc'.format(os.path.join('__pycache__', 'z3')), pythonPycacheDir)
     else:
-        out.write('\t@cp z3*.pyc %s\n' % PYTHON_PACKAGE_DIR)
+        MakeRuleCmd.install_files(out, 'z3*.pyc', pythonPkgDirWithoutPrefix)
     out.write('\t@echo Z3 was successfully installed.\n')
     if PYTHON_PACKAGE_DIR != distutils.sysconfig.get_python_lib():
         if os.uname()[0] == 'Darwin':
@@ -2027,7 +2061,7 @@ def mk_install(out):
         else:
             LD_LIBRARY_PATH = "LD_LIBRARY_PATH"
         out.write('\t@echo Z3 shared libraries were installed at \'%s\', make sure this directory is in your %s environment variable.\n' %
-                  (os.path.join(PREFIX, 'lib'), LD_LIBRARY_PATH))
+                  (os.path.join(PREFIX, INSTALL_LIB_DIR), LD_LIBRARY_PATH))
         out.write('\t@echo Z3Py was installed at \'%s\', make sure this directory is in your PYTHONPATH environment variable.' % PYTHON_PACKAGE_DIR)
     out.write('\n')
 
@@ -2035,9 +2069,10 @@ def mk_uninstall(out):
     out.write('uninstall:\n')
     for c in get_components():
         c.mk_uninstall(out)
-    out.write('\t@rm -f %s*.py\n' % os.path.join(PYTHON_PACKAGE_DIR, 'z3'))
-    out.write('\t@rm -f %s*.pyc\n' % os.path.join(PYTHON_PACKAGE_DIR, 'z3'))
-    out.write('\t@rm -f %s*.pyc\n' % os.path.join(PYTHON_PACKAGE_DIR, '__pycache__', 'z3'))
+    pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
+    MakeRuleCmd.remove_installed_files(out, '{}*.py'.format(os.path.join(pythonPkgDirWithoutPrefix, 'z3')))
+    MakeRuleCmd.remove_installed_files(out, '{}*.pyc'.format(os.path.join(pythonPkgDirWithoutPrefix, 'z3')))
+    MakeRuleCmd.remove_installed_files(out, '{}*.pyc'.format(os.path.join(pythonPkgDirWithoutPrefix, '__pycache__', 'z3')))
     out.write('\t@echo Z3 was successfully uninstalled.\n')
     out.write('\n')
 
@@ -2060,7 +2095,9 @@ def mk_makefile():
     out.write("\t@echo \"Z3Py scripts stored in arbitrary directories can be also executed if \'%s\' directory is added to the PYTHONPATH environment variable.\"\n" % BUILD_DIR)
     if not IS_WINDOWS:
         out.write("\t@echo Use the following command to install Z3 at prefix $(PREFIX).\n")
-        out.write('\t@echo "    sudo make install"\n')
+        out.write('\t@echo "    sudo make install"\n\n')
+        out.write("\t@echo If you are doing a staged install you can use DESTDIR.\n")
+        out.write('\t@echo "    make DESTDIR=/some/temp/directory install"\n')
     # Generate :examples rule
     out.write('examples:')
     for c in get_components():
@@ -3175,7 +3212,7 @@ def mk_win_dist(build_path, dist_path):
     print("Adding to %s\n" % dist_path)
     for pyc in filter(lambda f: f.endswith('.pyc') or f.endswith('.py'), os.listdir(build_path)):
         shutil.copy(os.path.join(build_path, pyc),
-                    os.path.join(dist_path, 'bin', pyc))
+                    os.path.join(dist_path, INSTALL_BIN_DIR, pyc))
 
 def mk_unix_dist(build_path, dist_path):
     for c in get_components():
@@ -3183,8 +3220,148 @@ def mk_unix_dist(build_path, dist_path):
     # Add Z3Py to bin directory
     for pyc in filter(lambda f: f.endswith('.pyc') or f.endswith('.py'), os.listdir(build_path)):
         shutil.copy(os.path.join(build_path, pyc),
-                    os.path.join(dist_path, 'bin', pyc))
+                    os.path.join(dist_path, INSTALL_BIN_DIR, pyc))
 
+class MakeRuleCmd(object):
+    """
+        These class methods provide a convenient way to emit frequently
+        needed commands used in Makefile rules
+
+        Note that several of the method are meant for use during ``make
+        install`` and ``make uninstall``.  These methods correctly use
+        ``$(PREFIX)`` and ``$(DESTDIR)`` and therefore are preferrable
+        to writing commands manually which can be error prone.
+    """
+    @classmethod
+    def install_root(cls):
+        """
+            Returns a string that will expand to the
+            install location when used in a makefile rule.
+        """
+        # Note: DESTDIR is to support staged installs
+        return "$(DESTDIR)$(PREFIX)/"
+
+    @classmethod
+    def install_files(cls, out, src_pattern, dest):
+        assert len(dest) > 0
+        assert isinstance(src_pattern, str)
+        assert not ' ' in src_pattern
+        assert isinstance(dest, str)
+        assert not ' ' in dest
+        assert not os.path.isabs(src_pattern)
+        assert not os.path.isabs(dest)
+        cls.write_cmd(out, "cp {src_pattern} {install_root}{dest}".format(
+            src_pattern=src_pattern,
+            install_root=cls.install_root(),
+            dest=dest))
+
+    @classmethod
+    def remove_installed_files(cls, out, pattern):
+        assert len(pattern) > 0
+        assert isinstance(pattern, str)
+        assert not ' ' in pattern
+        assert not os.path.isabs(pattern)
+        cls.write_cmd(out, "rm -f {install_root}{pattern}".format(
+            install_root=cls.install_root(),
+            pattern=pattern))
+
+    @classmethod
+    def make_install_directory(cls, out, dir):
+        assert len(dir) > 0
+        assert isinstance(dir, str)
+        assert not ' ' in dir
+        assert not os.path.isabs(dir)
+        cls.write_cmd(out, "mkdir -p {install_root}{dir}".format(
+            install_root=cls.install_root(),
+            dir=dir))
+
+    @classmethod
+    def _is_path_prefix_of(cls, temp_path, target_as_abs):
+        """
+            Returns True iff ``temp_path`` is a path prefix
+            of ``target_as_abs``
+        """
+        assert isinstance(temp_path, str)
+        assert isinstance(target_as_abs, str)
+        assert len(temp_path) > 0
+        assert len(target_as_abs) > 0
+        assert os.path.isabs(temp_path)
+        assert os.path.isabs(target_as_abs)
+
+        # Need to stick extra slash in front otherwise we might think that
+        # ``/lib`` is a prefix of ``/lib64``.  Of course if ``temp_path ==
+        # '/'`` then we shouldn't else we would check if ``//`` (rather than
+        # ``/``) is a prefix of ``/lib64``, which would fail.
+        if len(temp_path) > 1:
+            temp_path += os.sep
+        return target_as_abs.startswith(temp_path)
+
+    @classmethod
+    def create_relative_symbolic_link(cls, out, target, link_name):
+        assert isinstance(target, str)
+        assert isinstance(link_name, str)
+        assert len(target) > 0
+        assert len(link_name) > 0
+        assert not os.path.isabs(target)
+        assert not os.path.isabs(link_name)
+
+        # We can't test to see if link_name is a file or directory
+        # because it may not exist yet. Instead follow the convention
+        # that if there is a leading slash target is a directory otherwise
+        # it's a file
+        if link_name[-1] != '/':
+            # link_name is a file
+            temp_path = '/' + os.path.dirname(link_name)
+        else:
+            # link_name is a directory
+            temp_path = '/' + link_name[:-1]
+        relative_path = ""
+        targetAsAbs = '/' + target
+        assert os.path.isabs(targetAsAbs)
+        assert os.path.isabs(temp_path)
+        # Keep walking up the directory tree until temp_path
+        # is a prefix of targetAsAbs
+        while not cls._is_path_prefix_of(temp_path, targetAsAbs):
+            assert temp_path != '/'
+            temp_path = os.path.dirname(temp_path)
+            relative_path += '../'
+
+        # Now get the path from the common prefix directory to the target
+        target_from_prefix = targetAsAbs[len(temp_path):]
+        relative_path += target_from_prefix
+        # Remove any double slashes
+        relative_path = relative_path.replace('//','/')
+        cls.create_symbolic_link(out, relative_path, link_name)
+
+    @classmethod
+    def create_symbolic_link(cls, out, target, link_name):
+        assert isinstance(target, str)
+        assert isinstance(link_name, str)
+        assert not os.path.isabs(target)
+        assert not os.path.isabs(link_name)
+        cls.write_cmd(out, 'ln -s {target} {install_root}{link_name}'.format(
+            target=target,
+            install_root=cls.install_root(),
+            link_name=link_name))
+
+    # TODO: Refactor all of the build system to emit commands using this
+    # helper to simplify code. This will also let us replace ``@`` with
+    # ``$(Verb)`` and have it set to ``@`` or empty at build time depending on
+    # a variable (e.g. ``VERBOSE``) passed to the ``make`` invocation. This
+    # would be very helpful for debugging.
+    @classmethod
+    def write_cmd(cls, out, line):
+        out.write("\t@{}\n".format(line))
+
+def strip_path_prefix(path, prefix):
+    assert path.startswith(prefix)
+    stripped_path = path[len(prefix):]
+    stripped_path.replace('//','/')
+    if stripped_path[0] == '/':
+        stripped_path = stripped_path[1:]
+
+    assert not os.path.isabs(stripped_path)
+    return stripped_path
 
 if __name__ == '__main__':
     import doctest
