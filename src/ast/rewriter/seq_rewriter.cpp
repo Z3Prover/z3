@@ -79,8 +79,8 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         SASSERT(num_args == 2);
         return mk_str_charat(args[0], args[1], result); 
     case OP_STRING_STRIDOF: 
-        SASSERT(num_args == 2);
-        return mk_str_stridof(args[0], args[1], result);
+        SASSERT(num_args == 3);
+        return mk_str_stridof(args[0], args[1], args[2], result);
     case OP_STRING_STRREPL: 
         SASSERT(num_args == 3);
         return mk_str_strrepl(args[0], args[1], args[2], result);
@@ -135,7 +135,7 @@ br_status seq_rewriter::mk_str_substr(expr* a, expr* b, expr* c, expr_ref& resul
     std::string s;
     rational pos, len;
     if (m_util.str.is_const(a, s) && m_autil.is_numeral(b, pos) && m_autil.is_numeral(c, len) &&
-        pos.is_unsigned() && len.is_unsigned() && !pos.is_neg() && !len.is_neg() && pos.get_unsigned() <= s.length()) {
+        pos.is_unsigned() && len.is_unsigned() && pos.get_unsigned() <= s.length()) {
         unsigned _pos = pos.get_unsigned();
         unsigned _len = len.get_unsigned();
         result = m_util.str.mk_string(s.substr(_pos, _len));
@@ -166,7 +166,23 @@ br_status seq_rewriter::mk_str_charat(expr* a, expr* b, expr_ref& result) {
     }
     return BR_FAILED;
 }
-br_status seq_rewriter::mk_str_stridof(expr* a, expr* b, expr_ref& result) {
+br_status seq_rewriter::mk_str_stridof(expr* a, expr* b, expr* c, expr_ref& result) {
+    std::string s1, s2;
+    rational r;
+    if (m_util.str.is_const(a, s1) && m_util.str.is_const(b, s2) && m_autil.is_numeral(c, r) && r.is_unsigned()) {
+        for (unsigned i = r.get_unsigned(); i < s1.length(); ++i) {
+            if (strncmp(s1.c_str() + i, s2.c_str(), s2.length()) == 0) {
+                result = m_autil.mk_numeral(rational(i) - r, true);
+                return BR_DONE;
+            }
+        }
+        result = m_autil.mk_numeral(rational(-1), true);
+        return BR_DONE;
+    }
+    if (m_util.str.is_const(b, s2) && s2.length() == 0) {
+        result = c;
+        return BR_DONE;
+    }
     return BR_FAILED;
 }
 br_status seq_rewriter::mk_str_strrepl(expr* a, expr* b, expr* c, expr_ref& result) {

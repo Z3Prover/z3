@@ -146,6 +146,7 @@ void seq_decl_plugin::init() {
     sort* strTint2T[3] = { strT, intT, intT };
     sort* re2T[2] = { reT, reT };
     sort* strTreT[2] = { strT, reT };
+    sort* str2TintT[3] = { strT, strT, intT };
     m_sigs.resize(LAST_SEQ_OP);
     // TBD: have (par ..) construct and load parameterized signature from premable.
     m_sigs[OP_SEQ_UNIT]      = alloc(psig, m, "seq-unit",   1, 1, &A, seqA);
@@ -185,7 +186,7 @@ void seq_decl_plugin::init() {
     m_sigs[OP_STRING_SUBSTR]     = alloc(psig, m, "str.substr", 0, 3, strTint2T, boolT);
     m_sigs[OP_STRING_STRCTN]     = alloc(psig, m, "str.contains", 0, 2, str2T, boolT);
     m_sigs[OP_STRING_CHARAT]     = alloc(psig, m, "str.at", 0, 2, strTint2T, strT);
-    m_sigs[OP_STRING_STRIDOF]    = alloc(psig, m, "str.indexof", 0, 2, str2T, intT);
+    m_sigs[OP_STRING_STRIDOF]    = alloc(psig, m, "str.indexof", 0, 3, str2TintT, intT);
     m_sigs[OP_STRING_STRREPL]    = alloc(psig, m, "str.replace", 0, 3, str3T, strT);
     m_sigs[OP_STRING_PREFIX]     = alloc(psig, m, "str.prefixof", 0, 2, str2T, boolT);
     m_sigs[OP_STRING_SUFFIX]     = alloc(psig, m, "str.suffixof", 0, 2, str2T, boolT);

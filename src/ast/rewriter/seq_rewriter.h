@@ -38,7 +38,7 @@ class seq_rewriter {
     br_status mk_str_substr(expr* a, expr* b, expr* c, expr_ref& result);
     br_status mk_str_strctn(expr* a, expr* b, expr_ref& result);
     br_status mk_str_charat(expr* a, expr* b, expr_ref& result);
-    br_status mk_str_stridof(expr* a, expr* b, expr_ref& result);
+    br_status mk_str_stridof(expr* a, expr* b, expr* c, expr_ref& result);
     br_status mk_str_strrepl(expr* a, expr* b, expr* c, expr_ref& result);
     br_status mk_str_prefix(expr* a, expr* b, expr_ref& result);
     br_status mk_str_suffix(expr* a, expr* b, expr_ref& result);
