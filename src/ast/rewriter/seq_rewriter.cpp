@@ -156,7 +156,7 @@ br_status seq_rewriter::mk_str_length(expr* a, expr_ref& result) {
     m_es.reset();
     m_util.str.get_concat(a, m_es);
     unsigned len = 0;
-    unsigned j = 0;
+    size_t j = 0;
     for (unsigned i = 0; i < m_es.size(); ++i) {
         if (m_util.str.is_const(m_es[i], b)) {
             len += b.length();
@@ -167,7 +167,7 @@ br_status seq_rewriter::mk_str_length(expr* a, expr_ref& result) {
         }
     }
     if (j == 0) {
-        result = m_autil.mk_numeral(rational(b.length()), true);
+        result = m_autil.mk_numeral(rational(b.length(), rational::ui64()), true);
         return BR_DONE;
     }
     if (j != m_es.size()) {
@@ -176,7 +176,7 @@ br_status seq_rewriter::mk_str_length(expr* a, expr_ref& result) {
             es.push_back(m_util.str.mk_length(m_es[i]));
         }
         if (len != 0) {
-            es.push_back(m_autil.mk_numeral(rational(len), true));
+            es.push_back(m_autil.mk_numeral(rational(len, rational::ui64()), true));
         }
         result = m_autil.mk_add(es.size(), es.c_ptr());
         return BR_DONE;
@@ -255,7 +255,7 @@ br_status seq_rewriter::mk_str_strrepl(expr* a, expr* b, expr* c, expr_ref& resu
     if (m_util.str.is_const(a, s1) && m_util.str.is_const(b, s2) && 
         m_util.str.is_const(c, s3)) {
         std::ostringstream buffer;
-        for (unsigned i = 0; i < s1.length(); ) {
+        for (size_t i = 0; i < s1.length(); ) {
             if (strncmp(s1.c_str() + i, s2.c_str(), s2.length()) == 0) {
                 buffer << s3;
                 i += s2.length();
