@@ -355,3 +355,12 @@ bool seq_decl_plugin::is_value(app* e) const {
 app* seq_util::str::mk_string(symbol const& s) {
     return u.seq.mk_string(s);
 }
+
+void seq_util::str::get_concat(expr* e, ptr_vector<expr>& es) const {
+    expr* e1, *e2;
+    while (is_concat(e, e1, e2)) {
+        get_concat(e1, es);
+        e = e2;
+    }    
+    es.push_back(e);
+}

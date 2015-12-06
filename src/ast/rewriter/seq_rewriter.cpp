@@ -115,22 +115,75 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     return BR_FAILED;
 }
 
+/*
+   string + string = string
+   a + (b + c) = (a + b) + c
+   a + "" = a
+   "" + a = a
+   (a + string) + string = a + string
+*/
 br_status seq_rewriter::mk_str_concat(expr* a, expr* b, expr_ref& result) {
-    std::string c, d;
-    if (m_util.str.is_const(a, c) && m_util.str.is_const(b, d)) {
-        result = m_util.str.mk_string(c + d);
+    std::string s1, s2;
+    expr* c, *d;
+    bool isc1 = m_util.str.is_const(a, s1);
+    bool isc2 = m_util.str.is_const(b, s2);
+    if (isc1 && isc2) {
+        result = m_util.str.mk_string(s1 + s2);
+        return BR_DONE;
+    }
+    if (m_util.str.is_concat(b, c, d)) {
+        result = m_util.str.mk_concat(m_util.str.mk_concat(a, c), d);
+        return BR_REWRITE2;
+    }
+    if (isc1 && s1.length() == 0) {
+        result = b;
+        return BR_DONE;
+    }
+    if (isc2 && s2.length() == 0) {
+        result = a;
+        return BR_DONE;
+    }
+    if (m_util.str.is_concat(a, c, d) && 
+        m_util.str.is_const(d, s1) && isc2) {
+        result = m_util.str.mk_string(s1 + s2);
         return BR_DONE;
     }
     return BR_FAILED;
 }
+
 br_status seq_rewriter::mk_str_length(expr* a, expr_ref& result) {
     std::string b;
-    if (m_util.str.is_const(a, b)) {
+    m_es.reset();
+    m_util.str.get_concat(a, m_es);
+    unsigned len = 0;
+    unsigned j = 0;
+    for (unsigned i = 0; i < m_es.size(); ++i) {
+        if (m_util.str.is_const(m_es[i], b)) {
+            len += b.length();
+        }
+        else {
+            m_es[j] = m_es[i];
+            ++j;
+        }
+    }
+    if (j == 0) {
         result = m_autil.mk_numeral(rational(b.length()), true);
         return BR_DONE;
     }
+    if (j != m_es.size()) {
+        expr_ref_vector es(m());        
+        for (unsigned i = 0; i < j; ++i) {
+            es.push_back(m_util.str.mk_length(m_es[i]));
+        }
+        if (len != 0) {
+            es.push_back(m_autil.mk_numeral(rational(len), true));
+        }
+        result = m_autil.mk_add(es.size(), es.c_ptr());
+        return BR_DONE;
+    }
     return BR_FAILED;
 }
+
 br_status seq_rewriter::mk_str_substr(expr* a, expr* b, expr* c, expr_ref& result) {
     std::string s;
     rational pos, len;
@@ -151,6 +204,7 @@ br_status seq_rewriter::mk_str_strctn(expr* a, expr* b, expr_ref& result) {
     }
     return BR_FAILED;
 }
+
 br_status seq_rewriter::mk_str_charat(expr* a, expr* b, expr_ref& result) {
     std::string c;
     rational r;
@@ -166,10 +220,14 @@ br_status seq_rewriter::mk_str_charat(expr* a, expr* b, expr_ref& result) {
     }
     return BR_FAILED;
 }
+
 br_status seq_rewriter::mk_str_stridof(expr* a, expr* b, expr* c, expr_ref& result) {
     std::string s1, s2;
     rational r;
-    if (m_util.str.is_const(a, s1) && m_util.str.is_const(b, s2) && m_autil.is_numeral(c, r) && r.is_unsigned()) {
+    bool isc1 = m_util.str.is_const(a, s1);
+    bool isc2 = m_util.str.is_const(b, s2);
+
+    if (isc1 && isc2 && m_autil.is_numeral(c, r) && r.is_unsigned()) {
         for (unsigned i = r.get_unsigned(); i < s1.length(); ++i) {
             if (strncmp(s1.c_str() + i, s2.c_str(), s2.length()) == 0) {
                 result = m_autil.mk_numeral(rational(i) - r, true);
@@ -179,15 +237,23 @@ br_status seq_rewriter::mk_str_stridof(expr* a, expr* b, expr* c, expr_ref& resu
         result = m_autil.mk_numeral(rational(-1), true);
         return BR_DONE;
     }
-    if (m_util.str.is_const(b, s2) && s2.length() == 0) {
+    if (m_autil.is_numeral(c, r) && r.is_neg()) {
+        result = m_autil.mk_numeral(rational(-1), true);
+        return BR_DONE;
+    }
+    
+    if (isc2 && s2.length() == 0) {
         result = c;
         return BR_DONE;
     }
+    // Enhancement: walk segments of a, determine which segments must overlap, must not overlap, may overlap.
     return BR_FAILED;
 }
+
 br_status seq_rewriter::mk_str_strrepl(expr* a, expr* b, expr* c, expr_ref& result) {
     std::string s1, s2, s3;
-    if (m_util.str.is_const(a, s1) && m_util.str.is_const(b, s2) && m_util.str.is_const(c, s3)) {
+    if (m_util.str.is_const(a, s1) && m_util.str.is_const(b, s2) && 
+        m_util.str.is_const(c, s3)) {
         std::ostringstream buffer;
         for (unsigned i = 0; i < s1.length(); ) {
             if (strncmp(s1.c_str() + i, s2.c_str(), s2.length()) == 0) {
@@ -206,12 +272,14 @@ br_status seq_rewriter::mk_str_strrepl(expr* a, expr* b, expr* c, expr_ref& resu
         result = a;
         return BR_DONE;
     }
-
     return BR_FAILED;
 }
+
 br_status seq_rewriter::mk_str_prefix(expr* a, expr* b, expr_ref& result) {
     std::string s1, s2;
-    if (m_util.str.is_const(a, s1) && m_util.str.is_const(b, s2)) {
+    bool isc1 = m_util.str.is_const(a, s1);
+    bool isc2 = m_util.str.is_const(b, s2);
+    if (isc1 && isc2) {
         bool prefix = s1.length() <= s2.length();
         for (unsigned i = 0; i < s1.length() && prefix; ++i) {
             prefix = s1[i] == s2[i];
@@ -219,15 +287,17 @@ br_status seq_rewriter::mk_str_prefix(expr* a, expr* b, expr_ref& result) {
         result = m().mk_bool_val(prefix);
         return BR_DONE;
     }
-    if (m_util.str.is_const(a, s1) && s1.length() == 0) {
+    if (isc1 && s1.length() == 0) {
         result = m().mk_true();
         return BR_DONE;
     }
     return BR_FAILED;
 }
+
 br_status seq_rewriter::mk_str_suffix(expr* a, expr* b, expr_ref& result) {
     std::string s1, s2;
-    if (m_util.str.is_const(a, s1) && m_util.str.is_const(b, s2)) {
+    bool isc1 = m_util.str.is_const(a, s1);
+    if (isc1 && m_util.str.is_const(b, s2)) {
         bool suffix = s1.length() <= s2.length();
         for (unsigned i = 0; i < s1.length() && suffix; ++i) {
             suffix = s1[s1.length() - i - 1] == s2[s2.length() - i - 1];
@@ -235,12 +305,13 @@ br_status seq_rewriter::mk_str_suffix(expr* a, expr* b, expr_ref& result) {
         result = m().mk_bool_val(suffix);
         return BR_DONE;
     }
-    if (m_util.str.is_const(a, s1) && s1.length() == 0) {
+    if (isc1 && s1.length() == 0) {
         result = m().mk_true();
         return BR_DONE;
     }
     return BR_FAILED;
 }
+
 br_status seq_rewriter::mk_str_itos(expr* a, expr_ref& result) {
     rational r;
     if (m_autil.is_numeral(a, r)) {

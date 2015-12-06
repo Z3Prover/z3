@@ -181,6 +181,9 @@ public:
         bool is_const(expr const* n, std::string& s) const {
             return is_const(n) && (s = to_app(n)->get_decl()->get_parameter(0).get_symbol().str(), true);
         }
+        bool is_const(expr const* n, symbol& s) const {
+            return is_const(n) && (s = to_app(n)->get_decl()->get_parameter(0).get_symbol(), true);
+        }
         
         bool is_string(sort* s) const { return is_sort_of(s, m_fid, STRING_SORT); }
         bool is_concat(expr const* n)  const { return is_app_of(n, m_fid, OP_STRING_CONCAT); }
@@ -209,6 +212,8 @@ public:
         MATCH_UNARY(is_itos);
         MATCH_UNARY(is_stoi);
         MATCH_BINARY(is_in_regexp);        
+
+        void get_concat(expr* e, ptr_vector<expr>& es) const;
     };
 
     class re {
