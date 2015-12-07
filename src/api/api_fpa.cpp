@@ -441,8 +441,9 @@ extern "C" {
         LOG_Z3_mk_fpa_max(c, t1, t2);
         RESET_ERROR_CODE();
         api::context * ctx = mk_c(c);
-        Z3_ast r = of_ast(ctx->fpautil().mk_max(to_expr(t1), to_expr(t2)));
-        RETURN_Z3(r);
+        expr * a = ctx->fpautil().mk_max(to_expr(t1), to_expr(t2));
+        ctx->save_ast_trail(a);
+        RETURN_Z3(of_expr(a));
         Z3_CATCH_RETURN(0);
     }
 
