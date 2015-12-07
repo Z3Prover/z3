@@ -19,6 +19,7 @@ Notes:
 
 #include"seq_rewriter.h"
 #include"arith_decl_plugin.h"
+#include"ast_pp.h"
 
 
 br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
@@ -28,13 +29,6 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
 
     case OP_SEQ_UNIT:
     case OP_SEQ_EMPTY:
-    case OP_SEQ_CONCAT:
-    case OP_SEQ_CONS:
-    case OP_SEQ_REV_CONS:
-    case OP_SEQ_HEAD:
-    case OP_SEQ_TAIL:
-    case OP_SEQ_LAST:
-    case OP_SEQ_FIRST:
     case OP_SEQ_PREFIX_OF:
     case OP_SEQ_SUFFIX_OF:
     case OP_SEQ_SUBSEQ_OF:
@@ -49,8 +43,6 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_RE_CONCAT:
     case OP_RE_UNION:
     case OP_RE_INTERSECT:
-    case OP_RE_COMPLEMENT:
-    case OP_RE_DIFFERENCE:
     case OP_RE_LOOP:
     case OP_RE_EMPTY_SET:
     case OP_RE_FULL_SET:
@@ -63,9 +55,10 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     // string specific operators.
     case OP_STRING_CONST:
         return BR_FAILED;
-    case OP_STRING_CONCAT: 
+    case OP_SEQ_CONCAT: 
+    case _OP_STRING_CONCAT:
         SASSERT(num_args == 2);
-        return mk_str_concat(args[0], args[1], result);
+        return mk_seq_concat(args[0], args[1], result);
     case OP_STRING_LENGTH:
         SASSERT(num_args == 1);
         return mk_str_length(args[0], result);
@@ -96,19 +89,8 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_STRING_STOI: 
         SASSERT(num_args == 1);
         return mk_str_stoi(args[0], result);
-    //case OP_STRING_U16TOS: 
-    //case OP_STRING_STOU16: 
-    //case OP_STRING_U32TOS: 
-    //case OP_STRING_STOU32: 
     case OP_STRING_IN_REGEXP: 
     case OP_STRING_TO_REGEXP: 
-    case OP_REGEXP_CONCAT: 
-    case OP_REGEXP_UNION: 
-    case OP_REGEXP_INTER: 
-    case OP_REGEXP_STAR: 
-    case OP_REGEXP_PLUS: 
-    case OP_REGEXP_OPT: 
-    case OP_REGEXP_RANGE: 
     case OP_REGEXP_LOOP: 
         return BR_FAILED;
     }
@@ -122,7 +104,7 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
    "" + a = a
    (a + string) + string = a + string
 */
-br_status seq_rewriter::mk_str_concat(expr* a, expr* b, expr_ref& result) {
+br_status seq_rewriter::mk_seq_concat(expr* a, expr* b, expr_ref& result) {
     std::string s1, s2;
     expr* c, *d;
     bool isc1 = m_util.str.is_const(a, s1);
@@ -145,7 +127,7 @@ br_status seq_rewriter::mk_str_concat(expr* a, expr* b, expr_ref& result) {
     }
     if (m_util.str.is_concat(a, c, d) && 
         m_util.str.is_const(d, s1) && isc2) {
-        result = m_util.str.mk_string(s1 + s2);
+        result = m_util.str.mk_concat(c, m_util.str.mk_string(s1 + s2));
         return BR_DONE;
     }
     return BR_FAILED;

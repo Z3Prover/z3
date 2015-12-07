@@ -25,19 +25,14 @@ Revision History:
 enum seq_sort_kind {
     SEQ_SORT,
     RE_SORT,
-    STRING_SORT
+    STRING_SORT,
+    CHAR_SORT
 };
 
 enum seq_op_kind {
     OP_SEQ_UNIT,
     OP_SEQ_EMPTY,
     OP_SEQ_CONCAT,
-    OP_SEQ_CONS,
-    OP_SEQ_REV_CONS,
-    OP_SEQ_HEAD,
-    OP_SEQ_TAIL,
-    OP_SEQ_LAST,
-    OP_SEQ_FIRST,
     OP_SEQ_PREFIX_OF,
     OP_SEQ_SUFFIX_OF,
     OP_SEQ_SUBSEQ_OF,
@@ -52,8 +47,6 @@ enum seq_op_kind {
     OP_RE_CONCAT,
     OP_RE_UNION,
     OP_RE_INTERSECT,
-    OP_RE_COMPLEMENT,
-    OP_RE_DIFFERENCE,
     OP_RE_LOOP,
     OP_RE_EMPTY_SET,
     OP_RE_FULL_SET,
@@ -65,7 +58,7 @@ enum seq_op_kind {
 
     // string specific operators.
     OP_STRING_CONST,
-    OP_STRING_CONCAT, 
+    _OP_STRING_CONCAT, 
     OP_STRING_LENGTH, 
     OP_STRING_SUBSTR, 
     OP_STRING_STRCTN, 
@@ -78,13 +71,6 @@ enum seq_op_kind {
     OP_STRING_STOI, 
     OP_STRING_IN_REGEXP, 
     OP_STRING_TO_REGEXP, 
-    OP_REGEXP_CONCAT, 
-    OP_REGEXP_UNION, 
-    OP_REGEXP_INTER, 
-    OP_REGEXP_STAR, 
-    OP_REGEXP_PLUS, 
-    OP_REGEXP_OPT, 
-    OP_REGEXP_RANGE, 
     OP_REGEXP_LOOP, 
     
     LAST_SEQ_OP
@@ -112,6 +98,7 @@ class seq_decl_plugin : public decl_plugin {
     bool             m_init;
     symbol           m_stringc_sym;
     sort*            m_string;
+    sort*            m_char;
 
     void match(psig& sig, unsigned dsz, sort* const* dom, sort* range, sort_ref& rng);
 
@@ -148,6 +135,8 @@ public:
 
     virtual bool is_unique_value(app * e) const { return is_value(e); }
 
+    bool is_char(ast* a) const { return a == m_char; }
+
     app* mk_string(symbol const& s);  
 };
 
@@ -159,6 +148,9 @@ public:
 
     ast_manager& get_manager() const { return m; }
 
+    bool is_string(sort* s) const { return is_seq(s) && seq.is_char(s->get_parameter(0).get_ast()); }
+    bool is_seq(sort* s) const { return is_sort_of(s, m_fid, SEQ_SORT); }
+
     class str {
         seq_util&    u;
         ast_manager& m;
@@ -169,7 +161,7 @@ public:
         app* mk_string(symbol const& s);
         app* mk_string(char const* s) { return mk_string(symbol(s)); }
         app* mk_string(std::string const& s) { return mk_string(symbol(s.c_str())); }
-        app* mk_concat(expr* a, expr* b) { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_STRING_CONCAT, 2, es); }
+        app* mk_concat(expr* a, expr* b) { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_CONCAT, 2, es); }
         app* mk_length(expr* a) { return m.mk_app(m_fid, OP_STRING_LENGTH, 1, &a); }
         app* mk_substr(expr* a, expr* b, expr* c) { expr* es[3] = { a, b, c }; return m.mk_app(m_fid, OP_STRING_SUBSTR, 3, es); }
         app* mk_strctn(expr* a, expr* b) { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_STRING_STRCTN, 2, es); }
@@ -183,8 +175,7 @@ public:
             return is_const(n) && (s = to_app(n)->get_decl()->get_parameter(0).get_symbol(), true);
         }
         
-        bool is_string(sort* s) const { return is_sort_of(s, m_fid, STRING_SORT); }
-        bool is_concat(expr const* n)  const { return is_app_of(n, m_fid, OP_STRING_CONCAT); }
+        bool is_concat(expr const* n)  const { return is_app_of(n, m_fid, OP_SEQ_CONCAT); }
         bool is_length(expr const* n)  const { return is_app_of(n, m_fid, OP_STRING_LENGTH); }
         bool is_substr(expr const* n)  const { return is_app_of(n, m_fid, OP_STRING_SUBSTR); }
         bool is_strctn(expr const* n)  const { return is_app_of(n, m_fid, OP_STRING_STRCTN); }
@@ -222,13 +213,13 @@ public:
         re(seq_util& u):u(u), m(u.m), m_fid(u.m_fid) {}
 
         bool is_to_regexp(expr const* n)    const { return is_app_of(n, m_fid, OP_STRING_TO_REGEXP); }
-        bool is_concat(expr const* n)    const { return is_app_of(n, m_fid, OP_REGEXP_CONCAT); }
-        bool is_union(expr const* n)    const { return is_app_of(n, m_fid, OP_REGEXP_UNION); }
-        bool is_inter(expr const* n)    const { return is_app_of(n, m_fid, OP_REGEXP_INTER); }
-        bool is_star(expr const* n)    const { return is_app_of(n, m_fid, OP_REGEXP_STAR); }
-        bool is_plus(expr const* n)    const { return is_app_of(n, m_fid, OP_REGEXP_PLUS); }
-        bool is_opt(expr const* n)    const { return is_app_of(n, m_fid, OP_REGEXP_OPT); }
-        bool is_range(expr const* n)    const { return is_app_of(n, m_fid, OP_REGEXP_RANGE); }
+        bool is_concat(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_CONCAT); }
+        bool is_union(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_UNION); }
+        bool is_inter(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_INTERSECT); }
+        bool is_star(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_STAR); }
+        bool is_plus(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_PLUS); }
+        bool is_opt(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_OPTION); }
+        bool is_range(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_RANGE); }
         bool is_loop(expr const* n)    const { return is_app_of(n, m_fid, OP_REGEXP_LOOP); }
        
         MATCH_UNARY(is_to_regexp);

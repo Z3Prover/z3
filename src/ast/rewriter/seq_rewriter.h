@@ -34,7 +34,7 @@ class seq_rewriter {
     arith_util     m_autil;
     ptr_vector<expr> m_es;
 
-    br_status mk_str_concat(expr* a, expr* b, expr_ref& result);
+    br_status mk_seq_concat(expr* a, expr* b, expr_ref& result);
     br_status mk_str_length(expr* a, expr_ref& result);
     br_status mk_str_substr(expr* a, expr* b, expr* c, expr_ref& result);
     br_status mk_str_strctn(expr* a, expr* b, expr_ref& result);

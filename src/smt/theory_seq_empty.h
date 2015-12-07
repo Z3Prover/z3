@@ -42,13 +42,13 @@ namespace smt {
         }
 
         virtual expr* get_some_value(sort* s) { 
-            if (u.str.is_string(s)) 
+            if (u.is_string(s)) 
                 return u.str.mk_string(symbol(""));            
             NOT_IMPLEMENTED_YET();
             return 0;
         }
         virtual bool get_some_values(sort* s, expr_ref& v1, expr_ref& v2) { 
-            if (u.str.is_string(s)) {
+            if (u.is_string(s)) {
                 v1 = u.str.mk_string("a");
                 v2 = u.str.mk_string("b");
                 return true;
@@ -57,7 +57,7 @@ namespace smt {
             return false; 
         }
         virtual expr* get_fresh_value(sort* s) { 
-            if (u.str.is_string(s)) {
+            if (u.is_string(s)) {
                 while (true) {
                     std::ostringstream strm;
                     strm << "S" << m_next++;
