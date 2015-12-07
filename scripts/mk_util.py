@@ -77,6 +77,7 @@ TRACE = False
 DOTNET_ENABLED=True
 JAVA_ENABLED=False
 ML_ENABLED=False
+PYTHON_INSTALL_ENABLED=True
 STATIC_LIB=False
 VER_MAJOR=None
 VER_MINOR=None
@@ -410,10 +411,10 @@ def check_dotnet():
         monoCompilerExecutable = CSC
     monoCompilerPath = which(monoCompilerExecutable)
     if monoCompilerPath == None:
-        print(("ERROR: Could not find mono compiler ({}) in your PATH. "
-              "Either install it or disable building the dotnet bindings.").format(
+	disable_dotnet()
+	print(("Could not find mono compiler ({}) in your PATH. Not building .NET bindings").format(
               monoCompilerExecutable))
-        sys.exit(1)
+	return
     CSC = monoCompilerPath
 
     # Check for gacutil (needed to install the dotnet bindings)
@@ -641,7 +642,7 @@ def display_help(exit_code):
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
     global DOTNET_ENABLED, JAVA_ENABLED, ML_ENABLED, STATIC_LIB, PREFIX, GMP, FOCI2, FOCI2LIB, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH
-    global LINUX_X64, SLOW_OPTIMIZE, USE_OMP
+    global LINUX_X64, SLOW_OPTIMIZE, USE_OMP, PYTHON_INSTALL_ENABLED
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:],
                                                'b:df:sxhmcvtnp:gj',
@@ -710,14 +711,16 @@ def parse_options():
             print("ERROR: Invalid command line option '%s'" % opt)
             display_help(1)
     # Handle the Python package directory
-    if not IS_WINDOWS:
+    if IS_WINDOWS:
+        PYTHON_INSTALL_ENABLED = False
+    else:
         if not PYTHON_PACKAGE_DIR.startswith(PREFIX):
-            print(("ERROR: The detected Python package directory (%s)"
+            print(("Warning: The detected Python package directory (%s)"
                    " does not live under the installation prefix (%s)"
-                   ". This would lead to a broken installation."
+                   ". This would lead to a broken Python installation."
                    "Use --pypkgdir= to change the Python package directory") %
                   (PYTHON_PACKAGE_DIR, PREFIX))
-            sys.exit(1)
+            PYTHON_INSTALL_ENABLED = False
 
 # Return a list containing a file names included using '#include' in
 # the given C/C++ file named fname.
@@ -807,6 +810,10 @@ def is_ml_enabled():
 
 def is_dotnet_enabled():
     return DOTNET_ENABLED
+
+def disable_dotnet():
+    global DOTNET_ENABLED
+    DOTNET_ENABLED = False
 
 def is_compiler(given, expected):
     """
@@ -1327,6 +1334,49 @@ class DLLComponent(Component):
                         '%s.%s' % (os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name), so))
             shutil.copy('%s.a' % os.path.join(build_path, self.dll_name),
                         '%s.a' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
+
+class PythonInstallComponent(Component):
+    def __init__(self, name):
+        Component.__init__(self, name, None, [])
+
+    def main_component(self):
+        return PYTHON_INSTALL_ENABLED
+
+    def install_deps(self, out):
+        if not self.main_component():
+             return
+        pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
+        MakeRuleCmd.make_install_directory(out, pythonPkgDirWithoutPrefix)
+
+    def mk_install(self, out):
+        if not self.main_component():
+            return
+        MakeRuleCmd.install_files(out, 'z3*.py', pythonPkgDirWithoutPrefix)
+        if sys.version >= "3":
+            pythonPycacheDir = os.path.join(pythonPkgDirWithoutPrefix, '__pycache__')
+            MakeRuleCmd.make_install_directory(out, pythonPycacheDir)
+            MakeRuleCmd.install_files(out, '{}*.pyc'.format(os.path.join('__pycache__', 'z3')), pythonPycacheDir)
+        else:
+            MakeRuleCmd.install_files(out, 'z3*.pyc', pythonPkgDirWithoutPrefix)
+        if PYTHON_PACKAGE_DIR != distutils.sysconfig.get_python_lib():
+            if os.uname()[0] == 'Darwin':
+                LD_LIBRARY_PATH = "DYLD_LIBRARY_PATH"
+            else:
+                LD_LIBRARY_PATH = "LD_LIBRARY_PATH"
+            out.write('\t@echo Z3 shared libraries were installed at \'%s\', make sure this directory is in your %s environment variable.\n' %
+                      (os.path.join(PREFIX, INSTALL_LIB_DIR), LD_LIBRARY_PATH))
+            out.write('\t@echo Z3Py was installed at \'%s\', make sure this directory is in your PYTHONPATH environment variable.' % PYTHON_PACKAGE_DIR)
+
+    def mk_uninstall(self, out):
+        if not self.main_component():
+            return
+        pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
+        MakeRuleCmd.remove_installed_files(out, '{}*.py'.format(os.path.join(pythonPkgDirWithoutPrefix, 'z3')))
+        MakeRuleCmd.remove_installed_files(out, '{}*.pyc'.format(os.path.join(pythonPkgDirWithoutPrefix, 'z3')))
+        MakeRuleCmd.remove_installed_files(out, '{}*.pyc'.format(os.path.join(pythonPkgDirWithoutPrefix, '__pycache__', 'z3')))
+
+    def mk_makefile(self, out):
+        return
 
 class DotNetDLLComponent(Component):
     def __init__(self, name, dll_name, path, deps, assembly_info_dir):
@@ -1950,6 +2000,10 @@ def add_java_dll(name, deps=[], path=None, dll_name=None, package_name=None, man
     c = JavaDLLComponent(name, dll_name, package_name, manifest_file, path, deps)
     reg_component(name, c)
 
+def add_python_install():
+    name = 'python_install'
+    reg_component(name, PythonInstallComponent(name))
+
 def add_ml_lib(name, deps=[], path=None, lib_name=None):
     c = MLComponent(name, lib_name, path, deps)
     reg_component(name, c)
@@ -2210,36 +2264,15 @@ def mk_install(out):
     MakeRuleCmd.make_install_directory(out, INSTALL_BIN_DIR)
     MakeRuleCmd.make_install_directory(out, INSTALL_INCLUDE_DIR)
     MakeRuleCmd.make_install_directory(out, INSTALL_LIB_DIR)
-    pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
-    MakeRuleCmd.make_install_directory(out, pythonPkgDirWithoutPrefix)
     for c in get_components():
         c.mk_install(out)
-    MakeRuleCmd.install_files(out, 'z3*.py', pythonPkgDirWithoutPrefix)
-    if sys.version >= "3":
-        pythonPycacheDir = os.path.join(pythonPkgDirWithoutPrefix, '__pycache__')
-        MakeRuleCmd.make_install_directory(out, pythonPycacheDir)
-        MakeRuleCmd.install_files(out, '{}*.pyc'.format(os.path.join('__pycache__', 'z3')), pythonPycacheDir)
-    else:
-        MakeRuleCmd.install_files(out, 'z3*.pyc', pythonPkgDirWithoutPrefix)
     out.write('\t@echo Z3 was successfully installed.\n')
-    if PYTHON_PACKAGE_DIR != distutils.sysconfig.get_python_lib():
-        if os.uname()[0] == 'Darwin':
-            LD_LIBRARY_PATH = "DYLD_LIBRARY_PATH"
-        else:
-            LD_LIBRARY_PATH = "LD_LIBRARY_PATH"
-        out.write('\t@echo Z3 shared libraries were installed at \'%s\', make sure this directory is in your %s environment variable.\n' %
-                  (os.path.join(PREFIX, INSTALL_LIB_DIR), LD_LIBRARY_PATH))
-        out.write('\t@echo Z3Py was installed at \'%s\', make sure this directory is in your PYTHONPATH environment variable.' % PYTHON_PACKAGE_DIR)
     out.write('\n')
 
 def mk_uninstall(out):
     out.write('uninstall:\n')
     for c in get_components():
         c.mk_uninstall(out)
-    pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
-    MakeRuleCmd.remove_installed_files(out, '{}*.py'.format(os.path.join(pythonPkgDirWithoutPrefix, 'z3')))
-    MakeRuleCmd.remove_installed_files(out, '{}*.pyc'.format(os.path.join(pythonPkgDirWithoutPrefix, 'z3')))
-    MakeRuleCmd.remove_installed_files(out, '{}*.pyc'.format(os.path.join(pythonPkgDirWithoutPrefix, '__pycache__', 'z3')))
     out.write('\t@echo Z3 was successfully uninstalled.\n')
     out.write('\n')
 
