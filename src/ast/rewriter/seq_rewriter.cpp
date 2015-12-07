@@ -139,7 +139,7 @@ br_status seq_rewriter::mk_str_length(expr* a, expr_ref& result) {
     std::string b;
     m_es.reset();
     m_util.str.get_concat(a, m_es);
-    unsigned len = 0;
+    size_t len = 0;
     size_t j = 0;
     for (unsigned i = 0; i < m_es.size(); ++i) {
         if (m_util.str.is_string(m_es[i], b)) {
@@ -151,7 +151,7 @@ br_status seq_rewriter::mk_str_length(expr* a, expr_ref& result) {
         }
     }
     if (j == 0) {
-        result = m_autil.mk_numeral(rational(b.length(), rational::ui64()), true);
+        result = m_autil.mk_numeral(rational(len, rational::ui64()), true);
         return BR_DONE;
     }
     if (j != m_es.size()) {
