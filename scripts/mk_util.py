@@ -1349,7 +1349,7 @@ class PythonInstallComponent(Component):
         return False    
     
     def install_deps(self, out):
-	if not is_python_install_enabled():
+        if not is_python_install_enabled():
             return
         pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
         MakeRuleCmd.make_install_directory(out, pythonPkgDirWithoutPrefix)
