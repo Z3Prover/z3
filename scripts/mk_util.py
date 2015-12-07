@@ -2519,24 +2519,26 @@ def mk_all_assembly_infos(major, minor, build, revision):
 def mk_assembly_info_version(assemblyinfo, major, minor, build, revision):
     ver_pat   = re.compile('[assembly: AssemblyVersion\("[\.\d]*"\) *')
     fver_pat  = re.compile('[assembly: AssemblyFileVersion\("[\.\d]*"\) *')
-    fin  = open(assemblyinfo, 'r')
-    tmp  = '%s.cs' % assemblyinfo
-    fout = open(tmp, 'w')
-    num_updates = 0
-    for line in fin:
-        if ver_pat.match(line):
-            fout.write('[assembly: AssemblyVersion("%s.%s.%s.%s")]\n' % (major, minor, build, revision))
-            num_updates = num_updates + 1
-        elif fver_pat.match(line):
-            fout.write('[assembly: AssemblyFileVersion("%s.%s.%s.%s")]\n' % (major, minor, build, revision))
-            num_updates = num_updates + 1
-        else:
-            fout.write(line)
-    # if VERBOSE:
-    #    print("%s version numbers updated at '%s'" % (num_updates, assemblyinfo))
-    assert num_updates == 2, "unexpected number of version number updates"
-    fin.close()
-    fout.close()
+    with open(assemblyinfo, 'rb') as fin:
+        tmp  = '%s.cs' % assemblyinfo
+        with open(tmp, 'wb') as fout:
+            num_updates = 0
+            for line in fin:
+                line_decoded = line.decode(encoding='utf8')
+                line_to_write = None
+                if ver_pat.match(line_decoded):
+                    line_to_write = ('[assembly: AssemblyVersion("%s.%s.%s.%s")]\n' % (major, minor, build, revision)).encode(encoding='utf8')
+                    num_updates = num_updates + 1
+                elif fver_pat.match(line_decoded):
+                    line_to_write = ('[assembly: AssemblyFileVersion("%s.%s.%s.%s")]\n' % (major, minor, build, revision)).encode(encoding='utf8')
+                    num_updates = num_updates + 1
+                else:
+                    # No need to decode and then re-encode, just line as is
+                    line_to_write = line
+                fout.write(line_to_write)
+            # if VERBOSE:
+            #    print("%s version numbers updated at '%s'" % (num_updates, assemblyinfo))
+            assert num_updates == 2, "unexpected number of version number updates"
     if VERBOSE:
         print("Updated '%s'" % assemblyinfo)
 
