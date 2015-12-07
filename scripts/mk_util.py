@@ -411,10 +411,10 @@ def check_dotnet():
         monoCompilerExecutable = CSC
     monoCompilerPath = which(monoCompilerExecutable)
     if monoCompilerPath == None:
-	disable_dotnet()
-	print(("Could not find mono compiler ({}) in your PATH. Not building .NET bindings").format(
+        disable_dotnet()
+        print(("Could not find mono compiler ({}) in your PATH. Not building .NET bindings").format(
               monoCompilerExecutable))
-	return
+        return
     CSC = monoCompilerPath
 
     # Check for gacutil (needed to install the dotnet bindings)
@@ -1300,7 +1300,7 @@ class DLLComponent(Component):
             dllfile = '%s$(SO_EXT)' % self.dll_name
             dllInstallPath = os.path.join(INSTALL_LIB_DIR, dllfile)
             MakeRuleCmd.install_files(out, dllfile, dllInstallPath)
-	    if not is_python_install_enabled():
+            if not is_python_install_enabled():
                 return
             pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
             if IS_WINDOWS:
