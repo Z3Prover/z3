@@ -74,7 +74,7 @@ namespace smt {
         void sign_recognizer_conflict(enode * c, enode * r);
 
         ptr_vector<enode>    m_to_unmark;
-        svector<enode_pair>  m_used_eqs;
+        enode_pair_vector    m_used_eqs;
         enode *              m_main;
         bool occurs_check(enode * n);
         bool occurs_check_core(enode * n);

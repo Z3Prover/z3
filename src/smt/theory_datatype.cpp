@@ -438,8 +438,8 @@ namespace smt {
             ctx.set_conflict(ctx.mk_justification(ext_theory_conflict_justification(get_id(), r, 0, 0, m_used_eqs.size(), m_used_eqs.c_ptr())));
             TRACE("occurs_check",
                   tout << "occurs_check: true\n";
-                  svector<enode_pair>::const_iterator it  = m_used_eqs.begin();
-                  svector<enode_pair>::const_iterator end = m_used_eqs.end();
+                  enode_pair_vector::const_iterator it  = m_used_eqs.begin();
+                  enode_pair_vector::const_iterator end = m_used_eqs.end();
                   for(; it != end; ++it) {
                       enode_pair const & p = *it;
                       tout << "eq: #" << p.first->get_owner_id() << " #" << p.second->get_owner_id() << "\n";
@@ -675,7 +675,7 @@ namespace smt {
         CTRACE("datatype", d->m_recognizers.empty(), ctx.display(tout););
         SASSERT(!d->m_recognizers.empty());
         literal_vector lits;
-        svector<enode_pair> eqs;
+        enode_pair_vector eqs;
         ptr_vector<enode>::const_iterator it  = d->m_recognizers.begin();
         ptr_vector<enode>::const_iterator end = d->m_recognizers.end();
         for (unsigned idx = 0; it != end; ++it, ++idx) {

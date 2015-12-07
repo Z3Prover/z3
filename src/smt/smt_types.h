@@ -45,6 +45,7 @@ namespace smt {
     class enode;
     typedef ptr_vector<enode> enode_vector;
     typedef std::pair<enode *, enode *> enode_pair;
+    typedef svector<enode_pair> enode_pair_vector;
 
     class context;
 
