@@ -71,9 +71,9 @@ namespace smt {
             return 0;
         }
         virtual void register_value(expr* n) {
-            std::string sym;
-            if (u.str.is_const(n, sym)) {
-                m_strings.insert(symbol(sym.c_str()));
+            symbol sym;
+            if (u.str.is_string(n, sym)) {
+                m_strings.insert(sym);
             }
         }
     };
