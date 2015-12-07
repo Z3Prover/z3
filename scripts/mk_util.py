@@ -1340,8 +1340,13 @@ class PythonInstallComponent(Component):
     def __init__(self, name, libz3Component):
         assert isinstance(libz3Component, DLLComponent)
         Component.__init__(self, name, None, [])
-        self.pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
+        self.pythonPkgDirWithoutPrefix = None
         self.libz3Component = libz3Component
+        if PYTHON_INSTALL_ENABLED:
+            # Only safe to call this if we know that PYTHON_PACKAGE_DIR lives under PREFIX.
+            # Other parts of the code enforce that this is the case when ``PYTHON_INSTALL_ENABLED``
+            # is True.
+            self.pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
 
     def main_component(self):
         return False    
