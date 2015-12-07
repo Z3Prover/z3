@@ -1300,7 +1300,7 @@ class DLLComponent(Component):
             dllfile = '%s$(SO_EXT)' % self.dll_name
             dllInstallPath = os.path.join(INSTALL_LIB_DIR, dllfile)
             MakeRuleCmd.install_files(out, dllfile, dllInstallPath)
-	    if not python_install_enabled():
+	    if not is_python_install_enabled():
                 return
             pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
             if IS_WINDOWS:
@@ -1345,8 +1345,8 @@ class PythonInstallComponent(Component):
         Component.__init__(self, name, None, [])
 
     def main_component(self):
-        return PYTHON_INSTALL_ENABLED
-
+        return is_python_install_enabled()
+    
     def install_deps(self, out):
         if not self.main_component():
              return
