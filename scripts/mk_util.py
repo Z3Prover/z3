@@ -1300,9 +1300,13 @@ class DLLComponent(Component):
             dllfile = '%s$(SO_EXT)' % self.dll_name
             dllInstallPath = os.path.join(INSTALL_LIB_DIR, dllfile)
             MakeRuleCmd.install_files(out, dllfile, dllInstallPath)
+            # FIXME: This belongs in ``PythonInstallComponent`` but
+            # it currently doesn't have access to this component so
+            # it can't emit these rules
             if not is_python_install_enabled():
                 return
             pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
+            MakeRuleCmd.make_install_directory(out, pythonPkgDirWithoutPrefix)
             if IS_WINDOWS:
                 MakeRuleCmd.install_files(out, dllfile, os.path.join(pythonPkgDirWithoutPrefix, dllfile))
             else:
@@ -1349,14 +1353,10 @@ class PythonInstallComponent(Component):
     def main_component(self):
         return False    
     
-    def install_deps(self, out):
-        if not is_python_install_enabled():
-             return
-        MakeRuleCmd.make_install_directory(out, self.pythonPkgDirWithoutPrefix)
-
     def mk_install(self, out):
         if not is_python_install_enabled():
             return
+        MakeRuleCmd.make_install_directory(out, self.pythonPkgDirWithoutPrefix)
         MakeRuleCmd.install_files(out, 'z3*.py', self.pythonPkgDirWithoutPrefix)
         if sys.version >= "3":
             pythonPycacheDir = os.path.join(self.pythonPkgDirWithoutPrefix, '__pycache__')
