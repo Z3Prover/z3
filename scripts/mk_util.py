@@ -1318,8 +1318,9 @@ class DLLComponent(Component):
     def mk_uninstall(self, out):
         dllfile = '%s$(SO_EXT)' % self.dll_name
         MakeRuleCmd.remove_installed_files(out, os.path.join(INSTALL_LIB_DIR, dllfile))
-        pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
-        MakeRuleCmd.remove_installed_files(out, os.path.join(pythonPkgDirWithoutPrefix, dllfile))
+        if is_python_install_enabled():
+            pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
+            MakeRuleCmd.remove_installed_files(out, os.path.join(pythonPkgDirWithoutPrefix, dllfile))
         libfile = '%s$(LIB_EXT)' % self.dll_name
         MakeRuleCmd.remove_installed_files(out, os.path.join(INSTALL_LIB_DIR, libfile))
 
