@@ -1344,27 +1344,26 @@ class DLLComponent(Component):
 class PythonInstallComponent(Component):
     def __init__(self, name):
         Component.__init__(self, name, None, [])
+        self.pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
 
     def main_component(self):
         return False    
     
     def install_deps(self, out):
         if not is_python_install_enabled():
-            return
-        pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
-        MakeRuleCmd.make_install_directory(out, pythonPkgDirWithoutPrefix)
+             return
+        MakeRuleCmd.make_install_directory(out, self.pythonPkgDirWithoutPrefix)
 
     def mk_install(self, out):
         if not is_python_install_enabled():
             return
-        pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
-        MakeRuleCmd.install_files(out, 'z3*.py', pythonPkgDirWithoutPrefix)
+        MakeRuleCmd.install_files(out, 'z3*.py', self.pythonPkgDirWithoutPrefix)
         if sys.version >= "3":
-            pythonPycacheDir = os.path.join(pythonPkgDirWithoutPrefix, '__pycache__')
+            pythonPycacheDir = os.path.join(self.pythonPkgDirWithoutPrefix, '__pycache__')
             MakeRuleCmd.make_install_directory(out, pythonPycacheDir)
             MakeRuleCmd.install_files(out, '{}*.pyc'.format(os.path.join('__pycache__', 'z3')), pythonPycacheDir)
         else:
-            MakeRuleCmd.install_files(out, 'z3*.pyc', pythonPkgDirWithoutPrefix)
+            MakeRuleCmd.install_files(out, 'z3*.pyc', self.pythonPkgDirWithoutPrefix)
         if PYTHON_PACKAGE_DIR != distutils.sysconfig.get_python_lib():
             if os.uname()[0] == 'Darwin':
                 LD_LIBRARY_PATH = "DYLD_LIBRARY_PATH"
@@ -1377,10 +1376,9 @@ class PythonInstallComponent(Component):
     def mk_uninstall(self, out):
         if not is_python_install_enabled():
             return
-        pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
-        MakeRuleCmd.remove_installed_files(out, '{}*.py'.format(os.path.join(pythonPkgDirWithoutPrefix, 'z3')))
-        MakeRuleCmd.remove_installed_files(out, '{}*.pyc'.format(os.path.join(pythonPkgDirWithoutPrefix, 'z3')))
-        MakeRuleCmd.remove_installed_files(out, '{}*.pyc'.format(os.path.join(pythonPkgDirWithoutPrefix, '__pycache__', 'z3')))
+        MakeRuleCmd.remove_installed_files(out, '{}*.py'.format(os.path.join(self.pythonPkgDirWithoutPrefix, 'z3')))
+        MakeRuleCmd.remove_installed_files(out, '{}*.pyc'.format(os.path.join(self.pythonPkgDirWithoutPrefix, 'z3')))
+        MakeRuleCmd.remove_installed_files(out, '{}*.pyc'.format(os.path.join(self.pythonPkgDirWithoutPrefix, '__pycache__', 'z3')))
 
     def mk_makefile(self, out):
         return
