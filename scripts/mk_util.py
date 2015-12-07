@@ -1434,7 +1434,7 @@ class DotNetDLLComponent(Component):
         if IS_WINDOWS:
             # Using these flags under the mono compiler results in build errors.
             cscCmdLine.extend( [# What is the motivation for this?
-                                '/noconfig+',
+                                '/noconfig',
                                 '/nostdlib+',
                                 '/reference:mscorlib.dll',
                                 # Under mono this isn't neccessary as mono will search the system
