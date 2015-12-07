@@ -1210,11 +1210,23 @@ class DLLComponent(Component):
         else:
             return self.name + '$(SO_EXT)'
 
+    def dll_file(self):
+        """
+            Return file name of component suitable for use in a Makefile
+        """
+        return '%s$(SO_EXT)' % self.dll_name
+
+    def install_path(self):
+        """
+            Return install location of component (relative to prefix)
+            suitable for use in a Makefile
+        """
+        return os.path.join(INSTALL_LIB_DIR, self.dll_file())
+
     def mk_makefile(self, out):
         Component.mk_makefile(self, out)
         # generate rule for (SO_EXT)
-        dllfile = '%s$(SO_EXT)' % self.dll_name
-        out.write('%s:' % dllfile)
+        out.write('%s:' % self.dll_file())
         deps = sort_components(self.deps)
         objs = []
         for cppfile in get_cpp_files(self.src_dir):
@@ -1234,7 +1246,7 @@ class DLLComponent(Component):
                 c_dep = get_component(dep)
                 out.write(' ' + c_dep.get_link_name())
         out.write('\n')
-        out.write('\t$(LINK) $(SLINK_OUT_FLAG)%s $(SLINK_FLAGS)' % dllfile)
+        out.write('\t$(LINK) $(SLINK_OUT_FLAG)%s $(SLINK_FLAGS)' % self.dll_file())
         for obj in objs:
             out.write(' ')
             out.write(obj)
@@ -1250,9 +1262,9 @@ class DLLComponent(Component):
         if self.static:
             self.mk_static(out)
             libfile = '%s$(LIB_EXT)' % self.dll_name
-            out.write('%s: %s %s\n\n' % (self.name, dllfile, libfile))
+            out.write('%s: %s %s\n\n' % (self.name, self.dll_file(), libfile))
         else:
-            out.write('%s: %s\n\n' % (self.name, dllfile))
+            out.write('%s: %s\n\n' % (self.name, self.dll_file()))
 
     def mk_static(self, out):
         # generate rule for lib
@@ -1297,34 +1309,13 @@ class DLLComponent(Component):
 
     def mk_install(self, out):
         if self.install:
-            dllfile = '%s$(SO_EXT)' % self.dll_name
-            dllInstallPath = os.path.join(INSTALL_LIB_DIR, dllfile)
-            MakeRuleCmd.install_files(out, dllfile, dllInstallPath)
-            # FIXME: This belongs in ``PythonInstallComponent`` but
-            # it currently doesn't have access to this component so
-            # it can't emit these rules
-            if not is_python_install_enabled():
-                return
-            pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
-            MakeRuleCmd.make_install_directory(out, pythonPkgDirWithoutPrefix)
-            if IS_WINDOWS:
-                MakeRuleCmd.install_files(out, dllfile, os.path.join(pythonPkgDirWithoutPrefix, dllfile))
-            else:
-                # Create symbolic link to save space.
-                # It's important that this symbolic link be relative (rather
-                # than absolute) so that the install is relocatable (needed for
-                # staged installs that use DESTDIR).
-                MakeRuleCmd.create_relative_symbolic_link(out, dllInstallPath, os.path.join(pythonPkgDirWithoutPrefix, dllfile))
+            MakeRuleCmd.install_files(out, self.dll_file(), self.install_path())
             if self.static:
                 libfile = '%s$(LIB_EXT)' % self.dll_name
                 MakeRuleCmd.install_files(out, libfile, os.path.join(INSTALL_LIB_DIR, libfile))
 
     def mk_uninstall(self, out):
-        dllfile = '%s$(SO_EXT)' % self.dll_name
-        MakeRuleCmd.remove_installed_files(out, os.path.join(INSTALL_LIB_DIR, dllfile))
-        if is_python_install_enabled():
-            pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
-            MakeRuleCmd.remove_installed_files(out, os.path.join(pythonPkgDirWithoutPrefix, dllfile))
+        MakeRuleCmd.remove_installed_files(out, self.install_path())
         libfile = '%s$(LIB_EXT)' % self.dll_name
         MakeRuleCmd.remove_installed_files(out, os.path.join(INSTALL_LIB_DIR, libfile))
 
@@ -1346,9 +1337,11 @@ class DLLComponent(Component):
                         '%s.a' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
 
 class PythonInstallComponent(Component):
-    def __init__(self, name):
+    def __init__(self, name, libz3Component):
+        assert isinstance(libz3Component, DLLComponent)
         Component.__init__(self, name, None, [])
         self.pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
+        self.libz3Component = libz3Component
 
     def main_component(self):
         return False    
@@ -1357,6 +1350,26 @@ class PythonInstallComponent(Component):
         if not is_python_install_enabled():
             return
         MakeRuleCmd.make_install_directory(out, self.pythonPkgDirWithoutPrefix)
+
+        # Sym-link or copy libz3 into python package directory
+        if IS_WINDOWS:
+            MakeRuleCmd.install_files(out,
+                                      self.libz3Component.dll_file(),
+                                      os.path.join(pythonPkgDirWithoutPrefix,
+                                                   self.libz3Component.dll_file())
+                                     )
+        else:
+            # Create symbolic link to save space.
+            # It's important that this symbolic link be relative (rather
+            # than absolute) so that the install is relocatable (needed for
+            # staged installs that use DESTDIR).
+            MakeRuleCmd.create_relative_symbolic_link(out,
+                                                      self.libz3Component.install_path(),
+                                                      os.path.join(self.pythonPkgDirWithoutPrefix,
+                                                                   self.libz3Component.dll_file()
+                                                                  )
+                                                     )
+
         MakeRuleCmd.install_files(out, 'z3*.py', self.pythonPkgDirWithoutPrefix)
         if sys.version >= "3":
             pythonPycacheDir = os.path.join(self.pythonPkgDirWithoutPrefix, '__pycache__')
@@ -1376,6 +1389,8 @@ class PythonInstallComponent(Component):
     def mk_uninstall(self, out):
         if not is_python_install_enabled():
             return
+        MakeRuleCmd.remove_installed_files(out, os.path.join(self.pythonPkgDirWithoutPrefix,
+                                                             self.libz3Component.dll_file()))
         MakeRuleCmd.remove_installed_files(out, '{}*.py'.format(os.path.join(self.pythonPkgDirWithoutPrefix, 'z3')))
         MakeRuleCmd.remove_installed_files(out, '{}*.pyc'.format(os.path.join(self.pythonPkgDirWithoutPrefix, 'z3')))
         MakeRuleCmd.remove_installed_files(out, '{}*.pyc'.format(os.path.join(self.pythonPkgDirWithoutPrefix, '__pycache__', 'z3')))
@@ -2007,6 +2022,7 @@ def add_extra_exe(name, deps=[], path=None, exe_name=None, install=True):
 def add_dll(name, deps=[], path=None, dll_name=None, export_files=[], reexports=[], install=True, static=False):
     c = DLLComponent(name, dll_name, path, deps, export_files, reexports, install, static)
     reg_component(name, c)
+    return c
 
 def add_dot_net_dll(name, deps=[], path=None, dll_name=None, assembly_info_dir=None):
     c = DotNetDLLComponent(name, dll_name, path, deps, assembly_info_dir)
@@ -2016,9 +2032,9 @@ def add_java_dll(name, deps=[], path=None, dll_name=None, package_name=None, man
     c = JavaDLLComponent(name, dll_name, package_name, manifest_file, path, deps)
     reg_component(name, c)
 
-def add_python_install():
+def add_python_install(libz3Component):
     name = 'python_install'
-    reg_component(name, PythonInstallComponent(name))
+    reg_component(name, PythonInstallComponent(name, libz3Component))
 
 def add_ml_lib(name, deps=[], path=None, lib_name=None):
     c = MLComponent(name, lib_name, path, deps)
