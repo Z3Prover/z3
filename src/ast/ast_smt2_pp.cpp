@@ -363,6 +363,23 @@ format * smt2_pp_environment::pp_arith_literal(app * t, bool decimal, unsigned d
     }
 }
 
+format * smt2_pp_environment::pp_string_literal(app * t) {
+    std::string s;
+    VERIFY (get_sutil().str.is_string(t, s));
+    std::ostringstream buffer;
+    buffer << "\"";
+    for (unsigned i = 0; i < s.length(); ++i) {
+        if (s[i] == '\"') {
+            buffer << "\"\"";
+        }
+        else {
+            buffer << s[i];
+        }
+    }
+    buffer << "\"";  
+    return mk_string(get_manager(), buffer.str().c_str());
+}
+
 format * smt2_pp_environment::pp_datalog_literal(app * t) {
     uint64 v;
     VERIFY (get_dlutil().is_numeral(t, v));
@@ -406,6 +423,11 @@ format_ns::format * smt2_pp_environment::pp_sort(sort * s) {
         fs.push_back(mk_unsigned(m, ebits));
         fs.push_back(mk_unsigned(m, sbits));
         return mk_seq1(m, fs.begin(), fs.end(), f2f(), "_");
+    }
+    if ((get_sutil().is_seq(s) || get_sutil().is_re(s)) && !get_sutil().is_string(s)) {
+        ptr_buffer<format> fs;
+        fs.push_back(pp_sort(to_sort(s->get_parameter(0).get_ast())));
+        return mk_seq1(m, fs.begin(), fs.end(), f2f(), get_sutil().is_seq(s)?"Seq":"Re");
     }
     return format_ns::mk_string(get_manager(), s->get_name().str().c_str()); 
 }
@@ -577,6 +599,9 @@ class smt2_printer {
         format * f;
         if (m_env.get_autil().is_numeral(c) || m_env.get_autil().is_irrational_algebraic_numeral(c)) {
             f = m_env.pp_arith_literal(c, m_pp_decimal, m_pp_decimal_precision);
+        }
+        else if (m_env.get_sutil().str.is_string(c)) {
+            f = m_env.pp_string_literal(c);
         }
         else if (m_env.get_bvutil().is_numeral(c)) {
             f = m_env.pp_bv_literal(c, m_pp_bv_lits, m_pp_bv_neg);

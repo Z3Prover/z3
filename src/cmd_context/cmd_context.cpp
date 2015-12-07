@@ -245,6 +245,7 @@ protected:
     bv_util       m_bvutil;
     array_util    m_arutil;
     fpa_util      m_futil;
+    seq_util      m_sutil;
     datalog::dl_decl_util m_dlutil;
 
     format_ns::format * pp_fdecl_name(symbol const & s, func_decls const & fs, func_decl * f, unsigned & len) {
@@ -265,13 +266,14 @@ protected:
     }
 
 public:
-    pp_env(cmd_context & o):m_owner(o), m_autil(o.m()), m_bvutil(o.m()), m_arutil(o.m()), m_futil(o.m()), m_dlutil(o.m()) {}
+    pp_env(cmd_context & o):m_owner(o), m_autil(o.m()), m_bvutil(o.m()), m_arutil(o.m()), m_futil(o.m()), m_sutil(o.m()), m_dlutil(o.m()) {}
     virtual ~pp_env() {}
     virtual ast_manager & get_manager() const { return m_owner.m(); }
     virtual arith_util & get_autil() { return m_autil; }
     virtual bv_util & get_bvutil() { return m_bvutil; }
     virtual array_util & get_arutil() { return m_arutil; }
     virtual fpa_util & get_futil() { return m_futil; }
+    virtual seq_util & get_sutil() { return m_sutil; }
     virtual datalog::dl_decl_util& get_dlutil() { return m_dlutil; }
     virtual bool uses(symbol const & s) const {
         return

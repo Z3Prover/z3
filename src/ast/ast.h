@@ -2013,6 +2013,7 @@ public:
     app * mk_distinct_expanded(unsigned num_args, expr * const * args);
     app * mk_true() { return m_true; }
     app * mk_false() { return m_false; }
+    app * mk_bool_val(bool b) { return b?m_true:m_false; }
     app * mk_interp(expr * arg) { return mk_app(m_basic_family_id, OP_INTERP, arg); }
 
 

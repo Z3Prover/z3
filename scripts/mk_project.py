@@ -91,6 +91,7 @@ def init_project_def():
     add_ml_lib('ml', ['api_dll'], 'api/ml', lib_name='libz3ml')
     add_hlib('cpp', 'api/c++', includes2install=['z3++.h'])
     set_z3py_dir('api/python')
+    add_python_install()
     # Examples
     add_cpp_example('cpp_example', 'c++') 
     add_cpp_example('z3_tptp', 'tptp') 

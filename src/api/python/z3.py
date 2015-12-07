@@ -8189,7 +8189,7 @@ def is_fprm_value(a):
 class FPNumRef(FPRef):
     def isNaN(self):
         return self.decl().kind() == Z3_OP_FPA_NAN
-    
+
     def isInf(self):
         return self.decl().kind() == Z3_OP_FPA_PLUS_INF or self.decl().kind() == Z3_OP_FPA_MINUS_INF
 
@@ -8201,7 +8201,7 @@ class FPNumRef(FPRef):
         return (self.num_args() == 0 and (k == Z3_OP_FPA_MINUS_INF or k == Z3_OP_FPA_MINUS_ZERO)) or (self.sign() == True)
 
     """
-    The sign of the numeral
+    The sign of the numeral.
 
     >>> x = FPNumRef(+1.0, FPSort(8, 24))
     >>> x.sign()
@@ -8215,30 +8215,32 @@ class FPNumRef(FPRef):
         if Z3_fpa_get_numeral_sign(self.ctx.ref(), self.as_ast(), byref(l)) == False:
             raise Z3Exception("error retrieving the sign of a numeral.")
         return l.value != 0
-    
+
     """
-    The significand of the numeral
+    The significand of the numeral.
 
     >>> x = FPNumRef(2.5, FPSort(8, 24))
+    >>> x.significand()
     1.25
     """
     def significand(self):
         return Z3_fpa_get_numeral_significand_string(self.ctx.ref(), self.as_ast())
 
     """
-    The exponent of the numeral
+    The exponent of the numeral.
 
     >>> x = FPNumRef(2.5, FPSort(8, 24))
-    >>> 
+    >>> x.exponent()
     1
     """
     def exponent(self):
         return Z3_fpa_get_numeral_exponent_string(self.ctx.ref(), self.as_ast())
 
     """
-    The exponent of the numeral as a long
+    The exponent of the numeral as a long.
 
     >>> x = FPNumRef(2.5, FPSort(8, 24))
+    >>> x.exponent_as_long()
     1
     """
     def exponent_as_long(self):
@@ -8246,11 +8248,12 @@ class FPNumRef(FPRef):
         if not Z3_fpa_get_numeral_exponent_int64(self.ctx.ref(), self.as_ast(), ptr):
             raise Z3Exception("error retrieving the exponent of a numeral.") 
         return ptr[0]
-    
+
     """
-    The string representation of the numeral
+    The string representation of the numeral.
 
     >>> x = FPNumRef(20, FPSort(8, 24))
+    >>> x.as_string()
     1.25*(2**4)
     """
     def as_string(self):
@@ -8378,7 +8381,7 @@ def FPVal(sig, exp=None, fps=None, ctx=None):
     val = val + 'p'
     val = val + _to_int_str(exp)
     return FPNumRef(Z3_mk_numeral(ctx.ref(), val, fps.ast), ctx)
-        
+
 def FP(name, fpsort, ctx=None):
     """Return a floating-point constant named `name`. 
     `fpsort` is the floating-point sort.
@@ -8640,47 +8643,47 @@ def fpIsNaN(a):
     return FPRef(Z3_mk_fpa_is_nan(a.ctx_ref(), a.as_ast()), a.ctx) 
 
 def fpIsInfinite(a):
-    """Create a Z3 floating-point isNaN expression.
+    """Create a Z3 floating-point isInfinite expression.
     """
     if __debug__:        
         _z3_assert(is_fp(a), "Argument must be Z3 floating-point expressions")
     return FPRef(Z3_mk_fpa_is_infinite(a.ctx_ref(), a.as_ast()), a.ctx) 
 
 def fpIsZero(a):
-    """Create a Z3 floating-point isNaN expression.
+    """Create a Z3 floating-point isZero expression.
     """
     if __debug__:        
         _z3_assert(is_fp(a), "Argument must be Z3 floating-point expressions")
     return FPRef(Z3_mk_fpa_is_zero(a.ctx_ref(), a.as_ast()), a.ctx) 
 
 def fpIsNormal(a):
-    """Create a Z3 floating-point isNaN expression.
+    """Create a Z3 floating-point isNormal expression.
     """
     if __debug__:        
         _z3_assert(is_fp(a), "Argument must be Z3 floating-point expressions")
     return FPRef(Z3_mk_fpa_is_normal(a.ctx_ref(), a.as_ast()), a.ctx) 
 
 def fpIsSubnormal(a):
-    """Create a Z3 floating-point isNaN expression.
+    """Create a Z3 floating-point isSubnormal expression.
     """
     if __debug__:        
         _z3_assert(is_fp(a), "Argument must be Z3 floating-point expressions")
     return FPRef(Z3_mk_fpa_is_subnormal(a.ctx_ref(), a.as_ast()), a.ctx) 
 
 def fpIsNegative(a):
-    """Create a Z3 floating-point isNaN expression.
+    """Create a Z3 floating-point isNegative expression.
     """
     if __debug__:        
         _z3_assert(is_fp(a), "Argument must be Z3 floating-point expressions")
     return FPRef(Z3_mk_fpa_is_negative(a.ctx_ref(), a.as_ast()), a.ctx) 
 
 def fpIsPositive(a):
-    """Create a Z3 floating-point isNaN expression.
+    """Create a Z3 floating-point isPositive expression.
     """
     if __debug__:        
         _z3_assert(is_fp(a), "Argument must be Z3 floating-point expressions")
     return FPRef(Z3_mk_fpa_is_positive(a.ctx_ref(), a.as_ast()), a.ctx) 
-    
+
 def _check_fp_args(a, b):
     if __debug__:
         _z3_assert(is_fp(a) or is_fp(b), "At least one of the arguments must be a Z3 floating-point expression")
