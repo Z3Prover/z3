@@ -65,6 +65,34 @@ bool seq_decl_plugin::match(ptr_vector<sort>& binding, sort* s, sort* sP) {
     }
 }
 
+/*
+  \brief match left associative operator.
+*/
+void seq_decl_plugin::match_left_assoc(psig& sig, unsigned dsz, sort *const* dom, sort* range, sort_ref& range_out) {
+    ptr_vector<sort> binding;
+    ast_manager& m = *m_manager;
+    if (dsz == 0) {
+        std::ostringstream strm;
+        strm << "Unexpected number of arguments to '" << sig.m_name << "' ";
+        strm << "at least one argument expected " << dsz << " given";
+        m.raise_exception(strm.str().c_str());
+    }
+    bool is_match = true;
+    for (unsigned i = 0; is_match && i < dsz; ++i) {
+        is_match = match(binding, dom[i], sig.m_dom[0].get());
+    }
+    if (range && is_match) {
+        is_match = match(binding, range, sig.m_range);
+    }
+    if (!is_match) {
+        std::ostringstream strm;
+        strm << "Sort of function '" << sig.m_name << "' ";
+        strm << "does not match the declared type";
+        m.raise_exception(strm.str().c_str());
+    }
+    range_out = apply_binding(binding, sig.m_range);
+}
+
 void seq_decl_plugin::match(psig& sig, unsigned dsz, sort *const* dom, sort* range, sort_ref& range_out) {
     ptr_vector<sort> binding;
     ast_manager& m = *m_manager;
@@ -192,10 +220,6 @@ void seq_decl_plugin::init() {
     m_sigs[OP_STRING_SUFFIX]     = alloc(psig, m, "str.suffixof", 0, 2, str2T, boolT);
     m_sigs[OP_STRING_ITOS]       = alloc(psig, m, "int.to.str", 0, 1, &intT, strT);
     m_sigs[OP_STRING_STOI]       = alloc(psig, m, "str.to.int", 0, 1, &strT, intT);
-    //m_sigs[OP_STRING_U16TOS]   = alloc(psig, m, "u16.to.str", 0, 1, &intT, strT);
-    //m_sigs[OP_STRING_STOU16]   = alloc(psig, m, "str.to.u16", 0, 1, &strT, intT);
-    //m_sigs[OP_STRING_U32TOS]   = alloc(psig, m, "u32.to.str", 0, 1, &intT, strT);
-    //m_sigs[OP_STRING_STOU32]   = alloc(psig, m, "str.to.u32", 0, 1, &strT, intT);
     m_sigs[OP_STRING_IN_REGEXP]  = alloc(psig, m, "str.in.re", 0, 2, strTreT, boolT);
     m_sigs[OP_STRING_TO_REGEXP]  = alloc(psig, m, "str.to.re", 0, 1, &strT, reT);
     m_sigs[OP_REGEXP_CONCAT]     = alloc(psig, m, "re.++", 0, 2, re2T, reT);
@@ -250,7 +274,6 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     switch(k) {
     case OP_SEQ_UNIT:
     case OP_SEQ_EMPTY:
-    case OP_SEQ_CONCAT:
     case OP_SEQ_CONS:
     case OP_SEQ_REV_CONS:
     case OP_SEQ_HEAD:
@@ -265,7 +288,6 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case OP_RE_STAR:
     case OP_RE_OPTION:
     case OP_RE_RANGE:
-    case OP_RE_CONCAT:
     case OP_RE_UNION:
     case OP_RE_INTERSECT:
     case OP_RE_DIFFERENCE:
@@ -295,7 +317,16 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         return m.mk_const_decl(m_stringc_sym, m_string,
                                func_decl_info(m_family_id, OP_STRING_CONST, num_parameters, parameters));
         
-    case OP_STRING_CONCAT:
+    case OP_SEQ_CONCAT:
+    case OP_RE_CONCAT:
+    case OP_REGEXP_CONCAT:
+    case OP_STRING_CONCAT: {
+        match_left_assoc(*m_sigs[k], arity, domain, range, rng);
+        func_decl_info info(m_family_id, k);
+        info.set_left_associative();
+        return m.mk_func_decl(m_sigs[k]->m_name, rng, rng, rng, info);
+    }
+
     case OP_STRING_LENGTH:
     case OP_STRING_SUBSTR:
     case OP_STRING_STRCTN:
@@ -308,7 +339,6 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case OP_STRING_STOI:
     case OP_STRING_IN_REGEXP:
     case OP_STRING_TO_REGEXP:
-    case OP_REGEXP_CONCAT:
     case OP_REGEXP_UNION:
     case OP_REGEXP_INTER:
     case OP_REGEXP_STAR:

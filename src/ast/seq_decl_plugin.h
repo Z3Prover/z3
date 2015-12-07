@@ -76,10 +76,6 @@ enum seq_op_kind {
     OP_STRING_SUFFIX, 
     OP_STRING_ITOS, 
     OP_STRING_STOI, 
-    //OP_STRING_U16TOS, 
-    //OP_STRING_STOU16, 
-    //OP_STRING_U32TOS, 
-    //OP_STRING_STOU32, 
     OP_STRING_IN_REGEXP, 
     OP_STRING_TO_REGEXP, 
     OP_REGEXP_CONCAT, 
@@ -118,6 +114,8 @@ class seq_decl_plugin : public decl_plugin {
     sort*            m_string;
 
     void match(psig& sig, unsigned dsz, sort* const* dom, sort* range, sort_ref& rng);
+
+    void match_left_assoc(psig& sig, unsigned dsz, sort* const* dom, sort* range, sort_ref& rng);
 
     bool match(ptr_vector<sort>& binding, sort* s, sort* sP);
 
