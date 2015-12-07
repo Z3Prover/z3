@@ -712,7 +712,7 @@ def parse_options():
             display_help(1)
     # Handle the Python package directory
     if IS_WINDOWS:
-        PYTHON_INSTALL_ENABLED = False
+        PYTHON_INSTALL_ENABLED = True
     else:
         if not PYTHON_PACKAGE_DIR.startswith(PREFIX):
             print(("Warning: The detected Python package directory (%s)"
@@ -810,6 +810,9 @@ def is_ml_enabled():
 
 def is_dotnet_enabled():
     return DOTNET_ENABLED
+
+def is_python_install_enabled():
+    return PYTHON_INSTALL_ENABLED
 
 def disable_dotnet():
     global DOTNET_ENABLED
@@ -1297,6 +1300,8 @@ class DLLComponent(Component):
             dllfile = '%s$(SO_EXT)' % self.dll_name
             dllInstallPath = os.path.join(INSTALL_LIB_DIR, dllfile)
             MakeRuleCmd.install_files(out, dllfile, dllInstallPath)
+	    if not python_install_enabled():
+                return
             pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
             if IS_WINDOWS:
                 MakeRuleCmd.install_files(out, dllfile, os.path.join(pythonPkgDirWithoutPrefix, dllfile))
