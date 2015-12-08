@@ -302,7 +302,6 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case OP_RE_OPTION:
     case OP_RE_RANGE:
     case OP_RE_UNION:
-    case OP_RE_EMPTY_SEQ:
     case OP_RE_EMPTY_SET:
 
     case OP_RE_OF_PRED:

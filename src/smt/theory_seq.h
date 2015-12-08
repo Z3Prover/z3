@@ -35,10 +35,14 @@ namespace smt {
             void reset() { memset(this, 0, sizeof(stats)); }
             unsigned m_num_splits;
         };
-        expr_ref_vector m_axioms;
-        expr_ref_vector m_ineqs;
+        expr_ref_vector m_rep;        // unification representative.
+        vector<expr_array> m_lhs, m_rhs; // persistent sets of equalities.
+        unsigned        m_eqs_head;      // index of unprocessed equation.
+
+        expr_ref_vector m_ineqs;      // inequalities to check
+        expr_ref_vector m_axioms;     
         unsigned        m_axioms_head;        
-        bool            m_used;
+        bool            m_used;       // deprecate
         th_rewriter     m_rewrite;
         seq_util        m_util;
         arith_util      m_autil;
@@ -63,7 +67,7 @@ namespace smt {
         virtual theory_var mk_var(enode* n);
 
         final_check_status check_ineqs();
-        final_check_status simplify_eqs();
+        bool simplify_eqs();
         final_check_status add_axioms();
 
         void assert_axiom(expr_ref& e);

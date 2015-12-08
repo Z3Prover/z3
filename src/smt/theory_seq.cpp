@@ -26,15 +26,20 @@ using namespace smt;
 
 theory_seq::theory_seq(ast_manager& m):
     theory(m.mk_family_id("seq")), 
-    m_axioms_head(0), 
-    m_axioms(m),
+    m_rep(m),    
+    m_eqs_head(0),
     m_ineqs(m),
+    m_axioms(m),
+    m_axioms_head(0),
     m_used(false), 
     m_rewrite(m), 
     m_util(m),
     m_autil(m),
     m_trail_stack(*this),
-    m_find(*this) {}
+    m_find(*this) {
+    m_lhs.push_back(expr_array());
+    m_rhs.push_back(expr_array());
+}
 
 final_check_status theory_seq::final_check_eh() { 
     context & ctx   = get_context();
@@ -68,17 +73,27 @@ final_check_status theory_seq::check_ineqs() {
     return FC_DONE;
 }
 
-final_check_status theory_seq::simplify_eqs() {
+bool theory_seq::simplify_eqs() {
+    context & ctx   = get_context();
+    ast_manager& m  = get_manager();
     bool simplified = false;
-    for (unsigned i = 0; i < get_num_vars(); ++i) {
-        theory_var v = m_find.find(i);
-        if (v != i) continue;
-        
+    expr_array& lhs = m_lhs.back();
+    expr_array& rhs = m_rhs.back();
+    for (unsigned i = m_eqs_head; i < m.size(lhs); ++i) {
+        expr* l = m.get(lhs, i);
+        expr* r = m.get(rhs, i);
+#if 0
+        if (reduce(l, r)) {
+            ++m_eq_head;
+        }
+        else {
+            // equality is not simplified
+            // move forward pointer
+        }
+#endif
+    
     }
-    if (simplified) {
-        return FC_CONTINUE;
-    }
-    return FC_DONE;
+    return simplified;
 }
 
 final_check_status theory_seq::add_axioms() {
@@ -122,6 +137,7 @@ bool theory_seq::internalize_term(app* term) {
 theory_var theory_seq::mk_var(enode* n) {
     theory_var r = theory::mk_var(n);
     VERIFY(r == m_find.mk_var());
+    m_rep.push_back(n->get_owner());
     return r;
 }
 
@@ -270,7 +286,13 @@ void theory_seq::assign_eq(bool_var v, bool is_true) {
 }
 
 void theory_seq::new_eq_eh(theory_var v1, theory_var v2) { 
+    ast_manager& m  = get_manager();    
     m_find.merge(v1, v2);
+    expr_ref e1(m), e2(m);
+    e1 = get_enode(v1)->get_owner();
+    e2 = get_enode(v2)->get_owner();
+    m.push_back(m_lhs.back(), get_enode(v1)->get_owner());
+    m.push_back(m_rhs.back(), get_enode(v2)->get_owner());
 }
 
 void theory_seq::new_diseq_eh(theory_var v1, theory_var v2) {
@@ -282,14 +304,30 @@ void theory_seq::new_diseq_eh(theory_var v1, theory_var v2) {
 }
 
 void theory_seq::push_scope_eh() {
+    ast_manager& m  = get_manager();    
     theory::push_scope_eh();
     m_trail_stack.push_scope();
     m_trail_stack.push(value_trail<theory_seq, unsigned>(m_axioms_head));
+    m_trail_stack.push(value_trail<theory_seq, unsigned>(m_eqs_head));
+    expr_array lhs, rhs;
+    m.copy(m_lhs.back(), lhs);
+    m.copy(m_rhs.back(), rhs);
+    m_lhs.push_back(lhs);
+    m_rhs.push_back(rhs);
 }
 
 void theory_seq::pop_scope_eh(unsigned num_scopes) {
+    ast_manager& m  = get_manager();    
     m_trail_stack.pop_scope(num_scopes);
     theory::pop_scope_eh(num_scopes);    
+    m_rep.resize(get_num_vars());
+    while (num_scopes > 0) {
+        --num_scopes;
+        m.del(m_lhs.back());
+        m.del(m_rhs.back());
+        m_lhs.pop_back();
+        m_rhs.pop_back();
+    }
 }
 
 void theory_seq::restart_eh() {
