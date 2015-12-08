@@ -276,6 +276,7 @@ br_status seq_rewriter::mk_str_strrepl(expr* a, expr* b, expr* c, expr_ref& resu
 }
 
 br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
+    TRACE("seq", tout << mk_pp(a, m()) << " " << mk_pp(b, m()) << "\n";);
     std::string s1, s2;
     bool isc1 = m_util.str.is_string(a, s1);
     bool isc2 = m_util.str.is_string(b, s2);
@@ -309,7 +310,7 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
                 SASSERT(as.size() > 1);
                 s2 = std::string(s2.c_str() + s1.length(), s2.length() - s1.length());
                 bs[0] = m_util.str.mk_string(s2);
-                m_util.str.mk_prefix(m_util.str.mk_concat(as.size()-1, as.c_ptr()+1),
+                result = m_util.str.mk_prefix(m_util.str.mk_concat(as.size()-1, as.c_ptr()+1),
                                      m_util.str.mk_concat(bs.size(), bs.c_ptr()));
                 return BR_REWRITE_FULL;
             }
@@ -329,7 +330,7 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
                 SASSERT(bs.size() > 1);
                 s1 = std::string(s1.c_str() + s2.length(), s1.length() - s2.length());
                 as[0] = m_util.str.mk_string(s1);
-                m_util.str.mk_prefix(m_util.str.mk_concat(as.size(), as.c_ptr()),
+                result = m_util.str.mk_prefix(m_util.str.mk_concat(as.size(), as.c_ptr()),
                                      m_util.str.mk_concat(bs.size()-1, bs.c_ptr()+1));
                 return BR_REWRITE_FULL;                
             }
@@ -352,7 +353,7 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
     }
     if (i == bs.size()) {
         expr_ref_vector es(m());
-        for (unsigned j = i; j < as.size(); ++i) {
+        for (unsigned j = i; j < as.size(); ++j) {
             es.push_back(m().mk_eq(m_util.str.mk_empty(m().get_sort(a)), as[j]));
         }
         result = mk_and(es);
@@ -369,16 +370,11 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
 }
 
 br_status seq_rewriter::mk_seq_suffix(expr* a, expr* b, expr_ref& result) {
-    std::string s1, s2;
-    bool isc1 = m_util.str.is_string(a, s1);
-    if (isc1 && m_util.str.is_string(b, s2)) {
-        bool suffix = s1.length() <= s2.length();
-        for (unsigned i = 0; i < s1.length() && suffix; ++i) {
-            suffix = s1[s1.length() - i - 1] == s2[s2.length() - i - 1];
-        }
-        result = m().mk_bool_val(suffix);
+    if (a == b) {
+        result = m().mk_true();
         return BR_DONE;
     }
+    std::string s1, s2;
     if (m_util.str.is_empty(a)) {
         result = m().mk_true();
         return BR_DONE;
@@ -394,6 +390,79 @@ br_status seq_rewriter::mk_seq_suffix(expr* a, expr* b, expr_ref& result) {
         result = m_util.str.mk_suffix(a1, b1);
         return BR_REWRITE1;
     }
+    if (m_util.str.is_concat(b, b1, b2) && b2 == a) {
+        result = m().mk_true();
+        return BR_DONE;
+    }
+    bool isc1 = false;
+    bool isc2 = false;
+    
+    if (m_util.str.is_concat(a, a1, a2) && m_util.str.is_string(a2, s1)) {
+        isc1 = true;
+    }
+    else if (m_util.str.is_string(a, s1)) {
+        isc1 = true;
+        a2 = a;
+        a1 = 0;
+    }
+
+    if (m_util.str.is_concat(b, b1, b2) && m_util.str.is_string(b2, s2)) {
+        isc2 = true;
+    }
+    else if (m_util.str.is_string(b, s2)) {
+        isc2 = true;
+        b2 = b;
+        b1 = 0;
+    }
+    if (isc1 && isc2) {
+        if (s1.length() == s2.length()) {
+            SASSERT(s1 != s2);
+            result = m().mk_false();
+            return BR_DONE;
+        }
+        else if (s1.length() < s2.length()) {
+            bool suffix = true;
+            for (unsigned i = 0; i < s1.length(); ++i) {
+                suffix = s1[s1.length()-i-1] == s2[s2.length()-i-1];
+            }
+            if (suffix && a1 == 0) {
+                result = m().mk_true();
+                return BR_DONE;
+            }
+            else if (suffix) {
+                s2 = std::string(s2.c_str(), s2.length()-s1.length());
+                b2 = m_util.str.mk_string(s2);
+                result = m_util.str.mk_suffix(a1, b1?m_util.str.mk_concat(b1, b2):b2);
+                return BR_DONE;
+            }
+            else {
+                result = m().mk_false();
+                return BR_DONE;
+            }
+        }
+        else {
+            SASSERT(s1.length() > s2.length());
+            if (b1 == 0) {
+                result = m().mk_false();
+                return BR_DONE;
+            }
+            bool suffix = true;
+            for (unsigned i = 0; i < s2.length(); ++i) {
+                suffix = s1[s1.length()-i-1] == s2[s2.length()-i-1];
+            }
+            if (suffix) {
+                s1 = std::string(s1.c_str(), s1.length()-s2.length());
+                a2 = m_util.str.mk_string(s1);
+                result = m_util.str.mk_suffix(a1?m_util.str.mk_concat(a1, a2):a2, b1);
+                return BR_DONE;
+            }
+            else {
+                result = m().mk_false();
+                return BR_DONE;
+            }            
+        }
+    }
+
     return BR_FAILED;
 }
 
