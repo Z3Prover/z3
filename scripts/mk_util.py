@@ -1357,6 +1357,7 @@ class PythonInstallComponent(Component):
     def mk_install(self, out):
         if not is_python_install_enabled():
             return
+        pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
         MakeRuleCmd.install_files(out, 'z3*.py', pythonPkgDirWithoutPrefix)
         if sys.version >= "3":
             pythonPycacheDir = os.path.join(pythonPkgDirWithoutPrefix, '__pycache__')
