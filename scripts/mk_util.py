@@ -1843,12 +1843,16 @@ class MLComponent(Component):
             self.mk_ml_meta(os.path.join('src/api/ml/META'), os.path.join(BUILD_DIR, self.sub_dir, 'META'), VER_MAJOR, VER_MINOR, VER_BUILD, VER_REVISION)
 
     def mk_install_deps(self, out):
+        if not is_ml_enabled():
+            return
         if OCAMLFIND != '':
             out.write(get_component(Z3_DLL_COMPONENT).dll_name + '$(SO_EXT) ')
             out.write(os.path.join(self.sub_dir, 'z3ml.cmxa '))
             out.write(os.path.join(self.sub_dir, 'META '))
 
     def mk_install(self, out):
+        if not is_ml_enabled():
+            return
         if OCAMLFIND != '':
             out.write('\t@%s remove Z3\n' % (OCAMLFIND))
             out.write('\t@%s install Z3 %s' % (OCAMLFIND, (os.path.join(self.sub_dir, 'META'))))
@@ -1875,6 +1879,8 @@ class MLComponent(Component):
             out.write('\n')
 
     def mk_uninstall(self, out):
+        if not is_ml_enabled():
+            return
         if OCAMLFIND != '':
             out.write('\t@%s remove Z3\n' % (OCAMLFIND))
 
