@@ -1346,16 +1346,16 @@ class PythonInstallComponent(Component):
         Component.__init__(self, name, None, [])
 
     def main_component(self):
-        return is_python_install_enabled()
+        return False    
     
     def install_deps(self, out):
-        if not self.main_component():
-             return
+        if not is_python_install_enabled():
+            return
         pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
         MakeRuleCmd.make_install_directory(out, pythonPkgDirWithoutPrefix)
 
     def mk_install(self, out):
-        if not self.main_component():
+        if not is_python_install_enabled():
             return
         MakeRuleCmd.install_files(out, 'z3*.py', pythonPkgDirWithoutPrefix)
         if sys.version >= "3":
@@ -1374,7 +1374,7 @@ class PythonInstallComponent(Component):
             out.write('\t@echo Z3Py was installed at \'%s\', make sure this directory is in your PYTHONPATH environment variable.' % PYTHON_PACKAGE_DIR)
 
     def mk_uninstall(self, out):
-        if not self.main_component():
+        if not is_python_install_enabled():
             return
         pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
         MakeRuleCmd.remove_installed_files(out, '{}*.py'.format(os.path.join(pythonPkgDirWithoutPrefix, 'z3')))

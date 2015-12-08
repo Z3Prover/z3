@@ -43,14 +43,14 @@ extern "C" {
 
        def_API('Z3_optimize_inc_ref', VOID, (_in(CONTEXT), _in(OPTIMIZE)))
     */
-    void Z3_API Z3_optimize_inc_ref(Z3_context c,Z3_optimize d);
+    void Z3_API Z3_optimize_inc_ref(Z3_context c, Z3_optimize d);
 
     /**
        \brief Decrement the reference counter of the given optimize context.
 
        def_API('Z3_optimize_dec_ref', VOID, (_in(CONTEXT), _in(OPTIMIZE)))
     */
-    void Z3_API Z3_optimize_dec_ref(Z3_context c,Z3_optimize d);
+    void Z3_API Z3_optimize_dec_ref(Z3_context c, Z3_optimize d);
 
     /**
        \brief Assert hard constraint to the optimization context.
@@ -102,7 +102,7 @@ extern "C" {
 
        def_API('Z3_optimize_push', VOID, (_in(CONTEXT), _in(OPTIMIZE)))
     */
-    void Z3_API Z3_optimize_push(Z3_context c,Z3_optimize d);
+    void Z3_API Z3_optimize_push(Z3_context c, Z3_optimize d);
 
     /**
        \brief Backtrack one level.
@@ -113,7 +113,7 @@ extern "C" {
 
        def_API('Z3_optimize_pop', VOID, (_in(CONTEXT), _in(OPTIMIZE)))
     */
-    void Z3_API Z3_optimize_pop(Z3_context c,Z3_optimize d);
+    void Z3_API Z3_optimize_pop(Z3_context c, Z3_optimize d);
 
     /**
        \brief Check consistency and produce optimal values.
@@ -132,7 +132,7 @@ extern "C" {
 
        def_API('Z3_optimize_get_reason_unknown', STRING, (_in(CONTEXT), _in(OPTIMIZE) ))
     */
-    Z3_string Z3_API Z3_optimize_get_reason_unknown(Z3_context c,Z3_optimize d);
+    Z3_string Z3_API Z3_optimize_get_reason_unknown(Z3_context c, Z3_optimize d);
 
     /**
        \brief Retrieve the model for the last #Z3_optimize_check
@@ -195,9 +195,7 @@ extern "C" {
 
        def_API('Z3_optimize_to_string', STRING, (_in(CONTEXT), _in(OPTIMIZE)))
     */
-    Z3_string Z3_API Z3_optimize_to_string(
-        Z3_context c,
-        Z3_optimize o);
+    Z3_string Z3_API Z3_optimize_to_string(Z3_context c, Z3_optimize o);
 
 
     /**
@@ -212,7 +210,7 @@ extern "C" {
 
        def_API('Z3_optimize_get_statistics', STATS, (_in(CONTEXT), _in(OPTIMIZE)))
     */
-    Z3_stats Z3_API Z3_optimize_get_statistics(Z3_context c,Z3_optimize d);
+    Z3_stats Z3_API Z3_optimize_get_statistics(Z3_context c, Z3_optimize d);
     /*@}*/
     /*@}*/
 

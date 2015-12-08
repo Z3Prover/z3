@@ -712,7 +712,7 @@ namespace smt {
         }
     }
     
-    void theory_array_base::propagate_select_to_store_parents(enode * r, enode * sel, svector<enode_pair> & todo) {
+    void theory_array_base::propagate_select_to_store_parents(enode * r, enode * sel, enode_pair_vector & todo) {
         SASSERT(r->get_root() == r);
         SASSERT(is_select(sel));
         if (!get_context().is_relevant(r)) {
@@ -751,7 +751,7 @@ namespace smt {
         }
     }
 
-    void theory_array_base::propagate_selects_to_store_parents(enode * r, svector<enode_pair> & todo) {
+    void theory_array_base::propagate_selects_to_store_parents(enode * r, enode_pair_vector & todo) {
         select_set * sel_set = get_select_set(r);
         select_set::iterator it2  = sel_set->begin();
         select_set::iterator end2 = sel_set->end();
@@ -763,9 +763,9 @@ namespace smt {
     }
 
     void theory_array_base::propagate_selects() {
-        svector<enode_pair> todo;
-        ptr_vector<enode>::const_iterator it  = m_selects_domain.begin();
-        ptr_vector<enode>::const_iterator end = m_selects_domain.end();
+        enode_pair_vector todo;
+        enode_vector::const_iterator it  = m_selects_domain.begin();
+        enode_vector::const_iterator end = m_selects_domain.end();
         for (; it != end; ++it) {
             enode * r = *it;
             propagate_selects_to_store_parents(r, todo);

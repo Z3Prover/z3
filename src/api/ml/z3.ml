@@ -813,16 +813,26 @@ end = struct
       let s = Z3native.get_sort (context_gno ctx) no in
       let sk = (sort_kind_of_int (Z3native.get_sort_kind (context_gno ctx) s)) in
       if (Z3native.is_algebraic_number (context_gno ctx) no) then
-	Expr(z3_native_object_of_ast_ptr ctx no)
+		Expr(z3_native_object_of_ast_ptr ctx no)
       else
-	if (Z3native.is_numeral_ast (context_gno ctx) no) then
-	  if (sk == INT_SORT || sk == REAL_SORT || sk == BV_SORT || 
-			sk == FLOATING_POINT_SORT || sk == ROUNDING_MODE_SORT) then
-	    Expr(z3_native_object_of_ast_ptr ctx no)
-	  else
-	    raise (Z3native.Exception "Unsupported numeral object")
-	else	  
-	  Expr(z3_native_object_of_ast_ptr ctx no)
+		if (Z3native.is_numeral_ast (context_gno ctx) no) then
+		  match sk with
+		  | REAL_SORT 
+		  | BOOL_SORT 
+		  | ARRAY_SORT 
+		  | BV_SORT 
+		  | ROUNDING_MODE_SORT 
+		  | RELATION_SORT 
+		  | UNINTERPRETED_SORT 
+		  | FLOATING_POINT_SORT 
+		  | INT_SORT 
+		  | DATATYPE_SORT 
+		  | FINITE_DOMAIN_SORT ->
+			 Expr(z3_native_object_of_ast_ptr ctx no)
+		  | _ -> 
+			 raise (Z3native.Exception "Unsupported numeral object")
+		else	  
+		  Expr(z3_native_object_of_ast_ptr ctx no)
 
   let expr_of_ast a = 
     let q = (Z3enums.ast_kind_of_int (Z3native.get_ast_kind (z3obj_gnc a) (z3obj_gno a))) in

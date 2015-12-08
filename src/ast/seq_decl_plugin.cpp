@@ -288,9 +288,15 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     ast_manager& m = *m_manager;
     sort_ref rng(m);
     switch(k) {
-    case OP_SEQ_UNIT:
     case OP_SEQ_EMPTY:
+        match(*m_sigs[k], arity, domain, range, rng);
+        if (rng == m_string) {
+            parameter param(symbol(""));
+            return mk_func_decl(OP_STRING_CONST, 1, &param, 0, 0, m_string);
+        }
+        return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
         
+    case OP_SEQ_UNIT:
     case OP_RE_PLUS:
     case OP_RE_STAR:
     case OP_RE_OPTION:

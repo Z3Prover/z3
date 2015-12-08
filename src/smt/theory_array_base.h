@@ -58,8 +58,8 @@ namespace smt {
         unsigned get_dimension(sort* s) const;
         
         ptr_vector<enode>                   m_axiom1_todo;
-        svector<std::pair<enode*, enode*> > m_axiom2_todo;
-        svector<std::pair<enode*, enode*> > m_extensionality_todo;
+        enode_pair_vector                   m_axiom2_todo;
+        enode_pair_vector                   m_extensionality_todo;
 
         void assert_axiom(unsigned num_lits, literal * lits);
         void assert_axiom(literal l1, literal l2);
@@ -181,8 +181,8 @@ namespace smt {
         bool is_unspecified_default_ok() const;
         void collect_defaults();
         void collect_selects();
-        void propagate_select_to_store_parents(enode * r, enode * sel, svector<enode_pair> & todo);
-        void propagate_selects_to_store_parents(enode * r, svector<enode_pair> & todo);
+        void propagate_select_to_store_parents(enode * r, enode * sel, enode_pair_vector & todo);
+        void propagate_selects_to_store_parents(enode * r, enode_pair_vector & todo);
         void propagate_selects();
         select_set * get_select_set(enode * n);
         virtual void finalize_model(model_generator & m);
