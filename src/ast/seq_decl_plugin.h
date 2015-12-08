@@ -189,18 +189,19 @@ public:
         bool is_empty(expr const* n) const { symbol s; 
             return is_app_of(n, m_fid, OP_SEQ_EMPTY) || (is_string(n, s) && !s.is_numerical() && *s.bare_str() == 0); 
         }
-        bool is_concat(expr const* n)  const { return is_app_of(n, m_fid, OP_SEQ_CONCAT); }
-        bool is_length(expr const* n)  const { return is_app_of(n, m_fid, OP_SEQ_LENGTH); }
+        bool is_concat(expr const* n)   const { return is_app_of(n, m_fid, OP_SEQ_CONCAT); }
+        bool is_length(expr const* n)   const { return is_app_of(n, m_fid, OP_SEQ_LENGTH); }
         bool is_extract(expr const* n)  const { return is_app_of(n, m_fid, OP_SEQ_EXTRACT); }
-        bool is_contains(expr const* n)  const { return is_app_of(n, m_fid, OP_SEQ_CONTAINS); }
-        bool is_at(expr const* n)      const { return is_app_of(n, m_fid, OP_SEQ_AT); }
-        bool is_stridof(expr const* n) const { return is_app_of(n, m_fid, OP_STRING_STRIDOF); }
-        bool is_repl(expr const* n)    const { return is_app_of(n, m_fid, OP_STRING_STRREPL); }
-        bool is_prefix(expr const* n)  const { return is_app_of(n, m_fid, OP_SEQ_PREFIX); }
-        bool is_suffix(expr const* n)  const { return is_app_of(n, m_fid, OP_SEQ_SUFFIX); }
-        bool is_itos(expr const* n)    const { return is_app_of(n, m_fid, OP_STRING_ITOS); }
-        bool is_stoi(expr const* n)    const { return is_app_of(n, m_fid, OP_STRING_STOI); }
-        bool is_in_re(expr const* n) const { return is_app_of(n, m_fid, OP_SEQ_IN_RE); }
+        bool is_contains(expr const* n) const { return is_app_of(n, m_fid, OP_SEQ_CONTAINS); }
+        bool is_at(expr const* n)       const { return is_app_of(n, m_fid, OP_SEQ_AT); }
+        bool is_stridof(expr const* n)  const { return is_app_of(n, m_fid, OP_STRING_STRIDOF); }
+        bool is_repl(expr const* n)     const { return is_app_of(n, m_fid, OP_STRING_STRREPL); }
+        bool is_prefix(expr const* n)   const { return is_app_of(n, m_fid, OP_SEQ_PREFIX); }
+        bool is_suffix(expr const* n)   const { return is_app_of(n, m_fid, OP_SEQ_SUFFIX); }
+        bool is_itos(expr const* n)     const { return is_app_of(n, m_fid, OP_STRING_ITOS); }
+        bool is_stoi(expr const* n)     const { return is_app_of(n, m_fid, OP_STRING_STOI); }
+        bool is_in_re(expr const* n)    const { return is_app_of(n, m_fid, OP_SEQ_IN_RE); }
+        bool is_unit(expr const* n)     const { return is_app_of(n, m_fid, OP_SEQ_UNIT); }
 
         
         MATCH_BINARY(is_concat);
@@ -215,6 +216,7 @@ public:
         MATCH_UNARY(is_itos);
         MATCH_UNARY(is_stoi);
         MATCH_BINARY(is_in_re);        
+        MATCH_UNARY(is_unit);
 
         void get_concat(expr* e, ptr_vector<expr>& es) const;
         expr* get_leftmost_concat(expr* e) const { expr* e1, *e2; while (is_concat(e, e1, e2)) e = e1; return e; }

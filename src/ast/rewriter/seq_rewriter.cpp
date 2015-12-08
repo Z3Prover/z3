@@ -510,3 +510,167 @@ br_status seq_rewriter::mk_re_plus(expr* a, expr_ref& result) {
 br_status seq_rewriter::mk_re_opt(expr* a, expr_ref& result) {
     return BR_FAILED;
 }
+
+br_status seq_rewriter::mk_eq_core(expr * l, expr * r, expr_ref & result) {
+    expr_ref_vector lhs(m()), rhs(m()), res(m());
+    if (!reduce_eq(l, r, lhs, rhs)) {
+        result = m().mk_false();
+        return BR_DONE;
+    }
+    if (lhs.size() == 1 && lhs[0].get() == l && rhs[0].get() == r) {
+        return BR_FAILED;
+    }
+    for (unsigned i = 0; i < lhs.size(); ++i) {
+        res.push_back(m().mk_eq(lhs[i].get(), rhs[i].get()));
+    }
+    result = mk_and(res);
+    return BR_REWRITE3;
+}
+
+bool seq_rewriter::reduce_eq(expr* l, expr* r, expr_ref_vector& lhs, expr_ref_vector& rhs) {
+    expr* a, *b;
+    bool change = false;
+    expr_ref_vector trail(m());
+    m_lhs.reset();
+    m_rhs.reset();
+    m_util.str.get_concat(l, m_lhs);
+    m_util.str.get_concat(r, m_rhs);
+ 
+    // solve from back
+    while (!m_lhs.empty() && !m_rhs.empty()) {
+        if (m_lhs.back() == m_rhs.back()) {
+            m_lhs.pop_back();
+            m_rhs.pop_back();
+        }
+        else if(m_util.str.is_unit(m_lhs.back(), a) &&
+                m_util.str.is_unit(m_rhs.back(), b)) {
+            lhs.push_back(a);
+            rhs.push_back(b);
+            m_lhs.pop_back();
+            m_rhs.pop_back();
+        }
+        else if (!m_rhs.empty() && m_util.str.is_empty(m_rhs.back())) {
+            m_rhs.pop_back();
+        }
+        else if (!m_lhs.empty() && m_util.str.is_empty(m_lhs.back())) {
+            m_lhs.pop_back();
+        }
+        else {
+            break;
+        }
+        change = true;
+    }
+
+    // solve from front
+    unsigned head1 = 0, head2 = 0;
+    while (head1 < m_lhs.size() && head2 < m_rhs.size()) {
+        if (m_lhs[head1] == m_rhs[head2]) {
+            ++head1;
+            ++head2;
+        }
+        else if(m_util.str.is_unit(m_lhs[head1], a) &&
+                m_util.str.is_unit(m_rhs[head2], b)) {
+            lhs.push_back(a);
+            rhs.push_back(b);
+            ++head1;
+            ++head2;
+        }
+        else if (head1 < m_lhs.size() && m_util.str.is_empty(m_lhs[head1])) {
+            ++head1;
+        }
+        else if (head2 < m_rhs.size() && m_util.str.is_empty(m_rhs[head2])) {
+            ++head2;
+        }
+        else {
+            break;
+        }
+        change = true;
+    }
+    // reduce strings
+    std::string s1, s2;
+    if (head1 < m_lhs.size() && 
+        head2 < m_rhs.size() && 
+        m_util.str.is_string(m_lhs[head1], s1) &&
+        m_util.str.is_string(m_rhs[head2], s2)) {
+        size_t l = std::min(s1.length(), s2.length());
+        for (size_t i = 0; i < l; ++i) {
+            if (s1[i] != s2[i]) {
+                return false;
+            }
+        }
+        if (l == s1.length()) {
+            ++head1;            
+        }
+        else {
+            m_lhs[head1] = m_util.str.mk_string(std::string(s1.c_str()+l,s1.length()-l));
+            trail.push_back(m_lhs[head1]);
+        }
+        if (l == s2.length()) {
+            ++head2;            
+        }
+        else {
+            m_rhs[head2] = m_util.str.mk_string(std::string(s2.c_str()+l,s2.length()-l));
+            trail.push_back(m_rhs[head2]);
+        }
+        change = true;
+    }
+    if (head1 < m_lhs.size() && 
+        head2 < m_rhs.size() &&
+        m_util.str.is_string(m_lhs.back(), s1) &&
+        m_util.str.is_string(m_rhs.back(), s2)) {
+        size_t l = std::min(s1.length(), s2.length());
+        for (size_t i = 0; i < l; ++i) {
+            if (s1[s1.length()-i-1] != s2[s2.length()-i-1]) {
+                return false;
+            }
+        }
+        m_lhs.pop_back();          
+        m_rhs.pop_back();
+        if (l < s1.length()) {
+            m_lhs.push_back(m_util.str.mk_string(std::string(s1.c_str(),s1.length()-l)));
+            trail.push_back(m_lhs.back());
+        }
+        if (l < s2.length()) {
+            m_rhs.push_back(m_util.str.mk_string(std::string(s2.c_str(),s2.length()-l)));
+            trail.push_back(m_rhs.back());
+        }
+        change = true;
+    }
+    if (!change) {
+        lhs.push_back(l);
+        rhs.push_back(r);
+    }
+    else if (head1 == m_lhs.size() && head2 == m_rhs.size()) {
+        // skip
+    }
+    else if (head1 == m_lhs.size()) {
+        return set_empty(m_rhs.size() - head2, m_rhs.c_ptr() + head2, lhs, rhs);
+    }
+    else if (head2 == m_rhs.size()) {
+        return set_empty(m_lhs.size() - head1, m_lhs.c_ptr() + head1, lhs, rhs);
+    }
+    else { // head1 < m_lhs.size() && head2 < m_rhs.size() // could solve if either side is fixed size.
+        lhs.push_back(m_util.str.mk_concat(m_lhs.size() - head1, m_lhs.c_ptr() + head1));
+        rhs.push_back(m_util.str.mk_concat(m_rhs.size() - head2, m_rhs.c_ptr() + head2));
+    }
+    return true;
+}
+
+bool seq_rewriter::set_empty(unsigned sz, expr* const* es, expr_ref_vector& lhs, expr_ref_vector& rhs) {
+    std::string s;
+    for (unsigned i = 0; i < sz; ++i) {
+        if (m_util.str.is_unit(es[i])) {
+            return false;
+        }
+        if (m_util.str.is_empty(es[i])) {
+            continue;
+        }
+        if (m_util.str.is_string(es[i], s)) {
+            SASSERT(s.length() > 0);
+            return false;
+        }
+        lhs.push_back(m_util.str.mk_empty(m().get_sort(es[i])));
+        rhs.push_back(es[i]);
+    }
+    return true;
+}

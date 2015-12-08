@@ -35,9 +35,12 @@ namespace smt {
             void reset() { memset(this, 0, sizeof(stats)); }
             unsigned m_num_splits;
         };
+        ast_manager&    m;
         expr_ref_vector m_rep;        // unification representative.
         vector<expr_array> m_lhs, m_rhs; // persistent sets of equalities.
         unsigned        m_eqs_head;      // index of unprocessed equation.
+        enode_pair_vector m_deps;    // TBD - convert to dependency structure.
+
 
         expr_ref_vector m_ineqs;      // inequalities to check
         expr_ref_vector m_axioms;     
@@ -68,6 +71,7 @@ namespace smt {
 
         final_check_status check_ineqs();
         bool simplify_eqs();
+        bool simplify_eq(expr* l, expr* r, enode_pair_vector& deps);
         final_check_status add_axioms();
 
         void assert_axiom(expr_ref& e);

@@ -21,11 +21,13 @@ Revision History:
 #include "smt_context.h"
 #include "smt_model_generator.h"
 #include "theory_seq.h"
+#include "seq_rewriter.h"
 
 using namespace smt;
 
 theory_seq::theory_seq(ast_manager& m):
     theory(m.mk_family_id("seq")), 
+    m(m),
     m_rep(m),    
     m_eqs_head(0),
     m_ineqs(m),
@@ -43,7 +45,6 @@ theory_seq::theory_seq(ast_manager& m):
 
 final_check_status theory_seq::final_check_eh() { 
     context & ctx   = get_context();
-    ast_manager& m  = get_manager();
     final_check_status st = check_ineqs();
     if (st == FC_CONTINUE) {
         return FC_CONTINUE;
@@ -53,7 +54,6 @@ final_check_status theory_seq::final_check_eh() {
 
 final_check_status theory_seq::check_ineqs() {
     context & ctx   = get_context();
-    ast_manager& m  = get_manager();
     enode_pair_vector eqs;
     for (unsigned i = 0; i < m_ineqs.size(); ++i) {
         expr_ref a(m_ineqs[i].get(), m);
@@ -75,25 +75,56 @@ final_check_status theory_seq::check_ineqs() {
 
 bool theory_seq::simplify_eqs() {
     context & ctx   = get_context();
-    ast_manager& m  = get_manager();
     bool simplified = false;
     expr_array& lhs = m_lhs.back();
     expr_array& rhs = m_rhs.back();
-    for (unsigned i = m_eqs_head; i < m.size(lhs); ++i) {
-        expr* l = m.get(lhs, i);
-        expr* r = m.get(rhs, i);
-#if 0
-        if (reduce(l, r)) {
-            ++m_eq_head;
+    for (unsigned i = 0; !ctx.inconsistent() && i < m.size(lhs); ++i) {
+        if (simplify_eq(m.get(lhs, i), m.get(rhs, i), m_deps)) {
+            if (i + 1 != m.size(lhs)) {
+                m.set(lhs, i, m.get(lhs, m.size(lhs)-1));
+                m.set(rhs, i, m.get(rhs, m.size(rhs)-1));
+                --i;
+                simplified = true;
+            }
+            m.pop_back(lhs);
+            m.pop_back(rhs);
         }
-        else {
-            // equality is not simplified
-            // move forward pointer
-        }
-#endif
-    
     }
     return simplified;
+}
+
+bool theory_seq::simplify_eq(expr* l, expr* r, enode_pair_vector& deps) {
+    context& ctx = get_context();
+    seq_rewriter rw(m);
+    expr_ref_vector lhs(m), rhs(m);
+    SASSERT(ctx.e_internalized(l));
+    SASSERT(ctx.e_internalized(r));
+    expr_ref lh = canonize(l, deps);
+    expr_ref rh = canonize(r, deps);
+    if (!rw.reduce_eq(l, r, lhs, rhs)) {
+        // equality is inconsistent.
+        // create conflict assignment.  
+        expr_ref a(m);
+        a = m.mk_eq(l, r);
+        literal lit(ctx.get_literal(a));
+        ctx.assign(
+            ~lit,
+            ctx.mk_justification(
+                ext_theory_propagation_justification(
+                    get_id(), ctx.get_region(), 0, 0, deps.size(), deps.c_ptr(), ~lit)));
+        return true;
+    }
+    if (lhs.size() == 1 && l == lhs[0].get() &&
+        rhs.size() == 1 && r == rhs[0].get()) {
+        return false;
+    }
+    SASSERT(lhs.size() == rhs.size());
+    for (unsigned i = 0; i < lhs.size(); ++i) {
+        m.push_back(m_lhs.back(), lhs[i].get());
+        m.push_back(m_rhs.back(), rhs[i].get());
+        // TBD m_deps.push_back(deps);
+    }    
+    return true;
 }
 
 final_check_status theory_seq::add_axioms() {
@@ -111,7 +142,6 @@ bool theory_seq::internalize_atom(app* a, bool) {
 bool theory_seq::internalize_term(app* term) { 
     m_used = true;
     context & ctx   = get_context();
-    ast_manager& m  = get_manager();
     unsigned num_args = term->get_num_args();
     for (unsigned i = 0; i < num_args; i++) {
         ctx.internalize(term->get_arg(i), false);
@@ -154,7 +184,6 @@ expr_ref theory_seq::canonize(expr* e, enode_pair_vector& eqs) {
 
 expr_ref theory_seq::expand(expr* e, enode_pair_vector& eqs) {
     context& ctx = get_context();
-    ast_manager& m = get_manager();
     expr* e1, *e2;
     SASSERT(ctx.e_internalized(e));
     enode* n = ctx.get_enode(e);
@@ -200,7 +229,6 @@ expr_ref theory_seq::expand(expr* e, enode_pair_vector& eqs) {
 
 void theory_seq::propagate() {
     context & ctx = get_context();
-    ast_manager& m  = get_manager();    
     while (m_axioms_head < m_axioms.size() && !ctx.inconsistent()) {
         expr_ref e(m);
         e = m_axioms[m_axioms_head].get();
@@ -216,7 +244,6 @@ void theory_seq::create_axiom(expr_ref& e) {
 
 void theory_seq::assert_axiom(expr_ref& e) {
     context & ctx = get_context();
-    ast_manager& m  = get_manager();    
     if (m.is_true(e)) return;
     TRACE("seq", tout << "asserting " << e << "\n";);
     ctx.internalize(e, false);
@@ -227,7 +254,6 @@ void theory_seq::assert_axiom(expr_ref& e) {
 }
 
 expr_ref theory_seq::mk_skolem(char const* name, expr* e1, expr* e2) {
-    ast_manager& m  = get_manager();    
     expr_ref result(m);
     sort* s = m.get_sort(e1);
     SASSERT(s == m.get_sort(e2));
@@ -249,7 +275,6 @@ void theory_seq::propagate_eq(bool_var v, expr* e1, expr* e2) {
 
 void theory_seq::assign_eq(bool_var v, bool is_true) {
     context & ctx = get_context();
-    ast_manager& m  = get_manager();    
 
     enode* n = ctx.bool_var2enode(v);
     app*  e = n->get_owner();
@@ -286,7 +311,6 @@ void theory_seq::assign_eq(bool_var v, bool is_true) {
 }
 
 void theory_seq::new_eq_eh(theory_var v1, theory_var v2) { 
-    ast_manager& m  = get_manager();    
     m_find.merge(v1, v2);
     expr_ref e1(m), e2(m);
     e1 = get_enode(v1)->get_owner();
@@ -296,7 +320,6 @@ void theory_seq::new_eq_eh(theory_var v1, theory_var v2) {
 }
 
 void theory_seq::new_diseq_eh(theory_var v1, theory_var v2) {
-    ast_manager& m  = get_manager();    
     expr* e1 = get_enode(v1)->get_owner();
     expr* e2 = get_enode(v2)->get_owner();
     m_trail_stack.push(push_back_vector<theory_seq, expr_ref_vector>(m_ineqs));
@@ -304,7 +327,6 @@ void theory_seq::new_diseq_eh(theory_var v1, theory_var v2) {
 }
 
 void theory_seq::push_scope_eh() {
-    ast_manager& m  = get_manager();    
     theory::push_scope_eh();
     m_trail_stack.push_scope();
     m_trail_stack.push(value_trail<theory_seq, unsigned>(m_axioms_head));
@@ -317,7 +339,6 @@ void theory_seq::push_scope_eh() {
 }
 
 void theory_seq::pop_scope_eh(unsigned num_scopes) {
-    ast_manager& m  = get_manager();    
     m_trail_stack.pop_scope(num_scopes);
     theory::pop_scope_eh(num_scopes);    
     m_rep.resize(get_num_vars());
@@ -335,7 +356,6 @@ void theory_seq::restart_eh() {
 }
 
 void theory_seq::relevant_eh(app* n) {
-    ast_manager& m = get_manager();
     if (m_util.str.is_length(n)) {
         expr_ref e(m);
         e = m_autil.mk_le(m_autil.mk_numeral(rational(0), true), n);
