@@ -40,13 +40,9 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_RE_LOOP:
     case OP_RE_EMPTY_SET:
     case OP_RE_FULL_SET:
-    case OP_RE_EMPTY_SEQ:
     case OP_RE_OF_PRED:
         return BR_FAILED;
-
-    // string specific operators.
-    case OP_STRING_CONST:
-        return BR_FAILED;
+    
     case OP_SEQ_CONCAT: 
         SASSERT(num_args == 2);
         return mk_seq_concat(args[0], args[1], result);
@@ -62,26 +58,31 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_SEQ_AT:
         SASSERT(num_args == 2);
         return mk_str_at(args[0], args[1], result); 
-    case OP_STRING_STRIDOF: 
-        SASSERT(num_args == 3);
-        return mk_str_stridof(args[0], args[1], args[2], result);
-    case OP_STRING_STRREPL: 
-        SASSERT(num_args == 3);
-        return mk_str_strrepl(args[0], args[1], args[2], result);
     case OP_SEQ_PREFIX: 
         SASSERT(num_args == 2);
         return mk_seq_prefix(args[0], args[1], result);
     case OP_SEQ_SUFFIX: 
         SASSERT(num_args == 2);
         return mk_seq_suffix(args[0], args[1], result);
+    case OP_SEQ_TO_RE:
+        return BR_FAILED;
+    case OP_SEQ_IN_RE:
+        return BR_FAILED;
+
+    case OP_STRING_CONST:
+        return BR_FAILED;
+    case OP_STRING_STRIDOF: 
+        SASSERT(num_args == 3);
+        return mk_str_stridof(args[0], args[1], args[2], result);
+    case OP_STRING_STRREPL: 
+        SASSERT(num_args == 3);
+        return mk_str_strrepl(args[0], args[1], args[2], result);
     case OP_STRING_ITOS: 
         SASSERT(num_args == 1);
         return mk_str_itos(args[0], result);
     case OP_STRING_STOI: 
         SASSERT(num_args == 1);
         return mk_str_stoi(args[0], result);
-    case OP_SEQ_TO_RE:
-    case OP_SEQ_IN_RE:
     case OP_REGEXP_LOOP: 
         return BR_FAILED;
     case _OP_STRING_CONCAT:
@@ -140,7 +141,7 @@ br_status seq_rewriter::mk_str_length(expr* a, expr_ref& result) {
     m_es.reset();
     m_util.str.get_concat(a, m_es);
     size_t len = 0;
-    size_t j = 0;
+    unsigned j = 0;
     for (unsigned i = 0; i < m_es.size(); ++i) {
         if (m_util.str.is_string(m_es[i], b)) {
             len += b.length();
@@ -154,7 +155,7 @@ br_status seq_rewriter::mk_str_length(expr* a, expr_ref& result) {
         result = m_autil.mk_numeral(rational(len, rational::ui64()), true);
         return BR_DONE;
     }
-    if (j != m_es.size()) {
+    if (j != m_es.size() || j != 1) {
         expr_ref_vector es(m());        
         for (unsigned i = 0; i < j; ++i) {
             es.push_back(m_util.str.mk_length(m_es[i]));

@@ -54,7 +54,6 @@ enum seq_op_kind {
     OP_RE_LOOP,
     OP_RE_EMPTY_SET,
     OP_RE_FULL_SET,
-    OP_RE_EMPTY_SEQ,
     OP_RE_OF_PRED,
 
 
