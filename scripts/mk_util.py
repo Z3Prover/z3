@@ -712,7 +712,9 @@ def parse_options():
             display_help(1)
     # Handle the Python package directory
     if IS_WINDOWS:
-        PYTHON_INSTALL_ENABLED = True
+        # Installing under Windows doesn't make sense as the install prefix is used
+        # but that doesn't make sense under Windows
+        PYTHON_INSTALL_ENABLED = False
     else:
         if not PYTHON_PACKAGE_DIR.startswith(PREFIX):
             print(("Warning: The detected Python package directory (%s)"
@@ -720,7 +722,14 @@ def parse_options():
                    ". This would lead to a broken Python installation."
                    "Use --pypkgdir= to change the Python package directory") %
                   (PYTHON_PACKAGE_DIR, PREFIX))
-            PYTHON_INSTALL_ENABLED = False
+            if IS_OSX and PYTHON_PACKAGE_DIR.startswith('/Library/'):
+                print("Using hack to install Python bindings, this might lead to a broken system")
+                PYTHON_INSTALL_ENABLED = True
+            else:
+                print("Disabling install of Python bindings")
+                PYTHON_INSTALL_ENABLED = False
+        else:
+            PYTHON_INSTALL_ENABLED = True
 
 # Return a list containing a file names included using '#include' in
 # the given C/C++ file named fname.
@@ -1340,13 +1349,26 @@ class PythonInstallComponent(Component):
     def __init__(self, name, libz3Component):
         assert isinstance(libz3Component, DLLComponent)
         Component.__init__(self, name, None, [])
-        self.pythonPkgDirWithoutPrefix = None
+        self.pythonPkgDir = None
+        self.in_prefix_install = True
         self.libz3Component = libz3Component
-        if PYTHON_INSTALL_ENABLED:
-            # Only safe to call this if we know that PYTHON_PACKAGE_DIR lives under PREFIX.
-            # Other parts of the code enforce that this is the case when ``PYTHON_INSTALL_ENABLED``
-            # is True.
-            self.pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
+        if not PYTHON_INSTALL_ENABLED:
+            return
+
+        if self.is_osx_hack():
+            # Use full path that is outside of install prefix
+            self.pythonPkgDir = PYTHON_PACKAGE_DIR
+            self.in_prefix_install = False
+            assert os.path.isabs(self.pythonPkgDir)
+        else:
+            # Use path inside the prefix (should be the normal case)
+            assert PYTHON_PACKAGE_DIR.startswith(PREFIX)
+            self.pythonPkgDir = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
+            assert not os.path.isabs(self.pythonPkgDir)
+            assert self.in_prefix_install
+
+    def is_osx_hack(self):
+        return IS_OSX and not PYTHON_PACKAGE_DIR.startswith(PREFIX)
 
     def main_component(self):
         return False    
@@ -1354,14 +1376,15 @@ class PythonInstallComponent(Component):
     def mk_install(self, out):
         if not is_python_install_enabled():
             return
-        MakeRuleCmd.make_install_directory(out, self.pythonPkgDirWithoutPrefix)
+        MakeRuleCmd.make_install_directory(out, self.pythonPkgDir, in_prefix=self.in_prefix_install)
 
         # Sym-link or copy libz3 into python package directory
-        if IS_WINDOWS:
+        if IS_WINDOWS or self.is_osx_hack():
             MakeRuleCmd.install_files(out,
                                       self.libz3Component.dll_file(),
-                                      os.path.join(pythonPkgDirWithoutPrefix,
-                                                   self.libz3Component.dll_file())
+                                      os.path.join(self.pythonPkgDir,
+                                                   self.libz3Component.dll_file()),
+                                      in_prefix=self.in_prefix_install
                                      )
         else:
             # Create symbolic link to save space.
@@ -1370,18 +1393,27 @@ class PythonInstallComponent(Component):
             # staged installs that use DESTDIR).
             MakeRuleCmd.create_relative_symbolic_link(out,
                                                       self.libz3Component.install_path(),
-                                                      os.path.join(self.pythonPkgDirWithoutPrefix,
+                                                      os.path.join(self.pythonPkgDir,
                                                                    self.libz3Component.dll_file()
-                                                                  )
+                                                                  ),
                                                      )
 
-        MakeRuleCmd.install_files(out, 'z3*.py', self.pythonPkgDirWithoutPrefix)
+        MakeRuleCmd.install_files(out, 'z3*.py', self.pythonPkgDir,
+                                  in_prefix=self.in_prefix_install)
         if sys.version >= "3":
-            pythonPycacheDir = os.path.join(self.pythonPkgDirWithoutPrefix, '__pycache__')
-            MakeRuleCmd.make_install_directory(out, pythonPycacheDir)
-            MakeRuleCmd.install_files(out, '{}*.pyc'.format(os.path.join('__pycache__', 'z3')), pythonPycacheDir)
+            pythonPycacheDir = os.path.join(self.pythonPkgDir, '__pycache__')
+            MakeRuleCmd.make_install_directory(out,
+                                               pythonPycacheDir,
+                                               in_prefix=self.in_prefix_install)
+            MakeRuleCmd.install_files(out,
+                                      '{}*.pyc'.format(os.path.join('__pycache__', 'z3')),
+                                      pythonPycacheDir,
+                                      in_prefix=self.in_prefix_install)
         else:
-            MakeRuleCmd.install_files(out, 'z3*.pyc', self.pythonPkgDirWithoutPrefix)
+            MakeRuleCmd.install_files(out,
+                                      'z3*.pyc',
+                                      self.pythonPkgDir,
+                                      in_prefix=self.in_prefix_install)
         if PYTHON_PACKAGE_DIR != distutils.sysconfig.get_python_lib():
             if os.uname()[0] == 'Darwin':
                 LD_LIBRARY_PATH = "DYLD_LIBRARY_PATH"
@@ -1394,11 +1426,21 @@ class PythonInstallComponent(Component):
     def mk_uninstall(self, out):
         if not is_python_install_enabled():
             return
-        MakeRuleCmd.remove_installed_files(out, os.path.join(self.pythonPkgDirWithoutPrefix,
-                                                             self.libz3Component.dll_file()))
-        MakeRuleCmd.remove_installed_files(out, '{}*.py'.format(os.path.join(self.pythonPkgDirWithoutPrefix, 'z3')))
-        MakeRuleCmd.remove_installed_files(out, '{}*.pyc'.format(os.path.join(self.pythonPkgDirWithoutPrefix, 'z3')))
-        MakeRuleCmd.remove_installed_files(out, '{}*.pyc'.format(os.path.join(self.pythonPkgDirWithoutPrefix, '__pycache__', 'z3')))
+        MakeRuleCmd.remove_installed_files(out,
+                                           os.path.join(self.pythonPkgDir,
+                                                        self.libz3Component.dll_file()),
+                                           in_prefix=self.in_prefix_install
+                                          )
+        MakeRuleCmd.remove_installed_files(out,
+                                           '{}*.py'.format(os.path.join(self.pythonPkgDir, 'z3')),
+                                           in_prefix=self.in_prefix_install)
+        MakeRuleCmd.remove_installed_files(out,
+                                           '{}*.pyc'.format(os.path.join(self.pythonPkgDir, 'z3')),
+                                           in_prefix=self.in_prefix_install)
+        MakeRuleCmd.remove_installed_files(out,
+                                           '{}*.pyc'.format(os.path.join(self.pythonPkgDir, '__pycache__', 'z3')),
+                                           in_prefix=self.in_prefix_install
+                                          )
 
     def mk_makefile(self, out):
         return
@@ -3479,37 +3521,56 @@ class MakeRuleCmd(object):
         return "$(DESTDIR)$(PREFIX)/"
 
     @classmethod
-    def install_files(cls, out, src_pattern, dest):
+    def _install_root(cls, path, in_prefix, out):
+        if in_prefix:
+            assert not os.path.isabs(path)
+            install_root = cls.install_root()
+        else:
+            # This hack only exists for the Python bindings on OSX
+            # which are sometimes not installed inside the prefix.
+            # In all other cases installing outside the prefix is
+            # misleading and dangerous!
+            assert IS_OSX
+            assert os.path.isabs(path)
+            install_root = "$(DESTDIR)"
+            cls.write_cmd(out, 'echo "WARNING: {} is not in the install prefix. This will likely lead to a broken installation."'.format(path))
+        return install_root
+
+    @classmethod
+    def install_files(cls, out, src_pattern, dest, in_prefix=True):
         assert len(dest) > 0
         assert isinstance(src_pattern, str)
         assert not ' ' in src_pattern
         assert isinstance(dest, str)
         assert not ' ' in dest
         assert not os.path.isabs(src_pattern)
-        assert not os.path.isabs(dest)
+        install_root = cls._install_root(dest, in_prefix, out)
+
         cls.write_cmd(out, "cp {src_pattern} {install_root}{dest}".format(
             src_pattern=src_pattern,
-            install_root=cls.install_root(),
+            install_root=install_root,
             dest=dest))
 
     @classmethod
-    def remove_installed_files(cls, out, pattern):
+    def remove_installed_files(cls, out, pattern, in_prefix=True):
         assert len(pattern) > 0
         assert isinstance(pattern, str)
         assert not ' ' in pattern
-        assert not os.path.isabs(pattern)
+        install_root = cls._install_root(pattern, in_prefix, out)
+
         cls.write_cmd(out, "rm -f {install_root}{pattern}".format(
-            install_root=cls.install_root(),
+            install_root=install_root,
             pattern=pattern))
 
     @classmethod
-    def make_install_directory(cls, out, dir):
+    def make_install_directory(cls, out, dir, in_prefix=True):
         assert len(dir) > 0
         assert isinstance(dir, str)
         assert not ' ' in dir
-        assert not os.path.isabs(dir)
+        install_root = cls._install_root(dir, in_prefix, out)
+
         cls.write_cmd(out, "mkdir -p {install_root}{dir}".format(
-            install_root=cls.install_root(),
+            install_root=install_root,
             dir=dir))
 
     @classmethod
@@ -3548,10 +3609,11 @@ class MakeRuleCmd(object):
         # it's a file
         if link_name[-1] != '/':
             # link_name is a file
-            temp_path = '/' + os.path.dirname(link_name)
+            temp_path = os.path.dirname(link_name)
         else:
             # link_name is a directory
-            temp_path = '/' + link_name[:-1]
+            temp_path = link_name[:-1]
+        temp_path = '/' + temp_path
         relative_path = ""
         targetAsAbs = '/' + target
         assert os.path.isabs(targetAsAbs)
@@ -3575,7 +3637,7 @@ class MakeRuleCmd(object):
         assert isinstance(target, str)
         assert isinstance(link_name, str)
         assert not os.path.isabs(target)
-        assert not os.path.isabs(link_name)
+
         cls.write_cmd(out, 'ln -s {target} {install_root}{link_name}'.format(
             target=target,
             install_root=cls.install_root(),
