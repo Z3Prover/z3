@@ -126,7 +126,11 @@ namespace smt {
         bool solve_unit_eq(expr* l, expr* r, enode_pair_dependency* dep);
         bool solve_basic_eqs();
         bool simplify_and_solve_eqs();
-        void propagate(literal lit, enode_pair_dependency* dep);
+        void propagate_lit(enode_pair_dependency* dep, literal lit);
+        void propagate_eq(enode_pair_dependency* dep, enode* n1, enode* n2);
+        void propagate_eq(bool_var v, expr* e1, expr* e2);
+        void set_conflict(enode_pair_dependency* dep);
+
         bool occurs(expr* a, expr* b);
         bool is_var(expr* b);
         void add_solution(expr* l, expr* r, enode_pair_dependency* dep);
@@ -140,15 +144,13 @@ namespace smt {
         expr_ref canonize(expr* e, enode_pair_dependency*& eqs);
         expr_ref expand(expr* e, enode_pair_dependency*& eqs);
         void add_dependency(enode_pair_dependency*& dep, enode* a, enode* b);
-        enode_pair_dependency* leaf(enode* a, enode* b);
-        enode_pair_dependency* join(enode_pair_dependency* a, enode_pair_dependency* b);
 
-        void propagate_eq(bool_var v, expr* e1, expr* e2);
         expr_ref mk_skolem(symbol const& s, expr* e1, expr* e2);
 
         void set_incomplete(app* term);
     public:
         theory_seq(ast_manager& m);
+        virtual ~theory_seq();
 
     };
 };

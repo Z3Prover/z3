@@ -321,8 +321,8 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
                                func_decl_info(m_family_id, OP_STRING_CONST, num_parameters, parameters));
         
     case OP_SEQ_CONCAT: {
-        if (arity < 2) {
-            m.raise_exception("invalid concatenation. At least two arguments expected");
+        if (arity == 0) {
+            m.raise_exception("invalid concatenation. At least one argument expected");
         }
         match_left_assoc(*m_sigs[k], arity, domain, range, rng);        
         func_decl_info info(m_family_id, k);
@@ -330,8 +330,8 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         return m.mk_func_decl(m_sigs[(rng == m_string)?_OP_STRING_CONCAT:k]->m_name, rng, rng, rng, info);
     } 
     case OP_RE_CONCAT:  {
-        if (arity < 2) {
-            m.raise_exception("invalid concatenation. At least two arguments expected");
+        if (arity == 0) {
+            m.raise_exception("invalid concatenation. At least one argument expected");
         }
         match_left_assoc(*m_sigs[k], arity, domain, range, rng);
         func_decl_info info(m_family_id, k);
@@ -339,8 +339,8 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         return m.mk_func_decl(m_sigs[k]->m_name, rng, rng, rng, info);
     }
     case _OP_STRING_CONCAT: {
-        if (arity < 2) {
-            m.raise_exception("invalid string concatenation. At least two arguments expected");
+        if (arity == 0) {
+            m.raise_exception("invalid concatenation. At least one argument expected");
         }
         match_left_assoc(*m_sigs[k], arity, domain, range, rng);
         func_decl_info info(m_family_id, OP_SEQ_CONCAT);

@@ -21,6 +21,7 @@ Notes:
 #include"arith_decl_plugin.h"
 #include"ast_pp.h"
 #include"ast_util.h"
+#include"uint_set.h"
 
 
 br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
@@ -42,9 +43,14 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_RE_EMPTY_SET:
     case OP_RE_FULL_SET:
     case OP_RE_OF_PRED:
+    case _OP_SEQ_SKOLEM:
         return BR_FAILED;
     
     case OP_SEQ_CONCAT: 
+        if (num_args == 1) {
+            result = args[0];
+            return BR_DONE;
+        }
         SASSERT(num_args == 2);
         return mk_seq_concat(args[0], args[1], result);
     case OP_SEQ_LENGTH:
@@ -588,10 +594,10 @@ bool seq_rewriter::reduce_eq(expr* l, expr* r, expr_ref_vector& lhs, expr_ref_ve
     }
     // reduce strings
     std::string s1, s2;
-    if (head1 < m_lhs.size() && 
-        head2 < m_rhs.size() && 
-        m_util.str.is_string(m_lhs[head1], s1) &&
-        m_util.str.is_string(m_rhs[head2], s2)) {
+    while (head1 < m_lhs.size() && 
+           head2 < m_rhs.size() && 
+           m_util.str.is_string(m_lhs[head1], s1) &&
+           m_util.str.is_string(m_rhs[head2], s2)) {
         size_t l = std::min(s1.length(), s2.length());
         for (size_t i = 0; i < l; ++i) {
             if (s1[i] != s2[i]) {
@@ -614,10 +620,10 @@ bool seq_rewriter::reduce_eq(expr* l, expr* r, expr_ref_vector& lhs, expr_ref_ve
         }
         change = true;
     }
-    if (head1 < m_lhs.size() && 
-        head2 < m_rhs.size() &&
-        m_util.str.is_string(m_lhs.back(), s1) &&
-        m_util.str.is_string(m_rhs.back(), s2)) {
+    while (head1 < m_lhs.size() && 
+           head2 < m_rhs.size() &&
+           m_util.str.is_string(m_lhs.back(), s1) &&
+           m_util.str.is_string(m_rhs.back(), s2)) {
         size_t l = std::min(s1.length(), s2.length());
         for (size_t i = 0; i < l; ++i) {
             if (s1[s1.length()-i-1] != s2[s2.length()-i-1]) {
@@ -695,29 +701,32 @@ bool seq_rewriter::is_subsequence(unsigned szl, expr* const* l, unsigned szr, ex
         std::swap(l, r);
     }
 
-    for (unsigned i = 1; i + szl <= szr; ++i) {
-        bool eq = true;
-        for (unsigned j = 0; eq && j < szl; ++j) {
-            eq = l[j] == r[i+j];
+    uint_set rpos;
+    for (unsigned i = 0; i < szl; ++i) {
+        bool found = false;
+        unsigned j = 0;
+        for (; !found && j < szr; ++j) {
+            found = !rpos.contains(j) && l[i] == r[j];
         }
-        if (eq) {
-            SASSERT(szr >= i + szl);
-            is_sat = set_empty(i, r, lhs, rhs);
-            is_sat &= set_empty(szr - (i + szl), r + i + szl, lhs, rhs);
-
-            TRACE("seq", 
-                  for (unsigned k = 0; k < szl; ++k) {
-                      tout << mk_pp(l[k], m()) << " ";
-                  }
-                  tout << "\n";
-                  for (unsigned k = 0; k < szr; ++k) {
-                      tout << mk_pp(r[k], m()) << " ";
-                  }
-                  tout << "\n";
-                  tout << lhs << "; " << rhs << "\n";);
-
+        if (!found) {
+            return false;
+        }
+        SASSERT(0 < j && j <= szr);
+        rpos.insert(j-1);
+    }
+    // if we reach here, then every element of l is contained in r in some position.
+    ptr_vector<expr> rs;
+    for (unsigned j = 0; j < szr; ++j) {
+        if (rpos.contains(j)) {
+            rs.push_back(r[j]);
+        }
+        else if (!set_empty(1, r + j, lhs, rhs)) {
+            is_sat = false;
             return true;
         }
     }
-    return false;
+    SASSERT(szl == rs.size());
+    lhs.push_back(m_util.str.mk_concat(szl, l));
+    rhs.push_back(m_util.str.mk_concat(szl, rs.c_ptr()));
+    return true;
 } 
