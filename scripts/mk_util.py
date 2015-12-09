@@ -2582,42 +2582,23 @@ def mk_version_dot_h(major, minor, build, revision):
     if VERBOSE:
         print("Generated '%s'" % os.path.join(c.src_dir, 'version.h'))
 
-# Generate AssemblyInfo.cs files with the right version numbers by using AssemblyInfo files as a template
+# Generate AssemblyInfo.cs files with the right version numbers by using ``AssemblyInfo.cs.in`` files as a template
 def mk_all_assembly_infos(major, minor, build, revision):
     for c in get_components():
         if c.has_assembly_info():
-            assembly = os.path.join(c.src_dir, c.assembly_info_dir, 'AssemblyInfo')
-            if os.path.exists(assembly):
-                # It is a CS file
-                mk_assembly_info_version(assembly, major, minor, build, revision)
+            assembly_info_template = os.path.join(c.src_dir, c.assembly_info_dir, 'AssemblyInfo.cs.in')
+            assembly_info_output = assembly_info_template[:-3]
+            assert assembly_info_output.endswith('.cs')
+            if os.path.exists(assembly_info_template):
+                configure_file(assembly_info_template, assembly_info_output,
+                               { 'VER_MAJOR': str(major),
+                                 'VER_MINOR': str(minor),
+                                 'VER_BUILD': str(build),
+                                 'VER_REVISION': str(revision),
+                               }
+                              )
             else:
-                raise MKException("Failed to find assembly info file 'AssemblyInfo' at '%s'" % os.path.join(c.src_dir, c.assembly_info_dir))
-
-
-# Generate version number in the given 'AssemblyInfo.cs' file using 'AssemblyInfo' as a template.
-def mk_assembly_info_version(assemblyinfo, major, minor, build, revision):
-    ver_pat   = re.compile('[assembly: AssemblyVersion\("[\.\d]*"\) *')
-    fver_pat  = re.compile('[assembly: AssemblyFileVersion\("[\.\d]*"\) *')
-    fin  = open(assemblyinfo, 'r')
-    tmp  = '%s.cs' % assemblyinfo
-    fout = open(tmp, 'w')
-    num_updates = 0
-    for line in fin:
-        if ver_pat.match(line):
-            fout.write('[assembly: AssemblyVersion("%s.%s.%s.%s")]\n' % (major, minor, build, revision))
-            num_updates = num_updates + 1
-        elif fver_pat.match(line):
-            fout.write('[assembly: AssemblyFileVersion("%s.%s.%s.%s")]\n' % (major, minor, build, revision))
-            num_updates = num_updates + 1
-        else:
-            fout.write(line)
-    # if VERBOSE:
-    #    print("%s version numbers updated at '%s'" % (num_updates, assemblyinfo))
-    assert num_updates == 2, "unexpected number of version number updates"
-    fin.close()
-    fout.close()
-    if VERBOSE:
-        print("Updated '%s'" % assemblyinfo)
+                raise MKException("Failed to find assembly template info file '%s'" % assembly_info_template)
 
 ADD_TACTIC_DATA=[]
 ADD_PROBE_DATA=[]
