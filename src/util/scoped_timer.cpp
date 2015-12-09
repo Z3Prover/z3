@@ -112,9 +112,9 @@ struct scoped_timer::imp {
         end_time.tv_sec  += st->m_ms / 1000u;
         end_time.tv_nsec += (st->m_ms % 1000u) * 1000000ull;
         // check for overflow
-        if (end_time.tv_nsec >= 1000000000ull) {
+        if (end_time.tv_nsec >= 1000000000) {
             ++end_time.tv_sec;
-            end_time.tv_nsec -= 1000000000ull;
+            end_time.tv_nsec -= 1000000000;
         }
 
         pthread_mutex_lock(&st->m_mutex);
