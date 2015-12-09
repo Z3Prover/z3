@@ -718,7 +718,9 @@ def parse_options():
             display_help(1)
     # Handle the Python package directory
     if IS_WINDOWS:
-        PYTHON_INSTALL_ENABLED = True
+        # Installing under Windows doesn't make sense as the install prefix is used
+        # but that doesn't make sense under Windows
+        PYTHON_INSTALL_ENABLED = False
     else:
         if not PYTHON_PACKAGE_DIR.startswith(PREFIX):
             print(("Warning: The detected Python package directory (%s)"
@@ -726,7 +728,14 @@ def parse_options():
                    ". This would lead to a broken Python installation."
                    "Use --pypkgdir= to change the Python package directory") %
                   (PYTHON_PACKAGE_DIR, PREFIX))
-            PYTHON_INSTALL_ENABLED = False
+            if IS_OSX and PYTHON_PACKAGE_DIR.startswith('/Library/'):
+                print("Using hack to install Python bindings, this might lead to a broken system")
+                PYTHON_INSTALL_ENABLED = True
+            else:
+                print("Disabling install of Python bindings")
+                PYTHON_INSTALL_ENABLED = False
+        else:
+            PYTHON_INSTALL_ENABLED = True
 
 # Return a list containing a file names included using '#include' in
 # the given C/C++ file named fname.
@@ -1216,11 +1225,23 @@ class DLLComponent(Component):
         else:
             return self.name + '$(SO_EXT)'
 
+    def dll_file(self):
+        """
+            Return file name of component suitable for use in a Makefile
+        """
+        return '%s$(SO_EXT)' % self.dll_name
+
+    def install_path(self):
+        """
+            Return install location of component (relative to prefix)
+            suitable for use in a Makefile
+        """
+        return os.path.join(INSTALL_LIB_DIR, self.dll_file())
+
     def mk_makefile(self, out):
         Component.mk_makefile(self, out)
         # generate rule for (SO_EXT)
-        dllfile = '%s$(SO_EXT)' % self.dll_name
-        out.write('%s:' % dllfile)
+        out.write('%s:' % self.dll_file())
         deps = sort_components(self.deps)
         objs = []
         for cppfile in get_cpp_files(self.src_dir):
@@ -1240,7 +1261,7 @@ class DLLComponent(Component):
                 c_dep = get_component(dep)
                 out.write(' ' + c_dep.get_link_name())
         out.write('\n')
-        out.write('\t$(LINK) $(SLINK_OUT_FLAG)%s $(SLINK_FLAGS)' % dllfile)
+        out.write('\t$(LINK) $(SLINK_OUT_FLAG)%s $(SLINK_FLAGS)' % self.dll_file())
         for obj in objs:
             out.write(' ')
             out.write(obj)
@@ -1256,9 +1277,9 @@ class DLLComponent(Component):
         if self.static:
             self.mk_static(out)
             libfile = '%s$(LIB_EXT)' % self.dll_name
-            out.write('%s: %s %s\n\n' % (self.name, dllfile, libfile))
+            out.write('%s: %s %s\n\n' % (self.name, self.dll_file(), libfile))
         else:
-            out.write('%s: %s\n\n' % (self.name, dllfile))
+            out.write('%s: %s\n\n' % (self.name, self.dll_file()))
 
     def mk_static(self, out):
         # generate rule for lib
@@ -1303,30 +1324,13 @@ class DLLComponent(Component):
 
     def mk_install(self, out):
         if self.install:
-            dllfile = '%s$(SO_EXT)' % self.dll_name
-            dllInstallPath = os.path.join(INSTALL_LIB_DIR, dllfile)
-            MakeRuleCmd.install_files(out, dllfile, dllInstallPath)
-            if not is_python_install_enabled():
-                return
-            pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
-            if IS_WINDOWS:
-                MakeRuleCmd.install_files(out, dllfile, os.path.join(pythonPkgDirWithoutPrefix, dllfile))
-            else:
-                # Create symbolic link to save space.
-                # It's important that this symbolic link be relative (rather
-                # than absolute) so that the install is relocatable (needed for
-                # staged installs that use DESTDIR).
-                MakeRuleCmd.create_relative_symbolic_link(out, dllInstallPath, os.path.join(pythonPkgDirWithoutPrefix, dllfile))
+            MakeRuleCmd.install_files(out, self.dll_file(), self.install_path())
             if self.static:
                 libfile = '%s$(LIB_EXT)' % self.dll_name
                 MakeRuleCmd.install_files(out, libfile, os.path.join(INSTALL_LIB_DIR, libfile))
 
     def mk_uninstall(self, out):
-        dllfile = '%s$(SO_EXT)' % self.dll_name
-        MakeRuleCmd.remove_installed_files(out, os.path.join(INSTALL_LIB_DIR, dllfile))
-        if is_python_install_enabled():
-            pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
-            MakeRuleCmd.remove_installed_files(out, os.path.join(pythonPkgDirWithoutPrefix, dllfile))
+        MakeRuleCmd.remove_installed_files(out, self.install_path())
         libfile = '%s$(LIB_EXT)' % self.dll_name
         MakeRuleCmd.remove_installed_files(out, os.path.join(INSTALL_LIB_DIR, libfile))
 
@@ -1348,29 +1352,74 @@ class DLLComponent(Component):
                         '%s.a' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
 
 class PythonInstallComponent(Component):
-    def __init__(self, name):
+    def __init__(self, name, libz3Component):
+        assert isinstance(libz3Component, DLLComponent)
         Component.__init__(self, name, None, [])
+        self.pythonPkgDir = None
+        self.in_prefix_install = True
+        self.libz3Component = libz3Component
+        if not PYTHON_INSTALL_ENABLED:
+            return
+
+        if self.is_osx_hack():
+            # Use full path that is outside of install prefix
+            self.pythonPkgDir = PYTHON_PACKAGE_DIR
+            self.in_prefix_install = False
+            assert os.path.isabs(self.pythonPkgDir)
+        else:
+            # Use path inside the prefix (should be the normal case)
+            assert PYTHON_PACKAGE_DIR.startswith(PREFIX)
+            self.pythonPkgDir = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
+            assert not os.path.isabs(self.pythonPkgDir)
+            assert self.in_prefix_install
+
+    def is_osx_hack(self):
+        return IS_OSX and not PYTHON_PACKAGE_DIR.startswith(PREFIX)
 
     def main_component(self):
         return False    
     
-    def install_deps(self, out):
-        if not is_python_install_enabled():
-            return
-        pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
-        MakeRuleCmd.make_install_directory(out, pythonPkgDirWithoutPrefix)
-
     def mk_install(self, out):
         if not is_python_install_enabled():
             return
-        pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
-        MakeRuleCmd.install_files(out, 'z3*.py', pythonPkgDirWithoutPrefix)
-        if sys.version >= "3":
-            pythonPycacheDir = os.path.join(pythonPkgDirWithoutPrefix, '__pycache__')
-            MakeRuleCmd.make_install_directory(out, pythonPycacheDir)
-            MakeRuleCmd.install_files(out, '{}*.pyc'.format(os.path.join('__pycache__', 'z3')), pythonPycacheDir)
+        MakeRuleCmd.make_install_directory(out, self.pythonPkgDir, in_prefix=self.in_prefix_install)
+
+        # Sym-link or copy libz3 into python package directory
+        if IS_WINDOWS or self.is_osx_hack():
+            MakeRuleCmd.install_files(out,
+                                      self.libz3Component.dll_file(),
+                                      os.path.join(self.pythonPkgDir,
+                                                   self.libz3Component.dll_file()),
+                                      in_prefix=self.in_prefix_install
+                                     )
         else:
-            MakeRuleCmd.install_files(out, 'z3*.pyc', pythonPkgDirWithoutPrefix)
+            # Create symbolic link to save space.
+            # It's important that this symbolic link be relative (rather
+            # than absolute) so that the install is relocatable (needed for
+            # staged installs that use DESTDIR).
+            MakeRuleCmd.create_relative_symbolic_link(out,
+                                                      self.libz3Component.install_path(),
+                                                      os.path.join(self.pythonPkgDir,
+                                                                   self.libz3Component.dll_file()
+                                                                  ),
+                                                     )
+
+        MakeRuleCmd.install_files(out, 'z3*.py', self.pythonPkgDir,
+                                  in_prefix=self.in_prefix_install)
+        if sys.version >= "3":
+            pythonPycacheDir = os.path.join(self.pythonPkgDir, '__pycache__')
+            MakeRuleCmd.make_install_directory(out,
+                                               pythonPycacheDir,
+                                               in_prefix=self.in_prefix_install)
+            MakeRuleCmd.install_files(out,
+                                      '{}*.pyc'.format(os.path.join('__pycache__', 'z3')),
+                                      pythonPycacheDir,
+                                      in_prefix=self.in_prefix_install)
+        else:
+            MakeRuleCmd.install_files(out,
+                                      'z3*.pyc',
+                                      self.pythonPkgDir,
+                                      in_prefix=self.in_prefix_install)
         if PYTHON_PACKAGE_DIR != distutils.sysconfig.get_python_lib():
             if os.uname()[0] == 'Darwin':
                 LD_LIBRARY_PATH = "DYLD_LIBRARY_PATH"
@@ -1383,10 +1432,21 @@ class PythonInstallComponent(Component):
     def mk_uninstall(self, out):
         if not is_python_install_enabled():
             return
-        pythonPkgDirWithoutPrefix = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
-        MakeRuleCmd.remove_installed_files(out, '{}*.py'.format(os.path.join(pythonPkgDirWithoutPrefix, 'z3')))
-        MakeRuleCmd.remove_installed_files(out, '{}*.pyc'.format(os.path.join(pythonPkgDirWithoutPrefix, 'z3')))
-        MakeRuleCmd.remove_installed_files(out, '{}*.pyc'.format(os.path.join(pythonPkgDirWithoutPrefix, '__pycache__', 'z3')))
+        MakeRuleCmd.remove_installed_files(out,
+                                           os.path.join(self.pythonPkgDir,
+                                                        self.libz3Component.dll_file()),
+                                           in_prefix=self.in_prefix_install
+                                          )
+        MakeRuleCmd.remove_installed_files(out,
+                                           '{}*.py'.format(os.path.join(self.pythonPkgDir, 'z3')),
+                                           in_prefix=self.in_prefix_install)
+        MakeRuleCmd.remove_installed_files(out,
+                                           '{}*.pyc'.format(os.path.join(self.pythonPkgDir, 'z3')),
+                                           in_prefix=self.in_prefix_install)
+        MakeRuleCmd.remove_installed_files(out,
+                                           '{}*.pyc'.format(os.path.join(self.pythonPkgDir, '__pycache__', 'z3')),
+                                           in_prefix=self.in_prefix_install
+                                          )
 
     def mk_makefile(self, out):
         return
@@ -1791,13 +1851,13 @@ class MLComponent(Component):
             self.mk_ml_meta(os.path.join('src/api/ml/META'), os.path.join(BUILD_DIR, self.sub_dir, 'META'), VER_MAJOR, VER_MINOR, VER_BUILD, VER_REVISION)
 
     def mk_install_deps(self, out):
-        if OCAMLFIND != '':
+        if is_ml_enabled() and OCAMLFIND != '':
             out.write(get_component(Z3_DLL_COMPONENT).dll_name + '$(SO_EXT) ')
             out.write(os.path.join(self.sub_dir, 'z3ml.cmxa '))
             out.write(os.path.join(self.sub_dir, 'META '))
 
     def mk_install(self, out):
-        if OCAMLFIND != '':
+        if is_ml_enabled() and OCAMLFIND != '':
             out.write('\t@%s remove Z3\n' % (OCAMLFIND))
             out.write('\t@%s install Z3 %s' % (OCAMLFIND, (os.path.join(self.sub_dir, 'META'))))
             for m in self.modules:
@@ -1823,7 +1883,7 @@ class MLComponent(Component):
             out.write('\n')
 
     def mk_uninstall(self, out):
-        if OCAMLFIND != '':
+        if is_ml_enabled() and OCAMLFIND != '':
             out.write('\t@%s remove Z3\n' % (OCAMLFIND))
 
     def main_component(self):
@@ -2017,6 +2077,7 @@ def add_extra_exe(name, deps=[], path=None, exe_name=None, install=True):
 def add_dll(name, deps=[], path=None, dll_name=None, export_files=[], reexports=[], install=True, static=False):
     c = DLLComponent(name, dll_name, path, deps, export_files, reexports, install, static)
     reg_component(name, c)
+    return c
 
 def add_dot_net_dll(name, deps=[], path=None, dll_name=None, assembly_info_dir=None):
     c = DotNetDLLComponent(name, dll_name, path, deps, assembly_info_dir)
@@ -2026,9 +2087,9 @@ def add_java_dll(name, deps=[], path=None, dll_name=None, package_name=None, man
     c = JavaDLLComponent(name, dll_name, package_name, manifest_file, path, deps)
     reg_component(name, c)
 
-def add_python_install():
+def add_python_install(libz3Component):
     name = 'python_install'
-    reg_component(name, PythonInstallComponent(name))
+    reg_component(name, PythonInstallComponent(name, libz3Component))
 
 def add_ml_lib(name, deps=[], path=None, lib_name=None):
     c = MLComponent(name, lib_name, path, deps)
@@ -3468,37 +3529,56 @@ class MakeRuleCmd(object):
         return "$(DESTDIR)$(PREFIX)/"
 
     @classmethod
-    def install_files(cls, out, src_pattern, dest):
+    def _install_root(cls, path, in_prefix, out):
+        if in_prefix:
+            assert not os.path.isabs(path)
+            install_root = cls.install_root()
+        else:
+            # This hack only exists for the Python bindings on OSX
+            # which are sometimes not installed inside the prefix.
+            # In all other cases installing outside the prefix is
+            # misleading and dangerous!
+            assert IS_OSX
+            assert os.path.isabs(path)
+            install_root = "$(DESTDIR)"
+            cls.write_cmd(out, 'echo "WARNING: {} is not in the install prefix. This will likely lead to a broken installation."'.format(path))
+        return install_root
+
+    @classmethod
+    def install_files(cls, out, src_pattern, dest, in_prefix=True):
         assert len(dest) > 0
         assert isinstance(src_pattern, str)
         assert not ' ' in src_pattern
         assert isinstance(dest, str)
         assert not ' ' in dest
         assert not os.path.isabs(src_pattern)
-        assert not os.path.isabs(dest)
+        install_root = cls._install_root(dest, in_prefix, out)
+
         cls.write_cmd(out, "cp {src_pattern} {install_root}{dest}".format(
             src_pattern=src_pattern,
-            install_root=cls.install_root(),
+            install_root=install_root,
             dest=dest))
 
     @classmethod
-    def remove_installed_files(cls, out, pattern):
+    def remove_installed_files(cls, out, pattern, in_prefix=True):
         assert len(pattern) > 0
         assert isinstance(pattern, str)
         assert not ' ' in pattern
-        assert not os.path.isabs(pattern)
+        install_root = cls._install_root(pattern, in_prefix, out)
+
         cls.write_cmd(out, "rm -f {install_root}{pattern}".format(
-            install_root=cls.install_root(),
+            install_root=install_root,
             pattern=pattern))
 
     @classmethod
-    def make_install_directory(cls, out, dir):
+    def make_install_directory(cls, out, dir, in_prefix=True):
         assert len(dir) > 0
         assert isinstance(dir, str)
         assert not ' ' in dir
-        assert not os.path.isabs(dir)
+        install_root = cls._install_root(dir, in_prefix, out)
+
         cls.write_cmd(out, "mkdir -p {install_root}{dir}".format(
-            install_root=cls.install_root(),
+            install_root=install_root,
             dir=dir))
 
     @classmethod
@@ -3537,10 +3617,11 @@ class MakeRuleCmd(object):
         # it's a file
         if link_name[-1] != '/':
             # link_name is a file
-            temp_path = '/' + os.path.dirname(link_name)
+            temp_path = os.path.dirname(link_name)
         else:
             # link_name is a directory
-            temp_path = '/' + link_name[:-1]
+            temp_path = link_name[:-1]
+        temp_path = '/' + temp_path
         relative_path = ""
         targetAsAbs = '/' + target
         assert os.path.isabs(targetAsAbs)
@@ -3564,7 +3645,7 @@ class MakeRuleCmd(object):
         assert isinstance(target, str)
         assert isinstance(link_name, str)
         assert not os.path.isabs(target)
-        assert not os.path.isabs(link_name)
+
         cls.write_cmd(out, 'ln -s {target} {install_root}{link_name}'.format(
             target=target,
             install_root=cls.install_root(),

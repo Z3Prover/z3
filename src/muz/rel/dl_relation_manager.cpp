@@ -1023,12 +1023,6 @@ namespace datalog {
         return res;
     }
 
-    table_min_fn * relation_manager::mk_min_fn(const table_base & t,
-        unsigned_vector & group_by_cols, const unsigned col)
-    {
-        return t.get_plugin().mk_min_fn(t, group_by_cols, col);
-    }
-
     class relation_manager::auxiliary_table_transformer_fn {
         table_fact m_row;
     public:

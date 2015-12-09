@@ -95,78 +95,8 @@ void test_dl_bitvector_table() {
     test_table(mk_bv_table);
 }
 
-void test_table_min() {
-    std::cout << "----- test_table_min -----\n";
-    datalog::table_signature sig;
-    sig.push_back(2);
-    sig.push_back(4);
-    sig.push_back(8);
-    smt_params params;
-    ast_manager ast_m;
-    datalog::register_engine re;
-    datalog::context ctx(ast_m, re, params);
-    datalog::relation_manager & m = ctx.get_rel_context()->get_rmanager();
-
-    m.register_plugin(alloc(datalog::bitvector_table_plugin, m));
-
-    datalog::table_base* tbl = mk_bv_table(m, sig);
-    datalog::table_base& table = *tbl;
-
-    datalog::table_fact row, row1, row2, row3;
-    row.push_back(1);
-    row.push_back(2);
-    row.push_back(5);
-
-    // Group (1,2,*)
-    row1 = row;
-    row[2] = 6;
-    row2 = row;
-    row[2] = 5;
-    row3 = row;
-
-    table.add_fact(row1);
-    table.add_fact(row2);
-    table.add_fact(row3);
-
-    // Group (1,3,*)
-    row[1] = 3;
-    row1 = row;
-    row[2] = 7;
-    row2 = row;
-    row[2] = 4;
-    row3 = row;
-
-    table.add_fact(row1);
-    table.add_fact(row2);
-    table.add_fact(row3);
-
-    table.display(std::cout);
-
-    unsigned_vector group_by(2);
-    group_by[0] = 0;
-    group_by[1] = 1;
-
-    datalog::table_min_fn * min_fn = m.mk_min_fn(table, group_by, 2);
-    datalog::table_base * min_tbl = (*min_fn)(table);
-
-    min_tbl->display(std::cout);
-
-    row[1] = 2;
-    row[2] = 5;
-    SASSERT(min_tbl->contains_fact(row));
-
-    row[1] = 3;
-    row[2] = 4;
-    SASSERT(min_tbl->contains_fact(row));
-
-    dealloc(min_fn);
-    min_tbl->deallocate();
-    tbl->deallocate();
-}
-
 void tst_dl_table() {
     test_dl_bitvector_table();
-    test_table_min();
 }
 #else
 void tst_dl_table() {
