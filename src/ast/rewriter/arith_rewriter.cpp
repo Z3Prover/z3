@@ -264,9 +264,10 @@ bool arith_rewriter::is_reduce_power_target(expr * arg, bool is_eq) {
     }
     for (unsigned i = 0; i < sz; i++) {
         expr * arg = args[i];
-        if (m_util.is_power(arg)) {
+        expr* arg0, *arg1;
+        if (m_util.is_power(arg, arg0, arg1)) {
             rational k;
-            if (m_util.is_numeral(to_app(arg)->get_arg(1), k) && k.is_int() && ((is_eq && k > rational(1)) || (!is_eq && k > rational(2))))
+            if (m_util.is_numeral(arg1, k) && k.is_int() && ((is_eq && k > rational(1)) || (!is_eq && k > rational(2))))
                 return true;
         }
     }
@@ -290,11 +291,15 @@ expr * arith_rewriter::reduce_power(expr * arg, bool is_eq) {
     rational k;
     for (unsigned i = 0; i < sz; i++) {
         expr * arg = args[i];
-        if (m_util.is_power(arg) && m_util.is_numeral(to_app(arg)->get_arg(1), k) && k.is_int() && ((is_eq && k > rational(1)) || (!is_eq && k > rational(2)))) {
-            if (is_eq || !k.is_even())
-                new_args.push_back(to_app(arg)->get_arg(0));
-            else
-                new_args.push_back(m_util.mk_power(to_app(arg)->get_arg(0), m_util.mk_numeral(rational(2), m_util.is_int(arg))));
+        expr * arg0, *arg1;
+        if (m_util.is_power(arg, arg0, arg1) && m_util.is_numeral(arg1, k) && k.is_int() && 
+            ((is_eq && k > rational(1)) || (!is_eq && k > rational(2)))) {
+            if (is_eq || !k.is_even()) {
+                new_args.push_back(arg0);
+            }
+            else {
+                new_args.push_back(m_util.mk_power(arg0, m_util.mk_numeral(rational(2), m_util.is_int(arg))));
+            }
         }
         else {
             new_args.push_back(arg);
@@ -788,6 +793,7 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
     bool is_num_y    = m_util.is_numeral(arg2, y);
     bool is_int_sort = m_util.is_int(arg1);
 
+    TRACE("arith", tout << mk_pp(arg1, m()) << " " << mk_pp(arg2, m()) << "\n";);
     if ((is_num_x && x.is_one()) ||
         (is_num_y && y.is_one())) {
         result = arg1;
@@ -821,11 +827,12 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
         }
     }
 
-    if (m_util.is_power(arg1) && is_num_y && y.is_int() && !y.is_zero()) {
+    expr* arg10, *arg11;
+    if (m_util.is_power(arg1, arg10, arg11) && is_num_y && y.is_int() && !y.is_zero()) {
         // (^ (^ t y2) y) --> (^ t (* y2 y))  If y2 > 0 && y != 0 && y and y2 are integers
         rational y2;
-        if (m_util.is_numeral(to_app(arg1)->get_arg(1), y2) && y2.is_int() && y2.is_pos()) {
-            result = m_util.mk_power(to_app(arg1)->get_arg(0), m_util.mk_numeral(y*y2, is_int_sort));
+        if (m_util.is_numeral(arg11, y2) && y2.is_int() && y2.is_pos()) {
+            result = m_util.mk_power(arg10, m_util.mk_numeral(y*y2, is_int_sort));
             return BR_REWRITE1;
         }
     }
@@ -888,6 +895,9 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
     if (is_num_x) {
         rational xk, r;
         xk = power(x, u_num_y);
+        if (xk.is_neg() && u_den_y % 2 == 0) {
+            return BR_FAILED;
+        }
         if (xk.root(u_den_y, r)) {
             if (is_neg_y)
                 r = rational(1)/r;

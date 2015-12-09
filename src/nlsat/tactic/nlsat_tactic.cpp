@@ -135,6 +135,7 @@ class nlsat_tactic : public tactic {
 
             fail_if_proof_generation("nlsat", g);
 
+            TRACE("nlsat", g->display(tout););
             expr2var  a2b(m);
             expr2var  t2x(m);
             m_g2nl(*g, m_params, m_solver, a2b, t2x);

@@ -347,7 +347,7 @@ struct purify_arith_proc {
             expr * x = args[0];
             expr * zero = u().mk_numeral(rational(0), is_int);
             expr * one  = u().mk_numeral(rational(1), is_int);
-            if (y.is_zero()) {
+            if (y.is_zero() && complete()) {
                 // (^ x 0) --> k  |  x != 0 implies k = 1,   x = 0 implies k = 0^0 
                 push_cnstr(OR(EQ(x, zero), EQ(k, one)));
                 push_cnstr_pr(result_pr);
@@ -366,7 +366,7 @@ struct purify_arith_proc {
                     push_cnstr(EQ(x, u().mk_power(k, u().mk_numeral(n, false))));
                     push_cnstr_pr(result_pr);
                 }
-                else {
+                else if (complete()) {
                     SASSERT(n.is_even());
                     // (^ x (/ 1 n)) --> k  |  x >= 0 implies (x = k^n and k >= 0), x < 0 implies k = neg-root(x, n)   
                     // when n is even
@@ -374,11 +374,13 @@ struct purify_arith_proc {
                                   AND(EQ(x, u().mk_power(k, u().mk_numeral(n, false))),
                                       u().mk_ge(k, zero))));
                     push_cnstr_pr(result_pr);
-                    if (complete()) {
-                        push_cnstr(OR(u().mk_ge(x, zero),
-                                      EQ(k, u().mk_neg_root(x, u().mk_numeral(n, false)))));
-                        push_cnstr_pr(result_pr);
-                    }
+
+                    push_cnstr(OR(u().mk_ge(x, zero),
+                                  EQ(k, u().mk_neg_root(x, u().mk_numeral(n, false)))));
+                    push_cnstr_pr(result_pr);
+                }
+                else {
+                    return BR_FAILED;
                 }
             }
             else {

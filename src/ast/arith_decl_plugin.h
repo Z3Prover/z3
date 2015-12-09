@@ -281,6 +281,7 @@ public:
     MATCH_BINARY(is_rem);
     MATCH_BINARY(is_div);
     MATCH_BINARY(is_idiv);
+    MATCH_BINARY(is_power);
 
     bool is_pi(expr * arg) { return is_app_of(arg, m_afid, OP_PI); }
     bool is_e(expr * arg) { return is_app_of(arg, m_afid, OP_E); }
