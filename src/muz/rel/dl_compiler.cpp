@@ -467,9 +467,6 @@ namespace datalog {
         // whether to dealloc the previous result
         bool dealloc = true;
 
-        // setup information for min aggregation
-        unsigned_vector group_by_cols;
-
         if(pt_len == 2) {
             reg_idx t1_reg=tail_regs[0];
             reg_idx t2_reg=tail_regs[1];
