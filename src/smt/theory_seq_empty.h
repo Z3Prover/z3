@@ -25,20 +25,42 @@ Revision History:
 namespace smt {
     class seq_factory : public value_factory {
         typedef hashtable<symbol, symbol_hash_proc, symbol_eq_proc> symbol_set;
+        ast_manager& m;
         proto_model& m_model;
         seq_util     u;
         symbol_set   m_strings;
         unsigned     m_next;
+        std::string  m_unique_prefix;
+        obj_map<sort, expr*> m_unique_sequences;
+        expr_ref_vector m_trail;
     public:
+
         seq_factory(ast_manager & m, family_id fid, proto_model & md):
             value_factory(m, fid),
+            m(m),
             m_model(md),
             u(m),
-            m_next(0)
+            m_next(0),
+            m_unique_prefix("#B"),
+            m_trail(m)
         {
             m_strings.insert(symbol(""));
             m_strings.insert(symbol("a"));
             m_strings.insert(symbol("b"));
+        }
+
+        void add_trail(expr* e) {
+            m_trail.push_back(e);
+        }
+
+        void set_prefix(char const* p) {
+            m_unique_prefix = p;
+        }
+
+        // generic method for setting unique sequences
+        void set_prefix(expr* uniq) {
+            m_trail.push_back(uniq);
+            m_unique_sequences.insert(m.get_sort(uniq), uniq);
         }
 
         virtual expr* get_some_value(sort* s) { 
@@ -60,7 +82,7 @@ namespace smt {
             if (u.is_string(s)) {
                 while (true) {
                     std::ostringstream strm;
-                    strm << "S" << m_next++;
+                    strm << m_unique_prefix << m_next++;
                     symbol sym(strm.str().c_str());
                     if (m_strings.contains(sym)) continue;
                     m_strings.insert(sym);

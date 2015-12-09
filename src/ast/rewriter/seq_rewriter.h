@@ -32,7 +32,7 @@ Notes:
 class seq_rewriter {
     seq_util       m_util;
     arith_util     m_autil;
-    ptr_vector<expr> m_es;
+    ptr_vector<expr> m_es, m_lhs, m_rhs;
 
     br_status mk_seq_concat(expr* a, expr* b, expr_ref& result);
     br_status mk_str_length(expr* a, expr_ref& result);
@@ -53,6 +53,9 @@ class seq_rewriter {
     br_status mk_re_plus(expr* a, expr_ref& result);
     br_status mk_re_opt(expr* a, expr_ref& result);
 
+    bool set_empty(unsigned sz, expr* const* es, expr_ref_vector& lhs, expr_ref_vector& rhs);
+    bool is_subsequence(unsigned n, expr* const* l, unsigned m, expr* const* r, 
+                        expr_ref_vector& lhs, expr_ref_vector& rhs, bool& is_sat);
 public:    
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
         m_util(m), m_autil(m) {
@@ -64,6 +67,9 @@ public:
     static void get_param_descrs(param_descrs & r) {}
 
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
+    br_status mk_eq_core(expr * lhs, expr * rhs, expr_ref & result);
+
+    bool reduce_eq(expr* l, expr* r, expr_ref_vector& lhs, expr_ref_vector& rhs);
 
 };
 
