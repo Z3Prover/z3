@@ -46,6 +46,23 @@ namespace smt {
         
         typedef union_find<theory_seq> th_union_find;
         typedef trail_stack<theory_seq> th_trail_stack;
+
+        class solution_map {
+            enum map_update { INS, DEL };
+            ast_manager& m;
+            obj_map<expr, std::pair<expr*, enode_pair_dependency*> > m_map;            
+            expr_ref_vector m_lhs, m_rhs;
+            ptr_vector<enode_pair_dependency> m_deps;
+            svector<map_update>    m_updates;
+            unsigned_vector        m_limit;
+        public:
+            solution_map(ast_manager& m): m(m), m_lhs(m), m_rhs(m) {}
+            void  update(expr* e, expr* r, enode_pair_dependency* d);
+            expr* find(expr* e, enode_pair_dependency*& d);
+            void push_scope() { m_limit.push_back(m_updates.size()); }
+            void pop_scope(unsigned num_scopes);
+        };
+
         struct stats {
             stats() { reset(); }
             void reset() { memset(this, 0, sizeof(stats)); }
@@ -56,12 +73,9 @@ namespace smt {
         enode_pair_dependency_array_config::value_manager m_dep_array_value_manager;
         enode_pair_dependency_manager       m_dm;
         enode_pair_dependency_array_manager m_dam;
-        expr_ref_vector                     m_rep;        // unification representative.
+        solution_map                        m_rep;        // unification representative.
         vector<expr_array>                  m_lhs, m_rhs; // persistent sets of equalities.
-        vector<enode_pair_dependency_array> m_deps;
-
-        unsigned                            m_eqs_head;   // index of unprocessed equation. deprecate
-        
+        vector<enode_pair_dependency_array> m_deps;       // persistent sets of dependencies.
 
 
         expr_ref_vector m_ineqs;      // inequalities to check
@@ -72,7 +86,6 @@ namespace smt {
         seq_util        m_util;
         arith_util      m_autil;
         th_trail_stack  m_trail_stack;
-        th_union_find   m_find;
         stats           m_stats;
 
         virtual final_check_status final_check_eh();
@@ -90,6 +103,7 @@ namespace smt {
         virtual theory* mk_fresh(context* new_ctx) { return alloc(theory_seq, new_ctx->get_manager()); }
         virtual char const * get_name() const { return "seq"; }
         virtual theory_var mk_var(enode* n);
+        virtual void apply_sort_cnstr(enode* n, sort* s);
 
         bool check_ineqs();
         bool pre_process_eqs(bool simplify_or_solve);
@@ -101,6 +115,9 @@ namespace smt {
         bool occurs(expr* a, expr* b);
         bool is_var(expr* b);
         void add_solution(expr* l, expr* r, enode_pair_dependency* dep);
+        bool is_left_select(expr* a, expr*& b);
+        bool is_right_select(expr* a, expr*& b);
+    
 
         final_check_status add_axioms();
 
@@ -122,10 +139,12 @@ namespace smt {
             mg.register_factory(alloc(seq_factory, get_manager(), get_family_id(), mg.get_model()));
         }
 
+#if 0
         th_trail_stack & get_trail_stack() { return m_trail_stack; }
         virtual void merge_eh(theory_var v1, theory_var v2, theory_var, theory_var);
         static void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) {}
         void unmerge_eh(theory_var v1, theory_var v2);
+#endif
 
     };
 };
