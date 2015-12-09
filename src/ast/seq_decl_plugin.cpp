@@ -47,7 +47,7 @@ bool seq_decl_plugin::match(ptr_vector<sort>& binding, sort* s, sort* sP) {
     if (is_sort_param(sP, i)) {
         if (binding.size() <= i) binding.resize(i+1);
         if (binding[i] && (binding[i] != s)) return false;
-        TRACE("seq", tout << "setting binding @ " << i << " to " << mk_pp(s, m) << "\n";);
+        TRACE("seq_verbose", tout << "setting binding @ " << i << " to " << mk_pp(s, m) << "\n";);
         binding[i] = s;
         return true;
     }
@@ -77,7 +77,7 @@ bool seq_decl_plugin::match(ptr_vector<sort>& binding, sort* s, sort* sP) {
 void seq_decl_plugin::match_left_assoc(psig& sig, unsigned dsz, sort *const* dom, sort* range, sort_ref& range_out) {
     ptr_vector<sort> binding;
     ast_manager& m = *m_manager;
-    TRACE("seq", 
+    TRACE("seq_verbose", 
           tout << sig.m_name << ": ";
           for (unsigned i = 0; i < dsz; ++i) tout << mk_pp(dom[i], m) << " ";
           if (range) tout << " range: " << mk_pp(range, m);
@@ -102,7 +102,7 @@ void seq_decl_plugin::match_left_assoc(psig& sig, unsigned dsz, sort *const* dom
         m.raise_exception(strm.str().c_str());
     }
     range_out = apply_binding(binding, sig.m_range);
-    TRACE("seq", tout << mk_pp(range_out, m) << "\n";);
+    TRACE("seq_verbose", tout << mk_pp(range_out, m) << "\n";);
 }
 
 void seq_decl_plugin::match(psig& sig, unsigned dsz, sort *const* dom, sort* range, sort_ref& range_out) {
@@ -321,18 +321,27 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
                                func_decl_info(m_family_id, OP_STRING_CONST, num_parameters, parameters));
         
     case OP_SEQ_CONCAT: {
+        if (arity < 2) {
+            m.raise_exception("invalid concatenation. At least two arguments expected");
+        }
         match_left_assoc(*m_sigs[k], arity, domain, range, rng);        
         func_decl_info info(m_family_id, k);
         info.set_left_associative();
         return m.mk_func_decl(m_sigs[(rng == m_string)?_OP_STRING_CONCAT:k]->m_name, rng, rng, rng, info);
     } 
     case OP_RE_CONCAT:  {
+        if (arity < 2) {
+            m.raise_exception("invalid concatenation. At least two arguments expected");
+        }
         match_left_assoc(*m_sigs[k], arity, domain, range, rng);
         func_decl_info info(m_family_id, k);
         info.set_left_associative();
         return m.mk_func_decl(m_sigs[k]->m_name, rng, rng, rng, info);
     }
     case _OP_STRING_CONCAT: {
+        if (arity < 2) {
+            m.raise_exception("invalid string concatenation. At least two arguments expected");
+        }
         match_left_assoc(*m_sigs[k], arity, domain, range, rng);
         func_decl_info info(m_family_id, OP_SEQ_CONCAT);
         info.set_left_associative();
@@ -386,6 +395,8 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         match(*m_sigs[k], arity, domain, range, rng);
         return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
 
+    case _OP_SEQ_SKOLEM: 
+        return m.mk_func_decl(symbol("seq.skolem"), arity, domain, rng, func_decl_info(m_family_id, k));
     default:
         UNREACHABLE();
         return 0;
@@ -418,6 +429,13 @@ app* seq_decl_plugin::mk_string(symbol const& s) {
 bool seq_decl_plugin::is_value(app* e) const {
     return is_app_of(e, m_family_id, OP_STRING_CONST);
 }
+
+app* seq_util::mk_skolem(symbol const& name, unsigned n, expr* const* args, sort* range) {
+    parameter param(name);
+    func_decl* f = m.mk_func_decl(get_family_id(), _OP_SEQ_SKOLEM, 1, &param, n, args, range);
+    return m.mk_app(f, n, args);
+}
+
 
 app* seq_util::str::mk_string(symbol const& s) {
     return u.seq.mk_string(s);

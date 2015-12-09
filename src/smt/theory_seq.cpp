@@ -72,6 +72,14 @@ void theory_seq::solution_map::pop_scope(unsigned num_scopes) {
     m_limit.resize(m_limit.size() - num_scopes);
 }
 
+void theory_seq::solution_map::display(std::ostream& out) const {
+    map_t::iterator it = m_map.begin(), end = m_map.end();
+    for (; it != end; ++it) {
+        out << mk_pp(it->m_key, m) << " |-> " << mk_pp(it->m_value.first, m) << "\n";
+    }
+}
+
+
 theory_seq::theory_seq(ast_manager& m):
     theory(m.mk_family_id("seq")), 
     m(m),
@@ -88,10 +96,17 @@ theory_seq::theory_seq(ast_manager& m):
     m_lhs.push_back(expr_array());
     m_rhs.push_back(expr_array());
     m_deps.push_back(enode_pair_dependency_array());
+    m_prefix_sym = "prefix";
+    m_suffix_sym = "suffix";
+    m_left_sym = "left";
+    m_right_sym = "right";
+    m_contains_left_sym = "contains_left";
+    m_contains_right_sym = "contains_right";
 }
 
 final_check_status theory_seq::final_check_eh() { 
     context & ctx   = get_context();
+    TRACE("seq", display(tout););
     if (!check_ineqs()) {
         return FC_CONTINUE;
     }
@@ -111,44 +126,50 @@ bool theory_seq::check_ineqs() {
         enode_pair_dependency* eqs = 0;
         expr_ref b = canonize(a, eqs);
         if (m.is_true(b)) {
+            TRACE("seq", tout << "Evaluates to false: " << a << "\n";);
             ctx.internalize(a, false);
             literal lit(ctx.get_literal(a));
-            ctx.mark_as_relevant(lit);
-            vector<enode_pair, false> _eqs;
-            m_dm.linearize(eqs, _eqs);
-            ctx.assign(
-                lit, 
-                ctx.mk_justification(
-                    ext_theory_propagation_justification(
-                        get_id(), ctx.get_region(), 0, 0, _eqs.size(), _eqs.c_ptr(), lit)));
+            propagate(lit, eqs);
             return false;
         }
     }
     return true;
 }
 
+void theory_seq::propagate(literal lit, enode_pair_dependency* dep) {
+    context& ctx = get_context();
+    ctx.mark_as_relevant(lit);
+    vector<enode_pair, false> _eqs;
+    m_dm.linearize(dep, _eqs);
+    TRACE("seq", 
+          ctx.display_detailed_literal(tout, lit);
+          tout << " <- ";
+          for (unsigned i = 0; i < _eqs.size(); ++i) {
+              tout << mk_pp(_eqs[i].first->get_owner(), m) << " = " 
+                   << mk_pp(_eqs[i].second->get_owner(), m) << "\n";
+          }
+          ); 
+
+    ctx.assign(
+        lit, 
+        ctx.mk_justification(
+            ext_theory_propagation_justification(
+                get_id(), ctx.get_region(), 0, 0, _eqs.size(), _eqs.c_ptr(), lit)));    
+}
+
+
 
 bool theory_seq::simplify_eq(expr* l, expr* r, enode_pair_dependency* deps) {
     context& ctx = get_context();
     seq_rewriter rw(m);
     expr_ref_vector lhs(m), rhs(m);
-    SASSERT(ctx.e_internalized(l));
-    SASSERT(ctx.e_internalized(r));
     expr_ref lh = canonize(l, deps);
     expr_ref rh = canonize(r, deps);
     if (!rw.reduce_eq(l, r, lhs, rhs)) {
         // equality is inconsistent.
         // create conflict assignment.  
-        expr_ref a(m);
-        a = m.mk_eq(l, r);
-        literal lit(ctx.get_literal(a));
-        vector<enode_pair, false> _eqs;
-        m_dm.linearize(deps, _eqs);
-        ctx.assign(
-            ~lit,
-            ctx.mk_justification(
-                ext_theory_propagation_justification(
-                    get_id(), ctx.get_region(), 0, 0, _eqs.size(), _eqs.c_ptr(), ~lit)));
+        literal lit(mk_eq(l, r, false));
+        propagate(~lit, deps);
         return true;
     }
     if (lhs.size() == 1 && l == lhs[0].get() &&
@@ -161,6 +182,13 @@ bool theory_seq::simplify_eq(expr* l, expr* r, enode_pair_dependency* deps) {
         m.push_back(m_rhs.back(), rhs[i].get());
         m_dam.push_back(m_deps.back(), deps);
     }    
+    TRACE("seq",
+          tout << mk_pp(l, m) << " = " << mk_pp(r, m) << " => ";
+          for (unsigned i = 0; i < lhs.size(); ++i) {
+              tout << mk_pp(lhs[i].get(), m) << " = " << mk_pp(rhs[i].get(), m) << "; ";
+          }
+          tout << "\n";
+          );
     return true;
 }
 
@@ -187,31 +215,36 @@ bool theory_seq::solve_unit_eq(expr* l, expr* r, enode_pair_dependency* deps) {
 }
 
 bool theory_seq::occurs(expr* a, expr* b) {
+    // true if a occurs under an interpreted function or under left/right selector.    
     SASSERT(is_var(a));
-    // true if a occurs under an interpreted function or under left/right selector.
-    if (a == b) {
-        return true;
-    }
     expr* e1, *e2;
+    while (is_left_select(a, e1) || is_right_select(a, e1)) {
+        a = e1;
+    }
     if (m_util.str.is_concat(b, e1, e2)) {
         return occurs(a, e1) || occurs(a, e2);
     }
-    if (is_left_select(b, e1) || is_right_select(b, e1)) {
-        return occurs(a, e1);
-    }
+    while (is_left_select(b, e1) || is_right_select(b, e1)) {
+        b = e1;
+    }          
+    if (a == b) {
+        return true;
+    }  
     return false;
 }
 
 bool theory_seq::is_var(expr* a) {
-    return is_uninterp(a);
+    return is_uninterp(a) || m_util.is_skolem(a);
 }
 
 bool theory_seq::is_left_select(expr* a, expr*& b) {
-    return false;
+    return m_util.is_skolem(a) && 
+        to_app(a)->get_decl()->get_parameter(0).get_symbol() == m_left_sym && (b = to_app(a)->get_arg(0), true);
 }
 
 bool theory_seq::is_right_select(expr* a, expr*& b) {
-    return false;
+    return m_util.is_skolem(a) &&
+        to_app(a)->get_decl()->get_parameter(0).get_symbol() == m_right_sym && (b = to_app(a)->get_arg(0), true);
 }
 
 
@@ -224,10 +257,18 @@ void theory_seq::add_solution(expr* l, expr* r, enode_pair_dependency* deps) {
         enode* n2 = ctx.get_enode(r);
         vector<enode_pair, false> _eqs;
         m_dm.linearize(deps, _eqs);
-        // alloc?
-        ctx.assign_eq(n1, n2, eq_justification(
-                          alloc(ext_theory_eq_propagation_justification,
-                                get_id(), ctx.get_region(), 0, 0, _eqs.size(), _eqs.c_ptr(), n1, n2)));
+        TRACE("seq",
+              tout << mk_pp(n1->get_owner(), m) << " " << mk_pp(n2->get_owner(), m) << " <- ";
+              for (unsigned i = 0; i < _eqs.size(); ++i) {
+                  tout << mk_pp(_eqs[i].first->get_owner(), m) << " = " 
+                       << mk_pp(_eqs[i].second->get_owner(), m) << "\n";
+              }
+              ); 
+
+        justification* js = ctx.mk_justification(
+            ext_theory_eq_propagation_justification(
+                get_id(), ctx.get_region(), 0, 0, _eqs.size(), _eqs.c_ptr(), n1, n2));
+        ctx.assign_eq(n1, n2, eq_justification(js));
     }
 }
 
@@ -254,6 +295,7 @@ bool theory_seq::pre_process_eqs(bool simplify_or_solve) {
                 m.set(rhs, i, m.get(rhs, m.size(rhs)-1));
                 m_dam.set(deps, i, m_dam.get(deps, m_dam.size(deps)-1));
                 --i;
+                ++m_stats.m_num_reductions;
                 change = true;
             }
             m.pop_back(lhs);
@@ -312,7 +354,8 @@ bool theory_seq::internalize_term(app* term) {
         !m_util.str.is_unit(term)   &&
         !m_util.str.is_suffix(term) &&
         !m_util.str.is_prefix(term) &&
-        !m_util.str.is_contains(term)) {
+        !m_util.str.is_contains(term) &&
+        !m_util.is_skolem(term)) {
         set_incomplete(term);
     }
         
@@ -325,6 +368,70 @@ void theory_seq::apply_sort_cnstr(enode* n, sort* s) {
         mk_var(n);
     }
 }
+
+void theory_seq::display(std::ostream & out) const {
+    expr_array const& lhs = m_lhs.back();
+    expr_array const& rhs = m_rhs.back();
+    enode_pair_dependency_array const& deps = m_deps.back();
+    out << "Equations:\n";
+    for (unsigned i = 0; i < m.size(lhs); ++i) {
+        out << mk_pp(m.get(lhs, i), m) << " = " << mk_pp(m.get(rhs, i), m) << " <-\n";
+        enode_pair_dependency* dep = m_dam.get(deps, i);
+        if (dep) {
+            vector<enode_pair, false> _eqs;
+            const_cast<enode_pair_dependency_manager&>(m_dm).linearize(dep, _eqs);
+            for (unsigned i = 0; i < _eqs.size(); ++i) {
+                out << " " << mk_pp(_eqs[i].first->get_owner(), m) << " = " << mk_pp(_eqs[i].second->get_owner(), m) << "\n";
+            }
+        }
+    }
+    out << "Negative constraints:\n";
+    for (unsigned i = 0; i < m_ineqs.size(); ++i) {
+        out << mk_pp(m_ineqs[i], m) << "\n";
+    }
+    out << "Solved equations:\n";
+    m_rep.display(out);
+}
+
+void theory_seq::collect_statistics(::statistics & st) const {
+    st.update("seq num splits", m_stats.m_num_splits);
+    st.update("seq num reductions", m_stats.m_num_reductions);
+}
+
+void theory_seq::init_model(model_generator & mg) {
+    m_factory = alloc(seq_factory, get_manager(), 
+                      get_family_id(), mg.get_model());
+    mg.register_factory(m_factory);
+    // TBD: this is still unsound model generation.
+    // disequalities are not guaranteed. we need to
+    // prime the factory with a prefix that cannot be
+    // constructed using any existing combinations of the
+    // strings (or units) that are used.
+    for (unsigned i = 0; i < get_num_vars(); ++i) {
+        expr* e = get_enode(i)->get_owner();
+        if (m_util.is_seq(e)) {
+            enode_pair_dependency* deps = 0;
+            e = m_rep.find(e, deps);
+            if (is_var(e)) {
+                expr* val = m_factory->get_fresh_value(m.get_sort(e));
+                m_rep.update(e, val, 0);
+            }
+        }
+        else if (m_util.is_re(e)) {
+            // TBD
+        }
+    }
+}
+
+model_value_proc * theory_seq::mk_value(enode * n, model_generator & mg) {
+    enode_pair_dependency* deps = 0;
+    expr_ref e(m);
+    canonize(e, deps);
+    SASSERT(is_app(e));
+    m_factory->add_trail(e);
+    return alloc(expr_wrapper_proc, to_app(e));
+}
+
 
 
 void theory_seq::set_incomplete(app* term) {
@@ -413,27 +520,29 @@ void theory_seq::assert_axiom(expr_ref& e) {
     literal lit(ctx.get_literal(e));
     ctx.mark_as_relevant(lit);
     ctx.mk_th_axiom(get_id(), 1, &lit);
-
 }
 
-expr_ref theory_seq::mk_skolem(char const* name, expr* e1, expr* e2) {
+expr_ref theory_seq::mk_skolem(symbol const& name, expr* e1, expr* e2) {
     expr_ref result(m);
-    sort* s = m.get_sort(e1);
-    SASSERT(s == m.get_sort(e2));
-    sort* ss[2] = { s, s };
-    result = m.mk_app(m.mk_func_decl(symbol("#prefix_eq"), 2, ss, s), e1, e2);
+    expr* es[2] = { e1, e2 };
+    result = m_util.mk_skolem(name, 2, es, m.get_sort(e1));
     return result;
 }
 
 void theory_seq::propagate_eq(bool_var v, expr* e1, expr* e2) {
     context& ctx = get_context();
+    TRACE("seq", 
+          tout << mk_pp(ctx.bool_var2enode(v)->get_owner(), m) << " => " 
+          << mk_pp(e1, m) << " = " << mk_pp(e2, m) << "\n";); 
+
     ctx.internalize(e1, false);
     enode* n1 = ctx.get_enode(e1);
     enode* n2 = ctx.get_enode(e2);
     literal lit(v);
-    ctx.assign_eq(n1, n2, eq_justification(
-                      alloc(ext_theory_eq_propagation_justification,
-                          get_id(), ctx.get_region(), 1, &lit, 0, 0, n1, n2)));
+    justification* js = ctx.mk_justification(ext_theory_eq_propagation_justification(
+                                                 get_id(), ctx.get_region(), 1, &lit, 0, 0, n1, n2));
+
+    ctx.assign_eq(n1, n2, eq_justification(js));
 }
 
 void theory_seq::assign_eq(bool_var v, bool is_true) {
@@ -445,18 +554,18 @@ void theory_seq::assign_eq(bool_var v, bool is_true) {
         expr* e1, *e2;
         expr_ref f(m);
         if (m_util.str.is_prefix(e, e1, e2)) {
-            f = mk_skolem("#prefix_eq", e1, e2);
+            f = mk_skolem(m_prefix_sym, e1, e2);
             f = m_util.str.mk_concat(e1, f);
             propagate_eq(v, f, e2);
         }
         else if (m_util.str.is_suffix(e, e1, e2)) {
-            f = mk_skolem("#suffix_eq", e1, e2);
+            f = mk_skolem(m_suffix_sym, e1, e2);
             f = m_util.str.mk_concat(f, e1);
             propagate_eq(v, f, e2);
         }
         else if (m_util.str.is_contains(e, e1, e2)) {
-            expr_ref f1 = mk_skolem("#contains_eq1", e1, e2);
-            expr_ref f2 = mk_skolem("#contains_eq2", e1, e2);
+            expr_ref f1 = mk_skolem(m_contains_left_sym, e1, e2);
+            expr_ref f2 = mk_skolem(m_contains_right_sym, e1, e2);
             f = m_util.str.mk_concat(m_util.str.mk_concat(f1, e1), f2);
             propagate_eq(v, f, e2);
         }
@@ -485,7 +594,7 @@ void theory_seq::new_diseq_eh(theory_var v1, theory_var v2) {
     expr* e1 = get_enode(v1)->get_owner();
     expr* e2 = get_enode(v2)->get_owner();
     m_trail_stack.push(push_back_vector<theory_seq, expr_ref_vector>(m_ineqs));
-    m_ineqs.push_back(m.mk_eq(e1, e2));
+    m_ineqs.push_back(mk_eq_atom(e1, e2));
 }
 
 void theory_seq::push_scope_eh() {

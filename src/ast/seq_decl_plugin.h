@@ -74,6 +74,7 @@ enum seq_op_kind {
     _OP_STRING_TO_REGEXP, 
     _OP_STRING_CHARAT, 
     _OP_STRING_SUBSTR,      
+    _OP_SEQ_SKOLEM,
     LAST_SEQ_OP
 };
 
@@ -155,6 +156,11 @@ public:
     bool is_string(sort* s) const { return is_seq(s) && seq.is_char(s->get_parameter(0).get_ast()); }
     bool is_seq(sort* s) const { return is_sort_of(s, m_fid, SEQ_SORT); }
     bool is_re(sort* s) const { return is_sort_of(s, m_fid, RE_SORT); }
+    bool is_seq(expr* e) const  { return is_seq(m.get_sort(e)); }
+    bool is_re(expr* e) const { return is_re(m.get_sort(e)); }
+
+    app* mk_skolem(symbol const& name, unsigned n, expr* const* args, sort* range);
+    bool is_skolem(expr const* e) const { return is_app_of(e, m_fid, _OP_SEQ_SKOLEM); }
 
     class str {
         seq_util&    u;

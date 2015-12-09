@@ -636,7 +636,12 @@ bool seq_rewriter::reduce_eq(expr* l, expr* r, expr_ref_vector& lhs, expr_ref_ve
         }
         change = true;
     }
+
+    bool is_sat;
     if (!change) {
+        if (is_subsequence(m_lhs.size(), m_lhs.c_ptr(), m_rhs.size(), m_rhs.c_ptr(), lhs, rhs, is_sat)) {
+            return is_sat;
+        }
         lhs.push_back(l);
         rhs.push_back(r);
     }
@@ -649,7 +654,13 @@ bool seq_rewriter::reduce_eq(expr* l, expr* r, expr_ref_vector& lhs, expr_ref_ve
     else if (head2 == m_rhs.size()) {
         return set_empty(m_lhs.size() - head1, m_lhs.c_ptr() + head1, lhs, rhs);
     }
-    else { // head1 < m_lhs.size() && head2 < m_rhs.size() // could solve if either side is fixed size.
+    else { // could solve if either side is fixed size.
+        SASSERT(head1 < m_lhs.size() && head2 < m_rhs.size());
+        if (is_subsequence(m_lhs.size() - head1, m_lhs.c_ptr() + head1, 
+                           m_rhs.size() - head2, m_rhs.c_ptr() + head2, lhs, rhs, is_sat)) {
+            return is_sat;
+        }
+
         lhs.push_back(m_util.str.mk_concat(m_lhs.size() - head1, m_lhs.c_ptr() + head1));
         rhs.push_back(m_util.str.mk_concat(m_rhs.size() - head2, m_rhs.c_ptr() + head2));
     }
@@ -674,3 +685,39 @@ bool seq_rewriter::set_empty(unsigned sz, expr* const* es, expr_ref_vector& lhs,
     }
     return true;
 }
+
+bool seq_rewriter::is_subsequence(unsigned szl, expr* const* l, unsigned szr, expr* const* r, 
+                                  expr_ref_vector& lhs, expr_ref_vector& rhs, bool& is_sat) {
+    is_sat = true;
+    if (szl == szr) return false;
+    if (szr < szl) {
+        std::swap(szl, szr);
+        std::swap(l, r);
+    }
+
+    for (unsigned i = 1; i + szl <= szr; ++i) {
+        bool eq = true;
+        for (unsigned j = 0; eq && j < szl; ++j) {
+            eq = l[j] == r[i+j];
+        }
+        if (eq) {
+            SASSERT(szr >= i + szl);
+            is_sat = set_empty(i, r, lhs, rhs);
+            is_sat &= set_empty(szr - (i + szl), r + i + szl, lhs, rhs);
+
+            TRACE("seq", 
+                  for (unsigned k = 0; k < szl; ++k) {
+                      tout << mk_pp(l[k], m()) << " ";
+                  }
+                  tout << "\n";
+                  for (unsigned k = 0; k < szr; ++k) {
+                      tout << mk_pp(r[k], m()) << " ";
+                  }
+                  tout << "\n";
+                  tout << lhs << "; " << rhs << "\n";);
+
+            return true;
+        }
+    }
+    return false;
+} 
