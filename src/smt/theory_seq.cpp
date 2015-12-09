@@ -660,7 +660,7 @@ void theory_seq::pop_scope_eh(unsigned num_scopes) {
 }
 
 void theory_seq::restart_eh() {
-    SASSERT(m_lhs.size() == 1);
+#if 0
     m.del(m_lhs.back());
     m.del(m_rhs.back());
     m_dam.del(m_deps.back());
@@ -670,7 +670,7 @@ void theory_seq::restart_eh() {
     m_lhs.push_back(expr_array());
     m_rhs.push_back(expr_array());
     m_deps.push_back(enode_pair_dependency_array());
-
+#endif
 }
 
 void theory_seq::relevant_eh(app* n) {

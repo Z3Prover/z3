@@ -670,7 +670,7 @@ namespace Duality {
             else {
                 if (k == Equal && args[0].get_id() > args[1].get_id())
                     std::swap(args[0], args[1]);
-                res = f(args.size(), &args[0]);
+                res = f(args.size(), VEC2PTR(args));
             }
         }
         else if (t.is_quantifier()) {
