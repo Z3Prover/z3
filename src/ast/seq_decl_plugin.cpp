@@ -437,10 +437,6 @@ app* seq_util::mk_skolem(symbol const& name, unsigned n, expr* const* args, sort
 }
 
 
-app* seq_util::str::mk_string(symbol const& s) {
-    return u.seq.mk_string(s);
-}
-
 void seq_util::str::get_concat(expr* e, ptr_vector<expr>& es) const {
     expr* e1, *e2;
     while (is_concat(e, e1, e2)) {

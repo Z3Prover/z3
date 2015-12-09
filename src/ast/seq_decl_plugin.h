@@ -167,11 +167,11 @@ public:
         ast_manager& m;
         family_id    m_fid;
     public:
-        str(seq_util& u):u(u), m(u.m), m_fid(u.m_fid) {}
+        str(seq_util& u): u(u), m(u.m), m_fid(u.m_fid) {}
 
         sort* mk_seq(sort* s) { parameter param(s); return m.mk_sort(m_fid, SEQ_SORT, 1, &param); }
         app* mk_empty(sort* s) { return m.mk_const(m.mk_func_decl(m_fid, OP_SEQ_EMPTY, 0, 0, 0, (expr*const*)0, s)); }
-        app* mk_string(symbol const& s);
+        app* mk_string(symbol const& s) { return u.seq.mk_string(s); }
         app* mk_string(char const* s) { return mk_string(symbol(s)); }
         app* mk_string(std::string const& s) { return mk_string(symbol(s.c_str())); }
         app* mk_concat(expr* a, expr* b) { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_CONCAT, 2, es); }
@@ -229,11 +229,10 @@ public:
     };
 
     class re {
-        seq_util&    u;
         ast_manager& m;
         family_id    m_fid;
     public:
-        re(seq_util& u):u(u), m(u.m), m_fid(u.m_fid) {}
+        re(seq_util& u): m(u.m), m_fid(u.m_fid) {}
 
         bool is_to_re(expr const* n)    const { return is_app_of(n, m_fid, OP_SEQ_TO_RE); }
         bool is_concat(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_CONCAT); }
