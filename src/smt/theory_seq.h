@@ -46,17 +46,18 @@ namespace smt {
         
         typedef union_find<theory_seq> th_union_find;
         typedef trail_stack<theory_seq> th_trail_stack;
-
+        
         class solution_map {
             enum map_update { INS, DEL };
             ast_manager& m;
+            enode_pair_dependency_manager&      m_dm;
             obj_map<expr, std::pair<expr*, enode_pair_dependency*> > m_map;            
             expr_ref_vector m_lhs, m_rhs;
             ptr_vector<enode_pair_dependency> m_deps;
             svector<map_update>    m_updates;
             unsigned_vector        m_limit;
         public:
-            solution_map(ast_manager& m): m(m), m_lhs(m), m_rhs(m) {}
+            solution_map(ast_manager& m, enode_pair_dependency_manager& dm): m(m), m_dm(dm), m_lhs(m), m_rhs(m) {}
             void  update(expr* e, expr* r, enode_pair_dependency* d);
             expr* find(expr* e, enode_pair_dependency*& d);
             void push_scope() { m_limit.push_back(m_updates.size()); }

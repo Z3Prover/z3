@@ -44,14 +44,13 @@ void theory_seq::solution_map::update(expr* e, expr* r, enode_pair_dependency* d
 
 expr* theory_seq::solution_map::find(expr* e, enode_pair_dependency*& d) {
     std::pair<expr*, enode_pair_dependency*> value;
-    if (m_map.find(e, value)) {
-        d = value.second;
-        return value.first;
+    d = 0;
+    // TBD add path compression?
+    while (m_map.find(e, value)) {
+        d = d ? m_dm.mk_join(d, value.second) : value.second;;
+        e = value.first;
     }
-    else {
-        d = 0;
-        return e;
-    }
+    return e;
 }
 
 void theory_seq::solution_map::pop_scope(unsigned num_scopes) {
@@ -77,7 +76,7 @@ theory_seq::theory_seq(ast_manager& m):
     theory(m.mk_family_id("seq")), 
     m(m),
     m_dam(m_dep_array_value_manager, m_alloc),
-    m_rep(m),    
+    m_rep(m, m_dm),    
     m_ineqs(m),
     m_axioms(m),
     m_axioms_head(0),
