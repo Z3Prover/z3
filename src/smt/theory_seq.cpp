@@ -22,6 +22,7 @@ Revision History:
 #include "smt_model_generator.h"
 #include "theory_seq.h"
 #include "seq_rewriter.h"
+#include "ast_trail.h"
 
 using namespace smt;
 
@@ -118,7 +119,9 @@ theory_seq::theory_seq(ast_manager& m):
     theory(m.mk_family_id("seq")), 
     m(m),
     m_dam(m_dep_array_value_manager, m_alloc),
-    m_rep(m, m_dm),    
+    m_rep(m, m_dm),
+    m_sort2len_fn(m),
+    m_factory(0),
     m_ineqs(m),
     m_exclude(m),
     m_axioms(m),
@@ -129,7 +132,7 @@ theory_seq::theory_seq(ast_manager& m):
     m_rewrite(m), 
     m_util(m),
     m_autil(m),
-    m_trail_stack(*this) {
+    m_trail_stack(*this) {    
     m_lhs.push_back(expr_array());
     m_rhs.push_back(expr_array());
     m_deps.push_back(enode_pair_dependency_array());
@@ -506,6 +509,11 @@ bool theory_seq::internalize_term(app* term) {
         !m_util.is_skolem(term)) {
         set_incomplete(term);
     }
+    expr* arg;
+    func_decl* fn;
+    if (m_util.str.is_length(term, arg) && !m_sort2len_fn.find(m.get_sort(arg), fn)) {
+        m_trail_stack.push(ast2ast_trail<theory_seq, sort, func_decl>(m_sort2len_fn, m.get_sort(arg), term->get_decl()));
+    }
     return true;
 }
 
@@ -555,8 +563,7 @@ void theory_seq::collect_statistics(::statistics & st) const {
 }
 
 void theory_seq::init_model(model_generator & mg) {
-    m_factory = alloc(seq_factory, get_manager(), 
-                      get_family_id(), mg.get_model());
+    m_factory = alloc(seq_factory, get_manager(), get_family_id(), mg.get_model());
     mg.register_factory(m_factory);
 }
 
@@ -575,7 +582,7 @@ model_value_proc * theory_seq::mk_value(enode * n, model_generator & mg) {
 void theory_seq::set_incomplete(app* term) {
     TRACE("seq", tout << "No support for: " << mk_pp(term, m) << "\n";);
     if (!m_incomplete) { 
-        m_trail_stack.push(value_trail<theory_seq,bool>(m_incomplete)); 
+        m_trail_stack.push(value_trail<theory_seq, bool>(m_incomplete)); 
         m_incomplete = true; 
     } 
 }
@@ -659,72 +666,73 @@ void theory_seq::create_axiom(expr_ref& e) {
 }
 
 /*
-  encode that s is not a proper prefix of xs
-*/
-expr_ref theory_seq::tightest_prefix(expr* s, expr* x) {
-    expr_ref s1 = mk_skolem(symbol("first"), s);
-    expr_ref c  = mk_skolem(symbol("last"),  s);
-    expr_ref fml(m);
-
-    fml = m.mk_and(m.mk_eq(s, m_util.str.mk_concat(s1, c)),
-                   m.mk_eq(m_util.str.mk_length(c), m_autil.mk_int(1)),
-                   m.mk_not(m_util.str.mk_contains(s, m_util.str.mk_concat(x, s1))));
-
-    return fml;
-}
-
-
+  \brief nodes n1 and n2 are about to get merged.
+  if n1 occurs in the context of a length application,
+  then instantiate length axioms for each concatenation in the class of n2.
+  In this way we ensure that length respects concatenation.
+ */
 void theory_seq::new_eq_len_concat(enode* n1, enode* n2) {
     context& ctx = get_context();
-    // TBD: walk use list of n1 for concat, walk use-list of n2 for length.
-    // instantiate length distributes over concatenation axiom.
     SASSERT(n1->get_root() != n2->get_root());
     if (!m_util.is_seq(n1->get_owner())) {
         return;
     }
     func_decl* f_len = 0;
-
-    // TBD: extract length function for sort if it is used.
-    // TBD: add filter for already processed length equivalence classes
-    if (!f_len) {
+    if (!m_sort2len_fn.find(m.get_sort(n1->get_owner()), f_len)) {
         return;
     }
-    enode_vector::const_iterator it = ctx.begin_enodes_of(f_len);
+
+    enode* r1 = n1->get_root();
+    enode_vector::const_iterator it  = ctx.begin_enodes_of(f_len);
     enode_vector::const_iterator end = ctx.end_enodes_of(f_len);
-    bool has_concat = true;
-    for (; has_concat && it != end; ++it) {
-        if ((*it)->get_root() == n1->get_root()) {
-            enode* start2 = n2;
-            do {
-                if (m_util.str.is_concat(n2->get_owner())) {
-                    has_concat = true;
-                    add_len_concat_axiom(n2->get_owner());
-                }
-                n2 = n2->get_next();
-            }
-            while (n2 != start2);
-        }
+    bool has_len = false;
+    for (; !has_len && it != end; ++it) {
+        has_len = ((*it)->get_root() == r1);
     }
+    if (!has_len) {
+        return;
+    }
+    enode* start2 = n2;
+    do {
+        if (m_util.str.is_concat(n2->get_owner())) {
+            expr_ref ln(m);
+            ln = m_util.str.mk_length(n2->get_owner());
+            add_len_axiom(ln);
+        }
+        n2 = n2->get_next();
+    }
+    while (n2 != start2);
 }
 
-void theory_seq::add_len_concat_axiom(expr* c) {
-    // or just internalize lc and have relevancy propagation create axiom?
-    expr *a, *b;
-    expr_ref la(m), lb(m), lc(m), fml(m);
-    VERIFY(m_util.str.is_concat(c, a, b));
-    la = m_util.str.mk_length(a);
-    lb = m_util.str.mk_length(b);
-    lc = m_util.str.mk_length(c);
-    fml = m.mk_eq(m_autil.mk_add(la, lb), lc);
-    create_axiom(fml);
+
+/*
+  encode that s is not a proper prefix of xs1
+  where s1 is all of s, except the last element.
+  
+  lit or s = "" or s = s1*c
+  lit or s = "" or len(c) = 1
+  lit or s = "" or !prefix(s, x*s1)
+*/
+void theory_seq::tightest_prefix(expr* s, expr* x, literal lit) {
+    expr_ref s1 = mk_skolem(symbol("first"), s);
+    expr_ref c  = mk_skolem(symbol("last"),  s);
+    expr_ref s1c(m_util.str.mk_concat(s1, c), m);
+    expr_ref lc(m_util.str.mk_length(c), m);
+    expr_ref one(m_autil.mk_int(1), m);
+    expr_ref emp(m_util.str.mk_empty(m.get_sort(s)), m);
+    literal s_eq_emp = mk_eq(s, emp, false);
+    add_axiom(lit, s_eq_emp, mk_eq(s, s1c, false));
+    add_axiom(lit, s_eq_emp, mk_eq(lc, one, false));
+    add_axiom(lit, s_eq_emp, ~mk_literal(m_util.str.mk_contains(s, m_util.str.mk_concat(x, s1))));
 }
 
 /*
   let i = Index(s, t)
 
   (!contains(s, t) -> i = -1)
-  (contains(s, t) & s = empty -> i = 0)
-  (contains(s, t) & s != empty -> t = xsy & tightest_prefix(s, x))
+  (s = empty -> i = 0)
+  (contains(s, t) & s != empty -> t = xsy)
+  (contains(s, t) -> tightest_prefix(s, x))
 
   optional lemmas:
   (len(s) > len(t)  -> i = -1) 
@@ -733,43 +741,41 @@ void theory_seq::add_len_concat_axiom(expr* c) {
 void theory_seq::add_indexof_axiom(expr* i) {
     expr* s, *t;
     VERIFY(m_util.str.is_index(i, s, t));
-    expr_ref cnt(m), fml(m), eq_empty(m);
+    expr_ref fml(m), emp(m), minus_one(m), zero(m), xsy(m);
     expr_ref x  = mk_skolem(m_contains_left_sym, s, t);
     expr_ref y  = mk_skolem(m_contains_right_sym, s, t);    
-    eq_empty = m.mk_eq(s, m_util.str.mk_empty(m.get_sort(s)));
-    cnt = m_util.str.mk_contains(s, t);
-    fml = m.mk_or(cnt, m.mk_eq(i, m_autil.mk_int(-1)));
-    create_axiom(fml);
-    fml = m.mk_or(m.mk_not(cnt), m.mk_not(eq_empty), m.mk_eq(i, m_autil.mk_int(0)));
-    create_axiom(fml);
-    fml = m.mk_or(m.mk_not(cnt), eq_empty, m.mk_eq(t, m_util.str.mk_concat(x,s,y)));
-    create_axiom(fml);
-    fml = m.mk_or(m.mk_not(cnt), eq_empty, tightest_prefix(s, x));
-    create_axiom(fml);
+    minus_one   = m_autil.mk_int(-1);
+    zero        = m_autil.mk_int(0);
+    emp         = m_util.str.mk_empty(m.get_sort(s));
+    xsy         = m_util.str.mk_concat(x,s,y);
+    literal cnt = mk_literal(m_util.str.mk_contains(s, t));
+    literal eq_empty = mk_eq(s, emp, false);
+    add_axiom(cnt,  mk_eq(i, minus_one, false));
+    add_axiom(~eq_empty, mk_eq(i, zero, false));
+    add_axiom(~cnt, eq_empty, mk_eq(t, xsy, false));
+    tightest_prefix(s, x, ~cnt);
 }
 
 /*
   let r = replace(a, s, t)
   
-  (contains(s, a) -> r = xty & a = xsy & tightest_prefix(s,xs)) & 
+  (contains(s, a) -> tightest_prefix(s,xs))
+  (contains(s, a) -> r = xty & a = xsy) & 
   (!contains(s, a) -> r = a)
    
 */
 void theory_seq::add_replace_axiom(expr* r) {
     expr* a, *s, *t;
     VERIFY(m_util.str.is_replace(r, a, s, t));
-    expr_ref cnt(m), fml(m);
-    cnt = m_util.str.mk_contains(s, a);
     expr_ref x  = mk_skolem(m_contains_left_sym, s, a);
     expr_ref y  = mk_skolem(m_contains_right_sym, s, a);    
-    fml = m.mk_or(m.mk_not(cnt), m.mk_eq(a, m_util.str.mk_concat(x, s, y)));
-    create_axiom(fml);
-    fml = m.mk_or(m.mk_not(cnt), m.mk_eq(r, m_util.str.mk_concat(x, t, y)));
-    create_axiom(fml);
-    fml = m.mk_or(m.mk_not(cnt), tightest_prefix(s, x));
-    create_axiom(fml);
-    fml = m.mk_or(cnt, m.mk_eq(r, a));
-    create_axiom(fml);
+    expr_ref xsy(m_util.str.mk_concat(x, t, y), m);
+    expr_ref xty(m_util.str.mk_concat(x, s, y), m);
+    literal cnt = mk_literal(m_util.str.mk_contains(s, a));
+    add_axiom(cnt,  mk_eq(r, a, false));
+    add_axiom(~cnt, mk_eq(a, xsy, false));
+    add_axiom(~cnt, mk_eq(r, xty, false));
+    tightest_prefix(s, x, ~cnt);
 }
 
 /*
@@ -781,27 +787,26 @@ void theory_seq::add_replace_axiom(expr* r) {
     len(x) = rewrite(len(x))
  */
 void theory_seq::add_len_axiom(expr* n) {
-    expr* x;
+    expr* x, *a, *b;
     VERIFY(m_util.str.is_length(n, x));
-    expr_ref fml(m), eq1(m), eq2(m), nr(m);
-    eq1 = m.mk_eq(m_autil.mk_int(0), n);
-    eq2 = m.mk_eq(x, m_util.str.mk_empty(m.get_sort(x)));
-    fml = m_autil.mk_le(m_autil.mk_int(0), n);
-    create_axiom(fml);
-    fml = m.mk_or(m.mk_not(eq1), eq2);
-    create_axiom(fml);
-    fml = m.mk_or(m.mk_not(eq2), eq1);
-    create_axiom(fml);
-    nr = n;
-    m_rewrite(nr);
-    if (nr != n) {
-        fml = m.mk_eq(n, nr);
-        create_axiom(fml);
+    expr_ref zero(m), emp(m);
+    zero = m_autil.mk_int(0);
+    emp = m_util.str.mk_empty(m.get_sort(x));
+    literal eq1(mk_eq(zero, n, false));
+    literal eq2(mk_eq(x, emp, false));
+    add_axiom(mk_literal(m_autil.mk_le(zero, n)));
+    add_axiom(~eq1, eq2);
+    add_axiom(~eq2, eq1);
+    if (m_util.str.is_concat(n, a, b)) {
+        expr_ref _a(m_util.str.mk_length(a), m);
+        expr_ref _b(m_util.str.mk_length(b), m);
+        expr_ref a_p_b(m_autil.mk_add(_a, _b), m);
+        add_axiom(mk_eq(n, a_p_b, false));
     }
 }
 
 /*
-  check semantics of extract.
+  TBD: check semantics of extract.
 
   let e = extract(s, i, l)
 
@@ -809,17 +814,73 @@ void theory_seq::add_len_axiom(expr* n) {
   0 <= i < len(s) & l >= len(s) - i -> len(e) = len(s) - i
   0 <= i < len(s) & 0 <= l < len(s) - i -> len(e) = l
   0 <= i < len(s) & l < 0 -> len(e) = 0
-  i < 0 -> e = s
-  i >= len(s) -> e = empty
+  *  i < 0 -> e = s
+  *  i >= len(s) -> e = empty
 */
 
 void theory_seq::add_extract_axiom(expr* e) {
-    expr* s, *i, *j;
-    VERIFY(m_util.str.is_extract(e, s, i, j));
-    expr_ref i_ge_0(m), i_le_j(m), j_lt_s(m);
-
-    NOT_IMPLEMENTED_YET();
+    expr* s, *i, *l;
+    VERIFY(m_util.str.is_extract(e, s, i, l));
+    expr_ref x(mk_skolem(symbol("extract_prefix"), s, e), m);
+    expr_ref ls(m_util.str.mk_length(s), m);
+    expr_ref lx(m_util.str.mk_length(x), m);
+    expr_ref le(m_util.str.mk_length(e), m);
+    expr_ref ls_minus_i(m_autil.mk_sub(ls, i), m);
+    expr_ref xe(m_util.str.mk_concat(x, e), m);
+    expr_ref zero(m_autil.mk_int(0), m);
     
+    literal i_ge_0  = mk_literal(m_autil.mk_ge(i, m_autil.mk_int(0)));
+    literal i_le_l  = mk_literal(m_autil.mk_le(i, l));
+    literal i_ge_ls = mk_literal(m_autil.mk_ge(i, ls));
+    literal l_ge_ls = mk_literal(m_autil.mk_ge(l, ls));
+    literal l_ge_zero = mk_literal(m_autil.mk_ge(l, zero));
+
+    add_axiom(~i_ge_0, i_ge_ls, mk_literal(m_util.str.mk_prefix(xe, s)));
+    add_axiom(~i_ge_0, i_ge_ls, mk_eq(lx, i, false));
+    add_axiom(~i_ge_0, i_ge_ls, ~l_ge_ls, mk_eq(le, ls_minus_i, false));
+    add_axiom(~i_ge_0, i_ge_ls, l_ge_zero, mk_eq(le, zero, false));    
+}
+
+/*
+   let e = at(s, i)
+   
+   0 <= i < len(s) -> s = xey & len(x) = i & len(e) = 1
+   
+*/
+void theory_seq::add_at_axiom(expr* e) {
+    expr* s, *i;
+    VERIFY(m_util.str.is_at(e, s, i));
+    expr_ref x(m), y(m), lx(m), le(m), xey(m), one(m), len_e(m), len_x(m);
+    x     = mk_skolem(symbol("at_left"), s);
+    y     = mk_skolem(symbol("at_right"), s);
+    xey   = m_util.str.mk_concat(x, e, y);
+    one   = m_autil.mk_int(1);
+    len_e = m_util.str.mk_length(e);
+    len_x = m_util.str.mk_length(x);
+
+    literal i_ge_0 = mk_literal(m_autil.mk_ge(i, m_autil.mk_int(0)));
+    literal i_ge_len_s = mk_literal(m_autil.mk_ge(i, m_util.str.mk_length(s)));
+
+    add_axiom(~i_ge_0, i_ge_len_s, mk_eq(s, xey, false));
+    add_axiom(~i_ge_0, i_ge_len_s, mk_eq(one, len_e, false));
+    add_axiom(~i_ge_0, i_ge_len_s, mk_eq(i, len_x, false));
+}
+
+
+literal theory_seq::mk_literal(expr* _e) {
+    expr_ref e(_e, m);
+    context& ctx = get_context();
+    ctx.internalize(e, false);
+    return ctx.get_literal(e);
+}
+
+void theory_seq::add_axiom(literal l1, literal l2, literal l3, literal l4) {
+    literal_vector lits;
+    if (l1 != null_literal) lits.push_back(l1);
+    if (l2 != null_literal) lits.push_back(l2);
+    if (l3 != null_literal) lits.push_back(l3);
+    if (l4 != null_literal) lits.push_back(l4);
+    get_context().mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
 }
 
 void theory_seq::assert_axiom(expr_ref& e) {
@@ -966,6 +1027,18 @@ void theory_seq::restart_eh() {
 void theory_seq::relevant_eh(app* n) {
     if (m_util.str.is_length(n)) {
         add_len_axiom(n);
+    }
+    else if (m_util.str.is_index(n)) {
+        add_indexof_axiom(n);
+    }
+    else if (m_util.str.is_replace(n)) {
+        add_replace_axiom(n);
+    }
+    else if (m_util.str.is_extract(n)) {
+        add_extract_axiom(n);
+    }
+    else if (m_util.str.is_at(n)) {
+        add_at_axiom(n);
     }
 }
 

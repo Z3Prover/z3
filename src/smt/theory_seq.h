@@ -24,6 +24,7 @@ Revision History:
 #include "theory_seq_empty.h"
 #include "th_rewriter.h"
 #include "union_find.h"
+#include "ast_trail.h"
 
 namespace smt {
 
@@ -101,6 +102,7 @@ namespace smt {
         vector<expr_array>                  m_lhs, m_rhs; // persistent sets of equalities.
         vector<enode_pair_dependency_array> m_deps;       // persistent sets of dependencies.
 
+        ast2ast_trailmap<sort, func_decl>   m_sort2len_fn; // length functions per sort.
         seq_factory*    m_factory;               // value factory
         expr_ref_vector m_ineqs;                 // inequalities to check solution against
         exclusion_table m_exclude;               // set of asserted disequalities.
@@ -168,15 +170,19 @@ namespace smt {
     
         void assert_axiom(expr_ref& e);
         void create_axiom(expr_ref& e);
+        void add_axiom(literal l1, literal l2 = null_literal, literal l3 = null_literal, literal l4 = null_literal);
+        
         void add_indexof_axiom(expr* e);
         void add_replace_axiom(expr* e);
         void add_extract_axiom(expr* e);
         void add_len_concat_axiom(expr* c);
         void add_len_axiom(expr* n);
+        void add_at_axiom(expr* n);
+        literal mk_literal(expr* n);
+        void tightest_prefix(expr* s, expr* x, literal lit);
 
         void new_eq_len_concat(enode* n1, enode* n2);
 
-        expr_ref tightest_prefix(expr* s, expr* x);
         expr_ref canonize(expr* e, enode_pair_dependency*& eqs);
         expr_ref expand(expr* e, enode_pair_dependency*& eqs);
         void add_dependency(enode_pair_dependency*& dep, enode* a, enode* b);
