@@ -168,15 +168,14 @@ namespace smt {
         bool is_left_select(expr* a, expr*& b);
         bool is_right_select(expr* a, expr*& b);
     
-        void assert_axiom(expr_ref& e);
-        void create_axiom(expr_ref& e);
+        void enque_axiom(expr* e);
+        void deque_axiom(expr* e);
         void add_axiom(literal l1, literal l2 = null_literal, literal l3 = null_literal, literal l4 = null_literal);
         
         void add_indexof_axiom(expr* e);
         void add_replace_axiom(expr* e);
         void add_extract_axiom(expr* e);
-        void add_len_concat_axiom(expr* c);
-        void add_len_axiom(expr* n);
+        void add_length_axiom(expr* n);
         void add_at_axiom(expr* n);
         literal mk_literal(expr* n);
         void tightest_prefix(expr* s, expr* x, literal lit);

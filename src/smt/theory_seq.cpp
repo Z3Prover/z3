@@ -655,14 +655,32 @@ void theory_seq::propagate() {
     while (m_axioms_head < m_axioms.size() && !ctx.inconsistent()) {
         expr_ref e(m);
         e = m_axioms[m_axioms_head].get();
-        assert_axiom(e);
+        deque_axiom(e);
         ++m_axioms_head;
     }
 }
 
-void theory_seq::create_axiom(expr_ref& e) {
+void theory_seq::enque_axiom(expr* e) {
     m_trail_stack.push(push_back_vector<theory_seq, expr_ref_vector>(m_axioms));
     m_axioms.push_back(e);
+}
+
+void theory_seq::deque_axiom(expr* n) {
+    if (m_util.str.is_length(n)) {        
+        add_length_axiom(n);
+    }
+    else if (m_util.str.is_index(n)) {
+        add_indexof_axiom(n);
+    }
+    else if (m_util.str.is_replace(n)) {
+        add_replace_axiom(n);
+    }
+    else if (m_util.str.is_extract(n)) {
+        add_extract_axiom(n);
+    }
+    else if (m_util.str.is_at(n)) {
+        add_at_axiom(n);
+    }
 }
 
 /*
@@ -694,10 +712,13 @@ void theory_seq::new_eq_len_concat(enode* n1, enode* n2) {
     }
     enode* start2 = n2;
     do {
-        if (m_util.str.is_concat(n2->get_owner())) {
-            expr_ref ln(m);
-            ln = m_util.str.mk_length(n2->get_owner());
-            add_len_axiom(ln);
+        expr* o = n2->get_owner();
+        if (m_util.str.is_concat(o) ||
+            m_util.str.is_unit(o) ||
+            m_util.str.is_string(o) ||
+            m_util.str.is_empty(o)) {
+            expr_ref ln(m_util.str.mk_length(o), m);
+            enque_axiom(ln);
         }
         n2 = n2->get_next();
     }
@@ -786,22 +807,36 @@ void theory_seq::add_replace_axiom(expr* r) {
     x = "" => len(x) = 0
     len(x) = rewrite(len(x))
  */
-void theory_seq::add_len_axiom(expr* n) {
+void theory_seq::add_length_axiom(expr* n) {
     expr* x, *a, *b;
     VERIFY(m_util.str.is_length(n, x));
-    expr_ref zero(m), emp(m);
+    expr_ref zero(m), one(m), emp(m);
     zero = m_autil.mk_int(0);
-    emp = m_util.str.mk_empty(m.get_sort(x));
-    literal eq1(mk_eq(zero, n, false));
-    literal eq2(mk_eq(x, emp, false));
-    add_axiom(mk_literal(m_autil.mk_le(zero, n)));
-    add_axiom(~eq1, eq2);
-    add_axiom(~eq2, eq1);
-    if (m_util.str.is_concat(n, a, b)) {
+    std::string s;
+    if (m_util.str.is_unit(n)) {
+        one = m_autil.mk_int(1);
+        add_axiom(mk_eq(n, one, false));
+    }
+    else if (m_util.str.is_empty(n)) {
+        add_axiom(mk_eq(n, zero, false));
+    }
+    else if (m_util.str.is_string(n, s)) {
+        expr_ref ls(m_autil.mk_numeral(rational(s.length(), rational::ui64()), true), m);
+        add_axiom(mk_eq(n, ls, false));
+    }
+    else if (m_util.str.is_concat(n, a, b)) {
         expr_ref _a(m_util.str.mk_length(a), m);
         expr_ref _b(m_util.str.mk_length(b), m);
         expr_ref a_p_b(m_autil.mk_add(_a, _b), m);
         add_axiom(mk_eq(n, a_p_b, false));
+    }
+    else {
+        emp = m_util.str.mk_empty(m.get_sort(x));
+        literal eq1(mk_eq(zero, n, false));
+        literal eq2(mk_eq(x, emp, false));
+        add_axiom(mk_literal(m_autil.mk_ge(n, zero)));
+        add_axiom(~eq1, eq2);
+        add_axiom(~eq2, eq1);
     }
 }
 
@@ -883,15 +918,6 @@ void theory_seq::add_axiom(literal l1, literal l2, literal l3, literal l4) {
     get_context().mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
 }
 
-void theory_seq::assert_axiom(expr_ref& e) {
-    context & ctx = get_context();
-    if (m.is_true(e)) return;
-    TRACE("seq", tout << "asserting " << e << "\n";);
-    ctx.internalize(e, false);
-    literal lit(ctx.get_literal(e));
-    ctx.mark_as_relevant(lit);
-    ctx.mk_th_axiom(get_id(), 1, &lit);
-}
 
 expr_ref theory_seq::mk_skolem(symbol const& name, expr* e1, expr* e2) {
     expr* es[2] = { e1, e2 };
@@ -1024,21 +1050,12 @@ void theory_seq::restart_eh() {
 #endif
 }
 
-void theory_seq::relevant_eh(app* n) {
-    if (m_util.str.is_length(n)) {
-        add_len_axiom(n);
-    }
-    else if (m_util.str.is_index(n)) {
-        add_indexof_axiom(n);
-    }
-    else if (m_util.str.is_replace(n)) {
-        add_replace_axiom(n);
-    }
-    else if (m_util.str.is_extract(n)) {
-        add_extract_axiom(n);
-    }
-    else if (m_util.str.is_at(n)) {
-        add_at_axiom(n);
+void theory_seq::relevant_eh(app* n) {    
+    if (m_util.str.is_length(n)  ||    
+        m_util.str.is_index(n)   ||
+        m_util.str.is_replace(n) ||
+        m_util.str.is_extract(n) ||
+        m_util.str.is_at(n)) {
+        enque_axiom(n);
     }
 }
-

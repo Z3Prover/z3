@@ -154,6 +154,12 @@ br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
         if (m_util.str.is_string(m_es[i], b)) {
             len += b.length();
         }
+        else if (m_util.str.is_unit(m_es[i])) {
+            len += 1;
+        }
+        else if (m_util.str.is_empty(m_es[i])) {
+            // skip
+        }
         else {
             m_es[j] = m_es[i];
             ++j;
