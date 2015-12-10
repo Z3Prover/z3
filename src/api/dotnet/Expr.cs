@@ -337,11 +337,7 @@ namespace Microsoft.Z3
         /// </summary>
         public bool IsInt
         {
-            get
-            {
-                return (Native.Z3_is_numeral_ast(Context.nCtx, NativeObject) != 0 &&
-                        Native.Z3_get_sort_kind(Context.nCtx, Native.Z3_get_sort(Context.nCtx, NativeObject)) == (uint)Z3_sort_kind.Z3_INT_SORT);
-            }
+            get { return Native.Z3_get_sort_kind(Context.nCtx, Native.Z3_get_sort(Context.nCtx, NativeObject)) == (uint)Z3_sort_kind.Z3_INT_SORT; }
         }
 
         /// <summary>

@@ -415,10 +415,7 @@ public class Expr extends AST
      **/
     public boolean isInt()
     {
-        return (Native.isNumeralAst(getContext().nCtx(), getNativeObject()) && Native
-                .getSortKind(getContext().nCtx(),
-                        Native.getSort(getContext().nCtx(), getNativeObject())) == Z3_sort_kind.Z3_INT_SORT
-                .toInt());
+        return Native.getSortKind(getContext().nCtx(), Native.getSort(getContext().nCtx(), getNativeObject())) == Z3_sort_kind.Z3_INT_SORT.toInt();
     }
 
     /**
@@ -428,9 +425,7 @@ public class Expr extends AST
      **/
     public boolean isReal()
     {
-        return Native.getSortKind(getContext().nCtx(),
-                Native.getSort(getContext().nCtx(), getNativeObject())) == Z3_sort_kind.Z3_REAL_SORT
-                .toInt();
+        return Native.getSortKind(getContext().nCtx(), Native.getSort(getContext().nCtx(), getNativeObject())) == Z3_sort_kind.Z3_REAL_SORT.toInt();
     }
 
     /**
