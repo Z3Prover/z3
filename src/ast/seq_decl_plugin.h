@@ -220,7 +220,7 @@ public:
         MATCH_TERNARY(is_extract);
         MATCH_BINARY(is_contains);
         MATCH_BINARY(is_at);
-        MATCH_BINARY(is_index);
+        MATCH_TERNARY(is_index);
         MATCH_TERNARY(is_replace);
         MATCH_BINARY(is_prefix);
         MATCH_BINARY(is_suffix);

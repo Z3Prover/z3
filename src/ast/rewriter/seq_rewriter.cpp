@@ -72,6 +72,10 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         SASSERT(num_args == 2);
         return mk_seq_suffix(args[0], args[1], result);
     case OP_SEQ_INDEX:
+        if (num_args == 2) {
+            expr_ref arg3(m_autil.mk_int(0), m());
+            return mk_seq_index(args[0], args[1], arg3, result);
+        }
         SASSERT(num_args == 3);
         return mk_seq_index(args[0], args[1], args[2], result);
     case OP_SEQ_REPLACE:

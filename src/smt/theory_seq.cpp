@@ -745,33 +745,47 @@ void theory_seq::tightest_prefix(expr* s, expr* x, literal lit) {
 }
 
 /*
-  let i = Index(s, t)
+  let i = Index(s, t, offset)
 
-  (!contains(s, t) -> i = -1)
-  (s = empty -> i = 0)
-  (contains(s, t) & s != empty -> t = xsy)
-  (contains(s, t) -> tightest_prefix(s, x))
+  if offset = 0:
+    (!contains(s, t) -> i = -1)
+    (s = empty -> i = 0)
+    (contains(s, t) & s != empty -> t = xsy)
+    (contains(s, t) -> tightest_prefix(s, x))
+  if 0 <= offset < len(t):
+     t = zt' & len(z) == offset
+     add above constraints with t'
+  if offset >= len(t):
+     i = -1
+  if offset < 0:
+     ?
 
   optional lemmas:
   (len(s) > len(t)  -> i = -1) 
   (len(s) <= len(t) -> i <= len(t)-len(s))  
 */
 void theory_seq::add_indexof_axiom(expr* i) {
-    expr* s, *t;
-    VERIFY(m_util.str.is_index(i, s, t));
-    expr_ref fml(m), emp(m), minus_one(m), zero(m), xsy(m);
-    expr_ref x  = mk_skolem(m_contains_left_sym, s, t);
-    expr_ref y  = mk_skolem(m_contains_right_sym, s, t);    
+    expr* s, *t, *offset;
+    rational r;
+    VERIFY(m_util.str.is_index(i, s, t, offset));
+    expr_ref emp(m), minus_one(m), zero(m), xsy(m);
     minus_one   = m_autil.mk_int(-1);
     zero        = m_autil.mk_int(0);
     emp         = m_util.str.mk_empty(m.get_sort(s));
-    xsy         = m_util.str.mk_concat(x,s,y);
-    literal cnt = mk_literal(m_util.str.mk_contains(s, t));
-    literal eq_empty = mk_eq(s, emp, false);
-    add_axiom(cnt,  mk_eq(i, minus_one, false));
-    add_axiom(~eq_empty, mk_eq(i, zero, false));
-    add_axiom(~cnt, eq_empty, mk_eq(t, xsy, false));
-    tightest_prefix(s, x, ~cnt);
+    if (m_autil.is_numeral(offset, r) && r.is_zero()) {
+        expr_ref x  = mk_skolem(m_contains_left_sym, s, t);
+        expr_ref y  = mk_skolem(m_contains_right_sym, s, t);    
+        xsy         = m_util.str.mk_concat(x,s,y);
+        literal cnt = mk_literal(m_util.str.mk_contains(s, t));
+        literal eq_empty = mk_eq(s, emp, false);
+        add_axiom(cnt,  mk_eq(i, minus_one, false));
+        add_axiom(~eq_empty, mk_eq(i, zero, false));
+        add_axiom(~cnt, eq_empty, mk_eq(t, xsy, false));
+        tightest_prefix(s, x, ~cnt);
+    }
+    else {
+        // TBD
+    }
 }
 
 /*
