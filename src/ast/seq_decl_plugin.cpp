@@ -90,6 +90,7 @@ void seq_decl_plugin::match_left_assoc(psig& sig, unsigned dsz, sort *const* dom
     }
     bool is_match = true;
     for (unsigned i = 0; is_match && i < dsz; ++i) {
+        SASSERT(dom[i]);
         is_match = match(binding, dom[i], sig.m_dom[0].get());
     }
     if (range && is_match) {
@@ -102,6 +103,7 @@ void seq_decl_plugin::match_left_assoc(psig& sig, unsigned dsz, sort *const* dom
         m.raise_exception(strm.str().c_str());
     }
     range_out = apply_binding(binding, sig.m_range);
+    SASSERT(range_out);
     TRACE("seq_verbose", tout << mk_pp(range_out, m) << "\n";);
 }
 
@@ -134,6 +136,7 @@ void seq_decl_plugin::match(psig& sig, unsigned dsz, sort *const* dom, sort* ran
         m.raise_exception(strm.str().c_str());
     }
     range_out = apply_binding(binding, sig.m_range);
+    SASSERT(range_out);
 }
 
 sort* seq_decl_plugin::apply_binding(ptr_vector<sort> const& binding, sort* s) {
@@ -195,7 +198,7 @@ void seq_decl_plugin::init() {
     m_sigs[OP_SEQ_SUFFIX]    = alloc(psig, m, "seq.suffixof", 1, 2, seqAseqA, boolT);
     m_sigs[OP_SEQ_CONTAINS]  = alloc(psig, m, "seq.contains", 1, 2, seqAseqA, boolT);
     m_sigs[OP_SEQ_EXTRACT]   = alloc(psig, m, "seq.extract",  1, 3, seqAint2T, seqA);
-    m_sigs[OP_SEQ_REPLACE]   = alloc(psig, m, "seq.replace",  1, 3, seq3A, strT);
+    m_sigs[OP_SEQ_REPLACE]   = alloc(psig, m, "seq.replace",  1, 3, seq3A, seqA);
     m_sigs[OP_SEQ_INDEX]     = alloc(psig, m, "seq.indexof",  1, 3, seq2AintT, intT);
     m_sigs[OP_SEQ_AT]        = alloc(psig, m, "seq.at",       1, 2, seqAintT, seqA);
     m_sigs[OP_SEQ_LENGTH]    = alloc(psig, m, "seq.len",      1, 1, &seqA, intT);
@@ -226,7 +229,7 @@ void seq_decl_plugin::init() {
     m_sigs[_OP_STRING_SUFFIX]    = alloc(psig, m, "str.suffixof", 0, 2, str2T, boolT);
     m_sigs[_OP_STRING_IN_REGEXP]  = alloc(psig, m, "str.in.re", 0, 2, strTreT, boolT);
     m_sigs[_OP_STRING_TO_REGEXP]  = alloc(psig, m, "str.to.re", 0, 1, &strT, reT);
-    m_sigs[_OP_STRING_SUBSTR]     = alloc(psig, m, "str.substr", 0, 3, strTint2T, boolT);
+    m_sigs[_OP_STRING_SUBSTR]     = alloc(psig, m, "str.substr", 0, 3, strTint2T, strT);
 }
 
 void seq_decl_plugin::set_manager(ast_manager* m, family_id id) {
@@ -409,7 +412,7 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
 
     case _OP_SEQ_SKOLEM: 
-        return m.mk_func_decl(symbol("seq.skolem"), arity, domain, rng, func_decl_info(m_family_id, k));
+        return m.mk_func_decl(symbol("seq.skolem"), arity, domain, range, func_decl_info(m_family_id, k));
     default:
         UNREACHABLE();
         return 0;
@@ -444,6 +447,7 @@ bool seq_decl_plugin::is_value(app* e) const {
 }
 
 app* seq_util::mk_skolem(symbol const& name, unsigned n, expr* const* args, sort* range) {
+    SASSERT(range);
     parameter param(name);
     func_decl* f = m.mk_func_decl(get_family_id(), _OP_SEQ_SKOLEM, 1, &param, n, args, range);
     return m.mk_app(f, n, args);

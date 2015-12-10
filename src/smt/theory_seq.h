@@ -143,7 +143,8 @@ namespace smt {
         virtual void collect_statistics(::statistics & st) const;
         virtual model_value_proc * mk_value(enode * n, model_generator & mg);
         virtual void init_model(model_generator & mg);
-       
+
+        // final check 
         bool check_ineqs();              // check if inequalities are violated.
         bool simplify_and_solve_eqs();   // solve unitary equalities
         bool branch_variable();          // branch on a variable
@@ -154,6 +155,8 @@ namespace smt {
         bool simplify_eq(expr* l, expr* r, enode_pair_dependency* dep);
         bool solve_unit_eq(expr* l, expr* r, enode_pair_dependency* dep);
         bool solve_basic_eqs();
+
+        // asserting consequences
         void propagate_lit(enode_pair_dependency* dep, literal lit);
         void propagate_eq(enode_pair_dependency* dep, enode* n1, enode* n2);
         void propagate_eq(bool_var v, expr* e1, expr* e2);
@@ -162,16 +165,21 @@ namespace smt {
         bool find_branch_candidate(expr* l, ptr_vector<expr> const& rs);
         bool assume_equality(expr* l, expr* r);
 
+        // variable solving utilities
         bool occurs(expr* a, expr* b);
         bool is_var(expr* b);
         void add_solution(expr* l, expr* r, enode_pair_dependency* dep);
         bool is_left_select(expr* a, expr*& b);
         bool is_right_select(expr* a, expr*& b);
+        expr_ref canonize(expr* e, enode_pair_dependency*& eqs);
+        expr_ref expand(expr* e, enode_pair_dependency*& eqs);
+        void add_dependency(enode_pair_dependency*& dep, enode* a, enode* b);
+
     
+        // terms whose meaning are encoded using axioms.
         void enque_axiom(expr* e);
         void deque_axiom(expr* e);
-        void add_axiom(literal l1, literal l2 = null_literal, literal l3 = null_literal, literal l4 = null_literal);
-        
+        void add_axiom(literal l1, literal l2 = null_literal, literal l3 = null_literal, literal l4 = null_literal);        
         void add_indexof_axiom(expr* e);
         void add_replace_axiom(expr* e);
         void add_extract_axiom(expr* e);
@@ -179,17 +187,16 @@ namespace smt {
         void add_at_axiom(expr* n);
         literal mk_literal(expr* n);
         void tightest_prefix(expr* s, expr* x, literal lit);
+        expr* mk_sub(expr* a, expr* b);
 
         void new_eq_len_concat(enode* n1, enode* n2);
 
-        expr_ref canonize(expr* e, enode_pair_dependency*& eqs);
-        expr_ref expand(expr* e, enode_pair_dependency*& eqs);
-        void add_dependency(enode_pair_dependency*& dep, enode* a, enode* b);
 
         expr_ref mk_skolem(symbol const& s, expr* e1, expr* e2 = 0);
 
         void set_incomplete(app* term);
 
+        // diagnostics
         void display_equations(std::ostream& out) const;
         void display_deps(std::ostream& out, enode_pair_dependency* deps) const;
     public:
