@@ -465,13 +465,6 @@ bool theory_seq::simplify_and_solve_eqs() {
 }
 
 
-final_check_status theory_seq::add_axioms() {
-    for (unsigned i = 0; i < get_num_vars(); ++i) {
-
-        // add axioms for len(x) when x = a ++ b
-    }
-    return FC_DONE;
-}
 
 bool theory_seq::internalize_atom(app* a, bool) { 
     return internalize_term(a);
@@ -513,8 +506,6 @@ bool theory_seq::internalize_term(app* term) {
         !m_util.is_skolem(term)) {
         set_incomplete(term);
     }
-        
-    // assert basic axioms    
     return true;
 }
 
@@ -667,6 +658,170 @@ void theory_seq::create_axiom(expr_ref& e) {
     m_axioms.push_back(e);
 }
 
+/*
+  encode that s is not a proper prefix of xs
+*/
+expr_ref theory_seq::tightest_prefix(expr* s, expr* x) {
+    expr_ref s1 = mk_skolem(symbol("first"), s);
+    expr_ref c  = mk_skolem(symbol("last"),  s);
+    expr_ref fml(m);
+
+    fml = m.mk_and(m.mk_eq(s, m_util.str.mk_concat(s1, c)),
+                   m.mk_eq(m_util.str.mk_length(c), m_autil.mk_int(1)),
+                   m.mk_not(m_util.str.mk_contains(s, m_util.str.mk_concat(x, s1))));
+
+    return fml;
+}
+
+
+void theory_seq::new_eq_len_concat(enode* n1, enode* n2) {
+    context& ctx = get_context();
+    // TBD: walk use list of n1 for concat, walk use-list of n2 for length.
+    // instantiate length distributes over concatenation axiom.
+    SASSERT(n1->get_root() != n2->get_root());
+    if (!m_util.is_seq(n1->get_owner())) {
+        return;
+    }
+    func_decl* f_len = 0;
+
+    // TBD: extract length function for sort if it is used.
+    // TBD: add filter for already processed length equivalence classes
+    if (!f_len) {
+        return;
+    }
+    enode_vector::const_iterator it = ctx.begin_enodes_of(f_len);
+    enode_vector::const_iterator end = ctx.end_enodes_of(f_len);
+    bool has_concat = true;
+    for (; has_concat && it != end; ++it) {
+        if ((*it)->get_root() == n1->get_root()) {
+            enode* start2 = n2;
+            do {
+                if (m_util.str.is_concat(n2->get_owner())) {
+                    has_concat = true;
+                    add_len_concat_axiom(n2->get_owner());
+                }
+                n2 = n2->get_next();
+            }
+            while (n2 != start2);
+        }
+    }
+}
+
+void theory_seq::add_len_concat_axiom(expr* c) {
+    // or just internalize lc and have relevancy propagation create axiom?
+    expr *a, *b;
+    expr_ref la(m), lb(m), lc(m), fml(m);
+    VERIFY(m_util.str.is_concat(c, a, b));
+    la = m_util.str.mk_length(a);
+    lb = m_util.str.mk_length(b);
+    lc = m_util.str.mk_length(c);
+    fml = m.mk_eq(m_autil.mk_add(la, lb), lc);
+    create_axiom(fml);
+}
+
+/*
+  let i = Index(s, t)
+
+  (!contains(s, t) -> i = -1)
+  (contains(s, t) & s = empty -> i = 0)
+  (contains(s, t) & s != empty -> t = xsy & tightest_prefix(s, x))
+
+  optional lemmas:
+  (len(s) > len(t)  -> i = -1) 
+  (len(s) <= len(t) -> i <= len(t)-len(s))  
+*/
+void theory_seq::add_indexof_axiom(expr* i) {
+    expr* s, *t;
+    VERIFY(m_util.str.is_index(i, s, t));
+    expr_ref cnt(m), fml(m), eq_empty(m);
+    expr_ref x  = mk_skolem(m_contains_left_sym, s, t);
+    expr_ref y  = mk_skolem(m_contains_right_sym, s, t);    
+    eq_empty = m.mk_eq(s, m_util.str.mk_empty(m.get_sort(s)));
+    cnt = m_util.str.mk_contains(s, t);
+    fml = m.mk_or(cnt, m.mk_eq(i, m_autil.mk_int(-1)));
+    create_axiom(fml);
+    fml = m.mk_or(m.mk_not(cnt), m.mk_not(eq_empty), m.mk_eq(i, m_autil.mk_int(0)));
+    create_axiom(fml);
+    fml = m.mk_or(m.mk_not(cnt), eq_empty, m.mk_eq(t, m_util.str.mk_concat(x,s,y)));
+    create_axiom(fml);
+    fml = m.mk_or(m.mk_not(cnt), eq_empty, tightest_prefix(s, x));
+    create_axiom(fml);
+}
+
+/*
+  let r = replace(a, s, t)
+  
+  (contains(s, a) -> r = xty & a = xsy & tightest_prefix(s,xs)) & 
+  (!contains(s, a) -> r = a)
+   
+*/
+void theory_seq::add_replace_axiom(expr* r) {
+    expr* a, *s, *t;
+    VERIFY(m_util.str.is_replace(r, a, s, t));
+    expr_ref cnt(m), fml(m);
+    cnt = m_util.str.mk_contains(s, a);
+    expr_ref x  = mk_skolem(m_contains_left_sym, s, a);
+    expr_ref y  = mk_skolem(m_contains_right_sym, s, a);    
+    fml = m.mk_or(m.mk_not(cnt), m.mk_eq(a, m_util.str.mk_concat(x, s, y)));
+    create_axiom(fml);
+    fml = m.mk_or(m.mk_not(cnt), m.mk_eq(r, m_util.str.mk_concat(x, t, y)));
+    create_axiom(fml);
+    fml = m.mk_or(m.mk_not(cnt), tightest_prefix(s, x));
+    create_axiom(fml);
+    fml = m.mk_or(cnt, m.mk_eq(r, a));
+    create_axiom(fml);
+}
+
+/*
+    let n = len(x)
+
+    len(x) >= 0
+    len(x) = 0 => x = ""
+    x = "" => len(x) = 0
+    len(x) = rewrite(len(x))
+ */
+void theory_seq::add_len_axiom(expr* n) {
+    expr* x;
+    VERIFY(m_util.str.is_length(n, x));
+    expr_ref fml(m), eq1(m), eq2(m), nr(m);
+    eq1 = m.mk_eq(m_autil.mk_int(0), n);
+    eq2 = m.mk_eq(x, m_util.str.mk_empty(m.get_sort(x)));
+    fml = m_autil.mk_le(m_autil.mk_int(0), n);
+    create_axiom(fml);
+    fml = m.mk_or(m.mk_not(eq1), eq2);
+    create_axiom(fml);
+    fml = m.mk_or(m.mk_not(eq2), eq1);
+    create_axiom(fml);
+    nr = n;
+    m_rewrite(nr);
+    if (nr != n) {
+        fml = m.mk_eq(n, nr);
+        create_axiom(fml);
+    }
+}
+
+/*
+  check semantics of extract.
+
+  let e = extract(s, i, l)
+
+  0 <= i < len(s) -> prefix(xe,s) & len(x) = i
+  0 <= i < len(s) & l >= len(s) - i -> len(e) = len(s) - i
+  0 <= i < len(s) & 0 <= l < len(s) - i -> len(e) = l
+  0 <= i < len(s) & l < 0 -> len(e) = 0
+  i < 0 -> e = s
+  i >= len(s) -> e = empty
+*/
+
+void theory_seq::add_extract_axiom(expr* e) {
+    expr* s, *i, *j;
+    VERIFY(m_util.str.is_extract(e, s, i, j));
+    expr_ref i_ge_0(m), i_le_j(m), j_lt_s(m);
+
+    NOT_IMPLEMENTED_YET();
+    
+}
+
 void theory_seq::assert_axiom(expr_ref& e) {
     context & ctx = get_context();
     if (m.is_true(e)) return;
@@ -679,7 +834,7 @@ void theory_seq::assert_axiom(expr_ref& e) {
 
 expr_ref theory_seq::mk_skolem(symbol const& name, expr* e1, expr* e2) {
     expr* es[2] = { e1, e2 };
-    return expr_ref(m_util.mk_skolem(name, 2, es, m.get_sort(e1)), m);
+    return expr_ref(m_util.mk_skolem(name, e2?2:1, es, m.get_sort(e1)), m);
 }
 
 void theory_seq::propagate_eq(bool_var v, expr* e1, expr* e2) {
@@ -744,6 +899,9 @@ void theory_seq::new_eq_eh(theory_var v1, theory_var v2) {
         m.push_back(m_lhs.back(), n1->get_owner());
         m.push_back(m_rhs.back(), n2->get_owner());
         m_dam.push_back(m_deps.back(), m_dm.mk_leaf(enode_pair(n1, n2)));
+
+        new_eq_len_concat(n1, n2);
+        new_eq_len_concat(n2, n1);
     }
 }
 
@@ -807,8 +965,7 @@ void theory_seq::restart_eh() {
 
 void theory_seq::relevant_eh(app* n) {
     if (m_util.str.is_length(n)) {
-        expr_ref e(m);
-        e = m_autil.mk_le(m_autil.mk_numeral(rational(0), true), n);
-        create_axiom(e);
+        add_len_axiom(n);
     }
 }
+

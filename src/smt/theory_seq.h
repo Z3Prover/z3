@@ -166,15 +166,22 @@ namespace smt {
         bool is_left_select(expr* a, expr*& b);
         bool is_right_select(expr* a, expr*& b);
     
-        final_check_status add_axioms();
-
         void assert_axiom(expr_ref& e);
         void create_axiom(expr_ref& e);
+        void add_indexof_axiom(expr* e);
+        void add_replace_axiom(expr* e);
+        void add_extract_axiom(expr* e);
+        void add_len_concat_axiom(expr* c);
+        void add_len_axiom(expr* n);
+
+        void new_eq_len_concat(enode* n1, enode* n2);
+
+        expr_ref tightest_prefix(expr* s, expr* x);
         expr_ref canonize(expr* e, enode_pair_dependency*& eqs);
         expr_ref expand(expr* e, enode_pair_dependency*& eqs);
         void add_dependency(enode_pair_dependency*& dep, enode* a, enode* b);
 
-        expr_ref mk_skolem(symbol const& s, expr* e1, expr* e2);
+        expr_ref mk_skolem(symbol const& s, expr* e1, expr* e2 = 0);
 
         void set_incomplete(app* term);
 

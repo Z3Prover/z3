@@ -55,22 +55,28 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         return mk_seq_concat(args[0], args[1], result);
     case OP_SEQ_LENGTH:
         SASSERT(num_args == 1);
-        return mk_str_length(args[0], result);
+        return mk_seq_length(args[0], result);
     case OP_SEQ_EXTRACT:
         SASSERT(num_args == 3);
-        return mk_str_substr(args[0], args[1], args[2], result);
+        return mk_seq_extract(args[0], args[1], args[2], result);
     case OP_SEQ_CONTAINS: 
         SASSERT(num_args == 2);
-        return mk_str_strctn(args[0], args[1], result);
+        return mk_seq_contains(args[0], args[1], result);
     case OP_SEQ_AT:
         SASSERT(num_args == 2);
-        return mk_str_at(args[0], args[1], result); 
+        return mk_seq_at(args[0], args[1], result); 
     case OP_SEQ_PREFIX: 
         SASSERT(num_args == 2);
         return mk_seq_prefix(args[0], args[1], result);
     case OP_SEQ_SUFFIX: 
         SASSERT(num_args == 2);
         return mk_seq_suffix(args[0], args[1], result);
+    case OP_SEQ_INDEX:
+        SASSERT(num_args == 3);
+        return mk_seq_index(args[0], args[1], args[2], result);
+    case OP_SEQ_REPLACE:
+        SASSERT(num_args == 3);
+        return mk_seq_replace(args[0], args[1], args[2], result);
     case OP_SEQ_TO_RE:
         return BR_FAILED;
     case OP_SEQ_IN_RE:
@@ -78,12 +84,6 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
 
     case OP_STRING_CONST:
         return BR_FAILED;
-    case OP_STRING_STRIDOF: 
-        SASSERT(num_args == 3);
-        return mk_str_stridof(args[0], args[1], args[2], result);
-    case OP_STRING_STRREPL: 
-        SASSERT(num_args == 3);
-        return mk_str_strrepl(args[0], args[1], args[2], result);
     case OP_STRING_ITOS: 
         SASSERT(num_args == 1);
         return mk_str_itos(args[0], result);
@@ -101,7 +101,8 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case _OP_STRING_IN_REGEXP: 
     case _OP_STRING_TO_REGEXP: 
     case _OP_STRING_SUBSTR: 
-
+    case _OP_STRING_STRREPL:
+    case _OP_STRING_STRIDOF: 
         UNREACHABLE();
     }
     return BR_FAILED;
@@ -143,7 +144,7 @@ br_status seq_rewriter::mk_seq_concat(expr* a, expr* b, expr_ref& result) {
     return BR_FAILED;
 }
 
-br_status seq_rewriter::mk_str_length(expr* a, expr_ref& result) {
+br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
     std::string b;
     m_es.reset();
     m_util.str.get_concat(a, m_es);
@@ -176,7 +177,7 @@ br_status seq_rewriter::mk_str_length(expr* a, expr_ref& result) {
     return BR_FAILED;
 }
 
-br_status seq_rewriter::mk_str_substr(expr* a, expr* b, expr* c, expr_ref& result) {
+br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& result) {
     std::string s;
     rational pos, len;
     if (m_util.str.is_string(a, s) && m_autil.is_numeral(b, pos) && m_autil.is_numeral(c, len) &&
@@ -188,7 +189,7 @@ br_status seq_rewriter::mk_str_substr(expr* a, expr* b, expr* c, expr_ref& resul
     }
     return BR_FAILED;
 }
-br_status seq_rewriter::mk_str_strctn(expr* a, expr* b, expr_ref& result) {
+br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
     std::string c, d;
     if (m_util.str.is_string(a, c) && m_util.str.is_string(b, d)) {
         result = m().mk_bool_val(0 != strstr(d.c_str(), c.c_str()));
@@ -212,7 +213,7 @@ br_status seq_rewriter::mk_str_strctn(expr* a, expr* b, expr_ref& result) {
     return BR_FAILED;
 }
 
-br_status seq_rewriter::mk_str_at(expr* a, expr* b, expr_ref& result) {
+br_status seq_rewriter::mk_seq_at(expr* a, expr* b, expr_ref& result) {
     std::string c;
     rational r;
     if (m_util.str.is_string(a, c) && m_autil.is_numeral(b, r) && r.is_unsigned()) {
@@ -228,7 +229,7 @@ br_status seq_rewriter::mk_str_at(expr* a, expr* b, expr_ref& result) {
     return BR_FAILED;
 }
 
-br_status seq_rewriter::mk_str_stridof(expr* a, expr* b, expr* c, expr_ref& result) {
+br_status seq_rewriter::mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result) {
     std::string s1, s2;
     rational r;
     bool isc1 = m_util.str.is_string(a, s1);
@@ -257,15 +258,17 @@ br_status seq_rewriter::mk_str_stridof(expr* a, expr* b, expr* c, expr_ref& resu
     return BR_FAILED;
 }
 
-br_status seq_rewriter::mk_str_strrepl(expr* a, expr* b, expr* c, expr_ref& result) {
+br_status seq_rewriter::mk_seq_replace(expr* a, expr* b, expr* c, expr_ref& result) {
     std::string s1, s2, s3;
     if (m_util.str.is_string(a, s1) && m_util.str.is_string(b, s2) && 
         m_util.str.is_string(c, s3)) {
         std::ostringstream buffer;
+        bool can_replace = true;
         for (size_t i = 0; i < s1.length(); ) {
-            if (strncmp(s1.c_str() + i, s2.c_str(), s2.length()) == 0) {
+            if (can_replace && strncmp(s1.c_str() + i, s2.c_str(), s2.length()) == 0) {
                 buffer << s3;
                 i += s2.length();
+                can_replace = false;
             }
             else {
                 buffer << s1[i];

@@ -35,12 +35,12 @@ class seq_rewriter {
     ptr_vector<expr> m_es, m_lhs, m_rhs;
 
     br_status mk_seq_concat(expr* a, expr* b, expr_ref& result);
-    br_status mk_str_length(expr* a, expr_ref& result);
-    br_status mk_str_substr(expr* a, expr* b, expr* c, expr_ref& result);
-    br_status mk_str_strctn(expr* a, expr* b, expr_ref& result);
-    br_status mk_str_at(expr* a, expr* b, expr_ref& result);
-    br_status mk_str_stridof(expr* a, expr* b, expr* c, expr_ref& result);
-    br_status mk_str_strrepl(expr* a, expr* b, expr* c, expr_ref& result);
+    br_status mk_seq_length(expr* a, expr_ref& result);
+    br_status mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& result);
+    br_status mk_seq_contains(expr* a, expr* b, expr_ref& result);
+    br_status mk_seq_at(expr* a, expr* b, expr_ref& result);
+    br_status mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result);
+    br_status mk_seq_replace(expr* a, expr* b, expr* c, expr_ref& result);
     br_status mk_seq_prefix(expr* a, expr* b, expr_ref& result);
     br_status mk_seq_suffix(expr* a, expr* b, expr_ref& result);
     br_status mk_str_itos(expr* a, expr_ref& result);

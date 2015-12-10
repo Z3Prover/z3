@@ -39,8 +39,10 @@ enum seq_op_kind {
     OP_SEQ_SUFFIX,
     OP_SEQ_CONTAINS,
     OP_SEQ_EXTRACT,
+    OP_SEQ_REPLACE,
     OP_SEQ_AT,
-    OP_SEQ_LENGTH,
+    OP_SEQ_LENGTH,    
+    OP_SEQ_INDEX,
     OP_SEQ_TO_RE,
     OP_SEQ_IN_RE,
 
@@ -59,12 +61,11 @@ enum seq_op_kind {
 
     // string specific operators.
     OP_STRING_CONST,
-    OP_STRING_STRIDOF, // TBD generalize
-    OP_STRING_STRREPL, // TBD generalize
     OP_STRING_ITOS, 
     OP_STRING_STOI, 
     OP_REGEXP_LOOP,    // TBD re-loop: integers as parameters or arguments?
     // internal only operators. Converted to SEQ variants.
+    _OP_STRING_STRREPL, 
     _OP_STRING_CONCAT, 
     _OP_STRING_LENGTH, 
     _OP_STRING_STRCTN,
@@ -74,6 +75,7 @@ enum seq_op_kind {
     _OP_STRING_TO_REGEXP, 
     _OP_STRING_CHARAT, 
     _OP_STRING_SUBSTR,      
+    _OP_STRING_STRIDOF, 
     _OP_SEQ_SKOLEM,
     LAST_SEQ_OP
 };
@@ -175,6 +177,9 @@ public:
         app* mk_string(char const* s) { return mk_string(symbol(s)); }
         app* mk_string(std::string const& s) { return mk_string(symbol(s.c_str())); }
         app* mk_concat(expr* a, expr* b) { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_CONCAT, 2, es); }
+        app* mk_concat(expr* a, expr* b, expr* c) {
+            return mk_concat(mk_concat(a, b), c);
+        }
         expr* mk_concat(unsigned n, expr* const* es) { if (n == 1) return es[0]; SASSERT(n > 1); return m.mk_app(m_fid, OP_SEQ_CONCAT, n, es); }
         app* mk_length(expr* a) { return m.mk_app(m_fid, OP_SEQ_LENGTH, 1, &a); }
         app* mk_substr(expr* a, expr* b, expr* c) { expr* es[3] = { a, b, c }; return m.mk_app(m_fid, OP_SEQ_EXTRACT, 3, es); }
@@ -200,8 +205,8 @@ public:
         bool is_extract(expr const* n)  const { return is_app_of(n, m_fid, OP_SEQ_EXTRACT); }
         bool is_contains(expr const* n) const { return is_app_of(n, m_fid, OP_SEQ_CONTAINS); }
         bool is_at(expr const* n)       const { return is_app_of(n, m_fid, OP_SEQ_AT); }
-        bool is_stridof(expr const* n)  const { return is_app_of(n, m_fid, OP_STRING_STRIDOF); }
-        bool is_repl(expr const* n)     const { return is_app_of(n, m_fid, OP_STRING_STRREPL); }
+        bool is_index(expr const* n)    const { return is_app_of(n, m_fid, OP_SEQ_INDEX); }
+        bool is_replace(expr const* n)  const { return is_app_of(n, m_fid, OP_SEQ_REPLACE); }
         bool is_prefix(expr const* n)   const { return is_app_of(n, m_fid, OP_SEQ_PREFIX); }
         bool is_suffix(expr const* n)   const { return is_app_of(n, m_fid, OP_SEQ_SUFFIX); }
         bool is_itos(expr const* n)     const { return is_app_of(n, m_fid, OP_STRING_ITOS); }
@@ -215,8 +220,8 @@ public:
         MATCH_TERNARY(is_extract);
         MATCH_BINARY(is_contains);
         MATCH_BINARY(is_at);
-        MATCH_BINARY(is_stridof);
-        MATCH_BINARY(is_repl);
+        MATCH_BINARY(is_index);
+        MATCH_TERNARY(is_replace);
         MATCH_BINARY(is_prefix);
         MATCH_BINARY(is_suffix);
         MATCH_UNARY(is_itos);

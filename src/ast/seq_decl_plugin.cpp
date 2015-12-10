@@ -177,6 +177,7 @@ void seq_decl_plugin::init() {
     sort* reAreA[2] = { reA, reA };
     sort* AA[2] = { A, A };
     sort* seqAint2T[3] = { seqA, intT, intT };
+    sort* seq2AintT[3] = { seqA, seqA, intT };
     sort* str2T[2] = { strT, strT };
     sort* str3T[3] = { strT, strT, strT };
     sort* strTint2T[3] = { strT, intT, intT };
@@ -184,6 +185,7 @@ void seq_decl_plugin::init() {
     sort* strTreT[2] = { strT, reT };
     sort* str2TintT[3] = { strT, strT, intT };
     sort* seqAintT[2] = { seqA, intT };
+    sort* seq3A[3] = { seqA, seqA, seqA };
     m_sigs.resize(LAST_SEQ_OP);
     // TBD: have (par ..) construct and load parameterized signature from premable.
     m_sigs[OP_SEQ_UNIT]      = alloc(psig, m, "seq.unit",     1, 1, &A, seqA);
@@ -193,6 +195,8 @@ void seq_decl_plugin::init() {
     m_sigs[OP_SEQ_SUFFIX]    = alloc(psig, m, "seq.suffixof", 1, 2, seqAseqA, boolT);
     m_sigs[OP_SEQ_CONTAINS]  = alloc(psig, m, "seq.contains", 1, 2, seqAseqA, boolT);
     m_sigs[OP_SEQ_EXTRACT]   = alloc(psig, m, "seq.extract",  1, 3, seqAint2T, seqA);
+    m_sigs[OP_SEQ_REPLACE]   = alloc(psig, m, "seq.replace",  1, 3, seq3A, strT);
+    m_sigs[OP_SEQ_INDEX]     = alloc(psig, m, "seq.indexof",  1, 3, seq2AintT, intT);
     m_sigs[OP_SEQ_AT]        = alloc(psig, m, "seq.at",       1, 2, seqAintT, seqA);
     m_sigs[OP_SEQ_LENGTH]    = alloc(psig, m, "seq.len",      1, 1, &seqA, intT);
     m_sigs[OP_RE_PLUS]       = alloc(psig, m, "re.+",         1, 1, &reA, reA);
@@ -209,8 +213,8 @@ void seq_decl_plugin::init() {
     m_sigs[OP_SEQ_TO_RE]         = alloc(psig, m, "seq.to.re",  1, 1, &seqA, reA);
     m_sigs[OP_SEQ_IN_RE]         = alloc(psig, m, "seq.in.re", 1, 2, seqAreA, boolT);
     m_sigs[OP_STRING_CONST]      = 0;
-    m_sigs[OP_STRING_STRIDOF]    = alloc(psig, m, "str.indexof", 0, 3, str2TintT, intT);
-    m_sigs[OP_STRING_STRREPL]    = alloc(psig, m, "str.replace", 0, 3, str3T, strT);
+    m_sigs[_OP_STRING_STRIDOF]   = alloc(psig, m, "str.indexof", 0, 3, str2TintT, intT);
+    m_sigs[_OP_STRING_STRREPL]   = alloc(psig, m, "str.replace", 0, 3, str3T, strT);
     m_sigs[OP_STRING_ITOS]       = alloc(psig, m, "int.to.str", 0, 1, &intT, strT);
     m_sigs[OP_STRING_STOI]       = alloc(psig, m, "str.to.int", 0, 1, &strT, intT);
     m_sigs[OP_REGEXP_LOOP]       = alloc(psig, m, "re.loop", 0, 2, strTint2T, reT); // maybe 3 arguments.
@@ -347,6 +351,17 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         info.set_left_associative();
         return m.mk_func_decl(m_sigs[k]->m_name, rng, rng, rng, info);
     }
+
+    case OP_SEQ_REPLACE:
+        return mk_seq_fun(k, arity, domain, range, _OP_STRING_STRREPL);
+    case _OP_STRING_STRREPL:
+        return mk_str_fun(k, arity, domain, range, OP_SEQ_REPLACE);
+
+    case OP_SEQ_INDEX:
+        return mk_seq_fun(k, arity, domain, range, _OP_STRING_STRIDOF);
+    case _OP_STRING_STRIDOF:
+        return mk_str_fun(k, arity, domain, range, OP_SEQ_INDEX);
+
     case OP_SEQ_PREFIX:
         return mk_seq_fun(k, arity, domain, range, _OP_STRING_PREFIX);
     case _OP_STRING_PREFIX:
@@ -387,8 +402,6 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case _OP_STRING_SUBSTR:
         return mk_str_fun(k, arity, domain, range, OP_SEQ_EXTRACT);
 
-    case OP_STRING_STRIDOF:
-    case OP_STRING_STRREPL:
     case OP_STRING_ITOS:
     case OP_STRING_STOI:
     case OP_REGEXP_LOOP:

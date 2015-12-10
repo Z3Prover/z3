@@ -328,6 +328,9 @@ public:
     app * mk_numeral(sexpr const * p, unsigned i) {
         return plugin().mk_numeral(p, i);
     }
+    app * mk_int(int i) {
+        return mk_numeral(rational(i), true);
+    }
     app * mk_le(expr * arg1, expr * arg2) const { return m_manager.mk_app(m_afid, OP_LE, arg1, arg2); }
     app * mk_ge(expr * arg1, expr * arg2) const { return m_manager.mk_app(m_afid, OP_GE, arg1, arg2); }
     app * mk_lt(expr * arg1, expr * arg2) const { return m_manager.mk_app(m_afid, OP_LT, arg1, arg2); }
