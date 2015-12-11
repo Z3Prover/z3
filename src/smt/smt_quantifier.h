@@ -83,7 +83,6 @@ namespace smt {
         void pop(unsigned num_scopes);
         void reset();
         
-        void set_cancel(bool f);
         void display(std::ostream & out) const;
         void display_stats(std::ostream & out, quantifier * q) const;
 
@@ -166,7 +165,6 @@ namespace smt {
         virtual void push() = 0;
         virtual void pop(unsigned num_scopes) = 0;
         
-        virtual void set_cancel(bool f) = 0;
     };
 };
 

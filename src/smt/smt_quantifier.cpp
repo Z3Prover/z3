@@ -236,10 +236,6 @@ namespace smt {
             return m_plugin->check_model(m, root2value);
         }
 
-        void set_cancel(bool f) {
-            m_plugin->set_cancel(f);
-        }
-
     };
 
     quantifier_manager::quantifier_manager(context & ctx, smt_params & fp, params_ref const & p) {
@@ -366,14 +362,7 @@ namespace smt {
             plugin->set_manager(*this);
         }
     }
-        
-    void quantifier_manager::set_cancel(bool f) {
-        #pragma omp critical (quantifier_manager)
-        {
-            m_imp->set_cancel(f);
-        }            
-    }
-     
+             
     void quantifier_manager::display(std::ostream & out) const {
     }
 
@@ -589,12 +578,6 @@ namespace smt {
                 }
             }
             return quantifier_manager::UNKNOWN;
-        }
-
-        virtual void set_cancel(bool f) {
-            // TODO: interrupt MAM and MBQI
-            m_model_finder->set_cancel(f);
-            m_model_checker->set_cancel(f);
         }
 
         virtual final_check_status final_check_eh(bool full) {

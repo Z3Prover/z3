@@ -85,7 +85,6 @@ namespace smt {
         scoped_ptr<simple_macro_solver>        m_sm_solver;
         scoped_ptr<hint_solver>                m_hint_solver;
         scoped_ptr<non_auf_macro_solver>       m_nm_solver;
-        bool                                   m_cancel;
         
         struct scope {
             unsigned                           m_quantifiers_lim;
@@ -104,12 +103,8 @@ namespace smt {
         void process_non_auf_macros(ptr_vector<quantifier> & qs, ptr_vector<quantifier> & residue, proto_model * m);
         void process_auf(ptr_vector<quantifier> const & qs, proto_model * m);
         instantiation_set const * get_uvar_inst_set(quantifier * q, unsigned i) const;
+        void checkpoint();
 
-        void checkpoint() {
-            cooperate("model_finder");
-            if (m_cancel)
-                throw tactic_exception(TACTIC_CANCELED_MSG);
-        }
 
     public:
         model_finder(ast_manager & m, simplifier & s);
@@ -129,7 +124,7 @@ namespace smt {
 
         void restart_eh();
 
-        void set_cancel(bool f);
+        void checkpoint(char const* component);
     };
 };
 

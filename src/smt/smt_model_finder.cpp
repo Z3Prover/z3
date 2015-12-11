@@ -1734,6 +1734,7 @@ namespace smt {
            (when it is marked as relevant in the end of the search).
         */
         class quantifier_info {
+            model_finder&            m_mf;
             quantifier_ref           m_flat_q; // flat version of the quantifier
             bool                     m_is_auf;
             bool                     m_has_x_eq_y;
@@ -1744,14 +1745,11 @@ namespace smt {
             // when the quantifier is satisfied by a macro/hint, it may not be processed by the AUF solver.
             // in this case, the quantifier_info stores the instantiation sets.
             ptr_vector<instantiation_set>  * m_uvar_inst_sets;
-            volatile bool            m_cancel;
 
             friend class quantifier_analyzer;
 
             void checkpoint() {
-                cooperate("quantifier_info");
-                if (m_cancel)
-                    throw tactic_exception(TACTIC_CANCELED_MSG);
+                m_mf.checkpoint("quantifer_info");
             }
 
             void insert_qinfo(qinfo * qi) {
@@ -1776,13 +1774,13 @@ namespace smt {
         public:
             typedef ptr_vector<cond_macro>::const_iterator macro_iterator;
 
-            quantifier_info(ast_manager & m, quantifier * q):
+            quantifier_info(model_finder& mf, ast_manager & m, quantifier * q):
+                m_mf(mf),
                 m_flat_q(m),
                 m_is_auf(true),
                 m_has_x_eq_y(false),
                 m_the_one(0),
-                m_uvar_inst_sets(0),
-                m_cancel(false) {
+                m_uvar_inst_sets(0) {
                 if (has_quantifiers(q->get_expr())) {
                     static bool displayed_flat_msg = false;
                     if (!displayed_flat_msg) {
@@ -1936,8 +1934,6 @@ namespace smt {
                     m_uvar_inst_sets = 0;
                 }
             }
-
-            void set_cancel(bool f) { m_cancel = f; }
         };
         
         /**
@@ -1945,12 +1941,12 @@ namespace smt {
            fill the structure quantifier_info.
         */
         class quantifier_analyzer {
+            model_finder&        m_mf;
             ast_manager &        m_manager;
             macro_util           m_mutil;
             array_util           m_array_util;
             arith_util           m_arith_util;
             bv_util              m_bv_util;
-            bool                 m_cancel;
 
             quantifier_info *    m_info;
 
@@ -2363,9 +2359,7 @@ namespace smt {
             }
 
             void checkpoint() {
-                cooperate("quantifier_analyzer");
-                if (m_cancel)
-                    throw tactic_exception(TACTIC_CANCELED_MSG);
+                m_mf.checkpoint("quantifier_analyzer");
             }
             
             void process_formulas_on_stack() {
@@ -2455,13 +2449,13 @@ namespace smt {
             
  
         public:
-            quantifier_analyzer(ast_manager & m, simplifier & s):
+            quantifier_analyzer(model_finder& mf, ast_manager & m, simplifier & s):
+                m_mf(mf),
                 m_manager(m),
                 m_mutil(m, s),
                 m_array_util(m), 
                 m_arith_util(m),
                 m_bv_util(m),
-                m_cancel(false),
                 m_info(0) {
             }
             
@@ -2490,11 +2484,6 @@ namespace smt {
                 collect_macro_candidates(q);
                 
                 m_info = 0;
-            }
-
-            void set_cancel(bool f) { 
-                m_cancel = f; 
-                if (m_info) m_info->set_cancel(f);
             }
 
         };
@@ -3309,13 +3298,12 @@ namespace smt {
     model_finder::model_finder(ast_manager & m, simplifier & s):
         m_manager(m),
         m_context(0),
-        m_analyzer(alloc(quantifier_analyzer, m, s)),
+        m_analyzer(alloc(quantifier_analyzer, *this, m, s)),
         m_auf_solver(alloc(auf_solver, m, s)),
         m_dependencies(m),
         m_sm_solver(alloc(simple_macro_solver, m, m_q2info)),
         m_hint_solver(alloc(hint_solver, m, m_q2info)),
         m_nm_solver(alloc(non_auf_macro_solver, m, m_q2info, m_dependencies)),
-        m_cancel(false),
         m_new_constraints(m) {
     }
     
@@ -3323,6 +3311,16 @@ namespace smt {
         reset();
     }
         
+    void model_finder::checkpoint() {
+        checkpoint("model_finder");
+    }
+
+    void model_finder::checkpoint(char const* msg) {
+        cooperate(msg);
+        if (m_context && m_context->get_cancel_flag())
+            throw tactic_exception(TACTIC_CANCELED_MSG);
+    }
+
     mf::quantifier_info * model_finder::get_quantifier_info(quantifier * q) const {
         quantifier_info * info = 0;
         m_q2info.find(q, info);
@@ -3339,7 +3337,7 @@ namespace smt {
             
     void model_finder::register_quantifier(quantifier * q) {
         TRACE("model_finder", tout << "registering:\n" << mk_pp(q, m_manager) << "\n";);
-        quantifier_info * new_info = alloc(quantifier_info, m_manager, q);
+        quantifier_info * new_info = alloc(quantifier_info, *this, m_manager, q);
         m_q2info.insert(q, new_info);
         m_quantifiers.push_back(q);
         m_analyzer->operator()(new_info);
@@ -3591,14 +3589,4 @@ namespace smt {
             m_new_constraints.reset();
         }
     }
-
-    void model_finder::set_cancel(bool f) {
-        m_cancel = f;
-        m_analyzer->set_cancel(f);
-        obj_map<quantifier, quantifier_info *>::iterator it = m_q2info.begin();
-        obj_map<quantifier, quantifier_info *>::iterator end = m_q2info.end();
-        for (; it != end; ++it)
-            (*it).m_value->set_cancel(f);
-    }
-
 };
