@@ -90,6 +90,7 @@ void seq_decl_plugin::match_left_assoc(psig& sig, unsigned dsz, sort *const* dom
     }
     bool is_match = true;
     for (unsigned i = 0; is_match && i < dsz; ++i) {
+        SASSERT(dom[i]);
         is_match = match(binding, dom[i], sig.m_dom[0].get());
     }
     if (range && is_match) {
@@ -102,6 +103,7 @@ void seq_decl_plugin::match_left_assoc(psig& sig, unsigned dsz, sort *const* dom
         m.raise_exception(strm.str().c_str());
     }
     range_out = apply_binding(binding, sig.m_range);
+    SASSERT(range_out);
     TRACE("seq_verbose", tout << mk_pp(range_out, m) << "\n";);
 }
 
@@ -134,6 +136,7 @@ void seq_decl_plugin::match(psig& sig, unsigned dsz, sort *const* dom, sort* ran
         m.raise_exception(strm.str().c_str());
     }
     range_out = apply_binding(binding, sig.m_range);
+    SASSERT(range_out);
 }
 
 sort* seq_decl_plugin::apply_binding(ptr_vector<sort> const& binding, sort* s) {
@@ -177,6 +180,7 @@ void seq_decl_plugin::init() {
     sort* reAreA[2] = { reA, reA };
     sort* AA[2] = { A, A };
     sort* seqAint2T[3] = { seqA, intT, intT };
+    sort* seq2AintT[3] = { seqA, seqA, intT };
     sort* str2T[2] = { strT, strT };
     sort* str3T[3] = { strT, strT, strT };
     sort* strTint2T[3] = { strT, intT, intT };
@@ -184,6 +188,7 @@ void seq_decl_plugin::init() {
     sort* strTreT[2] = { strT, reT };
     sort* str2TintT[3] = { strT, strT, intT };
     sort* seqAintT[2] = { seqA, intT };
+    sort* seq3A[3] = { seqA, seqA, seqA };
     m_sigs.resize(LAST_SEQ_OP);
     // TBD: have (par ..) construct and load parameterized signature from premable.
     m_sigs[OP_SEQ_UNIT]      = alloc(psig, m, "seq.unit",     1, 1, &A, seqA);
@@ -193,6 +198,8 @@ void seq_decl_plugin::init() {
     m_sigs[OP_SEQ_SUFFIX]    = alloc(psig, m, "seq.suffixof", 1, 2, seqAseqA, boolT);
     m_sigs[OP_SEQ_CONTAINS]  = alloc(psig, m, "seq.contains", 1, 2, seqAseqA, boolT);
     m_sigs[OP_SEQ_EXTRACT]   = alloc(psig, m, "seq.extract",  1, 3, seqAint2T, seqA);
+    m_sigs[OP_SEQ_REPLACE]   = alloc(psig, m, "seq.replace",  1, 3, seq3A, seqA);
+    m_sigs[OP_SEQ_INDEX]     = alloc(psig, m, "seq.indexof",  1, 3, seq2AintT, intT);
     m_sigs[OP_SEQ_AT]        = alloc(psig, m, "seq.at",       1, 2, seqAintT, seqA);
     m_sigs[OP_SEQ_LENGTH]    = alloc(psig, m, "seq.len",      1, 1, &seqA, intT);
     m_sigs[OP_RE_PLUS]       = alloc(psig, m, "re.+",         1, 1, &reA, reA);
@@ -209,8 +216,8 @@ void seq_decl_plugin::init() {
     m_sigs[OP_SEQ_TO_RE]         = alloc(psig, m, "seq.to.re",  1, 1, &seqA, reA);
     m_sigs[OP_SEQ_IN_RE]         = alloc(psig, m, "seq.in.re", 1, 2, seqAreA, boolT);
     m_sigs[OP_STRING_CONST]      = 0;
-    m_sigs[OP_STRING_STRIDOF]    = alloc(psig, m, "str.indexof", 0, 3, str2TintT, intT);
-    m_sigs[OP_STRING_STRREPL]    = alloc(psig, m, "str.replace", 0, 3, str3T, strT);
+    m_sigs[_OP_STRING_STRIDOF]   = alloc(psig, m, "str.indexof", 0, 3, str2TintT, intT);
+    m_sigs[_OP_STRING_STRREPL]   = alloc(psig, m, "str.replace", 0, 3, str3T, strT);
     m_sigs[OP_STRING_ITOS]       = alloc(psig, m, "int.to.str", 0, 1, &intT, strT);
     m_sigs[OP_STRING_STOI]       = alloc(psig, m, "str.to.int", 0, 1, &strT, intT);
     m_sigs[OP_REGEXP_LOOP]       = alloc(psig, m, "re.loop", 0, 2, strTint2T, reT); // maybe 3 arguments.
@@ -222,7 +229,7 @@ void seq_decl_plugin::init() {
     m_sigs[_OP_STRING_SUFFIX]    = alloc(psig, m, "str.suffixof", 0, 2, str2T, boolT);
     m_sigs[_OP_STRING_IN_REGEXP]  = alloc(psig, m, "str.in.re", 0, 2, strTreT, boolT);
     m_sigs[_OP_STRING_TO_REGEXP]  = alloc(psig, m, "str.to.re", 0, 1, &strT, reT);
-    m_sigs[_OP_STRING_SUBSTR]     = alloc(psig, m, "str.substr", 0, 3, strTint2T, boolT);
+    m_sigs[_OP_STRING_SUBSTR]     = alloc(psig, m, "str.substr", 0, 3, strTint2T, strT);
 }
 
 void seq_decl_plugin::set_manager(ast_manager* m, family_id id) {
@@ -282,6 +289,18 @@ func_decl* seq_decl_plugin::mk_str_fun(decl_kind k, unsigned arity, sort* const*
     return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k_seq));
 }
 
+func_decl* seq_decl_plugin::mk_assoc_fun(decl_kind k, unsigned arity, sort* const* domain, sort* range, decl_kind k_seq, decl_kind k_string) {
+    ast_manager& m = *m_manager;
+    sort_ref rng(m);
+    if (arity == 0) {
+        m.raise_exception("Invalid function application. At least one argument expected");
+    }
+    match_left_assoc(*m_sigs[k], arity, domain, range, rng);
+    func_decl_info info(m_family_id, k_seq);
+    info.set_left_associative();
+    return m.mk_func_decl(m_sigs[(rng == m_string)?k_string:k_seq]->m_name, rng, rng, rng, info);    
+}
+
 func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
                                           unsigned arity, sort * const * domain, sort * range) {
     init();
@@ -301,18 +320,21 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case OP_RE_STAR:
     case OP_RE_OPTION:
     case OP_RE_RANGE:
-    case OP_RE_UNION:
     case OP_RE_EMPTY_SET:
-
     case OP_RE_OF_PRED:
+    case OP_STRING_ITOS:
+    case OP_STRING_STOI:
+    case OP_REGEXP_LOOP:
         match(*m_sigs[k], arity, domain, range, rng);
         return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
+
     case OP_RE_LOOP:
         match(*m_sigs[k], arity, domain, range, rng);
         if (num_parameters != 2 || !parameters[0].is_int() || !parameters[1].is_int()) {
             m.raise_exception("Expecting two numeral parameters to function re-loop");
         }
         return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k, num_parameters, parameters));   
+
     case OP_STRING_CONST:
         if (!(num_parameters == 1 && arity == 0 && parameters[0].is_symbol())) {
             m.raise_exception("invalid string declaration");
@@ -320,33 +342,40 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         return m.mk_const_decl(m_stringc_sym, m_string,
                                func_decl_info(m_family_id, OP_STRING_CONST, num_parameters, parameters));
         
-    case OP_SEQ_CONCAT: {
-        if (arity == 0) {
-            m.raise_exception("invalid concatenation. At least one argument expected");
+    case OP_RE_UNION:
+        return mk_assoc_fun(k, arity, domain, range, k, k);
+
+    case OP_RE_CONCAT:  
+        return mk_assoc_fun(k, arity, domain, range, k, k);
+
+    case OP_SEQ_CONCAT: 
+        return mk_assoc_fun(k, arity, domain, range, k, _OP_STRING_CONCAT);
+
+    case _OP_STRING_CONCAT: 
+        return mk_assoc_fun(k, arity, domain, range, OP_SEQ_CONCAT, k);
+
+    case OP_SEQ_REPLACE:
+        return mk_seq_fun(k, arity, domain, range, _OP_STRING_STRREPL);
+    case _OP_STRING_STRREPL:
+        return mk_str_fun(k, arity, domain, range, OP_SEQ_REPLACE);
+
+    case OP_SEQ_INDEX:
+        if (arity == 2) {
+            sort* dom[3] = { domain[0], domain[1], arith_util(m).mk_int() };
+            sort_ref rng(m);
+            match(*m_sigs[k], 3, dom, range, rng);
+            return m.mk_func_decl(m_sigs[(dom[0] == m_string)?_OP_STRING_STRIDOF:k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
         }
-        match_left_assoc(*m_sigs[k], arity, domain, range, rng);        
-        func_decl_info info(m_family_id, k);
-        info.set_left_associative();
-        return m.mk_func_decl(m_sigs[(rng == m_string)?_OP_STRING_CONCAT:k]->m_name, rng, rng, rng, info);
-    } 
-    case OP_RE_CONCAT:  {
-        if (arity == 0) {
-            m.raise_exception("invalid concatenation. At least one argument expected");
+        return mk_seq_fun(k, arity, domain, range, _OP_STRING_STRIDOF);
+    case _OP_STRING_STRIDOF:
+        if (arity == 2) {
+            sort* dom[3] = { domain[0], domain[1], arith_util(m).mk_int() };
+            sort_ref rng(m);
+            match(*m_sigs[k], 3, dom, range, rng);
+            return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, OP_SEQ_INDEX));
         }
-        match_left_assoc(*m_sigs[k], arity, domain, range, rng);
-        func_decl_info info(m_family_id, k);
-        info.set_left_associative();
-        return m.mk_func_decl(m_sigs[k]->m_name, rng, rng, rng, info);
-    }
-    case _OP_STRING_CONCAT: {
-        if (arity == 0) {
-            m.raise_exception("invalid concatenation. At least one argument expected");
-        }
-        match_left_assoc(*m_sigs[k], arity, domain, range, rng);
-        func_decl_info info(m_family_id, OP_SEQ_CONCAT);
-        info.set_left_associative();
-        return m.mk_func_decl(m_sigs[k]->m_name, rng, rng, rng, info);
-    }
+        return mk_str_fun(k, arity, domain, range, OP_SEQ_INDEX);
+
     case OP_SEQ_PREFIX:
         return mk_seq_fun(k, arity, domain, range, _OP_STRING_PREFIX);
     case _OP_STRING_PREFIX:
@@ -387,16 +416,13 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case _OP_STRING_SUBSTR:
         return mk_str_fun(k, arity, domain, range, OP_SEQ_EXTRACT);
 
-    case OP_STRING_STRIDOF:
-    case OP_STRING_STRREPL:
-    case OP_STRING_ITOS:
-    case OP_STRING_STOI:
-    case OP_REGEXP_LOOP:
-        match(*m_sigs[k], arity, domain, range, rng);
-        return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
-
-    case _OP_SEQ_SKOLEM: 
-        return m.mk_func_decl(symbol("seq.skolem"), arity, domain, rng, func_decl_info(m_family_id, k));
+    case _OP_SEQ_SKOLEM: {
+        if (num_parameters != 1 || !parameters[0].is_symbol()) {
+            m.raise_exception("one symbol parameter expected to skolem symbol");
+        }
+        symbol s = parameters[0].get_symbol();
+        return m.mk_func_decl(s, arity, domain, range, func_decl_info(m_family_id, k, num_parameters, parameters));
+    }
     default:
         UNREACHABLE();
         return 0;
@@ -431,6 +457,7 @@ bool seq_decl_plugin::is_value(app* e) const {
 }
 
 app* seq_util::mk_skolem(symbol const& name, unsigned n, expr* const* args, sort* range) {
+    SASSERT(range);
     parameter param(name);
     func_decl* f = m.mk_func_decl(get_family_id(), _OP_SEQ_SKOLEM, 1, &param, n, args, range);
     return m.mk_app(f, n, args);

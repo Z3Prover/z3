@@ -1744,7 +1744,7 @@ namespace smt {
             // when the quantifier is satisfied by a macro/hint, it may not be processed by the AUF solver.
             // in this case, the quantifier_info stores the instantiation sets.
             ptr_vector<instantiation_set>  * m_uvar_inst_sets;
-            bool                     m_cancel;
+            volatile bool            m_cancel;
 
             friend class quantifier_analyzer;
 
@@ -1893,8 +1893,10 @@ namespace smt {
                     (*it)->populate_inst_sets(m_flat_q, s, ctx);
                 // second pass
                 it  = m_qinfo_vect.begin();
-                for (; it != end; ++it)
+                for (; it != end; ++it) {
+                    checkpoint();
                     (*it)->populate_inst_sets2(m_flat_q, s, ctx);
+                }
             }
 
             func_decl_set const & get_ng_decls() const {
@@ -3593,6 +3595,10 @@ namespace smt {
     void model_finder::set_cancel(bool f) {
         m_cancel = f;
         m_analyzer->set_cancel(f);
+        obj_map<quantifier, quantifier_info *>::iterator it = m_q2info.begin();
+        obj_map<quantifier, quantifier_info *>::iterator end = m_q2info.end();
+        for (; it != end; ++it)
+            (*it).m_value->set_cancel(f);
     }
 
 };

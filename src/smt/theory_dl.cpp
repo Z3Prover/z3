@@ -194,6 +194,9 @@ namespace smt {
             }
         }
 
+        virtual void display(std::ostream & out) const {
+        }
+
 
     private:
 

@@ -312,6 +312,8 @@ namespace smt {
         d.m_phase_available        = true;
         d.m_phase                  = !l.sign();
         TRACE("phase_selection", tout << "saving phase, is_pos: " << d.m_phase << " l: " << l << "\n";);
+        TRACE("relevancy", 
+              tout << "is_atom: " << d.is_atom() << " is relevant: " << is_relevant_core(bool_var2expr(l.var())) << "\n";);
         if (d.is_atom() && (m_fparams.m_relevancy_lvl == 0 || (m_fparams.m_relevancy_lvl == 1 && !d.is_quantifier()) || is_relevant_core(bool_var2expr(l.var()))))
             m_atom_propagation_queue.push_back(l);
 
@@ -805,8 +807,10 @@ namespace smt {
     void context::merge_theory_vars(enode * n2, enode * n1, eq_justification js) {
         enode * r2 = n2->get_root();
         enode * r1 = n1->get_root();
-        if (!r1->has_th_vars() && !r2->has_th_vars())
+        if (!r1->has_th_vars() && !r2->has_th_vars()) {
+            TRACE("merge_theory_vars", tout << "Neither have theory vars #" << n1->get_owner()->get_id() << " #" << n2->get_owner()->get_id() << "\n";);
             return;
+        }
         
         theory_id from_th = null_theory_id;
 
@@ -821,7 +825,7 @@ namespace smt {
             theory_var v2 = m_fparams.m_new_core2th_eq ? get_closest_var(n2, t2) : r2->m_th_var_list.get_th_var();
             theory_var v1 = m_fparams.m_new_core2th_eq ? get_closest_var(n1, t1) : r1->m_th_var_list.get_th_var();
             TRACE("merge_theory_vars", 
-                  tout << "v2: " << v2 << " #" << r1->get_owner_id() << ", v1: " << v1 << " #" << r2->get_owner_id() 
+                  tout << "v2: " << v2 << " #" << r2->get_owner_id() << ", v1: " << v1 << " #" << r1->get_owner_id() 
                   << ", t2: " << t2 << ", t1: " << t1 << "\n";);
             if (v2 != null_theory_var && v1 != null_theory_var) {
                 if (t1 == t2) {

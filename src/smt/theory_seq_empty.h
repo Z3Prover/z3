@@ -89,6 +89,11 @@ namespace smt {
                     return u.str.mk_string(sym);
                 }
             }
+            sort* seq = 0;
+            if (u.is_re(s, seq)) {
+                expr* v0 = get_fresh_value(seq);
+                return u.re.mk_to_re(v0);
+            }
             NOT_IMPLEMENTED_YET();
             return 0;
         }

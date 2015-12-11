@@ -544,6 +544,7 @@ bool cmd_context::logic_has_arith_core(symbol const & s) const {
         s == "QF_FP" ||
         s == "QF_FPBV" ||
         s == "QF_BVFP" ||
+        s == "QF_S" ||
         s == "HORN";
 }
 
@@ -576,7 +577,7 @@ bool cmd_context::logic_has_bv() const {
 }
 
 bool cmd_context::logic_has_seq_core(symbol const& s) const {
-    return s == "QF_BVRE";
+    return s == "QF_BVRE" || s == "QF_S";
 }
 
 bool cmd_context::logic_has_seq() const {
@@ -712,13 +713,7 @@ bool cmd_context::set_logic(symbol const & s) {
     if (has_manager() && m_main_ctx)
         throw cmd_exception("logic must be set before initialization");
     if (!supported_logic(s)) {
-        if (m_params.m_smtlib2_compliant) {
-            return false;
-        }
-        else {
-            warning_msg("unknown logic, ignoring set-logic command");
-            return true;
-        }
+        return false;
     }
     m_logic = s;
     if (is_logic("QF_RDL") ||

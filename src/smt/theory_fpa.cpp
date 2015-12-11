@@ -921,14 +921,20 @@ namespace smt {
         ast_manager & m = get_manager();
         context & ctx = get_context();
 
-        out << "fpa theory variables:" << std::endl;
+        bool first = true;
         ptr_vector<enode>::const_iterator it = ctx.begin_enodes();
         ptr_vector<enode>::const_iterator end = ctx.end_enodes();
         for (; it != end; it++) {
             theory_var v = (*it)->get_th_var(get_family_id());
-            if (v != -1) out << v << " -> " <<
-                mk_ismt2_pp((*it)->get_owner(), m) << std::endl;
+            if (v != -1) {
+                if (first) out << "fpa theory variables:" << std::endl;
+                out << v << " -> " <<
+                    mk_ismt2_pp((*it)->get_owner(), m) << std::endl;
+                first = false;
+            }
         }
+        // if there are no fpa theory variables, was fp ever used?
+        if (first) return;
 
         out << "bv theory variables:" << std::endl;
         it = ctx.begin_enodes();
