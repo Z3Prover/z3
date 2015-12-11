@@ -113,13 +113,6 @@ public:
     }
     
     virtual void cleanup() {}
-    virtual void set_cancel(bool f) {
-        #pragma omp critical (nnf_tactic)
-        {
-            if (m_nnf)
-                m_nnf->set_cancel(f);
-        }
-    }
 };
 
 tactic * mk_snf_tactic(ast_manager & m, params_ref const & p) {

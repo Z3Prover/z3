@@ -61,7 +61,8 @@ namespace algebraic_numbers {
         algebraic_params::collect_param_descrs(r);
     }
 
-    struct manager::imp {
+    struct manager::imp {        
+        reslimit&                m_limit;
         manager &                m_wrapper;
         small_object_allocator & m_allocator;
         unsynch_mpq_manager &    m_qmanager;
@@ -96,7 +97,8 @@ namespace algebraic_numbers {
         unsigned                 m_compare_refine;
         unsigned                 m_compare_poly_eq;
 
-        imp(manager & w, unsynch_mpq_manager & m, params_ref const & p, small_object_allocator & a):
+        imp(reslimit& lim, manager & w, unsynch_mpq_manager & m, params_ref const & p, small_object_allocator & a):
+            m_limit(lim),
             m_wrapper(w),
             m_allocator(a),
             m_qmanager(m),
@@ -2764,14 +2766,14 @@ namespace algebraic_numbers {
        
     };
 
-    manager::manager(unsynch_mpq_manager & m, params_ref const & p, small_object_allocator * a) {
+    manager::manager(reslimit& lim, unsynch_mpq_manager & m, params_ref const & p, small_object_allocator * a) {
         m_own_allocator = false;
         m_allocator     = a;
         if (m_allocator == 0) {
             m_own_allocator = true;
             m_allocator     = alloc(small_object_allocator, "algebraic");
         }
-        m_imp = alloc(imp, *this, m, p, *m_allocator);
+        m_imp = alloc(imp, lim, *this, m, p, *m_allocator);
     }
 
     manager::~manager() {

@@ -44,10 +44,6 @@ public:
     */
     static void get_param_descrs(param_descrs & r);
 
-    void cancel() { set_cancel(true); }
-    void reset_cancel() { set_cancel(false); }
-    void set_cancel(bool f);
-
     void reset();
     void reset_cache();
 };

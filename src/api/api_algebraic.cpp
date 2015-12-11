@@ -372,7 +372,7 @@ extern "C" {
         }
         scoped_anum_vector roots(_am);
         {
-            cancel_eh<algebraic_numbers::manager> eh(_am);
+            cancel_eh<reslimit> eh(mk_c(c)->m().limit());
             api::context::set_interruptable si(*(mk_c(c)), eh);
             scoped_timer timer(mk_c(c)->params().m_timeout, &eh);
             vector_var2anum v2a(as);
@@ -407,7 +407,7 @@ extern "C" {
             return 0;
         }
         {
-            cancel_eh<algebraic_numbers::manager> eh(_am);
+            cancel_eh<reslimit> eh(mk_c(c)->m().limit());
             api::context::set_interruptable si(*(mk_c(c)), eh);
             scoped_timer timer(mk_c(c)->params().m_timeout, &eh);
             vector_var2anum v2a(as);

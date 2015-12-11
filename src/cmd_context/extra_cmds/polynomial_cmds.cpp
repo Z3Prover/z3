@@ -83,6 +83,7 @@ static void factor(cmd_context & ctx, expr * t, polynomial::factor_params const 
 class poly_isolate_roots_cmd : public cmd {
     struct context {
         arith_util                  m_util;
+        reslimit                    m_lim;
         unsynch_mpq_manager         m_qm;
         polynomial::manager         m_pm;
         algebraic_numbers::manager  m_am;
@@ -95,7 +96,7 @@ class poly_isolate_roots_cmd : public cmd {
         context(ast_manager & m):
             m_util(m),
             m_pm(m_qm),
-            m_am(m_qm),
+            m_am(m_lim, m_qm),
             m_p(m_pm),
             m_expr2poly(m, m_pm),
             m_var(polynomial::null_var),
