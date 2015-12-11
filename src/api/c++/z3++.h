@@ -2021,7 +2021,7 @@ namespace z3 {
         return expr(a.ctx(), Z3_mk_interpolant(a.ctx(), a));
     }
 
-    check_result context::compute_interpolant(expr const& pat, params const& p, expr_vector& i, model& m) {
+    inline check_result context::compute_interpolant(expr const& pat, params const& p, expr_vector& i, model& m) {
         Z3_ast_vector interp = 0;
         Z3_model mdl = 0;
         Z3_lbool r = Z3_compute_interpolant(*this, pat, p, &interp, &mdl);
@@ -2038,7 +2038,7 @@ namespace z3 {
         return to_check_result(r);
     }
 
-    expr_vector context::get_interpolant(expr const& proof, expr const& pat, params const& p) {
+    inline expr_vector context::get_interpolant(expr const& proof, expr const& pat, params const& p) {
         return expr_vector(*this, Z3_get_interpolant(*this, proof, pat, p));
     }
 
