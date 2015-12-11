@@ -22,6 +22,7 @@ Revision History:
 #include"smt_enode.h"
 #include"obj_hashtable.h"
 #include"statistics.h"
+#include<typeinfo>
 
 namespace smt {
     class model_generator;
