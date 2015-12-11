@@ -469,6 +469,9 @@ bool theory_seq::simplify_and_solve_eqs() {
     return change;
 }
 
+void theory_seq::internalize_eq_eh(app * atom, bool_var v) {
+}
+
 bool theory_seq::internalize_atom(app* a, bool) { 
     return internalize_term(a);
 }
@@ -598,7 +601,7 @@ void theory_seq::set_incomplete(app* term) {
 }
 
 theory_var theory_seq::mk_var(enode* n) {
-    if (!m_util.is_seq(n->get_owner()) ||
+    if (!m_util.is_seq(n->get_owner()) &&
         !m_util.is_re(n->get_owner())) {
         return null_theory_var;
     }
@@ -608,6 +611,7 @@ theory_var theory_seq::mk_var(enode* n) {
     else {
         theory_var v = theory::mk_var(n);
         get_context().attach_th_var(n, this, v);
+        get_context().mark_as_relevant(n);
         return v;
     }
 }
@@ -1004,6 +1008,10 @@ void theory_seq::assign_eq(bool_var v, bool is_true) {
         }
         else if (m_util.str.is_in_re(e, e1, e2)) {
             // TBD
+        }
+        else if (m.is_eq(e, e1, e2)) {
+            new_eq_eh(ctx.get_enode(e1)->get_th_var(get_id()),
+                      ctx.get_enode(e1)->get_th_var(get_id()));
         }
         else {
             UNREACHABLE();

@@ -312,6 +312,8 @@ namespace smt {
         d.m_phase_available        = true;
         d.m_phase                  = !l.sign();
         TRACE("phase_selection", tout << "saving phase, is_pos: " << d.m_phase << " l: " << l << "\n";);
+        TRACE("relevancy", 
+              tout << "is_atom: " << d.is_atom() << " is relevant: " << is_relevant_core(bool_var2expr(l.var())) << "\n";);
         if (d.is_atom() && (m_fparams.m_relevancy_lvl == 0 || (m_fparams.m_relevancy_lvl == 1 && !d.is_quantifier()) || is_relevant_core(bool_var2expr(l.var()))))
             m_atom_propagation_queue.push_back(l);
 
@@ -805,8 +807,10 @@ namespace smt {
     void context::merge_theory_vars(enode * n2, enode * n1, eq_justification js) {
         enode * r2 = n2->get_root();
         enode * r1 = n1->get_root();
-        if (!r1->has_th_vars() && !r2->has_th_vars())
+        if (!r1->has_th_vars() && !r2->has_th_vars()) {
+            TRACE("merge_theory_vars", tout << "Neither have theory vars #" << n1->get_owner()->get_id() << " #" << n2->get_owner()->get_id() << "\n";);
             return;
+        }
         
         theory_id from_th = null_theory_id;
 
