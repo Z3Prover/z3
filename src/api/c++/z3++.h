@@ -110,7 +110,7 @@ namespace z3 {
         /**
            \brief Set global parameter \c param with integer \c value.
         */
-        void set(char const * param, int value) { 
+        void set(char const * param, int value) {
             std::ostringstream oss;
             oss << value;
             Z3_set_param_value(m_cfg, param, oss.str().c_str());
@@ -169,7 +169,7 @@ namespace z3 {
         /**
            \brief Update global parameter \c param with Integer \c value.
         */
-        void set(char const * param, int value) { 
+        void set(char const * param, int value) {
             std::ostringstream oss;
             oss << value;
             Z3_update_param_value(m_ctx, param, oss.str().c_str());
@@ -239,9 +239,9 @@ namespace z3 {
         expr int_const(char const * name);
         expr real_const(char const * name);
         expr bv_const(char const * name, unsigned sz);
-        
+
         expr bool_val(bool b);
-        
+
         expr int_val(int n);
         expr int_val(unsigned n);
         expr int_val(__int64 n);
@@ -330,12 +330,12 @@ namespace z3 {
         params(params const & s):object(s), m_params(s.m_params) { Z3_params_inc_ref(ctx(), m_params); }
         ~params() { Z3_params_dec_ref(ctx(), m_params); }
         operator Z3_params() const { return m_params; }
-        params & operator=(params const & s) { 
-            Z3_params_inc_ref(s.ctx(), s.m_params); 
-            Z3_params_dec_ref(ctx(), m_params); 
-            m_ctx = s.m_ctx; 
-            m_params = s.m_params; 
-            return *this; 
+        params & operator=(params const & s) {
+            Z3_params_inc_ref(s.ctx(), s.m_params);
+            Z3_params_dec_ref(ctx(), m_params);
+            m_ctx = s.m_ctx;
+            m_params = s.m_params;
+            return *this;
         }
         void set(char const * k, bool b) { Z3_params_set_bool(ctx(), m_params, ctx().str_symbol(k), b); }
         void set(char const * k, unsigned n) { Z3_params_set_uint(ctx(), m_params, ctx().str_symbol(k), n); }
@@ -345,9 +345,9 @@ namespace z3 {
     };
 
     inline std::ostream & operator<<(std::ostream & out, params const & p) {
-        out << Z3_params_to_string(p.ctx(), p); return out; 
+        out << Z3_params_to_string(p.ctx(), p); return out;
     }
-    
+
     class ast : public object {
     protected:
         Z3_ast    m_ast;
@@ -368,8 +368,8 @@ namespace z3 {
         */
         friend bool eq(ast const & a, ast const & b);
     };
-    inline std::ostream & operator<<(std::ostream & out, ast const & n) { 
-        out << Z3_ast_to_string(n.ctx(), n.m_ast); return out; 
+    inline std::ostream & operator<<(std::ostream & out, ast const & n) {
+        out << Z3_ast_to_string(n.ctx(), n.m_ast); return out;
     }
 
     inline bool eq(ast const & a, ast const & b) { return Z3_is_eq_ast(a.ctx(), a, b) != 0; }
@@ -393,57 +393,57 @@ namespace z3 {
         */
         Z3_sort_kind sort_kind() const { return Z3_get_sort_kind(*m_ctx, *this); }
 
-        /** 
+        /**
             \brief Return true if this sort is the Boolean sort.
         */
         bool is_bool() const { return sort_kind() == Z3_BOOL_SORT; }
-        /** 
+        /**
             \brief Return true if this sort is the Integer sort.
         */
         bool is_int() const { return sort_kind() == Z3_INT_SORT; }
-        /** 
+        /**
             \brief Return true if this sort is the Real sort.
         */
         bool is_real() const { return sort_kind() == Z3_REAL_SORT; }
-        /** 
+        /**
             \brief Return true if this sort is the Integer or Real sort.
         */
         bool is_arith() const { return is_int() || is_real(); }
-        /** 
+        /**
             \brief Return true if this sort is a Bit-vector sort.
         */
         bool is_bv() const { return sort_kind() == Z3_BV_SORT; }
-        /** 
+        /**
             \brief Return true if this sort is a Array sort.
         */
         bool is_array() const { return sort_kind() == Z3_ARRAY_SORT; }
-        /** 
+        /**
             \brief Return true if this sort is a Datatype sort.
         */
         bool is_datatype() const { return sort_kind() == Z3_DATATYPE_SORT; }
-        /** 
+        /**
             \brief Return true if this sort is a Relation sort.
         */
         bool is_relation() const { return sort_kind() == Z3_RELATION_SORT; }
-        /** 
+        /**
             \brief Return true if this sort is a Finite domain sort.
         */
         bool is_finite_domain() const { return sort_kind() == Z3_FINITE_DOMAIN_SORT; }
 
-        /** 
+        /**
             \brief Return the size of this Bit-vector sort.
 
             \pre is_bv()
         */
         unsigned bv_size() const { assert(is_bv()); unsigned r = Z3_get_bv_sort_size(ctx(), *this); check_error(); return r; }
 
-        /** 
+        /**
             \brief Return the domain of this Array sort.
 
             \pre is_array()
         */
         sort array_domain() const { assert(is_array()); Z3_sort s = Z3_get_array_sort_domain(ctx(), *this); check_error(); return sort(ctx(), s); }
-        /** 
+        /**
             \brief Return the range of this Array sort.
 
             \pre is_array()
@@ -462,7 +462,7 @@ namespace z3 {
         func_decl(func_decl const & s):ast(s) {}
         operator Z3_func_decl() const { return reinterpret_cast<Z3_func_decl>(m_ast); }
         func_decl & operator=(func_decl const & s) { return static_cast<func_decl&>(ast::operator=(s)); }
-        
+
         unsigned arity() const { return Z3_get_arity(ctx(), *this); }
         sort domain(unsigned i) const { assert(i < arity()); Z3_sort r = Z3_get_domain(ctx(), *this, i); check_error(); return sort(ctx(), r); }
         sort range() const { Z3_sort r = Z3_get_range(ctx(), *this); check_error(); return sort(ctx(), r); }
@@ -499,7 +499,7 @@ namespace z3 {
            \brief Return the sort of this expression.
         */
         sort get_sort() const { Z3_sort s = Z3_get_sort(*m_ctx, m_ast); check_error(); return sort(*m_ctx, s); }
-        
+
         /**
            \brief Return true if this is a Boolean expression.
         */
@@ -534,11 +534,11 @@ namespace z3 {
         bool is_relation() const { return get_sort().is_relation(); }
         /**
            \brief Return true if this is a Finite-domain expression.
-           
+
            \remark Finite-domain is special kind of interpreted sort:
            is_bool(), is_bv() and is_finite_domain() are mutually
            exclusive.
-           
+
         */
         bool is_finite_domain() const { return get_sort().is_finite_domain(); }
 
@@ -654,7 +654,7 @@ namespace z3 {
            \pre b.is_bool()
         */
         friend expr operator||(bool a, expr const & b);
-        
+
         friend expr implies(expr const & a, expr const & b);
         friend expr implies(expr const & a, bool b);
         friend expr implies(bool a, expr const & b);
@@ -710,7 +710,7 @@ namespace z3 {
         friend expr operator<(expr const & a, expr const & b);
         friend expr operator<(expr const & a, int b);
         friend expr operator<(int a, expr const & b);
-        
+
         friend expr operator>(expr const & a, expr const & b);
         friend expr operator>(expr const & a, int b);
         friend expr operator>(int a, expr const & b);
@@ -729,8 +729,8 @@ namespace z3 {
 
         friend expr operator~(expr const & a);
         expr extract(unsigned hi, unsigned lo) const { Z3_ast r = Z3_mk_extract(ctx(), hi, lo, *this); return expr(ctx(), r); }
-        unsigned lo() const { assert (is_app() && Z3_get_decl_num_parameters(ctx(), decl()) == 2); return static_cast<unsigned>(Z3_get_decl_int_parameter(ctx(), decl(), 1)); } 
-        unsigned hi() const { assert (is_app() && Z3_get_decl_num_parameters(ctx(), decl()) == 2); return static_cast<unsigned>(Z3_get_decl_int_parameter(ctx(), decl(), 0)); } 
+        unsigned lo() const { assert (is_app() && Z3_get_decl_num_parameters(ctx(), decl()) == 2); return static_cast<unsigned>(Z3_get_decl_int_parameter(ctx(), decl(), 1)); }
+        unsigned hi() const { assert (is_app() && Z3_get_decl_num_parameters(ctx(), decl()) == 2); return static_cast<unsigned>(Z3_get_decl_int_parameter(ctx(), decl(), 0)); }
 
         /**
            \brief Return a simplified version of this expression.
@@ -744,7 +744,7 @@ namespace z3 {
         /**
            \brief Apply substitution. Replace src expressions by dst.
         */
-        expr substitute(expr_vector const& src, expr_vector const& dst); 
+        expr substitute(expr_vector const& src, expr_vector const& dst);
 
         /**
            \brief Apply substitution. Replace bound variables by expressions.
@@ -789,10 +789,10 @@ namespace z3 {
         a.check_error();
         return expr(a.ctx(), r);
     }
-    
+
     inline expr operator&&(expr const & a, bool b) { return a && a.ctx().bool_val(b); }
     inline expr operator&&(bool a, expr const & b) { return b.ctx().bool_val(a) && b; }
-    
+
     inline expr operator||(expr const & a, expr const & b) {
         check_context(a, b);
         assert(a.is_bool() && b.is_bool());
@@ -801,11 +801,11 @@ namespace z3 {
         a.check_error();
         return expr(a.ctx(), r);
     }
-    
+
     inline expr operator||(expr const & a, bool b) { return a || a.ctx().bool_val(b); }
-    
+
     inline expr operator||(bool a, expr const & b) { return b.ctx().bool_val(a) || b; }
-    
+
     inline expr operator==(expr const & a, expr const & b) {
         check_context(a, b);
         Z3_ast r = Z3_mk_eq(a.ctx(), a, b);
@@ -814,7 +814,7 @@ namespace z3 {
     }
     inline expr operator==(expr const & a, int b) { assert(a.is_arith() || a.is_bv()); return a == a.ctx().num_val(b, a.get_sort()); }
     inline expr operator==(int a, expr const & b) { assert(b.is_arith() || b.is_bv()); return b.ctx().num_val(a, b.get_sort()) == b; }
-    
+
     inline expr operator!=(expr const & a, expr const & b) {
         check_context(a, b);
         Z3_ast args[2] = { a, b };
@@ -824,7 +824,7 @@ namespace z3 {
     }
     inline expr operator!=(expr const & a, int b) { assert(a.is_arith() || a.is_bv()); return a != a.ctx().num_val(b, a.get_sort()); }
     inline expr operator!=(int a, expr const & b) { assert(b.is_arith() || b.is_bv()); return b.ctx().num_val(a, b.get_sort()) != b; }
-    
+
     inline expr operator+(expr const & a, expr const & b) {
         check_context(a, b);
         Z3_ast r = 0;
@@ -844,7 +844,7 @@ namespace z3 {
     }
     inline expr operator+(expr const & a, int b) { return a + a.ctx().num_val(b, a.get_sort()); }
     inline expr operator+(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) + b; }
-    
+
     inline expr operator*(expr const & a, expr const & b) {
         check_context(a, b);
         Z3_ast r = 0;
@@ -864,8 +864,8 @@ namespace z3 {
     }
     inline expr operator*(expr const & a, int b) { return a * a.ctx().num_val(b, a.get_sort()); }
     inline expr operator*(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) * b; }
-    
-    
+
+
     inline expr operator>=(expr const & a, expr const & b) {
         check_context(a, b);
         Z3_ast r = 0;
@@ -901,7 +901,7 @@ namespace z3 {
     }
     inline expr operator/(expr const & a, int b) { return a / a.ctx().num_val(b, a.get_sort()); }
     inline expr operator/(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) / b; }
-    
+
     inline expr operator-(expr const & a) {
         Z3_ast r = 0;
         if (a.is_arith()) {
@@ -917,7 +917,7 @@ namespace z3 {
         a.check_error();
         return expr(a.ctx(), r);
     }
-    
+
     inline expr operator-(expr const & a, expr const & b) {
         check_context(a, b);
         Z3_ast r = 0;
@@ -937,7 +937,7 @@ namespace z3 {
     }
     inline expr operator-(expr const & a, int b) { return a - a.ctx().num_val(b, a.get_sort()); }
     inline expr operator-(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) - b; }
-    
+
     inline expr operator<=(expr const & a, expr const & b) {
         check_context(a, b);
         Z3_ast r = 0;
@@ -956,10 +956,10 @@ namespace z3 {
     }
     inline expr operator<=(expr const & a, int b) { return a <= a.ctx().num_val(b, a.get_sort()); }
     inline expr operator<=(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) <= b; }
-    
+
     inline expr operator>=(expr const & a, int b) { return a >= a.ctx().num_val(b, a.get_sort()); }
     inline expr operator>=(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) >= b; }
-    
+
     inline expr operator<(expr const & a, expr const & b) {
         check_context(a, b);
         Z3_ast r = 0;
@@ -978,7 +978,7 @@ namespace z3 {
     }
     inline expr operator<(expr const & a, int b) { return a < a.ctx().num_val(b, a.get_sort()); }
     inline expr operator<(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) < b; }
-    
+
     inline expr operator>(expr const & a, expr const & b) {
         check_context(a, b);
         Z3_ast r = 0;
@@ -997,19 +997,19 @@ namespace z3 {
     }
     inline expr operator>(expr const & a, int b) { return a > a.ctx().num_val(b, a.get_sort()); }
     inline expr operator>(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) > b; }
-    
+
     inline expr operator&(expr const & a, expr const & b) { check_context(a, b); Z3_ast r = Z3_mk_bvand(a.ctx(), a, b); return expr(a.ctx(), r); }
     inline expr operator&(expr const & a, int b) { return a & a.ctx().num_val(b, a.get_sort()); }
     inline expr operator&(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) & b; }
-    
+
     inline expr operator^(expr const & a, expr const & b) { check_context(a, b); Z3_ast r = Z3_mk_bvxor(a.ctx(), a, b); return expr(a.ctx(), r); }
     inline expr operator^(expr const & a, int b) { return a ^ a.ctx().num_val(b, a.get_sort()); }
     inline expr operator^(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) ^ b; }
-    
+
     inline expr operator|(expr const & a, expr const & b) { check_context(a, b); Z3_ast r = Z3_mk_bvor(a.ctx(), a, b); return expr(a.ctx(), r); }
     inline expr operator|(expr const & a, int b) { return a | a.ctx().num_val(b, a.get_sort()); }
     inline expr operator|(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) | b; }
-    
+
     inline expr operator~(expr const & a) { Z3_ast r = Z3_mk_bvnot(a.ctx(), a); return expr(a.ctx(), r); }
 
 
@@ -1017,7 +1017,7 @@ namespace z3 {
 
     /**
        \brief Create the if-then-else expression <tt>ite(c, t, e)</tt>
-       
+
        \pre c.is_bool()
     */
 
@@ -1029,16 +1029,16 @@ namespace z3 {
         return expr(c.ctx(), r);
     }
 
-    
-    /**                                        
+
+    /**
        \brief Wraps a Z3_ast as an expr object. It also checks for errors.
        This function allows the user to use the whole C API with the C++ layer defined in this file.
     */
     inline expr to_expr(context & c, Z3_ast a) {
         c.check_error();
-        assert(Z3_get_ast_kind(c, a) == Z3_APP_AST || 
-               Z3_get_ast_kind(c, a) == Z3_NUMERAL_AST || 
-               Z3_get_ast_kind(c, a) == Z3_VAR_AST || 
+        assert(Z3_get_ast_kind(c, a) == Z3_APP_AST ||
+               Z3_get_ast_kind(c, a) == Z3_NUMERAL_AST ||
+               Z3_get_ast_kind(c, a) == Z3_VAR_AST ||
                Z3_get_ast_kind(c, a) == Z3_QUANTIFIER_AST);
         return expr(c, a);
     }
@@ -1093,10 +1093,10 @@ namespace z3 {
 
     template<> class cast_ast<expr> {
     public:
-        expr operator()(context & c, Z3_ast a) { 
+        expr operator()(context & c, Z3_ast a) {
             assert(Z3_get_ast_kind(c, a) == Z3_NUMERAL_AST ||
-                   Z3_get_ast_kind(c, a) == Z3_APP_AST || 
-                   Z3_get_ast_kind(c, a) == Z3_QUANTIFIER_AST || 
+                   Z3_get_ast_kind(c, a) == Z3_APP_AST ||
+                   Z3_get_ast_kind(c, a) == Z3_QUANTIFIER_AST ||
                    Z3_get_ast_kind(c, a) == Z3_VAR_AST);
             return expr(c, a);
         }
@@ -1104,7 +1104,7 @@ namespace z3 {
 
     template<> class cast_ast<sort> {
     public:
-        sort operator()(context & c, Z3_ast a) { 
+        sort operator()(context & c, Z3_ast a) {
             assert(Z3_get_ast_kind(c, a) == Z3_SORT_AST);
             return sort(c, reinterpret_cast<Z3_sort>(a));
         }
@@ -1112,7 +1112,7 @@ namespace z3 {
 
     template<> class cast_ast<func_decl> {
     public:
-        func_decl operator()(context & c, Z3_ast a) { 
+        func_decl operator()(context & c, Z3_ast a) {
             assert(Z3_get_ast_kind(c, a) == Z3_FUNC_DECL_AST);
             return func_decl(c, reinterpret_cast<Z3_func_decl>(a));
         }
@@ -1135,12 +1135,12 @@ namespace z3 {
         T back() const { return operator[](size() - 1); }
         void pop_back() { assert(size() > 0); resize(size() - 1); }
         bool empty() const { return size() == 0; }
-        ast_vector_tpl & operator=(ast_vector_tpl const & s) { 
-            Z3_ast_vector_inc_ref(s.ctx(), s.m_vector); 
+        ast_vector_tpl & operator=(ast_vector_tpl const & s) {
+            Z3_ast_vector_inc_ref(s.ctx(), s.m_vector);
             Z3_ast_vector_dec_ref(ctx(), m_vector);
-            m_ctx = s.m_ctx; 
+            m_ctx = s.m_ctx;
             m_vector = s.m_vector;
-            return *this; 
+            return *this;
         }
         friend std::ostream & operator<<(std::ostream & out, ast_vector_tpl const & v) { out << Z3_ast_vector_to_string(v.ctx(), v); return out; }
     };
@@ -1160,50 +1160,50 @@ namespace z3 {
     // The C API should be used for creating quantifiers with patterns, weights, many variables, etc.
     inline expr forall(expr const & x, expr const & b) {
         check_context(x, b);
-        Z3_app vars[] = {(Z3_app) x}; 
+        Z3_app vars[] = {(Z3_app) x};
         Z3_ast r = Z3_mk_forall_const(b.ctx(), 0, 1, vars, 0, 0, b); b.check_error(); return expr(b.ctx(), r);
     }
     inline expr forall(expr const & x1, expr const & x2, expr const & b) {
         check_context(x1, b); check_context(x2, b);
-        Z3_app vars[] = {(Z3_app) x1, (Z3_app) x2}; 
+        Z3_app vars[] = {(Z3_app) x1, (Z3_app) x2};
         Z3_ast r = Z3_mk_forall_const(b.ctx(), 0, 2, vars, 0, 0, b); b.check_error(); return expr(b.ctx(), r);
     }
     inline expr forall(expr const & x1, expr const & x2, expr const & x3, expr const & b) {
         check_context(x1, b); check_context(x2, b); check_context(x3, b);
-        Z3_app vars[] = {(Z3_app) x1, (Z3_app) x2, (Z3_app) x3 }; 
+        Z3_app vars[] = {(Z3_app) x1, (Z3_app) x2, (Z3_app) x3 };
         Z3_ast r = Z3_mk_forall_const(b.ctx(), 0, 3, vars, 0, 0, b); b.check_error(); return expr(b.ctx(), r);
     }
     inline expr forall(expr const & x1, expr const & x2, expr const & x3, expr const & x4, expr const & b) {
         check_context(x1, b); check_context(x2, b); check_context(x3, b); check_context(x4, b);
-        Z3_app vars[] = {(Z3_app) x1, (Z3_app) x2, (Z3_app) x3, (Z3_app) x4 }; 
+        Z3_app vars[] = {(Z3_app) x1, (Z3_app) x2, (Z3_app) x3, (Z3_app) x4 };
         Z3_ast r = Z3_mk_forall_const(b.ctx(), 0, 4, vars, 0, 0, b); b.check_error(); return expr(b.ctx(), r);
     }
     inline expr forall(expr_vector const & xs, expr const & b) {
-        array<Z3_app> vars(xs);  
+        array<Z3_app> vars(xs);
         Z3_ast r = Z3_mk_forall_const(b.ctx(), 0, vars.size(), vars.ptr(), 0, 0, b); b.check_error(); return expr(b.ctx(), r);
     }
     inline expr exists(expr const & x, expr const & b) {
         check_context(x, b);
-        Z3_app vars[] = {(Z3_app) x}; 
+        Z3_app vars[] = {(Z3_app) x};
         Z3_ast r = Z3_mk_exists_const(b.ctx(), 0, 1, vars, 0, 0, b); b.check_error(); return expr(b.ctx(), r);
     }
     inline expr exists(expr const & x1, expr const & x2, expr const & b) {
         check_context(x1, b); check_context(x2, b);
-        Z3_app vars[] = {(Z3_app) x1, (Z3_app) x2}; 
+        Z3_app vars[] = {(Z3_app) x1, (Z3_app) x2};
         Z3_ast r = Z3_mk_exists_const(b.ctx(), 0, 2, vars, 0, 0, b); b.check_error(); return expr(b.ctx(), r);
     }
     inline expr exists(expr const & x1, expr const & x2, expr const & x3, expr const & b) {
         check_context(x1, b); check_context(x2, b); check_context(x3, b);
-        Z3_app vars[] = {(Z3_app) x1, (Z3_app) x2, (Z3_app) x3 }; 
+        Z3_app vars[] = {(Z3_app) x1, (Z3_app) x2, (Z3_app) x3 };
         Z3_ast r = Z3_mk_exists_const(b.ctx(), 0, 3, vars, 0, 0, b); b.check_error(); return expr(b.ctx(), r);
     }
     inline expr exists(expr const & x1, expr const & x2, expr const & x3, expr const & x4, expr const & b) {
         check_context(x1, b); check_context(x2, b); check_context(x3, b); check_context(x4, b);
-        Z3_app vars[] = {(Z3_app) x1, (Z3_app) x2, (Z3_app) x3, (Z3_app) x4 }; 
+        Z3_app vars[] = {(Z3_app) x1, (Z3_app) x2, (Z3_app) x3, (Z3_app) x4 };
         Z3_ast r = Z3_mk_exists_const(b.ctx(), 0, 4, vars, 0, 0, b); b.check_error(); return expr(b.ctx(), r);
     }
     inline expr exists(expr_vector const & xs, expr const & b) {
-        array<Z3_app> vars(xs);  
+        array<Z3_app> vars(xs);
         Z3_ast r = Z3_mk_exists_const(b.ctx(), 0, vars.size(), vars.ptr(), 0, 0, b); b.check_error(); return expr(b.ctx(), r);
     }
 
@@ -1223,7 +1223,7 @@ namespace z3 {
         a.ctx().check_error();
         return expr(a.ctx(), r);
     }
-    
+
     class func_entry : public object {
         Z3_func_entry m_entry;
         void init(Z3_func_entry e) {
@@ -1238,9 +1238,9 @@ namespace z3 {
         func_entry & operator=(func_entry const & s) {
             Z3_func_entry_inc_ref(s.ctx(), s.m_entry);
             Z3_func_entry_dec_ref(ctx(), m_entry);
-            m_ctx = s.m_ctx; 
+            m_ctx = s.m_ctx;
             m_entry = s.m_entry;
-            return *this; 
+            return *this;
         }
         expr value() const { Z3_ast r = Z3_func_entry_get_value(ctx(), m_entry); check_error(); return expr(ctx(), r); }
         unsigned num_args() const { unsigned r = Z3_func_entry_get_num_args(ctx(), m_entry); check_error(); return r; }
@@ -1261,9 +1261,9 @@ namespace z3 {
         func_interp & operator=(func_interp const & s) {
             Z3_func_interp_inc_ref(s.ctx(), s.m_interp);
             Z3_func_interp_dec_ref(ctx(), m_interp);
-            m_ctx = s.m_ctx; 
+            m_ctx = s.m_ctx;
             m_interp = s.m_interp;
-            return *this; 
+            return *this;
         }
         expr else_value() const { Z3_ast r = Z3_func_interp_get_else(ctx(), m_interp); check_error(); return expr(ctx(), r); }
         unsigned num_entries() const { unsigned r = Z3_func_interp_get_num_entries(ctx(), m_interp); check_error(); return r; }
@@ -1284,11 +1284,11 @@ namespace z3 {
         model & operator=(model const & s) {
             Z3_model_inc_ref(s.ctx(), s.m_model);
             Z3_model_dec_ref(ctx(), m_model);
-            m_ctx = s.m_ctx; 
+            m_ctx = s.m_ctx;
             m_model = s.m_model;
-            return *this; 
+            return *this;
         }
-        
+
         expr eval(expr const & n, bool model_completion=false) const {
             check_context(*this, n);
             Z3_ast r = 0;
@@ -1298,15 +1298,15 @@ namespace z3 {
                 throw exception("failed to evaluate expression");
             return expr(ctx(), r);
         }
-        
+
         unsigned num_consts() const { return Z3_model_get_num_consts(ctx(), m_model); }
         unsigned num_funcs() const { return Z3_model_get_num_funcs(ctx(), m_model); }
         func_decl get_const_decl(unsigned i) const { Z3_func_decl r = Z3_model_get_const_decl(ctx(), m_model, i); check_error(); return func_decl(ctx(), r); }
         func_decl get_func_decl(unsigned i) const { Z3_func_decl r = Z3_model_get_func_decl(ctx(), m_model, i); check_error(); return func_decl(ctx(), r); }
         unsigned size() const { return num_consts() + num_funcs(); }
-        func_decl operator[](int i) const { 
-	    assert(0 <= i); 
-	    return static_cast<unsigned>(i) < num_consts() ? get_const_decl(i) : get_func_decl(i - num_consts()); 
+        func_decl operator[](int i) const {
+	    assert(0 <= i);
+	    return static_cast<unsigned>(i) < num_consts() ? get_const_decl(i) : get_func_decl(i - num_consts());
 	}
 
         expr get_const_interp(func_decl c) const {
@@ -1315,7 +1315,7 @@ namespace z3 {
             check_error();
             return expr(ctx(), r);
         }
-        func_interp get_func_interp(func_decl f) const { 
+        func_interp get_func_interp(func_decl f) const {
             check_context(*this, f);
             Z3_func_interp r = Z3_model_get_func_interp(ctx(), m_model, f);
             check_error();
@@ -1341,9 +1341,9 @@ namespace z3 {
         stats & operator=(stats const & s) {
             Z3_stats_inc_ref(s.ctx(), s.m_stats);
             if (m_stats) Z3_stats_dec_ref(ctx(), m_stats);
-            m_ctx = s.m_ctx; 
+            m_ctx = s.m_ctx;
             m_stats = s.m_stats;
-            return *this; 
+            return *this;
         }
         unsigned size() const { return Z3_stats_size(ctx(), m_stats); }
         std::string key(unsigned i) const { Z3_string s = Z3_stats_get_key(ctx(), m_stats, i); check_error(); return s; }
@@ -1356,7 +1356,7 @@ namespace z3 {
     inline std::ostream & operator<<(std::ostream & out, stats const & s) { out << Z3_stats_to_string(s.ctx(), s); return out; }
 
 
-    inline std::ostream & operator<<(std::ostream & out, check_result r) { 
+    inline std::ostream & operator<<(std::ostream & out, check_result r) {
         if (r == unsat) out << "unsat";
         else if (r == sat) out << "sat";
         else out << "unknown";
@@ -1389,19 +1389,19 @@ namespace z3 {
         solver & operator=(solver const & s) {
             Z3_solver_inc_ref(s.ctx(), s.m_solver);
             Z3_solver_dec_ref(ctx(), m_solver);
-            m_ctx = s.m_ctx; 
+            m_ctx = s.m_ctx;
             m_solver = s.m_solver;
-            return *this; 
+            return *this;
         }
         void set(params const & p) { Z3_solver_set_params(ctx(), m_solver, p); check_error(); }
         void push() { Z3_solver_push(ctx(), m_solver); check_error(); }
         void pop(unsigned n = 1) { Z3_solver_pop(ctx(), m_solver, n); check_error(); }
         void reset() { Z3_solver_reset(ctx(), m_solver); check_error(); }
         void add(expr const & e) { assert(e.is_bool()); Z3_solver_assert(ctx(), m_solver, e); check_error(); }
-        void add(expr const & e, expr const & p) { 
-            assert(e.is_bool()); assert(p.is_bool()); assert(p.is_const()); 
-            Z3_solver_assert_and_track(ctx(), m_solver, e, p); 
-            check_error(); 
+        void add(expr const & e, expr const & p) {
+            assert(e.is_bool()); assert(p.is_bool()); assert(p.is_const());
+            Z3_solver_assert_and_track(ctx(), m_solver, e, p);
+            check_error();
         }
         void add(expr const & e, char const * p) {
             add(e, ctx().bool_const(p));
@@ -1413,20 +1413,20 @@ namespace z3 {
                 check_context(*this, assumptions[i]);
                 _assumptions[i] = assumptions[i];
             }
-            Z3_lbool r = Z3_solver_check_assumptions(ctx(), m_solver, n, _assumptions.ptr()); 
-            check_error(); 
-            return to_check_result(r); 
+            Z3_lbool r = Z3_solver_check_assumptions(ctx(), m_solver, n, _assumptions.ptr());
+            check_error();
+            return to_check_result(r);
         }
-        check_result check(expr_vector assumptions) { 
+        check_result check(expr_vector assumptions) {
             unsigned n = assumptions.size();
             array<Z3_ast> _assumptions(n);
             for (unsigned i = 0; i < n; i++) {
                 check_context(*this, assumptions[i]);
                 _assumptions[i] = assumptions[i];
             }
-            Z3_lbool r = Z3_solver_check_assumptions(ctx(), m_solver, n, _assumptions.ptr()); 
-            check_error(); 
-            return to_check_result(r); 
+            Z3_lbool r = Z3_solver_check_assumptions(ctx(), m_solver, n, _assumptions.ptr());
+            check_error();
+            return to_check_result(r);
         }
         model get_model() const { Z3_model m = Z3_solver_get_model(ctx(), m_solver); check_error(); return model(ctx(), m); }
         std::string reason_unknown() const { Z3_string r = Z3_solver_get_reason_unknown(ctx(), m_solver); check_error(); return r; }
@@ -1450,9 +1450,9 @@ namespace z3 {
             }
             return std::string(Z3_benchmark_to_smtlib_string(
                                    ctx(),
-                                   "", "", status, "", 
-                                   sz, 
-                                   fmls, 
+                                   "", "", status, "",
+                                   sz,
+                                   fmls,
                                    fml));
         }
     };
@@ -1473,23 +1473,23 @@ namespace z3 {
         goal & operator=(goal const & s) {
             Z3_goal_inc_ref(s.ctx(), s.m_goal);
             Z3_goal_dec_ref(ctx(), m_goal);
-            m_ctx = s.m_ctx; 
+            m_ctx = s.m_ctx;
             m_goal = s.m_goal;
-            return *this; 
+            return *this;
         }
         void add(expr const & f) { check_context(*this, f); Z3_goal_assert(ctx(), m_goal, f); check_error(); }
         unsigned size() const { return Z3_goal_size(ctx(), m_goal); }
         expr operator[](int i) const { assert(0 <= i); Z3_ast r = Z3_goal_formula(ctx(), m_goal, i); check_error(); return expr(ctx(), r); }
         Z3_goal_prec precision() const { return Z3_goal_precision(ctx(), m_goal); }
         bool inconsistent() const { return Z3_goal_inconsistent(ctx(), m_goal) != 0; }
-        unsigned depth() const { return Z3_goal_depth(ctx(), m_goal); } 
+        unsigned depth() const { return Z3_goal_depth(ctx(), m_goal); }
         void reset() { Z3_goal_reset(ctx(), m_goal); }
         unsigned num_exprs() const { return Z3_goal_num_exprs(ctx(), m_goal); }
-        bool is_decided_sat() const { return Z3_goal_is_decided_sat(ctx(), m_goal) != 0; }        
-        bool is_decided_unsat() const { return Z3_goal_is_decided_unsat(ctx(), m_goal) != 0; }        
+        bool is_decided_sat() const { return Z3_goal_is_decided_sat(ctx(), m_goal) != 0; }
+        bool is_decided_unsat() const { return Z3_goal_is_decided_unsat(ctx(), m_goal) != 0; }
         expr as_expr() const {
             unsigned n = size();
-            if (n == 0) 
+            if (n == 0)
                 return ctx().bool_val(true);
             else if (n == 1)
                 return operator[](0);
@@ -1518,14 +1518,14 @@ namespace z3 {
         apply_result & operator=(apply_result const & s) {
             Z3_apply_result_inc_ref(s.ctx(), s.m_apply_result);
             Z3_apply_result_dec_ref(ctx(), m_apply_result);
-            m_ctx = s.m_ctx; 
+            m_ctx = s.m_ctx;
             m_apply_result = s.m_apply_result;
-            return *this; 
+            return *this;
         }
         unsigned size() const { return Z3_apply_result_get_num_subgoals(ctx(), m_apply_result); }
         goal operator[](int i) const { assert(0 <= i); Z3_goal r = Z3_apply_result_get_subgoal(ctx(), m_apply_result, i); check_error(); return goal(ctx(), r); }
-        model convert_model(model const & m, unsigned i = 0) const { 
-            check_context(*this, m); 
+        model convert_model(model const & m, unsigned i = 0) const {
+            check_context(*this, m);
             Z3_model new_m = Z3_apply_result_convert_model(ctx(), m_apply_result, i, m);
             check_error();
             return model(ctx(), new_m);
@@ -1549,16 +1549,16 @@ namespace z3 {
         tactic & operator=(tactic const & s) {
             Z3_tactic_inc_ref(s.ctx(), s.m_tactic);
             Z3_tactic_dec_ref(ctx(), m_tactic);
-            m_ctx = s.m_ctx; 
+            m_ctx = s.m_ctx;
             m_tactic = s.m_tactic;
-            return *this; 
+            return *this;
         }
         solver mk_solver() const { Z3_solver r = Z3_mk_solver_from_tactic(ctx(), m_tactic); check_error(); return solver(ctx(), r);  }
-        apply_result apply(goal const & g) const { 
+        apply_result apply(goal const & g) const {
             check_context(*this, g);
-            Z3_apply_result r = Z3_tactic_apply(ctx(), m_tactic, g); 
-            check_error(); 
-            return apply_result(ctx(), r); 
+            Z3_apply_result r = Z3_tactic_apply(ctx(), m_tactic, g);
+            check_error();
+            return apply_result(ctx(), r);
         }
         apply_result operator()(goal const & g) const {
             return apply(g);
@@ -1584,7 +1584,7 @@ namespace z3 {
         t1.check_error();
         return tactic(t1.ctx(), r);
     }
-    
+
     inline tactic repeat(tactic const & t, unsigned max=UINT_MAX) {
         Z3_tactic r = Z3_tactic_repeat(t.ctx(), t, max);
         t.check_error();
@@ -1619,9 +1619,9 @@ namespace z3 {
         probe & operator=(probe const & s) {
             Z3_probe_inc_ref(s.ctx(), s.m_probe);
             Z3_probe_dec_ref(ctx(), m_probe);
-            m_ctx = s.m_ctx; 
+            m_ctx = s.m_ctx;
             m_probe = s.m_probe;
-            return *this; 
+            return *this;
         }
         double apply(goal const & g) const { double r = Z3_probe_apply(ctx(), m_probe, g); check_error(); return r; }
         double operator()(goal const & g) const { return apply(g); }
@@ -1645,39 +1645,39 @@ namespace z3 {
         friend probe operator!(probe const & p);
     };
 
-    inline probe operator<=(probe const & p1, probe const & p2) { 
-        check_context(p1, p2); Z3_probe r = Z3_probe_le(p1.ctx(), p1, p2); p1.check_error(); return probe(p1.ctx(), r); 
+    inline probe operator<=(probe const & p1, probe const & p2) {
+        check_context(p1, p2); Z3_probe r = Z3_probe_le(p1.ctx(), p1, p2); p1.check_error(); return probe(p1.ctx(), r);
     }
     inline probe operator<=(probe const & p1, double p2) { return p1 <= probe(p1.ctx(), p2); }
     inline probe operator<=(double p1, probe const & p2) { return probe(p2.ctx(), p1) <= p2; }
-    inline probe operator>=(probe const & p1, probe const & p2) { 
-        check_context(p1, p2); Z3_probe r = Z3_probe_ge(p1.ctx(), p1, p2); p1.check_error(); return probe(p1.ctx(), r); 
+    inline probe operator>=(probe const & p1, probe const & p2) {
+        check_context(p1, p2); Z3_probe r = Z3_probe_ge(p1.ctx(), p1, p2); p1.check_error(); return probe(p1.ctx(), r);
     }
     inline probe operator>=(probe const & p1, double p2) { return p1 >= probe(p1.ctx(), p2); }
     inline probe operator>=(double p1, probe const & p2) { return probe(p2.ctx(), p1) >= p2; }
-    inline probe operator<(probe const & p1, probe const & p2) { 
-        check_context(p1, p2); Z3_probe r = Z3_probe_lt(p1.ctx(), p1, p2); p1.check_error(); return probe(p1.ctx(), r); 
+    inline probe operator<(probe const & p1, probe const & p2) {
+        check_context(p1, p2); Z3_probe r = Z3_probe_lt(p1.ctx(), p1, p2); p1.check_error(); return probe(p1.ctx(), r);
     }
     inline probe operator<(probe const & p1, double p2) { return p1 < probe(p1.ctx(), p2); }
     inline probe operator<(double p1, probe const & p2) { return probe(p2.ctx(), p1) < p2; }
-    inline probe operator>(probe const & p1, probe const & p2) { 
-        check_context(p1, p2); Z3_probe r = Z3_probe_gt(p1.ctx(), p1, p2); p1.check_error(); return probe(p1.ctx(), r); 
+    inline probe operator>(probe const & p1, probe const & p2) {
+        check_context(p1, p2); Z3_probe r = Z3_probe_gt(p1.ctx(), p1, p2); p1.check_error(); return probe(p1.ctx(), r);
     }
     inline probe operator>(probe const & p1, double p2) { return p1 > probe(p1.ctx(), p2); }
     inline probe operator>(double p1, probe const & p2) { return probe(p2.ctx(), p1) > p2; }
-    inline probe operator==(probe const & p1, probe const & p2) { 
-        check_context(p1, p2); Z3_probe r = Z3_probe_eq(p1.ctx(), p1, p2); p1.check_error(); return probe(p1.ctx(), r); 
+    inline probe operator==(probe const & p1, probe const & p2) {
+        check_context(p1, p2); Z3_probe r = Z3_probe_eq(p1.ctx(), p1, p2); p1.check_error(); return probe(p1.ctx(), r);
     }
     inline probe operator==(probe const & p1, double p2) { return p1 == probe(p1.ctx(), p2); }
     inline probe operator==(double p1, probe const & p2) { return probe(p2.ctx(), p1) == p2; }
-    inline probe operator&&(probe const & p1, probe const & p2) { 
-        check_context(p1, p2); Z3_probe r = Z3_probe_and(p1.ctx(), p1, p2); p1.check_error(); return probe(p1.ctx(), r); 
+    inline probe operator&&(probe const & p1, probe const & p2) {
+        check_context(p1, p2); Z3_probe r = Z3_probe_and(p1.ctx(), p1, p2); p1.check_error(); return probe(p1.ctx(), r);
     }
-    inline probe operator||(probe const & p1, probe const & p2) { 
-        check_context(p1, p2); Z3_probe r = Z3_probe_or(p1.ctx(), p1, p2); p1.check_error(); return probe(p1.ctx(), r); 
+    inline probe operator||(probe const & p1, probe const & p2) {
+        check_context(p1, p2); Z3_probe r = Z3_probe_or(p1.ctx(), p1, p2); p1.check_error(); return probe(p1.ctx(), r);
     }
     inline probe operator!(probe const & p) {
-        Z3_probe r = Z3_probe_not(p.ctx(), p); p.check_error(); return probe(p.ctx(), r); 
+        Z3_probe r = Z3_probe_not(p.ctx(), p); p.check_error(); return probe(p.ctx(), r);
     }
 
     class optimize : public object {
@@ -1699,12 +1699,12 @@ namespace z3 {
         handle add(expr const& e, unsigned weight) {
             assert(e.is_bool());
             std::stringstream strm;
-            strm << weight; 
-            return handle(Z3_optimize_assert_soft(ctx(), m_opt, e, strm.str().c_str(), 0)); 
+            strm << weight;
+            return handle(Z3_optimize_assert_soft(ctx(), m_opt, e, strm.str().c_str(), 0));
         }
         handle add(expr const& e, char const* weight) {
             assert(e.is_bool());
-            return handle(Z3_optimize_assert_soft(ctx(), m_opt, e, weight, 0)); 
+            return handle(Z3_optimize_assert_soft(ctx(), m_opt, e, weight, 0));
         }
         handle maximize(expr const& e) {
             return handle(Z3_optimize_maximize(ctx(), m_opt, e));
@@ -1731,9 +1731,9 @@ namespace z3 {
             check_error();
             return expr(ctx(), r);
         }
-        stats statistics() const { Z3_stats r = Z3_optimize_get_statistics(ctx(), m_opt); check_error(); return stats(ctx(), r); }        
+        stats statistics() const { Z3_stats r = Z3_optimize_get_statistics(ctx(), m_opt); check_error(); return stats(ctx(), r); }
         friend std::ostream & operator<<(std::ostream & out, optimize const & s);
-        std::string help() const { char const * r = Z3_optimize_get_help(ctx(), m_opt); check_error();  return r; }        
+        std::string help() const { char const * r = Z3_optimize_get_help(ctx(), m_opt); check_error();  return r; }
     };
     inline std::ostream & operator<<(std::ostream & out, optimize const & s) { out << Z3_optimize_to_string(s.ctx(), s.m_opt); return out; }
 
@@ -1807,12 +1807,12 @@ namespace z3 {
         check_error();
         return func_decl(*this, f);
     }
-    
+
     inline func_decl context::function(char const * name, sort_vector const& domain, sort const& range) {
-        return function(range.ctx().str_symbol(name), domain, range);        
+        return function(range.ctx().str_symbol(name), domain, range);
     }
 
-    
+
     inline func_decl context::function(char const * name, sort const & domain, sort const & range) {
         check_context(domain, range);
         Z3_sort args[1] = { domain };
@@ -1844,7 +1844,7 @@ namespace z3 {
         check_error();
         return func_decl(*this, f);
     }
-    
+
     inline func_decl context::function(char const * name, sort const & d1, sort const & d2, sort const & d3, sort const & d4, sort const & d5, sort const & range) {
         check_context(d1, range); check_context(d2, range); check_context(d3, range); check_context(d4, range); check_context(d5, range);
         Z3_sort args[5] = { d1, d2, d3, d4, d5 };
@@ -1854,9 +1854,9 @@ namespace z3 {
     }
 
     inline expr context::constant(symbol const & name, sort const & s) {
-        Z3_ast r = Z3_mk_const(m_ctx, name, s); 
-        check_error(); 
-        return expr(*this, r); 
+        Z3_ast r = Z3_mk_const(m_ctx, name, s);
+        check_error();
+        return expr(*this, r);
     }
     inline expr context::constant(char const * name, sort const & s) { return constant(str_symbol(name), s); }
     inline expr context::bool_const(char const * name) { return constant(name, bool_sort()); }
@@ -1896,7 +1896,7 @@ namespace z3 {
         Z3_ast r = Z3_mk_app(ctx(), *this, n, _args.ptr());
         check_error();
         return expr(ctx(), r);
-    
+
     }
     inline expr func_decl::operator()(expr_vector const& args) const {
         array<Z3_ast> _args(args.size());
@@ -1906,7 +1906,7 @@ namespace z3 {
         }
         Z3_ast r = Z3_mk_app(ctx(), *this, args.size(), _args.ptr());
         check_error();
-        return expr(ctx(), r);    
+        return expr(ctx(), r);
     }
     inline expr func_decl::operator()() const {
         Z3_ast r = Z3_mk_app(ctx(), *this, 0, 0);
@@ -1934,7 +1934,7 @@ namespace z3 {
         return expr(ctx(), r);
     }
     inline expr func_decl::operator()(expr const & a1, int a2) const {
-        check_context(*this, a1); 
+        check_context(*this, a1);
         Z3_ast args[2] = { a1, ctx().num_val(a2, domain(1)) };
         Z3_ast r = Z3_mk_app(ctx(), *this, 2, args);
         ctx().check_error();
@@ -1992,7 +1992,7 @@ namespace z3 {
     inline func_decl function(char const * name, sort const & d1, sort const & d2, sort const & d3, sort const & d4, sort const & d5, sort const & range) {
         return range.ctx().function(name, d1, d2, d3, d4, d5, range);
     }
-    
+
     inline expr select(expr const & a, expr const & i) {
         check_context(a, i);
         Z3_ast r = Z3_mk_select(a.ctx(), a, i);
@@ -2008,8 +2008,8 @@ namespace z3 {
     }
     inline expr store(expr const & a, int i, expr const & v) { return store(a, a.ctx().num_val(i, a.get_sort().array_domain()), v); }
     inline expr store(expr const & a, expr i, int v) { return store(a, i, a.ctx().num_val(v, a.get_sort().array_range())); }
-    inline expr store(expr const & a, int i, int v) { 
-        return store(a, a.ctx().num_val(i, a.get_sort().array_domain()), a.ctx().num_val(v, a.get_sort().array_range())); 
+    inline expr store(expr const & a, int i, int v) {
+        return store(a, a.ctx().num_val(i, a.get_sort().array_domain()), a.ctx().num_val(v, a.get_sort().array_range()));
     }
     inline expr const_array(sort const & d, expr const & v) {
         check_context(d, v);
@@ -2020,8 +2020,8 @@ namespace z3 {
     inline expr interpolant(expr const& a) {
         return expr(a.ctx(), Z3_mk_interpolant(a.ctx(), a));
     }
-    
-    check_result context::compute_interpolant(expr const& pat, params const& p, expr_vector& i, model& m) {
+
+    inline check_result context::compute_interpolant(expr const& pat, params const& p, expr_vector& i, model& m) {
         Z3_ast_vector interp = 0;
         Z3_model mdl = 0;
         Z3_lbool r = Z3_compute_interpolant(*this, pat, p, &interp, &mdl);
@@ -2038,14 +2038,14 @@ namespace z3 {
         return to_check_result(r);
     }
 
-    expr_vector context::get_interpolant(expr const& proof, expr const& pat, params const& p) {
+    inline expr_vector context::get_interpolant(expr const& proof, expr const& pat, params const& p) {
         return expr_vector(*this, Z3_get_interpolant(*this, proof, pat, p));
     }
 
     inline expr expr::substitute(expr_vector const& src, expr_vector const& dst) {
         assert(src.size() == dst.size());
         array<Z3_ast> _src(src.size());
-        array<Z3_ast> _dst(dst.size());    
+        array<Z3_ast> _dst(dst.size());
         for (unsigned i = 0; i < src.size(); ++i) {
             _src[i] = src[i];
             _dst[i] = dst[i];
@@ -2065,7 +2065,7 @@ namespace z3 {
         return expr(ctx(), r);
     }
 
-    
+
 
 }
 

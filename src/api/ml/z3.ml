@@ -1545,7 +1545,6 @@ end
 module Arithmetic =
 struct
   let is_int ( x : expr ) =
-    (Z3native.is_numeral_ast (Expr.gnc x) (Expr.gno x)) &&
       ((sort_kind_of_int (Z3native.get_sort_kind (Expr.gnc x) (Z3native.get_sort (Expr.gnc x) (Expr.gno x)))) == INT_SORT)
       
   let is_arithmetic_numeral ( x : expr ) = (AST.is_app (Expr.ast_of_expr x)) && (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ANUM)
