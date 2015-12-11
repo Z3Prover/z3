@@ -19,35 +19,36 @@ Revision History:
 #include "rlimit.h"
 
 reslimit::reslimit():
+    m_cancel(false),
     m_count(0),
-    m_limit(UINT_MAX) {
+    m_limit(0) {
 }
 
-unsigned reslimit::count() const {
+uint64 reslimit::count() const {
     return m_count;
 }
 
 bool reslimit::inc() {
     ++m_count;
-    return m_count <= m_limit;
+    return !m_cancel && (m_limit == 0 || m_count <= m_limit);
 }
 
 bool reslimit::inc(unsigned offset) {
     m_count += offset;
-    return m_count <= m_limit;
+    return !m_cancel && (m_limit == 0 || m_count <= m_limit);
 }
 
 void reslimit::push(unsigned delta_limit) {
-    unsigned new_limit = delta_limit + m_count;
+    uint64 new_limit = delta_limit + m_count;
     if (new_limit <= m_count) {
-        new_limit = UINT_MAX;
+        new_limit = 0;
     }
     m_limits.push_back(m_limit);
-    m_limit = std::min(new_limit, m_limit);
+    m_limit = m_limit==0?new_limit:std::min(new_limit, m_limit);
 }
 
 void reslimit::pop() {
-    if (m_count > m_limit) {
+    if (m_count > m_limit && m_limit > 0) {
         m_count = m_limit;
     }
     m_limit = m_limits.back();

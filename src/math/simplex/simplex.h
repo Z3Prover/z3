@@ -92,6 +92,7 @@ namespace simplex {
         };
 
         static const var_t null_var;
+        reslimit&                   m_limit;
         mutable manager             m;
         mutable eps_manager         em;
         mutable matrix              M;
@@ -109,10 +110,10 @@ namespace simplex {
         stats                       m_stats;
 
     public:
-        simplex():
+        simplex(reslimit& lim):
+            m_limit(lim),
             M(m),
             m_max_iterations(UINT_MAX),
-            m_cancel(false),
             m_to_patch(1024),
             m_bland(false),
             m_blands_rule_threshold(1000) {}
@@ -140,7 +141,6 @@ namespace simplex {
         void  unset_lower(var_t var);
         void  unset_upper(var_t var); 
         void  set_value(var_t var, eps_numeral const& b);        
-        void  set_cancel(bool f) { m_cancel = f; }
         void  set_max_iterations(unsigned n) { m_max_iterations = n; }
         void  reset();
         lbool make_feasible();

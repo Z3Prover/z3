@@ -499,7 +499,6 @@ namespace datalog {
     }  
 
     void karr_relation_plugin::set_cancel(bool f) {
-        m_hb.set_cancel(f);
     }
 
     relation_base * karr_relation_plugin::mk_empty(const relation_signature & s) {

@@ -130,12 +130,6 @@ namespace api {
             m_context.display_smt2(num_queries, queries, str);
             return str.str();
         }
-        void cancel() { 
-            m_context.cancel(); 
-        }
-        void reset_cancel() { 
-            m_context.reset_cancel(); 
-        }
         unsigned get_num_levels(func_decl* pred) {
             return m_context.get_num_levels(pred);
         }
@@ -285,13 +279,13 @@ extern "C" {
         LOG_Z3_fixedpoint_query(c, d, q);
         RESET_ERROR_CODE();
         lbool r = l_undef;
-        cancel_eh<api::fixedpoint_context> eh(*to_fixedpoint_ref(d));
         unsigned timeout = to_fixedpoint(d)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
         unsigned rlimit  = to_fixedpoint(d)->m_params.get_uint("rlimit", mk_c(c)->get_rlimit());
-        api::context::set_interruptable si(*(mk_c(c)), eh);        
         {
-            scoped_timer timer(timeout, &eh);
             scoped_rlimit _rlimit(mk_c(c)->m().limit(), rlimit);
+            cancel_eh<reslimit> eh(mk_c(c)->m().limit());
+            api::context::set_interruptable si(*(mk_c(c)), eh);        
+            scoped_timer timer(timeout, &eh);
             try {
                 r = to_fixedpoint_ref(d)->ctx().query(to_expr(q));
             }
@@ -313,7 +307,7 @@ extern "C" {
         RESET_ERROR_CODE();
         lbool r = l_undef;
         unsigned timeout = to_fixedpoint(d)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
-        cancel_eh<api::fixedpoint_context> eh(*to_fixedpoint_ref(d));
+        cancel_eh<reslimit> eh(mk_c(c)->m().limit());
         api::context::set_interruptable si(*(mk_c(c)), eh);
         {
             scoped_timer timer(timeout, &eh);

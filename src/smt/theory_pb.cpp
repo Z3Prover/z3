@@ -231,6 +231,7 @@ namespace smt {
     theory_pb::theory_pb(ast_manager& m, theory_pb_params& p):
         theory(m.mk_family_id("pb")),
         m_params(p),
+        m_simplex(m.limit()),
         m_util(m),
         m_max_compiled_coeff(rational(8))
     {        

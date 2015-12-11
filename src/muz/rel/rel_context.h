@@ -51,8 +51,6 @@ namespace datalog {
         
         lbool saturate(scoped_query& sq);
 
-        void set_cancel(bool f);
-
         void setup_default_relation();
 
     public:
@@ -82,8 +80,6 @@ namespace datalog {
 
         virtual void collect_statistics(statistics& st) const;
 
-        virtual void cancel() { set_cancel(true); }
-        virtual void cleanup() { set_cancel(false);}
         virtual void updt_params();
 
         /**

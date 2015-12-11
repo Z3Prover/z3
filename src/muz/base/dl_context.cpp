@@ -230,8 +230,7 @@ namespace datalog {
         m_enable_bind_variables(true),
         m_last_status(OK),
         m_last_answer(m),
-        m_engine_type(LAST_ENGINE),
-        m_cancel(false) {
+        m_engine_type(LAST_ENGINE) {
         re.set_context(this);
         updt_params(pa);
     }
@@ -751,15 +750,16 @@ namespace datalog {
     }
 
 
+#if 0
     void context::cancel() {
         m_cancel = true;
         m_last_status = CANCELED;
         m_transf.cancel();
         if (m_engine) m_engine->cancel();
     }
+#endif
 
     void context::cleanup() {
-        m_cancel = false;
         m_last_status = OK;
         if (m_engine) m_engine->cleanup();
     }

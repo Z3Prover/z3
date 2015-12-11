@@ -98,14 +98,6 @@ public:
     }
 
 protected:
-    /**
-       \brief Reset cancel flag of t if this was not canceled.
-    */
-    void parent_reset_cancel(tactic & t) {
-        if (!m_cancel) {
-            t.reset_cancel();
-        }
-    }
 
     virtual void set_cancel(bool f) {
         m_cancel = f;
@@ -390,14 +382,6 @@ public:
     }
 
 protected:
-    /**
-       \brief Reset cancel flag of st if this was not canceled.
-    */
-    void parent_reset_cancel(tactic & t) {
-        if (!m_cancel) {
-            t.reset_cancel();
-        }
-    }
 
     virtual void set_cancel(bool f) {
         m_cancel = f;
@@ -583,8 +567,10 @@ public:
                 }                
                 if (first) {
                     for (unsigned j = 0; j < sz; j++) {
-                        if (static_cast<unsigned>(i) != j)
+                        if (static_cast<unsigned>(i) != j) {
                             ts.get(j)->cancel();
+                            managers[j]->limit().cancel();
+                        }
                     }
                     ast_translation translator(*(managers[i]), m, false);
                     for (unsigned k = 0; k < _result.size(); k++) {
@@ -784,8 +770,10 @@ public:
 
                 if (curr_failed) {
                     for (unsigned j = 0; j < r1_size; j++) {
-                        if (static_cast<unsigned>(i) != j)
+                        if (static_cast<unsigned>(i) != j) {
                             ts2.get(j)->cancel();
+                            managers[j]->limit().cancel();
+                        }
                     }
                 }
                 else {
@@ -804,8 +792,10 @@ public:
                             }
                             if (first) {
                                 for (unsigned j = 0; j < r1_size; j++) {
-                                    if (static_cast<unsigned>(i) != j)
+                                    if (static_cast<unsigned>(i) != j) {
                                         ts2.get(j)->cancel();
+                                        managers[j]->limit().cancel();
+                                    }
                                 }
                                 ast_translation translator(new_m, m, false);
                                 SASSERT(r2.size() == 1);

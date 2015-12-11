@@ -22,16 +22,21 @@ Revision History:
 #include "vector.h"
 
 class reslimit {
-    unsigned        m_count;
-    unsigned        m_limit;
-    unsigned_vector m_limits;
+    volatile bool   m_cancel;
+    uint64          m_count;
+    uint64          m_limit;
+    svector<uint64> m_limits;
+
 public:    
     reslimit();
-    bool inc();
-    bool inc(unsigned offset);
     void push(unsigned delta_limit);
     void pop();
-    unsigned count() const; 
+    bool inc();
+    bool inc(unsigned offset);
+    uint64 count() const; 
+
+    void cancel() { m_cancel = true; }
+    void reset_cancel() { m_cancel = false; }
 };
 
 class scoped_rlimit {

@@ -236,6 +236,7 @@ namespace smt {
             m_non_diff_logic_exprs(false),
             m_factory(0),
             m_nc_functor(*this),
+            m_S(m.limit()),
             m_num_simplex_edges(0) {
         }            
 

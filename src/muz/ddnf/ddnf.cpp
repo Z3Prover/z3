@@ -470,7 +470,6 @@ namespace datalog {
         ast_manager&           m;
         rule_manager&          rm;
         bv_util                bv;
-        volatile bool          m_cancel;
         ptr_vector<expr>       m_todo;
         ast_mark               m_visited1, m_visited2;
         ddnfs                  m_ddnfs;
@@ -486,7 +485,6 @@ namespace datalog {
             m(ctx.get_manager()),
             rm(ctx.get_rule_manager()),
             bv(m),
-            m_cancel(false),
             m_trail(m),
             m_inner_ctx(m, m_ctx.get_register_engine(), m_ctx.get_fparams())
         {
@@ -518,15 +516,7 @@ namespace datalog {
             // return execute_rules(new_rules);
         }
     
-        void cancel() {
-            m_cancel = true;
-            m_inner_ctx.cancel();
-        }
-        
-        void cleanup() {
-            m_cancel = false;
-        }
-
+       
         void reset_statistics() {
             m_stats.reset();
         }
@@ -883,12 +873,6 @@ namespace datalog {
     }    
     lbool ddnf::query(expr* query) {
         return m_imp->query(query);
-    }
-    void ddnf::cancel() {
-        m_imp->cancel();
-    }
-    void ddnf::cleanup() {
-        m_imp->cleanup();
     }
     void ddnf::reset_statistics() {
         m_imp->reset_statistics();

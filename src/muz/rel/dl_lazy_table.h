@@ -54,8 +54,6 @@ namespace datalog {
         
         virtual table_base * mk_empty(const table_signature & s);
                 
-        virtual void set_cancel(bool f) { m_plugin.set_cancel(f); }
-
         static table_plugin* mk_sparse(relation_manager& rm);
         
     protected:

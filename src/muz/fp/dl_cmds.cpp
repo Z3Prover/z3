@@ -230,7 +230,7 @@ public:
         set_background(ctx);        
         dlctx.updt_params(m_params);
         unsigned timeout   = m_dl_ctx->get_params().timeout(); 
-        cancel_eh<datalog::context> eh(dlctx);
+        cancel_eh<reslimit> eh(ctx.m().limit());
         bool query_exn = false;
         lbool status = l_undef;
         {
