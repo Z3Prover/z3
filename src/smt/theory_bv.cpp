@@ -1586,8 +1586,9 @@ namespace smt {
     }
 
     void theory_bv::display(std::ostream & out) const {
-        out << "Theory bv:\n";
         unsigned num_vars = get_num_vars();
+        if (num_vars == 0) return;
+        out << "Theory bv:\n";
         for (unsigned v = 0; v < num_vars; v++) {
             display_var(out, v);
         }

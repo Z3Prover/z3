@@ -53,9 +53,14 @@ class seq_rewriter {
     br_status mk_re_plus(expr* a, expr_ref& result);
     br_status mk_re_opt(expr* a, expr_ref& result);
 
-    bool set_empty(unsigned sz, expr* const* es, expr_ref_vector& lhs, expr_ref_vector& rhs);
+    bool set_empty(unsigned sz, expr* const* es, bool all, expr_ref_vector& lhs, expr_ref_vector& rhs);
     bool is_subsequence(unsigned n, expr* const* l, unsigned m, expr* const* r, 
                         expr_ref_vector& lhs, expr_ref_vector& rhs, bool& is_sat);
+    bool length_constrained(unsigned n, expr* const* l, unsigned m, expr* const* r, 
+                        expr_ref_vector& lhs, expr_ref_vector& rhs, bool& is_sat);
+    bool min_length(unsigned n, expr* const* es, size_t& len);
+    expr* concat_non_empty(unsigned n, expr* const* es);
+
 public:    
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
         m_util(m), m_autil(m) {

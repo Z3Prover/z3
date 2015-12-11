@@ -431,8 +431,9 @@ namespace smt {
     }
 
     void theory_array::display(std::ostream & out) const {
-        out << "Theory array:\n";
         unsigned num_vars = get_num_vars();
+        if (num_vars == 0) return;
+        out << "Theory array:\n";
         for (unsigned v = 0; v < num_vars; v++) {
             display_var(out, v);
         }

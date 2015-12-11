@@ -62,6 +62,7 @@ namespace smt {
             void add_trail(map_update op, expr* l, expr* r, enode_pair_dependency* d);
         public:
             solution_map(ast_manager& m, enode_pair_dependency_manager& dm): m(m), m_dm(dm), m_lhs(m), m_rhs(m) {}
+            bool empty() const { return m_map.empty(); }
             void  update(expr* e, expr* r, enode_pair_dependency* d);
             expr* find(expr* e, enode_pair_dependency*& d);
             void push_scope() { m_limit.push_back(m_updates.size()); }
@@ -78,6 +79,7 @@ namespace smt {
         public:
             exclusion_table(ast_manager& m): m(m), m_lhs(m), m_rhs(m) {}
             ~exclusion_table() { }
+            bool empty() const { return m_table.empty(); }
             void update(expr* e, expr* r);
             bool contains(expr* e, expr* r) {
                 return m_table.contains(std::make_pair(e, r));

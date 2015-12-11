@@ -522,8 +522,9 @@ namespace smt {
     }
 
     void theory_datatype::display(std::ostream & out) const {
-        out << "Theory datatype:\n";
         unsigned num_vars = get_num_vars();
+        if (num_vars == 0) return;
+        out << "Theory datatype:\n";
         for (unsigned v = 0; v < num_vars; v++) 
             display_var(out, v);
     }

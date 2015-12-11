@@ -48,6 +48,7 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::display(std::ostream & out) const {
+        if (get_num_vars() == 0) return;
         out << "Theory arithmetic:\n";
         display_vars(out);
         display_nl_monomials(out);

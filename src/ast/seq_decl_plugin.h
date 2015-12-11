@@ -116,6 +116,7 @@ class seq_decl_plugin : public decl_plugin {
 
     func_decl* mk_seq_fun(decl_kind k, unsigned arity, sort* const* domain, sort* range, decl_kind k_string);
     func_decl* mk_str_fun(decl_kind k, unsigned arity, sort* const* domain, sort* range, decl_kind k_seq);
+    func_decl* mk_assoc_fun(decl_kind k, unsigned arity, sort* const* domain, sort* range, decl_kind k_string, decl_kind k_seq);
 
     void init();
 
@@ -158,8 +159,10 @@ public:
     bool is_string(sort* s) const { return is_seq(s) && seq.is_char(s->get_parameter(0).get_ast()); }
     bool is_seq(sort* s) const { return is_sort_of(s, m_fid, SEQ_SORT); }
     bool is_re(sort* s) const { return is_sort_of(s, m_fid, RE_SORT); }
+    bool is_re(sort* s, sort*& seq) const { return is_sort_of(s, m_fid, RE_SORT)  && (seq = to_sort(s->get_parameter(0).get_ast()), true); }
     bool is_seq(expr* e) const  { return is_seq(m.get_sort(e)); }
     bool is_re(expr* e) const { return is_re(m.get_sort(e)); }
+    bool is_re(expr* e, sort*& seq) const { return is_re(m.get_sort(e), seq); }
 
     app* mk_skolem(symbol const& name, unsigned n, expr* const* args, sort* range);
     bool is_skolem(expr const* e) const { return is_app_of(e, m_fid, _OP_SEQ_SKOLEM); }
@@ -186,6 +189,7 @@ public:
         app* mk_contains(expr* a, expr* b) { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_CONTAINS, 2, es); }
         app* mk_prefix(expr* a, expr* b) { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_PREFIX, 2, es); }
         app* mk_suffix(expr* a, expr* b) { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_SUFFIX, 2, es); }
+        app* mk_index(expr* a, expr* b, expr* i) { expr* es[3] = { a, b, i}; return m.mk_app(m_fid, OP_SEQ_INDEX, 3, es); }
 
 
         bool is_string(expr const * n) const { return is_app_of(n, m_fid, OP_STRING_CONST); }
@@ -238,6 +242,15 @@ public:
         family_id    m_fid;
     public:
         re(seq_util& u): m(u.m), m_fid(u.m_fid) {}
+
+        app* mk_to_re(expr* s) { return m.mk_app(m_fid, OP_SEQ_TO_RE, 1, &s); }
+        app* mk_in_re(expr* s, expr* r) { return m.mk_app(m_fid, OP_SEQ_IN_RE, s, r); }
+        app* mk_concat(expr* r1, expr* r2) { return m.mk_app(m_fid, OP_RE_CONCAT, r1, r2); }
+        app* mk_union(expr* r1, expr* r2) { return m.mk_app(m_fid, OP_RE_UNION, r1, r2); }
+        app* mk_inter(expr* r1, expr* r2) { return m.mk_app(m_fid, OP_RE_INTERSECT, r1, r2); }
+        app* mk_star(expr* r) { return m.mk_app(m_fid, OP_RE_STAR, r); }
+        app* mk_plus(expr* r) { return m.mk_app(m_fid, OP_RE_PLUS, r); }
+        app* mk_opt(expr* r) { return m.mk_app(m_fid, OP_RE_OPTION, r); }        
 
         bool is_to_re(expr const* n)    const { return is_app_of(n, m_fid, OP_SEQ_TO_RE); }
         bool is_concat(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_CONCAT); }
