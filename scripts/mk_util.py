@@ -1769,54 +1769,69 @@ class MLComponent(Component):
             mk_dir(os.path.join(BUILD_DIR, self.sub_dir))
             api_src = get_component(API_COMPONENT).to_src_dir
             out.write('CXXFLAGS_OCAML=$(CXXFLAGS:/GL=)\n') # remove /GL; the ocaml tools don't like it.
+
+            self.mk_ml_meta(os.path.join(self.src_dir, 'META'), 
+                            os.path.join(BUILD_DIR, self.sub_dir, 'META'), 
+                            VER_MAJOR, VER_MINOR, VER_BUILD, VER_REVISION)
+
             for f in filter(lambda f: f.endswith('.ml'), os.listdir(self.src_dir)):
-                out.write('%s: %s\n' % (os.path.join(self.sub_dir,f),os.path.join(src_dir,f)))
-                str = '\t%s %s %s\n' % (CP_CMD,os.path.join(src_dir,f),os.path.join(self.sub_dir,f))
-                out.write(str)
+                out.write('%s: %s\n' % (os.path.join(self.sub_dir, f),os.path.join(src_dir, f)))
+                out.write('\t%s %s %s\n' % (CP_CMD, os.path.join(src_dir, f), os.path.join(self.sub_dir, f)))
             for f in filter(lambda f: f.endswith('.mli'), os.listdir(self.src_dir)):
-                out.write('%s: %s\n' % (os.path.join(self.sub_dir,f),os.path.join(src_dir,f)))
-                str = '\t%s %s %s\n' % (CP_CMD,os.path.join(src_dir,f),os.path.join(self.sub_dir,f))
-                out.write(str)
+                out.write('%s: %s\n' % (os.path.join(self.sub_dir, f),os.path.join(src_dir, f)))
+                out.write('\t%s %s %s\n' % (CP_CMD, os.path.join(src_dir, f), os.path.join(self.sub_dir, f)))
             for f in filter(lambda f: f.endswith('.c'), os.listdir(self.src_dir)):
-                out.write('%s: %s\n' % (os.path.join(self.sub_dir,f),os.path.join(src_dir,f)))
-                str = '\t%s %s %s\n' % (CP_CMD,os.path.join(src_dir,f),os.path.join(self.sub_dir,f))
-                out.write(str)            
+                out.write('%s: %s\n' % (os.path.join(self.sub_dir,f), os.path.join(src_dir, f)))
+                out.write('\t%s %s %s\n' % (CP_CMD, os.path.join(src_dir, f), os.path.join(self.sub_dir, f)))
             mls = ''
-            mlis = ''
-            cmis = ''
-            archives = ''
+            cmos = ''
+            cmxs = ''
 
             for m in self.modules:
-                fn = os.path.join(self.src_dir, ('%s.mli' % m))
-                if not os.path.exists(fn):
-                    out.write('%s.mli: %s.ml%s\n' % (os.path.join(self.sub_dir,m),os.path.join(self.sub_dir,m),mlis))
-                    out.write('\t%s -I %s -i -c %s.ml > %s.mli\n' % (OCAMLC,self.sub_dir,os.path.join(self.sub_dir, m),os.path.join(self.sub_dir, m)))
-                out.write('%s.cmi: %s.mli%s\n' % (os.path.join(self.sub_dir,m),os.path.join(self.sub_dir,m), cmis))
-                out.write('\t%s -I %s -c %s.mli\n' % (OCAMLC,self.sub_dir,os.path.join(self.sub_dir,m)))
-                out.write('%s.cma: %s.ml %s.cmi%s\n' % (os.path.join(self.sub_dir,m),os.path.join(self.sub_dir,m),os.path.join(self.sub_dir,m), archives))
-                out.write('\t%s -a -o %s.ml -o %s.cma\n' % (OCAMLC,os.path.join(self.sub_dir,m), os.path.join(self.sub_dir,m)))
-                mlis = mlis + ' ' + os.path.join(self.sub_dir, m) + '.mli'
-                cmis = cmis + ' ' + os.path.join(self.sub_dir,m) + '.cmi'
-                archives = archives + ' ' + os.path.join(self.sub_dir,m) + '.cma'
-                mls = mls + ' ' + os.path.join(self.sub_dir, m) + '.ml'
+                mf = os.path.join(self.sub_dir, m)
+                sf = os.path.join(self.src_dir, ('%s.mli' % m))
+                if not os.path.exists(sf):
+                    out.write('%s.mli: %s.ml\n' % (mf, mf))
+                    out.write('\t%s -I %s -i -c %s.ml > %s.mli\n' % (OCAMLC, self.sub_dir, mf, mf))
 
-            out.write('%s: %s %s\n' %
-                      (os.path.join(self.sub_dir, 'z3native_stubs$(OBJ_EXT)'),
-                       os.path.join(self.sub_dir, 'z3native_stubs.c'),
-                       get_component(Z3_DLL_COMPONENT).dll_name+'$(SO_EXT)'))
-            out.write('\t$(CC) $(CXXFLAGS_OCAML) -I %s -I %s %s $(CXX_OUT_FLAG)%s$(OBJ_EXT)\n' %
-                      (OCAML_LIB, api_src, os.path.join(self.sub_dir, 'z3native_stubs.c'), os.path.join(self.sub_dir, 'z3native_stubs')))
+            for m in self.modules:
+                mf = os.path.join(self.sub_dir, m)                
+                out.write('%s.cmi: %s.mli\n' % (mf, mf))
+                out.write('\t%s -I %s -c %s.mli\n' % (OCAMLC, self.sub_dir, mf))
+                    
+            for m in self.modules:
+                mf = os.path.join(self.sub_dir, m)
+                out.write('%s.cmo: %s.ml %s.cmi\n' % (mf, mf, mf))
+                out.write('\t%s -I %s -c %s.ml\n' % (OCAMLC, self.sub_dir, mf))
+                cmos = cmos + ' ' + mf + '.cmo'
 
-            out.write('%s: %s %s %s$(SO_EXT)' % (
-                    os.path.join(self.sub_dir, "z3ml.cmxa"),
-                    cmis,
-                    archives,
-                    get_component(Z3_DLL_COMPONENT).dll_name))
-            out.write(' %s\n' % (os.path.join(self.sub_dir, 'z3native_stubs$(OBJ_EXT)')))
-            out.write('\tocamlmklib -custom -o %s -I %s -ldopt \"-L. -lz3\" ' % (os.path.join(self.sub_dir, 'z3ml'), self.sub_dir))
+            for m in self.modules:
+                mf = os.path.join(self.sub_dir, m)
+                out.write('%s.cmx: %s.ml %s.cmi\n' % (mf, mf, mf))
+                out.write('\t%s -I %s -c %s.ml\n' % (OCAMLOPT, self.sub_dir, mf))
+                cmxs = cmxs + ' ' + mf + '.cmx'
+
+            stubso = os.path.join(self.sub_dir, 'z3native_stubs$(OBJ_EXT)')
+            z3dllso = get_component(Z3_DLL_COMPONENT).dll_name + '$(SO_EXT)'
+            out.write('%s: %s %s\n' % (stubso, os.path.join(self.sub_dir, 'z3native_stubs.c'), z3dllso))
+            out.write('\t%s -ccopt "$(CXXFLAGS_OCAML) -I %s -I %s -o %s" -c %s\n' %
+                      (OCAMLC, OCAML_LIB, api_src, stubso,                       
+                       os.path.join(self.sub_dir, 'z3native_stubs.c')))
+
+            z3mls = os.path.join(self.sub_dir, 'z3ml')
+            out.write('%s.cma: %s %s %s\n' % (z3mls, cmos, stubso, z3dllso))
+            out.write('\tocamlmklib -o %s -I %s %s %s -L. -lz3\n' % (z3mls, self.sub_dir, stubso, cmos))
+            out.write('%s.cmxa: %s %s %s\n' % (z3mls, cmxs, stubso, z3dllso))
+            out.write('\tocamlmklib -o %s -I %s %s %s -L. -lz3\n' % (z3mls, self.sub_dir, stubso, cmxs))
+            out.write('%s.cmxs: %s.cmxa\n' % (z3mls, z3mls))
+            out.write('\t%s -shared -o %s.cmxs -I %s %s.cmxa\n' % (OCAMLOPT, z3mls, self.sub_dir, z3mls))
+                    
+            out.write('\n')
+            out.write('ml: %s.cma %s.cmxa %s.cmxs\n' % (z3mls, z3mls, z3mls))
+            out.write('\n')
 
             # Add ocamlfind destdir to rpath
-            if OCAMLFIND != '':
+            if False and OCAMLFIND != '':
                 if is_verbose():
                     print ("Finding ocamlfind destdir")
                 t = TempFile('output')
@@ -1844,12 +1859,6 @@ class MLComponent(Component):
                 #dllInstallPath = os.path.join(INSTALL_LIB_DIR, dllfile)
 
 
-            for m in self.modules:
-                out.write(' %s' % (os.path.join(self.sub_dir, m+'.ml')))
-            out.write(' %s\n' % (os.path.join(self.sub_dir, 'z3native_stubs$(OBJ_EXT)')))
-            out.write('ml: %s\n' % (os.path.join(self.sub_dir, 'z3ml.cmxa')))
-            self.mk_ml_meta(os.path.join('src/api/ml/META'), os.path.join(BUILD_DIR, self.sub_dir, 'META'), VER_MAJOR, VER_MINOR, VER_BUILD, VER_REVISION)
-
     def mk_install_deps(self, out):
         if is_ml_enabled() and OCAMLFIND != '':
             out.write(get_component(Z3_DLL_COMPONENT).dll_name + '$(SO_EXT) ')
@@ -1860,26 +1869,20 @@ class MLComponent(Component):
         if is_ml_enabled() and OCAMLFIND != '':
             out.write('\t@%s remove Z3\n' % (OCAMLFIND))
             out.write('\t@%s install Z3 %s' % (OCAMLFIND, (os.path.join(self.sub_dir, 'META'))))
+
             for m in self.modules:
-                out.write(' %s.cma' % (os.path.join(self.sub_dir, m)))
-                out.write(' %s.cmx' % (os.path.join(self.sub_dir, m)))
-                out.write(' %s.cmi' % (os.path.join(self.sub_dir, m)))
-                out.write(' %s.cmo' % (os.path.join(self.sub_dir, m)))
-                out.write(' %s.ml' % (os.path.join(self.sub_dir, m)))
-                out.write(' %s.mli' % (os.path.join(self.sub_dir, m)))
-                out.write(' %s$(OBJ_EXT)' % (os.path.join(self.sub_dir, m)))
+                mf = os.path.join(self.sub_dir, m)
+                out.write(' %s.mli %s.cmi' % (mf, mf, mf))
+            out.write(' %s' % ((os.path.join(self.sub_dir, 'libz3ml$(LIB_EXT)'))))
             out.write(' %s' % ((os.path.join(self.sub_dir, 'z3ml$(LIB_EXT)'))))
             out.write(' %s' % ((os.path.join(self.sub_dir, 'z3ml.cma'))))
             out.write(' %s' % ((os.path.join(self.sub_dir, 'z3ml.cmxa'))))
-            out.write(' %s' % ((os.path.join(self.sub_dir, 'libz3ml$(LIB_EXT)'))))
-            #out.write(' %s' % ((os.path.join(self.sub_dir, 'dllz3ml'))))
-            #if IS_WINDOWS:
-            #    out.write('.dll')
-            #else:
-            #    out.write('.so') # .so also on OSX!
-            #out.write(' ' + get_component(Z3_DLL_COMPONENT).dll_name + '$(SO_EXT)')
-            # if IS_WINDOWS:
-            #    out.write(' ' + get_component(Z3_DLL_COMPONENT).dll_name + '$(LIB_EXT)')
+            out.write(' %s' % ((os.path.join(self.sub_dir, 'z3ml.cmxs'))))
+            out.write(' %s' % ((os.path.join(self.sub_dir, 'dllz3ml'))))
+            if IS_WINDOWS:
+                out.write('.dll')
+            else:
+                out.write('.so') # .so also on OSX!
             out.write('\n')
 
     def mk_uninstall(self, out):
@@ -3708,5 +3711,3 @@ def configure_file(template_file_path, output_file_path, substitutions):
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
-
-
