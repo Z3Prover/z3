@@ -708,6 +708,7 @@ struct nnf::imp {
     }
 
     bool process_app(app * t, frame & fr) {
+        TRACE("nnf", tout << mk_ismt2_pp(t, m()) << "\n";);
         SASSERT(m().is_bool(t));
         if (t->get_family_id() == m().get_basic_family_id()) {
             switch (static_cast<basic_op_kind>(t->get_decl_kind())) {
