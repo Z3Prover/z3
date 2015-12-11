@@ -23,7 +23,6 @@ namespace opt {
     class mss {
         solver&       m_s;
         ast_manager&  m;
-        volatile bool m_cancel;
         typedef ptr_vector<expr> exprs;
         typedef obj_hashtable<expr>  expr_set;
         exprs         m_mss;
@@ -38,7 +37,6 @@ namespace opt {
         
         lbool operator()(model* initial_model, vector<exprs> const& cores, exprs& literals, exprs& mcs);
                 
-        void set_cancel(bool f) { m_cancel = f; }
 
         void get_model(model_ref& mdl) { mdl = m_model; }
 

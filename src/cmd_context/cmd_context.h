@@ -116,9 +116,6 @@ public:
     virtual bool empty() = 0;
     virtual void push() = 0;
     virtual void pop(unsigned n) = 0;
-    virtual void set_cancel(bool f) = 0;
-    virtual void reset_cancel() = 0;
-    virtual void cancel() = 0;
     virtual lbool optimize() = 0;
     virtual void set_hard_constraints(ptr_vector<expr> & hard) = 0;
     virtual void display_assignment(std::ostream& out) = 0;

@@ -336,7 +336,6 @@ namespace pdr {
         unsigned             m_expanded_lvl;
         ptr_vector<core_generalizer>  m_core_generalizers;
         stats                m_stats;
-        volatile bool        m_cancel;
         model_converter_ref  m_mc;
         proof_converter_ref  m_pc;
         
@@ -411,9 +410,6 @@ namespace pdr {
 
         lbool solve();
 
-        void cancel();
-
-        void cleanup();
 
         void reset();
 

@@ -51,8 +51,6 @@ namespace datalog {
 
         static symbol get_name() { return symbol("karr_relation"); }
 
-        virtual void set_cancel(bool f);
-
         virtual relation_base * mk_empty(const relation_signature & s);
 
         virtual relation_base * mk_full(func_decl* p, const relation_signature & s);

@@ -118,7 +118,7 @@ namespace opt {
             expr_ref_vector asms(m);
             init();
             init_bcd();
-            if (m_cancel) {
+            if (m.canceled()) {
                 normalize_bounds();
                 return l_undef;
             }
@@ -130,7 +130,7 @@ namespace opt {
                 TRACE("opt", display(tout););
                 assert_cores();
                 set2asms(m_asm_set, asms);                
-                if (m_cancel) {
+                if (m.canceled()) {
                     normalize_bounds();
                     return l_undef;
                 }

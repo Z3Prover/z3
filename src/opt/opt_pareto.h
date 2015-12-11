@@ -37,7 +37,6 @@ namespace opt {
     protected:
         ast_manager&     m;
         pareto_callback& cb;
-        volatile bool    m_cancel;
         ref<solver>      m_solver;
         params_ref       m_params;
         model_ref        m_model;
@@ -50,7 +49,6 @@ namespace opt {
             params_ref & p):
             m(m),
             cb(cb),            
-            m_cancel(false),
             m_solver(s),
             m_params(p) {
         }
@@ -64,13 +62,6 @@ namespace opt {
         }
         virtual void collect_statistics(statistics & st) const {
             m_solver->collect_statistics(st);
-        }
-        virtual void set_cancel(bool f) {
-            if (f) 
-                m_solver->cancel();
-            else 
-                m_solver->reset_cancel();
-            m_cancel = f;
         }
         virtual void display(std::ostream & out) const {
             m_solver->display(out);

@@ -38,7 +38,6 @@ namespace datalog {
         rule_set         m_rules;
         func_decl_ref    m_query_pred;
         expr_ref         m_answer;
-        volatile bool    m_cancel;
 
         void checkpoint();
 
@@ -58,10 +57,6 @@ namespace datalog {
         ~bmc();
 
         lbool query(expr* query);
-
-        void cancel();
-
-        void cleanup();
 
         void display_certificate(std::ostream& out) const;
 

@@ -124,7 +124,7 @@ extern "C" {
         LOG_Z3_optimize_check(c, o);
         RESET_ERROR_CODE();
         lbool r = l_undef;
-        cancel_eh<opt::context> eh(*to_optimize_ptr(o));
+        cancel_eh<reslimit> eh(mk_c(c)->m().limit());
         unsigned timeout = to_optimize_ptr(o)->get_params().get_uint("timeout", mk_c(c)->get_timeout());
         unsigned rlimit = mk_c(c)->get_rlimit();
         api::context::set_interruptable si(*(mk_c(c)), eh);        

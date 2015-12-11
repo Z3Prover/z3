@@ -898,7 +898,6 @@ namespace qe {
 
         virtual void eliminate(bool is_forall, unsigned num_vars, app* const* vars, expr_ref& fml) = 0;      
 
-        virtual void set_cancel(bool f) = 0;
 
         virtual void updt_params(params_ref const& p) {}
         
@@ -1408,10 +1407,6 @@ namespace qe {
             m_conjs.add_plugin(p);
         }
 
-        void set_cancel(bool f) {
-            m_solver.set_cancel(f);
-            m_rewriter.set_cancel(f);
-        }
 
         void check(unsigned num_vars, app* const* vars, 
                    expr* assumption, expr_ref& fml, bool get_first,
@@ -2032,7 +2027,6 @@ namespace qe {
         expr_ref                m_assumption;
         bool                    m_produce_models;
         ptr_vector<quant_elim_plugin> m_plugins;
-        volatile bool            m_cancel;
         bool                     m_eliminate_variables_as_block;
 
     public:
@@ -2041,7 +2035,6 @@ namespace qe {
             m_fparams(p),
             m_assumption(m),
             m_produce_models(m_fparams.m_model),
-            m_cancel(false),
             m_eliminate_variables_as_block(true)
           {
           }
@@ -2055,16 +2048,9 @@ namespace qe {
                 dealloc(m_plugins[i]);
             }
         }
-        
-        void set_cancel(bool f) {
-            for (unsigned i = 0; i < m_plugins.size(); ++i) {
-                m_plugins[i]->set_cancel(f);
-            }
-            m_cancel = f;
-        }
-        
+                
         void checkpoint() {
-            if (m_cancel)
+            if (m.canceled()) 
                 throw tactic_exception(TACTIC_CANCELED_MSG);
             cooperate("qe");
         }
@@ -2409,11 +2395,6 @@ namespace qe {
         return is_sat != l_undef;
     }
 
-    void expr_quant_elim::set_cancel(bool f) {
-        if (m_qe) {
-            m_qe->set_cancel(f);
-        }
-    }
 
 
 
