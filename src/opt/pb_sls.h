@@ -38,7 +38,6 @@ namespace smt {
         bool soft_holds(unsigned index);
         void set_model(model_ref& mdl);
         lbool operator()();
-        void set_cancel(bool f);
         void collect_statistics(::statistics& st) const;
         void get_model(model_ref& mdl);
         void updt_params(params_ref& p);

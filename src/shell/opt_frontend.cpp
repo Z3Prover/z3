@@ -307,7 +307,7 @@ static void display_statistics() {
 
 static void on_ctrl_c(int) {
     if (g_opt && g_first_interrupt) {
-        g_opt->set_cancel(true);
+        g_opt->get_manager().limit().cancel();
         g_first_interrupt = false;
     }
     else {

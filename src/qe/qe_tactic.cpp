@@ -25,14 +25,12 @@ class qe_tactic : public tactic {
     struct     imp {
         ast_manager &            m;
         smt_params               m_fparams;
-        volatile bool            m_cancel;
         qe::expr_quant_elim      m_qe;
 
         imp(ast_manager & _m, params_ref const & p):
             m(_m),
             m_qe(m, m_fparams) {
             updt_params(p);
-            m_cancel = false;
         }
 
         void updt_params(params_ref const & p) {
@@ -45,13 +43,8 @@ class qe_tactic : public tactic {
             m_qe.collect_param_descrs(r);
         }
 
-        void set_cancel(bool f) {
-            m_cancel = f;
-            m_qe.set_cancel(f);
-        }
-
         void checkpoint() {
-            if (m_cancel)
+            if (m.canceled()) 
                 throw tactic_exception(TACTIC_CANCELED_MSG);
             cooperate("qe");
         }
@@ -141,11 +134,6 @@ public:
         }
     }
     
-protected:
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
-    }
 };
 
 tactic * mk_qe_tactic(ast_manager & m, params_ref const & p) {

@@ -35,6 +35,8 @@ public:
     bool inc(unsigned offset);
     uint64 count() const; 
 
+
+    bool cancel_flag_set() { return m_cancel; }
     void cancel() { m_cancel = true; }
     void reset_cancel() { m_cancel = false; }
 };

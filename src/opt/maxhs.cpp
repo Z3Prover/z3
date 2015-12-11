@@ -83,10 +83,6 @@ namespace opt {
         }
         virtual ~maxhs() {}
 
-        virtual void set_cancel(bool f) { 
-            maxsmt_solver_base::set_cancel(f); 
-        }
-
         virtual void collect_statistics(statistics& st) const {
             maxsmt_solver_base::collect_statistics(st);
             m_hs.collect_statistics(st);
@@ -113,7 +109,7 @@ namespace opt {
                 ++m_stats.m_num_iterations;
                 trace_bounds("maxhs");
                 TRACE("opt", tout << "(maxhs [" << m_lower << ":" << m_upper << "])\n";);
-                if (m_cancel) {
+                if (m.canceled()) {
                     return l_undef;
                 }
                 

@@ -313,8 +313,6 @@ namespace qe {
         bool solve_for_vars(unsigned num_vars, app* const* vars, expr* fml, guarded_defs& defs);
 
 
-        void set_cancel(bool f);
-
     private:
         void instantiate_expr(expr_ref_vector& bound, expr_ref& fml);
         void abstract_expr(unsigned sz, expr* const* bound, expr_ref& fml);
@@ -343,7 +341,6 @@ namespace qe {
             return m_quant_elim.first_elim(num_vars, vars, fml, defs);
         }
 
-        void set_cancel(bool f) {} // TBD: replace simplifier by rewriter
 
     };
 

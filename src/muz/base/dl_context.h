@@ -209,7 +209,6 @@ namespace datalog {
         execution_result   m_last_status;
         expr_ref           m_last_answer;
         DL_ENGINE          m_engine_type;
-        volatile bool      m_cancel;
 
 
 

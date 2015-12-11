@@ -84,17 +84,7 @@ namespace datalog {
             m_goals.push_back(to_app(head));
             return search(20, 0);
         }
-    
-        void cancel() {
-            m_cancel = true;
-            m_solver.cancel();
-        }
-        
-        void cleanup() {
-            m_cancel = false;
-            m_goals.reset();
-            m_solver.reset_cancel();
-        }
+            
 
         void reset_statistics() {
             m_stats.reset();
@@ -223,12 +213,7 @@ namespace datalog {
     lbool clp::query(expr* query) {
         return m_imp->query(query);
     }
-    void clp::cancel() {
-        m_imp->cancel();
-    }
-    void clp::cleanup() {
-        m_imp->cleanup();
-    }
+
     void clp::reset_statistics() {
         m_imp->reset_statistics();
     }

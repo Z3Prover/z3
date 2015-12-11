@@ -30,7 +30,6 @@ namespace opt {
     class optsmt {
         ast_manager&     m;
         opt_solver*      m_s;
-        volatile bool    m_cancel;
         vector<inf_eps>  m_lower;
         vector<inf_eps>  m_upper;
         app_ref_vector   m_objs;
@@ -42,7 +41,7 @@ namespace opt {
         sref_vector<model> m_models;
     public:
         optsmt(ast_manager& m): 
-            m(m), m_s(0), m_cancel(false), m_objs(m), m_lower_fmls(m) {}
+            m(m), m_s(0), m_objs(m), m_lower_fmls(m) {}
 
         void setup(opt_solver& solver);
 
@@ -51,8 +50,6 @@ namespace opt {
         lbool lex(unsigned obj_index, bool is_maximize);
 
         unsigned add(app* t);
-
-        void set_cancel(bool f);
 
         void updt_params(params_ref& p);
 
