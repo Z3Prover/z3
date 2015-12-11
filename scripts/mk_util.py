@@ -1872,7 +1872,7 @@ class MLComponent(Component):
 
             for m in self.modules:
                 mf = os.path.join(self.sub_dir, m)
-                out.write(' %s.mli %s.cmi' % (mf, mf, mf))
+                out.write(' %s.mli %s.cmi' % (mf, mf))
             out.write(' %s' % ((os.path.join(self.sub_dir, 'libz3ml$(LIB_EXT)'))))
             out.write(' %s' % ((os.path.join(self.sub_dir, 'z3ml$(LIB_EXT)'))))
             out.write(' %s' % ((os.path.join(self.sub_dir, 'z3ml.cma'))))
