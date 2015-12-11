@@ -28,8 +28,8 @@ struct arith_decl_plugin::algebraic_numbers_wrapper {
     id_gen                        m_id_gen;
     scoped_anum_vector            m_nums;
 
-    algebraic_numbers_wrapper():
-        m_amanager(m_qmanager),
+    algebraic_numbers_wrapper(reslimit& lim):
+        m_amanager(lim, m_qmanager),
         m_nums(m_amanager) {
     }
 
@@ -66,7 +66,7 @@ struct arith_decl_plugin::algebraic_numbers_wrapper {
 
 arith_decl_plugin::algebraic_numbers_wrapper & arith_decl_plugin::aw() const {
     if (m_aw == 0)
-        const_cast<arith_decl_plugin*>(this)->m_aw = alloc(algebraic_numbers_wrapper);
+        const_cast<arith_decl_plugin*>(this)->m_aw = alloc(algebraic_numbers_wrapper, m_manager->limit());
     return *m_aw;
 }
 

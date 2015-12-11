@@ -166,7 +166,7 @@ namespace nlsat {
             m_allocator("nlsat"),
             m_pm(m_qm, &m_allocator),
             m_cache(m_pm),
-            m_am(m_qm, p, &m_allocator),
+            m_am(rlim, m_qm, p, &m_allocator),
             m_asm(*this, m_allocator),
             m_assignment(m_am),
             m_evaluator(m_assignment, m_pm, m_allocator), 

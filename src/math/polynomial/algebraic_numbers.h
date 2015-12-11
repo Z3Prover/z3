@@ -28,6 +28,7 @@ Notes:
 #include"tptr.h"
 #include"statistics.h"
 #include"params.h"
+#include"rlimit.h"
 
 class small_object_allocator;
 class mpbq_manager;
@@ -57,7 +58,7 @@ namespace algebraic_numbers {
         typedef _scoped_numeral<manager> scoped_numeral;
         typedef _scoped_numeral_vector<manager> scoped_numeral_vector;
 
-        manager(unsynch_mpq_manager & m, params_ref const & p = params_ref(), small_object_allocator * a = 0);
+        manager(reslimit& rl, unsynch_mpq_manager & m, params_ref const & p = params_ref(), small_object_allocator * a = 0);
         ~manager();
 
         static void get_param_descrs(param_descrs & r);

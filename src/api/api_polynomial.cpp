@@ -66,7 +66,7 @@ extern "C" {
             polynomial_ref r(pm);
             expr_ref _r(mk_c(c)->m());
             {
-                cancel_eh<polynomial::manager> eh(pm);
+                cancel_eh<reslimit> eh(mk_c(c)->m().limit());
                 api::context::set_interruptable si(*(mk_c(c)), eh);
                 scoped_timer timer(mk_c(c)->params().m_timeout, &eh);
                 pm.psc_chain(_p, _q, v_x, rs);

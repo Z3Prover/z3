@@ -260,7 +260,7 @@ extern "C" {
         unsigned timeout     =  to_params(p)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
         unsigned rlimit      =  to_params(p)->m_params.get_uint("rlimit", mk_c(c)->get_rlimit());
         bool     use_ctrl_c  =  to_params(p)->m_params.get_bool("ctrl_c", false);
-        cancel_eh<solver> eh(*m_solver.get());
+        cancel_eh<reslimit> eh(mk_c(c)->m().limit());
         api::context::set_interruptable si(*(mk_c(c)), eh);
 
         ast *_pat = to_ast(pat);
