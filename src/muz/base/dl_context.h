@@ -487,11 +487,13 @@ namespace datalog {
         //
         // -----------------------------------
 
-        void cancel();
-        bool canceled() const { return m_cancel; }
+        bool canceled() {
+            if (m.limit().inc()) return true;
+            m_last_status = CANCELED;
+            return false;
+        }
 
         void cleanup();
-        void reset_cancel() { cleanup(); }
 
         /**
            \brief check if query 'q' is satisfied under asserted rules and background.

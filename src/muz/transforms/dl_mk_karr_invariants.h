@@ -57,7 +57,6 @@ namespace datalog {
         arith_util      a;
         obj_map<func_decl, expr*>      m_fun2inv;
         ast_ref_vector m_pinned;
-        volatile bool  m_cancel;
 
         void get_invariants(rule_set const& src);
 
@@ -67,8 +66,6 @@ namespace datalog {
         mk_karr_invariants(context & ctx, unsigned priority);
 
         virtual ~mk_karr_invariants();
-
-        virtual void cancel();
         
         rule_set * operator()(rule_set const & source);
 

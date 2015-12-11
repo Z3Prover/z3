@@ -647,8 +647,8 @@ private:
 };
 
 
-hilbert_basis::hilbert_basis(): 
-    m_cancel(false),
+hilbert_basis::hilbert_basis(reslimit& lim):
+    m_limit(lim),
     m_use_support(true),
     m_use_ordered_support(true),
     m_use_ordered_subsumption(true)
@@ -804,7 +804,7 @@ void hilbert_basis::add_unit_vector(unsigned i, numeral const& e) {
 lbool hilbert_basis::saturate() {
     init_basis();
     m_current_ineq = 0;
-    while (!m_cancel && m_current_ineq < m_ineqs.size()) {
+    while (checkpoint() && m_current_ineq < m_ineqs.size()) {
         select_inequality();
         stopwatch sw;
         sw.start();
@@ -823,7 +823,7 @@ lbool hilbert_basis::saturate() {
         }        
         ++m_current_ineq;
     }
-    if (m_cancel) {
+    if (!checkpoint()) {
         return l_undef;
     }
     return l_true;
@@ -853,7 +853,7 @@ lbool hilbert_basis::saturate_orig(num_vector const& ineq, bool is_eq) {
     // resolve passive into active
     offset_t j = alloc_vector();
     while (!m_passive->empty()) {
-        if (m_cancel) {
+        if (!checkpoint()) {
             return l_undef;
         }
         offset_t idx = m_passive->pop();
@@ -862,7 +862,7 @@ lbool hilbert_basis::saturate_orig(num_vector const& ineq, bool is_eq) {
             recycle(idx);
             continue;
         }
-        for (unsigned i = 0; !m_cancel && i < m_active.size(); ++i) {
+        for (unsigned i = 0; checkpoint() && i < m_active.size(); ++i) {
             if ((!m_use_support || support.contains(m_active[i].m_offset)) && can_resolve(idx, m_active[i], true)) {
                 resolve(idx, m_active[i], j);
                 if (add_goal(j)) {
@@ -942,7 +942,7 @@ lbool hilbert_basis::saturate(num_vector const& ineq, bool is_eq) {
     TRACE("hilbert_basis", display(tout););
     // resolve passive into active
     offset_t idx = alloc_vector();
-    while (!m_cancel && !m_passive2->empty()) {
+    while (checkpoint() && !m_passive2->empty()) {
         offset_t sos, pas;
         TRACE("hilbert_basis", display(tout); );
         unsigned offset = m_passive2->pop(sos, pas);
@@ -967,7 +967,7 @@ lbool hilbert_basis::saturate(num_vector const& ineq, bool is_eq) {
         }
         idx = alloc_vector();
     }
-    if (m_cancel) {
+    if (!checkpoint()) {
         return l_undef;
     }
 
@@ -1110,6 +1110,10 @@ hilbert_basis::offset_t hilbert_basis::alloc_vector() {
         m_free_list.pop_back();
         return result;
     }
+}
+
+bool hilbert_basis::checkpoint() {
+    return m_limit.inc();
 }
 
 bool hilbert_basis::add_goal(offset_t idx) {

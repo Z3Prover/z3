@@ -64,9 +64,6 @@ class horn_tactic : public tactic {
         }
 
         void set_cancel(bool f) {
-            if (f) {
-                m_ctx.cancel();
-            }
         }
 
         void normalize(expr_ref& f) {

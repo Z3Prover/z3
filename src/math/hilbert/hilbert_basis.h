@@ -32,6 +32,7 @@ Revision History:
 #include "lbool.h"
 #include "statistics.h"
 #include "checked_int64.h"
+#include "rlimit.h"
 
 typedef vector<rational> rational_vector;
 
@@ -85,6 +86,7 @@ class hilbert_basis {
         numeral const* operator()() const { return m_values; }
     };
 
+    reslimit&          m_limit;
     vector<num_vector> m_ineqs;      // set of asserted inequalities
     svector<bool>      m_iseq;       // inequalities that are equalities
     num_vector         m_store;      // store of vectors
@@ -95,7 +97,6 @@ class hilbert_basis {
     svector<offset_t>  m_zero;       // zeros
     passive*           m_passive;    // passive set
     passive2*          m_passive2;   // passive set
-    volatile bool      m_cancel;     
     stats              m_stats;
     index*             m_index;      // index of generated vectors
     unsigned_vector    m_ints;       // indices that can be both positive and negative
@@ -104,6 +105,7 @@ class hilbert_basis {
     bool               m_use_support;             // parameter: (associativity) resolve only against vectors that are initially in basis.
     bool               m_use_ordered_support;     // parameter: (commutativity) resolve in order
     bool               m_use_ordered_subsumption; // parameter
+
 
     class iterator {
         hilbert_basis const& hb;
@@ -138,6 +140,8 @@ class hilbert_basis {
     bool can_resolve(offset_t i, offset_t j, bool check_sign) const;
     sign_t get_sign(offset_t idx) const;
     bool add_goal(offset_t idx);
+    bool checkpoint();
+
     offset_t alloc_vector();
     void resolve(offset_t i, offset_t j, offset_t r);
     iterator begin() const { return iterator(*this,0); }
@@ -154,7 +158,7 @@ class hilbert_basis {
 
 public:
         
-    hilbert_basis();
+    hilbert_basis(reslimit& rl);
     ~hilbert_basis();
 
     void reset();
@@ -187,8 +191,6 @@ public:
 
     unsigned get_num_ineqs() const { return m_ineqs.size(); }
     void get_ge(unsigned i, rational_vector& v, rational& b, bool& is_eq);    
-
-    void set_cancel(bool f) { m_cancel = f; }
 
     void display(std::ostream& out) const;
 

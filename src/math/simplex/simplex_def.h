@@ -332,7 +332,7 @@ namespace simplex {
         SASSERT(well_formed());
         while ((v = select_var_to_fix()) != null_var) {
             TRACE("simplex", display(tout << "v" << v << "\n"););
-            if (m_cancel || num_iterations > m_max_iterations) {
+            if (!m_limit.inc() || num_iterations > m_max_iterations) {
                 return l_undef;
             }
             check_blands_rule(v, num_repeated);
@@ -670,7 +670,7 @@ namespace simplex {
         bool inc_x_i, inc_x_j;
 
         while (true) {
-            if (m_cancel) {
+            if (!m_limit.inc()) {
                 return l_undef;
             }
             select_pivot_primal(v, x_i, x_j, a_ij, inc_x_i, inc_x_j);

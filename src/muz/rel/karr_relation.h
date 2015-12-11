@@ -41,6 +41,7 @@ namespace datalog {
     public:
         karr_relation_plugin(relation_manager& rm):
             relation_plugin(karr_relation_plugin::get_name(), rm),
+            m_hb(get_ast_manager().limit()),
             a(get_ast_manager())
         {}            
         

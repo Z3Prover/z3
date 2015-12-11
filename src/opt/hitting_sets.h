@@ -22,6 +22,7 @@ Notes:
 #include "rational.h"
 #include "statistics.h"
 #include "lbool.h"
+#include "rlimit.h"
 
 namespace opt {
 
@@ -29,7 +30,7 @@ namespace opt {
         struct imp;
         imp* m_imp;
     public:        
-        hitting_sets();
+        hitting_sets(reslimit& lim);
         ~hitting_sets();
         void add_weight(rational const& w);
         void add_exists_true(unsigned sz, unsigned const* elems);
