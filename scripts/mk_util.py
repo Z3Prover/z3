@@ -3532,7 +3532,7 @@ class MakeRuleCmd(object):
         return "$(DESTDIR)$(PREFIX)/"
 
     @classmethod
-    def _install_root(cls, path, in_prefix, out):
+    def _install_root(cls, path, in_prefix, out, is_install=True):
         if in_prefix:
             assert not os.path.isabs(path)
             install_root = cls.install_root()
@@ -3544,7 +3544,11 @@ class MakeRuleCmd(object):
             assert IS_OSX
             assert os.path.isabs(path)
             install_root = "$(DESTDIR)"
-            cls.write_cmd(out, 'echo "WARNING: {} is not in the install prefix. This will likely lead to a broken installation."'.format(path))
+            action_string = 'install' if is_install else 'uninstall'
+            cls.write_cmd(out, 'echo "WARNING: {}ing files/directories ({}) that are not in the install prefix ($(PREFIX))."'.format(
+                action_string, path))
+            print("WARNING: Generating makefile rule that {}s {} '{}' which is outside the installation prefix '{}'.".format(
+                action_string, 'to' if is_install else 'from', path, PREFIX))
         return install_root
 
     @classmethod
@@ -3567,7 +3571,7 @@ class MakeRuleCmd(object):
         assert len(pattern) > 0
         assert isinstance(pattern, str)
         assert not ' ' in pattern
-        install_root = cls._install_root(pattern, in_prefix, out)
+        install_root = cls._install_root(pattern, in_prefix, out, is_install=False)
 
         cls.write_cmd(out, "rm -f {install_root}{pattern}".format(
             install_root=install_root,
