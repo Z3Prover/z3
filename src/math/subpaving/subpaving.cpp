@@ -37,7 +37,7 @@ namespace subpaving {
     protected:
         CTX m_ctx;
     public:
-        context_wrapper(typename CTX::numeral_manager & m, params_ref const & p, small_object_allocator * a):m_ctx(m, p, a) {}
+        context_wrapper(reslimit& lim, typename CTX::numeral_manager & m, params_ref const & p, small_object_allocator * a):m_ctx(lim, m, p, a) {}
         virtual ~context_wrapper() {}
         virtual unsigned num_vars() const { return m_ctx.num_vars(); }
         virtual var mk_var(bool is_int) { return m_ctx.mk_var(is_int); }
@@ -47,7 +47,6 @@ namespace subpaving {
         virtual void dec_ref(ineq * a) { m_ctx.dec_ref(reinterpret_cast<typename CTX::ineq*>(a)); }
         virtual void add_clause(unsigned sz, ineq * const * atoms) { m_ctx.add_clause(sz, reinterpret_cast<typename CTX::ineq * const *>(atoms)); }
         virtual void display_constraints(std::ostream & out, bool use_star) const { m_ctx.display_constraints(out, use_star); }
-        virtual void set_cancel(bool f) { m_ctx.set_cancel(f); }
         virtual void set_display_proc(display_var_proc * p) { m_ctx.set_display_proc(p); }
         virtual void reset_statistics() { m_ctx.reset_statistics(); }
         virtual void collect_statistics(statistics & st) const { m_ctx.collect_statistics(st); }
@@ -61,8 +60,8 @@ namespace subpaving {
         scoped_mpq        m_c;
         scoped_mpq_vector m_as;
     public:
-        context_mpq_wrapper(unsynch_mpq_manager & m, params_ref const & p, small_object_allocator * a):
-            context_wrapper<context_mpq>(m, p, a), 
+        context_mpq_wrapper(reslimit& lim, unsynch_mpq_manager & m, params_ref const & p, small_object_allocator * a):
+            context_wrapper<context_mpq>(lim, m, p, a), 
             m_c(m), 
             m_as(m) 
         {}
@@ -100,8 +99,8 @@ namespace subpaving {
         }
         
     public:
-        context_mpf_wrapper(f2n<mpf_manager> & fm, params_ref const & p, small_object_allocator * a):
-            context_wrapper<context_mpf>(fm, p, a),
+        context_mpf_wrapper(reslimit& lim, f2n<mpf_manager> & fm, params_ref const & p, small_object_allocator * a):
+            context_wrapper<context_mpf>(lim, fm, p, a),
             m_qm(fm.m().mpq_manager()),
             m_c(fm.m()),
             m_as(fm.m()),
@@ -161,8 +160,8 @@ namespace subpaving {
         }
         
     public:
-        context_hwf_wrapper(f2n<hwf_manager> & fm, unsynch_mpq_manager & qm, params_ref const & p, small_object_allocator * a):
-            context_wrapper<context_hwf>(fm, p, a),
+        context_hwf_wrapper(reslimit& lim,f2n<hwf_manager> & fm, unsynch_mpq_manager & qm, params_ref const & p, small_object_allocator * a):
+            context_wrapper<context_hwf>(lim, fm, p, a),
             m_qm(qm) {
         }
 
@@ -215,8 +214,8 @@ namespace subpaving {
         }
         
     public:
-        context_fpoint_wrapper(typename context_fpoint::numeral_manager & m, unsynch_mpq_manager & qm, params_ref const & p, small_object_allocator * a):
-            context_wrapper<context_fpoint>(m, p, a),
+        context_fpoint_wrapper(reslimit& lim, typename context_fpoint::numeral_manager & m, unsynch_mpq_manager & qm, params_ref const & p, small_object_allocator * a):
+            context_wrapper<context_fpoint>(lim, m, p, a),
             m_qm(qm), 
             m_c(m),
             m_as(m),
@@ -261,24 +260,24 @@ namespace subpaving {
     typedef context_fpoint_wrapper<context_mpff> context_mpff_wrapper;
     typedef context_fpoint_wrapper<context_mpfx> context_mpfx_wrapper;
 
-    context * mk_mpq_context(unsynch_mpq_manager & m, params_ref const & p, small_object_allocator * a) {
-        return alloc(context_mpq_wrapper, m, p, a);
+    context * mk_mpq_context(reslimit& lim, unsynch_mpq_manager & m, params_ref const & p, small_object_allocator * a) {
+        return alloc(context_mpq_wrapper, lim, m, p, a);
     }
 
-    context * mk_mpf_context(f2n<mpf_manager> & m, params_ref const & p, small_object_allocator * a) {
-        return alloc(context_mpf_wrapper, m, p, a);
+    context * mk_mpf_context(reslimit& lim, f2n<mpf_manager> & m, params_ref const & p, small_object_allocator * a) {
+        return alloc(context_mpf_wrapper, lim, m, p, a);
     }
 
-    context * mk_hwf_context(f2n<hwf_manager> & m, unsynch_mpq_manager & qm, params_ref const & p, small_object_allocator * a) {
-        return alloc(context_hwf_wrapper, m, qm, p, a);
+    context * mk_hwf_context(reslimit& lim, f2n<hwf_manager> & m, unsynch_mpq_manager & qm, params_ref const & p, small_object_allocator * a) {
+        return alloc(context_hwf_wrapper, lim, m, qm, p, a);
     }
 
-    context * mk_mpff_context(mpff_manager & m, unsynch_mpq_manager & qm, params_ref const & p, small_object_allocator * a) {
-        return alloc(context_mpff_wrapper, m, qm, p, a);
+    context * mk_mpff_context(reslimit& lim, mpff_manager & m, unsynch_mpq_manager & qm, params_ref const & p, small_object_allocator * a) {
+        return alloc(context_mpff_wrapper, lim, m, qm, p, a);
     }
 
-    context * mk_mpfx_context(mpfx_manager & m, unsynch_mpq_manager & qm, params_ref const & p, small_object_allocator * a) {
-        return alloc(context_mpfx_wrapper, m, qm, p, a);
+    context * mk_mpfx_context(reslimit& lim, mpfx_manager & m, unsynch_mpq_manager & qm, params_ref const & p, small_object_allocator * a) {
+        return alloc(context_mpfx_wrapper, lim, m, qm, p, a);
     }
 
 };

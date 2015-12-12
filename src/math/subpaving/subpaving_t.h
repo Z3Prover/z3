@@ -467,6 +467,7 @@ public:
     typedef _scoped_numeral_vector<numeral_manager> scoped_numeral_vector;
 
 private:
+    reslimit&                 m_limit;
     C                         m_c;
     bool                      m_arith_failed; //!< True if the arithmetic module produced an exception.
     bool                      m_own_allocator;

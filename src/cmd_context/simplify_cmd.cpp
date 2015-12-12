@@ -74,7 +74,7 @@ public:
         unsigned num_steps = 0;
         unsigned timeout   = m_params.get_uint("timeout", UINT_MAX);
         bool failed = false;
-        cancel_eh<th_rewriter> eh(s);
+        cancel_eh<reslimit> eh(ctx.m().limit());
         { 
             scoped_ctrl_c ctrlc(eh);
             scoped_timer timer(timeout, &eh);

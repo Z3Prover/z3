@@ -353,7 +353,6 @@ cmd_context::~cmd_context() {
 
 void cmd_context::set_cancel(bool f) {
     if (has_manager()) {
-        m().set_cancel(f);
         if (f) {
             m().limit().cancel();
         }

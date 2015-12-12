@@ -501,8 +501,8 @@ namespace realclosure {
             m_qm(qm),
             m_mm(m_qm, *m_allocator),
             m_bqm(m_qm),
-            m_qim(m_qm),
-            m_bqim(m_bqm),
+            m_qim(lim, m_qm),
+            m_bqim(lim, m_bqm),
             m_plus_inf_approx(m_bqm),
             m_minus_inf_approx(m_bqm) {
             mpq one(1);
