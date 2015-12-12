@@ -84,7 +84,7 @@ private:
         volatile bool   m_canceled;
         aux_timeout_eh(solver * s):m_solver(s), m_canceled(false) {}
         virtual void operator()() {
-            m_solver->get_manager().cancel();
+            m_solver->get_manager().limit().cancel();
             m_canceled = true;
         }
     };

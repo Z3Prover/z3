@@ -95,7 +95,6 @@ public:
     */
     virtual void display_constraints(std::ostream & out, bool use_star = false) const = 0;
 
-    virtual void set_cancel(bool f) = 0;
 
     virtual void collect_param_descrs(param_descrs & r) = 0;
 
@@ -112,11 +111,11 @@ public:
     virtual void display_bounds(std::ostream & out) const = 0;
 };
 
-context * mk_mpq_context(unsynch_mpq_manager & m, params_ref const & p = params_ref(), small_object_allocator * a = 0);
-context * mk_mpf_context(f2n<mpf_manager> & m, params_ref const & p = params_ref(), small_object_allocator * a = 0);
-context * mk_hwf_context(f2n<hwf_manager> & m, unsynch_mpq_manager & qm, params_ref const & p = params_ref(), small_object_allocator * a = 0);
-context * mk_mpff_context(mpff_manager & m, unsynch_mpq_manager & qm, params_ref const & p = params_ref(), small_object_allocator * a = 0);
-context * mk_mpfx_context(mpfx_manager & m, unsynch_mpq_manager & qm, params_ref const & p = params_ref(), small_object_allocator * a = 0);
+ context * mk_mpq_context(reslimit& lim, unsynch_mpq_manager & m, params_ref const & p = params_ref(), small_object_allocator * a = 0);
+context * mk_mpf_context(reslimit& lim, f2n<mpf_manager> & m, params_ref const & p = params_ref(), small_object_allocator * a = 0);
+context * mk_hwf_context(reslimit& lim, f2n<hwf_manager> & m, unsynch_mpq_manager & qm, params_ref const & p = params_ref(), small_object_allocator * a = 0);
+context * mk_mpff_context(reslimit& lim, mpff_manager & m, unsynch_mpq_manager & qm, params_ref const & p = params_ref(), small_object_allocator * a = 0);
+context * mk_mpfx_context(reslimit& lim, mpfx_manager & m, unsynch_mpq_manager & qm, params_ref const & p = params_ref(), small_object_allocator * a = 0);
 
 };
 

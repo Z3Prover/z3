@@ -62,7 +62,7 @@ void interval_manager<C>::del(interval & a) {
 
 template<typename C>
 void interval_manager<C>::checkpoint() {
-    if (m_limit.canceled())
+    if (!m_limit.inc())
         throw default_exception("canceled");
     cooperate("interval");
 }
