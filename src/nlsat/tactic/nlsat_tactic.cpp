@@ -175,18 +175,12 @@ class nlsat_tactic : public tactic {
     struct scoped_set_imp {
         nlsat_tactic & m_owner; 
         scoped_set_imp(nlsat_tactic & o, imp & i):m_owner(o) {
-            #pragma omp critical (tactic_cancel)
-            {
-                m_owner.m_imp = &i;
-            }
+            m_owner.m_imp = &i;            
         }
 
         ~scoped_set_imp() {
             m_owner.m_imp->m_solver.collect_statistics(m_owner.m_stats);
-            #pragma omp critical (tactic_cancel)
-            {
-                m_owner.m_imp = 0;
-            }
+            m_owner.m_imp = 0;
         }
     };
 

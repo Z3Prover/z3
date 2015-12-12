@@ -751,10 +751,7 @@ public:
 
         imp * d = alloc(imp, m, m_params, r, owner);
         d->m_num_eliminated_vars = num_elim_vars;
-        #pragma omp critical (tactic_cancel)
-        {
-            std::swap(d, m_imp);
-        }
+        std::swap(d, m_imp);        
         dealloc(d);
     }
 

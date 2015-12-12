@@ -404,17 +404,11 @@ class nla2bv_tactic : public tactic {
         nla2bv_tactic & m_owner; 
         scoped_set_imp(nla2bv_tactic & o, imp & i):
             m_owner(o) {
-            #pragma omp critical (tactic_cancel)
-            {
-                m_owner.m_imp = &i;
-            }
+            m_owner.m_imp = &i;            
         }
 
         ~scoped_set_imp() {
-            #pragma omp critical (tactic_cancel)
-            {
-                m_owner.m_imp = 0;
-            }
+            m_owner.m_imp = 0;            
         }
     };
     

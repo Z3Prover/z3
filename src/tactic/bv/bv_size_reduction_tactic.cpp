@@ -400,10 +400,7 @@ void bv_size_reduction_tactic::operator()(goal_ref const & g,
  
 void bv_size_reduction_tactic::cleanup() {
     imp * d = alloc(imp, m_imp->m);
-    #pragma omp critical (tactic_cancel)
-    {
-        std::swap(d, m_imp);
-    }
+    std::swap(d, m_imp);    
     dealloc(d);
 }
 
