@@ -32,19 +32,11 @@ class aig_tactic : public tactic {
 
         mk_aig_manager(aig_tactic & o, ast_manager & m):m_owner(o) {
             aig_manager * mng = alloc(aig_manager, m, o.m_max_memory, o.m_aig_gate_encoding);
-            #pragma omp critical (aig_tactic)
-            {
-                m_owner.m_aig_manager = mng;
-            }
+            m_owner.m_aig_manager = mng;            
         }
         
         ~mk_aig_manager() {
-            aig_manager * mng = m_owner.m_aig_manager;
-            #pragma omp critical (aig_tactic)
-            {
-                m_owner.m_aig_manager = 0;
-            }
-            dealloc(mng);
+            dealloc(m_owner.m_aig_manager);
         }
     };
 

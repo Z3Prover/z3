@@ -188,6 +188,7 @@ public:
         tref->set_logic(ctx.get_logic());
         ast_manager & m = ctx.m();
         unsigned timeout   = p.get_uint("timeout", UINT_MAX);
+        unsigned rlimit  =   p.get_uint("rlimit", 0);
         goal_ref g = alloc(goal, m, ctx.produce_proofs(), ctx.produce_models(), ctx.produce_unsat_cores());
         assert_exprs_from(ctx, *g);
         TRACE("check_sat_using", g->display(tout););
@@ -201,6 +202,7 @@ public:
             tactic & t = *tref;
             cancel_eh<reslimit>  eh(m.limit());
             {
+                scoped_rlimit _rlimit(m.limit(), rlimit);
                 scoped_ctrl_c ctrlc(eh);
                 scoped_timer timer(timeout, &eh);
                 cmd_context::scoped_watch sw(ctx);
@@ -302,6 +304,7 @@ public:
             assert_exprs_from(ctx, *g);
 
             unsigned timeout   = p.get_uint("timeout", UINT_MAX);
+            unsigned rlimit  =   p.get_uint("rlimit", 0);
 
             goal_ref_buffer     result_goals;
             model_converter_ref mc;
@@ -312,6 +315,7 @@ public:
             bool failed = false;
             cancel_eh<reslimit>  eh(m.limit());
             {
+                scoped_rlimit _rlimit(m.limit(), rlimit);
                 scoped_ctrl_c ctrlc(eh);
                 scoped_timer timer(timeout, &eh);
                 cmd_context::scoped_watch sw(ctx);
