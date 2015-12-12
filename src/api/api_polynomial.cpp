@@ -61,6 +61,7 @@ extern "C" {
             polynomial_ref_vector rs(pm);
             polynomial_ref r(pm);
             expr_ref _r(mk_c(c)->m());
+
             {
                 cancel_eh<reslimit> eh(mk_c(c)->poly_limit());
                 api::context::set_interruptable si(*(mk_c(c)), eh);

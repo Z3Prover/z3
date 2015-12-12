@@ -208,7 +208,7 @@ namespace datalog {
 
         get_invariants(*src_loop);
 
-        if (!m.limit().inc()) {
+        if (m.canceled()) {
             return 0;
         }
 
