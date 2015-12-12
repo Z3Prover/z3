@@ -64,7 +64,6 @@ protected:
     powers          m_powers;
     mpz             m_zero, m_one, m_two;
     bool            m_produce_models;
-    volatile bool   m_cancel;
     bv_util         m_bv_util;
     sls_tracker     m_tracker;
     sls_evaluator   m_evaluator;
@@ -93,9 +92,6 @@ public:
 
     ast_manager & m() const { return m_manager; }
 
-    void set_cancel(bool f) { m_cancel = f; }
-    void cancel() { set_cancel(true); }
-    void reset_cancel() { set_cancel(false); }
 
     void updt_params(params_ref const & _p);
 

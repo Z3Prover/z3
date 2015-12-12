@@ -97,7 +97,6 @@ namespace simplex {
         mutable eps_manager         em;
         mutable matrix              M;
         unsigned                    m_max_iterations;
-        volatile bool               m_cancel;
         var_heap                    m_to_patch;
         vector<var_info>            m_vars;
         svector<var_t>              m_row2base;

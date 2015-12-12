@@ -71,7 +71,6 @@ namespace sat {
     public:
         struct abort_solver {};
     protected:
-        volatile bool           m_cancel;
         reslimit&               m_rlimit;
         config                  m_config;
         stats                   m_stats;
@@ -158,7 +157,6 @@ namespace sat {
         void updt_params(params_ref const & p);
         static void collect_param_descrs(param_descrs & d);
 
-        void set_cancel(bool f);
         void collect_statistics(statistics & st) const;
         void reset_statistics();
         void display_status(std::ostream & out) const;
@@ -239,13 +237,13 @@ namespace sat {
         lbool status(clause const & c) const;        
         clause_offset get_offset(clause const & c) const { return m_cls_allocator.get_offset(&c); }
         void checkpoint() {
-            if (m_cancel) throw solver_exception(Z3_CANCELED_MSG);
-            if (!m_rlimit.inc()) { m_cancel = true; throw solver_exception(Z3_CANCELED_MSG); }
+            if (!m_rlimit.inc()) { throw solver_exception(Z3_CANCELED_MSG); }
             ++m_num_checkpoints;
             if (m_num_checkpoints < 10) return;
             m_num_checkpoints = 0;
             if (memory::get_allocation_size() > m_config.m_max_memory) throw solver_exception(Z3_MAX_MEMORY_MSG);
         }
+        bool canceled() { return !m_rlimit.inc(); }
         typedef std::pair<literal, literal> bin_clause;
     protected:
         watch_list & get_wlist(literal l) { return m_watches[l.index()]; }

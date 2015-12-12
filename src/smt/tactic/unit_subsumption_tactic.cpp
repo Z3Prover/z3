@@ -22,7 +22,6 @@ struct unit_subsumption_tactic : public tactic {
     ast_manager&    m;
     params_ref      m_params;
     smt_params      m_fparams;
-    volatile bool   m_cancel;
     smt::context    m_context;
     expr_ref_vector m_clauses;
     unsigned        m_clause_count;
@@ -34,19 +33,11 @@ struct unit_subsumption_tactic : public tactic {
         params_ref const& p):
         m(m), 
         m_params(p), 
-        m_cancel(false), 
         m_context(m, m_fparams, p),
         m_clauses(m) {
     }
-           
-    void set_cancel(bool f) {
-        m_cancel = f;
-        m_context.set_cancel_flag(f);
-    }
 
-    virtual void cleanup() {
-        set_cancel(false);
-    }
+    void cleanup() {}
 
     virtual void operator()(/* in */  goal_ref const & in, 
                             /* out */ goal_ref_buffer & result, 
@@ -66,7 +57,7 @@ struct unit_subsumption_tactic : public tactic {
     }
     
     void checkpoint() {
-        if (m_cancel) {
+        if (m.canceled()) {
             throw tactic_exception(TACTIC_CANCELED_MSG);
         }
     }

@@ -297,11 +297,7 @@ namespace opt {
         m_context.get_relevant_labels(0, tmp);
         r.append(tmp.size(), tmp.c_ptr());
     }
-    
-    void opt_solver::set_cancel(bool f) {
-        m_context.set_cancel(f);
-    }
-    
+        
     void opt_solver::set_progress_callback(progress_callback * callback) {
         m_callback = callback;
         m_context.set_progress_callback(callback);

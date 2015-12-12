@@ -83,7 +83,6 @@ namespace algebraic_numbers {
         scoped_upoly             m_add_tmp;
         polynomial::var          m_x;
         polynomial::var          m_y;
-        volatile bool            m_cancel;
         
         // configuration
         int                        m_min_magnitude;
@@ -104,8 +103,8 @@ namespace algebraic_numbers {
             m_qmanager(m),
             m_bqmanager(m),
             m_bqimanager(m_bqmanager),
-            m_pmanager(m, &a),
-            m_upmanager(m),
+            m_pmanager(lim, m, &a),
+            m_upmanager(lim, m),
             m_is_rational_tmp(m),
             m_isolate_tmp1(upm()),
             m_isolate_tmp2(upm()),
@@ -118,7 +117,6 @@ namespace algebraic_numbers {
             m_add_tmp(upm()) {
             updt_params(p);
             reset_statistics();
-            m_cancel = false;
             m_x = pm().mk_var();
             m_y = pm().mk_var();
         }
@@ -126,14 +124,8 @@ namespace algebraic_numbers {
         ~imp() {
         }
         
-        void set_cancel(bool f) {
-            m_cancel = f;
-            pm().set_cancel(f);
-            upm().set_cancel(f);
-        }
-
         void checkpoint() {
-            if (m_cancel)
+            if (!m_limit.inc())
                 throw algebraic_exception("canceled");
             cooperate("algebraic");
         }
@@ -2783,10 +2775,6 @@ namespace algebraic_numbers {
     }
 
     void manager::updt_params(params_ref const & p) {
-    }
-
-    void manager::set_cancel(bool f) {
-        m_imp->set_cancel(f);
     }
 
     unsynch_mpq_manager & manager::qm() const {

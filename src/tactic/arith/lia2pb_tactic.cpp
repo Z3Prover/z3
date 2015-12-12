@@ -60,9 +60,6 @@ class lia2pb_tactic : public tactic {
             updt_params_core(p);
         }
         
-        void set_cancel(bool f) {
-            m_rw.set_cancel(f);
-        }
         
         bool is_target_core(expr * n, rational & u) {
             if (!is_uninterp_const(n))
@@ -356,11 +353,6 @@ public:
         dealloc(d);
     }
 
-protected:
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
-    }
 };
 
 tactic * mk_lia2pb_tactic(ast_manager & m, params_ref const & p) {

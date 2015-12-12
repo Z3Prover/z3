@@ -139,9 +139,6 @@ public:
     virtual ~eq2bv_tactic() {
     }
         
-    void set_cancel(bool f) {
-        m_rw.set_cancel(f);
-    }
         
     void updt_params(params_ref const & p) {
     }

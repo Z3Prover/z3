@@ -84,7 +84,7 @@ namespace sat {
                   tout << "core: " << core << "\n";
                   tout << "mus:  " << mus  << "\n";);
 
-            if (s.m_cancel) {
+            if (s.canceled()) {
                 set_core();
                 return l_undef;
             }

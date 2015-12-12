@@ -32,7 +32,6 @@ Revision History:
 namespace sat {
 
     solver::solver(params_ref const & p, reslimit& l, extension * ext):
-        m_cancel(false),
         m_rlimit(l),
         m_config(p),
         m_ext(ext),
@@ -2714,11 +2713,6 @@ namespace sat {
         scc::collect_param_descrs(d);
     }
 
-    void solver::set_cancel(bool f) {
-        m_cancel = f;
-        m_wsls.set_cancel(f);
-    }
-
     void solver::collect_statistics(statistics & st) const {
         m_stats.collect_statistics(st);
         m_cleaner.collect_statistics(st);
@@ -2784,7 +2778,7 @@ namespace sat {
     //
     // -----------------------
     bool solver::check_invariant() const {
-        if (m_cancel) return true;
+        if (!m_rlimit.inc()) return true;
         integrity_checker checker(*this);
         SASSERT(checker());
         return true;

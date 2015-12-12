@@ -33,7 +33,7 @@ class arith_degree_probe : public probe {
         unsigned long long       m_acc_degree;
         unsigned                 m_counter;
 
-        proc(ast_manager & _m):m(_m), m_pm(m_qm), m_expr2poly(m, m_pm), m_util(m) {
+        proc(ast_manager & _m):m(_m), m_pm(m.limit(), m_qm), m_expr2poly(m, m_pm), m_util(m) {
             m_max_degree = 0;
             m_acc_degree = 0;
             m_counter    = 0;

@@ -132,10 +132,6 @@ public:
         smt_params_helper::collect_param_descrs(r);
     }
     
-    virtual void set_cancel(bool f) {
-        if (m_ctx)
-            m_ctx->set_cancel(f);
-    }
 
     virtual void collect_statistics(statistics & st) const {
         if (m_ctx)

@@ -28,6 +28,7 @@ Notes:
 #include"scoped_numeral_vector.h"
 #include"params.h"
 #include"mpbqi.h"
+#include"rlimit.h"
 
 class small_object_allocator;
 
@@ -190,8 +191,8 @@ namespace polynomial {
     private:
         imp * m_imp;
     public:
-        manager(numeral_manager & m, monomial_manager * mm = 0);
-        manager(numeral_manager & m, small_object_allocator * a);
+        manager(reslimit& lim, numeral_manager & m, monomial_manager * mm = 0);
+        manager(reslimit& lim, numeral_manager & m, small_object_allocator * a);
         ~manager();
 
         numeral_manager & m() const;
@@ -217,10 +218,6 @@ namespace polynomial {
         */
         void set_zp(numeral const & p);
         void set_zp(uint64 p);
-
-        void set_cancel(bool f);
-        void cancel() { set_cancel(true); }
-        void reset_cancel() { set_cancel(false); }
 
         /**
            \brief Abstract event handler.

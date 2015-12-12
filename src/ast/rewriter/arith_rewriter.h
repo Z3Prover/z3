@@ -167,8 +167,6 @@ public:
     }
     br_status mk_is_int(expr * arg, expr_ref & result);
 
-    void set_cancel(bool f);
-
     br_status mk_sin_core(expr * arg, expr_ref & result);
     br_status mk_cos_core(expr * arg, expr_ref & result);
     br_status mk_tan_core(expr * arg, expr_ref & result);

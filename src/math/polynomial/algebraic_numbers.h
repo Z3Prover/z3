@@ -64,10 +64,6 @@ namespace algebraic_numbers {
         static void get_param_descrs(param_descrs & r);
         static void collect_param_descrs(param_descrs & r) { get_param_descrs(r); }
 
-        void set_cancel(bool f);
-        void cancel() { set_cancel(true); }
-        void reset_cancel() { set_cancel(false); }
-
         void updt_params(params_ref const & p);
 
         unsynch_mpq_manager & qm() const;

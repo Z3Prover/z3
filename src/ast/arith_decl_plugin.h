@@ -211,7 +211,6 @@ public:
 
     virtual expr * get_some_value(sort * s);
 
-    virtual void set_cancel(bool f);
 };
 
 /**
@@ -398,9 +397,6 @@ public:
         return m_manager.mk_eq(lhs, rhs);
     }
 
-    void set_cancel(bool f) {
-        plugin().set_cancel(f);
-    }
 };
 
 #endif /* ARITH_DECL_PLUGIN_H_ */

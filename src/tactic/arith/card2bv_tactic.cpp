@@ -462,10 +462,6 @@ public:
     virtual void collect_param_descrs(param_descrs & r) {  
     }
 
-    void set_cancel(bool f) {
-        m_rw1.set_cancel(f);
-        m_rw2.set_cancel(f);
-    }
     
     virtual void operator()(goal_ref const & g, 
                             goal_ref_buffer & result, 

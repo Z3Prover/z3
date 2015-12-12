@@ -62,7 +62,6 @@ class asserted_formulas {
         bool                    m_inconsistent_old;
     };
     svector<scope>              m_scopes;
-    volatile bool               m_cancel_flag;
 
     void setup_simplifier_plugins(simplifier & s, basic_simplifier_plugin * & bsimp, arith_simplifier_plugin * & asimp, bv_simplifier_plugin * & bvsimp);
     void reduce_asserted_formulas();
@@ -97,7 +96,7 @@ class asserted_formulas {
     unsigned get_total_size() const;
     bool has_bv() const;
     void max_bv_sharing();
-    bool canceled() { return m_cancel_flag; }
+    bool canceled() { return m_manager.canceled(); }
 
 public:
     asserted_formulas(ast_manager & m, smt_params & p);

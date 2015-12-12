@@ -100,11 +100,11 @@ namespace opt {
         virtual proof * get_proof();
         virtual std::string reason_unknown() const;
         virtual void get_labels(svector<symbol> & r);
-        virtual void set_cancel(bool f);
         virtual void set_progress_callback(progress_callback * callback);
         virtual unsigned get_num_assertions() const;
         virtual expr * get_assertion(unsigned idx) const;
         virtual void display(std::ostream & out) const;
+        virtual ast_manager& get_manager() { return m; } 
         void set_logic(symbol const& logic);
 
         smt::theory_var add_objective(app* term);

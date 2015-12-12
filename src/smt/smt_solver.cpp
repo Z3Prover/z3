@@ -101,9 +101,8 @@ namespace smt {
             r.append(tmp.size(), tmp.c_ptr());
         }
 
-        virtual void set_cancel(bool f) {
-            m_context.set_cancel(f);
-        }
+        virtual ast_manager& get_manager() { return m_context.m(); }
+
 
         virtual void set_progress_callback(progress_callback * callback) {
             m_callback = callback;

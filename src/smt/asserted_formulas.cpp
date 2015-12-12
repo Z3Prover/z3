@@ -54,8 +54,7 @@ asserted_formulas::asserted_formulas(ast_manager & m, smt_params & p):
     m_macro_manager(m, m_simplifier),
     m_bit2int(m),
     m_bv_sharing(m),
-    m_inconsistent(false),
-    m_cancel_flag(false) {
+    m_inconsistent(false){
 
     m_bsimp = 0;
     m_bvsimp = 0;
@@ -223,9 +222,6 @@ void asserted_formulas::reset() {
     m_inconsistent = false;
 }
 
-void asserted_formulas::set_cancel_flag(bool f) {
-    m_cancel_flag = f; 
-}
 
 #ifdef Z3DEBUG
 bool asserted_formulas::check_well_sorted() const {

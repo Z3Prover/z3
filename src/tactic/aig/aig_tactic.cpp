@@ -111,14 +111,6 @@ public:
 
     virtual void cleanup() {}
 
-protected:
-    virtual void set_cancel(bool f) {
-        #pragma omp critical (aig_tactic)
-        {
-            if (m_aig_manager)
-                m_aig_manager->set_cancel(f);
-        }
-    }
 };
 
 tactic * mk_aig_tactic(params_ref const & p) {

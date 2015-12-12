@@ -29,20 +29,14 @@ Revision History:
 class occf_tactic : public tactic {
     struct     imp {
         ast_manager &            m;
-        volatile bool            m_cancel;
         filter_model_converter * m_mc;
         
         imp(ast_manager & _m):
             m(_m) {
-            m_cancel = false;
-        }
-
-        void set_cancel(bool f) {
-            m_cancel = f;
         }
 
         void checkpoint() {
-            if (m_cancel)
+            if (m.canceled())
                 throw tactic_exception(TACTIC_CANCELED_MSG);
             cooperate("occf");
         }
@@ -233,11 +227,6 @@ public:
         dealloc(d);
     }
     
-protected:
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
-    }
 };
 
 tactic * mk_occf_tactic(ast_manager & m, params_ref const & p) {

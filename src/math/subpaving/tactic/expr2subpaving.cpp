@@ -51,7 +51,6 @@ struct expr2subpaving::imp {
 
     obj_map<expr, subpaving::ineq*>    m_lit_cache;
 
-    volatile bool                      m_cancel;
 
     imp(ast_manager & m, subpaving::context & s, expr2var * e2v):
         m_manager(m),
@@ -71,7 +70,6 @@ struct expr2subpaving::imp {
             m_expr2var_owner = false;
         }
         
-        m_cancel = false;
     }
     
     ~imp() {
@@ -95,7 +93,7 @@ struct expr2subpaving::imp {
     }
 
     void checkpoint() {
-        if (m_cancel)
+        if (m().canceled())
             throw default_exception("canceled");
         cooperate("expr2subpaving");
     }
@@ -357,9 +355,6 @@ struct expr2subpaving::imp {
         return m_expr2var->is_var(t); 
     }
 
-    void set_cancel(bool f) {
-        m_cancel = f;
-    }
     
     subpaving::var internalize_term(expr * t, mpz & n, mpz & d) {
         return process(t, 0, n, d);
@@ -386,9 +381,6 @@ bool expr2subpaving::is_var(expr * t) const {
     return m_imp->is_var(t);
 }
     
-void expr2subpaving::set_cancel(bool f) {
-    m_imp->set_cancel(f);
-}
 
 subpaving::var expr2subpaving::internalize_term(expr * t, mpz & n, mpz & d) {
     return m_imp->internalize_term(t, n, d);

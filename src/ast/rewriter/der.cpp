@@ -444,12 +444,6 @@ void der_rewriter::operator()(expr * t, expr_ref & result, proof_ref & result_pr
     m_imp->operator()(t, result, result_pr);
 }
 
-void der_rewriter::set_cancel(bool f) {
-    #pragma omp critical (der_rewriter)
-    {
-        m_imp->set_cancel(f);
-    }
-}
 
 void der_rewriter::cleanup() {
     ast_manager & m = m_imp->m();

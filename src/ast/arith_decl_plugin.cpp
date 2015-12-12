@@ -110,10 +110,6 @@ parameter arith_decl_plugin::translate(parameter const & p, decl_plugin & target
     return parameter(_target.aw().mk_id(aw().idx2anum(p.get_ext_id())), true);
 }
 
-void arith_decl_plugin::set_cancel(bool f) {
-    if (m_aw)
-        m_aw->m_amanager.set_cancel(f);
-}
 
 void arith_decl_plugin::set_manager(ast_manager * m, family_id id) {
     decl_plugin::set_manager(m, id);

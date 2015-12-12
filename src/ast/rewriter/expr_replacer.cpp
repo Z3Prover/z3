@@ -107,9 +107,6 @@ public:
         }
     }
 
-    virtual void set_cancel(bool f) {
-        m_replacer.set_cancel(f);
-    }
 
     virtual unsigned get_num_steps() const {
         return m_replacer.get_num_steps();
@@ -144,10 +141,6 @@ public:
         m_r(t, result, result_pr);
         result_dep = m_r.get_used_dependencies();
         m_r.reset_used_dependencies();
-    }
-
-    virtual void set_cancel(bool f) {
-        m_r.set_cancel(f);
     }
 
     virtual unsigned get_num_steps() const { 

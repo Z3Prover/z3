@@ -52,9 +52,6 @@ class normalize_bounds_tactic : public tactic {
             updt_params_core(p);
         }
         
-        void set_cancel(bool f) {
-            m_rw.set_cancel(f);
-        }
         
         bool is_target(expr * var, rational & val) {
             bool strict;
@@ -197,12 +194,6 @@ public:
             std::swap(d, m_imp);
         }
         dealloc(d);
-    }
-
-protected:
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
     }
 };
 

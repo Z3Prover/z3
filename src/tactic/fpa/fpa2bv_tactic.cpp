@@ -46,10 +46,6 @@ class fpa2bv_tactic : public tactic {
             m_rw.cfg().updt_params(p);
         }
 
-        void set_cancel(bool f) {
-            m_rw.set_cancel(f);
-        }
-
         virtual void operator()(goal_ref const & g,
                                 goal_ref_buffer & result,
                                 model_converter_ref & mc,
@@ -166,11 +162,6 @@ public:
         dealloc(d);
     }
 
-protected:
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
-    }
 };
 
 tactic * mk_fpa2bv_tactic(ast_manager & m, params_ref const & p) {

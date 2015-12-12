@@ -36,7 +36,6 @@ protected:
     void mk_ext_rotate_left_right(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr_ref_vector & out_bits);
 
     unsigned long long m_max_memory;
-    volatile bool      m_cancel;
     bool               m_use_wtm; /* Wallace Tree Multiplier */
     bool               m_use_bcm; /* Booth Multiplier for constants */
     void checkpoint();
@@ -45,7 +44,6 @@ public:
     bit_blaster_tpl(Cfg const & cfg = Cfg(), unsigned long long max_memory = UINT64_MAX, bool use_wtm = false, bool use_bcm=false):
         Cfg(cfg),
         m_max_memory(max_memory),
-        m_cancel(false),
         m_use_wtm(use_wtm),
         m_use_bcm(use_bcm) {
     }
@@ -54,9 +52,6 @@ public:
         m_max_memory = max_memory;
     }
 
-    void set_cancel(bool f) { m_cancel = f; }
-    void cancel() { set_cancel(true); }
-    void reset_cancel() { set_cancel(false); }
     
     // Cfg required API
     ast_manager & m() const { return Cfg::m(); }

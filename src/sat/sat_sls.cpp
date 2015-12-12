@@ -50,7 +50,7 @@ namespace sat {
         return m_elems[rnd(num_elems())];
     }
 
-    sls::sls(solver& s): s(s), m_cancel(false) {
+    sls::sls(solver& s): s(s) {
         m_prob_choose_min_var = 43;
         m_clause_generation = 0;
     }
@@ -64,7 +64,7 @@ namespace sat {
     lbool sls::operator()(unsigned sz, literal const* tabu, bool reuse_model) {
         init(sz, tabu, reuse_model);
         unsigned i;
-        for (i = 0; !m_false.empty() && !m_cancel && i < m_max_tries; ++i) {
+        for (i = 0; !m_false.empty() && !s.canceled() && i < m_max_tries; ++i) {
             flip();
         }
         IF_VERBOSE(2, verbose_stream() << "tries " << i << "\n";);
@@ -378,7 +378,7 @@ namespace sat {
         }
         DEBUG_CODE(check_invariant(););
         unsigned i = 0;
-        for (; !m_cancel && m_best_value > 0 && i < m_max_tries; ++i) {
+        for (; !s.canceled() && m_best_value > 0 && i < m_max_tries; ++i) {
             wflip();
             if (m_false.empty()) {
                 double val = evaluate_model(m_model);

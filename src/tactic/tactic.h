@@ -44,9 +44,6 @@ public:
 
     virtual void updt_params(params_ref const & p) {}
     virtual void collect_param_descrs(param_descrs & r) {}
-
-    void cancel();
-    void reset_cancel();
     
     /**
        \brief Apply tactic to goal \c in.
@@ -100,8 +97,6 @@ protected:
     friend class binary_tactical;
     friend class unary_tactical;
     friend class nl_purify_tactic;
-
-    virtual void set_cancel(bool f) {}
 
 };
 

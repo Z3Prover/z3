@@ -75,7 +75,8 @@ namespace api {
         m_dtutil(m()),
         m_last_result(m()),
         m_ast_trail(m()),
-        m_replay_stack() {
+        m_replay_stack(),
+        m_pmanager(m_limit) {
 
         m_error_code = Z3_OK;
         m_print_mode = Z3_PRINT_SMTLIB_FULL;
@@ -122,9 +123,8 @@ namespace api {
         {
             if (m_interruptable)
                 (*m_interruptable)();
-            m().set_cancel(true);
-            if (m_rcf_manager.get() != 0)
-                m_rcf_manager->set_cancel(true);
+            m_limit.cancel();
+            m().limit().cancel();
         }
     }
     
@@ -323,7 +323,7 @@ namespace api {
     // -----------------------
     realclosure::manager & context::rcfm() {
         if (m_rcf_manager.get() == 0) {
-            m_rcf_manager = alloc(realclosure::manager, m_rcf_qm);
+            m_rcf_manager = alloc(realclosure::manager, m_limit, m_rcf_qm);
         }
         return *(m_rcf_manager.get());
     }

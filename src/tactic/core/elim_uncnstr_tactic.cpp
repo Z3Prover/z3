@@ -993,10 +993,6 @@ class elim_uncnstr_tactic : public tactic {
             }
         }
         
-        void set_cancel(bool f) {
-            if (m_rw)
-                m_rw->set_cancel(f);
-        }
     };
     
     imp *      m_imp;
@@ -1058,11 +1054,6 @@ public:
         m_imp->m_num_elim_apps = 0;
     }
 
-protected:
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
-    }
 };
 
 tactic * mk_elim_uncnstr_tactic(ast_manager & m, params_ref const & p) {

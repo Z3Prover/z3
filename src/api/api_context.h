@@ -187,10 +187,12 @@ namespace api {
         //
         // -----------------------
     private:
+        reslimit                   m_limit;
         pmanager                   m_pmanager;
     public:
         polynomial::manager & pm() { return m_pmanager.pm(); }
-
+        reslimit & poly_limit() { return m_limit; }
+        
         // ------------------------
         //
         // RCF manager

@@ -75,7 +75,6 @@ public:
     
     virtual void operator()(goal_ref const & g, goal_ref_buffer & result, model_converter_ref & mc, proof_converter_ref & pc, expr_dependency_ref & core);
     virtual void cleanup();
-    virtual void set_cancel(bool f);
 };
 
 tactic * mk_reduce_args_tactic(ast_manager & m, params_ref const & p) {
@@ -85,21 +84,16 @@ tactic * mk_reduce_args_tactic(ast_manager & m, params_ref const & p) {
 struct reduce_args_tactic::imp {
     ast_manager &            m_manager;
     bool                     m_produce_models;
-    volatile bool            m_cancel;
 
     ast_manager & m() const { return m_manager; }
     
     imp(ast_manager & m):
         m_manager(m) {
-        m_cancel = false;
     }
 
-    void set_cancel(bool f) {
-        m_cancel = f;
-    }
 
     void checkpoint() { 
-        if (m_cancel)
+        if (m_manager.canceled())
             throw tactic_exception(TACTIC_CANCELED_MSG);
         cooperate("reduce-args");
     }
@@ -533,11 +527,6 @@ void reduce_args_tactic::operator()(goal_ref const & g,
     g->inc_depth();
     result.push_back(g.get());
     SASSERT(g->is_well_sorted());
-}
-
-void reduce_args_tactic::set_cancel(bool f) {
-    if (m_imp)
-        m_imp->set_cancel(f);
 }
 
 void reduce_args_tactic::cleanup() {

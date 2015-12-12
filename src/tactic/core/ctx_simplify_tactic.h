@@ -45,8 +45,6 @@ public:
                             expr_dependency_ref & core);
 
     virtual void cleanup();
-protected:
-    virtual void set_cancel(bool f);
 };
 
 inline tactic * mk_ctx_simplify_tactic(ast_manager & m, params_ref const & p = params_ref()) {

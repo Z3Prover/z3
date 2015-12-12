@@ -54,9 +54,6 @@ class propagate_values_tactic : public tactic {
 
         ast_manager & m() const { return m_manager; }
         
-        void set_cancel(bool f) {
-            m_r.set_cancel(f);
-        }
         
         bool is_shared(expr * t) {
             return m_occs.is_shared(t);
@@ -267,11 +264,6 @@ public:
         dealloc(d);
     }
     
-protected:
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
-    }
 };
 
 tactic * mk_propagate_values_tactic(ast_manager & m, params_ref const & p) {

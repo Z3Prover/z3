@@ -124,7 +124,6 @@ class subpaving_tactic : public tactic {
         }
 
         void set_cancel(bool f) {
-            m_e2s->set_cancel(f);
             m_ctx->set_cancel(f);
         }
 
@@ -279,11 +278,6 @@ public:
         }
     }
 
-protected:
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
-    }
 };
 
 

@@ -30,7 +30,7 @@ static rcmanager & rcfm(Z3_context c) {
 }
 
 static void reset_rcf_cancel(Z3_context c) {
-    rcfm(c).reset_cancel();
+    // no-op
 }
 
 static Z3_rcf_num from_rcnumeral(rcnumeral a) { 

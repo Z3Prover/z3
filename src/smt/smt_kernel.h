@@ -204,18 +204,7 @@ namespace smt {
            \brief Display statistics in low level format.
         */
         void display_istatistics(std::ostream & out) const;
-        
-        /**
-           \brief Interrupt the kernel. 
-        */
-        void set_cancel(bool f = true);
-        void cancel() { set_cancel(true); }
-
-        /**
-           \brief Reset interruption.
-        */
-        void reset_cancel() { set_cancel(false); }
-        
+                
         /**
            \brief Return true if the kernel was interrupted.
         */

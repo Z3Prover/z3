@@ -748,8 +748,6 @@ public:
     virtual void cleanup() {
     }
 
-    virtual void set_cancel(bool f) {
-    }
 };
 
 tactic * mk_purify_arith_tactic(ast_manager & m, params_ref const & p) {

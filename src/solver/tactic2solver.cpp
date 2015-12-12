@@ -59,7 +59,6 @@ public:
     virtual void pop_core(unsigned n);
     virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions);
 
-    virtual void set_cancel(bool f);
 
     virtual void collect_statistics(statistics & st) const;
     virtual void get_unsat_core(ptr_vector<expr> & r);
@@ -74,7 +73,10 @@ public:
     virtual expr * get_assertion(unsigned idx) const;
 
     virtual void display(std::ostream & out) const;
+    virtual ast_manager& get_manager(); 
 };
+
+ast_manager& tactic2solver::get_manager() { return m_assertions.get_manager(); }
 
 tactic2solver::tactic2solver(ast_manager & m, tactic * t, params_ref const & p, bool produce_proofs, bool produce_models, bool produce_unsat_cores, symbol const & logic):
     solver_na2as(m),
@@ -177,14 +179,6 @@ lbool tactic2solver::check_sat_core(unsigned num_assumptions, expr * const * ass
     return m_result->status();
 }
 
-void tactic2solver::set_cancel(bool f) {
-    if (m_tactic.get()) {
-        if (f) 
-            m_tactic->cancel();
-        else
-            m_tactic->reset_cancel();
-    }
-}
 
 solver* tactic2solver::translate(ast_manager& m, params_ref const& p) {
     tactic* t = m_tactic->translate(m);

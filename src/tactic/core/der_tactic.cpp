@@ -28,11 +28,7 @@ class der_tactic : public tactic {
         }
         
         ast_manager & m() const { return m_manager; }
-        
-        void set_cancel(bool f) {
-            m_r.set_cancel(f);
-        }
-        
+                
         void reset() {
             m_r.reset();
         }
@@ -98,10 +94,6 @@ public:
         dealloc(d);
     }
     
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
-    }
 };
 
 tactic * mk_der_tactic(ast_manager & m) {

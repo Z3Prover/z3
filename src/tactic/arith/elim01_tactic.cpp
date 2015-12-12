@@ -136,10 +136,7 @@ public:
 
     virtual ~elim01_tactic() {
     }
-        
-    void set_cancel(bool f) {
-    }
-        
+                
     virtual void updt_params(params_ref const & p) {
         m_max_hi = rational(p.get_uint("max_coefficient", m_max_hi_default));
         m_params = p;

@@ -377,9 +377,6 @@ class bv1_blaster_tactic : public tactic {
         
         ast_manager & m() const { return m_rw.m(); }
         
-        void set_cancel(bool f) {
-            m_rw.set_cancel(f);
-        }
         
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result, 
@@ -478,11 +475,6 @@ public:
         return m_imp->get_num_steps();
     }
     
-protected:
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
-    }
 };
 
 tactic * mk_bv1_blaster_tactic(ast_manager & m, params_ref const & p) {

@@ -57,21 +57,16 @@ struct ctx_simplify_tactic::imp {
     unsigned                    m_max_depth;
     unsigned                    m_max_steps;
     bool                        m_bail_on_blowup;
-    volatile bool               m_cancel;
 
     imp(ast_manager & _m, params_ref const & p):
         m(_m),
         m_allocator("context-simplifier"),
         m_occs(true, true),
         m_mk_app(m, p) {
-        m_cancel = false;
         m_scope_lvl = 0;
         updt_params(p);
     }
 
-    void set_cancel(bool f) {
-        m_cancel = f;
-    }
 
     ~imp() {
         pop(m_scope_lvl);
@@ -100,7 +95,7 @@ struct ctx_simplify_tactic::imp {
         cooperate("ctx_simplify_tactic");
         if (memory::get_allocation_size() > m_max_memory)
             throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
-        if (m_cancel)
+        if (m.canceled())
             throw tactic_exception(TACTIC_CANCELED_MSG);
     }
 
@@ -541,10 +536,6 @@ void ctx_simplify_tactic::operator()(goal_ref const & in,
     result.push_back(in.get());
 }
     
-void ctx_simplify_tactic::set_cancel(bool f) {
-    if (m_imp)
-        m_imp->set_cancel(f);
-}
 
 void ctx_simplify_tactic::cleanup() {
     ast_manager & m   = m_imp->m;
