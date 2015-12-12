@@ -40,15 +40,8 @@ public:
     }
     
     virtual ~binary_tactical() {
-        tactic * t1 = m_t1;
-        tactic * t2 = m_t2;
-        #pragma omp critical (tactic_cancel)
-        {
-            m_t1 = 0;
-            m_t2 = 0;
-        }
-        t1->dec_ref();
-        t2->dec_ref();
+        m_t1->dec_ref();
+        m_t2->dec_ref();
     }
     
     virtual void updt_params(params_ref const & p) {
@@ -291,17 +284,9 @@ public:
     }
 
     virtual ~nary_tactical() {
-        ptr_buffer<tactic> old_ts;
         unsigned sz = m_ts.size();
-        old_ts.append(sz, m_ts.c_ptr());
-        #pragma omp critical (tactic_cancel)
-        {
-            for (unsigned i = 0; i < sz; i++) {
-                m_ts[i] = 0;
-            }
-        }
         for (unsigned i = 0; i < sz; i++) {
-            old_ts[i]->dec_ref();
+            m_ts[i]->dec_ref();
         }
     }
 
@@ -906,12 +891,7 @@ public:
     }    
 
     virtual ~unary_tactical() { 
-        tactic * t = m_t;
-        #pragma omp critical (tactic_cancel)
-        {
-            m_t = 0;
-        }
-        t->dec_ref();
+        m_t->dec_ref();
     }
 
     virtual void operator()(goal_ref const & in, 

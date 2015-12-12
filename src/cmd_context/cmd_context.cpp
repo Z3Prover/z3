@@ -1610,6 +1610,7 @@ void cmd_context::validate_model() {
     model_evaluator evaluator(*(md.get()), p);
     contains_array_op_proc contains_array(m());
     {
+        scoped_rlimit _rlimit(m().limit(), 0);
         cancel_eh<reslimit> eh(m().limit());
         expr_ref r(m());
         scoped_ctrl_c ctrlc(eh);

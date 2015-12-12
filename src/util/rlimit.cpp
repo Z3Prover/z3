@@ -45,6 +45,7 @@ void reslimit::push(unsigned delta_limit) {
     }
     m_limits.push_back(m_limit);
     m_limit = m_limit==0?new_limit:std::min(new_limit, m_limit);
+    m_cancel = false;
 }
 
 void reslimit::pop() {
@@ -53,4 +54,5 @@ void reslimit::pop() {
     }
     m_limit = m_limits.back();
     m_limits.pop_back();
+    m_cancel = false;
 }
