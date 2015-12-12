@@ -21,12 +21,10 @@ Notes:
 #define Z3NATIVE_STUBS_H_
 
 #if defined _WIN32 || defined __CYGWIN__
-  #ifdef BUILDING_DLL
-    #ifdef __GNUC__
-      #define DLL_PUBLIC __attribute__ ((dllexport))
-    #else
-      #define DLL_PUBLIC __declspec(dllexport)
-    #endif
+  #ifdef __GNUC__
+    #define DLL_PUBLIC __attribute__ ((dllexport))
+  #else
+    #define DLL_PUBLIC __declspec(dllexport)
   #endif
   #define DLL_LOCAL
 #else

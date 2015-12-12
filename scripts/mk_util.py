@@ -1765,7 +1765,7 @@ class MLComponent(Component):
             stubso = os.path.join(self.sub_dir, self.stubs) + '$(OBJ_EXT)'
             z3dllso = get_component(Z3_DLL_COMPONENT).dll_name + '$(SO_EXT)'
             out.write('%s: %s %s\n' % (stubso, stubsc, z3dllso))
-            out.write('\t%s -ccopt "$(CXXFLAGS_OCAML) -I %s -I %s -I %s -o %s" -c %s\n' %
+            out.write('\t%s -ccopt "$(CXXFLAGS_OCAML) -I %s -I %s -I %s $(CXX_OUT_FLAG)%s" -c %s\n' %
                       (OCAMLC, OCAML_LIB, api_src, src_dir, stubso, stubsc))            
 
             for m in self.modules:
