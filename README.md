@@ -9,20 +9,20 @@ Z3 can be built using Visual Studio Command Prompt and make/g++.
 32-bit builds, start with:
 
 ```bash
-   python scripts/mk_make.py
+python scripts/mk_make.py
 ```
 
 or instead, for a 64-bit build:
 
 ```bash
-   python scripts/mk_make.py -x
+python scripts/mk_make.py -x
 ```
 
 then:
 
 ```bash
-   cd build
-   nmake
+cd build
+nmake
 ```
 
 ## Building Z3 using make and GCC/Clang
@@ -30,17 +30,17 @@ then:
 Execute:
 
 ```bash
-   python scripts/mk_make.py
-   cd build
-   make
-   sudo make install
+python scripts/mk_make.py
+cd build
+make
+sudo make install
 ```
 
 Note by default ``gcc`` is used as the C++ compiler if it is available. If you
 would prefer to use Clang change the ``mk_make.py`` line to
 
 ```bash
-   CXX=clang++ CC=clang python scripts/mk_make.py
+CXX=clang++ CC=clang python scripts/mk_make.py
 ```
 
 Note that Clang < 3.7 does not support OpenMP.
@@ -52,10 +52,10 @@ installation prefix if inferred by the ``mk_make.py`` script. It is usually
 the ``--prefix=`` command line option to change the install prefix. For example:
 
 ```bash
-  python scripts/mk_make.py --prefix=/home/leo
-  cd build
-  make
-  make install
+python scripts/mk_make.py --prefix=/home/leo
+cd build
+make
+make install
 ```
 
 Note the above will typically disable the installation of the Python bindings
@@ -72,10 +72,10 @@ Therefore it must always contain a trailing slash.
 For example:
 
 ```bash
-  python scripts/mk_make.py
-  cd build
-  make
-  make install DESTDIR=/home/leo/
+python scripts/mk_make.py
+cd build
+make
+make install DESTDIR=/home/leo/
 ```
 
 In this example, the Z3 Python bindings will be stored at
@@ -86,7 +86,7 @@ distributions) where X.Y corresponds to the python version in your system.
 To uninstall Z3, use
 
 ```bash
-  sudo make uninstall
+sudo make uninstall
 ```
 
 To clean Z3 you can delete the build directory and run the ``mk_make.py`` script again.
@@ -103,7 +103,7 @@ platforms the location of the C# compiler and gac utility need to be known. You
 can set these as follows if they aren't detected automatically. For example:
 
 ```bash
-  CSC=/usr/bin/csc GACUTIL=/usr/bin/gacutil python scripts/mk_make.py
+CSC=/usr/bin/csc GACUTIL=/usr/bin/gacutil python scripts/mk_make.py
 ```
 
 To disable building these bindings pass ``--nodotnet`` to ``mk_make.py``.
