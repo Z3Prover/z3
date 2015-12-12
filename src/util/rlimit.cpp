@@ -84,7 +84,7 @@ void reslimit::pop_child() {
 void reslimit::cancel() {
     #pragma omp critical (reslimit_cancel)
     {
-        set_cancel(false);
+        set_cancel(true);
     }
 }
 
