@@ -85,7 +85,6 @@ public:
         simp2_p.set_bool("flat", true); // required by som
         simp2_p.set_bool("hoist_mul", false); // required by som
         simp2_p.set_bool("elim_and", true);
-
         m_preprocess = 
             and_then(mk_card2bv_tactic(m, m_params),
                      using_params(mk_simplify_tactic(m), simp2_p),
@@ -169,11 +168,6 @@ public:
         }
         return r;
     }
-    virtual void set_cancel(bool f) {
-        m_goal2sat.set_cancel(f);
-        m_solver.set_cancel(f);
-        if (f) m_preprocess->cancel(); else m_preprocess->reset_cancel();
-    }
     virtual void push() {
         internalize_formulas();
         m_solver.user_push();
@@ -215,6 +209,7 @@ public:
             assert_expr(t);
         }
     }
+    virtual ast_manager& get_manager() { return m; }
     virtual void assert_expr(expr * t) {
         TRACE("sat", tout << mk_pp(t, m) << "\n";);
         m_fmls.push_back(t);

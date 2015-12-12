@@ -29,6 +29,7 @@ Notes:
 #include"polynomial.h"
 #include"z3_exception.h"
 #include"mpbq.h"
+#include"rlimit.h"
 #define FACTOR_VERBOSE_LVL 1000
 
 namespace upolynomial {
@@ -101,6 +102,7 @@ namespace upolynomial {
         };
 
     protected:
+        reslimit&         m_limit;
         numeral_manager   m_manager;
         numeral_vector    m_basic_tmp;
         numeral_vector    m_div_tmp1;
@@ -114,7 +116,6 @@ namespace upolynomial {
         numeral_vector    m_sqf_tmp1;
         numeral_vector    m_sqf_tmp2;
         numeral_vector    m_pw_tmp;
-        volatile bool     m_cancel;
 
         static bool is_alias(numeral const * p, numeral_vector & buffer) { return buffer.c_ptr() != 0 && buffer.c_ptr() == p; }
         void neg_core(unsigned sz1, numeral const * p1, numeral_vector & buffer);
@@ -128,12 +129,12 @@ namespace upolynomial {
         void CRA_combine_images(numeral_vector const & q, numeral const & p, numeral_vector & C, numeral & bound);
 
     public:
-        core_manager(z_numeral_manager & m);
+        core_manager(reslimit& lim, z_numeral_manager & m);
         ~core_manager();
 
         z_numeral_manager & zm() const { return m_manager.m(); }
         numeral_manager & m() const { return const_cast<core_manager*>(this)->m_manager; }
-
+        reslimit& lim() const { return m_limit; }
         /**
            \brief Return true if Z_p[X]
         */
@@ -156,7 +157,6 @@ namespace upolynomial {
 
         void checkpoint();
 
-        void set_cancel(bool f);
 
         /**
            \brief set p size to 0. That is, p is the zero polynomial after this operation.
@@ -576,7 +576,7 @@ namespace upolynomial {
         bool factor_core(unsigned sz, numeral const * p, factors & r, factor_params const & params);
 
     public:
-        manager(z_numeral_manager & m):core_manager(m) {}
+        manager(reslimit& lim, z_numeral_manager & m):core_manager(lim, m) {}
         ~manager();
 
         void reset(numeral_vector & p) { core_manager::reset(p); }

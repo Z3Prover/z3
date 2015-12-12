@@ -61,7 +61,6 @@ struct goal2nlsat::imp {
     unsigned long long        m_max_memory;
     bool                      m_factor;
 
-    volatile bool             m_cancel;
 
     imp(ast_manager & _m, params_ref const & p, nlsat::solver & s, expr2var & a2b, expr2var & t2x):
         m(_m),
@@ -73,18 +72,12 @@ struct goal2nlsat::imp {
         m_t2x(t2x),
         m_expr2poly(m_solver, m, m_solver.pm(), &m_t2x) {
         updt_params(p);
-        m_cancel = false;
     }
 
     void updt_params(params_ref const & p) {
         m_max_memory   = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
         m_factor       = p.get_bool("factor", true);  
         m_fparams.updt_params(p);
-    }
-
-    void set_cancel(bool f) {
-        m_cancel = f;
-        m_pm.set_cancel(f);
     }
 
     nlsat::atom::kind flip(nlsat::atom::kind k) {
@@ -303,7 +296,3 @@ void goal2nlsat::operator()(goal const & g, params_ref const & p, nlsat::solver 
     local_imp(g);
 }
     
-void goal2nlsat::set_cancel(bool f) {
-    if (m_imp)
-        m_imp->set_cancel(f);
-}

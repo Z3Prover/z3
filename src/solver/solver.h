@@ -108,11 +108,11 @@ public:
     /**
        \brief Interrupt this solver.
     */
-    void cancel() { set_cancel(true); }
+    //void cancel() { set_cancel(true); }
     /**
        \brief Reset the interruption.
     */
-    void reset_cancel() { set_cancel(false); }
+    //void reset_cancel() { set_cancel(false); }
 
     /**
        \brief Set a progress callback procedure that is invoked by this solver during check_sat.
@@ -158,7 +158,7 @@ public:
     };
 
 protected:
-    virtual void set_cancel(bool f) = 0;
+    //virtual void set_cancel(bool f) = 0;
 };
 
 #endif

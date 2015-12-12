@@ -140,11 +140,6 @@ public:
         }
     }
 
-    virtual void set_cancel(bool f) {
-        if (m_rw)
-            m_rw->set_cancel(f);
-    }
-
     virtual void cleanup() {}
 };
 

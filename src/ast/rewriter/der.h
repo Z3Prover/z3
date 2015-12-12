@@ -174,9 +174,6 @@ public:
 
     void operator()(expr * t, expr_ref & result, proof_ref & result_pr);
 
-    void cancel() { set_cancel(true); }
-    void reset_cancel() { set_cancel(false); }
-    void set_cancel(bool f);
     void cleanup();
     void reset();
 };

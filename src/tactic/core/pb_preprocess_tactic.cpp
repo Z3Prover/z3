@@ -264,9 +264,6 @@ public:
         return m_progress;
     }
 
-    virtual void set_cancel(bool f) {
-    }
-
     virtual void updt_params(params_ref const & p) {
     }
 

@@ -79,7 +79,6 @@ namespace smt {
         smt_params &                m_fparams;
         params_ref                  m_params;
         setup                       m_setup;
-        volatile bool               m_cancel_flag;
         timer                       m_timer;
         asserted_formulas           m_asserted_formulas;
         scoped_ptr<quantifier_manager>   m_qmanager;
@@ -233,9 +232,8 @@ namespace smt {
             return m_params;
         }
 
-        virtual void set_cancel_flag(bool f = true);
 
-        bool get_cancel_flag() { return m_cancel_flag || !m_manager.limit().inc(); }
+        bool get_cancel_flag() { return !m_manager.limit().inc(); }
 
         region & get_region() {
             return m_region;

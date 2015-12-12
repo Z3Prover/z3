@@ -649,10 +649,6 @@ void bit_blaster_rewriter::updt_params(params_ref const& p) {
     m_imp->m_cfg.updt_params(p);
 }
 
-void bit_blaster_rewriter::set_cancel(bool f) {
-    m_imp->set_cancel(f);
-    m_imp->m_blaster.set_cancel(f);
-}
 
 void bit_blaster_rewriter::push() {
     m_imp->push();

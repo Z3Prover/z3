@@ -247,11 +247,7 @@ class fix_dl_var_tactic : public tactic {
         void updt_params(params_ref const & p) {
             m_rw.updt_params(p);
         }
-        
-        void set_cancel(bool f) {
-            m_rw.set_cancel(f);
-        }
-        
+                
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result, 
                         model_converter_ref & mc, 
@@ -344,11 +340,6 @@ public:
             std::swap(d, m_imp);
         }
         dealloc(d);
-    }
-
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
     }
 };
 

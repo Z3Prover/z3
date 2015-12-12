@@ -39,9 +39,6 @@ public:
     virtual void operator()(expr * t, expr_ref & result);
     virtual void operator()(expr_ref & t) { expr_ref s(t, m()); (*this)(s, t); }
 
-    void cancel() { set_cancel(true); }
-    void reset_cancel() { set_cancel(false); }
-    virtual void set_cancel(bool f) = 0;
     virtual unsigned get_num_steps() const { return 0; }
     virtual void reset() = 0;
     

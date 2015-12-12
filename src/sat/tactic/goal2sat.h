@@ -59,7 +59,6 @@ public:
     */
     void operator()(goal const & g, params_ref const & p, sat::solver & t, atom2bool_var & m, dep2asm_map& dep2asm, bool default_external = false);
 
-    void set_cancel(bool f);
 
 };
 
@@ -83,7 +82,6 @@ public:
     */
     void operator()(sat::solver const & t, atom2bool_var const & m, params_ref const & p, goal & s, model_converter_ref & mc);
     
-    void set_cancel(bool f);
 };
 
 #endif

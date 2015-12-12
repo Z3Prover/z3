@@ -77,7 +77,6 @@ public:
     
     void collect_statistics(statistics & st) const { m_solver.collect_statistics(st); }
     void reset_statistics() { m_solver.reset_statistics(); }
-    void set_cancel(bool f) { m_solver.set_cancel(f); }
 };
 
 #endif /* EXPR_CONTEXT_SIMPLIFIER_H_ */

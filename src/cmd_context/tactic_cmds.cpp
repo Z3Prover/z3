@@ -199,7 +199,7 @@ public:
         ctx.set_check_sat_result(result.get());
         {
             tactic & t = *tref;
-            cancel_eh<tactic>  eh(t);
+            cancel_eh<reslimit>  eh(m.limit());
             {
                 scoped_ctrl_c ctrlc(eh);
                 scoped_timer timer(timeout, &eh);
@@ -310,7 +310,7 @@ public:
 
             std::string reason_unknown;
             bool failed = false;
-            cancel_eh<tactic>  eh(t);
+            cancel_eh<reslimit>  eh(m.limit());
             {
                 scoped_ctrl_c ctrlc(eh);
                 scoped_timer timer(timeout, &eh);

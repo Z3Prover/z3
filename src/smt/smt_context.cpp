@@ -45,7 +45,6 @@ namespace smt {
         m_fparams(p),
         m_params(_p),
         m_setup(*this, p),
-        m_cancel_flag(false),
         m_asserted_formulas(m, p),
         m_qmanager(alloc(quantifier_manager, *this, p, _p)),
         m_model_generator(alloc(model_generator, m)),
@@ -3069,11 +3068,6 @@ namespace smt {
         if (m_manager.has_trace_stream())
             m_manager.trace_stream() << "[begin-check] " << m_scope_lvl << "\n";
 
-        if (reset_cancel) {
-            m_cancel_flag = false;
-            m_asserted_formulas.set_cancel_flag(false);
-        }
-
         if (memory::above_high_watermark()) {
             m_last_search_failure = MEMOUT;
             return false;
@@ -4152,11 +4146,6 @@ namespace smt {
 
     failure context::get_last_search_failure() const { 
         return m_last_search_failure; 
-    }
-
-    void context::set_cancel_flag(bool f) {
-        m_cancel_flag = f;
-        m_asserted_formulas.set_cancel_flag(f);
     }
 
 };

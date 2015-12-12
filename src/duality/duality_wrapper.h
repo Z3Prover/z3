@@ -936,8 +936,7 @@ namespace Duality {
 	void cancel(){
             scoped_proof_mode spm(m(),m_mode); 
             canceled = true;
-            if(m_solver)
-                m_solver->cancel();
+            m().limit().cancel();
 	}
 
 	unsigned get_scope_level(){ scoped_proof_mode spm(m(),m_mode); return m_solver->get_scope_level();}

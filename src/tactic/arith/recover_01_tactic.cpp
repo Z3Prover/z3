@@ -66,9 +66,6 @@ class recover_01_tactic : public tactic {
             updt_params_core(p);
         }
         
-        void set_cancel(bool f) {
-            m_rw.set_cancel(f);
-        }
 
         bool save_clause(expr * c) {
             if (!m.is_or(c))
@@ -431,12 +428,6 @@ public:
             std::swap(d, m_imp);
         }
         dealloc(d);
-    }
-
-protected:
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
     }
 };
 

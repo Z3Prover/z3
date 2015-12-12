@@ -27,18 +27,12 @@ class binary_tactical : public tactic {
 protected:
     tactic *      m_t1;
     tactic *      m_t2;
-    volatile bool m_cancel;
 
-    void checkpoint() {
-        if (m_cancel)
-            throw tactic_exception(TACTIC_CANCELED_MSG);
-    }
     
 public:
     binary_tactical(tactic * t1, tactic * t2):
         m_t1(t1),
-        m_t2(t2),
-        m_cancel(false) {
+        m_t2(t2) {
         SASSERT(m_t1);
         SASSERT(m_t2);
         m_t1->inc_ref();
@@ -99,11 +93,6 @@ public:
 
 protected:
 
-    virtual void set_cancel(bool f) {
-        m_cancel = f;
-        m_t1->set_cancel(f);
-        m_t2->set_cancel(f);
-    }
 
     template<typename T>
     tactic * translate_core(ast_manager & m) { 
@@ -147,7 +136,6 @@ public:
         SASSERT(!is_decided(r1) || (!pc1 && !core1)); // the pc and core of decided goals is 0
         unsigned r1_size = r1.size();                                                                       
         SASSERT(r1_size > 0);                                                                               
-        checkpoint();                                                                                       
         if (r1_size == 1) {                                                                                 
             if (r1[0]->is_decided()) {
                 result.push_back(r1[0]);                                                                    
@@ -168,7 +156,6 @@ public:
             sbuffer<unsigned>          sz_buffer;                                                           
             goal_ref_buffer            r2;                                                                  
             for (unsigned i = 0; i < r1_size; i++) {                                                        
-                checkpoint();                                                                               
                 goal_ref g = r1[i];                                                                         
                 r2.reset();                                                                                 
                 model_converter_ref mc2;                                                                   
@@ -293,15 +280,9 @@ tactic * and_then(unsigned num, tactic * const * ts) {
 class nary_tactical : public tactic {
 protected:
     ptr_vector<tactic> m_ts;
-    volatile bool      m_cancel;
 
-    void checkpoint() {
-        if (m_cancel)
-            throw tactic_exception(TACTIC_CANCELED_MSG);
-    }
 public:
-    nary_tactical(unsigned num, tactic * const * ts):
-        m_cancel(false) {
+    nary_tactical(unsigned num, tactic * const * ts) {
         for (unsigned i = 0; i < num; i++) {
             SASSERT(ts[i]);
             m_ts.push_back(ts[i]);
@@ -383,15 +364,6 @@ public:
 
 protected:
 
-    virtual void set_cancel(bool f) {
-        m_cancel = f;
-        ptr_vector<tactic>::iterator it  = m_ts.begin();
-        ptr_vector<tactic>::iterator end = m_ts.end();
-        for (; it != end; ++it)
-            if (*it)
-                (*it)->set_cancel(f);
-    }
-
     template<typename T>
     tactic * translate_core(ast_manager & m) { 
         ptr_buffer<tactic> new_ts;
@@ -422,7 +394,6 @@ public:
         unsigned sz = m_ts.size();
         unsigned i;
         for (i = 0; i < sz; i++) {
-            checkpoint();
             tactic * t = m_ts[i];
             result.reset();
             mc   = 0;
@@ -568,7 +539,6 @@ public:
                 if (first) {
                     for (unsigned j = 0; j < sz; j++) {
                         if (static_cast<unsigned>(i) != j) {
-                            ts.get(j)->cancel();
                             managers[j]->limit().cancel();
                         }
                     }
@@ -673,7 +643,6 @@ public:
         SASSERT(!is_decided(r1) || (!pc1 && !core1)); // the pc and core of decided goals is 0
         unsigned r1_size = r1.size();                                                                       
         SASSERT(r1_size > 0);                                                                               
-        checkpoint();                                                                                       
         if (r1_size == 1) {                                                                                 
             // Only one subgoal created... no need for parallelism
             if (r1[0]->is_decided()) {
@@ -771,7 +740,6 @@ public:
                 if (curr_failed) {
                     for (unsigned j = 0; j < r1_size; j++) {
                         if (static_cast<unsigned>(i) != j) {
-                            ts2.get(j)->cancel();
                             managers[j]->limit().cancel();
                         }
                     }
@@ -793,7 +761,6 @@ public:
                             if (first) {
                                 for (unsigned j = 0; j < r1_size; j++) {
                                     if (static_cast<unsigned>(i) != j) {
-                                        ts2.get(j)->cancel();
                                         managers[j]->limit().cancel();
                                     }
                                 }
@@ -929,18 +896,11 @@ tactic * par_and_then(unsigned num, tactic * const * ts) {
 class unary_tactical : public tactic {
 protected:
     tactic * m_t;
-    volatile bool m_cancel;
 
-    void checkpoint() {
-        if (m_cancel)
-            throw tactic_exception(TACTIC_CANCELED_MSG);
-
-    }
 
 public:
     unary_tactical(tactic * t): 
-        m_t(t),
-        m_cancel(false) { 
+        m_t(t) {
         SASSERT(t); 
         t->inc_ref(); 
     }    
@@ -971,11 +931,6 @@ public:
     virtual void set_logic(symbol const& l) { m_t->set_logic(l); }    
     virtual void set_progress_callback(progress_callback * callback) { m_t->set_progress_callback(callback); }
 protected:
-    virtual void set_cancel(bool f) { 
-        m_cancel = f;
-        if (m_t) 
-            m_t->set_cancel(f);
-    }
 
     template<typename T>
     tactic * translate_core(ast_manager & m) { 
@@ -1029,7 +984,6 @@ class repeat_tactical : public unary_tactical {
         }
         unsigned r1_size = r1.size();                                                                       
         SASSERT(r1_size > 0);                                                                               
-        checkpoint();                                                                                       
         if (r1_size == 1) {                                                                                 
             if (r1[0]->is_decided()) {
                 result.push_back(r1[0]);                                                                    
@@ -1050,7 +1004,6 @@ class repeat_tactical : public unary_tactical {
             sbuffer<unsigned>          sz_buffer;                                                           
             goal_ref_buffer            r2;                                                                  
             for (unsigned i = 0; i < r1_size; i++) {                                                        
-                checkpoint();                                                                               
                 goal_ref g = r1[i];                                                                         
                 r2.reset();                                                                                 
                 model_converter_ref mc2;                                                                   
@@ -1199,7 +1152,7 @@ public:
                             model_converter_ref & mc, 
                             proof_converter_ref & pc, 
                             expr_dependency_ref & core) {
-        cancel_eh<tactic> eh(*m_t);
+        cancel_eh<reslimit> eh(in->m().limit());
         { 
             // Warning: scoped_timer is not thread safe in Linux.
             scoped_timer timer(m_timeout, &eh);

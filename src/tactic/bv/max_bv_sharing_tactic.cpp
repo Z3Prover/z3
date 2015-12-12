@@ -235,11 +235,7 @@ class max_bv_sharing_tactic : public tactic {
         }
         
         ast_manager & m() const { return m_rw.m(); }
-        
-        void set_cancel(bool f) {
-            m_rw.set_cancel(f);
-        }
-        
+                
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result, 
                         model_converter_ref & mc, 
@@ -317,11 +313,6 @@ public:
             std::swap(d, m_imp);
         }
         dealloc(d);
-    }
-
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
     }
 };
 

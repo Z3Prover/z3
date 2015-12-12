@@ -13,24 +13,15 @@ struct arith_bounds_tactic : public tactic {
 
     ast_manager& m;
     arith_util   a;
-    volatile bool m_cancel;
 
     arith_bounds_tactic(ast_manager& m):
         m(m),
-        a(m),
-        m_cancel(false)
+        a(m)
     {
     }        
 
     ast_manager& get_manager() { return m; }
 
-    void set_cancel(bool f) {
-        m_cancel = f;
-    }
-
-    virtual void cleanup() {
-        m_cancel = false;
-    }
 
     virtual void operator()(/* in */  goal_ref const & in, 
                             /* out */ goal_ref_buffer & result, 
@@ -45,7 +36,7 @@ struct arith_bounds_tactic : public tactic {
     }
     
     void checkpoint() {
-        if (m_cancel) {
+        if (m.canceled()) {
             throw tactic_exception(TACTIC_CANCELED_MSG);
         }
     }
@@ -155,6 +146,7 @@ struct arith_bounds_tactic : public tactic {
         TRACE("arith_subsumption", s->display(tout); );
     }
 
+    virtual void cleanup() {}
 
 };
 

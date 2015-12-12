@@ -57,8 +57,6 @@ namespace rpolynomial {
         numeral_manager & m() const;
         small_object_allocator & allocator() const;
 
-        void set_cancel(bool f);
-
         /**
            \brief Create a new variable.
         */

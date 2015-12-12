@@ -26,18 +26,13 @@ class ufbv_rewriter_tactic : public tactic {
 
     struct imp {
         ast_manager & m_manager;
-        bool m_cancel;
 
-        imp(ast_manager & m, params_ref const & p) : m_manager(m),m_cancel(false) {
+        imp(ast_manager & m, params_ref const & p) : m_manager(m) {
             updt_params(p);
         }
         
         ast_manager & m() const { return m_manager; }
-        
-        void set_cancel(bool f) {
-            m_cancel = f;
-        }
-        
+                
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result, 
                         model_converter_ref & mc, 
@@ -127,10 +122,6 @@ public:
         dealloc(d);
     }
 
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
-    }
 };
 
 tactic * mk_ufbv_rewriter_tactic(ast_manager & m, params_ref const & p) {

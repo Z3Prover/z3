@@ -35,10 +35,7 @@ public:
 
     void operator()(expr * t, expr_ref & r);
     
-    void cancel() { set_cancel(true); }
-    void reset_cancel() { set_cancel(false); }
     void cleanup();
-    void set_cancel(bool f);
 
 };
 

@@ -212,7 +212,6 @@ protected:
     };
     Config &                   m_cfg;
     unsigned                   m_num_steps;
-    volatile bool              m_cancel;
     ptr_vector<expr>           m_bindings;
     var_shifter                m_shifter;
     expr_ref                   m_r;
@@ -332,10 +331,6 @@ public:
     ast_manager & m() const { return this->m_manager; }
     Config & cfg() { return m_cfg; }
     Config const & cfg() const { return m_cfg; }
-
-    void set_cancel(bool f) { m_cancel = f; }
-    void cancel() { set_cancel(true); }
-    void reset_cancel() { set_cancel(false); }
 
     ~rewriter_tpl();
     

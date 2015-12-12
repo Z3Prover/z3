@@ -40,8 +40,6 @@ public:
     
     virtual void operator()(model_ref & md, unsigned goal_idx);
 
-    virtual void cancel();
-
     virtual void display(std::ostream & out);
 
     // register a variable that was eliminated

@@ -57,11 +57,6 @@ class nlsat_tactic : public tactic {
             m_params = p;
             m_solver.updt_params(p);
         }
-
-        void set_cancel(bool f) {
-            m_solver.set_cancel(f);
-            m_g2nl.set_cancel(f);
-        }
         
         bool contains_unsupported(expr_ref_vector & b2a, expr_ref_vector & x2t) {
             for (unsigned x = 0; x < x2t.size(); x++) {
@@ -240,11 +235,6 @@ public:
     
     virtual void cleanup() {}
     
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
-    }
-
     virtual void collect_statistics(statistics & st) const {
         st.copy(m_stats);
     }

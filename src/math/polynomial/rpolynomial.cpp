@@ -58,7 +58,6 @@ namespace rpolynomial {
         numeral_manager &                m_manager;
         small_object_allocator *         m_allocator;
         bool                             m_own_allocator;
-        volatile bool                    m_cancel;
         
         imp(manager & w, numeral_manager & m, small_object_allocator * a):
             m_wrapper(w),
@@ -67,7 +66,6 @@ namespace rpolynomial {
             m_own_allocator(a == 0) {
             if (a == 0)
                 m_allocator = alloc(small_object_allocator, "rpolynomial");
-            m_cancel = false;
         }
 
         ~imp() {

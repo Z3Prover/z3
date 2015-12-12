@@ -21,6 +21,7 @@ Revision History:
 
 #include"mpq.h"
 #include"ext_numeral.h"
+#include"rlimit.h"
 
 /**
    \brief Default configuration for interval manager.
@@ -110,6 +111,7 @@ public:
     typedef typename numeral_manager::numeral numeral;
     typedef typename C::interval              interval;
 private:
+    reslimit&  m_limit;
     C          m_c;
     numeral    m_result_lower;
     numeral    m_result_upper;
@@ -127,7 +129,6 @@ private:
     interval   m_3_pi_div_2;
     interval   m_2_pi;
 
-    volatile bool m_cancel;     
     
     void round_to_minus_inf() { m_c.round_to_minus_inf(); }
     void round_to_plus_inf() { m_c.round_to_plus_inf(); }
@@ -161,10 +162,8 @@ private:
     void checkpoint();
 
 public:    
-    interval_manager(C const & c);
+    interval_manager(reslimit& lim, C const & c);
     ~interval_manager();
-
-    void set_cancel(bool f) { m_cancel = f; }
 
     numeral_manager & m() const { return m_c.m(); }    
 

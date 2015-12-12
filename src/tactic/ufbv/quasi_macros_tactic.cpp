@@ -31,17 +31,13 @@ class quasi_macros_tactic : public tactic {
 
     struct imp {
         ast_manager & m_manager;
-        bool m_cancel;
 
-        imp(ast_manager & m, params_ref const & p) : m_manager(m),m_cancel(false) {
+        imp(ast_manager & m, params_ref const & p) : m_manager(m) {
             updt_params(p);
         }
         
         ast_manager & m() const { return m_manager; }
         
-        void set_cancel(bool f) {
-            m_cancel = f;
-        }
         
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result, 
@@ -80,7 +76,7 @@ class quasi_macros_tactic : public tactic {
             }
         
             while (more) { // CMW: use repeat(...) ?
-                if (m_cancel) 
+                if (m().canceled())
                   throw tactic_exception(TACTIC_CANCELED_MSG);
 
                 new_forms.reset();
@@ -159,10 +155,6 @@ public:
         dealloc(d);
     }
 
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
-    }
 };
 
 tactic * mk_quasi_macros_tactic(ast_manager & m, params_ref const & p) {

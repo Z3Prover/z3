@@ -431,7 +431,6 @@ context_t<C>::context_t(C const & c, params_ref const & p, small_object_allocato
     m_node_selector = alloc(breadth_first_node_selector<C>, this);
     m_var_selector  = alloc(round_robing_var_selector<C>, this);
     m_node_splitter = alloc(midpoint_node_splitter<C>, this);
-    m_cancel        = false;
     m_num_nodes     = 0;
     updt_params(p);
     reset_statistics();
@@ -459,7 +458,7 @@ context_t<C>::~context_t() {
 
 template<typename C>
 void context_t<C>::checkpoint() {
-    if (m_cancel)
+    if (m_limit.canceled())
         throw default_exception("canceled");
     if (memory::get_allocation_size() > m_max_memory)
         throw default_exception(Z3_MAX_MEMORY_MSG);

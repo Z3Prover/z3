@@ -63,9 +63,6 @@ class horn_tactic : public tactic {
             m_ctx.collect_statistics(st);
         }
 
-        void set_cancel(bool f) {
-        }
-
         void normalize(expr_ref& f) {
             bool is_positive = true;
             expr* e = 0;
@@ -420,11 +417,7 @@ public:
         }
     }
     
-protected:
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
-    }
+
 };
 
 tactic * mk_horn_tactic(ast_manager & m, params_ref const & p) {

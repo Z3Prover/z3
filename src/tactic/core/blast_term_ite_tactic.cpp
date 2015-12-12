@@ -109,9 +109,6 @@ class blast_term_ite_tactic : public tactic {
             m_rw(m, p) {
         }
         
-        void set_cancel(bool f) {
-            m_rw.set_cancel(f);
-        }
         
         void updt_params(params_ref const & p) {
             m_rw.cfg().updt_params(p);
@@ -196,11 +193,6 @@ public:
         {
             m_imp = d;
         }
-    }
-
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
     }
 
     static void blast_term_ite(expr_ref& fml) {

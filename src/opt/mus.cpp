@@ -33,25 +33,20 @@ struct mus::imp {
     ast_manager&             m;
     expr_ref_vector          m_cls2expr;
     obj_map<expr, unsigned>  m_expr2cls;
-    volatile bool            m_cancel;
     model_ref                m_model;
     expr_ref_vector          m_soft;
     vector<rational>         m_weights;
     rational                 m_weight;
 
     imp(solver& s, ast_manager& m): 
-        m_s(s), m(m), m_cls2expr(m),  m_cancel(false), m_soft(m)
+        m_s(s), m(m), m_cls2expr(m),  m_soft(m)
     {}
 
     void reset() {
         m_cls2expr.reset();
         m_expr2cls.reset();
     }
-        
-    void set_cancel(bool f) {
-        m_cancel = f;
-    }
-    
+            
     
     unsigned add_soft(expr* cls) {
         SASSERT(is_uninterp_const(cls) || 
@@ -216,9 +211,6 @@ lbool mus::get_mus(unsigned_vector& mus) {
     return m_imp->get_mus(mus);
 }
 
-void mus::set_cancel(bool f) {
-    m_imp->set_cancel(f);
-}
 
 void mus::reset() {
     m_imp->reset();

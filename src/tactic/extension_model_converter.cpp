@@ -91,14 +91,6 @@ void extension_model_converter::operator()(model_ref & md, unsigned goal_idx) {
     TRACE("extension_mc", model_v2_pp(tout, *md); display_decls_info(tout, md););
 }
 
-void extension_model_converter::cancel() {
-    #pragma omp critical (extension_model_converter) 
-    {
-        if (m_eval)
-            m_eval->cancel();
-    }
-}
-
 void extension_model_converter::display(std::ostream & out) {
     ast_manager & m = m_vars.get_manager();
     out << "(extension-model-converter";

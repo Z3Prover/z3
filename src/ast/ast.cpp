@@ -1433,12 +1433,6 @@ ast_manager::~ast_manager() {
     }
 }
 
-void ast_manager::set_cancel(bool f) {
-    for (unsigned i = 0; i < m_plugins.size(); i++) {
-        m_plugins[i]->set_cancel(f);
-    }
-}
-
 void ast_manager::compact_memory() {
     m_alloc.consolidate();
     unsigned capacity = m_ast_table.capacity();

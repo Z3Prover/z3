@@ -119,7 +119,6 @@ struct aig_manager::imp {
     aig_lit                  m_false;
     bool                     m_default_gate_encoding;
     unsigned long long       m_max_memory;
-    volatile bool            m_cancel;
 
     void dec_ref_core(aig * n) {
         SASSERT(n->m_ref_count > 0);
@@ -131,7 +130,7 @@ struct aig_manager::imp {
     void checkpoint() {
         if (memory::get_allocation_size() > m_max_memory)
             throw aig_exception(TACTIC_MAX_MEMORY_MSG);
-        if (m_cancel)
+        if (m().canceled())
             throw aig_exception(TACTIC_CANCELED_MSG);
         cooperate("aig");
     }
@@ -1309,8 +1308,7 @@ public:
         m_num_aigs(0),
         m_var2exprs(m),
         m_allocator("aig"),
-        m_true(mk_var(m.mk_true())),
-        m_cancel(false) {
+        m_true(mk_var(m.mk_true())) {
         SASSERT(is_true(m_true));
         m_false = m_true;
         m_false.invert();
@@ -1328,7 +1326,6 @@ public:
 
     ast_manager & m() const { return m_var2exprs.get_manager(); }
 
-    void set_cancel(bool f) { m_cancel = f; }
 
     void inc_ref(aig * n) { n->m_ref_count++; }
     void inc_ref(aig_lit const & r) { inc_ref(r.ptr()); }
@@ -1754,8 +1751,5 @@ unsigned aig_manager::get_num_aigs() const {
     return m_imp->get_num_aigs();
 }
 
-void aig_manager::set_cancel(bool f) {
-    m_imp->set_cancel(f);
-}
 
 

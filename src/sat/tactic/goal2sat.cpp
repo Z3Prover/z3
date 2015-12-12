@@ -58,7 +58,6 @@ struct goal2sat::imp {
     sat::bool_var               m_true;
     bool                        m_ite_extra;
     unsigned long long          m_max_memory;
-    volatile bool               m_cancel;
     expr_ref_vector             m_trail;
     bool                        m_default_external;
     
@@ -70,7 +69,6 @@ struct goal2sat::imp {
         m_trail(m),
         m_default_external(default_external) {
         updt_params(p);
-        m_cancel = false;
         m_true = sat::null_bool_var;
     }
         
@@ -334,7 +332,7 @@ struct goal2sat::imp {
         while (!m_frame_stack.empty()) {
         loop:
             cooperate("goal2sat");
-            if (m_cancel)
+            if (m.canceled())
                 throw tactic_exception(TACTIC_CANCELED_MSG);
             if (memory::get_allocation_size() > m_max_memory)
                 throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
@@ -442,7 +440,6 @@ struct goal2sat::imp {
             process(fs[i]);
     }
 
-    void set_cancel(bool f) { m_cancel = f; }
 };
 
 struct unsupported_bool_proc {
@@ -505,14 +502,6 @@ void goal2sat::operator()(goal const & g, params_ref const & p, sat::solver & t,
     imp proc(g.m(), p, t, m, dep2asm, default_external);
     scoped_set_imp set(this, &proc);
     proc(g);
-}
-
-void goal2sat::set_cancel(bool f) {
-    #pragma omp critical (goal2sat)
-    {
-        if (m_imp)
-            m_imp->set_cancel(f);
-    }
 }
 
 
@@ -631,9 +620,8 @@ struct sat2goal::imp {
     expr_ref_vector         m_lit2expr;
     unsigned long long      m_max_memory;
     bool                    m_learned;
-    volatile bool           m_cancel;
     
-    imp(ast_manager & _m, params_ref const & p):m(_m), m_lit2expr(m), m_cancel(false) {
+    imp(ast_manager & _m, params_ref const & p):m(_m), m_lit2expr(m) {
         updt_params(p);
     }
 
@@ -643,7 +631,7 @@ struct sat2goal::imp {
     }
 
     void checkpoint() {
-        if (m_cancel)
+        if (m.canceled())
             throw tactic_exception(TACTIC_CANCELED_MSG);
         if (memory::get_allocation_size() > m_max_memory)
             throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
@@ -731,7 +719,6 @@ struct sat2goal::imp {
             assert_clauses(s.begin_learned(), s.end_learned(), r);
     }
 
-    void set_cancel(bool f) { m_cancel = f; }
 };
 
 sat2goal::sat2goal():m_imp(0) {
@@ -765,10 +752,3 @@ void sat2goal::operator()(sat::solver const & t, atom2bool_var const & m, params
     proc(t, m, g, mc);
 }
 
-void sat2goal::set_cancel(bool f) {
-    #pragma omp critical (sat2goal)
-    {
-        if (m_imp)
-            m_imp->set_cancel(f);
-    }
-}

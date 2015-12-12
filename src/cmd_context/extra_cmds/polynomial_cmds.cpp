@@ -33,7 +33,7 @@ Notes:
 
 static void to_poly(cmd_context & ctx, expr * t) {
     polynomial::numeral_manager nm;
-    polynomial::manager pm(nm);
+    polynomial::manager pm(ctx.m().limit(), nm);
     default_expr2polynomial expr2poly(ctx.m(), pm);
     polynomial::polynomial_ref p(pm);
     polynomial::scoped_numeral d(nm);
@@ -52,7 +52,7 @@ static void to_poly(cmd_context & ctx, expr * t) {
 
 static void factor(cmd_context & ctx, expr * t, polynomial::factor_params const & ps) {
     polynomial::numeral_manager nm;
-    polynomial::manager pm(nm);
+    polynomial::manager pm(ctx.m().limit(), nm);
     default_expr2polynomial expr2poly(ctx.m(), pm);
     polynomial::polynomial_ref p(pm);
     polynomial::scoped_numeral d(nm);
@@ -95,7 +95,7 @@ class poly_isolate_roots_cmd : public cmd {
         
         context(ast_manager & m):
             m_util(m),
-            m_pm(m_qm),
+            m_pm(m.limit(), m_qm),
             m_am(m_lim, m_qm),
             m_p(m_pm),
             m_expr2poly(m, m_pm),

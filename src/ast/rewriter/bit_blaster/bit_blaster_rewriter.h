@@ -30,7 +30,6 @@ public:
     bit_blaster_rewriter(ast_manager & m, params_ref const & p);
     ~bit_blaster_rewriter();
     void updt_params(params_ref const & p);
-    void set_cancel(bool f);
     ast_manager & m() const;
     unsigned get_num_steps() const;
     void cleanup();

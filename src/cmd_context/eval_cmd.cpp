@@ -64,7 +64,7 @@ public:
         expr_ref r(ctx.m());
         unsigned timeout = m_params.get_uint("timeout", UINT_MAX);
         model_evaluator ev(*(md.get()), m_params);
-        cancel_eh<model_evaluator> eh(ev);
+        cancel_eh<reslimit> eh(ctx.m().limit());
         { 
             scoped_ctrl_c ctrlc(eh);
             scoped_timer timer(timeout, &eh);

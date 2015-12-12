@@ -134,9 +134,9 @@ namespace upolynomial {
         std::swap(m_total_degree, other.m_total_degree);
     }
 
-    core_manager::core_manager(unsynch_mpz_manager & m):
+    core_manager::core_manager(reslimit& lim, unsynch_mpz_manager & m):
+        m_limit(lim),
         m_manager(m) {
-        m_cancel = false;
     }
 
     core_manager::~core_manager() {
@@ -153,12 +153,8 @@ namespace upolynomial {
         reset(m_pw_tmp);
     }
 
-    void core_manager::set_cancel(bool f) {
-        m_cancel = f;
-    }
-
     void core_manager::checkpoint() {
-        if (m_cancel)
+        if (!m_limit.inc()) 
             throw upolynomial_exception("canceled");
         cooperate("upolynomial");
     }

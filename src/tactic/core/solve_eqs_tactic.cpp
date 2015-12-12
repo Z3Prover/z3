@@ -48,7 +48,6 @@ class solve_eqs_tactic : public tactic {
         bool                          m_produce_proofs;
         bool                          m_produce_unsat_cores;
         bool                          m_produce_models;
-        volatile bool                 m_cancel;
         
         imp(ast_manager & m, params_ref const & p, expr_replacer * r, bool owner):
             m_manager(m),
@@ -56,8 +55,8 @@ class solve_eqs_tactic : public tactic {
             m_r_owner(r == 0 || owner),
             m_a_util(m),
             m_num_steps(0),
-            m_num_eliminated_vars(0),
-            m_cancel(false) {
+            m_num_eliminated_vars(0)
+             {
             updt_params(p);
             if (m_r == 0)
                 m_r       = mk_default_expr_replacer(m);
@@ -75,14 +74,9 @@ class solve_eqs_tactic : public tactic {
             m_theory_solver  = p.get_bool("theory_solver", true);
             m_max_occs       = p.get_uint("solve_eqs_max_occs", UINT_MAX);
         }
-        
-        void set_cancel(bool f) {
-            m_cancel = f;
-            m_r->set_cancel(f);
-        }
-        
+                
         void checkpoint() {
-            if (m_cancel)
+            if (m().canceled())
                 throw tactic_exception(TACTIC_CANCELED_MSG);
             cooperate("solve-eqs");
         }
@@ -772,10 +766,6 @@ public:
         m_imp->m_num_eliminated_vars = 0;
     }
     
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
-    }
 };
 
 tactic * mk_solve_eqs_tactic(ast_manager & m, params_ref const & p, expr_replacer * r) {
