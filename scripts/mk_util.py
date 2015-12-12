@@ -1816,6 +1816,7 @@ class MLComponent(Component):
     def mk_install(self, out):
         if is_ml_enabled() and OCAMLFIND != '':
             out.write('\t@%s install Z3 %s' % (OCAMLFIND, (os.path.join(self.sub_dir, 'META'))))
+
             for m in self.modules:
                 out.write(' ' + os.path.join(self.to_src_dir, m) + '.mli')
                 out.write(' ' + os.path.join(self.sub_dir, m) + '.cmi')
@@ -3661,3 +3662,4 @@ def configure_file(template_file_path, output_file_path, substitutions):
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
+
