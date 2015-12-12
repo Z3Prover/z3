@@ -6,6 +6,8 @@ under the [MIT license](LICENSE.txt).
 Z3 can be built using [Visual Studio][1] or a [Makefile][2]. It provides
 [bindings for several programming languages][3].
 
+See the [release notes](RELEASE_NOTES) for notes on various stable releases of Z3.
+
 [1]: #building-z3-on-windows-using-visual-studio-command-prompt
 [2]: #building-z3-using-make-and-gccclang
 [3]: #z3-bindings
