@@ -49,8 +49,30 @@ the ``--prefix=`` command line option to change the install prefix. For example:
   make install
 ```
 
-In this example, the Z3 Python bindings will be stored at ``/home/leo/lib/pythonX.Y/dist-packages``,
-where X.Y corresponds to the python version in your system.
+Note the above will typically disable the installation of the Python bindings
+because the Python ``site-packages``  directory (e.g.
+``/usr/lib/python3.5/site-packages/``) is not rooted in the install prefix and
+installing outside of the install prefix is dangerous and misleading.
+
+To avoid this issue you can use the ``DESTDIR`` makefile variable and leave the
+install prefix as the default. The ``DESTDIR`` variable is prepended to the
+install locations during ``make install`` and ``make uninstall`` and is intended
+to allow ["staged installs"](https://www.gnu.org/prep/standards/html_node/DESTDIR.html).
+Therefore it must always contain a trailing slash.
+
+For example:
+
+```bash
+  python scripts/mk_make.py
+  cd build
+  make
+  make install DESTDIR=/home/leo/
+```
+
+In this example, the Z3 Python bindings will be stored at
+``/home/leo/lib/pythonX.Y/site-packages``
+(``/home/leo/lib/pythonX.Y/dist-packages`` on Debian based Linux
+distributions) where X.Y corresponds to the python version in your system.
 
 To uninstall Z3, use
 
