@@ -145,17 +145,11 @@ class sat_tactic : public tactic {
         sat_tactic * m_owner; 
 
         scoped_set_imp(sat_tactic * o, imp * i):m_owner(o) {
-            #pragma omp critical (sat_tactic)
-            {
-                m_owner->m_imp = i;
-            }
+            m_owner->m_imp = i;            
         }
         
         ~scoped_set_imp() {
-            #pragma omp critical (sat_tactic)
-            {
-                m_owner->m_imp = 0;
-            }
+            m_owner->m_imp = 0;        
         }
     };
 

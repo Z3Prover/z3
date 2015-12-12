@@ -56,3 +56,16 @@ void reslimit::pop() {
     m_limits.pop_back();
     m_cancel = false;
 }
+
+void reslimit::cancel() { 
+    m_cancel = true; 
+    for (unsigned i = 0; i < m_children.size(); ++i) {
+        m_children[i]->cancel();
+    }
+}
+void reslimit::reset_cancel() { 
+    m_cancel = false; 
+    for (unsigned i = 0; i < m_children.size(); ++i) {
+        m_children[i]->reset_cancel();
+    }
+}

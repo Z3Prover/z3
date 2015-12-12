@@ -697,10 +697,7 @@ void cofactor_elim_term_ite::operator()(expr * t, expr_ref & r) {
 void cofactor_elim_term_ite::cleanup() {
     ast_manager & m = m_imp->m;    
     imp * d = alloc(imp, m, m_params);
-    #pragma omp critical (tactic_cancel)
-    {
-        std::swap(d, m_imp);
-    }
+    std::swap(d, m_imp);    
     dealloc(d);
 }
 

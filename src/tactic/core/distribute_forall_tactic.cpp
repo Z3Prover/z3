@@ -108,10 +108,7 @@ public:
         ast_manager & m = g->m();
         bool produce_proofs = g->proofs_enabled();
         rw r(m, produce_proofs);
-        #pragma omp critical (tactic_cancel)
-        {
-            m_rw = &r;
-        }
+        m_rw = &r;        
         mc = 0; pc = 0; core = 0; result.reset();
         tactic_report report("distribute-forall", *g);
         
@@ -134,10 +131,7 @@ public:
         result.push_back(g.get());
         TRACE("distribute-forall", g->display(tout););
         SASSERT(g->is_well_sorted());
-        #pragma omp critical (tactic_cancel)
-        {
-            m_rw = 0;
-        }
+        m_rw = 0;        
     }
 
     virtual void cleanup() {}

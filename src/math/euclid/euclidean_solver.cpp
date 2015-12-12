@@ -796,12 +796,9 @@ void euclidean_solver::reset() {
     numeral_manager * m = m_imp->m_manager;
     bool owns_m         = m_imp->m_owns_m;
     m_imp->m_owns_m     = false;
-    #pragma omp critical (euclidean_solver)
-    {
-        dealloc(m_imp);
-        m_imp = alloc(imp, m);
-        m_imp->m_owns_m = owns_m;
-    }
+    dealloc(m_imp);
+    m_imp = alloc(imp, m);
+    m_imp->m_owns_m = owns_m;    
 }
 
 euclidean_solver::var euclidean_solver::mk_var() {

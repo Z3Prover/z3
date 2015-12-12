@@ -734,11 +734,8 @@ unsigned th_rewriter::get_num_steps() const {
 
 void th_rewriter::cleanup() {
     ast_manager & m = m_imp->m();
-    #pragma omp critical (th_rewriter)
-    {
-        dealloc(m_imp);
-        m_imp = alloc(imp, m, m_params);
-    }
+    dealloc(m_imp);
+    m_imp = alloc(imp, m, m_params);    
 }
 
 void th_rewriter::reset() {

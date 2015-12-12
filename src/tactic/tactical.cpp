@@ -461,9 +461,20 @@ enum par_exception_kind {
 };
 
 class par_tactical : public or_else_tactical {
+
+    struct scoped_limits {
+        reslimit&  m_limit;
+        unsigned   m_sz;
+        scoped_limits(reslimit& lim): m_limit(lim), m_sz(0) {}
+        ~scoped_limits() { for (unsigned i = 0; i < m_sz; ++i) m_limit.pop_child(); }
+        void push_child(reslimit* lim) { m_limit.push_child(lim); ++m_sz; }
+    };
+
 public:
     par_tactical(unsigned num, tactic * const * ts):or_else_tactical(num, ts) {}
     virtual ~par_tactical() {}
+
+    
 
     virtual void operator()(goal_ref const & in, 
                             goal_ref_buffer & result, 
@@ -485,6 +496,7 @@ public:
         ast_manager & m = in->m();
         
         scoped_ptr_vector<ast_manager> managers;
+        scoped_limits scl(m.limit());
         goal_ref_vector                in_copies;
         tactic_ref_vector              ts;
         unsigned sz = m_ts.size();
@@ -494,6 +506,7 @@ public:
             ast_translation translator(m, *new_m);
             in_copies.push_back(in->translate(translator));
             ts.push_back(m_ts.get(i)->translate(*new_m));
+            scl.push_child(&new_m->limit());
         }
 
         unsigned finished_id       = UINT_MAX;

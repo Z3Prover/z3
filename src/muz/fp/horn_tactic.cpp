@@ -403,18 +403,10 @@ public:
     
     virtual void cleanup() {
         ast_manager & m = m_imp->m;
-        imp * d = m_imp;
-        d->collect_statistics(m_stats);
-        #pragma omp critical (tactic_cancel)
-        {
-            m_imp = 0;
-        }
-        dealloc(d);
-        d = alloc(imp, m_is_simplify, m, m_params);
-        #pragma omp critical (tactic_cancel)
-        {
-            m_imp = d;
-        }
+        m_imp->collect_statistics(m_stats);
+        dealloc(m_imp);
+        m_imp = alloc(imp, m_is_simplify, m, m_params);
+        
     }
     
 

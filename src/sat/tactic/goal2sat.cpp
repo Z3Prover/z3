@@ -485,16 +485,10 @@ void goal2sat::collect_param_descrs(param_descrs & r) {
 struct goal2sat::scoped_set_imp {
     goal2sat * m_owner; 
     scoped_set_imp(goal2sat * o, goal2sat::imp * i):m_owner(o) {
-        #pragma omp critical (goal2sat)
-        {
-            m_owner->m_imp = i;
-        }
+        m_owner->m_imp = i;        
     }
     ~scoped_set_imp() {
-        #pragma omp critical (goal2sat)
-        {
-            m_owner->m_imp = 0;
-        }
+        m_owner->m_imp = 0;        
     }
 };
 
@@ -732,16 +726,10 @@ void sat2goal::collect_param_descrs(param_descrs & r) {
 struct sat2goal::scoped_set_imp {
     sat2goal * m_owner; 
     scoped_set_imp(sat2goal * o, sat2goal::imp * i):m_owner(o) {
-        #pragma omp critical (sat2goal)
-        {
-            m_owner->m_imp = i;
-        }
+        m_owner->m_imp = i;        
     }
     ~scoped_set_imp() {
-        #pragma omp critical (sat2goal)
-        {
-            m_owner->m_imp = 0;
-        }
+        m_owner->m_imp = 0;        
     }
 };
 

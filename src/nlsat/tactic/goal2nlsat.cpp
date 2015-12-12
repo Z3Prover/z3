@@ -262,17 +262,11 @@ struct goal2nlsat::imp {
 struct goal2nlsat::scoped_set_imp {
     goal2nlsat & m_owner; 
     scoped_set_imp(goal2nlsat & o, imp & i):m_owner(o) {
-        #pragma omp critical (tactic_cancel)
-        {
-            m_owner.m_imp = &i;
-        }
+        m_owner.m_imp = &i;        
     }
     
     ~scoped_set_imp() {
-        #pragma omp critical (tactic_cancel)
-        {
-            m_owner.m_imp = 0;
-        }
+        m_owner.m_imp = 0;        
     }
 };
 

@@ -400,11 +400,8 @@ public:
     virtual void cleanup() {        
         expr_set* d = alloc(expr_set);
         ptr_vector<expr>* todo = alloc(ptr_vector<expr>);
-        #pragma omp critical (tactic_cancel)
-        {
-            std::swap(m_01s, d);
-            std::swap(m_todo, todo);
-        }
+        std::swap(m_01s, d);
+        std::swap(m_todo, todo);        
         dealloc(d);
         dealloc(todo);
     }
