@@ -57,15 +57,47 @@ void reslimit::pop() {
     m_cancel = false;
 }
 
-void reslimit::cancel() { 
-    m_cancel = true; 
-    for (unsigned i = 0; i < m_children.size(); ++i) {
-        m_children[i]->cancel();
+char const* get_cancel_msg() const {
+    if (m_cancel) {
+        return Z3_CANCELED_MSG;
+    }
+    else {
+        return Z3_MAX_RESOURCE_MSG;
     }
 }
-void reslimit::reset_cancel() { 
-    m_cancel = false; 
+
+void reslimit::push_child(reslimit* r) {
+    #pragma omp critical (reslimit_cancel)
+    {
+        m_children.push_back(r); 
+    }
+}
+
+void reslimit::pop_child() {
+    #pragma omp critical (reslimit_cancel)
+    {
+        m_children.pop_back(); 
+    }
+}
+
+void reslimit::cancel() {
+    #pragma omp critical (reslimit_cancel)
+    {
+        set_cancel(false);
+    }
+}
+
+
+void reslimit::reset_cancel() {
+    #pragma omp critical (reslimit_cancel)
+    {
+        set_cancel(false);
+    }
+}
+
+void reslimit::set_cancel(bool f) { 
+    m_cancel = f; 
     for (unsigned i = 0; i < m_children.size(); ++i) {
-        m_children[i]->reset_cancel();
+        m_children[i]->set_cancel(f);
     }
 }

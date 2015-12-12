@@ -37,6 +37,7 @@ class aig_tactic : public tactic {
         
         ~mk_aig_manager() {
             dealloc(m_owner.m_aig_manager);
+            m_owner.m_aig_manager = 0;
         }
     };
 

@@ -576,10 +576,7 @@ void rewriter_tpl<Config>::resume_core(expr_ref & result, proof_ref & result_pr)
     SASSERT(!frame_stack().empty());
     while (!frame_stack().empty()) {
         if (m().canceled()) {
-            if (m().limit().cancel_flag_set()) {
-                throw rewriter_exception(Z3_CANCELED_MSG);
-            }
-            throw rewriter_exception(Z3_MAX_RESOURCE_MSG);
+            throw rewriter_exception(m().limit().get_cancel_msg());
         }
         SASSERT(!ProofGen || result_stack().size() == result_pr_stack().size());
         frame & fr = frame_stack().back();
