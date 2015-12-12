@@ -176,7 +176,7 @@ struct bv_size_reduction_tactic::imp {
     
     void checkpoint() {
         if (m.canceled())
-            throw tactic_exception(TACTIC_CANCELED_MSG);
+            throw tactic_exception(m.limit().get_cancel_msg());
     }
     
     void operator()(goal & g, model_converter_ref & mc) {

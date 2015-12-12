@@ -94,7 +94,7 @@ struct reduce_args_tactic::imp {
 
     void checkpoint() { 
         if (m_manager.canceled())
-            throw tactic_exception(TACTIC_CANCELED_MSG);
+            throw tactic_exception(m_manager.limit().get_cancel_msg());
         cooperate("reduce-args");
     }
     

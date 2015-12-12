@@ -81,9 +81,7 @@ namespace smt {
             ~exclusion_table() { }
             bool empty() const { return m_table.empty(); }
             void update(expr* e, expr* r);
-            bool contains(expr* e, expr* r) {
-                return m_table.contains(std::make_pair(e, r));
-            }
+            bool contains(expr* e, expr* r) const;
             void push_scope() { m_limit.push_back(m_lhs.size()); }
             void pop_scope(unsigned num_scopes);
             void display(std::ostream& out) const;            

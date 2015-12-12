@@ -86,6 +86,13 @@ void theory_seq::solution_map::display(std::ostream& out) const {
     }
 }
 
+bool theory_seq::exclusion_table::contains(expr* e, expr* r) const {
+    if (e->get_id() > r->get_id()) {
+        std::swap(e, r);
+    }
+    return m_table.contains(std::make_pair(e, r));
+}
+
 void theory_seq::exclusion_table::update(expr* e, expr* r) {
     if (e->get_id() > r->get_id()) {
         std::swap(e, r);

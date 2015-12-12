@@ -3318,7 +3318,7 @@ namespace smt {
     void model_finder::checkpoint(char const* msg) {
         cooperate(msg);
         if (m_context && m_context->get_cancel_flag())
-            throw tactic_exception(TACTIC_CANCELED_MSG);
+            throw tactic_exception(m_context->get_manager().limit().get_cancel_msg());
     }
 
     mf::quantifier_info * model_finder::get_quantifier_info(quantifier * q) const {

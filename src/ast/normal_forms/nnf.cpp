@@ -373,7 +373,7 @@ struct nnf::imp {
         if (memory::get_allocation_size() > m_max_memory)
             throw nnf_exception(Z3_MAX_MEMORY_MSG);
         if (m().canceled()) 
-            throw nnf_exception(Z3_CANCELED_MSG);
+            throw nnf_exception(m().limit().get_cancel_msg());
     }
 
     void set_new_child_flag() {
