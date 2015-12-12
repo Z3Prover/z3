@@ -90,3 +90,64 @@ To uninstall Z3, use
 ```
 
 To clean Z3 you can delete the build directory and run the ``mk_make.py`` script again.
+
+## Z3 bindings
+
+Z3 has bindings for various programming languages.
+
+### ``.NET``
+
+These bindings are enabled by default on Windows and are enabled on other
+platforms if [mono](http://www.mono-project.com/) is detected. On these
+platforms the location of the C# compiler and gac utility need to be known. You
+can set these as follows if they aren't detected automatically. For example:
+
+```bash
+  CSC=/usr/bin/csc GACUTIL=/usr/bin/gacutil python scripts/mk_make.py
+```
+
+To disable building these bindings pass ``--nodotnet`` to ``mk_make.py``.
+
+Note for very old versions of Mono (e.g. ``2.10``) you may need to set ``CSC``
+to ``/usr/bin/dmcs``.
+
+Note that when ``make install`` is executed on non-windows platforms the GAC
+utility is used to install ``Microsoft.Z3.dll`` into the
+[GAC](http://www.mono-project.com/docs/advanced/assemblies-and-the-gac/) as the
+``Microsoft.Z3.Sharp`` package. During install a
+[pkg-config](http://www.freedesktop.org/wiki/Software/pkg-config/) file
+(``Microsoft.Z3.Sharp.pc``) is also installed which allows the
+[MonoDevelop](http://www.monodevelop.com/) IDE to find the bindings. Running
+``make uninstall`` will remove the dll from the GAC and the pkg-config file.
+
+See [``examples/dotnet``](examples/dotnet) for examples.
+
+### ``C``
+
+These are always enabled.
+
+See [``examples/c``](examples/c) for examples.
+
+### ``C++``
+
+These are always enabled.
+
+See [``examples/c++``](examples/c++) for examples.
+
+### ``Java``
+
+Use the ``--java`` command line flag with ``mk_make.py`` to enable building these.
+
+See [``examples/java``](examples/java) for examples.
+
+### ``OCaml``
+
+Use the ``--ml`` command line flag with ``mk_make.py`` to enable building these.
+
+See [``examples/ml``](examples/ml) for examples.
+
+### ``Python``
+
+These bindings are always enabled.
+
+See [``examples/python``](examples/python) for examples.
