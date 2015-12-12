@@ -255,7 +255,7 @@ void asserted_formulas::reduce() {
     INVOKE(m_params.m_propagate_booleans, propagate_booleans());
     INVOKE(m_params.m_propagate_values, propagate_values());
     INVOKE(m_params.m_macro_finder && has_quantifiers(), find_macros());
-    INVOKE(m_params.m_nnf_cnf, nnf_cnf());
+    INVOKE(m_params.m_nnf_cnf || (m_params.m_mbqi && has_quantifiers()), nnf_cnf());
     INVOKE(m_params.m_eliminate_and, eliminate_and());
     INVOKE(m_params.m_pull_cheap_ite_trees, pull_cheap_ite_trees());
     INVOKE(m_params.m_pull_nested_quantifiers && has_quantifiers(), pull_nested_quantifiers());
