@@ -575,7 +575,7 @@ template<bool ProofGen>
 void rewriter_tpl<Config>::resume_core(expr_ref & result, proof_ref & result_pr) {
     SASSERT(!frame_stack().empty());
     while (!frame_stack().empty()) {
-        if (!m().canceled()) {
+        if (m().canceled()) {
             if (m().limit().cancel_flag_set()) {
                 throw rewriter_exception(Z3_CANCELED_MSG);
             }

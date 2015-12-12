@@ -483,7 +483,7 @@ namespace datalog {
         }
 
         proof_ref get_proof(model_ref& md, func_decl* pred, app* prop, unsigned level) {
-            if (!m.limit().inc()) {
+            if (m.canceled()) {
                 return proof_ref(0, m);
             }
             TRACE("bmc", tout << "Predicate: " << pred->get_name() << "\n";);
@@ -1172,7 +1172,7 @@ namespace datalog {
     private:
 
         void get_model(unsigned level) {
-            if (!m.limit().inc()) {
+            if (m.canceled()) {
                 return;
             }
             rule_manager& rm = b.m_ctx.get_rule_manager();
@@ -1509,7 +1509,7 @@ namespace datalog {
     }
 
     void bmc::checkpoint() {
-        if (!m.limit().inc()) {
+        if (m.canceled()) {
             throw default_exception("bmc canceled");
         }
     }

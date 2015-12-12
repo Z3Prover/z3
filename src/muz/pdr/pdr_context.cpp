@@ -1911,7 +1911,7 @@ namespace pdr {
     }
 
     void context::checkpoint() {
-        if (!m.limit().inc()) {
+        if (m.canceled()) {
             throw default_exception("pdr canceled");
         }
     }
