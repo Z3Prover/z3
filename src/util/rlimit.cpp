@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 #include "rlimit.h"
+#include "common_msgs.h"
 
 reslimit::reslimit():
     m_cancel(false),
@@ -57,7 +58,7 @@ void reslimit::pop() {
     m_cancel = false;
 }
 
-char const* get_cancel_msg() const {
+char const* reslimit::get_cancel_msg() const {
     if (m_cancel) {
         return Z3_CANCELED_MSG;
     }
