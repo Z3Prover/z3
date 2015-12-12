@@ -38,10 +38,9 @@ Execute:
 
 By default, it will install z3 executable at ``PREFIX/bin``, libraries at
 ``PREFIX/lib``, and include files at ``PREFIX/include``, where ``PREFIX``
-installation prefix used for installing Python in your system.
-
-It is usually ``/usr`` for most Linux distros, and ``/usr/local`` for FreeBSD.
-Use the following commands to install in a different prefix (e.g., /home/leo)
+installation prefix if inferred by the ``mk_make.py`` script. It is usually
+``/usr`` for most Linux distros, and ``/usr/local`` for FreeBSD and OSX. Use
+the ``--prefix=`` command line option to change the install prefix. For example:
 
 ```bash
   python scripts/mk_make.py --prefix=/home/leo
