@@ -270,8 +270,6 @@ namespace datalog {
 
             symbol const& get_name() const { return m_name; }
 
-            virtual void set_cancel(bool f) {}
-
             relation_manager & get_manager() const { return m_manager; }
             ast_manager& get_ast_manager() const { return datalog::get_ast_manager_from_rel_manager(m_manager); }
             context& get_context() const { return datalog::get_context_from_rel_manager(m_manager); }

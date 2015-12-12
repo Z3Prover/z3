@@ -31,6 +31,7 @@ Revision History:
 #include"statistics.h"
 #include"lbool.h"
 #include"id_gen.h"
+#include"rlimit.h"
 #ifdef _MSC_VER
 #pragma warning(disable : 4200)
 #pragma warning(disable : 4355)
@@ -466,6 +467,7 @@ public:
     typedef _scoped_numeral_vector<numeral_manager> scoped_numeral_vector;
 
 private:
+    reslimit&                 m_limit;
     C                         m_c;
     bool                      m_arith_failed; //!< True if the arithmetic module produced an exception.
     bool                      m_own_allocator;
@@ -526,8 +528,6 @@ private:
     numeral                   m_tmp1, m_tmp2, m_tmp3;
     interval                  m_i_tmp1, m_i_tmp2, m_i_tmp3;
 
-    // Cancel flag
-    volatile bool             m_cancel;
 
     friend class node;
 
@@ -759,7 +759,7 @@ private:
     bool check_invariant() const;
 
 public:
-    context_t(C const & c, params_ref const & p, small_object_allocator * a);
+    context_t(reslimit& lim, C const & c, params_ref const & p, small_object_allocator * a);
     ~context_t();
 
     /**
@@ -834,8 +834,6 @@ public:
     void display_bounds(std::ostream & out, node * n) const;
 
     void set_display_proc(display_var_proc * p) { m_display_proc = p; }
-
-    void set_cancel(bool f) { m_cancel = f; im().set_cancel(f); }
 
     void updt_params(params_ref const & p);
 

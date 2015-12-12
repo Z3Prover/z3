@@ -44,7 +44,6 @@ class fm_tactic : public tactic {
         ast_manager &         m;
         ptr_vector<func_decl> m_xs;
         vector<clauses>       m_clauses;
-        volatile bool         m_cancel;
 
         enum r_kind {
             NONE,
@@ -182,7 +181,6 @@ class fm_tactic : public tactic {
 
         virtual void operator()(model_ref & md, unsigned goal_idx) {
             TRACE("fm_mc", model_v2_pp(tout, *md); display(tout););
-            m_cancel = false;
             model_evaluator ev(*(md.get()));
             ev.set_model_completion(true);
             arith_util u(m);
@@ -199,7 +197,7 @@ class fm_tactic : public tactic {
                 clauses::iterator it  = m_clauses[i].begin();
                 clauses::iterator end = m_clauses[i].end();
                 for (; it != end; ++it) {
-                    if (m_cancel) throw tactic_exception(TACTIC_CANCELED_MSG);
+                    if (m.canceled()) throw tactic_exception(TACTIC_CANCELED_MSG);
                     switch (process(x, *it, u, ev, val)) {
                     case NONE: 
                         TRACE("fm_mc", tout << "no bound for:\n" << mk_ismt2_pp(*it, m) << "\n";);
@@ -244,9 +242,6 @@ class fm_tactic : public tactic {
             TRACE("fm_mc", model_v2_pp(tout, *md););
         }
 
-        virtual void cancel() {
-            m_cancel = true;
-        }
 
         virtual void display(std::ostream & out) {
             out << "(fm-model-converter";
@@ -394,7 +389,6 @@ class fm_tactic : public tactic {
         obj_hashtable<func_decl> m_forbidden_set; // variables that cannot be eliminated because occur in non OCC ineq part
         goal_ref                 m_new_goal;
         ref<fm_model_converter>  m_mc;
-        volatile bool            m_cancel;
         id_gen                   m_id_gen;
         bool                     m_produce_models;
         bool                     m_fm_real_only;
@@ -784,7 +778,6 @@ class fm_tactic : public tactic {
             m_var2expr(m),
             m_inconsistent_core(m) {
             updt_params(p);
-            m_cancel = false;
         }
         
         ~imp() {
@@ -801,9 +794,6 @@ class fm_tactic : public tactic {
             m_fm_occ         = p.get_bool("fm_occ", false);
         }
         
-        void set_cancel(bool f) {
-            m_cancel = f;
-        }
         
         struct forbidden_proc {
             imp & m_owner;
@@ -1552,7 +1542,7 @@ class fm_tactic : public tactic {
         
         void checkpoint() {
             cooperate("fm");
-            if (m_cancel)
+            if (m.canceled())
                 throw tactic_exception(TACTIC_CANCELED_MSG);
             if (memory::get_allocation_size() > m_max_memory)
                 throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
@@ -1676,17 +1666,10 @@ public:
         r.insert("fm_extra", CPK_UINT, "(default: 0) max. increase on the number of inequalities for each FM variable elimination step.");
     }
 
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
-    }
 
     virtual void cleanup() {
         imp * d = alloc(imp, m_imp->m, m_params);
-        #pragma omp critical (tactic_cancel)
-        {
-            std::swap(d, m_imp);
-        }
+        std::swap(d, m_imp);        
         dealloc(d);
     }
 

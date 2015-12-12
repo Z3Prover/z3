@@ -30,21 +30,16 @@ class macro_finder_tactic : public tactic {
 
     struct imp {
         ast_manager & m_manager;
-        bool m_cancel;
         bool m_elim_and;
 
         imp(ast_manager & m, params_ref const & p) : 
             m_manager(m),
-            m_cancel(false),
             m_elim_and(false) {
             updt_params(p);
         }
         
         ast_manager & m() const { return m_manager; }
         
-        void set_cancel(bool f) {
-            m_cancel = f;
-        }
         
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result, 
@@ -145,17 +140,11 @@ public:
     virtual void cleanup() {
         ast_manager & m = m_imp->m();
         imp * d = alloc(imp, m, m_params);
-        #pragma omp critical (tactic_cancel)
-        {
-            std::swap(d, m_imp);
-        }
+        std::swap(d, m_imp);        
         dealloc(d);
     }
 
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
-    }
+
 };
 
 tactic * mk_macro_finder_tactic(ast_manager & m, params_ref const & p) {

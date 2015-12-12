@@ -685,9 +685,6 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         return false;
     }
 
-    void set_cancel(bool f) {
-        m_a_rw.set_cancel(f);
-    }
 };
 
 template class rewriter_tpl<th_rewriter_cfg>;
@@ -734,21 +731,11 @@ unsigned th_rewriter::get_num_steps() const {
     return m_imp->get_num_steps();
 }
 
-void th_rewriter::set_cancel(bool f) {
-    #pragma omp critical (th_rewriter)
-    {
-        m_imp->set_cancel(f);
-        m_imp->cfg().set_cancel(f);
-    }
-}
 
 void th_rewriter::cleanup() {
     ast_manager & m = m_imp->m();
-    #pragma omp critical (th_rewriter)
-    {
-        dealloc(m_imp);
-        m_imp = alloc(imp, m, m_params);
-    }
+    dealloc(m_imp);
+    m_imp = alloc(imp, m, m_params);    
 }
 
 void th_rewriter::reset() {

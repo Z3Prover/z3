@@ -73,9 +73,11 @@ public:
         unsigned cache_sz;
         unsigned num_steps = 0;
         unsigned timeout   = m_params.get_uint("timeout", UINT_MAX);
+        unsigned rlimit    = m_params.get_uint("rlimit", UINT_MAX);
         bool failed = false;
-        cancel_eh<th_rewriter> eh(s);
+        cancel_eh<reslimit> eh(ctx.m().limit());
         { 
+            scoped_rlimit _rlimit(ctx.m().limit(), rlimit);
             scoped_ctrl_c ctrlc(eh);
             scoped_timer timer(timeout, &eh);
             cmd_context::scoped_watch sw(ctx);

@@ -87,9 +87,6 @@ public:
         TRACE("name_exprs", tout << mk_ismt2_pp(n, m_rw.m()) << "\n---->\n" << mk_ismt2_pp(r, m_rw.m()) << "\n";);
     }
     
-    virtual void set_cancel(bool f) {
-        m_rw.set_cancel(f);
-    }
 
     virtual void reset() {
         m_rw.reset();

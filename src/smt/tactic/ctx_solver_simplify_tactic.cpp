@@ -35,12 +35,10 @@ class ctx_solver_simplify_tactic : public tactic {
     func_decl_ref         m_fn;
     obj_map<sort, func_decl*> m_fns;
     unsigned              m_num_steps;
-    volatile bool         m_cancel;
 public:
     ctx_solver_simplify_tactic(ast_manager & m, params_ref const & p = params_ref()):
         m(m), m_params(p), m_solver(m, m_front_p),  
-        m_arith(m), m_mk_app(m), m_fn(m), m_num_steps(0), 
-        m_cancel(false) {
+        m_arith(m), m_mk_app(m), m_fn(m), m_num_steps(0) {
         sort* i_sort = m_arith.mk_int();
         m_fn = m.mk_func_decl(symbol(0xbeef101), i_sort, m.mk_bool_sort());
     }
@@ -86,15 +84,10 @@ public:
     virtual void cleanup() {
         reset_statistics();
         m_solver.reset();
-        m_cancel = false;
     }
 
 protected:
 
-    virtual void set_cancel(bool f) {
-        m_solver.set_cancel(f);
-        m_cancel = false;
-    }
 
     void reduce(goal& g) {
         SASSERT(g.is_well_sorted());
@@ -177,7 +170,7 @@ protected:
         names.push_back(n);
         m_solver.push();
 
-        while (!todo.empty() && !m_cancel) {            
+        while (!todo.empty() && !m.canceled()) {            
             expr_ref res(m);
             args.reset();
             expr* e    = todo.back().m_expr;
@@ -249,7 +242,7 @@ protected:
             names.pop_back();
             m_solver.pop(1);
         }
-        if (!m_cancel) {
+        if (!m.canceled()) {
             VERIFY(cache.find(fml, path_r));
             result = path_r.m_expr;
         }

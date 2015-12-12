@@ -509,7 +509,6 @@ namespace tb {
         bool_rewriter          m_rw;
         smt_params             m_fparams;
         smt::kernel            m_solver;
-        volatile bool          m_cancel;
         
     public:
         index(ast_manager& m):
@@ -523,8 +522,7 @@ namespace tb {
             m_subst(m),
             m_qe(m),
             m_rw(m),
-            m_solver(m, m_fparams),
-            m_cancel(false) {}
+            m_solver(m, m_fparams) {}
 
         void insert(ref<clause>& g) {
             m_index.push_back(g);
@@ -540,17 +538,6 @@ namespace tb {
             return found;
         }
 
-        void cancel() {
-            m_cancel = true;
-            m_solver.cancel();
-            m_qe.set_cancel(true);
-        }
-
-        void cleanup() {
-            m_solver.reset_cancel();
-            m_qe.set_cancel(false);
-            m_cancel = false;
-        }
 
         void reset() {
             m_index.reset();
@@ -594,7 +581,7 @@ namespace tb {
 
         // extract pre_cond => post_cond validation obligation from match.
         bool find_match(unsigned& subsumer) {
-            for (unsigned i = 0; !m_cancel && i < m_index.size(); ++i) {
+            for (unsigned i = 0; !m.canceled() && i < m_index.size(); ++i) {
                 if (match_rule(i)) {
                     subsumer = m_index[i]->get_seqno();
                     return true;
@@ -631,7 +618,7 @@ namespace tb {
 
             app* q = g.get_predicate(predicate_index);
 
-            for (unsigned i = 0; !m_cancel && i < m_preds.size(); ++i) {
+            for (unsigned i = 0; !m.canceled() && i < m_preds.size(); ++i) {
                 app* p = m_preds[i].get();
                 m_subst.push_scope();
                 unsigned limit = m_sideconds.size();
@@ -660,7 +647,7 @@ namespace tb {
             expr_ref_vector fmls(m_sideconds);
             m_subst.reset_cache();
             
-            for (unsigned i = 0; !m_cancel && i < fmls.size(); ++i) {
+            for (unsigned i = 0; !m.canceled() && i < fmls.size(); ++i) {
                 m_subst.apply(2, deltas, expr_offset(fmls[i].get(), 0), q);
                 fmls[i] = q;
             }
@@ -677,7 +664,7 @@ namespace tb {
                 }
             }
             m_rw.mk_and(fmls.size(), fmls.c_ptr(), postcond);
-            if (m_cancel) {
+            if (m.canceled()) {
                 return false;
             }
             if (m.is_false(postcond)) {
@@ -1350,7 +1337,6 @@ namespace datalog {
         unsigned               m_seqno;
         tb::instruction        m_instruction;
         lbool                  m_status;
-        volatile bool          m_cancel;
         stats                  m_stats;
         uint_set               m_displayed_rules;
     public:
@@ -1365,8 +1351,7 @@ namespace datalog {
             m_rules(),
             m_seqno(0),
             m_instruction(tb::SELECT_PREDICATE),
-            m_status(l_undef),
-            m_cancel(false)
+            m_status(l_undef)
         {
             // m_fparams.m_relevancy_lvl = 0;
             m_fparams.m_mbqi = false;
@@ -1393,18 +1378,9 @@ namespace datalog {
             IF_VERBOSE(1, display_clause(*get_clause(), verbose_stream() << "g" << get_clause()->get_seqno() << " "););
             return run();
         }
-    
-        void cancel() {
-            m_cancel = true;
-            m_index.cleanup();
-            m_solver.cancel();
-        }
-        
+            
         void cleanup() {
-            m_cancel = false;
             m_clauses.reset();
-            m_index.cleanup();
-            m_solver.reset_cancel();
         }
 
         void reset_statistics() {
@@ -1519,7 +1495,7 @@ namespace datalog {
             m_status      = l_undef;
             while (true) {
                 IF_VERBOSE(2, verbose_stream() << m_instruction << "\n";);
-                if (m_cancel) {
+                if (m.canceled()) {
                     cleanup();
                     return l_undef;
                 }
@@ -1670,9 +1646,6 @@ namespace datalog {
     }    
     lbool tab::query(expr* query) {
         return m_imp->query(query);
-    }
-    void tab::cancel() {
-        m_imp->cancel();
     }
     void tab::cleanup() {
         m_imp->cleanup();

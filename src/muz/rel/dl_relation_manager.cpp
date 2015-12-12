@@ -463,12 +463,6 @@ namespace datalog {
             }
     }
 
-    void relation_manager::set_cancel(bool f) {
-        for (unsigned i = 0; i < m_relation_plugins.size(); ++i) {
-            m_relation_plugins[i]->set_cancel(f);
-        }
-    }
-
     std::string relation_manager::to_nice_string(const relation_element & el) const {
         uint64 val;
         std::stringstream stm;

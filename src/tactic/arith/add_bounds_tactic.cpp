@@ -62,7 +62,6 @@ class add_bounds_tactic : public tactic {
         ast_manager & m;
         rational      m_lower;
         rational      m_upper;
-        volatile bool m_cancel;
         
         imp(ast_manager & _m, params_ref const & p):
             m(_m) {
@@ -74,9 +73,6 @@ class add_bounds_tactic : public tactic {
             m_upper  = p.get_rat("add_bound_upper", rational(2));
         }
         
-        void set_cancel(bool f) {
-            m_cancel = f;
-        }
         
         struct add_bound_proc {
             arith_util       m_util;
@@ -173,18 +169,10 @@ public:
     
     virtual void cleanup() {
         imp * d = alloc(imp, m_imp->m, m_params);
-        #pragma omp critical (tactic_cancel)
-        {
-            std::swap(d, m_imp);
-        }
+        std::swap(d, m_imp);
         dealloc(d);
     }
 
-protected:
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
-    }
 };
 
 tactic * mk_add_bounds_tactic(ast_manager & m, params_ref const & p) {

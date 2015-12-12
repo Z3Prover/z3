@@ -50,8 +50,7 @@ namespace datalog {
         rm(ctx.get_rule_manager()),
         m_inner_ctx(m, ctx.get_register_engine(), ctx.get_fparams()),
         a(m),
-        m_pinned(m),
-        m_cancel(false) {
+        m_pinned(m) {
             params_ref params;
             params.set_sym("default_relation", symbol("karr_relation"));
             params.set_sym("engine", symbol("datalog"));
@@ -189,11 +188,6 @@ namespace datalog {
             }
         }
     };
-
-    void mk_karr_invariants::cancel() {
-        m_cancel = true;
-        m_inner_ctx.cancel();
-    }
     
     rule_set * mk_karr_invariants::operator()(rule_set const & source) {
         if (!m_ctx.karr()) {
@@ -214,7 +208,7 @@ namespace datalog {
 
         get_invariants(*src_loop);
 
-        if (m_cancel) {
+        if (m.canceled()) {
             return 0;
         }
 

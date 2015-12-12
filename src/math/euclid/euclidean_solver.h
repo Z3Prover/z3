@@ -95,10 +95,6 @@ public:
     */
     void normalize(unsigned num, mpz const * as, var const * xs, mpz const & c, mpz & a_prime, mpz & c_prime, justification_vector & js);
 
-    /**
-       \brief Set/Reset the cancel flag.
-    */
-    void set_cancel(bool f);
 
     void display(std::ostream & out) const;
 };

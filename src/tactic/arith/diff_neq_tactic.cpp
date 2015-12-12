@@ -45,7 +45,6 @@ class diff_neq_tactic : public tactic {
         vector<diseqs>      m_var_diseqs;
         typedef svector<int> decision_stack;
         decision_stack       m_stack;
-        volatile bool        m_cancel;
         
         bool                m_produce_models;
         rational            m_max_k;
@@ -58,7 +57,6 @@ class diff_neq_tactic : public tactic {
             u(m),
             m_var2expr(m) {
             updt_params(p);
-            m_cancel = false;
         }
         
         void updt_params(params_ref const & p) {
@@ -67,11 +65,7 @@ class diff_neq_tactic : public tactic {
             if (m_max_k >= rational(INT_MAX/2)) 
                 m_max_k = rational(INT_MAX/2);
         }
-        
-        void set_cancel(bool f) {
-            m_cancel = f;
-        }
-        
+                
         void throw_not_supported() {
             throw tactic_exception("goal is not diff neq");
         }
@@ -294,7 +288,7 @@ class diff_neq_tactic : public tactic {
             init_forbidden();
             unsigned nvars = num_vars();
             while (m_stack.size() < nvars) {
-                if (m_cancel)
+                if (m.canceled())
                     throw tactic_exception(TACTIC_CANCELED_MSG);
                 TRACE("diff_neq_tactic", display_model(tout););
                 var x = m_stack.size();
@@ -400,18 +394,10 @@ public:
     virtual void cleanup() {
         imp * d = alloc(imp, m_imp->m, m_params);
         d->m_num_conflicts = m_imp->m_num_conflicts;
-        #pragma omp critical (tactic_cancel)
-        {
-            std::swap(d, m_imp);
-        }
+        std::swap(d, m_imp);        
         dealloc(d);
     }
 
-protected:
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
-    }
 };
 
 tactic * mk_diff_neq_tactic(ast_manager & m, params_ref const & p) {

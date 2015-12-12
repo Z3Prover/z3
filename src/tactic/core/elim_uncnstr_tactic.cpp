@@ -895,10 +895,7 @@ class elim_uncnstr_tactic : public tactic {
         }
         
         void init_rw(bool produce_proofs) {
-            #pragma omp critical (tactic_cancel)
-            {
-                m_rw = alloc(rw, m(), produce_proofs, m_vars, m_mc.get(), m_max_memory, m_max_steps);
-            }
+            m_rw = alloc(rw, m(), produce_proofs, m_vars, m_mc.get(), m_max_memory, m_max_steps);            
         }
 
         virtual void operator()(goal_ref const & g, 
@@ -968,10 +965,7 @@ class elim_uncnstr_tactic : public tactic {
                         }
                     }
                     m_mc = 0;
-                    #pragma omp critical (tactic_cancel)
-                    {
-                        m_rw  = 0;
-                    }
+                    m_rw  = 0;                    
                     TRACE("elim_uncnstr", if (mc) mc->display(tout););
                     result.push_back(g.get());
                     g->inc_depth();
@@ -993,10 +987,6 @@ class elim_uncnstr_tactic : public tactic {
             }
         }
         
-        void set_cancel(bool f) {
-            if (m_rw)
-                m_rw->set_cancel(f);
-        }
     };
     
     imp *      m_imp;
@@ -1038,10 +1028,7 @@ public:
         unsigned num_elim_apps = get_num_elim_apps();
         ast_manager & m = m_imp->m_manager;        
         imp * d = alloc(imp, m, m_params);
-        #pragma omp critical (tactic_cancel)
-        {
-            std::swap(d, m_imp);
-        }
+        std::swap(d, m_imp);        
         dealloc(d);
         m_imp->m_num_elim_apps = num_elim_apps;
     }
@@ -1058,11 +1045,6 @@ public:
         m_imp->m_num_elim_apps = 0;
     }
 
-protected:
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
-    }
 };
 
 tactic * mk_elim_uncnstr_tactic(ast_manager & m, params_ref const & p) {

@@ -512,9 +512,6 @@ namespace datalog {
         get_rmanager().set_predicate_kind(pred, target_kind);
     }
 
-    void rel_context::set_cancel(bool f) {
-        get_rmanager().set_cancel(f);        
-    }
 
     void rel_context::setup_default_relation() {
         if (m_context.default_relation() == symbol("doc")) {

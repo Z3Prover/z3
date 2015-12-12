@@ -29,17 +29,11 @@ class nnf_tactic : public tactic {
         
         set_nnf(nnf_tactic & owner, nnf & n):
             m_owner(owner) {
-            #pragma omp critical (nnf_tactic)
-            {
-                m_owner.m_nnf = &n;
-            }
+            m_owner.m_nnf = &n;            
         }
         
         ~set_nnf() {
-            #pragma omp critical (nnf_tactic)
-            {
-                m_owner.m_nnf = 0;
-            }
+            m_owner.m_nnf = 0;            
         }
     };
 public:
@@ -113,13 +107,6 @@ public:
     }
     
     virtual void cleanup() {}
-    virtual void set_cancel(bool f) {
-        #pragma omp critical (nnf_tactic)
-        {
-            if (m_nnf)
-                m_nnf->set_cancel(f);
-        }
-    }
 };
 
 tactic * mk_snf_tactic(ast_manager & m, params_ref const & p) {

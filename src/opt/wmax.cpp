@@ -47,7 +47,7 @@ namespace opt {
             }
             while (l_true == is_sat) {
                 is_sat = s().check_sat(0,0);
-                if (m_cancel) {
+                if (m.canceled()) {
                     is_sat = l_undef;
                 }
                 if (is_sat == l_true) {

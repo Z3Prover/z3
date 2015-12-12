@@ -235,11 +235,7 @@ class max_bv_sharing_tactic : public tactic {
         }
         
         ast_manager & m() const { return m_rw.m(); }
-        
-        void set_cancel(bool f) {
-            m_rw.set_cancel(f);
-        }
-        
+                
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result, 
                         model_converter_ref & mc, 
@@ -312,16 +308,8 @@ public:
     
     virtual void cleanup() {
         imp * d = alloc(imp, m_imp->m(), m_params);
-        #pragma omp critical (tactic_cancel)
-        {
-            std::swap(d, m_imp);
-        }
+        std::swap(d, m_imp);        
         dealloc(d);
-    }
-
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
     }
 };
 

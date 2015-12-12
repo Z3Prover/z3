@@ -73,7 +73,6 @@ public:
     
     virtual void cleanup() { return m_elim_ite.cleanup(); }
 
-    virtual void set_cancel(bool f) { m_elim_ite.set_cancel(f); }
 };
 
 tactic * mk_cofactor_term_ite_tactic(ast_manager & m, params_ref const & p) {

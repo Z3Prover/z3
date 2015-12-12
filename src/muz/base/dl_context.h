@@ -209,7 +209,6 @@ namespace datalog {
         execution_result   m_last_status;
         expr_ref           m_last_answer;
         DL_ENGINE          m_engine_type;
-        volatile bool      m_cancel;
 
 
 
@@ -487,11 +486,13 @@ namespace datalog {
         //
         // -----------------------------------
 
-        void cancel();
-        bool canceled() const { return m_cancel; }
+        bool canceled() {
+            if (m.limit().inc()) return true;
+            m_last_status = CANCELED;
+            return false;
+        }
 
         void cleanup();
-        void reset_cancel() { cleanup(); }
 
         /**
            \brief check if query 'q' is satisfied under asserted rules and background.

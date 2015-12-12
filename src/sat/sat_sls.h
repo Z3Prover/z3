@@ -54,12 +54,10 @@ namespace sat {
         clause_allocator m_alloc;              // clause allocator
         clause_vector    m_bin_clauses;        // binary clauses
         svector<bool>    m_tabu;               // variables that cannot be swapped
-        volatile bool    m_cancel;
     public:
         sls(solver& s);
         virtual ~sls();        
         lbool operator()(unsigned sz, literal const* tabu, bool reuse_model);
-        void set_cancel(bool f) { m_cancel = f; }
         void set_max_tries(unsigned mx) { m_max_tries = mx; }
         virtual void display(std::ostream& out) const;
     protected:

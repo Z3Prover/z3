@@ -80,10 +80,7 @@ public:
 
     virtual void cleanup() {        
         sls_engine * d = alloc(sls_engine, m, m_params);
-        #pragma omp critical (tactic_cancel)
-        {
-            std::swap(d, m_engine);
-        }
+        std::swap(d, m_engine);            
         dealloc(d);
     }
     
@@ -95,10 +92,6 @@ public:
         m_engine->reset_statistics();
     }
 
-    virtual void set_cancel(bool f) {
-        if (m_engine)
-            m_engine->set_cancel(f);
-    }
 };
 
 tactic * mk_sls_tactic(ast_manager & m, params_ref const & p) {

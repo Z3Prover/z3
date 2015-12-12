@@ -483,7 +483,7 @@ namespace datalog {
         }
 
         proof_ref get_proof(model_ref& md, func_decl* pred, app* prop, unsigned level) {
-            if (b.m_cancel) {
+            if (m.canceled()) {
                 return proof_ref(0, m);
             }
             TRACE("bmc", tout << "Predicate: " << pred->get_name() << "\n";);
@@ -1172,7 +1172,7 @@ namespace datalog {
     private:
 
         void get_model(unsigned level) {
-            if (b.m_cancel) {
+            if (m.canceled()) {
                 return;
             }
             rule_manager& rm = b.m_ctx.get_rule_manager();
@@ -1426,8 +1426,7 @@ namespace datalog {
         m_solver(m, m_fparams),
         m_rules(ctx),
         m_query_pred(m),
-        m_answer(m),
-        m_cancel(false) {
+        m_answer(m) {
     }
 
     bmc::~bmc() {}
@@ -1510,19 +1509,9 @@ namespace datalog {
     }
 
     void bmc::checkpoint() {
-        if (m_cancel) {
+        if (m.canceled()) {
             throw default_exception("bmc canceled");
         }
-    }
-
-    void bmc::cancel() {
-        m_cancel = true;
-        m_solver.cancel();
-    }
-
-    void bmc::cleanup() {
-        m_cancel = false;
-        m_solver.reset();
     }
 
     void bmc::display_certificate(std::ostream& out) const {

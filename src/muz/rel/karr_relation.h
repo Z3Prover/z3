@@ -41,6 +41,7 @@ namespace datalog {
     public:
         karr_relation_plugin(relation_manager& rm):
             relation_plugin(karr_relation_plugin::get_name(), rm),
+            m_hb(get_ast_manager().limit()),
             a(get_ast_manager())
         {}            
         
@@ -49,8 +50,6 @@ namespace datalog {
         }
 
         static symbol get_name() { return symbol("karr_relation"); }
-
-        virtual void set_cancel(bool f);
 
         virtual relation_base * mk_empty(const relation_signature & s);
 

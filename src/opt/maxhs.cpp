@@ -77,15 +77,11 @@ namespace opt {
     public:
         maxhs(maxsat_context& c, weights_t& ws, expr_ref_vector const& soft):
             maxsmt_solver_base(c, ws, soft), 
+            m_hs(m.limit()), 
             m_aux(m), 
             m_at_lower_bound(false) {
         }
         virtual ~maxhs() {}
-
-        virtual void set_cancel(bool f) { 
-            maxsmt_solver_base::set_cancel(f); 
-            m_hs.set_cancel(f);
-        }
 
         virtual void collect_statistics(statistics& st) const {
             maxsmt_solver_base::collect_statistics(st);
@@ -113,7 +109,7 @@ namespace opt {
                 ++m_stats.m_num_iterations;
                 trace_bounds("maxhs");
                 TRACE("opt", tout << "(maxhs [" << m_lower << ":" << m_upper << "])\n";);
-                if (m_cancel) {
+                if (m.canceled()) {
                     return l_undef;
                 }
                 

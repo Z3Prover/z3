@@ -152,11 +152,7 @@ public:
         dealloc(m_todo);
         dealloc(m_01s);
     }
-        
-    void set_cancel(bool f) {
-        m_rw.set_cancel(f);
-    }
-        
+                
     void updt_params(params_ref const & p) {
         m_params = p;
         m_compile_equality = p.get_bool("compile_equality", false);
@@ -404,11 +400,8 @@ public:
     virtual void cleanup() {        
         expr_set* d = alloc(expr_set);
         ptr_vector<expr>* todo = alloc(ptr_vector<expr>);
-        #pragma omp critical (tactic_cancel)
-        {
-            std::swap(m_01s, d);
-            std::swap(m_todo, todo);
-        }
+        std::swap(m_01s, d);
+        std::swap(m_todo, todo);        
         dealloc(d);
         dealloc(todo);
     }

@@ -169,10 +169,6 @@ namespace smt {
         void display_istatistics(std::ostream & out) const {
             m_kernel.display_istatistics(out);
         }
-
-        void set_cancel(bool f) {
-            m_kernel.set_cancel_flag(f);
-        }
         
         bool canceled() {
             return m_kernel.get_cancel_flag();
@@ -326,14 +322,6 @@ namespace smt {
 
     void kernel::display_istatistics(std::ostream & out) const {
         m_imp->display_istatistics(out);
-    }
-
-    void kernel::set_cancel(bool f) {
-        #pragma omp critical (smt_kernel)
-        {
-            if (m_imp)
-                m_imp->set_cancel(f);
-        }
     }
 
     bool kernel::canceled() const {

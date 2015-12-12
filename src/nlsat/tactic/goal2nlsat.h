@@ -51,7 +51,6 @@ public:
     */
     void operator()(goal const & g, params_ref const & p, nlsat::solver & s, expr2var & a2b, expr2var & t2x);
     
-    void set_cancel(bool f);
 };
 
 class nlsat2goal {
@@ -69,7 +68,6 @@ public:
     void operator()(nlsat::solver const & s, expr2var const & a2b, expr2var const & t2x,
                     params_ref const & p, goal & g, model_converter_ref & mc);
     
-    void set_cancel(bool f);
 };
 
 #endif

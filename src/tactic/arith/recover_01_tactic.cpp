@@ -66,9 +66,6 @@ class recover_01_tactic : public tactic {
             updt_params_core(p);
         }
         
-        void set_cancel(bool f) {
-            m_rw.set_cancel(f);
-        }
 
         bool save_clause(expr * c) {
             if (!m.is_or(c))
@@ -426,17 +423,8 @@ public:
     
     virtual void cleanup() {
         imp * d = alloc(imp, m_imp->m, m_params);
-        #pragma omp critical (tactic_cancel)
-        {
-            std::swap(d, m_imp);
-        }
+        std::swap(d, m_imp);        
         dealloc(d);
-    }
-
-protected:
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
     }
 };
 

@@ -225,8 +225,6 @@ namespace datalog {
             relation_fact & to);
 
 
-        void set_cancel(bool f);
-
 
         // -----------------------------------
         //

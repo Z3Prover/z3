@@ -74,7 +74,6 @@ class hnf::imp {
 
     ast_manager&          m;
     bool                  m_produce_proofs;
-    volatile bool         m_cancel;
     expr_ref_vector       m_todo;
     proof_ref_vector      m_proofs;
     expr_ref_vector       m_refs;
@@ -96,7 +95,6 @@ public:
     imp(ast_manager & m):
         m(m),
         m_produce_proofs(false),
-        m_cancel(false),
         m_todo(m),
         m_proofs(m),
         m_refs(m), 
@@ -156,7 +154,7 @@ public:
         m_todo.push_back(n);
         m_proofs.push_back(p);
         m_produce_proofs = p != 0;
-        while (!m_todo.empty() && !m_cancel) {
+        while (!m_todo.empty() && checkpoint()) {
             fml = m_todo.back();
             pr = m_proofs.back();
             m_todo.pop_back();
@@ -174,8 +172,8 @@ public:
               });
     }
 
-    void set_cancel(bool f) {
-        m_cancel = f;
+    bool checkpoint() {
+        return !m.canceled();
     }
 
     void set_name(symbol const& n) {
@@ -192,7 +190,6 @@ public:
     }
 
     void reset() {
-        m_cancel = false;
         m_todo.reset();
         m_proofs.reset();
         m_refs.reset();
@@ -524,9 +521,6 @@ void hnf::operator()(expr * n, proof* p, expr_ref_vector & rs, proof_ref_vector&
           );
 }
 
-void hnf::set_cancel(bool f) {
-    m_imp->set_cancel(f);
-}
 
 void hnf::set_name(symbol const& n) {
     m_imp->set_name(n);

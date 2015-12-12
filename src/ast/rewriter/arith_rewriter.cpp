@@ -1032,9 +1032,6 @@ br_status arith_rewriter::mk_abs_core(expr * arg, expr_ref & result) {
     return BR_REWRITE2;
 }
 
-void arith_rewriter::set_cancel(bool f) {
-    m_util.set_cancel(f);
-}
 
 // Return true if t is of the form  c*Pi where c is a numeral.
 // Store c into k

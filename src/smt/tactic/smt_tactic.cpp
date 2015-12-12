@@ -132,10 +132,6 @@ public:
         smt_params_helper::collect_param_descrs(r);
     }
     
-    virtual void set_cancel(bool f) {
-        if (m_ctx)
-            m_ctx->set_cancel(f);
-    }
 
     virtual void collect_statistics(statistics & st) const {
         if (m_ctx)
@@ -171,18 +167,14 @@ public:
             if (o.m_callback) {
                 new_ctx->set_progress_callback(o.m_callback);
             }
-            #pragma omp critical (as_st_solver) 
-            {
-                o.m_ctx = new_ctx;
-            }
+            o.m_ctx = new_ctx;
+            
         }
 
         ~scoped_init_ctx() {
             smt::kernel * d = m_owner.m_ctx;
-            #pragma omp critical (as_st_cancel)
-            {
-                m_owner.m_ctx = 0;
-            }
+            m_owner.m_ctx = 0;
+            
             if (d)
                 dealloc(d);
         }

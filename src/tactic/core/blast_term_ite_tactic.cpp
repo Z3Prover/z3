@@ -109,9 +109,6 @@ class blast_term_ite_tactic : public tactic {
             m_rw(m, p) {
         }
         
-        void set_cancel(bool f) {
-            m_rw.set_cancel(f);
-        }
         
         void updt_params(params_ref const & p) {
             m_rw.cfg().updt_params(p);
@@ -185,22 +182,8 @@ public:
     
     virtual void cleanup() {
         ast_manager & m = m_imp->m;
-        imp * d = m_imp;
-        #pragma omp critical (tactic_cancel)
-        {
-            m_imp = 0;
-        }
-        dealloc(d);
-        d = alloc(imp, m, m_params);
-        #pragma omp critical (tactic_cancel)
-        {
-            m_imp = d;
-        }
-    }
-
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
+        dealloc(m_imp);
+        m_imp = alloc(imp, m, m_params);
     }
 
     static void blast_term_ite(expr_ref& fml) {

@@ -103,11 +103,11 @@ class subpaving_tactic : public tactic {
             if (m_kind != new_kind) {
                 m_kind = new_kind;
                 switch (m_kind) {
-                case MPQ:  m_ctx = subpaving::mk_mpq_context(m_qm); break;
-                case MPF:  m_ctx = subpaving::mk_mpf_context(m_fm); break;
-                case HWF:  m_ctx = subpaving::mk_hwf_context(m_hm, m_qm); break;
-                case MPFF: m_ctx = subpaving::mk_mpff_context(m_ffm, m_qm); break;
-                case MPFX: m_ctx = subpaving::mk_mpfx_context(m_fxm, m_qm); break;
+                case MPQ:  m_ctx = subpaving::mk_mpq_context(m().limit(), m_qm); break;
+                case MPF:  m_ctx = subpaving::mk_mpf_context(m().limit(), m_fm); break;
+                case HWF:  m_ctx = subpaving::mk_hwf_context(m().limit(), m_hm, m_qm); break;
+                case MPFF: m_ctx = subpaving::mk_mpff_context(m().limit(), m_ffm, m_qm); break;
+                case MPFX: m_ctx = subpaving::mk_mpfx_context(m().limit(), m_fxm, m_qm); break;
                 default: UNREACHABLE(); break;
                 }
                 m_e2s = alloc(expr2subpaving, m_manager, *m_ctx, &m_e2v);
@@ -121,11 +121,6 @@ class subpaving_tactic : public tactic {
 
         void reset_statistics() {
             m_ctx->reset_statistics();
-        }
-
-        void set_cancel(bool f) {
-            m_e2s->set_cancel(f);
-            m_ctx->set_cancel(f);
         }
 
         subpaving::ineq * mk_ineq(expr * a) {
@@ -266,24 +261,10 @@ public:
     
     virtual void cleanup() {
         ast_manager & m = m_imp->m();
-        imp * d = m_imp;
-        #pragma omp critical (tactic_cancel)
-        {
-            d = m_imp;
-        }
-        dealloc(d);
-        d = alloc(imp, m, m_params);
-        #pragma omp critical (tactic_cancel) 
-        {
-            m_imp = d;
-        }
+        dealloc(m_imp);
+        m_imp = alloc(imp, m, m_params);
     }
 
-protected:
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
-    }
 };
 
 

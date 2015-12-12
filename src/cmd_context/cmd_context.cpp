@@ -352,16 +352,14 @@ cmd_context::~cmd_context() {
 }
 
 void cmd_context::set_cancel(bool f) {
-    if (m_solver) {
+    if (has_manager()) {
         if (f) {
-            m_solver->cancel();
+            m().limit().cancel();
         }
         else {
-            m_solver->reset_cancel();
+            m().limit().reset_cancel();
         }
     }
-    if (has_manager())
-        m().set_cancel(f);
 }
 
 opt_wrapper* cmd_context::get_opt() {
@@ -1418,7 +1416,7 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
     if (m_opt && !m_opt->empty()) {
         was_opt = true;
         m_check_sat_result = get_opt();
-        cancel_eh<opt_wrapper> eh(*get_opt());
+        cancel_eh<reslimit> eh(m().limit());
         scoped_ctrl_c ctrlc(eh);
         scoped_timer timer(timeout, &eh);
         scoped_rlimit _rlimit(m().limit(), rlimit);
@@ -1453,7 +1451,7 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
     else if (m_solver) {
         m_check_sat_result = m_solver.get(); // solver itself stores the result.
         m_solver->set_progress_callback(this);
-        cancel_eh<solver> eh(*m_solver);
+        cancel_eh<reslimit> eh(m().limit());
         scoped_ctrl_c ctrlc(eh);
         scoped_timer timer(timeout, &eh);
         scoped_rlimit _rlimit(m().limit(), rlimit);
@@ -1612,7 +1610,8 @@ void cmd_context::validate_model() {
     model_evaluator evaluator(*(md.get()), p);
     contains_array_op_proc contains_array(m());
     {
-        cancel_eh<model_evaluator> eh(evaluator);
+        scoped_rlimit _rlimit(m().limit(), 0);
+        cancel_eh<reslimit> eh(m().limit());
         expr_ref r(m());
         scoped_ctrl_c ctrlc(eh);
         ptr_vector<expr>::const_iterator it  = begin_assertions();

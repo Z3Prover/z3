@@ -54,9 +54,6 @@ class propagate_values_tactic : public tactic {
 
         ast_manager & m() const { return m_manager; }
         
-        void set_cancel(bool f) {
-            m_r.set_cancel(f);
-        }
         
         bool is_shared(expr * t) {
             return m_occs.is_shared(t);
@@ -260,18 +257,10 @@ public:
     virtual void cleanup() {
         ast_manager & m = m_imp->m();
         imp * d = alloc(imp, m, m_params);
-        #pragma omp critical (tactic_cancel)
-        {
-            std::swap(d, m_imp);
-        }
+        std::swap(d, m_imp);        
         dealloc(d);
     }
     
-protected:
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
-    }
 };
 
 tactic * mk_propagate_values_tactic(ast_manager & m, params_ref const & p) {

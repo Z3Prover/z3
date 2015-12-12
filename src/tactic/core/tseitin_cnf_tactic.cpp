@@ -105,7 +105,6 @@ class tseitin_cnf_tactic : public tactic {
         unsigned long long   m_max_memory;
 
         unsigned             m_num_aux_vars;
-        volatile bool        m_cancel;
 
         imp(ast_manager & _m, params_ref const & p):
             m(_m),
@@ -115,8 +114,7 @@ class tseitin_cnf_tactic : public tactic {
             m_clauses(_m),
             m_deps(_m),
             m_rw(_m),
-            m_num_aux_vars(0),
-            m_cancel(false) {
+            m_num_aux_vars(0) {
             updt_params(p);
             m_rw.set_flat(false);
         }
@@ -756,13 +754,10 @@ class tseitin_cnf_tactic : public tactic {
     if (r == CONT) goto loop;                                   \
     if (r == DONE) { m_frame_stack.pop_back(); continue; }
         
-        void set_cancel(bool f) {
-            m_cancel = f;
-        }
         
         void checkpoint() {
             cooperate("tseitin cnf");
-            if (m_cancel)
+            if (m.canceled())
                 throw tactic_exception(TACTIC_CANCELED_MSG);
             if (memory::get_allocation_size() > m_max_memory)
                 throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
@@ -901,16 +896,8 @@ public:
         ast_manager & m = m_imp->m;
         imp * d = alloc(imp, m, m_params);
         d->m_num_aux_vars = m_imp->m_num_aux_vars;
-        #pragma omp critical (tactic_cancel)
-        {
-            std::swap(d, m_imp);
-        }
+        std::swap(d, m_imp);        
         dealloc(d);
-    }
-
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
     }
 
     virtual void collect_statistics(statistics & st) const {

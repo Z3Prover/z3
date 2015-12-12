@@ -26,7 +26,7 @@ Notes:
 namespace opt {
 
 
-    mss::mss(solver& s, ast_manager& m): m_s(s), m(m), m_cancel(false) {
+    mss::mss(solver& s, ast_manager& m): m_s(s), m(m) {
     }
     
     mss::~mss() {
@@ -191,7 +191,7 @@ namespace opt {
         if (core.empty()) {
             return l_true;
         }
-        if (m_cancel) {
+        if (m.canceled()) {
             return l_undef;
         }
         if (sz == 1 && core.size() == 1 && is_last && !has_mcs) {

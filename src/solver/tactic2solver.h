@@ -37,6 +37,7 @@ solver * mk_tactic2solver(ast_manager & m,
                           bool produce_unsat_cores = false, 
                           symbol const & logic = symbol::null);
 
+
 solver_factory * mk_tactic2solver_factory(tactic * t);
 solver_factory * mk_tactic_factory2solver_factory(tactic_factory * f);
 

@@ -413,12 +413,13 @@ void context_t<C>::polynomial::display(std::ostream & out, numeral_manager & nm,
 }
 
 template<typename C>
-context_t<C>::context_t(C const & c, params_ref const & p, small_object_allocator * a):
+context_t<C>::context_t(reslimit& lim, C const & c, params_ref const & p, small_object_allocator * a):
+    m_limit(lim),
     m_c(c),
     m_own_allocator(a == 0),
     m_allocator(a == 0 ? alloc(small_object_allocator, "subpaving") : a),
     m_bm(*this, *m_allocator),
-    m_im(interval_config(m_c.m())),
+    m_im(lim, interval_config(m_c.m())),
     m_num_buffer(nm()) {
     m_arith_failed  = false;
     m_timestamp     = 0;
@@ -431,7 +432,6 @@ context_t<C>::context_t(C const & c, params_ref const & p, small_object_allocato
     m_node_selector = alloc(breadth_first_node_selector<C>, this);
     m_var_selector  = alloc(round_robing_var_selector<C>, this);
     m_node_splitter = alloc(midpoint_node_splitter<C>, this);
-    m_cancel        = false;
     m_num_nodes     = 0;
     updt_params(p);
     reset_statistics();
@@ -459,7 +459,7 @@ context_t<C>::~context_t() {
 
 template<typename C>
 void context_t<C>::checkpoint() {
-    if (m_cancel)
+    if (!m_limit.inc())
         throw default_exception("canceled");
     if (memory::get_allocation_size() > m_max_memory)
         throw default_exception(Z3_MAX_MEMORY_MSG);

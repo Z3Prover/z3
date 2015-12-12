@@ -28,8 +28,8 @@ struct arith_decl_plugin::algebraic_numbers_wrapper {
     id_gen                        m_id_gen;
     scoped_anum_vector            m_nums;
 
-    algebraic_numbers_wrapper():
-        m_amanager(m_qmanager),
+    algebraic_numbers_wrapper(reslimit& lim):
+        m_amanager(lim, m_qmanager),
         m_nums(m_amanager) {
     }
 
@@ -66,7 +66,7 @@ struct arith_decl_plugin::algebraic_numbers_wrapper {
 
 arith_decl_plugin::algebraic_numbers_wrapper & arith_decl_plugin::aw() const {
     if (m_aw == 0)
-        const_cast<arith_decl_plugin*>(this)->m_aw = alloc(algebraic_numbers_wrapper);
+        const_cast<arith_decl_plugin*>(this)->m_aw = alloc(algebraic_numbers_wrapper, m_manager->limit());
     return *m_aw;
 }
 
@@ -110,10 +110,6 @@ parameter arith_decl_plugin::translate(parameter const & p, decl_plugin & target
     return parameter(_target.aw().mk_id(aw().idx2anum(p.get_ext_id())), true);
 }
 
-void arith_decl_plugin::set_cancel(bool f) {
-    if (m_aw)
-        m_aw->m_amanager.set_cancel(f);
-}
 
 void arith_decl_plugin::set_manager(ast_manager * m, family_id id) {
     decl_plugin::set_manager(m, id);

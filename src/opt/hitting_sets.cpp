@@ -88,7 +88,7 @@ namespace opt {
             bool empty() const { return 0 == size(); }
         };
 
-        volatile bool           m_cancel;
+        reslimit&               m_limit;
         rational                m_lower;
         rational                m_upper;
         vector<rational>        m_weights;
@@ -144,8 +144,8 @@ namespace opt {
 
         static unsigned const null_idx = UINT_MAX;
 
-        imp():
-            m_cancel(false), 
+        imp(reslimit& lim):
+            m_limit(lim),
             m_max_weight(0), 
             m_denominator(1),
             m_alloc("hitting-sets"),
@@ -155,6 +155,7 @@ namespace opt {
             m_scope_lvl(0),
             m_compare_scores(),
             m_heap(0, m_compare_scores),
+            m_simplex(lim),
             m_weights_var(0) {
             m_enable_simplex = true;
             m_compare_scores.m_imp = this;
@@ -296,11 +297,6 @@ namespace opt {
             return 
                 idx < m_model.size() && 
                 m_model[idx] == l_true;
-        }
-
-        void set_cancel(bool f) {
-            m_cancel = f;
-            m_simplex.set_cancel(f);
         }
 
         void collect_statistics(::statistics& st) const {
@@ -641,7 +637,7 @@ namespace opt {
 
         inline unsigned scope_lvl() const { return m_scope_lvl; }
         inline bool inconsistent() const { return m_inconsistent; }
-        inline bool canceled() const { return m_cancel; }
+        inline bool canceled() const { return !m_limit.inc(); }
         inline unsigned lvl(unsigned idx) const { return m_level[idx]; }
         inline lbool value(unsigned idx) const { return m_value[idx]; }
 
@@ -1073,7 +1069,7 @@ namespace opt {
     };
 
 
-    hitting_sets::hitting_sets() { m_imp = alloc(imp); }
+    hitting_sets::hitting_sets(reslimit& lim) { m_imp = alloc(imp, lim); }
     hitting_sets::~hitting_sets() { dealloc(m_imp); }
     void hitting_sets::add_weight(rational const& w) { m_imp->add_weight(w); }
     void hitting_sets::add_exists_true(unsigned sz, unsigned const* elems) { m_imp->add_exists_true(sz, elems); }
@@ -1084,7 +1080,6 @@ namespace opt {
     rational hitting_sets::get_upper() { return m_imp->get_upper(); }
     void hitting_sets::set_upper(rational const& r) { return m_imp->set_upper(r); }
     bool hitting_sets::get_value(unsigned idx) { return m_imp->get_value(idx); }
-    void hitting_sets::set_cancel(bool f) { m_imp->set_cancel(f); }
     void hitting_sets::collect_statistics(::statistics& st) const { m_imp->collect_statistics(st); }
     void hitting_sets::reset() { m_imp->reset(); }
 

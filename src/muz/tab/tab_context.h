@@ -34,7 +34,6 @@ namespace datalog {
         tab(context& ctx);
         ~tab();
         virtual lbool query(expr* query);
-        virtual void cancel();
         virtual void cleanup();
         virtual void reset_statistics();
         virtual void collect_statistics(statistics& st) const;

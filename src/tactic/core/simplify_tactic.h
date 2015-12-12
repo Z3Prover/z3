@@ -45,8 +45,6 @@ public:
     unsigned get_num_steps() const;
 
     virtual tactic * translate(ast_manager & m) { return alloc(simplify_tactic, m, m_params); }
-protected:
-    virtual void set_cancel(bool f);
 
 };
 

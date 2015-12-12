@@ -141,7 +141,6 @@ namespace nlsat {
         svector<trail>         m_trail;
 
         anum                   m_zero;
-        bool                   m_cancel;
 
         // configuration
         unsigned long long     m_max_memory;
@@ -164,9 +163,9 @@ namespace nlsat {
             m_solver(s),
             m_rlimit(rlim),
             m_allocator("nlsat"),
-            m_pm(m_qm, &m_allocator),
+            m_pm(rlim, m_qm, &m_allocator),
             m_cache(m_pm),
-            m_am(m_qm, p, &m_allocator),
+            m_am(rlim, m_qm, p, &m_allocator),
             m_asm(*this, m_allocator),
             m_assignment(m_am),
             m_evaluator(m_assignment, m_pm, m_allocator), 
@@ -180,7 +179,6 @@ namespace nlsat {
             m_lemma_assumptions(m_asm) {
             updt_params(p);
             reset_statistics();
-            m_cancel = false;
             mk_true_bvar();
         }
         
@@ -218,15 +216,8 @@ namespace nlsat {
             m_am.updt_params(p.p);
         }
 
-        void set_cancel(bool f) {
-            m_pm.set_cancel(f);
-            m_am.set_cancel(f);
-            m_cancel = f;
-        }
-
         void checkpoint() {
-            if (m_cancel) throw solver_exception(Z3_CANCELED_MSG);
-            if (!m_rlimit.inc()) throw solver_exception(Z3_MAX_RESOURCE_MSG);
+            if (!m_rlimit.inc()) throw solver_exception(m_rlimit.get_cancel_msg());
             if (memory::get_allocation_size() > m_max_memory) throw solver_exception(Z3_MAX_MEMORY_MSG);
         }
 
@@ -2569,10 +2560,6 @@ namespace nlsat {
 
     lbool solver::check() {
         return m_imp->check();
-    }
-
-    void solver::set_cancel(bool f) {
-        m_imp->set_cancel(f);
     }
 
     void solver::collect_param_descrs(param_descrs & d) {

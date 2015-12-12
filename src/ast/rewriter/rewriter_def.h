@@ -495,7 +495,6 @@ rewriter_tpl<Config>::rewriter_tpl(ast_manager & m, bool proof_gen, Config & cfg
     rewriter_core(m, proof_gen),
     m_cfg(cfg),
     m_num_steps(0),
-    m_cancel(false),
     m_shifter(m),
     m_r(m),
     m_pr(m),
@@ -576,10 +575,9 @@ template<bool ProofGen>
 void rewriter_tpl<Config>::resume_core(expr_ref & result, proof_ref & result_pr) {
     SASSERT(!frame_stack().empty());
     while (!frame_stack().empty()) {
-        if (m_cancel)
-            throw rewriter_exception(Z3_CANCELED_MSG);
-        if (!m().limit().inc()) 
-            throw rewriter_exception(Z3_MAX_RESOURCE_MSG);
+        if (m().canceled()) {
+            throw rewriter_exception(m().limit().get_cancel_msg());
+        }
         SASSERT(!ProofGen || result_stack().size() == result_pr_stack().size());
         frame & fr = frame_stack().back();
         expr * t   = fr.m_curr;

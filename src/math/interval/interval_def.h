@@ -30,11 +30,10 @@ Revision History:
 // #define TRACE_NTH_ROOT
 
 template<typename C>
-interval_manager<C>::interval_manager(C const & c):m_c(c) { 
+interval_manager<C>::interval_manager(reslimit& lim, C const & c): m_limit(lim), m_c(c) { 
     m().set(m_minus_one, -1); 
     m().set(m_one, 1);
     m_pi_n = 0;
-    m_cancel = false;
 }
 
 template<typename C>
@@ -63,7 +62,7 @@ void interval_manager<C>::del(interval & a) {
 
 template<typename C>
 void interval_manager<C>::checkpoint() {
-    if (m_cancel)
+    if (!m_limit.inc())
         throw default_exception("canceled");
     cooperate("interval");
 }

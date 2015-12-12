@@ -44,7 +44,6 @@ namespace datalog {
         var_subst              m_var_subst;
         expr_ref_vector        m_ground;
         app_ref_vector         m_goals;
-        volatile bool          m_cancel;
         stats                  m_stats;
     public:
         imp(context& ctx):
@@ -54,8 +53,7 @@ namespace datalog {
             m_solver(m, m_fparams),      // TBD: can be replaced by efficient BV solver.
             m_var_subst(m, false),
             m_ground(m),
-            m_goals(m),
-            m_cancel(false)
+            m_goals(m)
         {
             // m_fparams.m_relevancy_lvl = 0;
             m_fparams.m_mbqi = false;
@@ -84,17 +82,7 @@ namespace datalog {
             m_goals.push_back(to_app(head));
             return search(20, 0);
         }
-    
-        void cancel() {
-            m_cancel = true;
-            m_solver.cancel();
-        }
-        
-        void cleanup() {
-            m_cancel = false;
-            m_goals.reset();
-            m_solver.reset_cancel();
-        }
+            
 
         void reset_statistics() {
             m_stats.reset();
@@ -223,12 +211,7 @@ namespace datalog {
     lbool clp::query(expr* query) {
         return m_imp->query(query);
     }
-    void clp::cancel() {
-        m_imp->cancel();
-    }
-    void clp::cleanup() {
-        m_imp->cleanup();
-    }
+
     void clp::reset_statistics() {
         m_imp->reset_statistics();
     }

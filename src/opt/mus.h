@@ -39,8 +39,6 @@ namespace opt {
         
         void reset();
         
-        void set_cancel(bool f);
-
         /**
            Instrument MUS extraction to also provide the minimal
            penalty model, if any is found.

@@ -57,11 +57,6 @@ class nlsat_tactic : public tactic {
             m_params = p;
             m_solver.updt_params(p);
         }
-
-        void set_cancel(bool f) {
-            m_solver.set_cancel(f);
-            m_g2nl.set_cancel(f);
-        }
         
         bool contains_unsupported(expr_ref_vector & b2a, expr_ref_vector & x2t) {
             for (unsigned x = 0; x < x2t.size(); x++) {
@@ -180,18 +175,12 @@ class nlsat_tactic : public tactic {
     struct scoped_set_imp {
         nlsat_tactic & m_owner; 
         scoped_set_imp(nlsat_tactic & o, imp & i):m_owner(o) {
-            #pragma omp critical (tactic_cancel)
-            {
-                m_owner.m_imp = &i;
-            }
+            m_owner.m_imp = &i;            
         }
 
         ~scoped_set_imp() {
             m_owner.m_imp->m_solver.collect_statistics(m_owner.m_stats);
-            #pragma omp critical (tactic_cancel)
-            {
-                m_owner.m_imp = 0;
-            }
+            m_owner.m_imp = 0;
         }
     };
 
@@ -240,11 +229,6 @@ public:
     
     virtual void cleanup() {}
     
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
-    }
-
     virtual void collect_statistics(statistics & st) const {
         st.copy(m_stats);
     }

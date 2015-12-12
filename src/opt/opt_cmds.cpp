@@ -195,7 +195,7 @@ public:
             opt.add_hard_constraint(*it);
         }
         lbool r = l_undef;
-        cancel_eh<opt::context> eh(opt);        
+        cancel_eh<reslimit> eh(m.limit());
         {
             scoped_ctrl_c ctrlc(eh);
             scoped_timer timer(timeout, &eh);

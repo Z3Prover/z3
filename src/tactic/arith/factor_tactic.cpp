@@ -34,7 +34,7 @@ class factor_tactic : public tactic {
         rw_cfg(ast_manager & _m, params_ref const & p):
             m(_m),
             m_util(_m),
-            m_pm(m_qm),
+            m_pm(m.limit(), m_qm),
             m_expr2poly(m, m_pm) {
             updt_params(p);
         }
@@ -251,10 +251,6 @@ class factor_tactic : public tactic {
             m_rw(m, p) {
         }
 
-        void set_cancel(bool f) {
-            m_rw.set_cancel(f);
-            m_rw.cfg().m_pm.set_cancel(f);
-        }
 
         void updt_params(params_ref const & p) {
             m_rw.cfg().updt_params(p);
@@ -334,17 +330,11 @@ public:
 
     virtual void cleanup() {
         imp * d = alloc(imp, m_imp->m, m_params);
-        #pragma omp critical (tactic_cancel)
-        {
-            std::swap(d, m_imp);
-        }
+        std::swap(d, m_imp);        
         dealloc(d);
     }
 
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
-    }
+
 };
 
 tactic * mk_factor_tactic(ast_manager & m, params_ref const & p) {

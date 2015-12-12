@@ -29,17 +29,13 @@ Notes:
 
 namespace api {
 
-    pmanager::pmanager():
-        m_pm(m_nm) {
+    pmanager::pmanager(reslimit& lim):
+        m_pm(lim, m_nm) {
     }
 
     pmanager::~pmanager() {
     }
     
-    void pmanager::set_cancel(bool f) {
-        m_pm.set_cancel(f);
-    }
-
 };
 
 extern "C" {
@@ -65,8 +61,9 @@ extern "C" {
             polynomial_ref_vector rs(pm);
             polynomial_ref r(pm);
             expr_ref _r(mk_c(c)->m());
+
             {
-                cancel_eh<polynomial::manager> eh(pm);
+                cancel_eh<reslimit> eh(mk_c(c)->poly_limit());
                 api::context::set_interruptable si(*(mk_c(c)), eh);
                 scoped_timer timer(mk_c(c)->params().m_timeout, &eh);
                 pm.psc_chain(_p, _q, v_x, rs);

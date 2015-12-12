@@ -98,7 +98,6 @@ struct euclidean_solver::imp {
 
     numeral_manager *  m_manager;
     bool               m_owns_m;
-    volatile bool      m_cancel;
 
     equations          m_equations;
     equations          m_solution;
@@ -517,7 +516,6 @@ struct euclidean_solver::imp {
         m_var_queue(16, elim_order_lt(m_solved)) {
         m_inconsistent       = null_eq_idx;
         m_next_justification = 0; 
-        m_cancel             = false;
         m_next_x             = null_var;
         m_next_eq            = null_eq_idx;
     }
@@ -779,9 +777,6 @@ struct euclidean_solver::imp {
         del_nums(m_norm_bs_vector);
     }
 
-    void set_cancel(bool f) {
-        m_cancel = f;
-    }
 
 };
 
@@ -801,12 +796,9 @@ void euclidean_solver::reset() {
     numeral_manager * m = m_imp->m_manager;
     bool owns_m         = m_imp->m_owns_m;
     m_imp->m_owns_m     = false;
-    #pragma omp critical (euclidean_solver)
-    {
-        dealloc(m_imp);
-        m_imp = alloc(imp, m);
-        m_imp->m_owns_m = owns_m;
-    }
+    dealloc(m_imp);
+    m_imp = alloc(imp, m);
+    m_imp->m_owns_m = owns_m;    
 }
 
 euclidean_solver::var euclidean_solver::mk_var() {
@@ -842,12 +834,6 @@ void euclidean_solver::normalize(unsigned num, mpz const * as, var const * xs, m
     return m_imp->normalize(num, as, xs, c, a_prime, c_prime, js);
 }
 
-void euclidean_solver::set_cancel(bool f) {
-    #pragma omp critical (euclidean_solver)
-    {
-        m_imp->set_cancel(f);
-    }
-}
 
 void euclidean_solver::display(std::ostream & out) const {
     m_imp->display(out);

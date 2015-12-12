@@ -1829,6 +1829,7 @@ namespace polynomial {
         typedef _scoped_numeral<numeral_manager> scoped_numeral;
         typedef _scoped_numeral_vector<numeral_manager> scoped_numeral_vector;
 
+        reslimit&                m_limit;
         manager &                m_wrapper;
         numeral_manager          m_manager;
         up_manager               m_upm;
@@ -1847,7 +1848,6 @@ namespace polynomial {
         unsigned_vector          m_degree2pos;
         bool                     m_use_sparse_gcd;
         bool                     m_use_prs_gcd;
-        volatile bool            m_cancel;
 
         // Debugging method: check if the coefficients of p are in the numeral_manager.
         bool consistent_coeffs(polynomial const * p) {
@@ -2323,13 +2323,13 @@ namespace polynomial {
             inc_ref(m_unit_poly);
             m_use_sparse_gcd = true;
             m_use_prs_gcd = false;
-            m_cancel = false;
         }
 
-        imp(manager & w, unsynch_mpz_manager & m, monomial_manager * mm):
+        imp(reslimit& lim, manager & w, unsynch_mpz_manager & m, monomial_manager * mm):
+            m_limit(lim),
             m_wrapper(w),
             m_manager(m),
-            m_upm(m) {
+            m_upm(lim, m) {
             if (mm == 0)
                 mm = alloc(monomial_manager);
             m_monomial_manager = mm;
@@ -2337,10 +2337,11 @@ namespace polynomial {
             init();
         }
 
-        imp(manager & w, unsynch_mpz_manager & m, small_object_allocator * a):
+        imp(reslimit& lim, manager & w, unsynch_mpz_manager & m, small_object_allocator * a):
+            m_limit(lim),
             m_wrapper(w),
             m_manager(m),
-            m_upm(m) {
+            m_upm(lim, m) {
             m_monomial_manager = alloc(monomial_manager, a);
             m_monomial_manager->inc_ref();
             init();
@@ -2371,13 +2372,8 @@ namespace polynomial {
             m_monomial_manager->dec_ref();
         }
 
-        void set_cancel(bool f) {
-            m_cancel = f;
-            m_upm.set_cancel(f);
-        }
-
         void checkpoint() {
-            if (m_cancel) {
+            if (!m_limit.inc()) {
                 throw polynomial_exception("canceled");
             }
             cooperate("polynomial");
@@ -6883,12 +6879,12 @@ namespace polynomial {
         }
     };
 
-    manager::manager(numeral_manager & m, monomial_manager * mm) {
-        m_imp = alloc(imp, *this, m, mm);
+    manager::manager(reslimit& lim, numeral_manager & m, monomial_manager * mm) {
+        m_imp = alloc(imp, lim, *this, m, mm);
     }
 
-    manager::manager(numeral_manager & m, small_object_allocator * a) {
-        m_imp = alloc(imp, *this, m, a);
+    manager::manager(reslimit& lim, numeral_manager & m, small_object_allocator * a) {
+        m_imp = alloc(imp, lim, *this, m, a);
     }
 
     manager::~manager() {
@@ -6927,10 +6923,6 @@ namespace polynomial {
         return m_imp->mm().allocator();
     }
     
-    void manager::set_cancel(bool f) {
-        m_imp->set_cancel(f);
-    }
-
     void manager::add_del_eh(del_eh * eh) {
         m_imp->add_del_eh(eh);
     }

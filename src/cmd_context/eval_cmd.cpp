@@ -63,11 +63,13 @@ public:
         last_result->get_model(md);
         expr_ref r(ctx.m());
         unsigned timeout = m_params.get_uint("timeout", UINT_MAX);
+        unsigned rlimit  = m_params.get_uint("rlimit", 0);
         model_evaluator ev(*(md.get()), m_params);
-        cancel_eh<model_evaluator> eh(ev);
+        cancel_eh<reslimit> eh(ctx.m().limit());
         { 
             scoped_ctrl_c ctrlc(eh);
             scoped_timer timer(timeout, &eh);
+            scoped_rlimit _rlimit(ctx.m().limit(), rlimit);
             cmd_context::scoped_watch sw(ctx);
             try {
                 ev(m_target, r);

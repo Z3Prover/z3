@@ -206,13 +206,7 @@ expr_ref dl_interface::get_answer() {
     return m_context->get_answer();
 }
 
-void dl_interface::cancel() {
-    m_context->cancel();
-}
 
-void dl_interface::cleanup() {
-    m_context->cleanup();
-}
 
 void dl_interface::updt_params() {
     dealloc(m_context);

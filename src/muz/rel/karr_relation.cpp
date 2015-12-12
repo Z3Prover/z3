@@ -498,10 +498,6 @@ namespace datalog {
         return dynamic_cast<karr_relation const&>(r);
     }  
 
-    void karr_relation_plugin::set_cancel(bool f) {
-        m_hb.set_cancel(f);
-    }
-
     relation_base * karr_relation_plugin::mk_empty(const relation_signature & s) {
         return alloc(karr_relation, *this, 0, s, true);
     }

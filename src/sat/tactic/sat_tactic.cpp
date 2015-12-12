@@ -123,11 +123,6 @@ class sat_tactic : public tactic {
             result.push_back(g.get());
         }
         
-        void set_cancel(bool f) {
-            m_goal2sat.set_cancel(f);
-            m_sat2goal.set_cancel(f);
-            m_solver.set_cancel(f);
-        }
 
         void dep2assumptions(obj_map<expr, sat::literal>& dep2asm, 
                              sat::literal_vector& assumptions) {
@@ -150,17 +145,11 @@ class sat_tactic : public tactic {
         sat_tactic * m_owner; 
 
         scoped_set_imp(sat_tactic * o, imp * i):m_owner(o) {
-            #pragma omp critical (sat_tactic)
-            {
-                m_owner->m_imp = i;
-            }
+            m_owner->m_imp = i;            
         }
         
         ~scoped_set_imp() {
-            #pragma omp critical (sat_tactic)
-            {
-                m_owner->m_imp = 0;
-            }
+            m_owner->m_imp = 0;        
         }
     };
 
@@ -223,13 +212,6 @@ public:
     }
 
 protected:
-    virtual void set_cancel(bool f) {
-        #pragma omp critical (sat_tactic)
-        {
-            if (m_imp)
-                m_imp->set_cancel(f);
-        }
-    }
 
 };
 

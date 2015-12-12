@@ -61,7 +61,8 @@ namespace algebraic_numbers {
         algebraic_params::collect_param_descrs(r);
     }
 
-    struct manager::imp {
+    struct manager::imp {        
+        reslimit&                m_limit;
         manager &                m_wrapper;
         small_object_allocator & m_allocator;
         unsynch_mpq_manager &    m_qmanager;
@@ -82,7 +83,6 @@ namespace algebraic_numbers {
         scoped_upoly             m_add_tmp;
         polynomial::var          m_x;
         polynomial::var          m_y;
-        volatile bool            m_cancel;
         
         // configuration
         int                        m_min_magnitude;
@@ -96,14 +96,15 @@ namespace algebraic_numbers {
         unsigned                 m_compare_refine;
         unsigned                 m_compare_poly_eq;
 
-        imp(manager & w, unsynch_mpq_manager & m, params_ref const & p, small_object_allocator & a):
+        imp(reslimit& lim, manager & w, unsynch_mpq_manager & m, params_ref const & p, small_object_allocator & a):
+            m_limit(lim),
             m_wrapper(w),
             m_allocator(a),
             m_qmanager(m),
             m_bqmanager(m),
             m_bqimanager(m_bqmanager),
-            m_pmanager(m, &a),
-            m_upmanager(m),
+            m_pmanager(lim, m, &a),
+            m_upmanager(lim, m),
             m_is_rational_tmp(m),
             m_isolate_tmp1(upm()),
             m_isolate_tmp2(upm()),
@@ -116,7 +117,6 @@ namespace algebraic_numbers {
             m_add_tmp(upm()) {
             updt_params(p);
             reset_statistics();
-            m_cancel = false;
             m_x = pm().mk_var();
             m_y = pm().mk_var();
         }
@@ -124,14 +124,8 @@ namespace algebraic_numbers {
         ~imp() {
         }
         
-        void set_cancel(bool f) {
-            m_cancel = f;
-            pm().set_cancel(f);
-            upm().set_cancel(f);
-        }
-
         void checkpoint() {
-            if (m_cancel)
+            if (!m_limit.inc())
                 throw algebraic_exception("canceled");
             cooperate("algebraic");
         }
@@ -2764,14 +2758,14 @@ namespace algebraic_numbers {
        
     };
 
-    manager::manager(unsynch_mpq_manager & m, params_ref const & p, small_object_allocator * a) {
+    manager::manager(reslimit& lim, unsynch_mpq_manager & m, params_ref const & p, small_object_allocator * a) {
         m_own_allocator = false;
         m_allocator     = a;
         if (m_allocator == 0) {
             m_own_allocator = true;
             m_allocator     = alloc(small_object_allocator, "algebraic");
         }
-        m_imp = alloc(imp, *this, m, p, *m_allocator);
+        m_imp = alloc(imp, lim, *this, m, p, *m_allocator);
     }
 
     manager::~manager() {
@@ -2781,10 +2775,6 @@ namespace algebraic_numbers {
     }
 
     void manager::updt_params(params_ref const & p) {
-    }
-
-    void manager::set_cancel(bool f) {
-        m_imp->set_cancel(f);
     }
 
     unsynch_mpq_manager & manager::qm() const {

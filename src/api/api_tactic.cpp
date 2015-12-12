@@ -409,7 +409,7 @@ extern "C" {
 
         unsigned timeout     = p.get_uint("timeout", UINT_MAX);
         bool     use_ctrl_c  = p.get_bool("ctrl_c", false);
-        cancel_eh<tactic> eh(*to_tactic_ref(t));
+        cancel_eh<reslimit> eh(mk_c(c)->m().limit());
         
         to_tactic_ref(t)->updt_params(p);
 

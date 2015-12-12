@@ -518,7 +518,7 @@ bool check_hansel_lift(z_manager & upm, numeral_vector const & C,
     scoped_mpz br(nm);
     nm.mul(b, r, br);
     
-    zp_manager br_upm(upm.zm());
+    zp_manager br_upm(upm.lim(), upm.zm());
     br_upm.set_zp(br);
 
     if (A_lifted.size() != A.size()) return false;
@@ -543,7 +543,7 @@ bool check_hansel_lift(z_manager & upm, numeral_vector const & C,
         return false;
     }
 
-    zp_manager b_upm(nm);
+    zp_manager b_upm(upm.lim(), nm);
     b_upm.set_zp(b);
 
     // test2: A_lifted = A (mod b)
@@ -596,7 +596,7 @@ void hensel_lift(z_manager & upm, numeral const & a, numeral const & b, numeral 
         tout << "C = "; upm.display(tout, C); tout << ")" << endl;
     );
 
-    zp_manager r_upm(nm);
+    zp_manager r_upm(upm.lim(), nm);
     r_upm.set_zp(r);
 
     SASSERT(upm.degree(C) == upm.degree(A) + upm.degree(B));
@@ -717,7 +717,7 @@ void hensel_lift_quadratic(z_manager& upm, numeral_vector const & C,
     );
 
     // we create a new Z_p manager, since we'll be changing the input one
-    zp_manager zp_upm(nm);
+    zp_manager zp_upm(upm.lim(), nm);
     zp_upm.set_zp(zpe_upm.m().p());
 
     // get the U, V, such that A*U + B*V = 1 (mod p)
@@ -1055,7 +1055,7 @@ bool factor_square_free(z_manager & upm, numeral_vector const & f, factors & fs,
     // the variables we'll be using and updating in Z_p
     scoped_numeral p(nm); 
     nm.set(p, 2);
-    zp_manager zp_upm(nm.m());
+    zp_manager zp_upm(upm.lim(), nm.m());
     zp_upm.set_zp(p);
     zp_factors zp_fs(zp_upm);
     scoped_numeral zp_fs_p(nm); nm.set(zp_fs_p, 2);
@@ -1163,7 +1163,7 @@ bool factor_square_free(z_manager & upm, numeral_vector const & f, factors & fs,
           );
     
     // we got a prime factoring, so we do the lifting now
-    zp_manager zpe_upm(nm.m());
+    zp_manager zpe_upm(upm.lim(), nm.m());
     zpe_upm.set_zp(zp_fs_p);
     zp_numeral_manager & zpe_nm = zpe_upm.m();
     

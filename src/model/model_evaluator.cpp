@@ -256,12 +256,6 @@ unsigned model_evaluator::get_num_steps() const {
     return m_imp->get_num_steps();
 }
 
-void model_evaluator::set_cancel(bool f) {
-    #pragma omp critical (model_evaluator)
-    {
-        m_imp->set_cancel(f);
-    }
-}
 
 void model_evaluator::cleanup(params_ref const & p) {
     model & md = m_imp->cfg().m_model;

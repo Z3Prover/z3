@@ -250,7 +250,6 @@ struct nnf::imp {
     name_exprs *           m_name_nested_formulas;
     name_exprs *           m_name_quant;
     
-    volatile bool          m_cancel;
     unsigned long long     m_max_memory; // in bytes
 
     imp(ast_manager & m, defined_names & n, params_ref const & p):
@@ -259,8 +258,7 @@ struct nnf::imp {
         m_todo_defs(m),
         m_todo_proofs(m),
         m_result_pr_stack(m),
-        m_skolemizer(m),
-        m_cancel(false) {
+        m_skolemizer(m) {
         updt_params(p);
         for (unsigned i = 0; i < 4; i++) {
             m_cache[i] = alloc(act_cache, m);
@@ -369,15 +367,12 @@ struct nnf::imp {
         return false;
     }
 
-    void set_cancel(bool f) {
-        m_cancel = f;
-    }
     
     void checkpoint() {
         cooperate("nnf");
         if (memory::get_allocation_size() > m_max_memory)
             throw nnf_exception(Z3_MAX_MEMORY_MSG);
-        if (m_cancel)
+        if (m().canceled()) 
             throw nnf_exception(Z3_CANCELED_MSG);
     }
 
@@ -916,9 +911,6 @@ void nnf::get_param_descrs(param_descrs & r) {
     imp::get_param_descrs(r);
 }
 
-void nnf::set_cancel(bool f) {
-    m_imp->set_cancel(f);
-}
 
 void nnf::reset() {
     m_imp->reset();

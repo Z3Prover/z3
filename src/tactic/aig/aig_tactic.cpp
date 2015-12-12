@@ -32,19 +32,12 @@ class aig_tactic : public tactic {
 
         mk_aig_manager(aig_tactic & o, ast_manager & m):m_owner(o) {
             aig_manager * mng = alloc(aig_manager, m, o.m_max_memory, o.m_aig_gate_encoding);
-            #pragma omp critical (aig_tactic)
-            {
-                m_owner.m_aig_manager = mng;
-            }
+            m_owner.m_aig_manager = mng;            
         }
         
         ~mk_aig_manager() {
-            aig_manager * mng = m_owner.m_aig_manager;
-            #pragma omp critical (aig_tactic)
-            {
-                m_owner.m_aig_manager = 0;
-            }
-            dealloc(mng);
+            dealloc(m_owner.m_aig_manager);
+            m_owner.m_aig_manager = 0;
         }
     };
 
@@ -111,14 +104,6 @@ public:
 
     virtual void cleanup() {}
 
-protected:
-    virtual void set_cancel(bool f) {
-        #pragma omp critical (aig_tactic)
-        {
-            if (m_aig_manager)
-                m_aig_manager->set_cancel(f);
-        }
-    }
 };
 
 tactic * mk_aig_tactic(params_ref const & p) {

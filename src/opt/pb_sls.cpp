@@ -60,7 +60,6 @@ namespace smt {
         pb_util          pb;
         unsynch_mpz_manager mgr;
         th_rewriter      m_rewrite;
-        volatile bool    m_cancel;
         vector<clause>   m_clauses;      // clauses to be satisfied        
         expr_ref_vector  m_orig_clauses; // for debugging
         model_ref        m_orig_model;   // for debugging
@@ -86,7 +85,6 @@ namespace smt {
             m(m),
             pb(m),
             m_rewrite(m),
-            m_cancel(false),
             m_orig_clauses(m),
             m_trail(m),
             one(mgr)
@@ -157,7 +155,7 @@ namespace smt {
                 while (m_max_flips > 0) {
                     --m_max_flips;
                     literal lit = flip();
-                    if (m_cancel) {
+                    if (m.canceled()) {
                         return l_undef;
                     }
                     IF_VERBOSE(3, verbose_stream() 
@@ -202,9 +200,6 @@ namespace smt {
 
         bool get_value(literal l) {
             return l.sign() ^ m_assignment[l.var()];
-        }
-        void set_cancel(bool f) {
-            m_cancel = f;
         }
         void get_model(model_ref& mdl) {
             mdl = alloc(model, m);
@@ -718,9 +713,6 @@ namespace smt {
     }
     lbool pb_sls::operator()() {
         return (*m_imp)();
-    }
-    void pb_sls::set_cancel(bool f) {
-        m_imp->set_cancel(f);
     }
     void pb_sls::collect_statistics(statistics& st) const {
         m_imp->collect_statistics(st);

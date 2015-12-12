@@ -369,6 +369,7 @@ namespace realclosure {
         typedef sbuffer<int, REALCLOSURE_INI_BUFFER_SIZE> int_buffer;
         typedef sbuffer<unsigned, REALCLOSURE_INI_BUFFER_SIZE> unsigned_buffer;
         
+        reslimit&                      m_limit;
         small_object_allocator *       m_allocator;
         bool                           m_own_allocator;
         unsynch_mpq_manager &          m_qm;
@@ -400,7 +401,6 @@ namespace realclosure {
 
         bool                           m_in_aux_values; // True if we are computing SquareFree polynomials or Sturm sequences. That is, the values being computed will be discarded.
 
-        volatile bool                  m_cancel;
 
         struct scoped_polynomial_seq {
             typedef ref_buffer<value, imp, REALCLOSURE_INI_SEQ_SIZE> value_seq;
@@ -494,14 +494,15 @@ namespace realclosure {
         #define INC_DEPTH() ((void) 0)
         #endif
 
-        imp(unsynch_mpq_manager & qm, params_ref const & p, small_object_allocator * a):
+        imp(reslimit& lim, unsynch_mpq_manager & qm, params_ref const & p, small_object_allocator * a):
+            m_limit(lim),
             m_allocator(a == 0 ? alloc(small_object_allocator, "realclosure") : a),
             m_own_allocator(a == 0),
             m_qm(qm),
             m_mm(m_qm, *m_allocator),
             m_bqm(m_qm),
-            m_qim(m_qm),
-            m_bqim(m_bqm),
+            m_qim(lim, m_qm),
+            m_bqim(lim, m_bqm),
             m_plus_inf_approx(m_bqm),
             m_minus_inf_approx(m_bqm) {
             mpq one(1);
@@ -514,7 +515,6 @@ namespace realclosure {
 
             m_in_aux_values = false;
 
-            m_cancel = false;
             
             updt_params(p);
         }
@@ -547,7 +547,7 @@ namespace realclosure {
         small_object_allocator & allocator() { return *m_allocator; }
 
         void checkpoint() {
-            if (m_cancel)
+            if (!m_limit.inc())
                 throw exception("canceled");
             cooperate("rcf");
         }
@@ -730,9 +730,6 @@ namespace realclosure {
             return m_extensions[extension::ALGEBRAIC].size();
         }
         
-        void set_cancel(bool f) {
-            m_cancel = f;
-        }
         
         void updt_params(params_ref const & _p) {
             rcf_params p(_p);
@@ -6033,8 +6030,8 @@ namespace realclosure {
         ~save_interval_ctx() { m->restore_saved_intervals(); }
     };
 
-    manager::manager(unsynch_mpq_manager & m, params_ref const & p, small_object_allocator * a) {
-        m_imp = alloc(imp, m, p, a);
+    manager::manager(reslimit& lim, unsynch_mpq_manager & m, params_ref const & p, small_object_allocator * a) {
+        m_imp = alloc(imp, lim, m, p, a);
     }
         
     manager::~manager() {
@@ -6043,10 +6040,6 @@ namespace realclosure {
 
     void manager::get_param_descrs(param_descrs & r) {
         rcf_params::collect_param_descrs(r);
-    }
-
-    void manager::set_cancel(bool f) {
-        m_imp->set_cancel(f);
     }
 
     void manager::updt_params(params_ref const & p) {

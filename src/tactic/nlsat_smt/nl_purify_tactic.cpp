@@ -73,7 +73,6 @@ class nl_purify_tactic : public tactic {
     params_ref      m_params;
     bool            m_produce_proofs;
     ref<filter_model_converter> m_fmc;
-    bool            m_cancel;       
     tactic_ref      m_nl_tac;       // nlsat tactic
     goal_ref        m_nl_g;         // nlsat goal
     ref<solver>     m_solver;       // SMT solver
@@ -289,7 +288,7 @@ private:
     arith_util & u() { return m_util; }
 
     void check_point() {
-        if (m_cancel) {
+        if (m.canceled()) {
             throw tactic_exception("canceled");
         }
     }
@@ -701,7 +700,6 @@ public:
         m_util(m),
         m_params(p),
         m_fmc(0),
-        m_cancel(false),
         m_nl_tac(mk_nlsat_tactic(m, p)),
         m_nl_g(0),
         m_solver(mk_smt_solver(m, p, symbol::null)),
@@ -719,17 +717,6 @@ public:
 
     virtual tactic * translate(ast_manager& m) {
         return alloc(nl_purify_tactic, m, m_params);
-    }
-
-    virtual void set_cancel(bool f) {
-        m_nl_tac->set_cancel(f);
-        if (f) {
-            m_solver->cancel();
-        }
-        else {
-            m_solver->reset_cancel();
-        }
-        m_cancel = f;
     }
 
     virtual void collect_statistics(statistics & st) const {

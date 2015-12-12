@@ -43,7 +43,6 @@ public:
     virtual void operator()(goal_ref const & g, goal_ref_buffer & result, model_converter_ref & mc, proof_converter_ref & pc, expr_dependency_ref & core);
 
     virtual void cleanup();
-    virtual void set_cancel(bool f);
 };
 
 tactic * mk_bv_size_reduction_tactic(ast_manager & m, params_ref const & p) {
@@ -64,13 +63,11 @@ struct bv_size_reduction_tactic::imp {
     ref<filter_model_converter> m_fmc;
     scoped_ptr<expr_replacer> m_replacer;
     bool                      m_produce_models;
-    volatile bool             m_cancel;
 
     imp(ast_manager & _m):
         m(_m),
         m_util(m),
-        m_replacer(mk_default_expr_replacer(m)),
-        m_cancel(false) {
+        m_replacer(mk_default_expr_replacer(m)) {
     }
 
     void update_signed_lower(app * v, numeral const & k) {
@@ -178,7 +175,7 @@ struct bv_size_reduction_tactic::imp {
     }
     
     void checkpoint() {
-        if (m_cancel)
+        if (m.canceled())
             throw tactic_exception(TACTIC_CANCELED_MSG);
     }
     
@@ -375,10 +372,6 @@ struct bv_size_reduction_tactic::imp {
         TRACE("after_bv_size_reduction", g.display(tout); if (m_mc) m_mc->display(tout););
     }
 
-    void set_cancel(bool f) {
-        m_replacer->set_cancel(f);
-        m_cancel = f;
-    }
 };
 
 bv_size_reduction_tactic::bv_size_reduction_tactic(ast_manager & m) {
@@ -404,17 +397,10 @@ void bv_size_reduction_tactic::operator()(goal_ref const & g,
     SASSERT(g->is_well_sorted());
 }
 
-void bv_size_reduction_tactic::set_cancel(bool f) {
-    if (m_imp)
-        m_imp->set_cancel(f);
-}
  
 void bv_size_reduction_tactic::cleanup() {
     imp * d = alloc(imp, m_imp->m);
-    #pragma omp critical (tactic_cancel)
-    {
-        std::swap(d, m_imp);
-    }
+    std::swap(d, m_imp);    
     dealloc(d);
 }
 

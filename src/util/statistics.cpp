@@ -227,16 +227,25 @@ double statistics::get_double_value(unsigned idx) const {
     return m_d_stats[idx - m_stats.size()].second;
 }
 
+static void get_uint64_stats(statistics& st, char const* name, unsigned long long value) {
+    if (value <= UINT_MAX) {
+        st.update(name, static_cast<unsigned>(value));
+    }
+    else {
+        st.update(name, static_cast<double>(value));
+    }
+}
+
 void get_memory_statistics(statistics& st) {
     unsigned long long max_mem = memory::get_max_used_memory();
     unsigned long long mem = memory::get_allocation_size();
     max_mem = (100*max_mem)/(1024*1024);
     mem = (100*mem)/(1024*1024);
-    st.update("max memory",  static_cast<double>(max_mem)/100.0);
-    st.update("memory",      static_cast<double>(mem)/100.0);
-    st.update("num allocs",  static_cast<double>(memory::get_allocation_count()));
+    st.update("max memory", static_cast<double>(max_mem)/100.0);    
+    st.update("memory", static_cast<double>(mem)/100.0);
+    get_uint64_stats(st, "num allocs",  memory::get_allocation_count());
 }
 
 void get_rlimit_statistics(reslimit& l, statistics& st) {
-    st.update("rlimit count",     l.count());
+    get_uint64_stats(st, "rlimit count", l.count());
 }

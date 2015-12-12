@@ -58,7 +58,6 @@ namespace qe {
 
         ast_manager&            m;
         expr_ref                m_false;
-        volatile bool           m_cancel;
         smt_params              m_fparams;
         params_ref              m_params;
         unsigned                m_extrapolate_strategy_param;
@@ -209,7 +208,6 @@ namespace qe {
         sat_tactic(ast_manager& m, params_ref const& p = params_ref()):
             m(m),
             m_false(m.mk_false(), m),
-            m_cancel(false),
             m_params(p),
             m_extrapolate_strategy_param(0),
             m_projection_mode_param(true),
@@ -231,17 +229,6 @@ namespace qe {
 
         virtual ~sat_tactic() {
             reset();
-        }
-
-        virtual void set_cancel(bool f) { 
-            m_cancel = f; 
-            // not thread-safe when solvers are reset.
-            // TBD: lock - this, reset() and init_Ms.
-            for (unsigned i = 0; i < m_solvers.size(); ++i) {
-                m_solvers[i]->set_cancel(f);
-            }
-            m_solver.set_cancel(f);
-            m_ctx_rewriter.set_cancel(f);
         }
 
         virtual void operator()(
@@ -674,7 +661,7 @@ namespace qe {
         }
 
         void checkpoint() {
-            if (m_cancel) {
+            if (m.canceled()) {
                 throw tactic_exception(TACTIC_CANCELED_MSG);
             }
             cooperate("qe-sat");

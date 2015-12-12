@@ -40,7 +40,6 @@ class degree_shift_tactic : public tactic {
         rational                 m_one;
         bool                     m_produce_models;
         bool                     m_produce_proofs;
-        volatile bool            m_cancel;
 
         expr * mk_power(expr * t, rational const & k) {
             if (k.is_one())
@@ -96,15 +95,11 @@ class degree_shift_tactic : public tactic {
             m_pinned(_m),
             m_one(1),
             m_rw(0) {
-            m_cancel = false;
         }
 
-        void set_cancel(bool f) {
-            m_cancel = f;
-        }
 
         void checkpoint() {
-            if (m_cancel)
+            if (m.canceled())
                 throw tactic_exception(TACTIC_CANCELED_MSG);
             cooperate("degree_shift");
         }
@@ -320,18 +315,10 @@ public:
     
     virtual void cleanup() {
         imp * d = alloc(imp, m_imp->m);
-        #pragma omp critical (tactic_cancel)
-        {
-            std::swap(d, m_imp);
-        }
+        std::swap(d, m_imp);        
         dealloc(d);
     }
-    
-protected:
-    virtual void set_cancel(bool f) {
-        if (m_imp)
-            m_imp->set_cancel(f);
-    }
+
 };
 
 tactic * mk_degree_shift_tactic(ast_manager & m, params_ref const & p) {
