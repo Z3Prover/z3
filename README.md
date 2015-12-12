@@ -25,7 +25,7 @@ then:
    nmake
 ```
 
-## Building Z3 using make/g++ and Python
+## Building Z3 using make and GCC/Clang
 
 Execute:
 
@@ -35,6 +35,15 @@ Execute:
    make
    sudo make install
 ```
+
+Note by default ``gcc`` is used as the C++ compiler if it is available. If you
+would prefer to use Clang change the ``mk_make.py`` line to
+
+```bash
+   CXX=clang++ CC=clang python scripts/mk_make.py
+```
+
+Note that Clang < 3.7 does not support OpenMP.
 
 By default, it will install z3 executable at ``PREFIX/bin``, libraries at
 ``PREFIX/lib``, and include files at ``PREFIX/include``, where ``PREFIX``
@@ -78,15 +87,6 @@ To uninstall Z3, use
 
 ```bash
   sudo make uninstall
-```
-
-## Building Z3 using clang and clang++ on Linux/OSX
-Remark: clang does not support OpenMP yet.
-
-```bash
-   CXX=clang++ CC=clang python scripts/mk_make.py
-   cd build
-   make
 ```
 
 To clean Z3 you can delete the build directory and run the ``mk_make.py`` script again.
