@@ -214,7 +214,7 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
     for (unsigned i = 0; !found && i < as.size(); ++i) {
         if (bs.size() > as.size() - i) break;
         unsigned j = 0;
-        for (; j < bs.size() && as[j] == bs[i+j]; ++j) {};
+        for (; j < bs.size() && as[j+i] == bs[j]; ++j) {};
         found = j == bs.size();
     }
     if (found) {
