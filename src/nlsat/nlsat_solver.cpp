@@ -217,10 +217,7 @@ namespace nlsat {
         }
 
         void checkpoint() {
-            if (!m_rlimit.inc()) {
-                if (m_rlimit.cancel_flag_set()) throw solver_exception(Z3_CANCELED_MSG);
-                throw solver_exception(Z3_MAX_RESOURCE_MSG);
-            }
+            if (!m_rlimit.inc()) throw solver_exception(m_rlimit.get_cancel_msg());
             if (memory::get_allocation_size() > m_max_memory) throw solver_exception(Z3_MAX_MEMORY_MSG);
         }
 
