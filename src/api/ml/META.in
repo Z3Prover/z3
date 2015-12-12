@@ -1,5 +1,5 @@
 # META file for the "z3" package:
-version = "VERSION"
+version = "@VERSION@"
 description = "Z3 Theorem Prover (OCaml API)"
 requires = "num"
 archive(byte) = "z3ml.cma"
@@ -8,4 +8,4 @@ archive(byte,plugin) = "z3ml.cma"
 archive(native,plugin) = "z3ml.cmxa"
 archive(byte,toploop) = "z3ml.cma"
 archive(native,toploop) = "z3ml.cmxa"
-linkopts = "-cclib -lz3"
+linkopts = "-cclib -L@PREFIX@/lib -cclib -lz3"
