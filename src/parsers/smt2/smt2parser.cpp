@@ -1069,7 +1069,7 @@ namespace smt2 {
 
         void parse_string_const() {
             SASSERT(curr() == scanner::STRING_TOKEN);
-            expr_stack().push_back(sutil().str.mk_string(m_scanner.get_string()));
+            expr_stack().push_back(sutil().str.mk_string(symbol(m_scanner.get_string())));
             TRACE("smt2parser", tout << "new string: " << mk_pp(expr_stack().back(), m()) << "\n";);
             next();
         }

@@ -87,6 +87,16 @@ namespace smt {
             void display(std::ostream& out) const;            
         };
 
+        class eval_cache {
+            obj_map<expr, expr*> m_map;
+            expr_ref_vector      m_trail;
+        public:
+            eval_cache(ast_manager& m): m_trail(m) {}
+            bool find(expr* v, expr*& r) const { return m_map.find(v, r); }
+            void insert(expr* v, expr* r) { m_trail.push_back(v); m_trail.push_back(r); m_map.insert(v, r); }
+            void reset() { m_map.reset(); m_trail.reset(); }
+        };
+
         struct stats {
             stats() { reset(); }
             void reset() { memset(this, 0, sizeof(stats)); }
@@ -101,6 +111,7 @@ namespace smt {
         solution_map                        m_rep;        // unification representative.
         vector<expr_array>                  m_lhs, m_rhs; // persistent sets of equalities.
         vector<enode_pair_dependency_array> m_deps;       // persistent sets of dependencies.
+        eval_cache                          m_cache;
 
         ast2ast_trailmap<sort, func_decl>   m_sort2len_fn; // length functions per sort.
         seq_factory*    m_factory;               // value factory
@@ -110,6 +121,7 @@ namespace smt {
         unsigned        m_axioms_head;           // index of first axiom to add.
         unsigned        m_branch_variable_head;  // index of first equation to examine.
         bool            m_incomplete;            // is the solver (clearly) incomplete for the fragment.
+        bool            m_has_length;            // is length applied
         bool            m_model_completion;      // during model construction, invent values in canonizer
         th_rewriter     m_rewrite;
         seq_util        m_util;
@@ -185,15 +197,16 @@ namespace smt {
         void add_replace_axiom(expr* e);
         void add_extract_axiom(expr* e);
         void add_length_axiom(expr* n);
+        void add_length_unit_axiom(expr* n);
+        void add_length_empty_axiom(expr* n);
+        void add_length_concat_axiom(expr* n);
+        void add_length_string_axiom(expr* n);
         void add_at_axiom(expr* n);
         literal mk_literal(expr* n);
-        void tightest_prefix(expr* s, expr* x, literal lit);
+        void tightest_prefix(expr* s, expr* x, literal lit, literal lit2 = null_literal);
         expr* mk_sub(expr* a, expr* b);
 
-        void new_eq_len_concat(enode* n1, enode* n2);
-
-
-        expr_ref mk_skolem(symbol const& s, expr* e1, expr* e2 = 0);
+        expr_ref mk_skolem(symbol const& s, expr* e1, expr* e2 = 0, expr* e3 = 0);
 
         void set_incomplete(app* term);
 

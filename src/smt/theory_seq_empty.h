@@ -71,8 +71,8 @@ namespace smt {
         }
         virtual bool get_some_values(sort* s, expr_ref& v1, expr_ref& v2) { 
             if (u.is_string(s)) {
-                v1 = u.str.mk_string("a");
-                v2 = u.str.mk_string("b");
+                v1 = u.str.mk_string(symbol("a"));
+                v2 = u.str.mk_string(symbol("b"));
                 return true;
             }
             NOT_IMPLEMENTED_YET();
