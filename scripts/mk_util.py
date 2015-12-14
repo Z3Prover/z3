@@ -1750,7 +1750,11 @@ class MLComponent(Component):
             api_src = get_component(API_COMPONENT).to_src_dir
             out.write('CXXFLAGS_OCAML=$(CXXFLAGS:/GL=)\n') # remove /GL; the ocaml tools don't like it.
 
-            substitutions = { 'PREFIX': PREFIX,
+            if IS_WINDOWS:
+                prefix_lib = '-L' + os.path.abspath(BUILD_DIR).replace('\\', '\\\\') 
+            else:
+                prefix_lib = '-L' + PREFIX + '/lib'
+            substitutions = { 'LEXTRA': prefix_lib,
                               'VERSION': "{}.{}.{}.{}".format(VER_MAJOR, VER_MINOR, VER_BUILD, VER_REVISION) }
             
             configure_file(os.path.join(self.src_dir, 'META.in'),
@@ -1768,10 +1772,11 @@ class MLComponent(Component):
             out.write('\t%s -ccopt "$(CXXFLAGS_OCAML) -I %s -I %s -I %s $(CXX_OUT_FLAG)%s" -c %s\n' %
                       (OCAMLC, OCAML_LIB, api_src, src_dir, stubso, stubsc))            
 
+            cmis = ''
             for m in self.modules:
                 ff = os.path.join(src_dir, m + '.mli')
                 ft = os.path.join(self.sub_dir, m + '.cmi')
-                out.write('%s: %s\n' % (ft, mlis))
+                out.write('%s: %s %s\n' % (ft, mlis, cmis))
                 out.write('\t%s -I %s -o %s -c %s\n' % (OCAMLC, self.sub_dir, ft, ff))
 
             cmos = ''                    
@@ -1805,6 +1810,16 @@ class MLComponent(Component):
             out.write('ml: %s.cma %s.cmxa %s.cmxs\n' % (z3mls, z3mls, z3mls))
             out.write('\n')
 
+            if IS_WINDOWS:
+                out.write('ocamlfind_install: ')
+                self.mk_install_deps(out)
+                out.write('\n')
+                self.mk_install(out)
+                out.write('\n')
+                out.write('ocamlfind_uninstall:\n')
+                self.mk_uninstall(out)
+                out.write('\n')
+                
     def mk_install_deps(self, out):
         if is_ml_enabled() and OCAMLFIND != '':
             out.write(get_component(Z3_DLL_COMPONENT).dll_name + '$(SO_EXT) ')
