@@ -151,6 +151,7 @@ namespace datalog {
             m_context.ensure_closed();
             transform_rules();
             if (m_context.canceled()) {
+                TRACE("dl", tout << "canceled\n";);
                 result = l_undef;
                 break;
             }
@@ -191,6 +192,7 @@ namespace datalog {
             IF_VERBOSE(10, m_ectx.report_big_relations(1000, verbose_stream()););
 
             if (m_context.canceled()) {
+                TRACE("dl", tout << "canceled\n";);
                 result = l_undef;
                 break;
             }
@@ -206,6 +208,7 @@ namespace datalog {
             }
             if (timeout_after_this_round) {
                 m_context.set_status(TIMEOUT);
+                TRACE("dl", tout << "timeout\n";);
                 result = l_undef;
                 break;
             }
@@ -272,6 +275,7 @@ namespace datalog {
             if (some_non_empty) {
                 m_answer = mk_and(m, ans.size(), ans.c_ptr());
                 if (is_approx) {
+                    TRACE("dl", tout << "approx\n";);
                     res = l_undef;
                     m_context.set_status(APPROX);
                 }
@@ -286,6 +290,7 @@ namespace datalog {
             m_answer = m.mk_false();
             break;
         case l_undef:
+            TRACE("dl", tout << "saturation in undef\n";);
             break;
         }
         return res;
@@ -367,6 +372,7 @@ namespace datalog {
                 m_last_result_relation->to_formula(m_answer);
                 if (!m_last_result_relation->is_precise()) {
                     m_context.set_status(APPROX);
+                    TRACE("dl", tout << "approx\n";);
                     res = l_undef;
                 }
             }

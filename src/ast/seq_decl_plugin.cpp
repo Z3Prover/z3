@@ -22,6 +22,145 @@ Revision History:
 #include "ast_pp.h"
 #include <sstream>
 
+zstring::zstring(encoding enc): m_encoding(enc) {}
+
+zstring::zstring(char const* s, encoding enc): m_encoding(enc) {
+    // TBD: epply decoding
+    while (*s) {
+        m_buffer.push_back(*s);
+        ++s;
+    }
+}
+
+zstring::zstring(zstring const& other) {
+    m_buffer = other.m_buffer;
+    m_encoding = other.m_encoding;
+}
+
+zstring::zstring(unsigned num_bits, bool const* ch) {
+    SASSERT(num_bits == 8 || num_bits == 16);
+    m_encoding = (num_bits == 8)?ascii:unicode;
+    unsigned n = 0;    
+    for (unsigned i = 0; i < num_bits; ++i) {
+        n |= (((unsigned)ch[i]) << num_bits);
+    }
+    m_buffer.push_back(n);
+}
+
+zstring::zstring(unsigned ch, encoding enc) {
+    m_encoding = enc;
+    m_buffer.push_back(ch & ((enc == ascii)?0x000000FF:0x0000FFFF));
+}
+
+zstring& zstring::operator=(zstring const& other) {
+    m_encoding = other.m_encoding;
+    m_buffer.reset();
+    m_buffer.append(other.m_buffer);
+    return *this;
+}
+
+zstring zstring::replace(zstring const& src, zstring const& dst) const {
+    zstring result(m_encoding);
+    if (length() < src.length()) {
+        return zstring(*this);
+    }
+    bool found = false;
+    for (unsigned i = 0; i <= length() - src.length(); ++i) {
+        bool eq = !found;
+        for (unsigned j = 0; eq && j < src.length(); ++j) {
+            eq = m_buffer[i+j] == src[j];
+        }
+        if (eq) {
+            result.m_buffer.append(dst.m_buffer);
+            found = true;
+        }
+        else {
+            result.m_buffer.push_back(m_buffer[i]);
+        }
+    }
+    return result;
+}
+
+std::string zstring::encode() const {
+    // TBD apply encodings.
+    SASSERT(m_encoding == ascii);
+    std::ostringstream strm;
+    for (unsigned i = 0; i < m_buffer.size(); ++i) {
+        strm << (char)(m_buffer[i]);
+    }
+    return strm.str();
+}
+
+bool zstring::suffixof(zstring const& other) const {
+    if (length() > other.length()) return false;
+    bool suffix = true;
+    for (unsigned i = 0; suffix && i < length(); ++i) {
+        suffix = m_buffer[length()-i-1] == other[other.length()-i-1];
+    }
+    return suffix;
+}
+
+bool zstring::prefixof(zstring const& other) const {
+    if (length() > other.length()) return false;
+    bool prefix = true;
+    for (unsigned i = 0; prefix && i < length(); ++i) {
+        prefix = m_buffer[i] == other[i];
+    }
+    return prefix;
+}
+
+bool zstring::contains(zstring const& other) const {
+    if (other.length() > length()) return false;
+    unsigned last = length() - other.length();
+    bool cont = false;
+    for (unsigned i = 0; !cont && i <= last; ++i) {
+        cont = true;
+        for (unsigned j = 0; cont && j < other.length(); ++j) {
+            cont = other[j] == m_buffer[j+i];
+        }
+    }
+    return cont;
+}
+
+int zstring::indexof(zstring const& other, int offset) const {
+    SASSERT(offset >= 0);
+    if (offset == length()) return -1;
+    if (other.length() + offset > length()) return -1;
+    unsigned last = length() - other.length();
+    for (unsigned i = static_cast<unsigned>(offset); i <= last; ++i) {
+        bool prefix = true;
+        for (unsigned j = 0; prefix && j < other.length(); ++j) {
+            prefix = m_buffer[i + j] == other[j];
+        }    
+        if (prefix) {
+            return static_cast<int>(i);
+        }
+    }
+    return -1;
+}
+
+zstring zstring::extract(int offset, int len) const {
+    zstring result(m_encoding);
+    SASSERT(0 <= offset && 0 <= len);
+    int last = std::min(offset+len, static_cast<int>(length()));
+    for (int i = offset; i < last; ++i) {
+        result.m_buffer.push_back(m_buffer[i]);
+    }
+    return result;
+}
+
+zstring zstring::operator+(zstring const& other) const {
+    SASSERT(m_encoding == other.m_encoding);
+    zstring result(*this);
+    result.m_buffer.append(other.m_buffer);
+    return result;
+}
+
+std::ostream& zstring::operator<<(std::ostream& out) const {
+    return out << encode();
+}
+
+
 seq_decl_plugin::seq_decl_plugin(): m_init(false), 
                                     m_stringc_sym("String"),
                                     m_string(0),
@@ -452,6 +591,14 @@ app* seq_decl_plugin::mk_string(symbol const& s) {
     return m_manager->mk_const(f);
 }
 
+app* seq_decl_plugin::mk_string(zstring const& s) {
+    symbol sym(s.encode().c_str());
+    parameter param(sym);
+    func_decl* f = m_manager->mk_const_decl(m_stringc_sym, m_string,
+                                   func_decl_info(m_family_id, OP_STRING_CONST, 1, &param));
+    return m_manager->mk_const(f);
+}
+
 bool seq_decl_plugin::is_value(app* e) const {
     return is_app_of(e, m_family_id, OP_STRING_CONST);
 }
@@ -461,6 +608,18 @@ app* seq_util::mk_skolem(symbol const& name, unsigned n, expr* const* args, sort
     parameter param(name);
     func_decl* f = m.mk_func_decl(get_family_id(), _OP_SEQ_SKOLEM, 1, &param, n, args, range);
     return m.mk_app(f, n, args);
+}
+
+app* seq_util::str::mk_string(zstring const& s) { return u.seq.mk_string(s); }
+
+bool seq_util::str::is_string(expr const* n, zstring& s) const {
+    if (is_string(n)) {
+        s = zstring(to_app(n)->get_decl()->get_parameter(0).get_symbol().bare_str());
+        return true;
+    }
+    else {
+        return false;
+    }
 }
 
 

@@ -81,6 +81,36 @@ enum seq_op_kind {
 };
 
 
+class zstring {
+public:
+    enum encoding {
+        ascii, 
+        unicode
+    };
+private:    
+    buffer<unsigned> m_buffer;
+    encoding         m_encoding;
+public:
+    zstring(encoding enc = ascii);
+    zstring(char const* s, encoding enc = ascii);
+    zstring(zstring const& other);
+    zstring(unsigned num_bits, bool const* ch);
+    zstring(unsigned ch, encoding enc = ascii);
+    zstring& operator=(zstring const& other);
+    zstring replace(zstring const& src, zstring const& dst) const;
+    unsigned num_bits() const { return (m_encoding==ascii)?8:16; }
+    std::string encode() const; 
+    unsigned length() const { return m_buffer.size(); }
+    unsigned operator[](unsigned i) const { return m_buffer[i]; }
+    bool empty() const { return m_buffer.empty(); }
+    bool suffixof(zstring const& other) const;
+    bool prefixof(zstring const& other) const;
+    bool contains(zstring const& other) const;
+    int  indexof(zstring const& other, int offset) const;
+    zstring extract(int lo, int hi) const;
+    zstring operator+(zstring const& other) const;
+    std::ostream& operator<<(std::ostream& out) const;
+};
     
 class seq_decl_plugin : public decl_plugin {
     struct psig {
@@ -146,6 +176,7 @@ public:
     bool is_char(ast* a) const { return a == m_char; }
 
     app* mk_string(symbol const& s);  
+    app* mk_string(zstring const& s);  
 };
 
 class seq_util {
@@ -161,6 +192,7 @@ public:
     bool is_re(sort* s) const { return is_sort_of(s, m_fid, RE_SORT); }
     bool is_re(sort* s, sort*& seq) const { return is_sort_of(s, m_fid, RE_SORT)  && (seq = to_sort(s->get_parameter(0).get_ast()), true); }
     bool is_seq(expr* e) const  { return is_seq(m.get_sort(e)); }
+    bool is_seq(sort* s, sort*& seq) { return is_seq(s) && (seq = to_sort(s->get_parameter(0).get_ast()), true); }
     bool is_re(expr* e) const { return is_re(m.get_sort(e)); }
     bool is_re(expr* e, sort*& seq) const { return is_re(m.get_sort(e), seq); }
 
@@ -171,14 +203,18 @@ public:
         seq_util&    u;
         ast_manager& m;
         family_id    m_fid;
+
+        app* mk_string(char const* s) { return mk_string(symbol(s)); }
+        app* mk_string(std::string const& s) { return mk_string(symbol(s.c_str())); }
+
+
     public:
         str(seq_util& u): u(u), m(u.m), m_fid(u.m_fid) {}
 
         sort* mk_seq(sort* s) { parameter param(s); return m.mk_sort(m_fid, SEQ_SORT, 1, &param); }
         app* mk_empty(sort* s) { return m.mk_const(m.mk_func_decl(m_fid, OP_SEQ_EMPTY, 0, 0, 0, (expr*const*)0, s)); }
+        app* mk_string(zstring const& s);
         app* mk_string(symbol const& s) { return u.seq.mk_string(s); }
-        app* mk_string(char const* s) { return mk_string(symbol(s)); }
-        app* mk_string(std::string const& s) { return mk_string(symbol(s.c_str())); }
         app* mk_concat(expr* a, expr* b) { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_CONCAT, 2, es); }
         app* mk_concat(expr* a, expr* b, expr* c) {
             return mk_concat(mk_concat(a, b), c);
@@ -190,17 +226,17 @@ public:
         app* mk_prefix(expr* a, expr* b) { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_PREFIX, 2, es); }
         app* mk_suffix(expr* a, expr* b) { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_SUFFIX, 2, es); }
         app* mk_index(expr* a, expr* b, expr* i) { expr* es[3] = { a, b, i}; return m.mk_app(m_fid, OP_SEQ_INDEX, 3, es); }
+        app* mk_unit(expr* u) { return m.mk_app(m_fid, OP_SEQ_UNIT, 1, &u); }
 
 
         bool is_string(expr const * n) const { return is_app_of(n, m_fid, OP_STRING_CONST); }
-        
-        bool is_string(expr const* n, std::string& s) const {
-            return is_string(n) && (s = to_app(n)->get_decl()->get_parameter(0).get_symbol().str(), true);
-        }
+
         bool is_string(expr const* n, symbol& s) const {
             return is_string(n) && (s = to_app(n)->get_decl()->get_parameter(0).get_symbol(), true);
         }
         
+        bool is_string(expr const* n, zstring& s) const;
+
         bool is_empty(expr const* n) const { symbol s; 
             return is_app_of(n, m_fid, OP_SEQ_EMPTY) || (is_string(n, s) && !s.is_numerical() && *s.bare_str() == 0); 
         }

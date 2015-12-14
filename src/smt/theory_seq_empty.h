@@ -64,15 +64,20 @@ namespace smt {
         }
 
         virtual expr* get_some_value(sort* s) { 
-            if (u.is_string(s)) 
-                return u.str.mk_string(symbol(""));            
-            NOT_IMPLEMENTED_YET();
+            if (u.is_seq(s)) {
+                return u.str.mk_empty(s);
+            }
+            sort* seq = 0;
+            if (u.is_re(s, seq)) {
+                return u.re.mk_to_re(u.str.mk_empty(seq));
+            }
+            UNREACHABLE();
             return 0;
         }
         virtual bool get_some_values(sort* s, expr_ref& v1, expr_ref& v2) { 
             if (u.is_string(s)) {
-                v1 = u.str.mk_string("a");
-                v2 = u.str.mk_string("b");
+                v1 = u.str.mk_string(symbol("a"));
+                v2 = u.str.mk_string(symbol("b"));
                 return true;
             }
             NOT_IMPLEMENTED_YET();

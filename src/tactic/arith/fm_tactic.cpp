@@ -197,7 +197,7 @@ class fm_tactic : public tactic {
                 clauses::iterator it  = m_clauses[i].begin();
                 clauses::iterator end = m_clauses[i].end();
                 for (; it != end; ++it) {
-                    if (m.canceled()) throw tactic_exception(TACTIC_CANCELED_MSG);
+                    if (m.canceled()) throw tactic_exception(m.limit().get_cancel_msg());
                     switch (process(x, *it, u, ev, val)) {
                     case NONE: 
                         TRACE("fm_mc", tout << "no bound for:\n" << mk_ismt2_pp(*it, m) << "\n";);
@@ -1543,7 +1543,7 @@ class fm_tactic : public tactic {
         void checkpoint() {
             cooperate("fm");
             if (m.canceled())
-                throw tactic_exception(TACTIC_CANCELED_MSG);
+                throw tactic_exception(m.limit().get_cancel_msg());
             if (memory::get_allocation_size() > m_max_memory)
                 throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
         }

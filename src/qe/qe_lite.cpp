@@ -738,7 +738,7 @@ namespace eq {
         void checkpoint() {
             cooperate("der");
             if (m.canceled()) 
-                throw tactic_exception(TACTIC_CANCELED_MSG);
+                throw tactic_exception(m.limit().get_cancel_msg());
         }
 
     public:
@@ -917,8 +917,8 @@ namespace ar {
         void checkpoint() {
             cooperate("der");
             if (m.canceled())
-                throw tactic_exception(TACTIC_CANCELED_MSG);
-        }
+                throw tactic_exception(m.limit().get_cancel_msg());
+    }
 
     public:
 
@@ -2207,7 +2207,7 @@ namespace fm {
         void checkpoint() {
             cooperate("fm");
             if (m.canceled())
-                throw tactic_exception(TACTIC_CANCELED_MSG);
+                throw tactic_exception(m.limit().get_cancel_msg());
         }
     public:
 
@@ -2477,7 +2477,7 @@ class qe_lite_tactic : public tactic {
 
         void checkpoint() {
             if (m.canceled())
-                throw tactic_exception(TACTIC_CANCELED_MSG);
+                throw tactic_exception(m.limit().get_cancel_msg());
             cooperate("qe-lite");
         }
         

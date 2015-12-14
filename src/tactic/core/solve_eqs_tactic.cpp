@@ -77,8 +77,8 @@ class solve_eqs_tactic : public tactic {
                 
         void checkpoint() {
             if (m().canceled())
-                throw tactic_exception(TACTIC_CANCELED_MSG);
-            cooperate("solve-eqs");
+                throw tactic_exception(m().limit().get_cancel_msg());
+        cooperate("solve-eqs");
         }
         
         // Check if the number of occurrences of t is below the specified threshold :solve-eqs-max-occs

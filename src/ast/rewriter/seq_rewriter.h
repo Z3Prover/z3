@@ -21,6 +21,7 @@ Notes:
 
 #include"seq_decl_plugin.h"
 #include"arith_decl_plugin.h"
+#include"bv_decl_plugin.h"
 #include"rewriter_types.h"
 #include"params.h"
 #include"lbool.h"
@@ -32,6 +33,7 @@ Notes:
 class seq_rewriter {
     seq_util       m_util;
     arith_util     m_autil;
+    bv_util        m_butil;
     ptr_vector<expr> m_es, m_lhs, m_rhs;
 
     br_status mk_seq_concat(expr* a, expr* b, expr_ref& result);
@@ -58,12 +60,12 @@ class seq_rewriter {
                         expr_ref_vector& lhs, expr_ref_vector& rhs, bool& is_sat);
     bool length_constrained(unsigned n, expr* const* l, unsigned m, expr* const* r, 
                         expr_ref_vector& lhs, expr_ref_vector& rhs, bool& is_sat);
-    bool min_length(unsigned n, expr* const* es, size_t& len);
+    bool min_length(unsigned n, expr* const* es, unsigned& len);
     expr* concat_non_empty(unsigned n, expr* const* es);
 
 public:    
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
-        m_util(m), m_autil(m) {
+        m_util(m), m_autil(m), m_butil(m) {
     }
     ast_manager & m() const { return m_util.get_manager(); }
     family_id get_fid() const { return m_util.get_family_id(); }

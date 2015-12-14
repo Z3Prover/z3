@@ -96,7 +96,7 @@ struct ctx_simplify_tactic::imp {
         if (memory::get_allocation_size() > m_max_memory)
             throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
         if (m.canceled())
-            throw tactic_exception(TACTIC_CANCELED_MSG);
+            throw tactic_exception(m.limit().get_cancel_msg());
     }
 
     bool shared(expr * t) const { 

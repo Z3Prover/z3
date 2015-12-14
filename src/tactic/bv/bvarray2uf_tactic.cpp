@@ -50,7 +50,7 @@ class bvarray2uf_tactic : public tactic {
 
         void checkpoint() {
             if (m_manager.canceled())
-                throw tactic_exception(TACTIC_CANCELED_MSG);
+                throw tactic_exception(m_manager.limit().get_cancel_msg());
         }
 
         void operator()(goal_ref const & g,

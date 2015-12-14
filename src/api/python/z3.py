@@ -5693,8 +5693,6 @@ class Statistics:
         >>> s.check()
         sat
         >>> st = s.statistics()
-        >>> st.keys()
-        ['nlsat propagations', 'nlsat stages', 'rlimit count', 'max memory', 'memory', 'num allocs']
         """
         return [Z3_stats_get_key(self.ctx.ref(), self.stats, idx) for idx in range(len(self))]
 
@@ -5730,8 +5728,6 @@ class Statistics:
         >>> s.check()
         sat
         >>> st = s.statistics() 
-        >>> st.keys()
-        ['nlsat propagations', 'nlsat stages', 'rlimit count', 'max memory', 'memory', 'num allocs']
         >>> st.nlsat_propagations
         2
         >>> st.nlsat_stages

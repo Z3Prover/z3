@@ -487,9 +487,7 @@ namespace datalog {
         // -----------------------------------
 
         bool canceled() {
-            if (m.limit().inc()) return true;
-            m_last_status = CANCELED;
-            return false;
+            return m.canceled() && (m_last_status = CANCELED, true);
         }
 
         void cleanup();

@@ -364,16 +364,18 @@ format * smt2_pp_environment::pp_arith_literal(app * t, bool decimal, unsigned d
 }
 
 format * smt2_pp_environment::pp_string_literal(app * t) {
-    std::string s;
+    zstring s;
+    std::string encs;
     VERIFY (get_sutil().str.is_string(t, s));
+    encs = s.encode();
     std::ostringstream buffer;
     buffer << "\"";
-    for (unsigned i = 0; i < s.length(); ++i) {
-        if (s[i] == '\"') {
+    for (unsigned i = 0; i < encs.length(); ++i) {
+        if (encs[i] == '\"') {
             buffer << "\"\"";
         }
         else {
-            buffer << s[i];
+            buffer << encs[i];
         }
     }
     buffer << "\"";  
