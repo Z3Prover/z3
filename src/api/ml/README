@@ -4,8 +4,10 @@ refer to previous releases of Z3.
 On Windows, there are no less than four different ports of OCaml. The Z3 build 
 system assumes that either the win32 or the win64 port is installed. This means
 that OCaml will use `cl' as the underlying C compiler and not the cygwin or
-mingw compilers. 
+mingw compilers.
 
-By default, a make target called `ocamlfind_install' is added. This installs Z3
-into the ocamlfind package repository such that programs can be compiled via 
-ocamlfind.
+OCamlfind: When ocamlfind is found, the `install' target will install the Z3
+OCaml bindings into the ocamlfind site-lib directory. The installed package is
+linked against the (dynamic) libz3 and it adds $(PREFIX)/lib to the library
+include paths. On Windows, there is no $(PREFIX), so the build directory is
+used instead (see META.in).

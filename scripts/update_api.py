@@ -1305,7 +1305,8 @@ def mk_ml():
     ml_wrapper.write('#ifdef __cplusplus\n')
     ml_wrapper.write('}\n')
     ml_wrapper.write('#endif\n\n')
-    ml_wrapper.write('#include <z3.h>\n\n')
+    ml_wrapper.write('#include <z3.h>\n')
+    ml_wrapper.write('#include <z3native_stubs.h>\n\n')
     ml_wrapper.write('#define CAMLlocal6(X1,X2,X3,X4,X5,X6)                               \\\n')
     ml_wrapper.write('  CAMLlocal5(X1,X2,X3,X4,X5);                                       \\\n')
     ml_wrapper.write('  CAMLlocal1(X6)                                                      \n')
@@ -1345,11 +1346,11 @@ def mk_ml():
     ml_wrapper.write('#ifdef __cplusplus\n')
     ml_wrapper.write('extern "C" {\n')
     ml_wrapper.write('#endif\n\n')
-    ml_wrapper.write('CAMLprim value n_is_null(value p) {\n')
+    ml_wrapper.write('CAMLprim DLL_PUBLIC value n_is_null(value p) {\n')
     ml_wrapper.write('  void * t = * (void**) Data_custom_val(p);\n')
     ml_wrapper.write('  return Val_bool(t == 0);\n')
     ml_wrapper.write('}\n\n')
-    ml_wrapper.write('CAMLprim value n_mk_null( void ) {\n')
+    ml_wrapper.write('CAMLprim DLL_PUBLIC value n_mk_null( void ) {\n')
     ml_wrapper.write('  CAMLparam0();\n')
     ml_wrapper.write('  CAMLlocal1(result);\n')
     ml_wrapper.write('  void * z3_result = 0;\n')
@@ -1363,7 +1364,7 @@ def mk_ml():
     ml_wrapper.write('  // upon errors, but the actual error handling is done by throwing exceptions in the\n')
     ml_wrapper.write('  // wrappers below.\n')
     ml_wrapper.write('}\n\n')
-    ml_wrapper.write('void n_set_internal_error_handler(value a0)\n')
+    ml_wrapper.write('void DLL_PUBLIC n_set_internal_error_handler(value a0)\n')
     ml_wrapper.write('{\n')
     ml_wrapper.write('  Z3_context _a0 = * (Z3_context*) Data_custom_val(a0);\n')
     ml_wrapper.write('  Z3_set_error_handler(_a0, MLErrorHandler);\n')
@@ -1377,7 +1378,7 @@ def mk_ml():
             ret_size = ret_size + 1
             
         # Setup frame
-        ml_wrapper.write('CAMLprim value n_%s(' % ml_method_name(name)) 
+        ml_wrapper.write('CAMLprim DLL_PUBLIC value n_%s(' % ml_method_name(name)) 
         first = True
         i = 0
         for p in params:
@@ -1519,7 +1520,7 @@ def mk_ml():
         ml_wrapper.write('  CAMLreturn(result);\n')
         ml_wrapper.write('}\n\n')
         if len(ip) > 5:
-            ml_wrapper.write('CAMLprim value n_%s_bytecode(value * argv, int argn) {\n' % ml_method_name(name)) 
+            ml_wrapper.write('CAMLprim DLL_PUBLIC value n_%s_bytecode(value * argv, int argn) {\n' % ml_method_name(name)) 
             ml_wrapper.write('  return n_%s(' % ml_method_name(name))
             i = 0
             while i < len(ip):
