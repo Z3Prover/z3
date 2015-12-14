@@ -536,7 +536,7 @@ class SortRef(AstRef):
 
     def __hash__(self):
         """ Hash code. """
-        ASTRef.__hash__(self)
+        AstRef.__hash__(self)
 
 def is_sort(s):
     """Return `True` if `s` is a Z3 sort.
@@ -802,7 +802,7 @@ class ExprRef(AstRef):
 
     def __hash__(self):
         """ Hash code. """
-        ASTRef.__hash__(self)
+        AstRef.__hash__(self)
 
     def __ne__(self, other):
         """Return a Z3 expression that represents the constraint `self != other`.
