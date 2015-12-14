@@ -1776,8 +1776,9 @@ class MLComponent(Component):
             for m in self.modules:
                 ff = os.path.join(src_dir, m + '.mli')
                 ft = os.path.join(self.sub_dir, m + '.cmi')
-                out.write('%s: %s %s\n' % (ft, mlis, cmis))
+                out.write('%s: %s\n' % (ft, cmis))
                 out.write('\t%s -I %s -o %s -c %s\n' % (OCAMLC, self.sub_dir, ft, ff))
+                cmis = cmis + ' ' + ft
 
             cmos = ''                    
             for m in self.modules:
