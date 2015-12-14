@@ -94,7 +94,8 @@ public:
 
     void pop_back() {
         SASSERT(m_size > 0);
-        if (m_size == m_elems.size() && m_size > m_elems_start) {
+        if (m_index[m_size-1] == m_elems.size()-1 && 
+            m_elems.size() > m_elems_start) {
             m_elems.pop_back();
         }
         --m_size;

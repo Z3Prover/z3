@@ -192,6 +192,7 @@ public:
     bool is_re(sort* s) const { return is_sort_of(s, m_fid, RE_SORT); }
     bool is_re(sort* s, sort*& seq) const { return is_sort_of(s, m_fid, RE_SORT)  && (seq = to_sort(s->get_parameter(0).get_ast()), true); }
     bool is_seq(expr* e) const  { return is_seq(m.get_sort(e)); }
+    bool is_seq(sort* s, sort*& seq) { return is_seq(s) && (seq = to_sort(s->get_parameter(0).get_ast()), true); }
     bool is_re(expr* e) const { return is_re(m.get_sort(e)); }
     bool is_re(expr* e, sort*& seq) const { return is_re(m.get_sort(e), seq); }
 
@@ -225,6 +226,7 @@ public:
         app* mk_prefix(expr* a, expr* b) { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_PREFIX, 2, es); }
         app* mk_suffix(expr* a, expr* b) { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_SUFFIX, 2, es); }
         app* mk_index(expr* a, expr* b, expr* i) { expr* es[3] = { a, b, i}; return m.mk_app(m_fid, OP_SEQ_INDEX, 3, es); }
+        app* mk_unit(expr* u) { return m.mk_app(m_fid, OP_SEQ_UNIT, 1, &u); }
 
 
         bool is_string(expr const * n) const { return is_app_of(n, m_fid, OP_STRING_CONST); }

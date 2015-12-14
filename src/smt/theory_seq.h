@@ -165,6 +165,7 @@ namespace smt {
         bool split_variable();           // split a variable
         bool is_solved(); 
         bool check_length_coherence();  
+        bool check_length_coherence_tbd();  
         bool check_ineq_coherence(); 
 
         bool pre_process_eqs(bool simplify_or_solve);
@@ -209,8 +210,9 @@ namespace smt {
         literal mk_literal(expr* n);
         void tightest_prefix(expr* s, expr* x, literal lit, literal lit2 = null_literal);
         expr* mk_sub(expr* a, expr* b);
+        enode* ensure_enode(expr* a);
 
-        expr_ref mk_skolem(symbol const& s, expr* e1, expr* e2 = 0, expr* e3 = 0);
+        expr_ref mk_skolem(symbol const& s, expr* e1, expr* e2 = 0, expr* e3 = 0, sort* range = 0);
 
         void set_incomplete(app* term);
 

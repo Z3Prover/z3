@@ -597,7 +597,7 @@ bool seq_rewriter::reduce_eq(expr* l, expr* r, expr_ref_vector& lhs, expr_ref_ve
         if (head1 == m_lhs.size() || head2 == m_rhs.size()) {
             break;
         }
-        SASSERT(head1 < m_lhs.size() && head2 == m_rhs.size());
+        SASSERT(head1 < m_lhs.size() && head2 < m_rhs.size());
 
         expr* l = m_lhs[head1];
         expr* r = m_rhs[head2];
