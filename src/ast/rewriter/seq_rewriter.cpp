@@ -520,6 +520,7 @@ br_status seq_rewriter::mk_eq_core(expr * l, expr * r, expr_ref & result) {
 
 bool seq_rewriter::reduce_eq(expr* l, expr* r, expr_ref_vector& lhs, expr_ref_vector& rhs) {
     expr* a, *b;
+    zstring s;
     bool change = false;
     expr_ref_vector trail(m());
     m_lhs.reset();
@@ -528,23 +529,55 @@ bool seq_rewriter::reduce_eq(expr* l, expr* r, expr_ref_vector& lhs, expr_ref_ve
     m_util.str.get_concat(r, m_rhs);
  
     // solve from back
-    while (!m_lhs.empty() && !m_rhs.empty()) {
-        if (m_lhs.back() == m_rhs.back()) {
+    while (true) {
+        while (!m_rhs.empty() && m_util.str.is_empty(m_rhs.back())) {
+            m_rhs.pop_back();
+            change = true;
+        }
+        while (!m_lhs.empty() && m_util.str.is_empty(m_lhs.back())) {
+            m_lhs.pop_back();
+            change = true;
+        }
+        if (m_lhs.empty() || m_rhs.empty()) {
+            break;
+        }
+        expr* l = m_lhs.back();
+        expr* r = m_rhs.back();
+        if (m_util.str.is_unit(r) && m_util.str.is_string(l)) {
+            std::swap(l, r);
+            std::swap(m_lhs, m_rhs);
+        }
+        if (l == r) {
             m_lhs.pop_back();
             m_rhs.pop_back();
         }
-        else if(m_util.str.is_unit(m_lhs.back(), a) &&
-                m_util.str.is_unit(m_rhs.back(), b)) {
+        else if(m_util.str.is_unit(l, a) &&
+                m_util.str.is_unit(r, b)) {
             lhs.push_back(a);
             rhs.push_back(b);
             m_lhs.pop_back();
             m_rhs.pop_back();
         }
-        else if (!m_rhs.empty() && m_util.str.is_empty(m_rhs.back())) {
-            m_rhs.pop_back();
-        }
-        else if (!m_lhs.empty() && m_util.str.is_empty(m_lhs.back())) {
+        else if (m_util.str.is_unit(l, a) && m_util.str.is_string(r, s)) {
+            SASSERT(s.length() > 0);
+            
+            unsigned ch = s[s.length()-1];
+            SASSERT(s.num_bits() == m_butil.get_bv_size(a));
+            expr_ref bv(m());
+            
+            bv = m_butil.mk_numeral(ch, s.num_bits());
+            SASSERT(m_butil.is_bv(a));
+            lhs.push_back(bv);
+            rhs.push_back(a);
             m_lhs.pop_back();
+            if (s.length() == 1) {
+                m_rhs.pop_back();
+            }
+            else {
+                expr_ref s2(m_util.str.mk_string(s.extract(0, s.length()-2)), m());
+                m_rhs[m_rhs.size()-1] = s2;
+                trail.push_back(s2);
+            }
         }
         else {
             break;
@@ -554,23 +587,55 @@ bool seq_rewriter::reduce_eq(expr* l, expr* r, expr_ref_vector& lhs, expr_ref_ve
 
     // solve from front
     unsigned head1 = 0, head2 = 0;
-    while (head1 < m_lhs.size() && head2 < m_rhs.size()) {
-        if (m_lhs[head1] == m_rhs[head2]) {
+    while (true) {
+        while (head1 < m_lhs.size() && m_util.str.is_empty(m_lhs[head1])) {
+            ++head1;
+        }
+        while (head2 < m_rhs.size() && m_util.str.is_empty(m_rhs[head2])) {
+            ++head2;
+        }
+        if (head1 == m_lhs.size() || head2 == m_rhs.size()) {
+            break;
+        }
+        SASSERT(head1 < m_lhs.size() && head2 == m_rhs.size());
+
+        expr* l = m_lhs[head1];
+        expr* r = m_rhs[head2];
+        if (m_util.str.is_unit(r) && m_util.str.is_string(l)) {
+            std::swap(l, r);
+            std::swap(m_lhs, m_rhs);
+        }
+        if (l == r) {
             ++head1;
             ++head2;
         }
-        else if(m_util.str.is_unit(m_lhs[head1], a) &&
-                m_util.str.is_unit(m_rhs[head2], b)) {
+        else if(m_util.str.is_unit(l, a) &&
+                m_util.str.is_unit(r, b)) {
             lhs.push_back(a);
             rhs.push_back(b);
             ++head1;
             ++head2;
         }
-        else if (head1 < m_lhs.size() && m_util.str.is_empty(m_lhs[head1])) {
-            ++head1;
-        }
-        else if (head2 < m_rhs.size() && m_util.str.is_empty(m_rhs[head2])) {
-            ++head2;
+        else if (m_util.str.is_unit(l, a) && m_util.str.is_string(r, s)) {
+            SASSERT(s.length() > 0);
+            
+            unsigned ch = s[0];
+            SASSERT(s.num_bits() == m_butil.get_bv_size(a));
+            expr_ref bv(m());
+            
+            bv = m_butil.mk_numeral(ch, s.num_bits());
+            SASSERT(m_butil.is_bv(a));
+            lhs.push_back(bv);
+            rhs.push_back(a);
+            m_lhs.pop_back();
+            if (s.length() == 1) {
+                m_rhs.pop_back();
+            }
+            else {
+                expr_ref s2(m_util.str.mk_string(s.extract(1, s.length()-1)), m());
+                m_rhs[m_rhs.size()-1] = s2;
+                trail.push_back(s2);
+            }            
         }
         else {
             break;

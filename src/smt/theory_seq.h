@@ -23,37 +23,38 @@ Revision History:
 #include "seq_decl_plugin.h"
 #include "theory_seq_empty.h"
 #include "th_rewriter.h"
-#include "union_find.h"
 #include "ast_trail.h"
+#include "scoped_vector.h"
 
 namespace smt {
 
     class theory_seq : public theory {
-        struct config {
-            static const bool preserve_roots   = true;
-            static const unsigned max_trail_sz = 16;
-            static const unsigned factor       = 2;
-            typedef small_object_allocator   allocator;
-        };
         typedef scoped_dependency_manager<enode_pair> enode_pair_dependency_manager;
         typedef enode_pair_dependency_manager::dependency enode_pair_dependency;
-        struct enode_pair_dependency_array_config : public config {
-            typedef enode_pair_dependency*      value;
-            typedef dummy_value_manager<value>  value_manager;
-            static const bool ref_count = false;
-        };
-        typedef parray_manager<enode_pair_dependency_array_config> enode_pair_dependency_array_manager;
-        typedef enode_pair_dependency_array_manager::ref enode_pair_dependency_array;
         
-        typedef union_find<theory_seq> th_union_find;
         typedef trail_stack<theory_seq> th_trail_stack;
+        typedef std::pair<expr*, enode_pair_dependency*> expr_dep;
+        typedef obj_map<expr, expr_dep> eqdep_map_t; 
+
+        // cache to track evaluations under equalities
+        class eval_cache {
+            eqdep_map_t             m_map;
+            expr_ref_vector         m_trail;
+        public:
+            eval_cache(ast_manager& m): m_trail(m) {}
+            bool find(expr* v, expr_dep& r) const { return m_map.find(v, r); }
+            void insert(expr* v, expr_dep& r) { m_trail.push_back(v); m_trail.push_back(r.first); m_map.insert(v, r); }
+            void reset() { m_map.reset(); m_trail.reset(); }
+        };
         
+        // map from variables to representatives 
+        // + a cache for normalization.
         class solution_map {
             enum map_update { INS, DEL };
-            typedef obj_map<expr, std::pair<expr*, enode_pair_dependency*> > map_t; 
             ast_manager&                      m;
             enode_pair_dependency_manager&    m_dm;
-            map_t                             m_map;            
+            eqdep_map_t                       m_map;            
+            eval_cache                        m_cache;
             expr_ref_vector                   m_lhs, m_rhs;
             ptr_vector<enode_pair_dependency> m_deps;
             svector<map_update>               m_updates;
@@ -61,15 +62,20 @@ namespace smt {
 
             void add_trail(map_update op, expr* l, expr* r, enode_pair_dependency* d);
         public:
-            solution_map(ast_manager& m, enode_pair_dependency_manager& dm): m(m), m_dm(dm), m_lhs(m), m_rhs(m) {}
+            solution_map(ast_manager& m, enode_pair_dependency_manager& dm): 
+                m(m), m_cache(m), m_dm(dm), m_lhs(m), m_rhs(m) {}
             bool empty() const { return m_map.empty(); }
             void  update(expr* e, expr* r, enode_pair_dependency* d);
+            void  add_cache(expr* v, expr_dep& r) { m_cache.insert(v, r); }
+            bool  find_cache(expr* v, expr_dep& r) { return m_cache.find(v, r); }
             expr* find(expr* e, enode_pair_dependency*& d);
+            void  cache(expr* e, expr* r, enode_pair_dependency* d);
             void push_scope() { m_limit.push_back(m_updates.size()); }
             void pop_scope(unsigned num_scopes);
             void display(std::ostream& out) const;
         };
 
+        // Table of current disequalities
         class exclusion_table {
             typedef obj_pair_hashtable<expr, expr> table_t;
             ast_manager&                      m;
@@ -87,14 +93,15 @@ namespace smt {
             void display(std::ostream& out) const;            
         };
 
-        class eval_cache {
-            obj_map<expr, expr*> m_map;
-            expr_ref_vector      m_trail;
-        public:
-            eval_cache(ast_manager& m): m_trail(m) {}
-            bool find(expr* v, expr*& r) const { return m_map.find(v, r); }
-            void insert(expr* v, expr* r) { m_trail.push_back(v); m_trail.push_back(r); m_map.insert(v, r); }
-            void reset() { m_map.reset(); m_trail.reset(); }
+        // Asserted or derived equality with dependencies
+        struct eq {
+            expr_ref               m_lhs;
+            expr_ref               m_rhs;
+            enode_pair_dependency* m_dep;
+            eq(expr_ref& l, expr_ref& r, enode_pair_dependency* d):
+                m_lhs(l), m_rhs(r), m_dep(d) {}
+            eq(eq const& other): m_lhs(other.m_lhs), m_rhs(other.m_rhs), m_dep(other.m_dep) {}
+            eq& operator=(eq const& other) { m_lhs = other.m_lhs; m_rhs = other.m_rhs; m_dep = other.m_dep; return *this; }
         };
 
         struct stats {
@@ -104,16 +111,10 @@ namespace smt {
             unsigned m_num_reductions;
         };
         ast_manager&                        m;
-        small_object_allocator              m_alloc;
-        enode_pair_dependency_array_config::value_manager m_dep_array_value_manager;
         enode_pair_dependency_manager       m_dm;
-        enode_pair_dependency_array_manager m_dam;
         solution_map                        m_rep;        // unification representative.
-        vector<expr_array>                  m_lhs, m_rhs; // persistent sets of equalities.
-        vector<enode_pair_dependency_array> m_deps;       // persistent sets of dependencies.
-        eval_cache                          m_cache;
+        scoped_vector<eq>                   m_eqs;        // set of current equations.
 
-        ast2ast_trailmap<sort, func_decl>   m_sort2len_fn; // length functions per sort.
         seq_factory*    m_factory;               // value factory
         expr_ref_vector m_ineqs;                 // inequalities to check solution against
         exclusion_table m_exclude;               // set of asserted disequalities.
@@ -162,6 +163,9 @@ namespace smt {
         bool simplify_and_solve_eqs();   // solve unitary equalities
         bool branch_variable();          // branch on a variable
         bool split_variable();           // split a variable
+        bool is_solved(); 
+        bool check_length_coherence();  
+        bool check_ineq_coherence(); 
 
         bool pre_process_eqs(bool simplify_or_solve);
         bool simplify_eqs();
