@@ -1535,7 +1535,7 @@ class DotNetDLLComponent(Component):
                            ]
                          )
         if DEBUG_MODE:
-            cscCmdLine.extend( ['/define:DEBUG;TRACE',
+            cscCmdLine.extend( ['"/define:DEBUG;TRACE"', # Needs to be quoted due to ``;`` being a shell command separator
                                 '/debug+',
                                 '/debug:full',
                                 '/optimize-'
