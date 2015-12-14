@@ -285,6 +285,9 @@ class AstRef(Z3PPObject):
     def __repr__(self):
         return obj_to_string(self)
 
+    def __eq__(self, other):
+        return self.eq(other)
+
     def __hash__(self):
         return self.hash()
 
@@ -530,6 +533,10 @@ class SortRef(AstRef):
         True
         """
         return not Z3_is_eq_sort(self.ctx_ref(), self.ast, other.ast)
+
+    def __hash__(self):
+        """ Hash code. """
+        ASTRef.__hash__(self)
 
 def is_sort(s):
     """Return `True` if `s` is a Z3 sort.
@@ -792,6 +799,10 @@ class ExprRef(AstRef):
             return False
         a, b = _coerce_exprs(self, other)
         return BoolRef(Z3_mk_eq(self.ctx_ref(), a.as_ast(), b.as_ast()), self.ctx)
+
+    def __hash__(self):
+        """ Hash code. """
+        ASTRef.__hash__(self)
 
     def __ne__(self, other):
         """Return a Z3 expression that represents the constraint `self != other`.
