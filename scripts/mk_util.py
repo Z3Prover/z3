@@ -35,7 +35,7 @@ OCAMLOPT=getenv("OCAMLOPT", "ocamlopt")
 OCAML_LIB=getenv("OCAML_LIB", None)
 OCAMLFIND=getenv("OCAMLFIND", "ocamlfind")
 CSC=getenv("CSC", None)
-GACUTIL=getenv("GACUTIL", None)
+GACUTIL=getenv("GACUTIL", 'gacutil')
 # Standard install directories relative to PREFIX
 INSTALL_BIN_DIR=getenv("Z3_INSTALL_BIN_DIR", "bin")
 INSTALL_LIB_DIR=getenv("Z3_INSTALL_LIB_DIR", "lib")
@@ -44,6 +44,7 @@ INSTALL_PKGCONFIG_DIR=getenv("Z3_INSTALL_PKGCONFIG_DIR", os.path.join(INSTALL_LI
 
 CXX_COMPILERS=['g++', 'clang++']
 C_COMPILERS=['gcc', 'clang']
+CSC_COMPILERS=['csc', 'mcs']
 JAVAC=None
 JAR=None
 PYTHON_PACKAGE_DIR=distutils.sysconfig.get_python_lib()
@@ -397,36 +398,36 @@ def check_java():
         if JNI_HOME is None:
             raise MKException("Failed to detect jni.h. Possible solution: set JNI_HOME with the path to JDK.")
 
+def test_csc_compiler(c):
+    t = TempFile('hello.cs')
+    t.add('public class hello { public static void Main() {} }')
+    t.commit()
+    if is_verbose():
+        print ('Testing %s...' % c)
+    r = exec_cmd([c, 'hello.cs'])
+    try:
+        rmf('hello.cs')
+        rmf('hello.exe')
+    except:
+        pass
+    return r == 0
+
 def check_dotnet():
     global CSC, GACUTIL
-    
-    if IS_WINDOWS:
-        # We assume we're running in a VS command prompt as per instructions. 
-        if CSC == None:
-            CSC='csc.exe'
-        return
-    else:
-        # Check for the mono compiler
-        if CSC == None:
-            monoCompilerExecutable = 'mcs'
-        else:
-            monoCompilerExecutable = CSC
-            monoCompilerPath = which(monoCompilerExecutable)
-            if monoCompilerPath == None:
-                raise MKException(('Could not find mono C# compiler ({}) in your PATH. Set environment variable CSC with the path to the mono C# compiler.').format(monoCompilerExecutable))
-            CSC = monoCompilerPath
-            
-        # Check for gacutil (needed to install the dotnet bindings)
-        if GACUTIL == None:
-            gacutilExecutable = 'gacutil'
-        else:
-            gacutilExecutable = GACUTIL
-        gacutilPath = which(gacutilExecutable)
-        if gacutilPath == None:
-            raise MKException(('Could not find the gacutil ({}) in your PATH. '
-                               'Either install it or disable building the dotnet bindings.').format(
-                                   gacutilExecutable))
-        GACUTIL = gacutilPath
+
+    if CSC == None:
+        for c in CSC_COMPILERS:
+            if test_csc_compiler(c):
+                CSC = c
+
+    if CSC == None:
+        raise MKException('Failed testing C# compiler. Set environment variable CSC with the path to the C# compiler')
+
+    if is_verbose():
+        print ('Testing %s...' % GACUTIL)
+    r = exec_cmd([GACUTIL, '/l', 'hello' ])
+    if r != 0:
+        raise MKException('Failed testing gacutil. Set environment variable GACUTIL with the path to gacutil.')
 
 def check_ml():
     t = TempFile('hello.ml')
@@ -1584,7 +1585,7 @@ class DotNetDLLComponent(Component):
         return
 
     def mk_install_deps(self, out):
-        if not is_dotnet_enabled:
+        if not is_dotnet_enabled():
             return
         out.write('%s' % self.name)
 
