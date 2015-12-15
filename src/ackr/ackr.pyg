@@ -1,0 +1,8 @@
+def_module_params('ackr', 
+                  description='solving UF via ackermannization (currently for QF_AUFBV)',
+                  export=True,
+                  params=(
+                          ('eager', BOOL, True, 'eagerly instantiate all congruence rules'),
+                          ('sat_backend', BOOL, False, 'use SAT rather than SMT'),
+                          ))
+
