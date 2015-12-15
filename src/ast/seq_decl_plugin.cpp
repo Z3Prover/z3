@@ -124,7 +124,7 @@ bool zstring::contains(zstring const& other) const {
 
 int zstring::indexof(zstring const& other, int offset) const {
     SASSERT(offset >= 0);
-    if (offset == length()) return -1;
+    if (static_cast<unsigned>(offset) == length()) return -1;
     if (other.length() + offset > length()) return -1;
     unsigned last = length() - other.length();
     for (unsigned i = static_cast<unsigned>(offset); i <= last; ++i) {
@@ -312,18 +312,14 @@ void seq_decl_plugin::init() {
     sort* boolT = m.mk_bool_sort();
     sort* intT  = arith_util(m).mk_int();
     sort* predA = array_util(m).mk_array_sort(A, boolT);
-    sort* u16T = 0;
-    sort* u32T = 0;
     sort* seqAseqA[2] = { seqA, seqA };
     sort* seqAreA[2] = { seqA, reA };
     sort* reAreA[2] = { reA, reA };
-    sort* AA[2] = { A, A };
     sort* seqAint2T[3] = { seqA, intT, intT };
     sort* seq2AintT[3] = { seqA, seqA, intT };
     sort* str2T[2] = { strT, strT };
     sort* str3T[3] = { strT, strT, strT };
     sort* strTint2T[3] = { strT, intT, intT };
-    sort* re2T[2] = { reT, reT };
     sort* strTreT[2] = { strT, reT };
     sort* str2TintT[3] = { strT, strT, intT };
     sort* seqAintT[2] = { seqA, intT };
@@ -611,6 +607,14 @@ app* seq_util::mk_skolem(symbol const& name, unsigned n, expr* const* args, sort
 }
 
 app* seq_util::str::mk_string(zstring const& s) { return u.seq.mk_string(s); }
+
+
+expr_ref seq_util::str::mk_char(zstring const& s, unsigned idx) {
+    bv_util bvu(m());
+    unsigned ch = s[idx];
+    return expr_ref(bvu.mk_numeral(ch, s.num_bits()), m());
+}
+
 
 bool seq_util::str::is_string(expr const* n, zstring& s) const {
     if (is_string(n)) {

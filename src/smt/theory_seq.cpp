@@ -722,8 +722,6 @@ expr_ref theory_seq::canonize(expr* e, enode_pair_dependency*& eqs) {
 expr_ref theory_seq::expand(expr* e, enode_pair_dependency*& eqs) {
     enode_pair_dependency* deps = 0;
     expr_dep ed;
-    expr* r = 0;
-
     if (m_rep.find_cache(e, ed)) {
         eqs = m_dm.mk_join(eqs, ed.second);
         return expr_ref(ed.first, m);
@@ -819,7 +817,8 @@ void theory_seq::deque_axiom(expr* n) {
         add_length_concat_axiom(n);
     }
     else if (m_util.str.is_string(n)) {
-        add_length_string_axiom(n);
+        add_elim_string_axiom(n);
+        // add_length_string_axiom(n);
     }
 }
 
@@ -956,6 +955,18 @@ void theory_seq::add_length_empty_axiom(expr* n) {
     add_axiom(mk_eq(len, zero, false));
 }
 
+void theory_seq::add_elim_string_axiom(expr* n) {
+    zstring s;
+    VERIFY(m_util.str.is_string(n, s));
+    SASSERT(s.length() > 0);
+    expr_ref result = m_util.str.mk_unit(m_util.str.mk_char(s, 0));
+    for (unsigned i = 1; i < s.length(); ++i) {
+        result = m_util.str.mk_concat(result, m_util.str.mk_unit(m_util.str.mk_unit_char(s, i)));
+    }
+    add_axiom(mk_eq(n, result, false));
+    m_rep.update(n, result, 0);
+}
+
 void theory_seq::add_length_string_axiom(expr* n) {
     if (!m_has_length) return;
     zstring s;
@@ -1038,7 +1049,6 @@ void theory_seq::add_extract_axiom(expr* e) {
     expr_ref zero(m_autil.mk_int(0), m);
     
     literal i_ge_0  = mk_literal(m_autil.mk_ge(i, zero));
-    literal i_le_l  = mk_literal(m_autil.mk_le(mk_sub(i, l), zero));
     literal i_ge_ls = mk_literal(m_autil.mk_ge(mk_sub(i, ls), zero));
     literal l_ge_ls = mk_literal(m_autil.mk_ge(mk_sub(l, ls), zero));
     literal l_ge_zero = mk_literal(m_autil.mk_ge(l, zero));

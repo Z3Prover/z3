@@ -1017,7 +1017,6 @@ namespace pdr {
         TRACE("pdr_verbose", tout << "remove: " << n.level() << ": " << &n << " " << n.state() << "\n";);
         model_nodes& nodes = cache(n).find(n.state());
         nodes.erase(&n);
-        bool is_goal = n.is_goal();
         remove_goal(n);
         // TBD: siblings would also fail if n is not a goal.
         if (!nodes.empty() && backtrack && nodes[0]->children().empty() && nodes[0]->is_closed()) {

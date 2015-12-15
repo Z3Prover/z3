@@ -27,8 +27,8 @@ namespace datalog {
     class karr_relation;
 
     class karr_relation_plugin : public relation_plugin {
-        arith_util a;
         hilbert_basis m_hb;
+        arith_util a;
 
         class join_fn;
         class project_fn;

@@ -207,6 +207,7 @@ public:
         app* mk_string(char const* s) { return mk_string(symbol(s)); }
         app* mk_string(std::string const& s) { return mk_string(symbol(s.c_str())); }
 
+        expr_ref mk_unit_char(zstring const& s, unsigned idx);
 
     public:
         str(seq_util& u): u(u), m(u.m), m_fid(u.m_fid) {}

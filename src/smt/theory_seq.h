@@ -63,7 +63,7 @@ namespace smt {
             void add_trail(map_update op, expr* l, expr* r, enode_pair_dependency* d);
         public:
             solution_map(ast_manager& m, enode_pair_dependency_manager& dm): 
-                m(m), m_cache(m), m_dm(dm), m_lhs(m), m_rhs(m) {}
+                m(m),  m_dm(dm), m_cache(m), m_lhs(m), m_rhs(m) {}
             bool empty() const { return m_map.empty(); }
             void  update(expr* e, expr* r, enode_pair_dependency* d);
             void  add_cache(expr* v, expr_dep& r) { m_cache.insert(v, r); }
@@ -206,6 +206,7 @@ namespace smt {
         void add_length_empty_axiom(expr* n);
         void add_length_concat_axiom(expr* n);
         void add_length_string_axiom(expr* n);
+        void add_elim_string_axiom(expr* n);
         void add_at_axiom(expr* n);
         literal mk_literal(expr* n);
         void tightest_prefix(expr* s, expr* x, literal lit, literal lit2 = null_literal);
