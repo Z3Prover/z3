@@ -366,7 +366,7 @@ struct purify_arith_proc {
                     push_cnstr(EQ(x, u().mk_power(k, u().mk_numeral(n, false))));
                     push_cnstr_pr(result_pr);
                 }
-                else if (complete()) {
+                else {
                     SASSERT(n.is_even());
                     // (^ x (/ 1 n)) --> k  |  x >= 0 implies (x = k^n and k >= 0), x < 0 implies k = neg-root(x, n)   
                     // when n is even
@@ -379,9 +379,9 @@ struct purify_arith_proc {
                                   EQ(k, u().mk_neg_root(x, u().mk_numeral(n, false)))));
                     push_cnstr_pr(result_pr);
                 }
-                else {
-                    return BR_FAILED;
-                }
+//                else {
+//                    return BR_FAILED;
+//                }
             }
             else {
                 // root not supported for integers.
