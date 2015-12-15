@@ -1969,9 +1969,11 @@ class DotNetExampleComponent(ExampleComponent):
                 out.write(' /platform:x86')
             for csfile in get_cs_files(self.ex_dir):
                 out.write(' ')
-                # HACK
-                win_ex_dir = self.to_ex_dir.replace('/', '\\')
-                out.write(os.path.join(win_ex_dir, csfile))
+                # HACK: I'm not really sure why csc on Windows need to be
+                # given Windows style paths (``\``) here. I thought Windows
+                # supported using ``/`` as a path separator...
+                relative_path = self.to_ex_dir.replace('/', os.path.sep)
+                out.write(os.path.join(relative_path, csfile))
             out.write('\n')
             out.write('_ex_%s: %s\n\n' % (self.name, exefile))
 
