@@ -1950,7 +1950,7 @@ class DotNetExampleComponent(ExampleComponent):
         ExampleComponent.__init__(self, name, path)
 
     def is_example(self):
-        return IS_WINDOWS
+        return is_dotnet_enabled()
 
     def mk_makefile(self, out):
         if DOTNET_ENABLED:
