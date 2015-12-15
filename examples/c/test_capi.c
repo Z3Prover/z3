@@ -2557,7 +2557,7 @@ void reference_counter_example() {
     ty      = Z3_mk_bool_sort(ctx);
     Z3_inc_ref(ctx, Z3_sort_to_ast(ctx, ty)); // Z3_sort_to_ast(ty) is just syntax sugar for ((Z3_ast) ty)
     sx      = Z3_mk_string_symbol(ctx, "x");
-    // Z3_symbol is not a Z3_ast. No reference counting is not needed.
+    // Z3_symbol is not a Z3_ast. No reference counting is needed.
     x       = Z3_mk_const(ctx, sx, ty);
     Z3_inc_ref(ctx, x);
     sy      = Z3_mk_string_symbol(ctx, "y");
