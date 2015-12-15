@@ -609,10 +609,9 @@ app* seq_util::mk_skolem(symbol const& name, unsigned n, expr* const* args, sort
 app* seq_util::str::mk_string(zstring const& s) { return u.seq.mk_string(s); }
 
 
-expr_ref seq_util::str::mk_char(zstring const& s, unsigned idx) {
-    bv_util bvu(m());
-    unsigned ch = s[idx];
-    return expr_ref(bvu.mk_numeral(ch, s.num_bits()), m());
+app*  seq_util::str::mk_char(zstring const& s, unsigned idx) {
+    bv_util bvu(m);
+    return bvu.mk_numeral(s[idx], s.num_bits());
 }
 
 

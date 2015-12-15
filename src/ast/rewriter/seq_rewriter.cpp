@@ -553,7 +553,7 @@ bool seq_rewriter::reduce_eq(expr* l, expr* r, expr_ref_vector& lhs, expr_ref_ve
         }
         else if(m_util.str.is_unit(l, a) &&
                 m_util.str.is_unit(r, b)) {
-            if (m.are_distinct(a, b)) {
+            if (m().are_distinct(a, b)) {
                 return false;
             }
             lhs.push_back(a);
@@ -564,9 +564,9 @@ bool seq_rewriter::reduce_eq(expr* l, expr* r, expr_ref_vector& lhs, expr_ref_ve
         else if (m_util.str.is_unit(l, a) && m_util.str.is_string(r, s)) {
             SASSERT(s.length() > 0);
             
-            expr_ref bv = m_util.str.mk_char(s, s.length()-1);
-            SASSERT(m_butil.is_bv(a));
-            lhs.push_back(bv);
+            app* ch = m_util.str.mk_char(s, s.length()-1);
+            SASSERT(m().get_sort(ch) == m().get_sort(a));
+            lhs.push_back(ch);
             rhs.push_back(a);
             m_lhs.pop_back();
             if (s.length() == 1) {
@@ -610,7 +610,7 @@ bool seq_rewriter::reduce_eq(expr* l, expr* r, expr_ref_vector& lhs, expr_ref_ve
         }
         else if(m_util.str.is_unit(l, a) &&
                 m_util.str.is_unit(r, b)) {
-            if (m.are_distinct(a, b)) {
+            if (m().are_distinct(a, b)) {
                 return false;
             }
             lhs.push_back(a);
@@ -620,9 +620,9 @@ bool seq_rewriter::reduce_eq(expr* l, expr* r, expr_ref_vector& lhs, expr_ref_ve
         }
         else if (m_util.str.is_unit(l, a) && m_util.str.is_string(r, s)) {
             SASSERT(s.length() > 0);
-            expr_ref bv = m_util.str.mk_unit(s, 0);
-            SASSERT(m_butil.is_bv(a));
-            lhs.push_back(bv);
+            app* ch = m_util.str.mk_char(s, 0);
+            SASSERT(m().get_sort(ch) == m().get_sort(a));
+            lhs.push_back(ch);
             rhs.push_back(a);
             m_lhs.pop_back();
             if (s.length() == 1) {

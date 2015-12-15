@@ -207,7 +207,6 @@ public:
         app* mk_string(char const* s) { return mk_string(symbol(s)); }
         app* mk_string(std::string const& s) { return mk_string(symbol(s.c_str())); }
 
-        expr_ref mk_unit_char(zstring const& s, unsigned idx);
 
     public:
         str(seq_util& u): u(u), m(u.m), m_fid(u.m_fid) {}
@@ -228,6 +227,8 @@ public:
         app* mk_suffix(expr* a, expr* b) { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_SUFFIX, 2, es); }
         app* mk_index(expr* a, expr* b, expr* i) { expr* es[3] = { a, b, i}; return m.mk_app(m_fid, OP_SEQ_INDEX, 3, es); }
         app* mk_unit(expr* u) { return m.mk_app(m_fid, OP_SEQ_UNIT, 1, &u); }
+        app* mk_char(zstring const& s, unsigned idx);
+
 
 
         bool is_string(expr const * n) const { return is_app_of(n, m_fid, OP_STRING_CONST); }

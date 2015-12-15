@@ -959,9 +959,9 @@ void theory_seq::add_elim_string_axiom(expr* n) {
     zstring s;
     VERIFY(m_util.str.is_string(n, s));
     SASSERT(s.length() > 0);
-    expr_ref result = m_util.str.mk_unit(m_util.str.mk_char(s, 0));
+    expr_ref result(m_util.str.mk_unit(m_util.str.mk_char(s, 0)), m);
     for (unsigned i = 1; i < s.length(); ++i) {
-        result = m_util.str.mk_concat(result, m_util.str.mk_unit(m_util.str.mk_unit_char(s, i)));
+        result = m_util.str.mk_concat(result, m_util.str.mk_unit(m_util.str.mk_char(s, i)));
     }
     add_axiom(mk_eq(n, result, false));
     m_rep.update(n, result, 0);
