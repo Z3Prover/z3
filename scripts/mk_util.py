@@ -75,7 +75,7 @@ ONLY_MAKEFILES = False
 Z3PY_SRC_DIR=None
 VS_PROJ = False
 TRACE = False
-DOTNET_ENABLED=True
+DOTNET_ENABLED=False
 JAVA_ENABLED=False
 ML_ENABLED=False
 PYTHON_INSTALL_ENABLED=True
@@ -399,40 +399,34 @@ def check_java():
 
 def check_dotnet():
     global CSC, GACUTIL
+    
     if IS_WINDOWS:
-        # Apparently building the dotnet bindings worked fine before
-        # so don't bother to try to detect anything
-        # FIXME: Shouldn't we be checking the supported version of .NET
-        # or something!?
+        # We assume we're running in a VS command prompt as per instructions. 
         if CSC == None:
             CSC='csc.exe'
         return
-
-    # Check for the mono compiler
-    if CSC == None:
-        monoCompilerExecutable = 'mcs'
     else:
-        monoCompilerExecutable = CSC
-    monoCompilerPath = which(monoCompilerExecutable)
-    if monoCompilerPath == None:
-        disable_dotnet()
-        print(("Could not find mono compiler ({}) in your PATH. Not building .NET bindings").format(
-              monoCompilerExecutable))
-        return
-    CSC = monoCompilerPath
-
-    # Check for gacutil (needed to install the dotnet bindings)
-    if GACUTIL == None:
-        gacutilExecutable = 'gacutil'
-    else:
-        gacutilExecutable = GACUTIL
-    gacutilPath = which(gacutilExecutable)
-    if gacutilPath == None:
-        print(("ERROR: Could not find the gacutil ({}) in your PATH. "
-               "Either install it or disable building the dotnet bindings.").format(
-               gacutilExecutable))
-        sys.exit(1)
-    GACUTIL = gacutilPath
+        # Check for the mono compiler
+        if CSC == None:
+            monoCompilerExecutable = 'mcs'
+        else:
+            monoCompilerExecutable = CSC
+            monoCompilerPath = which(monoCompilerExecutable)
+            if monoCompilerPath == None:
+                raise MKException(('Could not find mono C# compiler ({}) in your PATH. Set environment variable CSC with the path to the mono C# compiler.').format(monoCompilerExecutable))
+            CSC = monoCompilerPath
+            
+        # Check for gacutil (needed to install the dotnet bindings)
+        if GACUTIL == None:
+            gacutilExecutable = 'gacutil'
+        else:
+            gacutilExecutable = GACUTIL
+        gacutilPath = which(gacutilExecutable)
+        if gacutilPath == None:
+            raise MKException(('Could not find the gacutil ({}) in your PATH. '
+                               'Either install it or disable building the dotnet bindings.').format(
+                                   gacutilExecutable))
+        GACUTIL = gacutilPath
 
 def check_ml():
     t = TempFile('hello.ml')
@@ -612,10 +606,10 @@ def display_help(exit_code):
     print("  -m, --makefiles               generate only makefiles.")
     if IS_WINDOWS:
         print("  -v, --vsproj                  generate Visual Studio Project Files.")
-    print("  -n, --nodotnet                do not generate Microsoft.Z3.dll make rules.")
     if IS_WINDOWS:
         print("  --optimize                    generate optimized code during linking.")
-    print("  -j, --java                    generate Java bindings.")
+    print("  --dotnet                      generate .NET bindings.")
+    print("  --java                        generate Java bindings.")
     print("  --ml                          generate OCaml bindings.")
     print("  --staticlib                   build Z3 static library.")
     if not IS_WINDOWS:
@@ -636,8 +630,8 @@ def display_help(exit_code):
     print("  OCAMLC     Ocaml byte-code compiler (only relevant with --ml)")
     print("  OCAMLOPT   Ocaml native compiler (only relevant with --ml)")
     print("  OCAML_LIB  Ocaml library directory (only relevant with --ml)")
-    print("  CSC        C# Compiler (only relevant if dotnet bindings are enabled)")
-    print("  GACUTIL    GAC Utility (only relevant if dotnet bindings are enabled)")
+    print("  CSC        C# Compiler (only relevant if .NET bindings are enabled)")
+    print("  GACUTIL    GAC Utility (only relevant if .NET bindings are enabled)")
     print("  Z3_INSTALL_BIN_DIR Install directory for binaries relative to install prefix")
     print("  Z3_INSTALL_LIB_DIR Install directory for libraries relative to install prefix")
     print("  Z3_INSTALL_INCLUDE_DIR Install directory for header files relative to install prefix")
@@ -653,7 +647,7 @@ def parse_options():
         options, remainder = getopt.gnu_getopt(sys.argv[1:],
                                                'b:df:sxhmcvtnp:gj',
                                                ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj',
-                                                'trace', 'nodotnet', 'staticlib', 'prefix=', 'gmp', 'foci2=', 'java', 'parallel=', 'gprof',
+                                                'trace', 'dotnet', 'staticlib', 'prefix=', 'gmp', 'foci2=', 'java', 'parallel=', 'gprof',
                                                 'githash=', 'x86', 'ml', 'optimize', 'noomp', 'pypkgdir='])
     except:
         print("ERROR: Invalid command line option")
@@ -685,8 +679,8 @@ def parse_options():
             VS_PROJ = True
         elif opt in ('-t', '--trace'):
             TRACE = True
-        elif opt in ('-n', '--nodotnet'):
-            DOTNET_ENABLED = False
+        elif opt in ('-.net', '--dotnet'):
+            DOTNET_ENABLED = True
         elif opt in ('--staticlib'):
             STATIC_LIB = True
         elif opt in ('--optimize'):
@@ -828,10 +822,6 @@ def is_dotnet_enabled():
 
 def is_python_install_enabled():
     return PYTHON_INSTALL_ENABLED
-
-def disable_dotnet():
-    global DOTNET_ENABLED
-    DOTNET_ENABLED = False
 
 def is_compiler(given, expected):
     """
@@ -1485,7 +1475,7 @@ class DotNetDLLComponent(Component):
         configure_file(pkg_config_template, pkg_config_output, substitutions)
 
     def mk_makefile(self, out):
-        if not DOTNET_ENABLED:
+        if not is_dotnet_enabled():
             return
         cs_fp_files = []
         cs_files    = []
@@ -1576,8 +1566,8 @@ class DotNetDLLComponent(Component):
         return True
 
     def mk_win_dist(self, build_path, dist_path):
-        if DOTNET_ENABLED:
-            # Assuming all DotNET dll should be in the distribution
+        if is_dotnet_enabled():
+            # Assuming all .NET dlls should be in the distribution
             mk_dir(os.path.join(dist_path, INSTALL_BIN_DIR))
             shutil.copy('%s.dll' % os.path.join(build_path, self.dll_name),
                         '%s.dll' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
@@ -1594,7 +1584,7 @@ class DotNetDLLComponent(Component):
         return
 
     def mk_install_deps(self, out):
-        if not DOTNET_ENABLED:
+        if not is_dotnet_enabled:
             return
         out.write('%s' % self.name)
 
@@ -1620,7 +1610,7 @@ class DotNetDLLComponent(Component):
             flags=' '.join(gacUtilFlags)))
 
     def mk_install(self, out):
-        if not DOTNET_ENABLED or IS_WINDOWS:
+        if not DOTNET_ENABLED:
             return
         self._install_or_uninstall_to_gac(out, install=True)
 
@@ -1631,7 +1621,7 @@ class DotNetDLLComponent(Component):
         MakeRuleCmd.install_files(out, pkg_config_output, INSTALL_PKGCONFIG_DIR)
 
     def mk_uninstall(self, out):
-        if not DOTNET_ENABLED or IS_WINDOWS:
+        if not DOTNET_ENABLED:
             return
         self._install_or_uninstall_to_gac(out, install=False)
         pkg_config_file = os.path.join('lib','pkgconfig','{}.pc'.format(self.gac_pkg_name()))
@@ -1919,7 +1909,7 @@ class DotNetExampleComponent(ExampleComponent):
         return is_dotnet_enabled()
 
     def mk_makefile(self, out):
-        if DOTNET_ENABLED:
+        if is_dotnet_enabled():
             dll_name = get_component(DOTNET_COMPONENT).dll_name
             dll = '%s.dll' % dll_name
             exefile = '%s$(EXE_EXT)' % self.name
