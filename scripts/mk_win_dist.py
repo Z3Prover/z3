@@ -24,6 +24,7 @@ BUILD_X86_DIR=os.path.join('build-dist', 'x86')
 VERBOSE=True
 DIST_DIR='dist'
 FORCE_MK=False
+DOTNET_ENABLED=True
 JAVA_ENABLED=True
 GIT_HASH=False
 
@@ -55,6 +56,7 @@ def display_help():
     print("  -s, --silent                  do not print verbose messages.")
     print("  -b <sudir>, --build=<subdir>  subdirectory where x86 and x64 Z3 versions will be built (default: build-dist).")
     print("  -f, --force                   force script to regenerate Makefiles.")
+    print("  --nodotnet                    do not include .NET bindings in the binary distribution files.")
     print("  --nojava                      do not include Java bindings in the binary distribution files.")
     print("  --githash                     include git hash in the Zip file.")
     exit(0)
@@ -68,6 +70,7 @@ def parse_options():
                                                                    'silent',
                                                                    'force',
                                                                    'nojava',
+                                                                   'nodotnet',
                                                                    'githash'
                                                                    ])
     for opt, arg in options:
@@ -81,6 +84,8 @@ def parse_options():
             display_help()
         elif opt in ('-f', '--force'):
             FORCE_MK = True
+        elif opt == '--nodotnet':
+            DOTNET_ENABLED = False
         elif opt == '--nojava':
             JAVA_ENABLED = False
         elif opt == '--githash':
@@ -97,6 +102,8 @@ def check_build_dir(path):
 def mk_build_dir(path, x64):
     if not check_build_dir(path) or FORCE_MK:
         opts = ["python", os.path.join('scripts', 'mk_make.py'), "--parallel=24", "-b", path]
+        if DOTNET_ENABLED:
+            opts.append('--dotnet')
         if JAVA_ENABLED:
             opts.append('--java')
         if x64:
@@ -174,10 +181,8 @@ def mk_dist_dir_core(x64):
         build_path = BUILD_X86_DIR
     dist_path = os.path.join(DIST_DIR, get_z3_name(x64))
     mk_dir(dist_path)
-    if JAVA_ENABLED:
-        # HACK: Propagate JAVA_ENABLED flag to mk_util
-        # TODO: fix this hack
-        mk_util.JAVA_ENABLED = JAVA_ENABLED
+    mk_util.DOTNET_ENABLED = DOTNET_ENABLED
+    mk_util.JAVA_ENABLED = JAVA_ENABLED
     mk_win_dist(build_path, dist_path)
     if is_verbose():
         print("Generated %s distribution folder at '%s'" % (platform, dist_path))
