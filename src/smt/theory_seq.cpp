@@ -250,7 +250,7 @@ bool theory_seq::find_branch_candidate(expr* l, ptr_vector<expr> const& rs) {
         }
         zstring s;
         if (m_util.str.is_string(rs[j], s)) {
-            for (size_t k = 1; k < s.length(); ++k) {
+            for (unsigned k = 1; k < s.length(); ++k) {
                 v = m_util.str.mk_string(s.extract(0, k));
                 if (v0) v = m_util.str.mk_concat(v0, v);
                 if (assume_equality(l, v)) {
