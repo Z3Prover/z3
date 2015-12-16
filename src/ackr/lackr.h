@@ -28,27 +28,36 @@
 #include"bv_decl_plugin.h"
 #include"cooperate.h"
 
+struct lackr_stats {
+    lackr_stats() : m_it(0), m_ackrs_sz(0) {}
+    void reset() { m_it = m_ackrs_sz = 0; }
+    unsigned    m_it;       // number of lazy iterations
+    unsigned    m_ackrs_sz; // number of congruence constraints
+};
+
 class lackr {
     public:
-        lackr(ast_manager& m, params_ref p, expr_ref _f);
-        lbool operator() ();
+        lackr(ast_manager& m, params_ref p,lackr_stats& st,
+            expr_ref _f);
         ~lackr();
-        inline ackr_info_ref get_info() { return m_info; }
-        inline model_ref get_model() { return m_model; }
-
         void updt_params(params_ref const & _p) {
             ackr_params p(_p);
             m_eager = p.eager();
             m_use_sat = p.sat_backend();
         }
+        lbool operator() ();
+
+        //
+        // getters
+        //
+        inline ackr_info_ref get_info() { return m_info; }
+        inline model_ref get_model() { return m_model; }
 
         //
         //  timeout mechanisms
         //
-
         void checkpoint() {
-            if (m_cancel)
-                throw tactic_exception(TACTIC_CANCELED_MSG);
+            if (m_cancel) throw tactic_exception(TACTIC_CANCELED_MSG);
             cooperate("lackr");
         }
 
@@ -78,6 +87,7 @@ class lackr {
         volatile bool                        m_cancel;
         bool                                 m_eager;
         bool                                 m_use_sat;
+        lackr_stats&                         m_st;
 
         bool init();
         void setup_sat();

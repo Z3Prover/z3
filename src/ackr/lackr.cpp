@@ -73,7 +73,7 @@ struct simp_wrap {
 };
 
 
-lackr::lackr(ast_manager& m, params_ref p, expr_ref _f)
+lackr::lackr(ast_manager& m, params_ref p, lackr_stats& st, expr_ref _f)
     : m_m(m)
     , m_p(p)
     , m_fla(m)
@@ -83,6 +83,7 @@ lackr::lackr(ast_manager& m, params_ref p, expr_ref _f)
     , m_simp(m)
     , m_ackrs(m)
     , m_cancel(0)
+    , m_st(st)
 {
     m_fla = _f;
     updt_params(p);
@@ -157,7 +158,9 @@ bool lackr::ackr(app * const t1, app * const t2) {
     m_info->abstract(cg, cga);
     m_simp(cga);
     TRACE("lackr", tout << "ackr constr abs:" << mk_ismt2_pp(cga, m_m, 2) << "\n";);
-    if (!m_m.is_true(cga)) m_ackrs.push_back(cga);
+    if (m_m.is_true(cga)) return true;
+    m_st.m_ackrs_sz++;
+    m_ackrs.push_back(cga);
     return true;
 }
 
@@ -229,12 +232,12 @@ void lackr::add_term(app* a) {
 
 
 lbool lackr::eager() {
-    if (!eager_enc()) return l_undef;
     m_sat->assert_expr(m_abstr);
     TRACE("lackr", tout << "run sat 0\n"; );
     if (m_sat->check_sat(0, 0) == l_false)
         return l_false;
     checkpoint();
+    if (!eager_enc()) return l_undef;
     expr_ref all(m_m);
     all = m_m.mk_and(m_ackrs.size(), m_ackrs.c_ptr());
     m_simp(all);
@@ -247,12 +250,11 @@ lbool lackr::eager() {
 lbool lackr::lazy() {
     lackr_model_constructor mc(m_m, m_info);
     m_sat->assert_expr(m_abstr);
-    unsigned ackr_head = 0;
-    unsigned it = 0;
+    unsigned ackr_head = 0;    
     while (1) {
+        m_st.m_it++;
         checkpoint();
-        //std::cout << "it: " << ++it << "\n";
-        TRACE("lackr", tout << "lazy check\n";);
+        TRACE("lackr", tout << "lazy check: " << m_st.m_it << "\n";);
         const lbool r = m_sat->check_sat(0, 0);
         if (r == l_undef) return l_undef; // give up
         if (r == l_false) return l_false; // abstraction unsat

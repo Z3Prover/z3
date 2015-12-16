@@ -28,6 +28,7 @@ Revision History:
 #include"model_smt2_pp.h"
 #include"cooperate.h"
 #include"lackr.h"
+#include"ackr_params.hpp"
 #include"lackr_model_converter.h"
 
 class lackr_tactic : public tactic {
@@ -56,7 +57,7 @@ public:
         expr_ref f(m);
         f = m.mk_and(flas.size(), flas.c_ptr());
         // running implementation
-        m_imp = alloc(lackr, m, m_p, f);
+        m_imp = alloc(lackr, m, m_p, m_st, f);
         const lbool o = m_imp->operator()();
         flas.reset();
         // report result
@@ -68,7 +69,7 @@ public:
             model_ref abstr_model = m_imp->get_model();
             mc = mk_lackr_model_converter(m, m_imp->get_info(), abstr_model);
         }
-        // clenup
+        // cleanup
         lackr * d = m_imp;
         #pragma omp critical (lackr)
         {
@@ -76,6 +77,14 @@ public:
         }
         dealloc(d);
     }
+
+    virtual void collect_statistics(statistics & st) const {
+        ackr_params p(m_p);       
+        if (!p.eager()) st.update("lackr-its", m_st.m_it);
+        st.update("ackr-constraints", m_st.m_ackrs_sz);
+    }
+
+    virtual void reset_statistics() { m_st.reset(); }
 
     virtual void cleanup() { }
 
@@ -91,6 +100,7 @@ private:
     ast_manager&                         m_m;
     params_ref                           m_p;
     lackr*                               m_imp;
+    lackr_stats                          m_st;
 };
 
 tactic * mk_lackr_tactic(ast_manager & m, params_ref const & p) {
