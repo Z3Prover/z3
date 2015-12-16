@@ -57,7 +57,11 @@ class lackr {
         //  timeout mechanisms
         //
         void checkpoint() {
-            if (m_cancel) throw tactic_exception(TACTIC_CANCELED_MSG);
+            //std::cout << "chk\n";
+            if (m_m.canceled()) {
+                std::cout << "canceled\n";
+                throw tactic_exception(TACTIC_CANCELED_MSG);
+            }
             cooperate("lackr");
         }
 

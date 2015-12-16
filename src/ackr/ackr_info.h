@@ -98,8 +98,8 @@ class ackr_info {
         scoped_ptr<expr_replacer> m_er;
         expr_substitution m_subst;
 
-        bool m_sealed; // debugging
         unsigned m_ref_count; // reference counting
+        bool m_sealed; // debugging
 };
 
 typedef ref<ackr_info> ackr_info_ref;

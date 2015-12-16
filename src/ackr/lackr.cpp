@@ -104,6 +104,7 @@ lbool lackr::operator() () {
     if (!ok) return l_undef;
     TRACE("lackr", tout << "sat goal\n"; m_sat->display(tout););
     const lbool rv = m_eager ? eager() : lazy();
+    std::cout << "res: " << rv << "\n";
     if (rv == l_true) m_sat->get_model(m_model);
     TRACE("lackr", tout << "sat:" << rv << '\n'; );
     CTRACE("lackr", rv == l_true,
@@ -234,16 +235,22 @@ void lackr::add_term(app* a) {
 lbool lackr::eager() {
     m_sat->assert_expr(m_abstr);
     TRACE("lackr", tout << "run sat 0\n"; );
-    if (m_sat->check_sat(0, 0) == l_false)
-        return l_false;
+    std::cout << "++sat call\n";
+    const lbool rv0 = m_sat->check_sat(0, 0);
+    std::cout << "--sat call\n";
+    if (rv0 == l_false) return l_false;    
     checkpoint();
     if (!eager_enc()) return l_undef;
+    checkpoint();
     expr_ref all(m_m);
     all = m_m.mk_and(m_ackrs.size(), m_ackrs.c_ptr());
     m_simp(all);
     TRACE("lackr", tout << "run sat\n"; );
     m_sat->assert_expr(all);
-    return m_sat->check_sat(0, 0);
+    std::cout << "++sat call\n";
+    const lbool rv = m_sat->check_sat(0, 0);
+    std::cout << "--sat call\n";
+    return rv;
 }
 
 
@@ -276,10 +283,10 @@ lbool lackr::lazy() {
 }
 
 void lackr::setup_sat() {
-    if (m_use_sat) {
-        //std::cout << "; qfbv sat\n";
-        tactic_ref t = mk_qfbv_tactic(m_m, m_p);
-        m_sat = mk_tactic2solver(m_m, t.get(), m_p);
+    if (m_use_sat) {        
+        //tactic_ref t = mk_qfbv_tactic(m_m, m_p);
+        //m_sat = mk_tactic2solver(m_m, t.get(), m_p);
+        m_sat = mk_inc_sat_solver(m_m, m_p);
     }
     else {
         //std::cout << "; smt sat\n";
@@ -318,6 +325,7 @@ bool lackr::collect_terms() {
                     visited.mark(curr, true);
                     stack.pop_back();
                     add_term(to_app(curr));
+                    checkpoint();
                 }
                 break;
             case AST_QUANTIFIER:

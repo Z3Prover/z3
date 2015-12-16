@@ -26,7 +26,7 @@ struct lackr_model_constructor::imp {
         imp(ast_manager& m,
             ackr_info_ref info,
             model_ref& abstr_model,
-            vector<std::pair<app*,app*>>& conflicts)
+            conflict_list& conflicts)
             : m_m(m)
             , m_info(info)
             , m_abstr_model(abstr_model)
@@ -45,7 +45,7 @@ struct lackr_model_constructor::imp {
                     m_m.dec_ref(i->m_value.value);
                     m_m.dec_ref(i->m_value.source_term);
                 }
-            }            
+            }
             {
                 app2val_t::iterator i = m_app2val.begin();
                 const app2val_t::iterator e = m_app2val.end();
@@ -72,7 +72,7 @@ struct lackr_model_constructor::imp {
         ast_manager&                    m_m;
         ackr_info_ref                   m_info;
         model_ref&                      m_abstr_model;
-        vector<std::pair<app*,app*>>&   m_conflicts;
+        conflict_list&                  m_conflicts;
         bool_rewriter                   m_b_rw;
         bv_rewriter                     m_bv_rw;
         scoped_ptr<model_evaluator>     m_evaluator;
