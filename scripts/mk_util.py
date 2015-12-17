@@ -1568,7 +1568,6 @@ class DotNetDLLComponent(Component):
 
     def mk_win_dist(self, build_path, dist_path):
         if is_dotnet_enabled():
-            # Assuming all .NET dlls should be in the distribution
             mk_dir(os.path.join(dist_path, INSTALL_BIN_DIR))
             shutil.copy('%s.dll' % os.path.join(build_path, self.dll_name),
                         '%s.dll' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
@@ -1578,11 +1577,13 @@ class DotNetDLLComponent(Component):
                 shutil.copy('%s.pdb' % os.path.join(build_path, self.dll_name),
                             '%s.pdb' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
 
-
-
     def mk_unix_dist(self, build_path, dist_path):
-        # Do nothing
-        return
+        if is_dotnet_enabled():
+            mk_dir(os.path.join(dist_path, INSTALL_BIN_DIR))
+            shutil.copy('%s.dll' % os.path.join(build_path, self.dll_name),
+                        '%s.dll' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
+            shutil.copy('%s.xml' % os.path.join(build_path, self.dll_name),
+                        '%s.xml' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
 
     def mk_install_deps(self, out):
         if not is_dotnet_enabled():
