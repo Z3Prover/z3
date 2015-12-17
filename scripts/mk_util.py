@@ -720,7 +720,7 @@ def parse_options():
         if not PYTHON_PACKAGE_DIR.startswith(PREFIX):
             print(("Warning: The detected Python package directory (%s)"
                    " does not live under the installation prefix (%s)"
-                   ". This would lead to a broken Python installation."
+                   ". This would lead to a broken Python installation. "
                    "Use --pypkgdir= to change the Python package directory") %
                   (PYTHON_PACKAGE_DIR, PREFIX))
             if IS_OSX and PYTHON_PACKAGE_DIR.startswith('/Library/'):
