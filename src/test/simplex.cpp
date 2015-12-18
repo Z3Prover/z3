@@ -11,6 +11,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "mpq_inf.h"
 #include "vector.h"
 #include "rational.h"
+#include "rlimit.h"
 
 #define R rational
 typedef simplex::simplex<simplex::mpz_ext> Simplex;
@@ -99,7 +100,8 @@ static void feas(Simplex& S) {
 }
 
 static void test1() {
-    Simplex S;
+    reslimit rl;
+    Simplex S(rl);
     add_row(S, vec(1,0), R(1));
     add_row(S, vec(0,1), R(1));
     add_row(S, vec(1,1), R(1));
@@ -107,7 +109,7 @@ static void test1() {
 }
 
 static void test2() {
-    Simplex S;
+    reslimit rl; Simplex S(rl);
     add_row(S, vec(1, 0), R(1));
     add_row(S, vec(0, 1), R(1));
     add_row(S, vec(1, 1), R(1), true);
@@ -115,7 +117,7 @@ static void test2() {
 }
 
 static void test3() {
-    Simplex S;
+    reslimit rl; Simplex S(rl);
     add_row(S, vec(-1, 0), R(-1));
     add_row(S, vec(0, -1), R(-1));
     add_row(S, vec(1, 1), R(1), true);
@@ -123,7 +125,7 @@ static void test3() {
 }
 
 static void test4() {
-    Simplex S;
+    reslimit rl; Simplex S(rl);
     add_row(S, vec(1, 0), R(1));
     add_row(S, vec(0, -1), R(-1));
     add_row(S, vec(1, 1), R(1), true);
@@ -131,7 +133,7 @@ static void test4() {
 }
 
 void tst_simplex() {
-    Simplex S;
+    reslimit rl; Simplex S(rl);
 
     std::cout << "simplex\n";
 
@@ -152,7 +154,7 @@ void tst_simplex() {
     is_sat = S.make_feasible();
     std::cout << "feasible: " << is_sat << "\n";
     S.display(std::cout);
-    _scoped_numeral<unsynch_mpq_inf_manager> num(em); 
+    _scoped_numeral<unsynch_mpq_inf_manager> num(em);
     num = std::make_pair(mpq(1), mpq(0));
     S.set_lower(0, num);
     S.set_upper(0, num);
