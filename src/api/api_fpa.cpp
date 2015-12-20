@@ -939,7 +939,7 @@ extern "C" {
         }
         else if (!mpfm.is_regular(val)) {
             SET_ERROR_CODE(Z3_INVALID_ARG)
-                return "";
+            return "";
         }
         unsigned sbits = val.get().get_sbits();
         scoped_mpq q(mpqm);
@@ -992,7 +992,7 @@ extern "C" {
         }
         else if (!mpfm.is_normal(val) && !mpfm.is_denormal(val)) {
             SET_ERROR_CODE(Z3_INVALID_ARG)
-                return "";
+            return "";
         }
         mpf_exp_t exp = mpfm.exp_normalized(val);
         std::stringstream ss;

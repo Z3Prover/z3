@@ -22,6 +22,7 @@ Revision History:
 #include"mpq.h"
 #include"ast.h"
 #include"debug.h"
+#include"rlimit.h"
 
 template class interval_manager<im_default_config>;
 typedef im_default_config::interval interval;
@@ -61,7 +62,7 @@ static void display_smt2_numeral(std::ostream & out, unsynch_mpq_manager & m, mp
     }
 }
 
-static void display_constraint(std::ostream & out, unsynch_mpq_manager & m, char const * a, interval const & i, 
+static void display_constraint(std::ostream & out, unsynch_mpq_manager & m, char const * a, interval const & i,
                                bool include_lower = true, bool include_upper = true) {
     out << "(and true";
     if (!i.m_lower_inf && include_lower) {
@@ -77,7 +78,7 @@ static void display_constraint(std::ostream & out, unsynch_mpq_manager & m, char
     out << ")";
 }
 
-static void assert_hyp(std::ostream & out, unsynch_mpq_manager & m, char const * a, interval const & i, 
+static void assert_hyp(std::ostream & out, unsynch_mpq_manager & m, char const * a, interval const & i,
                        bool include_lower = true, bool include_upper = true) {
     out << "(assert ";
     display_constraint(out, m, a, i, include_lower, include_upper);
@@ -99,7 +100,7 @@ static bool mk_interval(im_default_config & cfg, interval & a, bool l_inf, bool 
         if (l_val == u_val && (l_open || u_open))
             return false;
     }
-    
+
     if (l_inf) {
         a.m_lower_open = true;
         a.m_lower_inf  = true;
@@ -119,7 +120,7 @@ static bool mk_interval(im_default_config & cfg, interval & a, bool l_inf, bool 
         a.m_upper_inf  = false;
         cfg.m().set(a.m_upper, u_val);
     }
-    
+
     return true;
 }
 #endif
@@ -131,7 +132,7 @@ static void mk_random_interval(im_default_config & cfg, interval & a, unsigned m
         if (rand()%4 == 0) {
             a.m_lower_open = true;
             a.m_lower_inf  = true;
-            
+
             a.m_upper_open = (rand()%2 == 0);
             a.m_upper_inf  = false;
             cfg.m().set(a.m_upper, -static_cast<int>((rand()%magnitude)));
@@ -141,7 +142,7 @@ static void mk_random_interval(im_default_config & cfg, interval & a, unsigned m
             a.m_upper_inf  = false;
             int upper = -static_cast<int>((rand()%magnitude));
             cfg.m().set(a.m_upper, upper);
-            
+
             a.m_lower_open = (rand()%2 == 0);
             a.m_lower_inf  = false;
             cfg.m().set(a.m_lower, upper - static_cast<int>(rand()%magnitude) - (a.m_lower_open || a.m_upper_open ? 1 : 0));
@@ -149,7 +150,7 @@ static void mk_random_interval(im_default_config & cfg, interval & a, unsigned m
         break;
     case 1:
         // Neg, Pos
-        
+
         if (rand()%4 == 0) {
             a.m_lower_open = true;
             a.m_lower_inf  = true;
@@ -159,7 +160,7 @@ static void mk_random_interval(im_default_config & cfg, interval & a, unsigned m
             a.m_lower_inf  = false;
             cfg.m().set(a.m_lower, -static_cast<int>((rand()%magnitude)) - 1);
         }
-        
+
         if (rand()%4 == 0) {
             a.m_upper_open = true;
             a.m_upper_inf  = true;
@@ -175,7 +176,7 @@ static void mk_random_interval(im_default_config & cfg, interval & a, unsigned m
         if (rand()%4 == 0) {
             a.m_upper_open = true;
             a.m_upper_inf  = true;
-            
+
             a.m_lower_open = (rand()%2 == 0);
             a.m_lower_inf  = false;
             cfg.m().set(a.m_lower, (rand()%magnitude));
@@ -185,7 +186,7 @@ static void mk_random_interval(im_default_config & cfg, interval & a, unsigned m
             a.m_lower_inf  = false;
             int lower = (rand()%magnitude);
             cfg.m().set(a.m_lower, lower);
-            
+
             a.m_upper_open = (rand()%2 == 0);
             a.m_upper_inf  = false;
             cfg.m().set(a.m_upper, lower + rand()%magnitude + (a.m_lower_open || a.m_upper_open ? 1 : 0));
@@ -235,9 +236,10 @@ static void display_lemmas(unsynch_mpq_manager & nm, char const * result_term,
 
 #define MK_BINARY(NAME, RES_TERM)                                       \
 static void tst_ ## NAME(unsigned N, unsigned magnitude) {              \
+    reslimit                            rl;                             \
     unsynch_mpq_manager                 nm;                             \
     im_default_config                   imc(nm);                        \
-    interval_manager<im_default_config> im(imc);                        \
+    interval_manager<im_default_config> im(rl, imc);                    \
     interval a, b, r;                                                   \
                                                                         \
     for (unsigned i = 0; i < N; i++) {                                  \
@@ -255,130 +257,137 @@ MK_BINARY(mul, "(* a b)");
 MK_BINARY(add, "(+ a b)");
 MK_BINARY(sub, "(- a b)");
 
-static void tst_neg(unsigned N, unsigned magnitude) { 
-    unsynch_mpq_manager                 nm;     
+static void tst_neg(unsigned N, unsigned magnitude) {
+    reslimit rl;
+    unsynch_mpq_manager                 nm;
     im_default_config                   imc(nm);
-    interval_manager<im_default_config> im(imc);
-    interval a, b, r;                           
-                                                
-    for (unsigned i = 0; i < N; i++) {          
-        mk_random_interval(imc, a, magnitude);  
-        interval_deps deps;                     
-        im.neg(a, r, deps);                 
-        display_lemmas(nm, "(- a)", a, b, r, deps); 
-    }  
-    del_interval(imc, a); del_interval(imc, b); del_interval(imc, r); 
-}
+    interval_manager<im_default_config> im(rl, imc);
+    interval a, b, r;
 
-static void tst_pw_2(unsigned N, unsigned magnitude) { 
-    unsynch_mpq_manager                 nm;     
-    im_default_config                   imc(nm);
-    interval_manager<im_default_config> im(imc);
-    interval a, b, r;                           
-                                                
-    for (unsigned i = 0; i < N; i++) {          
-        mk_random_interval(imc, a, magnitude);  
-        interval_deps deps;                     
-        im.power(a, 2, r, deps);                 
-        display_lemmas(nm, "(* a a)", a, b, r, deps); 
-    }  
-    del_interval(imc, a); del_interval(imc, b); del_interval(imc, r); 
-}
-
-static void tst_pw_3(unsigned N, unsigned magnitude) { 
-    unsynch_mpq_manager                 nm;     
-    im_default_config                   imc(nm);
-    interval_manager<im_default_config> im(imc);
-    interval a, b, r;                           
-                                                
-    for (unsigned i = 0; i < N; i++) {          
-        mk_random_interval(imc, a, magnitude);  
-        interval_deps deps;                     
-        im.power(a, 3, r, deps);                 
-        display_lemmas(nm, "(* a a a)", a, b, r, deps); 
+    for (unsigned i = 0; i < N; i++) {
+        mk_random_interval(imc, a, magnitude);
+        interval_deps deps;
+        im.neg(a, r, deps);
+        display_lemmas(nm, "(- a)", a, b, r, deps);
     }
-    del_interval(imc, a); del_interval(imc, b); del_interval(imc, r); 
+    del_interval(imc, a); del_interval(imc, b); del_interval(imc, r);
 }
 
-static void tst_root_2(unsigned N, unsigned magnitude, unsigned precision) { 
-    unsynch_mpq_manager                 nm;     
+static void tst_pw_2(unsigned N, unsigned magnitude) {
+    reslimit rl;
+    unsynch_mpq_manager                 nm;
     im_default_config                   imc(nm);
-    interval_manager<im_default_config> im(imc);
-    interval a, b, r;                           
+    interval_manager<im_default_config> im(rl, imc);
+    interval a, b, r;
+
+    for (unsigned i = 0; i < N; i++) {
+        mk_random_interval(imc, a, magnitude);
+        interval_deps deps;
+        im.power(a, 2, r, deps);
+        display_lemmas(nm, "(* a a)", a, b, r, deps);
+    }
+    del_interval(imc, a); del_interval(imc, b); del_interval(imc, r);
+}
+
+static void tst_pw_3(unsigned N, unsigned magnitude) {
+    reslimit rl;
+    unsynch_mpq_manager                 nm;
+    im_default_config                   imc(nm);
+    interval_manager<im_default_config> im(rl, imc);
+    interval a, b, r;
+
+    for (unsigned i = 0; i < N; i++) {
+        mk_random_interval(imc, a, magnitude);
+        interval_deps deps;
+        im.power(a, 3, r, deps);
+        display_lemmas(nm, "(* a a a)", a, b, r, deps);
+    }
+    del_interval(imc, a); del_interval(imc, b); del_interval(imc, r);
+}
+
+static void tst_root_2(unsigned N, unsigned magnitude, unsigned precision) {
+    reslimit rl;
+    unsynch_mpq_manager                 nm;
+    im_default_config                   imc(nm);
+    interval_manager<im_default_config> im(rl, imc);
+    interval a, b, r;
     scoped_mpq                          p(nm);
     p = precision;
     nm.inv(p);
 
     unsigned i = 0;
     while (i < N) {
-        mk_random_interval(imc, a, magnitude);  
+        mk_random_interval(imc, a, magnitude);
         if (!im.lower_is_neg(a)) {
             i++;
-            interval_deps deps;                     
-            im.nth_root(a, 2, p, r, deps);                 
-            display_lemmas(nm, "(^ a (/ 1.0 2.0))", a, b, r, deps); 
-        } 
-    } 
-    del_interval(imc, a); del_interval(imc, b); del_interval(imc, r); 
+            interval_deps deps;
+            im.nth_root(a, 2, p, r, deps);
+            display_lemmas(nm, "(^ a (/ 1.0 2.0))", a, b, r, deps);
+        }
+    }
+    del_interval(imc, a); del_interval(imc, b); del_interval(imc, r);
 }
 
-static void tst_root_3(unsigned N, unsigned magnitude, unsigned precision) { 
-    unsynch_mpq_manager                 nm;     
+static void tst_root_3(unsigned N, unsigned magnitude, unsigned precision) {
+    reslimit rl;
+    unsynch_mpq_manager                 nm;
     im_default_config                   imc(nm);
-    interval_manager<im_default_config> im(imc);
-    interval a, b, r;                           
+    interval_manager<im_default_config> im(rl, imc);
+    interval a, b, r;
     scoped_mpq                          p(nm);
     p = precision;
     nm.inv(p);
 
     unsigned i = 0;
     while (i < N) {
-        mk_random_interval(imc, a, magnitude);  
+        mk_random_interval(imc, a, magnitude);
         i++;
-        interval_deps deps;                     
-        im.nth_root(a, 3, p, r, deps);                 
-        display_lemmas(nm, "(^ a (/ 1.0 3.0))", a, b, r, deps); 
-    } 
-    del_interval(imc, a); del_interval(imc, b); del_interval(imc, r); 
+        interval_deps deps;
+        im.nth_root(a, 3, p, r, deps);
+        display_lemmas(nm, "(^ a (/ 1.0 3.0))", a, b, r, deps);
+    }
+    del_interval(imc, a); del_interval(imc, b); del_interval(imc, r);
 }
 
-static void tst_inv(unsigned N, unsigned magnitude) { 
-    unsynch_mpq_manager                 nm;     
+static void tst_inv(unsigned N, unsigned magnitude) {
+    reslimit rl;
+    unsynch_mpq_manager                 nm;
     im_default_config                   imc(nm);
-    interval_manager<im_default_config> im(imc);
-    interval a, b, r;                           
-            
-    for (unsigned i = 0; i < N; i++) {          
+    interval_manager<im_default_config> im(rl, imc);
+    interval a, b, r;
+
+    for (unsigned i = 0; i < N; i++) {
         while (true) {
-            mk_random_interval(imc, a, magnitude);  
+            mk_random_interval(imc, a, magnitude);
             if (!im.contains_zero(a))
                 break;
         }
-        interval_deps deps;                     
-        im.inv(a, r, deps);                 
-        display_lemmas(nm, "(/ 1 a)", a, b, r, deps); 
-    }  
-    del_interval(imc, a); del_interval(imc, b); del_interval(imc, r); 
+        interval_deps deps;
+        im.inv(a, r, deps);
+        display_lemmas(nm, "(/ 1 a)", a, b, r, deps);
+    }
+    del_interval(imc, a); del_interval(imc, b); del_interval(imc, r);
 }
 
-static void tst_div(unsigned N, unsigned magnitude) {                    
-    unsynch_mpq_manager                 nm;                       
-    im_default_config                   imc(nm);                  
-    interval_manager<im_default_config> im(imc);                  
-    interval a, b, r;                                                  
+static void tst_div(unsigned N, unsigned magnitude) {
+    reslimit rl;
+    unsynch_mpq_manager                 nm;
+    im_default_config                   imc(nm);
+    interval_manager<im_default_config> im(rl, imc);
+    interval a, b, r;
 
-    for (unsigned i = 0; i < N; i++) {                                 
-        mk_random_interval(imc, a, magnitude);                         
+    for (unsigned i = 0; i < N; i++) {
+        mk_random_interval(imc, a, magnitude);
         while (true) {
-            mk_random_interval(imc, b, magnitude);                         
+            mk_random_interval(imc, b, magnitude);
             if (!im.contains_zero(b))
                 break;
         }
-        interval_deps deps;                                             
-        im.div(a, b, r, deps);                                         
-        display_lemmas(nm, "(/ a b)", a, b, r, deps);  
-    }                                                 
-    del_interval(imc, a); del_interval(imc, b); del_interval(imc, r);   
+        interval_deps deps;
+        im.div(a, b, r, deps);
+        display_lemmas(nm, "(/ a b)", a, b, r, deps);
+    }
+    del_interval(imc, a); del_interval(imc, b); del_interval(imc, r);
 }
 
 #include"im_float_config.h"
@@ -395,7 +404,7 @@ static void tst_float() {
     qm.set(one_third, 1, 3);
     qm.set(two_third, 2, 3);
     qm.set(minus_two_third, -2, 3);
-    
+
     ifc.round_to_minus_inf();
     ifc.m().set(a.m_lower, minus_one_third);
     ifc.round_to_plus_inf();
@@ -405,7 +414,7 @@ static void tst_float() {
     ifc.m().set(b.m_lower, minus_two_third);
     ifc.round_to_plus_inf();
     ifc.m().set(b.m_upper, one_third);
-    
+
     im.display(std::cout, a);
     std::cout << "\n";
     im.display(std::cout, b);
@@ -420,13 +429,14 @@ static void tst_float() {
 #endif
 
 void tst_pi() {
-    unsynch_mpq_manager                 nm;     
+    reslimit rl;
+    unsynch_mpq_manager                 nm;
     im_default_config                   imc(nm);
-    interval_manager<im_default_config> im(imc);
+    interval_manager<im_default_config> im(rl, imc);
     interval r;
     for (unsigned i = 0; i < 8; i++) {
         im.pi(i, r);
-        nm.display_decimal(std::cout, im.lower(r), 32); std::cout << "   "; 
+        nm.display_decimal(std::cout, im.lower(r), 32); std::cout << "   ";
         nm.display_decimal(std::cout, im.upper(r), 32); std::cout << "\n";
         SASSERT(nm.lt(im.lower(r), im.upper(r)));
     }
@@ -436,10 +446,11 @@ void tst_pi() {
 #if 0
 static void tst_pi_float() {
     std::cout << "pi float...\n";
+    reslimit rl;
     unsynch_mpq_manager   qm;
     mpf_manager           fm;
     im_float_config<mpf_manager>                    ifc(fm, 22, 106);
-    interval_manager<im_float_config<mpf_manager> > im(ifc);
+    interval_manager<im_float_config<mpf_manager> > im(rl, ifc);
     scoped_mpq q(qm);
     im_float_config<mpf_manager>::interval r;
     for (unsigned i = 0; i < 8; i++) {
@@ -451,7 +462,7 @@ static void tst_pi_float() {
     }
     del_f_interval(ifc, r);
 }
-#endif 
+#endif
 
 #define NUM_TESTS 1000
 #define SMALL_MAG 3
