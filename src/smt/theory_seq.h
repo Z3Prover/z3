@@ -104,6 +104,136 @@ namespace smt {
             eq& operator=(eq const& other) { m_lhs = other.m_lhs; m_rhs = other.m_rhs; m_dep = other.m_dep; return *this; }
         };
 
+            
+        // asserted or derived disqequality with dependencies
+        struct ne {
+            bool                   m_solved;
+            expr_ref_vector        m_lhs;
+            expr_ref_vector        m_rhs;
+            literal_vector         m_lits;
+            enode_pair_dependency* m_dep;
+            ne(expr_ref& l, expr_ref& r, enode_pair_dependency* d):
+                m_solved(false), m_lhs(l.get_manager()), m_rhs(r.get_manager()), m_dep(d) {
+                m_lhs.push_back(l);
+                m_rhs.push_back(r);
+            }
+            ne(ne const& other): 
+                m_solved(other.m_solved), m_lhs(other.m_lhs), m_rhs(other.m_rhs), m_lits(other.m_lits), m_dep(other.m_dep) {}
+            ne& operator=(ne const& other) { 
+                m_solved = other.m_solved;
+                m_lhs.reset();  m_lhs.append(other.m_lhs);
+                m_rhs.reset();  m_rhs.append(other.m_rhs); 
+                m_lits.reset(); m_lits.append(other.m_lits); 
+                m_dep = other.m_dep; 
+                return *this; 
+            }            
+            bool is_solved() const { return m_solved; }
+        };
+
+        class pop_lit : public trail<theory_seq> { 
+            unsigned m_idx;
+            literal  m_lit;
+        public:
+            pop_lit(theory_seq& th, unsigned idx): m_idx(idx), m_lit(th.m_nqs[idx].m_lits.back()) {
+                th.m_nqs.ref(m_idx).m_lits.pop_back();
+            }
+            virtual void undo(theory_seq & th) { th.m_nqs.ref(m_idx).m_lits.push_back(m_lit); }
+        };
+        class push_lit : public trail<theory_seq> {
+            unsigned m_idx;
+        public:
+            push_lit(theory_seq& th, unsigned idx, literal lit): m_idx(idx) {
+                th.m_nqs.ref(m_idx).m_lits.push_back(lit);
+            }
+            virtual void undo(theory_seq & th) { th.m_nqs.ref(m_idx).m_lits.pop_back(); }
+        };  
+        class set_lit : public trail<theory_seq> {
+            unsigned m_idx;
+            unsigned m_i;
+            literal  m_lit;
+        public:
+            set_lit(theory_seq& th, unsigned idx, unsigned i, literal lit): 
+                m_idx(idx), m_i(i), m_lit(th.m_nqs[idx].m_lits[i]) {
+                th.m_nqs.ref(m_idx).m_lits[i] = lit;
+            }
+            virtual void undo(theory_seq & th) { th.m_nqs.ref(m_idx).m_lits[m_i] = m_lit; }            
+        };
+        void erase_lit(unsigned idx, unsigned i);
+
+        class solved_ne : public trail<theory_seq> {
+            unsigned m_idx;
+        public:
+            solved_ne(theory_seq& th, unsigned idx) : m_idx(idx) { th.m_nqs.ref(idx).m_solved = true; }
+            virtual void undo(theory_seq& th) { th.m_nqs.ref(m_idx).m_solved = false;  }
+        };
+        void mark_solved(unsigned idx);
+
+        class push_ne : public trail<theory_seq> {
+            unsigned m_idx;
+        public:
+            push_ne(theory_seq& th, unsigned idx, expr* l, expr* r) : m_idx(idx) {
+                th.m_nqs.ref(m_idx).m_lhs.push_back(l);
+                th.m_nqs.ref(m_idx).m_rhs.push_back(r);
+            }
+            virtual void undo(theory_seq& th) { th.m_nqs.ref(m_idx).m_lhs.pop_back(); th.m_nqs.ref(m_idx).m_rhs.pop_back(); }
+        };
+
+        class pop_ne : public trail<theory_seq> {
+            expr_ref m_lhs;
+            expr_ref m_rhs;
+            unsigned m_idx;
+        public:
+            pop_ne(theory_seq& th, unsigned idx): 
+                m_lhs(th.m_nqs[idx].m_lhs.back(), th.m),
+                m_rhs(th.m_nqs[idx].m_rhs.back(), th.m),
+                m_idx(idx) {
+                th.m_nqs.ref(idx).m_lhs.pop_back();
+                th.m_nqs.ref(idx).m_rhs.pop_back();
+            }
+            virtual void undo(theory_seq& th) { 
+                th.m_nqs.ref(m_idx).m_lhs.push_back(m_lhs);
+                th.m_nqs.ref(m_idx).m_rhs.push_back(m_rhs); 
+                m_lhs.reset();
+                m_rhs.reset();
+            }
+        };
+
+        class set_ne : public trail<theory_seq> {
+            expr_ref m_lhs;
+            expr_ref m_rhs;
+            unsigned m_idx;
+            unsigned m_i;
+        public:
+            set_ne(theory_seq& th, unsigned idx, unsigned i, expr* l, expr* r): 
+                m_lhs(th.m_nqs[idx].m_lhs[i], th.m),
+                m_rhs(th.m_nqs[idx].m_rhs[i], th.m),
+                m_idx(idx),
+                m_i(i) {
+                th.m_nqs.ref(idx).m_lhs[i] = l;
+                th.m_nqs.ref(idx).m_rhs[i] = r;
+            }
+            virtual void undo(theory_seq& th) { 
+                th.m_nqs.ref(m_idx).m_lhs[m_i] = m_lhs;
+                th.m_nqs.ref(m_idx).m_rhs[m_i] = m_rhs;
+                m_lhs.reset();
+                m_rhs.reset();
+            }
+        };
+
+        class push_dep : public trail<theory_seq> {
+            enode_pair_dependency* m_dep;
+            unsigned m_idx;
+        public:
+            push_dep(theory_seq& th, unsigned idx, enode_pair_dependency* d): m_dep(th.m_nqs[idx].m_dep), m_idx(idx) {
+                th.m_nqs.ref(idx).m_dep = d;
+            }
+            virtual void undo(theory_seq& th) {
+                th.m_nqs.ref(m_idx).m_dep = m_dep;
+            }
+        };
+
+        void erase_index(unsigned idx, unsigned i);
+
         struct stats {
             stats() { reset(); }
             void reset() { memset(this, 0, sizeof(stats)); }
@@ -114,6 +244,7 @@ namespace smt {
         enode_pair_dependency_manager       m_dm;
         solution_map                        m_rep;        // unification representative.
         scoped_vector<eq>                   m_eqs;        // set of current equations.
+        scoped_vector<ne>                   m_nqs;        // set of current disequalities.
 
         seq_factory*    m_factory;               // value factory
         expr_ref_vector m_ineqs;                 // inequalities to check solution against
@@ -174,13 +305,17 @@ namespace smt {
         bool solve_unit_eq(expr* l, expr* r, enode_pair_dependency* dep);
         bool solve_basic_eqs();
 
+        bool solve_nqs();
+        bool solve_ne(unsigned i);
+        bool unchanged(expr* e, expr_ref_vector& es) const { return es.size() == 1 && es[0] == e; }
+
         // asserting consequences
         void propagate_lit(enode_pair_dependency* dep, literal lit);
         void propagate_eq(enode_pair_dependency* dep, enode* n1, enode* n2);
         void propagate_eq(bool_var v, expr* e1, expr* e2);
         void set_conflict(enode_pair_dependency* dep);
 
-        bool find_branch_candidate(expr* l, ptr_vector<expr> const& rs);
+        bool find_branch_candidate(expr* l, expr_ref_vector const& rs);
         bool assume_equality(expr* l, expr* r);
 
         // variable solving utilities
@@ -219,6 +354,8 @@ namespace smt {
 
         // diagnostics
         void display_equations(std::ostream& out) const;
+        void display_disequations(std::ostream& out) const;
+        void display_disequation(std::ostream& out, ne const& e) const;
         void display_deps(std::ostream& out, enode_pair_dependency* deps) const;
     public:
         theory_seq(ast_manager& m);

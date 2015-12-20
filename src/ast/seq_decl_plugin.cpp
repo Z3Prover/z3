@@ -626,7 +626,7 @@ bool seq_util::str::is_string(expr const* n, zstring& s) const {
 }
 
 
-void seq_util::str::get_concat(expr* e, ptr_vector<expr>& es) const {
+void seq_util::str::get_concat(expr* e, expr_ref_vector& es) const {
     expr* e1, *e2;
     while (is_concat(e, e1, e2)) {
         get_concat(e1, es);
