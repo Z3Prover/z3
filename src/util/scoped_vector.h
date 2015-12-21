@@ -110,7 +110,7 @@ public:
 
     void erase_and_swap(unsigned i) {
         if (i + 1 < size()) {
-            set(i, m_elems[m_index[i]]);
+            set(i, m_elems[m_index[size()-1]]);
         }
         pop_back();
     }

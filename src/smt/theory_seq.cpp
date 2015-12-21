@@ -318,7 +318,8 @@ bool theory_seq::check_length_coherence_tbd() {
     // each variable that canonizes to itself can have length 0.
     unsigned sz = get_num_vars();
     for (unsigned i = 0; i < sz; ++i) {
-        enode* n = get_enode(i);
+        unsigned j = (i + m_branch_variable_head) % sz;
+        enode* n = get_enode(j);
         expr*  e = n->get_owner();
         if (m_util.is_re(e)) {
             continue;
@@ -332,15 +333,14 @@ bool theory_seq::check_length_coherence_tbd() {
             TRACE("seq", tout << "Unsolved " << mk_pp(e, m) << "\n";);
 #if 0
             if (!assume_equality(e, emp)) {
-                // e = emp \/ e = head*tail & head = unit(v) 
+                // e = emp \/ e = unit(head.elem(e))*tail(e)
                 sort* char_sort = 0;
                 VERIFY(m_util.is_seq(m.get_sort(e), char_sort));
                 expr_ref tail(mk_skolem(symbol("seq.tail"), e), m);
                 expr_ref v(mk_skolem(symbol("seq.head.elem"), e, 0, 0, char_sort), m);
                 expr_ref head(m_util.str.mk_unit(v), m);
                 expr_ref conc(m_util.str.mk_concat(head, tail), m);
-                literal e_eq_emp(mk_eq(e, emp, false));
-                add_axiom(e_eq_emp, mk_eq(e, conc, false));
+                add_axiom(mk_eq(e, emp, false), mk_eq(e, conc, false));
             }
 #endif
             coherent = false;
@@ -565,10 +565,9 @@ bool theory_seq::solve_nqs() {
     bool change = false;
     context & ctx = get_context();
     for (unsigned i = 0; !ctx.inconsistent() && i < m_nqs.size(); ++i) {
-        change = solve_ne(i) || change;
-        if (m_nqs[i].is_solved()) {
-            m_nqs.erase_and_swap(i);
-            --i;
+        TRACE("seq", tout << i << " " << m_nqs.size() << "\n";);
+        if (!m_nqs[i].is_solved()) {
+            change = solve_ne(i) || change;
         }
     }
     return change;
@@ -614,7 +613,7 @@ bool theory_seq::solve_ne(unsigned idx) {
             // continue
         }
         else {
-            TRACE("seq", tout << lhs.size() << "\n";
+            TRACE("seq", 
                   for (unsigned j = 0; j < lhs.size(); ++j) {
                       tout << mk_pp(lhs[j].get(), m) << " ";
                   }
@@ -625,11 +624,9 @@ bool theory_seq::solve_ne(unsigned idx) {
                 expr_ref nl(lhs[j].get(), m);
                 expr_ref nr(rhs[j].get(), m);
                 if (m_util.is_seq(nl) || m_util.is_re(nl)) {
-                    //std::cout << "push_ne " << nl << " != " << nr << "\n";
                     m_trail_stack.push(push_ne(*this, idx, nl, nr));
                 }
                 else {
-                    //std::cout << "push_lit\n";
                     literal lit(mk_eq(nl, nr, false));
                     m_trail_stack.push(push_lit(*this, idx, ~lit));
                     ctx.mark_as_relevant(lit);
