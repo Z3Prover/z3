@@ -1348,6 +1348,7 @@ class DLLComponent(Component):
 class PythonInstallComponent(Component):
     def __init__(self, name, libz3Component):
         assert isinstance(libz3Component, DLLComponent)
+        global PYTHON_INSTALL_ENABLED
         Component.__init__(self, name, None, [])
         self.pythonPkgDir = None
         self.in_prefix_install = True
