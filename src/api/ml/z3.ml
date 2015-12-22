@@ -467,13 +467,8 @@ end = struct
   let to_string ( x : sort ) = Z3native.sort_to_string (gnc x) (gno x)
 
   let mk_uninterpreted ( ctx : context ) ( s : Symbol.symbol ) =
-    let res = { m_ctx = ctx ;
-		m_n_obj = null ;
-		inc_ref = Z3native.inc_ref ;
-		dec_ref = Z3native.dec_ref } in
-    (z3obj_sno res ctx (Z3native.mk_uninterpreted_sort (context_gno ctx) (Symbol.gno s))) ;
-    (z3obj_create res) ;
-    Sort(res)
+    let n = (Z3native.mk_uninterpreted_sort (context_gno ctx) (Symbol.gno s)) in
+    Sort(z3_native_object_of_ast_ptr ctx n)
 
   let mk_uninterpreted_s ( ctx : context ) ( s : string ) =
     mk_uninterpreted ctx (Symbol.mk_string ( ctx : context ) s)
