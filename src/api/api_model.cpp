@@ -277,7 +277,9 @@ extern "C" {
         RESET_ERROR_CODE();
         CHECK_NON_NULL(f, 0);
         expr * e = to_func_interp_ref(f)->get_else();
-        mk_c(c)->save_ast_trail(e);
+        if (e) {
+            mk_c(c)->save_ast_trail(e);
+        }
         RETURN_Z3(of_expr(e));
         Z3_CATCH_RETURN(0);
     }
