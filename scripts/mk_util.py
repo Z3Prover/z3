@@ -715,6 +715,9 @@ def parse_options():
     if IS_WINDOWS:
         # Installing under Windows doesn't make sense as the install prefix is used
         # but that doesn't make sense under Windows
+        # CMW: It makes perfectly good sense; the prefix is Python's sys.prefix,
+        # i.e., something along the lines of C:\Python\... At the moment we are not
+        # sure whether we would want to install libz3.dll into that directory though.
         PYTHON_INSTALL_ENABLED = False
     else:
         if not PYTHON_PACKAGE_DIR.startswith(PREFIX):
@@ -1345,6 +1348,7 @@ class DLLComponent(Component):
 class PythonInstallComponent(Component):
     def __init__(self, name, libz3Component):
         assert isinstance(libz3Component, DLLComponent)
+        global PYTHON_INSTALL_ENABLED
         Component.__init__(self, name, None, [])
         self.pythonPkgDir = None
         self.in_prefix_install = True
@@ -1352,20 +1356,18 @@ class PythonInstallComponent(Component):
         if not PYTHON_INSTALL_ENABLED:
             return
 
-        if self.is_osx_hack():
-            # Use full path that is outside of install prefix
+        if IS_WINDOWS or IS_OSX:
+            # Use full path that is possibly outside of install prefix
             self.pythonPkgDir = PYTHON_PACKAGE_DIR
-            self.in_prefix_install = False
+            self.in_prefix_install = PYTHON_PACKAGE_DIR.startswith(PREFIX)
             assert os.path.isabs(self.pythonPkgDir)
         else:
-            # Use path inside the prefix (should be the normal case)
+            # Use path inside the prefix (should be the normal case on Linux)
+            # CMW: Also normal on *BSD?
             assert PYTHON_PACKAGE_DIR.startswith(PREFIX)
             self.pythonPkgDir = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
             assert not os.path.isabs(self.pythonPkgDir)
             assert self.in_prefix_install
-
-    def is_osx_hack(self):
-        return IS_OSX and not PYTHON_PACKAGE_DIR.startswith(PREFIX)
 
     def main_component(self):
         return False    
