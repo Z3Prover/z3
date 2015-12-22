@@ -252,13 +252,10 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
             m_mpq_manager.mul(pow, 2, pow);
             m_mpz_manager.inc(exp);
             ++loop;
-            if (loop % 1000 == 0) std::cout << loop << "\n";
         }
-        std::cout << loop << "\n";
         if (loop > 0) {
             m_mpq_manager.div(sig, pow, sig);
         }
-        std::cout << loop << "\n";
         
         while (m_mpq_manager.lt(sig, 1)) {
             m_mpq_manager.mul(sig, 2, sig);
