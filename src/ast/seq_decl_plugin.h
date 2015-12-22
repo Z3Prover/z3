@@ -22,13 +22,13 @@ Revision History:
 #define SEQ_DECL_PLUGIN_H_
 
 #include "ast.h"
+#include "bv_decl_plugin.h"
 
 
 enum seq_sort_kind {
     SEQ_SORT,
     RE_SORT,
-    _STRING_SORT,  // internal only
-    _CHAR_SORT     // internal only
+    _STRING_SORT  // internal only
 };
 
 enum seq_op_kind {
@@ -131,6 +131,7 @@ class seq_decl_plugin : public decl_plugin {
     ptr_vector<psig> m_sigs;
     bool             m_init;
     symbol           m_stringc_sym;
+    symbol           m_charc_sym;
     sort*            m_string;
     sort*            m_char;
 
@@ -187,6 +188,7 @@ public:
 
     ast_manager& get_manager() const { return m; }
 
+    bool is_char(sort* s) const { return seq.is_char(s); }
     bool is_string(sort* s) const { return is_seq(s) && seq.is_char(s->get_parameter(0).get_ast()); }
     bool is_seq(sort* s) const { return is_sort_of(s, m_fid, SEQ_SORT); }
     bool is_re(sort* s) const { return is_sort_of(s, m_fid, RE_SORT); }
@@ -195,6 +197,7 @@ public:
     bool is_seq(sort* s, sort*& seq) { return is_seq(s) && (seq = to_sort(s->get_parameter(0).get_ast()), true); }
     bool is_re(expr* e) const { return is_re(m.get_sort(e)); }
     bool is_re(expr* e, sort*& seq) const { return is_re(m.get_sort(e), seq); }
+    bool is_char(expr* e) const { return is_char(m.get_sort(e)); }
 
     app* mk_skolem(symbol const& name, unsigned n, expr* const* args, sort* range);
     bool is_skolem(expr const* e) const { return is_app_of(e, m_fid, _OP_SEQ_SKOLEM); }
@@ -215,6 +218,7 @@ public:
         app* mk_empty(sort* s) { return m.mk_const(m.mk_func_decl(m_fid, OP_SEQ_EMPTY, 0, 0, 0, (expr*const*)0, s)); }
         app* mk_string(zstring const& s);
         app* mk_string(symbol const& s) { return u.seq.mk_string(s); }
+        app* mk_char(char ch);
         app* mk_concat(expr* a, expr* b) { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_CONCAT, 2, es); }
         app* mk_concat(expr* a, expr* b, expr* c) {
             return mk_concat(mk_concat(a, b), c);
@@ -238,6 +242,7 @@ public:
         }
         
         bool is_string(expr const* n, zstring& s) const;
+        bool is_char(expr* n, zstring& s) const;
 
         bool is_empty(expr const* n) const { symbol s; 
             return is_app_of(n, m_fid, OP_SEQ_EMPTY) || (is_string(n, s) && !s.is_numerical() && *s.bare_str() == 0); 

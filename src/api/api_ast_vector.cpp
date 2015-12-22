@@ -26,6 +26,7 @@ Revision History:
 extern "C" {
 
     Z3_ast_vector Z3_API Z3_mk_ast_vector(Z3_context c) {
+        std::cout << "ast-vector\n";
         Z3_TRY;
         LOG_Z3_mk_ast_vector(c);
         RESET_ERROR_CODE();

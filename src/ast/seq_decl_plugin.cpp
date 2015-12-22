@@ -163,6 +163,7 @@ std::ostream& zstring::operator<<(std::ostream& out) const {
 
 seq_decl_plugin::seq_decl_plugin(): m_init(false), 
                                     m_stringc_sym("String"),
+                                    m_charc_sym("Char"),
                                     m_string(0),
                                     m_char(0) {}
 
@@ -369,7 +370,8 @@ void seq_decl_plugin::init() {
 
 void seq_decl_plugin::set_manager(ast_manager* m, family_id id) {
     decl_plugin::set_manager(m, id);
-    m_char = m->mk_sort(symbol("Char"), sort_info(m_family_id, _CHAR_SORT, 0, (parameter const*)0));
+    bv_util bv(*m);
+    m_char = bv.mk_sort(8);
     m->inc_ref(m_char);
     parameter param(m_char);
     m_string = m->mk_sort(symbol("String"), sort_info(m_family_id, SEQ_SORT, 1, &param));
@@ -401,8 +403,6 @@ sort * seq_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter 
         return m.mk_sort(symbol("RegEx"), sort_info(m_family_id, RE_SORT, num_parameters, parameters));
     case _STRING_SORT:
         return m_string;
-    case _CHAR_SORT:
-        return m_char;
     default:
         UNREACHABLE();
         return 0;
@@ -469,6 +469,8 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
             m.raise_exception("Expecting two numeral parameters to function re-loop");
         }
         return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k, num_parameters, parameters));   
+
+
 
     case OP_STRING_CONST:
         if (!(num_parameters == 1 && arity == 0 && parameters[0].is_symbol())) {
@@ -583,7 +585,7 @@ void seq_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol 
 app* seq_decl_plugin::mk_string(symbol const& s) {
     parameter param(s);
     func_decl* f = m_manager->mk_const_decl(m_stringc_sym, m_string,
-                                   func_decl_info(m_family_id, OP_STRING_CONST, 1, &param));
+                                            func_decl_info(m_family_id, OP_STRING_CONST, 1, &param));
     return m_manager->mk_const(f);
 }
 
@@ -591,9 +593,10 @@ app* seq_decl_plugin::mk_string(zstring const& s) {
     symbol sym(s.encode().c_str());
     parameter param(sym);
     func_decl* f = m_manager->mk_const_decl(m_stringc_sym, m_string,
-                                   func_decl_info(m_family_id, OP_STRING_CONST, 1, &param));
+                                            func_decl_info(m_family_id, OP_STRING_CONST, 1, &param));
     return m_manager->mk_const(f);
 }
+
 
 bool seq_decl_plugin::is_value(app* e) const {
     return is_app_of(e, m_family_id, OP_STRING_CONST);
@@ -609,11 +612,21 @@ app* seq_util::mk_skolem(symbol const& name, unsigned n, expr* const* args, sort
 app* seq_util::str::mk_string(zstring const& s) { return u.seq.mk_string(s); }
 
 
+
 app*  seq_util::str::mk_char(zstring const& s, unsigned idx) {
     bv_util bvu(m);
     return bvu.mk_numeral(s[idx], s.num_bits());
 }
 
+bool seq_util::str::is_char(expr* n, zstring& c) const {
+    if (u.is_char(n)) {
+        c = zstring(to_app(n)->get_decl()->get_parameter(0).get_symbol().bare_str());
+        return true;
+    }
+    else {
+        return false;
+    }
+}
 
 bool seq_util::str::is_string(expr const* n, zstring& s) const {
     if (is_string(n)) {

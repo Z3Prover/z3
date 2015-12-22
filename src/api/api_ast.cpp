@@ -776,6 +776,8 @@ extern "C" {
                 SET_ERROR_CODE(Z3_SORT_ERROR);
                 RETURN_Z3(of_expr(0));
             }
+            SASSERT(from[i]->get_ref_count() > 0);
+            SASSERT(to[i]->get_ref_count() > 0);
         }
         expr_safe_replace subst(m);
         for (unsigned i = 0; i < num_exprs; i++) {

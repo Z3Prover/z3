@@ -331,7 +331,7 @@ bool theory_seq::check_length_coherence_tbd() {
         if (is_var(f) && f == e) {
             expr_ref emp(m_util.str.mk_empty(m.get_sort(e)), m);
             TRACE("seq", tout << "Unsolved " << mk_pp(e, m) << "\n";);
-#if 0
+#if 1
             if (!assume_equality(e, emp)) {
                 // e = emp \/ e = unit(head.elem(e))*tail(e)
                 sort* char_sort = 0;
@@ -341,9 +341,11 @@ bool theory_seq::check_length_coherence_tbd() {
                 expr_ref head(m_util.str.mk_unit(v), m);
                 expr_ref conc(m_util.str.mk_concat(head, tail), m);
                 add_axiom(mk_eq(e, emp, false), mk_eq(e, conc, false));
+                assume_equality(tail, emp);
             }
 #endif
-            coherent = false;
+            m_branch_variable_head = j + 1;
+            return false;
         }
     }
     return coherent;

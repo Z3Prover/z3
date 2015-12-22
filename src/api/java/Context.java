@@ -3822,6 +3822,7 @@ public class Context extends IDisposable
         m_Params_DRQ.clear(this);
         m_Probe_DRQ.clear(this);
         m_Solver_DRQ.clear(this);
+	m_Optimize_DRQ.clear(this);
         m_Statistics_DRQ.clear(this);
         m_Tactic_DRQ.clear(this);
         m_Fixedpoint_DRQ.clear(this);
