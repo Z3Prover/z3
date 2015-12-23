@@ -1378,7 +1378,7 @@ class PythonInstallComponent(Component):
         MakeRuleCmd.make_install_directory(out, self.pythonPkgDir, in_prefix=self.in_prefix_install)
 
         # Sym-link or copy libz3 into python package directory
-        if IS_WINDOWS or self.is_osx_hack():
+        if IS_WINDOWS or IS_OSX:
             MakeRuleCmd.install_files(out,
                                       self.libz3Component.dll_file(),
                                       os.path.join(self.pythonPkgDir,
