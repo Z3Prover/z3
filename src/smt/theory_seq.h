@@ -70,6 +70,7 @@ namespace smt {
             bool  find_cache(expr* v, expr_dep& r) { return m_cache.find(v, r); }
             expr* find(expr* e, enode_pair_dependency*& d);
             void  cache(expr* e, expr* r, enode_pair_dependency* d);
+            void reset_cache() { m_cache.reset(); }
             void push_scope() { m_limit.push_back(m_updates.size()); }
             void pop_scope(unsigned num_scopes);
             void display(std::ostream& out) const;
@@ -108,19 +109,22 @@ namespace smt {
         // asserted or derived disqequality with dependencies
         struct ne {
             bool                   m_solved;
+            expr_ref               m_l, m_r;
             expr_ref_vector        m_lhs;
             expr_ref_vector        m_rhs;
             literal_vector         m_lits;
             enode_pair_dependency* m_dep;
-            ne(expr_ref& l, expr_ref& r, enode_pair_dependency* d):
-                m_solved(false), m_lhs(l.get_manager()), m_rhs(r.get_manager()), m_dep(d) {
+            ne(expr_ref& l, expr_ref& r):
+                m_solved(false), m_l(l), m_r(r), m_lhs(l.get_manager()), m_rhs(r.get_manager()), m_dep(0) {
                 m_lhs.push_back(l);
                 m_rhs.push_back(r);
             }
             ne(ne const& other): 
-                m_solved(other.m_solved), m_lhs(other.m_lhs), m_rhs(other.m_rhs), m_lits(other.m_lits), m_dep(other.m_dep) {}
+                m_solved(other.m_solved), m_l(other.m_l), m_r(other.m_r), m_lhs(other.m_lhs), m_rhs(other.m_rhs), m_lits(other.m_lits), m_dep(other.m_dep) {}
             ne& operator=(ne const& other) { 
                 m_solved = other.m_solved;
+                m_l = other.m_l;
+                m_r = other.m_r;
                 m_lhs.reset();  m_lhs.append(other.m_lhs);
                 m_rhs.reset();  m_rhs.append(other.m_rhs); 
                 m_lits.reset(); m_lits.append(other.m_lits); 
@@ -158,7 +162,6 @@ namespace smt {
             }
             virtual void undo(theory_seq & th) { th.m_nqs.ref(m_idx).m_lits[m_i] = m_lit; }            
         };
-        void erase_lit(unsigned idx, unsigned i);
 
         class solved_ne : public trail<theory_seq> {
             unsigned m_idx;
@@ -255,6 +258,7 @@ namespace smt {
         bool            m_incomplete;            // is the solver (clearly) incomplete for the fragment.
         bool            m_has_length;            // is length applied
         bool            m_model_completion;      // during model construction, invent values in canonizer
+        model_generator* m_mg;
         th_rewriter     m_rewrite;
         seq_util        m_util;
         arith_util      m_autil;
@@ -313,7 +317,7 @@ namespace smt {
         void propagate_lit(enode_pair_dependency* dep, literal lit);
         void propagate_eq(enode_pair_dependency* dep, enode* n1, enode* n2);
         void propagate_eq(bool_var v, expr* e1, expr* e2);
-        void set_conflict(enode_pair_dependency* dep);
+        void set_conflict(enode_pair_dependency* dep, literal_vector const& lits = literal_vector());
 
         bool find_branch_candidate(expr* l, expr_ref_vector const& rs);
         bool assume_equality(expr* l, expr* r);
@@ -324,6 +328,7 @@ namespace smt {
         void add_solution(expr* l, expr* r, enode_pair_dependency* dep);
         bool is_left_select(expr* a, expr*& b);
         bool is_right_select(expr* a, expr*& b);
+        bool is_head_elem(expr* a) const;
         expr_ref canonize(expr* e, enode_pair_dependency*& eqs);
         expr_ref expand(expr* e, enode_pair_dependency*& eqs);
         void add_dependency(enode_pair_dependency*& dep, enode* a, enode* b);
@@ -345,7 +350,7 @@ namespace smt {
         void add_at_axiom(expr* n);
         literal mk_literal(expr* n);
         void tightest_prefix(expr* s, expr* x, literal lit, literal lit2 = null_literal);
-        expr* mk_sub(expr* a, expr* b);
+        expr_ref mk_sub(expr* a, expr* b);
         enode* ensure_enode(expr* a);
 
         expr_ref mk_skolem(symbol const& s, expr* e1, expr* e2 = 0, expr* e3 = 0, sort* range = 0);

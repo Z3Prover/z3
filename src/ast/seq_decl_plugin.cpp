@@ -42,7 +42,7 @@ zstring::zstring(unsigned num_bits, bool const* ch) {
     m_encoding = (num_bits == 8)?ascii:unicode;
     unsigned n = 0;    
     for (unsigned i = 0; i < num_bits; ++i) {
-        n |= (((unsigned)ch[i]) << num_bits);
+        n |= (((unsigned)ch[i]) << i);
     }
     m_buffer.push_back(n);
 }
@@ -81,12 +81,23 @@ zstring zstring::replace(zstring const& src, zstring const& dst) const {
     return result;
 }
 
+static char* esc_table[32] = { "\\0", "^A", "^B", "^C", "^D", "^E", "^F", "\\a", "\\b", "\\t", "\\n", "\\v", "\\f", "\\r", "^N",
+                               "^O", "^P", "^Q", "^R", "^S", "^T", "^U", "^V","^W","^X","^Y","^Z","\\e","^\\","^]","^^","^_"};
+ 
 std::string zstring::encode() const {
-    // TBD apply encodings.
     SASSERT(m_encoding == ascii);
     std::ostringstream strm;
     for (unsigned i = 0; i < m_buffer.size(); ++i) {
-        strm << (char)(m_buffer[i]);
+        unsigned char ch = m_buffer[i];
+        if (0 <= ch && ch < 32) {
+            strm << esc_table[ch];
+        }
+        else if (ch == 127) {
+            strm << "^?";
+        }
+        else {
+            strm << (char)(ch);
+        }
     }
     return strm.str();
 }
