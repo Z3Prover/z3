@@ -1382,7 +1382,8 @@ namespace smt {
             bool_var v = l.var();
             bool_var_data & d = get_bdata(v);
             lbool val  = get_assignment(v);
-            TRACE("propagate_atoms", tout << "propagating atom, #" << bool_var2expr(v)->get_id() << ", is_enode(): " << d.is_enode() << " " << l << "\n";);
+            TRACE("propagate_atoms", tout << "propagating atom, #" << bool_var2expr(v)->get_id() << ", is_enode(): " << d.is_enode() 
+                  << " tag: " << (d.is_eq()?"eq":"") << (d.is_theory_atom()?"th":"") << (d.is_quantifier()?"q":"") << " " << l << "\n";);
             SASSERT(val != l_undef);
             if (d.is_enode())
                 propagate_bool_var_enode(v);
@@ -1404,6 +1405,7 @@ namespace smt {
             else if (d.is_theory_atom()) {
                 theory * th = m_theories.get_plugin(d.get_theory());
                 SASSERT(th);
+                TRACE("seq", tout << d.get_theory() << "\n";);
                 th->assign_eh(v, val == l_true);
             }
             else if (d.is_quantifier()) {

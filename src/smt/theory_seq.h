@@ -251,6 +251,7 @@ namespace smt {
 
         seq_factory*    m_factory;               // value factory
         expr_ref_vector m_ineqs;                 // inequalities to check solution against
+        expr_ref_vector m_in_re;                 // regular expression membership
         exclusion_table m_exclude;               // set of asserted disequalities.
         expr_ref_vector m_axioms;                // list of axioms to add.
         unsigned        m_axioms_head;           // index of first axiom to add.
@@ -277,7 +278,7 @@ namespace smt {
         virtual void internalize_eq_eh(app * atom, bool_var v);
         virtual void new_eq_eh(theory_var, theory_var);
         virtual void new_diseq_eh(theory_var, theory_var);
-        virtual void assign_eq(bool_var v, bool is_true);        
+        virtual void assign_eh(bool_var v, bool is_true);        
         virtual bool can_propagate();
         virtual void propagate();
         virtual void push_scope_eh();

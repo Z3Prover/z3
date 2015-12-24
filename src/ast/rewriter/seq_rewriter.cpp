@@ -22,6 +22,7 @@ Notes:
 #include"ast_pp.h"
 #include"ast_util.h"
 #include"uint_set.h"
+#include"automaton.h"
 
 
 br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
@@ -30,22 +31,38 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     switch(f->get_decl_kind()) {
 
     case OP_SEQ_UNIT:
-    case OP_SEQ_EMPTY:
-
-    case OP_RE_PLUS:
-    case OP_RE_STAR:
-    case OP_RE_OPTION:
-    case OP_RE_RANGE:
-    case OP_RE_CONCAT:
-    case OP_RE_UNION:
-    case OP_RE_INTERSECT:
-    case OP_RE_LOOP:
-    case OP_RE_EMPTY_SET:
-    case OP_RE_FULL_SET:
-    case OP_RE_OF_PRED:
-    case _OP_SEQ_SKOLEM:
         return BR_FAILED;
-    
+    case OP_SEQ_EMPTY:
+        return BR_FAILED;
+    case OP_RE_PLUS:
+        SASSERT(num_args == 1);
+        return mk_re_plus(args[0], result);
+    case OP_RE_STAR:
+        SASSERT(num_args == 1);
+        return mk_re_star(args[0], result);
+    case OP_RE_OPTION:
+        SASSERT(num_args == 1);
+        return mk_re_opt(args[0], result);
+    case OP_RE_CONCAT:
+        SASSERT(num_args == 2);
+        return mk_re_concat(args[0], args[1], result);
+    case OP_RE_UNION:
+        SASSERT(num_args == 2);
+        return mk_re_union(args[0], args[1], result);
+    case OP_RE_RANGE:
+        return BR_FAILED;    
+    case OP_RE_INTERSECT:
+        return BR_FAILED;    
+    case OP_RE_LOOP:
+        return BR_FAILED;    
+    case OP_RE_EMPTY_SET:
+        return BR_FAILED;    
+    case OP_RE_FULL_SET:
+        return BR_FAILED;    
+    case OP_RE_OF_PRED:
+        return BR_FAILED;    
+    case _OP_SEQ_SKOLEM:
+        return BR_FAILED;    
     case OP_SEQ_CONCAT: 
         if (num_args == 1) {
             result = args[0];
@@ -83,10 +100,11 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         SASSERT(num_args == 3);
         return mk_seq_replace(args[0], args[1], args[2], result);
     case OP_SEQ_TO_RE:
-        return BR_FAILED;
+        SASSERT(num_args == 1);
+        return mk_str_to_regexp(args[0], result);
     case OP_SEQ_IN_RE:
-        return BR_FAILED;
-
+        SASSERT(num_args == 2);
+        return mk_str_in_regexp(args[0], args[1], result);
     case OP_STRING_CONST:
         return BR_FAILED;
     case OP_STRING_ITOS: 
@@ -499,7 +517,10 @@ br_status seq_rewriter::mk_re_plus(expr* a, expr_ref& result) {
     return BR_FAILED;
 }
 br_status seq_rewriter::mk_re_opt(expr* a, expr_ref& result) {
-    return BR_FAILED;
+    sort* s;
+    VERIFY(m_util.is_re(a, s));
+    result = m_util.re.mk_union(m_util.re.mk_to_re(m_util.str.mk_empty(s)), a);
+    return BR_REWRITE1;
 }
 
 br_status seq_rewriter::mk_eq_core(expr * l, expr * r, expr_ref & result) {

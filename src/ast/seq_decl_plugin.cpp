@@ -629,6 +629,11 @@ app*  seq_util::str::mk_char(zstring const& s, unsigned idx) {
     return bvu.mk_numeral(s[idx], s.num_bits());
 }
 
+app*  seq_util::str::mk_char(char ch) {
+    zstring s(ch, zstring::ascii);
+    return mk_char(s, 0);
+}
+    
 bool seq_util::str::is_char(expr* n, zstring& c) const {
     if (u.is_char(n)) {
         c = zstring(to_app(n)->get_decl()->get_parameter(0).get_symbol().bare_str());
