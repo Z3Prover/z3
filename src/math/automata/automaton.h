@@ -94,9 +94,25 @@ public:
         }
     }
 
+    // create an automaton that accepts a sequence.
+    automaton(ptr_vector<T> const& seq):
+        m_init(0),
+        m_is_epsilon_free(true), 
+        m_is_deterministic(true) {
+        m_delta.resize(seq.size()+1, moves());
+        m_delta_inv.resize(seq.size()+1, moves());
+        for (unsigned i = 0; i < seq.size(); ++i) {
+            m_delta[i].push_back(move(i, i + 1, seq[i]));
+            m_delta[i + 1].push_back(move(i, i + 1, seq[i]));
+        }
+        m_final_states.push_back(seq.size());
+        m_final_set.insert(seq.size());        
+    }
+
     // The automaton with a single state that is also final.
-    automaton(T* t, unsigned s = 0):
-        m_init(s) {
+    automaton(T* t):
+        m_init(0) {
+        unsigned s = 0;
         m_delta.resize(s+1, moves());
         m_delta_inv.resize(s+1, moves());
         m_final_set.insert(s);
