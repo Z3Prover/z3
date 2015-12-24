@@ -26,6 +26,81 @@ Revision History:
 
 using namespace smt;
 
+
+re2automaton::re2automaton(ast_manager& m): m(m), u(m) {}
+
+eautomaton* re2automaton::re2aut(expr* e) {
+    SASSERT(u.is_re(e));
+    expr* e1, *e2;
+    scoped_ptr<eautomaton> a, b;
+    if (u.re.is_to_re(e, e1)) {
+        return seq2aut(e1);
+    }
+    else if (u.re.is_concat(e, e1, e2) && (a = re2aut(e1)) && (b = re2aut(e2))) {
+        return eautomaton::mk_concat(*a, *b);
+    }
+    else if (u.re.is_union(e, e1, e2) && (a = re2aut(e1)) && (b = re2aut(e2))) {
+        return eautomaton::mk_union(*a, *b);
+    }
+    else if (u.re.is_star(e, e1) && (a = re2aut(e1))) {
+        a->add_final_to_init_moves();
+        a->add_init_to_final();
+        return a.detach();            
+    }
+    else if (u.re.is_plus(e, e1) && (a = re2aut(e1))) {
+        a->add_final_to_init_moves();
+        return a.detach();            
+    }
+    else if (u.re.is_opt(e, e1) && (a = re2aut(e1))) {
+        a->add_init_to_final();
+        return a.detach();                    
+    }
+    else if (u.re.is_range(e)) {
+
+    }
+    else if (u.re.is_loop(e)) {
+
+    }
+#if 0
+    else if (u.re.is_intersect(e, e1, e2)) {
+
+    }
+    else if (u.re.is_empty(e)) {
+
+    }
+#endif
+    
+    return 0;
+}
+
+eautomaton* re2automaton::seq2aut(expr* e) {
+    SASSERT(u.is_seq(e));
+    zstring s;
+    expr* e1, *e2;
+    scoped_ptr<eautomaton> a, b;
+    if (u.str.is_concat(e, e1, e2) && (a = seq2aut(e1)) && (b = seq2aut(e2))) {
+        return eautomaton::mk_concat(*a, *b);
+    }
+    else if (u.str.is_unit(e, e1)) {
+        return alloc(eautomaton, m, e1);
+    }
+    else if (u.str.is_empty(e)) {
+        return eautomaton::mk_epsilon(m);
+    }
+    else if (u.str.is_string(e, s)) {        
+        unsigned init = 0;
+        eautomaton::moves mvs;        
+        unsigned_vector final;
+        final.push_back(s.length());
+        for (unsigned k = 0; k < s.length(); ++k) {
+            // reference count?
+            mvs.push_back(eautomaton::move(m, k, k+1, u.str.mk_char(s, k)));
+        }
+        return alloc(eautomaton, m, init, final, mvs);
+    }
+    return 0;
+}
+
 void theory_seq::solution_map::update(expr* e, expr* r, enode_pair_dependency* d) {
     m_cache.reset();
     std::pair<expr*, enode_pair_dependency*> value;
@@ -1333,6 +1408,14 @@ void theory_seq::propagate_eq(bool_var v, expr* e1, expr* e2) {
     ctx.assign_eq(n1, n2, eq_justification(js));
 }
 
+struct display_expr {
+    ast_manager& m;
+    display_expr(ast_manager& m): m(m) {}
+    std::ostream& display(std::ostream& out, expr* e) const {
+        return out << mk_pp(e, m);
+    }
+};
+
 void theory_seq::assign_eh(bool_var v, bool is_true) {
     context & ctx = get_context();
     expr* e = ctx.bool_var2expr(v);
@@ -1355,10 +1438,16 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
             f = m_util.str.mk_concat(m_util.str.mk_concat(f1, e2), f2);
             propagate_eq(v, f, e1);
         }
-        else if (m_util.str.is_in_re(e)) {
+        else if (m_util.str.is_in_re(e, e1, e2)) {
             TRACE("seq", tout << "in re: " << mk_pp(e, m) << "\n";);
             m_trail_stack.push(push_back_vector<theory_seq, expr_ref_vector>(m_in_re));
             m_in_re.push_back(e);
+            
+            scoped_ptr<eautomaton> a = re2automaton(m)(e2);
+            if (a) {
+                display_expr disp(m);
+                TRACE("seq", a->display(tout, disp););
+            }
         }
         else {
             UNREACHABLE();

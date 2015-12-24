@@ -25,8 +25,20 @@ Revision History:
 #include "th_rewriter.h"
 #include "ast_trail.h"
 #include "scoped_vector.h"
+#include "automaton.h"
 
 namespace smt {
+
+    typedef automaton<expr, ast_manager> eautomaton;
+    class re2automaton {
+        ast_manager& m;
+        seq_util     u;       
+        eautomaton* re2aut(expr* e);
+        eautomaton* seq2aut(expr* e);
+    public:
+        re2automaton(ast_manager& m);
+        eautomaton* operator()(expr* e) { return re2aut(e); } 
+    };
 
     class theory_seq : public theory {
         typedef scoped_dependency_manager<enode_pair> enode_pair_dependency_manager;

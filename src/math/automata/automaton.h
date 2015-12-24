@@ -27,13 +27,42 @@ Revision History:
 #include "uint_set.h"
 
 template<class T>
+class default_value_manager {
+public:
+    void inc_ref(T* t) {}
+    void dec_ref(T* t) {}
+};
+
+template<class T, class M = default_value_manager<T> >
 class automaton {
+public:
     class move {
+        M&       m;
         T*       m_t;
         unsigned m_src;
         unsigned m_dst;        
     public:
-        move(unsigned s, unsigned d, T* t = 0): m_t(t), m_src(s), m_dst(d) {}
+        move(M& m, unsigned s, unsigned d, T* t = 0): m(m), m_t(t), m_src(s), m_dst(d) {
+            if (t) m.inc_ref(t);
+        }
+        ~move() {
+            if (m_t) m.dec_ref(m_t);
+        }
+
+        move(move const& other): m(other.m), m_t(other.m_t), m_src(other.m_src), m_dst(other.m_dst) {
+            if (m_t) m.inc_ref(m_t);
+        }
+
+        move& operator=(move const& other) {
+            SASSERT(&m == &other.m);
+            T* t = other.m_t;
+            if (t) m.inc_ref(t);
+            if (m_t) m.dec_ref(m_t);
+            m_t = t;
+            m_src = other.m_src;
+            m_dst = other.m_dst;
+            return *this;
+        }
 
         unsigned dst() const { return m_dst; }
         unsigned src() const { return m_src; }
@@ -41,11 +70,11 @@ class automaton {
 
         bool is_epsilon() const { return m_t == 0; }
     };
-    typedef svector<move> moves;
-
-
-    svector<moves>  m_delta;
-    svector<moves>  m_delta_inv;
+    typedef vector<move> moves;
+private:
+    M&              m;
+    vector<moves>   m_delta;
+    vector<moves>   m_delta_inv;
     unsigned        m_init;
     uint_set        m_final_set;
     unsigned_vector m_final_states;
@@ -57,11 +86,11 @@ class automaton {
     mutable uint_set        m_visited;
     mutable unsigned_vector m_todo;
 
-
 public:
 
     // The empty automaton:
-    automaton():
+    automaton(M& m):
+        m(m), 
         m_init(0),
         m_is_epsilon_free(true),
         m_is_deterministic(true)
@@ -72,7 +101,7 @@ public:
 
 
     // create an automaton from initial state, final states, and moves
-    automaton(unsigned init, unsigned_vector const& final, moves const& mvs) {
+    automaton(M& m, unsigned init, unsigned_vector const& final, moves const& mvs): m(m) {
         m_is_epsilon_free = true;
         m_is_deterministic = true;
         m_init = init;
@@ -95,33 +124,35 @@ public:
     }
 
     // create an automaton that accepts a sequence.
-    automaton(ptr_vector<T> const& seq):
+    automaton(M& m, ptr_vector<T> const& seq):
+        m(m),
         m_init(0),
         m_is_epsilon_free(true), 
         m_is_deterministic(true) {
         m_delta.resize(seq.size()+1, moves());
         m_delta_inv.resize(seq.size()+1, moves());
         for (unsigned i = 0; i < seq.size(); ++i) {
-            m_delta[i].push_back(move(i, i + 1, seq[i]));
-            m_delta[i + 1].push_back(move(i, i + 1, seq[i]));
+            m_delta[i].push_back(move(m, i, i + 1, seq[i]));
+            m_delta[i + 1].push_back(move(m, i, i + 1, seq[i]));
         }
         m_final_states.push_back(seq.size());
         m_final_set.insert(seq.size());        
     }
 
-    // The automaton with a single state that is also final.
-    automaton(T* t):
+    // The automaton that accepts t
+    automaton(M& m, T* t):
+        m(m), 
         m_init(0) {
-        unsigned s = 0;
-        m_delta.resize(s+1, moves());
-        m_delta_inv.resize(s+1, moves());
-        m_final_set.insert(s);
-        m_final_states.push_back(s);
-        m_delta[s].push_back(move(s, s, t));
-        m_delta_inv[s].push_back(move(s, s, t));
+        m_delta.resize(2, moves());
+        m_delta_inv.resize(2, moves());
+        m_final_set.insert(1);
+        m_final_states.push_back(1);
+        m_delta[0].push_back(move(m, 0, 1, t));
+        m_delta_inv[1].push_back(move(m, 0, 1, t));
     }    
 
     automaton(automaton const& other):
+        m(other.m), 
         m_delta(other.m_delta),
         m_delta_inv(other.m_delta_inv),        
         m_init(other.m_init),
@@ -132,47 +163,78 @@ public:
     {}
 
     // create the automaton that accepts the empty string only.
-    static automaton mk_epsilon() {
+    static automaton* mk_epsilon(M& m) {
         moves mvs;
         unsigned_vector final;
         final.push_back(0);        
-        return automaton(0, final, mvs);
+        return alloc(automaton, m, 0, final, mvs);
     }
 
     // create the automaton with a single state on condition t.
-    static automaton mk_loop(T* t) {
+    static automaton* mk_loop(M& m, T* t) {
         moves mvs;
         unsigned_vector final;
         final.push_back(0);       
-        mvs.push_back(move(0, 0, t));
-        return automaton(0, final, mvs);
+        mvs.push_back(move(m, 0, 0, t));
+        return alloc(automaton, m, 0, final, mvs);
     }
 
     // create the sum of disjoint automata
-    static automaton mk_union(automaton const& a, automaton const& b) {
+    static automaton* mk_union(automaton const& a, automaton const& b) {
+        SASSERT(&a.m == &b.m);
+        M& m = a.m;
         moves mvs;
         unsigned_vector final;
         unsigned offset1 = 1;
         unsigned offset2 = a.num_states() + 1;
-        mvs.push_back(move(0, a.init() + offset1, 0));
-        mvs.push_back(move(0, b.init() + offset2, 0));
+        mvs.push_back(move(m, 0, a.init() + offset1, 0));
+        mvs.push_back(move(m, 0, b.init() + offset2, 0));
         append_moves(offset1, a, mvs);
         append_moves(offset2, b, mvs);
         append_final(offset1, a, final);
         append_final(offset2, b, final);
-        return automaton(0, final, mvs);
+        return alloc(automaton, m, 0, final, mvs);
     }
 
-    static automaton mk_reverse(automaton const& a) {
+    // concatenate accepting languages
+    static automaton* mk_concat(automaton const& a, automaton const& b) {
+        SASSERT(&a.m == &b.m);
+        M& m = a.m;
+        moves mvs;
+        unsigned_vector final;
+        unsigned init = 0;
+        if (a.has_single_final_sink() && b.initial_state_is_source() && b.init() == 0) {
+            unsigned offset2 = a.num_states();
+            init = a.init();
+            append_moves(0, a, mvs);
+            append_moves(offset2, b, mvs);
+            append_final(offset2, b, final);
+        }
+        else {
+            unsigned offset1 = 1;
+            unsigned offset2 = a.num_states() + offset1;
+            mvs.push_back(move(m, 0, a.init() + offset1));
+            append_moves(offset1, a, mvs);
+            for (unsigned i = 0; i < a.m_final_states.size(); ++i) {
+                mvs.push_back(move(m, a.m_final_states[i], b.init()));
+            }
+            append_moves(offset2, b, mvs);
+            append_final(offset2, b, final);
+        }
+        return alloc(automaton, m, init, final, mvs);
+    }
+
+    static automaton* mk_reverse(automaton const& a) {
+        M& m = a.m;
         if (a.is_empty()) {
-            return automaton();
+            return alloc(automaton, m);
         }
         moves mvs;
         for (unsigned i = 0; i < a.m_delta.size(); ++i) {
             moves const& mvs1 = a.m_delta[i];
             for (unsigned j = 0; j < mvs1.size(); ++j) {
                 move const& mv = mvs1[j];
-                mvs.push_back(move(mv.dst(), mv.src(), mv.t()));
+                mvs.push_back(move(m, mv.dst(), mv.src(), mv.t()));
             }
         }
         unsigned_vector final;
@@ -184,10 +246,37 @@ public:
         else {
             init = a.num_states();
             for (unsigned i = 0; i < a.m_final_states.size(); ++i) {
-                mvs.push_back(move(init, a.m_final_states[i]));
+                mvs.push_back(move(m, init, a.m_final_states[i]));
             }
         }
-        return automaton(init, final, mvs);        
+        return alloc(automaton, m, init, final, mvs);        
+    }
+
+    void add_init_to_final() {
+        if (!m_final_set.contains(m_init)) {
+            m_final_set.insert(m_init);
+            m_final_states.push_back(m_init);
+        }
+    }
+
+    void add_final_to_init_moves() {
+        for (unsigned i = 0; i < m_final_states.size(); ++i) {
+            unsigned state = m_final_states[i];
+            bool found = false;
+            moves const& mvs = m_delta[state];
+            for (unsigned j = 0; found && j < mvs.size(); ++j) {
+                found = (mvs[j].dst() == m_init) && mvs[j].is_epsilon();
+            }
+            if (!found) {
+                m_delta[state].push_back(move(m, state, m_init));
+                m_delta_inv[m_init].push_back(move(m, state, m_init));
+            }
+        }
+    }
+
+    // remove states that only have epsilon transitions.
+    void compress() {
+        // TBD
     }
     
     bool is_sequence(unsigned& length) const {
@@ -252,8 +341,29 @@ public:
     void get_moves_to(unsigned state, moves& mvs) {
         get_moves(state, m_delta_inv, mvs);
     }
+
+    template<class D>
+    std::ostream& display(std::ostream& out, D& displayer) const {
+        out << "init: " << init() << "\n";
+        out << "final: ";
+        for (unsigned i = 0; i < m_final_states.size(); ++i) out << m_final_states[i] << " ";
+        out << "\n";
+        for (unsigned i = 0; i < m_delta.size(); ++i) {
+            moves const& mvs = m_delta[i];
+            for (unsigned j = 0; j < mvs.size(); ++j) {
+                move const& mv = mvs[j];
+                out << i << " -> " << mv.dst() << " ";
+                if (mv.t()) {
+                    out << "if "; 
+                    displayer.display(out, mv.t());
+                }
+                out << "\n";
+            }
+        }
+        return out;
+    }
 private:
-    void get_moves(unsigned state, svector<moves> const& delta, moves& mvs) const {
+    void get_moves(unsigned state, vector<moves> const& delta, moves& mvs) const {
         unsigned_vector states;
         get_epsilon_closure(state, delta, states);
         for (unsigned i = 0; i < states.size(); ++i) {
@@ -267,7 +377,7 @@ private:
         }
     }
 
-    void get_epsilon_closure(unsigned state, svector<moves> const& delta, unsigned_vector& states) const {
+    void get_epsilon_closure(unsigned state, vector<moves> const& delta, unsigned_vector& states) const {
         m_todo.push_back(state);
         m_visited.insert(state);
         while (!m_todo.empty()) {
@@ -292,7 +402,7 @@ private:
             moves const& mvs1 = a.m_delta[i];
             for (unsigned j = 0; j < mvs1.size(); ++j) {
                 move const& mv = mvs1[j];
-                mvs.push_back(move(mv.src() + offset, mv.dst() + offset, mv.t()));
+                mvs.push_back(move(a.m, mv.src() + offset, mv.dst() + offset, mv.t()));
             }
         }
     }
