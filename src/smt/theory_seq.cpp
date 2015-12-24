@@ -26,6 +26,14 @@ Revision History:
 
 using namespace smt;
 
+struct display_expr {
+    ast_manager& m;
+    display_expr(ast_manager& m): m(m) {}
+    std::ostream& display(std::ostream& out, expr* e) const {
+        return out << mk_pp(e, m);
+    }
+};
+
 
 re2automaton::re2automaton(ast_manager& m): m(m), u(m) {}
 
@@ -52,7 +60,7 @@ eautomaton* re2automaton::re2aut(expr* e) {
         return a.detach();            
     }
     else if (u.re.is_opt(e, e1) && (a = re2aut(e1))) {
-        a->add_init_to_final();
+        a = eautomaton::mk_opt(*a);
         return a.detach();                    
     }
     else if (u.re.is_range(e)) {
@@ -200,7 +208,6 @@ theory_seq::theory_seq(ast_manager& m):
     m_rep(m, m_dm),
     m_factory(0),
     m_ineqs(m),
-    m_in_re(m),
     m_exclude(m),
     m_axioms(m),
     m_axioms_head(0),
@@ -219,6 +226,7 @@ theory_seq::theory_seq(ast_manager& m):
     m_right_sym = "seq.right";
     m_contains_left_sym = "seq.contains.left";
     m_contains_right_sym = "seq.contains.right";
+    m_accept_sym = "aut.accept";
 }
 
 theory_seq::~theory_seq() {
@@ -455,7 +463,7 @@ bool theory_seq::is_solved() {
     if (!check_ineq_coherence()) {
         return false;
     }
-    if (!m_in_re.empty()) {
+    if (!m_re2aut.empty()) {
         return false;
     }
     
@@ -595,17 +603,15 @@ bool theory_seq::is_var(expr* a) {
 }
 
 bool theory_seq::is_left_select(expr* a, expr*& b) {
-    return m_util.is_skolem(a) && 
-        to_app(a)->get_decl()->get_parameter(0).get_symbol() == m_left_sym && (b = to_app(a)->get_arg(0), true);
+    return is_skolem(m_left_sym, a) && (b = to_app(a)->get_arg(0), true);
 }
 
 bool theory_seq::is_right_select(expr* a, expr*& b) {
-    return m_util.is_skolem(a) &&
-        to_app(a)->get_decl()->get_parameter(0).get_symbol() == m_right_sym && (b = to_app(a)->get_arg(0), true);
+    return is_skolem(m_right_sym, a) && (b = to_app(a)->get_arg(0), true);
 }
 
 bool theory_seq::is_head_elem(expr* e) const {
-    return m_util.is_skolem(e) && to_app(e)->get_decl()->get_parameter(0).get_symbol() == symbol("seq.head.elem");
+    return is_skolem(symbol("seq.head.elem"), e);
 }
 
 void theory_seq::add_solution(expr* l, expr* r, enode_pair_dependency* deps) {
@@ -841,10 +847,13 @@ void theory_seq::display(std::ostream & out) const {
             out << mk_pp(m_ineqs[i], m) << "\n";
         }
     }
-    if (!m_in_re.empty()) {
+    if (!m_re2aut.empty()) {
         out << "Regex\n";
-        for (unsigned i = 0; i < m_in_re.size(); ++i) {
-            out << mk_pp(m_in_re[i], m) << "\n";
+        obj_map<expr, eautomaton*>::iterator it = m_re2aut.begin(), end = m_re2aut.end();
+        for (; it != end; ++it) {
+            out << mk_pp(it->m_key, m) << "\n";
+            display_expr disp(m);
+            it->m_value->display(out, disp);
         }
     }
     if (!m_rep.empty()) {
@@ -1089,6 +1098,9 @@ void theory_seq::deque_axiom(expr* n) {
         add_elim_string_axiom(n);
         // add_length_string_axiom(n);
     }
+    else if (m_util.str.is_in_re(n)) {
+        add_in_re_axiom(n);
+    }
 }
 
 
@@ -1281,6 +1293,76 @@ void theory_seq::add_length_axiom(expr* n) {
     }
 }
 
+// the empty sequence is accepted only in the final states.
+// membership holds iff the initial state holds.
+void theory_seq::add_in_re_axiom(expr* n) {
+    expr* e1, *e2;
+    context& ctx = get_context();
+    VERIFY(m_util.str.is_in_re(n, e1, e2));
+    eautomaton* a = get_automaton(e2);
+    if (!a) return;
+    
+    expr_ref emp(m_util.str.mk_empty(m.get_sort(e1)), m);
+    for (unsigned i = 0; i < a->num_states(); ++i) {
+        expr_ref acc = mk_accept(emp, e2, m_autil.mk_int(i));
+        literal lit = mk_literal(acc);
+        add_axiom(a->is_final_state(i)?lit:~lit);        
+    }
+    unsigned_vector states;
+    a->get_epsilon_closure(a->init(), states);
+    literal_vector lits;
+    literal lit = mk_literal(n);
+    ctx.mark_as_relevant(lit);
+    lits.push_back(~lit);
+    for (unsigned i = 0; i < states.size(); ++i) {
+        expr_ref acc = mk_accept(e1, e2, m_autil.mk_int(a->init()));
+        literal lit2 = mk_literal(acc);
+        lits.push_back(lit2);
+        add_axiom(~lit2, lit);
+    }
+    ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
+}
+
+eautomaton* theory_seq::get_automaton(expr* re) {
+    eautomaton* result = 0;
+    if (m_re2aut.find(re, result)) {
+        return result;
+    }
+    result = re2automaton(m)(re);
+    if (result) {
+        display_expr disp(m);
+        TRACE("seq", result->display(tout, disp););
+    }
+    if (result) {
+        m_automata.push_back(result);
+        m_trail_stack.push(push_back_vector<theory_seq, scoped_ptr_vector<eautomaton> >(m_automata));
+    }
+    m_re2aut.insert(re, result);
+    m_trail_stack.push(insert_obj_map<theory_seq, expr, eautomaton*>(m_re2aut, re));
+    return result;
+}
+
+expr_ref theory_seq::mk_accept(expr* s, expr* re, expr* state) {
+    return expr_ref(mk_skolem(m_accept_sym, s, re, state, m.mk_bool_sort()), m);
+}
+
+
+bool theory_seq::is_accept(expr* acc, expr*& s, expr*& re, unsigned& i, eautomaton*& aut) {
+    if (is_accept(acc)) {
+        rational r;
+        s  = to_app(acc)->get_arg(0);
+        re = to_app(acc)->get_arg(1);
+        VERIFY(m_autil.is_numeral(to_app(acc)->get_arg(2), r));
+        SASSERT(r.is_unsigned());
+        i = r.get_unsigned();
+        aut = m_re2aut[re];
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
 expr_ref theory_seq::mk_sub(expr* a, expr* b) {
     expr_ref result(m_autil.mk_sub(a, b), m);
     m_rewrite(result);
@@ -1387,6 +1469,11 @@ expr_ref theory_seq::mk_skolem(symbol const& name, expr* e1,
     return expr_ref(m_util.mk_skolem(name, len, es, range), m);
 }
 
+bool theory_seq::is_skolem(symbol const& s, expr* e) const {
+    return m_util.is_skolem(e) && to_app(e)->get_decl()->get_parameter(0).get_symbol() == s;
+}
+
+
 void theory_seq::propagate_eq(bool_var v, expr* e1, expr* e2) {
     context& ctx = get_context();
 
@@ -1408,18 +1495,14 @@ void theory_seq::propagate_eq(bool_var v, expr* e1, expr* e2) {
     ctx.assign_eq(n1, n2, eq_justification(js));
 }
 
-struct display_expr {
-    ast_manager& m;
-    display_expr(ast_manager& m): m(m) {}
-    std::ostream& display(std::ostream& out, expr* e) const {
-        return out << mk_pp(e, m);
-    }
-};
 
 void theory_seq::assign_eh(bool_var v, bool is_true) {
     context & ctx = get_context();
     expr* e = ctx.bool_var2expr(v);
-    if (is_true) {
+    if (is_accept(e)) {
+        // TBD
+    }
+    else if (is_true) {
         expr* e1, *e2;
         expr_ref f(m);
         if (m_util.str.is_prefix(e, e1, e2)) {
@@ -1439,15 +1522,11 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
             propagate_eq(v, f, e1);
         }
         else if (m_util.str.is_in_re(e, e1, e2)) {
-            TRACE("seq", tout << "in re: " << mk_pp(e, m) << "\n";);
-            m_trail_stack.push(push_back_vector<theory_seq, expr_ref_vector>(m_in_re));
-            m_in_re.push_back(e);
             
-            scoped_ptr<eautomaton> a = re2automaton(m)(e2);
-            if (a) {
-                display_expr disp(m);
-                TRACE("seq", a->display(tout, disp););
-            }
+            // Predicate: accept(e1, e2, state)
+            // seq.in.re(e1,e2) <-> accept(e1, e2, init)
+            // accept("", e2, state) <-> state is final in a
+            // e = head.elem(e)*tail(e) -> accept(e, e2, state) <-> \/ accept(tail(e), e2, state') & label(t) = head.elem(e) for t : state->state' in a
         }
         else {
             UNREACHABLE();
@@ -1519,7 +1598,8 @@ void theory_seq::relevant_eh(app* n) {
         m_util.str.is_concat(n) ||
         m_util.str.is_empty(n) ||
         m_util.str.is_unit(n) ||
-        m_util.str.is_string(n)) {
+        m_util.str.is_string(n) ||
+        m_util.str.is_in_re(n)) {
         enque_axiom(n);
     }
     if (m_util.str.is_in_re(n) ||

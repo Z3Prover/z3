@@ -78,8 +78,6 @@ private:
     unsigned        m_init;
     uint_set        m_final_set;
     unsigned_vector m_final_states;
-    bool            m_is_epsilon_free;
-    bool            m_is_deterministic;
     
 
     // local data-structures
@@ -91,9 +89,7 @@ public:
     // The empty automaton:
     automaton(M& m):
         m(m), 
-        m_init(0),
-        m_is_epsilon_free(true),
-        m_is_deterministic(true)
+        m_init(0)
     {
         m_delta.push_back(moves());
         m_delta_inv.push_back(moves());
@@ -102,8 +98,6 @@ public:
 
     // create an automaton from initial state, final states, and moves
     automaton(M& m, unsigned init, unsigned_vector const& final, moves const& mvs): m(m) {
-        m_is_epsilon_free = true;
-        m_is_deterministic = true;
         m_init = init;
         for (unsigned i = 0; i < final.size(); ++i) {
             m_final_states.push_back(final[i]);
@@ -118,17 +112,13 @@ public:
             }
             m_delta[mv.src()].push_back(mv);
             m_delta_inv[mv.dst()].push_back(mv);
-            m_is_deterministic &= m_delta[mv.src()].size() < 2;
-            m_is_epsilon_free &= !mv.is_epsilon();
         }
     }
 
     // create an automaton that accepts a sequence.
     automaton(M& m, ptr_vector<T> const& seq):
         m(m),
-        m_init(0),
-        m_is_epsilon_free(true), 
-        m_is_deterministic(true) {
+        m_init(0) {
         m_delta.resize(seq.size()+1, moves());
         m_delta_inv.resize(seq.size()+1, moves());
         for (unsigned i = 0; i < seq.size(); ++i) {
@@ -157,9 +147,7 @@ public:
         m_delta_inv(other.m_delta_inv),        
         m_init(other.m_init),
         m_final_set(other.m_final_set),
-        m_final_states(other.m_final_states),
-        m_is_epsilon_free(other.m_is_epsilon_free),
-        m_is_deterministic(other.m_is_deterministic)
+        m_final_states(other.m_final_states)
     {}
 
     // create the automaton that accepts the empty string only.
@@ -187,13 +175,30 @@ public:
         unsigned_vector final;
         unsigned offset1 = 1;
         unsigned offset2 = a.num_states() + 1;
-        mvs.push_back(move(m, 0, a.init() + offset1, 0));
-        mvs.push_back(move(m, 0, b.init() + offset2, 0));
+        mvs.push_back(move(m, 0, a.init() + offset1));
+        mvs.push_back(move(m, 0, b.init() + offset2));
         append_moves(offset1, a, mvs);
         append_moves(offset2, b, mvs);
         append_final(offset1, a, final);
         append_final(offset2, b, final);
         return alloc(automaton, m, 0, final, mvs);
+    }
+
+    static automaton* mk_opt(automaton const& a) {       
+        M& m = a.m;
+        moves mvs;
+        unsigned_vector final;
+        unsigned offset = 0;
+        unsigned init = a.init();
+        if (!a.initial_state_is_source()) {
+            offset = 1;
+            init = 0;
+            mvs.push_back(move(m, 0, a.init() + offset));
+        }
+        mvs.push_back(move(m, init, a.final_state() + offset));
+        append_moves(offset, a, mvs);
+        append_final(offset, a, final);
+        return alloc(automaton, m, init, final, mvs);        
     }
 
     // concatenate accepting languages
@@ -276,6 +281,7 @@ public:
 
     // remove states that only have epsilon transitions.
     void compress() {
+
         // TBD
     }
     
@@ -309,8 +315,23 @@ public:
     moves const& get_moves_to(unsigned state) const { return m_delta_inv[state]; }
     bool initial_state_is_source() const { return m_delta_inv[m_init].empty(); }
     bool is_final_state(unsigned s) const { return m_final_set.contains(s); }
-    bool is_epsilon_free() const { return m_is_epsilon_free; }
-    bool is_deterministic() const { return m_is_deterministic; }
+    bool is_epsilon_free() const {
+        for (unsigned i = 0; i < m_delta.size(); ++i) {
+            moves const& mvs = m_delta[i];
+            for (unsigned j = 0; j < mvs.size(); ++j) {
+                if (!mvs[j].t()) return false;
+            }
+        }
+        return true;
+    }
+
+    bool is_deterministic() const { 
+        for (unsigned i = 0; i < m_delta.size(); ++i) {
+            if (m_delta[i].size() >= 2) return false;
+        }
+        return true;
+    }
+
     bool is_empty() const { return m_final_states.empty(); }
     unsigned final_state() const { return m_final_states[0]; }
     bool has_single_final_sink() const { return m_final_states.size() == 1 && m_delta[final_state()].empty(); }

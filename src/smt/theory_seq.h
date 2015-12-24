@@ -25,6 +25,7 @@ Revision History:
 #include "th_rewriter.h"
 #include "ast_trail.h"
 #include "scoped_vector.h"
+#include "scoped_ptr_vector.h"
 #include "automaton.h"
 
 namespace smt {
@@ -263,7 +264,6 @@ namespace smt {
 
         seq_factory*    m_factory;               // value factory
         expr_ref_vector m_ineqs;                 // inequalities to check solution against
-        expr_ref_vector m_in_re;                 // regular expression membership
         exclusion_table m_exclude;               // set of asserted disequalities.
         expr_ref_vector m_axioms;                // list of axioms to add.
         unsigned        m_axioms_head;           // index of first axiom to add.
@@ -283,6 +283,11 @@ namespace smt {
         symbol          m_contains_right_sym;
         symbol          m_left_sym;               // split variable left part
         symbol          m_right_sym;              // split variable right part
+        symbol          m_accept_sym;
+
+        // maintain automata with regular expressions.
+        scoped_ptr_vector<eautomaton>  m_automata;
+        obj_map<expr, eautomaton*>     m_re2aut;
 
         virtual final_check_status final_check_eh();
         virtual bool internalize_atom(app*, bool);
@@ -361,14 +366,22 @@ namespace smt {
         void add_length_string_axiom(expr* n);
         void add_elim_string_axiom(expr* n);
         void add_at_axiom(expr* n);
+        void add_in_re_axiom(expr* n);
         literal mk_literal(expr* n);
         void tightest_prefix(expr* s, expr* x, literal lit, literal lit2 = null_literal);
         expr_ref mk_sub(expr* a, expr* b);
         enode* ensure_enode(expr* a);
 
         expr_ref mk_skolem(symbol const& s, expr* e1, expr* e2 = 0, expr* e3 = 0, sort* range = 0);
+        bool is_skolem(symbol const& s, expr* e) const;
 
         void set_incomplete(app* term);
+
+        // automata utilities
+        eautomaton* get_automaton(expr* e);
+        expr_ref mk_accept(expr* s, expr* re, expr* state);
+        bool is_accept(expr* acc) const {  return is_skolem(m_accept_sym, acc); }
+        bool is_accept(expr* acc, expr*& s, expr*& re, unsigned& i, eautomaton*& aut);
 
         // diagnostics
         void display_equations(std::ostream& out) const;
