@@ -24,7 +24,19 @@ Notes:
 #include"rewriter_types.h"
 #include"params.h"
 #include"lbool.h"
+#include"automaton.h"
 
+
+typedef automaton<expr, ast_manager> eautomaton;
+class re2automaton {
+    ast_manager& m;
+    seq_util     u;       
+    eautomaton* re2aut(expr* e);
+    eautomaton* seq2aut(expr* e);
+ public:
+    re2automaton(ast_manager& m);
+    eautomaton* operator()(expr* e);
+};
 
 /**
    \brief Cheap rewrite rules for seq constraints
@@ -60,6 +72,9 @@ class seq_rewriter {
                         expr_ref_vector& lhs, expr_ref_vector& rhs, bool& is_sat);
     bool min_length(unsigned n, expr* const* es, unsigned& len);
     expr* concat_non_empty(unsigned n, expr* const* es);
+
+    void add_next(u_map<expr*>& next, unsigned idx, expr* cond);
+    bool is_sequence(expr* e, expr_ref_vector& seq);
 
 public:    
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):

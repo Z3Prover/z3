@@ -223,9 +223,9 @@ bool seq_decl_plugin::match(ptr_vector<sort>& binding, sort* s, sort* sP) {
 }
 
 /*
-  \brief match left associative operator.
+  \brief match right associative operator.
 */
-void seq_decl_plugin::match_left_assoc(psig& sig, unsigned dsz, sort *const* dom, sort* range, sort_ref& range_out) {
+void seq_decl_plugin::match_right_assoc(psig& sig, unsigned dsz, sort *const* dom, sort* range, sort_ref& range_out) {
     ptr_vector<sort> binding;
     ast_manager& m = *m_manager;
     TRACE("seq_verbose", 
@@ -441,9 +441,9 @@ func_decl* seq_decl_plugin::mk_assoc_fun(decl_kind k, unsigned arity, sort* cons
     if (arity == 0) {
         m.raise_exception("Invalid function application. At least one argument expected");
     }
-    match_left_assoc(*m_sigs[k], arity, domain, range, rng);
+    match_right_assoc(*m_sigs[k], arity, domain, range, rng);
     func_decl_info info(m_family_id, k_seq);
-    info.set_left_associative();
+    info.set_right_associative();
     return m.mk_func_decl(m_sigs[(rng == m_string)?k_string:k_seq]->m_name, rng, rng, rng, info);    
 }
 

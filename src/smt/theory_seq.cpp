@@ -35,79 +35,6 @@ struct display_expr {
 };
 
 
-re2automaton::re2automaton(ast_manager& m): m(m), u(m) {}
-
-eautomaton* re2automaton::re2aut(expr* e) {
-    SASSERT(u.is_re(e));
-    expr* e1, *e2;
-    scoped_ptr<eautomaton> a, b;
-    if (u.re.is_to_re(e, e1)) {
-        return seq2aut(e1);
-    }
-    else if (u.re.is_concat(e, e1, e2) && (a = re2aut(e1)) && (b = re2aut(e2))) {
-        return eautomaton::mk_concat(*a, *b);
-    }
-    else if (u.re.is_union(e, e1, e2) && (a = re2aut(e1)) && (b = re2aut(e2))) {
-        return eautomaton::mk_union(*a, *b);
-    }
-    else if (u.re.is_star(e, e1) && (a = re2aut(e1))) {
-        a->add_final_to_init_moves();
-        a->add_init_to_final();
-        return a.detach();            
-    }
-    else if (u.re.is_plus(e, e1) && (a = re2aut(e1))) {
-        a->add_final_to_init_moves();
-        return a.detach();            
-    }
-    else if (u.re.is_opt(e, e1) && (a = re2aut(e1))) {
-        a = eautomaton::mk_opt(*a);
-        return a.detach();                    
-    }
-    else if (u.re.is_range(e)) {
-
-    }
-    else if (u.re.is_loop(e)) {
-
-    }
-#if 0
-    else if (u.re.is_intersect(e, e1, e2)) {
-
-    }
-    else if (u.re.is_empty(e)) {
-
-    }
-#endif
-    
-    return 0;
-}
-
-eautomaton* re2automaton::seq2aut(expr* e) {
-    SASSERT(u.is_seq(e));
-    zstring s;
-    expr* e1, *e2;
-    scoped_ptr<eautomaton> a, b;
-    if (u.str.is_concat(e, e1, e2) && (a = seq2aut(e1)) && (b = seq2aut(e2))) {
-        return eautomaton::mk_concat(*a, *b);
-    }
-    else if (u.str.is_unit(e, e1)) {
-        return alloc(eautomaton, m, e1);
-    }
-    else if (u.str.is_empty(e)) {
-        return eautomaton::mk_epsilon(m);
-    }
-    else if (u.str.is_string(e, s)) {        
-        unsigned init = 0;
-        eautomaton::moves mvs;        
-        unsigned_vector final;
-        final.push_back(s.length());
-        for (unsigned k = 0; k < s.length(); ++k) {
-            // reference count?
-            mvs.push_back(eautomaton::move(m, k, k+1, u.str.mk_char(s, k)));
-        }
-        return alloc(eautomaton, m, init, final, mvs);
-    }
-    return 0;
-}
 
 void theory_seq::solution_map::update(expr* e, expr* r, enode_pair_dependency* d) {
     m_cache.reset();
@@ -449,12 +376,35 @@ bool theory_seq::check_length_coherence_tbd() {
 }    
 
 void theory_seq::mk_decompose(expr* e, expr_ref& emp, expr_ref& head, expr_ref& tail) {
+    expr* e1, *e2;
     sort* char_sort = 0;
+    zstring s;
     VERIFY(m_util.is_seq(m.get_sort(e), char_sort));
-    tail = mk_skolem(m_tail, e);
-    expr_ref v(mk_skolem(m_head_elem, e, 0, 0, char_sort), m);
-    head = m_util.str.mk_unit(v);
     emp  = m_util.str.mk_empty(m.get_sort(e));
+    if (m_util.str.is_empty(e)) {
+        head = m_util.str.mk_unit(mk_skolem(m_head_elem, e, 0, 0, char_sort));
+        tail = mk_skolem(m_tail, e);
+    }
+    else if (m_util.str.is_string(e, s)) {
+        head = m_util.str.mk_unit(m_util.str.mk_char(s, 0));
+        tail = m_util.str.mk_string(s.extract(1, s.length()-1));
+    }
+    else if (m_util.str.is_unit(e)) {
+        head = e;
+        tail = emp;
+    }
+    else if (m_util.str.is_concat(e, e1, e2) && m_util.str.is_unit(e1)) {
+        head = e1;
+        tail = e2;
+    }
+    else {
+        head = m_util.str.mk_unit(mk_skolem(m_head_elem, e, 0, 0, char_sort));        
+        tail = mk_skolem(m_tail, e);
+        if (!m_util.is_skolem(e)) {
+            expr_ref conc(m_util.str.mk_concat(head, tail), m);
+            add_axiom(mk_eq(e, emp, false), mk_eq(e, conc, false));                
+        }
+    } 
 }
 
 bool theory_seq::check_ineq_coherence() {
@@ -484,8 +434,8 @@ bool theory_seq::is_solved() {
     if (!check_ineq_coherence()) {
         return false;
     }
-    if (!m_re2aut.empty()) {
-        return false;
+    for (unsigned i = 0; i < m_automata.size(); ++i) {
+        if (!m_automata[i]) return false;
     }
     
     SASSERT(check_length_coherence());
@@ -500,7 +450,7 @@ void theory_seq::propagate_lit(enode_pair_dependency* dep, unsigned n, literal c
     vector<enode_pair, false> _eqs;
     m_dm.linearize(dep, _eqs);
     TRACE("seq", ctx.display_detailed_literal(tout, lit); 
-          tout << " <- "; display_deps(tout, dep);); 
+          tout << " <- "; ctx.display_literals_verbose(tout, n, lits); display_deps(tout, dep);); 
     justification* js = 
         ctx.mk_justification(
             ext_theory_propagation_justification(
@@ -1248,9 +1198,10 @@ void theory_seq::add_elim_string_axiom(expr* n) {
     zstring s;
     VERIFY(m_util.str.is_string(n, s));
     SASSERT(s.length() > 0);
-    expr_ref result(m_util.str.mk_unit(m_util.str.mk_char(s, 0)), m);
-    for (unsigned i = 1; i < s.length(); ++i) {
-        result = m_util.str.mk_concat(result, m_util.str.mk_unit(m_util.str.mk_char(s, i)));
+    expr_ref result(m_util.str.mk_unit(m_util.str.mk_char(s, s.length()-1)), m);
+    for (unsigned i = s.length()-1; i > 0; ) {
+        --i;
+        result = m_util.str.mk_concat(m_util.str.mk_unit(m_util.str.mk_char(s, i)), result);
     }
     add_axiom(mk_eq(n, result, false));
     m_rep.update(n, result, 0);
@@ -1322,6 +1273,7 @@ void theory_seq::add_in_re_axiom(expr* n) {
 
 
 void theory_seq::propagate_in_re(expr* n, bool is_true) {
+    TRACE("seq", tout << mk_pp(n, m) << " <- " << (is_true?"true":"false") << "\n";);
     expr* e1, *e2;
     VERIFY(m_util.str.is_in_re(n, e1, e2));
     eautomaton* a = get_automaton(e2);
@@ -1349,6 +1301,7 @@ void theory_seq::propagate_in_re(expr* n, bool is_true) {
             propagate_lit(0, 1, &lit, lits[1]);
         }
         else {
+            TRACE("seq", ctx.display_literals_verbose(tout, lits.size(), lits.c_ptr()););
             ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
         }
     }
@@ -1435,10 +1388,15 @@ void theory_seq::add_at_axiom(expr* e) {
    step(s, tail, re, i, j, t) -> s = t ++ tail
 */
 void theory_seq::propagate_step(bool_var v, expr* step) {
+    context& ctx = get_context();
     expr* re, *t, *s, *tail, *i, *j;
     VERIFY(is_step(step, s, tail, re, i, j, t));  
     expr_ref conc(m_util.str.mk_concat(m_util.str.mk_unit(t), tail), m);
+    expr_ref sr(s, m);
     propagate_eq(v, s, conc);
+    enode* n1 = ensure_enode(step);
+    enode* n2 = ctx.get_enode(m.mk_true());
+    m_eqs.push_back(eq(sr, conc, m_dm.mk_leaf(enode_pair(n1, n2))));
 }
 
 
@@ -1479,12 +1437,13 @@ bool theory_seq::is_skolem(symbol const& s, expr* e) const {
 void theory_seq::propagate_eq(bool_var v, expr* e1, expr* e2) {
     context& ctx = get_context();
 
-    SASSERT(ctx.e_internalized(e2));
     enode* n1 = ensure_enode(e1);
     enode* n2 = ensure_enode(e2);
     if (n1->get_root() == n2->get_root()) {
         return;
     }
+    ctx.mark_as_relevant(n1);
+    ctx.mark_as_relevant(n2);
     TRACE("seq", 
           tout << mk_pp(ctx.bool_var2enode(v)->get_owner(), m) << " => " 
           << mk_pp(e1, m) << " = " << mk_pp(e2, m) << "\n";); 
@@ -1517,7 +1476,7 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
     else if (is_true && m_util.str.is_contains(e, e1, e2)) {
         expr_ref f1 = mk_skolem(m_contains_left, e1, e2);
         expr_ref f2 = mk_skolem(m_contains_right, e1, e2);
-        f = m_util.str.mk_concat(m_util.str.mk_concat(f1, e2), f2);
+        f = m_util.str.mk_concat(f1, m_util.str.mk_concat(e2, f2));
         propagate_eq(v, f, e1);
     }
     else if (is_accept(e)) {
@@ -1723,7 +1682,7 @@ void theory_seq::add_accept2step(expr* acc) {
     if (!aut) return;
     if (m_util.str.is_empty(s)) return;
     eautomaton::moves mvs;
-    aut->get_moves_to(src, mvs);
+    aut->get_moves_from(src, mvs);
     expr_ref head(m), tail(m), emp(m), step(m);
     mk_decompose(s, emp, head, tail);
     literal_vector lits;
@@ -1735,6 +1694,9 @@ void theory_seq::add_accept2step(expr* acc) {
         lits.push_back(mk_literal(step));
     }
     TRACE("seq", ctx.display_literals_verbose(tout, lits.size(), lits.c_ptr()); tout << "\n";);
+    for (unsigned i = 0; i < lits.size(); ++i) { // TBD
+        ctx.mark_as_relevant(lits[i]);
+    }
     ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
 }
 
@@ -1767,7 +1729,7 @@ void theory_seq::add_reject2reject(expr* rej) {
     if (!aut) return;
     if (m_util.str.is_empty(s)) return;
     eautomaton::moves mvs;
-    aut->get_moves_to(src, mvs);
+    aut->get_moves_from(src, mvs);
     expr_ref head(m), tail(m), emp(m), conc(m);
     mk_decompose(s, emp, head, tail);
     literal rej1 = ctx.get_literal(rej);

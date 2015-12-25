@@ -100,8 +100,7 @@ public:
     automaton(M& m, unsigned init, unsigned_vector const& final, moves const& mvs): m(m) {
         m_init = init;
         for (unsigned i = 0; i < final.size(); ++i) {
-            m_final_states.push_back(final[i]);
-            m_final_set.insert(final[i]);
+            add_to_final_states(final[i]);
         }
         for (unsigned i = 0; i < mvs.size(); ++i) {
             move const& mv = mvs[i];
@@ -110,8 +109,7 @@ public:
                 m_delta.resize(n+1, moves());
                 m_delta_inv.resize(n+1, moves());
             }
-            m_delta[mv.src()].push_back(mv);
-            m_delta_inv[mv.dst()].push_back(mv);
+            add(mv);
         }
     }
 
@@ -125,8 +123,7 @@ public:
             m_delta[i].push_back(move(m, i, i + 1, seq[i]));
             m_delta[i + 1].push_back(move(m, i, i + 1, seq[i]));
         }
-        m_final_states.push_back(seq.size());
-        m_final_set.insert(seq.size());        
+        add_to_final_states(seq.size());
     }
 
     // The automaton that accepts t
@@ -135,10 +132,8 @@ public:
         m_init(0) {
         m_delta.resize(2, moves());
         m_delta_inv.resize(2, moves());
-        m_final_set.insert(1);
-        m_final_states.push_back(1);
-        m_delta[0].push_back(move(m, 0, 1, t));
-        m_delta_inv[1].push_back(move(m, 0, 1, t));
+        add_to_final_states(1);
+        add(move(m, 0, 1, t));
     }    
 
     automaton(automaton const& other):
@@ -257,11 +252,22 @@ public:
         return alloc(automaton, m, init, final, mvs);        
     }
 
-    void add_init_to_final() {
-        if (!m_final_set.contains(m_init)) {
-            m_final_set.insert(m_init);
-            m_final_states.push_back(m_init);
+    void add_to_final_states(unsigned s) {
+        if (!is_final_state(s)) {
+            m_final_set.insert(s);
+            m_final_states.push_back(s);
         }
+    }
+
+    void remove_from_final_states(unsigned s) {
+        if (is_final_state(s)) {
+            m_final_set.remove(s);
+            m_final_states.erase(s);
+        }
+    }
+
+    void add_init_to_final_states() {
+        add_to_final_states(init());
     }
 
     void add_final_to_init_moves() {
@@ -273,16 +279,69 @@ public:
                 found = (mvs[j].dst() == m_init) && mvs[j].is_epsilon();
             }
             if (!found) {
-                m_delta[state].push_back(move(m, state, m_init));
-                m_delta_inv[m_init].push_back(move(m, state, m_init));
+                add(move(m, state, m_init));
             }
         }
     }
 
-    // remove states that only have epsilon transitions.
+    // remove epsilon transitions
+    // src - e -> dst
+    // in_degree(src) = 1, final(src) => final(dst), src0 != src
+    //    src0 - t -> src - e -> dst => src0 - t -> dst
+    // out_degree(dst) = 1, final(dst) => final(src), dst != dst1
+    //    src - e -> dst - t -> dst1 => src - t -> dst1
     void compress() {
-
-        // TBD
+        for (unsigned i = 0; i < m_delta.size(); ++i) {
+            for (unsigned j = 0; j < m_delta[i].size(); ++j) {
+                move const& mv = m_delta[i][j];
+                unsigned src = mv.src();
+                unsigned dst = mv.dst();
+                SASSERT(src == i);
+                if (mv.is_epsilon()) {
+                    if (src == dst) {
+                        // just remove this edge.                        
+                    }
+                    else if (1 == in_degree(src) && init() != src && (!is_final_state(src) || is_final_state(dst))) {
+                        move const& mv0 = m_delta_inv[src][0];
+                        unsigned src0 = mv0.src();                        
+                        T* t = mv0.t();
+                        SASSERT(mv0.dst() == src);
+                        if (src0 == src) {
+                            continue;
+                        }
+                        add(move(m, src0, dst, t));
+                        remove(src0, src, t);
+                    }
+                    else if (1 == out_degree(dst) && init() != dst && (!is_final_state(dst) || is_final_state(src))) {
+                        move const& mv1 = m_delta[dst][0];
+                        unsigned dst1 = mv1.dst();
+                        T* t = mv1.t();
+                        SASSERT(mv1.src() == dst);
+                        if (dst1 == dst) {
+                            continue;
+                        }
+                        add(move(m, src, dst1, t));
+                        remove(dst, dst1, t);
+                    }
+                    else {
+                        continue;
+                    }                    
+                    remove(src, dst, 0);
+                    --j;
+                }
+            }
+        }
+        while (true) {
+            SASSERT(!m_delta.empty());
+            unsigned src = m_delta.size() - 1;            
+            if (in_degree(src) == 0 && init() != src) {
+                remove_from_final_states(src);
+                m_delta.pop_back();
+            }
+            else {
+                break;
+            }
+        }
     }
     
     bool is_sequence(unsigned& length) const {
@@ -356,11 +415,11 @@ public:
     void get_inv_epsilon_closure(unsigned state, unsigned_vector& states) {
         get_epsilon_closure(state, m_delta_inv, states);
     }
-    void get_moves_from(unsigned state, moves& mvs) const {
-        get_moves(state, m_delta, mvs);
+    void get_moves_from(unsigned state, moves& mvs, bool epsilon_closure = true) const {
+        get_moves(state, m_delta, mvs, epsilon_closure);
     }
-    void get_moves_to(unsigned state, moves& mvs) {
-        get_moves(state, m_delta_inv, mvs);
+    void get_moves_to(unsigned state, moves& mvs, bool epsilon_closure = true) {
+        get_moves(state, m_delta_inv, mvs, epsilon_closure);
     }
 
     template<class D>
@@ -384,9 +443,41 @@ public:
         return out;
     }
 private:
+
+    void add(move const& mv) {
+        m_delta[mv.src()].push_back(mv);
+        m_delta_inv[mv.dst()].push_back(mv);
+    }
+
+
+    unsigned find_move(unsigned src, unsigned dst, T* t, moves const& mvs) {
+        for (unsigned i = 0; i < mvs.size(); ++i) {
+            move const& mv = mvs[i];
+            if (mv.src() == src && mv.dst() == dst && t == mv.t()) {
+                return i;
+            }
+        }
+        UNREACHABLE();
+        return UINT_MAX;
+    }
+
+    void remove(unsigned src, unsigned dst, T* t, moves& mvs) {
+        remove(find_move(src, dst, t, mvs), mvs);
+    }
+
+    void remove(unsigned src, unsigned dst, T* t) {
+        remove(src, dst, t, m_delta[src]);
+        remove(src, dst, t, m_delta_inv[dst]);
+    }
+
+    void remove(unsigned index, moves& mvs) {
+        mvs[index] = mvs.back();
+        mvs.pop_back();
+    }     
+
     mutable unsigned_vector m_states1, m_states2;
     
-    void get_moves(unsigned state, vector<moves> const& delta, moves& mvs) const {
+    void get_moves(unsigned state, vector<moves> const& delta, moves& mvs, bool epsilon_closure) const {
         m_states1.reset(); 
         m_states2.reset();
         get_epsilon_closure(state, delta, m_states1);
@@ -396,10 +487,15 @@ private:
             for (unsigned j = 0; j < mv1.size(); ++j) {
                 move const& mv = mv1[j];
                 if (!mv.is_epsilon()) {
-                    m_states2.reset();
-                    get_epsilon_closure(mv.dst(), delta, m_states2);
-                    for (unsigned k = 0; k < m_states2.size(); ++k) {
-                        mvs.push_back(move(m, mv.src(), m_states2[k], mv.t()));
+                    if (epsilon_closure) {
+                        m_states2.reset();
+                        get_epsilon_closure(mv.dst(), delta, m_states2);
+                        for (unsigned k = 0; k < m_states2.size(); ++k) {
+                            mvs.push_back(move(m, state, m_states2[k], mv.t()));                            
+                        }
+                    }
+                    else {
+                        mvs.push_back(move(m, state, mv.dst(), mv.t()));
                     }
                 }
             }

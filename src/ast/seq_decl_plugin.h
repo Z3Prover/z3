@@ -137,7 +137,7 @@ class seq_decl_plugin : public decl_plugin {
 
     void match(psig& sig, unsigned dsz, sort* const* dom, sort* range, sort_ref& rng);
 
-    void match_left_assoc(psig& sig, unsigned dsz, sort* const* dom, sort* range, sort_ref& rng);
+    void match_right_assoc(psig& sig, unsigned dsz, sort* const* dom, sort* range, sort_ref& rng);
 
     bool match(ptr_vector<sort>& binding, sort* s, sort* sP);
 
@@ -221,7 +221,7 @@ public:
         app* mk_char(char ch);
         app* mk_concat(expr* a, expr* b) { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_CONCAT, 2, es); }
         app* mk_concat(expr* a, expr* b, expr* c) {
-            return mk_concat(mk_concat(a, b), c);
+            return mk_concat(a, mk_concat(b, c));
         }
         expr* mk_concat(unsigned n, expr* const* es) { if (n == 1) return es[0]; SASSERT(n > 1); return m.mk_app(m_fid, OP_SEQ_CONCAT, n, es); }
         app* mk_length(expr* a) { return m.mk_app(m_fid, OP_SEQ_LENGTH, 1, &a); }
@@ -278,6 +278,7 @@ public:
 
         void get_concat(expr* e, expr_ref_vector& es) const;
         expr* get_leftmost_concat(expr* e) const { expr* e1, *e2; while (is_concat(e, e1, e2)) e = e1; return e; }
+        expr* get_rightmost_concat(expr* e) const { expr* e1, *e2; while (is_concat(e, e1, e2)) e = e2; return e; }
     };
 
     class re {

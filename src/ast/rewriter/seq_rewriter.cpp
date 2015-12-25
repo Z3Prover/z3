@@ -25,6 +25,89 @@ Notes:
 #include"automaton.h"
 
 
+
+re2automaton::re2automaton(ast_manager& m): m(m), u(m) {}
+
+eautomaton* re2automaton::operator()(expr* e) { 
+    eautomaton* r = re2aut(e); 
+    if (r) {
+        r->compress(); 
+    }
+    return r;
+} 
+
+eautomaton* re2automaton::re2aut(expr* e) {
+    SASSERT(u.is_re(e));
+    expr* e1, *e2;
+    scoped_ptr<eautomaton> a, b;
+    if (u.re.is_to_re(e, e1)) {
+        return seq2aut(e1);
+    }
+    else if (u.re.is_concat(e, e1, e2) && (a = re2aut(e1)) && (b = re2aut(e2))) {
+        return eautomaton::mk_concat(*a, *b);
+    }
+    else if (u.re.is_union(e, e1, e2) && (a = re2aut(e1)) && (b = re2aut(e2))) {
+        return eautomaton::mk_union(*a, *b);
+    }
+    else if (u.re.is_star(e, e1) && (a = re2aut(e1))) {
+        a->add_final_to_init_moves();
+        a->add_init_to_final_states();
+        return a.detach();            
+    }
+    else if (u.re.is_plus(e, e1) && (a = re2aut(e1))) {
+        a->add_final_to_init_moves();
+        return a.detach();            
+    }
+    else if (u.re.is_opt(e, e1) && (a = re2aut(e1))) {
+        a = eautomaton::mk_opt(*a);
+        return a.detach();                    
+    }
+    else if (u.re.is_range(e)) {
+
+    }
+    else if (u.re.is_loop(e)) {
+
+    }
+#if 0
+    else if (u.re.is_intersect(e, e1, e2)) {
+
+    }
+    else if (u.re.is_empty(e)) {
+
+    }
+#endif
+    
+    return 0;
+}
+
+eautomaton* re2automaton::seq2aut(expr* e) {
+    SASSERT(u.is_seq(e));
+    zstring s;
+    expr* e1, *e2;
+    scoped_ptr<eautomaton> a, b;
+    if (u.str.is_concat(e, e1, e2) && (a = seq2aut(e1)) && (b = seq2aut(e2))) {
+        return eautomaton::mk_concat(*a, *b);
+    }
+    else if (u.str.is_unit(e, e1)) {
+        return alloc(eautomaton, m, e1);
+    }
+    else if (u.str.is_empty(e)) {
+        return eautomaton::mk_epsilon(m);
+    }
+    else if (u.str.is_string(e, s)) {        
+        unsigned init = 0;
+        eautomaton::moves mvs;        
+        unsigned_vector final;
+        final.push_back(s.length());
+        for (unsigned k = 0; k < s.length(); ++k) {
+            // reference count?
+            mvs.push_back(eautomaton::move(m, k, k+1, u.str.mk_char(s, k)));
+        }
+        return alloc(eautomaton, m, init, final, mvs);
+    }
+    return 0;
+}
+
 br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
     SASSERT(f->get_family_id() == get_fid());
     
@@ -159,9 +242,13 @@ br_status seq_rewriter::mk_seq_concat(expr* a, expr* b, expr_ref& result) {
         result = a;
         return BR_DONE;
     }
-    if (m_util.str.is_concat(a, c, d) && 
-        m_util.str.is_string(d, s1) && isc2) {
+    // TBD concatenation is right-associative
+    if (isc2 && m_util.str.is_concat(a, c, d) && m_util.str.is_string(d, s1)) {
         result = m_util.str.mk_concat(c, m_util.str.mk_string(s1 + s2));
+        return BR_DONE;
+    }
+    if (isc1 && m_util.str.is_concat(b, c, d) && m_util.str.is_string(c, s2)) {
+        result = m_util.str.mk_concat(m_util.str.mk_string(s1 + s2), d);
         return BR_DONE;
     }
     return BR_FAILED;
@@ -398,7 +485,7 @@ br_status seq_rewriter::mk_seq_suffix(expr* a, expr* b, expr_ref& result) {
         result = m().mk_eq(m_util.str.mk_empty(m().get_sort(a)), a);
         return BR_REWRITE3;
     }
-    // concatenation is left-associative, so a2, b2 are not concatenations
+    // TBD concatenation is right-associative
     expr* a1, *a2, *b1, *b2;
     if (m_util.str.is_concat(a, a1, a2) && 
         m_util.str.is_concat(b, b1, b2) && a2 == b2) {
@@ -498,7 +585,108 @@ br_status seq_rewriter::mk_str_stoi(expr* a, expr_ref& result) {
     }
     return BR_FAILED;
 }
+
+void seq_rewriter::add_next(u_map<expr*>& next, unsigned idx, expr* cond) {
+    expr* acc;
+    if (m().is_true(cond) || !next.find(idx, acc)) {              
+        next.insert(idx, cond);                   
+    }                                                   
+    else {                                              
+        next.insert(idx, m().mk_or(cond, acc));   
+    }
+}
+
+bool seq_rewriter::is_sequence(expr* e, expr_ref_vector& seq) {
+    zstring s;
+    ptr_vector<expr> todo;
+    expr *e1, *e2;
+    todo.push_back(e);
+    while (!todo.empty()) {
+        e = todo.back();
+        todo.pop_back();
+        if (m_util.str.is_string(e, s)) {
+            for (unsigned i = s.length(); i > 0; ) {
+                --i;
+                seq.push_back(m_util.str.mk_char(s, i));
+            }
+        }
+        else if (m_util.str.is_empty(e)) {
+            continue;
+        }
+        else if (m_util.str.is_unit(e)) {
+            seq.push_back(e);
+        }
+        else if (m_util.str.is_concat(e, e1, e2)) {
+            todo.push_back(e1);
+            todo.push_back(e2);
+        }
+        else {
+            return false;
+        }
+    }
+    seq.reverse();
+    return true;
+}
+
 br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
+    scoped_ptr<eautomaton> aut;
+    expr_ref_vector seq(m());
+    if (is_sequence(a, seq) && (aut = re2automaton(m())(b))) {
+        expr_ref_vector trail(m());
+        u_map<expr*> maps[2];
+        bool select_map = false;
+        expr_ref ch(m()), cond(m());
+        eautomaton::moves mvs;
+        maps[0].insert(aut->init(), m().mk_true());
+        // is_accepted(a, aut) & some state in frontier is final.
+
+        for (unsigned i = 0; i < seq.size(); ++i) {
+            u_map<expr*>& frontier = maps[select_map];
+            u_map<expr*>& next = maps[!select_map];
+            select_map = !select_map;
+            ch = seq[i].get();
+            next.reset();
+            u_map<expr*>::iterator it = frontier.begin(), end = frontier.end();
+            for (; it != end; ++it) {
+                mvs.reset();
+                unsigned state = it->m_key;
+                expr*    acc  = it->m_value;
+                aut->get_moves_from(state, mvs, false);
+                for (unsigned j = 0; j < mvs.size(); ++j) {
+                    eautomaton::move const& mv = mvs[j];
+                    if (m().is_value(mv.t()) && m().is_value(ch)) {
+                        if (mv.t() == ch) {
+                            add_next(next, mv.dst(), acc);
+                        }
+                        else {
+                            continue;
+                        }
+                    }
+                    else {
+                        cond = m().mk_eq(mv.t(), ch);
+                        if (!m().is_true(acc)) cond = m().mk_and(acc, cond);
+                        add_next(next, mv.dst(), cond);
+                    }
+                }                
+            }
+        }
+        u_map<expr*> const& frontier = maps[select_map];
+        u_map<expr*>::iterator it = frontier.begin(), end = frontier.end();
+        expr_ref_vector ors(m());
+        for (; it != end; ++it) {
+            unsigned_vector states;
+            bool has_final = false;
+            aut->get_epsilon_closure(it->m_key, states);
+            for (unsigned i = 0; i < states.size() && !has_final; ++i) {
+                has_final = aut->is_final_state(states[i]);
+            }
+            if (has_final) {
+                ors.push_back(it->m_value);
+            }
+        }
+        result = mk_or(ors);
+        return BR_REWRITE_FULL;
+    }
     return BR_FAILED;
 }
 br_status seq_rewriter::mk_str_to_regexp(expr* a, expr_ref& result) {
