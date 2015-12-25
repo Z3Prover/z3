@@ -277,14 +277,9 @@ namespace smt {
         arith_util      m_autil;
         th_trail_stack  m_trail_stack;
         stats           m_stats;
-        symbol          m_prefix_sym;
-        symbol          m_suffix_sym;
-        symbol          m_contains_left_sym;
-        symbol          m_contains_right_sym;
-        symbol          m_left_sym;               // split variable left part
-        symbol          m_right_sym;              // split variable right part
-        symbol          m_accept_sym;
-        symbol          m_reject_sym;
+        symbol          m_prefix, m_suffix, m_contains_left, m_contains_right, m_left, m_right, m_accept, m_reject;
+        symbol          m_tail, m_head_elem, m_seq_first, m_seq_last, m_indexof_left, m_indexof_right, m_aut_step;
+        symbol          m_extract_prefix, m_at_left, m_at_right;
 
         // maintain automata with regular expressions.
         scoped_ptr_vector<eautomaton>  m_automata;
@@ -293,9 +288,9 @@ namespace smt {
         unsigned                       m_accepts_qhead, m_rejects_qhead, m_steps_qhead;
 
         virtual final_check_status final_check_eh();
-        virtual bool internalize_atom(app*, bool);
+        virtual bool internalize_atom(app* atom, bool) { return internalize_term(atom); }
         virtual bool internalize_term(app*);
-        virtual void internalize_eq_eh(app * atom, bool_var v);
+        virtual void internalize_eq_eh(app * atom, bool_var v) {}
         virtual void new_eq_eh(theory_var, theory_var);
         virtual void new_diseq_eh(theory_var, theory_var);
         virtual void assign_eh(bool_var v, bool is_true);        
@@ -325,10 +320,10 @@ namespace smt {
         bool check_ineq_coherence(); 
 
         bool pre_process_eqs(bool simplify_or_solve);
-        bool simplify_eqs();
+        bool simplify_eqs() { return pre_process_eqs(true); }
+        bool solve_basic_eqs() { return pre_process_eqs(false); }
         bool simplify_eq(expr* l, expr* r, enode_pair_dependency* dep);
         bool solve_unit_eq(expr* l, expr* r, enode_pair_dependency* dep);
-        bool solve_basic_eqs();
 
         bool solve_nqs();
         bool solve_ne(unsigned i);
@@ -385,15 +380,17 @@ namespace smt {
         // automata utilities
         void propagate_in_re(expr* n, bool is_true);
         eautomaton* get_automaton(expr* e);
-        expr_ref mk_accept(expr* s, expr* re, expr* state);
-        bool is_accept(expr* acc) const {  return is_skolem(m_accept_sym, acc); }
+        literal mk_accept(expr* s, expr* re, expr* state);
+        literal mk_accept(expr* s, expr* re, unsigned i) { return mk_accept(s, re, m_autil.mk_int(i)); }
+        bool is_accept(expr* acc) const {  return is_skolem(m_accept, acc); }
         bool is_accept(expr* acc, expr*& s, expr*& re, unsigned& i, eautomaton*& aut) {
-            return is_acc_rej(m_accept_sym, acc, s, re, i, aut);
+            return is_acc_rej(m_accept, acc, s, re, i, aut);
         }
-        expr_ref mk_reject(expr* s, expr* re, expr* state);
-        bool is_reject(expr* rej) const {  return is_skolem(m_reject_sym, rej); }
+        literal mk_reject(expr* s, expr* re, expr* state);
+        literal mk_reject(expr* s, expr* re, unsigned i) { return mk_reject(s, re, m_autil.mk_int(i)); }
+        bool is_reject(expr* rej) const {  return is_skolem(m_reject, rej); }
         bool is_reject(expr* rej, expr*& s, expr*& re, unsigned& i, eautomaton*& aut) {
-            return is_acc_rej(m_reject_sym, rej, s, re, i, aut);
+            return is_acc_rej(m_reject, rej, s, re, i, aut);
         }
         bool is_acc_rej(symbol const& ar, expr* e, expr*& s, expr*& re, unsigned& i, eautomaton*& aut);
         expr_ref mk_step(expr* s, expr* tail, expr* re, unsigned i, unsigned j, expr* t);
