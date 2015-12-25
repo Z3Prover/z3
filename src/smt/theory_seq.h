@@ -284,10 +284,13 @@ namespace smt {
         symbol          m_left_sym;               // split variable left part
         symbol          m_right_sym;              // split variable right part
         symbol          m_accept_sym;
+        symbol          m_reject_sym;
 
         // maintain automata with regular expressions.
         scoped_ptr_vector<eautomaton>  m_automata;
         obj_map<expr, eautomaton*>     m_re2aut;
+        ptr_vector<expr>               m_accepts, m_rejects, m_steps;
+        unsigned                       m_accepts_qhead, m_rejects_qhead, m_steps_qhead;
 
         virtual final_check_status final_check_eh();
         virtual bool internalize_atom(app*, bool);
@@ -332,7 +335,8 @@ namespace smt {
         bool unchanged(expr* e, expr_ref_vector& es) const { return es.size() == 1 && es[0] == e; }
 
         // asserting consequences
-        void propagate_lit(enode_pair_dependency* dep, literal lit);
+        void propagate_lit(enode_pair_dependency* dep, literal lit) { propagate_lit(dep, 0, 0, lit); }
+        void propagate_lit(enode_pair_dependency* dep, unsigned n, literal const* lits, literal lit);
         void propagate_eq(enode_pair_dependency* dep, enode* n1, enode* n2);
         void propagate_eq(bool_var v, expr* e1, expr* e2);
         void set_conflict(enode_pair_dependency* dep, literal_vector const& lits = literal_vector());
@@ -372,16 +376,34 @@ namespace smt {
         expr_ref mk_sub(expr* a, expr* b);
         enode* ensure_enode(expr* a);
 
+        void mk_decompose(expr* e, expr_ref& emp, expr_ref& head, expr_ref& tail);
         expr_ref mk_skolem(symbol const& s, expr* e1, expr* e2 = 0, expr* e3 = 0, sort* range = 0);
         bool is_skolem(symbol const& s, expr* e) const;
 
         void set_incomplete(app* term);
 
         // automata utilities
+        void propagate_in_re(expr* n, bool is_true);
         eautomaton* get_automaton(expr* e);
         expr_ref mk_accept(expr* s, expr* re, expr* state);
         bool is_accept(expr* acc) const {  return is_skolem(m_accept_sym, acc); }
-        bool is_accept(expr* acc, expr*& s, expr*& re, unsigned& i, eautomaton*& aut);
+        bool is_accept(expr* acc, expr*& s, expr*& re, unsigned& i, eautomaton*& aut) {
+            return is_acc_rej(m_accept_sym, acc, s, re, i, aut);
+        }
+        expr_ref mk_reject(expr* s, expr* re, expr* state);
+        bool is_reject(expr* rej) const {  return is_skolem(m_reject_sym, rej); }
+        bool is_reject(expr* rej, expr*& s, expr*& re, unsigned& i, eautomaton*& aut) {
+            return is_acc_rej(m_reject_sym, rej, s, re, i, aut);
+        }
+        bool is_acc_rej(symbol const& ar, expr* e, expr*& s, expr*& re, unsigned& i, eautomaton*& aut);
+        expr_ref mk_step(expr* s, expr* tail, expr* re, unsigned i, unsigned j, expr* t);
+        bool is_step(expr* e, expr*& s, expr*& tail, expr*& re, expr*& i, expr*& j, expr*& t) const;
+        bool is_step(expr* e) const;
+        void propagate_step(bool_var v, expr* n);
+        void add_reject2reject(expr* rej);
+        void add_accept2step(expr* acc);       
+        void add_step2accept(expr* step);
+        bool propagate_automata();
 
         // diagnostics
         void display_equations(std::ostream& out) const;

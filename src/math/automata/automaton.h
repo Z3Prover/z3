@@ -384,15 +384,23 @@ public:
         return out;
     }
 private:
+    mutable unsigned_vector m_states1, m_states2;
+    
     void get_moves(unsigned state, vector<moves> const& delta, moves& mvs) const {
-        unsigned_vector states;
-        get_epsilon_closure(state, delta, states);
-        for (unsigned i = 0; i < states.size(); ++i) {
-            state = states[i];
+        m_states1.reset(); 
+        m_states2.reset();
+        get_epsilon_closure(state, delta, m_states1);
+        for (unsigned i = 0; i < m_states1.size(); ++i) {
+            state = m_states1[i];
             moves const& mv1 = delta[state];
             for (unsigned j = 0; j < mv1.size(); ++j) {
-                if (!mv1[j].is_epsilon()) {
-                    mvs.push_back(mv1[j]);
+                move const& mv = mv1[j];
+                if (!mv.is_epsilon()) {
+                    m_states2.reset();
+                    get_epsilon_closure(mv.dst(), delta, m_states2);
+                    for (unsigned k = 0; k < m_states2.size(); ++k) {
+                        mvs.push_back(move(m, mv.src(), m_states2[k], mv.t()));
+                    }
                 }
             }
         }
