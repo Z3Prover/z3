@@ -75,6 +75,7 @@ class seq_rewriter {
 
     void add_next(u_map<expr*>& next, unsigned idx, expr* cond);
     bool is_sequence(expr* e, expr_ref_vector& seq);
+    bool is_epsilon(expr* e) const;
 
 public:    
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):

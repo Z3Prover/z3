@@ -1405,7 +1405,6 @@ namespace smt {
             else if (d.is_theory_atom()) {
                 theory * th = m_theories.get_plugin(d.get_theory());
                 SASSERT(th);
-                TRACE("seq", tout << d.get_theory() << "\n";);
                 th->assign_eh(v, val == l_true);
             }
             else if (d.is_quantifier()) {

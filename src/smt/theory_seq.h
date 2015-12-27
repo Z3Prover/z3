@@ -259,7 +259,7 @@ namespace smt {
         unsigned        m_axioms_head;           // index of first axiom to add.
         unsigned        m_branch_variable_head;  // index of first equation to examine.
         bool            m_incomplete;            // is the solver (clearly) incomplete for the fragment.
-        bool            m_has_length;            // is length applied
+        obj_hashtable<expr> m_length;              // is length applied
         bool            m_model_completion;      // during model construction, invent values in canonizer
         model_generator* m_mg;
         th_rewriter     m_rewrite;
@@ -306,14 +306,13 @@ namespace smt {
         bool split_variable();           // split a variable
         bool is_solved(); 
         bool check_length_coherence();  
-        bool check_length_coherence_tbd();  
         bool check_ineq_coherence(); 
 
-        bool pre_process_eqs(bool simplify_or_solve);
-        bool simplify_eqs() { return pre_process_eqs(true); }
-        bool solve_basic_eqs() { return pre_process_eqs(false); }
-        bool simplify_eq(expr* l, expr* r, enode_pair_dependency* dep);
-        bool solve_unit_eq(expr* l, expr* r, enode_pair_dependency* dep);
+        bool pre_process_eqs(bool simplify_or_solve, bool& propagated);
+        bool simplify_eqs(bool& propagated) { return pre_process_eqs(true, propagated); }
+        bool solve_basic_eqs(bool& propagated) { return pre_process_eqs(false, propagated); }
+        bool simplify_eq(expr* l, expr* r, enode_pair_dependency* dep, bool& propagated);
+        bool solve_unit_eq(expr* l, expr* r, enode_pair_dependency* dep, bool& propagated);
 
         bool solve_nqs();
         bool solve_ne(unsigned i);
@@ -332,7 +331,7 @@ namespace smt {
         // variable solving utilities
         bool occurs(expr* a, expr* b);
         bool is_var(expr* b);
-        void add_solution(expr* l, expr* r, enode_pair_dependency* dep);
+        bool add_solution(expr* l, expr* r, enode_pair_dependency* dep);
         bool is_left_select(expr* a, expr*& b);
         bool is_right_select(expr* a, expr*& b);
         bool is_head_elem(expr* a) const;
@@ -349,10 +348,12 @@ namespace smt {
         void add_replace_axiom(expr* e);
         void add_extract_axiom(expr* e);
         void add_length_axiom(expr* n);
-        void add_length_unit_axiom(expr* n);
-        void add_length_empty_axiom(expr* n);
-        void add_length_concat_axiom(expr* n);
-        void add_length_string_axiom(expr* n);
+        void add_length_coherence_axiom(expr* n);
+
+        bool has_length(expr *e) const { return m_length.contains(e); }
+        void add_length(expr* e);
+        void enforce_length(enode* n);
+
         void add_elim_string_axiom(expr* n);
         void add_at_axiom(expr* n);
         void add_in_re_axiom(expr* n);
@@ -360,6 +361,11 @@ namespace smt {
         void tightest_prefix(expr* s, expr* x, literal lit, literal lit2 = null_literal);
         expr_ref mk_sub(expr* a, expr* b);
         enode* ensure_enode(expr* a);
+
+        // arithmetic integration
+        bool lower_bound(expr* s, rational& lo);
+        bool upper_bound(expr* s, rational& hi);
+        bool get_length(expr* s, rational& val);
 
         void mk_decompose(expr* e, expr_ref& emp, expr_ref& head, expr_ref& tail);
         expr_ref mk_skolem(symbol const& s, expr* e1, expr* e2 = 0, expr* e3 = 0, sort* range = 0);

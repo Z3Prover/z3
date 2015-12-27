@@ -693,17 +693,76 @@ br_status seq_rewriter::mk_str_to_regexp(expr* a, expr_ref& result) {
     return BR_FAILED;
 }
 br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
+    if (is_epsilon(a)) {
+        result = b;
+        return BR_DONE;
+    }
+    if (is_epsilon(b)) {
+        result = a;
+        return BR_DONE;
+    }
     return BR_FAILED;
 }
+/*
+  (a + a) = a
+  (a + eps) = a
+  (eps + a) = a
+*/
 br_status seq_rewriter::mk_re_union(expr* a, expr* b, expr_ref& result) {
+    if (a == b) {
+        result = a;
+        return BR_DONE;
+    }
+    if (m_util.re.is_star(a) && is_epsilon(b)) {
+        result = a;
+        return BR_DONE;
+    }
+    if (m_util.re.is_star(b) && is_epsilon(a)) {
+        result = b;
+        return BR_DONE;
+    }
     return BR_FAILED;
 }
+/*
+  a** = a*
+  (a* + b)* = (a + b)*
+  (a + b*)* = (a + b)*
+  (a*b*)*   = (a + b)*
+*/
 br_status seq_rewriter::mk_re_star(expr* a, expr_ref& result) {
+    expr* b, *c, *b1, *c1;
+    if (m_util.re.is_star(a)) {
+        result = a;
+        return BR_DONE;
+    }
+    if (m_util.re.is_union(a, b, c)) {
+        if (m_util.re.is_star(b, b1)) {
+            result = m_util.re.mk_star(m_util.re.mk_union(b1, c));
+            return BR_REWRITE2;
+        }
+        if (m_util.re.is_star(c, c1)) {
+            result = m_util.re.mk_star(m_util.re.mk_union(b, c1));
+            return BR_REWRITE2;
+        }
+    }
+    if (m_util.re.is_concat(a, b, c) &&
+        m_util.re.is_star(b, b1) && m_util.re.is_star(c, c1)) {
+        result = m_util.re.mk_star(m_util.re.mk_union(b1, c1));
+        return BR_REWRITE2;
+    }
+
     return BR_FAILED;
 }
+
+/*
+   a+ = aa*
+*/
 br_status seq_rewriter::mk_re_plus(expr* a, expr_ref& result) {
     return BR_FAILED;
+//  result = m_util.re.mk_concat(a, m_util.re.mk_star(a));
+//  return BR_REWRITE2;
 }
+
 br_status seq_rewriter::mk_re_opt(expr* a, expr_ref& result) {
     sort* s;
     VERIFY(m_util.is_re(a, s));
@@ -1012,6 +1071,11 @@ bool seq_rewriter::length_constrained(unsigned szl, expr* const* l, unsigned szr
     }
     
     return false;
+}
+
+bool seq_rewriter::is_epsilon(expr* e) const {
+    expr* e1;
+    return m_util.re.is_to_re(e, e1) && m_util.str.is_empty(e1);
 }
 
 bool seq_rewriter::is_subsequence(unsigned szl, expr* const* l, unsigned szr, expr* const* r, 

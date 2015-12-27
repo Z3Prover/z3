@@ -2157,6 +2157,7 @@ namespace smt {
         enode * r      = n->get_root();
         enode_vector::const_iterator it  = r->begin_parents();
         enode_vector::const_iterator end = r->end_parents();
+        TRACE("shared", tout << get_context().get_scope_level() << " " <<  v << " " << r->get_num_parents() << "\n";);
         for (; it != end; ++it) {
             enode * parent = *it;
             app *   o = parent->get_owner();
