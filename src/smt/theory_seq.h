@@ -259,17 +259,17 @@ namespace smt {
         unsigned        m_axioms_head;           // index of first axiom to add.
         unsigned        m_branch_variable_head;  // index of first equation to examine.
         bool            m_incomplete;            // is the solver (clearly) incomplete for the fragment.
-        obj_hashtable<expr> m_length;              // is length applied
-        bool            m_model_completion;      // during model construction, invent values in canonizer
+        obj_hashtable<expr> m_length;            // is length applied
         model_generator* m_mg;
         th_rewriter     m_rewrite;
         seq_util        m_util;
         arith_util      m_autil;
         th_trail_stack  m_trail_stack;
         stats           m_stats;
-        symbol          m_prefix, m_suffix, m_contains_left, m_contains_right, m_left, m_right, m_accept, m_reject;
-        symbol          m_tail, m_head_elem, m_seq_first, m_seq_last, m_indexof_left, m_indexof_right, m_aut_step;
+        symbol          m_prefix, m_suffix, m_contains_left, m_contains_right, m_accept, m_reject;
+        symbol          m_tail, m_nth, m_seq_first, m_seq_last, m_indexof_left, m_indexof_right, m_aut_step;
         symbol          m_extract_prefix, m_at_left, m_at_right;
+        ptr_vector<expr> m_todo;
 
         // maintain automata with regular expressions.
         scoped_ptr_vector<eautomaton>  m_automata;
@@ -348,7 +348,6 @@ namespace smt {
         void add_replace_axiom(expr* e);
         void add_extract_axiom(expr* e);
         void add_length_axiom(expr* n);
-        void add_length_coherence_axiom(expr* n);
 
         bool has_length(expr *e) const { return m_length.contains(e); }
         void add_length(expr* e);
@@ -406,6 +405,9 @@ namespace smt {
     public:
         theory_seq(ast_manager& m);
         virtual ~theory_seq();
+
+        // model building
+        app* mk_value(app* a);
 
     };
 };

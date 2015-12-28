@@ -25,6 +25,14 @@ Notes:
 #include"automaton.h"
 
 
+struct display_expr1 {
+    ast_manager& m;
+    display_expr1(ast_manager& m): m(m) {}
+    std::ostream& display(std::ostream& out, expr* e) const {
+        return out << mk_pp(e, m);
+    }
+};
+
 
 re2automaton::re2automaton(ast_manager& m): m(m), u(m) {}
 
@@ -35,6 +43,7 @@ eautomaton* re2automaton::operator()(expr* e) {
     }
     return r;
 } 
+
 
 eautomaton* re2automaton::re2aut(expr* e) {
     SASSERT(u.is_re(e));
@@ -230,8 +239,8 @@ br_status seq_rewriter::mk_seq_concat(expr* a, expr* b, expr_ref& result) {
         result = m_util.str.mk_string(s1 + s2);
         return BR_DONE;
     }
-    if (m_util.str.is_concat(b, c, d)) {
-        result = m_util.str.mk_concat(m_util.str.mk_concat(a, c), d);
+    if (m_util.str.is_concat(a, c, d)) {
+        result = m_util.str.mk_concat(c, m_util.str.mk_concat(d, b));
         return BR_REWRITE2;
     }
     if (m_util.str.is_empty(a)) {

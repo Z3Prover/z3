@@ -84,6 +84,12 @@ private:
     mutable uint_set        m_visited;
     mutable unsigned_vector m_todo;
 
+    struct default_display {
+        std::ostream& display(std::ostream& out, T* t) {
+            return out << t;
+        }
+    };
+
 public:
 
     // The empty automaton:
@@ -216,7 +222,7 @@ public:
             mvs.push_back(move(m, 0, a.init() + offset1));
             append_moves(offset1, a, mvs);
             for (unsigned i = 0; i < a.m_final_states.size(); ++i) {
-                mvs.push_back(move(m, a.m_final_states[i], b.init()));
+                mvs.push_back(move(m, a.m_final_states[i], b.init() + offset2));
             }
             append_moves(offset2, b, mvs);
             append_final(offset2, b, final);
@@ -278,7 +284,7 @@ public:
             for (unsigned j = 0; found && j < mvs.size(); ++j) {
                 found = (mvs[j].dst() == m_init) && mvs[j].is_epsilon();
             }
-            if (!found) {
+            if (!found && state != m_init) {
                 add(move(m, state, m_init));
             }
         }
@@ -301,7 +307,7 @@ public:
                     if (src == dst) {
                         // just remove this edge.                        
                     }
-                    else if (1 == in_degree(src) && init() != src && (!is_final_state(src) || is_final_state(dst))) {
+                    else if (1 == in_degree(src) && 1 == out_degree(src) && init() != src && (!is_final_state(src) || is_final_state(dst))) {
                         move const& mv0 = m_delta_inv[src][0];
                         unsigned src0 = mv0.src();                        
                         T* t = mv0.t();
@@ -311,8 +317,9 @@ public:
                         }
                         add(move(m, src0, dst, t));
                         remove(src0, src, t);
+
                     }
-                    else if (1 == out_degree(dst) && init() != dst && (!is_final_state(dst) || is_final_state(src))) {
+                    else if (1 == out_degree(dst) && 1 == in_degree(dst) && init() != dst && (!is_final_state(dst) || is_final_state(src))) {
                         move const& mv1 = m_delta[dst][0];
                         unsigned dst1 = mv1.dst();
                         T* t = mv1.t();
@@ -322,6 +329,7 @@ public:
                         }
                         add(move(m, src, dst1, t));
                         remove(dst, dst1, t);
+
                     }
                     else {
                         continue;
@@ -422,8 +430,8 @@ public:
         get_moves(state, m_delta_inv, mvs, epsilon_closure);
     }
 
-    template<class D>
-    std::ostream& display(std::ostream& out, D& displayer) const {
+    template<class D = default_display>
+    std::ostream& display(std::ostream& out, D& displayer = D()) const {
         out << "init: " << init() << "\n";
         out << "final: ";
         for (unsigned i = 0; i < m_final_states.size(); ++i) out << m_final_states[i] << " ";
