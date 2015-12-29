@@ -72,6 +72,7 @@ namespace smt {
             void  add_cache(expr* v, expr_dep& r) { m_cache.insert(v, r); }
             bool  find_cache(expr* v, expr_dep& r) { return m_cache.find(v, r); }
             expr* find(expr* e, enode_pair_dependency*& d);
+            expr* find(expr* e);
             bool  is_root(expr* e) const;
             void  cache(expr* e, expr* r, enode_pair_dependency* d);
             void reset_cache() { m_cache.reset(); }
@@ -246,6 +247,12 @@ namespace smt {
             void reset() { memset(this, 0, sizeof(stats)); }
             unsigned m_num_splits;
             unsigned m_num_reductions;
+            unsigned m_propagate_automata;
+            unsigned m_check_length_coherence;
+            unsigned m_branch_variable;
+            unsigned m_solve_nqs;
+            unsigned m_solve_eqs;
+            unsigned m_check_ineqs;
         };
         ast_manager&                        m;
         enode_pair_dependency_manager       m_dm;
@@ -335,13 +342,13 @@ namespace smt {
         bool occurs(expr* a, expr* b);
         bool is_var(expr* b);
         bool add_solution(expr* l, expr* r, enode_pair_dependency* dep);
-        bool is_left_select(expr* a, expr*& b);
-        bool is_right_select(expr* a, expr*& b);
-        bool is_head_elem(expr* a) const;
+        bool is_nth(expr* a) const;
+        expr_ref mk_nth(expr* s, expr* idx);
         expr_ref canonize(expr* e, enode_pair_dependency*& eqs);
         expr_ref expand(expr* e, enode_pair_dependency*& eqs);
         void add_dependency(enode_pair_dependency*& dep, enode* a, enode* b);
 
+        void get_concat(expr* e, ptr_vector<expr>& concats);
     
         // terms whose meaning are encoded using axioms.
         void enque_axiom(expr* e);
@@ -360,6 +367,7 @@ namespace smt {
         void add_at_axiom(expr* n);
         void add_in_re_axiom(expr* n);
         literal mk_literal(expr* n);
+        literal mk_eq_empty(expr* n);
         void tightest_prefix(expr* s, expr* x, literal lit, literal lit2 = null_literal);
         expr_ref mk_sub(expr* a, expr* b);
         enode* ensure_enode(expr* a);
@@ -369,9 +377,8 @@ namespace smt {
         bool upper_bound(expr* s, rational& hi);
         bool get_length(expr* s, rational& val);
 
-        void mk_decompose(expr* e, expr_ref& emp, expr_ref& head, expr_ref& tail);
+        void mk_decompose(expr* e, expr_ref& head, expr_ref& tail);
         expr_ref mk_skolem(symbol const& s, expr* e1, expr* e2 = 0, expr* e3 = 0, sort* range = 0);
-        expr_ref mk_nth(expr* s, expr* idx);
         bool is_skolem(symbol const& s, expr* e) const;
 
         void set_incomplete(app* term);

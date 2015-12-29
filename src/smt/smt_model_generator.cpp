@@ -361,6 +361,7 @@ namespace smt {
                     }
                     else {
                         enode * child = d.get_enode();
+                        TRACE("mg_top_sort", tout << "#" << n->get_owner_id() << " (" << mk_pp(n->get_owner(), m_manager) << "): " << mk_pp(child->get_owner(), m_manager) << " " << mk_pp(child->get_root()->get_owner(), m_manager) << "\n";);
                         child = child->get_root();
                         app * val = 0;
                         m_root2value.find(child, val);

@@ -39,7 +39,10 @@ re2automaton::re2automaton(ast_manager& m): m(m), u(m) {}
 eautomaton* re2automaton::operator()(expr* e) { 
     eautomaton* r = re2aut(e); 
     if (r) {
+        //display_expr1 disp(m);
+        //r->display(std::cout, disp);
         r->compress(); 
+        //r->display(std::cout, disp);
     }
     return r;
 } 
@@ -61,6 +64,7 @@ eautomaton* re2automaton::re2aut(expr* e) {
     else if (u.re.is_star(e, e1) && (a = re2aut(e1))) {
         a->add_final_to_init_moves();
         a->add_init_to_final_states();
+        
         return a.detach();            
     }
     else if (u.re.is_plus(e, e1) && (a = re2aut(e1))) {

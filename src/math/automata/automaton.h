@@ -209,24 +209,16 @@ public:
         moves mvs;
         unsigned_vector final;
         unsigned init = 0;
-        if (a.has_single_final_sink() && b.initial_state_is_source() && b.init() == 0) {
-            unsigned offset2 = a.num_states();
-            init = a.init();
-            append_moves(0, a, mvs);
-            append_moves(offset2, b, mvs);
-            append_final(offset2, b, final);
+        unsigned offset1 = 1;
+        unsigned offset2 = a.num_states() + offset1;
+        mvs.push_back(move(m, 0, a.init() + offset1));
+        append_moves(offset1, a, mvs);
+        for (unsigned i = 0; i < a.m_final_states.size(); ++i) {
+            mvs.push_back(move(m, a.m_final_states[i] + offset1, b.init() + offset2));
         }
-        else {
-            unsigned offset1 = 1;
-            unsigned offset2 = a.num_states() + offset1;
-            mvs.push_back(move(m, 0, a.init() + offset1));
-            append_moves(offset1, a, mvs);
-            for (unsigned i = 0; i < a.m_final_states.size(); ++i) {
-                mvs.push_back(move(m, a.m_final_states[i], b.init() + offset2));
-            }
-            append_moves(offset2, b, mvs);
-            append_final(offset2, b, final);
-        }
+        append_moves(offset2, b, mvs);
+        append_final(offset2, b, final);
+        
         return alloc(automaton, m, init, final, mvs);
     }
 
