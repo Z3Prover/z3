@@ -26,7 +26,6 @@
 #pragma warning(disable:4101)
 #endif
 
-#include <assert.h>
 #include <algorithm>
 #include <stdio.h>
 #include <fstream>
