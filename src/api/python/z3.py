@@ -8315,20 +8315,36 @@ def FPSort(ebits, sbits, ctx=None):
     ctx = z3._get_ctx(ctx)
     return FPSortRef(Z3_mk_fpa_sort(ctx.ref(), ebits, sbits), ctx)
 
-def _to_float_str(val):
+def _to_float_str(val, exp=0):
     if isinstance(val, float):
-        return str(val)
+        v = val.as_integer_ratio()
+        num = v[0]
+        den = v[1]
+        rvs = str(num) + '/' + str(den)
+        res = rvs + 'p' +_to_int_str(exp)
     elif isinstance(val, bool):
         if val:
-            return "1.0"
+            res = "1.0"
         else:
-            return "0.0"
+            res = "0.0"
     elif _is_int(val):
-        return str(val)
+        res = str(val)
     elif isinstance(val, str):
-        return val
-    if __debug__:
-        _z3_assert(False, "Python value cannot be used as a double")
+        inx = val.find('*(2**')
+        if inx == -1:
+            res = val
+        elif val[-1] == ')':
+            res = val[0:inx]
+            exp = str(int(val[inx+5:-1]) + int(exp))
+        else:
+            _z3_assert(False, "String does not have floating-point numeral form.")
+    elif __debug__:
+        _z3_assert(False, "Python value cannot be used to create floating-point numerals.")
+    if exp == 0:
+        return res
+    else:
+        return res + 'p' + exp
+
 
 def fpNaN(s):
     _z3_assert(isinstance(s, FPSortRef), "sort mismatch")
@@ -8385,8 +8401,6 @@ def FPVal(sig, exp=None, fps=None, ctx=None):
     if exp == None:
         exp = 0    
     val = _to_float_str(sig)
-    val = val + 'p'
-    val = val + _to_int_str(exp)
     return FPNumRef(Z3_mk_numeral(ctx.ref(), val, fps.ast), ctx)
 
 def FP(name, fpsort, ctx=None):
