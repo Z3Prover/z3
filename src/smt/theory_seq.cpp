@@ -59,6 +59,10 @@ void theory_seq::solution_map::add_trail(map_update op, expr* l, expr* r, enode_
     m_deps.push_back(d);
 }
 
+bool theory_seq::solution_map::is_root(expr* e) const {
+    return !m_map.contains(e);
+}
+
 expr* theory_seq::solution_map::find(expr* e, enode_pair_dependency*& d) {
     std::pair<expr*, enode_pair_dependency*> value;
     d = 0;
@@ -181,31 +185,31 @@ final_check_status theory_seq::final_check_eh() {
     context & ctx   = get_context();
     TRACE("seq", display(tout););
     if (!check_ineqs()) {
-        TRACE("seq", tout << "check_ineqs\n";);
+        TRACE("seq", tout << ">>check_ineqs\n";);
         return FC_CONTINUE;
     }
     if (simplify_and_solve_eqs()) {
-        TRACE("seq", tout << "solve_eqs\n";);
+        TRACE("seq", tout << ">>solve_eqs\n";);
         return FC_CONTINUE;
     }
     if (solve_nqs()) {
-        TRACE("seq", tout << "solve_nqs\n";);
+        TRACE("seq", tout << ">>solve_nqs\n";);
         return FC_CONTINUE;
     }
     if (branch_variable()) {
-        TRACE("seq", tout << "branch_variable\n";);
+        TRACE("seq", tout << ">>branch_variable\n";);
         return FC_CONTINUE;
     }
     if (!check_length_coherence()) {
-        TRACE("seq", tout << "check_length_coherence\n";);
+        TRACE("seq", tout << ">>check_length_coherence\n";);
         return FC_CONTINUE;
     }
     if (propagate_automata()) {
-        TRACE("seq", tout << "propagate_automata\n";);
+        TRACE("seq", tout << ">>propagate_automata\n";);
         return FC_CONTINUE;
     }
     if (is_solved()) {
-        TRACE("seq", tout << "is_solved\n";);
+        TRACE("seq", tout << ">>is_solved\n";);
         return FC_DONE;
     }
 
@@ -307,6 +311,39 @@ bool theory_seq::assume_equality(expr* l, expr* r) {
     }
 }
 
+bool theory_seq::propagate_length_coherence(expr* e) {
+    expr_ref head(m), tail(m), emp(m);
+    rational lo, hi;
+    TRACE("seq", tout << "Unsolved " << mk_pp(e, m);
+          if (!lower_bound(e, lo)) lo = -rational::one();
+          if (!upper_bound(e, hi)) hi = -rational::one();
+          tout << " lo: " << lo << " hi: " << hi << "\n";
+          );
+
+    if (!lower_bound(e, lo) || !lo.is_pos() || lo >= rational(2048)) {
+        return false;
+    }
+    literal low(mk_literal(m_autil.mk_ge(m_util.str.mk_length(e), m_autil.mk_numeral(lo, true))));
+    expr_ref seq(e, m);
+    expr_ref_vector elems(m);
+    unsigned _lo = lo.get_unsigned();
+    for (unsigned j = 0; j < _lo; ++j) {
+        mk_decompose(seq, emp, head, tail);
+        elems.push_back(head);
+        seq = tail;
+    }
+    elems.push_back(seq);
+    tail = m_util.str.mk_concat(elems.size(), elems.c_ptr());
+    // len(e) >= low => e = tail
+    add_axiom(~low, mk_eq(e, tail, false));
+    assume_equality(tail, e);
+    if (upper_bound(e, hi)) {
+        expr_ref high1(m_autil.mk_le(m_util.str.mk_length(e), m_autil.mk_numeral(hi, true)), m);                    
+        expr_ref high2(m_autil.mk_le(m_util.str.mk_length(seq), m_autil.mk_numeral(hi-lo, true)), m);                    
+        add_axiom(~mk_literal(high1), mk_literal(high2));
+    }
+    return true;
+}
 
 bool theory_seq::check_length_coherence() {
     if (m_length.empty()) return true;
@@ -315,42 +352,13 @@ bool theory_seq::check_length_coherence() {
     obj_hashtable<expr>::iterator it = m_length.begin(), end = m_length.end();
     for (; it != end; ++it) {
         expr* e = *it;
-        enode_pair_dependency* dep = 0;
-        expr* f = m_rep.find(e, dep);
-        if (is_var(f) && f == e) {
+        if (is_var(e) && m_rep.is_root(e)) {
             expr_ref emp(m_util.str.mk_empty(m.get_sort(e)), m);
             expr_ref head(m), tail(m);
-            rational lo, hi;
-            TRACE("seq", tout << "Unsolved " << mk_pp(e, m);
-                  if (!lower_bound(e, lo)) lo = -rational::one();
-                  if (!upper_bound(e, hi)) hi = -rational::one();
-                  tout << " lo: " << lo << " ";
-                  tout <<  "hi: " << hi << " ";
-                  tout << "\n";
-                  ctx.display(tout);
-                  );
                                               
-
-            if (lower_bound(e, lo) && lo.is_pos() && lo < rational(512)) {
-                literal low(mk_literal(m_autil.mk_ge(m_util.str.mk_length(e), m_autil.mk_numeral(lo, true))));
-                expr_ref seq(e, m);
-                expr_ref_vector elems(m);
-                unsigned _lo = lo.get_unsigned();
-                for (unsigned j = 0; j < _lo; ++j) {
-                    mk_decompose(seq, emp, head, tail);
-                    elems.push_back(head);
-                    seq = tail;
-                }
-                elems.push_back(seq);
-                tail = m_util.str.mk_concat(elems.size(), elems.c_ptr());
-                // len(e) >= low => e = tail
-                add_axiom(~low, mk_eq(e, tail, false));
-                assume_equality(tail, e);
-                if (upper_bound(e, hi)) {
-                    expr_ref high1(m_autil.mk_le(m_util.str.mk_length(e), m_autil.mk_numeral(hi, true)), m);                    
-                    expr_ref high2(m_autil.mk_le(m_util.str.mk_length(seq), m_autil.mk_numeral(hi-lo, true)), m);                    
-                    add_axiom(~mk_literal(high1), mk_literal(high2));
-                }
+            if (propagate_length_coherence(e)) {
+                //m_replay_length_coherence.push_back(e);
+                //m_replay_length_coherence_qhead = m_replay_length_coherence.size();
             }
             else if (!assume_equality(e, emp)) {
                 mk_decompose(e, emp, head, tail);
@@ -365,14 +373,18 @@ bool theory_seq::check_length_coherence() {
     return coherent;
 }    
 
+expr_ref theory_seq::mk_nth(expr* s, expr* idx) {
+    sort* char_sort = 0;
+    VERIFY(m_util.is_seq(m.get_sort(s), char_sort));
+    return mk_skolem(m_nth, s, idx, 0, char_sort);
+}
+
 void theory_seq::mk_decompose(expr* e, expr_ref& emp, expr_ref& head, expr_ref& tail) {
     expr* e1, *e2;
-    sort* char_sort = 0;
     zstring s;
-    VERIFY(m_util.is_seq(m.get_sort(e), char_sort));
     emp  = m_util.str.mk_empty(m.get_sort(e));
     if (m_util.str.is_empty(e)) {
-        head = m_util.str.mk_unit(mk_skolem(m_nth, e, m_autil.mk_int(0), 0, char_sort));
+        head = m_util.str.mk_unit(mk_nth(e, m_autil.mk_int(0)));
         tail = e;
     }
     else if (m_util.str.is_string(e, s)) {
@@ -393,11 +405,11 @@ void theory_seq::mk_decompose(expr* e, expr_ref& emp, expr_ref& head, expr_ref& 
         expr* s = a->get_arg(0);
         VERIFY (m_autil.is_numeral(a->get_arg(1), r));
         expr* idx = m_autil.mk_int(r.get_unsigned() + 1);
-        head = m_util.str.mk_unit(mk_skolem(m_nth, s, idx, 0, char_sort));
+        head = m_util.str.mk_unit(mk_nth(s, idx));
         tail = mk_skolem(m_tail, s, idx);
     }
     else {
-        head = m_util.str.mk_unit(mk_skolem(m_nth, e, m_autil.mk_int(0), 0, char_sort));        
+        head = m_util.str.mk_unit(mk_nth(e, m_autil.mk_int(0)));
         tail = mk_skolem(m_tail, e, m_autil.mk_int(0));
     } 
 }
@@ -750,7 +762,6 @@ bool theory_seq::internalize_term(app* term) {
         bool_var bv = ctx.mk_bool_var(term);
         ctx.set_var_theory(bv, get_id());
         ctx.mark_as_relevant(bv);
-        TRACE("seq", tout << mk_pp(term, m) << ": " << bv << "\n";);
     }
     else {
         enode* e = 0;
@@ -1064,8 +1075,13 @@ void theory_seq::propagate() {
 
 void theory_seq::enque_axiom(expr* e) {
     TRACE("seq", tout << "add axioms for: " << mk_pp(e, m) << "\n";);
-    m_trail_stack.push(push_back_vector<theory_seq, expr_ref_vector>(m_axioms));
-    m_axioms.push_back(e);
+    if (!m_axiom_set.contains(e)) {
+        m_axioms.push_back(e);
+        m_axiom_set.insert(e);
+        m_trail_stack.push(push_back_vector<theory_seq, expr_ref_vector>(m_axioms));
+        m_trail_stack.push(insert_obj_trail<theory_seq, expr>(m_axiom_set, e));;
+
+    }
 }
 
 void theory_seq::deque_axiom(expr* n) {
@@ -1284,17 +1300,19 @@ void theory_seq::propagate_in_re(expr* n, bool is_true) {
 
     eautomaton* a = get_automaton(e2);
     if (!a) return;
-    if (m_util.str.is_empty(e1)) return;
+    // if (m_util.str.is_empty(e1)) return;
+
     context& ctx = get_context();
 
-    expr_ref emp(m_util.str.mk_empty(m.get_sort(e1)), m);
+    expr_ref len(m_util.str.mk_length(e1), m);
     for (unsigned i = 0; i < a->num_states(); ++i) {
-        literal acc = mk_accept(emp, e2, i);
-        literal rej = mk_reject(emp, e2, i);
+        literal acc = mk_accept(e1, len, e2, i);
+        literal rej = mk_reject(e1, len, e2, i);
         add_axiom(a->is_final_state(i)?acc:~acc);
         add_axiom(a->is_final_state(i)?~rej:rej);
     }
 
+    expr_ref zero(m_autil.mk_int(0), m);
     unsigned_vector states;
     a->get_epsilon_closure(a->init(), states);
     literal_vector lits;
@@ -1304,11 +1322,11 @@ void theory_seq::propagate_in_re(expr* n, bool is_true) {
     }
     for (unsigned i = 0; i < states.size(); ++i) {
         if (is_true) {
-            lits.push_back(mk_accept(e1, e2, states[i]));
+            lits.push_back(mk_accept(e1, zero, e2, states[i]));
         }
         else {
             literal nlit = ~lit;
-            propagate_lit(0, 1, &nlit, mk_reject(e1, e2, states[i]));
+            propagate_lit(0, 1, &nlit, mk_reject(e1, zero, e2, states[i]));
         }
     }
     if (is_true) {
@@ -1316,7 +1334,7 @@ void theory_seq::propagate_in_re(expr* n, bool is_true) {
             propagate_lit(0, 1, &lit, lits[1]);
         }
         else {
-            TRACE("seq", ctx.display_literals_verbose(tout, lits.size(), lits.c_ptr()););
+            TRACE("seq", ctx.display_literals_verbose(tout, lits.size(), lits.c_ptr()); tout << "\n";);
             ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
         }
     }
@@ -1474,18 +1492,14 @@ void theory_seq::add_at_axiom(expr* e) {
 }
 
 /**
-   step(s, tail, re, i, j, t) -> s = t ++ tail
+   step(s, idx, re, i, j, t) -> nth(s, idx) == t
 */
 void theory_seq::propagate_step(bool_var v, expr* step) {
     context& ctx = get_context();
-    expr* re, *t, *s, *tail, *i, *j;
-    VERIFY(is_step(step, s, tail, re, i, j, t));  
-    expr_ref conc(m_util.str.mk_concat(m_util.str.mk_unit(t), tail), m);
-    expr_ref sr(s, m);
-    propagate_eq(v, s, conc);
-    enode* n1 = ensure_enode(step);
-    enode* n2 = ctx.get_enode(m.mk_true());
-    m_eqs.push_back(eq(sr, conc, m_dm.mk_leaf(enode_pair(n1, n2))));
+    expr* re, *t, *s, *idx, *i, *j;
+    VERIFY(is_step(step, s, idx, re, i, j, t));
+    expr_ref nth = mk_nth(s, idx);
+    propagate_eq(v, t, nth);
 }
 
 
@@ -1698,19 +1712,24 @@ eautomaton* theory_seq::get_automaton(expr* re) {
     return result;
 }
 
-literal theory_seq::mk_accept(expr* s, expr* re, expr* state) {
-    return mk_literal(mk_skolem(m_accept, s, re, state, m.mk_bool_sort()));
+literal theory_seq::mk_accept(expr* s, expr* idx, expr* re, expr* state) {
+    expr_ref_vector args(m);
+    args.push_back(s).push_back(idx).push_back(re).push_back(state);
+    return mk_literal(m_util.mk_skolem(m_accept, args.size(), args.c_ptr(), m.mk_bool_sort()));
 }
-literal theory_seq::mk_reject(expr* s, expr* re, expr* state) {
-    return mk_literal(mk_skolem(m_reject, s, re, state, m.mk_bool_sort()));
+literal theory_seq::mk_reject(expr* s, expr* idx, expr* re, expr* state) {
+    expr_ref_vector args(m);
+    args.push_back(s).push_back(idx).push_back(re).push_back(state);
+    return mk_literal(m_util.mk_skolem(m_reject, args.size(), args.c_ptr(), m.mk_bool_sort()));
 }
 
-bool theory_seq::is_acc_rej(symbol const& ar, expr* e, expr*& s, expr*& re, unsigned& i, eautomaton*& aut) {
+bool theory_seq::is_acc_rej(symbol const& ar, expr* e, expr*& s, expr*& idx, expr*& re, unsigned& i, eautomaton*& aut) {
     if (is_skolem(ar, e)) {
         rational r;
         s  = to_app(e)->get_arg(0);
-        re = to_app(e)->get_arg(1);
-        VERIFY(m_autil.is_numeral(to_app(e)->get_arg(2), r));
+        idx = to_app(e)->get_arg(1);
+        re = to_app(e)->get_arg(2);
+        VERIFY(m_autil.is_numeral(to_app(e)->get_arg(3), r));
         SASSERT(r.is_unsigned());
         i = r.get_unsigned();
         aut = m_re2aut[re];
@@ -1725,10 +1744,10 @@ bool theory_seq::is_step(expr* e) const {
     return is_skolem(m_aut_step, e);
 }
 
-bool theory_seq::is_step(expr* e, expr*& s, expr*& tail, expr*& re, expr*& i, expr*& j, expr*& t) const {
+bool theory_seq::is_step(expr* e, expr*& s, expr*& idx, expr*& re, expr*& i, expr*& j, expr*& t) const {
     if (is_step(e)) {
         s    = to_app(e)->get_arg(0);
-        tail = to_app(e)->get_arg(1);
+        idx  = to_app(e)->get_arg(1);
         re   = to_app(e)->get_arg(2);
         i    = to_app(e)->get_arg(3);
         j    = to_app(e)->get_arg(4);
@@ -1740,11 +1759,9 @@ bool theory_seq::is_step(expr* e, expr*& s, expr*& tail, expr*& re, expr*& i, ex
     }
 }
 
-expr_ref theory_seq::mk_step(expr* s, expr* tail, expr* re, unsigned i, unsigned j, expr* t) {
+expr_ref theory_seq::mk_step(expr* s, expr* idx, expr* re, unsigned i, unsigned j, expr* t) { 
     expr_ref_vector args(m);
-    args.push_back(s);
-    args.push_back(tail);
-    args.push_back(re);    
+    args.push_back(s).push_back(idx).push_back(re);
     args.push_back(m_autil.mk_int(i));
     args.push_back(m_autil.mk_int(j));
     args.push_back(t);
@@ -1753,33 +1770,32 @@ expr_ref theory_seq::mk_step(expr* s, expr* tail, expr* re, unsigned i, unsigned
 
 
 /**
-   acc & s != emp -> \/ step_i_t_j
+   acc(s, idx, re, i) ->  \/ step(s, idx, re, i, j, t)                  if i is non-final
+   acc(s, idx, re, i) -> len(s) <= idx \/ step(s, idx, re, i, j, t)   if i is final
+   acc(s, idx, re, i) -> len(s) >= idx
 */
 void theory_seq::add_accept2step(expr* acc) {
     context& ctx = get_context();
     SASSERT(ctx.get_assignment(acc) == l_true);
-    expr* e, *re;
+    expr *e, * idx, *re;
+    expr_ref step(m);
     unsigned src;
     eautomaton* aut = 0;
-    VERIFY(is_accept(acc, e, re, src, aut));
-    if (!aut) return;
-    if (m_util.str.is_empty(e)) return;
+    VERIFY(is_accept(acc, e, idx, re, src, aut));
+    if (!aut || m_util.str.is_length(idx)) return;
+    SASSERT(m_autil.is_numeral(idx));
     eautomaton::moves mvs;
     aut->get_moves_from(src, mvs);
-    expr_ref head(m), tail(m), emp(m), step(m);
-    mk_decompose(e, emp, head, tail);
-    if (!m_util.is_skolem(e)) {
-        expr_ref conc(m_util.str.mk_concat(head, tail), m);
-        add_axiom(mk_eq(e, emp, false), mk_eq(e, conc, false));                
-    }
+     
+    expr_ref len(m_util.str.mk_length(e), m);
     literal_vector lits;
     lits.push_back(~ctx.get_literal(acc));
     if (aut->is_final_state(src)) {
-        lits.push_back(mk_eq(emp, e, false));
+        lits.push_back(mk_literal(m_autil.mk_le(len, idx)));
     }
     for (unsigned i = 0; i < mvs.size(); ++i) {
         eautomaton::move mv = mvs[i];
-        step = mk_step(e, tail, re, src, mv.dst(), mv.t());
+        step = mk_step(e, idx, re, src, mv.dst(), mv.t());
         lits.push_back(mk_literal(step));
     }
     TRACE("seq", ctx.display_literals_verbose(tout, lits.size(), lits.c_ptr()); tout << "\n";);
@@ -1787,50 +1803,53 @@ void theory_seq::add_accept2step(expr* acc) {
         ctx.mark_as_relevant(lits[i]);
     }
     ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
+    add_axiom(~ctx.get_literal(acc), mk_literal(m_autil.mk_ge(len, idx)));
 }
 
 
 /**
-   acc(s, re, i) & step(head, tail, re, i, j, t) => acc(tail, re, j)
+   acc(s, idx, re, i) & step(s, idx, re, i, j, t) => acc(s, idx + 1, re, j)
 */
 
 void theory_seq::add_step2accept(expr* step) {
     context& ctx = get_context();
     SASSERT(ctx.get_assignment(step) == l_true);
-    expr* re, *t, *s, *tail, *i, *j;
-    VERIFY(is_step(step, s, tail, re, i, j, t));
-    literal acc1 = mk_accept(s, re, i);
-    literal acc2 = mk_accept(tail, re, j);    
+    rational r;
+    expr* re, *t, *s, *idx, *i, *j;
+    VERIFY(is_step(step, s, idx, re, i, j, t));
+    VERIFY(m_autil.is_numeral(idx, r) && r.is_unsigned());    
+    expr_ref idx1(m_autil.mk_int(r.get_unsigned() + 1), m);
+    literal acc1 = mk_accept(s, idx,  re, i);
+    literal acc2 = mk_accept(s, idx1, re, j);    
     add_axiom(~acc1, ~ctx.get_literal(step), acc2);
 }
 
 
 /*
-   rej(s, re, i) & s = t ++ tail => rej(tail, re, j)
+   rej(s, idx, re, i) & nth(s,idx) = t & idx < len(s) => rej(s, idx + 1 re, j)
+   rej(s, idx, re, i) => idx <= len(s)
 */ 
 void theory_seq::add_reject2reject(expr* rej) {
     context& ctx = get_context();
     SASSERT(ctx.get_assignment(rej) == l_true);
-    expr* e, *re;
+    expr* e, *idx, *re;
     unsigned src;
+    rational r;
     eautomaton* aut = 0;
-    VERIFY(is_reject(rej, e, re, src, aut));
-    if (!aut) return;
-    if (m_util.str.is_empty(e)) return;
+    VERIFY(is_reject(rej, e, idx, re, src, aut));
+    if (!aut || m_util.str.is_length(idx)) return;
+    VERIFY(m_autil.is_numeral(idx, r) && r.is_unsigned());
+    expr_ref idx1(m_autil.mk_int(r.get_unsigned() + 1), m);
     eautomaton::moves mvs;
     aut->get_moves_from(src, mvs);
-    expr_ref head(m), tail(m), emp(m), conc(m);
-    mk_decompose(e, emp, head, tail);
-    if (!m_util.is_skolem(e)) {
-        expr_ref conc(m_util.str.mk_concat(head, tail), m);
-        add_axiom(mk_eq(e, emp, false), mk_eq(e, conc, false));                
-    }
     literal rej1 = ctx.get_literal(rej);
+    expr_ref len(m_util.str.mk_length(e), m);
+    add_axiom(~rej1, mk_literal(m_autil.mk_ge(len, idx)));
     for (unsigned i = 0; i < mvs.size(); ++i) {
         eautomaton::move const& mv = mvs[i];        
-        conc = m_util.str.mk_concat(m_util.str.mk_unit(mv.t()), tail);
-        literal rej2 = mk_reject(tail, re, m_autil.mk_int(mv.dst()));
-        add_axiom(~rej1, ~mk_eq(e, conc, false), rej2);
+        expr_ref nth = mk_nth(e, idx);        
+        literal rej2 = mk_reject(e, idx1, re, m_autil.mk_int(mv.dst()));
+        add_axiom(~rej1, ~mk_eq(nth, mv.t(), false), ~mk_literal(m_autil.mk_ge(len, idx)), rej2);
     }
 }
 

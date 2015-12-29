@@ -72,6 +72,7 @@ namespace smt {
             void  add_cache(expr* v, expr_dep& r) { m_cache.insert(v, r); }
             bool  find_cache(expr* v, expr_dep& r) { return m_cache.find(v, r); }
             expr* find(expr* e, enode_pair_dependency*& d);
+            bool  is_root(expr* e) const;
             void  cache(expr* e, expr* r, enode_pair_dependency* d);
             void reset_cache() { m_cache.reset(); }
             void push_scope() { m_limit.push_back(m_updates.size()); }
@@ -256,6 +257,7 @@ namespace smt {
         expr_ref_vector m_ineqs;                 // inequalities to check solution against
         exclusion_table m_exclude;               // set of asserted disequalities.
         expr_ref_vector m_axioms;                // list of axioms to add.
+        obj_hashtable<expr> m_axiom_set;
         unsigned        m_axioms_head;           // index of first axiom to add.
         unsigned        m_branch_variable_head;  // index of first equation to examine.
         bool            m_incomplete;            // is the solver (clearly) incomplete for the fragment.
@@ -305,7 +307,8 @@ namespace smt {
         bool branch_variable();          // branch on a variable
         bool split_variable();           // split a variable
         bool is_solved(); 
-        bool check_length_coherence();  
+        bool check_length_coherence();
+        bool propagate_length_coherence(expr* e);  
         bool check_ineq_coherence(); 
 
         bool pre_process_eqs(bool simplify_or_solve, bool& propagated);
@@ -368,6 +371,7 @@ namespace smt {
 
         void mk_decompose(expr* e, expr_ref& emp, expr_ref& head, expr_ref& tail);
         expr_ref mk_skolem(symbol const& s, expr* e1, expr* e2 = 0, expr* e3 = 0, sort* range = 0);
+        expr_ref mk_nth(expr* s, expr* idx);
         bool is_skolem(symbol const& s, expr* e) const;
 
         void set_incomplete(app* term);
@@ -375,19 +379,19 @@ namespace smt {
         // automata utilities
         void propagate_in_re(expr* n, bool is_true);
         eautomaton* get_automaton(expr* e);
-        literal mk_accept(expr* s, expr* re, expr* state);
-        literal mk_accept(expr* s, expr* re, unsigned i) { return mk_accept(s, re, m_autil.mk_int(i)); }
+        literal mk_accept(expr* s, expr* idx, expr* re, expr* state);
+        literal mk_accept(expr* s, expr* idx, expr* re, unsigned i) { return mk_accept(s, idx, re, m_autil.mk_int(i)); }
         bool is_accept(expr* acc) const {  return is_skolem(m_accept, acc); }
-        bool is_accept(expr* acc, expr*& s, expr*& re, unsigned& i, eautomaton*& aut) {
-            return is_acc_rej(m_accept, acc, s, re, i, aut);
+        bool is_accept(expr* acc, expr*& s, expr*& idx, expr*& re, unsigned& i, eautomaton*& aut) {
+            return is_acc_rej(m_accept, acc, s, idx, re, i, aut);
         }
-        literal mk_reject(expr* s, expr* re, expr* state);
-        literal mk_reject(expr* s, expr* re, unsigned i) { return mk_reject(s, re, m_autil.mk_int(i)); }
+        literal mk_reject(expr* s, expr* idx, expr* re, expr* state);
+        literal mk_reject(expr* s, expr* idx, expr* re, unsigned i) { return mk_reject(s, idx, re, m_autil.mk_int(i)); }
         bool is_reject(expr* rej) const {  return is_skolem(m_reject, rej); }
-        bool is_reject(expr* rej, expr*& s, expr*& re, unsigned& i, eautomaton*& aut) {
-            return is_acc_rej(m_reject, rej, s, re, i, aut);
+        bool is_reject(expr* rej, expr*& s, expr*& idx, expr*& re, unsigned& i, eautomaton*& aut) {
+            return is_acc_rej(m_reject, rej, s, idx, re, i, aut);
         }
-        bool is_acc_rej(symbol const& ar, expr* e, expr*& s, expr*& re, unsigned& i, eautomaton*& aut);
+        bool is_acc_rej(symbol const& ar, expr* e, expr*& s, expr*& idx, expr*& re, unsigned& i, eautomaton*& aut);
         expr_ref mk_step(expr* s, expr* tail, expr* re, unsigned i, unsigned j, expr* t);
         bool is_step(expr* e, expr*& s, expr*& tail, expr*& re, expr*& i, expr*& j, expr*& t) const;
         bool is_step(expr* e) const;

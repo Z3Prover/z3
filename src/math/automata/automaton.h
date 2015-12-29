@@ -296,6 +296,10 @@ public:
     //    src0 - t -> src - e -> dst => src0 - t -> dst
     // out_degree(dst) = 1, final(dst) => final(src), dst != dst1
     //    src - e -> dst - t -> dst1 => src - t -> dst1
+
+    // Generalized: 
+    // Src - E -> dst - t -> dst1 => Src - t -> dst1   if dst is final => each Src is final
+    //
     void compress() {
         for (unsigned i = 0; i < m_delta.size(); ++i) {
             for (unsigned j = 0; j < m_delta[i].size(); ++j) {
@@ -329,7 +333,24 @@ public:
                         }
                         add(move(m, src, dst1, t));
                         remove(dst, dst1, t);
-
+                    }
+                    else if (false && 1 == out_degree(dst) && all_epsilon_in(dst) && init() != dst && !is_final_state(dst)) {
+                        move const& mv = m_delta[dst][0];
+                        T* t = mv.t();
+                        unsigned dst1 = mv.dst();
+                        unsigned_vector src0s;
+                        moves const& mvs = m_delta_inv[dst];
+                        for (unsigned k = 0; k < mvs.size(); ++k) {
+                            SASSERT(mvs[k].is_epsilon());
+                            src0s.push_back(mvs[k].src());
+                        }
+                        for (unsigned k = 0; k < src0s.size(); ++k) {
+                            remove(src0s[k], dst, 0);
+                            add(move(m, src0s[i], dst1, t));
+                        }
+                        remove(dst, dst1, t);    
+                        --j;
+                        continue;
                     }
                     else {
                         continue;
@@ -392,9 +413,10 @@ public:
         return true;
     }
 
-    bool is_deterministic() const { 
-        for (unsigned i = 0; i < m_delta.size(); ++i) {
-            if (m_delta[i].size() >= 2) return false;
+    bool all_epsilon_in(unsigned s) {
+        moves const& mvs = m_delta_inv[s];
+        for (unsigned j = 0; j < mvs.size(); ++j) {
+            if (mvs[j].t()) return false;
         }
         return true;
     }
