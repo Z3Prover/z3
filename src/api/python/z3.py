@@ -8321,7 +8321,7 @@ def _to_float_str(val, exp=0):
         num = v[0]
         den = v[1]
         rvs = str(num) + '/' + str(den)
-        res = rvs + 'p' +_to_int_str(exp)
+        res = rvs + 'p' + _to_int_str(exp)
     elif isinstance(val, bool):
         if val:
             res = "1.0"
