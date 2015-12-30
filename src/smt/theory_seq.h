@@ -252,7 +252,6 @@ namespace smt {
             unsigned m_branch_variable;
             unsigned m_solve_nqs;
             unsigned m_solve_eqs;
-            unsigned m_check_ineqs;
         };
         ast_manager&                        m;
         enode_pair_dependency_manager       m_dm;
@@ -261,7 +260,6 @@ namespace smt {
         scoped_vector<ne>                   m_nqs;        // set of current disequalities.
 
         seq_factory*    m_factory;               // value factory
-        expr_ref_vector m_ineqs;                 // inequalities to check solution against
         exclusion_table m_exclude;               // set of asserted disequalities.
         expr_ref_vector m_axioms;                // list of axioms to add.
         obj_hashtable<expr> m_axiom_set;
@@ -283,8 +281,8 @@ namespace smt {
         // maintain automata with regular expressions.
         scoped_ptr_vector<eautomaton>  m_automata;
         obj_map<expr, eautomaton*>     m_re2aut;
-        ptr_vector<expr>               m_accepts, m_rejects, m_steps;
-        unsigned                       m_accepts_qhead, m_rejects_qhead, m_steps_qhead;
+        ptr_vector<expr>               m_atoms;
+        unsigned                       m_atoms_qhead;
 
         virtual final_check_status final_check_eh();
         virtual bool internalize_atom(app* atom, bool) { return internalize_term(atom); }
@@ -309,14 +307,12 @@ namespace smt {
         virtual void init_model(model_generator & mg);
 
         // final check 
-        bool check_ineqs();              // check if inequalities are violated.
         bool simplify_and_solve_eqs();   // solve unitary equalities
         bool branch_variable();          // branch on a variable
         bool split_variable();           // split a variable
         bool is_solved(); 
         bool check_length_coherence();
         bool propagate_length_coherence(expr* e);  
-        bool check_ineq_coherence(); 
 
         bool pre_process_eqs(bool simplify_or_solve, bool& propagated);
         bool simplify_eqs(bool& propagated) { return pre_process_eqs(true, propagated); }
@@ -332,11 +328,11 @@ namespace smt {
         void propagate_lit(enode_pair_dependency* dep, literal lit) { propagate_lit(dep, 0, 0, lit); }
         void propagate_lit(enode_pair_dependency* dep, unsigned n, literal const* lits, literal lit);
         void propagate_eq(enode_pair_dependency* dep, enode* n1, enode* n2);
-        void propagate_eq(bool_var v, expr* e1, expr* e2);
+        void propagate_eq(bool_var v, expr* e1, expr* e2, bool add_to_eqs = false);
         void set_conflict(enode_pair_dependency* dep, literal_vector const& lits = literal_vector());
 
         bool find_branch_candidate(expr* l, expr_ref_vector const& rs);
-        bool assume_equality(expr* l, expr* r);
+        lbool assume_equality(expr* l, expr* r);
 
         // variable solving utilities
         bool occurs(expr* a, expr* b);
@@ -368,6 +364,7 @@ namespace smt {
         void add_in_re_axiom(expr* n);
         literal mk_literal(expr* n);
         literal mk_eq_empty(expr* n);
+        literal mk_equals(expr* a, expr* b);
         void tightest_prefix(expr* s, expr* x, literal lit, literal lit2 = null_literal);
         expr_ref mk_sub(expr* a, expr* b);
         enode* ensure_enode(expr* a);
@@ -406,7 +403,14 @@ namespace smt {
         void add_reject2reject(expr* rej);
         void add_accept2step(expr* acc);       
         void add_step2accept(expr* step);
+        bool add_prefix2prefix(expr* e);
+        bool add_suffix2suffix(expr* e);
+        bool add_contains2contains(expr* e);
+        bool canonizes(bool sign, expr* e);
+        void propagate_non_empty(literal lit, expr* s);
+        void propagate_acc_rej_length(bool_var v, expr* acc_rej);
         bool propagate_automata();
+        void add_atom(expr* e);
 
         // diagnostics
         void display_equations(std::ostream& out) const;

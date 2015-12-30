@@ -610,7 +610,10 @@ app* seq_decl_plugin::mk_string(zstring const& s) {
 
 
 bool seq_decl_plugin::is_value(app* e) const {
-    return is_app_of(e, m_family_id, OP_STRING_CONST);
+    return 
+        is_app_of(e, m_family_id, OP_STRING_CONST) ||
+        (is_app_of(e, m_family_id, OP_SEQ_UNIT) &&
+         m_manager->is_value(e->get_arg(0)));
 }
 
 app* seq_util::mk_skolem(symbol const& name, unsigned n, expr* const* args, sort* range) {

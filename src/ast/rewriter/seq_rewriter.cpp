@@ -328,15 +328,26 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
     expr_ref_vector as(m()), bs(m());
     m_util.str.get_concat(a, as);
     m_util.str.get_concat(b, bs);
+    bool all_values = true;
+    
+    for (unsigned i = 0; all_values && i < bs.size(); ++i) { 
+        all_values = m().is_value(bs[i].get());
+    }
+
     bool found = false;
     for (unsigned i = 0; !found && i < as.size(); ++i) {
         if (bs.size() > as.size() - i) break;
+        all_values &= m().is_value(as[i].get());
         unsigned j = 0;
         for (; j < bs.size() && as[j+i].get() == bs[j].get(); ++j) {};
         found = j == bs.size();
     }
     if (found) {
         result = m().mk_true();
+        return BR_DONE;
+    }
+    if (all_values) {
+        result = m().mk_false();
         return BR_DONE;
     }
     return BR_FAILED;
@@ -460,9 +471,20 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
     m_util.str.get_concat(a, as);
     m_util.str.get_concat(b, bs);
     unsigned i = 0;
-    for (; i < as.size() && i < bs.size() && as[i].get() == bs[i].get(); ++i) {};
+    bool all_values = true;    
+    for (; i < as.size() && i < bs.size(); ++i) {
+        all_values &= m().is_value(as[i].get()) && m().is_value(bs[i].get());
+        if (as[i].get() != bs[i].get()) {
+            break;
+        }
+    };
     if (i == as.size()) {
         result = m().mk_true();
+        return BR_DONE;
+    }
+    SASSERT(i < as.size());
+    if (all_values && (i < bs.size() || m_util.str.is_unit(as[i+1].get()))) {
+        result = m().mk_false();
         return BR_DONE;
     }
     if (i == bs.size()) {
