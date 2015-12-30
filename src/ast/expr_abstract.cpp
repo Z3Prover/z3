@@ -49,6 +49,7 @@ void expr_abstractor::operator()(unsigned base, unsigned num_bound, expr* const*
         case AST_APP: {
             app* a = to_app(curr);
             bool all_visited = true;
+            bool changed = false;
             m_args.reset();
             for (unsigned i = 0; i < a->get_num_args(); ++i) {
                 if (!m_map.find(a->get_arg(i), b)) {
@@ -56,12 +57,17 @@ void expr_abstractor::operator()(unsigned base, unsigned num_bound, expr* const*
                     all_visited = false;
                 }
                 else {
+                    changed |= b != a->get_arg(i);
                     m_args.push_back(b);
                 }
             }
             if (all_visited) {
-                b = m.mk_app(a->get_decl(), m_args.size(), m_args.c_ptr());
-                m_pinned.push_back(b);
+                if (changed) {
+                    b = m.mk_app(a->get_decl(), m_args.size(), m_args.c_ptr());
+                    m_pinned.push_back(b);
+                } else {
+                    b = curr;
+                }
                 m_map.insert(curr, b);
                 m_stack.pop_back();
             }
