@@ -301,13 +301,17 @@ namespace datalog {
 
         }
 
-        pair_info & get_pair(app_pair key) const {
-            return *m_costs.find(key);
+        pair_info * get_pair(app_pair key) const {
+            if (m_costs.contains(key)) {
+                return m_costs.find(key);
+            } else {
+                return NULL;
+            }
         }
 
         void remove_rule_from_pair(app_pair key, rule * r, unsigned original_len) {
-            pair_info * ptr = &get_pair(key);
-            if (ptr->remove_rule(r, original_len)) {
+            pair_info * ptr = get_pair(key);
+            if (ptr && ptr->remove_rule(r, original_len)) {
                 SASSERT(ptr->m_rules.empty());
                 m_costs.remove(key);
                 dealloc(ptr);
@@ -362,7 +366,7 @@ namespace datalog {
         void join_pair(app_pair pair_key) {
             app * t1 = pair_key.first;
             app * t2 = pair_key.second;
-            pair_info & inf = get_pair(pair_key);
+            pair_info & inf = *get_pair(pair_key);
             SASSERT(!inf.m_rules.empty());
             var_idx_set & output_vars = inf.m_all_nonlocal_vars;
             expr_ref_vector args(m);
