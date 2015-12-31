@@ -931,13 +931,21 @@ extern "C" {
         mpf_manager & mpfm = mk_c(c)->fpautil().fm();
         unsynch_mpz_manager & mpzm = mpfm.mpz_manager();
         unsynch_mpq_manager & mpqm = mpfm.mpq_manager();
-        fpa_decl_plugin * plugin = (fpa_decl_plugin*)m.get_plugin(mk_c(c)->get_fpa_fid());
-        scoped_mpf val(mpfm);
-        if (!plugin->is_numeral(to_expr(t), val)) {
+        family_id fid = mk_c(c)->get_fpa_fid();
+        fpa_decl_plugin * plugin = (fpa_decl_plugin*)m.get_plugin(fid);
+        SASSERT(plugin != 0);
+        expr * e = to_expr(t);
+        if (!is_app(e) ||
+            is_app_of(e, fid, OP_FPA_NAN) ||
+            is_app_of(e, fid, OP_FPA_PLUS_INF) ||
+            is_app_of(e, fid, OP_FPA_MINUS_INF)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return "";
         }
-        else if (!mpfm.is_regular(val)) {
+        scoped_mpf val(mpfm);
+        app * a = to_app(e);
+        bool r = plugin->is_numeral(e, val);
+        if (!r || !mpfm.is_regular(val)) {
             SET_ERROR_CODE(Z3_INVALID_ARG)
             return "";
         }
@@ -960,16 +968,25 @@ extern "C" {
         ast_manager & m = mk_c(c)->m();
         mpf_manager & mpfm = mk_c(c)->fpautil().fm();
         unsynch_mpz_manager & mpzm = mpfm.mpz_manager();
-        fpa_decl_plugin * plugin = (fpa_decl_plugin*)m.get_plugin(mk_c(c)->get_fpa_fid());
-        scoped_mpf val(mpfm);
-        bool r = plugin->is_numeral(to_expr(t), val);
-        if (!r) {
+        family_id fid = mk_c(c)->get_fpa_fid();
+        fpa_decl_plugin * plugin = (fpa_decl_plugin*)m.get_plugin(fid);
+        SASSERT(plugin != 0);
+        expr * e = to_expr(t);
+        if (!is_app(e) ||
+            is_app_of(e, fid, OP_FPA_NAN) ||
+            is_app_of(e, fid, OP_FPA_PLUS_INF) ||
+            is_app_of(e, fid, OP_FPA_MINUS_INF)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
+            *n = 0;
             return 0;
         }
+        scoped_mpf val(mpfm);
+        app * a = to_app(e);
+        bool r = plugin->is_numeral(e, val);
         const mpz & z = mpfm.sig(val);
-        if (!mpzm.is_uint64(z)) {
+        if (!r || mpfm.is_regular(val)|| !mpzm.is_uint64(z)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
+            *n = 0;
             return 0;
         }
         *n = mpzm.get_uint64(z);
@@ -983,15 +1000,22 @@ extern "C" {
         RESET_ERROR_CODE();
         ast_manager & m = mk_c(c)->m();
         mpf_manager & mpfm = mk_c(c)->fpautil().fm();
+        family_id fid = mk_c(c)->get_fpa_fid();
         fpa_decl_plugin * plugin = (fpa_decl_plugin*)m.get_plugin(mk_c(c)->get_fpa_fid());
-        scoped_mpf val(mpfm);
-        bool r = plugin->is_numeral(to_expr(t), val);
-        if (!r) {
+        SASSERT(plugin != 0);
+        expr * e = to_expr(t);
+        if (!is_app(e) ||
+            is_app_of(e, fid, OP_FPA_NAN) ||
+            is_app_of(e, fid, OP_FPA_PLUS_INF) ||
+            is_app_of(e, fid, OP_FPA_MINUS_INF)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return "";
         }
-        else if (!mpfm.is_normal(val) && !mpfm.is_denormal(val)) {
-            SET_ERROR_CODE(Z3_INVALID_ARG)
+        scoped_mpf val(mpfm);
+        app * a = to_app(e);
+        bool r = plugin->is_numeral(e, val);
+        if (!r || !mpfm.is_regular(val)) {
+            SET_ERROR_CODE(Z3_INVALID_ARG);
             return "";
         }
         mpf_exp_t exp = mpfm.exp_normalized(val);
@@ -1007,11 +1031,24 @@ extern "C" {
         RESET_ERROR_CODE();
         ast_manager & m = mk_c(c)->m();
         mpf_manager & mpfm = mk_c(c)->fpautil().fm();
+        family_id fid = mk_c(c)->get_fpa_fid();
         fpa_decl_plugin * plugin = (fpa_decl_plugin*)m.get_plugin(mk_c(c)->get_fpa_fid());
-        scoped_mpf val(mpfm);
-        bool r = plugin->is_numeral(to_expr(t), val);
-        if (!r) {
+        SASSERT(plugin != 0);
+        expr * e = to_expr(t);
+        if (!is_app(e) ||
+            is_app_of(e, fid, OP_FPA_NAN) ||
+            is_app_of(e, fid, OP_FPA_PLUS_INF) ||
+            is_app_of(e, fid, OP_FPA_MINUS_INF)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
+            *n = 0;
+            return 0;
+        }
+        scoped_mpf val(mpfm);
+        app * a = to_app(e);
+        bool r = plugin->is_numeral(e, val);
+        if (!r || !mpfm.is_regular(val)) {
+            SET_ERROR_CODE(Z3_INVALID_ARG);
+            *n = 0;
             return 0;
         }
         *n = mpfm.exp(val);
