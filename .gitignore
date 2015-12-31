@@ -75,3 +75,10 @@ src/api/ml/z3.mllib
 *.bak
 doc/api
 doc/code
+.idea/
+/CMakeLists.txt
+/cmake/bin/*
+/cmake/lib/*
+/cmake/include-dirs.txt
+/cmake/sources-libz3.txt
+/cmake/sources-z3.txt
