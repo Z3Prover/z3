@@ -32,11 +32,17 @@ Revision History:
 namespace smt {
 
     class theory_seq : public theory {
-        typedef scoped_dependency_manager<enode_pair> enode_pair_dependency_manager;
-        typedef enode_pair_dependency_manager::dependency enode_pair_dependency;
-        
+        struct assumption {
+            enode* n1, *n2;
+            literal lit;
+            assumption(enode* n1, enode* n2): n1(n1), n2(n2), lit(null_literal) {}
+            assumption(literal lit): n1(0), n2(0), lit(lit) {}
+        };
+        typedef scoped_dependency_manager<assumption> dependency_manager;
+        typedef dependency_manager::dependency dependency;        
+
         typedef trail_stack<theory_seq> th_trail_stack;
-        typedef std::pair<expr*, enode_pair_dependency*> expr_dep;
+        typedef std::pair<expr*, dependency*> expr_dep;
         typedef obj_map<expr, expr_dep> eqdep_map_t; 
 
         // cache to track evaluations under equalities
@@ -55,26 +61,26 @@ namespace smt {
         class solution_map {
             enum map_update { INS, DEL };
             ast_manager&                      m;
-            enode_pair_dependency_manager&    m_dm;
+            dependency_manager&    m_dm;
             eqdep_map_t                       m_map;            
             eval_cache                        m_cache;
             expr_ref_vector                   m_lhs, m_rhs;
-            ptr_vector<enode_pair_dependency> m_deps;
+            ptr_vector<dependency> m_deps;
             svector<map_update>               m_updates;
             unsigned_vector                   m_limit;
 
-            void add_trail(map_update op, expr* l, expr* r, enode_pair_dependency* d);
+            void add_trail(map_update op, expr* l, expr* r, dependency* d);
         public:
-            solution_map(ast_manager& m, enode_pair_dependency_manager& dm): 
+            solution_map(ast_manager& m, dependency_manager& dm): 
                 m(m),  m_dm(dm), m_cache(m), m_lhs(m), m_rhs(m) {}
             bool empty() const { return m_map.empty(); }
-            void  update(expr* e, expr* r, enode_pair_dependency* d);
+            void  update(expr* e, expr* r, dependency* d);
             void  add_cache(expr* v, expr_dep& r) { m_cache.insert(v, r); }
             bool  find_cache(expr* v, expr_dep& r) { return m_cache.find(v, r); }
-            expr* find(expr* e, enode_pair_dependency*& d);
+            expr* find(expr* e, dependency*& d);
             expr* find(expr* e);
             bool  is_root(expr* e) const;
-            void  cache(expr* e, expr* r, enode_pair_dependency* d);
+            void  cache(expr* e, expr* r, dependency* d);
             void reset_cache() { m_cache.reset(); }
             void push_scope() { m_limit.push_back(m_updates.size()); }
             void pop_scope(unsigned num_scopes);
@@ -103,8 +109,8 @@ namespace smt {
         struct eq {
             expr_ref               m_lhs;
             expr_ref               m_rhs;
-            enode_pair_dependency* m_dep;
-            eq(expr_ref& l, expr_ref& r, enode_pair_dependency* d):
+            dependency* m_dep;
+            eq(expr_ref& l, expr_ref& r, dependency* d):
                 m_lhs(l), m_rhs(r), m_dep(d) {}
             eq(eq const& other): m_lhs(other.m_lhs), m_rhs(other.m_rhs), m_dep(other.m_dep) {}
             eq& operator=(eq const& other) { m_lhs = other.m_lhs; m_rhs = other.m_rhs; m_dep = other.m_dep; return *this; }
@@ -118,7 +124,7 @@ namespace smt {
             expr_ref_vector        m_lhs;
             expr_ref_vector        m_rhs;
             literal_vector         m_lits;
-            enode_pair_dependency* m_dep;
+            dependency* m_dep;
             ne(expr_ref& l, expr_ref& r):
                 m_solved(false), m_l(l), m_r(r), m_lhs(l.get_manager()), m_rhs(r.get_manager()), m_dep(0) {
                 m_lhs.push_back(l);
@@ -229,10 +235,10 @@ namespace smt {
         };
 
         class push_dep : public trail<theory_seq> {
-            enode_pair_dependency* m_dep;
+            dependency* m_dep;
             unsigned m_idx;
         public:
-            push_dep(theory_seq& th, unsigned idx, enode_pair_dependency* d): m_dep(th.m_nqs[idx].m_dep), m_idx(idx) {
+            push_dep(theory_seq& th, unsigned idx, dependency* d): m_dep(th.m_nqs[idx].m_dep), m_idx(idx) {
                 th.m_nqs.ref(idx).m_dep = d;
             }
             virtual void undo(theory_seq& th) {
@@ -254,7 +260,7 @@ namespace smt {
             unsigned m_solve_eqs;
         };
         ast_manager&                        m;
-        enode_pair_dependency_manager       m_dm;
+        dependency_manager       m_dm;
         solution_map                        m_rep;        // unification representative.
         scoped_vector<eq>                   m_eqs;        // set of current equations.
         scoped_vector<ne>                   m_nqs;        // set of current disequalities.
@@ -317,19 +323,20 @@ namespace smt {
         bool pre_process_eqs(bool simplify_or_solve, bool& propagated);
         bool simplify_eqs(bool& propagated) { return pre_process_eqs(true, propagated); }
         bool solve_basic_eqs(bool& propagated) { return pre_process_eqs(false, propagated); }
-        bool simplify_eq(expr* l, expr* r, enode_pair_dependency* dep, bool& propagated);
-        bool solve_unit_eq(expr* l, expr* r, enode_pair_dependency* dep, bool& propagated);
+        bool simplify_eq(expr* l, expr* r, dependency* dep, bool& propagated);
+        bool solve_unit_eq(expr* l, expr* r, dependency* dep, bool& propagated);
 
         bool solve_nqs();
         bool solve_ne(unsigned i);
         bool unchanged(expr* e, expr_ref_vector& es) const { return es.size() == 1 && es[0] == e; }
 
         // asserting consequences
-        void propagate_lit(enode_pair_dependency* dep, literal lit) { propagate_lit(dep, 0, 0, lit); }
-        void propagate_lit(enode_pair_dependency* dep, unsigned n, literal const* lits, literal lit);
-        void propagate_eq(enode_pair_dependency* dep, enode* n1, enode* n2);
+        void linearize(dependency* dep, enode_pair_vector& eqs, literal_vector& lits) const;
+        void propagate_lit(dependency* dep, literal lit) { propagate_lit(dep, 0, 0, lit); }
+        void propagate_lit(dependency* dep, unsigned n, literal const* lits, literal lit);
+        void propagate_eq(dependency* dep, enode* n1, enode* n2);
         void propagate_eq(bool_var v, expr* e1, expr* e2, bool add_to_eqs = false);
-        void set_conflict(enode_pair_dependency* dep, literal_vector const& lits = literal_vector());
+        void set_conflict(dependency* dep, literal_vector const& lits = literal_vector());
 
         bool find_branch_candidate(expr* l, expr_ref_vector const& rs);
         lbool assume_equality(expr* l, expr* r);
@@ -337,12 +344,12 @@ namespace smt {
         // variable solving utilities
         bool occurs(expr* a, expr* b);
         bool is_var(expr* b);
-        bool add_solution(expr* l, expr* r, enode_pair_dependency* dep);
+        bool add_solution(expr* l, expr* r, dependency* dep);
         bool is_nth(expr* a) const;
         expr_ref mk_nth(expr* s, expr* idx);
-        expr_ref canonize(expr* e, enode_pair_dependency*& eqs);
-        expr_ref expand(expr* e, enode_pair_dependency*& eqs);
-        void add_dependency(enode_pair_dependency*& dep, enode* a, enode* b);
+        expr_ref canonize(expr* e, dependency*& eqs);
+        expr_ref expand(expr* e, dependency*& eqs);
+        void add_dependency(dependency*& dep, enode* a, enode* b);
 
         void get_concat(expr* e, ptr_vector<expr>& concats);
     
@@ -408,6 +415,7 @@ namespace smt {
         bool add_contains2contains(expr* e);
         bool canonizes(bool sign, expr* e);
         void propagate_non_empty(literal lit, expr* s);
+        void propagate_is_conc(expr* e, expr* conc);
         void propagate_acc_rej_length(bool_var v, expr* acc_rej);
         bool propagate_automata();
         void add_atom(expr* e);
@@ -416,7 +424,7 @@ namespace smt {
         void display_equations(std::ostream& out) const;
         void display_disequations(std::ostream& out) const;
         void display_disequation(std::ostream& out, ne const& e) const;
-        void display_deps(std::ostream& out, enode_pair_dependency* deps) const;
+        void display_deps(std::ostream& out, dependency* deps) const;
     public:
         theory_seq(ast_manager& m);
         virtual ~theory_seq();

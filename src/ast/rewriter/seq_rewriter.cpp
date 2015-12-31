@@ -475,6 +475,10 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
     for (; i < as.size() && i < bs.size(); ++i) {
         all_values &= m().is_value(as[i].get()) && m().is_value(bs[i].get());
         if (as[i].get() != bs[i].get()) {
+            if (all_values) {
+                result = m().mk_false();
+                return BR_DONE;
+            }
             break;
         }
     };
@@ -483,10 +487,6 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
         return BR_DONE;
     }
     SASSERT(i < as.size());
-    if (all_values && (i < bs.size() || m_util.str.is_unit(as[i+1].get()))) {
-        result = m().mk_false();
-        return BR_DONE;
-    }
     if (i == bs.size()) {
         expr_ref_vector es(m());
         for (unsigned j = i; j < as.size(); ++j) {
