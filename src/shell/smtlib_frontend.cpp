@@ -33,7 +33,6 @@ Revision History:
 #include"smt_solver.h"
 
 extern bool g_display_statistics;
-extern void display_config();
 static clock_t             g_start_time;
 static smtlib::solver*     g_solver      = 0;
 static cmd_context *       g_cmd_context = 0;
