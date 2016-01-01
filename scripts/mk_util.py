@@ -1048,8 +1048,8 @@ class LibComponent(Component):
         out.write('\n')
         out.write('%s: %s\n\n' % (self.name, libfile))
 
-    def mk_install_dep(self, out):
-        out.write('%s' % libfile)
+    def mk_install_deps(self, out):
+        return
 
     def mk_install(self, out):
         for include in self.includes2install:
@@ -1137,8 +1137,10 @@ class ExeComponent(Component):
     def main_component(self):
         return self.install
 
-    def mk_install_dep(self, out):
-        out.write('%s' % exefile)
+    def mk_install_deps(self, out):
+        if self.install:
+            exefile = '%s$(EXE_EXT)' % self.exe_name
+            out.write('%s' % exefile)
 
     def mk_install(self, out):
         if self.install:
@@ -1294,7 +1296,7 @@ class DLLComponent(Component):
     def require_def_file(self):
         return IS_WINDOWS and self.export_files
 
-    def mk_install_dep(self, out):
+    def mk_install_deps(self, out):
         out.write('%s$(SO_EXT)' % self.dll_name)
         if self.static:
             out.write(' %s$(LIB_EXT)' % self.dll_name)
