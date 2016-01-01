@@ -520,20 +520,10 @@ br_status seq_rewriter::mk_seq_suffix(expr* a, expr* b, expr_ref& result) {
         result = m().mk_eq(m_util.str.mk_empty(m().get_sort(a)), a);
         return BR_REWRITE3;
     }
-    // TBD concatenation is right-associative
-    expr* a1, *a2, *b1, *b2;
-    if (m_util.str.is_concat(a, a1, a2) && 
-        m_util.str.is_concat(b, b1, b2) && a2 == b2) {
-        result = m_util.str.mk_suffix(a1, b1);
-        return BR_REWRITE1;
-    }
-    if (m_util.str.is_concat(b, b1, b2) && b2 == a) {
-        result = m().mk_true();
-        return BR_DONE;
-    }
+
     bool isc1 = false;
     bool isc2 = false;
-    
+    expr* a1, *a2, *b1, *b2;
     if (m_util.str.is_concat(a, a1, a2) && m_util.str.is_string(a2, s1)) {
         isc1 = true;
     }
@@ -592,6 +582,37 @@ br_status seq_rewriter::mk_seq_suffix(expr* a, expr* b, expr_ref& result) {
                 return BR_DONE;
             }            
         }
+    }
+    expr_ref_vector as(m()), bs(m());
+    m_util.str.get_concat(a, as);
+    m_util.str.get_concat(b, bs);
+    bool change = false;
+    while (as.size() > 0 && bs.size() > 0 && as.back() == bs.back()) {
+        as.pop_back();
+        bs.pop_back();
+        change = true;
+    }
+    if (as.size() > 0 && bs.size() > 0 && m().is_value(as.back()) && m().is_value(bs.back())) {
+        result = m().mk_false();
+        return BR_DONE;
+    }
+    if (change) {
+        // suffix("", bs) <- true
+        if (as.empty()) {
+            result = m().mk_true();
+            return BR_DONE;
+        }
+        // suffix(as, "") iff as = ""
+        if (bs.empty()) {            
+            for (unsigned j = 0; j < as.size(); ++j) {
+                bs.push_back(m().mk_eq(m_util.str.mk_empty(m().get_sort(a)), as[j].get()));
+            }
+            result = mk_and(bs);
+            return BR_REWRITE3;
+        }
+        result = m_util.str.mk_suffix(m_util.str.mk_concat(as.size(), as.c_ptr()),
+                                     m_util.str.mk_concat(bs.size(), bs.c_ptr()));
+        return BR_DONE;
     }
 
     return BR_FAILED;

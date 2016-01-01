@@ -246,6 +246,30 @@ namespace smt {
             }
         };
 
+        class apply {
+        public:
+            virtual ~apply() {}
+            virtual void operator()(theory_seq& th) = 0;
+        };
+
+        class replay_length_coherence : public apply {
+            expr_ref m_e;
+        public:
+            replay_length_coherence(ast_manager& m, expr* e) : m_e(e, m) {}
+            virtual void operator()(theory_seq& th) {
+                th.propagate_length_coherence(m_e);
+            }
+        };
+
+        class push_replay : public trail<theory_seq> {
+            apply* m_apply;
+        public:
+            push_replay(apply* app): m_apply(app) {}
+            virtual void undo(theory_seq& th) {
+                th.m_replay.push_back(m_apply);
+            }
+        };
+
         void erase_index(unsigned idx, unsigned i);
 
         struct stats {
@@ -273,6 +297,7 @@ namespace smt {
         unsigned        m_branch_variable_head;  // index of first equation to examine.
         bool            m_incomplete;            // is the solver (clearly) incomplete for the fragment.
         obj_hashtable<expr> m_length;            // is length applied
+        scoped_ptr_vector<apply> m_replay;       // set of actions to replay
         model_generator* m_mg;
         th_rewriter     m_rewrite;
         seq_util        m_util;
@@ -410,8 +435,8 @@ namespace smt {
         bool is_step(expr* e) const;
         void propagate_step(literal lit, expr* n);
         bool add_reject2reject(expr* rej);
-        void add_accept2step(expr* acc);       
-        void add_step2accept(expr* step);
+        bool add_accept2step(expr* acc);       
+        bool add_step2accept(expr* step);
         bool add_prefix2prefix(expr* e);
         bool add_suffix2suffix(expr* e);
         bool add_contains2contains(expr* e);

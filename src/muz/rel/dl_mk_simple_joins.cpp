@@ -273,6 +273,7 @@ namespace datalog {
             */
         void register_pair(app * t1, app * t2, rule * r, const var_idx_set & non_local_vars) {
             SASSERT(t1!=t2);
+            std::cout << "insert: " << mk_pp(t1, m) << " - " << mk_pp(t2, m) << "\n";
             cost_map::entry * e = m_costs.insert_if_not_there2(get_key(t1, t2), 0);
             pair_info * & ptr_inf = e->get_data().m_value;
             if (ptr_inf==0) {
@@ -306,6 +307,7 @@ namespace datalog {
         }
 
         void remove_rule_from_pair(app_pair key, rule * r, unsigned original_len) {
+            std::cout << "remove: " << mk_pp(key.first, m) << " - " << mk_pp(key.second, m) << "\n";
             pair_info * ptr = &get_pair(key);
             if (ptr->remove_rule(r, original_len)) {
                 SASSERT(ptr->m_rules.empty());

@@ -25,7 +25,6 @@ Revision History:
 zstring::zstring(encoding enc): m_encoding(enc) {}
 
 zstring::zstring(char const* s, encoding enc): m_encoding(enc) {
-    // TBD: epply decoding
     while (*s) {
         m_buffer.push_back(*s);
         ++s;
@@ -81,6 +80,7 @@ zstring zstring::replace(zstring const& src, zstring const& dst) const {
     return result;
 }
 
+// TBD: SMT-LIB 2.5 strings don't have escape characters other than "
 static char* esc_table[32] = { "\\0", "^A", "^B", "^C", "^D", "^E", "^F", "\\a", "\\b", "\\t", "\\n", "\\v", "\\f", "\\r", "^N",
                                "^O", "^P", "^Q", "^R", "^S", "^T", "^U", "^V","^W","^X","^Y","^Z","\\e","^\\","^]","^^","^_"};
  
