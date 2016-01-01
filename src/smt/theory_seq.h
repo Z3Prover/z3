@@ -335,7 +335,7 @@ namespace smt {
         void propagate_lit(dependency* dep, literal lit) { propagate_lit(dep, 0, 0, lit); }
         void propagate_lit(dependency* dep, unsigned n, literal const* lits, literal lit);
         void propagate_eq(dependency* dep, enode* n1, enode* n2);
-        void propagate_eq(bool_var v, expr* e1, expr* e2, bool add_to_eqs = false);
+        void propagate_eq(literal lit, expr* e1, expr* e2, bool add_to_eqs = false);
         void set_conflict(dependency* dep, literal_vector const& lits = literal_vector());
 
         bool find_branch_candidate(expr* l, expr_ref_vector const& rs);
@@ -347,6 +347,7 @@ namespace smt {
         bool add_solution(expr* l, expr* r, dependency* dep);
         bool is_nth(expr* a) const;
         expr_ref mk_nth(expr* s, expr* idx);
+        expr_ref mk_last(expr* e);
         expr_ref canonize(expr* e, dependency*& eqs);
         expr_ref expand(expr* e, dependency*& eqs);
         void add_dependency(dependency*& dep, enode* a, enode* b);
@@ -365,6 +366,7 @@ namespace smt {
         bool has_length(expr *e) const { return m_length.contains(e); }
         void add_length(expr* e);
         void enforce_length(enode* n);
+        void enforce_length_coherence(enode* n1, enode* n2);
 
         void add_elim_string_axiom(expr* n);
         void add_at_axiom(expr* n);
@@ -406,19 +408,21 @@ namespace smt {
         expr_ref mk_step(expr* s, expr* tail, expr* re, unsigned i, unsigned j, expr* t);
         bool is_step(expr* e, expr*& s, expr*& tail, expr*& re, expr*& i, expr*& j, expr*& t) const;
         bool is_step(expr* e) const;
-        void propagate_step(bool_var v, expr* n);
-        void add_reject2reject(expr* rej);
+        void propagate_step(literal lit, expr* n);
+        bool add_reject2reject(expr* rej);
         void add_accept2step(expr* acc);       
         void add_step2accept(expr* step);
         bool add_prefix2prefix(expr* e);
         bool add_suffix2suffix(expr* e);
         bool add_contains2contains(expr* e);
+        void ensure_nth(literal lit, expr* s, expr* idx);
         bool canonizes(bool sign, expr* e);
         void propagate_non_empty(literal lit, expr* s);
         void propagate_is_conc(expr* e, expr* conc);
-        void propagate_acc_rej_length(bool_var v, expr* acc_rej);
+        void propagate_acc_rej_length(literal lit, expr* acc_rej);
         bool propagate_automata();
         void add_atom(expr* e);
+        void new_eq_eh(dependency* dep, enode* n1, enode* n2);
 
         // diagnostics
         void display_equations(std::ostream& out) const;
