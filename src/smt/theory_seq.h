@@ -73,7 +73,7 @@ namespace smt {
         public:
             solution_map(ast_manager& m, dependency_manager& dm): 
                 m(m),  m_dm(dm), m_cache(m), m_lhs(m), m_rhs(m) {}
-            bool empty() const { return m_map.empty(); }
+            bool  empty() const { return m_map.empty(); }
             void  update(expr* e, expr* r, dependency* d);
             void  add_cache(expr* v, expr_dep& r) { m_cache.insert(v, r); }
             bool  find_cache(expr* v, expr_dep& r) { return m_cache.find(v, r); }
@@ -81,10 +81,10 @@ namespace smt {
             expr* find(expr* e);
             bool  is_root(expr* e) const;
             void  cache(expr* e, expr* r, dependency* d);
-            void reset_cache() { m_cache.reset(); }
-            void push_scope() { m_limit.push_back(m_updates.size()); }
-            void pop_scope(unsigned num_scopes);
-            void display(std::ostream& out) const;
+            void  reset_cache() { m_cache.reset(); }
+            void  push_scope() { m_limit.push_back(m_updates.size()); }
+            void  pop_scope(unsigned num_scopes);
+            void  display(std::ostream& out) const;
         };
 
         // Table of current disequalities
@@ -109,7 +109,7 @@ namespace smt {
         struct eq {
             expr_ref               m_lhs;
             expr_ref               m_rhs;
-            dependency* m_dep;
+            dependency*            m_dep;
             eq(expr_ref& l, expr_ref& r, dependency* d):
                 m_lhs(l), m_rhs(r), m_dep(d) {}
             eq(eq const& other): m_lhs(other.m_lhs), m_rhs(other.m_rhs), m_dep(other.m_dep) {}
@@ -283,37 +283,42 @@ namespace smt {
             unsigned m_solve_nqs;
             unsigned m_solve_eqs;
         };
-        ast_manager&                        m;
-        dependency_manager       m_dm;
-        solution_map                        m_rep;        // unification representative.
-        scoped_vector<eq>                   m_eqs;        // set of current equations.
-        scoped_vector<ne>                   m_nqs;        // set of current disequalities.
+        ast_manager&               m;
+        dependency_manager         m_dm;
+        solution_map               m_rep;        // unification representative.
+        scoped_vector<eq>          m_eqs;        // set of current equations.
+        scoped_vector<ne>          m_nqs;        // set of current disequalities.
 
-        seq_factory*    m_factory;               // value factory
-        exclusion_table m_exclude;               // set of asserted disequalities.
-        expr_ref_vector m_axioms;                // list of axioms to add.
-        obj_hashtable<expr> m_axiom_set;
-        unsigned        m_axioms_head;           // index of first axiom to add.
-        unsigned        m_branch_variable_head;  // index of first equation to examine.
-        bool            m_incomplete;            // is the solver (clearly) incomplete for the fragment.
-        obj_hashtable<expr> m_length;            // is length applied
-        scoped_ptr_vector<apply> m_replay;       // set of actions to replay
+        seq_factory*               m_factory;    // value factory
+        exclusion_table            m_exclude;    // set of asserted disequalities.
+        expr_ref_vector            m_axioms;     // list of axioms to add.
+        obj_hashtable<expr>        m_axiom_set;
+        unsigned                   m_axioms_head; // index of first axiom to add.
+        unsigned        m_branch_variable_head;   // index of first equation to examine.
+        bool            m_incomplete;             // is the solver (clearly) incomplete for the fragment.
+        obj_hashtable<expr> m_length;             // is length applied
+        scoped_ptr_vector<apply> m_replay;        // set of actions to replay
         model_generator* m_mg;
-        th_rewriter     m_rewrite;
-        seq_util        m_util;
-        arith_util      m_autil;
-        th_trail_stack  m_trail_stack;
-        stats           m_stats;
-        symbol          m_prefix, m_suffix, m_contains_left, m_contains_right, m_accept, m_reject;
-        symbol          m_tail, m_nth, m_seq_first, m_seq_last, m_indexof_left, m_indexof_right, m_aut_step;
-        symbol          m_extract_prefix, m_at_left, m_at_right;
+        th_rewriter      m_rewrite;
+        seq_util         m_util;
+        arith_util       m_autil;
+        th_trail_stack   m_trail_stack;
+        stats            m_stats;
+        symbol           m_prefix, m_suffix, m_contains_left, m_contains_right, m_accept, m_reject;
+        symbol           m_tail, m_nth, m_seq_first, m_seq_last, m_indexof_left, m_indexof_right, m_aut_step;
+        symbol           m_extract_prefix, m_at_left, m_at_right;
         ptr_vector<expr> m_todo;
 
         // maintain automata with regular expressions.
         scoped_ptr_vector<eautomaton>  m_automata;
         obj_map<expr, eautomaton*>     m_re2aut;
+
+        // queue of asserted atoms
         ptr_vector<expr>               m_atoms;
+        unsigned_vector                m_atoms_lim;
         unsigned                       m_atoms_qhead;
+        bool                           m_new_solution;     // new solution added
+        bool                           m_new_propagation;  // new propagation to core
 
         virtual final_check_status final_check_eh();
         virtual bool internalize_atom(app* atom, bool) { return internalize_term(atom); }
@@ -345,15 +350,21 @@ namespace smt {
         bool check_length_coherence();
         bool propagate_length_coherence(expr* e);  
 
-        bool pre_process_eqs(bool simplify_or_solve, bool& propagated);
-        bool simplify_eqs(bool& propagated) { return pre_process_eqs(true, propagated); }
-        bool solve_basic_eqs(bool& propagated) { return pre_process_eqs(false, propagated); }
-        bool simplify_eq(expr* l, expr* r, dependency* dep, bool& propagated);
-        bool solve_unit_eq(expr* l, expr* r, dependency* dep, bool& propagated);
+        bool solve_eqs(unsigned start);
+        bool solve_eq(expr* l, expr* r, dependency* dep);
+        bool simplify_eq(expr* l, expr* r, dependency* dep);
+        bool solve_unit_eq(expr* l, expr* r, dependency* dep);
+        bool is_binary_eq(expr* l, expr* r, expr*& x, ptr_vector<expr>& xunits, ptr_vector<expr>& yunits, expr*& y);
+        bool solve_binary_eq(expr* l, expr* r, dependency* dep);
 
         bool solve_nqs();
         bool solve_ne(unsigned i);
         bool unchanged(expr* e, expr_ref_vector& es) const { return es.size() == 1 && es[0] == e; }
+        bool unchanged(expr* e, expr_ref_vector& es, expr* f, expr_ref_vector& fs) const { 
+            return 
+                (unchanged(e, es) && unchanged(f, fs)) ||
+                (unchanged(e, fs) && unchanged(e, fs));
+        }
 
         // asserting consequences
         void linearize(dependency* dep, enode_pair_vector& eqs, literal_vector& lits) const;
@@ -363,7 +374,7 @@ namespace smt {
         void propagate_eq(literal lit, expr* e1, expr* e2, bool add_to_eqs = false);
         void set_conflict(dependency* dep, literal_vector const& lits = literal_vector());
 
-        bool find_branch_candidate(expr* l, expr_ref_vector const& rs);
+        bool find_branch_candidate(dependency* dep, expr* l, expr_ref_vector const& rs);
         lbool assume_equality(expr* l, expr* r);
 
         // variable solving utilities
