@@ -3251,7 +3251,7 @@ extern "C" {
 
        def_API('Z3_mk_seq_replace' ,AST ,(_in(CONTEXT), _in(AST), _in(AST), _in(AST)))
      */
-    Z3_ast Z3_API Z3_mk_seq_replace(Z3_context c, Z3_ast src, Z3_ast dst, Z3_ast s);
+    Z3_ast Z3_API Z3_mk_seq_replace(Z3_context c, Z3_ast s, Z3_ast src, Z3_ast dst);
 
     /**
        \brief Retrieve from \s the unit sequence positioned at position \c index.

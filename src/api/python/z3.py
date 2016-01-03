@@ -8959,11 +8959,8 @@ class SeqRef(ExprRef):
     def sort(self):
 	return SeqSortRef(Z3_get_sort(self.ctx_ref(), self.as_ast()), self.ctx)
 
-    def __add__(self, other):	
-	v = (Ast * 2)()
-	v[0] = self.as_ast()
-	v[1] = other.as_ast()
-	return SeqRef(Z3_mk_seq_concat(self.ctx_ref(), 2, v), self.ctx)
+    def __add__(self, other):
+	return Concat(self, other)
 
     def __getitem__(self, i):
 	return SeqRef(Z3_mk_seq_at(self.ctx_ref(), self.as_ast(), i.as_ast()), self.ctx)
@@ -8985,23 +8982,36 @@ def _coerce_seq(s, ctx=None):
 	s = String(s, ctx)
     return s
 
-def _get_ctx2(a, b):
+def _get_ctx2(a, b, ctx=None):
     if is_expr(a):
 	return a.ctx
     if is_expr(b):
 	return b.ctx
-    return None
+    return ctx
 
 def is_seq(a):
-    """Return `True` if `a` is a Z3 sequence expression."""
+    """Return `True` if `a` is a Z3 sequence expression.
+    >>> print (is_seq(Unit(IntVal(0))))
+    True
+    >>> print (is_seq(String("abc")))
+    True
+    """
     return isinstance(a, SeqRef)
 
 def is_string_sort(a):
-    """Return `True` if `a` is a Z3 string expression."""
+    """Return `True` if `a` is a Z3 string expression.
+    >>> print (is_string_sort(String("ab")))
+    True
+    """
     return isinstance(a, SeqRef) and a.is_string_sort()
 
 def is_string_value(a):
-    """return 'True' if 'a' is a Z3 string constant expression."""
+    """return 'True' if 'a' is a Z3 string constant expression.
+    >>> print (is_string_value(String("a")))
+    True
+    >>> print (is_string_value(String("a") + String("b")))
+    False
+    """
     return isinstance(a, SeqRef) and a.is_string_value()
 
 def String(s, ctx=None):
@@ -9028,21 +9038,42 @@ def Unit(a):
     return SeqRef(Z3_mk_seq_unit(a.ctx_ref(), a.as_ast()), a.ctx)
 
 def PrefixOf(a, b):
-    """Check if 'a' is a prefix of 'b'"""
+    """Check if 'a' is a prefix of 'b'
+    >>> s1 = PrefixOf("ab", "abc")
+    >>> print (simplify(s1))
+    True
+    >>> s2 = PrefixOf("bc", "abc")
+    >>> print (simplify(s2))
+    False
+    """
     ctx = _get_ctx2(a, b)
     a = _coerce_seq(a, ctx)
     b = _coerce_seq(b, ctx)
     return BoolRef(Z3_mk_seq_prefix(a.ctx_ref(), a.as_ast(), b.as_ast()), a.ctx)
 
 def SuffixOf(a, b):
-    """Check if 'a' is a suffix of 'b'"""
+    """Check if 'a' is a suffix of 'b'
+    >>> s1 = SuffixOf("ab", "abc")
+    >>> print (simplify(s1))
+    False
+    >>> s2 = SuffixOf("bc", "abc")
+    >>> print (simplify(s2))
+    True
+    """
     ctx = _get_ctx2(a, b)
     a = _coerce_seq(a, ctx)
     b = _coerce_seq(b, ctx)    
     return BoolRef(Z3_mk_seq_suffix(a.ctx_ref(), a.as_ast(), b.as_ast()), a.ctx)
 
 def Contains(a, b):
-    """Check if 'a' contains 'b'"""
+    """Check if 'a' contains 'b'
+    >>> s1 = Contains("abc", "ab")
+    >>> print (simplify(s1))
+    True
+    >>> s2 = SuffixOf("abc", "bc")
+    >>> print (simplify(s2))
+    True
+    """
     ctx = _get_ctx2(a, b)
     a = _coerce_seq(a, ctx)
     b = _coerce_seq(b, ctx)    
@@ -9052,20 +9083,34 @@ def Contains(a, b):
 #    """Extract a sequence at offset with indicated length"""
 #    return SeqRef(Z3_mk_seq_extract(a.ctx_ref(), a.as_ast(), offset.as_ast()), length.ctx)
 
-def Replace(src, dst, s):
-    """Replace the first occurrence of 'src' by 'dst' in 's'"""
-    ctx = _get_ctx2(src, _get_ctx2(dst, s))
+def Replace(s, src, dst):
+    """Replace the first occurrence of 'src' by 'dst' in 's'
+    >>> r = Replace("aaa", "a", "b")
+    >>> print (simplify(r))
+    "baa"
+    """
+    ctx = _get_ctx2(dst, s)
+    if ctx is None and is_expr(src):
+	ctx = src.ctx
     src = _coerce_seq(src, ctx)
     dst = _coerce_seq(dst, ctx)
     s   = _coerce_seq(s, ctx)
-    return SeqRef(Z3_mk_seq_replace(src.ctx_ref(), src.as_ast(), dst.as_ast()), s.ctx)
+    return SeqRef(Z3_mk_seq_replace(src.ctx_ref(), s.as_ast(), src.as_ast(), dst.as_ast()), s.ctx)
 
 def Length(s):
-    """Obtain the length of a sequence 's'"""
-    return ArithRef(Z3_mk_seq_length(s.ctx_ref(), s.as_ast(), s.ctx))
+    """Obtain the length of a sequence 's'
+    >>> l = Length(String("abc"))
+    >>> print (simplify(l))
+    3
+    """
+    return ArithRef(Z3_mk_seq_length(s.ctx_ref(), s.as_ast()), s.ctx)
 
 def Re(s, ctx=None):
-    """The regular expression that accepts sequence 's'"""
+    """The regular expression that accepts sequence 's'
+    >>> s1 = Re("ab")
+    >>> s2 = Re(String("ab"))
+    >>> s3 = Re(Unit(BoolVal(True)))
+    """
     s = _coerce_seq(s, ctx)
     return ReRef(Z3_mk_seq_to_re(s.ctx_ref(), s.as_ast()), s.ctx)
 
@@ -9090,19 +9135,44 @@ def ReSort(s):
 class ReRef(ExprRef):
     """Regular expressions."""
 
-    def __add__(self, other):	
-	v = (Ast * 2)()
-	v[0] = self.as_ast()
-	v[1] = other.as_ast()
-	return SeqRef(Z3_mk_re_union(self.ctx_ref(), 2, v), self.ctx)
+    def __add__(self, other):
+	return Union(self, other)
 
 
 def is_re(s):
     return isinstance(s, ReRef)
 
+
 def InRe(s, re):
+    """Create regular expression membership test
+    >>> re = Union(Re("a"),Re("b"))
+    >>> print (simplify(InRe("a", re)))
+    True
+    >>> print (simplify(InRe("b", re)))
+    True
+    >>> print (simplify(InRe("c", re)))
+    False
+    """
     s = _coerce_seq(s, re.ctx)
     return BoolRef(Z3_mk_seq_in_re(s.ctx_ref(), s.as_ast(), re.as_ast()), s.ctx)
+
+def Union(*args):
+    """Create union of regular expressions.
+    >>> re = Union(Re("a"), Re("b"), Re("c"))
+    >>> print (simplify(InRe("d", re)))
+    False
+    """    
+    args = _get_args(args)
+    sz = len(args)
+    if __debug__:
+        _z3_assert(sz >= 2, "At least two arguments expected.")
+	_z3_assert(all([is_re(a) for a in args]), "All arguments must be regular expressions.")
+    ctx = args[0].ctx    
+    v = (Ast * sz)()
+    for i in range(sz):
+	v[i] = args[i].as_ast()
+    return ReRef(Z3_mk_re_union(ctx.ref(), sz, v), ctx)
+	
 
 def Plus(re):
     """Create the regular expression accepting one or more repetitions of argument.
@@ -9117,6 +9187,15 @@ def Plus(re):
     return ReRef(Z3_mk_re_plus(re.ctx_ref(), re.as_ast()), re.ctx)
 
 def Option(re):
+    """Create the regular expression that optionally accepts the argument.
+    >>> re = Option(Re("a"))
+    >>> print(simplify(InRe("a", re)))
+    True
+    >>> print(simplify(InRe("", re)))
+    True
+    >>> print(simplify(InRe("aa", re)))
+    False
+    """
     return ReRef(Z3_mk_re_option(re.ctx_ref(), re.as_ast()), re.ctx)
 
 def Star(re):

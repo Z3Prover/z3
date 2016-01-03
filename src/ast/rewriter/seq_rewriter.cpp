@@ -822,7 +822,8 @@ br_status seq_rewriter::mk_re_plus(expr* a, expr_ref& result) {
 br_status seq_rewriter::mk_re_opt(expr* a, expr_ref& result) {
     sort* s;
     VERIFY(m_util.is_re(a, s));
-    result = m_util.re.mk_union(m_util.re.mk_to_re(m_util.str.mk_empty(s)), a);
+    sort_ref seq(m_util.str.mk_seq(s), m());
+    result = m_util.re.mk_union(m_util.re.mk_to_re(m_util.str.mk_empty(seq)), a);
     return BR_REWRITE1;
 }
 
