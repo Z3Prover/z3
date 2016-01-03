@@ -930,6 +930,10 @@ def _to_expr_ref(a, ctx):
             return FiniteDomainRef(a, ctx)
     if sk == Z3_ROUNDING_MODE_SORT:
         return FPRMRef(a, ctx)
+    if sk == Z3_SEQ_SORT:
+	return SeqRef(a, ctx)
+    if sk == Z3_RE_SORT:
+	return ReRef(a, ctx)
     return ExprRef(a, ctx)
 
 def _coerce_expr_merge(s, a):
@@ -3562,12 +3566,32 @@ def Concat(*args):
     121
     """
     args = _get_args(args)
+    sz = len(args)
+    if __debug__:
+        _z3_assert(sz >= 2, "At least two arguments expected.")
+
+    ctx = args[0].ctx
+    
+    if is_seq(args[0]):
+	if __debug__:
+	    _z3_assert(all([is_seq(a) for a in args]), "All arguments must be sequence expressions.")
+	v = (Ast * sz)()
+        for i in range(sz):
+            v[i] = args[i].as_ast()
+	return SeqRef(Z3_mk_seq_concat(ctx.ref(), sz, v), ctx)
+
+    if is_re(args[0]):
+	if __debug__:
+	    _z3_assert(all([is_re(a) for a in args]), "All arguments must be regular expressions.")
+	v = (Ast * sz)()
+        for i in range(sz):
+            v[i] = args[i].as_ast()
+        return ReRef(Z3_mk_re_concat(ctx.ref(), sz, v), ctx)
+	
     if __debug__:
         _z3_assert(all([is_bv(a) for a in args]), "All arguments must be Z3 bit-vector expressions.")
-        _z3_assert(len(args) >= 2, "At least two arguments expected.")
-    ctx = args[0].ctx
-    r   = args[0]
-    for i in range(len(args) - 1):
+    r   = args[0]	
+    for i in range(sz - 1):
         r = BitVecRef(Z3_mk_concat(ctx.ref(), r.as_ast(), args[i+1].as_ast()), ctx)
     return r
 
@@ -7781,7 +7805,7 @@ def binary_interpolant(a,b,p=None,ctx=None):
     solver that determines satisfiability.
 
     x = Int('x')
-    print binary_interpolant(x<0,x>2)
+    print(binary_interpolant(x<0,x>2))
     Not(x >= 0)
     """
     f = And(Interpolant(a),b)
@@ -7820,6 +7844,7 @@ def sequence_interpolant(v,p=None,ctx=None):
     for i in range(1,len(v)):
         f = And(Interpolant(f),v[i])
     return tree_interpolant(f,p,ctx)
+
 
 #########################################
 #
@@ -8887,3 +8912,220 @@ def fpToIEEEBV(x):
     if __debug__:
         _z3_assert(is_fp(x), "First argument must be a Z3 floating-point expression")
     return BitVecRef(Z3_mk_fpa_to_ieee_bv(x.ctx_ref(), x.ast), x.ctx)
+
+
+
+#########################################
+#
+# Strings, Sequences and Regular expressions
+#
+#########################################
+
+class SeqSortRef(SortRef):
+    """Sequence sort."""
+
+    def is_string(self):
+	"""Determine if sort is a string
+	>>> s = StringSort()
+	>>> s.is_string()
+	True
+	>>> s = SeqSort(IntSort())
+	>>> s.is_string()
+	False
+	"""
+	return Z3_is_string_sort(self.ctx_ref(), self.ast)
+    
+def StringSort(ctx=None):
+    """Create a string sort
+    >>> s = StringSort()
+    >>> print(s)
+    String
+    """
+    ctx = _get_ctx(ctx)
+    return SeqSortRef(Z3_mk_string_sort(ctx.ref()), ctx)
+
+
+def SeqSort(s):
+    """Create a sequence sort over elements provided in the argument
+    >>> s = SeqSort(IntSort())
+    >>> s == Unit(IntVal(1)).sort()
+    True
+    """
+    return SeqSortRef(Z3_mk_seq_sort(s.ctx_ref(), s.ast), s.ctx)
+
+class SeqRef(ExprRef):
+    """Sequence expression."""
+
+    def sort(self):
+	return SeqSortRef(Z3_get_sort(self.ctx_ref(), self.as_ast()), self.ctx)
+
+    def __add__(self, other):	
+	v = (Ast * 2)()
+	v[0] = self.as_ast()
+	v[1] = other.as_ast()
+	return SeqRef(Z3_mk_seq_concat(self.ctx_ref(), 2, v), self.ctx)
+
+    def __getitem__(self, i):
+	return SeqRef(Z3_mk_seq_at(self.ctx_ref(), self.as_ast(), i.as_ast()), self.ctx)
+	
+    def is_string_sort(self):
+	return Z3_is_string_sort(self.ctx_ref(), Z3_get_sort(self.ctx_ref(), self.as_ast()))
+
+    def is_string_value(self):
+	return Z3_is_string(self.ctx_ref(), self.as_ast())
+
+    def as_string(self):
+        """Return a string representation of sequence expression."""
+        return Z3_ast_to_string(self.ctx_ref(), self.as_ast())    
+
+
+def _coerce_seq(s, ctx=None):
+    if isinstance(s, str):
+	ctx = _get_ctx(ctx)
+	s = String(s, ctx)
+    return s
+
+def _get_ctx2(a, b):
+    if is_expr(a):
+	return a.ctx
+    if is_expr(b):
+	return b.ctx
+    return None
+
+def is_seq(a):
+    """Return `True` if `a` is a Z3 sequence expression."""
+    return isinstance(a, SeqRef)
+
+def is_string_sort(a):
+    """Return `True` if `a` is a Z3 string expression."""
+    return isinstance(a, SeqRef) and a.is_string_sort()
+
+def is_string_value(a):
+    """return 'True' if 'a' is a Z3 string constant expression."""
+    return isinstance(a, SeqRef) and a.is_string_value()
+
+def String(s, ctx=None):
+    """create a string expression"""
+    ctx = _get_ctx(ctx)
+    return SeqRef(Z3_mk_string(ctx.ref(), s), ctx)
+
+def Empty(s):
+    """Create the empty sequence of the given sort
+    >>> e = Empty(StringSort())
+    >>> print(e)
+    ""
+    >>> e2 = String("")
+    >>> print(e == e2)
+    True
+    >>> e3 = Empty(SeqSort(IntSort()))
+    >>> print(e3)
+    """
+    return SeqRef(Z3_mk_seq_empty(s.ctx_ref(), s.as_ast()), s.ctx)
+
+def Unit(a):
+    """Create a singleton sequence"""
+    return SeqRef(Z3_mk_seq_unit(a.ctx_ref(), a.as_ast()), a.ctx)
+
+def PrefixOf(a, b):
+    """Check if 'a' is a prefix of 'b'"""
+    ctx = _get_ctx2(a, b)
+    a = _coerce_seq(a, ctx)
+    b = _coerce_seq(b, ctx)
+    return BoolRef(Z3_mk_seq_prefix(a.ctx_ref(), a.as_ast(), b.as_ast()), a.ctx)
+
+def SuffixOf(a, b):
+    """Check if 'a' is a suffix of 'b'"""
+    ctx = _get_ctx2(a, b)
+    a = _coerce_seq(a, ctx)
+    b = _coerce_seq(b, ctx)    
+    return BoolRef(Z3_mk_seq_suffix(a.ctx_ref(), a.as_ast(), b.as_ast()), a.ctx)
+
+def Contains(a, b):
+    """Check if 'a' contains 'b'"""
+    ctx = _get_ctx2(a, b)
+    a = _coerce_seq(a, ctx)
+    b = _coerce_seq(b, ctx)    
+    return BoolRef(Z3_mk_seq_contains(a.ctx_ref(), a.as_ast(), b.as_ast()), a.ctx)
+
+#def Extract(a, offset, length):
+#    """Extract a sequence at offset with indicated length"""
+#    return SeqRef(Z3_mk_seq_extract(a.ctx_ref(), a.as_ast(), offset.as_ast()), length.ctx)
+
+def Replace(src, dst, s):
+    """Replace the first occurrence of 'src' by 'dst' in 's'"""
+    ctx = _get_ctx2(src, _get_ctx2(dst, s))
+    src = _coerce_seq(src, ctx)
+    dst = _coerce_seq(dst, ctx)
+    s   = _coerce_seq(s, ctx)
+    return SeqRef(Z3_mk_seq_replace(src.ctx_ref(), src.as_ast(), dst.as_ast()), s.ctx)
+
+def Length(s):
+    """Obtain the length of a sequence 's'"""
+    return ArithRef(Z3_mk_seq_length(s.ctx_ref(), s.as_ast(), s.ctx))
+
+def Re(s, ctx=None):
+    """The regular expression that accepts sequence 's'"""
+    s = _coerce_seq(s, ctx)
+    return ReRef(Z3_mk_seq_to_re(s.ctx_ref(), s.as_ast()), s.ctx)
+
+
+
+
+## Regular expressions
+
+class ReSortRef(SortRef):
+    """Regular expression sort."""
+
+
+def ReSort(s):
+    if is_ast(s):
+	return ReSortRef(Z3_mk_re_sort(s.ctx.ref(), s.as_ast()), ctx)
+    if s is None or isinstance(s, Context):
+	ctx = _get_ctx(s)
+	return ReSortRef(Z3_mk_re_sort(ctx.ref(), Z3_mk_string_sort(ctx.ref())), ctx)
+    raise Z3Exception("Regular expression sort constructor expects either a string or a context or no argument")
+
+
+class ReRef(ExprRef):
+    """Regular expressions."""
+
+    def __add__(self, other):	
+	v = (Ast * 2)()
+	v[0] = self.as_ast()
+	v[1] = other.as_ast()
+	return SeqRef(Z3_mk_re_union(self.ctx_ref(), 2, v), self.ctx)
+
+
+def is_re(s):
+    return isinstance(s, ReRef)
+
+def InRe(s, re):
+    s = _coerce_seq(s, re.ctx)
+    return BoolRef(Z3_mk_seq_in_re(s.ctx_ref(), s.as_ast(), re.as_ast()), s.ctx)
+
+def Plus(re):
+    """Create the regular expression accepting one or more repetitions of argument.
+    >>> re = Plus(Re("a"))
+    >>> print(simplify(InRe("aa", re)))
+    True
+    >>> print(simplify(InRe("ab", re)))
+    False
+    >>> print(simplify(InRe("", re)))
+    False
+    """    
+    return ReRef(Z3_mk_re_plus(re.ctx_ref(), re.as_ast()), re.ctx)
+
+def Option(re):
+    return ReRef(Z3_mk_re_option(re.ctx_ref(), re.as_ast()), re.ctx)
+
+def Star(re):
+    """Create the regular expression accepting zero or more repetitions of argument.
+    >>> re = Star(Re("a"))
+    >>> print(simplify(InRe("aa", re)))
+    True
+    >>> print(simplify(InRe("ab", re)))
+    False
+    >>> print(simplify(InRe("", re)))
+    True
+    """    
+    return ReRef(Z3_mk_re_star(re.ctx_ref(), re.as_ast()), re.ctx)

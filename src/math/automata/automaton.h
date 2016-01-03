@@ -292,6 +292,8 @@ public:
     // Generalized: 
     // Src - E -> dst - t -> dst1 => Src - t -> dst1   if dst is final => each Src is final
     //
+    // src - e -> dst - ET -> dst1 => src - ET - dst1  if in_degree(dst) = 1, src != dst
+    // 
     void compress() {
         for (unsigned i = 0; i < m_delta.size(); ++i) {
             for (unsigned j = 0; j < m_delta[i].size(); ++j) {
@@ -325,6 +327,17 @@ public:
                         }
                         add(move(m, src, dst1, t));
                         remove(dst, dst1, t);
+                    }
+                    else if (1 == in_degree(dst) && (!is_final_state(dst) || is_final_state(src)) && init() != dst) {
+                        moves const& mvs = m_delta[dst];
+                        moves mvs1;
+                        for (unsigned k = 0; k < mvs.size(); ++k) {
+                            mvs1.push_back(move(m, src, mvs[k].dst(), mvs[k].t()));
+                        }
+                        for (unsigned k = 0; k < mvs1.size(); ++k) {
+                            remove(dst, mvs1[k].dst(), mvs1[k].t());
+                            add(mvs1[k]);
+                        }
                     }
                     else if (false && 1 == out_degree(dst) && all_epsilon_in(dst) && init() != dst && !is_final_state(dst)) {
                         move const& mv = m_delta[dst][0];
@@ -364,7 +377,7 @@ public:
             }
         }
     }
-    
+
     bool is_sequence(unsigned& length) const {
         if (is_final_state(m_init) && (out_degree(m_init) == 0 || (out_degree(m_init) == 1 && is_loop_state(m_init)))) {
             length = 0;
@@ -465,6 +478,14 @@ public:
         return out;
     }
 private:
+
+    void remove_dead_states() {
+        unsigned_vector remap;
+        for (unsigned i = 0; i < m_delta.size(); ++i) {
+
+        }
+    }    
+
 
     void add(move const& mv) {
         m_delta[mv.src()].push_back(mv);

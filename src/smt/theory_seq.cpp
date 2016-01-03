@@ -199,7 +199,7 @@ final_check_status theory_seq::final_check_eh() {
         TRACE("seq", tout << ">>solve_eqs\n";);
         return FC_CONTINUE;
     }
-    if (solve_nqs()) {
+    if (solve_nqs(0)) {
         ++m_stats.m_solve_nqs;
         TRACE("seq", tout << ">>solve_nqs\n";);
         return FC_CONTINUE;
@@ -802,21 +802,20 @@ bool theory_seq::solve_binary_eq(expr* l, expr* r, dependency* dep) {
     return false;
 }
 
-bool theory_seq::solve_nqs() {
+bool theory_seq::solve_nqs(unsigned i) {
     bool change = false;
     context & ctx = get_context();
-    for (unsigned i = 0; !ctx.inconsistent() && i < m_nqs.size(); ++i) {
+    for (; !ctx.inconsistent() && i < m_nqs.size(); ++i) {
         if (!m_nqs[i].is_solved()) {
-            change = solve_ne(i) || change;
+            solve_ne(i);
         }
     }
-    return change || ctx.inconsistent();
+    return m_new_propagation || ctx.inconsistent();
 }
 
-bool theory_seq::solve_ne(unsigned idx) {
+void theory_seq::solve_ne(unsigned idx) {
     context& ctx = get_context();
     seq_rewriter rw(m);
-    bool change = false;
     ne const& n = m_nqs[idx];
     TRACE("seq", display_disequation(tout, n););
 
@@ -827,7 +826,7 @@ bool theory_seq::solve_ne(unsigned idx) {
         case l_false:
             // mark as solved in 
             mark_solved(idx);
-            return false;
+            return;
         case l_true:
             break;            
         case l_undef:
@@ -844,7 +843,7 @@ bool theory_seq::solve_ne(unsigned idx) {
         expr_ref rh = canonize(r, deps);
         if (!rw.reduce_eq(lh, rh, lhs, rhs)) {
             mark_solved(idx);
-            return change;
+            return;
         }
         else if (unchanged(l, lhs, r, rhs) ) {
             // continue
@@ -870,11 +869,12 @@ bool theory_seq::solve_ne(unsigned idx) {
                     switch (ctx.get_assignment(lit)) {
                     case l_false:
                         mark_solved(idx);
-                        return false;
+                        return;
                     case l_true:
                         break;
                     case l_undef:
                         ++num_undef_lits;
+                        m_new_propagation = true;
                         break;
                     }
                 }
@@ -882,16 +882,14 @@ bool theory_seq::solve_ne(unsigned idx) {
             m_trail_stack.push(push_dep(*this, idx, deps));
             erase_index(idx, i);
             --i;
-            change = true;
         }
     }
     if (num_undef_lits == 0 && n.m_lhs.empty()) {
         literal_vector lits(n.m_lits);
         lits.push_back(~mk_eq(n.m_l, n.m_r, false));
         set_conflict(n.m_dep, lits);
-        return true;
+        SASSERT(m_new_propagation);
     }
-    return change;
 }
 
 
@@ -986,7 +984,6 @@ void theory_seq::display(std::ostream & out) const {
         display_equations(out);
     }
     if (m_nqs.size() > 0) {
-        out << "Disequations:\n";
         display_disequations(out);
     }
     if (!m_re2aut.empty()) {
@@ -1017,8 +1014,13 @@ void theory_seq::display_equations(std::ostream& out) const {
 }
 
 void theory_seq::display_disequations(std::ostream& out) const {
+    bool first = true;
     for (unsigned i = 0; i < m_nqs.size(); ++i) {
-        display_disequation(out, m_nqs[i]);
+        if (!m_nqs[i].is_solved()) {
+            if (first) out << "Disequations:\n";
+            first = false;
+            display_disequation(out, m_nqs[i]);
+        }
     }       
 }
 
@@ -1155,7 +1157,7 @@ app* theory_seq::mk_value(app* e) {
         unsigned sz;
         if (bv.is_numeral(result, val, sz) && sz == zstring().num_bits()) {
             unsigned v = val.get_unsigned();
-            if ((0 <= v && v < 32) || v == 127) {
+            if ((0 <= v && v < 7) || (14 <= v && v < 32) || v == 127) {
                 result = m_util.str.mk_unit(result);                
             }
             else {
@@ -1961,6 +1963,7 @@ void theory_seq::new_diseq_eh(theory_var v1, theory_var v2) {
     m_rewrite(eq);
     if (!m.is_false(eq)) {
         m_nqs.push_back(ne(e1, e2));
+        solve_nqs(m_nqs.size() - 1);
     }
     // add solution for variable that is non-empty?
 }

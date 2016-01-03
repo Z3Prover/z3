@@ -357,8 +357,8 @@ namespace smt {
         bool is_binary_eq(expr* l, expr* r, expr*& x, ptr_vector<expr>& xunits, ptr_vector<expr>& yunits, expr*& y);
         bool solve_binary_eq(expr* l, expr* r, dependency* dep);
 
-        bool solve_nqs();
-        bool solve_ne(unsigned i);
+        bool solve_nqs(unsigned i);
+        void solve_ne(unsigned i);
         bool unchanged(expr* e, expr_ref_vector& es) const { return es.size() == 1 && es[0] == e; }
         bool unchanged(expr* e, expr_ref_vector& es, expr* f, expr_ref_vector& fs) const { 
             return 

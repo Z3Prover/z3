@@ -80,7 +80,6 @@ zstring zstring::replace(zstring const& src, zstring const& dst) const {
     return result;
 }
 
-// TBD: SMT-LIB 2.5 strings don't have escape characters other than "
 static char* esc_table[32] = { "\\0", "^A", "^B", "^C", "^D", "^E", "^F", "\\a", "\\b", "\\t", "\\n", "\\v", "\\f", "\\r", "^N",
                                "^O", "^P", "^Q", "^R", "^S", "^T", "^U", "^V","^W","^X","^Y","^Z","\\e","^\\","^]","^^","^_"};
  
@@ -404,14 +403,16 @@ sort * seq_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter 
             return m_string;
         }
         return m.mk_sort(symbol("Seq"), sort_info(m_family_id, SEQ_SORT, num_parameters, parameters));
-    case RE_SORT:
+    case RE_SORT: {
         if (num_parameters != 1) {
             m.raise_exception("Invalid regex sort, expecting one parameter");
         }
         if (!parameters[0].is_ast() || !is_sort(parameters[0].get_ast())) {
             m.raise_exception("invalid regex sort, parameter is not a sort");
         }
+        sort * s = to_sort(parameters[0].get_ast());
         return m.mk_sort(symbol("RegEx"), sort_info(m_family_id, RE_SORT, num_parameters, parameters));
+    }
     case _STRING_SORT:
         return m_string;
     default:
