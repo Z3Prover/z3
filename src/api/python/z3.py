@@ -9015,12 +9015,13 @@ def Empty(s):
     >>> print(e)
     ""
     >>> e2 = String("")
-    >>> print(e == e2)
+    >>> print(e.eq(e2))
     True
     >>> e3 = Empty(SeqSort(IntSort()))
     >>> print(e3)
+    seq.empty
     """
-    return SeqRef(Z3_mk_seq_empty(s.ctx_ref(), s.as_ast()), s.ctx)
+    return SeqRef(Z3_mk_seq_empty(s.ctx_ref(), s.ast), s.ctx)
 
 def Unit(a):
     """Create a singleton sequence"""
