@@ -239,22 +239,15 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
     else {    
         scoped_mpq sig(m_mpq_manager);
         scoped_mpz exp(m_mpq_manager);
-        scoped_mpq pow(m_mpq_manager);
 
         m_mpq_manager.set(sig, significand);
         m_mpq_manager.abs(sig);
         m_mpz_manager.set(exp, exponent);    
-        m_mpq_manager.set(pow, mpq(2));
-
+    
         // Normalize
-        unsigned loop = 0;
-        while (m_mpq_manager.ge(sig, pow)) {            
-            m_mpq_manager.mul(pow, 2, pow);
+        while (m_mpq_manager.ge(sig, 2)) {
+            m_mpq_manager.div(sig, mpq(2), sig);
             m_mpz_manager.inc(exp);
-            ++loop;
-        }
-        if (loop > 0) {
-            m_mpq_manager.div(sig, pow, sig);
         }
         
         while (m_mpq_manager.lt(sig, 1)) {
