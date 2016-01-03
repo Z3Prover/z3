@@ -3596,14 +3596,26 @@ def Concat(*args):
     return r
 
 def Extract(high, low, a):
-    """Create a Z3 bit-vector extraction expression.
+    """Create a Z3 bit-vector extraction expression, or create a string extraction expression.
 
     >>> x = BitVec('x', 8)
     >>> Extract(6, 2, x)
     Extract(6, 2, x)
     >>> Extract(6, 2, x).sort()
     BitVec(5)
+    >>> simplify(Extract(StringVal("abcd"),2,1))
+    "c"
     """
+    if isinstance(high, str):
+	high = StringVal(high)
+    if is_seq(high):
+	s = high
+	offset = _py2expr(low, high.ctx)
+	length = _py2expr(a, high.ctx)
+	
+	if __debug__:
+	    _z3_assert(is_int(offset) and is_int(length), "Second and third arguments must be integers")
+            return SeqRef(Z3_mk_seq_extract(s.ctx_ref(), s.as_ast(), offset.as_ast(), length.as_ast()), s.ctx)
     if __debug__:
         _z3_assert(low <= high, "First argument must be greater than or equal to second argument")
         _z3_assert(isinstance(high, int) and high >= 0 and isinstance(low, int) and low >= 0, "First and second arguments must be non negative integers")
@@ -8979,7 +8991,7 @@ class SeqRef(ExprRef):
 def _coerce_seq(s, ctx=None):
     if isinstance(s, str):
 	ctx = _get_ctx(ctx)
-	s = String(s, ctx)
+	s = StringVal(s, ctx)
     return s
 
 def _get_ctx2(a, b, ctx=None):
@@ -8987,34 +8999,36 @@ def _get_ctx2(a, b, ctx=None):
 	return a.ctx
     if is_expr(b):
 	return b.ctx
+    if ctx is None:
+	ctx = main_ctx()
     return ctx
 
 def is_seq(a):
     """Return `True` if `a` is a Z3 sequence expression.
     >>> print (is_seq(Unit(IntVal(0))))
     True
-    >>> print (is_seq(String("abc")))
+    >>> print (is_seq(StringVal("abc")))
     True
     """
     return isinstance(a, SeqRef)
 
 def is_string_sort(a):
     """Return `True` if `a` is a Z3 string expression.
-    >>> print (is_string_sort(String("ab")))
+    >>> print (is_string_sort(StringVal("ab")))
     True
     """
     return isinstance(a, SeqRef) and a.is_string_sort()
 
 def is_string_value(a):
     """return 'True' if 'a' is a Z3 string constant expression.
-    >>> print (is_string_value(String("a")))
+    >>> print (is_string_value(StringVal("a")))
     True
-    >>> print (is_string_value(String("a") + String("b")))
+    >>> print (is_string_value(StringVal("a") + StringVal("b")))
     False
     """
     return isinstance(a, SeqRef) and a.is_string_value()
 
-def String(s, ctx=None):
+def StringVal(s, ctx=None):
     """create a string expression"""
     ctx = _get_ctx(ctx)
     return SeqRef(Z3_mk_string(ctx.ref(), s), ctx)
@@ -9024,7 +9038,7 @@ def Empty(s):
     >>> e = Empty(StringSort())
     >>> print(e)
     ""
-    >>> e2 = String("")
+    >>> e2 = StringVal("")
     >>> print(e.eq(e2))
     True
     >>> e3 = Empty(SeqSort(IntSort()))
@@ -9040,10 +9054,10 @@ def Unit(a):
 def PrefixOf(a, b):
     """Check if 'a' is a prefix of 'b'
     >>> s1 = PrefixOf("ab", "abc")
-    >>> print (simplify(s1))
+    >>> simplify(s1)
     True
     >>> s2 = PrefixOf("bc", "abc")
-    >>> print (simplify(s2))
+    >>> simplify(s2)
     False
     """
     ctx = _get_ctx2(a, b)
@@ -9054,10 +9068,10 @@ def PrefixOf(a, b):
 def SuffixOf(a, b):
     """Check if 'a' is a suffix of 'b'
     >>> s1 = SuffixOf("ab", "abc")
-    >>> print (simplify(s1))
+    >>> simplify(s1)
     False
     >>> s2 = SuffixOf("bc", "abc")
-    >>> print (simplify(s2))
+    >>> simplify(s2)
     True
     """
     ctx = _get_ctx2(a, b)
@@ -9068,10 +9082,10 @@ def SuffixOf(a, b):
 def Contains(a, b):
     """Check if 'a' contains 'b'
     >>> s1 = Contains("abc", "ab")
-    >>> print (simplify(s1))
+    >>> simplify(s1)
     True
-    >>> s2 = SuffixOf("abc", "bc")
-    >>> print (simplify(s2))
+    >>> s2 = Contains("abc", "bc")
+    >>> simplify(s2)
     True
     """
     ctx = _get_ctx2(a, b)
@@ -9079,14 +9093,11 @@ def Contains(a, b):
     b = _coerce_seq(b, ctx)    
     return BoolRef(Z3_mk_seq_contains(a.ctx_ref(), a.as_ast(), b.as_ast()), a.ctx)
 
-#def Extract(a, offset, length):
-#    """Extract a sequence at offset with indicated length"""
-#    return SeqRef(Z3_mk_seq_extract(a.ctx_ref(), a.as_ast(), offset.as_ast()), length.ctx)
 
 def Replace(s, src, dst):
     """Replace the first occurrence of 'src' by 'dst' in 's'
     >>> r = Replace("aaa", "a", "b")
-    >>> print (simplify(r))
+    >>> simplify(r)
     "baa"
     """
     ctx = _get_ctx2(dst, s)
@@ -9097,18 +9108,39 @@ def Replace(s, src, dst):
     s   = _coerce_seq(s, ctx)
     return SeqRef(Z3_mk_seq_replace(src.ctx_ref(), s.as_ast(), src.as_ast(), dst.as_ast()), s.ctx)
 
+def IndexOf(s, substr):
+    return IndexOf(s, substr, IntVal(0))
+
+def IndexOf(s, substr, offset):
+    """Retrieve the index of substring within a string starting at a specified offset.
+    >>> simplify(IndexOf("abcabc", "bc", 0))
+    1
+    >>> simplify(IndexOf("abcabc", "bc", 2))
+    4
+    """
+    ctx = None
+    if is_expr(offset):
+	ctx = offset.ctx
+    ctx = _get_ctx2(s, substr, ctx)
+    s = _coerce_seq(s, ctx)
+    substr = _coerce_seq(substr, ctx)
+    if isinstance(offset, int):
+	offset = IntVal(offset, ctx)    
+    return SeqRef(Z3_mk_seq_index(s.ctx_ref(), s.as_ast(), substr.as_ast(), offset.as_ast()), s.ctx)
+
 def Length(s):
     """Obtain the length of a sequence 's'
-    >>> l = Length(String("abc"))
-    >>> print (simplify(l))
+    >>> l = Length(StringVal("abc"))
+    >>> simplify(l)
     3
     """
+    s = _coerce_seq(s)
     return ArithRef(Z3_mk_seq_length(s.ctx_ref(), s.as_ast()), s.ctx)
 
 def Re(s, ctx=None):
     """The regular expression that accepts sequence 's'
     >>> s1 = Re("ab")
-    >>> s2 = Re(String("ab"))
+    >>> s2 = Re(StringVal("ab"))
     >>> s3 = Re(Unit(BoolVal(True)))
     """
     s = _coerce_seq(s, ctx)
