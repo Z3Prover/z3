@@ -764,7 +764,6 @@ br_status fpa_rewriter::mk_fp(expr * arg1, expr * arg2, expr * arg3, expr_ref & 
         bu.is_numeral(arg3, r3, bvs3)) {
         SASSERT(mpzm.is_one(r2.to_mpq().denominator()));
         SASSERT(mpzm.is_one(r3.to_mpq().denominator()));
-        SASSERT(mpzm.is_int64(r3.to_mpq().numerator()));
         scoped_mpf v(m_fm);
         mpf_exp_t biased_exp = mpzm.get_int64(r2.to_mpq().numerator());
         m_fm.set(v, bvs2, bvs3 + 1,

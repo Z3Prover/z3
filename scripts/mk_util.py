@@ -643,7 +643,7 @@ def display_help(exit_code):
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
     global DOTNET_ENABLED, JAVA_ENABLED, ML_ENABLED, STATIC_LIB, PREFIX, GMP, FOCI2, FOCI2LIB, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH
-    global LINUX_X64, SLOW_OPTIMIZE, USE_OMP, PYTHON_INSTALL_ENABLED
+    global LINUX_X64, SLOW_OPTIMIZE, USE_OMP
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:],
                                                'b:df:sxhmcvtnp:gj',
@@ -711,29 +711,7 @@ def parse_options():
         else:
             print("ERROR: Invalid command line option '%s'" % opt)
             display_help(1)
-    # Handle the Python package directory
-    if IS_WINDOWS:
-        # Installing under Windows doesn't make sense as the install prefix is used
-        # but that doesn't make sense under Windows
-        # CMW: It makes perfectly good sense; the prefix is Python's sys.prefix,
-        # i.e., something along the lines of C:\Python\... At the moment we are not
-        # sure whether we would want to install libz3.dll into that directory though.
-        PYTHON_INSTALL_ENABLED = False
-    else:
-        if not PYTHON_PACKAGE_DIR.startswith(PREFIX):
-            print(("Warning: The detected Python package directory (%s)"
-                   " does not live under the installation prefix (%s)"
-                   ". This would lead to a broken Python installation. "
-                   "Use --pypkgdir= to change the Python package directory") %
-                  (PYTHON_PACKAGE_DIR, PREFIX))
-            if IS_OSX and PYTHON_PACKAGE_DIR.startswith('/Library/'):
-                print("Using hack to install Python bindings, this might lead to a broken system")
-                PYTHON_INSTALL_ENABLED = True
-            else:
-                print("Disabling install of Python bindings")
-                PYTHON_INSTALL_ENABLED = False
-        else:
-            PYTHON_INSTALL_ENABLED = True
+
 
 # Return a list containing a file names included using '#include' in
 # the given C/C++ file named fname.
@@ -1039,6 +1017,11 @@ class Component:
     def mk_unix_dist(self, build_path, dist_path):
         return
 
+    # Used to print warnings or errors after mk_make.py is done, so that they
+    # are not quite as easy to miss.
+    def final_info(self):
+        pass
+
 class LibComponent(Component):
     def __init__(self, name, path, deps, includes2install):
         Component.__init__(self, name, path, deps)
@@ -1065,8 +1048,8 @@ class LibComponent(Component):
         out.write('\n')
         out.write('%s: %s\n\n' % (self.name, libfile))
 
-    def mk_install_dep(self, out):
-        out.write('%s' % libfile)
+    def mk_install_deps(self, out):
+        return
 
     def mk_install(self, out):
         for include in self.includes2install:
@@ -1154,8 +1137,10 @@ class ExeComponent(Component):
     def main_component(self):
         return self.install
 
-    def mk_install_dep(self, out):
-        out.write('%s' % exefile)
+    def mk_install_deps(self, out):
+        if self.install:
+            exefile = '%s$(EXE_EXT)' % self.exe_name
+            out.write('%s' % exefile)
 
     def mk_install(self, out):
         if self.install:
@@ -1311,7 +1296,7 @@ class DLLComponent(Component):
     def require_def_file(self):
         return IS_WINDOWS and self.export_files
 
-    def mk_install_dep(self, out):
+    def mk_install_deps(self, out):
         out.write('%s$(SO_EXT)' % self.dll_name)
         if self.static:
             out.write(' %s$(LIB_EXT)' % self.dll_name)
@@ -1353,21 +1338,38 @@ class PythonInstallComponent(Component):
         self.pythonPkgDir = None
         self.in_prefix_install = True
         self.libz3Component = libz3Component
-        if not PYTHON_INSTALL_ENABLED:
+
+        if IS_WINDOWS:
+            # Installing under Windows doesn't make sense as the install prefix is used
+            # but that doesn't make sense under Windows
+            # CMW: It makes perfectly good sense; the prefix is Python's sys.prefix,
+            # i.e., something along the lines of C:\Python\... At the moment we are not
+            # sure whether we would want to install libz3.dll into that directory though.
+            PYTHON_INSTALL_ENABLED = False
             return
+        else:
+            PYTHON_INSTALL_ENABLED = True
 
         if IS_WINDOWS or IS_OSX:
             # Use full path that is possibly outside of install prefix
-            self.pythonPkgDir = PYTHON_PACKAGE_DIR
             self.in_prefix_install = PYTHON_PACKAGE_DIR.startswith(PREFIX)
-            assert os.path.isabs(self.pythonPkgDir)
+            self.pythonPkgDir = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
         else:
             # Use path inside the prefix (should be the normal case on Linux)
             # CMW: Also normal on *BSD?
             assert PYTHON_PACKAGE_DIR.startswith(PREFIX)
             self.pythonPkgDir = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
+            self.in_prefix_install = True
+
+        if self.in_prefix_install:
             assert not os.path.isabs(self.pythonPkgDir)
-            assert self.in_prefix_install
+
+    def final_info(self):
+        if not PYTHON_PACKAGE_DIR.startswith(PREFIX):
+            print("Warning: The detected Python package directory (%s) is not "
+                  "in the installation prefix (%s). This can lead to a broken "
+                  "Python API installation. Use --pypkgdir= to change the "
+                  "Python package directory." % (PYTHON_PACKAGE_DIR, PREFIX))
 
     def main_component(self):
         return False    
@@ -2339,12 +2341,12 @@ def mk_makefile():
             out.write(' %s' % c.name)
     out.write('\n\t@echo Z3 was successfully built.\n')
     out.write("\t@echo \"Z3Py scripts can already be executed in the \'%s\' directory.\"\n" % BUILD_DIR)
-    out.write("\t@echo \"Z3Py scripts stored in arbitrary directories can be also executed if \'%s\' directory is added to the PYTHONPATH environment variable.\"\n" % BUILD_DIR)
+    out.write("\t@echo \"Z3Py scripts stored in arbitrary directories can be executed if the \'%s\' directory is added to the PYTHONPATH environment variable.\"\n" % BUILD_DIR)
     if not IS_WINDOWS:
         out.write("\t@echo Use the following command to install Z3 at prefix $(PREFIX).\n")
         out.write('\t@echo "    sudo make install"\n\n')
-        out.write("\t@echo If you are doing a staged install you can use DESTDIR.\n")
-        out.write('\t@echo "    make DESTDIR=/some/temp/directory install"\n')
+        # out.write("\t@echo If you are doing a staged install you can use DESTDIR.\n")
+        # out.write('\t@echo "    make DESTDIR=/some/temp/directory install"\n')
     # Generate :examples rule
     out.write('examples:')
     for c in get_components():
@@ -2358,6 +2360,8 @@ def mk_makefile():
     if not IS_WINDOWS:
         mk_install(out)
         mk_uninstall(out)
+    for c in get_components():
+        c.final_info()
     out.close()
     # Finalize
     if VERBOSE:
@@ -3473,22 +3477,17 @@ class MakeRuleCmd(object):
 
     @classmethod
     def _install_root(cls, path, in_prefix, out, is_install=True):
-        if in_prefix:
-            assert not os.path.isabs(path)
-            install_root = cls.install_root()
-        else:
-            # This hack only exists for the Python bindings on OSX
-            # which are sometimes not installed inside the prefix.
-            # In all other cases installing outside the prefix is
-            # misleading and dangerous!
-            assert IS_OSX
-            assert os.path.isabs(path)
+        if not in_prefix:
+            # The Python bindings on OSX are sometimes not installed inside the prefix. 
             install_root = "$(DESTDIR)"
             action_string = 'install' if is_install else 'uninstall'
             cls.write_cmd(out, 'echo "WARNING: {}ing files/directories ({}) that are not in the install prefix ($(PREFIX))."'.format(
-                action_string, path))
-            print("WARNING: Generating makefile rule that {}s {} '{}' which is outside the installation prefix '{}'.".format(
-                action_string, 'to' if is_install else 'from', path, PREFIX))
+                    action_string, path))
+            #print("WARNING: Generating makefile rule that {}s {} '{}' which is outside the installation prefix '{}'.".format(
+            #        action_string, 'to' if is_install else 'from', path, PREFIX))
+        else:
+            assert not os.path.isabs(path)
+            install_root = cls.install_root()
         return install_root
 
     @classmethod
@@ -3608,14 +3607,15 @@ class MakeRuleCmd(object):
         out.write("\t@{}\n".format(line))
 
 def strip_path_prefix(path, prefix):
-    assert path.startswith(prefix)
-    stripped_path = path[len(prefix):]
-    stripped_path.replace('//','/')
-    if stripped_path[0] == '/':
-        stripped_path = stripped_path[1:]
-
-    assert not os.path.isabs(stripped_path)
-    return stripped_path
+    if path.startswith(prefix):
+        stripped_path = path[len(prefix):]
+        stripped_path.replace('//','/')
+        if stripped_path[0] == '/':
+            stripped_path = stripped_path[1:]
+        assert not os.path.isabs(stripped_path)
+        return stripped_path
+    else:
+        return path
 
 def configure_file(template_file_path, output_file_path, substitutions):
     """
