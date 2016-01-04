@@ -257,7 +257,7 @@ namespace smt {
         public:
             replay_length_coherence(ast_manager& m, expr* e) : m_e(e, m) {}
             virtual void operator()(theory_seq& th) {
-                th.propagate_length_coherence(m_e);
+                th.check_length_coherence(m_e);
             }
         };
 
@@ -348,6 +348,7 @@ namespace smt {
         bool split_variable();           // split a variable
         bool is_solved(); 
         bool check_length_coherence();
+        bool check_length_coherence(expr* e);
         bool propagate_length_coherence(expr* e);  
 
         bool solve_eqs(unsigned start);
