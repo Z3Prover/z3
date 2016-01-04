@@ -275,7 +275,7 @@ extern "C" {
             RETURN_Z3(0);
         }
         api::context * ctx = mk_c(c);
-        expr * a = ctx->fpautil().mk_fp(to_expr(sgn), to_expr(sig), to_expr(exp));
+        expr * a = ctx->fpautil().mk_fp(to_expr(sgn), to_expr(exp), to_expr(sig));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
         Z3_CATCH_RETURN(0);
@@ -351,7 +351,7 @@ extern "C" {
         ctx->fpautil().fm().set(tmp,
                                 ctx->fpautil().get_ebits(to_sort(ty)),
                                 ctx->fpautil().get_sbits(to_sort(ty)),
-                                sgn != 0, sig, exp);
+                                sgn != 0, exp, sig);
         expr * a = ctx->fpautil().mk_value(tmp);
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
@@ -371,7 +371,7 @@ extern "C" {
         ctx->fpautil().fm().set(tmp,
                                 ctx->fpautil().get_ebits(to_sort(ty)),
                                 ctx->fpautil().get_sbits(to_sort(ty)),
-                                sgn != 0, sig, exp);
+                                sgn != 0, exp, sig);
         expr * a = ctx->fpautil().mk_value(tmp);
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));

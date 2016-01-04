@@ -2505,11 +2505,11 @@ void fpa2bv_converter::mk_to_fp_real_int(func_decl * f, unsigned num, expr * con
         return mk_pzero(f, result);
     else {
         scoped_mpf nte(m_mpf_manager), nta(m_mpf_manager), tp(m_mpf_manager), tn(m_mpf_manager), tz(m_mpf_manager);
-        m_mpf_manager.set(nte, ebits, sbits, MPF_ROUND_NEAREST_TEVEN, q.to_mpq(), e.to_mpq().numerator());
-        m_mpf_manager.set(nta, ebits, sbits, MPF_ROUND_NEAREST_TAWAY, q.to_mpq(), e.to_mpq().numerator());
-        m_mpf_manager.set(tp, ebits, sbits, MPF_ROUND_TOWARD_POSITIVE, q.to_mpq(), e.to_mpq().numerator());
-        m_mpf_manager.set(tn, ebits, sbits, MPF_ROUND_TOWARD_NEGATIVE, q.to_mpq(), e.to_mpq().numerator());
-        m_mpf_manager.set(tz, ebits, sbits, MPF_ROUND_TOWARD_ZERO, q.to_mpq(), e.to_mpq().numerator());
+        m_mpf_manager.set(nte, ebits, sbits, MPF_ROUND_NEAREST_TEVEN, e.to_mpq().numerator(), q.to_mpq());
+        m_mpf_manager.set(nta, ebits, sbits, MPF_ROUND_NEAREST_TAWAY, e.to_mpq().numerator(), q.to_mpq());
+        m_mpf_manager.set(tp, ebits, sbits, MPF_ROUND_TOWARD_POSITIVE, e.to_mpq().numerator(), q.to_mpq());
+        m_mpf_manager.set(tn, ebits, sbits, MPF_ROUND_TOWARD_NEGATIVE, e.to_mpq().numerator(), q.to_mpq());
+        m_mpf_manager.set(tz, ebits, sbits, MPF_ROUND_TOWARD_ZERO, e.to_mpq().numerator(), q.to_mpq());
 
         app_ref a_nte(m), a_nta(m), a_tp(m), a_tn(m), a_tz(m);
         a_nte = m_plugin->mk_numeral(nte);
