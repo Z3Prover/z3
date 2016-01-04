@@ -292,7 +292,8 @@ public:
     // Generalized: 
     // Src - E -> dst - t -> dst1 => Src - t -> dst1   if dst is final => each Src is final
     //
-    // src - e -> dst - ET -> dst1 => src - ET - dst1  if in_degree(dst) = 1, src != dst
+    // src - e -> dst - ET -> Dst1 => src - ET -> Dst1  if in_degree(dst) = 1, src != dst
+    // Src - E -> dst - et -> dst1 => Src - et -> dst1  if out_degree(dst) = 1, src != dst
     // 
     void compress() {
         for (unsigned i = 0; i < m_delta.size(); ++i) {
@@ -339,23 +340,41 @@ public:
                             add(mvs1[k]);
                         }
                     }
-                    else if (false && 1 == out_degree(dst) && all_epsilon_in(dst) && init() != dst && !is_final_state(dst)) {
+                    //
+                    // Src - E -> dst - et -> dst1 => Src - et -> dst1  if out_degree(dst) = 1, src != dst
+                    //
+                    else if (1 == out_degree(dst) && all_epsilon_in(dst) && init() != dst && !is_final_state(dst)) {
                         move const& mv = m_delta[dst][0];
-                        T* t = mv.t();
                         unsigned dst1 = mv.dst();
+                        T* t = mv.t();
                         unsigned_vector src0s;
                         moves const& mvs = m_delta_inv[dst];
+                        moves mvs1;
                         for (unsigned k = 0; k < mvs.size(); ++k) {
                             SASSERT(mvs[k].is_epsilon());
-                            src0s.push_back(mvs[k].src());
+                            mvs1.push_back(move(m, mvs[k].src(), dst1, t));
                         }
-                        for (unsigned k = 0; k < src0s.size(); ++k) {
-                            remove(src0s[k], dst, 0);
-                            add(move(m, src0s[i], dst1, t));
+                        for (unsigned k = 0; k < mvs1.size(); ++k) {
+                            remove(mvs1[k].src(), dst, 0);
+                            add(mvs1[k]);
                         }
                         remove(dst, dst1, t);    
                         --j;
                         continue;
+                    }
+                    //
+                    // Src1 - ET -> src - e -> dst => Src1 - ET -> dst  if out_degree(src) = 1, src != init() 
+                    //
+                    else if (1 == out_degree(src) && init() != src && (!is_final_state(src) || is_final_state(dst))) {
+                        moves const& mvs = m_delta_inv[src];
+                        moves mvs1;
+                        for (unsigned k = 0; k < mvs.size(); ++k) {
+                            mvs1.push_back(move(m, mvs[k].src(), dst, mvs[k].t()));
+                        }
+                        for (unsigned k = 0; k < mvs1.size(); ++k) {
+                            remove(mvs1[k].src(), src, mvs1[k].t());
+                            add(mvs1[k]);
+                        }
                     }
                     else {
                         continue;
@@ -482,7 +501,7 @@ private:
     void remove_dead_states() {
         unsigned_vector remap;
         for (unsigned i = 0; i < m_delta.size(); ++i) {
-
+            
         }
     }    
 

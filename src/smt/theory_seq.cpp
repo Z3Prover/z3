@@ -373,14 +373,12 @@ bool theory_seq::propagate_length_coherence(expr* e) {
         expr_ref high1(m_autil.mk_le(m_util.str.mk_length(e), m_autil.mk_numeral(hi, true)), m);
         expr_ref high2(m_autil.mk_le(m_util.str.mk_length(seq), m_autil.mk_numeral(hi-lo, true)), m);     
         add_axiom(~mk_literal(high1), mk_literal(high2));
-        m_trail_stack.push(push_replay(alloc(replay_length_coherence, m, e)));
     }
-
+    m_trail_stack.push(push_replay(alloc(replay_length_coherence, m, e)));
     return true;
 }
 
 bool theory_seq::check_length_coherence() {
-    bool coherent = true;
     obj_hashtable<expr>::iterator it = m_length.begin(), end = m_length.end();
     for (; it != end; ++it) {
         expr* e = *it;
@@ -398,7 +396,7 @@ bool theory_seq::check_length_coherence() {
             return false;
         }
     }
-    return coherent;
+    return true;
 }    
 
 /*
@@ -889,6 +887,23 @@ void theory_seq::solve_ne(unsigned idx) {
         lits.push_back(~mk_eq(n.m_l, n.m_r, false));
         set_conflict(n.m_dep, lits);
         SASSERT(m_new_propagation);
+    }
+    if (num_undef_lits == 0 && n.m_lhs.size() == 1) {
+        expr* l = n.m_lhs[0];
+        expr* r = n.m_rhs[0];
+        if (m_util.str.is_empty(r)) {
+            std::swap(l, r);
+        }
+        if (m_util.str.is_empty(l) && is_var(r)) {
+            literal lit = ~mk_eq_empty(r);
+            if (ctx.get_assignment(lit) == l_true) {
+                expr_ref head(m), tail(m);
+                mk_decompose(r, head, tail);
+                expr_ref conc(m_util.str.mk_concat(head, tail), m);
+                propagate_is_conc(r, conc);
+            }
+            m_new_propagation = true;            
+        }
     }
 }
 
@@ -2170,6 +2185,15 @@ bool theory_seq::add_accept2step(expr* acc) {
         default:
             break;
         }
+    }
+    if (has_undef && mvs.size() == 1) {
+        literal lit = lits.back();
+        lits.pop_back();
+        for (unsigned i = 0; i < lits.size(); ++i) {
+            lits[i].neg();
+        }
+        propagate_lit(0, lits.size(), lits.c_ptr(), lit);
+        return false;
     }
     if (has_undef) {
         return true;
