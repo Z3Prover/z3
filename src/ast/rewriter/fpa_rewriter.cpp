@@ -760,8 +760,8 @@ br_status fpa_rewriter::mk_fp(expr * sgn, expr * exp, expr * sig, expr_ref & res
     unsigned bvsz_sgn, bvsz_exp, bvsz_sig;
 
     if (bu.is_numeral(sgn, rsgn, bvsz_sgn) &&
-        bu.is_numeral(sig, rsig, bvsz_exp) &&
-        bu.is_numeral(exp, rexp, bvsz_sig)) {
+        bu.is_numeral(sig, rsig, bvsz_sig) &&
+        bu.is_numeral(exp, rexp, bvsz_exp)) {
         SASSERT(mpzm.is_one(rexp.to_mpq().denominator()));
         SASSERT(mpzm.is_one(rsig.to_mpq().denominator()));
         scoped_mpf v(m_fm);
