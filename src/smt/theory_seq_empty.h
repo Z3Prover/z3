@@ -30,6 +30,7 @@ namespace smt {
         seq_util     u;
         symbol_set   m_strings;
         unsigned     m_next;
+        char         m_char;
         std::string  m_unique_prefix;
         obj_map<sort, expr*> m_unique_sequences;
         expr_ref_vector m_trail;
@@ -41,6 +42,7 @@ namespace smt {
             m_model(md),
             u(m),
             m_next(0),
+            m_char(0),
             m_unique_prefix("#B"),
             m_trail(m)
         {
@@ -98,6 +100,11 @@ namespace smt {
             if (u.is_re(s, seq)) {
                 expr* v0 = get_fresh_value(seq);
                 return u.re.mk_to_re(v0);
+            }
+            if (u.is_char(s)) {
+                //char s[2] = { ++m_char, 0 };
+                //return u.str.mk_char(zstring(s), 0);
+                return u.str.mk_char(zstring("a"), 0);
             }
             NOT_IMPLEMENTED_YET();
             return 0;

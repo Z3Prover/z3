@@ -46,7 +46,7 @@ public:
         m_elems_lim.push_back(m_elems_start);
     }
 
-    void pop_scopes(unsigned num_scopes) {
+    void pop_scope(unsigned num_scopes) {
         if (num_scopes == 0) return;
         unsigned new_size = m_sizes.size() - num_scopes;
         unsigned src_lim = m_src_lim[new_size];
@@ -68,6 +68,12 @@ public:
     }
 
     T const& operator[](unsigned idx) const {
+        SASSERT(idx < m_size);
+        return m_elems[m_index[idx]];
+    }
+
+    // breaks abstraction, caller must ensure backtracking.
+    T& ref(unsigned idx) {
         SASSERT(idx < m_size);
         return m_elems[m_index[idx]];
     }
@@ -100,6 +106,13 @@ public:
         }
         --m_size;
         SASSERT(invariant());
+    }
+
+    void erase_and_swap(unsigned i) {
+        if (i + 1 < size()) {
+            set(i, m_elems[m_index[size()-1]]);
+        }
+        pop_back();
     }
 
     unsigned size() const { return m_size; }

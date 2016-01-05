@@ -22,7 +22,7 @@ Revision History:
 #include"occurs.h"
 #include"cooperate.h"
 #include"goal_shared_occs.h"
-#include"ast_smt2_pp.h"
+#include"ast_pp.h"
 
 class solve_eqs_tactic : public tactic {
     struct imp {
@@ -92,21 +92,23 @@ class solve_eqs_tactic : public tactic {
         }
         
         // Use: (= x def) and (= def x)
-        bool trivial_solve(expr * lhs, expr * rhs, app_ref & var, expr_ref & def, proof_ref & pr) {
+
+        bool trivial_solve1(expr * lhs, expr * rhs, app_ref & var, expr_ref & def, proof_ref & pr) { 
+
             if (is_uninterp_const(lhs) && !m_candidate_vars.is_marked(lhs) && !occurs(lhs, rhs) && check_occs(lhs)) {
                 var = to_app(lhs); 
                 def = rhs;
                 pr  = 0;
                 return true;
             }
-            else if (is_uninterp_const(rhs) && !m_candidate_vars.is_marked(rhs) && !occurs(rhs, lhs) && check_occs(rhs)) {
-                var = to_app(rhs);
-                def = lhs;
-                if (m_produce_proofs)
-                    pr = m().mk_commutativity(m().mk_eq(lhs, rhs));
-                return true;
+            else {
+                return false;
             }
-            return false;
+        }
+        bool trivial_solve(expr * lhs, expr * rhs, app_ref & var, expr_ref & def, proof_ref & pr) {
+            return 
+                trivial_solve1(lhs, rhs, var, def, pr) ||
+                trivial_solve1(rhs, lhs, var, def, pr);
         }
         
         // (ite c (= x t1) (= x t2)) --> (= x (ite c t1 t2))

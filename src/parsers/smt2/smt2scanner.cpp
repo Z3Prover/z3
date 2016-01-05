@@ -169,23 +169,15 @@ namespace smt2 {
             char c = curr();
             if (c == EOF) 
                 throw scanner_exception("unexpected end of string", m_line, m_spos);
-            if (c == '\"') {
+            if (c == '\n') {
+                new_line();
+            }
+            else if (c == '\"') {
                 next();
                 if (curr() != '\"') {
                     m_string.push_back(0);
                     return STRING_TOKEN;
                 }
-            }
-            else if (c == '\n') {
-                new_line();
-            }
-            else if (c == '\\') {
-                next();
-                c = curr();
-                if (c == EOF) 
-                    throw scanner_exception("unexpected end of string", m_line, m_spos);
-                if (c != '\\' && c != '\"')
-                    throw scanner_exception("invalid escape sequence", m_line, m_spos);
             }
             m_string.push_back(c);
             next();

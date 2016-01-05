@@ -570,6 +570,9 @@ class Formatter:
     def pp_algebraic(self, a):
         return to_format(a.as_decimal(self.precision))
 
+    def pp_string(self, a):
+	return to_format(a.as_string())
+
     def pp_bv(self, a):
         return to_format(a.as_string())
 
@@ -875,6 +878,8 @@ class Formatter:
             return self.pp_fp_value(a)
         elif z3.is_fp(a):
             return self.pp_fp(a, d, xs)
+	elif z3.is_string_value(a):
+	    return self.pp_string(a)	
         elif z3.is_const(a):
             return self.pp_const(a)
         else:

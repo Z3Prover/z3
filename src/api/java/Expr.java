@@ -2186,6 +2186,10 @@ public class Expr extends AST
             return new FPRMExpr(ctx, obj);
         case Z3_FINITE_DOMAIN_SORT:
             return new FiniteDomainExpr(ctx, obj);
+	case Z3_SEQ_SORT:
+	    return new SeqExpr(ctx, obj);
+	case Z3_RE_SORT:
+	    return new ReExpr(ctx, obj);
         default: ;
         }
 
