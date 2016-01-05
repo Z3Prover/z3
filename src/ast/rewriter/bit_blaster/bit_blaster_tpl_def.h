@@ -163,23 +163,25 @@ void bit_blaster_tpl<Cfg>::mk_multiplier(unsigned sz, expr * const * a_bits, exp
         std::swap(a_bits, b_bits);
     if (is_minus_one(sz, b_bits)) {
         mk_neg(sz, a_bits, out_bits);
+        SASSERT(sz == out_bits.size());
         return;
     }
     if (is_numeral(sz, a_bits, n_a)) {
         n_a *= n_b;
         num2bits(n_a, sz, out_bits);
+        SASSERT(sz == out_bits.size());
         return;
     }
     
-#if 1
     if (mk_const_multiplier(sz, a_bits, b_bits, out_bits)) {
+        SASSERT(sz == out_bits.size());
         return;
     }
     if (mk_const_multiplier(sz, b_bits, a_bits, out_bits)) {
+        SASSERT(sz == out_bits.size());
         return;
     }
-#endif
-
+    out_bits.reset();
     if (!m_use_wtm) {
 #if 0
     static unsigned counter = 0;
@@ -1230,10 +1232,11 @@ bool bit_blaster_tpl<Cfg>::mk_const_multiplier(unsigned sz, expr * const * a_bit
     }
     SASSERT(out_bits.empty());
     
-    if (false && mk_const_case_multiplier(sz, a_bits, b_bits, out_bits)) {
+    if (mk_const_case_multiplier(sz, a_bits, b_bits, out_bits)) {
         SASSERT(sz == out_bits.size());
         return true;
     }    
+    out_bits.reset();
     if (!m_use_bcm) {
         return false;
     }
