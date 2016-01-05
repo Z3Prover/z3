@@ -132,7 +132,7 @@ expr_ref fpa2bv_model_converter::convert_bv2fp(sort * s, expr * sgn, expr * exp,
     mpzm.set(sig_z, sig_q.to_mpq().numerator());
     exp_z = mpzm.get_int64(exp_unbiased_q.to_mpq().numerator());
 
-    fu.fm().set(fp_val, ebits, sbits, !mpqm.is_zero(sgn_q.to_mpq()), sig_z, exp_z);
+    fu.fm().set(fp_val, ebits, sbits, !mpqm.is_zero(sgn_q.to_mpq()), exp_z, sig_z);
 
     mpzm.del(sig_z);
 

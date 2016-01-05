@@ -235,7 +235,7 @@ namespace smt {
         SASSERT(mpzm.is_int64(exp_u));
 
         scoped_mpf f(mpfm);
-        mpfm.set(f, m_ebits, m_sbits, mpzm.is_one(sgn_z), sig_z, mpzm.get_int64(exp_u));
+        mpfm.set(f, m_ebits, m_sbits, mpzm.is_one(sgn_z), mpzm.get_int64(exp_u), sig_z);
         result = m_fu.mk_value(f);
 
         TRACE("t_fpa", tout << "fpa_value_proc::mk_value [" <<
