@@ -76,7 +76,6 @@ void expr_safe_replace::operator()(expr* e, expr_ref& res) {
             }
         }
         else {
-            (std::cout << "q\n").flush();
             SASSERT(is_quantifier(a));
             quantifier* q = to_quantifier(a);
             expr_safe_replace replace(m);
