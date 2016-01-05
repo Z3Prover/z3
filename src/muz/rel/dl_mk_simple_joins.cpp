@@ -302,8 +302,6 @@ namespace datalog {
         }
 
         void remove_rule_from_pair(app_pair key, rule * r, unsigned original_len) {
-            SASSERT(m_costs.contains(key));
-            SASSERT(m_costs.find(key));
             pair_info * ptr = 0;
             if (m_costs.find(key, ptr) && ptr &&
                 ptr->remove_rule(r, original_len)) {
