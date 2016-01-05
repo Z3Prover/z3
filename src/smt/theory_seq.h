@@ -318,6 +318,7 @@ namespace smt {
         symbol           m_tail, m_nth, m_seq_first, m_seq_last, m_indexof_left, m_indexof_right, m_aut_step;
         symbol           m_extract_prefix, m_at_left, m_at_right;
         ptr_vector<expr> m_todo;
+        expr_ref_vector  m_ls, m_rs, m_lhs, m_rhs;
 
         // maintain automata with regular expressions.
         scoped_ptr_vector<eautomaton>  m_automata;

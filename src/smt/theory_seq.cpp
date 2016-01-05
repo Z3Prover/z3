@@ -166,6 +166,8 @@ theory_seq::theory_seq(ast_manager& m):
     m_autil(m),
     m_trail_stack(*this),
     m_atoms_qhead(0),
+    m_ls(m), m_rs(m),
+    m_lhs(m), m_rhs(m),
     m_new_solution(false),
     m_new_propagation(false) {    
     m_prefix = "seq.prefix.suffix";
@@ -874,17 +876,21 @@ void theory_seq::solve_ne(unsigned idx) {
         }
     }
     for (unsigned i = 0; i < n.m_lhs.size(); ++i) {
-        expr_ref_vector lhs(m), rhs(m);
+        expr_ref_vector& ls = m_ls;
+        expr_ref_vector& rs = m_rs;
+        expr_ref_vector& lhs = m_lhs;
+        expr_ref_vector& rhs = m_rhs;
+        ls.reset(); rs.reset(); lhs.reset(); rhs.reset();
         dependency* deps = 0;
         expr* l = n.m_lhs[i];
         expr* r = n.m_rhs[i];
-        expr_ref lh = canonize(l, deps);
-        expr_ref rh = canonize(r, deps);
-        if (!rw.reduce_eq(lh, rh, lhs, rhs)) {
+        canonize(l, ls, deps);
+        canonize(r, rs, deps);
+        if (!rw.reduce_eq(ls, rs, lhs, rhs)) {
             mark_solved(idx);
             return;
         }
-        else if (unchanged(l, lhs, r, rhs) ) {
+        else if (lhs.empty() || (lhs.size() == 1 && lhs[0].get() == l)) {
             // continue
         }
         else {

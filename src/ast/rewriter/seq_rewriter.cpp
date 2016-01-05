@@ -1001,7 +1001,7 @@ bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_
         }
         if (l < s2.length()) {
             rs.push_back(m_util.str.mk_string(s2.extract(0, s2.length()-l)));
-        }
+        }        
         change = true;
     }
 
@@ -1023,27 +1023,17 @@ bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_
     }
     else if (!change) {
         // skip
+        SASSERT(lhs.empty());
     }
     else {
         // could solve if either side is fixed size.
         SASSERT(szl > 0 && szr > 0);
-        if (head1 > 0) {
-            for (unsigned i = 0; i < szl; ++i) {
-                ls[i] = ls[i + head1];
-            }			
-        }
-        ls.shrink(szl);
-        if (head2 > 0) {
-            for (unsigned i = 0; i < szr; ++i) {
-                rs[i] = rs[i + head2];
-            }
-        }
-        rs.shrink(szr);        
-        lhs.push_back(m_util.str.mk_concat(ls.size(), ls.c_ptr()));
-        rhs.push_back(m_util.str.mk_concat(rs.size(), rs.c_ptr()));
+        lhs.push_back(m_util.str.mk_concat(szl, ls.c_ptr() + head1));
+        rhs.push_back(m_util.str.mk_concat(szr, rs.c_ptr() + head2));
         ls.reset();
         rs.reset();
     }
+    SASSERT(lhs.empty() || ls.empty());
     return true;
 }
 
@@ -1054,16 +1044,9 @@ bool seq_rewriter::reduce_eq(expr* l, expr* r, expr_ref_vector& lhs, expr_ref_ve
     m_util.str.get_concat(r, m_rhs);
     if (reduce_eq(m_lhs, m_rhs, lhs, rhs)) {
         SASSERT(lhs.size() == rhs.size());
-        if (!m_lhs.empty()) {
-            SASSERT(!m_rhs.empty());
-            lhs.push_back(m_util.str.mk_concat(m_lhs.size(), m_lhs.c_ptr()));
-            rhs.push_back(m_util.str.mk_concat(m_rhs.size(), m_rhs.c_ptr()));            
-        }
-        for (unsigned i = 0; i < lhs.size(); ++i) {
-            SASSERT(is_well_sorted(m(), lhs[i].get()));
-            SASSERT(is_well_sorted(m(), rhs[i].get()));
-            SASSERT(m().get_sort(lhs[i].get()) == m().get_sort(rhs[i].get()));
-            TRACE("seq", tout << mk_pp(lhs[i].get(), m()) << " = " << mk_pp(rhs[i].get(), m()) << "\n";);
+        if (lhs.empty()) {
+            lhs.push_back(l);
+            rhs.push_back(r);
         }
         return true;
     }
