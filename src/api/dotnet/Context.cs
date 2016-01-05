@@ -125,6 +125,7 @@ namespace Microsoft.Z3
         private BoolSort m_boolSort = null;
         private IntSort m_intSort = null;
         private RealSort m_realSort = null;
+	private SeqSort m_stringSort = null;
 
         /// <summary>
         /// Retrieves the Boolean sort of the context.
@@ -162,6 +163,20 @@ namespace Microsoft.Z3
                 if (m_realSort == null) m_realSort = new RealSort(this); return m_realSort;
             }
         }
+
+        /// <summary>
+        /// Retrieves the String sort of the context.
+        /// </summary>
+        public SeqSort StringSort
+        {
+            get
+            {
+                Contract.Ensures(Contract.Result<SeqSort>() != null);
+                if (m_stringSort == null) m_stringSort = new SeqSort(this, Native.Z3_mk_string_sort(nCtx));
+                return m_stringSort;
+            }
+        }
+
 
         /// <summary>
         /// Create a new Boolean sort.
@@ -221,6 +236,27 @@ namespace Microsoft.Z3
             Contract.Ensures(Contract.Result<BitVecSort>() != null);
 
             return new BitVecSort(this, Native.Z3_mk_bv_sort(nCtx, size));
+        }
+
+
+        /// <summary>
+        /// Create a new sequence sort.
+        /// </summary>
+        public SeqSort MkSeqSort(Sort s)
+        {
+            Contract.Requires(s != null);
+            Contract.Ensures(Contract.Result<SeqSort>() != null);
+            return new SeqSort(this, Native.Z3_mk_seq_sort(nCtx, s.NativeObject));
+        }
+
+        /// <summary>
+        /// Create a new regular expression sort.
+        /// </summary>
+        public ReSort MkReSort(SeqSort s)
+        {
+            Contract.Requires(s != null);
+            Contract.Ensures(Contract.Result<ReSort>() != null);
+            return new ReSort(this, Native.Z3_mk_re_sort(nCtx, s.NativeObject));
         }
 
         /// <summary>
@@ -4872,6 +4908,7 @@ namespace Microsoft.Z3
             m_boolSort = null;
             m_intSort = null;
             m_realSort = null;
+            m_stringSort = null;
         }
         #endregion
     }

@@ -1849,6 +1849,184 @@ public class Context extends IDisposable
                         arg2.getNativeObject()));
     }
 
+
+    /**
+     * Sequences, Strings and regular expressions.
+     */
+
+    /**
+     * Create the empty sequence.
+    */
+    public SeqExpr MkEmptySeq(Sort s) 
+    {
+	checkContextMatch(s);
+	return new SeqExpr(this, Native.mkSeqEmpty(nCtx, s.NativeObject));
+    }
+
+    /**
+     * Create the singleton sequence.
+     */
+    public SeqExpr MkUnit(Expr elem) 
+    {
+	checkContextMatch(elem);
+	return new SeqExpr(this, Native.mkSeqUnit(nCtx, elem.NativeObject));
+    }
+    
+    /**
+     * Create a string constant.
+     */
+    public SeqExpr MkString(string s) 
+    {
+	return new SeqExpr(this, Native.mkString(nCtx, s));
+    }
+    
+    /**
+     * Concatentate sequences.
+     */
+    public SeqExpr MkConcat(params SeqExpr[] t)
+    {
+	checkContextMatch(t);
+	return new SeqExpr(this, Native.mkSeqConcat(nCtx, (uint)t.Length, AST.ArrayToNative(t)));
+    }
+    
+    
+    /**
+     * Retrieve the length of a given sequence.
+     */
+    public IntExpr MkLength(SeqExpr s)
+    {
+	checkContextMatch(s);
+	return (IntExpr) Expr.Create(this, Native.mkSeqLength(nCtx, s.NativeObject));
+    }
+    
+    /**
+     * Check for sequence prefix.
+     */
+    public BoolExpr MkPrefixOf(SeqExpr s1, SeqExpr s2) 
+    {
+	checkContextMatch(s1, s2);
+	return new BoolExpr(this, Native.mkSeqPrefix(nCtx, s1.NativeObject, s2.NativeObject));
+    }
+    
+    /**
+     * Check for sequence suffix.
+     */
+    public BoolExpr MkSuffixOf(SeqExpr s1, SeqExpr s2) 
+    {
+	checkContextMatch(s1, s2);
+	return new BoolExpr(this, Native.mkSeqSuffix(nCtx, s1.NativeObject, s2.NativeObject));
+    }
+    
+    /**
+     * Check for sequence containment of s2 in s1.
+     */
+    public BoolExpr MkContains(SeqExpr s1, SeqExpr s2) 
+    {
+	checkContextMatch(s1, s2);
+	return new BoolExpr(this, Native.mkSeqContains(nCtx, s1.NativeObject, s2.NativeObject));
+    }
+    
+    /**
+     * Retrieve sequence of length one at index.
+     */
+    public SeqExpr MkAt(SeqExpr s, IntExpr index)
+    {
+	checkContextMatch(s, index);
+	return new SeqExpr(this, Native.mkSeqAt(nCtx, s.NativeObject, index.NativeObject));
+    }
+    
+    /**
+     * Extract subsequence.
+     */
+    public SeqExpr MkExtract(SeqExpr s, IntExpr offset, IntExpr length)
+    {
+	checkContextMatch(s, offset, length);
+	return new SeqExpr(this, Native.mkSeqExtract(nCtx, s.NativeObject, offset.NativeObject, length.NativeObject));
+    }
+    
+    /**
+     * Extract index of sub-string starting at offset.
+     */
+    public IntExpr MkIndexOf(SeqExpr s, SeqExpr substr, ArithExpr offset)
+    {
+	checkContextMatch(s, substr, offset);
+	return new IntExpr(this, Native.mkSeqIndex(nCtx, s.NativeObject, substr.NativeObject, offset.NativeObject));
+    }
+    
+    /**
+     * Replace the first occurrence of src by dst in s.
+     */
+    public SeqExpr MkReplace(SeqExpr s, SeqExpr src, SeqExpr dst)
+    {
+	checkContextMatch(s, src, dst);
+	return new SeqExpr(this, Native.mkSeqReplace(nCtx, s.NativeObject, src.NativeObject, dst.NativeObject));
+    }
+    
+    /**
+     * Convert a regular expression that accepts sequence s.
+     */
+    public ReExpr MkToRe(SeqExpr s) 
+    {
+	checkContextMatch(s);
+	return new ReExpr(this, Native.mkSeqToRe(nCtx, s.NativeObject));            
+    }
+    
+    
+    /**
+     * Check for regular expression membership.
+     */
+    public BoolExpr MkInRe(SeqExpr s, ReExpr re)
+    {
+	checkContextMatch(s, re);
+	return new BoolExpr(this, Native.mkSeqInRe(nCtx, s.NativeObject, re.NativeObject));            
+    }
+    
+    /**
+     * Take the Kleene star of a regular expression.
+     */
+    public ReExpr MkStar(ReExpr re)
+    {
+	checkContextMatch(re);
+	return new ReExpr(this, Native.mkReStar(nCtx, re.NativeObject));            
+    }
+    
+    /**
+     * Take the Kleene plus of a regular expression.
+     */
+    public ReExpr MPlus(ReExpr re)
+    {
+	checkContextMatch(re);
+	return new ReExpr(this, Native.mkRePlus(nCtx, re.NativeObject));            
+    }
+    
+    /**
+     * Create the optional regular expression.
+     */
+    public ReExpr MOption(ReExpr re)
+    {
+	checkContextMatch(re);
+	return new ReExpr(this, Native.mkReOption(nCtx, re.NativeObject));            
+    }
+    
+    /**
+     * Create the concatenation of regular languages.
+     */
+    public ReExpr MkConcat(ReExpr[] t)
+    {
+	checkContextMatch(t);
+	return new ReExpr(this, Native.mkReConcat(nCtx, (uint)t.Length, AST.ArrayToNative(t)));
+    }
+    
+    /**
+     * Create the union of regular languages.
+     */
+    public ReExpr MkUnion(ReExpr[] t)
+    {
+	checkContextMatch(t);
+	return new ReExpr(this, Native.mkReUnion(nCtx, (uint)t.Length, AST.ArrayToNative(t)));
+    }
+    
+
     /**
      * Create a Term of a given sort. 
      * @param v A string representing the term value in decimal notation. If the given sort is a real, then the
@@ -3681,6 +3859,19 @@ public class Context extends IDisposable
     {
         if (this != other.getContext())
             throw new Z3Exception("Context mismatch");
+    }
+
+    void checkContextMatch(Z3Object other1, Z3Object other2)
+    {
+	checkContextMatch(other1);
+	checkContextMatch(other2);
+    }
+
+    void checkContextMatch(Z3Object other1, Z3Object other2, Z3Object other3)
+    {
+	checkContextMatch(other1);
+	checkContextMatch(other2);
+	checkContextMatch(other3);
     }
 
     void checkContextMatch(Z3Object[] arr)

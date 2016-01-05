@@ -8991,7 +8991,7 @@ class SeqRef(ExprRef):
     def __getitem__(self, i):
 	return SeqRef(Z3_mk_seq_at(self.ctx_ref(), self.as_ast(), i.as_ast()), self.ctx)
 	
-    def is_string_sort(self):
+    def is_string(self):
 	return Z3_is_string_sort(self.ctx_ref(), Z3_get_sort(self.ctx_ref(), self.as_ast()))
 
     def is_string_value(self):
@@ -9026,12 +9026,12 @@ def is_seq(a):
     """
     return isinstance(a, SeqRef)
 
-def is_string_sort(a):
+def is_string(a):
     """Return `True` if `a` is a Z3 string expression.
-    >>> print (is_string_sort(StringVal("ab")))
+    >>> print (is_string(StringVal("ab")))
     True
     """
-    return isinstance(a, SeqRef) and a.is_string_sort()
+    return isinstance(a, SeqRef) and a.is_string()
 
 def is_string_value(a):
     """return 'True' if 'a' is a Z3 string constant expression.
@@ -9042,10 +9042,26 @@ def is_string_value(a):
     """
     return isinstance(a, SeqRef) and a.is_string_value()
 
+
 def StringVal(s, ctx=None):
     """create a string expression"""
     ctx = _get_ctx(ctx)
     return SeqRef(Z3_mk_string(ctx.ref(), s), ctx)
+
+def String(name, ctx=None):
+    """Return a string constant named `name`. If `ctx=None`, then the global context is used.
+
+    >>> x = String('x')
+    """
+    ctx = _get_ctx(ctx)
+    return SeqRef(Z3_mk_const(ctx.ref(), to_symbol(name, ctx), StringSort(ctx).ast), ctx)
+
+def Strings(names, ctx=None):
+    """Return a tuple of String constants. """
+    ctx = _get_ctx(ctx)
+    if isinstance(names, str):
+        names = names.split(" ")
+    return [String(name, ctx) for name in names]
 
 def Empty(s):
     """Create the empty sequence of the given sort
@@ -9100,6 +9116,10 @@ def Contains(a, b):
     True
     >>> s2 = Contains("abc", "bc")
     >>> simplify(s2)
+    True
+    >>> x, y, z = Strings('x y z')
+    >>> s3 = Contains(Concat(x,y,z), y)
+    >>> simplify(s3)
     True
     """
     ctx = _get_ctx2(a, b)

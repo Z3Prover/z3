@@ -261,6 +261,15 @@ namespace smt {
             }
         };
 
+        class replay_axiom : public apply {
+            expr_ref m_e;
+        public:
+            replay_axiom(ast_manager& m, expr* e) : m_e(e, m) {}
+            virtual void operator()(theory_seq& th) {
+                th.enque_axiom(m_e);
+            }
+        };
+
         class push_replay : public trail<theory_seq> {
             apply* m_apply;
         public:
@@ -282,6 +291,7 @@ namespace smt {
             unsigned m_branch_variable;
             unsigned m_solve_nqs;
             unsigned m_solve_eqs;
+            unsigned m_add_axiom;
         };
         ast_manager&               m;
         dependency_manager         m_dm;
@@ -357,6 +367,7 @@ namespace smt {
         bool solve_unit_eq(expr* l, expr* r, dependency* dep);
         bool is_binary_eq(expr* l, expr* r, expr*& x, ptr_vector<expr>& xunits, ptr_vector<expr>& yunits, expr*& y);
         bool solve_binary_eq(expr* l, expr* r, dependency* dep);
+        bool propagate_max_length(expr* l, expr* r, dependency* dep);
 
         bool solve_nqs(unsigned i);
         void solve_ne(unsigned i);
@@ -383,9 +394,11 @@ namespace smt {
         bool is_var(expr* b);
         bool add_solution(expr* l, expr* r, dependency* dep);
         bool is_nth(expr* a) const;
+        bool is_tail(expr* a, expr*& s, unsigned& idx) const;
         expr_ref mk_nth(expr* s, expr* idx);
         expr_ref mk_last(expr* e);
         expr_ref canonize(expr* e, dependency*& eqs);
+        void canonize(expr* e, expr_ref_vector& es, dependency*& eqs);
         expr_ref expand(expr* e, dependency*& eqs);
         void add_dependency(dependency*& dep, enode* a, enode* b);
 

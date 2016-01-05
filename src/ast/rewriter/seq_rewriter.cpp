@@ -23,6 +23,7 @@ Notes:
 #include"ast_util.h"
 #include"uint_set.h"
 #include"automaton.h"
+#include"well_sorted.h"
 
 
 struct display_expr1 {
@@ -843,37 +844,33 @@ br_status seq_rewriter::mk_eq_core(expr * l, expr * r, expr_ref & result) {
     return BR_REWRITE3;
 }
 
-bool seq_rewriter::reduce_eq(expr* l, expr* r, expr_ref_vector& lhs, expr_ref_vector& rhs) {
+bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_vector& lhs, expr_ref_vector& rhs) {
     expr* a, *b;
     zstring s;
     bool change = false;
-    m_lhs.reset();
-    m_rhs.reset();
-    m_util.str.get_concat(l, m_lhs);
-    m_util.str.get_concat(r, m_rhs);
  
     // solve from back
     while (true) {
-        while (!m_rhs.empty() && m_util.str.is_empty(m_rhs.back())) {
-            m_rhs.pop_back();
+        while (!rs.empty() && m_util.str.is_empty(rs.back())) {
+            rs.pop_back();
             change = true;
         }
-        while (!m_lhs.empty() && m_util.str.is_empty(m_lhs.back())) {
-            m_lhs.pop_back();
+        while (!ls.empty() && m_util.str.is_empty(ls.back())) {
+            ls.pop_back();
             change = true;
         }
-        if (m_lhs.empty() || m_rhs.empty()) {
+        if (ls.empty() || rs.empty()) {
             break;
         }
-        expr* l = m_lhs.back();
-        expr* r = m_rhs.back();
+        expr* l = ls.back();
+        expr* r = rs.back();
         if (m_util.str.is_unit(r) && m_util.str.is_string(l)) {
             std::swap(l, r);
-            m_lhs.swap(m_rhs);
+            ls.swap(rs);
         }
         if (l == r) {
-            m_lhs.pop_back();
-            m_rhs.pop_back();
+            ls.pop_back();
+            rs.pop_back();
         }
         else if(m_util.str.is_unit(l, a) &&
                 m_util.str.is_unit(r, b)) {
@@ -882,8 +879,8 @@ bool seq_rewriter::reduce_eq(expr* l, expr* r, expr_ref_vector& lhs, expr_ref_ve
             }
             lhs.push_back(a);
             rhs.push_back(b);
-            m_lhs.pop_back();
-            m_rhs.pop_back();
+            ls.pop_back();
+            rs.pop_back();
         }
         else if (m_util.str.is_unit(l, a) && m_util.str.is_string(r, s)) {
             SASSERT(s.length() > 0);
@@ -892,13 +889,13 @@ bool seq_rewriter::reduce_eq(expr* l, expr* r, expr_ref_vector& lhs, expr_ref_ve
             SASSERT(m().get_sort(ch) == m().get_sort(a));
             lhs.push_back(ch);
             rhs.push_back(a);
-            m_lhs.pop_back();
+            ls.pop_back();
             if (s.length() == 1) {
-                m_rhs.pop_back();
+                rs.pop_back();
             }
             else {
                 expr_ref s2(m_util.str.mk_string(s.extract(0, s.length()-2)), m());
-                m_rhs[m_rhs.size()-1] = s2;
+                rs[rs.size()-1] = s2;
             }
         }
         else {
@@ -910,22 +907,22 @@ bool seq_rewriter::reduce_eq(expr* l, expr* r, expr_ref_vector& lhs, expr_ref_ve
     // solve from front
     unsigned head1 = 0, head2 = 0;
     while (true) {
-        while (head1 < m_lhs.size() && m_util.str.is_empty(m_lhs[head1].get())) {
+        while (head1 < ls.size() && m_util.str.is_empty(ls[head1].get())) {
             ++head1;
         }
-        while (head2 < m_rhs.size() && m_util.str.is_empty(m_rhs[head2].get())) {
+        while (head2 < rs.size() && m_util.str.is_empty(rs[head2].get())) {
             ++head2;
         }
-        if (head1 == m_lhs.size() || head2 == m_rhs.size()) {
+        if (head1 == ls.size() || head2 == rs.size()) {
             break;
         }
-        SASSERT(head1 < m_lhs.size() && head2 < m_rhs.size());
+        SASSERT(head1 < ls.size() && head2 < rs.size());
 
-        expr* l = m_lhs[head1].get();
-        expr* r = m_rhs[head2].get();
+        expr* l = ls[head1].get();
+        expr* r = rs[head2].get();
         if (m_util.str.is_unit(r) && m_util.str.is_string(l)) {
             std::swap(l, r);
-            m_lhs.swap(m_rhs);
+            ls.swap(rs);
         }
         if (l == r) {
             ++head1;
@@ -947,13 +944,13 @@ bool seq_rewriter::reduce_eq(expr* l, expr* r, expr_ref_vector& lhs, expr_ref_ve
             SASSERT(m().get_sort(ch) == m().get_sort(a));
             lhs.push_back(ch);
             rhs.push_back(a);
-            m_lhs.pop_back();
+            ls.pop_back();
             if (s.length() == 1) {
-                m_rhs.pop_back();
+                rs.pop_back();
             }
             else {
                 expr_ref s2(m_util.str.mk_string(s.extract(1, s.length()-1)), m());
-                m_rhs[m_rhs.size()-1] = s2;
+                rs[rs.size()-1] = s2;
             }            
         }
         else {
@@ -963,10 +960,10 @@ bool seq_rewriter::reduce_eq(expr* l, expr* r, expr_ref_vector& lhs, expr_ref_ve
     }
     // reduce strings
     zstring s1, s2;
-    while (head1 < m_lhs.size() && 
-           head2 < m_rhs.size() && 
-           m_util.str.is_string(m_lhs[head1].get(), s1) &&
-           m_util.str.is_string(m_rhs[head2].get(), s2)) {
+    while (head1 < ls.size() && 
+           head2 < rs.size() && 
+           m_util.str.is_string(ls[head1].get(), s1) &&
+           m_util.str.is_string(rs[head2].get(), s2)) {
         unsigned l = std::min(s1.length(), s2.length());
         for (unsigned i = 0; i < l; ++i) {
             if (s1[i] != s2[i]) {
@@ -977,62 +974,103 @@ bool seq_rewriter::reduce_eq(expr* l, expr* r, expr_ref_vector& lhs, expr_ref_ve
             ++head1;            
         }
         else {
-            m_lhs[head1] = m_util.str.mk_string(s1.extract(l, s1.length()-l));
+            ls[head1] = m_util.str.mk_string(s1.extract(l, s1.length()-l));
         }
         if (l == s2.length()) {
             ++head2;            
         }
         else {
-            m_rhs[head2] = m_util.str.mk_string(s2.extract(l, s2.length()-l));
+            rs[head2] = m_util.str.mk_string(s2.extract(l, s2.length()-l));
         }
         change = true;
     }
-    while (head1 < m_lhs.size() && 
-           head2 < m_rhs.size() &&
-           m_util.str.is_string(m_lhs.back(), s1) &&
-           m_util.str.is_string(m_rhs.back(), s2)) {
+    while (head1 < ls.size() && 
+           head2 < rs.size() &&
+           m_util.str.is_string(ls.back(), s1) &&
+           m_util.str.is_string(rs.back(), s2)) {
         unsigned l = std::min(s1.length(), s2.length());
         for (unsigned i = 0; i < l; ++i) {
             if (s1[s1.length()-i-1] != s2[s2.length()-i-1]) {
                 return false;
             }
         }
-        m_lhs.pop_back();          
-        m_rhs.pop_back();
+        ls.pop_back();          
+        rs.pop_back();
         if (l < s1.length()) {
-            m_lhs.push_back(m_util.str.mk_string(s1.extract(0, s1.length()-l)));
+            ls.push_back(m_util.str.mk_string(s1.extract(0, s1.length()-l)));
         }
         if (l < s2.length()) {
-            m_rhs.push_back(m_util.str.mk_string(s2.extract(0, s2.length()-l)));
+            rs.push_back(m_util.str.mk_string(s2.extract(0, s2.length()-l)));
         }
         change = true;
     }
 
     bool is_sat;
-    unsigned szl = m_lhs.size() - head1, szr = m_rhs.size() - head2;
-    expr* const* ls = m_lhs.c_ptr() + head1, * const*rs = m_rhs.c_ptr() + head2;
-    if (length_constrained(szl, ls, szr, rs, lhs, rhs, is_sat)) {
+    unsigned szl = ls.size() - head1, szr = rs.size() - head2;
+    expr* const* _ls = ls.c_ptr() + head1, * const* _rs = rs.c_ptr() + head2;
+    if (length_constrained(szl, _ls, szr, _rs, lhs, rhs, is_sat)) {
+        ls.reset(); rs.reset();
         return is_sat;
     }
-    if (is_subsequence(szl, ls, szr, rs, lhs, rhs, is_sat)) {
+    if (is_subsequence(szl, _ls, szr, _rs, lhs, rhs, is_sat)) {
+        ls.reset(); rs.reset();
         return is_sat;
     }
 
-	if (szl == 0 && szr == 0) {
-		return true;
-	}
+    if (szl == 0 && szr == 0) {
+        ls.reset(); rs.reset();
+        return true;
+    }
     else if (!change) {
-        lhs.push_back(l);
-        rhs.push_back(r);
+        // skip
     }
     else {
         // could solve if either side is fixed size.
         SASSERT(szl > 0 && szr > 0);
-
-        lhs.push_back(m_util.str.mk_concat(szl, ls));
-        rhs.push_back(m_util.str.mk_concat(szr, rs));
+        if (head1 > 0) {
+            for (unsigned i = 0; i < szl; ++i) {
+                ls[i] = ls[i + head1];
+            }			
+        }
+        ls.shrink(szl);
+        if (head2 > 0) {
+            for (unsigned i = 0; i < szr; ++i) {
+                rs[i] = rs[i + head2];
+            }
+        }
+        rs.shrink(szr);        
+        lhs.push_back(m_util.str.mk_concat(ls.size(), ls.c_ptr()));
+        rhs.push_back(m_util.str.mk_concat(rs.size(), rs.c_ptr()));
+        ls.reset();
+        rs.reset();
     }
     return true;
+}
+
+bool seq_rewriter::reduce_eq(expr* l, expr* r, expr_ref_vector& lhs, expr_ref_vector& rhs) {
+    m_lhs.reset();
+    m_rhs.reset();
+    m_util.str.get_concat(l, m_lhs);
+    m_util.str.get_concat(r, m_rhs);
+    if (reduce_eq(m_lhs, m_rhs, lhs, rhs)) {
+        SASSERT(lhs.size() == rhs.size());
+        if (!m_lhs.empty()) {
+            SASSERT(!m_rhs.empty());
+            lhs.push_back(m_util.str.mk_concat(m_lhs.size(), m_lhs.c_ptr()));
+            rhs.push_back(m_util.str.mk_concat(m_rhs.size(), m_rhs.c_ptr()));            
+        }
+        for (unsigned i = 0; i < lhs.size(); ++i) {
+            SASSERT(is_well_sorted(m(), lhs[i].get()));
+            SASSERT(is_well_sorted(m(), rhs[i].get()));
+            SASSERT(m().get_sort(lhs[i].get()) == m().get_sort(rhs[i].get()));
+            TRACE("seq", tout << mk_pp(lhs[i].get(), m()) << " = " << mk_pp(rhs[i].get(), m()) << "\n";);
+        }
+        return true;
+    }
+    else {
+        TRACE("seq", tout << mk_pp(l, m()) << " != " << mk_pp(r, m()) << "\n";);
+        return false;
+    }
 }
 
 expr* seq_rewriter::concat_non_empty(unsigned n, expr* const* as) {

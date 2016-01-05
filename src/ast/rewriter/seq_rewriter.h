@@ -92,6 +92,8 @@ public:
 
     bool reduce_eq(expr* l, expr* r, expr_ref_vector& lhs, expr_ref_vector& rhs);
 
+    bool reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_vector& lhs, expr_ref_vector& rhs);
+
 };
 
 #endif
