@@ -1077,8 +1077,8 @@ extern "C" {
         api::context * ctx = mk_c(c);
         fpa_util & fu = ctx->fpautil();
         if (!fu.is_rm(to_expr(rm)) ||
-            !ctx->autil().is_real(to_expr(sig)) ||
             !ctx->autil().is_int(to_expr(exp)) ||
+            !ctx->autil().is_real(to_expr(sig)) ||
             !fu.is_float(to_sort(s))) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return 0;

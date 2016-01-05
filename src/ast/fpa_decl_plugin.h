@@ -286,9 +286,9 @@ public:
         expr * args[] = { rm, t };
         return m().mk_app(m_fid, OP_FPA_TO_FP, 2, s->get_parameters(), 2, args);
     }
-    app * mk_to_fp(sort * s, expr * rm, expr * sig, expr * exp) {
+    app * mk_to_fp(sort * s, expr * rm, expr * exp, expr * sig) {
         SASSERT(is_float(s) && s->get_num_parameters() == 2);
-        expr * args[] = { rm, sig, exp };
+        expr * args[] = { rm, exp, sig};
         return m().mk_app(m_fid, OP_FPA_TO_FP, 2, s->get_parameters(), 3, args);
     }
     app * mk_to_fp_unsigned(sort * s, expr * rm, expr * t) {

@@ -2490,12 +2490,12 @@ void fpa2bv_converter::mk_to_fp_real_int(func_decl * f, unsigned num, expr * con
     SASSERT(is_app_of(args[0], m_util.get_family_id(), OP_FPA_INTERNAL_RM));
     expr * bv_rm = to_app(args[0])->get_arg(0);
 
-    rational q;
-    if (!m_arith_util.is_numeral(args[1], q))
+    rational e;
+    if (!m_arith_util.is_numeral(args[1], e))
         UNREACHABLE();
 
-    rational e;
-    if (!m_arith_util.is_numeral(args[2], e))
+    rational q;
+    if (!m_arith_util.is_numeral(args[2], q))
         UNREACHABLE();
 
     SASSERT(e.is_int64());

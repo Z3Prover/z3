@@ -271,6 +271,20 @@ br_status fpa_rewriter::mk_to_fp(func_decl * f, unsigned num_args, expr * const 
             result = m_util.mk_value(v);
             return BR_DONE;
         }
+        else if (m_util.is_rm_numeral(args[0], rmv) &&
+                 m_util.au().is_int(args[1]) &&
+                 m_util.au().is_real(args[2])) {
+            // rm + int + real -> float
+            if (!m_util.is_rm_numeral(args[0], rmv) ||
+                !m_util.au().is_numeral(args[1], r1) ||
+                !m_util.au().is_numeral(args[2], r2))
+                return BR_FAILED;
+
+            TRACE("fp_rewriter", tout << "r1: " << r1 << ", r2: " << r2 << "\n";);
+            m_fm.set(v, ebits, sbits, rmv, r1.to_mpq().numerator(), r2.to_mpq());
+            result = m_util.mk_value(v);
+            return BR_DONE;
+        }
         else if (bu.is_numeral(args[0], r1, bvs1) &&
                  bu.is_numeral(args[1], r2, bvs2) &&
                  bu.is_numeral(args[2], r3, bvs3)) {
