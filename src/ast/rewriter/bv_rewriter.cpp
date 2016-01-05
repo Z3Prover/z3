@@ -2064,12 +2064,12 @@ br_status bv_rewriter::mk_mul_eq(expr * lhs, expr * rhs, expr_ref & result) {
         }
     }
     if (m_util.is_numeral(lhs, c_val, sz) && is_add_mul_const(rhs)) {
-        unsigned sz = to_app(rhs)->get_num_args();
+        unsigned num_args = to_app(rhs)->get_num_args();
         unsigned i = 0;
         expr* c2, *x2;
         numeral c2_val, c2_inv_val;
         bool found = false;
-        for (; !found && i < sz; ++i) {
+        for (; !found && i < num_args; ++i) {
             expr* arg = to_app(rhs)->get_arg(i);
             if (m_util.is_bv_mul(arg, c2, x2) && m_util.is_numeral(c2, c2_val, sz) &&
                 m_util.mult_inverse(c2_val, sz, c2_inv_val)) {
