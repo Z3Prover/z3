@@ -999,6 +999,8 @@ def is_expr(a):
     >>> x = Int('x')
     >>> is_expr(ForAll(x, x >= 0))
     True
+    >>> is_expr(FPVal(1.0))
+    True
     """
     return isinstance(a, ExprRef)
 
@@ -7912,6 +7914,30 @@ def _dflt_rm(ctx=None):
 def _dflt_fps(ctx=None):
     return get_default_fp_sort(ctx)
 
+def _coerce_fp_expr_list(alist, ctx):
+    first_fp_sort = None
+    for a in alist:
+        if is_fp(a):
+            if first_fp_sort == None:
+                first_fp_sort = a.sort()
+            elif first_fp_sort == a.sort():
+                pass # OK, same as before
+            else:
+                # we saw at least 2 different float sorts; something will
+                # throw a sort mismatch later, for now assume None.
+                first_fp_sort = None
+                break
+            
+    r = []
+    for i in range(len(alist)):
+        a = alist[i]
+        if (isinstance(a, str) and a.contains('2**(') and a.endswith(')')) or _is_int(a) or isinstance(a, float) or isinstance(a, bool):
+            r.append(FPVal(a, None, first_fp_sort, ctx))
+        else:
+            r.append(a)
+    return _coerce_expr_list(r, ctx)
+
+
 ### FP Sorts
     
 class FPSortRef(SortRef):
@@ -8076,8 +8102,8 @@ class FPRef(ExprRef):
         >>> (x + y).sort()
         FPSort(8, 24)
         """
-        a, b = z3._coerce_exprs(self, other)
-        return fpAdd(_dflt_rm(), self, other)
+        [a, b] = _coerce_fp_expr_list([self, other], self.ctx)
+        return fpAdd(_dflt_rm(), a, b, self.ctx)
 
     def __radd__(self, other):
         """Create the Z3 expression `other + self`.
@@ -8086,8 +8112,8 @@ class FPRef(ExprRef):
         >>> 10 + x
         1.25*(2**3) + x
         """
-        a, b = _coerce_exprs(self, other)
-        return fpAdd(_dflt_rm(), other, self)
+        [a, b] = _coerce_fp_expr_list([other, self], self.ctx)
+        return fpAdd(_dflt_rm(), a, b, self.ctx)
 
     def __sub__(self, other):
         """Create the Z3 expression `self - other`.
@@ -8099,8 +8125,8 @@ class FPRef(ExprRef):
         >>> (x - y).sort()
         FPSort(8, 24)
         """
-        a, b = z3._coerce_exprs(self, other)
-        return fpSub(_dflt_rm(), self, other)
+        [a, b] = _coerce_fp_expr_list([self, other], self.ctx)
+        return fpSub(_dflt_rm(), a, b, self.ctx)
 
     def __rsub__(self, other):
         """Create the Z3 expression `other - self`.
@@ -8109,9 +8135,9 @@ class FPRef(ExprRef):
         >>> 10 - x
         1.25*(2**3) - x
         """
-        a, b = _coerce_exprs(self, other)
-        return fpSub(_dflt_rm(), other, self)
-
+        [a, b] = _coerce_fp_expr_list([other, self], self.ctx)
+        return fpSub(_dflt_rm(), a, b, self.ctx)
+      
     def __mul__(self, other):
         """Create the Z3 expression `self * other`.
         
@@ -8124,8 +8150,8 @@ class FPRef(ExprRef):
         >>> 10 * y
         1.25*(2**3) * y
         """
-        a, b = z3._coerce_exprs(self, other)
-        return fpMul(_dflt_rm(), self, other)
+        [a, b] = _coerce_fp_expr_list([self, other], self.ctx)
+        return fpMul(_dflt_rm(), a, b, self.ctx)
 
     def __rmul__(self, other):
         """Create the Z3 expression `other * self`.
@@ -8137,8 +8163,8 @@ class FPRef(ExprRef):
         >>> x * 10
         x * 1.25*(2**3)
         """
-        a, b = _coerce_exprs(self, other)
-        return fpMul(_dflt_rm(), other, self)
+        [a, b] = _coerce_fp_expr_list([other, self], self.ctx)
+        return fpMul(_dflt_rm(), a, b, self.ctx)
 
     def __pos__(self):
         """Create the Z3 expression `+self`."""
@@ -8147,14 +8173,43 @@ class FPRef(ExprRef):
     def __neg__(self):
         """Create the Z3 expression `-self`."""
         return FPRef(fpNeg(self))
+    
+    def __div__(self, other):
+        """Create the Z3 expression `self / other`.
+        
+        >>> x = FP('x', FPSort(8, 24))
+        >>> y = FP('y', FPSort(8, 24))
+        >>> x / y
+        x / y
+        >>> (x / y).sort()
+        FPSort(8, 24)
+        >>> 10 / y
+        1.25*(2**3) / y
+        """
+        [a, b] = _coerce_fp_expr_list([self, other], self.ctx)
+        return fpDiv(_dflt_rm(), a, b, self.ctx)
 
-    def __truediv__(self, other):
-        """Create the Z3 expression division `self / other`."""
-        return self.__div__(other)
+    def __rdiv__(self, other):
+        """Create the Z3 expression `other / self`.
+        
+        >>> x = FP('x', FPSort(8, 24))
+        >>> y = FP('y', FPSort(8, 24))
+        >>> x / y
+        x / y
+        >>> x / 10
+        x / 1.25*(2**3)
+        """
+        [a, b] = _coerce_fp_expr_list([other, self], self.ctx)
+        return fpDiv(_dflt_rm(), a, b, self.ctx)
 
-    def __rtruediv__(self, other):
-        """Create the Z3 expression division `other / self`."""
-        return self.__rdiv__(other)
+    if not sys.version < '3':
+        def __truediv__(self, other):
+            """Create the Z3 expression division `self / other`."""
+            return self.__div__(other)
+        
+        def __rtruediv__(self, other):
+            """Create the Z3 expression division `other / self`."""
+            return self.__rdiv__(other)        
 
     def __mod__(self, other):
         """Create the Z3 expression mod `self % other`."""
@@ -8384,31 +8439,60 @@ def _to_float_str(val, exp=0):
 
 
 def fpNaN(s):
+    """Create a Z3 floating-point NaN term.
+
+    >>> s = FPSort(8, 24)
+    >>> set_fpa_pretty(True)
+    >>> fpNaN(s)
+    NaN
+    >>> pb = get_fpa_pretty()
+    >>> set_fpa_pretty(False)
+    >>> fpNaN(s)
+    fpNaN(FPSort(8, 24))
+    >>> set_fpa_pretty(pb)
+    """
     _z3_assert(isinstance(s, FPSortRef), "sort mismatch")
     return FPNumRef(Z3_mk_fpa_nan(s.ctx_ref(), s.ast), s.ctx)
 
 def fpPlusInfinity(s):
+    """Create a Z3 floating-point +oo term.
+
+    >>> s = FPSort(8, 24)
+    >>> pb = get_fpa_pretty()
+    >>> set_fpa_pretty(True)
+    >>> fpPlusInfinity(s)
+    +oo
+    >>> set_fpa_pretty(False)
+    >>> fpPlusInfinity(s)
+    fpPlusInfinity(FPSort(8, 24))
+    >>> set_fpa_pretty(pb)
+    """
     _z3_assert(isinstance(s, FPSortRef), "sort mismatch")
     return FPNumRef(Z3_mk_fpa_inf(s.ctx_ref(), s.ast, False), s.ctx)
 
 def fpMinusInfinity(s):
+    """Create a Z3 floating-point -oo term."""
     _z3_assert(isinstance(s, FPSortRef), "sort mismatch")
     return FPNumRef(Z3_mk_fpa_inf(s.ctx_ref(), s.ast, True), s.ctx)
 
 def fpInfinity(s, negative):
+    """Create a Z3 floating-point +oo or -oo term."""
     _z3_assert(isinstance(s, FPSortRef), "sort mismatch")
     _z3_assert(isinstance(negative, bool), "expected Boolean flag")
     return FPNumRef(Z3_mk_fpa_inf(s.ctx_ref(), s.ast, negative), s.ctx)
 
 def fpPlusZero(s):
+    """Create a Z3 floating-point +0.0 term."""
     _z3_assert(isinstance(s, FPSortRef), "sort mismatch")
     return FPNumRef(Z3_mk_fpa_zero(s.ctx_ref(), s.ast, False), s.ctx)
 
 def fpMinusZero(s):
+    """Create a Z3 floating-point -0.0 term."""
     _z3_assert(isinstance(s, FPSortRef), "sort mismatch")
     return FPNumRef(Z3_mk_fpa_zero(s.ctx_ref(), s.ast, True), s.ctx)
 
 def fpZero(s, negative):
+    """Create a Z3 floating-point +0.0 or -0.0 term."""
     _z3_assert(isinstance(s, FPSortRef), "sort mismatch")
     _z3_assert(isinstance(negative, bool), "expected Boolean flag")
     return FPNumRef(Z3_mk_fpa_zero(s.ctx_ref(), s.ast, negative), s.ctx)
@@ -8456,8 +8540,8 @@ def FP(name, fpsort, ctx=None):
     >>> x2 = FP('x', word)
     >>> eq(x, x2)
     True
-    """ 
-    if isinstance(fpsort, FPSortRef):
+    """
+    if isinstance(fpsort, FPSortRef) and ctx is None:
         ctx = fpsort.ctx
     else:
         ctx = _get_ctx(ctx)
@@ -8481,7 +8565,7 @@ def FPs(names, fpsort, ctx=None):
         names = names.split(" ")
     return [FP(name, fpsort, ctx) for name in names]
 
-def fpAbs(a):
+def fpAbs(a, ctx=None):
     """Create a Z3 floating-point absolute value expression.
 
     >>> s = FPSort(8, 24)
@@ -8499,18 +8583,11 @@ def fpAbs(a):
     >>> fpAbs(x).sort()
     FPSort(8, 24)
     """
-    ctx = None
-    if not is_expr(a):
-        ctx =_get_ctx(ctx)
-        s = get_default_fp_sort(ctx)
-        a = FPVal(a, s)
-    else:
-        ctx = a.ctx
-    if __debug__:     
-        _z3_assert(is_fp(a), "First argument must be Z3 floating-point expression")
-    return FPRef(Z3_mk_fpa_abs(a.ctx_ref(), a.as_ast()), a.ctx)
+    ctx = _get_ctx(ctx)
+    [a] = _coerce_fp_expr_list([a], ctx)
+    return FPRef(Z3_mk_fpa_abs(ctx.ref(), a.as_ast()), ctx)
 
-def fpNeg(a):
+def fpNeg(a, ctx=None):
     """Create a Z3 floating-point addition expression.
 
     >>> s = FPSort(8, 24)
@@ -8521,18 +8598,63 @@ def fpNeg(a):
     >>> fpNeg(x).sort()
     FPSort(8, 24)
     """
-    ctx = None
-    if not is_expr(a):
-        ctx =_get_ctx(ctx)
-        s = get_default_fp_sort(ctx)
-        a = FPVal(a, s)
-    else:
-        ctx = a.ctx
-    if __debug__:        
-        _z3_assert(is_fp(a), "First argument must be Z3 floating-point expression")
-    return FPRef(Z3_mk_fpa_neg(a.ctx_ref(), a.as_ast()), a.ctx)
+    ctx = _get_ctx(ctx)
+    [a] = _coerce_fp_expr_list([a], ctx)
+    return FPRef(Z3_mk_fpa_neg(ctx.ref(), a.as_ast()), ctx) 
 
-def fpAdd(rm, a, b):
+def _mk_fp_unary(f, rm, a, ctx):
+    ctx = _get_ctx(ctx)
+    [a] = _coerce_fp_expr_list([a], ctx)
+    if __debug__:
+        _z3_assert(is_fprm(rm), "First argument must be a Z3 floating-point rounding mode expression")
+        _z3_assert(is_fp(a), "Second argument must be a Z3 floating-point expression")
+    return FPRef(f(ctx.ref(), rm.as_ast(), a.as_ast()), ctx)
+
+def _mk_fp_unary_norm(f, a, ctx):
+    ctx = _get_ctx(ctx)
+    [a] = _coerce_fp_expr_list([a], ctx)
+    if __debug__:
+        _z3_assert(is_fp(a), "First argument must be a Z3 floating-point expression")
+    return FPRef(f(ctx.ref(), a.as_ast()), ctx)
+
+def _mk_fp_unary_pred(f, a, ctx):
+    ctx = _get_ctx(ctx)
+    [a] = _coerce_fp_expr_list([a], ctx)
+    if __debug__:
+        _z3_assert(is_fp(a) or is_fp(b), "Second or third argument must be a Z3 floating-point expression")
+    return BoolRef(f(ctx.ref(), a.as_ast()), ctx)
+
+def _mk_fp_bin(f, rm, a, b, ctx):
+    ctx = _get_ctx(ctx)
+    [a, b] = _coerce_fp_expr_list([a, b], ctx)
+    if __debug__:
+        _z3_assert(is_fprm(rm), "First argument must be a Z3 floating-point rounding mode expression")
+        _z3_assert(is_fp(a) or is_fp(b), "Second or third argument must be a Z3 floating-point expression")
+    return FPRef(f(ctx.ref(), rm.as_ast(), a.as_ast(), b.as_ast()), ctx)
+
+def _mk_fp_bin_norm(f, a, b, ctx):
+    ctx = _get_ctx(ctx)
+    [a, b] = _coerce_fp_expr_list([a, b], ctx)
+    if __debug__:
+        _z3_assert(is_fp(a) or is_fp(b), "First or second argument must be a Z3 floating-point expression")
+    return FPRef(f(ctx.ref(), a.as_ast(), b.as_ast()), ctx)
+
+def _mk_fp_bin_pred(f, a, b, ctx):
+    ctx = _get_ctx(ctx)
+    [a, b] = _coerce_fp_expr_list([a, b], ctx)
+    if __debug__:
+        _z3_assert(is_fp(a) or is_fp(b), "Second or third argument must be a Z3 floating-point expression")
+    return BoolRef(f(ctx.ref(), a.as_ast(), b.as_ast()), ctx)
+
+def _mk_fp_tern(f, rm, a, b, c, ctx):
+    ctx = _get_ctx(ctx)
+    [a, b, c] = _coerce_fp_expr_list([a, b, c], ctx)
+    if __debug__:
+        _z3_assert(is_fprm(rm), "First argument must be a Z3 floating-point rounding mode expression")
+        _z3_assert(is_fp(a) or is_fp(b) or is_fp(c), "At least one of the arguments must be a Z3 floating-point expression")
+    return FPRef(f(ctx.ref(), rm.as_ast(), a.as_ast(), b.as_ast(), c.as_ast()), ctx)
+
+def fpAdd(rm, a, b, ctx=None):
     """Create a Z3 floating-point addition expression.
 
     >>> s = FPSort(8, 24)
@@ -8541,16 +8663,14 @@ def fpAdd(rm, a, b):
     >>> y = FP('y', s)
     >>> fpAdd(rm, x, y)
     fpAdd(RNE(), x, y)
+    >>> fpAdd(RTZ(), x, y) # default rounding mode is RTZ
+    x + y
     >>> fpAdd(rm, x, y).sort()
     FPSort(8, 24)
     """
-    if __debug__:
-        _z3_assert(is_fprm(rm), "First argument must be a Z3 floating-point rounding mode expression")
-        _z3_assert(is_fp(a) or is_fp(b), "Second or third argument must be a Z3 floating-point expression")
-    a, b = _coerce_exprs(a, b)
-    return FPRef(Z3_mk_fpa_add(rm.ctx_ref(), rm.as_ast(), a.as_ast(), b.as_ast()), rm.ctx)
-
-def fpSub(rm, a, b):
+    return _mk_fp_bin(Z3_mk_fpa_add, rm, a, b, ctx)
+    
+def fpSub(rm, a, b, ctx=None):
     """Create a Z3 floating-point subtraction expression.
 
     >>> s = FPSort(8, 24)
@@ -8562,13 +8682,9 @@ def fpSub(rm, a, b):
     >>> fpSub(rm, x, y).sort()
     FPSort(8, 24)
     """
-    if __debug__:
-        _z3_assert(is_fprm(rm), "First argument must be a Z3 floating-point rounding mode expression")
-        _z3_assert(is_fp(a) or is_fp(b), "Second or third argument must be a Z3 floating-point expression")
-    a, b = _coerce_exprs(a, b)
-    return FPRef(Z3_mk_fpa_sub(rm.ctx_ref(), rm.as_ast(), a.as_ast(), b.as_ast()), rm.ctx)
+    return _mk_fp_bin(Z3_mk_fpa_sub, rm, a, b, ctx)
 
-def fpMul(rm, a, b):
+def fpMul(rm, a, b, ctx=None):
     """Create a Z3 floating-point multiplication expression.
 
     >>> s = FPSort(8, 24)
@@ -8580,13 +8696,9 @@ def fpMul(rm, a, b):
     >>> fpMul(rm, x, y).sort()
     FPSort(8, 24)
     """
-    if __debug__:
-        _z3_assert(is_fprm(rm), "First argument must be a Z3 floating-point rounding mode expression")
-        _z3_assert(is_fp(a) or is_fp(b), "Second or third argument must be a Z3 floating-point expression")
-    a, b = _coerce_exprs(a, b)
-    return FPRef(Z3_mk_fpa_mul(rm.ctx_ref(), rm.as_ast(), a.as_ast(), b.as_ast()), rm.ctx)
-
-def fpDiv(rm, a, b):
+    return _mk_fp_bin(Z3_mk_fpa_mul, rm, a, b, ctx)
+    
+def fpDiv(rm, a, b, ctx=None):
     """Create a Z3 floating-point divison expression.
 
     >>> s = FPSort(8, 24)
@@ -8598,13 +8710,9 @@ def fpDiv(rm, a, b):
     >>> fpDiv(rm, x, y).sort()
     FPSort(8, 24)
     """
-    if __debug__:
-        _z3_assert(is_fprm(rm), "First argument must be a Z3 floating-point rounding mode expression")
-        _z3_assert(is_fp(a) or is_fp(b), "Second or third argument must be a Z3 floating-point expression")
-    a, b = _coerce_exprs(a, b)
-    return FPRef(Z3_mk_fpa_div(rm.ctx_ref(), rm.as_ast(), a.as_ast(), b.as_ast()), rm.ctx)
+    return _mk_fp_bin(Z3_mk_fpa_div, rm, a, b, ctx)
 
-def fpRem(a, b):
+def fpRem(a, b, ctx=None):
     """Create a Z3 floating-point remainder expression.
 
     >>> s = FPSort(8, 24)
@@ -8615,12 +8723,9 @@ def fpRem(a, b):
     >>> fpRem(x, y).sort()
     FPSort(8, 24)
     """
-    if __debug__:        
-        _z3_assert(is_fp(a) or is_fp(b), "Second or third argument must be a Z3 floating-point expression")
-    a, b = _coerce_exprs(a, b)
-    return FPRef(Z3_mk_fpa_rem(a.ctx_ref(), a.as_ast(), b.as_ast()), a.ctx)
+    return _mk_fp_bin_norm(Z3_mk_fpa_rem, a, b, ctx)
 
-def fpMin(a, b):
+def fpMin(a, b, ctx=None):
     """Create a Z3 floating-point minimium expression.
 
     >>> s = FPSort(8, 24)
@@ -8632,12 +8737,9 @@ def fpMin(a, b):
     >>> fpMin(x, y).sort()
     FPSort(8, 24)
     """
-    if __debug__:        
-        _z3_assert(is_fp(a) or is_fp(b), "Second or third argument must be a Z3 floating-point expression")
-    a, b = _coerce_exprs(a, b)
-    return FPRef(Z3_mk_fpa_min(a.ctx_ref(), a.as_ast(), b.as_ast()), a.ctx)
+    return _mk_fp_bin_norm(Z3_mk_fpa_min, a, b, ctx)
 
-def fpMax(a, b):
+def fpMax(a, b, ctx=None):
     """Create a Z3 floating-point maximum expression.
 
     >>> s = FPSort(8, 24)
@@ -8649,104 +8751,75 @@ def fpMax(a, b):
     >>> fpMax(x, y).sort()
     FPSort(8, 24)
     """
-    if __debug__:        
-        _z3_assert(is_fp(a) or is_fp(b), "Second or third argument must be a Z3 floating-point expression")
-    a, b = _coerce_exprs(a, b)
-    return FPRef(Z3_mk_fpa_max(a.ctx_ref(), a.as_ast(), b.as_ast()), a.ctx)
+    return _mk_fp_bin_norm(Z3_mk_fpa_max, a, b, ctx)
 
-def fpFMA(rm, a, b, c):
+def fpFMA(rm, a, b, c, ctx=None):
     """Create a Z3 floating-point fused multiply-add expression.
     """
-    if __debug__:
-        _z3_assert(is_fprm(rm), "First argument must be a Z3 floating-point rounding mode expression")
-        _z3_assert(is_fp(a) or is_fp(b) or is_fp(c), "Second, third, or fourth argument must be a Z3 floating-point expression")
-    a, b, c = _coerce_expr_list([a, b, c])
-    return FPRef(Z3_mk_fpa_fma(rm.ctx_ref(), rm.as_ast(), a.as_ast(), b.as_ast(), c.as_ast()), rm.ctx)    
+    return _mk_fp_tern(Z3_mk_fpa_fma, rm, a, b, c, ctx)
 
-def fpSqrt(rm, a):
+def fpSqrt(rm, a, ctx=None):
     """Create a Z3 floating-point square root expression.
     """
-    ctx = None
-    if not is_expr(a):
-        ctx =_get_ctx(ctx)
-        s = get_default_fp_sort(ctx)
-        a = FPVal(a, s)
-    else:
-        ctx = a.ctx
-    if __debug__:
-        _z3_assert(is_fprm(rm), "First argument must be a Z3 floating-point rounding mode expression")
-        _z3_assert(is_fp(a), "Second argument must be a Z3 floating-point expressions")
-    return FPRef(Z3_mk_fpa_sqrt(rm.ctx_ref(), rm.as_ast(), a.as_ast()), rm.ctx)    
+    return _mk_fp_unary(Z3_mk_fpa_sqrt, rm, a, ctx)
 
-def fpRoundToIntegral(rm, a):
+def fpRoundToIntegral(rm, a, ctx=None):
     """Create a Z3 floating-point roundToIntegral expression.
     """
-    ctx = None
-    if not is_expr(a):
-        ctx =_get_ctx(ctx)
-        s = get_default_fp_sort(ctx)
-        a = FPVal(a, s)
-    else:
-        ctx = a.ctx
-    if __debug__:
-        _z3_assert(is_fprm(rm), "First argument must be a Z3 floating-point rounding mode expression")
-        _z3_assert(is_fp(a), "Second argument must be a Z3 floating-point expressions")
-    return FPRef(Z3_mk_fpa_round_to_integral(rm.ctx_ref(), rm.as_ast(), a.as_ast()), rm.ctx)    
+    return _mk_fp_unary(Z3_mk_fpa_round_to_integral, rm, a, ctx)
 
-def fpIsNaN(a):
+def fpIsNaN(a, ctx=None):
     """Create a Z3 floating-point isNaN expression.
-    """
-    if __debug__:        
-        _z3_assert(is_fp(a), "Argument must be Z3 floating-point expressions")
-    return FPRef(Z3_mk_fpa_is_nan(a.ctx_ref(), a.as_ast()), a.ctx) 
 
-def fpIsInfinite(a):
+    >>> s = FPSort(8, 24)
+    >>> x = FP('x', s)
+    >>> y = FP('y', s)
+    >>> fpIsNaN(x)
+    fpIsNaN(x)
+    """
+    return _mk_fp_unary_norm(Z3_mk_fpa_is_nan, a, ctx)
+
+def fpIsInf(a, ctx=None):
     """Create a Z3 floating-point isInfinite expression.
-    """
-    if __debug__:        
-        _z3_assert(is_fp(a), "Argument must be Z3 floating-point expressions")
-    return FPRef(Z3_mk_fpa_is_infinite(a.ctx_ref(), a.as_ast()), a.ctx) 
 
-def fpIsZero(a):
+    >>> s = FPSort(8, 24)
+    >>> x = FP('x', s)
+    >>> fpIsInf(x)
+    fpIsInf(x)
+    """
+    return _mk_fp_unary_norm(Z3_mk_fpa_is_infinite, a, ctx)
+
+def fpIsZero(a, ctx=None):
     """Create a Z3 floating-point isZero expression.
     """
-    if __debug__:        
-        _z3_assert(is_fp(a), "Argument must be Z3 floating-point expressions")
-    return FPRef(Z3_mk_fpa_is_zero(a.ctx_ref(), a.as_ast()), a.ctx) 
+    return _mk_fp_unary_norm(Z3_mk_fpa_is_zero, a, ctx)
 
-def fpIsNormal(a):
+def fpIsNormal(a, ctx=None):
     """Create a Z3 floating-point isNormal expression.
     """
-    if __debug__:        
-        _z3_assert(is_fp(a), "Argument must be Z3 floating-point expressions")
-    return FPRef(Z3_mk_fpa_is_normal(a.ctx_ref(), a.as_ast()), a.ctx) 
+    return _mk_fp_unary_norm(Z3_mk_fpa_is_normal, a, ctx)
 
-def fpIsSubnormal(a):
+def fpIsSubnormal(a, ctx=None):
     """Create a Z3 floating-point isSubnormal expression.
     """
-    if __debug__:        
-        _z3_assert(is_fp(a), "Argument must be Z3 floating-point expressions")
-    return FPRef(Z3_mk_fpa_is_subnormal(a.ctx_ref(), a.as_ast()), a.ctx) 
+    return _mk_fp_unary_norm(Z3_mk_fpa_is_subnormal, a, ctx)
 
-def fpIsNegative(a):
+def fpIsNegative(a, ctx=None):
     """Create a Z3 floating-point isNegative expression.
     """
-    if __debug__:        
-        _z3_assert(is_fp(a), "Argument must be Z3 floating-point expressions")
-    return FPRef(Z3_mk_fpa_is_negative(a.ctx_ref(), a.as_ast()), a.ctx) 
+    return _mk_fp_unary_norm(Z3_mk_fpa_is_negative, a, ctx)
 
-def fpIsPositive(a):
+def fpIsPositive(a, ctx=None):
     """Create a Z3 floating-point isPositive expression.
     """
-    if __debug__:        
-        _z3_assert(is_fp(a), "Argument must be Z3 floating-point expressions")
+    return _mk_fp_unary_norm(Z3_mk_fpa_is_positive, a, ctx)
     return FPRef(Z3_mk_fpa_is_positive(a.ctx_ref(), a.as_ast()), a.ctx) 
 
 def _check_fp_args(a, b):
     if __debug__:
         _z3_assert(is_fp(a) or is_fp(b), "At least one of the arguments must be a Z3 floating-point expression")
 
-def fpLT(a, b):
+def fpLT(a, b, ctx=None):
     """Create the Z3 floating-point expression `other <= self`.
     
     >>> x, y = FPs('x y', FPSort(8, 24))
@@ -8755,11 +8828,9 @@ def fpLT(a, b):
     >>> (x <= y).sexpr()
     '(fp.leq x y)'
     """
-    _check_fp_args(a, b)
-    a, b = _coerce_exprs(a, b)
-    return BoolRef(Z3_mk_fpa_lt(a.ctx_ref(), a.as_ast(), b.as_ast()), a.ctx)
+    return _mk_fp_bin_pred(Z3_mk_fpa_lt, a, b, ctx)
 
-def fpLEQ(a, b):
+def fpLEQ(a, b, ctx=None):
     """Create the Z3 floating-point expression `other <= self`.
     
     >>> x, y = FPs('x y', FPSort(8, 24))
@@ -8768,11 +8839,9 @@ def fpLEQ(a, b):
     >>> (x <= y).sexpr()
     '(fp.leq x y)'
     """
-    _check_fp_args(a, b)
-    a, b = _coerce_exprs(a, b)
-    return BoolRef(Z3_mk_fpa_leq(a.ctx_ref(), a.as_ast(), b.as_ast()), a.ctx)
+    return _mk_fp_bin_pred(Z3_mk_fpa_leq, a, b, ctx)
 
-def fpGT(a, b):
+def fpGT(a, b, ctx=None):
     """Create the Z3 floating-point expression `other <= self`.
     
     >>> x, y = FPs('x y', FPSort(8, 24))
@@ -8781,12 +8850,9 @@ def fpGT(a, b):
     >>> (x > y).sexpr()
     '(fp.gt x y)'
     """
-    _check_fp_args(a, b)
-    a, b = _coerce_exprs(a, b)
-    return BoolRef(Z3_mk_fpa_gt(a.ctx_ref(), a.as_ast(), b.as_ast()), a.ctx)
+    return _mk_fp_bin_pred(Z3_mk_fpa_gt, a, b, ctx)
 
-
-def fpGEQ(a, b):
+def fpGEQ(a, b, ctx=None):
     """Create the Z3 floating-point expression `other <= self`.
     
     >>> x, y = FPs('x y', FPSort(8, 24))
@@ -8797,11 +8863,9 @@ def fpGEQ(a, b):
     >>> (x >= y).sexpr()
     '(fp.geq x y)'
     """
-    _check_fp_args(a, b)
-    a, b = _coerce_exprs(a, b)
-    return BoolRef(Z3_mk_fpa_geq(a.ctx_ref(), a.as_ast(), b.as_ast()), a.ctx)
+    return _mk_fp_bin_pred(Z3_mk_fpa_geq, a, b, ctx)
 
-def fpEQ(a, b):
+def fpEQ(a, b, ctx=None):
     """Create the Z3 floating-point expression `other <= self`.
     
     >>> x, y = FPs('x y', FPSort(8, 24))
@@ -8810,11 +8874,9 @@ def fpEQ(a, b):
     >>> fpEQ(x, y).sexpr()
     '(fp.eq x y)'
     """
-    _check_fp_args(a, b)
-    a, b = _coerce_exprs(a, b)
-    return BoolRef(Z3_mk_fpa_eq(a.ctx_ref(), a.as_ast(), b.as_ast()), a.ctx)
+    return _mk_fp_bin_pred(Z3_mk_fpa_eq, a, b, ctx)
 
-def fpNEQ(a, b):
+def fpNEQ(a, b, ctx=None):
     """Create the Z3 floating-point expression `other <= self`.
     
     >>> x, y = FPs('x y', FPSort(8, 24))
@@ -8823,18 +8885,26 @@ def fpNEQ(a, b):
     >>> (x != y).sexpr()
     '(not (fp.eq x y))'
     """
-    _check_fp_args(a, b)
-    a, b = _coerce_exprs(a, b)
-    return Not(BoolRef(Z3_mk_fpa_eq(a.ctx_ref(), a.as_ast(), b.as_ast()), a.ctx), a.ctx)
-
-
+    return Not(fpEQ(a, b, ctx))
 
 def fpFP(sgn, exp, sig):
-    """Create the Z3 floating-point value `fpFP(sgn, sig, exp)` from the three bit-vectorssgn, sig, and exp."""    
+    """Create the Z3 floating-point value `fpFP(sgn, sig, exp)` from the three bit-vectors sgn, sig, and exp.
+
+    >>> s = FPSort(11, 53)
+    >>> x = fpFP(BitVecVal(1, 1), BitVecVal(0, 11), BitVecVal(0, 52))
+    >>> print(x)
+    fpFP(1, 0, 0)
+    >>> slvr = Solver()
+    >>> slvr.add(fpEQ(x, fpMinusZero(s)))
+    >>> slvr.check()
+    sat
+    >>> slvr.model()
+    [x = 1]
+    """
     _z3_assert(is_bv(sgn) and is_bv(exp) and is_bv(sig), "sort mismatch")
     _z3_assert(sgn.sort().size() == 1, "sort mismatch")
-    return FPRef(Z3_mk_fpa_fp(sgn.ctx_ref(), sgn.ast, exp.ast, sig.ast), sgn.ctx)
-    
+    _z3_assert(sgn.ctx == exp.ctx == sig.ctx, "sort mismatch")
+    return FPRef(Z3_mk_fpa_fp(sgn.ctx.ref(), sgn.ast, exp.ast, sig.ast), sgn.ctx)
 
 def fpToFP(a1, a2=None, a3=None):
     """Create a Z3 floating-point conversion expression from other terms."""
@@ -8849,7 +8919,7 @@ def fpToFP(a1, a2=None, a3=None):
     else:
         raise Z3Exception("Unsupported combination of arguments for conversion to floating-point term.")
 
-def fpToFPUnsigned(rm, x, s):
+def fpToFPUnsigned(rm, x, s, ctx=None):
     """Create a Z3 floating-point conversion expression, from unsigned bit-vector to floating-point expression."""
     if __debug__:
         _z3_assert(is_fprm(rm), "First argument must be a Z3 floating-point rounding mode expression")
@@ -8857,7 +8927,7 @@ def fpToFPUnsigned(rm, x, s):
         _z3_assert(is_fp_sort(s), "Third argument must be Z3 floating-point sort")
     return FPRef(Z3_mk_fpa_to_fp_unsigned(rm.ctx_ref(), rm.ast, x.ast, s.ast), rm.ctx)
 
-def fpToSBV(rm, x, s):
+def fpToSBV(rm, x, s, ctx=None):
     """Create a Z3 floating-point conversion expression, from floating-point expression to signed bit-vector.
 
     >>> x = FP('x', FPSort(8, 24))
