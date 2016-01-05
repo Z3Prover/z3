@@ -159,6 +159,7 @@ template<typename Cfg>
 void bit_blaster_tpl<Cfg>::mk_multiplier(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr_ref_vector & out_bits) {
     SASSERT(sz > 0);
     numeral n_a, n_b;
+    out_bits.reset();
     if (is_numeral(sz, a_bits, n_b))
         std::swap(a_bits, b_bits);
     if (is_minus_one(sz, b_bits)) {
