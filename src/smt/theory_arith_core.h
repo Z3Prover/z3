@@ -38,6 +38,15 @@ namespace smt {
     }
 
     template<typename Ext>
+    void theory_arith<Ext>::found_underspecified_op(app * n) {
+        if (!m_found_underspecified_op) {
+            TRACE("arith", tout << "found non underspecificed expression:\n" << mk_pp(n, get_manager()) << "\n";);
+            get_context().push_trail(value_trail<context, bool>(m_found_underspecified_op));
+            m_found_underspecified_op = true;
+        }
+    }
+
+    template<typename Ext>
     bool theory_arith<Ext>::process_atoms() const {
         if (!adaptive())
             return true;
@@ -308,6 +317,7 @@ namespace smt {
 
     template<typename Ext>
     theory_var theory_arith<Ext>::internalize_div(app * n) {
+        found_underspecified_op(n);
         theory_var s      = mk_binary_op(n);
         context & ctx     = get_context();
         if (!ctx.relevancy())
@@ -317,6 +327,7 @@ namespace smt {
 
     template<typename Ext>
     theory_var theory_arith<Ext>::internalize_idiv(app * n) {
+        found_underspecified_op(n);
         theory_var s      = mk_binary_op(n);
         context & ctx     = get_context();
         app * mod         = m_util.mk_mod(n->get_arg(0), n->get_arg(1));
@@ -329,6 +340,7 @@ namespace smt {
     template<typename Ext>
     theory_var theory_arith<Ext>::internalize_mod(app * n) {
         TRACE("arith_mod", tout << "internalizing...\n" << mk_pp(n, get_manager()) << "\n";);
+        found_underspecified_op(n);
         theory_var s      = mk_binary_op(n);
         context & ctx     = get_context();
         if (!ctx.relevancy())
@@ -338,6 +350,7 @@ namespace smt {
 
     template<typename Ext>
     theory_var theory_arith<Ext>::internalize_rem(app * n) {
+        found_underspecified_op(n);
         theory_var s  = mk_binary_op(n);
         context & ctx = get_context();
         if (!ctx.relevancy()) {
@@ -1514,6 +1527,7 @@ namespace smt {
         m_util(m),
         m_arith_eq_solver(m),
         m_found_unsupported_op(false),
+        m_found_underspecified_op(false),
         m_arith_eq_adapter(*this, params, m_util),
         m_asserted_qhead(0),
         m_to_patch(1024),

@@ -2153,6 +2153,9 @@ namespace smt {
     */
     template<typename Ext>
     bool theory_arith<Ext>::is_shared(theory_var v) const {
+        if (!m_found_underspecified_op) {
+            return false;
+        }
         enode * n      = get_enode(v);
         enode * r      = n->get_root();
         enode_vector::const_iterator it  = r->begin_parents();
