@@ -171,12 +171,14 @@ void bit_blaster_tpl<Cfg>::mk_multiplier(unsigned sz, expr * const * a_bits, exp
         return;
     }
     
+#if 1
     if (mk_const_multiplier(sz, a_bits, b_bits, out_bits)) {
         return;
     }
     if (mk_const_multiplier(sz, b_bits, a_bits, out_bits)) {
         return;
     }
+#endif
 
     if (!m_use_wtm) {
 #if 0
@@ -1217,6 +1219,7 @@ void bit_blaster_tpl<Cfg>::mk_const_case_multiplier(bool is_a, unsigned i, unsig
         n_a *= n_b;
         num2bits(n_a, sz, out_bits);
     }
+    SASSERT(out_bits.size() == sz);
 }
 
 template<typename Cfg>
@@ -1227,7 +1230,8 @@ bool bit_blaster_tpl<Cfg>::mk_const_multiplier(unsigned sz, expr * const * a_bit
     }
     SASSERT(out_bits.empty());
     
-    if (mk_const_case_multiplier(sz, a_bits, b_bits, out_bits)) {
+    if (false && mk_const_case_multiplier(sz, a_bits, b_bits, out_bits)) {
+        SASSERT(sz == out_bits.size());
         return true;
     }    
     if (!m_use_bcm) {
@@ -1239,7 +1243,7 @@ bool bit_blaster_tpl<Cfg>::mk_const_multiplier(unsigned sz, expr * const * a_bit
     out_bits.resize(sz, m().mk_false());
     
 #if 1
-    bool last=false, now;
+    bool last = false, now;
     for (unsigned i = 0; i < sz; i++) {
         now = m().is_true(a_bits[i]);
         SASSERT(now || m().is_false(a_bits[i]));
@@ -1311,5 +1315,6 @@ bool bit_blaster_tpl<Cfg>::mk_const_multiplier(unsigned sz, expr * const * a_bit
     TRACE("bit_blaster_tpl_booth", for (unsigned i=0; i<out_bits.size(); i++)
                                      tout << "Booth encoding: " << mk_pp(out_bits[i].get(), m()) << "\n"; );
 
+    SASSERT(out_bits.size() == sz);
     return true;
 }
