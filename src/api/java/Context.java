@@ -103,6 +103,7 @@ public class Context extends IDisposable
     private BoolSort m_boolSort = null;
     private IntSort m_intSort = null;
     private RealSort m_realSort = null;
+    private SeqSort m_stringSort = null;
 
     /**
      * Retrieves the Boolean sort of the context.
@@ -140,6 +141,16 @@ public class Context extends IDisposable
     public BoolSort mkBoolSort()
     {
         return new BoolSort(this);
+    }
+
+    /**
+     * Retrieves the Integer sort of the context.
+     **/
+    public SeqSort getStringSort()
+    {
+        if (m_stringSort == null)
+            m_stringSort = mkStringSort();
+        return m_stringSort;
     }
 
     /**
@@ -192,6 +203,31 @@ public class Context extends IDisposable
         checkContextMatch(range);
         return new ArraySort(this, domain, range);
     }
+
+    /**
+     * Create a new string sort
+     **/
+    public SeqSort mkStringSort()
+    {
+        return new SeqSort(this, Native.mkStringSort(nCtx()));
+    }
+
+    /**
+     * Create a new sequence sort
+     **/
+    public SeqSort mkSeqSort(Sort s)
+    {
+        return new SeqSort(this, Native.mkSeqSort(nCtx(), s.getNativeObject()));
+    }
+
+    /**
+     * Create a new regular expression sort
+     **/
+    public ReSort mkReSort(Sort s)
+    {
+        return new ReSort(this, Native.mkReSort(nCtx(), s.getNativeObject()));
+    }
+
 
     /**
      * Create a new tuple sort.
@@ -1860,7 +1896,7 @@ public class Context extends IDisposable
     public SeqExpr MkEmptySeq(Sort s) 
     {
 	checkContextMatch(s);
-	return new SeqExpr(this, Native.mkSeqEmpty(nCtx, s.NativeObject));
+	return new SeqExpr(this, Native.mkSeqEmpty(nCtx(), s.getNativeObject()));
     }
 
     /**
@@ -1869,24 +1905,24 @@ public class Context extends IDisposable
     public SeqExpr MkUnit(Expr elem) 
     {
 	checkContextMatch(elem);
-	return new SeqExpr(this, Native.mkSeqUnit(nCtx, elem.NativeObject));
+	return new SeqExpr(this, Native.mkSeqUnit(nCtx(), elem.getNativeObject()));
     }
     
     /**
      * Create a string constant.
      */
-    public SeqExpr MkString(string s) 
+    public SeqExpr MkString(String s) 
     {
-	return new SeqExpr(this, Native.mkString(nCtx, s));
+	return new SeqExpr(this, Native.mkString(nCtx(), s));
     }
     
     /**
      * Concatentate sequences.
      */
-    public SeqExpr MkConcat(params SeqExpr[] t)
+    public SeqExpr MkConcat(SeqExpr... t)
     {
 	checkContextMatch(t);
-	return new SeqExpr(this, Native.mkSeqConcat(nCtx, (uint)t.Length, AST.ArrayToNative(t)));
+	return new SeqExpr(this, Native.mkSeqConcat(nCtx(), (int)t.length, AST.arrayToNative(t)));
     }
     
     
@@ -1896,7 +1932,7 @@ public class Context extends IDisposable
     public IntExpr MkLength(SeqExpr s)
     {
 	checkContextMatch(s);
-	return (IntExpr) Expr.Create(this, Native.mkSeqLength(nCtx, s.NativeObject));
+	return (IntExpr) Expr.create(this, Native.mkSeqLength(nCtx(), s.getNativeObject()));
     }
     
     /**
@@ -1905,7 +1941,7 @@ public class Context extends IDisposable
     public BoolExpr MkPrefixOf(SeqExpr s1, SeqExpr s2) 
     {
 	checkContextMatch(s1, s2);
-	return new BoolExpr(this, Native.mkSeqPrefix(nCtx, s1.NativeObject, s2.NativeObject));
+	return new BoolExpr(this, Native.mkSeqPrefix(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
     }
     
     /**
@@ -1914,7 +1950,7 @@ public class Context extends IDisposable
     public BoolExpr MkSuffixOf(SeqExpr s1, SeqExpr s2) 
     {
 	checkContextMatch(s1, s2);
-	return new BoolExpr(this, Native.mkSeqSuffix(nCtx, s1.NativeObject, s2.NativeObject));
+	return new BoolExpr(this, Native.mkSeqSuffix(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
     }
     
     /**
@@ -1923,7 +1959,7 @@ public class Context extends IDisposable
     public BoolExpr MkContains(SeqExpr s1, SeqExpr s2) 
     {
 	checkContextMatch(s1, s2);
-	return new BoolExpr(this, Native.mkSeqContains(nCtx, s1.NativeObject, s2.NativeObject));
+	return new BoolExpr(this, Native.mkSeqContains(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
     }
     
     /**
@@ -1932,7 +1968,7 @@ public class Context extends IDisposable
     public SeqExpr MkAt(SeqExpr s, IntExpr index)
     {
 	checkContextMatch(s, index);
-	return new SeqExpr(this, Native.mkSeqAt(nCtx, s.NativeObject, index.NativeObject));
+	return new SeqExpr(this, Native.mkSeqAt(nCtx(), s.getNativeObject(), index.getNativeObject()));
     }
     
     /**
@@ -1941,7 +1977,7 @@ public class Context extends IDisposable
     public SeqExpr MkExtract(SeqExpr s, IntExpr offset, IntExpr length)
     {
 	checkContextMatch(s, offset, length);
-	return new SeqExpr(this, Native.mkSeqExtract(nCtx, s.NativeObject, offset.NativeObject, length.NativeObject));
+	return new SeqExpr(this, Native.mkSeqExtract(nCtx(), s.getNativeObject(), offset.getNativeObject(), length.getNativeObject()));
     }
     
     /**
@@ -1950,7 +1986,7 @@ public class Context extends IDisposable
     public IntExpr MkIndexOf(SeqExpr s, SeqExpr substr, ArithExpr offset)
     {
 	checkContextMatch(s, substr, offset);
-	return new IntExpr(this, Native.mkSeqIndex(nCtx, s.NativeObject, substr.NativeObject, offset.NativeObject));
+	return new IntExpr(this, Native.mkSeqIndex(nCtx(), s.getNativeObject(), substr.getNativeObject(), offset.getNativeObject()));
     }
     
     /**
@@ -1959,7 +1995,7 @@ public class Context extends IDisposable
     public SeqExpr MkReplace(SeqExpr s, SeqExpr src, SeqExpr dst)
     {
 	checkContextMatch(s, src, dst);
-	return new SeqExpr(this, Native.mkSeqReplace(nCtx, s.NativeObject, src.NativeObject, dst.NativeObject));
+	return new SeqExpr(this, Native.mkSeqReplace(nCtx(), s.getNativeObject(), src.getNativeObject(), dst.getNativeObject()));
     }
     
     /**
@@ -1968,7 +2004,7 @@ public class Context extends IDisposable
     public ReExpr MkToRe(SeqExpr s) 
     {
 	checkContextMatch(s);
-	return new ReExpr(this, Native.mkSeqToRe(nCtx, s.NativeObject));            
+	return new ReExpr(this, Native.mkSeqToRe(nCtx(), s.getNativeObject()));            
     }
     
     
@@ -1978,7 +2014,7 @@ public class Context extends IDisposable
     public BoolExpr MkInRe(SeqExpr s, ReExpr re)
     {
 	checkContextMatch(s, re);
-	return new BoolExpr(this, Native.mkSeqInRe(nCtx, s.NativeObject, re.NativeObject));            
+	return new BoolExpr(this, Native.mkSeqInRe(nCtx(), s.getNativeObject(), re.getNativeObject()));            
     }
     
     /**
@@ -1987,7 +2023,7 @@ public class Context extends IDisposable
     public ReExpr MkStar(ReExpr re)
     {
 	checkContextMatch(re);
-	return new ReExpr(this, Native.mkReStar(nCtx, re.NativeObject));            
+	return new ReExpr(this, Native.mkReStar(nCtx(), re.getNativeObject()));            
     }
     
     /**
@@ -1996,7 +2032,7 @@ public class Context extends IDisposable
     public ReExpr MPlus(ReExpr re)
     {
 	checkContextMatch(re);
-	return new ReExpr(this, Native.mkRePlus(nCtx, re.NativeObject));            
+	return new ReExpr(this, Native.mkRePlus(nCtx(), re.getNativeObject()));            
     }
     
     /**
@@ -2005,25 +2041,25 @@ public class Context extends IDisposable
     public ReExpr MOption(ReExpr re)
     {
 	checkContextMatch(re);
-	return new ReExpr(this, Native.mkReOption(nCtx, re.NativeObject));            
+	return new ReExpr(this, Native.mkReOption(nCtx(), re.getNativeObject()));            
     }
     
     /**
      * Create the concatenation of regular languages.
      */
-    public ReExpr MkConcat(ReExpr[] t)
+    public ReExpr MkConcat(ReExpr... t)
     {
 	checkContextMatch(t);
-	return new ReExpr(this, Native.mkReConcat(nCtx, (uint)t.Length, AST.ArrayToNative(t)));
+	return new ReExpr(this, Native.mkReConcat(nCtx(), (int)t.length, AST.arrayToNative(t)));
     }
     
     /**
      * Create the union of regular languages.
      */
-    public ReExpr MkUnion(ReExpr[] t)
+    public ReExpr MkUnion(ReExpr... t)
     {
 	checkContextMatch(t);
-	return new ReExpr(this, Native.mkReUnion(nCtx, (uint)t.Length, AST.ArrayToNative(t)));
+	return new ReExpr(this, Native.mkReUnion(nCtx(), (int)t.length, AST.arrayToNative(t)));
     }
     
 
@@ -4021,6 +4057,7 @@ public class Context extends IDisposable
         m_boolSort = null;
         m_intSort = null;
         m_realSort = null;
+        m_stringSort = null;
 
         synchronized (creation_lock) {
             if (m_refCount.get() == 0 && m_ctx != 0) {
