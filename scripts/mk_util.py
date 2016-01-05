@@ -3305,7 +3305,18 @@ def mk_z3consts_ml(api_files):
 def mk_gui_str(id):
     return '4D2F40D8-E5F9-473B-B548-%012d' % id
 
-def mk_vs_proj_property_groups(f, name, type):
+def get_platform_toolset_str():
+    default = 'v110';
+    vstr = check_output(['msbuild', '/ver'])
+    lines = vstr.split('\n')
+    lline = lines[-1]
+    tokens = lline.split('.')
+    if len(tokens) < 2:
+        return default
+    else:
+        return 'v' + tokens[0] + tokens[1]
+
+def mk_vs_proj_property_groups(f, name, target_ext, type):
     f.write('  <ItemGroup Label="ProjectConfigurations">\n')
     f.write('    <ProjectConfiguration Include="Debug|Win32">\n')
     f.write('      <Configuration>Debug</Configuration>\n')
@@ -3320,6 +3331,7 @@ def mk_vs_proj_property_groups(f, name, type):
     f.write('    <ProjectGuid>{%s}</ProjectGuid>\n' % mk_gui_str(0))
     f.write('    <ProjectName>%s</ProjectName>\n' % name)
     f.write('    <Keyword>Win32Proj</Keyword>\n')
+    f.write('    <PlatformToolset>%s</PlatformToolset>\n' % get_platform_toolset_str())
     f.write('  </PropertyGroup>\n')
     f.write('  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />\n')
     f.write('  <PropertyGroup Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'" Label="Configuration">\n')
@@ -3335,10 +3347,10 @@ def mk_vs_proj_property_groups(f, name, type):
     f.write('  <PropertyGroup>\n')
     f.write('    <OutDir Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'">$(SolutionDir)\$(ProjectName)\$(Configuration)\</OutDir>\n')
     f.write('    <TargetName Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'">%s</TargetName>\n' % name)
-    f.write('    <TargetExt Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'">.dll</TargetExt>\n')
+    f.write('    <TargetExt Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'">.%s</TargetExt>\n' % target_ext)
     f.write('    <OutDir Condition="\'$(Configuration)|$(Platform)\'==\'Release|Win32\'">$(SolutionDir)\$(ProjectName)\$(Configuration)\</OutDir>\n')
     f.write('    <TargetName Condition="\'$(Configuration)|$(Platform)\'==\'Release|Win32\'">%s</TargetName>\n' % name)
-    f.write('    <TargetExt Condition="\'$(Configuration)|$(Platform)\'==\'Release|Win32\'">.dll</TargetExt>\n')
+    f.write('    <TargetExt Condition="\'$(Configuration)|$(Platform)\'==\'Release|Win32\'">.%s</TargetExt>\n' % target_ext)
     f.write('  </PropertyGroup>\n')
     f.write('  <PropertyGroup Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'">\n')
     f.write('        <IntDir>$(ProjectName)\$(Configuration)\</IntDir>\n')
@@ -3414,7 +3426,7 @@ def mk_vs_proj(name, components):
     f = open(proj_name, 'w')
     f.write('<?xml version="1.0" encoding="utf-8"?>\n')
     f.write('<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">\n')
-    mk_vs_proj_property_groups(f, name, 'Application')
+    mk_vs_proj_property_groups(f, name, 'exe', 'Application')
     f.write('  <ItemDefinitionGroup Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'">\n')
     mk_vs_proj_cl_compile(f, name, components, debug=True)
     mk_vs_proj_link_exe(f, name, debug=True)
@@ -3455,7 +3467,7 @@ def mk_vs_proj_dll(name, components):
     f = open(proj_name, 'w')
     f.write('<?xml version="1.0" encoding="utf-8"?>\n')
     f.write('<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">\n')
-    mk_vs_proj_property_groups(f, name, 'DynamicLibrary')
+    mk_vs_proj_property_groups(f, name, 'dll', 'DynamicLibrary')
     f.write('  <ItemDefinitionGroup Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'">\n')
     mk_vs_proj_cl_compile(f, name, components, debug=True)
     mk_vs_proj_link_dll(f, name, debug=True)
