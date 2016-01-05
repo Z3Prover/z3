@@ -268,14 +268,14 @@ extern "C" {
 
     Z3_ast Z3_API Z3_mk_fpa_fp(Z3_context c, Z3_ast sgn, Z3_ast exp, Z3_ast sig) {
         Z3_TRY;
-        LOG_Z3_mk_fpa_fp(c, sgn, sig, exp);
+        LOG_Z3_mk_fpa_fp(c, sgn, exp, sig);
         RESET_ERROR_CODE();
         if (!is_bv(c, sgn) || !is_bv(c, exp) || !is_bv(c, sig)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             RETURN_Z3(0);
         }
         api::context * ctx = mk_c(c);
-        expr * a = ctx->fpautil().mk_fp(to_expr(sgn), to_expr(sig), to_expr(exp));
+        expr * a = ctx->fpautil().mk_fp(to_expr(sgn), to_expr(exp), to_expr(sig));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
         Z3_CATCH_RETURN(0);
@@ -351,7 +351,7 @@ extern "C" {
         ctx->fpautil().fm().set(tmp,
                                 ctx->fpautil().get_ebits(to_sort(ty)),
                                 ctx->fpautil().get_sbits(to_sort(ty)),
-                                sgn != 0, sig, exp);
+                                sgn != 0, exp, sig);
         expr * a = ctx->fpautil().mk_value(tmp);
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
@@ -371,7 +371,7 @@ extern "C" {
         ctx->fpautil().fm().set(tmp,
                                 ctx->fpautil().get_ebits(to_sort(ty)),
                                 ctx->fpautil().get_sbits(to_sort(ty)),
-                                sgn != 0, sig, exp);
+                                sgn != 0, exp, sig);
         expr * a = ctx->fpautil().mk_value(tmp);
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
@@ -1072,18 +1072,18 @@ extern "C" {
 
     Z3_ast Z3_API Z3_mk_fpa_to_fp_int_real(Z3_context c, Z3_ast rm, Z3_ast exp, Z3_ast sig, Z3_sort s) {
         Z3_TRY;
-        LOG_Z3_mk_fpa_to_fp_int_real(c, rm, sig, exp, s);
+        LOG_Z3_mk_fpa_to_fp_int_real(c, rm, exp, sig, s);
         RESET_ERROR_CODE();
         api::context * ctx = mk_c(c);
         fpa_util & fu = ctx->fpautil();
         if (!fu.is_rm(to_expr(rm)) ||
-            !ctx->autil().is_real(to_expr(sig)) ||
             !ctx->autil().is_int(to_expr(exp)) ||
+            !ctx->autil().is_real(to_expr(sig)) ||
             !fu.is_float(to_sort(s))) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return 0;
         }
-        expr * a = fu.mk_to_fp(to_sort(s), to_expr(rm), to_expr(sig), to_expr(exp));
+        expr * a = fu.mk_to_fp(to_sort(s), to_expr(rm), to_expr(exp), to_expr(sig));
         ctx->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
         Z3_CATCH_RETURN(0);

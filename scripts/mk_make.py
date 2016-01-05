@@ -1,7 +1,7 @@
 ############################################
 # Copyright (c) 2012 Microsoft Corporation
-# 
-# Scripts for generating Makefiles and Visual 
+#
+# Scripts for generating Makefiles and Visual
 # Studio project files.
 #
 # Author: Leonardo de Moura (leonardo)
@@ -17,6 +17,7 @@ update_version()
 mk_auto_src()
 mk_bindings(API_files)
 mk_vs_proj('z3', ['shell'])
+mk_vs_proj_dll('libz3', ['api_dll'])
 mk_makefile()
 
 
