@@ -476,7 +476,7 @@ public:
         get_moves(state, m_delta_inv, mvs, epsilon_closure);
     }
 
-    template<class D = default_display>
+    template<class D>
     std::ostream& display(std::ostream& out, D& displayer = D()) const {
         out << "init: " << init() << "\n";
         out << "final: ";
