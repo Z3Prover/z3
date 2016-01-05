@@ -20,9 +20,11 @@ Revision History:
 
 #include "expr_safe_replace.h"
 #include "rewriter.h"
+#include "ast_pp.h"
 
 
 void expr_safe_replace::insert(expr* src, expr* dst) {
+    SASSERT(m.get_sort(src) == m.get_sort(dst));
     m_src.push_back(src);
     m_dst.push_back(dst);
     m_subst.insert(src, dst);
@@ -30,7 +32,7 @@ void expr_safe_replace::insert(expr* src, expr* dst) {
 
 void expr_safe_replace::operator()(expr* e, expr_ref& res) {
     m_todo.push_back(e);
-    expr* a, *b, *d;
+    expr* a, *b;
     
     while (!m_todo.empty()) {
         a = m_todo.back();
@@ -39,7 +41,7 @@ void expr_safe_replace::operator()(expr* e, expr_ref& res) {
         }
         else if (m_subst.find(a, b)) {
             m_cache.insert(a, b);
-            m_todo.pop_back();
+            m_todo.pop_back();            
         }
         else if (is_var(a)) {
             m_cache.insert(a, a);
@@ -51,18 +53,21 @@ void expr_safe_replace::operator()(expr* e, expr_ref& res) {
             m_args.reset();
             bool arg_differs = false;
             for (unsigned i = 0; i < n; ++i) {
-                if (m_cache.find(c->get_arg(i), d)) {
+                expr* d = 0, *arg = c->get_arg(i);
+                if (m_cache.find(arg, d)) {
                     m_args.push_back(d);
-                    arg_differs |= c->get_arg(i) != d;
+                    arg_differs |= arg != d;
+                    SASSERT(m.get_sort(arg) == m.get_sort(d));
                 }
                 else {
-                    m_todo.push_back(c->get_arg(i));
+                    m_todo.push_back(arg);
                 }
             }
             if (m_args.size() == n) {
                 if (arg_differs) {
                     b = m.mk_app(c->get_decl(), m_args.size(), m_args.c_ptr());
                     m_refs.push_back(b);
+                    SASSERT(m.get_sort(a) == m.get_sort(b));
                 } else {
                     b = a;
                 }

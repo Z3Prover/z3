@@ -1079,7 +1079,7 @@ def def_API(name, result, params):
 def mk_bindings():
     exe_c.write("void register_z3_replayer_cmds(z3_replayer & in) {\n")
     for key, val in API2Id.items():
-        exe_c.write("  in.register_cmd(%s, exec_%s);\n" % (key, val))
+        exe_c.write("  in.register_cmd(%s, exec_%s, \"%s\");\n" % (key, val, val))
     exe_c.write("}\n")
 
 def ml_method_name(name):

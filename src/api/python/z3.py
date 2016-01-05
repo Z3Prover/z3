@@ -930,6 +930,10 @@ def _to_expr_ref(a, ctx):
             return FiniteDomainRef(a, ctx)
     if sk == Z3_ROUNDING_MODE_SORT:
         return FPRMRef(a, ctx)
+    if sk == Z3_SEQ_SORT:
+        return SeqRef(a, ctx)
+    if sk == Z3_RE_SORT:
+        return ReRef(a, ctx)
     return ExprRef(a, ctx)
 
 def _coerce_expr_merge(s, a):
@@ -3562,24 +3566,56 @@ def Concat(*args):
     121
     """
     args = _get_args(args)
+    sz = len(args)
+    if __debug__:
+        _z3_assert(sz >= 2, "At least two arguments expected.")
+
+    ctx = args[0].ctx
+    
+    if is_seq(args[0]):
+       if __debug__:
+         _z3_assert(all([is_seq(a) for a in args]), "All arguments must be sequence expressions.")
+       v = (Ast * sz)()
+       for i in range(sz):
+            v[i] = args[i].as_ast()
+       return SeqRef(Z3_mk_seq_concat(ctx.ref(), sz, v), ctx)
+    
+    if is_re(args[0]):
+       if __debug__:
+           _z3_assert(all([is_re(a) for a in args]), "All arguments must be regular expressions.")
+       v = (Ast * sz)()
+       for i in range(sz):
+           v[i] = args[i].as_ast()
+       return ReRef(Z3_mk_re_concat(ctx.ref(), sz, v), ctx)
+    
     if __debug__:
         _z3_assert(all([is_bv(a) for a in args]), "All arguments must be Z3 bit-vector expressions.")
-        _z3_assert(len(args) >= 2, "At least two arguments expected.")
-    ctx = args[0].ctx
     r   = args[0]
-    for i in range(len(args) - 1):
+    for i in range(sz - 1):
         r = BitVecRef(Z3_mk_concat(ctx.ref(), r.as_ast(), args[i+1].as_ast()), ctx)
     return r
 
 def Extract(high, low, a):
-    """Create a Z3 bit-vector extraction expression.
+    """Create a Z3 bit-vector extraction expression, or create a string extraction expression.
 
     >>> x = BitVec('x', 8)
     >>> Extract(6, 2, x)
     Extract(6, 2, x)
     >>> Extract(6, 2, x).sort()
     BitVec(5)
+    >>> simplify(Extract(StringVal("abcd"),2,1))
+    "c"
     """
+    if isinstance(high, str):
+        high = StringVal(high)
+    if is_seq(high):
+        s = high
+        offset = _py2expr(low, high.ctx)
+        length = _py2expr(a, high.ctx)
+        
+        if __debug__:
+            _z3_assert(is_int(offset) and is_int(length), "Second and third arguments must be integers")
+            return SeqRef(Z3_mk_seq_extract(s.ctx_ref(), s.as_ast(), offset.as_ast(), length.as_ast()), s.ctx)
     if __debug__:
         _z3_assert(low <= high, "First argument must be greater than or equal to second argument")
         _z3_assert(isinstance(high, int) and high >= 0 and isinstance(low, int) and low >= 0, "First and second arguments must be non negative integers")
@@ -7781,7 +7817,7 @@ def binary_interpolant(a,b,p=None,ctx=None):
     solver that determines satisfiability.
 
     x = Int('x')
-    print binary_interpolant(x<0,x>2)
+    print(binary_interpolant(x<0,x>2))
     Not(x >= 0)
     """
     f = And(Interpolant(a),b)
@@ -7820,6 +7856,7 @@ def sequence_interpolant(v,p=None,ctx=None):
     for i in range(1,len(v)):
         f = And(Interpolant(f),v[i])
     return tree_interpolant(f,p,ctx)
+
 
 #########################################
 #
@@ -8901,3 +8938,339 @@ def fpToIEEEBV(x):
     if __debug__:
         _z3_assert(is_fp(x), "First argument must be a Z3 floating-point expression")
     return BitVecRef(Z3_mk_fpa_to_ieee_bv(x.ctx_ref(), x.ast), x.ctx)
+
+
+
+#########################################
+#
+# Strings, Sequences and Regular expressions
+#
+#########################################
+
+class SeqSortRef(SortRef):
+    """Sequence sort."""
+
+    def is_string(self):
+        """Determine if sort is a string
+        >>> s = StringSort()
+        >>> s.is_string()
+        True
+        >>> s = SeqSort(IntSort())
+        >>> s.is_string()
+        False
+        """
+        return Z3_is_string_sort(self.ctx_ref(), self.ast)
+    
+def StringSort(ctx=None):
+    """Create a string sort
+    >>> s = StringSort()
+    >>> print(s)
+    String
+    """
+    ctx = _get_ctx(ctx)
+    return SeqSortRef(Z3_mk_string_sort(ctx.ref()), ctx)
+
+
+def SeqSort(s):
+    """Create a sequence sort over elements provided in the argument
+    >>> s = SeqSort(IntSort())
+    >>> s == Unit(IntVal(1)).sort()
+    True
+    """
+    return SeqSortRef(Z3_mk_seq_sort(s.ctx_ref(), s.ast), s.ctx)
+
+class SeqRef(ExprRef):
+    """Sequence expression."""
+
+    def sort(self):
+        return SeqSortRef(Z3_get_sort(self.ctx_ref(), self.as_ast()), self.ctx)
+
+    def __add__(self, other):
+        return Concat(self, other)
+
+    def __getitem__(self, i):
+        return SeqRef(Z3_mk_seq_at(self.ctx_ref(), self.as_ast(), i.as_ast()), self.ctx)
+        
+    def is_string(self):
+        return Z3_is_string_sort(self.ctx_ref(), Z3_get_sort(self.ctx_ref(), self.as_ast()))
+
+    def is_string_value(self):
+        return Z3_is_string(self.ctx_ref(), self.as_ast())
+
+    def as_string(self):
+        """Return a string representation of sequence expression."""
+        return Z3_ast_to_string(self.ctx_ref(), self.as_ast())    
+
+
+def _coerce_seq(s, ctx=None):
+    if isinstance(s, str):
+        ctx = _get_ctx(ctx)
+        s = StringVal(s, ctx)
+    return s
+
+def _get_ctx2(a, b, ctx=None):
+    if is_expr(a):
+        return a.ctx
+    if is_expr(b):
+        return b.ctx
+    if ctx is None:
+        ctx = main_ctx()
+    return ctx
+
+def is_seq(a):
+    """Return `True` if `a` is a Z3 sequence expression.
+    >>> print (is_seq(Unit(IntVal(0))))
+    True
+    >>> print (is_seq(StringVal("abc")))
+    True
+    """
+    return isinstance(a, SeqRef)
+
+def is_string(a):
+    """Return `True` if `a` is a Z3 string expression.
+    >>> print (is_string(StringVal("ab")))
+    True
+    """
+    return isinstance(a, SeqRef) and a.is_string()
+
+def is_string_value(a):
+    """return 'True' if 'a' is a Z3 string constant expression.
+    >>> print (is_string_value(StringVal("a")))
+    True
+    >>> print (is_string_value(StringVal("a") + StringVal("b")))
+    False
+    """
+    return isinstance(a, SeqRef) and a.is_string_value()
+
+
+def StringVal(s, ctx=None):
+    """create a string expression"""
+    ctx = _get_ctx(ctx)
+    return SeqRef(Z3_mk_string(ctx.ref(), s), ctx)
+
+def String(name, ctx=None):
+    """Return a string constant named `name`. If `ctx=None`, then the global context is used.
+
+    >>> x = String('x')
+    """
+    ctx = _get_ctx(ctx)
+    return SeqRef(Z3_mk_const(ctx.ref(), to_symbol(name, ctx), StringSort(ctx).ast), ctx)
+
+def Strings(names, ctx=None):
+    """Return a tuple of String constants. """
+    ctx = _get_ctx(ctx)
+    if isinstance(names, str):
+        names = names.split(" ")
+    return [String(name, ctx) for name in names]
+
+def Empty(s):
+    """Create the empty sequence of the given sort
+    >>> e = Empty(StringSort())
+    >>> print(e)
+    ""
+    >>> e2 = StringVal("")
+    >>> print(e.eq(e2))
+    True
+    >>> e3 = Empty(SeqSort(IntSort()))
+    >>> print(e3)
+    seq.empty
+    """
+    return SeqRef(Z3_mk_seq_empty(s.ctx_ref(), s.ast), s.ctx)
+
+def Unit(a):
+    """Create a singleton sequence"""
+    return SeqRef(Z3_mk_seq_unit(a.ctx_ref(), a.as_ast()), a.ctx)
+
+def PrefixOf(a, b):
+    """Check if 'a' is a prefix of 'b'
+    >>> s1 = PrefixOf("ab", "abc")
+    >>> simplify(s1)
+    True
+    >>> s2 = PrefixOf("bc", "abc")
+    >>> simplify(s2)
+    False
+    """
+    ctx = _get_ctx2(a, b)
+    a = _coerce_seq(a, ctx)
+    b = _coerce_seq(b, ctx)
+    return BoolRef(Z3_mk_seq_prefix(a.ctx_ref(), a.as_ast(), b.as_ast()), a.ctx)
+
+def SuffixOf(a, b):
+    """Check if 'a' is a suffix of 'b'
+    >>> s1 = SuffixOf("ab", "abc")
+    >>> simplify(s1)
+    False
+    >>> s2 = SuffixOf("bc", "abc")
+    >>> simplify(s2)
+    True
+    """
+    ctx = _get_ctx2(a, b)
+    a = _coerce_seq(a, ctx)
+    b = _coerce_seq(b, ctx)    
+    return BoolRef(Z3_mk_seq_suffix(a.ctx_ref(), a.as_ast(), b.as_ast()), a.ctx)
+
+def Contains(a, b):
+    """Check if 'a' contains 'b'
+    >>> s1 = Contains("abc", "ab")
+    >>> simplify(s1)
+    True
+    >>> s2 = Contains("abc", "bc")
+    >>> simplify(s2)
+    True
+    >>> x, y, z = Strings('x y z')
+    >>> s3 = Contains(Concat(x,y,z), y)
+    >>> simplify(s3)
+    True
+    """
+    ctx = _get_ctx2(a, b)
+    a = _coerce_seq(a, ctx)
+    b = _coerce_seq(b, ctx)    
+    return BoolRef(Z3_mk_seq_contains(a.ctx_ref(), a.as_ast(), b.as_ast()), a.ctx)
+
+
+def Replace(s, src, dst):
+    """Replace the first occurrence of 'src' by 'dst' in 's'
+    >>> r = Replace("aaa", "a", "b")
+    >>> simplify(r)
+    "baa"
+    """
+    ctx = _get_ctx2(dst, s)
+    if ctx is None and is_expr(src):
+        ctx = src.ctx
+    src = _coerce_seq(src, ctx)
+    dst = _coerce_seq(dst, ctx)
+    s   = _coerce_seq(s, ctx)
+    return SeqRef(Z3_mk_seq_replace(src.ctx_ref(), s.as_ast(), src.as_ast(), dst.as_ast()), s.ctx)
+
+def IndexOf(s, substr):
+    return IndexOf(s, substr, IntVal(0))
+
+def IndexOf(s, substr, offset):
+    """Retrieve the index of substring within a string starting at a specified offset.
+    >>> simplify(IndexOf("abcabc", "bc", 0))
+    1
+    >>> simplify(IndexOf("abcabc", "bc", 2))
+    4
+    """
+    ctx = None
+    if is_expr(offset):
+        ctx = offset.ctx
+    ctx = _get_ctx2(s, substr, ctx)
+    s = _coerce_seq(s, ctx)
+    substr = _coerce_seq(substr, ctx)
+    if isinstance(offset, int):
+        offset = IntVal(offset, ctx)    
+    return SeqRef(Z3_mk_seq_index(s.ctx_ref(), s.as_ast(), substr.as_ast(), offset.as_ast()), s.ctx)
+
+def Length(s):
+    """Obtain the length of a sequence 's'
+    >>> l = Length(StringVal("abc"))
+    >>> simplify(l)
+    3
+    """
+    s = _coerce_seq(s)
+    return ArithRef(Z3_mk_seq_length(s.ctx_ref(), s.as_ast()), s.ctx)
+
+def Re(s, ctx=None):
+    """The regular expression that accepts sequence 's'
+    >>> s1 = Re("ab")
+    >>> s2 = Re(StringVal("ab"))
+    >>> s3 = Re(Unit(BoolVal(True)))
+    """
+    s = _coerce_seq(s, ctx)
+    return ReRef(Z3_mk_seq_to_re(s.ctx_ref(), s.as_ast()), s.ctx)
+
+
+
+
+## Regular expressions
+
+class ReSortRef(SortRef):
+    """Regular expression sort."""
+
+
+def ReSort(s):
+    if is_ast(s):
+        return ReSortRef(Z3_mk_re_sort(s.ctx.ref(), s.as_ast()), ctx)
+    if s is None or isinstance(s, Context):
+        ctx = _get_ctx(s)
+        return ReSortRef(Z3_mk_re_sort(ctx.ref(), Z3_mk_string_sort(ctx.ref())), ctx)
+    raise Z3Exception("Regular expression sort constructor expects either a string or a context or no argument")
+
+
+class ReRef(ExprRef):
+    """Regular expressions."""
+
+    def __add__(self, other):
+        return Union(self, other)
+
+
+def is_re(s):
+    return isinstance(s, ReRef)
+
+
+def InRe(s, re):
+    """Create regular expression membership test
+    >>> re = Union(Re("a"),Re("b"))
+    >>> print (simplify(InRe("a", re)))
+    True
+    >>> print (simplify(InRe("b", re)))
+    True
+    >>> print (simplify(InRe("c", re)))
+    False
+    """
+    s = _coerce_seq(s, re.ctx)
+    return BoolRef(Z3_mk_seq_in_re(s.ctx_ref(), s.as_ast(), re.as_ast()), s.ctx)
+
+def Union(*args):
+    """Create union of regular expressions.
+    >>> re = Union(Re("a"), Re("b"), Re("c"))
+    >>> print (simplify(InRe("d", re)))
+    False
+    """    
+    args = _get_args(args)
+    sz = len(args)
+    if __debug__:
+        _z3_assert(sz >= 2, "At least two arguments expected.")
+        _z3_assert(all([is_re(a) for a in args]), "All arguments must be regular expressions.")
+    ctx = args[0].ctx    
+    v = (Ast * sz)()
+    for i in range(sz):
+        v[i] = args[i].as_ast()
+    return ReRef(Z3_mk_re_union(ctx.ref(), sz, v), ctx)
+
+def Plus(re):
+    """Create the regular expression accepting one or more repetitions of argument.
+    >>> re = Plus(Re("a"))
+    >>> print(simplify(InRe("aa", re)))
+    True
+    >>> print(simplify(InRe("ab", re)))
+    False
+    >>> print(simplify(InRe("", re)))
+    False
+    """    
+    return ReRef(Z3_mk_re_plus(re.ctx_ref(), re.as_ast()), re.ctx)
+
+def Option(re):
+    """Create the regular expression that optionally accepts the argument.
+    >>> re = Option(Re("a"))
+    >>> print(simplify(InRe("a", re)))
+    True
+    >>> print(simplify(InRe("", re)))
+    True
+    >>> print(simplify(InRe("aa", re)))
+    False
+    """
+    return ReRef(Z3_mk_re_option(re.ctx_ref(), re.as_ast()), re.ctx)
+
+def Star(re):
+    """Create the regular expression accepting zero or more repetitions of argument.
+    >>> re = Star(Re("a"))
+    >>> print(simplify(InRe("aa", re)))
+    True
+    >>> print(simplify(InRe("ab", re)))
+    False
+    >>> print(simplify(InRe("", re)))
+    True
+    """    
+    return ReRef(Z3_mk_re_star(re.ctx_ref(), re.as_ast()), re.ctx)

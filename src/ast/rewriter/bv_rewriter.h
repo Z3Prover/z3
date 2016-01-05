@@ -137,6 +137,10 @@ class bv_rewriter : public poly_rewriter<bv_rewriter_core> {
     bool is_concat_split_target(expr * t) const;
 
     br_status mk_mul_eq(expr * lhs, expr * rhs, expr_ref & result);
+    bool is_add_mul_const(expr* e) const;
+    bool isolate_term(expr* lhs, expr* rhs, expr_ref & result);
+    bool has_numeral(app* e) const;
+    bool is_concat_target(expr* lhs, expr* rhs) const;
 
     void updt_local_params(params_ref const & p);
 

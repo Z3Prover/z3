@@ -89,9 +89,10 @@ public:
         m_nodes.shrink(sz);
     }
 
-    void push_back(T * n) {
+    ref_vector_core& push_back(T * n) {
         inc_ref(n);
         m_nodes.push_back(n);
+        return *this;
     }
 
     void pop_back() {
