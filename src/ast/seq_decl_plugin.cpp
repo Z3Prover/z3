@@ -80,8 +80,9 @@ zstring zstring::replace(zstring const& src, zstring const& dst) const {
     return result;
 }
 
-static char* esc_table[32] = { "\\0", "^A", "^B", "^C", "^D", "^E", "^F", "\\a", "\\b", "\\t", "\\n", "\\v", "\\f", "\\r", "^N",
-                               "^O", "^P", "^Q", "^R", "^S", "^T", "^U", "^V","^W","^X","^Y","^Z","\\e","^\\","^]","^^","^_"};
+static const char esc_table[32][3] =
+    { "\\0", "^A", "^B", "^C", "^D", "^E", "^F", "\\a", "\\b", "\\t", "\\n", "\\v", "\\f", "\\r", "^N",
+      "^O", "^P", "^Q", "^R", "^S", "^T", "^U", "^V","^W","^X","^Y","^Z","\\e","^\\","^]","^^","^_"};
  
 std::string zstring::encode() const {
     SASSERT(m_encoding == ascii);

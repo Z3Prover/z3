@@ -3576,7 +3576,7 @@ def Concat(*args):
        if __debug__:
          _z3_assert(all([is_seq(a) for a in args]), "All arguments must be sequence expressions.")
        v = (Ast * sz)()
-        for i in range(sz):
+       for i in range(sz):
             v[i] = args[i].as_ast()
        return SeqRef(Z3_mk_seq_concat(ctx.ref(), sz, v), ctx)
     
