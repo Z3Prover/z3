@@ -1056,6 +1056,10 @@ namespace smt {
         // -----------------------------------
         virtual bool get_value(enode * n, expr_ref & r);
 
+        bool get_lower(enode* n, expr_ref& r);
+        bool get_upper(enode* n, expr_ref& r);
+        bool to_expr(inf_numeral const& val, bool is_int, expr_ref& r);
+
 
         // -----------------------------------
         //
@@ -1071,6 +1075,8 @@ namespace smt {
                           unsigned num_eqs, enode_pair const * eqs,
                           unsigned num_params, parameter* params);
         inf_eps_rational<inf_rational> conflict_minimize();
+
+
     private:
         virtual expr_ref mk_gt(theory_var v);
 

@@ -46,6 +46,7 @@ struct z3_replayer::imp {
     size_t                   m_ptr;
     size_t_map<void *>       m_heap;
     svector<z3_replayer_cmd> m_cmds;
+    vector<std::string>      m_cmds_names;
 
     enum value_kind { INT64, UINT64, DOUBLE, STRING, SYMBOL, OBJECT, UINT_ARRAY, INT_ARRAY, SYMBOL_ARRAY, OBJECT_ARRAY, FLOAT };
 
@@ -509,6 +510,7 @@ struct z3_replayer::imp {
                 if (idx >= m_cmds.size())
                     throw z3_replayer_exception("invalid command");
                 try {
+                    TRACE("z3_replayer_cmd", tout << m_cmds_names[idx] << "\n";);
                     m_cmds[idx](m_owner);
                 }
                 catch (z3_error & ex) {
@@ -672,9 +674,11 @@ struct z3_replayer::imp {
         m_result = obj;
     }
 
-    void register_cmd(unsigned id, z3_replayer_cmd cmd) {
+    void register_cmd(unsigned id, z3_replayer_cmd cmd, char const* name) {
         m_cmds.reserve(id+1, 0);
+        m_cmds_names.reserve(id+1, "");
         m_cmds[id] = cmd;
+        m_cmds_names[id] = name;
     }
 
     void reset() {
@@ -786,8 +790,8 @@ void z3_replayer::store_result(void * obj) {
     return m_imp->store_result(obj);
 }
 
-void z3_replayer::register_cmd(unsigned id, z3_replayer_cmd cmd) {
-    return m_imp->register_cmd(id, cmd);
+void z3_replayer::register_cmd(unsigned id, z3_replayer_cmd cmd, char const* name) {
+    return m_imp->register_cmd(id, cmd, name);
 }
 
 void z3_replayer::parse() {

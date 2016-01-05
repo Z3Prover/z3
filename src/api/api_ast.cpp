@@ -641,6 +641,12 @@ extern "C" {
         else if (fid == mk_c(c)->get_fpa_fid() && k == ROUNDING_MODE_SORT) {
             return Z3_ROUNDING_MODE_SORT;
         }
+        else if (fid == mk_c(c)->get_seq_fid() && k == SEQ_SORT) {
+            return Z3_SEQ_SORT;
+        }
+        else if (fid == mk_c(c)->get_seq_fid() && k == RE_SORT) {
+            return Z3_RE_SORT;
+        }
         else {
             return Z3_UNKNOWN_SORT;
         }
@@ -776,6 +782,8 @@ extern "C" {
                 SET_ERROR_CODE(Z3_SORT_ERROR);
                 RETURN_Z3(of_expr(0));
             }
+            SASSERT(from[i]->get_ref_count() > 0);
+            SASSERT(to[i]->get_ref_count() > 0);
         }
         expr_safe_replace subst(m);
         for (unsigned i = 0; i < num_exprs; i++) {
@@ -1102,6 +1110,32 @@ extern "C" {
             case datalog::OP_DL_LT: return Z3_OP_FD_LT;
             default:
                 UNREACHABLE();
+                return Z3_OP_UNINTERPRETED;
+            }
+        }
+
+        if (mk_c(c)->get_seq_fid() == _d->get_family_id()) {
+            switch (_d->get_decl_kind()) {
+            case Z3_OP_SEQ_UNIT: return Z3_OP_SEQ_UNIT;
+            case Z3_OP_SEQ_EMPTY: return Z3_OP_SEQ_EMPTY;
+            case Z3_OP_SEQ_CONCAT: return Z3_OP_SEQ_CONCAT;
+            case Z3_OP_SEQ_PREFIX: return Z3_OP_SEQ_PREFIX;
+            case Z3_OP_SEQ_SUFFIX: return Z3_OP_SEQ_SUFFIX;
+            case Z3_OP_SEQ_CONTAINS: return Z3_OP_SEQ_CONTAINS;
+            case Z3_OP_SEQ_EXTRACT: return Z3_OP_SEQ_EXTRACT;
+            case Z3_OP_SEQ_REPLACE: return Z3_OP_SEQ_REPLACE;
+            case Z3_OP_SEQ_AT: return Z3_OP_SEQ_AT;
+            case Z3_OP_SEQ_LENGTH: return Z3_OP_SEQ_LENGTH;
+            case Z3_OP_SEQ_INDEX: return Z3_OP_SEQ_INDEX;
+            case Z3_OP_SEQ_TO_RE: return Z3_OP_SEQ_TO_RE;
+            case Z3_OP_SEQ_IN_RE: return Z3_OP_SEQ_IN_RE;
+                    
+            case Z3_OP_RE_PLUS: return Z3_OP_RE_PLUS;
+            case Z3_OP_RE_STAR: return Z3_OP_RE_STAR;
+            case Z3_OP_RE_OPTION: return Z3_OP_RE_OPTION;
+            case Z3_OP_RE_CONCAT: return Z3_OP_RE_CONCAT;
+            case Z3_OP_RE_UNION: return Z3_OP_RE_UNION;
+            default:
                 return Z3_OP_UNINTERPRETED;
             }
         }

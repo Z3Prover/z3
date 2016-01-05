@@ -24,7 +24,19 @@ Notes:
 #include"rewriter_types.h"
 #include"params.h"
 #include"lbool.h"
+#include"automaton.h"
 
+
+typedef automaton<expr, ast_manager> eautomaton;
+class re2automaton {
+    ast_manager& m;
+    seq_util     u;       
+    eautomaton* re2aut(expr* e);
+    eautomaton* seq2aut(expr* e);
+ public:
+    re2automaton(ast_manager& m);
+    eautomaton* operator()(expr* e);
+};
 
 /**
    \brief Cheap rewrite rules for seq constraints
@@ -32,7 +44,7 @@ Notes:
 class seq_rewriter {
     seq_util       m_util;
     arith_util     m_autil;
-    ptr_vector<expr> m_es, m_lhs, m_rhs;
+    expr_ref_vector m_es, m_lhs, m_rhs;
 
     br_status mk_seq_concat(expr* a, expr* b, expr_ref& result);
     br_status mk_seq_length(expr* a, expr_ref& result);
@@ -61,9 +73,13 @@ class seq_rewriter {
     bool min_length(unsigned n, expr* const* es, unsigned& len);
     expr* concat_non_empty(unsigned n, expr* const* es);
 
+    void add_next(u_map<expr*>& next, unsigned idx, expr* cond);
+    bool is_sequence(expr* e, expr_ref_vector& seq);
+    bool is_epsilon(expr* e) const;
+
 public:    
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
-        m_util(m), m_autil(m) {
+        m_util(m), m_autil(m), m_es(m), m_lhs(m), m_rhs(m) {
     }
     ast_manager & m() const { return m_util.get_manager(); }
     family_id get_fid() const { return m_util.get_family_id(); }
@@ -75,6 +91,8 @@ public:
     br_status mk_eq_core(expr * lhs, expr * rhs, expr_ref & result);
 
     bool reduce_eq(expr* l, expr* r, expr_ref_vector& lhs, expr_ref_vector& rhs);
+
+    bool reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_vector& lhs, expr_ref_vector& rhs);
 
 };
 

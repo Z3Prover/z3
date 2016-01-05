@@ -87,6 +87,8 @@ struct
     (z3obj_sno res ctx no) ;
     (z3obj_create res) ;
     res               
+ 
+
 end
 
 open Internal
@@ -833,6 +835,13 @@ end = struct
       let o = Z3native.mk_app (context_gno ctx) (AST.ptr_of_ast fa) (List.length args) (expr_lton args) in
       expr_of_ptr ctx o
 
+   let apply1 ctx f t = expr_of_ptr ctx (f (context_gno ctx) (gno t)) in
+
+   let apply2 ctx f t1 t2 = expr_of_ptr ctx (f (context_gno ctx) (gno t1) (gno t2)) in
+
+   let apply3 ctx f t1 t2 t3 = expr_of_ptr ctx (f (context_gno ctx) (gno t1) (gno t2) (gno t3)) in
+
+
   let simplify ( x : expr ) ( p : Params.params option ) = match p with 
     | None -> expr_of_ptr (Expr.gc x) (Z3native.simplify (gnc x) (gno x))
     | Some pp -> expr_of_ptr (Expr.gc x) (Z3native.simplify_ex (gnc x) (gno x) (z3obj_gno pp))
@@ -854,13 +863,13 @@ end = struct
     if ((AST.is_app (ast_of_expr x)) && (List.length args <> (get_num_args x))) then
       raise (Z3native.Exception "Number of arguments does not match")
     else
-      expr_of_ptr (Expr.gc x) (Z3native.update_term (gnc x) (gno x) (List.length args) (expr_lton args))
-
+      expr_of_ptr (Expr.gc x) (Z3native.update_term (gnc x) (gno x) (List.length args) (expr_lton args)) 
+      
   let substitute ( x : expr ) from to_ = 
     if (List.length from) <> (List.length to_) then
       raise (Z3native.Exception "Argument sizes do not match")
     else
-      expr_of_ptr (Expr.gc x) (Z3native.substitute (gnc x) (gno x) (List.length from) (expr_lton from) (expr_lton to_))
+      expr_of_ptr (Expr.gc x) (Z3native.substitute (gnc x) (gno x) (List.length from) (expr_lton from) (expr_lton to_)) 
      
   let substitute_one ( x : expr ) from to_ =
     substitute ( x : expr ) [ from ] [ to_ ]
@@ -872,7 +881,7 @@ end = struct
     if (Expr.gc x) == to_ctx then
       x
     else
-      expr_of_ptr to_ctx (Z3native.translate (gnc x) (gno x) (context_gno to_ctx))
+      expr_of_ptr to_ctx (Z3native.translate (gnc x) (gno x) (context_gno to_ctx)) 
 
   let to_string ( x : expr ) = Z3native.ast_to_string (gnc x) (gno x)
 
@@ -933,34 +942,33 @@ struct
   let mk_val ( ctx : context ) ( value : bool ) =
     if value then mk_true ctx else mk_false ctx
       
-  let mk_not ( ctx : context ) ( a : expr ) =
-    expr_of_ptr ctx (Z3native.mk_not (context_gno ctx) (gno a))
+  let mk_not ( ctx : context ) ( a : expr ) = apply1 ctx Z3native.mk_not a
 
-  let mk_ite ( ctx : context ) ( t1 : expr ) ( t2 : expr ) ( t3 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_ite (context_gno ctx) (gno t1) (gno t2) (gno t3))
+  let mk_ite ( ctx : context ) ( t1 : expr ) ( t2 : expr ) ( t3 : expr ) = 
+    apply3 ctx Z3native.mk_ite t1 t2 t3
       
   let mk_iff ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_iff (context_gno ctx) (gno t1) (gno t2))
+    apply2 ctx Z3native.mk_iff t1 t2
 
   let mk_implies ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_implies (context_gno ctx) (gno t1) (gno t2))
+    apply2 ctx Z3native.mk_implies t1 t2
 
   let mk_xor ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_xor (context_gno ctx) (gno t1) (gno t2))
+    apply2 ctx Z3native.mk_xor t1 t2
 
   let mk_and ( ctx : context ) ( args : expr list ) =
     let f x = (Expr.gno (x)) in
-    expr_of_ptr ctx (Z3native.mk_and (context_gno ctx) (List.length args) (Array.of_list (List.map f args)))
+    expr_of_ptr ctx (Z3native.mk_and (context_gno ctx) (List.length args) (Array.of_list (List.map f args))) 
 
   let mk_or ( ctx : context ) ( args : expr list ) =
     let f x = (Expr.gno (x)) in
-    expr_of_ptr ctx (Z3native.mk_or (context_gno ctx) (List.length args) (Array.of_list(List.map f args)))
+    expr_of_ptr ctx (Z3native.mk_or (context_gno ctx) (List.length args) (Array.of_list(List.map f args))) 
 
   let mk_eq ( ctx : context ) ( x : expr ) ( y : expr ) =
-    expr_of_ptr ctx (Z3native.mk_eq (context_gno ctx) (Expr.gno x) (Expr.gno y))
+    apply2 ctx Z3native.mk_eq x y
 
   let mk_distinct ( ctx : context ) ( args : expr list ) =
-    expr_of_ptr ctx (Z3native.mk_distinct (context_gno ctx) (List.length args) (expr_lton args))
+    expr_of_ptr ctx (Z3native.mk_distinct (context_gno ctx) (List.length args) (expr_lton args)) 
 
   let get_bool_value ( x : expr ) = lbool_of_int (Z3native.get_bool_value (gnc x) (gno x))
 
@@ -1066,10 +1074,10 @@ struct
     mk_list f n
       
   let get_body ( x : quantifier ) =
-    expr_of_ptr (gc x) (Z3native.get_quantifier_body (gnc x) (gno x))  
+    apply1 (gc x) Z3native.get_quantifier_body x
 
   let mk_bound ( ctx : context ) ( index : int ) ( ty : Sort.sort ) =
-    expr_of_ptr ctx (Z3native.mk_bound (context_gno ctx) index (Sort.gno ty))
+    expr_of_ptr ctx (Z3native.mk_bound (context_gno ctx) index (Sort.gno ty)) 
 
   let mk_pattern ( ctx : context ) ( terms : expr list ) =
     if (List.length terms) == 0 then
@@ -1194,23 +1202,23 @@ struct
     mk_const ctx (Symbol.mk_string ctx name) domain range
       
   let mk_select ( ctx : context ) ( a : expr ) ( i : expr ) =
-    expr_of_ptr ctx (Z3native.mk_select (context_gno ctx) (Expr.gno a) (Expr.gno i))      
+    apply2 ctx Z3native.mk_select a i
 
   let mk_store ( ctx : context ) ( a : expr ) ( i : expr ) ( v : expr ) =
-    expr_of_ptr ctx (Z3native.mk_store (context_gno ctx) (Expr.gno a) (Expr.gno i) (Expr.gno v))
+    apply3 ctx Z3native.mk_store a i v
 
   let mk_const_array ( ctx : context ) ( domain : Sort.sort ) ( v : expr ) =
-    expr_of_ptr ctx (Z3native.mk_const_array (context_gno ctx) (Sort.gno domain) (Expr.gno v))
+    expr_of_ptr ctx (Z3native.mk_const_array (context_gno ctx) (Sort.gno domain) (Expr.gno v)) 
 
   let mk_map ( ctx : context ) ( f : func_decl ) ( args : expr list ) =
     let m x = (Expr.gno x) in    
     expr_of_ptr ctx (Z3native.mk_map (context_gno ctx) (FuncDecl.gno f) (List.length args) (Array.of_list (List.map m args)))
 
   let mk_term_array  ( ctx : context ) ( arg : expr ) =
-    expr_of_ptr ctx (Z3native.mk_array_default (context_gno ctx) (Expr.gno arg))
+    apply1 ctx Z3native.mk_array_default arg
 
   let mk_array_ext ( ctx : context) ( arg1 : expr ) ( arg2 : expr ) =
-     expr_of_ptr ctx (Z3native.mk_array_ext (context_gno ctx) (Expr.gno arg1) (Expr.gno arg2))
+    apply2 ctx Z3native.mk_array_ext arg1 arg2
 end
 
 
@@ -1233,13 +1241,14 @@ struct
     expr_of_ptr ctx (Z3native.mk_full_set (context_gno ctx) (Sort.gno domain))
 
   let mk_set_add  ( ctx : context ) ( set : expr ) ( element : expr ) =
-    expr_of_ptr ctx (Z3native.mk_set_add (context_gno ctx) (Expr.gno set) (Expr.gno element))
+    apply2 ctx Z3native.mk_set_add set element
       
   let mk_del  ( ctx : context ) ( set : expr ) ( element : expr ) =
-    expr_of_ptr ctx (Z3native.mk_set_del (context_gno ctx) (Expr.gno set) (Expr.gno element))
+    apply2 Z3native.mk_set_del set element
       
   let mk_union  ( ctx : context ) ( args : expr list ) =
-    expr_of_ptr ctx (Z3native.mk_set_union (context_gno ctx) (List.length args) (expr_lton args))
+    let r = expr_of_ptr ctx (Z3native.mk_set_union (context_gno ctx) (List.length args) (expr_lton args)) in
+    r
       
   let mk_intersection  ( ctx : context ) ( args : expr list ) =
     expr_of_ptr ctx (Z3native.mk_set_intersect (context_gno ctx) (List.length args) (expr_lton args))

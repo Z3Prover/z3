@@ -3089,20 +3089,35 @@ namespace smt {
     // -----------------------------------
 
     template<typename Ext>
-    bool theory_arith<Ext>::get_value(enode * n, expr_ref & r) {
-        theory_var v = n->get_th_var(get_id());
-        if (v == null_theory_var) {
-            // TODO: generate fresh value different from other get_value(v) for all v.
-            return false; 
+    bool theory_arith<Ext>::to_expr(inf_numeral const& val, bool is_int, expr_ref & r) {
+        if (val.get_infinitesimal().is_zero()) {            
+            numeral _val = val.get_rational();
+            r = m_util.mk_numeral(_val.to_rational(), is_int);
+            return true;
         }
-        inf_numeral const & val = get_value(v);
-        if (!val.get_infinitesimal().is_zero()) {
-            // TODO: add support for infinitesimals
+        else {
             return false;
         }
-        numeral _val = val.get_rational();
-        r = m_util.mk_numeral(_val.to_rational(), is_int(v));
-        return true;
+    }
+
+    template<typename Ext>
+    bool theory_arith<Ext>::get_value(enode * n, expr_ref & r) {
+        theory_var v = n->get_th_var(get_id());
+        return v != null_theory_var && to_expr(get_value(v), is_int(v), r);
+    }
+
+    template<typename Ext>
+    bool theory_arith<Ext>::get_lower(enode * n, expr_ref & r) {        
+        theory_var v = n->get_th_var(get_id());
+        bound* b = (v == null_theory_var) ? 0 : lower(v);
+        return b && to_expr(b->get_value(), is_int(v), r);
+    }
+    
+    template<typename Ext>
+    bool theory_arith<Ext>::get_upper(enode * n, expr_ref & r) {        
+        theory_var v = n->get_th_var(get_id());
+        bound* b = (v == null_theory_var) ? 0 : upper(v);
+        return b && to_expr(b->get_value(), is_int(v), r);
     }
     
     // -----------------------------------

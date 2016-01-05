@@ -38,7 +38,7 @@ void bit_blaster_tpl<Cfg>::checkpoint() {
 template<typename Cfg>
 bool bit_blaster_tpl<Cfg>::is_numeral(unsigned sz, expr * const * bits) const {
     for (unsigned i = 0; i < sz; i++)
-        if (!m().is_true(bits[i]) && !m().is_false(bits[i]))
+        if (!is_bool_const(bits[i])) 
             return false;
     return true;
 }
@@ -158,30 +158,24 @@ void bit_blaster_tpl<Cfg>::mk_subtracter(unsigned sz, expr * const * a_bits, exp
 template<typename Cfg>
 void bit_blaster_tpl<Cfg>::mk_multiplier(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr_ref_vector & out_bits) {
     SASSERT(sz > 0);
-    
-    if (!m_use_bcm) {
-        numeral n_a, n_b;
-        if (is_numeral(sz, a_bits, n_b))
-            std::swap(a_bits, b_bits);
-        if (is_minus_one(sz, b_bits)) {
-            mk_neg(sz, a_bits, out_bits);
-            return;
-        }
-        if (is_numeral(sz, a_bits, n_a)) {
-            n_a *= n_b;
-            num2bits(n_a, sz, out_bits);
-            return;
-        }
+    numeral n_a, n_b;
+    if (is_numeral(sz, a_bits, n_b))
+        std::swap(a_bits, b_bits);
+    if (is_minus_one(sz, b_bits)) {
+        mk_neg(sz, a_bits, out_bits);
+        return;
     }
-    else {
-        numeral n_a, n_b;
-        if (is_numeral(sz, a_bits, n_a)) {
-            mk_const_multiplier(sz, a_bits, b_bits, out_bits);
-            return;
-        } else if (is_numeral(sz, b_bits, n_b)) {
-            mk_const_multiplier(sz, b_bits, a_bits, out_bits);
-            return;
-        }
+    if (is_numeral(sz, a_bits, n_a)) {
+        n_a *= n_b;
+        num2bits(n_a, sz, out_bits);
+        return;
+    }
+    
+    if (mk_const_multiplier(sz, a_bits, b_bits, out_bits)) {
+        return;
+    }
+    if (mk_const_multiplier(sz, b_bits, a_bits, out_bits)) {
+        return;
     }
 
     if (!m_use_wtm) {
@@ -1171,13 +1165,74 @@ void bit_blaster_tpl<Cfg>::mk_carry_save_adder(unsigned sz, expr * const * a_bit
 }
 
 template<typename Cfg>
-void bit_blaster_tpl<Cfg>::mk_const_multiplier(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr_ref_vector & out_bits) {
-    DEBUG_CODE({
-        numeral x;
-        SASSERT(is_numeral(sz, a_bits, x));
-        SASSERT(out_bits.empty());        
-    });    
+bool bit_blaster_tpl<Cfg>::mk_const_case_multiplier(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr_ref_vector & out_bits) {
+    unsigned nb = 0;
+    unsigned case_size = 1;
+    unsigned circuit_size = sz*sz*5;
+    for (unsigned i = 0; case_size < circuit_size && i < sz; ++i) {
+        if (!is_bool_const(a_bits[i])) {
+            case_size *= 2;
+        }
+        if (!is_bool_const(b_bits[i])) {
+            case_size *= 2;
+        }
+    }
+    if (case_size >= circuit_size) {
+        return false;
+    }
+    SASSERT(out_bits.empty());
     
+    ptr_buffer<expr, 128> na_bits;
+    na_bits.append(sz, a_bits);
+    ptr_buffer<expr, 128> nb_bits;
+    nb_bits.append(sz, b_bits);
+    mk_const_case_multiplier(true, 0, sz, na_bits, nb_bits, out_bits); 
+    return false;
+}
+ 
+template<typename Cfg>
+void bit_blaster_tpl<Cfg>::mk_const_case_multiplier(bool is_a, unsigned i, unsigned sz, ptr_buffer<expr, 128>& a_bits, ptr_buffer<expr, 128>& b_bits, expr_ref_vector & out_bits) {
+    while (is_a && i < sz && is_bool_const(a_bits[i])) ++i;
+    if (is_a && i == sz) { is_a = false; i = 0; }
+    while (!is_a && i < sz && is_bool_const(b_bits[i])) ++i;
+    if (i < sz) {
+        expr_ref_vector out1(m()), out2(m());
+        expr_ref x(m());
+        x = is_a?a_bits[i]:b_bits[i];
+        if (is_a) a_bits[i] = m().mk_true(); else b_bits[i] = m().mk_true();
+        mk_const_case_multiplier(is_a, i+1, sz, a_bits, b_bits, out1);
+        if (is_a) a_bits[i] = m().mk_false(); else b_bits[i] = m().mk_false();
+        mk_const_case_multiplier(is_a, i+1, sz, a_bits, b_bits, out2);
+        if (is_a) a_bits[i] = x; else b_bits[i] = x;
+        SASSERT(out_bits.empty());
+        for (unsigned j = 0; j < sz; ++j) {
+            out_bits.push_back(m().mk_ite(x, out1[j].get(), out2[j].get()));
+        }        
+    }
+    else {
+        numeral n_a, n_b;
+        SASSERT(i == sz && !is_a);
+        VERIFY(is_numeral(sz, a_bits.c_ptr(), n_a));
+        VERIFY(is_numeral(sz, b_bits.c_ptr(), n_b));
+        n_a *= n_b;
+        num2bits(n_a, sz, out_bits);
+    }
+}
+
+template<typename Cfg>
+bool bit_blaster_tpl<Cfg>::mk_const_multiplier(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr_ref_vector & out_bits) {
+    numeral n_a;
+    if (!is_numeral(sz, a_bits, n_a)) {
+        return false;
+    }
+    SASSERT(out_bits.empty());
+    
+    if (mk_const_case_multiplier(sz, a_bits, b_bits, out_bits)) {
+        return true;
+    }    
+    if (!m_use_bcm) {
+        return false;
+    }
     expr_ref_vector minus_b_bits(m()), tmp(m());
     mk_neg(sz, b_bits, minus_b_bits);
         
@@ -1255,4 +1310,6 @@ void bit_blaster_tpl<Cfg>::mk_const_multiplier(unsigned sz, expr * const * a_bit
 
     TRACE("bit_blaster_tpl_booth", for (unsigned i=0; i<out_bits.size(); i++)
                                      tout << "Booth encoding: " << mk_pp(out_bits[i].get(), m()) << "\n"; );
+
+    return true;
 }

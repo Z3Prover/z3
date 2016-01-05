@@ -25,6 +25,7 @@ Revision History:
 #include"api_util.h"
 #include"arith_decl_plugin.h"
 #include"bv_decl_plugin.h"
+#include"seq_decl_plugin.h"
 #include"datatype_decl_plugin.h"
 #include"dl_decl_plugin.h"
 #include"fpa_decl_plugin.h"
@@ -58,6 +59,7 @@ namespace api {
         datalog::dl_decl_util      m_datalog_util;
         fpa_util                   m_fpa_util;
 	datatype_util              m_dtutil;
+        seq_util                   m_sutil;
 
         // Support for old solver API
         smt_params                 m_fparams;
@@ -78,6 +80,7 @@ namespace api {
         family_id                  m_datalog_fid;
         family_id                  m_pb_fid;
         family_id                  m_fpa_fid;
+        family_id                  m_seq_fid;
         datatype_decl_plugin *     m_dt_plugin;
         
         std::string                m_string_buffer; // temporary buffer used to cache strings sent to the "external" world.
@@ -121,6 +124,7 @@ namespace api {
         datalog::dl_decl_util & datalog_util() { return m_datalog_util; }
         fpa_util & fpautil() { return m_fpa_util; }
 	datatype_util& dtutil() { return m_dtutil; }
+        seq_util& sutil() { return m_sutil; }
         family_id get_basic_fid() const { return m_basic_fid; }
         family_id get_array_fid() const { return m_array_fid; }
         family_id get_arith_fid() const { return m_arith_fid; }
@@ -129,6 +133,7 @@ namespace api {
         family_id get_datalog_fid() const { return m_datalog_fid; }
         family_id get_pb_fid() const { return m_pb_fid; }
         family_id get_fpa_fid() const { return m_fpa_fid; }
+        family_id get_seq_fid() const { return m_seq_fid; }
         datatype_decl_plugin * get_dt_plugin() const { return m_dt_plugin; }
 
         Z3_error_code get_error_code() const { return m_error_code; }

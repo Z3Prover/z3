@@ -424,6 +424,39 @@ namespace smt {
 
     };
 
+    void theory_bv::add_fixed_eq(theory_var v1, theory_var v2) {
+        ++m_stats.m_num_eq_dynamic;
+        if (v1 > v2) {
+            std::swap(v1, v2);
+        }
+        unsigned sz = get_bv_size(v1);
+        ast_manager& m = get_manager();
+        context & ctx = get_context();
+        app* o1 = get_enode(v1)->get_owner();
+        app* o2 = get_enode(v2)->get_owner();
+        literal oeq = mk_eq(o1, o2, true);
+        TRACE("bv", 
+              tout << mk_pp(o1, m) << " = " << mk_pp(o2, m) << " " 
+              << ctx.get_scope_level() << "\n";);
+        literal_vector eqs;
+        for (unsigned i = 0; i < sz; ++i) {
+            literal l1 = m_bits[v1][i];
+            literal l2 = m_bits[v2][i];
+            expr_ref e1(m), e2(m);
+            e1 = mk_bit2bool(o1, i);
+            e2 = mk_bit2bool(o2, i);
+            literal eq = mk_eq(e1, e2, true);
+            ctx.mk_th_axiom(get_id(),  l1, ~l2, ~eq);
+            ctx.mk_th_axiom(get_id(), ~l1,  l2, ~eq);
+            ctx.mk_th_axiom(get_id(),  l1,  l2,  eq);
+            ctx.mk_th_axiom(get_id(), ~l1, ~l2,  eq);
+            ctx.mk_th_axiom(get_id(), eq, ~oeq);
+            eqs.push_back(~eq);
+        }
+        eqs.push_back(oeq);
+        ctx.mk_th_axiom(get_id(), eqs.size(), eqs.c_ptr());
+    }
+
     void theory_bv::fixed_var_eh(theory_var v) {
         numeral val;
         bool r      = get_fixed_value(v, val);
@@ -443,7 +476,9 @@ namespace smt {
                           display_var(tout, v);
                           display_var(tout, v2););
                     m_stats.m_num_th2core_eq++;
-                    ctx.assign_eq(get_enode(v), get_enode(v2), eq_justification(js));
+                    add_fixed_eq(v, v2);
+                    ctx.assign_eq(get_enode(v), get_enode(v2), eq_justification(js));                    
+                    m_fixed_var_table.insert(key, v2);
                 }
             }
             else {
@@ -1177,6 +1212,7 @@ namespace smt {
     }
 
     void theory_bv::assign_bit(literal consequent, theory_var v1, theory_var v2, unsigned idx, literal antecedent, bool propagate_eqc) {
+
         m_stats.m_num_bit2core++;
         context & ctx = get_context();
         SASSERT(ctx.get_assignment(antecedent) == l_true);
@@ -1192,6 +1228,12 @@ namespace smt {
         }
         else {
             ctx.assign(consequent, mk_bit_eq_justification(v1, v2, consequent, antecedent));
+            literal_vector lits;
+            lits.push_back(~consequent);
+            lits.push_back(antecedent);
+            lits.push_back(~mk_eq(get_enode(v1)->get_owner(), get_enode(v2)->get_owner(), false));
+            ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
+     
             if (m_wpos[v2] == idx)
                 find_wpos(v2);
             // REMARK: bit_eq_justification is marked as a theory_bv justification.
@@ -1601,6 +1643,7 @@ namespace smt {
         st.update("bv dynamic diseqs", m_stats.m_num_diseq_dynamic);
         st.update("bv bit2core", m_stats.m_num_bit2core);
         st.update("bv->core eq", m_stats.m_num_th2core_eq);
+        st.update("bv dynamic eqs", m_stats.m_num_eq_dynamic);
     }
 
 #ifdef Z3DEBUG
