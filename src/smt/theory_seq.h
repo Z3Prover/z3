@@ -304,7 +304,6 @@ namespace smt {
         expr_ref_vector            m_axioms;     // list of axioms to add.
         obj_hashtable<expr>        m_axiom_set;
         unsigned                   m_axioms_head; // index of first axiom to add.
-        unsigned        m_branch_variable_head;   // index of first equation to examine.
         bool            m_incomplete;             // is the solver (clearly) incomplete for the fragment.
         obj_hashtable<expr> m_length;             // is length applied
         scoped_ptr_vector<apply> m_replay;        // set of actions to replay
@@ -387,7 +386,8 @@ namespace smt {
         void propagate_eq(literal lit, expr* e1, expr* e2, bool add_to_eqs = false);
         void set_conflict(dependency* dep, literal_vector const& lits = literal_vector());
 
-        bool find_branch_candidate(dependency* dep, expr* l, expr_ref_vector const& rs);
+        bool find_branch_candidate(dependency* dep, expr_ref_vector const& ls, expr_ref_vector const& rs);
+        bool can_be_equal(unsigned szl, expr* const* ls, unsigned szr, expr* const* rs) const;
         lbool assume_equality(expr* l, expr* r);
 
         // variable solving utilities

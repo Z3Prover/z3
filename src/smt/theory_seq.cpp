@@ -159,7 +159,6 @@ theory_seq::theory_seq(ast_manager& m):
     m_exclude(m),
     m_axioms(m),
     m_axioms_head(0),
-    m_branch_variable_head(0),
     m_mg(0),
     m_rewrite(m), 
     m_util(m),
@@ -234,8 +233,9 @@ bool theory_seq::branch_variable() {
     context& ctx = get_context();
     unsigned sz = m_eqs.size();
     expr_ref_vector ls(m), rs(m);
+    int start = ctx.get_random_value();
     for (unsigned i = 0; i < sz; ++i) {
-        unsigned k = (i + m_branch_variable_head) % sz;
+        unsigned k = (i + start) % sz;
         eq e = m_eqs[k];
         TRACE("seq", tout << e.m_lhs << " = " << e.m_rhs << "\n";);
         ls.reset(); rs.reset();
@@ -243,21 +243,17 @@ bool theory_seq::branch_variable() {
         m_util.str.get_concat(e.m_rhs, rs);
 
 #if 1       
-        if (!ls.empty() && find_branch_candidate(e.m_dep, ls[0].get(), rs)) {
-            m_branch_variable_head = k;
+        if (find_branch_candidate(e.m_dep, ls, rs)) {
             return true;
         }
-        if (!rs.empty() && find_branch_candidate(e.m_dep, rs[0].get(), ls)) {
-            m_branch_variable_head = k;
+        if (find_branch_candidate(e.m_dep, rs, ls)) {
             return true;
         }
 #else
-        if (ls.size() > 1 && find_branch_candidate(e.m_dep, ls.back(), rs)) {
-            m_branch_variable_head = k;
+        if (find_branch_candidate(e.m_dep, ls.back(), rs)) {
             return true;
         }
-        if (rs.size() > 1 && find_branch_candidate(e.m_dep, rs.back(), ls)) {
-            m_branch_variable_head = k;
+        if (find_branch_candidate(e.m_dep, rs.back(), ls)) {
             return true;
         }
 #endif
@@ -273,10 +269,12 @@ bool theory_seq::branch_variable() {
     return ctx.inconsistent();
 }
 
-bool theory_seq::find_branch_candidate(dependency* dep, expr* l, expr_ref_vector const& rs) {
+bool theory_seq::find_branch_candidate(dependency* dep, expr_ref_vector const& ls, expr_ref_vector const& rs) {
 
-    TRACE("seq", tout << mk_pp(l, m) << " " 
-          << (is_var(l)?"var":"not var") << "\n";);
+    if (ls.empty()) {
+        return false;
+    }
+    expr* l = ls[0];
 
     if (!is_var(l)) {
         return false;
@@ -286,7 +284,8 @@ bool theory_seq::find_branch_candidate(dependency* dep, expr* l, expr_ref_vector
     expr_ref_vector cases(m);
     expr_ref v0(m), v(m);
     v0 = m_util.str.mk_empty(m.get_sort(l));
-    if (l_false != assume_equality(l, v0)) {
+    if (can_be_equal(ls.size() - 1, ls.c_ptr() + 1, rs.size(), rs.c_ptr()) && l_false != assume_equality(l, v0)) {
+        TRACE("seq", tout << mk_pp(l, m) << " " << v0 << "\n";);
         return true;
     }
     for (unsigned j = 0; j < rs.size(); ++j) {
@@ -295,8 +294,12 @@ bool theory_seq::find_branch_candidate(dependency* dep, expr* l, expr_ref_vector
         }
         SASSERT(!m_util.str.is_string(rs[j]));
         all_units &= m_util.str.is_unit(rs[j]);
+        if (!can_be_equal(ls.size() - 1, ls.c_ptr() + 1, rs.size() - j - 1, rs.c_ptr() + j + 1)) {
+            continue;
+        }
         v0 = m_util.str.mk_concat(j + 1, rs.c_ptr());
         if (l_false != assume_equality(l, v0)) {
+            TRACE("seq", tout << mk_pp(l, m) << " " << v0 << "\n";);
             return true;
         }
     }           
@@ -308,10 +311,36 @@ bool theory_seq::find_branch_candidate(dependency* dep, expr* l, expr_ref_vector
             lits.push_back(~mk_eq(l, v0, false));
         }
         set_conflict(dep, lits);
+        TRACE("seq", tout << mk_pp(l, m) << " " << v0 << "\n";);
         return true;
     }
     return false;
 }
+
+bool theory_seq::can_be_equal(unsigned szl, expr* const* ls, unsigned szr, expr* const* rs) const {
+    unsigned i = 0;
+    for (; i < szl && i < szr; ++i) {
+        if (m.are_distinct(ls[i], rs[i])) {
+            return false;
+        }
+        if (!m.are_equal(ls[i], rs[i])) {
+            break;
+        }
+    }
+    if (i == szr) {
+        std::swap(ls, rs);
+        std::swap(szl, szr);
+    }
+    if (i == szl && i < szr) {
+        for (; i < szr; ++i) {
+            if (m_util.str.is_unit(rs[i])) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 
 lbool theory_seq::assume_equality(expr* l, expr* r) {
     context& ctx = get_context();
