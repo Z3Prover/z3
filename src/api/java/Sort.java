@@ -33,20 +33,17 @@ public class Sort extends AST
     @Override
     public boolean equals(Object o)
     {
-        Sort casted = null;
+        if (o == null) return false;
+        if (o == this) return true;
+        if (o.getClass() != this.getClass()) return false;
+        Sort other = (Sort) o;
 
-        try {
-            casted = Sort.class.cast(o);
-        } catch (ClassCastException e) {
-            return false;
-        }
-
-	return  
-	    (this == casted) || 
-	    (this != null) &&
-	    (casted != null) &&
-	    (getContext().nCtx() == casted.getContext().nCtx()) &&
-	    (Native.isEqSort(getContext().nCtx(), getNativeObject(), casted.getNativeObject()));
+	return  (getContext().nCtx() == other.getContext().nCtx()) &&
+	    (Native.isEqSort(
+            getContext().nCtx(),
+            getNativeObject(),
+            other.getNativeObject()
+        ));
     }
 
     /**
