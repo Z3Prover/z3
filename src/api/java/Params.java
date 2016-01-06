@@ -29,7 +29,7 @@ public class Params extends Z3Object
     public void add(Symbol name, boolean value)
     {
         Native.paramsSetBool(getContext().nCtx(), getNativeObject(),
-                name.getNativeObject(), (value) ? true : false);
+                name.getNativeObject(), (value));
     }
 
     /**

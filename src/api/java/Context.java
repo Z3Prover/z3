@@ -1537,8 +1537,7 @@ public class Context extends IDisposable
         checkContextMatch(t1);
         checkContextMatch(t2);
         return new BoolExpr(this, Native.mkBvaddNoOverflow(nCtx(), t1
-                .getNativeObject(), t2.getNativeObject(), (isSigned) ? true
-                : false));
+                .getNativeObject(), t2.getNativeObject(), (isSigned)));
     }
 
     /**
@@ -1580,8 +1579,7 @@ public class Context extends IDisposable
         checkContextMatch(t1);
         checkContextMatch(t2);
         return new BoolExpr(this, Native.mkBvsubNoUnderflow(nCtx(), t1
-                .getNativeObject(), t2.getNativeObject(), (isSigned) ? true
-                : false));
+                .getNativeObject(), t2.getNativeObject(), (isSigned)));
     }
 
     /**
@@ -1621,8 +1619,7 @@ public class Context extends IDisposable
         checkContextMatch(t1);
         checkContextMatch(t2);
         return new BoolExpr(this, Native.mkBvmulNoOverflow(nCtx(), t1
-                .getNativeObject(), t2.getNativeObject(), (isSigned) ? true
-                : false));
+                .getNativeObject(), t2.getNativeObject(), (isSigned)));
     }
 
     /**

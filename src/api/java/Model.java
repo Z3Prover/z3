@@ -92,7 +92,7 @@ public class Model extends Z3Object
                     return null;
                 else
                 {
-                    if (Native.isAsArray(getContext().nCtx(), n) ^ true)
+                    if (!Native.isAsArray(getContext().nCtx(), n))
                         throw new Z3Exception(
                                 "Argument was not an array constant");
                     long fd = Native.getAsArrayFuncDecl(getContext().nCtx(), n);
@@ -212,8 +212,8 @@ public class Model extends Z3Object
     public Expr eval(Expr t, boolean completion)
     {
         Native.LongPtr v = new Native.LongPtr();
-        if (Native.modelEval(getContext().nCtx(), getNativeObject(),
-                t.getNativeObject(), (completion) ? true : false, v) ^ true)
+        if (!Native.modelEval(getContext().nCtx(), getNativeObject(),
+            t.getNativeObject(), (completion), v))
             throw new ModelEvaluationFailedException();
         else
             return Expr.create(getContext(), v.value);
