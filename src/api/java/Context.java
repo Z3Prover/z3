@@ -373,7 +373,7 @@ public class Context extends IDisposable
            
     {
         checkContextMatch(names);
-        int n = (int) names.length;
+        int n = names.length;
         ConstructorList[] cla = new ConstructorList[n];
         long[] n_constr = new long[n];
         for (int i = 0; i < n; i++)
@@ -2384,7 +2384,7 @@ public class Context extends IDisposable
     {
 
         return Native.benchmarkToSmtlibString(nCtx(), name, logic, status,
-                attributes, (int) assumptions.length,
+                attributes, assumptions.length,
                 AST.arrayToNative(assumptions), formula.getNativeObject());
     }
 

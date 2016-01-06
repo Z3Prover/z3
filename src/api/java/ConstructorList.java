@@ -46,7 +46,7 @@ public class ConstructorList extends Z3Object
         super(ctx);
 
         setNativeObject(Native.mkConstructorList(getContext().nCtx(),
-                (int) constructors.length,
+                constructors.length,
                 Constructor.arrayToNative(constructors)));
     }
 }
