@@ -87,11 +87,7 @@ public class Constructor extends Z3Object
     {
         try {
             Native.delConstructor(getContext().nCtx(), getNativeObject());
-        }
-        catch (Throwable t) {
-            throw t;
-        }
-        finally {
+        } finally {
             super.finalize();
         }
     }

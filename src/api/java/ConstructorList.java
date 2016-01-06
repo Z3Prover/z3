@@ -31,11 +31,7 @@ public class ConstructorList extends Z3Object
     {
         try {        
             Native.delConstructorList(getContext().nCtx(), getNativeObject());            
-        }
-        catch (Throwable t) {
-            throw t;
-        }
-        finally {
+        } finally {
             super.finalize();
         }
     }
