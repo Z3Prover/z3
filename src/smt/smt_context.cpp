@@ -4025,8 +4025,9 @@ namespace smt {
             return false;
         }
         case 1: {
-            if (m_qmanager->is_shared(n))
+            if (m_qmanager->is_shared(n)) {
                 return true;
+            }
             
             // the variabe is shared if the equivalence class of n 
             // contains a parent application.
@@ -4071,7 +4072,8 @@ namespace smt {
             // the theories of (array int int) and (array (array int int) int).
             // Remark: The inconsistency is not going to be detected if they are
             // not marked as shared.
-            return get_theory(th_id)->is_shared(l->get_th_var());
+            bool result = get_theory(th_id)->is_shared(l->get_th_var());
+            return result;
         }
         default:
             return true;

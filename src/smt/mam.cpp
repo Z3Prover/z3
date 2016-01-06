@@ -3936,7 +3936,7 @@ namespace smt {
         }
 
         virtual bool is_shared(enode * n) const {
-            return m_shared_enodes.contains(n);
+            return !m_shared_enodes.empty() && m_shared_enodes.contains(n);
         }
         
         // This method is invoked when n becomes relevant.

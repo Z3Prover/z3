@@ -258,6 +258,7 @@ namespace smt {
             replay_length_coherence(ast_manager& m, expr* e) : m_e(e, m) {}
             virtual void operator()(theory_seq& th) {
                 th.check_length_coherence(m_e);
+                m_e.reset();
             }
         };
 
@@ -267,6 +268,7 @@ namespace smt {
             replay_axiom(ast_manager& m, expr* e) : m_e(e, m) {}
             virtual void operator()(theory_seq& th) {
                 th.enque_axiom(m_e);
+                m_e.reset();
             }
         };
 
@@ -276,6 +278,17 @@ namespace smt {
             push_replay(apply* app): m_apply(app) {}
             virtual void undo(theory_seq& th) {
                 th.m_replay.push_back(m_apply);
+            }
+        };
+
+        class pop_branch : public trail<theory_seq> {
+            expr_ref m_l, m_r;
+        public:
+            pop_branch(ast_manager& m, expr* l, expr* r): m_l(l, m), m_r(r, m) {}
+            virtual void undo(theory_seq& th) {
+                th.m_branch_start.erase(m_l, m_r);
+                m_l.reset();
+                m_r.reset();
             }
         };
 
@@ -386,7 +399,10 @@ namespace smt {
         void propagate_eq(literal lit, expr* e1, expr* e2, bool add_to_eqs = false);
         void set_conflict(dependency* dep, literal_vector const& lits = literal_vector());
 
-        bool find_branch_candidate(dependency* dep, expr_ref_vector const& ls, expr_ref_vector const& rs);
+        obj_pair_map<expr, expr, unsigned> m_branch_start;
+        void insert_branch_start(expr* l, expr* r, unsigned s);
+        unsigned find_branch_start(expr* l, expr* r);
+        bool find_branch_candidate(unsigned& start, dependency* dep, expr_ref_vector const& ls, expr_ref_vector const& rs);
         bool can_be_equal(unsigned szl, expr* const* ls, unsigned szr, expr* const* rs) const;
         lbool assume_equality(expr* l, expr* r);
 

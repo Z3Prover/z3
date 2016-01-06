@@ -192,6 +192,7 @@ namespace smt {
             return m_owner->hash();
         }
 
+
         enode * get_root() const { 
             return m_root; 
         }

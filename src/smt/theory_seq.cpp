@@ -234,6 +234,7 @@ bool theory_seq::branch_variable() {
     unsigned sz = m_eqs.size();
     expr_ref_vector ls(m), rs(m);
     int start = ctx.get_random_value();
+    unsigned s = 0;
     for (unsigned i = 0; i < sz; ++i) {
         unsigned k = (i + start) % sz;
         eq e = m_eqs[k];
@@ -242,21 +243,19 @@ bool theory_seq::branch_variable() {
         m_util.str.get_concat(e.m_lhs, ls);
         m_util.str.get_concat(e.m_rhs, rs);
 
-#if 1       
-        if (find_branch_candidate(e.m_dep, ls, rs)) {
+        s = find_branch_start(e.m_lhs, e.m_rhs);
+        bool found = find_branch_candidate(s, e.m_dep, ls, rs);
+        insert_branch_start(e.m_lhs, e.m_rhs, s);
+        if (found) {
             return true;
         }
-        if (find_branch_candidate(e.m_dep, rs, ls)) {
+        s = find_branch_start(e.m_lhs, e.m_rhs);
+        found = find_branch_candidate(s, e.m_dep, rs, ls);
+        insert_branch_start(e.m_rhs, e.m_lhs, s);
+        if (found) {
             return true;
         }
-#else
-        if (find_branch_candidate(e.m_dep, ls.back(), rs)) {
-            return true;
-        }
-        if (find_branch_candidate(e.m_dep, rs.back(), ls)) {
-            return true;
-        }
-#endif
+
 #if 0
         if (!has_length(e.m_lhs)) {
             enforce_length(ensure_enode(e.m_lhs));
@@ -269,7 +268,20 @@ bool theory_seq::branch_variable() {
     return ctx.inconsistent();
 }
 
-bool theory_seq::find_branch_candidate(dependency* dep, expr_ref_vector const& ls, expr_ref_vector const& rs) {
+void theory_seq::insert_branch_start(expr* l, expr* r, unsigned s) {
+    m_branch_start.insert(l, r, s);
+    m_trail_stack.push(pop_branch(m, l, r));
+}
+
+unsigned theory_seq::find_branch_start(expr* l, expr* r) {
+    unsigned s = 0;
+    if (m_branch_start.find(l, r, s)) {
+        return s;
+    }
+    return 0;
+}
+
+bool theory_seq::find_branch_candidate(unsigned& start, dependency* dep, expr_ref_vector const& ls, expr_ref_vector const& rs) {
 
     if (ls.empty()) {
         return false;
@@ -280,29 +292,34 @@ bool theory_seq::find_branch_candidate(dependency* dep, expr_ref_vector const& l
         return false;
     }
 
-    bool all_units = true;
-    expr_ref_vector cases(m);
-    expr_ref v0(m), v(m);
+    expr_ref v0(m);
     v0 = m_util.str.mk_empty(m.get_sort(l));
     if (can_be_equal(ls.size() - 1, ls.c_ptr() + 1, rs.size(), rs.c_ptr()) && l_false != assume_equality(l, v0)) {
         TRACE("seq", tout << mk_pp(l, m) << " " << v0 << "\n";);
         return true;
     }
-    for (unsigned j = 0; j < rs.size(); ++j) {
+//    start = 0;
+    for (; start < rs.size(); ++start) {
+        unsigned j = start;
         if (occurs(l, rs[j])) {
             return false;
         }
         SASSERT(!m_util.str.is_string(rs[j]));
-        all_units &= m_util.str.is_unit(rs[j]);
         if (!can_be_equal(ls.size() - 1, ls.c_ptr() + 1, rs.size() - j - 1, rs.c_ptr() + j + 1)) {
             continue;
         }
         v0 = m_util.str.mk_concat(j + 1, rs.c_ptr());
         if (l_false != assume_equality(l, v0)) {
             TRACE("seq", tout << mk_pp(l, m) << " " << v0 << "\n";);
+            ++start;
             return true;
         }
     }           
+
+    bool all_units = true;
+    for (unsigned j = 0; all_units && j < rs.size(); ++j) {    
+        all_units &= m_util.str.is_unit(rs[j]);
+    }
     if (all_units) {
         literal_vector lits;
         lits.push_back(~mk_eq_empty(l));
@@ -1634,11 +1651,15 @@ void theory_seq::add_length_axiom(expr* n) {
         m_util.str.is_string(x)) {
         expr_ref len(n, m);
         m_rewrite(len);
-        if (n != len) {
-            TRACE("seq", tout << "Add length coherence for " << mk_pp(n, m) << "\n";);
-            add_axiom(mk_eq(n, len, false));
-            m_trail_stack.push(push_replay(alloc(replay_axiom, m, n)));
-        }
+        SASSERT(n != len);
+        add_axiom(mk_eq(len, n, false));
+
+        //std::cout << len << "\n";
+        //len = m_autil.mk_add(len, m_autil.mk_mul(m_autil.mk_int(-1), n));
+        //TRACE("seq", tout << "Add length coherence for " << mk_pp(n, m) << "\n";);
+        //add_axiom(mk_literal(m_autil.mk_le(len, m_autil.mk_int(0))));
+        //add_axiom(mk_literal(m_autil.mk_ge(len, m_autil.mk_int(0))));
+        m_trail_stack.push(push_replay(alloc(replay_axiom, m, n)));
     }
     else {
         add_axiom(mk_literal(m_autil.mk_ge(n, m_autil.mk_int(0))));        
