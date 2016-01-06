@@ -53,15 +53,10 @@ public class AST extends Z3Object implements Comparable<AST>
     @Override
     public int compareTo(AST other)
     {
-        if (other == null)
+        if (other == null) {
             return 1;
-
-        if (getId() < other.getId())
-            return -1;
-        else if (getId() > other.getId())
-            return +1;
-        else
-            return 0;
+        }
+        return Integer.compare(getId(), other.getId());
     }
 
     /**
@@ -94,11 +89,12 @@ public class AST extends Z3Object implements Comparable<AST>
     public AST translate(Context ctx)
     {
 
-        if (getContext() == ctx)
+        if (getContext() == ctx) {
             return this;
-        else
+        } else {
             return new AST(ctx, Native.translate(getContext().nCtx(),
-                    getNativeObject(), ctx.nCtx()));
+                getNativeObject(), ctx.nCtx()));
+        }
     }
 
     /**

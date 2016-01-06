@@ -183,11 +183,12 @@ public class Optimize extends Z3Object
      **/
     public Model getModel()
     {
-	long x = Native.optimizeGetModel(getContext().nCtx(), getNativeObject());
-	if (x == 0)
-	    return null;
-	else
-	    return new Model(getContext(), x);
+        long x = Native.optimizeGetModel(getContext().nCtx(), getNativeObject());
+        if (x == 0) {
+            return null;
+        } else {
+            return new Model(getContext(), x);
+        }
     }
 
     /** 

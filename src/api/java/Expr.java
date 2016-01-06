@@ -53,14 +53,16 @@ public class Expr extends AST
     public Expr simplify(Params p)
     {
 
-        if (p == null)
+        if (p == null) {
             return Expr.create(getContext(),
-                    Native.simplify(getContext().nCtx(), getNativeObject()));
-        else
+                Native.simplify(getContext().nCtx(), getNativeObject()));
+        }
+        else {
             return Expr.create(
-                    getContext(),
-                    Native.simplifyEx(getContext().nCtx(), getNativeObject(),
-                            p.getNativeObject()));
+                getContext(),
+                Native.simplifyEx(getContext().nCtx(), getNativeObject(),
+                    p.getNativeObject()));
+        }
     }
 
     /**
@@ -106,9 +108,10 @@ public class Expr extends AST
     {
         int n = getNumArgs();
         Expr[] res = new Expr[n];
-        for (int i = 0; i < n; i++)
+        for (int i = 0; i < n; i++) {
             res[i] = Expr.create(getContext(),
-                    Native.getAppArg(getContext().nCtx(), getNativeObject(), i));
+                Native.getAppArg(getContext().nCtx(), getNativeObject(), i));
+        }
         return res;
     }
 
@@ -122,10 +125,11 @@ public class Expr extends AST
     public void update(Expr[] args)
     {
         getContext().checkContextMatch(args);
-        if (isApp() && args.length != getNumArgs())
+        if (isApp() && args.length != getNumArgs()) {
             throw new Z3Exception("Number of arguments does not match");
+        }
         setNativeObject(Native.updateTerm(getContext().nCtx(), getNativeObject(),
-                (int) args.length, Expr.arrayToNative(args)));
+                args.length, Expr.arrayToNative(args)));
     }
 
     /**
@@ -144,10 +148,11 @@ public class Expr extends AST
     {
         getContext().checkContextMatch(from);
         getContext().checkContextMatch(to);
-        if (from.length != to.length)
+        if (from.length != to.length) {
             throw new Z3Exception("Argument sizes do not match");
+        }
         return Expr.create(getContext(), Native.substitute(getContext().nCtx(),
-                getNativeObject(), (int) from.length, Expr.arrayToNative(from),
+                getNativeObject(), from.length, Expr.arrayToNative(from),
                 Expr.arrayToNative(to)));
     }
 
@@ -160,7 +165,6 @@ public class Expr extends AST
      **/
     public Expr substitute(Expr from, Expr to)
     {
-
         return substitute(new Expr[] { from }, new Expr[] { to });
     }
 
@@ -179,7 +183,7 @@ public class Expr extends AST
 
         getContext().checkContextMatch(to);
         return Expr.create(getContext(), Native.substituteVars(getContext().nCtx(),
-                getNativeObject(), (int) to.length, Expr.arrayToNative(to)));
+                getNativeObject(), to.length, Expr.arrayToNative(to)));
     }
 
     /**
@@ -193,14 +197,14 @@ public class Expr extends AST
      **/
     public Expr translate(Context ctx)
     {
-
-        if (getContext() == ctx)
+        if (getContext() == ctx) {
             return this;
-        else
+        } else {
             return Expr.create(
-                    ctx,
-                    Native.translate(getContext().nCtx(), getNativeObject(),
-                            ctx.nCtx()));
+                ctx,
+                Native.translate(getContext().nCtx(), getNativeObject(),
+                    ctx.nCtx()));
+        }
     }
 
     /**
@@ -2123,8 +2127,9 @@ public class Expr extends AST
     {
         if (!Native.isApp(getContext().nCtx(), obj) && 
             Native.getAstKind(getContext().nCtx(), obj) != Z3_ast_kind.Z3_VAR_AST.toInt() &&
-            Native.getAstKind(getContext().nCtx(), obj) != Z3_ast_kind.Z3_QUANTIFIER_AST.toInt())
+            Native.getAstKind(getContext().nCtx(), obj) != Z3_ast_kind.Z3_QUANTIFIER_AST.toInt()) {
             throw new Z3Exception("Underlying object is not a term");
+        }
         super.checkNativeObject(obj);
     }
 
@@ -2188,10 +2193,10 @@ public class Expr extends AST
             return new FPRMExpr(ctx, obj);
         case Z3_FINITE_DOMAIN_SORT:
             return new FiniteDomainExpr(ctx, obj);
-	case Z3_SEQ_SORT:
-	    return new SeqExpr(ctx, obj);
-	case Z3_RE_SORT:
-	    return new ReExpr(ctx, obj);
+        case Z3_SEQ_SORT:
+            return new SeqExpr(ctx, obj);
+        case Z3_RE_SORT:
+            return new ReExpr(ctx, obj);
         default: ;
         }
 

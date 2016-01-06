@@ -110,8 +110,9 @@ public class Context extends IDisposable
      **/
     public BoolSort getBoolSort()
     {
-        if (m_boolSort == null)
+        if (m_boolSort == null) {
             m_boolSort = new BoolSort(this);
+        }
         return m_boolSort;
     }
 
@@ -120,8 +121,9 @@ public class Context extends IDisposable
      **/
     public IntSort getIntSort()
     {
-        if (m_intSort == null)
+        if (m_intSort == null) {
             m_intSort = new IntSort(this);
+        }
         return m_intSort;
     }
 
@@ -130,8 +132,9 @@ public class Context extends IDisposable
      **/
     public RealSort getRealSort()
     {
-        if (m_realSort == null)
+        if (m_realSort == null) {
             m_realSort = new RealSort(this);
+        }
         return m_realSort;
     }
 
@@ -148,8 +151,9 @@ public class Context extends IDisposable
      **/
     public SeqSort getStringSort()
     {
-        if (m_stringSort == null)
+        if (m_stringSort == null) {
             m_stringSort = mkStringSort();
+        }
         return m_stringSort;
     }
 

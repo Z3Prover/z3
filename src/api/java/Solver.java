@@ -201,13 +201,14 @@ public class Solver extends Z3Object
     public Status check(Expr... assumptions)
     {
         Z3_lbool r;
-        if (assumptions == null)
+        if (assumptions == null) {
             r = Z3_lbool.fromInt(Native.solverCheck(getContext().nCtx(),
-                    getNativeObject()));
-        else
+                getNativeObject()));
+        } else {
             r = Z3_lbool.fromInt(Native.solverCheckAssumptions(getContext()
-                    .nCtx(), getNativeObject(), (int) assumptions.length, AST
-                    .arrayToNative(assumptions)));
+                .nCtx(), getNativeObject(), assumptions.length, AST
+                .arrayToNative(assumptions)));
+        }
         switch (r)
         {
         case Z3_L_TRUE:
@@ -243,10 +244,11 @@ public class Solver extends Z3Object
     public Model getModel()
     {
         long x = Native.solverGetModel(getContext().nCtx(), getNativeObject());
-        if (x == 0)
+        if (x == 0) {
             return null;
-        else
+        } else {
             return new Model(getContext(), x);
+        }
     }
 
     /**
@@ -261,10 +263,11 @@ public class Solver extends Z3Object
     public Expr getProof()
     {
         long x = Native.solverGetProof(getContext().nCtx(), getNativeObject());
-        if (x == 0)
+        if (x == 0) {
             return null;
-        else
+        } else {
             return Expr.create(getContext(), x);
+        }
     }
 
     /**

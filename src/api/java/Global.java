@@ -57,10 +57,11 @@ public final class Global
     public static String getParameter(String id)
     {
         Native.StringPtr res = new Native.StringPtr();
-        if (!Native.globalParamGet(id, res))
+        if (!Native.globalParamGet(id, res)) {
             return null;
-        else
+        } else {
             return res.value;
+        }
     }    
     
     /**
