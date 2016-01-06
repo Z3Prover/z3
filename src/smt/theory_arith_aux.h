@@ -618,10 +618,8 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::remove_fixed_vars_from_base() {
         int num = get_num_vars();
-        //std::cout << "num vars " << num << "\n";
         for (theory_var v = 0; v < num; v++) {
             if (is_base(v) && is_fixed(v)) {
-                //std::cout << "fixed base " << v << " \n"; // << mk_pp(get_enode(v)->get_owner(), get_manager()) << "\n";
                 row const & r = m_rows[get_var_row(v)];
                 typename vector<row_entry>::const_iterator it  = r.begin_entries();
                 typename vector<row_entry>::const_iterator end = r.end_entries();

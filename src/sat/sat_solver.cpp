@@ -461,7 +461,6 @@ namespace sat {
     }
 
     void solver::dettach_clause(clause & c) {
-        TRACE("sat", tout << c.id() << "\n";);
         if (c.size() == 3)
             dettach_ter_clause(c);
         else
