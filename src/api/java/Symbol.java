@@ -49,17 +49,14 @@ public class Symbol extends Z3Object
         return getKind() == Z3_symbol_kind.Z3_STRING_SYMBOL;
     }
 
+    @Override
     public boolean equals(Object o)
     {
-        Symbol casted = null;
-        try {
-	    casted = Symbol.class.cast(o);
-        }
-        catch (ClassCastException e) {
-            return false;
-        }
-
-        return this.getNativeObject() == casted.getNativeObject();
+        if (o == null) return false;
+        if (o == this) return true;
+        if (o.getClass() != this.getClass()) return false;
+        Symbol other = (Symbol) o;
+        return this.getNativeObject() == other.getNativeObject();
     }
 
     /**
