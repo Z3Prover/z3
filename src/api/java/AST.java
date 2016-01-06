@@ -72,12 +72,7 @@ public class AST extends Z3Object implements Comparable<AST>
     @Override
     public int hashCode()
     {
-        int r = 0;
-        try {
-            Native.getAstHash(getContext().nCtx(), getNativeObject());
-        }
-        catch (Z3Exception ex) {}
-        return r;
+        return Native.getAstHash(getContext().nCtx(), getNativeObject());
     }
 
     /**
