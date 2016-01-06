@@ -38,7 +38,7 @@ public enum Status
         this.intValue = v;
     }
 
-    public static final Status fromInt(int v)
+    public static Status fromInt(int v)
     {
         for (Status k : values())
             if (k.intValue == v)
