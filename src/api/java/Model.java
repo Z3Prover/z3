@@ -282,6 +282,7 @@ public class Model extends Z3Object
      * 
      * @return A string representation of the model.
      **/
+    @Override
     public String toString()
     {
         try
@@ -298,12 +299,14 @@ public class Model extends Z3Object
         super(ctx, obj);
     }
 
+    @Override
     void incRef(long o)
     {
         getContext().getModelDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
+    @Override
     void decRef(long o)
     {
         getContext().getModelDRQ().add(o);

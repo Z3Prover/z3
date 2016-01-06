@@ -315,6 +315,7 @@ public class Solver extends Z3Object
     /**
      * A string representation of the solver.
      **/
+    @Override
     public String toString()
     {
         try
@@ -332,12 +333,14 @@ public class Solver extends Z3Object
         super(ctx, obj);
     }
 
+    @Override
     void incRef(long o)
     {
         getContext().getSolverDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
+    @Override
     void decRef(long o)
     {
         getContext().getSolverDRQ().add(o);

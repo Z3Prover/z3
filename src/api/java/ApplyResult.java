@@ -63,6 +63,7 @@ public class ApplyResult extends Z3Object
     /**
      * A string representation of the ApplyResult.
      **/
+    @Override
     public String toString()
     {
         try
@@ -79,12 +80,14 @@ public class ApplyResult extends Z3Object
         super(ctx, obj);
     }
 
+    @Override
     void incRef(long o)
     {
         getContext().getApplyResultDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
+    @Override
     void decRef(long o)
     {
         getContext().getApplyResultDRQ().add(o);

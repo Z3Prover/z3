@@ -62,6 +62,7 @@ public class Symbol extends Z3Object
     /**
      * A string representation of the symbol.
      **/
+    @Override
     public String toString()
     {
         try

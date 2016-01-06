@@ -30,6 +30,7 @@ public class Sort extends AST
      * @param o
      * @return
      **/
+    @Override
     public boolean equals(Object o)
     {
         Sort casted = null;

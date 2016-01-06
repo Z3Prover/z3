@@ -63,6 +63,7 @@ public class FiniteDomainNum extends FiniteDomainExpr
     /**
      * Returns a string representation of the numeral.
      **/
+    @Override
     public String toString()
     {
         try

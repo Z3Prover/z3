@@ -61,6 +61,7 @@ public class BitVecNum extends BitVecExpr
     /**
      * Returns a string representation of the numeral.
      **/
+    @Override
     public String toString()
     {
         try

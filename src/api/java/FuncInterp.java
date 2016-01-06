@@ -70,6 +70,7 @@ public class FuncInterp extends Z3Object
         /**
          * A string representation of the function entry.
          **/
+        @Override
         public String toString()
         {
             try
@@ -91,12 +92,14 @@ public class FuncInterp extends Z3Object
             super(ctx, obj);
         }
 
+        @Override
         void incRef(long o)
         {
             getContext().getFuncEntryDRQ().incAndClear(getContext(), o);
             super.incRef(o);
         }
 
+        @Override
         void decRef(long o)
         {
             getContext().getFuncEntryDRQ().add(o);
@@ -192,12 +195,14 @@ public class FuncInterp extends Z3Object
         super(ctx, obj);
     }
 
+    @Override
     void incRef(long o)
     {
         getContext().getFuncInterpDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
+    @Override
     void decRef(long o)
     {
         getContext().getFuncInterpDRQ().add(o);

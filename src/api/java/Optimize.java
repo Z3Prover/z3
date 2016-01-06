@@ -112,8 +112,9 @@ public class Optimize extends Z3Object
 
 	/**
 	 * Print a string representation of the handle.
-	 **/        	   	
-        public String toString() 
+	 **/
+    @Override
+    public String toString()
         {
             return getValue().toString();
         }
@@ -237,7 +238,8 @@ public class Optimize extends Z3Object
     
     /**
      *  Print the context to a String (SMT-LIB parseable benchmark).
-     **/        	
+     **/
+    @Override
     public String toString()
     {
 	return Native.optimizeToString(getContext().nCtx(), getNativeObject());
@@ -262,13 +264,14 @@ public class Optimize extends Z3Object
 	super(ctx, Native.mkOptimize(ctx.nCtx()));
     }
 
-    
+    @Override
     void incRef(long o)
     {
         getContext().getOptimizeDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
+    @Override
     void decRef(long o)
     {
         getContext().getOptimizeDRQ().add(o);

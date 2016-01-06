@@ -252,6 +252,7 @@ public class Fixedpoint extends Z3Object
     /**
      * Retrieve internal string representation of fixedpoint object.
      **/
+    @Override
     public String toString()
     {
         try
@@ -353,12 +354,14 @@ public class Fixedpoint extends Z3Object
         super(ctx, Native.mkFixedpoint(ctx.nCtx()));
     }
 
+    @Override
     void incRef(long o)
     {
         getContext().getFixedpointDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
+    @Override
     void decRef(long o)
     {
         getContext().getFixedpointDRQ().add(o);

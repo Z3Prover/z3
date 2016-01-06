@@ -29,6 +29,7 @@ public class AST extends Z3Object implements Comparable<AST>
      * 
      * @param o another AST
      **/    
+    @Override
     public boolean equals(Object o)
     {
         AST casted = null;
@@ -56,6 +57,7 @@ public class AST extends Z3Object implements Comparable<AST>
      * positive if after else zero.
      * @throws Z3Exception on error
      **/
+    @Override
     public int compareTo(AST other)
     {
         if (other == null)
@@ -74,6 +76,7 @@ public class AST extends Z3Object implements Comparable<AST>
      * 
      * @return A hash code
      **/
+    @Override
     public int hashCode()
     {
         int r = 0;
@@ -188,6 +191,7 @@ public class AST extends Z3Object implements Comparable<AST>
     /**
      * A string representation of the AST.
      **/
+    @Override
     public String toString()
     {
         try
@@ -217,6 +221,7 @@ public class AST extends Z3Object implements Comparable<AST>
         super(ctx, obj);
     }
 
+    @Override
     void incRef(long o)
     {
         // Console.WriteLine("AST IncRef()");
@@ -226,6 +231,7 @@ public class AST extends Z3Object implements Comparable<AST>
         super.incRef(o);
     }
 
+    @Override
     void decRef(long o)
     {
         // Console.WriteLine("AST DecRef()");

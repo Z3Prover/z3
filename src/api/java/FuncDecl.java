@@ -29,6 +29,7 @@ public class FuncDecl extends AST
     /**
      * Object comparison.
      **/
+    @Override
     public boolean equals(Object o)
     {
         FuncDecl casted = null;
@@ -58,6 +59,7 @@ public class FuncDecl extends AST
     /**
      * A string representations of the function declaration.
      **/
+    @Override
     public String toString()
     {
         try
@@ -72,6 +74,7 @@ public class FuncDecl extends AST
     /**
      * Returns a unique identifier for the function declaration.
      **/
+    @Override
     public int getId()
     {
         return Native.getFuncDeclId(getContext().nCtx(), getNativeObject());

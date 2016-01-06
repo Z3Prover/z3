@@ -206,6 +206,7 @@ public class Expr extends AST
     /**
      * Returns a string representation of the expression.
      **/
+    @Override
     public String toString()
     {
         return super.toString();
@@ -2117,6 +2118,7 @@ public class Expr extends AST
         }
     }
 
+    @Override
     void checkNativeObject(long obj)
     {
         if (!Native.isApp(getContext().nCtx(), obj) && 
