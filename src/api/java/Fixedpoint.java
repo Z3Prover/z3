@@ -164,7 +164,7 @@ public class Fixedpoint extends Z3Object
 
     /**
      * Creates a backtracking point. 
-     * @see pop
+     * @see #pop
      **/
     public void push()
     {
@@ -176,7 +176,7 @@ public class Fixedpoint extends Z3Object
      * Remarks: Note that an exception is thrown if {@code pop} 
      * is called without a corresponding {@code push}
      *  
-     * @see push
+     * @see #push
      **/
     public void pop()
     {

@@ -33,7 +33,6 @@ public class Expr extends AST
      * Returns a simplified version of the expression
      * @return Expr
      * @throws Z3Exception on error
-     * @return an Expr
      **/
     public Expr simplify()
     {
@@ -48,7 +47,6 @@ public class Expr extends AST
      * @see Context#SimplifyHelp
      * @return an Expr
      * @throws Z3Exception on error
-     * @return an Expr
      **/
     public Expr simplify(Params p)
     {
@@ -193,7 +191,6 @@ public class Expr extends AST
      * 
      * @return A copy of the term which is associated with {@code ctx}
      * @throws Z3Exception on error
-     * @return an Expr
      **/
     public Expr translate(Context ctx)
     {
@@ -229,9 +226,8 @@ public class Expr extends AST
     /**
      * Indicates whether the term is well-sorted.
      * 
-     * @return True if the term is well-sorted, false otherwise.
      * @throws Z3Exception on error
-     * @return a boolean
+     * @return True if the term is well-sorted, false otherwise.
      **/
     public boolean isWellSorted()
     {
@@ -2043,7 +2039,7 @@ public class Expr extends AST
      * identity, but in the context of a register machine allows for terms of
      * kind {@code isRelationUnion} to perform destructive updates to
      * the first argument.
-     * @see isRelationUnion 
+     * @see #isRelationUnion
      * @throws Z3Exception on error
      * @return a boolean
      **/

@@ -68,7 +68,7 @@ public final class Global
      * Restore the value of all global (and module) parameters.
      * Remarks: 
      * This command will not affect already created objects (such as tactics and solvers)
-     * @see setParameter
+     * @see #setParameter
      **/
     public static void resetParameters()
     {
@@ -84,7 +84,7 @@ public final class Global
     public static void ToggleWarningMessages(boolean enabled)
            
     {
-        Native.toggleWarningMessages((enabled) ? true : false);
+        Native.toggleWarningMessages((enabled));
     }
     
     /** 

@@ -45,9 +45,6 @@ public class FuncDecl extends AST
                 other.getNativeObject()));
     }
 
-    /**
-     * A string representations of the function declaration.
-     **/
     @Override
     public String toString()
     {
@@ -79,7 +76,7 @@ public class FuncDecl extends AST
 
     /**
      * The size of the domain of the function declaration 
-     * @see getArity
+     * @see #getArity
      **/
     public int getDomainSize()
     {
@@ -362,9 +359,6 @@ public class FuncDecl extends AST
 
     /**
      * Create expression that applies function to arguments. 
-     * @param args 
-     * 
-     * @return
      **/
     public Expr apply(Expr ... args)
     {

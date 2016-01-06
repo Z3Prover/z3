@@ -32,7 +32,7 @@ public class Optimize extends Z3Object
      **/
     public String getHelp()
     {
-	return Native.optimizeGetHelp(getContext().nCtx(), getNativeObject());
+        return Native.optimizeGetHelp(getContext().nCtx(), getNativeObject());
     }
 
     /**
@@ -42,7 +42,7 @@ public class Optimize extends Z3Object
      **/
     public void setParameters(Params value)
     {
-	Native.optimizeSetParams(getContext().nCtx(), getNativeObject(), value.getNativeObject());
+        Native.optimizeSetParams(getContext().nCtx(), getNativeObject(), value.getNativeObject());
     }
 
     /**
@@ -50,7 +50,7 @@ public class Optimize extends Z3Object
      **/
     public ParamDescrs getParameterDescriptions()
     {
-	return new ParamDescrs(getContext(), Native.optimizeGetParamDescrs(getContext().nCtx(), getNativeObject())); 
+        return new ParamDescrs(getContext(), Native.optimizeGetParamDescrs(getContext().nCtx(), getNativeObject()));
     }
 
     /**
@@ -129,9 +129,9 @@ public class Optimize extends Z3Object
 
     public Handle AssertSoft(BoolExpr constraint, int weight, String group)
     {
-	getContext().checkContextMatch(constraint);
-	Symbol s = getContext().mkSymbol(group);
-	return new Handle(this, Native.optimizeAssertSoft(getContext().nCtx(), getNativeObject(), constraint.getNativeObject(), Integer.toString(weight), s.getNativeObject()));
+        getContext().checkContextMatch(constraint);
+        Symbol s = getContext().mkSymbol(group);
+        return new Handle(this, Native.optimizeAssertSoft(getContext().nCtx(), getNativeObject(), constraint.getNativeObject(), Integer.toString(weight), s.getNativeObject()));
     }
     
 
@@ -143,15 +143,15 @@ public class Optimize extends Z3Object
 
     public Status Check()
     {
-	Z3_lbool r = Z3_lbool.fromInt(Native.optimizeCheck(getContext().nCtx(), getNativeObject()));
-	switch (r) {
-	case Z3_L_TRUE:
-	    return Status.SATISFIABLE;
-	case Z3_L_FALSE:
-	    return Status.UNSATISFIABLE;
-	default:
-	    return Status.UNKNOWN;
-	}
+        Z3_lbool r = Z3_lbool.fromInt(Native.optimizeCheck(getContext().nCtx(), getNativeObject()));
+        switch (r) {
+            case Z3_L_TRUE:
+                return Status.SATISFIABLE;
+            case Z3_L_FALSE:
+                return Status.UNSATISFIABLE;
+            default:
+                return Status.UNKNOWN;
+        }
     }
     
     /**
@@ -159,7 +159,7 @@ public class Optimize extends Z3Object
      **/
     public void Push()
     {
-	Native.optimizePush(getContext().nCtx(), getNativeObject());
+        Native.optimizePush(getContext().nCtx(), getNativeObject());
     }
 
 
@@ -171,7 +171,7 @@ public class Optimize extends Z3Object
      
     public void Pop()
     {
-	Native.optimizePop(getContext().nCtx(), getNativeObject());
+        Native.optimizePop(getContext().nCtx(), getNativeObject());
     }
 
 
@@ -198,7 +198,7 @@ public class Optimize extends Z3Object
      **/        	
     public Handle MkMaximize(ArithExpr e)
     {
-	return new Handle(this, Native.optimizeMaximize(getContext().nCtx(), getNativeObject(), e.getNativeObject()));
+        return new Handle(this, Native.optimizeMaximize(getContext().nCtx(), getNativeObject(), e.getNativeObject()));
     }
     
     /**
@@ -207,7 +207,7 @@ public class Optimize extends Z3Object
      **/        	
     public Handle MkMinimize(ArithExpr e)
     {
-	return new Handle(this, Native.optimizeMinimize(getContext().nCtx(), getNativeObject(), e.getNativeObject()));
+        return new Handle(this, Native.optimizeMinimize(getContext().nCtx(), getNativeObject(), e.getNativeObject()));
     }
     
     /**
@@ -215,7 +215,7 @@ public class Optimize extends Z3Object
      **/        	
     private ArithExpr GetLower(int index)
     {
-	return (ArithExpr)Expr.create(getContext(), Native.optimizeGetLower(getContext().nCtx(), getNativeObject(), index));
+        return (ArithExpr)Expr.create(getContext(), Native.optimizeGetLower(getContext().nCtx(), getNativeObject(), index));
     }
     
     
@@ -224,7 +224,7 @@ public class Optimize extends Z3Object
      **/        	
     private ArithExpr GetUpper(int index)
     {
-	return (ArithExpr)Expr.create(getContext(), Native.optimizeGetUpper(getContext().nCtx(), getNativeObject(), index));
+        return (ArithExpr)Expr.create(getContext(), Native.optimizeGetUpper(getContext().nCtx(), getNativeObject(), index));
     }
 
     /**
@@ -243,7 +243,7 @@ public class Optimize extends Z3Object
     @Override
     public String toString()
     {
-	return Native.optimizeToString(getContext().nCtx(), getNativeObject());
+        return Native.optimizeToString(getContext().nCtx(), getNativeObject());
     }
     
     /**
@@ -251,18 +251,18 @@ public class Optimize extends Z3Object
      **/
     public Statistics getStatistics()
     {
-	return new Statistics(getContext(), Native.optimizeGetStatistics(getContext().nCtx(), getNativeObject()));
+        return new Statistics(getContext(), Native.optimizeGetStatistics(getContext().nCtx(), getNativeObject()));
     }
 
 
     Optimize(Context ctx, long obj) throws Z3Exception
     {
-	super(ctx, obj);
+        super(ctx, obj);
     }
 
     Optimize(Context ctx) throws Z3Exception
     {
-	super(ctx, Native.mkOptimize(ctx.nCtx()));
+        super(ctx, Native.mkOptimize(ctx.nCtx()));
     }
 
     @Override

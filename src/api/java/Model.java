@@ -244,8 +244,8 @@ public class Model extends Z3Object
      * in a formula. The interpretation for a sort is a finite set of distinct
      * values. We say this finite set is the "universe" of the sort. 
      * 
-     * @see getNumSorts
-     * @see getSortUniverse
+     * @see #getNumSorts
+     * @see #getSortUniverse
      * 
      * @throws Z3Exception
      **/

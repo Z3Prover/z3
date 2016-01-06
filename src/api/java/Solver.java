@@ -57,8 +57,8 @@ public class Solver extends Z3Object
 
     /**
      * The current number of backtracking points (scopes). 
-     * @see pop 
-     * @see push
+     * @see #pop
+     * @see #push
      **/
     public int getNumScopes()
     {
@@ -68,7 +68,7 @@ public class Solver extends Z3Object
 
     /**
      * Creates a backtracking point. 
-     * @see pop
+     * @see #pop
      **/
     public void push()
     {
@@ -89,7 +89,7 @@ public class Solver extends Z3Object
      * Remarks: Note that
      * an exception is thrown if {@code n} is not smaller than
      * {@code NumScopes} 
-     * @see push
+     * @see #push
      **/
     public void pop(int n)
     {
@@ -127,24 +127,26 @@ public class Solver extends Z3Object
      * using the Boolean constants in ps.
      *
      * Remarks: 
-     * This API is an alternative to <see cref="Check"/> with assumptions for
+     * This API is an alternative to {@link #check} with assumptions for
      * extracting unsat cores.
      * Both APIs can be used in the same solver. The unsat core will contain a
      * combination
-     * of the Boolean variables provided using <see cref="AssertAndTrack"/>
+     * of the Boolean variables provided using {@code assertAndTrack}
      * and the Boolean literals
-     * provided using <see cref="Check"/> with assumptions.
+     * provided using {@link #check} with assumptions.
      **/
     public void assertAndTrack(BoolExpr[] constraints, BoolExpr[] ps)
     {
         getContext().checkContextMatch(constraints);
         getContext().checkContextMatch(ps);
-        if (constraints.length != ps.length)
+        if (constraints.length != ps.length) {
             throw new Z3Exception("Argument size mismatch");
+        }
 
-        for (int i = 0; i < constraints.length; i++)
+        for (int i = 0; i < constraints.length; i++) {
             Native.solverAssertAndTrack(getContext().nCtx(), getNativeObject(),
-                    constraints[i].getNativeObject(), ps[i].getNativeObject());
+                constraints[i].getNativeObject(), ps[i].getNativeObject());
+        }
     }
 
     /** 
@@ -152,13 +154,13 @@ public class Solver extends Z3Object
      * using the Boolean constant p.
      * 
      * Remarks: 
-     * This API is an alternative to <see cref="Check"/> with assumptions for
+     * This API is an alternative to {@link #check} with assumptions for
      * extracting unsat cores.
      * Both APIs can be used in the same solver. The unsat core will contain a
      * combination
-     * of the Boolean variables provided using <see cref="AssertAndTrack"/>
+     * of the Boolean variables provided using {@link #assertAndTrack}
      * and the Boolean literals
-     * provided using <see cref="Check"/> with assumptions.
+     * provided using {@link #check} with assumptions.
      */ 
     public void assertAndTrack(BoolExpr constraint, BoolExpr p)
     {
@@ -194,9 +196,9 @@ public class Solver extends Z3Object
     /**
      * Checks whether the assertions in the solver are consistent or not.
      * Remarks:  
-     * @see getModel
-     * @see getUnsatCore
-     * @see getProof 
+     * @see #getModel
+     * @see #getUnsatCore
+     * @see #getProof
      **/
     public Status check(Expr... assumptions)
     {
@@ -223,9 +225,9 @@ public class Solver extends Z3Object
     /**
      * Checks whether the assertions in the solver are consistent or not.
      * Remarks:  
-     * @see getModel
-     * @see getUnsatCore
-     * @see getProof 
+     * @see #getModel
+     * @see #getUnsatCore
+     * @see #getProof
      **/
     public Status check()
     {
