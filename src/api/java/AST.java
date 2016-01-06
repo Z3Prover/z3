@@ -28,24 +28,17 @@ public class AST extends Z3Object implements Comparable<AST>
      * Object comparison.
      * 
      * @param o another AST
-     **/    
+     **/
     @Override
     public boolean equals(Object o)
     {
-        AST casted = null;
+        if (o == null) return false;
+        if (o == this) return true;
+        if (o.getClass() != this.getClass()) return false;
+        AST casted = (AST) o;
 
-        try
-        {
-            casted = AST.class.cast(o);
-        } catch (ClassCastException e)
-        {
-            return false;
-        }
-
-        return  (this == casted) ||
-                (this != null) &&
-                (casted != null) &&
-                (getContext().nCtx() == casted.getContext().nCtx()) &&
+        return
+            (getContext().nCtx() == casted.getContext().nCtx()) &&
                 (Native.isEqAst(getContext().nCtx(), getNativeObject(), casted.getNativeObject()));
     }
 

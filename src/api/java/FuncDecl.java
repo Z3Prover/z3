@@ -32,28 +32,17 @@ public class FuncDecl extends AST
     @Override
     public boolean equals(Object o)
     {
-        FuncDecl casted = null;
+        if (o == null) return false;
+        if (o == this) return true;
+        if (o.getClass() != this.getClass()) return false;
+        FuncDecl other = (FuncDecl) o;
 
-        try {
-            casted = FuncDecl.class.cast(o);
-        } catch (ClassCastException e) {
-            return false;
-        }
-
-	return  
-	    (this == casted) || 
-	    (this != null) &&
-	    (casted != null) &&
-	    (getContext().nCtx() == casted.getContext().nCtx()) &&
-	    (Native.isEqFuncDecl(getContext().nCtx(), getNativeObject(), casted.getNativeObject()));
-    }
-
-    /**
-     * A hash code.
-     **/
-    public int hashCode()
-    {
-        return super.hashCode();
+        return
+            (getContext().nCtx() == other.getContext().nCtx()) &&
+            (Native.isEqFuncDecl(
+                getContext().nCtx(),
+                getNativeObject(),
+                other.getNativeObject()));
     }
 
     /**
