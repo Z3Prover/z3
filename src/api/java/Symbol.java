@@ -52,9 +52,8 @@ public class Symbol extends Z3Object
     @Override
     public boolean equals(Object o)
     {
-        if (o == null) return false;
         if (o == this) return true;
-        if (o.getClass() != this.getClass()) return false;
+        if (!(o instanceof Symbol)) return false;
         Symbol other = (Symbol) o;
         return this.getNativeObject() == other.getNativeObject();
     }

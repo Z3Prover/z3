@@ -32,9 +32,8 @@ public class AST extends Z3Object implements Comparable<AST>
     @Override
     public boolean equals(Object o)
     {
-        if (o == null) return false;
         if (o == this) return true;
-        if (o.getClass() != this.getClass()) return false;
+        if (!(o instanceof AST)) return false;
         AST casted = (AST) o;
 
         return

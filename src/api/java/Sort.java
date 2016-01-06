@@ -31,9 +31,8 @@ public class Sort extends AST
     @Override
     public boolean equals(Object o)
     {
-        if (o == null) return false;
         if (o == this) return true;
-        if (o.getClass() != this.getClass()) return false;
+        if (!(o instanceof Sort)) return false;
         Sort other = (Sort) o;
 
 	return  (getContext().nCtx() == other.getContext().nCtx()) &&
