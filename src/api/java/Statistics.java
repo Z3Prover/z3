@@ -90,7 +90,7 @@ public class Statistics extends Z3Object
                 return Key + ": " + getValueString();
             } catch (Z3Exception e)
             {
-                return new String("Z3Exception: " + e.getMessage());
+                return "Z3Exception: " + e.getMessage();
             }
         }
 

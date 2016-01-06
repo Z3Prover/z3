@@ -72,11 +72,10 @@ public class Symbol extends Z3Object
             else if (isStringSymbol())
                 return ((StringSymbol) this).getString();
             else
-                return new String(
-                        "Z3Exception: Unknown symbol kind encountered.");
+                return "Z3Exception: Unknown symbol kind encountered.";
         } catch (Z3Exception ex)
         {
-            return new String("Z3Exception: " + ex.getMessage());
+            return "Z3Exception: " + ex.getMessage();
         }
     }
 

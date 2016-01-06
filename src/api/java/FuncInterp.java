@@ -83,7 +83,7 @@ public class FuncInterp extends Z3Object
                 return res + getValue() + "]";
             } catch (Z3Exception e)
             {
-                return new String("Z3Exception: " + e.getMessage());
+                return "Z3Exception: " + e.getMessage();
             }
         }
 
@@ -105,7 +105,7 @@ public class FuncInterp extends Z3Object
             getContext().getFuncEntryDRQ().add(o);
             super.decRef(o);
         }
-    };
+    }
 
     /**
      * The number of entries in the function interpretation.
@@ -186,7 +186,7 @@ public class FuncInterp extends Z3Object
             return res;
         } catch (Z3Exception e)
         {
-            return new String("Z3Exception: " + e.getMessage());
+            return "Z3Exception: " + e.getMessage();
         }
     }
 
