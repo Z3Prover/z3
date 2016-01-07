@@ -787,7 +787,7 @@ bool theory_seq::propagate_max_length(expr* l, expr* r, dependency* deps) {
     }
     rational hi;
     if (is_tail(l, s, idx) && has_length(s) && m_util.str.is_empty(r) && !upper_bound(s, hi)) {
-        std::cout << "max length " << mk_pp(s, m) << " " << idx << "\n";
+        //std::cout << "max length " << mk_pp(s, m) << " " << idx << "\n";
         propagate_lit(deps, 0, 0, mk_literal(m_autil.mk_le(m_util.str.mk_length(s), m_autil.mk_int(idx+1))));
         return true;
     }
@@ -1654,7 +1654,8 @@ void theory_seq::add_length_axiom(expr* n) {
         SASSERT(n != len);
         add_axiom(mk_eq(len, n, false));
 
-        //std::cout << len << "\n";
+//        std::cout << len << " = ";
+//        std::cout << mk_pp(n, m) << "\n";
         //len = m_autil.mk_add(len, m_autil.mk_mul(m_autil.mk_int(-1), n));
         //TRACE("seq", tout << "Add length coherence for " << mk_pp(n, m) << "\n";);
         //add_axiom(mk_literal(m_autil.mk_le(len, m_autil.mk_int(0))));
@@ -1914,38 +1915,36 @@ void theory_seq::propagate_step(literal lit, expr* step) {
 void theory_seq::ensure_nth(literal lit, expr* s, expr* idx) {
     context& ctx = get_context();
     rational r;
+    SASSERT(ctx.get_assignment(lit) == l_true);
     VERIFY(m_autil.is_numeral(idx, r) && r.is_unsigned());
     unsigned _idx = r.get_unsigned();
     dependency* dep = 0;
-    expr_ref s1 = canonize(s, dep);
-    ptr_vector<expr> es;
     expr* e1;
     expr_ref nth = mk_nth(s, idx);
-    expr_ref head(m), tail(m), conc(m);
-    expr_ref_vector elems(m);
-    get_concat(s1, es);
+    expr_ref head(m), tail(m), conc(m), len1(m), len2(m);
+    expr_ref_vector elems(m), es(m);
+    canonize(s, es, dep);
     unsigned i = 0;
-    for (; i <= _idx && i < es.size() && m_util.str.is_unit(es[i]); ++i) {};    
-    if (i == _idx && i < es.size() && m_util.str.is_unit(es[i], e1)) {
+    
+    for (; i <= _idx && i < es.size() && m_util.str.is_unit(es[i].get()); ++i) {};    
+    if (i == _idx && i < es.size() && m_util.str.is_unit(es[i].get(), e1)) {
         dep = m_dm.mk_join(dep, m_dm.mk_leaf(assumption(lit)));
         propagate_eq(dep, ensure_enode(nth), ensure_enode(e1));
         return;
     }
-    // TBD could tune this aggregate quadratic overhead
+    // TBD: what about 'dep'?
     expr* s2 = s;
     for (unsigned j = 0; j <= _idx; ++j) {
         mk_decompose(s2, head, tail);
         elems.push_back(head);
+        len1 = m_util.str.mk_length(s2);
+        len2 = m_autil.mk_add(m_autil.mk_int(1), m_util.str.mk_length(tail));
+        propagate_eq(lit, len1, len2, false);
         s2 = tail;
     }
     elems.push_back(s2);
     conc = m_util.str.mk_concat(elems.size(), elems.c_ptr());
     propagate_eq(lit, s, conc, true);
-
-    // TBD: examine other places for enforcing constraints on tail
-    conc = m_autil.mk_add(m_autil.mk_int(_idx+1), m_util.str.mk_length(s2));
-    add_axiom(~lit, mk_eq(m_util.str.mk_length(s), conc, false));
-    //add_axiom(~lit, mk_literal(m_autil.mk_ge(m_util.str.mk_length(s), m_autil.mk_int(_idx + 1))));
 }
 
 literal theory_seq::mk_literal(expr* _e) {
