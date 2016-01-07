@@ -4072,8 +4072,7 @@ namespace smt {
             // the theories of (array int int) and (array (array int int) int).
             // Remark: The inconsistency is not going to be detected if they are
             // not marked as shared.
-            bool result = get_theory(th_id)->is_shared(l->get_th_var());
-            return result;
+            return get_theory(th_id)->is_shared(l->get_th_var());
         }
         default:
             return true;

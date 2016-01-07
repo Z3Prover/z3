@@ -113,6 +113,7 @@ namespace smt {
         friend class context;
         friend class euf_manager;
         friend class conflict_resolution;
+        
 
         theory_var_list * get_th_var_list() { 
             return m_th_var_list.get_th_var() == null_theory_var ? 0 : &m_th_var_list; 
@@ -169,6 +170,7 @@ namespace smt {
             SASSERT(m_class_size == 1);
             m_interpreted = true;
         }
+
 
         void del_eh(ast_manager & m, bool update_children_parent = true);
         
