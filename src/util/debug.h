@@ -44,11 +44,15 @@ bool assertions_enabled();
 #define DEBUG_CODE(CODE) ((void) 0)
 #endif
 
+#ifdef NO_Z3_DEBUGGER
+#define INVOKE_DEBUGGER() exit(ERR_INTERNAL_FATAL)
+#else
 #ifdef _WINDOWS
 #define INVOKE_DEBUGGER() __debugbreak()
 #else
 void invoke_gdb();
 #define INVOKE_DEBUGGER() invoke_gdb()
+#endif
 #endif
 
 void notify_assertion_violation(const char * file_name, int line, const char * condition);
