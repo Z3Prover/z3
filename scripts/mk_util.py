@@ -559,7 +559,7 @@ def dos2unix_tree():
     for root, dirs, files in os.walk('src'):
         for f in files:
             dos2unix(os.path.join(root, f))
-                
+
 
 def check_eol():
     if not IS_WINDOWS:
@@ -643,7 +643,7 @@ def display_help(exit_code):
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
     global DOTNET_ENABLED, JAVA_ENABLED, ML_ENABLED, STATIC_LIB, PREFIX, GMP, FOCI2, FOCI2LIB, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH
-    global LINUX_X64, SLOW_OPTIMIZE, USE_OMP, PYTHON_INSTALL_ENABLED
+    global LINUX_X64, SLOW_OPTIMIZE, USE_OMP
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:],
                                                'b:df:sxhmcvtnp:gj',
@@ -711,26 +711,7 @@ def parse_options():
         else:
             print("ERROR: Invalid command line option '%s'" % opt)
             display_help(1)
-    # Handle the Python package directory
-    if IS_WINDOWS:
-        # Installing under Windows doesn't make sense as the install prefix is used
-        # but that doesn't make sense under Windows
-        PYTHON_INSTALL_ENABLED = False
-    else:
-        if not PYTHON_PACKAGE_DIR.startswith(PREFIX):
-            print(("Warning: The detected Python package directory (%s)"
-                   " does not live under the installation prefix (%s)"
-                   ". This would lead to a broken Python installation."
-                   "Use --pypkgdir= to change the Python package directory") %
-                  (PYTHON_PACKAGE_DIR, PREFIX))
-            if IS_OSX and PYTHON_PACKAGE_DIR.startswith('/Library/'):
-                print("Using hack to install Python bindings, this might lead to a broken system")
-                PYTHON_INSTALL_ENABLED = True
-            else:
-                print("Disabling install of Python bindings")
-                PYTHON_INSTALL_ENABLED = False
-        else:
-            PYTHON_INSTALL_ENABLED = True
+
 
 # Return a list containing a file names included using '#include' in
 # the given C/C++ file named fname.
@@ -1036,6 +1017,11 @@ class Component:
     def mk_unix_dist(self, build_path, dist_path):
         return
 
+    # Used to print warnings or errors after mk_make.py is done, so that they
+    # are not quite as easy to miss.
+    def final_info(self):
+        pass
+
 class LibComponent(Component):
     def __init__(self, name, path, deps, includes2install):
         Component.__init__(self, name, path, deps)
@@ -1062,8 +1048,8 @@ class LibComponent(Component):
         out.write('\n')
         out.write('%s: %s\n\n' % (self.name, libfile))
 
-    def mk_install_dep(self, out):
-        out.write('%s' % libfile)
+    def mk_install_deps(self, out):
+        return
 
     def mk_install(self, out):
         for include in self.includes2install:
@@ -1151,8 +1137,10 @@ class ExeComponent(Component):
     def main_component(self):
         return self.install
 
-    def mk_install_dep(self, out):
-        out.write('%s' % exefile)
+    def mk_install_deps(self, out):
+        if self.install:
+            exefile = '%s$(EXE_EXT)' % self.exe_name
+            out.write('%s' % exefile)
 
     def mk_install(self, out):
         if self.install:
@@ -1308,7 +1296,7 @@ class DLLComponent(Component):
     def require_def_file(self):
         return IS_WINDOWS and self.export_files
 
-    def mk_install_dep(self, out):
+    def mk_install_deps(self, out):
         out.write('%s$(SO_EXT)' % self.dll_name)
         if self.static:
             out.write(' %s$(LIB_EXT)' % self.dll_name)
@@ -1345,38 +1333,54 @@ class DLLComponent(Component):
 class PythonInstallComponent(Component):
     def __init__(self, name, libz3Component):
         assert isinstance(libz3Component, DLLComponent)
+        global PYTHON_INSTALL_ENABLED
         Component.__init__(self, name, None, [])
         self.pythonPkgDir = None
         self.in_prefix_install = True
         self.libz3Component = libz3Component
-        if not PYTHON_INSTALL_ENABLED:
-            return
 
-        if self.is_osx_hack():
-            # Use full path that is outside of install prefix
-            self.pythonPkgDir = PYTHON_PACKAGE_DIR
-            self.in_prefix_install = False
-            assert os.path.isabs(self.pythonPkgDir)
+        if IS_WINDOWS:
+            # Installing under Windows doesn't make sense as the install prefix is used
+            # but that doesn't make sense under Windows
+            # CMW: It makes perfectly good sense; the prefix is Python's sys.prefix,
+            # i.e., something along the lines of C:\Python\... At the moment we are not
+            # sure whether we would want to install libz3.dll into that directory though.
+            PYTHON_INSTALL_ENABLED = False
+            return
         else:
-            # Use path inside the prefix (should be the normal case)
+            PYTHON_INSTALL_ENABLED = True
+
+        if IS_WINDOWS or IS_OSX:
+            # Use full path that is possibly outside of install prefix
+            self.in_prefix_install = PYTHON_PACKAGE_DIR.startswith(PREFIX)
+            self.pythonPkgDir = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
+        else:
+            # Use path inside the prefix (should be the normal case on Linux)
+            # CMW: Also normal on *BSD?
             assert PYTHON_PACKAGE_DIR.startswith(PREFIX)
             self.pythonPkgDir = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
-            assert not os.path.isabs(self.pythonPkgDir)
-            assert self.in_prefix_install
+            self.in_prefix_install = True
 
-    def is_osx_hack(self):
-        return IS_OSX and not PYTHON_PACKAGE_DIR.startswith(PREFIX)
+        if self.in_prefix_install:
+            assert not os.path.isabs(self.pythonPkgDir)
+
+    def final_info(self):
+        if not PYTHON_PACKAGE_DIR.startswith(PREFIX):
+            print("Warning: The detected Python package directory (%s) is not "
+                  "in the installation prefix (%s). This can lead to a broken "
+                  "Python API installation. Use --pypkgdir= to change the "
+                  "Python package directory." % (PYTHON_PACKAGE_DIR, PREFIX))
 
     def main_component(self):
-        return False    
-    
+        return False
+
     def mk_install(self, out):
         if not is_python_install_enabled():
             return
         MakeRuleCmd.make_install_directory(out, self.pythonPkgDir, in_prefix=self.in_prefix_install)
 
         # Sym-link or copy libz3 into python package directory
-        if IS_WINDOWS or self.is_osx_hack():
+        if IS_WINDOWS or IS_OSX:
             MakeRuleCmd.install_files(out,
                                       self.libz3Component.dll_file(),
                                       os.path.join(self.pythonPkgDir,
@@ -1568,7 +1572,6 @@ class DotNetDLLComponent(Component):
 
     def mk_win_dist(self, build_path, dist_path):
         if is_dotnet_enabled():
-            # Assuming all .NET dlls should be in the distribution
             mk_dir(os.path.join(dist_path, INSTALL_BIN_DIR))
             shutil.copy('%s.dll' % os.path.join(build_path, self.dll_name),
                         '%s.dll' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
@@ -1578,11 +1581,13 @@ class DotNetDLLComponent(Component):
                 shutil.copy('%s.pdb' % os.path.join(build_path, self.dll_name),
                             '%s.pdb' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
 
-
-
     def mk_unix_dist(self, build_path, dist_path):
-        # Do nothing
-        return
+        if is_dotnet_enabled():
+            mk_dir(os.path.join(dist_path, INSTALL_BIN_DIR))
+            shutil.copy('%s.dll' % os.path.join(build_path, self.dll_name),
+                        '%s.dll' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
+            shutil.copy('%s.xml' % os.path.join(build_path, self.dll_name),
+                        '%s.xml' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
 
     def mk_install_deps(self, out):
         if not is_dotnet_enabled():
@@ -1724,7 +1729,7 @@ class JavaDLLComponent(Component):
             MakeRuleCmd.remove_installed_files(out, os.path.join(INSTALL_LIB_DIR, jarfile))
 
 class MLComponent(Component):
-    
+
     def __init__(self, name, lib_name, path, deps):
         Component.__init__(self, name, path, deps)
         if lib_name is None:
@@ -1742,14 +1747,14 @@ class MLComponent(Component):
             out.write('CXXFLAGS_OCAML=$(CXXFLAGS:/GL=)\n') # remove /GL; the ocaml tools don't like it.
 
             if IS_WINDOWS:
-                prefix_lib = '-L' + os.path.abspath(BUILD_DIR).replace('\\', '\\\\') 
+                prefix_lib = '-L' + os.path.abspath(BUILD_DIR).replace('\\', '\\\\')
             else:
                 prefix_lib = '-L' + PREFIX + '/lib'
             substitutions = { 'LEXTRA': prefix_lib,
                               'VERSION': "{}.{}.{}.{}".format(VER_MAJOR, VER_MINOR, VER_BUILD, VER_REVISION) }
-            
+
             configure_file(os.path.join(self.src_dir, 'META.in'),
-                           os.path.join(BUILD_DIR, self.sub_dir, 'META'), 
+                           os.path.join(BUILD_DIR, self.sub_dir, 'META'),
                            substitutions)
 
             mlis = ''
@@ -1761,7 +1766,7 @@ class MLComponent(Component):
             z3dllso = get_component(Z3_DLL_COMPONENT).dll_name + '$(SO_EXT)'
             out.write('%s: %s %s\n' % (stubso, stubsc, z3dllso))
             out.write('\t%s -ccopt "$(CXXFLAGS_OCAML) -I %s -I %s -I %s $(CXX_OUT_FLAG)%s" -c %s\n' %
-                      (OCAMLC, OCAML_LIB, api_src, src_dir, stubso, stubsc))            
+                      (OCAMLC, OCAML_LIB, api_src, src_dir, stubso, stubsc))
 
             cmis = ''
             for m in self.modules:
@@ -1771,7 +1776,7 @@ class MLComponent(Component):
                 out.write('\t%s -I %s -o %s -c %s\n' % (OCAMLC, self.sub_dir, ft, ff))
                 cmis = cmis + ' ' + ft
 
-            cmos = ''                    
+            cmos = ''
             for m in self.modules:
                 ff = os.path.join(src_dir, m + '.ml')
                 ft = os.path.join(self.sub_dir, m + '.cmo')
@@ -1797,7 +1802,7 @@ class MLComponent(Component):
             out.write('\tocamlmklib -o %s -I %s %s %s -L. -lz3\n' % (z3mls, self.sub_dir, stubso, cmxs))
             out.write('%s.cmxs: %s.cmxa\n' % (z3mls, z3mls))
             out.write('\t%s -shared -o %s.cmxs -I %s %s.cmxa\n' % (OCAMLOPT, z3mls, self.sub_dir, z3mls))
-                    
+
             out.write('\n')
             out.write('ml: %s.cma %s.cmxa %s.cmxs\n' % (z3mls, z3mls, z3mls))
             out.write('\n')
@@ -1811,7 +1816,7 @@ class MLComponent(Component):
                 out.write('ocamlfind_uninstall:\n')
                 self.mk_uninstall(out)
                 out.write('\n')
-                
+
     def mk_install_deps(self, out):
         if is_ml_enabled() and OCAMLFIND != '':
             out.write(get_component(Z3_DLL_COMPONENT).dll_name + '$(SO_EXT) ')
@@ -1880,8 +1885,8 @@ class CppExampleComponent(ExampleComponent):
             out.write(' -I%s' % get_component(API_COMPONENT).to_src_dir)
             out.write(' -I%s' % get_component(CPP_COMPONENT).to_src_dir)
             out.write(' %s' % os.path.join(self.to_ex_dir, cppfile))
-            out.write('\n')            
-        
+            out.write('\n')
+
         exefile = '%s$(EXE_EXT)' % self.name
         out.write('%s: %s %s\n' % (exefile, dll, objfiles))
         out.write('\t$(LINK) $(LINK_OUT_FLAG)%s $(LINK_FLAGS) %s ' % (exefile, objfiles))
@@ -2336,12 +2341,12 @@ def mk_makefile():
             out.write(' %s' % c.name)
     out.write('\n\t@echo Z3 was successfully built.\n')
     out.write("\t@echo \"Z3Py scripts can already be executed in the \'%s\' directory.\"\n" % BUILD_DIR)
-    out.write("\t@echo \"Z3Py scripts stored in arbitrary directories can be also executed if \'%s\' directory is added to the PYTHONPATH environment variable.\"\n" % BUILD_DIR)
+    out.write("\t@echo \"Z3Py scripts stored in arbitrary directories can be executed if the \'%s\' directory is added to the PYTHONPATH environment variable.\"\n" % BUILD_DIR)
     if not IS_WINDOWS:
         out.write("\t@echo Use the following command to install Z3 at prefix $(PREFIX).\n")
         out.write('\t@echo "    sudo make install"\n\n')
-        out.write("\t@echo If you are doing a staged install you can use DESTDIR.\n")
-        out.write('\t@echo "    make DESTDIR=/some/temp/directory install"\n')
+        # out.write("\t@echo If you are doing a staged install you can use DESTDIR.\n")
+        # out.write('\t@echo "    make DESTDIR=/some/temp/directory install"\n')
     # Generate :examples rule
     out.write('examples:')
     for c in get_components():
@@ -2355,6 +2360,8 @@ def mk_makefile():
     if not IS_WINDOWS:
         mk_install(out)
         mk_uninstall(out)
+    for c in get_components():
+        c.final_info()
     out.close()
     # Finalize
     if VERBOSE:
@@ -3298,15 +3305,18 @@ def mk_z3consts_ml(api_files):
 def mk_gui_str(id):
     return '4D2F40D8-E5F9-473B-B548-%012d' % id
 
-def mk_vs_proj(name, components):
-    if not VS_PROJ:
-        return
-    proj_name = '%s.vcxproj' % os.path.join(BUILD_DIR, name)
-    modes=['Debug', 'Release']
-    PLATFORMS=['Win32']
-    f = open(proj_name, 'w')
-    f.write('<?xml version="1.0" encoding="utf-8"?>\n')
-    f.write('<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">\n')
+def get_platform_toolset_str():
+    default = 'v110';
+    vstr = check_output(['msbuild', '/ver'])
+    lines = vstr.split('\n')
+    lline = lines[-1]
+    tokens = lline.split('.')
+    if len(tokens) < 2:
+        return default
+    else:
+        return 'v' + tokens[0] + tokens[1]
+
+def mk_vs_proj_property_groups(f, name, target_ext, type):
     f.write('  <ItemGroup Label="ProjectConfigurations">\n')
     f.write('    <ProjectConfiguration Include="Debug|Win32">\n')
     f.write('      <Configuration>Debug</Configuration>\n')
@@ -3317,35 +3327,46 @@ def mk_vs_proj(name, components):
     f.write('      <Platform>Win32</Platform>\n')
     f.write('    </ProjectConfiguration>\n')
     f.write('  </ItemGroup>\n')
-    f.write('   <PropertyGroup Label="Globals">\n')
+    f.write('  <PropertyGroup Label="Globals">\n')
     f.write('    <ProjectGuid>{%s}</ProjectGuid>\n' % mk_gui_str(0))
     f.write('    <ProjectName>%s</ProjectName>\n' % name)
     f.write('    <Keyword>Win32Proj</Keyword>\n')
+    f.write('    <PlatformToolset>%s</PlatformToolset>\n' % get_platform_toolset_str())
     f.write('  </PropertyGroup>\n')
     f.write('  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />\n')
     f.write('  <PropertyGroup Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'" Label="Configuration">\n')
-    f.write('    <ConfigurationType>Application</ConfigurationType>\n')
+    f.write('    <ConfigurationType>%s</ConfigurationType>\n' % type)
     f.write('    <CharacterSet>Unicode</CharacterSet>\n')
     f.write('    <UseOfMfc>false</UseOfMfc>\n')
     f.write('  </PropertyGroup>\n')
     f.write('  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />\n')
-    f.write('  <ImportGroup Label="ExtensionSettings">\n')
-    f.write('   </ImportGroup>\n')
+    f.write('  <ImportGroup Label="ExtensionSettings" />\n')
     f.write('   <ImportGroup Label="PropertySheets">\n')
     f.write('    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists(\'$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props\')" Label="LocalAppDataPlatform" />  </ImportGroup>\n')
     f.write('  <PropertyGroup Label="UserMacros" />\n')
     f.write('  <PropertyGroup>\n')
-    f.write('    <OutDir Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'">$(SolutionDir)$(Configuration)\</OutDir>\n')
+    f.write('    <OutDir Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'">$(SolutionDir)\$(ProjectName)\$(Configuration)\</OutDir>\n')
     f.write('    <TargetName Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'">%s</TargetName>\n' % name)
-    f.write('    <TargetExt Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'">.exe</TargetExt>\n')
-    f.write('    <OutDir Condition="\'$(Configuration)|$(Platform)\'==\'Release|Win32\'">$(SolutionDir)$(Configuration)\</OutDir>\n')
+    f.write('    <TargetExt Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'">.%s</TargetExt>\n' % target_ext)
+    f.write('    <OutDir Condition="\'$(Configuration)|$(Platform)\'==\'Release|Win32\'">$(SolutionDir)\$(ProjectName)\$(Configuration)\</OutDir>\n')
     f.write('    <TargetName Condition="\'$(Configuration)|$(Platform)\'==\'Release|Win32\'">%s</TargetName>\n' % name)
-    f.write('    <TargetExt Condition="\'$(Configuration)|$(Platform)\'==\'Release|Win32\'">.exe</TargetExt>\n')
+    f.write('    <TargetExt Condition="\'$(Configuration)|$(Platform)\'==\'Release|Win32\'">.%s</TargetExt>\n' % target_ext)
     f.write('  </PropertyGroup>\n')
-    f.write('  <ItemDefinitionGroup Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'">\n')
+    f.write('  <PropertyGroup Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'">\n')
+    f.write('        <IntDir>$(ProjectName)\$(Configuration)\</IntDir>\n')
+    f.write('  </PropertyGroup>\n')
+    f.write('  <PropertyGroup Condition="\'$(Configuration)|$(Platform)\'==\'Release|Win32\'">\n')
+    f.write('    <IntDir>$(ProjectName)\$(Configuration)\</IntDir>\n')
+    f.write('  </PropertyGroup>\n')
+
+
+def mk_vs_proj_cl_compile(f, name, components, debug):
     f.write('    <ClCompile>\n')
     f.write('      <Optimization>Disabled</Optimization>\n')
-    f.write('      <PreprocessorDefinitions>WIN32;_DEBUG;Z3DEBUG;_TRACE;_MP_INTERNAL;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>\n')
+    if debug:
+        f.write('      <PreprocessorDefinitions>WIN32;_DEBUG;Z3DEBUG;_TRACE;_MP_INTERNAL;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>\n')
+    else:
+        f.write('      <PreprocessorDefinitions>WIN32;_NDEBUG;_MP_INTERNAL;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>\n')
     if VS_PAR:
         f.write('      <MinimalRebuild>false</MinimalRebuild>\n')
         f.write('      <MultiProcessorCompilation>true</MultiProcessorCompilation>\n')
@@ -3353,8 +3374,14 @@ def mk_vs_proj(name, components):
         f.write('      <MinimalRebuild>true</MinimalRebuild>\n')
     f.write('      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>\n')
     f.write('      <WarningLevel>Level3</WarningLevel>\n')
-    f.write('      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>\n')
-    f.write('      <OpenMPSupport>true</OpenMPSupport>\n')
+    if debug:
+        f.write('      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>\n')
+    else:
+        f.write('      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>\n')
+    if USE_OMP:
+        f.write('      <OpenMPSupport>true</OpenMPSupport>\n')
+    else:
+        f.write('      <OpenMPSupport>false</OpenMPSupport>\n')
     f.write('      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>\n')
     f.write('      <AdditionalIncludeDirectories>')
     deps = find_all_deps(name, components)
@@ -3367,63 +3394,89 @@ def mk_vs_proj(name, components):
         f.write(get_component(dep).to_src_dir)
     f.write('</AdditionalIncludeDirectories>\n')
     f.write('    </ClCompile>\n')
-    f.write('    <Link>\n')
-    f.write('      <OutputFile>$(OutDir)%s.exe</OutputFile>\n' % name)
-    f.write('      <GenerateDebugInformation>true</GenerateDebugInformation>\n')
-    f.write('      <SubSystem>Console</SubSystem>\n')
-    f.write('      <StackReserveSize>8388608</StackReserveSize>\n')
-    f.write('      <RandomizedBaseAddress>false</RandomizedBaseAddress>\n')
-    f.write('      <DataExecutionPrevention>\n')
-    f.write('      </DataExecutionPrevention>\n')
-    f.write('      <TargetMachine>MachineX86</TargetMachine>\n')
-    f.write('      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>\n')
-    f.write('<AdditionalDependencies>psapi.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>\n')
-    f.write('    </Link>\n')
-    f.write('  </ItemDefinitionGroup>\n')
-    f.write('  <ItemDefinitionGroup Condition="\'$(Configuration)|$(Platform)\'==\'Release|Win32\'">\n')
-    f.write('    <ClCompile>\n')
-    f.write('      <Optimization>Disabled</Optimization>\n')
-    f.write('      <PreprocessorDefinitions>WIN32;_NDEBUG;_MP_INTERNAL;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>\n')
-    if VS_PAR:
-        f.write('      <MinimalRebuild>false</MinimalRebuild>\n')
-        f.write('      <MultiProcessorCompilation>true</MultiProcessorCompilation>\n')
-    else:
-        f.write('      <MinimalRebuild>true</MinimalRebuild>\n')
-    f.write('      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>\n')
-    f.write('      <WarningLevel>Level3</WarningLevel>\n')
-    f.write('      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>\n')
-    f.write('      <OpenMPSupport>true</OpenMPSupport>\n')
-    f.write('      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>\n')
-    f.write('      <AdditionalIncludeDirectories>')
-    deps = find_all_deps(name, components)
-    first = True
-    for dep in deps:
-        if first:
-            first = False
-        else:
-            f.write(';')
-        f.write(get_component(dep).to_src_dir)
-    f.write('</AdditionalIncludeDirectories>\n')
-    f.write('    </ClCompile>\n')
-    f.write('    <Link>\n')
-    f.write('      <OutputFile>$(OutDir)%s.exe</OutputFile>\n' % name)
-    f.write('      <GenerateDebugInformation>true</GenerateDebugInformation>\n')
-    f.write('      <SubSystem>Console</SubSystem>\n')
-    f.write('      <StackReserveSize>8388608</StackReserveSize>\n')
-    f.write('      <RandomizedBaseAddress>false</RandomizedBaseAddress>\n')
-    f.write('      <DataExecutionPrevention>\n')
-    f.write('      </DataExecutionPrevention>\n')
-    f.write('      <TargetMachine>MachineX86</TargetMachine>\n')
-    f.write('      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>\n')
-    f.write('<AdditionalDependencies>psapi.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>\n')
-    f.write('    </Link>\n')
-    f.write('  </ItemDefinitionGroup>\n')
+
+def mk_vs_proj_dep_groups(f, name, components):
     f.write('  <ItemGroup>\n')
+    deps = find_all_deps(name, components)
     for dep in deps:
         dep = get_component(dep)
         for cpp in filter(lambda f: f.endswith('.cpp'), os.listdir(dep.src_dir)):
             f.write('    <ClCompile Include="%s" />\n' % os.path.join(dep.to_src_dir, cpp))
     f.write('  </ItemGroup>\n')
+
+def mk_vs_proj_link_exe(f, name, debug):
+    f.write('    <Link>\n')
+    f.write('      <OutputFile>$(OutDir)%s.exe</OutputFile>\n' % name)
+    f.write('      <GenerateDebugInformation>true</GenerateDebugInformation>\n')
+    f.write('      <SubSystem>Console</SubSystem>\n')
+    f.write('      <StackReserveSize>8388608</StackReserveSize>\n')
+    f.write('      <RandomizedBaseAddress>false</RandomizedBaseAddress>\n')
+    f.write('      <DataExecutionPrevention/>\n')
+    f.write('      <TargetMachine>MachineX86</TargetMachine>\n')
+    f.write('      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>\n')
+    f.write('      <AdditionalDependencies>psapi.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>\n')
+    f.write('    </Link>\n')
+
+def mk_vs_proj(name, components):
+    if not VS_PROJ:
+        return
+    proj_name = '%s.vcxproj' % os.path.join(BUILD_DIR, name)
+    modes=['Debug', 'Release']
+    PLATFORMS=['Win32']
+    f = open(proj_name, 'w')
+    f.write('<?xml version="1.0" encoding="utf-8"?>\n')
+    f.write('<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">\n')
+    mk_vs_proj_property_groups(f, name, 'exe', 'Application')
+    f.write('  <ItemDefinitionGroup Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'">\n')
+    mk_vs_proj_cl_compile(f, name, components, debug=True)
+    mk_vs_proj_link_exe(f, name, debug=True)
+    f.write('  </ItemDefinitionGroup>\n')
+    f.write('  <ItemDefinitionGroup Condition="\'$(Configuration)|$(Platform)\'==\'Release|Win32\'">\n')
+    mk_vs_proj_cl_compile(f, name, components, debug=False)
+    mk_vs_proj_link_exe(f, name, debug=False)
+    f.write('  </ItemDefinitionGroup>\n')
+    mk_vs_proj_dep_groups(f, name, components)
+    f.write('  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />\n')
+    f.write('  <ImportGroup Label="ExtensionTargets">\n')
+    f.write('  </ImportGroup>\n')
+    f.write('</Project>\n')
+    f.close()
+    if is_verbose():
+        print("Generated '%s'" % proj_name)
+
+def mk_vs_proj_link_dll(f, name, debug):
+    f.write('    <Link>\n')
+    f.write('      <OutputFile>$(OutDir)%s.dll</OutputFile>\n' % name)
+    f.write('      <GenerateDebugInformation>true</GenerateDebugInformation>\n')
+    f.write('      <SubSystem>Console</SubSystem>\n')
+    f.write('      <StackReserveSize>8388608</StackReserveSize>\n')
+    f.write('      <RandomizedBaseAddress>false</RandomizedBaseAddress>\n')
+    f.write('      <DataExecutionPrevention/>\n')
+    f.write('      <TargetMachine>MachineX86</TargetMachine>\n')
+    f.write('      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>\n')
+    f.write('      <AdditionalDependencies>psapi.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>\n')
+    f.write('      <ModuleDefinitionFile>%s</ModuleDefinitionFile>' % os.path.join(get_component('api_dll').to_src_dir, 'api_dll.def'))
+    f.write('    </Link>\n')
+
+def mk_vs_proj_dll(name, components):
+    if not VS_PROJ:
+        return
+    proj_name = '%s.vcxproj' % os.path.join(BUILD_DIR, name)
+    modes=['Debug', 'Release']
+    PLATFORMS=['Win32']
+    f = open(proj_name, 'w')
+    f.write('<?xml version="1.0" encoding="utf-8"?>\n')
+    f.write('<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">\n')
+    mk_vs_proj_property_groups(f, name, 'dll', 'DynamicLibrary')
+    f.write('  <ItemDefinitionGroup Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'">\n')
+    mk_vs_proj_cl_compile(f, name, components, debug=True)
+    mk_vs_proj_link_dll(f, name, debug=True)
+    f.write('  </ItemDefinitionGroup>\n')
+    f.write('  <ItemDefinitionGroup Condition="\'$(Configuration)|$(Platform)\'==\'Release|Win32\'">\n')
+    mk_vs_proj_cl_compile(f, name, components, debug=False)
+    mk_vs_proj_link_dll(f, name, debug=False)
+    f.write('  </ItemDefinitionGroup>\n')
+    mk_vs_proj_dep_groups(f, name, components)
     f.write('  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />\n')
     f.write('  <ImportGroup Label="ExtensionTargets">\n')
     f.write('  </ImportGroup>\n')
@@ -3470,22 +3523,17 @@ class MakeRuleCmd(object):
 
     @classmethod
     def _install_root(cls, path, in_prefix, out, is_install=True):
-        if in_prefix:
-            assert not os.path.isabs(path)
-            install_root = cls.install_root()
-        else:
-            # This hack only exists for the Python bindings on OSX
-            # which are sometimes not installed inside the prefix.
-            # In all other cases installing outside the prefix is
-            # misleading and dangerous!
-            assert IS_OSX
-            assert os.path.isabs(path)
+        if not in_prefix:
+            # The Python bindings on OSX are sometimes not installed inside the prefix.
             install_root = "$(DESTDIR)"
             action_string = 'install' if is_install else 'uninstall'
             cls.write_cmd(out, 'echo "WARNING: {}ing files/directories ({}) that are not in the install prefix ($(PREFIX))."'.format(
-                action_string, path))
-            print("WARNING: Generating makefile rule that {}s {} '{}' which is outside the installation prefix '{}'.".format(
-                action_string, 'to' if is_install else 'from', path, PREFIX))
+                    action_string, path))
+            #print("WARNING: Generating makefile rule that {}s {} '{}' which is outside the installation prefix '{}'.".format(
+            #        action_string, 'to' if is_install else 'from', path, PREFIX))
+        else:
+            assert not os.path.isabs(path)
+            install_root = cls.install_root()
         return install_root
 
     @classmethod
@@ -3605,14 +3653,15 @@ class MakeRuleCmd(object):
         out.write("\t@{}\n".format(line))
 
 def strip_path_prefix(path, prefix):
-    assert path.startswith(prefix)
-    stripped_path = path[len(prefix):]
-    stripped_path.replace('//','/')
-    if stripped_path[0] == '/':
-        stripped_path = stripped_path[1:]
-
-    assert not os.path.isabs(stripped_path)
-    return stripped_path
+    if path.startswith(prefix):
+        stripped_path = path[len(prefix):]
+        stripped_path.replace('//','/')
+        if stripped_path[0] == '/':
+            stripped_path = stripped_path[1:]
+        assert not os.path.isabs(stripped_path)
+        return stripped_path
+    else:
+        return path
 
 def configure_file(template_file_path, output_file_path, substitutions):
     """

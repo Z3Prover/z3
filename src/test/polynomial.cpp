@@ -22,11 +22,13 @@ Notes:
 #include"polynomial_var2value.h"
 #include"polynomial_cache.h"
 #include"linear_eq_solver.h"
+#include"rlimit.h"
 
 static void tst1() {
     std::cout << "\n----- Basic testing -------\n";
+    reslimit rl;
     polynomial::numeral_manager nm;
-    polynomial::manager m(nm);
+    polynomial::manager m(rl, nm);
     polynomial_ref x0(m);
     polynomial_ref x1(m);
     polynomial_ref x2(m);
@@ -56,6 +58,7 @@ static void tst1() {
 }
 
 static void tst_pseudo_div(polynomial_ref const & A, polynomial_ref const & B, polynomial::var x) {
+    reslimit rl;
     polynomial::manager & m = A.m();
     std::cout << "---- Pseudo-division test ----\n";
     std::cout << "A: " << A << "\n";
@@ -81,8 +84,9 @@ static void tst_pseudo_div(polynomial_ref const & A, polynomial_ref const & B, p
 }
 
 static void tst2() {
+    reslimit rl;
     polynomial::numeral_manager nm;
-    polynomial::manager m(nm);
+    polynomial::manager m(rl, nm);
     polynomial_ref x0(m);
     polynomial_ref x1(m);
     polynomial_ref x2(m);
@@ -98,8 +102,9 @@ static void tst2() {
 
 
 static void tst3() {
+    reslimit rl;
     polynomial::numeral_manager nm;
-    polynomial::manager m(nm);
+    polynomial::manager m(rl, nm);
     polynomial_ref x0(m);
     polynomial_ref x1(m);
     x0 = m.mk_polynomial(m.mk_var());
@@ -113,8 +118,9 @@ static void tst3() {
 
 static void tst4() {
     std::cout << "---- Testing renaming/reordering ----\n";
+    reslimit rl;
     polynomial::numeral_manager nm;
-    polynomial::manager m(nm);
+    polynomial::manager m(rl, nm);
     polynomial_ref x0(m);
     polynomial_ref x1(m);
     polynomial_ref x2(m);
@@ -141,8 +147,9 @@ static void tst_quasi_resultant(polynomial_ref const & p, polynomial_ref const &
 }
 
 static void tst5() {
+    reslimit rl;
     polynomial::numeral_manager nm;
-    polynomial::manager m(nm);
+    polynomial::manager m(rl, nm);
     polynomial_ref x0(m);
     polynomial_ref x1(m);
     polynomial_ref x2(m);
@@ -158,8 +165,9 @@ static void tst5() {
 }
 
 static void tst6() {
+    reslimit rl;
     polynomial::numeral_manager nm;
-    polynomial::manager m(nm);
+    polynomial::manager m(rl, nm);
     polynomial_ref x0(m);
     polynomial_ref x1(m);
     polynomial_ref x2(m);
@@ -176,8 +184,9 @@ static void tst6() {
 }
 
 static void tst7() {
+    reslimit rl;
     polynomial::numeral_manager nm;
-    polynomial::manager m(nm);
+    polynomial::manager m(rl, nm);
     polynomial_ref x0(m);
     polynomial_ref x1(m);
     polynomial_ref x2(m);
@@ -198,8 +207,9 @@ static void tst7() {
 }
 
 static void tst8() {
+    reslimit rl;
     polynomial::numeral_manager nm;
-    polynomial::manager m(nm);
+    polynomial::manager m(rl, nm);
     polynomial_ref x0(m);
     polynomial_ref x1(m);
     polynomial_ref x2(m);
@@ -220,8 +230,9 @@ static void tst8() {
 
 
 static void tst9() {
+    reslimit rl;
     polynomial::numeral_manager nm;
-    polynomial::manager m(nm);
+    polynomial::manager m(rl, nm);
     polynomial_ref x0(m);
     polynomial_ref x1(m);
     polynomial_ref x2(m);
@@ -261,8 +272,9 @@ static void tst9() {
 }
 
 static void tst10() {
+    reslimit rl;
     polynomial::numeral_manager nm;
-    polynomial::manager m(nm);
+    polynomial::manager m(rl, nm);
     polynomial_ref x0(m);
     polynomial_ref x1(m);
     polynomial_ref x2(m);
@@ -300,8 +312,9 @@ static void tst10() {
 }
 
 static void tst11() {
+    reslimit rl;
     polynomial::numeral_manager nm;
-    polynomial::manager m(nm);
+    polynomial::manager m(rl, nm);
     polynomial_ref x0(m);
     polynomial_ref x1(m);
     polynomial_ref x2(m);
@@ -342,8 +355,9 @@ static void tst_discriminant(polynomial_ref const & p, polynomial_ref const & ex
 }
 
 static void tst_discriminant() {
+    reslimit rl;
     polynomial::numeral_manager nm;
-    polynomial::manager m(nm);
+    polynomial::manager m(rl, nm);
     polynomial_ref a(m);
     polynomial_ref b(m);
     polynomial_ref c(m);
@@ -354,13 +368,13 @@ static void tst_discriminant() {
     c = m.mk_polynomial(m.mk_var());
     d = m.mk_polynomial(m.mk_var());
     x = m.mk_polynomial(m.mk_var());
-    tst_discriminant(a*(x^2) + b*x  + c, 
+    tst_discriminant(a*(x^2) + b*x  + c,
                      (b^2) - 4*a*c);
-    tst_discriminant(a*(x^3) + b*(x^2) + c*x + d, 
+    tst_discriminant(a*(x^3) + b*(x^2) + c*x + d,
                      (b^2)*(c^2) - 4*a*(c^3) - 4*(b^3)*d + 18*a*b*c*d - 27*(a^2)*(d^2));
-    tst_discriminant(a*(x^3) + b*(x^2) + c*(x^2) + d, 
+    tst_discriminant(a*(x^3) + b*(x^2) + c*(x^2) + d,
                      -4*(b^3)*d - 12*(b^2)*c*d - 12*b*(c^2)*d - 4*(c^3)*d - 27*(a^2)*(d^2));
-    tst_discriminant(a*(x^3) + b*(x^2) + c*(x^2) + d, 
+    tst_discriminant(a*(x^3) + b*(x^2) + c*(x^2) + d,
                      -4*(b^3)*d - 12*(b^2)*c*d - 12*b*(c^2)*d - 4*(c^3)*d - 27*(a^2)*(d^2));
     tst_discriminant(a*(x^3) + (b^2)*d*(x^2) + c*(x^2) + d,
                      -4*(b^6)*(d^4) - 12*(b^4)*c*(d^3) - 12*(b^2)*(c^2)*(d^2) - 4*(c^3)*d - 27*(a^2)*(d^2));
@@ -402,7 +416,7 @@ static void tst_discriminant() {
     tst_discriminant((x^4) + (a + b)*(x^2) + (a + c)*x,
                      -4*(a^5) - 12*(a^4)*b - 12*(a^3)*(b^2) - 4*(a^2)*(b^3) - 8*(a^4)*c - 24*(a^3)*b*c -
                      24*(a^2)*(b^2)*c - 8*a*(b^3)*c - 4*(a^3)*(c^2) - 12*(a^2)*b*(c^2) - 12*a*(b^2)*(c^2) -
-                     4*(b^3)*(c^2) - 27*(a^4) - 108*(a^3)*c - 162*(a^2)*(c^2) - 108*a*(c^3) - 27*(c^4));                      
+                     4*(b^3)*(c^2) - 27*(a^4) - 108*(a^3)*c - 162*(a^2)*(c^2) - 108*a*(c^3) - 27*(c^4));
     tst_discriminant((x^4) + (a + c)*x + (c^2),
                      256*(c^6) - 27*(a^4) - 108*(a^3)*c - 162*(a^2)*(c^2) - 108*a*(c^3) - 27*(c^4)
                      );
@@ -425,7 +439,7 @@ static void tst_discriminant() {
                      max_var(b),
                      2048*(a^12) - 12288*(a^11) + 26112*(a^10) - 22528*(a^9) + 5664*(a^8) + 960*(a^7) +
                      32*(a^6));
-    tst_discriminant((x^4) + a*(x^2) + b*x + c, 
+    tst_discriminant((x^4) + a*(x^2) + b*x + c,
                      -4*(a^3)*(b^2) + 16*(a^4)*c - 27*(b^4) + 144*a*(b^2)*c - 128*(a^2)*(c^2) + 256*(c^3));
     tst_discriminant((((a-1)^2) + a*b + ((b-1)^2) - 1)*(x^3) + (a*b)*(x^2) + ((a^2) - (b^2))*x + c*a,
                      -4*(a^8) - 4*(a^7)*b + 9*(a^6)*(b^2) + 12*(a^5)*(b^3) - 2*(a^4)*(b^4) - 12*(a^3)*(b^5) -
@@ -460,8 +474,9 @@ static void tst_resultant(polynomial_ref const & p, polynomial_ref const & q, po
 }
 
 static void tst_resultant() {
+    reslimit rl;
     polynomial::numeral_manager nm;
-    polynomial::manager m(nm);
+    polynomial::manager m(rl, nm);
     polynomial_ref a(m);
     polynomial_ref b(m);
     polynomial_ref c(m);
@@ -485,13 +500,13 @@ static void tst_resultant() {
                   3*(a^2)*(b^4) - (b^6));
 
 
-    tst_resultant(a*(x^5) + b, 
-                  c*x + d, 
+    tst_resultant(a*(x^5) + b,
+                  c*x + d,
                   a*(d^5) - b*(c^5));
     tst_resultant(a*(x^5) + 3*(c + d)*(x^2) + 2*b,
-                  c*x + d, 
+                  c*x + d,
                   -2*b*(c^5) - 3*(c^4)*(d^2) - 3*(c^3)*(d^3) + a*(d^5));
-    tst_resultant(c*x + d, 
+    tst_resultant(c*x + d,
                   a*(x^5) + 3*(c + d)*(x^2) + 2*b,
                   2*b*(c^5) + 3*(c^4)*(d^2) + 3*(c^3)*(d^3) - a*(d^5));
     tst_resultant((x^2) - (a^3)*(x^2) + b + 1,
@@ -545,23 +560,25 @@ static void tst_resultant() {
 }
 
 static void tst_compose() {
+    reslimit rl;
     polynomial::numeral_manager nm;
-    polynomial::manager m(nm);
+    polynomial::manager m(rl, nm);
     polynomial_ref x0(m);
     polynomial_ref x1(m);
     x0 = m.mk_polynomial(m.mk_var());
     x1 = m.mk_polynomial(m.mk_var());
     polynomial_ref p(m);
     p = (x0^3) - x0 + 3;
-    std::cout << "p: " << p << "\np(x - y): " << compose_x_minus_y(p, 1) 
+    std::cout << "p: " << p << "\np(x - y): " << compose_x_minus_y(p, 1)
               << "\np(x + y): " << compose_x_plus_y(p, 1) << "\np(x - x): " << compose_x_minus_y(p, 0) << "\np(x + x): " << compose_x_plus_y(p, 0) << "\n";
     SASSERT(eq(compose_x_minus_y(p, 1), (x0^3) - 3*(x0^2)*x1 + 3*x0*(x1^2) - (x1^3) - x0 + x1 + 3));
     SASSERT(eq(compose_x_plus_y(p, 1), (x0^3) + 3*(x0^2)*x1 + 3*x0*(x1^2) + (x1^3) - x0 - x1 + 3));
 }
 
 void tst_prem() {
+    reslimit rl;
     polynomial::numeral_manager nm;
-    polynomial::manager m(nm);
+    polynomial::manager m(rl, nm);
     polynomial_ref x(m);
     polynomial_ref y(m);
     x = m.mk_polynomial(m.mk_var());
@@ -572,13 +589,14 @@ void tst_prem() {
     q = y*(x^3);
     std::cout << "p: " << p << "\n";
     std::cout << "q: " << q << "\n";
-    // unsigned d; 
+    // unsigned d;
     std::cout << "srem: " << exact_pseudo_remainder(q, p, 0) << "\n";
 }
 
 void tst_sqrt() {
+    reslimit rl;
     polynomial::numeral_manager nm;
-    polynomial::manager m(nm);
+    polynomial::manager m(rl, nm);
     polynomial_ref x(m);
     polynomial_ref y(m);
     x = m.mk_polynomial(m.mk_var());
@@ -622,8 +640,9 @@ static void tst_gcd(polynomial_ref const & p, polynomial_ref const & q, polynomi
 }
 
 static void tst_gcd() {
+    reslimit rl;
     polynomial::numeral_manager nm;
-    polynomial::manager m(nm);
+    polynomial::manager m(rl, nm);
     polynomial_ref x0(m);
     polynomial_ref x1(m);
     polynomial_ref x2(m);
@@ -648,7 +667,7 @@ static void tst_gcd() {
     tst_gcd(((x0^2) + x0*x1 + 1)*(x2*x2 + x3 + 2)*(x3*x1 + 2)*(x3*x1*x1 + x1*x2 + 1),
             (-1)*((x0^2) + x0*x1 + 1)*(x3*x1*x1 + x1*x2 + 1)*(x3*x1 + x1*x2 + 17),
             ((x0^2) + x0*x1 + 1)*(x3*x1*x1 + x1*x2 + 1));
-    
+
     tst_gcd((-1)*((x0^2) + x0*x1 + 1)*(x2*x2 + x3 + 2)*(x3*x1 + 2)*(x3*x1*x1 + x1*x2 + 1),
             (-1)*((x0^2) + x0*x1 + 1)*(x3*x1*x1 + x1*x2 + 1)*(x3*x1 + x1*x2 + 17),
             ((x0^2) + x0*x1 + 1)*(x3*x1*x1 + x1*x2 + 1));
@@ -661,17 +680,17 @@ static void tst_gcd() {
     tst_primitive((x0 + 1)*(2*x1) + (x0^2)*(x0 + 1), 1, 2*x1 + (x0^2));
     tst_primitive((x0 + 1)*(x2 + 1)*(x2^2)*(x0 + 1)*(x1^2) + (x0 + 1)*(x2^2)*x1 + (x0+1)*(x0+1), 1,
                   (x2 + 1)*(x2^2)*(x0 + 1)*(x1^2) + (x2^2)*x1 + (x0+1));
-    tst_primitive((x0 + (x3^2))*(x2 + x3 + 1)*(x2^2)*(x1^2) + 
+    tst_primitive((x0 + (x3^2))*(x2 + x3 + 1)*(x2^2)*(x1^2) +
                   (x0 + (x3^2))*(x2 + x3 + 1)*x1 +
                   (x0 + (x3^2))*(x2 + x3 + 1)*(x3^2),
                   1,
                   (x2^2)*(x1^2) + x1 + (x3^2));
-    tst_content((x0 + (x3^2))*(x2 + x3 + 1)*(x2^2)*(x1^2) + 
+    tst_content((x0 + (x3^2))*(x2 + x3 + 1)*(x2^2)*(x1^2) +
                 (x0 + (x3^2))*(x2 + x3 + 1)*x1 +
                 (x0 + (x3^2))*(x2 + x3 + 1)*(x3^2),
                 1,
                 (x0 + (x3^2))*(x2 + x3 + 1));
-    tst_primitive(4*(x0 + (x3^2))*(x2 + x3 + 1)*(x2^2)*(x1^2) + 
+    tst_primitive(4*(x0 + (x3^2))*(x2 + x3 + 1)*(x2^2)*(x1^2) +
                   2*(x0 + (x3^2))*(x2 + x3 + 1)*x1 +
                   4*(x0 + (x3^2))*(x2 + x3 + 1)*(x3^2),
                   1,
@@ -721,8 +740,9 @@ static void tst_psc_perf(polynomial_ref const & p, polynomial_ref const & q, pol
 #endif
 
 static void tst_psc() {
+    reslimit rl;
     polynomial::numeral_manager nm;
-    polynomial::manager m(nm);
+    polynomial::manager m(rl, nm);
     polynomial_ref x0(m);
     polynomial_ref x1(m);
     polynomial_ref x2(m);
@@ -740,7 +760,7 @@ static void tst_psc() {
     x8 = m.mk_polynomial(m.mk_var());
     x9 = m.mk_polynomial(m.mk_var());
     x10 = m.mk_polynomial(m.mk_var());
-    tst_psc(x0*(x1^2) + (x0 + 1)*x1 + 2, x0*x1 + 3, 1, 
+    tst_psc(x0*(x1^2) + (x0 + 1)*x1 + 2, x0*x1 + 3, 1,
             6*x0 - (x0^2), x0);
     tst_psc(x0*(x1^4) + (x0 + 1)*(x1^3) + 2, x0*(x1^3) + 3, 1,
             72*(x0^3) - (x0^4) - 27*(x0^2) - 27*(x0), 9*(x0^3));
@@ -754,34 +774,34 @@ static void tst_psc() {
     tst_psc((x^4) + a*(x^2) + b*x + c, 4*(x^3) + 2*a*x + b, 9,
             16*(a^4)*c - 4*(a^3)*(b^2) - 128*(a^2)*(c^2) + 144*a*(b^2)*c - 27*(b^4) + 256*(c^3), 8*(a^3) - 32*a*c + 36*(b^2));
     polynomial_ref & y = x10;
-    
+
     tst_psc(((y^2) + 6)*(x - 1) - y*((x^2) + 1), ((x^2) + 6)*(y - 1) - x*((y^2) + 1), 10,
-            2*(x^6) - 22*(x^5) + 102*(x^4) - 274*(x^3) + 488*(x^2) - 552*x + 288, 
+            2*(x^6) - 22*(x^5) + 102*(x^4) - 274*(x^3) + 488*(x^2) - 552*x + 288,
             5*x - (x^2) - 6
             );
-    
+
     tst_psc(((y^3) + 6)*(x - 1) - y*((x^3) + 1), ((x^3) + 6)*(y - 1) - x*((y^3) + 1), 10,
             3*(x^11) - 3*(x^10) - 37*(x^9) + 99*(x^8) + 51*(x^7) - 621*(x^6) + 1089*(x^5) - 39*(x^4) - 3106*(x^3) + 5868*(x^2) - 4968*x + 1728,
             (x^6) - 10*(x^4) + 12*(x^3) + 25*(x^2) - 60*x + 36);
 
     polynomial_ref p = (x^6) + a * (x^3) + b;
     polynomial_ref q = (x^6) + c * (x^3) + d;
-   
-    tst_psc(p, q, 9, 
-            (b^6) - 3*a*(b^5)*c + 3*(a^2)*(b^4)*(c^2) + 3*(b^5)*(c^2) - (a^3)*(b^3)*(c^3) - 
-            6*a*(b^4)*(c^3) + 3*(a^2)*(b^3)*(c^4) + 3*(b^4)*(c^4) - 3*a*(b^3)*(c^5) + (b^3)*(c^6) + 
-            3*(a^2)*(b^4)*d - 6*(b^5)*d - 6*(a^3)*(b^3)*c*d + 9*a*(b^4)*c*d + 
-            3*(a^4)*(b^2)*(c^2)*d + 6*(a^2)*(b^3)*(c^2)*d - 12*(b^4)*(c^2)*d - 9*(a^3)*(b^2)*(c^3)*d + 
-            6*a*(b^3)*(c^3)*d + 9*(a^2)*(b^2)*(c^4)*d - 6*(b^3)*(c^4)*d - 3*a*(b^2)*(c^5)*d + 
-            3*(a^4)*(b^2)*(d^2) - 12*(a^2)*(b^3)*(d^2) + 15*(b^4)*(d^2) - 3*(a^5)*b*c*(d^2) + 
-            6*(a^3)*(b^2)*c*(d^2) - 6*a*(b^3)*c*(d^2) + 9*(a^4)*b*(c^2)*(d^2) - 
-            18*(a^2)*(b^2)*(c^2)*(d^2) + 18*(b^3)*(c^2)*(d^2) - 9*(a^3)*b*(c^3)*(d^2) + 
-            6*a*(b^2)*(c^3)*(d^2) + 3*(a^2)*b*(c^4)*(d^2) + 3*(b^2)*(c^4)*(d^2) + (a^6)*(d^3) - 
-            6*(a^4)*b*(d^3) + 18*(a^2)*(b^2)*(d^3) - 20*(b^3)*(d^3) - 3*(a^5)*c*(d^3) + 
-            6*(a^3)*b*c*(d^3) - 6*a*(b^2)*c*(d^3) + 3*(a^4)*(c^2)*(d^3) + 6*(a^2)*b*(c^2)*(d^3) - 
-            12*(b^2)*(c^2)*(d^3) - (a^3)*(c^3)*(d^3) - 6*a*b*(c^3)*(d^3) + 3*(a^4)*(d^4) - 
-            12*(a^2)*b*(d^4) + 15*(b^2)*(d^4) - 6*(a^3)*c*(d^4) + 9*a*b*c*(d^4) + 
-            3*(a^2)*(c^2)*(d^4) + 3*b*(c^2)*(d^4) + 3*(a^2)*(d^5) - 6*b*(d^5) - 
+
+    tst_psc(p, q, 9,
+            (b^6) - 3*a*(b^5)*c + 3*(a^2)*(b^4)*(c^2) + 3*(b^5)*(c^2) - (a^3)*(b^3)*(c^3) -
+            6*a*(b^4)*(c^3) + 3*(a^2)*(b^3)*(c^4) + 3*(b^4)*(c^4) - 3*a*(b^3)*(c^5) + (b^3)*(c^6) +
+            3*(a^2)*(b^4)*d - 6*(b^5)*d - 6*(a^3)*(b^3)*c*d + 9*a*(b^4)*c*d +
+            3*(a^4)*(b^2)*(c^2)*d + 6*(a^2)*(b^3)*(c^2)*d - 12*(b^4)*(c^2)*d - 9*(a^3)*(b^2)*(c^3)*d +
+            6*a*(b^3)*(c^3)*d + 9*(a^2)*(b^2)*(c^4)*d - 6*(b^3)*(c^4)*d - 3*a*(b^2)*(c^5)*d +
+            3*(a^4)*(b^2)*(d^2) - 12*(a^2)*(b^3)*(d^2) + 15*(b^4)*(d^2) - 3*(a^5)*b*c*(d^2) +
+            6*(a^3)*(b^2)*c*(d^2) - 6*a*(b^3)*c*(d^2) + 9*(a^4)*b*(c^2)*(d^2) -
+            18*(a^2)*(b^2)*(c^2)*(d^2) + 18*(b^3)*(c^2)*(d^2) - 9*(a^3)*b*(c^3)*(d^2) +
+            6*a*(b^2)*(c^3)*(d^2) + 3*(a^2)*b*(c^4)*(d^2) + 3*(b^2)*(c^4)*(d^2) + (a^6)*(d^3) -
+            6*(a^4)*b*(d^3) + 18*(a^2)*(b^2)*(d^3) - 20*(b^3)*(d^3) - 3*(a^5)*c*(d^3) +
+            6*(a^3)*b*c*(d^3) - 6*a*(b^2)*c*(d^3) + 3*(a^4)*(c^2)*(d^3) + 6*(a^2)*b*(c^2)*(d^3) -
+            12*(b^2)*(c^2)*(d^3) - (a^3)*(c^3)*(d^3) - 6*a*b*(c^3)*(d^3) + 3*(a^4)*(d^4) -
+            12*(a^2)*b*(d^4) + 15*(b^2)*(d^4) - 6*(a^3)*c*(d^4) + 9*a*b*c*(d^4) +
+            3*(a^2)*(c^2)*(d^4) + 3*b*(c^2)*(d^4) + 3*(a^2)*(d^5) - 6*b*(d^5) -
             3*a*c*(d^5) + (d^6),
             3*(a^2)*c - (a^3) - 3*a*(c^2) + (c^3)
             );
@@ -796,9 +816,9 @@ static void tst_psc() {
     zero = m.mk_zero();
 
     tst_psc( a*d*x + a*c*f + a*e - b*a,
-             d*x + c*f + e - b, 
+             d*x + c*f + e - b,
              9, zero, zero);
-                         
+
 
 #if 0
     tst_psc_perf((x^7) + a*(x^3) + b*(x^2) + c*x + d,
@@ -834,7 +854,7 @@ static void tst_vars(polynomial_ref const & p, unsigned sz, polynomial::var * xs
 
 static void tst_vars() {
     polynomial::numeral_manager nm;
-    polynomial::manager m(nm);
+    reslimit rl; polynomial::manager m(rl, nm);
     polynomial_ref x0(m);
     polynomial_ref x1(m);
     polynomial_ref x2(m);
@@ -850,7 +870,7 @@ static void tst_vars() {
     polynomial::var s012[3] = {0, 1, 2};
     polynomial::var s3[1] = {3};
     polynomial::var s01234[5] = {0, 1, 2, 3, 4};
-    
+
     tst_vars((x0 + 1)*((x0^2) + (x3^2))*(x2*x3), 3, s023);
     tst_vars((x0 + x2)*((x0^2) + (x3^2))*(x2*x3), 3, s023);
     tst_vars(((x1 + x4 + 1)^5), 2, s14);
@@ -874,7 +894,7 @@ static void tst_sqf(polynomial_ref const & p, polynomial_ref const & expected) {
 
 static void tst_sqf() {
     polynomial::numeral_manager nm;
-    polynomial::manager m(nm);
+    reslimit rl; polynomial::manager m(rl, nm);
     polynomial_ref x0(m);
     polynomial_ref x1(m);
     polynomial_ref x2(m);
@@ -897,7 +917,7 @@ static void tst_sqf() {
     tst_sqf(((x0 + x1 + x2 + x3)^5) + 1, ((x0 + x1 + x2 + x3)^5) + 1);
 }
 
-static void tst_substitute(polynomial_ref const & p, 
+static void tst_substitute(polynomial_ref const & p,
                            polynomial::var x1, mpz const & v1,
                            polynomial::var x2, mpz const & v2,
                            polynomial_ref const & expected) {
@@ -919,7 +939,7 @@ static void tst_substitute(polynomial_ref const & p,
 
 static void tst_substitute() {
     polynomial::numeral_manager nm;
-    polynomial::manager m(nm);
+    reslimit rl; polynomial::manager m(rl, nm);
     polynomial_ref x0(m);
     polynomial_ref x1(m);
     polynomial_ref x2(m);
@@ -960,7 +980,7 @@ static void tst_qsubstitute(polynomial_ref const & p,
 
 static void tst_qsubstitute() {
     unsynch_mpq_manager qm;
-    polynomial::manager m(qm);
+    reslimit rl; polynomial::manager m(rl, qm);
     polynomial_ref x0(m);
     polynomial_ref x1(m);
     polynomial_ref x2(m);
@@ -1013,7 +1033,7 @@ void tst_mfact(polynomial_ref const & p, unsigned num_distinct_factors) {
 
 static void tst_mfact() {
     polynomial::numeral_manager nm;
-    polynomial::manager m(nm);
+    reslimit rl; polynomial::manager m(rl, nm);
     polynomial_ref x0(m);
     polynomial_ref x1(m);
     polynomial_ref x2(m);
@@ -1083,7 +1103,7 @@ static void tst_mfact() {
     tst_mfact((x0^70) - 6*(x0^65) - (x0^60) + 60*(x0^55) - 54*(x0^50) - 230*(x0^45) + 274*(x0^40) + 542*(x0^35) - 615*(x0^30) - 1120*(x0^25) + 1500*(x0^20) - 160*(x0^15) - 395*(x0^10) + 76*(x0^5) + 34, 3);
     tst_mfact(((x0^4) - 8*(x0^2)), 2);
     tst_mfact((x0^5) - 2*(x0^3) + x0 - 1, 1);
-    tst_mfact( (x0^25) - 4*(x0^21) - 5*(x0^20) + 6*(x0^17) + 11*(x0^16) + 10*(x0^15) - 4*(x0^13) - 7*(x0^12) - 9*(x0^11) - 10*(x0^10) + 
+    tst_mfact( (x0^25) - 4*(x0^21) - 5*(x0^20) + 6*(x0^17) + 11*(x0^16) + 10*(x0^15) - 4*(x0^13) - 7*(x0^12) - 9*(x0^11) - 10*(x0^10) +
                (x0^9) + (x0^8) + (x0^7) + (x0^6) + 3*(x0^5) + x0 - 1, 2);
     tst_mfact( (x0^25) - 10*(x0^21) - 10*(x0^20) - 95*(x0^17) - 470*(x0^16) - 585*(x0^15) - 40*(x0^13) - 1280*(x0^12) - 4190*(x0^11) - 3830*(x0^10) + 400*(x0^9)+ 1760*(x0^8) + 760*(x0^7) - 2280*(x0^6) + 449*(x0^5) + 640*(x0^3) - 640*(x0^2) + 240*x0 - 32, 2);
     tst_mfact( x0^10, 1);
@@ -1099,7 +1119,7 @@ static void tst_mfact() {
     tst_mfact( (x0^50) - 10*(x0^40) + 38*(x0^30) - 2*(x0^25) - 100*(x0^20) - 40*(x0^15) + 121*(x0^10) - 38*(x0^5) - 17, 1);
     polynomial_ref & y = x0;
     tst_mfact(        (((y^5)  +  5*(y^4) +  10*(y^3) + 10*(y^2) + 5*y)^10)
-                 + 10*(((y^5)  +  5*(y^4) +  10*(y^3) + 10*(y^2) + 5*y)^9) 
+                 + 10*(((y^5)  +  5*(y^4) +  10*(y^3) + 10*(y^2) + 5*y)^9)
                  + 35*(((y^5)  +  5*(y^4) +  10*(y^3) + 10*(y^2) + 5*y)^8)
                  + 40*(((y^5)  +  5*(y^4) +  10*(y^3) + 10*(y^2) + 5*y)^7)
                  - 32*(((y^5)  +  5*(y^4) +  10*(y^3) + 10*(y^2) + 5*y)^6)
@@ -1113,32 +1133,32 @@ static void tst_mfact() {
     tst_mfact( ((y^5) - 15552)*
                ((y^20)- 15708*(y^15) + rational("138771724")*(y^10)- rational("432104148432")*(y^5) + rational("614198284585616")),
                2);
-    tst_mfact( (y^25) - 
-               rational("3125")*(y^21) - 
-               rational("15630")*(y^20) + 
-               rational("3888750")*(y^17) + 
-               rational("38684375")*(y^16) + 
-               rational("95765635")*(y^15) - 
-               rational("2489846500")*(y^13) - 
-               rational("37650481875")*(y^12) - 
-               rational("190548065625")*(y^11) - 
-               rational("323785250010")*(y^10) + 
-               rational("750249453025")*(y^9) + 
-               rational("14962295699875")*(y^8) + 
-               rational("111775113235000")*(y^7) + 
-               rational("370399286731250")*(y^6) + 
-               rational("362903064503129")*(y^5) - 
-               rational("2387239013984400")*(y^4) - 
-               rational("23872390139844000")*(y^3) - 
-               rational("119361950699220000")*(y^2) - 
-               rational("298404876748050000")*y - 
+    tst_mfact( (y^25) -
+               rational("3125")*(y^21) -
+               rational("15630")*(y^20) +
+               rational("3888750")*(y^17) +
+               rational("38684375")*(y^16) +
+               rational("95765635")*(y^15) -
+               rational("2489846500")*(y^13) -
+               rational("37650481875")*(y^12) -
+               rational("190548065625")*(y^11) -
+               rational("323785250010")*(y^10) +
+               rational("750249453025")*(y^9) +
+               rational("14962295699875")*(y^8) +
+               rational("111775113235000")*(y^7) +
+               rational("370399286731250")*(y^6) +
+               rational("362903064503129")*(y^5) -
+               rational("2387239013984400")*(y^4) -
+               rational("23872390139844000")*(y^3) -
+               rational("119361950699220000")*(y^2) -
+               rational("298404876748050000")*y -
                rational("298500366308609376"), 2);
 
     tst_mfact( rational("54")*(y^24) - (y^27) - 324*(y^21) + rational("17496")*(y^18) - 34992*(y^15)+ rational("1889568")*(y^12)- 1259712*(y^9) + rational("68024448")*(y^6), 3);
 
     tst_mfact( ((y^3)- 432)*(((y^3)+54)^2)*((y^6)+108)*((y^6)+6912)*((y^6)- 324*(y^3)+37044),
                5);
-    
+
     tst_mfact( ((y^6)- 6*(y^4) - 864*(y^3) + 12*(y^2) - 5184*y + 186616)*
                (((y^6) - 6*(y^4) + 108*(y^3) + 12*(y^2) + 648*y + 2908)^2)*
                ((y^12) - 12*(y^10) + 60*(y^8) + 56*(y^6) + 6720*(y^4) + 12768*(y^2) + 13456)*
@@ -1175,13 +1195,13 @@ static void tst_mfact() {
 
 static void tst_zp() {
     unsynch_mpz_manager    z;
-    polynomial::manager    pm(z);
-    
+    reslimit rl; polynomial::manager    pm(rl, z);
+
     polynomial_ref x(pm);
     polynomial_ref y(pm);
     x = pm.mk_polynomial(pm.mk_var());
     y = pm.mk_polynomial(pm.mk_var());
-    
+
     polynomial_ref p(pm);
     polynomial_ref q(pm);
     p = (x^4) + 2*(x^3) + 2*(x^2) + x;
@@ -1200,11 +1220,11 @@ static void tst_zp() {
         std::cout << "q[Z_3]: " << q3 << "\n";
         std::cout << "gcd[Z_3]: " << gcd(p3, q3) << "\n";
     }
-    
+
     std::cout << "back into Z[x,y]\ngcd: " << gcd(p, q) << "\n";
-    
+
     p = 5*(x^2)*(y^2) + 3*(x^3) + 7*(y^3) + 3;
-    { 
+    {
         polynomial::scoped_set_zp setZ11(pm, 11);
         polynomial_ref p11(pm);
 
@@ -1219,7 +1239,7 @@ static void tst_zp() {
     std::cout << "gcd: " << gcd(p, q) << "\n";
 }
 
-static void tst_translate(polynomial_ref const & p, polynomial::var x0, int v0, polynomial::var x1, int v1, polynomial::var x2, int v2, 
+static void tst_translate(polynomial_ref const & p, polynomial::var x0, int v0, polynomial::var x1, int v1, polynomial::var x2, int v2,
                           polynomial_ref const & expected) {
     std::cout << "---------------\n";
     std::cout << "p: " << p << std::endl;
@@ -1233,7 +1253,7 @@ static void tst_translate(polynomial_ref const & p, polynomial::var x0, int v0, 
 
 static void tst_translate() {
     unsynch_mpq_manager qm;
-    polynomial::manager m(qm);
+    reslimit rl; polynomial::manager m(rl, qm);
     polynomial_ref x0(m);
     polynomial_ref x1(m);
     polynomial_ref x2(m);
@@ -1254,7 +1274,7 @@ static void tst_translate() {
     tst_translate(x3 + 1, 0, 1, 1, 2, 3, 10,
                   x3 + 11
                   );
-    tst_translate((x0^3)*(x1^2) + (x0^2)*(x1^3) + 10, 0, -3, 1, -2, 3, 0, 
+    tst_translate((x0^3)*(x1^2) + (x0^2)*(x1^3) + 10, 0, -3, 1, -2, 3, 0,
                   (x0^3)*(x1^2) + (x0^2)*(x1^3) - 4*(x0^3)*x1 - 15*(x0^2)*(x1^2) - 6*x0*(x1^3) + 4*(x0^3) +
                   48*(x0^2)*x1 + 63*x0*(x1^2) + 9*(x1^3) - 44*(x0^2) - 180*x0*x1 - 81*(x1^2) +
                   156*x0 + 216*x1 - 170
@@ -1264,7 +1284,7 @@ static void tst_translate() {
 #if 0
 static void tst_p25() {
     unsynch_mpq_manager qm;
-    polynomial::manager m(qm);
+    reslimit rl; polynomial::manager m(rl, qm);
     polynomial_ref x0(m);
     polynomial_ref x1(m);
     polynomial_ref x2(m);
@@ -1288,10 +1308,11 @@ static void tst_p25() {
 static void tst_mm() {
     unsynch_mpq_manager qm;
     // pm1 and pm2 share the same monomial manager
-    polynomial::manager * pm1_ptr = alloc(polynomial::manager, qm);
+    reslimit rl;
+    polynomial::manager * pm1_ptr = alloc(polynomial::manager, rl, qm);
     polynomial::manager & pm1 = *pm1_ptr;
-    polynomial::manager pm2(qm, &pm1.mm());
-    polynomial::manager pm3(qm); // pm3 has its own manager
+    polynomial::manager pm2(rl, qm, &pm1.mm());
+    polynomial::manager pm3(rl, qm); // pm3 has its own manager
     polynomial_ref p2(pm2);
     {
         polynomial_ref x0(pm1);
@@ -1302,7 +1323,7 @@ static void tst_mm() {
         x2 = pm1.mk_polynomial(pm1.mk_var());
         polynomial_ref p1(pm1);
         p1 = (x0 + x1 + x2)^2;
-        
+
         std::cout << "p1: " << p1 << "\n";
         p2 = convert(pm1, p1, pm2);
         std::cout << "p2: " << p2 << "\n";
@@ -1317,7 +1338,7 @@ static void tst_mm() {
     std::cout << "p2: " << p2 << "\n";
 }
 
-static void tst_eval(polynomial_ref const & p, polynomial::var x0, rational v0, polynomial::var x1, rational v1, polynomial::var x2, rational v2, 
+static void tst_eval(polynomial_ref const & p, polynomial::var x0, rational v0, polynomial::var x1, rational v1, polynomial::var x2, rational v2,
                      rational expected) {
     TRACE("eval_bug", tout << "tst_eval, " << p << "\n";);
     std::cout << "p: " << p << "\nx" << x0 << " -> " << v0 << "\nx" << x1 << " -> " << v1 << "\nx" << x2 << " -> " << v2 << "\n";
@@ -1336,7 +1357,7 @@ static void tst_eval(polynomial_ref const & p, polynomial::var x0, rational v0, 
 
 static void tst_eval() {
     polynomial::numeral_manager nm;
-    polynomial::manager m(nm);
+    reslimit rl; polynomial::manager m(rl, nm);
     polynomial_ref x0(m);
     polynomial_ref x1(m);
     polynomial_ref x2(m);
@@ -1369,7 +1390,7 @@ static void tst_eval() {
 
 static void tst_mk_unique() {
     polynomial::numeral_manager nm;
-    polynomial::manager m(nm);
+    reslimit rl; polynomial::manager m(rl, nm);
     polynomial_ref x0(m);
     polynomial_ref x1(m);
     polynomial_ref x2(m);
@@ -1380,7 +1401,7 @@ static void tst_mk_unique() {
     polynomial_ref p(m);
     polynomial_ref q(m);
     polynomial_ref r(m);
-    
+
     p = (x0^3) + (x2^5) + x0*x1 + x0*x1*x1 + 3*x0*x0 + 5;
     q = x0*x1*x1 + (x0^3) + 3*x0*x0 + (x2^5) + 5 + x0*x1;
     r = x0*x1*x1 + (x0^3) + 3*x0*x0 + (x2^5) + 6 + x0*x1;
@@ -1414,7 +1435,7 @@ static void tst_del_eh() {
     dummy_del_eh eh2;
 
     polynomial::numeral_manager nm;
-    polynomial::manager m(nm);
+    reslimit rl; polynomial::manager m(rl, nm);
     polynomial_ref x0(m);
     polynomial_ref x1(m);
     x0 = m.mk_polynomial(m.mk_var());
@@ -1423,7 +1444,7 @@ static void tst_del_eh() {
     m.add_del_eh(&eh1);
     x1 = 0;
     SASSERT(eh1.m_counter == 1);
-    
+
     m.add_del_eh(&eh2);
     x1 = m.mk_polynomial(m.mk_var());
     x1 = 0;
@@ -1444,7 +1465,7 @@ static void tst_del_eh() {
 
 static void tst_const_coeff() {
     polynomial::numeral_manager nm;
-    polynomial::manager m(nm);
+    reslimit rl; polynomial::manager m(rl, nm);
     polynomial_ref x0(m);
     polynomial_ref x1(m);
     x0 = m.mk_polynomial(m.mk_var());
@@ -1453,7 +1474,7 @@ static void tst_const_coeff() {
     scoped_mpz c(nm);
 
     polynomial_ref p(m);
-    
+
     p = (x0^2)*x1 + 3*x0 + x1;
     SASSERT(!m.const_coeff(p, 0, 2, c));
     SASSERT(m.const_coeff(p, 0, 1, c) && c == 3);
@@ -1490,7 +1511,7 @@ static void tst_const_coeff() {
 static void tst_gcd2() {
     // enable_trace("mgcd");
     polynomial::numeral_manager nm;
-    polynomial::manager m(nm);
+    reslimit rl; polynomial::manager m(rl, nm);
     polynomial_ref x0(m);
     polynomial_ref x1(m);
     polynomial_ref x2(m);
@@ -1525,11 +1546,11 @@ static void tst_gcd2() {
             (7*3*(x1^2) + 7*6*(x2^2) + 7*21*(x3^3))*(5*(x1^3) + 7*(x0^2) + 13),
             (3*(x1^2) + 6*(x2^2) + 21*(x3^3)));
 
-    tst_gcd((x2^6)*(x3^6) - 4*(x2^3)*(x3^6) + 2*(x2^6)*(x3^3) - 8*(x2^3)*(x3^3) + 4*(x1^3)*(x2^3)*(x3^3) - 8*(x1^3)*(x3^3) + 
+    tst_gcd((x2^6)*(x3^6) - 4*(x2^3)*(x3^6) + 2*(x2^6)*(x3^3) - 8*(x2^3)*(x3^3) + 4*(x1^3)*(x2^3)*(x3^3) - 8*(x1^3)*(x3^3) +
             4*(x3^6) + 8*(x3^3) + (x2^6) - 4*(x2^3) + 4*(x1^3)*(x2^3) - 8*(x1^3) + 4 + (x1^6),
             (-2)*(x2^3)*(x3^6) - 4*(x2^3)*(x3^3) + 4*(x3^6) + 8*(x3^3) - 2*(x1^3)*(x3^3) - 2*(x2^3) + 4 - 2*(x1^3),
             one);
-    
+
     tst_gcd((x1^2) - 2*x0 + 1 + (x0^2) + x0*x1 - 2*x1,
             x0*x1,
             one);
@@ -1541,7 +1562,7 @@ static void tst_gcd2() {
     p = 169*(x1^12)*(x2^16) - 468*x0*(x1^11)*(x2^16) + 428*(x0^2)*(x1^10)*(x2^16) - 92*(x0^3)*(x1^9)*(x2^16) - 82*(x0^4)*(x1^8)*(x2^16) + 52*(x0^5)*(x1^7)*(x2^16) - 4*(x0^6)*(x1^6)*(x2^16) - 4*(x0^7)*(x1^5)*(x2^16) + (x0^8)*(x1^4)*(x2^16) - 581*(x1^14)*(x2^14) + 1828*x0*(x1^13)*(x2^14) - 2452*(x0^2)*(x1^12)*(x2^14) + 548*(x0^3)*(x1^11)*(x2^14) + 1002*(x0^4)*(x1^10)*(x2^14) - 756*(x0^5)*(x1^9)*(x2^14) + 124*(x0^6)*(x1^8)*(x2^14) + 44*(x0^7)*(x1^7)*(x2^14) - 13*(x0^8)*(x1^6)*(x2^14) + 895*(x1^16)*(x2^12) - 1556*x0*(x1^15)*(x2^12) + 2864*(x0^2)*(x1^14)*(x2^12);
     tst_gcd(p, derivative(p, 2), (x1^4)*(x2^11));
 
-    tst_gcd((11*5*3)*((x0^2) + 1)*(x1 + 3), 
+    tst_gcd((11*5*3)*((x0^2) + 1)*(x1 + 3),
             (11*5*7)*((x0^2) + 1)*(x1 + 5),
             (11*5)*((x0^2) + 1));
 
@@ -1565,7 +1586,7 @@ static void tst_gcd2() {
             neg((-1)*(x0^2)*(x2^3)*(x3^6) + 2*x0*(x1^3)*(x2^3)*(x3^3) + (x0^3)*(x3^7) - (x1^6)*(x2^3) - 2*(x0^2)*(x1^3)*(x3^4) - (x0^3)*(x3^6) + x0*(x1^6)*x3 + 2*(x0^2)*(x1^3)*(x3^3) - 2*(x0^2)*(x2^3)*(x3^3) + 2*(x0^2)*(x3^6) - x0*(x1^6) + 2*x0*(x1^3)*(x2^3) - 4*x0*(x1^3)*(x3^3) + 2*(x0^3)*(x3^4) + 2*(x1^6) - 2*(x0^2)*(x1^3)*x3 - 2*(x0^3)*(x3^3) + 2*(x0^2)*(x1^3) - (x0^2)*(x2^3) + 4*(x0^2)*(x3^3) - 4*x0*(x1^3) + (x0^3)*x3 - (x0^3) + 2*(x0^2))
             );
 
-    tst_gcd(((11*5*3)*(x0^2) + 1)*(x1 + 3), 
+    tst_gcd(((11*5*3)*(x0^2) + 1)*(x1 + 3),
             ((11*5*3)*(x0^2) + 1)*(x1 + 5),
             ((11*5*3)*(x0^2) + 1));
 
@@ -1582,7 +1603,7 @@ static void tst_gcd3() {
     enable_trace("polynomial_gcd_detail");
     enable_trace("mpzzp");
     polynomial::numeral_manager nm;
-    polynomial::manager m(nm);
+    reslimit rl; polynomial::manager m(rl, nm);
     polynomial_ref x(m);
     x = m.mk_polynomial(m.mk_var());
     polynomial_ref p(m);
@@ -1607,7 +1628,7 @@ static void tst_gcd4() {
     enable_trace("mgcd");
     // enable_trace("CRA");
     polynomial::numeral_manager nm;
-    polynomial::manager m(nm);
+    reslimit rl; polynomial::manager m(rl, nm);
     polynomial_ref x(m);
     x = m.mk_polynomial(m.mk_var());
     polynomial_ref p(m);
@@ -1626,12 +1647,12 @@ static void tst_gcd4() {
         (1000000*x + 1)*(333333333*x + 1)*(77777777*x + 1)*(11111111*x + 1)*(x + 128384747)*(x + 82837437)*(x + 22848481);
     tst_gcd(p, derivative(p, 0), (x + 3)^9);
 }
-#endif 
+#endif
 
 static void tst_newton_interpolation() {
     // enable_trace("newton");
     polynomial::numeral_manager nm;
-    polynomial::manager m(nm);
+    reslimit rl; polynomial::manager m(rl, nm);
     polynomial_ref x(m);
     polynomial_ref y(m);
     x = m.mk_polynomial(m.mk_var());
@@ -1654,7 +1675,7 @@ static void tst_newton_interpolation() {
 
 static void tst_slow_mod_gcd() {
     polynomial::numeral_manager nm;
-    polynomial::manager m(nm);
+    reslimit rl; polynomial::manager m(rl, nm);
     polynomial_ref x0(m), x1(m), x2(m), x3(m), x4(m), x5(m);
     x0 = m.mk_polynomial(m.mk_var());
     x1 = m.mk_polynomial(m.mk_var());
@@ -1675,17 +1696,17 @@ static void tst_slow_mod_gcd() {
     tst_gcd(p, q, b);
 
     return;
-    p = (x0^8) * 
-        (((x0^3)*x1*x2*x3*x4*x5 + x0*(x1^3)*x2*x3*x4*x5 + x0*x1*(x2^3)*x3*x4*x5 + x0*x1*x2*(x3^3)*x4*x5 + 
+    p = (x0^8) *
+        (((x0^3)*x1*x2*x3*x4*x5 + x0*(x1^3)*x2*x3*x4*x5 + x0*x1*(x2^3)*x3*x4*x5 + x0*x1*x2*(x3^3)*x4*x5 +
           x0*x1*x2*x3*(x4^3)*x5 + x0*x1*x2*x3*x4*(x5^3) - x0*x1*x2*x3*x4*x5 - 2)^2) *
-        (((x0^3)*x1*x2*x3*x4*x5 + x0*(x1^3)*x2*x3*x4*x5 + x0*x1*(x2^3)*x3*x4*x5 + x0*x1*x2*(x3^3)*x4*x5 + 
+        (((x0^3)*x1*x2*x3*x4*x5 + x0*(x1^3)*x2*x3*x4*x5 + x0*x1*(x2^3)*x3*x4*x5 + x0*x1*x2*(x3^3)*x4*x5 +
           x0*x1*x2*x3*(x4^3)*x5 + x0*x1*x2*x3*x4*(x5^3) - x0*x1*x2*x3*x4*x5 + 2)^2);
     p_prime = derivative(p, 0);
     tst_gcd(p, p_prime,
-            (x0^7) * 
-            ((x0^3)*x1*x2*x3*x4*x5 + x0*(x1^3)*x2*x3*x4*x5 + x0*x1*(x2^3)*x3*x4*x5 + x0*x1*x2*(x3^3)*x4*x5 + 
-             x0*x1*x2*x3*(x4^3)*x5 + x0*x1*x2*x3*x4*(x5^3) - x0*x1*x2*x3*x4*x5 - 2) * 
-            ((x0^3)*x1*x2*x3*x4*x5 + x0*(x1^3)*x2*x3*x4*x5 + x0*x1*(x2^3)*x3*x4*x5 + x0*x1*x2*(x3^3)*x4*x5 + 
+            (x0^7) *
+            ((x0^3)*x1*x2*x3*x4*x5 + x0*(x1^3)*x2*x3*x4*x5 + x0*x1*(x2^3)*x3*x4*x5 + x0*x1*x2*(x3^3)*x4*x5 +
+             x0*x1*x2*x3*(x4^3)*x5 + x0*x1*x2*x3*x4*(x5^3) - x0*x1*x2*x3*x4*x5 - 2) *
+            ((x0^3)*x1*x2*x3*x4*x5 + x0*(x1^3)*x2*x3*x4*x5 + x0*x1*(x2^3)*x3*x4*x5 + x0*x1*x2*(x3^3)*x4*x5 +
              x0*x1*x2*x3*(x4^3)*x5 + x0*x1*x2*x3*x4*(x5^3) - x0*x1*x2*x3*x4*x5 + 2));
 }
 
@@ -1698,7 +1719,7 @@ void tst_linear_solver() {
 
     solver.resize(3);
     xs.resize(3);
-    
+
     as.reset();
     as.push_back(mpq(2));  as.push_back(mpq(1));  as.push_back(mpq(-1)); qm.set(b, 8);
     solver.add(0, as.c_ptr(), b);
@@ -1710,7 +1731,7 @@ void tst_linear_solver() {
     as.reset();
     as.push_back(mpq(-2)); as.push_back(mpq(1));  as.push_back(mpq(2));  qm.set(b, -3);
     solver.add(2, as.c_ptr(), b);
-    
+
     VERIFY(solver.solve(xs.c_ptr()));
     SASSERT(qm.eq(xs[0], mpq(2)));
     SASSERT(qm.eq(xs[1], mpq(3)));
@@ -1719,7 +1740,7 @@ void tst_linear_solver() {
 
 static void tst_lex(polynomial_ref const & p1, polynomial_ref const & p2, int lex_expected, polynomial::var min, int lex2_expected) {
     polynomial::manager & m = p1.m();
-    std::cout << "compare "; 
+    std::cout << "compare ";
     m.display(std::cout, m.get_monomial(p1, 0));
     std::cout << " ";
     m.display(std::cout, m.get_monomial(p2, 0));
@@ -1735,7 +1756,7 @@ static void tst_lex(polynomial_ref const & p1, polynomial_ref const & p2, int le
 
 static void tst_lex() {
     polynomial::numeral_manager nm;
-    polynomial::manager m(nm);
+    reslimit rl; polynomial::manager m(rl, nm);
     polynomial_ref x0(m), x1(m), x2(m), x3(m), x4(m), x5(m);
     x0 = m.mk_polynomial(m.mk_var());
     x1 = m.mk_polynomial(m.mk_var());
@@ -1743,13 +1764,13 @@ static void tst_lex() {
     x3 = m.mk_polynomial(m.mk_var());
     x4 = m.mk_polynomial(m.mk_var());
     x5 = m.mk_polynomial(m.mk_var());
-    
+
     polynomial_ref one(m);
     one = m.mk_const(mpz(1));
 
     tst_lex(x0*x4*x1, (x0^10)*(x1^3), 1, 4, -1);
     tst_lex(x0*x3*(x1^2)*x4, x0*(x3^2)*(x1^2)*x4, -1, 3, -1);
-    tst_lex((x0^2)*x3*(x1^2)*x4, x0*(x3^2)*(x1^2)*x4, -1, 3, 1); 
+    tst_lex((x0^2)*x3*(x1^2)*x4, x0*(x3^2)*(x1^2)*x4, -1, 3, 1);
     tst_lex(x0*x3*(x1^2)*x4, x0*x3*(x1^2)*x4, 0, 3, 0);
     tst_lex(x0*(x3^2)*(x1^2)*x4, x0*x3*(x1^2)*x4, 1, 3, 1);
     tst_lex((x1^2)*x4, x0*x2*x3*x4*x5, -1, 1, -1);
@@ -1772,18 +1793,18 @@ static void tst_lex() {
 
 static void tst_divides() {
     polynomial::numeral_manager nm;
-    polynomial::manager m(nm);
+    reslimit rl; polynomial::manager m(rl, nm);
     polynomial_ref x0(m);
     x0 = m.mk_polynomial(m.mk_var());
     polynomial_ref q(m);
     polynomial_ref p(m);
 
-    q = 16*(x0^27) - 1984*(x0^26) + 1762*(x0^25) + 17351*(x0^24) - 14165*(x0^23) + 16460*(x0^22) + 2919*(x0^21) - 16823*(x0^20) + 1530*(x0^19) + 
+    q = 16*(x0^27) - 1984*(x0^26) + 1762*(x0^25) + 17351*(x0^24) - 14165*(x0^23) + 16460*(x0^22) + 2919*(x0^21) - 16823*(x0^20) + 1530*(x0^19) +
         10646*(x0^18) + 19217*(x0^17);
-    p = 16*(x0^39) - 3648*(x0^38) + 338136*(x0^37) - 16037936*(x0^36) + 392334357*(x0^35) - rational("3851617443")*(x0^34) - 
-        rational("14636221526")*(x0^33) + rational("377151717618")*(x0^32) + rational("677140776981")*(x0^31) - rational("4308280094419")*(x0^30) + 
-        rational("312708087606")*(x0^29) + rational("8205543533730")*(x0^28) + rational("3331586202704")*(x0^27) - rational("15291636627072")*(x0^26) + 
-        rational("433482645282")*(x0^25) + rational("7397104817486")*(x0^24) + rational("1021197979053")*(x0^23) - rational("1373737505247")*(x0^22) - 
+    p = 16*(x0^39) - 3648*(x0^38) + 338136*(x0^37) - 16037936*(x0^36) + 392334357*(x0^35) - rational("3851617443")*(x0^34) -
+        rational("14636221526")*(x0^33) + rational("377151717618")*(x0^32) + rational("677140776981")*(x0^31) - rational("4308280094419")*(x0^30) +
+        rational("312708087606")*(x0^29) + rational("8205543533730")*(x0^28) + rational("3331586202704")*(x0^27) - rational("15291636627072")*(x0^26) +
+        rational("433482645282")*(x0^25) + rational("7397104817486")*(x0^24) + rational("1021197979053")*(x0^23) - rational("1373737505247")*(x0^22) -
         rational("639394669026")*(x0^21) - rational("118513560618")*(x0^20) - rational("10405319535")*(x0^19) - rational("358722675")*(x0^18);
     std::cout << "----------------------\n";
     std::cout << "q: " << q << "\n";
@@ -1813,7 +1834,7 @@ void tst_polynomial() {
     tst_linear_solver();
     tst_newton_interpolation();
     tst_resultant();
-    // 
+    //
     // tst_gcd4();
     // tst_gcd3();
     tst_zp();

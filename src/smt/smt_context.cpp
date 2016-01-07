@@ -1382,7 +1382,8 @@ namespace smt {
             bool_var v = l.var();
             bool_var_data & d = get_bdata(v);
             lbool val  = get_assignment(v);
-            TRACE("propagate_atoms", tout << "propagating atom, #" << bool_var2expr(v)->get_id() << ", is_enode(): " << d.is_enode() << " " << l << "\n";);
+            TRACE("propagate_atoms", tout << "propagating atom, #" << bool_var2expr(v)->get_id() << ", is_enode(): " << d.is_enode() 
+                  << " tag: " << (d.is_eq()?"eq":"") << (d.is_theory_atom()?"th":"") << (d.is_quantifier()?"q":"") << " " << l << "\n";);
             SASSERT(val != l_undef);
             if (d.is_enode())
                 propagate_bool_var_enode(v);
@@ -4024,8 +4025,9 @@ namespace smt {
             return false;
         }
         case 1: {
-            if (m_qmanager->is_shared(n))
+            if (m_qmanager->is_shared(n)) {
                 return true;
+            }
             
             // the variabe is shared if the equivalence class of n 
             // contains a parent application.

@@ -11,7 +11,7 @@ Abstract:
 
 Author:
 
-    Leonardo de Moura (leonardo) 2010-05-20.
+    Krystof Hoder 2010-05-20.
 
 Revision History:
 
@@ -301,13 +301,10 @@ namespace datalog {
 
         }
 
-        pair_info & get_pair(app_pair key) const {
-            return *m_costs.find(key);
-        }
-
         void remove_rule_from_pair(app_pair key, rule * r, unsigned original_len) {
-            pair_info * ptr = &get_pair(key);
-            if (ptr->remove_rule(r, original_len)) {
+            pair_info * ptr = 0;
+            if (m_costs.find(key, ptr) && ptr &&
+                ptr->remove_rule(r, original_len)) {
                 SASSERT(ptr->m_rules.empty());
                 m_costs.remove(key);
                 dealloc(ptr);
@@ -362,7 +359,12 @@ namespace datalog {
         void join_pair(app_pair pair_key) {
             app * t1 = pair_key.first;
             app * t2 = pair_key.second;
-            pair_info & inf = get_pair(pair_key);
+            pair_info* infp = 0;
+            if (!m_costs.find(pair_key, infp) || !infp) {
+                UNREACHABLE();
+                return;
+            }            
+            pair_info & inf = *infp;
             SASSERT(!inf.m_rules.empty());
             var_idx_set & output_vars = inf.m_all_nonlocal_vars;
             expr_ref_vector args(m);

@@ -18,10 +18,12 @@ Notes:
 --*/
 #include"realclosure.h"
 #include"mpz_matrix.h"
+#include"rlimit.h"
 
 static void tst1() {
     unsynch_mpq_manager qm;
-    rcmanager m(qm);
+    reslimit rl;
+    rcmanager m(rl, qm);
     scoped_rcnumeral a(m);
 #if 0
     a = 10;
@@ -37,14 +39,14 @@ static void tst1() {
     qm.set(aux, 1, 3);
     m.set(a, aux);
 
-#if 0    
+#if 0
     std::cout << interval_pp(a) << std::endl;
     std::cout << decimal_pp(eps, 4) << std::endl;
     std::cout << decimal_pp(a) << std::endl;
     std::cout << a + eps << std::endl;
     std::cout << a * eps << std::endl;
     std::cout << (a + eps)*eps - eps << std::endl;
-#endif    
+#endif
     std::cout << interval_pp(a - eps*2) << std::endl;
     std::cout << interval_pp(eps + 1) << std::endl;
     scoped_rcnumeral t(m);
@@ -80,7 +82,7 @@ static void tst2() {
     // 0 1  1
     A.set(0, 0, 1); A.set(0, 1, 1); A.set(0, 2,  1);
     A.set(1, 0, 0); A.set(1, 1, 1); A.set(1, 2, -1);
-    A.set(2, 0, 0); A.set(2, 1, 1); A.set(2, 2,  1); 
+    A.set(2, 0, 0); A.set(2, 1, 1); A.set(2, 2,  1);
     std::cout << A;
     {
         int b[3];
@@ -143,8 +145,9 @@ static void tst_lin_indep(unsigned m, unsigned n, int _A[], unsigned ex_sz, unsi
 }
 
 static void tst_denominators() {
+    reslimit rl;
     unsynch_mpq_manager qm;
-    rcmanager m(qm);
+    rcmanager m(rl, qm);
     scoped_rcnumeral a(m);
     scoped_rcnumeral t(m);
     scoped_rcnumeral eps(m);

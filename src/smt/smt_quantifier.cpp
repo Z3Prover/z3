@@ -396,12 +396,14 @@ namespace smt {
         scoped_ptr<model_checker>   m_model_checker;
         unsigned                    m_new_enode_qhead;
         unsigned                    m_lazy_matching_idx;
+        bool                        m_active;
     public:
         default_qm_plugin():
             m_qm(0), 
             m_context(0), 
             m_new_enode_qhead(0), 
-            m_lazy_matching_idx(0) {
+            m_lazy_matching_idx(0),
+            m_active(false) {
         }
         
         virtual ~default_qm_plugin() {
@@ -427,7 +429,7 @@ namespace smt {
 
         virtual bool model_based() const { return m_fparams->m_mbqi; }
 
-        virtual bool mbqi_enabled(quantifier *q) const { 
+        virtual bool mbqi_enabled(quantifier *q) const {             
             if(!m_fparams->m_mbqi_id) return true;
             const symbol &s = q->get_qid();
             size_t len = strlen(m_fparams->m_mbqi_id);
@@ -443,6 +445,7 @@ namespace smt {
        */
         virtual void add(quantifier * q) {
             if (m_fparams->m_mbqi && mbqi_enabled(q)) {
+                m_active = true;
                 m_model_finder->register_quantifier(q);
             }
         }
@@ -475,6 +478,7 @@ namespace smt {
         }
 
         virtual void assign_eh(quantifier * q) {
+            m_active = true;
             if (m_fparams->m_ematching) {
                 bool has_unary_pattern = false;
                 unsigned num_patterns = q->get_num_patterns();
@@ -537,7 +541,7 @@ namespace smt {
         }
 
         virtual bool is_shared(enode * n) const {
-            return (m_mam->is_shared(n) || m_lazy_mam->is_shared(n));
+            return m_active && (m_mam->is_shared(n) || m_lazy_mam->is_shared(n));
         }
 
         virtual void adjust_model(proto_model * m) {

@@ -78,8 +78,12 @@ namespace sat {
         clause_vector::iterator end = s.m_clauses.end();
         try {
             for (; it != end; ++it) {
-                if (s.inconsistent())
+                if (s.inconsistent()) {
+                    for (; it != end; ++it, ++it2) {
+                        *it2 = *it;
+                    }
                     break;
+                }
                 SASSERT(s.m_qhead == s.m_trail.size());
                 if (m_counter < limit || s.inconsistent()) {
                     *it2 = *it;

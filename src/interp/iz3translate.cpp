@@ -2023,8 +2023,8 @@ public:
                 break;
             }
             default:
-                pfgoto(proof);
-                assert(0 && "translate_main: unsupported proof rule");
+                //                pfgoto(proof);                
+                // SASSERT(0 && "translate_main: unsupported proof rule");
                 throw unsupported();
             }
         }

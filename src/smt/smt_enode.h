@@ -113,6 +113,7 @@ namespace smt {
         friend class context;
         friend class euf_manager;
         friend class conflict_resolution;
+        
 
         theory_var_list * get_th_var_list() { 
             return m_th_var_list.get_th_var() == null_theory_var ? 0 : &m_th_var_list; 
@@ -170,6 +171,7 @@ namespace smt {
             m_interpreted = true;
         }
 
+
         void del_eh(ast_manager & m, bool update_children_parent = true);
         
         app * get_owner() const { 
@@ -191,6 +193,7 @@ namespace smt {
         unsigned hash() const {
             return m_owner->hash();
         }
+
 
         enode * get_root() const { 
             return m_root; 

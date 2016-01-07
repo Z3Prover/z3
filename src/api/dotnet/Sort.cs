@@ -147,6 +147,8 @@ namespace Microsoft.Z3
                 case Z3_sort_kind.Z3_RELATION_SORT: return new RelationSort(ctx, obj);
                 case Z3_sort_kind.Z3_FLOATING_POINT_SORT: return new FPSort(ctx, obj);
                 case Z3_sort_kind.Z3_ROUNDING_MODE_SORT: return new FPRMSort(ctx, obj);
+                case Z3_sort_kind.Z3_SEQ_SORT: return new SeqSort(ctx, obj);
+                case Z3_sort_kind.Z3_RE_SORT: return new ReSort(ctx, obj);
                 default:
                     throw new Z3Exception("Unknown sort kind");
             }

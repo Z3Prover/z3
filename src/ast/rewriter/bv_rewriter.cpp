@@ -1968,7 +1968,63 @@ void bv_rewriter::mk_t1_add_t2_eq_c(expr * t1, expr * t2, expr * c, expr_ref & r
         result = m().mk_eq(t1, m_util.mk_bv_sub(c, t2));
 }
 
+#include "ast_pp.h"
+
+bool bv_rewriter::isolate_term(expr* lhs, expr* rhs, expr_ref& result) {
+    if (!m_util.is_numeral(lhs) || !is_add(rhs)) {
+        std::swap(lhs, rhs);
+    }
+    if (!m_util.is_numeral(lhs) || !is_add(rhs)) {
+        return false;
+    }
+    unsigned sz = to_app(rhs)->get_num_args();
+    expr_ref t1(m()), t2(m());
+    t1 = to_app(rhs)->get_arg(0);
+    if (sz > 2) {
+        t2 = m().mk_app(get_fid(), OP_BADD, sz-1, to_app(rhs)->get_args()+1);
+    }
+    else {
+        SASSERT(sz == 2);
+        t2 = to_app(rhs)->get_arg(1);
+    }
+    mk_t1_add_t2_eq_c(t1, t2, lhs, result);
+    return true;
+}
+
+bool bv_rewriter::is_add_mul_const(expr* e) const {
+    if (!m_util.is_bv_add(e)) {
+        return false;
+    }
+    unsigned num = to_app(e)->get_num_args();
+    for (unsigned i = 0; i < num; i++) {
+        expr * arg = to_app(e)->get_arg(i);
+        expr * c2, * x2;
+        if (m_util.is_numeral(arg))
+            continue;
+        if (m_util.is_bv_mul(arg, c2, x2) && m_util.is_numeral(c2))
+            continue;
+        return false;
+    }
+    return true;
+}
+
+bool bv_rewriter::is_concat_target(expr* lhs, expr* rhs) const {
+    return
+        (m_util.is_concat(lhs) && (is_concat_split_target(rhs) || has_numeral(to_app(lhs)))) ||
+        (m_util.is_concat(rhs) && (is_concat_split_target(lhs) || has_numeral(to_app(rhs))));
+}
+
+bool bv_rewriter::has_numeral(app* a) const {
+    for (unsigned i = 0; i < a->get_num_args(); ++i) {
+        if (is_numeral(a->get_arg(i))) {
+            return true;
+        }
+    }
+    return false;
+}
+
 br_status bv_rewriter::mk_mul_eq(expr * lhs, expr * rhs, expr_ref & result) {
+        
     expr * c, * x;
     numeral c_val, c_inv_val;
     unsigned sz;
@@ -2001,23 +2057,29 @@ br_status bv_rewriter::mk_mul_eq(expr * lhs, expr * rhs, expr_ref & result) {
 
         // c * x =  t_1 + ... + t_n
         // and t_i's have non-unary coefficients (this condition is used to make sure we are actually reducing the number of multipliers).
-        if (m_util.is_bv_add(rhs)) {
+        if (is_add_mul_const(rhs)) {
             // Potential problem: this simplification may increase the number of adders by reducing the amount of sharing.
-            unsigned num = to_app(rhs)->get_num_args();
-            unsigned i;
-            for (i = 0; i < num; i++) {
-                expr * arg = to_app(rhs)->get_arg(i);
-                expr * c2, * x2;
-                if (m_util.is_numeral(arg))
-                    continue;
-                if (m_util.is_bv_mul(arg, c2, x2) && m_util.is_numeral(c2))
-                    continue;
-                break;
+            result = m().mk_eq(x, m_util.mk_bv_mul(m_util.mk_numeral(c_inv_val, sz), rhs));
+            return BR_REWRITE2;
+        }
+    }
+    if (m_util.is_numeral(lhs, c_val, sz) && is_add_mul_const(rhs)) {
+        unsigned num_args = to_app(rhs)->get_num_args();
+        unsigned i = 0;
+        expr* c2, *x2;
+        numeral c2_val, c2_inv_val;
+        bool found = false;
+        for (; !found && i < num_args; ++i) {
+            expr* arg = to_app(rhs)->get_arg(i);
+            if (m_util.is_bv_mul(arg, c2, x2) && m_util.is_numeral(c2, c2_val, sz) &&
+                m_util.mult_inverse(c2_val, sz, c2_inv_val)) {
+                found = true;
             }
-            if (i == num) {
-                result = m().mk_eq(x, m_util.mk_bv_mul(m_util.mk_numeral(c_inv_val, sz), rhs));
-                return BR_REWRITE2;
-            }
+        }
+        if (found) {
+            result = m().mk_eq(m_util.mk_numeral(c2_inv_val*c_val, sz), 
+                               m_util.mk_bv_mul(m_util.mk_numeral(c2_inv_val, sz), rhs));
+            return BR_REWRITE3;
         }
     }
     return BR_FAILED;
@@ -2065,9 +2127,10 @@ br_status bv_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
             return st;
     }
 
+    expr_ref new_lhs(m());
+    expr_ref new_rhs(m());
+
     if (m_util.is_bv_add(lhs) || m_util.is_bv_mul(lhs) || m_util.is_bv_add(rhs) || m_util.is_bv_mul(rhs)) {
-        expr_ref new_lhs(m());
-        expr_ref new_rhs(m());
         st = cancel_monomials(lhs, rhs, false, new_lhs, new_rhs);
         if (st != BR_FAILED) {
             if (is_numeral(new_lhs) && is_numeral(new_rhs)) {
@@ -2080,28 +2143,27 @@ br_status bv_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
             new_rhs = rhs;
         }
         
+        lhs = new_lhs;
+        rhs = new_rhs;
         // Try to rewrite t1 + t2 = c --> t1 = c - t2   
         // Reason: it is much cheaper to bit-blast.
-        expr * t1, * t2;
-        if (m_util.is_bv_add(new_lhs, t1, t2) && is_numeral(new_rhs)) {
-            mk_t1_add_t2_eq_c(t1, t2, new_rhs, result);
+        if (isolate_term(lhs, rhs, result)) {
             return BR_REWRITE2;
         }
-        if (m_util.is_bv_add(new_rhs, t1, t2) && is_numeral(new_lhs)) {
-            mk_t1_add_t2_eq_c(t1, t2, new_lhs, result);
-            return BR_REWRITE2;
+        if (is_concat_target(lhs, rhs)) {
+            return mk_eq_concat(lhs, rhs, result);
         }
-        
+
         if (st != BR_FAILED) {
-            result = m().mk_eq(new_lhs, new_rhs); 
+            result = m().mk_eq(lhs, rhs); 
             return BR_DONE;
         }
     }
 
-    if ((m_util.is_concat(lhs) && is_concat_split_target(rhs)) || 
-        (m_util.is_concat(rhs) && is_concat_split_target(lhs)))
+    if (is_concat_target(lhs, rhs)) {
         return mk_eq_concat(lhs, rhs, result);
-   
+    }
+
     if (swapped) {
         result = m().mk_eq(lhs, rhs);
         return BR_DONE;

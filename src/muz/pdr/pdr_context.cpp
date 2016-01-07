@@ -1158,7 +1158,6 @@ namespace pdr {
         while (!todo.empty()) {
             model_node* n = todo.back();
             model* md = 0;
-            ast_manager& m = n->pt().get_manager();
             if (!n->get_model_ptr()) {
                 if (models.find(n->state(), md)) {
                     TRACE("pdr", tout << n->state() << "\n";);

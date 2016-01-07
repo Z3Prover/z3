@@ -39,7 +39,7 @@ void fpa_decl_plugin::set_manager(ast_manager * m, family_id id) {
     m_int_sort = m_manager->mk_sort(m_arith_fid, INT_SORT);
     SASSERT(m_int_sort != 0); // arith_decl_plugin must be installed before fpa_decl_plugin.
     m_manager->inc_ref(m_int_sort);
-    
+
     // BV is not optional anymore.
     SASSERT(m_manager->has_plugin(symbol("bv")));
     m_bv_fid = m_manager->mk_family_id("bv");
@@ -69,28 +69,30 @@ void fpa_decl_plugin::recycled_id(unsigned id) {
 }
 
 func_decl * fpa_decl_plugin::mk_numeral_decl(mpf const & v) {
-    parameter p(mk_id(v), true);
-    SASSERT(p.is_external());
     sort * s = mk_float_sort(v.get_ebits(), v.get_sbits());
-    return m_manager->mk_const_decl(symbol("fp.numeral"),  s, func_decl_info(m_family_id, OP_FPA_NUM, 1, &p));
+    func_decl * r = 0;
+    if (m_fm.is_nan(v))
+        r = m_manager->mk_const_decl(symbol("NaN"), s, func_decl_info(m_family_id, OP_FPA_NAN));
+    else if (m_fm.is_pinf(v))
+        r = m_manager->mk_const_decl(symbol("+oo"), s, func_decl_info(m_family_id, OP_FPA_PLUS_INF));
+    else if (m_fm.is_ninf(v))
+        r = m_manager->mk_const_decl(symbol("-oo"), s, func_decl_info(m_family_id, OP_FPA_MINUS_INF));
+    else if (m_fm.is_pzero(v))
+        r = m_manager->mk_const_decl(symbol("+zero"), s, func_decl_info(m_family_id, OP_FPA_PLUS_ZERO));
+    else if (m_fm.is_nzero(v))
+        r = m_manager->mk_const_decl(symbol("-zero"), s, func_decl_info(m_family_id, OP_FPA_MINUS_ZERO));
+    else {
+        SASSERT(m_fm.is_regular(v));
+        parameter p(mk_id(v), true);
+        SASSERT(p.is_external());
+        sort * s = mk_float_sort(v.get_ebits(), v.get_sbits());
+        r = m_manager->mk_const_decl(symbol("fp.numeral"), s, func_decl_info(m_family_id, OP_FPA_NUM, 1, &p));
+    }
+    return r;
 }
 
 app * fpa_decl_plugin::mk_numeral(mpf const & v) {
-    sort * s = mk_float_sort(v.get_ebits(), v.get_sbits());
-    func_decl * d;
-    if (m_fm.is_nan(v))
-        d = m_manager->mk_const_decl(symbol("NaN"), s, func_decl_info(m_family_id, OP_FPA_NAN));
-    else if (m_fm.is_pinf(v))
-        d = m_manager->mk_const_decl(symbol("+oo"), s, func_decl_info(m_family_id, OP_FPA_PLUS_INF));
-    else if (m_fm.is_ninf(v))
-        d = m_manager->mk_const_decl(symbol("-oo"), s, func_decl_info(m_family_id, OP_FPA_MINUS_INF));
-    else if (m_fm.is_pzero(v))
-        d = m_manager->mk_const_decl(symbol("+zero"), s, func_decl_info(m_family_id, OP_FPA_PLUS_ZERO));
-    else if (m_fm.is_nzero(v))
-        d = m_manager->mk_const_decl(symbol("-zero"), s, func_decl_info(m_family_id, OP_FPA_MINUS_ZERO));
-    else
-        d = mk_numeral_decl(v);
-    return m_manager->mk_const(d);
+    return m_manager->mk_const(mk_numeral_decl(v));
 }
 
 bool fpa_decl_plugin::is_numeral(expr * n, mpf & val) {
@@ -161,9 +163,9 @@ bool fpa_decl_plugin::is_rm_numeral(expr * n, mpf_rounding_mode & val) {
     return 0;
 }
 
-bool fpa_decl_plugin::is_rm_numeral(expr * n) { 
-    mpf_rounding_mode t; 
-    return is_rm_numeral(n, t); 
+bool fpa_decl_plugin::is_rm_numeral(expr * n) {
+    mpf_rounding_mode t;
+    return is_rm_numeral(n, t);
 }
 
 void fpa_decl_plugin::del(parameter const & p) {
@@ -182,8 +184,8 @@ void fpa_decl_plugin::finalize() {
     if (m_int_sort)  { m_manager->dec_ref(m_int_sort); }
 }
 
-decl_plugin * fpa_decl_plugin::mk_fresh() { 
-    return alloc(fpa_decl_plugin); 
+decl_plugin * fpa_decl_plugin::mk_fresh() {
+    return alloc(fpa_decl_plugin);
 }
 
 sort * fpa_decl_plugin::mk_float_sort(unsigned ebits, unsigned sbits) {
@@ -268,7 +270,7 @@ func_decl * fpa_decl_plugin::mk_float_const_decl(decl_kind k, unsigned num_param
     }
 
     SASSERT(is_sort_of(s, m_family_id, FLOATING_POINT_SORT));
-    
+
     unsigned ebits = s->get_parameter(0).get_int();
     unsigned sbits = s->get_parameter(1).get_int();
     scoped_mpf val(m_fm);
@@ -297,9 +299,9 @@ func_decl * fpa_decl_plugin::mk_bin_rel_decl(decl_kind k, unsigned num_parameter
     switch (k) {
     case OP_FPA_EQ: name = "fp.eq";  break;
     case OP_FPA_LT: name = "fp.lt";   break;
-    case OP_FPA_GT: name = "fp.gt";   break;        
-    case OP_FPA_LE: name = "fp.leq";  break;        
-    case OP_FPA_GE: name = "fp.geq";  break;        
+    case OP_FPA_GT: name = "fp.gt";   break;
+    case OP_FPA_LE: name = "fp.leq";  break;
+    case OP_FPA_GE: name = "fp.geq";  break;
     default:
         UNREACHABLE();
         break;
@@ -336,7 +338,7 @@ func_decl * fpa_decl_plugin::mk_unary_decl(decl_kind k, unsigned num_parameters,
     if (arity != 1)
         m_manager->raise_exception("invalid number of arguments to floating point operator");
     if (!is_float_sort(domain[0]))
-        m_manager->raise_exception("sort mismatch, expected argument of FloatingPoint sort"); 
+        m_manager->raise_exception("sort mismatch, expected argument of FloatingPoint sort");
     symbol name;
     switch (k) {
     case OP_FPA_ABS: name = "fp.abs"; break;
@@ -353,7 +355,7 @@ func_decl * fpa_decl_plugin::mk_binary_decl(decl_kind k, unsigned num_parameters
     if (arity != 2)
         m_manager->raise_exception("invalid number of arguments to floating point operator");
     if (domain[0] != domain[1] || !is_float_sort(domain[0]))
-        m_manager->raise_exception("sort mismatch, expected arguments of equal FloatingPoint sorts"); 
+        m_manager->raise_exception("sort mismatch, expected arguments of equal FloatingPoint sorts");
     symbol name;
     switch (k) {
     case OP_FPA_REM: name = "fp.rem"; break;
@@ -377,7 +379,7 @@ func_decl * fpa_decl_plugin::mk_rm_binary_decl(decl_kind k, unsigned num_paramet
     if (!is_rm_sort(domain[0]))
         m_manager->raise_exception("sort mismatch, expected first argument of RoundingMode sort");
     if (domain[1] != domain[2] || !is_float_sort(domain[1]))
-        m_manager->raise_exception("sort mismatch, expected arguments 1 and 2 of equal FloatingPoint sorts"); 
+        m_manager->raise_exception("sort mismatch, expected arguments 1 and 2 of equal FloatingPoint sorts");
     symbol name;
     switch (k) {
     case OP_FPA_ADD: name = "fp.add";   break;
@@ -398,7 +400,7 @@ func_decl * fpa_decl_plugin::mk_rm_unary_decl(decl_kind k, unsigned num_paramete
     if (!is_rm_sort(domain[0]))
         m_manager->raise_exception("sort mismatch, expected RoundingMode as first argument");
     if (!is_float_sort(domain[1]))
-        m_manager->raise_exception("sort mismatch, expected FloatingPoint as second argument"); 
+        m_manager->raise_exception("sort mismatch, expected FloatingPoint as second argument");
     symbol name;
     switch (k) {
     case OP_FPA_SQRT: name = "fp.sqrt";   break;
@@ -423,8 +425,8 @@ func_decl * fpa_decl_plugin::mk_fma(decl_kind k, unsigned num_parameters, parame
 }
 
 func_decl * fpa_decl_plugin::mk_to_fp(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                        unsigned arity, sort * const * domain, sort * range) {    
-    if (m_bv_plugin && arity == 3 && 
+                                        unsigned arity, sort * const * domain, sort * range) {
+    if (m_bv_plugin && arity == 3 &&
         is_sort_of(domain[0], m_bv_fid, BV_SORT) &&
         is_sort_of(domain[1], m_bv_fid, BV_SORT) &&
         is_sort_of(domain[2], m_bv_fid, BV_SORT)) {
@@ -445,7 +447,7 @@ func_decl * fpa_decl_plugin::mk_to_fp(decl_kind k, unsigned num_parameters, para
 
         int ebits = parameters[0].get_int();
         int sbits = parameters[1].get_int();
-        
+
         if (domain[0]->get_parameter(0).get_int() != (ebits + sbits))
             m_manager->raise_exception("sort mismatch; invalid bit-vector size, expected bitvector of size (ebits+sbits)");
 
@@ -453,7 +455,7 @@ func_decl * fpa_decl_plugin::mk_to_fp(decl_kind k, unsigned num_parameters, para
         symbol name("to_fp");
         return m_manager->mk_func_decl(name, arity, domain, fp, func_decl_info(m_family_id, k, num_parameters, parameters));
     }
-    else if (m_bv_plugin && arity == 2 && 
+    else if (m_bv_plugin && arity == 2 &&
              is_sort_of(domain[0], m_family_id, ROUNDING_MODE_SORT) &&
              is_sort_of(domain[1], m_bv_fid, BV_SORT)) {
         // RoundingMode + 1 BV -> 1 FP
@@ -477,24 +479,37 @@ func_decl * fpa_decl_plugin::mk_to_fp(decl_kind k, unsigned num_parameters, para
         if (!parameters[0].is_int() || !parameters[1].is_int())
             m_manager->raise_exception("invalid parameter type to to_fp");
         int ebits = parameters[0].get_int();
-        int sbits = parameters[1].get_int();        
+        int sbits = parameters[1].get_int();
         if (!is_rm_sort(domain[0]))
             m_manager->raise_exception("sort mismatch, expected first argument of RoundingMode sort");
         if (!is_sort_of(domain[1], m_family_id, FLOATING_POINT_SORT))
             m_manager->raise_exception("sort mismatch, expected second argument of FloatingPoint sort");
-        
+
         sort * fp = mk_float_sort(ebits, sbits);
         symbol name("to_fp");
         return m_manager->mk_func_decl(name, arity, domain, fp, func_decl_info(m_family_id, k, num_parameters, parameters));
-    }    
+    }
+    else if (arity == 3 &&
+        is_sort_of(domain[0], m_family_id, ROUNDING_MODE_SORT) &&
+        is_sort_of(domain[1], m_arith_fid, REAL_SORT) &&
+        is_sort_of(domain[2], m_arith_fid, INT_SORT))
+    {
+        // Rounding +  1 Real + 1 Int -> 1 FP
+        if (!(num_parameters == 2 && parameters[0].is_int() && parameters[1].is_int()))
+            m_manager->raise_exception("expecting two integer parameters to to_fp");
+
+        sort * fp = mk_float_sort(parameters[0].get_int(), parameters[1].get_int());
+        symbol name("to_fp");
+        return m_manager->mk_func_decl(name, arity, domain, fp, func_decl_info(m_family_id, k, num_parameters, parameters));
+    }
     else if (arity == 3 &&
              is_sort_of(domain[0], m_family_id, ROUNDING_MODE_SORT) &&
-             is_sort_of(domain[1], m_arith_fid, REAL_SORT) &&
-             is_sort_of(domain[2], m_arith_fid, INT_SORT))
+             is_sort_of(domain[1], m_arith_fid, INT_SORT) &&
+             is_sort_of(domain[2], m_arith_fid, REAL_SORT))
     {
-        // Rounding + 1 Real + 1 Int -> 1 FP
+        // Rounding +  1 Int + 1 Real -> 1 FP
         if (!(num_parameters == 2 && parameters[0].is_int() && parameters[1].is_int()))
-            m_manager->raise_exception("expecting two integer parameters to to_fp");                
+            m_manager->raise_exception("expecting two integer parameters to to_fp");
 
         sort * fp = mk_float_sort(parameters[0].get_int(), parameters[1].get_int());
         symbol name("to_fp");
@@ -543,6 +558,7 @@ func_decl * fpa_decl_plugin::mk_to_fp(decl_kind k, unsigned num_parameters, para
                                    "(Real), "
                                    "(RoundingMode (_ BitVec (eb+sb))), "
                                    "(RoundingMode (_ FloatingPoint eb' sb')), "
+                                   "(RoundingMode Int Real), "
                                    "(RoundingMode Real Int), "
                                    "(RoundingMode Int), and "
                                    "(RoundingMode Real)."
@@ -561,13 +577,13 @@ func_decl * fpa_decl_plugin::mk_to_fp_unsigned(decl_kind k, unsigned num_paramet
         m_manager->raise_exception("sort mismatch, expected first argument of RoundingMode sort");
     if (!is_sort_of(domain[1], m_bv_fid, BV_SORT))
         m_manager->raise_exception("sort mismatch, expected second argument of bit-vector sort");
-    
+
     // RoundingMode + 1 BV -> 1 FP
     if (num_parameters != 2)
         m_manager->raise_exception("invalid number of parameters to to_fp_unsigned");
     if (!parameters[0].is_int() || !parameters[1].is_int())
         m_manager->raise_exception("invalid parameter type to to_fp_unsigned");
-    
+
     int ebits = parameters[0].get_int();
     int sbits = parameters[1].get_int();
 
@@ -579,16 +595,16 @@ func_decl * fpa_decl_plugin::mk_to_fp_unsigned(decl_kind k, unsigned num_paramet
 func_decl * fpa_decl_plugin::mk_fp(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                      unsigned arity, sort * const * domain, sort * range) {
     if (arity != 3)
-        m_manager->raise_exception("invalid number of arguments to fp");    
-    if (!is_sort_of(domain[0], m_bv_fid, BV_SORT) || 
+        m_manager->raise_exception("invalid number of arguments to fp");
+    if (!is_sort_of(domain[0], m_bv_fid, BV_SORT) ||
         (domain[0]->get_parameter(0).get_int() != 1) ||
         !is_sort_of(domain[1], m_bv_fid, BV_SORT) ||
         !is_sort_of(domain[2], m_bv_fid, BV_SORT))
         m_manager->raise_exception("sort mismatch, expected three bit-vectors, the first one of size 1.");
-    
+
     int eb = (domain[1])->get_parameter(0).get_int();
     int sb = (domain[2])->get_parameter(0).get_int() + 1;
-    symbol name("fp");    
+    symbol name("fp");
     sort * fp = mk_float_sort(eb, sb);
     return m_manager->mk_func_decl(name, arity, domain, fp, func_decl_info(m_family_id, k));
 }
@@ -636,12 +652,12 @@ func_decl * fpa_decl_plugin::mk_to_sbv(decl_kind k, unsigned num_parameters, par
 }
 
 func_decl * fpa_decl_plugin::mk_to_real(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                          unsigned arity, sort * const * domain, sort * range) {    
+                                          unsigned arity, sort * const * domain, sort * range) {
     if (arity != 1)
         m_manager->raise_exception("invalid number of arguments to fp.to_real");
     if (!is_float_sort(domain[0]))
         m_manager->raise_exception("sort mismatch, expected argument of FloatingPoint sort");
-    
+
     symbol name("fp.to_real");
     return m_manager->mk_func_decl(name, 1, domain, m_real_sort, func_decl_info(m_family_id, k));
 }
@@ -668,7 +684,7 @@ func_decl * fpa_decl_plugin::mk_internal_rm(decl_kind k, unsigned num_parameters
         m_manager->raise_exception("sort mismatch, expected argument of sort bitvector, size 3");
     if (!is_rm_sort(range))
         m_manager->raise_exception("sort mismatch, expected range of RoundingMode sort");
-    
+
     parameter ps[] = { parameter(3) };
     sort * bv_srt = m_bv_plugin->mk_sort(m_bv_fid, 1, ps);
     return m_manager->mk_func_decl(symbol("rm"), 1, &bv_srt, range, func_decl_info(m_family_id, k, num_parameters, parameters));
@@ -688,7 +704,7 @@ func_decl * fpa_decl_plugin::mk_internal_bv_wrap(decl_kind k, unsigned num_param
         sort * bv_srt = m_bv_plugin->mk_sort(m_bv_fid, 1, ps);
         return m_manager->mk_func_decl(symbol("bv_wrap"), 1, domain, bv_srt, func_decl_info(m_family_id, k, num_parameters, parameters));
     }
-    else {        
+    else {
         parameter ps[] = { parameter(3) };
         sort * bv_srt = m_bv_plugin->mk_sort(m_bv_fid, 1, ps);
         return m_manager->mk_func_decl(symbol("bv_wrap"), 1, domain, bv_srt, func_decl_info(m_family_id, k, num_parameters, parameters));
@@ -698,12 +714,12 @@ func_decl * fpa_decl_plugin::mk_internal_bv_wrap(decl_kind k, unsigned num_param
 func_decl * fpa_decl_plugin::mk_internal_bv_unwrap(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                                      unsigned arity, sort * const * domain, sort * range) {
     if (arity != 1)
-        m_manager->raise_exception("invalid number of arguments to internal_bv_unwrap");    
+        m_manager->raise_exception("invalid number of arguments to internal_bv_unwrap");
     if (!is_sort_of(domain[0], m_bv_fid, BV_SORT))
         m_manager->raise_exception("sort mismatch, expected argument of bitvector sort");
     if (!is_float_sort(range) && !is_rm_sort(range))
         m_manager->raise_exception("sort mismatch, expected range of FloatingPoint or RoundingMode sort");
-    
+
     return m_manager->mk_func_decl(symbol("bv_unwrap"), 1, domain, range, func_decl_info(m_family_id, k, num_parameters, parameters));
 }
 
@@ -716,7 +732,7 @@ func_decl * fpa_decl_plugin::mk_internal_to_ubv_unspecified(
         m_manager->raise_exception("invalid number of parameters to fp.to_ubv_unspecified; expecting 1");
     if (!parameters[0].is_int())
         m_manager->raise_exception("invalid parameters type provided to fp.to_ubv_unspecified; expecting an integer");
-        
+
     sort * bv_srt = m_bv_plugin->mk_sort(m_bv_fid, 1, parameters);
     return m_manager->mk_func_decl(symbol("fp.to_ubv_unspecified"), 0, domain, bv_srt, func_decl_info(m_family_id, k, num_parameters, parameters));
 }
@@ -748,7 +764,7 @@ func_decl * fpa_decl_plugin::mk_internal_to_real_unspecified(
 
 func_decl * fpa_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                             unsigned arity, sort * const * domain, sort * range) {
-    switch (k) {    
+    switch (k) {
     case OP_FPA_MINUS_INF:
     case OP_FPA_PLUS_INF:
     case OP_FPA_NAN:
@@ -768,14 +784,14 @@ func_decl * fpa_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case OP_FPA_GE:
         return mk_bin_rel_decl(k, num_parameters, parameters, arity, domain, range);
     case OP_FPA_IS_ZERO:
-    case OP_FPA_IS_NEGATIVE: 
+    case OP_FPA_IS_NEGATIVE:
     case OP_FPA_IS_POSITIVE:
     case OP_FPA_IS_NAN:
     case OP_FPA_IS_INF:
     case OP_FPA_IS_NORMAL:
     case OP_FPA_IS_SUBNORMAL:
         return mk_unary_rel_decl(k, num_parameters, parameters, arity, domain, range);
-    case OP_FPA_ABS: 
+    case OP_FPA_ABS:
     case OP_FPA_NEG:
         return mk_unary_decl(k, num_parameters, parameters, arity, domain, range);
     case OP_FPA_REM:
@@ -787,7 +803,7 @@ func_decl * fpa_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case OP_FPA_DIV:
         return mk_rm_binary_decl(k, num_parameters, parameters, arity, domain, range);
     case OP_FPA_SUB:
-        if (arity == 1) 
+        if (arity == 1)
             return mk_unary_decl(OP_FPA_NEG, num_parameters, parameters, arity, domain, range);
         else
             return mk_rm_binary_decl(k, num_parameters, parameters, arity, domain, range);
@@ -797,7 +813,7 @@ func_decl * fpa_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case OP_FPA_FMA:
         return mk_fma(k, num_parameters, parameters, arity, domain, range);
     case OP_FPA_FP:
-        return mk_fp(k, num_parameters, parameters, arity, domain, range);    
+        return mk_fp(k, num_parameters, parameters, arity, domain, range);
     case OP_FPA_TO_UBV:
         return mk_to_ubv(k, num_parameters, parameters, arity, domain, range);
     case OP_FPA_TO_SBV:
@@ -817,13 +833,13 @@ func_decl * fpa_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         return mk_internal_bv_wrap(k, num_parameters, parameters, arity, domain, range);
     case OP_FPA_INTERNAL_BVUNWRAP:
         return mk_internal_bv_unwrap(k, num_parameters, parameters, arity, domain, range);
-    
+
     case OP_FPA_INTERNAL_MIN_I:
     case OP_FPA_INTERNAL_MAX_I:
     case OP_FPA_INTERNAL_MIN_UNSPECIFIED:
     case OP_FPA_INTERNAL_MAX_UNSPECIFIED:
         return mk_binary_decl(k, num_parameters, parameters, arity, domain, range);
-    
+
     case OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED:
         return mk_internal_to_ubv_unspecified(k, num_parameters, parameters, arity, domain, range);
     case OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED:
@@ -857,19 +873,19 @@ void fpa_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol cons
     op_names.push_back(builtin_name("RTZ", OP_FPA_RM_TOWARD_ZERO));
 
     op_names.push_back(builtin_name("fp.abs", OP_FPA_ABS));
-    op_names.push_back(builtin_name("fp.neg", OP_FPA_NEG)); 
-    op_names.push_back(builtin_name("fp.add", OP_FPA_ADD)); 
-    op_names.push_back(builtin_name("fp.sub", OP_FPA_SUB));     
-    op_names.push_back(builtin_name("fp.mul", OP_FPA_MUL)); 
+    op_names.push_back(builtin_name("fp.neg", OP_FPA_NEG));
+    op_names.push_back(builtin_name("fp.add", OP_FPA_ADD));
+    op_names.push_back(builtin_name("fp.sub", OP_FPA_SUB));
+    op_names.push_back(builtin_name("fp.mul", OP_FPA_MUL));
     op_names.push_back(builtin_name("fp.div", OP_FPA_DIV));
-    op_names.push_back(builtin_name("fp.fma", OP_FPA_FMA)); 
-    op_names.push_back(builtin_name("fp.sqrt", OP_FPA_SQRT)); 
+    op_names.push_back(builtin_name("fp.fma", OP_FPA_FMA));
+    op_names.push_back(builtin_name("fp.sqrt", OP_FPA_SQRT));
     op_names.push_back(builtin_name("fp.rem", OP_FPA_REM));
     op_names.push_back(builtin_name("fp.roundToIntegral", OP_FPA_ROUND_TO_INTEGRAL));
     op_names.push_back(builtin_name("fp.min", OP_FPA_MIN));
-    op_names.push_back(builtin_name("fp.max", OP_FPA_MAX));      
+    op_names.push_back(builtin_name("fp.max", OP_FPA_MAX));
     op_names.push_back(builtin_name("fp.leq", OP_FPA_LE));
-    op_names.push_back(builtin_name("fp.lt",  OP_FPA_LT));    
+    op_names.push_back(builtin_name("fp.lt",  OP_FPA_LT));
     op_names.push_back(builtin_name("fp.geq", OP_FPA_GE));
     op_names.push_back(builtin_name("fp.gt",  OP_FPA_GT));
     op_names.push_back(builtin_name("fp.eq", OP_FPA_EQ));
@@ -880,13 +896,13 @@ void fpa_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol cons
     op_names.push_back(builtin_name("fp.isInfinite", OP_FPA_IS_INF));
     op_names.push_back(builtin_name("fp.isNaN", OP_FPA_IS_NAN));
     op_names.push_back(builtin_name("fp.isNegative", OP_FPA_IS_NEGATIVE));
-    op_names.push_back(builtin_name("fp.isPositive", OP_FPA_IS_POSITIVE));    
+    op_names.push_back(builtin_name("fp.isPositive", OP_FPA_IS_POSITIVE));
 
     op_names.push_back(builtin_name("fp", OP_FPA_FP));
     op_names.push_back(builtin_name("fp.to_ubv", OP_FPA_TO_UBV));
     op_names.push_back(builtin_name("fp.to_sbv", OP_FPA_TO_SBV));
     op_names.push_back(builtin_name("fp.to_real", OP_FPA_TO_REAL));
-   
+
     op_names.push_back(builtin_name("to_fp", OP_FPA_TO_FP));
     op_names.push_back(builtin_name("to_fp_unsigned", OP_FPA_TO_FP_UNSIGNED));
 
@@ -917,13 +933,13 @@ expr * fpa_decl_plugin::get_some_value(sort * s) {
         func_decl * f = mk_rm_const_decl(OP_FPA_RM_TOWARD_ZERO, 0, 0, 0, 0, s);
         return m_manager->mk_const(f);
     }
-    
+
     UNREACHABLE();
     return 0;
 }
 
 bool fpa_decl_plugin::is_value(app * e) const {
-    if (e->get_family_id() != m_family_id) 
+    if (e->get_family_id() != m_family_id)
         return false;
     switch (e->get_decl_kind()) {
     case OP_FPA_RM_NEAREST_TIES_TO_EVEN:
@@ -956,7 +972,7 @@ bool fpa_decl_plugin::is_unique_value(app* e) const {
     case OP_FPA_RM_TOWARD_POSITIVE:
     case OP_FPA_RM_TOWARD_NEGATIVE:
     case OP_FPA_RM_TOWARD_ZERO:
-        return true;    
+        return true;
     case OP_FPA_PLUS_INF:  /* No; +oo == fp(#b0 #b11 #b00) */
     case OP_FPA_MINUS_INF: /* No; -oo == fp #b1 #b11 #b00) */
     case OP_FPA_PLUS_ZERO: /* No; +zero == fp #b0 #b00 #b000) */
@@ -1029,7 +1045,7 @@ app * fpa_util::mk_nzero(unsigned ebits, unsigned sbits) {
     return mk_value(v);
 }
 
-app * fpa_util::mk_internal_to_ubv_unspecified(unsigned width) {    
+app * fpa_util::mk_internal_to_ubv_unspecified(unsigned width) {
     parameter ps[] = { parameter(width) };
     sort * range = m_bv_util.mk_sort(width);
     return m().mk_app(get_family_id(), OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED, 1, ps, 0, 0, range);

@@ -125,6 +125,7 @@ namespace Microsoft.Z3
         private BoolSort m_boolSort = null;
         private IntSort m_intSort = null;
         private RealSort m_realSort = null;
+	private SeqSort m_stringSort = null;
 
         /// <summary>
         /// Retrieves the Boolean sort of the context.
@@ -162,6 +163,20 @@ namespace Microsoft.Z3
                 if (m_realSort == null) m_realSort = new RealSort(this); return m_realSort;
             }
         }
+
+        /// <summary>
+        /// Retrieves the String sort of the context.
+        /// </summary>
+        public SeqSort StringSort
+        {
+            get
+            {
+                Contract.Ensures(Contract.Result<SeqSort>() != null);
+                if (m_stringSort == null) m_stringSort = new SeqSort(this, Native.Z3_mk_string_sort(nCtx));
+                return m_stringSort;
+            }
+        }
+
 
         /// <summary>
         /// Create a new Boolean sort.
@@ -221,6 +236,27 @@ namespace Microsoft.Z3
             Contract.Ensures(Contract.Result<BitVecSort>() != null);
 
             return new BitVecSort(this, Native.Z3_mk_bv_sort(nCtx, size));
+        }
+
+
+        /// <summary>
+        /// Create a new sequence sort.
+        /// </summary>
+        public SeqSort MkSeqSort(Sort s)
+        {
+            Contract.Requires(s != null);
+            Contract.Ensures(Contract.Result<SeqSort>() != null);
+            return new SeqSort(this, Native.Z3_mk_seq_sort(nCtx, s.NativeObject));
+        }
+
+        /// <summary>
+        /// Create a new regular expression sort.
+        /// </summary>
+        public ReSort MkReSort(SeqSort s)
+        {
+            Contract.Requires(s != null);
+            Contract.Ensures(Contract.Result<ReSort>() != null);
+            return new ReSort(this, Native.Z3_mk_re_sort(nCtx, s.NativeObject));
         }
 
         /// <summary>
@@ -2284,6 +2320,230 @@ namespace Microsoft.Z3
             return (BoolExpr) Expr.Create(this, Native.Z3_mk_set_subset(nCtx, arg1.NativeObject, arg2.NativeObject));
         }
 
+        #endregion
+
+        #region Sequence, string and regular expresions
+
+        /// <summary>
+        /// Create the empty sequence.
+        /// </summary>
+        public SeqExpr MkEmptySeq(Sort s) 
+        {
+            Contract.Requires(s != null);
+            Contract.Ensures(Contract.Result<SeqExpr>() != null);
+            return new SeqExpr(this, Native.Z3_mk_seq_empty(nCtx, s.NativeObject));
+        }
+
+        /// <summary>
+        /// Create the singleton sequence.
+        /// </summary>
+        public SeqExpr MkUnit(Expr elem) 
+        {
+            Contract.Requires(elem != null);
+            Contract.Ensures(Contract.Result<SeqExpr>() != null);
+            return new SeqExpr(this, Native.Z3_mk_seq_unit(nCtx, elem.NativeObject));
+        }
+
+        /// <summary>
+        /// Create a string constant.
+        /// </summary>
+        public SeqExpr MkString(string s) 
+        {
+            Contract.Requires(s != null);
+            Contract.Ensures(Contract.Result<SeqExpr>() != null);
+            return new SeqExpr(this, Native.Z3_mk_string(nCtx, s));
+        }
+
+        /// <summary>
+        /// Concatentate sequences.
+        /// </summary>
+        public SeqExpr MkConcat(params SeqExpr[] t)
+        {
+            Contract.Requires(t != null);
+            Contract.Requires(Contract.ForAll(t, a => a != null));
+            Contract.Ensures(Contract.Result<SeqExpr>() != null);
+
+            CheckContextMatch(t);
+            return new SeqExpr(this, Native.Z3_mk_seq_concat(nCtx, (uint)t.Length, AST.ArrayToNative(t)));
+        }
+
+
+        /// <summary>
+        /// Retrieve the length of a given sequence.
+        /// </summary>
+        public IntExpr MkLength(SeqExpr s)
+        {
+            Contract.Requires(s != null);
+            Contract.Ensures(Contract.Result<IntExpr>() != null);
+            return (IntExpr) Expr.Create(this, Native.Z3_mk_seq_length(nCtx, s.NativeObject));
+        }
+
+        /// <summary>
+        /// Check for sequence prefix.
+        /// </summary>
+        public BoolExpr MkPrefixOf(SeqExpr s1, SeqExpr s2) 
+        {
+            Contract.Requires(s1 != null);
+            Contract.Requires(s2 != null);
+            Contract.Ensures(Contract.Result<BoolExpr>() != null);
+            CheckContextMatch(s1, s2);
+            return new BoolExpr(this, Native.Z3_mk_seq_prefix(nCtx, s1.NativeObject, s2.NativeObject));
+        }
+
+        /// <summary>
+        /// Check for sequence suffix.
+        /// </summary>
+        public BoolExpr MkSuffixOf(SeqExpr s1, SeqExpr s2) 
+        {
+            Contract.Requires(s1 != null);
+            Contract.Requires(s2 != null);
+            Contract.Ensures(Contract.Result<BoolExpr>() != null);
+            CheckContextMatch(s1, s2);
+            return new BoolExpr(this, Native.Z3_mk_seq_suffix(nCtx, s1.NativeObject, s2.NativeObject));
+        }
+
+        /// <summary>
+        /// Check for sequence containment of s2 in s1.
+        /// </summary>
+        public BoolExpr MkContains(SeqExpr s1, SeqExpr s2) 
+        {
+            Contract.Requires(s1 != null);
+            Contract.Requires(s2 != null);
+            Contract.Ensures(Contract.Result<BoolExpr>() != null);
+            CheckContextMatch(s1, s2);
+            return new BoolExpr(this, Native.Z3_mk_seq_contains(nCtx, s1.NativeObject, s2.NativeObject));
+        }
+
+        /// <summary>
+        /// Retrieve sequence of length one at index.
+        /// </summary>
+        public SeqExpr MkAt(SeqExpr s, IntExpr index)
+        {
+            Contract.Requires(s != null);
+            Contract.Requires(index != null);
+            Contract.Ensures(Contract.Result<SeqExpr>() != null);
+            CheckContextMatch(s, index);
+            return new SeqExpr(this, Native.Z3_mk_seq_at(nCtx, s.NativeObject, index.NativeObject));
+        }
+
+        /// <summary>
+        /// Extract subsequence.
+        /// </summary>
+        public SeqExpr MkExtract(SeqExpr s, IntExpr offset, IntExpr length)
+        {
+            Contract.Requires(s != null);
+            Contract.Requires(offset != null);
+            Contract.Requires(length != null);
+            Contract.Ensures(Contract.Result<SeqExpr>() != null);
+            CheckContextMatch(s, offset, length);
+            return new SeqExpr(this, Native.Z3_mk_seq_extract(nCtx, s.NativeObject, offset.NativeObject, length.NativeObject));
+        }
+
+        /// <summary>
+        /// Extract index of sub-string starting at offset.
+        /// </summary>
+        public IntExpr MkIndexOf(SeqExpr s, SeqExpr substr, ArithExpr offset)
+        {
+            Contract.Requires(s != null);
+            Contract.Requires(offset != null);
+            Contract.Requires(substr != null);
+            Contract.Ensures(Contract.Result<IntExpr>() != null);
+            CheckContextMatch(s, substr, offset);
+            return new IntExpr(this, Native.Z3_mk_seq_index(nCtx, s.NativeObject, substr.NativeObject, offset.NativeObject));
+        }
+
+        /// <summary>
+        /// Replace the first occurrence of src by dst in s.
+        /// </summary>
+        public SeqExpr MkReplace(SeqExpr s, SeqExpr src, SeqExpr dst)
+        {
+            Contract.Requires(s != null);
+            Contract.Requires(src != null);
+            Contract.Requires(dst != null);
+            Contract.Ensures(Contract.Result<SeqExpr>() != null);
+            CheckContextMatch(s, src, dst);
+            return new SeqExpr(this, Native.Z3_mk_seq_replace(nCtx, s.NativeObject, src.NativeObject, dst.NativeObject));
+        }
+
+        /// <summary>
+        /// Convert a regular expression that accepts sequence s.
+        /// </summary>
+        public ReExpr MkToRe(SeqExpr s) 
+        {
+            Contract.Requires(s != null);
+            Contract.Ensures(Contract.Result<ReExpr>() != null);
+            return new ReExpr(this, Native.Z3_mk_seq_to_re(nCtx, s.NativeObject));            
+        }
+
+
+        /// <summary>
+        /// Check for regular expression membership.
+        /// </summary>
+        public BoolExpr MkInRe(SeqExpr s, ReExpr re)
+        {
+            Contract.Requires(s != null);
+            Contract.Requires(re != null);
+            Contract.Ensures(Contract.Result<BoolExpr>() != null);
+            CheckContextMatch(s, re);
+            return new BoolExpr(this, Native.Z3_mk_seq_in_re(nCtx, s.NativeObject, re.NativeObject));            
+        }
+
+        /// <summary>
+        /// Take the Kleene star of a regular expression.
+        /// </summary>
+        public ReExpr MkStar(ReExpr re)
+        {
+            Contract.Requires(re != null);
+            Contract.Ensures(Contract.Result<ReExpr>() != null);
+            return new ReExpr(this, Native.Z3_mk_re_star(nCtx, re.NativeObject));            
+        }
+
+        /// <summary>
+        /// Take the Kleene plus of a regular expression.
+        /// </summary>
+        public ReExpr MPlus(ReExpr re)
+        {
+            Contract.Requires(re != null);
+            Contract.Ensures(Contract.Result<ReExpr>() != null);
+            return new ReExpr(this, Native.Z3_mk_re_plus(nCtx, re.NativeObject));            
+        }
+
+        /// <summary>
+        /// Create the optional regular expression.
+        /// </summary>
+        public ReExpr MOption(ReExpr re)
+        {
+            Contract.Requires(re != null);
+            Contract.Ensures(Contract.Result<ReExpr>() != null);
+            return new ReExpr(this, Native.Z3_mk_re_option(nCtx, re.NativeObject));            
+        }
+
+        /// <summary>
+        /// Create the concatenation of regular languages.
+        /// </summary>
+        public ReExpr MkConcat(params ReExpr[] t)
+        {
+            Contract.Requires(t != null);
+            Contract.Requires(Contract.ForAll(t, a => a != null));
+            Contract.Ensures(Contract.Result<ReExpr>() != null);
+
+            CheckContextMatch(t);
+            return new ReExpr(this, Native.Z3_mk_re_concat(nCtx, (uint)t.Length, AST.ArrayToNative(t)));
+        }
+
+        /// <summary>
+        /// Create the union of regular languages.
+        /// </summary>
+        public ReExpr MkUnion(params ReExpr[] t)
+        {
+            Contract.Requires(t != null);
+            Contract.Requires(Contract.ForAll(t, a => a != null));
+            Contract.Ensures(Contract.Result<ReExpr>() != null);
+
+            CheckContextMatch(t);
+            return new ReExpr(this, Native.Z3_mk_re_union(nCtx, (uint)t.Length, AST.ArrayToNative(t)));
+        }
+    
         #endregion
 
         #region Pseudo-Boolean constraints
@@ -4449,6 +4709,26 @@ namespace Microsoft.Z3
         }
 
         [Pure]
+        internal void CheckContextMatch(Z3Object other1, Z3Object other2)
+        {
+            Contract.Requires(other1 != null);
+            Contract.Requires(other2 != null);
+            CheckContextMatch(other1);
+            CheckContextMatch(other2);
+        }
+
+        [Pure]
+        internal void CheckContextMatch(Z3Object other1, Z3Object other2, Z3Object other3)
+        {
+            Contract.Requires(other1 != null);
+            Contract.Requires(other2 != null);
+            Contract.Requires(other3 != null);
+            CheckContextMatch(other1);
+            CheckContextMatch(other2);
+            CheckContextMatch(other3);
+        }
+
+        [Pure]
         internal void CheckContextMatch(Z3Object[] arr)
         {
             Contract.Requires(arr == null || Contract.ForAll(arr, a => a != null));
@@ -4628,6 +4908,7 @@ namespace Microsoft.Z3
             m_boolSort = null;
             m_intSort = null;
             m_realSort = null;
+            m_stringSort = null;
         }
         #endregion
     }

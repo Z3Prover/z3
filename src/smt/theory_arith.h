@@ -429,6 +429,7 @@ namespace smt {
         arith_util              m_util;
         arith_eq_solver         m_arith_eq_solver;
         bool                    m_found_unsupported_op;
+        bool                    m_found_underspecified_op;
         arith_eq_adapter        m_arith_eq_adapter;
         vector<row>             m_rows;
         svector<unsigned>       m_dead_rows;
@@ -510,6 +511,7 @@ namespace smt {
         virtual theory_var mk_var(enode * n);
 
         void found_unsupported_op(app * n);
+        void found_underspecified_op(app * n);
 
         bool has_var(expr * v) const { return get_context().e_internalized(v) && get_context().get_enode(v)->get_th_var(get_id()) != null_theory_var; }
         theory_var expr2var(expr * v) const { SASSERT(get_context().e_internalized(v)); return get_context().get_enode(v)->get_th_var(get_id()); }
@@ -1056,6 +1058,10 @@ namespace smt {
         // -----------------------------------
         virtual bool get_value(enode * n, expr_ref & r);
 
+        bool get_lower(enode* n, expr_ref& r);
+        bool get_upper(enode* n, expr_ref& r);
+        bool to_expr(inf_numeral const& val, bool is_int, expr_ref& r);
+
 
         // -----------------------------------
         //
@@ -1071,6 +1077,8 @@ namespace smt {
                           unsigned num_eqs, enode_pair const * eqs,
                           unsigned num_params, parameter* params);
         inf_eps_rational<inf_rational> conflict_minimize();
+
+
     private:
         virtual expr_ref mk_gt(theory_var v);
 

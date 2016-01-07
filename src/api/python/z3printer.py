@@ -68,8 +68,8 @@ _z3_op_to_fpa_normal_str = {
     Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN : 'RoundNearestTiesToEven()', Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY : 'RoundNearestTiesToAway()',
     Z3_OP_FPA_RM_TOWARD_POSITIVE : 'RoundTowardPositive()', Z3_OP_FPA_RM_TOWARD_NEGATIVE : 'RoundTowardNegative()',
     Z3_OP_FPA_RM_TOWARD_ZERO : 'RoundTowardZero()',
-    Z3_OP_FPA_PLUS_INF : '+oo', Z3_OP_FPA_MINUS_INF : '-oo',
-    Z3_OP_FPA_NAN : 'NaN', Z3_OP_FPA_PLUS_ZERO : 'PZero', Z3_OP_FPA_MINUS_ZERO : 'NZero',
+    Z3_OP_FPA_PLUS_INF : 'fpPlusInfinity', Z3_OP_FPA_MINUS_INF : 'fpMinusInfinity',
+    Z3_OP_FPA_NAN : 'fpNaN', Z3_OP_FPA_PLUS_ZERO : 'fpPZero', Z3_OP_FPA_MINUS_ZERO : 'fpNZero',
     Z3_OP_FPA_ADD : 'fpAdd', Z3_OP_FPA_SUB : 'fpSub', Z3_OP_FPA_NEG : 'fpNeg', Z3_OP_FPA_MUL : 'fpMul',
     Z3_OP_FPA_DIV : 'fpDiv', Z3_OP_FPA_REM : 'fpRem', Z3_OP_FPA_ABS : 'fpAbs',
     Z3_OP_FPA_MIN : 'fpMin', Z3_OP_FPA_MAX : 'fpMax',
@@ -570,6 +570,9 @@ class Formatter:
     def pp_algebraic(self, a):
         return to_format(a.as_decimal(self.precision))
 
+    def pp_string(self, a):
+        return to_format(a.as_string())
+
     def pp_bv(self, a):
         return to_format(a.as_string())
 
@@ -585,14 +588,24 @@ class Formatter:
 
     def pp_fp_value(self, a):
         z3._z3_assert(isinstance(a, z3.FPNumRef), 'type mismatch')
-        if not self.fpa_pretty:            
+        if not self.fpa_pretty:
+            r = []
             if (a.isNaN()):
-                return to_format('NaN')
+                r.append(to_format(_z3_op_to_fpa_normal_str[Z3_OP_FPA_NAN]))
+                r.append(to_format('('))
+                r.append(to_format(a.sort()))
+                r.append(to_format(')'))
+                return compose(r)
             elif (a.isInf()):
                 if (a.isNegative()):
-                    return to_format('-oo')
+                    r.append(to_format(_z3_op_to_fpa_normal_str[Z3_OP_FPA_MINUS_INF]))
                 else:
-                    return to_format('+oo')
+                    r.append(to_format(_z3_op_to_fpa_normal_str[Z3_OP_FPA_PLUS_INF]))                
+                r.append(to_format('('))
+                r.append(to_format(a.sort()))
+                r.append(to_format(')'))
+                return compose(r)
+
             elif (a.isZero()):
                 if (a.isNegative()):
                     return to_format('-zero')
@@ -875,6 +888,8 @@ class Formatter:
             return self.pp_fp_value(a)
         elif z3.is_fp(a):
             return self.pp_fp(a, d, xs)
+        elif z3.is_string_value(a):
+            return self.pp_string(a)
         elif z3.is_const(a):
             return self.pp_const(a)
         else:
@@ -1189,6 +1204,10 @@ def set_fpa_pretty(flag=True):
             _infix_map[_k] = False
 
 set_fpa_pretty(True)
+
+def get_fpa_pretty():
+    global Formatter
+    return _Formatter.fpa_pretty
 
 def in_html_mode():
     return isinstance(_Formatter, HTMLFormatter)

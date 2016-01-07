@@ -62,7 +62,7 @@ public:
     void ** get_obj_addr(unsigned pos);
 
     void store_result(void * obj);
-    void register_cmd(unsigned id, z3_replayer_cmd cmd);
+    void register_cmd(unsigned id, z3_replayer_cmd cmd, char const* name);
 };
 
 #endif

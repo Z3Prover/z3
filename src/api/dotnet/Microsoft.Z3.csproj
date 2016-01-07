@@ -374,7 +374,11 @@
     <Compile Include="RatNum.cs" />
     <Compile Include="RealExpr.cs" />
     <Compile Include="RealSort.cs" />
+    <Compile Include="ReExpr.cs" />
     <Compile Include="RelationSort.cs" />
+    <Compile Include="ReSort.cs" />
+    <Compile Include="SeqExpr.cs" />
+    <Compile Include="SeqSort.cs" />
     <Compile Include="SetSort.cs" />
     <Compile Include="Statistics.cs" />
     <Compile Include="Status.cs" />
