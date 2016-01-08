@@ -835,11 +835,14 @@ end = struct
       let o = Z3native.mk_app (context_gno ctx) (AST.ptr_of_ast fa) (List.length args) (expr_lton args) in
       expr_of_ptr ctx o
 
-   let apply1 ctx f t = expr_of_ptr ctx (f (context_gno ctx) (gno t)) in
+   let apply1 ctx f t = 
+       expr_of_ptr ctx (f (context_gno ctx) (gno t))
 
-   let apply2 ctx f t1 t2 = expr_of_ptr ctx (f (context_gno ctx) (gno t1) (gno t2)) in
+   let apply2 ctx f t1 t2 = 
+       expr_of_ptr ctx (f (context_gno ctx) (gno t1) (gno t2))
 
-   let apply3 ctx f t1 t2 t3 = expr_of_ptr ctx (f (context_gno ctx) (gno t1) (gno t2) (gno t3)) in
+   let apply3 ctx f t1 t2 t3 = 
+       expr_of_ptr ctx (f (context_gno ctx) (gno t1) (gno t2) (gno t3))
 
 
   let simplify ( x : expr ) ( p : Params.params option ) = match p with 
