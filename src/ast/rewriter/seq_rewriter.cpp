@@ -1064,13 +1064,13 @@ bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_
     if (lchange) {
         if (head1 > 0) {
             for (unsigned i = 0; i < szl; ++i) {
-                ls[i] = ls[i + head1];
+                ls[i] = ls[i + head1].get();
             }
         }
         ls.shrink(szl);
         if (head2 > 0) {
             for (unsigned i = 0; i < szr; ++i) {
-                rs[i] = rs[i + head2];
+                rs[i] = rs[i + head2].get();
             }
         }
         rs.shrink(szr);

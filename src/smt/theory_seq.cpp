@@ -1422,21 +1422,15 @@ bool theory_seq::canonize(expr* e, expr_ref_vector& es, dependency*& eqs) {
             canonize(e1, es, eqs);
             e3 = e2;
             change = true;
-            continue;
         }       
-        if (m_util.str.is_empty(e3)) {
+        else if (m_util.str.is_empty(e3)) {
             return true;
         }
-
-        expr_ref e4 = expand(e3, eqs);
-        change |= e4 != e3;
-        if (m_util.str.is_concat(e4) || m_util.str.is_empty(e4)) {
-            e3 = e4;
-            continue;
-        }
         else {
-            es.push_back(e4);
-            break;
+            expr_ref e4 = expand(e3, eqs);
+            change |= e4 != e3;
+            m_util.str.get_concat(e4, es);
+            break;        
         }
     }
     return change;
