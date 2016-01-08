@@ -437,6 +437,8 @@ end = struct
         | UNINTERPRETED_SORT 
         | FINITE_DOMAIN_SORT 
         | RELATION_SORT 
+        | RE_SORT
+        | SEQ_SORT
         | FLOATING_POINT_SORT
         | ROUNDING_MODE_SORT -> Sort(z3_native_object_of_ast_ptr ctx no)
         | UNKNOWN_SORT -> raise (Z3native.Exception "Unknown sort kind encountered")
@@ -783,6 +785,10 @@ sig
   val mk_numeral_string : context -> string -> Sort.sort -> expr
   val mk_numeral_int : context -> int -> Sort.sort -> expr
   val equal : expr -> expr -> bool
+  val apply1 : context -> (Z3native.ptr -> Z3native.ptr -> Z3native.ptr) -> expr -> expr
+  val apply2 : context -> (Z3native.ptr -> Z3native.ptr -> Z3native.ptr -> Z3native.ptr) -> expr -> expr -> expr 
+  val apply3 : context -> (Z3native.ptr -> Z3native.ptr -> Z3native.ptr -> Z3native.ptr -> Z3native.ptr) 
+                  -> expr -> expr -> expr -> expr 
   val compare : expr -> expr -> int
 end = struct  
   type expr = Expr of AST.ast
@@ -1075,8 +1081,9 @@ struct
     let f i = (Sort.sort_of_ptr (gc x) (Z3native.get_quantifier_bound_sort (gnc x) (gno x) i)) in
     mk_list f n
       
-  let get_body ( x : quantifier ) =
-    apply1 (gc x) Z3native.get_quantifier_body x
+  let get_body ( x : quantifier ) =  
+    let ctx = gc x in 
+    expr_of_ptr ctx (Z3native.get_quantifier_body (context_gno ctx) (gno x))
 
   let mk_bound ( ctx : context ) ( index : int ) ( ty : Sort.sort ) =
     expr_of_ptr ctx (Z3native.mk_bound (context_gno ctx) index (Sort.gno ty)) 
@@ -1246,11 +1253,11 @@ struct
     apply2 ctx Z3native.mk_set_add set element
       
   let mk_del  ( ctx : context ) ( set : expr ) ( element : expr ) =
-    apply2 Z3native.mk_set_del set element
+    apply2 ctx Z3native.mk_set_del set element
       
   let mk_union  ( ctx : context ) ( args : expr list ) =
-    let r = expr_of_ptr ctx (Z3native.mk_set_union (context_gno ctx) (List.length args) (expr_lton args)) in
-    r
+    expr_of_ptr ctx (Z3native.mk_set_union (context_gno ctx) (List.length args) (expr_lton args)) 
+    
       
   let mk_intersection  ( ctx : context ) ( args : expr list ) =
     expr_of_ptr ctx (Z3native.mk_set_intersect (context_gno ctx) (List.length args) (expr_lton args))
