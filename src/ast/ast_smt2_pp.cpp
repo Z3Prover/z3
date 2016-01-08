@@ -1201,14 +1201,18 @@ std::ostream& operator<<(std::ostream& out, app_ref const&  e) {
 }
 
 std::ostream& operator<<(std::ostream& out, expr_ref_vector const&  e) {
-    for (unsigned i = 0; i < e.size(); ++i) 
-        out << mk_ismt2_pp(e[i], e.get_manager()) << "\n";
+    for (unsigned i = 0; i < e.size(); ++i) {
+        out << mk_ismt2_pp(e[i], e.get_manager());
+        if (i + 1 < e.size()) out << "; ";
+    }
     return out;
 }
 
 std::ostream& operator<<(std::ostream& out, app_ref_vector const&  e) {
-    for (unsigned i = 0; i < e.size(); ++i) 
-        out << mk_ismt2_pp(e[i], e.get_manager()) << "\n";
+    for (unsigned i = 0; i < e.size(); ++i) {
+        out << mk_ismt2_pp(e[i], e.get_manager());
+        if (i + 1 < e.size()) out << "; ";
+    }
     return out;
 }
 

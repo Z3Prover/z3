@@ -223,6 +223,7 @@ public:
         app* mk_concat(expr* a, expr* b) { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_CONCAT, 2, es); }
         app* mk_concat(expr* a, expr* b, expr* c) { return mk_concat(a, mk_concat(b, c)); }
         expr* mk_concat(unsigned n, expr* const* es) { if (n == 1) return es[0]; SASSERT(n > 1); return m.mk_app(m_fid, OP_SEQ_CONCAT, n, es); }
+        expr* mk_concat(expr_ref_vector const& es) { return mk_concat(es.size(), es.c_ptr()); }
         app* mk_length(expr* a) { return m.mk_app(m_fid, OP_SEQ_LENGTH, 1, &a); }
         app* mk_substr(expr* a, expr* b, expr* c) { expr* es[3] = { a, b, c }; return m.mk_app(m_fid, OP_SEQ_EXTRACT, 3, es); }
         app* mk_contains(expr* a, expr* b) { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_CONTAINS, 2, es); }

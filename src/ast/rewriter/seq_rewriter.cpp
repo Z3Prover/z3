@@ -830,11 +830,12 @@ br_status seq_rewriter::mk_re_opt(expr* a, expr_ref& result) {
 
 br_status seq_rewriter::mk_eq_core(expr * l, expr * r, expr_ref & result) {
     expr_ref_vector lhs(m()), rhs(m()), res(m());
-    if (!reduce_eq(l, r, lhs, rhs)) {
+    bool changed = false;
+    if (!reduce_eq(l, r, lhs, rhs, changed)) {
         result = m().mk_false();
         return BR_DONE;
     }
-    if (lhs.size() == 1 && lhs[0].get() == l && rhs[0].get() == r) {
+    if (!changed) {
         return BR_FAILED;
     }
     for (unsigned i = 0; i < lhs.size(); ++i) {
@@ -844,20 +845,19 @@ br_status seq_rewriter::mk_eq_core(expr * l, expr * r, expr_ref & result) {
     return BR_REWRITE3;
 }
 
-bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_vector& lhs, expr_ref_vector& rhs) {
+bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_vector& lhs, expr_ref_vector& rhs, bool& change) {
     expr* a, *b;
     zstring s;
-    bool change = false;
  
+    bool lchange = false;
+    SASSERT(lhs.empty());
     // solve from back
     while (true) {
         while (!rs.empty() && m_util.str.is_empty(rs.back())) {
             rs.pop_back();
-            change = true;
         }
         while (!ls.empty() && m_util.str.is_empty(ls.back())) {
             ls.pop_back();
-            change = true;
         }
         if (ls.empty() || rs.empty()) {
             break;
@@ -901,7 +901,9 @@ bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_
         else {
             break;
         }
+        TRACE("seq", tout << "change back\n";);
         change = true;
+        lchange = true;
     }
 
     // solve from front
@@ -956,7 +958,10 @@ bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_
         else {
             break;
         }
+        TRACE("seq", tout << "change front\n";);
+       
         change = true;
+        lchange = true;
     }
     // reduce strings
     zstring s1, s2;
@@ -982,7 +987,9 @@ bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_
         else {
             rs[head2] = m_util.str.mk_string(s2.extract(l, s2.length()-l));
         }
+        TRACE("seq", tout << "change string\n";);
         change = true;
+        lchange = true;
     }
     while (head1 < ls.size() && 
            head2 < rs.size() &&
@@ -1002,52 +1009,109 @@ bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_
         if (l < s2.length()) {
             rs.push_back(m_util.str.mk_string(s2.extract(0, s2.length()-l)));
         }        
+        TRACE("seq", tout << "change string back\n";);
         change = true;
+        lchange = true;
     }
 
     bool is_sat;
     unsigned szl = ls.size() - head1, szr = rs.size() - head2;
     expr* const* _ls = ls.c_ptr() + head1, * const* _rs = rs.c_ptr() + head2;
+
+
     if (length_constrained(szl, _ls, szr, _rs, lhs, rhs, is_sat)) {
         ls.reset(); rs.reset();
-        return is_sat;
-    }
-    if (is_subsequence(szl, _ls, szr, _rs, lhs, rhs, is_sat)) {
-        ls.reset(); rs.reset();
+        change = true;
         return is_sat;
     }
 
-    if (szl == 0 && szr == 0) {
-        ls.reset(); rs.reset();
-        return true;
-    }
-    else if (!change) {
-        // skip
-        SASSERT(lhs.empty());
-    }
-    else {
-        // could solve if either side is fixed size.
-        SASSERT(szl > 0 && szr > 0);
-        lhs.push_back(m_util.str.mk_concat(szl, ls.c_ptr() + head1));
-        rhs.push_back(m_util.str.mk_concat(szr, rs.c_ptr() + head2));
+    if (szr == 0 && szl == 0) {
         ls.reset();
         rs.reset();
+        return true;
     }
-    SASSERT(lhs.empty() || ls.empty());
+    if (szr == 0 && szl > 0) {
+        std::swap(szr, szl);
+        std::swap(_ls, _rs);
+    }
+    if (szl == 0 && szr > 0) {
+        if (set_empty(szr, _rs, true, lhs, rhs)) {
+            lchange |= szr > 1; 
+            change  |= szr > 1;
+            TRACE("seq", tout << lchange << " " << szr << "\n";);
+            if (szr == 1 && !lchange) {
+                lhs.reset();
+                rhs.reset();
+            }
+            else {
+                ls.reset();        
+                rs.reset();
+            }
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+    SASSERT(szl > 0 && szr > 0);
+
+    if (is_subsequence(szl, _ls, szr, _rs, lhs, rhs, is_sat)) {
+        ls.reset(); rs.reset();
+        change = true;
+        return is_sat;
+    }
+
+    if (lchange) {
+        if (head1 > 0) {
+            for (unsigned i = 0; i < szl; ++i) {
+                ls[i] = ls[i + head1];
+            }
+        }
+        ls.shrink(szl);
+        if (head2 > 0) {
+            for (unsigned i = 0; i < szr; ++i) {
+                rs[i] = rs[i + head2];
+            }
+        }
+        rs.shrink(szr);
+    }
+    SASSERT(rs.empty() == ls.empty());
+    change |= lchange;
     return true;
 }
 
-bool seq_rewriter::reduce_eq(expr* l, expr* r, expr_ref_vector& lhs, expr_ref_vector& rhs) {
+void seq_rewriter::add_seqs(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref_vector& lhs, expr_ref_vector& rhs) {
+    if (ls.empty() && !rs.empty()) {
+        rhs.push_back(m_util.str.mk_concat(rs));
+        lhs.push_back(m_util.str.mk_empty(m().get_sort(rhs.back())));
+    }
+    else if (rs.empty() && !ls.empty()) {
+        lhs.push_back(m_util.str.mk_concat(ls));
+        rhs.push_back(m_util.str.mk_empty(m().get_sort(lhs.back())));
+    }
+    else if (!rs.empty() && !ls.empty()) {
+        lhs.push_back(m_util.str.mk_concat(ls));
+        rhs.push_back(m_util.str.mk_concat(rs));
+    }
+}
+
+
+bool seq_rewriter::reduce_eq(expr* l, expr* r, expr_ref_vector& lhs, expr_ref_vector& rhs, bool& changed) {
     m_lhs.reset();
     m_rhs.reset();
     m_util.str.get_concat(l, m_lhs);
     m_util.str.get_concat(r, m_rhs);
-    if (reduce_eq(m_lhs, m_rhs, lhs, rhs)) {
+    bool change = false;
+    if (reduce_eq(m_lhs, m_rhs, lhs, rhs, change)) {
         SASSERT(lhs.size() == rhs.size());
-        if (lhs.empty()) {
+        if (!change) {
             lhs.push_back(l);
             rhs.push_back(r);
         }
+        else {
+            add_seqs(m_lhs, m_rhs, lhs, rhs);
+        }
+        changed |= change;
         return true;
     }
     else {
