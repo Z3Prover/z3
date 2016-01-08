@@ -1363,7 +1363,15 @@ class PythonInstallComponent(Component):
         else:
             # Use path inside the prefix (should be the normal case on Linux)
             # CMW: Also normal on *BSD?
-            assert PYTHON_PACKAGE_DIR.startswith(PREFIX)
+            if not PYTHON_PACKAGE_DIR.startswith(PREFIX):
+                raise MKException(('The python package directory ({}) must live ' +
+                    'under the install prefix ({}) to install the python bindings.' +
+                    'Use --pypkgdir and --prefix to set the python package directory ' +
+                    'and install prefix respectively. Note that the python package ' +
+                    'directory does not need to exist and will be created if ' +
+                    'necessary during install.').format(
+                        PYTHON_PACKAGE_DIR,
+                        PREFIX))
             self.pythonPkgDir = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
             self.in_prefix_install = True
 
