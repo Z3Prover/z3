@@ -121,6 +121,7 @@ tactic * mk_lackr_tactic(ast_manager & m, params_ref const & p) {
         mk_max_bv_sharing_tactic(m),
         //mk_macro_finder_tactic(m, p),
         using_params(mk_simplify_tactic(m), simp2_p)
+        //, mk_simplify_tactic(m)
         //mk_nnf_tactic(m_m, m_p)
         );
 
