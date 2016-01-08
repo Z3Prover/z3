@@ -287,16 +287,15 @@ let fpa_example ( ctx : context ) =
   (* ((_ to_fp 11 53) #x401c000000000000)) *)
   (* ((_ to_fp 11 53) RTZ 1.75 2))) *)
   (* ((_ to_fp 11 53) RTZ 7.0))) *)
-  let c1 = (mk_fp ctx 
- 			  (mk_numeral_string ctx "0" (BitVector.mk_sort ctx 1))
- 			  (mk_numeral_string ctx "3377699720527872" (BitVector.mk_sort ctx 52))			  
-			  (mk_numeral_string ctx "1025" (BitVector.mk_sort ctx 11))) in
+  let c1 = (mk_fp ctx (mk_numeral_string ctx "0" (BitVector.mk_sort ctx 1))
+                      (mk_numeral_string ctx "1025" (BitVector.mk_sort ctx 11))
+ 		      (mk_numeral_string ctx "3377699720527872" (BitVector.mk_sort ctx 52))) in
   let c2 = (mk_to_fp_bv ctx
 			  (mk_numeral_string ctx "4619567317775286272" (BitVector.mk_sort ctx 64))
 			  (mk_sort ctx 11 53)) in
   let c3 = (mk_to_fp_int_real ctx 
 			  (RoundingMode.mk_rtz ctx)
-              (mk_numeral_string ctx "2" (Integer.mk_sort ctx))
+                          (mk_numeral_string ctx "2" (Integer.mk_sort ctx))
 			  (mk_numeral_string ctx "1.75" (Real.mk_sort ctx))
 			  (FloatingPoint.mk_sort ctx 11 53)) in
   let c4 = (mk_to_fp_real ctx (RoundingMode.mk_rtz ctx)
