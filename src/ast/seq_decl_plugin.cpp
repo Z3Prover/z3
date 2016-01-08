@@ -666,5 +666,7 @@ void seq_util::str::get_concat(expr* e, expr_ref_vector& es) const {
         get_concat(e1, es);
         e = e2;
     }    
-    es.push_back(e);
+    if (!is_empty(e)) {
+        es.push_back(e);
+    }
 }
