@@ -1176,31 +1176,37 @@ namespace smt {
             unsigned idx          = entry.second;
 
             if (m_wpos[v] == idx)
-                find_wpos(v);
-            
+                find_wpos(v);            
 
             literal_vector & bits = m_bits[v];
             literal bit           = bits[idx];
-            lbool    val          = ctx.get_assignment(bit); 
+            lbool   val           = ctx.get_assignment(bit); 
+            if (val == l_undef) {
+                continue;
+            }
             theory_var v2         = next(v);
             TRACE("bv_bit_prop", tout << "propagating #" << get_enode(v)->get_owner_id() << "[" << idx << "] = " << val << "\n";);
+            literal antecedent = bit;
+
+            if (val == l_false) {
+                antecedent.neg();
+            }
             while (v2 != v) {
                 literal_vector & bits2   = m_bits[v2];
                 literal bit2             = bits2[idx];
                 SASSERT(bit != ~bit2);
                 lbool   val2             = ctx.get_assignment(bit2);
                 TRACE("bv_bit_prop", tout << "propagating #" << get_enode(v2)->get_owner_id() << "[" << idx << "] = " << val2 << "\n";);
+                
                 if (val != val2) {
-                    literal antecedent = bit;
                     literal consequent = bit2;
                     if (val == l_false) {
-                        antecedent.neg();
                         consequent.neg();
                     }
-                    SASSERT(ctx.get_assignment(antecedent) == l_true);
                     assign_bit(consequent, v, v2, idx, antecedent, false);
                     if (ctx.inconsistent()) {
                         TRACE("bv_bit_prop", tout << "inconsistent " << bit <<  " " << bit2 << "\n";);
+                        m_prop_queue.reset();
                         return;
                     }
                 }
