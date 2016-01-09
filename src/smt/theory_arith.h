@@ -544,6 +544,8 @@ namespace smt {
         void set_var_kind(theory_var v, var_kind k) { m_data[v].m_kind = k; }
         unsigned get_var_row(theory_var v) const { SASSERT(!is_non_base(v)); return m_data[v].m_row_id; }
         void set_var_row(theory_var v, unsigned r_id) { m_data[v].m_row_id = r_id; }
+        ptr_vector<expr> m_todo;
+        bool is_int_expr(expr* e);
         bool is_int(theory_var v) const { return m_data[v].m_is_int; }
         bool is_real(theory_var v) const { return !is_int(v); }
         bool get_implied_old_value(theory_var v, inf_numeral & r) const;

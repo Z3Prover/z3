@@ -1815,6 +1815,8 @@ def _mk_quantifier(is_forall, vs, body, weight=1, qid="", skid="", patterns=[], 
     if is_app(vs):
         vs = [vs]
     num_vars = len(vs)
+    if num_vars == 0:
+        raise Z3Exception("Quantification requires a non-empty list of variables.")
     _vs = (Ast * num_vars)()
     for i in range(num_vars):
         ## TODO: Check if is constant
