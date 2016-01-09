@@ -79,7 +79,7 @@ TRACE = False
 DOTNET_ENABLED=False
 JAVA_ENABLED=False
 ML_ENABLED=False
-PYTHON_INSTALL_ENABLED=True
+PYTHON_INSTALL_ENABLED=False
 STATIC_LIB=False
 VER_MAJOR=None
 VER_MINOR=None
@@ -612,6 +612,7 @@ def display_help(exit_code):
     print("  --dotnet                      generate .NET bindings.")
     print("  --java                        generate Java bindings.")
     print("  --ml                          generate OCaml bindings.")
+    print("  --python                      generate Python bindings.")
     print("  --staticlib                   build Z3 static library.")
     if not IS_WINDOWS:
         print("  -g, --gmp                     use GMP.")
@@ -642,14 +643,14 @@ def display_help(exit_code):
 # Parse configuration option for mk_make script
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
-    global DOTNET_ENABLED, JAVA_ENABLED, ML_ENABLED, STATIC_LIB, PREFIX, GMP, FOCI2, FOCI2LIB, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH
+    global DOTNET_ENABLED, JAVA_ENABLED, ML_ENABLED, STATIC_LIB, PREFIX, GMP, FOCI2, FOCI2LIB, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, PYTHON_INSTALL_ENABLED
     global LINUX_X64, SLOW_OPTIMIZE, USE_OMP
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:],
                                                'b:df:sxhmcvtnp:gj',
                                                ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj',
                                                 'trace', 'dotnet', 'staticlib', 'prefix=', 'gmp', 'foci2=', 'java', 'parallel=', 'gprof',
-                                                'githash=', 'x86', 'ml', 'optimize', 'noomp', 'pypkgdir='])
+                                                'githash=', 'x86', 'ml', 'optimize', 'noomp', 'pypkgdir=', 'python'])
     except:
         print("ERROR: Invalid command line option")
         display_help(1)
@@ -708,6 +709,8 @@ def parse_options():
             ML_ENABLED = True
         elif opt in ('', '--noomp'):
             USE_OMP = False
+        elif opt in ('--python'):
+            PYTHON_INSTALL_ENABLED = True
         else:
             print("ERROR: Invalid command line option '%s'" % opt)
             display_help(1)
@@ -1339,6 +1342,9 @@ class PythonInstallComponent(Component):
         self.in_prefix_install = True
         self.libz3Component = libz3Component
 
+        if not PYTHON_INSTALL_ENABLED:
+            return
+
         if IS_WINDOWS:
             # Installing under Windows doesn't make sense as the install prefix is used
             # but that doesn't make sense under Windows
@@ -1357,7 +1363,15 @@ class PythonInstallComponent(Component):
         else:
             # Use path inside the prefix (should be the normal case on Linux)
             # CMW: Also normal on *BSD?
-            assert PYTHON_PACKAGE_DIR.startswith(PREFIX)
+            if not PYTHON_PACKAGE_DIR.startswith(PREFIX):
+                raise MKException(('The python package directory ({}) must live ' +
+                    'under the install prefix ({}) to install the python bindings.' +
+                    'Use --pypkgdir and --prefix to set the python package directory ' +
+                    'and install prefix respectively. Note that the python package ' +
+                    'directory does not need to exist and will be created if ' +
+                    'necessary during install.').format(
+                        PYTHON_PACKAGE_DIR,
+                        PREFIX))
             self.pythonPkgDir = strip_path_prefix(PYTHON_PACKAGE_DIR, PREFIX)
             self.in_prefix_install = True
 
@@ -1365,7 +1379,7 @@ class PythonInstallComponent(Component):
             assert not os.path.isabs(self.pythonPkgDir)
 
     def final_info(self):
-        if not PYTHON_PACKAGE_DIR.startswith(PREFIX):
+        if not PYTHON_PACKAGE_DIR.startswith(PREFIX) and PYTHON_INSTALL_ENABLED:
             print("Warning: The detected Python package directory (%s) is not "
                   "in the installation prefix (%s). This can lead to a broken "
                   "Python API installation. Use --pypkgdir= to change the "
