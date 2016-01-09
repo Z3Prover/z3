@@ -789,6 +789,8 @@ sig
   val apply2 : context -> (Z3native.ptr -> Z3native.ptr -> Z3native.ptr -> Z3native.ptr) -> expr -> expr -> expr 
   val apply3 : context -> (Z3native.ptr -> Z3native.ptr -> Z3native.ptr -> Z3native.ptr -> Z3native.ptr) 
                   -> expr -> expr -> expr -> expr 
+  val apply4 : context -> (Z3native.ptr -> Z3native.ptr -> Z3native.ptr -> Z3native.ptr -> Z3native.ptr -> Z3native.ptr) 
+                  -> expr -> expr -> expr -> expr -> expr
   val compare : expr -> expr -> int
 end = struct  
   type expr = Expr of AST.ast
@@ -796,6 +798,12 @@ end = struct
   let gc e = match e with Expr(a) -> (z3obj_gc a)
   let gnc e = match e with Expr(a) -> (z3obj_gnc a)
   let gno e = match e with Expr(a) -> (z3obj_gno a)
+
+  let inc_elist (es : expr list) = 
+      List.iter (fun e -> match e with Expr(o) -> o.inc_ref (gnc e) o.m_n_obj) es
+
+  let dec_elist (es : expr list) = 
+      List.iter (fun e -> match e with Expr(o) -> o.dec_ref (gnc e) o.m_n_obj) es
 
   let expr_of_ptr : context -> Z3native.ptr -> expr = fun ctx no -> 
     let e = z3_native_object_of_ast_ptr ctx no in 
@@ -850,6 +858,9 @@ end = struct
   let apply3 ctx f t1 t2 t3 = 
       expr_of_ptr ctx (f (context_gno ctx) (gno t1) (gno t2) (gno t3))
 
+  let apply4 ctx f t1 t2 t3 t4 = 
+      expr_of_ptr ctx (f (context_gno ctx) (gno t1) (gno t2) (gno t3) (gno t4))
+
   let simplify ( x : expr ) ( p : Params.params option ) = match p with 
     | None -> expr_of_ptr (Expr.gc x) (Z3native.simplify (gnc x) (gno x))
     | Some pp -> expr_of_ptr (Expr.gc x) (Z3native.simplify_ex (gnc x) (gno x) (z3obj_gno pp))
@@ -871,19 +882,30 @@ end = struct
     if ((AST.is_app (ast_of_expr x)) && (List.length args <> (get_num_args x))) then
       raise (Z3native.Exception "Number of arguments does not match")
     else
-      expr_of_ptr (Expr.gc x) (Z3native.update_term (gnc x) (gno x) (List.length args) (expr_lton args)) 
+      (inc_elist args; 
+       let r = expr_of_ptr (Expr.gc x) (Z3native.update_term (gnc x) (gno x) (List.length args) (expr_lton args)) in
+       dec_elist args;
+       r)
       
   let substitute ( x : expr ) from to_ = 
     if (List.length from) <> (List.length to_) then
       raise (Z3native.Exception "Argument sizes do not match")
     else
-      expr_of_ptr (Expr.gc x) (Z3native.substitute (gnc x) (gno x) (List.length from) (expr_lton from) (expr_lton to_)) 
+      (inc_elist from;
+       inc_elist to_;
+       let r = expr_of_ptr (Expr.gc x) (Z3native.substitute (gnc x) (gno x) (List.length from) (expr_lton from) (expr_lton to_)) in
+       dec_elist from;
+       dec_elist to_;
+       r)
      
   let substitute_one ( x : expr ) from to_ =
     substitute ( x : expr ) [ from ] [ to_ ]
       
   let substitute_vars ( x : expr ) to_ =
-    expr_of_ptr (Expr.gc x) (Z3native.substitute_vars (gnc x) (gno x) (List.length to_) (expr_lton to_))
+    (inc_elist to_;
+     let r = expr_of_ptr (Expr.gc x) (Z3native.substitute_vars (gnc x) (gno x) (List.length to_) (expr_lton to_)) in
+     dec_elist to_;
+     r)
       
   let translate ( x : expr ) to_ctx =
     if (Expr.gc x) == to_ctx then
@@ -1257,22 +1279,21 @@ struct
       
   let mk_union  ( ctx : context ) ( args : expr list ) =
     expr_of_ptr ctx (Z3native.mk_set_union (context_gno ctx) (List.length args) (expr_lton args)) 
-    
-      
+          
   let mk_intersection  ( ctx : context ) ( args : expr list ) =
     expr_of_ptr ctx (Z3native.mk_set_intersect (context_gno ctx) (List.length args) (expr_lton args))
 
   let mk_difference  ( ctx : context ) ( arg1 : expr ) ( arg2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_set_difference (context_gno ctx) (Expr.gno arg1) (Expr.gno arg2))
+    apply2 ctx Z3native.mk_set_difference arg1 arg2
 
   let mk_complement  ( ctx : context ) ( arg : expr ) =
-    expr_of_ptr ctx (Z3native.mk_set_complement (context_gno ctx) (Expr.gno arg))
+    apply1 ctx Z3native.mk_set_complement arg
 
   let mk_membership  ( ctx : context ) ( elem : expr ) ( set : expr ) =
-    expr_of_ptr ctx (Z3native.mk_set_member (context_gno ctx) (Expr.gno elem) (Expr.gno set))
+    apply2 ctx Z3native.mk_set_member elem set
 
   let mk_subset  ( ctx : context ) ( arg1 : expr ) ( arg2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_set_subset (context_gno ctx) (Expr.gno arg1) (Expr.gno arg2))
+    apply2 ctx Z3native.mk_set_subset arg1 arg2
 
 end
 
@@ -1612,10 +1633,10 @@ struct
       mk_const ctx (Symbol.mk_string ctx name)
      
     let mk_mod ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =    
-      expr_of_ptr ctx (Z3native.mk_mod (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
+      apply2 ctx Z3native.mk_mod t1 t2
      
     let mk_rem ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-      expr_of_ptr  ctx (Z3native.mk_rem (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
+      apply2 ctx Z3native.mk_rem t1 t2
 
     let mk_numeral_s ( ctx : context ) ( v : string ) =
       expr_of_ptr ctx (Z3native.mk_numeral (context_gno ctx) v (Sort.gno (mk_sort ctx)))
@@ -1624,7 +1645,7 @@ struct
       expr_of_ptr ctx (Z3native.mk_int (context_gno ctx) v (Sort.gno (mk_sort ctx)))
 
     let mk_int2real ( ctx : context ) ( t : expr ) =
-      (Expr.expr_of_ptr ctx (Z3native.mk_int2real (context_gno ctx) (Expr.gno t)))
+      apply1 ctx Z3native.mk_int2real t
 
     let mk_int2bv ( ctx : context ) ( n : int ) ( t : expr ) =
       (Expr.expr_of_ptr ctx (Z3native.mk_int2bv (context_gno ctx) n (Expr.gno t)))
@@ -1636,10 +1657,10 @@ struct
       Sort.sort_of_ptr ctx (Z3native.mk_real_sort (context_gno ctx))     
 
     let get_numerator ( x : expr ) =
-      expr_of_ptr (Expr.gc x) (Z3native.get_numerator (Expr.gnc x) (Expr.gno x))
+      apply1 (Expr.gc x) Z3native.get_numerator x
      
     let get_denominator ( x : expr ) =
-      expr_of_ptr (Expr.gc x) (Z3native.get_denominator (Expr.gnc x) (Expr.gno x))
+      apply1 (Expr.gc x) Z3native.get_denominator x
      
     let get_ratio ( x : expr ) = 
       if (is_rat_numeral x)  then
@@ -1671,10 +1692,10 @@ struct
       expr_of_ptr ctx (Z3native.mk_int (context_gno ctx) v (Sort.gno (mk_sort ctx)))
      
     let mk_is_integer ( ctx : context ) ( t : expr ) =
-      (expr_of_ptr ctx (Z3native.mk_is_int (context_gno ctx) (Expr.gno t)))
+      apply1 ctx Z3native.mk_is_int t
      
     let mk_real2int ( ctx : context ) ( t : expr ) =
-      (expr_of_ptr ctx (Z3native.mk_real2int (context_gno ctx) (Expr.gno t)))
+      apply1 ctx Z3native.mk_real2int t
 
     module AlgebraicNumber =
     struct    
@@ -1703,26 +1724,19 @@ struct
     let f x = (Expr.gno x) in
     (expr_of_ptr ctx (Z3native.mk_sub (context_gno ctx) (List.length t) (Array.of_list (List.map f t))))
       
-  let mk_unary_minus ( ctx : context ) ( t : expr ) =     
-    (expr_of_ptr ctx (Z3native.mk_unary_minus (context_gno ctx) (Expr.gno t)))
+  let mk_unary_minus ( ctx : context ) ( t : expr ) = apply1 ctx Z3native.mk_unary_minus t
 
-  let mk_div ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    (expr_of_ptr ctx (Z3native.mk_div (context_gno ctx) (Expr.gno t1) (Expr.gno t2)))
+  let mk_div ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_div t1 t2
 
-  let mk_power ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =     
-    (expr_of_ptr ctx (Z3native.mk_power (context_gno ctx) (Expr.gno t1) (Expr.gno t2)))
+  let mk_power ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_power t1 t2
 
-  let mk_lt ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    (expr_of_ptr ctx (Z3native.mk_lt (context_gno ctx) (Expr.gno t1) (Expr.gno t2)))
+  let mk_lt ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_lt t1 t2
 
-  let mk_le ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    (expr_of_ptr ctx (Z3native.mk_le (context_gno ctx) (Expr.gno t1) (Expr.gno t2)))
+  let mk_le ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_le t1 t2
       
-  let mk_gt ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    (expr_of_ptr ctx (Z3native.mk_gt (context_gno ctx) (Expr.gno t1) (Expr.gno t2)))
+  let mk_gt ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_gt t1 t2
 
-  let mk_ge ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    (expr_of_ptr ctx (Z3native.mk_ge (context_gno ctx) (Expr.gno t1) (Expr.gno t2)))
+  let mk_ge ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_ge t1 t2
 end
 
 
@@ -1793,100 +1807,63 @@ struct
     Expr.mk_const ctx name (mk_sort ctx size) 
   let mk_const_s ( ctx : context ) ( name : string ) ( size : int ) =
     mk_const ctx (Symbol.mk_string ctx name) size
-  let mk_not  ( ctx : context ) ( t : expr ) =
-    expr_of_ptr ctx (Z3native.mk_bvnot (context_gno ctx) (Expr.gno t))
-  let mk_redand  ( ctx : context ) ( t : expr ) =
-    expr_of_ptr ctx (Z3native.mk_bvredand (context_gno ctx) (Expr.gno t))
-  let mk_redor  ( ctx : context ) ( t : expr ) =
-    expr_of_ptr ctx (Z3native.mk_bvredor (context_gno ctx) (Expr.gno t))
-  let mk_and  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_bvand (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
-  let mk_or  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_bvor (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
-  let mk_xor  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_bvxor (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
-  let mk_nand  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_bvnand (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
-  let mk_nor  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_bvnor (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
-  let mk_xnor  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_bvxnor (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
-  let mk_neg  ( ctx : context ) ( t : expr ) =
-    expr_of_ptr ctx (Z3native.mk_bvneg (context_gno ctx) (Expr.gno t))
-  let mk_add  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_bvadd (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
-  let mk_sub  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_bvsub (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
-  let mk_mul  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_bvmul (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
-  let mk_udiv  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_bvudiv (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
-  let mk_sdiv  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_bvsdiv (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
-  let mk_urem  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_bvurem (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
-  let mk_srem  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_bvsrem (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
-  let mk_smod  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_bvsmod (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
-  let mk_ult  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    (expr_of_ptr ctx (Z3native.mk_bvult (context_gno ctx) (Expr.gno t1) (Expr.gno t2)))  
-  let mk_slt  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    (expr_of_ptr ctx (Z3native.mk_bvslt (context_gno ctx) (Expr.gno t1) (Expr.gno t2)))
-  let mk_ule  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    (expr_of_ptr ctx (Z3native.mk_bvule (context_gno ctx) (Expr.gno t1) (Expr.gno t2)))
-  let mk_sle  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    (expr_of_ptr ctx (Z3native.mk_bvsle (context_gno ctx) (Expr.gno t1) (Expr.gno t2)))
-  let mk_uge  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    (expr_of_ptr ctx (Z3native.mk_bvuge (context_gno ctx) (Expr.gno t1) (Expr.gno t2)))
-  let mk_sge  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    (expr_of_ptr ctx (Z3native.mk_bvsge (context_gno ctx) (Expr.gno t1) (Expr.gno t2)))
-  let mk_ugt  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    (expr_of_ptr ctx (Z3native.mk_bvugt (context_gno ctx) (Expr.gno t1) (Expr.gno t2)))               
-  let mk_sgt  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    (expr_of_ptr ctx (Z3native.mk_bvsgt (context_gno ctx) (Expr.gno t1) (Expr.gno t2)))               
-  let mk_concat ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_concat (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
+  let mk_not  ( ctx : context ) ( t : expr ) = apply1 ctx Z3native.mk_bvnot t
+  let mk_redand  ( ctx : context ) ( t : expr ) = apply1 ctx Z3native.mk_bvredand t
+  let mk_redor  ( ctx : context ) ( t : expr ) = apply1 ctx Z3native.mk_bvredor t
+  let mk_and  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_bvand t1 t2
+  let mk_or  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_bvor t1 t2
+  let mk_xor  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_bvxor t1 t2
+  let mk_nand  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_bvnand t1 t2
+  let mk_nor  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_bvnor t1 t2
+  let mk_xnor  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_bvxnor t1 t2
+  let mk_neg  ( ctx : context ) ( t : expr ) = apply1 ctx Z3native.mk_bvneg t
+  let mk_add  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_bvadd t1 t2
+  let mk_sub  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_bvsub t1 t2
+  let mk_mul  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_bvmul t1 t2
+  let mk_udiv  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_bvudiv t1 t2
+  let mk_sdiv  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_bvsdiv t1 t2
+  let mk_urem  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_bvurem t1 t2
+  let mk_srem  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_bvsrem t1 t2
+  let mk_smod  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_bvsmod t1 t2
+  let mk_ult  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_bvult t1 t2
+  let mk_slt  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_bvslt t1 t2
+  let mk_ule  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_bvule t1 t2
+  let mk_sle  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_bvsle t1 t2
+  let mk_uge  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_bvuge t1 t2
+  let mk_sge  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_bvsge t1 t2
+  let mk_ugt  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_bvugt t1 t2
+  let mk_sgt  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_bvsgt t1 t2
+  let mk_concat ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_concat t1 t2
   let mk_extract ( ctx : context ) ( high : int ) ( low : int ) ( t : expr ) =
     expr_of_ptr ctx (Z3native.mk_extract (context_gno ctx) high low (Expr.gno t))
-  let mk_sign_ext  ( ctx : context ) ( i : int ) ( t : expr ) =
+  let mk_sign_ext  ( ctx : context ) ( i : int ) ( t : expr ) = 
     expr_of_ptr ctx (Z3native.mk_sign_ext (context_gno ctx) i (Expr.gno t))
   let mk_zero_ext  ( ctx : context ) ( i : int ) ( t : expr ) =
     expr_of_ptr ctx (Z3native.mk_zero_ext (context_gno ctx) i (Expr.gno t))
   let mk_repeat  ( ctx : context ) ( i : int ) ( t : expr ) =
     expr_of_ptr ctx (Z3native.mk_repeat (context_gno ctx) i (Expr.gno t))
-  let mk_shl  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_bvshl (context_gno ctx) (Expr.gno t1) (Expr.gno t2))       
-  let mk_lshr  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_bvlshr (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
-  let mk_ashr  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =    
-    expr_of_ptr ctx  (Z3native.mk_bvashr (context_gno ctx) (Expr.gno t1) (Expr.gno t2))  
-  let mk_rotate_left  ( ctx : context ) ( i : int ) ( t : expr ) =
+  let mk_shl  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_bvshl t1 t2
+  let mk_lshr  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_bvlshr t1 t2
+  let mk_ashr  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_bvashr t1 t2
+  let mk_rotate_left  ( ctx : context ) ( i : int ) ( t : expr ) = 
     expr_of_ptr ctx (Z3native.mk_rotate_left (context_gno ctx) i (Expr.gno t))
   let mk_rotate_right ( ctx : context ) ( i : int ) ( t : expr ) =
     expr_of_ptr ctx (Z3native.mk_rotate_right (context_gno ctx) i (Expr.gno t))
-  let mk_ext_rotate_left ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_ext_rotate_left (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
-  let mk_ext_rotate_right ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_ext_rotate_right (context_gno ctx) (Expr.gno t1) (Expr.gno t2))       
+  let mk_ext_rotate_left ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_ext_rotate_left t1 t2
+  let mk_ext_rotate_right ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_ext_rotate_right t1 t2
   let mk_bv2int ( ctx : context ) ( t : expr ) ( signed : bool ) =
     expr_of_ptr ctx (Z3native.mk_bv2int (context_gno ctx) (Expr.gno t) signed)
   let mk_add_no_overflow  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) ( signed : bool) =
     (expr_of_ptr ctx (Z3native.mk_bvadd_no_overflow (context_gno ctx) (Expr.gno t1) (Expr.gno t2) signed))
-  let mk_add_no_underflow  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    (expr_of_ptr ctx (Z3native.mk_bvadd_no_underflow (context_gno ctx) (Expr.gno t1) (Expr.gno t2)))       
-  let mk_sub_no_overflow  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    (expr_of_ptr ctx (Z3native.mk_bvsub_no_overflow (context_gno ctx) (Expr.gno t1) (Expr.gno t2)))            
+  let mk_add_no_underflow  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_bvadd_no_underflow t1 t2
+  let mk_sub_no_overflow  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_bvsub_no_overflow t1 t2
   let mk_sub_no_underflow  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) ( signed : bool) =
     (expr_of_ptr ctx (Z3native.mk_bvsub_no_underflow (context_gno ctx) (Expr.gno t1) (Expr.gno t2) signed))
-  let mk_sdiv_no_overflow  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    (expr_of_ptr ctx (Z3native.mk_bvsdiv_no_overflow (context_gno ctx) (Expr.gno t1) (Expr.gno t2)))
-  let mk_neg_no_overflow  ( ctx : context ) ( t : expr ) =
-    (expr_of_ptr ctx (Z3native.mk_bvneg_no_overflow (context_gno ctx) (Expr.gno t)))
+  let mk_sdiv_no_overflow  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_bvsdiv_no_overflow t1 t2
+  let mk_neg_no_overflow  ( ctx : context ) ( t : expr ) = apply1 ctx Z3native.mk_bvneg_no_overflow t
   let mk_mul_no_overflow  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) ( signed : bool) =
     (expr_of_ptr ctx (Z3native.mk_bvmul_no_overflow (context_gno ctx) (Expr.gno t1) (Expr.gno t2) signed))
-  let mk_mul_no_underflow  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    (expr_of_ptr ctx (Z3native.mk_bvmul_no_underflow (context_gno ctx) (Expr.gno t1) (Expr.gno t2)))       
+  let mk_mul_no_underflow  ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_bvmul_no_underflow t1 t2
   let mk_numeral ( ctx : context ) ( v : string ) ( size : int ) =
     expr_of_ptr ctx (Z3native.mk_numeral (context_gno ctx) v (Sort.gno (mk_sort ctx size)))
 end
@@ -1949,7 +1926,7 @@ struct
      (expr_of_ptr ctx (Z3native.mk_fpa_zero (context_gno ctx) (Sort.gno s) negative))
 
   let mk_fp ( ctx : context ) ( sign : expr ) ( exponent : expr ) ( significand : expr ) =
-     (expr_of_ptr ctx (Z3native.mk_fpa_fp (context_gno ctx) (Expr.gno sign) (Expr.gno exponent) (Expr.gno significand)))
+     apply3 ctx Z3native.mk_fpa_fp sign exponent significand
   let mk_numeral_f ( ctx : context ) ( value : float ) ( s : Sort.sort ) =
      (expr_of_ptr ctx (Z3native.mk_fpa_numeral_double (context_gno ctx) value (Sort.gno s)))
   let mk_numeral_i ( ctx : context ) ( value : int ) ( s : Sort.sort ) =
@@ -1997,54 +1974,30 @@ struct
   let mk_const_s ( ctx : context ) ( name : string ) ( s : Sort.sort ) =
     mk_const ctx (Symbol.mk_string ctx name) s
 
-  let mk_abs ( ctx : context ) ( t : expr ) =
-    expr_of_ptr ctx (Z3native.mk_fpa_abs (context_gno ctx) (Expr.gno t))
-  let mk_neg ( ctx : context ) ( t : expr ) =
-    expr_of_ptr ctx (Z3native.mk_fpa_neg (context_gno ctx) (Expr.gno t))
-  let mk_add ( ctx : context ) ( rm : expr ) ( t1 : expr ) ( t2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_fpa_add (context_gno ctx) (Expr.gno rm) (Expr.gno t1) (Expr.gno t2))
-  let mk_sub ( ctx : context ) ( rm : expr ) ( t1 : expr ) ( t2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_fpa_sub (context_gno ctx) (Expr.gno rm) (Expr.gno t1) (Expr.gno t2))
-  let mk_mul ( ctx : context ) ( rm : expr ) ( t1 : expr ) ( t2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_fpa_mul (context_gno ctx) (Expr.gno rm) (Expr.gno t1) (Expr.gno t2))
-  let mk_div ( ctx : context ) ( rm : expr ) ( t1 : expr ) ( t2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_fpa_div (context_gno ctx) (Expr.gno rm) (Expr.gno t1) (Expr.gno t2))
-  let mk_fma ( ctx : context ) ( rm : expr ) ( t1 : expr ) ( t2 : expr ) ( t3 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_fpa_fma (context_gno ctx) (Expr.gno rm) (Expr.gno t1) (Expr.gno t2) (Expr.gno t3))
-  let mk_sqrt ( ctx : context ) ( rm : expr ) ( t : expr ) =
-    expr_of_ptr ctx (Z3native.mk_fpa_sqrt (context_gno ctx) (Expr.gno rm) (Expr.gno t))
-  let mk_rem ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_fpa_rem (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
-  let mk_round_to_integral  ( ctx : context ) ( rm : expr ) ( t : expr ) =
-    expr_of_ptr ctx (Z3native.mk_fpa_round_to_integral (context_gno ctx) (Expr.gno rm) (Expr.gno t))
-  let mk_min ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_fpa_min (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
-  let mk_max ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_fpa_max (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
-  let mk_leq ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_fpa_leq (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
-  let mk_lt ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_fpa_lt (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
-  let mk_geq ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_fpa_geq (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
-  let mk_gt ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_fpa_gt (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
-  let mk_eq ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
-    expr_of_ptr ctx (Z3native.mk_fpa_eq (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
-  let mk_is_normal ( ctx : context ) ( t : expr ) =
-    expr_of_ptr ctx (Z3native.mk_fpa_is_normal (context_gno ctx) (Expr.gno t))
-  let mk_is_subnormal ( ctx : context ) ( t : expr ) =
-    expr_of_ptr ctx (Z3native.mk_fpa_is_subnormal (context_gno ctx) (Expr.gno t))
-  let mk_is_zero ( ctx : context ) ( t : expr ) =
-    expr_of_ptr ctx (Z3native.mk_fpa_is_zero (context_gno ctx) (Expr.gno t))
-  let mk_is_infinite  ( ctx : context ) ( t : expr ) =
-    expr_of_ptr ctx (Z3native.mk_fpa_is_infinite (context_gno ctx) (Expr.gno t))
-  let mk_is_nan ( ctx : context ) ( t : expr ) =
-    expr_of_ptr ctx (Z3native.mk_fpa_is_nan (context_gno ctx) (Expr.gno t))
-  let mk_is_negative  ( ctx : context ) ( t : expr ) =
-    expr_of_ptr ctx (Z3native.mk_fpa_is_negative (context_gno ctx) (Expr.gno t))
-  let mk_is_positive ( ctx : context ) ( t : expr ) =
-    expr_of_ptr ctx (Z3native.mk_fpa_is_positive (context_gno ctx) (Expr.gno t))
+  let mk_abs ( ctx : context ) ( t : expr ) = apply1 ctx Z3native.mk_fpa_abs t
+  let mk_neg ( ctx : context ) ( t : expr ) = apply1 ctx Z3native.mk_fpa_neg t
+  let mk_add ( ctx : context ) ( rm : expr ) ( t1 : expr ) ( t2 : expr ) = apply3 ctx Z3native.mk_fpa_add rm t1 t2
+  let mk_sub ( ctx : context ) ( rm : expr ) ( t1 : expr ) ( t2 : expr ) = apply3 ctx Z3native.mk_fpa_sub rm t1 t2
+  let mk_mul ( ctx : context ) ( rm : expr ) ( t1 : expr ) ( t2 : expr ) = apply3 ctx Z3native.mk_fpa_mul rm t1 t2
+  let mk_div ( ctx : context ) ( rm : expr ) ( t1 : expr ) ( t2 : expr ) = apply3 ctx Z3native.mk_fpa_div rm t1 t2
+  let mk_fma ( ctx : context ) ( rm : expr ) ( t1 : expr ) ( t2 : expr ) ( t3 : expr ) = apply4 ctx Z3native.mk_fpa_fma rm t1 t2 t3
+  let mk_sqrt ( ctx : context ) ( rm : expr ) ( t : expr ) = apply2 ctx Z3native.mk_fpa_sqrt rm t
+  let mk_rem ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_fpa_rem t1 t2
+  let mk_round_to_integral  ( ctx : context ) ( rm : expr ) ( t : expr ) = apply2 ctx Z3native.mk_fpa_round_to_integral rm t
+  let mk_min ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_fpa_min t1 t2
+  let mk_max ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_fpa_max t1 t2
+  let mk_leq ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_fpa_leq t1 t2
+  let mk_lt ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =  apply2 ctx Z3native.mk_fpa_lt t1 t2
+  let mk_geq ( ctx : context ) ( t1 : expr ) ( t2 : expr ) = apply2 ctx Z3native.mk_fpa_geq t1 t2
+  let mk_gt ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =  apply2 ctx Z3native.mk_fpa_gt t1 t2
+  let mk_eq ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =  apply2 ctx Z3native.mk_fpa_eq t1 t2
+  let mk_is_normal ( ctx : context ) ( t : expr ) =          apply1 ctx Z3native.mk_fpa_is_normal t
+  let mk_is_subnormal ( ctx : context ) ( t : expr ) =       apply1 ctx Z3native.mk_fpa_is_subnormal t
+  let mk_is_zero ( ctx : context ) ( t : expr ) =            apply1 ctx Z3native.mk_fpa_is_zero t
+  let mk_is_infinite  ( ctx : context ) ( t : expr ) =       apply1 ctx Z3native.mk_fpa_is_infinite t
+  let mk_is_nan ( ctx : context ) ( t : expr ) =             apply1 ctx Z3native.mk_fpa_is_nan t
+  let mk_is_negative  ( ctx : context ) ( t : expr ) =       apply1 ctx Z3native.mk_fpa_is_negative t
+  let mk_is_positive ( ctx : context ) ( t : expr ) =        apply1 ctx Z3native.mk_fpa_is_positive t
   let mk_to_fp_bv ( ctx : context ) ( t : expr ) ( s : Sort.sort ) =
     expr_of_ptr ctx (Z3native.mk_fpa_to_fp_bv (context_gno ctx) (Expr.gno t) (Sort.gno s))
   let mk_to_fp_float ( ctx : context ) ( rm : expr) ( t : expr ) ( s : Sort.sort ) =
@@ -2059,8 +2012,7 @@ struct
     expr_of_ptr ctx (Z3native.mk_fpa_to_ubv (context_gno ctx) (Expr.gno rm) (Expr.gno t) size)
   let mk_to_sbv ( ctx : context ) ( rm : expr) ( t : expr ) ( size : int ) =
     expr_of_ptr ctx (Z3native.mk_fpa_to_sbv (context_gno ctx) (Expr.gno rm) (Expr.gno t) size)
-  let mk_to_real ( ctx : context ) ( t : expr ) =
-    expr_of_ptr ctx (Z3native.mk_fpa_to_real (context_gno ctx) (Expr.gno t))
+  let mk_to_real ( ctx : context ) ( t : expr ) = apply1 ctx Z3native.mk_fpa_to_real t
 
   let get_ebits ( ctx : context ) ( s : Sort.sort ) =
      (Z3native.fpa_get_ebits (context_gno ctx) (Sort.gno s))
