@@ -354,6 +354,7 @@ namespace smt {
     */
     template<typename Ext>
     interval theory_arith<Ext>::evaluate_as_interval(expr * n) {
+        expr* arg;
         TRACE("nl_evaluate", tout << "evaluating: " << mk_bounded_pp(n, get_manager(), 10) << "\n";);
         if (has_var(n)) {
             TRACE("nl_evaluate", tout << "n has a variable associated with it\n";);
@@ -384,6 +385,9 @@ namespace smt {
             } 
             TRACE("cross_nested_eval_bug", display_nested_form(tout, n); tout << "\ninterval: " << r << "\n";);
             return r;
+        }
+        else if (m_util.is_to_real(n, arg)) {
+            return evaluate_as_interval(arg);
         }
         else {
             rational val;
@@ -1660,7 +1664,7 @@ namespace smt {
                 3) (new non-int coeffs) This only happens in an optional step in the conversion. Now, for int rows, I only apply this optional step only if non-int coeffs are not created.
         */
 
-        if (is_mixed_real_integer(r))
+        if (!get_manager().int_real_coercions() && is_mixed_real_integer(r))
             return true; // giving up... see comment above
 
         TRACE("cross_nested", tout << "cheking problematic row...\n";);
