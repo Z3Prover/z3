@@ -551,6 +551,9 @@ bool theory_seq::is_solved() {
         IF_VERBOSE(10, verbose_stream() << "(seq.giveup " << m_eqs[0].ls() << " = " << m_eqs[0].rs() << " is unsolved)\n";);
         return false;
     }
+    if (!m_nqs.empty()) {
+        return false;
+    }
     for (unsigned i = 0; i < m_automata.size(); ++i) {
         if (!m_automata[i]) {
             IF_VERBOSE(10, verbose_stream() << "(seq.giveup regular expression did not compile to automaton)\n";);
@@ -967,10 +970,10 @@ bool theory_seq::solve_ne(unsigned idx) {
         }
     }
 
+    bool updated = false;
     dependency* new_deps = n.dep();
     vector<expr_ref_vector> new_ls, new_rs;
     literal_vector new_lits(n.lits());
-    bool updated = false;
     for (unsigned i = 0; i < n.ls().size(); ++i) {
         expr_ref_vector& ls = m_ls;
         expr_ref_vector& rs = m_rs;
@@ -986,8 +989,7 @@ bool theory_seq::solve_ne(unsigned idx) {
             return true;
         }
         else if (!change) {
-//            std::cout << n.ls(i) << " " << ls << "\n";
-//            std::cout << n.rs(i) << " " << rs << "\n";
+            TRACE("seq", tout << "no change " << n.ls(i) << " " << n.rs(i) << "\n";);
             continue;
         }
         else {
@@ -1015,7 +1017,7 @@ bool theory_seq::solve_ne(unsigned idx) {
                 expr* nr = rhs[j].get();
                 if (m_util.is_seq(nl) || m_util.is_re(nl)) {
                     ls.reset();
-                    rs.reset(); 
+                     rs.reset(); 
                     SASSERT(!m_util.str.is_concat(nl));
                     SASSERT(!m_util.str.is_concat(nr));
                     ls.push_back(nl); rs.push_back(nr);
@@ -1041,6 +1043,16 @@ bool theory_seq::solve_ne(unsigned idx) {
             new_deps = m_dm.mk_join(deps, new_deps);
         }
     }
+    if (!updated && num_undef_lits == 0) {
+        return false;
+    }
+    if (!updated) {
+        for (unsigned j = 0; j < n.ls().size(); ++j) {
+            new_ls.push_back(n.ls(j));
+            new_rs.push_back(n.rs(j));
+        }
+    }                                  
+
     if (num_undef_lits == 1 && new_ls.empty()) {
         literal_vector lits;
         literal undef_lit = null_literal;
@@ -1064,7 +1076,7 @@ bool theory_seq::solve_ne(unsigned idx) {
         propagate_lit(new_deps, lits.size(), lits.c_ptr(), ~undef_lit); 
         return true;
     }
-    else if (updated) {
+    if (updated) {
         if (num_undef_lits == 0 && new_ls.empty()) {
             TRACE("seq", tout << "conflict\n";);
             set_conflict(new_deps, new_lits);
