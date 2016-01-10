@@ -1754,10 +1754,37 @@ class MLComponent(Component):
         self.stubs = "z3native_stubs"
         self.sub_dir = os.path.join('api', 'ml')
 
+        self.destdir = ""
+        self.ldconf = ""
+        # Calling _init_ocamlfind_paths() is postponed to later because
+        # OCAMLFIND hasn't been checked yet.
+
     def _install_bindings(self):
         # FIXME: Depending on global state is gross.  We can't pre-compute this
         # in the constructor because we haven't tested for ocamlfind yet
         return OCAMLFIND != ''
+
+    def _init_ocamlfind_paths(self):
+        """
+            Initialises self.destdir and self.ldconf
+
+            Do not call this from the MLComponent constructor because OCAMLFIND
+            has not been checked at that point
+        """
+        if self.destdir != "" and self.ldconf != "":
+            # Initialisation already done
+            return
+        # Use Ocamlfind to get the default destdir and ldconf path
+        self.destdir = check_output([OCAMLFIND, 'printconf', 'destdir'])
+        if self.destdir == "":
+            raise MKException('Failed to get OCaml destdir')
+
+        if not os.path.isdir(self.destdir):
+            raise MKException('The destdir reported by {ocamlfind} ({destdir}) does not exist'.format(ocamlfind=OCAMLFIND, destdir=self.destdir))
+
+        self.ldconf = check_output([OCAMLFIND, 'printconf', 'ldconf'])
+        if self.ldconf == "":
+            raise MKException('Failed to get OCaml ldconf path')
 
     def final_info(self):
         if not self._install_bindings():
@@ -1851,7 +1878,21 @@ class MLComponent(Component):
 
     def mk_install(self, out):
         if is_ml_enabled() and self._install_bindings():
-            out.write('\t@%s install Z3 %s' % (OCAMLFIND, (os.path.join(self.sub_dir, 'META'))))
+            self._init_ocamlfind_paths()
+            in_prefix = self.destdir.startswith(PREFIX)
+            maybe_stripped_destdir = strip_path_prefix(self.destdir, PREFIX)
+            # Note that when doing a staged install with DESTDIR that modifying
+            # OCaml's ``ld.conf`` may fail. Therefore packagers will need to
+            # make their packages modify it manually at package install time
+            # as opposed to ``make install`` time.
+            MakeRuleCmd.make_install_directory(out,
+                                               maybe_stripped_destdir,
+                                               in_prefix=in_prefix)
+            out.write('\t@{ocamlfind} install -ldconf $(DESTDIR){ldconf} -destdir $(DESTDIR){ocaml_destdir} Z3 {metafile}'.format(
+                ldconf=self.ldconf,
+                ocamlfind=OCAMLFIND,
+                ocaml_destdir=self.destdir,
+                metafile=os.path.join(self.sub_dir, 'META')))
 
             for m in self.modules:
                 out.write(' ' + os.path.join(self.to_src_dir, m) + '.mli')
@@ -1870,7 +1911,11 @@ class MLComponent(Component):
 
     def mk_uninstall(self, out):
         if is_ml_enabled() and self._install_bindings():
-            out.write('\t@%s remove Z3\n' % (OCAMLFIND))
+            self._init_ocamlfind_paths()
+            out.write('\t@{ocamlfind} remove -ldconf $(DESTDIR){ldconf} -destdir $(DESTDIR){ocaml_destdir} Z3\n'.format(
+                ldconf=self.ldconf,
+                ocamlfind=OCAMLFIND,
+                ocaml_destdir=self.destdir))
 
     def main_component(self):
         return is_ml_enabled()
