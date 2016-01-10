@@ -460,7 +460,7 @@ def find_ocaml_find():
         print ("Testing %s..." % OCAMLFIND)
     r = exec_cmd([OCAMLFIND, 'printconf'])
     if r != 0:
-        OCAMLFIND=''
+        OCAMLFIND = ''
 
 def find_ml_lib():
     global OCAML_LIB
@@ -630,6 +630,7 @@ def display_help(exit_code):
     print("  JDK_HOME   JDK installation directory (only relevant if -j or --java option is provided)")
     print("  JNI_HOME   JNI bindings directory (only relevant if -j or --java option is provided)")
     print("  OCAMLC     Ocaml byte-code compiler (only relevant with --ml)")
+    print("  OCAMLFIND  Ocaml find tool (only relevant with --ml)")
     print("  OCAMLOPT   Ocaml native compiler (only relevant with --ml)")
     print("  OCAML_LIB  Ocaml library directory (only relevant with --ml)")
     print("  CSC        C# Compiler (only relevant if .NET bindings are enabled)")
@@ -1753,6 +1754,15 @@ class MLComponent(Component):
         self.stubs = "z3native_stubs"
         self.sub_dir = os.path.join('api', 'ml')
 
+    def _install_bindings(self):
+        # FIXME: Depending on global state is gross.  We can't pre-compute this
+        # in the constructor because we haven't tested for ocamlfind yet
+        return OCAMLFIND != ''
+
+    def final_info(self):
+        if not self._install_bindings():
+            print("WARNING: Could not find ocamlfind utility. OCaml bindings will not be installed")
+
     def mk_makefile(self, out):
         if is_ml_enabled():
             src_dir = self.to_src_dir
@@ -1832,7 +1842,7 @@ class MLComponent(Component):
                 out.write('\n')
 
     def mk_install_deps(self, out):
-        if is_ml_enabled() and OCAMLFIND != '':
+        if is_ml_enabled() and self._install_bindings():
             out.write(get_component(Z3_DLL_COMPONENT).dll_name + '$(SO_EXT) ')
             out.write(os.path.join(self.sub_dir, 'META '))
             out.write(os.path.join(self.sub_dir, 'z3ml.cma '))
@@ -1840,7 +1850,7 @@ class MLComponent(Component):
             out.write(os.path.join(self.sub_dir, 'z3ml.cmxs '))
 
     def mk_install(self, out):
-        if is_ml_enabled() and OCAMLFIND != '':
+        if is_ml_enabled() and self._install_bindings():
             out.write('\t@%s install Z3 %s' % (OCAMLFIND, (os.path.join(self.sub_dir, 'META'))))
 
             for m in self.modules:
@@ -1859,7 +1869,7 @@ class MLComponent(Component):
             out.write('\n')
 
     def mk_uninstall(self, out):
-        if is_ml_enabled() and OCAMLFIND != '':
+        if is_ml_enabled() and self._install_bindings():
             out.write('\t@%s remove Z3\n' % (OCAMLFIND))
 
     def main_component(self):
@@ -2175,6 +2185,7 @@ def mk_config():
                 print('Java Compiler:  %s' % JAVAC)
             if is_ml_enabled():
                 print('OCaml Compiler: %s' % OCAMLC)
+                print('OCaml Find tool: %s' % OCAMLFIND)
                 print('OCaml Native:   %s' % OCAMLOPT)
                 print('OCaml Library:  %s' % OCAML_LIB)
     else:
@@ -2310,6 +2321,7 @@ def mk_config():
                 print('Java Compiler:  %s' % JAVAC)
             if is_ml_enabled():
                 print('OCaml Compiler: %s' % OCAMLC)
+                print('OCaml Find tool: %s' % OCAMLFIND)
                 print('OCaml Native:   %s' % OCAMLOPT)
                 print('OCaml Library:  %s' % OCAML_LIB)
             if is_dotnet_enabled():
