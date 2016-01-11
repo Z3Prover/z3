@@ -25,16 +25,33 @@ class lackr_model_constructor {
         typedef std::pair<app *, app *>           app_pair;
         typedef vector<app_pair>                  conflict_list;
         lackr_model_constructor(ast_manager& m, ackr_info_ref info);
+        ~lackr_model_constructor();
         bool check(model_ref& abstr_model);
         const conflict_list& get_conflicts() {
-            SASSERT(state == CONFLICT);
-            return conflicts;
+            SASSERT(m_state == CONFLICT);
+            return m_conflicts;
+        }
+        void make_model(model_ref& model);
+
+        //
+        // Reference counting
+        //
+        void inc_ref() { ++m_ref_count; }
+        void dec_ref() {
+            --m_ref_count;
+            if (m_ref_count == 0) {
+                dealloc(this);
+            }
         }
     private:
         struct imp;
-        enum {CHECKED, CONFLICT, UNKNOWN}  state;
-        conflict_list                      conflicts;
-        ast_manager&                       m;
-        const ackr_info_ref                info;
+        imp * m_imp;
+        enum {CHECKED, CONFLICT, UNKNOWN}  m_state;
+        conflict_list                      m_conflicts;
+        ast_manager&                       m_m;
+        const ackr_info_ref                m_info;
+        unsigned m_ref_count; // reference counting
 };
+
+typedef ref<lackr_model_constructor> lackr_model_constructor_ref;
 #endif /* MODEL_CONSTRUCTOR_H_626 */

@@ -68,6 +68,57 @@ struct lackr_model_constructor::imp {
             }
             return run();
         }
+
+
+        void make_model(model_ref& destination) {
+            {
+                for (unsigned i = 0; i < m_abstr_model->get_num_uninterpreted_sorts(); i++) {
+                    sort * const s = m_abstr_model->get_uninterpreted_sort(i);
+                    ptr_vector<expr> u = m_abstr_model->get_universe(s);
+                    destination->register_usort(s, u.size(), u.c_ptr());
+                }
+            }
+            {
+                const app2val_t::iterator e = m_app2val.end();
+                app2val_t::iterator i = m_app2val.end();
+                for (; i != e; ++i) {
+                    app * a = i->m_key;
+                    if (a->get_num_args()) continue;
+                    destination->register_decl(a->get_decl(), i->m_value);
+                }
+            }
+
+            obj_map<func_decl, func_interp*> interpretations;
+            {
+                const values2val_t::iterator e = m_values2val.end();
+                values2val_t::iterator i = m_values2val.end();
+                for (; i != e; ++i) add_entry(i->m_key, i->m_value.value, interpretations);                
+            }
+
+            {
+                obj_map<func_decl, func_interp*>::iterator ie = interpretations.end();
+                obj_map<func_decl, func_interp*>::iterator ii = interpretations.begin();
+                for (; ii != ie; ++ii) {
+                    func_decl* const fd = ii->m_key;
+                    func_interp* const fi = ii->get_value();
+                    fi->set_else(m_m.get_some_value(fd->get_range()));
+                    destination->register_decl(fd, fi);
+                }
+            }
+        }
+
+        void add_entry(app* term, expr* value,
+            obj_map<func_decl, func_interp*>& interpretations) {
+            func_interp* fi = 0;
+            func_decl * const declaration = term->get_decl();
+            const unsigned sz = declaration->get_arity();
+            SASSERT(sz == term->get_num_args());
+            if (!interpretations.find(declaration, fi)) {
+                fi = alloc(func_interp, m_m, sz);
+                interpretations.insert(declaration, fi);
+            }          
+            fi->insert_new_entry(term->get_args(), value);
+        }
     private:
         ast_manager&                    m_m;
         ackr_info_ref                   m_info;
@@ -299,15 +350,30 @@ struct lackr_model_constructor::imp {
 };
 
 lackr_model_constructor::lackr_model_constructor(ast_manager& m, ackr_info_ref info)
-    : m(m)
-    , state(UNKNOWN)
-    , info(info)
+    : m_imp(0)
+    , m_m(m)
+    , m_state(UNKNOWN)
+    , m_info(info)
+    , m_ref_count(0)
 {}
 
+lackr_model_constructor::~lackr_model_constructor() {
+    if (m_imp) dealloc(m_imp);
+}
+
 bool lackr_model_constructor::check(model_ref& abstr_model) {
-    conflicts.reset();
-    lackr_model_constructor::imp i(m, info, abstr_model, conflicts);
-    const bool rv = i.check();
-    state = rv ? CHECKED : CONFLICT;
+    m_conflicts.reset();
+    if (m_imp) {
+        dealloc(m_imp);
+        m_imp = 0;
+    }
+    m_imp = alloc(lackr_model_constructor::imp, m_m, m_info, abstr_model, m_conflicts);
+    const bool rv = m_imp->check();
+    m_state = rv ? CHECKED : CONFLICT;
     return rv;
+}
+
+void lackr_model_constructor::make_model(model_ref& model) {
+    SASSERT(m_state == CHECKED);
+    m_imp->make_model(model);
 }
