@@ -399,6 +399,45 @@ namespace smt {
 
 #endif
 
+    bool context::validate_model() {
+        if (!m_proto_model) {
+            return true;
+        }
+        ast_manager& m = m_manager;
+        literal_vector::const_iterator it  = m_assigned_literals.begin();
+        literal_vector::const_iterator end = m_assigned_literals.end();
+        for (; it != end; ++it) {
+            literal lit = *it;
+            if (!is_relevant(lit)) {
+                continue;
+            }
+            expr_ref n(m), res(m);
+            literal2expr(lit, n);
+            if (!is_ground(n)) {
+                continue;
+            }
+            switch (get_assignment(*it)) {
+            case l_undef:
+                break;
+            case l_true:
+                m_proto_model->eval(n, res, false);
+                CTRACE("mbqi_bug", !m.is_true(res), tout << n << " evaluates to " << res << "\n";); 
+                if (m.is_false(res)) {
+                    return false;
+                }
+                break;
+            case l_false:
+                m_proto_model->eval(n, res, false);
+                CTRACE("mbqi_bug", !m.is_false(res), tout << n << " evaluates to " << res << "\n";); 
+                if (m.is_true(res)) {
+                    return false;
+                }
+                break;
+            }
+        }
+        return true;
+    }
+
     /**
        \brief validate unsat core returned by 
      */
