@@ -105,16 +105,15 @@ Z3 has bindings for various programming languages.
 
 ### ``.NET``
 
-These bindings are enabled by default on Windows and are enabled on other
-platforms if [mono](http://www.mono-project.com/) is detected. On these
+Use the ``--dotnet`` command line flag with ``mk_make.py`` to enable building these.
+
+On non-windows platforms [mono](http://www.mono-project.com/) is required. On these
 platforms the location of the C# compiler and gac utility need to be known. You
 can set these as follows if they aren't detected automatically. For example:
 
 ```bash
-CSC=/usr/bin/csc GACUTIL=/usr/bin/gacutil python scripts/mk_make.py
+CSC=/usr/bin/csc GACUTIL=/usr/bin/gacutil python scripts/mk_make.py --dotnet
 ```
-
-To disable building these bindings pass ``--nodotnet`` to ``mk_make.py``.
 
 Note for very old versions of Mono (e.g. ``2.10``) you may need to set ``CSC``
 to ``/usr/bin/dmcs``.
