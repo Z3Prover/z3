@@ -36,12 +36,9 @@ public:
     lackr_tactic(ast_manager& m, params_ref const& p)
         : m_m(m)
         , m_p(p)
-        , m_imp(0) 
     {}
 
-    virtual ~lackr_tactic() {
-        if (m_imp) dealloc(m_imp);
-    }
+    virtual ~lackr_tactic() { }
 
     virtual void operator()(goal_ref const & g,
         goal_ref_buffer & result,
@@ -57,8 +54,8 @@ public:
         expr_ref f(m);
         f = m.mk_and(flas.size(), flas.c_ptr());
         // running implementation
-        m_imp = alloc(lackr, m, m_p, m_st, f);
-        const lbool o = m_imp->operator()();
+        scoped_ptr<lackr> imp = alloc(lackr, m, m_p, m_st, f);
+        const lbool o = imp->operator()();
         flas.reset();
         // report result
         goal_ref resg(alloc(goal, *g, true));
@@ -66,16 +63,9 @@ public:
         if (o != l_undef) result.push_back(resg.get());
         // report model
         if (g->models_enabled() && (o == l_true)) {
-            model_ref abstr_model = m_imp->get_model();
-            mc = mk_lackr_model_converter(m, m_imp->get_info(), abstr_model);
+            model_ref abstr_model = imp->get_model();
+            mc = mk_lackr_model_converter(m, imp->get_info(), abstr_model);
         }
-        // cleanup
-        lackr * d = m_imp;
-        #pragma omp critical (lackr)
-        {
-            m_imp = 0;
-        }
-        dealloc(d);
     }
 
     virtual void collect_statistics(statistics & st) const {
@@ -91,15 +81,9 @@ public:
     virtual tactic* translate(ast_manager& m) {
         return alloc(lackr_tactic, m, m_p);
     }
-
-    // Currently tactics are not cancelable.
-    //virtual void set_cancel(bool f) {
-    //        if (m_imp) m_imp->set_cancel(f);
-    //}
 private:
     ast_manager&                         m_m;
     params_ref                           m_p;
-    lackr*                               m_imp;
     lackr_stats                          m_st;
 };
 

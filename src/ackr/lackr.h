@@ -17,16 +17,16 @@
 #ifndef LACKR_H_15079
 #define LACKR_H_15079
 ///////////////
-#include"inc_sat_solver.h"
-#include"qfaufbv_tactic.h"
-#include"qfbv_tactic.h"
-#include"tactic2solver.h"
 #include"ackr_info.h"
 #include"ackr_params.hpp"
-#include"tactic_exception.h"
 #include"th_rewriter.h"
-#include"bv_decl_plugin.h"
 #include"cooperate.h"
+#include"bv_decl_plugin.h"
+#include"lbool.h"
+#include"model.h"
+#include"solver.h"
+#include"util.h"
+#include"tactic_exception.h"
 
 struct lackr_stats {
     lackr_stats() : m_it(0), m_ackrs_sz(0) {}
@@ -37,8 +37,7 @@ struct lackr_stats {
 
 class lackr {
     public:
-        lackr(ast_manager& m, params_ref p,lackr_stats& st,
-            expr_ref _f);
+        lackr(ast_manager& m, params_ref p, lackr_stats& st, expr_ref _f);
         ~lackr();
         void updt_params(params_ref const & _p) {
             ackr_params p(_p);
@@ -54,26 +53,14 @@ class lackr {
         inline model_ref get_model() { return m_model; }
 
         //
-        //  timeout mechanisms
+        //  timeout mechanism
         //
         void checkpoint() {
-            //std::cout << "chk\n";
-            if (m_m.canceled()) {
-                std::cout << "canceled\n";
+            if (m_m.canceled()) {            
                 throw tactic_exception(TACTIC_CANCELED_MSG);
             }
             cooperate("lackr");
         }
-
-        //virtual void set_cancel(bool f) {
-        //    //#pragma omp critical (lackr_cancel)
-        //    {
-        //        m_cancel = f;
-        //        if (m_sat == NULL) return;
-        //        if (f) m_sat->cancel();
-        //        else m_sat->reset_cancel();
-        //    }
-        //}
     private:
         typedef obj_hashtable<app>           app_set;
         typedef obj_map<func_decl, app_set*> fun2terms_map;
@@ -88,33 +75,32 @@ class lackr {
         th_rewriter                          m_simp;
         expr_ref_vector                      m_ackrs;
         model_ref                            m_model;
-        volatile bool                        m_cancel;
         bool                                 m_eager;
         bool                                 m_use_sat;
         lackr_stats&                         m_st;
 
-        bool init();
+        void init();
         void setup_sat();
         lbool eager();
         lbool lazy();
 
         //
-        // Introduce ackermann lemma for the two given terms.
+        // Introduce congruence ackermann lemma for the two given terms.
         //
         bool ackr(app * const t1, app * const t2);
 
         //
         // Introduce the ackermann lemma for each pair of terms.
         //
-        bool eager_enc();
+        void eager_enc();
 
-        bool abstract();
+        void abstract();
 
         void add_term(app* a);
 
         //
-        // Collect all uninterpreted terms.
+        // Collect all uninterpreted terms, skipping 0-arity.
         //
-        bool collect_terms();
+        void collect_terms();
 };
 #endif /* LACKR_H_15079 */
