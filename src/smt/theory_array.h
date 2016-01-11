@@ -49,7 +49,7 @@ namespace smt {
             var_data():m_prop_upward(false), m_is_array(false), m_is_select(false) {}
         };
         ptr_vector<var_data>            m_var_data;
-        theory_array_params &           m_params;
+        theory_array_params&            m_params;
         theory_array_stats              m_stats;
         th_union_find                   m_find;
         th_trail_stack                  m_trail_stack;
@@ -98,7 +98,7 @@ namespace smt {
         theory_array(ast_manager & m, theory_array_params & params);
         virtual ~theory_array();
 
-        virtual theory * mk_fresh(context * new_ctx) { return alloc(theory_array, new_ctx->get_manager(), m_params); }
+        virtual theory * mk_fresh(context * new_ctx) { return alloc(theory_array, new_ctx->get_manager(), new_ctx->get_fparams()); }
 
         virtual char const * get_name() const { return "array"; }
 

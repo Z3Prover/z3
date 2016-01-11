@@ -85,27 +85,9 @@ namespace smt {
         d->m_is_array  = is_array_sort(n);
         if (d->m_is_array) 
             register_sort(m.get_sort(n->get_owner()));
-        d->m_is_select = is_select(n);
-        
-        expr* e1, *e2, *e3;
+        d->m_is_select = is_select(n);        
         if (is_store(n))
             d->m_stores.push_back(n);
-        else if (m.is_ite(n->get_owner(), e1, e2, e3)) {
-            ptr_vector<expr> todo;
-            todo.push_back(e2);
-            todo.push_back(e3);
-            while (!todo.empty()) {
-                e1 = todo.back();
-                todo.pop_back();
-                if (is_app(e1) && is_store(to_app(e1))) {
-                    d->m_stores.push_back(ctx.get_enode(e1));
-                }
-                else if (m.is_ite(e1, e1, e2, e3)) {
-                    todo.push_back(e2);
-                    todo.push_back(e3);
-                }
-            }
-        }
         ctx.attach_th_var(n, this, r);
         if (m_params.m_array_laziness <= 1 && is_store(n))
             instantiate_axiom1(n);
