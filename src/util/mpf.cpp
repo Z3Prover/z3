@@ -244,32 +244,35 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
         m_mpq_manager.abs(sig);
         m_mpz_manager.set(exp, exponent);
 
-        // Normalize
-        while (m_mpq_manager.ge(sig, 2)) {
-            m_mpq_manager.div(sig, mpq(2), sig);
-            m_mpz_manager.inc(exp);
+        // Normalize such that 1.0 <= sig < 2.0
+        if (m_mpq_manager.ge(sig, mpq(2))) {
+            unsigned int pp = m_mpq_manager.prev_power_of_two(sig);
+            scoped_mpz p2(m_mpz_manager);
+            m_mpq_manager.power(2, pp, p2);
+            m_mpq_manager.div(sig, p2, sig);
+            m_mpz_manager.add(exp, mpz(pp), exp);
         }
+        SASSERT(m_mpq_manager.lt(sig, mpq(2)));
 
         while (m_mpq_manager.lt(sig, 1)) {
             m_mpq_manager.mul(sig, 2, sig);
             m_mpz_manager.dec(exp);
         }
 
-        // 1.0 <= sig < 2.0
+        // Check that 1.0 <= sig < 2.0
         SASSERT((m_mpq_manager.le(1, sig) && m_mpq_manager.lt(sig, 2)));
 
-        TRACE("mpf_dbg", tout << "sig = " << m_mpq_manager.to_string(sig) <<
+        TRACE("mpf_dbg", tout << "Normalized: sig = " << m_mpq_manager.to_string(sig) <<
                                  " exp = " << m_mpz_manager.to_string(exp) << std::endl;);
 
-        m_mpz_manager.set(o.significand, 0);
-        for (unsigned i = 0; i < (sbits+3); i++) {
-            m_mpz_manager.mul2k(o.significand, 1);
-            if (m_mpq_manager.ge(sig, 1)) {
-                m_mpz_manager.inc(o.significand);
-                m_mpq_manager.dec(sig);
-            }
-            m_mpq_manager.mul(sig, mpq(2), sig);
-        }
+        scoped_mpz p(m_mpq_manager);
+        scoped_mpq t(m_mpq_manager), sq(m_mpq_manager);
+        m_mpz_manager.power(2, sbits + 3 - 1, p);
+        m_mpq_manager.mul(p, sig, t);
+        m_mpq_manager.floor(t, o.significand);
+        m_mpq_manager.set(sq, o.significand);
+        m_mpq_manager.div(sq, p, t);
+        m_mpq_manager.sub(sig, t, sig);
 
         // sticky
         if (!m_mpq_manager.is_zero(sig) && m_mpz_manager.is_even(o.significand))
