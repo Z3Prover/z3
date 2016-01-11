@@ -114,9 +114,16 @@ struct dl_context {
         }
     }    
 
-    bool collect_query(expr* q) {
+    bool collect_query(func_decl* q) {
         if (m_collected_cmds) {
-            expr_ref qr = m_context->bind_vars(q, false);
+            ast_manager& m = m_cmd.m();
+            expr_ref qr(m);
+            expr_ref_vector args(m);
+            for (unsigned i = 0; i < q->get_arity(); ++i) {
+                args.push_back(m.mk_var(i, q->get_domain(i)));
+            }
+            qr = m.mk_app(q, args.size(), args.c_ptr());
+            qr = m_context->bind_vars(qr, false);
             m_collected_cmds->m_queries.push_back(qr);
             m_trail.push(push_back_vector<dl_context, expr_ref_vector>(m_collected_cmds->m_queries));
             return true;
@@ -187,30 +194,30 @@ public:
     virtual void finalize(cmd_context & ctx) { 
     }
     virtual void execute(cmd_context & ctx) {
-      m_dl_ctx->add_rule(m_t, m_name, m_bound);
+        m_dl_ctx->add_rule(m_t, m_name, m_bound);
     }
 };
 
 class dl_query_cmd : public parametric_cmd {
     ref<dl_context> m_dl_ctx;
-    expr* m_target;
+    func_decl* m_target;
 public:
     dl_query_cmd(dl_context * dl_ctx):
         parametric_cmd("query"),
         m_dl_ctx(dl_ctx),
         m_target(0) {
     }
-    virtual char const * get_usage() const { return "(exists (q) (and body))"; }
+    virtual char const * get_usage() const { return "predicate"; }
     virtual char const * get_main_descr() const { 
-        return "pose a query based on the Horn rules."; 
+        return "pose a query to a predicate based on the Horn rules."; 
     }
 
     virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const { 
-        if (m_target == 0) return CPK_EXPR;
+        if (m_target == 0) return CPK_FUNC_DECL;
         return parametric_cmd::next_arg_kind(ctx);
     }
 
-    virtual void set_next_arg(cmd_context & ctx, expr * t) {
+    virtual void set_next_arg(cmd_context & ctx, func_decl* t) {
         m_target = t;
     }
 
@@ -239,7 +246,7 @@ public:
             scoped_timer timer(timeout, &eh);
             cmd_context::scoped_watch sw(ctx);
             try {
-                status = dlctx.query(m_target);
+                status = dlctx.rel_query(1, &m_target);
             }
             catch (z3_error & ex) {
                 ctx.regular_stream() << "(error \"query failed: " << ex.msg() << "\")" << std::endl;
