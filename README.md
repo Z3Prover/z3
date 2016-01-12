@@ -66,31 +66,6 @@ make
 make install
 ```
 
-Note the above will typically disable the installation of the Python bindings
-because the Python ``site-packages``  directory (e.g.
-``/usr/lib/python3.5/site-packages/``) is not rooted in the install prefix and
-installing outside of the install prefix is dangerous and misleading.
-
-To avoid this issue you can use the ``DESTDIR`` makefile variable and leave the
-install prefix as the default. The ``DESTDIR`` variable is prepended to the
-install locations during ``make install`` and ``make uninstall`` and is intended
-to allow ["staged installs"](https://www.gnu.org/prep/standards/html_node/DESTDIR.html).
-Therefore it must always contain a trailing slash.
-
-For example:
-
-```bash
-python scripts/mk_make.py
-cd build
-make
-make install DESTDIR=/home/leo/
-```
-
-In this example, the Z3 Python bindings will be stored at
-``/home/leo/lib/pythonX.Y/site-packages``
-(``/home/leo/lib/pythonX.Y/dist-packages`` on Debian based Linux
-distributions) where X.Y corresponds to the python version in your system.
-
 To uninstall Z3, use
 
 ```bash
@@ -105,16 +80,15 @@ Z3 has bindings for various programming languages.
 
 ### ``.NET``
 
-These bindings are enabled by default on Windows and are enabled on other
-platforms if [mono](http://www.mono-project.com/) is detected. On these
+Use the ``--dotnet`` command line flag with ``mk_make.py`` to enable building these.
+
+On non-windows platforms [mono](http://www.mono-project.com/) is required. On these
 platforms the location of the C# compiler and gac utility need to be known. You
 can set these as follows if they aren't detected automatically. For example:
 
 ```bash
-CSC=/usr/bin/csc GACUTIL=/usr/bin/gacutil python scripts/mk_make.py
+CSC=/usr/bin/csc GACUTIL=/usr/bin/gacutil python scripts/mk_make.py --dotnet
 ```
-
-To disable building these bindings pass ``--nodotnet`` to ``mk_make.py``.
 
 Note for very old versions of Mono (e.g. ``2.10``) you may need to set ``CSC``
 to ``/usr/bin/dmcs``.
@@ -156,6 +130,34 @@ See [``examples/ml``](examples/ml) for examples.
 
 ### ``Python``
 
-These bindings are always enabled.
+Use the ``--python`` command line flag with ``mk_make.py`` to enable building these.
+
+Note that is required on certain platforms that the Python package directory
+(``site-packages`` on most distributions and ``dist-packages`` on Debian based
+distributions) live under the install prefix. If you use a non standard prefix
+you can use the ``--pypkgdir`` option to change the Python package directory
+used for installation. For example:
+
+```bash
+python scripts/mk_make.py --prefix=/home/leo --python --pypkgdir=/home/leo/lib/python-2.7/site-packages
+```
+
+If you do need to install to a non standard prefix a better approach is to use
+a [Python virtual environment](https://virtualenv.readthedocs.org/en/latest/)
+and install Z3 there.
+
+```bash
+virtualenv venv
+source venv/bin/active
+python scripts/mk_make.py --python
+cd build
+make
+make install
+# You will find Z3 and the Python bindings installed in the virtual environment
+venv/bin/z3 -h
+...
+python -c 'import z3; print(z3.get_version_string())'
+...
+```
 
 See [``examples/python``](examples/python) for examples.
