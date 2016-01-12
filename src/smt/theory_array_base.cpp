@@ -943,6 +943,18 @@ namespace smt {
                 result->add_entry(args.size(), args.c_ptr(), select);
             }
         }
+        TRACE("array", 
+              tout << mk_pp(n->get_root()->get_owner(), get_manager()) << "\n";
+              if (sel_set) {
+                  select_set::iterator it  = sel_set->begin();
+                  select_set::iterator end = sel_set->end();
+                  for (; it != end; ++it) {
+                      tout << "#" << (*it)->get_root()->get_owner()->get_id() << " " << mk_pp((*it)->get_owner(), get_manager()) << "\n";
+                  }
+              }
+              if (else_val_n) {
+                  tout << "else: " << mk_pp(else_val_n->get_owner(), get_manager()) << "\n";
+              });
         return result;
     }
 

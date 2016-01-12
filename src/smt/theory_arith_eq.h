@@ -328,6 +328,9 @@ namespace smt {
         // Ignore equality if variables are already known to be equal.
         if (is_equal(x, y))
             return;
+        if (get_manager().get_sort(var2expr(x)) != get_manager().get_sort(var2expr(y))) {
+            return;
+        }
         context & ctx      = get_context();
         region & r         = ctx.get_region();
         enode * _x         = get_enode(x);

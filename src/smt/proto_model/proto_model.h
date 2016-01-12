@@ -59,6 +59,7 @@ class proto_model : public model_core {
     void remove_aux_decls_not_in_set(ptr_vector<func_decl> & decls, func_decl_set const & s);
     void cleanup_func_interp(func_interp * fi, func_decl_set & found_aux_fs);
 
+    bool is_select_of_model_value(expr* e) const;
 
 public:
     proto_model(ast_manager & m, simplifier & s, params_ref const & p = params_ref());
@@ -68,7 +69,7 @@ public:
 
     bool eval(expr * e, expr_ref & result, bool model_completion = false);
 
-    bool is_array_value(expr * v) const;
+    bool is_as_array(expr * v) const;
     
     value_factory * get_factory(family_id fid);
 

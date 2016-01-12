@@ -1418,7 +1418,7 @@ namespace smt {
 
             func_decl * get_array_func_decl(app * ground_array, auf_solver & s) {
                 expr * ground_array_interp = s.eval(ground_array, false);
-                if (ground_array_interp != 0 && s.get_model()->is_array_value(ground_array_interp))
+                if (ground_array_interp != 0 && s.get_model()->is_as_array(ground_array_interp))
                     return to_func_decl(to_app(ground_array_interp)->get_decl()->get_parameter(0).get_ast());
                 return 0;
             }

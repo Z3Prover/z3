@@ -838,8 +838,9 @@ namespace smt {
     
     template<typename Ext>
     typename theory_arith<Ext>::inf_numeral theory_arith<Ext>::normalize_bound(theory_var v, inf_numeral const & k, bound_kind kind) {
-        if (is_real(v))
+        if (is_real(v)) {
             return k;
+        }
         if (kind == B_LOWER)
             return inf_numeral(ceil(k));
         SASSERT(kind == B_UPPER);

@@ -2866,22 +2866,24 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
         svector<bool> found;
 #endif
         for (unsigned i = 0; i < num_args; i++) {
+            bool found_complement = false;
             expr * lit = cls->get_arg(i);
-            unsigned j = 1;
-            for (; j < num_proofs; j++) {
+            for (unsigned j = 1; j < num_proofs; j++) {
                 expr const * _fact = get_fact(proofs[j]);
                 if (is_complement(lit, _fact)) {
-                    DEBUG_CODE(found.setx(j, true, false););
+                    found_complement = true;
+                    DEBUG_CODE(found.setx(j, true, false); continue;);                    
                     break;
                 }
             }
-            if (j == num_proofs)
+            if (!found_complement)
                 new_lits.push_back(lit);
         }
         DEBUG_CODE({
             for (unsigned i = 1; m_proof_mode == PGM_FINE && i < num_proofs; i++) {
                 CTRACE("mk_unit_resolution_bug", !found.get(i, false), 
                        for (unsigned j = 0; j < num_proofs; j++) {
+                           if (j == i) tout << "Index " << i << " was not found:\n";                       
                            tout << mk_ll_pp(get_fact(proofs[j]), *this);
                        });
                 SASSERT(found.get(i, false));

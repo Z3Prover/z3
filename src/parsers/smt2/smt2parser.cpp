@@ -719,9 +719,9 @@ namespace smt2 {
             SASSERT(sort_stack().size() == stack_pos + 1);
         }
 
-        unsigned parse_sorts() {
-            unsigned sz = 0;
-            check_lparen_next("invalid list of sorts, '(' expected");
+        unsigned parse_sorts(char const* context) {
+            unsigned sz = 0;            
+            check_lparen_next(context);
             while (!curr_is_rparen()) {
                 parse_sort();
                 sz++;
@@ -2019,7 +2019,7 @@ namespace smt2 {
             symbol id = curr_id();
             next();
             unsigned spos = sort_stack().size();
-            unsigned num_params = parse_sorts();
+            unsigned num_params = parse_sorts("Parsing function declaration. Expecting sort list '('");
             parse_sort();
             func_decl_ref f(m());
             f = m().mk_func_decl(id, num_params, sort_stack().c_ptr() + spos, sort_stack().back());
@@ -2300,7 +2300,7 @@ namespace smt2 {
                     next();
                 }
                 unsigned spos = sort_stack().size();
-                parse_sorts();
+                parse_sorts("Parsing function name. Expecting sort list startig with '(' to disambiguate function name");
                 unsigned domain_size = sort_stack().size() - spos;
                 parse_sort();
                 func_decl * d = m_ctx.find_func_decl(id, indices.size(), indices.c_ptr(), domain_size, sort_stack().c_ptr() + spos, sort_stack().back());
@@ -2380,7 +2380,7 @@ namespace smt2 {
                 return;
             case CPK_SORT_LIST: {
                 unsigned spos = sort_stack().size();
-                unsigned num = parse_sorts();
+                unsigned num = parse_sorts("expecting sort list starting with '('");
                 m_curr_cmd->set_next_arg(m_ctx, num, sort_stack().c_ptr() + spos);
                 break;
             }

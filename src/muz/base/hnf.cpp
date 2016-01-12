@@ -325,9 +325,10 @@ private:
 
     void eliminate_disjunctions(expr_ref_vector::element_ref& body, proof_ref_vector& proofs) {
         expr* b = body.get(); 
-        expr* e1;
+        expr* e1, *e2;
         bool negate_args = false;
         bool is_disj = false;
+        expr_ref_vector _body(m);
         unsigned num_disj = 0;
         expr* const* disjs = 0;
         if (!contains_predicate(b)) {
@@ -345,6 +346,14 @@ private:
             negate_args = true;
             num_disj = to_app(e1)->get_num_args();
             disjs = to_app(e1)->get_args();
+        }
+        if (m.is_implies(b, e1, e2)) {
+            is_disj = true;
+            _body.push_back(mk_not(m, e1));
+            _body.push_back(e2);
+            disjs = _body.c_ptr();
+            num_disj = 2;
+            negate_args = false;
         }
         if (is_disj) {
             app* old_head = 0;

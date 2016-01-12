@@ -282,6 +282,8 @@ namespace datalog {
 
 
     func_decl* rule_manager::mk_query(expr* query, rule_set& rules) {
+        TRACE("dl", tout << mk_pp(query, m) << "\n";);
+            
         ptr_vector<sort> vars;
         svector<symbol> names;
         app_ref_vector body(m);
@@ -290,6 +292,7 @@ namespace datalog {
         // Add implicit variables.
         // Remove existential prefix.
         bind_variables(query, false, q);
+
         quantifier_hoister qh(m);
         qh.pull_quantifier(false, q, 0, &names);
         // retrieve free variables.
@@ -358,6 +361,7 @@ namespace datalog {
         if (!vars.empty()) {
             rule_expr = m.mk_forall(vars.size(), vars.c_ptr(), names.c_ptr(), impl);
         }
+        TRACE("dl", tout << rule_expr << "\n";);
 
         scoped_proof_mode _sc(m, m_ctx.generate_proof_trace()?PGM_FINE:PGM_DISABLED);
         proof_ref pr(m);

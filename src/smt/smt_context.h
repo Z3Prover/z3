@@ -1415,6 +1415,8 @@ namespace smt {
         bool update_model(bool refinalize);
 
         void get_proto_model(proto_model_ref & m) const;
+
+        bool validate_model();
         
         unsigned get_num_asserted_formulas() const { return m_asserted_formulas.get_num_formulas(); }
 

@@ -346,6 +346,10 @@ namespace smt {
         for (; it != end; ++it) {
             quantifier * q = *it;
 	    if(!m_qm->mbqi_enabled(q)) continue;
+            TRACE("model_checker", 
+                  tout << "Check: " << mk_pp(q, m_manager) << "\n";
+                  tout << m_context->get_assignment(q) << "\n";);
+
             if (m_context->is_relevant(q) && m_context->get_assignment(q) == l_true) {
                 if (m_params.m_mbqi_trace && q->get_qid() != symbol::null) {
                     verbose_stream() << "(smt.mbqi :checking " << q->get_qid() << ")\n";
@@ -364,8 +368,12 @@ namespace smt {
             m_iteration_idx++;
 
         TRACE("model_checker", tout << "model after check:\n"; model_pp(tout, *md););
-        TRACE("model_checker", tout << "model checker result: " << (num_failures == 0) << "\n";);
+        TRACE("model_checker", tout << "model checker result: " << (num_failures == 0) << "\n";);        
         m_max_cexs += m_params.m_mbqi_max_cexs;
+
+        if (num_failures == 0 && !m_context->validate_model()) {
+            num_failures = 1;
+        }
         if (num_failures == 0)
             m_curr_model->cleanup();
         if (m_params.m_mbqi_trace) {

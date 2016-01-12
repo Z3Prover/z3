@@ -44,7 +44,9 @@ namespace smt {
 
     void theory_array::merge_eh(theory_var v1, theory_var v2, theory_var, theory_var) {
         // v1 is the new root
-        TRACE("array", tout << "merging v" << v1 << " v" << v2 << "\n"; display_var(tout, v1););
+        TRACE("array", 
+              tout << "merging v" << v1 << " v" << v2 << "\n"; display_var(tout, v1);
+              tout << mk_pp(get_enode(v1)->get_owner(), get_manager()) << " <- " << mk_pp(get_enode(v2)->get_owner(), get_manager()) << "\n";);
         SASSERT(v1 == find(v1));
         var_data * d1 = m_var_data[v1];
         var_data * d2 = m_var_data[v2];
@@ -70,21 +72,23 @@ namespace smt {
     }
 
     theory_var theory_array::mk_var(enode * n) {
+        ast_manager& m = get_manager();
+        context& ctx = get_context();
         theory_var r  = theory_array_base::mk_var(n);
         theory_var r2 = m_find.mk_var();
         SASSERT(r == r2);
         SASSERT(r == static_cast<int>(m_var_data.size()));
         m_var_data.push_back(alloc(var_data));
         var_data * d  = m_var_data[r];
-        TRACE("array", tout << mk_bounded_pp(n->get_owner(), get_manager()) << "\nis_array: " << is_array_sort(n) << ", is_select: " << is_select(n) <<
+        TRACE("array", tout << mk_bounded_pp(n->get_owner(), m) << "\nis_array: " << is_array_sort(n) << ", is_select: " << is_select(n) <<
               ", is_store: " << is_store(n) << "\n";);
         d->m_is_array  = is_array_sort(n);
         if (d->m_is_array) 
-            register_sort(get_manager().get_sort(n->get_owner()));
-        d->m_is_select = is_select(n);
+            register_sort(m.get_sort(n->get_owner()));
+        d->m_is_select = is_select(n);        
         if (is_store(n))
             d->m_stores.push_back(n);
-        get_context().attach_th_var(n, this, r);
+        ctx.attach_th_var(n, this, r);
         if (m_params.m_array_laziness <= 1 && is_store(n))
             instantiate_axiom1(n);
         return r;
@@ -97,6 +101,7 @@ namespace smt {
         v                = find(v);
         var_data * d     = m_var_data[v];
         d->m_parent_selects.push_back(s);
+        TRACE("array", tout << mk_pp(s->get_owner(), get_manager()) << " " << mk_pp(get_enode(v)->get_owner(), get_manager()) << "\n";);
         m_trail_stack.push(push_back_trail<theory_array, enode *, false>(d->m_parent_selects));
         ptr_vector<enode>::iterator it  = d->m_stores.begin();
         ptr_vector<enode>::iterator end = d->m_stores.end();
@@ -109,8 +114,9 @@ namespace smt {
             for (; it != end; ++it) {
                 enode * store = *it;
                 SASSERT(is_store(store));
-                if (!m_params.m_array_cg || store->is_cgr())
+                if (!m_params.m_array_cg || store->is_cgr()) {
                     instantiate_axiom2b(s, store);
+                }
             }
         }
     }
@@ -331,6 +337,9 @@ namespace smt {
     void theory_array::relevant_eh(app * n) {
         if (m_params.m_array_laziness == 0)
             return;
+        if (get_manager().is_ite(n)) {
+            TRACE("array", tout << "relevant ite " << mk_pp(n, get_manager()) << "\n";);
+        }
         if (!is_store(n) && !is_select(n))
             return;
         context & ctx    = get_context();
