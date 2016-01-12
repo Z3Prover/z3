@@ -429,7 +429,6 @@ sort * seq_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter 
         if (!parameters[0].is_ast() || !is_sort(parameters[0].get_ast())) {
             m.raise_exception("invalid regex sort, parameter is not a sort");
         }
-        sort * s = to_sort(parameters[0].get_ast());
         return m.mk_sort(symbol("RegEx"), sort_info(m_family_id, RE_SORT, num_parameters, parameters));
     }
     case _STRING_SORT:

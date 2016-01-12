@@ -1171,7 +1171,6 @@ void bit_blaster_tpl<Cfg>::mk_carry_save_adder(unsigned sz, expr * const * a_bit
 
 template<typename Cfg>
 bool bit_blaster_tpl<Cfg>::mk_const_case_multiplier(unsigned sz, expr * const * a_bits, expr * const * b_bits, expr_ref_vector & out_bits) {
-    unsigned nb = 0;
     unsigned case_size = 1;
     unsigned circuit_size = sz*sz*5;
     for (unsigned i = 0; case_size < circuit_size && i < sz; ++i) {

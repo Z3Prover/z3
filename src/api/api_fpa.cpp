@@ -943,7 +943,7 @@ extern "C" {
             return "";
         }
         scoped_mpf val(mpfm);
-        app * a = to_app(e);
+//        app * a = to_app(e);
         bool r = plugin->is_numeral(e, val);
         if (!r || !mpfm.is_regular(val)) {
             SET_ERROR_CODE(Z3_INVALID_ARG)
@@ -981,7 +981,7 @@ extern "C" {
             return 0;
         }
         scoped_mpf val(mpfm);
-        app * a = to_app(e);
+//        app * a = to_app(e);
         bool r = plugin->is_numeral(e, val);
         const mpz & z = mpfm.sig(val);
         if (!r || mpfm.is_regular(val)|| !mpzm.is_uint64(z)) {
@@ -1012,7 +1012,7 @@ extern "C" {
             return "";
         }
         scoped_mpf val(mpfm);
-        app * a = to_app(e);
+//        app * a = to_app(e);
         bool r = plugin->is_numeral(e, val);
         if (!r || !mpfm.is_regular(val)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
@@ -1044,7 +1044,7 @@ extern "C" {
             return 0;
         }
         scoped_mpf val(mpfm);
-        app * a = to_app(e);
+//        app * a = to_app(e);
         bool r = plugin->is_numeral(e, val);
         if (!r || !mpfm.is_regular(val)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
