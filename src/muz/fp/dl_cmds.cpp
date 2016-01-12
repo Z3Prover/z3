@@ -268,10 +268,10 @@ public:
             print_certificate(ctx);
             break;
         case l_undef: 
-            if(dlctx.get_status() == datalog::BOUNDED){
-              ctx.regular_stream() << "bounded\n";
-              print_certificate(ctx);
-              break;
+            if (dlctx.get_status() == datalog::BOUNDED){
+                ctx.regular_stream() << "bounded\n";
+                print_certificate(ctx);
+                break;
             }
             ctx.regular_stream() << "unknown\n";
             switch(dlctx.get_status()) {
