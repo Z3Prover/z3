@@ -66,9 +66,9 @@ namespace smt {
 
     template<typename Ext>
     bool theory_arith<Ext>::is_int_expr(expr* e) {
-        return m_util.is_int(e);
 #if 0
-        Disable refined integer until equality propagation is fixed.
+        return m_util.is_int(e);
+#else
         if (m_util.is_int(e)) return true;
         if (is_uninterp(e)) return false;
         m_todo.reset();
@@ -3077,7 +3077,7 @@ namespace smt {
             theory_var num = get_num_vars();
             bool refine = false;
             for (theory_var v = 0; v < num; v++) {
-                if (is_int(v))
+                if (is_int_src(v))
                     continue;
                 if (!get_context().is_shared(get_enode(v)))
                     continue;
@@ -3088,7 +3088,7 @@ namespace smt {
                 rational value = val.get_rational().to_rational() + m_epsilon.to_rational() * val.get_infinitesimal().to_rational();
                 theory_var v2;
                 if (mapping.find(value, v2)) {
-                    SASSERT(!is_int(v2));
+                    SASSERT(!is_int_src(v2));
                     if (get_value(v) != get_value(v2)) {
                         // v and v2 are not known to be equal. 
                         // The choice of m_epsilon is making them equal.
