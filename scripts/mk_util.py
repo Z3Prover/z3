@@ -3593,6 +3593,15 @@ class MakeRuleCmd(object):
         return "$(DESTDIR)$(PREFIX)/"
 
     @classmethod
+    def _is_str(cls, obj):
+        if sys.version_info.major > 2:
+            # Python 3 or newer. Strings are always unicode and of type str
+            return isinstance(obj, str)
+        else:
+            # Python 2. Has byte-string and unicode representation, allow both
+            return isinstance(obj, str) or isinstance(obj, unicode)
+
+    @classmethod
     def _install_root(cls, path, in_prefix, out, is_install=True):
         if not in_prefix:
             # The Python bindings on OSX are sometimes not installed inside the prefix.
@@ -3610,9 +3619,9 @@ class MakeRuleCmd(object):
     @classmethod
     def install_files(cls, out, src_pattern, dest, in_prefix=True):
         assert len(dest) > 0
-        assert isinstance(src_pattern, str)
+        assert cls._is_str(src_pattern)
         assert not ' ' in src_pattern
-        assert isinstance(dest, str)
+        assert cls._is_str(dest)
         assert not ' ' in dest
         assert not os.path.isabs(src_pattern)
         install_root = cls._install_root(dest, in_prefix, out)
@@ -3625,7 +3634,7 @@ class MakeRuleCmd(object):
     @classmethod
     def remove_installed_files(cls, out, pattern, in_prefix=True):
         assert len(pattern) > 0
-        assert isinstance(pattern, str)
+        assert cls._is_str(pattern)
         assert not ' ' in pattern
         install_root = cls._install_root(pattern, in_prefix, out, is_install=False)
 
@@ -3636,7 +3645,7 @@ class MakeRuleCmd(object):
     @classmethod
     def make_install_directory(cls, out, dir, in_prefix=True):
         assert len(dir) > 0
-        assert isinstance(dir, str)
+        assert cls._is_str(dir)
         assert not ' ' in dir
         install_root = cls._install_root(dir, in_prefix, out)
 
@@ -3650,8 +3659,8 @@ class MakeRuleCmd(object):
             Returns True iff ``temp_path`` is a path prefix
             of ``target_as_abs``
         """
-        assert isinstance(temp_path, str)
-        assert isinstance(target_as_abs, str)
+        assert cls._is_str(temp_path)
+        assert cls._is_str(target_as_abs)
         assert len(temp_path) > 0
         assert len(target_as_abs) > 0
         assert os.path.isabs(temp_path)
@@ -3667,8 +3676,8 @@ class MakeRuleCmd(object):
 
     @classmethod
     def create_relative_symbolic_link(cls, out, target, link_name):
-        assert isinstance(target, str)
-        assert isinstance(link_name, str)
+        assert cls._is_str(target)
+        assert cls._is_str(link_name)
         assert len(target) > 0
         assert len(link_name) > 0
         assert not os.path.isabs(target)
@@ -3705,8 +3714,8 @@ class MakeRuleCmd(object):
 
     @classmethod
     def create_symbolic_link(cls, out, target, link_name):
-        assert isinstance(target, str)
-        assert isinstance(link_name, str)
+        assert cls._is_str(target)
+        assert cls._is_str(link_name)
         assert not os.path.isabs(target)
 
         cls.write_cmd(out, 'ln -s {target} {install_root}{link_name}'.format(
