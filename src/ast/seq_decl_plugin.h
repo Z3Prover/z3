@@ -63,7 +63,6 @@ enum seq_op_kind {
     OP_STRING_CONST,
     OP_STRING_ITOS, 
     OP_STRING_STOI, 
-    OP_REGEXP_LOOP,    // TBD re-loop: integers as parameters or arguments?
     // internal only operators. Converted to SEQ variants.
     _OP_STRING_STRREPL, 
     _OP_STRING_CONCAT, 
@@ -304,7 +303,7 @@ public:
         bool is_plus(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_PLUS); }
         bool is_opt(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_OPTION); }
         bool is_range(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_RANGE); }
-        bool is_loop(expr const* n)    const { return is_app_of(n, m_fid, OP_REGEXP_LOOP); }
+        bool is_loop(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_LOOP); }
        
         MATCH_UNARY(is_to_re);
         MATCH_BINARY(is_concat);
@@ -313,6 +312,7 @@ public:
         MATCH_UNARY(is_star);
         MATCH_UNARY(is_plus);
         MATCH_UNARY(is_opt);
+        bool is_loop(expr const* n, expr*& body, unsigned& lo, unsigned& hi);
         
     };
     str str;

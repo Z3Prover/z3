@@ -250,7 +250,13 @@ void seq_decl_plugin::match_right_assoc(psig& sig, unsigned dsz, sort *const* do
     if (!is_match) {
         std::ostringstream strm;
         strm << "Sort of function '" << sig.m_name << "' ";
-        strm << "does not match the declared type";
+        strm << "does not match the declared type. Given domain: ";
+        for (unsigned i = 0; i < dsz; ++i) {
+            strm << mk_pp(dom[i], m) << " ";
+        }
+        if (range) {
+            strm << " and range: " << mk_pp(range, m);
+        }
         m.raise_exception(strm.str().c_str());
     }
     range_out = apply_binding(binding, sig.m_range);
@@ -277,7 +283,19 @@ void seq_decl_plugin::match(psig& sig, unsigned dsz, sort *const* dom, sort* ran
     if (!is_match) {
         std::ostringstream strm;
         strm << "Sort of polymorphic function '" << sig.m_name << "' ";
-        strm << "does not match the declared type";
+        strm << "does not match the declared type. ";
+        strm << "\nGiven domain: ";
+        for (unsigned i = 0; i < dsz; ++i) {
+            strm << mk_pp(dom[i], m) << " ";
+        }
+        if (range) {
+            strm << " and range: " << mk_pp(range, m);
+        }
+        strm << "\nExpected domain: ";
+        for (unsigned i = 0; i < dsz; ++i) {
+            strm << mk_pp(sig.m_dom[i].get(), m) << " ";
+        }
+        
         m.raise_exception(strm.str().c_str());
     }
     if (!range && dsz == 0) {
@@ -319,7 +337,8 @@ void seq_decl_plugin::init() {
     parameter paramA(A);
     parameter paramS(strT);
     sort* seqA = m.mk_sort(m_family_id, SEQ_SORT, 1, &paramA);
-    sort* reA  = m.mk_sort(m_family_id, RE_SORT, 1, &paramA);
+    parameter paramSA(seqA);
+    sort* reA  = m.mk_sort(m_family_id, RE_SORT, 1, &paramSA);
     sort* reT  = m.mk_sort(m_family_id, RE_SORT, 1, &paramS);
     sort* boolT = m.mk_bool_sort();
     sort* intT  = arith_util(m).mk_int();
@@ -356,7 +375,7 @@ void seq_decl_plugin::init() {
     m_sigs[OP_RE_CONCAT]     = alloc(psig, m, "re.++",        1, 2, reAreA, reA);
     m_sigs[OP_RE_UNION]      = alloc(psig, m, "re.union",     1, 2, reAreA, reA);
     m_sigs[OP_RE_INTERSECT]  = alloc(psig, m, "re.inter",     1, 2, reAreA, reA);
-    m_sigs[OP_RE_LOOP]           = alloc(psig, m, "re-loop",    1, 1, &reA, reA);
+    m_sigs[OP_RE_LOOP]           = alloc(psig, m, "re.loop",    1, 1, &reA, reA);
     m_sigs[OP_RE_EMPTY_SET]      = alloc(psig, m, "re-empty-set", 1, 0, 0, reA);
     m_sigs[OP_RE_FULL_SET]       = alloc(psig, m, "re-full-set", 1, 0, 0, reA);
     m_sigs[OP_RE_OF_PRED]        = alloc(psig, m, "re-of-pred", 1, 1, &predA, reA);
@@ -367,7 +386,6 @@ void seq_decl_plugin::init() {
     m_sigs[_OP_STRING_STRREPL]   = alloc(psig, m, "str.replace", 0, 3, str3T, strT);
     m_sigs[OP_STRING_ITOS]       = alloc(psig, m, "int.to.str", 0, 1, &intT, strT);
     m_sigs[OP_STRING_STOI]       = alloc(psig, m, "str.to.int", 0, 1, &strT, intT);
-    m_sigs[OP_REGEXP_LOOP]       = alloc(psig, m, "re.loop", 0, 2, strTint2T, reT); // maybe 3 arguments.
     m_sigs[_OP_STRING_CONCAT]    = alloc(psig, m, "str.++", 1, 2, str2T, strT);
     m_sigs[_OP_STRING_LENGTH]    = alloc(psig, m, "str.len", 0, 1, &strT, intT);
     m_sigs[_OP_STRING_STRCTN]    = alloc(psig, m, "str.contains", 0, 2, str2T, boolT);
@@ -472,7 +490,6 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case OP_RE_OF_PRED:
     case OP_STRING_ITOS:
     case OP_STRING_STOI:
-    case OP_REGEXP_LOOP:
         match(*m_sigs[k], arity, domain, range, rng);
         return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
 
@@ -668,5 +685,20 @@ void seq_util::str::get_concat(expr* e, expr_ref_vector& es) const {
     }    
     if (!is_empty(e)) {
         es.push_back(e);
+    }
+}
+
+bool seq_util::re::is_loop(expr const* n, expr*& body, unsigned& lo, unsigned& hi)  {
+    if (is_loop(n)) {
+        app const* a = to_app(n);
+        SASSERT(a->get_num_args() == 1);
+        SASSERT(a->get_decl()->get_num_parameters() == 2);
+        body = a->get_arg(0);
+        lo = a->get_decl()->get_parameter(0).get_int();
+        hi = a->get_decl()->get_parameter(1).get_int();
+        return true;
+    }
+    else {
+        return false;
     }
 }

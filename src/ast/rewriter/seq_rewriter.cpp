@@ -53,6 +53,7 @@ eautomaton* re2automaton::re2aut(expr* e) {
     SASSERT(u.is_re(e));
     expr* e1, *e2;
     scoped_ptr<eautomaton> a, b;
+    unsigned lo, hi;
     if (u.re.is_to_re(e, e1)) {
         return seq2aut(e1);
     }
@@ -77,10 +78,21 @@ eautomaton* re2automaton::re2aut(expr* e) {
         return a.detach();                    
     }
     else if (u.re.is_range(e)) {
-
+        // TBD
     }
-    else if (u.re.is_loop(e)) {
-
+    else if (u.re.is_loop(e, e1, lo, hi) && (a = re2aut(e1))) {
+        scoped_ptr<eautomaton> eps = eautomaton::mk_epsilon(m);
+        b = eautomaton::mk_epsilon(m);
+        while (hi > lo) {
+            scoped_ptr<eautomaton> c = eautomaton::mk_concat(*a, *b);
+            b = eautomaton::mk_union(*eps, *c);
+            --hi;
+        }
+        while (lo > 0) {
+            b = eautomaton::mk_concat(*a, *b);
+            --lo;
+        }
+        return b.detach();        
     }
 #if 0
     else if (u.re.is_intersect(e, e1, e2)) {
@@ -210,8 +222,6 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_STRING_STOI: 
         SASSERT(num_args == 1);
         return mk_str_stoi(args[0], result);
-    case OP_REGEXP_LOOP: 
-        return BR_FAILED;
     case _OP_STRING_CONCAT:
     case _OP_STRING_PREFIX:
     case _OP_STRING_SUFFIX:
@@ -653,6 +663,31 @@ void seq_rewriter::add_next(u_map<expr*>& next, unsigned idx, expr* cond) {
     }
 }
 
+bool seq_rewriter::is_sequence(eautomaton& aut, expr_ref_vector& seq) {
+    unsigned state = aut.init();
+    uint_set visited;
+    eautomaton::moves mvs;
+    aut.get_moves_from(state, mvs, true);
+    while (!aut.is_final_state(state)) {
+        if (mvs.size() != 1) {
+            return false;
+        }
+        if (visited.contains(state)) {
+            return false;
+        }
+        visited.insert(state);
+        expr* t = mvs[0].t();
+        if (!t) {
+            return false;
+        }
+        seq.push_back(m_util.str.mk_unit(t));
+        state = mvs[0].dst();
+        mvs.reset();
+        aut.get_moves_from(state, mvs, true);
+    }
+    return mvs.empty();
+}
+
 bool seq_rewriter::is_sequence(expr* e, expr_ref_vector& seq) {
     zstring s;
     ptr_vector<expr> todo;
@@ -688,63 +723,78 @@ bool seq_rewriter::is_sequence(expr* e, expr_ref_vector& seq) {
 br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
     scoped_ptr<eautomaton> aut;
     expr_ref_vector seq(m());
-    if (is_sequence(a, seq) && (aut = re2automaton(m())(b))) {
-        expr_ref_vector trail(m());
-        u_map<expr*> maps[2];
-        bool select_map = false;
-        expr_ref ch(m()), cond(m());
-        eautomaton::moves mvs;
-        maps[0].insert(aut->init(), m().mk_true());
-        // is_accepted(a, aut) & some state in frontier is final.
+    if (!(aut = re2automaton(m())(b))) {
+        return BR_FAILED;
+    }
 
-        for (unsigned i = 0; i < seq.size(); ++i) {
-            u_map<expr*>& frontier = maps[select_map];
-            u_map<expr*>& next = maps[!select_map];
-            select_map = !select_map;
-            ch = seq[i].get();
-            next.reset();
-            u_map<expr*>::iterator it = frontier.begin(), end = frontier.end();
-            for (; it != end; ++it) {
-                mvs.reset();
-                unsigned state = it->m_key;
-                expr*    acc  = it->m_value;
-                aut->get_moves_from(state, mvs, false);
-                for (unsigned j = 0; j < mvs.size(); ++j) {
-                    eautomaton::move const& mv = mvs[j];
-                    if (m().is_value(mv.t()) && m().is_value(ch)) {
-                        if (mv.t() == ch) {
-                            add_next(next, mv.dst(), acc);
-                        }
-                        else {
-                            continue;
-                        }
-                    }
-                    else {
-                        cond = m().mk_eq(mv.t(), ch);
-                        if (!m().is_true(acc)) cond = m().mk_and(acc, cond);
-                        add_next(next, mv.dst(), cond);
-                    }
-                }                
-            }
+    if (is_sequence(*aut, seq)) {
+        if (seq.empty()) {
+            result = m().mk_eq(a, m_util.str.mk_empty(m().get_sort(a)));
         }
-        u_map<expr*> const& frontier = maps[select_map];
-        u_map<expr*>::iterator it = frontier.begin(), end = frontier.end();
-        expr_ref_vector ors(m());
-        for (; it != end; ++it) {
-            unsigned_vector states;
-            bool has_final = false;
-            aut->get_epsilon_closure(it->m_key, states);
-            for (unsigned i = 0; i < states.size() && !has_final; ++i) {
-                has_final = aut->is_final_state(states[i]);
-            }
-            if (has_final) {
-                ors.push_back(it->m_value);
-            }
+        else {
+            result = m().mk_eq(a, m_util.str.mk_concat(seq));
         }
-        result = mk_or(ors);
         return BR_REWRITE_FULL;
     }
-    return BR_FAILED;
+
+    if (!is_sequence(a, seq)) {
+        return BR_FAILED;
+    } 
+        
+    expr_ref_vector trail(m());
+    u_map<expr*> maps[2];
+    bool select_map = false;
+    expr_ref ch(m()), cond(m());
+    eautomaton::moves mvs;
+    maps[0].insert(aut->init(), m().mk_true());
+    // is_accepted(a, aut) & some state in frontier is final.
+    
+    for (unsigned i = 0; i < seq.size(); ++i) {
+        u_map<expr*>& frontier = maps[select_map];
+        u_map<expr*>& next = maps[!select_map];
+        select_map = !select_map;
+        ch = seq[i].get();
+        next.reset();
+        u_map<expr*>::iterator it = frontier.begin(), end = frontier.end();
+        for (; it != end; ++it) {
+            mvs.reset();
+            unsigned state = it->m_key;
+            expr*    acc  = it->m_value;
+            aut->get_moves_from(state, mvs, false);
+            for (unsigned j = 0; j < mvs.size(); ++j) {
+                eautomaton::move const& mv = mvs[j];
+                if (m().is_value(mv.t()) && m().is_value(ch)) {
+                    if (mv.t() == ch) {
+                        add_next(next, mv.dst(), acc);
+                    }
+                    else {
+                        continue;
+                    }
+                }
+                else {
+                    cond = m().mk_eq(mv.t(), ch);
+                    if (!m().is_true(acc)) cond = m().mk_and(acc, cond);
+                    add_next(next, mv.dst(), cond);
+                }
+            }                
+        }
+    }
+    u_map<expr*> const& frontier = maps[select_map];
+    u_map<expr*>::iterator it = frontier.begin(), end = frontier.end();
+    expr_ref_vector ors(m());
+    for (; it != end; ++it) {
+        unsigned_vector states;
+        bool has_final = false;
+        aut->get_epsilon_closure(it->m_key, states);
+        for (unsigned i = 0; i < states.size() && !has_final; ++i) {
+            has_final = aut->is_final_state(states[i]);
+        }
+        if (has_final) {
+            ors.push_back(it->m_value);
+        }
+    }
+    result = mk_or(ors);
+    return BR_REWRITE_FULL;
 }
 br_status seq_rewriter::mk_str_to_regexp(expr* a, expr_ref& result) {
     return BR_FAILED;

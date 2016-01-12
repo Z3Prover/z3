@@ -165,9 +165,9 @@ theory_seq::theory_seq(ast_manager& m):
     m_util(m),
     m_autil(m),
     m_trail_stack(*this),
-    m_atoms_qhead(0),
     m_ls(m), m_rs(m),
     m_lhs(m), m_rhs(m),
+    m_atoms_qhead(0),
     m_new_solution(false),
     m_new_propagation(false) {    
     m_prefix = "seq.prefix.suffix";
@@ -194,7 +194,6 @@ theory_seq::~theory_seq() {
 
 
 final_check_status theory_seq::final_check_eh() { 
-    context & ctx   = get_context();
     TRACE("seq", display(tout););
     if (simplify_and_solve_eqs()) {
         ++m_stats.m_solve_eqs;
@@ -760,7 +759,6 @@ bool theory_seq::add_solution(expr* l, expr* r, dependency* deps)  {
     if (l == r) {
         return false;
     }
-    context& ctx = get_context();
     TRACE("seq", tout << mk_pp(l, m) << " ==> " << mk_pp(r, m) << "\n";);
     m_new_solution = true;
     m_rep.update(l, r, deps);
@@ -933,7 +931,6 @@ bool theory_seq::solve_binary_eq(expr_ref_vector const& ls, expr_ref_vector cons
 }
 
 bool theory_seq::solve_nqs(unsigned i) {
-    bool change = false;
     context & ctx = get_context();
     for (; !ctx.inconsistent() && i < m_nqs.size(); ++i) {
         if (solve_ne(i)) {
@@ -1262,7 +1259,7 @@ void theory_seq::init_model(expr_ref_vector const& es) {
 }
 
 void theory_seq::init_model(model_generator & mg) {
-    m_factory = alloc(seq_factory, get_manager(), get_family_id(), mg.get_model());
+    m_factory = alloc(seq_factory, get_manager(), get_family_id());
     mg.register_factory(m_factory);
     for (unsigned j = 0; j < m_nqs.size(); ++j) {
         ne const& n = m_nqs[j];
@@ -1288,7 +1285,6 @@ public:
     }
     virtual app * mk_value(model_generator & mg, ptr_vector<expr> & values) {
         SASSERT(values.size() == m_dependencies.size());
-        ast_manager& m = mg.get_manager();
         if (values.empty()) {
             return th.mk_value(n);
         }
@@ -1362,7 +1358,7 @@ app* theory_seq::mk_value(app* e) {
         unsigned sz;
         if (bv.is_numeral(result, val, sz) && sz == zstring().num_bits()) {
             unsigned v = val.get_unsigned();
-            if ((0 <= v && v < 7) || (14 <= v && v < 32) || v == 127) {
+            if ((v < 7) || (14 <= v && v < 32) || v == 127) {
                 result = m_util.str.mk_unit(result);                
             }
             else {
@@ -1817,7 +1813,6 @@ enode* theory_seq::ensure_enode(expr* e) {
 }
 
 static theory_mi_arith* get_th_arith(context& ctx, theory_id afid, expr* e) {
-    ast_manager& m = ctx.get_manager();
     theory* th = ctx.get_theory(afid);
     if (th && ctx.e_internalized(e)) {
         return dynamic_cast<theory_mi_arith*>(th);
