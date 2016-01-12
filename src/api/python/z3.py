@@ -9320,8 +9320,10 @@ def Union(*args):
     args = _get_args(args)
     sz = len(args)
     if __debug__:
-        _z3_assert(sz >= 2, "At least two arguments expected.")
+        _z3_assert(sz > 0, "At least one argument expected.")
         _z3_assert(all([is_re(a) for a in args]), "All arguments must be regular expressions.")
+    if sz == 1:
+        return args[0]
     ctx = args[0].ctx
     v = (Ast * sz)()
     for i in range(sz):

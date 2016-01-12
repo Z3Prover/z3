@@ -40,10 +40,9 @@ re2automaton::re2automaton(ast_manager& m): m(m), u(m) {}
 eautomaton* re2automaton::operator()(expr* e) { 
     eautomaton* r = re2aut(e); 
     if (r) {
-        //display_expr1 disp(m);
-        //r->display(std::cout, disp);
+        display_expr1 disp(m);
         r->compress(); 
-        //r->display(std::cout, disp);
+        TRACE("seq", r->display(tout, disp););
     }
     return r;
 } 
@@ -664,6 +663,7 @@ void seq_rewriter::add_next(u_map<expr*>& next, unsigned idx, expr* cond) {
 }
 
 bool seq_rewriter::is_sequence(eautomaton& aut, expr_ref_vector& seq) {
+    seq.reset();
     unsigned state = aut.init();
     uint_set visited;
     eautomaton::moves mvs;
@@ -673,6 +673,9 @@ bool seq_rewriter::is_sequence(eautomaton& aut, expr_ref_vector& seq) {
             return false;
         }
         if (visited.contains(state)) {
+            return false;
+        }
+        if (aut.is_final_state(mvs[0].src())) {
             return false;
         }
         visited.insert(state);
@@ -689,6 +692,7 @@ bool seq_rewriter::is_sequence(eautomaton& aut, expr_ref_vector& seq) {
 }
 
 bool seq_rewriter::is_sequence(expr* e, expr_ref_vector& seq) {
+    seq.reset();
     zstring s;
     ptr_vector<expr> todo;
     expr *e1, *e2;
@@ -728,6 +732,8 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
     }
 
     if (is_sequence(*aut, seq)) {
+        TRACE("seq", tout << seq << "\n";);
+              
         if (seq.empty()) {
             result = m().mk_eq(a, m_util.str.mk_empty(m().get_sort(a)));
         }
@@ -873,8 +879,7 @@ br_status seq_rewriter::mk_re_plus(expr* a, expr_ref& result) {
 br_status seq_rewriter::mk_re_opt(expr* a, expr_ref& result) {
     sort* s;
     VERIFY(m_util.is_re(a, s));
-    sort_ref seq(m_util.str.mk_seq(s), m());
-    result = m_util.re.mk_union(m_util.re.mk_to_re(m_util.str.mk_empty(seq)), a);
+    result = m_util.re.mk_union(m_util.re.mk_to_re(m_util.str.mk_empty(s)), a);
     return BR_REWRITE1;
 }
 
