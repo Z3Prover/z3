@@ -31,7 +31,7 @@ namespace smt {
         symbol_set   m_strings;
         unsigned     m_next;
         char         m_char;
-        std::string  m_unique_prefix;
+        std::string  m_unique_delim;
         obj_map<sort, expr*> m_unique_sequences;
         expr_ref_vector m_trail;
     public:
@@ -43,7 +43,7 @@ namespace smt {
             u(m),
             m_next(0),
             m_char(0),
-            m_unique_prefix("#B"),
+            m_unique_delim("!"),
             m_trail(m)
         {
             m_strings.insert(symbol(""));
@@ -56,7 +56,7 @@ namespace smt {
         }
 
         void set_prefix(char const* p) {
-            m_unique_prefix = p;
+            m_unique_delim = p;
         }
 
         // generic method for setting unique sequences
@@ -89,7 +89,7 @@ namespace smt {
             if (u.is_string(s)) {
                 while (true) {
                     std::ostringstream strm;
-                    strm << m_unique_prefix << m_next++;
+                    strm << m_unique_delim << std::hex << m_next++ << std::dec << m_unique_delim;
                     symbol sym(strm.str().c_str());
                     if (m_strings.contains(sym)) continue;
                     m_strings.insert(sym);

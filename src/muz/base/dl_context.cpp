@@ -891,6 +891,7 @@ namespace datalog {
     }
 
     lbool context::rel_query(unsigned num_rels, func_decl * const* rels) {        
+        m_last_answer = 0;
         ensure_engine();
         return m_engine->query(num_rels, rels);
     }

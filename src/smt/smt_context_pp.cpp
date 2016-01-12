@@ -239,6 +239,7 @@ namespace smt {
                     first = false;
                 }
                 out << "#" << n->get_id() << " -> #" << r->get_id() << "\n";
+                out << mk_pp(n, m_manager) << " -> " << mk_pp(r, m_manager) << "\n";
             }
         }
     }

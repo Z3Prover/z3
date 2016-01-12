@@ -301,6 +301,7 @@ namespace smt {
         virtual model_value_proc * mk_value(enode * n, model_generator & mg);
         virtual void init_model(model_generator & mg);
 
+        void init_model(expr_ref_vector const& es);
         // final check 
         bool simplify_and_solve_eqs();   // solve unitary equalities
         bool branch_variable();          // branch on a variable

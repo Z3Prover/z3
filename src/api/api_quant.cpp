@@ -162,6 +162,11 @@ extern "C" {
         ptr_vector<expr> bound_asts;
         if (num_patterns > 0 && num_no_patterns > 0) {
             SET_ERROR_CODE(Z3_INVALID_USAGE);
+            RETURN_Z3(0);
+        }
+        if (num_bound == 0) {
+            SET_ERROR_CODE(Z3_INVALID_USAGE);
+            RETURN_Z3(0);            
         }
         for (unsigned i = 0; i < num_bound; ++i) {
             app* a = to_app(bound[i]);

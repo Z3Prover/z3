@@ -551,9 +551,6 @@ bool theory_seq::is_solved() {
         IF_VERBOSE(10, verbose_stream() << "(seq.giveup " << m_eqs[0].ls() << " = " << m_eqs[0].rs() << " is unsolved)\n";);
         return false;
     }
-    if (!m_nqs.empty()) {
-        return false;
-    }
     for (unsigned i = 0; i < m_automata.size(); ++i) {
         if (!m_automata[i]) {
             IF_VERBOSE(10, verbose_stream() << "(seq.giveup regular expression did not compile to automaton)\n";);
@@ -1252,9 +1249,28 @@ void theory_seq::collect_statistics(::statistics & st) const {
     st.update("seq add axiom", m_stats.m_add_axiom);
 }
 
+void theory_seq::init_model(expr_ref_vector const& es) {
+    expr_ref new_s(m);
+    for (unsigned i = 0; i < es.size(); ++i) {
+        dependency* eqs = 0;
+        expr_ref s = canonize(es[i], eqs);
+        if (is_var(s)) {
+            new_s = m_factory->get_fresh_value(m.get_sort(s));
+            m_rep.update(s, new_s, eqs);
+        }
+    }
+}
+
 void theory_seq::init_model(model_generator & mg) {
     m_factory = alloc(seq_factory, get_manager(), get_family_id(), mg.get_model());
     mg.register_factory(m_factory);
+    for (unsigned j = 0; j < m_nqs.size(); ++j) {
+        ne const& n = m_nqs[j];
+        for (unsigned i = 0; i < n.ls().size(); ++i) {
+            init_model(n.ls(i));
+            init_model(n.rs(i));
+        }
+    }
 }
 
 
@@ -2182,7 +2198,7 @@ void theory_seq::new_diseq_eh(theory_var v1, theory_var v2) {
     m_rewrite(eq);
     if (!m.is_false(eq)) {
         literal lit = ~mk_eq(e1, e2, false);
-        SASSERT(get_context().get_assignment(lit) == l_true);
+        //SASSERT(get_context().get_assignment(lit) == l_true);
         dependency* dep = m_dm.mk_leaf(assumption(lit));
         m_nqs.push_back(ne(e1, e2, dep));
         solve_nqs(m_nqs.size() - 1);

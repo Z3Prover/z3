@@ -291,18 +291,18 @@ namespace smt {
             return;
         }
         sort * s = m_manager.get_sort(n->get_arg(0));
-        sort * u = m_manager.mk_fresh_sort("distinct-elems");
-        func_decl * f = m_manager.mk_fresh_func_decl("distinct-aux-f", "", 1, &s, u);
+        sort_ref u(m_manager.mk_fresh_sort("distinct-elems"), m_manager);
+        func_decl_ref f(m_manager.mk_fresh_func_decl("distinct-aux-f", "", 1, &s, u), m_manager);
         for (unsigned i = 0; i < num_args; i++) {
             expr * arg  = n->get_arg(i);
-            app * fapp  = m_manager.mk_app(f, arg);
-            app * val   = m_manager.mk_fresh_const("unique-value", u);
+            app_ref fapp(m_manager.mk_app(f, arg), m_manager);
+            app_ref val(m_manager.mk_fresh_const("unique-value", u), m_manager);
             enode * e   = mk_enode(val, false, false, true);
             e->mark_as_interpreted();
-            app * eq    = m_manager.mk_eq(fapp, val);
+            app_ref eq(m_manager.mk_eq(fapp, val), m_manager);
             TRACE("assert_distinct", tout << "eq: " << mk_pp(eq, m_manager) << "\n";);
             assert_default(eq, 0);
-            mark_as_relevant(eq);
+            mark_as_relevant(eq.get());
             // TODO: we may want to hide the auxiliary values val and the function f from the model.
         }
     }
@@ -322,6 +322,9 @@ namespace smt {
         TRACE("internalize", tout << "internalizing:\n" << mk_pp(n, m_manager) << "\n";);
         TRACE("internalize_bug", tout << "internalizing:\n" << mk_bounded_pp(n, m_manager) << "\n";);
         if (m_manager.is_bool(n)) {
+            if (is_var(n)) {
+                throw default_exception("Formulas should not contain unbound variables");
+            }
             SASSERT(is_quantifier(n) || is_app(n));
             internalize_formula(n, gate_ctx);
         }
@@ -432,7 +435,7 @@ namespace smt {
         TRACE("distinct", tout << "internalizing distinct: " << mk_pp(n, m_manager) << "\n";);
         SASSERT(!b_internalized(n));
         SASSERT(m_manager.is_distinct(n));
-        expr * def  = m_manager.mk_distinct_expanded(n->get_num_args(), n->get_args());
+        expr_ref def(m_manager.mk_distinct_expanded(n->get_num_args(), n->get_args()), m_manager);
         internalize(def, true);
         bool_var v    = mk_bool_var(n);
         literal l(v);
@@ -750,8 +753,8 @@ namespace smt {
         expr * c  = n->get_arg(0);
         expr * t  = n->get_arg(1);
         expr * e  = n->get_arg(2);
-        app * eq1 = mk_eq_atom(n, t);
-        app * eq2 = mk_eq_atom(n, e);
+        app_ref eq1(mk_eq_atom(n, t), m_manager);
+        app_ref eq2(mk_eq_atom(n, e), m_manager);
         mk_enode(n, 
                  true /* supress arguments, I don't want to apply CC on ite terms */, 
                  false /* it is a term, so it should not be merged with true/false */,
