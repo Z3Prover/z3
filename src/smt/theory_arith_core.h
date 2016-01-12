@@ -66,6 +66,9 @@ namespace smt {
 
     template<typename Ext>
     bool theory_arith<Ext>::is_int_expr(expr* e) {
+        return m_util.is_int(e);
+#if 0
+        Disable refined integer until equality propagation is fixed.
         if (m_util.is_int(e)) return true;
         if (is_uninterp(e)) return false;
         m_todo.reset();
@@ -93,6 +96,7 @@ namespace smt {
             }
         }
         return true;
+#endif
     }
 
 

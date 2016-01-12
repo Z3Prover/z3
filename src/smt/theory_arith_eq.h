@@ -329,6 +329,7 @@ namespace smt {
         if (is_equal(x, y))
             return;
         if (get_manager().get_sort(var2expr(x)) != get_manager().get_sort(var2expr(y))) {
+            TRACE("arith", tout << mk_pp(var2expr(x), get_manager()) << " = " << mk_pp(var2expr(y), get_manager()) << "\n";);
             return;
         }
         context & ctx      = get_context();

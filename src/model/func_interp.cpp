@@ -169,6 +169,7 @@ void func_interp::insert_new_entry(expr * const * args, expr * r) {
            for (unsigned i = 0; i < m_arity; i++) {
                tout << mk_ismt2_pp(args[i], m_manager) << "\n";
            }
+           tout << "Old: " << mk_ismt2_pp(get_entry(args)->get_result(), m_manager) << "\n";
            );
     SASSERT(get_entry(args) == 0);
     func_entry * new_entry = func_entry::mk(m_manager, m_arity, args, r);
