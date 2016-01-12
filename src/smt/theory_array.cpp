@@ -114,12 +114,8 @@ namespace smt {
             for (; it != end; ++it) {
                 enode * store = *it;
                 SASSERT(is_store(store));
-                std::cout << mk_pp(store->get_owner(), get_manager()) << " " << mk_pp(s->get_owner(), get_manager()) << "\n";
                 if (!m_params.m_array_cg || store->is_cgr()) {
                     instantiate_axiom2b(s, store);
-                }
-                else {
-                    std::cout << mk_pp(store->get_owner(), get_manager()) << "\n";
                 }
             }
         }
