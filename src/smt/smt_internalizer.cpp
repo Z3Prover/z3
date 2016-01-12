@@ -302,7 +302,7 @@ namespace smt {
             app_ref eq(m_manager.mk_eq(fapp, val), m_manager);
             TRACE("assert_distinct", tout << "eq: " << mk_pp(eq, m_manager) << "\n";);
             assert_default(eq, 0);
-            mark_as_relevant(eq);
+            mark_as_relevant(eq.get());
             // TODO: we may want to hide the auxiliary values val and the function f from the model.
         }
     }
