@@ -148,7 +148,7 @@ and install Z3 there.
 
 ```bash
 virtualenv venv
-source venv/bin/active
+source venv/bin/activate
 python scripts/mk_make.py --python
 cd build
 make
