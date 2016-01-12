@@ -245,25 +245,29 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
         m_mpz_manager.set(exp, exponent);
 
         // Normalize such that 1.0 <= sig < 2.0
-        if (m_mpq_manager.ge(sig, mpq(2))) {
+        if (m_mpq_manager.lt(sig, 1)) {
+            m_mpq_manager.inv(sig);
+            unsigned int pp = m_mpq_manager.prev_power_of_two(sig);
+            if (!m_mpq_manager.is_power_of_two(sig, pp)) pp++;
+            scoped_mpz p2(m_mpz_manager);
+            m_mpq_manager.power(2, pp, p2);
+            m_mpq_manager.div(sig, p2, sig);
+            m_mpz_manager.sub(exp, mpz(pp), exp);
+            m_mpq_manager.inv(sig);
+        }
+        else if (m_mpq_manager.ge(sig, 2)) {
             unsigned int pp = m_mpq_manager.prev_power_of_two(sig);
             scoped_mpz p2(m_mpz_manager);
             m_mpq_manager.power(2, pp, p2);
             m_mpq_manager.div(sig, p2, sig);
             m_mpz_manager.add(exp, mpz(pp), exp);
         }
-        SASSERT(m_mpq_manager.lt(sig, mpq(2)));
-
-        while (m_mpq_manager.lt(sig, 1)) {
-            m_mpq_manager.mul(sig, 2, sig);
-            m_mpz_manager.dec(exp);
-        }
-
-        // Check that 1.0 <= sig < 2.0
-        SASSERT((m_mpq_manager.le(1, sig) && m_mpq_manager.lt(sig, 2)));
 
         TRACE("mpf_dbg", tout << "Normalized: sig = " << m_mpq_manager.to_string(sig) <<
                                  " exp = " << m_mpz_manager.to_string(exp) << std::endl;);
+
+        // Check that 1.0 <= sig < 2.0
+        SASSERT((m_mpq_manager.le(1, sig) && m_mpq_manager.lt(sig, 2)));
 
         scoped_mpz p(m_mpq_manager);
         scoped_mpq t(m_mpq_manager), sq(m_mpq_manager);
