@@ -126,14 +126,16 @@ eautomaton* re2automaton::re2aut(expr* e) {
         }
         return b.detach();        
     }
-#if 0
     else if (u.re.is_empty(e)) {
-        return alloc(eautomaton, m);
+        return alloc(eautomaton, sm);
     }
     else if (u.re.is_full(e)) {
+        sym_expr* _true = sym_expr::mk_pred(expr_ref(m.mk_true(), m));
+        return eautomaton::mk_loop(sm, _true);
     }
+#if 0
     else if (u.re.is_intersect(e, e1, e2)) {
-
+        // maybe later
     }
 #endif
     
@@ -1127,7 +1129,6 @@ bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_
         if (set_empty(szr, _rs, true, lhs, rhs)) {
             lchange |= szr > 1; 
             change  |= szr > 1;
-            TRACE("seq", tout << lchange << " " << szr << "\n";);
             if (szr == 1 && !lchange) {
                 lhs.reset();
                 rhs.reset();
@@ -1322,23 +1323,20 @@ bool seq_rewriter::is_subsequence(unsigned szl, expr* const* l, unsigned szr, ex
     for (unsigned i = 0; i < szl; ++i) {
         bool found = false;
         unsigned j = 0;
+        bool is_unit = m_util.str.is_unit(l[i]);
         for (; !found && j < szr; ++j) {
-            found = !rpos.contains(j) && l[i] == r[j];
+            found = !rpos.contains(j) && (l[i] == r[j] || (is_unit && m_util.str.is_unit(r[j])));
         }
+        
         if (!found) {
-#if 0
-            std::cout << mk_pp(l[i], m()) << " not found in ";
-            for (unsigned j = 0; j < szr; ++j) {
-                std::cout << mk_pp(r[j], m()) << " ";
-            }
-            std::cout << "\n";
-#endif
             return false;
         }
         SASSERT(0 < j && j <= szr);
         rpos.insert(j-1);
     }
     // if we reach here, then every element of l is contained in r in some position.
+    // or each non-unit in l is matched by a non-unit in r, and otherwise, the non-units match up.
+    bool change = false;
     ptr_vector<expr> rs;
     for (unsigned j = 0; j < szr; ++j) {
         if (rpos.contains(j)) {
@@ -1348,6 +1346,12 @@ bool seq_rewriter::is_subsequence(unsigned szl, expr* const* l, unsigned szr, ex
             is_sat = false;
             return true;
         }
+        else {
+            change = true;
+        }
+    }
+    if (!change) {
+        return false;
     }
     SASSERT(szl == rs.size());
     if (szl > 0) {

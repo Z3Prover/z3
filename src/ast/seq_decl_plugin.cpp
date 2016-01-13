@@ -36,18 +36,55 @@ static bool is_hex_digit(char ch, unsigned& d) {
 
 static bool is_escape_char(char const *& s, unsigned& result) {
     unsigned d1, d2;
-    if (*s == '\\' && *(s + 1) == 'x' && 
+    if (*s != '\\' || *(s + 1) == 0) {
+        return false;
+    }
+    if (*(s + 1) == 'x' && 
         is_hex_digit(*(s + 2), d1) && is_hex_digit(*(s + 3), d2)) {
         result = d1*16 + d2;
         s += 4;
         return true;
     }
-    if (*s == '\\' && *(s + 1) == '\\') {
-        result = '\\';
+    switch (*(s + 1)) {
+    case 'a':
+        result = '\a';
+        s += 2;
+        return true;
+    case 'b':
+        result = '\b';
+        s += 2;
+        return true;
+#if 0
+    case 'e':
+        result = '\e';
+        s += 2;
+        return true;
+#endif
+    case 'f':
+        result = '\f';
+        s += 2;
+        return true;
+    case 'n':
+        result = '\n';
+        s += 2;
+        return true;
+    case 'r':
+        result = '\r';
+        s += 2;
+        return true;
+    case 't':
+        result = '\t';
+        s += 2;
+        return true;
+    case 'v':
+        result = '\v';
+        s += 2;
+        return true;
+    default:
+        result = *(s + 1);
         s += 2;
         return true;
     }
-    return false;
 }
 
 zstring::zstring(encoding enc): m_encoding(enc) {}
@@ -411,9 +448,9 @@ void seq_decl_plugin::init() {
     m_sigs[OP_RE_UNION]      = alloc(psig, m, "re.union",     1, 2, reAreA, reA);
     m_sigs[OP_RE_INTERSECT]  = alloc(psig, m, "re.inter",     1, 2, reAreA, reA);
     m_sigs[OP_RE_LOOP]           = alloc(psig, m, "re.loop",    1, 1, &reA, reA);
-    m_sigs[OP_RE_EMPTY_SET]      = alloc(psig, m, "re-empty-set", 1, 0, 0, reA);
-    m_sigs[OP_RE_FULL_SET]       = alloc(psig, m, "re-full-set", 1, 0, 0, reA);
-    m_sigs[OP_RE_OF_PRED]        = alloc(psig, m, "re-of-pred", 1, 1, &predA, reA);
+    m_sigs[OP_RE_EMPTY_SET]      = alloc(psig, m, "re.empty", 1, 0, 0, reA);
+    m_sigs[OP_RE_FULL_SET]       = alloc(psig, m, "re.all", 1, 0, 0, reA);
+    m_sigs[OP_RE_OF_PRED]        = alloc(psig, m, "re.of.pred", 1, 1, &predA, reA);
     m_sigs[OP_SEQ_TO_RE]         = alloc(psig, m, "seq.to.re",  1, 1, &seqA, reA);
     m_sigs[OP_SEQ_IN_RE]         = alloc(psig, m, "seq.in.re", 1, 2, seqAreA, boolT);
     m_sigs[OP_STRING_CONST]      = 0;
@@ -429,6 +466,8 @@ void seq_decl_plugin::init() {
     m_sigs[_OP_STRING_SUFFIX]    = alloc(psig, m, "str.suffixof", 0, 2, str2T, boolT);
     m_sigs[_OP_STRING_IN_REGEXP]  = alloc(psig, m, "str.in.re", 0, 2, strTreT, boolT);
     m_sigs[_OP_STRING_TO_REGEXP]  = alloc(psig, m, "str.to.re", 0, 1, &strT, reT);
+    m_sigs[_OP_REGEXP_EMPTY]      = alloc(psig, m, "re.nostr", 0, 0, 0, reT);
+    m_sigs[_OP_REGEXP_FULL]       = alloc(psig, m, "re.allchar", 0, 0, 0, reT);
     m_sigs[_OP_STRING_SUBSTR]     = alloc(psig, m, "str.substr", 0, 3, strTint2T, strT);
 }
 
@@ -527,6 +566,13 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         match(*m_sigs[k], arity, domain, range, rng);
         return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
 
+    case _OP_REGEXP_FULL:
+        match(*m_sigs[k], arity, domain, range, rng);
+        return m.mk_func_decl(symbol("re.allchar"), arity, domain, rng, func_decl_info(m_family_id, OP_RE_FULL_SET));
+    case _OP_REGEXP_EMPTY:
+        match(*m_sigs[k], arity, domain, range, rng);
+        return m.mk_func_decl(symbol("re.nostr"), arity, domain, rng, func_decl_info(m_family_id, OP_RE_EMPTY_SET));
+        
     case OP_RE_LOOP:
         match(*m_sigs[k], arity, domain, range, rng);
         if (num_parameters != 2 || !parameters[0].is_int() || !parameters[1].is_int()) {

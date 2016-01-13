@@ -444,7 +444,9 @@ bool theory_seq::check_length_coherence(expr* e) {
             propagate_is_conc(e, conc);
             assume_equality(tail, emp);
         }
-        m_trail_stack.push(push_replay(alloc(replay_length_coherence, m, e)));
+        if (!get_context().at_base_level()) {
+            m_trail_stack.push(push_replay(alloc(replay_length_coherence, m, e)));
+        }
         return true;
     }
     return false;
@@ -652,7 +654,7 @@ bool theory_seq::simplify_eq(expr_ref_vector& ls, expr_ref_vector& rs, dependenc
     expr_ref_vector lhs(m), rhs(m);
     bool changed = false;
     if (!m_seq_rewrite.reduce_eq(ls, rs, lhs, rhs, changed)) {
-        // equality is inconsistent.x2
+        // equality is inconsistent.
         TRACE("seq", tout << ls << " != " << rs << "\n";);
         set_conflict(deps);
         return true;
@@ -1534,7 +1536,7 @@ void theory_seq::propagate() {
     }
     while (!m_replay.empty() && !ctx.inconsistent()) {
         (*m_replay[m_replay.size()-1])(*this);
-        TRACE("seq", tout << "replay: " << ctx.get_scope_level() << "\n";);
+        TRACE("seq", tout << "replay at level: " << ctx.get_scope_level() << "\n";);
         m_replay.pop_back();
     }
     if (m_new_solution) {
@@ -1716,6 +1718,7 @@ void theory_seq::add_elim_string_axiom(expr* n) {
     - len(x) >= 0                   otherwise
  */
 void theory_seq::add_length_axiom(expr* n) {
+    context& ctx = get_context();
     expr* x;
     VERIFY(m_util.str.is_length(n, x));
     if (m_util.str.is_concat(x) ||
@@ -1726,12 +1729,15 @@ void theory_seq::add_length_axiom(expr* n) {
         m_rewrite(len);
         SASSERT(n != len);
         add_axiom(mk_eq(len, n, false));
-
-        m_trail_stack.push(push_replay(alloc(replay_axiom, m, n)));
+        if (!ctx.at_base_level()) {
+            m_trail_stack.push(push_replay(alloc(replay_axiom, m, n)));
+        }
     }
     else {
         add_axiom(mk_literal(m_autil.mk_ge(n, m_autil.mk_int(0))));        
-        m_trail_stack.push(push_replay(alloc(replay_axiom, m, n)));
+        if (!ctx.at_base_level()) {
+            m_trail_stack.push(push_replay(alloc(replay_axiom, m, n)));
+        }
     }
 }
 
