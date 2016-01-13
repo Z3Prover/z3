@@ -912,13 +912,19 @@ extern "C" {
         ast_manager & m = mk_c(c)->m();
         mpf_manager & mpfm = mk_c(c)->fpautil().fm();
         fpa_decl_plugin * plugin = (fpa_decl_plugin*)m.get_plugin(mk_c(c)->get_fpa_fid());
+        family_id fid = mk_c(c)->get_fpa_fid();
+        expr * e = to_expr(t);
+        if (!is_app(e) || is_app_of(e, fid, OP_FPA_NAN)) {
+            SET_ERROR_CODE(Z3_INVALID_ARG);
+            return 0;
+        }
         scoped_mpf val(mpfm);
         bool r = plugin->is_numeral(to_expr(t), val);
         if (!r || mpfm.is_nan(val)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return 0;
         }
-        *sgn = (mpfm.is_nan(val)) ? 0 : mpfm.sgn(val);
+        *sgn = mpfm.sgn(val);
         return r;
         Z3_CATCH_RETURN(0);
     }
@@ -943,17 +949,15 @@ extern "C" {
             return "";
         }
         scoped_mpf val(mpfm);
-//        app * a = to_app(e);
         bool r = plugin->is_numeral(e, val);
-        if (!r || !mpfm.is_regular(val)) {
+        if (!r || !(mpfm.is_normal(val) || mpfm.is_denormal(val) || mpfm.is_zero(val))) {
             SET_ERROR_CODE(Z3_INVALID_ARG)
             return "";
         }
         unsigned sbits = val.get().get_sbits();
         scoped_mpq q(mpqm);
-        scoped_mpz sn(mpzm);
-        mpfm.sig_normalized(val, sn);
-        mpqm.set(q, sn);
+        mpqm.set(q, mpfm.sig(val));
+        if (!mpfm.is_denormal(val)) mpqm.add(q, mpfm.m_powers2(sbits - 1), q);
         mpqm.div(q, mpfm.m_powers2(sbits - 1), q);
         std::stringstream ss;
         mpqm.display_decimal(ss, q, sbits);
@@ -981,10 +985,11 @@ extern "C" {
             return 0;
         }
         scoped_mpf val(mpfm);
-//        app * a = to_app(e);
         bool r = plugin->is_numeral(e, val);
         const mpz & z = mpfm.sig(val);
-        if (!r || mpfm.is_regular(val)|| !mpzm.is_uint64(z)) {
+        if (!r ||
+            !(mpfm.is_normal(val) || mpfm.is_denormal(val) || mpfm.is_zero(val)) ||
+            !mpzm.is_uint64(z)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             *n = 0;
             return 0;
@@ -1012,13 +1017,14 @@ extern "C" {
             return "";
         }
         scoped_mpf val(mpfm);
-//        app * a = to_app(e);
         bool r = plugin->is_numeral(e, val);
-        if (!r || !mpfm.is_regular(val)) {
+        if (!r || !(mpfm.is_normal(val) || mpfm.is_denormal(val) || mpfm.is_zero(val))) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return "";
         }
-        mpf_exp_t exp = mpfm.exp_normalized(val);
+        mpf_exp_t exp = mpfm.is_zero(val) ? 0 :
+                        mpfm.is_denormal(val) ? mpfm.mk_min_exp(val.get().get_ebits()) :
+                        mpfm.exp(val);
         std::stringstream ss;
         ss << exp;
         return mk_c(c)->mk_external_string(ss.str());
@@ -1031,6 +1037,7 @@ extern "C" {
         RESET_ERROR_CODE();
         ast_manager & m = mk_c(c)->m();
         mpf_manager & mpfm = mk_c(c)->fpautil().fm();
+        unsynch_mpz_manager & mpzm = mpfm.mpz_manager();
         family_id fid = mk_c(c)->get_fpa_fid();
         fpa_decl_plugin * plugin = (fpa_decl_plugin*)m.get_plugin(mk_c(c)->get_fpa_fid());
         SASSERT(plugin != 0);
@@ -1044,14 +1051,15 @@ extern "C" {
             return 0;
         }
         scoped_mpf val(mpfm);
-//        app * a = to_app(e);
         bool r = plugin->is_numeral(e, val);
-        if (!r || !mpfm.is_regular(val)) {
+        if (!r || !(mpfm.is_normal(val) || mpfm.is_denormal(val) || mpfm.is_zero(val))) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             *n = 0;
             return 0;
         }
-        *n = mpfm.exp(val);
+        *n = mpfm.is_zero(val) ? 0 :
+             mpfm.is_denormal(val) ? mpfm.mk_min_exp(val.get().get_ebits()) :
+             mpfm.exp(val);
         return 1;
         Z3_CATCH_RETURN(0);
     }
