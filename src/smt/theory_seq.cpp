@@ -31,8 +31,8 @@ using namespace smt;
 struct display_expr {
     ast_manager& m;
     display_expr(ast_manager& m): m(m) {}
-    std::ostream& display(std::ostream& out, expr* e) const {
-        return out << mk_pp(e, m);
+    std::ostream& display(std::ostream& out, sym_expr* e) const {
+        return e->display(out);
     }
 };
 
@@ -169,7 +169,8 @@ theory_seq::theory_seq(ast_manager& m):
     m_lhs(m), m_rhs(m),
     m_atoms_qhead(0),
     m_new_solution(false),
-    m_new_propagation(false) {    
+    m_new_propagation(false),
+    m_mk_aut(m) {    
     m_prefix = "seq.prefix.suffix";
     m_suffix = "seq.suffix.prefix";
     m_contains_left = "seq.contains.left";
@@ -1176,7 +1177,9 @@ void theory_seq::display(std::ostream & out) const {
         for (; it != end; ++it) {
             out << mk_pp(it->m_key, m) << "\n";
             display_expr disp(m);
-            it->m_value->display(out, disp);
+            if (it->m_value) {
+                it->m_value->display(out, disp);
+            }
         }
     }
     if (!m_rep.empty()) {
@@ -1952,11 +1955,10 @@ void theory_seq::add_at_axiom(expr* e) {
 void theory_seq::propagate_step(literal lit, expr* step) {
     context& ctx = get_context();
     SASSERT(ctx.get_assignment(lit) == l_true);
-    expr* re, *t, *s, *idx, *i, *j;
-    VERIFY(is_step(step, s, idx, re, i, j, t));
-    expr_ref nth = mk_nth(s, idx);
-    TRACE("seq", tout << mk_pp(step, m) << " -> " << mk_pp(t, m) << " = " << nth << "\n";);
-    propagate_eq(lit, t, nth);
+    expr* re, *acc, *s, *idx, *i, *j;
+    VERIFY(is_step(step, s, idx, re, i, j, acc));
+    TRACE("seq", tout << mk_pp(step, m) << " -> " << mk_pp(acc, m) << "\n";);
+    propagate_lit(0, 1, &lit, mk_literal(acc));
     rational lo;
     rational _idx;
     if (lower_bound(s, lo) && lo.is_unsigned() && m_autil.is_numeral(idx, _idx) && lo >= _idx) {
@@ -2250,15 +2252,14 @@ eautomaton* theory_seq::get_automaton(expr* re) {
     if (m_re2aut.find(re, result)) {
         return result;
     }
-    result = re2automaton(m)(re);
+    result = m_mk_aut(re);
     if (result) {
         display_expr disp(m);
         TRACE("seq", result->display(tout, disp););
     }
-    if (result) {
-        m_automata.push_back(result);
-        m_trail_stack.push(push_back_vector<theory_seq, scoped_ptr_vector<eautomaton> >(m_automata));
-    }
+    m_automata.push_back(result);
+    m_trail_stack.push(push_back_vector<theory_seq, scoped_ptr_vector<eautomaton> >(m_automata));
+    
     m_re2aut.insert(re, result);
     m_trail_stack.push(insert_obj_map<theory_seq, expr, eautomaton*>(m_re2aut, re));
     return result;
@@ -2281,10 +2282,11 @@ bool theory_seq::is_acc_rej(symbol const& ar, expr* e, expr*& s, expr*& idx, exp
         s  = to_app(e)->get_arg(0);
         idx = to_app(e)->get_arg(1);
         re = to_app(e)->get_arg(2);
+        TRACE("seq", tout << mk_pp(re, m) << "\n";);
         VERIFY(m_autil.is_numeral(to_app(e)->get_arg(3), r));
         SASSERT(r.is_unsigned());
         i = r.get_unsigned();
-        aut = m_re2aut[re];
+        aut = get_automaton(re);        
         return true;
     }
     else {
@@ -2311,12 +2313,13 @@ bool theory_seq::is_step(expr* e, expr*& s, expr*& idx, expr*& re, expr*& i, exp
     }
 }
 
-expr_ref theory_seq::mk_step(expr* s, expr* idx, expr* re, unsigned i, unsigned j, expr* t) { 
+expr_ref theory_seq::mk_step(expr* s, expr* idx, expr* re, unsigned i, unsigned j, expr* acc) { 
+    SASSERT(m.is_bool(acc));
     expr_ref_vector args(m);
     args.push_back(s).push_back(idx).push_back(re);
     args.push_back(m_autil.mk_int(i));
     args.push_back(m_autil.mk_int(j));
-    args.push_back(t);
+    args.push_back(acc);
     return expr_ref(m_util.mk_skolem(m_aut_step, args.size(), args.c_ptr(), m.mk_bool_sort()), m);
 }
 
@@ -2390,7 +2393,9 @@ bool theory_seq::add_accept2step(expr* acc) {
     for (unsigned i = 0; i < mvs.size(); ++i) {
         unsigned j = (i + start) % mvs.size();
         eautomaton::move mv = mvs[j];
-        step = mk_step(e, idx, re, src, mv.dst(), mv.t());
+        expr_ref nth = mk_nth(e, idx);
+        expr_ref acc = mv.t()->accept(nth);
+        step = mk_step(e, idx, re, src, mv.dst(), acc);
         lits.push_back(mk_literal(step));
         switch (ctx.get_assignment(lits.back())) {
         case l_true:
@@ -2433,8 +2438,8 @@ bool theory_seq::add_accept2step(expr* acc) {
 bool theory_seq::add_step2accept(expr* step) {
     context& ctx = get_context();
     SASSERT(ctx.get_assignment(step) == l_true);
-    expr* re, *t, *s, *idx, *i, *j;
-    VERIFY(is_step(step, s, idx, re, i, j, t));
+    expr* re, *_acc, *s, *idx, *i, *j;
+    VERIFY(is_step(step, s, idx, re, i, j, _acc));
     literal acc1 = mk_accept(s, idx,  re, i);
     switch (ctx.get_assignment(acc1)) {
     case l_false:
@@ -2508,7 +2513,7 @@ bool theory_seq::add_reject2reject(expr* rej) {
     bool has_undef = false;
     for (unsigned i = 0; i < mvs.size(); ++i) {
         eautomaton::move const& mv = mvs[i];        
-        literal eq = mk_eq(nth, mv.t(), false);
+        literal eq = mk_literal(mv.t()->accept(nth)); 
         switch (ctx.get_assignment(eq)) {
         case l_false:
         case l_true:

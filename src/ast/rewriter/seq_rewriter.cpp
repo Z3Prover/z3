@@ -24,18 +24,35 @@ Notes:
 #include"uint_set.h"
 #include"automaton.h"
 #include"well_sorted.h"
+#include"var_subst.h"
 
+expr_ref sym_expr::accept(expr* e) {
+    ast_manager& m = m_t.get_manager();
+    expr_ref result(m);
+    if (m_is_pred) {
+        var_subst subst(m);
+        subst(m_t, 1, &e, result);
+    }
+    else {
+        result = m.mk_eq(e, m_t);
+    }
+    return result;
+}
+
+std::ostream& sym_expr::display(std::ostream& out) const {
+    return out << m_t;
+}
 
 struct display_expr1 {
     ast_manager& m;
     display_expr1(ast_manager& m): m(m) {}
-    std::ostream& display(std::ostream& out, expr* e) const {
-        return out << mk_pp(e, m);
+    std::ostream& display(std::ostream& out, sym_expr* e) const {
+        return e->display(out);
     }
 };
 
 
-re2automaton::re2automaton(ast_manager& m): m(m), u(m) {}
+re2automaton::re2automaton(ast_manager& m): m(m), u(m), bv(m) {}
 
 eautomaton* re2automaton::operator()(expr* e) { 
     eautomaton* r = re2aut(e); 
@@ -53,6 +70,7 @@ eautomaton* re2automaton::re2aut(expr* e) {
     expr* e1, *e2;
     scoped_ptr<eautomaton> a, b;
     unsigned lo, hi;
+    zstring s1, s2;
     if (u.re.is_to_re(e, e1)) {
         return seq2aut(e1);
     }
@@ -76,12 +94,27 @@ eautomaton* re2automaton::re2aut(expr* e) {
         a = eautomaton::mk_opt(*a);
         return a.detach();                    
     }
-    else if (u.re.is_range(e)) {
-        // TBD
+    else if (u.re.is_range(e, e1, e2)) {
+        if (u.str.is_string(e1, s1) && u.str.is_string(e2, s2) &&
+            s1.length() == 1 && s2.length() == 1) {
+            unsigned start = s1[0];
+            unsigned stop = s2[0];
+            unsigned nb = s1.num_bits();
+            sort_ref s(bv.mk_sort(nb), m);          
+            expr_ref v(m.mk_var(0, s), m);
+            expr_ref _start(bv.mk_numeral(start, nb), m);
+            expr_ref _stop(bv.mk_numeral(stop, nb), m);
+            expr_ref cond(m.mk_and(bv.mk_ule(_start, v), bv.mk_ule(v, _stop)), m);
+            a = alloc(eautomaton, sm, sym_expr::mk_pred(cond));
+            return a.detach();
+        }
+        else {
+            TRACE("seq", tout << "Range expression is not handled: " << mk_pp(e, m) << "\n";);
+        }
     }
     else if (u.re.is_loop(e, e1, lo, hi) && (a = re2aut(e1))) {
-        scoped_ptr<eautomaton> eps = eautomaton::mk_epsilon(m);
-        b = eautomaton::mk_epsilon(m);
+        scoped_ptr<eautomaton> eps = eautomaton::mk_epsilon(sm);
+        b = eautomaton::mk_epsilon(sm);
         while (hi > lo) {
             scoped_ptr<eautomaton> c = eautomaton::mk_concat(*a, *b);
             b = eautomaton::mk_union(*eps, *c);
@@ -94,10 +127,12 @@ eautomaton* re2automaton::re2aut(expr* e) {
         return b.detach();        
     }
 #if 0
-    else if (u.re.is_intersect(e, e1, e2)) {
-
-    }
     else if (u.re.is_empty(e)) {
+        return alloc(eautomaton, m);
+    }
+    else if (u.re.is_full(e)) {
+    }
+    else if (u.re.is_intersect(e, e1, e2)) {
 
     }
 #endif
@@ -114,10 +149,10 @@ eautomaton* re2automaton::seq2aut(expr* e) {
         return eautomaton::mk_concat(*a, *b);
     }
     else if (u.str.is_unit(e, e1)) {
-        return alloc(eautomaton, m, e1);
+        return alloc(eautomaton, sm, sym_expr::mk_char(m, e1));
     }
     else if (u.str.is_empty(e)) {
-        return eautomaton::mk_epsilon(m);
+        return eautomaton::mk_epsilon(sm);
     }
     else if (u.str.is_string(e, s)) {        
         unsigned init = 0;
@@ -126,9 +161,9 @@ eautomaton* re2automaton::seq2aut(expr* e) {
         final.push_back(s.length());
         for (unsigned k = 0; k < s.length(); ++k) {
             // reference count?
-            mvs.push_back(eautomaton::move(m, k, k+1, u.str.mk_char(s, k)));
+            mvs.push_back(eautomaton::move(sm, k, k+1, sym_expr::mk_char(m, u.str.mk_char(s, k))));
         }
-        return alloc(eautomaton, m, init, final, mvs);
+        return alloc(eautomaton, sm, init, final, mvs);
     }
     return 0;
 }
@@ -679,11 +714,11 @@ bool seq_rewriter::is_sequence(eautomaton& aut, expr_ref_vector& seq) {
             return false;
         }
         visited.insert(state);
-        expr* t = mvs[0].t();
-        if (!t) {
+        sym_expr* t = mvs[0].t();
+        if (!t || !t->is_char()) {
             return false;
         }
-        seq.push_back(m_util.str.mk_unit(t));
+        seq.push_back(m_util.str.mk_unit(t->get_char()));
         state = mvs[0].dst();
         mvs.reset();
         aut.get_moves_from(state, mvs, true);
@@ -727,7 +762,7 @@ bool seq_rewriter::is_sequence(expr* e, expr_ref_vector& seq) {
 br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
     scoped_ptr<eautomaton> aut;
     expr_ref_vector seq(m());
-    if (!(aut = re2automaton(m())(b))) {
+    if (!(aut = m_re2aut(b))) {
         return BR_FAILED;
     }
 
@@ -769,8 +804,8 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
             aut->get_moves_from(state, mvs, false);
             for (unsigned j = 0; j < mvs.size(); ++j) {
                 eautomaton::move const& mv = mvs[j];
-                if (m().is_value(mv.t()) && m().is_value(ch)) {
-                    if (mv.t() == ch) {
+                if (mv.t()->is_char() && m().is_value(mv.t()->get_char()) && m().is_value(ch)) {
+                    if (mv.t()->get_char() == ch) {
                         add_next(next, mv.dst(), acc);
                     }
                     else {
@@ -778,7 +813,7 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
                     }
                 }
                 else {
-                    cond = m().mk_eq(mv.t(), ch);
+                    cond = mv.t()->accept(ch);
                     if (!m().is_true(acc)) cond = m().mk_and(acc, cond);
                     add_next(next, mv.dst(), cond);
                 }

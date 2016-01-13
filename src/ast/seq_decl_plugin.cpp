@@ -22,12 +22,46 @@ Revision History:
 #include "ast_pp.h"
 #include <sstream>
 
+static bool is_hex_digit(char ch, unsigned& d) {
+    if ('0' <= ch && ch <= '9') {
+        d = ch - '0';
+        return true;
+    }
+    if ('A' <= ch && ch <= 'F') {
+        d = 10 + ch - 'A';
+        return true;
+    }
+    return false;
+}
+
+static bool is_escape_char(char const *& s, unsigned& result) {
+    unsigned d1, d2;
+    if (*s == '\\' && *(s + 1) == 'x' && 
+        is_hex_digit(*(s + 2), d1) && is_hex_digit(*(s + 3), d2)) {
+        result = d1*16 + d2;
+        s += 4;
+        return true;
+    }
+    if (*s == '\\' && *(s + 1) == '\\') {
+        result = '\\';
+        s += 2;
+        return true;
+    }
+    return false;
+}
+
 zstring::zstring(encoding enc): m_encoding(enc) {}
 
 zstring::zstring(char const* s, encoding enc): m_encoding(enc) {
     while (*s) {
-        m_buffer.push_back(*s);
-        ++s;
+        unsigned ch;
+        if (is_escape_char(s, ch)) {
+            m_buffer.push_back(ch);
+        }
+        else {            
+            m_buffer.push_back(*s);
+            ++s;
+        }
     }
 }
 
@@ -80,9 +114,10 @@ zstring zstring::replace(zstring const& src, zstring const& dst) const {
     return result;
 }
 
-static const char esc_table[32][3] =
-    { "\\0", "^A", "^B", "^C", "^D", "^E", "^F", "\\a", "\\b", "\\t", "\\n", "\\v", "\\f", "\\r", "^N",
-      "^O", "^P", "^Q", "^R", "^S", "^T", "^U", "^V","^W","^X","^Y","^Z","\\e","^\\","^]","^^","^_"};
+static const char esc_table[32][6] =
+    { "\\x00", "\\x01", "\\x02", "\\x03", "\\x04", "\\x05", "\\x06", "\\x07", "\\x08", "\\x09", "\\n",   "\\v",   "\\f",   "\\r",   "\\x0E", "\\x0F", 
+      "\\x10", "\\x11", "\\x12", "\\x13", "\\x14", "\\x15", "\\x16", "\\x17", "\\x18", "\\x19", "\\x1A", "\\x1B", "\\x1C", "\\x1D", "\\x1E", "\\x1F"
+};
  
 std::string zstring::encode() const {
     SASSERT(m_encoding == ascii);
@@ -91,7 +126,7 @@ std::string zstring::encode() const {
         unsigned char ch = m_buffer[i];
         if (0 <= ch && ch < 32) {
             strm << esc_table[ch];
-        }
+        }        
         else if (ch == 127) {
             strm << "^?";
         }

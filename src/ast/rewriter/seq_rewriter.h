@@ -26,11 +26,37 @@ Notes:
 #include"lbool.h"
 #include"automaton.h"
 
+class sym_expr {
+    bool     m_is_pred;
+    expr_ref m_t;
+    unsigned m_ref;
+    sym_expr(bool is_pred, expr_ref& t) : m_is_pred(is_pred), m_t(t), m_ref(0) {}
+public:
+    expr_ref accept(expr* e);
+    static sym_expr* mk_char(expr_ref& t) { return alloc(sym_expr, false, t); }
+    static sym_expr* mk_char(ast_manager& m, expr* t) { expr_ref tr(t, m); return alloc(sym_expr, false, tr); }
+    static sym_expr* mk_pred(expr_ref& t) { return alloc(sym_expr, true, t); }
+    void inc_ref() { ++m_ref; }
+    void dec_ref() { --m_ref; if (m_ref == 0) dealloc(this); }
+    std::ostream& display(std::ostream& out) const;
+    bool is_char() const { return !m_is_pred; }
+    bool is_pred() const { return m_is_pred; }
+    expr* get_char() const { SASSERT(is_char()); return m_t; }
 
-typedef automaton<expr, ast_manager> eautomaton;
+};
+
+class sym_expr_manager {
+public:
+    void inc_ref(sym_expr* s) { if (s) s->inc_ref(); }
+    void dec_ref(sym_expr* s) { if (s) s->dec_ref(); }
+};
+
+typedef automaton<sym_expr, sym_expr_manager> eautomaton;
 class re2automaton {
     ast_manager& m;
-    seq_util     u;       
+    sym_expr_manager sm;
+    seq_util     u;     
+    bv_util      bv;
     eautomaton* re2aut(expr* e);
     eautomaton* seq2aut(expr* e);
  public:
@@ -44,6 +70,7 @@ class re2automaton {
 class seq_rewriter {
     seq_util       m_util;
     arith_util     m_autil;
+    re2automaton   m_re2aut;
     expr_ref_vector m_es, m_lhs, m_rhs;
 
     br_status mk_seq_concat(expr* a, expr* b, expr_ref& result);
@@ -80,7 +107,7 @@ class seq_rewriter {
 
 public:    
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
-        m_util(m), m_autil(m), m_es(m), m_lhs(m), m_rhs(m) {
+        m_util(m), m_autil(m), m_re2aut(m), m_es(m), m_lhs(m), m_rhs(m) {
     }
     ast_manager & m() const { return m_util.get_manager(); }
     family_id get_fid() const { return m_util.get_family_id(); }
