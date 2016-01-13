@@ -829,7 +829,8 @@ extern "C" {
         \param t a floating-point numeral
         \param sgn sign
 
-        Remarks: sets \c sgn to 0 if the literal is NaN or positive and to 1 otherwise.
+        Remarks: sets \c sgn to 0 if `t' is positive and to 1 otherwise, except for
+        NaN, which is an invalid argument.
 
         def_API('Z3_fpa_get_numeral_sign', BOOL, (_in(CONTEXT), _in(AST), _out(INT)))
     */
@@ -841,7 +842,7 @@ extern "C" {
         \param c logical context
         \param t a floating-point numeral
 
-        Remarks: The significand s is always 0 < s < 2.0; the resulting string is long
+        Remarks: The significand s is always 0.0 <= s < 2.0; the resulting string is long
         enough to represent the real significand precisely.
 
         def_API('Z3_fpa_get_numeral_significand_string', STRING, (_in(CONTEXT), _in(AST)))
@@ -869,6 +870,8 @@ extern "C" {
         \param c logical context
         \param t a floating-point numeral
 
+        Remarks: This function extracts the exponent in `t`, without normalization.
+
         def_API('Z3_fpa_get_numeral_exponent_string', STRING, (_in(CONTEXT), _in(AST)))
     */
     Z3_string Z3_API Z3_fpa_get_numeral_exponent_string(Z3_context c, Z3_ast t);
@@ -879,6 +882,8 @@ extern "C" {
         \param c logical context
         \param t a floating-point numeral
         \param n exponent
+
+        Remarks: This function extracts the exponent in `t`, without normalization.
 
         def_API('Z3_fpa_get_numeral_exponent_int64', BOOL, (_in(CONTEXT), _in(AST), _out(INT64)))
     */
