@@ -399,7 +399,7 @@ namespace smt2 {
         void check_keyword(char const * msg) { if (!curr_is_keyword()) throw parser_exception(msg); }
         void check_string(char const * msg) { if (!curr_is_string()) throw parser_exception(msg); }
         void check_int(char const * msg) { if (!curr_is_int()) throw parser_exception(msg); }
-        void check_int_or_float(char const * msg) { if (!curr_is_int() || !curr_is_float()) throw parser_exception(msg); }
+        void check_int_or_float(char const * msg) { if (!curr_is_int() && !curr_is_float()) throw parser_exception(msg); }
         void check_float(char const * msg) { if (!curr_is_float()) throw parser_exception(msg); }
 
         void error(unsigned line, unsigned pos, char const * msg) {
@@ -2341,7 +2341,7 @@ namespace smt2 {
                 break;
             }
             case CPK_NUMERAL:
-                check_int("invalid command argument, numeral expected");
+                check_int_or_float("invalid command argument, numeral expected");
                 m_curr_cmd->set_next_arg(m_ctx, curr_numeral());
                 next();
                 break;

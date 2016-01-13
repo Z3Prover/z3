@@ -44,7 +44,26 @@ namespace datalog {
 
         virtual expr_ref get_answer() = 0;
         virtual lbool query(expr* q) = 0;
-        virtual lbool query(unsigned num_rels, func_decl*const* rels) { return l_undef; }
+        virtual lbool query(unsigned num_rels, func_decl*const* rels) { 
+            if (num_rels != 1) return l_undef;
+            expr_ref q(m);
+            expr_ref_vector args(m);
+            sort_ref_vector sorts(m);
+            svector<symbol> names;
+            func_decl* r = rels[0];
+            for (unsigned i = 0; i < r->get_arity(); ++i) {
+                args.push_back(m.mk_var(i, r->get_domain(i)));
+                sorts.push_back(r->get_domain(i));
+                names.push_back(symbol(i));
+            }
+            sorts.reverse();
+            names.reverse();
+            q = m.mk_app(r, args.size(), args.c_ptr());
+            if (!args.empty()) {
+                q = m.mk_exists(sorts.size(), sorts.c_ptr(), names.c_ptr(), q);
+            }
+            return query(q);
+        }
 
         virtual void reset_statistics() {}
         virtual void display_profile(std::ostream& out) const {}

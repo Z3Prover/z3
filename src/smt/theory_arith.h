@@ -547,6 +547,7 @@ namespace smt {
         ptr_vector<expr> m_todo;
         bool is_int_expr(expr* e);
         bool is_int(theory_var v) const { return m_data[v].m_is_int; }
+        bool is_int_src(theory_var v) const { return m_util.is_int(var2expr(v)); }
         bool is_real(theory_var v) const { return !is_int(v); }
         bool get_implied_old_value(theory_var v, inf_numeral & r) const;
         inf_numeral const & get_implied_value(theory_var v) const;

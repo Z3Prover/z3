@@ -43,7 +43,7 @@ namespace smt {
         CTRACE("arith_bug", !lower_bound(v).is_rational(), display_var(tout, v););
         SASSERT(lower_bound(v).is_rational());
         numeral const & val = lower_bound(v).get_rational();
-        value_sort_pair key(val, is_int(v));
+        value_sort_pair key(val, is_int_src(v));
         theory_var v2;
         if (m_fixed_var_table.find(key, v2)) {
             if (v2 < static_cast<int>(get_num_vars()) && is_fixed(v2) && lower_bound(v2).get_rational() == val) {
@@ -51,7 +51,7 @@ namespace smt {
                 // The table m_fixed_var_table is not restored during backtrack. So, it may
                 // contain invalid (key -> value) pairs. So, we must check whether v2 is really equal to val (previous test) AND it has
                 // the same sort of v. The following test was missing in a previous version of Z3. 
-                if (!is_equal(v, v2) && is_int(v) == is_int(v2)) {
+                if (!is_equal(v, v2) && is_int_src(v) == is_int_src(v2)) {
                     antecedents ante(*this);
 
                     //
@@ -226,7 +226,7 @@ namespace smt {
             
             if (y == null_theory_var) {
                 // x is an implied fixed var at k.
-                value_sort_pair key(k, is_int(x));
+                value_sort_pair key(k, is_int_src(x));
                 theory_var x2;
                 if (m_fixed_var_table.find(key, x2) && 
                     x2 < static_cast<int>(get_num_vars()) && 
@@ -238,7 +238,7 @@ namespace smt {
                     // So, we must check whether x2 is really equal to k (previous test) 
                     // AND has the same sort of x.
                     // The following test was missing in a previous version of Z3. 
-                    is_int(x) == is_int(x2) &&
+                    is_int_src(x) == is_int_src(x2) &&
                     !is_equal(x, x2)) {
 
                     antecedents ante(*this);
@@ -254,7 +254,7 @@ namespace smt {
                 }
             }
 
-            if (k.is_zero() && y != null_theory_var && !is_equal(x, y) && is_int(x) == is_int(y)) {
+            if (k.is_zero() && y != null_theory_var && !is_equal(x, y) && is_int_src(x) == is_int_src(y)) {
                 // found equality x = y
                 antecedents ante(*this);
                 collect_fixed_var_justifications(r, ante);
@@ -294,7 +294,7 @@ namespace smt {
                     }
 
                     if (new_eq) {
-                        if (!is_equal(x, x2) && is_int(x) == is_int(x2)) {
+                        if (!is_equal(x, x2) && is_int_src(x) == is_int_src(x2)) {
                             SASSERT(y == y2 && k == k2);
                             antecedents ante(*this);
                             collect_fixed_var_justifications(r, ante);
@@ -323,12 +323,12 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::propagate_eq_to_core(theory_var x, theory_var y, antecedents& antecedents) {
-        // I doesn't make sense to propagate an equality (to the core) of variables of different sort.
-        SASSERT(is_int(x) == is_int(y));
         // Ignore equality if variables are already known to be equal.
         if (is_equal(x, y))
             return;
+        // I doesn't make sense to propagate an equality (to the core) of variables of different sort.
         if (get_manager().get_sort(var2expr(x)) != get_manager().get_sort(var2expr(y))) {
+            TRACE("arith", tout << mk_pp(var2expr(x), get_manager()) << " = " << mk_pp(var2expr(y), get_manager()) << "\n";);
             return;
         }
         context & ctx      = get_context();

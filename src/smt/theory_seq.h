@@ -278,6 +278,7 @@ namespace smt {
         unsigned                       m_atoms_qhead;
         bool                           m_new_solution;     // new solution added
         bool                           m_new_propagation;  // new propagation to core
+        re2automaton                   m_mk_aut;
 
         virtual final_check_status final_check_eh();
         virtual bool internalize_atom(app* atom, bool) { return internalize_term(atom); }
@@ -411,7 +412,7 @@ namespace smt {
             return is_acc_rej(m_reject, rej, s, idx, re, i, aut);
         }
         bool is_acc_rej(symbol const& ar, expr* e, expr*& s, expr*& idx, expr*& re, unsigned& i, eautomaton*& aut);
-        expr_ref mk_step(expr* s, expr* tail, expr* re, unsigned i, unsigned j, expr* t);
+        expr_ref mk_step(expr* s, expr* tail, expr* re, unsigned i, unsigned j, expr* acc);
         bool is_step(expr* e, expr*& s, expr*& tail, expr*& re, expr*& i, expr*& j, expr*& t) const;
         bool is_step(expr* e) const;
         void propagate_step(literal lit, expr* n);
