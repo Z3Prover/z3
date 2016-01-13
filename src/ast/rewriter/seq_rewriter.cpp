@@ -130,7 +130,8 @@ eautomaton* re2automaton::re2aut(expr* e) {
         return alloc(eautomaton, sm);
     }
     else if (u.re.is_full(e)) {
-        sym_expr* _true = sym_expr::mk_pred(expr_ref(m.mk_true(), m));
+        expr_ref tt(m.mk_true(), m);
+        sym_expr* _true = sym_expr::mk_pred(tt);
         return eautomaton::mk_loop(sm, _true);
     }
 #if 0
