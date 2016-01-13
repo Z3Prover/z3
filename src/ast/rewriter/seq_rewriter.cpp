@@ -938,7 +938,6 @@ br_status seq_rewriter::mk_eq_core(expr * l, expr * r, expr_ref & result) {
 bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_vector& lhs, expr_ref_vector& rhs, bool& change) {
     expr* a, *b;
     zstring s;
- 
     bool lchange = false;
     SASSERT(lhs.empty());
     // solve from back
@@ -1327,6 +1326,13 @@ bool seq_rewriter::is_subsequence(unsigned szl, expr* const* l, unsigned szr, ex
             found = !rpos.contains(j) && l[i] == r[j];
         }
         if (!found) {
+#if 0
+            std::cout << mk_pp(l[i], m()) << " not found in ";
+            for (unsigned j = 0; j < szr; ++j) {
+                std::cout << mk_pp(r[j], m()) << " ";
+            }
+            std::cout << "\n";
+#endif
             return false;
         }
         SASSERT(0 < j && j <= szr);

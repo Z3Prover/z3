@@ -1325,7 +1325,10 @@ model_value_proc * theory_seq::mk_value(enode * n, model_generator & mg) {
     
     if (concats.size() > 1) {
         for (unsigned i = 0; i < concats.size(); ++i) {
-            sv->add_dependency(ctx.get_enode(concats[i]));
+            expr* e = concats[i];
+            if (!m_util.str.is_string(e)) {
+                sv->add_dependency(ctx.get_enode(e));
+            }
         }
     }
     else if (m_util.str.is_unit(e, e1)) {
@@ -1361,7 +1364,8 @@ app* theory_seq::mk_value(app* e) {
         unsigned sz;
         if (bv.is_numeral(result, val, sz) && sz == zstring().num_bits()) {
             unsigned v = val.get_unsigned();
-            if ((v < 7) || (14 <= v && v < 32) || v == 127) {
+            if (false && ((v < 7) || (14 <= v && v < 32) || v == 127)) {
+                // disabled: use escape characters.
                 result = m_util.str.mk_unit(result);                
             }
             else {
