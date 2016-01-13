@@ -155,12 +155,16 @@ public:
     }
     const mpf_exp_t & exp(mpf const & x) const { return x.exponent; }
     mpf_exp_t exp_normalized(mpf const & x) {
-        mpf t;
-        set(t, x);
-        unpack(t, true);
-        mpf_exp_t r = t.exponent;
-        del(t);
-        return r;
+        if (is_zero(x))
+            return 0;
+        else {
+            mpf t;
+            set(t, x);
+            unpack(t, true);
+            mpf_exp_t r = t.exponent;
+            del(t);
+            return r;
+        }
     }
 
     bool is_nan(mpf const & x);
