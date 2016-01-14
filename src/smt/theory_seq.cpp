@@ -585,7 +585,7 @@ void theory_seq::propagate_lit(dependency* dep, unsigned n, literal const* _lits
     enode_pair_vector eqs;
     linearize(dep, eqs, lits);
     TRACE("seq", ctx.display_detailed_literal(tout, lit); 
-          tout << " <- "; ctx.display_literals_verbose(tout, lits.size(), lits.c_ptr()); display_deps(tout, dep);); 
+          tout << " <- "; ctx.display_literals_verbose(tout, lits.size(), lits.c_ptr()); if (!lits.empty()) tout << "\n"; display_deps(tout, dep);); 
     justification* js = 
         ctx.mk_justification(
             ext_theory_propagation_justification(
@@ -600,7 +600,7 @@ void theory_seq::set_conflict(dependency* dep, literal_vector const& _lits) {
     enode_pair_vector eqs;
     literal_vector lits(_lits);
     linearize(dep, eqs, lits);
-    TRACE("seq", ctx.display_literals_verbose(tout, lits.size(), lits.c_ptr()); display_deps(tout, dep); ;); 
+    TRACE("seq", ctx.display_literals_verbose(tout, lits.size(), lits.c_ptr()); if (!lits.empty()) tout << "\n"; display_deps(tout, dep); ;); 
     m_new_propagation = true;
     ctx.set_conflict(
         ctx.mk_justification(
@@ -617,7 +617,7 @@ void theory_seq::propagate_eq(dependency* dep, enode* n1, enode* n2) {
     enode_pair_vector eqs;
     linearize(dep, eqs, lits);
     TRACE("seq",
-          tout << mk_pp(n1->get_owner(), m) << " = " << mk_pp(n2->get_owner(), m) << " <- ";
+          tout << mk_pp(n1->get_owner(), m) << " = " << mk_pp(n2->get_owner(), m) << " <- \n";
           display_deps(tout, dep);
           ); 
     
@@ -987,6 +987,10 @@ bool theory_seq::solve_ne(unsigned idx) {
         }
         else if (!change) {
             TRACE("seq", tout << "no change " << n.ls(i) << " " << n.rs(i) << "\n";);
+            if (updated) {
+                new_ls.push_back(n.ls(i));
+                new_rs.push_back(n.rs(i));
+            }
             continue;
         }
         else {
@@ -1197,7 +1201,7 @@ void theory_seq::display(std::ostream & out) const {
 void theory_seq::display_equations(std::ostream& out) const {
     for (unsigned i = 0; i < m_eqs.size(); ++i) {
         eq const& e = m_eqs[i];
-        out << e.ls() << " = " << e.rs() << " <- ";
+        out << e.ls() << " = " << e.rs() << " <- \n";
         display_deps(out, e.dep());
     }       
 }
@@ -1231,13 +1235,13 @@ void theory_seq::display_deps(std::ostream& out, dependency* dep) const {
     enode_pair_vector eqs;
     linearize(dep, eqs, lits);
     for (unsigned i = 0; i < eqs.size(); ++i) {
-        out << "\n   " << mk_pp(eqs[i].first->get_owner(), m) << " = " << mk_pp(eqs[i].second->get_owner(), m);
+        out << "   " << mk_pp(eqs[i].first->get_owner(), m) << " = " << mk_pp(eqs[i].second->get_owner(), m) << "\n";
     }
     for (unsigned i = 0; i < lits.size(); ++i) {
         literal lit = lits[i];
-        get_context().display_literals_verbose(out << "\n   ", 1, &lit);
+        get_context().display_literals_verbose(out << "   ", 1, &lit);
+        tout << "\n";
     }
-    out << "\n";        
 }
 
 void theory_seq::collect_statistics(::statistics & st) const {
@@ -2204,6 +2208,7 @@ void theory_seq::new_diseq_eh(theory_var v1, theory_var v2) {
     expr_ref eq(m.mk_eq(e1, e2), m);
     m_rewrite(eq);
     if (!m.is_false(eq)) {
+        TRACE("seq", tout << "new disequality: " << eq << "\n";);
         literal lit = ~mk_eq(e1, e2, false);
         //SASSERT(get_context().get_assignment(lit) == l_true);
         dependency* dep = m_dm.mk_leaf(assumption(lit));

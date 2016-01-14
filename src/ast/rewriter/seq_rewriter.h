@@ -36,7 +36,7 @@ public:
     static sym_expr* mk_char(expr_ref& t) { return alloc(sym_expr, false, t); }
     static sym_expr* mk_char(ast_manager& m, expr* t) { expr_ref tr(t, m); return alloc(sym_expr, false, tr); }
     static sym_expr* mk_pred(expr_ref& t) { return alloc(sym_expr, true, t); }
-    void inc_ref() { ++m_ref; }
+    void inc_ref() { ++m_ref;  }
     void dec_ref() { --m_ref; if (m_ref == 0) dealloc(this); }
     std::ostream& display(std::ostream& out) const;
     bool is_char() const { return !m_is_pred; }
@@ -91,6 +91,7 @@ class seq_rewriter {
     br_status mk_re_star(expr* a, expr_ref& result);
     br_status mk_re_plus(expr* a, expr_ref& result);
     br_status mk_re_opt(expr* a, expr_ref& result);
+    br_status mk_re_loop(unsigned num_args, expr* const* args, expr_ref& result);
 
     bool set_empty(unsigned sz, expr* const* es, bool all, expr_ref_vector& lhs, expr_ref_vector& rhs);
     bool is_subsequence(unsigned n, expr* const* l, unsigned m, expr* const* r, 
@@ -100,7 +101,7 @@ class seq_rewriter {
     bool min_length(unsigned n, expr* const* es, unsigned& len);
     expr* concat_non_empty(unsigned n, expr* const* es);
 
-    void add_next(u_map<expr*>& next, unsigned idx, expr* cond);
+    void add_next(u_map<expr*>& next, expr_ref_vector& trail, unsigned idx, expr* cond);
     bool is_sequence(expr* e, expr_ref_vector& seq);
     bool is_sequence(eautomaton& aut, expr_ref_vector& seq);
     bool is_epsilon(expr* e) const;

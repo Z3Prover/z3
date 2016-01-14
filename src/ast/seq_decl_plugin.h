@@ -136,6 +136,7 @@ class seq_decl_plugin : public decl_plugin {
     symbol           m_charc_sym;
     sort*            m_string;
     sort*            m_char;
+    sort*            m_re;
 
     void match(psig& sig, unsigned dsz, sort* const* dom, sort* range, sort_ref& rng);
 
@@ -297,6 +298,8 @@ public:
         app* mk_star(expr* r) { return m.mk_app(m_fid, OP_RE_STAR, r); }
         app* mk_plus(expr* r) { return m.mk_app(m_fid, OP_RE_PLUS, r); }
         app* mk_opt(expr* r) { return m.mk_app(m_fid, OP_RE_OPTION, r); }        
+        app* mk_loop(expr* r, unsigned lo);
+        app* mk_loop(expr* r, unsigned lo, unsigned hi);
 
         bool is_to_re(expr const* n)    const { return is_app_of(n, m_fid, OP_SEQ_TO_RE); }
         bool is_concat(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_CONCAT); }
@@ -318,7 +321,7 @@ public:
         MATCH_UNARY(is_plus);
         MATCH_UNARY(is_opt);
         bool is_loop(expr const* n, expr*& body, unsigned& lo, unsigned& hi);
-        
+        bool is_loop(expr const* n, expr*& body, unsigned& lo);        
     };
     str str;
     re  re;

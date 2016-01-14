@@ -126,6 +126,16 @@ eautomaton* re2automaton::re2aut(expr* e) {
         }
         return b.detach();        
     }
+    else if (u.re.is_loop(e, e1, lo) && (a = re2aut(e1))) {
+        b = eautomaton::clone(*a);
+        b->add_final_to_init_moves();
+        b->add_init_to_final_states();        
+        while (lo > 0) {
+            b = eautomaton::mk_concat(*a, *b);
+            --lo;
+        }
+        return b.detach();        
+    }
     else if (u.re.is_empty(e)) {
         return alloc(eautomaton, sm);
     }
@@ -200,7 +210,7 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_RE_INTERSECT:
         return BR_FAILED;    
     case OP_RE_LOOP:
-        return BR_FAILED;    
+        return mk_re_loop(num_args, args, result);
     case OP_RE_EMPTY_SET:
         return BR_FAILED;    
     case OP_RE_FULL_SET:
@@ -296,10 +306,14 @@ br_status seq_rewriter::mk_seq_concat(expr* a, expr* b, expr_ref& result) {
         return BR_REWRITE2;
     }
     if (m_util.str.is_empty(a)) {
-        result = b;
+        result = a;
         return BR_DONE;
     }
     if (m_util.str.is_empty(b)) {
+        result = b;
+        return BR_DONE;
+    }
+    if (m_util.re.is_full(a) && m_util.re.is_full(b)) {
         result = a;
         return BR_DONE;
     }
@@ -690,14 +704,14 @@ br_status seq_rewriter::mk_str_stoi(expr* a, expr_ref& result) {
     return BR_FAILED;
 }
 
-void seq_rewriter::add_next(u_map<expr*>& next, unsigned idx, expr* cond) {
+void seq_rewriter::add_next(u_map<expr*>& next, expr_ref_vector& trail, unsigned idx, expr* cond) {
     expr* acc;
-    if (m().is_true(cond) || !next.find(idx, acc)) {              
-        next.insert(idx, cond);                   
-    }                                                   
-    else {                                              
-        next.insert(idx, m().mk_or(cond, acc));   
+    if (!m().is_true(cond) && next.find(idx, acc)) {              
+        cond = m().mk_or(cond, acc);
     }
+    trail.push_back(cond);
+    next.insert(idx, cond);   
+
 }
 
 bool seq_rewriter::is_sequence(eautomaton& aut, expr_ref_vector& seq) {
@@ -807,9 +821,10 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
             aut->get_moves_from(state, mvs, false);
             for (unsigned j = 0; j < mvs.size(); ++j) {
                 eautomaton::move const& mv = mvs[j];
+				SASSERT(mv.t());
                 if (mv.t()->is_char() && m().is_value(mv.t()->get_char()) && m().is_value(ch)) {
                     if (mv.t()->get_char() == ch) {
-                        add_next(next, mv.dst(), acc);
+                        add_next(next, trail, mv.dst(), acc);
                     }
                     else {
                         continue;
@@ -818,7 +833,7 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
                 else {
                     cond = mv.t()->accept(ch);
                     if (!m().is_true(acc)) cond = m().mk_and(acc, cond);
-                    add_next(next, mv.dst(), cond);
+                    add_next(next, trail, mv.dst(), cond);
                 }
             }                
         }
@@ -838,6 +853,7 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         }
     }
     result = mk_or(ors);
+    TRACE("seq", tout << result << "\n";);
     return BR_REWRITE_FULL;
 }
 br_status seq_rewriter::mk_str_to_regexp(expr* a, expr_ref& result) {
@@ -864,6 +880,22 @@ br_status seq_rewriter::mk_re_union(expr* a, expr* b, expr_ref& result) {
         result = a;
         return BR_DONE;
     }
+    if (m_util.re.is_empty(a)) {
+        result = b;
+        return BR_DONE;
+    }
+    if (m_util.re.is_empty(b)) {
+        result = a;
+        return BR_DONE;
+    }
+    if (m_util.re.is_full(a)) {
+        result = a;
+        return BR_DONE;
+    }
+    if (m_util.re.is_full(b)) {
+        result = b;
+        return BR_DONE;
+    }
     if (m_util.re.is_star(a) && is_epsilon(b)) {
         result = a;
         return BR_DONE;
@@ -874,6 +906,32 @@ br_status seq_rewriter::mk_re_union(expr* a, expr* b, expr_ref& result) {
     }
     return BR_FAILED;
 }
+
+
+br_status seq_rewriter::mk_re_loop(unsigned num_args, expr* const* args, expr_ref& result) {
+    rational n1, n2;
+    switch (num_args) {
+    case 1: 
+        break;
+    case 2:
+        if (m_autil.is_numeral(args[1], n1) && n1.is_unsigned()) {
+            result = m_util.re.mk_loop(args[0], n1.get_unsigned());
+            return BR_DONE;
+        }
+        break;
+    case 3:
+        if (m_autil.is_numeral(args[1], n1) && n1.is_unsigned() &&
+            m_autil.is_numeral(args[2], n2) && n2.is_unsigned()) {
+            result = m_util.re.mk_loop(args[0], n1.get_unsigned(), n2.get_unsigned());
+            return BR_DONE;
+        }
+        break;
+    default:
+        break;
+    }
+    return BR_FAILED;
+}
+
 /*
   a** = a*
   (a* + b)* = (a + b)*
@@ -882,7 +940,7 @@ br_status seq_rewriter::mk_re_union(expr* a, expr* b, expr_ref& result) {
 */
 br_status seq_rewriter::mk_re_star(expr* a, expr_ref& result) {
     expr* b, *c, *b1, *c1;
-    if (m_util.re.is_star(a)) {
+    if (m_util.re.is_star(a) || m_util.re.is_empty(a) || m_util.re.is_full(a)) {
         result = a;
         return BR_DONE;
     }

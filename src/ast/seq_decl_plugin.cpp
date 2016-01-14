@@ -163,9 +163,6 @@ std::string zstring::encode() const {
         unsigned char ch = m_buffer[i];
         if (0 <= ch && ch < 32) {
             strm << esc_table[ch];
-        }        
-        else if (ch == 127) {
-            strm << "^?";
         }
         else {
             strm << (char)(ch);
@@ -248,13 +245,15 @@ seq_decl_plugin::seq_decl_plugin(): m_init(false),
                                     m_stringc_sym("String"),
                                     m_charc_sym("Char"),
                                     m_string(0),
-                                    m_char(0) {}
+                                    m_char(0),
+                                    m_re(0) {}
 
 void seq_decl_plugin::finalize() {
     for (unsigned i = 0; i < m_sigs.size(); ++i) 
         dealloc(m_sigs[i]);
     m_manager->dec_ref(m_string);
     m_manager->dec_ref(m_char);
+    m_manager->dec_ref(m_re);
 }
 
 bool seq_decl_plugin::is_sort_param(sort* s, unsigned& idx) {
@@ -479,6 +478,9 @@ void seq_decl_plugin::set_manager(ast_manager* m, family_id id) {
     parameter param(m_char);
     m_string = m->mk_sort(symbol("String"), sort_info(m_family_id, SEQ_SORT, 1, &param));
     m->inc_ref(m_string);
+    parameter paramS(m_string);
+    m_re = m->mk_sort(m_family_id, RE_SORT, 1, &paramS);
+    m->inc_ref(m_re);
 }
 
 sort * seq_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) {
@@ -567,20 +569,40 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
 
     case _OP_REGEXP_FULL:
+        if (!range) {
+            range = m_re;
+        }
         match(*m_sigs[k], arity, domain, range, rng);
         return m.mk_func_decl(symbol("re.allchar"), arity, domain, rng, func_decl_info(m_family_id, OP_RE_FULL_SET));
     case _OP_REGEXP_EMPTY:
+        if (!range) {
+            range = m_re;
+        }
         match(*m_sigs[k], arity, domain, range, rng);
         return m.mk_func_decl(symbol("re.nostr"), arity, domain, rng, func_decl_info(m_family_id, OP_RE_EMPTY_SET));
         
     case OP_RE_LOOP:
-        match(*m_sigs[k], arity, domain, range, rng);
-        if (num_parameters != 2 || !parameters[0].is_int() || !parameters[1].is_int()) {
-            m.raise_exception("Expecting two numeral parameters to function re-loop");
+        switch (arity) {
+        case 1:
+            match(*m_sigs[k], arity, domain, range, rng);
+            if (num_parameters == 0 || num_parameters > 2 || !parameters[0].is_int() || (num_parameters == 2 && !parameters[1].is_int())) {
+                m.raise_exception("Expecting two numeral parameters to function re-loop");
+            }
+            return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k, num_parameters, parameters));   
+        case 2:
+            if (m_re != domain[0] || !arith_util(m).is_int(domain[1])) {
+                m.raise_exception("Incorrect type of arguments passed to re.loop. Expecting regular expression and two integer parameters");
+            }
+            return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, domain[0], func_decl_info(m_family_id, k, num_parameters, parameters));
+        case 3:
+            if (m_re != domain[0] || !arith_util(m).is_int(domain[1]) || !arith_util(m).is_int(domain[2])) {
+                m.raise_exception("Incorrect type of arguments passed to re.loop. Expecting regular expression and two integer parameters");
+            }
+            return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, domain[0], func_decl_info(m_family_id, k, num_parameters, parameters));
+        default:
+            m.raise_exception("Incorrect number of arguments passed to loop. Expected 1 regular expression and two integer parameters");            
         }
-        return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k, num_parameters, parameters));   
-
-
+        
 
     case OP_STRING_CONST:
         if (!(num_parameters == 1 && arity == 0 && parameters[0].is_symbol())) {
@@ -768,17 +790,37 @@ void seq_util::str::get_concat(expr* e, expr_ref_vector& es) const {
     }
 }
 
+app* seq_util::re::mk_loop(expr* r, unsigned lo) {
+    parameter param(lo);
+    return m.mk_app(m_fid, OP_RE_LOOP, 1, &param, 1, &r);
+}
+
+app* seq_util::re::mk_loop(expr* r, unsigned lo, unsigned hi) {
+    parameter params[2] = { parameter(lo), parameter(hi) };
+    return m.mk_app(m_fid, OP_RE_LOOP, 2, params, 1, &r);
+}
+
 bool seq_util::re::is_loop(expr const* n, expr*& body, unsigned& lo, unsigned& hi)  {
     if (is_loop(n)) {
         app const* a = to_app(n);
-        SASSERT(a->get_num_args() == 1);
-        SASSERT(a->get_decl()->get_num_parameters() == 2);
-        body = a->get_arg(0);
-        lo = a->get_decl()->get_parameter(0).get_int();
-        hi = a->get_decl()->get_parameter(1).get_int();
-        return true;
+        if (a->get_num_args() == 1 && a->get_decl()->get_num_parameters() == 2) {
+            body = a->get_arg(0);
+            lo = a->get_decl()->get_parameter(0).get_int();
+            hi = a->get_decl()->get_parameter(1).get_int();
+            return true;
+        }
     }
-    else {
-        return false;
+    return false;    
+}
+
+bool seq_util::re::is_loop(expr const* n, expr*& body, unsigned& lo)  {
+    if (is_loop(n)) {
+        app const* a = to_app(n);
+        if (a->get_num_args() == 1 && a->get_decl()->get_num_parameters() == 1) {
+            body = a->get_arg(0);
+            lo = a->get_decl()->get_parameter(0).get_int();
+            return true;
+        }
     }
+    return false;    
 }
