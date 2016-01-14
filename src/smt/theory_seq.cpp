@@ -634,15 +634,12 @@ void theory_seq::enforce_length_coherence(enode* n1, enode* n2) {
     expr* o1 = n1->get_owner();
     expr* o2 = n2->get_owner();
     if (m_util.str.is_concat(o1) && m_util.str.is_concat(o2)) {
-        //std::cout << "concats:\n" << mk_pp(o1,m) << "\n" << mk_pp(o2,m) << "\n";
         return;
     }
     if (has_length(o1) && !has_length(o2)) {
-        //std::cout << "enforce length: " << mk_pp(o1,m) << " -> " << mk_pp(o2,m) << "\n";
         enforce_length(n2);
     }
     else if (has_length(o2) && !has_length(o1)) {
-        //std::cout << "enforce length: " << mk_pp(o2,m) << " -> " << mk_pp(o1,m) << "\n";
         enforce_length(n1);
     }
 }
@@ -835,7 +832,6 @@ bool theory_seq::propagate_max_length(expr* l, expr* r, dependency* deps) {
     }
     rational hi;
     if (is_tail(l, s, idx) && has_length(s) && m_util.str.is_empty(r) && !upper_bound(s, hi)) {
-        //std::cout << "max length " << mk_pp(s, m) << " " << idx << "\n";
         propagate_lit(deps, 0, 0, mk_literal(m_autil.mk_le(m_util.str.mk_length(s), m_autil.mk_int(idx+1))));
         return true;
     }
@@ -1008,7 +1004,7 @@ bool theory_seq::solve_ne(unsigned idx) {
             }
             TRACE("seq", 
                   for (unsigned j = 0; j < lhs.size(); ++j) {
-                      tout << mk_pp(lhs[j].get(), m) << " ";
+                      tout << mk_pp(lhs[j].get(), m) << " " << mk_pp(rhs[j].get(), m) << "\n";
                   }
                   tout << "\n";
                   tout << n.ls(i) << " != " << n.rs(i) << "\n";);
@@ -1018,10 +1014,9 @@ bool theory_seq::solve_ne(unsigned idx) {
                 expr* nr = rhs[j].get();
                 if (m_util.is_seq(nl) || m_util.is_re(nl)) {
                     ls.reset();
-                     rs.reset(); 
-                    SASSERT(!m_util.str.is_concat(nl));
-                    SASSERT(!m_util.str.is_concat(nr));
-                    ls.push_back(nl); rs.push_back(nr);
+                    rs.reset(); 
+                    m_util.str.get_concat(nl, ls);
+                    m_util.str.get_concat(nr, rs);
                     new_ls.push_back(ls);
                     new_rs.push_back(rs);
                 }
@@ -1240,7 +1235,7 @@ void theory_seq::display_deps(std::ostream& out, dependency* dep) const {
     for (unsigned i = 0; i < lits.size(); ++i) {
         literal lit = lits[i];
         get_context().display_literals_verbose(out << "   ", 1, &lit);
-        tout << "\n";
+        out << "\n";
     }
 }
 
