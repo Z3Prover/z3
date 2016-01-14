@@ -543,8 +543,16 @@ private:
 
 
     void add(move const& mv) {
-        m_delta[mv.src()].push_back(mv);
-        m_delta_inv[mv.dst()].push_back(mv);
+        if (!is_duplicate_cheap(mv)) {
+            m_delta[mv.src()].push_back(mv);
+            m_delta_inv[mv.dst()].push_back(mv);
+        }
+    }
+
+    bool is_duplicate_cheap(move const& mv) const {
+        if (m_delta[mv.src()].empty()) return false;
+        move const& mv0 = m_delta[mv.src()].back();
+        return mv0.src() == mv.src() && mv0.dst() == mv.dst() && mv0.t() == mv.t();
     }
 
 
