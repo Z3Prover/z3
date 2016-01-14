@@ -43,6 +43,7 @@ Notes:
 #include"model_smt2_pp.h"
 #include"model_v2_pp.h"
 #include"model_params.hpp"
+#include"th_rewriter.h"
 
 func_decls::func_decls(ast_manager & m, func_decl * f):
     m_decls(TAG(func_decl*, f, 0)) {
@@ -1624,6 +1625,11 @@ void cmd_context::validate_model() {
                 TRACE("model_validate", tout << "checking\n" << mk_ismt2_pp(a, m()) << "\nresult:\n" << mk_ismt2_pp(r, m()) << "\n";);
                 if (m().is_true(r))
                     continue;
+                th_rewriter thr(m());
+                thr(r);
+                if (m().is_true(r))
+                    continue;
+
                 // The evaluator for array expressions is not complete
                 // If r contains as_array/store/map/const expressions, then we do not generate the error.
                 // TODO: improve evaluator for model expressions.
