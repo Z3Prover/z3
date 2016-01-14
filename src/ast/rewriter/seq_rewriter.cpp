@@ -306,14 +306,10 @@ br_status seq_rewriter::mk_seq_concat(expr* a, expr* b, expr_ref& result) {
         return BR_REWRITE2;
     }
     if (m_util.str.is_empty(a)) {
-        result = a;
-        return BR_DONE;
-    }
-    if (m_util.str.is_empty(b)) {
         result = b;
         return BR_DONE;
     }
-    if (m_util.re.is_full(a) && m_util.re.is_full(b)) {
+    if (m_util.str.is_empty(b)) {
         result = a;
         return BR_DONE;
     }
@@ -860,6 +856,18 @@ br_status seq_rewriter::mk_str_to_regexp(expr* a, expr_ref& result) {
     return BR_FAILED;
 }
 br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
+	if (m_util.re.is_full(a) && m_util.re.is_full(b)) {
+		result = a;
+		return BR_DONE;
+	}
+	if (m_util.re.is_empty(a)) {
+		result = a;
+		return BR_DONE;
+	}
+	if (m_util.re.is_empty(b)) {
+		result = b;
+		return BR_DONE;
+	}
     if (is_epsilon(a)) {
         result = b;
         return BR_DONE;
