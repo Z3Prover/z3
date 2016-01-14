@@ -37,7 +37,7 @@ struct lackr_stats {
 
 class lackr {
     public:
-        lackr(ast_manager& m, params_ref p, lackr_stats& st, expr_ref _f);
+        lackr(ast_manager& m, params_ref p, lackr_stats& st, expr_ref_vector& formulas);
         ~lackr();
         void updt_params(params_ref const & _p) {
             ackr_params p(_p);
@@ -66,8 +66,8 @@ class lackr {
         typedef obj_map<func_decl, app_set*> fun2terms_map;
         ast_manager&                         m_m;
         params_ref                           m_p;
-        expr_ref                             m_fla;
-        expr_ref                             m_abstr;
+        expr_ref_vector                      m_formulas;
+        expr_ref_vector                      m_abstr;
         fun2terms_map                        m_fun2terms;
         ackr_info_ref                        m_info;
         scoped_ptr<solver>                   m_sat;
@@ -95,6 +95,8 @@ class lackr {
         void eager_enc();
 
         void abstract();
+
+        void push_abstraction();
 
         void add_term(app* a);
 

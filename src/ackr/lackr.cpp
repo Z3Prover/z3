@@ -29,10 +29,10 @@
 ///////////////
 #include"model_smt2_pp.h"
 ///////////////
-lackr::lackr(ast_manager& m, params_ref p, lackr_stats& st, expr_ref _f)
+lackr::lackr(ast_manager& m, params_ref p, lackr_stats& st, expr_ref_vector& formulas)
     : m_m(m)
     , m_p(p)
-    , m_fla(m)
+    , m_formulas(formulas)
     , m_abstr(m)
     , m_sat(0)
     , m_bvutil(m)
@@ -40,7 +40,6 @@ lackr::lackr(ast_manager& m, params_ref p, lackr_stats& st, expr_ref _f)
     , m_ackrs(m) 
     , m_st(st)
 {
-    m_fla = _f;
     updt_params(p);
 }
 
@@ -135,6 +134,7 @@ void lackr::eager_enc() {
     }
 }
 
+
 void lackr::abstract() {
     const fun2terms_map::iterator e = m_fun2terms.end();
     for (fun2terms_map::iterator i = m_fun2terms.begin(); i != e; ++i) {
@@ -155,8 +155,13 @@ void lackr::abstract() {
         }
     }
     m_info->seal();
-    m_info->abstract(m_fla.get(), m_abstr);
-    TRACE("lackr", tout << "abs(\n" << mk_ismt2_pp(m_abstr.get(), m_m, 2) << ")\n";);    
+    // perform abstraction of the formulas
+    const unsigned sz = m_formulas.size();
+    for (unsigned i = 0; i < sz; ++i) {
+        expr_ref a(m_m);
+        m_info->abstract(m_formulas.get(i), a);
+        m_abstr.push_back(a);
+    }
 }
 
 void lackr::add_term(app* a) {
@@ -173,9 +178,15 @@ void lackr::add_term(app* a) {
     ts->insert(a);
 }
 
+void  lackr::push_abstraction() {
+    const unsigned sz = m_abstr.size();
+    for (unsigned i = 0; i < sz; ++i) {
+        m_sat->assert_expr(m_abstr.get(i));
+    }
+}
 
 lbool lackr::eager() {
-    m_sat->assert_expr(m_abstr);
+    push_abstraction();
     TRACE("lackr", tout << "run sat 0\n"; );
     const lbool rv0 = m_sat->check_sat(0, 0);
     if (rv0 == l_false) return l_false;    
@@ -190,7 +201,7 @@ lbool lackr::eager() {
 
 lbool lackr::lazy() {
     lackr_model_constructor mc(m_m, m_info);
-    m_sat->assert_expr(m_abstr);
+    push_abstraction();
     unsigned ackr_head = 0;    
     while (1) {
         m_st.m_it++;
@@ -237,7 +248,10 @@ void lackr::collect_terms() {
     ptr_vector<expr> stack;
     expr *           curr;
     expr_mark        visited;
-    stack.push_back(m_fla.get());
+    for(unsigned i = 0; i < m_formulas.size(); ++i) {
+        stack.push_back(m_formulas.get(i));
+    }
+
     while (!stack.empty()) {
         curr = stack.back();
         if (visited.is_marked(curr)) {

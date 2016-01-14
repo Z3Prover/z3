@@ -48,13 +48,11 @@ public:
         mc = 0;
         ast_manager& m(g->m());
         TRACE("lackr", g->display(tout << "Goal:\n"););
-        // conflate all assertions into one conjunction
-        ptr_vector<expr> flas;
-        g->get_formulas(flas);
-        expr_ref f(m);
-        f = m.mk_and(flas.size(), flas.c_ptr());
         // running implementation
-        scoped_ptr<lackr> imp = alloc(lackr, m, m_p, m_st, f);
+        expr_ref_vector flas(m);
+        const unsigned sz = g->size();
+        for (unsigned i = 0; i < sz; i++) flas.push_back(g->form(i));
+        scoped_ptr<lackr> imp = alloc(lackr, m, m_p, m_st, flas);
         const lbool o = imp->operator()();
         flas.reset();
         // report result
