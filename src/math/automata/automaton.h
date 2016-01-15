@@ -105,6 +105,8 @@ public:
     // create an automaton from initial state, final states, and moves
     automaton(M& m, unsigned init, unsigned_vector const& final, moves const& mvs): m(m) {
         m_init = init;
+        m_delta.push_back(moves());
+        m_delta_inv.push_back(moves());
         for (unsigned i = 0; i < final.size(); ++i) {
             add_to_final_states(final[i]);
         }
@@ -331,6 +333,7 @@ public:
     //  Src - ET -> dst - e -> dst1 => Src - ET -> dst1  if out_degree(dst) = 1, 
     //
     void compress() {
+        SASSERT(!m_delta.empty());
         for (unsigned i = 0; i < m_delta.size(); ++i) {
             for (unsigned j = 0; j < m_delta[i].size(); ++j) {
                 move const& mv = m_delta[i][j];
@@ -419,6 +422,7 @@ public:
                 }
             }
         }
+        SASSERT(!m_delta.empty());
         while (true) {
             SASSERT(!m_delta.empty());
             unsigned src = m_delta.size() - 1;            
