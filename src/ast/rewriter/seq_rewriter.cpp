@@ -731,8 +731,14 @@ bool seq_rewriter::is_sequence(eautomaton& aut, expr_ref_vector& seq) {
     unsigned state = aut.init();
     uint_set visited;
     eautomaton::moves mvs;
-    aut.get_moves_from(state, mvs, true);
-    while (!aut.is_final_state(state)) {
+    unsigned_vector states;
+    aut.get_epsilon_closure(state, states);
+    bool has_final = false;
+    for (unsigned i = 0; !has_final && i < states.size(); ++i) {
+        has_final = aut.is_final_state(states[i]);
+    }
+    aut.get_moves_from(state, mvs, true);       
+    while (!has_final) {
         if (mvs.size() != 1) {
             return false;
         }
@@ -751,6 +757,12 @@ bool seq_rewriter::is_sequence(eautomaton& aut, expr_ref_vector& seq) {
         state = mvs[0].dst();
         mvs.reset();
         aut.get_moves_from(state, mvs, true);
+        states.reset();
+        has_final = false;
+        aut.get_epsilon_closure(state, states);
+        for (unsigned i = 0; !has_final && i < states.size(); ++i) {
+            has_final = aut.is_final_state(states[i]);
+        }
     }
     return mvs.empty();
 }
