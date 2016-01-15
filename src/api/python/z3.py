@@ -9095,6 +9095,10 @@ def _coerce_seq(s, ctx=None):
     if isinstance(s, str):
         ctx = _get_ctx(ctx)
         s = StringVal(s, ctx)
+    if not is_expr(s):
+        raise Z3Exception("Non-expression passed as a sequence")
+    if not is_seq(s):
+        raise Z3Exception("Non-sequence passed as a sequence")
     return s
 
 def _get_ctx2(a, b, ctx=None):
