@@ -51,6 +51,7 @@ public:
     virtual void get_model(model_ref & m) = 0;
     virtual proof * get_proof() = 0;
     virtual std::string reason_unknown() const = 0;
+    virtual void set_reason_unknown(char const* msg) = 0;
     virtual void get_labels(svector<symbol> & r) = 0;
     virtual ast_manager& get_manager() = 0;
 };
@@ -75,6 +76,7 @@ struct simple_check_sat_result : public check_sat_result {
     virtual proof * get_proof();
     virtual std::string reason_unknown() const;
     virtual void get_labels(svector<symbol> & r);
+    virtual void set_reason_unknown(char const* msg) { m_unknown = msg; }
 };
 
 #endif

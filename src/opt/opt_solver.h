@@ -99,6 +99,7 @@ namespace opt {
         virtual void get_model(model_ref & _m);        
         virtual proof * get_proof();
         virtual std::string reason_unknown() const;
+        virtual void set_reason_unknown(char const* msg);
         virtual void get_labels(svector<symbol> & r);
         virtual void set_progress_callback(progress_callback * callback);
         virtual unsigned get_num_assertions() const;

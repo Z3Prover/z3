@@ -65,6 +65,7 @@ public:
     virtual void get_model(model_ref & m);
     virtual proof * get_proof();
     virtual std::string reason_unknown() const;
+    virtual void set_reason_unknown(char const* msg);
     virtual void get_labels(svector<symbol> & r) {}
 
     virtual void set_progress_callback(progress_callback * callback) {}
@@ -223,6 +224,12 @@ std::string tactic2solver::reason_unknown() const {
         return m_result->reason_unknown();
     else
         return std::string("unknown");
+}
+
+void tactic2solver::set_reason_unknown(char const* msg) {
+    if (m_result.get()) {
+        m_result->set_reason_unknown(msg);
+    }
 }
 
 unsigned tactic2solver::get_num_assertions() const {

@@ -290,6 +290,10 @@ namespace opt {
     std::string opt_solver::reason_unknown() const {
         return m_context.last_failure_as_string();
     }
+
+    void opt_solver::set_reason_unknown(char const* msg) {
+        m_context.set_reason_unknown(msg);
+    }
     
     void opt_solver::get_labels(svector<symbol> & r) {
         r.reset();

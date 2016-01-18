@@ -221,6 +221,11 @@ final_check_status theory_seq::final_check_eh() {
         TRACE("seq", tout << ">>propagate_automata\n";);
         return FC_CONTINUE;
     }
+    if (!check_extensionality()) {
+        ++m_stats.m_extensionality;
+        TRACE("seq", tout << ">>extensionality\n";);
+        return FC_CONTINUE;
+    }
     if (is_solved()) {
         TRACE("seq", tout << ">>is_solved\n";);
         return FC_DONE;
@@ -541,6 +546,45 @@ void theory_seq::mk_decompose(expr* e, expr_ref& head, expr_ref& tail) {
     }
 }
 
+/*
+   \brief Check extensionality (for sequences).
+ */
+bool theory_seq::check_extensionality() {
+    context& ctx = get_context();
+    unsigned sz = get_num_vars();
+    unsigned_vector seqs;
+    bool added_assumption = false;
+    for (unsigned v = 0; v < sz; ++v) {
+        enode* n = get_enode(v);
+        expr* o1 = n->get_owner();
+        if (n != n->get_root()) {
+            continue;
+        }
+        if (!seqs.empty() && ctx.is_relevant(n) && m_util.is_seq(o1) && ctx.is_shared(n)) {
+            dependency* dep = 0;
+            expr_ref e1 = canonize(o1, dep);
+            for (unsigned i = 0; i < seqs.size(); ++i) {
+                enode* n2 = get_enode(seqs[i]);
+                expr* o2 = n2->get_owner();
+                if (m_exclude.contains(o1, o2)) {
+                    continue;
+                }
+                expr_ref e2 = canonize(n2->get_owner(), dep);
+                m_lhs.reset(); m_rhs.reset();
+                bool change = false;
+                if (!m_seq_rewrite.reduce_eq(o1, o2, m_lhs, m_rhs, change)) {
+                    m_exclude.update(o1, o2);
+                    continue;
+                }
+                TRACE("seq", tout << mk_pp(o1, m) << " = " << mk_pp(o2, m) << "\n";);
+                ctx.assume_eq(n, n2);                
+                return false;
+            }
+        }
+        seqs.push_back(v);
+    }
+    return true;
+}
 
 /*
    - Eqs = 0
@@ -1248,6 +1292,7 @@ void theory_seq::collect_statistics(::statistics & st) const {
     st.update("seq solve !=", m_stats.m_solve_nqs);
     st.update("seq solve =", m_stats.m_solve_eqs);
     st.update("seq add axiom", m_stats.m_add_axiom);
+    st.update("seq extensionality", m_stats.m_extensionality);
 }
 
 void theory_seq::init_model(expr_ref_vector const& es) {
@@ -1917,18 +1962,18 @@ void theory_seq::add_extract_axiom(expr* e) {
     expr_ref ls(m_util.str.mk_length(s), m);
     expr_ref lx(m_util.str.mk_length(x), m);
     expr_ref le(m_util.str.mk_length(e), m);
-    expr_ref ls_minus_i(mk_sub(ls, i), m);
+    expr_ref ls_minus_i_l(mk_sub(mk_sub(ls, i),l), m);
     expr_ref xe = mk_concat(x, e);
     expr_ref zero(m_autil.mk_int(0), m);
 
     literal i_ge_0  = mk_literal(m_autil.mk_ge(i, zero));
     literal i_ge_ls = mk_literal(m_autil.mk_ge(mk_sub(i, ls), zero));
-    literal l_ge_ls = mk_literal(m_autil.mk_ge(mk_sub(l, ls), zero));
+    literal li_ge_ls = mk_literal(m_autil.mk_ge(ls_minus_i_l, zero));
     literal l_ge_zero = mk_literal(m_autil.mk_ge(l, zero));
 
     add_axiom(~i_ge_0, i_ge_ls, mk_literal(m_util.str.mk_prefix(xe, s)));
     add_axiom(~i_ge_0, i_ge_ls, mk_eq(lx, i, false));
-    add_axiom(~i_ge_0, i_ge_ls, ~l_ge_ls, mk_eq(le, ls_minus_i, false));
+    add_axiom(~i_ge_0, i_ge_ls, ~li_ge_ls, mk_eq(le, l, false));
     add_axiom(~i_ge_0, i_ge_ls, l_ge_zero, mk_eq(le, zero, false));
 }
 

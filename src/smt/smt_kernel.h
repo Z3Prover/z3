@@ -155,6 +155,12 @@ namespace smt {
         */
         std::string last_failure_as_string() const;
 
+
+        /**
+           \brief Set the reason for unknown.
+        */
+        void set_reason_unknown(char const* msg);
+
         /**
            \brief Return the set of formulas assigned by the kernel.
         */

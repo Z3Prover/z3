@@ -60,6 +60,8 @@ class inc_sat_solver : public solver {
     model_converter_ref m_mc2;   
     expr_dependency_ref m_dep_core;
     svector<double>     m_weights;
+    std::string         m_unknown;
+
 
     typedef obj_map<expr, sat::literal> dep2asm_t;
 public:
@@ -73,7 +75,8 @@ public:
         m_map(m),
         m_bb_rewriter(m, p),
         m_num_scopes(0), 
-        m_dep_core(m) {
+        m_dep_core(m),
+        m_unknown("no reason given") {
         m_params.set_bool("elim_vars", false);
         m_solver.updt_params(m_params);
         params_ref simp2_p = p;
@@ -243,8 +246,12 @@ public:
         UNREACHABLE();
         return 0;
     }
+    
     virtual std::string reason_unknown() const {
-        return "no reason given";
+        return m_unknown;
+    }
+    virtual void set_reason_unknown(char const* msg) {
+        m_unknown = msg;
     }
     virtual void get_labels(svector<symbol> & r) {
     }

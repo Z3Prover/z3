@@ -239,6 +239,7 @@ namespace smt {
             unsigned m_solve_nqs;
             unsigned m_solve_eqs;
             unsigned m_add_axiom;
+            unsigned m_extensionality;
         };
         ast_manager&               m;
         dependency_manager         m_dm;
@@ -312,6 +313,7 @@ namespace smt {
         bool check_length_coherence(expr* e);
         bool propagate_length_coherence(expr* e);  
 
+        bool check_extensionality();
         bool solve_eqs(unsigned start);
         bool solve_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep);
         bool simplify_eq(expr_ref_vector& l, expr_ref_vector& r, dependency* dep);
