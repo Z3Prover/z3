@@ -238,7 +238,7 @@ namespace smt {
                     out << "equivalence classes:\n";
                     first = false;
                 }
-                out << "#" << n->get_id() << " -> #" << r->get_id() << "\n";
+                out << "#" << n->get_id() << " -> #" << r->get_id() << ": ";
                 out << mk_pp(n, m_manager) << " -> " << mk_pp(r, m_manager) << "\n";
             }
         }

@@ -1987,8 +1987,8 @@ void theory_seq::add_at_axiom(expr* e) {
     expr* s, *i;
     VERIFY(m_util.str.is_at(e, s, i));
     expr_ref x(m), y(m), lx(m), le(m), xey(m), zero(m), one(m), len_e(m), len_x(m);
-    x     = mk_skolem(m_at_left, s);
-    y     = mk_skolem(m_at_right, s);
+    x     = mk_skolem(m_at_left, s, i);
+    y     = mk_skolem(m_at_right, s, i);
     xey   = mk_concat(x, e, y);
     zero  = m_autil.mk_int(0);
     one   = m_autil.mk_int(1);
