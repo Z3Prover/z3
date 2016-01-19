@@ -68,7 +68,6 @@ namespace api {
         ast_ref_vector             m_last_result; //!< used when m_user_ref_count == true
         ast_ref_vector             m_ast_trail;   //!< used when m_user_ref_count == false
         unsigned_vector            m_ast_lim;
-        ptr_vector<ast_ref_vector> m_replay_stack;
 
         ref<api::object>           m_last_obj; //!< reference to the last API object returned by the APIs
 
