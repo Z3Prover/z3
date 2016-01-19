@@ -374,7 +374,7 @@ br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
             es.push_back(m_autil.mk_numeral(rational(len, rational::ui64()), true));
         }
         result = m_autil.mk_add(es.size(), es.c_ptr());
-        return BR_DONE;
+        return BR_REWRITE2;
     }
     return BR_FAILED;
 }
@@ -1170,14 +1170,13 @@ bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_
                 rs.pop_back();
             }
             else {
-                expr_ref s2(m_util.str.mk_string(s.extract(0, s.length()-2)), m());
+                expr_ref s2(m_util.str.mk_string(s.extract(0, s.length()-1)), m());
                 rs[rs.size()-1] = s2;
             }
         }
         else {
             break;
         }
-        TRACE("seq", tout << "change back\n";);
         change = true;
         lchange = true;
     }
