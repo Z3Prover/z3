@@ -568,7 +568,6 @@ bool theory_seq::check_extensionality() {
     context& ctx = get_context();
     unsigned sz = get_num_vars();
     unsigned_vector seqs;
-    bool added_assumption = false;
     for (unsigned v = 0; v < sz; ++v) {
         enode* n = get_enode(v);
         expr* o1 = n->get_owner();
