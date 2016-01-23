@@ -383,7 +383,7 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     zstring s;
     rational pos, len;
     if (m_util.str.is_string(a, s) && m_autil.is_numeral(b, pos) && m_autil.is_numeral(c, len) &&
-        pos.is_unsigned() && len.is_unsigned() && pos.get_unsigned() <= s.length()) {
+        pos.is_unsigned() && len.is_unsigned() && pos.get_unsigned() + len.get_unsigned() <= s.length()) {
         unsigned _pos = pos.get_unsigned();
         unsigned _len = len.get_unsigned();
         result = m_util.str.mk_string(s.extract(_pos, _len));

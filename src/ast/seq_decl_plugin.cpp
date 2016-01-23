@@ -554,7 +554,11 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
             parameter param(symbol(""));
             return mk_func_decl(OP_STRING_CONST, 1, &param, 0, 0, m_string);
         }
-        return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
+        else {
+            parameter param(rng.get());
+            func_decl_info info(m_family_id, k, 1, &param);
+            return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, info);
+        }
         
     case OP_SEQ_UNIT:
     case OP_RE_PLUS:
