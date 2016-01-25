@@ -384,7 +384,7 @@ void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
         if (!seen.contains(f))
         {
             TRACE("fpa2bv_mc", tout << "Keeping: " << mk_ismt2_pp(f, m) << std::endl;);
-            func_interp * val = bv_mdl->get_func_interp(f);
+            func_interp * val = bv_mdl->get_func_interp(f)->copy();
             float_mdl->register_decl(f, val);
         }
     }

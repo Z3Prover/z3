@@ -297,6 +297,11 @@ public:
             return m_solver2->reason_unknown();
     }
 
+    virtual void set_reason_unknown(char const* msg) {
+        m_solver1->set_reason_unknown(msg);
+        m_solver2->set_reason_unknown(msg);
+    }
+
     virtual void get_labels(svector<symbol> & r) {
         if (m_use_solver1_results)
             return m_solver1->get_labels(r);

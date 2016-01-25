@@ -192,6 +192,7 @@ namespace smt {
             expr_ref m_e;
         public:
             replay_length_coherence(ast_manager& m, expr* e) : m_e(e, m) {}
+            virtual ~replay_length_coherence() {}
             virtual void operator()(theory_seq& th) {
                 th.check_length_coherence(m_e);
                 m_e.reset();
@@ -202,6 +203,7 @@ namespace smt {
             expr_ref m_e;
         public:
             replay_axiom(ast_manager& m, expr* e) : m_e(e, m) {}
+            virtual ~replay_axiom() {}
             virtual void operator()(theory_seq& th) {
                 th.enque_axiom(m_e);
                 m_e.reset();
@@ -239,6 +241,7 @@ namespace smt {
             unsigned m_solve_nqs;
             unsigned m_solve_eqs;
             unsigned m_add_axiom;
+            unsigned m_extensionality;
         };
         ast_manager&               m;
         dependency_manager         m_dm;
@@ -312,6 +315,7 @@ namespace smt {
         bool check_length_coherence(expr* e);
         bool propagate_length_coherence(expr* e);  
 
+        bool check_extensionality();
         bool solve_eqs(unsigned start);
         bool solve_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep);
         bool simplify_eq(expr_ref_vector& l, expr_ref_vector& r, dependency* dep);
@@ -334,7 +338,7 @@ namespace smt {
         void propagate_lit(dependency* dep, literal lit) { propagate_lit(dep, 0, 0, lit); }
         void propagate_lit(dependency* dep, unsigned n, literal const* lits, literal lit);
         void propagate_eq(dependency* dep, enode* n1, enode* n2);
-        void propagate_eq(literal lit, expr* e1, expr* e2, bool add_to_eqs = false);
+        void propagate_eq(literal lit, expr* e1, expr* e2, bool add_to_eqs);
         void set_conflict(dependency* dep, literal_vector const& lits = literal_vector());
 
         u_map<unsigned> m_branch_start;
@@ -353,6 +357,7 @@ namespace smt {
         bool is_tail(expr* a, expr*& s, unsigned& idx) const;
         expr_ref mk_nth(expr* s, expr* idx);
         expr_ref mk_last(expr* e);
+        expr_ref mk_first(expr* e);
         expr_ref canonize(expr* e, dependency*& eqs);
         bool canonize(expr* e, expr_ref_vector& es, dependency*& eqs);
         bool canonize(expr_ref_vector const& es, expr_ref_vector& result, dependency*& eqs);

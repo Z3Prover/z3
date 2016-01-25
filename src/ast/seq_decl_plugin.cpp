@@ -612,9 +612,8 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
                                func_decl_info(m_family_id, OP_STRING_CONST, num_parameters, parameters));
         
     case OP_RE_UNION:
-        return mk_assoc_fun(k, arity, domain, range, k, k);
-
     case OP_RE_CONCAT:  
+    case OP_RE_INTERSECT:  
         return mk_assoc_fun(k, arity, domain, range, k, k);
 
     case OP_SEQ_CONCAT: 

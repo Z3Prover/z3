@@ -27,20 +27,27 @@ Notes:
 #include"automaton.h"
 
 class sym_expr {
-    bool     m_is_pred;
+    enum ty {
+        t_char,
+        t_pred,
+        t_range
+    };
+    ty       m_ty;
     expr_ref m_t;
+    expr_ref m_s;
     unsigned m_ref;
-    sym_expr(bool is_pred, expr_ref& t) : m_is_pred(is_pred), m_t(t), m_ref(0) {}
+    sym_expr(ty ty, expr_ref& t, expr_ref& s) : m_ty(ty), m_t(t), m_s(s), m_ref(0) {}
 public:
     expr_ref accept(expr* e);
-    static sym_expr* mk_char(expr_ref& t) { return alloc(sym_expr, false, t); }
-    static sym_expr* mk_char(ast_manager& m, expr* t) { expr_ref tr(t, m); return alloc(sym_expr, false, tr); }
-    static sym_expr* mk_pred(expr_ref& t) { return alloc(sym_expr, true, t); }
+    static sym_expr* mk_char(expr_ref& t) { return alloc(sym_expr, t_char, t, t); }
+    static sym_expr* mk_char(ast_manager& m, expr* t) { expr_ref tr(t, m); return mk_char(tr); }
+    static sym_expr* mk_pred(expr_ref& t) { return alloc(sym_expr, t_pred, t, t); }
+    static sym_expr* mk_range(expr_ref& lo, expr_ref& hi) { return alloc(sym_expr, t_range, lo, hi); }
     void inc_ref() { ++m_ref;  }
     void dec_ref() { --m_ref; if (m_ref == 0) dealloc(this); }
     std::ostream& display(std::ostream& out) const;
-    bool is_char() const { return !m_is_pred; }
-    bool is_pred() const { return m_is_pred; }
+    bool is_char() const { return m_ty == t_char; }
+    bool is_pred() const { return !is_char(); }
     expr* get_char() const { SASSERT(is_char()); return m_t; }
 
 };
@@ -88,6 +95,7 @@ class seq_rewriter {
     br_status mk_str_to_regexp(expr* a, expr_ref& result);
     br_status mk_re_concat(expr* a, expr* b, expr_ref& result);
     br_status mk_re_union(expr* a, expr* b, expr_ref& result);
+    br_status mk_re_inter(expr* a, expr* b, expr_ref& result);
     br_status mk_re_star(expr* a, expr_ref& result);
     br_status mk_re_plus(expr* a, expr_ref& result);
     br_status mk_re_opt(expr* a, expr_ref& result);

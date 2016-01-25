@@ -923,7 +923,8 @@ void fpa2bv_converter::mk_div(func_decl * f, unsigned num, expr * const * args, 
             m_bv_util.mk_bv_sub(b_exp_ext, b_lz_ext));
 
     expr_ref quotient(m);
-    quotient = m.mk_app(m_bv_util.get_fid(), OP_BUDIV, a_sig_ext, b_sig_ext);
+    // b_sig_ext can't be 0 here, so it's safe to use OP_BUDIV_I
+    quotient = m.mk_app(m_bv_util.get_fid(), OP_BUDIV_I, a_sig_ext, b_sig_ext);
 
     dbg_decouple("fpa2bv_div_quotient", quotient);
 

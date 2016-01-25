@@ -123,6 +123,10 @@ namespace smt {
             return m_kernel.last_failure_as_string();
         }
 
+        void set_reason_unknown(char const* msg) {
+            m_kernel.set_reason_unknown(msg);
+        }
+
         void get_assignments(expr_ref_vector & result) {
             m_kernel.get_assignments(result);
         }
@@ -282,6 +286,10 @@ namespace smt {
 
     std::string kernel::last_failure_as_string() const {
         return m_imp->last_failure_as_string();
+    }
+
+    void kernel::set_reason_unknown(char const* msg) {
+        m_imp->set_reason_unknown(msg);
     }
 
     void kernel::get_assignments(expr_ref_vector & result) {

@@ -163,6 +163,7 @@ namespace opt {
         symbol                       m_maxsat_engine;
         symbol                       m_logic;
         svector<symbol>              m_labels;
+        std::string                  m_unknown;
     public:
         context(ast_manager& m);
         virtual ~context();
@@ -184,6 +185,7 @@ namespace opt {
         virtual void get_labels(svector<symbol> & r);
         virtual void get_unsat_core(ptr_vector<expr> & r) {}
         virtual std::string reason_unknown() const;
+        virtual void set_reason_unknown(char const* msg) { m_unknown = msg; }
 
         virtual void display_assignment(std::ostream& out);
         virtual bool is_pareto() { return m_pareto.get() != 0; }

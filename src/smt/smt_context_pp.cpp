@@ -62,7 +62,7 @@ namespace smt {
     std::string context::last_failure_as_string() const {
         std::string r;
         switch(m_last_search_failure) {
-        case OK: r = "ok"; break;
+        case OK: r = m_unknown; break;
         case TIMEOUT: r = "timeout"; break;
         case MEMOUT: r = "memout"; break;
         case CANCELED: r = "canceled"; break;
@@ -79,7 +79,7 @@ namespace smt {
             break;
         }
         case QUANTIFIERS: r = "(incomplete quantifiers)"; break;
-        case UNKNOWN: r = "incomplete"; break;
+        case UNKNOWN: r = m_unknown; break;
         }
         return r;
     }
@@ -238,7 +238,7 @@ namespace smt {
                     out << "equivalence classes:\n";
                     first = false;
                 }
-                out << "#" << n->get_id() << " -> #" << r->get_id() << "\n";
+                out << "#" << n->get_id() << " -> #" << r->get_id() << ": ";
                 out << mk_pp(n, m_manager) << " -> " << mk_pp(r, m_manager) << "\n";
             }
         }

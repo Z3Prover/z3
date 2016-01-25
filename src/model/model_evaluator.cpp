@@ -24,6 +24,7 @@ Revision History:
 #include"arith_rewriter.h"
 #include"bv_rewriter.h"
 #include"pb_rewriter.h"
+#include"seq_rewriter.h"
 #include"datatype_rewriter.h"
 #include"array_rewriter.h"
 #include"fpa_rewriter.h"
@@ -39,6 +40,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
     datatype_rewriter               m_dt_rw;
     pb_rewriter                     m_pb_rw;
     fpa_rewriter                    m_f_rw;
+    seq_rewriter                    m_seq_rw;
     unsigned long long              m_max_memory;
     unsigned                        m_max_steps;
     bool                            m_model_completion;
@@ -55,7 +57,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
         m_ar_rw(m, p),
         m_dt_rw(m),
         m_pb_rw(m),
-        m_f_rw(m) {
+        m_f_rw(m),
+        m_seq_rw(m) {
         m_b_rw.set_flat(false);
         m_a_rw.set_flat(false);
         m_bv_rw.set_flat(false);
@@ -139,6 +142,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
                     st = m_dt_rw.mk_eq_core(args[0], args[1], result);
                 else if (s_fid == m_f_rw.get_fid())
                     st = m_f_rw.mk_eq_core(args[0], args[1], result);
+                else if (s_fid == m_seq_rw.get_fid())
+                    st = m_seq_rw.mk_eq_core(args[0], args[1], result);
                 if (st != BR_FAILED)
                     return st;
             }
@@ -157,6 +162,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
             st = m_pb_rw.mk_app_core(f, num, args, result);
         else if (fid == m_f_rw.get_fid())
             st = m_f_rw.mk_app_core(f, num, args, result);
+        else if (fid == m_seq_rw.get_fid())
+            st = m_seq_rw.mk_app_core(f, num, args, result);
         else if (evaluate(f, num, args, result)) {
             TRACE("model_evaluator", tout << "reduce_app " << f->get_name() << "\n";
                   for (unsigned i = 0; i < num; i++) tout << mk_ismt2_pp(args[i], m()) << "\n";

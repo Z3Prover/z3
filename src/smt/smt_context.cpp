@@ -72,6 +72,7 @@ namespace smt {
         m_not_l(null_literal),
         m_conflict_resolution(mk_conflict_resolution(m, *this, m_dyn_ack_manager, p, m_assigned_literals, m_watches)),
         m_unsat_proof(m),
+        m_unknown("unknown"),
         m_unsat_core(m),
 #ifdef Z3DEBUG
         m_trail_enabled(true),
@@ -4110,8 +4111,7 @@ namespace smt {
               m_fingerprints.display(tout); 
               );
         failure fl = get_last_search_failure();
-        if (fl == TIMEOUT || fl == MEMOUT || fl == CANCELED || fl == NUM_CONFLICTS) {
-            // don't generate model.
+        if (fl == MEMOUT || fl == CANCELED || fl == TIMEOUT || fl == NUM_CONFLICTS) {
             return;
         }
 
@@ -4126,7 +4126,6 @@ namespace smt {
             if (m_fparams.m_model_compact)
                 m_proto_model->compress();
             TRACE("mbqi_bug", tout << "after cleanup:\n"; model_pp(tout, *m_proto_model););
-            //SASSERT(validate_model());
         }
     }
 

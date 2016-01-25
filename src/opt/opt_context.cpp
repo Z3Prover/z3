@@ -132,7 +132,8 @@ namespace opt {
         m_objective_refs(m),
         m_enable_sat(false),
         m_is_clausal(false),
-        m_pp_neat(false)
+        m_pp_neat(false),
+        m_unknown("unknown")
     {
         params_ref p;
         p.set_bool("model", true);
@@ -487,7 +488,7 @@ namespace opt {
         if (m_solver.get()) {
             return m_solver->reason_unknown();
         }
-        return std::string("unknown"); 
+        return m_unknown;
     }
 
     void context::display_bounds(std::ostream& out, bounds_t const& b) const {

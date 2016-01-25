@@ -95,6 +95,10 @@ namespace smt {
             return m_context.last_failure_as_string();
         }
 
+        virtual void set_reason_unknown(char const* msg) {
+            m_context.set_reason_unknown(msg);
+        }
+
         virtual void get_labels(svector<symbol> & r) {
             buffer<symbol> tmp;
             m_context.get_relevant_labels(0, tmp);
