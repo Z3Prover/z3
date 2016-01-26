@@ -20,15 +20,16 @@ Revision History:
 #include"ref.h"
 #include"expr_replacer.h"
 
-//
-// Information about how a formula was extracted into
-// a formula without  uninterpreted function symbols.
-//
-// The intended use is that new terms are added via set_abstr.
-// Once all terms are abstracted, call seal.
-// abstract may only be called when sealed.
-//
-//  The class enables reference counting.
+/** \brief
+   Information about how a formula is being converted into
+   a formula without  uninterpreted function symbols via ackermannization.
+
+ The intended use is that new terms are added via set_abstr.
+ Once all terms are abstracted, call seal.
+ The function abstract may only be called when sealed.
+
+   The class enables reference counting.
+**/
 class ackr_info {
     public:
         ackr_info(ast_manager& m)

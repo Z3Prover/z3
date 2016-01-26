@@ -21,7 +21,7 @@ Revision History:
 tactic * mk_lackr_tactic(ast_manager & m, params_ref const & p);
 
 /*
-ADD_TACTIC("lackr", "lackr.", "mk_lackr_tactic(m, p)")
+ADD_TACTIC("lackr", "A tactic for solving QF_UFBV based on Ackermannization.", "mk_lackr_tactic(m, p)")
 */
 
 #endif
