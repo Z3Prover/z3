@@ -143,10 +143,14 @@ zstring zstring::replace(zstring const& src, zstring const& dst) const {
         if (eq) {
             result.m_buffer.append(dst.m_buffer);
             found = true;
+            i += src.length() - 1;
         }
         else {
             result.m_buffer.push_back(m_buffer[i]);
         }
+    }
+    for (unsigned i = length() - src.length() + 1; i < length(); ++i) {
+        result.m_buffer.push_back(m_buffer[i]);
     }
     return result;
 }
@@ -554,7 +558,11 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
             parameter param(symbol(""));
             return mk_func_decl(OP_STRING_CONST, 1, &param, 0, 0, m_string);
         }
-        return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
+        else {
+            parameter param(rng.get());
+            func_decl_info info(m_family_id, k, 1, &param);
+            return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, info);
+        }
         
     case OP_SEQ_UNIT:
     case OP_RE_PLUS:
@@ -734,6 +742,19 @@ bool seq_decl_plugin::is_value(app* e) const {
         is_app_of(e, m_family_id, OP_SEQ_EMPTY) || 
         (is_app_of(e, m_family_id, OP_SEQ_UNIT) &&
          m_manager->is_value(e->get_arg(0)));
+}
+
+expr* seq_decl_plugin::get_some_value(sort* s) {
+    seq_util util(*m_manager);
+    if (util.is_seq(s)) {
+        return util.str.mk_empty(s);
+    }
+    sort* seq;
+    if (util.is_re(s, seq)) {
+        return util.re.mk_to_re(util.str.mk_empty(seq));
+    }
+    UNREACHABLE();
+    return 0;
 }
 
 app* seq_util::mk_skolem(symbol const& name, unsigned n, expr* const* args, sort* range) {
