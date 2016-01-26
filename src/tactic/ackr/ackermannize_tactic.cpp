@@ -46,8 +46,7 @@ public:
         result.push_back(resg.get());
         // report model
         if (g->models_enabled()) {
-            model_ref abstr_model = imp->get_model();
-            mc = mk_ackr_model_converter(m, imp->get_info(), abstr_model);
+            mc = mk_ackr_model_converter(m, imp->get_info());
         }
     }
 
