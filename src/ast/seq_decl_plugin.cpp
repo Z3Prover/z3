@@ -143,10 +143,14 @@ zstring zstring::replace(zstring const& src, zstring const& dst) const {
         if (eq) {
             result.m_buffer.append(dst.m_buffer);
             found = true;
+            i += src.length() - 1;
         }
         else {
             result.m_buffer.push_back(m_buffer[i]);
         }
+    }
+    for (unsigned i = length() - src.length() + 1; i < length(); ++i) {
+        result.m_buffer.push_back(m_buffer[i]);
     }
     return result;
 }

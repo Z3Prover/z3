@@ -538,34 +538,40 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
             }
         }        
     }
-    if (a1 != b1) {
-        return BR_FAILED;
-    }
     m_util.str.get_concat(a, as);
     m_util.str.get_concat(b, bs);
     unsigned i = 0;
     bool all_values = true;    
+    expr_ref_vector eqs(m());
     for (; i < as.size() && i < bs.size(); ++i) {
-        all_values &= m().is_value(as[i].get()) && m().is_value(bs[i].get());
-        if (as[i].get() != bs[i].get()) {
-            if (all_values) {
-                result = m().mk_false();
-                return BR_DONE;
-            }
-            break;
+        expr* a = as[i].get(), *b = bs[i].get();
+        if (a == b) {
+            continue;
         }
-    };
+        all_values &= m().is_value(a) && m().is_value(b);
+        if (all_values) {
+            result = m().mk_false();
+            return BR_DONE;
+        }
+        if (m_util.str.is_unit(a) && m_util.str.is_unit(b)) {
+            eqs.push_back(m().mk_eq(a, b));
+            continue;
+        }
+        break;
+    }
     if (i == as.size()) {
-        result = m().mk_true();
-        return BR_DONE;
+        result = mk_and(eqs);
+        if (m().is_true(result)) {
+            return BR_DONE;
+        }
+        return BR_REWRITE3;
     }
     SASSERT(i < as.size());
     if (i == bs.size()) {
-        expr_ref_vector es(m());
         for (unsigned j = i; j < as.size(); ++j) {
-            es.push_back(m().mk_eq(m_util.str.mk_empty(m().get_sort(a)), as[j].get()));
+            eqs.push_back(m().mk_eq(m_util.str.mk_empty(m().get_sort(a)), as[j].get()));
         }
-        result = mk_and(es);
+        result = mk_and(eqs);
         return BR_REWRITE3;
     }
     if (i > 0) {
@@ -575,8 +581,9 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
         result = m_util.str.mk_prefix(a, b);
         return BR_DONE;
     }
-    UNREACHABLE();
-    return BR_FAILED;
+    else {
+        return BR_FAILED;
+    }
 }
 
 br_status seq_rewriter::mk_seq_suffix(expr* a, expr* b, expr_ref& result) {
@@ -1221,19 +1228,19 @@ bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_
             SASSERT(m().get_sort(ch) == m().get_sort(a));
             lhs.push_back(ch);
             rhs.push_back(a);
-            ls.pop_back();
+            ++head1;
             if (s.length() == 1) {
-                rs.pop_back();
+                ++head2;
             }
             else {
                 expr_ref s2(m_util.str.mk_string(s.extract(1, s.length()-1)), m());
-                rs[rs.size()-1] = s2;
+                rs[head2] = s2;
             }            
         }
         else {
             break;
         }
-        TRACE("seq", tout << "change front\n";);
+        TRACE("seq", tout << ls << " == " << rs << "\n";);
        
         change = true;
         lchange = true;
