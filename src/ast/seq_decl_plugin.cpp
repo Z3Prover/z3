@@ -31,6 +31,10 @@ static bool is_hex_digit(char ch, unsigned& d) {
         d = 10 + ch - 'A';
         return true;
     }
+    if ('a' <= ch && ch <= 'f') {
+        d = 10 + ch - 'a';
+        return true;
+    }
     return false;
 }
 
@@ -85,6 +89,7 @@ static bool is_escape_char(char const *& s, unsigned& result) {
         s += 2;
         return true;
     }
+    return false;
 }
 
 zstring::zstring(encoding enc): m_encoding(enc) {}
