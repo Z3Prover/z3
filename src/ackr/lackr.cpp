@@ -60,6 +60,13 @@ lbool lackr::operator() () {
     return rv;
 }
 
+void lackr::mk_ackermann(/*out*/goal_ref& g) {
+    init();
+    eager_enc();
+    for (unsigned i = 0; i < m_abstr.size(); ++i) g->assert_expr(m_abstr.get(i));
+    for (unsigned i = 0; i < m_ackrs.size(); ++i) g->assert_expr(m_ackrs.get(i));
+}
+
 void lackr::init() {
     params_ref simp_p(m_p);
     m_simp.updt_params(simp_p);
@@ -82,6 +89,7 @@ bool lackr::ackr(app * const t1, app * const t2) {
         expr * const arg2 = t2->get_arg(gi);
         if (arg1 == arg2) continue;
         if (m_bvutil.is_numeral(arg1) && m_bvutil.is_numeral(arg2)) {
+            // quickly abort if there are two distinct numerals
             SASSERT(arg1 != arg2);
             TRACE("lackr", tout << "never eq\n";);
             return false;

@@ -27,6 +27,7 @@
 #include"solver.h"
 #include"util.h"
 #include"tactic_exception.h"
+#include"goal.h"
 
 struct lackr_stats {
     lackr_stats() : m_it(0), m_ackrs_sz(0) {}
@@ -35,6 +36,10 @@ struct lackr_stats {
     unsigned    m_ackrs_sz; // number of congruence constraints
 };
 
+/** \brief
+   A class to encode or directly solve problems with uninterpreted functions via ackermannization.
+   Currently, solving is supported only for QF_UFBV.
+**/
 class lackr {
     public:
         lackr(ast_manager& m, params_ref p, lackr_stats& st, expr_ref_vector& formulas);
@@ -44,7 +49,19 @@ class lackr {
             m_eager = p.eager();
             m_use_sat = p.sat_backend();
         }
+
+        /** \brief
+         * Solve the formula that the class was initialized with.
+         **/
         lbool operator() ();
+
+
+        /** \brief
+        * Converts function occurrences to constants and encodes all congruence ackermann lemmas.
+        * This guarantees a equisatisfiability with the input formula. It has a worst-case quadratic blowup.
+        **/
+        void mk_ackermann(/*out*/goal_ref& g);
+
 
         //
         // getters
