@@ -744,6 +744,19 @@ bool seq_decl_plugin::is_value(app* e) const {
          m_manager->is_value(e->get_arg(0)));
 }
 
+expr* seq_decl_plugin::get_some_value(sort* s) {
+    seq_util util(*m_manager);
+    if (util.is_seq(s)) {
+        return util.str.mk_empty(s);
+    }
+    sort* seq;
+    if (util.is_re(s, seq)) {
+        return util.re.mk_to_re(util.str.mk_empty(seq));
+    }
+    UNREACHABLE();
+    return 0;
+}
+
 app* seq_util::mk_skolem(symbol const& name, unsigned n, expr* const* args, sort* range) {
     SASSERT(range);
     parameter param(name);

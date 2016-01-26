@@ -177,10 +177,13 @@ public:
 
     virtual bool is_unique_value(app * e) const { return is_value(e); }
 
+    virtual expr * get_some_value(sort * s);
+
     bool is_char(ast* a) const { return a == m_char; }
 
     app* mk_string(symbol const& s);  
     app* mk_string(zstring const& s);  
+
 };
 
 class seq_util {
