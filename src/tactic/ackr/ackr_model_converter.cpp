@@ -68,7 +68,12 @@ protected:
 };
 
 void ackr_model_converter::convert(model * source, model * destination) {
-    SASSERT(source->get_num_functions() == 0);
+    //SASSERT(source->get_num_functions() == 0);
+    for (unsigned i = 0; i < source->get_num_functions(); i++) {
+        func_decl * const fd = source->get_function(i);
+        func_interp * const fi = source->get_func_interp(fd);
+        destination->register_decl(fd, fi);
+    }
     convert_constants(source,destination);
     convert_sorts(source,destination);
 }

@@ -178,8 +178,8 @@ void lackr::abstract() {
 
 void lackr::add_term(app* a) {
     if (a->get_num_args() == 0) return;
+    if (!should_ackermannize(a)) return;
     func_decl* const fd = a->get_decl();
-    if (!is_uninterp(a)) return;
     SASSERT(m_bvutil.is_bv_sort(fd->get_range()) || m_m.is_bool(a));
     app_set* ts = 0;
     if (!m_fun2terms.find(fd, ts)) {
