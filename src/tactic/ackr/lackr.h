@@ -122,5 +122,24 @@ class lackr {
         // Collect all uninterpreted terms, skipping 0-arity.
         //
         void collect_terms();
+
+        inline bool should_ackermannize(app const * a) const;
 };
+
+inline bool lackr::should_ackermannize(app const * a) const {
+    if (a->get_family_id() == m_bvutil.get_family_id()) {
+        switch (a->get_decl_kind()) {
+        case OP_BSDIV0:
+        case OP_BUDIV0:
+        case OP_BSREM0:
+        case OP_BUREM0:
+        case OP_BSMOD0:
+            return true;
+        default:
+            return is_uninterp(a);
+        }
+    }
+    return (is_uninterp(a));
+}
+
 #endif /* LACKR_H_15079 */

@@ -78,6 +78,12 @@ struct lackr_model_constructor::imp {
                     destination->register_usort(s, u.size(), u.c_ptr());
                 }
             }
+            for (unsigned i = 0; i < m_abstr_model->get_num_functions(); i++) {
+                func_decl * const fd = m_abstr_model->get_function(i);
+                func_interp * const fi = m_abstr_model->get_func_interp(fd);
+                destination->register_decl(fd, fi);
+            }
+
             {
                 const app2val_t::iterator e = m_app2val.end();
                 app2val_t::iterator i = m_app2val.end();
