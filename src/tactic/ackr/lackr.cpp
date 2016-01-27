@@ -124,6 +124,7 @@ bool lackr::ackr(app * const t1, app * const t2) {
 // Introduce the ackermann lemma for each pair of terms.
 //
 void lackr::eager_enc() {
+    TRACE("lackr", tout << "#funs: " << m_fun2terms.size() << std::endl;);
     const fun2terms_map::iterator e = m_fun2terms.end();
     for (fun2terms_map::iterator i = m_fun2terms.begin(); i != e; ++i) {
         checkpoint();
@@ -262,6 +263,7 @@ void lackr::collect_terms() {
     expr_mark        visited;
     for(unsigned i = 0; i < m_formulas.size(); ++i) {
         stack.push_back(m_formulas.get(i));
+        TRACE("lackr", tout << "infla: " <<mk_ismt2_pp(m_formulas.get(i), m_m, 2) <<  "\n";);
     }
 
     while (!stack.empty()) {
