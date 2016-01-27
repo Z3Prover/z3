@@ -36,6 +36,7 @@ expr_ref sym_expr::accept(expr* e) {
         break;
     }
     case t_char:
+        SASSERT(m.get_sort(e) == m.get_sort(m_t));
         result = m.mk_eq(e, m_t);
         break;
     case t_range: {
@@ -792,8 +793,8 @@ bool seq_rewriter::is_sequence(expr* e, expr_ref_vector& seq) {
         else if (m_util.str.is_empty(e)) {
             continue;
         }
-        else if (m_util.str.is_unit(e)) {
-            seq.push_back(e);
+        else if (m_util.str.is_unit(e, e1)) {
+            seq.push_back(e1);
         }
         else if (m_util.str.is_concat(e, e1, e2)) {
             todo.push_back(e1);
