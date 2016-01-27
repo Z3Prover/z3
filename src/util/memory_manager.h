@@ -46,11 +46,6 @@ public:
     out_of_memory_error();
 };
 
-class exceeded_memory_allocations : public z3_error {
-public:
-    exceeded_memory_allocations();
-};
-
 class memory {
 public:
     static bool is_out_of_memory();
