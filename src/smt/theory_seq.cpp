@@ -584,6 +584,9 @@ bool theory_seq::check_extensionality() {
             for (unsigned i = 0; i < seqs.size(); ++i) {
                 enode* n2 = get_enode(seqs[i]);
                 expr* o2 = n2->get_owner();
+				if (m.get_sort(o1) != m.get_sort(o2)) {
+					continue;
+				}
                 if (m_exclude.contains(o1, o2)) {
                     continue;
                 }
@@ -720,6 +723,7 @@ bool theory_seq::simplify_eq(expr_ref_vector& ls, expr_ref_vector& rs, dependenc
     context& ctx = get_context();
     expr_ref_vector lhs(m), rhs(m);
     bool changed = false;
+    TRACE("seq", tout << ls << " = " << rs << "\n";);
     if (!m_seq_rewrite.reduce_eq(ls, rs, lhs, rhs, changed)) {
         // equality is inconsistent.
         TRACE("seq", tout << ls << " != " << rs << "\n";);
@@ -739,7 +743,6 @@ bool theory_seq::simplify_eq(expr_ref_vector& ls, expr_ref_vector& rs, dependenc
         expr_ref li(lhs[i].get(), m);
         expr_ref ri(rhs[i].get(), m);
         if (solve_unit_eq(li, ri, deps)) {
-            // skip
         }
         else if (m_util.is_seq(li) || m_util.is_re(li)) {
             m_eqs.push_back(mk_eqdep(li, ri, deps));
@@ -1533,6 +1536,9 @@ expr_ref theory_seq::expand(expr* e0, dependency*& eqs) {
     }
     else if (m_util.str.is_contains(e, e1, e2)) {
         result = m_util.str.mk_contains(expand(e1, deps), expand(e2, deps));
+    }
+    else if (m_util.str.is_unit(e, e1)) {
+        result = m_util.str.mk_unit(expand(e1, deps));
     }
     else {
         result = e;

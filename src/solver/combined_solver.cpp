@@ -190,14 +190,14 @@ public:
     }
 
     virtual lbool check_sat(unsigned num_assumptions, expr * const * assumptions) {
-        m_check_sat_executed  = true;
-        
+        m_check_sat_executed  = true;        
+        m_use_solver1_results = false;
+
         if (get_num_assumptions() != 0 ||            
             num_assumptions > 0 || // assumptions were provided
             m_ignore_solver1)  {
             // must use incremental solver
             switch_inc_mode();
-            m_use_solver1_results = false;
             return m_solver2->check_sat(num_assumptions, assumptions);
         }
         
@@ -206,7 +206,6 @@ public:
                 IF_VERBOSE(PS_VB_LVL, verbose_stream() << "(combined-solver \"using solver 2 (without a timeout)\")\n";);            
                 lbool r = m_solver2->check_sat(0, 0);
                 if (r != l_undef || !use_solver1_when_undef()) {
-                    m_use_solver1_results = false;
                     return r;
                 }
             }
@@ -219,7 +218,6 @@ public:
                     r = m_solver2->check_sat(0, 0);
                 }
                 if ((r != l_undef || !use_solver1_when_undef()) && !eh.m_canceled) {
-                    m_use_solver1_results = false;
                     return r;
                 }
                 if (eh.m_canceled) {
@@ -227,7 +225,6 @@ public:
                 }
             }
             IF_VERBOSE(PS_VB_LVL, verbose_stream() << "(combined-solver \"solver 2 failed, trying solver1\")\n";);
-
         }
         
         IF_VERBOSE(PS_VB_LVL, verbose_stream() << "(combined-solver \"using solver 1\")\n";);
