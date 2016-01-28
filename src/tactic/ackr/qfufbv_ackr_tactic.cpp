@@ -23,7 +23,7 @@ Revision History:
 #include"max_bv_sharing_tactic.h"
 #include"bv_size_reduction_tactic.h"
 #include"ctx_simplify_tactic.h"
-#include"nnf_tactic.h"
+#include"smt_tactic.h"
 ///////////////
 #include"model_smt2_pp.h"
 #include"cooperate.h"
@@ -111,7 +111,7 @@ tactic * mk_qfufbv_ackr_tactic(ast_manager & m, params_ref const & p) {
         using_params(mk_simplify_tactic(m), simp2_p)
         );
 
-    return and_then(
-        preamble_t,
-        alloc(qfufbv_ackr_tactic, m, p));
+    tactic * const actual_tactic = alloc(qfufbv_ackr_tactic, m, p);
+    return and_then(preamble_t,
+        cond(mk_is_qfufbv_probe(), actual_tactic, mk_smt_tactic()));
 }
