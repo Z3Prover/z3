@@ -1638,6 +1638,7 @@ void cmd_context::validate_model() {
                 catch (contains_array_op_proc::found) {
                     continue;
                 }
+                TRACE("model_validate", model_smt2_pp(tout, *this, *(md.get()), 0););
                 throw cmd_exception("an invalid model was generated");
             }
         }

@@ -4419,6 +4419,9 @@ extern "C" {
         \brief Interface to simplifier.
 
         Provides an interface to the AST simplifier used by Z3.
+        It returns an AST object which is equal to the argument.
+        The returned AST is simplified using algebraic simplificaiton rules, 
+        such as constant propagation (propagating true/false over logical connectives).         
 
         def_API('Z3_simplify', AST, (_in(CONTEXT), _in(AST)))
     */

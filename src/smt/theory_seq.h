@@ -45,6 +45,8 @@ namespace smt {
         typedef std::pair<expr*, dependency*> expr_dep;
         typedef obj_map<expr, expr_dep> eqdep_map_t; 
 
+        class seq_value_proc;
+
         // cache to track evaluations under equalities
         class eval_cache {
             eqdep_map_t             m_map;
@@ -138,8 +140,7 @@ namespace smt {
             m_util.str.get_concat(l, ls);
             m_util.str.get_concat(r, rs);
             return eq(m_eq_id++, ls, rs, dep);
-        }
-
+        }        
 
         class ne {            
             vector<expr_ref_vector>  m_lhs;
@@ -192,6 +193,7 @@ namespace smt {
             expr_ref m_e;
         public:
             replay_length_coherence(ast_manager& m, expr* e) : m_e(e, m) {}
+            virtual ~replay_length_coherence() {}
             virtual void operator()(theory_seq& th) {
                 th.check_length_coherence(m_e);
                 m_e.reset();
@@ -202,6 +204,7 @@ namespace smt {
             expr_ref m_e;
         public:
             replay_axiom(ast_manager& m, expr* e) : m_e(e, m) {}
+            virtual ~replay_axiom() {}
             virtual void operator()(theory_seq& th) {
                 th.enque_axiom(m_e);
                 m_e.reset();
@@ -336,7 +339,7 @@ namespace smt {
         void propagate_lit(dependency* dep, literal lit) { propagate_lit(dep, 0, 0, lit); }
         void propagate_lit(dependency* dep, unsigned n, literal const* lits, literal lit);
         void propagate_eq(dependency* dep, enode* n1, enode* n2);
-        void propagate_eq(literal lit, expr* e1, expr* e2, bool add_to_eqs = false);
+        void propagate_eq(literal lit, expr* e1, expr* e2, bool add_to_eqs);
         void set_conflict(dependency* dep, literal_vector const& lits = literal_vector());
 
         u_map<unsigned> m_branch_start;
@@ -353,8 +356,10 @@ namespace smt {
         bool add_solution(expr* l, expr* r, dependency* dep);
         bool is_nth(expr* a) const;
         bool is_tail(expr* a, expr*& s, unsigned& idx) const;
+        bool is_eq(expr* e, expr*& a, expr*& b) const; 
         expr_ref mk_nth(expr* s, expr* idx);
         expr_ref mk_last(expr* e);
+        expr_ref mk_first(expr* e);
         expr_ref canonize(expr* e, dependency*& eqs);
         bool canonize(expr* e, expr_ref_vector& es, dependency*& eqs);
         bool canonize(expr_ref_vector const& es, expr_ref_vector& result, dependency*& eqs);
@@ -366,7 +371,7 @@ namespace smt {
         // terms whose meaning are encoded using axioms.
         void enque_axiom(expr* e);
         void deque_axiom(expr* e);
-        void add_axiom(literal l1, literal l2 = null_literal, literal l3 = null_literal, literal l4 = null_literal);        
+        void add_axiom(literal l1, literal l2 = null_literal, literal l3 = null_literal, literal l4 = null_literal, literal l5 = null_literal);        
         void add_indexof_axiom(expr* e);
         void add_replace_axiom(expr* e);
         void add_extract_axiom(expr* e);
@@ -382,7 +387,7 @@ namespace smt {
         void add_in_re_axiom(expr* n);
         literal mk_literal(expr* n);
         literal mk_eq_empty(expr* n);
-        literal mk_equals(expr* a, expr* b);
+        literal mk_seq_eq(expr* a, expr* b);
         void tightest_prefix(expr* s, expr* x, literal lit, literal lit2 = null_literal);
         expr_ref mk_sub(expr* a, expr* b);
         enode* ensure_enode(expr* a);
@@ -418,12 +423,14 @@ namespace smt {
         bool is_step(expr* e, expr*& s, expr*& tail, expr*& re, expr*& i, expr*& j, expr*& t) const;
         bool is_step(expr* e) const;
         void propagate_step(literal lit, expr* n);
-        bool add_reject2reject(expr* rej);
-        bool add_accept2step(expr* acc);       
-        bool add_step2accept(expr* step);
-        bool add_prefix2prefix(expr* e);
-        bool add_suffix2suffix(expr* e);
-        bool add_contains2contains(expr* e);
+        bool add_reject2reject(expr* rej, bool& change);
+        bool add_accept2step(expr* acc, bool& change);       
+        bool add_step2accept(expr* step, bool& change);
+        bool add_prefix2prefix(expr* e, bool& change);
+        bool add_suffix2suffix(expr* e, bool& change);
+        bool add_contains2contains(expr* e, bool& change);
+        void propagate_not_prefix(expr* e);
+        void propagate_not_suffix(expr* e);
         void ensure_nth(literal lit, expr* s, expr* idx);
         bool canonizes(bool sign, expr* e);
         void propagate_non_empty(literal lit, expr* s);

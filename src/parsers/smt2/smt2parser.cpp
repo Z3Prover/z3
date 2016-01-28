@@ -432,8 +432,10 @@ namespace smt2 {
             }
         }
         
-        void unknown_sort(symbol id) {
-            std::string msg = "unknown sort '";
+        void unknown_sort(symbol id, char const* context = "") {
+            std::string msg = context;
+            if (context[0]) msg += ": ";
+            msg += "unknown sort '";
             msg += id.str() + "'";
             throw parser_exception(msg.c_str());
         }
@@ -528,12 +530,12 @@ namespace smt2 {
             SASSERT(sexpr_stack().size() == stack_pos + 1);
         }
 
-        sort * parse_sort_name() {
+        sort * parse_sort_name(char const* context = "") {
             SASSERT(curr_is_identifier());
             symbol id = curr_id();
             psort_decl * d = m_ctx.find_psort_decl(id);
             if (d == 0)
-                unknown_sort(id);
+                unknown_sort(id, context);
             if (!d->has_var_params() && d->get_num_params() != 0)
                 throw parser_exception("sort constructor expects parameters");
             sort * r = d->instantiate(pm());
@@ -689,23 +691,24 @@ namespace smt2 {
             next();
         }
 
-        void parse_sort() {
+        void parse_sort(char const* context) {
             unsigned stack_pos  = sort_stack().size();
             unsigned num_frames = 0;
             do {
                 if (curr_is_identifier()) {
-                    sort_stack().push_back(parse_sort_name());
+                    sort_stack().push_back(parse_sort_name(context));
                 }
                 else if (curr_is_rparen()) {
-                    if (num_frames == 0)
-                        throw parser_exception("invalid sort, unexpected ')'");
+                    if (num_frames == 0) {
+                        throw parser_exception(std::string(context) + " invalid sort, unexpected ')'");
+                    }
                     pop_sort_app_frame();
                     num_frames--;
                 }
                 else {
                     check_lparen_next("invalid sort, symbol, '_' or '(' expected");
                     if (!curr_is_identifier()) 
-                        throw parser_exception("invalid sort, symbol or '_' expected"); 
+                        throw parser_exception(std::string(context) + " invalid sort, symbol or '_' expected"); 
                     if (curr_id_is_underscore()) {
                         sort_stack().push_back(parse_indexed_sort());
                     }
@@ -723,7 +726,7 @@ namespace smt2 {
             unsigned sz = 0;            
             check_lparen_next(context);
             while (!curr_is_rparen()) {
-                parse_sort();
+                parse_sort(context);
                 sz++;
             }
             next();
@@ -1151,7 +1154,7 @@ namespace smt2 {
                 symbol_stack().push_back(curr_id());
                 TRACE("parse_sorted_vars", tout << "push_back curr_id(): " << curr_id() << "\n";);
                 next();
-                parse_sort();
+                parse_sort("invalid sorted variables");
                 check_rparen_next("invalid sorted variable, ')' expected");
                 num++;
             }
@@ -1243,7 +1246,7 @@ namespace smt2 {
                 has_as   = true;
                 next();
                 symbol r = parse_indexed_identifier();
-                parse_sort();
+                parse_sort("Invalid qualified identifier");
                 check_rparen_next("invalid qualified identifier, ')' expected");
                 return r;
             }
@@ -1848,7 +1851,7 @@ namespace smt2 {
             unsigned sort_spos = sort_stack().size();
             unsigned expr_spos = expr_stack().size();
             unsigned num_vars  = parse_sorted_vars();
-            parse_sort();
+            parse_sort("Invalid function definition");
             parse_expr();
             if (m().get_sort(expr_stack().back()) != sort_stack().back())
                 throw parser_exception("invalid function/constant definition, sort mismatch");
@@ -1936,7 +1939,7 @@ namespace smt2 {
             unsigned expr_spos = expr_stack().size();
             unsigned num_vars  = parse_sorted_vars();
             SASSERT(num_vars == m_num_bindings);
-            parse_sort();
+            parse_sort("Invalid recursive function definition");
             f = m().mk_func_decl(id, num_vars, sort_stack().c_ptr() + sort_spos, sort_stack().back());
             bindings.append(num_vars, expr_stack().c_ptr() + expr_spos);
             ids.append(num_vars, symbol_stack().c_ptr() + sym_spos);
@@ -1999,7 +2002,7 @@ namespace smt2 {
             check_identifier("invalid constant definition, symbol expected");
             symbol id = curr_id();
             next();
-            parse_sort();
+            parse_sort("Invalid constant definition");
             parse_expr();
             if (m().get_sort(expr_stack().back()) != sort_stack().back())
                 throw parser_exception("invalid constant definition, sort mismatch");
@@ -2020,7 +2023,7 @@ namespace smt2 {
             next();
             unsigned spos = sort_stack().size();
             unsigned num_params = parse_sorts("Parsing function declaration. Expecting sort list '('");
-            parse_sort();
+            parse_sort("Invalid function declaration");
             func_decl_ref f(m());
             f = m().mk_func_decl(id, num_params, sort_stack().c_ptr() + spos, sort_stack().back());
             sort_stack().shrink(spos);
@@ -2037,7 +2040,7 @@ namespace smt2 {
             check_identifier("invalid constant declaration, symbol expected");
             symbol id = curr_id();
             next();
-            parse_sort();
+            parse_sort("Invalid constant declaration");
             SASSERT(!sort_stack().empty());
             func_decl_ref c(m());
             c = m().mk_const_decl(id, sort_stack().back());
@@ -2300,9 +2303,9 @@ namespace smt2 {
                     next();
                 }
                 unsigned spos = sort_stack().size();
-                parse_sorts("Parsing function name. Expecting sort list startig with '(' to disambiguate function name");
+                parse_sorts("Invalid function name. Expecting sort list startig with '(' to disambiguate function name");
                 unsigned domain_size = sort_stack().size() - spos;
-                parse_sort();
+                parse_sort("Invalid function name");
                 func_decl * d = m_ctx.find_func_decl(id, indices.size(), indices.c_ptr(), domain_size, sort_stack().c_ptr() + spos, sort_stack().back());
                 sort_stack().shrink(spos);
                 check_rparen_next("invalid function declaration reference, ')' expected");
@@ -2375,7 +2378,7 @@ namespace smt2 {
                 break;
             }
             case CPK_SORT:
-                parse_sort();
+                parse_sort("invalid command argument, sort expected");
                 m_curr_cmd->set_next_arg(m_ctx, sort_stack().back());
                 return;
             case CPK_SORT_LIST: {
