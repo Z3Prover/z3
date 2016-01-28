@@ -584,9 +584,9 @@ bool theory_seq::check_extensionality() {
             for (unsigned i = 0; i < seqs.size(); ++i) {
                 enode* n2 = get_enode(seqs[i]);
                 expr* o2 = n2->get_owner();
-				if (m.get_sort(o1) != m.get_sort(o2)) {
-					continue;
-				}
+                if (m.get_sort(o1) != m.get_sort(o2)) {
+                    continue;
+                }
                 if (m_exclude.contains(o1, o2)) {
                     continue;
                 }
