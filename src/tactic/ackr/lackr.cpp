@@ -22,20 +22,16 @@
 #include"ackr_info.h"
 #include"for_each_expr.h"
 ///////////////
-#include"inc_sat_solver.h"
-#include"qfaufbv_tactic.h"
-#include"qfbv_tactic.h"
-#include"tactic2solver.h"
-///////////////
 #include"model_smt2_pp.h"
 ///////////////
-lackr::lackr(ast_manager& m, params_ref p, lackr_stats& st, expr_ref_vector& formulas)
+lackr::lackr(ast_manager& m, params_ref p, lackr_stats& st, expr_ref_vector& formulas,
+    solver * uffree_solver)
     : m_m(m)
     , m_p(p)
     , m_formulas(formulas)
     , m_abstr(m)
-    , m_sat(NULL)
-    , m_bvutil(m)
+    , m_sat(uffree_solver)
+    , m_ackr_helper(m)
     , m_simp(m)
     , m_ackrs(m)
     , m_st(st)
@@ -52,7 +48,7 @@ lackr::~lackr() {
 }
 
 lbool lackr::operator() () {
-    setup_sat();
+    SASSERT(m_sat);
     init();
     const lbool rv = m_eager ? eager() : lazy();
     if (rv == l_true) m_sat->get_model(m_model);
@@ -91,7 +87,7 @@ bool lackr::ackr(app * const t1, app * const t2) {
         expr * const arg1 = t1->get_arg(i);
         expr * const arg2 = t2->get_arg(i);
         if (arg1 == arg2) continue; // quickly skip syntactically equal
-        if (m_bvutil.is_numeral(arg1) && m_bvutil.is_numeral(arg2)) {
+        if (m_ackr_helper.bvutil().is_numeral(arg1) && m_ackr_helper.bvutil().is_numeral(arg2)) {
             // quickly abort if there are two distinct numerals
             SASSERT(arg1 != arg2);
             TRACE("lackr", tout << "never eq\n";);
@@ -178,9 +174,8 @@ void lackr::abstract() {
 
 void lackr::add_term(app* a) {
     if (a->get_num_args() == 0) return;
-    if (!should_ackermannize(a)) return;
+    if (!m_ackr_helper.should_ackermannize(a)) return;
     func_decl* const fd = a->get_decl();
-    SASSERT(m_bvutil.is_bv_sort(fd->get_range()) || m_m.is_bool(a));
     app_set* ts = 0;
     if (!m_fun2terms.find(fd, ts)) {
         ts = alloc(app_set);
@@ -238,21 +233,6 @@ lbool lackr::lazy() {
         }
     }
 }
-
-void lackr::setup_sat() {
-    SASSERT(m_sat == NULL);
-    if (m_use_sat) {
-        tactic_ref t = mk_qfbv_tactic(m_m, m_p);
-        m_sat = mk_tactic2solver(m_m, t.get(), m_p);
-    }
-    else {
-        tactic_ref t = mk_qfaufbv_tactic(m_m, m_p);
-        m_sat = mk_tactic2solver(m_m, t.get(), m_p);
-    }
-    SASSERT(m_sat != NULL);
-    m_sat->set_produce_models(true);
-}
-
 
 //
 // Collect all uninterpreted terms, skipping 0-arity.

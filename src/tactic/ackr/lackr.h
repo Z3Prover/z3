@@ -18,6 +18,7 @@
 #define LACKR_H_15079
 ///////////////
 #include"ackr_info.h"
+#include"ackr_helper.h"
 #include"ackr_params.hpp"
 #include"th_rewriter.h"
 #include"cooperate.h"
@@ -42,12 +43,12 @@ struct lackr_stats {
 **/
 class lackr {
     public:
-        lackr(ast_manager& m, params_ref p, lackr_stats& st, expr_ref_vector& formulas);
+        lackr(ast_manager& m, params_ref p, lackr_stats& st,
+            expr_ref_vector& formulas, solver * uffree_solver);
         ~lackr();
         void updt_params(params_ref const & _p) {
             ackr_params p(_p);
             m_eager = p.eager();
-            m_use_sat = p.sat_backend();
         }
 
         /** \brief
@@ -87,18 +88,16 @@ class lackr {
         expr_ref_vector                      m_abstr;
         fun2terms_map                        m_fun2terms;
         ackr_info_ref                        m_info;
-        scoped_ptr<solver>                   m_sat;
-        bv_util                              m_bvutil;
+        solver*                              m_sat;
+        ackr_helper                          m_ackr_helper;
         th_rewriter                          m_simp;
         expr_ref_vector                      m_ackrs;
         model_ref                            m_model;
         bool                                 m_eager;
-        bool                                 m_use_sat;
         lackr_stats&                         m_st;
         bool                                 m_is_init;
 
         void init();
-        void setup_sat();
         lbool eager();
         lbool lazy();
 
@@ -122,24 +121,5 @@ class lackr {
         // Collect all uninterpreted terms, skipping 0-arity.
         //
         void collect_terms();
-
-        inline bool should_ackermannize(app const * a) const;
 };
-
-inline bool lackr::should_ackermannize(app const * a) const {
-    if (a->get_family_id() == m_bvutil.get_family_id()) {
-        switch (a->get_decl_kind()) {
-        case OP_BSDIV0:
-        case OP_BUDIV0:
-        case OP_BSREM0:
-        case OP_BUREM0:
-        case OP_BSMOD0:
-            return true;
-        default:
-            return is_uninterp(a);
-        }
-    }
-    return (is_uninterp(a));
-}
-
 #endif /* LACKR_H_15079 */

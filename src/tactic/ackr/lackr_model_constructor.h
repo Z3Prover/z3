@@ -19,7 +19,9 @@
 #define LACKR_MODEL_CONSTRUCTOR_H_626
 #include"ast.h"
 #include"ackr_info.h"
+#include"ackr_helper.h"
 #include"model.h"
+
 class lackr_model_constructor {
     public:
         typedef std::pair<app *, app *>           app_pair;
@@ -50,6 +52,7 @@ class lackr_model_constructor {
         conflict_list                      m_conflicts;
         ast_manager&                       m_m;
         const ackr_info_ref                m_info;
+
         unsigned m_ref_count; // reference counting
 };
 

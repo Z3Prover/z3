@@ -38,7 +38,7 @@ public:
         expr_ref_vector flas(m);
         const unsigned sz = g->size();
         for (unsigned i = 0; i < sz; i++) flas.push_back(g->form(i));
-        scoped_ptr<lackr> imp = alloc(lackr, m, m_p, m_st, flas);
+        scoped_ptr<lackr> imp = alloc(lackr, m, m_p, m_st, flas, NULL);
         flas.reset();
         // mk result
         goal_ref resg(alloc(goal, *g, true));

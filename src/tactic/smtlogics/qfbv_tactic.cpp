@@ -28,6 +28,7 @@ Notes:
 #include"bv_size_reduction_tactic.h"
 #include"aig_tactic.h"
 #include"sat_tactic.h"
+#include"ackermannize_tactic.h"
 
 #define MEMLIMIT 300
 
@@ -66,7 +67,9 @@ tactic * mk_qfbv_preamble(ast_manager& m, params_ref const& p) {
             // We should decide later, if we keep it or not.
             //
             using_params(mk_simplify_tactic(m), hoist_p),
-            mk_max_bv_sharing_tactic(m));
+            mk_max_bv_sharing_tactic(m),
+            mk_ackermannize_tactic(m,p)
+            );
 }
 
 static tactic * main_p(tactic* t) {
@@ -98,7 +101,6 @@ tactic * mk_qfbv_tactic(ast_manager& m, params_ref const & p, tactic* sat, tacti
     big_aig_p.set_bool("aig_per_assertion", false);
     
     tactic* preamble_st = mk_qfbv_preamble(m, p);
-    
     tactic * st = main_p(and_then(preamble_st,
                                   // If the user sets HI_DIV0=false, then the formula may contain uninterpreted function
                                   // symbols. In this case, we should not use 

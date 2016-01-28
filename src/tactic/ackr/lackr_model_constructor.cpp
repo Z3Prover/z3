@@ -34,6 +34,7 @@ struct lackr_model_constructor::imp {
             , m_b_rw(m)
             , m_bv_rw(m)
             , m_empty_model(m)
+            , m_ackr_helper(m)
         {}
 
         ~imp() {
@@ -141,6 +142,7 @@ struct lackr_model_constructor::imp {
         values2val_t     m_values2val;
         app2val_t        m_app2val;
         ptr_vector<expr> m_stack;
+        ackr_helper      m_ackr_helper;
 
         static inline val_info mk_val_info(expr* value, app* source_term) {
             val_info rv;
@@ -227,7 +229,7 @@ struct lackr_model_constructor::imp {
                 values[i] = val;
             }
             // handle functions
-            if (a->get_family_id() == null_family_id) { // handle uninterpreted
+            if (m_ackr_helper.should_ackermannize(a)) { // handle uninterpreted
                 app_ref key(m_m.mk_app(a->get_decl(), values.c_ptr()), m_m);
                 if (!make_value_uninterpreted_function(a, values, key.get(), result)) {
                     return false;

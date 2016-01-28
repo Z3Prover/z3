@@ -14,8 +14,8 @@ Mikolas Janota
 Revision History:
 --*/
 
-#ifndef _QFUFBF_ACKR_TACTIC_H_
-#define _QFUFBF_ACKR_TACTIC_H_
+#ifndef _QFUFBV_ACKR_TACTIC_H_
+#define _QFUFBV_ACKR_TACTIC_H_
 #include"tactical.h"
 
 tactic * mk_qfufbv_ackr_tactic(ast_manager & m, params_ref const & p);

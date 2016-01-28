@@ -28,14 +28,22 @@ Revision History:
 #include"model_smt2_pp.h"
 #include"cooperate.h"
 #include"lackr.h"
-#include"ackr_params.hpp"
+#include"ackr_tactics_params.hpp"
 #include"ackr_model_converter.h"
+///////////////
+#include"inc_sat_solver.h"
+#include"qfaufbv_tactic.h"
+#include"qfbv_tactic.h"
+#include"tactic2solver.h"
+///////////////
+
 
 class qfufbv_ackr_tactic : public tactic {
 public:
     qfufbv_ackr_tactic(ast_manager& m, params_ref const& p)
         : m_m(m)
         , m_p(p)
+        , m_use_sat(false)
     {}
 
     virtual ~qfufbv_ackr_tactic() { }
@@ -47,12 +55,13 @@ public:
         expr_dependency_ref & core) {
         mc = 0;
         ast_manager& m(g->m());
-        TRACE("lackr", g->display(tout << "goal:\n"););
+        TRACE("qfufbv_ackr_tactic", g->display(tout << "goal:\n"););
         // running implementation
         expr_ref_vector flas(m);
         const unsigned sz = g->size();
         for (unsigned i = 0; i < sz; i++) flas.push_back(g->form(i));
-        scoped_ptr<lackr> imp = alloc(lackr, m, m_p, m_st, flas);
+        scoped_ptr<solver> uffree_solver = setup_sat();
+        scoped_ptr<lackr> imp = alloc(lackr, m, m_p, m_st, flas, uffree_solver.get());
         const lbool o = imp->operator()();
         flas.reset();
         // report result
@@ -64,6 +73,11 @@ public:
             model_ref abstr_model = imp->get_model();
             mc = mk_ackr_model_converter(m, imp->get_info(), abstr_model);
         }
+    }
+
+    void updt_params(params_ref const & _p) {
+        ackr_tactics_params p(_p);
+        m_use_sat = p.sat_backend();
     }
 
     virtual void collect_statistics(statistics & st) const {
@@ -83,6 +97,24 @@ private:
     ast_manager&                         m_m;
     params_ref                           m_p;
     lackr_stats                          m_st;
+    bool                                 m_use_sat;
+
+    solver* setup_sat() {
+        solver * sat(NULL);
+        if (m_use_sat) {
+            tactic_ref t = mk_qfbv_tactic(m_m, m_p);
+            sat = mk_tactic2solver(m_m, t.get(), m_p);
+        }
+        else {
+            tactic_ref t = mk_qfaufbv_tactic(m_m, m_p);
+            sat = mk_tactic2solver(m_m, t.get(), m_p);
+        }
+        SASSERT(sat != NULL);
+        sat->set_produce_models(true);
+        return sat;
+    }
+
+
 };
 
 tactic * mk_qfufbv_ackr_tactic(ast_manager & m, params_ref const & p) {

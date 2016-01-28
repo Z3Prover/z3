@@ -1,0 +1,7 @@
+def_module_params('ackr_tactics',
+                  description='tactics based on solving UF-theories via ackermannization (see also ackr module)',
+                  export=True,
+                  params=(
+                          ('sat_backend', BOOL, False, 'use SAT rather than SMT in qfufbv_ackr_tactic'),
+                          ))
+
