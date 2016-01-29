@@ -190,17 +190,7 @@ struct lackr_model_constructor::imp {
             return true;
         }
 
-        inline bool is_val(expr * e) {
-            if (!is_app(e)) return false;
-            return is_val(to_app(e));
-        }
-
-        inline bool is_val(app * a) {
-            const family_id fid = a->get_decl()->get_family_id();
-            const bool rv = fid != null_family_id && a->get_num_args() == 0;
-            SASSERT(rv == (m_bv_rw.is_numeral(a) || m_m.is_true(a) || m_m.is_false(a)));
-            return rv;
-        }
+        inline bool is_val(expr * e) { return m_m.is_value(e); }
 
         inline bool eval_cached(app * a, expr *& val) {
             if (is_val(a)) { val = a; return true; }

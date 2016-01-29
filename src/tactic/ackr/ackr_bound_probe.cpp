@@ -16,6 +16,7 @@
 --*/
 #include"ackr_helper.h"
 #include"ackr_bound_probe.h"
+#include"ast_smt2_pp.h"
 
 /** \brief
  * For each function f, calculate the number of its occurrences o_f and compute "o_f choose 2".
@@ -66,7 +67,13 @@ public:
         proc::fun2terms_map::iterator it = p.m_fun2terms.begin();
         proc::fun2terms_map::iterator end = p.m_fun2terms.end();
         unsigned total = 0;
-        for (; it != end; ++it) total += n_choose_2(it->m_value->size());
+        for (; it != end; ++it) {
+            const unsigned fsz = it->m_value->size();
+            const unsigned n2 = n_choose_2(fsz);
+            TRACE("ackr_bound_probe", tout << mk_ismt2_pp(it->m_key, g.m(), 0) << " #" << fsz << " n_choose_2=" << n2 << std::endl;);
+            total += n2;
+        }
+        TRACE("ackr_bound_probe", tout << "total=" << total << std::endl;);
         return result(total);
     }
 

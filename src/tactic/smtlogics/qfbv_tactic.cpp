@@ -33,6 +33,8 @@ Notes:
 
 #define MEMLIMIT 300
 
+#define ACKRLIMIT 1000
+
 tactic * mk_qfbv_preamble(ast_manager& m, params_ref const& p) {
 
     params_ref solve_eq_p;
@@ -69,7 +71,7 @@ tactic * mk_qfbv_preamble(ast_manager& m, params_ref const& p) {
             //
             using_params(mk_simplify_tactic(m), hoist_p),
             mk_max_bv_sharing_tactic(m),
-            when(mk_lt(mk_ackr_bound_probe(), mk_const_probe(static_cast<double>(100))),  mk_ackermannize_tactic(m,p))
+            when(mk_lt(mk_ackr_bound_probe(), mk_const_probe(static_cast<double>(ACKRLIMIT))),  mk_ackermannize_tactic(m,p))
             );
 }
 
