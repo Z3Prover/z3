@@ -573,12 +573,12 @@ bool theory_seq::check_extensionality() {
     unsigned sz = get_num_vars();
     unsigned_vector seqs;
     for (unsigned v = 0; v < sz; ++v) {
-        enode* n = get_enode(v);
-        expr* o1 = n->get_owner();
-        if (n != n->get_root()) {
+        enode* n1 = get_enode(v);
+        expr* o1 = n1->get_owner();
+        if (n1 != n1->get_root()) {
             continue;
         }
-        if (!seqs.empty() && ctx.is_relevant(n) && m_util.is_seq(o1) && ctx.is_shared(n)) {
+        if (!seqs.empty() && ctx.is_relevant(n1) && m_util.is_seq(o1) && ctx.is_shared(n1)) {
             dependency* dep = 0;
             expr_ref e1 = canonize(o1, dep);
             for (unsigned i = 0; i < seqs.size(); ++i) {
@@ -587,7 +587,7 @@ bool theory_seq::check_extensionality() {
                 if (m.get_sort(o1) != m.get_sort(o2)) {
                     continue;
                 }
-                if (m_exclude.contains(o1, o2)) {
+                if (ctx.is_diseq(n1, n2) || m_exclude.contains(o1, o2)) {
                     continue;
                 }
                 expr_ref e2 = canonize(n2->get_owner(), dep);
@@ -597,8 +597,17 @@ bool theory_seq::check_extensionality() {
                     m_exclude.update(o1, o2);
                     continue;
                 }
+                bool excluded = false;
+                for (unsigned j = 0; !excluded && j < m_lhs.size(); ++j) {
+                    if (m_exclude.contains(m_lhs[j].get(), m_rhs[j].get())) {
+                        excluded = true;
+                    }
+                }
+                if (excluded) {
+                    continue;
+                }
                 TRACE("seq", tout << mk_pp(o1, m) << " = " << mk_pp(o2, m) << "\n";);
-                ctx.assume_eq(n, n2);                
+                ctx.assume_eq(n1, n2);                
                 return false;
             }
         }

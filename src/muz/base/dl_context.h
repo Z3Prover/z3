@@ -581,6 +581,9 @@ namespace datalog {
         //undefined and private copy constructor and operator=
         context(const context&);
         context& operator=(const context&);
+
+        bool is_query(expr* e);
+        void display_rel_decl(std::ostream& out, func_decl* f);
     };
 
 };
