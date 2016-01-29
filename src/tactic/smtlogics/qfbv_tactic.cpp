@@ -30,10 +30,9 @@ Notes:
 #include"sat_tactic.h"
 #include"ackermannize_tactic.h"
 #include"ackr_bound_probe.h"
+#include"qfbv_tactic_params.hpp"
 
 #define MEMLIMIT 300
-
-#define ACKRLIMIT 1000
 
 tactic * mk_qfbv_preamble(ast_manager& m, params_ref const& p) {
 
@@ -51,9 +50,19 @@ tactic * mk_qfbv_preamble(ast_manager& m, params_ref const& p) {
     simp2_p.set_bool("hoist_mul", false); // required by som
 
 
+    qfbv_tactic_params my_params(p);
+
     params_ref hoist_p;
     hoist_p.set_bool("hoist_mul", true);
     hoist_p.set_bool("som", false);
+
+    const double should_ackermannize = static_cast<double>(my_params.div0ackermann());
+    const double ackermannize_limit = static_cast<double>(my_params.div0_ackermann_limit());
+    probe * const should_ackermann_p = mk_and(
+        mk_const_probe(should_ackermannize),
+        mk_lt(mk_ackr_bound_probe(), mk_const_probe(ackermannize_limit))
+        );
+
 
     return
         and_then(
@@ -71,7 +80,7 @@ tactic * mk_qfbv_preamble(ast_manager& m, params_ref const& p) {
             //
             using_params(mk_simplify_tactic(m), hoist_p),
             mk_max_bv_sharing_tactic(m),
-            when(mk_lt(mk_ackr_bound_probe(), mk_const_probe(static_cast<double>(ACKRLIMIT))),  mk_ackermannize_tactic(m,p))
+            when(should_ackermann_p,  mk_ackermannize_tactic(m,p))
             );
 }
 
