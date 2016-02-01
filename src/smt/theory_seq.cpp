@@ -69,7 +69,7 @@ bool theory_seq::solution_map::is_root(expr* e) const {
 // e1 -> .... -> e3
 
 // e1 -> ... x, e2 -> ... x
-void theory_seq::solution_map::find_rec(expr* e, svector<std::pair<expr*, dependency*>>& finds) {
+void theory_seq::solution_map::find_rec(expr* e, svector<std::pair<expr*, dependency*> >& finds) {
     dependency* d = 0;
     std::pair<expr*, dependency*> value(e, d);
     do {

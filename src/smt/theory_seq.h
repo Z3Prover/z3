@@ -82,7 +82,7 @@ namespace smt {
             expr* find(expr* e, dependency*& d);
             expr* find(expr* e);
             bool  find1(expr* a, expr*& b, dependency*& dep);
-            void  find_rec(expr* e, svector<std::pair<expr*, dependency*>>& finds);
+            void  find_rec(expr* e, svector<std::pair<expr*, dependency*> >& finds);
             bool  is_root(expr* e) const;
             void  cache(expr* e, expr* r, dependency* d);
             void  reset_cache() { m_cache.reset(); }
