@@ -5970,9 +5970,9 @@ extern "C" {
     /**
     \brief Return the estimated allocated memory in bytes.
 
-    def_API('Z3_get_estimated_alloc_size', ULLONG, ())
+    def_API('Z3_get_estimated_alloc_size', UINT64, ())
     */
-    unsigned long long Z3_API Z3_get_estimated_alloc_size(void);
+    __uint64 Z3_API Z3_get_estimated_alloc_size(void);
 
     /*@}*/
 

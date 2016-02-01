@@ -130,7 +130,7 @@ extern "C" {
         Z3_CATCH_RETURN(0.0);
     }
 
-    unsigned long long Z3_API Z3_get_estimated_alloc_size(void) {
+    __uint64 Z3_API Z3_get_estimated_alloc_size(void) {
         return memory::get_allocation_size();
     }
 
