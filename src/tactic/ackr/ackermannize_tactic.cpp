@@ -35,6 +35,10 @@ public:
         expr_dependency_ref & core) {
         mc = 0;
         ast_manager& m(g->m());
+		tactic_report report("ackermannize", *g);
+		fail_if_unsat_core_generation("ackermannize", g);
+		fail_if_proof_generation("ackermannize", g);
+				
         expr_ref_vector flas(m);
         const unsigned sz = g->size();
         for (unsigned i = 0; i < sz; i++) flas.push_back(g->form(i));
@@ -48,6 +52,10 @@ public:
         if (g->models_enabled()) {
             mc = mk_ackr_model_converter(m, imp->get_info());
         }
+
+		resg->inc_depth();
+		TRACE("ackermannize", resg->display(tout););
+		SASSERT(resg->is_well_sorted());
     }
 
     virtual void collect_statistics(statistics & st) const {
