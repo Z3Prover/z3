@@ -1421,6 +1421,7 @@ expr* seq_rewriter::concat_non_empty(unsigned n, expr* const* as) {
 
 bool seq_rewriter::set_empty(unsigned sz, expr* const* es, bool all, expr_ref_vector& lhs, expr_ref_vector& rhs) {
     zstring s;
+    expr* emp = 0;
     for (unsigned i = 0; i < sz; ++i) {
         if (m_util.str.is_unit(es[i])) {
             if (all) return false;
@@ -1435,7 +1436,8 @@ bool seq_rewriter::set_empty(unsigned sz, expr* const* es, bool all, expr_ref_ve
             }
         }
         else {
-            lhs.push_back(m_util.str.mk_empty(m().get_sort(es[i])));
+            emp = emp?emp:m_util.str.mk_empty(m().get_sort(es[i]));
+            lhs.push_back(emp);
             rhs.push_back(es[i]);
         }
     }

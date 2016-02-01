@@ -81,6 +81,8 @@ namespace smt {
             bool  find_cache(expr* v, expr_dep& r) { return m_cache.find(v, r); }
             expr* find(expr* e, dependency*& d);
             expr* find(expr* e);
+            bool  find1(expr* a, expr*& b, dependency*& dep);
+            void  find_rec(expr* e, svector<std::pair<expr*, dependency*>>& finds);
             bool  is_root(expr* e) const;
             void  cache(expr* e, expr* r, dependency* d);
             void  reset_cache() { m_cache.reset(); }
@@ -142,31 +144,35 @@ namespace smt {
             return eq(m_eq_id++, ls, rs, dep);
         }        
 
-        class ne {            
-            vector<expr_ref_vector>  m_lhs;
-            vector<expr_ref_vector>  m_rhs;
+        class ne {      
+            expr_ref                 m_l, m_r;
+            vector<expr_ref_vector>  m_lhs, m_rhs;
             literal_vector           m_lits;
             dependency*              m_dep;
         public:
             ne(expr_ref const& l, expr_ref const& r, dependency* dep):
-                m_dep(dep) {
-                expr_ref_vector ls(l.get_manager()); ls.push_back(l);
-                expr_ref_vector rs(r.get_manager()); rs.push_back(r);
+                m_l(l), m_r(r), m_dep(dep) {
+                    expr_ref_vector ls(l.get_manager()); ls.push_back(l);
+                    expr_ref_vector rs(r.get_manager()); rs.push_back(r);
                     m_lhs.push_back(ls);
                     m_rhs.push_back(rs);
                 }
 
-            ne(vector<expr_ref_vector> const& l, vector<expr_ref_vector> const& r, literal_vector const& lits, dependency* dep):
+            ne(expr_ref const& _l, expr_ref const& _r, vector<expr_ref_vector> const& l, vector<expr_ref_vector> const& r, literal_vector const& lits, dependency* dep):
+                m_l(_l), m_r(_r),
                 m_lhs(l),
                 m_rhs(r),
                 m_lits(lits),
                 m_dep(dep) {}
 
             ne(ne const& other): 
+                m_l(other.m_l), m_r(other.m_r),
                 m_lhs(other.m_lhs), m_rhs(other.m_rhs), m_lits(other.m_lits), m_dep(other.m_dep) {}
 
             ne& operator=(ne const& other) { 
                 if (this != &other) {
+                    m_l = other.m_l;
+                    m_r = other.m_r;
                     m_lhs.reset();  m_lhs.append(other.m_lhs);
                     m_rhs.reset();  m_rhs.append(other.m_rhs); 
                     m_lits.reset(); m_lits.append(other.m_lits); 
@@ -181,6 +187,8 @@ namespace smt {
             literal_vector const& lits() const { return m_lits; }
             literal lits(unsigned i) const { return m_lits[i]; }
             dependency* dep() const { return m_dep; }
+            expr_ref const& l() const { return m_l; }
+            expr_ref const& r() const { return m_r; }
         };
 
         class apply {
@@ -334,6 +342,20 @@ namespace smt {
         bool solve_nqs(unsigned i);
         bool solve_ne(unsigned i);
 
+        struct cell {
+            cell*       m_parent;
+            expr*       m_expr;
+            dependency* m_dep;
+            unsigned    m_last;
+            cell(cell* p, expr* e, dependency* d): m_parent(p), m_expr(e), m_dep(d), m_last(0) {}
+        };
+        scoped_ptr_vector<cell> m_all_cells;
+        cell* mk_cell(cell* p, expr* e, dependency* d);
+        void unfold(cell* c, ptr_vector<cell>& cons);
+        void display_explain(std::ostream& out, unsigned indent, expr* e);
+        bool explain_eq(expr* e1, expr* e2, dependency*& dep);
+        bool explain_empty(expr_ref_vector& es, dependency*& dep);
+
         // asserting consequences
         void linearize(dependency* dep, enode_pair_vector& eqs, literal_vector& lits) const;
         void propagate_lit(dependency* dep, literal lit) { propagate_lit(dep, 0, 0, lit); }
@@ -376,6 +398,8 @@ namespace smt {
         void add_replace_axiom(expr* e);
         void add_extract_axiom(expr* e);
         void add_length_axiom(expr* n);
+        void add_tail_axiom(expr* e, expr* s);
+        bool is_tail(expr* s, expr* i, expr* l);
 
         bool has_length(expr *e) const { return m_length.contains(e); }
         void add_length(expr* e);
@@ -445,6 +469,7 @@ namespace smt {
         void display_disequations(std::ostream& out) const;
         void display_disequation(std::ostream& out, ne const& e) const;
         void display_deps(std::ostream& out, dependency* deps) const;
+        void display_deps(std::ostream& out, literal_vector const& lits, enode_pair_vector const& eqs) const;
     public:
         theory_seq(ast_manager& m);
         virtual ~theory_seq();
