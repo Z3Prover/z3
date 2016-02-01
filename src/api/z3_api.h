@@ -5967,6 +5967,13 @@ extern "C" {
     */
     double Z3_API Z3_stats_get_double_value(Z3_context c, Z3_stats s, unsigned idx);
 
+    /**
+    \brief Return the estimated allocated memory in bytes.
+
+    def_API('Z3_get_estimated_alloc_size', ULLONG, ())
+    */
+    unsigned long long Z3_API Z3_get_estimated_alloc_size(void);
+
     /*@}*/
 
 #ifdef __cplusplus
