@@ -14,16 +14,15 @@
 
  Revision History:
 --*/
-///////////////
+
 #include"lackr.h"
 #include"ackr_params.hpp"
 #include"tactic.h"
 #include"lackr_model_constructor.h"
 #include"ackr_info.h"
 #include"for_each_expr.h"
-///////////////
 #include"model_smt2_pp.h"
-///////////////
+
 lackr::lackr(ast_manager& m, params_ref p, lackr_stats& st, expr_ref_vector& formulas,
     solver * uffree_solver)
     : m_m(m)
@@ -57,11 +56,17 @@ lbool lackr::operator() () {
     return rv;
 }
 
-void lackr::mk_ackermann(/*out*/goal_ref& g) {
+bool lackr::mk_ackermann(/*out*/goal_ref& g, double lemmas_upper_bound) {
+    if (lemmas_upper_bound <= 0) return false;
     init();
+    if (lemmas_upper_bound != std::numeric_limits<double>::infinity()) {
+        const double lemmas_bound = ackr_helper::calculate_lemma_bound(m_fun2terms);
+        if (lemmas_bound > lemmas_upper_bound) return false;
+    }
     eager_enc();
     for (unsigned i = 0; i < m_abstr.size(); ++i) g->assert_expr(m_abstr.get(i));
     for (unsigned i = 0; i < m_ackrs.size(); ++i) g->assert_expr(m_ackrs.get(i));
+    return true;
 }
 
 void lackr::init() {

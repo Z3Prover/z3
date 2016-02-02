@@ -28,7 +28,7 @@ Notes:
 #include"bv_size_reduction_tactic.h"
 #include"aig_tactic.h"
 #include"sat_tactic.h"
-#include"ackermannize_tactic.h"
+#include"ackermannize_bv_tactic.h"
 
 #define MEMLIMIT 300
 
@@ -67,7 +67,7 @@ tactic * mk_qfbv_preamble(ast_manager& m, params_ref const& p) {
             //
             using_params(mk_simplify_tactic(m), hoist_p),
             mk_max_bv_sharing_tactic(m),
-            mk_ackermannize_bounded_tactic(m,p)
+            mk_ackermannize_bv_tactic(m,p)
             );
 }
 

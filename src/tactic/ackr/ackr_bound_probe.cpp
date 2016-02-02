@@ -18,18 +18,18 @@
 #include"ackr_bound_probe.h"
 #include"ast_smt2_pp.h"
 
-/** \brief
- * For each function f, calculate the number of its occurrences o_f and compute "o_f choose 2".
- * The probe then sums up these for all functions.
- * This upper bound might be crude because some congruence lemmas trivially simplify to true.
- */
+/*
+  For each function f, calculate the number of its occurrences o_f and compute "o_f choose 2".
+  The probe then sums up these for all functions.
+  This upper bound might be crude because some congruence lemmas trivially simplify to true.
+*/
 class ackr_bound_probe : public probe {
     struct proc {
-        typedef obj_hashtable<app>           app_set;
-        typedef obj_map<func_decl, app_set*> fun2terms_map;
-        ast_manager &            m_m;
-        fun2terms_map            m_fun2terms; // a map from functions to occurrences
-        ackr_helper              m_ackr_helper;
+        typedef ackr_helper::fun2terms_map fun2terms_map;
+        typedef ackr_helper::app_set       app_set;
+        ast_manager&                 m_m;
+        fun2terms_map                m_fun2terms; // a map from functions to occurrences
+        ackr_helper                  m_ackr_helper;
 
         proc(ast_manager & m) : m_m(m), m_ackr_helper(m) { }
 
@@ -64,15 +64,7 @@ public:
         for (unsigned i = 0; i < sz; i++) {
             for_each_expr_core<proc, expr_fast_mark1, true, true>(p, visited, g.form(i));
         }
-        proc::fun2terms_map::iterator it = p.m_fun2terms.begin();
-        proc::fun2terms_map::iterator end = p.m_fun2terms.end();
-        unsigned total = 0;
-        for (; it != end; ++it) {
-            const unsigned fsz = it->m_value->size();
-            const unsigned n2 = n_choose_2(fsz);
-            TRACE("ackr_bound_probe", tout << mk_ismt2_pp(it->m_key, g.m(), 0) << " #" << fsz << " n_choose_2=" << n2 << std::endl;);
-            total += n2;
-        }
+        const double total = ackr_helper::calculate_lemma_bound(p.m_fun2terms);
         TRACE("ackr_bound_probe", tout << "total=" << total << std::endl;);
         return result(total);
     }

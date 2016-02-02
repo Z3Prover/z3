@@ -15,8 +15,9 @@
 
  Revision History:
  --*/
-#ifndef LACKR_MODEL_CONSTRUCTOR_H_626
-#define LACKR_MODEL_CONSTRUCTOR_H_626
+#ifndef LACKR_MODEL_CONSTRUCTOR_H_
+#define LACKR_MODEL_CONSTRUCTOR_H_
+
 #include"ast.h"
 #include"ackr_info.h"
 #include"ackr_helper.h"
@@ -57,4 +58,4 @@ class lackr_model_constructor {
 };
 
 typedef ref<lackr_model_constructor> lackr_model_constructor_ref;
-#endif /* MODEL_CONSTRUCTOR_H_626 */
+#endif /* MODEL_CONSTRUCTOR_H_ */

@@ -1,0 +1,8 @@
+def_module_params(module_name='rewriter',
+                  class_name='ackermannize_bv_tactic_params',
+                  export=True,
+                  params=(
+                          ("div0_ackermann_limit", UINT, 1000, "a bound for number of congruence Ackermann lemmas for div0 modelling"),
+                          )
+                  )
+

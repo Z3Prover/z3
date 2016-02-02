@@ -13,8 +13,9 @@ Mikolas Janota
 
 Revision History:
 --*/
-#ifndef ACKR_INFO_H_12278
-#define ACKR_INFO_H_12278
+#ifndef ACKR_INFO_H_
+#define ACKR_INFO_H_
+
 #include"obj_hashtable.h"
 #include"ast.h"
 #include"ref.h"
@@ -104,4 +105,5 @@ class ackr_info {
 };
 
 typedef ref<ackr_info> ackr_info_ref;
-#endif /* ACKR_INFO_H_12278 */
+
+#endif /* ACKR_INFO_H_ */

@@ -14,9 +14,9 @@
 
  Revision History:
  --*/
-#ifndef LACKR_H_15079
-#define LACKR_H_15079
-///////////////
+#ifndef LACKR_H_
+#define LACKR_H_
+
 #include"ackr_info.h"
 #include"ackr_helper.h"
 #include"ackr_params.hpp"
@@ -58,11 +58,13 @@ class lackr {
 
 
         /** \brief
-        * Converts function occurrences to constants and encodes all congruence ackermann lemmas.
-        * This guarantees a equisatisfiability with the input formula. It has a worst-case quadratic blowup.
-        **/
-        void mk_ackermann(/*out*/goal_ref& g);
+          Converts function occurrences to constants and encodes all congruence ackermann lemmas.
 
+          This procedure guarantees a equisatisfiability with the input formula and it has a worst-case quadratic blowup.
+          Before ackermannization an upper bound on congruence lemmas is computed and tested against \p lemmas_upper_bound.
+          If this bound is exceeded, the function returns false, it returns true otherwise.
+        **/
+        bool mk_ackermann(/*out*/goal_ref& g, double lemmas_upper_bound);
 
         //
         // getters
@@ -80,8 +82,8 @@ class lackr {
             cooperate("lackr");
         }
     private:
-        typedef obj_hashtable<app>           app_set;
-        typedef obj_map<func_decl, app_set*> fun2terms_map;
+        typedef ackr_helper::fun2terms_map fun2terms_map;
+        typedef ackr_helper::app_set       app_set;
         ast_manager&                         m_m;
         params_ref                           m_p;
         expr_ref_vector                      m_formulas;
@@ -122,4 +124,4 @@ class lackr {
         //
         void collect_terms();
 };
-#endif /* LACKR_H_15079 */
+#endif /* LACKR_H_ */
