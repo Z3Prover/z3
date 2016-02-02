@@ -276,7 +276,7 @@ namespace smt {
         stats            m_stats;
         symbol           m_prefix, m_suffix, m_contains_left, m_contains_right, m_accept, m_reject;
         symbol           m_tail, m_nth, m_seq_first, m_seq_last, m_indexof_left, m_indexof_right, m_aut_step;
-        symbol           m_extract_prefix, m_at_left, m_at_right;
+        symbol           m_pre, m_post, m_eq;
         ptr_vector<expr> m_todo;
         expr_ref_vector  m_ls, m_rs, m_lhs, m_rhs;
 
@@ -334,6 +334,9 @@ namespace smt {
         bool solve_binary_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep);
         bool propagate_max_length(expr* l, expr* r, dependency* dep);
 
+        bool get_length(expr* s, expr_ref& len, literal_vector& lits);
+        bool reduce_length(expr* l, expr* r);
+
         expr_ref mk_empty(sort* s) { return expr_ref(m_util.str.mk_empty(s), m); }
         expr_ref mk_concat(unsigned n, expr*const* es) { return expr_ref(m_util.str.mk_concat(n, es), m); }
         expr_ref mk_concat(expr_ref_vector const& es, sort* s) { if (es.empty()) return mk_empty(s); return mk_concat(es.size(), es.c_ptr()); }
@@ -362,6 +365,7 @@ namespace smt {
         void propagate_lit(dependency* dep, unsigned n, literal const* lits, literal lit);
         void propagate_eq(dependency* dep, enode* n1, enode* n2);
         void propagate_eq(literal lit, expr* e1, expr* e2, bool add_to_eqs);
+        void propagate_eq(literal_vector const& lits, expr* e1, expr* e2, bool add_to_eqs);
         void set_conflict(dependency* dep, literal_vector const& lits = literal_vector());
 
         u_map<unsigned> m_branch_start;
@@ -379,6 +383,7 @@ namespace smt {
         bool is_nth(expr* a) const;
         bool is_tail(expr* a, expr*& s, unsigned& idx) const;
         bool is_eq(expr* e, expr*& a, expr*& b) const; 
+        bool is_pre(expr* e, expr*& s, expr*& i);
         expr_ref mk_nth(expr* s, expr* idx);
         expr_ref mk_last(expr* e);
         expr_ref mk_first(expr* e);
@@ -399,7 +404,14 @@ namespace smt {
         void add_extract_axiom(expr* e);
         void add_length_axiom(expr* n);
         void add_tail_axiom(expr* e, expr* s);
+        void add_drop_last_axiom(expr* e, expr* s);
+        void add_extract_prefix_axiom(expr* e, expr* s, expr* l);
+        void add_extract_suffix_axiom(expr* e, expr* s, expr* i);
         bool is_tail(expr* s, expr* i, expr* l);
+        bool is_drop_last(expr* s, expr* i, expr* l);
+        bool is_extract_prefix0(expr* s, expr* i, expr* l);
+        bool is_extract_suffix(expr* s, expr* i, expr* l);
+        
 
         bool has_length(expr *e) const { return m_length.contains(e); }
         void add_length(expr* e);
