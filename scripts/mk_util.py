@@ -81,6 +81,7 @@ VS_PROJ = False
 TRACE = False
 DOTNET_ENABLED=False
 JAVA_ENABLED=False
+JAVA_EXTERNAL_LIBRARY_LOADING=False
 ML_ENABLED=False
 PYTHON_INSTALL_ENABLED=False
 STATIC_LIB=False
@@ -619,6 +620,7 @@ def display_help(exit_code):
         print("  --optimize                    generate optimized code during linking.")
     print("  --dotnet                      generate .NET bindings.")
     print("  --java                        generate Java bindings.")
+    print("  --javaExternalLibraryLoading  the user has to load the Z3-library himself.")
     print("  --ml                          generate OCaml bindings.")
     print("  --python                      generate Python bindings.")
     print("  --staticlib                   build Z3 static library.")
@@ -653,13 +655,13 @@ def display_help(exit_code):
 # Parse configuration option for mk_make script
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
-    global DOTNET_ENABLED, JAVA_ENABLED, ML_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, FOCI2, FOCI2LIB, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, PYTHON_INSTALL_ENABLED
+    global DOTNET_ENABLED, JAVA_ENABLED, JAVA_EXTERNAL_LIBRARY_LOADING, ML_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, FOCI2, FOCI2LIB, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, PYTHON_INSTALL_ENABLED
     global LINUX_X64, SLOW_OPTIMIZE, USE_OMP
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:],
                                                'b:df:sxhmcvtnp:gj',
                                                ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj',
-                                                'trace', 'dotnet', 'staticlib', 'prefix=', 'gmp', 'foci2=', 'java', 'parallel=', 'gprof',
+                                                'trace', 'dotnet', 'staticlib', 'prefix=', 'gmp', 'foci2=', 'java', 'javaExternalLibraryLoading', 'parallel=', 'gprof',
                                                 'githash=', 'x86', 'ml', 'optimize', 'noomp', 'pypkgdir=', 'python', 'staticbin'])
     except:
         print("ERROR: Invalid command line option")
@@ -713,6 +715,8 @@ def parse_options():
             FOCI2LIB = arg
         elif opt in ('-j', '--java'):
             JAVA_ENABLED = True
+        elif opt in ("--javaExternalLibraryLoading"):
+            JAVA_EXTERNAL_LIBRARY_LOADING = True
         elif opt == '--gprof':
             GPROF = True
         elif opt == '--githash':
@@ -811,6 +815,9 @@ def is_verbose():
 
 def is_java_enabled():
     return JAVA_ENABLED
+
+def use_java_external_library_loading():
+    return JAVA_EXTERNAL_LIBRARY_LOADING
 
 def is_ml_enabled():
     return ML_ENABLED
@@ -1698,7 +1705,7 @@ class JavaDLLComponent(Component):
                 out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3java$(SO_EXT) $(SLINK_FLAGS) %s$(OBJ_EXT) libz3$(LIB_EXT)\n' %
                           os.path.join('api', 'java', 'Native'))
             else:
-                out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3java$(SO_EXT) $(SLINK_FLAGS) %s$(OBJ_EXT) libz3$(SO_EXT)\n' %
+                out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3java$(SO_EXT) $(SLINK_FLAGS) $(JAVA_EXTERNAL_LIBRARY_LOADING_FLAG) %s$(OBJ_EXT) libz3$(SO_EXT)\n' %
                           os.path.join('api', 'java', 'Native'))
             out.write('%s.jar: libz3java$(SO_EXT) ' % self.package_name)
             deps = ''
@@ -2358,6 +2365,8 @@ def mk_config():
             CPPFLAGS     = '%s -DNDEBUG -D_EXTERNAL_RELEASE' % CPPFLAGS
         if TRACE or DEBUG_MODE:
             CPPFLAGS     = '%s -D_TRACE' % CPPFLAGS
+        # '$$' is needed to escape '$' in the makefile, the result should be '$ORIGIN'
+        JAVA_EXTERNAL_LIBRARY_LOADING_FLAG = '-Wl,-rpath,\'$$ORIGIN\' ' if use_java_external_library_loading() else ''
         config.write('PREFIX=%s\n' % PREFIX)
         config.write('CC=%s\n' % CC)
         config.write('CXX=%s\n' % CXX)
@@ -2370,6 +2379,7 @@ def mk_config():
         config.write('AR_FLAGS=rcs\n')
         config.write('AR_OUTFLAG=\n')
         config.write('EXE_EXT=\n')
+        config.write('JAVA_EXTERNAL_LIBRARY_LOADING_FLAG=%s\n' % JAVA_EXTERNAL_LIBRARY_LOADING_FLAG) 
         config.write('LINK=%s\n' % CXX)
         if STATIC_BIN:
             config.write('LINK_FLAGS=-static\n')

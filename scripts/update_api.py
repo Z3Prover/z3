@@ -489,10 +489,11 @@ def mk_java(java_dir, package_name):
     java_native.write('  public static class UIntArrayPtr { public int[] value; }\n')
     java_native.write('  public static native void setInternalErrorHandler(long ctx);\n\n')
 
-    java_native.write('  static {\n')
-    java_native.write('    try { System.loadLibrary("z3java"); }\n')
-    java_native.write('    catch (UnsatisfiedLinkError ex) { System.loadLibrary("libz3java"); }\n')
-    java_native.write('  }\n')
+    if not mk_util.use_java_external_library_loading():
+        java_native.write('  static {\n')
+        java_native.write('    try { System.loadLibrary("z3java"); }\n')
+        java_native.write('    catch (UnsatisfiedLinkError ex) { System.loadLibrary("libz3java"); }\n')
+        java_native.write('  }\n')
 
     java_native.write('\n')
     for name, result, params in _dotnet_decls:
