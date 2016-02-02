@@ -25,4 +25,8 @@ class tactic;
 
 tactic * mk_ufbv_rewriter_tactic(ast_manager & m, params_ref const & p = params_ref());
 
+/*
+  ADD_TACTIC("ufbv-rewriter",  "Applies UFBV-specific rewriting rules, mainly demodulation.", "mk_quasi_macros_tactic(m, p)")
+*/
+
 #endif

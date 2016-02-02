@@ -64,6 +64,34 @@ bool theory_seq::solution_map::is_root(expr* e) const {
     return !m_map.contains(e);
 }
 
+// e1 -> ... -> e2
+// e2 -> e3
+// e1 -> .... -> e3
+
+// e1 -> ... x, e2 -> ... x
+void theory_seq::solution_map::find_rec(expr* e, svector<std::pair<expr*, dependency*> >& finds) {
+    dependency* d = 0;
+    std::pair<expr*, dependency*> value(e, d);
+    do {
+        e = value.first;
+        d = m_dm.mk_join(d, value.second);
+        finds.push_back(value);
+    }
+    while (m_map.find(e, value));
+}
+
+bool theory_seq::solution_map::find1(expr* e, expr*& r, dependency*& d) {
+    std::pair<expr*, dependency*> value;    
+    if (m_map.find(e, value)) {
+        d = m_dm.mk_join(d, value.second);
+        r = value.first;
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
 expr* theory_seq::solution_map::find(expr* e, dependency*& d) {
     std::pair<expr*, dependency*> value;
     d = 0;
@@ -183,9 +211,9 @@ theory_seq::theory_seq(ast_manager& m):
     m_indexof_left   = "seq.indexof.left";
     m_indexof_right  = "seq.indexof.right";
     m_aut_step       = "aut.step";
-    m_extract_prefix = "seq.extract.prefix";
-    m_at_left        = "seq.at.left";
-    m_at_right       = "seq.at.right";
+    m_pre            = "seq.pre";  // (seq.pre s l):  prefix of string s of length l
+    m_post           = "seq.post"; // (seq.post s l): suffix of string s of length l
+    m_eq             = "seq.eq";
 }
 
 theory_seq::~theory_seq() {
@@ -215,21 +243,21 @@ final_check_status theory_seq::final_check_eh() {
         TRACE("seq", tout << ">>check_length_coherence\n";);
         return FC_CONTINUE;
     }
-    if (propagate_automata()) {
-        ++m_stats.m_propagate_automata;
-        TRACE("seq", tout << ">>propagate_automata\n";);
-        return FC_CONTINUE;
-    }
     if (!check_extensionality()) {
         ++m_stats.m_extensionality;
         TRACE("seq", tout << ">>extensionality\n";);
+        return FC_CONTINUE;
+    }
+    if (propagate_automata()) {
+        ++m_stats.m_propagate_automata;
+        TRACE("seq", tout << ">>propagate_automata\n";);
         return FC_CONTINUE;
     }
     if (is_solved()) {
         TRACE("seq", tout << ">>is_solved\n";);
         return FC_DONE;
     }
-
+    TRACE("seq", tout << ">>give_up\n";);
     return FC_GIVEUP;
 }
 
@@ -451,7 +479,7 @@ bool theory_seq::check_length_coherence(expr* e) {
             propagate_is_conc(e, conc);
             assume_equality(tail, emp);
         }
-        if (!get_context().at_base_level()) {
+        else if (!get_context().at_base_level()) {
             m_trail_stack.push(push_replay(alloc(replay_length_coherence, m, e)));
         }
         return true;
@@ -501,9 +529,15 @@ bool theory_seq::is_tail(expr* e, expr*& s, unsigned& idx) const {
 }
 
 bool theory_seq::is_eq(expr* e, expr*& a, expr*& b) const {
-    return is_skolem(symbol("seq.eq"), e) &&
+    return is_skolem(m_eq, e) &&
         (a = to_app(e)->get_arg(0), b = to_app(e)->get_arg(1), true);
 }
+
+
+bool theory_seq::is_pre(expr* e, expr*& s, expr*& i) {
+    return is_skolem(m_pre, e) && (s = to_app(e)->get_arg(0), i = to_app(e)->get_arg(1), true);
+}
+
 
 
 expr_ref theory_seq::mk_nth(expr* s, expr* idx) {
@@ -573,29 +607,41 @@ bool theory_seq::check_extensionality() {
     unsigned sz = get_num_vars();
     unsigned_vector seqs;
     for (unsigned v = 0; v < sz; ++v) {
-        enode* n = get_enode(v);
-        expr* o1 = n->get_owner();
-        if (n != n->get_root()) {
+        enode* n1 = get_enode(v);
+        expr* o1 = n1->get_owner();
+        if (n1 != n1->get_root()) {
             continue;
         }
-        if (!seqs.empty() && ctx.is_relevant(n) && m_util.is_seq(o1) && ctx.is_shared(n)) {
+        if (!seqs.empty() && ctx.is_relevant(n1) && m_util.is_seq(o1) && ctx.is_shared(n1)) {
             dependency* dep = 0;
             expr_ref e1 = canonize(o1, dep);
             for (unsigned i = 0; i < seqs.size(); ++i) {
                 enode* n2 = get_enode(seqs[i]);
                 expr* o2 = n2->get_owner();
-                if (m_exclude.contains(o1, o2)) {
+                if (m.get_sort(o1) != m.get_sort(o2)) {
+                    continue;
+                }
+                if (ctx.is_diseq(n1, n2) || m_exclude.contains(o1, o2)) {
                     continue;
                 }
                 expr_ref e2 = canonize(n2->get_owner(), dep);
                 m_lhs.reset(); m_rhs.reset();
                 bool change = false;
-                if (!m_seq_rewrite.reduce_eq(o1, o2, m_lhs, m_rhs, change)) {
+                if (!m_seq_rewrite.reduce_eq(e1, e2, m_lhs, m_rhs, change)) {
                     m_exclude.update(o1, o2);
                     continue;
                 }
-                TRACE("seq", tout << mk_pp(o1, m) << " = " << mk_pp(o2, m) << "\n";);
-                ctx.assume_eq(n, n2);                
+                bool excluded = false;
+                for (unsigned j = 0; !excluded && j < m_lhs.size(); ++j) {
+                    if (m_exclude.contains(m_lhs[j].get(), m_rhs[j].get())) {
+                        excluded = true;
+                    }
+                }
+                if (excluded) {
+                    continue;
+                }
+                TRACE("seq", tout << m_lhs << " = " << m_rhs << "\n";);
+                ctx.assume_eq(n1, n2);                
                 return false;
             }
         }
@@ -670,7 +716,7 @@ void theory_seq::set_conflict(dependency* dep, literal_vector const& _lits) {
     enode_pair_vector eqs;
     literal_vector lits(_lits);
     linearize(dep, eqs, lits);
-    TRACE("seq", ctx.display_literals_verbose(tout, lits.size(), lits.c_ptr()); if (!lits.empty()) tout << "\n"; display_deps(tout, dep); ;);
+    TRACE("seq", display_deps(tout, lits, eqs););
     m_new_propagation = true;
     ctx.set_conflict(
         ctx.mk_justification(
@@ -720,6 +766,7 @@ bool theory_seq::simplify_eq(expr_ref_vector& ls, expr_ref_vector& rs, dependenc
     context& ctx = get_context();
     expr_ref_vector lhs(m), rhs(m);
     bool changed = false;
+    TRACE("seq", tout << ls << " = " << rs << "\n";);
     if (!m_seq_rewrite.reduce_eq(ls, rs, lhs, rhs, changed)) {
         // equality is inconsistent.
         TRACE("seq", tout << ls << " != " << rs << "\n";);
@@ -739,9 +786,10 @@ bool theory_seq::simplify_eq(expr_ref_vector& ls, expr_ref_vector& rs, dependenc
         expr_ref li(lhs[i].get(), m);
         expr_ref ri(rhs[i].get(), m);
         if (solve_unit_eq(li, ri, deps)) {
-            // skip
+            // no-op
         }
         else if (m_util.is_seq(li) || m_util.is_re(li)) {
+            reduce_length(li, ri);
             m_eqs.push_back(mk_eqdep(li, ri, deps));
         }
         else {
@@ -767,6 +815,23 @@ bool theory_seq::solve_unit_eq(expr_ref_vector const& l, expr_ref_vector const& 
     }
 
     return false;
+}
+
+bool theory_seq::reduce_length(expr* l, expr* r) {
+    expr* l2, *r2;
+    expr_ref len1(m), len2(m);
+    literal_vector lits;
+    m_util.str.is_concat(l, l, l2);
+    m_util.str.is_concat(r, r, r2);
+    if (get_length(l, len1, lits) &&
+        get_length(r, len2, lits) && len1 == len2) {
+        TRACE("seq", tout << "Propagate equal lengths\n";);
+        //propagate_eq(lits, l, r, true);
+        return true;
+    }
+    else {
+        return false;
+    }
 }
 
 bool theory_seq::solve_unit_eq(expr* l, expr* r, dependency* deps) {
@@ -996,6 +1061,58 @@ bool theory_seq::solve_binary_eq(expr_ref_vector const& ls, expr_ref_vector cons
     return false;
 }
 
+bool theory_seq::get_length(expr* e, expr_ref& len, literal_vector& lits) {
+    context& ctx = get_context();
+    expr* s, *i, *l;
+    if (m_util.str.is_extract(e, s, i, l)) {
+        // 0 <= i <= len(s), 0 <= l, i + l <= len(s)
+        expr_ref zero(m_autil.mk_int(0), m);        
+        expr_ref ls(m_util.str.mk_length(s), m);
+        expr_ref ls_minus_i_l(mk_sub(mk_sub(ls, i),l), m);
+        literal i_ge_0 = mk_literal(m_autil.mk_ge(i, zero));
+        literal i_lt_len_s = ~mk_literal(m_autil.mk_ge(mk_sub(i, ls), zero));
+        literal li_ge_ls  = mk_literal(m_autil.mk_ge(ls_minus_i_l, zero));
+        literal l_ge_zero = mk_literal(m_autil.mk_ge(l, zero));
+        if (ctx.get_assignment(i_ge_0) == l_true &&
+            ctx.get_assignment(i_lt_len_s) == l_true && 
+            ctx.get_assignment(li_ge_ls) == l_true &&
+            ctx.get_assignment(l_ge_zero) == l_true) {
+            len = l;
+            lits.push_back(i_ge_0); lits.push_back(i_lt_len_s); lits.push_back(li_ge_ls); lits.push_back(l_ge_zero);
+            return true;
+        }
+    }
+    else if (m_util.str.is_at(e, s, i)) {
+        // has length 1 if 0 <= i < len(s)
+        expr_ref zero(m_autil.mk_int(0), m);
+        literal i_ge_0 = mk_literal(m_autil.mk_ge(i, zero));
+        literal i_lt_len_s = ~mk_literal(m_autil.mk_ge(mk_sub(i, m_util.str.mk_length(s)), zero));
+        if (ctx.get_assignment(i_ge_0) == l_true &&
+            ctx.get_assignment(i_lt_len_s) == l_true) {
+            len = m_autil.mk_int(1);
+            lits.push_back(i_ge_0); lits.push_back(i_lt_len_s);
+            return true;
+        }
+    }
+    else if (is_pre(e, s, i)) {
+        expr_ref zero(m_autil.mk_int(0), m);
+        literal i_ge_0 = mk_literal(m_autil.mk_ge(i, zero));
+        literal i_lt_len_s = ~mk_literal(m_autil.mk_ge(mk_sub(i, m_util.str.mk_length(s)), zero));
+        if (ctx.get_assignment(i_ge_0) == l_true &&
+            ctx.get_assignment(i_lt_len_s) == l_true) {
+            len = i;
+            lits.push_back(i_ge_0); lits.push_back(i_lt_len_s);
+            return true;
+        }
+    }
+    else if (m_util.str.is_unit(e)) {
+        len = m_autil.mk_int(1);
+        return true;
+    }
+    return false;    
+}
+
+
 bool theory_seq::solve_nqs(unsigned i) {
     context & ctx = get_context();
     for (; !ctx.inconsistent() && i < m_nqs.size(); ++i) {
@@ -1046,7 +1163,7 @@ bool theory_seq::solve_ne(unsigned idx) {
         change = canonize(n.rs(i), rs, deps) || change;
 
         if (!m_seq_rewrite.reduce_eq(ls, rs, lhs, rhs, change)) {
-            TRACE("seq", display_disequation(tout << "reduces to false", n););
+            TRACE("seq", display_disequation(tout << "reduces to false: ", n););
             return true;
         }
         else if (!change) {
@@ -1144,16 +1261,181 @@ bool theory_seq::solve_ne(unsigned idx) {
     if (updated) {
         if (num_undef_lits == 0 && new_ls.empty()) {
             TRACE("seq", tout << "conflict\n";);
+
+            dependency* deps1 = 0;
+            if (explain_eq(n.l(), n.r(), deps1)) {
+                new_lits.reset();
+                new_lits.push_back(~mk_eq(n.l(), n.r(), false));
+                new_deps = deps1;
+                TRACE("seq", tout << "conflict explained\n";);
+            }
             set_conflict(new_deps, new_lits);
             SASSERT(m_new_propagation);
         }
         else {
-            m_nqs.push_back(ne(new_ls, new_rs, new_lits, new_deps));
+            m_nqs.push_back(ne(n.l(), n.r(), new_ls, new_rs, new_lits, new_deps));
         }
     }
     return updated;
 }
 
+theory_seq::cell* theory_seq::mk_cell(cell* p, expr* e, dependency* d) {
+    cell* c = alloc(cell, p, e, d);
+    m_all_cells.push_back(c);
+    return c;
+}
+
+void theory_seq::unfold(cell* c, ptr_vector<cell>& cons) {
+    dependency* dep = 0;
+    expr* a, *e1, *e2;
+    if (m_rep.find1(c->m_expr, a, dep)) {
+        cell* c1 = mk_cell(c, a, m_dm.mk_join(dep, c->m_dep));
+        unfold(c1, cons);
+    }
+    else if (m_util.str.is_concat(c->m_expr, e1, e2)) {
+        cell* c1 = mk_cell(c, e1, c->m_dep);
+        cell* c2 = mk_cell(0, e2, 0);
+        unfold(c1, cons);
+        unfold(c2, cons);
+    }
+    else {
+        cons.push_back(c);
+    }
+    c->m_last = cons.size()-1;
+} 
+// 
+// a -> a1.a2, a2 -> a3.a4 -> ...
+// b -> b1.b2, b2 -> b3.a4 
+// 
+// e1 
+//
+
+void theory_seq::display_explain(std::ostream& out, unsigned indent, expr* e) {
+    expr* e1, *e2, *a;
+    dependency* dep = 0;
+    smt2_pp_environment_dbg env(m);
+    params_ref p;
+    for (unsigned i = 0; i < indent; ++i) out << " ";
+    ast_smt2_pp(out, e, env, p, indent);
+    out << "\n";
+
+    if (m_rep.find1(e, a, dep)) {
+        display_explain(out, indent + 1, a);
+    }
+    else if (m_util.str.is_concat(e, e1, e2)) {
+        display_explain(out, indent + 1, e1);
+        display_explain(out, indent + 1, e2);        
+    }
+}
+
+bool theory_seq::explain_eq(expr* e1, expr* e2, dependency*& dep) {
+
+    if (e1 == e2) {
+        return true;
+    }
+    expr* a1, *a2;
+    ptr_vector<cell> v1, v2;
+    unsigned cells_sz = m_all_cells.size();
+    cell* c1 = mk_cell(0, e1, 0);
+    cell* c2 = mk_cell(0, e2, 0);
+    unfold(c1, v1);
+    unfold(c2, v2);
+    unsigned i = 0, j = 0;
+    
+    TRACE("seq", 
+          tout << "1:\n";
+          display_explain(tout, 0, e1);
+          tout << "2:\n";
+          display_explain(tout, 0, e2););
+
+    bool result = true;
+    while (i < v1.size() || j < v2.size()) {
+        if (i == v1.size()) {
+            while (j < v2.size() && m_util.str.is_empty(v2[j]->m_expr)) {
+                dep = m_dm.mk_join(dep, v2[j]->m_dep);
+                ++j;
+            }
+            result = j == v2.size();
+            break;
+        }
+        if (j == v2.size()) {
+            while (i < v1.size() && m_util.str.is_empty(v1[i]->m_expr)) {
+                dep = m_dm.mk_join(dep, v1[i]->m_dep);
+                ++i;
+            }
+            result = i == v1.size();
+            break;
+        }
+        cell* c1 = v1[i];
+        cell* c2 = v2[j];
+        e1 = c1->m_expr;
+        e2 = c2->m_expr;
+        if (e1 == e2) {
+            if (c1->m_parent && c2->m_parent && 
+                c1->m_parent->m_expr == c2->m_parent->m_expr) {
+                TRACE("seq", tout << "parent: " << mk_pp(e1, m) << " " << mk_pp(c1->m_parent->m_expr, m) << "\n";);
+                c1 = c1->m_parent;
+                c2 = c2->m_parent;
+                v1[c1->m_last] = c1;
+                i = c1->m_last;
+                v2[c2->m_last] = c2;
+                j = c2->m_last;
+            }
+            else {
+                dep = m_dm.mk_join(dep, c1->m_dep);
+                dep = m_dm.mk_join(dep, c2->m_dep);
+                ++i;
+                ++j;
+            }
+        }
+        else if (m_util.str.is_empty(e1)) {
+            dep = m_dm.mk_join(dep, c1->m_dep);
+            ++i;
+        }
+        else if (m_util.str.is_empty(e2)) {
+            dep = m_dm.mk_join(dep, c2->m_dep);
+            ++j;
+        }
+        else if (m_util.str.is_unit(e1, a1) &&
+                 m_util.str.is_unit(e2, a2)) {
+            if (explain_eq(a1, a2, dep)) {
+                ++i;
+                ++j;
+            }
+            else {
+                result = false;
+                break;
+            }
+        }
+        else {
+            TRACE("seq", tout << "Could not solve " << mk_pp(e1, m) << " = " << mk_pp(e2, m) << "\n";);
+            result = false;
+            break;
+        }
+    }   
+    m_all_cells.resize(cells_sz);
+    return result;
+    
+}
+
+bool theory_seq::explain_empty(expr_ref_vector& es, dependency*& dep) {
+    while (!es.empty()) {
+        expr* e = es.back();
+        if (m_util.str.is_empty(e)) {
+            es.pop_back();
+            continue;
+        }
+        expr* a;
+        if (m_rep.find1(e, a, dep)) {
+            es.pop_back();
+            m_util.str.get_concat(a, es);
+            continue;
+        }
+        TRACE("seq", tout << "Could not set to empty: " << es << "\n";);
+        return false;
+    }
+    return true;
+}
 
 bool theory_seq::simplify_and_solve_eqs() {
     context & ctx = get_context();
@@ -1294,18 +1576,44 @@ void theory_seq::display_disequation(std::ostream& out, ne const& e) const {
     }
 }
 
+void theory_seq::display_deps(std::ostream& out, literal_vector const& lits, enode_pair_vector const& eqs) const {
+    context& ctx = get_context();
+    smt2_pp_environment_dbg env(m);
+    params_ref p;
+    for (unsigned i = 0; i < eqs.size(); ++i) {
+        out << "  (= ";
+        ast_smt2_pp(out, eqs[i].first->get_owner(), env, p, 5);
+        out << "\n     ";
+        ast_smt2_pp(out, eqs[i].second->get_owner(), env, p, 5);
+        out << ")\n";
+    }
+    for (unsigned i = 0; i < lits.size(); ++i) {
+        literal l = lits[i];        
+        if (l == true_literal) {
+            out << "   true";
+        }
+        else if (l == false_literal) {
+            out << "   false";
+        }
+        else {
+            expr* e = ctx.bool_var2expr(l.var());
+            if (l.sign()) {
+                ast_smt2_pp(out << "  (not ", e, env, p, 7);
+                out << ")";
+            }
+            else {
+                ast_smt2_pp(out << "  ", e, env, p, 2);
+            }
+        }
+        out << "\n";
+    }
+}
+
 void theory_seq::display_deps(std::ostream& out, dependency* dep) const {
     literal_vector lits;
     enode_pair_vector eqs;
     linearize(dep, eqs, lits);
-    for (unsigned i = 0; i < eqs.size(); ++i) {
-        out << "   " << mk_pp(eqs[i].first->get_owner(), m) << " = " << mk_pp(eqs[i].second->get_owner(), m) << "\n";
-    }
-    for (unsigned i = 0; i < lits.size(); ++i) {
-        literal lit = lits[i];
-        get_context().display_literals_verbose(out << "   ", 1, &lit);
-        out << "\n";
-    }
+    display_deps(out, lits, eqs);
 }
 
 void theory_seq::collect_statistics(::statistics & st) const {
@@ -1533,6 +1841,9 @@ expr_ref theory_seq::expand(expr* e0, dependency*& eqs) {
     }
     else if (m_util.str.is_contains(e, e1, e2)) {
         result = m_util.str.mk_contains(expand(e1, deps), expand(e2, deps));
+    }
+    else if (m_util.str.is_unit(e, e1)) {
+        result = m_util.str.mk_unit(expand(e1, deps));
     }
     else {
         result = e;
@@ -1954,12 +2265,30 @@ bool theory_seq::get_length(expr* e, rational& val) {
 void theory_seq::add_extract_axiom(expr* e) {
     expr* s, *i, *l;
     VERIFY(m_util.str.is_extract(e, s, i, l));
-    expr_ref x(mk_skolem(m_extract_prefix, s, e), m);
+    if (is_tail(s, i, l)) {
+        add_tail_axiom(e, s);
+        return;
+    }
+    if (is_drop_last(s, i, l)) {
+        add_drop_last_axiom(e, s);
+        return;
+    }
+    if (is_extract_prefix0(s, i, l)) {
+        add_extract_prefix_axiom(e, s, l);
+        return;
+    }
+    if (is_extract_suffix(s, i, l)) {
+        add_extract_suffix_axiom(e, s, i);
+        return;
+    }
+    expr_ref x(mk_skolem(m_pre, s, i), m);
     expr_ref ls(m_util.str.mk_length(s), m);
     expr_ref lx(m_util.str.mk_length(x), m);
     expr_ref le(m_util.str.mk_length(e), m);
-    expr_ref ls_minus_i_l(mk_sub(mk_sub(ls, i),l), m);
+    expr_ref ls_minus_i_l(mk_sub(mk_sub(ls, i), l), m);
+    expr_ref y(mk_skolem(m_post, s, ls_minus_i_l), m);
     expr_ref xe = mk_concat(x, e);
+    expr_ref xey = mk_concat(x, e, y);
     expr_ref zero(m_autil.mk_int(0), m);
 
     literal i_ge_0    = mk_literal(m_autil.mk_ge(i, zero));
@@ -1967,12 +2296,90 @@ void theory_seq::add_extract_axiom(expr* e) {
     literal li_ge_ls  = mk_literal(m_autil.mk_ge(ls_minus_i_l, zero));
     literal l_ge_zero = mk_literal(m_autil.mk_ge(l, zero));
 
-    add_axiom(~i_ge_0, ~i_le_ls, mk_literal(m_util.str.mk_prefix(xe, s)));
+//    add_axiom(~i_ge_0, ~i_le_ls, mk_literal(m_util.str.mk_prefix(xe, s)));
+    add_axiom(~i_ge_0, ~i_le_ls, mk_seq_eq(xey, s));
     add_axiom(~i_ge_0, ~i_le_ls, mk_eq(lx, i, false));
     add_axiom(~i_ge_0, ~i_le_ls, ~l_ge_zero, ~li_ge_ls, mk_eq(le, l, false));
     add_axiom(~i_ge_0, ~i_le_ls, li_ge_ls, mk_eq(le, mk_sub(ls, i), false));
     add_axiom(~i_ge_0, ~i_le_ls, l_ge_zero, mk_eq(le, zero, false));
 }
+
+void theory_seq::add_tail_axiom(expr* e, expr* s) {
+    expr_ref head(m), tail(m);
+    mk_decompose(s, head, tail);
+    add_axiom(mk_eq_empty(s), mk_seq_eq(s, mk_concat(head, e)));
+}
+
+void theory_seq::add_drop_last_axiom(expr* e, expr* s) {
+    add_axiom(mk_eq_empty(s), mk_seq_eq(s, mk_concat(e, m_util.str.mk_unit(mk_last(s)))));
+}
+
+bool theory_seq::is_drop_last(expr* s, expr* i, expr* l) {
+    rational i1;
+    if (!m_autil.is_numeral(i, i1) || !i1.is_zero()) {
+        return false;
+    }
+    expr_ref l2(m), l1(l, m);
+    l2 = m_autil.mk_sub(m_util.str.mk_length(s), m_autil.mk_int(1));
+    m_rewrite(l1);
+    m_rewrite(l2);
+    return l1 == l2;
+}
+
+bool theory_seq::is_tail(expr* s, expr* i, expr* l) {
+    rational i1;
+    if (!m_autil.is_numeral(i, i1) || !i1.is_one()) {
+        return false;
+    }
+    expr_ref l2(m), l1(l, m);
+    l2 = m_autil.mk_sub(m_util.str.mk_length(s), m_autil.mk_int(1));
+    m_rewrite(l1);
+    m_rewrite(l2);
+    return l1 == l2;
+}
+
+bool theory_seq::is_extract_prefix0(expr* s, expr* i, expr* l) {
+    rational i1;
+    return m_autil.is_numeral(i, i1) && i1.is_zero();    
+}
+
+bool theory_seq::is_extract_suffix(expr* s, expr* i, expr* l) {
+    expr_ref len(m_autil.mk_add(l, i), m);
+    m_rewrite(len);
+    return m_util.str.is_length(len, l) && l == s;
+}
+
+/*
+  0 <= l <= len(s) => s = ey & l = len(e)
+ */
+void theory_seq::add_extract_prefix_axiom(expr* e, expr* s, expr* l) {
+    expr_ref le(m_util.str.mk_length(e), m);
+    expr_ref ls(m_util.str.mk_length(s), m);
+    expr_ref ls_minus_l(mk_sub(ls, l), m);
+    expr_ref y(mk_skolem(m_post, s, ls_minus_l), m);
+    expr_ref zero(m_autil.mk_int(0), m);
+    expr_ref ey = mk_concat(e, y);
+    literal l_ge_0 = mk_literal(m_autil.mk_ge(l, zero));
+    literal l_le_s = mk_literal(m_autil.mk_le(mk_sub(l, ls), zero));
+    add_axiom(~l_ge_0, ~l_le_s, mk_seq_eq(s, ey));
+    add_axiom(~l_ge_0, ~l_le_s, mk_eq(l, le, false));
+}
+
+/*
+  0 <= i <= len(s) => s = xe & i = len(x)    
+ */
+void theory_seq::add_extract_suffix_axiom(expr* e, expr* s, expr* i) {
+    expr_ref x(mk_skolem(m_pre, s, i), m);
+    expr_ref lx(m_util.str.mk_length(x), m);
+    expr_ref ls(m_util.str.mk_length(s), m);
+    expr_ref zero(m_autil.mk_int(0), m);
+    expr_ref xe = mk_concat(x, e);
+    literal i_ge_0 = mk_literal(m_autil.mk_ge(i, zero));
+    literal i_le_s = mk_literal(m_autil.mk_le(mk_sub(i, ls), zero));
+    add_axiom(~i_ge_0, ~i_le_s, mk_seq_eq(s, xe));
+    add_axiom(~i_ge_0, ~i_le_s, mk_eq(i, lx, false));
+}
+
 
 /*
    let e = at(s, i)
@@ -1983,14 +2390,14 @@ void theory_seq::add_extract_axiom(expr* e) {
 void theory_seq::add_at_axiom(expr* e) {
     expr* s, *i;
     VERIFY(m_util.str.is_at(e, s, i));
-    expr_ref x(m), y(m), lx(m), le(m), xey(m), zero(m), one(m), len_e(m), len_x(m);
-    x     = mk_skolem(m_at_left, s, i);
-    y     = mk_skolem(m_at_right, s, i);
-    xey   = mk_concat(x, e, y);
-    zero  = m_autil.mk_int(0);
-    one   = m_autil.mk_int(1);
-    len_e = m_util.str.mk_length(e);
-    len_x = m_util.str.mk_length(x);
+    expr_ref len_e(m_util.str.mk_length(e), m);
+    expr_ref len_s(m_util.str.mk_length(s), m);
+    expr_ref zero(m_autil.mk_int(0), m);
+    expr_ref one(m_autil.mk_int(1), m);
+    expr_ref x = mk_skolem(m_pre, s, i);
+    expr_ref y = mk_skolem(m_post, s, mk_sub(mk_sub(len_s, i), one));
+    expr_ref xey   = mk_concat(x, e, y);
+    expr_ref len_x(m_util.str.mk_length(x), m);
 
     literal i_ge_0 = mk_literal(m_autil.mk_ge(i, zero));
     literal i_ge_len_s = mk_literal(m_autil.mk_ge(mk_sub(i, m_util.str.mk_length(s)), zero));
@@ -2057,7 +2464,7 @@ literal theory_seq::mk_literal(expr* _e) {
 
 literal theory_seq::mk_seq_eq(expr* a, expr* b) {
     SASSERT(m_util.is_seq(a));
-    return mk_literal(mk_skolem(symbol("seq.eq"), a, b, 0, m.mk_bool_sort()));
+    return mk_literal(mk_skolem(m_eq, a, b, 0, m.mk_bool_sort()));
 }
 
 literal theory_seq::mk_eq_empty(expr* _e) {
@@ -2116,8 +2523,13 @@ bool theory_seq::is_skolem(symbol const& s, expr* e) const {
     return m_util.is_skolem(e) && to_app(e)->get_decl()->get_parameter(0).get_symbol() == s;
 }
 
-
 void theory_seq::propagate_eq(literal lit, expr* e1, expr* e2, bool add_to_eqs) {
+    literal_vector lits;
+    lits.push_back(lit);
+    propagate_eq(lits, e1, e2, add_to_eqs);
+}
+
+void theory_seq::propagate_eq(literal_vector const& lits, expr* e1, expr* e2, bool add_to_eqs) {
     context& ctx = get_context();
 
     enode* n1 = ensure_enode(e1);
@@ -2128,18 +2540,21 @@ void theory_seq::propagate_eq(literal lit, expr* e1, expr* e2, bool add_to_eqs) 
     ctx.mark_as_relevant(n1);
     ctx.mark_as_relevant(n2);
     if (add_to_eqs) {
-        SASSERT(l_true == ctx.get_assignment(lit));
-        dependency* deps = m_dm.mk_leaf(assumption(lit));
+        dependency* deps = 0;
+        for (unsigned i = 0; i < lits.size(); ++i) {
+            literal lit = lits[i];
+            SASSERT(l_true == ctx.get_assignment(lit));
+            deps = m_dm.mk_join(deps, m_dm.mk_leaf(assumption(lit)));
+        }
         new_eq_eh(deps, n1, n2);
-
     }
     TRACE("seq",
-          ctx.display_literals_verbose(tout, 1, &lit);
+          ctx.display_literals_verbose(tout, lits.size(), lits.c_ptr());
           tout << " => " << mk_pp(e1, m) << " = " << mk_pp(e2, m) << "\n";);
     justification* js =
         ctx.mk_justification(
             ext_theory_eq_propagation_justification(
-                get_id(), ctx.get_region(), 1, &lit, 0, 0, n1, n2));
+                get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), 0, 0, n1, n2));
 
     m_new_propagation = true;
     ctx.assign_eq(n1, n2, eq_justification(js));

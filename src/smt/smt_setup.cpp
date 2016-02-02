@@ -847,6 +847,9 @@ namespace smt {
                 setup_AUFLIA(false);
             setup_datatypes();
             setup_bv();
+            setup_dl();
+            setup_seq();
+            setup_card();
             setup_fpa();
             return;
         }
