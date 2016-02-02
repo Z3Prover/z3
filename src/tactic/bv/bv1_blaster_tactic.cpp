@@ -481,8 +481,6 @@ tactic * mk_bv1_blaster_tactic(ast_manager & m, params_ref const & p) {
 class is_qfbv_eq_probe : public probe {
 public:
     virtual result operator()(goal const & g) {
-        bv_rewriter rw(g.m());
-        if (!rw.hi_div0()) return false;
         bv1_blaster_tactic t(g.m());
         return t.is_target(g);
 
