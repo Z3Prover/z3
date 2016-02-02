@@ -1,6 +1,0 @@
-def_module_params(class_name='qfbv_tactic_params',
-                  module_name="smtlogic_tactic",
-                  export=True,
-                  params=(('div0ackermann', BOOL,  False, "if true, then  try to Ackermannize div etc functions."),
-                          ("div0_ackermann_limit", UINT, 1000, "a bound for number of congregants Ackerman lemmas")
-                  ))

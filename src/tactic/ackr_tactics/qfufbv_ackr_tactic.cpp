@@ -55,6 +55,10 @@ public:
         expr_dependency_ref & core) {
         mc = 0;
         ast_manager& m(g->m());
+        tactic_report report("qfufbv_ackr", *g);
+        fail_if_unsat_core_generation("qfufbv_ackr", g);
+        fail_if_proof_generation("qfufbv_ackr", g);
+
         TRACE("qfufbv_ackr_tactic", g->display(tout << "goal:\n"););
         // running implementation
         expr_ref_vector flas(m);

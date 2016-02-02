@@ -3,5 +3,7 @@ def_module_params('ackr_tactics',
                   export=True,
                   params=(
                           ('sat_backend', BOOL, False, 'use SAT rather than SMT in qfufbv_ackr_tactic'),
+                          ('div0ackermann', BOOL,  False, "if true, then  try to Ackermannize div etc functions."),
+                          ("div0_ackermann_limit", UINT, 1000, "a bound for number of congruence Ackermann lemmas")
                           ))
 

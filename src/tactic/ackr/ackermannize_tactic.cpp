@@ -18,6 +18,8 @@ Revision History:
 #include"ackr_params.hpp"
 #include"ackr_model_converter.h"
 #include"model_smt2_pp.h"
+#include"ackr_bound_probe.h"
+#include"ackr_tactics_params.hpp"
 
 class ackermannize_tactic : public tactic {
 public:
@@ -35,10 +37,10 @@ public:
         expr_dependency_ref & core) {
         mc = 0;
         ast_manager& m(g->m());
-		tactic_report report("ackermannize", *g);
-		fail_if_unsat_core_generation("ackermannize", g);
-		fail_if_proof_generation("ackermannize", g);
-				
+        tactic_report report("ackermannize", *g);
+        fail_if_unsat_core_generation("ackermannize", g);
+        fail_if_proof_generation("ackermannize", g);
+
         expr_ref_vector flas(m);
         const unsigned sz = g->size();
         for (unsigned i = 0; i < sz; i++) flas.push_back(g->form(i));
@@ -77,4 +79,16 @@ private:
 
 tactic * mk_ackermannize_tactic(ast_manager & m, params_ref const & p) {
     return alloc(ackermannize_tactic, m, p);
+}
+
+tactic * mk_ackermannize_bounded_tactic(ast_manager & m, params_ref const & p) {
+    ackr_tactics_params my_params(p);
+    const double should_ackermannize = static_cast<double>(my_params.div0ackermann());
+    const double ackermannize_limit = static_cast<double>(my_params.div0_ackermann_limit());
+    probe * const should_ackermann_p = mk_and(
+        mk_const_probe(should_ackermannize),
+        mk_lt(mk_ackr_bound_probe(), mk_const_probe(ackermannize_limit))
+        );
+    tactic * const actual_tactic = mk_ackermannize_tactic(m, p);
+    return when(should_ackermann_p, actual_tactic);
 }
