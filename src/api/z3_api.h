@@ -4419,6 +4419,9 @@ extern "C" {
         \brief Interface to simplifier.
 
         Provides an interface to the AST simplifier used by Z3.
+        It returns an AST object which is equal to the argument.
+        The returned AST is simplified using algebraic simplificaiton rules, 
+        such as constant propagation (propagating true/false over logical connectives).         
 
         def_API('Z3_simplify', AST, (_in(CONTEXT), _in(AST)))
     */
@@ -5963,6 +5966,13 @@ extern "C" {
        def_API('Z3_stats_get_double_value', DOUBLE, (_in(CONTEXT), _in(STATS), _in(UINT)))
     */
     double Z3_API Z3_stats_get_double_value(Z3_context c, Z3_stats s, unsigned idx);
+
+    /**
+    \brief Return the estimated allocated memory in bytes.
+
+    def_API('Z3_get_estimated_alloc_size', UINT64, ())
+    */
+    __uint64 Z3_API Z3_get_estimated_alloc_size(void);
 
     /*@}*/
 

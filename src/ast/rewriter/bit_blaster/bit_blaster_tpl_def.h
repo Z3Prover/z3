@@ -743,7 +743,14 @@ void bit_blaster_tpl<Cfg>::mk_srem(unsigned sz, expr * const * a_bits, expr * co
         mk_abs(sz, a_bits, abs_a_bits);
         mk_abs(sz, b_bits, abs_b_bits);
         expr_ref_vector urem_bits(m());
-        mk_urem(sz, abs_a_bits.c_ptr(), abs_b_bits.c_ptr(), urem_bits);
+        numeral n_b;
+        unsigned shift;
+        // a urem 2^n -> a & ((2^n)-1)
+        if (is_numeral(sz, abs_b_bits.c_ptr(), n_b) && n_b.is_power_of_two(shift)) {
+            mk_zero_extend(shift, abs_a_bits.c_ptr(), sz - shift, urem_bits);
+        } else {
+            mk_urem(sz, abs_a_bits.c_ptr(), abs_b_bits.c_ptr(), urem_bits);
+        }
         expr_ref_vector neg_urem_bits(m());
         mk_neg(sz, urem_bits.c_ptr(), neg_urem_bits);
         mk_multiplexer(a_msb, sz, neg_urem_bits.c_ptr(), urem_bits.c_ptr(), out_bits);
