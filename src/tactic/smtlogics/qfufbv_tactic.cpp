@@ -32,6 +32,7 @@ Notes:
 #include"model_smt2_pp.h"
 #include"cooperate.h"
 #include"lackr.h"
+#include"ackermannization_params.hpp"
 #include"qfufbv_ackr_model_converter.h"
 ///////////////
 #include"inc_sat_solver.h"
@@ -87,7 +88,7 @@ public:
     }
 
     virtual void collect_statistics(statistics & st) const {
-        ackr_params p(m_p);
+        ackermannization_params p(m_p);
         if (!p.eager()) st.update("lackr-its", m_st.m_it);
         st.update("ackr-constraints", m_st.m_ackrs_sz);
     }
@@ -172,9 +173,7 @@ tactic * mk_qfufbv_tactic(ast_manager & m, params_ref const & p) {
     tactic * const preamble_st = mk_qfufbv_preamble(m, p);
 
     tactic * st = using_params(and_then(preamble_st,
-        cond(mk_is_qfbv_probe(),
-            mk_qfbv_tactic(m),
-            mk_smt_tactic())),
+        cond(mk_is_qfbv_probe(), mk_qfbv_tactic(m), mk_smt_tactic())),
         main_p);
 
     st->updt_params(p);
