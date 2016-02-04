@@ -173,7 +173,7 @@ void bit_blaster_tpl<Cfg>::mk_multiplier(unsigned sz, expr * const * a_bits, exp
         SASSERT(sz == out_bits.size());
         return;
     }
-    
+   
     if (mk_const_multiplier(sz, a_bits, b_bits, out_bits)) {
         SASSERT(sz == out_bits.size());
         return;

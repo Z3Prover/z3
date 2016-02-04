@@ -883,11 +883,11 @@ namespace opt {
             bool neg;
             if (is_maxsat(fml, terms, weights, offset, neg, id, index)) {
                 objective& obj = m_objectives[index];
+
                 if (obj.m_type != O_MAXSMT) {
                     // change from maximize/minimize.
                     obj.m_id = id;
                     obj.m_type = O_MAXSMT;
-                    obj.m_weights.append(weights);
                     SASSERT(!m_maxsmts.contains(id));
                     add_maxsmt(id);
                 }
@@ -895,10 +895,13 @@ namespace opt {
                 SASSERT(obj.m_id == id);
                 obj.m_terms.reset();
                 obj.m_terms.append(terms);
+                obj.m_weights.reset();
+                obj.m_weights.append(weights);
                 obj.m_adjust_value.set_offset(offset);
                 obj.m_adjust_value.set_negate(neg);
                 m_maxsmts.find(id)->set_adjust_value(obj.m_adjust_value);
-                TRACE("opt", tout << "maxsat: " << id << " offset:" << offset << "\n";);
+                TRACE("opt", tout << "maxsat: " << id << " offset:" << offset << "\n";
+                      tout << terms << "\n";);
             }
             else if (is_maximize(fml, tr, orig_term, index)) {
                 purify(tr);
