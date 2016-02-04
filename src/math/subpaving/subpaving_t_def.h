@@ -31,8 +31,8 @@ namespace subpaving {
 template<typename C>
 class breadth_first_node_selector : public context_t<C>::node_selector {
     typedef typename context_t<C>::node            node;
-public:    
-    breadth_first_node_selector(context_t<C> * ctx): 
+public:
+    breadth_first_node_selector(context_t<C> * ctx):
         context_t<C>::node_selector(ctx) {
     }
 
@@ -47,8 +47,8 @@ public:
 template<typename C>
 class depth_first_node_selector : public context_t<C>::node_selector {
     typedef typename context_t<C>::node            node;
-public:    
-    depth_first_node_selector(context_t<C> * ctx): 
+public:
+    depth_first_node_selector(context_t<C> * ctx):
         context_t<C>::node_selector(ctx) {
     }
 
@@ -73,12 +73,12 @@ class round_robing_var_selector : public context_t<C>::var_selector {
             x = 0;
     }
 
-public:    
+public:
     round_robing_var_selector(context_t<C> * ctx, bool only_non_def = true):
         context_t<C>::var_selector(ctx),
         m_only_non_def(only_non_def) {
     }
-    
+
     // Return the next variable to branch.
     virtual var operator()(typename context_t<C>::node * n) {
         typename context_t<C>::numeral_manager & nm = this->ctx()->nm();
@@ -86,7 +86,7 @@ public:
         var x = this->ctx()->splitting_var(n);
         if (x == null_var)
             x = 0;
-        else 
+        else
             next(x);
         var start = x;
         do {
@@ -112,13 +112,13 @@ public:
    - All variables x s.t. lower(x) == upper(x) are ignored.
 
    - If node contains an unbounded variable (-oo, oo), then return the smallest unbounded variable.
-   
+
    - Otherwise, select the smallest variable x with the largest width, where
      width is defined as:
          If x has lower and upper bound, then width = upper(x) - lower(x).
          If x has only lower,  width = penalty/max(|lower(x)|, 1)
-         If x has only upper,  width = penalty/max(|upper(x)|, 1)  
-     penaly is a parameter of this class.     
+         If x has only upper,  width = penalty/max(|upper(x)|, 1)
+     penaly is a parameter of this class.
 
      This strategy guarantees fairness.
 */
@@ -127,13 +127,13 @@ class largest_interval_var_selector : public context_t<C>::var_selector {
     unsigned m_penalty;
     bool     m_only_non_def;
 
-public:    
+public:
     largest_interval_var_selector(context_t<C> * ctx, unsigned unbounded_penalty = 10, bool only_non_def = true):
         context_t<C>::var_selector(ctx),
         m_penalty(unbounded_penalty),
         m_only_non_def(only_non_def) {
     }
-    
+
     // Return the next variable to branch.
     virtual var operator()(typename context_t<C>::node * n) {
         var y = null_var;
@@ -149,7 +149,7 @@ public:
             typename context_t<C>::bound * u = n->upper(x);
             // variables without lower and upper bounds are selected immediately.
             if (l == 0 && u == 0)
-                return x; 
+                return x;
             if (l != 0 && u != 0) {
                 // ignore variables s.t. lower(x) == upper(x)
                 if (nm.eq(l->value(), u->value()))
@@ -165,7 +165,7 @@ public:
                     nm.set(width, l->value());
                 else
                     nm.set(width, u->value());
-                C::round_to_plus_inf(nm);                    
+                C::round_to_plus_inf(nm);
                 if (nm.is_neg(width))
                     nm.neg(width);
                 if (nm.lt(width, one))
@@ -215,7 +215,7 @@ public:
             nm.set(delta, static_cast<int>(m_delta));
             nm.set(mid, upper->value());
             C::round_to_minus_inf(nm);
-            nm.sub(mid, delta, mid); 
+            nm.sub(mid, delta, mid);
             // mid == upper - delta
         }
         else if (upper == 0) {
@@ -224,7 +224,7 @@ public:
             nm.set(delta, static_cast<int>(m_delta));
             nm.set(mid, lower->value());
             C::round_to_plus_inf(nm);
-            nm.add(mid, delta, mid); 
+            nm.add(mid, delta, mid);
             // mid == lower + delta
         }
         else {
@@ -237,10 +237,10 @@ public:
                 throw subpaving::exception();
             // mid == (lower + upper)/2
         }
-        
+
         this->mk_decided_bound(x, mid, false, m_left_open, left);
         this->mk_decided_bound(x, mid, true, !m_left_open, right);
-        TRACE("subpaving_int_split", 
+        TRACE("subpaving_int_split",
               tout << "LEFT:\n"; this->ctx()->display_bounds(tout, left);
               tout << "\nRIGHT:\n"; this->ctx()->display_bounds(tout, right););
     }
@@ -342,7 +342,7 @@ void context_t<C>::node::push(bound * b) {
     }
 }
 
-/** 
+/**
     \brief Return the most recent variable that was used for splitting on node n.
 */
 template<typename C>
@@ -395,11 +395,11 @@ void context_t<C>::polynomial::display(std::ostream & out, numeral_manager & nm,
         out << nm.to_rational_string(m_c);
         first = false;
     }
-    
+
     for (unsigned i = 0; i < m_size; i++) {
         if (first)
             first = false;
-        else 
+        else
             out << " + ";
         if (!nm.is_one(a(i))) {
             out << nm.to_rational_string(a(i));
@@ -460,7 +460,7 @@ context_t<C>::~context_t() {
 template<typename C>
 void context_t<C>::checkpoint() {
     if (!m_limit.inc())
-        throw default_exception("canceled");
+        throw default_exception(Z3_CANCELED_MSG);
     if (memory::get_allocation_size() > m_max_memory)
         throw default_exception(Z3_MAX_MEMORY_MSG);
     cooperate("subpaving");
@@ -497,7 +497,7 @@ void context_t<C>::updt_params(params_ref const & p) {
     m_max_memory = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
 
     unsigned prec = p.get_uint("nth_root_precision", 8192);
-    if (prec == 0) 
+    if (prec == 0)
         prec = 1;
     nm().set(m_nth_root_prec, static_cast<int>(prec));
     nm().inv(m_nth_root_prec);
@@ -513,7 +513,7 @@ void context_t<C>::collect_param_descrs(param_descrs & d) {
 }
 
 template<typename C>
-void context_t<C>::display_params(std::ostream & out) const { 
+void context_t<C>::display_params(std::ostream & out) const {
     out << "max_nodes  " << m_max_nodes << "\n";
     out << "max_depth  " << m_max_depth << "\n";
     out << "epsilon    " << nm().to_rational_string(m_epsilon) << "\n";
@@ -626,7 +626,7 @@ void context_t<C>::display_definition(std::ostream & out, definition const * d, 
 
 template<typename C>
 void context_t<C>::display(std::ostream & out, constraint * c, bool use_star) const {
-    if (c->get_kind() == constraint::CLAUSE) 
+    if (c->get_kind() == constraint::CLAUSE)
         static_cast<clause*>(c)->display(out, nm(), *m_display_proc);
     else
         display_definition(out, static_cast<definition*>(c), use_star);
@@ -639,7 +639,7 @@ void context_t<C>::display_bounds(std::ostream & out, node * n) const {
         bound * l = n->lower(x);
         bound * u = n->upper(x);
         if (l != 0) {
-            display(out, l); 
+            display(out, l);
             out << " ";
         }
         if (u != 0) {
@@ -782,18 +782,18 @@ typename context_t<C>::ineq * context_t<C>::mk_ineq(var x, numeral const & k, bo
 }
 
 template<typename C>
-void context_t<C>::inc_ref(ineq * a) { 
+void context_t<C>::inc_ref(ineq * a) {
     TRACE("subpaving_ref_count", tout << "inc-ref: " << a << " " << a->m_ref_count << "\n";);
-    if (a) 
-        a->m_ref_count++; 
+    if (a)
+        a->m_ref_count++;
 }
 
 template<typename C>
 void context_t<C>::dec_ref(ineq * a) {
     if (a) {
-        TRACE("subpaving_ref_count", 
-              tout << "dec-ref: " << a << " " << a->m_ref_count << "\n"; 
-              a->display(tout, nm()); 
+        TRACE("subpaving_ref_count",
+              tout << "dec-ref: " << a << " " << a->m_ref_count << "\n";
+              a->display(tout, nm());
               tout << "\n";);
         SASSERT(a->m_ref_count > 0);
         a->m_ref_count--;
@@ -804,7 +804,7 @@ void context_t<C>::dec_ref(ineq * a) {
         }
     }
 }
-        
+
 template<typename C>
 void context_t<C>::add_clause_core(unsigned sz, ineq * const * atoms, bool lemma, bool watch) {
     SASSERT(lemma || watch);
@@ -846,7 +846,7 @@ void context_t<C>::del_clause(clause * c) {
     SASSERT(c->m_num_jst == 0); // We cannot delete a clause that is being used to justify some bound
     bool watch  = c->watched();
     var prev_x  = null_var;
-    unsigned sz = c->size(); 
+    unsigned sz = c->size();
     for (unsigned i = 0; i < sz; i++) {
         var x = c->m_atoms[i]->x();
         if (watch) {
@@ -883,10 +883,10 @@ typename context_t<C>::node * context_t<C>::mk_node(node * parent) {
     else
         r = new (mem) node(parent, m_node_id_gen.mk());
     m_var_selector->new_node_eh(r);
-    
+
     // Add node in the leaf dlist
     push_front(r);
-    
+
     m_num_nodes++;
     return r;
 }
@@ -903,9 +903,9 @@ void context_t<C>::del_node(node * n) {
     // recycle id
     m_node_id_gen.recycle(n->id());
 
-    // disconnect n from list of leaves. 
+    // disconnect n from list of leaves.
     remove_from_leaf_dlist(n);
-    
+
     // disconnect n from parent
     node * p = n->parent();
     bound * b = n->trail_stack();
@@ -1118,7 +1118,7 @@ void context_t<C>::del_definitions() {
         if (d == 0)
             continue;
         switch (d->get_kind()) {
-        case constraint::MONOMIAL: 
+        case constraint::MONOMIAL:
             del_monomial(static_cast<monomial*>(d));
             break;
         case constraint::POLYNOMIAL:
@@ -1130,7 +1130,7 @@ void context_t<C>::del_definitions() {
         }
     }
 }
-    
+
 template<typename C>
 void context_t<C>::display_constraints(std::ostream & out, bool use_star) const {
     // display definitions
@@ -1160,9 +1160,9 @@ void context_t<C>::display_constraints(std::ostream & out, bool use_star) const 
 // -----------------------------------
 
 template<typename C>
-void context_t<C>::set_conflict(var x, node * n) { 
+void context_t<C>::set_conflict(var x, node * n) {
     m_num_conflicts++;
-    n->set_conflict(x); 
+    n->set_conflict(x);
     remove_from_leaf_dlist(n);
 }
 
@@ -1222,12 +1222,12 @@ bool context_t<C>::relevant_new_bound(var x, numeral const & k, bool lower, bool
             if (m_zero_epsilon && curr_lower != 0 && (nm().lt(k, curr_lower->value()) || ((curr_lower->is_open() || !open) && nm().eq(k, curr_lower->value())))) {
                 // new lower bound does not improve existing bound
                 TRACE("subpaving_relevant_bound", tout << "irrelevant because does not improve existing bound.\n";);
-                return false; 
+                return false;
             }
             if (curr_upper == 0 && nm().lt(m_max_bound, k)) {
                 // new lower bound exceeds the :max-bound threshold
                 TRACE("subpaving_relevant_bound", tout << "irrelevant because exceeds :max-bound threshold.\n";);
-                return false; 
+                return false;
             }
             if (!m_zero_epsilon && curr_lower != 0) {
                 // check if:
@@ -1250,10 +1250,10 @@ bool context_t<C>::relevant_new_bound(var x, numeral const & k, bool lower, bool
                     nm().set(delta, min);
                 nm().mul(delta, m_epsilon, delta);
                 nm().add(curr_lower->value(), delta, delta);
-                TRACE("subpaving_relevant_bound_bug", 
-                      tout << "k: "; nm().display(tout, k); 
+                TRACE("subpaving_relevant_bound_bug",
+                      tout << "k: "; nm().display(tout, k);
                       tout << ", delta: "; nm().display(tout, delta); tout << "\n";
-                      tout << "curr_lower: "; nm().display(tout, curr_lower->value()); 
+                      tout << "curr_lower: "; nm().display(tout, curr_lower->value());
                       tout << ", min: "; nm().display(tout, min); tout << "\n";);
                 if (nm().le(k, delta)) {
                     TRACE("subpaving_relevant_bound", tout << "irrelevant because does not improve existing bound to at least ";
@@ -1272,7 +1272,7 @@ bool context_t<C>::relevant_new_bound(var x, numeral const & k, bool lower, bool
             if (m_zero_epsilon && curr_upper != 0 && (nm().lt(curr_upper->value(), k) || ((curr_upper->is_open() || !open) && nm().eq(k, curr_upper->value())))) {
                 // new upper bound does not improve existing bound
                 TRACE("subpaving_relevant_bound", tout << "irrelevant because does not improve existing bound.\n";);
-                return false; 
+                return false;
             }
             if (curr_lower == 0 && nm().lt(k, m_minus_max_bound)) {
                 // new upper bound exceeds the -:max-bound threshold
@@ -1343,7 +1343,7 @@ bool context_t<C>::conflicting_bounds(var x, node * n) const {
 
 /**
    \brief Return the truth value of the inequality t in node n.
-   
+
    The result may be l_true (True), l_false (False), or l_undef(Unknown).
 */
 template<typename C>
@@ -1399,7 +1399,7 @@ void context_t<C>::propagate_clause(clause * c, node * n) {
     ineq * a = (*c)[j];
     TRACE("propagate_clause", tout << "propagating inequality: "; display(tout, a); tout << "\n";);
     propagate_bound(a->x(), a->value(), a->is_lower(), a->is_open(), n, justification(c));
-    // A clause can propagate only once. 
+    // A clause can propagate only once.
     // So, we can safely set its timestamp again to avoid another useless visit.
     c->set_visited(m_timestamp);
 }
@@ -1411,7 +1411,7 @@ void context_t<C>::propagate_polynomial(var x, node * n, var y) {
     polynomial * p = get_polynomial(x);
     unsigned sz    = p->size();
     interval & r   = m_i_tmp1; r.set_mutable();
-    interval & v   = m_i_tmp2;    
+    interval & v   = m_i_tmp2;
     interval & av  = m_i_tmp3; av.set_mutable();
     if (x == y) {
         for (unsigned i = 0; i < sz; i++) {
@@ -1482,7 +1482,7 @@ void context_t<C>::propagate_polynomial(var x, node * n) {
         }
     }
     TRACE("propagate_polynomial", tout << "unbounded_var: "; display(tout, unbounded_var); tout << "\n";);
-    
+
     if (unbounded_var != null_var) {
         propagate_polynomial(x, n, unbounded_var);
     }
@@ -1528,10 +1528,10 @@ void context_t<C>::propagate_monomial(var x, node * n) {
             // x must be zero
             numeral & zero = m_tmp1;
             nm().set(zero, 0);
-            propagate_bound(x, zero, true,  false, n, justification(x));            
+            propagate_bound(x, zero, true,  false, n, justification(x));
             if (inconsistent(n))
                 return;
-            propagate_bound(x, zero, false, false, n, justification(x));            
+            propagate_bound(x, zero, false, false, n, justification(x));
         }
         // no need to downward propagation
         return;
@@ -1572,11 +1572,11 @@ void context_t<C>::propagate_monomial_upward(var x, node * n) {
     monomial * m = get_monomial(x);
     unsigned sz  = m->size();
     interval & r  = m_i_tmp1; r.set_mutable();
-    interval & y  = m_i_tmp2;    
+    interval & y  = m_i_tmp2;
     interval & yk = m_i_tmp3; yk.set_mutable();
     for (unsigned i = 0; i < sz; i++) {
         y.set_constant(n, m->x(i));
-        im().power(y, m->degree(i), yk); 
+        im().power(y, m->degree(i), yk);
         if (i == 0)
             im().set(r, yk);
         else
@@ -1606,37 +1606,37 @@ void context_t<C>::propagate_monomial_downward(var x, node * n, unsigned j) {
     monomial * m = get_monomial(x);
     SASSERT(j < m->size());
     unsigned sz = m->size();
-    
+
     interval & r = m_i_tmp3;
     if (sz > 1) {
         interval & d  = m_i_tmp1; d.set_mutable();
-        interval & y  = m_i_tmp2;    
+        interval & y  = m_i_tmp2;
         interval & yk = m_i_tmp3; yk.set_mutable();
         bool first = true;
         for (unsigned i = 0; i < sz; i++) {
             if (i == j)
                 continue;
             y.set_constant(n, m->x(i));
-            im().power(y, m->degree(i), yk); 
+            im().power(y, m->degree(i), yk);
             if (first)
                 im().set(d, yk);
             else
                 im().mul(d, yk, r);
         }
-        interval & aux  = m_i_tmp2;    
+        interval & aux  = m_i_tmp2;
         aux.set_constant(n, x);
         im().div(aux, d, r);
     }
     else {
         SASSERT(sz == 1);
         SASSERT(j == 0);
-        interval & aux  = m_i_tmp2;    
+        interval & aux  = m_i_tmp2;
         aux.set_constant(n, x);
         im().set(r, aux);
     }
     unsigned d = m->degree(j);
     if (d > 1) {
-        if (d % 2 == 0 && im().lower_is_neg(r)) 
+        if (d % 2 == 0 && im().lower_is_neg(r))
             return; // If d is even, we can't take the nth-root when lower(r) is negative.
         im().xn_eq_y(r, d, m_nth_root_prec, r);
     }
@@ -1814,7 +1814,7 @@ void context_t<C>::operator()() {
         if (m_num_nodes > m_max_nodes)
             break;
         node * n = (*m_node_selector)(m_leaf_head, m_leaf_tail);
-        if (n == 0) 
+        if (n == 0)
             break;
         TRACE("subpaving_main", tout << "selected node: #" << n->id() << ", depth: " << n->depth() << "\n";);
         remove_from_leaf_dlist(n);
