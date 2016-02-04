@@ -113,6 +113,7 @@ class seq_rewriter {
     bool is_sequence(expr* e, expr_ref_vector& seq);
     bool is_sequence(eautomaton& aut, expr_ref_vector& seq);
     bool is_epsilon(expr* e) const;
+    void split_units(expr_ref_vector& lhs, expr_ref_vector& rhs);
 
 public:    
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):

@@ -198,6 +198,15 @@ namespace smt {
     }
 
     /**
+       \brief access the current set of variables associated with row.
+     */
+    template<typename Ext>
+    uint_set& theory_arith<Ext>::row_vars() {
+        SASSERT(m_row_vars_top > 0);
+        return m_row_vars[m_row_vars_top-1];
+    }
+
+    /**
        \brief Add coeff * v to the row r.
        The column is also updated.
     */
@@ -206,6 +215,26 @@ namespace smt {
     void theory_arith<Ext>::add_row_entry(unsigned r_id, numeral const & coeff, theory_var v) {
         row    & r          = m_rows[r_id];
         column & c          = m_columns[v];
+        if (row_vars().contains(v)) {
+            typename vector<row_entry>::iterator it = r.begin_entries();
+            typename vector<row_entry>::iterator end = r.end_entries();
+            bool found = false;
+            for (; !found && it != end; ++it) {
+                SASSERT(!it->is_dead());
+                if (it->m_var == v) {
+                    if (invert) {
+                        it->m_coeff -= coeff;
+                    }
+                    else {
+                        it->m_coeff += coeff;
+                    }
+                    found = true;
+                }
+            }
+            SASSERT(found);
+            return;
+        }
+        row_vars().insert(v);
         int r_idx;
         row_entry & r_entry = r.add_row_entry(r_idx);
         int c_idx;
@@ -238,12 +267,13 @@ namespace smt {
             }
         }
         rational _val; 
-        if (m_util.is_mul(m) && m_util.is_numeral(m->get_arg(0), _val)) {
+        expr* arg1, *arg2;
+        if (m_util.is_mul(m, arg1, arg2) && m_util.is_numeral(arg1, _val)) {
             SASSERT(m->get_num_args() == 2);
             numeral val(_val);
-            theory_var v = internalize_term_core(to_app(m->get_arg(1)));
+            theory_var v = internalize_term_core(to_app(arg2));
             if (reflection_enabled()) {
-                internalize_term_core(to_app(m->get_arg(0)));
+                internalize_term_core(to_app(arg1));
                 mk_enode(m);
             }
             add_row_entry<true>(r_id, val, v);
@@ -264,6 +294,7 @@ namespace smt {
         CTRACE("internalize_add_bug", n->get_num_args() == 2 && n->get_arg(0) == n->get_arg(1), tout << "n: " << mk_pp(n, get_manager()) << "\n";);
         SASSERT(m_util.is_add(n));
         unsigned r_id = mk_row();
+        scoped_row_vars _sc(m_row_vars, m_row_vars_top);
         unsigned num_args = n->get_num_args();
         for (unsigned i = 0; i < num_args; i++) {
             internalize_internal_monomial(to_app(n->get_arg(i)), r_id);
@@ -324,6 +355,7 @@ namespace smt {
             numeral val(_val);
             SASSERT(!val.is_one());
             unsigned r_id = mk_row();
+            scoped_row_vars _sc(m_row_vars, m_row_vars_top);
             if (reflection_enabled())
                 internalize_term_core(to_app(m->get_arg(0)));
             theory_var v = internalize_mul_core(to_app(m->get_arg(1)));
@@ -617,6 +649,7 @@ namespace smt {
         enode * e      = mk_enode(n);
         theory_var r   = mk_var(e);
         unsigned r_id = mk_row();
+        scoped_row_vars _sc(m_row_vars, m_row_vars_top);
         add_row_entry<true>(r_id, numeral(1), arg);
         add_row_entry<false>(r_id, numeral(1), r);
         init_row(r_id);
@@ -643,6 +676,25 @@ namespace smt {
         m_value[v]   = ival;
         return v;
     }
+
+    template<typename Ext>
+    class theory_arith<Ext>::scoped_row_vars {
+        unsigned& m_top;
+    public:
+        scoped_row_vars(vector<uint_set>& row_vars, unsigned& top):
+            m_top(top)
+        {
+            SASSERT(row_vars.size() >= top);
+            if (row_vars.size() == top) {
+                row_vars.push_back(uint_set());
+            }
+            row_vars[top].reset();
+            ++m_top;
+        }
+        ~scoped_row_vars() {
+            --m_top;            
+        }
+    };
 
     /**
        \brief Internalize the given term and return an alias for it.
@@ -1579,6 +1631,7 @@ namespace smt {
         m_liberal_final_check(true),
         m_changed_assignment(false),
         m_assume_eq_head(0),
+        m_row_vars_top(0),
         m_nl_rounds(0),
         m_nl_gb_exhausted(false),
         m_nl_new_exprs(m),
