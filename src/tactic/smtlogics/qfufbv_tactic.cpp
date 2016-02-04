@@ -181,7 +181,7 @@ tactic * mk_qfufbv_tactic(ast_manager & m, params_ref const & p) {
 }
 
 tactic * mk_qfufbv_ackr_tactic(ast_manager & m, params_ref const & p) {
-    tactic * const preamble_t = mk_qfufbv_preamble(m, p);
+    tactic * const preamble_t = mk_qfufbv_preamble1(m, p);
 
     tactic * const actual_tactic = alloc(qfufbv_ackr_tactic, m, p);
     return and_then(preamble_t,
