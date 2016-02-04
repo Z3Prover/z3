@@ -450,6 +450,9 @@ namespace smt {
         svector<theory_var>     m_nl_propagated;    // non linear monomials that became linear
         v_dependency_manager    m_dep_manager;      // for tracking bounds during non-linear reasoning
 
+        vector<uint_set>        m_row_vars;         // variables in a given row. Used during internalization to detect repeated variables.
+        unsigned                m_row_vars_top;
+
         var_heap                m_to_patch;         // heap containing all variables v s.t. m_value[v] does not satisfy bounds of v.
         nat_set                 m_left_basis;       // temporary: set of variables that already left the basis in make_feasible
         bool                    m_blands_rule;
@@ -583,6 +586,9 @@ namespace smt {
         void mk_enode_if_reflect(app * n);
         template<bool invert>
         void add_row_entry(unsigned r_id, numeral const & coeff, theory_var v);
+        uint_set& row_vars();
+        class scoped_row_vars;
+        
         void internalize_internal_monomial(app * m, unsigned r_id);
         theory_var internalize_add(app * n);
         theory_var internalize_mul_core(app * m);
