@@ -335,7 +335,8 @@ namespace smt {
         bool propagate_max_length(expr* l, expr* r, dependency* dep);
 
         bool get_length(expr* s, expr_ref& len, literal_vector& lits);
-        bool reduce_length(expr* l, expr* r);
+        bool reduce_length(expr* l, expr* r, literal_vector& lits);
+        bool reduce_length_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* deps);
 
         expr_ref mk_empty(sort* s) { return expr_ref(m_util.str.mk_empty(s), m); }
         expr_ref mk_concat(unsigned n, expr*const* es) { return expr_ref(m_util.str.mk_concat(n, es), m); }
@@ -365,7 +366,7 @@ namespace smt {
         void propagate_lit(dependency* dep, unsigned n, literal const* lits, literal lit);
         void propagate_eq(dependency* dep, enode* n1, enode* n2);
         void propagate_eq(literal lit, expr* e1, expr* e2, bool add_to_eqs);
-        void propagate_eq(literal_vector const& lits, expr* e1, expr* e2, bool add_to_eqs);
+        void propagate_eq(dependency* dep, literal_vector const& lits, expr* e1, expr* e2, bool add_to_eqs);
         void set_conflict(dependency* dep, literal_vector const& lits = literal_vector());
 
         u_map<unsigned> m_branch_start;
@@ -384,6 +385,7 @@ namespace smt {
         bool is_tail(expr* a, expr*& s, unsigned& idx) const;
         bool is_eq(expr* e, expr*& a, expr*& b) const; 
         bool is_pre(expr* e, expr*& s, expr*& i);
+        bool is_post(expr* e, expr*& s, expr*& i);
         expr_ref mk_nth(expr* s, expr* idx);
         expr_ref mk_last(expr* e);
         expr_ref mk_first(expr* e);

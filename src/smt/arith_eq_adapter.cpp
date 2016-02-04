@@ -81,14 +81,6 @@ namespace smt {
         }
     };
 
-    arith_simplifier_plugin * arith_eq_adapter::get_simplifier() {
-        if (!m_as) {
-            simplifier & s = get_context().get_simplifier();
-            m_as = static_cast<arith_simplifier_plugin*>(s.get_plugin(m_owner.get_family_id()));
-        }
-        return m_as;
-    }
-
     void arith_eq_adapter::mk_axioms(enode * n1, enode * n2) {
         SASSERT(n1 != n2);
         ast_manager & m = get_manager();
@@ -102,6 +94,9 @@ namespace smt {
             // Nothing to be done
             // We don't need to create axioms for 2 = 3
             return; 
+        }
+        if (t1 == t2) {
+            return;
         }
         
         context & ctx = get_context();
@@ -192,6 +187,7 @@ namespace smt {
         // Old version that used to be buggy.
         // I fixed the theory arithmetic internalizer to accept non simplified terms of the form t1 - t2 
         // if t1 and t2 already have slacks (theory variables) associated with them.
+        // It also accepts terms with repeated variables (Issue #429).
         app * le = 0;
         app * ge = 0;
         if (m_util.is_numeral(t1))
@@ -199,12 +195,13 @@ namespace smt {
         if (m_util.is_numeral(t2)) {
             le = m_util.mk_le(t1, t2);
             ge = m_util.mk_ge(t1, t2);
-        }
+        }        
         else {
             sort * st       = m.get_sort(t1);
-            app * minus_one = m_util.mk_numeral(rational::minus_one(), st);
-            app * zero      = m_util.mk_numeral(rational::zero(), st);
-            app_ref s(m_util.mk_add(t1, m_util.mk_mul(minus_one, t2)), m);
+            app_ref minus_one(m_util.mk_numeral(rational::minus_one(), st), m);
+            app_ref zero(m_util.mk_numeral(rational::zero(), st), m);
+            app_ref t3(m_util.mk_mul(minus_one, t2), m);
+            app_ref s(m_util.mk_add(t1, t3), m);
             le              = m_util.mk_le(s, zero);
             ge              = m_util.mk_ge(s, zero);
         }

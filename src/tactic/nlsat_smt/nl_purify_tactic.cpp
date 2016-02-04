@@ -289,7 +289,7 @@ private:
 
     void check_point() {
         if (m.canceled()) {
-            throw tactic_exception("canceled");
+            throw tactic_exception(Z3_CANCELED_MSG);
         }
     }
 

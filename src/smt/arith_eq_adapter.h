@@ -75,8 +75,6 @@ namespace smt {
         ast_manager & get_manager() const { return m_owner.get_manager(); }
         enode * get_enode(theory_var v) const { return m_owner.get_enode(v); }
 
-        arith_simplifier_plugin * get_simplifier();
-
     public:
         arith_eq_adapter(theory & owner, theory_arith_params & params, arith_util & u):m_owner(owner), m_params(params), m_util(u), m_as(0) {}
         void new_eq_eh(theory_var v1, theory_var v2);

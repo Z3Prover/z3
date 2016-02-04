@@ -8,8 +8,8 @@ Module Name:
 Abstract:
 
     Translator from Z3 expressions into generic subpaving data-structure.
-    
-    
+
+
 Author:
 
     Leonardo (leonardo) 2012-08-08
@@ -24,6 +24,7 @@ Notes:
 #include"cooperate.h"
 #include"arith_decl_plugin.h"
 #include"scoped_numeral_buffer.h"
+#include"common_msgs.h"
 
 struct expr2subpaving::imp {
     struct frame {
@@ -43,9 +44,9 @@ struct expr2subpaving::imp {
     expr_ref_vector                    m_var2expr;
 
     typedef svector<subpaving::var>    var_vector;
-    
+
     obj_map<expr, unsigned>            m_cache;
-    var_vector                         m_cached_vars; 
+    var_vector                         m_cached_vars;
     scoped_mpz_vector                  m_cached_numerators;
     scoped_mpz_vector                  m_cached_denominators;
 
@@ -69,17 +70,17 @@ struct expr2subpaving::imp {
             m_expr2var       = e2v;
             m_expr2var_owner = false;
         }
-        
+
     }
-    
+
     ~imp() {
         reset_cache();
         if (m_expr2var_owner)
             dealloc(m_expr2var);
     }
-    
+
     ast_manager & m() { return m_manager; }
-    
+
     subpaving::context & s() { return m_subpaving; }
 
     unsynch_mpq_manager & qm() const { return m_qm; }
@@ -94,7 +95,7 @@ struct expr2subpaving::imp {
 
     void checkpoint() {
         if (m().canceled())
-            throw default_exception("canceled");
+            throw default_exception(Z3_CANCELED_MSG);
         cooperate("expr2subpaving");
     }
 
@@ -111,7 +112,7 @@ struct expr2subpaving::imp {
         }
         return x;
     }
-    
+
     void found_non_simplified() {
         throw default_exception("you must apply simplifier before internalizing expressions into the subpaving module.");
     }
@@ -128,7 +129,7 @@ struct expr2subpaving::imp {
         SASSERT(!m_cache.contains(t));
         SASSERT(m_cached_numerators.size()   == m_cached_vars.size());
         SASSERT(m_cached_denominators.size() == m_cached_vars.size());
-        if (t->get_ref_count() <= 1) 
+        if (t->get_ref_count() <= 1)
             return;
         unsigned idx = m_cached_vars.size();
         m_cache.insert(t, idx);
@@ -196,7 +197,7 @@ struct expr2subpaving::imp {
         sbuffer<subpaving::power> pws;
         for (unsigned i = 0; i < sz; i++) {
             expr * arg = margs[i];
-            unsigned k; 
+            unsigned k;
             as_power(arg, arg, k);
             subpaving::var x_arg = process(arg, depth+1, n_arg, d_arg);
             qm().power(n_arg, k, n_arg);
@@ -216,7 +217,7 @@ struct expr2subpaving::imp {
         cache_result(t, x, n, d);
         return x;
     }
-    
+
     typedef _scoped_numeral_buffer<unsynch_mpz_manager> mpz_buffer;
     typedef sbuffer<subpaving::var> var_buffer;
 
@@ -291,13 +292,13 @@ struct expr2subpaving::imp {
         switch (t->get_decl_kind()) {
         case OP_NUM:
             return process_num(t, depth, n, d);
-        case OP_ADD: 
+        case OP_ADD:
             return process_add(t, depth, n, d);
-        case OP_MUL: 
+        case OP_MUL:
             return process_mul(t, depth, n, d);
         case OP_POWER:
             return process_power(t, depth, n, d);
-        case OP_TO_REAL: 
+        case OP_TO_REAL:
             return process(t->get_arg(0), depth+1, n, d);
         case OP_SUB:
         case OP_UMINUS:
@@ -310,7 +311,7 @@ struct expr2subpaving::imp {
         case OP_REM:
         case OP_IRRATIONAL_ALGEBRAIC_NUM:
             throw default_exception("you must apply arithmetic purifier before internalizing expressions into the subpaving module.");
-        case OP_SIN: 
+        case OP_SIN:
         case OP_COS:
         case OP_TAN:
         case OP_ASIN:
@@ -350,12 +351,12 @@ struct expr2subpaving::imp {
 
         return process_arith_app(to_app(t), depth, n, d);
     }
-    
-    bool is_var(expr * t) const { 
-        return m_expr2var->is_var(t); 
+
+    bool is_var(expr * t) const {
+        return m_expr2var->is_var(t);
     }
 
-    
+
     subpaving::var internalize_term(expr * t, mpz & n, mpz & d) {
         return process(t, 0, n, d);
     }
@@ -376,11 +377,11 @@ ast_manager & expr2subpaving::m() const {
 subpaving::context & expr2subpaving::s() const {
     return m_imp->s();
 }
-    
+
 bool expr2subpaving::is_var(expr * t) const {
     return m_imp->is_var(t);
 }
-    
+
 
 subpaving::var expr2subpaving::internalize_term(expr * t, mpz & n, mpz & d) {
     return m_imp->internalize_term(t, n, d);

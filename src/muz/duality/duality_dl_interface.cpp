@@ -62,7 +62,7 @@ namespace Duality {
         context ctx;
         RPFP::LogicSolver *ls;
         RPFP *rpfp;
-    
+
         DualityStatus status;
         std::vector<expr> clauses;
         std::vector<std::vector<RPFP::label_struct> > clause_labels;
@@ -104,14 +104,14 @@ namespace Duality {
 
 
     //
-    // Check if the new rules are weaker so that we can 
+    // Check if the new rules are weaker so that we can
     // re-use existing context.
-    // 
+    //
 #if 0
     void dl_interface::check_reset() {
         // TODO
         datalog::rule_ref_vector const& new_rules = m_ctx.get_rules().get_rules();
-        datalog::rule_ref_vector const& old_rules = m_old_rules.get_rules();  
+        datalog::rule_ref_vector const& old_rules = m_old_rules.get_rules();
         bool is_subsumed = !old_rules.empty();
         for (unsigned i = 0; is_subsumed && i < new_rules.size(); ++i) {
             is_subsumed = false;
@@ -155,7 +155,7 @@ namespace Duality {
 
 
         expr_ref_vector rules(m_ctx.get_manager());
-        svector< ::symbol> names;  
+        svector< ::symbol> names;
         unsigned_vector bounds;
         // m_ctx.get_rules_as_formulas(rules, names);
 
@@ -189,7 +189,7 @@ namespace Duality {
                 rules.push_back(f);
             }
         }
-        else 
+        else
             m_ctx.get_raw_rule_formulas(rules, names, bounds);
 
         // get all the rules as clauses
@@ -199,7 +199,7 @@ namespace Duality {
             expr e(_d->ctx,rules[i].get());
             clauses.push_back(e);
         }
-  
+
         std::vector<sort> b_sorts;
         std::vector<symbol> b_names;
         used_vars uv;
@@ -216,7 +216,7 @@ namespace Duality {
 #if 0
         // turn the query into a clause
         expr q(_d->ctx,m_ctx.bind_variables(query,false));
-  
+
         std::vector<sort> b_sorts;
         std::vector<symbol> b_names;
         if (q.is_quantifier() && !q.is_quantifier_forall()) {
@@ -235,14 +235,14 @@ namespace Duality {
         qc = _d->ctx.make_quant(Forall,b_sorts,b_names,qc);
         clauses.push_back(qc);
         bounds.push_back(UINT_MAX);
-  
+
         // get the background axioms
         unsigned num_asserts = m_ctx.get_num_assertions();
         for (unsigned i = 0; i < num_asserts; ++i) {
             expr e(_d->ctx,m_ctx.get_assertion(i));
             _d->rpfp->AssertAxiom(e);
         }
-  
+
         // make sure each predicate is the head of at least one clause
         func_decl_set heads;
         for(unsigned i = 0; i < clauses.size(); i++){
@@ -297,14 +297,14 @@ namespace Duality {
         // populate the edge-to-clause map
         for(unsigned i = 0; i < _d->rpfp->edges.size(); ++i)
             _d->map[_d->rpfp->edges[i]] = i;
-     
+
         // create a solver object
 
         Solver *rs = Solver::Create("duality", _d->rpfp);
 
         if(old_rs)
             rs->LearnFrom(old_rs); // new solver gets hints from old solver
-  
+
         // set its options
         IF_VERBOSE(1, rs->SetOption("report","1"););
         rs->SetOption("full_expand",m_ctx.get_params().duality_full_expand() ? "1" : "0");
@@ -328,12 +328,12 @@ namespace Duality {
             ans = rs->Solve();
         }
         catch (Duality::solver::cancel_exception &exn){
-            throw default_exception("duality canceled");
+            throw default_exception(Z3_CANCELED_MSG);
         }
         catch (Duality::Solver::Incompleteness &exn){
             throw default_exception("incompleteness");
         }
-  
+
         // profile!
 
         if(m_ctx.get_params().duality_profile())
@@ -343,7 +343,7 @@ namespace Duality {
         _d->status = ans ? StatusModel : StatusRefutation;
         _d->cex.swap(rs->GetCounterexample()); // take ownership of cex
         _d->old_rs = rs; // save this for later hints
-  
+
         if(old_data){
             dealloc(old_data); // this deallocates the old solver if there is one
         }
@@ -392,7 +392,7 @@ namespace Duality {
         context &ctx = d->dd()->ctx;
         RPFP::Node &node = *root;
         RPFP::Edge &edge = *node.Outgoing;
-  
+
         // first, prove the children (that are actually used)
 
         for(unsigned i = 0; i < edge.Children.size(); i++){
@@ -434,19 +434,19 @@ namespace Duality {
             }
         }
         out << "  )\n";
-  
+
         out << "  (labels";
         std::vector<symbol> labels;
         tree->GetLabels(&edge,labels);
         for(unsigned j = 0; j < labels.size(); j++){
             out << " " << labels[j];
         }
-  
+
         out << "  )\n";
 
         // reference the proofs of all the children, in syntactic order
         // "true" means the child is not needed
-  
+
         out << "  (ref ";
         for(unsigned i = 0; i < edge.Children.size(); i++){
             if(!tree->Empty(edge.Children[i]))
@@ -468,7 +468,7 @@ namespace Duality {
             ast_manager &m = m_ctx.get_manager();
             model_ref md = get_model();
             out << "(fixedpoint \n";
-            model_smt2_pp(out, m, *md.get(), 0); 
+            model_smt2_pp(out, m, *md.get(), 0);
             out << ")\n";
         }
         else if(_d->status == StatusRefutation){
@@ -550,22 +550,22 @@ namespace Duality {
         }
         return md;
     }
-  
+
     static proof_ref extract_proof(dl_interface *d, RPFP *tree, RPFP::Node *root) {
         context &ctx = d->dd()->ctx;
         ast_manager &mgr = ctx.m();
         RPFP::Node &node = *root;
         RPFP::Edge &edge = *node.Outgoing;
         RPFP::Edge *orig_edge = edge.map;
-  
+
         // first, prove the children (that are actually used)
-  
+
         proof_ref_vector prems(mgr);
         ::vector<expr_ref_vector> substs;
         int orig_clause = d->dd()->map[orig_edge];
         expr &t = d->dd()->clauses[orig_clause];
         prems.push_back(mgr.mk_asserted(ctx.uncook(t)));
-  
+
         substs.push_back(expr_ref_vector(mgr));
         if (t.is_quantifier() && t.is_quantifier_forall()) {
             int bound = t.get_quantifier_num_bound();
@@ -599,12 +599,12 @@ namespace Duality {
         for(unsigned i = 0; i < edge.F.IndParams.size(); i++)
             args.push_back(tree->Eval(&edge,edge.F.IndParams[i]));
         expr conc = f(args);
-  
+
 
         ::vector< ::proof *> pprems;
         for(unsigned i = 0; i < prems.size(); i++)
             pprems.push_back(prems[i].get());
-  
+
         proof_ref res(mgr.mk_hyper_resolve(pprems.size(),&pprems[0], ctx.uncook(conc), pos, substs),mgr);
         return res;
 

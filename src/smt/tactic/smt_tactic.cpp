@@ -59,7 +59,7 @@ void extract_clauses_and_dependencies(goal_ref const& g, expr_ref_vector& clause
                     clause.push_back(m.mk_not(d));
                 }
                 else {
-                    // must normalize assumption 
+                    // must normalize assumption
                     expr * b = 0;
                     if (!dep2bool.find(d, b)) {
                         b = m.mk_fresh_const(0, m.mk_bool_sort());
@@ -79,7 +79,7 @@ void extract_clauses_and_dependencies(goal_ref const& g, expr_ref_vector& clause
             cls = mk_or(m, clause.size(), clause.c_ptr());
             clauses.push_back(cls);
         }
-    }    
+    }
 }
 
 class smt_tactic : public tactic {
@@ -96,7 +96,7 @@ class smt_tactic : public tactic {
 public:
     smt_tactic(params_ref const & p):
         m_params_ref(p),
-        m_ctx(0), 
+        m_ctx(0),
         m_callback(0) {
         updt_params_core(p);
         TRACE("smt_tactic", tout << this << "\np: " << p << "\n";);
@@ -118,20 +118,20 @@ public:
         m_candidate_models     = p.get_bool("candidate_models", false);
         m_fail_if_inconclusive = p.get_bool("fail_if_inconclusive", true);
     }
-    
+
     virtual void updt_params(params_ref const & p) {
         TRACE("smt_tactic", tout << this << "\nupdt_params: " << p << "\n";);
         updt_params_core(p);
         fparams().updt_params(p);
         SASSERT(p.get_bool("auto_config", fparams().m_auto_config) == fparams().m_auto_config);
     }
-    
+
     virtual void collect_param_descrs(param_descrs & r) {
         r.insert("candidate_models", CPK_BOOL, "(default: false) create candidate models even when quantifier or theory reasoning is incomplete.");
         r.insert("fail_if_inconclusive", CPK_BOOL, "(default: true) fail if found unsat (sat) for under (over) approximated goal.");
         smt_params_helper::collect_param_descrs(r);
     }
-    
+
 
     virtual void collect_statistics(statistics & st) const {
         if (m_ctx)
@@ -146,7 +146,7 @@ public:
     virtual void reset_statistics() {
         m_stats.reset();
     }
-    
+
     virtual void set_logic(symbol const & l) {
         m_logic = l;
     }
@@ -154,7 +154,7 @@ public:
     virtual void set_progress_callback(progress_callback * callback) {
         m_callback = callback;
     }
-    
+
     struct scoped_init_ctx {
         smt_tactic & m_owner;
         smt_params   m_params; // smt-setup overwrites parameters depending on the current assertions.
@@ -168,41 +168,41 @@ public:
                 new_ctx->set_progress_callback(o.m_callback);
             }
             o.m_ctx = new_ctx;
-            
+
         }
 
         ~scoped_init_ctx() {
             smt::kernel * d = m_owner.m_ctx;
             m_owner.m_ctx = 0;
-            
+
             if (d)
                 dealloc(d);
         }
     };
 
 
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
+    virtual void operator()(goal_ref const & in,
+                            goal_ref_buffer & result,
+                            model_converter_ref & mc,
                             proof_converter_ref & pc,
                             expr_dependency_ref & core) {
         try {
             SASSERT(in->is_well_sorted());
             ast_manager & m = in->m();
-            TRACE("smt_tactic", tout << this << "\nAUTO_CONFIG: " << fparams().m_auto_config << " HIDIV0: " << fparams().m_hi_div0 << " " 
+            TRACE("smt_tactic", tout << this << "\nAUTO_CONFIG: " << fparams().m_auto_config << " HIDIV0: " << fparams().m_hi_div0 << " "
                   << " PREPROCESS: " << fparams().m_preprocess << "\n";
                   tout << "RELEVANCY: " << fparams().m_relevancy_lvl << "\n";
                   tout << "fail-if-inconclusive: " << m_fail_if_inconclusive << "\n";
                   tout << "params_ref: " << m_params_ref << "\n";
                   tout << "nnf: " << fparams().m_nnf_cnf << "\n";);
             TRACE("smt_tactic_detail", in->display(tout););
-            TRACE("smt_tactic_memory", tout << "wasted_size: " << m.get_allocator().get_wasted_size() << "\n";);        
+            TRACE("smt_tactic_memory", tout << "wasted_size: " << m.get_allocator().get_wasted_size() << "\n";);
             scoped_init_ctx  init(*this, m);
             SASSERT(m_ctx != 0);
 
             expr_ref_vector clauses(m);
-            expr2expr_map               bool2dep; 
-            ptr_vector<expr>            assumptions;       
+            expr2expr_map               bool2dep;
+            ptr_vector<expr>            assumptions;
             ref<filter_model_converter> fmc;
             if (in->unsat_core_enabled()) {
                 extract_clauses_and_dependencies(in, clauses, assumptions, bool2dep, fmc);
@@ -225,9 +225,9 @@ public:
                 }
             }
             if (m_ctx->canceled()) {
-                throw tactic_exception("smt_tactic canceled");
+                throw tactic_exception(Z3_CANCELED_MSG);
             }
-            
+
             lbool r;
             if (assumptions.empty())
                 r = m_ctx->setup_and_check();
@@ -315,7 +315,7 @@ tactic * mk_smt_tactic(params_ref const & p) {
 }
 
 tactic * mk_smt_tactic_using(bool auto_config, params_ref const & _p) {
-    params_ref p = _p;    
+    params_ref p = _p;
     p.set_bool("auto_config", auto_config);
     tactic * r = mk_smt_tactic(p);
     TRACE("smt_tactic", tout << "auto_config: " << auto_config << "\nr: " << r << "\np: " << p << "\n";);
