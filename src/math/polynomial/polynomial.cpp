@@ -34,6 +34,7 @@ Notes:
 #include"linear_eq_solver.h"
 #include"scoped_numeral_buffer.h"
 #include"ref_buffer.h"
+#include"common_msgs.h"
 
 namespace polynomial {
 
@@ -48,21 +49,21 @@ namespace polynomial {
         m_p_trials(p_trials),
         m_max_search_size(max_search_size) {
     }
-    
+
     void factor_params::updt_params(params_ref const & p) {
         m_max_p    = p.get_uint("max_prime", UINT_MAX);
         m_p_trials = p.get_uint("num_primes", 1);
         m_max_search_size = p.get_uint("max_search_size", UINT_MAX);
     }
-    
+
     void factor_params::get_param_descrs(param_descrs & r) {
-        r.insert("max_search_size", CPK_UINT, "(default: infty) Z3 polynomial factorization is composed of three steps: factorization in GF(p), lifting and search. This parameter can be used to limit the search space."); 
+        r.insert("max_search_size", CPK_UINT, "(default: infty) Z3 polynomial factorization is composed of three steps: factorization in GF(p), lifting and search. This parameter can be used to limit the search space.");
         r.insert("max_prime", CPK_UINT, "(default: infty) Z3 polynomial factorization is composed of three steps: factorization in GF(p), lifting and search. This parameter limits the maximum prime number p to be used in the first step.");
         r.insert("num_primes", CPK_UINT, "(default: 1) Z3 polynomial factorization is composed of three steps: factorization in GF(p), lifting and search. The search space may be reduced by factoring the polynomial in different GF(p)'s. This parameter specify the maximum number of finite factorizations to be considered, before lifiting and searching.");
     }
 
     typedef ptr_vector<monomial> monomial_vector;
-    
+
     void var2degree::display(std::ostream & out) const {
         bool first = true;
         out << "[";
@@ -85,7 +86,7 @@ namespace polynomial {
     // Monomials
     //
     // -----------------------------------
-    
+
     /**
        \brief power: var + exponent
     */
@@ -97,14 +98,14 @@ namespace polynomial {
         unsigned degree() const { return second; }
         unsigned & degree() { return second; }
         void set_var(var x) { first = x; }
-        
+
         struct lt_var {
-            bool operator()(power const & p1, power const & p2) {                
-                // CMW: The assertion below does not hold on OSX, because 
+            bool operator()(power const & p1, power const & p2) {
+                // CMW: The assertion below does not hold on OSX, because
                 // their implementation of std::sort will try to compare
                 // two items at the same index instead of comparing
                 // the indices directly. I suspect that the purpose of
-                // this assertion was to make sure that there are 
+                // this assertion was to make sure that there are
                 // no duplicates, so I replaced it with a new assertion at
                 // the end of var_degrees(...).
 
@@ -139,7 +140,7 @@ namespace polynomial {
         }
         return true;
     }
-    
+
     /**
        \brief Return total degree of the given power product.
     */
@@ -150,7 +151,7 @@ namespace polynomial {
         return r;
     }
 
-        
+
     /**
        \brief Monomials (power products)
     */
@@ -173,10 +174,10 @@ namespace polynomial {
 
         struct hash_proc {
             unsigned operator()(monomial const * m) const {
-                return m->m_hash; 
+                return m->m_hash;
             }
         };
-        
+
         struct eq_proc {
             bool operator()(monomial const * m1, monomial const * m2) const {
                 if (m1->size() != m2->size() || m1->hash() != m2->hash())
@@ -186,13 +187,13 @@ namespace polynomial {
                     if (m1->get_power(i) != m2->get_power(i))
                         return false;
                 }
-                
+
                 return true;
             }
         };
 
         static unsigned get_obj_size(unsigned sz) { return sizeof(monomial) + sz * sizeof(power); }
-        
+
         monomial(unsigned id, unsigned sz, power const * pws, unsigned h):
             m_ref_count(0),
             m_id(id),
@@ -204,16 +205,16 @@ namespace polynomial {
                 m_powers[i] = pw;
                 SASSERT(i == 0 || get_var(i) > get_var(i-1));
                 SASSERT(degree(i) > 0);
-                m_total_degree += degree(i); 
+                m_total_degree += degree(i);
             }
         }
 
         unsigned hash() const { return m_hash; }
 
         unsigned ref_count() const { return m_ref_count; }
-        
+
         void inc_ref() { m_ref_count++; }
-        
+
         void dec_ref() { SASSERT(m_ref_count > 0); m_ref_count--; }
 
         bool is_valid() const {
@@ -221,21 +222,21 @@ namespace polynomial {
         }
 
         unsigned id() const { return m_id; }
-        
+
         unsigned size() const { return m_size; }
-        
+
         unsigned total_degree() const { return m_total_degree; }
-        
+
         power const & get_power(unsigned idx) const { SASSERT(idx < size()); return m_powers[idx]; }
-        
+
         power const * get_powers() const { return m_powers; }
-        
+
         var get_var(unsigned idx) const { return get_power(idx).get_var(); }
-        
+
         unsigned degree(unsigned idx) const { return get_power(idx).degree(); }
 
         var max_var() const {
-            if (m_size == 0) 
+            if (m_size == 0)
                 return null_var;
             return get_var(m_size - 1);
         }
@@ -358,7 +359,7 @@ namespace polynomial {
         var max_smaller_than(var x) const {
             SASSERT(x != null_var);
             var y = max_smaller_than_core(x);
-            DEBUG_CODE({ 
+            DEBUG_CODE({
                 bool found = false;
                 for (unsigned i = 0; i < m_size; i++) {
                     if (get_var(i) < x) {
@@ -377,7 +378,7 @@ namespace polynomial {
             });
             return y;
         }
-        
+
         void display(std::ostream & out, display_var_proc const & proc = display_var_proc(), bool use_star = false) const {
             if (m_size == 0) {
                 out << "1";
@@ -417,7 +418,7 @@ namespace polynomial {
             }
             out << ")";
         }
-        
+
         bool is_unit() const { return m_size == 0; }
 
         /**
@@ -452,7 +453,7 @@ namespace polynomial {
     inline void swap(monomial * & m1, monomial * & m2) { std::swap(m1, m2); }
 
     typedef chashtable<monomial*, monomial::hash_proc, monomial::eq_proc> monomial_table;
-    
+
     /**
        \brief Mapping from monomials to positions.
     */
@@ -470,14 +471,14 @@ namespace polynomial {
             SASSERT(id < m_m2pos.size());
             m_m2pos[id] = UINT_MAX;
         }
-        
+
         void set(monomial const * m, unsigned pos) {
             unsigned id = m->id();
             m_m2pos.reserve(id+1, UINT_MAX);
             SASSERT(m_m2pos[id] == UINT_MAX);
             m_m2pos[id] = pos;
         }
-        
+
         /**
            \brief Save the position of the monomials in p.
         */
@@ -510,7 +511,7 @@ namespace polynomial {
     class tmp_monomial {
         monomial *               m_ptr;
         unsigned                 m_capacity; //!< maximum number of arguments supported by m_ptr;
-        
+
         monomial * allocate(unsigned capacity) {
             void * mem  = memory::allocate(monomial::get_obj_size(capacity));
             return new (mem) monomial(UINT_MAX, 0, 0, 0);
@@ -541,36 +542,36 @@ namespace polynomial {
             m_ptr(allocate(TMP_INITIAL_CAPACITY)),
             m_capacity(TMP_INITIAL_CAPACITY) {
         }
-      
+
         ~tmp_monomial() {
             deallocate(m_ptr, m_capacity);
         }
-        
+
         void init(unsigned sz, power const * pws) {
-            if (sz > m_capacity) 
+            if (sz > m_capacity)
                 increase_capacity(sz * 2);
             SASSERT(sz < m_capacity);
             m_ptr->m_size = sz;
             if (sz == 0) return;
             memcpy(m_ptr->m_powers, pws, sizeof(power) * sz);
         }
-        
-        void reset() { 
-            m_ptr->m_size = 0; 
+
+        void reset() {
+            m_ptr->m_size = 0;
         }
 
-        unsigned size() const { 
-            return m_ptr->m_size; 
+        unsigned size() const {
+            return m_ptr->m_size;
         }
-        
-        void push_back(power const & pw) { 
-            if (m_ptr->m_size >= m_capacity) 
+
+        void push_back(power const & pw) {
+            if (m_ptr->m_size >= m_capacity)
                 expand_capacity(m_ptr->m_size * 2);
             m_ptr->m_powers[m_ptr->m_size] = pw;
             m_ptr->m_size++;
         }
-        
-        monomial * get_ptr() { 
+
+        monomial * get_ptr() {
             unsigned sz = m_ptr->m_size;
             m_ptr->m_hash = monomial::hash_core(sz, m_ptr->m_powers);
             return m_ptr;
@@ -593,15 +594,15 @@ namespace polynomial {
 
         power const & get_power(unsigned idx) const { return m_ptr->m_powers[idx]; }
 
-        power const * get_powers() const { return m_ptr->m_powers; } 
+        power const * get_powers() const { return m_ptr->m_powers; }
     };
 
     /**
        \brief Compare m1 and m2 using a lexicographical order
-       
-       Return 
-            -   -1  if m1 <_lex m2, 
-            -   0   if m1 = m2,     
+
+       Return
+            -   -1  if m1 <_lex m2,
+            -   0   if m1 = m2,
             -   1   if m1 >_lex m2
 
        The biggest variable dominates
@@ -675,7 +676,7 @@ namespace polynomial {
         }
         if (idx1 == idx2) {
             SASSERT(min_var_degree1 != min_var_degree2);
-            return min_var_degree1 < min_var_degree2 ? -1 : 1; 
+            return min_var_degree1 < min_var_degree2 ? -1 : 1;
         }
         return idx1 < 0 ? -1 : 1;
     }
@@ -683,15 +684,15 @@ namespace polynomial {
     struct lex_lt2 {
         var m_min;
         lex_lt2(var m):m_min(m) {}
-        bool operator()(monomial * m1, monomial * m2) const { 
+        bool operator()(monomial * m1, monomial * m2) const {
             TRACE("lex_bug", tout << "min: x" << m_min << "\n"; m1->display(tout); tout << "\n"; m2->display(tout); tout << "\n";);
-            return lex_compare2(m1, m2, m_min) < 0; 
+            return lex_compare2(m1, m2, m_min) < 0;
         }
     };
 
     /**
        \brief Compare m1 and m2 using a graded lexicographical order
-       
+
        \see lex_compare
     */
     int graded_lex_compare(monomial const * m1, monomial const * m2) {
@@ -702,7 +703,7 @@ namespace polynomial {
         else
             return t1 < t2 ? -1 : 1;
     }
-    
+
     /**
        \brief Compare submonomials m1[start1, end1) and m2[start2, end2) using reverse lexicographical order
     */
@@ -732,7 +733,7 @@ namespace polynomial {
         SASSERT(idx2 == start2 && idx1 != start1);
         return 1;
     }
-    
+
     /**
        \brief Compare m1 and m2 using reverse lexicographical order.
 
@@ -763,7 +764,7 @@ namespace polynomial {
     };
 
     /**
-       \brief 
+       \brief
     */
     class monomial_manager {
         unsigned                 m_ref_count;
@@ -796,7 +797,7 @@ namespace polynomial {
 
         ~monomial_manager() {
             dec_ref(m_unit);
-            CTRACE("polynomial", !m_monomials.empty(), 
+            CTRACE("polynomial", !m_monomials.empty(),
                    tout << "monomials leaked\n";
                    monomial_table::iterator it = m_monomials.begin(); monomial_table::iterator end = m_monomials.end();
                    for (; it != end; ++it) {
@@ -806,7 +807,7 @@ namespace polynomial {
             if (m_own_allocator)
                 dealloc(m_allocator);
         }
-        
+
         void inc_ref() {
             m_ref_count++;
         }
@@ -819,7 +820,7 @@ namespace polynomial {
         }
 
         small_object_allocator & allocator() { return *m_allocator; }
-        
+
         var mk_var() {
             var r = m_next_var;
             m_next_var++;
@@ -830,8 +831,8 @@ namespace polynomial {
             return m_next_var;
         }
 
-        bool is_valid(var x) const { 
-            return x < m_next_var; 
+        bool is_valid(var x) const {
+            return x < m_next_var;
         }
 
         void del(monomial * m) {
@@ -841,11 +842,11 @@ namespace polynomial {
             m_allocator->deallocate(obj_sz, m);
         }
 
-        void inc_ref(monomial * m) { 
+        void inc_ref(monomial * m) {
             m->inc_ref();
         }
-        
-        void dec_ref(monomial * m) { 
+
+        void dec_ref(monomial * m) {
             m->dec_ref();
             if (m->ref_count() == 0)
                 del(m);
@@ -961,26 +962,26 @@ namespace polynomial {
                 j++;
             }
             product_tmp.set_size(j);
-            TRACE("monomial_mul_bug", 
+            TRACE("monomial_mul_bug",
                   tout << "before mk_monomial\n";
                   tout << "pws1: "; for (unsigned i = 0; i < sz1; i++) tout << pws1[i] << " "; tout << "\n";
                   tout << "pws2: "; for (unsigned i = 0; i < sz2; i++) tout << pws2[i] << " "; tout << "\n";
-                  tout << "product_tmp: "; for (unsigned i = 0; i < product_tmp.size(); i++) tout << product_tmp.get_power(i) << " "; 
+                  tout << "product_tmp: "; for (unsigned i = 0; i < product_tmp.size(); i++) tout << product_tmp.get_power(i) << " ";
                   tout << "\n";);
             monomial * r = mk_monomial(product_tmp);
-            TRACE("monomial_mul_bug", 
+            TRACE("monomial_mul_bug",
                   tout << "j: " << j << "\n";
                   tout << "r: "; r->display(tout); tout << "\n";
                   tout << "pws1: "; for (unsigned i = 0; i < sz1; i++) tout << pws1[i] << " "; tout << "\n";
                   tout << "pws2: "; for (unsigned i = 0; i < sz2; i++) tout << pws2[i] << " "; tout << "\n";
-                  tout << "product_tmp: "; for (unsigned i = 0; i < product_tmp.size(); i++) tout << product_tmp.get_power(i) << " "; 
+                  tout << "product_tmp: "; for (unsigned i = 0; i < product_tmp.size(); i++) tout << product_tmp.get_power(i) << " ";
                   tout << "\n";);
             SASSERT(r->is_valid());
             SASSERT(r->total_degree() == power_product_total_degree(sz1, pws1) + power_product_total_degree(sz2, pws2));
             return r;
         }
-        
-        monomial * mul(monomial const * m1, monomial const * m2) { 
+
+        monomial * mul(monomial const * m1, monomial const * m2) {
             if (m1 == m_unit)
                 return const_cast<monomial*>(m2);
             if (m2 == m_unit)
@@ -996,12 +997,12 @@ namespace polynomial {
             unsigned i1  = 0;
             unsigned i2  = 0;
             unsigned j   = 0;
-            if (sz1 < sz2) 
-                return false; // pws2 does not divide pws1 
+            if (sz1 < sz2)
+                return false; // pws2 does not divide pws1
             while (true) {
                 if (i2 == sz2) {
                     if (STORE_RESULT) {
-                        for (; i1 < sz1; i1++, j++) 
+                        for (; i1 < sz1; i1++, j++)
                             r.set_power(j, pws1[i1]);
                         r.set_size(j);
                     }
@@ -1064,7 +1065,7 @@ namespace polynomial {
             return false;
         }
 
-        /** 
+        /**
             \brief Compute the gcd of pws1 and pws2, store it in g, and pws1/g in r1, and pws2/g in r2
             Return true if the gcd is not 1. If the result is false, then g, r1 and r2 should not be used.
         */
@@ -1081,7 +1082,7 @@ namespace polynomial {
             while (true) {
                 if (i1 == sz1) {
                     if (found) {
-                        for (; i2 < sz2; i2++, j2++) 
+                        for (; i2 < sz2; i2++, j2++)
                             r2.set_power(j2, pws2[i2]);
                         r1.set_size(j1);
                         r2.set_size(j2);
@@ -1092,7 +1093,7 @@ namespace polynomial {
                 }
                 if (i2 == sz2) {
                     if (found) {
-                        for (; i1 < sz1; i1++, j1++) 
+                        for (; i1 < sz1; i1++, j1++)
                             r1.set_power(j1, pws1[i1]);
                         r1.set_size(j1);
                         r2.set_size(j2);
@@ -1172,7 +1173,7 @@ namespace polynomial {
             if (k == 1)
                 return const_cast<monomial*>(m);
             unsigned sz = m->size();
-            tmp_monomial & pw_tmp = m_tmp1; 
+            tmp_monomial & pw_tmp = m_tmp1;
             pw_tmp.reserve(sz);
             for (unsigned i = 0; i < sz; i++)
                 pw_tmp.set_power(i, power(m->get_var(i), m->degree(i)*k));
@@ -1224,9 +1225,9 @@ namespace polynomial {
             elim_tmp.set_size(j);
             return mk_monomial(elim_tmp);
         }
-        
+
         /**
-           \brief Return m/x^n  where n == m->degree_of(x)  
+           \brief Return m/x^n  where n == m->degree_of(x)
         */
         monomial * div_x(monomial const * m, var x) {
             SASSERT(is_valid(x));
@@ -1295,10 +1296,10 @@ namespace polynomial {
             }
             m_monomials.swap(new_table);
         }
-        
+
     };
 
-   
+
     /**
        We maintain the following invariant:
        The first monomial m of every non-zero polynomial p contains:
@@ -1375,12 +1376,12 @@ namespace polynomial {
         void dec_ref() { SASSERT(m_ref_count > 0); m_ref_count--; }
 
         static unsigned get_obj_size(unsigned n) { return sizeof(polynomial) + n * (sizeof(numeral) + sizeof(monomial*)); }
-        
+
         /**
            \brief Partial order used to implement the polynomial invariant that guarantees
            that the first monomial contains the maximal variable in the polynomial, and it
            occurs with maximal degree.
-           
+
            Return true if m1 > m2 in this partial order.
         */
         static bool po_gt(monomial const * m1, monomial const * m2) {
@@ -1436,7 +1437,7 @@ namespace polynomial {
             return max;
         }
 
-        bool lex_sorted() const { 
+        bool lex_sorted() const {
             return m_lex_sorted;
         }
 
@@ -1527,7 +1528,7 @@ namespace polynomial {
                 _scoped_numeral<mpzzp_manager> abs_a_i(nm);
                 nm.set(abs_a_i, a_i);
                 nm.abs(abs_a_i);
-                
+
                 numeral const & a_prime = abs_a_i;
                 if (i > 0) {
                     if (nm.is_neg(a_i))
@@ -1539,7 +1540,7 @@ namespace polynomial {
                     if (nm.is_neg(a_i))
                         out << "- ";
                 }
-                
+
                 if (m(i)->is_unit()) {
                     out << nm.to_string(a_prime);
                 }
@@ -1570,7 +1571,7 @@ namespace polynomial {
                 nm.display(out, a);
             }
         }
-        
+
         void display_mon_smt2(std::ostream & out, mpzzp_manager & nm, display_var_proc const & proc, unsigned i) const {
             SASSERT(i < m_size);
             monomial const * m_i = m(i);
@@ -1612,10 +1613,10 @@ namespace polynomial {
 
     };
 
-    manager::factors::factors(manager & _m):m_manager(_m), m_total_factors(0) { 
-        m().m().set(m_constant, 1); 
+    manager::factors::factors(manager & _m):m_manager(_m), m_total_factors(0) {
+        m().m().set(m_constant, 1);
     }
-    
+
     manager::factors::~factors() {
         reset();
         m().m().del(m_constant);
@@ -1628,9 +1629,9 @@ namespace polynomial {
         m_factors.reset();
         m_degrees.reset();
         m_total_factors = 0;
-        m().m().set(m_constant, 1); 
+        m().m().set(m_constant, 1);
     }
-    
+
     void manager::factors::push_back(polynomial * p, unsigned degree) {
         SASSERT(p != 0 && degree > 0);
         m_factors.push_back(p);
@@ -1638,7 +1639,7 @@ namespace polynomial {
         m_total_factors += degree;
         m().inc_ref(p);
     }
-    
+
     void manager::factors::multiply(polynomial_ref & out) const {
         if (m_factors.empty()) {
             out = m().mk_const(m_constant);
@@ -1649,18 +1650,18 @@ namespace polynomial {
                 polynomial_ref current(m_factors[i], m());
                 if (m_degrees[i] > 1) {
                     m().pw(current, m_degrees[i], current);
-                } 
+                }
                 if (i == 0) {
                     out = current;
                 } else {
-                    out = m().mul(out, current);            
+                    out = m().mul(out, current);
                 }
             }
             // multiply the constant
             out = m().mul(m_constant, out);
         }
     }
-    
+
     void manager::factors::display(std::ostream & out) const {
         out << m().m().to_string(get_constant());
         for (unsigned i = 0; i < m_factors.size(); ++ i) {
@@ -1670,20 +1671,20 @@ namespace polynomial {
         }
     }
 
-    void manager::factors::set_constant(numeral const & constant) { 
-        m().m().set(m_constant, constant); 
-    } 
-    
-    void manager::factors::set_degree(unsigned i, unsigned degree) { 
-        SASSERT(i > 0); 
-        m_total_factors -= m_degrees[i];              
-        m_total_factors += m_degrees[i] = degree; 
+    void manager::factors::set_constant(numeral const & constant) {
+        m().m().set(m_constant, constant);
     }
 
-    polynomial_ref manager::factors::operator[](unsigned i) const { 
-        return polynomial_ref(m_factors[i], m()); 
-    }                
-    
+    void manager::factors::set_degree(unsigned i, unsigned degree) {
+        SASSERT(i > 0);
+        m_total_factors -= m_degrees[i];
+        m_total_factors += m_degrees[i] = degree;
+    }
+
+    polynomial_ref manager::factors::operator[](unsigned i) const {
+        return polynomial_ref(m_factors[i], m());
+    }
+
     unsigned manager::id(monomial const * m) {
         return m->id();
     }
@@ -1691,7 +1692,7 @@ namespace polynomial {
     unsigned manager::id(polynomial const * p) {
         return p->id();
     }
-    
+
     bool manager::is_unit(monomial const * m) {
         return m->size() == 0;
     }
@@ -1699,7 +1700,7 @@ namespace polynomial {
     bool manager::is_zero(polynomial const * p) {
         return p->size() == 0;
     }
-    
+
     bool manager::is_const(polynomial const * p) {
         return is_zero(p) || (p->size() == 1 && is_unit(p->m(0)));
     }
@@ -1724,7 +1725,7 @@ namespace polynomial {
         }
         return true;
     }
-    
+
     unsigned manager::size(polynomial const * p) {
         return p->size();
     }
@@ -1755,11 +1756,11 @@ namespace polynomial {
     unsigned manager::size(monomial const * m) {
         return m->size();
     }
-        
+
     var manager::get_var(monomial const * m, unsigned i) {
         return m->get_var(i);
     }
-        
+
     unsigned manager::degree(monomial const * m, unsigned i) {
         return m->degree(i);
     }
@@ -1802,7 +1803,7 @@ namespace polynomial {
         }
         return r;
     }
-    
+
     var manager::max_var(polynomial const * p) {
         if (p->size() == 0)
             return null_var;
@@ -1859,7 +1860,7 @@ namespace polynomial {
             }
             return true;
         }
-    
+
          /**
             \brief Divide as by the GCD of as.
             Return true, if the GCD is not 1.
@@ -1882,7 +1883,7 @@ namespace polynomial {
         /**
            \brief Som-of-monomials buffer.
            This a temporary datastructure for building polynomials.
-           
+
            The following idiom should be used:
            Invoke add(...), addmul(...) several times, and then invoke mk() to obtain the final polynomial.
         */
@@ -1956,7 +1957,7 @@ namespace polynomial {
             bool empty() const { return m_tmp_ms.empty(); }
 
             monomial * m(unsigned i) const { return m_tmp_ms[i]; }
-            
+
             numeral const & a(unsigned i) const { return m_tmp_as[i]; }
 
             /**
@@ -1986,7 +1987,7 @@ namespace polynomial {
             /**
                \brief Store a*m*p into the buffer.
                m_m2pos is updated with the position of the monomials in m_tmp_ms.
-               
+
                The reference counter of new monomials added into the buffer is increased.
             */
             template<typename PolyType, bool CheckZeros>
@@ -2025,7 +2026,7 @@ namespace polynomial {
             void addmul(numeral const & a, monomial const * m, som_buffer const & p) {
                 return addmul(a, m, &p);
             }
-            
+
             void addmul(numeral const & a, som_buffer const * p) {
                 return addmul(a, m_owner->mk_unit(), p);
             }
@@ -2046,7 +2047,7 @@ namespace polynomial {
             /**
                \brief Store p into the buffer.
                m_m2pos is updated with the position of the monomials in m_tmp_ms.
-               
+
                The reference counter of new monomials added into the buffer is increased.
             */
             void add(polynomial const * p) {
@@ -2067,11 +2068,11 @@ namespace polynomial {
                     }
                 }
             }
-            
+
             /**
                \brief Add 'a*m' into m_tmp_as and m_tmp_ms.
                m_m2pos is updated with the position of the monomials in m_tmp_ms.
-               
+
                The reference counter of m is increased.
             */
             void add(numeral const & a, monomial * m) {
@@ -2090,11 +2091,11 @@ namespace polynomial {
                     mng.add(m_tmp_as[pos], a, m_tmp_as[pos]);
                 }
             }
-            
+
             /**
-               \brief Add 'a' (that is, a*m_unit) into m_tmp_as and m_tmp_ms. 
+               \brief Add 'a' (that is, a*m_unit) into m_tmp_as and m_tmp_ms.
                m_m2pos is updated with the position of the monomials in m_tmp_ms.
-               
+
                The reference counter of m_unit is increased.
             */
             void add(numeral const & a) {
@@ -2209,7 +2210,7 @@ namespace polynomial {
                 for (unsigned i = 0; i < sz; i++) {
                     m_buffers[i]->reset();
                 }
-            }                
+            }
 
             void reset() {
                 reset(m_buffers.size());
@@ -2358,7 +2359,7 @@ namespace polynomial {
             m_mgcd_iterpolators.flush();
             m_mgcd_skeletons.reset();
             DEBUG_CODE({
-                TRACE("polynomial", 
+                TRACE("polynomial",
                       tout << "leaked polynomials\n";
                       for (unsigned i = 0; i < m_polynomials.size(); i++) {
                           if (m_polynomials[i] != 0) {
@@ -2374,13 +2375,13 @@ namespace polynomial {
 
         void checkpoint() {
             if (!m_limit.inc()) {
-                throw polynomial_exception("canceled");
+                throw polynomial_exception(Z3_CANCELED_MSG);
             }
             cooperate("polynomial");
         }
 
         mpzzp_manager & m() const { return const_cast<imp*>(this)->m_manager; }
-        manager & pm() const { return m_wrapper; } 
+        manager & pm() const { return m_wrapper; }
         up_manager & upm() { return m_upm; }
         monomial_manager & mm() const { return *m_monomial_manager; }
 
@@ -2392,7 +2393,7 @@ namespace polynomial {
             return mm().num_vars();
         }
 
-        bool is_valid(var x) const { 
+        bool is_valid(var x) const {
             return mm().is_valid(x);
         }
 
@@ -2442,11 +2443,11 @@ namespace polynomial {
             mm().allocator().deallocate(obj_sz, p);
         }
 
-        void inc_ref(monomial * m) { 
+        void inc_ref(monomial * m) {
             mm().inc_ref(m);
         }
-        
-        void dec_ref(monomial * m) { 
+
+        void dec_ref(monomial * m) {
             mm().dec_ref(m);
         }
 
@@ -2459,7 +2460,7 @@ namespace polynomial {
             if (p->ref_count() == 0)
                 del(p);
         }
-        
+
         vector<unsigned_vector> m_lex_sort_buckets;
         unsigned_vector         m_lex_sort_permutation;
         void lex_sort(polynomial const * p) {
@@ -2468,12 +2469,12 @@ namespace polynomial {
 
         struct poly_khasher { unsigned operator()(polynomial const * p) const { return 17; } };
 
-        struct poly_chasher { 
-            unsigned operator()(polynomial const * p, unsigned idx) const { 
+        struct poly_chasher {
+            unsigned operator()(polynomial const * p, unsigned idx) const {
                 return hash_u_u(p->m(idx)->hash(), numeral_manager::hash(p->a(idx)));
             }
         };
-        
+
         unsigned hash(polynomial const * p) {
             if (p->size() == 0)
                 return 31;
@@ -2513,7 +2514,7 @@ namespace polynomial {
         monomial * mk_monomial(unsigned sz, var * xs) { return mm().mk_monomial(sz, xs); }
 
         monomial * mk_monomial(unsigned sz, power const * pws) { return mm().mk_monomial(sz, pws); }
-        
+
         monomial * convert(monomial const * src) { return mm().convert(src); }
 
         polynomial * mk_const_core(numeral & a) {
@@ -2521,7 +2522,7 @@ namespace polynomial {
             inc_ref(u);
             return mk_polynomial_core(1, &a, &u);
         }
-        
+
         polynomial * mk_const(numeral & a) {
             if (m_manager.is_zero(a))
                 return mk_zero();
@@ -2602,7 +2603,7 @@ namespace polynomial {
             polynomial * p = mk_univariate(x, n, m_rat2numeral.c_ptr());
             reset_tmp_as2();
             return p;
-        }        
+        }
 
         polynomial * mk_linear(unsigned sz, numeral * as, var const * xs, numeral & c) {
             SASSERT(m_tmp_linear_as.empty());
@@ -2635,16 +2636,16 @@ namespace polynomial {
             reset_tmp_as2();
             return p;
         }
-        
-        
-        monomial * mul(monomial const * m1, monomial const * m2) { 
+
+
+        monomial * mul(monomial const * m1, monomial const * m2) {
             return mm().mul(m1, m2);
         }
 
         bool div(monomial const * m1, monomial const * m2) {
             return mm().div(m1, m2);
         }
-        
+
         bool div(monomial const * m1, monomial const * m2, monomial * & r) {
             return mm().div(m1, m2, r);
         }
@@ -2680,7 +2681,7 @@ namespace polynomial {
         polynomial * addmul(polynomial const * p1, numeral const & a2, polynomial const * p2) {
             return addmul(p1, a2, mk_unit(), p2);
         }
-        
+
         polynomial * add(polynomial const * p1, polynomial const * p2) {
             numeral one(1);
             return addmul(one, mk_unit(), p1, one, mk_unit(), p2);
@@ -2703,7 +2704,7 @@ namespace polynomial {
             m_som_buffer.reset();
             unsigned sz1 = p1->size();
             for (unsigned i = 0; i < sz1; i++) {
-                checkpoint(); 
+                checkpoint();
                 numeral const & a1 = p1->a(i);
                 monomial * m1      = p1->m(i);
                 m_som_buffer.addmul(a1, m1, p2);
@@ -2746,7 +2747,7 @@ namespace polynomial {
             m_som_buffer.reset();
             unsigned sz1 = p1->size();
             for (unsigned i = 0; i < sz1; i++) {
-                checkpoint(); 
+                checkpoint();
                 numeral const & a1 = p1->a(i);
                 m_manager.mul(a, a1, new_a1);
                 monomial * m1      = p1->m(i);
@@ -2754,7 +2755,7 @@ namespace polynomial {
             }
             return m_som_buffer.mk();
         }
-        
+
         // Divide coefficients of p by d.
         // This methods assumes that all coefficients of p are divisible by d.
         polynomial * div(polynomial * p, numeral const & d) {
@@ -2775,7 +2776,7 @@ namespace polynomial {
             polynomial * new_p = mul(tmp, p);
             return new_p;
         }
-        
+
         /**
            \brief Return m/x^k
         */
@@ -2784,7 +2785,7 @@ namespace polynomial {
         }
 
         /**
-           \brief Return m/x^n  where n == m->degree_of(x)  
+           \brief Return m/x^n  where n == m->degree_of(x)
         */
         monomial * div_x(monomial const * m, var x) {
             return mm().div_x(m, x);
@@ -2799,7 +2800,7 @@ namespace polynomial {
 
         /**
            \brief (Incremental) Newton interpolation for multivariate polynomials.
-           Creates a polynomial on x of degree at most d with coefficients in Z[y1, ..., ym], 
+           Creates a polynomial on x of degree at most d with coefficients in Z[y1, ..., ym],
            using d+1 sample points.
            Sample points are provided using the method add, and the interpolating polynomial
            is created using mk() method.
@@ -2817,18 +2818,18 @@ namespace polynomial {
             newton_interpolator(imp & _pm):pm(_pm), m_inputs(m()), m_invs(m()), m_vs(pm.m_wrapper) {
                 m_invs.push_back(numeral(0));
             }
-            
-            void reset() { 
+
+            void reset() {
                 m_inputs.reset();
-                m_invs.shrink(1); 
-                m_vs.reset(); 
-                SASSERT(m().is_zero(m_invs[0])); 
+                m_invs.shrink(1);
+                m_vs.reset();
+                SASSERT(m().is_zero(m_invs[0]));
             }
 
             scoped_numeral_vector const & inputs() const { return m_inputs; }
 
             unsigned num_sample_points() const { return m_inputs.size(); }
-            
+
             /**
                \brief Add a new datapoint
             */
@@ -2878,7 +2879,7 @@ namespace polynomial {
                     m_vs.push_back(const_cast<polynomial*>(output));
                 }
             }
-               
+
             // Convert newton form to standard form
             void mk(var x, polynomial_ref & r) {
                 SASSERT(m().modular());
@@ -2905,13 +2906,13 @@ namespace polynomial {
                 r = u;
             }
         };
-       
+
         /**
            \brief Newton interpolation for multivariate polynomials.
-           Creates a polynomial on x of degree at most d with coefficients in Z[y1, ..., ym], 
+           Creates a polynomial on x of degree at most d with coefficients in Z[y1, ..., ym],
            using d+1 sample points.
            The sample points are store in the vectors inputs and outputs. Both must have size d+1.
-           
+
            \pre manager must be configured in Zp (modular) mode.
            We need this requeriment because we use the inverse operation.
         */
@@ -2973,11 +2974,11 @@ namespace polynomial {
             };
             imp &                pm;
             var                  m_x;
-            svector<entry>       m_entries;     
+            svector<entry>       m_entries;
             unsigned_vector      m_powers;
             ptr_vector<monomial> m_orig_monomials;
-            unsigned             m_max_powers; // maximal number of powers associated with an entry 
-            
+            unsigned             m_max_powers; // maximal number of powers associated with an entry
+
             skeleton(imp & _pm, polynomial * p, var x):pm(_pm), m_x(x) {
                 m_max_powers = 0;
                 ptr_buffer<monomial, 128> ms;
@@ -2991,7 +2992,7 @@ namespace polynomial {
                     monomial * orig_m = ms[i];
                     monomial * m;
                     unsigned   k = orig_m->degree_of(x);
-                    if (k > 0) 
+                    if (k > 0)
                         m = pm.div_x(orig_m, x);
                     else
                         m = orig_m;
@@ -3012,7 +3013,7 @@ namespace polynomial {
                     m_orig_monomials.push_back(orig_m);
                     m_powers.push_back(k);
                 }
-                TRACE("skeleton", 
+                TRACE("skeleton",
                       tout << "x: x" << m_x << "\n";
                       tout << "max: " << m_max_powers << "\n";
                       tout << "p: "; p->display(tout, pm.m()); tout << "\n";
@@ -3050,7 +3051,7 @@ namespace polynomial {
             entry const & operator[](unsigned idx) const { return m_entries[idx]; }
 
             unsigned ith_power(entry const & e, unsigned i) const { SASSERT(i < e.m_num_powers); return m_powers[e.m_first_power_idx + i]; }
-            
+
             monomial * ith_orig_monomial(entry const & e, unsigned i) const { SASSERT(i < e.m_num_powers); return m_orig_monomials[e.m_first_power_idx + i]; }
 
             unsigned max_num_powers() const { return m_max_powers; }
@@ -3089,7 +3090,7 @@ namespace polynomial {
                     }
                 }
             }
-            
+
             ~sparse_interpolator() {
                 if (m_skeleton) {
                     numeral_manager & m = m_skeleton->pm.m();
@@ -3099,7 +3100,7 @@ namespace polynomial {
                         m.del(m_outputs[i]);
                 }
             }
-            
+
             void reset() {
                 numeral_manager & m = m_skeleton->pm.m();
                 for (unsigned i = 0; i < m_inputs.size(); i++) {
@@ -3133,7 +3134,7 @@ namespace polynomial {
                 }
                 return true;
             }
-            
+
             bool mk(polynomial_ref & r) {
                 SASSERT(m_skeleton);
                 numeral_manager & m = m_skeleton->pm.m();
@@ -3164,14 +3165,14 @@ namespace polynomial {
                               tout << "\n";);
                         solver.add(i, cs.c_ptr(), m_outputs[output_idx]);
                     }
-                    TRACE("sparse_interpolator", 
+                    TRACE("sparse_interpolator",
                           tout << "find coefficients of:\n";
                           for (unsigned i = 0; i < num_pws; i++) {
                               m_skeleton->ith_orig_monomial(e, i)->display(tout); tout << "\n";
                           }
                           tout << "system of equations:\n";
                           solver.display(tout););
-                    if (!solver.solve(new_as.c_ptr())) 
+                    if (!solver.solve(new_as.c_ptr()))
                         return false;
                     for (unsigned i = 0; i < num_pws; i++) {
                         if (!m.is_zero(new_as[i])) {
@@ -3210,7 +3211,7 @@ namespace polynomial {
         typedef sbuffer<power, 32>    power_buffer;
         typedef sbuffer<unsigned, 32> unsigned_buffer;
         typedef sbuffer<var, 32>      var_buffer;
-        
+
         /**
            Store in pws the variables occuring in p and their (minimal or maximal) degrees.
         */
@@ -3220,7 +3221,7 @@ namespace polynomial {
             pws.reset();
             unsigned_vector & var2pos = m_var_degrees_tmp;
             var2pos.reserve(num_vars(), UINT_MAX);
-            
+
             unsigned sz = p->size();
             for (unsigned i = 0; i < sz; i++) {
                 monomial * m = p->m(i);
@@ -3241,7 +3242,7 @@ namespace polynomial {
                     }
                 }
             }
-            
+
             sz = pws.size();
             for (unsigned i = 0; i < sz; i++) {
                 SASSERT(var2pos[pws[i].get_var()] != UINT_MAX);
@@ -3288,7 +3289,7 @@ namespace polynomial {
             for (unsigned i = 0; i < sz; i++) {
                 monomial * m   = p->m(i);
                 unsigned     d = m->degree_of(x);
-                som_buffer * c = cs[d]; 
+                som_buffer * c = cs[d];
                 c->add(p->a(i), div_x(m, x));
             }
         }
@@ -3313,7 +3314,7 @@ namespace polynomial {
             reduct = m_cheap_som_buffer2.mk();
             return m_cheap_som_buffer.mk();
         }
-        
+
         /**
            \brief Return true if the coefficient of x^k is just a constant.
            Store it in c.
@@ -3391,7 +3392,7 @@ namespace polynomial {
             int sz = p->size();
             if (sz == 0) {
                 return m_zero_numeral;
-            } 
+            }
             else {
                 monomial * u = mk_unit();
                 for (int i = 0; i < sz; ++ i) {
@@ -3422,7 +3423,7 @@ namespace polynomial {
             if (m_manager.is_one(a)) {
                 c = const_cast<polynomial*>(p);
                 return;
-            } 
+            }
             m_cheap_som_buffer.reset();
             scoped_numeral ai(m_manager);
             for (unsigned i = 0; i < sz; i++) {
@@ -3441,14 +3442,14 @@ namespace polynomial {
             SASSERT(glex_max_pos != UINT_MAX);
             if (m_manager.is_neg(p->a(glex_max_pos)))
                 return neg(p);
-            else 
+            else
                 return const_cast<polynomial*>(p);
         }
 
         void flip_sign_if_lm_neg(polynomial_ref & p) {
             p = flip_sign_if_lm_neg_core(p);
         }
-        
+
         /**
            \brief Extract the integer content, content and primitive part of p with respect to
            variable x.
@@ -3488,7 +3489,7 @@ namespace polynomial {
             iccp_filter.resize(d+1, 0);
             iccp_powers.reset();
             for (unsigned j = 0; j <= d; j++)
-                iccp_filter[j] = 0; 
+                iccp_filter[j] = 0;
             unsigned sz = p->size();
             for (unsigned j = 0; j < sz; j++) {
                 monomial * m = p->m(j);
@@ -3496,7 +3497,7 @@ namespace polynomial {
                 TRACE("polynomial", tout << "degree of x" << x << " at "; m->display(tout); tout << " is " << k << "\n";);
                 if (iccp_filter[k] == 0)
                     iccp_powers.push_back(k);
-                if (m->size() == (k > 0 ? 1 : 0)) 
+                if (m->size() == (k > 0 ? 1 : 0))
                     iccp_filter[k]++;
                 else
                     iccp_filter[k]+=2;
@@ -3514,7 +3515,7 @@ namespace polynomial {
             // Extract integer content
             ic(p, i, pp);
             TRACE("polynomial", tout << "p: "; p->display(tout, m_manager); tout << "\ni: " << m_manager.to_string(i) << "\npp: " << pp << "\n";);
-            // Compute c using the gcd of coeffs of x^k for k's in iccp_powers            
+            // Compute c using the gcd of coeffs of x^k for k's in iccp_powers
             polynomial_ref ci(pm());
             c = coeff(pp, x, iccp_powers[0]);
             for (unsigned j = 1; j < num_powers; j++) {
@@ -3531,7 +3532,7 @@ namespace polynomial {
             TRACE("polynomial", tout << "pp: " << pp << "\nc: " << c << "\n";);
             pp = exact_div(pp, c);
         }
-        
+
         void iccp(polynomial const * p, numeral & i, polynomial_ref & c, polynomial_ref & pp) {
             iccp(p, max_var(p), i, c, pp);
         }
@@ -3555,7 +3556,7 @@ namespace polynomial {
         }
 
         void gcd_prs(polynomial const * u, polynomial const * v, var x, polynomial_ref & r) {
-            TRACE("polynomial_gcd", tout << "gcd prs with x" << x << " for\nu: "; 
+            TRACE("polynomial_gcd", tout << "gcd prs with x" << x << " for\nu: ";
                   u->display(tout, m_manager); tout << "\nv: "; v->display(tout, m_manager); tout << "\n";);
             if (degree(u, x) < degree(v, x))
                 std::swap(u, v);
@@ -3565,13 +3566,13 @@ namespace polynomial {
             scoped_numeral d_a(m_manager);
             polynomial_ref d_r(pm());
             polynomial_ref g(pm()), h(pm()), rem(pm()), new_h(pm());
-            
+
             iccp(u, x, i_u, c_u, pp_u);
             iccp(v, x, i_v, c_v, pp_v);
-            
+
             gcd(c_u, c_v, d_r);
             m_manager.gcd(i_u, i_v, d_a);
-            TRACE("polynomial_gcd_detail", 
+            TRACE("polynomial_gcd_detail",
                   tout << "After GCD of the content\n";
                   tout << "u: "; u->display(tout, m_manager); tout << "\n";
                   tout << "v: "; v->display(tout, m_manager); tout << "\n";
@@ -3582,15 +3583,15 @@ namespace polynomial {
                   tout << "pp_u: " << pp_u << "\n";
                   tout << "pp_v: " << pp_v << "\n";
                   tout << "d_r: " << d_r << "\nd_a: " << d_a << "\n";);
-            
+
             g = mk_one();
             h = mk_one();
-            
+
             unsigned counter = 0;
             while (true) {
                 SASSERT(degree(pp_u, x) >= degree(pp_v, x));
                 unsigned delta = degree(pp_u, x) - degree(pp_v, x);
-                TRACE("polynomial_gcd_detail", 
+                TRACE("polynomial_gcd_detail",
                       tout << "iteration: " << counter << "\n";
                       tout << "gcd loop\npp_u: " << pp_u << "\npp_v: " << pp_v << "\ndelta: " << delta << "\n";);
                 counter++;
@@ -3624,14 +3625,14 @@ namespace polynomial {
                 }
                 h = new_h;
             }
-        }            
+        }
 
         // Store in r <- gcd(content(u, x), v)
         void gcd_content(polynomial const * u, var x, polynomial const * v, polynomial_ref & r) {
             scoped_numeral i_u(m_manager);
             polynomial_ref c_u(pm());
             polynomial_ref pp_u(pm());
-            
+
             iccp(u, x, i_u, c_u, pp_u);
             c_u = mul(i_u, c_u);
             gcd(c_u, v, r);
@@ -3645,7 +3646,7 @@ namespace polynomial {
             SASSERT(is_univariate(u));
             SASSERT(is_univariate(v));
             if (is_zero(u)) {
-                r = const_cast<polynomial*>(v); 
+                r = const_cast<polynomial*>(v);
                 flip_sign_if_lm_neg(r);
                 return;
             }
@@ -3659,7 +3660,7 @@ namespace polynomial {
                 flip_sign_if_lm_neg(r);
                 return;
             }
-            if (is_const(u) || is_const(v)) { 
+            if (is_const(u) || is_const(v)) {
                 scoped_numeral i_u(m_manager), i_v(m_manager);
                 ic(v, i_v);
                 ic(u, i_u);
@@ -3697,15 +3698,15 @@ namespace polynomial {
             scoped_numeral a1(m());
             scoped_numeral a2(m());
             m().mul(b2, inv2, a1); // a1 is the multiplicator for coefficients of C1
-            m().mul(b1, inv1, a2); // a2 is the multiplicator for coefficients of C2 
+            m().mul(b1, inv1, a2); // a2 is the multiplicator for coefficients of C2
             TRACE("CRA", tout << "a1: " << a1 << ", a2: " << a2 << "\n";);
             // new bound
             scoped_numeral new_bound(m());
-            m().mul(b1, b2, new_bound);   
+            m().mul(b1, b2, new_bound);
             scoped_numeral lower(m());
             scoped_numeral upper(m());
             scoped_numeral new_a(m()), tmp1(m()), tmp2(m()), tmp3(m());
-            m().div(new_bound, 2, upper); 
+            m().div(new_bound, 2, upper);
             m().set(lower, upper);
             m().neg(lower);
             TRACE("CRA", tout << "lower: " << lower << ", upper: " << upper << "\n";);
@@ -3719,7 +3720,7 @@ namespace polynomial {
                     m().sub(new_a, new_bound, new_a);   \
                 R.add(new_a, M);                        \
             }
-            
+
             numeral zero(0);
             unsigned i1  = 0;
             unsigned i2  = 0;
@@ -3747,7 +3748,7 @@ namespace polynomial {
                 int s = lex_compare(m1, m2);
                 if (s == 0) {
                     ADD(C1->a(i1), C2->a(i2), m1);
-                    TRACE("CRA", 
+                    TRACE("CRA",
                           tout << "C1->a(i1): " << m().to_string(C1->a(i1)) << ", C2->a(i2): " << m().to_string(C2->a(i2)) << ", new_a: " << new_a << "\n";
                           tout << "tmp1: " << tmp1 << ", tmp2: " << tmp2 << ", tmp3: " << tmp3 << "\n";);
                     i1++;
@@ -3779,10 +3780,10 @@ namespace polynomial {
             polynomial_ref pp_u(pm()), pp_v(pm());
             ic(u, c_u, pp_u);
             ic(v, c_v, pp_v);
-            
+
             scoped_numeral d_a(m());
             m_manager.gcd(c_u, c_v, d_a);
-            
+
             scoped_numeral lc_u(m());
             scoped_numeral lc_v(m());
             unsigned d_u = degree(pp_u, x);
@@ -3791,7 +3792,7 @@ namespace polynomial {
             lc_v = univ_coeff(pp_v, d_v);
             scoped_numeral lc_g(m());
             m().gcd(lc_u, lc_v, lc_g);
-            
+
             polynomial_ref u_Zp(m_wrapper);
             polynomial_ref v_Zp(m_wrapper);
 
@@ -3853,8 +3854,8 @@ namespace polynomial {
                 TRACE("mgcd", tout << "candidate:\n" << candidate << "\n";);
                 scoped_numeral lc_candidate(m());
                 lc_candidate = univ_coeff(candidate, degree(candidate, x));
-                if (m().divides(lc_candidate, lc_g) && 
-                    divides(candidate, pp_u) && 
+                if (m().divides(lc_candidate, lc_g) &&
+                    divides(candidate, pp_u) &&
                     divides(candidate, pp_v)) {
                     TRACE("mgcd", tout << "found GCD\n";);
                     r = mul(d_a, candidate);
@@ -3938,8 +3939,8 @@ namespace polynomial {
             for (unsigned i = 0; i < sz; i++) {
                 monomial * m = p->m(i);
                 unsigned   k = m->degree_of(x);
-                if (k == 0) 
-                    continue; 
+                if (k == 0)
+                    continue;
                 tmp_m = div_x(m, x);
                 SASSERT(tmp_m != m); // since x is in m, but not in tmp_m
                 if (m_m2pos.get(tmp_m) == 1) {
@@ -3951,7 +3952,7 @@ namespace polynomial {
             SASSERT(num_unmarked <= num_marked);
             if (num_unmarked < num_marked) {
                 // reset remaining marks
-                for (unsigned i = 0; i < num_marked; i++) 
+                for (unsigned i = 0; i < num_marked; i++)
                     m_m2pos.reset(no_x_ms[i]);
                 TRACE("mgcd_detail", tout << "iccp_ZpX, cheap case... invoking ic\n";);
                 ic(p, ci, pp);
@@ -3961,7 +3962,7 @@ namespace polynomial {
             // 3) expensive case
             // Basic idea: separate a*m*x^k into a*x^k and m, put a*x^k into the som_buffer associated with m.
             // The mapping between m is som_buffers is given by m_m2pos
-            
+
             // Extract integer content
             ic(p, ci, pp);
             no_x_ms.reset();
@@ -3984,7 +3985,7 @@ namespace polynomial {
                 som->add(pp->a(i), mk_monomial(x, k));
             }
             unsigned num_ms = no_x_ms.size();
-            for (unsigned i = 0; i < num_ms; i++) 
+            for (unsigned i = 0; i < num_ms; i++)
                 m_m2pos.reset(no_x_ms[i]);
             SASSERT(num_ms > 0);
             // Compute GCD of all som_buffers
@@ -3997,7 +3998,7 @@ namespace polynomial {
                 SASSERT(is_univariate(a));
                 euclid_gcd(g, a, new_g);
                 g = new_g;
-                if (is_const(g)) 
+                if (is_const(g))
                     break;
             }
             if (!is_const(g)) {
@@ -4014,7 +4015,7 @@ namespace polynomial {
             som_buffers.reset(num_ms);
         }
 
-        // Return the leading coefficient (with respect to glex) of p when 
+        // Return the leading coefficient (with respect to glex) of p when
         // p is viewed as a multivariate polynomial Zp[y_1, ..., y_n] with coefficients in Zp[x].
         polynomial * lc_glex_ZpX(polynomial const * p, var x) {
             // collect a*x^k of maximal monomial with respect to glex
@@ -4023,7 +4024,7 @@ namespace polynomial {
             monomial_ref tmp_m(m_wrapper);
             unsigned sz = p->size();
             for (unsigned i = 0; i < sz; i++) {
-                monomial * m = p->m(i); 
+                monomial * m = p->m(i);
                 unsigned   k = m->degree_of(x);
                 if (k != 0) {
                     tmp_m = div_x(m, x);
@@ -4071,11 +4072,11 @@ namespace polynomial {
 
         newton_interpolator_vector   m_mgcd_iterpolators;
         scoped_ptr_vector<skeleton>  m_mgcd_skeletons;
-        
+
         struct sparse_mgcd_failed {};
-        
+
         // Auxiliary recursive function used in multivariate modular GCD
-        void mod_gcd_rec(polynomial const * u, polynomial const * v, unsigned p, 
+        void mod_gcd_rec(polynomial const * u, polynomial const * v, unsigned p,
                          unsigned idx, var_buffer const & vars, polynomial_ref & r) {
             TRACE("mgcd", tout << "mod_gcd_rec\nu: "; u->display(tout, m_manager, true); tout << "\nv: "; v->display(tout, m_manager, true); tout << "\n";);
             unsigned num_vars = vars.size();
@@ -4099,7 +4100,7 @@ namespace polynomial {
             scoped_numeral ci_g(m());
             polynomial_ref c_g(m_wrapper);
             polynomial_ref lc_g(m_wrapper);
-            TRACE("mgcd_detail", 
+            TRACE("mgcd_detail",
                   tout << "idx: " << idx << "\n";
                   tout << "x" << x << "\n";
                   tout << "pp_u = "; pp_u->display(tout, m_manager, true); tout << "\n";
@@ -4113,11 +4114,11 @@ namespace polynomial {
             m().gcd(ci_u, ci_v, ci_g);
             euclid_gcd(c_u, c_v, c_g);
             euclid_gcd(lc_u, lc_v, lc_g);
-            TRACE("mgcd_detail", 
+            TRACE("mgcd_detail",
                   tout << "c_g = "; c_g->display(tout, m_manager, true); tout << "\n";
                   tout << "lc_g = "; lc_g->display(tout, m_manager, true); tout << "\n";
                   tout << "ci_g = " << ci_g << "\n";);
-            
+
             skeleton * sk = m_mgcd_skeletons[idx];
 
             // use dense interpolation if skeleton is not available
@@ -4148,16 +4149,16 @@ namespace polynomial {
                 q = mul(lc_g_val, q);
                 var q_var      = max_var(q);
                 unsigned deg_q = q_var == null_var ? 0 : degree(q, q_var);
-                TRACE("mgcd_detail", tout << "counter: " << counter << "\nidx: " << idx << "\nq: " << q << "\ndeg_q: " << deg_q << "\nmin_deg_q: " << 
+                TRACE("mgcd_detail", tout << "counter: " << counter << "\nidx: " << idx << "\nq: " << q << "\ndeg_q: " << deg_q << "\nmin_deg_q: " <<
                       min_deg_q << "\nnext_x: x" << vars[idx+1] << "\nmax_var(q): " << q_var << "\n";);
                 if (deg_q < min_deg_q) {
-                    TRACE("mgcd_detail", tout << "reseting...\n";);                    
+                    TRACE("mgcd_detail", tout << "reseting...\n";);
                     counter   = 0;
                     min_deg_q = deg_q;
                     // start from scratch
                     if (sk == 0) {
                         interpolator.reset();
-                        interpolator.add(val, q); 
+                        interpolator.add(val, q);
                     }
                     else {
                         sinterpolator.reset();
@@ -4166,9 +4167,9 @@ namespace polynomial {
                     }
                 }
                 else if (deg_q == min_deg_q) {
-                    TRACE("mgcd_detail", tout << "adding sample point...\n";);                    
+                    TRACE("mgcd_detail", tout << "adding sample point...\n";);
                     if (sk == 0) {
-                        interpolator.add(val, q); 
+                        interpolator.add(val, q);
                     }
                     else {
                         if (!sinterpolator.add(val, q))
@@ -4197,10 +4198,10 @@ namespace polynomial {
                         found_candidate = true;
                     }
                 }
-                
+
                 bool done = false;
                 if (found_candidate) {
-                    if (degree(H, x) > 0) 
+                    if (degree(H, x) > 0)
                         primitive_ZpX(H, x, C);
                     else
                         C = normalize(H);
@@ -4220,7 +4221,7 @@ namespace polynomial {
                         throw sparse_mgcd_failed();
                     }
                 }
-                
+
                 if (done) {
                     TRACE("mgcd", tout << "idx: " << idx << "\nresult: " << r << "\n";);
                     if (sk == 0 && m_use_sparse_gcd) {
@@ -4234,8 +4235,8 @@ namespace polynomial {
         }
 
         // Multivariate modular GCD algorithm
-        void mod_gcd(polynomial const * u, polynomial const * v, 
-                     power_buffer const & u_var_degrees, power_buffer const & v_var_degrees, 
+        void mod_gcd(polynomial const * u, polynomial const * v,
+                     power_buffer const & u_var_degrees, power_buffer const & v_var_degrees,
                      polynomial_ref & r) {
             m_mgcd_iterpolators.set_owner(this);
             TRACE("mgcd", tout << "mod_gcd\nu: "; u->display(tout, m_manager, true); tout << "\nv: "; v->display(tout, m_manager, true); tout << "\n";);
@@ -4264,10 +4265,10 @@ namespace polynomial {
             polynomial_ref pp_u(pm()), pp_v(pm());
             ic(u, c_u, pp_u);
             ic(v, c_v, pp_v);
-            
+
             scoped_numeral d_a(m());
             m_manager.gcd(c_u, c_v, d_a);
-            
+
             unsigned mm_u_pos = pp_u->graded_lex_max_pos(); // position of the maximal monomial in u
             unsigned mm_v_pos = pp_v->graded_lex_max_pos(); // position of the maximal monomial in v
             scoped_numeral lc_u(m());
@@ -4284,7 +4285,7 @@ namespace polynomial {
             polynomial_ref q(m_wrapper);
             polynomial_ref candidate(m_wrapper);
             scoped_numeral p(m());
-            
+
             for (unsigned i = 0; i < NUM_BIG_PRIMES; i++) {
                 m().set(p, g_big_primes[i]);
                 TRACE("mgcd", tout << "trying prime: " << p << "\n";);
@@ -4336,8 +4337,8 @@ namespace polynomial {
                 TRACE("mgcd", tout << "candidate:\n" << candidate << "\n";);
                 scoped_numeral lc_candidate(m());
                 lc_candidate = candidate->a(candidate->graded_lex_max_pos());
-                if (m().divides(lc_candidate, lc_g) && 
-                    divides(candidate, pp_u) && 
+                if (m().divides(lc_candidate, lc_g) &&
+                    divides(candidate, pp_u) &&
                     divides(candidate, pp_v)) {
                     TRACE("mgcd", tout << "found GCD\n";);
                     r = mul(d_a, candidate);
@@ -4350,18 +4351,18 @@ namespace polynomial {
             // fallback to prs
             gcd_prs(u, v, max_var(u), r);
         }
-        
+
         void gcd(polynomial const * u, polynomial const * v, polynomial_ref & r) {
             power_buffer u_var_degrees;
             power_buffer v_var_degrees;
             TRACE("gcd_calls", tout << "gcd\nu: "; u->display(tout, m_manager); tout << "\nv: "; v->display(tout, m_manager); tout << "\n";);
-            TRACE("polynomial_gcd", 
+            TRACE("polynomial_gcd",
                   tout << "gcd\nu: "; u->display(tout, m_manager); tout << "\nv: "; v->display(tout, m_manager);
                   tout << "\nis_zero(u): " << is_zero(u) << ", is_const(u): " << is_const(u) << "\n";
                   tout << "is_zero(v): " << is_zero(v) << ", is_const(v): " << is_const(v) << "\n";
                   tout << "modular: " << m().modular() << "\n";);
             if (is_zero(u)) {
-                r = const_cast<polynomial*>(v); 
+                r = const_cast<polynomial*>(v);
                 flip_sign_if_lm_neg(r);
                 return;
             }
@@ -4375,7 +4376,7 @@ namespace polynomial {
                 flip_sign_if_lm_neg(r);
                 return;
             }
-            if (is_const(u) || is_const(v)) { 
+            if (is_const(u) || is_const(v)) {
                 scoped_numeral i_u(m_manager), i_v(m_manager);
                 ic(v, i_v);
                 ic(u, i_u);
@@ -4384,12 +4385,12 @@ namespace polynomial {
                 r = mk_const(a);
                 return;
             }
-            
+
             // Search for a variable x that occurs only in u or v.
             var_max_degrees(u, u_var_degrees); std::sort(u_var_degrees.begin(), u_var_degrees.end(), power::lt_var());
             var_max_degrees(v, v_var_degrees); std::sort(v_var_degrees.begin(), v_var_degrees.end(), power::lt_var());
 
-            TRACE("polynomial_gcd", 
+            TRACE("polynomial_gcd",
                   tout << "u var info\n"; for (unsigned i = 0; i < u_var_degrees.size(); i++) tout << u_var_degrees[i] << " "; tout << "\n";
                   tout << "v var info\n"; for (unsigned i = 0; i < v_var_degrees.size(); i++) tout << v_var_degrees[i] << " "; tout << "\n";);
             var x        = null_var;
@@ -4451,7 +4452,7 @@ namespace polynomial {
             SASSERT(max_var(u) == x);
 #if 0
             unsigned min_k = std::max(m_u_var_degrees[sz - 1].degree(), m_v_var_degrees[sz - 1].degree());
-            unsigned max_var_bias = 2; // the basic procedures are optimized for operating on the maximal variable. So, we have a bias to select the maximal one 
+            unsigned max_var_bias = 2; // the basic procedures are optimized for operating on the maximal variable. So, we have a bias to select the maximal one
             if (min_k > max_var_bias) {
                 min_k -= max_var_bias;
                 i = sz - 1;
@@ -4484,7 +4485,7 @@ namespace polynomial {
                         #endif
 
                         mod_gcd(u, v, u_var_degrees, v_var_degrees, r);
-                            
+
                         #ifdef Z3DEBUG
                         if (is_debug_enabled("mgcd_check")) {
                             polynomial_ref r2(m_wrapper);
@@ -4538,7 +4539,7 @@ namespace polynomial {
                 r = const_cast<polynomial*>(p);
                 return;
             }
-            
+
             var x = max_var(p);
             scoped_numeral i(m_manager);
             polynomial_ref c(pm()), pp(pm());
@@ -4579,7 +4580,7 @@ namespace polynomial {
                 r = const_cast<polynomial*>(p);
                 return;
             }
-            
+
             polynomial_ref p_prime(pm());
             p_prime = derivative(p, x);
             polynomial_ref g(pm());
@@ -4713,7 +4714,7 @@ namespace polynomial {
                 monomial * m = p->m(i);
                 SASSERT(m->size() <= 1);
                 monomial * new_m;
-                if (m->size() == 0) 
+                if (m->size() == 0)
                     new_m = m;
                 else
                     new_m = mk_monomial(y, m->degree(0));
@@ -4780,7 +4781,7 @@ namespace polynomial {
         // on exit.
         struct scoped_degree2pos {
             imp& pm;
-            polynomial const* p;            
+            polynomial const* p;
             scoped_degree2pos(imp& pm, polynomial const* p):
                 pm(pm),
                 p(p)
@@ -4804,7 +4805,7 @@ namespace polynomial {
                 return;
             }
             var x      = max_var(p);
-            unsigned d = degree(p, x); 
+            unsigned d = degree(p, x);
             scoped_degree2pos _sd2pos(*this, p);
             scoped_numeral a(m());
             m_manager.set(a, p->a(m_degree2pos[d]));
@@ -4815,7 +4816,7 @@ namespace polynomial {
                     m_manager.set(a, p->a(pos));
                 else
                     m_manager.reset(a);
-                r = muladd(q, r, a); 
+                r = muladd(q, r, a);
             }
         }
 
@@ -4828,13 +4829,13 @@ namespace polynomial {
             var     xs[2] = { x, y };
             return mk_linear(2, as, xs, zero);
         }
-        
+
         void compose_x_minus_y(polynomial const * p, var y, polynomial_ref & r) {
             SASSERT(is_valid(y));
             SASSERT(is_univariate(p));
             var x = max_var(p);
             if (y == max_var(p)) {
-                r = coeff(p, x, 0); 
+                r = coeff(p, x, 0);
                 return;
             }
             polynomial_ref x_minus_y(pm());
@@ -4887,7 +4888,7 @@ namespace polynomial {
         /**
            \brief Template for computing several variations of pseudo division algorithm.
            If degree(p) < degree(q) -->  Q = m_zero, d = 0, R = p
-           
+
            The following property is guaranteed by this method
 
            l(q)^d * p = Q * q + R
@@ -4897,20 +4898,20 @@ namespace polynomial {
            Possible configurations:
            Exact_d == true, then d = degree(p) - degree(q) + 1.
            If Exact_d == false, then d <= degree(p) - degree(q) + 1.
-           
+
            If Quotient == false, Q is not computed.
 
            If ModD == true, then x2d must be different from 0.
-           Moreover, p and q are assumed to be normalized modulo x2d. 
+           Moreover, p and q are assumed to be normalized modulo x2d.
            For all x, x2d->degree(x) > 0 implies  degree(p, x) < x2d->degree(x) and degree(q, x) < x2d->degree(x)
            Moreover, the division algorithm will compute Q and R modulo x2d.
         */
         template<bool Exact_d, bool Quotient, bool ModD>
-        void pseudo_division_core(polynomial const * p, polynomial const * q, var x, unsigned & d, polynomial_ref & Q, polynomial_ref & R, 
+        void pseudo_division_core(polynomial const * p, polynomial const * q, var x, unsigned & d, polynomial_ref & Q, polynomial_ref & R,
                                   var2degree const * x2d = 0) {
             SASSERT(is_valid(x));
             SASSERT(!ModD || x2d != 0);
-            TRACE("polynomial", tout << "pseudo_division\np: "; p->display(tout, m_manager); 
+            TRACE("polynomial", tout << "pseudo_division\np: "; p->display(tout, m_manager);
                   tout << "\nq: "; q->display(tout, m_manager); tout << "\nx: " << x << "\n";);
             polynomial * A = const_cast<polynomial*>(p);
             polynomial * B = const_cast<polynomial*>(q);
@@ -4960,7 +4961,7 @@ namespace polynomial {
                       tout << "A: "; A->display(tout, m_manager); tout << "\n";
                       tout << "B: "; B->display(tout, m_manager); tout << "\n";
                       tout << "l_B: "; l_B->display(tout, m_manager); tout << "\n";
-                      tout << "r_B: "; r_B->display(tout, m_manager); tout << "\n";                      
+                      tout << "r_B: "; r_B->display(tout, m_manager); tout << "\n";
                       tout << "Q: "; Q->display(tout, m_manager); tout << "\n";
                       tout << "R: "; R->display(tout, m_manager); tout << "\n";
                       tout << "d: " << d << "\n";);
@@ -4977,7 +4978,7 @@ namespace polynomial {
                             TRACE("polynomial", tout << "l_B_e: " << l_B_e << "\n";);
                             if (Quotient) {
                                 Q = mul(l_B_e, Q);
-                                if (ModD) 
+                                if (ModD)
                                     Q = mod_d(Q, *x2d);
                             }
                             R = mul(l_B_e, R);
@@ -4992,19 +4993,19 @@ namespace polynomial {
                 // Note that the goal is to cancel x^deg_R in R.
                 // m_som_buffer will contain the new monomials of R.
                 m_som_buffer.reset();
-                // We can accomplish that by traversing the current R, and 
+                // We can accomplish that by traversing the current R, and
                 //  - For each monomial a * m * x^deg_R --> m_som_buffer.addmul(-a, m * x^(deg_R - deg_B), r_B)
                 //               Note that m*x^(deg_R - deg_B) is div_x_k(m*x^deg_R, deg_B)
-                //  - For other monomials a*m,  --->   m_som_buffer.addmul(a, m, l_B) 
+                //  - For other monomials a*m,  --->   m_som_buffer.addmul(a, m, l_B)
                 // Note that, with this trick and don't need to create the temporary polynomials l_B * R and S * B
                 //
                 // If the quotient needs to be computed, we have that
                 // S <- l_R * x^(deg_R - deg_B)
                 // Q <- l_B * Q + S
                 // The new monomials of Q are stored in m_som_buffer2
-                // When traversing R, for each monomial a*m*x^deg_R  we add m_som_buffer2.add(a, m*x^(deg_R - deg_B)) 
+                // When traversing R, for each monomial a*m*x^deg_R  we add m_som_buffer2.add(a, m*x^(deg_R - deg_B))
                 m_som_buffer2.reset();
-                // 
+                //
                 unsigned sz = R->size();
                 for (unsigned i = 0; i < sz; i++) {
                     monomial * m      = R->m(i);
@@ -5012,7 +5013,7 @@ namespace polynomial {
                     if (m->degree_of(x) == deg_R) {
                         monomial_ref m_prime(pm());
                         m_prime = div_x_k(m, x, deg_B);
-                        CTRACE("polynomial", m->degree_of(x) != deg_R - deg_B, 
+                        CTRACE("polynomial", m->degree_of(x) != deg_R - deg_B,
                                tout << "deg_R: " << deg_R << ", deg_B: " << deg_B << ", x: " << x << "\n";
                                m->display(tout); tout << ", "; m_prime->display(tout); tout << "\n";);
                         SASSERT(m->degree_of(x) == deg_R);
@@ -5073,7 +5074,7 @@ namespace polynomial {
             rhs = mul(Q, old_q);
             rhs = add(rhs, R);
             bool is_eq = eq(lhs, rhs);
-            TRACE("pseudo_remainder", 
+            TRACE("pseudo_remainder",
                   tout << "pseudo_division bug\n";
                   tout << "p:   "; old_p->display(tout, m_manager); tout << "\n";
                   tout << "q:   "; old_q->display(tout, m_manager); tout << "\n";
@@ -5097,7 +5098,7 @@ namespace polynomial {
 
         polynomial * exact_div(polynomial const * p, numeral const & c) {
             SASSERT(!m().is_zero(c));
-            
+
             som_buffer & R = m_som_buffer;
             R.reset();
 
@@ -5153,7 +5154,7 @@ namespace polynomial {
                 R.addmul(a_r_q, m_r_q, q); // R <- R - (a_r/a_q)*(m_r/m_q)*Q
             }
         }
-        
+
         // Return true if q divides p.
         bool divides(polynomial const * q, polynomial const * p) {
             TRACE("polynomial", tout << "divides\nq: "; q->display(tout, m_manager); tout << "\np: "; p->display(tout, m_manager); tout << "\n";);
@@ -5197,21 +5198,21 @@ namespace polynomial {
         void quasi_resultant(polynomial const * p, polynomial const * q, var x, polynomial_ref & r) {
             // For h_0 = p and h_1 = q, we compute the following sequence
             // using the pseudo remainder procedure
-            // 
+            //
             // l(h_1)^d_1 * h_0     = q_1 * h_1 + h_2
             // l(h_2)^d_2 * h_1     = q_2 * h_2 + h_3
             // l(h_3)^d_3 * h_2     = q_3 * h_3 + h_4
             // ...
             // l(h_n)^d_n * h_{n-1} = q_n * h_n + h_{n+1}
             //
-            // where 
+            // where
             // degree(h_i, x) > 0 for all i in [0, n], and
             // degree(h_{n+1}, x) == 0
             //
             // l(h_i) is the leading coefficient of h_i with respect to variable x.
             // l(h_i) is in general a polynomial.
             // For example, l( y*x^2 + x^2 + y^2 x + 1 ) = y + 1
-            // 
+            //
             // d^i is an unsigned integer. It is introduce by the pseudo remainder procedure
             // because the coefficients of x^k do not form a field. That is, they are elements of a polynomial ring Q[y_1, ..., y_n].
             // Their values are irrelevant for the correctness of this procedure.
@@ -5225,20 +5226,20 @@ namespace polynomial {
             //   if h_0(a_1, ..., a_n, b) = h_1(a_1, ..., a_n, b) = 0
             //   then for any h_i in the sequence, h_i(a_1, ..., a_n, b) = 0.
             //   In particular, h_{n+1}(a_1, ..., a_n) = 0
-            // 
+            //
             // Observation 3:
-            //   The procedure terminates because degree(h_i, x) > degree(h_{i+1}, x) 
+            //   The procedure terminates because degree(h_i, x) > degree(h_{i+1}, x)
             //   for all i >= 1
             //
             // Observation 4:
-            //   If h_{n+1} is the zero polynomial, then 
+            //   If h_{n+1} is the zero polynomial, then
             //   For any complex numbers a_1, ..., a_n
             //   the univariate polynomials p(a_1, ..., a_n, x) and q(a_1, ..., a_n, x) in C[x]
             //   have a common root.
-            //   Reason:  
+            //   Reason:
             //      If h_n(a_1, ..., a_n, x) is not the zero polynomial, then it is the GCD of p(a_1, ..., a_n, x) and q(a_1, ..., a_n, x),
             //      and it contains the common roots.
-            //      If h_n(a_1, ..., a_n, x) is the zero polynomial, then 
+            //      If h_n(a_1, ..., a_n, x) is the zero polynomial, then
             //      we consider h_{n-1}(a_1, ..., a_n, x). If it is not the zero polynomial then it is the GCD and we are done,
             //      otherwise we consider h_{n-2}(a_1, ..., a_n, x), and we continue the same process.
             //      Thus, eventually we find a h_i(a_1, ..., a_n, x) for i > 1 that is the GCD, or q(a_1, ..., a_n, x) is the zero polynomial,
@@ -5274,7 +5275,7 @@ namespace polynomial {
                 // degree(h_2, x) < degree(h_1, x)
             }
         }
-        
+
         // sign = sign * (-1)^(deg_A * deg_B)
         static void update_sign(unsigned deg_A, unsigned deg_B, bool & sign) {
             if (deg_A % 2 == 0 || deg_B % 2 == 0)
@@ -5290,14 +5291,14 @@ namespace polynomial {
            the coefficients of p and q with respect to x.
 
            Given p and q polynomials in Q[y_1, ..., y_n, x], r is a polynomial in Q[y_1, ..., y_n].
-           
+
            Property 1)
             If p and q can be written as
                  p = a_m * (x - alpha_1) * ... * (x - alpha_m)
                  q = b_n * (x - beta_1)  * ... * (x - beta_n)
-            Then, 
+            Then,
               Res(p, q, x) = a_m^n * b_n^m * Product_{i in [1,m], j in [1, n]} (alpha_i - beta_j)
-              
+
             Remark: if p and q are univariate polynomials, then alpha_i's and beta_j's are the roots
             of p and q, then Res(p, q, x) is the product of the differences of their roots modulo
             a constant.
@@ -5307,10 +5308,10 @@ namespace polynomial {
            if p(a_1, ..., a_n, b) = q(a_1, ..., a_n, b) = 0, then r(a_1, ..., b_n) = 0
 
            Property 3)
-           There are polynomials U and V in Q[y_1, ..., y_n, x] s.t. 
+           There are polynomials U and V in Q[y_1, ..., y_n, x] s.t.
            p*U + q*V = r
            s.t.
-           deg(U, x) < deg(q, x) 
+           deg(U, x) < deg(q, x)
            and
            deg(V, x) < deg(p, x)
 
@@ -5318,7 +5319,7 @@ namespace polynomial {
 
            Property 4) (follows from 1)
            If Res(p, q, x) = 0, then p and q have a common divisor.
-        
+
            Resultant Calculus:
              Let A and B be two polynomials of degree m and n on variable x.
              Let c and d be numerals.
@@ -5330,7 +5331,7 @@ namespace polynomial {
              Res(c, d, x)  = 1
              Res(A, B1*B2, x) = Res(A, B1, x)*Res(A, B2, x)
              Res(A, A*Q + B, x)  = coeff(A, x)^(l-n) * Res(A, B, x)   where l = deg(A*Q + R)
-                          
+
              The last equation suggests an approach for computing the Resultant using
              pseudo-division instead of determinants.
 
@@ -5340,7 +5341,7 @@ namespace polynomial {
                    pseudo_division(A, B, x, d, Q, R);
                    r = degree(R)
              Then we have:
-             (lc^d)^n * Res(A, B) = Res(A * l^d, B) = Res(Q * B + R, B) = (-1)^(m*n) * Res(B, Q * B + R) = (-1)^(m*n) * lc^(m-r) * Res(B, R)      
+             (lc^d)^n * Res(A, B) = Res(A * l^d, B) = Res(Q * B + R, B) = (-1)^(m*n) * Res(B, Q * B + R) = (-1)^(m*n) * lc^(m-r) * Res(B, R)
 
              So,
              lc^(d*n) * Res(A, B) = (-1)^(m*n) * lc^(m-r) * Res(B, R)
@@ -5351,7 +5352,7 @@ namespace polynomial {
 
                  d*n >= m >= m-r
 
-             So, if d*n == m-r 
+             So, if d*n == m-r
                     Res(A, B) = (-1)^(m*n) * Res(R, B)
                  if d*n >  m-r
                     Res(A, B) = (-1)^(m*n) * exact_div(Res(R, B), lc^(d*n - m + r))
@@ -5383,7 +5384,7 @@ namespace polynomial {
                 pw(B, degree(A, x), result);
                 return;
             }
-            
+
             // decompose A and B into
             //   A = iA*cA*ppA
             //   B = iB*cB*ppB
@@ -5402,7 +5403,7 @@ namespace polynomial {
             t = mul(cA, cB);
             A = ppA;
             B = ppB;
-            // 
+            //
             TRACE("resultant", tout << "resultant(A, B, x) after normalization\nA: " << A << "\nB: " << B << "\nx: " << x << "\n";
                   tout << "t: " << t << "\n";);
 
@@ -5509,7 +5510,7 @@ namespace polynomial {
                 std::swap(deg_p, deg_q);
             }
             SASSERT(deg_p > 0);
-            unsigned n = deg_p; 
+            unsigned n = deg_p;
             sRes.reset();
             sRes.resize(n + 1); // the sequence is from 0 ... n
             sRes.set(n, const_cast<polynomial*>(p));
@@ -5522,17 +5523,17 @@ namespace polynomial {
             unsigned j = n - 1;
             while (j > 0) {
                 SASSERT(degree(sRes.get(j+1), x) == j+1); // sRes_{j+1} is regular
-                if (j == n-1) 
+                if (j == n-1)
                     R_j_plus_1 = mk_one(); // by definition of PSC chain
                 else
                     R_j_plus_1 = coeff(sRes.get(j+1), x, j+1);
                 unsigned r = degree(sRes.get(j), x);
                 if (r == j) {
                     // sRes_j is regular
-                    
+
                     exact_pseudo_remainder(sRes.get(j+1), sRes.get(j), x, prem);
                     TRACE("psc", tout << "j: " << j << "\nsRes_j+1: "; sRes.get(j+1)->display(tout, m_manager);
-                          tout << "\nsRes_j: "; sRes.get(j)->display(tout, m_manager); 
+                          tout << "\nsRes_j: "; sRes.get(j)->display(tout, m_manager);
                           tout << "\nprem: " << prem << "\n";);
                     // sRes_{j-1} = prem/R_j_plus_1^2
                     newS = exact_div(prem, R_j_plus_1);
@@ -5543,7 +5544,7 @@ namespace polynomial {
                 else {
                     SASSERT(r < j);
                     // sRes_j is defective
-                    
+
                     // sRes_{j-1} = sRes_{j-2} = ... = sRes_{r+1} = 0
                     for (int i = j-1; i >= static_cast<int>(r+1); i--)
                         sRes.set(i, mk_zero());
@@ -5555,7 +5556,7 @@ namespace polynomial {
                     for (unsigned i = 0; i < j-r; i++)
                         newS = exact_div(newS, R_j_plus_1);
                     sRes.set(r, newS);
-                    
+
                     // If r > 0, we also compute sRes_{r-1}
                     if (r > 0) {
                         exact_pseudo_remainder(sRes.get(j+1), sRes.get(j), x, prem);
@@ -5578,7 +5579,7 @@ namespace polynomial {
         void psc_chain1(polynomial const * p, polynomial const * q, var x, polynomial_ref_vector & S) {
             subresultant_chain(p, q, x, S);
             unsigned sz = S.size();
-            TRACE("psc", tout << "subresultant_chain\n"; 
+            TRACE("psc", tout << "subresultant_chain\n";
                   for (unsigned i = 0; i < sz; i++) { tout << "i: " << i << " "; S.get(i)->display(tout, m_manager); tout << "\n"; });
             for (unsigned i = 0; i < sz - 1; i++) {
                 S.set(i, coeff(S.get(i), x, i));
@@ -5599,27 +5600,27 @@ namespace polynomial {
             unsigned n2 = degree(B, x);
             if (n1 > n2) {
                 G1 = const_cast<polynomial*>(A);
-                G2 = const_cast<polynomial*>(B); 
+                G2 = const_cast<polynomial*>(B);
             }
             else {
                 G1 = const_cast<polynomial*>(B);
-                G2 = const_cast<polynomial*>(A); 
+                G2 = const_cast<polynomial*>(A);
                 std::swap(n1, n2);
             }
             unsigned d0 = 0;
             unsigned d1 = n1 - n2;
             unsigned i  = 1;
-            unsigned n3; 
+            unsigned n3;
             S.reset();
             while (true) {
                 // Compute Gh_{i+2}
                 if (!is_zero(G2)) {
                     exact_pseudo_remainder(G1, G2, x, Gh3);
                     n3 = degree(Gh3, x);
-                    if (!is_zero(Gh3) && d1%2 == 0) 
+                    if (!is_zero(Gh3) && d1%2 == 0)
                         Gh3 = neg(Gh3);
                 }
-                
+
                 // Compute hi
                 if (i > 1) {
                     g1 = lc(G1, x);
@@ -5632,9 +5633,9 @@ namespace polynomial {
                             std::reverse(S.c_ptr(), S.c_ptr() + S.size());
                             return;
                         }
-                    } 
+                    }
                 }
-                
+
                 // Compute G_{i+2}
                 if (i == 1 || is_zero(Gh3)) {
                     G3 = Gh3;
@@ -5643,9 +5644,9 @@ namespace polynomial {
                     pw(h1, d1, hs1);
                     hs1 = mul(g1, hs1);
                     G3  = exact_div(Gh3, hs1);
-                    hs1 = 0; 
+                    hs1 = 0;
                 }
-                
+
                 // prepare for next iteration
                 n1 = n2;
                 n2 = n3;
@@ -5659,7 +5660,7 @@ namespace polynomial {
             }
         }
 
-        // Optimized calculation of S_e using "Dichotomous Lazard" 
+        // Optimized calculation of S_e using "Dichotomous Lazard"
         void Se_Lazard(unsigned d, polynomial const * lc_S_d, polynomial const * S_d_1, var x, polynomial_ref & S_e) {
             unsigned n = d - degree(S_d_1, x) - 1;
             TRACE("Lazard", tout << "lc_S_d: "; lc_S_d->display(tout, m_manager); tout << "\nS_d_1: "; S_d_1->display(tout, m_manager);
@@ -5673,7 +5674,7 @@ namespace polynomial {
             polynomial const * Y = lc_S_d;
             unsigned a = 1 << log2(n);
             TRACE("Lazard", tout << "a: " << a << "\n";);
-            SASSERT(a <= n); 
+            SASSERT(a <= n);
             SASSERT(n < 2*a);
             polynomial_ref C(pm());
             C = X;
@@ -5698,7 +5699,7 @@ namespace polynomial {
         }
 
         // Optimized calculation of S_{e-1} for optimized psc_chain
-        void optimized_S_e_1(unsigned d, unsigned e, polynomial const * A, polynomial const * S_d_1, polynomial const * S_e, polynomial const * s, 
+        void optimized_S_e_1(unsigned d, unsigned e, polynomial const * A, polynomial const * S_d_1, polynomial const * S_e, polynomial const * s,
                              var x, polynomial_ref & S_e_1) {
             SASSERT(d == degree(A, x));
             SASSERT(e == degree(S_d_1, x));
@@ -5750,7 +5751,7 @@ namespace polynomial {
             S_e_1 = exact_div(S_e_1, s);
             if ((d-e+1) % 2 == 1)
                 S_e_1 = neg(S_e_1);
-        } 
+        }
 
         void psc_chain_optimized_core(polynomial const * P, polynomial const * Q, var x, polynomial_ref_vector & S) {
             TRACE("psc_chain_classic", tout << "P: "; P->display(tout, m_manager); tout << "\nQ: "; Q->display(tout, m_manager); tout << "\n";);
@@ -5758,7 +5759,7 @@ namespace polynomial {
             unsigned degQ = degree(Q, x);
             SASSERT(degP >= degQ);
             polynomial_ref A(pm()), B(pm()), C(pm()), minus_Q(pm()), lc_Q(pm()), ps(pm());
-                    
+
             lc_Q = lc(Q, x);
             polynomial_ref s(pm());
             // s <- lc(Q)^(deg(P)-deg(Q))
@@ -5812,7 +5813,7 @@ namespace polynomial {
             if (degree(P, x) >= degree(Q, x))
                 psc_chain_optimized_core(P, Q, x, S);
             else
-                psc_chain_optimized_core(Q, P, x, S); 
+                psc_chain_optimized_core(Q, P, x, S);
             if (S.empty())
                 S.push_back(mk_zero());
             std::reverse(S.c_ptr(), S.c_ptr() + S.size());
@@ -5825,7 +5826,7 @@ namespace polynomial {
             SASSERT(degP >= degQ);
             polynomial_ref A(pm()), B(pm()), C(pm()), minus_Q(pm()), lc_Q(pm()), lc_B(pm()), lc_A(pm());
             polynomial_ref tmp1(pm()), tmp2(pm()), s_delta(pm()), minus_B(pm()), ps(pm());
-                    
+
             lc_Q = lc(Q, x);
             polynomial_ref s(pm());
             // s <- lc(Q)^(deg(P)-deg(Q))
@@ -5862,7 +5863,7 @@ namespace polynomial {
                     ps = coeff(C, x, e);
                     if (!is_zero(ps))
                         S.push_back(ps);
-                   
+
                 }
                 else {
                     SASSERT(delta == 0 || delta == 1);
@@ -5892,7 +5893,7 @@ namespace polynomial {
             if (degree(P, x) >= degree(Q, x))
                 psc_chain_classic_core(P, Q, x, S);
             else
-                psc_chain_classic_core(Q, P, x, S); 
+                psc_chain_classic_core(Q, P, x, S);
             if (S.empty())
                 S.push_back(mk_zero());
             std::reverse(S.c_ptr(), S.c_ptr() + S.size());
@@ -5958,7 +5959,7 @@ namespace polynomial {
         bool is_perfect_square(polynomial const * p, unsigned i, numeral & sqrt_a) {
             monomial * m = p->m(i);
             if (!m->is_square())
-                return false; 
+                return false;
             numeral const & a = p->a(i);
             if (!m_manager.is_perfect_square(a, sqrt_a))
                 return false;
@@ -5972,7 +5973,7 @@ namespace polynomial {
                 return true;
             }
             scoped_numeral a(m_manager);
-            TRACE("sqrt_bug", 
+            TRACE("sqrt_bug",
                   tout << "sqrt:    "; p->display(tout, m_manager); tout << "\n";
                   tout << "min pos: " <<  p->graded_lex_min_pos() << "\n";
                   tout << "max pos: " <<  p->graded_lex_max_pos() << "\n";);
@@ -6010,7 +6011,7 @@ namespace polynomial {
             SASSERT(m1 != 0);
             som_buffer & R = m_som_buffer;
             som_buffer & C = m_som_buffer2;
-            R.reset(); 
+            R.reset();
             C.reset();
             numeral two;
             m_manager.set(two, 2);
@@ -6024,7 +6025,7 @@ namespace polynomial {
                 if (i == max_pos)
                     continue;
                 C.add(p->a(i), p->m(i));
-            } 
+            }
             scoped_numeral a_i(m_manager);
             scoped_numeral aux(m_manager);
             monomial_ref m_aux(pm());
@@ -6050,7 +6051,7 @@ namespace polynomial {
                 if (!m_manager.divides(two_a, C.a(curr_max)))
                     return false;
                 m_manager.div(C.a(curr_max), two_a, a_i);
-            
+
                 // C  <- C - 2*R*a_i*m_i - a_i*a_i*m_i*m_i
                 unsigned R_sz = R.size();
                 for (unsigned j = 0; j < R_sz; j++) {
@@ -6076,7 +6077,7 @@ namespace polynomial {
                   tout << "polynomials before rename\n";
                   for (unsigned i = 0; i < m_polynomials.size(); i++) {
                       if (m_polynomials[i] == 0)
-                          continue; 
+                          continue;
                       m_polynomials[i]->display(tout, m_manager);
                       tout << "\n";
                   });
@@ -6092,7 +6093,7 @@ namespace polynomial {
                 p->make_first_maximal();
                 SASSERT(p->size() <= 1 || !p->lex_sorted());
             }
-            TRACE("rename", 
+            TRACE("rename",
                   tout << "polynomials after rename\n";
                   for (unsigned i = 0; i < m_polynomials.size(); i++) {
                       if (m_polynomials[i] == 0)
@@ -6129,7 +6130,7 @@ namespace polynomial {
             }
             return found_unit;
         }
-        
+
         bool is_nonpos(polynomial const * p) {
             unsigned sz = p->size();
             for (unsigned i = 0; i < sz; i++) {
@@ -6151,10 +6152,10 @@ namespace polynomial {
             }
             return true;
         }
-      
+
         // Functor used to compute the maximal degree of each variable in a polynomial p.
         class var_max_degree {
-            unsigned_vector    m_max_degree;  
+            unsigned_vector    m_max_degree;
             var_vector         m_xs;
         public:
             void init(polynomial const * p) {
@@ -6174,7 +6175,7 @@ namespace polynomial {
                     }
                 }
             }
-            
+
             void reset() {
                 unsigned sz = m_xs.size();
                 for (unsigned i = 0; i < sz; i++) {
@@ -6188,7 +6189,7 @@ namespace polynomial {
             }
 
             unsigned num_vars() const { return m_xs.size(); }
-            
+
             var const * vars() const { return m_xs.c_ptr(); }
         };
 
@@ -6230,7 +6231,7 @@ namespace polynomial {
             m_found_vars.reserve(num_vars(), false);
             m_som_buffer.reset();
             som_buffer & R       = m_som_buffer;
-            tmp_monomial & new_m = m_tmp1; 
+            tmp_monomial & new_m = m_tmp1;
             unsigned sz    = p->size();
             for (unsigned i = 0; i < sz; i++) {
                 monomial * m = p->m(i);
@@ -6284,14 +6285,14 @@ namespace polynomial {
 
         struct var_pos {
             unsigned_vector m_pos;
-            
+
             void init(unsigned sz, var const * xs) {
                 for (unsigned i = 0; i < sz; i++) {
                     SASSERT(m_pos.get(xs[i], UINT_MAX) == UINT_MAX);
                     m_pos.setx(xs[i], i, UINT_MAX);
                 }
             }
-            
+
             void reset(unsigned sz, var const * xs) {
                 for (unsigned i = 0; i < sz; i++) {
                     SASSERT(m_pos.get(xs[i], UINT_MAX) != UINT_MAX);
@@ -6330,8 +6331,8 @@ namespace polynomial {
             virtual unsynch_mpq_manager & m() const { UNREACHABLE(); static unsynch_mpq_manager m; return m; }
             virtual bool contains(var x) const { return m_var_pos(x) != UINT_MAX; }
             virtual mpq const & operator()(var x) const { return m_vs[m_var_pos(x)]; }
-        }; 
-        
+        };
+
         polynomial * substitute(polynomial const * p, unsigned xs_sz, var const * xs, mpq const * vs) {
             var2mpq_wrapper x2v(xs_sz, xs, vs, m_var_pos);
             return substitute(p, x2v);
@@ -6345,7 +6346,7 @@ namespace polynomial {
             scoped_numeral tmp(m_manager);
             m_som_buffer.reset();
             som_buffer & R       = m_som_buffer;
-            tmp_monomial & new_m = m_tmp1; 
+            tmp_monomial & new_m = m_tmp1;
             unsigned sz    = p->size();
             for (unsigned i = 0; i < sz; i++) {
                 monomial * m = p->m(i);
@@ -6375,7 +6376,7 @@ namespace polynomial {
             return R.mk();
         }
 
-        
+
         /**
            Auxiliary method used to implement t_eval.
            If evaluates the sub-polynomial p composed of the monomials at positions [start, end)
@@ -6420,7 +6421,7 @@ namespace polynomial {
                         var y = p->max_smaller_than(i, end, x);
                         if (y == null_var) {
                             SASSERT(end == i+1);
-                            vm.add(r, p->a(i), r); 
+                            vm.add(r, p->a(i), r);
                         }
                         else {
                             t_eval_core<ValManager>(p, vm, x2v, i, end, y, aux.get());
@@ -6472,7 +6473,7 @@ namespace polynomial {
             lex_sort(p); // lex_sort just reorders the monomials of p. That is, p still represents the same polynomial
             t_eval_core(p, vm, x2v, 0, p->size(), max_var(p), r);
         }
-        
+
         class single_var2value : public var2value<numeral_manager> {
             numeral_manager & m_manager;
             var             m_x;
@@ -6486,14 +6487,14 @@ namespace polynomial {
 
         void univ_eval(polynomial const * p, var x, numeral const & val, numeral & r) {
             SASSERT(is_univariate(p));
-            if (is_zero(p)) 
+            if (is_zero(p))
                 m().set(r, 0);
-            else if (is_const(p)) 
+            else if (is_const(p))
                 m().set(r, p->a(0));
             else
                 t_eval<numeral_manager>(const_cast<polynomial*>(p), single_var2value(m(),x, val), r);
         }
-        
+
         void eval(polynomial const * p, var2mpbqi const & x2v, mpbqi & r) {
             t_eval<mpbqi_manager>(const_cast<polynomial*>(p), x2v, r);
         }
@@ -6583,7 +6584,7 @@ namespace polynomial {
             m_manager.set(m_four, -4);
             disc = addmul(b2, m_four, mk_unit(), ac);
             // discriminant must be different from 0, since p is square free
-            SASSERT(!is_zero(disc)); 
+            SASSERT(!is_zero(disc));
             polynomial_ref disc_sqrt(pm());
             TRACE("factor", tout << "disc: " << disc << "\n";);
             if (!sqrt(disc, disc_sqrt)) {
@@ -6632,14 +6633,14 @@ namespace polynomial {
             r.push_back(f1, k);
             r.push_back(f2, k);
         }
-        
+
         void factor_sqf_pp_univ(polynomial const * p, factors & r, unsigned k, factor_params const & params) {
             SASSERT(is_univariate(p));
             SASSERT(is_square_free(p, max_var(p)));
             SASSERT(is_primitive(p, max_var(p)));
             SASSERT(!is_zero(p));
             TRACE("factor", tout << "factor square free univariate:\n"; p->display(tout, m_manager); tout << "\n";);
-            
+
             // Convert polynomial into a upolynomial, and execute univariate factorization.
             var x = max_var(p);
             up_manager::scoped_numeral_vector p1(upm().m());
@@ -6664,7 +6665,7 @@ namespace polynomial {
                     numeral_vector const & f1 = fs[i];
                     unsigned k1 = fs.get_degree(i);
                     f = to_polynomial(f1.size(), f1.c_ptr(), x);
-                    TRACE("factor_bug", 
+                    TRACE("factor_bug",
                           tout << "uni-factor:\n"; upm().display(tout, f1); tout << "\n";
                           tout << "factor:\n" << f << "\n";);
                     r.push_back(f, k*k1);
@@ -6681,7 +6682,7 @@ namespace polynomial {
             SASSERT(is_primitive(p, x));
             SASSERT(is_square_free(p, x));
             TRACE("factor", tout << "factor square free (degree > 2):\n"; p->display(tout, m_manager); tout << "\n";);
-            
+
             // TODO: invoke Dejan's procedure
             r.push_back(const_cast<polynomial*>(p), k);
         }
@@ -6721,14 +6722,14 @@ namespace polynomial {
             TRACE("factor", tout << "i: " << i << "\n";);
             acc_constant(r, i);
             factor_core(c, r, params);
-            
+
             polynomial_ref C(pm());
             C = pp;
             // Let C be a primitive polynomial of the form: P_1^1 * P_2^2 * ... * P_k^k, where each P_i is square free
-            polynomial_ref C_prime(pm()); 
+            polynomial_ref C_prime(pm());
             C_prime = derivative(C, x);
             polynomial_ref B(pm()), A(pm()), D(pm());
-            gcd(C, C_prime, B); 
+            gcd(C, C_prime, B);
             if (is_const(B)) {
                 // C must be of the form P_1 (square free)
                 SASSERT(degree(C, x) > 0);
@@ -6736,7 +6737,7 @@ namespace polynomial {
             }
             else {
                 // B is of the form P_2 * P_3^2 * ... * P_k^{k-1}
-                A = exact_div(C, B); 
+                A = exact_div(C, B);
                 // A is of the form P_1 * P_2 * ... * P_k
                 unsigned j = 1;
                 while (!is_const(A)) {
@@ -6922,7 +6923,7 @@ namespace polynomial {
     small_object_allocator & manager::allocator() const {
         return m_imp->mm().allocator();
     }
-    
+
     void manager::add_del_eh(del_eh * eh) {
         m_imp->add_del_eh(eh);
     }
@@ -6930,7 +6931,7 @@ namespace polynomial {
     void manager::remove_del_eh(del_eh * eh) {
         m_imp->remove_del_eh(eh);
     }
-    
+
     var manager::mk_var() {
         return m_imp->mk_var();
     }
@@ -6970,7 +6971,7 @@ namespace polynomial {
     unsigned manager::hash(polynomial const * p) {
         return m_imp->hash(p);
     }
-    
+
     polynomial * manager::coeff(polynomial const * p, var x, unsigned k) {
         return m_imp->coeff(p, x, k);
     }
@@ -7038,7 +7039,7 @@ namespace polynomial {
     polynomial * manager::mk_zero() {
         return m_imp->mk_zero();
     }
-    
+
     polynomial * manager::mk_const(numeral & a) {
         return m_imp->mk_const(a);
     }
@@ -7083,7 +7084,7 @@ namespace polynomial {
         return m_imp->sub(p1, p2);
     }
 
-    polynomial * manager::addmul(numeral const & a1, monomial const * m1, polynomial const * p1, 
+    polynomial * manager::addmul(numeral const & a1, monomial const * m1, polynomial const * p1,
                                  numeral const & a2, monomial const * m2, polynomial const * p2) {
         return m_imp->addmul(a1, m1, p1, a2, m2, p2);
     }
@@ -7099,11 +7100,11 @@ namespace polynomial {
     polynomial * manager::mul(numeral const & a, polynomial const * p) {
         return m_imp->mul(a, p);
     }
-    
+
     polynomial * manager::mul(rational const & a, polynomial const * p) {
         return m_imp->mul(a, p);
     }
-        
+
     polynomial * manager::mul(polynomial const * p1, polynomial const * p2) {
         return m_imp->mul(p1, p2);
     }
@@ -7115,7 +7116,7 @@ namespace polynomial {
     polynomial * manager::mul(monomial const * m, polynomial const * p) {
         return m_imp->mul(m, p);
     }
-    
+
     void manager::pw(polynomial const * p, unsigned k, polynomial_ref & r) {
         m_imp->pw(p, k, r);
     }
@@ -7160,7 +7161,7 @@ namespace polynomial {
     polynomial * manager::flip_sign_if_lm_neg(polynomial const * p) {
         return m_imp->flip_sign_if_lm_neg_core(p);
     }
-    
+
     void manager::gcd(polynomial const * p, polynomial const * q, polynomial_ref & g) {
         m_imp->gcd(p, q, g);
     }
@@ -7168,7 +7169,7 @@ namespace polynomial {
     polynomial * manager::derivative(polynomial const * p, var x) {
         return m_imp->derivative(p, x);
     }
-    
+
     void manager::square_free(polynomial const * p, var x, polynomial_ref & r) {
         m_imp->square_free(p, x, r);
     }
@@ -7252,7 +7253,7 @@ namespace polynomial {
     polynomial * manager::exact_div(polynomial const * p, numeral const & c) {
         return m_imp->exact_div(p, c);
     }
-    
+
     bool manager::divides(polynomial const * q, polynomial const * p) {
         return m_imp->divides(q, p);
     }
@@ -7333,7 +7334,7 @@ namespace polynomial {
         return m_imp->mod_d(p, x2d);
     }
 
-    void manager::exact_pseudo_division_mod_d(polynomial const * p, polynomial const * q, var x, var2degree const & x2d, 
+    void manager::exact_pseudo_division_mod_d(polynomial const * p, polynomial const * q, var x, var2degree const & x2d,
                                                                     polynomial_ref & Q, polynomial_ref & R) {
         m_imp->exact_pseudo_division_mod_d(p, q, x, x2d, Q, R);
     }
@@ -7345,7 +7346,7 @@ namespace polynomial {
     void manager::eval(polynomial const * p, var2mpq const & x2v, mpq & r) {
         return m_imp->eval(p, x2v, r);
     }
-    
+
     void manager::eval(polynomial const * p, var2anum const & x2v, algebraic_numbers::anum & r) {
         return m_imp->eval(p, x2v, r);
     }
@@ -7364,7 +7365,7 @@ namespace polynomial {
     }
 };
 
-polynomial::polynomial * convert(polynomial::manager & sm, polynomial::polynomial * p, polynomial::manager & tm, 
+polynomial::polynomial * convert(polynomial::manager & sm, polynomial::polynomial * p, polynomial::manager & tm,
                                  polynomial::var x, unsigned max_d) {
     ptr_buffer<polynomial::monomial, 128> ms;
     polynomial::numeral_manager & nm = tm.m();

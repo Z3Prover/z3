@@ -8,8 +8,8 @@ Module Name:
 Abstract:
 
     Translator from Z3 expressions into multivariate polynomials (and back).
-    
-    
+
+
 Author:
 
     Leonardo (leonardo) 2011-12-23
@@ -23,6 +23,7 @@ Notes:
 #include"ast_smt2_pp.h"
 #include"z3_exception.h"
 #include"cooperate.h"
+#include"common_msgs.h"
 
 struct expr2polynomial::imp {
     struct frame {
@@ -31,7 +32,7 @@ struct expr2polynomial::imp {
         frame():m_curr(0), m_idx(0) {}
         frame(app * t):m_curr(t), m_idx(0) {}
     };
-    
+
     expr2polynomial &                  m_wrapper;
     ast_manager &                      m_am;
     arith_util                         m_autil;
@@ -39,7 +40,7 @@ struct expr2polynomial::imp {
     expr2var *                         m_expr2var;
     bool                               m_expr2var_owner;
     expr_ref_vector                    m_var2expr;
-    
+
     obj_map<expr, unsigned>            m_cache;
     expr_ref_vector                    m_cached_domain;
     polynomial::polynomial_ref_vector  m_cached_polynomials;
@@ -52,7 +53,7 @@ struct expr2polynomial::imp {
     bool                               m_use_var_idxs;
 
     volatile bool                      m_cancel;
-    
+
     imp(expr2polynomial & w, ast_manager & am, polynomial::manager & pm, expr2var * e2v, bool use_var_idxs):
         m_wrapper(w),
         m_am(am),
@@ -94,7 +95,7 @@ struct expr2polynomial::imp {
 
     void checkpoint() {
         if (m_cancel)
-            throw default_exception("canceled");
+            throw default_exception(Z3_CANCELED_MSG);
         cooperate("expr2polynomial");
     }
 
@@ -114,7 +115,7 @@ struct expr2polynomial::imp {
         SASSERT(!m_cache.contains(t));
         SASSERT(m_cached_denominators.size() == m_cached_polynomials.size());
         SASSERT(m_cached_denominators.size() == m_cached_domain.size());
-        if (t->get_ref_count() <= 1) 
+        if (t->get_ref_count() <= 1)
             return;
         unsigned idx = m_cached_polynomials.size();
         m_cache.insert(t, idx);
@@ -176,7 +177,7 @@ struct expr2polynomial::imp {
         case OP_NUM:
             store_const_poly(t);
             return true;
-        case OP_ADD: case OP_SUB: case OP_MUL: case OP_UMINUS: case OP_TO_REAL: 
+        case OP_ADD: case OP_SUB: case OP_MUL: case OP_UMINUS: case OP_TO_REAL:
             push_frame(t);
             return false;
         case OP_POWER: {
@@ -215,7 +216,7 @@ struct expr2polynomial::imp {
             store_var_poly(t);
             return true;
         }
-        
+
         SASSERT(is_app(t));
         if (!m_autil.is_arith_expr(t)) {
             if (m_use_var_idxs)
@@ -223,7 +224,7 @@ struct expr2polynomial::imp {
             store_var_poly(t);
             return true;
         }
-        
+
         return visit_arith_app(to_app(t));
     }
 
@@ -237,7 +238,7 @@ struct expr2polynomial::imp {
     polynomial::polynomial * const * polynomial_args(unsigned num_args) {
         SASSERT(m_presult_stack.size() >= num_args);
         return m_presult_stack.c_ptr() + m_presult_stack.size() - num_args;
-    } 
+    }
 
     polynomial::numeral const * denominator_args(unsigned num_args) {
         SASSERT(m_dresult_stack.size() >= num_args);
@@ -330,34 +331,34 @@ struct expr2polynomial::imp {
         // do nothing
         cache_result(t);
     }
- 
+
     void process_app(app * t) {
         SASSERT(m_presult_stack.size() == m_dresult_stack.size());
-        
+
         switch (t->get_decl_kind()) {
-        case OP_ADD: 
+        case OP_ADD:
             process_add(t);
             return;
         case OP_SUB:
             process_sub(t);
             return;
-        case OP_MUL: 
+        case OP_MUL:
             process_mul(t);
             return;
         case OP_POWER:
             process_power(t);
             return;
-        case OP_UMINUS: 
+        case OP_UMINUS:
             process_uminus(t);
             return;
-        case OP_TO_REAL: 
+        case OP_TO_REAL:
             process_to_real(t);
             return;
         default:
             UNREACHABLE();
         }
     }
-    
+
     bool to_polynomial(expr * t, polynomial::polynomial_ref & p, polynomial::scoped_numeral & d) {
         if (!is_int_real(t))
             return false;
@@ -373,7 +374,7 @@ struct expr2polynomial::imp {
                 while (fr.m_idx < num_args) {
                     expr * arg = a->get_arg(fr.m_idx);
                     fr.m_idx++;
-                    if (!visit(arg)) 
+                    if (!visit(arg))
                         goto begin_loop;
                 }
                 process_app(a);
@@ -470,12 +471,12 @@ expr2polynomial::~expr2polynomial() {
     dealloc(m_imp);
 }
 
-ast_manager & expr2polynomial::m() const { 
-    return m_imp->m_am; 
+ast_manager & expr2polynomial::m() const {
+    return m_imp->m_am;
 }
 
-polynomial::manager & expr2polynomial::pm() const { 
-    return m_imp->m_pm; 
+polynomial::manager & expr2polynomial::pm() const {
+    return m_imp->m_pm;
 }
 
 bool expr2polynomial::to_polynomial(expr * t, polynomial::polynomial_ref & p, polynomial::scoped_numeral & d) {
@@ -486,14 +487,14 @@ void expr2polynomial::to_expr(polynomial::polynomial_ref const & p, bool use_pow
     m_imp->to_expr(p, use_power, r);
 }
 
-bool expr2polynomial::is_var(expr * t) const { 
+bool expr2polynomial::is_var(expr * t) const {
     SASSERT(!m_imp->m_use_var_idxs);
-    return m_imp->m_expr2var->is_var(t); 
+    return m_imp->m_expr2var->is_var(t);
 }
-    
-expr2var const & expr2polynomial::get_mapping() const { 
+
+expr2var const & expr2polynomial::get_mapping() const {
     SASSERT(!m_imp->m_use_var_idxs);
-    return *(m_imp->m_expr2var); 
+    return *(m_imp->m_expr2var);
 }
 
 void expr2polynomial::set_cancel(bool f) {
@@ -511,8 +512,8 @@ bool default_expr2polynomial::is_int(polynomial::var x) const {
     return m_is_int[x];
 }
 
-polynomial::var default_expr2polynomial::mk_var(bool is_int) { 
-    polynomial::var x = pm().mk_var(); 
+polynomial::var default_expr2polynomial::mk_var(bool is_int) {
+    polynomial::var x = pm().mk_var();
     m_is_int.reserve(x+1, false);
     m_is_int[x] = is_int;
     return x;
