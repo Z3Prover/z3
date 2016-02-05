@@ -111,6 +111,7 @@ class solve_eqs_tactic : public tactic {
                 if (m_produce_proofs) {
                     pr = m().mk_commutativity(m().mk_eq(lhs, rhs));
                 }
+                return true;
             }
             return false;
         }
