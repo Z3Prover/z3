@@ -742,7 +742,8 @@ def extract_c_includes(fname):
 
 # Given a path dir1/subdir2/subdir3 returns ../../..
 def reverse_path(p):
-    l = p.split(os.sep)
+    # Filter out empty components (e.g. will have one if path ends in a slash)
+    l = list(filter(lambda x: len(x) > 0, p.split(os.sep)))
     n = len(l)
     r = '..'
     for i in range(1, n):
