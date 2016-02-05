@@ -106,9 +106,13 @@ class solve_eqs_tactic : public tactic {
             }
         }
         bool trivial_solve(expr * lhs, expr * rhs, app_ref & var, expr_ref & def, proof_ref & pr) {
-            return 
-                trivial_solve1(lhs, rhs, var, def, pr) ||
-                trivial_solve1(rhs, lhs, var, def, pr);
+            if (trivial_solve1(lhs, rhs, var, def, pr)) return true;
+            if (trivial_solve1(rhs, lhs, var, def, pr)) {
+                if (m_produce_proofs) {
+                    pr = m().mk_commutativity(m().mk_eq(lhs, rhs));
+                }
+            }
+            return false;
         }
         
         // (ite c (= x t1) (= x t2)) --> (= x (ite c t1 t2))
