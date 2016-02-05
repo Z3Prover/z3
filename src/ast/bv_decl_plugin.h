@@ -33,7 +33,7 @@ enum bv_op_kind {
     OP_BADD,
     OP_BSUB,
     OP_BMUL,
-    
+
     OP_BSDIV,
     OP_BUDIV,
     OP_BSREM,
@@ -41,20 +41,20 @@ enum bv_op_kind {
     OP_BSMOD,
 
     // special functions to record the division by 0 cases
-    // these are internal functions 
-    OP_BSDIV0, 
+    // these are internal functions
+    OP_BSDIV0,
     OP_BUDIV0,
     OP_BSREM0,
     OP_BUREM0,
     OP_BSMOD0,
 
     // special functions where division by 0 has a fixed interpretation.
-    OP_BSDIV_I, 
+    OP_BSDIV_I,
     OP_BUDIV_I,
     OP_BSREM_I,
     OP_BUREM_I,
     OP_BSMOD_I,
-   
+
     OP_ULEQ,
     OP_SLEQ,
     OP_UGEQ,
@@ -95,7 +95,7 @@ enum bv_op_kind {
     OP_BSMUL_NO_UDFL, // no signed multiplication underflow predicate
 
     OP_BIT2BOOL, // predicate
-    OP_MKBV,     // bools to bv 
+    OP_MKBV,     // bools to bv
     OP_INT2BV,
     OP_BV2INT,
 
@@ -176,7 +176,7 @@ protected:
     ptr_vector<func_decl>  m_bv_slt;
     ptr_vector<func_decl>  m_bv_ugt;
     ptr_vector<func_decl>  m_bv_sgt;
-    
+
     ptr_vector<func_decl>  m_bv_and;
     ptr_vector<func_decl>  m_bv_or;
     ptr_vector<func_decl>  m_bv_not;
@@ -184,7 +184,7 @@ protected:
     ptr_vector<func_decl>  m_bv_nand;
     ptr_vector<func_decl>  m_bv_nor;
     ptr_vector<func_decl>  m_bv_xnor;
-    
+
     ptr_vector<func_decl>  m_bv_redor;
     ptr_vector<func_decl>  m_bv_redand;
     ptr_vector<func_decl>  m_bv_comp;
@@ -203,7 +203,7 @@ protected:
     ptr_vector<func_decl>  m_int2bv;
     vector<ptr_vector<func_decl> > m_bit2bool;
     ptr_vector<func_decl>  m_mkbv;
-    
+
     virtual void set_manager(ast_manager * m, family_id id);
     void mk_bv_sort(unsigned bv_size);
     sort * get_bv_sort(unsigned bv_size);
@@ -218,9 +218,9 @@ protected:
     bool get_bv_size(sort * t, int & result);
     bool get_bv_size(expr * t, int & result);
     bool get_concat_size(unsigned arity, sort * const * domain, int & result);
-    bool get_extend_size(unsigned num_parameters, parameter const * parameters, 
+    bool get_extend_size(unsigned num_parameters, parameter const * parameters,
                          unsigned arity, sort * const * domain, int & result);
-    bool get_extract_size(unsigned num_parameters, parameter const * parameters, 
+    bool get_extract_size(unsigned num_parameters, parameter const * parameters,
                           unsigned arity, sort * const * domain, int & result);
 
     func_decl * mk_bv2int(unsigned bv_size, unsigned num_parameters, parameter const * parameters,
@@ -229,13 +229,13 @@ protected:
     func_decl * mk_int2bv(unsigned bv_size, unsigned num_parameters, parameter const * parameters,
                           unsigned arity, sort * const * domain);
 
-    func_decl * mk_bit2bool(unsigned bv_size, unsigned num_parameters, parameter const * parameters, 
+    func_decl * mk_bit2bool(unsigned bv_size, unsigned num_parameters, parameter const * parameters,
                             unsigned arity, sort * const * domain);
 
     func_decl * mk_mkbv(unsigned arity, sort * const * domain);
 
     bool get_int2bv_size(unsigned num_parameters, parameter const * parameters, int & result);
-    
+
     func_decl * mk_num_decl(unsigned num_parameters, parameter const * parameters, unsigned arity);
 
     void get_offset_term(app * a, expr * & t, rational & offset) const;
@@ -248,23 +248,23 @@ public:
     virtual decl_plugin * mk_fresh() { return alloc(bv_decl_plugin); }
 
     virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters);
-    
-    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
+
+    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                      unsigned arity, sort * const * domain, sort * range);
 
-    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
+    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                      unsigned num_args, expr * const * args, sort * range);
 
     virtual bool is_value(app * e) const;
-    
+
     virtual bool is_unique_value(app * e) const { return is_value(e); }
 
     virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic);
 
     virtual void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic);
-    
+
     virtual bool are_distinct(app* a, app* b) const;
-    
+
     virtual expr * get_some_value(sort * s);
 };
 
@@ -282,7 +282,7 @@ public:
     bool is_zero(expr const * e) const;
     bool is_bv_sort(sort const * s) const;
     bool is_bv(expr const* e) const {  return is_bv_sort(get_sort(e)); }
-    
+
     bool is_concat(expr const * e) const { return is_app_of(e, get_fid(), OP_CONCAT); }
     bool is_extract(func_decl const * f) const { return is_decl_of(f, get_fid(), OP_EXTRACT); }
     bool is_extract(expr const * e) const { return is_app_of(e, get_fid(), OP_EXTRACT); }
@@ -353,7 +353,7 @@ public:
     rational norm(rational const & val, unsigned bv_size) const { return norm(val, bv_size, false); }
     bool has_sign_bit(rational const & n, unsigned bv_size) const;
     bool mult_inverse(rational const & n, unsigned bv_size, rational & result);
-    
+
 };
 
 class bv_util : public bv_recognizers {
@@ -369,8 +369,8 @@ public:
     app * mk_numeral(rational const & val, unsigned bv_size);
     app * mk_numeral(uint64 u, unsigned bv_size) { return mk_numeral(rational(u, rational::ui64()), bv_size); }
     sort * mk_sort(unsigned bv_size);
-    
-    unsigned get_bv_size(sort const * s) const { 
+
+    unsigned get_bv_size(sort const * s) const {
         SASSERT(is_bv_sort(s));
         return static_cast<unsigned>(s->get_parameter(0).get_int());
     }
@@ -393,11 +393,11 @@ public:
     app * mk_bv_add(expr * arg1, expr * arg2) { return m_manager.mk_app(get_fid(), OP_BADD, arg1, arg2); }
     app * mk_bv_sub(expr * arg1, expr * arg2) { return m_manager.mk_app(get_fid(), OP_BSUB, arg1, arg2); }
     app * mk_bv_mul(expr * arg1, expr * arg2) { return m_manager.mk_app(get_fid(), OP_BMUL, arg1, arg2); }
-    app * mk_zero_extend(unsigned n, expr* e) { 
+    app * mk_zero_extend(unsigned n, expr* e) {
         parameter p(n);
         return m_manager.mk_app(get_fid(), OP_ZERO_EXT, 1, &p, 1, &e);
     }
-    app * mk_sign_extend(unsigned n, expr* e) { 
+    app * mk_sign_extend(unsigned n, expr* e) {
         parameter p(n);
         return m_manager.mk_app(get_fid(), OP_SIGN_EXT, 1, &p, 1, &e);
     }
@@ -413,6 +413,6 @@ public:
 
     app * mk_bv(unsigned n, expr* const* es) { return m_manager.mk_app(get_fid(), OP_MKBV, n, es); }
 };
-    
+
 #endif /* BV_DECL_PLUGIN_H_ */
 
