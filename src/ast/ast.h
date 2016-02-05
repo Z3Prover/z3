@@ -992,6 +992,8 @@ public:
     // Event handlers for deleting/translating PARAM_EXTERNAL
     virtual void del(parameter const & p) {}
     virtual parameter translate(parameter const & p, decl_plugin & target) { UNREACHABLE(); return p; }
+
+    virtual bool is_considered_uninterpreted(func_decl * f) { return false; }
 };
 
 // -----------------------------------

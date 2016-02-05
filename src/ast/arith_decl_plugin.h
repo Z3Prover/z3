@@ -211,6 +211,25 @@ public:
 
     virtual expr * get_some_value(sort * s);
 
+    virtual bool is_considered_uninterpreted(func_decl * f) {
+        if (f->get_family_id() != get_family_id())
+            return false;
+        switch (f->get_decl_kind())
+        {
+        case OP_0_PW_0_INT:
+        case OP_0_PW_0_REAL:
+        case OP_NEG_ROOT:
+        case OP_DIV_0:
+        case OP_IDIV_0:
+        case OP_MOD_0:
+        case OP_U_ASIN:
+        case OP_U_ACOS:
+            return true;
+        default:
+            return false;
+        }
+        return false;
+    }
 };
 
 /**

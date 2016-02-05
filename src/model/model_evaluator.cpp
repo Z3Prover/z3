@@ -202,7 +202,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
 
         if (m_model_completion &&
             (f->get_family_id() == null_family_id ||
-             m_bv_rw.get_util().is_considered_uninterpreted(f)))
+             m().get_plugin(f->get_family_id())->is_considered_uninterpreted(f)))
         {
             sort * s   = f->get_range();
             expr * val = m_model.get_some_value(s);

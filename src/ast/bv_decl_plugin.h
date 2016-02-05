@@ -266,6 +266,22 @@ public:
     virtual bool are_distinct(app* a, app* b) const;
 
     virtual expr * get_some_value(sort * s);
+
+    virtual bool is_considered_uninterpreted(func_decl * f) {
+        if (f->get_family_id() != get_family_id())
+            return false;
+        switch (f->get_decl_kind()) {
+        case OP_BSDIV0:
+        case OP_BUDIV0:
+        case OP_BSREM0:
+        case OP_BUREM0:
+        case OP_BSMOD0:
+            return true;
+        default:
+            return false;
+        }
+        return false;
+    }
 };
 
 class bv_recognizers {
@@ -353,22 +369,6 @@ public:
     rational norm(rational const & val, unsigned bv_size) const { return norm(val, bv_size, false); }
     bool has_sign_bit(rational const & n, unsigned bv_size) const;
     bool mult_inverse(rational const & n, unsigned bv_size, rational & result);
-
-    bool is_considered_uninterpreted(func_decl * f) {
-        if (f->get_family_id() != get_family_id())
-            return false;
-        switch (f->get_decl_kind()) {
-        case OP_BSDIV0:
-        case OP_BUDIV0:
-        case OP_BSREM0:
-        case OP_BUREM0:
-        case OP_BSMOD0:
-            return true;
-        default:
-            return false;
-        }
-        return false;
-    }
 };
 
 class bv_util : public bv_recognizers {
