@@ -596,7 +596,7 @@ def display_help(exit_code):
     else:
         print("  --parallel=num                use cl option /MP with 'num' parallel processes")
     print("  --pypkgdir=<dir>              Force a particular Python package directory (default %s)" % PYTHON_PACKAGE_DIR)
-    print("  -b <sudir>, --build=<subdir>  subdirectory where Z3 will be built (default: build).")
+    print("  -b <subdir>, --build=<subdir>  subdirectory where Z3 will be built (default: build).")
     print("  --githash=hash                include the given hash in the binaries.")
     print("  -d, --debug                   compile Z3 in debug mode.")
     print("  -t, --trace                   enable tracing in release mode.")
