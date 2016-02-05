@@ -2010,8 +2010,8 @@ bool bv_rewriter::is_add_mul_const(expr* e) const {
 
 bool bv_rewriter::is_concat_target(expr* lhs, expr* rhs) const {
     return
-        (m_util.is_concat(lhs) && (is_concat_split_target(rhs) || has_numeral(to_app(lhs)))) ||
-        (m_util.is_concat(rhs) && (is_concat_split_target(lhs) || has_numeral(to_app(rhs))));
+        (m_util.is_concat(lhs) && is_concat_split_target(rhs)) ||
+        (m_util.is_concat(rhs) && is_concat_split_target(lhs));
 }
 
 bool bv_rewriter::has_numeral(app* a) const {
