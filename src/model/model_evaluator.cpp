@@ -181,6 +181,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
     }
 
     bool get_macro(func_decl * f, expr * & def, quantifier * & q, proof * & def_pr) {
+        TRACE("model_evaluator", tout << "get_macro for " << f->get_name() << " (model completion: " << m_model_completion << ")\n";);
 
         func_interp * fi = m_model.get_func_interp(f);
         if (fi != 0) {
@@ -199,7 +200,10 @@ struct evaluator_cfg : public default_rewriter_cfg {
             return true;
         }
 
-        if (f->get_family_id() == null_family_id && m_model_completion) {
+        if (m_model_completion &&
+            (f->get_family_id() == null_family_id ||
+             m_bv_rw.get_util().is_considered_uninterpreted(f)))
+        {
             sort * s   = f->get_range();
             expr * val = m_model.get_some_value(s);
             func_interp * new_fi = alloc(func_interp, m(), f->get_arity());

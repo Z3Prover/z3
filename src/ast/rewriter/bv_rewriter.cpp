@@ -694,7 +694,7 @@ br_status bv_rewriter::mk_bv_sdiv_core(expr * arg1, expr * arg2, bool hi_div0, e
         if (r2.is_zero()) {
             if (!hi_div0) {
                 result = m().mk_app(get_fid(), OP_BSDIV0, arg1);
-                return BR_DONE;
+                return BR_REWRITE1;
             }
             else {
                 // The "hardware interpretation" for (bvsdiv x 0) is (ite (bvslt x #x0000) #x0001 #xffff)
@@ -745,7 +745,7 @@ br_status bv_rewriter::mk_bv_udiv_core(expr * arg1, expr * arg2, bool hi_div0, e
         if (r2.is_zero()) {
             if (!hi_div0) {
                 result = m().mk_app(get_fid(), OP_BUDIV0, arg1);
-                return BR_DONE;
+                return BR_REWRITE1;
             }
             else {
                 // The "hardware interpretation" for (bvudiv x 0) is #xffff
@@ -808,7 +808,7 @@ br_status bv_rewriter::mk_bv_srem_core(expr * arg1, expr * arg2, bool hi_div0, e
         if (r2.is_zero()) {
             if (!hi_div0) {
                 result = m().mk_app(get_fid(), OP_BSREM0, arg1);
-                return BR_DONE;
+                return BR_REWRITE1;
             }
             else {
                 // The "hardware interpretation" for (bvsrem x 0) is x
