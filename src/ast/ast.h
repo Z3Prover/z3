@@ -93,7 +93,7 @@ public:
         // PARAM_EXTERNAL is not supported by z3 low level input format. This format is legacy, so
         // this is not a big problem.
         // Remark: PARAM_EXTERNAL can only be used to decorate theory decls.
-        PARAM_EXTERNAL 
+        PARAM_EXTERNAL
     };
 private:
     kind_t m_kind;
@@ -123,7 +123,7 @@ public:
     ~parameter();
 
     parameter& operator=(parameter const& other);
-    
+
     kind_t get_kind() const { return m_kind; }
     bool is_int() const { return m_kind == PARAM_INT; }
     bool is_ast() const { return m_kind == PARAM_AST; }
@@ -131,7 +131,7 @@ public:
     bool is_rational() const { return m_kind == PARAM_RATIONAL; }
     bool is_double() const { return m_kind == PARAM_DOUBLE; }
     bool is_external() const { return m_kind == PARAM_EXTERNAL; }
-    
+
     bool is_int(int & i) const { return is_int() && (i = get_int(), true); }
     bool is_ast(ast * & a) const { return is_ast() && (a = get_ast(), true); }
     bool is_symbol(symbol & s) const { return is_symbol() && (s = get_symbol(), true); }
@@ -150,7 +150,7 @@ public:
        deleted.
     */
     void del_eh(ast_manager & m, family_id fid);
-    
+
     int get_int() const { SASSERT(is_int()); return m_int; }
     ast * get_ast() const { SASSERT(is_ast()); return m_ast; }
     symbol const & get_symbol() const { SASSERT(is_symbol()); return *(reinterpret_cast<const symbol *>(m_symbol)); }
@@ -162,7 +162,7 @@ public:
     bool operator!=(parameter const & p) const { return !operator==(p); }
 
     unsigned hash() const;
-    
+
     std::ostream& display(std::ostream& out) const;
 };
 
@@ -192,7 +192,7 @@ public:
 
     /**
        \brief Return the family_id for s, a new id is created if !has_family(s)
-       
+
        If has_family(s), then this method is equivalent to get_family_id(s)
     */
     family_id mk_family_id(symbol const & s);
@@ -201,11 +201,11 @@ public:
        \brief Return the family_id for s, return null_family_id if s was not registered in the manager.
     */
     family_id get_family_id(symbol const & s) const;
-    
+
     bool has_family(symbol const & s) const;
 
     void get_dom(svector<symbol>& dom) const { m_families.get_dom(dom); }
-    
+
     void get_range(svector<family_id> & range) const { m_families.get_range(range); }
 
     symbol const & get_name(family_id fid) const { return fid >= 0 && fid < static_cast<int>(m_names.size()) ? m_names[fid] : symbol::null; }
@@ -220,15 +220,15 @@ public:
 // -----------------------------------
 
 /**
-   \brief Each interpreted function declaration or sort has a kind. 
+   \brief Each interpreted function declaration or sort has a kind.
    Kinds are used to identify interpreted functions and sorts in a family.
 */
-typedef int     decl_kind; 
+typedef int     decl_kind;
 const decl_kind null_decl_kind = -1;
 
 /**
-   \brief Interpreted function declarations and sorts are associated with 
-   a family id, kind, and parameters. 
+   \brief Interpreted function declarations and sorts are associated with
+   a family id, kind, and parameters.
 */
 class decl_info {
     family_id            m_family_id;
@@ -236,22 +236,22 @@ class decl_info {
     vector<parameter>    m_parameters;
 public:
     bool                 m_private_parameters;
-    decl_info(family_id family_id = null_family_id, decl_kind k = null_decl_kind, 
+    decl_info(family_id family_id = null_family_id, decl_kind k = null_decl_kind,
               unsigned num_parameters = 0, parameter const * parameters = 0, bool private_params = false);
 
     decl_info(decl_info const& other);
     ~decl_info() {}
-    
+
     void init_eh(ast_manager & m);
     void del_eh(ast_manager & m);
-    
+
     family_id get_family_id() const { return m_family_id; }
     decl_kind get_decl_kind() const { return m_kind; }
     unsigned get_num_parameters() const { return m_parameters.size(); }
     parameter const & get_parameter(unsigned idx) const { return m_parameters[idx]; }
     parameter const * get_parameters() const { return m_parameters.begin(); }
     bool private_parameters() const { return m_private_parameters; }
-    
+
     unsigned hash() const;
     bool operator==(decl_info const & info) const;
 };
@@ -274,7 +274,7 @@ class sort_size {
         // number of elements precisely (e.g., arrays).  In this
         // cases, we mark the sort as too big. That is, the number
         // of elements is at least bigger than 2^64.
-        SS_FINITE_VERY_BIG, 
+        SS_FINITE_VERY_BIG,
         SS_INFINITE
     } m_kind;
     uint64 m_size; // It is only meaningful if m_kind == SS_FINITE
@@ -296,13 +296,13 @@ public:
     static sort_size mk_infinite() { return sort_size(SS_INFINITE, 0); }
     static sort_size mk_very_big() { return sort_size(SS_FINITE_VERY_BIG, 0); }
     static sort_size mk_finite(uint64 r) { return sort_size(SS_FINITE, r); }
-    
+
     bool is_infinite() const { return m_kind == SS_INFINITE; }
     bool is_very_big() const { return m_kind == SS_FINITE_VERY_BIG; }
     bool is_finite() const { return m_kind == SS_FINITE; }
-    
+
     static bool is_very_big_base2(unsigned power) { return power >= 64; }
-    
+
     uint64 size() const { SASSERT(is_finite()); return m_size; }
 };
 
@@ -320,16 +320,16 @@ std::ostream& operator<<(std::ostream& out, sort_size const & ss);
 class sort_info : public decl_info {
     sort_size m_num_elements;
 public:
-    sort_info(family_id family_id = null_family_id, decl_kind k = null_decl_kind, 
+    sort_info(family_id family_id = null_family_id, decl_kind k = null_decl_kind,
               unsigned num_parameters = 0, parameter const * parameters = 0, bool private_parameters = false):
         decl_info(family_id, k, num_parameters, parameters, private_parameters) {
     }
-    
+
     sort_info(family_id family_id, decl_kind k, uint64 num_elements,
               unsigned num_parameters = 0, parameter const * parameters = 0, bool private_parameters = false):
         decl_info(family_id, k, num_parameters, parameters, private_parameters), m_num_elements(num_elements) {
     }
-    
+
     sort_info(family_id family_id, decl_kind k, sort_size const& num_elements,
               unsigned num_parameters = 0, parameter const * parameters = 0, bool private_parameters = false):
         decl_info(family_id, k, num_parameters, parameters, private_parameters), m_num_elements(num_elements) {
@@ -337,7 +337,7 @@ public:
     sort_info(sort_info const& other) : decl_info(other), m_num_elements(other.m_num_elements) {
     }
     ~sort_info() {}
-    
+
     bool is_infinite() const { return m_num_elements.is_infinite(); }
     bool is_very_big() const { return m_num_elements.is_very_big(); }
     sort_size const & get_num_elements() const { return m_num_elements; }
@@ -367,7 +367,7 @@ struct func_decl_info : public decl_info {
 
     func_decl_info(family_id family_id = null_family_id, decl_kind k = null_decl_kind, unsigned num_parameters = 0, parameter const * parameters = 0);
     ~func_decl_info() {}
-    
+
     bool is_associative() const { return m_left_assoc && m_right_assoc; }
     bool is_left_associative() const { return m_left_assoc; }
     bool is_right_associative() const { return m_right_assoc; }
@@ -394,8 +394,8 @@ struct func_decl_info : public decl_info {
 
     // Return true if the func_decl_info is equivalent to the null one (i.e., it does not contain any useful info).
     bool is_null() const {
-        return 
-            get_family_id() == null_family_id && !is_left_associative() && !is_right_associative() && !is_commutative() && 
+        return
+            get_family_id() == null_family_id && !is_left_associative() && !is_right_associative() && !is_commutative() &&
             !is_chainable() && !is_pairwise() && !is_injective() && !is_idempotent() && !is_skolem();
     }
 };
@@ -416,7 +416,7 @@ class shared_occs_mark;
 class ast {
 protected:
     friend class ast_manager;
-    
+
     unsigned m_id;
     unsigned m_kind:16;
     // Warning: the marks should be used carefully, since they are shared.
@@ -428,10 +428,10 @@ protected:
     //    So, it is only safe to use mark by "self-contained" code.
     //    They should be viewed as temporary information.
     //  - The functor shared_occs is used by some AST pretty printers.
-    //  - So, a code that uses marks could not use the pretty printer if 
+    //  - So, a code that uses marks could not use the pretty printer if
     //    shared_occs used one of the public marks.
     //  - This was a constant source of assertion violations.
-    unsigned m_mark_shared_occs:1; 
+    unsigned m_mark_shared_occs:1;
     friend class shared_occs_mark;
     void mark_so(bool flag) { m_mark_shared_occs = flag; }
     void reset_mark_so() { m_mark_shared_occs = false; }
@@ -442,18 +442,18 @@ protected:
     // In debug mode, we store who is the owner of the mark.
     void *   m_mark1_owner;
     void *   m_mark2_owner;
-#endif    
+#endif
 
-    void inc_ref() { 
+    void inc_ref() {
         SASSERT(m_ref_count < UINT_MAX);
-        m_ref_count ++; 
+        m_ref_count ++;
     }
-    
-    void dec_ref() { 
-        SASSERT(m_ref_count > 0); 
-        m_ref_count --; 
+
+    void dec_ref() {
+        SASSERT(m_ref_count > 0);
+        m_ref_count --;
     }
-    
+
     ast(ast_kind k):m_id(UINT_MAX), m_kind(k), m_mark1(false), m_mark2(false), m_mark_shared_occs(false), m_ref_count(0) {
         DEBUG_CODE({
             m_mark1_owner = 0;
@@ -521,7 +521,7 @@ public:
 // -----------------------------------
 
 /**
-   The ids of expressions and declarations are in different ranges. 
+   The ids of expressions and declarations are in different ranges.
 */
 const unsigned c_first_decl_id = (1u << 31u);
 
@@ -556,9 +556,9 @@ public:
 
 class sort : public decl {
     friend class ast_manager;
-    
+
     static unsigned get_obj_size() { return sizeof(sort); }
-    
+
     sort(symbol const & name, sort_info * info):decl(AST_SORT, name, info) {}
 public:
     sort_info * get_info() const { return static_cast<sort_info*>(m_info); }
@@ -577,13 +577,13 @@ public:
 
 class func_decl : public decl {
     friend class ast_manager;
-    
+
     unsigned         m_arity;
     sort *           m_range;
     sort *           m_domain[0];
-    
-    static unsigned get_obj_size(unsigned arity) { return sizeof(func_decl) + arity * sizeof(sort *); } 
-    
+
+    static unsigned get_obj_size(unsigned arity) { return sizeof(func_decl) + arity * sizeof(sort *); }
+
     func_decl(symbol const & name, unsigned arity, sort * const * domain, sort * range, func_decl_info * info);
 public:
     func_decl_info * get_info() const { return static_cast<func_decl_info*>(m_info); }
@@ -616,7 +616,7 @@ public:
 class expr : public ast {
 protected:
     friend class ast_manager;
-    
+
     expr(ast_kind k):ast(k) {}
 public:
 };
@@ -641,20 +641,20 @@ struct app_flags {
 
 class app : public expr {
     friend class ast_manager;
-    
+
     func_decl *  m_decl;
     unsigned     m_num_args;
     expr *       m_args[0];
-    
+
     static app_flags g_constant_flags;
-    
+
     // remark: store term depth in the end of the app. the depth is only stored if the num_args > 0
-    static unsigned get_obj_size(unsigned num_args) { 
-        return num_args == 0 ? sizeof(app) : sizeof(app) + num_args * sizeof(expr *) + sizeof(app_flags); 
-    } 
+    static unsigned get_obj_size(unsigned num_args) {
+        return num_args == 0 ? sizeof(app) : sizeof(app) + num_args * sizeof(expr *) + sizeof(app_flags);
+    }
 
     friend class tmp_app;
-    
+
     app_flags * flags() const { return m_num_args == 0 ? &g_constant_flags : reinterpret_cast<app_flags*>(const_cast<expr**>(m_args + m_num_args)); }
 
     app(func_decl * decl, unsigned num_args, expr * const * args);
@@ -706,11 +706,11 @@ public:
     expr ** get_args() {
         return get_app()->m_args;
     }
-    
+
     void set_decl(func_decl * d) {
         get_app()->m_decl = d;
     }
-    
+
     void set_num_args(unsigned num_args) {
         get_app()->m_num_args = num_args;
     }
@@ -746,12 +746,12 @@ public:
 
 class var : public expr {
     friend class ast_manager;
-    
+
     unsigned     m_idx;
     sort *       m_sort;
-    
+
     static unsigned get_obj_size() { return sizeof(var); }
-    
+
     var(unsigned idx, sort * s):expr(AST_VAR), m_idx(idx), m_sort(s) {}
 public:
     unsigned get_idx() const { return m_idx; }
@@ -775,13 +775,13 @@ class quantifier : public expr {
     int                 m_weight;
     bool                m_has_unused_vars;
     bool                m_has_labels;
-    symbol              m_qid; 
-    symbol              m_skid; 
+    symbol              m_qid;
+    symbol              m_skid;
     unsigned            m_num_patterns;
     unsigned            m_num_no_patterns;
     char                m_patterns_decls[0];
-    
-    static unsigned get_obj_size(unsigned num_decls, unsigned num_patterns, unsigned num_no_patterns) { 
+
+    static unsigned get_obj_size(unsigned num_decls, unsigned num_patterns, unsigned num_no_patterns) {
         return sizeof(quantifier) + num_decls * (sizeof(sort *) + sizeof(symbol)) + (num_patterns + num_no_patterns) * sizeof(expr*);
     }
 
@@ -811,7 +811,7 @@ public:
     expr * get_no_pattern(unsigned idx) const { return get_no_patterns()[idx]; }
     bool has_patterns() const { return m_num_patterns > 0 || m_num_no_patterns > 0; }
     unsigned get_size() const { return get_obj_size(m_num_decls, m_num_patterns, m_num_no_patterns); }
-    
+
     bool may_have_unused_vars() const { return m_has_unused_vars; }
     void set_no_unused_vars() { m_has_unused_vars = false; }
 
@@ -884,8 +884,8 @@ unsigned get_decl_hash(unsigned sz, func_decl* const* ns, unsigned init);
 
 // This is the internal comparison functor for hash-consing AST nodes.
 struct ast_eq_proc {
-    bool operator()(ast const * n1, ast const * n2) const { 
-        return n1->hash() == n2->hash() && compare_nodes(n1, n2); 
+    bool operator()(ast const * n1, ast const * n2) const {
+        return n1->hash() == n2->hash() && compare_nodes(n1, n2);
     }
 };
 
@@ -917,18 +917,18 @@ class decl_plugin {
 protected:
     ast_manager * m_manager;
     family_id     m_family_id;
-    
+
     virtual void set_manager(ast_manager * m, family_id id) {
         SASSERT(m_manager == 0);
         m_manager   = m;
         m_family_id = id;
     }
-    
+
     friend class ast_manager;
-    
+
 public:
     decl_plugin():m_manager(0), m_family_id(null_family_id) {}
-    
+
     virtual ~decl_plugin() {}
     virtual void finalize() {}
 
@@ -936,24 +936,24 @@ public:
     virtual decl_plugin * mk_fresh() = 0;
 
     family_id get_family_id() const { return m_family_id; }
-    
+
     virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) = 0;
-    
-    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
+
+    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                      unsigned arity, sort * const * domain, sort * range) = 0;
 
-    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const* parameters, 
+    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const* parameters,
                                      unsigned num_args, expr * const * args, sort * range);
 
     /**
        \brief Return true if the plugin can decide whether two
        interpreted constants are equal or not.
-       
+
        For all a, b:
           If is_value(a) and is_value(b)
           Then,
                are_equal(a, b) != are_distinct(a, b)
-          
+
        The may be much more expensive than checking a pointer.
 
        We need this because some plugin values are too expensive too canonize.
@@ -963,7 +963,7 @@ public:
     /**
        \brief Return true if \c a is a unique plugin value.
        The following property should hold for unique theory values:
-       
+
        For all a, b:
           If is_unique_value(a) and is_unique_value(b)
           Then,
@@ -976,11 +976,11 @@ public:
     virtual bool is_unique_value(app * a) const { return false; }
 
     virtual bool are_equal(app * a, app * b) const { return a == b && is_unique_value(a) && is_unique_value(b); }
-    
+
     virtual bool are_distinct(app * a, app * b) const { return a != b && is_unique_value(a) && is_unique_value(b); }
-    
+
     virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic = symbol()) {}
-    
+
     virtual void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic = symbol()) {}
 
     virtual expr * get_some_value(sort * s) { return 0; }
@@ -989,9 +989,11 @@ public:
     // This may be the case, for example, for array and datatype sorts.
     virtual bool is_fully_interp(sort const * s) const { return true; }
 
-    // Event handlers for deleting/translating PARAM_EXTERNAL 
+    // Event handlers for deleting/translating PARAM_EXTERNAL
     virtual void del(parameter const & p) {}
     virtual parameter translate(parameter const & p, decl_plugin & target) { UNREACHABLE(); return p; }
+
+    virtual bool is_considered_uninterpreted(func_decl * f) { return false; }
 };
 
 // -----------------------------------
@@ -1009,12 +1011,12 @@ enum basic_op_kind {
     OP_TRUE, OP_FALSE, OP_EQ, OP_DISTINCT, OP_ITE, OP_AND, OP_OR, OP_IFF, OP_XOR, OP_NOT, OP_IMPLIES, OP_OEQ, OP_INTERP, LAST_BASIC_OP,
 
     PR_UNDEF, PR_TRUE, PR_ASSERTED, PR_GOAL, PR_MODUS_PONENS, PR_REFLEXIVITY, PR_SYMMETRY, PR_TRANSITIVITY, PR_TRANSITIVITY_STAR, PR_MONOTONICITY, PR_QUANT_INTRO,
-    PR_DISTRIBUTIVITY, PR_AND_ELIM, PR_NOT_OR_ELIM, PR_REWRITE, PR_REWRITE_STAR, PR_PULL_QUANT, 
+    PR_DISTRIBUTIVITY, PR_AND_ELIM, PR_NOT_OR_ELIM, PR_REWRITE, PR_REWRITE_STAR, PR_PULL_QUANT,
     PR_PULL_QUANT_STAR, PR_PUSH_QUANT, PR_ELIM_UNUSED_VARS, PR_DER, PR_QUANT_INST,
-    
+
     PR_HYPOTHESIS, PR_LEMMA, PR_UNIT_RESOLUTION, PR_IFF_TRUE, PR_IFF_FALSE, PR_COMMUTATIVITY, PR_DEF_AXIOM,
 
-    PR_DEF_INTRO, PR_APPLY_DEF, PR_IFF_OEQ, PR_NNF_POS, PR_NNF_NEG, PR_NNF_STAR, PR_SKOLEMIZE, PR_CNF_STAR, 
+    PR_DEF_INTRO, PR_APPLY_DEF, PR_IFF_OEQ, PR_NNF_POS, PR_NNF_NEG, PR_NNF_STAR, PR_SKOLEMIZE, PR_CNF_STAR,
     PR_MODUS_PONENS_OEQ, PR_TH_LEMMA, PR_HYPER_RESOLVE, LAST_BASIC_PR
 };
 
@@ -1067,7 +1069,7 @@ protected:
     func_decl * m_lemma_decl;
     ptr_vector<func_decl> m_unit_resolution_decls;
 
-    func_decl * m_def_intro_decl;    
+    func_decl * m_def_intro_decl;
     func_decl * m_iff_oeq_decl;
     func_decl * m_skolemize_decl;
     func_decl * m_mp_oeq_decl;
@@ -1083,7 +1085,7 @@ protected:
     static bool is_proof(decl_kind k) { return k > LAST_BASIC_OP; }
     bool check_proof_sorts(basic_op_kind k, unsigned arity, sort * const * domain) const;
     bool check_proof_args(basic_op_kind k, unsigned num_args, expr * const * args) const;
-    func_decl * mk_bool_op_decl(char const * name, basic_op_kind k, unsigned num_args = 0, 
+    func_decl * mk_bool_op_decl(char const * name, basic_op_kind k, unsigned num_args = 0,
                                 bool asooc = false, bool comm = false, bool idempotent = false, bool flat_associative = false, bool chainable = false);
     func_decl * mk_implies_decl();
     func_decl * mk_proof_decl(char const * name, basic_op_kind k, unsigned num_parents);
@@ -1093,10 +1095,10 @@ protected:
     func_decl * mk_proof_decl(basic_op_kind k, unsigned num_parents);
     func_decl * mk_proof_decl(basic_op_kind k, unsigned num_parameters, parameter const* params, unsigned num_parents);
     func_decl * mk_proof_decl(
-        char const * name, basic_op_kind k, 
+        char const * name, basic_op_kind k,
         unsigned num_parameters, parameter const* params, unsigned num_parents);
 
-   
+
     virtual void set_manager(ast_manager * m, family_id id);
     func_decl * mk_eq_decl_core(char const * name, decl_kind k, sort * s, ptr_vector<func_decl> & cache);
     func_decl * mk_ite_decl(sort * s);
@@ -1105,7 +1107,7 @@ protected:
     sort* join(unsigned n, expr*const* es);
 public:
     basic_decl_plugin();
-    
+
     virtual ~basic_decl_plugin() {}
     virtual void finalize();
 
@@ -1114,23 +1116,23 @@ public:
     }
 
     virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const* parameters);
-    
-    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
+
+    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                      unsigned arity, sort * const * domain, sort * range);
-    
-    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
+
+    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                      unsigned num_args, expr * const * args, sort * range);
-    
+
     virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic);
-    
+
     virtual void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic);
 
-    virtual bool is_value(app* a) const; 
+    virtual bool is_value(app* a) const;
 
-    virtual bool is_unique_value(app* a) const; 
-    
+    virtual bool is_unique_value(app* a) const;
+
     sort * mk_bool_sort() const { return m_bool_sort; }
-    sort * mk_proof_sort() const { return m_proof_sort; } 
+    sort * mk_proof_sort() const { return m_proof_sort; }
 
     virtual expr * get_some_value(sort * s);
 };
@@ -1139,7 +1141,7 @@ typedef app proof; /* a proof is just an applicaton */
 
 // -----------------------------------
 //
-// label_decl_plugin 
+// label_decl_plugin
 //
 // -----------------------------------
 
@@ -1168,7 +1170,7 @@ public:
 
     /**
        contract: when label
-       parameter[0] (int):      0 - if the label is negative, 1 - if positive. 
+       parameter[0] (int):      0 - if the label is negative, 1 - if positive.
        parameter[1] (symbol):   label's tag.
        ...
        parameter[n-1] (symbol): label's tag.
@@ -1178,13 +1180,13 @@ public:
        ...
        parameter[n-1] (symbol): label's tag.
     */
-    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
+    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                      unsigned arity, sort * const * domain, sort * range);
 };
 
 // -----------------------------------
 //
-// pattern_decl_plugin 
+// pattern_decl_plugin
 //
 // -----------------------------------
 
@@ -1202,7 +1204,7 @@ public:
 
     virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters);
 
-    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
+    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                      unsigned arity, sort * const * domain, sort * range);
 };
 
@@ -1222,7 +1224,7 @@ enum model_value_op_kind {
    introduce unsoundess if the sort of a value is finite.
 
    Moreover, values should never be internalized in a logical context.
-   
+
    However, values can be used during evaluation (i.e., simplification).
 
    \remark Model values can be viewed as the partion ids in Z3 1.x.
@@ -1234,18 +1236,18 @@ public:
     virtual decl_plugin * mk_fresh() { return alloc(model_value_decl_plugin); }
 
     virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters);
-    
+
     /**
-       contract: 
+       contract:
        parameter[0]: (integer) value idx
        parameter[1]: (ast)     sort of the value.
     */
-    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
+    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                      unsigned arity, sort * const * domain, sort * range);
 
     virtual bool is_value(app* n) const;
 
-    virtual bool is_unique_value(app* a) const; 
+    virtual bool is_unique_value(app* a) const;
 };
 
 // -----------------------------------
@@ -1261,7 +1263,7 @@ public:
     user_sort_plugin() {}
 
     virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters);
-    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
+    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                      unsigned arity, sort * const * domain, sort * range);
     decl_kind register_name(symbol s);
     virtual decl_plugin * mk_fresh();
@@ -1321,7 +1323,7 @@ public:
     bool is_term_ite(expr const * n) const { return is_ite(n) && !is_bool(n); }
     bool is_true(expr const * n) const { return is_app_of(n, m_fid, OP_TRUE); }
     bool is_false(expr const * n) const { return is_app_of(n, m_fid, OP_FALSE); }
-    bool is_complement_core(expr const * n1, expr const * n2) const { 
+    bool is_complement_core(expr const * n1, expr const * n2) const {
         return (is_true(n1) && is_false(n2)) || (is_not(n1) && to_app(n1)->get_arg(0) == n2);
     }
     bool is_complement(expr const * n1, expr const * n2) const { return is_complement_core(n1, n2) || is_complement_core(n2, n1); }
@@ -1353,7 +1355,7 @@ public:
 //
 // Get Some Value functor
 //
-// Functor for returning some value 
+// Functor for returning some value
 // of the given sort.
 //
 // -----------------------------------
@@ -1394,11 +1396,11 @@ protected:
         static const unsigned max_trail_sz = 16;
         static const unsigned factor       = 2;
     };
-    
+
     struct expr_array_config : public array_config {
         typedef expr *                   value;
     };
-    
+
     typedef parray_manager<expr_array_config> expr_array_manager;
 
     struct expr_dependency_config : public config {
@@ -1439,7 +1441,7 @@ protected:
     family_id                 m_model_value_family_id;
     family_id                 m_user_sort_family_id;
     family_id                 m_arith_family_id;
-    ast_table                 m_ast_table;       
+    ast_table                 m_ast_table;
     id_gen                    m_expr_id_gen;
     id_gen                    m_decl_id_gen;
     sort *                    m_bool_sort;
@@ -1477,20 +1479,20 @@ public:
 
     void enable_int_real_coercions(bool f) { m_int_real_coercions = f; }
     bool int_real_coercions() const { return m_int_real_coercions; }
-    
+
     // Return true if s1 and s2 are equal, or coercions are enabled, and s1 and s2 are compatible.
     bool compatible_sorts(sort * s1, sort * s2) const;
 
     // For debugging purposes
     void display_free_ids(std::ostream & out) { m_expr_id_gen.display_free_ids(out); out << "\n"; m_decl_id_gen.display_free_ids(out); }
-    
+
     void compact_memory();
 
     void compress_ids();
 
     // Equivalent to throw ast_exception(msg)
     void raise_exception(char const * msg);
-    
+
     bool is_format_manager() const { return m_format_manager == 0; }
 
     ast_manager & get_format_manager() { return is_format_manager() ? *this : *m_format_manager; }
@@ -1498,7 +1500,7 @@ public:
     void copy_families_plugins(ast_manager const & from);
 
     small_object_allocator & get_allocator() { return m_alloc; }
-    
+
     family_id mk_family_id(symbol const & s) { return m_family_manager.mk_family_id(s); }
     family_id mk_family_id(char const * s) { return mk_family_id(symbol(s)); }
 
@@ -1507,70 +1509,70 @@ public:
 
     symbol const & get_family_name(family_id fid) const { return m_family_manager.get_name(fid); }
 
-    bool is_builtin_family_id(family_id fid) const { 
-        return 
-            fid == null_family_id || 
-            fid == m_basic_family_id || 
-            fid == m_label_family_id || 
-            fid == m_pattern_family_id || 
+    bool is_builtin_family_id(family_id fid) const {
+        return
+            fid == null_family_id ||
+            fid == m_basic_family_id ||
+            fid == m_label_family_id ||
+            fid == m_pattern_family_id ||
             fid == m_model_value_family_id ||
-            fid == m_user_sort_family_id; 
+            fid == m_user_sort_family_id;
     }
 
     reslimit& limit() { return m_limit; }
     bool canceled() { return !limit().inc(); }
 
     void register_plugin(symbol const & s, decl_plugin * plugin);
-    
+
     void register_plugin(family_id id, decl_plugin * plugin);
 
     decl_plugin * get_plugin(family_id fid) const;
-    
+
     bool has_plugin(family_id fid) const { return get_plugin(fid) != 0; }
-    
+
     bool has_plugin(symbol const & s) const { return m_family_manager.has_family(s) && has_plugin(m_family_manager.get_family_id(s)); }
-    
+
     void get_dom(svector<symbol> & dom) const { m_family_manager.get_dom(dom); }
-    
+
     void get_range(svector<family_id> & range) const { m_family_manager.get_range(range); }
-    
+
     family_id get_basic_family_id() const { return m_basic_family_id; }
-    
+
     basic_decl_plugin * get_basic_decl_plugin() const { return static_cast<basic_decl_plugin*>(get_plugin(m_basic_family_id)); }
 
     family_id get_user_sort_family_id() const { return m_user_sort_family_id; }
-    
+
     user_sort_plugin * get_user_sort_plugin() const { return static_cast<user_sort_plugin*>(get_plugin(m_user_sort_family_id)); }
 
     /**
        \brief Debugging support method: set the next expression identifier to be the least value id' s.t.
               - id' >= id
               - id' is not used by any AST in m_table
-              - id' is not in the expression m_free_ids 
+              - id' is not in the expression m_free_ids
 
         This method should be only used to create small repros that exposes bugs in Z3.
     */
     void set_next_expr_id(unsigned id);
-    
-    bool is_value(expr * e) const; 
-    
+
+    bool is_value(expr * e) const;
+
     bool is_unique_value(expr * e) const;
 
     bool are_equal(expr * a, expr * b) const;
-    
+
     bool are_distinct(expr * a, expr * b) const;
-    
+
     bool contains(ast * a) const { return m_ast_table.contains(a); }
-    
+
     unsigned get_num_asts() const { return m_ast_table.size(); }
 
     void debug_ref_count() { m_debug_ref_count = true; }
-    
-    void inc_ref(ast * n) { 
+
+    void inc_ref(ast * n) {
         if (n)
             n->inc_ref();
     }
-    
+
     void dec_ref(ast * n) {
         if (n) {
             n->dec_ref();
@@ -1578,45 +1580,45 @@ public:
                 delete_node(n);
         }
     }
-    
+
     template<typename T>
     void inc_array_ref(unsigned sz, T * const * a) {
         for(unsigned i = 0; i < sz; i++) {
             inc_ref(a[i]);
         }
     }
-    
+
     template<typename T>
     void dec_array_ref(unsigned sz, T * const * a) {
         for(unsigned i = 0; i < sz; i++) {
             dec_ref(a[i]);
         }
     }
-    
+
     static unsigned get_node_size(ast const * n);
-    
-    size_t get_allocation_size() const { 
-        return m_alloc.get_allocation_size(); 
+
+    size_t get_allocation_size() const {
+        return m_alloc.get_allocation_size();
     }
-    
+
 protected:
     ast * register_node_core(ast * n);
-    
+
     template<typename T>
-    T * register_node(T * n) { 
-        return static_cast<T *>(register_node_core(n)); 
+    T * register_node(T * n) {
+        return static_cast<T *>(register_node_core(n));
     }
-    
+
     void delete_node(ast * n);
-    
-    void * allocate_node(unsigned size) { 
+
+    void * allocate_node(unsigned size) {
         return m_alloc.allocate(size);
     }
-    
+
     void deallocate_node(ast * n, unsigned sz) {
         m_alloc.deallocate(sz, n);
     }
-    
+
 public:
     sort * get_sort(expr const * n) const { return ::get_sort(n); }
     void check_sort(func_decl const * decl, unsigned num_args, expr * const * args) const;
@@ -1629,12 +1631,12 @@ public:
 
 private:
     sort * mk_sort(symbol const & name, sort_info * info);
-    
+
 public:
     sort * mk_uninterpreted_sort(symbol const & name, unsigned num_parameters, parameter const * parameters);
 
     sort * mk_uninterpreted_sort(symbol const & name) { return mk_uninterpreted_sort(name, 0, 0); }
-    
+
     sort * mk_sort(symbol const & name, sort_info const & info) {
         if (info.get_family_id() == null_family_id) {
             return mk_uninterpreted_sort(name);
@@ -1643,45 +1645,45 @@ public:
             return mk_sort(name, &const_cast<sort_info &>(info));
         }
     }
-    
+
     sort * mk_sort(family_id fid, decl_kind k, unsigned num_parameters = 0, parameter const * parameters = 0);
-    
+
     sort * mk_bool_sort() const { return m_bool_sort; }
-    
+
     sort * mk_proof_sort() const { return m_proof_sort; }
 
     sort * mk_fresh_sort(char const * prefix = "");
 
     bool is_uninterp(sort const * s) const { return s->get_family_id() == null_family_id || s->get_family_id() == m_user_sort_family_id; }
-    
+
     /**
        \brief A sort is "fully" interpreted if it is interpreted,
-       and doesn't depend on other uninterpreted sorts. 
+       and doesn't depend on other uninterpreted sorts.
     */
     bool is_fully_interp(sort const * s) const;
 
-    func_decl * mk_func_decl(family_id fid, decl_kind k, unsigned num_parameters, parameter const * parameters, 
+    func_decl * mk_func_decl(family_id fid, decl_kind k, unsigned num_parameters, parameter const * parameters,
                              unsigned arity, sort * const * domain, sort * range = 0);
 
-    func_decl * mk_func_decl(family_id fid, decl_kind k, unsigned num_parameters, parameter const * parameters, 
+    func_decl * mk_func_decl(family_id fid, decl_kind k, unsigned num_parameters, parameter const * parameters,
                              unsigned num_args, expr * const * args, sort * range = 0);
 
-    app * mk_app(family_id fid, decl_kind k, unsigned num_parameters = 0, parameter const * parameters = 0, 
+    app * mk_app(family_id fid, decl_kind k, unsigned num_parameters = 0, parameter const * parameters = 0,
                  unsigned num_args = 0, expr * const * args = 0, sort * range = 0);
 
     app * mk_app(family_id fid, decl_kind k, unsigned num_args, expr * const * args);
 
     app * mk_app(family_id fid, decl_kind k, expr * arg);
-    
+
     app * mk_app(family_id fid, decl_kind k, expr * arg1, expr * arg2);
-    
+
     app * mk_app(family_id fid, decl_kind k, expr * arg1, expr * arg2, expr * arg3);
 
     app * mk_const(family_id fid, decl_kind k) { return mk_app(fid, k, 0, static_cast<expr * const *>(0)); }
 private:
-    func_decl * mk_func_decl(symbol const & name, unsigned arity, sort * const * domain, sort * range, 
+    func_decl * mk_func_decl(symbol const & name, unsigned arity, sort * const * domain, sort * range,
                              func_decl_info * info);
-    
+
     app * mk_app_core(func_decl * decl, expr * arg1, expr * arg2);
 
     app * mk_app_core(func_decl * decl, unsigned num_args, expr * const * args);
@@ -1690,8 +1692,8 @@ public:
     func_decl * mk_func_decl(symbol const & name, unsigned arity, sort * const * domain, sort * range) {
         return mk_func_decl(name, arity, domain, range, static_cast<func_decl_info *>(0));
     }
-    
-    func_decl * mk_func_decl(symbol const & name, unsigned arity, sort * const * domain, sort * range, 
+
+    func_decl * mk_func_decl(symbol const & name, unsigned arity, sort * const * domain, sort * range,
                              func_decl_info const & info) {
         if (info.is_null()) {
             return mk_func_decl(name, arity, domain, range, static_cast<func_decl_info *>(0));
@@ -1700,69 +1702,69 @@ public:
             return mk_func_decl(name, arity, domain, range, & const_cast<func_decl_info&>(info));
         }
     }
-    
+
     func_decl * mk_func_decl(unsigned arity, sort * const * domain, func_decl_info const & info) {
-        return mk_func_decl(info.get_family_id(), info.get_decl_kind(), info.get_num_parameters(), info.get_parameters(), 
+        return mk_func_decl(info.get_family_id(), info.get_decl_kind(), info.get_num_parameters(), info.get_parameters(),
                             arity, domain);
     }
-    
+
     func_decl * mk_const_decl(symbol const & name, sort * s) {
         return mk_func_decl(name, static_cast<unsigned>(0), 0, s);
     }
-    
+
     func_decl * mk_const_decl(symbol const & name, sort * s, func_decl_info const & info) {
         return mk_func_decl(name, static_cast<unsigned>(0), 0, s, info);
     }
-    
+
     func_decl * mk_func_decl(symbol const & name, sort * domain, sort * range, func_decl_info const & info) {
         return mk_func_decl(name, 1, &domain, range, info);
     }
-    
+
     func_decl * mk_func_decl(symbol const & name, sort * domain, sort * range) {
         return mk_func_decl(name, 1, &domain, range);
     }
-    
+
     func_decl * mk_func_decl(symbol const & name, sort * domain1, sort * domain2, sort * range, func_decl_info const & info) {
         sort * d[2] = { domain1, domain2 };
         return mk_func_decl(name, 2, d, range, info);
     }
-    
-    func_decl * mk_func_decl(symbol const & name, sort * domain1, sort * domain2, sort * range) { 
+
+    func_decl * mk_func_decl(symbol const & name, sort * domain1, sort * domain2, sort * range) {
         sort * d[2] = { domain1, domain2 };
         return mk_func_decl(name, 2, d, range);
     }
-    
-    func_decl * mk_func_decl(symbol const & name, unsigned arity, sort * const * domain, sort * range, 
+
+    func_decl * mk_func_decl(symbol const & name, unsigned arity, sort * const * domain, sort * range,
                              bool assoc, bool comm = false, bool inj = false);
 
     func_decl * mk_func_decl(symbol const & name, sort * domain1, sort * domain2, sort * range, bool assoc, bool comm = false) {
         sort * d[2] = { domain1, domain2 };
         return mk_func_decl(name, 2, d, range, assoc, comm, false);
     }
-    
+
     app * mk_app(func_decl * decl, unsigned num_args, expr * const * args);
 
     app * mk_app(func_decl * decl, expr * const * args) {
         return mk_app(decl, decl->get_arity(), args);
     }
-    
+
     app * mk_app(func_decl * decl, expr * arg) {
         SASSERT(decl->get_arity() == 1);
         return mk_app(decl, 1, &arg);
     }
-    
+
     app * mk_app(func_decl * decl, expr * arg1, expr * arg2) {
         SASSERT(decl->get_arity() == 2);
         expr * args[2] = { arg1, arg2 };
         return mk_app(decl, 2, args);
     }
-    
+
     app * mk_app(func_decl * decl, expr * arg1, expr * arg2, expr * arg3) {
         SASSERT(decl->get_arity() == 3);
         expr * args[3] = { arg1, arg2, arg3 };
         return mk_app(decl, 3, args);
     }
-    
+
     app * mk_const(func_decl * decl) {
         SASSERT(decl->get_arity() == 0);
         return mk_app(decl, static_cast<unsigned>(0), static_cast<expr**>(0));
@@ -1771,21 +1773,21 @@ public:
     app * mk_const(symbol const & name, sort * s) {
         return mk_const(mk_const_decl(name, s));
     }
-    
+
     func_decl * mk_fresh_func_decl(symbol const & prefix, symbol const & suffix, unsigned arity,
                                    sort * const * domain, sort * range);
 
     func_decl * mk_fresh_func_decl(unsigned arity, sort * const * domain, sort * range) { return mk_fresh_func_decl(symbol::null, symbol::null, arity, domain, range); }
-    
-    func_decl * mk_fresh_func_decl(char const * prefix, char const * suffix, unsigned arity, 
+
+    func_decl * mk_fresh_func_decl(char const * prefix, char const * suffix, unsigned arity,
                                    sort * const * domain, sort * range) {
         return mk_fresh_func_decl(symbol(prefix), symbol(suffix), arity, domain, range);
     }
-    
+
     func_decl * mk_fresh_func_decl(char const * prefix, unsigned arity, sort * const * domain, sort * range) {
         return mk_fresh_func_decl(symbol(prefix), symbol::null, arity, domain, range);
     }
-    
+
     app * mk_fresh_const(char const * prefix, sort * s) { return mk_const(mk_fresh_func_decl(prefix, 0, 0, s)); }
 
     symbol mk_fresh_var_name(char const * prefix = 0);
@@ -1808,7 +1810,7 @@ public:
         return is_label(n)?(l = to_app(n)->get_arg(0), true):false;
     }
 
-    bool is_label(expr const * n, bool& pos) const { 
+    bool is_label(expr const * n, bool& pos) const {
         if (is_app_of(n, m_label_family_id, OP_LABEL)) {
             pos  = to_app(n)->get_decl()->get_parameter(0).get_int() != 0;
             return true;
@@ -1832,37 +1834,37 @@ public:
 
     app * mk_pattern(app * expr) { return mk_pattern(1, &expr); }
 
-    bool is_pattern(expr const * n) const; 
+    bool is_pattern(expr const * n) const;
 
-public:    
+public:
 
-    quantifier * mk_quantifier(bool forall, unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names, expr * body, 
+    quantifier * mk_quantifier(bool forall, unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names, expr * body,
                                int weight = 0, symbol const & qid = symbol::null, symbol const & skid = symbol::null,
-                               unsigned num_patterns = 0, expr * const * patterns = 0, 
+                               unsigned num_patterns = 0, expr * const * patterns = 0,
                                unsigned num_no_patterns = 0, expr * const * no_patterns = 0);
 
-    quantifier * mk_forall(unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names, expr * body, 
+    quantifier * mk_forall(unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names, expr * body,
                            int weight = 0, symbol const & qid = symbol::null, symbol const & skid = symbol::null,
-                           unsigned num_patterns = 0, expr * const * patterns = 0, 
+                           unsigned num_patterns = 0, expr * const * patterns = 0,
                            unsigned num_no_patterns = 0, expr * const * no_patterns = 0) {
         return mk_quantifier(true, num_decls, decl_sorts, decl_names, body, weight, qid, skid, num_patterns, patterns,
                              num_no_patterns, no_patterns);
     }
 
-    quantifier * mk_exists(unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names, expr * body, 
+    quantifier * mk_exists(unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names, expr * body,
                            int weight = 0, symbol const & qid = symbol::null, symbol const & skid = symbol::null,
-                           unsigned num_patterns = 0, expr * const * patterns = 0, 
+                           unsigned num_patterns = 0, expr * const * patterns = 0,
                            unsigned num_no_patterns = 0, expr * const * no_patterns = 0) {
         return mk_quantifier(false, num_decls, decl_sorts, decl_names, body, weight, qid, skid, num_patterns, patterns,
                              num_no_patterns, no_patterns);
     }
-    
+
     quantifier * update_quantifier(quantifier * q, unsigned new_num_patterns, expr * const * new_patterns, expr * new_body);
 
     quantifier * update_quantifier(quantifier * q, unsigned new_num_patterns, expr * const * new_patterns, unsigned new_num_no_patterns, expr * const * new_no_patterns, expr * new_body);
-    
+
     quantifier * update_quantifier(quantifier * q, expr * new_body);
-    
+
     quantifier * update_quantifier_weight(quantifier * q, int new_weight);
 
     quantifier * update_quantifier(quantifier * q, bool new_is_forall, expr * new_body);
@@ -1919,12 +1921,12 @@ public:
     bool empty(expr_dependency_array const & r) const { return m_expr_dependency_array_manager.empty(r); }
     expr_dependency * get(expr_dependency_array const & r, unsigned i) const { return m_expr_dependency_array_manager.get(r, i); }
     void set(expr_dependency_array & r, unsigned i, expr_dependency * v) { m_expr_dependency_array_manager.set(r, i, v); }
-    void set(expr_dependency_array const & s, unsigned i, expr_dependency * v, expr_dependency_array & r) { 
-        m_expr_dependency_array_manager.set(s, i, v, r); 
+    void set(expr_dependency_array const & s, unsigned i, expr_dependency * v, expr_dependency_array & r) {
+        m_expr_dependency_array_manager.set(s, i, v, r);
     }
     void push_back(expr_dependency_array & r, expr_dependency * v) { m_expr_dependency_array_manager.push_back(r, v); }
-    void push_back(expr_dependency_array const & s, expr_dependency * v, expr_dependency_array & r) { 
-        m_expr_dependency_array_manager.push_back(s, v, r); 
+    void push_back(expr_dependency_array const & s, expr_dependency * v, expr_dependency_array & r) {
+        m_expr_dependency_array_manager.push_back(s, v, r);
     }
     void pop_back(expr_dependency_array & r) { m_expr_dependency_array_manager.pop_back(r); }
     void pop_back(expr_dependency_array const & s, expr_dependency_array & r) { m_expr_dependency_array_manager.pop_back(s, r); }
@@ -1953,7 +1955,7 @@ public:
     bool is_term_ite(expr const * n) const { return is_ite(n) && !is_bool(n); }
     bool is_true(expr const * n) const { return n == m_true; }
     bool is_false(expr const * n) const { return n == m_false; }
-    bool is_complement_core(expr const * n1, expr const * n2) const { 
+    bool is_complement_core(expr const * n1, expr const * n2) const {
         return (is_true(n1) && is_false(n2)) || (is_not(n1) && to_app(n1)->get_arg(0) == n2);
     }
     bool is_complement(expr const * n1, expr const * n2) const { return is_complement_core(n1, n2) || is_complement_core(n2, n1); }
@@ -1981,14 +1983,14 @@ public:
     MATCH_TERNARY(is_and);
     MATCH_TERNARY(is_or);
 
-    bool is_ite(expr const* n, expr*& t1, expr*& t2, expr*& t3) const { 
-        if (is_ite(n)) { 
-            t1 = to_app(n)->get_arg(0); 
-            t2 = to_app(n)->get_arg(1); 
+    bool is_ite(expr const* n, expr*& t1, expr*& t2, expr*& t3) const {
+        if (is_ite(n)) {
+            t1 = to_app(n)->get_arg(0);
+            t2 = to_app(n)->get_arg(1);
             t3 = to_app(n)->get_arg(2);
-            return true; 
-        } 
-        return false; 
+            return true;
+        }
+        return false;
     }
 
 public:
@@ -2014,14 +2016,14 @@ public:
     app * mk_interp(expr * arg) { return mk_app(m_basic_family_id, OP_INTERP, arg); }
 
 
-    func_decl* mk_and_decl() { 
+    func_decl* mk_and_decl() {
         sort* domain[2] = { m_bool_sort, m_bool_sort };
-        return mk_func_decl(m_basic_family_id, OP_AND, 0, 0, 2, domain); 
+        return mk_func_decl(m_basic_family_id, OP_AND, 0, 0, 2, domain);
     }
     func_decl* mk_not_decl() { return mk_func_decl(m_basic_family_id, OP_NOT, 0, 0, 1, &m_bool_sort); }
     func_decl* mk_or_decl() {
         sort* domain[2] = { m_bool_sort, m_bool_sort };
-        return mk_func_decl(m_basic_family_id, OP_OR, 0, 0, 2, domain); 
+        return mk_func_decl(m_basic_family_id, OP_OR, 0, 0, 2, domain);
     }
 
 // -----------------------------------
@@ -2036,7 +2038,7 @@ public:
     app * mk_model_value(unsigned idx, sort * s);
     bool is_model_value(expr const * n) const { return is_app_of(n, m_model_value_family_id, OP_MODEL_VALUE); }
     bool is_model_value(func_decl const * d) const { return is_decl_of(d, m_model_value_family_id, OP_MODEL_VALUE); }
-    
+
     expr * get_some_value(sort * s, some_value_proc * p);
     expr * get_some_value(sort * s);
 
@@ -2059,7 +2061,7 @@ public:
     bool fine_grain_proofs() const { return m_proof_mode == PGM_FINE; }
     proof_gen_mode proof_mode() const { return m_proof_mode; }
     void toggle_proof_mode(proof_gen_mode m) { m_proof_mode = m; } // APIs for creating proof objects return [undef]
-    
+
     proof * mk_undef_proof() const { return m_undef_proof; }
 
     bool is_proof(expr const * n) const { return is_app(n) && to_app(n)->get_decl()->get_range() == m_proof_sort; }
@@ -2067,7 +2069,7 @@ public:
     proof* mk_hyper_resolve(unsigned num_premises, proof* const* premises, expr* concl,
                             svector<std::pair<unsigned, unsigned> > const& positions,
                             vector<ref_vector<expr, ast_manager> > const& substs);
-    
+
 
     bool is_undef_proof(expr const * e) const { return e == m_undef_proof; }
     bool is_asserted(expr const * e) const { return is_app_of(e, m_basic_family_id, PR_ASSERTED); }
@@ -2089,30 +2091,30 @@ public:
     bool is_quant_inst(expr const* e, expr*& not_q_or_i, ptr_vector<expr>& binding) const;
     bool is_rewrite(expr const* e, expr*& r1, expr*& r2) const;
     bool is_hyper_resolve(proof* p) const { return is_app_of(p, m_basic_family_id, PR_HYPER_RESOLVE); }
-    bool is_hyper_resolve(proof* p, 
+    bool is_hyper_resolve(proof* p,
                           ref_vector<proof, ast_manager>& premises,
                           obj_ref<expr, ast_manager>& conclusion,
                           svector<std::pair<unsigned, unsigned> > & positions,
                           vector<ref_vector<expr, ast_manager> >& substs);
 
-    
+
     bool is_def_intro(expr const * e) const { return is_app_of(e, m_basic_family_id, PR_DEF_INTRO); }
     bool is_apply_def(expr const * e) const { return is_app_of(e, m_basic_family_id, PR_APPLY_DEF); }
     bool is_skolemize(expr const * e) const { return is_app_of(e, m_basic_family_id, PR_SKOLEMIZE); }
 
     MATCH_UNARY(is_asserted);
-    MATCH_UNARY(is_lemma);    
+    MATCH_UNARY(is_lemma);
 
-    bool has_fact(proof const * p) const { 
-        SASSERT(is_proof(p)); 
-        unsigned n = p->get_num_args(); 
-        return n > 0 && get_sort(p->get_arg(n - 1)) != m_proof_sort; 
+    bool has_fact(proof const * p) const {
+        SASSERT(is_proof(p));
+        unsigned n = p->get_num_args();
+        return n > 0 && get_sort(p->get_arg(n - 1)) != m_proof_sort;
     }
     expr * get_fact(proof const * p) const { SASSERT(is_proof(p)); SASSERT(has_fact(p)); return p->get_arg(p->get_num_args() - 1); }
-    unsigned get_num_parents(proof const * p) const { 
-        SASSERT(is_proof(p)); 
+    unsigned get_num_parents(proof const * p) const {
+        SASSERT(is_proof(p));
         unsigned n = p->get_num_args();
-        return !has_fact(p) ? n : n - 1; 
+        return !has_fact(p) ? n : n - 1;
     }
     proof * get_parent(proof const * p, unsigned idx) const { SASSERT(is_proof(p)); return to_app(p->get_arg(idx)); }
     proof * mk_true_proof();
@@ -2147,7 +2149,7 @@ public:
     proof * mk_quant_inst(expr * not_q_or_i, unsigned num_bind, expr* const* binding);
 
     proof * mk_def_axiom(expr * ax);
-    proof * mk_unit_resolution(unsigned num_proofs, proof * const * proofs); 
+    proof * mk_unit_resolution(unsigned num_proofs, proof * const * proofs);
     proof * mk_unit_resolution(unsigned num_proofs, proof * const * proofs, expr * new_fact);
     proof * mk_hypothesis(expr * h);
     proof * mk_lemma(proof * p, expr * lemma);
@@ -2166,7 +2168,7 @@ public:
     proof * mk_and_elim(proof * p, unsigned i);
     proof * mk_not_or_elim(proof * p, unsigned i);
 
-    proof * mk_th_lemma(family_id tid, 
+    proof * mk_th_lemma(family_id tid,
                         expr * fact, unsigned num_proofs, proof * const * proofs,
                         unsigned num_params = 0, parameter const* params = 0);
 
@@ -2180,7 +2182,7 @@ private:
             worklist.push_back(n);
         }
     }
-    
+
     template<typename T>
     void dec_array_ref(ptr_buffer<ast> & worklist, unsigned sz, T * const * a) {
         for(unsigned i = 0; i < sz; i++) {
@@ -2315,7 +2317,7 @@ public:
 
     void mark(ast * n, bool flag) { if (flag) mark(n); else reset_mark(n); }
 
-    unsigned get_level() { 
+    unsigned get_level() {
         return m_to_unmark.size();
     }
 
@@ -2334,7 +2336,7 @@ typedef ast_fast_mark1   expr_fast_mark1;
 typedef ast_fast_mark2   expr_fast_mark2;
 
 /**
-   Similar to ast_fast_mark, but increases reference counter. 
+   Similar to ast_fast_mark, but increases reference counter.
 */
 template<unsigned IDX>
 class ast_ref_fast_mark {
@@ -2369,7 +2371,7 @@ public:
         }
         m_to_unmark.push_back(n);
     }
-    
+
     void reset() {
         ast * const * it  = m_to_unmark.c_ptr();
         ast * const * end = it + m_to_unmark.size();
@@ -2378,7 +2380,7 @@ public:
         }
         m_to_unmark.reset();
     }
-    
+
     void mark(ast * n, bool flag) { if (flag) mark(n); else reset_mark(n); }
 };
 
@@ -2396,7 +2398,7 @@ typedef ast_ref_fast_mark2   expr_ref_fast_mark2;
 /**
    \brief A mapping from AST to Boolean
 
-   \warning This map does not cleanup the entry associated with a node N, 
+   \warning This map does not cleanup the entry associated with a node N,
    when N is deleted.
 */
 class ast_mark {
@@ -2422,7 +2424,7 @@ public:
 */
 class scoped_mark : public ast_mark {
     ast_ref_vector  m_stack;
-    unsigned_vector m_lim;        
+    unsigned_vector m_lim;
 public:
     scoped_mark(ast_manager& m): m_stack(m) {}
     virtual ~scoped_mark() {}
@@ -2459,4 +2461,4 @@ public:
 
 #endif /* AST_H_ */
 
-        
+
