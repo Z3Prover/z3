@@ -362,6 +362,7 @@ MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
             return BR_FAILED;
         }
         
+
         if (m().is_ite(f)) {
             SASSERT(num == 3);
             if (butil().is_bv(args[1])) {

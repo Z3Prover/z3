@@ -173,6 +173,9 @@ std::string zstring::encode() const {
         if (0 <= ch && ch < 32) {
             strm << esc_table[ch];
         }
+        else if (ch == '\\') {
+            strm << "\\\\";
+        }
         else {
             strm << (char)(ch);
         }

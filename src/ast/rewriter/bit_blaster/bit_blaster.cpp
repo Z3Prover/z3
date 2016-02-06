@@ -21,10 +21,10 @@ Revision History:
 #include"ast_pp.h"
 #include"bv_decl_plugin.h"
 
-bit_blaster_cfg::bit_blaster_cfg(bv_util & u, bit_blaster_params const & p, basic_simplifier_plugin & _s):
+bit_blaster_cfg::bit_blaster_cfg(bv_util & u, bit_blaster_params const & p, bool_rewriter& rw):
     m_util(u),
     m_params(p),
-    s(_s) {
+    m_rw(rw) {
 }
 
 static void sort_args(expr * & l1, expr * & l2, expr * & l3) {
@@ -47,30 +47,30 @@ void bit_blaster_cfg::mk_xor3(expr * l1, expr * l2, expr * l3, expr_ref & r) {
         else if (l2 == l3)
             r = l1;
         else if (m().is_complement(l1, l2))
-            s.mk_not(l3, r);
+            m_rw.mk_not(l3, r);
         else if (m().is_complement(l1, l3))
-            s.mk_not(l2, r);
+            m_rw.mk_not(l2, r);
         else if (m().is_complement(l2, l3))
-            s.mk_not(l1, r);
+            m_rw.mk_not(l1, r);
         else if (m().is_true(l1))
-            s.mk_iff(l2, l3, r);
+            m_rw.mk_iff(l2, l3, r);
         else if (m().is_false(l1))
-            s.mk_xor(l2, l3, r);
+            m_rw.mk_xor(l2, l3, r);
         else if (m().is_true(l2))
-            s.mk_iff(l1, l3, r);
+            m_rw.mk_iff(l1, l3, r);
         else if (m().is_false(l2))
-            s.mk_xor(l1, l3, r);
+            m_rw.mk_xor(l1, l3, r);
         else if (m().is_true(l3))
-            s.mk_iff(l1, l2, r);
+            m_rw.mk_iff(l1, l2, r);
         else if (m().is_false(l3))
-            s.mk_xor(l1, l2, r);
+            m_rw.mk_xor(l1, l2, r);
         else
             r = m().mk_app(m_util.get_family_id(), OP_XOR3, l1, l2, l3);
     }
     else {
         expr_ref t(m());
-        s.mk_xor(l1, l2, t);
-        s.mk_xor(t, l3, r);
+        m_rw.mk_xor(l1, l2, t);
+        m_rw.mk_xor(t, l3, r);
     }
 }
 
@@ -90,17 +90,17 @@ void bit_blaster_cfg::mk_carry(expr * l1, expr * l2, expr * l3, expr_ref & r) {
         else if (l1 == l2 && l1 == l3)
             r = l1;
         else if (m().is_false(l1))
-            s.mk_and(l2, l3, r);
+            m_rw.mk_and(l2, l3, r);
         else if (m().is_false(l2))
-            s.mk_and(l1, l3, r);
+            m_rw.mk_and(l1, l3, r);
         else if (m().is_false(l3))
-            s.mk_and(l1, l2, r);
+            m_rw.mk_and(l1, l2, r);
         else if (m().is_true(l1))
-            s.mk_or(l2, l3, r);
+            m_rw.mk_or(l2, l3, r);
         else if (m().is_true(l2))
-            s.mk_or(l1, l3, r);
+            m_rw.mk_or(l1, l3, r);
         else if (m().is_true(l3))
-            s.mk_or(l1, l2, r);
+            m_rw.mk_or(l1, l2, r);
         else if (m().is_complement(l1, l2))
             r = l3;
         else if (m().is_complement(l1, l3))
@@ -112,17 +112,17 @@ void bit_blaster_cfg::mk_carry(expr * l1, expr * l2, expr * l3, expr_ref & r) {
     }
     else {
         expr_ref t1(m()), t2(m()), t3(m());
-        s.mk_and(l1, l2, t1);
-        s.mk_and(l1, l3, t2);
-        s.mk_and(l2, l3, t3);
-        s.mk_or(t1, t2, t3, r);
+        m_rw.mk_and(l1, l2, t1);
+        m_rw.mk_and(l1, l3, t2);
+        m_rw.mk_and(l2, l3, t3);
+        m_rw.mk_or(t1, t2, t3, r);
     }
 }
 
 template class bit_blaster_tpl<bit_blaster_cfg>;
 
 bit_blaster::bit_blaster(ast_manager & m, bit_blaster_params const & params):
-    bit_blaster_tpl<bit_blaster_cfg>(bit_blaster_cfg(m_util, params, m_simp)),
+    bit_blaster_tpl<bit_blaster_cfg>(bit_blaster_cfg(m_util, params, m_rw)),
     m_util(m),
-    m_simp(m) {
+    m_rw(m) {
 }

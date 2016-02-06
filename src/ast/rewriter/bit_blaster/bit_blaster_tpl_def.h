@@ -23,6 +23,7 @@ Revision History:
 #include"common_msgs.h"
 #include"rewriter_types.h"
 
+
 template<typename Cfg>
 void bit_blaster_tpl<Cfg>::checkpoint() {
     if (memory::get_allocation_size() > m_max_memory)
