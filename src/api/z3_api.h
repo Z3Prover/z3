@@ -5642,6 +5642,9 @@ extern "C" {
        if the result is \c Z3_L_UNDEF, but the returned model
        is not guaranteed to satisfy quantified assertions.
 
+       \remark User must use #Z3_solver_inc_ref and #Z3_solver_dec_ref to manage solver objects.
+       Even if the context was created using #Z3_mk_context instead of #Z3_mk_context_rc.
+
        def_API('Z3_mk_simple_solver', SOLVER, (_in(CONTEXT),))
     */
     Z3_solver Z3_API Z3_mk_simple_solver(Z3_context c);
@@ -5661,6 +5664,9 @@ extern "C" {
        \brief Create a new solver that is implemented using the given tactic.
        The solver supports the commands #Z3_solver_push and #Z3_solver_pop, but it
        will always solve each #Z3_solver_check from scratch.
+
+       \remark User must use #Z3_solver_inc_ref and #Z3_solver_dec_ref to manage solver objects.
+       Even if the context was created using #Z3_mk_context instead of #Z3_mk_context_rc.
 
        def_API('Z3_mk_solver_from_tactic', SOLVER, (_in(CONTEXT), _in(TACTIC)))
     */
