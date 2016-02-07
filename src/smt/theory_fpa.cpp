@@ -30,12 +30,13 @@ namespace smt {
         expr * m_e;
     public:
         fpa2bv_conversion_trail_elem(ast_manager & m, obj_map<expr, expr*> & c, expr * e) :
-            m(m), m_conversions(c), m_e(e) {}
+            m(m), m_conversions(c), m_e(e) { m.inc_ref(e); }
         virtual ~fpa2bv_conversion_trail_elem() {}
         virtual void undo(theory_fpa & th) {
             expr * v = m_conversions.find(m_e);
             m_conversions.remove(m_e);
             m.dec_ref(v);
+            m.dec_ref(m_e);
         }
     };
 

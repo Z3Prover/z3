@@ -823,6 +823,23 @@ bool theory_seq::solve_unit_eq(expr_ref_vector const& l, expr_ref_vector const& 
 }
 
 bool theory_seq::reduce_length(expr* l, expr* r, literal_vector& lits) {
+
+    rational val1, val2;
+    if (has_length(l) && has_length(r) && 
+        get_length(l, val1) && get_length(r, val2) && val1 == val2) {
+        context& ctx = get_context();
+        expr_ref len1(m_util.str.mk_length(l), m);
+        expr_ref len2(m_util.str.mk_length(r), m);
+        literal lit = mk_eq(len1, len2, false);
+        if (ctx.get_assignment(lit) == l_true) {
+            lits.push_back(lit);
+            return true;
+        }
+        else {
+            TRACE("seq", tout << "Assignment: " << len1 << " = " << len2 << " " << ctx.get_assignment(lit) << "\n";);
+            return false;
+        }
+    }
     expr_ref len1(m), len2(m);
     lits.reset();
     if (get_length(l, len1, lits) &&
@@ -2431,6 +2448,7 @@ void theory_seq::add_extract_prefix_axiom(expr* e, expr* s, expr* l) {
     literal l_le_s = mk_literal(m_autil.mk_le(mk_sub(l, ls), zero));
     add_axiom(~l_ge_0, ~l_le_s, mk_seq_eq(s, ey));
     add_axiom(~l_ge_0, ~l_le_s, mk_eq(l, le, false));
+    add_axiom(~l_ge_0, ~l_le_s, mk_eq(ls_minus_l, m_util.str.mk_length(y), false));
 }
 
 /*
