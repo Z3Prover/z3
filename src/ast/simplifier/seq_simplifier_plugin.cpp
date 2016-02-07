@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    Simplifier for the floating-point theory
+    Simplifier for the theory of sequences
 
 Author:
 
@@ -24,7 +24,7 @@ m_rw(m) {}
 seq_simplifier_plugin::~seq_simplifier_plugin() {}
 
 bool seq_simplifier_plugin::reduce(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
-    set_reduce_invoked();    
+    set_reduce_invoked();
 
     SASSERT(f->get_family_id() == get_family_id());
 

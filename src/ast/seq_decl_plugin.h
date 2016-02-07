@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    <abstract>
+    decl_plugin for the theory of sequences
 
 Author:
 
@@ -41,7 +41,7 @@ enum seq_op_kind {
     OP_SEQ_EXTRACT,
     OP_SEQ_REPLACE,
     OP_SEQ_AT,
-    OP_SEQ_LENGTH,    
+    OP_SEQ_LENGTH,
     OP_SEQ_INDEX,
     OP_SEQ_TO_RE,
     OP_SEQ_IN_RE,
@@ -61,19 +61,19 @@ enum seq_op_kind {
 
     // string specific operators.
     OP_STRING_CONST,
-    OP_STRING_ITOS, 
-    OP_STRING_STOI, 
+    OP_STRING_ITOS,
+    OP_STRING_STOI,
     // internal only operators. Converted to SEQ variants.
-    _OP_STRING_STRREPL, 
-    _OP_STRING_CONCAT, 
-    _OP_STRING_LENGTH, 
+    _OP_STRING_STRREPL,
+    _OP_STRING_CONCAT,
+    _OP_STRING_LENGTH,
     _OP_STRING_STRCTN,
-    _OP_STRING_PREFIX, 
-    _OP_STRING_SUFFIX, 
-    _OP_STRING_IN_REGEXP, 
-    _OP_STRING_TO_REGEXP, 
-    _OP_STRING_CHARAT, 
-    _OP_STRING_SUBSTR,      
+    _OP_STRING_PREFIX,
+    _OP_STRING_SUFFIX,
+    _OP_STRING_IN_REGEXP,
+    _OP_STRING_TO_REGEXP,
+    _OP_STRING_CHARAT,
+    _OP_STRING_SUBSTR,
     _OP_STRING_STRIDOF,
     _OP_REGEXP_EMPTY,
     _OP_REGEXP_FULL,
@@ -85,10 +85,10 @@ enum seq_op_kind {
 class zstring {
 public:
     enum encoding {
-        ascii, 
+        ascii,
         unicode
     };
-private:    
+private:
     buffer<unsigned> m_buffer;
     encoding         m_encoding;
 public:
@@ -101,7 +101,7 @@ public:
     zstring replace(zstring const& src, zstring const& dst) const;
     unsigned num_bits() const { return (m_encoding==ascii)?8:16; }
     encoding get_encoding() const { return m_encoding; }
-    std::string encode() const; 
+    std::string encode() const;
     unsigned length() const { return m_buffer.size(); }
     unsigned operator[](unsigned i) const { return m_buffer[i]; }
     bool empty() const { return m_buffer.empty(); }
@@ -113,7 +113,7 @@ public:
     zstring operator+(zstring const& other) const;
     std::ostream& operator<<(std::ostream& out) const;
 };
-    
+
 class seq_decl_plugin : public decl_plugin {
     struct psig {
         symbol          m_name;
@@ -161,18 +161,18 @@ public:
 
     virtual ~seq_decl_plugin() {}
     virtual void finalize();
-   
+
     virtual decl_plugin * mk_fresh() { return alloc(seq_decl_plugin); }
-    
+
     virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters);
-    
-    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
+
+    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                      unsigned arity, sort * const * domain, sort * range);
-    
+
     virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic);
-    
+
     virtual void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic);
-    
+
     virtual bool is_value(app * e) const;
 
     virtual bool is_unique_value(app * e) const { return is_value(e); }
@@ -181,8 +181,8 @@ public:
 
     bool is_char(ast* a) const { return a == m_char; }
 
-    app* mk_string(symbol const& s);  
-    app* mk_string(zstring const& s);  
+    app* mk_string(symbol const& s);
+    app* mk_string(zstring const& s);
 
 };
 
@@ -244,12 +244,12 @@ public:
         bool is_string(expr const* n, symbol& s) const {
             return is_string(n) && (s = to_app(n)->get_decl()->get_parameter(0).get_symbol(), true);
         }
-        
+
         bool is_string(expr const* n, zstring& s) const;
         bool is_char(expr* n, zstring& s) const;
 
-        bool is_empty(expr const* n) const { symbol s; 
-            return is_app_of(n, m_fid, OP_SEQ_EMPTY) || (is_string(n, s) && !s.is_numerical() && *s.bare_str() == 0); 
+        bool is_empty(expr const* n) const { symbol s;
+            return is_app_of(n, m_fid, OP_SEQ_EMPTY) || (is_string(n, s) && !s.is_numerical() && *s.bare_str() == 0);
         }
         bool is_concat(expr const* n)   const { return is_app_of(n, m_fid, OP_SEQ_CONCAT); }
         bool is_length(expr const* n)   const { return is_app_of(n, m_fid, OP_SEQ_LENGTH); }
@@ -265,7 +265,7 @@ public:
         bool is_in_re(expr const* n)    const { return is_app_of(n, m_fid, OP_SEQ_IN_RE); }
         bool is_unit(expr const* n)     const { return is_app_of(n, m_fid, OP_SEQ_UNIT); }
 
-        
+
         MATCH_BINARY(is_concat);
         MATCH_UNARY(is_length);
         MATCH_TERNARY(is_extract);
@@ -278,7 +278,7 @@ public:
         MATCH_BINARY(is_suffix);
         MATCH_UNARY(is_itos);
         MATCH_UNARY(is_stoi);
-        MATCH_BINARY(is_in_re);        
+        MATCH_BINARY(is_in_re);
         MATCH_UNARY(is_unit);
 
         void get_concat(expr* e, expr_ref_vector& es) const;
@@ -301,7 +301,7 @@ public:
         app* mk_inter(expr* r1, expr* r2) { return m.mk_app(m_fid, OP_RE_INTERSECT, r1, r2); }
         app* mk_star(expr* r) { return m.mk_app(m_fid, OP_RE_STAR, r); }
         app* mk_plus(expr* r) { return m.mk_app(m_fid, OP_RE_PLUS, r); }
-        app* mk_opt(expr* r) { return m.mk_app(m_fid, OP_RE_OPTION, r); }        
+        app* mk_opt(expr* r) { return m.mk_app(m_fid, OP_RE_OPTION, r); }
         app* mk_loop(expr* r, unsigned lo);
         app* mk_loop(expr* r, unsigned lo, unsigned hi);
 
@@ -325,23 +325,23 @@ public:
         MATCH_UNARY(is_plus);
         MATCH_UNARY(is_opt);
         bool is_loop(expr const* n, expr*& body, unsigned& lo, unsigned& hi);
-        bool is_loop(expr const* n, expr*& body, unsigned& lo);        
+        bool is_loop(expr const* n, expr*& body, unsigned& lo);
     };
     str str;
     re  re;
 
-    seq_util(ast_manager& m): 
-        m(m), 
+    seq_util(ast_manager& m):
+        m(m),
         seq(*static_cast<seq_decl_plugin*>(m.get_plugin(m.mk_family_id("seq")))),
         m_fid(seq.get_family_id()),
         str(*this),
-        re(*this) {        
+        re(*this) {
     }
 
     ~seq_util() {}
 
     family_id get_family_id() const { return m_fid; }
-    
+
 };
 
 #endif /* SEQ_DECL_PLUGIN_H_ */
