@@ -26,17 +26,17 @@ namespace smt {
 
     class fpa2bv_conversion_trail_elem : public trail<theory_fpa> {
         ast_manager & m;
-        obj_map<expr, expr*> & m_conversions;
-        expr * m_e;
+        obj_map<expr, expr*> & m_map;
+        expr_ref key;
     public:
-        fpa2bv_conversion_trail_elem(ast_manager & m, obj_map<expr, expr*> & c, expr * e) :
-            m(m), m_conversions(c), m_e(e) { m.inc_ref(e); }
-        virtual ~fpa2bv_conversion_trail_elem() {}
+        fpa2bv_conversion_trail_elem(ast_manager & m, obj_map<expr, expr*> & map, expr * e) :
+            m(m), m_map(map), key(e, m) { }
+        virtual ~fpa2bv_conversion_trail_elem() { }
         virtual void undo(theory_fpa & th) {
-            expr * v = m_conversions.find(m_e);
-            m_conversions.remove(m_e);
-            m.dec_ref(v);
-            m.dec_ref(m_e);
+            expr * val = m_map.find(key);
+            m_map.remove(key);
+            m.dec_ref(val);
+            key = 0;
         }
     };
 
@@ -153,6 +153,8 @@ namespace smt {
 
     theory_fpa::~theory_fpa()
     {
+        m_trail_stack.reset();
+
         if (m_is_initialized) {
             ast_manager & m = get_manager();
             dec_ref_map_values(m, m_conversions);
