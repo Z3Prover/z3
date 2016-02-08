@@ -875,6 +875,10 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
                     if (m().is_false(cond)) {
                         continue;
                     }
+                    if (m().is_true(cond)) {
+                        add_next(next, trail, mv.dst(), acc);
+                        continue;
+                    }
                     expr* args[2] = { cond, acc };
                     cond = mk_and(m(), 2, args);
                     add_next(next, trail, mv.dst(), cond);

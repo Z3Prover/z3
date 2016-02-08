@@ -419,11 +419,16 @@ void fpa2bv_converter::add_core(unsigned sbits, unsigned ebits,
 
     dbg_decouple("fpa2bv_add_exp_delta", exp_delta);
 
-    // cap the delta
-    expr_ref cap(m), cap_le_delta(m);
-    cap = m_bv_util.mk_numeral(sbits+2, ebits);
-    cap_le_delta = m_bv_util.mk_ule(cap, exp_delta);
-    m_simp.mk_ite(cap_le_delta, cap, exp_delta, exp_delta);
+    if (log2(sbits + 2) < ebits + 2)
+    {
+        // cap the delta
+        expr_ref cap(m), cap_le_delta(m);
+        cap = m_bv_util.mk_numeral(sbits + 2, ebits + 2);
+        cap_le_delta = m_bv_util.mk_ule(cap, m_bv_util.mk_zero_extend(2, exp_delta));
+        m_simp.mk_ite(cap_le_delta, cap, m_bv_util.mk_zero_extend(2, exp_delta), exp_delta);
+        exp_delta = m_bv_util.mk_extract(ebits - 1, 0, exp_delta);
+        dbg_decouple("fpa2bv_add_exp_cap", cap);
+    }
 
     dbg_decouple("fpa2bv_add_exp_delta_capped", exp_delta);
 

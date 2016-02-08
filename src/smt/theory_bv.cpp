@@ -471,12 +471,12 @@ namespace smt {
                 if (get_enode(v)->get_root() != get_enode(v2)->get_root()) {
                     SASSERT(get_bv_size(v) == get_bv_size(v2));
                     context & ctx      = get_context();
-                    justification * js = ctx.mk_justification(fixed_eq_justification(*this, v, v2));
                     TRACE("fixed_var_eh", tout << "detected equality: v" << v << " = v" << v2 << "\n";
                           display_var(tout, v);
                           display_var(tout, v2););
                     m_stats.m_num_th2core_eq++;
                     add_fixed_eq(v, v2);
+                    justification * js = ctx.mk_justification(fixed_eq_justification(*this, v, v2));
                     ctx.assign_eq(get_enode(v), get_enode(v2), eq_justification(js));                    
                     m_fixed_var_table.insert(key, v2);
                 }
