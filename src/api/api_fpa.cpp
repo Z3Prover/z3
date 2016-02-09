@@ -935,7 +935,6 @@ extern "C" {
         RESET_ERROR_CODE();
         ast_manager & m = mk_c(c)->m();
         mpf_manager & mpfm = mk_c(c)->fpautil().fm();
-        unsynch_mpz_manager & mpzm = mpfm.mpz_manager();
         unsynch_mpq_manager & mpqm = mpfm.mpq_manager();
         family_id fid = mk_c(c)->get_fpa_fid();
         fpa_decl_plugin * plugin = (fpa_decl_plugin*)m.get_plugin(fid);
@@ -1037,7 +1036,6 @@ extern "C" {
         RESET_ERROR_CODE();
         ast_manager & m = mk_c(c)->m();
         mpf_manager & mpfm = mk_c(c)->fpautil().fm();
-        unsynch_mpz_manager & mpzm = mpfm.mpz_manager();
         family_id fid = mk_c(c)->get_fpa_fid();
         fpa_decl_plugin * plugin = (fpa_decl_plugin*)m.get_plugin(mk_c(c)->get_fpa_fid());
         SASSERT(plugin != 0);
