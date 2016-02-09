@@ -181,26 +181,26 @@ namespace pdr {
             return m_mux.is_homogenous_formula(f, n_index()); 
         }
         
-        func_decl * o2n(func_decl * p, unsigned o_idx) const {
+        func_decl * o2n(func_decl * p, unsigned o_idx) {
             return m_mux.conv(p, o_index(o_idx), n_index()); 
         }
-        func_decl * o2o(func_decl * p, unsigned src_idx, unsigned tgt_idx) const { 
+        func_decl * o2o(func_decl * p, unsigned src_idx, unsigned tgt_idx) { 
             return m_mux.conv(p, o_index(src_idx), o_index(tgt_idx)); 
         }
-        func_decl * n2o(func_decl * p, unsigned o_idx) const {
+        func_decl * n2o(func_decl * p, unsigned o_idx) {
             return m_mux.conv(p, n_index(), o_index(o_idx)); 
         }
     
-        void formula_o2n(expr * f, expr_ref & result, unsigned o_idx, bool homogenous=true) const
+        void formula_o2n(expr * f, expr_ref & result, unsigned o_idx, bool homogenous=true) 
         { m_mux.conv_formula(f, o_index(o_idx), n_index(), result, homogenous); }
         
-        void formula_n2o(expr * f, expr_ref & result, unsigned o_idx, bool homogenous=true) const
+        void formula_n2o(expr * f, expr_ref & result, unsigned o_idx, bool homogenous=true) 
         { m_mux.conv_formula(f, n_index(), o_index(o_idx), result, homogenous); }
         
-        void formula_n2o(unsigned o_idx, bool homogenous, expr_ref & result) const
+        void formula_n2o(unsigned o_idx, bool homogenous, expr_ref & result) 
         { m_mux.conv_formula(result.get(), n_index(), o_index(o_idx), result, homogenous); }
         
-        void formula_o2o(expr * src, expr_ref & tgt, unsigned src_idx, unsigned tgt_idx, bool homogenous=true) const
+        void formula_o2o(expr * src, expr_ref & tgt, unsigned src_idx, unsigned tgt_idx, bool homogenous=true) 
         { m_mux.conv_formula(src, o_index(src_idx), o_index(tgt_idx), tgt, homogenous); }
         
         /**
@@ -237,7 +237,7 @@ namespace pdr {
            Increase indexes of state symbols in formula by dist.
            The 'N' index becomes 'O' index with number dist-1.
         */
-        void formula_shift(expr * src, expr_ref & tgt, unsigned dist) const {
+        void formula_shift(expr * src, expr_ref & tgt, unsigned dist) {
             SASSERT(n_index()==0);
             SASSERT(o_index(0)==1);
             m_mux.shift_formula(src, dist, tgt);

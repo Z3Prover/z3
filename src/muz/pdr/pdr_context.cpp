@@ -1838,7 +1838,7 @@ namespace pdr {
 
     }
 
-    void context::get_level_property(unsigned lvl, expr_ref_vector& res, vector<relation_info>& rs) const {
+    void context::get_level_property(unsigned lvl, expr_ref_vector& res, vector<relation_info>& rs)  {
         decl2rel::iterator it = m_rels.begin(), end = m_rels.end();
         for (; it != end; ++it) {
             pred_transformer* r = it->m_value;
@@ -1962,7 +1962,7 @@ namespace pdr {
         return m_search.get_trace(*this);
     }
 
-    expr_ref context::mk_unsat_answer() const {
+    expr_ref context::mk_unsat_answer() {
         expr_ref_vector refs(m);
         vector<relation_info> rs;
         get_level_property(m_inductive_lvl, refs, rs);
@@ -2364,7 +2364,7 @@ namespace pdr {
         return result == l_false;
     }
 
-    void context::display_certificate(std::ostream& strm) const {
+    void context::display_certificate(std::ostream& strm) {
         switch(m_last_result) {
         case l_false: {
             expr_ref_vector refs(m);

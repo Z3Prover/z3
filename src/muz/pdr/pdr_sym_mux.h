@@ -46,7 +46,7 @@ private:
     mutable unsigned       m_next_sym_suffix_idx;
     mutable symbols        m_used_suffixes;
     /** Here we have default suffixes for each of the variants */
-    mutable vector<std::string> m_suffixes;
+    vector<std::string> m_suffixes;
 
 
     /**
@@ -89,12 +89,12 @@ private:
     class index_collector;
     class variable_collector;
 
-    std::string get_suffix(unsigned i) const;
-    void ensure_tuple_size(func_decl * prim, unsigned sz) const;
+    std::string get_suffix(unsigned i);
+    void ensure_tuple_size(func_decl * prim, unsigned sz);
 
     expr_ref isolate_o_idx(expr* e, unsigned idx) const;
 public:
-    sym_mux(ast_manager & m, const vector<std::string> & suffixes);
+    sym_mux(ast_manager & m, vector<std::string> & suffixes);
 
     ast_manager & get_manager() const { return m; }
 
@@ -130,7 +130,7 @@ public:
     /**
     Return symbol created from prefix, or 0 if the prefix was never used.
     */
-    func_decl * try_get_by_prefix(func_decl* prefix, unsigned idx) const {
+    func_decl * try_get_by_prefix(func_decl* prefix, unsigned idx) {
         func_decl * prim = try_get_primary_by_prefix(prefix);
         if(!prim) {
             return 0;
@@ -199,22 +199,22 @@ public:
     /**
     Convert symbol sym which has to be of src_idx variant into variant tgt_idx.
     */
-    func_decl * conv(func_decl * sym, unsigned src_idx, unsigned tgt_idx) const;
+    func_decl * conv(func_decl * sym, unsigned src_idx, unsigned tgt_idx);
 
     
     /**
     Convert src_idx symbols in formula f variant into tgt_idx.
     If homogenous is true, formula cannot contain symbols of other variants.
     */
-    void conv_formula(expr * f, unsigned src_idx, unsigned tgt_idx, expr_ref & res, bool homogenous=true) const;
+    void conv_formula(expr * f, unsigned src_idx, unsigned tgt_idx, expr_ref & res, bool homogenous=true);
     void conv_formula_vector(const expr_ref_vector & vect, unsigned src_idx, unsigned tgt_idx, 
-        expr_ref_vector & res) const;
+        expr_ref_vector & res);
 
     /**
     Shifts the muxed symbols in f by dist. Dist can be negative, but it should never shift 
     symbol index to a negative value.
     */
-    void shift_formula(expr * f, int dist, expr_ref & res) const;
+    void shift_formula(expr * f, int dist, expr_ref & res);
 
     /**
     Remove from vect literals (atoms or negations of atoms) of symbols

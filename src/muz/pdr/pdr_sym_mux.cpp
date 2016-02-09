@@ -28,7 +28,7 @@ Revision History:
 
 using namespace pdr;
 
-sym_mux::sym_mux(ast_manager & m, const vector<std::string> & suffixes)
+sym_mux::sym_mux(ast_manager & m, vector<std::string> & suffixes)
     : m(m), m_ref_holder(m), m_next_sym_suffix_idx(0), m_suffixes(suffixes)
 {
     unsigned suf_sz = m_suffixes.size();
@@ -38,7 +38,7 @@ sym_mux::sym_mux(ast_manager & m, const vector<std::string> & suffixes)
     }
 }
 
-std::string sym_mux::get_suffix(unsigned i) const {
+std::string sym_mux::get_suffix(unsigned i) {
     while(m_suffixes.size() <= i) {
         std::string new_suffix;
         symbol new_syffix_sym;
@@ -88,7 +88,7 @@ void sym_mux::create_tuple(func_decl* prefix, unsigned arity, sort * const * dom
     m_ref_holder.push_back(prefix);
 }
 
-void sym_mux::ensure_tuple_size(func_decl * prim, unsigned sz) const {
+void sym_mux::ensure_tuple_size(func_decl * prim, unsigned sz)  {
     SASSERT(m_prim2all.contains(prim));
     decl_vector& tuple = m_prim2all.find_core(prim)->get_data().m_value;
     SASSERT(tuple[0]==prim);
@@ -98,10 +98,10 @@ void sym_mux::ensure_tuple_size(func_decl * prim, unsigned sz) const {
     func_decl * prefix;
     TRUSTME(m_prim2prefix.find(prim, prefix));
     std::string prefix_name = prefix->get_name().bare_str();
-    for(unsigned i=tuple.size(); i<sz; ++i) {
-        std::string name = prefix_name+get_suffix(i);
+    for(unsigned i = tuple.size(); i < sz; ++i) {
+        std::string name = prefix_name + get_suffix(i);
         func_decl * new_sym = m.mk_func_decl(symbol(name.c_str()), prefix->get_arity(), 
-            prefix->get_domain(), prefix->get_range());
+                                             prefix->get_domain(), prefix->get_range());
 
         tuple.push_back(new_sym);
         m_ref_holder.push_back(new_sym);
@@ -110,7 +110,7 @@ void sym_mux::ensure_tuple_size(func_decl * prim, unsigned sz) const {
     }
 }
 
-func_decl * sym_mux::conv(func_decl * sym, unsigned src_idx, unsigned tgt_idx) const
+func_decl * sym_mux::conv(func_decl * sym, unsigned src_idx, unsigned tgt_idx)
 {
     if(src_idx==tgt_idx) { return sym; }
     func_decl * prim = (src_idx==0) ? sym : get_primary(sym);
@@ -347,12 +347,12 @@ struct sym_mux::conv_rewriter_cfg : public default_rewriter_cfg
 {
 private:
     ast_manager & m;
-    const sym_mux & m_parent;
+    sym_mux & m_parent;
     unsigned m_from_idx;
     unsigned m_to_idx;
     bool m_homogenous;
 public:
-    conv_rewriter_cfg(const sym_mux & parent, unsigned from_idx, unsigned to_idx, bool homogenous) 
+    conv_rewriter_cfg(sym_mux & parent, unsigned from_idx, unsigned to_idx, bool homogenous) 
         : m(parent.get_manager()), 
         m_parent(parent), 
         m_from_idx(from_idx), 
@@ -374,7 +374,7 @@ public:
     }
 };
 
-void sym_mux::conv_formula(expr * f, unsigned src_idx, unsigned tgt_idx, expr_ref & res, bool homogenous) const
+void sym_mux::conv_formula(expr * f, unsigned src_idx, unsigned tgt_idx, expr_ref & res, bool homogenous) 
 {
     if(src_idx==tgt_idx) {
         res = f;
@@ -389,10 +389,10 @@ struct sym_mux::shifting_rewriter_cfg : public default_rewriter_cfg
 {
 private:
     ast_manager & m;
-    const sym_mux & m_parent;
+    sym_mux & m_parent;
     int m_shift;
 public:
-    shifting_rewriter_cfg(const sym_mux & parent, int shift) 
+    shifting_rewriter_cfg(sym_mux & parent, int shift) 
         : m(parent.get_manager()), 
         m_parent(parent), 
         m_shift(shift) {}
@@ -413,7 +413,7 @@ public:
     }
 };
 
-void sym_mux::shift_formula(expr * f, int dist, expr_ref & res) const
+void sym_mux::shift_formula(expr * f, int dist, expr_ref & res) 
 {
     if(dist==0) {
         res = f;
@@ -425,7 +425,7 @@ void sym_mux::shift_formula(expr * f, int dist, expr_ref & res) const
 }
 
 void sym_mux::conv_formula_vector(const expr_ref_vector & vect, unsigned src_idx, unsigned tgt_idx, 
-    expr_ref_vector & res) const
+    expr_ref_vector & res)
 {
     res.reset();
     expr * const * begin = vect.c_ptr();
@@ -441,11 +441,11 @@ void sym_mux::filter_idx(expr_ref_vector & vect, unsigned idx) const {
     unsigned i = 0;
     while (i < vect.size()) {
         expr* e = vect[i].get();
-        if(contains(e, idx) && is_homogenous_formula(e, idx)) {
+        if (contains(e, idx) && is_homogenous_formula(e, idx)) {
             i++;
         }
         else {
-            //we don't allow mixing states inside vector elements
+            // we don't allow mixing states inside vector elements
             SASSERT(!contains(e, idx));
             vect[i] = vect.back();
             vect.pop_back();
@@ -476,23 +476,20 @@ class sym_mux::nonmodel_sym_checker {
     bool m_found;
 public:
     nonmodel_sym_checker(const sym_mux & parent) : 
-      m_parent(parent), m_found(false)
-    {
+        m_parent(parent), m_found(false) {
     }
 
-    void operator()(expr * e)
-    {
+    void operator()(expr * e) {
         if(m_found || !is_app(e)) { return; }
-
+        
         func_decl * sym = to_app(e)->get_decl();
-
+        
         if(m_parent.is_non_model_sym(sym)) {
             m_found = true;
         }
     }
 
-    bool found() const
-    {
+    bool found() const {
         return m_found;
     }
 };
@@ -504,14 +501,15 @@ bool sym_mux::has_nonmodel_symbol(expr * e) const {
 }
 
 void sym_mux::filter_non_model_lits(expr_ref_vector & vect) const {
-    unsigned i=0;
-    while(i<vect.size()) {
-        if(!has_nonmodel_symbol(vect[i].get())) {
+    unsigned i = 0;
+    while (i < vect.size()) {
+        if (!has_nonmodel_symbol(vect[i].get())) {
             i++;
-            continue;
         }
-        vect[i] = vect.back();
-        vect.pop_back();
+        else {
+            vect[i] = vect.back();
+            vect.pop_back();
+        }
     }
 }
 
@@ -526,10 +524,10 @@ public:
     bool operator()(func_decl * sym1, func_decl * sym2)
     {
         unsigned idx1, idx2;
-        if(!m_parent.try_get_index(sym1, idx1)) { idx1 = UINT_MAX; }
-        if(!m_parent.try_get_index(sym2, idx2)) { idx2 = UINT_MAX; }
+        if (!m_parent.try_get_index(sym1, idx1)) { idx1 = UINT_MAX; }
+        if (!m_parent.try_get_index(sym2, idx2)) { idx2 = UINT_MAX; }
 
-        if(idx1!=idx2) { return idx1<idx2; }
+        if (idx1 != idx2) { return idx1<idx2; }
         return lt(sym1->get_name(), sym2->get_name());
     }
 };
@@ -545,9 +543,9 @@ std::string sym_mux::pp_model(const model_core & mdl) const {
     std::sort(consts.begin(), consts.end(), decl_idx_comparator(*this));
 
     std::stringstream res;
-
+    
     decl_vector::iterator end = consts.end();
-    for(decl_vector::iterator it = consts.begin(); it!=end; it++) {
+    for (decl_vector::iterator it = consts.begin(); it!=end; it++) {
         func_decl * d = *it;
         std::string name   = d->get_name().str();
         const char * arrow = " -> "; 
@@ -555,11 +553,11 @@ std::string sym_mux::pp_model(const model_core & mdl) const {
         unsigned indent = static_cast<unsigned>(name.length() + strlen(arrow));
         res << mk_pp(mdl.get_const_interp(d), m, indent) << "\n";
 
-        if(it+1!=end) {
+        if (it+1 != end) {
             unsigned idx1, idx2;
-            if(!try_get_index(*it, idx1)) { idx1 = UINT_MAX; }
-            if(!try_get_index(*(it+1), idx2)) { idx2 = UINT_MAX; }
-            if(idx1!=idx2) { res << "\n"; }
+            if (!try_get_index(*it, idx1)) { idx1 = UINT_MAX; }
+            if (!try_get_index(*(it+1), idx2)) { idx2 = UINT_MAX; }
+            if (idx1 != idx2) { res << "\n"; }
         }
     }
     return res.str();
