@@ -159,22 +159,17 @@ namespace pdr {
             out << "(pop)\n";
         }
     }
-
-    vector<std::string> manager::get_state_suffixes() {
-        vector<std::string> res;
-        res.push_back("_n");
-        return res;
-    }
     
     manager::manager(smt_params& fparams, unsigned max_num_contexts, ast_manager& manager) :
         m(manager),
         m_fparams(fparams),
-        m_brwr(m),
-        m_mux(m, get_state_suffixes()),
+        m_brwr(m),        
+        m_mux(m, m_state_suffixes),
         m_background(m.mk_true(), m),
         m_contexts(fparams, max_num_contexts, m),
         m_next_unique_num(0)
     {        
+        m_state_suffixes.push_back("_n");
     }
 
 

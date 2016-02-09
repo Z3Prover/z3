@@ -81,6 +81,7 @@ namespace pdr {
         
         mutable bool_rewriter m_brwr;
         
+        vector<std::string>   m_state_suffixes;
         sym_mux               m_mux;
         expr_ref              m_background;
         decl_vector           m_o0_preds;
@@ -89,9 +90,7 @@ namespace pdr {
         /** whenever we need an unique number, we get this one and increase */
         unsigned m_next_unique_num;
         
-        
-        static vector<std::string> get_state_suffixes();
-        
+               
         unsigned n_index() const { return 0; }
         unsigned o_index(unsigned i) const { return i+1; }
         
