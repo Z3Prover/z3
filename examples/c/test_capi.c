@@ -2794,9 +2794,9 @@ int main() {
     Z3_open_log("z3.log");
 #endif
     display_version();
-    //simple_example();
-    //demorgan();
-    //find_model_example1();
+    simple_example();
+    demorgan();
+    find_model_example1();
     find_model_example2();
     prove_example1();
     prove_example2();
