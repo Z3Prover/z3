@@ -337,6 +337,7 @@ namespace smt {
         bool get_length(expr* s, expr_ref& len, literal_vector& lits);
         bool reduce_length(expr* l, expr* r, literal_vector& lits);
         bool reduce_length_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* deps);
+        bool reduce_length(unsigned i, unsigned j, bool front, expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* deps);
 
         expr_ref mk_empty(sort* s) { return expr_ref(m_util.str.mk_empty(s), m); }
         expr_ref mk_concat(unsigned n, expr*const* es) { return expr_ref(m_util.str.mk_concat(n, es), m); }
@@ -429,6 +430,10 @@ namespace smt {
         void tightest_prefix(expr* s, expr* x, literal lit, literal lit2 = null_literal);
         expr_ref mk_sub(expr* a, expr* b);
         enode* ensure_enode(expr* a);
+        
+        dependency* mk_join(dependency* deps, literal lit);
+        dependency* mk_join(dependency* deps, literal_vector const& lits);
+
 
         // arithmetic integration
         bool lower_bound(expr* s, rational& lo);
