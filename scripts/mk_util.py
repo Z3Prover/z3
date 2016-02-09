@@ -3650,10 +3650,15 @@ class MakeRuleCmd(object):
         assert not ' ' in dir
         install_root = cls._install_root(dir, in_prefix, out)
 
-        cls.write_cmd(out, "mkdir -p {install_root}{dir}".format(
-            install_root=install_root,
-            dir=dir))
-
+        if is_windows():
+            cls.write_cmd(out, "IF NOT EXIST {dir} (mkdir {dir})".format(
+                install_root=install_root,
+                dir=dir))
+        else:
+            cls.write_cmd(out, "mkdir -p {install_root}{dir}".format(
+                install_root=install_root,
+                dir=dir))
+            
     @classmethod
     def _is_path_prefix_of(cls, temp_path, target_as_abs):
         """
