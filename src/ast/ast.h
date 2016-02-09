@@ -634,9 +634,6 @@ struct app_flags {
     unsigned     m_ground:1;   // application does not have free variables or nested quantifiers.
     unsigned     m_has_quantifiers:1; // application has nested quantifiers.
     unsigned     m_has_labels:1; // application has nested labels.
-    static app_flags mk_const_flags();
-    static app_flags mk_default_app_flags();
-    static app_flags mk_default_quantifier_flags();
 };
 
 class app : public expr {

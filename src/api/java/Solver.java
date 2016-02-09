@@ -127,13 +127,13 @@ public class Solver extends Z3Object
      * using the Boolean constants in ps.
      *
      * Remarks: 
-     * This API is an alternative to <see cref="Check"/> with assumptions for
+     * This API is an alternative to {@link check} with assumptions for
      * extracting unsat cores.
      * Both APIs can be used in the same solver. The unsat core will contain a
      * combination
-     * of the Boolean variables provided using <see cref="AssertAndTrack"/>
+     * of the Boolean variables provided using {@link assertAndTrack}
      * and the Boolean literals
-     * provided using <see cref="Check"/> with assumptions.
+     * provided using {@link check} with assumptions.
      **/
     public void assertAndTrack(BoolExpr[] constraints, BoolExpr[] ps)
     {
@@ -152,13 +152,13 @@ public class Solver extends Z3Object
      * using the Boolean constant p.
      * 
      * Remarks: 
-     * This API is an alternative to <see cref="Check"/> with assumptions for
+     * This API is an alternative to {@link check} with assumptions for
      * extracting unsat cores.
      * Both APIs can be used in the same solver. The unsat core will contain a
      * combination
-     * of the Boolean variables provided using <see cref="AssertAndTrack"/>
+     * of the Boolean variables provided using {@link assertAndTrack}
      * and the Boolean literals
-     * provided using <see cref="Check"/> with assumptions.
+     * provided using {@link check} with assumptions.
      */ 
     public void assertAndTrack(BoolExpr constraint, BoolExpr p)
     {
@@ -294,7 +294,7 @@ public class Solver extends Z3Object
     }
 
     /**
-     * Create a clone of the current solver with respect to <c>ctx</c>.
+     * Create a clone of the current solver with respect to{@code ctx}.
      */
     public Solver translate(Context ctx) 
     {

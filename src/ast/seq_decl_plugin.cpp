@@ -140,8 +140,8 @@ zstring zstring::replace(zstring const& src, zstring const& dst) const {
         return zstring(*this);
     }
     bool found = false;
-    for (unsigned i = 0; i <= length() - src.length(); ++i) {
-        bool eq = !found;
+    for (unsigned i = 0; i < length(); ++i) {
+        bool eq = !found && i + src.length() <= length();
         for (unsigned j = 0; eq && j < src.length(); ++j) {
             eq = m_buffer[i+j] == src[j];
         }
@@ -153,9 +153,6 @@ zstring zstring::replace(zstring const& src, zstring const& dst) const {
         else {
             result.m_buffer.push_back(m_buffer[i]);
         }
-    }
-    for (unsigned i = length() - src.length() + 1; i < length(); ++i) {
-        result.m_buffer.push_back(m_buffer[i]);
     }
     return result;
 }

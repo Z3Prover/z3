@@ -266,6 +266,16 @@ bool theory_seq::branch_variable() {
     context& ctx = get_context();
     unsigned sz = m_eqs.size();
     int start = ctx.get_random_value();
+
+    for (unsigned i = 0; !ctx.inconsistent() && i < m_eqs.size(); ++i) {
+        eq const& e = m_eqs[(i + start) % m_eqs.size()];
+        if (reduce_length_eq(e.ls(), e.rs(), e.dep())) {
+            TRACE("seq", tout << "length\n";);
+            return true;
+        }
+    }
+
+
     unsigned s = 0;
     for (unsigned i = 0; i < sz; ++i) {
         unsigned k = (i + start) % sz;
@@ -488,6 +498,7 @@ bool theory_seq::check_length_coherence(expr* e) {
 }
 
 bool theory_seq::check_length_coherence() {
+
     obj_hashtable<expr>::iterator it = m_length.begin(), end = m_length.end();
     for (; it != end; ++it) {
         expr* e = *it;
@@ -822,24 +833,9 @@ bool theory_seq::solve_unit_eq(expr_ref_vector const& l, expr_ref_vector const& 
     return false;
 }
 
+
 bool theory_seq::reduce_length(expr* l, expr* r, literal_vector& lits) {
 
-    rational val1, val2;
-    if (has_length(l) && has_length(r) && 
-        get_length(l, val1) && get_length(r, val2) && val1 == val2) {
-        context& ctx = get_context();
-        expr_ref len1(m_util.str.mk_length(l), m);
-        expr_ref len2(m_util.str.mk_length(r), m);
-        literal lit = mk_eq(len1, len2, false);
-        if (ctx.get_assignment(lit) == l_true) {
-            lits.push_back(lit);
-            return true;
-        }
-        else {
-            TRACE("seq", tout << "Assignment: " << len1 << " = " << len2 << " " << ctx.get_assignment(lit) << "\n";);
-            return false;
-        }
-    }
     expr_ref len1(m), len2(m);
     lits.reset();
     if (get_length(l, len1, lits) &&
@@ -962,10 +958,6 @@ bool theory_seq::solve_eq(expr_ref_vector const& l, expr_ref_vector const& r, de
         TRACE("seq", tout << "unit\n";);
         return true;
     }
-    if (!ctx.inconsistent() && reduce_length_eq(ls, rs, deps)) {
-        TRACE("seq", tout << "length\n";);
-        return true;
-    }
     if (!ctx.inconsistent() && solve_binary_eq(ls, rs, deps)) {
         TRACE("seq", tout << "binary\n";);
         return true;
@@ -1027,6 +1019,7 @@ bool theory_seq::reduce_length_eq(expr_ref_vector const& ls, expr_ref_vector con
         lhs.append(ls.size()-1, ls.c_ptr() + 1);
         rhs.append(rs.size()-1, rs.c_ptr() + 1);
         SASSERT(!lhs.empty() || !rhs.empty());
+        deps = mk_join(deps, lits);
         m_eqs.push_back(eq(m_eq_id++, lhs, rhs, deps));
         TRACE("seq", tout << "Propagate equal lengths " << l << " " << r << "\n";);
         propagate_eq(deps, lits, l, r, true);
@@ -1039,14 +1032,91 @@ bool theory_seq::reduce_length_eq(expr_ref_vector const& ls, expr_ref_vector con
         lhs.append(ls.size()-1, ls.c_ptr());
         rhs.append(rs.size()-1, rs.c_ptr());
         SASSERT(!lhs.empty() || !rhs.empty());
+        deps = mk_join(deps, lits);
         m_eqs.push_back(eq(m_eq_id++, lhs, rhs, deps));
         TRACE("seq", tout << "Propagate equal lengths " << l << " " << r << "\n";);
         propagate_eq(deps, lits, l, r, true);
         return true;
     }
 
+    rational len1, len2, len;
+    if (ls.size() > 1 && get_length(ls[0], len1) && get_length(rs[0], len2) && len1 >= len2) {
+        unsigned j = 1; 
+        for (; j < rs.size() && len1 > len2 && get_length(rs[j], len); ++j) { 
+            len2 += len; 
+        }
+        if (len1 == len2 && 0 < j && j < rs.size() && reduce_length(1, j, true, ls, rs, deps)) {
+            return true;
+        }
+    }
+    if (rs.size() > 1 && get_length(rs[0], len1) && get_length(ls[0], len2) && len1 > len2) {
+        unsigned j = 1; 
+        for (; j < ls.size() && len1 > len2 && get_length(ls[j], len); ++j) { 
+            len2 += len; 
+        }
+        if (len1 == len2 && 0 < j && j < ls.size() && reduce_length(j, 1, true, ls, rs, deps)) {
+            return true;
+        }
+    }
+    if (ls.size() > 1 && get_length(ls.back(), len1) && get_length(rs.back(), len2) && len1 >= len2) {
+        unsigned j = rs.size()-1; 
+        for (; j > 0 && len1 > len2 && get_length(rs[j-1], len); --j) { 
+            len2 += len; 
+        }
+        if (len1 == len2 && 0 < j && j < rs.size() && reduce_length(ls.size()-1, rs.size()-j, false, ls, rs, deps)) {
+            return true;
+        }
+    }
+    if (rs.size() > 1 && get_length(rs.back(), len1) && get_length(ls.back(), len2) && len1 > len2) {
+        unsigned j = ls.size()-1; 
+        for (; j > 0 && len1 > len2 && get_length(ls[j-1], len); --j) { 
+            len2 += len; 
+        }
+        if (len1 == len2 && 0 < j && j < ls.size() && reduce_length(ls.size()-j, rs.size()-1, false, ls, rs, deps)) {
+            return true;
+        }
+    }
     return false;
- }
+}
+
+bool theory_seq::reduce_length(unsigned i, unsigned j, bool front, expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* deps) {   
+    context& ctx = get_context();
+    expr* const* ls1 = ls.c_ptr();
+    expr* const* ls2 = ls.c_ptr()+i;
+    expr* const* rs1 = rs.c_ptr();
+    expr* const* rs2 = rs.c_ptr()+j;
+    unsigned l1 = i;
+    unsigned l2 = ls.size()-i;
+    unsigned r1 = j;
+    unsigned r2 = rs.size()-j;
+    if (!front) {
+        std::swap(ls1, ls2);
+        std::swap(rs1, rs2);
+        std::swap(l1, l2);
+        std::swap(r1, r2);        
+    }
+    SASSERT(0 < l1 && l1 < ls.size());
+    SASSERT(0 < r1 && r1 < rs.size());
+    expr_ref l(m_util.str.mk_concat(l1, ls1), m);
+    expr_ref r(m_util.str.mk_concat(r1, rs1), m);            
+    expr_ref lenl(m_util.str.mk_length(l), m);
+    expr_ref lenr(m_util.str.mk_length(r), m);
+    literal lit = mk_eq(lenl, lenr, false);
+    if (ctx.get_assignment(lit) == l_true) {
+        literal_vector lits;
+        expr_ref_vector lhs(m), rhs(m);
+        lhs.append(l2, ls2);
+        rhs.append(r2, rs2);
+        deps = mk_join(deps, lit);
+        m_eqs.push_back(eq(m_eq_id++, lhs, rhs, deps));
+        propagate_eq(deps, lits, l, r, true);
+        return true;
+    }
+    else {
+        //TRACE("seq", tout << "Assignment: " << lenl << " = " << lenr << " " << ctx.get_assignment(lit) << "\n";);
+        return false;
+    }
+}
 
 bool theory_seq::solve_binary_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep) {
     context& ctx = get_context();
@@ -1190,9 +1260,6 @@ bool theory_seq::get_length(expr* e, expr_ref& len, literal_vector& lits) {
     else if (m_util.str.is_unit(e)) {
         len = m_autil.mk_int(1);
         return true;
-    }
-    else {
-        TRACE("seq", tout << "unhandled: " << mk_pp(e, m) << "\n";);
     }
     return false;    
 }
@@ -2314,7 +2381,10 @@ bool theory_seq::get_length(expr* e, rational& val) {
         else if (m_util.str.is_string(c, s)) {
             val += rational(s.length());
         }
-        else {
+        else if (!has_length(c)) {
+            return false;            
+        }
+        else {            
             len = m_util.str.mk_length(c);
             if (ctx.e_internalized(len) &&
                 tha->get_value(ctx.get_enode(len), len_val) &&
@@ -2322,7 +2392,6 @@ bool theory_seq::get_length(expr* e, rational& val) {
                 val += val1;
             }
             else {
-                TRACE("seq", tout << "No length provided for " << len << "\n";);
                 return false;
             }
         }
@@ -2595,8 +2664,7 @@ void theory_seq::add_axiom(literal l1, literal l2, literal l3, literal l4, liter
 }
 
 
-expr_ref theory_seq::mk_skolem(symbol const& name, expr* e1,
-                               expr* e2, expr* e3, sort* range) {
+expr_ref theory_seq::mk_skolem(symbol const& name, expr* e1, expr* e2, expr* e3, sort* range) {
     expr* es[3] = { e1, e2, e3 };
     unsigned len = e3?3:(e2?2:1);
     if (!range) {
@@ -2607,6 +2675,17 @@ expr_ref theory_seq::mk_skolem(symbol const& name, expr* e1,
 
 bool theory_seq::is_skolem(symbol const& s, expr* e) const {
     return m_util.is_skolem(e) && to_app(e)->get_decl()->get_parameter(0).get_symbol() == s;
+}
+
+theory_seq::dependency* theory_seq::mk_join(dependency* deps, literal lit) {
+    return m_dm.mk_join(deps, m_dm.mk_leaf(assumption(lit)));
+}
+
+theory_seq::dependency* theory_seq::mk_join(dependency* deps, literal_vector const& lits) {
+    for (unsigned i = 0; i < lits.size(); ++i) {
+        deps = mk_join(deps, lits[i]);
+    } 
+    return deps;
 }
 
 void theory_seq::propagate_eq(literal lit, expr* e1, expr* e2, bool add_to_eqs) {
@@ -2631,11 +2710,7 @@ void theory_seq::propagate_eq(dependency* deps, literal_vector const& _lits, exp
     linearize(deps, eqs, lits);
 
     if (add_to_eqs) {
-        for (unsigned i = 0; i < _lits.size(); ++i) {
-            literal lit = _lits[i];
-            SASSERT(l_true == ctx.get_assignment(lit));
-            deps = m_dm.mk_join(deps, m_dm.mk_leaf(assumption(lit)));
-        }
+        deps = mk_join(deps, _lits);
         new_eq_eh(deps, n1, n2);
     }
     TRACE("seq",
