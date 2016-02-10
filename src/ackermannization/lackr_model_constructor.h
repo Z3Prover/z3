@@ -49,9 +49,9 @@ class lackr_model_constructor {
     private:
         struct imp;
         imp * m_imp;
+        ast_manager &                      m_m;
         enum {CHECKED, CONFLICT, UNKNOWN}  m_state;
         conflict_list                      m_conflicts;
-        ast_manager&                       m_m;
         const ackr_info_ref                m_info;
 
         unsigned m_ref_count; // reference counting

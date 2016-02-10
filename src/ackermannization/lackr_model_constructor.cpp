@@ -24,10 +24,10 @@
 
 struct lackr_model_constructor::imp {
     public:
-        imp(ast_manager& m,
+        imp(ast_manager & m,
             ackr_info_ref info,
-            model_ref& abstr_model,
-            conflict_list& conflicts)
+            model_ref & abstr_model,
+            conflict_list & conflicts)
             : m_m(m)
             , m_info(info)
             , m_abstr_model(abstr_model)
@@ -239,7 +239,6 @@ struct lackr_model_constructor::imp {
             if (is_val(a)) return true; // skip numerals
             TRACE("model_constructor", tout << "mk_value(\n" << mk_ismt2_pp(a, m_m, 2) << ")\n";);
             SASSERT(!m_app2val.contains(a));
-            const unsigned num = a->get_num_args();
             expr_ref result(m_m);
             if (!evaluate(a, result)) return false;
             SASSERT(is_val(result));
@@ -309,8 +308,9 @@ struct lackr_model_constructor::imp {
                 return true;
             }
             UNREACHABLE();
+            return true;
         }
-
+    
         void make_value_interpreted_function(app* a,
                 expr_ref_vector& values,
                 expr_ref& result) {
@@ -330,16 +330,14 @@ struct lackr_model_constructor::imp {
                     // theory dispatch for =
                     SASSERT(num == 2);
                     family_id s_fid = m_m.get_sort(values.get(0))->get_family_id();
-                    br_status st = BR_FAILED;
                     if (s_fid == m_bv_rw.get_fid())
-                        st = m_bv_rw.mk_eq_core(values.get(0), values.get(1), result);
+                        m_bv_rw.mk_eq_core(values.get(0), values.get(1), result);
                 } else {
-                    br_status st = m_b_rw.mk_app_core(fd, num, values.c_ptr(), result);
+                    m_b_rw.mk_app_core(fd, num, values.c_ptr(), result);
                 }
             } else {
-                br_status st = BR_FAILED;
                 if (fid == m_bv_rw.get_fid()) {
-                    st = m_bv_rw.mk_app_core(fd, num, values.c_ptr(), result);
+                    m_bv_rw.mk_app_core(fd, num, values.c_ptr(), result);
                 }
                 else {
                     UNREACHABLE();
