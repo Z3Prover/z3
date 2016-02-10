@@ -60,7 +60,9 @@ DEFINE_TYPE(Z3_rcf_num);
    - \c Z3_app: kind of AST used to represent function applications.
    - \c Z3_pattern: kind of AST used to represent pattern and multi-patterns used to guide quantifier instantiation.
    - \c Z3_constructor: type constructor for a (recursive) datatype.
+   - \c Z3_constructor_list: list of constructors for a (recursive) datatype.
    - \c Z3_params: parameter set used to configure many components such as: simplifiers, tactics, solvers, etc.
+   - \c Z3_param_descrs: provides a collection of parameter names, their types, default values and documentation strings. Solvers, tactics, and other objects accept different collection of parameters. 
    - \c Z3_model: model for the constraints asserted into the logical context.
    - \c Z3_func_interp: interpretation of a function in a model.
    - \c Z3_func_entry: representation of the value of a \c Z3_func_interp at a particular point.
