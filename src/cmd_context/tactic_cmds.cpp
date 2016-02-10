@@ -187,8 +187,8 @@ public:
         tactic_ref tref = using_params(sexpr2tactic(ctx, m_tactic), p);
         tref->set_logic(ctx.get_logic());
         ast_manager & m = ctx.m();
-        unsigned timeout   = p.get_uint("timeout", UINT_MAX);
-        unsigned rlimit  =   p.get_uint("rlimit", 0);
+        unsigned timeout   = p.get_uint("timeout", ctx.params().m_timeout);
+        unsigned rlimit  =   p.get_uint("rlimit", ctx.params().m_rlimit);
         goal_ref g = alloc(goal, m, ctx.produce_proofs(), ctx.produce_models(), ctx.produce_unsat_cores());
         assert_exprs_from(ctx, *g);
         TRACE("check_sat_using", g->display(tout););

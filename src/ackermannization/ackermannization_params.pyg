@@ -1,0 +1,7 @@
+def_module_params('ackermannization',
+                  description='solving UF via ackermannization',
+                  export=True,
+                  params=(
+                          ('eager', BOOL, True, 'eagerly instantiate all congruence rules'),
+                          ))
+

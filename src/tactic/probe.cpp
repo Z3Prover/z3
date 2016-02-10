@@ -285,9 +285,16 @@ struct is_non_qfbv_predicate {
             throw found();
         family_id fid = n->get_family_id();
         if (fid == m.get_basic_family_id()) 
-            return; 
-        if (fid == u.get_family_id())
-            return;
+            return;				
+        if (fid == u.get_family_id()) {
+			if (n->get_decl_kind() == OP_BSDIV0 ||
+				n->get_decl_kind() == OP_BUDIV0 ||
+				n->get_decl_kind() == OP_BSREM0 ||
+				n->get_decl_kind() == OP_BUREM0 ||
+				n->get_decl_kind() == OP_BSMOD0)				
+				throw found();
+			return;
+		}
         if (is_uninterp_const(n))
             return;
         throw found();
@@ -301,11 +308,10 @@ public:
     }
 };
 
+
 class is_qfbv_probe : public probe {
 public:
     virtual result operator()(goal const & g) {
-        bv_rewriter rw(g.m());
-        if (!rw.hi_div0()) return false;
         return !test<is_non_qfbv_predicate>(g);
     }
 };
@@ -355,6 +361,46 @@ public:
 probe * mk_is_qfaufbv_probe() {
     return alloc(is_qfaufbv_probe);
 }
+
+
+struct is_non_qfufbv_predicate {
+    struct found {};
+    ast_manager & m;
+    bv_util       m_bv_util;
+
+    is_non_qfufbv_predicate(ast_manager & _m) : m(_m), m_bv_util(_m) {}
+
+    void operator()(var *) { throw found(); }
+
+    void operator()(quantifier *) { throw found(); }
+
+    void operator()(app * n) {
+        if (!m.is_bool(n) && !m_bv_util.is_bv(n))
+            throw found();
+        family_id fid = n->get_family_id();
+        if (fid == m.get_basic_family_id())
+            return;
+        if (fid == m_bv_util.get_family_id())
+            return;
+        if (is_uninterp(n))
+            return;
+
+        throw found();
+    }
+};
+
+class is_qfufbv_probe : public probe {
+public:
+    virtual result operator()(goal const & g) {
+        return !test<is_non_qfufbv_predicate>(g);
+    }
+};
+
+probe * mk_is_qfufbv_probe() {
+    return alloc(is_qfufbv_probe);
+}
+
+
 
 class num_consts_probe : public probe {
     bool         m_bool;   // If true, track only boolean constants. Otherwise, track only non boolean constants.
