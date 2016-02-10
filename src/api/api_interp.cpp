@@ -257,9 +257,9 @@ extern "C" {
 
 
         // some boilerplate stolen from Z3_solver_check
-        unsigned timeout     =  to_params(p)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
-        unsigned rlimit      =  to_params(p)->m_params.get_uint("rlimit", mk_c(c)->get_rlimit());
-        bool     use_ctrl_c  =  to_params(p)->m_params.get_bool("ctrl_c", false);
+        unsigned timeout     =  p?to_params(p)->m_params.get_uint("timeout", mk_c(c)->get_timeout()):0;
+        unsigned rlimit      =  p?to_params(p)->m_params.get_uint("rlimit", mk_c(c)->get_rlimit()):0;
+        bool     use_ctrl_c  =  p?to_params(p)->m_params.get_bool("ctrl_c", false): false;
         cancel_eh<reslimit> eh(mk_c(c)->m().limit());
         api::context::set_interruptable si(*(mk_c(c)), eh);
 
