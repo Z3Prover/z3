@@ -87,6 +87,7 @@ public class ASTVector extends Z3Object
     /**
      * Retrieves a string representation of the vector.
      **/
+    @Override
     public String toString()
     {
         try
@@ -108,12 +109,14 @@ public class ASTVector extends Z3Object
         super(ctx, Native.mkAstVector(ctx.nCtx()));
     }
 
+    @Override
     void incRef(long o)
     {
         getContext().getASTVectorDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
+    @Override
     void decRef(long o)
     {
         getContext().getASTVectorDRQ().add(o);

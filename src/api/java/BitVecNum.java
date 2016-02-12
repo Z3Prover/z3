@@ -32,8 +32,9 @@ public class BitVecNum extends BitVecExpr
     public int getInt()
     {
         Native.IntPtr res = new Native.IntPtr();
-        if (Native.getNumeralInt(getContext().nCtx(), getNativeObject(), res) ^ true)
+        if (!Native.getNumeralInt(getContext().nCtx(), getNativeObject(), res)) {
             throw new Z3Exception("Numeral is not an int");
+        }
         return res.value;
     }
 
@@ -45,8 +46,9 @@ public class BitVecNum extends BitVecExpr
     public long getLong()
     {
         Native.LongPtr res = new Native.LongPtr();
-        if (Native.getNumeralInt64(getContext().nCtx(), getNativeObject(), res) ^ true)
+        if (!Native.getNumeralInt64(getContext().nCtx(), getNativeObject(), res)) {
             throw new Z3Exception("Numeral is not a long");
+        }
         return res.value;
     }
 
@@ -61,6 +63,7 @@ public class BitVecNum extends BitVecExpr
     /**
      * Returns a string representation of the numeral.
      **/
+    @Override
     public String toString()
     {
         try

@@ -31,11 +31,7 @@ public class Z3Object extends IDisposable
     {
         try {
             dispose();            
-        }
-        catch (Throwable t) {
-            throw t;
-        }
-        finally {
+        } finally {
             super.finalize();
         }
     }

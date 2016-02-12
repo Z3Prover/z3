@@ -72,12 +72,13 @@ public class Statistics extends Z3Object
          **/
         public String getValueString()
         {
-            if (isUInt())
+            if (isUInt()) {
                 return Integer.toString(m_int);
-            else if (isDouble())
+            } else if (isDouble()) {
                 return Double.toString(m_double);
-            else
+            } else {
                 throw new Z3Exception("Unknown statistical entry type");
+            }
         }
 
         /**
@@ -90,7 +91,7 @@ public class Statistics extends Z3Object
                 return Key + ": " + getValueString();
             } catch (Z3Exception e)
             {
-                return new String("Z3Exception: " + e.getMessage());
+                return "Z3Exception: " + e.getMessage();
             }
         }
 
@@ -150,14 +151,15 @@ public class Statistics extends Z3Object
         {
             Entry e;
             String k = Native.statsGetKey(getContext().nCtx(), getNativeObject(), i);
-            if (Native.statsIsUint(getContext().nCtx(), getNativeObject(), i))
+            if (Native.statsIsUint(getContext().nCtx(), getNativeObject(), i)) {
                 e = new Entry(k, Native.statsGetUintValue(getContext().nCtx(),
-                        getNativeObject(), i));
-            else if (Native.statsIsDouble(getContext().nCtx(), getNativeObject(), i))
+                    getNativeObject(), i));
+            } else if (Native.statsIsDouble(getContext().nCtx(), getNativeObject(), i)) {
                 e = new Entry(k, Native.statsGetDoubleValue(getContext().nCtx(),
-                        getNativeObject(), i));
-            else
+                    getNativeObject(), i));
+            } else {
                 throw new Z3Exception("Unknown data entry value");
+            }
             res[i] = e;
         }
         return res;
@@ -186,9 +188,11 @@ public class Statistics extends Z3Object
     {
         int n = size();
         Entry[] es = getEntries();
-        for (int i = 0; i < n; i++)
-            if (es[i].Key == key)
+        for (int i = 0; i < n; i++) {
+            if (es[i].Key.equals(key)) {
                 return es[i];
+            }
+        }
         return null;
     }
 

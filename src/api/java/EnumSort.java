@@ -98,7 +98,7 @@ public class EnumSort extends Sort
         long[] n_constdecls = new long[n];
         long[] n_testers = new long[n];
         setNativeObject(Native.mkEnumerationSort(ctx.nCtx(),
-                name.getNativeObject(), (int) n, Symbol.arrayToNative(enumNames),
+                name.getNativeObject(), n, Symbol.arrayToNative(enumNames),
                 n_constdecls, n_testers));        
     }
 };

@@ -101,7 +101,7 @@ public class DatatypeSort extends Sort
            
     {
         super(ctx, Native.mkDatatype(ctx.nCtx(), name.getNativeObject(),
-                (int) constructors.length, arrayToNative(constructors)));
+                constructors.length, arrayToNative(constructors)));
 
     }
 };

@@ -46,6 +46,7 @@ public class IntSymbol extends Symbol
         super(ctx, Native.mkIntSymbol(ctx.nCtx(), i));
     }
 
+    @Override
     void checkNativeObject(long obj)
     {
         if (Native.getSymbolKind(getContext().nCtx(), obj) != Z3_symbol_kind.Z3_INT_SYMBOL

@@ -28,23 +28,16 @@ public class AST extends Z3Object implements Comparable<AST>
      * Object comparison.
      * 
      * @param o another AST
-     **/    
+     **/
+    @Override
     public boolean equals(Object o)
     {
-        AST casted = null;
+        if (o == this) return true;
+        if (!(o instanceof AST)) return false;
+        AST casted = (AST) o;
 
-        try
-        {
-            casted = AST.class.cast(o);
-        } catch (ClassCastException e)
-        {
-            return false;
-        }
-
-        return  (this == casted) ||
-                (this != null) &&
-                (casted != null) &&
-                (getContext().nCtx() == casted.getContext().nCtx()) &&
+        return
+            (getContext().nCtx() == casted.getContext().nCtx()) &&
                 (Native.isEqAst(getContext().nCtx(), getNativeObject(), casted.getNativeObject()));
     }
 
@@ -56,17 +49,13 @@ public class AST extends Z3Object implements Comparable<AST>
      * positive if after else zero.
      * @throws Z3Exception on error
      **/
+    @Override
     public int compareTo(AST other)
     {
-        if (other == null)
+        if (other == null) {
             return 1;
-
-        if (getId() < other.getId())
-            return -1;
-        else if (getId() > other.getId())
-            return +1;
-        else
-            return 0;
+        }
+        return Integer.compare(getId(), other.getId());
     }
 
     /**
@@ -74,14 +63,10 @@ public class AST extends Z3Object implements Comparable<AST>
      * 
      * @return A hash code
      **/
+    @Override
     public int hashCode()
     {
-        int r = 0;
-        try {
-            Native.getAstHash(getContext().nCtx(), getNativeObject());
-        }
-        catch (Z3Exception ex) {}
-        return r;
+        return Native.getAstHash(getContext().nCtx(), getNativeObject());
     }
 
     /**
@@ -103,11 +88,12 @@ public class AST extends Z3Object implements Comparable<AST>
     public AST translate(Context ctx)
     {
 
-        if (getContext() == ctx)
+        if (getContext() == ctx) {
             return this;
-        else
+        } else {
             return new AST(ctx, Native.translate(getContext().nCtx(),
-                    getNativeObject(), ctx.nCtx()));
+                getNativeObject(), ctx.nCtx()));
+        }
     }
 
     /**
@@ -188,6 +174,7 @@ public class AST extends Z3Object implements Comparable<AST>
     /**
      * A string representation of the AST.
      **/
+    @Override
     public String toString()
     {
         try
@@ -217,6 +204,7 @@ public class AST extends Z3Object implements Comparable<AST>
         super(ctx, obj);
     }
 
+    @Override
     void incRef(long o)
     {
         // Console.WriteLine("AST IncRef()");
@@ -226,6 +214,7 @@ public class AST extends Z3Object implements Comparable<AST>
         super.incRef(o);
     }
 
+    @Override
     void decRef(long o)
     {
         // Console.WriteLine("AST DecRef()");

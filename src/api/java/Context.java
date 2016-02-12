@@ -110,8 +110,9 @@ public class Context extends IDisposable
      **/
     public BoolSort getBoolSort()
     {
-        if (m_boolSort == null)
+        if (m_boolSort == null) {
             m_boolSort = new BoolSort(this);
+        }
         return m_boolSort;
     }
 
@@ -120,8 +121,9 @@ public class Context extends IDisposable
      **/
     public IntSort getIntSort()
     {
-        if (m_intSort == null)
+        if (m_intSort == null) {
             m_intSort = new IntSort(this);
+        }
         return m_intSort;
     }
 
@@ -130,8 +132,9 @@ public class Context extends IDisposable
      **/
     public RealSort getRealSort()
     {
-        if (m_realSort == null)
+        if (m_realSort == null) {
             m_realSort = new RealSort(this);
+        }
         return m_realSort;
     }
 
@@ -148,8 +151,9 @@ public class Context extends IDisposable
      **/
     public SeqSort getStringSort()
     {
-        if (m_stringSort == null)
+        if (m_stringSort == null) {
             m_stringSort = mkStringSort();
+        }
         return m_stringSort;
     }
 
@@ -322,13 +326,6 @@ public class Context extends IDisposable
 
     /**
      * Create a datatype constructor. 
-     * @param name  
-     * @param recognizer  
-     * @param fieldNames  
-     * @param sorts  
-     * @param sortRefs 
-     * 
-     * @return
      **/
     public Constructor mkConstructor(String name, String recognizer,
             String[] fieldNames, Sort[] sorts, int[] sortRefs)
@@ -369,7 +366,7 @@ public class Context extends IDisposable
            
     {
         checkContextMatch(names);
-        int n = (int) names.length;
+        int n = names.length;
         ConstructorList[] cla = new ConstructorList[n];
         long[] n_constr = new long[n];
         for (int i = 0; i < n; i++)
@@ -391,10 +388,6 @@ public class Context extends IDisposable
 
     /**
      * Create mutually recursive data-types. 
-     * @param names  
-     * @param c 
-     * 
-     * @return
      **/
     public DatatypeSort[] mkDatatypeSorts(String[] names, Constructor[][] c)
            
@@ -406,7 +399,7 @@ public class Context extends IDisposable
      * Update a datatype field at expression t with value v.
      * The function performs a record update at t. The field
      * that is passed in as argument is updated with value v,
-     * the remainig fields of t are unchanged.    
+     * the remaining fields of t are unchanged.
      **/
     public Expr MkUpdateField(FuncDecl field, Expr t, Expr v) 
         throws Z3Exception
@@ -502,8 +495,8 @@ public class Context extends IDisposable
     /**
      * Creates a fresh constant function declaration with a name prefixed with
      * {@code prefix"}. 
-     * @see mkFuncDecl(String,Sort,Sort)
-     * @see mkFuncDecl(String,Sort[],Sort)
+     * @see #mkFuncDecl(String,Sort,Sort)
+     * @see #mkFuncDecl(String,Sort[],Sort)
      **/
     public FuncDecl mkFreshConstDecl(String prefix, Sort range)
            
@@ -1519,7 +1512,7 @@ public class Context extends IDisposable
     {
         checkContextMatch(t);
         return new IntExpr(this, Native.mkBv2int(nCtx(), t.getNativeObject(),
-                (signed) ? true : false));
+            (signed)));
     }
 
     /**
@@ -1533,8 +1526,7 @@ public class Context extends IDisposable
         checkContextMatch(t1);
         checkContextMatch(t2);
         return new BoolExpr(this, Native.mkBvaddNoOverflow(nCtx(), t1
-                .getNativeObject(), t2.getNativeObject(), (isSigned) ? true
-                : false));
+                .getNativeObject(), t2.getNativeObject(), (isSigned)));
     }
 
     /**
@@ -1576,8 +1568,7 @@ public class Context extends IDisposable
         checkContextMatch(t1);
         checkContextMatch(t2);
         return new BoolExpr(this, Native.mkBvsubNoUnderflow(nCtx(), t1
-                .getNativeObject(), t2.getNativeObject(), (isSigned) ? true
-                : false));
+                .getNativeObject(), t2.getNativeObject(), (isSigned)));
     }
 
     /**
@@ -1617,8 +1608,7 @@ public class Context extends IDisposable
         checkContextMatch(t1);
         checkContextMatch(t2);
         return new BoolExpr(this, Native.mkBvmulNoOverflow(nCtx(), t1
-                .getNativeObject(), t2.getNativeObject(), (isSigned) ? true
-                : false));
+                .getNativeObject(), t2.getNativeObject(), (isSigned)));
     }
 
     /**
@@ -1662,8 +1652,8 @@ public class Context extends IDisposable
      * {@code [domain -> range]}, and {@code i} must have the sort
      * {@code domain}. The sort of the result is {@code range}.
      * 
-     * @see mkArraySort
-     * @see mkStore
+     * @see #mkArraySort
+     * @see #mkStore
 
      **/
     public Expr mkSelect(ArrayExpr a, Expr i)
@@ -1688,8 +1678,8 @@ public class Context extends IDisposable
      * {@code select}) on all indices except for {@code i}, where it
      * maps to {@code v} (and the {@code select} of {@code a}
      * with respect to {@code i} may be a different value). 
-     * @see mkArraySort 
-     * @see mkSelect
+     * @see #mkArraySort
+     * @see #mkSelect
 
      **/
     public ArrayExpr mkStore(ArrayExpr a, Expr i, Expr v)
@@ -1706,8 +1696,8 @@ public class Context extends IDisposable
      * Remarks:  The resulting term is an array, such
      * that a {@code select} on an arbitrary index produces the value
      * {@code v}. 
-     * @see mkArraySort
-     * @see mkSelect
+     * @see #mkArraySort
+     * @see #mkSelect
      * 
      **/
     public ArrayExpr mkConstArray(Sort domain, Expr v)
@@ -1720,15 +1710,15 @@ public class Context extends IDisposable
 
     /**
      * Maps f on the argument arrays.
-     * Remarks:  Eeach element of
+     * Remarks:  Each element of
      * {@code args} must be of an array sort
      * {@code [domain_i -> range_i]}. The function declaration
      * {@code f} must have type {@code  range_1 .. range_n -> range}.
      * {@code v} must have sort range. The sort of the result is
      * {@code [domain_i -> range]}. 
-     * @see mkArraySort
-     * @see mkSelect 
-     * @see mkStore
+     * @see #mkArraySort
+     * @see #mkSelect
+     * @see #mkStore
 
      **/
     public ArrayExpr mkMap(FuncDecl f, ArrayExpr... args)
@@ -2121,12 +2111,13 @@ public class Context extends IDisposable
      * 
      * @return A Term with value {@code num}/{@code den}
      *         and sort Real 
-     * @see mkNumeral(String,Sort)
+     * @see #mkNumeral(String,Sort)
      **/
     public RatNum mkReal(int num, int den)
     {
-        if (den == 0)
+        if (den == 0) {
             throw new Z3Exception("Denominator is zero");
+        }
 
         return new RatNum(this, Native.mkReal(nCtx(), num, den));
     }
@@ -2256,7 +2247,7 @@ public class Context extends IDisposable
      * 'names' of the bound variables, and {@code body} is the body
      * of the quantifier. Quantifiers are associated with weights indicating the
      * importance of using the quantifier during instantiation.
-     * Note that the bound variables are de-Bruijn indices created using {@link mkBound}.
+     * Note that the bound variables are de-Bruijn indices created using {@link #mkBound}.
      * Z3 applies the convention that the last element in {@code names} and 
      * {@code sorts} refers to the variable with index 0, the second to last element 
      * of {@code names} and {@code sorts} refers to the variable 
@@ -2286,7 +2277,7 @@ public class Context extends IDisposable
 
     /**
      * Creates an existential quantifier using de-Brujin indexed variables. 
-     * @see mkForall(Sort[],Symbol[],Expr,int,Pattern[],Expr[],Symbol,Symbol)
+     * @see #mkForall(Sort[],Symbol[],Expr,int,Pattern[],Expr[],Symbol,Symbol)
      **/
     public Quantifier mkExists(Sort[] sorts, Symbol[] names, Expr body,
                                int weight, Pattern[] patterns, Expr[] noPatterns,
@@ -2383,7 +2374,7 @@ public class Context extends IDisposable
     {
 
         return Native.benchmarkToSmtlibString(nCtx(), name, logic, status,
-                attributes, (int) assumptions.length,
+                attributes, assumptions.length,
                 AST.arrayToNative(assumptions), formula.getNativeObject());
     }
 
@@ -2413,7 +2404,7 @@ public class Context extends IDisposable
 
     /**
      * Parse the given file using the SMT-LIB parser. 
-     * @see parseSMTLIBString
+     * @see #parseSMTLIBString
      **/
     public void parseSMTLIBFile(String fileName, Symbol[] sortNames,
             Sort[] sorts, Symbol[] declNames, FuncDecl[] decls)
@@ -2527,7 +2518,7 @@ public class Context extends IDisposable
 
     /**
      * Parse the given string using the SMT-LIB2 parser. 
-     * @see parseSMTLIBString
+     * @see #parseSMTLIBString
      * 
      * @return A conjunction of assertions in the scope (up to push/pop) at the
      *         end of the string.
@@ -2541,8 +2532,9 @@ public class Context extends IDisposable
         int cs = Sort.arrayLength(sorts);
         int cdn = Symbol.arrayLength(declNames);
         int cd = AST.arrayLength(decls);
-        if (csn != cs || cdn != cd)
+        if (csn != cs || cdn != cd) {
             throw new Z3Exception("Argument size mismatch");
+        }
         return (BoolExpr) Expr.create(this, Native.parseSmtlib2String(nCtx(),
                 str, AST.arrayLength(sorts), Symbol.arrayToNative(sortNames),
                 AST.arrayToNative(sorts), AST.arrayLength(decls),
@@ -2551,13 +2543,12 @@ public class Context extends IDisposable
 
     /**
      * Parse the given file using the SMT-LIB2 parser. 
-     * @see parseSMTLIB2String
+     * @see #parseSMTLIB2String
      **/
     public BoolExpr parseSMTLIB2File(String fileName, Symbol[] sortNames,
             Sort[] sorts, Symbol[] declNames, FuncDecl[] decls)
            
     {
-
         int csn = Symbol.arrayLength(sortNames);
         int cs = Sort.arrayLength(sorts);
         int cdn = Symbol.arrayLength(declNames);
@@ -2648,9 +2639,10 @@ public class Context extends IDisposable
         if (ts != null && ts.length > 0)
         {
             last = ts[ts.length - 1].getNativeObject();
-            for (int i = ts.length - 2; i >= 0; i--)
+            for (int i = ts.length - 2; i >= 0; i--) {
                 last = Native.tacticAndThen(nCtx(), ts[i].getNativeObject(),
-                        last);
+                    last);
+            }
         }
         if (last != 0)
         {
@@ -2664,7 +2656,7 @@ public class Context extends IDisposable
 
     /**
      * Create a tactic that applies {@code t1} to a Goal and then
-     * {@code t2"/> to every subgoal produced by <paramref name="t1}.
+     * {@code t2} to every subgoal produced by {@code t1}
      * 
      * Remarks:  Shorthand for {@code AndThen}. 
      **/
@@ -2999,7 +2991,7 @@ public class Context extends IDisposable
 
     /**
      * Creates a new (incremental) solver. 
-     * @see mkSolver(Symbol)
+     * @see #mkSolver(Symbol)
      **/
     public Solver mkSolver(String logic)
     {
@@ -3839,7 +3831,7 @@ public class Context extends IDisposable
      * that is returned must be handled externally and through native calls (see
      * e.g., 
      * @see Native#incRef 
-     * @see wrapAST 
+     * @see #wrapAST
      * @param a The AST to unwrap.
      **/
     public long unwrapAST(AST a)
@@ -3878,7 +3870,7 @@ public class Context extends IDisposable
     }
 
     protected long m_ctx = 0;
-    protected static Object creation_lock = new Object();
+    protected static final Object creation_lock = new Object();
 
     long nCtx()
     {
@@ -4049,7 +4041,7 @@ public class Context extends IDisposable
         m_Params_DRQ.clear(this);
         m_Probe_DRQ.clear(this);
         m_Solver_DRQ.clear(this);
-	m_Optimize_DRQ.clear(this);
+        m_Optimize_DRQ.clear(this);
         m_Statistics_DRQ.clear(this);
         m_Tactic_DRQ.clear(this);
         m_Fixedpoint_DRQ.clear(this);
