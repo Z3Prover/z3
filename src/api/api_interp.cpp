@@ -289,7 +289,7 @@ extern "C" {
             }
             catch (z3_exception & ex) {
                 mk_c(c)->handle_exception(ex);
-                return Z3_L_UNDEF;
+                RETURN_Z3_compute_interpolant Z3_L_UNDEF;
             }
         }
 
@@ -323,7 +323,7 @@ extern "C" {
 
         *out_interp = of_ast_vector(v);
 
-        return status;
+        RETURN_Z3_compute_interpolant status;
         Z3_CATCH_RETURN(Z3_L_UNDEF);
     }
 
