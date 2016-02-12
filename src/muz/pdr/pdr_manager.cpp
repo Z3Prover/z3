@@ -164,12 +164,11 @@ namespace pdr {
         m(manager),
         m_fparams(fparams),
         m_brwr(m),        
-        m_mux(m, m_state_suffixes),
+        m_mux(m),
         m_background(m.mk_true(), m),
         m_contexts(fparams, max_num_contexts, m),
         m_next_unique_num(0)
     {        
-        m_state_suffixes.push_back("_n");
     }
 
 

@@ -80,8 +80,7 @@ namespace pdr {
         smt_params& m_fparams;
         
         mutable bool_rewriter m_brwr;
-        
-        vector<std::string>   m_state_suffixes;
+               
         sym_mux               m_mux;
         expr_ref              m_background;
         decl_vector           m_o0_preds;

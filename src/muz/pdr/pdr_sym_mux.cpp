@@ -28,9 +28,10 @@ Revision History:
 
 using namespace pdr;
 
-sym_mux::sym_mux(ast_manager & m, vector<std::string> & suffixes)
-    : m(m), m_ref_holder(m), m_next_sym_suffix_idx(0), m_suffixes(suffixes)
-{
+sym_mux::sym_mux(ast_manager & m)
+    : m(m), m_ref_holder(m), 
+      m_next_sym_suffix_idx(0) {
+    m_suffixes.push_back("_n");
     unsigned suf_sz = m_suffixes.size();
     for(unsigned i = 0; i < suf_sz; ++i) {
         symbol suff_sym = symbol(m_suffixes[i].c_str());
@@ -53,7 +54,8 @@ std::string sym_mux::get_suffix(unsigned i) {
         m_used_suffixes.insert(new_syffix_sym);
         m_suffixes.push_back(new_suffix);
     }
-    return m_suffixes[i];
+    std::string result = m_suffixes[i];
+    return result;
 }
 
 void sym_mux::create_tuple(func_decl* prefix, unsigned arity, sort * const * domain, sort * range, 

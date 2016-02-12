@@ -46,7 +46,7 @@ private:
     mutable unsigned       m_next_sym_suffix_idx;
     mutable symbols        m_used_suffixes;
     /** Here we have default suffixes for each of the variants */
-    vector<std::string> m_suffixes;
+    vector<std::string>    m_suffixes;
 
 
     /**
@@ -94,7 +94,7 @@ private:
 
     expr_ref isolate_o_idx(expr* e, unsigned idx) const;
 public:
-    sym_mux(ast_manager & m, vector<std::string> & suffixes);
+    sym_mux(ast_manager & m);
 
     ast_manager & get_manager() const { return m; }
 
