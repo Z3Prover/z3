@@ -54,6 +54,7 @@ enum seq_op_kind {
     OP_RE_UNION,
     OP_RE_INTERSECT,
     OP_RE_LOOP,
+    OP_RE_COMPLEMENT,
     OP_RE_EMPTY_SET,
     OP_RE_FULL_SET,
     OP_RE_OF_PRED,
@@ -299,16 +300,20 @@ public:
         app* mk_concat(expr* r1, expr* r2) { return m.mk_app(m_fid, OP_RE_CONCAT, r1, r2); }
         app* mk_union(expr* r1, expr* r2) { return m.mk_app(m_fid, OP_RE_UNION, r1, r2); }
         app* mk_inter(expr* r1, expr* r2) { return m.mk_app(m_fid, OP_RE_INTERSECT, r1, r2); }
+        app* mk_complement(expr* r) { return m.mk_app(m_fid, OP_RE_COMPLEMENT, r); }
         app* mk_star(expr* r) { return m.mk_app(m_fid, OP_RE_STAR, r); }
         app* mk_plus(expr* r) { return m.mk_app(m_fid, OP_RE_PLUS, r); }
         app* mk_opt(expr* r) { return m.mk_app(m_fid, OP_RE_OPTION, r); }
         app* mk_loop(expr* r, unsigned lo);
         app* mk_loop(expr* r, unsigned lo, unsigned hi);
+        app* mk_full(sort* s);
+        app* mk_empty(sort* s);
 
         bool is_to_re(expr const* n)    const { return is_app_of(n, m_fid, OP_SEQ_TO_RE); }
         bool is_concat(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_CONCAT); }
         bool is_union(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_UNION); }
         bool is_intersection(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_INTERSECT); }
+        bool is_complement(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_COMPLEMENT); }
         bool is_star(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_STAR); }
         bool is_plus(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_PLUS); }
         bool is_opt(expr const* n)    const { return is_app_of(n, m_fid, OP_RE_OPTION); }
@@ -321,6 +326,7 @@ public:
         MATCH_BINARY(is_union);
         MATCH_BINARY(is_intersection);
         MATCH_BINARY(is_range);
+        MATCH_UNARY(is_complement);
         MATCH_UNARY(is_star);
         MATCH_UNARY(is_plus);
         MATCH_UNARY(is_opt);

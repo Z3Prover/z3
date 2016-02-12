@@ -456,6 +456,7 @@ void seq_decl_plugin::init() {
     m_sigs[OP_RE_UNION]      = alloc(psig, m, "re.union",     1, 2, reAreA, reA);
     m_sigs[OP_RE_INTERSECT]  = alloc(psig, m, "re.inter",     1, 2, reAreA, reA);
     m_sigs[OP_RE_LOOP]           = alloc(psig, m, "re.loop",    1, 1, &reA, reA);
+    m_sigs[OP_RE_COMPLEMENT]     = alloc(psig, m, "re.complement", 1, 1, &reA, reA);
     m_sigs[OP_RE_EMPTY_SET]      = alloc(psig, m, "re.empty", 1, 0, 0, reA);
     m_sigs[OP_RE_FULL_SET]       = alloc(psig, m, "re.all", 1, 0, 0, reA);
     m_sigs[OP_RE_OF_PRED]        = alloc(psig, m, "re.of.pred", 1, 1, &predA, reA);
@@ -574,7 +575,6 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case OP_RE_STAR:
     case OP_RE_OPTION:
     case OP_RE_RANGE:
-    case OP_RE_EMPTY_SET:
     case OP_RE_OF_PRED:
     case OP_STRING_ITOS:
     case OP_STRING_STOI:
@@ -587,12 +587,29 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         }
         match(*m_sigs[k], arity, domain, range, rng);
         return m.mk_func_decl(symbol("re.allchar"), arity, domain, rng, func_decl_info(m_family_id, OP_RE_FULL_SET));
+    case OP_RE_FULL_SET:
+        if (!range) range = m_re;
+        if (range == m_re) {
+            match(*m_sigs[k], arity, domain, range, rng);
+            return m.mk_func_decl(symbol("re.allchar"), arity, domain, rng, func_decl_info(m_family_id, k));
+        }
+        return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
+        
+
     case _OP_REGEXP_EMPTY:
         if (!range) {
             range = m_re;
         }
         match(*m_sigs[k], arity, domain, range, rng);
         return m.mk_func_decl(symbol("re.nostr"), arity, domain, rng, func_decl_info(m_family_id, OP_RE_EMPTY_SET));
+
+    case OP_RE_EMPTY_SET:
+        if (!range) range = m_re;
+        if (range == m_re) {
+            match(*m_sigs[k], arity, domain, range, rng);
+            return m.mk_func_decl(symbol("re.nostr"), arity, domain, rng, func_decl_info(m_family_id, k));
+        }
+        return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
 
     case OP_RE_LOOP:
         switch (arity) {
@@ -624,6 +641,7 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         return m.mk_const_decl(m_stringc_sym, m_string,
                                func_decl_info(m_family_id, OP_STRING_CONST, num_parameters, parameters));
 
+    case OP_RE_COMPLEMENT:
     case OP_RE_UNION:
     case OP_RE_CONCAT:
     case OP_RE_INTERSECT:
@@ -824,6 +842,15 @@ app* seq_util::re::mk_loop(expr* r, unsigned lo, unsigned hi) {
     parameter params[2] = { parameter(lo), parameter(hi) };
     return m.mk_app(m_fid, OP_RE_LOOP, 2, params, 1, &r);
 }
+
+app* seq_util::re::mk_full(sort* s) {
+    return m.mk_app(m_fid, OP_RE_FULL_SET, 0, 0, 0, 0, s);
+}
+
+app* seq_util::re::mk_empty(sort* s) {
+    return m.mk_app(m_fid, OP_RE_EMPTY_SET, 0, 0, 0, 0, s);    
+}
+
 
 bool seq_util::re::is_loop(expr const* n, expr*& body, unsigned& lo, unsigned& hi)  {
     if (is_loop(n)) {
