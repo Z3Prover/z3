@@ -125,6 +125,7 @@ eautomaton* re2automaton::re2aut(expr* e) {
         }
     }
     else if (u.re.is_complement(e, e0)) {
+        // TBD non-standard semantics of complementation.
         if (u.re.is_range(e0, e1, e2) && u.str.is_string(e1, s1) && u.str.is_string(e2, s2) &&
             s1.length() == 1 && s2.length() == 1) {
             unsigned start = s1[0];
