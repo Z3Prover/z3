@@ -20,16 +20,34 @@ Notes:
 #define CTX_SIMPLIFY_TACTIC_H_
 
 #include"tactical.h"
+#include"goal_num_occurs.h"
 
 class ctx_simplify_tactic : public tactic {
-    struct     imp;
-    imp *      m_imp;
-    params_ref m_params;
 public:
-    ctx_simplify_tactic(ast_manager & m, params_ref const & p = params_ref());
+    class simplifier {
+        goal_num_occurs* m_occs;
+    public:
+        virtual ~simplifier() {}
+        virtual void assert_expr(expr * t, bool sign) = 0;
+        virtual bool simplify(expr* t, expr_ref& result) = 0;
+        virtual void push() = 0;
+        virtual void pop(unsigned num_scopes) = 0;
+        virtual simplifier * translate(ast_manager & m) = 0;
+        virtual unsigned scope_level() const = 0;
+        void set_occs(goal_num_occurs& occs) { m_occs = &occs; };
+        bool shared(expr* t) const;
+    };
+    
+protected:
+    struct      imp;
+    imp *       m_imp;
+    params_ref  m_params;
+    simplifier* m_simp;
+public:
+    ctx_simplify_tactic(ast_manager & m, simplifier* simp, params_ref const & p = params_ref());
 
     virtual tactic * translate(ast_manager & m) {
-        return alloc(ctx_simplify_tactic, m, m_params);
+        return alloc(ctx_simplify_tactic, m, m_simp->translate(m), m_params);
     }
 
     virtual ~ctx_simplify_tactic();
@@ -47,8 +65,29 @@ public:
     virtual void cleanup();
 };
 
+
+class ctx_propagate_assertions : public ctx_simplify_tactic::simplifier {
+    ast_manager&         m;
+    obj_map<expr, expr*> m_assertions;
+    expr_ref_vector      m_trail;
+    unsigned_vector      m_scopes;    
+
+    void assert_eq_val(expr * t, app * val, bool mk_scope);
+    void assert_eq_core(expr * t, app * val);
+public:
+    ctx_propagate_assertions(ast_manager& m);
+    virtual ~ctx_propagate_assertions() {}
+    virtual void assert_expr(expr * t, bool sign);
+    virtual bool simplify(expr* t, expr_ref& result);
+    virtual void push();
+    virtual void pop(unsigned num_scopes);
+    virtual unsigned scope_level() const { return m_scopes.size(); }
+    virtual simplifier * translate(ast_manager & m);
+};
+
+
 inline tactic * mk_ctx_simplify_tactic(ast_manager & m, params_ref const & p = params_ref()) {
-    return clean(alloc(ctx_simplify_tactic, m, p));
+    return clean(alloc(ctx_simplify_tactic, m, alloc(ctx_propagate_assertions, m), p));
 }
 
 /*
