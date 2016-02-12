@@ -2341,6 +2341,46 @@ void unsat_core_and_proof_example() {
     Z3_del_context(ctx);
 }
 
+void interpolation_example() {
+    Z3_context ctx = mk_context();
+    Z3_ast pa = mk_bool_var(ctx, "PredA");
+    Z3_ast pb = mk_bool_var(ctx, "PredB");
+    Z3_ast pc = mk_bool_var(ctx, "PredC");
+    Z3_ast args1[2] = {pa,pb}, args2[2] = {Z3_mk_not(ctx,pb),pc};
+    Z3_ast args3[2] = {Z3_mk_interpolant(ctx,Z3_mk_and(ctx,2,args1)),Z3_mk_and(ctx,2,args2)};
+    Z3_ast f = Z3_mk_and(ctx,2,args3);
+    Z3_ast_vector interpolant = 0;
+    Z3_model m = 0;
+
+    printf("\ninterpolation_example\n");
+    LOG_MSG("interpolation_example");
+
+    Z3_lbool result = Z3_compute_interpolant(ctx,f,0,&interpolant,&m);
+
+    switch (result) {
+    case Z3_L_FALSE:
+        printf("unsat\n");
+        printf("interpolant: %s\n", Z3_ast_to_string(ctx, Z3_ast_vector_get(ctx, interpolant, 0)));
+        printf("\n");
+        break;
+    case Z3_L_UNDEF:
+        printf("unknown\n");
+        printf("potential model:\n");
+	if (m) Z3_model_inc_ref(ctx, m);
+        display_model(ctx, stdout, m);
+        break;
+    case Z3_L_TRUE:
+        printf("sat\n");
+	if (m) Z3_model_inc_ref(ctx, m);
+        display_model(ctx, stdout, m);
+        break;
+    }
+
+    /* delete logical context */
+    if (m) Z3_model_dec_ref(ctx, m);
+    Z3_del_context(ctx);
+}
+
 #define MAX_RETRACTABLE_ASSERTIONS 1024
 
 /**
@@ -2825,6 +2865,7 @@ int main() {
     binary_tree_example();
     enum_example();
     unsat_core_and_proof_example();
+    interpolation_example();
     incremental_example1();
     reference_counter_example();
     smt2parser_example();

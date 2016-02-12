@@ -29,7 +29,8 @@ Revision History:
 #include<fenv.h>
 #endif
 
-#ifndef _M_IA64
+#if defined(__x86_64__) || defined(_M_X64) ||	\
+    defined(__i386) || defined(_M_IX86)
 #define USE_INTRINSICS
 #endif
 
@@ -47,7 +48,9 @@ Revision History:
 // Luckily, these are kind of standardized, at least for Windows/Linux/OSX.
 #ifdef __clang__
 #undef USE_INTRINSICS
-#else
+#endif
+
+#ifdef USE_INTRINSICS
 #include <emmintrin.h>
 #endif
 

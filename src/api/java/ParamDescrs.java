@@ -45,6 +45,15 @@ public class ParamDescrs extends Z3Object
     }
 
     /**
+     * Retrieve documentation of parameter.
+     **/
+
+     public String getDocumentation(Symbol name)
+     {
+	 return Native.paramDescrsGetDocumentation(getContext().nCtx(), getNativeObject(), name.getNativeObject());
+     }
+
+    /**
      * Retrieve all names of parameters.
      * 
      * @throws Z3Exception
