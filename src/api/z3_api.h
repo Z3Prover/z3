@@ -1667,6 +1667,13 @@ extern "C" {
     Z3_symbol Z3_API Z3_param_descrs_get_name(Z3_context c, Z3_param_descrs p, unsigned i);
 
     /**
+       \brief Retrieve documentation string corresponding to parameter name \c s.
+
+       def_API('Z3_param_descrs_get_documentation', STRING, (_in(CONTEXT), _in(PARAM_DESCRS), _in(SYMBOL)))
+     */
+    Z3_string Z3_API Z3_param_descrs_get_documentation(Z3_context c, Z3_param_descrs p, Z3_symbol s);
+
+    /**
        \brief Convert a parameter description set into a string. This function is mainly used for printing the
        contents of a parameter description set.
 

@@ -1095,6 +1095,22 @@ void sudoku_example() {
     }
 }
 
+void param_descrs_example() {
+    std::cout << "parameter description example\n";
+    context c;
+    param_descrs p = param_descrs::simplify_param_descrs(c);
+    std::cout << p << "\n";
+    unsigned sz = p.size();
+    for (unsigned i = 0; i < sz; ++i) {
+        symbol nm = p.name(i);
+        char const* kind = "other";
+        Z3_param_kind k = p.kind(nm);
+        if (k == Z3_PK_UINT) kind = "uint";
+        if (k == Z3_PK_BOOL) kind = "bool";
+        std::cout << nm << ": " << p.documentation(nm) << " kind: " << kind << "\n";
+    }
+}
+
 int main() {
 
     try {
@@ -1136,6 +1152,7 @@ int main() {
         substitute_example(); std::cout << "\n";
         opt_example(); std::cout << "\n";
         extract_example(); std::cout << "\n";
+        param_descrs_example(); std::cout << "\n";
         sudoku_example(); std::cout << "\n";
         std::cout << "done\n";
     }

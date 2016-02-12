@@ -4649,6 +4649,11 @@ class ParamDescrsRef:
         """
         return Z3_param_descrs_get_kind(self.ctx.ref(), self.descr, to_symbol(n, self.ctx))
 
+    def get_documentation(self, n):
+        """Return the documentation string of the parameter named `n`.
+        """
+        return Z3_param_descrs_get_documentation(self.ctx.ref(), self.descr, to_symbol(n, self.ctx))
+
     def __getitem__(self, arg):
         if _is_int(arg):
             return self.get_name(arg)

@@ -47,6 +47,15 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Retrieve documentation of parameter.
+        /// </summary>
+        public string GetDocumentation(Symbol name)
+        {
+            Contract.Requires(name != null);
+            return Native.Z3_param_descrs_get_documentation(Context.nCtx, NativeObject, name.NativeObject);
+        }
+
+        /// <summary>
         /// Retrieve all names of parameters.
         /// </summary>
         public Symbol[] Names 

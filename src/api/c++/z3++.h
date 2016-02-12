@@ -49,6 +49,7 @@ namespace z3 {
     class context;
     class symbol;
     class params;
+    class param_descrs;
     class ast;
     class sort;
     class func_decl;
@@ -286,6 +287,9 @@ namespace z3 {
 
     };
 
+
+
+
     template<typename T>
     class array {
         T *      m_array;
@@ -337,6 +341,30 @@ namespace z3 {
         return out;
     }
 
+
+    class param_descrs : public object {
+        Z3_param_descrs m_descrs;
+    public:
+        param_descrs(context& c, Z3_param_descrs d): object(c), m_descrs(d) { Z3_param_descrs_inc_ref(c, d); }
+        param_descrs(param_descrs const& o): object(o.ctx()), m_descrs(o.m_descrs) { Z3_param_descrs_inc_ref(ctx(), m_descrs); }
+        param_descrs& operator=(param_descrs const& o) {
+            Z3_param_descrs_inc_ref(o.ctx(), o.m_descrs);
+            Z3_param_descrs_dec_ref(ctx(), m_descrs);
+            m_descrs = o.m_descrs;
+            m_ctx = o.m_ctx;
+            return *this;
+        }
+        ~param_descrs() { Z3_param_descrs_dec_ref(ctx(), m_descrs); }
+        static param_descrs simplify_param_descrs(context& c) { return param_descrs(c, Z3_simplify_get_param_descrs(c)); }
+
+        unsigned size() { return Z3_param_descrs_size(ctx(), m_descrs); }
+        symbol name(unsigned i) { return symbol(ctx(), Z3_param_descrs_get_name(ctx(), m_descrs, i)); }
+        Z3_param_kind kind(symbol const& s) { return Z3_param_descrs_get_kind(ctx(), m_descrs, s); }
+        std::string documentation(symbol const& s) { char const* r = Z3_param_descrs_get_documentation(ctx(), m_descrs, s); check_error(); return r; }
+        std::string to_string() const { return Z3_param_descrs_to_string(ctx(), m_descrs); }
+    };
+
+    inline std::ostream& operator<<(std::ostream & out, param_descrs const & d) { return out << d.to_string(); }
 
     class params : public object {
         Z3_params m_params;
@@ -1572,6 +1600,8 @@ namespace z3 {
                                    fmls,
                                    fml));
         }
+        param_descrs get_param_descrs() { return param_descrs(ctx(), Z3_solver_get_param_descrs(ctx(), m_solver)); }
+
     };
     inline std::ostream & operator<<(std::ostream & out, solver const & s) { out << Z3_solver_to_string(s.ctx(), s); return out; }
 
@@ -1686,6 +1716,7 @@ namespace z3 {
         friend tactic repeat(tactic const & t, unsigned max);
         friend tactic with(tactic const & t, params const & p);
         friend tactic try_for(tactic const & t, unsigned ms);
+        param_descrs get_param_descrs() { return param_descrs(ctx(), Z3_tactic_get_param_descrs(ctx(), m_tactic)); }
     };
 
     inline tactic operator&(tactic const & t1, tactic const & t2) {
