@@ -50,6 +50,7 @@ public class Pattern extends AST
     /**
      * A string representation of the pattern.
      **/
+    @Override
     public String toString()
     {
         try

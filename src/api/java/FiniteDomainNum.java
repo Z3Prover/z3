@@ -36,8 +36,9 @@ public class FiniteDomainNum extends FiniteDomainExpr
     public int getInt()
     {
         Native.IntPtr res = new Native.IntPtr();
-        if (Native.getNumeralInt(getContext().nCtx(), getNativeObject(), res) ^ true)
+        if (!Native.getNumeralInt(getContext().nCtx(), getNativeObject(), res)) {
             throw new Z3Exception("Numeral is not an int");
+        }
         return res.value;
     }
 
@@ -47,8 +48,9 @@ public class FiniteDomainNum extends FiniteDomainExpr
     public long getInt64()
     {
         Native.LongPtr res = new Native.LongPtr();
-        if (Native.getNumeralInt64(getContext().nCtx(), getNativeObject(), res) ^ true)
+        if (!Native.getNumeralInt64(getContext().nCtx(), getNativeObject(), res)) {
             throw new Z3Exception("Numeral is not an int64");
+        }
         return res.value;
     }
 
@@ -63,6 +65,7 @@ public class FiniteDomainNum extends FiniteDomainExpr
     /**
      * Returns a string representation of the numeral.
      **/
+    @Override
     public String toString()
     {
         try

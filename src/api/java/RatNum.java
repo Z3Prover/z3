@@ -74,6 +74,7 @@ public class RatNum extends RealExpr
     /**
      * Returns a string representation of the numeral.
      **/
+    @Override
     public String toString()
     {
         try

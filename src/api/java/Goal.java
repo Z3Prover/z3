@@ -246,8 +246,8 @@ public class Goal extends Z3Object
     Goal(Context ctx, boolean models, boolean unsatCores, boolean proofs)
            
     {
-        super(ctx, Native.mkGoal(ctx.nCtx(), (models) ? true : false,
-                (unsatCores) ? true : false, (proofs) ? true : false));
+        super(ctx, Native.mkGoal(ctx.nCtx(), (models),
+            (unsatCores), (proofs)));
     }
 
     void incRef(long o)

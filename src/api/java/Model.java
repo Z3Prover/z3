@@ -92,7 +92,7 @@ public class Model extends Z3Object
                     return null;
                 else
                 {
-                    if (Native.isAsArray(getContext().nCtx(), n) ^ true)
+                    if (!Native.isAsArray(getContext().nCtx(), n))
                         throw new Z3Exception(
                                 "Argument was not an array constant");
                     long fd = Native.getAsArrayFuncDecl(getContext().nCtx(), n);
@@ -212,8 +212,8 @@ public class Model extends Z3Object
     public Expr eval(Expr t, boolean completion)
     {
         Native.LongPtr v = new Native.LongPtr();
-        if (Native.modelEval(getContext().nCtx(), getNativeObject(),
-                t.getNativeObject(), (completion) ? true : false, v) ^ true)
+        if (!Native.modelEval(getContext().nCtx(), getNativeObject(),
+            t.getNativeObject(), (completion), v))
             throw new ModelEvaluationFailedException();
         else
             return Expr.create(getContext(), v.value);
@@ -244,8 +244,8 @@ public class Model extends Z3Object
      * in a formula. The interpretation for a sort is a finite set of distinct
      * values. We say this finite set is the "universe" of the sort. 
      * 
-     * @see getNumSorts
-     * @see getSortUniverse
+     * @see #getNumSorts
+     * @see #getSortUniverse
      * 
      * @throws Z3Exception
      **/
@@ -282,6 +282,7 @@ public class Model extends Z3Object
      * 
      * @return A string representation of the model.
      **/
+    @Override
     public String toString()
     {
         try
@@ -298,12 +299,14 @@ public class Model extends Z3Object
         super(ctx, obj);
     }
 
+    @Override
     void incRef(long o)
     {
         getContext().getModelDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
+    @Override
     void decRef(long o)
     {
         getContext().getModelDRQ().add(o);

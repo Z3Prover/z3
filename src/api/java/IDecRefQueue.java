@@ -21,7 +21,7 @@ import java.util.LinkedList;
 
 public abstract class IDecRefQueue
 {
-    protected Object m_lock = new Object();
+    protected final Object m_lock = new Object();
     protected LinkedList<Long> m_queue = new LinkedList<Long>();
     protected int m_move_limit;
 

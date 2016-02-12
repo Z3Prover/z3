@@ -49,22 +49,19 @@ public class Symbol extends Z3Object
         return getKind() == Z3_symbol_kind.Z3_STRING_SYMBOL;
     }
 
+    @Override
     public boolean equals(Object o)
     {
-        Symbol casted = null;
-        try {
-	    casted = Symbol.class.cast(o);
-        }
-        catch (ClassCastException e) {
-            return false;
-        }
-
-        return this.getNativeObject() == casted.getNativeObject();
+        if (o == this) return true;
+        if (!(o instanceof Symbol)) return false;
+        Symbol other = (Symbol) o;
+        return this.getNativeObject() == other.getNativeObject();
     }
 
     /**
      * A string representation of the symbol.
      **/
+    @Override
     public String toString()
     {
         try
@@ -74,11 +71,10 @@ public class Symbol extends Z3Object
             else if (isStringSymbol())
                 return ((StringSymbol) this).getString();
             else
-                return new String(
-                        "Z3Exception: Unknown symbol kind encountered.");
+                return "Z3Exception: Unknown symbol kind encountered.";
         } catch (Z3Exception ex)
         {
-            return new String("Z3Exception: " + ex.getMessage());
+            return "Z3Exception: " + ex.getMessage();
         }
     }
 
