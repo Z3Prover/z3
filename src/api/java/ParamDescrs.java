@@ -72,6 +72,7 @@ public class ParamDescrs extends Z3Object
     /**
      * Retrieves a string representation of the ParamDescrs.
      **/
+    @Override
     public String toString()
     {
         try
@@ -88,12 +89,14 @@ public class ParamDescrs extends Z3Object
         super(ctx, obj);
     }
 
+    @Override
     void incRef(long o)
     {
         getContext().getParamDescrsDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
+    @Override
     void decRef(long o)
     {
         getContext().getParamDescrsDRQ().add(o);

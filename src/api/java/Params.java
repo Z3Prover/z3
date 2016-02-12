@@ -29,7 +29,7 @@ public class Params extends Z3Object
     public void add(Symbol name, boolean value)
     {
         Native.paramsSetBool(getContext().nCtx(), getNativeObject(),
-                name.getNativeObject(), (value) ? true : false);
+                name.getNativeObject(), (value));
     }
 
     /**
@@ -112,6 +112,7 @@ public class Params extends Z3Object
     /**
      * A string representation of the parameter set.
      **/
+    @Override
     public String toString()
     {
         try
@@ -128,12 +129,14 @@ public class Params extends Z3Object
         super(ctx, Native.mkParams(ctx.nCtx()));
     }
 
+    @Override
     void incRef(long o)
     {
         getContext().getParamsDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
+    @Override
     void decRef(long o)
     {
         getContext().getParamsDRQ().add(o);

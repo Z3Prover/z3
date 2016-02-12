@@ -19,9 +19,7 @@ Notes:
 
 package com.microsoft.z3;
 
-public class IDisposable
+public abstract class IDisposable
 {
-    public void dispose()
-    {
-    }
+    public abstract void dispose();
 }

@@ -29,6 +29,7 @@ class ProbeDecRefQueue extends IDecRefQueue
         super(move_limit);
     }
 
+    @Override
     protected void incRef(Context ctx, long obj)
     {
         try
@@ -40,6 +41,7 @@ class ProbeDecRefQueue extends IDecRefQueue
         }
     }
 
+    @Override
     protected void decRef(Context ctx, long obj)
     {
         try

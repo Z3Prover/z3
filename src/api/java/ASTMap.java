@@ -101,6 +101,7 @@ class ASTMap extends Z3Object
     /**
      * Retrieves a string representation of the map.
      **/
+    @Override
     public String toString()
     {
         try
@@ -122,12 +123,14 @@ class ASTMap extends Z3Object
         super(ctx, Native.mkAstMap(ctx.nCtx()));
     }
 
+    @Override
     void incRef(long o)
     {
         getContext().getASTMapDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
+    @Override
     void decRef(long o)
     {
         getContext().getASTMapDRQ().add(o);

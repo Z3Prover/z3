@@ -70,6 +70,7 @@ public class FuncInterp extends Z3Object
         /**
          * A string representation of the function entry.
          **/
+        @Override
         public String toString()
         {
             try
@@ -82,7 +83,7 @@ public class FuncInterp extends Z3Object
                 return res + getValue() + "]";
             } catch (Z3Exception e)
             {
-                return new String("Z3Exception: " + e.getMessage());
+                return "Z3Exception: " + e.getMessage();
             }
         }
 
@@ -91,18 +92,20 @@ public class FuncInterp extends Z3Object
             super(ctx, obj);
         }
 
+        @Override
         void incRef(long o)
         {
             getContext().getFuncEntryDRQ().incAndClear(getContext(), o);
             super.incRef(o);
         }
 
+        @Override
         void decRef(long o)
         {
             getContext().getFuncEntryDRQ().add(o);
             super.decRef(o);
         }
-    };
+    }
 
     /**
      * The number of entries in the function interpretation.
@@ -183,7 +186,7 @@ public class FuncInterp extends Z3Object
             return res;
         } catch (Z3Exception e)
         {
-            return new String("Z3Exception: " + e.getMessage());
+            return "Z3Exception: " + e.getMessage();
         }
     }
 
@@ -192,12 +195,14 @@ public class FuncInterp extends Z3Object
         super(ctx, obj);
     }
 
+    @Override
     void incRef(long o)
     {
         getContext().getFuncInterpDRQ().incAndClear(getContext(), o);
         super.incRef(o);
     }
 
+    @Override
     void decRef(long o)
     {
         getContext().getFuncInterpDRQ().add(o);

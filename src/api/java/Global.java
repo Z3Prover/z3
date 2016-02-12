@@ -57,17 +57,18 @@ public final class Global
     public static String getParameter(String id)
     {
         Native.StringPtr res = new Native.StringPtr();
-        if (!Native.globalParamGet(id, res))
+        if (!Native.globalParamGet(id, res)) {
             return null;
-        else
+        } else {
             return res.value;
+        }
     }    
     
     /**
      * Restore the value of all global (and module) parameters.
      * Remarks: 
      * This command will not affect already created objects (such as tactics and solvers)
-     * @see setParameter
+     * @see #setParameter
      **/
     public static void resetParameters()
     {
@@ -83,7 +84,7 @@ public final class Global
     public static void ToggleWarningMessages(boolean enabled)
            
     {
-        Native.toggleWarningMessages((enabled) ? true : false);
+        Native.toggleWarningMessages((enabled));
     }
     
     /** 

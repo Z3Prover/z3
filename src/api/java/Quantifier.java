@@ -163,15 +163,14 @@ public class Quantifier extends BoolExpr
 
         if (noPatterns == null && quantifierID == null && skolemID == null)
         {
-            setNativeObject(Native.mkQuantifier(ctx.nCtx(), (isForall) ? true
-                    : false, weight, AST.arrayLength(patterns), AST
+            setNativeObject(Native.mkQuantifier(ctx.nCtx(), (isForall), weight, AST.arrayLength(patterns), AST
                     .arrayToNative(patterns), AST.arrayLength(sorts), AST
                     .arrayToNative(sorts), Symbol.arrayToNative(names), body
                     .getNativeObject()));
         } else
         {
-            setNativeObject(Native.mkQuantifierEx(ctx.nCtx(), 
-            (isForall) ? true : false, weight, AST.getNativeObject(quantifierID), 
+            setNativeObject(Native.mkQuantifierEx(ctx.nCtx(),
+                (isForall), weight, AST.getNativeObject(quantifierID),
              AST.getNativeObject(skolemID), 
              AST.arrayLength(patterns), AST.arrayToNative(patterns), 
              AST.arrayLength(noPatterns), AST.arrayToNative(noPatterns), 
@@ -195,13 +194,13 @@ public class Quantifier extends BoolExpr
         if (noPatterns == null && quantifierID == null && skolemID == null)
         {
             setNativeObject(Native.mkQuantifierConst(ctx.nCtx(),
-                    (isForall) ? true : false, weight, AST.arrayLength(bound),
+                isForall, weight, AST.arrayLength(bound),
                     AST.arrayToNative(bound), AST.arrayLength(patterns),
                     AST.arrayToNative(patterns), body.getNativeObject()));
         } else
         {
             setNativeObject(Native.mkQuantifierConstEx(ctx.nCtx(),
-                    (isForall) ? true : false, weight,
+                isForall, weight,
                     AST.getNativeObject(quantifierID),
                     AST.getNativeObject(skolemID), AST.arrayLength(bound),
                     AST.arrayToNative(bound), AST.arrayLength(patterns),
@@ -215,6 +214,7 @@ public class Quantifier extends BoolExpr
         super(ctx, obj);
     }
 
+    @Override
     void checkNativeObject(long obj)
     {
         if (Native.getAstKind(getContext().nCtx(), obj) != Z3_ast_kind.Z3_QUANTIFIER_AST
