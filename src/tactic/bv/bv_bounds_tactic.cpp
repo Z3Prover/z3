@@ -48,26 +48,28 @@ class bv_bounds_simplifier : public ctx_simplify_tactic::simplifier {
         if (m_bv.is_bv_ule(t, t1, t2)) {
             sign = false;
             if (m_bv.is_numeral(t1, n, sz)) {
-                lo = false; 
-                b = t2;
+                lo = true; 
+                b  = t2;
                 return true;
             }
             else if (m_bv.is_numeral(t2, n, sz)) {
-                lo = true;
-                b = t1;
+                lo = false;
+                b  = t1;
                 return true;
             }
         }
         else if (m_bv.is_bv_sle(t, t1, t2)) {
             sign = true;
             if (m_bv.is_numeral(t2, n, sz)) {
-                lo = true;
-                b = t1;
+                n = m_bv.norm(n, sz, true);
+                lo = false;
+                b  = t1;
                 return true;
             }
             else if (m_bv.is_numeral(t1, n, sz)) {
-                lo = false;
-                b = t2;
+                n = m_bv.norm(n, sz, true);
+                lo = true;
+                b  = t2;
                 return true;
             }
         }
@@ -84,7 +86,24 @@ public:
         expr* t1;
         rational n;
         if (is_bound(t, t1, lo, s, n)) {
-            bound(lo, s).insert(t1, n);
+            if (sign) {
+                // !(n <= t1) <=> t1 <= n - 1
+                // !(t1 <= n) <=> t1 >= n + 1
+                if (lo) {
+                    n -= rational::one();
+                }
+                else {
+                    n += rational::one();
+                }
+                // check overflow conditions:
+                rational n1 = m_bv.norm(n, m_bv.get_bv_size(t1), s);
+                if (n1 == n) {
+                    bound(!lo, s).insert(t1, n);
+                }
+            }
+            else {
+                bound(lo, s).insert(t1, n);                
+            }
         }
     }
 
