@@ -1,0 +1,384 @@
+#include <stddef.h>
+#include <string.h>
+#include <assert.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <caml/mlvalues.h>
+#include <caml/memory.h>
+#include <caml/alloc.h>
+#include <caml/fail.h>
+#include <caml/callback.h>
+
+#ifdef Custom_tag
+#include <caml/custom.h>
+#include <caml/bigarray.h>
+#endif
+
+#ifdef __cplusplus
+}
+#endif
+
+#include <z3.h>
+#include <z3native_stubs.h>
+
+#define CAMLlocal6(X1,X2,X3,X4,X5,X6)                               \
+  CAMLlocal5(X1,X2,X3,X4,X5);                                       \
+  CAMLlocal1(X6)                                                      
+#define CAMLlocal7(X1,X2,X3,X4,X5,X6,X7)                            \
+  CAMLlocal5(X1,X2,X3,X4,X5);                                       \
+  CAMLlocal2(X6,X7)                                                   
+#define CAMLlocal8(X1,X2,X3,X4,X5,X6,X7,X8)                         \
+  CAMLlocal5(X1,X2,X3,X4,X5);                                       \
+  CAMLlocal3(X6,X7,X8)                                                
+
+#define CAMLparam7(X1,X2,X3,X4,X5,X6,X7)                            \
+  CAMLparam5(X1,X2,X3,X4,X5);                                       \
+  CAMLxparam2(X6,X7)                                                  
+#define CAMLparam8(X1,X2,X3,X4,X5,X6,X7,X8)                         \
+  CAMLparam5(X1,X2,X3,X4,X5);                                       \
+  CAMLxparam3(X6,X7,X8)                                               
+#define CAMLparam9(X1,X2,X3,X4,X5,X6,X7,X8,X9)                      \
+  CAMLparam5(X1,X2,X3,X4,X5);                                       \
+  CAMLxparam4(X6,X7,X8,X9)                                            
+#define CAMLparam12(X1,X2,X3,X4,X5,X6,X7,X8,X9,X10,X11,X12)         \
+  CAMLparam5(X1,X2,X3,X4,X5);                                       \
+  CAMLxparam5(X6,X7,X8,X9,X10);                                     \
+  CAMLxparam2(X11,X12)                                                
+#define CAMLparam13(X1,X2,X3,X4,X5,X6,X7,X8,X9,X10,X11,X12,X13)     \
+  CAMLparam5(X1,X2,X3,X4,X5);                                       \
+  CAMLxparam5(X6,X7,X8,X9,X10);                                     \
+  CAMLxparam3(X11,X12,X13)                                            
+
+
+static struct custom_operations default_custom_ops = {
+  (char*) "default handling",
+  custom_finalize_default,
+  custom_compare_default,
+  custom_hash_default,
+  custom_serialize_default,
+  custom_deserialize_default,
+  custom_compare_ext_default,
+};
+
+
+#define MK_CTX_OF(X)							\
+  Z3_context_plus * n_context_of_ ## X(Z3_ ## X ## _plus * p) { return p->cp; }
+
+
+// Context objects
+
+typedef struct {
+  Z3_context ctx;
+  unsigned long ast_count;
+} Z3_context_plus;
+
+Z3_context_plus Z3_context_plus_mk(Z3_context c) {
+  Z3_context_plus r;
+  r.ctx = c;
+  r.ast_count = 0;
+  printf("ctx++\n");
+  return r;
+}
+
+Z3_context Z3_context_plus_raw(Z3_context_plus * cp) {
+  return cp->ctx;
+}
+
+void Z3_context_finalize(value v) {
+  Z3_context_plus * cp = (Z3_context_plus*)Data_custom_val(v);
+  printf("ctx--; cnt=%lu\n", cp->ast_count);
+  Z3_del_context(cp->ctx);
+}
+
+static struct custom_operations Z3_context_plus_custom_ops = {
+  (char*) "Z3_context ops",
+  Z3_context_finalize,
+  custom_compare_default,
+  custom_hash_default,
+  custom_serialize_default,
+  custom_deserialize_default,
+  custom_compare_ext_default,
+};
+
+
+// Symbol objects
+
+typedef struct {
+  Z3_context_plus * cp;
+  Z3_symbol s;
+} Z3_symbol_plus;
+
+Z3_symbol_plus Z3_symbol_plus_mk(Z3_context_plus * cp, Z3_symbol s) {
+  Z3_symbol_plus r;
+  r.cp = cp;
+  r.s = s;
+  return r;
+}
+
+Z3_symbol Z3_symbol_plus_raw(Z3_symbol_plus * sp) {
+  return sp->s;
+}
+
+static struct custom_operations Z3_symbol_plus_custom_ops = {
+  (char*) "Z3_symbol ops",
+  custom_finalize_default,
+  custom_compare_default,
+  custom_hash_default,
+  custom_serialize_default,
+  custom_deserialize_default,
+  custom_compare_ext_default,
+};
+
+MK_CTX_OF(symbol)
+
+
+// AST objects
+
+typedef struct {
+  Z3_context_plus * cp;
+  Z3_ast a;
+} Z3_ast_plus;
+
+Z3_ast_plus Z3_ast_plus_mk(Z3_context_plus * cp, Z3_ast a) {
+  Z3_ast_plus r;
+  r.cp = cp;
+  r.a = a;
+  printf("++\n");
+  Z3_inc_ref(cp->ctx, a);
+  cp->ast_count++;
+  return r;
+}
+
+Z3_ast Z3_ast_plus_raw(Z3_ast_plus * ap) {
+  return ap->a;
+}
+
+void Z3_ast_finalize(value v) {
+  printf("--\n");
+  Z3_ast_plus * ap = (Z3_ast_plus*)(Data_custom_val(v));
+  Z3_dec_ref(ap->cp->ctx, ap->a);
+  ap->cp->ast_count--;
+}
+
+int Z3_ast_compare(value v1, value v2) {
+  Z3_ast_plus * a1 = (Z3_ast_plus*)Data_custom_val(v1);
+  Z3_ast_plus * a2 = (Z3_ast_plus*)Data_custom_val(v2);
+  assert(a1->cp->ctx == a2->cp->ctx);
+  unsigned id1 = Z3_get_ast_id(a1->cp->ctx, a1->a);
+  unsigned id2 = Z3_get_ast_id(a2->cp->ctx, a2->a);
+  if (id1 == id2)
+    return 0;
+  else if (id1 < id2)
+    return -1;
+  else
+    return +1;
+}
+
+int Z3_ast_compare_ext(value v1, value v2) {
+  Z3_ast_plus * a1 = (Z3_ast_plus*)Data_custom_val(v1);
+  unsigned id1 = Z3_get_ast_id(a1->cp->ctx, a1->a);
+  int id2 = Val_int(v2);
+  if (id1 == id2)
+    return 0;
+  else if (id1 < id2)
+    return -1;
+  else
+    return +1;
+}
+
+intnat Z3_ast_hash(value v) {
+  Z3_ast_plus * ap = (Z3_ast_plus*)Data_custom_val(v);
+  return Z3_get_ast_hash(ap->cp->ctx, ap->a);
+}
+
+static struct custom_operations Z3_ast_plus_custom_ops = {
+  (char*) "Z3_ast ops",
+  Z3_ast_finalize,
+  Z3_ast_compare,
+  Z3_ast_hash,
+  custom_serialize_default,
+  custom_deserialize_default,
+  Z3_ast_compare_ext
+};
+
+MK_CTX_OF(ast)
+
+
+// Constructor objects
+
+typedef struct {
+  Z3_context_plus * cp;
+  Z3_constructor c;
+} Z3_constructor_plus;
+
+Z3_constructor_plus Z3_constructor_plus_mk(Z3_context_plus * cp, Z3_constructor c) {
+  Z3_constructor_plus r;
+  r.cp = cp;
+  r.c = c;
+  return r;
+}
+
+Z3_constructor Z3_constructor_plus_raw(Z3_constructor_plus * cp) {
+  return cp->c;
+}
+
+static struct custom_operations Z3_constructor_plus_custom_ops = {
+  (char*) "Z3_constructor ops",
+  custom_finalize_default,
+  custom_compare_default,
+  custom_hash_default,
+  custom_serialize_default,
+  custom_deserialize_default,
+  custom_compare_ext_default,
+};
+
+MK_CTX_OF(constructor)
+
+
+// constructor_list objects
+
+typedef struct {
+  Z3_context_plus * cp;
+  Z3_constructor_list c;
+} Z3_constructor_list_plus;
+
+Z3_constructor_list_plus Z3_constructor_list_plus_mk(Z3_context_plus * cp, Z3_constructor_list c) {
+  Z3_constructor_list_plus r;
+  r.cp = cp;
+  r.c = c;
+  return r;
+}
+
+Z3_constructor_list Z3_constructor_list_plus_raw(Z3_constructor_list_plus * cp) {
+  return cp->c;
+}
+
+static struct custom_operations Z3_constructor_list_plus_custom_ops = {
+  (char*) "Z3_constructor_list ops",
+  custom_finalize_default,
+  custom_compare_default,
+  custom_hash_default,
+  custom_serialize_default,
+  custom_deserialize_default,
+  custom_compare_ext_default,
+};
+
+MK_CTX_OF(constructor_list)
+
+
+// rcf_num objects
+
+typedef struct {
+  Z3_context_plus * cp;
+  Z3_rcf_num c;
+} Z3_rcf_num_plus;
+
+Z3_rcf_num_plus Z3_rcf_num_plus_mk(Z3_context_plus * cp, Z3_rcf_num c) {
+  Z3_rcf_num_plus r;
+  r.cp = cp;
+  r.c = c;
+  return r;
+}
+
+Z3_rcf_num Z3_rcf_num_plus_raw(Z3_rcf_num_plus * cp) {
+  return cp->c;
+}
+
+static struct custom_operations Z3_rcf_num_plus_custom_ops = {
+  (char*) "Z3_rcf_num ops",
+  custom_finalize_default,
+  custom_compare_default,
+  custom_hash_default,
+  custom_serialize_default,
+  custom_deserialize_default,
+  custom_compare_ext_default,
+};
+
+MK_CTX_OF(rcf_num)
+
+
+#define MK_PLUS_OBJ(X)							\
+  typedef struct {							\
+    Z3_context_plus * cp;						\
+    Z3_ ## X p;								\
+  } Z3_ ## X ## _plus;							\
+  									\
+  Z3_ ## X ## _plus Z3_ ## X ## _plus_mk(Z3_context_plus * cp, Z3_ ## X p) { \
+    Z3_ ## X ## _plus r;						\
+      r.cp = cp;							\
+      r.p = p;								\
+      Z3_ ## X ## _inc_ref(cp->ctx, p);					\
+    return r;								\
+  }									\
+									\
+  Z3_ ## X Z3_ ## X ## _plus_raw(Z3_ ## X ## _plus * pp) {		\
+    return pp->p;							\
+  }									\
+									\
+  void Z3_ ## X ## _finalize(value v) {					\
+    Z3_ ## X ## _plus * pp = (Z3_ ## X ## _plus*)Data_custom_val(v);	\
+      Z3_ ## X ## _dec_ref(pp->cp->ctx, pp->p);				\
+  }									\
+  									\
+  static struct custom_operations Z3_ ## X ## _plus_custom_ops = {	\
+    (char*) "Z3_" #X " ops",						\
+    Z3_ ## X ## _finalize,						\
+    custom_compare_default,						\
+    custom_hash_default,						\
+    custom_serialize_default,						\
+    custom_deserialize_default,						\
+    custom_compare_ext_default,						\
+  };									\
+									\
+  MK_CTX_OF(X)
+
+MK_PLUS_OBJ(params)
+MK_PLUS_OBJ(param_descrs)
+MK_PLUS_OBJ(model)
+MK_PLUS_OBJ(func_interp)
+MK_PLUS_OBJ(func_entry)
+MK_PLUS_OBJ(goal)
+MK_PLUS_OBJ(tactic)
+MK_PLUS_OBJ(probe)
+MK_PLUS_OBJ(apply_result)
+MK_PLUS_OBJ(solver)
+MK_PLUS_OBJ(stats)
+MK_PLUS_OBJ(ast_map)
+MK_PLUS_OBJ(ast_vector)
+MK_PLUS_OBJ(fixedpoint)
+MK_PLUS_OBJ(optimize)
+
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+CAMLprim DLL_PUBLIC value n_is_null(value p) {
+  void * t = * (void**) Data_custom_val(p);
+  return Val_bool(t == 0);
+}
+
+CAMLprim DLL_PUBLIC value n_mk_null( void ) {
+  CAMLparam0();
+  CAMLlocal1(result);
+  void * z3_result = 0;
+  result = caml_alloc_custom(&default_custom_ops, sizeof(void*), 0, 1);
+  memcpy( Data_custom_val(result), &z3_result, sizeof(void*));
+  CAMLreturn (result);
+}
+
+void MLErrorHandler(Z3_context c, Z3_error_code e)
+{
+  // Internal do-nothing error handler. This is required to avoid that Z3 calls exit()
+  // upon errors, but the actual error handling is done by throwing exceptions in the
+  // wrappers below.
+}
+
+void DLL_PUBLIC n_set_internal_error_handler(value a0)
+{
+  Z3_context _a0 = * (Z3_context*) Data_custom_val(a0);
+  Z3_set_error_handler(_a0, MLErrorHandler);
+}

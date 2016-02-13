@@ -244,33 +244,12 @@ sig
   (** Translates (copies) the AST to another context.
       @return A copy of the AST which is associated with the other context.  *)
   val translate : ast -> context -> ast
-
-  (** Unwraps an AST.
-      This function is used for transitions between native and 
-      managed objects. It returns the native pointer to the AST. Note that 
-      AST objects are reference counted and unwrapping an AST disables automatic
-      reference counting, i.e., all references to the IntPtr that is returned 
-      must be handled externally and through native calls (see e.g., 
-      [Z3native.inc_ref]).
-      {!wrap_ast} *)
-  val unwrap_ast : ast -> Z3native.ptr
-
-  (** Wraps an AST.
-
-      This function is used for transitions between native and 
-      managed objects. Note that the native ast that is passed must be a 
-      native object obtained from Z3 (e.g., through {!unwrap_ast})
-      and that it must have a correct reference count (see e.g., 
-      [Z3native.inc_ref]). *)
-  val wrap_ast : context -> Z3native.z3_ast -> ast
 end
 
 (** The Sort module implements type information for ASTs *)
 and Sort :
 sig
-  type sort = Sort of AST.ast
-
-  val ast_of_sort : sort -> AST.ast
+  type sort
 
   (** Comparison operator.
       @return True if the two sorts are from the same context 
@@ -299,9 +278,7 @@ end
 (** Function declarations *)
 and FuncDecl :
 sig
-  type func_decl = FuncDecl of AST.ast
-
-  val ast_of_func_decl : FuncDecl.func_decl -> AST.ast
+  type func_decl
 
   (** Parameters of Func_Decls *)
   module Parameter :
@@ -473,7 +450,7 @@ end
 (** General Expressions (terms) *)
 and Expr :
 sig
-  type expr = Expr of AST.ast
+  type expr
 
   val ast_of_expr : Expr.expr -> AST.ast
   val expr_of_ast : AST.ast -> Expr.expr
@@ -662,7 +639,7 @@ end
 (** Quantifier expressions *)
 module Quantifier :
 sig
-  type quantifier = Quantifier of Expr.expr
+  type quantifier
 
   val expr_of_quantifier : quantifier -> Expr.expr
   val quantifier_of_expr : Expr.expr -> quantifier
@@ -674,10 +651,7 @@ sig
       also called a multi-pattern. *)
   module Pattern :
   sig
-    type pattern = Pattern of AST.ast
-
-    val ast_of_pattern : pattern -> AST.ast
-    val pattern_of_ast : AST.ast -> pattern
+    type pattern
 
     (** The number of terms in the pattern. *)
     val get_num_terms : pattern -> int
@@ -1077,7 +1051,6 @@ sig
 
   (** Create mutually recursive data-types. *)
   val mk_sorts_s : context -> string list -> Constructor.constructor list list -> Sort.sort list
-
 
   (** The number of constructors of the datatype sort. *)
   val get_num_constructors : Sort.sort -> int
@@ -3241,8 +3214,7 @@ end
 module Optimize : 
 sig 
   type optimize  
-  type handle 
- 
+  type handle  
  
   (** Create a Optimize context. *) 
   val mk_opt : context -> optimize 
@@ -3250,18 +3222,14 @@ sig
   (** A string that describes all available optimize solver parameters. *) 
   val get_help : optimize -> string 
  
- 
   (** Sets the optimize solver parameters. *) 
   val set_parameters : optimize -> Params.params -> unit 
- 
  
   (** Retrieves parameter descriptions for Optimize solver. *) 
   val get_param_descrs : optimize -> Params.ParamDescrs.param_descrs 
  
- 
   (** Assert a constraints into the optimize solver. *)         
   val add : optimize -> Expr.expr list -> unit 
- 
  
   (** Asssert a soft constraint.  
      Supply integer weight and string that identifies a group 
@@ -3269,11 +3237,9 @@ sig
    *) 
   val add_soft : optimize -> Expr.expr -> string -> Symbol.symbol -> handle 
  
- 
   (** Add maximization objective. 
    *)  
   val maximize : optimize -> Expr.expr -> handle 
- 
  
   (** Add minimization objective. 
    *)  
@@ -3283,37 +3249,29 @@ sig
    *)         
   val check : optimize -> Solver.status 
  
- 
   (** Retrieve model from satisfiable context *) 
   val get_model : optimize -> Model.model option
- 
  
   (** Retrieve lower bound in current model for handle *) 
   val get_lower : handle -> int -> Expr.expr 
  
- 
   (** Retrieve upper bound in current model for handle *) 
   val get_upper : handle -> int -> Expr.expr 
-
  
   (** Creates a backtracking point. 
       {!pop} *) 
   val push : optimize -> unit 
 
-
   (** Backtrack one backtracking point. 
       Note that an exception is thrown if Pop is called without a corresponding [Push] 
       {!push} *) 
   val pop : optimize -> unit 
-
  
   (** Retrieve explanation why optimize engine returned status Unknown. *)                 
   val get_reason_unknown : optimize -> string 
-
  
   (** Retrieve SMT-LIB string representation of optimize object. *) 
   val to_string : optimize -> string 
- 
  
   (** Retrieve statistics information from the last call to check *) 
   val get_statistics : optimize -> Statistics.statistics 
