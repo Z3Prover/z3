@@ -7,7 +7,8 @@
 
 open Z3enums
 
-exception Error = Z3native.Exception
+exception Error of string
+let _ = Callback.register_exception "Z3EXCEPTION" (Error "")
 
 (* Some helpers. *)
 let null = Z3native.mk_null()
@@ -90,7 +91,7 @@ end
 module rec AST :
 sig
   type ast = Z3native.ast
-  val gc:ast -> context
+  val gc : ast -> context
   module ASTVector :
   sig
     type ast_vector = Z3native.ast_vector
@@ -225,7 +226,7 @@ end
 
 and Sort :
 sig
-  type sort = Z3native.sort
+  type sort = AST.ast
   val gc : sort -> context
   val equal : sort -> sort -> bool
   val get_id : sort -> int
@@ -296,7 +297,7 @@ val gc : func_decl -> context
   val get_parameters : func_decl -> Parameter.parameter list
   val apply : func_decl -> Expr.expr list -> Expr.expr
 end = struct
-  type func_decl = Z3native.func_decl      
+  type func_decl = AST.ast
   let gc (x:func_decl) = Z3native.context_of_ast x
 
   module Parameter =
@@ -323,37 +324,37 @@ end = struct
     let get_int (x:parameter) =
       match x with
      | P_Int(x) -> x
-     | _ -> raise (Z3native.Exception "parameter is not an int")
+     | _ -> raise (Error "parameter is not an int")
        
     let get_float (x:parameter) = 
       match x with
      | P_Dbl(x) -> x
-     | _ -> raise (Z3native.Exception "parameter is not a float")
+     | _ -> raise (Error "parameter is not a float")
           
     let get_symbol (x:parameter) =
       match x with
      | P_Sym(x) -> x
-     | _ -> raise (Z3native.Exception "parameter is not a symbol")
+     | _ -> raise (Error "parameter is not a symbol")
        
     let get_sort (x:parameter) =
       match x with
      | P_Srt(x) -> x
-     | _ -> raise (Z3native.Exception "parameter is not a sort")
+     | _ -> raise (Error "parameter is not a sort")
 
     let get_ast (x:parameter) =
       match x with
      | P_Ast(x) -> x
-     | _ -> raise (Z3native.Exception "parameter is not an ast")
+     | _ -> raise (Error "parameter is not an ast")
 
     let get_func_decl (x:parameter) =
       match x with
      | P_Fdl(x) -> x
-     | _ -> raise (Z3native.Exception "parameter is not a func_decl")
+     | _ -> raise (Error "parameter is not a func_decl")
 
     let get_rational (x:parameter) =
       match x with
      | P_Rat(x) -> x
-     | _ -> raise (Z3native.Exception "parameter is not a rational string")
+     | _ -> raise (Error "parameter is not a rational string")
   end
 
   let mk_func_decl (ctx:context) (name:Symbol.symbol) (domain:Sort.sort list) (range:Sort.sort) =
@@ -469,7 +470,7 @@ end
 (** General expressions (terms) *)
 and Expr :
 sig
-  type expr = Z3native.ast
+  type expr = AST.ast
   val gc : expr -> context
   val ast_of_expr  :  expr -> AST.ast
   val expr_of_ast  :  AST.ast -> expr
@@ -504,13 +505,13 @@ sig
   val apply4 : context -> (Z3native.ptr -> Z3native.ptr -> Z3native.ptr -> Z3native.ptr -> Z3native.ptr -> Z3native.ptr) -> expr -> expr -> expr -> expr -> expr
   val compare : expr -> expr -> int
 end = struct  
-  type expr = Z3native.ast      
+  type expr = AST.ast      
   let gc (e:expr) = Z3native.context_of_ast e
                                             
   let expr_of_ast (a:AST.ast) : expr = 
     let q = Z3enums.ast_kind_of_int (Z3native.get_ast_kind (gc a) a) in
     if (q != Z3enums.APP_AST && q != VAR_AST && q != QUANTIFIER_AST && q != NUMERAL_AST) then
-      raise (Z3native.Exception "Invalid coercion")
+      raise (Error "Invalid coercion")
     else
       a
             
@@ -540,13 +541,13 @@ end = struct
                     
   let update (x:expr) (args:expr list) =
     if ((AST.is_app x) && (List.length args <> (get_num_args x))) then
-      raise (Z3native.Exception "Number of arguments does not match")
+      raise (Error "Number of arguments does not match")
     else
       Z3native.update_term (gc x) x (List.length args) (Array.of_list args)
       
   let substitute (x:expr) (from:expr list) (to_:expr list) = 
     if (List.length from) <> (List.length to_) then
-      raise (Z3native.Exception "Argument sizes do not match")
+      raise (Error "Argument sizes do not match")
     else
       Z3native.substitute (gc x) x (List.length from) (Array.of_list from) (Array.of_list to_)
       
@@ -620,7 +621,7 @@ end
 
 module Quantifier = 
 struct 
-  type quantifier = Z3native.ast
+  type quantifier = AST.ast
   let gc (x:quantifier) = Z3native.context_of_ast x
   
   let expr_of_quantifier (q:quantifier) : Expr.expr = q
@@ -628,7 +629,7 @@ struct
   let quantifier_of_expr (e:Expr.expr) : quantifier =
     let q = (Z3enums.ast_kind_of_int (Z3native.get_ast_kind (gc e) e)) in
     if (q != Z3enums.QUANTIFIER_AST) then
-      raise (Z3native.Exception "Invalid coercion")
+      raise (Error "Invalid coercion")
     else
       e
 
@@ -650,7 +651,7 @@ struct
 
   let get_index (x:expr) = 
     if not (AST.is_var x) then
-      raise (Z3native.Exception "Term is not a bound variable.")
+      raise (Error "Term is not a bound variable.")
     else
       Z3native.get_index_value (gc x) x
 
@@ -687,13 +688,13 @@ struct
 
   let mk_pattern (ctx:context) (terms:expr list) =
     if (List.length terms) == 0 then
-      raise (Z3native.Exception "Cannot create a pattern from zero terms")
+      raise (Error "Cannot create a pattern from zero terms")
     else
       Z3native.mk_pattern ctx (List.length terms) (Array.of_list terms)
 
   let mk_forall (ctx:context) (sorts:Sort.sort list) (names:Symbol.symbol list) (body:expr) (weight:int option) (patterns:Pattern.pattern list) (nopatterns:expr list) (quantifier_id:Symbol.symbol option) (skolem_id:Symbol.symbol option) =
     if (List.length sorts) != (List.length names) then
-      raise (Z3native.Exception "Number of sorts does not match number of names")
+      raise (Error "Number of sorts does not match number of names")
     else if ((List.length nopatterns) == 0 && quantifier_id == None && skolem_id == None) then
       Z3native.mk_quantifier ctx true 
                              (match weight with | None -> 1 | Some(x) -> x)
@@ -731,7 +732,7 @@ struct
 
   let mk_exists (ctx:context) (sorts:Sort.sort list) (names:Symbol.symbol list) (body:expr) (weight:int option) (patterns:Pattern.pattern list) (nopatterns:expr list) (quantifier_id:Symbol.symbol option) (skolem_id:Symbol.symbol option) =
     if (List.length sorts) != (List.length names) then
-      raise (Z3native.Exception "Number of sorts does not match number of names")
+      raise (Error "Number of sorts does not match number of names")
     else if ((List.length nopatterns) == 0 && quantifier_id == None && skolem_id == None) then
       Z3native.mk_quantifier ctx false
                              (match weight with | None -> 1 | Some(x) -> x)
@@ -856,7 +857,7 @@ struct
   let get_size (x:Sort.sort) = 
     let (r, v) = (Z3native.get_finite_domain_sort_size (Sort.gc x) x) in
     if r then v
-    else raise (Z3native.Exception "Conversion failed.")
+    else raise (Error "Conversion failed.")
 end
 
 
@@ -907,10 +908,10 @@ struct
     let create (ctx:context) (name:Symbol.symbol) (recognizer:Symbol.symbol) (field_names:Symbol.symbol list) (sorts:Sort.sort option list) (sort_refs:int list) =
       let n = (List.length field_names) in
       if n != (List.length sorts) then
-        raise (Z3native.Exception "Number of field names does not match number of sorts")
+        raise (Error "Number of field names does not match number of sorts")
       else
         if n != (List.length sort_refs) then
-          raise (Z3native.Exception "Number of field names does not match number of sort refs")
+          raise (Error "Number of field names does not match number of sort refs")
         else
           let no = Z3native.mk_constructor ctx name 
                                            recognizer
@@ -1098,14 +1099,14 @@ struct
     let get_int (x:expr) = 
       let (r, v) = Z3native.get_numeral_int (Expr.gc x) x in
       if r then v
-      else raise (Z3native.Exception "Conversion failed.")
+      else raise (Error "Conversion failed.")
 
     let get_big_int (x:expr) = 
       if (is_int_numeral x) then 
         let s = (Z3native.get_numeral_string (Expr.gc x) x) in
         Big_int.big_int_of_string s
       else 
-        raise (Z3native.Exception "Conversion failed.")
+        raise (Error "Conversion failed.")
                  
     let numeral_to_string (x:expr) = Z3native.get_numeral_string (Expr.gc x) x
     let mk_const (ctx:context) (name:Symbol.symbol) = Expr.mk_const ctx name (mk_sort ctx) 
@@ -1129,7 +1130,7 @@ struct
         let s = (Z3native.get_numeral_string (Expr.gc x) x) in
         Ratio.ratio_of_string s
       else 
-        raise (Z3native.Exception "Conversion failed.")
+        raise (Error "Conversion failed.")
 
     let to_decimal_string (x:expr) (precision:int) = Z3native.get_numeral_decimal_string (Expr.gc x) x precision
     let numeral_to_string (x:expr) = Z3native.get_numeral_string (Expr.gc x) x
@@ -1137,7 +1138,7 @@ struct
     let mk_const_s (ctx:context) (name:string) = mk_const ctx (Symbol.mk_string ctx name)
     let mk_numeral_nd (ctx:context) (num:int) (den:int) =
       if (den == 0) then 
-        raise (Z3native.Exception "Denominator is zero")
+        raise (Error "Denominator is zero")
       else      
         Z3native.mk_real ctx num den
        
@@ -1228,7 +1229,7 @@ struct
   let get_int (x:expr) = 
     let (r, v) = Z3native.get_numeral_int (Expr.gc x) x in
     if r then v
-    else raise (Z3native.Exception "Conversion failed.")
+    else raise (Error "Conversion failed.")
   let numeral_to_string (x:expr) = Z3native.get_numeral_string (Expr.gc x) x
   let mk_const (ctx:context) (name:Symbol.symbol) (size:int) =
     Expr.mk_const ctx name (mk_sort ctx size) 
@@ -1490,7 +1491,7 @@ struct
     Z3native.apply_result_inc_ref (gc x) arn ;
     let sg = Z3native.apply_result_get_num_subgoals (gc x) arn in
     let res = if sg == 0 then 
-                raise (Z3native.Exception "No subgoals") 
+                raise (Error "No subgoals") 
               else 
                 Z3native.apply_result_get_subgoal (gc x) arn 0 in
     Z3native.apply_result_dec_ref (gc x) arn ;
@@ -1570,7 +1571,7 @@ struct
   let get_const_interp (x:model) (f:func_decl) =
     if (FuncDecl.get_arity f) != 0 ||
          (sort_kind_of_int (Z3native.get_sort_kind (FuncDecl.gc f) (Z3native.get_range (FuncDecl.gc f) f))) == ARRAY_SORT then
-      raise (Z3native.Exception "Non-zero arity functions and arrays have FunctionInterpretations as a model. Use FuncInterp.")
+      raise (Error "Non-zero arity functions and arrays have FunctionInterpretations as a model. Use FuncInterp.")
     else
       let np = Z3native.model_get_const_interp (gc x) x f  in
       if (Z3native.is_null np) then
@@ -1591,11 +1592,11 @@ struct
         match sk with
         | ARRAY_SORT ->         
            if not (Z3native.is_as_array (gc x) n) then
-             raise (Z3native.Exception "Argument was not an array constant")
+             raise (Error "Argument was not an array constant")
            else
              let fd = Z3native.get_as_array_func_decl (gc x) n in
              get_func_interp x fd
-        | _ -> raise (Z3native.Exception "Constant functions do not have a function interpretation; use ConstInterp");
+        | _ -> raise (Error "Constant functions do not have a function interpretation; use ConstInterp");
     else
       let n = Z3native.model_get_func_interp (gc x) x f in
       if (Z3native.is_null n) then None else Some n
@@ -1780,7 +1781,7 @@ struct
       else if (is_float x) then 
         string_of_float (get_float x)
       else
-        raise (Z3native.Exception "Unknown statistical entry type")
+        raise (Error "Unknown statistical entry type")
     let to_string (x:statistics_entry) = (get_key x) ^ ": " ^ (to_string_value x)
   end
     
@@ -1833,7 +1834,7 @@ struct
 
   let assert_and_track_l (x:solver) (cs:expr list) (ps:expr list) =
     if ((List.length cs) != (List.length ps)) then
-      raise (Z3native.Exception "Argument size mismatch")
+      raise (Error "Argument size mismatch")
     else
       let f a b = Z3native.solver_assert_and_track (gc x) x a b in
       ignore (List.iter2 f cs ps)
@@ -2029,7 +2030,7 @@ struct
     let cdn = (List.length decl_names) in
     let cd = (List.length decls) in
     if (csn != cs || cdn != cd) then 
-      raise (Z3native.Exception "Argument size mismatch")
+      raise (Error "Argument size mismatch")
     else
       Z3native.parse_smtlib_string ctx str 
                                    cs 
@@ -2045,7 +2046,7 @@ struct
     let cdn = (List.length decl_names) in
     let cd = (List.length decls) in
     if (csn != cs || cdn != cd) then 
-      raise (Z3native.Exception "Argument size mismatch")
+      raise (Error "Argument size mismatch")
     else
       Z3native.parse_smtlib_file ctx file_name
                                  cs 
@@ -2089,7 +2090,7 @@ struct
     let cdn = (List.length decl_names) in
     let cd = (List.length decls) in
     if (csn != cs || cdn != cd) then 
-        raise (Z3native.Exception "Argument size mismatch")
+        raise (Error "Argument size mismatch")
     else
       Z3native.parse_smtlib2_string ctx str 
                                     cs 
@@ -2105,7 +2106,7 @@ struct
     let cdn = (List.length decl_names) in
     let cd = (List.length decls) in
     if (csn != cs || cdn != cd) then 
-      raise (Z3native.Exception "Argument size mismatch")
+      raise (Error "Argument size mismatch")
     else
         Z3native.parse_smtlib2_string ctx file_name
                                       cs 
@@ -2147,7 +2148,7 @@ struct
   let read_interpolation_problem (ctx:context) (filename:string) =
     let (r, num, cnsts, parents, error, num_theory, theory) = (Z3native.read_interpolation_problem ctx filename) in
     match r with 
-    | 0 -> raise (Z3native.Exception "Interpolation problem could not be read.")
+    | 0 -> raise (Error "Interpolation problem could not be read.")
     | _ ->
        let f1 i = Array.get cnsts i in
        let f2 i = Array.get parents i in
@@ -2165,8 +2166,8 @@ struct
                                               num_theory
                                               (Array.of_list theory) in
     match (lbool_of_int r) with
-    | L_UNDEF -> raise (Z3native.Exception "Interpolant could not be verified.")
-    | L_FALSE -> raise (Z3native.Exception "Interpolant could not be verified.")
+    | L_UNDEF -> raise (Error "Interpolant could not be verified.")
+    | L_FALSE -> raise (Error "Interpolant could not be verified.")
     | _ -> ()
              
   let write_interpolation_problem (ctx:context) (num:int) (cnsts:Expr.expr list) (parents:int list) (filename:string) (num_theory:int) (theory:Expr.expr list) =

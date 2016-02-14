@@ -1797,6 +1797,12 @@ class MLComponent(Component):
             if IS_WINDOWS:
                 CP_CMD='copy'
 
+            OCAML_FLAGS = ''
+            if DEBUG_MODE:             
+                OCAML_FLAGS += '-g'
+            OCAMLCF = OCAMLC + ' ' + OCAML_FLAGS
+            OCAMLOPTF = OCAMLOPT + ' ' + OCAML_FLAGS
+
             src_dir = self.to_src_dir
             mk_dir(os.path.join(BUILD_DIR, self.sub_dir))
             api_src = get_component(API_COMPONENT).to_src_dir
@@ -1818,7 +1824,7 @@ class MLComponent(Component):
             z3dllso = get_component(Z3_DLL_COMPONENT).dll_name + '$(SO_EXT)'
             out.write('%s: %s %s\n' % (stubso, stubsc, z3dllso))
             out.write('\t%s -ccopt "$(CXXFLAGS_OCAML) -I %s -I %s -I %s $(CXX_OUT_FLAG)%s" -c %s\n' %
-                      (OCAMLC, OCAML_LIB, api_src, src_dir, stubso, stubsc))
+                      (OCAMLCF, OCAML_LIB, api_src, src_dir, stubso, stubsc))
 
             cmos = ''
             for m in self.modules:
@@ -1831,9 +1837,9 @@ class MLComponent(Component):
                 if (os.path.exists(existing_mli[3:])):
                     out.write('\t%s %s %s\n' % (CP_CMD, existing_mli, mli))
                 else:
-                    out.write('\t%s -i -I %s -c %s > %s\n' % (OCAMLC, self.sub_dir, ml, mli))
-                out.write('\t%s -I %s -o %s -c %s\n' % (OCAMLC, self.sub_dir, cmi, mli))
-                out.write('\t%s -I %s -o %s -c %s\n' % (OCAMLC, self.sub_dir, cmo, ml))
+                    out.write('\t%s -i -I %s -c %s > %s\n' % (OCAMLCF, self.sub_dir, ml, mli))
+                out.write('\t%s -I %s -o %s -c %s\n' % (OCAMLCF, self.sub_dir, cmi, mli))
+                out.write('\t%s -I %s -o %s -c %s\n' % (OCAMLCF, self.sub_dir, cmo, ml))
                 cmos = cmos + cmo + ' '
 
             cmxs = ''
@@ -1841,17 +1847,20 @@ class MLComponent(Component):
                 ff = os.path.join(src_dir, m + '.ml')
                 ft = os.path.join(self.sub_dir, m + '.cmx')
                 out.write('%s: %s %s\n' % (ft, ff, cmos))
-                out.write('\t%s -I %s -o %s -c %s\n' % (OCAMLOPT, self.sub_dir, ft, ff))
+                out.write('\t%s -I %s -o %s -c %s\n' % (OCAMLOPTF, self.sub_dir, ft, ff))
                 cmxs = cmxs + ' ' + ft
 
 
+            OCAMLMKLIB = 'ocamlmklib'
+            if DEBUG_MODE:
+                OCAMLMKLIB += ' -g'
             z3mls = os.path.join(self.sub_dir, 'z3ml')
             out.write('%s.cma: %s %s %s\n' % (z3mls, cmos, stubso, z3dllso))
-            out.write('\tocamlmklib -o %s -I %s %s %s -L. -lz3\n' % (z3mls, self.sub_dir, stubso, cmos))
+            out.write('\t%s -o %s -I %s %s %s -L. -lz3\n' % (OCAMLMKLIB, z3mls, self.sub_dir, stubso, cmos))
             out.write('%s.cmxa: %s %s %s\n' % (z3mls, cmxs, stubso, z3dllso))
-            out.write('\tocamlmklib -o %s -I %s %s %s -L. -lz3\n' % (z3mls, self.sub_dir, stubso, cmxs))
+            out.write('\t%s -o %s -I %s %s %s -L. -lz3\n' % (OCAMLMKLIB, z3mls, self.sub_dir, stubso, cmxs))
             out.write('%s.cmxs: %s.cmxa\n' % (z3mls, z3mls))
-            out.write('\t%s -shared -o %s.cmxs -I %s %s.cmxa\n' % (OCAMLOPT, z3mls, self.sub_dir, z3mls))
+            out.write('\t%s -shared -o %s.cmxs -I %s %s.cmxa\n' % (OCAMLOPTF, z3mls, self.sub_dir, z3mls))
 
             out.write('\n')
             out.write('ml: %s.cma %s.cmxa %s.cmxs\n' % (z3mls, z3mls, z3mls))

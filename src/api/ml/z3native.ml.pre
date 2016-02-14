@@ -103,5 +103,4 @@ external context_of_fixedpoint : fixedpoint -> context
 external context_of_optimize : optimize -> context
   = "n_context_of_optimize"
 
-exception Exception of string
 
