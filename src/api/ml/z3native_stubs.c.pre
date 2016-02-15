@@ -69,7 +69,7 @@ static struct custom_operations default_custom_ops = {
     CAMLparam1(v);                                                      \
     CAMLlocal1(result);                                                 \
     Z3_ ## X ## _plus * p = (Z3_ ## X ## _plus *) Data_custom_val(v);   \
-    result = caml_alloc(sizeof(Z3_context_plus), 0);                    \
+    result = caml_alloc_custom(&Z3_context_plus_custom_ops, sizeof(Z3_context_plus), 0, 1); \
     *(Z3_context_plus*)Data_custom_val(result) = *p->cp;                \
     CAMLreturn(result);                                                 \
   }
