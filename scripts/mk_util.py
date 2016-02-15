@@ -67,6 +67,7 @@ IS_LINUX=False
 IS_OSX=False
 IS_FREEBSD=False
 IS_OPENBSD=False
+IS_CYGWIN=False
 VERBOSE=True
 DEBUG_MODE=False
 SHOW_CPPS = True
@@ -133,6 +134,9 @@ def is_openbsd():
 
 def is_osx():
     return IS_OSX
+
+def is_cygwin():
+    return IS_CYGWIN
 
 def norm_path(p):
     # We use '/' on mk_project for convenience
@@ -583,6 +587,8 @@ elif os.name == 'posix':
         IS_FREEBSD=True
     elif os.uname()[0] == 'OpenBSD':
         IS_OPENBSD=True
+    elif os.uname()[0][:6] == 'CYGWIN':
+        IS_CYGWIN=True
 
 def display_help(exit_code):
     print("mk_make.py: Z3 Makefile generator\n")
@@ -1676,6 +1682,8 @@ class JavaDLLComponent(Component):
                 t = t.replace('PLATFORM', 'freebsd')
             elif IS_OPENBSD:
                 t = t.replace('PLATFORM', 'openbsd')
+            elif IS_CYGWIN:
+                t = t.replace('PLATFORM', 'cygwin')
             else:
                 t = t.replace('PLATFORM', 'win32')
             out.write(t)
@@ -1852,13 +1860,17 @@ class MLComponent(Component):
 
 
             OCAMLMKLIB = 'ocamlmklib'
-            if DEBUG_MODE:
+            LIBZ3 = '-L. -lz3'
+            if is_cygwin():
+                # Some ocamlmklib's don't like -g; observed on cygwin, but may be others as well.
+                LIBZ3 = 'libz3.dll'
+            elif DEBUG_MODE:
                 OCAMLMKLIB += ' -g'
             z3mls = os.path.join(self.sub_dir, 'z3ml')
             out.write('%s.cma: %s %s %s\n' % (z3mls, cmos, stubso, z3dllso))
-            out.write('\t%s -o %s -I %s %s %s -L. -lz3\n' % (OCAMLMKLIB, z3mls, self.sub_dir, stubso, cmos))
+            out.write('\t%s -o %s -I %s %s %s %s\n' % (OCAMLMKLIB, z3mls, self.sub_dir, stubso, cmos, LIBZ3))
             out.write('%s.cmxa: %s %s %s\n' % (z3mls, cmxs, stubso, z3dllso))
-            out.write('\t%s -o %s -I %s %s %s -L. -lz3\n' % (OCAMLMKLIB, z3mls, self.sub_dir, stubso, cmxs))
+            out.write('\t%s -o %s -I %s %s %s %s\n' % (OCAMLMKLIB, z3mls, self.sub_dir, stubso, cmxs, LIBZ3))
             out.write('%s.cmxs: %s.cmxa\n' % (z3mls, z3mls))
             out.write('\t%s -shared -o %s.cmxs -I %s %s.cmxa\n' % (OCAMLOPTF, z3mls, self.sub_dir, z3mls))
 
