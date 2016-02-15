@@ -1456,11 +1456,11 @@ def mk_z3native_stubs_c(ml_dir): # C interface
         ml_wrapper.write('  ')
         if result != VOID:
             ts = type2str(result)
-            ml_wrapper.write('result = caml_alloc(%s, 0);\n' % ret_size)
             if ml_has_plus_type(ts):
-                ml_wrapper.write('  %s z3rv_m = ' % ts)
+                ml_wrapper.write('%s z3rv_m = ' % ts)
             else:
-                ml_wrapper.write('  %s z3rv = ' % ts)
+                ml_wrapper.write('result = caml_alloc(%s, 0);\n  ' % ret_size)
+                ml_wrapper.write('%s z3rv = ' % ts)
 
         elif len(op) != 0:
             ml_wrapper.write('result = caml_alloc(%s, 0);\n  ' % ret_size)

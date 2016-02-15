@@ -79,14 +79,14 @@ static struct custom_operations default_custom_ops = {
 
 typedef struct {
   Z3_context ctx;
-  unsigned long ast_count;
+  unsigned long obj_count;
 } Z3_context_plus;
 
 Z3_context_plus Z3_context_plus_mk(Z3_context c) {
   Z3_context_plus r;
   r.ctx = c;
-  r.ast_count = 0;
-  printf("ctx++\n");
+  r.obj_count = 0;
+  //printf("ctx++\n");
   return r;
 }
 
@@ -96,8 +96,8 @@ Z3_context Z3_context_plus_raw(Z3_context_plus * cp) {
 
 void Z3_context_finalize(value v) {
   Z3_context_plus * cp = (Z3_context_plus*)Data_custom_val(v);
-  printf("ctx--; cnt=%lu\n", cp->ast_count);
-  if (cp->ast_count == 0)
+  // printf("ctx--; cnt=%lu\n", cp->obj_count);
+  if (cp->obj_count == 0)
     Z3_del_context(cp->ctx);
   else
     printf("Leaking the context; context_plus pointers now invalid. \n");
@@ -122,7 +122,7 @@ typedef struct {
 } Z3_symbol_plus;
 
 Z3_symbol_plus Z3_symbol_plus_mk(Z3_context_plus * cp, Z3_symbol s) {
-  Z3_symbol_plus  r;
+  Z3_symbol_plus r;
   r.cp = cp;
   r.s = s;
   return r;
@@ -156,9 +156,9 @@ Z3_ast_plus Z3_ast_plus_mk(Z3_context_plus * cp, Z3_ast a) {
   Z3_ast_plus r;
   r.cp = cp;
   r.a  = a;
-  printf("++\n");
+  //printf("++\n");
+  cp->obj_count++;
   Z3_inc_ref(cp->ctx, a);
-  cp->ast_count++;
   return r;
 }
 
@@ -167,10 +167,10 @@ Z3_ast Z3_ast_plus_raw(Z3_ast_plus * ap) {
 }
 
 void Z3_ast_finalize(value v) {
-  printf("--\n");
+  //printf("--\n");
   Z3_ast_plus * ap = (Z3_ast_plus*)(Data_custom_val(v));
   Z3_dec_ref(ap->cp->ctx, ap->a);
-  ap->cp->ast_count--;
+  ap->cp->obj_count--;
 }
 
 int Z3_ast_compare(value v1, value v2) {
@@ -321,6 +321,7 @@ MK_CTX_OF(rcf_num)
     Z3_ ## X ## _plus  r;                                               \
       r.cp = cp;                                                        \
       r.p = p;                                                          \
+      r.cp->obj_count++;                                                \
       Z3_ ## X ## _inc_ref(cp->ctx, p);                                 \
       return r;                                                         \
   }                                                                     \
@@ -332,6 +333,7 @@ MK_CTX_OF(rcf_num)
   void Z3_ ## X ## _finalize(value v) {                                 \
     Z3_ ## X ## _plus * pp = (Z3_ ## X ## _plus*)Data_custom_val(v);    \
     Z3_ ## X ## _dec_ref(pp->cp->ctx, pp->p);                           \
+    pp->cp->obj_count--;                                                \
   }                                                                     \
                                                                         \
   static struct custom_operations Z3_ ## X ## _plus_custom_ops = {      \
