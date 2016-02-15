@@ -75,18 +75,20 @@ static struct custom_operations default_custom_ops = {
   }
 
 
-// Context objects
+/* Context objects */
 
 typedef struct {
   Z3_context ctx;
-  unsigned long obj_count;
+  unsigned long obj_count:sizeof(unsigned long)-1;
+  unsigned ok_to_delete:1;
 } Z3_context_plus;
 
 Z3_context_plus Z3_context_plus_mk(Z3_context c) {
   Z3_context_plus r;
   r.ctx = c;
   r.obj_count = 0;
-  //printf("ctx++\n");
+  r.ok_to_delete = 0;
+  /* printf("ctx++ %p\n", c); */
   return r;
 }
 
@@ -94,13 +96,23 @@ Z3_context Z3_context_plus_raw(Z3_context_plus * cp) {
   return cp->ctx;
 }
 
+void try_to_delete_context(Z3_context_plus * cp) {
+  if (!cp->ok_to_delete || cp->obj_count != 0)
+    /* printf("Trying to delete context %p.\n", cp->ctx) */ ;
+  else {
+    /* printf("Actually deleting context %p.\n", cp->ctx); */
+    Z3_del_context(cp->ctx);
+    cp->ctx = 0;
+    cp->obj_count = 0;
+    cp->ok_to_delete = 0;
+  }
+}
+
 void Z3_context_finalize(value v) {
   Z3_context_plus * cp = (Z3_context_plus*)Data_custom_val(v);
-  // printf("ctx--; cnt=%lu\n", cp->obj_count);
-  if (cp->obj_count == 0)
-    Z3_del_context(cp->ctx);
-  else
-    printf("Leaking the context; context_plus pointers now invalid. \n");
+  /* printf("ctx--; cnt=%lu\n", cp->obj_count); */
+  cp->ok_to_delete = 1;
+  try_to_delete_context(cp);  
 }
 
 static struct custom_operations Z3_context_plus_custom_ops = {
@@ -114,38 +126,7 @@ static struct custom_operations Z3_context_plus_custom_ops = {
 };
 
 
-// Symbol objects
-
-typedef struct {
-  Z3_context_plus * cp;
-  Z3_symbol s;
-} Z3_symbol_plus;
-
-Z3_symbol_plus Z3_symbol_plus_mk(Z3_context_plus * cp, Z3_symbol s) {
-  Z3_symbol_plus r;
-  r.cp = cp;
-  r.s = s;
-  return r;
-}
-
-Z3_symbol Z3_symbol_plus_raw(Z3_symbol_plus * sp) {
-  return sp->s;
-}
-
-static struct custom_operations Z3_symbol_plus_custom_ops = {
-  (char*) "Z3_symbol ops",
-  custom_finalize_default,
-  custom_compare_default,
-  custom_hash_default,
-  custom_serialize_default,
-  custom_deserialize_default,
-  custom_compare_ext_default,
-};
-
-MK_CTX_OF(symbol)
-
-
-// AST objects
+/* AST objects */
 
 typedef struct {
   Z3_context_plus * cp;
@@ -156,7 +137,7 @@ Z3_ast_plus Z3_ast_plus_mk(Z3_context_plus * cp, Z3_ast a) {
   Z3_ast_plus r;
   r.cp = cp;
   r.a  = a;
-  //printf("++\n");
+  /* printf("++\n"); */
   cp->obj_count++;
   Z3_inc_ref(cp->ctx, a);
   return r;
@@ -167,10 +148,11 @@ Z3_ast Z3_ast_plus_raw(Z3_ast_plus * ap) {
 }
 
 void Z3_ast_finalize(value v) {
-  //printf("--\n");
+  /* printf("--\n"); */ 
   Z3_ast_plus * ap = (Z3_ast_plus*)(Data_custom_val(v));
   Z3_dec_ref(ap->cp->ctx, ap->a);
   ap->cp->obj_count--;
+  try_to_delete_context(ap->cp);
 }
 
 int Z3_ast_compare(value v1, value v2) {
@@ -218,98 +200,42 @@ MK_CTX_OF(ast)
 
 
 
-// Constructor objects
 
-typedef struct {
-  Z3_context_plus * cp;
-  Z3_constructor c;
-} Z3_constructor_plus;
-
-Z3_constructor_plus Z3_constructor_plus_mk(Z3_context_plus * cp, Z3_constructor c) {
-  Z3_constructor_plus r;
-  r.cp = cp;
-  r.c = c;
-  return r;
-}
-
-Z3_constructor Z3_constructor_plus_raw(Z3_constructor_plus * cp) {
-  return cp->c;
-}
-
-static struct custom_operations Z3_constructor_plus_custom_ops = {
-  (char*) "Z3_constructor ops",
-  custom_finalize_default,
-  custom_compare_default,
-  custom_hash_default,
-  custom_serialize_default,
-  custom_deserialize_default,
-  custom_compare_ext_default,
-};
-
-MK_CTX_OF(constructor)
-
-
-// constructor_list objects
-
-typedef struct {
-  Z3_context_plus * cp;
-  Z3_constructor_list c;
-} Z3_constructor_list_plus;
-
-Z3_constructor_list_plus Z3_constructor_list_plus_mk(Z3_context_plus * cp, Z3_constructor_list c) {
-  Z3_constructor_list_plus r;
-  r.cp = cp;
-  r.c = c;
-  return r;
-}
-
-Z3_constructor_list Z3_constructor_list_plus_raw(Z3_constructor_list_plus * cp) {
-  return cp->c;
-}
-
-static struct custom_operations Z3_constructor_list_plus_custom_ops = {
-  (char*) "Z3_constructor_list ops",
-  custom_finalize_default,
-  custom_compare_default,
-  custom_hash_default,
-  custom_serialize_default,
-  custom_deserialize_default,
-  custom_compare_ext_default,
-};
-
-MK_CTX_OF(constructor_list)
-
-
-// rcf_num objects
-
-typedef struct {
-  Z3_context_plus * cp;
-  Z3_rcf_num c;
-} Z3_rcf_num_plus;
-
-Z3_rcf_num_plus Z3_rcf_num_plus_mk(Z3_context_plus * cp, Z3_rcf_num c) {
-  Z3_rcf_num_plus r;
-  r.cp = cp;
-  r.c = c;
-  return r;
-}
-
-Z3_rcf_num Z3_rcf_num_plus_raw(Z3_rcf_num_plus * cp) {
-  return cp->c;
-}
-
-static struct custom_operations Z3_rcf_num_plus_custom_ops = {
-  (char*) "Z3_rcf_num ops",
-  custom_finalize_default,
-  custom_compare_default,
-  custom_hash_default,
-  custom_serialize_default,
-  custom_deserialize_default,
-  custom_compare_ext_default,
-};
-
-MK_CTX_OF(rcf_num)
-
+#define MK_PLUS_OBJ_NO_REF(X)                                           \
+  typedef struct {                                                      \
+    Z3_context_plus *  cp;                                              \
+    Z3_ ## X p;                                                         \
+  } Z3_ ## X ## _plus;                                                  \
+                                                                        \
+  Z3_ ## X ## _plus Z3_ ## X ## _plus_mk(Z3_context_plus * cp, Z3_ ## X p) { \
+    Z3_ ## X ## _plus  r;                                               \
+      r.cp = cp;                                                        \
+      r.p = p;                                                          \
+      r.cp->obj_count++;                                                \
+      return r;                                                         \
+  }                                                                     \
+                                                                        \
+  Z3_ ## X Z3_ ## X ## _plus_raw(Z3_ ## X ## _plus * pp) {              \
+    return pp->p;                                                       \
+  }                                                                     \
+                                                                        \
+  void Z3_ ## X ## _finalize(value v) {                                 \
+    Z3_ ## X ## _plus * pp = (Z3_ ## X ## _plus*)Data_custom_val(v);    \
+    pp->cp->obj_count--;                                                \
+    try_to_delete_context(pp->cp);                                      \
+  }                                                                     \
+                                                                        \
+  static struct custom_operations Z3_ ## X ## _plus_custom_ops = {      \
+    (char*) "Z3_" #X " ops",                                            \
+    Z3_ ## X ## _finalize,                                              \
+    custom_compare_default,                                             \
+    custom_hash_default,                                                \
+    custom_serialize_default,                                           \
+    custom_deserialize_default,                                         \
+    custom_compare_ext_default,                                         \
+  };                                                                    \
+                                                                        \
+  MK_CTX_OF(X)
 
 #define MK_PLUS_OBJ(X)                                                  \
   typedef struct {                                                      \
@@ -334,6 +260,7 @@ MK_CTX_OF(rcf_num)
     Z3_ ## X ## _plus * pp = (Z3_ ## X ## _plus*)Data_custom_val(v);    \
     Z3_ ## X ## _dec_ref(pp->cp->ctx, pp->p);                           \
     pp->cp->obj_count--;                                                \
+    try_to_delete_context(pp->cp);                                      \
   }                                                                     \
                                                                         \
   static struct custom_operations Z3_ ## X ## _plus_custom_ops = {      \
@@ -348,6 +275,12 @@ MK_CTX_OF(rcf_num)
                                                                         \
   MK_CTX_OF(X)
 
+
+
+MK_PLUS_OBJ_NO_REF(symbol)
+MK_PLUS_OBJ_NO_REF(constructor)
+MK_PLUS_OBJ_NO_REF(constructor_list)
+MK_PLUS_OBJ_NO_REF(rcf_num)
 MK_PLUS_OBJ(params)
 MK_PLUS_OBJ(param_descrs)
 MK_PLUS_OBJ(model)
@@ -384,9 +317,9 @@ CAMLprim DLL_PUBLIC value n_mk_null( void ) {
 
 void MLErrorHandler(Z3_context c, Z3_error_code e)
 {
-  // Internal do-nothing error handler. This is required to avoid that Z3 calls exit()
-  // upon errors, but the actual error handling is done by throwing exceptions in the
-  // wrappers below.
+  /* Internal do-nothing error handler. This is required to avoid that Z3 calls exit()
+     upon errors, but the actual error handling is done by throwing exceptions in the
+     n_* wrapper functions. */
 }
 
 void DLL_PUBLIC n_set_internal_error_handler(value a0)
