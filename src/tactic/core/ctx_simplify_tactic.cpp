@@ -177,7 +177,8 @@ struct ctx_simplify_tactic::imp {
 
     ~imp() {
         pop(scope_level());
-        SASSERT(scope_level() == 0 && m_cache_undo.empty());
+        SASSERT(scope_level() == 0);
+        restore_cache(0);
         DEBUG_CODE({
             for (unsigned i = 0; i < m_cache.size(); i++) {
                 CTRACE("ctx_simplify_tactic_bug", m_cache[i].m_from, 
