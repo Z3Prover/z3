@@ -2351,11 +2351,12 @@ void interpolation_example() {
     Z3_ast f = Z3_mk_and(ctx,2,args3);
     Z3_ast_vector interpolant = 0;
     Z3_model m = 0;
+    Z3_lbool result = Z3_L_UNDEF;
 
     printf("\ninterpolation_example\n");
     LOG_MSG("interpolation_example");
 
-    Z3_lbool result = Z3_compute_interpolant(ctx,f,0,&interpolant,&m);
+    result = Z3_compute_interpolant(ctx,f,0,&interpolant,&m);
 
     switch (result) {
     case Z3_L_FALSE:
