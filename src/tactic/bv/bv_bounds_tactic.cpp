@@ -110,6 +110,9 @@ public:
         bool lo, s;
         expr* t1;
         rational n;
+        if (!shared(t)) {
+            return;
+        }
         if (is_bound(t, t1, lo, s, n)) {
             if (sign) {
                 // !(n <= t1) <=> t1 <= n - 1

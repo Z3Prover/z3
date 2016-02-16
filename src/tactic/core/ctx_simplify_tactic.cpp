@@ -22,6 +22,27 @@ Notes:
 #include"ast_ll_pp.h"
 #include"ast_pp.h"
 
+
+class ctx_propagate_assertions : public ctx_simplify_tactic::simplifier {
+    ast_manager&         m;
+    obj_map<expr, expr*> m_assertions;
+    expr_ref_vector      m_trail;
+    unsigned_vector      m_scopes;
+
+    void assert_eq_val(expr * t, app * val, bool mk_scope);
+    void assert_eq_core(expr * t, app * val);
+public:
+    ctx_propagate_assertions(ast_manager& m);
+    virtual ~ctx_propagate_assertions() {}
+    virtual void assert_expr(expr * t, bool sign);
+    virtual bool simplify(expr* t, expr_ref& result);
+    virtual void push();
+    virtual void pop(unsigned num_scopes);
+    virtual unsigned scope_level() const { return m_scopes.size(); }
+    virtual simplifier * translate(ast_manager & m);
+};
+
+
 ctx_propagate_assertions::ctx_propagate_assertions(ast_manager& m): m(m), m_trail(m) {}
 
 void ctx_propagate_assertions::assert_expr(expr * t, bool sign) {
@@ -106,6 +127,10 @@ ctx_simplify_tactic::simplifier * ctx_propagate_assertions::translate(ast_manage
     return alloc(ctx_propagate_assertions, m);
 }
 
+tactic * mk_ctx_simplify_tactic(ast_manager & m, params_ref const & p) {
+    return clean(alloc(ctx_simplify_tactic, m, alloc(ctx_propagate_assertions, m), p));
+}
+
 
 struct ctx_simplify_tactic::imp {
     struct cached_result {
@@ -152,8 +177,7 @@ struct ctx_simplify_tactic::imp {
 
     ~imp() {
         pop(scope_level());
-        SASSERT(scope_level() == 0);
-        restore_cache(0);
+        SASSERT(scope_level() == 0 && m_cache_undo.empty());
         DEBUG_CODE({
             for (unsigned i = 0; i < m_cache.size(); i++) {
                 CTRACE("ctx_simplify_tactic_bug", m_cache[i].m_from, 
@@ -202,8 +226,8 @@ struct ctx_simplify_tactic::imp {
     }
 
     void cache_core(expr * from, expr * to) {
-        TRACE("ctx_simplify_tactic_cache", tout << "caching\n" << mk_ismt2_pp(from, m) << "\n--->\n" << mk_ismt2_pp(to, m) << "\n";);
         unsigned id = from->get_id();
+        TRACE("ctx_simplify_tactic_cache", tout << "caching " << id << " @ " << scope_level() << "\n" << mk_ismt2_pp(from, m) << "\n--->\n" << mk_ismt2_pp(to, m) << "\n";);
         m_cache.reserve(id+1);
         cache_cell & cell = m_cache[id]; 
         void * mem = m_allocator.allocate(sizeof(cached_result));
@@ -270,11 +294,11 @@ struct ctx_simplify_tactic::imp {
         if (num_scopes == 0)
             return;
         SASSERT(num_scopes <= scope_level());
-        
+
+        unsigned lvl = scope_level();        
         m_simp->pop(num_scopes);
 
         // restore cache
-        unsigned lvl = scope_level();
         for (unsigned i = 0; i < num_scopes; i++) {
             restore_cache(lvl);
             lvl--;
