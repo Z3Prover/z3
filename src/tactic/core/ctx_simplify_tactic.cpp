@@ -430,7 +430,10 @@ struct ctx_simplify_tactic::imp {
             simplify(e, new_e);
             pop(scope_level() - old_lvl);
             if (c == new_c && t == new_t && e == new_e) {
-                r     = ite;
+                r = ite;
+            }
+            else if (new_t == new_e) {
+                r = new_t;
             }
             else {
                 expr * args[3] = { new_c.get(), new_t.get(), new_e.get() };
