@@ -22,6 +22,27 @@ Notes:
 #include"ast_ll_pp.h"
 #include"ast_pp.h"
 
+
+class ctx_propagate_assertions : public ctx_simplify_tactic::simplifier {
+    ast_manager&         m;
+    obj_map<expr, expr*> m_assertions;
+    expr_ref_vector      m_trail;
+    unsigned_vector      m_scopes;
+
+    void assert_eq_val(expr * t, app * val, bool mk_scope);
+    void assert_eq_core(expr * t, app * val);
+public:
+    ctx_propagate_assertions(ast_manager& m);
+    virtual ~ctx_propagate_assertions() {}
+    virtual void assert_expr(expr * t, bool sign);
+    virtual bool simplify(expr* t, expr_ref& result);
+    virtual void push();
+    virtual void pop(unsigned num_scopes);
+    virtual unsigned scope_level() const { return m_scopes.size(); }
+    virtual simplifier * translate(ast_manager & m);
+};
+
+
 ctx_propagate_assertions::ctx_propagate_assertions(ast_manager& m): m(m), m_trail(m) {}
 
 void ctx_propagate_assertions::assert_expr(expr * t, bool sign) {
@@ -104,6 +125,10 @@ bool ctx_simplify_tactic::simplifier::shared(expr * t) const {
 
 ctx_simplify_tactic::simplifier * ctx_propagate_assertions::translate(ast_manager & m) {
     return alloc(ctx_propagate_assertions, m);
+}
+
+tactic * mk_ctx_simplify_tactic(ast_manager & m, params_ref const & p) {
+    return clean(alloc(ctx_simplify_tactic, m, alloc(ctx_propagate_assertions, m), p));
 }
 
 
