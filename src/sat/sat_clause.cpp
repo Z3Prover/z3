@@ -145,7 +145,8 @@ namespace sat {
                 return i;
         i = m_num_segments;
         m_num_segments++;
-        if (i > c_max_segments)
+        SASSERT(m_num_segments <= c_max_segments);
+        if (i >= c_max_segments)
             throw default_exception("segment out of range");
         m_segments[i] = ptr;
         return i;
