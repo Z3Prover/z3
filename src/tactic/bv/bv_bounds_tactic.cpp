@@ -49,6 +49,7 @@ struct interval {
         SASSERT(sz == b.sz);
         return l == b.l && h == b.h;
     }
+    bool operator!=(const interval& b) const { return !(*this == b); }
 
     bool implies(const interval& b) const {
         if (b.is_full())
@@ -182,6 +183,9 @@ class bv_bounds_simplifier : public ctx_simplify_tactic::simplifier {
                 v = lhs;
                 return true;
             }
+        } else if (m.is_not(e, lhs)) {
+            if (is_bound(lhs, v, b))
+                return b.negate(b);
         }
         return false;
     }
@@ -223,9 +227,7 @@ public:
         if (m_bound->find(t1, ctx)) {
             if (!b.intersect(ctx, intr)) {
                 result = m.mk_false();
-            } else if (intr == b) {
-                // no improvement in range; do nothing
-            } else if (intr.l == intr.h) {
+            } else if (intr.l == intr.h && intr != b) {
                 result = m.mk_eq(t1, m_bv.mk_numeral(intr.l, m.get_sort(t1)));
             } else if (ctx.implies(b)) {
                 result = m.mk_true();
