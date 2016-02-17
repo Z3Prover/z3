@@ -108,6 +108,9 @@ struct interval {
                 result = interval(l, std::min(h, b.h), sz);
             }
         } else {
+            if (l > b.h || h < b.l)
+                return false;
+
             // 0 .. l.. l' ... h ... h'
             result = interval(std::max(l, b.l), std::min(h, b.h), sz);
         }
@@ -183,12 +186,6 @@ class bv_bounds_simplifier : public ctx_simplify_tactic::simplifier {
         return false;
     }
 
-    bool add_bound(expr* t, const interval& b) {
-        push();
-        interval& r = m_bound->insert_if_not_there2(t, b)->get_data().m_value;
-        return r.intersect(b, r);
-    }
-
 public:
 
     bv_bounds_simplifier(ast_manager& m) : m(m), m_bv(m) {
@@ -209,8 +206,10 @@ public:
             if (sign)
                 VERIFY(b.negate(b));
 
+            push();
             TRACE("bv", tout << (sign?"(not ":"") << mk_pp(t, m) << (sign ? ")" : "") << ": " << mk_pp(t1, m) << " in " << b << "\n";);
-            VERIFY(add_bound(t1, b));
+            interval& r = m_bound->insert_if_not_there2(t1, b)->get_data().m_value;
+            VERIFY(r.intersect(b, r));
         }
     }
 
