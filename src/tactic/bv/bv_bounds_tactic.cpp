@@ -45,6 +45,11 @@ struct interval {
     bool is_full() const { return l.is_zero() && h == uMaxInt(sz); }
     bool is_wrapped() const { return l > h; }
 
+    bool operator==(const interval& b) const {
+        SASSERT(sz == b.sz);
+        return l == b.l && h == b.h;
+    }
+
     bool implies(const interval& b) const {
         if (b.is_full())
             return true;
@@ -77,9 +82,9 @@ struct interval {
 
         if (is_wrapped()) {
             if (b.is_wrapped()) {
-                if (h > b.l) {
+                if (h >= b.l) {
                     result = b;
-                } else if (b.h > l) {
+                } else if (b.h >= l) {
                     result = *this;
                 } else {
                     result = interval(std::max(l, b.l), std::min(h, b.h), sz);
@@ -194,6 +199,10 @@ public:
     virtual ~bv_bounds_simplifier() {}
 
     virtual void assert_expr(expr * t, bool sign) {
+        while (m.is_not(t, t)) {
+            sign = !sign;
+        }
+
         interval b;
         expr* t1;
         if (is_bound(t, t1, b)) {
@@ -215,6 +224,8 @@ public:
         if (m_bound->find(t1, ctx)) {
             if (!b.intersect(ctx, intr)) {
                 result = m.mk_false();
+            } else if (intr == b) {
+                // no improvement in range; do nothing
             } else if (intr.l == intr.h) {
                 result = m.mk_eq(t1, m_bv.mk_numeral(intr.l, m.get_sort(t1)));
             } else if (ctx.implies(b)) {
