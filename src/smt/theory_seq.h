@@ -208,6 +208,17 @@ namespace smt {
             }
         };
 
+        class replay_fixed_length : public apply {
+            expr_ref m_e;
+        public:
+            replay_fixed_length(ast_manager& m, expr* e) : m_e(e, m) {}
+            virtual ~replay_fixed_length() {}
+            virtual void operator()(theory_seq& th) {
+                th.fixed_length(m_e);
+                m_e.reset();
+            }
+        };
+
         class replay_axiom : public apply {
             expr_ref m_e;
         public:
@@ -251,6 +262,7 @@ namespace smt {
             unsigned m_solve_eqs;
             unsigned m_add_axiom;
             unsigned m_extensionality;
+            unsigned m_fixed_length;
         };
         ast_manager&               m;
         dependency_manager         m_dm;
@@ -292,6 +304,8 @@ namespace smt {
         bool                           m_new_propagation;  // new propagation to core
         re2automaton                   m_mk_aut;
 
+        obj_hashtable<expr>            m_fixed;            // string variables that are fixed length.
+
         virtual final_check_status final_check_eh();
         virtual bool internalize_atom(app* atom, bool) { return internalize_term(atom); }
         virtual bool internalize_term(app*);
@@ -322,6 +336,8 @@ namespace smt {
         bool is_solved(); 
         bool check_length_coherence();
         bool check_length_coherence(expr* e);
+        bool fixed_length();
+        bool fixed_length(expr* e);
         bool propagate_length_coherence(expr* e);  
 
         bool check_extensionality();
