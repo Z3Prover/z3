@@ -28,7 +28,7 @@ public:
         goal_num_occurs* m_occs;
     public:
         virtual ~simplifier() {}
-        virtual void assert_expr(expr * t, bool sign) = 0;
+        virtual bool assert_expr(expr * t, bool sign) = 0;
         virtual bool simplify(expr* t, expr_ref& result) = 0;
         virtual void push() = 0;
         virtual void pop(unsigned num_scopes) = 0;
