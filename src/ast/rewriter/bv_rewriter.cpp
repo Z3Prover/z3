@@ -320,6 +320,17 @@ br_status bv_rewriter::mk_leq_core(bool is_signed, expr * a, expr * b, expr_ref 
         }
     }
 
+    expr* a1, *a2, *a3, *a4, *a5, *a6;
+    // (bvsle (- x (rem x c1)) c2) -> (bvsle x (+ c1 c2 - 1))
+    if (is_signed && is_num2 && m_util.is_bv_add(a, a1, a2) &&
+        m_util.is_bv_mul(a2, a3, a4) && is_numeral(a3, r3, sz) &&
+        (r3 = m_util.norm(r3, sz, is_signed), r3.is_minus_one()) && 
+        m_util.is_bv_sremi(a4, a5, a6) && is_numeral(a6, r3, sz) && 
+        a1 == a5 /* && r1 + r3 - rational::one() < power(rational(2), sz) */) {  
+        result = m_util.mk_sle(a1, m_util.mk_numeral(r3 + r1 - rational::one(), sz));
+        return BR_REWRITE2;
+    }
+
 #if 0
     if (!is_signed && m_util.is_concat(b) && to_app(b)->get_num_args() == 2 && m_util.is_zero(to_app(b)->get_arg(0))) {
         //
