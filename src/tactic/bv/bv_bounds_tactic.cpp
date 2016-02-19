@@ -152,10 +152,12 @@ std::ostream& operator<<(std::ostream& o, const interval& I) {
 
 
 class bv_bounds_simplifier : public ctx_simplify_tactic::simplifier {
-    ast_manager&                     m;
-    bv_util                          m_bv;
-    vector<obj_map<expr, interval> > m_scopes;
-    obj_map<expr, interval>         *m_bound;
+    typedef obj_map<expr, interval> map;
+
+    ast_manager& m;
+    bv_util      m_bv;
+    vector<map>  m_scopes;
+    map         *m_bound;
 
     bool is_bound(expr *e, expr*& v, interval& b) {
         rational n;
@@ -208,7 +210,7 @@ class bv_bounds_simplifier : public ctx_simplify_tactic::simplifier {
 public:
 
     bv_bounds_simplifier(ast_manager& m) : m(m), m_bv(m) {
-        m_scopes.push_back(obj_map<expr, interval>());
+        m_scopes.push_back(map());
         m_bound = &m_scopes.back();
     }
 
@@ -275,8 +277,11 @@ public:
 
     virtual void push() {
         TRACE("bv", tout << "push\n";);
-        m_scopes.push_back(*m_bound);
+        unsigned sz = m_scopes.size();
+        m_scopes.resize(sz + 1);
         m_bound = &m_scopes.back();
+        m_bound->~map();
+        new (m_bound) map(m_scopes[sz - 1]);
     }
 
     virtual void pop(unsigned num_scopes) {
