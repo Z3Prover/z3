@@ -180,6 +180,7 @@ struct ctx_simplify_tactic::imp {
         pop(scope_level());
         SASSERT(scope_level() == 0);
         restore_cache(0);
+        dealloc(m_simp);
         DEBUG_CODE({
             for (unsigned i = 0; i < m_cache.size(); i++) {
                 CTRACE("ctx_simplify_tactic_bug", m_cache[i].m_from, 
@@ -572,13 +573,15 @@ struct ctx_simplify_tactic::imp {
 
 ctx_simplify_tactic::ctx_simplify_tactic(ast_manager & m, simplifier* simp, params_ref const & p):
     m_imp(alloc(imp, m, simp, p)),
-    m_params(p),
-    m_simp(simp) {
+    m_params(p) {
+}
+
+tactic * ctx_simplify_tactic::translate(ast_manager & m) {
+    return alloc(ctx_simplify_tactic, m, m_imp->m_simp->translate(m), m_params);
 }
 
 ctx_simplify_tactic::~ctx_simplify_tactic() {
     dealloc(m_imp);
-    dealloc(m_simp);
 }
 
 void ctx_simplify_tactic::updt_params(params_ref const & p) {
@@ -606,7 +609,7 @@ void ctx_simplify_tactic::operator()(goal_ref const & in,
 
 void ctx_simplify_tactic::cleanup() {
     ast_manager & m   = m_imp->m;
-    imp * d = alloc(imp, m, m_simp->translate(m), m_params);
+    imp * d = alloc(imp, m, m_imp->m_simp->translate(m), m_params);
     std::swap(d, m_imp);    
     dealloc(d);
 }
