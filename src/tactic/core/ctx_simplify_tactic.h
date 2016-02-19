@@ -42,13 +42,10 @@ protected:
     struct      imp;
     imp *       m_imp;
     params_ref  m_params;
-    simplifier* m_simp;
 public:
     ctx_simplify_tactic(ast_manager & m, simplifier* simp, params_ref const & p = params_ref());
 
-    virtual tactic * translate(ast_manager & m) {
-        return alloc(ctx_simplify_tactic, m, m_simp->translate(m), m_params);
-    }
+    virtual tactic * translate(ast_manager & m);
 
     virtual ~ctx_simplify_tactic();
 
