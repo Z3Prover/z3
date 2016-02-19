@@ -36,6 +36,11 @@ struct interval {
 
     explicit interval() : l(0), h(0), sz(0), tight(false) {}
     interval(const rational& l, const rational& h, unsigned sz, bool tight = false) : l(l), h(h), sz(sz), tight(tight) {
+        // canonicalize full set
+        if (is_wrapped() && l == h + rational::one()) {
+            this->l = rational::zero();
+            this->h = uMaxInt(sz);
+        }
         SASSERT(invariant());
     }
 

@@ -458,7 +458,11 @@ struct ctx_simplify_tactic::imp {
             }
             simplify(t, new_t);
             pop(scope_level() - old_lvl);
-            VERIFY(assert_expr(new_c, true));
+            if (!assert_expr(new_c, true)) {
+                r = new_t;
+                cache(ite, r);
+                return;
+            }
             simplify(e, new_e);
             pop(scope_level() - old_lvl);
             if (c == new_c && t == new_t && e == new_e) {
