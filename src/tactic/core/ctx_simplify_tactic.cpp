@@ -34,7 +34,7 @@ class ctx_propagate_assertions : public ctx_simplify_tactic::simplifier {
 public:
     ctx_propagate_assertions(ast_manager& m);
     virtual ~ctx_propagate_assertions() {}
-    virtual void assert_expr(expr * t, bool sign);
+    virtual bool assert_expr(expr * t, bool sign);
     virtual bool simplify(expr* t, expr_ref& result);
     virtual void push();
     virtual void pop(unsigned num_scopes);
@@ -45,7 +45,7 @@ public:
 
 ctx_propagate_assertions::ctx_propagate_assertions(ast_manager& m): m(m), m_trail(m) {}
 
-void ctx_propagate_assertions::assert_expr(expr * t, bool sign) {
+bool ctx_propagate_assertions::assert_expr(expr * t, bool sign) {
     
     expr * p = t;
     while (m.is_not(t, t)) {
@@ -64,6 +64,7 @@ void ctx_propagate_assertions::assert_expr(expr * t, bool sign) {
         else if (m.is_value(lhs))
             assert_eq_val(rhs, to_app(lhs), mk_scope);
     }
+    return true;
 }
 
 void ctx_propagate_assertions::assert_eq_val(expr * t, app * val, bool mk_scope) {
@@ -307,8 +308,8 @@ struct ctx_simplify_tactic::imp {
         CASSERT("ctx_simplify_tactic", check_cache());
     }
 
-    void assert_expr(expr * t, bool sign) {
-        m_simp->assert_expr(t, sign);
+    bool assert_expr(expr * t, bool sign) {
+        return m_simp->assert_expr(t, sign);
     }
 
     bool is_cached(expr * t, expr_ref & r) {
@@ -370,6 +371,9 @@ struct ctx_simplify_tactic::imp {
             simplify(arg, new_arg);
             if (new_arg != arg)
                 modified = true;
+            if (i < num_args - 1 && !m.is_true(new_arg) && !m.is_false(new_arg) && !assert_expr(new_arg, OR))
+                new_arg = m.mk_false();
+
             if ((OR && m.is_false(new_arg)) ||
                 (!OR && m.is_true(new_arg))) {
                 modified = true;
@@ -383,8 +387,6 @@ struct ctx_simplify_tactic::imp {
                 return;
             }
             new_args.push_back(new_arg);
-            if (i < num_args - 1)
-                assert_expr(new_arg, OR);
         }
         pop(scope_level() - old_lvl);
 
@@ -398,6 +400,9 @@ struct ctx_simplify_tactic::imp {
             simplify(arg, new_arg);
             if (new_arg != arg)
                 modified = true;
+            if (i > 0 && !m.is_true(new_arg) && !m.is_false(new_arg) && !assert_expr(new_arg, OR))
+                new_arg = m.mk_false();
+
             if ((OR && m.is_false(new_arg)) ||
                 (!OR && m.is_true(new_arg))) {
                 modified = true;
@@ -411,8 +416,6 @@ struct ctx_simplify_tactic::imp {
                 return;
             }
             new_new_args.push_back(new_arg);
-            if (i > 0)
-                assert_expr(new_arg, OR);
         }
         pop(scope_level() - old_lvl);
 
@@ -448,10 +451,14 @@ struct ctx_simplify_tactic::imp {
         else {
             expr_ref new_t(m);
             expr_ref new_e(m);
-            assert_expr(new_c, false);
+            if (!assert_expr(new_c, false)) {
+                simplify(e, r);
+                cache(ite, r);
+                return;
+            }
             simplify(t, new_t);
             pop(scope_level() - old_lvl);
-            assert_expr(new_c, true);
+            VERIFY(assert_expr(new_c, true));
             simplify(e, new_e);
             pop(scope_level() - old_lvl);
             if (c == new_c && t == new_t && e == new_e) {

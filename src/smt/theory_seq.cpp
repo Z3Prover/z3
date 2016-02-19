@@ -517,12 +517,13 @@ bool theory_seq::check_length_coherence() {
 
 bool theory_seq::fixed_length() {
     obj_hashtable<expr>::iterator it = m_length.begin(), end = m_length.end();
+    bool found = false;
     for (; it != end; ++it) {
         if (fixed_length(*it)) {
-            return true;
+            found = true;
         }
     }
-    return false;
+    return found;
 }
 
 bool theory_seq::fixed_length(expr* e) {
@@ -530,7 +531,10 @@ bool theory_seq::fixed_length(expr* e) {
     if (!(is_var(e) && lower_bound(e, lo) && upper_bound(e, hi) && lo == hi && lo.is_unsigned() && lo.is_pos())) {
         return false;
     }
-    if (m_fixed.contains(e)) {
+    if (is_skolem(m_tail, e) || is_skolem(m_seq_first, e) || 
+        is_skolem(m_indexof_left, e) || is_skolem(m_indexof_right, e) ||
+        is_skolem(m_contains_left, e) || is_skolem(m_contains_right, e) ||
+        m_fixed.contains(e)) {
         return false;
     }
 
@@ -538,10 +542,6 @@ bool theory_seq::fixed_length(expr* e) {
     
     m_trail_stack.push(insert_obj_trail<theory_seq, expr>(m_fixed, e));
     m_fixed.insert(e);
-
-    if (is_skolem(m_tail, e) || is_skolem(m_pre, e) || is_skolem(m_post, e) || is_skolem(m_seq_first, e)) {
-        return false;
-    }
 
     unsigned _lo = lo.get_unsigned();
     expr_ref seq(e, m), head(m), tail(m);
@@ -553,7 +553,6 @@ bool theory_seq::fixed_length(expr* e) {
         seq = tail;
     }
     seq = mk_concat(elems.size(), elems.c_ptr());
-    std::cout << "Fixed " << mk_pp(e, m) << " " << lo << " " << get_context().get_scope_level() << "\n";
     TRACE("seq", tout << "Fixed: " << mk_pp(e, m) << " " << lo << "\n";);
     add_axiom(~mk_eq(m_util.str.mk_length(e), m_autil.mk_numeral(lo, true), false), mk_seq_eq(seq, e));
     if (!ctx.at_base_level()) {
