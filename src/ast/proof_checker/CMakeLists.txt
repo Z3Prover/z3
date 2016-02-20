@@ -1,0 +1,10 @@
+z3_add_component(proof_checker
+  SOURCES
+    proof_checker.cpp
+  INCLUDE_DIRS
+    "ast"
+    "ast/rewriter"
+    "math/polynomial"
+    "math/automata"
+    "util"
+)

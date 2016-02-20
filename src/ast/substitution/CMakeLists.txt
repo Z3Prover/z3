@@ -1,0 +1,13 @@
+z3_add_component(substitution
+  SOURCES
+    matcher.cpp
+    substitution.cpp
+    substitution_tree.cpp
+    unifier.cpp
+  INCLUDE_DIRS
+    "ast"
+    "ast/rewriter"
+    "math/polynomial"
+    "math/automata"
+    "util"
+)

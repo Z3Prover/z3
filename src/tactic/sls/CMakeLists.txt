@@ -1,0 +1,18 @@
+z3_add_component(sls_tactic
+  SOURCES
+    bvsls_opt_engine.cpp
+    sls_engine.cpp
+    sls_tactic.cpp
+  INCLUDE_DIRS
+    "ast"
+    "ast/normal_forms"
+    "ast/rewriter"
+    "ast/rewriter/bit_blaster"
+    "math/polynomial"
+    "math/automata"
+    "model"
+    "tactic"
+    "tactic/core"
+    "tactic/bv"
+    "util"
+)

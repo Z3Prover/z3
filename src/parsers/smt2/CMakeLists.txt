@@ -1,0 +1,17 @@
+z3_add_component(smt2parser
+  SOURCES
+    smt2parser.cpp
+    smt2scanner.cpp
+  INCLUDE_DIRS
+    "ast"
+    "ast/rewriter"
+    "cmd_context"
+    "interp"
+    "math/automata"
+    "math/polynomial"
+    "model"
+    "parsers/util"
+    "solver"
+    "tactic"
+    "util"
+)

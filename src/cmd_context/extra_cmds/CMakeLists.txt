@@ -1,0 +1,23 @@
+z3_add_component(extra_cmds
+  SOURCES
+    dbg_cmds.cpp
+    polynomial_cmds.cpp
+    subpaving_cmds.cpp
+  INCLUDE_DIRS
+    "ast"
+    "ast/normal_forms"
+    "ast/rewriter"
+    "cmd_context"
+    "math/automata"
+    "math/polynomial"
+    "math/subpaving"
+    "math/subpaving/tactic"
+    "model"
+    "interp"
+    "sat"
+    "solver"
+    "tactic"
+    "tactic/arith"
+    "tactic/core"
+    "util"
+)

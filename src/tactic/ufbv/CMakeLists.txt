@@ -1,0 +1,33 @@
+z3_add_component(ufbv_tactic
+  SOURCES
+    macro_finder_tactic.cpp
+    quasi_macros_tactic.cpp
+    ufbv_rewriter.cpp
+    ufbv_rewriter_tactic.cpp
+    ufbv_tactic.cpp
+  INCLUDE_DIRS
+    "ast"
+    "ast/fpa"
+    "ast/macros"
+    "ast/normal_forms"
+    "ast/pattern"
+    "ast/proof_checker"
+    "ast/rewriter"
+    "ast/rewriter/bit_blaster"
+    "ast/simplifier"
+    "ast/substitution"
+    "cmd_context"
+    "math/automata"
+    "math/euclid"
+    "math/grobner"
+    "math/polynomial"
+    "math/simplex"
+    "model"
+    "smt"
+    "smt/proto_model"
+    "smt/tactic"
+    "solver"
+    "tactic"
+    "tactic/core"
+    "util"
+)

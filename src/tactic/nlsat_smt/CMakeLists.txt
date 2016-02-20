@@ -1,0 +1,22 @@
+z3_add_component(nlsat_smt_tactic
+  SOURCES
+    nl_purify_tactic.cpp
+  INCLUDE_DIRS
+    "ast"
+    "ast/normal_forms"
+    "ast/rewriter"
+    "math/automata"
+    "math/polynomial"
+    "model"
+    "nlsat"
+    "nlsat/tactic"
+    "sat"
+    "sat/tactic"
+    "smt"
+    "smt/tactic"
+    "solver"
+    "tactic"
+    "tactic/arith"
+    "tactic/core"
+    "util"
+)

@@ -1,0 +1,13 @@
+z3_add_component(nlsat
+  SOURCES
+    nlsat_clause.cpp
+    nlsat_evaluator.cpp
+    nlsat_explain.cpp
+    nlsat_interval_set.cpp
+    nlsat_solver.cpp
+    nlsat_types.cpp
+  INCLUDE_DIRS
+    "math/polynomial"
+    "sat"
+    "util"
+)
