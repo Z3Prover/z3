@@ -1,0 +1,10 @@
+z3_add_component(fpa
+  SOURCES
+    fpa2bv_converter.cpp
+  COMPONENT_DEPENDENCIES
+    ast
+    simplifier
+    util
+  PYG_FILES
+    fpa2bv_rewriter_params.pyg
+)

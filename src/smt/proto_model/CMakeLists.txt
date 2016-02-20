@@ -1,0 +1,13 @@
+z3_add_component(proto_model
+  SOURCES
+    array_factory.cpp
+    datatype_factory.cpp
+    numeral_factory.cpp
+    proto_model.cpp
+    struct_factory.cpp
+    value_factory.cpp
+  COMPONENT_DEPENDENCIES
+    model
+    simplifier
+    smt_params
+)

@@ -1,0 +1,31 @@
+z3_add_component(smtlogic_tactics
+  SOURCES
+    nra_tactic.cpp
+    qfaufbv_tactic.cpp
+    qfauflia_tactic.cpp
+    qfbv_tactic.cpp
+    qfidl_tactic.cpp
+    qflia_tactic.cpp
+    qflra_tactic.cpp
+    qfnia_tactic.cpp
+    qfnra_tactic.cpp
+    qfufbv_ackr_model_converter.cpp
+    qfufbv_tactic.cpp
+    qfufnra_tactic.cpp
+    qfuf_tactic.cpp
+    quant_tactics.cpp
+  COMPONENT_DEPENDENCIES
+    ackermannization
+    aig_tactic
+    arith_tactics
+    bv_tactics
+    fp
+    muz
+    nlsat_tactic
+    nlsat_smt_tactic
+    qe
+    sat_solver
+    smt_tactic
+  PYG_FILES
+    qfufbv_tactic_params.pyg
+)

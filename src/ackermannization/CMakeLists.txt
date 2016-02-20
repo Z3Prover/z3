@@ -1,0 +1,20 @@
+z3_add_component(ackermannization
+  SOURCES
+    ackermannize_bv_model_converter.cpp
+    ackermannize_bv_tactic.cpp
+    ackr_bound_probe.cpp
+    ackr_helper.cpp
+    ackr_model_converter.cpp
+    lackr.cpp
+    lackr_model_constructor.cpp
+    lackr_model_converter_lazy.cpp
+  COMPONENT_DEPENDENCIES
+    ast
+    model
+    rewriter
+    solver
+    tactic
+  PYG_FILES
+    ackermannization_params.pyg
+    ackermannize_bv_tactic_params.pyg
+)
