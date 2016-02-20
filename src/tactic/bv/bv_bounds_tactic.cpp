@@ -262,7 +262,7 @@ public:
                 result = m.mk_true();
             } else if (!b.intersect(ctx, intr)) {
                 result = m.mk_false();
-            } else if (intr.l == intr.h) {
+            } else if (false && intr.l == intr.h) {
                 result = m.mk_eq(t1, m_bv.mk_numeral(intr.l, m.get_sort(t1)));
             }
         } else if (b.is_full() && b.tight) {
