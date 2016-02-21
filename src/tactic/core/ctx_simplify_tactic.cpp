@@ -198,6 +198,7 @@ struct ctx_simplify_tactic::imp {
         m_max_steps    = p.get_uint("max_steps", UINT_MAX);
         m_max_depth    = p.get_uint("max_depth", 1024);
         m_bail_on_blowup = p.get_bool("bail_on_blowup", false);
+        m_simp->updt_params(p);
     }
 
     void checkpoint() {
@@ -622,6 +623,7 @@ void ctx_simplify_tactic::get_param_descrs(param_descrs & r) {
     insert_max_memory(r);
     insert_max_steps(r);
     r.insert("max_depth", CPK_UINT, "(default: 1024) maximum term depth.");
+    r.insert("propagate_eq", CPK_BOOL, "(default: false) enable equality propagation from bounds.");
 }
 
 void ctx_simplify_tactic::operator()(goal_ref const & in, 
