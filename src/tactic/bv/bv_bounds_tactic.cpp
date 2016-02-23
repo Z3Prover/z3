@@ -155,6 +155,8 @@ class bv_bounds_simplifier : public ctx_simplify_tactic::simplifier {
     typedef obj_map<expr, interval> map;
 
     ast_manager& m;
+    params_ref   m_params;
+    bool         m_propagate_eq;
     bv_util      m_bv;
     vector<map>  m_scopes;
     map         *m_bound;
@@ -209,9 +211,19 @@ class bv_bounds_simplifier : public ctx_simplify_tactic::simplifier {
 
 public:
 
-    bv_bounds_simplifier(ast_manager& m) : m(m), m_bv(m) {
+    bv_bounds_simplifier(ast_manager& m, params_ref const& p) : m(m), m_params(p), m_bv(m) {
         m_scopes.push_back(map());
         m_bound = &m_scopes.back();
+        updt_params(p);
+    }
+
+
+    virtual void updt_params(params_ref const & p) {
+        m_propagate_eq = p.get_bool("propagate_eq", false);
+    }
+
+    static void get_param_descrs(param_descrs& r) {
+        r.insert("propagate-eq", CPK_BOOL, "(default: false) propagate equalities from inequalities");
     }
 
     virtual ~bv_bounds_simplifier() {}
@@ -262,7 +274,7 @@ public:
                 result = m.mk_true();
             } else if (!b.intersect(ctx, intr)) {
                 result = m.mk_false();
-            } else if (intr.l == intr.h) {
+            } else if (m_propagate_eq && intr.l == intr.h) {
                 result = m.mk_eq(t1, m_bv.mk_numeral(intr.l, m.get_sort(t1)));
             }
         } else if (b.is_full() && b.tight) {
@@ -291,7 +303,7 @@ public:
     }
 
     virtual simplifier * translate(ast_manager & m) {
-        return alloc(bv_bounds_simplifier, m);
+        return alloc(bv_bounds_simplifier, m, m_params);
     }
 
     virtual unsigned scope_level() const {
@@ -302,5 +314,5 @@ public:
 }
 
 tactic * mk_bv_bounds_tactic(ast_manager & m, params_ref const & p) {
-    return clean(alloc(ctx_simplify_tactic, m, alloc(bv_bounds_simplifier, m), p));
+    return clean(alloc(ctx_simplify_tactic, m, alloc(bv_bounds_simplifier, m, p), p));
 }

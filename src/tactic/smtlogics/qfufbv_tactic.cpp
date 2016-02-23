@@ -124,7 +124,7 @@ private:
 
 };
 
-tactic * mk_qfufbv_preamble1(ast_manager & m, params_ref const & p) {
+static tactic * mk_qfufbv_preamble1(ast_manager & m, params_ref const & p) {
     params_ref simp2_p = p;
     simp2_p.set_bool("pull_cheap_ite", true);
     simp2_p.set_bool("push_ite_bv", false);
@@ -150,11 +150,7 @@ tactic * mk_qfufbv_preamble1(ast_manager & m, params_ref const & p) {
         );
 }
 
-tactic * mk_qfufbv_preamble(ast_manager & m, params_ref const & p) {
-    params_ref main_p;
-    main_p.set_bool("elim_and", true);
-    main_p.set_bool("blast_distinct", true);
-
+static tactic * mk_qfufbv_preamble(ast_manager & m, params_ref const & p) {
     return and_then(mk_simplify_tactic(m),
         mk_propagate_values_tactic(m),
         mk_solve_eqs_tactic(m),

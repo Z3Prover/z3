@@ -307,8 +307,8 @@ namespace datalog {
         if (m_context.similarity_compressor()) {
             transf.register_plugin(alloc(mk_similarity_compressor, m_context)); 
         }
-        transf.register_plugin(alloc(mk_partial_equivalence_transformer, m_context));
         transf.register_plugin(alloc(mk_rule_inliner, m_context));
+        transf.register_plugin(alloc(mk_partial_equivalence_transformer, m_context));
         transf.register_plugin(alloc(mk_interp_tail_simplifier, m_context));
         transf.register_plugin(alloc(mk_separate_negated_tails, m_context));
 
