@@ -374,7 +374,7 @@ struct ctx_simplify_tactic::imp {
             if (new_arg != arg)
                 modified = true;
             if (i < num_args - 1 && !m.is_true(new_arg) && !m.is_false(new_arg) && !assert_expr(new_arg, OR))
-                new_arg = m.mk_false();
+                new_arg = OR ? m.mk_true() : m.mk_false();
 
             if ((OR && m.is_false(new_arg)) ||
                 (!OR && m.is_true(new_arg))) {
@@ -403,7 +403,7 @@ struct ctx_simplify_tactic::imp {
             if (new_arg != arg)
                 modified = true;
             if (i > 0 && !m.is_true(new_arg) && !m.is_false(new_arg) && !assert_expr(new_arg, OR))
-                new_arg = m.mk_false();
+                new_arg = OR ? m.mk_true() : m.mk_false();
 
             if ((OR && m.is_false(new_arg)) ||
                 (!OR && m.is_true(new_arg))) {
