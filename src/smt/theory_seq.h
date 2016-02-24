@@ -443,7 +443,7 @@ namespace smt {
         literal mk_literal(expr* n);
         literal mk_eq_empty(expr* n);
         literal mk_seq_eq(expr* a, expr* b);
-        void tightest_prefix(expr* s, expr* x, literal lit, literal lit2 = null_literal);
+        void tightest_prefix(expr* s, expr* x);
         expr_ref mk_sub(expr* a, expr* b);
         enode* ensure_enode(expr* a);
         
