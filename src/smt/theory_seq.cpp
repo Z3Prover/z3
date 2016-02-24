@@ -2032,7 +2032,7 @@ expr_ref theory_seq::expand(expr* e0, dependency*& eqs) {
         return result;
     }
     expr* e = m_rep.find(e0, deps);
-    expr* e1, *e2;
+    expr* e1, *e2, *e3;
     if (m_util.str.is_concat(e, e1, e2)) {
         result = mk_concat(expand(e1, deps), expand(e2, deps));
     }
@@ -2050,6 +2050,12 @@ expr_ref theory_seq::expand(expr* e0, dependency*& eqs) {
     }
     else if (m_util.str.is_unit(e, e1)) {
         result = m_util.str.mk_unit(expand(e1, deps));
+    }
+    else if (m_util.str.is_index(e, e1, e2)) {
+        result = m_util.str.mk_index(expand(e1, deps), expand(e2, deps), m_autil.mk_int(0));
+    }
+    else if (m_util.str.is_index(e, e1, e2, e3)) {
+        result = m_util.str.mk_index(expand(e1, deps), expand(e2, deps), e3);
     }
     else {
         result = e;
@@ -2178,7 +2184,6 @@ void theory_seq::add_indexof_axiom(expr* i) {
     expr_ref minus_one(m_autil.mk_int(-1), m);
     expr_ref zero(m_autil.mk_int(0), m);
     expr_ref xsy(m);
-
 
     if (!offset || (m_autil.is_numeral(offset, r) && r.is_zero())) {
         expr_ref x  = mk_skolem(m_indexof_left, t, s);
@@ -2676,7 +2681,7 @@ literal theory_seq::mk_seq_eq(expr* a, expr* b) {
     return mk_literal(mk_skolem(m_eq, a, b, 0, m.mk_bool_sort()));
 }
 
-literal theory_seq::mk_eq_empty(expr* _e) {
+literal theory_seq::mk_eq_empty(expr* _e, bool phase) {
     context& ctx = get_context();
     expr_ref e(_e, m);
     SASSERT(m_util.is_seq(e));
@@ -2698,8 +2703,9 @@ literal theory_seq::mk_eq_empty(expr* _e) {
     emp = m_util.str.mk_empty(m.get_sort(e));
 
     literal lit = mk_eq(e, emp, false);
-    ctx.force_phase(lit);
+    ctx.force_phase(phase?lit:~lit);
     ctx.mark_as_relevant(lit);
+    TRACE("seq", tout << mk_pp(e, m) << " = empty\n";);
     return lit;
 }
 
@@ -2797,7 +2803,7 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
         }
         else {
 #if 0
-            propagate_not_prefix(e);
+            propagate_not_prefix2(e);
 #else
             propagate_non_empty(lit, e1);
             if (add_prefix2prefix(e, change)) {
@@ -3341,6 +3347,33 @@ void theory_seq::propagate_not_prefix(expr* e) {
 }
 
 /*
+  !prefix(e1,e2) => len(e1) > 0
+  !prefix(e1,e2) => len(e1) > len(e2) or e2 = pre(e2,len(e1))post(e2,len(e2)-len(e1)) & pre(e2, len(e1)) != e1
+*/
+
+void theory_seq::propagate_not_prefix2(expr* e) {
+    context& ctx = get_context();
+    //std::cout << mk_pp(e, m) << " " << ctx.get_scope_level() << "\n";
+    expr* e1, *e2;
+    VERIFY(m_util.str.is_prefix(e, e1, e2));
+    literal lit = ctx.get_literal(e);
+    SASSERT(ctx.get_assignment(lit) == l_false);
+    if (canonizes(false, e)) {
+        return;
+    }
+    propagate_non_empty(~lit, e1);
+    expr_ref len_e1(m_util.str.mk_length(e1), m);
+    expr_ref len_e2(m_util.str.mk_length(e2), m);
+    expr_ref len_e2_e1(mk_sub(len_e2, len_e1), m);
+    expr_ref x = mk_skolem(m_pre,  e2, len_e1);
+    expr_ref y = mk_skolem(m_post, e2, len_e2_e1);
+    literal e2_ge_e1 = mk_literal(m_autil.mk_ge(len_e2_e1, m_autil.mk_int(0)));
+    add_axiom(lit, ~e2_ge_e1, mk_seq_eq(e2, mk_concat(x, y)));
+    add_axiom(lit, ~e2_ge_e1, mk_eq(m_util.str.mk_length(x), len_e1, false));
+    add_axiom(lit, ~e2_ge_e1, ~mk_eq(e1, x, false));
+}
+
+/*
   !suffix(e1,e2) => e1 != ""
   !suffix(e1,e2) => e2 = "" or e1 = ycx & (e2 = zdx & c != d or x = e2)
  */
@@ -3403,7 +3436,7 @@ bool theory_seq::add_prefix2prefix(expr* e, bool& change) {
     conc = mk_concat(head2, tail2);
     propagate_eq(~e2_is_emp, e2, conc, true);
 
-    literal e1_is_emp = mk_eq_empty(e1);
+    literal e1_is_emp = mk_eq_empty(e1, false);
     switch (ctx.get_assignment(e1_is_emp)) {
     case l_true:        
         TRACE("seq", tout << mk_pp(e, m) << ": " << mk_pp(e1, m) << " !=  empty\n";);

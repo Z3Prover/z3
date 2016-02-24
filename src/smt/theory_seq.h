@@ -441,7 +441,7 @@ namespace smt {
         void add_at_axiom(expr* n);
         void add_in_re_axiom(expr* n);
         literal mk_literal(expr* n);
-        literal mk_eq_empty(expr* n);
+        literal mk_eq_empty(expr* n, bool phase = true);
         literal mk_seq_eq(expr* a, expr* b);
         void tightest_prefix(expr* s, expr* x, literal lit, literal lit2 = null_literal);
         expr_ref mk_sub(expr* a, expr* b);
@@ -489,6 +489,7 @@ namespace smt {
         bool add_suffix2suffix(expr* e, bool& change);
         bool add_contains2contains(expr* e, bool& change);
         void propagate_not_prefix(expr* e);
+        void propagate_not_prefix2(expr* e);
         void propagate_not_suffix(expr* e);
         void ensure_nth(literal lit, expr* s, expr* idx);
         bool canonizes(bool sign, expr* e);
