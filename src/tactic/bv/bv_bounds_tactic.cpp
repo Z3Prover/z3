@@ -162,6 +162,9 @@ class bv_bounds_simplifier : public ctx_simplify_tactic::simplifier {
     map         *m_bound;
 
     bool is_bound(expr *e, expr*& v, interval& b) {
+        if (!m.is_bool(e))
+            return false;
+
         rational n;
         expr *lhs, *rhs;
         unsigned sz;
