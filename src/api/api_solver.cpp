@@ -153,6 +153,11 @@ extern "C" {
         LOG_Z3_solver_set_params(c, s, p);
         RESET_ERROR_CODE();
 
+        symbol logic = to_param_ref(p).get_sym("smt.logic", symbol::null);
+        if (logic != symbol::null) {
+            to_solver(s)->m_logic = logic;
+        }
+
         if (to_solver(s)->m_solver) {
             bool old_model = to_solver(s)->m_params.get_bool("model", true);
             bool new_model = to_param_ref(p).get_bool("model", true);
