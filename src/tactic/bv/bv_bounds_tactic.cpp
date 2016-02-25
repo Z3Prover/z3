@@ -238,12 +238,10 @@ class bv_bounds_simplifier : public ctx_simplify_tactic::simplifier {
     }
 
     bool expr_has_bounds(expr* t) {
-        if (!m.is_bool(t))
-            return false;
-
         app* a = to_app(t);
-        if (m_bv.is_bv_ule(t) || m_bv.is_bv_sle(t) || m.is_eq(t))
-            return m_bv.is_numeral(a->get_arg(0)) ^ m_bv.is_numeral(a->get_arg(1));
+        if ((m_bv.is_bv_ule(t) || m_bv.is_bv_sle(t) || m.is_eq(t)) &&
+            (m_bv.is_numeral(a->get_arg(0)) || m_bv.is_numeral(a->get_arg(1))))
+            return true;
 
         for (unsigned i = 0; i < a->get_num_args(); ++i) {
             if (expr_has_bounds(a->get_arg(i)))
@@ -352,6 +350,15 @@ public:
         for (map::iterator I = m_bound->begin(), E = m_bound->end(); I != E; ++I) {
             if (I->m_value.is_singleton() && used_exprs->contains(I->m_key))
                 return true;
+        }
+
+        while (m.is_not(t, t));
+
+        expr* t1;
+        interval b;
+        // skip common case: single bound constraint without any context for simplification
+        if (is_bound(t, t1, b)) {
+            return m_bound->contains(t1);
         }
         return expr_has_bounds(t);
     }
