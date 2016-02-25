@@ -1,0 +1,10 @@
+z3_add_component(aig_tactic
+  SOURCES
+    aig.cpp
+    aig_tactic.cpp
+  INCLUDE_DIRS
+    "ast"
+    "model"
+    "tactic"
+    "util"
+)

@@ -1,0 +1,19 @@
+z3_add_component(pattern
+  SOURCES
+    expr_pattern_match.cpp
+    pattern_inference.cpp
+    pattern_inference_params.cpp
+  INCLUDE_DIRS
+    "ast"
+    "ast/normal_forms"
+    "ast/rewriter"
+    "ast/simplifier"
+    "cmd_context"
+    "math/automata"
+    "math/polynomial"
+    "model"
+    "parsers/smt2"
+    "solver"
+    "tactic"
+    "util"
+)

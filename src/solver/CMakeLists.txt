@@ -1,0 +1,16 @@
+z3_add_component(solver
+  SOURCES
+    check_sat_result.cpp
+    combined_solver.cpp
+    solver.cpp
+    solver_na2as.cpp
+    tactic2solver.cpp
+  INCLUDE_DIRS
+    "ast"
+    "ast/rewriter"
+    "math/automata"
+    "math/polynomial"
+    "model"
+    "tactic"
+    "util"
+)

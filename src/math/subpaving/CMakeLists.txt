@@ -1,0 +1,12 @@
+z3_add_component(subpaving
+  SOURCES
+    subpaving.cpp
+    subpaving_hwf.cpp
+    subpaving_mpf.cpp
+    subpaving_mpff.cpp
+    subpaving_mpfx.cpp
+    subpaving_mpq.cpp
+  INCLUDE_DIRS
+    "math/interval"
+    "util"
+)

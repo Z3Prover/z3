@@ -1,0 +1,15 @@
+z3_add_component(sat_tactic
+  SOURCES
+    atom2bool_var.cpp
+    goal2sat.cpp
+    sat_tactic.cpp
+  INCLUDE_DIRS
+    "ast"
+    "ast/rewriter"
+    "math/automata"
+    "math/polynomial"
+    "model"
+    "sat"
+    "tactic"
+    "util"
+)

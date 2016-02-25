@@ -1,0 +1,16 @@
+z3_add_component(subpaving_tactic
+  SOURCES
+    expr2subpaving.cpp
+    subpaving_tactic.cpp
+  INCLUDE_DIRS
+    "ast"
+    "ast/normal_forms"
+    "ast/rewriter"
+    "math/automata"
+    "math/polynomial"
+    "math/subpaving"
+    "model"
+    "tactic/core"
+    "tactic"
+    "util"
+)

@@ -1,0 +1,25 @@
+z3_add_component(fpa_tactics
+  SOURCES
+    fpa2bv_model_converter.cpp
+    fpa2bv_tactic.cpp
+    qffp_tactic.cpp
+  INCLUDE_DIRS
+    "ast"
+    "ast/fpa"
+    "ast/rewriter"
+    "ast/rewriter/bit_blaster"
+    "ast/simplifier"
+    "math/polynomial"
+    "math/automata"
+    "model"
+    "sat"
+    "sat/tactic"
+    "smt"
+    "smt/tactic"
+    "tactic"
+    "tactic/arith"
+    "tactic/core"
+    "tactic/bv"
+    "tactic/smtlogics"
+    "util"
+)

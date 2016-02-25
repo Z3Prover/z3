@@ -1,0 +1,11 @@
+z3_add_component(fpa
+  SOURCES
+    fpa2bv_converter.cpp
+  INCLUDE_DIRS
+    "ast"
+    "ast/rewriter"
+    "ast/simplifier"
+    "math/polynomial"
+    "math/automata"
+    "util"
+)

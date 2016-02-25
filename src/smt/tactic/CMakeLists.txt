@@ -1,0 +1,32 @@
+z3_add_component(smt_tactic
+  SOURCES
+    ctx_solver_simplify_tactic.cpp
+    smt_tactic.cpp
+    unit_subsumption_tactic.cpp
+  INCLUDE_DIRS
+    "ast"
+    "ast/fpa"
+    "ast/macros"
+    "ast/normal_forms"
+    "ast/pattern"
+    "ast/proof_checker"
+    "ast/rewriter"
+    "ast/rewriter/bit_blaster"
+    "ast/simplifier"
+    "ast/substitution"
+    "cmd_context"
+    "math/automata"
+    "math/euclid"
+    "math/grobner"
+    "math/polynomial"
+    "math/simplex"
+    "model"
+    "parsers/smt2"
+    "parsers/util"
+    "smt"
+    "smt/proto_model"
+    "smt/params"
+    "solver"
+    "tactic"
+    "util"
+)

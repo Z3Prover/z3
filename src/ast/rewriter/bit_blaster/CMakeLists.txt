@@ -1,0 +1,12 @@
+z3_add_component(bit_blaster
+  SOURCES
+    bit_blaster.cpp
+    bit_blaster_rewriter.cpp
+  INCLUDE_DIRS
+    "ast"
+    "ast/rewriter"
+    "ast/simplifier"
+    "math/automata"
+    "math/polynomial"
+    "util"
+)

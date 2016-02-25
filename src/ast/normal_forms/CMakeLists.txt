@@ -1,0 +1,13 @@
+z3_add_component(normal_forms
+  SOURCES
+    defined_names.cpp
+    name_exprs.cpp
+    nnf.cpp
+    pull_quant.cpp
+  INCLUDE_DIRS
+    "ast"
+    "ast/rewriter"
+    "math/polynomial"
+    "math/automata"
+    "util"
+)

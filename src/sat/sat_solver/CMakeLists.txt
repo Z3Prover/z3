@@ -1,0 +1,23 @@
+z3_add_component(sat_solver
+  SOURCES
+    inc_sat_solver.cpp
+  INCLUDE_DIRS
+    "ast"
+    "ast/rewriter"
+    "ast/rewriter/bit_blaster"
+    "ast/simplifier"
+    "math/automata"
+    "math/polynomial"
+    "model"
+    "nlsat"
+    "nlsat/tactic"
+    "sat"
+    "sat/tactic"
+    "solver"
+    "tactic"
+    "tactic/arith"
+    "tactic/core"
+    "tactic/aig"
+    "tactic/bv"
+    "util"
+)

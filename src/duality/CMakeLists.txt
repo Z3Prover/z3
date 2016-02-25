@@ -1,0 +1,36 @@
+z3_add_component(duality
+  SOURCES
+    duality_profiling.cpp
+    duality_rpfp.cpp
+    duality_solver.cpp
+    duality_wrapper.cpp
+  INCLUDE_DIRS
+    "ast"
+    "ast/fpa"
+    "ast/macros"
+    "ast/normal_forms"
+    "ast/pattern"
+    "ast/proof_checker"
+    "ast/rewriter"
+    "ast/rewriter/bit_blaster"
+    "ast/simplifier"
+    "ast/substitution"
+    "cmd_context"
+    "interp"
+    "math/automata"
+    "math/euclid"
+    "math/grobner"
+    "math/polynomial"
+    "math/simplex"
+    "model"
+    "parsers/smt2"
+    "parsers/util"
+    "qe"
+    "sat"
+    "smt"
+    "smt/proto_model"
+    "smt/params"
+    "solver"
+    "tactic"
+    "util"
+)

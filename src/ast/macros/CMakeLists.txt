@@ -1,0 +1,14 @@
+z3_add_component(macros
+  SOURCES
+    macro_finder.cpp
+    macro_manager.cpp
+    macro_util.cpp
+    quasi_macros.cpp
+  INCLUDE_DIRS
+    "ast"
+    "ast/simplifier"
+    "ast/rewriter"
+    "math/polynomial"
+    "math/automata"
+    "util"
+)

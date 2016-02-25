@@ -1,0 +1,23 @@
+z3_add_component(proto_model
+  SOURCES
+    array_factory.cpp
+    datatype_factory.cpp
+    numeral_factory.cpp
+    proto_model.cpp
+    struct_factory.cpp
+    value_factory.cpp
+  INCLUDE_DIRS
+    "ast"
+    "ast/normal_forms"
+    "ast/pattern"
+    "ast/rewriter"
+    "ast/simplifier"
+    "cmd_context"
+    "math/automata"
+    "math/polynomial"
+    "model"
+    "smt/params"
+    "parsers/smt2"
+    "parsers/util"
+    "util"
+)
