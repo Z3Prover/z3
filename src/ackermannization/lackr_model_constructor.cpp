@@ -60,15 +60,17 @@ struct lackr_model_constructor::imp {
 
         //
         // Returns true iff model was successfully constructed.
+        // Conflicts are saved as a side effect.
         //
         bool check() {
+            bool retv = true;
             for (unsigned i = 0; i < m_abstr_model->get_num_constants(); i++) {
                 func_decl * const c = m_abstr_model->get_constant(i);
-                app * const term = m_info->find_term(c);
-                if (term) m_stack.push_back(term);
-                else m_stack.push_back(m_m.mk_const(c));
+                app * const  _term = m_info->find_term(c);
+                expr * const term  = _term ? _term : m_m.mk_const(c);
+                if (!check_term(term)) retv = false;
             }
-            return run();
+            return retv;
         }
 
 
@@ -144,6 +146,7 @@ struct lackr_model_constructor::imp {
         app2val_t        m_app2val;
         ptr_vector<expr> m_stack;
         ackr_helper      m_ackr_helper;
+        expr_mark        m_visited;
 
         static inline val_info mk_val_info(expr* value, app* source_term) {
             val_info rv;
@@ -152,17 +155,23 @@ struct lackr_model_constructor::imp {
             return rv;
         }
 
-        //
+        // Performs congruence check on a given term.
+        bool check_term(expr * term) {
+            m_stack.push_back(term);
+            const bool rv = _check_stack();
+            m_stack.reset();
+            return rv;
+        }
+
         // Performs congruence check on terms on the stack.
-        // (Currently stops upon the first failure).
-        // Returns true if and only if congruence check succeeded.
-        bool run() {
-            m_evaluator = alloc(model_evaluator, m_empty_model);
-            expr_mark visited;
+        // Stops upon the first failure.
+        // Returns true if and only if all congruence checks succeeded.
+        bool _check_stack() {
+            if (m_evaluator == NULL) m_evaluator = alloc(model_evaluator, m_empty_model);
             expr *  curr;
             while (!m_stack.empty()) {
                 curr = m_stack.back();
-                if (visited.is_marked(curr)) {
+                if (m_visited.is_marked(curr)) {
                     m_stack.pop_back();
                     continue;
                 }
@@ -173,8 +182,8 @@ struct lackr_model_constructor::imp {
                         return false;
                     case AST_APP: {
                             app * a = to_app(curr);
-                            if (for_each_expr_args(m_stack, visited, a->get_num_args(), a->get_args())) {
-                                visited.mark(a, true);
+                            if (for_each_expr_args(m_stack, m_visited, a->get_num_args(), a->get_args())) {
+                                m_visited.mark(a, true);
                                 m_stack.pop_back();
                                 if (!mk_value(a)) return false;
                             }
