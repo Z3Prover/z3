@@ -34,11 +34,13 @@ struct lackr_model_constructor::imp {
             , m_conflicts(conflicts)
             , m_b_rw(m)
             , m_bv_rw(m)
+            , m_evaluator(NULL)
             , m_empty_model(m)
             , m_ackr_helper(m)
         {}
 
         ~imp() {
+            if (m_evaluator) dealloc(m_evaluator);
             {
                 values2val_t::iterator i = m_values2val.begin();
                 const values2val_t::iterator e = m_values2val.end();
@@ -136,7 +138,7 @@ struct lackr_model_constructor::imp {
         conflict_list&                  m_conflicts;
         bool_rewriter                   m_b_rw;
         bv_rewriter                     m_bv_rw;
-        scoped_ptr<model_evaluator>     m_evaluator;
+        model_evaluator *               m_evaluator;
         model                           m_empty_model;
     private:
         struct val_info { expr * value; app * source_term; };
@@ -221,7 +223,11 @@ struct lackr_model_constructor::imp {
             for (unsigned i = 0; i < num; ++i) {
                 expr * val;
                 const bool b = eval_cached(to_app(args[i]), val); // TODO: OK conversion to_app?
-                CTRACE("model_constructor", !b, tout << "fail arg val(\n" << mk_ismt2_pp(args[i], m_m, 2); );
+                CTRACE("model_constructor", m_conflicts.empty() && !b, tout << "fail arg val(\n" << mk_ismt2_pp(args[i], m_m, 2) << '\n'; );
+                if (!b) {
+                    // bailing out because args eval failed previously
+                    return false;
+                }
                 TRACE("model_constructor", tout <<
                     "arg val " << i << "(\n" << mk_ismt2_pp(args[i], m_m, 2)
                     << " : " << mk_ismt2_pp(val, m_m, 2) << '\n'; );
