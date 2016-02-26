@@ -2488,10 +2488,10 @@ DOUBLE = 2
 STRING = 3
 SYMBOL = 4
 UINT_MAX = 4294967295
-CURR_PYG = None
+CURRENT_PYG_HPP_DEST_DIR = None
 
-def get_curr_pyg():
-    return CURR_PYG
+def get_current_pyg_hpp_dest_dir():
+    return CURRENT_PYG_HPP_DEST_DIR
 
 TYPE2CPK = { UINT : 'CPK_UINT', BOOL : 'CPK_BOOL',  DOUBLE : 'CPK_DOUBLE',  STRING : 'CPK_STRING',  SYMBOL : 'CPK_SYMBOL' }
 TYPE2CTYPE = { UINT : 'unsigned', BOOL : 'bool', DOUBLE : 'double', STRING : 'char const *', SYMBOL : 'symbol' }
@@ -2524,8 +2524,8 @@ def to_c_method(s):
     return s.replace('.', '_')
 
 def def_module_params(module_name, export, params, class_name=None, description=None):
-    pyg = get_curr_pyg()
-    dirname = os.path.split(get_curr_pyg())[0]
+    dirname = get_current_pyg_hpp_dest_dir()
+    assert(os.path.exists(dirname))
     if class_name is None:
         class_name = '%s_params' % module_name
     hpp = os.path.join(dirname, '%s.hpp' % class_name)
@@ -2590,12 +2590,12 @@ def _execfile(file, globals=globals(), locals=locals()):
 
 # Execute python auxiliary scripts that generate extra code for Z3.
 def exec_pyg_scripts():
-    global CURR_PYG
+    global CURRENT_PYG_HPP_DEST_DIR
     for root, dirs, files in os.walk('src'):
         for f in files:
             if f.endswith('.pyg'):
                 script = os.path.join(root, f)
-                CURR_PYG = script
+                CURRENT_PYG_HPP_DEST_DIR = root
                 _execfile(script, PYG_GLOBALS)
 
 # TODO: delete after src/ast/pattern/expr_pattern_match
