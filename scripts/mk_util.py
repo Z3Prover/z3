@@ -2199,7 +2199,7 @@ def mk_config():
                     'LINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT\n'
                     'SLINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO\n')
             elif VS_ARM:
-                print "ARM on VS is unsupported"
+                print("ARM on VS is unsupported")
                 exit(1)
             else:
                 config.write(
@@ -2225,7 +2225,7 @@ def mk_config():
                     'LINK_EXTRA_FLAGS=/link%s /MACHINE:X64 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608\n'
                     'SLINK_EXTRA_FLAGS=/link%s /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608\n' % (LTCG, LTCG))
             elif VS_ARM:
-                print "ARM on VS is unsupported"
+                print("ARM on VS is unsupported")
                 exit(1)
             else:
                 config.write(
