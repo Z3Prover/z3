@@ -182,6 +182,7 @@ theory_seq::theory_seq(ast_manager& m):
     m(m),
     m_rep(m, m_dm),
     m_eq_id(0),
+    m_find(*this),
     m_factory(0),
     m_exclude(m),
     m_axioms(m),
@@ -200,8 +201,6 @@ theory_seq::theory_seq(ast_manager& m):
     m_mk_aut(m) {
     m_prefix = "seq.prefix.suffix";
     m_suffix = "seq.suffix.prefix";
-    m_contains_left = "seq.contains.left";
-    m_contains_right = "seq.contains.right";
     m_accept = "aut.accept";
     m_reject = "aut.reject";
     m_tail           = "seq.tail";
@@ -585,7 +584,6 @@ bool theory_seq::fixed_length(expr* e) {
     }
     if (is_skolem(m_tail, e) || is_skolem(m_seq_first, e) || 
         is_skolem(m_indexof_left, e) || is_skolem(m_indexof_right, e) ||
-        is_skolem(m_contains_left, e) || is_skolem(m_contains_right, e) ||
         m_fixed.contains(e)) {
         return false;
     }
@@ -885,8 +883,8 @@ void theory_seq::propagate_eq(dependency* dep, enode* n1, enode* n2) {
     enode_pair_vector eqs;
     linearize(dep, eqs, lits);
     TRACE("seq",
-          tout << "assert:" << mk_pp(n1->get_owner(), m) << " = " << mk_pp(n2->get_owner(), m) << " <- \n";
-          display_deps(tout, dep);
+          tout << "assert: " << mk_pp(n1->get_owner(), m) << " = " << mk_pp(n2->get_owner(), m) << " <-\n";
+          display_deps(tout, dep); 
           );
 
     justification* js = ctx.mk_justification(
@@ -944,6 +942,7 @@ bool theory_seq::simplify_eq(expr_ref_vector& ls, expr_ref_vector& rs, dependenc
             // no-op
         }
         else if (m_util.is_seq(li) || m_util.is_re(li)) {
+            TRACE("seq", tout << "inserting " << li << " = " << ri << "\n";);
             m_eqs.push_back(mk_eqdep(li, ri, deps));            
         }
         else {
@@ -1101,6 +1100,7 @@ bool theory_seq::solve_eq(expr_ref_vector const& l, expr_ref_vector const& r, de
         return true;
     }
     if (!ctx.inconsistent() && change) {
+        TRACE("seq", tout << "inserting equality\n";);
         m_eqs.push_back(eq(m_eq_id++, ls, rs, deps));
         return true;
     }
@@ -2096,6 +2096,7 @@ theory_var theory_seq::mk_var(enode* n) {
     }
     else {
         theory_var v = theory::mk_var(n);
+        m_find.mk_var();
         get_context().attach_th_var(n, this, v);
         get_context().mark_as_relevant(n);
         return v;
@@ -2897,8 +2898,8 @@ void theory_seq::propagate_eq(dependency* deps, literal_vector const& _lits, exp
         new_eq_eh(deps, n1, n2);
     }
     TRACE("seq",
-          tout << "assert: " << mk_pp(e1, m) << " = " << mk_pp(e2, m) << "<- \n";
-          ctx.display_literals_verbose(tout, lits););
+          tout << "assert: " << mk_pp(e1, m) << " = " << mk_pp(e2, m) << " <- \n";
+          if (!lits.empty()) { ctx.display_literals_verbose(tout, lits); tout << "\n"; });
     justification* js =
         ctx.mk_justification(
             ext_theory_eq_propagation_justification(
@@ -2963,14 +2964,14 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
     }
     else if (m_util.str.is_contains(e, e1, e2)) {
         if (is_true) {
-            expr_ref f1 = mk_skolem(m_contains_left, e1, e2);
-            expr_ref f2 = mk_skolem(m_contains_right, e1, e2);
+            expr_ref f1 = mk_skolem(m_indexof_left, e1, e2);
+            expr_ref f2 = mk_skolem(m_indexof_right, e1, e2);
             f = mk_concat(f1, e2, f2);
             propagate_eq(lit, f, e1, true);
         }
         else if (!canonizes(false, e)) {
             propagate_non_empty(lit, e2);
-#if 0
+#if 1
             dependency* dep = m_dm.mk_leaf(assumption(lit));
             m_ncs.push_back(nc(expr_ref(e, m), dep));
 #else
@@ -3030,6 +3031,12 @@ void theory_seq::new_eq_eh(theory_var v1, theory_var v2) {
 
 void theory_seq::new_eq_eh(dependency* deps, enode* n1, enode* n2) {
     if (n1 != n2 && m_util.is_seq(n1->get_owner())) {
+        theory_var v1 = n1->get_th_var(get_id());
+        theory_var v2 = n2->get_th_var(get_id());
+        if (m_find.find(v1) == m_find.find(v2)) {
+            return;
+        }
+        m_find.merge(v1, v2);
         expr_ref o1(n1->get_owner(), m);
         expr_ref o2(n2->get_owner(), m);
         TRACE("seq", tout << o1 << " = " << o2 << "\n";);
