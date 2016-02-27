@@ -437,7 +437,12 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
     m_util.str.get_concat(a, as);
     m_util.str.get_concat(b, bs);
     bool all_values = true;
-    
+   
+    if (bs.empty()) {
+        result = m().mk_true();
+        return BR_DONE;
+    }
+
     for (unsigned i = 0; all_values && i < bs.size(); ++i) { 
         all_values = m().is_value(bs[i].get());
     }
@@ -459,6 +464,39 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
         result = m().mk_false();
         return BR_DONE;
     }
+
+    unsigned lenA = 0, lenB = 0;
+    bool lA = min_length(as.size(), as.c_ptr(), lenA);
+    if (lA) {
+        bool lB = min_length(bs.size(), bs.c_ptr(), lenB);
+        if (lenB > lenA) {
+            result = m().mk_false();
+            return BR_DONE;
+        }
+    }
+
+
+    if (as.empty()) {
+        result = m().mk_eq(b, m_util.str.mk_empty(m().get_sort(b)));
+        return BR_REWRITE2;
+    }
+
+    unsigned offs = 0;
+    unsigned sz = as.size();
+    expr* b0 = bs[0].get();
+    expr* bL = bs[bs.size()-1].get();
+    for (; offs < as.size() && m().are_distinct(b0, as[offs].get()); ++offs) {};
+    for (; sz > offs && m().are_distinct(bL, as[sz-1].get()); --sz) {}
+    if (offs == sz) {
+        result = m().mk_eq(b, m_util.str.mk_empty(m().get_sort(b)));
+        return BR_REWRITE2;
+    }
+    if (offs > 0 || sz < as.size()) {
+        SASSERT(sz > offs);
+        result = m_util.str.mk_contains(m_util.str.mk_concat(sz-offs, as.c_ptr()+offs), b);
+        return BR_REWRITE2;
+    }
+
     return BR_FAILED;
 }
 

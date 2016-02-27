@@ -222,16 +222,16 @@ public:
         str(seq_util& u): u(u), m(u.m), m_fid(u.m_fid) {}
 
         sort* mk_seq(sort* s) { parameter param(s); return m.mk_sort(m_fid, SEQ_SORT, 1, &param); }
-        sort* mk_string_sort() { return m.mk_sort(m_fid, _STRING_SORT, 0, 0); }
-        app* mk_empty(sort* s) { return m.mk_const(m.mk_func_decl(m_fid, OP_SEQ_EMPTY, 0, 0, 0, (expr*const*)0, s)); }
+        sort* mk_string_sort() const { return m.mk_sort(m_fid, _STRING_SORT, 0, 0); }
+        app* mk_empty(sort* s) const { return m.mk_const(m.mk_func_decl(m_fid, OP_SEQ_EMPTY, 0, 0, 0, (expr*const*)0, s)); }
         app* mk_string(zstring const& s);
         app* mk_string(symbol const& s) { return u.seq.mk_string(s); }
         app* mk_char(char ch);
-        app* mk_concat(expr* a, expr* b) { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_CONCAT, 2, es); }
+        app* mk_concat(expr* a, expr* b) const { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_CONCAT, 2, es); }
         app* mk_concat(expr* a, expr* b, expr* c) { return mk_concat(a, mk_concat(b, c)); }
-        expr* mk_concat(unsigned n, expr* const* es) { if (n == 1) return es[0]; SASSERT(n > 1); return m.mk_app(m_fid, OP_SEQ_CONCAT, n, es); }
-        expr* mk_concat(expr_ref_vector const& es) { return mk_concat(es.size(), es.c_ptr()); }
-        app* mk_length(expr* a) { return m.mk_app(m_fid, OP_SEQ_LENGTH, 1, &a); }
+        expr* mk_concat(unsigned n, expr* const* es) const { if (n == 1) return es[0]; SASSERT(n > 1); return m.mk_app(m_fid, OP_SEQ_CONCAT, n, es); }
+        expr* mk_concat(expr_ref_vector const& es) const { return mk_concat(es.size(), es.c_ptr()); }
+        app* mk_length(expr* a) const { return m.mk_app(m_fid, OP_SEQ_LENGTH, 1, &a); }
         app* mk_substr(expr* a, expr* b, expr* c) { expr* es[3] = { a, b, c }; return m.mk_app(m_fid, OP_SEQ_EXTRACT, 3, es); }
         app* mk_contains(expr* a, expr* b) { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_CONTAINS, 2, es); }
         app* mk_prefix(expr* a, expr* b) { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_PREFIX, 2, es); }

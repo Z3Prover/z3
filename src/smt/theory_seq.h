@@ -191,6 +191,27 @@ namespace smt {
             expr_ref const& r() const { return m_r; }
         };
 
+        class nc {
+            expr_ref                 m_contains;
+            dependency*              m_dep;
+        public:
+            nc(expr_ref const& c, dependency* dep):
+                m_contains(c), 
+                m_dep(dep) {}
+            nc(nc const& other):
+                m_contains(other.m_contains), 
+                m_dep(other.m_dep) {}
+            nc& operator=(nc const& other) {
+                if (this != &other) {
+                    m_contains = other.m_contains;
+                    m_dep = other.m_dep;
+                }
+                return *this;
+            }
+            dependency* deps() const { return m_dep; }
+            expr_ref const& contains() const { return m_contains; }
+        };
+
         class apply {
         public:
             virtual ~apply() {}
@@ -263,12 +284,14 @@ namespace smt {
             unsigned m_add_axiom;
             unsigned m_extensionality;
             unsigned m_fixed_length;
+            unsigned m_propagate_contains;
         };
         ast_manager&               m;
         dependency_manager         m_dm;
         solution_map               m_rep;        // unification representative.
         scoped_vector<eq>          m_eqs;        // set of current equations.
         scoped_vector<ne>          m_nqs;        // set of current disequalities.
+        scoped_vector<nc>          m_ncs;        // set of non-contains constraints.
         unsigned                   m_eq_id;
 
         seq_factory*               m_factory;    // value factory
@@ -335,12 +358,14 @@ namespace smt {
         bool split_variable();           // split a variable
         bool is_solved(); 
         bool check_length_coherence();
+        bool check_length_coherence0(expr* e);
         bool check_length_coherence(expr* e);
         bool fixed_length();
         bool fixed_length(expr* e);
         bool propagate_length_coherence(expr* e);  
 
         bool check_extensionality();
+        bool check_contains();
         bool solve_eqs(unsigned start);
         bool solve_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep);
         bool simplify_eq(expr_ref_vector& l, expr_ref_vector& r, dependency* dep);
@@ -362,6 +387,7 @@ namespace smt {
         expr_ref mk_concat(expr* e1, expr* e2, expr* e3) { return expr_ref(m_util.str.mk_concat(e1, e2, e3), m); }
         bool solve_nqs(unsigned i);
         bool solve_ne(unsigned i);
+        bool solve_nc(unsigned i);
 
         struct cell {
             cell*       m_parent;
@@ -452,9 +478,9 @@ namespace smt {
 
 
         // arithmetic integration
-        bool lower_bound(expr* s, rational& lo);
-        bool upper_bound(expr* s, rational& hi);
-        bool get_length(expr* s, rational& val);
+        bool lower_bound(expr* s, rational& lo) const;
+        bool upper_bound(expr* s, rational& hi) const;
+        bool get_length(expr* s, rational& val) const;
 
         void mk_decompose(expr* e, expr_ref& head, expr_ref& tail);
         expr_ref mk_skolem(symbol const& s, expr* e1, expr* e2 = 0, expr* e3 = 0, sort* range = 0);
@@ -494,7 +520,7 @@ namespace smt {
         void ensure_nth(literal lit, expr* s, expr* idx);
         bool canonizes(bool sign, expr* e);
         void propagate_non_empty(literal lit, expr* s);
-        void propagate_is_conc(expr* e, expr* conc);
+        bool propagate_is_conc(expr* e, expr* conc);
         void propagate_acc_rej_length(literal lit, expr* acc_rej);
         bool propagate_automata();
         void add_atom(expr* e);

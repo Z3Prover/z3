@@ -1176,7 +1176,17 @@ namespace smt {
 
         void display_literals(std::ostream & out, unsigned num_lits, literal const * lits) const;
 
+        void display_literals(std::ostream & out, literal_vector const& lits) const {
+            display_literals(out, lits.size(), lits.c_ptr());
+        }
+
+        void display_literal_verbose(std::ostream & out, literal lit) const;
+
         void display_literals_verbose(std::ostream & out, unsigned num_lits, literal const * lits) const;
+
+        void display_literals_verbose(std::ostream & out, literal_vector const& lits) const {
+            display_literals_verbose(out, lits.size(), lits.c_ptr());
+        }
 
         void display_watch_list(std::ostream & out, literal l) const;
 

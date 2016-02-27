@@ -99,22 +99,29 @@ namespace smt {
        This method may update m_antecedents, m_todo_js and m_todo_eqs.
     */
     void conflict_resolution::eq_justification2literals(enode * lhs, enode * rhs, eq_justification js) {
+        ast_manager& m = get_manager();
         SASSERT(m_antecedents);
+        TRACE("conflict_detail", tout << mk_pp(lhs->get_owner(), m) << " = " << mk_pp(rhs->get_owner(), m);
+              switch (js.get_kind()) {
+              case eq_justification::AXIOM: tout << " axiom\n";  break;
+              case eq_justification::EQUATION:
+                  tout << " was asserted\nliteral: "; m_ctx.display_literal(tout, js.get_literal()); tout << "\n";
+                  break;
+              case eq_justification::JUSTIFICATION: tout << " justification\n";  break;
+              case eq_justification::CONGRUENCE: tout << " congruence\n"; break;
+              default:  break;
+              });
+
         switch(js.get_kind()) {
         case eq_justification::AXIOM:
-            TRACE("conflict_detail", tout << "#" << lhs->get_owner_id() << " = " << rhs->get_owner_id() << " axiom\n";); 
             break;
         case eq_justification::EQUATION:
-            TRACE("conflict_detail", tout << "#" << lhs->get_owner_id() << " = " << rhs->get_owner_id() << " was asserted\n"
-                  << "literal: "; m_ctx.display_literal(tout, js.get_literal()); tout << "\n";); 
             m_antecedents->push_back(js.get_literal());
             break;
         case eq_justification::JUSTIFICATION:
-            TRACE("conflict_detail", tout << "#" << lhs->get_owner_id() << " = " << rhs->get_owner_id() << " justification\n";);
             mark_justification(js.get_justification());
             break;
         case eq_justification::CONGRUENCE: {
-            TRACE("conflict_detail", tout << "#" << lhs->get_owner_id() << " = " << rhs->get_owner_id() << " congruence\n";);
             CTRACE("dyn_ack_target", !lhs->is_eq(), tout << "dyn_ack_target2: " << lhs->get_owner_id() << " " << rhs->get_owner_id() << "\n";);
             m_dyn_ack_manager.used_cg_eh(lhs->get_owner(), rhs->get_owner());
             unsigned num_args = lhs->get_num_args();
@@ -206,7 +213,6 @@ namespace smt {
         justification_vector::iterator it  = m_todo_js.begin() + old_js_qhead;
         justification_vector::iterator end = m_todo_js.end();
         for (; it != end; ++it) {
-            TRACE("conflict_detail", tout << "unmarking: " << *it << "\n";);
             (*it)->unset_mark();
         }
         m_todo_js.shrink(old_js_qhead);
@@ -371,11 +377,9 @@ namespace smt {
               tout << "conflict_lvl: " << m_conflict_lvl << " scope_lvl: " << m_ctx.get_scope_level() << " base_lvl: " << m_ctx.get_base_level() 
               << " search_lvl: " << m_ctx.get_search_level() << "\n";
               tout << "js.kind: " << js.get_kind() << "\n";
-              tout << "consequent: " << consequent << "\n";
-	      for (unsigned i = 0; i < m_assigned_literals.size(); ++i) {
-                  tout << m_assigned_literals[i] << " ";
-	      }
-	      tout << "\n";
+              tout << "consequent: " << consequent << ": ";
+              m_ctx.display_literal_verbose(tout, consequent); tout << "\n";
+              m_ctx.display(tout, js); tout << "\n";
 	      );
 
         // m_conflict_lvl can be smaller than m_ctx.get_search_level() when:
@@ -416,12 +420,12 @@ namespace smt {
         
         TRACE("conflict",
               tout << "before minimization:\n";
-              m_ctx.display_literals(tout, m_lemma.size(), m_lemma.c_ptr());
+              m_ctx.display_literals(tout, m_lemma);
               tout << "\n";);
         
         TRACE("conflict_verbose",
               tout << "before minimization:\n";
-              m_ctx.display_literals_verbose(tout, m_lemma.size(), m_lemma.c_ptr());
+              m_ctx.display_literals_verbose(tout, m_lemma);
               tout << "\n";);
         
         if (m_params.m_minimize_lemmas)
@@ -429,12 +433,16 @@ namespace smt {
         
         TRACE("conflict",
               tout << "after minimization:\n";
-              m_ctx.display_literals(tout, m_lemma.size(), m_lemma.c_ptr());
+              m_ctx.display_literals(tout, m_lemma);
               tout << "\n";);
         
         TRACE("conflict_verbose",
               tout << "after minimization:\n";
-              m_ctx.display_literals_verbose(tout, m_lemma.size(), m_lemma.c_ptr());
+              m_ctx.display_literals_verbose(tout, m_lemma);
+              tout << "\n";);
+
+        TRACE("conflict_bug",
+              m_ctx.display_literals_verbose(tout, m_lemma);
               tout << "\n";);
         
         literal_vector::iterator it  = m_lemma.begin();
@@ -1423,7 +1431,7 @@ namespace smt {
         }
 
     end_unsat_core:
-        TRACE("unsat_core", tout << "assumptions:\n"; m_ctx.display_literals(tout, m_assumptions.size(), m_assumptions.c_ptr()); tout << "\n";);
+        TRACE("unsat_core", tout << "assumptions:\n"; m_ctx.display_literals(tout, m_assumptions); tout << "\n";);
         reset_unmark_and_justifications(0, 0);
     }
     
