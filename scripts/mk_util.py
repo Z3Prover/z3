@@ -2957,7 +2957,28 @@ def mk_bindings(api_files):
         if is_java_enabled():
             check_java()
             mk_z3consts_java(api_files)
-        _execfile(os.path.join('scripts', 'update_api.py'), g) # HACK
+        # Generate some of the bindings and "api" module files
+        import update_api
+        dotnet_output_dir = None
+        if is_dotnet_enabled():
+          dotnet_output_dir = get_component('dotnet').src_dir
+        java_output_dir = None
+        java_package_name = None
+        if is_java_enabled():
+          java_output_dir = get_component('java').src_dir
+          java_package_name = get_component('java').package_name
+        ml_output_dir = None
+        if is_ml_enabled():
+          ml_output_dir = get_component('ml').src_dir
+        # Get the update_api module to do the work for us
+        update_api.generate_files(api_files=new_api_files,
+          api_output_dir=get_component('api').src_dir,
+          z3py_output_dir=get_z3py_dir(),
+          dotnet_output_dir=dotnet_output_dir,
+          java_output_dir=java_output_dir,
+          java_package_name=java_package_name,
+          ml_output_dir=ml_output_dir
+        )
         cp_z3py_to_build()
         if is_ml_enabled():
             check_ml()
