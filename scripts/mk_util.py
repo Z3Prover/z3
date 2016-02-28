@@ -2752,6 +2752,13 @@ def mk_all_install_tactic_cpps():
 #    void mem_finalize()
 # These procedures are invoked by the Z3 memory_manager
 def mk_mem_initializer_cpp(cnames, path):
+  component_src_dirs = []
+  for cname in cnames:
+    c = get_component(cname)
+    component_src_dirs.append(c.src_dir)
+  mk_mem_initializer_cpp_internal(component_src_dirs, path)
+
+def mk_mem_initializer_cpp_internal(component_src_dirs, path):
     initializer_cmds = []
     finalizer_cmds   = []
     fullname = os.path.join(path, 'mem_initializer.cpp')
@@ -2761,12 +2768,11 @@ def mk_mem_initializer_cpp(cnames, path):
     # ADD_INITIALIZER with priority
     initializer_prio_pat = re.compile('[ \t]*ADD_INITIALIZER\(\'([^\']*)\',[ \t]*(-?[0-9]*)\)')
     finalizer_pat        = re.compile('[ \t]*ADD_FINALIZER\(\'([^\']*)\'\)')
-    for cname in cnames:
-        c = get_component(cname)
-        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(c.src_dir))
+    for component_src_dir in component_src_dirs:
+        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(component_src_dir))
         for h_file in h_files:
             added_include = False
-            fin = open(os.path.join(c.src_dir, h_file), 'r')
+            fin = open(os.path.join(component_src_dir, h_file), 'r')
             for line in fin:
                 m = initializer_pat.match(line)
                 if m:
