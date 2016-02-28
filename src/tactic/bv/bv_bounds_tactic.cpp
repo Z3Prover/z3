@@ -324,7 +324,9 @@ public:
         interval ctx, intr;
         result = 0;
 
-        if (m_bound->find(t1, ctx)) {
+        if (b.is_full() && b.tight) {
+            result = m.mk_true();
+        } else if (m_bound->find(t1, ctx)) {
             if (ctx.implies(b)) {
                 result = m.mk_true();
             } else if (!b.intersect(ctx, intr)) {
@@ -332,8 +334,6 @@ public:
             } else if (m_propagate_eq && intr.is_singleton()) {
                 result = m.mk_eq(t1, m_bv.mk_numeral(intr.l, m.get_sort(t1)));
             }
-        } else if (b.is_full() && b.tight) {
-            result = m.mk_true();
         }
 
         CTRACE("bv", result != 0, tout << mk_pp(t, m) << " " << b << " (ctx: " << ctx << ") (intr: " << intr << "): " << result << "\n";);
@@ -358,7 +358,7 @@ public:
         interval b;
         // skip common case: single bound constraint without any context for simplification
         if (is_bound(t, t1, b)) {
-            return m_bound->contains(t1);
+            return b.is_full() || m_bound->contains(t1);
         }
         return expr_has_bounds(t);
     }
