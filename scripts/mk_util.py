@@ -2817,11 +2817,18 @@ def mk_all_mem_initializer_cpps():
                 cnames.append(c.name)
                 mk_mem_initializer_cpp(cnames, c.src_dir)
 
-# Generate an mem_initializer.cpp at path.
+# Generate an ``gparams_register_modules.cpp`` at path.
 # This file implements the procedure
 #    void gparams_register_modules()
 # This procedure is invoked by gparams::init()
 def mk_gparams_register_modules(cnames, path):
+  component_src_dirs = []
+  for cname in cnames:
+    c = get_component(cname)
+    component_src_dirs.append(c.src_dir)
+  mk_gparams_register_modules_internal(component_src_dirs, path)
+
+def mk_gparams_register_modules_internal(component_src_dirs, path):
     cmds = []
     mod_cmds = []
     mod_descrs = []
@@ -2832,12 +2839,11 @@ def mk_gparams_register_modules(cnames, path):
     reg_pat = re.compile('[ \t]*REG_PARAMS\(\'([^\']*)\'\)')
     reg_mod_pat = re.compile('[ \t]*REG_MODULE_PARAMS\(\'([^\']*)\', *\'([^\']*)\'\)')
     reg_mod_descr_pat = re.compile('[ \t]*REG_MODULE_DESCRIPTION\(\'([^\']*)\', *\'([^\']*)\'\)')
-    for cname in cnames:
-        c = get_component(cname)
-        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(c.src_dir))
+    for component_src_dir in component_src_dirs:
+        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(component_src_dir))
         for h_file in h_files:
             added_include = False
-            fin = open(os.path.join(c.src_dir, h_file), 'r')
+            fin = open(os.path.join(component_src_dir, h_file), 'r')
             for line in fin:
                 m = reg_pat.match(line)
                 if m:
