@@ -2677,6 +2677,13 @@ def ADD_PROBE(name, descr, cmd):
 # It installs all tactics in the given component (name) list cnames
 # The procedure looks for ADD_TACTIC commands in the .h files of these components.
 def mk_install_tactic_cpp(cnames, path):
+  component_src_dirs = []
+  for cname in cnames:
+    c = get_component(cname)
+    component_src_dirs.append(c.src_dir)
+  mk_install_tactic_cpp_internal(component_src_dirs, path)
+
+def mk_install_tactic_cpp_internal(component_src_dirs, path):
     global ADD_TACTIC_DATA, ADD_PROBE_DATA
     ADD_TACTIC_DATA = []
     ADD_PROBE_DATA = []
@@ -2688,12 +2695,11 @@ def mk_install_tactic_cpp(cnames, path):
     fout.write('#include"cmd_context.h"\n')
     tactic_pat   = re.compile('[ \t]*ADD_TACTIC\(.*\)')
     probe_pat    = re.compile('[ \t]*ADD_PROBE\(.*\)')
-    for cname in cnames:
-        c = get_component(cname)
-        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(c.src_dir))
+    for component_src_dir in component_src_dirs:
+        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(component_src_dir))
         for h_file in h_files:
             added_include = False
-            fin = open(os.path.join(c.src_dir, h_file), 'r')
+            fin = open(os.path.join(component_src_dir, h_file), 'r')
             for line in fin:
                 if tactic_pat.match(line):
                     if not added_include:
