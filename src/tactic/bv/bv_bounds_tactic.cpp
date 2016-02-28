@@ -363,7 +363,7 @@ public:
         return expr_has_bounds(t);
     }
 
-    virtual void push() {
+    void push() {
         TRACE("bv", tout << "push\n";);
         unsigned sz = m_scopes.size();
         m_scopes.resize(sz + 1);

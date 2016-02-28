@@ -36,7 +36,7 @@ public:
     virtual ~ctx_propagate_assertions() {}
     virtual bool assert_expr(expr * t, bool sign);
     virtual bool simplify(expr* t, expr_ref& result);
-    virtual void push();
+    void push();
     virtual void pop(unsigned num_scopes);
     virtual unsigned scope_level() const { return m_scopes.size(); }
     virtual simplifier * translate(ast_manager & m);
@@ -258,10 +258,6 @@ struct ctx_simplify_tactic::imp {
     
     unsigned scope_level() const {
         return m_simp->scope_level();
-    }
-
-    void push() { 
-        m_simp->push();
     }
 
     void restore_cache(unsigned lvl) {

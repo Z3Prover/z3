@@ -31,7 +31,6 @@ public:
         virtual bool assert_expr(expr * t, bool sign) = 0;
         virtual bool simplify(expr* t, expr_ref& result) = 0;
         virtual bool may_simplify(expr* t) { return true; }
-        virtual void push() = 0;
         virtual void pop(unsigned num_scopes) = 0;
         virtual simplifier * translate(ast_manager & m) = 0;
         virtual unsigned scope_level() const = 0;
