@@ -37,6 +37,14 @@ set(z3_polluted_tree_msg
 )
 
 ################################################################################
+# Sanity check - Disallow building in source
+################################################################################
+if ("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_BINARY_DIR}")
+  message(FATAL_ERROR "In source builds are not allowed. You should invoke "
+          "CMake from a different directory.")
+endif()
+
+################################################################################
 # Add our CMake module directory to the list of module search directories
 ################################################################################
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
