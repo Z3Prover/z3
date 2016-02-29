@@ -39,7 +39,7 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_total
         refs_t vs(m);
         
         for (unsigned j = 0; j < mvs.size(); ++j) {
-            vs.push_back(mvs[j]());
+            vs.push_back(mvs[j].t());
         }
         ref_t cond(m_ba.mk_not(m_ba.mk_or(vs.size(), vs.c_ptr())), m);
         lbool is_sat = m_ba.is_sat(cond);
@@ -64,6 +64,7 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minim
     if (a.is_empty()) {
         return a.clone();
     }
+
     if (a.is_epsilon()) {
         return a.clone();
     }
