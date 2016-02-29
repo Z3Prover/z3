@@ -2884,14 +2884,22 @@ def mk_all_gparams_register_modules():
 
 # Generate a .def based on the files at c.export_files slot.
 def mk_def_file(c):
-    pat1 = re.compile(".*Z3_API.*")
     defname = '%s.def' % os.path.join(c.src_dir, c.name)
-    fout = open(defname, 'w')
-    fout.write('LIBRARY "%s"\nEXPORTS\n' % c.dll_name)
-    num = 1
+    dll_name = c.dll_name
+    export_header_files = []
     for dot_h in c.export_files:
         dot_h_c = c.find_file(dot_h, c.name)
-        api = open(os.path.join(dot_h_c.src_dir, dot_h), 'r')
+        api = os.path.join(dot_h_c.src_dir, dot_h)
+        export_header_files.append(api)
+    mk_def_file_internal(defname, dll_name, export_header_files)
+
+def mk_def_file_internal(defname, dll_name, export_header_files):
+    pat1 = re.compile(".*Z3_API.*")
+    fout = open(defname, 'w')
+    fout.write('LIBRARY "%s"\nEXPORTS\n' % dll_name)
+    num = 1
+    for export_header_file in export_header_files:
+        api = open(export_header_file, 'r')
         for line in api:
             m = pat1.match(line)
             if m:
