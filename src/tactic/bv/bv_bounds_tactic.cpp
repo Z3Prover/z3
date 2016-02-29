@@ -152,20 +152,27 @@ std::ostream& operator<<(std::ostream& o, const interval& I) {
 }
 
 
+struct undo_bound {
+    expr* e;
+    interval b;
+    bool fresh;
+    undo_bound(expr* e, const interval& b, bool fresh) : e(e), b(b), fresh(fresh) {}
+};
+
 class bv_bounds_simplifier : public ctx_simplify_tactic::simplifier {
     typedef obj_map<expr, interval> map;
     typedef obj_map<expr, bool> expr_set;
     typedef obj_map<expr, expr_set*> expr_list_map;
 
-    ast_manager& m;
-    params_ref   m_params;
-    bool         m_propagate_eq;
-    bv_util      m_bv;
-    vector<map>  m_scopes;
-    map         *m_bound;
-    expr_list_map m_expr_vars;
+    ast_manager&       m;
+    params_ref         m_params;
+    bool               m_propagate_eq;
+    bv_util            m_bv;
+    vector<undo_bound> m_scopes;
+    map                m_bound;
+    expr_list_map      m_expr_vars;
 
-    bool is_bound(expr *e, expr*& v, interval& b) {
+    bool is_bound(expr *e, expr*& v, interval& b) const {
         rational n;
         expr *lhs, *rhs;
         unsigned sz;
@@ -253,8 +260,6 @@ class bv_bounds_simplifier : public ctx_simplify_tactic::simplifier {
 public:
 
     bv_bounds_simplifier(ast_manager& m, params_ref const& p) : m(m), m_params(p), m_bv(m) {
-        m_scopes.push_back(map());
-        m_bound = &m_scopes.back();
         updt_params(p);
     }
 
@@ -285,10 +290,21 @@ public:
             if (sign)
                 VERIFY(b.negate(b));
 
-            push();
             TRACE("bv", tout << (sign?"(not ":"") << mk_pp(t, m) << (sign ? ")" : "") << ": " << mk_pp(t1, m) << " in " << b << "\n";);
-            interval& r = m_bound->insert_if_not_there2(t1, b)->get_data().m_value;
-            return r.intersect(b, r);
+            map::obj_map_entry* e = m_bound.find_core(t1);
+            if (e) {
+                interval& old = e->get_data().m_value;
+                interval intr;
+                if (!old.intersect(b, intr))
+                    return false;
+                if (old == intr)
+                    return true;
+                m_scopes.insert(undo_bound(t1, old, false));
+                old = intr;
+            } else {
+                m_bound.insert(t1, b);
+                m_scopes.insert(undo_bound(t1, interval(), true));
+            }
         }
         return true;
     }
@@ -297,7 +313,7 @@ public:
         expr* t1;
         interval b;
 
-        if (m_bound->find(t, b) && b.is_singleton()) {
+        if (m_bound.find(t, b) && b.is_singleton()) {
             result = m_bv.mk_numeral(b.l, m_bv.get_bv_size(t));
             return true;
         }
@@ -324,7 +340,9 @@ public:
         interval ctx, intr;
         result = 0;
 
-        if (m_bound->find(t1, ctx)) {
+        if (b.is_full() && b.tight) {
+            result = m.mk_true();
+        } else if (m_bound.find(t1, ctx)) {
             if (ctx.implies(b)) {
                 result = m.mk_true();
             } else if (!b.intersect(ctx, intr)) {
@@ -332,8 +350,6 @@ public:
             } else if (m_propagate_eq && intr.is_singleton()) {
                 result = m.mk_eq(t1, m_bv.mk_numeral(intr.l, m.get_sort(t1)));
             }
-        } else if (b.is_full() && b.tight) {
-            result = m.mk_true();
         }
 
         CTRACE("bv", result != 0, tout << mk_pp(t, m) << " " << b << " (ctx: " << ctx << ") (intr: " << intr << "): " << result << "\n";);
@@ -346,36 +362,43 @@ public:
         if (m_bv.is_numeral(t))
             return false;
 
+        while (m.is_not(t, t));
+
         expr_set* used_exprs = get_expr_vars(t);
-        for (map::iterator I = m_bound->begin(), E = m_bound->end(); I != E; ++I) {
+        for (map::iterator I = m_bound.begin(), E = m_bound.end(); I != E; ++I) {
             if (I->m_value.is_singleton() && used_exprs->contains(I->m_key))
                 return true;
         }
-
-        while (m.is_not(t, t));
 
         expr* t1;
         interval b;
         // skip common case: single bound constraint without any context for simplification
         if (is_bound(t, t1, b)) {
-            return m_bound->contains(t1);
+            return b.is_full() || m_bound.contains(t1);
         }
         return expr_has_bounds(t);
     }
 
-    virtual void push() {
-        TRACE("bv", tout << "push\n";);
-        unsigned sz = m_scopes.size();
-        m_scopes.resize(sz + 1);
-        m_bound = &m_scopes.back();
-        m_bound->~map();
-        new (m_bound) map(m_scopes[sz - 1]);
-    }
-
     virtual void pop(unsigned num_scopes) {
         TRACE("bv", tout << "pop: " << num_scopes << "\n";);
-        m_scopes.shrink(m_scopes.size() - num_scopes);
-        m_bound = &m_scopes.back();
+        if (m_scopes.empty())
+            return;
+        unsigned target = m_scopes.size() - num_scopes;
+        if (target == 0) {
+            m_bound.reset();
+            m_scopes.reset();
+            return;
+        }
+        for (unsigned i = m_scopes.size()-1; i >= target; --i) {
+            undo_bound& undo = m_scopes[i];
+            SASSERT(m_bound.contains(undo.e));
+            if (undo.fresh) {
+                m_bound.erase(undo.e);
+            } else {
+                m_bound.insert(undo.e, undo.b);
+            }
+        }
+        m_scopes.shrink(target);
     }
 
     virtual simplifier * translate(ast_manager & m) {
@@ -383,7 +406,7 @@ public:
     }
 
     virtual unsigned scope_level() const {
-        return m_scopes.size() - 1;
+        return m_scopes.size();
     }
 };
 
