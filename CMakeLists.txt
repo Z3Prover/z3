@@ -1,7 +1,22 @@
+# Enforce some CMake policies
+cmake_minimum_required(VERSION 2.8.12)
+if (POLICY CMP0054)
+  # FIXME: This is horrible. With the old behaviour,
+  # quoted strings like "MSVC" in if() conditionals
+  # get implicitly dereferenced. The NEW behaviour
+  # doesn't do this but CMP0054 was only introduced
+  # in CMake 3.1 and we support lower versions as the
+  # minimum. We could set NEW here but it would be very
+  # confusing to use NEW for some builds and OLD for others
+  # which could lead to some subtle bugs. Instead when the
+  # minimum version is 3.1 change this policy to NEW and remove
+  # the hacks in place to work around it.
+  cmake_policy(SET CMP0054 OLD)
+endif()
+
 # This overrides the default flags for the different CMAKE_BUILD_TYPEs
 set(CMAKE_USER_MAKE_RULES_OVERRIDE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/compiler_flags_override.cmake")
 project(Z3 C CXX)
-cmake_minimum_required(VERSION 2.8.12)
 
 ################################################################################
 # Project version
@@ -210,7 +225,8 @@ endif()
 if ("${TARGET_ARCHITECTURE}" STREQUAL "x86_64")
   if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU") OR ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang"))
     set(SSE_FLAGS "-mfpmath=sse" "-msse" "-msse2")
-  elseif ("${CMAKE_CXX_COMPILER_ID}" MATCHES "MSVC")
+    # FIXME: Remove "x.." when CMP0054 is set to NEW
+  elseif ("x${CMAKE_CXX_COMPILER_ID}" STREQUAL "xMSVC")
     set(SSE_FLAGS "/arch:SSE2")
   else()
     message(FATAL_ERROR "Unknown compiler ${CMAKE_CXX_COMPILER_ID}")
