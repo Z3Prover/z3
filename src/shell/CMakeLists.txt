@@ -12,11 +12,10 @@ set(shell_deps api extra_cmds opt sat)
 z3_expand_dependencies(shell_expanded_deps ${shell_deps})
 get_property(Z3_LIBZ3_COMPONENTS_LIST GLOBAL PROPERTY Z3_LIBZ3_COMPONENTS)
 foreach (component ${Z3_LIBZ3_COMPONENTS_LIST})
-  if ("${component}" STREQUAL "api_dll")
+  if (NOT ("${component}" STREQUAL "api_dll"))
     # We don't use the api_dll component in the Z3 executable
-    continue()
+    list(APPEND shell_object_files $<TARGET_OBJECTS:${component}>)
   endif()
-  list(APPEND shell_object_files $<TARGET_OBJECTS:${component}>)
 endforeach()
 add_executable(shell
   datalog_frontend.cpp
