@@ -20,9 +20,11 @@ Author:
 #include "ctx_simplify_tactic.h"
 #include "bv_decl_plugin.h"
 #include "ast_pp.h"
+#include <climits>
 
-static rational uMaxInt(unsigned sz) {
-    return rational::power_of_two(sz) - rational::one();
+static uint64_t uMaxInt(unsigned sz) {
+    SASSERT(sz <= 64);
+    return ULLONG_MAX >> (64u - sz);
 }
 
 namespace {
@@ -30,26 +32,26 @@ namespace {
 struct interval {
     // l < h: [l, h]
     // l > h: [0, h] U [l, UMAX_INT]
-    rational l, h;
+    uint64_t l, h;
     unsigned sz;
     bool tight;
 
     interval() {}
-    interval(const rational& l, const rational& h, unsigned sz, bool tight = false) : l(l), h(h), sz(sz), tight(tight) {
+    interval(uint64_t l, uint64_t h, unsigned sz, bool tight = false) : l(l), h(h), sz(sz), tight(tight) {
         // canonicalize full set
-        if (is_wrapped() && l == h + rational::one()) {
-            this->l = rational::zero();
+        if (is_wrapped() && l == h + 1) {
+            this->l = 0;
             this->h = uMaxInt(sz);
         }
         SASSERT(invariant());
     }
 
     bool invariant() const {
-        return !l.is_neg() && !h.is_neg() && l <= uMaxInt(sz) && h <= uMaxInt(sz) &&
-               (!is_wrapped() || l != h+rational::one());
+        return l <= uMaxInt(sz) && h <= uMaxInt(sz) &&
+               (!is_wrapped() || l != h+1);
     }
 
-    bool is_full() const { return l.is_zero() && h == uMaxInt(sz); }
+    bool is_full() const { return l == 0 && h == uMaxInt(sz); }
     bool is_wrapped() const { return l > h; }
     bool is_singleton() const { return l == h; }
 
@@ -129,18 +131,18 @@ struct interval {
     /// return false if negation is empty
     bool negate(interval& result) const {
         if (!tight) {
-            result = interval(rational::zero(), uMaxInt(sz), true);
+            result = interval(0, uMaxInt(sz), true);
             return true;
         }
 
         if (is_full())
             return false;
-        if (l.is_zero()) {
-            result = interval(h + rational::one(), uMaxInt(sz), sz);
+        if (l == 0) {
+            result = interval(h + 1, uMaxInt(sz), sz);
         } else if (uMaxInt(sz) == h) {
-            result = interval(rational::zero(), l - rational::one(), sz);
+            result = interval(0, l - 1, sz);
         } else {
-            result = interval(h + rational::one(), l - rational::one(), sz);
+            result = interval(h + 1, l - 1, sz);
         }
         return true;
     }
@@ -171,47 +173,57 @@ class bv_bounds_simplifier : public ctx_simplify_tactic::simplifier {
     vector<undo_bound> m_scopes;
     map                m_bound;
     expr_list_map      m_expr_vars;
+    expr_set           m_bound_exprs;
+
+    bool is_number(expr *e, uint64_t& n, unsigned& sz) const {
+        rational r;
+        if (m_bv.is_numeral(e, r, sz) && sz <= 64) {
+            n = r.get_uint64();
+            return true;
+        }
+        return false;
+    }
 
     bool is_bound(expr *e, expr*& v, interval& b) const {
-        rational n;
+        uint64_t n;
         expr *lhs, *rhs;
         unsigned sz;
 
         if (m_bv.is_bv_ule(e, lhs, rhs)) {
-            if (m_bv.is_numeral(lhs, n, sz)) { // C ule x <=> x uge C
+            if (is_number(lhs, n, sz)) { // C ule x <=> x uge C
                 if (m_bv.is_numeral(rhs))
                     return false;
                 b = interval(n, uMaxInt(sz), sz, true);
                 v = rhs;
                 return true;
             }
-            if (m_bv.is_numeral(rhs, n, sz)) { // x ule C
-                b = interval(rational::zero(), n, sz, true);
+            if (is_number(rhs, n, sz)) { // x ule C
+                b = interval(0, n, sz, true);
                 v = lhs;
                 return true;
             }
         } else if (m_bv.is_bv_sle(e, lhs, rhs)) {
-            if (m_bv.is_numeral(lhs, n, sz)) { // C sle x <=> x sge C
+            if (is_number(lhs, n, sz)) { // C sle x <=> x sge C
                 if (m_bv.is_numeral(rhs))
                     return false;
-                b = interval(n, rational::power_of_two(sz-1) - rational::one(), sz, true);
+                b = interval(n, (1ull << (sz-1)) - 1, sz, true);
                 v = rhs;
                 return true;
             }
-            if (m_bv.is_numeral(rhs, n, sz)) { // x sle C
-                b = interval(rational::power_of_two(sz-1), n, sz, true);
+            if (is_number(rhs, n, sz)) { // x sle C
+                b = interval(1ull << (sz-1), n, sz, true);
                 v = lhs;
                 return true;
             }
         } else if (m.is_eq(e, lhs, rhs)) {
-            if (m_bv.is_numeral(lhs, n, sz)) {
+            if (is_number(lhs, n, sz)) {
                 if (m_bv.is_numeral(rhs))
                     return false;
                 b = interval(n, n, sz, true);
                 v = rhs;
                 return true;
             }
-            if (m_bv.is_numeral(rhs, n, sz)) {
+            if (is_number(rhs, n, sz)) {
                 b = interval(n, n, sz, true);
                 v = lhs;
                 return true;
@@ -245,24 +257,28 @@ class bv_bounds_simplifier : public ctx_simplify_tactic::simplifier {
     }
 
     bool expr_has_bounds(expr* t) {
+        bool has_bounds = false;
+        if (m_bound_exprs.find(t, has_bounds))
+            return has_bounds;
+
         app* a = to_app(t);
         if ((m_bv.is_bv_ule(t) || m_bv.is_bv_sle(t) || m.is_eq(t)) &&
-            (m_bv.is_numeral(a->get_arg(0)) || m_bv.is_numeral(a->get_arg(1))))
-            return true;
-
-        for (unsigned i = 0; i < a->get_num_args(); ++i) {
-            if (expr_has_bounds(a->get_arg(i)))
-                return true;
+            (m_bv.is_numeral(a->get_arg(0)) || m_bv.is_numeral(a->get_arg(1)))) {
+            has_bounds = true;
         }
-        return false;
+
+        for (unsigned i = 0; !has_bounds && i < a->get_num_args(); ++i) {
+            has_bounds = expr_has_bounds(a->get_arg(i));
+        }
+
+        m_bound_exprs.insert(t, has_bounds);
+        return has_bounds;
     }
 
 public:
-
     bv_bounds_simplifier(ast_manager& m, params_ref const& p) : m(m), m_params(p), m_bv(m) {
         updt_params(p);
     }
-
 
     virtual void updt_params(params_ref const & p) {
         m_propagate_eq = p.get_bool("propagate_eq", false);
@@ -348,7 +364,8 @@ public:
             } else if (!b.intersect(ctx, intr)) {
                 result = m.mk_false();
             } else if (m_propagate_eq && intr.is_singleton()) {
-                result = m.mk_eq(t1, m_bv.mk_numeral(intr.l, m.get_sort(t1)));
+                result = m.mk_eq(t1, m_bv.mk_numeral(rational(intr.l, rational::ui64()),
+                                                     m.get_sort(t1)));
             }
         }
 
