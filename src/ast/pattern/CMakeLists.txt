@@ -15,7 +15,7 @@ add_custom_command(OUTPUT "database.h"
   DEPENDS "${CMAKE_SOURCE_DIR}/scripts/mk_pat_db.py"
           "${CMAKE_SOURCE_DIR}/scripts/mk_util.py"
   COMMENT "Generating \"database.h\""
-  USES_TERMINAL
+  ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
   VERBATIM
 )
 

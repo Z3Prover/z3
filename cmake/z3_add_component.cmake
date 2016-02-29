@@ -76,7 +76,7 @@ macro(z3_add_component component_name)
       DEPENDS "${CMAKE_SOURCE_DIR}/scripts/pyg2hpp.py" "${CMAKE_SOURCE_DIR}/scripts/mk_util.py"
       COMMENT "Generating \"${_full_output_file_path}\" from \"${pyg_file}\""
       WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
-      USES_TERMINAL
+      ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
       VERBATIM
     )
     list(APPEND _list_generated_headers "${_full_output_file_path}")
@@ -175,7 +175,7 @@ macro(z3_add_install_tactic_rule)
             "${CMAKE_SOURCE_DIR}/scripts/mk_util.py"
             ${_expanded_components}
     COMMENT "Generating \"${CMAKE_CURRENT_BINARY_DIR}/install_tactic.cpp\""
-    USES_TERMINAL
+    ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
     VERBATIM
   )
 endmacro()
@@ -207,7 +207,7 @@ macro(z3_add_memory_initializer_rule)
             "${CMAKE_SOURCE_DIR}/scripts/mk_util.py"
             ${_expanded_components}
     COMMENT "Generating \"${CMAKE_CURRENT_BINARY_DIR}/mem_initializer.cpp\""
-    USES_TERMINAL
+    ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
     VERBATIM
   )
 endmacro()
@@ -239,7 +239,7 @@ macro(z3_add_gparams_register_modules_rule)
             "${CMAKE_SOURCE_DIR}/scripts/mk_util.py"
             ${_expanded_components}
     COMMENT "Generating \"${CMAKE_CURRENT_BINARY_DIR}/gparams_register_modules.cpp\""
-    USES_TERMINAL
+    ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
     VERBATIM
   )
 endmacro()
