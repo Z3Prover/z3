@@ -77,6 +77,8 @@ set(Z3_COMPONENT_CXX_DEFINES "")
 set(Z3_COMPONENT_CXX_FLAGS "")
 set(Z3_COMPONENT_EXTRA_INCLUDE_DIRS "")
 set(Z3_DEPENDENT_LIBS "")
+set(Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS "")
+set(Z3_DEPENDENT_EXTRA_C_LINK_FLAGS "")
 
 ################################################################################
 # Build type
@@ -210,7 +212,10 @@ if (USE_OPENMP)
 endif()
 if (OPENMP_FOUND)
     list(APPEND Z3_COMPONENT_CXX_FLAGS ${OpenMP_CXX_FLAGS})
-    list(APPEND Z3_DEPENDENT_LIBS ${OpenMP_CXX_FLAGS})
+    # Targets linking against libz3 (or its individual components)
+    # will need to add these flags
+    list(APPEND Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS ${OpenMP_CXX_FLAGS})
+    list(APPEND Z3_DEPENDENT_EXTRA_C_LINK_FLAGS ${OpenMP_C_FLAGS})
     unset(CMAKE_REQUIRED_FLAGS)
     message(STATUS "Using OpenMP")
 else()
@@ -285,6 +290,8 @@ message(STATUS "Z3_COMPONENT_CXX_DEFINES: ${Z3_COMPONENT_CXX_DEFINES}")
 message(STATUS "Z3_COMPONENT_CXX_FLAGS: ${Z3_COMPONENT_CXX_FLAGS}")
 message(STATUS "Z3_DEPENDENT_LIBS: ${Z3_DEPENDENT_LIBS}")
 message(STATUS "Z3_COMPONENT_EXTRA_INCLUDE_DIRS: ${Z3_COMPONENT_EXTRA_INCLUDE_DIRS}")
+message(STATUS "Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS: ${Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS}")
+message(STATUS "Z3_DEPENDENT_EXTRA_C_LINK_FLAGS: ${Z3_DEPENDENT_EXTRA_C_LINK_FLAGS}")
 
 ################################################################################
 # Z3 installation locations

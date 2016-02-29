@@ -101,6 +101,7 @@ set_target_properties(libz3 PROPERTIES
 # Using INTERFACE means that targets that try link against libz3 will
 # automatically link against the libs in Z3_DEPENDENT_LIBS
 target_link_libraries(libz3 INTERFACE ${Z3_DEPENDENT_LIBS})
+
 # Declare which header file are the public header files of libz3
 # these will automatically installed when the libz3 target is installed
 set (libz3_public_headers
