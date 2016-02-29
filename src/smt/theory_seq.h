@@ -332,6 +332,7 @@ namespace smt {
 
         obj_hashtable<expr>            m_fixed;            // string variables that are fixed length.
 
+        virtual void init(context* ctx);
         virtual final_check_status final_check_eh();
         virtual bool internalize_atom(app* atom, bool) { return internalize_term(atom); }
         virtual bool internalize_term(app*);

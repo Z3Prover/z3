@@ -25,6 +25,7 @@ Revision History:
 #include "theory_seq.h"
 #include "ast_trail.h"
 #include "theory_arith.h"
+#include "smt_kernel.h"
 
 using namespace smt;
 
@@ -36,6 +37,21 @@ struct display_expr {
     }
 };
 
+class seq_expr_solver : public expr_solver {
+    kernel m_kernel;
+public:
+    seq_expr_solver(ast_manager& m, smt_params& fp):
+        m_kernel(m, fp)
+    {}
+
+    virtual lbool check_sat(expr* e) {
+        m_kernel.push();
+        m_kernel.assert_expr(e);
+        lbool r = m_kernel.check();
+        m_kernel.pop(1);
+        return r;
+    }
+};
 
 
 void theory_seq::solution_map::update(expr* e, expr* r, dependency* d) {
@@ -199,26 +215,31 @@ theory_seq::theory_seq(ast_manager& m):
     m_new_solution(false),
     m_new_propagation(false),
     m_mk_aut(m) {
-    m_prefix = "seq.prefix.suffix";
-    m_suffix = "seq.suffix.prefix";
-    m_accept = "aut.accept";
-    m_reject = "aut.reject";
+    m_prefix         = "seq.p.suffix";
+    m_suffix         = "seq.s.prefix";
+    m_accept         = "aut.accept";
+    m_reject         = "aut.reject";
     m_tail           = "seq.tail";
     m_nth            = "seq.nth";
     m_seq_first      = "seq.first";
     m_seq_last       = "seq.last";
-    m_indexof_left   = "seq.indexof.left";
-    m_indexof_right  = "seq.indexof.right";
+    m_indexof_left   = "seq.idx.left";
+    m_indexof_right  = "seq.idx.right";
     m_aut_step       = "aut.step";
     m_pre            = "seq.pre";  // (seq.pre s l):  prefix of string s of length l
     m_post           = "seq.post"; // (seq.post s l): suffix of string s of length l
     m_eq             = "seq.eq";
+
 }
 
 theory_seq::~theory_seq() {
     m_trail_stack.reset();
 }
 
+void theory_seq::init(context* ctx) {
+    theory::init(ctx);
+    m_mk_aut.set_solver(alloc(seq_expr_solver, m, get_context().get_fparams()));
+}
 
 final_check_status theory_seq::final_check_eh() {
     TRACE("seq", display(tout << "level: " << get_context().get_scope_level() << "\n"););
