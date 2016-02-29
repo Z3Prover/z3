@@ -1,6 +1,6 @@
 # This overrides the default flags for the different CMAKE_BUILD_TYPEs
 set(CMAKE_USER_MAKE_RULES_OVERRIDE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/compiler_flags_override.cmake")
-project(Z3 LANGUAGES C CXX)
+project(Z3 C CXX)
 cmake_minimum_required(VERSION 2.8.12)
 
 ################################################################################
