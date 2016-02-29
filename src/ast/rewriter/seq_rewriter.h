@@ -51,7 +51,7 @@ public:
     bool is_char() const { return m_ty == t_char; }
     bool is_pred() const { return !is_char(); }
     bool is_range() const { return m_ty == t_range; }
-    sort* sort() const { return m_sort; }
+    sort* get_sort() const { return m_sort; }
     expr* get_char() const { SASSERT(is_char()); return m_t; }
 
 };

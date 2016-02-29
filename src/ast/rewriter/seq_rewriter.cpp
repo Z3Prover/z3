@@ -93,29 +93,29 @@ public:
             }
             if (m.are_distinct(x->get_char(), y->get_char())) {
                 expr_ref fml(m.mk_false(), m);
-                return sym_expr::mk_pred(fml, x->sort());
+                return sym_expr::mk_pred(fml, x->get_sort());
             }
         }
-        var_ref v(m.mk_var(0, x->sort()), m);
+        var_ref v(m.mk_var(0, x->get_sort()), m);
         expr_ref fml1 = x->accept(v);
         expr_ref fml2 = y->accept(v);
         if (m.is_true(fml1)) return y;
         if (m.is_true(fml2)) return x;
         expr_ref fml(m.mk_and(fml1, fml2), m);
-        return sym_expr::mk_pred(fml, x->sort());
+        return sym_expr::mk_pred(fml, x->get_sort());
     }
     virtual T mk_or(T x, T y) {
         if (x->is_char() && y->is_char() &&
             x->get_char() == y->get_char()) {
             return x;
         }
-        var_ref v(m.mk_var(0, x->sort()), m);
+        var_ref v(m.mk_var(0, x->get_sort()), m);
         expr_ref fml1 = x->accept(v);
         expr_ref fml2 = y->accept(v);        
         if (m.is_false(fml1)) return y;
         if (m.is_false(fml2)) return x;
         expr_ref fml(m.mk_or(fml1, fml2), m);
-        return sym_expr::mk_pred(fml, x->sort());
+        return sym_expr::mk_pred(fml, x->get_sort());
     }
 
     virtual T mk_and(unsigned sz, T const* ts) {
@@ -151,7 +151,7 @@ public:
         if (x->is_range()) {
             // TBD check lower is below upper.
         }
-        expr_ref v(m.mk_fresh_const("x", x->sort()), m);
+        expr_ref v(m.mk_fresh_const("x", x->get_sort()), m);
         expr_ref fml = x->accept(v);
         if (m.is_true(fml)) {
             return l_true;
@@ -162,9 +162,9 @@ public:
         return m_solver.check_sat(fml);
     }
     virtual T mk_not(T x) {
-        var_ref v(m.mk_var(0, x->sort()), m);
+        var_ref v(m.mk_var(0, x->get_sort()), m);
         expr_ref fml(m.mk_not(x->accept(v)), m);
-        return sym_expr::mk_pred(fml, x->sort());
+        return sym_expr::mk_pred(fml, x->get_sort());
     }
 };
 

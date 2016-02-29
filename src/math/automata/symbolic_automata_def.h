@@ -32,14 +32,14 @@ typedef std::pair<unsigned, unsigned> unsigned_pair;
 template<class T, class M>
 typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_total(automaton_t& a) {
     unsigned dead_state = a.num_states();
-    moves_t mvs;
+    moves_t mvs, new_mvs;
     for (unsigned i = 0; i < dead_state; ++i) {
         mvs.reset();
         a.get_moves(i, mvs, true);
         refs_t vs(m);
         
         for (unsigned j = 0; j < mvs.size(); ++j) {
-            mv.push_back(mvs[j]());
+            vs.push_back(mvs[j]());
         }
         ref_t cond(m_ba.mk_not(m_ba.mk_or(vs.size(), vs.c_ptr())), m);
         lbool is_sat = m_ba.is_sat(cond);
