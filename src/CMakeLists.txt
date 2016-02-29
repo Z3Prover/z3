@@ -90,13 +90,22 @@ endif()
 add_library(libz3 ${lib_type} ${object_files})
 # FIXME: Set "VERSION" and "SOVERSION" properly
 set_target_properties(libz3 PROPERTIES
-  OUTPUT_NAME z3
   # FIXME: Should we be using ${Z3_VERSION} here?
   # VERSION: Sets up symlinks, does it do anything else?
   VERSION ${Z3_VERSION}
   # SOVERSION: On platforms that use ELF this sets the API version
   # and should be incremented everytime the API changes
   SOVERSION ${Z3_VERSION})
+
+if (NOT MSVC)
+  # On UNIX like platforms if we don't change the OUTPUT_NAME
+  # the library gets a name like ``liblibz3.so`` so we change it
+  # here. We don't do a rename with MSVC because we get file naming
+  # conflicts (the z3 executable also has this OUTPUT_NAME) with
+  # ``.ilk``, ``.pdb``, ``.lib`` and ``.exp`` files sharing the same
+  # prefix.
+  set_target_properties(libz3 PROPERTIES OUTPUT_NAME z3)
+endif()
 
 # Using INTERFACE means that targets that try link against libz3 will
 # automatically link against the libs in Z3_DEPENDENT_LIBS
