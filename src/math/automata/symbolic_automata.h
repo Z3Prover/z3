@@ -79,15 +79,17 @@ class symbolic_automata {
             return m_rep;
         }
 
-        void add(unsigned i) { m_set.insert(i); }
+        void insert(unsigned i) { m_set.insert(i); }
         bool contains(unsigned i) const { return m_set.contains(i); }        
         bool is_empty() const { return m_set.empty(); }
         unsigned size() const { return m_set.num_elems(); }
         void remove(unsigned i) { m_set.remove(i); m_rep_chosen = false; }        
         void clear() { m_set.reset(); m_rep_chosen = false; }
-        uint_set::iterator begin() { return m_set.begin(); }
-        uint_set::iterator end() { return m_set.end(); }
+        uint_set::iterator begin() const { return m_set.begin(); }
+        uint_set::iterator end() const { return m_set.end(); }
     };
+
+    void add_block(block const& p1, unsigned p0_index, unsigned_vector& blocks, vector<block>& pblocks, unsigned_vector& W);
 
 public:
     symbolic_automata(M& m, ba_t& ba): m(m), m_ba(ba) {}
