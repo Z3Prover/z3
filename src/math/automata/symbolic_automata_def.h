@@ -35,7 +35,7 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_total
     moves_t mvs, new_mvs;
     for (unsigned i = 0; i < dead_state; ++i) {
         mvs.reset();
-        a.get_moves(i, mvs, true);
+        a.get_moves_from(i, mvs, true);
         refs_t vs(m);
         
         for (unsigned j = 0; j < mvs.size(); ++j) {
@@ -54,7 +54,8 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_total
         return a.clone();
     }
     new_mvs.push_back(move_t(m, dead_state, dead_state, m_ba.mk_true()));
-    automaton_t::append_moves(0, a, new_mvs);
+
+    // TBD private: automaton_t::append_moves(0, a, new_mvs);
     
     return alloc(automaton_t, m, a.init(), a.final_states(), new_mvs);        
 }
@@ -79,48 +80,64 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minim
 
 
 template<class T, class M>
-typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minimize_total(automaton_t& fa) {
-    vector<block> pblocks;
-    unsigned_vector blocks;
-    block final_block(fa->final_states());
-    block non_final_block(fa->non_final_states());
-    pblocks.push_back(block(fa->final_states()));     // 0 |-> final states
-//    pblocks.push_back(block(fa->non_final_states());  // 1 |-> non-final states
-    for (unsigned i = 0; i < fa->num_states(); ++i) {
-        if (fa->is_final_state(i)) {            
-            blocks.push_back(0);
+void symbolic_automata<T, M>::add_block(block const& p1, unsigned p0_index, unsigned_vector& blocks, vector<block>& pblocks, unsigned_vector& W) {
+    block& p0 = pblocks[p0_index];
+    if (p1.size() < p0.size()) {
+        unsigned p1_index = pblocks.size();
+        pblocks.push_back(p1);
+        for (uint_set::iterator it = p1.begin(), end = p1.end(); it != end; ++it) {
+            p0.remove(*it);
+            blocks[*it] = p1_index;
+        }
+        if (W.contains(p0_index)) {
+            W.push_back(p1_index);
+        }
+        else if (p0.size() <= p1.size()) {
+            W.push_back(p0_index);
         }
         else {
+            W.push_back(p1_index);
+        }
+    }                
+}
+
+template<class T, class M>
+typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minimize_total(automaton_t& a) {    
+    vector<block> pblocks;
+    unsigned_vector blocks;
+    unsigned_vector non_final;
+    for (unsigned i = 0; i < a.num_states(); ++i) {
+        if (!a.is_final_state(i)) {
+            non_final.push_back(i);
             blocks.push_back(1);
         }
+        else {
+            blocks.push_back(0);
+        }
     }
-    vector<block> W;
-    if (final_block.size() > non_final_block.size()) {
-        W.push_back(1);
-    }
-    else {
-        W.push_back(0);
-    }
-    
-#if 0
-    
+    pblocks.push_back(block(a.final_states()));      // 0 |-> final states
+    pblocks.push_back(block(non_final));             // 1 |-> non-final states
+
+    unsigned_vector W;
+    W.push_back(pblocks[0].size() > pblocks[1].size() ? 1 : 0);
+        
     refs_t trail(m);
     u_map<T*> gamma;
     moves_t mvs;
     while (!W.empty()) {
         block R(pblocks[W.back()]);
         W.pop_back();
-        block Rcopy(R);
         gamma.reset();
-        uint_set::iterator it = Rcopy.begin(), end = Rcopy.end();
+        uint_set::iterator it = R.begin(), end = R.end();
         for (; it != end; ++it) {
-            unsigned q = *it;
+            unsigned dst = *it;
             mvs.reset();
-            fa->get_moves_to(q, mvs);
+            a.get_moves_to(dst, mvs);
             for (unsigned i = 0; i < mvs.size(); ++i) {
                 unsigned src = mvs[i].src();
                 if (pblocks[src].size() > 1) {
-                    T* t = mvs[i]();
+                    T* t = mvs[i].t();
+                    T* t1;
                     if (gamma.find(src, t1)) {
                         t = m_ba.mk_or(t, t1);
                         trail.push_back(t);
@@ -129,177 +146,132 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minim
                 }
             }
         }
-        uint_set relevant;
-        u_map<T*>::iterator gend = gamma.end();
-        for (u_map<T*>::iterator it = gamma.begin(); it != gend; ++it) {
-            relevant.insert(blocks[it->m_key]);
-        }
-        uint_set::iterator uit = relevant.begin(), uend = relevant.end();
-        for (; uit != uend; ++uit) {
-            unsigned p0_index = *uit;
-            block& p0 = pblocks[p0_index];
-            block p1;
-            for (u_map<T*>::iterator it = gamma.begin(); it != gend; ++it) {
-                if (p0.contains(*it)) p1.push_back(*it);
+        uint_set relevant1;
+        typedef typename u_map<T*>::iterator gamma_iterator;
+        gamma_iterator gend = gamma.end();
+        for (gamma_iterator git = gamma.begin(); git != gend; ++git) {
+            unsigned p0A_index = blocks[git->m_key];
+            if (relevant1.contains(p0A_index)) {
+                continue;
             }
-            if (p1.size() < p0.size()) {
-                unsigned p1_index = pblocks.size();
-                pblocks.push_back(p1);
-                for (uint_set::iterator it = p1.begin(), end = p1.end(); it != end; ++it) {
-                    p0.remove(*it);
-                    blocks[*it] = p1_index;
-                }
-                if (W.contains(p0_index)) {
-                    W.push_back(p1_index);
-                }
-                else if (p0.size() <= p1.size()) {
-                    W.push_back(p0_index);
-                }
-                else {
-                    W.push_back(p1_index);
-                }
-            }            
+            relevant1.insert(p0A_index);
+            block& p0A = pblocks[p0A_index];
+            block p1;
+            for (gamma_iterator it = gamma.begin(); it != gend; ++it) {
+                if (p0A.contains(it->m_key)) p1.insert(it->m_key);
+            }
+            
+            add_block(p1, p0A_index, blocks, pblocks, W);
+
             bool iterate = true;
             while (iterate) {
                 iterate = false;
-                uint_set relevant;
-                for (u_map<T*>::iterator it = gamma.begin(); it != gend; ++it) {
-                    if (pblocks[blocks[it->m_key]].size() > 1) { 
-                        relevant.insert(blocks[it->m_key]);
+                uint_set relevant2;
+                for (gamma_iterator it = gamma.begin(); it != gend; ++it) {
+                    unsigned p0B_index = blocks[it->m_key];
+                    if (pblocks[p0B_index].size() <= 1 || relevant2.contains(p0B_index)) {
+                        continue;
                     }
-                }
-                uint_set::iterator it = relevant.begin(), end = relevant.end();
-                for (; it != end; ++it) {
-                    block const& p = pblocks[*it];
-                    uint_set::iterator bi = p.begin(), be = p.end();
+                    relevant2.insert(p0B_index);
+                    block const& p0B = pblocks[p0B_index];
+                    uint_set::iterator bi = p0B.begin(), be = p0B.end();
 
                     block p1;
                     p1.insert(*bi);
-                    // psi = gamma[*bi]; // name of key or block?
+                    bool split_found = false;
+                    ref_t psi(gamma[*bi], m); 
                     ++bi;
                     for (; bi != be; ++bi) {
-                        
+                        unsigned q = *bi;
+                        ref_t phi(gamma[q], m);
+                        if (split_found) {
+                            ref_t phi_and_psi(m_ba.mk_and(phi, psi), m);
+                            switch (m_ba.is_sat(phi_and_psi)) {
+                            case l_true:
+                                p1.insert(q);
+                                break;
+                            case l_undef:
+                                return 0;
+                            default:
+                                break;
+                            }                            
+                        }
+                        else {
+                            ref_t psi_min_phi(m_ba.mk_and(psi, m_ba.mk_not(phi)), m);
+                            lbool is_sat = m_ba.is_sat(psi_min_phi);
+                            if (is_sat == l_undef) {
+                                return 0;
+                            }
+                            if (is_sat == l_true) {
+                                psi = psi_min_phi;
+                                split_found = true;
+                                continue;
+                            }
+                            // psi is a subset of phi
+                            ref_t phi_min_psi(m_ba.mk_and(phi, m_ba.mk_not(psi)), m);
+                            is_sat = m_ba.is_sat(phi_min_psi);
+                            if (is_sat == l_undef) {
+                                return 0;
+                            }
+                            else if (is_sat == l_false) {
+                                p1.insert(q); // psi and phi are equivalent
+                            }
+                            else {
+                                p1.clear();
+                                p1.insert(q);
+                                psi = phi_min_psi;
+                                split_found = true;
+                            }
+                        }
                     }
+                    if (p1.size() < p0B.size() && p0B.size() > 2) iterate = true;
+                    add_block(p1, p0B_index, blocks, pblocks, W);
                 }
             }
         }
     }
-#endif
 
-#if 0
-            Func<T, T, T> MkDiff = (x, y) => solver.MkAnd(x, solver.MkNot(y));
+    unsigned new_init = pblocks[blocks[a.init()]].get_representative();
 
-            while (!W.IsEmpty)
-            {
-                //keep using Bcopy until no more changes occur
-                //effectively, this replaces the loop over characters
-                bool iterate = true; 
-                    //in each relevant block all states lead to B due to the initial splitting
+    // set moves
+    map<unsigned_pair, T*, pair_hash<unsigned_hash, unsigned_hash>, default_eq<unsigned_pair> > conds;
+    svector<unsigned_pair> keys;
+    moves_t new_moves;
 
-                    //only relevant blocks are potentially split
-                    foreach (var P in relevant2)
-                    {
-                        var PE = P.GetEnumerator();
-                        PE.MoveNext();
-
-                        var P1 = new Block();
-                        bool splitFound = false;
-
-                        var psi = Gamma[PE.Current];
-                        P1.Add(PE.Current); //C has at least 2 elements
-
-                        #region compute C1 as the new sub-block of C
-                        while (PE.MoveNext())
-                        {
-                            var q = PE.Current;
-                            var phi = Gamma[q];
-                            if (splitFound)
-                            {
-                                var psi_and_phi = solver.MkAnd(psi, phi);
-                                if (solver.IsSatisfiable(psi_and_phi))
-                                    P1.Add(q);
-                            }
-                            else
-                            {
-                                var psi_min_phi = MkDiff(psi, phi);
-                                if (solver.IsSatisfiable(psi_min_phi))
-                                {
-                                    psi = psi_min_phi;
-                                    splitFound = true;
-                                }
-                                else // [[psi]] is subset of [[phi]]
-                                {
-                                    var phi_min_psi = MkDiff(phi, psi);
-                                    if (!solver.IsSatisfiable(phi_min_psi))
-                                        P1.Add(q); //psi and phi are equivalent
-                                    else
-                                    {
-                                        //there is some a: q --a--> B and p --a--> compl(B) for all p in C1
-                                        P1.Clear();
-                                        P1.Add(q);
-                                        psi = phi_min_psi;
-                                        splitFound = true;
-                                    }
-                                }
-                            }
-                        }
-                        #endregion
-
-                        #region split P
-                        if (P1.Count < P.Count)
-                        {
-                            iterate = (iterate || (P.Count > 2)); //otherwise C was split into singletons
-                            foreach (var p in P1)
-                            {
-                                P.Remove(p);
-                                Blocks[p] = P1;
-                            }
-
-                            if (W.Contains(P))
-                                W.Push(P1);
-                            else if (P.Count <= P1.Count)
-                                W.Push(P);
-                            else
-                                W.Push(P1);
-                        }
-                        #endregion
-                    }
-                }
+    for (unsigned i = 0; i < a.num_states(); ++i) {
+        unsigned src = pblocks[blocks[i]].get_representative();
+        typename automaton_t::moves const& mvs = a.get_moves_from(i);
+        for (unsigned j = 0; j < mvs.size(); ++j) {
+            unsigned dst = pblocks[blocks[mvs[j].dst()]].get_representative();
+            unsigned_pair st(src, dst);
+            T* t = 0;
+            if (conds.find(st, t)) {
+                t = m_ba.mk_or(t, mvs[j].t());
+                trail.push_back(t);
+                conds.insert(st, t);
             }
-
-            Dictionary<Pair<int, int>, HashSet<T>> condMap = new Dictionary<Pair<int, int>, HashSet<T>>();
-            foreach (var move in GetMoves())
-            {
-                int s = Blocks[move.SourceState].GetRepresentative();
-                int t = Blocks[move.TargetState].GetRepresentative();
-                var st = new Pair<int, int>(s, t);
-                HashSet<T> condSet;
-                if (!condMap.TryGetValue(st, out condSet))
-                {
-                    condSet = new HashSet<T>();
-                    condSet.Add(move.Label);
-                    condMap[st] = condSet;
-                }
-                else
-                    condSet.Add(move.Label);
+            else {
+                conds.insert(st, mvs[j].t());
+                keys.push_back(st);
             }
-            int newInitState = Blocks[fa.InitialState].GetRepresentative();
-            var newMoves = new List<Move<T>>();
-            var newFinals = new HashSet<int>();
-            foreach (var entry in condMap)
-                newMoves.Add(Move<T>.Create(entry.Key.First, entry.Key.Second, solver.MkOr(entry.Value)));
-            foreach (var f in GetFinalStates())
-                newFinals.Add(Blocks[f].GetRepresentative());
+        }
+    }    
+    for (unsigned i = 0; i < keys.size(); ++i) {
+        unsigned_pair st = keys[i];
+        new_moves.push_back(move_t(m, st.first, st.second, conds[st]));
+    }
+    // set final states.
+    unsigned_vector new_final;
+    uint_set new_final_set;
+    for (unsigned i = 0; i < a.final_states().size(); ++i) {
+        unsigned f = pblocks[blocks[a.final_states()[i]]].get_representative();
+        if (!new_final_set.contains(f)) {
+            new_final_set.insert(f);
+            new_final.push_back(f);
+        }
+    }
 
-            var res = Create(newInitState, newFinals, newMoves);
-            res.isDeterministic = true;
-            res.isEpsilonFree = true;
-            //res.EliminateDeadStates();
-            return res;
-#endif
-    
-    return 0;
-        
+    return alloc(automaton_t, m, new_init, new_final, new_moves);
 }
 
 template<class T, class M>
@@ -313,6 +285,9 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_produ
     unsigned_vector final;
     if (a.is_final_state(a.init()) && b.is_final_state(b.init())) {
         final.push_back(0);
+    }
+    if (false) {
+        mk_minimize(a);
     }
     unsigned n = 1;
     moves_t mvsA, mvsB;
