@@ -12,14 +12,13 @@ endif()
 if (("${CMAKE_${_lang}_COMPILER_ID}" MATCHES "Clang") OR ("${CMAKE_${_lang}_COMPILER_ID}" MATCHES "GNU"))
   # Taken from Modules/Compiler/GNU.cmake but -DNDEBUG is removed
   set(CMAKE_${_lang}_FLAGS_INIT "")
-  # FIXME: should we have -D_DEBUG here to match MSVC build?
   set(CMAKE_${_lang}_FLAGS_DEBUG_INIT "-g -O0")
   set(CMAKE_${_lang}_FLAGS_MINSIZEREL_INIT "-Os")
   set(CMAKE_${_lang}_FLAGS_RELEASE_INIT "-O3")
   set(CMAKE_${_lang}_FLAGS_RELWITHDEBINFO_INIT "-O2 -g")
   # FIXME: Remove "x.." when CMP0054 is set to NEW
 elseif ("x${CMAKE_${_lang}_COMPILER_ID}" STREQUAL "xMSVC")
-  set(CMAKE_${_lang}_FLAGS_DEBUG_INIT "/D_DEBUG /MTd /Zi /Ob0 /Od /RTC1")
+  set(CMAKE_${_lang}_FLAGS_DEBUG_INIT "/MTd /Zi /Ob0 /Od /RTC1")
   set(CMAKE_${_lang}_FLAGS_MINSIZEREL_INIT     "/MT /O1 /Ob1")
   set(CMAKE_${_lang}_FLAGS_RELEASE_INIT        "/MT /O2 /Ob2")
   set(CMAKE_${_lang}_FLAGS_RELWITHDEBINFO_INIT "/MT /Zi /O2 /Ob1")
