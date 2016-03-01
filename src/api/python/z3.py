@@ -8099,10 +8099,6 @@ class FPRef(ExprRef):
     def __gt__(self, other):
         return fpGT(self, other, self.ctx)
 
-    def __ne__(self, other):
-        return fpNEQ(self, other, self.ctx)
-
-
     def __add__(self, other):
         """Create the Z3 expression `self + other`.
 
