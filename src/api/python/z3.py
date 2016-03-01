@@ -8829,8 +8829,8 @@ def fpLT(a, b, ctx=None):
     >>> x, y = FPs('x y', FPSort(8, 24))
     >>> fpLT(x, y)
     x < y
-    >>> (x <= y).sexpr()
-    '(fp.leq x y)'
+    >>> (x < y).sexpr()
+    '(fp.lt x y)'
     """
     return _mk_fp_bin_pred(Z3_mk_fpa_lt, a, b, ctx)
 
