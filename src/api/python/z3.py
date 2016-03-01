@@ -8409,11 +8409,16 @@ def FPSort(ebits, sbits, ctx=None):
 
 def _to_float_str(val, exp=0):
     if isinstance(val, float):
-        v = val.as_integer_ratio()
-        num = v[0]
-        den = v[1]
-        rvs = str(num) + '/' + str(den)
-        res = rvs + 'p' + _to_int_str(exp)
+        # float.as_integer_ratio() cannot return an accurate representation of
+        # -0.0 because the denominator it returns is always positive.
+        if str(val) == "-0.0":
+          res = "-0.0"
+        else:
+          v = val.as_integer_ratio()
+          num = v[0]
+          den = v[1]
+          rvs = str(num) + '/' + str(den)
+          res = rvs + 'p' + _to_int_str(exp)
     elif isinstance(val, bool):
         if val:
             res = "1.0"
