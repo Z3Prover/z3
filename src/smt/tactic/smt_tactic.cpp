@@ -123,6 +123,11 @@ public:
         TRACE("smt_tactic", tout << this << "\nupdt_params: " << p << "\n";);
         updt_params_core(p);
         fparams().updt_params(p);
+        symbol logic = p.get_sym(symbol("logic"), symbol::null);
+        if (logic != symbol::null) {
+            if (m_ctx) m_ctx->set_logic(logic);
+            m_logic = logic;
+        }
         SASSERT(p.get_bool("auto_config", fparams().m_auto_config) == fparams().m_auto_config);
     }
 

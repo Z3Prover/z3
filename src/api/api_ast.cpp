@@ -832,7 +832,7 @@ extern "C" {
             pp_params params;
             pp.set_simplify_implies(params.simplify_implies());
             ast* a1 = to_ast(a);
-            pp.set_logic(mk_c(c)->fparams().m_smtlib_logic.c_str());
+            pp.set_logic(mk_c(c)->fparams().m_logic.c_str());
             if (!is_expr(a1)) {
                 buffer << mk_pp(a1, mk_c(c)->m());
                 break;
