@@ -1,14 +1,3 @@
-set(api_header_files_to_scan
-  z3_api.h
-  z3_ast_containers.h
-  z3_algebraic.h
-  z3_polynomial.h
-  z3_rcf.h
-  z3_fixedpoint.h
-  z3_optimization.h
-  z3_interp.h
-  z3_fpa.h
-)
 set(generated_files
   api_commands.cpp
   api_log_macros.cpp
@@ -23,10 +12,6 @@ foreach (gen_file ${generated_files})
   endif()
 endforeach()
 
-set(full_path_api_header_files_to_scan "")
-foreach (header_file ${api_header_files_to_scan})
-  list(APPEND full_path_api_header_files_to_scan "${CMAKE_CURRENT_SOURCE_DIR}/${header_file}")
-endforeach()
 set(full_path_generated_files "")
 foreach (gen_file ${generated_files})
   list(APPEND full_path_generated_files "${CMAKE_CURRENT_BINARY_DIR}/${gen_file}")
@@ -36,12 +21,12 @@ add_custom_command(OUTPUT ${generated_files}
   COMMAND "${PYTHON_EXECUTABLE}"
   "${CMAKE_SOURCE_DIR}/scripts/update_api.py"
   "${CMAKE_CURRENT_BINARY_DIR}"
-  ${full_path_api_header_files_to_scan}
+  ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
   DEPENDS "${CMAKE_SOURCE_DIR}/scripts/update_api.py"
           "${CMAKE_SOURCE_DIR}/scripts/mk_util.py"
-          ${full_path_api_header_files_to_scan}
+          ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
   COMMENT "Generating ${generated_files}"
-  USES_TERMINAL
+  ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
   VERBATIM
 )
 
