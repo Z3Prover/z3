@@ -126,6 +126,31 @@ to ``cmake``. See the section on "Build Types".
 
 Note that Ninja runs in parallel by default. Use the ``-j`` flag to change this.
 
+Note that Ninja also runs on Windows. You just need to run ``cmake`` in an
+environment where the compiler can be found. If you have Visual Studio
+installed it typically ships with a "Developer Command Prompt Window" that you
+can use which has the environment variables setup for you.
+
+## NMake
+
+NMake is a build system that ships with Visual Studio. You are advised to use
+Ninja instead which is significantly faster due to supporting concurrent
+builds. However CMake does support NMake if you wish to use it. Note that
+NMake is a single configuration generator so you must set ``CMAKE_BUILD_TYPE``
+to set the build type.
+
+Basic usage:
+
+1. Launch the "Developer Command Prompt Windows"
+2. Change to the root of the Z3 repository
+
+```
+mkdir build
+cd build
+cmake -G "NMake Makefiles" ../
+nmake
+```
+
 ### Visual Studio
 
 For the Visual Studio generators you need to know which version of Visual Studio you wish
@@ -193,6 +218,12 @@ The following useful options can be passed to CMake whilst configuring.
 * ``USE_LIB_GMP`` - BOOL. If set to ``TRUE`` use the GNU multiple precision library. If set to ``FALSE`` use an internal implementation.
 
 On the command line these can be passed to ``cmake`` using the ``-D`` option. In ``ccmake`` and ``cmake-gui`` these can be set in the user interface.
+
+Example
+
+```
+cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_TRACING=FALSE ../
+```
 
 ## Developer/packager notes
 
