@@ -74,7 +74,12 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minim
     if (!fa) {
         return 0;
     }
-    
+    return mk_minimize_total(*fa.get());
+}
+
+
+template<class T, class M>
+typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minimize_total(automaton_t& a) {    
     vector<block> pblocks;
     unsigned_vector blocks;
     pblocks.push_back(block(fa->final_states()));     // 0 |-> final states
@@ -101,7 +106,7 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minim
     u_map<T*> gamma;
     moves_t mvs;
     while (!W.empty()) {
-        block R(W.back());
+        block R(pblocks[W.back()]);
         W.pop_back();
         block Rcopy(R);
         gamma.reset();
@@ -123,12 +128,172 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minim
             }
         }
         uint_set relevant;
-        u_map<T*>::iterator end = gamma.end();
-        for (u_map<T*>::iterator it = gamma.begin(); it != end; ++it) {
-            relevant.insert(it->m_key);
+        u_map<T*>::iterator gend = gamma.end();
+        for (u_map<T*>::iterator it = gamma.begin(); it != gend; ++it) {
+            relevant.insert(blocks[it->m_key]);
         }
-        
+        uint_set::iterator uit = relevant.begin(), uend = relevant.end();
+        for (; uit != uend; ++uit) {
+            unsigned p0_index = *uit;
+            block& p0 = pblocks[p0_index];
+            block p1;
+            for (u_map<T*>::iterator it = gamma.begin(); it != gend; ++it) {
+                if (p0.contains(*it)) p1.push_back(*it);
+            }
+            if (p1.size() < p0.size()) {
+                unsigned p1_index = pblocks.size();
+                pblocks.push_back(p1);
+                for (uint_set::iterator it = p1.begin(), end = p1.end(); it != end; ++it) {
+                    p0.remove(*it);
+                    blocks[*it] = p1_index;
+                }
+                if (W.contains(p0_index)) {
+                    W.push_back(p1_index);
+                }
+                else if (p0.size() <= p1.size()) {
+                    W.push_back(p0_index);
+                }
+                else {
+                    W.push_back(p1_index);
+                }
+            }            
+            bool iterate = true;
+            while (iterate) {
+                iterate = false;
+                uint_set relevant;
+                for (u_map<T*>::iterator it = gamma.begin(); it != gend; ++it) {
+                    if (pblocks[blocks[it->m_key]].size() > 1) { 
+                        relevant.insert(blocks[it->m_key]);
+                    }
+                }
+                uint_set::iterator it = relevant.begin(), end = relevant.end();
+                for (; it != end; ++it) {
+                    block const& p = pblocks[*it];
+                    uint_set::iterator bi = p.begin(), be = p.end();
+
+                    block p1;
+                    p1.insert(*bi);
+                    // psi = gamma[*bi]; // name of key or block?
+                    ++bi;
+                    for (; bi != be; ++bi) {
+                        
+                    }
+                }
+            }
+        }
     }
+#endif
+
+#if 0
+            Func<T, T, T> MkDiff = (x, y) => solver.MkAnd(x, solver.MkNot(y));
+
+            while (!W.IsEmpty)
+            {
+                //keep using Bcopy until no more changes occur
+                //effectively, this replaces the loop over characters
+                bool iterate = true; 
+                    //in each relevant block all states lead to B due to the initial splitting
+
+                    //only relevant blocks are potentially split
+                    foreach (var P in relevant2)
+                    {
+                        var PE = P.GetEnumerator();
+                        PE.MoveNext();
+
+                        var P1 = new Block();
+                        bool splitFound = false;
+
+                        var psi = Gamma[PE.Current];
+                        P1.Add(PE.Current); //C has at least 2 elements
+
+                        #region compute C1 as the new sub-block of C
+                        while (PE.MoveNext())
+                        {
+                            var q = PE.Current;
+                            var phi = Gamma[q];
+                            if (splitFound)
+                            {
+                                var psi_and_phi = solver.MkAnd(psi, phi);
+                                if (solver.IsSatisfiable(psi_and_phi))
+                                    P1.Add(q);
+                            }
+                            else
+                            {
+                                var psi_min_phi = MkDiff(psi, phi);
+                                if (solver.IsSatisfiable(psi_min_phi))
+                                {
+                                    psi = psi_min_phi;
+                                    splitFound = true;
+                                }
+                                else // [[psi]] is subset of [[phi]]
+                                {
+                                    var phi_min_psi = MkDiff(phi, psi);
+                                    if (!solver.IsSatisfiable(phi_min_psi))
+                                        P1.Add(q); //psi and phi are equivalent
+                                    else
+                                    {
+                                        //there is some a: q --a--> B and p --a--> compl(B) for all p in C1
+                                        P1.Clear();
+                                        P1.Add(q);
+                                        psi = phi_min_psi;
+                                        splitFound = true;
+                                    }
+                                }
+                            }
+                        }
+                        #endregion
+
+                        #region split P
+                        if (P1.Count < P.Count)
+                        {
+                            iterate = (iterate || (P.Count > 2)); //otherwise C was split into singletons
+                            foreach (var p in P1)
+                            {
+                                P.Remove(p);
+                                Blocks[p] = P1;
+                            }
+
+                            if (W.Contains(P))
+                                W.Push(P1);
+                            else if (P.Count <= P1.Count)
+                                W.Push(P);
+                            else
+                                W.Push(P1);
+                        }
+                        #endregion
+                    }
+                }
+            }
+
+            Dictionary<Pair<int, int>, HashSet<T>> condMap = new Dictionary<Pair<int, int>, HashSet<T>>();
+            foreach (var move in GetMoves())
+            {
+                int s = Blocks[move.SourceState].GetRepresentative();
+                int t = Blocks[move.TargetState].GetRepresentative();
+                var st = new Pair<int, int>(s, t);
+                HashSet<T> condSet;
+                if (!condMap.TryGetValue(st, out condSet))
+                {
+                    condSet = new HashSet<T>();
+                    condSet.Add(move.Label);
+                    condMap[st] = condSet;
+                }
+                else
+                    condSet.Add(move.Label);
+            }
+            int newInitState = Blocks[fa.InitialState].GetRepresentative();
+            var newMoves = new List<Move<T>>();
+            var newFinals = new HashSet<int>();
+            foreach (var entry in condMap)
+                newMoves.Add(Move<T>.Create(entry.Key.First, entry.Key.Second, solver.MkOr(entry.Value)));
+            foreach (var f in GetFinalStates())
+                newFinals.Add(Blocks[f].GetRepresentative());
+
+            var res = Create(newInitState, newFinals, newMoves);
+            res.isDeterministic = true;
+            res.isEpsilonFree = true;
+            //res.EliminateDeadStates();
+            return res;
 #endif
     
     return 0;

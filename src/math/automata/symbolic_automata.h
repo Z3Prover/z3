@@ -96,6 +96,8 @@ public:
     automaton_t* remove_epsilons(automaton_t& a);
     automaton_t* mk_total(automaton_t& a);
     automaton_t* mk_minimize(automaton_t& a);
+    automaton_t* mk_minimize_total(automaton_t& a);
+    automaton_t* mk_difference(automaton_t& a, automaton_t& b);
     automaton_t* mk_product(automaton_t& a, automaton_t& b);
 };
 

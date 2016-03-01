@@ -22,7 +22,7 @@ Author:
 #include "ast_pp.h"
 #include <climits>
 
-static uint64_t uMaxInt(unsigned sz) {
+static uint64 uMaxInt(unsigned sz) {
     SASSERT(sz <= 64);
     return ULLONG_MAX >> (64u - sz);
 }
@@ -32,12 +32,12 @@ namespace {
 struct interval {
     // l < h: [l, h]
     // l > h: [0, h] U [l, UMAX_INT]
-    uint64_t l, h;
+    uint64 l, h;
     unsigned sz;
     bool tight;
 
     interval() {}
-    interval(uint64_t l, uint64_t h, unsigned sz, bool tight = false) : l(l), h(h), sz(sz), tight(tight) {
+    interval(uint64 l, uint64 h, unsigned sz, bool tight = false) : l(l), h(h), sz(sz), tight(tight) {
         // canonicalize full set
         if (is_wrapped() && l == h + 1) {
             this->l = 0;
@@ -175,7 +175,7 @@ class bv_bounds_simplifier : public ctx_simplify_tactic::simplifier {
     expr_list_map      m_expr_vars;
     expr_set           m_bound_exprs;
 
-    bool is_number(expr *e, uint64_t& n, unsigned& sz) const {
+    bool is_number(expr *e, uint64& n, unsigned& sz) const {
         rational r;
         if (m_bv.is_numeral(e, r, sz) && sz <= 64) {
             n = r.get_uint64();
@@ -185,7 +185,7 @@ class bv_bounds_simplifier : public ctx_simplify_tactic::simplifier {
     }
 
     bool is_bound(expr *e, expr*& v, interval& b) const {
-        uint64_t n;
+        uint64 n;
         expr *lhs, *rhs;
         unsigned sz;
 
