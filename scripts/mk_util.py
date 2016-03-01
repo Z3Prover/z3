@@ -1261,13 +1261,16 @@ class DLLComponent(Component):
             out.write(' /DEF:%s.def' % os.path.join(self.to_src_dir, self.name))
         out.write('\n')
         if self.static:
-            self.mk_static(out)
-            libfile = '%s$(LIB_EXT)' % self.dll_name
+            if IS_WINDOWS:
+                libfile = '%s-static$(LIB_EXT)' % self.dll_name
+            else:
+                libfile = '%s$(LIB_EXT)' % self.dll_name
+            self.mk_static(out, libfile)
             out.write('%s: %s %s\n\n' % (self.name, self.dll_file(), libfile))
         else:
             out.write('%s: %s\n\n' % (self.name, self.dll_file()))
 
-    def mk_static(self, out):
+    def mk_static(self, out, libfile):
         # generate rule for lib
         objs = []
         for cppfile in get_cpp_files(self.src_dir):
@@ -1279,7 +1282,6 @@ class DLLComponent(Component):
             for cppfile in get_cpp_files(dep.src_dir):
                 objfile = '%s$(OBJ_EXT)' % os.path.join(dep.build_dir, os.path.splitext(cppfile)[0])
                 objs.append(objfile)
-        libfile = '%s$(LIB_EXT)' % self.dll_name
         out.write('%s:' % libfile)
         for obj in objs:
             out.write(' ')
