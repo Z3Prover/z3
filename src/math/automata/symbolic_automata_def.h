@@ -157,7 +157,7 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minim
             relevant1.insert(p0A_index);
             block& p0A = pblocks[p0A_index];
             block p1;
-            for (iterator it = gamma.begin(); it != gend; ++it) {
+            for (gamma_iterator it = gamma.begin(); it != gend; ++it) {
                 if (p0A.contains(it->m_key)) p1.insert(it->m_key);
             }
             
