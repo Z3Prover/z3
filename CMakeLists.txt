@@ -212,10 +212,18 @@ if (USE_OPENMP)
 endif()
 if (OPENMP_FOUND)
     list(APPEND Z3_COMPONENT_CXX_FLAGS ${OpenMP_CXX_FLAGS})
-    # Targets linking against libz3 (or its individual components)
-    # will need to add these flags
-    list(APPEND Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS ${OpenMP_CXX_FLAGS})
-    list(APPEND Z3_DEPENDENT_EXTRA_C_LINK_FLAGS ${OpenMP_C_FLAGS})
+    # GCC and Clang need to have additional flags passed to the linker.
+    # We can't do ``target_link_libraries(libz3 INTERFACE ${OpenMP_CXX_FLAGS})``
+    # because ``/openmp`` is interpreted as file name rather than a linker
+    # flag by MSVC and breaks the build
+    if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang") OR
+        ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU"))
+      list(APPEND Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS ${OpenMP_C_FLAGS})
+    endif()
+    if (("${CMAKE_C_COMPILER_ID}" MATCHES "Clang") OR
+        ("${CMAKE_C_COMPILER_ID}" MATCHES "GNU"))
+      list(APPEND Z3_DEPENDENT_EXTRA_C_LINK_FLAGS ${OpenMP_CXX_FLAGS})
+    endif()
     unset(CMAKE_REQUIRED_FLAGS)
     message(STATUS "Using OpenMP")
 else()
