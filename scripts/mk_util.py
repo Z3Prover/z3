@@ -71,6 +71,7 @@ VERBOSE=True
 DEBUG_MODE=False
 SHOW_CPPS = True
 VS_X64 = False
+VS_ARM = False
 LINUX_X64 = True
 ONLY_MAKEFILES = False
 Z3PY_SRC_DIR=None
@@ -98,6 +99,7 @@ USE_OMP=True
 
 FPMATH="Default"
 FPMATH_FLAGS="-mfpmath=sse -msse -msse2"
+
 
 def check_output(cmd):
     out = subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()[0]
@@ -1557,6 +1559,8 @@ class DotNetDLLComponent(Component):
         if IS_WINDOWS:
             if VS_X64:
                 cscCmdLine.extend(['/platform:x64'])
+            elif VS_ARM:
+                cscCmdLine.extend(['/platform:arm'])
             else:
                 cscCmdLine.extend(['/platform:x86'])
         else:
@@ -1997,6 +2001,8 @@ class DotNetExampleComponent(ExampleComponent):
             out.write('\t%s /out:%s /reference:%s /debug:full /reference:System.Numerics.dll' % (CSC, exefile, dll))
             if VS_X64:
                 out.write(' /platform:x64')
+            elif VS_ARM:
+                out.write(' /platform:arm')                
             else:
                 out.write(' /platform:x86')
             for csfile in get_cs_files(self.ex_dir):
@@ -2186,18 +2192,21 @@ def mk_config():
                 'AR_FLAGS=/nologo\n'
                 'LINK_FLAGS=/nologo /MDd\n'
                 'SLINK_FLAGS=/nologo /LDd\n')
-            if not VS_X64:
-                config.write(
-                    'CXXFLAGS=/c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D Z3DEBUG %s /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze- /arch:SSE2\n' % extra_opt)
-                config.write(
-                    'LINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X86 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT\n'
-                    'SLINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X86 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO\n')
-            else:
+            if VS_X64:
                 config.write(
                     'CXXFLAGS=/c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _AMD64_ /D _DEBUG /D Z3DEBUG %s /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze-\n' % extra_opt)
                 config.write(
                     'LINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT\n'
                     'SLINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO\n')
+            elif VS_ARM:
+                print("ARM on VS is unsupported")
+                exit(1)
+            else:
+                config.write(
+                    'CXXFLAGS=/c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D Z3DEBUG %s /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze- /arch:SSE2\n' % extra_opt)
+                config.write(
+                    'LINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X86 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT\n'
+                    'SLINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X86 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO\n')
         else:
             # Windows Release mode
             LTCG=' /LTCG' if SLOW_OPTIMIZE else ''
@@ -2209,18 +2218,23 @@ def mk_config():
                 % LTCG)
             if TRACE:
                 extra_opt = '%s /D _TRACE ' % extra_opt
-            if not VS_X64:
-                config.write(
-                    'CXXFLAGS=/nologo /c%s /Zi /W3 /WX- /O2 /Oy- /D _EXTERNAL_RELEASE /D WIN32 /D NDEBUG %s /D _CONSOLE /D _WINDOWS /D ASYNC_COMMANDS /Gm- /EHsc /MD /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze- /arch:SSE2\n' % (GL, extra_opt))
-                config.write(
-                    'LINK_EXTRA_FLAGS=/link%s /DEBUG /MACHINE:X86 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT\n'
-                    'SLINK_EXTRA_FLAGS=/link%s /DEBUG /MACHINE:X86 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO\n' % (LTCG, LTCG))
-            else:
+            if VS_X64:
                 config.write(
                     'CXXFLAGS=/c%s /Zi /nologo /W3 /WX- /O2 /D _EXTERNAL_RELEASE /D WIN32 /D NDEBUG %s /D _LIB /D _WINDOWS /D _AMD64_ /D _UNICODE /D UNICODE /Gm- /EHsc /MD /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /TP\n' % (GL, extra_opt))
                 config.write(
                     'LINK_EXTRA_FLAGS=/link%s /MACHINE:X64 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608\n'
                     'SLINK_EXTRA_FLAGS=/link%s /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608\n' % (LTCG, LTCG))
+            elif VS_ARM:
+                print("ARM on VS is unsupported")
+                exit(1)
+            else:
+                config.write(
+                    'CXXFLAGS=/nologo /c%s /Zi /W3 /WX- /O2 /Oy- /D _EXTERNAL_RELEASE /D WIN32 /D NDEBUG %s /D _CONSOLE /D _WINDOWS /D ASYNC_COMMANDS /Gm- /EHsc /MD /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze- /arch:SSE2\n' % (GL, extra_opt))
+                config.write(
+                    'LINK_EXTRA_FLAGS=/link%s /DEBUG /MACHINE:X86 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT\n'
+                    'SLINK_EXTRA_FLAGS=/link%s /DEBUG /MACHINE:X86 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO\n' % (LTCG, LTCG))
+
+                
 
         # End of Windows VS config.mk
         if is_verbose():
@@ -2446,6 +2460,9 @@ def mk_makefile():
             if VS_X64:
                 print("  platform: x64\n")
                 print("To build Z3, open a [Visual Studio x64 Command Prompt], then")
+            elif VS_ARM:
+                print("  platform: ARM\n")
+                print("To build Z3, open a [Visual Studio ARM Command Prompt], then")                
             else:
                 print("  platform: x86")
                 print("To build Z3, open a [Visual Studio Command Prompt], then")

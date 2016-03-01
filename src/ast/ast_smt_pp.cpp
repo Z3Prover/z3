@@ -30,6 +30,7 @@ Revision History:
 #include"for_each_ast.h"
 #include"decl_collector.h"
 #include"smt2_util.h"
+#include"seq_decl_plugin.h"
 
 // ---------------------------------------
 // smt_renaming
@@ -160,6 +161,7 @@ class smt_printer {
     unsigned         m_num_lets;
     arith_util       m_autil;
     bv_util          m_bvutil;
+    seq_util         m_sutil;
     family_id        m_basic_fid;
     family_id        m_bv_fid;
     family_id        m_arith_fid;
@@ -247,6 +249,10 @@ class smt_printer {
         }
 
         if (m_is_smt2) {
+            if (is_sort_symbol && sym == symbol("String")) {
+                m_out << "String";
+                return;
+            }
             if (is_sort_symbol && sym != symbol("BitVec")) {
                 m_out << "(" << sym << " ";                
             }
@@ -397,6 +403,7 @@ class smt_printer {
         bool is_int, pos;
         buffer<symbol> names;
         unsigned bv_size;
+        zstring s;    
         unsigned num_args = n->get_num_args();
         func_decl* decl = n->get_decl();
         if (m_autil.is_numeral(n, val, is_int)) {
@@ -414,6 +421,19 @@ class smt_printer {
             else {
                 display_rational(val, is_int);
             }
+        }
+        else if (m_sutil.str.is_string(n, s)) {
+            std::string encs = s.encode();
+            m_out << "\"";
+            for (unsigned i = 0; i < encs.length(); ++i) {
+                if (encs[i] == '\"') {
+                    m_out << "\"\"";
+                }
+                else {
+                    m_out << encs[i];
+                }
+            }
+            m_out << "\"";              
         }
         else if (m_bvutil.is_numeral(n, val, bv_size)) {
             if (m_is_smt2) {
@@ -797,6 +817,7 @@ public:
         m_num_lets(0),
         m_autil(m),
         m_bvutil(m),
+        m_sutil(m),
         m_logic(logic),
         m_AUFLIRA("AUFLIRA"),
         // It's much easier to read those testcases with that.

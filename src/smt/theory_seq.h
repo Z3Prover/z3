@@ -28,6 +28,7 @@ Revision History:
 #include "scoped_ptr_vector.h"
 #include "automaton.h"
 #include "seq_rewriter.h"
+#include "union_find.h"
 
 namespace smt {
 
@@ -44,6 +45,7 @@ namespace smt {
         typedef trail_stack<theory_seq> th_trail_stack;
         typedef std::pair<expr*, dependency*> expr_dep;
         typedef obj_map<expr, expr_dep> eqdep_map_t; 
+	typedef union_find<theory_seq> th_union_find;
 
         class seq_value_proc;
 
@@ -191,6 +193,27 @@ namespace smt {
             expr_ref const& r() const { return m_r; }
         };
 
+        class nc {
+            expr_ref                 m_contains;
+            dependency*              m_dep;
+        public:
+            nc(expr_ref const& c, dependency* dep):
+                m_contains(c), 
+                m_dep(dep) {}
+            nc(nc const& other):
+                m_contains(other.m_contains), 
+                m_dep(other.m_dep) {}
+            nc& operator=(nc const& other) {
+                if (this != &other) {
+                    m_contains = other.m_contains;
+                    m_dep = other.m_dep;
+                }
+                return *this;
+            }
+            dependency* deps() const { return m_dep; }
+            expr_ref const& contains() const { return m_contains; }
+        };
+
         class apply {
         public:
             virtual ~apply() {}
@@ -263,13 +286,16 @@ namespace smt {
             unsigned m_add_axiom;
             unsigned m_extensionality;
             unsigned m_fixed_length;
+            unsigned m_propagate_contains;
         };
         ast_manager&               m;
         dependency_manager         m_dm;
         solution_map               m_rep;        // unification representative.
         scoped_vector<eq>          m_eqs;        // set of current equations.
         scoped_vector<ne>          m_nqs;        // set of current disequalities.
-        unsigned                   m_eq_id;
+        scoped_vector<nc>          m_ncs;        // set of non-contains constraints.
+        unsigned                   m_eq_id;	
+	th_union_find              m_find;
 
         seq_factory*               m_factory;    // value factory
         exclusion_table            m_exclude;    // set of asserted disequalities.
@@ -286,7 +312,7 @@ namespace smt {
         arith_util       m_autil;
         th_trail_stack   m_trail_stack;
         stats            m_stats;
-        symbol           m_prefix, m_suffix, m_contains_left, m_contains_right, m_accept, m_reject;
+        symbol           m_prefix, m_suffix, m_accept, m_reject;
         symbol           m_tail, m_nth, m_seq_first, m_seq_last, m_indexof_left, m_indexof_right, m_aut_step;
         symbol           m_pre, m_post, m_eq;
         ptr_vector<expr> m_todo;
@@ -306,6 +332,7 @@ namespace smt {
 
         obj_hashtable<expr>            m_fixed;            // string variables that are fixed length.
 
+        virtual void init(context* ctx);
         virtual final_check_status final_check_eh();
         virtual bool internalize_atom(app* atom, bool) { return internalize_term(atom); }
         virtual bool internalize_term(app*);
@@ -335,12 +362,14 @@ namespace smt {
         bool split_variable();           // split a variable
         bool is_solved(); 
         bool check_length_coherence();
+        bool check_length_coherence0(expr* e);
         bool check_length_coherence(expr* e);
         bool fixed_length();
         bool fixed_length(expr* e);
         bool propagate_length_coherence(expr* e);  
 
         bool check_extensionality();
+        bool check_contains();
         bool solve_eqs(unsigned start);
         bool solve_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep);
         bool simplify_eq(expr_ref_vector& l, expr_ref_vector& r, dependency* dep);
@@ -362,6 +391,7 @@ namespace smt {
         expr_ref mk_concat(expr* e1, expr* e2, expr* e3) { return expr_ref(m_util.str.mk_concat(e1, e2, e3), m); }
         bool solve_nqs(unsigned i);
         bool solve_ne(unsigned i);
+        bool solve_nc(unsigned i);
 
         struct cell {
             cell*       m_parent;
@@ -441,7 +471,7 @@ namespace smt {
         void add_at_axiom(expr* n);
         void add_in_re_axiom(expr* n);
         literal mk_literal(expr* n);
-        literal mk_eq_empty(expr* n);
+        literal mk_eq_empty(expr* n, bool phase = true);
         literal mk_seq_eq(expr* a, expr* b);
         void tightest_prefix(expr* s, expr* x);
         expr_ref mk_sub(expr* a, expr* b);
@@ -452,9 +482,9 @@ namespace smt {
 
 
         // arithmetic integration
-        bool lower_bound(expr* s, rational& lo);
-        bool upper_bound(expr* s, rational& hi);
-        bool get_length(expr* s, rational& val);
+        bool lower_bound(expr* s, rational& lo) const;
+        bool upper_bound(expr* s, rational& hi) const;
+        bool get_length(expr* s, rational& val) const;
 
         void mk_decompose(expr* e, expr_ref& head, expr_ref& tail);
         expr_ref mk_skolem(symbol const& s, expr* e1, expr* e2 = 0, expr* e3 = 0, sort* range = 0);
@@ -489,11 +519,12 @@ namespace smt {
         bool add_suffix2suffix(expr* e, bool& change);
         bool add_contains2contains(expr* e, bool& change);
         void propagate_not_prefix(expr* e);
+        void propagate_not_prefix2(expr* e);
         void propagate_not_suffix(expr* e);
         void ensure_nth(literal lit, expr* s, expr* idx);
         bool canonizes(bool sign, expr* e);
         void propagate_non_empty(literal lit, expr* s);
-        void propagate_is_conc(expr* e, expr* conc);
+        bool propagate_is_conc(expr* e, expr* conc);
         void propagate_acc_rej_length(literal lit, expr* acc_rej);
         bool propagate_automata();
         void add_atom(expr* e);
@@ -511,6 +542,11 @@ namespace smt {
 
         // model building
         app* mk_value(app* a);
+
+	th_trail_stack& get_trail_stack() { return m_trail_stack; }
+        void merge_eh(theory_var, theory_var, theory_var v1, theory_var v2) {}
+        void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) { }
+        void unmerge_eh(theory_var v1, theory_var v2) {}
 
     };
 };

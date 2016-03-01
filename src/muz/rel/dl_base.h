@@ -435,11 +435,7 @@ namespace datalog {
             void destroy() {
                 SASSERT(this);
                 this->~base_ancestor();
-#if _DEBUG
-                memory::deallocate(__FILE__, __LINE__, this);
-#else
                 memory::deallocate(this);
-#endif
             }
         public:
             /**

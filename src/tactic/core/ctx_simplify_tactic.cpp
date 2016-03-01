@@ -36,7 +36,7 @@ public:
     virtual ~ctx_propagate_assertions() {}
     virtual bool assert_expr(expr * t, bool sign);
     virtual bool simplify(expr* t, expr_ref& result);
-    virtual void push();
+    void push();
     virtual void pop(unsigned num_scopes);
     virtual unsigned scope_level() const { return m_scopes.size(); }
     virtual simplifier * translate(ast_manager & m);
@@ -260,10 +260,6 @@ struct ctx_simplify_tactic::imp {
         return m_simp->scope_level();
     }
 
-    void push() { 
-        m_simp->push();
-    }
-
     void restore_cache(unsigned lvl) {
         if (lvl >= m_cache_undo.size())
             return;
@@ -331,17 +327,13 @@ struct ctx_simplify_tactic::imp {
 
     void simplify(expr * t, expr_ref & r) {
         r = 0;
-        if (m_depth >= m_max_depth || m_num_steps >= m_max_steps || !is_app(t)) {
+        if (m_depth >= m_max_depth || m_num_steps >= m_max_steps || !is_app(t) || !m_simp->may_simplify(t)) {
             r = t;
             return;
         }
         checkpoint();
         TRACE("ctx_simplify_tactic_detail", tout << "processing: " << mk_bounded_pp(t, m) << "\n";);
-        if (m_simp->simplify(t, r)) {
-            SASSERT(r.get() != 0);
-            return;
-        }
-        if (is_cached(t, r)) {
+        if (is_cached(t, r) || m_simp->simplify(t, r)) {
             SASSERT(r.get() != 0);
             return;
         }

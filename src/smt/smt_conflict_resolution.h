@@ -114,7 +114,6 @@ namespace smt {
 
         void mark_justification(justification * js) {
             if (!js->is_marked()) {
-                TRACE("conflict_detail", tout << "marking: " << js << "\n";);
                 js->set_mark();
                 m_todo_js.push_back(js);
             }
@@ -126,7 +125,7 @@ namespace smt {
                     std::swap(n1, n2);
                 enode_pair p(n1, n2);
                 if (m_already_processed_eqs.insert_if_not_there(p)) {
-                    TRACE("conflict_detail", tout << "marking eq #" << p.first->get_owner_id() << " = #" << 
+                    TRACE("conflict_detail_verbose", tout << "marking eq #" << p.first->get_owner_id() << " = #" << 
                           p.second->get_owner_id() << "\n";);
                     m_todo_eqs.push_back(p);
                     SASSERT(m_already_processed_eqs.contains(p));
@@ -168,9 +167,8 @@ namespace smt {
         void eq_justification2literals(enode * lhs, enode * rhs, eq_justification js);
         void eq_branch2literals(enode * n1, enode * n2);
         void eq2literals(enode * n1, enode * n2);
-        void justification2literals_core(justification * js, literal_vector & result);
+        void justification2literals_core(justification * js, literal_vector & result) ;
         void unmark_justifications(unsigned old_js_qhead);
-        void justification2literals(justification * js, literal_vector & result);
 
         literal_vector m_tmp_literal_vector;
 
@@ -256,6 +254,9 @@ namespace smt {
         literal_vector::const_iterator end_unsat_core() const {
             return m_assumptions.end();
         }
+
+        void justification2literals(justification * js, literal_vector & result);
+
     };
 
     inline void mark_literals(conflict_resolution & cr, unsigned sz, literal const * ls) {
