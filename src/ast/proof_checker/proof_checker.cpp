@@ -1280,7 +1280,7 @@ void proof_checker::dump_proof(unsigned num_antecedents, expr * const * antecede
     ast_smt_pp pp(m);
     pp.set_benchmark_name("lemma");
     pp.set_status("unsat");
-    pp.set_logic(m_logic.c_str());
+    pp.set_logic(symbol(m_logic.c_str()));
     for (unsigned i = 0; i < num_antecedents; i++)
         pp.add_assumption(antecedents[i]);
     expr_ref n(m);

@@ -160,7 +160,7 @@ struct smt_params : public preprocessor_params,
     //
     // -----------------------------------
     bool              m_smtlib_dump_lemmas;
-    std::string       m_smtlib_logic;
+    symbol            m_logic;
     
     // -----------------------------------
     //
@@ -260,7 +260,7 @@ struct smt_params : public preprocessor_params,
         m_old_clause_relevancy(6),
         m_inv_clause_decay(1),
         m_smtlib_dump_lemmas(false),
-        m_smtlib_logic("AUFLIA"),
+        m_logic(symbol::null),
         m_profile_res_sub(false),
         m_display_bool_var2expr(false),
         m_display_ll_bool_var2expr(false),

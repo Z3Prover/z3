@@ -2872,7 +2872,7 @@ namespace smt {
         if (dump_lemmas()) {
             TRACE("arith", ante.display(tout) << " --> "; ctx.display_detailed_literal(tout, l); tout << "\n";);
             ctx.display_lemma_as_smt_problem(ante.lits().size(), ante.lits().c_ptr(), 
-                                             ante.eqs().size(), ante.eqs().c_ptr(), l, 0);
+                                             ante.eqs().size(), ante.eqs().c_ptr(), l);
         }
     }
 
@@ -2881,7 +2881,7 @@ namespace smt {
         context & ctx = get_context();
         if (dump_lemmas()) {
             ctx.display_lemma_as_smt_problem(ante.lits().size(), ante.lits().c_ptr(), 
-                                             ante.eqs().size(), ante.eqs().c_ptr(), l, 0);
+                                             ante.eqs().size(), ante.eqs().c_ptr(), l);
         }
     }
 

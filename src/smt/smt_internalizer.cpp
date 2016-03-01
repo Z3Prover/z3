@@ -1433,7 +1433,7 @@ namespace smt {
             literal_buffer tmp;
             neg_literals(num_lits, lits, tmp);
             SASSERT(tmp.size() == num_lits);
-            display_lemma_as_smt_problem(tmp.size(), tmp.c_ptr(), false_literal, m_fparams.m_smtlib_logic.c_str());
+            display_lemma_as_smt_problem(tmp.size(), tmp.c_ptr(), false_literal, m_fparams.m_logic);
         }
         mk_clause(num_lits, lits, js);
     }

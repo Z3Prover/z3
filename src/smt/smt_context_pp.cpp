@@ -215,7 +215,7 @@ namespace smt {
         }
     }
 
-    void context::display_assignment_as_smtlib2(std::ostream& out, char const* logic) const {
+    void context::display_assignment_as_smtlib2(std::ostream& out, symbol const&  logic) const {
         ast_smt_pp pp(m_manager);
         pp.set_benchmark_name("lemma");
         pp.set_status("unknown");
@@ -421,7 +421,7 @@ namespace smt {
         st.display_internal(out);
     }
 
-    void context::display_lemma_as_smt_problem(std::ostream & out, unsigned num_antecedents, literal const * antecedents, literal consequent, const char * logic) const {
+    void context::display_lemma_as_smt_problem(std::ostream & out, unsigned num_antecedents, literal const * antecedents, literal consequent, symbol const& logic) const {
         ast_smt_pp pp(m_manager);
         pp.set_benchmark_name("lemma");
         pp.set_status("unsat");
@@ -441,7 +441,7 @@ namespace smt {
 
 #define BUFFER_SZ 128
 
-    void context::display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents, literal consequent, const char * logic) const {
+    void context::display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents, literal consequent, symbol const& logic) const {
         char buffer[BUFFER_SZ];
 #ifdef _WINDOWS
         sprintf_s(buffer, BUFFER_SZ, "lemma_%d.smt2", g_lemma_id);
@@ -456,7 +456,7 @@ namespace smt {
 
     void context::display_lemma_as_smt_problem(std::ostream & out, unsigned num_antecedents, literal const * antecedents,
                                                unsigned num_eq_antecedents, enode_pair const * eq_antecedents,
-                                               literal consequent, const char * logic) const {
+                                               literal consequent, symbol const& logic) const {
         ast_smt_pp pp(m_manager);
         pp.set_benchmark_name("lemma");
         pp.set_status("unsat");
@@ -480,7 +480,7 @@ namespace smt {
 
     void context::display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents,
                                                unsigned num_eq_antecedents, enode_pair const * eq_antecedents,
-                                               literal consequent, const char * logic) const {
+                                               literal consequent, symbol const& logic) const {
         char buffer[BUFFER_SZ];
 #ifdef _WINDOWS
         sprintf_s(buffer, BUFFER_SZ, "lemma_%d.smt2", g_lemma_id);
