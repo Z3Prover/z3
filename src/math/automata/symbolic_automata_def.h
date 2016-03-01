@@ -75,23 +75,24 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minim
         return 0;
     }
     
-    block final_block(fa->final_states());
-    block non_final_block(fa->non_final_states());
-    vector<block> blocks;
+    vector<block> pblocks;
+    unsigned_vector blocks;
+    pblocks.push_back(block(fa->final_states()));     // 0 |-> final states
+    pblocks.push_back(block(fa->non_final_states());  // 1 |-> non-final states
     for (unsigned i = 0; i < fa->num_states(); ++i) {
-        if (fa->is_final_state(i)) {
-            blocks.push_back(final_block);
+        if (fa->is_final_state(i)) {            
+            blocks.push_back(0);
         }
         else {
-            blocks.push_back(non_final_block);
+            blocks.push_back(1);
         }
     }
     vector<block> W;
     if (final_block.size() > non_final_block.size()) {
-        W.push_back(non_final_block);
+        W.push_back(1);
     }
     else {
-        W.push_back(final_block);
+        W.push_back(0);
     }
     
 #if 0
@@ -111,7 +112,7 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minim
             fa->get_moves_to(q, mvs);
             for (unsigned i = 0; i < mvs.size(); ++i) {
                 unsigned src = mvs[i].src();
-                if (blocks[src].size() > 1) {
+                if (pblocks[src].size() > 1) {
                     T* t = mvs[i]();
                     if (gamma.find(src, t1)) {
                         t = m_ba.mk_or(t, t1);
@@ -121,10 +122,10 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minim
                 }
             }
         }
-        hashtable<block*> relevant;
+        uint_set relevant;
         u_map<T*>::iterator end = gamma.end();
         for (u_map<T*>::iterator it = gamma.begin(); it != end; ++it) {
-            relevant.insert(blocks[it->m_key]);
+            relevant.insert(it->m_key);
         }
         
     }
