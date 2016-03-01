@@ -78,7 +78,7 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minim
     vector<block> pblocks;
     unsigned_vector blocks;
     pblocks.push_back(block(fa->final_states()));     // 0 |-> final states
-    pblocks.push_back(block(fa->non_final_states());  // 1 |-> non-final states
+//    pblocks.push_back(block(fa->non_final_states());  // 1 |-> non-final states
     for (unsigned i = 0; i < fa->num_states(); ++i) {
         if (fa->is_final_state(i)) {            
             blocks.push_back(0);
