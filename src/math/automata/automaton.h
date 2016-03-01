@@ -178,15 +178,19 @@ public:
         return alloc(automaton, a.m, a.init(), final, mvs);
     }
 
+    automaton* clone() const {
+        return clone(*this);
+    }
+
     // create the sum of disjoint automata
     static automaton* mk_union(automaton const& a, automaton const& b) {
         SASSERT(&a.m == &b.m);
         M& m = a.m;
         if (a.is_empty()) {
-            return clone(b);
+            return b.clone();
         }
         if (b.is_empty()) {
-            return clone(a);
+            return a.clone();
         }
         moves mvs;
         unsigned_vector final;
@@ -213,7 +217,7 @@ public:
             mvs.push_back(move(m, 0, a.init() + offset));
         }
         if (a.is_empty()) {
-            return clone(a);
+            return a.clone();
         }
 
         mvs.push_back(move(m, init, a.final_state() + offset));
@@ -227,16 +231,16 @@ public:
         SASSERT(&a.m == &b.m);
         M& m = a.m;
         if (a.is_empty()) {
-            return clone(a);
+            return a.clone();
         }
         if (b.is_empty()) {
-            return clone(b);
+            return b.clone();
         }
         if (a.is_epsilon()) {
-            return clone(b);
+            return b.clone();
         }
         if (b.is_epsilon()) {
-            return clone(a);
+            return a.clone();
         }
 
         moves mvs;
@@ -458,6 +462,7 @@ public:
     }
 
     unsigned init() const { return m_init; }
+    unsigned_vector const& final_states() const { return m_final_states; }
     unsigned in_degree(unsigned state) const { return m_delta_inv[state].size(); }
     unsigned out_degree(unsigned state) const { return m_delta[state].size(); }
     move const& get_move_from(unsigned state) const { SASSERT(m_delta[state].size() == 1); return m_delta[state][0]; }

@@ -28,6 +28,7 @@ Revision History:
 #include "scoped_ptr_vector.h"
 #include "automaton.h"
 #include "seq_rewriter.h"
+#include "union_find.h"
 
 namespace smt {
 
@@ -44,6 +45,7 @@ namespace smt {
         typedef trail_stack<theory_seq> th_trail_stack;
         typedef std::pair<expr*, dependency*> expr_dep;
         typedef obj_map<expr, expr_dep> eqdep_map_t; 
+	typedef union_find<theory_seq> th_union_find;
 
         class seq_value_proc;
 
@@ -292,7 +294,8 @@ namespace smt {
         scoped_vector<eq>          m_eqs;        // set of current equations.
         scoped_vector<ne>          m_nqs;        // set of current disequalities.
         scoped_vector<nc>          m_ncs;        // set of non-contains constraints.
-        unsigned                   m_eq_id;
+        unsigned                   m_eq_id;	
+	th_union_find              m_find;
 
         seq_factory*               m_factory;    // value factory
         exclusion_table            m_exclude;    // set of asserted disequalities.
@@ -309,7 +312,7 @@ namespace smt {
         arith_util       m_autil;
         th_trail_stack   m_trail_stack;
         stats            m_stats;
-        symbol           m_prefix, m_suffix, m_contains_left, m_contains_right, m_accept, m_reject;
+        symbol           m_prefix, m_suffix, m_accept, m_reject;
         symbol           m_tail, m_nth, m_seq_first, m_seq_last, m_indexof_left, m_indexof_right, m_aut_step;
         symbol           m_pre, m_post, m_eq;
         ptr_vector<expr> m_todo;
@@ -329,6 +332,7 @@ namespace smt {
 
         obj_hashtable<expr>            m_fixed;            // string variables that are fixed length.
 
+        virtual void init(context* ctx);
         virtual final_check_status final_check_eh();
         virtual bool internalize_atom(app* atom, bool) { return internalize_term(atom); }
         virtual bool internalize_term(app*);
@@ -538,6 +542,11 @@ namespace smt {
 
         // model building
         app* mk_value(app* a);
+
+	th_trail_stack& get_trail_stack() { return m_trail_stack; }
+        void merge_eh(theory_var, theory_var, theory_var v1, theory_var v2) {}
+        void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) { }
+        void unmerge_eh(theory_var v1, theory_var v2) {}
 
     };
 };
