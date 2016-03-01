@@ -147,8 +147,9 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minim
             }
         }
         uint_set relevant1;
-        u_map<T*>::iterator gend = gamma.end();
-        for (u_map<T*>::iterator git = gamma.begin(); git != gend; ++git) {            
+        typedef typename u_map<T*>::iterator gamma_iterator;
+        gamma_iterator gend = gamma.end();
+        for (gamma_iterator git = gamma.begin(); git != gend; ++git) {
             unsigned p0A_index = blocks[git->m_key];
             if (relevant1.contains(p0A_index)) {
                 continue;
@@ -156,7 +157,7 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minim
             relevant1.insert(p0A_index);
             block& p0A = pblocks[p0A_index];
             block p1;
-            for (u_map<T*>::iterator it = gamma.begin(); it != gend; ++it) {
+            for (iterator it = gamma.begin(); it != gend; ++it) {
                 if (p0A.contains(it->m_key)) p1.insert(it->m_key);
             }
             
@@ -166,7 +167,7 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minim
             while (iterate) {
                 iterate = false;
                 uint_set relevant2;
-                for (u_map<T*>::iterator it = gamma.begin(); it != gend; ++it) {
+                for (gamma_iterator it = gamma.begin(); it != gend; ++it) {
                     unsigned p0B_index = blocks[it->m_key];
                     if (pblocks[p0B_index].size() <= 1 || relevant2.contains(p0B_index)) {
                         continue;
@@ -239,7 +240,7 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minim
 
     for (unsigned i = 0; i < a.num_states(); ++i) {
         unsigned src = pblocks[blocks[i]].get_representative();
-        automaton_t::moves const& mvs = a.get_moves_from(i);
+        typename automaton_t::moves const& mvs = a.get_moves_from(i);
         for (unsigned j = 0; j < mvs.size(); ++j) {
             unsigned dst = pblocks[blocks[mvs[j].dst()]].get_representative();
             unsigned_pair st(src, dst);
