@@ -79,9 +79,11 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minim
 
 
 template<class T, class M>
-typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minimize_total(automaton_t& a) {    
+typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minimize_total(automaton_t& fa) {
     vector<block> pblocks;
     unsigned_vector blocks;
+    block final_block(fa->final_states());
+    block non_final_block(fa->non_final_states());
     pblocks.push_back(block(fa->final_states()));     // 0 |-> final states
 //    pblocks.push_back(block(fa->non_final_states());  // 1 |-> non-final states
     for (unsigned i = 0; i < fa->num_states(); ++i) {
