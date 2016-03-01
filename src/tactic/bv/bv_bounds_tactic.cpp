@@ -22,7 +22,7 @@ Author:
 #include "ast_pp.h"
 #include <climits>
 
-static uint64_t uMaxInt(unsigned sz) {
+static uint64 uMaxInt(unsigned sz) {
     SASSERT(sz <= 64);
     return ULLONG_MAX >> (64u - sz);
 }
@@ -32,12 +32,12 @@ namespace {
 struct interval {
     // l < h: [l, h]
     // l > h: [0, h] U [l, UMAX_INT]
-    uint64_t l, h;
+    uint64 l, h;
     unsigned sz;
     bool tight;
 
     interval() {}
-    interval(uint64_t l, uint64_t h, unsigned sz, bool tight = false) : l(l), h(h), sz(sz), tight(tight) {
+    interval(uint64 l, uint64 h, unsigned sz, bool tight = false) : l(l), h(h), sz(sz), tight(tight) {
         // canonicalize full set
         if (is_wrapped() && l == h + 1) {
             this->l = 0;
@@ -164,7 +164,7 @@ struct undo_bound {
 class bv_bounds_simplifier : public ctx_simplify_tactic::simplifier {
     typedef obj_map<expr, interval> map;
     typedef obj_map<expr, bool> expr_set;
-    typedef obj_map<expr, expr_set*> expr_list_map;
+    typedef obj_map<expr, unsigned> expr_cnt;
 
     ast_manager&       m;
     params_ref         m_params;
@@ -172,10 +172,10 @@ class bv_bounds_simplifier : public ctx_simplify_tactic::simplifier {
     bv_util            m_bv;
     vector<undo_bound> m_scopes;
     map                m_bound;
-    expr_list_map      m_expr_vars;
-    expr_set           m_bound_exprs;
+    svector<expr_set*> m_expr_vars;
+    svector<expr_cnt*> m_bound_exprs;
 
-    bool is_number(expr *e, uint64_t& n, unsigned& sz) const {
+    bool is_number(expr *e, uint64& n, unsigned& sz) const {
         rational r;
         if (m_bv.is_numeral(e, r, sz) && sz <= 64) {
             n = r.get_uint64();
@@ -185,7 +185,7 @@ class bv_bounds_simplifier : public ctx_simplify_tactic::simplifier {
     }
 
     bool is_bound(expr *e, expr*& v, interval& b) const {
-        uint64_t n;
+        uint64 n;
         expr *lhs, *rhs;
         unsigned sz;
 
@@ -233,7 +233,9 @@ class bv_bounds_simplifier : public ctx_simplify_tactic::simplifier {
     }
 
     expr_set* get_expr_vars(expr* t) {
-        expr_set*& entry = m_expr_vars.insert_if_not_there2(t, 0)->get_data().m_value;
+        unsigned id = t->get_id();
+        m_expr_vars.reserve(id + 1);
+        expr_set*& entry = m_expr_vars[id];
         if (entry)
             return entry;
 
@@ -256,23 +258,33 @@ class bv_bounds_simplifier : public ctx_simplify_tactic::simplifier {
         return set;
     }
 
-    bool expr_has_bounds(expr* t) {
-        bool has_bounds = false;
-        if (m_bound_exprs.find(t, has_bounds))
-            return has_bounds;
+    expr_cnt* get_expr_bounds(expr* t) {
+        unsigned id = t->get_id();
+        m_bound_exprs.reserve(id + 1);
+        expr_cnt*& entry = m_bound_exprs[id];
+        if (entry)
+            return entry;
+
+        expr_cnt* set = alloc(expr_cnt);
+        entry = set;
+
+        if (!is_app(t))
+            return set;
+
+        interval b;
+        expr* e;
+        if (is_bound(t, e, b)) {
+            set->insert_if_not_there2(e, 0)->get_data().m_value++;
+        }
 
         app* a = to_app(t);
-        if ((m_bv.is_bv_ule(t) || m_bv.is_bv_sle(t) || m.is_eq(t)) &&
-            (m_bv.is_numeral(a->get_arg(0)) || m_bv.is_numeral(a->get_arg(1)))) {
-            has_bounds = true;
+        for (unsigned i = 0; i < a->get_num_args(); ++i) {
+            expr_cnt* set_arg = get_expr_bounds(a->get_arg(i));
+            for (expr_cnt::iterator I = set_arg->begin(), E = set_arg->end(); I != E; ++I) {
+                set->insert_if_not_there2(I->m_key, 0)->get_data().m_value += I->m_value;
+            }
         }
-
-        for (unsigned i = 0; !has_bounds && i < a->get_num_args(); ++i) {
-            has_bounds = expr_has_bounds(a->get_arg(i));
-        }
-
-        m_bound_exprs.insert(t, has_bounds);
-        return has_bounds;
+        return set;
     }
 
 public:
@@ -289,8 +301,11 @@ public:
     }
 
     virtual ~bv_bounds_simplifier() {
-        for (expr_list_map::iterator I = m_expr_vars.begin(), E = m_expr_vars.end(); I != E; ++I) {
-            dealloc(I->m_value);
+        for (unsigned i = 0, e = m_expr_vars.size(); i < e; ++i) {
+            dealloc(m_expr_vars[i]);
+        }
+        for (unsigned i = 0, e = m_bound_exprs.size(); i < e; ++i) {
+            dealloc(m_bound_exprs[i]);
         }
     }
 
@@ -393,7 +408,13 @@ public:
         if (is_bound(t, t1, b)) {
             return b.is_full() || m_bound.contains(t1);
         }
-        return expr_has_bounds(t);
+
+        expr_cnt* bounds = get_expr_bounds(t);
+        for (expr_cnt::iterator I = bounds->begin(), E = bounds->end(); I != E; ++I) {
+            if (I->m_value > 1 || m_bound.contains(I->m_key))
+                return true;
+        }
+        return false;
     }
 
     virtual void pop(unsigned num_scopes) {

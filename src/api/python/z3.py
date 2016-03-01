@@ -8099,10 +8099,6 @@ class FPRef(ExprRef):
     def __gt__(self, other):
         return fpGT(self, other, self.ctx)
 
-    def __ne__(self, other):
-        return fpNEQ(self, other, self.ctx)
-
-
     def __add__(self, other):
         """Create the Z3 expression `self + other`.
 
@@ -8824,7 +8820,7 @@ def _check_fp_args(a, b):
         _z3_assert(is_fp(a) or is_fp(b), "At least one of the arguments must be a Z3 floating-point expression")
 
 def fpLT(a, b, ctx=None):
-    """Create the Z3 floating-point expression `other <= self`.
+    """Create the Z3 floating-point expression `other < self`.
 
     >>> x, y = FPs('x y', FPSort(8, 24))
     >>> fpLT(x, y)
@@ -8846,7 +8842,7 @@ def fpLEQ(a, b, ctx=None):
     return _mk_fp_bin_pred(Z3_mk_fpa_leq, a, b, ctx)
 
 def fpGT(a, b, ctx=None):
-    """Create the Z3 floating-point expression `other <= self`.
+    """Create the Z3 floating-point expression `other > self`.
 
     >>> x, y = FPs('x y', FPSort(8, 24))
     >>> fpGT(x, y)
@@ -8857,11 +8853,9 @@ def fpGT(a, b, ctx=None):
     return _mk_fp_bin_pred(Z3_mk_fpa_gt, a, b, ctx)
 
 def fpGEQ(a, b, ctx=None):
-    """Create the Z3 floating-point expression `other <= self`.
+    """Create the Z3 floating-point expression `other >= self`.
 
     >>> x, y = FPs('x y', FPSort(8, 24))
-    >>> x + y
-    x + y
     >>> fpGEQ(x, y)
     x >= y
     >>> (x >= y).sexpr()
@@ -8870,7 +8864,7 @@ def fpGEQ(a, b, ctx=None):
     return _mk_fp_bin_pred(Z3_mk_fpa_geq, a, b, ctx)
 
 def fpEQ(a, b, ctx=None):
-    """Create the Z3 floating-point expression `other <= self`.
+    """Create the Z3 floating-point expression `fpEQ(other, self)`.
 
     >>> x, y = FPs('x y', FPSort(8, 24))
     >>> fpEQ(x, y)
@@ -8881,7 +8875,7 @@ def fpEQ(a, b, ctx=None):
     return _mk_fp_bin_pred(Z3_mk_fpa_eq, a, b, ctx)
 
 def fpNEQ(a, b, ctx=None):
-    """Create the Z3 floating-point expression `other <= self`.
+    """Create the Z3 floating-point expression `Not(fpEQ(other, self))`.
 
     >>> x, y = FPs('x y', FPSort(8, 24))
     >>> fpNEQ(x, y)

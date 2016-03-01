@@ -205,15 +205,23 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
     // We expect [i].[f]P[e], where P means that the exponent is interpreted as 2^e instead of 10^e.
 
     std::string v(value);
-    size_t e_pos = v.find('p');
-    if (e_pos == std::string::npos) e_pos = v.find('P');
 
     std::string f, e;
+    bool sgn = false;
 
+    if (v.substr(0, 1) == "-") {
+        sgn = true;
+        v = v.substr(1);
+    }
+    else if (v.substr(0, 1) == "+")
+        v = v.substr(1);
+
+    size_t e_pos = v.find('p');
+    if (e_pos == std::string::npos) e_pos = v.find('P');
     f = (e_pos != std::string::npos) ? v.substr(0, e_pos) : v;
     e = (e_pos != std::string::npos) ? v.substr(e_pos+1) : "0";
 
-    TRACE("mpf_dbg", tout << " f = " << f << " e = " << e << std::endl;);
+    TRACE("mpf_dbg", tout << "sgn = " << sgn << " f = " << f << " e = " << e << std::endl;);
 
     scoped_mpq q(m_mpq_manager);
     m_mpq_manager.set(q, f.c_str());
@@ -222,6 +230,7 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
     m_mpz_manager.set(ex, e.c_str());
 
     set(o, ebits, sbits, rm, ex, q);
+    o.sign = sgn;
 
     TRACE("mpf_dbg", tout << "set: res = " << to_string(o) << std::endl;);
 }
