@@ -135,7 +135,7 @@ namespace opt {
         void to_smt2_benchmark(std::ofstream & buffer, 
                                unsigned num_assumptions, expr * const * assumptions,
                                char const * name = "benchmarks", 
-                               char const * logic = "", char const * status = "unknown", char const * attributes = "");
+                               symbol const& logic = symbol::null, char const * status = "unknown", char const * attributes = "");
 
     private:
         lbool decrement_value(unsigned i, inf_eps& val);

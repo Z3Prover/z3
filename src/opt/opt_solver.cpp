@@ -162,7 +162,7 @@ namespace opt {
             std::stringstream file_name;
             file_name << "opt_solver" << ++m_dump_count << ".smt2";
             std::ofstream buffer(file_name.str().c_str());
-            to_smt2_benchmark(buffer, num_assumptions, assumptions, "opt_solver", "");
+            to_smt2_benchmark(buffer, num_assumptions, assumptions, "opt_solver");
             buffer.close();
             IF_VERBOSE(1, verbose_stream() << "(created benchmark: " << file_name.str() << "...";
                        verbose_stream().flush(););
@@ -400,7 +400,7 @@ namespace opt {
         unsigned num_assumptions, 
         expr * const * assumptions,
         char const * name, 
-        char const * logic, 
+        symbol const& logic,
         char const * status, 
         char const * attributes) {        
         ast_smt_pp pp(m);
