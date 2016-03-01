@@ -168,6 +168,37 @@ install(TARGETS libz3
   PUBLIC_HEADER DESTINATION "${Z3_INSTALL_INCLUDE_DIR}"
 )
 
+if (MSVC)
+  # Handle settings dll exports when using MSVC
+  # FIXME: This seems unnecessarily complicated but I'm doing
+  # this because this is what the python build system does.
+  # CMake has a much more elegant (see ``GenerateExportHeader.cmake``)
+  # way of handling this.
+  set(dll_module_exports_file "${CMAKE_CURRENT_BINARY_DIR}/api_dll.def")
+  add_custom_command(OUTPUT "${dll_module_exports_file}"
+    COMMAND
+      "${PYTHON_EXECUTABLE}"
+      "${CMAKE_SOURCE_DIR}/scripts/mk_def_file.py"
+      "${dll_module_exports_file}"
+      "libz3"
+      ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
+    DEPENDS
+      "${CMAKE_SOURCE_DIR}/scripts/mk_def_file.py"
+      "${CMAKE_SOURCE_DIR}/scripts/mk_util.py"
+      ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
+    COMMENT "Generating \"${dll_module_exports_file}\""
+    ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
+    VERBATIM
+  )
+  add_custom_target(libz3_extra_depends
+    DEPENDS "${dll_module_exports_file}"
+  )
+  add_dependencies(libz3 libz3_extra_depends)
+  set_property(TARGET libz3 APPEND PROPERTY LINK_FLAGS
+    "/DEF:${dll_module_exports_file}"
+  )
+endif()
+
 ################################################################################
 # Z3 executable
 ################################################################################
