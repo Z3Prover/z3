@@ -40,6 +40,7 @@ namespace smt {
         ptr_vector<quantifier>                 m_quantifiers;
         scoped_ptr<quantifier_manager_plugin>  m_plugin;
         unsigned                               m_num_instances;
+        symbol                                 m_rec_fun;
         
         imp(quantifier_manager & wrapper, context & ctx, smt_params & p, quantifier_manager_plugin * plugin):
             m_wrapper(wrapper),
@@ -47,7 +48,8 @@ namespace smt {
             m_params(p),
             m_qi_queue(m_wrapper, ctx, p),
             m_qstat_gen(ctx.get_manager(), ctx.get_region()),
-            m_plugin(plugin) {
+            m_plugin(plugin),
+            m_rec_fun(":rec-fun") {
             m_num_instances = 0;
             m_qi_queue.setup();
         }
@@ -184,6 +186,10 @@ namespace smt {
             m_qi_queue.instantiate();
         }
         
+        bool check_quantifier(quantifier* q) {
+            return m_context.is_relevant(q) && m_context.get_assignment(q) == l_true; // TBD: && q->get_qid() != m_rec_fun;
+        }
+
         bool quick_check_quantifiers() {
             if (m_params.m_qi_quick_checker == MC_NO)
                 return true;
@@ -195,7 +201,7 @@ namespace smt {
             ptr_vector<quantifier>::const_iterator it  = m_quantifiers.begin();
             ptr_vector<quantifier>::const_iterator end = m_quantifiers.end();
             for (; it != end; ++it)
-                if (m_context.is_relevant(*it) && m_context.get_assignment(*it) == l_true && mc.instantiate_unsat(*it))
+                if (check_quantifier(*it) && mc.instantiate_unsat(*it))
                     result = false;
             if (m_params.m_qi_quick_checker == MC_UNSAT || !result) {
                 m_qi_queue.instantiate();
@@ -206,7 +212,7 @@ namespace smt {
             IF_VERBOSE(10, verbose_stream() << "quick checking quantifiers (not sat)...\n";);
             it  = m_quantifiers.begin();
             for (; it != end; ++it)
-                if (m_context.is_relevant(*it) && m_context.get_assignment(*it) == l_true && mc.instantiate_not_sat(*it))
+                if (check_quantifier(*it) && mc.instantiate_not_sat(*it))
                     result = false;
             m_qi_queue.instantiate();
             return result;
