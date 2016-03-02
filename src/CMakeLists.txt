@@ -140,6 +140,8 @@ endif()
 # automatically link against the libs in Z3_DEPENDENT_LIBS
 target_link_libraries(libz3 INTERFACE ${Z3_DEPENDENT_LIBS})
 
+set_property(TARGET libz3 APPEND PROPERTY LINK_FLAGS ${Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS})
+
 # Declare which header file are the public header files of libz3
 # these will automatically installed when the libz3 target is installed
 set (libz3_public_headers
