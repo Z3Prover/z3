@@ -832,7 +832,7 @@ extern "C" {
             pp_params params;
             pp.set_simplify_implies(params.simplify_implies());
             ast* a1 = to_ast(a);
-            pp.set_logic(mk_c(c)->fparams().m_smtlib_logic.c_str());
+            pp.set_logic(mk_c(c)->fparams().m_logic);
             if (!is_expr(a1)) {
                 buffer << mk_pp(a1, mk_c(c)->m());
                 break;
@@ -880,7 +880,7 @@ extern "C" {
         std::ostringstream buffer;
         ast_smt_pp pp(mk_c(c)->m());
         pp.set_benchmark_name(name);
-        pp.set_logic(logic);
+        pp.set_logic(logic?symbol(logic):symbol::null);
         pp.set_status(status);
         pp.add_attributes(attributes);
         pp_params params;

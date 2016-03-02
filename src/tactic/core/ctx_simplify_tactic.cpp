@@ -34,9 +34,9 @@ class ctx_propagate_assertions : public ctx_simplify_tactic::simplifier {
 public:
     ctx_propagate_assertions(ast_manager& m);
     virtual ~ctx_propagate_assertions() {}
-    virtual void assert_expr(expr * t, bool sign);
+    virtual bool assert_expr(expr * t, bool sign);
     virtual bool simplify(expr* t, expr_ref& result);
-    virtual void push();
+    void push();
     virtual void pop(unsigned num_scopes);
     virtual unsigned scope_level() const { return m_scopes.size(); }
     virtual simplifier * translate(ast_manager & m);
@@ -45,7 +45,7 @@ public:
 
 ctx_propagate_assertions::ctx_propagate_assertions(ast_manager& m): m(m), m_trail(m) {}
 
-void ctx_propagate_assertions::assert_expr(expr * t, bool sign) {
+bool ctx_propagate_assertions::assert_expr(expr * t, bool sign) {
     
     expr * p = t;
     while (m.is_not(t, t)) {
@@ -64,6 +64,7 @@ void ctx_propagate_assertions::assert_expr(expr * t, bool sign) {
         else if (m.is_value(lhs))
             assert_eq_val(rhs, to_app(lhs), mk_scope);
     }
+    return true;
 }
 
 void ctx_propagate_assertions::assert_eq_val(expr * t, app * val, bool mk_scope) {
@@ -177,7 +178,9 @@ struct ctx_simplify_tactic::imp {
 
     ~imp() {
         pop(scope_level());
-        SASSERT(scope_level() == 0 && m_cache_undo.empty());
+        SASSERT(scope_level() == 0);
+        restore_cache(0);
+        dealloc(m_simp);
         DEBUG_CODE({
             for (unsigned i = 0; i < m_cache.size(); i++) {
                 CTRACE("ctx_simplify_tactic_bug", m_cache[i].m_from, 
@@ -195,6 +198,7 @@ struct ctx_simplify_tactic::imp {
         m_max_steps    = p.get_uint("max_steps", UINT_MAX);
         m_max_depth    = p.get_uint("max_depth", 1024);
         m_bail_on_blowup = p.get_bool("bail_on_blowup", false);
+        m_simp->updt_params(p);
     }
 
     void checkpoint() {
@@ -256,10 +260,6 @@ struct ctx_simplify_tactic::imp {
         return m_simp->scope_level();
     }
 
-    void push() { 
-        m_simp->push();
-    }
-
     void restore_cache(unsigned lvl) {
         if (lvl >= m_cache_undo.size())
             return;
@@ -306,8 +306,8 @@ struct ctx_simplify_tactic::imp {
         CASSERT("ctx_simplify_tactic", check_cache());
     }
 
-    void assert_expr(expr * t, bool sign) {
-        m_simp->assert_expr(t, sign);
+    bool assert_expr(expr * t, bool sign) {
+        return m_simp->assert_expr(t, sign);
     }
 
     bool is_cached(expr * t, expr_ref & r) {
@@ -327,17 +327,13 @@ struct ctx_simplify_tactic::imp {
 
     void simplify(expr * t, expr_ref & r) {
         r = 0;
-        if (m_depth >= m_max_depth || m_num_steps >= m_max_steps || !is_app(t)) {
+        if (m_depth >= m_max_depth || m_num_steps >= m_max_steps || !is_app(t) || !m_simp->may_simplify(t)) {
             r = t;
             return;
         }
         checkpoint();
         TRACE("ctx_simplify_tactic_detail", tout << "processing: " << mk_bounded_pp(t, m) << "\n";);
-        if (m_simp->simplify(t, r)) {
-            SASSERT(r.get() != 0);
-            return;
-        }
-        if (is_cached(t, r)) {
+        if (is_cached(t, r) || m_simp->simplify(t, r)) {
             SASSERT(r.get() != 0);
             return;
         }
@@ -369,6 +365,9 @@ struct ctx_simplify_tactic::imp {
             simplify(arg, new_arg);
             if (new_arg != arg)
                 modified = true;
+            if (i < num_args - 1 && !m.is_true(new_arg) && !m.is_false(new_arg) && !assert_expr(new_arg, OR))
+                new_arg = OR ? m.mk_true() : m.mk_false();
+
             if ((OR && m.is_false(new_arg)) ||
                 (!OR && m.is_true(new_arg))) {
                 modified = true;
@@ -382,8 +381,6 @@ struct ctx_simplify_tactic::imp {
                 return;
             }
             new_args.push_back(new_arg);
-            if (i < num_args - 1)
-                assert_expr(new_arg, OR);
         }
         pop(scope_level() - old_lvl);
 
@@ -397,6 +394,9 @@ struct ctx_simplify_tactic::imp {
             simplify(arg, new_arg);
             if (new_arg != arg)
                 modified = true;
+            if (i > 0 && !m.is_true(new_arg) && !m.is_false(new_arg) && !assert_expr(new_arg, OR))
+                new_arg = OR ? m.mk_true() : m.mk_false();
+
             if ((OR && m.is_false(new_arg)) ||
                 (!OR && m.is_true(new_arg))) {
                 modified = true;
@@ -410,8 +410,6 @@ struct ctx_simplify_tactic::imp {
                 return;
             }
             new_new_args.push_back(new_arg);
-            if (i > 0)
-                assert_expr(new_arg, OR);
         }
         pop(scope_level() - old_lvl);
 
@@ -447,10 +445,18 @@ struct ctx_simplify_tactic::imp {
         else {
             expr_ref new_t(m);
             expr_ref new_e(m);
-            assert_expr(new_c, false);
+            if (!assert_expr(new_c, false)) {
+                simplify(e, r);
+                cache(ite, r);
+                return;
+            }
             simplify(t, new_t);
             pop(scope_level() - old_lvl);
-            assert_expr(new_c, true);
+            if (!assert_expr(new_c, true)) {
+                r = new_t;
+                cache(ite, r);
+                return;
+            }
             simplify(e, new_e);
             pop(scope_level() - old_lvl);
             if (c == new_c && t == new_t && e == new_e) {
@@ -516,6 +522,37 @@ struct ctx_simplify_tactic::imp {
         return sz;
     }
 
+    void process_goal(goal & g) {
+        SASSERT(scope_level() == 0);
+        // go forwards
+        unsigned old_lvl = scope_level();
+        unsigned sz = g.size();
+        expr_ref r(m);
+        for (unsigned i = 0; !g.inconsistent() && i < sz; ++i) {
+            m_depth = 0;            
+            simplify(g.form(i), r);
+            if (i < sz - 1 && !m.is_true(r) && !m.is_false(r) && !g.dep(i) && !assert_expr(r, false)) {
+                r = m.mk_false();
+            }
+            g.update(i, r, 0, g.dep(i));
+        }
+        pop(scope_level() - old_lvl);
+
+        // go backwards
+        sz = g.size();
+        for (unsigned i = sz; !g.inconsistent() && i > 0; ) {
+            m_depth = 0;
+            --i;
+            simplify(g.form(i), r);
+            if (i > 0 && !m.is_true(r) && !m.is_false(r) && !g.dep(i) && !assert_expr(r, false)) {
+                r = m.mk_false();
+            }
+            g.update(i, r, 0, g.dep(i));
+        }
+        pop(scope_level() - old_lvl);
+        SASSERT(scope_level() == 0);
+    }
+
     void process(expr * s, expr_ref & r) {
         TRACE("ctx_simplify_tactic", tout << "simplifying:\n" << mk_ismt2_pp(s, m) << "\n";);
         SASSERT(scope_level() == 0);
@@ -533,24 +570,22 @@ struct ctx_simplify_tactic::imp {
 
     void operator()(goal & g) {
         SASSERT(g.is_well_sorted());
-        bool proofs_enabled = g.proofs_enabled();
         m_occs.reset();
         m_occs(g);
         m_num_steps = 0;
-        expr_ref r(m);
-        proof * new_pr = 0;
         tactic_report report("ctx-simplify", g);
-        unsigned sz = g.size();
-        for (unsigned i = 0; i < sz; i++) {
-            if (g.inconsistent())
-                return;
-            expr * t = g.form(i);
-            process(t, r);
-            if (proofs_enabled) {
-                proof * pr = g.pr(i);
-                new_pr     = m.mk_modus_ponens(pr, m.mk_rewrite_star(t, r, 0, 0)); // TODO :-)
+        if (g.proofs_enabled()) {
+            expr_ref r(m);
+            unsigned sz = g.size();
+            for (unsigned i = 0; !g.inconsistent() && i < sz; ++i) {
+                expr * t = g.form(i);
+                process(t, r);
+                proof* new_pr = m.mk_modus_ponens(g.pr(i), m.mk_rewrite_star(t, r, 0, 0)); // TODO :-)
+                g.update(i, r, new_pr, g.dep(i));
             }
-            g.update(i, r, new_pr, g.dep(i));
+        }
+        else {
+            process_goal(g);
         }
         IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(ctx-simplify :num-steps " << m_num_steps << ")\n";);
         SASSERT(g.is_well_sorted());
@@ -560,13 +595,15 @@ struct ctx_simplify_tactic::imp {
 
 ctx_simplify_tactic::ctx_simplify_tactic(ast_manager & m, simplifier* simp, params_ref const & p):
     m_imp(alloc(imp, m, simp, p)),
-    m_params(p),
-    m_simp(simp) {
+    m_params(p) {
+}
+
+tactic * ctx_simplify_tactic::translate(ast_manager & m) {
+    return alloc(ctx_simplify_tactic, m, m_imp->m_simp->translate(m), m_params);
 }
 
 ctx_simplify_tactic::~ctx_simplify_tactic() {
     dealloc(m_imp);
-    dealloc(m_simp);
 }
 
 void ctx_simplify_tactic::updt_params(params_ref const & p) {
@@ -578,6 +615,7 @@ void ctx_simplify_tactic::get_param_descrs(param_descrs & r) {
     insert_max_memory(r);
     insert_max_steps(r);
     r.insert("max_depth", CPK_UINT, "(default: 1024) maximum term depth.");
+    r.insert("propagate_eq", CPK_BOOL, "(default: false) enable equality propagation from bounds.");
 }
 
 void ctx_simplify_tactic::operator()(goal_ref const & in, 
@@ -594,7 +632,7 @@ void ctx_simplify_tactic::operator()(goal_ref const & in,
 
 void ctx_simplify_tactic::cleanup() {
     ast_manager & m   = m_imp->m;
-    imp * d = alloc(imp, m, m_simp->translate(m), m_params);
+    imp * d = alloc(imp, m, m_imp->m_simp->translate(m), m_params);
     std::swap(d, m_imp);    
     dealloc(d);
 }

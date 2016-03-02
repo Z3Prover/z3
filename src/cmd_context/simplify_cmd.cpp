@@ -102,7 +102,7 @@ public:
         }
         if (!failed && m_params.get_bool("print_proofs", false)) {
             ast_smt_pp pp(ctx.m());
-            pp.set_logic(ctx.get_logic().str().c_str());
+            pp.set_logic(ctx.get_logic());
             pp.display_expr_smt2(ctx.regular_stream(), pr.get());
             ctx.regular_stream() << std::endl;
         }

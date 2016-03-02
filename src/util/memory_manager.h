@@ -60,7 +60,7 @@ public:
     static void deallocate(void* p);
     static ALLOC_ATTR void* allocate(size_t s);
     static ALLOC_ATTR void* reallocate(void *p, size_t s);
-#if _DEBUG
+#if Z3DEBUG
     static void deallocate(char const* file, int line, void* p);
     static ALLOC_ATTR void* allocate(char const* file, int line, char const* obj, size_t s);
 #endif

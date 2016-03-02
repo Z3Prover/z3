@@ -20,205 +20,436 @@ Author:
 #include "ctx_simplify_tactic.h"
 #include "bv_decl_plugin.h"
 #include "ast_pp.h"
+#include <climits>
+
+static uint64 uMaxInt(unsigned sz) {
+    SASSERT(sz <= 64);
+    return ULLONG_MAX >> (64u - sz);
+}
+
+namespace {
+
+struct interval {
+    // l < h: [l, h]
+    // l > h: [0, h] U [l, UMAX_INT]
+    uint64 l, h;
+    unsigned sz;
+    bool tight;
+
+    interval() {}
+    interval(uint64 l, uint64 h, unsigned sz, bool tight = false) : l(l), h(h), sz(sz), tight(tight) {
+        // canonicalize full set
+        if (is_wrapped() && l == h + 1) {
+            this->l = 0;
+            this->h = uMaxInt(sz);
+        }
+        SASSERT(invariant());
+    }
+
+    bool invariant() const {
+        return l <= uMaxInt(sz) && h <= uMaxInt(sz) &&
+               (!is_wrapped() || l != h+1);
+    }
+
+    bool is_full() const { return l == 0 && h == uMaxInt(sz); }
+    bool is_wrapped() const { return l > h; }
+    bool is_singleton() const { return l == h; }
+
+    bool operator==(const interval& b) const {
+        SASSERT(sz == b.sz);
+        return l == b.l && h == b.h && tight == b.tight;
+    }
+    bool operator!=(const interval& b) const { return !(*this == b); }
+
+    bool implies(const interval& b) const {
+        if (b.is_full())
+            return true;
+        if (is_full())
+            return false;
+
+        if (is_wrapped()) {
+            // l >= b.l >= b.h >= h
+            return b.is_wrapped() && h <= b.h && l >= b.l;
+        } else if (b.is_wrapped()) {
+            // b.l > b.h >= h >= l
+            // h >= l >= b.l > b.h
+            return h <= b.h || l >= b.l;
+        } else {
+            // 
+            return l >= b.l && h <= b.h;
+        }
+    }
+
+    /// return false if intersection is unsat
+    bool intersect(const interval& b, interval& result) const {
+        if (is_full() || *this == b) {
+            result = b;
+            return true;
+        }
+        if (b.is_full()) {
+            result = *this;
+            return true;
+        }
+
+        if (is_wrapped()) {
+            if (b.is_wrapped()) {
+                if (h >= b.l) {
+                    result = b;
+                } else if (b.h >= l) {
+                    result = *this;
+                } else {
+                    result = interval(std::max(l, b.l), std::min(h, b.h), sz);
+                }
+            } else {
+                return b.intersect(*this, result);
+            }
+        } else if (b.is_wrapped()) {
+            // ... b.h ... l ... h ... b.l ..
+            if (h < b.l && l > b.h) {
+                return false;
+            }
+            // ... l ... b.l ... h ...
+            if (h >= b.l && l <= b.h) {
+                result = b;
+            } else if (h >= b.l) {
+                result = interval(b.l, h, sz);
+            } else {
+                // ... l .. b.h .. h .. b.l ...
+                SASSERT(l <= b.h);
+                result = interval(l, std::min(h, b.h), sz);
+            }
+        } else {
+            if (l > b.h || h < b.l)
+                return false;
+
+            // 0 .. l.. l' ... h ... h'
+            result = interval(std::max(l, b.l), std::min(h, b.h), sz, tight && b.tight);
+        }
+        return true;
+    }
+
+    /// return false if negation is empty
+    bool negate(interval& result) const {
+        if (!tight) {
+            result = interval(0, uMaxInt(sz), true);
+            return true;
+        }
+
+        if (is_full())
+            return false;
+        if (l == 0) {
+            result = interval(h + 1, uMaxInt(sz), sz);
+        } else if (uMaxInt(sz) == h) {
+            result = interval(0, l - 1, sz);
+        } else {
+            result = interval(h + 1, l - 1, sz);
+        }
+        return true;
+    }
+};
+
+std::ostream& operator<<(std::ostream& o, const interval& I) {
+    o << "[" << I.l << ", " << I.h << "]";
+    return o;
+}
+
+
+struct undo_bound {
+    expr* e;
+    interval b;
+    bool fresh;
+    undo_bound(expr* e, const interval& b, bool fresh) : e(e), b(b), fresh(fresh) {}
+};
 
 class bv_bounds_simplifier : public ctx_simplify_tactic::simplifier {
-    ast_manager&            m;
-    bv_util                 m_bv;
-    unsigned_vector         m_scopes;
-    expr_ref_vector         m_trail;
-    unsigned_vector         m_trail_kind;
-    obj_map<expr, rational> m_bound[4];
+    typedef obj_map<expr, interval> map;
+    typedef obj_map<expr, bool> expr_set;
+    typedef obj_map<expr, unsigned> expr_cnt;
 
-    obj_map<expr, rational> & sle() { return m_bound[0]; }
-    obj_map<expr, rational> & ule() { return m_bound[1]; }
-    obj_map<expr, rational> & sge() { return m_bound[2]; }
-    obj_map<expr, rational> & uge() { return m_bound[3]; }
+    ast_manager&       m;
+    params_ref         m_params;
+    bool               m_propagate_eq;
+    bv_util            m_bv;
+    vector<undo_bound> m_scopes;
+    map                m_bound;
+    svector<expr_set*> m_expr_vars;
+    svector<expr_cnt*> m_bound_exprs;
 
-    obj_map<expr, rational> & bound(bool lo, bool s) {
-        if (lo) {
-            if (s) return sle(); return ule();
+    bool is_number(expr *e, uint64& n, unsigned& sz) const {
+        rational r;
+        if (m_bv.is_numeral(e, r, sz) && sz <= 64) {
+            n = r.get_uint64();
+            return true;
         }
-        else {
-            if (s) return sge(); return uge();
-        }
+        return false;
     }
 
-    void add_bound(bool lo, bool s, expr* t, rational const& n) {
-        push();
-        bound(lo, s).insert(t, n);
-        m_trail.push_back(t);
-        m_trail_kind.push_back(lo?(s?0:1):(s?2:3));
-    }
-
-    bool is_bound(expr* t, expr*& b, bool& lo, bool& sign, rational& n) {
-        expr* t1, *t2;
+    bool is_bound(expr *e, expr*& v, interval& b) const {
+        uint64 n;
+        expr *lhs, *rhs;
         unsigned sz;
-        if (m_bv.is_bv_ule(t, t1, t2)) {
-            sign = false;
-            if (m_bv.is_numeral(t1, n, sz)) {
-                lo = true; 
-                b  = t2;
+
+        if (m_bv.is_bv_ule(e, lhs, rhs)) {
+            if (is_number(lhs, n, sz)) { // C ule x <=> x uge C
+                if (m_bv.is_numeral(rhs))
+                    return false;
+                b = interval(n, uMaxInt(sz), sz, true);
+                v = rhs;
                 return true;
             }
-            else if (m_bv.is_numeral(t2, n, sz)) {
-                lo = false;
-                b  = t1;
+            if (is_number(rhs, n, sz)) { // x ule C
+                b = interval(0, n, sz, true);
+                v = lhs;
                 return true;
             }
-        }
-        else if (m_bv.is_bv_sle(t, t1, t2)) {
-            sign = true;
-            if (m_bv.is_numeral(t2, n, sz)) {
-                n = m_bv.norm(n, sz, true);
-                lo = false;
-                b  = t1;
+        } else if (m_bv.is_bv_sle(e, lhs, rhs)) {
+            if (is_number(lhs, n, sz)) { // C sle x <=> x sge C
+                if (m_bv.is_numeral(rhs))
+                    return false;
+                b = interval(n, (1ull << (sz-1)) - 1, sz, true);
+                v = rhs;
                 return true;
             }
-            else if (m_bv.is_numeral(t1, n, sz)) {
-                n = m_bv.norm(n, sz, true);
-                lo = true;
-                b  = t2;
+            if (is_number(rhs, n, sz)) { // x sle C
+                b = interval(1ull << (sz-1), n, sz, true);
+                v = lhs;
+                return true;
+            }
+        } else if (m.is_eq(e, lhs, rhs)) {
+            if (is_number(lhs, n, sz)) {
+                if (m_bv.is_numeral(rhs))
+                    return false;
+                b = interval(n, n, sz, true);
+                v = rhs;
+                return true;
+            }
+            if (is_number(rhs, n, sz)) {
+                b = interval(n, n, sz, true);
+                v = lhs;
                 return true;
             }
         }
         return false;
     }
 
-    bool is_eq_const(expr* t, expr*& b, rational& n) {
-        expr* t1, *t2;
-        unsigned sz;
-        if (m.is_eq(t, t1, t2)) {
-            if (m_bv.is_numeral(t1, n, sz)) {
-                b = t2;
-                return true;
-            }
-            if (m_bv.is_numeral(t2, n, sz)) {
-                b = t1;
-                return true;
+    expr_set* get_expr_vars(expr* t) {
+        unsigned id = t->get_id();
+        m_expr_vars.reserve(id + 1);
+        expr_set*& entry = m_expr_vars[id];
+        if (entry)
+            return entry;
+
+        expr_set* set = alloc(expr_set);
+        entry = set;
+
+        if (!m_bv.is_numeral(t))
+            set->insert(t, true);
+
+        if (!is_app(t))
+            return set;
+
+        app* a = to_app(t);
+        for (unsigned i = 0; i < a->get_num_args(); ++i) {
+            expr_set* set_arg = get_expr_vars(a->get_arg(i));
+            for (expr_set::iterator I = set_arg->begin(), E = set_arg->end(); I != E; ++I) {
+                set->insert(I->m_key, true);
             }
         }
-        return false;
+        return set;
     }
-    
+
+    expr_cnt* get_expr_bounds(expr* t) {
+        unsigned id = t->get_id();
+        m_bound_exprs.reserve(id + 1);
+        expr_cnt*& entry = m_bound_exprs[id];
+        if (entry)
+            return entry;
+
+        expr_cnt* set = alloc(expr_cnt);
+        entry = set;
+
+        if (!is_app(t))
+            return set;
+
+        interval b;
+        expr* e;
+        if (is_bound(t, e, b)) {
+            set->insert_if_not_there2(e, 0)->get_data().m_value++;
+        }
+
+        app* a = to_app(t);
+        for (unsigned i = 0; i < a->get_num_args(); ++i) {
+            expr_cnt* set_arg = get_expr_bounds(a->get_arg(i));
+            for (expr_cnt::iterator I = set_arg->begin(), E = set_arg->end(); I != E; ++I) {
+                set->insert_if_not_there2(I->m_key, 0)->get_data().m_value += I->m_value;
+            }
+        }
+        return set;
+    }
+
 public:
+    bv_bounds_simplifier(ast_manager& m, params_ref const& p) : m(m), m_params(p), m_bv(m) {
+        updt_params(p);
+    }
 
-    bv_bounds_simplifier(ast_manager& m): m(m), m_bv(m), m_trail(m) {}
+    virtual void updt_params(params_ref const & p) {
+        m_propagate_eq = p.get_bool("propagate_eq", false);
+    }
 
-    virtual ~bv_bounds_simplifier() {}
+    static void get_param_descrs(param_descrs& r) {
+        r.insert("propagate-eq", CPK_BOOL, "(default: false) propagate equalities from inequalities");
+    }
 
-    virtual void assert_expr(expr * t, bool sign) {
-        bool lo, s;
+    virtual ~bv_bounds_simplifier() {
+        for (unsigned i = 0, e = m_expr_vars.size(); i < e; ++i) {
+            dealloc(m_expr_vars[i]);
+        }
+        for (unsigned i = 0, e = m_bound_exprs.size(); i < e; ++i) {
+            dealloc(m_bound_exprs[i]);
+        }
+    }
+
+    virtual bool assert_expr(expr * t, bool sign) {
+        while (m.is_not(t, t)) {
+            sign = !sign;
+        }
+
+        interval b;
         expr* t1;
-        rational n;
-        if (!shared(t)) {
-            return;
-        }
-        if (is_bound(t, t1, lo, s, n)) {
-            if (sign) {
-                // !(n <= t1) <=> t1 <= n - 1
-                // !(t1 <= n) <=> t1 >= n + 1
-                if (lo) {
-                    n -= rational::one();
-                }
-                else {
-                    n += rational::one();
-                }
-                // check overflow conditions:
-                rational n1 = m_bv.norm(n, m_bv.get_bv_size(t1), s);
-                if (n1 == n) {
-                    TRACE("bv", tout << "(not " << mk_pp(t, m) << "): " << mk_pp(t1, m) << (lo?" <= ":" >= ") << n << "\n";);
-                    add_bound(!lo, s, t1, n);
-                }
-            }
-            else {
-                TRACE("bv", tout << mk_pp(t, m) << ": " << mk_pp(t1, m) << (lo?" >= ":" <= ") << n << "\n";);
-                add_bound(lo, s, t1, n);
+        if (is_bound(t, t1, b)) {
+            SASSERT(!m_bv.is_numeral(t1));
+            if (sign)
+                VERIFY(b.negate(b));
+
+            TRACE("bv", tout << (sign?"(not ":"") << mk_pp(t, m) << (sign ? ")" : "") << ": " << mk_pp(t1, m) << " in " << b << "\n";);
+            map::obj_map_entry* e = m_bound.find_core(t1);
+            if (e) {
+                interval& old = e->get_data().m_value;
+                interval intr;
+                if (!old.intersect(b, intr))
+                    return false;
+                if (old == intr)
+                    return true;
+                m_scopes.insert(undo_bound(t1, old, false));
+                old = intr;
+            } else {
+                m_bound.insert(t1, b);
+                m_scopes.insert(undo_bound(t1, interval(), true));
             }
         }
+        return true;
     }
 
     virtual bool simplify(expr* t, expr_ref& result) {
-        bool lo, s;
         expr* t1;
-        rational b1, b2;
+        interval b;
+
+        if (m_bound.find(t, b) && b.is_singleton()) {
+            result = m_bv.mk_numeral(b.l, m_bv.get_bv_size(t));
+            return true;
+        }
+
+        if (!m.is_bool(t))
+            return false;
+
+        bool sign = false;
+        while (m.is_not(t, t)) {
+            sign = !sign;
+        }
+
+        if (!is_bound(t, t1, b))
+            return false;
+
+        if (sign && b.tight) {
+            sign = false;
+            if (!b.negate(b)) {
+                result = m.mk_false();
+                return true;
+            }
+        }
+
+        interval ctx, intr;
         result = 0;
-        if (is_bound(t, t1, lo, s, b1)) {
-            if (bound(!lo, s).find(t1, b2)) {
-                // t1 >= b1 > b2 >= t1
-                if (lo && b1 > b2) {
-                    result = m.mk_false();
-                }
-                // t1 <= b1 < b2 <= t1
-                else if (!lo && b1 < b2) {
-                    result = m.mk_false();
-                }
-                else if (b1 == b2) {
-                    result = m.mk_eq(t1, m_bv.mk_numeral(b1, m.get_sort(t1)));
-                }
-            }
-            if (result == 0 && bound(lo, s).find(t1, b2)) {
-                // b1 <= b2 <= t1 
-                if (lo && b1 <= b2) {
-                    result = m.mk_true();
-                }
-                // b1 >= b2 >= t1
-                else if (!lo && b1 >= b2) {
-                    result = m.mk_true();
-                }
+
+        if (b.is_full() && b.tight) {
+            result = m.mk_true();
+        } else if (m_bound.find(t1, ctx)) {
+            if (ctx.implies(b)) {
+                result = m.mk_true();
+            } else if (!b.intersect(ctx, intr)) {
+                result = m.mk_false();
+            } else if (m_propagate_eq && intr.is_singleton()) {
+                result = m.mk_eq(t1, m_bv.mk_numeral(rational(intr.l, rational::ui64()),
+                                                     m.get_sort(t1)));
             }
         }
-        if (is_eq_const(t, t1, b1)) {
-            if (bound(true, false).find(t1, b2) && b2 > b1) {
-                result = m.mk_false();
-            }
-            else if (bound(false, false).find(t1, b2) && b2 < b1) {
-                result = m.mk_false();
-            }
-            else {
-                if (bound(true, true).find(t1, b2)) {
-                    b1 = m_bv.norm(b1, m_bv.get_bv_size(t1), true);
-                    if (b2 > b1) result = m.mk_false();
-                }
-                if (result == 0 && bound(false, true).find(t1, b2)) {
-                    b1 = m_bv.norm(b1, m_bv.get_bv_size(t1), true);
-                    if (b2 < b1) result = m.mk_false();
-                }
-            }
-        }
-        CTRACE("bv", result != 0, tout << mk_pp(t, m) << " " << (lo?"lo":"hi") << " " << b1 << " " << b2 << ": " << result << "\n";);
+
+        CTRACE("bv", result != 0, tout << mk_pp(t, m) << " " << b << " (ctx: " << ctx << ") (intr: " << intr << "): " << result << "\n";);
+        if (sign && result != 0)
+            result = m.mk_not(result);
         return result != 0;
     }
 
-    virtual void push() {
-        TRACE("bv", tout << "push\n";);
-        m_scopes.push_back(m_trail.size());
+    virtual bool may_simplify(expr* t) {
+        if (m_bv.is_numeral(t))
+            return false;
+
+        while (m.is_not(t, t));
+
+        expr_set* used_exprs = get_expr_vars(t);
+        for (map::iterator I = m_bound.begin(), E = m_bound.end(); I != E; ++I) {
+            if (I->m_value.is_singleton() && used_exprs->contains(I->m_key))
+                return true;
+        }
+
+        expr* t1;
+        interval b;
+        // skip common case: single bound constraint without any context for simplification
+        if (is_bound(t, t1, b)) {
+            return b.is_full() || m_bound.contains(t1);
+        }
+
+        expr_cnt* bounds = get_expr_bounds(t);
+        for (expr_cnt::iterator I = bounds->begin(), E = bounds->end(); I != E; ++I) {
+            if (I->m_value > 1 || m_bound.contains(I->m_key))
+                return true;
+        }
+        return false;
     }
 
     virtual void pop(unsigned num_scopes) {
         TRACE("bv", tout << "pop: " << num_scopes << "\n";);
-        if (num_scopes == 0) return;
-        unsigned old_sz = m_scopes[m_scopes.size() - num_scopes];
-        for (unsigned i = old_sz; i < m_trail.size(); ++i) {
-            TRACE("bv", tout << "remove: " << mk_pp(m_trail[i].get(), m) << "\n";);
-            SASSERT(m_bound[m_trail_kind[i]].contains(m_trail[i].get()));
-            m_bound[m_trail_kind[i]].erase(m_trail[i].get());
+        if (m_scopes.empty())
+            return;
+        unsigned target = m_scopes.size() - num_scopes;
+        if (target == 0) {
+            m_bound.reset();
+            m_scopes.reset();
+            return;
         }
-        m_trail_kind.resize(old_sz);
-        m_trail.resize(old_sz);
-        m_scopes.shrink(m_scopes.size() - num_scopes);
+        for (unsigned i = m_scopes.size()-1; i >= target; --i) {
+            undo_bound& undo = m_scopes[i];
+            SASSERT(m_bound.contains(undo.e));
+            if (undo.fresh) {
+                m_bound.erase(undo.e);
+            } else {
+                m_bound.insert(undo.e, undo.b);
+            }
+        }
+        m_scopes.shrink(target);
     }
 
     virtual simplifier * translate(ast_manager & m) {
-        return alloc(bv_bounds_simplifier, m);
+        return alloc(bv_bounds_simplifier, m, m_params);
     }
 
     virtual unsigned scope_level() const {
         return m_scopes.size();
     }
-    
 };
 
-tactic * mk_bv_bounds_tactic(ast_manager & m, params_ref const & p) {
-    return clean(alloc(ctx_simplify_tactic, m, alloc(bv_bounds_simplifier, m), p));
 }
 
+tactic * mk_bv_bounds_tactic(ast_manager & m, params_ref const & p) {
+    return clean(alloc(ctx_simplify_tactic, m, alloc(bv_bounds_simplifier, m, p), p));
+}

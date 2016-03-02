@@ -1176,7 +1176,17 @@ namespace smt {
 
         void display_literals(std::ostream & out, unsigned num_lits, literal const * lits) const;
 
+        void display_literals(std::ostream & out, literal_vector const& lits) const {
+            display_literals(out, lits.size(), lits.c_ptr());
+        }
+
+        void display_literal_verbose(std::ostream & out, literal lit) const;
+
         void display_literals_verbose(std::ostream & out, unsigned num_lits, literal const * lits) const;
+
+        void display_literals_verbose(std::ostream & out, literal_vector const& lits) const {
+            display_literals_verbose(out, lits.size(), lits.c_ptr());
+        }
 
         void display_watch_list(std::ostream & out, literal l) const;
 
@@ -1208,18 +1218,18 @@ namespace smt {
 
         void display_hot_bool_vars(std::ostream & out) const;
 
-        void display_lemma_as_smt_problem(std::ostream & out, unsigned num_antecedents, literal const * antecedents, literal consequent = false_literal, const char * logic = "AUFLIRA") const;
+        void display_lemma_as_smt_problem(std::ostream & out, unsigned num_antecedents, literal const * antecedents, literal consequent = false_literal, symbol const& logic = symbol::null) const;
 
-        void display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents, literal consequent = false_literal, const char * logic = "AUFLIRA") const;
+        void display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents, literal consequent = false_literal, symbol const& logic = symbol::null) const;
         void display_lemma_as_smt_problem(std::ostream & out, unsigned num_antecedents, literal const * antecedents, 
                                           unsigned num_antecedent_eqs, enode_pair const * antecedent_eqs, 
-                                          literal consequent = false_literal, const char * logic = "AUFLIRA") const;
+                                          literal consequent = false_literal, symbol const& logic = symbol::null) const;
 
         void display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents, 
                                           unsigned num_antecedent_eqs, enode_pair const * antecedent_eqs, 
-                                          literal consequent = false_literal, const char * logic = "AUFLIRA") const;
+                                          literal consequent = false_literal, symbol const& logic = symbol::null) const;
 
-        void display_assignment_as_smtlib2(std::ostream& out, const char * logic = "AUFLIRA") const; 
+        void display_assignment_as_smtlib2(std::ostream& out, symbol const& logic = symbol::null) const; 
 
         void display_normalized_enodes(std::ostream & out) const;
 
@@ -1357,7 +1367,7 @@ namespace smt {
 
         app * mk_eq_atom(expr * lhs, expr * rhs);
 
-        bool set_logic(symbol logic) { return m_setup.set_logic(logic); }
+        bool set_logic(symbol const& logic) { return m_setup.set_logic(logic); }
 
         void register_plugin(simplifier_plugin * s);
 

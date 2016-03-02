@@ -165,6 +165,7 @@ protected:
     ast_manager *                m_manager;
     bool                         m_own_manager;
     bool                         m_manager_initialized;
+    bool                         m_rec_fun_declared;
     pdecl_manager *              m_pmanager;
     sexpr_manager *              m_sexpr_manager;
     check_logic                  m_check_logic;

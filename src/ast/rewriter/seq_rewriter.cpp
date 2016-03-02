@@ -25,6 +25,8 @@ Notes:
 #include"automaton.h"
 #include"well_sorted.h"
 #include"var_subst.h"
+#include"symbolic_automata_def.h"
+
 
 expr_ref sym_expr::accept(expr* e) {
     ast_manager& m = m_t.get_manager();
@@ -37,6 +39,7 @@ expr_ref sym_expr::accept(expr* e) {
     }
     case t_char:
         SASSERT(m.get_sort(e) == m.get_sort(m_t));
+        SASSERT(m.get_sort(e) == m_sort);
         result = m.mk_eq(e, m_t);
         break;
     case t_range: {
@@ -67,8 +70,114 @@ struct display_expr1 {
     }
 };
 
+class sym_expr_boolean_algebra : public boolean_algebra<sym_expr*> {
+    ast_manager& m;
+    expr_solver& m_solver;
+    typedef sym_expr* T;
+public:
+    sym_expr_boolean_algebra(ast_manager& m, expr_solver& s): 
+        m(m), m_solver(s) {}
 
-re2automaton::re2automaton(ast_manager& m): m(m), u(m), bv(m) {}
+    virtual T mk_false() {
+        expr_ref fml(m.mk_false(), m);
+        return sym_expr::mk_pred(fml, m.mk_bool_sort()); // use of Bool sort for bound variable is arbitrary
+    }
+    virtual T mk_true() {
+        expr_ref fml(m.mk_true(), m);
+        return sym_expr::mk_pred(fml, m.mk_bool_sort());
+    }
+    virtual T mk_and(T x, T y) {
+        if (x->is_char() && y->is_char()) {
+            if (x->get_char() == y->get_char()) {
+                return x;
+            }
+            if (m.are_distinct(x->get_char(), y->get_char())) {
+                expr_ref fml(m.mk_false(), m);
+                return sym_expr::mk_pred(fml, x->get_sort());
+            }
+        }
+        var_ref v(m.mk_var(0, x->get_sort()), m);
+        expr_ref fml1 = x->accept(v);
+        expr_ref fml2 = y->accept(v);
+        if (m.is_true(fml1)) return y;
+        if (m.is_true(fml2)) return x;
+        expr_ref fml(m.mk_and(fml1, fml2), m);
+        return sym_expr::mk_pred(fml, x->get_sort());
+    }
+    virtual T mk_or(T x, T y) {
+        if (x->is_char() && y->is_char() &&
+            x->get_char() == y->get_char()) {
+            return x;
+        }
+        var_ref v(m.mk_var(0, x->get_sort()), m);
+        expr_ref fml1 = x->accept(v);
+        expr_ref fml2 = y->accept(v);        
+        if (m.is_false(fml1)) return y;
+        if (m.is_false(fml2)) return x;
+        expr_ref fml(m.mk_or(fml1, fml2), m);
+        return sym_expr::mk_pred(fml, x->get_sort());
+    }
+
+    virtual T mk_and(unsigned sz, T const* ts) {
+        switch (sz) {
+        case 0: return mk_true();
+        case 1: return ts[0];
+        default: {
+            T t = ts[0];
+            for (unsigned i = 1; i < sz; ++i) {
+                t = mk_and(t, ts[i]);
+            }
+            return t;
+        }
+        }
+    }
+    virtual T mk_or(unsigned sz, T const* ts) {
+        switch (sz) {
+        case 0: return mk_false();
+        case 1: return ts[0];
+        default: {
+            T t = ts[0];
+            for (unsigned i = 1; i < sz; ++i) {
+                t = mk_or(t, ts[i]);
+            }
+            return t;
+        }
+        }
+    }
+    virtual lbool is_sat(T x) {
+        if (x->is_char()) {
+            return l_true;
+        }
+        if (x->is_range()) {
+            // TBD check lower is below upper.
+        }
+        expr_ref v(m.mk_fresh_const("x", x->get_sort()), m);
+        expr_ref fml = x->accept(v);
+        if (m.is_true(fml)) {
+            return l_true;
+        }
+        if (m.is_false(fml)) {
+            return l_false;
+        }
+        return m_solver.check_sat(fml);
+    }
+    virtual T mk_not(T x) {
+        var_ref v(m.mk_var(0, x->get_sort()), m);
+        expr_ref fml(m.mk_not(x->accept(v)), m);
+        return sym_expr::mk_pred(fml, x->get_sort());
+    }
+};
+
+re2automaton::re2automaton(ast_manager& m): m(m), u(m), bv(m), m_ba(0), m_sa(0) {}
+
+re2automaton::~re2automaton() {}
+
+void re2automaton::set_solver(expr_solver* solver) {
+    m_solver = solver;
+    m_ba = alloc(sym_expr_boolean_algebra, m, *solver);
+    m_sa = alloc(symbolic_automata_t, sm, *m_ba.get());
+}
+
 
 eautomaton* re2automaton::operator()(expr* e) { 
     eautomaton* r = re2aut(e); 
@@ -136,7 +245,7 @@ eautomaton* re2automaton::re2aut(expr* e) {
             expr_ref _start(bv.mk_numeral(start, nb), m);
             expr_ref _stop(bv.mk_numeral(stop, nb), m);
             expr_ref _pred(m.mk_not(m.mk_and(bv.mk_ule(_start, v), bv.mk_ule(v, _stop))), m);
-            a = alloc(eautomaton, sm, sym_expr::mk_pred(_pred));
+            a = alloc(eautomaton, sm, sym_expr::mk_pred(_pred, s));
             return a.detach();
         }
         else if (u.re.is_to_re(e0, e1) && u.str.is_string(e1, s1) && s1.length() == 1) {
@@ -145,13 +254,14 @@ eautomaton* re2automaton::re2aut(expr* e) {
             expr_ref v(m.mk_var(0, s), m);
             expr_ref _ch(bv.mk_numeral(s1[0], nb), m);          
             expr_ref _pred(m.mk_not(m.mk_eq(v, _ch)), m);
-            a = alloc(eautomaton, sm, sym_expr::mk_pred(_pred));
+            a = alloc(eautomaton, sm, sym_expr::mk_pred(_pred, s));
             return a.detach();
         }
         else if (u.re.is_to_re(e0, e1) && u.str.is_unit(e1, e2)) {
-            expr_ref v(m.mk_var(0, m.get_sort(e2)), m);
+            sort* s = m.get_sort(e2);
+            expr_ref v(m.mk_var(0, s), m);
             expr_ref _pred(m.mk_not(m.mk_eq(v, e2)), m);
-            a = alloc(eautomaton, sm, sym_expr::mk_pred(_pred));
+            a = alloc(eautomaton, sm, sym_expr::mk_pred(_pred, s));
             return a.detach();
         }
         else {
@@ -187,14 +297,15 @@ eautomaton* re2automaton::re2aut(expr* e) {
     }
     else if (u.re.is_full(e)) {
         expr_ref tt(m.mk_true(), m);
-        sym_expr* _true = sym_expr::mk_pred(tt);
+        sort* seq_s, *char_s;
+        VERIFY (u.is_re(m.get_sort(e), seq_s));
+        VERIFY (u.is_seq(seq_s, char_s));
+        sym_expr* _true = sym_expr::mk_pred(tt, char_s);
         return eautomaton::mk_loop(sm, _true);
     }
-#if 0
-    else if (u.re.is_intersect(e, e1, e2)) {
-        // maybe later
+    else if (u.re.is_intersection(e, e1, e2) && m_sa && (a = re2aut(e1)) && (b = re2aut(e2))) {
+        return m_sa->mk_product(*a, *b);
     }
-#endif
     
     return 0;
 }
@@ -437,18 +548,24 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
     m_util.str.get_concat(a, as);
     m_util.str.get_concat(b, bs);
     bool all_values = true;
-    
+   
+    if (bs.empty()) {
+        result = m().mk_true();
+        return BR_DONE;
+    }
+
     for (unsigned i = 0; all_values && i < bs.size(); ++i) { 
         all_values = m().is_value(bs[i].get());
     }
 
     bool found = false;
     for (unsigned i = 0; !found && i < as.size(); ++i) {
-        if (bs.size() > as.size() - i) break;
         all_values &= m().is_value(as[i].get());
-        unsigned j = 0;
-        for (; j < bs.size() && as[j+i].get() == bs[j].get(); ++j) {};
-        found = j == bs.size();
+        if (bs.size() <= as.size() - i) {
+            unsigned j = 0;
+            for (; j < bs.size() && as[j+i].get() == bs[j].get(); ++j) {};
+            found = j == bs.size();
+        }
     }
     if (found) {
         result = m().mk_true();
@@ -458,6 +575,39 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
         result = m().mk_false();
         return BR_DONE;
     }
+
+    unsigned lenA = 0, lenB = 0;
+    bool lA = min_length(as.size(), as.c_ptr(), lenA);
+    if (lA) {
+        bool lB = min_length(bs.size(), bs.c_ptr(), lenB);
+        if (lenB > lenA) {
+            result = m().mk_false();
+            return BR_DONE;
+        }
+    }
+
+
+    if (as.empty()) {
+        result = m().mk_eq(b, m_util.str.mk_empty(m().get_sort(b)));
+        return BR_REWRITE2;
+    }
+
+    unsigned offs = 0;
+    unsigned sz = as.size();
+    expr* b0 = bs[0].get();
+    expr* bL = bs[bs.size()-1].get();
+    for (; offs < as.size() && m().are_distinct(b0, as[offs].get()); ++offs) {};
+    for (; sz > offs && m().are_distinct(bL, as[sz-1].get()); --sz) {}
+    if (offs == sz) {
+        result = m().mk_eq(b, m_util.str.mk_empty(m().get_sort(b)));
+        return BR_REWRITE2;
+    }
+    if (offs > 0 || sz < as.size()) {
+        SASSERT(sz > offs);
+        result = m_util.str.mk_contains(m_util.str.mk_concat(sz-offs, as.c_ptr()+offs), b);
+        return BR_REWRITE2;
+    }
+
     return BR_FAILED;
 }
 

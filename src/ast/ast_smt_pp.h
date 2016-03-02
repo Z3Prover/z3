@@ -67,7 +67,7 @@ public:
     void set_source_info(const char* si) { if (si) m_source_info = si; }
     void set_status(const char* s) { if (s) m_status = s; }
     void set_category(const char* c) { if (c) m_category = c; }
-    void set_logic(const char* l) { if (l) m_logic = l; }
+    void set_logic(symbol const& l) { m_logic = l; }
     void add_attributes(const char* s) { if (s) m_attributes += s; }
     void add_assumption(expr* n) { m_assumptions.push_back(n); }
     void add_assumption_star(expr* n) { m_assumptions_star.push_back(n); }

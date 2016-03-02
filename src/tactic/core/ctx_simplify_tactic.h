@@ -28,12 +28,13 @@ public:
         goal_num_occurs* m_occs;
     public:
         virtual ~simplifier() {}
-        virtual void assert_expr(expr * t, bool sign) = 0;
+        virtual bool assert_expr(expr * t, bool sign) = 0;
         virtual bool simplify(expr* t, expr_ref& result) = 0;
-        virtual void push() = 0;
+        virtual bool may_simplify(expr* t) { return true; }
         virtual void pop(unsigned num_scopes) = 0;
         virtual simplifier * translate(ast_manager & m) = 0;
         virtual unsigned scope_level() const = 0;
+        virtual void updt_params(params_ref const & p) {}
         void set_occs(goal_num_occurs& occs) { m_occs = &occs; };
         bool shared(expr* t) const;
     };
@@ -42,13 +43,10 @@ protected:
     struct      imp;
     imp *       m_imp;
     params_ref  m_params;
-    simplifier* m_simp;
 public:
     ctx_simplify_tactic(ast_manager & m, simplifier* simp, params_ref const & p = params_ref());
 
-    virtual tactic * translate(ast_manager & m) {
-        return alloc(ctx_simplify_tactic, m, m_simp->translate(m), m_params);
-    }
+    virtual tactic * translate(ast_manager & m);
 
     virtual ~ctx_simplify_tactic();
 

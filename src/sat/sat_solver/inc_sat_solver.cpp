@@ -425,7 +425,7 @@ private:
         DEBUG_CODE(
             for (unsigned i = 0; i < m_fmls.size(); ++i) {
                 expr_ref tmp(m);
-                VERIFY(m_model->eval(m_fmls[i].get(), tmp));                
+                VERIFY(m_model->eval(m_fmls[i].get(), tmp, true));                
                 CTRACE("sat", !m.is_true(tmp),
                        tout << "Evaluation failed: " << mk_pp(m_fmls[i].get(), m) 
                        << " to " << tmp << "\n";

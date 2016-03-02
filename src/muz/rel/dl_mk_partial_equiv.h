@@ -30,7 +30,7 @@ namespace datalog {
         ast_manager & m;
         context &     m_context;
     public:
-        mk_partial_equivalence_transformer(context & ctx, unsigned priority=45000)
+        mk_partial_equivalence_transformer(context & ctx, unsigned priority=30000)
             : plugin(priority),
             m(ctx.get_manager()),
             m_context(ctx) {}
