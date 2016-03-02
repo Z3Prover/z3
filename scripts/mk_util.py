@@ -2632,15 +2632,20 @@ def update_version():
 # Update files with the version number
 def mk_version_dot_h(major, minor, build, revision):
     c = get_component(UTIL_COMPONENT)
-    fout = open(os.path.join(c.src_dir, 'version.h'), 'w')
-    fout.write('// automatically generated file.\n')
-    fout.write('#define Z3_MAJOR_VERSION   %s\n' % major)
-    fout.write('#define Z3_MINOR_VERSION   %s\n' % minor)
-    fout.write('#define Z3_BUILD_NUMBER    %s\n' % build)
-    fout.write('#define Z3_REVISION_NUMBER %s\n' % revision)
-    fout.close()
+    version_template = os.path.join(c.src_dir, 'version.h.in')
+    version_header_output = os.path.join(c.src_dir, 'version.h')
+    # Note the substitution names are what is used by the CMake
+    # builds system. If you change these you should change them
+    # in the CMake build too
+    configure_file(version_template, version_header_output,
+        { 'Z3_VERSION_MAJOR': str(major),
+          'Z3_VERSION_MINOR': str(minor),
+          'Z3_VERSION_PATCH': str(build),
+          'Z3_VERSION_TWEAK': str(revision),
+        }
+    )
     if VERBOSE:
-        print("Generated '%s'" % os.path.join(c.src_dir, 'version.h'))
+        print("Generated '%s'" % version_header_output)
 
 # Generate AssemblyInfo.cs files with the right version numbers by using ``AssemblyInfo.cs.in`` files as a template
 def mk_all_assembly_infos(major, minor, build, revision):
