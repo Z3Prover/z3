@@ -167,6 +167,7 @@ struct blaster_rewriter_cfg : public default_rewriter_cfg {
 
     void pop(unsigned num_scopes) {
         if (num_scopes > 0) {
+            SASSERT(num_scopes <= m_keyval_lim.size());
             unsigned new_sz = m_keyval_lim.size() - num_scopes;
             unsigned lim = m_keyval_lim[new_sz];
             for (unsigned i = m_keys.size(); i > lim; ) {
