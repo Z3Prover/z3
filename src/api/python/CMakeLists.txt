@@ -95,10 +95,9 @@ if (INSTALL_PYTHON_BINDINGS)
             "does not exist under the install prefix \"${CMAKE_INSTALL_PREFIX}\"."
             " Running the install target may lead to a broken installation."
            )
-    set(python_install_dir "${python_pkg_dir}")
-  else()
-    string(REPLACE "${CMAKE_INSTALL_PREFIX}" "" python_install_dir "${python_pkg_dir}")
   endif()
+  # Using DESTDIR still seems to work even if we use an absolute path
+  set(python_install_dir "${python_pkg_dir}")
   message(STATUS "Python bindings will be installed to \"${python_install_dir}\"")
   install(FILES ${build_z3_python_bindings_target_depends}
     DESTINATION "${python_install_dir}"
