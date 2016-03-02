@@ -326,6 +326,7 @@ cmd_context::cmd_context(bool main_ctx, ast_manager * m, symbol const & l):
     m_manager(m),
     m_own_manager(m == 0),
     m_manager_initialized(false),
+    m_rec_fun_declared(false),
     m_pmanager(0),
     m_sexpr_manager(0),
     m_regular("stdout", std::cout),
@@ -830,14 +831,18 @@ void cmd_context::insert(symbol const & s, object_ref * r) {
 }
 
 void cmd_context::insert_rec_fun(func_decl* f, expr_ref_vector const& binding, svector<symbol> const& ids, expr* e) {
-    expr_ref eq(m()), lhs(m());
+    expr_ref eq(m());
+    app_ref lhs(m());
     lhs = m().mk_app(f, binding.size(), binding.c_ptr());
     eq  = m().mk_eq(lhs, e);
     if (!ids.empty()) {
-        eq  = m().mk_forall(ids.size(), f->get_domain(), ids.c_ptr(), eq);
+        expr* pat = m().mk_pattern(lhs);
+        eq  = m().mk_forall(ids.size(), f->get_domain(), ids.c_ptr(), eq, 0, symbol(":rec-fun"), symbol::null, 1, &pat);
     }
-    warning_msg("recursive functions are currently only partially supported: they are translated into recursive equations without special handling");
-    // TBD: basic implementation asserts axiom. Life-time of recursive equation follows scopes (unlikely to be what SMT-LIB 2.5 wants).
+    if (!ids.empty() && !m_rec_fun_declared) {
+        warning_msg("recursive functions are currently only partially supported: they are translated into recursive equations without special handling");
+        m_rec_fun_declared = true;
+    }
     assert_expr(eq);
 }
 

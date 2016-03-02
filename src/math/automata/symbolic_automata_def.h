@@ -25,7 +25,6 @@ Revision History:
 #include "symbolic_automata.h"
 #include "hashtable.h"
 
-typedef std::pair<unsigned, unsigned> unsigned_pair;
 
 
 
@@ -234,7 +233,7 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minim
     unsigned new_init = pblocks[blocks[a.init()]].get_representative();
 
     // set moves
-    map<unsigned_pair, T*, pair_hash<unsigned_hash, unsigned_hash>, default_eq<unsigned_pair> > conds;
+    u2_map<T*> conds;
     svector<unsigned_pair> keys;
     moves_t new_moves;
 
@@ -276,25 +275,22 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minim
 
 template<class T, class M>
 typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_product(automaton_t& a, automaton_t& b) {
-    map<unsigned_pair, unsigned, pair_hash<unsigned_hash, unsigned_hash>, default_eq<unsigned_pair> > state_ids;
+    u2_map<unsigned> pair2id;
     unsigned_pair init_pair(a.init(), b.init());
     svector<unsigned_pair> todo;
     todo.push_back(init_pair);
-    state_ids.insert(init_pair, 0);
+    pair2id.insert(init_pair, 0);
     moves_t mvs;
     unsigned_vector final;
     if (a.is_final_state(a.init()) && b.is_final_state(b.init())) {
         final.push_back(0);
-    }
-    if (false) {
-        mk_minimize(a);
     }
     unsigned n = 1;
     moves_t mvsA, mvsB;
     while (!todo.empty()) {
         unsigned_pair curr_pair = todo.back();
         todo.pop_back();
-        unsigned src = state_ids[curr_pair];
+        unsigned src = pair2id[curr_pair];
         mvsA.reset(); mvsB.reset();
         a.get_moves_from(curr_pair.first,  mvsA, true);
         b.get_moves_from(curr_pair.second, mvsB, true);
@@ -310,9 +306,9 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_produ
                 }
                 unsigned_pair tgt_pair(mvsA[i].dst(), mvsB[j].dst());
                 unsigned tgt;
-                if (!state_ids.find(tgt_pair, tgt)) {
+                if (!pair2id.find(tgt_pair, tgt)) {
                     tgt = n++;
-                    state_ids.insert(tgt_pair, tgt);
+                    pair2id.insert(tgt_pair, tgt);
                     todo.push_back(tgt_pair);
                     if (a.is_final_state(tgt_pair.first) && b.is_final_state(tgt_pair.second)) {
                         final.push_back(tgt);
@@ -366,6 +362,130 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_produ
     }
 } 
 
+#if 0
+template<class T, class M>
+unsigned symbolic_automata<T, M>::get_product_state_id(u2_map<unsigned>& pair2id, unsigned_pair const& p, unsigned& id) {
+    unsigned result = 0;
+    if (!pair2id.find(p, result)) {
+        result = id++;
+        pair2id.insert(p, result);
+    }
+    return result;
+}
+#endif
 
+template<class T, class M>
+typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_difference(automaton_t& a, automaton_t& b) {
+#if 0
+    map<uint_set, unsigned, uint_set_hash, uint_set_eq> bs2id;   // set of b-states to unique id
+    vector<uintset> id2bs;                                       // unique id to set of b-states
+    u2_map<unsigned> pair2id;                                    // pair of states to new state id
+    unsigned sink_state = UINT_MAX;
+    uint_set bset;
+    moves_t new_moves;                                           // moves in the resulting automaton
+    unsigned_vector new_final_states;                            // new final states
+    unsigned p_state_id = 0;                                     // next state identifier
+    bs2id.insert(uint_set(), sink_state);                        // the sink state has no b-states
+    bset.insert(b.init());                                       // the initial state has a single initial b state
+    bs2id.insert(bset, 0);                                       // the index to the initial b state is 0
+    id2bs.push_back(bset);
+    if (!b.is_final_state(b.init()) && a.is_final_state(a.init())) {
+        new_final_states.push_back(p_state_id);
+    }
+
+    svector<unsigned_pair> todo;
+    unsigned_pair state(a.init(), 0);
+    todo.push_back(state);
+    pair2id.insert(state, p_state_id++);
+
+    // or just make todo a vector whose indices coincide with state_id.
+    while (!todo.empty()) {
+        state = todo.back();
+        unsigned state_id = pair2id[state];
+        todo.pop_back();
+        mvsA.reset();
+        a.get_moves_from(state.first, mvsA, true);
+        if (state.second == sink_state) {
+            for (unsigned i = 0; i < mvsA.size(); ++i) {
+                unsigned_pair dst(mvsA[i].dst(), sink_state);
+                bool is_new = !pair2id.contains(dst);
+                unsigned dst_id = get_product_state_id(pair2id, dst, p_state_id);
+                new_moves.push_back(move_t(m, state_id, dst_id, mvsA[i].t()));
+                if (is_new && a.is_final_state(mvsA[i].dst())) {
+                    new_final_states.push_back(dst_id);
+                    todo.push_back(dst);
+                }
+            }
+        }
+        else {
+            get_moves_from(b, id2bs[state.second], mvsB);
+            generate_min_terms(mvsB, min_terms);
+            for (unsigned j = 0; j < min_terms.size(); ++j) {
+                for (unsigned i = 0; i < mvsA.size(); ++i) {
+                    ref_t cond(m_ba.mk_and(mvsA[i].t(), min_terms[j].second), m);
+                    switch (m_ba.is_sat(cond)) {
+                    case l_false:
+                        break;
+                    case l_true:
+                        ab_combinations.push_back(ab_comb(i, min_terms[j].first, cond));
+                        break;
+                    case l_undef:
+                        return 0;
+                    }
+                }
+            }
+
+            for (unsigned i = 0; i < ab_combinations.size(); ++i) {
+                move_t const& mvA = mvsA[ab_combinations[i].A];
+                bset.reset();
+                bool is_final = a.is_final_state(mvA.dst());
+                for (unsigned j = 0; j < mvsB.size(); ++j) {
+                    if (ab_combinations[i].B[j]) {
+                        bset.insert(mvsB[j].dst());
+                        is_final &= !b.is_final_state(mvsB[j].dst());
+                    }
+                }
+                unsigned new_b;
+                if (bset.empty()) {
+                    new_b = sink_state;
+                }
+                else if (!bs2id.find(bset, new_b)) {
+                    new_b = id2bs.size();
+                    id2bs.push_back(bset);
+                    bs2id.insert(bset, new_b);
+                }
+                unsigned_pair dst(mvA.dst(), new_b);
+                bool is_new = !pair2id.contains(dst);
+                dst_id = get_product_state_id(pair2id, dst, p_state_id);
+                move_t new_move(m, state_id, dst_id, ab_combinations[i].cond);
+                new_moves.push_back(new_move);
+                if (is_new) {
+                    if (is_final) {
+                        new_final_states.push_back(dst_id);
+                    }
+                    todo.push_back(dst);
+                }   
+            }
+        }
+    }
+    
+    
+    if (new_final_states.empty()) {
+        return alloc(automaton_t, m);
+    }
+
+    automaton_t* result = alloc(automaton_t, m, 0, new_final_states, new_moves); 
+
+#if 0
+    result->isEpsilonFree = true;
+    if (A.IsDeterministic)
+        result->isDeterministic = true;    
+    result->EliminateDeadStates();
+#endif
+    return result;
+
+#endif
+    return 0;
+}
 
 #endif 

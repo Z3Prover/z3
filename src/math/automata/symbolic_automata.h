@@ -34,6 +34,9 @@ class symbolic_automata {
     typedef vector<move_t>     moves_t;
     typedef obj_ref<T, M>      ref_t;
     typedef ref_vector<T, M>   refs_t;
+    typedef std::pair<unsigned, unsigned> unsigned_pair;
+    template<class V> class u2_map : public map<unsigned_pair, V, pair_hash<unsigned_hash, unsigned_hash>, default_eq<unsigned_pair> > {};
+
 
     M&    m;
     ba_t& m_ba;
