@@ -208,3 +208,14 @@ add_subdirectory(shell)
 # z3-test
 ################################################################################
 add_subdirectory(test)
+
+
+################################################################################
+# Z3 API bindings
+################################################################################
+option(BUILD_PYTHON_BINDINGS "Build Python bindings for Z3" OFF)
+if (BUILD_PYTHON_BINDINGS)
+  add_subdirectory(api/python)
+endif()
+
+# TODO: Implement support for other bindigns
