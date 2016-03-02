@@ -2999,6 +2999,17 @@ def mk_bindings(api_files):
 def mk_z3consts_py(api_files):
     if Z3PY_SRC_DIR is None:
         raise MKException("You must invoke set_z3py_dir(path):")
+    full_path_api_files = []
+    api_dll = get_component(Z3_DLL_COMPONENT)
+    for api_file in api_files:
+        api_file_c = api_dll.find_file(api_file, api_dll.name)
+        api_file   = os.path.join(api_file_c.src_dir, api_file)
+        full_path_api_files.append(api_file)
+    mk_z3consts_py_internal(full_path_api_files, Z3PY_SRC_DIR)
+
+def mk_z3consts_py_internal(api_files, output_dir):
+    assert os.path.isdir(output_dir)
+    assert isinstance(api_files, list)
 
     blank_pat      = re.compile("^ *\r?$")
     comment_pat    = re.compile("^ *//.*$")
@@ -3007,14 +3018,9 @@ def mk_z3consts_py(api_files):
     openbrace_pat  = re.compile("{ *")
     closebrace_pat = re.compile("}.*;")
 
-    z3consts  = open(os.path.join(Z3PY_SRC_DIR, 'z3consts.py'), 'w')
+    z3consts  = open(os.path.join(output_dir, 'z3consts.py'), 'w')
     z3consts.write('# Automatically generated file\n\n')
-
-    api_dll = get_component(Z3_DLL_COMPONENT)
-
     for api_file in api_files:
-        api_file_c = api_dll.find_file(api_file, api_dll.name)
-        api_file   = os.path.join(api_file_c.src_dir, api_file)
         api = open(api_file, 'r')
 
         SEARCHING  = 0
@@ -3075,7 +3081,7 @@ def mk_z3consts_py(api_files):
         api.close()
     z3consts.close()
     if VERBOSE:
-        print("Generated '%s'" % os.path.join(Z3PY_SRC_DIR, 'z3consts.py'))
+        print("Generated '%s'" % os.path.join(output_dir, 'z3consts.py'))
 
 
 # Extract enumeration types from z3_api.h, and add .Net definitions
