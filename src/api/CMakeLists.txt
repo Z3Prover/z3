@@ -20,8 +20,9 @@ endforeach()
 add_custom_command(OUTPUT ${generated_files}
   COMMAND "${PYTHON_EXECUTABLE}"
   "${CMAKE_SOURCE_DIR}/scripts/update_api.py"
-  "${CMAKE_CURRENT_BINARY_DIR}"
   ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
+  "--api_output_dir"
+  "${CMAKE_CURRENT_BINARY_DIR}"
   DEPENDS "${CMAKE_SOURCE_DIR}/scripts/update_api.py"
           "${CMAKE_SOURCE_DIR}/scripts/mk_util.py"
           ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}

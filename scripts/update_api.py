@@ -1557,7 +1557,7 @@ core_py = None
 # FIXME: This can only be called once from this module
 # due to its use of global state!
 def generate_files(api_files,
-                   api_output_dir,
+                   api_output_dir=None,
                    z3py_output_dir=None,
                    dotnet_output_dir=None,
                    java_output_dir=None,
@@ -1576,22 +1576,25 @@ def generate_files(api_files,
   # FIXME: These should not be global
   global log_h, log_c, exe_c, core_py
   assert isinstance(api_files, list)
-  assert os.path.isdir(api_output_dir)
 
-  # Hack to avoid emitting z3core.py when we don't want it
-  def mk_z3coredotpy_file_object():
-    if z3py_output_dir:
-      assert os.path.isdir(z3py_output_dir)
-      return open(os.path.join(z3py_output_dir, 'z3core.py'), 'w')
+  # Hack: Avoid emitting files when we don't want them
+  # by writing to temporary files that get deleted when
+  # closed. This allows us to work around the fact that
+  # existing code is designed to always emit these files.
+  def mk_file_or_temp(output_dir, file_name, mode='w'):
+    if output_dir != None:
+      assert os.path.exists(output_dir) and os.path.isdir(output_dir)
+      return open(os.path.join(output_dir, file_name), mode)
     else:
       # Return a file that we can write to without caring
+      print("Faking emission of '{}'".format(file_name))
       import tempfile
-      return tempfile.TemporaryFile(mode='w')
+      return tempfile.TemporaryFile(mode=mode)
 
-  with open(os.path.join(api_output_dir, 'api_log_macros.h'), 'w') as log_h:
-    with open(os.path.join(api_output_dir, 'api_log_macros.cpp'), 'w') as log_c:
-      with open(os.path.join(api_output_dir, 'api_commands.cpp'), 'w') as exe_c:
-        with mk_z3coredotpy_file_object() as core_py:
+  with mk_file_or_temp(api_output_dir, 'api_log_macros.h') as log_h:
+    with mk_file_or_temp(api_output_dir, 'api_log_macros.cpp') as log_c:
+      with mk_file_or_temp(api_output_dir, 'api_commands.cpp') as exe_c:
+        with mk_file_or_temp(z3py_output_dir, 'z3core.py') as core_py:
           # Write preambles
           write_log_h_preamble(log_h)
           write_log_c_preamble(log_c)
@@ -1625,8 +1628,11 @@ def generate_files(api_files,
 def main(args):
   logging.basicConfig(level=logging.INFO)
   parser = argparse.ArgumentParser(description=__doc__)
-  parser.add_argument("api_output_dir", help="Directory to emit files for api module")
-  parser.add_argument("api_files", nargs="+", help="API header files to generate files from")
+  parser.add_argument("api_files", nargs="+",
+                      help="API header files to generate files from")
+  parser.add_argument("--api_output_dir",
+                      help="Directory to emit files for api module",
+                      default=None)
   parser.add_argument("--z3py-output-dir", dest="z3py_output_dir", default=None)
   parser.add_argument("--dotnet-output-dir", dest="dotnet_output_dir", default=None)
   parser.add_argument("--java-output-dir", dest="java_output_dir", default=None)
@@ -1643,10 +1649,6 @@ def main(args):
     if not os.path.exists(api_file):
       logging.error('"{}" does not exist'.format(api_file))
       return 1
-
-  if not os.path.isdir(pargs.api_output_dir):
-    logging.error('"{}" is not a directory'.format(pargs.api_output_dir))
-    return 1
 
   generate_files(api_files=pargs.api_files,
                  api_output_dir=pargs.api_output_dir,
