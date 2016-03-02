@@ -50,14 +50,14 @@ class inc_sat_solver : public solver {
     expr_ref_vector     m_core;
     atom2bool_var       m_map;
     model_ref           m_model;
-    model_converter_ref m_mc;  
-    bit_blaster_rewriter m_bb_rewriter; 
+    model_converter_ref m_mc;
+    bit_blaster_rewriter m_bb_rewriter;
     tactic_ref          m_preprocess;
     unsigned            m_num_scopes;
     sat::literal_vector m_asms;
     goal_ref_buffer     m_subgoals;
-    proof_converter_ref m_pc;   
-    model_converter_ref m_mc2;   
+    proof_converter_ref m_pc;
+    model_converter_ref m_mc2;
     expr_dependency_ref m_dep_core;
     svector<double>     m_weights;
     std::string         m_unknown;
@@ -66,15 +66,15 @@ class inc_sat_solver : public solver {
     typedef obj_map<expr, sat::literal> dep2asm_t;
 public:
     inc_sat_solver(ast_manager& m, params_ref const& p):
-        m(m), m_solver(p, m.limit(), 0), 
-        m_params(p), m_optimize_model(false), 
-        m_fmls(m), 
+        m(m), m_solver(p, m.limit(), 0),
+        m_params(p), m_optimize_model(false),
+        m_fmls(m),
         m_asmsf(m),
         m_fmls_head(0),
-        m_core(m), 
+        m_core(m),
         m_map(m),
         m_bb_rewriter(m, p),
-        m_num_scopes(0), 
+        m_num_scopes(0),
         m_dep_core(m),
         m_unknown("no reason given") {
         m_params.set_bool("elim_vars", false);
@@ -88,17 +88,17 @@ public:
         simp2_p.set_bool("flat", true); // required by som
         simp2_p.set_bool("hoist_mul", false); // required by som
         simp2_p.set_bool("elim_and", true);
-        m_preprocess = 
+        m_preprocess =
             and_then(mk_card2bv_tactic(m, m_params),
                      using_params(mk_simplify_tactic(m), simp2_p),
                      mk_max_bv_sharing_tactic(m),
-                     mk_bit_blaster_tactic(m, &m_bb_rewriter), 
+                     mk_bit_blaster_tactic(m, &m_bb_rewriter),
                      //mk_aig_tactic(),
-                     using_params(mk_simplify_tactic(m), simp2_p));               
+                     using_params(mk_simplify_tactic(m), simp2_p));
     }
-    
+
     virtual ~inc_sat_solver() {}
-   
+
     virtual solver* translate(ast_manager& dst_m, params_ref const& p) {
         ast_translation tr(m, dst_m);
         if (m_num_scopes > 0) {
@@ -119,7 +119,7 @@ public:
 
     virtual void set_progress_callback(progress_callback * callback) {}
 
-    virtual lbool check_sat(unsigned num_assumptions, expr * const * assumptions) { 
+    virtual lbool check_sat(unsigned num_assumptions, expr * const * assumptions) {
         return check_sat(num_assumptions, assumptions, 0, 0);
     }
 
@@ -138,8 +138,8 @@ public:
         }
         m_solver.display_wcnf(out, m_asms.size(), m_asms.c_ptr(), nweights.c_ptr());
     }
- 
-    lbool check_sat(unsigned sz, expr * const * assumptions, double const* weights, double max_weight) {       
+
+    lbool check_sat(unsigned sz, expr * const * assumptions, double const* weights, double max_weight) {
         m_weights.reset();
         if (weights != 0) {
             m_weights.append(sz, weights);
@@ -182,13 +182,13 @@ public:
         m_map.push();
     }
     virtual void pop(unsigned n) {
-        if (n < m_num_scopes) {   // allow inc_sat_solver to 
+        if (n < m_num_scopes) {   // allow inc_sat_solver to
             n = m_num_scopes;     // take over for another solver.
         }
         m_bb_rewriter.pop(n);
         m_map.pop(n);
         SASSERT(n >= m_num_scopes);
-        m_solver.user_pop(n);        
+        m_solver.user_pop(n);
         m_num_scopes -= n;
         while (n > 0) {
             m_fmls_head = m_fmls_head_lim.back();
@@ -227,7 +227,7 @@ public:
         m_params.set_bool("elim_vars", false);
         m_solver.updt_params(m_params);
         m_optimize_model = m_params.get_bool("optimize_model", false);
-    }    
+    }
     virtual void collect_statistics(statistics & st) const {
         m_preprocess->collect_statistics(st);
         m_solver.collect_statistics(st);
@@ -246,7 +246,7 @@ public:
         UNREACHABLE();
         return 0;
     }
-    
+
     virtual std::string reason_unknown() const {
         return m_unknown;
     }
@@ -279,13 +279,13 @@ private:
         m_preprocess->reset();
         SASSERT(g->models_enabled());
         SASSERT(!g->proofs_enabled());
-        TRACE("sat", g->display(tout););        
-        try {                   
+        TRACE("sat", g->display(tout););
+        try {
             (*m_preprocess)(g, m_subgoals, m_mc2, m_pc, m_dep_core);
         }
         catch (tactic_exception & ex) {
             IF_VERBOSE(0, verbose_stream() << "exception in tactic " << ex.msg() << "\n";);
-            return l_undef;                    
+            return l_undef;
         }
         if (m_subgoals.size() != 1) {
             IF_VERBOSE(0, verbose_stream() << "size of subgoals is not 1, it is: " << m_subgoals.size() << "\n";);
@@ -309,7 +309,7 @@ private:
         lbool res = internalize_goal(g, dep2asm);
         if (res == l_true) {
             extract_assumptions(sz, asms, dep2asm);
-        }        
+        }
         return res;
     }
 
@@ -360,7 +360,7 @@ private:
                   tout << core[i] << " ";
               }
               tout << "\n";
-              );              
+              );
 
         m_core.reset();
         for (unsigned i = 0; i < core.size(); ++i) {
@@ -402,8 +402,8 @@ private:
             }
             sat::bool_var v = it->m_value;
             switch (sat::value_at(v, ll_m)) {
-            case l_true: 
-                md->register_decl(to_app(n)->get_decl(), m.mk_true()); 
+            case l_true:
+                md->register_decl(to_app(n)->get_decl(), m.mk_true());
                 break;
             case l_false:
                 md->register_decl(to_app(n)->get_decl(), m.mk_false());
@@ -416,7 +416,7 @@ private:
         if (m_mc || !m_bb_rewriter.const2bits().empty()) {
             model_converter_ref mc = m_mc;
             if (!m_bb_rewriter.const2bits().empty()) {
-                mc = concat(mc.get(), mk_bit_blaster_model_converter(m, m_bb_rewriter.const2bits())); 
+                mc = concat(mc.get(), mk_bit_blaster_model_converter(m, m_bb_rewriter.const2bits()));
             }
             (*mc)(m_model);
         }
@@ -425,9 +425,9 @@ private:
         DEBUG_CODE(
             for (unsigned i = 0; i < m_fmls.size(); ++i) {
                 expr_ref tmp(m);
-                VERIFY(m_model->eval(m_fmls[i].get(), tmp, true));                
+                VERIFY(m_model->eval(m_fmls[i].get(), tmp, true));
                 CTRACE("sat", !m.is_true(tmp),
-                       tout << "Evaluation failed: " << mk_pp(m_fmls[i].get(), m) 
+                       tout << "Evaluation failed: " << mk_pp(m_fmls[i].get(), m)
                        << " to " << tmp << "\n";
                        model_smt2_pp(tout, m, *(m_model.get()), 0););
                 SASSERT(m.is_true(tmp));
