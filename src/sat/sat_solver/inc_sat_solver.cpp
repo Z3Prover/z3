@@ -182,7 +182,7 @@ public:
         m_map.push();
     }
     virtual void pop(unsigned n) {
-        if (n < m_num_scopes) {   // allow inc_sat_solver to
+        if (n > m_num_scopes) {   // allow inc_sat_solver to
             n = m_num_scopes;     // take over for another solver.
         }
         m_bb_rewriter.pop(n);
