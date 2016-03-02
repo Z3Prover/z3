@@ -7964,7 +7964,7 @@ class FPSortRef(SortRef):
        return int(Z3_fpa_get_ebits(self.ctx_ref(), self.ast))
 
     def sbits(self):
-       """Retrieves the number of bits reserved for the exponent in the FloatingPoint sort `self`.
+       """Retrieves the number of bits reserved for the significand in the FloatingPoint sort `self`.
        >>> b = FPSort(8, 24)
        >>> b.sbits()
        24
@@ -7972,8 +7972,7 @@ class FPSortRef(SortRef):
        return int(Z3_fpa_get_sbits(self.ctx_ref(), self.ast))
 
     def cast(self, val):
-        """Try to cast `val` as a Floating-point expression
-
+        """Try to cast `val` as a floating-point expression.
         >>> b = FPSort(8, 24)
         >>> b.cast(1.0)
         1
