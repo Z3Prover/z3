@@ -262,6 +262,12 @@ if ("${TARGET_ARCHITECTURE}" STREQUAL "x86_64")
 endif()
 
 ################################################################################
+# Threading support
+################################################################################
+find_package(Threads)
+list(APPEND Z3_DEPENDENT_LIBS ${CMAKE_THREAD_LIBS_INIT})
+
+################################################################################
 # Compiler warnings
 ################################################################################
 include(${CMAKE_SOURCE_DIR}/cmake/compiler_warnings.cmake)
