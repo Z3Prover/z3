@@ -21,7 +21,7 @@ endif()
 if (NOT (EXISTS "${CMAKE_SOURCE_DIR}/src/CMakeLists.txt"))
   message(FATAL_ERROR "Cannot find \"${CMAKE_SOURCE_DIR}/src/CMakeLists.txt\""
           ". This probably means you need to run"
-          "``python contrib/cmake/boostrap.py create``")
+          "``python contrib/cmake/bootstrap.py create``")
 endif()
 
 # This overrides the default flags for the different CMAKE_BUILD_TYPEs
