@@ -40,6 +40,15 @@ array_decl_plugin::array_decl_plugin():
 #define ARRAY_SORT_STR "Array"
 
 sort * array_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) {
+
+    if (k == _SET_SORT) {
+        if (num_parameters != 1) {
+            m_manager->raise_exception("invalid array sort definition, invalid number of parameters");
+            return 0;
+        }
+        parameter params[2] = { parameters[0], parameter(m_manager->mk_bool_sort()) };
+        return mk_sort(ARRAY_SORT, 2, params);
+    }
     SASSERT(k == ARRAY_SORT);
     if (num_parameters < 2) {
         m_manager->raise_exception("invalid array sort definition, invalid number of parameters");
@@ -506,6 +515,8 @@ func_decl * array_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
 
 void array_decl_plugin::get_sort_names(svector<builtin_name>& sort_names, symbol const & logic) {
     sort_names.push_back(builtin_name(ARRAY_SORT_STR, ARRAY_SORT));
+    // TBD: this could easily break users even though it is already used in CVC4: 
+    // sort_names.push_back(builtin_name("Set", _SET_SORT));
 }
 
 void array_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol const & logic) {

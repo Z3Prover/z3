@@ -547,6 +547,10 @@ namespace smt {
         out << "\n";
     }
 
+    bool theory_datatype::include_func_interp(func_decl* f) {
+        return false; // return m_util.is_accessor(f);
+    }
+
     void theory_datatype::init_model(model_generator & m) {
         m_factory = alloc(datatype_factory, get_manager(), m.get_model());
         m.register_factory(m_factory);

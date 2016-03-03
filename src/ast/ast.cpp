@@ -1308,7 +1308,8 @@ ast_manager::ast_manager(proof_gen_mode m, char const * trace_file, bool is_form
     m_expr_dependency_array_manager(*this, m_alloc),
     m_proof_mode(m),
     m_trace_stream(0),
-    m_trace_stream_owner(false) {
+    m_trace_stream_owner(false),
+    m_rec_fun(":rec-fun") {
 
     if (trace_file) {
         m_trace_stream       = alloc(std::fstream, trace_file, std::ios_base::out);
@@ -1329,7 +1330,8 @@ ast_manager::ast_manager(proof_gen_mode m, std::fstream * trace_stream, bool is_
     m_expr_dependency_array_manager(*this, m_alloc),
     m_proof_mode(m),
     m_trace_stream(trace_stream),
-    m_trace_stream_owner(false) {
+    m_trace_stream_owner(false),
+    m_rec_fun(":rec-fun") {
 
     if (!is_format_manager)
         m_format_manager = alloc(ast_manager, PGM_DISABLED, trace_stream, true);
@@ -1345,7 +1347,8 @@ ast_manager::ast_manager(ast_manager const & src, bool disable_proofs):
     m_expr_dependency_array_manager(*this, m_alloc),
     m_proof_mode(disable_proofs ? PGM_DISABLED : src.m_proof_mode),
     m_trace_stream(src.m_trace_stream),
-    m_trace_stream_owner(false) {
+    m_trace_stream_owner(false),
+    m_rec_fun(":rec-fun") {
     SASSERT(!src.is_format_manager());
     m_format_manager = alloc(ast_manager, PGM_DISABLED, m_trace_stream, true);
     init();

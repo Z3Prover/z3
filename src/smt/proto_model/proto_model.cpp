@@ -29,7 +29,6 @@ Revision History:
 
 proto_model::proto_model(ast_manager & m, simplifier & s, params_ref const & p):
     model_core(m),
-    m_asts(m),
     m_simplifier(s),
     m_afid(m.mk_family_id(symbol("array"))) {
     register_factory(alloc(basic_factory, m));
@@ -39,45 +38,11 @@ proto_model::proto_model(ast_manager & m, simplifier & s, params_ref const & p):
     m_model_partial = model_params(p).partial();
 }
 
-void proto_model::reset_finterp() {
-     decl2finterp::iterator it  = m_finterp.begin();
-     decl2finterp::iterator end = m_finterp.end();
-     for (; it != end; ++it) {
-         dealloc(it->m_value);
-     }
-}
 
-proto_model::~proto_model() {
-    reset_finterp();
-}
 
-void proto_model::register_decl(func_decl * d, expr * v) {
-    SASSERT(d->get_arity() == 0);
-    if (m_interp.contains(d)) {
-        DEBUG_CODE({
-            expr * old_v = 0;
-            m_interp.find(d, old_v);
-            SASSERT(old_v == v);
-        });
-        return;
-    }
-    SASSERT(!m_interp.contains(d));
-    m_decls.push_back(d);
-    m_asts.push_back(d);
-    m_asts.push_back(v);
-    m_interp.insert(d, v);
-    m_const_decls.push_back(d);
-}
-
-void proto_model::register_decl(func_decl * d, func_interp * fi, bool aux) {
-    SASSERT(d->get_arity() > 0);
-    SASSERT(!m_finterp.contains(d));
-    m_decls.push_back(d);
-    m_asts.push_back(d);
-    m_finterp.insert(d, fi);
-    m_func_decls.push_back(d);
-    if (aux)
-        m_aux_decls.insert(d);
+void proto_model::register_aux_decl(func_decl * d, func_interp * fi) {
+    model_core::register_decl(d, fi);
+    m_aux_decls.insert(d);
 }
 
 /**
@@ -486,6 +451,7 @@ void proto_model::cleanup() {
                 m_finterp.find(faux, fi);
                 SASSERT(fi != 0);
                 m_finterp.erase(faux);
+                m_manager.dec_ref(faux);
                 dealloc(fi);
             }
         }
@@ -666,20 +632,16 @@ model * proto_model::mk_model() {
     decl2finterp::iterator end2 = m_finterp.end();
     for (; it2 != end2; ++it2) {
         m->register_decl(it2->m_key, it2->m_value);
+        m_manager.dec_ref(it2->m_key);
     }
+    
     m_finterp.reset(); // m took the ownership of the func_interp's
 
     unsigned sz = get_num_uninterpreted_sorts();
     for (unsigned i = 0; i < sz; i++) {
         sort * s = get_uninterpreted_sort(i);
         TRACE("proto_model", tout << "copying uninterpreted sorts...\n" << mk_pp(s, m_manager) << "\n";);
-        ptr_buffer<expr> buf;
-        obj_hashtable<expr> const & u = get_known_universe(s);
-        obj_hashtable<expr>::iterator it  = u.begin();
-        obj_hashtable<expr>::iterator end = u.end();
-        for (; it != end; ++it) {
-            buf.push_back(*it);
-        }
+        ptr_vector<expr> const& buf = get_universe(s);
         m->register_usort(s, buf.size(), buf.c_ptr());
     }
 

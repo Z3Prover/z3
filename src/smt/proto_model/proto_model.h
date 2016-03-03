@@ -38,7 +38,6 @@ Revision History:
 #include"params.h"
 
 class proto_model : public model_core {
-    ast_ref_vector                m_asts;
     plugin_manager<value_factory> m_factories;
     user_sort_factory *           m_user_sort_factory;
     simplifier &                  m_simplifier;
@@ -47,8 +46,6 @@ class proto_model : public model_core {
     ptr_vector<expr>              m_tmp;
 
     bool                          m_model_partial;
-
-    void reset_finterp();
 
     expr * mk_some_interp_for(func_decl * d);
 
@@ -63,7 +60,7 @@ class proto_model : public model_core {
 
 public:
     proto_model(ast_manager & m, simplifier & s, params_ref const & p = params_ref());
-    virtual ~proto_model(); 
+    virtual ~proto_model() {}
 
     void register_factory(value_factory * f) { m_factories.register_plugin(f); }
 
@@ -73,7 +70,7 @@ public:
     
     value_factory * get_factory(family_id fid);
 
-    expr * get_some_value(sort * s);
+    virtual expr * get_some_value(sort * s);
 
     bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2);
 
@@ -84,8 +81,7 @@ public:
     //
     // Primitives for building models
     //
-    void register_decl(func_decl * d, expr * v);
-    void register_decl(func_decl * f, func_interp * fi, bool aux = false);
+    void register_aux_decl(func_decl * f, func_interp * fi);
     void reregister_decl(func_decl * f, func_interp * new_fi, func_decl * f_aux);
     void compress();
     void cleanup();

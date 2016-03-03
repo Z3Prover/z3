@@ -44,8 +44,7 @@ public:
     bool eval(func_decl * f, expr_ref & r) const { return model_core::eval(f, r); }
     bool eval(expr * e, expr_ref & result, bool model_completion = false);
     
-    expr * get_some_value(sort * s);
-
+    virtual expr * get_some_value(sort * s);
     virtual ptr_vector<expr> const & get_universe(sort * s) const;
     virtual unsigned get_num_uninterpreted_sorts() const;
     virtual sort * get_uninterpreted_sort(unsigned idx) const;
@@ -54,8 +53,6 @@ public:
     //
     // Primitives for building models
     //
-    void register_decl(func_decl * d, expr * v);
-    void register_decl(func_decl * f, func_interp * fi);
     void register_usort(sort * s, unsigned usize, expr * const * universe);
 
     // Model translation

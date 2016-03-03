@@ -187,7 +187,7 @@ public:
         }
         m_bb_rewriter.pop(n);
         m_map.pop(n);
-        SASSERT(n >= m_num_scopes);
+        SASSERT(n <= m_num_scopes);
         m_solver.user_pop(n);
         m_num_scopes -= n;
         while (n > 0) {

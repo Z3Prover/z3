@@ -1455,6 +1455,7 @@ protected:
     bool slow_not_contains(ast const * n);
 #endif
     ast_manager *             m_format_manager; // hack for isolating format objects in a different manager.
+    symbol                    m_rec_fun;
 
     void init();
 
@@ -1560,6 +1561,10 @@ public:
     bool are_distinct(expr * a, expr * b) const;
 
     bool contains(ast * a) const { return m_ast_table.contains(a); }
+
+    bool is_rec_fun_def(quantifier* q) const { return q->get_qid() == m_rec_fun; }
+    
+    symbol const& rec_fun_qid() const { return m_rec_fun; }
 
     unsigned get_num_asts() const { return m_ast_table.size(); }
 

@@ -915,7 +915,7 @@ namespace smt {
                 }
                 func_interp * rpi = alloc(func_interp, m_manager, 1);
                 rpi->set_else(pi);
-                m_model->register_decl(p, rpi, true);
+                m_model->register_aux_decl(p, rpi);
                 n->set_proj(p);
             }
 
@@ -928,7 +928,7 @@ namespace smt {
                 func_decl *   p  = m_manager.mk_fresh_func_decl(1, &s, s);
                 func_interp * pi = alloc(func_interp, m_manager, 1);
                 pi->set_else(else_val);
-                m_model->register_decl(p, pi, true);
+                m_model->register_aux_decl(p, pi);
                 ptr_buffer<expr>::const_iterator it  = values.begin();
                 ptr_buffer<expr>::const_iterator end = values.end();
                 for (; it != end; ++it) {

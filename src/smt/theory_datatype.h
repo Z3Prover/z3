@@ -111,6 +111,8 @@ namespace smt {
         static void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) {}
         void unmerge_eh(theory_var v1, theory_var v2);
         virtual char const * get_name() const { return "datatype"; }
+        virtual bool include_func_interp(func_decl* f);
+
     };
 
 };
