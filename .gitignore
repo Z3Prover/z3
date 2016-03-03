@@ -75,3 +75,12 @@ src/api/ml/z3.mllib
 *.bak
 doc/api
 doc/code
+
+# CMake files copied over by the ``contrib/cmake/boostrap.py`` script
+# See #461
+examples/CMakeLists.txt
+examples/*/CMakeLists.txt
+src/CMakeLists.txt
+src/*/CMakeLists.txt
+src/*/*/CMakeLists.txt
+src/*/*/*/CMakeLists.txt
