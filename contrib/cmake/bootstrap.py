@@ -80,7 +80,7 @@ def mk_sym_link(target, linkName):
       logging.warning('"{}" overwriting file that is not a symlink'.format(linkName))
     delete_path(linkName)
   if os.name == 'posix':
-    os.symlink(src=target, dst=linkName)
+    os.symlink(target, linkName)
   else:
     # TODO: Windows does support symlinks but the implementation to do that
     # from python is a little complicated so for now lets just copy everyting
@@ -160,15 +160,22 @@ def create(useHardLinks):
           return False
         if os.path.exists(fileInRepo):
           delete_path(fileInRepo)
-        os.link(src=fileInContrib, dst=fileInRepo)
+        os.link(fileInContrib, fileInRepo)
       else:
         try:
           shutil.copy2(src=fileInContrib, dst=fileInRepo)
-        except shutil.SameFileError as e:
+        except shutil.Error as e:
           # Can hit this if used created hard links first and then run again without
           # wanting hard links
-          logging.error('Trying to copy "{}" to "{}" but they are the same file'.format(
-            fileInContrib, fileInRepo))
+          if sys.version_info.major <= 2:
+            logging.error(e.message)
+          else:
+            # Python >= 3
+            if isinstance(e, shutil.SameFileError):
+              logging.error('Trying to copy "{}" to "{}" but they are the same file'.format(
+                fileInContrib, fileInRepo))
+            else:
+              logging.error(e)
           logging.error('You should remove the files using the "remove" mode '
                         'and try to create again. You probably are mixing the '
                         'hard-link and non-hard-link create modes')
