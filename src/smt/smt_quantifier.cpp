@@ -40,7 +40,6 @@ namespace smt {
         ptr_vector<quantifier>                 m_quantifiers;
         scoped_ptr<quantifier_manager_plugin>  m_plugin;
         unsigned                               m_num_instances;
-        symbol                                 m_rec_fun;
         
         imp(quantifier_manager & wrapper, context & ctx, smt_params & p, quantifier_manager_plugin * plugin):
             m_wrapper(wrapper),
@@ -48,8 +47,7 @@ namespace smt {
             m_params(p),
             m_qi_queue(m_wrapper, ctx, p),
             m_qstat_gen(ctx.get_manager(), ctx.get_region()),
-            m_plugin(plugin),
-            m_rec_fun(":rec-fun") {
+            m_plugin(plugin) {
             m_num_instances = 0;
             m_qi_queue.setup();
         }
@@ -187,7 +185,7 @@ namespace smt {
         }
         
         bool check_quantifier(quantifier* q) {
-            return m_context.is_relevant(q) && m_context.get_assignment(q) == l_true; // TBD: && q->get_qid() != m_rec_fun;
+            return m_context.is_relevant(q) && m_context.get_assignment(q) == l_true; // TBD: && !m_context->get_manager().is_rec_fun_def(q);
         }
 
         bool quick_check_quantifiers() {

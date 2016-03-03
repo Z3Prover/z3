@@ -35,7 +35,8 @@ inline sort* get_array_domain(sort const * s, unsigned idx) {
 }
 
 enum array_sort_kind {
-    ARRAY_SORT
+    ARRAY_SORT,
+    _SET_SORT
 };
 
 enum array_op_kind {

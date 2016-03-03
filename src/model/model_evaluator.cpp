@@ -32,7 +32,7 @@ Revision History:
 #include"cooperate.h"
 
 struct evaluator_cfg : public default_rewriter_cfg {
-    model &                         m_model;
+    model_core &                         m_model;
     bool_rewriter                   m_b_rw;
     arith_rewriter                  m_a_rw;
     bv_rewriter                     m_bv_rw;
@@ -46,7 +46,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
     bool                            m_model_completion;
     bool                            m_cache;
 
-    evaluator_cfg(ast_manager & m, model & md, params_ref const & p):
+    evaluator_cfg(ast_manager & m, model_core & md, params_ref const & p):
         m_model(md),
         m_b_rw(m),
         // We must allow customers to set parameters for arithmetic rewriter/evaluator.
@@ -231,7 +231,7 @@ template class rewriter_tpl<evaluator_cfg>;
 
 struct model_evaluator::imp : public rewriter_tpl<evaluator_cfg> {
     evaluator_cfg m_cfg;
-    imp(model & md, params_ref const & p):
+    imp(model_core & md, params_ref const & p):
         rewriter_tpl<evaluator_cfg>(md.get_manager(),
                                     false, // no proofs for evaluator
                                     m_cfg),
@@ -239,7 +239,7 @@ struct model_evaluator::imp : public rewriter_tpl<evaluator_cfg> {
     }
 };
 
-model_evaluator::model_evaluator(model & md, params_ref const & p) {
+model_evaluator::model_evaluator(model_core & md, params_ref const & p) {
     m_imp = alloc(imp, md, p);
 }
 
@@ -269,7 +269,7 @@ unsigned model_evaluator::get_num_steps() const {
 
 
 void model_evaluator::cleanup(params_ref const & p) {
-    model & md = m_imp->cfg().m_model;
+    model_core & md = m_imp->cfg().m_model;
     #pragma omp critical (model_evaluator)
     {
         dealloc(m_imp);

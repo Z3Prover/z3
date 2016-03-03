@@ -516,43 +516,6 @@ namespace smt {
         }
     }
 
-    /**
-       \brief Auxiliary functor for method register_indirect_elim_decls.
-    */
-    class mk_interp_proc {
-        context &       m_context;
-        proto_model &   m_model;
-    public:
-        mk_interp_proc(context & ctx, proto_model & m):
-            m_context(ctx), 
-            m_model(m) {
-        }
-
-        void operator()(var * n) { 
-        }
-
-        void operator()(app * n) { 
-            if (!is_uninterp(n))
-                return; // n is interpreted
-            func_decl * d  = n->get_decl();
-            if (m_model.has_interpretation(d))
-                return; // declaration already has an interpretation.
-            if (n->get_num_args() == 0) {
-                sort * r = d->get_range();
-                expr * v = m_model.get_some_value(r);
-                m_model.register_decl(d, v);
-            }
-            else {
-                func_interp * fi = alloc(func_interp, m_context.get_manager(), d->get_arity());            
-                m_model.register_decl(d, fi);
-            }
-        }
-        
-        void operator()(quantifier * n) { 
-        }
-        
-    };
-
     proto_model * model_generator::mk_model() {
         SASSERT(!m_model);
         TRACE("func_interp_bug", m_context->display(tout););

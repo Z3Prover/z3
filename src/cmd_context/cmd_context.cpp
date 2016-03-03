@@ -837,10 +837,16 @@ void cmd_context::insert_rec_fun(func_decl* f, expr_ref_vector const& binding, s
     eq  = m().mk_eq(lhs, e);
     if (!ids.empty()) {
         expr* pat = m().mk_pattern(lhs);
-        eq  = m().mk_forall(ids.size(), f->get_domain(), ids.c_ptr(), eq, 0, symbol(":rec-fun"), symbol::null, 1, &pat);
+        eq  = m().mk_forall(ids.size(), f->get_domain(), ids.c_ptr(), eq, 0, m().rec_fun_qid(), symbol::null, 1, &pat);
     }
-    if (!ids.empty() && !m_rec_fun_declared) {
-        warning_msg("recursive functions are currently only partially supported: they are translated into recursive equations without special handling");
+
+    //
+    // disable warning given the current way they are used 
+    // (Z3 will here silently assume and not check the definitions to be well founded, 
+    // and please use HSF for everything else).
+    //
+    if (false && !ids.empty() && !m_rec_fun_declared) {        
+        warning_msg("recursive function definitions are assumed well-founded");
         m_rec_fun_declared = true;
     }
     assert_expr(eq);
