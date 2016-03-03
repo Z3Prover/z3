@@ -87,7 +87,7 @@ def mk_sym_link(target, linkName):
     logging.warning('Creating symbolic links is not supported. Just making a copy instead')
     if os.path.isdir(target):
       # Recursively copy directory
-      shutil.copytree(src=target, dst=linkName, symlinks=False, ignore=False)
+      shutil.copytree(src=target, dst=linkName, symlinks=False)
     else:
       # Copy file
       assert os.path.isfile(target)
