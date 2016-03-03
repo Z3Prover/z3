@@ -329,10 +329,11 @@ namespace smt {
                 sub(q->get_expr(), num_decls, args.c_ptr(), tmp);
                 m_curr_model->eval(tmp, result, true);
                 if (m.is_false(result)) {
-                    TRACE("model_checker", tout << tmp << "\nevaluates to:\n" << result << "\n";);                    
                     add_instance(q, args, 0);
                     return false;
                 }
+                TRACE("model_checker", tout << tmp << "\nevaluates to:\n" << result << "\n";);
+                // if (!m.is_true(result)) is_undef = true;
             }
         }
         return !is_undef;
