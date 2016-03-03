@@ -14,6 +14,16 @@ if (POLICY CMP0054)
   cmake_policy(SET CMP0054 OLD)
 endif()
 
+# Provide a friendly message if the user hasn't run the bootstrap script
+# to copy all the CMake files into their correct location.
+# It is unfortunate that we have to do this, see #461 for the discussion
+# on this.
+if (NOT (EXISTS "${CMAKE_SOURCE_DIR}/src/CMakeLists.txt"))
+  message(FATAL_ERROR "Cannot find \"${CMAKE_SOURCE_DIR}/src/CMakeLists.txt\""
+          ". This probably means you need to run"
+          "``python contrib/cmake/boostrap.py create``")
+endif()
+
 # This overrides the default flags for the different CMAKE_BUILD_TYPEs
 set(CMAKE_USER_MAKE_RULES_OVERRIDE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/compiler_flags_override.cmake")
 project(Z3 C CXX)
