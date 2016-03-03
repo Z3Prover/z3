@@ -217,6 +217,10 @@ add_subdirectory(test)
 ################################################################################
 option(BUILD_PYTHON_BINDINGS "Build Python bindings for Z3" OFF)
 if (BUILD_PYTHON_BINDINGS)
+  if (NOT BUILD_LIBZ3_SHARED)
+    message(FATAL_ERROR "The python bindings will not work with a static libz3. "
+            "You either need to disable BUILD_PYTHON_BINDINGS or enable BUILD_LIBZ3_SHARED")
+  endif()
   add_subdirectory(api/python)
 endif()
 
