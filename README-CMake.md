@@ -10,39 +10,56 @@ on your platform. Example generators include "UNIX Makfiles" and "Visual Studio
 
 ## Getting started
 
-The general workflow when using CMake is the following
+### Fixing a polluted source tree
 
-1. Create a new build directory
-2. Configure the project
-3. Generate the build system
-4. Invoke the build system to build the project
+If you have never used the python build system you can skip this step.
 
-To perform steps 2 and 3 you can choose from three different tools
+The existing Python build system creates generated source files in
+the build tree. The CMake build system will refuse to work if it
+detects this so you need to clean your build tree first.
 
-* cmake
-* ccmake
-* cmake-gui
+To do this run the following in the root of the repository
 
-``cmake`` is a command line tool and is what you should use if you are
-writing a script to build Z3. This tool performs steps 1 and 2 in one
-go without user interaction. The ``ccmake`` and ``cmake-gui`` tools are
-more interactive and allow you to change various options. In both these
-tools the basic steps to follow are:
+```
+git clean -nx src
+```
 
-1. Configure.
-2. Change any options you wish. Everytime you change a set of options
-   You should configure again. This may cause new options to appear
-3. Generate.
+This will list everything that will be removed. If you are happy
+with this then run.
 
-For information see https://cmake.org/runningcmake/
+```
+git clean -fx src
+```
 
-Note when invoking CMake you give it the path to the source directory.
-This is the top-level directory in the Z3 repository containing a
-``CMakeLists.txt``. That file should contain the line ``project(Z3 C CXX)``.
-If you give it a path deeper into the Z3 repository (e.g. the ``src`` directory)
-the configure step will fail.
+which will remove the generated source files.
 
-What follows is a brief walk through of how to build Z3 using various generators.
+### Bootstrapping
+
+Most of Z3's CMake files do not live in their correct location. Instead those
+files live in the ``contrib/cmake`` folder and a script is provided that will
+copy (or hard link) the files into their correct location.
+
+To copy the files run
+
+```
+python contrib/cmake/bootstrap.py create
+```
+
+in the root of the repository. Once you have done this you can now build Z3 using CMake.
+Remember to rerun this command if you pull down new code or change branch so
+that the CMake files are up to date.
+
+To remove the copied files run
+
+```
+python contrib/cmake/bootstrap.py remove
+```
+
+Note if you plan to do development on Z3 you should read the developer
+notes on bootstrapping in this document.
+
+What follows is a brief walk through of how to build Z3 using some
+of the more commonly used CMake generators.
 
 ### Unix Makefiles
 
@@ -52,7 +69,7 @@ Run the following in the top level directory of the Z3 repository.
 mkdir build
 cd build
 cmake -G "Unix Makefiles" ../
-make -j4
+make -j4 # Replace 4 with an appropriate number
 ```
 
 Note that on some platforms "Unix Makesfiles" is the default generator so on those
@@ -131,7 +148,7 @@ environment where the compiler can be found. If you have Visual Studio
 installed it typically ships with a "Developer Command Prompt Window" that you
 can use which has the environment variables setup for you.
 
-## NMake
+### NMake
 
 NMake is a build system that ships with Visual Studio. You are advised to use
 Ninja instead which is significantly faster due to supporting concurrent
@@ -189,6 +206,40 @@ are multi-configuration generators which means you don't set the build type when
 CMake. Instead you set the build type inside Visual Studio. See the "Build Type" section
 for more information.
 
+### General workflow
+
+The general workflow when using CMake is the following
+
+1. Create a new build directory
+2. Configure the project
+3. Generate the build system
+4. Invoke the build system to build the project
+
+To perform steps 2 and 3 you can choose from three different tools
+
+* cmake
+* ccmake
+* cmake-gui
+
+``cmake`` is a command line tool and is what you should use if you are
+writing a script to build Z3. This tool performs steps 1 and 2 in one
+go without user interaction. The ``ccmake`` and ``cmake-gui`` tools are
+more interactive and allow you to change various options. In both these
+tools the basic steps to follow are:
+
+1. Configure.
+2. Change any options you wish. Everytime you change a set of options
+   You should configure again. This may cause new options to appear
+3. Generate.
+
+For information see https://cmake.org/runningcmake/
+
+Note when invoking CMake you give it the path to the source directory.
+This is the top-level directory in the Z3 repository containing a
+``CMakeLists.txt``. That file should contain the line ``project(Z3 C CXX)``.
+If you give it a path deeper into the Z3 repository (e.g. the ``src`` directory)
+the configure step will fail.
+
 ## Build Types
 
 Several build types are supported.
@@ -231,18 +282,56 @@ cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_TRACING=FALSE ../
 
 These notes are help developers and packagers of Z3.
 
+### Boostrapping the CMake build
+
+Z3's CMake system is experimental and not officially supported. Consequently
+Z3's developers have decided that they do not want the CMake files in the
+``src/`` and ``examples/`` folders. Instead the ``contrib/cmake/bootstrap.py``
+script copies or hard links them into the correct locations. For context
+on this decision see https://github.com/Z3Prover/z3/pull/461 .
+
+The ``contrib/cmake/bootstrap.py create`` command just copies over files which makes
+development harder because you have to copy your modifications over to the
+files in ``contrib/cmake`` for your changes to committed to git. If you are on a UNIX like
+platform you can create hard links instead by running
+
+```
+contrib/cmake/boostrap.py create --hard-link
+```
+
+Using hard links means that modifying any of the "copied" files also modifies the
+file under version control. Using hard links also means that the file modification time
+will appear correct (i.e. the hard-linked "copies" have the same file modification time
+as the corresponding file under version control) which means CMake will correctly reconfigure
+when invoked. This is why using symbolic links is not an option because the file modification
+time of a symbolic link is not the same as the file modification of the file being pointed to.
+
+Unfortunately a downside to using hard links (or just plain copies) is that if
+you pull down new code (i.e. ``git pull``) then some of the CMake files under
+version control may change but the corresponding hard-linked "copies" will not.
+
+This mean that (regardless of whether or not you use hard links) every time you
+pull down new code or change branch or do an interactive rebase you must run
+(with or without ``--hard-link``):
+
+```
+contrb/cmake/boostrap.py create
+```
+
+in order to be sure that the copied CMake files are not out of date.
+
 ### Install/Uninstall
 
 Install and uninstall targets are supported. Use ``CMAKE_INSTALL_PREFIX`` to set the install
 prefix.
 
-To install
+To install run
 
 ```
 make install
 ```
 
-To uninstall
+To uninstall run
 
 ```
 make uninstall
