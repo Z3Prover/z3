@@ -36,8 +36,8 @@ protected:
     ptr_vector<func_decl>         m_func_decls;  
     
 public:
-    model_core(ast_manager & m):m_manager(m), m_ref_count(0) {}
-    virtual ~model_core() {}
+    model_core(ast_manager & m):m_manager(m), m_ref_count(0) { }
+    virtual ~model_core();
 
     ast_manager & get_manager() const { return m_manager; }
 
@@ -58,6 +58,11 @@ public:
     virtual unsigned get_num_uninterpreted_sorts() const = 0;
     virtual sort * get_uninterpreted_sort(unsigned idx) const = 0;
 
+    void register_decl(func_decl * d, expr * v);
+    void register_decl(func_decl * f, func_interp * fi);
+
+    virtual expr * get_some_value(sort * s) = 0;
+
     //
     // Reference counting
     //
@@ -68,6 +73,7 @@ public:
             dealloc(this);
         }
     }
+
 };
 
 #endif

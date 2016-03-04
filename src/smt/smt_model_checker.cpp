@@ -322,20 +322,18 @@ namespace smt {
         for (; it != end; ++it) {
             if (m_context->is_relevant(*it)) {
                 app* e = (*it)->get_owner();
-                for (unsigned i = 0; i < e->get_num_args(); ++i) {
-                    args[num_decls - i - 1] = e->get_arg(i);
+                SASSERT(e->get_num_args() == num_decls);
+                for (unsigned i = 0; i < num_decls; ++i) {
+                    args[i] = e->get_arg(i);
                 }
                 sub(q->get_expr(), num_decls, args.c_ptr(), tmp);
                 m_curr_model->eval(tmp, result, true);
-                if (m.is_true(result)) {
-                    continue;
-                }
                 if (m.is_false(result)) {
                     add_instance(q, args, 0);
                     return false;
                 }
-                TRACE("model_checker", tout << tmp << "evaluates to undetermined " << result << "\n";);
-                is_undef = true;
+                TRACE("model_checker", tout << tmp << "\nevaluates to:\n" << result << "\n";);
+                // if (!m.is_true(result)) is_undef = true;
             }
         }
         return !is_undef;
@@ -395,7 +393,7 @@ namespace smt {
                     verbose_stream() << "(smt.mbqi :checking " << q->get_qid() << ")\n";
                 }
                 found_relevant = true;
-                if (q->get_qid() == symbol(":rec-fun")) {
+                if (m.is_rec_fun_def(q)) {
                     if (!check_rec_fun(q)) {
                         num_failures++;
                     }
