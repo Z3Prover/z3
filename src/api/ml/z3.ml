@@ -40,7 +40,7 @@ end
 
 
 let mk_list (f:int -> 'a) (n:int) =
-  let rec mk_list' (f:int -> 'a) (i:int) (n:int)  (tail:'a list ):'a list =       
+  let rec mk_list' (f:int -> 'a) (i:int) (n:int)  (tail:'a list):'a list =
     if (i >= n) then 
       tail
     else
@@ -69,8 +69,8 @@ struct
   let is_int_symbol (o:symbol) = (kind o) == INT_SYMBOL
   let is_string_symbol (o:symbol) = (kind o) == STRING_SYMBOL
   let get_int (o:symbol) = (Z3native.get_symbol_int (gc o) o)
-  let get_string (o:symbol ) = (Z3native.get_symbol_string (gc o) o)
-  let to_string (o:symbol ) = 
+  let get_string (o:symbol) = (Z3native.get_symbol_string (gc o) o)
+  let to_string (o:symbol) =
     match (kind o) with
       | INT_SYMBOL -> (string_of_int (Z3native.get_symbol_int (gc o) o))
       | STRING_SYMBOL -> (Z3native.get_symbol_string (gc o) o)
@@ -79,12 +79,10 @@ struct
   let mk_string (ctx:context) (s:string) = (Z3native.mk_string_symbol ctx s)
 
   let mk_ints (ctx:context) (names:int list) =
-    let f elem = mk_int (ctx:context ) elem in
-    (List.map f names)
+    List.map (fun x -> mk_int ctx x) names
 
   let mk_strings (ctx:context) (names:string list) =
-    let f elem = mk_string (ctx:context) elem in
-    (List.map f names)      
+    List.map (fun x -> mk_string ctx x) names
 end
 
 
@@ -148,19 +146,19 @@ end = struct
     let set (x:ast_vector) (i:int) (value:ast) = Z3native.ast_vector_set (gc x) x i value
     let resize (x:ast_vector) (new_size:int) = Z3native.ast_vector_resize (gc x) x new_size  
     let push (x:ast_vector) (a:ast) = Z3native.ast_vector_push (gc x) x a
-    let translate (x:ast_vector ) (to_ctx:context ) = Z3native.ast_vector_translate (gc x) x to_ctx
+    let translate (x:ast_vector) (to_ctx:context) = Z3native.ast_vector_translate (gc x) x to_ctx
 
-    let to_list (x:ast_vector ) =
+    let to_list (x:ast_vector) =
       let xs = (get_size x) in
       let f i = (get x i) in
       mk_list f xs
 
-    let to_expr_list (x:ast_vector ) =
+    let to_expr_list (x:ast_vector) =
       let xs = (get_size x) in
       let f i = get x i in
       mk_list f xs
      
-    let to_string (x:ast_vector ) = Z3native.ast_vector_to_string (gc x) x
+    let to_string (x:ast_vector) = Z3native.ast_vector_to_string (gc x) x
   end
 
   module ASTMap =
@@ -205,7 +203,7 @@ end = struct
   let to_sexpr (x:ast) = Z3native.ast_to_string (gc x) x
 
 
-  let equal (a:ast) (b:ast) = 
+  let equal (a:ast) (b:ast) =
     (a == b) || 
       (if (gc a) != (gc b) then 
          false 
@@ -217,7 +215,7 @@ end = struct
       if (get_id a) > (get_id b) then 1 else
      0
        
-  let translate (x:ast) (to_ctx:context ) = 
+  let translate (x:ast) (to_ctx:context) =
     if (gc x) == to_ctx then 
       x
     else
@@ -311,7 +309,7 @@ end = struct
       | P_Fdl of func_decl
       | P_Rat of string
        
-    let get_kind (x:parameter ) =
+    let get_kind (x:parameter) =
       (match x with
      | P_Int(_) -> PARAMETER_INT
      | P_Dbl(_) -> PARAMETER_DOUBLE
@@ -375,7 +373,7 @@ end = struct
   let mk_fresh_const_decl (ctx:context) (prefix:string) (range:Sort.sort) =
     Z3native.mk_fresh_func_decl ctx prefix 0 [||] range
 
-  let equal (a:func_decl ) (b:func_decl ) = 
+  let equal (a:func_decl) (b:func_decl) =
     (a == b) ||
       (if (gc a) != (gc b) then 
          false 
@@ -406,8 +404,7 @@ end = struct
       | PARAMETER_SORT -> Parameter.P_Srt (Z3native.get_decl_sort_parameter (gc x) x i)
       | PARAMETER_AST -> Parameter.P_Ast (Z3native.get_decl_ast_parameter (gc x) x i)
       | PARAMETER_FUNC_DECL -> Parameter.P_Fdl (Z3native.get_decl_func_decl_parameter (gc x) x i)
-      | PARAMETER_RATIONAL -> Parameter.P_Rat (Z3native.get_decl_rational_parameter (gc x) x i)
-    ) in
+      | PARAMETER_RATIONAL -> Parameter.P_Rat (Z3native.get_decl_rational_parameter (gc x) x i)) in
     mk_list f n
 
   let apply (x:func_decl) (args:Expr.expr list) = Expr.expr_of_func_app (gc x) x args 
@@ -898,10 +895,10 @@ struct
     type constructor = Z3native.constructor
      
     module FieldNumTable = Hashtbl.Make(struct 
-      type t = AST.ast
-      let equal x y = AST.compare x y = 0
-      let hash = AST.hash
-    end)
+                                         type t = AST.ast
+                                         let equal x y = AST.compare x y = 0
+                                         let hash = AST.hash
+                                       end)
 
     let _field_nums = FieldNumTable.create 0
 
@@ -925,7 +922,7 @@ struct
          
     let get_num_fields (x:constructor) = FieldNumTable.find _field_nums x
 
-    let get_constructor_decl (x:constructor ) = 
+    let get_constructor_decl (x:constructor) =
       let (a, _, _) = (Z3native.query_constructor (gc x) x (get_num_fields x)) in
       a
 
@@ -937,7 +934,6 @@ struct
       let (_, _, c) = (Z3native.query_constructor (gc x) x (get_num_fields x)) in
       let f i = Array.get c i in
       mk_list f (Array.length c)
-     
   end
 
   module ConstructorList =
@@ -970,12 +966,7 @@ struct
     mk_list g (Array.length r)
 
   let mk_sorts_s (ctx:context) (names:string list) (c:Constructor.constructor list list) =
-    mk_sorts ctx 
-      (
-     let f e = (Symbol.mk_string ctx e) in
-     List.map f names 
-      )
-      c
+    mk_sorts ctx (List.map (fun x -> Symbol.mk_string ctx x) names) c
 
   let get_num_constructors (x:Sort.sort) = Z3native.get_datatype_sort_num_constructors (Sort.gc x) x
 
@@ -995,8 +986,7 @@ struct
       let fd = Z3native.get_datatype_sort_constructor (Sort.gc x) x i in
       let ds = Z3native.get_domain_size (FuncDecl.gc fd) fd in
       let g j = Z3native.get_datatype_sort_constructor_accessor (Sort.gc x) x i j in
-      mk_list g ds
-    ) in
+      mk_list g ds) in
     mk_list f n
 end
 
@@ -1318,7 +1308,7 @@ struct
   let mk_inf (ctx:context) (s:Sort.sort) (negative:bool) = Z3native.mk_fpa_inf ctx s negative
   let mk_zero (ctx:context) (s:Sort.sort) (negative:bool) = Z3native.mk_fpa_zero ctx s negative
   let mk_fp (ctx:context) (sign:expr) (exponent:expr) (significand:expr) = apply3 ctx Z3native.mk_fpa_fp sign exponent significand
-  let mk_numeral_f (ctx:context) (value:float ) (s:Sort.sort) = Z3native.mk_fpa_numeral_double ctx value s
+  let mk_numeral_f (ctx:context) (value:float) (s:Sort.sort) = Z3native.mk_fpa_numeral_double ctx value s
   let mk_numeral_i (ctx:context) (value:int) (s:Sort.sort) = Z3native.mk_fpa_numeral_int ctx value s
   let mk_numeral_i_u (ctx:context) (sign:bool) (exponent:int) (significand:int) (s:Sort.sort) = Z3native.mk_fpa_numeral_int64_uint64 ctx sign exponent significand s
   let mk_numeral_s (ctx:context) (v:string) (s:Sort.sort) = Z3native.mk_numeral ctx v s
@@ -1518,25 +1508,25 @@ module Model =
 struct
   type model = Z3native.model
   let gc (x:model) = Z3native.context_of_model x
-     
+
   module FuncInterp =
   struct
     type func_interp = Z3native.func_interp
     let gc (x:func_interp) = Z3native.context_of_func_interp x
-    
+
     module FuncEntry =
-    struct       
+    struct
       type func_entry = Z3native.func_entry
       let gc (x:func_entry) = Z3native.context_of_func_entry x
 
       let get_value (x:func_entry) = Z3native.func_entry_get_value (gc x) x
-      let get_num_args (x:func_entry) = Z3native.func_entry_get_num_args (gc x) x     
+      let get_num_args (x:func_entry) = Z3native.func_entry_get_num_args (gc x) x
 
       let get_args (x:func_entry) =
         let n = get_num_args x in
         let f i = Z3native.func_entry_get_arg (gc x) x i in
         mk_list f n
-       
+
       let to_string (x:func_entry) =
         let a = get_args x in
         let f c p = (p ^ (Expr.to_string c) ^ ", ") in
@@ -1554,20 +1544,19 @@ struct
 
     let get_arity (x:func_interp) = Z3native.func_interp_get_arity (gc x) x
 
-    let to_string (x:func_interp) =     
+    let to_string (x:func_interp) =
       let f c p = (
-          let n = FuncEntry.get_num_args c in
-          p ^ 
-            let g c p = (p ^ (Expr.to_string c) ^ ", ") in
-            (if n > 1 then "[" else "") ^
-              (List.fold_right 
-                 g 
-                 (FuncEntry.get_args c) 
-                 ((if n > 1 then "]" else "") ^ " -> " ^ (Expr.to_string (FuncEntry.get_value c)) ^ ", "))
-        ) in
+        let n = FuncEntry.get_num_args c in
+        p ^
+          let g c p = (p ^ (Expr.to_string c) ^ ", ") in
+          (if n > 1 then "[" else "") ^
+            (List.fold_right
+               g
+               (FuncEntry.get_args c)
+               ((if n > 1 then "]" else "") ^ " -> " ^ (Expr.to_string (FuncEntry.get_value c)) ^ ", "))) in
       List.fold_right f (get_entries x) ("else -> " ^ (Expr.to_string (get_else x)) ^ "]")
   end
-    
+
   let get_const_interp (x:model) (f:func_decl) =
     if (FuncDecl.get_arity f) != 0 ||
          (sort_kind_of_int (Z3native.get_sort_kind (FuncDecl.gc f) (Z3native.get_range (FuncDecl.gc f) f))) == ARRAY_SORT then
@@ -1578,19 +1567,18 @@ struct
         None
       else
         Some np
-             
-  let get_const_interp_e (x:model ) (a:expr) = get_const_interp x (Expr.get_func_decl a)
 
+  let get_const_interp_e (x:model) (a:expr) = get_const_interp x (Expr.get_func_decl a)
 
-  let rec get_func_interp (x:model ) (f:func_decl) =
+  let rec get_func_interp (x:model) (f:func_decl) =
     let sk = sort_kind_of_int (Z3native.get_sort_kind (gc x) (Z3native.get_range (FuncDecl.gc f) f)) in
     if (FuncDecl.get_arity f) == 0 then
-      let n = Z3native.model_get_const_interp (gc x) x f in      
+      let n = Z3native.model_get_const_interp (gc x) x f in
       if (Z3native.is_null n) then
-        None 
-      else 
+        None
+      else
         match sk with
-        | ARRAY_SORT ->         
+        | ARRAY_SORT ->
            if not (Z3native.is_as_array (gc x) n) then
              raise (Error "Argument was not an array constant")
            else
@@ -1600,36 +1588,36 @@ struct
     else
       let n = Z3native.model_get_func_interp (gc x) x f in
       if (Z3native.is_null n) then None else Some n
-     
+
   (** The number of constants that have an interpretation in the model. *)
-  let get_num_consts (x:model ) = Z3native.model_get_num_consts (gc x) x
-    
-  let get_const_decls (x:model ) = 
+  let get_num_consts (x:model) = Z3native.model_get_num_consts (gc x) x
+
+  let get_const_decls (x:model) =
     let n = (get_num_consts x) in
     let f i = Z3native.model_get_const_decl (gc x) x i in
     mk_list f n
-      
-  let get_num_funcs (x:model ) = Z3native.model_get_num_funcs (gc x) x
-    
-  let get_func_decls (x:model ) = 
+
+  let get_num_funcs (x:model) = Z3native.model_get_num_funcs (gc x) x
+
+  let get_func_decls (x:model) =
     let n = (get_num_funcs x) in
     let f i = Z3native.model_get_func_decl (gc x) x i in
     mk_list f n
-      
-  let get_decls (x:model ) =
+
+  let get_decls (x:model) =
     let n_funcs = (get_num_funcs x) in
-    let n_consts = (get_num_consts x ) in
+    let n_consts = (get_num_consts x) in
     let f i = Z3native.model_get_func_decl (gc x) x i in
     let g i = Z3native.model_get_const_decl (gc x) x i in
     (mk_list f n_funcs) @ (mk_list g n_consts)
-      
-  let eval (x:model ) (t:expr) (completion:bool) =
+
+  let eval (x:model) (t:expr) (completion:bool) =
     let (r, v) = Z3native.model_eval (gc x) x t completion in
     if not r then None else Some v
 
-  let evaluate (x:model) (t:expr) (completion:bool) = eval x t completion     
+  let evaluate (x:model) (t:expr) (completion:bool) = eval x t completion
   let get_num_sorts (x:model) = Z3native.model_get_num_sorts (gc x) x
-    
+
   let get_sorts (x:model) =
     let n = get_num_sorts x in
     let f i = Z3native.model_get_sort (gc x) x i in
@@ -1639,7 +1627,7 @@ struct
     let av = Z3native.model_get_sort_universe (gc x) x s in
     AST.ASTVector.to_expr_list av
 
-  let to_string (x:model) = Z3native.model_to_string (gc x) x 
+  let to_string (x:model) = Z3native.model_to_string (gc x) x
 end
 
 
@@ -1647,10 +1635,10 @@ module Probe =
 struct
   type probe = Z3native.probe
 
-  let apply (x:probe ) (g:Goal.goal) = Z3native.probe_apply (gc x) x g
+  let apply (x:probe) (g:Goal.goal) = Z3native.probe_apply (gc x) x g
   let get_num_probes (ctx:context) = Z3native.get_num_probes ctx
 
-  let get_probe_names (ctx:context) = 
+  let get_probe_names (ctx:context) =
     let n = get_num_probes ctx in
     let f i = Z3native.get_probe_name ctx i in
     mk_list f n
@@ -1664,40 +1652,40 @@ struct
   let ge (ctx:context) (p1:probe) (p2:probe) = Z3native.probe_ge ctx p1 p2
   let eq (ctx:context) (p1:probe) (p2:probe) = Z3native.probe_eq ctx p1 p2
   let and_ (ctx:context) (p1:probe) (p2:probe) = Z3native.probe_and ctx p1 p2
-  let or_ (ctx:context) (p1:probe) (p2:probe) = Z3native.probe_or ctx p1 p2 
-  let not_ (ctx:context) (p:probe ) = Z3native.probe_not ctx p
+  let or_ (ctx:context) (p1:probe) (p2:probe) = Z3native.probe_or ctx p1 p2
+  let not_ (ctx:context) (p:probe) = Z3native.probe_not ctx p
 end
 
 
 module Tactic =
-struct      
+struct
   type tactic = Z3native.tactic
   let gc (x:tactic) = Z3native.context_of_tactic x
-      
+
   module ApplyResult =
-  struct 
+  struct
     type apply_result = Z3native.apply_result
     let gc (x:apply_result) = Z3native.context_of_apply_result x
 
     let get_num_subgoals (x:apply_result) = Z3native.apply_result_get_num_subgoals (gc x) x
-     
-    let get_subgoals (x:apply_result ) =
+
+    let get_subgoals (x:apply_result) =
       let n = get_num_subgoals x in
       let f i = Z3native.apply_result_get_subgoal (gc x) x i in
       mk_list f n
-     
-    let get_subgoal (x:apply_result) (i:int) = Z3native.apply_result_get_subgoal (gc x) x i     
+
+    let get_subgoal (x:apply_result) (i:int) = Z3native.apply_result_get_subgoal (gc x) x i
     let convert_model (x:apply_result) (i:int) (m:Model.model) = Z3native.apply_result_convert_model (gc x) x i m
     let to_string (x:apply_result) = Z3native.apply_result_to_string (gc x) x
   end
 
   let get_help (x:tactic) = Z3native.tactic_get_help (gc x) x
   let get_param_descrs (x:tactic) = Z3native.tactic_get_param_descrs (gc x) x
-      
+
   let apply (x:tactic) (g:Goal.goal) (p:Params.params option) =
-    match p with 
-      | None -> Z3native.tactic_apply (gc x) x g
-      | Some (pn) -> Z3native.tactic_apply_ex (gc x) x g pn
+    match p with
+    | None -> Z3native.tactic_apply (gc x) x g
+    | Some (pn) -> Z3native.tactic_apply_ex (gc x) x g pn
 
   let get_num_tactics (ctx:context) = Z3native.get_num_tactics ctx
 
@@ -1708,16 +1696,16 @@ struct
 
   let get_tactic_description (ctx:context) (name:string) = Z3native.tactic_get_descr ctx name
   let mk_tactic (ctx:context) (name:string) = Z3native.mk_tactic ctx name
-                                                                 
+
   let and_then (ctx:context) (t1:tactic) (t2:tactic) (ts:tactic list) =
     let f p c = (match p with 
                  | None -> Some c
-                 | Some(x) -> Some (Z3native.tactic_and_then ctx c x)) in 
+                 | Some(x) -> Some (Z3native.tactic_and_then ctx c x)) in
     match (List.fold_left f None ts) with
     | None -> Z3native.tactic_and_then ctx t1 t2
     | Some(x) -> let o = Z3native.tactic_and_then ctx t2 x in
                  Z3native.tactic_and_then ctx t1 o
-                                          
+
   let or_else (ctx:context) (t1:tactic) (t2:tactic) = Z3native.tactic_or_else ctx t1 t2
   let try_for (ctx:context) (t:tactic) (ms:int) = Z3native.tactic_try_for ctx t ms
   let when_ (ctx:context) (p:Probe.probe) (t:tactic) = Z3native.tactic_when ctx p t
@@ -1736,39 +1724,38 @@ end
 
 
 module Statistics =
-struct     
+struct
   type statistics = Z3native.stats
   let gc (x:statistics) = Z3native.context_of_stats x
 
   module Entry =
   struct
-    type statistics_entry = { 
-       mutable m_key:string; 
-       mutable m_is_int:bool ; 
-       mutable m_is_float:bool ; 
-       mutable m_int:int ; 
-       mutable m_float:float }
-         
-    let create_si k v = 
-       let res:statistics_entry = { 
-         m_key = k ;
-         m_is_int = true ;
-         m_is_float = false ;
-         m_int = v ;
-         m_float = 0.0
-       } in
-       res
+    type statistics_entry = {
+      mutable m_key:string ;
+      mutable m_is_int:bool ;
+      mutable m_is_float:bool ;
+      mutable m_int:int ;
+      mutable m_float:float }
+
+    let create_si k v =
+      let res:statistics_entry = {
+        m_key = k ;
+        m_is_int = true ;
+        m_is_float = false ;
+        m_int = v ;
+        m_float = 0.0
+      } in
+      res
 
     let create_sd k v = 
-       let res:statistics_entry = { 
-         m_key = k ;
-         m_is_int = false ;
-         m_is_float = true ;
-         m_int = 0 ;
-         m_float = v
-       } in
-       res
-         
+      let res:statistics_entry = {
+        m_key = k ;
+        m_is_int = false ;
+        m_is_float = true ;
+        m_int = 0 ;
+        m_float = v
+      } in
+      res
 
     let get_key (x:statistics_entry) = x.m_key
     let get_int (x:statistics_entry) = x.m_int     
@@ -1784,26 +1771,26 @@ struct
         raise (Error "Unknown statistical entry type")
     let to_string (x:statistics_entry) = (get_key x) ^ ": " ^ (to_string_value x)
   end
-    
+
   let to_string (x:statistics) = Z3native.stats_to_string (gc x) x
   let get_size (x:statistics) = Z3native.stats_size (gc x) x
                                                     
   let get_entries (x:statistics) =
     let n = get_size x in
     let f i = (
-        let k = Z3native.stats_get_key (gc x) x i in
-        if (Z3native.stats_is_uint (gc x) x i) then
-          (Entry.create_si k (Z3native.stats_get_uint_value (gc x) x i))
-        else 
-          (Entry.create_sd k (Z3native.stats_get_double_value (gc x) x i))) in
+      let k = Z3native.stats_get_key (gc x) x i in
+      if (Z3native.stats_is_uint (gc x) x i) then
+        (Entry.create_si k (Z3native.stats_get_uint_value (gc x) x i))
+      else
+        (Entry.create_sd k (Z3native.stats_get_double_value (gc x) x i))) in
     mk_list f n
-            
+
   let get_keys (x:statistics) =
     let n = get_size x in
     let f i = Z3native.stats_get_key (gc x) x i in
     mk_list f n
-            
-  let get (x:statistics) (key:string ) =
+
+  let get (x:statistics) (key:string) =
     let f p c = (if ((Entry.get_key c) == key) then (Some c) else p) in
     List.fold_left f None (get_entries x)
 end
@@ -1855,8 +1842,7 @@ struct
       if ((List.length assumptions) == 0) then
         lbool_of_int (Z3native.solver_check (gc x) x)
       else
-        let f x = x in
-        lbool_of_int (Z3native.solver_check_assumptions (gc x) x (List.length assumptions) (Array.of_list (List.map f assumptions)))
+        lbool_of_int (Z3native.solver_check_assumptions (gc x) x (List.length assumptions) (Array.of_list assumptions))
     in
     match r with 
     | L_TRUE -> SATISFIABLE
@@ -1964,11 +1950,11 @@ struct
   let mk_fixedpoint (ctx:context) = Z3native.mk_fixedpoint ctx
   let get_statistics (x:fixedpoint) = Z3native.fixedpoint_get_statistics (gc x) x
 
-  let parse_string (x:fixedpoint) (s:string ) =
+  let parse_string (x:fixedpoint) (s:string) =
     let av = Z3native.fixedpoint_from_string (gc x) x s in
     AST.ASTVector.to_expr_list av
 
-  let parse_file (x:fixedpoint) (filename:string ) =
+  let parse_file (x:fixedpoint) (filename:string) =
     let av = Z3native.fixedpoint_from_file (gc x) x filename in
     AST.ASTVector.to_expr_list av
 end
@@ -2121,7 +2107,7 @@ module Interpolation =
 struct
   let mk_interpolant (ctx:context) (a:expr) = Z3native.mk_interpolant ctx a
                                                                       
-  let mk_interpolation_context (settings:(string * string ) list) =
+  let mk_interpolation_context (settings:(string * string) list) =
     let cfg = Z3native.mk_config () in
     let f e = Z3native.set_param_value cfg (fst e) (snd e) in
     (List.iter f settings) ;
@@ -2135,7 +2121,7 @@ struct
     let av = Z3native.get_interpolant ctx pf pat p in
     AST.ASTVector.to_expr_list av
                                
-  let compute_interpolant (ctx:context) (pat:expr) (p:Params.params ) =
+  let compute_interpolant (ctx:context) (pat:expr) (p:Params.params) =
     let (r, interp, model) = Z3native.compute_interpolant ctx pat p in
     let res = (lbool_of_int r) in
     match res with
