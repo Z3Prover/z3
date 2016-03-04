@@ -41,7 +41,7 @@ target_compile_options(shell PRIVATE ${Z3_COMPONENT_CXX_FLAGS})
 target_include_directories(shell PRIVATE ${Z3_COMPONENT_EXTRA_INCLUDE_DIRS})
 target_link_libraries(shell PRIVATE ${Z3_DEPENDENT_LIBS})
 z3_add_component_dependencies_to_target(shell ${shell_expanded_deps})
-set_property(TARGET shell APPEND PROPERTY LINK_FLAGS ${Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS})
+z3_append_linker_flag_list_to_target(shell ${Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS})
 install(TARGETS shell
   RUNTIME DESTINATION "${Z3_INSTALL_BIN_DIR}"
 )

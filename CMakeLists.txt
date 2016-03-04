@@ -337,6 +337,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 # Z3 components, library and executables
 ################################################################################
 include(${CMAKE_SOURCE_DIR}/cmake/z3_add_component.cmake)
+include(${CMAKE_SOURCE_DIR}/cmake/z3_append_linker_flag_list_to_target.cmake)
 add_subdirectory(src)
 
 ################################################################################
