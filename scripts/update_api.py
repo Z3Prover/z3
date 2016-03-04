@@ -57,7 +57,7 @@ log_h.write('inline void SetR(void * obj) { *g_z3_log << "= " << obj << "\\n"; }
 log_h.write('#define RETURN_Z3(Z3RES) if (_LOG_CTX.enabled()) { SetR(Z3RES); } return Z3RES\n')
 log_h.write('void _Z3_append_log(char const * msg);\n')
 ##
-exe_c.write('void Z3_replacer_error_handler(Z3_context ctx, Z3_error_code c) { printf("[REPLAYER ERROR HANDLER]: %s\\n", Z3_get_error_msg(ctx, c)); }\n')
+exe_c.write('void Z3_replayer_error_handler(Z3_context ctx, Z3_error_code c) { printf("[REPLAYER ERROR HANDLER]: %s\\n", Z3_get_error_msg(ctx, c)); }\n')
 ##
 core_py.write('# Automatically generated file\n')
 core_py.write('import sys, os\n')
@@ -1068,7 +1068,7 @@ def def_API(name, result, params):
     if is_obj(result):
         exe_c.write("  in.store_result(result);\n")
         if name == 'Z3_mk_context' or name == 'Z3_mk_context_rc':
-            exe_c.write("  Z3_set_error_handler(result, Z3_replacer_error_handler);")
+            exe_c.write("  Z3_set_error_handler(result, Z3_replayer_error_handler);")
     log_c.write('}\n')
     exe_c.write('}\n')
     mk_log_macro(log_h, name, params)
