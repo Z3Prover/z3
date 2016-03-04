@@ -50,6 +50,37 @@ function(z3_add_component_dependencies_to_target target_name)
   endforeach()
 endfunction()
 
+# z3_add_component(component_name
+#   [NOT_LIBZ3_COMPONENT]
+#   SOURCES source1 [source2...]
+#   [COMPONENT_DEPENDENCIES component1 [component2...]]
+#   [PYG_FILES pygfile1 [pygfile2...]]
+# )
+#
+# Declares a Z3 component (as a CMake "object library") with target name
+# ``component_name``.
+#
+# The option ``NOT_LIBZ3_COMPONENT`` declares that the
+# component should not be included in libz3. If this is not specified
+# the component will be included in libz3.
+#
+# The mandatory ``SOURCES`` keyword should be followed by the source files
+# (including any files generated at build or configure time) that are should be
+# included in the component. It is not necessary to list header files here as
+# CMake infers header file dependencies unless that header file is generated at
+# build time.
+#
+# The optional ``COMPONENT_DEPENDENCIES`` keyword should be followed by a list of
+# components that ``component_name`` should depend on. The components listed here
+# must have already been declared using ``z3_add_component()``. Listing components
+# here causes them to be built before ``component_name``. It also currently causes
+# the include directories used by the transistive closure of the dependencies
+# to be added to the list of include directories used to build ``component_name``.
+#
+# The optional ``PYG_FILES`` keyword should be followed by a list of one or
+# more ``<NAME>.pyg`` files that should used to be generate
+# ``<NAME>_params.hpp`` header files used by the ``component_name``.
+#
 macro(z3_add_component component_name)
   CMAKE_PARSE_ARGUMENTS("Z3_MOD" "NOT_LIBZ3_COMPONENT" "" "SOURCES;COMPONENT_DEPENDENCIES;PYG_FILES" ${ARGN})
   message(STATUS "Adding component ${component_name}")
