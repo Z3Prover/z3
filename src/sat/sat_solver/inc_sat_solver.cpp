@@ -151,6 +151,7 @@ public:
         lbool r = internalize_formulas();
         if (r != l_true) return r;
         r = internalize_assumptions(sz, assumptions, dep2asm);
+        SASSERT(sz == m_asms.size());
         if (r != l_true) return r;
 
         r = m_solver.check(m_asms.size(), m_asms.c_ptr(), m_weights.c_ptr(), max_weight);
@@ -300,6 +301,7 @@ private:
 
     lbool internalize_assumptions(unsigned sz, expr* const* asms, dep2asm_t& dep2asm) {
         if (sz == 0) {
+            m_asms.shrink(0);
             return l_true;
         }
         goal_ref g = alloc(goal, m, true, true); // models and cores are enabled.
@@ -331,6 +333,7 @@ private:
         sat::literal lit;
         for (unsigned i = 0; i < sz; ++i) {
             if (dep2asm.find(asms[i], lit)) {
+                SASSERT(lit.var() <= m_solver.num_vars());
                 m_asms.push_back(lit);
                 if (i != j && !m_weights.empty()) {
                     m_weights[j] = m_weights[i];
