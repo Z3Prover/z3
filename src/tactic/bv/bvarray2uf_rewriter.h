@@ -20,7 +20,7 @@ Notes:
 #ifndef BVARRAY2UF_REWRITER_H_
 #define BVARRAY2UF_REWRITER_H_
 
-#include"rewriter_def.h"
+#include"rewriter.h"
 #include"extension_model_converter.h"
 #include"filter_model_converter.h"
 
@@ -71,7 +71,6 @@ protected:
     func_decl_ref mk_uf_for_array(expr * e);
 };
 
-template class rewriter_tpl<bvarray2uf_rewriter_cfg>;
 
 struct bvarray2uf_rewriter : public rewriter_tpl<bvarray2uf_rewriter_cfg> {
     bvarray2uf_rewriter_cfg m_cfg;

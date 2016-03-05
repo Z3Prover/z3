@@ -30,12 +30,14 @@ Revision History:
 proto_model::proto_model(ast_manager & m, simplifier & s, params_ref const & p):
     model_core(m),
     m_simplifier(s),
-    m_afid(m.mk_family_id(symbol("array"))) {
+    m_afid(m.mk_family_id(symbol("array"))),
+    m_eval(*this) {
     register_factory(alloc(basic_factory, m));
     m_user_sort_factory = alloc(user_sort_factory, m);
     register_factory(m_user_sort_factory);
     
     m_model_partial = model_params(p).partial();
+    m_use_new_eval  = model_params(p).new_eval();
 }
 
 
@@ -157,6 +159,19 @@ bool proto_model::is_select_of_model_value(expr* e) const {
    So, if model_completion == true, the evaluator never fails if it doesn't contain quantifiers.
 */
 bool proto_model::eval(expr * e, expr_ref & result, bool model_completion) {
+    if (m_use_new_eval) {
+        m_eval.set_model_completion(model_completion);
+        try {
+            m_eval(e, result);
+            return true;
+        }
+        catch (model_evaluator_exception & ex) {
+            (void)ex;
+            TRACE("model_evaluator", tout << ex.msg() << "\n";);
+            return false;
+        }
+    }
+
     bool is_ok = true;
     SASSERT(is_well_sorted(m_manager, e));
     TRACE("model_eval", tout << mk_pp(e, m_manager) << "\n";

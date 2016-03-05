@@ -572,35 +572,61 @@ bool bool_rewriter::local_ctx_simp(unsigned num_args, expr * const * args, expr_
 
 */
 br_status bool_rewriter::try_ite_value(app * ite, app * val, expr_ref & result) {
-    SASSERT(m().is_ite(ite));
+    expr* cond, *t, *e;
+    VERIFY(m().is_ite(ite, cond, t, e));
     SASSERT(m().is_value(val));
 
-    expr * t = ite->get_arg(1);
-    expr * e = ite->get_arg(2);
-    if (!m().is_value(t) || !m().is_value(e))
-        return BR_FAILED;
-
-    if (t != val && e != val) {
-        TRACE("try_ite_value", tout << mk_ismt2_pp(t, m()) << " " << mk_ismt2_pp(e, m()) << " " << mk_ismt2_pp(val, m()) << "\n";
-              tout << t << " " << e << " " << val << "\n";);
-        result = m().mk_false();
+    if (m().is_value(t) && m().is_value(e)) {
+        if (t != val && e != val) {
+            TRACE("try_ite_value", tout << mk_ismt2_pp(t, m()) << " " << mk_ismt2_pp(e, m()) << " " << mk_ismt2_pp(val, m()) << "\n";
+                  tout << t << " " << e << " " << val << "\n";);
+            result = m().mk_false();
+        }        
+        else if (t == val && e == val) {
+            result = m().mk_true();
+        }        
+        else if (t == val) {
+            result = cond;
+        }
+        else {
+            SASSERT(e == val);            
+            mk_not(cond, result);
+        }
         return BR_DONE;
     }
-
-    if (t == val && e == val) {
-        result = m().mk_true();
-        return BR_DONE;
+    if (m().is_value(t)) {
+        if (val == t) {
+            result = m().mk_or(cond, m().mk_eq(val, e));
+        }
+        else {
+            mk_not(cond, result);
+            result = m().mk_and(result, m().mk_eq(val, e));
+        }
+        return BR_REWRITE2;
+    }
+    if (m().is_value(e)) {
+        if (val == e) {
+            mk_not(cond, result);
+            result = m().mk_or(result, m().mk_eq(val, t));
+        }
+        else {
+            result = m().mk_and(cond, m().mk_eq(val, t));
+        }
+        return BR_REWRITE2;
+    }
+    expr* cond2, *t2, *e2;
+    if (m().is_ite(t, cond2, t2, e2) && m().is_value(t2) && m().is_value(e2)) {
+        try_ite_value(to_app(t), val, result);
+        result = m().mk_ite(cond, result, m().mk_eq(e, val));
+        return BR_REWRITE2;
+    }
+    if (m().is_ite(e, cond2, t2, e2) && m().is_value(t2) && m().is_value(e2)) {
+        try_ite_value(to_app(e), val, result);
+        result = m().mk_ite(cond, m().mk_eq(t, val), result);
+        return BR_REWRITE2;
     }
 
-    if (t == val) {
-        result = ite->get_arg(0);
-        return BR_DONE;
-    }
-
-    SASSERT(e == val);
-
-    mk_not(ite->get_arg(0), result);
-    return BR_DONE;
+    return BR_FAILED;
 }
 
 #if 0

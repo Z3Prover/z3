@@ -29,6 +29,7 @@ Revision History:
 #define PROTO_MODEL_H_
 
 #include"model_core.h"
+#include"model_evaluator.h"
 #include"value_factory.h"
 #include"plugin_manager.h"
 #include"simplifier.h"
@@ -44,8 +45,10 @@ class proto_model : public model_core {
     family_id                     m_afid;        //!< array family id: hack for displaying models in V1.x style
     func_decl_set                 m_aux_decls;
     ptr_vector<expr>              m_tmp;
+    model_evaluator               m_eval;
 
     bool                          m_model_partial;
+    bool                          m_use_new_eval;
 
     expr * mk_some_interp_for(func_decl * d);
 

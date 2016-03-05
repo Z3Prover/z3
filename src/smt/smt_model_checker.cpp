@@ -95,7 +95,8 @@ namespace smt {
             expr * e = *it;
             eqs.push_back(m.mk_eq(sk, e));
         }
-        m_aux_context->assert_expr(m.mk_or(eqs.size(), eqs.c_ptr()));
+        expr_ref fml(m.mk_or(eqs.size(), eqs.c_ptr()), m);
+        m_aux_context->assert_expr(fml);
     }
 
 #define PP_DEPTH 8
@@ -105,9 +106,13 @@ namespace smt {
 
        The variables are replaced by skolem constants. These constants are stored in sks.
     */
+
     void model_checker::assert_neg_q_m(quantifier * q, expr_ref_vector & sks) {
         expr_ref tmp(m);
-        m_curr_model->eval(q->get_expr(), tmp, true);
+        if (!m_curr_model->eval(q->get_expr(), tmp, true)) {
+            return;
+        }
+        //std::cout << tmp << "\n";
         TRACE("model_checker", tout << "q after applying interpretation:\n" << mk_ismt2_pp(tmp, m) << "\n";);        
         ptr_buffer<expr> subst_args;
         unsigned num_decls = q->get_num_decls();
@@ -261,10 +266,11 @@ namespace smt {
         
         lbool r = m_aux_context->check();
         TRACE("model_checker", tout << "[complete] model-checker result: " << to_sat_str(r) << "\n";);
-        if (r == l_false) {
+        if (r != l_true) {
             m_aux_context->pop(1);
-            return true; // quantifier is satisfied by m_curr_model
+            return r == l_false; // quantifier is satisfied by m_curr_model
         }
+		
         model_ref complete_cex;
         m_aux_context->get_model(complete_cex); 
         
@@ -276,7 +282,7 @@ namespace smt {
         while (true) {
             lbool r = m_aux_context->check();
             TRACE("model_checker", tout << "[restricted] model-checker (" << (num_new_instances+1) << ") result: " << to_sat_str(r) << "\n";);
-            if (r == l_false)
+            if (r != l_true)
                 break; 
             model_ref cex;
             m_aux_context->get_model(cex);

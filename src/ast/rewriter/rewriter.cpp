@@ -51,6 +51,8 @@ void rewriter_core::cache_result(expr * k, expr * v) {
     
     TRACE("rewriter_cache_result", tout << mk_ismt2_pp(k, m()) << "\n--->\n" << mk_ismt2_pp(v, m()) << "\n";);
 
+    SASSERT(m().get_sort(k) == m().get_sort(v));
+
     m_cache->insert(k, v);
 #if 0
     static unsigned num_cached = 0;
