@@ -24,6 +24,7 @@ Notes:
 #include"params.h"
 #include"ast_pp.h"
 #include"bvarray2uf_rewriter.h"
+#include"rewriter_def.h"
 
 // [1] C. M. Wintersteiger, Y. Hamadi, and L. de Moura: Efficiently Solving
 //     Quantified Bit-Vector Formulas, in Formal Methods in System Design,
@@ -345,3 +346,5 @@ bool bvarray2uf_rewriter_cfg::reduce_var(var * t, expr_ref & result, proof_ref &
     NOT_IMPLEMENTED_YET();
     return true;
 }
+
+template class rewriter_tpl<bvarray2uf_rewriter_cfg>;

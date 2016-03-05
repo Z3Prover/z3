@@ -1075,7 +1075,7 @@ public:
         if (strcmp(var_prefix, ALIAS_PREFIX) == 0) {
             var_prefix = "_a";
         }
-        unsigned idx = 1;
+        unsigned idx = 0;
         for (unsigned i = 0; i < num; i++) {
             symbol name = next_name(var_prefix, idx);
             name = ensure_quote_sym(name);

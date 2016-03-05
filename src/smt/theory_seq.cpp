@@ -1591,7 +1591,6 @@ bool theory_seq::solve_ne(unsigned idx) {
 }
 
 bool theory_seq::solve_nc(unsigned idx) {
-    context& ctx = get_context();
     nc const& n = m_ncs[idx];
 
     dependency* deps = n.deps();    

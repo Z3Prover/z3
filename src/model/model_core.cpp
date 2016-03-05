@@ -29,7 +29,6 @@ model_core::~model_core() {
     decl2finterp::iterator it2  = m_finterp.begin();
     decl2finterp::iterator end2 = m_finterp.end();
     for (; it2 != end2; ++it2) {
-        func_decl* d = it2->m_key;
         m_manager.dec_ref(it2->m_key);
         dealloc(it2->m_value);
     }   
