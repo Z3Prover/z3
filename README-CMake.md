@@ -15,8 +15,8 @@ on your platform. Example generators include "UNIX Makfiles" and "Visual Studio
 If you have never used the python build system you can skip this step.
 
 The existing Python build system creates generated source files in
-the build tree. The CMake build system will refuse to work if it
-detects this so you need to clean your build tree first.
+the source tree. The CMake build system will refuse to work if it
+detects this so you need to clean your source tree first.
 
 To do this run the following in the root of the repository
 
@@ -46,8 +46,8 @@ python contrib/cmake/bootstrap.py create
 ```
 
 in the root of the repository. Once you have done this you can now build Z3 using CMake.
-Remember to rerun this command if you pull down new code or change branch so
-that the CMake files are up to date.
+Make sure you remember to rerun this command if you pull down new code/rebase/change branch so
+that the copied CMake files are up to date.
 
 To remove the copied files run
 
