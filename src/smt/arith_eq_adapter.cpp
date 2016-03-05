@@ -152,40 +152,7 @@ namespace smt {
         //      5) theory_arith fails to internalize (+ (* -1 x) (* -1 x)), and Z3 crashes.
         // 
 
-#if 0
-        // This block of code uses the simplifier for creating the literals t1 >= t2 and t1 <= t2.
-        // It has serious performance problems in VCC benchmarks.
-        // The problem seems to be the following:
-        // t1 and t2 are slacks (i.e., names for linear polynomials).
-        // The simplifier will create inequalities that will indirectly imply that t1 >= t2 and t1 <= t2.
-        // Example if: t1 := 1 + a
-        //             t2 := 2 + b
-        // the simplifier will create
-        // a - b >= -1
-        // a - b <= -1
-        // These inequalities imply that 1+a >= 2+b and 1+a <= 2+b,
-        // but the tableau is complete different.
-
-        
-        // BTW, note that we don't really need to handle the is_numeral case when using 
-        // the simplifier. However, doing that, it seems we minimize the performance problem.
-        expr_ref le(m);
-        expr_ref ge(m);
-        if (m_util.is_numeral(t1))
-            std::swap(t1, t2);
-        if (m_util.is_numeral(t2)) {
-            le = m_util.mk_le(t1, t2);
-            ge = m_util.mk_ge(t1, t2);
-        }
-        else {
-            arith_simplifier_plugin & s = *(get_simplifier());
-            s.mk_le(t1, t2, le);
-            s.mk_ge(t1, t2, ge);
-        }
-        TRACE("arith_eq_adapter_perf", tout << mk_ismt2_pp(t1_eq_t2, m) << "\n" << mk_ismt2_pp(le, m) << "\n" << mk_ismt2_pp(ge, m) << "\n";);
-#else
-        // Old version that used to be buggy.
-        // I fixed the theory arithmetic internalizer to accept non simplified terms of the form t1 - t2 
+        // Requires that the theory arithmetic internalizer accept non simplified terms of the form t1 - t2 
         // if t1 and t2 already have slacks (theory variables) associated with them.
         // It also accepts terms with repeated variables (Issue #429).
         app * le = 0;
@@ -207,7 +174,6 @@ namespace smt {
         }
         TRACE("arith_eq_adapter_perf",
               tout << mk_ismt2_pp(t1_eq_t2, m) << "\n" << mk_ismt2_pp(le, m) << "\n" << mk_ismt2_pp(ge, m) << "\n";);
-#endif
 
         ctx.push_trail(already_processed_trail(m_already_processed, n1, n2));
         m_already_processed.insert(n1, n2, data(t1_eq_t2, le, ge));

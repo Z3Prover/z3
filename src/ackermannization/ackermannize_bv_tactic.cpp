@@ -24,8 +24,7 @@ Revision History:
 class ackermannize_bv_tactic : public tactic {
 public:
     ackermannize_bv_tactic(ast_manager& m, params_ref const& p)
-        : m_m(m)
-        , m_p(p)
+        : m(m), m_p(p)
     {}
 
     virtual ~ackermannize_bv_tactic() { }
@@ -36,7 +35,6 @@ public:
         proof_converter_ref & pc,
         expr_dependency_ref & core) {
         mc = 0;
-        ast_manager& m(g->m());
         tactic_report report("ackermannize", *g);
         fail_if_unsat_core_generation("ackermannize", g);
         fail_if_proof_generation("ackermannize", g);
@@ -44,11 +42,11 @@ public:
         expr_ref_vector flas(m);
         const unsigned sz = g->size();
         for (unsigned i = 0; i < sz; i++) flas.push_back(g->form(i));
-        scoped_ptr<lackr> imp = alloc(lackr, m, m_p, m_st, flas, NULL);
-        flas.reset();
+        lackr lackr(m, m_p, m_st, flas, NULL);
+
         // mk result
         goal_ref resg(alloc(goal, *g, true));
-        const bool success = imp->mk_ackermann(resg, m_lemma_limit);
+        const bool success = lackr.mk_ackermann(resg, m_lemma_limit);
         if (!success) { // Just pass on the input unchanged
             result.reset();
             result.push_back(g.get());
@@ -60,12 +58,12 @@ public:
         result.push_back(resg.get());
         // report model
         if (g->models_enabled()) {
-            mc = mk_ackermannize_bv_model_converter(m, imp->get_info());
+            mc = mk_ackermannize_bv_model_converter(m, lackr.get_info());
         }
 
-		resg->inc_depth();
-		TRACE("ackermannize", resg->display(tout););
-		SASSERT(resg->is_well_sorted());
+        resg->inc_depth();
+        TRACE("ackermannize", resg->display(tout););
+        SASSERT(resg->is_well_sorted());
     }
 
 
@@ -86,7 +84,7 @@ public:
         return alloc(ackermannize_bv_tactic, m, m_p);
     }
 private:
-    ast_manager&                         m_m;
+    ast_manager&                         m;
     params_ref                           m_p;
     lackr_stats                          m_st;
     double                               m_lemma_limit;
