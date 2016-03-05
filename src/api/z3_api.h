@@ -1457,7 +1457,7 @@ extern "C" {
     /*@{*/
 
     /**
-        \deprecated
+       \deprecated
        \brief Create a context using the given configuration.
 
        After a context is created, the configuration cannot be changed,
@@ -1473,6 +1473,11 @@ extern "C" {
        Note that all other reference counted objects, including Z3_model,
        Z3_solver, Z3_func_interp have to be managed by the caller.
        Their reference counts are not handled by the context.
+
+       Further remarks:
+       - Z3_sort, Z3_func_decl, Z3_app, Z3_pattern are Z3_ast's.
+       - Z3 uses hash-consing, i.e., when the same Z3_ast is created twice,
+         Z3 will return the same pointer twice.
 
        \sa Z3_del_context
 
@@ -1492,11 +1497,13 @@ extern "C" {
        anymore. This idiom is similar to the one used in
        BDD (binary decision diagrams) packages such as CUDD.
 
-       Remark: Z3_sort, Z3_func_decl, Z3_app, Z3_pattern are
-       Z3_ast's.
+       Remarks:
 
-       After a context is created, the configuration cannot be changed.
-       All main interaction with Z3 happens in the context of a \c Z3_context.
+       - Z3_sort, Z3_func_decl, Z3_app, Z3_pattern are Z3_ast's.
+       - After a context is created, the configuration cannot be changed.
+       - All main interaction with Z3 happens in the context of a \c Z3_context.
+       - Z3 uses hash-consing, i.e., when the same Z3_ast is created twice,
+         Z3 will return the same pointer twice.
 
        def_API('Z3_mk_context_rc', CONTEXT, (_in(CONFIG),))
     */
