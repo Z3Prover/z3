@@ -30,6 +30,7 @@ void rewriter_tpl<Config>::process_var(var * v) {
             m_pr = 0; 
         }
         set_new_child_flag(v);
+        TRACE("rewriter", tout << mk_ismt2_pp(v, m()) << " -> " << m_r << "\n";);
         m_r = 0;
         return;
     }
@@ -41,17 +42,18 @@ void rewriter_tpl<Config>::process_var(var * v) {
             expr * r = m_bindings[index];
             if (r != 0) {
                 SASSERT(v->get_sort() == m().get_sort(r));
-                if (!is_ground(r) && m_shifts[index] != UINT_MAX) {
+                if (!is_ground(r) && m_shifts[index] != m_bindings.size()) {
                     
                     unsigned shift_amount = m_bindings.size() - m_shifts[index];
                     expr_ref tmp(m());
                     m_shifter(r, shift_amount, tmp);
                     result_stack().push_back(tmp);
-                    TRACE("process_var", tout << "shift: " << shift_amount << " idx: " << idx << " --> " << tmp << "\n";
+                    TRACE("rewriter", tout << "shift: " << shift_amount << " idx: " << idx << " --> " << tmp << "\n";
                           display_bindings(tout););
                 }
                 else {
                     result_stack().push_back(r);
+                    TRACE("rewriter", tout << idx << " " << mk_ismt2_pp(r, m()) << "\n";);
                 }
                 set_new_child_flag(v);
                 return;
@@ -572,7 +574,7 @@ void rewriter_tpl<Config>::set_bindings(unsigned num_bindings, expr * const * bi
     while (i > 0) {
         --i;
         m_bindings.push_back(bindings[i]);
-        m_shifts.push_back(UINT_MAX);
+        m_shifts.push_back(num_bindings);
     }
     TRACE("rewriter", display_bindings(tout););
 }
@@ -585,7 +587,7 @@ void rewriter_tpl<Config>::set_inv_bindings(unsigned num_bindings, expr * const 
     m_shifts.reset();
     for (unsigned i = 0; i < num_bindings; i++) {
         m_bindings.push_back(bindings[i]);
-        m_shifts.push_back(UINT_MAX);
+        m_shifts.push_back(num_bindings);
     }
     TRACE("rewriter", display_bindings(tout););
 }
