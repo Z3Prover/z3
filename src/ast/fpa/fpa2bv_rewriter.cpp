@@ -66,7 +66,7 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
     if (num == 0 && f->get_family_id() == null_family_id && m_conv.is_rm(f->get_range())) {
         m_conv.mk_rm_const(f, result);
         return BR_DONE;
-        }
+    }
     
     if (m().is_eq(f)) {
         SASSERT(num == 2);

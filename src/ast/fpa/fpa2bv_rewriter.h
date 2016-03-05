@@ -25,8 +25,8 @@ Notes:
 #include"fpa2bv_converter.h"
 
 struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
-    ast_manager              & m_manager;    
-    expr_ref_vector            m_out;    
+    ast_manager              & m_manager;
+    expr_ref_vector            m_out;
     fpa2bv_converter         & m_conv;
     sort_ref_vector            m_bindings;
 
@@ -37,7 +37,7 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
 
     fpa2bv_rewriter_cfg(ast_manager & m, fpa2bv_converter & c, params_ref const & p);
 
-    ~fpa2bv_rewriter_cfg() {        
+    ~fpa2bv_rewriter_cfg() {
     }
 
     void cleanup_buffers() {
@@ -55,12 +55,11 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
 
     br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr);
 
-
     bool pre_visit(expr * t);
 
-    bool reduce_quantifier(quantifier * old_q, 
-                           expr * new_body, 
-                           expr * const * new_patterns, 
+    bool reduce_quantifier(quantifier * old_q,
+                           expr * new_body,
+                           expr * const * new_patterns,
                            expr * const * new_no_patterns,
                            expr_ref & result,
                            proof_ref & result_pr);
@@ -73,7 +72,7 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
 struct fpa2bv_rewriter : public rewriter_tpl<fpa2bv_rewriter_cfg> {
     fpa2bv_rewriter_cfg m_cfg;
     fpa2bv_rewriter(ast_manager & m, fpa2bv_converter & c, params_ref const & p):
-        rewriter_tpl<fpa2bv_rewriter_cfg>(m, m.proofs_enabled(), m_cfg),        
+        rewriter_tpl<fpa2bv_rewriter_cfg>(m, m.proofs_enabled(), m_cfg),
         m_cfg(m, c, p) {
     }
 };

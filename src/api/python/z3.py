@@ -8524,11 +8524,11 @@ def FPVal(sig, exp=None, fps=None, ctx=None):
     >>> v = FPVal(-2.25, FPSort(8, 24))
     >>> v
     -1.125*(2**1)
-    >>> v = FPVal(-0.0, FPSort(8, 24))
+    >>> FPVal(-0.0, FPSort(8, 24))
     -0.0
-    >>> v = FPVal(0.0, FPSort(8, 24))
+    >>> FPVal(0.0, FPSort(8, 24))
     +0.0
-    >>> v = FPVal(+0.0, FPSort(8, 24))
+    >>> FPVal(+0.0, FPSort(8, 24))
     +0.0
     """
     ctx = _get_ctx(ctx)
@@ -8911,7 +8911,7 @@ def fpNEQ(a, b, ctx=None):
     >>> fpNEQ(x, y)
     Not(fpEQ(x, y))
     >>> (x != y).sexpr()
-    '(not (fp.eq x y))'
+    '(distinct x y)'
     """
     return Not(fpEQ(a, b, ctx))
 

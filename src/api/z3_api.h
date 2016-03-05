@@ -62,7 +62,7 @@ DEFINE_TYPE(Z3_rcf_num);
    - \c Z3_constructor: type constructor for a (recursive) datatype.
    - \c Z3_constructor_list: list of constructors for a (recursive) datatype.
    - \c Z3_params: parameter set used to configure many components such as: simplifiers, tactics, solvers, etc.
-   - \c Z3_param_descrs: provides a collection of parameter names, their types, default values and documentation strings. Solvers, tactics, and other objects accept different collection of parameters. 
+   - \c Z3_param_descrs: provides a collection of parameter names, their types, default values and documentation strings. Solvers, tactics, and other objects accept different collection of parameters.
    - \c Z3_model: model for the constraints asserted into the logical context.
    - \c Z3_func_interp: interpretation of a function in a model.
    - \c Z3_func_entry: representation of the value of a \c Z3_func_interp at a particular point.
@@ -1129,7 +1129,7 @@ typedef enum {
     Z3_OP_SEQ_EXTRACT,
     Z3_OP_SEQ_REPLACE,
     Z3_OP_SEQ_AT,
-    Z3_OP_SEQ_LENGTH,    
+    Z3_OP_SEQ_LENGTH,
     Z3_OP_SEQ_INDEX,
     Z3_OP_SEQ_TO_RE,
     Z3_OP_SEQ_IN_RE,
@@ -1457,7 +1457,7 @@ extern "C" {
     /*@{*/
 
     /**
-        \deprecated
+       \deprecated
        \brief Create a context using the given configuration.
 
        After a context is created, the configuration cannot be changed,
@@ -1473,6 +1473,11 @@ extern "C" {
        Note that all other reference counted objects, including Z3_model,
        Z3_solver, Z3_func_interp have to be managed by the caller.
        Their reference counts are not handled by the context.
+
+       Further remarks:
+       - Z3_sort, Z3_func_decl, Z3_app, Z3_pattern are Z3_ast's.
+       - Z3 uses hash-consing, i.e., when the same Z3_ast is created twice,
+         Z3 will return the same pointer twice.
 
        \sa Z3_del_context
 
@@ -1492,11 +1497,13 @@ extern "C" {
        anymore. This idiom is similar to the one used in
        BDD (binary decision diagrams) packages such as CUDD.
 
-       Remark: Z3_sort, Z3_func_decl, Z3_app, Z3_pattern are
-       Z3_ast's.
+       Remarks:
 
-       After a context is created, the configuration cannot be changed.
-       All main interaction with Z3 happens in the context of a \c Z3_context.
+       - Z3_sort, Z3_func_decl, Z3_app, Z3_pattern are Z3_ast's.
+       - After a context is created, the configuration cannot be changed.
+       - All main interaction with Z3 happens in the context of a \c Z3_context.
+       - Z3 uses hash-consing, i.e., when the same Z3_ast is created twice,
+         Z3 will return the same pointer twice.
 
        def_API('Z3_mk_context_rc', CONTEXT, (_in(CONFIG),))
     */
@@ -3185,11 +3192,11 @@ extern "C" {
 
        def_API('Z3_is_string', BOOL, (_in(CONTEXT), _in(AST)))
      */
-    Z3_bool Z3_API Z3_is_string(Z3_context c, Z3_ast s); 
+    Z3_bool Z3_API Z3_is_string(Z3_context c, Z3_ast s);
 
     /**
        \brief Retrieve the string constant stored in \c s.
-       
+
        \pre  Z3_is_string(c, s)
 
        def_API('Z3_get_string' ,STRING ,(_in(CONTEXT), _in(AST)))
@@ -3285,7 +3292,7 @@ extern "C" {
        def_API('Z3_mk_seq_index' ,AST ,(_in(CONTEXT), _in(AST), _in(AST), _in(AST)))
      */
     Z3_ast Z3_API Z3_mk_seq_index(Z3_context c, Z3_ast s, Z3_ast substr, Z3_ast offset);
-    
+
     /**
        \brief Create a regular expression that accepts the sequence \c seq.
 
@@ -4429,8 +4436,8 @@ extern "C" {
 
         Provides an interface to the AST simplifier used by Z3.
         It returns an AST object which is equal to the argument.
-        The returned AST is simplified using algebraic simplificaiton rules, 
-        such as constant propagation (propagating true/false over logical connectives).         
+        The returned AST is simplified using algebraic simplificaiton rules,
+        such as constant propagation (propagating true/false over logical connectives).
 
         def_API('Z3_simplify', AST, (_in(CONTEXT), _in(AST)))
     */
