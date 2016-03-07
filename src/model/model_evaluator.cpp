@@ -31,8 +31,9 @@ Revision History:
 #include"rewriter_def.h"
 #include"cooperate.h"
 
+
 struct evaluator_cfg : public default_rewriter_cfg {
-    model_core &                         m_model;
+    model_core &                    m_model;
     bool_rewriter                   m_b_rw;
     arith_rewriter                  m_a_rw;
     bv_rewriter                     m_bv_rw;
@@ -59,9 +60,10 @@ struct evaluator_cfg : public default_rewriter_cfg {
         m_pb_rw(m),
         m_f_rw(m),
         m_seq_rw(m) {
-        m_b_rw.set_flat(false);
-        m_a_rw.set_flat(false);
-        m_bv_rw.set_flat(false);
+        bool flat = true;
+        m_b_rw.set_flat(flat);
+        m_a_rw.set_flat(flat);
+        m_bv_rw.set_flat(flat);
         m_bv_rw.set_mkbv2num(true);
         updt_params(p);
     }
@@ -181,10 +183,12 @@ struct evaluator_cfg : public default_rewriter_cfg {
     }
 
     bool get_macro(func_decl * f, expr * & def, quantifier * & q, proof * & def_pr) {
-        TRACE("model_evaluator", tout << "get_macro for " << f->get_name() << " (model completion: " << m_model_completion << ")\n";);
+
+#define TRACE_MACRO TRACE("model_evaluator", tout << "get_macro for " << f->get_name() << " (model completion: " << m_model_completion << ")\n";);
 
         func_interp * fi = m_model.get_func_interp(f);
         if (fi != 0) {
+            TRACE_MACRO;
             if (fi->is_partial()) {
                 if (m_model_completion) {
                     sort * s   = f->get_range();
@@ -204,6 +208,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
             (f->get_family_id() == null_family_id ||
              m().get_plugin(f->get_family_id())->is_considered_uninterpreted(f)))
         {
+            TRACE_MACRO;
             sort * s   = f->get_range();
             expr * val = m_model.get_some_value(s);
             func_interp * new_fi = alloc(func_interp, m(), f->get_arity());

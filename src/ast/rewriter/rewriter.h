@@ -214,10 +214,12 @@ protected:
     unsigned                   m_num_steps;
     ptr_vector<expr>           m_bindings;
     var_shifter                m_shifter;
+    inv_var_shifter            m_inv_shifter;
     expr_ref                   m_r;
     proof_ref                  m_pr;
     proof_ref                  m_pr2;
-    
+    unsigned_vector            m_shifts;
+
     svector<frame> & frame_stack() { return this->m_frame_stack; }
     svector<frame> const & frame_stack() const { return this->m_frame_stack; }
     expr_ref_vector & result_stack() { return this->m_result_stack; }
@@ -225,13 +227,14 @@ protected:
     proof_ref_vector & result_pr_stack() { return this->m_result_pr_stack; }
     proof_ref_vector const & result_pr_stack() const { return this->m_result_pr_stack; }
 
+    void display_bindings(std::ostream& out);
+
     void set_new_child_flag(expr * old_t) {
         SASSERT(frame_stack().empty() || frame_stack().back().m_state != PROCESS_CHILDREN || this->is_child_of_top_frame(old_t));
         if (!frame_stack().empty())
             frame_stack().back().m_new_child = true;
     }
     void set_new_child_flag(expr * old_t, expr * new_t) { if (old_t != new_t) set_new_child_flag(old_t); }
-
 
     // cache the result of shared non atomic expressions.
     bool cache_results() const { return m_cfg.cache_results(); }

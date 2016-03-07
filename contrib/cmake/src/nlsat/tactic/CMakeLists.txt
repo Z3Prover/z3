@@ -1,0 +1,10 @@
+z3_add_component(nlsat_tactic
+  SOURCES
+    goal2nlsat.cpp
+    nlsat_tactic.cpp
+    qfnra_nlsat_tactic.cpp
+  COMPONENT_DEPENDENCIES
+    arith_tactics
+    nlsat
+    sat_tactic
+)

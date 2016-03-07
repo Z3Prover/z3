@@ -1,0 +1,31 @@
+z3_add_component(arith_tactics
+  SOURCES
+    add_bounds_tactic.cpp
+    arith_bounds_tactic.cpp
+    bound_manager.cpp
+    bound_propagator.cpp
+    bv2int_rewriter.cpp
+    bv2real_rewriter.cpp
+    card2bv_tactic.cpp
+    degree_shift_tactic.cpp
+    diff_neq_tactic.cpp
+    elim01_tactic.cpp
+    eq2bv_tactic.cpp
+    factor_tactic.cpp
+    fix_dl_var_tactic.cpp
+    fm_tactic.cpp
+    lia2card_tactic.cpp
+    lia2pb_tactic.cpp
+    linear_equation.cpp
+    nla2bv_tactic.cpp
+    normalize_bounds_tactic.cpp
+    pb2bv_model_converter.cpp
+    pb2bv_tactic.cpp
+    probe_arith.cpp
+    propagate_ineqs_tactic.cpp
+    purify_arith_tactic.cpp
+    recover_01_tactic.cpp
+  COMPONENT_DEPENDENCIES
+    core_tactics
+    sat
+)

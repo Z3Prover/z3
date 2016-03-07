@@ -4,5 +4,6 @@ def_module_params('model',
                           ('v1', BOOL, False, 'use Z3 version 1.x pretty printer'),
                           ('v2', BOOL, False, 'use Z3 version 2.x (x <= 16) pretty printer'),
                           ('compact', BOOL, False, 'try to compact function graph (i.e., function interpretations that are lookup tables)'),
+                          ('new_eval', BOOL, True, 'use new evaluator (temporary parameter for testing)'),
                           ))
 

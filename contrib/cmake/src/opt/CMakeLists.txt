@@ -1,0 +1,26 @@
+z3_add_component(opt
+  SOURCES
+    bcd2.cpp
+    fu_malik.cpp
+    hitting_sets.cpp
+    maxhs.cpp
+    maxres.cpp
+    maxsls.cpp
+    maxsmt.cpp
+    mss.cpp
+    mus.cpp
+    opt_cmds.cpp
+    opt_context.cpp
+    opt_pareto.cpp
+    optsmt.cpp
+    opt_solver.cpp
+    pb_sls.cpp
+    wmax.cpp
+  COMPONENT_DEPENDENCIES
+    sat_solver
+    sls_tactic
+    smt
+    smtlogic_tactics
+  PYG_FILES
+    opt_params.pyg
+)

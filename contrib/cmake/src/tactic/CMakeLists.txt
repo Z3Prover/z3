@@ -1,0 +1,20 @@
+z3_add_component(tactic
+  SOURCES
+    equiv_proof_converter.cpp
+    extension_model_converter.cpp
+    filter_model_converter.cpp
+    goal.cpp
+    goal_num_occurs.cpp
+    goal_shared_occs.cpp
+    goal_util.cpp
+    horn_subsume_model_converter.cpp
+    model_converter.cpp
+    probe.cpp
+    proof_converter.cpp
+    replace_proof_converter.cpp
+    tactical.cpp
+    tactic.cpp
+  COMPONENT_DEPENDENCIES
+    ast
+    model
+)

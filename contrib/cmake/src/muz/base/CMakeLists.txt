@@ -1,0 +1,23 @@
+z3_add_component(muz
+  SOURCES
+    bind_variables.cpp
+    dl_boogie_proof.cpp
+    dl_context.cpp
+    dl_costs.cpp
+    dl_rule.cpp
+    dl_rule_set.cpp
+    dl_rule_subsumption_index.cpp
+    dl_rule_transformer.cpp
+    dl_util.cpp
+    hnf.cpp
+    proof_utils.cpp
+    rule_properties.cpp
+  COMPONENT_DEPENDENCIES
+    aig_tactic
+    qe
+    sat
+    smt
+    smt2parser
+  PYG_FILES
+    fixedpoint_params.pyg
+)

@@ -65,6 +65,7 @@ def parse_options():
                                                                    'silent',
                                                                    'force',
                                                                    'nojava',
+                                                                   'nodotnet',
                                                                    'githash'
                                                                    ])
     for opt, arg in options:
@@ -95,7 +96,7 @@ def check_build_dir(path):
 # Create a build directory using mk_make.py
 def mk_build_dir(path):
     if not check_build_dir(path) or FORCE_MK:
-        opts = ["python", os.path.join('scripts', 'mk_make.py'), "-b", path, "--static"]
+        opts = ["python", os.path.join('scripts', 'mk_make.py'), "-b", path, "--staticlib"]
         if DOTNET_ENABLED:
             opts.append('--dotnet')            
         if JAVA_ENABLED:

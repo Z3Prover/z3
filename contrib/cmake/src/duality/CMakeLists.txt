@@ -1,0 +1,11 @@
+z3_add_component(duality
+  SOURCES
+    duality_profiling.cpp
+    duality_rpfp.cpp
+    duality_solver.cpp
+    duality_wrapper.cpp
+  COMPONENT_DEPENDENCIES
+    interp
+    qe
+    smt
+)

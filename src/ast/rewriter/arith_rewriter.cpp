@@ -61,8 +61,10 @@ br_status arith_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * c
     case OP_ADD: st = mk_add_core(num_args, args, result); break;
     case OP_MUL: st = mk_mul_core(num_args, args, result); break;
     case OP_SUB: st = mk_sub(num_args, args, result); break;
-    case OP_DIV: SASSERT(num_args == 2); st = mk_div_core(args[0], args[1], result); break;
-    case OP_IDIV: SASSERT(num_args == 2); st = mk_idiv_core(args[0], args[1], result); break;
+    case OP_DIV: if (num_args == 1) { result = args[0]; st = BR_DONE; break; }
+        SASSERT(num_args == 2); st = mk_div_core(args[0], args[1], result); break;
+    case OP_IDIV: if (num_args == 1) { result = args[0]; st = BR_DONE; break; }
+        SASSERT(num_args == 2); st = mk_idiv_core(args[0], args[1], result); break;
     case OP_MOD: SASSERT(num_args == 2); st = mk_mod_core(args[0], args[1], result); break;
     case OP_REM: SASSERT(num_args == 2); st = mk_rem_core(args[0], args[1], result); break;
     case OP_UMINUS: SASSERT(num_args == 1);  st = mk_uminus(args[0], result); break;
@@ -292,7 +294,7 @@ expr * arith_rewriter::reduce_power(expr * arg, bool is_eq) {
     for (unsigned i = 0; i < sz; i++) {
         expr * arg = args[i];
         expr * arg0, *arg1;
-        if (m_util.is_power(arg, arg0, arg1) && m_util.is_numeral(arg1, k) && k.is_int() && 
+        if (m_util.is_power(arg, arg0, arg1) && m_util.is_numeral(arg1, k) && k.is_int() &&
             ((is_eq && k > rational(1)) || (!is_eq && k > rational(2)))) {
             if (is_eq || !k.is_even()) {
                 new_args.push_back(arg0);

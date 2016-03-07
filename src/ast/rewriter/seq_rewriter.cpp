@@ -579,7 +579,7 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
     unsigned lenA = 0, lenB = 0;
     bool lA = min_length(as.size(), as.c_ptr(), lenA);
     if (lA) {
-        bool lB = min_length(bs.size(), bs.c_ptr(), lenB);
+        min_length(bs.size(), bs.c_ptr(), lenB);
         if (lenB > lenA) {
             result = m().mk_false();
             return BR_DONE;

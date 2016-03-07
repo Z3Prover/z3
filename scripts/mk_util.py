@@ -83,6 +83,7 @@ JAVA_ENABLED=False
 ML_ENABLED=False
 PYTHON_INSTALL_ENABLED=False
 STATIC_LIB=False
+STATIC_BIN=False
 VER_MAJOR=None
 VER_MINOR=None
 VER_BUILD=None
@@ -536,6 +537,9 @@ def get_version():
 def build_static_lib():
     return STATIC_LIB
 
+def build_static_bin():
+    return STATIC_BIN
+
 def is_cr_lf(fname):
     # Check whether text files use cr/lf
     f = open(fname, 'r')
@@ -622,6 +626,7 @@ def display_help(exit_code):
     print("  --ml                          generate OCaml bindings.")
     print("  --python                      generate Python bindings.")
     print("  --staticlib                   build Z3 static library.")
+    print("  --staticbin                   build a statically linked Z3 binary.")
     if not IS_WINDOWS:
         print("  -g, --gmp                     use GMP.")
         print("  --gprof                       enable gprof")
@@ -652,14 +657,14 @@ def display_help(exit_code):
 # Parse configuration option for mk_make script
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
-    global DOTNET_ENABLED, JAVA_ENABLED, ML_ENABLED, STATIC_LIB, PREFIX, GMP, FOCI2, FOCI2LIB, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, PYTHON_INSTALL_ENABLED
+    global DOTNET_ENABLED, JAVA_ENABLED, ML_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, FOCI2, FOCI2LIB, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, PYTHON_INSTALL_ENABLED
     global LINUX_X64, SLOW_OPTIMIZE, USE_OMP
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:],
                                                'b:df:sxhmcvtnp:gj',
                                                ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj',
                                                 'trace', 'dotnet', 'staticlib', 'prefix=', 'gmp', 'foci2=', 'java', 'parallel=', 'gprof',
-                                                'githash=', 'x86', 'ml', 'optimize', 'noomp', 'pypkgdir=', 'python'])
+                                                'githash=', 'x86', 'ml', 'optimize', 'noomp', 'pypkgdir=', 'python', 'staticbin'])
     except:
         print("ERROR: Invalid command line option")
         display_help(1)
@@ -694,6 +699,8 @@ def parse_options():
             DOTNET_ENABLED = True
         elif opt in ('--staticlib'):
             STATIC_LIB = True
+        elif opt in ('--staticbin'):
+            STATIC_BIN = True
         elif opt in ('--optimize'):
             SLOW_OPTIMIZE = True
         elif not IS_WINDOWS and opt in ('-p', '--prefix'):
@@ -2212,14 +2219,19 @@ def mk_config():
             extra_opt = ' -D_NO_OMP_'
         if GIT_HASH:
             extra_opt = ' %s /D Z3GITHASH=%s' % (extra_opt, GIT_HASH)
+        if STATIC_BIN:
+            static_opt = '/MT'
+        else:
+            static_opt = '/MD'
         if DEBUG_MODE:
+            static_opt = static_opt + 'd'
             config.write(
                 'AR_FLAGS=/nologo\n'
-                'LINK_FLAGS=/nologo /MDd\n'
-                'SLINK_FLAGS=/nologo /LDd\n')
+                'LINK_FLAGS=/nologo %s\n' 
+                'SLINK_FLAGS=/nologo /LDd\n' % static_opt)
             if VS_X64:
                 config.write(
-                    'CXXFLAGS=/c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _AMD64_ /D _DEBUG /D Z3DEBUG %s /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze-\n' % extra_opt)
+                    'CXXFLAGS=/c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _AMD64_ /D _DEBUG /D Z3DEBUG /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze- %s %s\n' % (extra_opt, static_opt))
                 config.write(
                     'LINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT\n'
                     'SLINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO\n')
@@ -2228,7 +2240,7 @@ def mk_config():
                 exit(1)
             else:
                 config.write(
-                    'CXXFLAGS=/c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D Z3DEBUG %s /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze- /arch:SSE2\n' % extra_opt)
+                    'CXXFLAGS=/c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D Z3DEBUG /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze- /arch:SSE2 %s %s\n' % (extra_opt, static_opt))
                 config.write(
                     'LINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X86 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT\n'
                     'SLINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X86 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO\n')
@@ -2237,15 +2249,14 @@ def mk_config():
             LTCG=' /LTCG' if SLOW_OPTIMIZE else ''
             GL = ' /GL' if SLOW_OPTIMIZE else ''
             config.write(
-                'AR_FLAGS=/nologo%s\n'
-                'LINK_FLAGS=/nologo /MD\n'
-                'SLINK_FLAGS=/nologo /LD\n'
-                % LTCG)
+                'AR_FLAGS=/nologo %s\n'
+                'LINK_FLAGS=/nologo %s\n'
+                'SLINK_FLAGS=/nologo /LD\n' % (LTCG, static_opt))
             if TRACE:
                 extra_opt = '%s /D _TRACE ' % extra_opt
             if VS_X64:
                 config.write(
-                    'CXXFLAGS=/c%s /Zi /nologo /W3 /WX- /O2 /D _EXTERNAL_RELEASE /D WIN32 /D NDEBUG %s /D _LIB /D _WINDOWS /D _AMD64_ /D _UNICODE /D UNICODE /Gm- /EHsc /MD /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /TP\n' % (GL, extra_opt))
+                    'CXXFLAGS=/c%s /Zi /nologo /W3 /WX- /O2 /D _EXTERNAL_RELEASE /D WIN32 /D NDEBUG /D _LIB /D _WINDOWS /D _AMD64_ /D _UNICODE /D UNICODE /Gm- /EHsc /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /TP %s %s\n' % (GL, extra_opt, static_opt))
                 config.write(
                     'LINK_EXTRA_FLAGS=/link%s /MACHINE:X64 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608\n'
                     'SLINK_EXTRA_FLAGS=/link%s /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608\n' % (LTCG, LTCG))
@@ -2254,7 +2265,7 @@ def mk_config():
                 exit(1)
             else:
                 config.write(
-                    'CXXFLAGS=/nologo /c%s /Zi /W3 /WX- /O2 /Oy- /D _EXTERNAL_RELEASE /D WIN32 /D NDEBUG %s /D _CONSOLE /D _WINDOWS /D ASYNC_COMMANDS /Gm- /EHsc /MD /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze- /arch:SSE2\n' % (GL, extra_opt))
+                    'CXXFLAGS=/nologo /c%s /Zi /W3 /WX- /O2 /Oy- /D _EXTERNAL_RELEASE /D WIN32 /D NDEBUG /D _CONSOLE /D _WINDOWS /D ASYNC_COMMANDS /Gm- /EHsc /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze- /arch:SSE2 %s %s\n' % (GL, extra_opt, static_opt))
                 config.write(
                     'LINK_EXTRA_FLAGS=/link%s /DEBUG /MACHINE:X86 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT\n'
                     'SLINK_EXTRA_FLAGS=/link%s /DEBUG /MACHINE:X86 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO\n' % (LTCG, LTCG))
@@ -2363,7 +2374,9 @@ def mk_config():
             LDFLAGS      = '%s -m32' % LDFLAGS
             SLIBFLAGS    = '%s -m32' % SLIBFLAGS
         if DEBUG_MODE:
-            CPPFLAGS     = '%s -DZ3DEBUG' % CPPFLAGS
+            CPPFLAGS     = '%s -DZ3DEBUG -D_DEBUG' % CPPFLAGS
+        else:
+            CPPFLAGS     = '%s -DNDEBUG -D_EXTERNAL_RELEASE' % CPPFLAGS
         if TRACE or DEBUG_MODE:
             CPPFLAGS     = '%s -D_TRACE' % CPPFLAGS
         config.write('PREFIX=%s\n' % PREFIX)
@@ -2379,7 +2392,10 @@ def mk_config():
         config.write('AR_OUTFLAG=\n')
         config.write('EXE_EXT=\n')
         config.write('LINK=%s\n' % CXX)
-        config.write('LINK_FLAGS=\n')
+        if STATIC_BIN:
+            config.write('LINK_FLAGS=-static\n')
+        else:
+            config.write('LINK_FLAGS=\n')
         config.write('LINK_OUT_FLAG=-o \n')
         config.write('LINK_EXTRA_FLAGS=-lpthread %s\n' % LDFLAGS)
         config.write('SO_EXT=%s\n' % SO_EXT)
@@ -2511,10 +2527,10 @@ DOUBLE = 2
 STRING = 3
 SYMBOL = 4
 UINT_MAX = 4294967295
-CURR_PYG = None
+CURRENT_PYG_HPP_DEST_DIR = None
 
-def get_curr_pyg():
-    return CURR_PYG
+def get_current_pyg_hpp_dest_dir():
+    return CURRENT_PYG_HPP_DEST_DIR
 
 TYPE2CPK = { UINT : 'CPK_UINT', BOOL : 'CPK_BOOL',  DOUBLE : 'CPK_DOUBLE',  STRING : 'CPK_STRING',  SYMBOL : 'CPK_SYMBOL' }
 TYPE2CTYPE = { UINT : 'unsigned', BOOL : 'bool', DOUBLE : 'double', STRING : 'char const *', SYMBOL : 'symbol' }
@@ -2547,8 +2563,8 @@ def to_c_method(s):
     return s.replace('.', '_')
 
 def def_module_params(module_name, export, params, class_name=None, description=None):
-    pyg = get_curr_pyg()
-    dirname = os.path.split(get_curr_pyg())[0]
+    dirname = get_current_pyg_hpp_dest_dir()
+    assert(os.path.exists(dirname))
     if class_name is None:
         class_name = '%s_params' % module_name
     hpp = os.path.join(dirname, '%s.hpp' % class_name)
@@ -2613,28 +2629,31 @@ def _execfile(file, globals=globals(), locals=locals()):
 
 # Execute python auxiliary scripts that generate extra code for Z3.
 def exec_pyg_scripts():
-    global CURR_PYG
+    global CURRENT_PYG_HPP_DEST_DIR
     for root, dirs, files in os.walk('src'):
         for f in files:
             if f.endswith('.pyg'):
                 script = os.path.join(root, f)
-                CURR_PYG = script
+                CURRENT_PYG_HPP_DEST_DIR = root
                 _execfile(script, PYG_GLOBALS)
 
 # TODO: delete after src/ast/pattern/expr_pattern_match
 # database.smt ==> database.h
 def mk_pat_db():
     c = get_component(PATTERN_COMPONENT)
-    fin  = open(os.path.join(c.src_dir, 'database.smt2'), 'r')
-    fout = open(os.path.join(c.src_dir, 'database.h'), 'w')
-    fout.write('static char const g_pattern_database[] =\n')
-    for line in fin:
-        fout.write('"%s\\n"\n' % line.strip('\n'))
-    fout.write(';\n')
-    fin.close()
-    fout.close()
+    fin  = os.path.join(c.src_dir, 'database.smt2')
+    fout = os.path.join(c.src_dir, 'database.h')
+    mk_pat_db_internal(fin, fout)
+
+def mk_pat_db_internal(inputFilePath, outputFilePath):
+    with open(inputFilePath, 'r') as fin:
+        with open(outputFilePath, 'w') as fout:
+            fout.write('static char const g_pattern_database[] =\n')
+            for line in fin:
+                fout.write('"%s\\n"\n' % line.strip('\n'))
+            fout.write(';\n')
     if VERBOSE:
-        print("Generated '%s'" % os.path.join(c.src_dir, 'database.h'))
+        print("Generated '%s'" % outputFilePath)
 
 # Update version numbers
 def update_version():
@@ -2652,15 +2671,20 @@ def update_version():
 # Update files with the version number
 def mk_version_dot_h(major, minor, build, revision):
     c = get_component(UTIL_COMPONENT)
-    fout = open(os.path.join(c.src_dir, 'version.h'), 'w')
-    fout.write('// automatically generated file.\n')
-    fout.write('#define Z3_MAJOR_VERSION   %s\n' % major)
-    fout.write('#define Z3_MINOR_VERSION   %s\n' % minor)
-    fout.write('#define Z3_BUILD_NUMBER    %s\n' % build)
-    fout.write('#define Z3_REVISION_NUMBER %s\n' % revision)
-    fout.close()
+    version_template = os.path.join(c.src_dir, 'version.h.in')
+    version_header_output = os.path.join(c.src_dir, 'version.h')
+    # Note the substitution names are what is used by the CMake
+    # builds system. If you change these you should change them
+    # in the CMake build too
+    configure_file(version_template, version_header_output,
+        { 'Z3_VERSION_MAJOR': str(major),
+          'Z3_VERSION_MINOR': str(minor),
+          'Z3_VERSION_PATCH': str(build),
+          'Z3_VERSION_TWEAK': str(revision),
+        }
+    )
     if VERBOSE:
-        print("Generated '%s'" % os.path.join(c.src_dir, 'version.h'))
+        print("Generated '%s'" % version_header_output)
 
 # Generate AssemblyInfo.cs files with the right version numbers by using ``AssemblyInfo.cs.in`` files as a template
 def mk_all_assembly_infos(major, minor, build, revision):
@@ -2697,6 +2721,13 @@ def ADD_PROBE(name, descr, cmd):
 # It installs all tactics in the given component (name) list cnames
 # The procedure looks for ADD_TACTIC commands in the .h files of these components.
 def mk_install_tactic_cpp(cnames, path):
+  component_src_dirs = []
+  for cname in cnames:
+    c = get_component(cname)
+    component_src_dirs.append(c.src_dir)
+  mk_install_tactic_cpp_internal(component_src_dirs, path)
+
+def mk_install_tactic_cpp_internal(component_src_dirs, path):
     global ADD_TACTIC_DATA, ADD_PROBE_DATA
     ADD_TACTIC_DATA = []
     ADD_PROBE_DATA = []
@@ -2708,12 +2739,11 @@ def mk_install_tactic_cpp(cnames, path):
     fout.write('#include"cmd_context.h"\n')
     tactic_pat   = re.compile('[ \t]*ADD_TACTIC\(.*\)')
     probe_pat    = re.compile('[ \t]*ADD_PROBE\(.*\)')
-    for cname in cnames:
-        c = get_component(cname)
-        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(c.src_dir))
+    for component_src_dir in component_src_dirs:
+        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(component_src_dir))
         for h_file in h_files:
             added_include = False
-            fin = open(os.path.join(c.src_dir, h_file), 'r')
+            fin = open(os.path.join(component_src_dir, h_file), 'r')
             for line in fin:
                 if tactic_pat.match(line):
                     if not added_include:
@@ -2766,6 +2796,13 @@ def mk_all_install_tactic_cpps():
 #    void mem_finalize()
 # These procedures are invoked by the Z3 memory_manager
 def mk_mem_initializer_cpp(cnames, path):
+  component_src_dirs = []
+  for cname in cnames:
+    c = get_component(cname)
+    component_src_dirs.append(c.src_dir)
+  mk_mem_initializer_cpp_internal(component_src_dirs, path)
+
+def mk_mem_initializer_cpp_internal(component_src_dirs, path):
     initializer_cmds = []
     finalizer_cmds   = []
     fullname = os.path.join(path, 'mem_initializer.cpp')
@@ -2775,12 +2812,11 @@ def mk_mem_initializer_cpp(cnames, path):
     # ADD_INITIALIZER with priority
     initializer_prio_pat = re.compile('[ \t]*ADD_INITIALIZER\(\'([^\']*)\',[ \t]*(-?[0-9]*)\)')
     finalizer_pat        = re.compile('[ \t]*ADD_FINALIZER\(\'([^\']*)\'\)')
-    for cname in cnames:
-        c = get_component(cname)
-        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(c.src_dir))
+    for component_src_dir in component_src_dirs:
+        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(component_src_dir))
         for h_file in h_files:
             added_include = False
-            fin = open(os.path.join(c.src_dir, h_file), 'r')
+            fin = open(os.path.join(component_src_dir, h_file), 'r')
             for line in fin:
                 m = initializer_pat.match(line)
                 if m:
@@ -2825,11 +2861,18 @@ def mk_all_mem_initializer_cpps():
                 cnames.append(c.name)
                 mk_mem_initializer_cpp(cnames, c.src_dir)
 
-# Generate an mem_initializer.cpp at path.
+# Generate an ``gparams_register_modules.cpp`` at path.
 # This file implements the procedure
 #    void gparams_register_modules()
 # This procedure is invoked by gparams::init()
 def mk_gparams_register_modules(cnames, path):
+  component_src_dirs = []
+  for cname in cnames:
+    c = get_component(cname)
+    component_src_dirs.append(c.src_dir)
+  mk_gparams_register_modules_internal(component_src_dirs, path)
+
+def mk_gparams_register_modules_internal(component_src_dirs, path):
     cmds = []
     mod_cmds = []
     mod_descrs = []
@@ -2840,12 +2883,11 @@ def mk_gparams_register_modules(cnames, path):
     reg_pat = re.compile('[ \t]*REG_PARAMS\(\'([^\']*)\'\)')
     reg_mod_pat = re.compile('[ \t]*REG_MODULE_PARAMS\(\'([^\']*)\', *\'([^\']*)\'\)')
     reg_mod_descr_pat = re.compile('[ \t]*REG_MODULE_DESCRIPTION\(\'([^\']*)\', *\'([^\']*)\'\)')
-    for cname in cnames:
-        c = get_component(cname)
-        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(c.src_dir))
+    for component_src_dir in component_src_dirs:
+        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(component_src_dir))
         for h_file in h_files:
             added_include = False
-            fin = open(os.path.join(c.src_dir, h_file), 'r')
+            fin = open(os.path.join(component_src_dir, h_file), 'r')
             for line in fin:
                 m = reg_pat.match(line)
                 if m:
@@ -2886,14 +2928,22 @@ def mk_all_gparams_register_modules():
 
 # Generate a .def based on the files at c.export_files slot.
 def mk_def_file(c):
-    pat1 = re.compile(".*Z3_API.*")
     defname = '%s.def' % os.path.join(c.src_dir, c.name)
-    fout = open(defname, 'w')
-    fout.write('LIBRARY "%s"\nEXPORTS\n' % c.dll_name)
-    num = 1
+    dll_name = c.dll_name
+    export_header_files = []
     for dot_h in c.export_files:
         dot_h_c = c.find_file(dot_h, c.name)
-        api = open(os.path.join(dot_h_c.src_dir, dot_h), 'r')
+        api = os.path.join(dot_h_c.src_dir, dot_h)
+        export_header_files.append(api)
+    mk_def_file_internal(defname, dll_name, export_header_files)
+
+def mk_def_file_internal(defname, dll_name, export_header_files):
+    pat1 = re.compile(".*Z3_API.*")
+    fout = open(defname, 'w')
+    fout.write('LIBRARY "%s"\nEXPORTS\n' % dll_name)
+    num = 1
+    for export_header_file in export_header_files:
+        api = open(export_header_file, 'r')
         for line in api:
             m = pat1.match(line)
             if m:
@@ -2959,7 +3009,28 @@ def mk_bindings(api_files):
         if is_java_enabled():
             check_java()
             mk_z3consts_java(api_files)
-        _execfile(os.path.join('scripts', 'update_api.py'), g) # HACK
+        # Generate some of the bindings and "api" module files
+        import update_api
+        dotnet_output_dir = None
+        if is_dotnet_enabled():
+          dotnet_output_dir = get_component('dotnet').src_dir
+        java_output_dir = None
+        java_package_name = None
+        if is_java_enabled():
+          java_output_dir = get_component('java').src_dir
+          java_package_name = get_component('java').package_name
+        ml_output_dir = None
+        if is_ml_enabled():
+          ml_output_dir = get_component('ml').src_dir
+        # Get the update_api module to do the work for us
+        update_api.generate_files(api_files=new_api_files,
+          api_output_dir=get_component('api').src_dir,
+          z3py_output_dir=get_z3py_dir(),
+          dotnet_output_dir=dotnet_output_dir,
+          java_output_dir=java_output_dir,
+          java_package_name=java_package_name,
+          ml_output_dir=ml_output_dir
+        )
         cp_z3py_to_build()
         if is_ml_enabled():
             check_ml()
@@ -2972,6 +3043,17 @@ def mk_bindings(api_files):
 def mk_z3consts_py(api_files):
     if Z3PY_SRC_DIR is None:
         raise MKException("You must invoke set_z3py_dir(path):")
+    full_path_api_files = []
+    api_dll = get_component(Z3_DLL_COMPONENT)
+    for api_file in api_files:
+        api_file_c = api_dll.find_file(api_file, api_dll.name)
+        api_file   = os.path.join(api_file_c.src_dir, api_file)
+        full_path_api_files.append(api_file)
+    mk_z3consts_py_internal(full_path_api_files, Z3PY_SRC_DIR)
+
+def mk_z3consts_py_internal(api_files, output_dir):
+    assert os.path.isdir(output_dir)
+    assert isinstance(api_files, list)
 
     blank_pat      = re.compile("^ *\r?$")
     comment_pat    = re.compile("^ *//.*$")
@@ -2980,14 +3062,9 @@ def mk_z3consts_py(api_files):
     openbrace_pat  = re.compile("{ *")
     closebrace_pat = re.compile("}.*;")
 
-    z3consts  = open(os.path.join(Z3PY_SRC_DIR, 'z3consts.py'), 'w')
+    z3consts  = open(os.path.join(output_dir, 'z3consts.py'), 'w')
     z3consts.write('# Automatically generated file\n\n')
-
-    api_dll = get_component(Z3_DLL_COMPONENT)
-
     for api_file in api_files:
-        api_file_c = api_dll.find_file(api_file, api_dll.name)
-        api_file   = os.path.join(api_file_c.src_dir, api_file)
         api = open(api_file, 'r')
 
         SEARCHING  = 0
@@ -3048,7 +3125,7 @@ def mk_z3consts_py(api_files):
         api.close()
     z3consts.close()
     if VERBOSE:
-        print("Generated '%s'" % os.path.join(Z3PY_SRC_DIR, 'z3consts.py'))
+        print("Generated '%s'" % os.path.join(output_dir, 'z3consts.py'))
 
 
 # Extract enumeration types from z3_api.h, and add .Net definitions
@@ -3480,7 +3557,7 @@ def mk_vs_proj_cl_compile(f, name, components, debug):
     if debug:
         f.write('      <PreprocessorDefinitions>WIN32;_DEBUG;Z3DEBUG;_TRACE;_MP_INTERNAL;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>\n')
     else:
-        f.write('      <PreprocessorDefinitions>WIN32;_NDEBUG;_MP_INTERNAL;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>\n')
+        f.write('      <PreprocessorDefinitions>WIN32;NDEBUG;_MP_INTERNAL;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>\n')
     if VS_PAR:
         f.write('      <MinimalRebuild>false</MinimalRebuild>\n')
         f.write('      <MultiProcessorCompilation>true</MultiProcessorCompilation>\n')
