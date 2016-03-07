@@ -1,0 +1,20 @@
+z3_add_component(pdr
+  SOURCES
+    pdr_closure.cpp
+    pdr_context.cpp
+    pdr_dl_interface.cpp
+    pdr_farkas_learner.cpp
+    pdr_generalizers.cpp
+    pdr_manager.cpp
+    pdr_prop_solver.cpp
+    pdr_reachable_cache.cpp
+    pdr_smt_context_manager.cpp
+    pdr_sym_mux.cpp
+    pdr_util.cpp
+  COMPONENT_DEPENDENCIES
+    arith_tactics
+    core_tactics
+    muz
+    smt_tactic
+    transforms
+)

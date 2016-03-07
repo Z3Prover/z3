@@ -1,0 +1,16 @@
+z3_add_component(bv_tactics
+  SOURCES
+    bit_blaster_model_converter.cpp
+    bit_blaster_tactic.cpp
+    bv1_blaster_tactic.cpp
+    bvarray2uf_rewriter.cpp
+    bvarray2uf_tactic.cpp
+    bv_bounds_tactic.cpp
+    bv_size_reduction_tactic.cpp
+    elim_small_bv_tactic.cpp
+    max_bv_sharing_tactic.cpp
+  COMPONENT_DEPENDENCIES
+    bit_blaster
+    core_tactics
+    tactic
+)
