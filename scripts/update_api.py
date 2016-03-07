@@ -1261,7 +1261,7 @@ def mk_ml(ml_dir):
     ml_native.write('(**/**)\n')
     ml_native.close()
 
-    if is_verbose():
+    if mk_util.is_verbose():
         print ('Generated "%s"' % ml_nativef)
 
 
