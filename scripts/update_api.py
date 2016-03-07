@@ -1264,6 +1264,8 @@ def mk_ml(ml_dir):
     if mk_util.is_verbose():
         print ('Generated "%s"' % ml_nativef)
 
+    mk_z3native_stubs_c(ml_dir)
+
 
 def mk_z3native_stubs_c(ml_dir): # C interface
     ml_wrapperf = os.path.join(ml_dir, 'z3native_stubs.c')
@@ -1492,7 +1494,7 @@ def mk_z3native_stubs_c(ml_dir): # C interface
     ml_wrapper.write('#endif\n')
 
     if mk_util.is_verbose():
-        print ('Generated "%s"' % ml_nativef)
+        print ('Generated "%s"' % ml_wrapperf)
 
 # Collect API(...) commands from
 def def_APIs(api_files):
@@ -1668,6 +1670,7 @@ def generate_files(api_files,
 
   if java_output_dir:
     mk_java(java_output_dir, java_package_name)
+
   if ml_output_dir:
     mk_ml(ml_output_dir)
 
