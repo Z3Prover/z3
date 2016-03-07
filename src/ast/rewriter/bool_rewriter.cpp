@@ -671,7 +671,7 @@ static bool is_ite_value_tree_neq_value(ast_manager & m, app * ite, app * val) {
 #endif
 
 br_status bool_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
-    if (lhs == rhs) {
+    if (m().are_equal(lhs, rhs)) {
         result = m().mk_true();
         return BR_DONE;
     }
