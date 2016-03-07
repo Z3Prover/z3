@@ -1,0 +1,16 @@
+z3_add_component(fp
+  SOURCES
+    datalog_parser.cpp
+    dl_cmds.cpp
+    dl_register_engine.cpp
+    horn_tactic.cpp
+  COMPONENT_DEPENDENCIES
+    bmc
+    clp
+    ddnf
+    duality_intf
+    muz
+    pdr
+    rel
+    tab
+)

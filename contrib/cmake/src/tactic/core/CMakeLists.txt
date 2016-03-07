@@ -1,0 +1,25 @@
+z3_add_component(core_tactics
+  SOURCES
+    blast_term_ite_tactic.cpp
+    cofactor_elim_term_ite.cpp
+    cofactor_term_ite_tactic.cpp
+    ctx_simplify_tactic.cpp
+    der_tactic.cpp
+    distribute_forall_tactic.cpp
+    elim_term_ite_tactic.cpp
+    elim_uncnstr_tactic.cpp
+    nnf_tactic.cpp
+    occf_tactic.cpp
+    pb_preprocess_tactic.cpp
+    propagate_values_tactic.cpp
+    reduce_args_tactic.cpp
+    simplify_tactic.cpp
+    solve_eqs_tactic.cpp
+    split_clause_tactic.cpp
+    symmetry_reduce_tactic.cpp
+    tseitin_cnf_tactic.cpp
+  COMPONENT_DEPENDENCIES
+    normal_forms
+    tactic
+)
+
