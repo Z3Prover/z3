@@ -2621,17 +2621,9 @@ def mk_pat_db():
     c = get_component(PATTERN_COMPONENT)
     fin  = os.path.join(c.src_dir, 'database.smt2')
     fout = os.path.join(c.src_dir, 'database.h')
-    mk_pat_db_internal(fin, fout)
-
-def mk_pat_db_internal(inputFilePath, outputFilePath):
-    with open(inputFilePath, 'r') as fin:
-        with open(outputFilePath, 'w') as fout:
-            fout.write('static char const g_pattern_database[] =\n')
-            for line in fin:
-                fout.write('"%s\\n"\n' % line.strip('\n'))
-            fout.write(';\n')
+    mk_genfile_common.mk_pat_db_internal(fin, fout)
     if VERBOSE:
-        print("Generated '%s'" % outputFilePath)
+        print("Generated '{}'".format(fout))
 
 # Update version numbers
 def update_version():

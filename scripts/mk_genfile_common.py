@@ -376,3 +376,18 @@ def mk_mem_initializer_cpp_internal(component_src_dirs, path):
     fout.write('}\n')
     fout.close()
     return fullname
+
+###############################################################################
+# Functions for generating ``database.h``
+###############################################################################
+
+def mk_pat_db_internal(inputFilePath, outputFilePath):
+    """
+        Generate ``g_pattern_database[]`` declaration header file.
+    """
+    with open(inputFilePath, 'r') as fin:
+        with open(outputFilePath, 'w') as fout:
+            fout.write('static char const g_pattern_database[] =\n')
+            for line in fin:
+                fout.write('"%s\\n"\n' % line.strip('\n'))
+            fout.write(';\n')
