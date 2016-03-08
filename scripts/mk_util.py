@@ -2682,82 +2682,14 @@ def mk_all_assembly_infos(major, minor, build, revision):
             else:
                 raise MKException("Failed to find assembly template info file '%s'" % assembly_info_template)
 
-ADD_TACTIC_DATA=[]
-ADD_PROBE_DATA=[]
-
-def ADD_TACTIC(name, descr, cmd):
-    global ADD_TACTIC_DATA
-    ADD_TACTIC_DATA.append((name, descr, cmd))
-
-def ADD_PROBE(name, descr, cmd):
-    global ADD_PROBE_DATA
-    ADD_PROBE_DATA.append((name, descr, cmd))
-
-# Generate an install_tactics.cpp at path.
-# This file implements the procedure
-#    void install_tactics(tactic_manager & ctx)
-# It installs all tactics in the given component (name) list cnames
-# The procedure looks for ADD_TACTIC commands in the .h files of these components.
 def mk_install_tactic_cpp(cnames, path):
-  component_src_dirs = []
-  for cname in cnames:
-    c = get_component(cname)
-    component_src_dirs.append(c.src_dir)
-  mk_install_tactic_cpp_internal(component_src_dirs, path)
-
-def mk_install_tactic_cpp_internal(component_src_dirs, path):
-    global ADD_TACTIC_DATA, ADD_PROBE_DATA
-    ADD_TACTIC_DATA = []
-    ADD_PROBE_DATA = []
-    fullname = os.path.join(path, 'install_tactic.cpp')
-    fout  = open(fullname, 'w')
-    fout.write('// Automatically generated file.\n')
-    fout.write('#include"tactic.h"\n')
-    fout.write('#include"tactic_cmds.h"\n')
-    fout.write('#include"cmd_context.h"\n')
-    tactic_pat   = re.compile('[ \t]*ADD_TACTIC\(.*\)')
-    probe_pat    = re.compile('[ \t]*ADD_PROBE\(.*\)')
-    for component_src_dir in component_src_dirs:
-        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(component_src_dir))
-        for h_file in h_files:
-            added_include = False
-            fin = open(os.path.join(component_src_dir, h_file), 'r')
-            for line in fin:
-                if tactic_pat.match(line):
-                    if not added_include:
-                        added_include = True
-                        fout.write('#include"%s"\n' % h_file)
-                    try:
-                        exec(line.strip('\n '), globals())
-                    except:
-                        raise MKException("Failed processing ADD_TACTIC command at '%s'\n%s" % (fullname, line))
-                if probe_pat.match(line):
-                    if not added_include:
-                        added_include = True
-                        fout.write('#include"%s"\n' % h_file)
-                    try:
-                        exec(line.strip('\n '), globals())
-                    except:
-                        raise MKException("Failed processing ADD_PROBE command at '%s'\n%s" % (fullname, line))
-            fin.close()
-    # First pass will just generate the tactic factories
-    idx = 0
-    for data in ADD_TACTIC_DATA:
-        fout.write('MK_SIMPLE_TACTIC_FACTORY(__Z3_local_factory_%s, %s);\n' % (idx, data[2]))
-        idx = idx + 1
-    fout.write('#define ADD_TACTIC_CMD(NAME, DESCR, FACTORY) ctx.insert(alloc(tactic_cmd, symbol(NAME), DESCR, alloc(FACTORY)))\n')
-    fout.write('#define ADD_PROBE(NAME, DESCR, PROBE) ctx.insert(alloc(probe_info, symbol(NAME), DESCR, PROBE))\n')
-    fout.write('void install_tactics(tactic_manager & ctx) {\n')
-    idx = 0
-    for data in ADD_TACTIC_DATA:
-        fout.write('  ADD_TACTIC_CMD("%s", "%s", __Z3_local_factory_%s);\n' % (data[0], data[1], idx))
-        idx = idx + 1
-    for data in ADD_PROBE_DATA:
-        fout.write('  ADD_PROBE("%s", "%s", %s);\n' % data)
-    fout.write('}\n')
-    fout.close()
+    component_src_dirs = []
+    for cname in cnames:
+        c = get_component(cname)
+        component_src_dirs.append(c.src_dir)
+    generated_file = mk_genfile_common.mk_install_tactic_cpp_internal(component_src_dirs, path)
     if VERBOSE:
-        print("Generated '%s'" % fullname)
+        print("Generated '{}'".format(generated_file))
 
 def mk_all_install_tactic_cpps():
     if not ONLY_MAKEFILES:

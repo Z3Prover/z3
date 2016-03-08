@@ -218,3 +218,93 @@ def mk_gparams_register_modules_internal(component_src_dirs, path):
     fout.write('}\n')
     fout.close()
     return fullname
+
+###############################################################################
+# Functions/data structures for generating ``install_tactics.cpp``
+###############################################################################
+
+# FIXME: Remove use of global data structures
+ADD_TACTIC_DATA=[]
+ADD_PROBE_DATA=[]
+
+def ADD_TACTIC(name, descr, cmd):
+    global ADD_TACTIC_DATA
+    ADD_TACTIC_DATA.append((name, descr, cmd))
+
+def ADD_PROBE(name, descr, cmd):
+    global ADD_PROBE_DATA
+    ADD_PROBE_DATA.append((name, descr, cmd))
+
+
+def mk_install_tactic_cpp_internal(component_src_dirs, path):
+    """
+        Generate a ``install_tactics.cpp`` file in the directory ``path``.
+        Returns the path the generated file.
+
+        This file implements the procedure
+
+        ```
+        void install_tactics(tactic_manager & ctx)
+        ```
+
+        It installs all tactics found in the given component directories
+        ``component_src_dirs`` The procedure looks for ``ADD_TACTIC`` commands
+        in the ``.h``  and ``.hpp`` files of these components.
+    """
+    global ADD_TACTIC_DATA, ADD_PROBE_DATA
+    ADD_TACTIC_DATA = []
+    ADD_PROBE_DATA = []
+    assert isinstance(component_src_dirs, list)
+    assert check_dir_exists(path)
+    fullname = os.path.join(path, 'install_tactic.cpp')
+    fout  = open(fullname, 'w')
+    fout.write('// Automatically generated file.\n')
+    fout.write('#include"tactic.h"\n')
+    fout.write('#include"tactic_cmds.h"\n')
+    fout.write('#include"cmd_context.h"\n')
+    tactic_pat   = re.compile('[ \t]*ADD_TACTIC\(.*\)')
+    probe_pat    = re.compile('[ \t]*ADD_PROBE\(.*\)')
+    for component_src_dir in component_src_dirs:
+        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(component_src_dir))
+        for h_file in h_files:
+            added_include = False
+            fin = open(os.path.join(component_src_dir, h_file), 'r')
+            for line in fin:
+                if tactic_pat.match(line):
+                    if not added_include:
+                        added_include = True
+                        fout.write('#include"%s"\n' % h_file)
+                    try:
+                        exec(line.strip('\n '), globals())
+                    except Exception as e:
+                        _logger.error("Failed processing ADD_TACTIC command at '{}'\n{}".format(
+                            fullname, line))
+                        raise e
+                if probe_pat.match(line):
+                    if not added_include:
+                        added_include = True
+                        fout.write('#include"%s"\n' % h_file)
+                    try:
+                        exec(line.strip('\n '), globals())
+                    except Exception as e:
+                        _logger.error("Failed processing ADD_PROBE command at '{}'\n{}".format(
+                            fullname, line))
+                        raise e
+            fin.close()
+    # First pass will just generate the tactic factories
+    idx = 0
+    for data in ADD_TACTIC_DATA:
+        fout.write('MK_SIMPLE_TACTIC_FACTORY(__Z3_local_factory_%s, %s);\n' % (idx, data[2]))
+        idx = idx + 1
+    fout.write('#define ADD_TACTIC_CMD(NAME, DESCR, FACTORY) ctx.insert(alloc(tactic_cmd, symbol(NAME), DESCR, alloc(FACTORY)))\n')
+    fout.write('#define ADD_PROBE(NAME, DESCR, PROBE) ctx.insert(alloc(probe_info, symbol(NAME), DESCR, PROBE))\n')
+    fout.write('void install_tactics(tactic_manager & ctx) {\n')
+    idx = 0
+    for data in ADD_TACTIC_DATA:
+        fout.write('  ADD_TACTIC_CMD("%s", "%s", __Z3_local_factory_%s);\n' % (data[0], data[1], idx))
+        idx = idx + 1
+    for data in ADD_PROBE_DATA:
+        fout.write('  ADD_PROBE("%s", "%s", %s);\n' % data)
+    fout.write('}\n')
+    fout.close()
+    return fullname
