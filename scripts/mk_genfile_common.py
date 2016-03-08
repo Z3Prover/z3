@@ -157,3 +157,64 @@ def mk_def_file_internal(defname, dll_name, export_header_files):
                 num = num + 1
         api.close()
     fout.close()
+
+###############################################################################
+# Functions for generating ``gparams_register_modules.cpp``
+###############################################################################
+def mk_gparams_register_modules_internal(component_src_dirs, path):
+    """
+        Generate a ``gparams_register_modules.cpp`` file in the directory ``path``.
+        Returns the path to the generated file.
+
+        This file implements the procedure
+
+        ```
+        void gparams_register_modules()
+        ```
+
+        This procedure is invoked by gparams::init()
+    """
+    assert isinstance(component_src_dirs, list)
+    assert check_dir_exists(path)
+    cmds = []
+    mod_cmds = []
+    mod_descrs = []
+    fullname = os.path.join(path, 'gparams_register_modules.cpp')
+    fout  = open(fullname, 'w')
+    fout.write('// Automatically generated file.\n')
+    fout.write('#include"gparams.h"\n')
+    reg_pat = re.compile('[ \t]*REG_PARAMS\(\'([^\']*)\'\)')
+    reg_mod_pat = re.compile('[ \t]*REG_MODULE_PARAMS\(\'([^\']*)\', *\'([^\']*)\'\)')
+    reg_mod_descr_pat = re.compile('[ \t]*REG_MODULE_DESCRIPTION\(\'([^\']*)\', *\'([^\']*)\'\)')
+    for component_src_dir in component_src_dirs:
+        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(component_src_dir))
+        for h_file in h_files:
+            added_include = False
+            fin = open(os.path.join(component_src_dir, h_file), 'r')
+            for line in fin:
+                m = reg_pat.match(line)
+                if m:
+                    if not added_include:
+                        added_include = True
+                        fout.write('#include"%s"\n' % h_file)
+                    cmds.append((m.group(1)))
+                m = reg_mod_pat.match(line)
+                if m:
+                    if not added_include:
+                        added_include = True
+                        fout.write('#include"%s"\n' % h_file)
+                    mod_cmds.append((m.group(1), m.group(2)))
+                m = reg_mod_descr_pat.match(line)
+                if m:
+                    mod_descrs.append((m.group(1), m.group(2)))
+            fin.close()
+    fout.write('void gparams_register_modules() {\n')
+    for code in cmds:
+        fout.write('{ param_descrs d; %s(d); gparams::register_global(d); }\n' % code)
+    for (mod, code) in mod_cmds:
+        fout.write('{ param_descrs * d = alloc(param_descrs); %s(*d); gparams::register_module("%s", d); }\n' % (code, mod))
+    for (mod, descr) in mod_descrs:
+        fout.write('gparams::register_module_descr("%s", "%s");\n' % (mod, descr))
+    fout.write('}\n')
+    fout.close()
+    return fullname
