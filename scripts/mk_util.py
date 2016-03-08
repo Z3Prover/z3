@@ -12,6 +12,7 @@ import re
 import getopt
 import shutil
 from mk_exception import *
+import mk_genfile_common
 from fnmatch import fnmatch
 import distutils.sysconfig
 import compileall
@@ -3026,83 +3027,9 @@ def mk_z3consts_py(api_files):
         api_file_c = api_dll.find_file(api_file, api_dll.name)
         api_file   = os.path.join(api_file_c.src_dir, api_file)
         full_path_api_files.append(api_file)
-    mk_z3consts_py_internal(full_path_api_files, Z3PY_SRC_DIR)
-
-def mk_z3consts_py_internal(api_files, output_dir):
-    assert os.path.isdir(output_dir)
-    assert isinstance(api_files, list)
-
-    blank_pat      = re.compile("^ *\r?$")
-    comment_pat    = re.compile("^ *//.*$")
-    typedef_pat    = re.compile("typedef enum *")
-    typedef2_pat   = re.compile("typedef enum { *")
-    openbrace_pat  = re.compile("{ *")
-    closebrace_pat = re.compile("}.*;")
-
-    z3consts  = open(os.path.join(output_dir, 'z3consts.py'), 'w')
-    z3consts.write('# Automatically generated file\n\n')
-    for api_file in api_files:
-        api = open(api_file, 'r')
-
-        SEARCHING  = 0
-        FOUND_ENUM = 1
-        IN_ENUM    = 2
-
-        mode    = SEARCHING
-        decls   = {}
-        idx     = 0
-
-        linenum = 1
-        for line in api:
-            m1 = blank_pat.match(line)
-            m2 = comment_pat.match(line)
-            if m1 or m2:
-                # skip blank lines and comments
-                linenum = linenum + 1
-            elif mode == SEARCHING:
-                m = typedef_pat.match(line)
-                if m:
-                    mode = FOUND_ENUM
-                m = typedef2_pat.match(line)
-                if m:
-                    mode = IN_ENUM
-                    decls = {}
-                    idx   = 0
-            elif mode == FOUND_ENUM:
-                m = openbrace_pat.match(line)
-                if m:
-                    mode  = IN_ENUM
-                    decls = {}
-                    idx   = 0
-                else:
-                    assert False, "Invalid %s, line: %s" % (api_file, linenum)
-            else:
-                assert mode == IN_ENUM
-                words = re.split('[^\-a-zA-Z0-9_]+', line)
-                m = closebrace_pat.match(line)
-                if m:
-                    name = words[1]
-                    z3consts.write('# enum %s\n' % name)
-                    for k in decls:
-                        i = decls[k]
-                        z3consts.write('%s = %s\n' % (k, i))
-                    z3consts.write('\n')
-                    mode = SEARCHING
-                elif len(words) <= 2:
-                    assert False, "Invalid %s, line: %s" % (api_file, linenum)
-                else:
-                    if words[2] != '':
-                        if len(words[2]) > 1 and words[2][1] == 'x':
-                            idx = int(words[2], 16)
-                        else:
-                            idx = int(words[2])
-                    decls[words[1]] = idx
-                    idx = idx + 1
-            linenum = linenum + 1
-        api.close()
-    z3consts.close()
+    generated_file = mk_genfile_common.mk_z3consts_py_internal(full_path_api_files, Z3PY_SRC_DIR)
     if VERBOSE:
-        print("Generated '%s'" % os.path.join(output_dir, 'z3consts.py'))
+        print("Generated '{}".format(generated_file))
 
 
 # Extract enumeration types from z3_api.h, and add .Net definitions
