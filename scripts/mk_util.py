@@ -2700,67 +2700,14 @@ def mk_all_install_tactic_cpps():
                 cnames.append(c.name)
                 mk_install_tactic_cpp(cnames, c.src_dir)
 
-# Generate an mem_initializer.cpp at path.
-# This file implements the procedures
-#    void mem_initialize()
-#    void mem_finalize()
-# These procedures are invoked by the Z3 memory_manager
 def mk_mem_initializer_cpp(cnames, path):
-  component_src_dirs = []
-  for cname in cnames:
-    c = get_component(cname)
-    component_src_dirs.append(c.src_dir)
-  mk_mem_initializer_cpp_internal(component_src_dirs, path)
-
-def mk_mem_initializer_cpp_internal(component_src_dirs, path):
-    initializer_cmds = []
-    finalizer_cmds   = []
-    fullname = os.path.join(path, 'mem_initializer.cpp')
-    fout  = open(fullname, 'w')
-    fout.write('// Automatically generated file.\n')
-    initializer_pat      = re.compile('[ \t]*ADD_INITIALIZER\(\'([^\']*)\'\)')
-    # ADD_INITIALIZER with priority
-    initializer_prio_pat = re.compile('[ \t]*ADD_INITIALIZER\(\'([^\']*)\',[ \t]*(-?[0-9]*)\)')
-    finalizer_pat        = re.compile('[ \t]*ADD_FINALIZER\(\'([^\']*)\'\)')
-    for component_src_dir in component_src_dirs:
-        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(component_src_dir))
-        for h_file in h_files:
-            added_include = False
-            fin = open(os.path.join(component_src_dir, h_file), 'r')
-            for line in fin:
-                m = initializer_pat.match(line)
-                if m:
-                    if not added_include:
-                        added_include = True
-                        fout.write('#include"%s"\n' % h_file)
-                    initializer_cmds.append((m.group(1), 0))
-                m = initializer_prio_pat.match(line)
-                if m:
-                    if not added_include:
-                        added_include = True
-                        fout.write('#include"%s"\n' % h_file)
-                    initializer_cmds.append((m.group(1), int(m.group(2))))
-                m = finalizer_pat.match(line)
-                if m:
-                    if not added_include:
-                        added_include = True
-                        fout.write('#include"%s"\n' % h_file)
-                    finalizer_cmds.append(m.group(1))
-            fin.close()
-    initializer_cmds.sort(key=lambda tup: tup[1])
-    fout.write('void mem_initialize() {\n')
-    for (cmd, prio) in initializer_cmds:
-        fout.write(cmd)
-        fout.write('\n')
-    fout.write('}\n')
-    fout.write('void mem_finalize() {\n')
-    for cmd in finalizer_cmds:
-        fout.write(cmd)
-        fout.write('\n')
-    fout.write('}\n')
-    fout.close()
+    component_src_dirs = []
+    for cname in cnames:
+        c = get_component(cname)
+        component_src_dirs.append(c.src_dir)
+    generated_file = mk_genfile_common.mk_mem_initializer_cpp_internal(component_src_dirs, path)
     if VERBOSE:
-        print("Generated '%s'" % fullname)
+        print("Generated '{}'".format(generated_file))
 
 def mk_all_mem_initializer_cpps():
     if not ONLY_MAKEFILES:
