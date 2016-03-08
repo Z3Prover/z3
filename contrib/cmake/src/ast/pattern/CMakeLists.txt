@@ -13,7 +13,7 @@ add_custom_command(OUTPUT "database.h"
           "${CMAKE_CURRENT_BINARY_DIR}/database.h"
   MAIN_DEPENDENCY "${CMAKE_CURRENT_SOURCE_DIR}/database.smt2"
   DEPENDS "${CMAKE_SOURCE_DIR}/scripts/mk_pat_db.py"
-          "${CMAKE_SOURCE_DIR}/scripts/mk_util.py"
+          ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
   COMMENT "Generating \"database.h\""
   ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
   VERBATIM

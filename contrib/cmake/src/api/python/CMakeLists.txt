@@ -38,7 +38,7 @@ add_custom_command(OUTPUT "${z3py_bindings_build_dest}/z3core.py"
   DEPENDS
     ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
     "${CMAKE_SOURCE_DIR}/scripts/update_api.py"
-    "${CMAKE_SOURCE_DIR}/scripts/mk_util.py"
+    ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
   COMMENT "Generating z3core.py"
   ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
 )
@@ -54,7 +54,7 @@ add_custom_command(OUTPUT "${z3py_bindings_build_dest}/z3consts.py"
   DEPENDS
     ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
     "${CMAKE_SOURCE_DIR}/scripts/mk_consts_files.py"
-    "${CMAKE_SOURCE_DIR}/scripts/mk_util.py"
+    ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
   COMMENT "Generating z3consts.py"
   ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
 )

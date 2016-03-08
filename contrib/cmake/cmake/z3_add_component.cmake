@@ -104,7 +104,8 @@ macro(z3_add_component component_name)
     add_custom_command(OUTPUT "${_output_file}"
       COMMAND "${PYTHON_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/pyg2hpp.py" "${_full_pyg_file_path}" "${CMAKE_CURRENT_BINARY_DIR}"
       MAIN_DEPENDENCY "${_full_pyg_file_path}"
-      DEPENDS "${CMAKE_SOURCE_DIR}/scripts/pyg2hpp.py" "${CMAKE_SOURCE_DIR}/scripts/mk_util.py"
+      DEPENDS "${CMAKE_SOURCE_DIR}/scripts/pyg2hpp.py"
+              ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
       COMMENT "Generating \"${_full_output_file_path}\" from \"${pyg_file}\""
       WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
       ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
@@ -203,7 +204,7 @@ macro(z3_add_install_tactic_rule)
     "${CMAKE_CURRENT_BINARY_DIR}"
     ${_search_paths}
     DEPENDS "${CMAKE_SOURCE_DIR}/scripts/mk_install_tactic_cpp.py"
-            "${CMAKE_SOURCE_DIR}/scripts/mk_util.py"
+            ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
             ${_expanded_components}
     COMMENT "Generating \"${CMAKE_CURRENT_BINARY_DIR}/install_tactic.cpp\""
     ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
@@ -235,7 +236,7 @@ macro(z3_add_memory_initializer_rule)
     "${CMAKE_CURRENT_BINARY_DIR}"
     ${_search_paths}
     DEPENDS "${CMAKE_SOURCE_DIR}/scripts/mk_mem_initializer_cpp.py"
-            "${CMAKE_SOURCE_DIR}/scripts/mk_util.py"
+            ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
             ${_expanded_components}
     COMMENT "Generating \"${CMAKE_CURRENT_BINARY_DIR}/mem_initializer.cpp\""
     ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
@@ -267,7 +268,7 @@ macro(z3_add_gparams_register_modules_rule)
     "${CMAKE_CURRENT_BINARY_DIR}"
     ${_search_paths}
     DEPENDS "${CMAKE_SOURCE_DIR}/scripts/mk_gparams_register_modules_cpp.py"
-            "${CMAKE_SOURCE_DIR}/scripts/mk_util.py"
+            ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
             ${_expanded_components}
     COMMENT "Generating \"${CMAKE_CURRENT_BINARY_DIR}/gparams_register_modules.cpp\""
     ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
