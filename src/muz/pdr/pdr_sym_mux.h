@@ -23,6 +23,7 @@ Revision History:
 #include "ast.h"
 #include "map.h"
 #include "vector.h"
+#include <vector>
 
 class model_core;
 
@@ -46,7 +47,7 @@ private:
     mutable unsigned       m_next_sym_suffix_idx;
     mutable symbols        m_used_suffixes;
     /** Here we have default suffixes for each of the variants */
-    vector<std::string>    m_suffixes;
+    std::vector<std::string>    m_suffixes;
 
 
     /**

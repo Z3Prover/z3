@@ -1,112 +1,35 @@
-
+#!/usr/bin/env python
 ############################################
 # Copyright (c) 2012 Microsoft Corporation
-# 
-# Scripts for generating Makefiles and Visual 
+#
+# Scripts for generating Makefiles and Visual
 # Studio project files.
 #
 # Author: Leonardo de Moura (leonardo)
 ############################################
-from mk_util import *
-from mk_exception import *
+"""
+This script generates the ``api_log_macros.h``,
+``api_log_macros.cpp`` and ``api_commands.cpp``
+files for the "api" module based on parsing
+several API header files. It can also optionally
+emit some of the files required for Z3's different
+language bindings.
+"""
+import mk_util
+import mk_exception
+import argparse
+import logging
+import re
+import os
+import sys
 
 ##########################################################
 # TODO: rewrite this file without using global variables.
 # This file is a big HACK.
 # It started as small simple script.
 # Now, it is too big, and is invoked from mk_make.py
-# The communication uses 
 #
 ##########################################################
-
-#
-# Generate logging support and bindings
-#
-api_dir     = get_component('api').src_dir
-dotnet_dir  = get_component('dotnet').src_dir
-
-log_h   = open(os.path.join(api_dir, 'api_log_macros.h'), 'w')
-log_c   = open(os.path.join(api_dir, 'api_log_macros.cpp'), 'w')
-exe_c   = open(os.path.join(api_dir, 'api_commands.cpp'), 'w')
-core_py = open(os.path.join(get_z3py_dir(), 'z3core.py'), 'w')
-dotnet_fileout = os.path.join(dotnet_dir, 'Native.cs')
-##
-log_h.write('// Automatically generated file\n')
-log_h.write('#include\"z3.h\"\n')
-log_h.write('#ifdef __GNUC__\n')
-log_h.write('#define _Z3_UNUSED __attribute__((unused))\n')
-log_h.write('#else\n')
-log_h.write('#define _Z3_UNUSED\n')
-log_h.write('#endif\n')
-
-##
-log_c.write('// Automatically generated file\n')
-log_c.write('#include<iostream>\n')
-log_c.write('#include\"z3.h\"\n')
-log_c.write('#include\"api_log_macros.h\"\n')
-log_c.write('#include\"z3_logger.h\"\n')
-##
-exe_c.write('// Automatically generated file\n')
-exe_c.write('#include\"z3.h\"\n')
-exe_c.write('#include\"z3_replayer.h\"\n')
-##
-log_h.write('extern std::ostream * g_z3_log;\n')
-log_h.write('extern bool           g_z3_log_enabled;\n')
-log_h.write('class z3_log_ctx { bool m_prev; public: z3_log_ctx():m_prev(g_z3_log_enabled) { g_z3_log_enabled = false; } ~z3_log_ctx() { g_z3_log_enabled = m_prev; } bool enabled() const { return m_prev; } };\n')
-log_h.write('inline void SetR(void * obj) { *g_z3_log << "= " << obj << "\\n"; }\ninline void SetO(void * obj, unsigned pos) { *g_z3_log << "* " << obj << " " << pos << "\\n"; } \ninline void SetAO(void * obj, unsigned pos, unsigned idx) { *g_z3_log << "@ " << obj << " " << pos << " " << idx << "\\n"; }\n')
-log_h.write('#define RETURN_Z3(Z3RES) if (_LOG_CTX.enabled()) { SetR(Z3RES); } return Z3RES\n')
-log_h.write('void _Z3_append_log(char const * msg);\n')
-##
-exe_c.write('void Z3_replayer_error_handler(Z3_context ctx, Z3_error_code c) { printf("[REPLAYER ERROR HANDLER]: %s\\n", Z3_get_error_msg(ctx, c)); }\n')
-##
-core_py.write('# Automatically generated file\n')
-core_py.write('import sys, os\n')
-core_py.write('import ctypes\n')
-core_py.write('from z3types import *\n')
-core_py.write('from z3consts import *\n')
-core_py.write("""
-_lib = None
-def lib():
-  global _lib
-  if _lib == None:
-    _dir = os.path.dirname(os.path.abspath(__file__))
-    for ext in ['dll', 'so', 'dylib']:
-      try:
-        init('libz3.%s' % ext)
-        break
-      except:
-        pass
-      try:
-        init(os.path.join(_dir, 'libz3.%s' % ext))
-        break
-      except:
-        pass
-    if _lib == None:
-        raise Z3Exception("init(Z3_LIBRARY_PATH) must be invoked before using Z3-python")
-  return _lib
-
-def _to_ascii(s):
-  if isinstance(s, str):
-    return s.encode('ascii')
-  else:
-    return s
-
-if sys.version < '3':
-  def _to_pystr(s):
-     return s
-else:
-  def _to_pystr(s):
-     if s != None:
-        enc = sys.stdout.encoding
-        if enc != None: return s.decode(enc)
-        else: return s.decode('ascii')
-     else:
-        return ""
-
-def init(PATH):
-  global _lib
-  _lib = ctypes.CDLL(PATH)
-""")
 
 IN          = 0
 OUT         = 1
@@ -176,10 +99,9 @@ def def_Type(var, c_type, py_type):
     Type2PyStr[next_type_id] = py_type
     next_type_id    = next_type_id + 1
 
-def def_Types():
-    import re
+def def_Types(api_files):
     pat1 = re.compile(" *def_Type\(\'(.*)\',[^\']*\'(.*)\',[^\']*\'(.*)\'\)[ \t]*")
-    for api_file in API_FILES:
+    for api_file in api_files:
         api = open(api_file, 'r')
         for line in api:
             m = pat1.match(line)
@@ -418,10 +340,8 @@ def reg_dotnet(name, result, params):
     global _dotnet_decls
     _dotnet_decls.append((name, result, params))
 
-def mk_dotnet():
+def mk_dotnet(dotnet):
     global Type2Str
-    global dotnet_fileout
-    dotnet = open(dotnet_fileout, 'w')
     dotnet.write('// Automatically generated file\n')
     dotnet.write('using System;\n')
     dotnet.write('using System.Collections.Generic;\n')
@@ -468,10 +388,8 @@ def mk_dotnet():
 NULLWrapped = [ 'Z3_mk_context', 'Z3_mk_context_rc' ]
 Unwrapped = [ 'Z3_del_context', 'Z3_get_error_code' ]
 
-def mk_dotnet_wrappers():
+def mk_dotnet_wrappers(dotnet):
     global Type2Str
-    global dotnet_fileout
-    dotnet = open(dotnet_fileout, 'a')
     dotnet.write("\n")
     dotnet.write("        public static void Z3_set_error_handler(Z3_context a0, Z3_error_handler a1) {\n")
     dotnet.write("            LIB.Z3_set_error_handler(a0, a1);\n")
@@ -556,16 +474,13 @@ def java_array_element_type(p):
     else:
         return 'jlong'
 
-def mk_java():
-    if not is_java_enabled():
-        return
-    java_dir      = get_component('java').src_dir
+def mk_java(java_dir, package_name):
     java_nativef  = os.path.join(java_dir, 'Native.java')
     java_wrapperf = os.path.join(java_dir, 'Native.cpp')
     java_native   = open(java_nativef, 'w')
     java_native.write('// Automatically generated file\n')
-    java_native.write('package %s;\n' % get_component('java').package_name)
-    java_native.write('import %s.enumerations.*;\n' % get_component('java').package_name)
+    java_native.write('package %s;\n' % package_name)
+    java_native.write('import %s.enumerations.*;\n' % package_name)
     java_native.write('public final class Native {\n')
     java_native.write('  public static class IntPtr { public int value; }\n')
     java_native.write('  public static class LongPtr { public long value; }\n')
@@ -638,7 +553,7 @@ def mk_java():
         java_native.write('  }\n\n')
     java_native.write('}\n')
     java_wrapper = open(java_wrapperf, 'w')
-    pkg_str = get_component('java').package_name.replace('.', '_')
+    pkg_str = package_name.replace('.', '_')
     java_wrapper.write('// Automatically generated file\n')
     java_wrapper.write('#ifdef _CYGWIN\n')
     java_wrapper.write('typedef long long __int64;\n')
@@ -801,7 +716,7 @@ def mk_java():
     java_wrapper.write('#ifdef __cplusplus\n')
     java_wrapper.write('}\n')
     java_wrapper.write('#endif\n')
-    if is_verbose():
+    if mk_util.is_verbose():
         print("Generated '%s'" % java_nativef)
 
 def mk_log_header(file, name, params):
@@ -1076,7 +991,7 @@ def def_API(name, result, params):
         mk_log_result_macro(log_h, name, result, params)
     next_id = next_id + 1
 
-def mk_bindings():
+def mk_bindings(exe_c):
     exe_c.write("void register_z3_replayer_cmds(z3_replayer & in) {\n")
     for key, val in API2Id.items():
         exe_c.write("  in.register_cmd(%s, exec_%s, \"%s\");\n" % (key, val, val))
@@ -1160,11 +1075,8 @@ def ml_set_wrap(t, d, n):
         ts = type2str(t)
         return d + ' = caml_alloc_custom(&default_custom_ops, sizeof(' + ts + '), 0, 1); memcpy( Data_custom_val(' + d + '), &' + n + ', sizeof(' + ts + '));'
 
-def mk_ml():
+def mk_ml(ml_dir):
     global Type2Str
-    if not is_ml_enabled():
-        return
-    ml_dir      = get_component('ml').src_dir
     ml_nativef  = os.path.join(ml_dir, 'z3native.ml')
     ml_nativefi = os.path.join(ml_dir, 'z3native.mli')
     ml_wrapperf = os.path.join(ml_dir, 'z3native_stubs.c')
@@ -1534,14 +1446,14 @@ def mk_ml():
     ml_wrapper.write('#ifdef __cplusplus\n')
     ml_wrapper.write('}\n')
     ml_wrapper.write('#endif\n')
-    if is_verbose():
+    if mk_util.is_verbose():
         print ('Generated "%s"' % ml_nativef)
 
 # Collect API(...) commands from
-def def_APIs():
+def def_APIs(api_files):
     pat1 = re.compile(" *def_API.*")
     pat2 = re.compile(" *extra_API.*")
-    for api_file in API_FILES:
+    for api_file in api_files:
         api = open(api_file, 'r')
         for line in api:
             line = line.strip('\r\n\t ')
@@ -1553,24 +1465,229 @@ def def_APIs():
                 if m:
                     eval(line)
             except Exception:
-                raise MKException("Failed to process API definition: %s" % line)
-def_Types()
-def_APIs()
-mk_bindings()
-mk_py_wrappers()
-mk_dotnet()
-mk_dotnet_wrappers()
-mk_java()
-mk_ml()
+                raise mk_exec_header.MKException("Failed to process API definition: %s" % line)
 
-log_h.close()
-log_c.close()
-exe_c.close()
-core_py.close()
+def write_log_h_preamble(log_h):
+  log_h.write('// Automatically generated file\n')
+  log_h.write('#include\"z3.h\"\n')
+  log_h.write('#ifdef __GNUC__\n')
+  log_h.write('#define _Z3_UNUSED __attribute__((unused))\n')
+  log_h.write('#else\n')
+  log_h.write('#define _Z3_UNUSED\n')
+  log_h.write('#endif\n')
+  #
+  log_h.write('extern std::ostream * g_z3_log;\n')
+  log_h.write('extern bool           g_z3_log_enabled;\n')
+  log_h.write('class z3_log_ctx { bool m_prev; public: z3_log_ctx():m_prev(g_z3_log_enabled) { g_z3_log_enabled = false; } ~z3_log_ctx() { g_z3_log_enabled = m_prev; } bool enabled() const { return m_prev; } };\n')
+  log_h.write('inline void SetR(void * obj) { *g_z3_log << "= " << obj << "\\n"; }\ninline void SetO(void * obj, unsigned pos) { *g_z3_log << "* " << obj << " " << pos << "\\n"; } \ninline void SetAO(void * obj, unsigned pos, unsigned idx) { *g_z3_log << "@ " << obj << " " << pos << " " << idx << "\\n"; }\n')
+  log_h.write('#define RETURN_Z3(Z3RES) if (_LOG_CTX.enabled()) { SetR(Z3RES); } return Z3RES\n')
+  log_h.write('void _Z3_append_log(char const * msg);\n')
 
-if is_verbose():
-    print("Generated '%s'" % os.path.join(api_dir, 'api_log_macros.h'))
-    print("Generated '%s'" % os.path.join(api_dir, 'api_log_macros.cpp'))
-    print("Generated '%s'" % os.path.join(api_dir, 'api_commands.cpp'))
-    print("Generated '%s'" % os.path.join(get_z3py_dir(), 'z3core.py'))
-    print("Generated '%s'" % os.path.join(dotnet_dir, 'Native.cs'))
+
+def write_log_c_preamble(log_c):
+  log_c.write('// Automatically generated file\n')
+  log_c.write('#include<iostream>\n')
+  log_c.write('#include\"z3.h\"\n')
+  log_c.write('#include\"api_log_macros.h\"\n')
+  log_c.write('#include\"z3_logger.h\"\n')
+
+def write_exe_c_preamble(exe_c):
+  exe_c.write('// Automatically generated file\n')
+  exe_c.write('#include\"z3.h\"\n')
+  exe_c.write('#include\"z3_replayer.h\"\n')
+  #
+  exe_c.write('void Z3_replayer_error_handler(Z3_context ctx, Z3_error_code c) { printf("[REPLAYER ERROR HANDLER]: %s\\n", Z3_get_error_msg(ctx, c)); }\n')
+
+def write_core_py_preamble(core_py):
+  core_py.write('# Automatically generated file\n')
+  core_py.write('import sys, os\n')
+  core_py.write('import ctypes\n')
+  core_py.write('from z3types import *\n')
+  core_py.write('from z3consts import *\n')
+  core_py.write(
+"""
+_lib = None
+def lib():
+  global _lib
+  if _lib == None:
+    _dir = os.path.dirname(os.path.abspath(__file__))
+    for ext in ['dll', 'so', 'dylib']:
+      try:
+        init('libz3.%s' % ext)
+        break
+      except:
+        pass
+      try:
+        init(os.path.join(_dir, 'libz3.%s' % ext))
+        break
+      except:
+        pass
+    if _lib == None:
+        raise Z3Exception("init(Z3_LIBRARY_PATH) must be invoked before using Z3-python")
+  return _lib
+
+def _to_ascii(s):
+  if isinstance(s, str):
+    return s.encode('ascii')
+  else:
+    return s
+
+if sys.version < '3':
+  def _to_pystr(s):
+     return s
+else:
+  def _to_pystr(s):
+     if s != None:
+        enc = sys.stdout.encoding
+        if enc != None: return s.decode(enc)
+        else: return s.decode('ascii')
+     else:
+        return ""
+
+def init(PATH):
+  global _lib
+  _lib = ctypes.CDLL(PATH)
+"""
+  )
+
+log_h = None
+log_c = None
+exe_c = None
+core_py = None
+
+# FIXME: This can only be called once from this module
+# due to its use of global state!
+def generate_files(api_files,
+                   api_output_dir=None,
+                   z3py_output_dir=None,
+                   dotnet_output_dir=None,
+                   java_output_dir=None,
+                   java_package_name=None,
+                   ml_output_dir=None):
+  """
+    Scan the api files in ``api_files`` and emit the relevant API files into
+    the output directories specified. If an output directory is set to ``None``
+    then the files for that language binding or module are not emitted.
+
+    The reason for this function interface is:
+
+    * The CMake build system needs to control where
+      files are emitted.
+    * The CMake build system needs to be able to choose
+      which API files are emitted.
+    * This function should be as decoupled from the Python
+      build system as much as possible but it must be possible
+      for the Python build system code to use this function.
+
+    Therefore we:
+
+    * Do not use the ``mk_util.is_*_enabled()`` functions
+    to determine if certain files should be or should not be emitted.
+
+    * Do not use the components declared in the Python build system
+    to determine the output directory paths.
+  """
+  # FIXME: These should not be global
+  global log_h, log_c, exe_c, core_py
+  assert isinstance(api_files, list)
+
+  # Hack: Avoid emitting files when we don't want them
+  # by writing to temporary files that get deleted when
+  # closed. This allows us to work around the fact that
+  # existing code is designed to always emit these files.
+  def mk_file_or_temp(output_dir, file_name, mode='w'):
+    if output_dir != None:
+      assert os.path.exists(output_dir) and os.path.isdir(output_dir)
+      return open(os.path.join(output_dir, file_name), mode)
+    else:
+      # Return a file that we can write to without caring
+      print("Faking emission of '{}'".format(file_name))
+      import tempfile
+      return tempfile.TemporaryFile(mode=mode)
+
+  with mk_file_or_temp(api_output_dir, 'api_log_macros.h') as log_h:
+    with mk_file_or_temp(api_output_dir, 'api_log_macros.cpp') as log_c:
+      with mk_file_or_temp(api_output_dir, 'api_commands.cpp') as exe_c:
+        with mk_file_or_temp(z3py_output_dir, 'z3core.py') as core_py:
+          # Write preambles
+          write_log_h_preamble(log_h)
+          write_log_c_preamble(log_c)
+          write_exe_c_preamble(exe_c)
+          write_core_py_preamble(core_py)
+
+          # FIXME: these functions are awful
+          def_Types(api_files)
+          def_APIs(api_files)
+          mk_bindings(exe_c)
+          mk_py_wrappers()
+
+          if mk_util.is_verbose():
+            print("Generated '{}'".format(log_h.name))
+            print("Generated '{}'".format(log_c.name))
+            print("Generated '{}'".format(exe_c.name))
+            print("Generated '{}'".format(core_py.name))
+
+  if dotnet_output_dir:
+    with open(os.path.join(dotnet_output_dir, 'Native.cs'), 'w') as dotnet_file:
+      mk_dotnet(dotnet_file)
+      mk_dotnet_wrappers(dotnet_file)
+      if mk_util.is_verbose():
+        print("Generated '{}'".format(dotnet_file.name))
+
+  if java_output_dir:
+    mk_java(java_output_dir, java_package_name)
+  if ml_output_dir:
+    mk_ml(ml_output_dir)
+
+def main(args):
+  logging.basicConfig(level=logging.INFO)
+  parser = argparse.ArgumentParser(description=__doc__)
+  parser.add_argument("api_files",
+                      nargs="+",
+                      help="API header files to generate files from")
+  parser.add_argument("--api_output_dir",
+                      default=None,
+                      help="Directory to emit files for api module. If not specified no files are emitted.")
+  parser.add_argument("--z3py-output-dir",
+                      dest="z3py_output_dir",
+                      default=None,
+                      help="Directory to emit z3py files. If not specified no files are emitted.")
+  parser.add_argument("--dotnet-output-dir",
+                      dest="dotnet_output_dir",
+                      default=None,
+                      help="Directory to emit dotnet files. If not specified no files are emitted.")
+  parser.add_argument("--java-output-dir",
+                      dest="java_output_dir",
+                      default=None,
+                      help="Directory to emit Java files. If not specified no files are emitted.")
+  parser.add_argument("--java-package-name",
+                      dest="java_package_name",
+                      default=None,
+                      help="Name to give the Java package (e.g. ``com.microsoft.z3``).")
+  parser.add_argument("--ml-output-dir",
+                      dest="ml_output_dir",
+                      default=None,
+                      help="Directory to emit OCaml files. If not specified no files are emitted.")
+  pargs = parser.parse_args(args)
+
+  if pargs.java_output_dir:
+    if pargs.java_package_name == None:
+      logging.error('--java-package-name must be specified')
+      return 1
+
+  for api_file in pargs.api_files:
+    if not os.path.exists(api_file):
+      logging.error('"{}" does not exist'.format(api_file))
+      return 1
+
+  generate_files(api_files=pargs.api_files,
+                 api_output_dir=pargs.api_output_dir,
+                 z3py_output_dir=pargs.z3py_output_dir,
+                 dotnet_output_dir=pargs.dotnet_output_dir,
+                 java_output_dir=pargs.java_output_dir,
+                 java_package_name=pargs.java_package_name,
+                 ml_output_dir=pargs.ml_output_dir)
+  return 0
+
+if __name__ == '__main__':
+  sys.exit(main(sys.argv[1:]))

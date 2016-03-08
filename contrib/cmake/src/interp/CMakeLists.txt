@@ -1,0 +1,19 @@
+z3_add_component(interp
+  SOURCES
+    iz3base.cpp
+    iz3checker.cpp
+    iz3foci.cpp
+    iz3interp.cpp
+    iz3mgr.cpp
+    iz3pp.cpp
+    iz3profiling.cpp
+    iz3proof.cpp
+    iz3proof_itp.cpp
+    iz3scopes.cpp
+    iz3translate.cpp
+    iz3translate_direct.cpp
+  COMPONENT_DEPENDENCIES
+    solver
+  PYG_FILES
+    interp_params.pyg
+)

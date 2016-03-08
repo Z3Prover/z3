@@ -1,0 +1,9 @@
+z3_add_component(sat_tactic
+  SOURCES
+    atom2bool_var.cpp
+    goal2sat.cpp
+    sat_tactic.cpp
+  COMPONENT_DEPENDENCIES
+    sat
+    tactic
+)

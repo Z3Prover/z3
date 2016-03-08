@@ -1,0 +1,32 @@
+z3_add_component(rel
+  SOURCES
+    aig_exporter.cpp
+    check_relation.cpp
+    dl_base.cpp
+    dl_bound_relation.cpp
+    dl_check_table.cpp
+    dl_compiler.cpp
+    dl_external_relation.cpp
+    dl_finite_product_relation.cpp
+    dl_instruction.cpp
+    dl_interval_relation.cpp
+    dl_lazy_table.cpp
+    dl_mk_explanations.cpp
+    dl_mk_partial_equiv.cpp
+    dl_mk_similarity_compressor.cpp
+    dl_mk_simple_joins.cpp
+    dl_product_relation.cpp
+    dl_relation_manager.cpp
+    dl_sieve_relation.cpp
+    dl_sparse_table.cpp
+    dl_table.cpp
+    dl_table_relation.cpp
+    doc.cpp
+    karr_relation.cpp
+    rel_context.cpp
+    tbv.cpp
+    udoc_relation.cpp
+  COMPONENT_DEPENDENCIES
+    muz
+    transforms
+)

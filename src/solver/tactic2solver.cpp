@@ -128,8 +128,8 @@ lbool tactic2solver::check_sat_core(unsigned num_assumptions, expr * const * ass
     ast_manager & m = m_assertions.m();
     m_result = alloc(simple_check_sat_result, m);
     m_tactic->cleanup();
-    m_tactic->updt_params(m_params);
     m_tactic->set_logic(m_logic);
+    m_tactic->updt_params(m_params); // parameters are allowed to overwrite logic.
     goal_ref g = alloc(goal, m, m_produce_proofs, m_produce_models, m_produce_unsat_cores);
 
     unsigned sz = m_assertions.size();

@@ -1,0 +1,18 @@
+z3_add_component(smt_params
+  SOURCES
+    dyn_ack_params.cpp
+    preprocessor_params.cpp
+    qi_params.cpp
+    smt_params.cpp
+    theory_arith_params.cpp
+    theory_array_params.cpp
+    theory_bv_params.cpp
+    theory_pb_params.cpp
+  COMPONENT_DEPENDENCIES
+    ast
+    bit_blaster
+    pattern
+    simplifier
+  PYG_FILES
+    smt_params_helper.pyg
+)

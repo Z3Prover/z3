@@ -972,7 +972,7 @@ public:
     */
     virtual bool is_unique_value(app * a) const { return false; }
 
-    virtual bool are_equal(app * a, app * b) const { return a == b && is_unique_value(a) && is_unique_value(b); }
+    virtual bool are_equal(app * a, app * b) const { return a == b; }
 
     virtual bool are_distinct(app * a, app * b) const { return a != b && is_unique_value(a) && is_unique_value(b); }
 

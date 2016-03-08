@@ -226,7 +226,7 @@ size_t mpn_manager::div_normalize(mpn_digit const * numer, size_t const lnum,
                                   mpn_sbuffer & n_denom) const
 {    
     size_t d = 0;
-    while (((denom[lden-1] << d) & MASK_FIRST) == 0) d++;
+    while (lden > 0 && ((denom[lden-1] << d) & MASK_FIRST) == 0) d++;
     SASSERT(d < DIGIT_BITS);
     
     n_numer.resize(lnum+1);
@@ -239,7 +239,8 @@ size_t mpn_manager::div_normalize(mpn_digit const * numer, size_t const lnum,
         for (size_t i = 0; i < lden; i++)
             n_denom[i] = denom[i];
     }
-    else {
+    else if (lnum != 0) {
+        SASSERT(lden > 0);
         mpn_digit q = FIRST_BITS(d, numer[lnum-1]);
         n_numer[lnum] = q;
         for (size_t i = lnum-1; i > 0; i--)
@@ -248,6 +249,9 @@ size_t mpn_manager::div_normalize(mpn_digit const * numer, size_t const lnum,
         for (size_t i = lden-1; i > 0; i--)
             n_denom[i] = denom[i] << d | FIRST_BITS(d, denom[i-1]);
         n_denom[0] = denom[0] << d;   
+    }
+    else {
+        d = 0;
     }
 
     TRACE("mpn_norm", tout << "Normalized: n_numer="; display_raw(tout, n_numer.c_ptr(), n_numer.size()); 

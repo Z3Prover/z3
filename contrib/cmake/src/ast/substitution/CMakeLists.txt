@@ -1,0 +1,10 @@
+z3_add_component(substitution
+  SOURCES
+    matcher.cpp
+    substitution.cpp
+    substitution_tree.cpp
+    unifier.cpp
+  COMPONENT_DEPENDENCIES
+    ast
+    rewriter
+)
