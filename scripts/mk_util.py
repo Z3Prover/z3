@@ -2913,28 +2913,7 @@ def mk_def_file(c):
         dot_h_c = c.find_file(dot_h, c.name)
         api = os.path.join(dot_h_c.src_dir, dot_h)
         export_header_files.append(api)
-    mk_def_file_internal(defname, dll_name, export_header_files)
-
-def mk_def_file_internal(defname, dll_name, export_header_files):
-    pat1 = re.compile(".*Z3_API.*")
-    fout = open(defname, 'w')
-    fout.write('LIBRARY "%s"\nEXPORTS\n' % dll_name)
-    num = 1
-    for export_header_file in export_header_files:
-        api = open(export_header_file, 'r')
-        for line in api:
-            m = pat1.match(line)
-            if m:
-                words = re.split('\W+', line)
-                i = 0
-                for w in words:
-                    if w == 'Z3_API':
-                        f = words[i+1]
-                        fout.write('\t%s @%s\n' % (f, num))
-                    i = i + 1
-                num = num + 1
-        api.close()
-    fout.close()
+    mk_genfile_common.mk_def_file_internal(defname, dll_name, export_header_files)
     if VERBOSE:
         print("Generated '%s'" % defname)
 

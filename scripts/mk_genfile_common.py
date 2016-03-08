@@ -124,3 +124,36 @@ def mk_z3consts_py_internal(api_files, output_dir):
         api.close()
     z3consts.close()
     return z3consts_output_path
+
+###############################################################################
+# Functions for generating a "module definition file" for MSVC
+###############################################################################
+
+def mk_def_file_internal(defname, dll_name, export_header_files):
+    """
+      Writes to a module definition file to a file named ``defname``.
+
+      ``dll_name`` is the name of the dll (without the ``.dll`` suffix).
+      ``export_header_file`` is a list of header files to scan for symbols
+      to include in the module definition file.
+    """
+    assert isinstance(export_header_files, list)
+    pat1 = re.compile(".*Z3_API.*")
+    fout = open(defname, 'w')
+    fout.write('LIBRARY "%s"\nEXPORTS\n' % dll_name)
+    num = 1
+    for export_header_file in export_header_files:
+        api = open(export_header_file, 'r')
+        for line in api:
+            m = pat1.match(line)
+            if m:
+                words = re.split('\W+', line)
+                i = 0
+                for w in words:
+                    if w == 'Z3_API':
+                        f = words[i+1]
+                        fout.write('\t%s @%s\n' % (f, num))
+                    i = i + 1
+                num = num + 1
+        api.close()
+    fout.close()
