@@ -204,7 +204,7 @@ namespace opt {
                 m_assignment.reset();                    
                 for (unsigned i = 0; i < m_soft.size(); ++i) {
                     expr_ref val(m);
-                    VERIFY(m_model->eval(m_soft[i], val));
+                    if (!m_model->eval(m_soft[i], val)) return l_undef;
                     TRACE("opt", tout << val << "\n";);
                     m_assignment.push_back(m.is_true(val));                        
                 }

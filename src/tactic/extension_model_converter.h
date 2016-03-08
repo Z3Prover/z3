@@ -23,15 +23,12 @@ Notes:
 #include"ast.h"
 #include"model_converter.h"
 
-class model_evaluator;
 
 class extension_model_converter : public model_converter {
     func_decl_ref_vector  m_vars;
     expr_ref_vector       m_defs;
-    model_evaluator *     m_eval;
-    struct set_eval;
 public:    
-    extension_model_converter(ast_manager & m):m_vars(m), m_defs(m), m_eval(0) {
+    extension_model_converter(ast_manager & m):m_vars(m), m_defs(m) {
     }
     
     virtual ~extension_model_converter();
@@ -43,10 +40,7 @@ public:
     virtual void display(std::ostream & out);
 
     // register a variable that was eliminated
-    void insert(func_decl * v, expr * def) {
-        m_vars.push_back(v);
-        m_defs.push_back(def);
-    }
+    void insert(func_decl * v, expr * def);
 
     virtual model_converter * translate(ast_translation & translator);
 };

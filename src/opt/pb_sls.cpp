@@ -139,8 +139,7 @@ namespace smt {
             m_orig_model = mdl;
             for (unsigned i = 0; i < m_var2decl.size(); ++i) {
                 expr_ref tmp(m);
-                VERIFY(mdl->eval(m_var2decl[i], tmp));
-                m_assignment[i] = m.is_true(tmp);
+                m_assignment[i] = mdl->eval(m_var2decl[i], tmp) && m.is_true(tmp);
             }
         }
 
@@ -305,7 +304,9 @@ namespace smt {
                 if (!eval(m_clauses[i])) {
                     m_hard_false.insert(i);
                     expr_ref tmp(m);
-                    VERIFY(m_orig_model->eval(m_orig_clauses[i].get(), tmp));                    
+                    if (!m_orig_model->eval(m_orig_clauses[i].get(), tmp)) {
+                        return;
+                    }
                     IF_VERBOSE(0,                               
                                verbose_stream() << "original evaluation: " << tmp << "\n";
                                verbose_stream() << mk_pp(m_orig_clauses[i].get(), m) << "\n";
@@ -487,8 +488,7 @@ namespace smt {
                 SASSERT(m_soft_occ.size() == var);
                 m_hard_occ.push_back(unsigned_vector());
                 m_soft_occ.push_back(unsigned_vector());
-                VERIFY(m_orig_model->eval(f, tmp));
-                m_assignment.push_back(m.is_true(tmp));
+                m_assignment.push_back(m_orig_model->eval(f, tmp) && m.is_true(tmp));
                 m_decl2var.insert(f, var);
                 m_var2decl.push_back(f);
             }

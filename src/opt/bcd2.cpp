@@ -233,8 +233,7 @@ namespace opt {
             new_assignment.reset();
             s().get_model(model);
             for (unsigned i = 0; i < m_soft.size(); ++i) {
-                VERIFY(model->eval(m_soft[i], val));    
-                new_assignment.push_back(m.is_true(val));                            
+                new_assignment.push_back(model->eval(m_soft[i], val) && m.is_true(val));
                 if (!new_assignment[i]) {
                     new_upper += m_weights[i];
                 }

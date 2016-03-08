@@ -95,10 +95,9 @@ namespace smt {
             enode * first_arg_enode = ctx.get_enode(first_arg);
             get_var(first_arg_enode);
             // numerals are not blasted into bit2bool, so we do this directly.
-            if (!ctx.b_internalized(n)) {
-                rational val;
-                unsigned sz;
-                VERIFY(m_util.is_numeral(first_arg, val, sz));
+            rational val;
+            unsigned sz;
+            if (!ctx.b_internalized(n) && m_util.is_numeral(first_arg, val, sz)) {
                 theory_var v = first_arg_enode->get_th_var(get_id());
                 app* owner = first_arg_enode->get_owner();
                 for (unsigned i = 0; i < sz; ++i) {
@@ -113,29 +112,28 @@ namespace smt {
                 }
             }
         }
-        else {
-            enode * arg      = ctx.get_enode(first_arg);
-            // The argument was already internalized, but it may not have a theory variable associated with it.
-            // For example, for ite-terms the method apply_sort_cnstr is not invoked.
-            // See comment in the then-branch.
-            theory_var v_arg = arg->get_th_var(get_id());
-            if (v_arg == null_theory_var) {
-                // The method get_var will create a theory variable for arg. 
-                // As a side-effect the bits for arg will also be created.
-                get_var(arg);
-                SASSERT(ctx.b_internalized(n));
-            }
-            else {
-                SASSERT(v_arg != null_theory_var);
-                bool_var bv      = ctx.mk_bool_var(n);
-                ctx.set_var_theory(bv, get_id());
-                bit_atom * a     = new (get_region()) bit_atom();
-                insert_bv2a(bv, a);
-                m_trail_stack.push(mk_atom_trail(bv));
-                unsigned idx     = n->get_decl()->get_parameter(0).get_int();
-                SASSERT(a->m_occs == 0);
-                a->m_occs = new (get_region()) var_pos_occ(v_arg, idx);
-            }
+         
+        enode * arg      = ctx.get_enode(first_arg);
+        // The argument was already internalized, but it may not have a theory variable associated with it.
+        // For example, for ite-terms the method apply_sort_cnstr is not invoked.
+        // See comment in the then-branch.
+        theory_var v_arg = arg->get_th_var(get_id());
+        if (v_arg == null_theory_var) {
+            // The method get_var will create a theory variable for arg. 
+            // As a side-effect the bits for arg will also be created.
+            get_var(arg);
+            SASSERT(ctx.b_internalized(n));
+        }
+        else if (!ctx.b_internalized(n)) {
+            SASSERT(v_arg != null_theory_var);
+            bool_var bv      = ctx.mk_bool_var(n);
+            ctx.set_var_theory(bv, get_id());
+            bit_atom * a     = new (get_region()) bit_atom();
+            insert_bv2a(bv, a);
+            m_trail_stack.push(mk_atom_trail(bv));
+            unsigned idx     = n->get_decl()->get_parameter(0).get_int();
+            SASSERT(a->m_occs == 0);
+            a->m_occs = new (get_region()) var_pos_occ(v_arg, idx);
         }
     }
 

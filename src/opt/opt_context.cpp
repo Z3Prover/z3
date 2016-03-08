@@ -203,7 +203,7 @@ namespace opt {
             objective& obj = s.m_objectives[i];
             m_objectives.push_back(obj);
             if (obj.m_type == O_MAXSMT) {
-                add_maxsmt(obj.m_id);
+                add_maxsmt(obj.m_id, i);
             }
         }
         m_hard_constraints.append(s.m_hard);
@@ -311,7 +311,9 @@ namespace opt {
         maxsmt& ms = *m_maxsmts.find(id);
         if (scoped) get_solver().push();            
         lbool result = ms();
-        if (result != l_false && (ms.get_model(tmp, m_labels), tmp.get())) ms.get_model(m_model, m_labels);
+        if (result != l_false && (ms.get_model(tmp, m_labels), tmp.get())) {
+            ms.get_model(m_model, m_labels);
+        }
         if (scoped) get_solver().pop(1);
         if (result == l_true && committed) ms.commit_assignment();
         return result;
@@ -414,12 +416,16 @@ namespace opt {
         case O_MINIMIZE:
             is_ge = !is_ge;
         case O_MAXIMIZE:
-            VERIFY(mdl->eval(obj.m_term, val) && is_numeral(val, k));
-            if (is_ge) {
-                result = mk_ge(obj.m_term, val);
+            if (mdl->eval(obj.m_term, val) && is_numeral(val, k)) {
+                if (is_ge) {
+                    result = mk_ge(obj.m_term, val);
+                }
+                else {
+                    result = mk_ge(val, obj.m_term);
+                }
             }
             else {
-                result = mk_ge(val, obj.m_term);
+                result = m.mk_true();
             }
             break;
         case O_MAXSMT: {
@@ -430,8 +436,7 @@ namespace opt {
             for (unsigned i = 0; i < sz; ++i) {
                 terms.push_back(obj.m_terms[i]);
                 coeffs.push_back(obj.m_weights[i]);
-                VERIFY(mdl->eval(obj.m_terms[i], val));
-                if (m.is_true(val)) {
+                if (mdl->eval(obj.m_terms[i], val) && m.is_true(val)) {
                     k += obj.m_weights[i];
                 }
             }
@@ -469,8 +474,7 @@ namespace opt {
         update_bound(false);
     }
 
-    lbool context::execute_pareto() {
-        
+    lbool context::execute_pareto() {        
         if (!m_pareto) {
             set_pareto(alloc(gia_pareto, m, *this, m_solver.get(), m_params));
         }
@@ -642,8 +646,8 @@ namespace opt {
     }
 
 
-    void context::add_maxsmt(symbol const& id) {
-        maxsmt* ms = alloc(maxsmt, *this);
+    void context::add_maxsmt(symbol const& id, unsigned index) {
+        maxsmt* ms = alloc(maxsmt, *this, index);
         ms->updt_params(m_params);
         #pragma omp critical (opt_context)
         {
@@ -708,7 +712,7 @@ namespace opt {
         }        
     }
 
-    bool context::is_maximize(expr* fml, app_ref& term, expr*& orig_term, unsigned& index) {
+    bool context::is_maximize(expr* fml, app_ref& term, expr_ref& orig_term, unsigned& index) {
         if (is_app(fml) && m_objective_fns.find(to_app(fml)->get_decl(), index) && 
             m_objectives[index].m_type == O_MAXIMIZE) {
             term = to_app(to_app(fml)->get_arg(0));
@@ -718,7 +722,7 @@ namespace opt {
         return false;
     }
 
-    bool context::is_minimize(expr* fml, app_ref& term, expr*& orig_term, unsigned& index) {
+    bool context::is_minimize(expr* fml, app_ref& term, expr_ref& orig_term, unsigned& index) {
         if (is_app(fml) && m_objective_fns.find(to_app(fml)->get_decl(), index) && 
             m_objectives[index].m_type == O_MINIMIZE) {
             term = to_app(to_app(fml)->get_arg(0));
@@ -730,7 +734,7 @@ namespace opt {
 
     bool context::is_maxsat(expr* fml, expr_ref_vector& terms, 
                             vector<rational>& weights, rational& offset, 
-                            bool& neg, symbol& id, unsigned& index) {
+                            bool& neg, symbol& id, expr_ref& orig_term, unsigned& index) {
         if (!is_app(fml)) return false;
         neg = false;
         app* a = to_app(fml);
@@ -752,7 +756,6 @@ namespace opt {
             return true;
         }
         app_ref term(m);
-        expr* orig_term;
         offset = rational::zero();
         bool is_max = is_maximize(fml, term, orig_term, index);
         bool is_min = !is_max && is_minimize(fml, term, orig_term, index);
@@ -773,7 +776,7 @@ namespace opt {
                 }
             }
             TRACE("opt", 
-                  tout << "Convert minimization " << mk_pp(orig_term, m) << "\n";
+                  tout << "Convert minimization " << orig_term << "\n";
                   tout << "to maxsat: " << term << "\n";
                   for (unsigned i = 0; i < weights.size(); ++i) {
                       tout << mk_pp(terms[i].get(), m) << ": " << weights[i] << "\n";
@@ -781,7 +784,7 @@ namespace opt {
                   tout << "offset: " << offset << "\n";
                   );
             std::ostringstream out;
-            out << mk_pp(orig_term, m) << ":" << index;
+            out << orig_term << ":" << index;
             id = symbol(out.str().c_str());
             return true;
         }
@@ -804,7 +807,7 @@ namespace opt {
             }
             neg = true;
             std::ostringstream out;
-            out << mk_pp(orig_term, m) << ":" << index;
+            out << orig_term << ":" << index;
             id = symbol(out.str().c_str());
             return true;
         }
@@ -823,7 +826,7 @@ namespace opt {
             }
             neg = is_max;
             std::ostringstream out;
-            out << mk_pp(orig_term, m) << ":" << index;
+            out << orig_term << ":" << index;
             id = symbol(out.str().c_str());
             return true;            
         }
@@ -871,7 +874,7 @@ namespace opt {
                   tout << mk_pp(fmls[i], m) << "\n";
               });
         m_hard_constraints.reset();
-        expr* orig_term;
+        expr_ref orig_term(m);
         for (unsigned i = 0; i < fmls.size(); ++i) {
             expr* fml = fmls[i];
             app_ref tr(m);
@@ -881,7 +884,7 @@ namespace opt {
             unsigned index;
             symbol id;
             bool neg;
-            if (is_maxsat(fml, terms, weights, offset, neg, id, index)) {
+            if (is_maxsat(fml, terms, weights, offset, neg, id, orig_term, index)) {
                 objective& obj = m_objectives[index];
 
                 if (obj.m_type != O_MAXSMT) {
@@ -889,10 +892,11 @@ namespace opt {
                     obj.m_id = id;
                     obj.m_type = O_MAXSMT;
                     SASSERT(!m_maxsmts.contains(id));
-                    add_maxsmt(id);
+                    add_maxsmt(id, index);
                 }
                 mk_atomic(terms);
                 SASSERT(obj.m_id == id);
+                obj.m_term = to_app(orig_term);
                 obj.m_terms.reset();
                 obj.m_terms.append(terms);
                 obj.m_weights.reset();
@@ -931,6 +935,32 @@ namespace opt {
                 break;
             }
         }
+    }
+
+    bool context::verify_model(unsigned index, model* md, rational const& _v) {
+        rational r;
+        app_ref term = m_objectives[index].m_term;
+        rational v = m_objectives[index].m_adjust_value(_v);
+        expr_ref val(m);
+        model_ref mdl = md;
+        fix_model(mdl);
+
+        if (!mdl->eval(term, val)) {
+            TRACE("opt", tout << "Term does not evaluate " << term << "\n";);
+            return false;
+        }
+        if (!m_arith.is_numeral(val, r)) {
+            TRACE("opt", tout << "model does not evaluate objective to a value\n";);
+            return false;
+        }
+        if (r != v) {
+            TRACE("opt", tout << "Out of bounds: " << term << " " << val << " != " << v << "\n";);
+            return false;
+        }
+        else {
+            TRACE("opt", tout << "validated: " << term << " = " << val << "\n";);
+        }
+        return true;
     }
 
     void context::purify(app_ref& term) {
@@ -1395,8 +1425,8 @@ namespace opt {
             case O_MAXSMT: {
                 rational value(0);
                 for (unsigned i = 0; i < obj.m_terms.size(); ++i) {
-                    VERIFY(m_model->eval(obj.m_terms[i], val));
-                    if (!m.is_true(val)) {
+                    bool evaluated = m_model->eval(obj.m_terms[i], val);
+                    if (evaluated && !m.is_true(val)) {
                         value += obj.m_weights[i];
                     }
                     // TBD: check that optimal was not changed.

@@ -1612,14 +1612,27 @@ def generate_files(api_files,
                    java_package_name=None,
                    ml_output_dir=None):
   """
-    Scan the api files in ``api_files`` and emit
-    the relevant ``api_*.h`` and ``api_*.cpp`` files
-    for the api modules into the ``api_output_dir``
-    directory.
+    Scan the api files in ``api_files`` and emit the relevant API files into
+    the output directories specified. If an output directory is set to ``None``
+    then the files for that language binding or module are not emitted.
 
-    For the remaining arguments, if said argument is
-    not ``None`` the relevant files for that language
-    binding will be emitted to the specified directory.
+    The reason for this function interface is:
+
+    * The CMake build system needs to control where
+      files are emitted.
+    * The CMake build system needs to be able to choose
+      which API files are emitted.
+    * This function should be as decoupled from the Python
+      build system as much as possible but it must be possible
+      for the Python build system code to use this function.
+
+    Therefore we:
+
+    * Do not use the ``mk_util.is_*_enabled()`` functions
+    to determine if certain files should be or should not be emitted.
+
+    * Do not use the components declared in the Python build system
+    to determine the output directory paths.
   """
   # FIXME: These should not be global
   global log_h, log_c, exe_c, core_py
@@ -1677,16 +1690,32 @@ def generate_files(api_files,
 def main(args):
   logging.basicConfig(level=logging.INFO)
   parser = argparse.ArgumentParser(description=__doc__)
-  parser.add_argument("api_files", nargs="+",
+  parser.add_argument("api_files",
+                      nargs="+",
                       help="API header files to generate files from")
   parser.add_argument("--api_output_dir",
-                      help="Directory to emit files for api module",
-                      default=None)
-  parser.add_argument("--z3py-output-dir", dest="z3py_output_dir", default=None)
-  parser.add_argument("--dotnet-output-dir", dest="dotnet_output_dir", default=None)
-  parser.add_argument("--java-output-dir", dest="java_output_dir", default=None)
-  parser.add_argument("--java-package-name", dest="java_package_name", default=None)
-  parser.add_argument("--ml-output-dir", dest="ml_output_dir", default=None)
+                      default=None,
+                      help="Directory to emit files for api module. If not specified no files are emitted.")
+  parser.add_argument("--z3py-output-dir",
+                      dest="z3py_output_dir",
+                      default=None,
+                      help="Directory to emit z3py files. If not specified no files are emitted.")
+  parser.add_argument("--dotnet-output-dir",
+                      dest="dotnet_output_dir",
+                      default=None,
+                      help="Directory to emit dotnet files. If not specified no files are emitted.")
+  parser.add_argument("--java-output-dir",
+                      dest="java_output_dir",
+                      default=None,
+                      help="Directory to emit Java files. If not specified no files are emitted.")
+  parser.add_argument("--java-package-name",
+                      dest="java_package_name",
+                      default=None,
+                      help="Name to give the Java package (e.g. ``com.microsoft.z3``).")
+  parser.add_argument("--ml-output-dir",
+                      dest="ml_output_dir",
+                      default=None,
+                      help="Directory to emit OCaml files. If not specified no files are emitted.")
   pargs = parser.parse_args(args)
 
   if pargs.java_output_dir:
