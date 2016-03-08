@@ -55,6 +55,8 @@ namespace opt {
         virtual void get_base_model(model_ref& _m) = 0;  // retrieve model from initial satisfiability call.
         virtual smt::context& smt_context() = 0;    // access SMT context for SMT based MaxSMT solver (wmax requires SMT core)
         virtual unsigned num_objectives() = 0;
+        virtual bool verify_model(unsigned id, model* mdl, rational const& v) = 0;
+        virtual void set_model(model_ref& _m) = 0;
     };
 
     /**
@@ -132,6 +134,7 @@ namespace opt {
             bool set(ptr_vector<expr> & hard);
             unsigned add(expr* soft, rational const& weight, symbol const& id);
             unsigned add(app* obj, bool is_max);
+            unsigned get_index(symbol const& id) { return m_indices[id]; }
         };
 
         ast_manager&        m;
@@ -178,6 +181,7 @@ namespace opt {
         virtual void set_hard_constraints(ptr_vector<expr> & hard);
         virtual lbool optimize();
         virtual bool print_model() const;
+        virtual void set_model(model_ref& _m) { m_model = _m; }
         virtual void get_model(model_ref& _m);
         virtual void fix_model(model_ref& _m);
         virtual void collect_statistics(statistics& stats) const;
@@ -219,6 +223,8 @@ namespace opt {
         virtual void get_base_model(model_ref& _m);
 
 
+        virtual bool verify_model(unsigned id, model* mdl, rational const& v);
+
     private:
         void validate_feasibility(maxsmt& ms);
 
@@ -236,11 +242,11 @@ namespace opt {
         void import_scoped_state();
         void normalize();
         void internalize();
-        bool is_maximize(expr* fml, app_ref& term, expr*& orig_term, unsigned& index);
-        bool is_minimize(expr* fml, app_ref& term, expr*& orig_term, unsigned& index);
+        bool is_maximize(expr* fml, app_ref& term, expr_ref& orig_term, unsigned& index);
+        bool is_minimize(expr* fml, app_ref& term, expr_ref& orig_term, unsigned& index);
         bool is_maxsat(expr* fml, expr_ref_vector& terms, 
                        vector<rational>& weights, rational& offset, bool& neg, 
-                       symbol& id, unsigned& index);
+                       symbol& id, expr_ref& orig_term, unsigned& index);
         void  purify(app_ref& term);
         app* purify(filter_model_converter_ref& fm, expr* e);
         bool is_mul_const(expr* e);
@@ -269,7 +275,7 @@ namespace opt {
         void    init_solver();
         void    update_solver();
         void    setup_arith_solver();
-        void    add_maxsmt(symbol const& id);
+        void    add_maxsmt(symbol const& id, unsigned index);
         void    set_simplify(tactic *simplify);
         void    set_pareto(pareto_base* p);        
         void    clear_state();

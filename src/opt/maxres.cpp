@@ -82,6 +82,7 @@ private:
             memset(this, 0, sizeof(*this));
         }
     };
+    unsigned         m_index;
     stats            m_stats;
     expr_ref_vector  m_B;
     expr_ref_vector  m_asms;    
@@ -112,10 +113,11 @@ private:
     typedef ptr_vector<expr> exprs;
 
 public:
-    maxres(maxsat_context& c,
+    maxres(maxsat_context& c, unsigned index, 
            weights_t& ws, expr_ref_vector const& soft, 
            strategy_t st):
         maxsmt_solver_base(c, ws, soft),
+        m_index(index), 
         m_B(m), m_asms(m), m_defs(m),
         m_mus(c.get_solver(), m),
         m_mss(c.get_solver(), m),
@@ -189,7 +191,7 @@ public:
 
     lbool mus_solver() {
         lbool is_sat = l_true;
-        init();
+        if (!init()) return l_undef;
         init_local();
         trace();
         while (m_lower < m_upper) {
@@ -227,7 +229,7 @@ public:
     }
 
     lbool primal_dual_solver() {
-        init();
+        if (!init()) return l_undef;
         init_local();
         trace();
         exprs cs;
@@ -483,8 +485,9 @@ public:
         if (m_csmodel) {
             expr_ref val(m);
             SASSERT(m_csmodel.get());
-            VERIFY(m_csmodel->eval(value, val));
-            m_csmodel->register_decl(to_app(def)->get_decl(), val);
+            if (m_csmodel->eval(value, val, true)) {
+                m_csmodel->register_decl(to_app(def)->get_decl(), val);
+            }
         }
     }
     
@@ -724,17 +727,26 @@ public:
         if (upper >= m_upper) {
             return;
         }
+
+        if (!m_c.verify_model(m_index, mdl, upper)) {
+            return;
+        }
+
         m_model = mdl;
-        
+
         for (unsigned i = 0; i < m_soft.size(); ++i) {
             m_assignment[i] = is_true(m_soft[i]);
         }
+
+
+       
         DEBUG_CODE(verify_assignment(););
 
         m_upper = upper;
         trace();
 
         add_upper_bound_block();
+
     }
 
     void add_upper_bound_block() {
@@ -751,14 +763,12 @@ public:
 
     bool is_true(model* mdl, expr* e) {
         expr_ref tmp(m);
-        VERIFY(mdl->eval(e, tmp));
-        return m.is_true(tmp);
+        return mdl->eval(e, tmp, true) && m.is_true(tmp);
     }
 
     bool is_false(model* mdl, expr* e) {
         expr_ref tmp(m);
-        VERIFY(mdl->eval(e, tmp));
-        return m.is_false(tmp);
+        return mdl->eval(e, tmp, true) && m.is_false(tmp);
     }
 
     bool is_true(expr* e) {
@@ -870,12 +880,12 @@ public:
 };
 
 opt::maxsmt_solver_base* opt::mk_maxres(
-    maxsat_context& c, weights_t& ws, expr_ref_vector const& soft) {
-    return alloc(maxres, c, ws, soft, maxres::s_primal);
+    maxsat_context& c, unsigned id, weights_t& ws, expr_ref_vector const& soft) {
+    return alloc(maxres, c, id, ws, soft, maxres::s_primal);
 }
 
 opt::maxsmt_solver_base* opt::mk_primal_dual_maxres(
-    maxsat_context& c, weights_t& ws, expr_ref_vector const& soft) {
-    return alloc(maxres, c, ws, soft, maxres::s_primal_dual);
+    maxsat_context& c, unsigned id, weights_t& ws, expr_ref_vector const& soft) {
+    return alloc(maxres, c, id, ws, soft, maxres::s_primal_dual);
 }
 

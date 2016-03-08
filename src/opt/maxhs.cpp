@@ -530,8 +530,7 @@ namespace opt {
 
         bool is_true(model_ref& mdl, expr* e) {
             expr_ref val(m);
-            VERIFY(mdl->eval(e, val));
-            return m.is_true(val);
+            return mdl->eval(e, val) && m.is_true(val);
         }
 
         bool is_active(unsigned i) const {

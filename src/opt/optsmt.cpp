@@ -156,8 +156,7 @@ namespace opt {
                     m_s->get_labels(m_labels);            
                     for (unsigned i = 0; i < ors.size(); ++i) {
                         expr_ref tmp(m);
-                        m_model->eval(ors[i].get(), tmp);
-                        if (m.is_true(tmp)) {
+                        if (m_model->eval(ors[i].get(), tmp) && m.is_true(tmp)) {
                             m_lower[i] = m_upper[i];
                             ors[i]  = m.mk_false();
                             disj[i] = m.mk_false();

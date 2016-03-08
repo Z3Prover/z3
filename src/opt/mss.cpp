@@ -73,8 +73,7 @@ namespace opt {
                 expr* n = core[j];
                 if (!core_lits.contains(n)) {
                     core_lits.insert(n);
-                    VERIFY(m_model->eval(n, tmp));
-                    if (m.is_true(tmp)) {
+                    if (m_model->eval(n, tmp) && m.is_true(tmp)) {
                         add_mss(n);
                     }
                     else {
@@ -86,8 +85,7 @@ namespace opt {
         for (unsigned i = 0; i < literals.size(); ++i) {
             expr* n = literals[i];
             if (!core_lits.contains(n)) {
-                VERIFY(m_model->eval(n, tmp));
-                if (m.is_true(tmp)) {
+                if (m_model->eval(n, tmp) && m.is_true(tmp)) {
                     m_mss.push_back(n);
                 }
                 else {
@@ -130,8 +128,7 @@ namespace opt {
             if (m_mcs.contains(n)) {
                 continue; // remove from cores.
             }
-            VERIFY(m_model->eval(n, tmp));
-            if (m.is_true(tmp)) {
+            if (m_model->eval(n, tmp) && m.is_true(tmp)) {
                 add_mss(n);
             }
             else {
@@ -275,7 +272,7 @@ namespace opt {
         expr_ref tmp(m);
         for (unsigned i = 0; i < m_mss.size(); ++i) {
             expr* n = m_mss[i];
-            VERIFY(m_model->eval(n, tmp));
+            if (!m_model->eval(n, tmp)) return true;
             CTRACE("opt", !m.is_true(tmp), tout << mk_pp(n, m) << " |-> " << mk_pp(tmp, m) << "\n";);
             SASSERT(!m.is_false(tmp));
         }

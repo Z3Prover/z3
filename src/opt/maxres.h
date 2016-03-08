@@ -22,9 +22,9 @@ Notes:
 
 namespace opt {
 
-    maxsmt_solver_base* mk_maxres(maxsat_context& c, weights_t & ws, expr_ref_vector const& soft);
+    maxsmt_solver_base* mk_maxres(maxsat_context& c, unsigned id, weights_t & ws, expr_ref_vector const& soft);
 
-    maxsmt_solver_base* mk_primal_dual_maxres(maxsat_context& c, weights_t & ws, expr_ref_vector const& soft);
+    maxsmt_solver_base* mk_primal_dual_maxres(maxsat_context& c, unsigned id, weights_t & ws, expr_ref_vector const& soft);
 
 };
 

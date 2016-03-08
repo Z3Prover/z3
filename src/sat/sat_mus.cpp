@@ -97,7 +97,7 @@ namespace sat {
                 break;
             }
             if (s.m_config.m_minimize_core_partial && s.m_stats.m_restart - m_restart > m_max_restarts) {
-                IF_VERBOSE(1, verbose_stream() << "restart budget exceeded\n";);
+                IF_VERBOSE(1, verbose_stream() << "(sat restart budget exceeded)\n";);
                 set_core();
                 return l_true;
             }
@@ -173,7 +173,7 @@ namespace sat {
     lbool mus::qx(literal_set& assignment, literal_set& support, bool has_support) {
         lbool is_sat = l_true;
         if (s.m_config.m_minimize_core_partial && s.m_stats.m_restart - m_restart > m_max_restarts) {
-            IF_VERBOSE(1, verbose_stream() << "restart budget exceeded\n";);
+            IF_VERBOSE(1, verbose_stream() << "(sat restart budget exceeded)\n";);
             return l_true;
         }
         if (has_support) {

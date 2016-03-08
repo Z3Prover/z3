@@ -82,7 +82,7 @@ namespace opt {
         void set_model() { s().get_model(m_model); s().get_labels(m_labels); }
         virtual void updt_params(params_ref& p);
         solver& s();
-        void init();
+        bool init();
         void set_mus(bool f);
         app* mk_fresh_bool(char const* name);
 
@@ -111,6 +111,7 @@ namespace opt {
     class maxsmt {
         ast_manager&              m;
         maxsat_context&           m_c;
+        unsigned                  m_index;
         scoped_ptr<maxsmt_solver_base> m_msolver;
         expr_ref_vector  m_soft_constraints;
         expr_ref_vector  m_answer;
@@ -122,11 +123,11 @@ namespace opt {
         svector<symbol>  m_labels;
         params_ref       m_params;
     public:
-        maxsmt(maxsat_context& c);
+        maxsmt(maxsat_context& c, unsigned id);
         lbool operator()();
         void updt_params(params_ref& p);
         void add(expr* f, rational const& w); 
-        void set_adjust_value(adjust_value& adj) { m_adjust_value = adj; }
+        void set_adjust_value(adjust_value& adj);
         unsigned size() const { return m_soft_constraints.size(); }
         expr* operator[](unsigned idx) const { return m_soft_constraints[idx]; }
         rational weight(unsigned idx) const { return m_weights[idx]; }

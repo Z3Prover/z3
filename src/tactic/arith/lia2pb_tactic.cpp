@@ -272,8 +272,9 @@ class lia2pb_tactic : public tactic {
                     }
                     TRACE("lia2pb", tout << mk_ismt2_pp(x, m) << " -> " << dep << "\n";);
                     subst.insert(x, def, 0, dep);
-                    if (m_produce_models)
+                    if (m_produce_models) {
                         mc1->insert(to_app(x)->get_decl(), def);
+                    }
                 }
             }
             
