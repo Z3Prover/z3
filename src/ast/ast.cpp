@@ -1560,6 +1560,9 @@ bool ast_manager::is_unique_value(expr* e) const {
 }
 
 bool ast_manager::are_equal(expr * a, expr * b) const {
+    if (a == b) {
+        return true;
+    }
     if (is_app(a) && is_app(b)) {
         app* ap = to_app(a), *bp = to_app(b);
         decl_plugin const * p = get_plugin(ap->get_family_id());
