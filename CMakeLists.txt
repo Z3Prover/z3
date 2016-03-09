@@ -340,9 +340,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 ################################################################################
 # Note: ``update_api.py`` is deliberately not here because it not used
 # to generate every generated file. The targets that need it list it explicitly.
-# FIXME: We should drop the dependency on ``mk_util.py``
 set(Z3_GENERATED_FILE_EXTRA_DEPENDENCIES
-  "${CMAKE_SOURCE_DIR}/scripts/mk_util.py"
   "${CMAKE_SOURCE_DIR}/scripts/mk_genfile_common.py"
 )
 
