@@ -106,7 +106,6 @@ public:
     void assert_expr(expr * e, proof * in_pr);
     void assert_expr(expr * e);
     void reset();
-    void set_cancel_flag(bool f);
     void push_scope();
     void pop_scope(unsigned num_scopes);
     bool inconsistent() const { return m_inconsistent; }
