@@ -239,6 +239,7 @@ if (OPENMP_FOUND)
 else()
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_NO_OMP_")
   message(STATUS "Not using OpenMP")
+  set(USE_OPENMP OFF CACHE BOOL "Use OpenMP" FORCE)
 endif()
 
 ################################################################################
