@@ -223,19 +223,6 @@ def mk_gparams_register_modules_internal(component_src_dirs, path):
 # Functions/data structures for generating ``install_tactics.cpp``
 ###############################################################################
 
-# FIXME: Remove use of global data structures
-ADD_TACTIC_DATA=[]
-ADD_PROBE_DATA=[]
-
-def ADD_TACTIC(name, descr, cmd):
-    global ADD_TACTIC_DATA
-    ADD_TACTIC_DATA.append((name, descr, cmd))
-
-def ADD_PROBE(name, descr, cmd):
-    global ADD_PROBE_DATA
-    ADD_PROBE_DATA.append((name, descr, cmd))
-
-
 def mk_install_tactic_cpp_internal(component_src_dirs, path):
     """
         Generate a ``install_tactics.cpp`` file in the directory ``path``.
@@ -251,9 +238,19 @@ def mk_install_tactic_cpp_internal(component_src_dirs, path):
         ``component_src_dirs`` The procedure looks for ``ADD_TACTIC`` commands
         in the ``.h``  and ``.hpp`` files of these components.
     """
-    global ADD_TACTIC_DATA, ADD_PROBE_DATA
     ADD_TACTIC_DATA = []
     ADD_PROBE_DATA = []
+    def ADD_TACTIC(name, descr, cmd):
+        ADD_TACTIC_DATA.append((name, descr, cmd))
+
+    def ADD_PROBE(name, descr, cmd):
+        ADD_PROBE_DATA.append((name, descr, cmd))
+
+    exec_globals = {
+        'ADD_TACTIC': ADD_TACTIC,
+        'ADD_PROBE': ADD_PROBE,
+    }
+
     assert isinstance(component_src_dirs, list)
     assert check_dir_exists(path)
     fullname = os.path.join(path, 'install_tactic.cpp')
@@ -275,7 +272,7 @@ def mk_install_tactic_cpp_internal(component_src_dirs, path):
                         added_include = True
                         fout.write('#include"%s"\n' % h_file)
                     try:
-                        exec(line.strip('\n '), globals())
+                        exec(line.strip('\n '), exec_globals)
                     except Exception as e:
                         _logger.error("Failed processing ADD_TACTIC command at '{}'\n{}".format(
                             fullname, line))
@@ -285,7 +282,7 @@ def mk_install_tactic_cpp_internal(component_src_dirs, path):
                         added_include = True
                         fout.write('#include"%s"\n' % h_file)
                     try:
-                        exec(line.strip('\n '), globals())
+                        exec(line.strip('\n '), exec_globals)
                     except Exception as e:
                         _logger.error("Failed processing ADD_PROBE command at '{}'\n{}".format(
                             fullname, line))
