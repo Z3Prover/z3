@@ -163,14 +163,14 @@ public:
         m_fmls_lim.push_back(m_fmls.size());
         m_asms_lim.push_back(m_asmsf.size());
         m_fmls_head_lim.push_back(m_fmls_head);
-        m_bb_rewriter->push();
+        if (m_bb_rewriter) m_bb_rewriter->push();
         m_map.push();
     }
     virtual void pop(unsigned n) {
         if (n > m_num_scopes) {   // allow inc_sat_solver to
             n = m_num_scopes;     // take over for another solver.
         }
-        m_bb_rewriter->pop(n);
+        if (m_bb_rewriter) m_bb_rewriter->pop(n);
         m_map.pop(n);
         SASSERT(n <= m_num_scopes);
         m_solver.user_pop(n);
@@ -429,7 +429,7 @@ private:
         }
         m_model = md;
 
-        if (!m_bb_rewriter->const2bits().empty()) {
+        if (m_bb_rewriter.get() && !m_bb_rewriter->const2bits().empty()) {
             m_mc0 = concat(m_mc0.get(), mk_bit_blaster_model_converter(m, m_bb_rewriter->const2bits()));
         }
         if (m_mc0) {
