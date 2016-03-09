@@ -391,3 +391,132 @@ def mk_pat_db_internal(inputFilePath, outputFilePath):
             for line in fin:
                 fout.write('"%s\\n"\n' % line.strip('\n'))
             fout.write(';\n')
+
+###############################################################################
+# Functions and data structures for generating ``*_params.hpp`` files from
+# ``*.pyg`` files
+###############################################################################
+
+UINT   = 0
+BOOL   = 1
+DOUBLE = 2
+STRING = 3
+SYMBOL = 4
+UINT_MAX = 4294967295
+
+TYPE2CPK = { UINT : 'CPK_UINT', BOOL : 'CPK_BOOL',  DOUBLE : 'CPK_DOUBLE',  STRING : 'CPK_STRING',  SYMBOL : 'CPK_SYMBOL' }
+TYPE2CTYPE = { UINT : 'unsigned', BOOL : 'bool', DOUBLE : 'double', STRING : 'char const *', SYMBOL : 'symbol' }
+TYPE2GETTER = { UINT : 'get_uint', BOOL : 'get_bool', DOUBLE : 'get_double', STRING : 'get_str',  SYMBOL : 'get_sym' }
+
+def pyg_default(p):
+    if p[1] == BOOL:
+        if p[2]:
+            return "true"
+        else:
+            return "false"
+    return p[2]
+
+def pyg_default_as_c_literal(p):
+    if p[1] == BOOL:
+        if p[2]:
+            return "true"
+        else:
+            return "false"
+    elif p[1] == STRING:
+        return '"%s"' % p[2]
+    elif p[1] == SYMBOL:
+        return 'symbol("%s")' % p[2]
+    elif p[1] == UINT:
+        return '%su' % p[2]
+    else:
+        return p[2]
+
+def to_c_method(s):
+    return s.replace('.', '_')
+
+
+def max_memory_param():
+    return ('max_memory', UINT, UINT_MAX, 'maximum amount of memory in megabytes')
+
+def max_steps_param():
+    return ('max_steps', UINT, UINT_MAX, 'maximum number of steps')
+
+def mk_hpp_from_pyg(pyg_file, output_dir):
+    """
+        Generates the corresponding header file for the input pyg file
+        at the path ``pyg_file``. The file is emitted into the directory
+        ``output_dir``.
+
+        Returns the path to the generated file
+    """
+    CURRENT_PYG_HPP_DEST_DIR = output_dir
+    # Note OUTPUT_HPP_FILE cannot be a string as we need a mutable variable
+    # for the nested function to modify
+    OUTPUT_HPP_FILE = [ ]
+    # The function below has been nested so that it can use closure to capture
+    # the above variables that aren't global but instead local to this
+    # function. This avoids use of global state which makes this function safer.
+    def def_module_params(module_name, export, params, class_name=None, description=None):
+        dirname = CURRENT_PYG_HPP_DEST_DIR
+        assert(os.path.exists(dirname))
+        if class_name is None:
+            class_name = '%s_params' % module_name
+        hpp = os.path.join(dirname, '%s.hpp' % class_name)
+        out = open(hpp, 'w')
+        out.write('// Automatically generated file\n')
+        out.write('#ifndef __%s_HPP_\n' % class_name.upper())
+        out.write('#define __%s_HPP_\n' % class_name.upper())
+        out.write('#include"params.h"\n')
+        if export:
+            out.write('#include"gparams.h"\n')
+        out.write('struct %s {\n' % class_name)
+        out.write('  params_ref const & p;\n')
+        if export:
+            out.write('  params_ref g;\n')
+        out.write('  %s(params_ref const & _p = params_ref::get_empty()):\n' % class_name)
+        out.write('     p(_p)')
+        if export:
+            out.write(', g(gparams::get_module("%s"))' % module_name)
+        out.write(' {}\n')
+        out.write('  static void collect_param_descrs(param_descrs & d) {\n')
+        for param in params:
+            out.write('    d.insert("%s", %s, "%s", "%s","%s");\n' % (param[0], TYPE2CPK[param[1]], param[3], pyg_default(param), module_name))
+        out.write('  }\n')
+        if export:
+            out.write('  /*\n')
+            out.write("     REG_MODULE_PARAMS('%s', '%s::collect_param_descrs')\n" % (module_name, class_name))
+            if description is not None:
+                out.write("     REG_MODULE_DESCRIPTION('%s', '%s')\n" % (module_name, description))
+            out.write('  */\n')
+        # Generated accessors
+        for param in params:
+            if export:
+                out.write('  %s %s() const { return p.%s("%s", g, %s); }\n' %
+                          (TYPE2CTYPE[param[1]], to_c_method(param[0]), TYPE2GETTER[param[1]], param[0], pyg_default_as_c_literal(param)))
+            else:
+                out.write('  %s %s() const { return p.%s("%s", %s); }\n' %
+                          (TYPE2CTYPE[param[1]], to_c_method(param[0]), TYPE2GETTER[param[1]], param[0], pyg_default_as_c_literal(param)))
+        out.write('};\n')
+        out.write('#endif\n')
+        out.close()
+        OUTPUT_HPP_FILE.append(hpp)
+
+    # Globals to use when executing the ``.pyg`` file.
+    pyg_globals = {
+        'UINT' : UINT,
+        'BOOL' : BOOL,
+        'DOUBLE' : DOUBLE,
+        'STRING' : STRING,
+        'SYMBOL' : SYMBOL,
+        'UINT_MAX' : UINT_MAX,
+        'max_memory_param' : max_memory_param,
+        'max_steps_param' : max_steps_param,
+        # Note that once this function is enterred that function
+        # executes with respect to the globals of this module and
+        # not the globals defined here
+        'def_module_params' : def_module_params,
+    }
+    with open(pyg_file, 'r') as fh:
+        exec(fh.read() + "\n", pyg_globals, None)
+    assert len(OUTPUT_HPP_FILE) == 1
+    return OUTPUT_HPP_FILE[0]

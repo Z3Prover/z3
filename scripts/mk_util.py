@@ -2499,104 +2499,6 @@ def mk_auto_src():
         mk_all_mem_initializer_cpps()
         mk_all_gparams_register_modules()
 
-UINT   = 0
-BOOL   = 1
-DOUBLE = 2
-STRING = 3
-SYMBOL = 4
-UINT_MAX = 4294967295
-CURRENT_PYG_HPP_DEST_DIR = None
-
-def get_current_pyg_hpp_dest_dir():
-    return CURRENT_PYG_HPP_DEST_DIR
-
-TYPE2CPK = { UINT : 'CPK_UINT', BOOL : 'CPK_BOOL',  DOUBLE : 'CPK_DOUBLE',  STRING : 'CPK_STRING',  SYMBOL : 'CPK_SYMBOL' }
-TYPE2CTYPE = { UINT : 'unsigned', BOOL : 'bool', DOUBLE : 'double', STRING : 'char const *', SYMBOL : 'symbol' }
-TYPE2GETTER = { UINT : 'get_uint', BOOL : 'get_bool', DOUBLE : 'get_double', STRING : 'get_str',  SYMBOL : 'get_sym' }
-
-def pyg_default(p):
-    if p[1] == BOOL:
-        if p[2]:
-            return "true"
-        else:
-            return "false"
-    return p[2]
-
-def pyg_default_as_c_literal(p):
-    if p[1] == BOOL:
-        if p[2]:
-            return "true"
-        else:
-            return "false"
-    elif p[1] == STRING:
-        return '"%s"' % p[2]
-    elif p[1] == SYMBOL:
-        return 'symbol("%s")' % p[2]
-    elif p[1] == UINT:
-        return '%su' % p[2]
-    else:
-        return p[2]
-
-def to_c_method(s):
-    return s.replace('.', '_')
-
-def def_module_params(module_name, export, params, class_name=None, description=None):
-    dirname = get_current_pyg_hpp_dest_dir()
-    assert(os.path.exists(dirname))
-    if class_name is None:
-        class_name = '%s_params' % module_name
-    hpp = os.path.join(dirname, '%s.hpp' % class_name)
-    out = open(hpp, 'w')
-    out.write('// Automatically generated file\n')
-    out.write('#ifndef __%s_HPP_\n' % class_name.upper())
-    out.write('#define __%s_HPP_\n' % class_name.upper())
-    out.write('#include"params.h"\n')
-    if export:
-        out.write('#include"gparams.h"\n')
-    out.write('struct %s {\n' % class_name)
-    out.write('  params_ref const & p;\n')
-    if export:
-        out.write('  params_ref g;\n')
-    out.write('  %s(params_ref const & _p = params_ref::get_empty()):\n' % class_name)
-    out.write('     p(_p)')
-    if export:
-        out.write(', g(gparams::get_module("%s"))' % module_name)
-    out.write(' {}\n')
-    out.write('  static void collect_param_descrs(param_descrs & d) {\n')
-    for param in params:
-        out.write('    d.insert("%s", %s, "%s", "%s","%s");\n' % (param[0], TYPE2CPK[param[1]], param[3], pyg_default(param), module_name))
-    out.write('  }\n')
-    if export:
-        out.write('  /*\n')
-        out.write("     REG_MODULE_PARAMS('%s', '%s::collect_param_descrs')\n" % (module_name, class_name))
-        if description is not None:
-            out.write("     REG_MODULE_DESCRIPTION('%s', '%s')\n" % (module_name, description))
-        out.write('  */\n')
-    # Generated accessors
-    for param in params:
-        if export:
-            out.write('  %s %s() const { return p.%s("%s", g, %s); }\n' %
-                      (TYPE2CTYPE[param[1]], to_c_method(param[0]), TYPE2GETTER[param[1]], param[0], pyg_default_as_c_literal(param)))
-        else:
-            out.write('  %s %s() const { return p.%s("%s", %s); }\n' %
-                      (TYPE2CTYPE[param[1]], to_c_method(param[0]), TYPE2GETTER[param[1]], param[0], pyg_default_as_c_literal(param)))
-    out.write('};\n')
-    out.write('#endif\n')
-    out.close()
-    if is_verbose():
-        print("Generated '%s'" % hpp)
-
-def max_memory_param():
-    return ('max_memory', UINT, UINT_MAX, 'maximum amount of memory in megabytes')
-
-def max_steps_param():
-    return ('max_steps', UINT, UINT_MAX, 'maximum number of steps')
-
-PYG_GLOBALS = { 'UINT' : UINT, 'BOOL' : BOOL, 'DOUBLE' : DOUBLE, 'STRING' : STRING, 'SYMBOL' : SYMBOL,
-                'UINT_MAX' : UINT_MAX,
-                'max_memory_param' : max_memory_param,
-                'max_steps_param' : max_steps_param,
-                'def_module_params' : def_module_params }
 
 def _execfile(file, globals=globals(), locals=locals()):
     if sys.version < "2.7":
@@ -2607,13 +2509,13 @@ def _execfile(file, globals=globals(), locals=locals()):
 
 # Execute python auxiliary scripts that generate extra code for Z3.
 def exec_pyg_scripts():
-    global CURRENT_PYG_HPP_DEST_DIR
     for root, dirs, files in os.walk('src'):
         for f in files:
             if f.endswith('.pyg'):
                 script = os.path.join(root, f)
-                CURRENT_PYG_HPP_DEST_DIR = root
-                _execfile(script, PYG_GLOBALS)
+                generated_file = mk_genfile_common.mk_hpp_from_pyg(script, root)
+                if is_verbose():
+                    print("Generated '{}'".format(generated_file))
 
 # TODO: delete after src/ast/pattern/expr_pattern_match
 # database.smt ==> database.h
