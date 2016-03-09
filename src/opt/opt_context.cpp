@@ -896,7 +896,7 @@ namespace opt {
                 }
                 mk_atomic(terms);
                 SASSERT(obj.m_id == id);
-                obj.m_term = to_app(orig_term);
+                obj.m_term = orig_term?to_app(orig_term):0;
                 obj.m_terms.reset();
                 obj.m_terms.append(terms);
                 obj.m_weights.reset();
@@ -940,6 +940,9 @@ namespace opt {
     bool context::verify_model(unsigned index, model* md, rational const& _v) {
         rational r;
         app_ref term = m_objectives[index].m_term;
+        if (!term) {
+            return true;
+        }
         rational v = m_objectives[index].m_adjust_value(_v);
         expr_ref val(m);
         model_ref mdl = md;
