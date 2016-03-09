@@ -321,9 +321,10 @@ message(STATUS "Z3_DEPENDENT_EXTRA_C_LINK_FLAGS: ${Z3_DEPENDENT_EXTRA_C_LINK_FLA
 ################################################################################
 # Z3 installation locations
 ################################################################################
-set (Z3_INSTALL_LIB_DIR "lib")
-set (Z3_INSTALL_BIN_DIR "bin")
-set (Z3_INSTALL_INCLUDE_DIR "include")
+include(GNUInstallDirs)
+message(STATUS "CMAKE_INSTALL_LIBDIR: \"${CMAKE_INSTALL_LIBDIR}\"")
+message(STATUS "CMAKE_INSTALL_BINDIR: \"${CMAKE_INSTALL_BINDIR}\"")
+message(STATUS "CMAKE_INSTALL_INCLUDEDIR: \"${CMAKE_INSTALL_INCLUDEDIR}\"")
 
 ################################################################################
 # CMake build file locations
