@@ -32,7 +32,7 @@ sym_mux::sym_mux(ast_manager & m)
     : m(m), m_ref_holder(m), 
       m_next_sym_suffix_idx(0) {
     m_suffixes.push_back("_n");
-    unsigned suf_sz = m_suffixes.size();
+    size_t suf_sz = m_suffixes.size();
     for(unsigned i = 0; i < suf_sz; ++i) {
         symbol suff_sym = symbol(m_suffixes[i].c_str());
         m_used_suffixes.insert(suff_sym);
