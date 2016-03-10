@@ -261,7 +261,10 @@ when invoking CMake and instead set the build type within Visual Studio itself.
 The following useful options can be passed to CMake whilst configuring.
 
 * ``CMAKE_BUILD_TYPE`` - STRING. The build type to use. Only relevant for single configuration generators (e.g. "Unix Makefile" and "Ninja").
-* ``CMAKE_INSTALL_PREFIX`` - STRING. The install prefix to use (e.g. ``/usr/local/``)
+* ``CMAKE_INSTALL_BINDIR`` - STRING. The path to install z3 binaries (relative to ``CMAKE_INSTALL_PREFIX``), e.g. ``bin``.
+* ``CMAKE_INSTALL_INCLUDEDIR`` - STRING. The path to install z3 include files (relative to ``CMAKE_INSTALL_PREFIX``), e.g. ``include``.
+* ``CMAKE_INSTALL_LIBDIR`` - STRING. The path to install z3 libraries (relative to ``CMAKE_INSTALL_PREFIX``), e.g. ``lib``.
+* ``CMAKE_INSTALL_PREFIX`` - STRING. The install prefix to use (e.g. ``/usr/local/``).
 * ``ENABLE_TRACING`` - BOOL. If set to ``TRUE`` enable tracing, if set to ``FALSE`` disable tracing.
 * ``BUILD_LIBZ3_SHARED`` - BOOL. If set to ``TRUE`` build libz3 as a shared library otherwise build as a static library.
 * ``ENABLE_EXAMPLE_TARGETS`` - BOOL. If set to ``TRUE`` add the build targets for building the API examples.
@@ -322,8 +325,9 @@ in order to be sure that the copied CMake files are not out of date.
 
 ### Install/Uninstall
 
-Install and uninstall targets are supported. Use ``CMAKE_INSTALL_PREFIX`` to set the install
-prefix.
+Install and uninstall targets are supported. Use ``CMAKE_INSTALL_PREFIX`` to
+set the install prefix. If you also need need to control which directories are
+used for install set the documented ``CMAKE_INSTALL_*`` options.
 
 To install run
 
