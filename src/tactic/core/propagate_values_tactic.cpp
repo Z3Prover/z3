@@ -26,7 +26,7 @@ Revision History:
 
 class propagate_values_tactic : public tactic {
     struct     imp {
-        ast_manager &                 m_manager;
+        ast_manager &                 m;
         th_rewriter                   m_r;
         scoped_ptr<expr_substitution> m_subst;
         goal *                        m_goal;
@@ -36,12 +36,14 @@ class propagate_values_tactic : public tactic {
         bool                          m_modified;
         
         imp(ast_manager & m, params_ref const & p):
-            m_manager(m),
+            m(m),
             m_r(m, p),
             m_goal(0),
             m_occs(m, true /* track atoms */) {
             updt_params_core(p);
         }
+
+        ~imp() { }
 
         void updt_params_core(params_ref const & p) {
             m_max_rounds = p.get_uint("max_rounds", 4);
@@ -51,32 +53,28 @@ class propagate_values_tactic : public tactic {
             m_r.updt_params(p);
             updt_params_core(p);
         }
-
-        ast_manager & m() const { return m_manager; }
         
         
         bool is_shared(expr * t) {
             return m_occs.is_shared(t);
         }
         
-        bool is_shared_neg(expr * t, expr * & atom) {
-            if (!m().is_not(t))
+        bool is_shared_neg(expr * t, expr * & atom) {            
+            if (!m.is_not(t, atom))
                 return false;
-            atom = to_app(t)->get_arg(0);
             return is_shared(atom);
         }
 
         bool is_shared_eq(expr * t, expr * & lhs, expr * & value) {
-            if (!m().is_eq(t))
+            expr* arg1, *arg2;
+            if (!m.is_eq(t, arg1, arg2))
                 return false;
-            expr * arg1 = to_app(t)->get_arg(0);
-            expr * arg2 = to_app(t)->get_arg(1);
-            if (m().is_value(arg1) && is_shared(arg2)) {
+            if (m.is_value(arg1) && is_shared(arg2)) {
                 lhs   = arg2;
                 value = arg1;
                 return true;
             }
-            if (m().is_value(arg2) && is_shared(arg1)) {
+            if (m.is_value(arg2) && is_shared(arg1)) {
                 lhs   = arg1;
                 value = arg2;
                 return true;
@@ -87,15 +85,15 @@ class propagate_values_tactic : public tactic {
         void push_result(expr * new_curr, proof * new_pr) {
             if (m_goal->proofs_enabled()) {
                 proof * pr = m_goal->pr(m_idx);
-                new_pr     = m().mk_modus_ponens(pr, new_pr);
+                new_pr     = m.mk_modus_ponens(pr, new_pr);
             }
             
-            expr_dependency_ref new_d(m());
+            expr_dependency_ref new_d(m);
             if (m_goal->unsat_core_enabled()) {
                 new_d = m_goal->dep(m_idx);
                 expr_dependency * used_d = m_r.get_used_dependencies();
                 if (used_d != 0) {
-                    new_d = m().mk_join(new_d, used_d);
+                    new_d = m.mk_join(new_d, used_d);
                     m_r.reset_used_dependencies();
                 }
             }
@@ -103,34 +101,34 @@ class propagate_values_tactic : public tactic {
             m_goal->update(m_idx, new_curr, new_pr, new_d);
         
             if (is_shared(new_curr)) {
-                m_subst->insert(new_curr, m().mk_true(), m().mk_iff_true(new_pr), new_d);
+                m_subst->insert(new_curr, m.mk_true(), m.mk_iff_true(new_pr), new_d);
             }
             expr * atom;
             if (is_shared_neg(new_curr, atom)) {
-                m_subst->insert(atom, m().mk_false(), m().mk_iff_false(new_pr), new_d);
+                m_subst->insert(atom, m.mk_false(), m.mk_iff_false(new_pr), new_d);
             }
             expr * lhs, * value;
             if (is_shared_eq(new_curr, lhs, value)) {
-                TRACE("shallow_context_simplifier_bug", tout << "found eq:\n" << mk_ismt2_pp(new_curr, m()) << "\n";);
+                TRACE("shallow_context_simplifier_bug", tout << "found eq:\n" << mk_ismt2_pp(new_curr, m) << "\n";);
                 m_subst->insert(lhs, value, new_pr, new_d);
             }
         }
         
         void process_current() {
             expr * curr = m_goal->form(m_idx);
-            expr_ref   new_curr(m());
-            proof_ref  new_pr(m());
+            expr_ref   new_curr(m);
+            proof_ref  new_pr(m);
             
             if (!m_subst->empty()) {
                 m_r(curr, new_curr, new_pr);
             }
             else {
                 new_curr = curr;
-                if (m().proofs_enabled())
-                    new_pr   = m().mk_reflexivity(curr);
+                if (m.proofs_enabled())
+                    new_pr   = m.mk_reflexivity(curr);
             }
 
-            TRACE("shallow_context_simplifier_bug", tout << mk_ismt2_pp(curr, m()) << "\n---->\n" << mk_ismt2_pp(new_curr, m()) << "\n";);
+            TRACE("shallow_context_simplifier_bug", tout << mk_ismt2_pp(curr, m) << "\n---->\n" << mk_ismt2_pp(new_curr, m) << "\n";);
             push_result(new_curr, new_pr);
             
             if (new_curr != curr)
@@ -148,12 +146,13 @@ class propagate_values_tactic : public tactic {
             m_goal = g.get();
 
             bool forward   = true;
-            expr_ref   new_curr(m());
-            proof_ref  new_pr(m());
+            expr_ref   new_curr(m);
+            proof_ref  new_pr(m);
             unsigned size  = m_goal->size();
             m_idx          = 0;
             m_modified     = false;
             unsigned round = 0;
+
 
             if (m_goal->inconsistent())
                 goto end;
@@ -161,12 +160,12 @@ class propagate_values_tactic : public tactic {
             if (m_max_rounds == 0)
                 goto end;
 
-            m_subst = alloc(expr_substitution, m(), g->unsat_core_enabled(), g->proofs_enabled());
+            m_subst = alloc(expr_substitution, m, g->unsat_core_enabled(), g->proofs_enabled());
             m_r.set_substitution(m_subst.get());
             m_occs(*m_goal);
 
             while (true) {
-                TRACE("propagate_values", tout << "while(true) loop\n"; m_goal->display(tout););
+                TRACE("propagate_values", tout << "while(true) loop\n"; m_goal->display_with_dependencies(tout););
                 if (forward) {
                     for (; m_idx < size; m_idx++) {
                         process_current();
@@ -255,15 +254,14 @@ public:
     }
     
     virtual void cleanup() {
-        ast_manager & m = m_imp->m();
-        imp * d = alloc(imp, m, m_params);
-        std::swap(d, m_imp);        
-        dealloc(d);
+        ast_manager & m = m_imp->m;
+        dealloc(m_imp);
+        m_imp = alloc(imp, m, m_params);
     }
     
 };
 
 tactic * mk_propagate_values_tactic(ast_manager & m, params_ref const & p) {
-    return clean(alloc(propagate_values_tactic, m, p));
+    return alloc(propagate_values_tactic, m, p);
 }
 

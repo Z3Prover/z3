@@ -194,7 +194,7 @@ public:
         m_use_solver1_results = false;
 
         if (get_num_assumptions() != 0 ||            
-            num_assumptions > 0 || // assumptions were provided
+            num_assumptions > 0 ||  // assumptions were provided
             m_ignore_solver1)  {
             // must use incremental solver
             switch_inc_mode();

@@ -23,12 +23,11 @@ Notes:
 #include"ast_smt2_pp.h"
 
 solver_na2as::solver_na2as(ast_manager & m):
-    m_manager(m) {
+    m(m), 
+    m_assumptions(m) {
 }
 
-solver_na2as::~solver_na2as() {
-    restore_assumptions(0);
-}
+solver_na2as::~solver_na2as() {}
 
 void solver_na2as::assert_expr(expr * t, expr * a) {
     if (a == 0) {
@@ -36,20 +35,19 @@ void solver_na2as::assert_expr(expr * t, expr * a) {
     }
     else {
         SASSERT(is_uninterp_const(a));
-        SASSERT(m_manager.is_bool(a));
-        TRACE("solver_na2as", tout << "asserting\n" << mk_ismt2_pp(t, m_manager) << "\n" << mk_ismt2_pp(a, m_manager) << "\n";);
-        m_manager.inc_ref(a);
+        SASSERT(m.is_bool(a));
+        TRACE("solver_na2as", tout << "asserting\n" << mk_ismt2_pp(t, m) << "\n" << mk_ismt2_pp(a, m) << "\n";);
         m_assumptions.push_back(a);
-        expr_ref new_t(m_manager);
-        new_t = m_manager.mk_implies(a, t);
+        expr_ref new_t(m);
+        new_t = m.mk_implies(a, t);
         assert_expr(new_t);
     }
 }
 
 struct append_assumptions {
-    ptr_vector<expr> & m_assumptions;
+    expr_ref_vector & m_assumptions;
     unsigned           m_old_sz;
-    append_assumptions(ptr_vector<expr> & _m_assumptions, 
+    append_assumptions(expr_ref_vector & _m_assumptions, 
                        unsigned num_assumptions, 
                        expr * const * assumptions):
         m_assumptions(_m_assumptions) {
@@ -82,10 +80,6 @@ void solver_na2as::pop(unsigned n) {
 }
 
 void solver_na2as::restore_assumptions(unsigned old_sz) {
-  //    SASSERT(old_sz == 0);
-    for (unsigned i = old_sz; i < m_assumptions.size(); i++) {
-        m_manager.dec_ref(m_assumptions[i]);
-    }
     m_assumptions.shrink(old_sz);
 }
 
