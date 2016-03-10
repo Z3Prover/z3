@@ -105,7 +105,7 @@ else()
     message(STATUS "CMAKE_BUILD_TYPE is not set. Setting default")
     message(STATUS "The available build types are: ${available_build_types}")
     set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE String
-        "Options are ${build_types}"
+        "Options are ${available_build_types}"
         FORCE)
     # Provide drop down menu options in cmake-gui
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS ${available_build_types})
@@ -239,6 +239,7 @@ if (OPENMP_FOUND)
 else()
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_NO_OMP_")
   message(STATUS "Not using OpenMP")
+  set(USE_OPENMP OFF CACHE BOOL "Use OpenMP" FORCE)
 endif()
 
 ################################################################################
