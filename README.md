@@ -3,6 +3,8 @@
 Z3 is a theorem prover from Microsoft Research. It is licensed
 under the [MIT license](LICENSE.txt).
 
+If you are not familiar with Z3, you can start [here](https://github.com/Z3Prover/z3/wiki#background).
+
 Z3 can be built using [Visual Studio][1] or a [Makefile][2]. It provides
 [bindings for several programming languages][3].
 
