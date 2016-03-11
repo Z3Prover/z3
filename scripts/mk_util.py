@@ -12,6 +12,7 @@ import re
 import getopt
 import shutil
 from mk_exception import *
+import mk_genfile_common
 from fnmatch import fnmatch
 import distutils.sysconfig
 import compileall
@@ -2498,104 +2499,6 @@ def mk_auto_src():
         mk_all_mem_initializer_cpps()
         mk_all_gparams_register_modules()
 
-UINT   = 0
-BOOL   = 1
-DOUBLE = 2
-STRING = 3
-SYMBOL = 4
-UINT_MAX = 4294967295
-CURRENT_PYG_HPP_DEST_DIR = None
-
-def get_current_pyg_hpp_dest_dir():
-    return CURRENT_PYG_HPP_DEST_DIR
-
-TYPE2CPK = { UINT : 'CPK_UINT', BOOL : 'CPK_BOOL',  DOUBLE : 'CPK_DOUBLE',  STRING : 'CPK_STRING',  SYMBOL : 'CPK_SYMBOL' }
-TYPE2CTYPE = { UINT : 'unsigned', BOOL : 'bool', DOUBLE : 'double', STRING : 'char const *', SYMBOL : 'symbol' }
-TYPE2GETTER = { UINT : 'get_uint', BOOL : 'get_bool', DOUBLE : 'get_double', STRING : 'get_str',  SYMBOL : 'get_sym' }
-
-def pyg_default(p):
-    if p[1] == BOOL:
-        if p[2]:
-            return "true"
-        else:
-            return "false"
-    return p[2]
-
-def pyg_default_as_c_literal(p):
-    if p[1] == BOOL:
-        if p[2]:
-            return "true"
-        else:
-            return "false"
-    elif p[1] == STRING:
-        return '"%s"' % p[2]
-    elif p[1] == SYMBOL:
-        return 'symbol("%s")' % p[2]
-    elif p[1] == UINT:
-        return '%su' % p[2]
-    else:
-        return p[2]
-
-def to_c_method(s):
-    return s.replace('.', '_')
-
-def def_module_params(module_name, export, params, class_name=None, description=None):
-    dirname = get_current_pyg_hpp_dest_dir()
-    assert(os.path.exists(dirname))
-    if class_name is None:
-        class_name = '%s_params' % module_name
-    hpp = os.path.join(dirname, '%s.hpp' % class_name)
-    out = open(hpp, 'w')
-    out.write('// Automatically generated file\n')
-    out.write('#ifndef __%s_HPP_\n' % class_name.upper())
-    out.write('#define __%s_HPP_\n' % class_name.upper())
-    out.write('#include"params.h"\n')
-    if export:
-        out.write('#include"gparams.h"\n')
-    out.write('struct %s {\n' % class_name)
-    out.write('  params_ref const & p;\n')
-    if export:
-        out.write('  params_ref g;\n')
-    out.write('  %s(params_ref const & _p = params_ref::get_empty()):\n' % class_name)
-    out.write('     p(_p)')
-    if export:
-        out.write(', g(gparams::get_module("%s"))' % module_name)
-    out.write(' {}\n')
-    out.write('  static void collect_param_descrs(param_descrs & d) {\n')
-    for param in params:
-        out.write('    d.insert("%s", %s, "%s", "%s","%s");\n' % (param[0], TYPE2CPK[param[1]], param[3], pyg_default(param), module_name))
-    out.write('  }\n')
-    if export:
-        out.write('  /*\n')
-        out.write("     REG_MODULE_PARAMS('%s', '%s::collect_param_descrs')\n" % (module_name, class_name))
-        if description is not None:
-            out.write("     REG_MODULE_DESCRIPTION('%s', '%s')\n" % (module_name, description))
-        out.write('  */\n')
-    # Generated accessors
-    for param in params:
-        if export:
-            out.write('  %s %s() const { return p.%s("%s", g, %s); }\n' %
-                      (TYPE2CTYPE[param[1]], to_c_method(param[0]), TYPE2GETTER[param[1]], param[0], pyg_default_as_c_literal(param)))
-        else:
-            out.write('  %s %s() const { return p.%s("%s", %s); }\n' %
-                      (TYPE2CTYPE[param[1]], to_c_method(param[0]), TYPE2GETTER[param[1]], param[0], pyg_default_as_c_literal(param)))
-    out.write('};\n')
-    out.write('#endif\n')
-    out.close()
-    if is_verbose():
-        print("Generated '%s'" % hpp)
-
-def max_memory_param():
-    return ('max_memory', UINT, UINT_MAX, 'maximum amount of memory in megabytes')
-
-def max_steps_param():
-    return ('max_steps', UINT, UINT_MAX, 'maximum number of steps')
-
-PYG_GLOBALS = { 'UINT' : UINT, 'BOOL' : BOOL, 'DOUBLE' : DOUBLE, 'STRING' : STRING, 'SYMBOL' : SYMBOL,
-                'UINT_MAX' : UINT_MAX,
-                'max_memory_param' : max_memory_param,
-                'max_steps_param' : max_steps_param,
-                'def_module_params' : def_module_params }
 
 def _execfile(file, globals=globals(), locals=locals()):
     if sys.version < "2.7":
@@ -2606,13 +2509,13 @@ def _execfile(file, globals=globals(), locals=locals()):
 
 # Execute python auxiliary scripts that generate extra code for Z3.
 def exec_pyg_scripts():
-    global CURRENT_PYG_HPP_DEST_DIR
     for root, dirs, files in os.walk('src'):
         for f in files:
             if f.endswith('.pyg'):
                 script = os.path.join(root, f)
-                CURRENT_PYG_HPP_DEST_DIR = root
-                _execfile(script, PYG_GLOBALS)
+                generated_file = mk_genfile_common.mk_hpp_from_pyg(script, root)
+                if is_verbose():
+                    print("Generated '{}'".format(generated_file))
 
 # TODO: delete after src/ast/pattern/expr_pattern_match
 # database.smt ==> database.h
@@ -2620,17 +2523,9 @@ def mk_pat_db():
     c = get_component(PATTERN_COMPONENT)
     fin  = os.path.join(c.src_dir, 'database.smt2')
     fout = os.path.join(c.src_dir, 'database.h')
-    mk_pat_db_internal(fin, fout)
-
-def mk_pat_db_internal(inputFilePath, outputFilePath):
-    with open(inputFilePath, 'r') as fin:
-        with open(outputFilePath, 'w') as fout:
-            fout.write('static char const g_pattern_database[] =\n')
-            for line in fin:
-                fout.write('"%s\\n"\n' % line.strip('\n'))
-            fout.write(';\n')
+    mk_genfile_common.mk_pat_db_internal(fin, fout)
     if VERBOSE:
-        print("Generated '%s'" % outputFilePath)
+        print("Generated '{}'".format(fout))
 
 # Update version numbers
 def update_version():
@@ -2681,82 +2576,14 @@ def mk_all_assembly_infos(major, minor, build, revision):
             else:
                 raise MKException("Failed to find assembly template info file '%s'" % assembly_info_template)
 
-ADD_TACTIC_DATA=[]
-ADD_PROBE_DATA=[]
-
-def ADD_TACTIC(name, descr, cmd):
-    global ADD_TACTIC_DATA
-    ADD_TACTIC_DATA.append((name, descr, cmd))
-
-def ADD_PROBE(name, descr, cmd):
-    global ADD_PROBE_DATA
-    ADD_PROBE_DATA.append((name, descr, cmd))
-
-# Generate an install_tactics.cpp at path.
-# This file implements the procedure
-#    void install_tactics(tactic_manager & ctx)
-# It installs all tactics in the given component (name) list cnames
-# The procedure looks for ADD_TACTIC commands in the .h files of these components.
 def mk_install_tactic_cpp(cnames, path):
-  component_src_dirs = []
-  for cname in cnames:
-    c = get_component(cname)
-    component_src_dirs.append(c.src_dir)
-  mk_install_tactic_cpp_internal(component_src_dirs, path)
-
-def mk_install_tactic_cpp_internal(component_src_dirs, path):
-    global ADD_TACTIC_DATA, ADD_PROBE_DATA
-    ADD_TACTIC_DATA = []
-    ADD_PROBE_DATA = []
-    fullname = os.path.join(path, 'install_tactic.cpp')
-    fout  = open(fullname, 'w')
-    fout.write('// Automatically generated file.\n')
-    fout.write('#include"tactic.h"\n')
-    fout.write('#include"tactic_cmds.h"\n')
-    fout.write('#include"cmd_context.h"\n')
-    tactic_pat   = re.compile('[ \t]*ADD_TACTIC\(.*\)')
-    probe_pat    = re.compile('[ \t]*ADD_PROBE\(.*\)')
-    for component_src_dir in component_src_dirs:
-        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(component_src_dir))
-        for h_file in h_files:
-            added_include = False
-            fin = open(os.path.join(component_src_dir, h_file), 'r')
-            for line in fin:
-                if tactic_pat.match(line):
-                    if not added_include:
-                        added_include = True
-                        fout.write('#include"%s"\n' % h_file)
-                    try:
-                        exec(line.strip('\n '), globals())
-                    except:
-                        raise MKException("Failed processing ADD_TACTIC command at '%s'\n%s" % (fullname, line))
-                if probe_pat.match(line):
-                    if not added_include:
-                        added_include = True
-                        fout.write('#include"%s"\n' % h_file)
-                    try:
-                        exec(line.strip('\n '), globals())
-                    except:
-                        raise MKException("Failed processing ADD_PROBE command at '%s'\n%s" % (fullname, line))
-            fin.close()
-    # First pass will just generate the tactic factories
-    idx = 0
-    for data in ADD_TACTIC_DATA:
-        fout.write('MK_SIMPLE_TACTIC_FACTORY(__Z3_local_factory_%s, %s);\n' % (idx, data[2]))
-        idx = idx + 1
-    fout.write('#define ADD_TACTIC_CMD(NAME, DESCR, FACTORY) ctx.insert(alloc(tactic_cmd, symbol(NAME), DESCR, alloc(FACTORY)))\n')
-    fout.write('#define ADD_PROBE(NAME, DESCR, PROBE) ctx.insert(alloc(probe_info, symbol(NAME), DESCR, PROBE))\n')
-    fout.write('void install_tactics(tactic_manager & ctx) {\n')
-    idx = 0
-    for data in ADD_TACTIC_DATA:
-        fout.write('  ADD_TACTIC_CMD("%s", "%s", __Z3_local_factory_%s);\n' % (data[0], data[1], idx))
-        idx = idx + 1
-    for data in ADD_PROBE_DATA:
-        fout.write('  ADD_PROBE("%s", "%s", %s);\n' % data)
-    fout.write('}\n')
-    fout.close()
+    component_src_dirs = []
+    for cname in cnames:
+        c = get_component(cname)
+        component_src_dirs.append(c.src_dir)
+    generated_file = mk_genfile_common.mk_install_tactic_cpp_internal(component_src_dirs, path)
     if VERBOSE:
-        print("Generated '%s'" % fullname)
+        print("Generated '{}'".format(generated_file))
 
 def mk_all_install_tactic_cpps():
     if not ONLY_MAKEFILES:
@@ -2767,67 +2594,14 @@ def mk_all_install_tactic_cpps():
                 cnames.append(c.name)
                 mk_install_tactic_cpp(cnames, c.src_dir)
 
-# Generate an mem_initializer.cpp at path.
-# This file implements the procedures
-#    void mem_initialize()
-#    void mem_finalize()
-# These procedures are invoked by the Z3 memory_manager
 def mk_mem_initializer_cpp(cnames, path):
-  component_src_dirs = []
-  for cname in cnames:
-    c = get_component(cname)
-    component_src_dirs.append(c.src_dir)
-  mk_mem_initializer_cpp_internal(component_src_dirs, path)
-
-def mk_mem_initializer_cpp_internal(component_src_dirs, path):
-    initializer_cmds = []
-    finalizer_cmds   = []
-    fullname = os.path.join(path, 'mem_initializer.cpp')
-    fout  = open(fullname, 'w')
-    fout.write('// Automatically generated file.\n')
-    initializer_pat      = re.compile('[ \t]*ADD_INITIALIZER\(\'([^\']*)\'\)')
-    # ADD_INITIALIZER with priority
-    initializer_prio_pat = re.compile('[ \t]*ADD_INITIALIZER\(\'([^\']*)\',[ \t]*(-?[0-9]*)\)')
-    finalizer_pat        = re.compile('[ \t]*ADD_FINALIZER\(\'([^\']*)\'\)')
-    for component_src_dir in component_src_dirs:
-        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(component_src_dir))
-        for h_file in h_files:
-            added_include = False
-            fin = open(os.path.join(component_src_dir, h_file), 'r')
-            for line in fin:
-                m = initializer_pat.match(line)
-                if m:
-                    if not added_include:
-                        added_include = True
-                        fout.write('#include"%s"\n' % h_file)
-                    initializer_cmds.append((m.group(1), 0))
-                m = initializer_prio_pat.match(line)
-                if m:
-                    if not added_include:
-                        added_include = True
-                        fout.write('#include"%s"\n' % h_file)
-                    initializer_cmds.append((m.group(1), int(m.group(2))))
-                m = finalizer_pat.match(line)
-                if m:
-                    if not added_include:
-                        added_include = True
-                        fout.write('#include"%s"\n' % h_file)
-                    finalizer_cmds.append(m.group(1))
-            fin.close()
-    initializer_cmds.sort(key=lambda tup: tup[1])
-    fout.write('void mem_initialize() {\n')
-    for (cmd, prio) in initializer_cmds:
-        fout.write(cmd)
-        fout.write('\n')
-    fout.write('}\n')
-    fout.write('void mem_finalize() {\n')
-    for cmd in finalizer_cmds:
-        fout.write(cmd)
-        fout.write('\n')
-    fout.write('}\n')
-    fout.close()
+    component_src_dirs = []
+    for cname in cnames:
+        c = get_component(cname)
+        component_src_dirs.append(c.src_dir)
+    generated_file = mk_genfile_common.mk_mem_initializer_cpp_internal(component_src_dirs, path)
     if VERBOSE:
-        print("Generated '%s'" % fullname)
+        print("Generated '{}'".format(generated_file))
 
 def mk_all_mem_initializer_cpps():
     if not ONLY_MAKEFILES:
@@ -2838,61 +2612,14 @@ def mk_all_mem_initializer_cpps():
                 cnames.append(c.name)
                 mk_mem_initializer_cpp(cnames, c.src_dir)
 
-# Generate an ``gparams_register_modules.cpp`` at path.
-# This file implements the procedure
-#    void gparams_register_modules()
-# This procedure is invoked by gparams::init()
 def mk_gparams_register_modules(cnames, path):
-  component_src_dirs = []
-  for cname in cnames:
-    c = get_component(cname)
-    component_src_dirs.append(c.src_dir)
-  mk_gparams_register_modules_internal(component_src_dirs, path)
-
-def mk_gparams_register_modules_internal(component_src_dirs, path):
-    cmds = []
-    mod_cmds = []
-    mod_descrs = []
-    fullname = os.path.join(path, 'gparams_register_modules.cpp')
-    fout  = open(fullname, 'w')
-    fout.write('// Automatically generated file.\n')
-    fout.write('#include"gparams.h"\n')
-    reg_pat = re.compile('[ \t]*REG_PARAMS\(\'([^\']*)\'\)')
-    reg_mod_pat = re.compile('[ \t]*REG_MODULE_PARAMS\(\'([^\']*)\', *\'([^\']*)\'\)')
-    reg_mod_descr_pat = re.compile('[ \t]*REG_MODULE_DESCRIPTION\(\'([^\']*)\', *\'([^\']*)\'\)')
-    for component_src_dir in component_src_dirs:
-        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(component_src_dir))
-        for h_file in h_files:
-            added_include = False
-            fin = open(os.path.join(component_src_dir, h_file), 'r')
-            for line in fin:
-                m = reg_pat.match(line)
-                if m:
-                    if not added_include:
-                        added_include = True
-                        fout.write('#include"%s"\n' % h_file)
-                    cmds.append((m.group(1)))
-                m = reg_mod_pat.match(line)
-                if m:
-                    if not added_include:
-                        added_include = True
-                        fout.write('#include"%s"\n' % h_file)
-                    mod_cmds.append((m.group(1), m.group(2)))
-                m = reg_mod_descr_pat.match(line)
-                if m:
-                    mod_descrs.append((m.group(1), m.group(2)))
-            fin.close()
-    fout.write('void gparams_register_modules() {\n')
-    for code in cmds:
-        fout.write('{ param_descrs d; %s(d); gparams::register_global(d); }\n' % code)
-    for (mod, code) in mod_cmds:
-        fout.write('{ param_descrs * d = alloc(param_descrs); %s(*d); gparams::register_module("%s", d); }\n' % (code, mod))
-    for (mod, descr) in mod_descrs:
-        fout.write('gparams::register_module_descr("%s", "%s");\n' % (mod, descr))
-    fout.write('}\n')
-    fout.close()
+    component_src_dirs = []
+    for cname in cnames:
+        c = get_component(cname)
+        component_src_dirs.append(c.src_dir)
+    generated_file = mk_genfile_common.mk_gparams_register_modules_internal(component_src_dirs, path)
     if VERBOSE:
-        print("Generated '%s'" % fullname)
+        print("Generated '{}'".format(generated_file))
 
 def mk_all_gparams_register_modules():
     if not ONLY_MAKEFILES:
@@ -2912,28 +2639,7 @@ def mk_def_file(c):
         dot_h_c = c.find_file(dot_h, c.name)
         api = os.path.join(dot_h_c.src_dir, dot_h)
         export_header_files.append(api)
-    mk_def_file_internal(defname, dll_name, export_header_files)
-
-def mk_def_file_internal(defname, dll_name, export_header_files):
-    pat1 = re.compile(".*Z3_API.*")
-    fout = open(defname, 'w')
-    fout.write('LIBRARY "%s"\nEXPORTS\n' % dll_name)
-    num = 1
-    for export_header_file in export_header_files:
-        api = open(export_header_file, 'r')
-        for line in api:
-            m = pat1.match(line)
-            if m:
-                words = re.split('\W+', line)
-                i = 0
-                for w in words:
-                    if w == 'Z3_API':
-                        f = words[i+1]
-                        fout.write('\t%s @%s\n' % (f, num))
-                    i = i + 1
-                num = num + 1
-        api.close()
-    fout.close()
+    mk_genfile_common.mk_def_file_internal(defname, dll_name, export_header_files)
     if VERBOSE:
         print("Generated '%s'" % defname)
 
@@ -3026,83 +2732,9 @@ def mk_z3consts_py(api_files):
         api_file_c = api_dll.find_file(api_file, api_dll.name)
         api_file   = os.path.join(api_file_c.src_dir, api_file)
         full_path_api_files.append(api_file)
-    mk_z3consts_py_internal(full_path_api_files, Z3PY_SRC_DIR)
-
-def mk_z3consts_py_internal(api_files, output_dir):
-    assert os.path.isdir(output_dir)
-    assert isinstance(api_files, list)
-
-    blank_pat      = re.compile("^ *\r?$")
-    comment_pat    = re.compile("^ *//.*$")
-    typedef_pat    = re.compile("typedef enum *")
-    typedef2_pat   = re.compile("typedef enum { *")
-    openbrace_pat  = re.compile("{ *")
-    closebrace_pat = re.compile("}.*;")
-
-    z3consts  = open(os.path.join(output_dir, 'z3consts.py'), 'w')
-    z3consts.write('# Automatically generated file\n\n')
-    for api_file in api_files:
-        api = open(api_file, 'r')
-
-        SEARCHING  = 0
-        FOUND_ENUM = 1
-        IN_ENUM    = 2
-
-        mode    = SEARCHING
-        decls   = {}
-        idx     = 0
-
-        linenum = 1
-        for line in api:
-            m1 = blank_pat.match(line)
-            m2 = comment_pat.match(line)
-            if m1 or m2:
-                # skip blank lines and comments
-                linenum = linenum + 1
-            elif mode == SEARCHING:
-                m = typedef_pat.match(line)
-                if m:
-                    mode = FOUND_ENUM
-                m = typedef2_pat.match(line)
-                if m:
-                    mode = IN_ENUM
-                    decls = {}
-                    idx   = 0
-            elif mode == FOUND_ENUM:
-                m = openbrace_pat.match(line)
-                if m:
-                    mode  = IN_ENUM
-                    decls = {}
-                    idx   = 0
-                else:
-                    assert False, "Invalid %s, line: %s" % (api_file, linenum)
-            else:
-                assert mode == IN_ENUM
-                words = re.split('[^\-a-zA-Z0-9_]+', line)
-                m = closebrace_pat.match(line)
-                if m:
-                    name = words[1]
-                    z3consts.write('# enum %s\n' % name)
-                    for k in decls:
-                        i = decls[k]
-                        z3consts.write('%s = %s\n' % (k, i))
-                    z3consts.write('\n')
-                    mode = SEARCHING
-                elif len(words) <= 2:
-                    assert False, "Invalid %s, line: %s" % (api_file, linenum)
-                else:
-                    if words[2] != '':
-                        if len(words[2]) > 1 and words[2][1] == 'x':
-                            idx = int(words[2], 16)
-                        else:
-                            idx = int(words[2])
-                    decls[words[1]] = idx
-                    idx = idx + 1
-            linenum = linenum + 1
-        api.close()
-    z3consts.close()
+    generated_file = mk_genfile_common.mk_z3consts_py_internal(full_path_api_files, Z3PY_SRC_DIR)
     if VERBOSE:
-        print("Generated '%s'" % os.path.join(output_dir, 'z3consts.py'))
+        print("Generated '{}".format(generated_file))
 
 
 # Extract enumeration types from z3_api.h, and add .Net definitions
