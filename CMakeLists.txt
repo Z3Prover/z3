@@ -336,6 +336,17 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 
 ################################################################################
+# Extra dependencies for build rules that use the Python infrastructure to
+# generate files used for Z3's build. Changes to these files will trigger
+# a rebuild of all the generated files.
+################################################################################
+# Note: ``update_api.py`` is deliberately not here because it not used
+# to generate every generated file. The targets that need it list it explicitly.
+set(Z3_GENERATED_FILE_EXTRA_DEPENDENCIES
+  "${CMAKE_SOURCE_DIR}/scripts/mk_genfile_common.py"
+)
+
+################################################################################
 # Z3 components, library and executables
 ################################################################################
 include(${CMAKE_SOURCE_DIR}/cmake/z3_add_component.cmake)

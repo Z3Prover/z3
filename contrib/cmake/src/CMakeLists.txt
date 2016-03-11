@@ -186,7 +186,7 @@ if (MSVC)
       ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
     DEPENDS
       "${CMAKE_SOURCE_DIR}/scripts/mk_def_file.py"
-      "${CMAKE_SOURCE_DIR}/scripts/mk_util.py"
+      ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
       ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
     COMMENT "Generating \"${dll_module_exports_file}\""
     ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
