@@ -72,7 +72,7 @@ public:
         m_asmsf(m),
         m_fmls_head(0),
         m_core(m),
-        m_map(m),        
+        m_map(m),
         m_num_scopes(0),
         m_dep_core(m),
         m_unknown("no reason given") {
@@ -214,7 +214,7 @@ public:
         m_optimize_model = m_params.get_bool("optimize_model", false);
     }
     virtual void collect_statistics(statistics & st) const {
-        m_preprocess->collect_statistics(st);
+        if (m_preprocess) m_preprocess->collect_statistics(st);
         m_solver.collect_statistics(st);
     }
     virtual void get_unsat_core(ptr_vector<expr> & r) {
@@ -440,7 +440,7 @@ private:
         DEBUG_CODE(
             for (unsigned i = 0; i < m_fmls.size(); ++i) {
                 expr_ref tmp(m);
-                if (m_model->eval(m_fmls[i].get(), tmp, true)) {                    
+                if (m_model->eval(m_fmls[i].get(), tmp, true)) {
                     CTRACE("sat", !m.is_true(tmp),
                            tout << "Evaluation failed: " << mk_pp(m_fmls[i].get(), m)
                            << " to " << tmp << "\n";
