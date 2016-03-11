@@ -593,7 +593,7 @@ func_decl * fpa_decl_plugin::mk_to_fp_unsigned(decl_kind k, unsigned num_paramet
 }
 
 func_decl * fpa_decl_plugin::mk_fp(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                     unsigned arity, sort * const * domain, sort * range) {
+                                   unsigned arity, sort * const * domain, sort * range) {
     if (arity != 3)
         m_manager->raise_exception("invalid number of arguments to fp");
     if (!is_sort_of(domain[0], m_bv_fid, BV_SORT) ||
@@ -610,7 +610,7 @@ func_decl * fpa_decl_plugin::mk_fp(decl_kind k, unsigned num_parameters, paramet
 }
 
 func_decl * fpa_decl_plugin::mk_to_ubv(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                         unsigned arity, sort * const * domain, sort * range) {
+                                       unsigned arity, sort * const * domain, sort * range) {
     SASSERT(m_bv_plugin);
     if (arity != 2)
         m_manager->raise_exception("invalid number of arguments to fp.to_ubv");
@@ -631,7 +631,7 @@ func_decl * fpa_decl_plugin::mk_to_ubv(decl_kind k, unsigned num_parameters, par
 }
 
 func_decl * fpa_decl_plugin::mk_to_sbv(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                         unsigned arity, sort * const * domain, sort * range) {
+                                       unsigned arity, sort * const * domain, sort * range) {
     SASSERT(m_bv_plugin);
     if (arity != 2)
         m_manager->raise_exception("invalid number of arguments to fp.to_sbv");
@@ -671,9 +671,9 @@ func_decl * fpa_decl_plugin::mk_to_ieee_bv(decl_kind k, unsigned num_parameters,
 
     unsigned float_sz = domain[0]->get_parameter(0).get_int() + domain[0]->get_parameter(1).get_int();
     parameter ps[] = { parameter(float_sz) };
-    sort * bv_srt = m_bv_plugin->mk_sort(m_bv_fid, 1, ps);
+    sort * bv_srt = m_bv_plugin->mk_sort(BV_SORT, 1, ps);
     symbol name("to_ieee_bv");
-    return m_manager->mk_func_decl(name, 1, domain, bv_srt, func_decl_info(m_family_id, k, num_parameters, parameters));
+    return m_manager->mk_func_decl(name, 1, domain, bv_srt, func_decl_info(m_family_id, k));
 }
 
 func_decl * fpa_decl_plugin::mk_internal_rm(decl_kind k, unsigned num_parameters, parameter const * parameters,
