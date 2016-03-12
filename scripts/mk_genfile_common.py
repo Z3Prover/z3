@@ -105,9 +105,9 @@ def mk_z3consts_py_internal(api_files, output_dir):
                 if m:
                     name = words[1]
                     z3consts.write('# enum %s\n' % name)
-                    for k in decls:
-                        i = decls[k]
-                        z3consts.write('%s = %s\n' % (k, i))
+                    # Iterate over key-value pairs ordered by value
+                    for k, v in sorted(decls.items(), key=lambda pair: pair[1]):
+                        z3consts.write('%s = %s\n' % (k, v))
                     z3consts.write('\n')
                     mode = SEARCHING
                 elif len(words) <= 2:
