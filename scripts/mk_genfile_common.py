@@ -246,7 +246,7 @@ def mk_install_tactic_cpp_internal(component_src_dirs, path):
     def ADD_PROBE(name, descr, cmd):
         ADD_PROBE_DATA.append((name, descr, cmd))
 
-    exec_globals = {
+    eval_globals = {
         'ADD_TACTIC': ADD_TACTIC,
         'ADD_PROBE': ADD_PROBE,
     }
@@ -272,7 +272,7 @@ def mk_install_tactic_cpp_internal(component_src_dirs, path):
                         added_include = True
                         fout.write('#include"%s"\n' % h_file)
                     try:
-                        exec(line.strip('\n '), exec_globals)
+                        eval(line.strip('\n '), eval_globals, None)
                     except Exception as e:
                         _logger.error("Failed processing ADD_TACTIC command at '{}'\n{}".format(
                             fullname, line))
@@ -282,7 +282,7 @@ def mk_install_tactic_cpp_internal(component_src_dirs, path):
                         added_include = True
                         fout.write('#include"%s"\n' % h_file)
                     try:
-                        exec(line.strip('\n '), exec_globals)
+                        eval(line.strip('\n '), eval_globals, None)
                     except Exception as e:
                         _logger.error("Failed processing ADD_PROBE command at '{}'\n{}".format(
                             fullname, line))
@@ -514,6 +514,6 @@ def mk_hpp_from_pyg(pyg_file, output_dir):
         'def_module_params' : def_module_params,
     }
     with open(pyg_file, 'r') as fh:
-        exec(fh.read() + "\n", pyg_globals, None)
+        eval(fh.read() + "\n", pyg_globals, None)
     assert len(OUTPUT_HPP_FILE) == 1
     return OUTPUT_HPP_FILE[0]
