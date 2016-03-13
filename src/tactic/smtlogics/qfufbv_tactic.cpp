@@ -47,6 +47,7 @@ public:
         : m_m(m)
         , m_p(p)
         , m_use_sat(false)
+        , m_inc_use_sat(false)
     {}
 
     virtual ~qfufbv_ackr_tactic() { }
@@ -85,6 +86,7 @@ public:
     void updt_params(params_ref const & _p) {
         qfufbv_tactic_params p(_p);
         m_use_sat = p.sat_backend();
+        m_inc_use_sat = p.inc_sat_backend();
     }
 
     virtual void collect_statistics(statistics & st) const {
@@ -105,12 +107,18 @@ private:
     params_ref                           m_p;
     lackr_stats                          m_st;
     bool                                 m_use_sat;
+    bool                                 m_inc_use_sat;
 
     solver* setup_sat() {
         solver * sat(NULL);
         if (m_use_sat) {
-            tactic_ref t = mk_qfbv_tactic(m_m, m_p);
-            sat = mk_tactic2solver(m_m, t.get(), m_p);
+            if (m_inc_use_sat) {
+                sat = mk_inc_sat_solver(m_m, m_p);
+            }
+            else {
+                tactic_ref t = mk_qfbv_tactic(m_m, m_p);
+                sat = mk_tactic2solver(m_m, t.get(), m_p);
+            }
         }
         else {
             tactic_ref t = mk_qfaufbv_tactic(m_m, m_p);

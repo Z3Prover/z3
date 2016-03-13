@@ -1155,37 +1155,33 @@ expr_ref fpa2bv_converter::mk_min_unspecified(func_decl * f, expr * x, expr * y)
     expr_ref res(m);
 
     // The only cases in which min is unspecified for is when the arguments are +0.0 and -0.0.
+    // There is no "hardware interpretation" for fp.min.
 
-    if (m_hi_fp_unspecified)
-        // The hardware interpretation is -0.0.
-        mk_nzero(f, res);
-    else {
-        std::pair<app*, app*> decls(0, 0);
-        if (!m_specials.find(f, decls)) {
-            decls.first = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
-            decls.second = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
-            m_specials.insert(f, decls);
-            m.inc_ref(f);
-            m.inc_ref(decls.first);
-            m.inc_ref(decls.second);
-        }
-
-        expr_ref pn(m), np(m);
-        mk_fp(decls.first,
-              m_bv_util.mk_numeral(0, ebits),
-              m_bv_util.mk_numeral(0, sbits - 1),
-              pn);
-        mk_fp(decls.second,
-              m_bv_util.mk_numeral(0, ebits),
-              m_bv_util.mk_numeral(0, sbits - 1),
-              np);
-
-        expr_ref x_is_pzero(m), x_is_nzero(m), xyzero(m);
-        mk_is_pzero(x, x_is_pzero);
-        mk_is_nzero(y, x_is_nzero);
-        m_simp.mk_and(x_is_pzero, x_is_nzero, xyzero);
-        mk_ite(xyzero, pn, np, res);
+    std::pair<app*, app*> decls(0, 0);
+    if (!m_specials.find(f, decls)) {
+        decls.first = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
+        decls.second = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
+        m_specials.insert(f, decls);
+        m.inc_ref(f);
+        m.inc_ref(decls.first);
+        m.inc_ref(decls.second);
     }
+
+    expr_ref pn(m), np(m);
+    mk_fp(decls.first,
+            m_bv_util.mk_numeral(0, ebits),
+            m_bv_util.mk_numeral(0, sbits - 1),
+            pn);
+    mk_fp(decls.second,
+            m_bv_util.mk_numeral(0, ebits),
+            m_bv_util.mk_numeral(0, sbits - 1),
+            np);
+
+    expr_ref x_is_pzero(m), x_is_nzero(m), xyzero(m);
+    mk_is_pzero(x, x_is_pzero);
+    mk_is_nzero(y, x_is_nzero);
+    m_simp.mk_and(x_is_pzero, x_is_nzero, xyzero);
+    mk_ite(xyzero, pn, np, res);
 
     return res;
 }
@@ -1244,37 +1240,33 @@ expr_ref fpa2bv_converter::mk_max_unspecified(func_decl * f, expr * x, expr * y)
     expr_ref res(m);
 
     // The only cases in which max is unspecified for is when the arguments are +0.0 and -0.0.
+    // There is no "hardware interpretation" for fp.max.
 
-    if (m_hi_fp_unspecified)
-        // The hardware interpretation is +0.0.
-        mk_pzero(f, res);
-    else {
-        std::pair<app*, app*> decls(0, 0);
-        if (!m_specials.find(f, decls)) {
-            decls.first = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
-            decls.second = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
-            m_specials.insert(f, decls);
-            m.inc_ref(f);
-            m.inc_ref(decls.first);
-            m.inc_ref(decls.second);
-        }
-
-        expr_ref pn(m), np(m);
-        mk_fp(decls.first,
-              m_bv_util.mk_numeral(0, ebits),
-              m_bv_util.mk_numeral(0, sbits - 1),
-              pn);
-        mk_fp(decls.second,
-              m_bv_util.mk_numeral(0, ebits),
-              m_bv_util.mk_numeral(0, sbits - 1),
-              np);
-
-        expr_ref x_is_pzero(m), x_is_nzero(m), xyzero(m);
-        mk_is_pzero(x, x_is_pzero);
-        mk_is_nzero(y, x_is_nzero);
-        m_simp.mk_and(x_is_pzero, x_is_nzero, xyzero);
-        mk_ite(xyzero, pn, np, res);
+    std::pair<app*, app*> decls(0, 0);
+    if (!m_specials.find(f, decls)) {
+        decls.first = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
+        decls.second = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
+        m_specials.insert(f, decls);
+        m.inc_ref(f);
+        m.inc_ref(decls.first);
+        m.inc_ref(decls.second);
     }
+
+    expr_ref pn(m), np(m);
+    mk_fp(decls.first,
+          m_bv_util.mk_numeral(0, ebits),
+          m_bv_util.mk_numeral(0, sbits - 1),
+          pn);
+    mk_fp(decls.second,
+          m_bv_util.mk_numeral(0, ebits),
+          m_bv_util.mk_numeral(0, sbits - 1),
+          np);
+
+    expr_ref x_is_pzero(m), x_is_nzero(m), xyzero(m);
+    mk_is_pzero(x, x_is_pzero);
+    mk_is_nzero(y, x_is_nzero);
+    m_simp.mk_and(x_is_pzero, x_is_nzero, xyzero);
+    mk_ite(xyzero, pn, np, res);
 
     return res;
 }

@@ -24,8 +24,10 @@ add_custom_command(OUTPUT ${generated_files}
   "--api_output_dir"
   "${CMAKE_CURRENT_BINARY_DIR}"
   DEPENDS "${CMAKE_SOURCE_DIR}/scripts/update_api.py"
-          "${CMAKE_SOURCE_DIR}/scripts/mk_util.py"
+          ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
           ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
+          # FIXME: When update_api.py no longer uses ``mk_util`` drop this dependency
+          "${CMAKE_SOURCE_DIR}/scripts/mk_util.py"
   COMMENT "Generating ${generated_files}"
   ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
   VERBATIM

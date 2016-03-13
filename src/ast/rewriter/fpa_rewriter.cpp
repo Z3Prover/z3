@@ -150,11 +150,9 @@ br_status fpa_rewriter::mk_to_sbv_unspecified(func_decl * f, expr_ref & result) 
 }
 
 br_status fpa_rewriter::mk_to_ieee_bv_unspecified(func_decl * f, expr_ref & result) {
-    SASSERT(f->get_num_parameters() == 1);
-    SASSERT(f->get_parameter(0).is_int());
-    unsigned bv_sz = f->get_parameter(0).get_int();
-
     bv_util bu(m());
+    unsigned bv_sz = bu.get_bv_size(f->get_range());
+
     if (m_hi_fp_unspecified)
         // The "hardware interpretation" is 0.
         result = bu.mk_numeral(0, bv_sz);

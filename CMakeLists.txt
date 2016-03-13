@@ -321,9 +321,10 @@ message(STATUS "Z3_DEPENDENT_EXTRA_C_LINK_FLAGS: ${Z3_DEPENDENT_EXTRA_C_LINK_FLA
 ################################################################################
 # Z3 installation locations
 ################################################################################
-set (Z3_INSTALL_LIB_DIR "lib")
-set (Z3_INSTALL_BIN_DIR "bin")
-set (Z3_INSTALL_INCLUDE_DIR "include")
+include(GNUInstallDirs)
+message(STATUS "CMAKE_INSTALL_LIBDIR: \"${CMAKE_INSTALL_LIBDIR}\"")
+message(STATUS "CMAKE_INSTALL_BINDIR: \"${CMAKE_INSTALL_BINDIR}\"")
+message(STATUS "CMAKE_INSTALL_INCLUDEDIR: \"${CMAKE_INSTALL_INCLUDEDIR}\"")
 
 ################################################################################
 # CMake build file locations
@@ -333,6 +334,17 @@ set (Z3_INSTALL_INCLUDE_DIR "include")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
+
+################################################################################
+# Extra dependencies for build rules that use the Python infrastructure to
+# generate files used for Z3's build. Changes to these files will trigger
+# a rebuild of all the generated files.
+################################################################################
+# Note: ``update_api.py`` is deliberately not here because it not used
+# to generate every generated file. The targets that need it list it explicitly.
+set(Z3_GENERATED_FILE_EXTRA_DEPENDENCIES
+  "${CMAKE_SOURCE_DIR}/scripts/mk_genfile_common.py"
+)
 
 ################################################################################
 # Z3 components, library and executables

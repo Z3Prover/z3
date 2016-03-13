@@ -4,5 +4,6 @@ def_module_params('ackermannization',
                   export=True,
                   params=(
                           ('sat_backend', BOOL, False, 'use SAT rather than SMT in qfufbv_ackr_tactic'),
+                          ('inc_sat_backend', BOOL, False, 'use incremental SAT'),
                           ))
 
