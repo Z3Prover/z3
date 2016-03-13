@@ -514,12 +514,10 @@ namespace opt {
 
     void context::init_solver() {
         setup_arith_solver();
-        #pragma omp critical (opt_context)
-        {
-            m_opt_solver = alloc(opt_solver, m, m_params, m_fm);
-            m_opt_solver->set_logic(m_logic);
-            m_solver = m_opt_solver.get();
-        }
+        m_opt_solver = alloc(opt_solver, m, m_params, m_fm);
+        m_opt_solver->set_logic(m_logic);
+        m_solver = m_opt_solver.get();
+    
         if (opt_params(m_params).priority() == symbol("pareto") ||
             (opt_params(m_params).priority() == symbol("lex") && m_objectives.size() > 1)) {
             m_opt_solver->ensure_pb();
@@ -556,10 +554,7 @@ namespace opt {
         for (unsigned i = 0; i < sz; ++i) {
             m_sat_solver->assert_expr(get_solver().get_assertion(i));
         }   
-        #pragma omp critical (opt_context)
-        {
-            m_solver = m_sat_solver.get();
-        }
+        m_solver = m_sat_solver.get();        
     }
 
     void context::enable_sls(bool force) {
@@ -649,10 +644,7 @@ namespace opt {
     void context::add_maxsmt(symbol const& id, unsigned index) {
         maxsmt* ms = alloc(maxsmt, *this, index);
         ms->updt_params(m_params);
-        #pragma omp critical (opt_context)
-        {
-            m_maxsmts.insert(id, ms);
-        }
+        m_maxsmts.insert(id, ms);        
     }
 
     bool context::is_numeral(expr* e, rational & n) const {
@@ -1277,10 +1269,7 @@ namespace opt {
     }
        
     void context::set_simplify(tactic* tac) {
-        #pragma omp critical (opt_context)
-        {
-            m_simplify = tac;
-        }
+        m_simplify = tac;        
     }
 
     void context::clear_state() {
@@ -1290,10 +1279,7 @@ namespace opt {
     }
 
     void context::set_pareto(pareto_base* p) {
-        #pragma omp critical (opt_context)
-        {
-            m_pareto = p;
-        }
+        m_pareto = p;        
     }
 
     void context::collect_statistics(statistics& stats) const {
