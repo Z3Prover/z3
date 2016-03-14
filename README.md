@@ -5,14 +5,15 @@ under the [MIT license](LICENSE.txt).
 
 If you are not familiar with Z3, you can start [here](https://github.com/Z3Prover/z3/wiki#background).
 
-Z3 can be built using [Visual Studio][1] or a [Makefile][2]. It provides
-[bindings for several programming languages][3].
+Z3 can be built using [Visual Studio][1], a [Makefile][2] or using [CMake][3]. It provides
+[bindings for several programming languages][4].
 
 See the [release notes](RELEASE_NOTES) for notes on various stable releases of Z3.
 
 [1]: #building-z3-on-windows-using-visual-studio-command-prompt
 [2]: #building-z3-using-make-and-gccclang
-[3]: #z3-bindings
+[3]: #building-z3-using-cmake
+[4]: #z3-bindings
 
 ## Building Z3 on Windows using Visual Studio Command Prompt
 
