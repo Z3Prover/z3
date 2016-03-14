@@ -980,6 +980,9 @@ void fpa2bv_converter::mk_rem(func_decl * f, unsigned num, expr * const * args, 
     x = args[0];
     y = args[1];
 
+    TRACE("fpa2bv_rem", tout << "X = " << mk_ismt2_pp(x, m) << std::endl;
+                        tout << "Y = " << mk_ismt2_pp(y, m) << std::endl;);
+
     expr_ref nan(m), nzero(m), pzero(m), ninf(m), pinf(m);
     mk_nan(f, nan);
     mk_nzero(f, nzero);
@@ -1039,6 +1042,15 @@ void fpa2bv_converter::mk_rem(func_decl * f, unsigned num, expr * const * args, 
     unpack(x, a_sgn, a_sig, a_exp, a_lz, true);
     unpack(y, b_sgn, b_sig, b_exp, b_lz, true);
 
+    dbg_decouple("fpa2bv_rem_a_sgn", a_sgn);
+    dbg_decouple("fpa2bv_rem_a_sig", a_sig);
+    dbg_decouple("fpa2bv_rem_a_exp", a_exp);
+    dbg_decouple("fpa2bv_rem_a_lz", a_lz);
+    dbg_decouple("fpa2bv_rem_b_sgn", b_sgn);
+    dbg_decouple("fpa2bv_rem_b_sig", b_sig);
+    dbg_decouple("fpa2bv_rem_b_exp", b_exp);
+    dbg_decouple("fpa2bv_rem_b_lz", b_lz);
+
     BVSLT(a_exp, b_exp, c6);
     v6 = x;
 
@@ -1052,15 +1064,25 @@ void fpa2bv_converter::mk_rem(func_decl * f, unsigned num, expr * const * args, 
     unsigned int max_exp_diff_ui = (unsigned int)m_mpz_manager.get_uint64(max_exp_diff);
     m_mpz_manager.del(max_exp_diff);
 
+    expr_ref a_exp_ext(m), b_exp_ext(m);
+    a_exp_ext = m_bv_util.mk_sign_extend(2, a_exp);
+    b_exp_ext = m_bv_util.mk_sign_extend(2, b_exp);
+
+    expr_ref a_lz_ext(m), b_lz_ext(m);
+    a_lz_ext = m_bv_util.mk_zero_extend(2, a_lz);
+    b_lz_ext = m_bv_util.mk_zero_extend(2, b_lz);
+
     expr_ref exp_diff(m);
-    exp_diff = m_bv_util.mk_bv_sub(a_exp, b_exp);
+    exp_diff = m_bv_util.mk_bv_sub(
+        m_bv_util.mk_bv_sub(a_exp_ext, a_lz_ext),
+        m_bv_util.mk_bv_sub(b_exp_ext, b_lz_ext));
     dbg_decouple("fpa2bv_rem_exp_diff", exp_diff);
 
     // CMW: This creates _huge_ bit-vectors, which is potentially sub-optimal,
     // but calculating this via rem = x - y * nearest(x/y) creates huge circuits.
     expr_ref huge_sig(m), shifted_sig(m), huge_rem(m);
     huge_sig = m_bv_util.mk_zero_extend(max_exp_diff_ui, a_sig);
-    shifted_sig = m_bv_util.mk_bv_shl(huge_sig, m_bv_util.mk_zero_extend(max_exp_diff_ui + sbits - ebits, exp_diff));
+    shifted_sig = m_bv_util.mk_bv_shl(huge_sig, m_bv_util.mk_zero_extend(max_exp_diff_ui + sbits - ebits - 2, exp_diff));
     huge_rem = m_bv_util.mk_bv_urem(shifted_sig, m_bv_util.mk_zero_extend(max_exp_diff_ui, b_sig));
     dbg_decouple("fpa2bv_rem_huge_rem", huge_rem);
 
@@ -1068,7 +1090,8 @@ void fpa2bv_converter::mk_rem(func_decl * f, unsigned num, expr * const * args, 
     res_sgn = a_sgn;
     res_sig = m_bv_util.mk_concat(m_bv_util.mk_extract(sbits, 0, huge_rem),
                                   m_bv_util.mk_numeral(0, 3));
-    res_exp = m_bv_util.mk_sign_extend(2, b_exp);
+
+    res_exp = m_bv_util.mk_bv_sub(b_exp_ext, b_lz_ext);
 
     // CMW: Actual rounding is not necessary here, this is
     // just convenience to get rid of the extra bits.
@@ -2358,7 +2381,7 @@ void fpa2bv_converter::mk_to_fp_float(func_decl * f, sort * s, expr * rm, expr *
 
 void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * x, expr_ref & result) {
     TRACE("fpa2bv_to_fp_real", tout << "rm: " << mk_ismt2_pp(rm, m) << std::endl <<
-                                    "x: " << mk_ismt2_pp(x, m) << std::endl;);
+                                       "x: " << mk_ismt2_pp(x, m) << std::endl;);
     SASSERT(m_util.is_float(s));
     SASSERT(au().is_real(x) || au().is_int(x));
     SASSERT(is_app_of(rm, m_util.get_family_id(), OP_FPA_INTERNAL_RM));
