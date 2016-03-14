@@ -9,6 +9,7 @@
 # to avoid having this code depend on the
 # of the Python build system.
 import os
+import pprint
 import logging
 import re
 import sys
@@ -37,6 +38,43 @@ def check_files_exist(files):
             _logger.error('"{}" does not exist'.format(f))
             return False
     return True
+
+def sorted_headers_by_component(l):
+    """
+      Take a list of header files and sort them by the
+      path after ``src/``. E.g. for ``src/ast/fpa/fpa2bv_converter.h`` the sorting
+      key is ``ast/fpa/fpa2bv_converter.h``.
+
+      The sort is done this way because for the CMake build
+      there are two directories for every component (e.g.
+      ``<src_dir>/src/ast/fpa`` and ``<build_dir>/src/ast/fpa``).
+      We don't want to sort based on different ``<src_dir>``
+      and ``<build_dir>`` prefixes so that we can match the Python build
+      system's behaviour.
+    """
+    assert isinstance(l, list)
+    def get_key(path):
+        _logger.debug("get_key({})".format(path))
+        path_components = []
+        stripped_path = path
+        assert 'src' in stripped_path.split(os.path.sep)
+        # Keep stripping off directory components until we hit ``src``
+        while os.path.basename(stripped_path) != 'src':
+            path_components.append(os.path.basename(stripped_path))
+            stripped_path = os.path.dirname(stripped_path)
+        assert len(path_components) > 0
+        path_components.reverse()
+        # For consistency across platforms use ``/`` rather than ``os.sep``.
+        # This is a sorting key so it doesn't need to a platform suitable
+        # path
+        r = '/'.join(path_components)
+        _logger.debug("return key:'{}'".format(r))
+        return r
+    sorted_headers = sorted(l, key=get_key)
+    _logger.debug('sorted headers:{}'.format(pprint.pformat(sorted_headers)))
+    return sorted_headers
+
+
 
 ###############################################################################
 # Functions for generating constant declarations for language bindings
@@ -105,9 +143,9 @@ def mk_z3consts_py_internal(api_files, output_dir):
                 if m:
                     name = words[1]
                     z3consts.write('# enum %s\n' % name)
-                    for k in decls:
-                        i = decls[k]
-                        z3consts.write('%s = %s\n' % (k, i))
+                    # Iterate over key-value pairs ordered by value
+                    for k, v in sorted(decls.items(), key=lambda pair: pair[1]):
+                        z3consts.write('%s = %s\n' % (k, v))
                     z3consts.write('\n')
                     mode = SEARCHING
                 elif len(words) <= 2:
@@ -186,28 +224,30 @@ def mk_gparams_register_modules_internal(component_src_dirs, path):
     reg_pat = re.compile('[ \t]*REG_PARAMS\(\'([^\']*)\'\)')
     reg_mod_pat = re.compile('[ \t]*REG_MODULE_PARAMS\(\'([^\']*)\', *\'([^\']*)\'\)')
     reg_mod_descr_pat = re.compile('[ \t]*REG_MODULE_DESCRIPTION\(\'([^\']*)\', *\'([^\']*)\'\)')
+    h_files_full_path = []
     for component_src_dir in component_src_dirs:
         h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(component_src_dir))
-        for h_file in h_files:
-            added_include = False
-            fin = open(os.path.join(component_src_dir, h_file), 'r')
+        h_files = list(map(lambda p: os.path.join(component_src_dir, p), h_files))
+        h_files_full_path.extend(h_files)
+    for h_file in sorted_headers_by_component(h_files_full_path):
+        added_include = False
+        with open(h_file, 'r') as fin:
             for line in fin:
                 m = reg_pat.match(line)
                 if m:
                     if not added_include:
                         added_include = True
-                        fout.write('#include"%s"\n' % h_file)
+                        fout.write('#include"%s"\n' % os.path.basename(h_file))
                     cmds.append((m.group(1)))
                 m = reg_mod_pat.match(line)
                 if m:
                     if not added_include:
                         added_include = True
-                        fout.write('#include"%s"\n' % h_file)
+                        fout.write('#include"%s"\n' % os.path.basename(h_file))
                     mod_cmds.append((m.group(1), m.group(2)))
                 m = reg_mod_descr_pat.match(line)
                 if m:
                     mod_descrs.append((m.group(1), m.group(2)))
-            fin.close()
     fout.write('void gparams_register_modules() {\n')
     for code in cmds:
         fout.write('{ param_descrs d; %s(d); gparams::register_global(d); }\n' % code)
@@ -246,7 +286,7 @@ def mk_install_tactic_cpp_internal(component_src_dirs, path):
     def ADD_PROBE(name, descr, cmd):
         ADD_PROBE_DATA.append((name, descr, cmd))
 
-    exec_globals = {
+    eval_globals = {
         'ADD_TACTIC': ADD_TACTIC,
         'ADD_PROBE': ADD_PROBE,
     }
@@ -261,18 +301,21 @@ def mk_install_tactic_cpp_internal(component_src_dirs, path):
     fout.write('#include"cmd_context.h"\n')
     tactic_pat   = re.compile('[ \t]*ADD_TACTIC\(.*\)')
     probe_pat    = re.compile('[ \t]*ADD_PROBE\(.*\)')
-    for component_src_dir in component_src_dirs:
+    h_files_full_path = []
+    for component_src_dir in sorted(component_src_dirs):
         h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(component_src_dir))
-        for h_file in h_files:
-            added_include = False
-            fin = open(os.path.join(component_src_dir, h_file), 'r')
+        h_files = list(map(lambda p: os.path.join(component_src_dir, p), h_files))
+        h_files_full_path.extend(h_files)
+    for h_file in sorted_headers_by_component(h_files_full_path):
+        added_include = False
+        with open(h_file, 'r') as fin:
             for line in fin:
                 if tactic_pat.match(line):
                     if not added_include:
                         added_include = True
-                        fout.write('#include"%s"\n' % h_file)
+                        fout.write('#include"%s"\n' % os.path.basename(h_file))
                     try:
-                        exec(line.strip('\n '), exec_globals)
+                        eval(line.strip('\n '), eval_globals, None)
                     except Exception as e:
                         _logger.error("Failed processing ADD_TACTIC command at '{}'\n{}".format(
                             fullname, line))
@@ -280,14 +323,13 @@ def mk_install_tactic_cpp_internal(component_src_dirs, path):
                 if probe_pat.match(line):
                     if not added_include:
                         added_include = True
-                        fout.write('#include"%s"\n' % h_file)
+                        fout.write('#include"%s"\n' % os.path.basename(h_file))
                     try:
-                        exec(line.strip('\n '), exec_globals)
+                        eval(line.strip('\n '), eval_globals, None)
                     except Exception as e:
                         _logger.error("Failed processing ADD_PROBE command at '{}'\n{}".format(
                             fullname, line))
                         raise e
-            fin.close()
     # First pass will just generate the tactic factories
     idx = 0
     for data in ADD_TACTIC_DATA:
@@ -335,31 +377,33 @@ def mk_mem_initializer_cpp_internal(component_src_dirs, path):
     # ADD_INITIALIZER with priority
     initializer_prio_pat = re.compile('[ \t]*ADD_INITIALIZER\(\'([^\']*)\',[ \t]*(-?[0-9]*)\)')
     finalizer_pat        = re.compile('[ \t]*ADD_FINALIZER\(\'([^\']*)\'\)')
-    for component_src_dir in component_src_dirs:
+    h_files_full_path = []
+    for component_src_dir in sorted(component_src_dirs):
         h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(component_src_dir))
-        for h_file in h_files:
-            added_include = False
-            fin = open(os.path.join(component_src_dir, h_file), 'r')
+        h_files = list(map(lambda p: os.path.join(component_src_dir, p), h_files))
+        h_files_full_path.extend(h_files)
+    for h_file in sorted_headers_by_component(h_files_full_path):
+        added_include = False
+        with open(h_file, 'r') as fin:
             for line in fin:
                 m = initializer_pat.match(line)
                 if m:
                     if not added_include:
                         added_include = True
-                        fout.write('#include"%s"\n' % h_file)
+                        fout.write('#include"%s"\n' % os.path.basename(h_file))
                     initializer_cmds.append((m.group(1), 0))
                 m = initializer_prio_pat.match(line)
                 if m:
                     if not added_include:
                         added_include = True
-                        fout.write('#include"%s"\n' % h_file)
+                        fout.write('#include"%s"\n' % os.path.basename(h_file))
                     initializer_cmds.append((m.group(1), int(m.group(2))))
                 m = finalizer_pat.match(line)
                 if m:
                     if not added_include:
                         added_include = True
-                        fout.write('#include"%s"\n' % h_file)
+                        fout.write('#include"%s"\n' % os.path.basename(h_file))
                     finalizer_cmds.append(m.group(1))
-            fin.close()
     initializer_cmds.sort(key=lambda tup: tup[1])
     fout.write('void mem_initialize() {\n')
     for (cmd, prio) in initializer_cmds:
@@ -514,6 +558,6 @@ def mk_hpp_from_pyg(pyg_file, output_dir):
         'def_module_params' : def_module_params,
     }
     with open(pyg_file, 'r') as fh:
-        exec(fh.read() + "\n", pyg_globals, None)
+        eval(fh.read() + "\n", pyg_globals, None)
     assert len(OUTPUT_HPP_FILE) == 1
     return OUTPUT_HPP_FILE[0]
