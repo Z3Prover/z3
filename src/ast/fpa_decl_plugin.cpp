@@ -693,7 +693,7 @@ func_decl * fpa_decl_plugin::mk_internal_rm(decl_kind k, unsigned num_parameters
 func_decl * fpa_decl_plugin::mk_internal_bv_wrap(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                                    unsigned arity, sort * const * domain, sort * range) {
     if (arity != 1)
-        m_manager->raise_exception("invalid number of arguments to internal_bv_wrap");
+        m_manager->raise_exception("invalid number of arguments to bv_wrap");
     if (!is_float_sort(domain[0]) && !is_rm_sort(domain[0]))
         m_manager->raise_exception("sort mismatch, expected argument of FloatingPoint or RoundingMode sort");
 
@@ -714,7 +714,7 @@ func_decl * fpa_decl_plugin::mk_internal_bv_wrap(decl_kind k, unsigned num_param
 func_decl * fpa_decl_plugin::mk_internal_bv_unwrap(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                                      unsigned arity, sort * const * domain, sort * range) {
     if (arity != 1)
-        m_manager->raise_exception("invalid number of arguments to internal_bv_unwrap");
+        m_manager->raise_exception("invalid number of arguments to bv_unwrap");
     if (!is_sort_of(domain[0], m_bv_fid, BV_SORT))
         m_manager->raise_exception("sort mismatch, expected argument of bitvector sort");
     if (!is_float_sort(range) && !is_rm_sort(range))
@@ -741,7 +741,7 @@ func_decl * fpa_decl_plugin::mk_internal_to_sbv_unspecified(
     decl_kind k, unsigned num_parameters, parameter const * parameters,
     unsigned arity, sort * const * domain, sort * range) {
     if (arity != 0)
-        m_manager->raise_exception("invalid number of arguments to internal_to_sbv_unspecified");
+        m_manager->raise_exception("invalid number of arguments to fp.to_sbv_unspecified");
     if (num_parameters != 1)
         m_manager->raise_exception("invalid number of parameters to fp.to_sbv_unspecified; expecting 1");
     if (!parameters[0].is_int())
@@ -754,11 +754,27 @@ func_decl * fpa_decl_plugin::mk_internal_to_real_unspecified(
     decl_kind k, unsigned num_parameters, parameter const * parameters,
     unsigned arity, sort * const * domain, sort * range) {
     if (arity != 0)
-        m_manager->raise_exception("invalid number of arguments to internal_to_real_unspecified");
+        m_manager->raise_exception("invalid number of arguments to fp.to_real_unspecified");
     if (!is_sort_of(range, m_arith_fid, REAL_SORT))
-        m_manager->raise_exception("sort mismatch, expected range of FloatingPoint sort");
+        m_manager->raise_exception("sort mismatch, expected range of Real sort");
 
     return m_manager->mk_func_decl(symbol("fp.to_real_unspecified"), 0, domain, m_real_sort, func_decl_info(m_family_id, k, num_parameters, parameters));
+}
+
+func_decl * fpa_decl_plugin::mk_internal_to_ieee_bv_unspecified(
+    decl_kind k, unsigned num_parameters, parameter const * parameters,
+    unsigned arity, sort * const * domain, sort * range) {
+    if (arity != 0)
+        m_manager->raise_exception("invalid number of arguments to fp.to_ieee_bv_unspecified");
+    if (num_parameters != 1)
+        m_manager->raise_exception("invalid number of parameters to fp.to_ieee_bv_unspecified; expecting 1");
+    if (!parameters[0].is_int())
+        m_manager->raise_exception("invalid parameters type provided to fp.to_ieee_bv_unspecified; expecting an integer");
+    if (!is_float_sort(domain[0]))
+        m_manager->raise_exception("sort mismatch, expected argument of FloatingPoint sort");
+
+    sort * bv_srt = m_bv_plugin->mk_sort(m_bv_fid, 1, parameters);
+    return m_manager->mk_func_decl(symbol("fp.to_ieee_bv_unspecified"), 0, domain, bv_srt, func_decl_info(m_family_id, k, num_parameters, parameters));
 }
 
 
@@ -846,6 +862,8 @@ func_decl * fpa_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         return mk_internal_to_sbv_unspecified(k, num_parameters, parameters, arity, domain, range);
     case OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED:
         return mk_internal_to_real_unspecified(k, num_parameters, parameters, arity, domain, range);
+    case OP_FPA_INTERNAL_TO_IEEE_BV_UNSPECIFIED:
+        return mk_internal_to_ieee_bv_unspecified(k, num_parameters, parameters, arity, domain, range);
     default:
         m_manager->raise_exception("unsupported floating point operator");
         return 0;

@@ -177,6 +177,8 @@ class fpa_decl_plugin : public decl_plugin {
                                                unsigned arity, sort * const * domain, sort * range);
     func_decl * mk_internal_to_real_unspecified(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                                 unsigned arity, sort * const * domain, sort * range);
+    func_decl * mk_internal_to_ieee_bv_unspecified(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                                                   unsigned arity, sort * const * domain, sort * range);
 
     virtual void set_manager(ast_manager * m, family_id id);
     unsigned mk_id(mpf const & v);
