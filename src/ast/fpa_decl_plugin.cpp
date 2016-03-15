@@ -1060,7 +1060,7 @@ app * fpa_util::mk_internal_to_sbv_unspecified(unsigned width) {
 app * fpa_util::mk_internal_to_ieee_bv_unspecified(unsigned width) {
     parameter ps[] = { parameter(width) };
     sort * range = m_bv_util.mk_sort(width);
-    return m().mk_app(get_family_id(), OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED, 1, ps, 0, 0, range);
+    return m().mk_app(get_family_id(), OP_FPA_INTERNAL_TO_IEEE_BV_UNSPECIFIED, 1, ps, 0, 0, range);
 }
 
 app * fpa_util::mk_internal_to_real_unspecified() {

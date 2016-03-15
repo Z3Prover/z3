@@ -107,6 +107,8 @@ br_status fpa_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         SASSERT(num_args == 0); st = mk_to_sbv_unspecified(f, result); break;
     case OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED:
         SASSERT(num_args == 0); st = mk_to_real_unspecified(result); break;
+    case OP_FPA_INTERNAL_TO_IEEE_BV_UNSPECIFIED:
+        SASSERT(num_args == 0); st = mk_to_ieee_bv_unspecified(f, result); break;
 
     case OP_FPA_INTERNAL_BVWRAP:
     case OP_FPA_INTERNAL_BVUNWRAP:

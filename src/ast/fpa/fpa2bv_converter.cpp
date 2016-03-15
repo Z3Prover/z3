@@ -2925,11 +2925,22 @@ void fpa2bv_converter::mk_to_fp_unsigned(func_decl * f, unsigned num, expr * con
     mk_ite(c1, v1, v2, result);
 }
 
+expr_ref fpa2bv_converter::mk_to_ieee_bv_unspecified(unsigned width) {
+    if (m_hi_fp_unspecified)
+        return expr_ref(m_bv_util.mk_numeral(0, width), m);
+    else
+        return expr_ref(m_util.mk_internal_to_ieee_bv_unspecified(width), m);
+}
+
 void fpa2bv_converter::mk_to_ieee_bv(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 1);
+    expr_ref x(m), x_is_nan(m);
     expr * sgn, * s, * e;
-    split_fp(args[0], sgn, e, s);
-    result = m_bv_util.mk_concat(m_bv_util.mk_concat(sgn, e), s);
+    x = args[0];
+    split_fp(x, sgn, e, s);
+    mk_is_nan(x, x_is_nan);
+    result = m.mk_ite(x_is_nan, mk_to_ieee_bv_unspecified(m_bv_util.get_bv_size(x)),
+                                m_bv_util.mk_concat(m_bv_util.mk_concat(sgn, e), s));
 }
 
 void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args, bool is_signed, expr_ref & result) {

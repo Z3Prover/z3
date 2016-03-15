@@ -136,6 +136,7 @@ public:
 
     expr_ref mk_to_ubv_unspecified(unsigned width);
     expr_ref mk_to_sbv_unspecified(unsigned width);
+    expr_ref mk_to_ieee_bv_unspecified(unsigned width);
     expr_ref mk_to_real_unspecified();
 
     void reset(void);
