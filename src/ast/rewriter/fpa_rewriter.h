@@ -89,7 +89,7 @@ public:
     br_status mk_to_ubv_unspecified(func_decl * f, expr_ref & result);
     br_status mk_to_sbv_unspecified(func_decl * f, expr_ref & result);
     br_status mk_to_ieee_bv_unspecified(func_decl * f, expr_ref & result);
-    br_status mk_to_real_unspecified(expr_ref & result);
+    br_status mk_to_real_unspecified(func_decl * f, expr_ref & result);
 };
 
 #endif

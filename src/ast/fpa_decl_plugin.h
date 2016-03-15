@@ -346,10 +346,10 @@ public:
 
     app * mk_to_ieee_bv(expr * arg1) { return m().mk_app(m_fid, OP_FPA_TO_IEEE_BV, arg1); }
 
-    app * mk_internal_to_ubv_unspecified(unsigned width);
-    app * mk_internal_to_sbv_unspecified(unsigned width);
-    app * mk_internal_to_ieee_bv_unspecified(unsigned width);
-    app * mk_internal_to_real_unspecified();
+    app * mk_internal_to_ubv_unspecified(unsigned ebits, unsigned sbits, unsigned width);
+    app * mk_internal_to_sbv_unspecified(unsigned ebits, unsigned sbits, unsigned width);
+    app * mk_internal_to_ieee_bv_unspecified(unsigned ebits, unsigned sbits);
+    app * mk_internal_to_real_unspecified(unsigned ebits, unsigned sbits);
 
     bool is_wrap(expr * e) const { return is_app_of(e, get_family_id(), OP_FPA_INTERNAL_BVWRAP); }
     bool is_unwrap(expr * e) const { return is_app_of(e, get_family_id(), OP_FPA_INTERNAL_BVUNWRAP); }

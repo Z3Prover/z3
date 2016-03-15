@@ -2647,8 +2647,8 @@ void fpa2bv_converter::mk_to_real(func_decl * f, unsigned num, expr * const * ar
     tout << "exp2 = " << mk_ismt2_pp(exp2, m) << std::endl;);
 
     result = m.mk_ite(x_is_zero, zero, res);
-    result = m.mk_ite(x_is_inf, mk_to_real_unspecified(), result);
-    result = m.mk_ite(x_is_nan, mk_to_real_unspecified(), result);
+    result = m.mk_ite(x_is_inf, mk_to_real_unspecified(ebits, sbits), result);
+    result = m.mk_ite(x_is_nan, mk_to_real_unspecified(ebits, sbits), result);
 
     SASSERT(is_well_sorted(m, result));
 }
@@ -2925,13 +2925,6 @@ void fpa2bv_converter::mk_to_fp_unsigned(func_decl * f, unsigned num, expr * con
     mk_ite(c1, v1, v2, result);
 }
 
-expr_ref fpa2bv_converter::mk_to_ieee_bv_unspecified(unsigned width) {
-    if (m_hi_fp_unspecified)
-        return expr_ref(m_bv_util.mk_numeral(0, width), m);
-    else
-        return expr_ref(m_util.mk_internal_to_ieee_bv_unspecified(width), m);
-}
-
 void fpa2bv_converter::mk_to_ieee_bv(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 1);
     expr_ref x(m), x_is_nan(m);
@@ -2941,17 +2934,31 @@ void fpa2bv_converter::mk_to_ieee_bv(func_decl * f, unsigned num, expr * const *
     mk_is_nan(x, x_is_nan);
 
     sort * fp_srt = m.get_sort(x);
+    unsigned ebits = m_util.get_ebits(fp_srt);
     unsigned sbits = m_util.get_sbits(fp_srt);
 
-    expr_ref sig_unspec(s, m);
-    if (sbits > 2)
-        sig_unspec = m_bv_util.mk_concat(
-            mk_to_ieee_bv_unspecified(sbits - 2),
-            m_bv_util.mk_numeral(1, 1));
-    else
-        sig_unspec = m_bv_util.mk_numeral(1, 1);
+    expr_ref nanv(m);
+    if (m_hi_fp_unspecified)
+        // The "hardware interpretation" is 01...10...01.
+        nanv = m_bv_util.mk_concat(m_bv_util.mk_numeral(0, 1),
+               m_bv_util.mk_concat(m_bv_util.mk_numeral(-1, ebits),
+               m_bv_util.mk_concat(m_bv_util.mk_numeral(0, sbits - 2),
+                                   m_bv_util.mk_numeral(1, 1))));
+    else {
+        app_ref unspec(m), mask(m);
+        unspec = m_util.mk_internal_to_ieee_bv_unspecified(ebits, sbits);
+        m_unspecified_ufs.insert_if_not_there(unspec->get_decl());
+        mask = m_bv_util.mk_concat(m_bv_util.mk_numeral(0, 1),
+               m_bv_util.mk_concat(m_bv_util.mk_numeral(-1, ebits),
+               m_bv_util.mk_concat(m_bv_util.mk_numeral(0, sbits-2),
+                                   m_bv_util.mk_numeral(1, 1))));
+        expr * args[2] = { unspec, mask };
+        nanv = m_bv_util.mk_bv_or(2, args);
+    }
 
-    result = m_bv_util.mk_concat(m_bv_util.mk_concat(sgn, e), m.mk_ite(x_is_nan, sig_unspec, s));
+    result = m.mk_ite(x_is_nan, nanv, m_bv_util.mk_concat(m_bv_util.mk_concat(sgn, e), s));
+
+    SASSERT(is_well_sorted(m, result));
 }
 
 void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args, bool is_signed, expr_ref & result) {
@@ -2987,7 +2994,7 @@ void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args
         c1 = m.mk_or(x_is_nan, x_is_inf, m.mk_and(x_is_neg, m.mk_not(x_is_nzero)));
     else
         c1 = m.mk_or(x_is_nan, x_is_inf);
-    v1 = mk_to_ubv_unspecified(bv_sz);
+    v1 = mk_to_ubv_unspecified(ebits, sbits, bv_sz);
     dbg_decouple("fpa2bv_to_bv_c1", c1);
 
     // +-Zero  -> 0
@@ -3086,8 +3093,8 @@ void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args
 
     dbg_decouple("fpa2bv_to_bv_rnd", rnd);
 
-    result = m.mk_ite(rnd_has_overflown, mk_to_ubv_unspecified(bv_sz), rnd);
-    result = m.mk_ite(c_in_limits, result, mk_to_ubv_unspecified(bv_sz));
+    result = m.mk_ite(rnd_has_overflown, mk_to_ubv_unspecified(ebits, sbits, bv_sz), rnd);
+    result = m.mk_ite(c_in_limits, result, mk_to_ubv_unspecified(ebits, sbits, bv_sz));
     result = m.mk_ite(c2, v2, result);
     result = m.mk_ite(c1, v1, result);
 
@@ -3106,25 +3113,43 @@ void fpa2bv_converter::mk_to_sbv(func_decl * f, unsigned num, expr * const * arg
     mk_to_bv(f, num, args, true, result);
 }
 
-expr_ref fpa2bv_converter::mk_to_ubv_unspecified(unsigned width) {
+expr_ref fpa2bv_converter::mk_to_ubv_unspecified(unsigned ebits, unsigned sbits, unsigned width) {
+    expr_ref result(m);
     if (m_hi_fp_unspecified)
-        return expr_ref(m_bv_util.mk_numeral(0, width), m);
-    else
-        return expr_ref(m_util.mk_internal_to_ubv_unspecified(width), m);
+        result = m_bv_util.mk_numeral(0, width);
+    else {
+        app_ref unspec(m);
+        unspec = m_util.mk_internal_to_ubv_unspecified(ebits, sbits, width);
+        m_unspecified_ufs.insert_if_not_there(unspec->get_decl());
+        result = unspec;
+    }
+    return result;
 }
 
-expr_ref fpa2bv_converter::mk_to_sbv_unspecified(unsigned width) {
+expr_ref fpa2bv_converter::mk_to_sbv_unspecified(unsigned ebits, unsigned sbits, unsigned width) {
+    expr_ref result(m);
     if (m_hi_fp_unspecified)
-        return expr_ref(m_bv_util.mk_numeral(0, width), m);
-    else
-        return expr_ref(m_util.mk_internal_to_sbv_unspecified(width), m);
+        result = m_bv_util.mk_numeral(0, width);
+    else {
+        app_ref unspec(m);
+        unspec = m_util.mk_internal_to_sbv_unspecified(ebits, sbits, width);
+        m_unspecified_ufs.insert_if_not_there(unspec->get_decl());
+        result = unspec;
+    }
+    return result;
 }
 
-expr_ref fpa2bv_converter::mk_to_real_unspecified() {
+expr_ref fpa2bv_converter::mk_to_real_unspecified(unsigned ebits, unsigned sbits) {
+    expr_ref result(m);
     if (m_hi_fp_unspecified)
-        return expr_ref(m_arith_util.mk_numeral(rational(0), false), m);
-    else
-        return expr_ref(m_util.mk_internal_to_real_unspecified(), m);
+        result = m_arith_util.mk_numeral(rational(0), false);
+    else {
+        app_ref unspec(m);
+        unspec = m_util.mk_internal_to_real_unspecified(ebits, sbits);
+        m_unspecified_ufs.insert_if_not_there(unspec->get_decl());
+        result = unspec;
+    }
+    return result;
 }
 
 void fpa2bv_converter::mk_rm(expr * bv3, expr_ref & result) {

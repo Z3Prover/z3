@@ -106,7 +106,7 @@ br_status fpa_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED:
         SASSERT(num_args == 0); st = mk_to_sbv_unspecified(f, result); break;
     case OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED:
-        SASSERT(num_args == 0); st = mk_to_real_unspecified(result); break;
+        SASSERT(num_args == 0); st = mk_to_real_unspecified(f, result); break;
     case OP_FPA_INTERNAL_TO_IEEE_BV_UNSPECIFIED:
         SASSERT(num_args == 0); st = mk_to_ieee_bv_unspecified(f, result); break;
 
@@ -122,61 +122,55 @@ br_status fpa_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
 }
 
 br_status fpa_rewriter::mk_to_ubv_unspecified(func_decl * f, expr_ref & result) {
-    SASSERT(f->get_num_parameters() == 1);
+    SASSERT(f->get_num_parameters() == 3);
     SASSERT(f->get_parameter(0).is_int());
-    unsigned bv_sz = f->get_parameter(0).get_int();
+    SASSERT(f->get_parameter(1).is_int());
+    SASSERT(f->get_parameter(2).is_int());
+    unsigned ebits = f->get_parameter(0).get_int();
+    unsigned sbits = f->get_parameter(1).get_int();
+    unsigned width = f->get_parameter(2).get_int();
 
     bv_util bu(m());
     if (m_hi_fp_unspecified)
         // The "hardware interpretation" is 0.
-        result = bu.mk_numeral(0, bv_sz);
+        result = bu.mk_numeral(0, ebits+sbits);
     else
-        result = m_util.mk_internal_to_ubv_unspecified(bv_sz);
+        result = m_util.mk_internal_to_ubv_unspecified(ebits, sbits, width);
 
     return BR_DONE;
 }
 
 br_status fpa_rewriter::mk_to_sbv_unspecified(func_decl * f, expr_ref & result) {
-    SASSERT(f->get_num_parameters() == 1);
+    SASSERT(f->get_num_parameters() == 3);
     SASSERT(f->get_parameter(0).is_int());
-    unsigned bv_sz = f->get_parameter(0).get_int();
+    SASSERT(f->get_parameter(1).is_int());
+    SASSERT(f->get_parameter(2).is_int());
+    unsigned ebits = f->get_parameter(0).get_int();
+    unsigned sbits = f->get_parameter(1).get_int();
+    unsigned width = f->get_parameter(2).get_int();
 
     bv_util bu(m());
     if (m_hi_fp_unspecified)
         // The "hardware interpretation" is 0.
-        result = bu.mk_numeral(0, bv_sz);
+        result = bu.mk_numeral(0, ebits+sbits);
     else
-        result = m_util.mk_internal_to_sbv_unspecified(bv_sz);
+        result = m_util.mk_internal_to_sbv_unspecified(ebits, sbits, width);
 
     return BR_DONE;
 }
 
-br_status fpa_rewriter::mk_to_ieee_bv_unspecified(func_decl * f, expr_ref & result) {
-    bv_util bu(m());
-    unsigned bv_sz = bu.get_bv_size(f->get_range());
+br_status fpa_rewriter::mk_to_real_unspecified(func_decl * f, expr_ref & result) {
+    SASSERT(f->get_num_parameters() == 2);
+    SASSERT(f->get_parameter(0).is_int());
+    SASSERT(f->get_parameter(1).is_int());
+    unsigned ebits = f->get_parameter(0).get_int();
+    unsigned sbits = f->get_parameter(1).get_int();
 
-    if (m_hi_fp_unspecified)
-        // The "hardware interpretation" is 0.
-        result = bu.mk_numeral(0, bv_sz);
-    else {
-        unsigned sbits = m_util.get_sbits(f->get_domain()[0]);
-
-        if (sbits > 2)
-            result = bu.mk_concat(m_util.mk_internal_to_ieee_bv_unspecified(sbits - 2),
-                                  bu.mk_numeral(1, 1));
-        else
-            result = bu.mk_numeral(1, 1);
-    }
-
-    return BR_DONE;
-}
-
-br_status fpa_rewriter::mk_to_real_unspecified(expr_ref & result) {
     if (m_hi_fp_unspecified)
         // The "hardware interpretation" is 0.
         result = m_util.au().mk_numeral(rational(0), false);
     else
-        result = m_util.mk_internal_to_real_unspecified();
+        result = m_util.mk_internal_to_real_unspecified(ebits, sbits);
 
     return BR_DONE;
 }
@@ -865,20 +859,43 @@ br_status fpa_rewriter::mk_to_sbv(func_decl * f, expr * arg1, expr * arg2, expr_
     return BR_FAILED;
 }
 
+br_status fpa_rewriter::mk_to_ieee_bv_unspecified(func_decl * f, expr_ref & result) {
+    SASSERT(f->get_num_parameters() == 2);
+    SASSERT(f->get_parameter(0).is_int());
+    SASSERT(f->get_parameter(1).is_int());
+    unsigned ebits = f->get_parameter(0).get_int();
+    unsigned sbits = f->get_parameter(1).get_int();
+
+    bv_util bu(m());
+
+    if (m_hi_fp_unspecified)
+        // The "hardware interpretation" is 01...10...01.
+        result = bu.mk_concat(bu.mk_numeral(0, 1),
+                 bu.mk_concat(bu.mk_numeral(-1, ebits),
+                 bu.mk_concat(bu.mk_numeral(0, sbits - 2),
+                              bu.mk_numeral(1, 1))));
+    else
+        result = m_util.mk_internal_to_ieee_bv_unspecified(ebits, sbits);
+
+    return BR_DONE;
+}
+
 br_status fpa_rewriter::mk_to_ieee_bv(func_decl * f, expr * arg, expr_ref & result) {
     scoped_mpf v(m_fm);
 
     if (m_util.is_numeral(arg, v)) {
+        bv_util bu(m());
+        const mpf & x = v.get();
 
         if (m_fm.is_nan(v)) {
-            mk_to_ieee_bv_unspecified(f, result);
-            return BR_REWRITE_FULL;
+            result = m_util.mk_internal_to_ieee_bv_unspecified(x.get_ebits(), x.get_sbits());
+            return BR_REWRITE1;
         }
         else {
-            bv_util bu(m());
             scoped_mpz rz(m_fm.mpq_manager());
             m_fm.to_ieee_bv_mpz(v, rz);
-            result = bu.mk_numeral(rational(rz), v.get().get_ebits() + v.get().get_sbits());
+
+            result = bu.mk_numeral(rational(rz), x.get_ebits() + x.get_sbits());
             return BR_DONE;
         }
     }
@@ -891,7 +908,8 @@ br_status fpa_rewriter::mk_to_real(expr * arg, expr_ref & result) {
 
     if (m_util.is_numeral(arg, v)) {
         if (m_fm.is_nan(v) || m_fm.is_inf(v)) {
-            result = m_util.mk_internal_to_real_unspecified();
+            const mpf & x = v.get();
+            result = m_util.mk_internal_to_real_unspecified(x.get_ebits(), x.get_sbits());
         }
         else {
             scoped_mpq r(m_fm.mpq_manager());

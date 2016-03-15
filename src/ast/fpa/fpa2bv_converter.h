@@ -41,6 +41,7 @@ protected:
     obj_map<func_decl, expr*>  m_const2bv;
     obj_map<func_decl, expr*>  m_rm_const2bv;
     obj_map<func_decl, func_decl*>  m_uf2bvuf;
+    obj_hashtable<func_decl>   m_unspecified_ufs;
 
     obj_map<func_decl, std::pair<app *, app *> > m_specials;
 
@@ -134,10 +135,9 @@ public:
     void mk_max_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     virtual expr_ref mk_max_unspecified(func_decl * f, expr * x, expr * y);
 
-    expr_ref mk_to_ubv_unspecified(unsigned width);
-    expr_ref mk_to_sbv_unspecified(unsigned width);
-    expr_ref mk_to_ieee_bv_unspecified(unsigned width);
-    expr_ref mk_to_real_unspecified();
+    expr_ref mk_to_ubv_unspecified(unsigned ebits, unsigned sbits, unsigned width);
+    expr_ref mk_to_sbv_unspecified(unsigned ebits, unsigned sbits, unsigned width);
+    expr_ref mk_to_real_unspecified(unsigned ebits, unsigned sbits);
 
     void reset(void);
 

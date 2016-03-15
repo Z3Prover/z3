@@ -54,6 +54,14 @@ void fpa2bv_model_converter::display(std::ostream & out) {
         out << mk_ismt2_pp(it->m_value.first, m, indent) << "; " <<
                mk_ismt2_pp(it->m_value.second, m, indent) << ")";
     }
+    for (obj_hashtable<func_decl>::iterator it = m_unspecified_ufs.begin();
+         it != m_unspecified_ufs.end();
+         it++)
+    {
+        const symbol & n = (*it)->get_name();
+        unsigned indent = n.size() + 4;
+        out << n << " ";
+    }
     out << ")" << std::endl;
 }
 
@@ -98,6 +106,14 @@ model_converter * fpa2bv_model_converter::translate(ast_translation & translator
         translator.to().inc_ref(k);
         translator.to().inc_ref(v1);
         translator.to().inc_ref(v2);
+    }
+    for (obj_hashtable<func_decl>::iterator it = m_unspecified_ufs.begin();
+         it != m_unspecified_ufs.end();
+         it++)
+    {
+        func_decl * k = translator(*it);
+        res->m_unspecified_ufs.insert(k);
+        translator.to().inc_ref(k);
     }
     return res;
 }
@@ -365,6 +381,22 @@ void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
         flt_fi->set_else(els);
 
         float_mdl->register_decl(f, flt_fi);
+    }
+
+    // fp.to_*_unspecified UFs.
+    for (obj_hashtable<func_decl>::iterator it = m_unspecified_ufs.begin();
+         it != m_unspecified_ufs.end();
+         it++)
+    {
+        func_decl * f = *it;
+
+        if (bv_mdl->has_interpretation(f)) {
+            func_interp * val = bv_mdl->get_func_interp(f)->copy();
+            TRACE("fpa2bv_mc", tout << "Keeping interpretation for " << mk_ismt2_pp(f, m) << std::endl;);
+            float_mdl->register_decl(f, val);
+        }
+        else
+            TRACE("fpa2bv_mc", tout << "No interpretation for " << mk_ismt2_pp(f, m) << std::endl;);
     }
 
     // Keep all the non-float constants.
