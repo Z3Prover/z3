@@ -1190,18 +1190,28 @@ void mpf_manager::to_sbv_mpq(mpf_rounding_mode rm, const mpf & x, scoped_mpq & o
 }
 
 void mpf_manager::to_ieee_bv_mpz(const mpf & x, scoped_mpz & o) {
-    SASSERT(!is_nan(x) && !is_inf(x));
+    SASSERT(!is_nan(x));
     SASSERT(exp(x) < INT_MAX);
 
     unsigned sbits = x.get_sbits();
     unsigned ebits = x.get_ebits();
-    scoped_mpz biased_exp(m_mpz_manager);
-    m_mpz_manager.set(biased_exp, bias_exp(ebits, exp(x)));
-    m_mpz_manager.set(o, sgn(x));
-    m_mpz_manager.mul2k(o, ebits);
-    m_mpz_manager.add(o, biased_exp, o);
-    m_mpz_manager.mul2k(o, sbits - 1);
-    m_mpz_manager.add(o, sig(x), o);
+
+    if (is_inf(x)) {
+        m_mpz_manager.set(o, sgn(x));
+        m_mpz_manager.mul2k(o, ebits);
+        const mpz & exp = m_powers2.m1(ebits);
+        m_mpz_manager.add(o, exp, o);
+        m_mpz_manager.mul2k(o, sbits - 1);
+    }
+    else {
+        scoped_mpz biased_exp(m_mpz_manager);
+        m_mpz_manager.set(biased_exp, bias_exp(ebits, exp(x)));
+        m_mpz_manager.set(o, sgn(x));
+        m_mpz_manager.mul2k(o, ebits);
+        m_mpz_manager.add(o, biased_exp, o);
+        m_mpz_manager.mul2k(o, sbits - 1);
+        m_mpz_manager.add(o, sig(x), o);
+    }
 }
 
 void mpf_manager::rem(mpf const & x, mpf const & y, mpf & o) {

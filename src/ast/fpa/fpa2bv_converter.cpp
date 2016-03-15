@@ -2946,8 +2946,11 @@ void fpa2bv_converter::mk_to_ieee_bv(func_decl * f, unsigned num, expr * const *
 
     expr_ref sig_unspec(s, m);
     if (sbits > 2)
-        sig_unspec = m_bv_util.mk_concat(mk_to_ieee_bv_unspecified(sbits - 2),
-                                         m_bv_util.mk_numeral(1, 1));
+        sig_unspec = m_bv_util.mk_concat(
+            mk_to_ieee_bv_unspecified(sbits - 2),
+            m_bv_util.mk_numeral(1, 1));
+    else
+        sig_unspec = m_bv_util.mk_numeral(1, 1);
 
     result = m_bv_util.mk_concat(m_bv_util.mk_concat(sgn, e), m.mk_ite(x_is_nan, sig_unspec, s));
 }
