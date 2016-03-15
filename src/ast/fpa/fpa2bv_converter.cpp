@@ -2941,7 +2941,6 @@ void fpa2bv_converter::mk_to_ieee_bv(func_decl * f, unsigned num, expr * const *
     mk_is_nan(x, x_is_nan);
 
     sort * fp_srt = m.get_sort(x);
-    unsigned ebits = m_util.get_ebits(fp_srt);
     unsigned sbits = m_util.get_sbits(fp_srt);
 
     expr_ref sig_unspec(s, m);
