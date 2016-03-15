@@ -2939,8 +2939,17 @@ void fpa2bv_converter::mk_to_ieee_bv(func_decl * f, unsigned num, expr * const *
     x = args[0];
     split_fp(x, sgn, e, s);
     mk_is_nan(x, x_is_nan);
-    result = m.mk_ite(x_is_nan, mk_to_ieee_bv_unspecified(m_bv_util.get_bv_size(x)),
-                                m_bv_util.mk_concat(m_bv_util.mk_concat(sgn, e), s));
+
+    sort * fp_srt = m.get_sort(x);
+    unsigned ebits = m_util.get_ebits(fp_srt);
+    unsigned sbits = m_util.get_sbits(fp_srt);
+
+    expr_ref sig_unspec(s, m);
+    if (sbits > 2)
+        sig_unspec = m_bv_util.mk_concat(mk_to_ieee_bv_unspecified(sbits - 2),
+                                         m_bv_util.mk_numeral(1, 1));
+
+    result = m_bv_util.mk_concat(m_bv_util.mk_concat(sgn, e), m.mk_ite(x_is_nan, sig_unspec, s));
 }
 
 void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args, bool is_signed, expr_ref & result) {
