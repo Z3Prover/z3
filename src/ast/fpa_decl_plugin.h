@@ -184,6 +184,22 @@ class fpa_decl_plugin : public decl_plugin {
     unsigned mk_id(mpf const & v);
     void recycled_id(unsigned id);
 
+    virtual bool is_considered_uninterpreted(func_decl * f) {
+        if (f->get_family_id() != get_family_id())
+            return false;
+        switch (f->get_decl_kind())
+        {
+        case OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED:
+        case OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED:
+        case OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED:
+        case OP_FPA_INTERNAL_TO_IEEE_BV_UNSPECIFIED:
+            return true;
+        default:
+            return false;
+        }
+        return false;
+    }
+
 public:
     fpa_decl_plugin();
 
