@@ -850,8 +850,16 @@ br_status fpa_rewriter::mk_to_ieee_bv(func_decl * f, expr * arg, expr_ref & resu
                          bu.mk_concat(bu.mk_numeral(0, x.get_sbits() - 2),
                                       bu.mk_numeral(1, 1))));
             }
-            else
-                result = m_util.mk_internal_to_ieee_bv_unspecified(x.get_ebits(), x.get_sbits());
+            else {
+                app_ref unspec(m()), mask(m()), extra(m());
+                unspec = m_util.mk_internal_to_ieee_bv_unspecified(x.get_ebits(), x.get_sbits());
+                mask = bu.mk_concat(bu.mk_numeral(0, 1),
+                       bu.mk_concat(bu.mk_numeral(-1, x.get_ebits()),
+                       bu.mk_concat(bu.mk_numeral(0, x.get_sbits() - 2),
+                                    bu.mk_numeral(1, 1))));
+                expr * args[2] = { unspec, mask };
+                result = m().mk_app(bu.get_fid(), OP_BOR, 2, args);
+            }
             return BR_REWRITE_FULL;
         }
         else {
