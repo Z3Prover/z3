@@ -102,13 +102,10 @@ br_status fpa_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_FPA_INTERNAL_RM:
         SASSERT(num_args == 1); st = mk_rm(args[0], result); break;
     case OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED:
-        SASSERT(num_args == 0); st = mk_to_ubv_unspecified(f, result); break;
     case OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED:
-        SASSERT(num_args == 0); st = mk_to_sbv_unspecified(f, result); break;
     case OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED:
-        SASSERT(num_args == 0); st = mk_to_real_unspecified(f, result); break;
     case OP_FPA_INTERNAL_TO_IEEE_BV_UNSPECIFIED:
-        SASSERT(num_args == 0); st = mk_to_ieee_bv_unspecified(f, result); break;
+        st = BR_FAILED;
 
     case OP_FPA_INTERNAL_BVWRAP:
     case OP_FPA_INTERNAL_BVUNWRAP:
@@ -859,27 +856,6 @@ br_status fpa_rewriter::mk_to_sbv(func_decl * f, expr * arg1, expr * arg2, expr_
     return BR_FAILED;
 }
 
-br_status fpa_rewriter::mk_to_ieee_bv_unspecified(func_decl * f, expr_ref & result) {
-    SASSERT(f->get_num_parameters() == 2);
-    SASSERT(f->get_parameter(0).is_int());
-    SASSERT(f->get_parameter(1).is_int());
-    unsigned ebits = f->get_parameter(0).get_int();
-    unsigned sbits = f->get_parameter(1).get_int();
-
-    bv_util bu(m());
-
-    if (m_hi_fp_unspecified)
-        // The "hardware interpretation" is 01...10...01.
-        result = bu.mk_concat(bu.mk_numeral(0, 1),
-                 bu.mk_concat(bu.mk_numeral(-1, ebits),
-                 bu.mk_concat(bu.mk_numeral(0, sbits - 2),
-                              bu.mk_numeral(1, 1))));
-    else
-        result = m_util.mk_internal_to_ieee_bv_unspecified(ebits, sbits);
-
-    return BR_DONE;
-}
-
 br_status fpa_rewriter::mk_to_ieee_bv(func_decl * f, expr * arg, expr_ref & result) {
     scoped_mpf v(m_fm);
 
@@ -888,8 +864,15 @@ br_status fpa_rewriter::mk_to_ieee_bv(func_decl * f, expr * arg, expr_ref & resu
         const mpf & x = v.get();
 
         if (m_fm.is_nan(v)) {
-            result = m_util.mk_internal_to_ieee_bv_unspecified(x.get_ebits(), x.get_sbits());
-            return BR_REWRITE1;
+            if (m_hi_fp_unspecified) {
+                result = bu.mk_concat(bu.mk_numeral(0, 1),
+                         bu.mk_concat(bu.mk_numeral(-1, x.get_ebits()),
+                         bu.mk_concat(bu.mk_numeral(0, x.get_sbits() - 2),
+                                      bu.mk_numeral(1, 1))));
+            }
+            else
+                result = m_util.mk_internal_to_ieee_bv_unspecified(x.get_ebits(), x.get_sbits());
+            return BR_REWRITE_FULL;
         }
         else {
             scoped_mpz rz(m_fm.mpq_manager());

@@ -28,7 +28,6 @@ class fpa2bv_model_converter : public model_converter {
     obj_map<func_decl, expr*>   m_rm_const2bv;
     obj_map<func_decl, func_decl*>  m_uf2bvuf;
     obj_map<func_decl, std::pair<app*, app*> > m_specials;
-    obj_hashtable<func_decl>    m_unspecified_ufs;
 
 public:
     fpa2bv_model_converter(ast_manager & m, fpa2bv_converter const & conv) : m(m) {
@@ -64,13 +63,6 @@ public:
             m.inc_ref(it->m_value.first);
             m.inc_ref(it->m_value.second);
         }
-        for (obj_hashtable<func_decl>::iterator it = conv.m_unspecified_ufs.begin();
-             it != conv.m_unspecified_ufs.end();
-             it++)
-        {
-            m_unspecified_ufs.insert(*it);
-            m.inc_ref(*it);
-        }
     }
 
     virtual ~fpa2bv_model_converter() {
@@ -84,7 +76,6 @@ public:
             m.dec_ref(it->m_value.first);
             m.dec_ref(it->m_value.second);
         }
-        dec_ref_collection_values(m, m_unspecified_ufs);
     }
 
     virtual void operator()(model_ref & md, unsigned goal_idx) {

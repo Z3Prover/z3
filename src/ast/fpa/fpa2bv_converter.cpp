@@ -2944,17 +2944,8 @@ void fpa2bv_converter::mk_to_ieee_bv(func_decl * f, unsigned num, expr * const *
                m_bv_util.mk_concat(m_bv_util.mk_numeral(-1, ebits),
                m_bv_util.mk_concat(m_bv_util.mk_numeral(0, sbits - 2),
                                    m_bv_util.mk_numeral(1, 1))));
-    else {
-        app_ref unspec(m), mask(m);
-        unspec = m_util.mk_internal_to_ieee_bv_unspecified(ebits, sbits);
-        m_unspecified_ufs.insert_if_not_there(unspec->get_decl());
-        mask = m_bv_util.mk_concat(m_bv_util.mk_numeral(0, 1),
-               m_bv_util.mk_concat(m_bv_util.mk_numeral(-1, ebits),
-               m_bv_util.mk_concat(m_bv_util.mk_numeral(0, sbits-2),
-                                   m_bv_util.mk_numeral(1, 1))));
-        expr * args[2] = { unspec, mask };
-        nanv = m_bv_util.mk_bv_or(2, args);
-    }
+    else
+        nanv = mk_to_ieee_bv_unspecified(ebits, sbits);
 
     result = m.mk_ite(x_is_nan, nanv, m_bv_util.mk_concat(m_bv_util.mk_concat(sgn, e), s));
 
@@ -3120,8 +3111,17 @@ expr_ref fpa2bv_converter::mk_to_ubv_unspecified(unsigned ebits, unsigned sbits,
     else {
         app_ref unspec(m);
         unspec = m_util.mk_internal_to_ubv_unspecified(ebits, sbits, width);
-        m_unspecified_ufs.insert_if_not_there(unspec->get_decl());
-        result = unspec;
+        func_decl * unspec_fd = unspec->get_decl();
+        func_decl * fd;
+        if (!m_uf2bvuf.find(unspec_fd, fd)) {
+            app_ref bvc(m);
+            bvc = m.mk_fresh_const(0, unspec_fd->get_range());
+            fd = bvc->get_decl();
+            m_uf2bvuf.insert(unspec_fd, fd);
+            m.inc_ref(unspec_fd);
+            m.inc_ref(fd);
+        }
+        result = m.mk_const(fd);
     }
     return result;
 }
@@ -3133,8 +3133,17 @@ expr_ref fpa2bv_converter::mk_to_sbv_unspecified(unsigned ebits, unsigned sbits,
     else {
         app_ref unspec(m);
         unspec = m_util.mk_internal_to_sbv_unspecified(ebits, sbits, width);
-        m_unspecified_ufs.insert_if_not_there(unspec->get_decl());
-        result = unspec;
+        func_decl * unspec_fd = unspec->get_decl();
+        func_decl * fd;
+        if (!m_uf2bvuf.find(unspec_fd, fd)) {
+            app_ref bvc(m);
+            bvc = m.mk_fresh_const(0, unspec_fd->get_range());
+            fd = bvc->get_decl();
+            m_uf2bvuf.insert(unspec_fd, fd);
+            m.inc_ref(unspec_fd);
+            m.inc_ref(fd);
+        }
+        result = m.mk_const(fd);
     }
     return result;
 }
@@ -3146,9 +3155,48 @@ expr_ref fpa2bv_converter::mk_to_real_unspecified(unsigned ebits, unsigned sbits
     else {
         app_ref unspec(m);
         unspec = m_util.mk_internal_to_real_unspecified(ebits, sbits);
-        m_unspecified_ufs.insert_if_not_there(unspec->get_decl());
+        func_decl * unspec_fd = unspec->get_decl();
+        func_decl * fd;
+        if (!m_uf2bvuf.find(unspec_fd, fd)) {
+            app_ref bvc(m);
+            bvc = m.mk_fresh_const(0, unspec_fd->get_range());
+            fd = bvc->get_decl();
+            m_uf2bvuf.insert(unspec_fd, fd);
+            m.inc_ref(unspec_fd);
+            m.inc_ref(fd);
+        }
+        result = m.mk_const(fd);
         result = unspec;
     }
+    return result;
+}
+
+expr_ref fpa2bv_converter::mk_to_ieee_bv_unspecified(unsigned ebits, unsigned sbits) {
+    expr_ref result(m);
+
+    app_ref unspec(m);
+    unspec = m_util.mk_internal_to_ieee_bv_unspecified(ebits, sbits);
+    func_decl * unspec_fd = unspec->get_decl();
+    func_decl * fd;
+    if (!m_uf2bvuf.find(unspec_fd, fd)) {
+        app_ref bvc(m);
+        bvc = m.mk_fresh_const(0, unspec_fd->get_range());
+        fd = bvc->get_decl();
+        m_uf2bvuf.insert(unspec_fd, fd);
+        m.inc_ref(unspec_fd);
+        m.inc_ref(fd);
+    }
+    result = m.mk_const(fd);
+
+    app_ref mask(m), extra(m);
+    mask = m_bv_util.mk_concat(m_bv_util.mk_numeral(0, 1),
+        m_bv_util.mk_concat(m_bv_util.mk_numeral(-1, ebits),
+            m_bv_util.mk_concat(m_bv_util.mk_numeral(0, sbits - 2),
+                m_bv_util.mk_numeral(1, 1))));
+    expr * args[2] = { result, mask };
+    extra = m.mk_eq(m.mk_app(m_bv_util.get_fid(), OP_BAND, 2, args), mask);
+    m_extra_assertions.push_back(extra);
+
     return result;
 }
 
