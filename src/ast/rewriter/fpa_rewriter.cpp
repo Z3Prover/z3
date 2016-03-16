@@ -130,7 +130,7 @@ br_status fpa_rewriter::mk_to_ubv_unspecified(func_decl * f, expr_ref & result) 
     bv_util bu(m());
     if (m_hi_fp_unspecified)
         // The "hardware interpretation" is 0.
-        result = bu.mk_numeral(0, ebits+sbits);
+        result = bu.mk_numeral(0, width);
     else
         result = m_util.mk_internal_to_ubv_unspecified(ebits, sbits, width);
 
@@ -149,7 +149,7 @@ br_status fpa_rewriter::mk_to_sbv_unspecified(func_decl * f, expr_ref & result) 
     bv_util bu(m());
     if (m_hi_fp_unspecified)
         // The "hardware interpretation" is 0.
-        result = bu.mk_numeral(0, ebits+sbits);
+        result = bu.mk_numeral(0, width);
     else
         result = m_util.mk_internal_to_sbv_unspecified(ebits, sbits, width);
 
