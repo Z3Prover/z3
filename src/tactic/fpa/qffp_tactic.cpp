@@ -23,6 +23,7 @@ Notes:
 #include"fpa2bv_tactic.h"
 #include"smt_tactic.h"
 #include"propagate_values_tactic.h"
+#include"ackermannize_bv_tactic.h"
 #include"probe_arith.h"
 #include"qfnra_tactic.h"
 
@@ -69,11 +70,14 @@ tactic * mk_qffp_tactic(ast_manager & m, params_ref const & p) {
     simp_p.set_bool("arith_lhs", true);
     simp_p.set_bool("elim_and", true);
 
-    tactic * st = and_then(mk_simplify_tactic(m, simp_p),
-                           mk_propagate_values_tactic(m, p),
-                           mk_fpa2bv_tactic(m, p),
-                           mk_propagate_values_tactic(m, p),
-                           using_params(mk_simplify_tactic(m, p), simp_p),
+    tactic * preamble = and_then(mk_simplify_tactic(m, simp_p),
+                                 mk_propagate_values_tactic(m, p),
+                                 mk_fpa2bv_tactic(m, p),
+                                 mk_propagate_values_tactic(m, p),
+                                 using_params(mk_simplify_tactic(m, p), simp_p),
+                                 if_no_proofs(if_no_unsat_cores(mk_ackermannize_bv_tactic(m, p))));
+
+    tactic * st = and_then(preamble,
                            mk_bit_blaster_tactic(m, p),
                            using_params(mk_simplify_tactic(m, p), simp_p),
                            cond(mk_is_propositional_probe(),
@@ -136,7 +140,7 @@ public:
 probe * mk_is_qffp_probe() {
     return alloc(is_qffp_probe);
 }
-    
+
 probe * mk_is_qffpbv_probe() {
     return alloc(is_qffp_probe);
 }
