@@ -96,10 +96,10 @@ struct reduce_args_tactic::imp {
         expr *lhs, *rhs;
         if (bv.is_bv_add(e, lhs, rhs) && bv.is_numeral(lhs)) {
             base = rhs;
-            return true;
+        } else {
+            base = e;
         }
-        base = e;
-        return !is_var(e);
+        return !is_var(base);
     }
 
     static bool may_be_unique(ast_manager& m, bv_util& bv, expr* e, expr*& base) {
