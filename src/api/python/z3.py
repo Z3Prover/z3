@@ -8178,8 +8178,13 @@ class FPRef(ExprRef):
         return self
 
     def __neg__(self):
-        """Create the Z3 expression `-self`."""
-        return FPRef(fpNeg(self))
+        """Create the Z3 expression `-self`.
+        
+        >>> x = FP('x', Float32())
+        >>> -x
+        -x
+        """
+        return fpNeg(self)
 
     def __div__(self, other):
         """Create the Z3 expression `self / other`.

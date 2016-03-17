@@ -892,7 +892,7 @@ br_status bv_rewriter::mk_bv_urem_core(expr * arg1, expr * arg2, bool hi_div0, e
         if (r2.is_zero()) {
             if (!hi_div0) {
                 result = m().mk_app(get_fid(), OP_BUREM0, arg1);
-                return BR_DONE;
+                return BR_REWRITE1;
             }
             else {
                 // The "hardware interpretation" for (bvurem x 0) is x

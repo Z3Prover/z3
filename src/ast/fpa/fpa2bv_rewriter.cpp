@@ -157,7 +157,9 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
         case OP_FPA_INTERNAL_BVUNWRAP:
         case OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED:
         case OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED:
-        case OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED: return BR_FAILED;
+        case OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED:
+        case OP_FPA_INTERNAL_TO_IEEE_BV_UNSPECIFIED:
+                return BR_FAILED;
         default:
             TRACE("fpa2bv", tout << "unsupported operator: " << f->get_name() << "\n";
                   for (unsigned i = 0; i < num; i++) tout << mk_ismt2_pp(args[i], m()) << std::endl;);

@@ -177,10 +177,28 @@ class fpa_decl_plugin : public decl_plugin {
                                                unsigned arity, sort * const * domain, sort * range);
     func_decl * mk_internal_to_real_unspecified(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                                 unsigned arity, sort * const * domain, sort * range);
+    func_decl * mk_internal_to_ieee_bv_unspecified(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                                                   unsigned arity, sort * const * domain, sort * range);
 
     virtual void set_manager(ast_manager * m, family_id id);
     unsigned mk_id(mpf const & v);
     void recycled_id(unsigned id);
+
+    virtual bool is_considered_uninterpreted(func_decl * f) {
+        if (f->get_family_id() != get_family_id())
+            return false;
+        switch (f->get_decl_kind())
+        {
+        case OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED:
+        case OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED:
+        case OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED:
+        case OP_FPA_INTERNAL_TO_IEEE_BV_UNSPECIFIED:
+            return true;
+        default:
+            return false;
+        }
+        return false;
+    }
 
 public:
     fpa_decl_plugin();
@@ -344,10 +362,10 @@ public:
 
     app * mk_to_ieee_bv(expr * arg1) { return m().mk_app(m_fid, OP_FPA_TO_IEEE_BV, arg1); }
 
-    app * mk_internal_to_ubv_unspecified(unsigned width);
-    app * mk_internal_to_sbv_unspecified(unsigned width);
-    app * mk_internal_to_ieee_bv_unspecified(unsigned width);
-    app * mk_internal_to_real_unspecified();
+    app * mk_internal_to_ubv_unspecified(unsigned ebits, unsigned sbits, unsigned width);
+    app * mk_internal_to_sbv_unspecified(unsigned ebits, unsigned sbits, unsigned width);
+    app * mk_internal_to_ieee_bv_unspecified(unsigned ebits, unsigned sbits);
+    app * mk_internal_to_real_unspecified(unsigned ebits, unsigned sbits);
 
     bool is_wrap(expr * e) const { return is_app_of(e, get_family_id(), OP_FPA_INTERNAL_BVWRAP); }
     bool is_unwrap(expr * e) const { return is_app_of(e, get_family_id(), OP_FPA_INTERNAL_BVUNWRAP); }

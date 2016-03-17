@@ -622,11 +622,87 @@ namespace z3 {
            \brief Return true if this expression is a variable.
         */
         bool is_var() const { return kind() == Z3_VAR_AST; }
+        /**
+           \brief Return true if expression is an algebraic number.
+        */
+        bool is_algebraic() const { return Z3_is_algebraic_number(ctx(), m_ast); }
 
         /**
            \brief Return true if this expression is well sorted (aka type correct).
         */
         bool is_well_sorted() const { bool r = Z3_is_well_sorted(ctx(), m_ast) != 0; check_error(); return r; }
+        
+        /**
+           \brief Return string representation of numeral or algebraic number
+           This method assumes the expression is numeral or algebraic
+           
+           \pre is_numeral() || is_algebraic()
+        */
+        std::string get_decimal_string(int precision) const {
+            assert(is_numeral() || is_algebraic());
+            return std::string(Z3_get_numeral_decimal_string(ctx(), m_ast, precision));
+        }
+        
+        /**
+           \brief Return int value of numeral, throw if result cannot fit in
+           machine int
+           
+           \pre is_numeral()
+        */
+        int get_numeral_int() const {
+            assert(is_numeral());
+            int result;
+            Z3_bool state = Z3_get_numeral_int(ctx(), m_ast, &result);
+            if (state != Z3_TRUE)
+                throw exception("numeral does not fit in machine int");
+            return result;
+        }
+        
+        /**
+           \brief Return uint value of numeral, throw if result cannot fit in
+           machine uint
+           
+           \pre is_numeral()
+        */
+        unsigned get_numeral_uint() const {
+            assert(is_numeral());
+            unsigned result;
+            Z3_bool state = Z3_get_numeral_uint(ctx(), m_ast, &result);
+            if (state != Z3_TRUE)
+                throw exception("numeral does not fit in machine uint");
+            return result;
+        }
+        
+        /**
+           \brief Return __int64 value of numeral, throw if result cannot fit in
+           __int64
+           
+           \pre is_numeral()
+        */
+        __int64 get_numeral_int64() const {
+            assert(is_numeral());
+            __int64 result;
+            Z3_bool state = Z3_get_numeral_int64(ctx(), m_ast, &result);
+            if (state != Z3_TRUE)
+                throw exception("numeral does not fit in machine __int64");
+            return result;
+        }
+        
+        /**
+           \brief Return __uint64 value of numeral, throw if result cannot fit in
+           __uint64
+           
+           \pre is_numeral()
+        */
+        __uint64 get_numeral_uint64() const {
+            assert(is_numeral());
+            __uint64 result;
+            Z3_bool state = Z3_get_numeral_uint64(ctx(), m_ast, &result);
+            if (state != Z3_TRUE)
+                throw exception("numeral does not fit in machine __uint64");
+            return result;
+        }
+           
 
         operator Z3_app() const { assert(is_app()); return reinterpret_cast<Z3_app>(m_ast); }
 

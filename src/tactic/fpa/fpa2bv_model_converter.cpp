@@ -54,7 +54,6 @@ void fpa2bv_model_converter::display(std::ostream & out) {
         out << mk_ismt2_pp(it->m_value.first, m, indent) << "; " <<
                mk_ismt2_pp(it->m_value.second, m, indent) << ")";
     }
-    out << ")" << std::endl;
 }
 
 model_converter * fpa2bv_model_converter::translate(ast_translation & translator) {
@@ -321,50 +320,61 @@ void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
         func_decl * f = it->m_key;
         unsigned arity = f->get_arity();
         sort * rng = f->get_range();
-        func_interp * flt_fi = alloc(func_interp, m, f->get_arity());
 
-        func_interp * bv_fi = bv_mdl->get_func_interp(it->m_value);
-        SASSERT(bv_fi->args_are_values());
+        if (arity > 0) {
+            func_interp * flt_fi = alloc(func_interp, m, f->get_arity());
 
-        for (unsigned i = 0; i < bv_fi->num_entries(); i++) {
-            func_entry const * bv_fe = bv_fi->get_entry(i);
-            expr * const * bv_args = bv_fe->get_args();
-            expr_ref_buffer new_args(m);
+            func_interp * bv_fi = bv_mdl->get_func_interp(it->m_value);
+            SASSERT(bv_fi->args_are_values());
 
-            for (unsigned j = 0; j < arity; j++) {
-                sort * dj = f->get_domain(j);
-                expr * aj = bv_args[j];
-                if (fu.is_float(dj))
-                    new_args.push_back(convert_bv2fp(bv_mdl, dj, aj));
-                else if (fu.is_rm(dj)) {
-                    expr_ref fv(m);
-                    fv = convert_bv2rm(aj);
-                    new_args.push_back(fv);
+            for (unsigned i = 0; i < bv_fi->num_entries(); i++) {
+                func_entry const * bv_fe = bv_fi->get_entry(i);
+                expr * const * bv_args = bv_fe->get_args();
+                expr_ref_buffer new_args(m);
+
+                for (unsigned j = 0; j < arity; j++) {
+                    sort * dj = f->get_domain(j);
+                    expr * aj = bv_args[j];
+                    if (fu.is_float(dj))
+                        new_args.push_back(convert_bv2fp(bv_mdl, dj, aj));
+                    else if (fu.is_rm(dj)) {
+                        expr_ref fv(m);
+                        fv = convert_bv2rm(aj);
+                        new_args.push_back(fv);
+                    }
+                    else
+                        new_args.push_back(aj);
                 }
-                else
-                    new_args.push_back(aj);
+
+                expr_ref ret(m);
+                ret = bv_fe->get_result();
+                if (fu.is_float(rng))
+                    ret = convert_bv2fp(bv_mdl, rng, ret);
+                else if (fu.is_rm(rng))
+                    ret = convert_bv2rm(ret);
+
+                flt_fi->insert_new_entry(new_args.c_ptr(), ret);
             }
 
-            expr_ref ret(m);
-            ret = bv_fe->get_result();
+            expr_ref els(m);
+            els = bv_fi->get_else();
             if (fu.is_float(rng))
-                ret = convert_bv2fp(bv_mdl, rng, ret);
+                els = convert_bv2fp(bv_mdl, rng, els);
             else if (fu.is_rm(rng))
-                ret = convert_bv2rm(ret);
+                els = convert_bv2rm(els);
 
-            flt_fi->insert_new_entry(new_args.c_ptr(), ret);
+            flt_fi->set_else(els);
+
+            float_mdl->register_decl(f, flt_fi);
         }
-
-        expr_ref els(m);
-        els = bv_fi->get_else();
-        if (fu.is_float(rng))
-            els = convert_bv2fp(bv_mdl, rng, els);
-        else if (fu.is_rm(rng))
-            els = convert_bv2rm(els);
-
-        flt_fi->set_else(els);
-
-        float_mdl->register_decl(f, flt_fi);
+        else {
+            func_decl * bvf = it->m_value;
+            expr_ref c(m), e(m);
+            c = m.mk_const(bvf);
+            bv_mdl->eval(c, e, true);
+            float_mdl->register_decl(f, e);
+            TRACE("fpa2bv_mc", tout << "model value for " << mk_ismt2_pp(f, m) << " is " << mk_ismt2_pp(e, m) << std::endl;);
+        }
     }
 
     // Keep all the non-float constants.
