@@ -19,6 +19,7 @@ Notes:
 #include"tactical.h"
 #include"cooperate.h"
 #include"ast_smt2_pp.h"
+#include"has_free_vars.h"
 #include"map.h"
 #include"rewriter_def.h"
 #include"extension_model_converter.h"
@@ -99,7 +100,7 @@ struct reduce_args_tactic::imp {
         } else {
             base = e;
         }
-        return true;
+        return !has_free_vars(base);
     }
 
     static bool may_be_unique(ast_manager& m, bv_util& bv, expr* e, expr*& base) {
