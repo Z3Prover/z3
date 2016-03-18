@@ -257,8 +257,10 @@ public:
         if (m_preprocess) {
             m_preprocess->reset();
         }
+        if (!m_bb_rewriter) {
+            m_bb_rewriter = alloc(bit_blaster_rewriter, m, m_params);
+        }
         params_ref simp2_p = m_params;
-        m_bb_rewriter = alloc(bit_blaster_rewriter, m, m_params);
         simp2_p.set_bool("som", true);
         simp2_p.set_bool("pull_cheap_ite", true);
         simp2_p.set_bool("push_ite_bv", false);
