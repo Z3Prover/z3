@@ -4,13 +4,16 @@ z3_add_component(qe
     qe_arith.cpp
     qe_arith_plugin.cpp
     qe_array_plugin.cpp
+    qe_arrays.cpp
     qe_bool_plugin.cpp
     qe_bv_plugin.cpp
     qe_cmd.cpp
     qe.cpp
     qe_datatype_plugin.cpp
+    qe_datatypes.cpp
     qe_dl_plugin.cpp
     qe_lite.cpp
+    qe_mbp.cpp
     qe_sat_tactic.cpp
     qe_tactic.cpp
     qe_util.cpp
