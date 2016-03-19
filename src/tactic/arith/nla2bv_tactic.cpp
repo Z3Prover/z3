@@ -60,7 +60,7 @@ class nla2bv_tactic : public tactic {
         expr_ref_vector             m_trail;
         unsigned                    m_num_bits;
         unsigned                    m_default_bv_size;
-        ref<filter_model_converter> m_fmc;
+        filter_model_converter_ref  m_fmc;
         
     public:
         imp(ast_manager & m, params_ref const& p):

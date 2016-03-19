@@ -45,7 +45,6 @@ Notes:
 #include "smt_value_sort.h"
 #include "proof_utils.h"
 #include "dl_boogie_proof.h"
-#include "qe_util.h"
 #include "scoped_proof.h"
 #include "blast_term_ite_tactic.h"
 #include "model_implicant.h"

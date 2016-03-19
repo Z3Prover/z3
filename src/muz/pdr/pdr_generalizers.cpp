@@ -117,7 +117,7 @@ namespace pdr {
     void core_farkas_generalizer::operator()(model_node& n, expr_ref_vector& core, bool& uses_level) {
         ast_manager& m  = n.pt().get_manager();
         if (core.empty()) return;
-        expr_ref A(m), B(qe::mk_and(core)), C(m);
+        expr_ref A(m), B(mk_and(core)), C(m);
         expr_ref_vector Bs(m);
         flatten_or(B, Bs);
         A = n.pt().get_propagation_formula(m_ctx.get_pred_transformers(), n.level());
@@ -129,13 +129,13 @@ namespace pdr {
             if (m_farkas_learner.get_lemma_guesses(A, B, lemmas)) {
                 TRACE("pdr", 
                       tout << "Old core:\n" << mk_pp(B, m) << "\n";
-                      tout << "New core:\n" << mk_pp(qe::mk_and(lemmas), m) << "\n";);            
-                Bs[i] = qe::mk_and(lemmas);
+                      tout << "New core:\n" << mk_and(lemmas) << "\n";);            
+                Bs[i] = mk_and(lemmas);
                 change = true;
             }
         }
         if (change) {
-            C = qe::mk_or(Bs);
+            C = mk_or(Bs);
             TRACE("pdr", tout << "prop:\n" << mk_pp(A,m) << "\ngen:" << mk_pp(B, m) << "\nto: " << mk_pp(C, m) << "\n";);
             core.reset();
             flatten_and(C, core);    
@@ -186,7 +186,7 @@ namespace pdr {
         }        
         closure cl(n.pt(), m_is_closure);
 
-        expr_ref fml1 = qe::mk_and(core);        
+        expr_ref fml1 = mk_and(core);        
         expr_ref fml2 = n.pt().get_formulas(n.level(), false);
         fml1_2.push_back(fml1);
         fml1_2.push_back(0);
@@ -205,7 +205,7 @@ namespace pdr {
             if (l_false == n.pt().is_reachable(nd, &conv2, uses_level1)) {
                 new_cores.push_back(std::make_pair(conv2, uses_level1));
                 change = true;
-                expr_ref state1 = qe::mk_and(conv2);
+                expr_ref state1 = mk_and(conv2);
                 TRACE("pdr", 
                       tout << mk_pp(state, m) << "\n";
                       tout << "Generalized to:\n" << mk_pp(state1, m) << "\n";);
@@ -593,7 +593,7 @@ namespace pdr {
             for (unsigned i = ut_size; i < t_size; i++) {
                 conj.push_back(rule.get_tail(i));
             }         
-            result = qe::mk_and(conj);
+            result = mk_and(conj);
             if (!sub.empty()) {
                 expr_ref tmp = result;
                 var_subst(m, false)(tmp, sub.size(), sub.c_ptr(), result);
@@ -685,7 +685,7 @@ namespace pdr {
             for (unsigned i = 0; i < rules.size(); ++i) {
                 fmls.push_back(m.mk_not(mk_transition_rule(reps, level, *rules[i])));           
             }
-            fml = qe::mk_and(fmls);
+            fml = mk_and(fmls);
             TRACE("pdr", tout << mk_pp(fml, m) << "\n";);
             return fml;
         }
@@ -741,7 +741,7 @@ namespace pdr {
                 }                
             }
 
-            expr_ref result = qe::mk_and(conjs);
+            expr_ref result = mk_and(conjs);
             TRACE("pdr", tout << mk_pp(result, m) << "\n";);
             return result;
         }

@@ -604,8 +604,16 @@ namespace z3 {
 
         /**
            \brief Return true if this expression is a numeral.
+           Specialized functions also return representations for the numerals as
+           small integers, 64 bit integers or rational or decimal strings.
         */
         bool is_numeral() const { return kind() == Z3_NUMERAL_AST; }
+        bool is_numeral_i64(__int64& i) const { bool r = Z3_get_numeral_int64(ctx(), m_ast, &i); return r;}
+        bool is_numeral_u64(__uint64& i) const { bool r = Z3_get_numeral_uint64(ctx(), m_ast, &i); return r;}
+        bool is_numeral_i(int& i) const { bool r = Z3_get_numeral_int(ctx(), m_ast, &i); return r;}
+        bool is_numeral_u(unsigned& i) const { bool r = Z3_get_numeral_uint(ctx(), m_ast, &i); return r;}
+        bool is_numeral(std::string& s) const { if (!is_numeral()) return false; s = Z3_get_numeral_string(ctx(), m_ast); return true; }
+        bool is_numeral(std::string& s, unsigned precision) const { if (!is_numeral()) return false; s = Z3_get_numeral_decimal_string(ctx(), m_ast, precision); return true; }
         /**
            \brief Return true if this expression is an application.
         */

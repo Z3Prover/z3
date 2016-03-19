@@ -539,7 +539,6 @@ namespace algebraic_numbers {
         }
 
         bool factor(scoped_upoly const & up, factors & r) {
-            // std::cout << "factor: "; upm().display(std::cout, up); std::cout << std::endl;
             if (m_factor) {
                 return upm().factor(up, r, m_factor_params);
             }
@@ -547,7 +546,7 @@ namespace algebraic_numbers {
                 scoped_upoly & up_sqf = m_isolate_tmp3;
                 up_sqf.reset();
                 upm().square_free(up.size(), up.c_ptr(), up_sqf);
-                TRACE("anum_bug", upm().display(tout, up_sqf.size(), up_sqf.c_ptr()); tout << "\n";);
+                TRACE("algebraic", upm().display(tout, up_sqf.size(), up_sqf.c_ptr()); tout << "\n";);
                 r.push_back(up_sqf, 1);
                 return false;
             }
@@ -566,6 +565,7 @@ namespace algebraic_numbers {
         }
 
         void isolate_roots(scoped_upoly const & up, numeral_vector & roots) {
+            TRACE("algebraic", upm().display(tout, up); tout << "\n";);
             if (up.empty())
                 return; // ignore the zero polynomial
             factors & fs = m_isolate_factors;
@@ -586,6 +586,7 @@ namespace algebraic_numbers {
                 upolynomial::numeral_vector const & f = fs[i];
                 // polynomial f contains the non zero roots
                 unsigned d = upm().degree(f);
+                TRACE("algebraic", tout << "factor " << i << " degree: " << d << "\n";);
                 if (d == 0)
                     continue; // found all roots of f
                 scoped_mpq r(qm());
@@ -601,8 +602,9 @@ namespace algebraic_numbers {
                 }
                 SASSERT(m_isolate_roots.empty() && m_isolate_lowers.empty() && m_isolate_uppers.empty());
                 upm().sqf_isolate_roots(f.size(), f.c_ptr(), bqm(), m_isolate_roots, m_isolate_lowers, m_isolate_uppers);
-                // collect rational/basic roots
+                // collect rational/basic roots                
                 unsigned sz = m_isolate_roots.size();
+                TRACE("algebraic", tout << "isolated roots: " << sz << "\n";);
                 for (unsigned i = 0; i < sz; i++) {
                     to_mpq(qm(), m_isolate_roots[i], r);
                     roots.push_back(numeral(mk_basic_cell(r)));

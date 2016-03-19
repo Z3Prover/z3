@@ -6,7 +6,6 @@ Copyright (c) 2015 Microsoft Corporation
 
 #include "check_relation.h"
 #include "dl_relation_manager.h"
-#include "qe_util.h"
 #include "ast_util.h"
 #include "smt_kernel.h"
 #include <typeinfo>
