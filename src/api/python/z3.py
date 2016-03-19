@@ -4162,15 +4162,6 @@ def Select(a, i):
         _z3_assert(is_array(a), "First argument must be a Z3 array expression")
     return a[i]
 
-def Default(a):
-    """ Return a default value for array expression.
-    >>> b = K(IntSort(), 1)
-    >>> prove(Default(b) == 1)
-    proved
-    """
-    if __debug__:
-        _z3_assert(is_array(a), "First argument must be a Z3 array expression")
-    return a.mk_default()
     
 def Map(f, *args):
     """Return a Z3 map array expression.

@@ -1,6 +1,7 @@
 z3_add_component(qe
   SOURCES
     nlarith_util.cpp
+    nlqsat.cpp
     qe_arith.cpp
     qe_arith_plugin.cpp
     qe_array_plugin.cpp
@@ -16,9 +17,12 @@ z3_add_component(qe
     qe_mbp.cpp
     qe_sat_tactic.cpp
     qe_tactic.cpp
-    qe_util.cpp
+    qsat.cpp
     vsubst_tactic.cpp
   COMPONENT_DEPENDENCIES
+    nlsat_tactic
+    nlqsat
     sat
-    smt
+    smt   
+    tactic 
 )
