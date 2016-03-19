@@ -223,6 +223,8 @@ namespace qe {
 
     qe_solver_plugin* mk_arith_plugin(i_solver_context& ctx, bool produce_models, smt_params& p);
 
+    void extract_vars(quantifier* q, expr_ref& new_body, app_ref_vector& vars);
+
     class def_vector {
         func_decl_ref_vector m_vars;
         expr_ref_vector      m_defs;
