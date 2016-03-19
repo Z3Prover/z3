@@ -21,7 +21,7 @@ z3_add_component(qe
     vsubst_tactic.cpp
   COMPONENT_DEPENDENCIES
     nlsat_tactic
-    nlqsat
+    nlsat
     sat
     smt   
     tactic 
