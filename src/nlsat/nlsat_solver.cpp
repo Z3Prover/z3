@@ -460,7 +460,7 @@ namespace nlsat {
 
         void del(bool_var b) {
             SASSERT(m_bwatches[b].empty());
-            SASSERT(m_bvalues[b] == l_undef);
+            //SASSERT(m_bvalues[b] == l_undef);
             m_num_bool_vars--;
             m_dead[b]  = true;
             m_atoms[b] = 0;
