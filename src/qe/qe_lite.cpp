@@ -21,7 +21,6 @@ Revision History:
 #include "expr_abstract.h"
 #include "used_vars.h"
 #include "occurs.h"
-#include "for_each_expr.h"
 #include "rewriter_def.h"
 #include "ast_pp.h"
 #include "ast_ll_pp.h"
@@ -2422,9 +2421,6 @@ public:
         }
         TRACE("qe_lite", for (unsigned i = 0; i < fmls.size(); ++i) {
                 tout << mk_pp(fmls[i].get(), m) << "\n";
-            });
-        IF_VERBOSE(3, for (unsigned i = 0; i < fmls.size(); ++i) {
-                verbose_stream() << mk_pp(fmls[i].get(), m) << "\n";
             });
         is_variable_test is_var(index_set, index_of_bound);
         m_der.set_is_variable_proc(is_var);
