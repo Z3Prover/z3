@@ -113,13 +113,13 @@ namespace nlsat {
 
     inline std::ostream& operator<<(std::ostream& out, atom::kind k) {
         switch (k) {
-        case atom::kind::EQ: return out << "=";
-        case atom::kind::LT: return out << "<";
-        case atom::kind::ROOT_EQ: return out << "= root";
-        case atom::kind::ROOT_LT: return out << "< root";
-        case atom::kind::ROOT_LE: return out << "<= root";
-        case atom::kind::ROOT_GT: return out << "> root";
-        case atom::kind::ROOT_GE: return out << ">= root";
+        case atom::EQ: return out << "=";
+        case atom::LT: return out << "<";
+        case atom::ROOT_EQ: return out << "= root";
+        case atom::ROOT_LT: return out << "< root";
+        case atom::ROOT_LE: return out << "<= root";
+        case atom::ROOT_GT: return out << "> root";
+        case atom::ROOT_GE: return out << ">= root";
         default: UNREACHABLE();
         }
         return out;
