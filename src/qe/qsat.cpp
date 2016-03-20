@@ -520,6 +520,7 @@ namespace qe {
             {
                 m_smtp.m_model = true;
                 m_smtp.m_relevancy_lvl = 0;
+                m_smtp.m_case_split_strategy = CS_ACTIVITY_WITH_CACHE;
             }
             
             smt::kernel& k() { return m_kernel; }
