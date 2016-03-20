@@ -29,7 +29,7 @@ Notes:
 #include"expr2var.h"
 #include"arith_decl_plugin.h"
 #include"tactic.h"
-#include"ast_smt2_pp.h"
+#include"ast_pp.h"
 #include"polynomial.h"
 #include"algebraic_numbers.h"
 
@@ -126,7 +126,7 @@ struct goal2nlsat::imp {
         m_qm.neg(d2);
         polynomial_ref p(m_pm);
         p = m_pm.addmul(d1, m_pm.mk_unit(), p1, d2, m_pm.mk_unit(), p2);
-        TRACE("goal2nlsat_bug", tout << "p: " << p << "\nk: " << k << "\n";);
+        TRACE("goal2nlsat_bug", tout << mk_pp(f, m) << " p: " << p << "\nk: " << k << "\n";);
         if (is_const(p)) {
             int sign;
             if (is_zero(p))
@@ -194,7 +194,7 @@ struct goal2nlsat::imp {
                 switch (to_app(f)->get_decl_kind()) {
                 case OP_TRUE:
                 case OP_FALSE:
-                    TRACE("goal2nlsat", tout << "f: " << mk_ismt2_pp(f, m) << "\n";);
+                    TRACE("goal2nlsat", tout << "f: " << mk_pp(f, m) << "\n";);
                     throw tactic_exception("apply simplify before applying nlsat");
                 case OP_AND:
                 case OP_OR:

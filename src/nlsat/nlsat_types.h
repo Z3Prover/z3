@@ -115,12 +115,13 @@ namespace nlsat {
         switch (k) {
         case atom::kind::EQ: return out << "=";
         case atom::kind::LT: return out << "<";
+        case atom::kind::GT: return out << ">";
         case atom::kind::ROOT_EQ: return out << "= root";
         case atom::kind::ROOT_LT: return out << "< root";
         case atom::kind::ROOT_LE: return out << "<= root";
         case atom::kind::ROOT_GT: return out << "> root";
         case atom::kind::ROOT_GE: return out << ">= root";
-        default: UNREACHABLE();
+        default: return out << (int)k;
         }
         return out;
     }

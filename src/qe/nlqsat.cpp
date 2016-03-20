@@ -30,6 +30,7 @@ Revision History:
 #include "ast_util.h"
 #include "tseitin_cnf_tactic.h"
 #include "expr_safe_replace.h"
+#include "ast_pp.h"
 
 namespace qe {
 
@@ -285,6 +286,7 @@ namespace qe {
             }
             nlsat::var_vector vs;
             m_solver.vars(l, vs);
+            TRACE("qe", m_solver.display(tout, l); tout << "\n";);
             for (unsigned i = 0; i < vs.size(); ++i) {
                 level.merge(m_rvar2level[vs[i]]);
             }
@@ -542,8 +544,12 @@ namespace qe {
                     }
                     else if (m_t2x.is_var(v)) {
                         nlsat::var w = m_t2x.to_var(v);
+                        TRACE("qe", tout << mk_pp(v, m) << " |-> " << w << "\n";);
                         m_bound_rvars.back().push_back(w);
                         m_rvar2level.setx(w, lvl, max_level());
+                    }
+                    else {
+                        TRACE("qe", tout << mk_pp(v, m) << " not found\n";);
                     }
                 }
             }
@@ -551,6 +557,7 @@ namespace qe {
             m_is_true = nlsat::literal(m_a2b.to_var(is_true), false);
             // insert literals from arithmetical sub-formulas
             nlsat::atom_vector const& atoms = m_solver.get_atoms();
+            TRACE("qe", m_solver.display(tout); );
             for (unsigned i = 0; i < atoms.size(); ++i) {
                 if (atoms[i]) {
                     get_level(nlsat::literal(i, false));
