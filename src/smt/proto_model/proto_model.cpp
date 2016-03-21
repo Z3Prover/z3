@@ -105,7 +105,6 @@ bool proto_model::eval(expr * e, expr_ref & result, bool model_completion) {
     m_eval.set_model_completion(model_completion);
     try {
         m_eval(e, result);
-         std::cout << result << "\n";
         return true;
     }
     catch (model_evaluator_exception & ex) {

@@ -2548,7 +2548,6 @@ class qe_lite_tactic : public tactic {
                 }
                 if (f != new_f) {
                     TRACE("qe", tout << mk_pp(f, m) << "\n" << new_f << "\n";);
-                    debug_diff(f, new_f);
                     g->update(i, new_f, new_pr, g->dep(i));                
                 }
             }
