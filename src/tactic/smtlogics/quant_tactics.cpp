@@ -22,8 +22,6 @@ Revision History:
 #include"solve_eqs_tactic.h"
 #include"elim_uncnstr_tactic.h"
 #include"qe_tactic.h"
-#include"qe_sat_tactic.h"
-#include"qe_lite.h"
 #include"qsat.h"
 #include"nlqsat.h"
 #include"ctx_simplify_tactic.h"
@@ -54,7 +52,6 @@ static tactic * mk_quant_preprocessor(ast_manager & m, bool disable_gaussian = f
                     using_params(mk_simplify_tactic(m), pull_ite_p),
                     solve_eqs,
                     mk_elim_uncnstr_tactic(m),
-                    mk_qe_lite_tactic(m),
                     mk_simplify_tactic(m));    
 }
 

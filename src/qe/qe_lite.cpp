@@ -491,6 +491,10 @@ namespace eq {
                     m_new_args.push_back(args[i]);
                 }
             }
+            if (m_new_args.size() == num_args) {
+                r = q;
+                return;
+            }
             
             expr_ref t(m);
             if (q->is_forall()) {
@@ -771,7 +775,7 @@ namespace eq {
                 proof_ref curr_pr(m);
                 q  = to_quantifier(r);
                 reduce_quantifier1(q, r, curr_pr);
-                if (m.proofs_enabled()) {
+                if (m.proofs_enabled() && r != q) {
                     pr = m.mk_transitivity(pr, curr_pr);
                 }
             } while (q != r && is_quantifier(r));
@@ -2297,7 +2301,7 @@ public:
             }
             m_imp(indices, true, result);          
             if (is_forall(q)) {
-                result = m.mk_not(result);
+                result = push_not(result);
             }
             result = m.update_quantifier(
                 q, 
@@ -2476,6 +2480,41 @@ class qe_lite_tactic : public tactic {
             cooperate("qe-lite");
         }
         
+        void debug_diff(expr* a, expr* b) {
+            ptr_vector<expr> as, bs;
+            as.push_back(a);
+            bs.push_back(b);
+            expr* a1, *a2, *b1, *b2;
+            while (!as.empty()) {
+                a = as.back();
+                b = bs.back();
+                as.pop_back();
+                bs.pop_back();
+                if (a == b) {
+                    continue;
+                }
+                else if (is_forall(a) && is_forall(b)) {
+                    as.push_back(to_quantifier(a)->get_expr());
+                    bs.push_back(to_quantifier(b)->get_expr());
+                }
+                else if (m.is_and(a, a1, a2) && m.is_and(b, b1, b2)) {
+                    as.push_back(a1);
+                    as.push_back(a2);
+                    bs.push_back(b1);
+                    bs.push_back(b2);
+                }
+                else if (m.is_eq(a, a1, a2) && m.is_eq(b, b1, b2)) {
+                    as.push_back(a1);
+                    as.push_back(a2);
+                    bs.push_back(b1);
+                    bs.push_back(b2);
+                }
+                else {
+                    TRACE("qe", tout << mk_pp(a, m) << " != " << mk_pp(b, m) << "\n";);
+                }
+            }
+        }
+
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result, 
                         model_converter_ref & mc, 
@@ -2507,7 +2546,11 @@ class qe_lite_tactic : public tactic {
                         new_pr = g->pr(i);
                     }
                 }
-                g->update(i, new_f, new_pr, g->dep(i));                
+                if (f != new_f) {
+                    TRACE("qe", tout << mk_pp(f, m) << "\n" << new_f << "\n";);
+                    debug_diff(f, new_f);
+                    g->update(i, new_f, new_pr, g->dep(i));                
+                }
             }
             g->inc_depth();
             result.push_back(g.get());
