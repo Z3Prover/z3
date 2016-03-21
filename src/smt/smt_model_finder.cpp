@@ -149,6 +149,7 @@ namespace smt {
                     SASSERT(!contains_model_value(t));
                     unsigned gen = (*it).m_value;
                     expr * t_val = ev.eval(t, true);
+                    if (!t_val) break;
                     TRACE("model_finder", tout << mk_pp(t, m_manager) << " " << mk_pp(t_val, m_manager) << "\n";);
 
                     expr * old_t = 0;
@@ -828,7 +829,7 @@ namespace smt {
                 for (; it != end; ++it) {
                     expr *     t = (*it).m_key;
                     expr * t_val = eval(t, true);
-                    if (!already_found.contains(t_val)) {
+                    if (t_val && !already_found.contains(t_val)) {
                         values.push_back(t_val);
                         already_found.insert(t_val);
                     }
@@ -891,6 +892,7 @@ namespace smt {
                 add_mono_exceptions(n);
                 ptr_buffer<expr> values;
                 get_instantiation_set_values(n, values);
+                if (values.empty()) return;
                 sort_values(n, values);
                 sort * s = n->get_sort();
                 arith_simplifier_plugin * as = get_arith_simp();
