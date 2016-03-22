@@ -500,40 +500,40 @@ namespace qe {
         }
     }
 
-        class kernel {
-            ast_manager& m;
-            smt_params   m_smtp;
-            smt::kernel  m_kernel;
-            
-        public:
-            kernel(ast_manager& m):
-                m(m),
-                m_kernel(m, m_smtp)
-            {
-                m_smtp.m_model = true;
-                m_smtp.m_relevancy_lvl = 0;
-                m_smtp.m_case_split_strategy = CS_ACTIVITY_WITH_CACHE;
+    class kernel {
+        ast_manager& m;
+        smt_params   m_smtp;
+        smt::kernel  m_kernel;
+        
+    public:
+        kernel(ast_manager& m):
+            m(m),
+            m_kernel(m, m_smtp)
+        {
+            m_smtp.m_model = true;
+            m_smtp.m_relevancy_lvl = 0;
+            m_smtp.m_case_split_strategy = CS_ACTIVITY_WITH_CACHE;
+        }
+        
+        smt::kernel& k() { return m_kernel; }
+        smt::kernel const& k() const { return m_kernel; }
+        
+        void assert_expr(expr* e) {
+            m_kernel.assert_expr(e);
+        }
+        
+        void get_core(expr_ref_vector& core) {
+            unsigned sz = m_kernel.get_unsat_core_size();
+            core.reset();
+            for (unsigned i = 0; i < sz; ++i) {
+                core.push_back(m_kernel.get_unsat_core_expr(i));
             }
-            
-            smt::kernel& k() { return m_kernel; }
-            smt::kernel const& k() const { return m_kernel; }
-            
-            void assert_expr(expr* e) {
-                m_kernel.assert_expr(e);
-            }
-            
-            void get_core(expr_ref_vector& core) {
-                unsigned sz = m_kernel.get_unsat_core_size();
-                core.reset();
-                for (unsigned i = 0; i < sz; ++i) {
-                    core.push_back(m_kernel.get_unsat_core_expr(i));
-                }
-                TRACE("qe", tout << "core: " << core << "\n";
-                      m_kernel.display(tout);
-                      tout << "\n";
-                      );
-            }
-        };
+            TRACE("qe", tout << "core: " << core << "\n";
+                  m_kernel.display(tout);
+                  tout << "\n";
+                  );
+        }
+    };
     
     class qsat : public tactic {
         
@@ -1168,6 +1168,7 @@ namespace qe {
         pred_abs        m_pred_abs;
         qe::mbp         m_mbp;
         kernel          m_kernel;
+        vector<app_ref_vector> m_vars;
 
         imp(ast_manager& m): 
             m(m), 
@@ -1180,14 +1181,36 @@ namespace qe {
             m_fmls.push_back(e);
         }
 
-        lbool check(svector<bool> const& is_max, func_decl_ref_vector const& vars, app* t) {
+        lbool check(svector<bool> const& is_max, app_ref_vector const& vars, app* t) {
             // Assume this is the only call to check.
             expr_ref_vector defs(m);
+            app_ref_vector free_vars(m), vars1(m);
             expr_ref fml = mk_and(m_fmls);
+            m_pred_abs.get_free_vars(fml, free_vars);
             m_pred_abs.abstract_atoms(fml, defs);
             fml = m_pred_abs.mk_abstract(fml);
             m_kernel.assert_expr(mk_and(defs));
             m_kernel.assert_expr(fml);
+            obj_hashtable<app> var_set;
+            for (unsigned i = 0; i < vars.size(); ++i) {
+                var_set.insert(vars[i]);
+            }
+            for (unsigned i = 0; i < free_vars.size(); ++i) {
+                app* v = free_vars[i].get();
+                if (!var_set.contains(v)) {
+                    vars1.push_back(v);
+                }
+            }
+            bool is_m = is_max[0];
+            for (unsigned i = 0; i < vars.size(); ++i) {
+                if (is_m != is_max[i]) {
+                    m_vars.push_back(vars1);
+                    vars1.reset();       
+                    is_m = is_max[i];
+                }
+                vars1.push_back(vars[i]);
+            }
+
             // TBD
             
             return l_undef;
@@ -1212,7 +1235,7 @@ namespace qe {
         }
     }
 
-    lbool min_max_opt::check(svector<bool> const& is_max, func_decl_ref_vector const& vars, app* t) {
+    lbool min_max_opt::check(svector<bool> const& is_max, app_ref_vector const& vars, app* t) {
         return m_imp->check(is_max, vars, t);
     }
 
