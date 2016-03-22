@@ -28,6 +28,7 @@ CXX=getenv("CXX", None)
 CC=getenv("CC", None)
 CPPFLAGS=getenv("CPPFLAGS", "")
 CXXFLAGS=getenv("CXXFLAGS", "")
+AR=getenv("AR", "ar")
 EXAMP_DEBUG_FLAG=''
 LDFLAGS=getenv("LDFLAGS", "")
 JNI_HOME=getenv("JNI_HOME", None)
@@ -496,8 +497,8 @@ def is64():
 def check_ar():
     if is_verbose():
         print("Testing ar...")
-    if which('ar') is None:
-        raise MKException('ar (archive tool) was not found')
+    if which(AR) is None:
+        raise MKException('%s (archive tool) was not found' % AR)
 
 def find_cxx_compiler():
     global CXX, CXX_COMPILERS
@@ -2365,7 +2366,7 @@ def mk_config():
         config.write('CXX_OUT_FLAG=-o \n')
         config.write('OBJ_EXT=.o\n')
         config.write('LIB_EXT=.a\n')
-        config.write('AR=ar\n')
+        config.write('AR=%s\n' % AR)
         config.write('AR_FLAGS=rcs\n')
         config.write('AR_OUTFLAG=\n')
         config.write('EXE_EXT=\n')
@@ -2386,6 +2387,7 @@ def mk_config():
             print('Host platform:  %s' % sysname)
             print('C++ Compiler:   %s' % CXX)
             print('C Compiler  :   %s' % CC)
+            print('Archive Tool:   %s' % AR)
             print('Arithmetic:     %s' % ARITH)
             print('OpenMP:         %s' % HAS_OMP)
             print('Prefix:         %s' % PREFIX)
