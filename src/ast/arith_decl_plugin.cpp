@@ -664,3 +664,45 @@ algebraic_numbers::anum const & arith_util::to_irrational_algebraic_numeral(expr
     SASSERT(is_irrational_algebraic_numeral(n));
     return plugin().aw().to_anum(to_app(n)->get_decl());
 }
+
+expr_ref arith_util::mk_mul_simplify(expr_ref_vector const& args) {
+    return mk_mul_simplify(args.size(), args.c_ptr());
+
+}
+expr_ref arith_util::mk_mul_simplify(unsigned sz, expr* const* args) {
+    expr_ref result(m_manager);
+    
+    switch (sz) {
+    case 0:
+        result = mk_numeral(rational(1), true);
+        break;
+    case 1:
+        result = args[0];
+        break;
+    default:
+        result = mk_mul(sz, args);
+        break;                    
+    }
+    return result;
+}
+
+expr_ref arith_util::mk_add_simplify(expr_ref_vector const& args) {
+    return mk_add_simplify(args.size(), args.c_ptr());
+
+}
+expr_ref arith_util::mk_add_simplify(unsigned sz, expr* const* args) {
+    expr_ref result(m_manager);
+    
+    switch (sz) {
+    case 0:
+        result = mk_numeral(rational(0), true);
+        break;
+    case 1:
+        result = args[0];
+        break;
+    default:
+        result = mk_add(sz, args);
+        break;                    
+    }
+    return result;
+}

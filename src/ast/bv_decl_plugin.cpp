@@ -865,6 +865,12 @@ sort * bv_util::mk_sort(unsigned bv_size) {
     return m_manager.mk_sort(get_fid(), BV_SORT, 1, p);
 }
 
+unsigned bv_util::get_int2bv_size(parameter const& p) {
+    int sz;
+    VERIFY(m_plugin->get_int2bv_size(1, &p, sz));
+    return static_cast<unsigned>(sz);
+}
+
 app * bv_util::mk_bv2int(expr* e) {
     sort* s = m_manager.mk_sort(m_manager.mk_family_id("arith"), INT_SORT);
     parameter p(s);

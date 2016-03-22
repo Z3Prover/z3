@@ -73,7 +73,7 @@ public:
         unsigned nd = q->get_num_decls();
         for (unsigned i = 0; i < nd; ++i) {
             sort* s = q->get_decl_sort(i);
-            app* a = m.mk_fresh_const("x", s);
+            app* a = m.mk_fresh_const(q->get_decl_name(i).str().c_str(), s);
             vars.push_back(a);
         }
         expr * const * exprs = (expr* const*) (vars.c_ptr() + vars.size()- nd);
@@ -154,9 +154,7 @@ private:
     }
     
     quantifier_type& negate(quantifier_type& qt) {
-        TRACE("qe", display(qt, tout); tout << "\n";);
         qt = static_cast<quantifier_type>(qt ^0x1);
-        TRACE("qe", display(qt, tout); tout << "\n";);
         return qt;
     }
     
@@ -205,6 +203,7 @@ private:
         case AST_APP: {
             expr_ref_vector args(m);
             expr_ref tmp(m);
+            expr* t1, *t2, *t3;
             unsigned num_args = 0;
             app* a = to_app(fml);
             if (m.is_and(fml)) {
@@ -228,16 +227,35 @@ private:
                 negate(qt);
                 result = m.mk_not(tmp);
             }
-            else if (m.is_implies(fml)) {
-                pull_quantifier(to_app(fml)->get_arg(0), negate(qt), vars, tmp);
+            else if (m.is_implies(fml, t1, t2)) {
+                pull_quantifier(t1, negate(qt), vars, tmp);
                 negate(qt);
-                pull_quantifier(to_app(fml)->get_arg(1), qt, vars, result);
+                pull_quantifier(t2, qt, vars, result);
                 result = m.mk_implies(tmp, result);
             }
-            else if (m.is_ite(fml)) {
-                pull_quantifier(to_app(fml)->get_arg(1), qt, vars, tmp);
-                pull_quantifier(to_app(fml)->get_arg(2), qt, vars, result);
-                result = m.mk_ite(to_app(fml)->get_arg(0), tmp, result);
+            else if (m.is_ite(fml, t1, t2, t3)) {
+                expr_ref tt1(m), tt2(m), tt3(m), ntt1(m), nt1(m);
+                pull_quantifier(t2, qt, vars, tt2);
+                pull_quantifier(t3, qt, vars, tt3);
+                if (has_quantifiers(t1)) {
+                    pull_quantifier(t1, qt, vars, tt1);
+                    nt1 = m.mk_not(t1);
+                    pull_quantifier(nt1, qt, vars, ntt1);
+                    result = m.mk_and(m.mk_or(ntt1, tt2), m.mk_or(tt1, tt3));
+                }
+                else {
+                    result = m.mk_ite(t1, tt2, tt3);
+                }
+            }
+            else if ((m.is_eq(fml, t1, t2) && m.is_bool(t1)) || m.is_iff(fml, t1, t2)) {
+                expr_ref tt1(m), tt2(m), ntt1(m), ntt2(m), nt1(m), nt2(m);
+                pull_quantifier(t1, qt, vars, tt1);
+                pull_quantifier(t2, qt, vars, tt2);
+                nt1 = m.mk_not(t1);
+                nt2 = m.mk_not(t2);
+                pull_quantifier(nt1, qt, vars, ntt1);
+                pull_quantifier(nt2, qt, vars, ntt2);
+                result = m.mk_and(m.mk_or(ntt1, tt2), m.mk_or(ntt2, tt1));
             }
             else {
                 // the formula contains a quantifier, but it is "inaccessible"

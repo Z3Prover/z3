@@ -201,7 +201,7 @@ namespace pdr {
                 lits.push_back(extract_consequence(lo, hi));
                 lo = hi;
             }
-            res = qe::mk_or(lits);
+            res = mk_or(lits);
             IF_VERBOSE(2, { if (lits.size() > 1) { verbose_stream() << "combined lemma: " << mk_pp(res, m) << "\n"; } });
 #endif
         }
@@ -415,6 +415,7 @@ namespace pdr {
                 return false;
             }
         }
+
     };
 
     class collect_pure_proc {

@@ -149,7 +149,6 @@ protected:
     func_decl * m_mod_0_decl;
     func_decl * m_u_asin_decl;
     func_decl * m_u_acos_decl;
-
     ptr_vector<app> m_small_ints;
     ptr_vector<app> m_small_reals;
 
@@ -416,6 +415,11 @@ public:
         return m_manager.mk_eq(lhs, rhs);
     }
 
+    expr_ref mk_mul_simplify(expr_ref_vector const& args);
+    expr_ref mk_mul_simplify(unsigned sz, expr* const* args);
+
+    expr_ref mk_add_simplify(expr_ref_vector const& args);
+    expr_ref mk_add_simplify(unsigned sz, expr* const* args);
 };
 
 #endif /* ARITH_DECL_PLUGIN_H_ */

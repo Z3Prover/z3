@@ -32,6 +32,7 @@ Revision History:
 #include "nlarith_util.h"
 #include "model_evaluator.h"
 #include "smt_kernel.h"
+#include "qe_arith.h"
 
 namespace qe {
 
@@ -266,23 +267,8 @@ namespace qe {
         // 
         // match 0 == p mod k, p mod k == 0
         //
-        bool is_divides(app* e, numeral& k, expr_ref& p) {
-            expr* e1, *e2;
-            if (!m.is_eq(e, e1, e2)) {
-                return false;
-            }
-            return is_divides(e1, e2, k, p) || is_divides(e2, e1, k, p);
-        }
-    
-        bool is_divides(expr* e1, expr* e2, numeral& k, expr_ref& p) {  
-            if (m_arith.is_mod(e2) && 
-                m_arith.is_numeral(e1, k) && 
-                k.is_zero() &&
-                m_arith.is_numeral(to_app(e2)->get_arg(1), k)) {
-                p = to_app(e2)->get_arg(0);
-                return true;
-            }
-            return false;
+        bool is_divides(expr* e, numeral& k, expr_ref& p) {
+            return qe::is_divides(m_arith, e, k, p);
         }
 
         bool is_not_divides(app* e, app_ref& n, numeral& k, expr_ref& p) {

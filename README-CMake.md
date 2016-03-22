@@ -265,7 +265,8 @@ The following useful options can be passed to CMake whilst configuring.
 * ``CMAKE_INSTALL_INCLUDEDIR`` - STRING. The path to install z3 include files (relative to ``CMAKE_INSTALL_PREFIX``), e.g. ``include``.
 * ``CMAKE_INSTALL_LIBDIR`` - STRING. The path to install z3 libraries (relative to ``CMAKE_INSTALL_PREFIX``), e.g. ``lib``.
 * ``CMAKE_INSTALL_PREFIX`` - STRING. The install prefix to use (e.g. ``/usr/local/``).
-* ``ENABLE_TRACING`` - BOOL. If set to ``TRUE`` enable tracing, if set to ``FALSE`` disable tracing.
+* ``CMAKE_INSTALL_PYTHON_PKG_DIR`` - STRING. The path to install the z3 python bindings. This can be relative (to ``CMAKE_INSTALL_PREFIX``) or absolute.
+* ``ENABLE_TRACING_FOR_NON_DEBUG`` - BOOL. If set to ``TRUE`` enable tracing in non-debug builds, if set to ``FALSE`` disable tracing in non-debug builds. Note in debug builds tracing is always enabled.
 * ``BUILD_LIBZ3_SHARED`` - BOOL. If set to ``TRUE`` build libz3 as a shared library otherwise build as a static library.
 * ``ENABLE_EXAMPLE_TARGETS`` - BOOL. If set to ``TRUE`` add the build targets for building the API examples.
 * ``USE_OPENMP`` - BOOL. If set to ``TRUE`` and OpenMP support is detected build with OpenMP support.

@@ -3940,7 +3940,7 @@ class ArraySortRef(SortRef):
         >>> A.range()
         Bool
         """
-        return _to_sort_ref(Z3_get_array_sort_range(self.ctx_ref(), self.ast), self.ctx)
+        return _to_sort_ref(Z3_get_array_sort_range(self.ctx_ref(), self.ast), self.ctx)    
 
 class ArrayRef(ExprRef):
     """Array expressions. """
@@ -4162,6 +4162,7 @@ def Select(a, i):
         _z3_assert(is_array(a), "First argument must be a Z3 array expression")
     return a[i]
 
+    
 def Map(f, *args):
     """Return a Z3 map array expression.
 

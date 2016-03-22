@@ -797,13 +797,7 @@ MK_SIMPLIFIER(apply_bit2int, bit2int& functor = m_bit2int, "bit2int", "propagate
 
 MK_SIMPLIFIER(cheap_quant_fourier_motzkin, elim_bounds_star functor(m_manager), "elim_bounds", "cheap-fourier-motzkin", true);
 
-// MK_SIMPLIFIER(quant_elim, qe::expr_quant_elim_star1 &functor = m_quant_elim, 
-//              "quantifiers", "quantifier elimination procedures", true);
 
-bool asserted_formulas::quant_elim() {
-    throw default_exception("QUANT_ELIM option is deprecated, please consider using the 'qe' tactic.");
-    return false;
-}
 
 MK_SIMPLIFIER(elim_bvs_from_quantifiers, bv_elim_star functor(m_manager), "bv_elim", "eliminate-bit-vectors-from-quantifiers", true);
 

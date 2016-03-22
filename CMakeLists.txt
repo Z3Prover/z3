@@ -289,12 +289,14 @@ endif()
 ################################################################################
 # Tracing
 ################################################################################
-option(ENABLE_TRACING OFF "Enable tracing")
-if (ENABLE_TRACING)
+option(ENABLE_TRACING_FOR_NON_DEBUG "Enable tracing in non-debug builds." OFF)
+if (ENABLE_TRACING_FOR_NON_DEBUG)
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_TRACE")
+else()
+  # Tracing is always enabled in debug builds
+  list(APPEND Z3_COMPONENT_CXX_DEFINES $<$<CONFIG:Debug>:_TRACE>)
 endif()
 # Should we always enable tracing when doing a debug build?
-#list(APPEND Z3_COMPONENT_CXX_DEFINES $<$<CONFIG:Debug>:_TRACE>)
 
 ################################################################################
 # Postion indepdent code

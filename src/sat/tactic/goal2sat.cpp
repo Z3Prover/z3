@@ -509,7 +509,7 @@ struct sat2goal::imp {
         // This information may be stored as a vector of pairs.
         // The mapping is only created during the model conversion.
         expr_ref_vector             m_var2expr;
-        ref<filter_model_converter> m_fmc; // filter for eliminating fresh variables introduced in the assertion-set --> sat conversion
+        filter_model_converter_ref  m_fmc; // filter for eliminating fresh variables introduced in the assertion-set --> sat conversion
         
         sat_model_converter(ast_manager & m):
             m_var2expr(m) {

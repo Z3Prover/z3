@@ -31,7 +31,6 @@ Revision History:
 #include "var_subst.h"
 #include "uint_set.h"
 #include "ast_util.h"
-#include "qe_util.h"
 #include "th_rewriter.h"
 #include "for_each_expr.h"
 #include "expr_safe_replace.h"

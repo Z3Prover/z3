@@ -20,6 +20,7 @@ Revision History:
 #include "pdr_closure.h"
 #include "pdr_context.h"
 #include "expr_safe_replace.h"
+#include "ast_util.h"
 
 namespace pdr {
 
@@ -147,7 +148,7 @@ namespace pdr {
         for (unsigned i = 0; i < fmls.size(); ++i) {
             fmls[i] = close_fml(fmls[i].get());            
         }
-        return qe::mk_and(fmls);
+        return expr_ref(mk_and(fmls), m);
     }
 
     expr_ref closure::relax(unsigned i, expr* fml) {
@@ -169,7 +170,7 @@ namespace pdr {
         for (unsigned i = 0; i < As.size(); ++i) {
             fmls.push_back(relax(i, As[i]));
         }
-        B = qe::mk_and(fmls);
+        B = mk_and(fmls);
         return B;
     }
 

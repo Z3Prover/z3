@@ -57,7 +57,7 @@ def sorted_headers_by_component(l):
         _logger.debug("get_key({})".format(path))
         path_components = []
         stripped_path = path
-        assert 'src' in stripped_path.split(os.path.sep)
+        assert 'src' in stripped_path.split(os.path.sep) or 'src' in stripped_path.split('/')
         # Keep stripping off directory components until we hit ``src``
         while os.path.basename(stripped_path) != 'src':
             path_components.append(os.path.basename(stripped_path))
@@ -214,7 +214,7 @@ def mk_gparams_register_modules_internal(component_src_dirs, path):
     """
     assert isinstance(component_src_dirs, list)
     assert check_dir_exists(path)
-    cmds = []
+    cmds = []    
     mod_cmds = []
     mod_descrs = []
     fullname = os.path.join(path, 'gparams_register_modules.cpp')

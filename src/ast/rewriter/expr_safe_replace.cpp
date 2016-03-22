@@ -30,6 +30,14 @@ void expr_safe_replace::insert(expr* src, expr* dst) {
     m_subst.insert(src, dst);
 }
 
+void expr_safe_replace::operator()(expr_ref_vector& es) {
+    expr_ref val(m);
+    for (unsigned i = 0; i < es.size(); ++i) {
+        (*this)(es[i].get(), val);
+        es[i] = val;
+    }
+}
+
 void expr_safe_replace::operator()(expr* e, expr_ref& res) {
     m_todo.push_back(e);
     expr* a, *b;

@@ -64,6 +64,13 @@ namespace nlsat {
             for (unsigned i = 0; i < sz; i++)
                 push_back(ls[i]);
         }
+        void append(scoped_literal_vector const& ls) {
+            append(ls.size(), ls.c_ptr());
+        }
+        void swap(scoped_literal_vector& other) {
+            SASSERT(&m_solver == &other.m_solver);
+            m_lits.swap(other.m_lits);
+        }
     };
 
 

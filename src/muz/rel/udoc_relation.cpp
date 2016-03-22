@@ -23,7 +23,6 @@ Notes:
 --*/
 #include "udoc_relation.h"
 #include "dl_relation_manager.h"
-#include "qe_util.h"
 #include "ast_util.h"
 #include "smt_kernel.h"
 

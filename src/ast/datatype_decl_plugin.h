@@ -209,6 +209,8 @@ public:
     func_decl * get_recognizer_constructor(func_decl * recognizer);
     family_id get_family_id() const { return m_family_id; }
     bool are_siblings(sort * s1, sort * s2);
+    bool is_func_decl(datatype_op_kind k, unsigned num_params, parameter const* params, func_decl* f);
+    bool is_constructor_of(unsigned num_params, parameter const* params, func_decl* f);
     void reset();
     void display_datatype(sort *s, std::ostream& strm);
 

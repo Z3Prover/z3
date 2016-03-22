@@ -122,6 +122,7 @@ namespace smt {
         virtual void new_diseq_eh(theory_var, theory_var) {}
         virtual theory* mk_fresh(context* new_ctx) { return alloc(theory_seq_empty, new_ctx->get_manager()); }
         virtual char const * get_name() const { return "seq-empty"; }
+        virtual void display(std::ostream& out) const {}
     public:
         theory_seq_empty(ast_manager& m):theory(m.mk_family_id("seq")), m_used(false) {}
         virtual void init_model(model_generator & mg) {
