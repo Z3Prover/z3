@@ -499,15 +499,7 @@ namespace qe {
             }
         }
     }
-    
-    class qsat : public tactic {
-        
-        struct stats {
-            unsigned m_num_rounds;        
-            stats() { reset(); }
-            void reset() { memset(this, 0, sizeof(*this)); }
-        };
-        
+
         class kernel {
             ast_manager& m;
             smt_params   m_smtp;
@@ -542,6 +534,15 @@ namespace qe {
                       );
             }
         };
+    
+    class qsat : public tactic {
+        
+        struct stats {
+            unsigned m_num_rounds;        
+            stats() { reset(); }
+            void reset() { memset(this, 0, sizeof(*this)); }
+        };
+        
         
         ast_manager&               m;
         params_ref                 m_params;
@@ -1155,10 +1156,67 @@ namespace qe {
         
         tactic * translate(ast_manager & m) {
             return alloc(qsat, m, m_params, m_qelim, m_force_elim);
-        }
-        
-        
+        }               
     };
+
+   
+
+
+    struct min_max_opt::imp {
+        ast_manager&    m;
+        expr_ref_vector m_fmls;
+        pred_abs        m_pred_abs;
+        qe::mbp         m_mbp;
+        kernel          m_kernel;
+
+        imp(ast_manager& m): 
+            m(m), 
+            m_fmls(m), 
+            m_pred_abs(m), 
+            m_mbp(m),
+            m_kernel(m) {}
+
+        void add(expr* e) {
+            m_fmls.push_back(e);
+        }
+
+        lbool check(svector<bool> const& is_max, func_decl_ref_vector const& vars, app* t) {
+            // Assume this is the only call to check.
+            expr_ref_vector defs(m);
+            expr_ref fml = mk_and(m_fmls);
+            m_pred_abs.abstract_atoms(fml, defs);
+            fml = m_pred_abs.mk_abstract(fml);
+            m_kernel.assert_expr(mk_and(defs));
+            m_kernel.assert_expr(fml);
+            // TBD
+            
+            return l_undef;
+        }
+    };
+
+    min_max_opt::min_max_opt(ast_manager& m) {
+        m_imp = alloc(imp, m);
+    }
+
+    min_max_opt::~min_max_opt() {
+        dealloc(m_imp);
+    }
+
+    void min_max_opt::add(expr* e) {
+        m_imp->add(e);
+    }
+
+    void min_max_opt::add(expr_ref_vector const& fmls) {
+        for (unsigned i = 0; i < fmls.size(); ++i) {
+            add(fmls[i]);
+        }
+    }
+
+    lbool min_max_opt::check(svector<bool> const& is_max, func_decl_ref_vector const& vars, app* t) {
+        return m_imp->check(is_max, vars, t);
+    }
+
+
     
 };
 

@@ -113,6 +113,17 @@ namespace qe {
         void collect_statistics(statistics& st) const;
     };
 
+    class min_max_opt {
+        struct imp;
+        imp* m_imp;
+    public:
+        min_max_opt(ast_manager& m);
+        ~min_max_opt();
+        void add(expr* e);
+        void add(expr_ref_vector const& fmls);
+        lbool check(svector<bool> const& is_max, func_decl_ref_vector const& vars, app* t);
+    };
+
 
 }
 

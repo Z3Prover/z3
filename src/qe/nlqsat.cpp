@@ -31,6 +31,10 @@ Revision History:
 #include "tseitin_cnf_tactic.h"
 #include "expr_safe_replace.h"
 #include "ast_pp.h"
+#include "for_each_expr.h"
+#include "rewriter.h"
+#include "rewriter_def.h"
+
 
 namespace qe {
 
@@ -76,6 +80,7 @@ namespace qe {
         stats                                m_stats;
         statistics                           m_st;
         obj_hashtable<expr>                  m_free_vars;
+        obj_hashtable<expr>                  m_aux_vars;
         expr_ref_vector                      m_answer;
         expr_safe_replace                    m_answer_simplify;
         nlsat::literal_vector                m_assumptions;
@@ -423,6 +428,115 @@ namespace qe {
             }
         }
 
+        struct div {
+            expr_ref num, den, name;
+            div(ast_manager& m, expr* n, expr* d, expr* nm):
+                num(n, m), den(d, m), name(nm, m) {}            
+        };
+
+        class div_rewriter_cfg : public default_rewriter_cfg {
+            nlqsat&       s;
+            ast_manager&  m;
+            arith_util    a;
+            vector<div>   m_divs;
+        public:
+            div_rewriter_cfg(nlqsat& s): s(s), m(s.m), a(s.m) {}
+            ~div_rewriter_cfg() {}
+            br_status reduce_app(func_decl* f, unsigned sz, expr* const* args, expr_ref& result, proof_ref& pr) {
+                if (is_decl_of(f, a.get_family_id(), OP_DIV) && sz == 2 && !a.is_numeral(args[1]) && is_ground(args[0]) && is_ground(args[1])) {
+                    result = m.mk_fresh_const("div", a.mk_real());
+                    m_divs.push_back(div(m, args[0], args[1], result));
+                    return BR_DONE;
+                }
+                return BR_FAILED;
+            }
+            vector<div> const& divs() const { return m_divs; }
+        };
+
+        //template class rewriter_tpl<div_rewriter_cfg>;
+        
+        
+        class div_rewriter_star : public rewriter_tpl<div_rewriter_cfg> {
+            div_rewriter_cfg m_cfg;
+        public:
+            div_rewriter_star(nlqsat& s):
+                rewriter_tpl<div_rewriter_cfg>(s.m, false, m_cfg),
+                m_cfg(s)
+            {}
+            vector<div> const& divs() const { return m_cfg.divs(); }
+        };
+
+        class is_pure_proc {
+            nlqsat&    s;
+            arith_util a;
+            bool       m_has_divs;
+        public:
+            is_pure_proc(nlqsat& s): s(s), a(s.m), m_has_divs(false) {}
+
+            void operator()(::var * n) {
+                if (!a.is_real(n) && !s.m.is_bool(n)) {
+                    throw tactic_exception("not NRA");
+                }
+            }
+            void operator()(app * n) { 
+                if (n->get_family_id() == s.m.get_basic_family_id()) {
+                    return;
+                }
+                if (is_uninterp_const(n) && (a.is_real(n) || s.m.is_bool(n))) {
+                    return;
+                }
+                if (a.is_mul(n) || a.is_add(n) || a.is_sub(n) || a.is_uminus(n) || a.is_numeral(n) ||
+                    a.is_le(n) || a.is_ge(n) || a.is_lt(n) || a.is_gt(n)) {
+                    return;
+                }
+                expr* n1, *n2;
+                if (a.is_div(n, n1, n2) && a.is_numeral(n2)) {
+                    return;
+                }
+                rational r;
+                if (a.is_power(n, n1, n2) && a.is_numeral(n2, r) && r.is_unsigned()) {
+                    return;
+                }
+                if (a.is_div(n, n1, n2) && is_ground(n1) && is_ground(n2) && s.m_mode == qsat_t) {
+                    m_has_divs = true;
+                    return;
+                }
+                TRACE("qe", tout << "not NRA: " << mk_pp(n, s.m) << "\n";);
+                throw tactic_exception("not NRA");
+            }
+            void operator()(quantifier * n) {}
+
+            bool has_divs() const { return m_has_divs; }
+        };
+
+        void purify(expr_ref& fml) {
+            is_pure_proc  is_pure(*this);
+            {
+                expr_fast_mark1 visited;
+                quick_for_each_expr(is_pure, visited, fml);
+            }
+            if (is_pure.has_divs()) {
+                arith_util arith(m);
+                div_rewriter_star rw(*this);
+                proof_ref pr(m);
+                rw(fml, fml, pr);
+                vector<div> const& divs = rw.divs();
+                expr_ref_vector axioms(m);
+                for (unsigned i = 0; i < divs.size(); ++i) {
+                    axioms.push_back(
+                        m.mk_or(m.mk_eq(divs[i].den, arith.mk_numeral(rational(0), false)), 
+                                m.mk_eq(divs[i].num, arith.mk_mul(divs[i].den, divs[i].name))));                    
+                    for (unsigned j = i + 1; j < divs.size(); ++j) {
+                        axioms.push_back(m.mk_or(m.mk_not(m.mk_eq(divs[i].den, divs[j].den)),
+                                                 m.mk_not(m.mk_eq(divs[i].num, divs[j].num)), 
+                                                 m.mk_eq(divs[i].name, divs[j].name)));
+                    }
+                }
+                axioms.push_back(fml);
+                fml = mk_and(axioms);
+            }
+        }
+
         void reset() {
             //m_solver.reset();
             m_asms.reset();
@@ -444,6 +558,7 @@ namespace qe {
             m_st.reset();        
             m_solver.collect_statistics(m_st);
             m_free_vars.reset();
+            m_aux_vars.reset();
             m_answer.reset();
             m_answer_simplify.reset();
             m_assumptions.reset();
@@ -488,10 +603,11 @@ namespace qe {
             app_ref_vector vars(m);
             bool is_forall = false;   
             pred_abs abs(m);
+            purify(fml);
             abs.get_free_vars(fml, vars);
             insert_set(m_free_vars, vars);
             qvars.push_back(vars); 
-            vars.reset();    
+            vars.reset();  
             if (m_mode == elim_t) {
                 is_forall = true;
                 hoist.pull_quantifier(is_forall, fml, vars);
@@ -607,7 +723,7 @@ namespace qe {
             for (; it != end; ++it) {
                 nlsat::var x = it->m_value;
                 expr * t = it->m_key;
-                if (!is_uninterp_const(t) || !m_free_vars.contains(t))
+                if (!is_uninterp_const(t) || !m_free_vars.contains(t) || m_aux_vars.contains(t))
                     continue;
                 expr * v;
                 try {
@@ -626,7 +742,7 @@ namespace qe {
             for (; it != end; ++it) {
                 expr * a = it->m_key;
                 nlsat::bool_var b = it->m_value;
-                if (a == 0 || !is_uninterp_const(a) || b == m_is_true.var() || !m_free_vars.contains(a))
+                if (a == 0 || !is_uninterp_const(a) || b == m_is_true.var() || !m_free_vars.contains(a) || m_aux_vars.contains(a))
                     continue;
                 lbool val = m_bmodel0.get(b, l_undef);
                 if (val == l_undef)

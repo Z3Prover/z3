@@ -595,6 +595,9 @@ void rewriter_tpl<Config>::set_inv_bindings(unsigned num_bindings, expr * const 
 template<typename Config>
 template<bool ProofGen>
 void rewriter_tpl<Config>::main_loop(expr * t, expr_ref & result, proof_ref & result_pr) {
+    if (m().canceled()) {
+        throw rewriter_exception(m().limit().get_cancel_msg());
+    }
     SASSERT(!ProofGen || result_stack().size() == result_pr_stack().size());
     SASSERT(not_rewriting());
     m_root      = t;

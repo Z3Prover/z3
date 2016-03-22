@@ -296,10 +296,9 @@ else()
   # Tracing is always enabled in debug builds
   list(APPEND Z3_COMPONENT_CXX_DEFINES $<$<CONFIG:Debug>:_TRACE>)
 endif()
-# Should we always enable tracing when doing a debug build?
 
 ################################################################################
-# Postion indepdent code
+# Postion independent code
 ################################################################################
 # This is required because code built in the components will end up in a shared
 # library. If not building a shared library ``-fPIC`` isn't needed and would add
