@@ -152,6 +152,7 @@ class mbp::impl {
                 if (is_rem.is_marked(vars[i].get())) {
                     vars[i] = vars.back();
                     vars.pop_back();
+                    i--;
                 }
             }
         }
