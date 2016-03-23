@@ -309,12 +309,19 @@ namespace qe {
                 expr_ref_vector args(m);
                 sort* range = get_array_range(m.get_sort(s));
                 for (unsigned i = 0; i < idxs.size(); ++i) {
-                    app_ref var(m);
+                    app_ref var(m), sel(m);
+                    expr_ref val(m);
                     var = m.mk_fresh_const("value", range);
                     vars.push_back(var);
                     args.reset();
-                    args.push_back(result);
+                    
+                    args.push_back (s);
                     args.append(idxs[i].m_values.size(), idxs[i].m_vars);
+                    sel = a.mk_select (args.size (), args.c_ptr ());
+                    VERIFY (model.eval (sel, val));
+                    model.register_decl (var->get_decl (), val);
+                    
+                    args[0] = result;
                     args.push_back(var);
                     result = a.mk_store(args.size(), args.c_ptr());
                 }
@@ -398,6 +405,7 @@ namespace qe {
                 // TBD chase definition of nested array.
                 return l_undef;
             }
+            // AG: Shouldn't this be l_false
             return l_true;
         }            
     };
