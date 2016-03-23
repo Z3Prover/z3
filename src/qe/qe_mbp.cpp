@@ -134,9 +134,7 @@ class mbp::impl {
             expr* e = lits[i].get(), *l, *r;
             if (m.is_eq(e, l, r) && reduce_eq(is_var, l, r, v, t)) {
                 reduced = true;
-                lits[i] = lits.back();
-                lits.pop_back();
-                --i;
+                project_plugin::erase (lits, i);
                 expr_safe_replace sub(m);
                 sub.insert(v, t);
                 is_rem.mark(v);
@@ -152,6 +150,7 @@ class mbp::impl {
                 if (is_rem.is_marked(vars[i].get())) {
                     vars[i] = vars.back();
                     vars.pop_back();
+                    i--;
                 }
             }
         }
@@ -333,9 +332,7 @@ public:
                     sub(fmls[i].get(), tmp);
                     rw(tmp);
                     if (m.is_true(tmp)) {
-                        fmls[i] = fmls.back();
-                        fmls.pop_back();
-                        --i;
+                        project_plugin::erase (fmls, i);
                     }
                     else {
                         fmls[i] = tmp;

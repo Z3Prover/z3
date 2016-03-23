@@ -305,7 +305,7 @@ namespace qe {
             SASSERT(!contains_x(t));
 
             if (s == m_var->x()) {
-                expr_ref result(s, m);
+                expr_ref result(t, m);
                 expr_ref_vector args(m);
                 sort* range = get_array_range(m.get_sort(s));
                 for (unsigned i = 0; i < idxs.size(); ++i) {
