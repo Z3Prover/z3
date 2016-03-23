@@ -397,16 +397,15 @@ namespace qe {
         }
 
         lbool compare(expr* val1, expr* val2) {
-            if (val1 == val2) {
-                return l_true;
-            }
+            if (m.are_equal (val1, val2)) return l_true;
+            if (m.are_distinct (val1, val2)) return l_false;
+            
             if (is_uninterp(val1) ||
                 is_uninterp(val2)) {
                 // TBD chase definition of nested array.
                 return l_undef;
             }
-            // AG: Shouldn't this be l_false
-            return l_true;
+            return l_undef;
         }            
     };
     
