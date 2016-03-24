@@ -2028,9 +2028,9 @@ public:
         expr_ref_vector args(th.m);
         unsigned j = 0, k = 0;
         bool is_string = th.m_util.is_string(m_sort);
-        svector<unsigned> sbuffer;
         expr_ref result(th.m);
         if (is_string) {
+            svector<unsigned> sbuffer;
             bv_util bv(th.m);
             rational val;
             unsigned sz;
@@ -2038,11 +2038,15 @@ public:
             for (unsigned i = 0; i < m_source.size(); ++i) {
                 if (m_source[i]) {
                     VERIFY(bv.is_numeral(values[j++], val, sz));
+                    sbuffer.push_back(val.get_unsigned());
                 }
                 else {
-                    VERIFY(bv.is_numeral(m_strings[k++], val, sz));
+                    zstring zs;
+                    VERIFY(th.m_util.str.is_string(m_strings[k++], zs));
+                    for (unsigned l = 0; l < zs.length(); ++l) {
+                        sbuffer.push_back(zs[l]);
+                    }
                 }
-                sbuffer.push_back(val.get_unsigned());
             }
             result = th.m_util.str.mk_string(zstring(sbuffer.size(), sbuffer.c_ptr()));
         }
