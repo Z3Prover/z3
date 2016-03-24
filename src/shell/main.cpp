@@ -291,7 +291,7 @@ char const * get_extension(char const * file_name) {
     }
 }
 
-int main(int argc, char ** argv) {
+int STD_CALL main(int argc, char ** argv) {
     try{
         unsigned return_value = 0;
         memory::initialize(0);

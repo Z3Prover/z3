@@ -47,7 +47,7 @@ static void on_timeout() {
     exit(0);
 }
 
-static void on_ctrl_c(int) {
+static void STD_CALL on_ctrl_c(int) {
     signal (SIGINT, SIG_DFL);
     display_statistics();
     raise(SIGINT);

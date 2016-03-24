@@ -62,7 +62,7 @@ static void on_timeout() {
     }
 }
 
-static void on_ctrl_c(int) {
+static void STD_CALL on_ctrl_c(int) {
     signal (SIGINT, SIG_DFL);
     #pragma omp critical (g_display_stats)
     {
