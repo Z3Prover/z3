@@ -309,16 +309,20 @@ namespace qe {
                 expr_ref_vector args(m);
                 sort* range = get_array_range(m.get_sort(s));
                 for (unsigned i = 0; i < idxs.size(); ++i) {
-                    //app_ref var(m);
-                    //var = m.mk_fresh_const("value", range);
-                    //vars.push_back(var);
+                    app_ref var(m), sel(m);
                     expr_ref val(m);
+                    var = m.mk_fresh_const("value", range);
+                    vars.push_back(var);
                     args.reset();
-                    args.push_back(result);
+                    
+                    args.push_back (s);
                     args.append(idxs[i].m_values.size(), idxs[i].m_vars);
-                    result = a.mk_select(args.size(), args.c_ptr());
-                    VERIFY(model.eval(result, val));
-                    args.push_back(val);
+                    sel = a.mk_select (args.size (), args.c_ptr ());
+                    VERIFY (model.eval (sel, val));
+                    model.register_decl (var->get_decl (), val);
+                    
+                    args[0] = result;
+                    args.push_back(var);
                     result = a.mk_store(args.size(), args.c_ptr());
                 }
                 expr_safe_replace sub(m);
@@ -393,15 +397,15 @@ namespace qe {
         }
 
         lbool compare(expr* val1, expr* val2) {
-            if (val1 == val2) {
-                return l_true;
-            }
+            if (m.are_equal (val1, val2)) return l_true;
+            if (m.are_distinct (val1, val2)) return l_false;
+            
             if (is_uninterp(val1) ||
                 is_uninterp(val2)) {
                 // TBD chase definition of nested array.
                 return l_undef;
             }
-            return l_true;
+            return l_undef;
         }            
     };
     

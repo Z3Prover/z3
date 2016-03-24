@@ -2028,29 +2028,36 @@ public:
         expr_ref_vector args(th.m);
         unsigned j = 0, k = 0;
         bool is_string = th.m_util.is_string(m_sort);
-        for (unsigned i = 0; i < m_source.size(); ++i) {
-            if (m_source[i] && is_string) {
-                bv_util bv(th.m);
-                rational val;
-                unsigned sz;
-                VERIFY(bv.is_numeral(values[j++], val, sz));
-                svector<bool> val_as_bits;
-                unsigned v = val.get_unsigned();
-                for (unsigned i = 0; i < sz; ++i) {
-                    val_as_bits.push_back(1 == v % 2);
-                    v = v / 2;
+        svector<unsigned> sbuffer;
+        expr_ref result(th.m);
+        if (is_string) {
+            bv_util bv(th.m);
+            rational val;
+            unsigned sz;
+
+            for (unsigned i = 0; i < m_source.size(); ++i) {
+                if (m_source[i]) {
+                    VERIFY(bv.is_numeral(values[j++], val, sz));
                 }
-                args.push_back(th.m_util.str.mk_string(zstring(sz, val_as_bits.c_ptr())));
+                else {
+                    VERIFY(bv.is_numeral(m_strings[k++], val, sz));
+                }
+                sbuffer.push_back(val.get_unsigned());
             }
-            else if (m_source[i]) {
-                args.push_back(th.m_util.str.mk_unit(values[j++]));
-            }
-            else {
-                args.push_back(m_strings[k++]);
-            }
+            result = th.m_util.str.mk_string(zstring(sbuffer.size(), sbuffer.c_ptr()));
         }
-        expr_ref result = th.mk_concat(args, m_sort);
-        th.m_rewrite(result);
+        else {
+            for (unsigned i = 0; i < m_source.size(); ++i) {
+                if (m_source[i]) {
+                    args.push_back(th.m_util.str.mk_unit(values[j++]));
+                }
+                else {
+                    args.push_back(m_strings[k++]);
+                }
+            }
+            result = th.mk_concat(args, m_sort);
+            th.m_rewrite(result);
+        }
         th.m_factory->add_trail(result);
         return to_app(result);
     }
