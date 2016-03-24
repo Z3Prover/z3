@@ -112,6 +112,11 @@ zstring::zstring(zstring const& other) {
     m_encoding = other.m_encoding;
 }
 
+zstring::zstring(unsigned sz, unsigned const* s, encoding enc) {
+    m_buffer.append(sz, s);
+    m_encoding = enc;
+}
+
 zstring::zstring(unsigned num_bits, bool const* ch) {
     SASSERT(num_bits == 8 || num_bits == 16);
     m_encoding = (num_bits == 8)?ascii:unicode;
@@ -578,6 +583,7 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case OP_RE_OF_PRED:
     case OP_STRING_ITOS:
     case OP_STRING_STOI:
+    case OP_RE_COMPLEMENT:
         match(*m_sigs[k], arity, domain, range, rng);
         return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
 
@@ -632,7 +638,7 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         default:
             m.raise_exception("Incorrect number of arguments passed to loop. Expected 1 regular expression and two integer parameters");
         }
-
+        
 
     case OP_STRING_CONST:
         if (!(num_parameters == 1 && arity == 0 && parameters[0].is_symbol())) {
@@ -641,7 +647,6 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         return m.mk_const_decl(m_stringc_sym, m_string,
                                func_decl_info(m_family_id, OP_STRING_CONST, num_parameters, parameters));
 
-    case OP_RE_COMPLEMENT:
     case OP_RE_UNION:
     case OP_RE_CONCAT:
     case OP_RE_INTERSECT:
@@ -761,10 +766,28 @@ app* seq_decl_plugin::mk_string(zstring const& s) {
 
 
 bool seq_decl_plugin::is_value(app* e) const {
-    return
-        is_app_of(e, m_family_id, OP_SEQ_EMPTY) ||
-        (is_app_of(e, m_family_id, OP_SEQ_UNIT) &&
-         m_manager->is_value(e->get_arg(0)));
+    while (true) {
+        if (is_app_of(e, m_family_id, OP_SEQ_EMPTY)) {
+            return true;
+        }
+        if (is_app_of(e, m_family_id, OP_STRING_CONST)) {
+            return true;
+        }
+        if (is_app_of(e, m_family_id, OP_SEQ_UNIT) &&
+            m_manager->is_value(e->get_arg(0))) {
+            return true;
+        }
+        if (is_app_of(e, m_family_id, OP_SEQ_CONCAT) &&
+            e->get_num_args() == 2 && 
+            is_app(e->get_arg(0)) &&
+            is_app(e->get_arg(1)) &&
+            is_value(to_app(e->get_arg(0)))) {
+            e = to_app(e->get_arg(1));
+            continue;
+        }
+        TRACE("seq", tout << mk_pp(e, *m_manager) << "\n";);
+        return false;
+    }
 }
 
 expr* seq_decl_plugin::get_some_value(sort* s) {

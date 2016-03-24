@@ -75,6 +75,10 @@ public:
     */
     virtual void assert_expr(expr * t) = 0;
 
+    void assert_expr(expr_ref_vector const& ts) { 
+        for (unsigned i = 0; i < ts.size(); ++i) assert_expr(ts[i]); 
+    }
+
     /**
        \brief Add a new formula \c t to the assertion stack, and "tag" it with \c a.
        The propositional variable \c a is used to track the use of \c t in a proof

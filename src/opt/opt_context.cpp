@@ -193,6 +193,8 @@ namespace opt {
         return m_scoped_state.add(t, is_max);
     }
 
+
+
     void context::import_scoped_state() {
         m_optsmt.reset();        
         reset_maxsmts();
@@ -209,6 +211,20 @@ namespace opt {
         m_hard_constraints.append(s.m_hard);
     }
 
+    lbool context::min_max(app* t, app_ref_vector const& vars, svector<bool> const& is_max) {
+        clear_state();
+        init_solver(); 
+        import_scoped_state(); 
+        normalize();
+        internalize();
+        update_solver();
+        solver& s = get_solver();
+        s.assert_expr(m_hard_constraints);
+        std::cout << "min-max is TBD\n";
+        return l_undef;
+    }
+
+
     lbool context::optimize() {
         if (m_pareto) {
             return execute_pareto();
@@ -223,10 +239,7 @@ namespace opt {
         internalize();
         update_solver();
         solver& s = get_solver();
-        for (unsigned i = 0; i < m_hard_constraints.size(); ++i) {
-            TRACE("opt", tout << "Hard constraint: " << mk_ismt2_pp(m_hard_constraints[i].get(), m) << std::endl;);
-            s.assert_expr(m_hard_constraints[i].get());
-        }
+        s.assert_expr(m_hard_constraints);
         display_benchmark();
         IF_VERBOSE(1, verbose_stream() << "(optimize:check-sat)\n";);
         lbool is_sat = s.check_sat(0,0);
