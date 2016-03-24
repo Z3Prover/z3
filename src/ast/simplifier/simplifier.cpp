@@ -473,6 +473,7 @@ void simplifier::mk_app(func_decl * decl, unsigned num_args, expr * const * args
         //dump_rewrite_lemma(decl, num_args, args, result.get());
         return;
     }
+	
     result = m.mk_app(decl, num_args, args);
 }
 

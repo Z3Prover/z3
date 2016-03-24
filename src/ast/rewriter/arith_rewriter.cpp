@@ -695,7 +695,7 @@ br_status arith_rewriter::mk_idiv_core(expr * arg1, expr * arg2, expr_ref & resu
         result = m_util.mk_numeral(div(v1, v2), is_int);
         return BR_DONE;
     }
-    if (m_util.is_numeral(arg2, v2, is_int) & v2.is_zero()) {
+    if (m_util.is_numeral(arg2, v2, is_int) && v2.is_zero()) {
         result = m_util.mk_idiv0(arg1);
         return BR_REWRITE1;
     }
