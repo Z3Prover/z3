@@ -178,7 +178,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
                 return BR_DONE;
             }
         }
-        TRACE("model_evaluator", tout << f->get_name() << "\n";);
+        CTRACE("model_evaluator", st != BR_FAILED, tout << result << "\n";);
         return st;
     }
 

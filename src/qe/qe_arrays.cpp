@@ -309,13 +309,16 @@ namespace qe {
                 expr_ref_vector args(m);
                 sort* range = get_array_range(m.get_sort(s));
                 for (unsigned i = 0; i < idxs.size(); ++i) {
-                    app_ref var(m);
-                    var = m.mk_fresh_const("value", range);
-                    vars.push_back(var);
+                    //app_ref var(m);
+                    //var = m.mk_fresh_const("value", range);
+                    //vars.push_back(var);
+                    expr_ref val(m);
                     args.reset();
                     args.push_back(result);
                     args.append(idxs[i].m_values.size(), idxs[i].m_vars);
-                    args.push_back(var);
+                    result = a.mk_select(args.size(), args.c_ptr());
+                    VERIFY(model.eval(result, val));
+                    args.push_back(val);
                     result = a.mk_store(args.size(), args.c_ptr());
                 }
                 expr_safe_replace sub(m);
