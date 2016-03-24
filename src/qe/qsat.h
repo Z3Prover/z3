@@ -121,7 +121,7 @@ namespace qe {
         ~min_max_opt();
         void add(expr* e);
         void add(expr_ref_vector const& fmls);
-        lbool check(svector<bool> const& is_max, func_decl_ref_vector const& vars, app* t);
+        lbool check(svector<bool> const& is_max, app_ref_vector const& vars, app* t);
     };
 
 

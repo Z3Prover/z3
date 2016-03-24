@@ -1308,7 +1308,7 @@ namespace smt {
         if (!gcd_test())
             return FC_CONTINUE;
 
-        if (m_params.m_arith_euclidean_solver)
+        if (m_params.m_arith_euclidean_solver || (0 == (1 + m_branch_cut_counter) % 80))
             apply_euclidean_solver();
         
         if (get_context().inconsistent())

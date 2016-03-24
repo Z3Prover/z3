@@ -1,4 +1,4 @@
-Small example using the c++ bindings.
+Small example using the C bindings.
 To build the example execute
    make examples
 in the build directory.

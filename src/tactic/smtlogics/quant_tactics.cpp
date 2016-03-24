@@ -22,6 +22,7 @@ Revision History:
 #include"solve_eqs_tactic.h"
 #include"elim_uncnstr_tactic.h"
 #include"qe_tactic.h"
+#include"qe_lite.h"
 #include"qsat.h"
 #include"nlqsat.h"
 #include"ctx_simplify_tactic.h"
@@ -61,6 +62,7 @@ static tactic * mk_no_solve_eq_preprocessor(ast_manager & m) {
 
 tactic * mk_ufnia_tactic(ast_manager & m, params_ref const & p) {
     tactic * st = and_then(mk_no_solve_eq_preprocessor(m),
+                           mk_qe_lite_tactic(m, p),
                            mk_smt_tactic());
     st->updt_params(p);
     return st;
