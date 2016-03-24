@@ -2724,6 +2724,7 @@ def mk_bindings(api_files):
           dotnet_output_dir=dotnet_output_dir,
           java_output_dir=java_output_dir,
           java_package_name=java_package_name,
+          java_load_library_directly=not use_java_external_library_loading(),
           ml_output_dir=ml_output_dir
         )
         cp_z3py_to_build()
