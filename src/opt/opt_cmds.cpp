@@ -138,18 +138,18 @@ public:
 };
 
 class alternate_min_max_cmd : public cmd {
-    app_ref_vector       m_vars;
+    app_ref_vector*      m_vars;
     svector<bool>        m_is_max;
     unsigned             m_position;
 public:
-    alternate_min_max_cmd(ast_manager& m):
+    alternate_min_max_cmd():
         cmd("min-max"),
-        m_vars(m),
+        m_vars(0),
         m_position(0)
     {}
     
     virtual void reset(cmd_context & ctx) { 
-        m_vars.reset();
+        dealloc(m_vars);
         m_is_max.reset();
         m_position = 0;
     }
@@ -176,7 +176,8 @@ public:
             }
             else {
                 m_is_max.push_back(is_max);
-                m_vars.push_back(ctx.m().mk_const(ctx.find_func_decl(slist[i])));
+                if (!m_vars) m_vars = alloc(app_ref_vector, ctx.m());
+                m_vars->push_back(ctx.m().mk_const(ctx.find_func_decl(slist[i])));
             }
         }
         ++m_position;
@@ -187,7 +188,8 @@ public:
             throw cmd_exception("malformed objective term: it cannot be a quantifier or bound variable");
         }
         ++m_position;
-        get_opt(ctx).min_max(to_app(t), m_vars, m_is_max);
+        if (!m_vars) m_vars = alloc(app_ref_vector, ctx.m());
+        get_opt(ctx).min_max(to_app(t), *m_vars, m_is_max);
     }
 
     virtual void failure_cleanup(cmd_context & ctx) {
@@ -202,7 +204,7 @@ void install_opt_cmds(cmd_context & ctx) {
     ctx.insert(alloc(assert_soft_cmd));
     ctx.insert(alloc(min_maximize_cmd, true));
     ctx.insert(alloc(min_maximize_cmd, false));
-    ctx.insert(alloc(alternate_min_max_cmd, ctx.m()));
+    ctx.insert(alloc(alternate_min_max_cmd));
 }
 
 
