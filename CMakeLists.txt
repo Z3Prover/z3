@@ -323,9 +323,16 @@ message(STATUS "Z3_DEPENDENT_EXTRA_C_LINK_FLAGS: ${Z3_DEPENDENT_EXTRA_C_LINK_FLA
 # Z3 installation locations
 ################################################################################
 include(GNUInstallDirs)
+set(CMAKE_INSTALL_PKGCONFIGDIR
+  "${CMAKE_INSTALL_LIBDIR}/pkgconfig"
+  CACHE
+  PATH
+  "Directory to install pkgconfig files"
+)
 message(STATUS "CMAKE_INSTALL_LIBDIR: \"${CMAKE_INSTALL_LIBDIR}\"")
 message(STATUS "CMAKE_INSTALL_BINDIR: \"${CMAKE_INSTALL_BINDIR}\"")
 message(STATUS "CMAKE_INSTALL_INCLUDEDIR: \"${CMAKE_INSTALL_INCLUDEDIR}\"")
+message(STATUS "CMAKE_INSTALL_PKGCONFIGDIR: \"${CMAKE_INSTALL_PKGCONFIGDIR}\"")
 
 ################################################################################
 # Uninstall rule
