@@ -234,9 +234,9 @@ def mk_z3consts_dotnet_internal(api_files, output_dir):
                         z3consts.write('  /// <summary>%s</summary>\n' % name)
                         z3consts.write('  public enum %s {\n' % name)
                         z3consts.write
-                        for k in decls:
-                            i = decls[k]
-                            z3consts.write('  %s = %s,\n' % (k, i))
+                        # Iterate over key-value pairs ordered by value
+                        for k, v in sorted(decls.items(), key=lambda pair: pair[1]):
+                            z3consts.write('  %s = %s,\n' % (k, v))
                         z3consts.write('  }\n\n')
                     mode = SEARCHING
                 elif len(words) <= 2:
