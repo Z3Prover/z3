@@ -600,7 +600,7 @@ bool theory_seq::fixed_length() {
 
 bool theory_seq::fixed_length(expr* e) {
     rational lo, hi;
-    if (!(is_var(e) && lower_bound(e, lo) && upper_bound(e, hi) && lo == hi && lo.is_unsigned() && lo.is_pos())) {
+    if (!(is_var(e) && lower_bound(e, lo) && upper_bound(e, hi) && lo == hi && lo.is_unsigned())) {
         return false;
     }
     if (is_skolem(m_tail, e) || is_skolem(m_seq_first, e) || 
@@ -609,21 +609,28 @@ bool theory_seq::fixed_length(expr* e) {
         return false;
     }
 
+
     context& ctx = get_context();
     
     m_trail_stack.push(insert_obj_trail<theory_seq, expr>(m_fixed, e));
     m_fixed.insert(e);
 
-    unsigned _lo = lo.get_unsigned();
     expr_ref seq(e, m), head(m), tail(m);
-    expr_ref_vector elems(m);
-    
-    for (unsigned j = 0; j < _lo; ++j) {
-        mk_decompose(seq, head, tail);
-        elems.push_back(head);
-        seq = tail;
+
+    if (lo.is_zero()) {
+        seq = m_util.str.mk_empty(m.get_sort(e));
     }
-    seq = mk_concat(elems.size(), elems.c_ptr());
+    else {
+        unsigned _lo = lo.get_unsigned();
+        expr_ref_vector elems(m);
+        
+        for (unsigned j = 0; j < _lo; ++j) {
+            mk_decompose(seq, head, tail);
+            elems.push_back(head);
+            seq = tail;
+        }
+        seq = mk_concat(elems.size(), elems.c_ptr());
+    }
     TRACE("seq", tout << "Fixed: " << mk_pp(e, m) << " " << lo << "\n";);
     add_axiom(~mk_eq(m_util.str.mk_length(e), m_autil.mk_numeral(lo, true), false), mk_seq_eq(seq, e));
     if (!ctx.at_base_level()) {

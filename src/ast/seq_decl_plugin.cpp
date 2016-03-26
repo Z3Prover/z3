@@ -785,7 +785,6 @@ bool seq_decl_plugin::is_value(app* e) const {
             e = to_app(e->get_arg(1));
             continue;
         }
-        TRACE("seq", tout << mk_pp(e, *m_manager) << "\n";);
         return false;
     }
 }
