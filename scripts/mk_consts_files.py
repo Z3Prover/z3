@@ -16,6 +16,7 @@ def main(args):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("api_files", nargs="+")
     parser.add_argument("--z3py-output-dir", dest="z3py_output_dir", default=None)
+    parser.add_argument("--dotnet-output-dir", dest="dotnet_output_dir", default=None)
     pargs = parser.parse_args(args)
 
     if not mk_genfile_common.check_files_exist(pargs.api_files):
@@ -28,6 +29,15 @@ def main(args):
         if not mk_genfile_common.check_dir_exists(pargs.z3py_output_dir):
             return 1
         output = mk_genfile_common.mk_z3consts_py_internal(pargs.api_files, pargs.z3py_output_dir)
+        logging.info('Generated "{}"'.format(output))
+        count += 1
+
+    if pargs.dotnet_output_dir:
+        if not mk_genfile_common.check_dir_exists(pargs.dotnet_output_dir):
+            return 1
+        output = mk_genfile_common.mk_z3consts_dotnet_internal(
+            pargs.api_files,
+            pargs.dotnet_output_dir)
         logging.info('Generated "{}"'.format(output))
         count += 1
 
