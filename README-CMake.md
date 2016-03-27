@@ -272,6 +272,7 @@ The following useful options can be passed to CMake whilst configuring.
 * ``ENABLE_EXAMPLE_TARGETS`` - BOOL. If set to ``TRUE`` add the build targets for building the API examples.
 * ``USE_OPENMP`` - BOOL. If set to ``TRUE`` and OpenMP support is detected build with OpenMP support.
 * ``USE_LIB_GMP`` - BOOL. If set to ``TRUE`` use the GNU multiple precision library. If set to ``FALSE`` use an internal implementation.
+* ``PYTHON_EXECUTABLE`` - STRING. The python executable to use during the build.
 * ``BUILD_PYTHON_BINDINGS`` - BOOL. If set to ``TRUE`` then Z3's python bindings will be built.
 * ``INSTALL_PYTHON_BINDINGS`` - BOOL. If set to ``TRUE`` and ``BUILD_PYTHON_BINDINGS`` is ``TRUE`` then running the ``install`` target will install Z3's Python bindings.
 * ``BUILD_DOTNET_BINDINGS`` - BOOL. If set to ``TRUE`` then Z3's .NET bindings will be built.
