@@ -1913,6 +1913,7 @@ class MLComponent(Component):
             for m in self.modules:
                 out.write(' ' + os.path.join(self.to_src_dir, m) + '.mli')
                 out.write(' ' + os.path.join(self.sub_dir, m) + '.cmi')
+                out.write(' ' + os.path.join(self.sub_dir, m) + '.cmx')
             out.write(' %s' % ((os.path.join(self.sub_dir, 'libz3ml$(LIB_EXT)'))))
             out.write(' %s' % ((os.path.join(self.sub_dir, 'z3ml$(LIB_EXT)'))))
             out.write(' %s' % ((os.path.join(self.sub_dir, 'z3ml.cma'))))
@@ -2013,7 +2014,7 @@ class DotNetExampleComponent(ExampleComponent):
             if VS_X64:
                 out.write(' /platform:x64')
             elif VS_ARM:
-                out.write(' /platform:arm')                
+                out.write(' /platform:arm')
             else:
                 out.write(' /platform:x86')
             for csfile in get_cs_files(self.ex_dir):
@@ -2206,7 +2207,7 @@ def mk_config():
             static_opt = static_opt + 'd'
             config.write(
                 'AR_FLAGS=/nologo\n'
-                'LINK_FLAGS=/nologo %s\n' 
+                'LINK_FLAGS=/nologo %s\n'
                 'SLINK_FLAGS=/nologo /LDd\n' % static_opt)
             if VS_X64:
                 config.write(
@@ -2249,7 +2250,7 @@ def mk_config():
                     'LINK_EXTRA_FLAGS=/link%s /DEBUG /MACHINE:X86 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT\n'
                     'SLINK_EXTRA_FLAGS=/link%s /DEBUG /MACHINE:X86 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO\n' % (LTCG, LTCG))
 
-                
+
 
         # End of Windows VS config.mk
         if is_verbose():
@@ -2483,7 +2484,7 @@ def mk_makefile():
                 print("To build Z3, open a [Visual Studio x64 Command Prompt], then")
             elif VS_ARM:
                 print("  platform: ARM\n")
-                print("To build Z3, open a [Visual Studio ARM Command Prompt], then")                
+                print("To build Z3, open a [Visual Studio ARM Command Prompt], then")
             else:
                 print("  platform: x86")
                 print("To build Z3, open a [Visual Studio Command Prompt], then")
@@ -3388,7 +3389,7 @@ class MakeRuleCmd(object):
             cls.write_cmd(out, "mkdir -p {install_root}{dir}".format(
                 install_root=install_root,
                 dir=dir))
-            
+
     @classmethod
     def _is_path_prefix_of(cls, temp_path, target_as_abs):
         """
@@ -3517,4 +3518,3 @@ def configure_file(template_file_path, output_file_path, substitutions):
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
-
