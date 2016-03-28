@@ -188,9 +188,12 @@ list(APPEND CSC_FLAGS
   "$<$<NOT:$<CONFIG:Debug>>:/optimize+>"
 )
 
-# FIXME: Mono's gacutil crashes if we set the platform. This bug should
-# be reported and fixed. However for Mono the platform flag is ignored
-# so it shouldn't matter in practice.
+# Mono's gacutil crashes when trying to install an assembly if we set the
+# platform in some cases, so only set it on Windows.  This bug has been
+# reported at https://bugzilla.xamarin.com/show_bug.cgi?id=39955 . However mono
+# ignores the platform of an assembly when running it (
+# http://lists.ximian.com/pipermail/mono-devel-list/2015-November/043370.html )
+# so this shouldn't matter in practice.
 if (DOTNET_TOOLCHAIN_IS_WINDOWS)
   # Set platform for assembly
   if ("${TARGET_ARCHITECTURE}" STREQUAL "x86_64")
