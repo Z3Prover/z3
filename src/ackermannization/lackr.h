@@ -95,7 +95,7 @@ class lackr {
         lackr_stats&                         m_st;
         bool                                 m_is_init;
 
-        void init();
+        bool init();
         lbool eager();
         lbool lazy();
 
@@ -118,6 +118,6 @@ class lackr {
         //
         // Collect all uninterpreted terms, skipping 0-arity.
         //
-        void collect_terms();
+        bool collect_terms();
 };
 #endif /* LACKR_H_ */
