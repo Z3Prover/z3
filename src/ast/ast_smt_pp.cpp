@@ -26,6 +26,7 @@ Revision History:
 #include"bv_decl_plugin.h"
 #include"array_decl_plugin.h"
 #include"datatype_decl_plugin.h"
+#include"fpa_decl_plugin.h"
 #include"vector.h"
 #include"for_each_ast.h"
 #include"decl_collector.h"
@@ -162,11 +163,13 @@ class smt_printer {
     arith_util       m_autil;
     bv_util          m_bvutil;
     seq_util         m_sutil;
+    fpa_util         m_futil;
     family_id        m_basic_fid;
     family_id        m_bv_fid;
     family_id        m_arith_fid;
     family_id        m_array_fid;
     family_id        m_dt_fid;
+    family_id        m_fpa_fid;
     family_id        m_label_fid;
     symbol           m_logic;
     symbol           m_AUFLIRA;
@@ -253,7 +256,10 @@ class smt_printer {
                 m_out << "String";
                 return;
             }
-            if (is_sort_symbol && sym != symbol("BitVec")) {
+            if (is_sort_symbol &&
+                sym != symbol("BitVec") &&
+                sym != symbol("FloatingPoint") &&
+                sym != symbol("RoundingMode")) {
                 m_out << "(" << sym << " ";
             }
             else if (!is_sort_symbol && is_sort_param(num_params, params)) {
@@ -406,6 +412,7 @@ class smt_printer {
         zstring s;
         unsigned num_args = n->get_num_args();
         func_decl* decl = n->get_decl();
+        scoped_mpf float_val(m_futil.fm());
         if (m_autil.is_numeral(n, val, is_int)) {
             if (val.is_neg()) {
                 val.neg();
@@ -442,6 +449,12 @@ class smt_printer {
             else {
                 m_out << "bv" << val << "[" << bv_size << "]";
             }
+        }
+        else if (m_futil.is_numeral(n, float_val)) {
+            m_out << "((_ to_fp " <<
+                float_val.get().get_ebits() << " " <<
+                float_val.get().get_sbits() << ") RTZ " <<
+                m_futil.fm().to_string(float_val).c_str() << ")";
         }
         else if (m_bvutil.is_bit2bool(n)) {
             unsigned bit = n->get_decl()->get_parameter(0).get_int();
@@ -818,6 +831,7 @@ public:
         m_autil(m),
         m_bvutil(m),
         m_sutil(m),
+        m_futil(m),
         m_logic(logic),
         m_AUFLIRA("AUFLIRA"),
         // It's much easier to read those testcases with that.
@@ -831,6 +845,7 @@ public:
         m_arith_fid = m.mk_family_id("arith");
         m_array_fid = m.mk_family_id("array");
         m_dt_fid    = m.mk_family_id("datatype");
+        m_fpa_fid   = m.mk_family_id("fpa");
     }
 
     void operator()(expr* n) {
