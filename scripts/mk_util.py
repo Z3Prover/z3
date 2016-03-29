@@ -1913,6 +1913,7 @@ class MLComponent(Component):
             for m in self.modules:
                 out.write(' ' + os.path.join(self.to_src_dir, m) + '.mli')
                 out.write(' ' + os.path.join(self.sub_dir, m) + '.cmi')
+                out.write(' ' + os.path.join(self.sub_dir, m) + '.cmx')
             out.write(' %s' % ((os.path.join(self.sub_dir, 'libz3ml$(LIB_EXT)'))))
             out.write(' %s' % ((os.path.join(self.sub_dir, 'z3ml$(LIB_EXT)'))))
             out.write(' %s' % ((os.path.join(self.sub_dir, 'z3ml.cma'))))
@@ -2013,7 +2014,7 @@ class DotNetExampleComponent(ExampleComponent):
             if VS_X64:
                 out.write(' /platform:x64')
             elif VS_ARM:
-                out.write(' /platform:arm')                
+                out.write(' /platform:arm')
             else:
                 out.write(' /platform:x86')
             for csfile in get_cs_files(self.ex_dir):
@@ -2206,7 +2207,7 @@ def mk_config():
             static_opt = static_opt + 'd'
             config.write(
                 'AR_FLAGS=/nologo\n'
-                'LINK_FLAGS=/nologo %s\n' 
+                'LINK_FLAGS=/nologo %s\n'
                 'SLINK_FLAGS=/nologo /LDd\n' % static_opt)
             if VS_X64:
                 config.write(
@@ -2249,7 +2250,7 @@ def mk_config():
                     'LINK_EXTRA_FLAGS=/link%s /DEBUG /MACHINE:X86 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT\n'
                     'SLINK_EXTRA_FLAGS=/link%s /DEBUG /MACHINE:X86 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO\n' % (LTCG, LTCG))
 
-                
+
 
         # End of Windows VS config.mk
         if is_verbose():
@@ -2483,7 +2484,7 @@ def mk_makefile():
                 print("To build Z3, open a [Visual Studio x64 Command Prompt], then")
             elif VS_ARM:
                 print("  platform: ARM\n")
-                print("To build Z3, open a [Visual Studio ARM Command Prompt], then")                
+                print("To build Z3, open a [Visual Studio ARM Command Prompt], then")
             else:
                 print("  platform: x86")
                 print("To build Z3, open a [Visual Studio Command Prompt], then")
@@ -2738,96 +2739,17 @@ def mk_z3consts_py(api_files):
     if VERBOSE:
         print("Generated '{}".format(generated_file))
 
-
 # Extract enumeration types from z3_api.h, and add .Net definitions
 def mk_z3consts_dotnet(api_files):
-    blank_pat      = re.compile("^ *\r?$")
-    comment_pat    = re.compile("^ *//.*$")
-    typedef_pat    = re.compile("typedef enum *")
-    typedef2_pat   = re.compile("typedef enum { *")
-    openbrace_pat  = re.compile("{ *")
-    closebrace_pat = re.compile("}.*;")
-
     dotnet = get_component(DOTNET_COMPONENT)
-
-    DeprecatedEnums = [ 'Z3_search_failure' ]
-    z3consts  = open(os.path.join(dotnet.src_dir, 'Enumerations.cs'), 'w')
-    z3consts.write('// Automatically generated file\n\n')
-    z3consts.write('using System;\n\n'
-                   '#pragma warning disable 1591\n\n'
-                   'namespace Microsoft.Z3\n'
-                   '{\n')
-
+    full_path_api_files = []
     for api_file in api_files:
         api_file_c = dotnet.find_file(api_file, dotnet.name)
         api_file   = os.path.join(api_file_c.src_dir, api_file)
-
-        api = open(api_file, 'r')
-
-        SEARCHING  = 0
-        FOUND_ENUM = 1
-        IN_ENUM    = 2
-
-        mode    = SEARCHING
-        decls   = {}
-        idx     = 0
-
-        linenum = 1
-        for line in api:
-            m1 = blank_pat.match(line)
-            m2 = comment_pat.match(line)
-            if m1 or m2:
-                # skip blank lines and comments
-                linenum = linenum + 1
-            elif mode == SEARCHING:
-                m = typedef_pat.match(line)
-                if m:
-                    mode = FOUND_ENUM
-                m = typedef2_pat.match(line)
-                if m:
-                    mode = IN_ENUM
-                    decls = {}
-                    idx   = 0
-            elif mode == FOUND_ENUM:
-                m = openbrace_pat.match(line)
-                if m:
-                    mode  = IN_ENUM
-                    decls = {}
-                    idx   = 0
-                else:
-                    assert False, "Invalid %s, line: %s" % (api_file, linenum)
-            else:
-                assert mode == IN_ENUM
-                words = re.split('[^\-a-zA-Z0-9_]+', line)
-                m = closebrace_pat.match(line)
-                if m:
-                    name = words[1]
-                    if name not in DeprecatedEnums:
-                        z3consts.write('  /// <summary>%s</summary>\n' % name)
-                        z3consts.write('  public enum %s {\n' % name)
-                        z3consts.write
-                        for k in decls:
-                            i = decls[k]
-                            z3consts.write('  %s = %s,\n' % (k, i))
-                        z3consts.write('  }\n\n')
-                    mode = SEARCHING
-                elif len(words) <= 2:
-                    assert False, "Invalid %s, line: %s" % (api_file, linenum)
-                else:
-                    if words[2] != '':
-                        if len(words[2]) > 1 and words[2][1] == 'x':
-                            idx = int(words[2], 16)
-                        else:
-                            idx = int(words[2])
-                    decls[words[1]] = idx
-                    idx = idx + 1
-            linenum = linenum + 1
-        api.close()
-    z3consts.write('}\n');
-    z3consts.close()
+        full_path_api_files.append(api_file)
+    generated_file = mk_genfile_common.mk_z3consts_dotnet_internal(full_path_api_files, dotnet.src_dir)
     if VERBOSE:
-        print("Generated '%s'" % os.path.join(dotnet.src_dir, 'Enumerations.cs'))
-
+        print("Generated '{}".format(generated_file))
 
 # Extract enumeration types from z3_api.h, and add Java definitions
 def mk_z3consts_java(api_files):
@@ -3388,7 +3310,7 @@ class MakeRuleCmd(object):
             cls.write_cmd(out, "mkdir -p {install_root}{dir}".format(
                 install_root=install_root,
                 dir=dir))
-            
+
     @classmethod
     def _is_path_prefix_of(cls, temp_path, target_as_abs):
         """
@@ -3517,4 +3439,3 @@ def configure_file(template_file_path, output_file_path, substitutions):
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
-

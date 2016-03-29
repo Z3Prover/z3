@@ -84,3 +84,5 @@ src/CMakeLists.txt
 src/*/CMakeLists.txt
 src/*/*/CMakeLists.txt
 src/*/*/*/CMakeLists.txt
+src/api/dotnet/cmake_install_gac.cmake.in
+src/api/dotnet/cmake_uninstall_gac.cmake.in
