@@ -109,7 +109,8 @@ bool lackr::ackr(app * const t1, app * const t2) {
     SASSERT(a1 && a2);
     TRACE("lackr", tout << "abstr1 " << mk_ismt2_pp(a1, m_m, 2) << "\n";);
     TRACE("lackr", tout << "abstr2 " << mk_ismt2_pp(a2, m_m, 2) << "\n";);
-    expr_ref lhs(m_m.mk_and(eqs.size(), eqs.c_ptr()), m_m);
+    expr_ref lhs(m_m);
+    lhs = (eqs.size() == 1) ? eqs.get(0) : m_m.mk_and(eqs.size(), eqs.c_ptr());
     TRACE("lackr", tout << "ackr constr lhs" << mk_ismt2_pp(lhs, m_m, 2) << "\n";);
     expr_ref rhs(m_m.mk_eq(a1, a2),m_m);
     TRACE("lackr", tout << "ackr constr rhs" << mk_ismt2_pp(rhs, m_m, 2) << "\n";);
