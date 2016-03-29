@@ -1,0 +1,18 @@
+# Install assembly to the GAC
+set(GAC_ROOT "$ENV{DESTDIR}@CMAKE_INSTALL_FULL_LIBDIR@")
+execute_process(COMMAND
+  "@DOTNET_GACUTIL_EXECUTABLE@"
+  "-i"
+  "@Z3_DOTNET_ASSEMBLY_DLL@"
+  "-f"
+  "-package" "@GAC_PKG_NAME@"
+  "-root" "${GAC_ROOT}"
+  WORKING_DIRECTORY "@CMAKE_CURRENT_BINARY_DIR@"
+  RESULT_VARIABLE gacutil_exit_code
+)
+
+if ("${gacutil_exit_code}" EQUAL 0)
+  message(STATUS "Installed \"@Z3_DOTNET_ASSEMBLY_DLL@\" to the GAC")
+else()
+  message(FATAL_ERROR "Failed to install \"@Z3_DOTNET_ASSEMBLY_DLL@\" to the GAC")
+endif()

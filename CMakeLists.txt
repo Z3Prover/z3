@@ -323,9 +323,35 @@ message(STATUS "Z3_DEPENDENT_EXTRA_C_LINK_FLAGS: ${Z3_DEPENDENT_EXTRA_C_LINK_FLA
 # Z3 installation locations
 ################################################################################
 include(GNUInstallDirs)
+set(CMAKE_INSTALL_PKGCONFIGDIR
+  "${CMAKE_INSTALL_LIBDIR}/pkgconfig"
+  CACHE
+  PATH
+  "Directory to install pkgconfig files"
+)
 message(STATUS "CMAKE_INSTALL_LIBDIR: \"${CMAKE_INSTALL_LIBDIR}\"")
 message(STATUS "CMAKE_INSTALL_BINDIR: \"${CMAKE_INSTALL_BINDIR}\"")
 message(STATUS "CMAKE_INSTALL_INCLUDEDIR: \"${CMAKE_INSTALL_INCLUDEDIR}\"")
+message(STATUS "CMAKE_INSTALL_PKGCONFIGDIR: \"${CMAKE_INSTALL_PKGCONFIGDIR}\"")
+
+################################################################################
+# Uninstall rule
+################################################################################
+configure_file(
+  "${CMAKE_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
+  @ONLY
+)
+
+# Target needs to be declared before the components so that they can add
+# dependencies to this target so they can run their own custom uninstall rules.
+add_custom_target(uninstall
+  COMMAND
+  "${CMAKE_COMMAND}" -P "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
+  COMMENT "Uninstalling..."
+  ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
+  VERBATIM
+)
 
 ################################################################################
 # CMake build file locations
@@ -362,19 +388,3 @@ if (ENABLE_EXAMPLE_TARGETS)
   add_subdirectory(examples)
 endif()
 
-################################################################################
-# Uninstall rule
-################################################################################
-configure_file(
-  "${CMAKE_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in"
-  "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
-  @ONLY
-)
-
-add_custom_target(uninstall
-  COMMAND
-  "${CMAKE_COMMAND}" -P "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
-  COMMENT "Uninstalling..."
-  ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
-  VERBATIM
-)
