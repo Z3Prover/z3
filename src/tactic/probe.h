@@ -8,7 +8,7 @@ Module Name:
 Abstract:
 
     Evaluates/Probes a goal.
-    
+
     A probe is used to build tactics (aka strategies) that
     makes decisions based on the structure of a goal.
 
@@ -49,7 +49,7 @@ public:
 
     void inc_ref() { ++m_ref_count; }
     void dec_ref() { SASSERT(m_ref_count > 0); --m_ref_count; if (m_ref_count == 0) dealloc(this); }
-    
+
     virtual result operator()(goal const & g) = 0;
 };
 
