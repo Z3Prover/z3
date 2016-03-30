@@ -533,3 +533,36 @@ public:
 probe * mk_has_pattern_probe() {
     return alloc(has_pattern_probe);
 }
+
+
+struct has_quantifier_probe : public probe {
+    struct found {};
+
+    struct proc {
+        void operator()(var * n) {}
+        void operator()(app * n) {}
+        void operator()(quantifier * n) { throw found(); }
+    };
+public:
+    virtual result operator()(goal const & g) {
+        try {
+            expr_fast_mark1 visited;
+            proc p;
+            unsigned sz = g.size();
+            for (unsigned i = 0; i < sz; i++) {
+                quick_for_each_expr(p, visited, g.form(i));
+            }
+            return false;
+        }
+        catch (found) {
+            return true;
+        }
+    }
+};
+
+probe * mk_has_quantifier_probe() {
+    return alloc(has_quantifier_probe);
+}
+
+
+

@@ -84,12 +84,19 @@ probe * mk_num_bv_consts_probe();
 probe * mk_produce_proofs_probe();
 probe * mk_produce_models_probe();
 probe * mk_produce_unsat_cores_probe();
-probe * mk_has_pattern_probe();
 
 /*
   ADD_PROBE("produce-proofs", "true if proof generation is enabled for the given goal.", "mk_produce_proofs_probe()")
   ADD_PROBE("produce-model", "true if model generation is enabled for the given goal.", "mk_produce_models_probe()")
   ADD_PROBE("produce-unsat-cores", "true if unsat-core generation is enabled for the given goal.", "mk_produce_unsat_cores_probe()")
+  ADD_PROBE("has-patterns", "true if the goal contains quantifiers with patterns.", "mk_has_pattern_probe()")
+*/
+
+probe * mk_has_quantifier_probe();
+probe * mk_has_pattern_probe();
+
+/*
+  ADD_PROBE("has-quantifier", "true if the goal contains quantifiers.", "mk_has_quantifier_probe()")
   ADD_PROBE("has-patterns", "true if the goal contains quantifiers with patterns.", "mk_has_pattern_probe()")
 */
 
