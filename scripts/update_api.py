@@ -1376,8 +1376,10 @@ def mk_z3native_stubs_c(ml_dir): # C interface
             ts = type2str(result)
             if ml_has_plus_type(ts):
                 ml_wrapper.write('%s z3rv_m = ' % ts)
+            elif (result == BOOL or result == INT or result == UINT or result == PRINT_MODE or result == ERROR_CODE or result ==INT64 or result == UINT64 or result == DOUBLE or result == STRING):
+                ml_wrapper.write('%s z3rv = ' % ts)
             else:
-                ml_wrapper.write('result = caml_alloc(%s, 0);\n  ' % ret_size)
+                ml_wrapper.write('result = caml_alloc_custom(&default_custom_ops, sizeof(%s), 0, 1);\n  ' % ts)
                 ml_wrapper.write('%s z3rv = ' % ts)
 
         elif len(op) != 0:
