@@ -25,8 +25,8 @@ Notes:
 #include"solver.h"
 
 class solver_na2as : public solver {
-    ast_manager &      m_manager;
-    ptr_vector<expr>   m_assumptions;
+    ast_manager &      m;
+    expr_ref_vector    m_assumptions;
     unsigned_vector    m_scopes;
     void restore_assumptions(unsigned old_sz);
 public:

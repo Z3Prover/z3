@@ -28,7 +28,7 @@ Revision History:
 #define PRF sprintf_s
 #define VPRF vsprintf_s
 
-void myInvalidParameterHandler(
+void STD_CALL myInvalidParameterHandler(
     const wchar_t* expression,
     const wchar_t* function, 
     const wchar_t* file, 

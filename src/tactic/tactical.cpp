@@ -131,19 +131,19 @@ public:
         SASSERT(r1_size > 0);                                                                               
         if (r1_size == 1) {                                                                                 
             if (r1[0]->is_decided()) {
-                result.push_back(r1[0]);                                                                    
-                if (models_enabled) mc = mc1;                                                                                 
+                result.push_back(r1[0]);    
+                if (models_enabled) mc = mc1; 
                 SASSERT(!pc); SASSERT(!core);
                 return;                                                                                     
             }                                                                                               
-            goal_ref r1_0 = r1[0];                                                                          
-            m_t2->operator()(r1_0, result, mc, pc, core);                                              
-            if (models_enabled) mc = concat(mc1.get(), mc.get());                                                               
-            if (proofs_enabled) pc = concat(pc1.get(), pc.get());                                                               
-            if (cores_enabled) core = m.mk_join(core1.get(), core);                                                            
-        }                                                                                     
-        else {                                                                                              
-            if (cores_enabled) core = core1;                                                                                   
+            goal_ref r1_0 = r1[0];      
+            m_t2->operator()(r1_0, result, mc, pc, core);
+            if (models_enabled) mc = concat(mc1.get(), mc.get());
+            if (proofs_enabled) pc = concat(pc1.get(), pc.get()); 
+            if (cores_enabled) core = m.mk_join(core1.get(), core); 
+        }
+        else {
+            if (cores_enabled) core = core1;
             proof_converter_ref_buffer pc_buffer;                                                           
             model_converter_ref_buffer mc_buffer;                                                           
             sbuffer<unsigned>          sz_buffer;                                                           
@@ -179,16 +179,16 @@ public:
                         SASSERT(!core2);
                         if (models_enabled) mc_buffer.push_back(0);
                         if (proofs_enabled) pc_buffer.push_back(proof2proof_converter(m, r2[0]->pr(0)));
-                        if (models_enabled || proofs_enabled) sz_buffer.push_back(0);                                                             
+                        if (models_enabled || proofs_enabled) sz_buffer.push_back(0);
                         if (cores_enabled) core = m.mk_join(core.get(), r2[0]->dep(0));
                     }                                                                         
                 }                                                                                       
                 else {                                                                                      
-                    result.append(r2.size(), r2.c_ptr());                                                   
-                    if (models_enabled) mc_buffer.push_back(mc2.get());                                                         
-                    if (proofs_enabled) pc_buffer.push_back(pc2.get());                                                         
-                    if (models_enabled || proofs_enabled) sz_buffer.push_back(r2.size());                                                         
-                    if (cores_enabled) core = m.mk_join(core.get(), core2.get());                                              
+                    result.append(r2.size(), r2.c_ptr());
+                    if (models_enabled) mc_buffer.push_back(mc2.get());
+                    if (proofs_enabled) pc_buffer.push_back(pc2.get());
+                    if (models_enabled || proofs_enabled) sz_buffer.push_back(r2.size()); 
+                    if (cores_enabled) core = m.mk_join(core.get(), core2.get());
                 }                                                                                           
             }
             
@@ -651,12 +651,12 @@ public:
             }                                                                                               
             goal_ref r1_0 = r1[0];                                                                          
             m_t2->operator()(r1_0, result, mc, pc, core);                                              
-            if (models_enabled) mc = concat(mc1.get(), mc.get());                                                               
-            if (proofs_enabled) pc = concat(pc1.get(), pc.get());                                                               
-            if (cores_enabled) core = m.mk_join(core1.get(), core);                                                            
+            if (models_enabled) mc = concat(mc1.get(), mc.get());
+            if (proofs_enabled) pc = concat(pc1.get(), pc.get());
+            if (cores_enabled) core = m.mk_join(core1.get(), core); 
         }                                                                                     
         else {                                                                                              
-            if (cores_enabled) core = core1;                                                                                   
+            if (cores_enabled) core = core1;  
 
             scoped_ptr_vector<ast_manager> managers;
             tactic_ref_vector              ts2;
@@ -670,8 +670,8 @@ public:
                 ts2.push_back(m_t2->translate(*new_m));
             }
 
-            proof_converter_ref_buffer             pc_buffer;                                                           
-            model_converter_ref_buffer             mc_buffer;                                                           
+            proof_converter_ref_buffer             pc_buffer; 
+            model_converter_ref_buffer             mc_buffer; 
             scoped_ptr_vector<expr_dependency_ref> core_buffer;
             scoped_ptr_vector<goal_ref_buffer>     goals_vect;
 
@@ -687,7 +687,7 @@ public:
             std::string  ex_msg;
 
             #pragma omp parallel for
-            for (int i = 0; i < static_cast<int>(r1_size); i++) {                                                        
+            for (int i = 0; i < static_cast<int>(r1_size); i++) { 
                 ast_manager & new_m = *(managers[i]);
                 goal_ref new_g = g_copies[i];
 
@@ -772,7 +772,7 @@ public:
                                     md = alloc(model, m);
                                     apply(mc2, md, 0);
                                     apply(mc1, md, i);
-                                    mc   = model2model_converter(md.get());                                             
+                                    mc   = model2model_converter(md.get());
                                 }
                                 SASSERT(!pc); SASSERT(!core);
                             }       
@@ -969,9 +969,9 @@ class repeat_tactical : public unary_tactical {
             m_t->operator()(in, r1, mc1, pc1, core1);                                                            
             if (is_equal(orig_in, *(in.get()))) {
                 result.push_back(r1[0]);                                                                    
-                if (models_enabled) mc = mc1;                                                                                 
-                if (proofs_enabled) pc = pc1;                                                                                 
-                if (cores_enabled)  core = core1;                                                                               
+                if (models_enabled) mc = mc1;
+                if (proofs_enabled) pc = pc1;
+                if (cores_enabled)  core = core1; 
                 return;                                                                                     
             }
         }
@@ -980,18 +980,18 @@ class repeat_tactical : public unary_tactical {
         if (r1_size == 1) {                                                                                 
             if (r1[0]->is_decided()) {
                 result.push_back(r1[0]);                                                                    
-                if (models_enabled) mc = mc1;                                                                                 
+                if (models_enabled) mc = mc1;
                 SASSERT(!pc); SASSERT(!core);
                 return;                                                                                     
             }                                                                                               
             goal_ref r1_0 = r1[0];                                                                          
-            operator()(depth+1, r1_0, result, mc, pc, core);                                              
-            if (models_enabled) mc = concat(mc.get(), mc1.get());                                                               
-            if (proofs_enabled) pc = concat(pc.get(), pc1.get());                                                               
-            if (cores_enabled)  core = m.mk_join(core1.get(), core);                                                            
+            operator()(depth+1, r1_0, result, mc, pc, core); 
+            if (models_enabled) mc = concat(mc.get(), mc1.get());
+            if (proofs_enabled) pc = concat(pc.get(), pc1.get()); 
+            if (cores_enabled)  core = m.mk_join(core1.get(), core); 
         }                                                                                                   
-        else {                                                                                              
-            if (cores_enabled) core = core1;                                                                                   
+        else {
+            if (cores_enabled) core = core1;
             proof_converter_ref_buffer pc_buffer;                                                           
             model_converter_ref_buffer mc_buffer;                                                           
             sbuffer<unsigned>          sz_buffer;                                                           

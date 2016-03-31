@@ -1,7 +1,7 @@
 API documentation
 -----------------
 
-To generate the API documentation for the C, .NET and Python APIs, we must execute
+To generate the API documentation for the C, C++, .NET, Java and Python APIs, we must execute
 
    python mk_api_doc.py
 

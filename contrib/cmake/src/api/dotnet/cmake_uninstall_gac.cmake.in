@@ -1,0 +1,20 @@
+# Uninstall assembly from the GAC
+set(GAC_ROOT "$ENV{DESTDIR}@CMAKE_INSTALL_FULL_LIBDIR@")
+execute_process(COMMAND
+  "@DOTNET_GACUTIL_EXECUTABLE@"
+  # Note ``-us`` takes assembly file name rather than
+  # ``-u`` which takes an assembly display name
+  "-us"
+  "@Z3_DOTNET_ASSEMBLY_NAME@"
+  "-f"
+  "-package" "@GAC_PKG_NAME@"
+  "-root" "${GAC_ROOT}"
+  WORKING_DIRECTORY "@CMAKE_CURRENT_BINARY_DIR@"
+  RESULT_VARIABLE gacutil_exit_code
+)
+
+if ("${gacutil_exit_code}" EQUAL 0)
+  message(STATUS "Uninstalled \"@Z3_DOTNET_ASSEMBLY_NAME@\" from the GAC")
+else()
+  message(FATAL_ERROR "Failed to uninstall \"@Z3_DOTNET_ASSEMBLY_NAME@\" from the GAC")
+endif()

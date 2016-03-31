@@ -638,9 +638,13 @@ br_status arith_rewriter::mk_div_core(expr * arg1, expr * arg2, expr_ref & resul
     set_curr_sort(m().get_sort(arg1));
     numeral v1, v2;
     bool is_int;
-    if (m_util.is_numeral(arg2, v2, is_int) && !v2.is_zero()) {
+    if (m_util.is_numeral(arg2, v2, is_int)) {
         SASSERT(!is_int);
-        if (m_util.is_numeral(arg1, v1, is_int)) {
+        if (v2.is_zero()) {
+            result = m_util.mk_div0(arg1);
+            return BR_REWRITE1;
+        }
+        else if (m_util.is_numeral(arg1, v1, is_int)) {
             result = m_util.mk_numeral(v1/v2, false);
             return BR_DONE;
         }
@@ -690,6 +694,10 @@ br_status arith_rewriter::mk_idiv_core(expr * arg1, expr * arg2, expr_ref & resu
     if (m_util.is_numeral(arg1, v1, is_int) && m_util.is_numeral(arg2, v2, is_int) && !v2.is_zero()) {
         result = m_util.mk_numeral(div(v1, v2), is_int);
         return BR_DONE;
+    }
+    if (m_util.is_numeral(arg2, v2, is_int) && v2.is_zero()) {
+        result = m_util.mk_idiv0(arg1);
+        return BR_REWRITE1;
     }
     return BR_FAILED;
 }

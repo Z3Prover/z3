@@ -32,23 +32,22 @@ Revision History:
 #include"model_evaluator.h"
 #include"value_factory.h"
 #include"plugin_manager.h"
-#include"simplifier.h"
 #include"arith_decl_plugin.h"
 #include"func_decl_dependencies.h"
 #include"model.h"
 #include"params.h"
+#include"th_rewriter.h"
 
 class proto_model : public model_core {
     plugin_manager<value_factory> m_factories;
     user_sort_factory *           m_user_sort_factory;
-    simplifier &                  m_simplifier;
     family_id                     m_afid;        //!< array family id: hack for displaying models in V1.x style
     func_decl_set                 m_aux_decls;
     ptr_vector<expr>              m_tmp;
     model_evaluator               m_eval;
+    th_rewriter                   m_rewrite;
 
     bool                          m_model_partial;
-    bool                          m_use_new_eval;
 
     expr * mk_some_interp_for(func_decl * d);
 
@@ -62,7 +61,7 @@ class proto_model : public model_core {
     bool is_select_of_model_value(expr* e) const;
 
 public:
-    proto_model(ast_manager & m, simplifier & s, params_ref const & p = params_ref());
+    proto_model(ast_manager & m, params_ref const & p = params_ref());
     virtual ~proto_model() {}
 
     void register_factory(value_factory * f) { m_factories.register_plugin(f); }

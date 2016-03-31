@@ -170,7 +170,6 @@ app* mk_and(ast_manager & m, unsigned num_args, app * const * args) {
     return to_app(mk_and(m, num_args, (expr* const*) args));
 }
 
-
 expr * mk_or(ast_manager & m, unsigned num_args, expr * const * args) {
     if (num_args == 0)
         return m.mk_false();
@@ -188,8 +187,41 @@ expr * mk_not(ast_manager & m, expr * arg) {
     expr * atom;
     if (m.is_not(arg, atom))
         return atom;
+    else if (m.is_true(arg)) 
+        return m.mk_false();
+    else if (m.is_false(arg))
+        return m.mk_true();
     else
         return m.mk_not(arg);
+}
+
+expr_ref push_not(const expr_ref& e) {
+    ast_manager& m = e.get_manager();
+    if (!is_app(e)) {
+        return expr_ref(m.mk_not(e), m);
+    }
+    app* a = to_app(e);
+    if (m.is_and(a)) {
+        if (a->get_num_args() == 0) {
+            return expr_ref(m.mk_false(), m);
+        }
+        expr_ref_vector args(m);
+        for (unsigned i = 0; i < a->get_num_args(); ++i) {
+            args.push_back(push_not(expr_ref(a->get_arg(i), m)));
+        }
+        return mk_or(args);
+    }
+    if (m.is_or(a)) {
+        if (a->get_num_args() == 0) {
+            return expr_ref(m.mk_true(), m);
+        }
+        expr_ref_vector args(m);
+        for (unsigned i = 0; i < a->get_num_args(); ++i) {
+            args.push_back(push_not(expr_ref(a->get_arg(i), m)));
+        }
+        return mk_and(args);
+    }
+    return expr_ref(mk_not(m, e), m);    
 }
 
 expr * expand_distinct(ast_manager & m, unsigned num_args, expr * const * args) {
@@ -200,6 +232,24 @@ expr * expand_distinct(ast_manager & m, unsigned num_args, expr * const * args) 
     }
     return mk_and(m, new_diseqs.size(), new_diseqs.c_ptr());
 }
+
+expr* mk_distinct(ast_manager& m, unsigned num_args, expr * const * args) {
+    switch (num_args) {
+    case 0:
+    case 1:
+        return m.mk_true();
+    case 2:
+        return m.mk_not(m.mk_eq(args[0], args[1]));
+    default:
+        return m.mk_distinct(num_args, args);
+    }
+}
+
+expr_ref mk_distinct(expr_ref_vector const& args) {
+    ast_manager& m = args.get_manager();
+    return expr_ref(mk_distinct(m, args.size(), args.c_ptr()), m);
+}
+
 
 void flatten_and(expr_ref_vector& result) {
     ast_manager& m = result.get_manager();

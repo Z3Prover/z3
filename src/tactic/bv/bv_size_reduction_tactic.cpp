@@ -60,7 +60,7 @@ struct bv_size_reduction_tactic::imp {
     obj_map<app, numeral>     m_unsigned_lowers;
     obj_map<app, numeral>     m_unsigned_uppers;
     ref<bv_size_reduction_mc> m_mc;
-    ref<filter_model_converter> m_fmc;
+    filter_model_converter_ref m_fmc;
     scoped_ptr<expr_replacer> m_replacer;
     bool                      m_produce_models;
 

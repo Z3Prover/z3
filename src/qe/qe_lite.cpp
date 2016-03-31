@@ -21,7 +21,6 @@ Revision History:
 #include "expr_abstract.h"
 #include "used_vars.h"
 #include "occurs.h"
-#include "for_each_expr.h"
 #include "rewriter_def.h"
 #include "ast_pp.h"
 #include "ast_ll_pp.h"
@@ -31,7 +30,6 @@ Revision History:
 #include "var_subst.h"
 #include "uint_set.h"
 #include "ast_util.h"
-#include "qe_util.h"
 #include "th_rewriter.h"
 #include "for_each_expr.h"
 #include "expr_safe_replace.h"
@@ -493,6 +491,10 @@ namespace eq {
                     m_new_args.push_back(args[i]);
                 }
             }
+            if (m_new_args.size() == num_args) {
+                r = q;
+                return;
+            }
             
             expr_ref t(m);
             if (q->is_forall()) {
@@ -773,7 +775,7 @@ namespace eq {
                 proof_ref curr_pr(m);
                 q  = to_quantifier(r);
                 reduce_quantifier1(q, r, curr_pr);
-                if (m.proofs_enabled()) {
+                if (m.proofs_enabled() && r != q) {
                     pr = m.mk_transitivity(pr, curr_pr);
                 }
             } while (q != r && is_quantifier(r));
@@ -2299,7 +2301,7 @@ public:
             }
             m_imp(indices, true, result);          
             if (is_forall(q)) {
-                result = m.mk_not(result);
+                result = push_not(result);
             }
             result = m.update_quantifier(
                 q, 
@@ -2424,9 +2426,6 @@ public:
         TRACE("qe_lite", for (unsigned i = 0; i < fmls.size(); ++i) {
                 tout << mk_pp(fmls[i].get(), m) << "\n";
             });
-        IF_VERBOSE(3, for (unsigned i = 0; i < fmls.size(); ++i) {
-                verbose_stream() << mk_pp(fmls[i].get(), m) << "\n";
-            });
         is_variable_test is_var(index_set, index_of_bound);
         m_der.set_is_variable_proc(is_var);
         m_fm.set_is_variable_proc(is_var);
@@ -2481,6 +2480,41 @@ class qe_lite_tactic : public tactic {
             cooperate("qe-lite");
         }
         
+        void debug_diff(expr* a, expr* b) {
+            ptr_vector<expr> as, bs;
+            as.push_back(a);
+            bs.push_back(b);
+            expr* a1, *a2, *b1, *b2;
+            while (!as.empty()) {
+                a = as.back();
+                b = bs.back();
+                as.pop_back();
+                bs.pop_back();
+                if (a == b) {
+                    continue;
+                }
+                else if (is_forall(a) && is_forall(b)) {
+                    as.push_back(to_quantifier(a)->get_expr());
+                    bs.push_back(to_quantifier(b)->get_expr());
+                }
+                else if (m.is_and(a, a1, a2) && m.is_and(b, b1, b2)) {
+                    as.push_back(a1);
+                    as.push_back(a2);
+                    bs.push_back(b1);
+                    bs.push_back(b2);
+                }
+                else if (m.is_eq(a, a1, a2) && m.is_eq(b, b1, b2)) {
+                    as.push_back(a1);
+                    as.push_back(a2);
+                    bs.push_back(b1);
+                    bs.push_back(b2);
+                }
+                else {
+                    TRACE("qe", tout << mk_pp(a, m) << " != " << mk_pp(b, m) << "\n";);
+                }
+            }
+        }
+
         void operator()(goal_ref const & g, 
                         goal_ref_buffer & result, 
                         model_converter_ref & mc, 
@@ -2512,7 +2546,10 @@ class qe_lite_tactic : public tactic {
                         new_pr = g->pr(i);
                     }
                 }
-                g->update(i, new_f, new_pr, g->dep(i));                
+                if (f != new_f) {
+                    TRACE("qe", tout << mk_pp(f, m) << "\n" << new_f << "\n";);
+                    g->update(i, new_f, new_pr, g->dep(i));                
+                }
             }
             g->inc_depth();
             result.push_back(g.get());

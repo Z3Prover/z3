@@ -172,6 +172,7 @@ namespace opt {
         virtual ~context();
         unsigned add_soft_constraint(expr* f, rational const& w, symbol const& id);
         unsigned add_objective(app* t, bool is_max);
+        lbool min_max(app* t, app_ref_vector const& vars, svector<bool> const& is_max);
         void add_hard_constraint(expr* f);
         
 
@@ -226,8 +227,6 @@ namespace opt {
         virtual bool verify_model(unsigned id, model* mdl, rational const& v);
 
     private:
-        void validate_feasibility(maxsmt& ms);
-
         lbool execute(objective const& obj, bool committed, bool scoped);
         lbool execute_min_max(unsigned index, bool committed, bool scoped, bool is_max);
         lbool execute_maxsat(symbol const& s, bool committed, bool scoped);

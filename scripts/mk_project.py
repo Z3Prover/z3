@@ -57,7 +57,7 @@ def init_project_def():
     add_lib('fuzzing', ['ast'], 'test/fuzzing')
     add_lib('smt_tactic', ['smt'], 'smt/tactic')
     add_lib('sls_tactic', ['tactic', 'normal_forms', 'core_tactics', 'bv_tactics'], 'tactic/sls')
-    add_lib('qe', ['smt','sat'], 'qe')
+    add_lib('qe', ['smt','sat','nlsat','tactic','nlsat_tactic'], 'qe')
     add_lib('duality', ['smt', 'interp', 'qe'])
     add_lib('muz', ['smt', 'sat', 'smt2parser', 'aig_tactic', 'qe'], 'muz/base')
     add_lib('dataflow', ['muz'], 'muz/dataflow')

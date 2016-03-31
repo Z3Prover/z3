@@ -246,6 +246,8 @@ eautomaton* re2automaton::re2aut(expr* e) {
             expr_ref _stop(bv.mk_numeral(stop, nb), m);
             expr_ref _pred(m.mk_not(m.mk_and(bv.mk_ule(_start, v), bv.mk_ule(v, _stop))), m);
             a = alloc(eautomaton, sm, sym_expr::mk_pred(_pred, s));
+            display_expr1 disp(m);
+            TRACE("seq", tout << mk_pp(e, m) << "\n"; a->display(tout, disp););
             return a.detach();
         }
         else if (u.re.is_to_re(e0, e1) && u.str.is_string(e1, s1) && s1.length() == 1) {
@@ -255,6 +257,8 @@ eautomaton* re2automaton::re2aut(expr* e) {
             expr_ref _ch(bv.mk_numeral(s1[0], nb), m);          
             expr_ref _pred(m.mk_not(m.mk_eq(v, _ch)), m);
             a = alloc(eautomaton, sm, sym_expr::mk_pred(_pred, s));
+            display_expr1 disp(m);
+            TRACE("seq", tout << mk_pp(e, m) << "\n"; a->display(tout, disp););
             return a.detach();
         }
         else if (u.re.is_to_re(e0, e1) && u.str.is_unit(e1, e2)) {
@@ -262,6 +266,8 @@ eautomaton* re2automaton::re2aut(expr* e) {
             expr_ref v(m.mk_var(0, s), m);
             expr_ref _pred(m.mk_not(m.mk_eq(v, e2)), m);
             a = alloc(eautomaton, sm, sym_expr::mk_pred(_pred, s));
+            display_expr1 disp(m);
+            TRACE("seq", tout << mk_pp(e, m) << "\n"; a->display(tout, disp););
             return a.detach();
         }
         else {

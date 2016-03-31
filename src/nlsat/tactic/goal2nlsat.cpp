@@ -29,7 +29,9 @@ Notes:
 #include"expr2var.h"
 #include"arith_decl_plugin.h"
 #include"tactic.h"
-#include"ast_smt2_pp.h"
+#include"ast_pp.h"
+#include"polynomial.h"
+#include"algebraic_numbers.h"
 
 struct goal2nlsat::imp {
     struct nlsat_expr2polynomial : public expr2polynomial {
@@ -124,7 +126,7 @@ struct goal2nlsat::imp {
         m_qm.neg(d2);
         polynomial_ref p(m_pm);
         p = m_pm.addmul(d1, m_pm.mk_unit(), p1, d2, m_pm.mk_unit(), p2);
-        TRACE("goal2nlsat_bug", tout << "p: " << p << "\nk: " << k << "\n";);
+        TRACE("goal2nlsat_bug", tout << mk_pp(f, m) << " p: " << p << "\nk: " << k << "\n";);
         if (is_const(p)) {
             int sign;
             if (is_zero(p))
@@ -192,7 +194,7 @@ struct goal2nlsat::imp {
                 switch (to_app(f)->get_decl_kind()) {
                 case OP_TRUE:
                 case OP_FALSE:
-                    TRACE("goal2nlsat", tout << "f: " << mk_ismt2_pp(f, m) << "\n";);
+                    TRACE("goal2nlsat", tout << "f: " << mk_pp(f, m) << "\n";);
                     throw tactic_exception("apply simplify before applying nlsat");
                 case OP_AND:
                 case OP_OR:
@@ -257,6 +259,7 @@ struct goal2nlsat::imp {
             process(g.form(i), g.dep(i));
         }
     }
+
 };
 
 struct goal2nlsat::scoped_set_imp {
@@ -289,4 +292,154 @@ void goal2nlsat::operator()(goal const & g, params_ref const & p, nlsat::solver 
     scoped_set_imp setter(*this, local_imp);
     local_imp(g);
 }
+
     
+
+struct nlsat2goal::imp {
+    ast_manager& m;
+    arith_util   a;
+    u_map<expr*> const* m_x2t;
+public:
+    imp(ast_manager& m):m(m),a(m) {}
+
+    expr_ref operator()(nlsat::solver& s, u_map<expr*> const& b2a, u_map<expr*> const& x2t, nlsat::literal l) {
+        m_x2t = &x2t;
+        expr_ref result(m);
+        expr* t;
+        if (b2a.find(l.var(), t)) {
+            result = t;
+        }
+        else {
+            nlsat::atom const* at = s.bool_var2atom(l.var());
+            SASSERT(at != 0);
+            if (at->is_ineq_atom()) {
+                nlsat::ineq_atom const* ia = to_ineq_atom(at);
+                unsigned sz = ia->size();
+                expr_ref_vector ps(m);
+                bool is_int = true;
+                for (unsigned i = 0; is_int && i < sz; ++i) {
+                    is_int = poly_is_int(ia->p(i));
+                }
+                for (unsigned i = 0; i < sz; ++i) {
+                    polynomial::polynomial* p = ia->p(i);
+                    expr_ref t = poly2expr(s, p, is_int);
+                    if (ia->is_even(i)) {
+                        t = a.mk_power(t, a.mk_numeral(rational(2), a.is_int(t)));
+                    }
+                    ps.push_back(t);
+                }
+                result = a.mk_mul_simplify(ps);
+                expr_ref zero(m);
+                zero = a.mk_numeral(rational(0), a.is_int(result));
+                switch (ia->get_kind()) {
+                case nlsat::atom::EQ:
+                    result = m.mk_eq(result, zero);
+                    break;
+                case nlsat::atom::LT:
+                    if (l.sign()) {
+                        l.neg();
+                        result = a.mk_ge(result, zero);
+                    }
+                    else {
+                        result = a.mk_lt(result, zero);
+                    }
+                    break;
+                case nlsat::atom::GT:
+                    if (l.sign()) {
+                        l.neg();
+                        result = a.mk_le(result, zero);
+                    }
+                    else {
+                        result = a.mk_gt(result, zero);
+                    }
+                    break;
+                default:
+                    UNREACHABLE();
+                }
+            }
+            else {
+                //nlsat::root_atom const* ra = nlsat::to_root_atom(at);
+                //ra->i();
+                //expr_ref p = poly2expr(s, ra->p());
+                //expr*    x = m_x2t->find(ra->x());
+                std::ostringstream strm;
+                s.display(strm, l.sign()?~l:l);
+                result = m.mk_const(symbol(strm.str().c_str()), m.mk_bool_sort());
+            }
+        }
+
+        if (l.sign()) {
+            result = m.mk_not(result);
+        }
+        return result;
+    }
+
+    expr_ref poly2expr(nlsat::solver& s, polynomial::polynomial* p, bool is_int) {
+        expr_ref result(m);
+        unsigned sz = polynomial::manager::size(p);
+        expr_ref_vector args(m);
+        for (unsigned i = 0; i < sz; ++i) {
+            args.push_back(mono2expr(s, 
+                                     polynomial::manager::coeff(p, i), 
+                                     polynomial::manager::get_monomial(p, i), is_int));
+        }
+        result = a.mk_add_simplify(args);
+        return result;
+    }
+
+    expr_ref mono2expr(nlsat::solver& s, polynomial::numeral const& c, polynomial::monomial* mon, bool is_int) {
+        expr_ref result(m);
+        expr_ref_vector args(m);
+        unsigned sz = polynomial::manager::size(mon);
+        for (unsigned i = 0; i < sz; ++i) {
+            unsigned d = polynomial::manager::degree(mon, i);
+            expr* t = m_x2t->find(polynomial::manager::get_var(mon, i));
+            SASSERT(d >= 1);
+            if (d == 1) {
+                args.push_back(t);
+            }
+            else {
+                args.push_back(a.mk_power(t, a.mk_numeral(rational(d), a.is_int(t))));
+            }
+        }
+        if (!s.pm().m().is_one(c)) {
+            args.push_back(a.mk_numeral(c, is_int));
+        }
+        result = a.mk_mul_simplify(args);
+        return result;
+    }
+
+    bool poly_is_int(polynomial::polynomial* p) {
+        bool is_int = true;
+        unsigned sz = polynomial::manager::size(p);
+        for (unsigned i = 0; is_int && i < sz; ++i) {
+            is_int = mono_is_int(polynomial::manager::get_monomial(p, i));
+        }
+        return is_int;
+    }
+
+    bool mono_is_int(polynomial::monomial* mon) {
+        bool is_int = true;
+        unsigned sz = polynomial::manager::size(mon);
+        for (unsigned i = 0; is_int && i < sz; ++i) {
+            is_int = a.is_int(m_x2t->find(polynomial::manager::get_var(mon, i)));
+        }
+        return is_int;
+    }
+};
+
+
+nlsat2goal::nlsat2goal(ast_manager& m) {
+    m_imp = alloc(imp, m);
+}
+
+
+nlsat2goal::~nlsat2goal() {
+    dealloc(m_imp);
+}
+
+expr_ref nlsat2goal::operator()(nlsat::solver& s, u_map<expr*> const& b2a, u_map<expr*> const& x2t, nlsat::literal l) {
+    return (*m_imp)(s, b2a, x2t, l);
+}
+
+

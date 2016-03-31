@@ -19,6 +19,7 @@ Notes:
 #include "bv2int_rewriter.h"
 #include "rewriter_def.h"
 #include "ast_pp.h"
+#include "ast_util.h"
 
 void bv2int_rewriter_ctx::update_params(params_ref const& p) {
     m_max_size = p.get_uint("max_bv_size", UINT_MAX);
@@ -97,7 +98,7 @@ bv2int_rewriter::bv2int_rewriter(ast_manager & m, bv2int_rewriter_ctx& ctx)
 
 
 br_status bv2int_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
-    if(f->get_family_id() == m_arith.get_family_id()) {
+    if (f->get_family_id() == m_arith.get_family_id()) {
         switch (f->get_decl_kind()) {
         case OP_NUM:  return BR_FAILED;
         case OP_LE:   SASSERT(num_args == 2); return mk_le(args[0], args[1], result);
@@ -115,14 +116,28 @@ br_status bv2int_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * 
         case OP_TO_REAL: return BR_FAILED;
         case OP_TO_INT:  return BR_FAILED;
         case OP_IS_INT:  return BR_FAILED;
-        default:
-            return BR_FAILED;
+        default:         return BR_FAILED;
         }
     }
     if (f->get_family_id() == m().get_basic_family_id()) {
         switch (f->get_decl_kind()) {
-        case OP_EQ: SASSERT(num_args == 2); return mk_eq(args[0], args[1], result);
+        case OP_EQ:  SASSERT(num_args == 2); return mk_eq(args[0], args[1], result);
         case OP_ITE: SASSERT(num_args == 3); return mk_ite(args[0], args[1], args[2], result); 
+        case OP_DISTINCT: 
+            if (num_args >= 2 && m_arith.is_int(args[0])) {
+                expr_ref_vector eqs(m());
+                for (unsigned i = 0; i < num_args; ++i) {
+                    for (unsigned j = i + 1; j < num_args; ++j) {
+                        if (BR_DONE != mk_eq(args[i], args[j], result)) {
+                            return BR_FAILED;
+                        }
+                        eqs.push_back(result);
+                    }
+                }
+                result = m().mk_not(mk_or(eqs));
+                return BR_DONE;
+            }
+            return BR_FAILED;
         default: return BR_FAILED;
         }
     }
@@ -513,6 +528,22 @@ bool bv2int_rewriter::is_bv2int_diff(expr* n, expr_ref& s, expr_ref& t) {
         is_bv2int(e2, t)) {
         return true;
     }   
+    if (m_arith.is_add(n, e1, e2) &&
+        m_arith.is_numeral(e1, k, is_int) && is_int && k.is_neg() &&
+        is_bv2int(e2, s)) {
+        k.neg();
+        unsigned sz = k.get_num_bits();
+        t = m_bv.mk_numeral(k, m_bv.mk_sort(sz));
+        return true;        
+    }
+    if (m_arith.is_add(n, e1, e2) &&
+        m_arith.is_numeral(e2, k, is_int) && is_int && k.is_neg() &&
+        is_bv2int(e1, s)) {
+        k.neg();
+        unsigned sz = k.get_num_bits();
+        t = m_bv.mk_numeral(k, m_bv.mk_sort(sz));
+        return true;        
+    }
     return false;
 }
 

@@ -26,6 +26,7 @@ Revision History:
 #include"bv_decl_plugin.h"
 #include"array_decl_plugin.h"
 #include"datatype_decl_plugin.h"
+#include"fpa_decl_plugin.h"
 #include"vector.h"
 #include"for_each_ast.h"
 #include"decl_collector.h"
@@ -43,7 +44,7 @@ static const char m_predef_names[][8] = {
 symbol smt_renaming::fix_symbol(symbol s, int k) {
     std::ostringstream buffer;
     char const * data = s.is_numerical() ? "" : s.bare_str();
-    
+
     if (data[0] && !data[1]) {
         switch (data[0]) {
         case '/': data = "op_div"; break;
@@ -51,7 +52,7 @@ symbol smt_renaming::fix_symbol(symbol s, int k) {
         default: break;
         }
     }
-    
+
     if (k == 0 && *data) {
         if (s.is_numerical()) {
             return s;
@@ -63,10 +64,10 @@ symbol smt_renaming::fix_symbol(symbol s, int k) {
             return s;
         }
     }
-    
+
     if (s.is_numerical()) {
         buffer << s << k;
-        return symbol(buffer.str().c_str());            
+        return symbol(buffer.str().c_str());
     }
 
     if (is_smt2_quoted_symbol(s)) {
@@ -78,12 +79,12 @@ symbol smt_renaming::fix_symbol(symbol s, int k) {
     if (k > 0) {
         buffer << k;
     }
-    
+
     return symbol(buffer.str().c_str());
 }
 
 bool smt_renaming::is_legal(char c) {
-    return c == '.' || c == '_' || c == '\'' 
+    return c == '.' || c == '_' || c == '\''
         || c == '?' || c == '!' || isalnum(c);
 }
 
@@ -134,11 +135,11 @@ symbol smt_renaming::get_symbol(symbol s0) {
     if (m_translate.find(s0, s)) {
         return s;
     }
-    
+
     int k = 0;
     do {
         s = fix_symbol(s0, k++);
-    } 
+    }
     while (m_rev_translate.contains(s));
     m_translate.insert(s0, s);
     m_rev_translate.insert(s, s0);
@@ -162,11 +163,13 @@ class smt_printer {
     arith_util       m_autil;
     bv_util          m_bvutil;
     seq_util         m_sutil;
+    fpa_util         m_futil;
     family_id        m_basic_fid;
     family_id        m_bv_fid;
     family_id        m_arith_fid;
     family_id        m_array_fid;
     family_id        m_dt_fid;
+    family_id        m_fpa_fid;
     family_id        m_label_fid;
     symbol           m_logic;
     symbol           m_AUFLIRA;
@@ -176,7 +179,7 @@ class smt_printer {
     expr*            m_top;
 
     bool is_bool(sort* s) {
-        return 
+        return
             m_basic_fid == s->get_family_id() &&
             s->get_decl_kind() == BOOL_SORT;
     }
@@ -186,13 +189,13 @@ class smt_printer {
     }
 
     bool is_proof(sort* s) {
-        return 
+        return
             m_basic_fid == s->get_family_id() &&
-            s->get_decl_kind() == PROOF_SORT;        
+            s->get_decl_kind() == PROOF_SORT;
     }
 
-    bool is_proof(expr* e) { 
-        return is_proof(m_manager.get_sort(e)); 
+    bool is_proof(expr* e) {
+        return is_proof(m_manager.get_sort(e));
     }
 
     void pp_id(expr* n) {
@@ -236,8 +239,8 @@ class smt_printer {
     }
 
     bool is_sort_param(unsigned num_params, parameter const* params) {
-        return 
-            num_params == 1 && 
+        return
+            num_params == 1 &&
             params[0].is_ast() &&
             is_sort(params[0].get_ast());
     }
@@ -253,14 +256,17 @@ class smt_printer {
                 m_out << "String";
                 return;
             }
-            if (is_sort_symbol && sym != symbol("BitVec")) {
-                m_out << "(" << sym << " ";                
+            if (is_sort_symbol &&
+                sym != symbol("BitVec") &&
+                sym != symbol("FloatingPoint") &&
+                sym != symbol("RoundingMode")) {
+                m_out << "(" << sym << " ";
             }
             else if (!is_sort_symbol && is_sort_param(num_params, params)) {
                 m_out << "(as " << sym << " ";
             }
             else {
-                m_out << "(_ " << sym << " ";                
+                m_out << "(_ " << sym << " ";
             }
         }
         else {
@@ -302,13 +308,13 @@ class smt_printer {
             m_out << "]";
         }
     }
-    
+
     bool is_auflira() const {
         return m_logic == m_AUFLIRA;
     }
 
     void visit_sort(sort* s, bool bool2int = false) {
-        symbol sym;  
+        symbol sym;
         if (bool2int && is_bool(s) && !m_is_smt2) {
             sym = symbol("Int");
         } else if (s->is_sort_of(m_bv_fid, BV_SORT)) {
@@ -326,7 +332,7 @@ class smt_printer {
         else if (s->is_sort_of(m_array_fid, ARRAY_SORT) && m_is_smt2) {
             sym = "Array";
         }
-        else if (s->is_sort_of(m_array_fid, ARRAY_SORT) && !m_is_smt2) {            
+        else if (s->is_sort_of(m_array_fid, ARRAY_SORT) && !m_is_smt2) {
             unsigned num_params = s->get_num_parameters();
             SASSERT(num_params >= 2);
             if (is_auflira()) {
@@ -341,12 +347,12 @@ class smt_printer {
             }
             sort* s1 = to_sort(s->get_parameter(0).get_ast());
             sort* s2 = to_sort(s->get_parameter(1).get_ast());
-            if (num_params == 2 && 
+            if (num_params == 2 &&
                 s1->is_sort_of(m_bv_fid, BV_SORT) &&
                 s2->is_sort_of(m_bv_fid, BV_SORT)) {
                 m_out << "Array";
                 m_out << "[" << s1->get_parameter(0).get_int();
-                m_out << ":" << s2->get_parameter(0).get_int() << "]";                
+                m_out << ":" << s2->get_parameter(0).get_int() << "]";
                 return;
             }
             m_out << "(Array ";
@@ -379,7 +385,7 @@ class smt_printer {
         }
     }
 
-    
+
     void pp_arg(expr *arg, app *parent)
     {
         if (!m_is_smt2 && is_bool(arg) && is_var(arg) && parent->get_family_id() == m_basic_fid) {
@@ -387,7 +393,7 @@ class smt_printer {
             pp_marked_expr(arg);
             m_out << " 0))";
         } else if (!m_is_smt2 && is_bool(arg) && !is_var(arg) &&
-            parent->get_family_id() != m_basic_fid && 
+            parent->get_family_id() != m_basic_fid &&
             parent->get_family_id() != m_dt_fid) {
 
             m_out << "(ite ";
@@ -403,9 +409,10 @@ class smt_printer {
         bool is_int, pos;
         buffer<symbol> names;
         unsigned bv_size;
-        zstring s;    
+        zstring s;
         unsigned num_args = n->get_num_args();
         func_decl* decl = n->get_decl();
+        scoped_mpf float_val(m_futil.fm());
         if (m_autil.is_numeral(n, val, is_int)) {
             if (val.is_neg()) {
                 val.neg();
@@ -433,7 +440,7 @@ class smt_printer {
                     m_out << encs[i];
                 }
             }
-            m_out << "\"";              
+            m_out << "\"";
         }
         else if (m_bvutil.is_numeral(n, val, bv_size)) {
             if (m_is_smt2) {
@@ -443,7 +450,13 @@ class smt_printer {
                 m_out << "bv" << val << "[" << bv_size << "]";
             }
         }
-        else if (m_bvutil.is_bit2bool(n)) {            
+        else if (m_futil.is_numeral(n, float_val)) {
+            m_out << "((_ to_fp " <<
+                float_val.get().get_ebits() << " " <<
+                float_val.get().get_sbits() << ") RTZ " <<
+                m_futil.fm().to_string(float_val).c_str() << ")";
+        }
+        else if (m_bvutil.is_bit2bool(n)) {
             unsigned bit = n->get_decl()->get_parameter(0).get_int();
             if (m_is_smt2) {
                 m_out << "(= ((_ extract " << bit << " " << bit << ") ";
@@ -458,14 +471,14 @@ class smt_printer {
         }
         else if (m_manager.is_label(n, pos, names) && names.size() >= 1) {
             if (m_is_smt2) {
-                m_out << "(! "; 
+                m_out << "(! ";
                 pp_marked_expr(n->get_arg(0));
                 m_out << (pos?":lblpos":":lblneg") << " " << m_renaming.get_symbol(names[0]) << ")";
             }
             else {
                 m_out << "(" << (pos?"lblpos":"lblneg") << " " << m_renaming.get_symbol(names[0]) << " ";
                 expr* ch = n->get_arg(0);
-                pp_marked_expr(ch);            
+                pp_marked_expr(ch);
                 m_out << ")";
             }
         }
@@ -547,13 +560,13 @@ class smt_printer {
                     m_out << " ";
                 }
             }
-            m_out << ")";                
+            m_out << ")";
         }
     }
 
     void print_no_lets(expr *e)
     {
-        smt_printer p(m_out, m_manager, m_qlists, m_renaming, m_logic, true, m_simplify_implies, m_is_smt2, m_indent, m_num_var_names, m_var_names); 
+        smt_printer p(m_out, m_manager, m_qlists, m_renaming, m_logic, true, m_simplify_implies, m_is_smt2, m_indent, m_num_var_names, m_var_names);
         p(e);
     }
 
@@ -565,7 +578,7 @@ class smt_printer {
     }
 
     void visit_quantifier(quantifier* q) {
-        m_qlists.push_back(q);        
+        m_qlists.push_back(q);
 
         m_out << "(";
         if (q->is_forall()) {
@@ -588,12 +601,12 @@ class smt_printer {
         if (m_is_smt2) {
             m_out << ")";
         }
-        
+
         if (m_is_smt2 && (q->get_num_patterns() > 0 || q->get_qid() != symbol::null)) {
             m_out << "(! ";
         }
         {
-            smt_printer p(m_out, m_manager, m_qlists, m_renaming, m_logic, false, m_is_smt2, m_simplify_implies, m_indent, m_num_var_names, m_var_names);        
+            smt_printer p(m_out, m_manager, m_qlists, m_renaming, m_logic, false, m_is_smt2, m_simplify_implies, m_indent, m_num_var_names, m_var_names);
             p(q->get_expr());
         }
 
@@ -644,7 +657,7 @@ class smt_printer {
     void newline() {
         unsigned i = m_indent;
         m_out << "\n";
-        while (i > 0) { m_out << " "; --i; }       
+        while (i > 0) { m_out << " "; --i; }
     }
 
     void visit_var(var* v) {
@@ -685,15 +698,15 @@ class smt_printer {
         case AST_QUANTIFIER:
             visit_quantifier(to_quantifier(n));
             break;
-        case AST_APP: 
+        case AST_APP:
             visit_app(to_app(n));
             break;
-        case AST_VAR: 
+        case AST_VAR:
             visit_var(to_var(n));
             break;
         default:
             UNREACHABLE();
-        }        
+        }
     }
 
     void visit_expr(expr* n) {
@@ -714,7 +727,7 @@ class smt_printer {
         }
         m_out << ")";
         newline();
-    }  
+    }
 
     bool is_unit(expr* n) {
         if (n->get_ref_count() <= 2 && is_small(n)) {
@@ -724,9 +737,9 @@ class smt_printer {
             return true;
         }
         switch(n->get_kind()) {
-        case AST_VAR: 
+        case AST_VAR:
             return true;
-        case AST_APP: 
+        case AST_APP:
             return to_app(n)->get_num_args() == 0;
         default:
             return false;
@@ -749,9 +762,9 @@ class smt_printer {
             return sz <= m_line_length;
         }
         switch(n->get_kind()) {
-        case AST_QUANTIFIER: 
+        case AST_QUANTIFIER:
             return false;
-        case AST_VAR: 
+        case AST_VAR:
             sz += 5;
             return sz <= m_line_length;
         case AST_APP: {
@@ -777,14 +790,14 @@ class smt_printer {
         }
         default:
             return false;
-        }        
-    }        
+        }
+    }
 
     bool visit_children(expr* n) {
         unsigned todo_size = m_todo.size();
         switch(n->get_kind()) {
-        case AST_QUANTIFIER: 
-        case AST_VAR: 
+        case AST_QUANTIFIER:
+        case AST_VAR:
             break;
         case AST_APP: {
             app* a = to_app(n);
@@ -805,9 +818,9 @@ class smt_printer {
     }
 
 public:
-    smt_printer(std::ostream& out, ast_manager& m, ptr_vector<quantifier>& ql, smt_renaming& rn, 
+    smt_printer(std::ostream& out, ast_manager& m, ptr_vector<quantifier>& ql, smt_renaming& rn,
                 symbol logic, bool no_lets, bool is_smt2, bool simplify_implies, unsigned indent, unsigned num_var_names = 0, char const* const* var_names = 0) :
-        m_out(out), 
+        m_out(out),
         m_manager(m),
         m_qlists(ql),
         m_renaming(rn),
@@ -818,6 +831,7 @@ public:
         m_autil(m),
         m_bvutil(m),
         m_sutil(m),
+        m_futil(m),
         m_logic(logic),
         m_AUFLIRA("AUFLIRA"),
         // It's much easier to read those testcases with that.
@@ -831,8 +845,9 @@ public:
         m_arith_fid = m.mk_family_id("arith");
         m_array_fid = m.mk_family_id("array");
         m_dt_fid    = m.mk_family_id("datatype");
+        m_fpa_fid   = m.mk_family_id("fpa");
     }
-    
+
     void operator()(expr* n) {
         m_top = n;
         if (!m_no_lets) {
@@ -842,7 +857,7 @@ public:
                     m_todo.push_back(to_app(n)->get_arg(i));
                 }
                 break;
-            // Don't do this for quantifiers -- they need to have the body be 
+            // Don't do this for quantifiers -- they need to have the body be
             // visited when the m_qlist contains the relevant quantifier.
             default:
                 break;
@@ -867,7 +882,7 @@ public:
 
         pp_marked_expr(n);
         for (unsigned i = 0; i < m_num_lets; ++i) {
-            m_out << ")";       
+            m_out << ")";
         }
         m_mark.reset();
         m_num_lets = 0;
@@ -880,7 +895,7 @@ public:
         ptr_vector<func_decl> const* decls;
         ptr_vector<sort> rec_sorts;
 
-        rec_sorts.push_back(s);        
+        rec_sorts.push_back(s);
         mark.mark(s, true);
 
         // collect siblings and sorts that have not already been printed.
@@ -905,20 +920,20 @@ public:
                         }
                         else {
                             pp_sort_decl(mark, s2);
-                        }                        
+                        }
                     }
                 }
             }
         }
 
         if (m_is_smt2) {
-            // TBD: datatypes may be declared parametrically. 
+            // TBD: datatypes may be declared parametrically.
             // get access to parametric generalization, or print
             // monomorphic specialization with a tag that gets reused at use-point.
             m_out << "(declare-datatypes () (";
         }
         else {
-            m_out << ":datatypes (";        
+            m_out << ":datatypes (";
         }
         for (unsigned si = 0; si < rec_sorts.size(); ++si) {
             s = rec_sorts[si];
@@ -928,7 +943,7 @@ public:
             decls = util.get_datatype_constructors(s);
 
             for (unsigned i = 0; i < decls->size(); ++i) {
-                func_decl* f = (*decls)[i];            
+                func_decl* f = (*decls)[i];
                 ptr_vector<func_decl> const& accs = *util.get_constructor_accessors(f);
                 if (m_is_smt2 || accs.size() > 0) {
                     m_out << "(";
@@ -937,7 +952,7 @@ public:
                 if (!accs.empty() || !m_is_smt2) {
                     m_out << " ";
                 }
-                for (unsigned j = 0; j < accs.size(); ++j) {                
+                for (unsigned j = 0; j < accs.size(); ++j) {
                     func_decl* a = accs[j];
                     m_out << "(" << m_renaming.get_symbol(a->get_name()) << " ";
                     visit_sort(a->get_range());
@@ -1081,7 +1096,7 @@ void ast_smt_pp::display_smt2(std::ostream& strm, expr* n) {
     ptr_vector<quantifier> ql;
     ast_manager& m = m_manager;
     decl_collector decls(m);
-    smt_renaming rn;    
+    smt_renaming rn;
 
     for (unsigned i = 0; i < m_assumptions.size(); ++i) {
         decls.visit(m_assumptions[i].get());
@@ -1089,7 +1104,7 @@ void ast_smt_pp::display_smt2(std::ostream& strm, expr* n) {
     for (unsigned i = 0; i < m_assumptions_star.size(); ++i) {
         decls.visit(m_assumptions_star[i].get());
     }
-    decls.visit(n);    
+    decls.visit(n);
 
     if (m.is_proof(n)) {
         strm << "(";
@@ -1099,7 +1114,7 @@ void ast_smt_pp::display_smt2(std::ostream& strm, expr* n) {
     }
     if (m_source_info != symbol::null && m_source_info != symbol("")) {
         strm << "; :source { " << m_source_info << " }\n";
-    }    
+    }
     if (m.is_bool(n)) {
         strm << "(set-info :status " << m_status << ")\n";
     }
@@ -1119,7 +1134,7 @@ void ast_smt_pp::display_smt2(std::ostream& strm, expr* n) {
         if (!(*m_is_declared)(s)) {
             smt_printer p(strm, m, ql, rn, m_logic, true, true, m_simplify_implies, 0);
             p.pp_sort_decl(sort_mark, s);
-        }        
+        }
     }
 
     for (unsigned i = 0; i < decls.get_num_decls(); ++i) {
@@ -1147,7 +1162,7 @@ void ast_smt_pp::display_smt2(std::ostream& strm, expr* n) {
         strm << ")\n";
     }
 
-    for (unsigned i = 0; i < m_assumptions_star.size(); ++i) {        
+    for (unsigned i = 0; i < m_assumptions_star.size(); ++i) {
         smt_printer p(strm, m, ql, rn, m_logic, false, true, m_simplify_implies, 1);
         strm << "(assert\n ";
         p(m_assumptions_star[i].get());
@@ -1170,13 +1185,13 @@ void ast_smt_pp::display_smt2(std::ostream& strm, expr* n) {
     }
     else {
         p(n);
-    }    
+    }
 }
 
 void ast_smt_pp::display(std::ostream& strm, expr* n) {
     ptr_vector<quantifier> ql;
     decl_collector decls(m_manager);
-    smt_renaming rn;    
+    smt_renaming rn;
 
     for (unsigned i = 0; i < m_assumptions.size(); ++i) {
         decls.visit(m_assumptions[i].get());
@@ -1185,7 +1200,7 @@ void ast_smt_pp::display(std::ostream& strm, expr* n) {
         decls.visit(m_assumptions_star[i].get());
     }
     decls.visit(n);
-    
+
     strm << "(benchmark ";
 
     if (m_benchmark_name != symbol::null) {
@@ -1214,8 +1229,8 @@ void ast_smt_pp::display(std::ostream& strm, expr* n) {
         sort* s = decls.get_sorts()[i];
         if (!(*m_is_declared)(s)) {
             smt_printer p(strm, m_manager, ql, rn, m_logic, true, false, m_simplify_implies, 0);
-            p.pp_sort_decl(sort_mark, s); 
-        }       
+            p.pp_sort_decl(sort_mark, s);
+        }
     }
 
     for (unsigned i = 0; i < decls.get_num_decls(); ++i) {
@@ -1242,14 +1257,14 @@ void ast_smt_pp::display(std::ostream& strm, expr* n) {
         expr *    e = m_assumptions[i].get();
         strm << ":assumption\n";
         smt_printer p(strm, m_manager, ql, rn, m_logic, false, false, m_simplify_implies, 0);
-        p(e);   
-        strm << "\n";     
+        p(e);
+        strm << "\n";
     }
 
     for (unsigned i = 0; i < m_assumptions_star.size(); ++i) {
         strm << ":assumption-core\n";
         smt_printer p(strm, m_manager, ql, rn, m_logic, false, false, m_simplify_implies, 0);
-        p(m_assumptions_star[i].get());        
+        p(m_assumptions_star[i].get());
         strm << "\n";
     }
 

@@ -193,6 +193,8 @@ namespace opt {
         return m_scoped_state.add(t, is_max);
     }
 
+
+
     void context::import_scoped_state() {
         m_optsmt.reset();        
         reset_maxsmts();
@@ -209,6 +211,20 @@ namespace opt {
         m_hard_constraints.append(s.m_hard);
     }
 
+    lbool context::min_max(app* t, app_ref_vector const& vars, svector<bool> const& is_max) {
+        clear_state();
+        init_solver(); 
+        import_scoped_state(); 
+        normalize();
+        internalize();
+        update_solver();
+        solver& s = get_solver();
+        s.assert_expr(m_hard_constraints);
+        std::cout << "min-max is TBD\n";
+        return l_undef;
+    }
+
+
     lbool context::optimize() {
         if (m_pareto) {
             return execute_pareto();
@@ -223,10 +239,7 @@ namespace opt {
         internalize();
         update_solver();
         solver& s = get_solver();
-        for (unsigned i = 0; i < m_hard_constraints.size(); ++i) {
-            TRACE("opt", tout << "Hard constraint: " << mk_ismt2_pp(m_hard_constraints[i].get(), m) << std::endl;);
-            s.assert_expr(m_hard_constraints[i].get());
-        }
+        s.assert_expr(m_hard_constraints);
         display_benchmark();
         IF_VERBOSE(1, verbose_stream() << "(optimize:check-sat)\n";);
         lbool is_sat = s.check_sat(0,0);
@@ -514,12 +527,10 @@ namespace opt {
 
     void context::init_solver() {
         setup_arith_solver();
-        #pragma omp critical (opt_context)
-        {
-            m_opt_solver = alloc(opt_solver, m, m_params, m_fm);
-            m_opt_solver->set_logic(m_logic);
-            m_solver = m_opt_solver.get();
-        }
+        m_opt_solver = alloc(opt_solver, m, m_params, m_fm);
+        m_opt_solver->set_logic(m_logic);
+        m_solver = m_opt_solver.get();
+    
         if (opt_params(m_params).priority() == symbol("pareto") ||
             (opt_params(m_params).priority() == symbol("lex") && m_objectives.size() > 1)) {
             m_opt_solver->ensure_pb();
@@ -556,10 +567,7 @@ namespace opt {
         for (unsigned i = 0; i < sz; ++i) {
             m_sat_solver->assert_expr(get_solver().get_assertion(i));
         }   
-        #pragma omp critical (opt_context)
-        {
-            m_solver = m_sat_solver.get();
-        }
+        m_solver = m_sat_solver.get();        
     }
 
     void context::enable_sls(bool force) {
@@ -649,10 +657,7 @@ namespace opt {
     void context::add_maxsmt(symbol const& id, unsigned index) {
         maxsmt* ms = alloc(maxsmt, *this, index);
         ms->updt_params(m_params);
-        #pragma omp critical (opt_context)
-        {
-            m_maxsmts.insert(id, ms);
-        }
+        m_maxsmts.insert(id, ms);        
     }
 
     bool context::is_numeral(expr* e, rational & n) const {
@@ -896,7 +901,7 @@ namespace opt {
                 }
                 mk_atomic(terms);
                 SASSERT(obj.m_id == id);
-                obj.m_term = to_app(orig_term);
+                obj.m_term = orig_term?to_app(orig_term):0;
                 obj.m_terms.reset();
                 obj.m_terms.append(terms);
                 obj.m_weights.reset();
@@ -940,6 +945,9 @@ namespace opt {
     bool context::verify_model(unsigned index, model* md, rational const& _v) {
         rational r;
         app_ref term = m_objectives[index].m_term;
+        if (!term) {
+            return true;
+        }
         rational v = m_objectives[index].m_adjust_value(_v);
         expr_ref val(m);
         model_ref mdl = md;
@@ -1274,10 +1282,7 @@ namespace opt {
     }
        
     void context::set_simplify(tactic* tac) {
-        #pragma omp critical (opt_context)
-        {
-            m_simplify = tac;
-        }
+        m_simplify = tac;        
     }
 
     void context::clear_state() {
@@ -1287,10 +1292,7 @@ namespace opt {
     }
 
     void context::set_pareto(pareto_base* p) {
-        #pragma omp critical (opt_context)
-        {
-            m_pareto = p;
-        }
+        m_pareto = p;        
     }
 
     void context::collect_statistics(statistics& stats) const {

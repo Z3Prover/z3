@@ -23,44 +23,57 @@ Notes:
 #include"fpa2bv_tactic.h"
 #include"smt_tactic.h"
 #include"propagate_values_tactic.h"
+#include"ackermannize_bv_tactic.h"
 #include"probe_arith.h"
 #include"qfnra_tactic.h"
 
 #include"qffp_tactic.h"
 
 
-struct has_fp_to_real_predicate {
+struct is_non_fp_qfnra_predicate {
     struct found {};
     ast_manager & m;
     bv_util       bu;
     fpa_util      fu;
     arith_util    au;
 
-    has_fp_to_real_predicate(ast_manager & _m) : m(_m), bu(m), fu(m), au(m) {}
+    is_non_fp_qfnra_predicate(ast_manager & _m) : m(_m), bu(m), fu(m), au(m) {}
 
     void operator()(var *) { throw found(); }
-
     void operator()(quantifier *) { throw found(); }
 
     void operator()(app * n) {
+        family_id fid = n->get_family_id();
+        if (fid != null_family_id && fid != fu.get_family_id())
+            throw found();
+
         sort * s = get_sort(n);
-        if (au.is_real(s) && n->get_family_id() == fu.get_family_id() &&
-            is_app(n) && to_app(n)->get_decl_kind() == OP_FPA_TO_REAL)
+        if (fid == fu.get_family_id()) {
+            if (!fu.is_float(s) && !fu.is_rm(s) &&
+                to_app(n)->get_decl_kind() != OP_FPA_TO_REAL)
+                throw found();
+        }
+        else if (fid == null_family_id) {
+            if (!fu.is_float(s) && !fu.is_rm(s) && !m.is_bool(s))
+                throw found();
+        }
+        else if (fid == m.get_basic_family_id())
+            return;
+        else
             throw found();
     }
 };
 
-class has_fp_to_real_probe : public probe {
+class is_fp_qfnra_probe : public probe {
 public:
     virtual result operator()(goal const & g) {
-        return test<has_fp_to_real_predicate>(g);
+        return !test<is_non_fp_qfnra_predicate>(g);
     }
-
-    virtual ~has_fp_to_real_probe() {}
+    virtual ~is_fp_qfnra_probe() {}
 };
 
-probe * mk_has_fp_to_real_probe() {
-    return alloc(has_fp_to_real_probe);
+probe * mk_is_fp_qfnra_probe() {
+    return alloc(is_fp_qfnra_probe);
 }
 
 
@@ -69,21 +82,23 @@ tactic * mk_qffp_tactic(ast_manager & m, params_ref const & p) {
     simp_p.set_bool("arith_lhs", true);
     simp_p.set_bool("elim_and", true);
 
-    tactic * st = and_then(mk_simplify_tactic(m, simp_p),
-                           mk_propagate_values_tactic(m, p),
-                           mk_fpa2bv_tactic(m, p),
-                           mk_propagate_values_tactic(m, p),
-                           using_params(mk_simplify_tactic(m, p), simp_p),
+    tactic * preamble = and_then(mk_simplify_tactic(m, simp_p),
+                                 mk_propagate_values_tactic(m, p),
+                                 mk_fpa2bv_tactic(m, p),
+                                 mk_propagate_values_tactic(m, p),
+                                 using_params(mk_simplify_tactic(m, p), simp_p),
+                                 if_no_proofs(if_no_unsat_cores(mk_ackermannize_bv_tactic(m, p))));
+
+    tactic * st = and_then(preamble,
                            mk_bit_blaster_tactic(m, p),
                            using_params(mk_simplify_tactic(m, p), simp_p),
                            cond(mk_is_propositional_probe(),
                                 cond(mk_produce_proofs_probe(),
-                                     mk_smt_tactic(), // `sat' does not support proofs.
+                                     mk_smt_tactic(p), // `sat' does not support proofs.
                                      mk_sat_tactic(m, p)),
-                                cond(mk_has_fp_to_real_probe(),
+                                cond(mk_is_fp_qfnra_probe(),
                                      mk_qfnra_tactic(m, p),
-                                     mk_smt_tactic(p))),
-                            mk_fail_if_undecided_tactic());
+                                     mk_smt_tactic(p))));
 
     st->updt_params(p);
     return st;
@@ -136,7 +151,7 @@ public:
 probe * mk_is_qffp_probe() {
     return alloc(is_qffp_probe);
 }
-    
+
 probe * mk_is_qffpbv_probe() {
     return alloc(is_qffp_probe);
 }

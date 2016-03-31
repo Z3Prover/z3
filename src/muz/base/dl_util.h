@@ -29,7 +29,6 @@ Revision History:
 #include"ast_counter.h"
 #include"statistics.h"
 #include"lbool.h"
-#include"qe_util.h"
 
 namespace datalog {
 

@@ -53,7 +53,7 @@ lackr::~lackr() {
 
 lbool lackr::operator() () {
     SASSERT(m_sat);
-    init();
+    if (!init()) return l_undef;
     const lbool rv = m_eager ? eager() : lazy();
     if (rv == l_true) m_sat->get_model(m_model);
     CTRACE("lackr", rv == l_true,
@@ -63,7 +63,7 @@ lbool lackr::operator() () {
 
 bool lackr::mk_ackermann(/*out*/goal_ref& g, double lemmas_upper_bound) {
     if (lemmas_upper_bound <= 0) return false;
-    init();
+    if (!init()) return false;
     if (lemmas_upper_bound != std::numeric_limits<double>::infinity()) {
         const double lemmas_bound = ackr_helper::calculate_lemma_bound(m_fun2terms);
         if (lemmas_bound > lemmas_upper_bound) return false;
@@ -74,14 +74,15 @@ bool lackr::mk_ackermann(/*out*/goal_ref& g, double lemmas_upper_bound) {
     return true;
 }
 
-void lackr::init() {
-    SASSERT(!m_is_init);
-    m_is_init = true;
+bool lackr::init() {
+    SASSERT(!m_is_init);    
     params_ref simp_p(m_p);
     m_simp.updt_params(simp_p);
     m_info = alloc(ackr_info, m_m);
-    collect_terms();
+    if (!collect_terms()) return false;
     abstract();
+    m_is_init = true;
+    return true;
 }
 
 //
@@ -96,10 +97,8 @@ bool lackr::ackr(app * const t1, app * const t2) {
     for (unsigned i = 0; i < sz; ++i) {
         expr * const arg1 = t1->get_arg(i);
         expr * const arg2 = t2->get_arg(i);
-        if (arg1 == arg2) continue; // quickly skip syntactically equal
-        if (m_ackr_helper.bvutil().is_numeral(arg1) && m_ackr_helper.bvutil().is_numeral(arg2)) {
-            // quickly abort if there are two distinct numerals
-            SASSERT(arg1 != arg2);
+        if (m_m.are_equal(arg1, arg2)) continue; // quickly skip syntactically equal
+        if (m_m.are_distinct(arg1, arg2)){ // quickly abort if there are two distinct (e.g. numerals)                    
             TRACE("lackr", tout << "never eq\n";);
             return false;
         }
@@ -110,7 +109,8 @@ bool lackr::ackr(app * const t1, app * const t2) {
     SASSERT(a1 && a2);
     TRACE("lackr", tout << "abstr1 " << mk_ismt2_pp(a1, m_m, 2) << "\n";);
     TRACE("lackr", tout << "abstr2 " << mk_ismt2_pp(a2, m_m, 2) << "\n";);
-    expr_ref lhs(m_m.mk_and(eqs.size(), eqs.c_ptr()), m_m);
+    expr_ref lhs(m_m);
+    lhs = (eqs.size() == 1) ? eqs.get(0) : m_m.mk_and(eqs.size(), eqs.c_ptr());
     TRACE("lackr", tout << "ackr constr lhs" << mk_ismt2_pp(lhs, m_m, 2) << "\n";);
     expr_ref rhs(m_m.mk_eq(a1, a2),m_m);
     TRACE("lackr", tout << "ackr constr rhs" << mk_ismt2_pp(rhs, m_m, 2) << "\n";);
@@ -203,6 +203,7 @@ void  lackr::push_abstraction() {
 }
 
 lbool lackr::eager() {
+    SASSERT(m_is_init);
     push_abstraction();
     TRACE("lackr", tout << "run sat 0\n"; );
     const lbool rv0 = m_sat->check_sat(0, 0);
@@ -217,6 +218,7 @@ lbool lackr::eager() {
 }
 
 lbool lackr::lazy() {
+    SASSERT(m_is_init);
     lackr_model_constructor mc(m_m, m_info);
     push_abstraction();
     unsigned ackr_head = 0;
@@ -247,7 +249,7 @@ lbool lackr::lazy() {
 //
 // Collect all uninterpreted terms, skipping 0-arity.
 //
-void lackr::collect_terms() {
+bool lackr::collect_terms() {
     ptr_vector<expr> stack;
     expr *           curr;
     expr_mark        visited;
@@ -279,12 +281,11 @@ void lackr::collect_terms() {
             }
                 break;
             case AST_QUANTIFIER:
-                UNREACHABLE();
-                break;
+                return false; // quantifiers not supported
             default:
                 UNREACHABLE();
-                return;
+                return false;
         }
     }
-    visited.reset();
+    return true;
 }

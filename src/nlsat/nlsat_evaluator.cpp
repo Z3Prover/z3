@@ -18,10 +18,12 @@ Revision History:
 
 --*/
 #include"nlsat_evaluator.h"
+#include"nlsat_solver.h"
 
 namespace nlsat {
 
     struct evaluator::imp {
+        solver&                  m_solver;
         assignment const &       m_assignment;
         pmanager &               m_pm;
         small_object_allocator & m_allocator;
@@ -357,7 +359,8 @@ namespace nlsat {
 
         sign_table m_sign_table_tmp;
 
-        imp(assignment const & x2v, pmanager & pm, small_object_allocator & allocator):
+        imp(solver& s, assignment const & x2v, pmanager & pm, small_object_allocator & allocator):
+            m_solver(s),
             m_assignment(x2v),
             m_pm(pm),
             m_allocator(allocator),
@@ -420,10 +423,25 @@ namespace nlsat {
             scoped_anum_vector & roots = m_tmp_values;
             roots.reset();
             m_am.isolate_roots(polynomial_ref(a->p(), m_pm), undef_var_assignment(m_assignment, a->x()), roots);
+            TRACE("nlsat",
+                  m_solver.display(tout << (neg?"!":""), *a); tout << "\n";
+                  if (roots.empty()) {
+                      tout << "No roots\n";
+                  }
+                  else {
+                      tout << "Roots for ";
+                      for (unsigned i = 0; i < roots.size(); ++i) {
+                          m_am.display_interval(tout, roots[i]); tout << " "; 
+                      }
+                      tout << "\n";
+                  }
+                  m_assignment.display(tout);
+                  );
             SASSERT(a->i() > 0);
-            if (a->i() > roots.size())
-                return false; // p does have sufficient roots
-            int sign = m_am.compare(m_assignment.value(a->x()), roots[a->i() - 1]);
+            if (a->i() > roots.size()) {
+                return neg;
+            }
+            int sign = m_am.compare(m_assignment.value(a->x()), roots[a->i() - 1]);            
             return satisfied(sign, k, neg);
         }
         
@@ -649,8 +667,8 @@ namespace nlsat {
         }
     };
     
-    evaluator::evaluator(assignment const & x2v, pmanager & pm, small_object_allocator & allocator) {
-        m_imp = alloc(imp, x2v, pm, allocator);
+    evaluator::evaluator(solver& s, assignment const & x2v, pmanager & pm, small_object_allocator & allocator) {
+        m_imp = alloc(imp, s, x2v, pm, allocator);
     }
 
     evaluator::~evaluator() {

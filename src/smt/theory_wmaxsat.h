@@ -94,6 +94,7 @@ namespace smt {
         virtual bool internalize_term(app * term) { return false; }
         virtual void new_eq_eh(theory_var v1, theory_var v2) { }
         virtual void new_diseq_eh(theory_var v1, theory_var v2) { }
+        virtual void display(std::ostream& out) const {}
 
         virtual void collect_statistics(::statistics & st) const {
             st.update("wmaxsat num blocks", m_stats.m_num_blocks);

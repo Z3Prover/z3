@@ -95,6 +95,7 @@ private:
 public:
     zstring(encoding enc = ascii);
     zstring(char const* s, encoding enc = ascii);
+    zstring(unsigned sz, unsigned const* s, encoding enc = ascii);
     zstring(zstring const& other);
     zstring(unsigned num_bits, bool const* ch);
     zstring(unsigned ch, encoding enc = ascii);

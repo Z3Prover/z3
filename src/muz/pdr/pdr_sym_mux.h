@@ -93,7 +93,6 @@ private:
     std::string get_suffix(unsigned i);
     void ensure_tuple_size(func_decl * prim, unsigned sz);
 
-    expr_ref isolate_o_idx(expr* e, unsigned idx) const;
 public:
     sym_mux(ast_manager & m);
 
@@ -240,8 +239,6 @@ public:
 
     func_decl * const * begin_prim_preds() const { return m_prim_preds.begin(); }
     func_decl * const * end_prim_preds() const { return m_prim_preds.end(); }
-
-    void get_muxed_cube_from_model(const model_core & model, expr_ref_vector & res) const;
 
     std::string pp_model(const model_core & mdl) const;
 };

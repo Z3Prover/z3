@@ -600,7 +600,7 @@ bool theory_seq::fixed_length() {
 
 bool theory_seq::fixed_length(expr* e) {
     rational lo, hi;
-    if (!(is_var(e) && lower_bound(e, lo) && upper_bound(e, hi) && lo == hi && lo.is_unsigned() && lo.is_pos())) {
+    if (!(is_var(e) && lower_bound(e, lo) && upper_bound(e, hi) && lo == hi && lo.is_unsigned())) {
         return false;
     }
     if (is_skolem(m_tail, e) || is_skolem(m_seq_first, e) || 
@@ -609,21 +609,28 @@ bool theory_seq::fixed_length(expr* e) {
         return false;
     }
 
+
     context& ctx = get_context();
     
     m_trail_stack.push(insert_obj_trail<theory_seq, expr>(m_fixed, e));
     m_fixed.insert(e);
 
-    unsigned _lo = lo.get_unsigned();
     expr_ref seq(e, m), head(m), tail(m);
-    expr_ref_vector elems(m);
-    
-    for (unsigned j = 0; j < _lo; ++j) {
-        mk_decompose(seq, head, tail);
-        elems.push_back(head);
-        seq = tail;
+
+    if (lo.is_zero()) {
+        seq = m_util.str.mk_empty(m.get_sort(e));
     }
-    seq = mk_concat(elems.size(), elems.c_ptr());
+    else {
+        unsigned _lo = lo.get_unsigned();
+        expr_ref_vector elems(m);
+        
+        for (unsigned j = 0; j < _lo; ++j) {
+            mk_decompose(seq, head, tail);
+            elems.push_back(head);
+            seq = tail;
+        }
+        seq = mk_concat(elems.size(), elems.c_ptr());
+    }
     TRACE("seq", tout << "Fixed: " << mk_pp(e, m) << " " << lo << "\n";);
     add_axiom(~mk_eq(m_util.str.mk_length(e), m_autil.mk_numeral(lo, true), false), mk_seq_eq(seq, e));
     if (!ctx.at_base_level()) {
@@ -2028,29 +2035,40 @@ public:
         expr_ref_vector args(th.m);
         unsigned j = 0, k = 0;
         bool is_string = th.m_util.is_string(m_sort);
-        for (unsigned i = 0; i < m_source.size(); ++i) {
-            if (m_source[i] && is_string) {
-                bv_util bv(th.m);
-                rational val;
-                unsigned sz;
-                VERIFY(bv.is_numeral(values[j++], val, sz));
-                svector<bool> val_as_bits;
-                unsigned v = val.get_unsigned();
-                for (unsigned i = 0; i < sz; ++i) {
-                    val_as_bits.push_back(1 == v % 2);
-                    v = v / 2;
+        expr_ref result(th.m);
+        if (is_string) {
+            svector<unsigned> sbuffer;
+            bv_util bv(th.m);
+            rational val;
+            unsigned sz;
+
+            for (unsigned i = 0; i < m_source.size(); ++i) {
+                if (m_source[i]) {
+                    VERIFY(bv.is_numeral(values[j++], val, sz));
+                    sbuffer.push_back(val.get_unsigned());
                 }
-                args.push_back(th.m_util.str.mk_string(zstring(sz, val_as_bits.c_ptr())));
+                else {
+                    zstring zs;
+                    VERIFY(th.m_util.str.is_string(m_strings[k++], zs));
+                    for (unsigned l = 0; l < zs.length(); ++l) {
+                        sbuffer.push_back(zs[l]);
+                    }
+                }
             }
-            else if (m_source[i]) {
-                args.push_back(th.m_util.str.mk_unit(values[j++]));
-            }
-            else {
-                args.push_back(m_strings[k++]);
-            }
+            result = th.m_util.str.mk_string(zstring(sbuffer.size(), sbuffer.c_ptr()));
         }
-        expr_ref result = th.mk_concat(args, m_sort);
-        th.m_rewrite(result);
+        else {
+            for (unsigned i = 0; i < m_source.size(); ++i) {
+                if (m_source[i]) {
+                    args.push_back(th.m_util.str.mk_unit(values[j++]));
+                }
+                else {
+                    args.push_back(m_strings[k++]);
+                }
+            }
+            result = th.mk_concat(args, m_sort);
+            th.m_rewrite(result);
+        }
         th.m_factory->add_trail(result);
         return to_app(result);
     }

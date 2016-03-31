@@ -18,6 +18,7 @@ z3_add_component(core_tactics
     split_clause_tactic.cpp
     symmetry_reduce_tactic.cpp
     tseitin_cnf_tactic.cpp
+    collect_occs.cpp
   COMPONENT_DEPENDENCIES
     normal_forms
     tactic

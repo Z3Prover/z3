@@ -165,9 +165,9 @@ foreach (header ${libz3_public_headers})
 endforeach()
 
 install(TARGETS libz3
-  LIBRARY DESTINATION "${Z3_INSTALL_LIB_DIR}"
-  ARCHIVE DESTINATION "${Z3_INSTALL_LIB_DIR}"
-  PUBLIC_HEADER DESTINATION "${Z3_INSTALL_INCLUDE_DIR}"
+  LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+  ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+  PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
 
 if (MSVC)
@@ -186,7 +186,7 @@ if (MSVC)
       ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
     DEPENDS
       "${CMAKE_SOURCE_DIR}/scripts/mk_def_file.py"
-      "${CMAKE_SOURCE_DIR}/scripts/mk_util.py"
+      ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
       ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
     COMMENT "Generating \"${dll_module_exports_file}\""
     ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
@@ -220,6 +220,18 @@ if (BUILD_PYTHON_BINDINGS)
             "You either need to disable BUILD_PYTHON_BINDINGS or enable BUILD_LIBZ3_SHARED")
   endif()
   add_subdirectory(api/python)
+endif()
+
+################################################################################
+# .NET bindings
+################################################################################
+option(BUILD_DOTNET_BINDINGS "Build .NET bindings for Z3" OFF)
+if (BUILD_DOTNET_BINDINGS)
+  if (NOT BUILD_LIBZ3_SHARED)
+    message(FATAL_ERROR "The .NET bindings will not work with a static libz3. "
+      "You either need to disable BUILD_DOTNET_BINDINGS or enable BUILD_LIBZ3_SHARED")
+  endif()
+  add_subdirectory(api/dotnet)
 endif()
 
 # TODO: Implement support for other bindigns

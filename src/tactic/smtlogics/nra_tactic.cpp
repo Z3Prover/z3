@@ -22,7 +22,9 @@ Notes:
 #include"smt_tactic.h"
 #include"nnf_tactic.h"
 #include"qe_tactic.h"
+#include"nlqsat.h"
 #include"qfnra_nlsat_tactic.h"
+#include"qe_lite.h"
 #include"probe_arith.h"
 
 tactic * mk_nra_tactic(ast_manager & m, params_ref const& p) {
@@ -33,15 +35,17 @@ tactic * mk_nra_tactic(ast_manager & m, params_ref const& p) {
     p2.set_uint("seed", 13);
     p2.set_bool("factor", false);
 
-    return and_then(mk_simplify_tactic(m, p),
-                    mk_nnf_tactic(m, p),
-                    mk_propagate_values_tactic(m, p),
-                    mk_qe_tactic(m, p),
-                    cond(mk_is_qfnra_probe(),
-                         or_else(try_for(mk_qfnra_nlsat_tactic(m, p), 5000),
-                                 try_for(mk_qfnra_nlsat_tactic(m, p1), 10000),
-                                 mk_qfnra_nlsat_tactic(m, p2)),
-                         mk_smt_tactic(p)));
+    return and_then(
+        mk_simplify_tactic(m, p),
+        mk_propagate_values_tactic(m, p),
+        mk_qe_lite_tactic(m),
+        cond(mk_is_qfnra_probe(),
+             or_else(try_for(mk_qfnra_nlsat_tactic(m, p), 5000),
+                     try_for(mk_qfnra_nlsat_tactic(m, p1), 10000),
+                     mk_qfnra_nlsat_tactic(m, p2)),
+             or_else(mk_nlqsat_tactic(m, p),
+                     mk_smt_tactic(p))
+             ));
 }
 
 

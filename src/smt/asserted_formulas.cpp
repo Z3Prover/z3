@@ -607,27 +607,25 @@ void asserted_formulas::propagate_values() {
         expr_ref   n(m_asserted_formulas.get(i), m_manager);
         proof_ref pr(m_asserted_formula_prs.get(i, 0), m_manager);
         TRACE("simplifier", tout << mk_pp(n, m_manager) << "\n";);
-        if (m_manager.is_eq(n)) {
-            expr * lhs = to_app(n)->get_arg(0);
-            expr * rhs = to_app(n)->get_arg(1);
-            if (m_manager.is_value(lhs) || m_manager.is_value(rhs)) {
-                if (m_manager.is_value(lhs)) {
-                    std::swap(lhs, rhs);
-                    n = m_manager.mk_eq(lhs, rhs);
-                    pr = m_manager.mk_symmetry(pr);
+        expr* lhs, *rhs;
+        if (m_manager.is_eq(n, lhs, rhs) &&
+            (m_manager.is_value(lhs) || m_manager.is_value(rhs))) {
+            if (m_manager.is_value(lhs)) {
+                std::swap(lhs, rhs);
+                n  = m_manager.mk_eq(lhs, rhs);
+                pr = m_manager.mk_symmetry(pr);
+            }
+            if (!m_manager.is_value(lhs) && !m_simplifier.is_cached(lhs)) {
+                if (i >= m_asserted_qhead) {
+                    new_exprs1.push_back(n);
+                    if (m_manager.proofs_enabled())
+                        new_prs1.push_back(pr);
                 }
-                if (!m_manager.is_value(lhs) && !m_simplifier.is_cached(lhs)) {
-                    if (i >= m_asserted_qhead) {
-                        new_exprs1.push_back(n);
-                        if (m_manager.proofs_enabled())
-                            new_prs1.push_back(pr);
-                    }
-                    TRACE("propagate_values", tout << "found:\n" << mk_pp(lhs, m_manager) << "\n->\n" << mk_pp(rhs, m_manager) << "\n";
-                          if (pr) tout << "proof: " << mk_pp(pr, m_manager) << "\n";);
-                    m_simplifier.cache_result(lhs, rhs, pr);
-                    found = true;
-                    continue;
-                }
+                TRACE("propagate_values", tout << "found:\n" << mk_pp(lhs, m_manager) << "\n->\n" << mk_pp(rhs, m_manager) << "\n";
+                      if (pr) tout << "proof: " << mk_pp(pr, m_manager) << "\n";);
+                m_simplifier.cache_result(lhs, rhs, pr);
+                found = true;
+                continue;
             }
         }
         if (i >= m_asserted_qhead) {
@@ -797,13 +795,7 @@ MK_SIMPLIFIER(apply_bit2int, bit2int& functor = m_bit2int, "bit2int", "propagate
 
 MK_SIMPLIFIER(cheap_quant_fourier_motzkin, elim_bounds_star functor(m_manager), "elim_bounds", "cheap-fourier-motzkin", true);
 
-// MK_SIMPLIFIER(quant_elim, qe::expr_quant_elim_star1 &functor = m_quant_elim, 
-//              "quantifiers", "quantifier elimination procedures", true);
 
-bool asserted_formulas::quant_elim() {
-    throw default_exception("QUANT_ELIM option is deprecated, please consider using the 'qe' tactic.");
-    return false;
-}
 
 MK_SIMPLIFIER(elim_bvs_from_quantifiers, bv_elim_star functor(m_manager), "bv_elim", "eliminate-bit-vectors-from-quantifiers", true);
 

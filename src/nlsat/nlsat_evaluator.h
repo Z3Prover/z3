@@ -26,11 +26,13 @@ Revision History:
 
 namespace nlsat {
 
+    class solver;
+
     class evaluator {
         struct imp;
         imp *  m_imp;
     public:
-        evaluator(assignment const & x2v, pmanager & pm, small_object_allocator & allocator);
+        evaluator(solver& s, assignment const & x2v, pmanager & pm, small_object_allocator & allocator);
         ~evaluator();
 
         interval_set_manager & ism() const;

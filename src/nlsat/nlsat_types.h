@@ -111,6 +111,21 @@ namespace nlsat {
         struct eq_proc { bool operator()(ineq_atom const * a1, ineq_atom const * a2) const; };
     };
 
+    inline std::ostream& operator<<(std::ostream& out, atom::kind k) {
+        switch (k) {
+        case atom::EQ: return out << "=";
+        case atom::LT: return out << "<";
+        case atom::GT: return out << ">";
+        case atom::ROOT_EQ: return out << "= root";
+        case atom::ROOT_LT: return out << "< root";
+        case atom::ROOT_LE: return out << "<= root";
+        case atom::ROOT_GT: return out << "> root";
+        case atom::ROOT_GE: return out << ">= root";
+        default: return out << (int)k;
+        }
+        return out;
+    }
+
     class root_atom : public atom {
         friend class solver;
         var      m_x;

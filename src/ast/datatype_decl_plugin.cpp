@@ -1000,3 +1000,25 @@ void datatype_util::display_datatype(sort *s0, std::ostream& strm) {
     }
 
 }
+
+bool datatype_util::is_func_decl(datatype_op_kind k, unsigned num_params, parameter const* params, func_decl* f) {
+    bool eq = 
+        f->get_decl_kind() == k &&
+        f->get_family_id() == m_family_id &&
+        f->get_num_parameters() == num_params;
+    for (unsigned i = 0; eq && i < num_params; ++i) {
+        eq = params[i] == f->get_parameter(i);
+    }
+    return eq;
+}
+
+bool datatype_util::is_constructor_of(unsigned num_params, parameter const* params, func_decl* f) {
+    return 
+        num_params == 2 &&
+        m_family_id == f->get_family_id() &&
+        OP_DT_CONSTRUCTOR == f->get_decl_kind() &&
+        2 == f->get_num_parameters() &&
+        params[0] == f->get_parameter(0) &&
+        params[1] == f->get_parameter(1);
+}
+

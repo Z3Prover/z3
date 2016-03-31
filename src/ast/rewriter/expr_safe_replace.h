@@ -42,6 +42,8 @@ public:
 
     void operator()(expr* src, expr_ref& e);
 
+    void operator()(expr_ref_vector& es);
+
     void apply_substitution(expr* s, expr* def, expr_ref& t);
 
     void reset();

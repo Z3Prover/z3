@@ -72,7 +72,7 @@ public:
         m_asmsf(m),
         m_fmls_head(0),
         m_core(m),
-        m_map(m),        
+        m_map(m),
         m_num_scopes(0),
         m_dep_core(m),
         m_unknown("no reason given") {
@@ -163,14 +163,14 @@ public:
         m_fmls_lim.push_back(m_fmls.size());
         m_asms_lim.push_back(m_asmsf.size());
         m_fmls_head_lim.push_back(m_fmls_head);
-        m_bb_rewriter->push();
+        if (m_bb_rewriter) m_bb_rewriter->push();
         m_map.push();
     }
     virtual void pop(unsigned n) {
         if (n > m_num_scopes) {   // allow inc_sat_solver to
             n = m_num_scopes;     // take over for another solver.
         }
-        m_bb_rewriter->pop(n);
+        if (m_bb_rewriter) m_bb_rewriter->pop(n);
         m_map.pop(n);
         SASSERT(n <= m_num_scopes);
         m_solver.user_pop(n);
@@ -214,7 +214,7 @@ public:
         m_optimize_model = m_params.get_bool("optimize_model", false);
     }
     virtual void collect_statistics(statistics & st) const {
-        m_preprocess->collect_statistics(st);
+        if (m_preprocess) m_preprocess->collect_statistics(st);
         m_solver.collect_statistics(st);
     }
     virtual void get_unsat_core(ptr_vector<expr> & r) {
@@ -257,8 +257,10 @@ public:
         if (m_preprocess) {
             m_preprocess->reset();
         }
+        if (!m_bb_rewriter) {
+            m_bb_rewriter = alloc(bit_blaster_rewriter, m, m_params);
+        }
         params_ref simp2_p = m_params;
-        m_bb_rewriter = alloc(bit_blaster_rewriter, m, m_params);
         simp2_p.set_bool("som", true);
         simp2_p.set_bool("pull_cheap_ite", true);
         simp2_p.set_bool("push_ite_bv", false);
@@ -429,7 +431,7 @@ private:
         }
         m_model = md;
 
-        if (!m_bb_rewriter->const2bits().empty()) {
+        if (m_bb_rewriter.get() && !m_bb_rewriter->const2bits().empty()) {
             m_mc0 = concat(m_mc0.get(), mk_bit_blaster_model_converter(m, m_bb_rewriter->const2bits()));
         }
         if (m_mc0) {
@@ -440,7 +442,7 @@ private:
         DEBUG_CODE(
             for (unsigned i = 0; i < m_fmls.size(); ++i) {
                 expr_ref tmp(m);
-                if (m_model->eval(m_fmls[i].get(), tmp, true)) {                    
+                if (m_model->eval(m_fmls[i].get(), tmp, true)) {
                     CTRACE("sat", !m.is_true(tmp),
                            tout << "Evaluation failed: " << mk_pp(m_fmls[i].get(), m)
                            << " to " << tmp << "\n";

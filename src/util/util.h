@@ -69,6 +69,12 @@ COMPILE_TIME_ASSERT(sizeof(int64) == 8);
 #define THREAD_LOCAL 
 #endif
 
+#ifdef _MSC_VER
+# define STD_CALL __cdecl
+#else
+# define STD_CALL
+#endif
+
 #ifdef __fallthrough
 # define Z3_fallthrough __fallthrough
 #elif defined(__has_cpp_attribute)

@@ -38,6 +38,8 @@ add_custom_command(OUTPUT "${z3py_bindings_build_dest}/z3core.py"
   DEPENDS
     ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
     "${CMAKE_SOURCE_DIR}/scripts/update_api.py"
+    ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
+    # FIXME: When update_api.py no longer uses ``mk_util`` drop this dependency
     "${CMAKE_SOURCE_DIR}/scripts/mk_util.py"
   COMMENT "Generating z3core.py"
   ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
@@ -54,7 +56,7 @@ add_custom_command(OUTPUT "${z3py_bindings_build_dest}/z3consts.py"
   DEPENDS
     ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
     "${CMAKE_SOURCE_DIR}/scripts/mk_consts_files.py"
-    "${CMAKE_SOURCE_DIR}/scripts/mk_util.py"
+    ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
   COMMENT "Generating z3consts.py"
   ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
 )
@@ -72,35 +74,50 @@ add_custom_target(build_z3_python_bindings
 ###############################################################################
 option(INSTALL_PYTHON_BINDINGS "Install Python bindings when invoking install target" ON)
 if (INSTALL_PYTHON_BINDINGS)
-  # Determine the installation path for the bindings
   message(STATUS "Emitting rules to install Z3 python bindings")
-  execute_process(
-    COMMAND "${PYTHON_EXECUTABLE}" "-c"
-      "import distutils.sysconfig; print(distutils.sysconfig.get_python_lib())"
-    RESULT_VARIABLE exit_code
-    OUTPUT_VARIABLE python_pkg_dir
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-  )
+  # Try to guess the installation path for the bindings
+  if (NOT DEFINED CMAKE_INSTALL_PYTHON_PKG_DIR)
+    message(STATUS "CMAKE_INSTALL_PYTHON_PKG_DIR not set. Trying to guess")
+    execute_process(
+      COMMAND "${PYTHON_EXECUTABLE}" "-c"
+        "import distutils.sysconfig; print(distutils.sysconfig.get_python_lib())"
+      RESULT_VARIABLE exit_code
+      OUTPUT_VARIABLE CMAKE_INSTALL_PYTHON_PKG_DIR
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
 
-  if (NOT ("${exit_code}" EQUAL 0))
-    message(FATAL_ERROR "Failed to determine your Python package directory")
+    if (NOT ("${exit_code}" EQUAL 0))
+      message(FATAL_ERROR "Failed to determine your Python package directory")
+    endif()
+    message(STATUS "Detected Python package directory: \"${CMAKE_INSTALL_PYTHON_PKG_DIR}\"")
+    # Set a cache variable that the user can modify if needed
+    set(CMAKE_INSTALL_PYTHON_PKG_DIR
+      "${CMAKE_INSTALL_PYTHON_PKG_DIR}"
+      CACHE PATH
+      "Path to install python bindings. This can be relative or absolute.")
+    mark_as_advanced(CMAKE_INSTALL_PYTHON_PKG_DIR)
+  else()
+    message(STATUS "CMAKE_INSTALL_PYTHON_PKG_DIR already set (\"${CMAKE_INSTALL_PYTHON_PKG_DIR}\")"
+                   ". Not trying to guess.")
   endif()
-  message(STATUS "Detected Python package directory: \"${python_pkg_dir}\"")
 
-  # Check if path exists under the install prefix
-  set(python_install_dir "")
-  string(FIND "${python_pkg_dir}" "${CMAKE_INSTALL_PREFIX}" position)
-  if (NOT ("${position}" EQUAL 0))
-    message(WARNING "The detected Python package directory \"${python_pkg_dir}\" "
-            "does not exist under the install prefix \"${CMAKE_INSTALL_PREFIX}\"."
-            " Running the install target may lead to a broken installation."
-           )
+  # Check if path exists under the install prefix if it is absolute. If the
+  # path is relative it will be installed under the install prefix so there
+  # if nothing to check
+  if (IS_ABSOLUTE "${CMAKE_INSTALL_PYTHON_PKG_DIR}")
+    string(FIND "${CMAKE_INSTALL_PYTHON_PKG_DIR}" "${CMAKE_INSTALL_PREFIX}" position)
+    if (NOT ("${position}" EQUAL 0))
+      message(WARNING "The directory to install the python bindings \"${CMAKE_INSTALL_PYTHON_PKG_DIR}\" "
+              "is not under the install prefix \"${CMAKE_INSTALL_PREFIX}\"."
+              " Running the install target may lead to a broken installation. "
+              "To change the install directory modify the CMAKE_INSTALL_PYTHON_PKG_DIR cache variable."
+              )
+    endif()
   endif()
   # Using DESTDIR still seems to work even if we use an absolute path
-  set(python_install_dir "${python_pkg_dir}")
-  message(STATUS "Python bindings will be installed to \"${python_install_dir}\"")
+  message(STATUS "Python bindings will be installed to \"${CMAKE_INSTALL_PYTHON_PKG_DIR}\"")
   install(FILES ${build_z3_python_bindings_target_depends}
-    DESTINATION "${python_install_dir}"
+    DESTINATION "${CMAKE_INSTALL_PYTHON_PKG_DIR}"
   )
 else()
   message(STATUS "Not emitting rules to install Z3 python bindings")

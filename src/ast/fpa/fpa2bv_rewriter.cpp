@@ -28,7 +28,7 @@ fpa2bv_rewriter_cfg::fpa2bv_rewriter_cfg(ast_manager & m, fpa2bv_converter & c, 
     m_manager(m),
     m_out(m),
     m_conv(c),
-    m_bindings(m) 
+    m_bindings(m)
 {
     updt_params(p);
     // We need to make sure that the mananger has the BV plugin loaded.
@@ -49,7 +49,7 @@ void fpa2bv_rewriter_cfg::updt_params(params_ref const & p) {
     updt_local_params(p);
 }
 
-bool fpa2bv_rewriter_cfg::max_steps_exceeded(unsigned num_steps) const { 
+bool fpa2bv_rewriter_cfg::max_steps_exceeded(unsigned num_steps) const {
     cooperate("fpa2bv");
     return num_steps > m_max_steps;
 }
@@ -57,22 +57,22 @@ bool fpa2bv_rewriter_cfg::max_steps_exceeded(unsigned num_steps) const {
 
 br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
     TRACE("fpa2bv_rw", tout << "APP: " << f->get_name() << std::endl; );
-    
+
     if (num == 0 && f->get_family_id() == null_family_id && m_conv.is_float(f->get_range())) {
         m_conv.mk_const(f, result);
         return BR_DONE;
     }
-    
+
     if (num == 0 && f->get_family_id() == null_family_id && m_conv.is_rm(f->get_range())) {
         m_conv.mk_rm_const(f, result);
         return BR_DONE;
     }
-    
+
     if (m().is_eq(f)) {
         SASSERT(num == 2);
-        TRACE("fpa2bv_rw", tout << "(= " << mk_ismt2_pp(args[0], m()) << " " << 
+        TRACE("fpa2bv_rw", tout << "(= " << mk_ismt2_pp(args[0], m()) << " " <<
               mk_ismt2_pp(args[1], m()) << ")" << std::endl;);
-        SASSERT(m().get_sort(args[0]) == m().get_sort(args[1]));            
+        SASSERT(m().get_sort(args[0]) == m().get_sort(args[1]));
         sort * ds = f->get_domain()[0];
         if (m_conv.is_float(ds)) {
             m_conv.mk_eq(args[0], args[1], result);
@@ -100,7 +100,7 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
         }
         return BR_FAILED;
     }
-    
+
     if (m_conv.is_float_family(f)) {
         switch (f->get_decl_kind()) {
         case OP_FPA_RM_NEAREST_TIES_TO_AWAY:
@@ -108,7 +108,7 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
         case OP_FPA_RM_TOWARD_NEGATIVE:
         case OP_FPA_RM_TOWARD_POSITIVE:
         case OP_FPA_RM_TOWARD_ZERO: m_conv.mk_rounding_mode(f, result); return BR_DONE;
-        case OP_FPA_NUM: m_conv.mk_numeral(f, num, args, result); return BR_DONE;                             
+        case OP_FPA_NUM: m_conv.mk_numeral(f, num, args, result); return BR_DONE;
         case OP_FPA_PLUS_INF: m_conv.mk_pinf(f, result); return BR_DONE;
         case OP_FPA_MINUS_INF: m_conv.mk_ninf(f, result); return BR_DONE;
         case OP_FPA_PLUS_ZERO: m_conv.mk_pzero(f, result); return BR_DONE;
@@ -120,7 +120,7 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
         case OP_FPA_MUL: m_conv.mk_mul(f, num, args, result); return BR_DONE;
         case OP_FPA_DIV: m_conv.mk_div(f, num, args, result); return BR_DONE;
         case OP_FPA_REM: m_conv.mk_rem(f, num, args, result); return BR_DONE;
-        case OP_FPA_ABS: m_conv.mk_abs(f, num, args, result); return BR_DONE;            
+        case OP_FPA_ABS: m_conv.mk_abs(f, num, args, result); return BR_DONE;
         case OP_FPA_FMA: m_conv.mk_fma(f, num, args, result); return BR_DONE;
         case OP_FPA_SQRT: m_conv.mk_sqrt(f, num, args, result); return BR_DONE;
         case OP_FPA_ROUND_TO_INTEGRAL: m_conv.mk_round_to_integral(f, num, args, result); return BR_DONE;
@@ -129,7 +129,7 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
         case OP_FPA_GT: m_conv.mk_float_gt(f, num, args, result); return BR_DONE;
         case OP_FPA_LE: m_conv.mk_float_le(f, num, args, result); return BR_DONE;
         case OP_FPA_GE: m_conv.mk_float_ge(f, num, args, result); return BR_DONE;
-        case OP_FPA_IS_ZERO: m_conv.mk_is_zero(f, num, args, result); return BR_DONE;            
+        case OP_FPA_IS_ZERO: m_conv.mk_is_zero(f, num, args, result); return BR_DONE;
         case OP_FPA_IS_NAN: m_conv.mk_is_nan(f, num, args, result); return BR_DONE;
         case OP_FPA_IS_INF: m_conv.mk_is_inf(f, num, args, result); return BR_DONE;
         case OP_FPA_IS_NORMAL: m_conv.mk_is_normal(f, num, args, result); return BR_DONE;
@@ -143,21 +143,23 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
         case OP_FPA_TO_SBV: m_conv.mk_to_sbv(f, num, args, result); return BR_DONE;
         case OP_FPA_TO_REAL: m_conv.mk_to_real(f, num, args, result); return BR_DONE;
         case OP_FPA_TO_IEEE_BV: m_conv.mk_to_ieee_bv(f, num, args, result); return BR_DONE;
-            
+
         case OP_FPA_MIN: m_conv.mk_min(f, num, args, result); return BR_REWRITE_FULL;
         case OP_FPA_MAX: m_conv.mk_max(f, num, args, result); return BR_REWRITE_FULL;
-            
+
         case OP_FPA_INTERNAL_MIN_UNSPECIFIED: result = m_conv.mk_min_unspecified(f, args[0], args[1]); return BR_DONE;
         case OP_FPA_INTERNAL_MAX_UNSPECIFIED: result = m_conv.mk_max_unspecified(f, args[0], args[1]); return BR_DONE;
         case OP_FPA_INTERNAL_MIN_I: m_conv.mk_min_i(f, num, args, result); return BR_DONE;
         case OP_FPA_INTERNAL_MAX_I: m_conv.mk_max_i(f, num, args, result); return BR_DONE;
-            
+
         case OP_FPA_INTERNAL_RM:
-        case OP_FPA_INTERNAL_BVWRAP: 
-        case OP_FPA_INTERNAL_BVUNWRAP:                
+        case OP_FPA_INTERNAL_BVWRAP:
+        case OP_FPA_INTERNAL_BVUNWRAP:
         case OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED:
-        case OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED: 
-        case OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED: return BR_FAILED;
+        case OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED:
+        case OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED:
+        case OP_FPA_INTERNAL_TO_IEEE_BV_UNSPECIFIED:
+                return BR_FAILED;
         default:
             TRACE("fpa2bv", tout << "unsupported operator: " << f->get_name() << "\n";
                   for (unsigned i = 0; i < num; i++) tout << mk_ismt2_pp(args[i], m()) << std::endl;);
@@ -167,27 +169,27 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
     else {
         SASSERT(!m_conv.is_float_family(f));
         bool is_float_uf = m_conv.is_float(f->get_range()) || m_conv.is_rm(f->get_range());
-        
+
         for (unsigned i = 0; i < f->get_arity(); i++) {
             sort * di = f->get_domain()[i];
             is_float_uf |= m_conv.is_float(di) || m_conv.is_rm(di);
         }
-        
+
         if (is_float_uf) {
             m_conv.mk_uninterpreted_function(f, num, args, result);
             return BR_DONE;
         }
     }
-    
+
     return BR_FAILED;
 }
 
 bool fpa2bv_rewriter_cfg::pre_visit(expr * t)
 {
     TRACE("fpa2bv", tout << "pre_visit: " << mk_ismt2_pp(t, m()) << std::endl;);
-    
-    if (is_quantifier(t)) {            
-        quantifier * q = to_quantifier(t);            
+
+    if (is_quantifier(t)) {
+        quantifier * q = to_quantifier(t);
         TRACE("fpa2bv", tout << "pre_visit quantifier [" << q->get_id() << "]: " << mk_ismt2_pp(q->get_expr(), m()) << std::endl;);
         sort_ref_vector new_bindings(m_manager);
         for (unsigned i = 0 ; i < q->get_num_decls(); i++)
@@ -199,9 +201,9 @@ bool fpa2bv_rewriter_cfg::pre_visit(expr * t)
 }
 
 
-bool fpa2bv_rewriter_cfg::reduce_quantifier(quantifier * old_q, 
-                           expr * new_body, 
-                           expr * const * new_patterns, 
+bool fpa2bv_rewriter_cfg::reduce_quantifier(quantifier * old_q,
+                           expr * new_body,
+                           expr * const * new_patterns,
                            expr * const * new_no_patterns,
                            expr_ref & result,
                            proof_ref & result_pr) {
@@ -221,7 +223,7 @@ bool fpa2bv_rewriter_cfg::reduce_quantifier(quantifier * old_q,
             name_buffer.reset();
             name_buffer << n << ".bv";
             new_decl_names.push_back(symbol(name_buffer.c_str()));
-            new_decl_sorts.push_back(m_conv.bu().mk_sort(sbits+ebits)); 
+            new_decl_sorts.push_back(m_conv.bu().mk_sort(sbits+ebits));
         }
         else {
             new_decl_sorts.push_back(s);
@@ -232,19 +234,19 @@ bool fpa2bv_rewriter_cfg::reduce_quantifier(quantifier * old_q,
                                new_body, old_q->get_weight(), old_q->get_qid(), old_q->get_skid(),
                                old_q->get_num_patterns(), new_patterns, old_q->get_num_no_patterns(), new_no_patterns);
     result_pr = 0;
-    m_bindings.shrink(old_sz);        
-    TRACE("fpa2bv", tout << "reduce_quantifier[" << old_q->get_depth() << "]: " << 
+    m_bindings.shrink(old_sz);
+    TRACE("fpa2bv", tout << "reduce_quantifier[" << old_q->get_depth() << "]: " <<
           mk_ismt2_pp(old_q->get_expr(), m()) << std::endl <<
           " new body: " << mk_ismt2_pp(new_body, m()) << std::endl;
-          tout << "result = " << mk_ismt2_pp(result, m()) << std::endl;);                
+          tout << "result = " << mk_ismt2_pp(result, m()) << std::endl;);
     return true;
 }
 
-bool fpa2bv_rewriter_cfg::reduce_var(var * t, expr_ref & result, proof_ref & result_pr) { 
+bool fpa2bv_rewriter_cfg::reduce_var(var * t, expr_ref & result, proof_ref & result_pr) {
     if (t->get_idx() >= m_bindings.size())
         return false;
-    // unsigned inx = m_bindings.size() - t->get_idx() - 1;        
-    
+    // unsigned inx = m_bindings.size() - t->get_idx() - 1;
+
     expr_ref new_exp(m());
     sort * s = t->get_sort();
     if (m_conv.is_float(s))
@@ -255,14 +257,14 @@ bool fpa2bv_rewriter_cfg::reduce_var(var * t, expr_ref & result, proof_ref & res
             new_var = m().mk_var(t->get_idx(), m_conv.bu().mk_sort(sbits+ebits));
             m_conv.mk_fp(m_conv.bu().mk_extract(sbits+ebits-1, sbits+ebits-1, new_var),
                          m_conv.bu().mk_extract(ebits - 1, 0, new_var),
-                         m_conv.bu().mk_extract(sbits+ebits-2, ebits, new_var),                         
+                         m_conv.bu().mk_extract(sbits+ebits-2, ebits, new_var),
                          new_exp);
         }
     else
         new_exp = m().mk_var(t->get_idx(), s);
-    
+
     result = new_exp;
-    result_pr = 0;        
+    result_pr = 0;
     TRACE("fpa2bv", tout << "reduce_var: " << mk_ismt2_pp(t, m()) << " -> " << mk_ismt2_pp(result, m()) << std::endl;);
     return true;
 }

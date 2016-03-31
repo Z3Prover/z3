@@ -105,7 +105,7 @@ else()
     message(STATUS "CMAKE_BUILD_TYPE is not set. Setting default")
     message(STATUS "The available build types are: ${available_build_types}")
     set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE String
-        "Options are ${build_types}"
+        "Options are ${available_build_types}"
         FORCE)
     # Provide drop down menu options in cmake-gui
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS ${available_build_types})
@@ -239,6 +239,7 @@ if (OPENMP_FOUND)
 else()
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_NO_OMP_")
   message(STATUS "Not using OpenMP")
+  set(USE_OPENMP OFF CACHE BOOL "Use OpenMP" FORCE)
 endif()
 
 ################################################################################
@@ -288,15 +289,16 @@ endif()
 ################################################################################
 # Tracing
 ################################################################################
-option(ENABLE_TRACING OFF "Enable tracing")
-if (ENABLE_TRACING)
+option(ENABLE_TRACING_FOR_NON_DEBUG "Enable tracing in non-debug builds." OFF)
+if (ENABLE_TRACING_FOR_NON_DEBUG)
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_TRACE")
+else()
+  # Tracing is always enabled in debug builds
+  list(APPEND Z3_COMPONENT_CXX_DEFINES $<$<CONFIG:Debug>:_TRACE>)
 endif()
-# Should we always enable tracing when doing a debug build?
-#list(APPEND Z3_COMPONENT_CXX_DEFINES $<$<CONFIG:Debug>:_TRACE>)
 
 ################################################################################
-# Postion indepdent code
+# Postion independent code
 ################################################################################
 # This is required because code built in the components will end up in a shared
 # library. If not building a shared library ``-fPIC`` isn't needed and would add
@@ -320,9 +322,36 @@ message(STATUS "Z3_DEPENDENT_EXTRA_C_LINK_FLAGS: ${Z3_DEPENDENT_EXTRA_C_LINK_FLA
 ################################################################################
 # Z3 installation locations
 ################################################################################
-set (Z3_INSTALL_LIB_DIR "lib")
-set (Z3_INSTALL_BIN_DIR "bin")
-set (Z3_INSTALL_INCLUDE_DIR "include")
+include(GNUInstallDirs)
+set(CMAKE_INSTALL_PKGCONFIGDIR
+  "${CMAKE_INSTALL_LIBDIR}/pkgconfig"
+  CACHE
+  PATH
+  "Directory to install pkgconfig files"
+)
+message(STATUS "CMAKE_INSTALL_LIBDIR: \"${CMAKE_INSTALL_LIBDIR}\"")
+message(STATUS "CMAKE_INSTALL_BINDIR: \"${CMAKE_INSTALL_BINDIR}\"")
+message(STATUS "CMAKE_INSTALL_INCLUDEDIR: \"${CMAKE_INSTALL_INCLUDEDIR}\"")
+message(STATUS "CMAKE_INSTALL_PKGCONFIGDIR: \"${CMAKE_INSTALL_PKGCONFIGDIR}\"")
+
+################################################################################
+# Uninstall rule
+################################################################################
+configure_file(
+  "${CMAKE_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
+  @ONLY
+)
+
+# Target needs to be declared before the components so that they can add
+# dependencies to this target so they can run their own custom uninstall rules.
+add_custom_target(uninstall
+  COMMAND
+  "${CMAKE_COMMAND}" -P "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
+  COMMENT "Uninstalling..."
+  ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
+  VERBATIM
+)
 
 ################################################################################
 # CMake build file locations
@@ -332,6 +361,17 @@ set (Z3_INSTALL_INCLUDE_DIR "include")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
+
+################################################################################
+# Extra dependencies for build rules that use the Python infrastructure to
+# generate files used for Z3's build. Changes to these files will trigger
+# a rebuild of all the generated files.
+################################################################################
+# Note: ``update_api.py`` is deliberately not here because it not used
+# to generate every generated file. The targets that need it list it explicitly.
+set(Z3_GENERATED_FILE_EXTRA_DEPENDENCIES
+  "${CMAKE_SOURCE_DIR}/scripts/mk_genfile_common.py"
+)
 
 ################################################################################
 # Z3 components, library and executables
@@ -348,19 +388,3 @@ if (ENABLE_EXAMPLE_TARGETS)
   add_subdirectory(examples)
 endif()
 
-################################################################################
-# Uninstall rule
-################################################################################
-configure_file(
-  "${CMAKE_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in"
-  "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
-  @ONLY
-)
-
-add_custom_target(uninstall
-  COMMAND
-  "${CMAKE_COMMAND}" -P "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
-  COMMENT "Uninstalling..."
-  ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
-  VERBATIM
-)

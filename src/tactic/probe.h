@@ -8,7 +8,7 @@ Module Name:
 Abstract:
 
     Evaluates/Probes a goal.
-    
+
     A probe is used to build tactics (aka strategies) that
     makes decisions based on the structure of a goal.
 
@@ -49,7 +49,7 @@ public:
 
     void inc_ref() { ++m_ref_count; }
     void dec_ref() { SASSERT(m_ref_count > 0); --m_ref_count; if (m_ref_count == 0) dealloc(this); }
-    
+
     virtual result operator()(goal const & g) = 0;
 };
 
@@ -84,12 +84,18 @@ probe * mk_num_bv_consts_probe();
 probe * mk_produce_proofs_probe();
 probe * mk_produce_models_probe();
 probe * mk_produce_unsat_cores_probe();
-probe * mk_has_pattern_probe();
 
 /*
   ADD_PROBE("produce-proofs", "true if proof generation is enabled for the given goal.", "mk_produce_proofs_probe()")
   ADD_PROBE("produce-model", "true if model generation is enabled for the given goal.", "mk_produce_models_probe()")
   ADD_PROBE("produce-unsat-cores", "true if unsat-core generation is enabled for the given goal.", "mk_produce_unsat_cores_probe()")
+*/
+
+probe * mk_has_quantifier_probe();
+probe * mk_has_pattern_probe();
+
+/*
+  ADD_PROBE("has-quantifiers", "true if the goal contains quantifiers.", "mk_has_quantifier_probe()")
   ADD_PROBE("has-patterns", "true if the goal contains quantifiers with patterns.", "mk_has_pattern_probe()")
 */
 

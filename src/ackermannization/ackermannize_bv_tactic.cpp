@@ -38,6 +38,7 @@ public:
         tactic_report report("ackermannize", *g);
         fail_if_unsat_core_generation("ackermannize", g);
         fail_if_proof_generation("ackermannize", g);
+        TRACE("ackermannize", g->display(tout << "in\n"););
 
         expr_ref_vector flas(m);
         const unsigned sz = g->size();
@@ -48,6 +49,7 @@ public:
         goal_ref resg(alloc(goal, *g, true));
         const bool success = lackr.mk_ackermann(resg, m_lemma_limit);
         if (!success) { // Just pass on the input unchanged
+            TRACE("ackermannize", tout << "ackermannize not run due to limit" << std::endl;);
             result.reset();
             result.push_back(g.get());
             mc = 0;
@@ -62,7 +64,7 @@ public:
         }
 
         resg->inc_depth();
-        TRACE("ackermannize", resg->display(tout););
+        TRACE("ackermannize", resg->display(tout << "out\n"););
         SASSERT(resg->is_well_sorted());
     }
 

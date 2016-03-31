@@ -43,6 +43,7 @@ namespace smt {
         virtual bool build_models() const { 
             return false;
         }
+        virtual void display(std::ostream& out) const {}
 
     public:
         theory_dummy(family_id fid, char const * name);

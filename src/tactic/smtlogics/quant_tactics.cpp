@@ -22,7 +22,9 @@ Revision History:
 #include"solve_eqs_tactic.h"
 #include"elim_uncnstr_tactic.h"
 #include"qe_tactic.h"
-#include"qe_sat_tactic.h"
+#include"qe_lite.h"
+#include"qsat.h"
+#include"nlqsat.h"
 #include"ctx_simplify_tactic.h"
 #include"smt_tactic.h"
 
@@ -37,10 +39,12 @@ static tactic * mk_quant_preprocessor(ast_manager & m, bool disable_gaussian = f
     ctx_simp_p.set_uint("max_steps", 5000000);
 
     tactic * solve_eqs;
-    if (disable_gaussian)
+    if (disable_gaussian) {
         solve_eqs = mk_skip_tactic();
-    else
+    }
+    else {
         solve_eqs = when(mk_not(mk_has_pattern_probe()), mk_solve_eqs_tactic(m));
+    }
  
     // remark: investigate if gaussian elimination is useful when patterns are not provided.
     return and_then(mk_simplify_tactic(m), 
@@ -58,6 +62,7 @@ static tactic * mk_no_solve_eq_preprocessor(ast_manager & m) {
 
 tactic * mk_ufnia_tactic(ast_manager & m, params_ref const & p) {
     tactic * st = and_then(mk_no_solve_eq_preprocessor(m),
+                           mk_qe_lite_tactic(m, p),
                            mk_smt_tactic());
     st->updt_params(p);
     return st;
@@ -98,13 +103,18 @@ tactic * mk_aufnira_tactic(ast_manager & m, params_ref const & p) {
 }
 
 tactic * mk_lra_tactic(ast_manager & m, params_ref const & p) {
+#if 0
     tactic * st = and_then(mk_quant_preprocessor(m),
                            or_else(try_for(mk_smt_tactic(), 100), 
                                    try_for(qe::mk_sat_tactic(m), 1000), 
                                    try_for(mk_smt_tactic(), 1000),
                                    and_then(mk_qe_tactic(m), mk_smt_tactic())
                                    ));
-
+#else
+    tactic * st = and_then(mk_quant_preprocessor(m),
+                           or_else(mk_qsat_tactic(m, p),
+                                   and_then(mk_qe_tactic(m), mk_smt_tactic())));
+#endif
     st->updt_params(p);
     return st;
 }
@@ -116,3 +126,4 @@ tactic * mk_lia_tactic(ast_manager & m, params_ref const & p) {
 tactic * mk_lira_tactic(ast_manager & m, params_ref const & p) {
     return mk_lra_tactic(m, p);
 }
+

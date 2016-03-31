@@ -234,7 +234,6 @@ protected:
 
     func_decl * mk_mkbv(unsigned arity, sort * const * domain);
 
-    bool get_int2bv_size(unsigned num_parameters, parameter const * parameters, int & result);
 
     func_decl * mk_num_decl(unsigned num_parameters, parameter const * parameters, unsigned arity);
 
@@ -266,6 +265,8 @@ public:
     virtual bool are_distinct(app* a, app* b) const;
 
     virtual expr * get_some_value(sort * s);
+
+    bool get_int2bv_size(unsigned num_parameters, parameter const * parameters, int & result);
 
     virtual bool is_considered_uninterpreted(func_decl * f) {
         if (f->get_family_id() != get_family_id())
@@ -390,6 +391,8 @@ public:
         return static_cast<unsigned>(s->get_parameter(0).get_int());
     }
     unsigned get_bv_size(expr const * n) const { return get_bv_size(m_manager.get_sort(n)); }
+    unsigned get_int2bv_size(parameter const& p);
+
 
     app * mk_ule(expr * arg1, expr * arg2) { return m_manager.mk_app(get_fid(), OP_ULEQ, arg1, arg2); }
     app * mk_sle(expr * arg1, expr * arg2) { return m_manager.mk_app(get_fid(), OP_SLEQ, arg1, arg2); }
@@ -427,6 +430,7 @@ public:
     app * mk_bvumul_no_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BUMUL_NO_OVFL, n, m); }
 
     app * mk_bv(unsigned n, expr* const* es) { return m_manager.mk_app(get_fid(), OP_MKBV, n, es); }
+
 };
 
 #endif /* BV_DECL_PLUGIN_H_ */
