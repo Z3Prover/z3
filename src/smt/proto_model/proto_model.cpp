@@ -262,7 +262,6 @@ void proto_model::freeze_universe(sort * s) {
    \brief Return the known universe of an uninterpreted sort.
 */
 obj_hashtable<expr> const & proto_model::get_known_universe(sort * s) const {
-    SASSERT(m_manager.is_uninterp(s));
     return m_user_sort_factory->get_known_universe(s);
 }
 

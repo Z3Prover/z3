@@ -130,7 +130,6 @@ sort * model::get_uninterpreted_sort(unsigned idx) const {
 }
 
 void model::register_usort(sort * s, unsigned usize, expr * const * universe) {
-    SASSERT(m_manager.is_uninterp(s));
     sort2universe::obj_map_entry * entry = m_usort2universe.insert_if_not_there2(s, 0);
     m_manager.inc_array_ref(usize, universe);
     if (entry->get_data().m_value == 0) {
