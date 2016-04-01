@@ -370,9 +370,10 @@ bool bv_decl_plugin::get_concat_size(unsigned arity, sort * const * domain, int 
 }
 
 bool bv_decl_plugin::get_extend_size(unsigned num_parameters, parameter const * parameters,
-                                   unsigned arity, sort * const * domain, int & result) {
+    unsigned arity, sort * const * domain, int & result) {
     int arg_sz;
-    if (arity != 1 || num_parameters != 1 || !parameters[0].is_int() || !get_bv_size(domain[0], arg_sz)) {
+    if (arity != 1 || !get_bv_size(domain[0], arg_sz) ||
+        num_parameters != 1 || !parameters[0].is_int() || parameters[0].get_int() < 0) {
         return false;
     }
     result = arg_sz + parameters[0].get_int();
