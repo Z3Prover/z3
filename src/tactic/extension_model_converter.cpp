@@ -43,6 +43,41 @@ static void display_decls_info(std::ostream & out, model_ref & md) {
     }
 }
 
+bool extension_model_converter::is_fi_entry_expr(expr * e, unsigned arity, ptr_vector<expr> & args) {
+    args.reset();
+    if (!is_app(e) || !m().is_ite(to_app(e)))
+        return false;
+
+    app * a = to_app(e);
+    expr * c = a->get_arg(0);
+    expr * t = a->get_arg(1);
+    expr * f = a->get_arg(2);
+
+    if ((arity == 0) ||
+        (arity == 1 && (!m().is_eq(c) || to_app(c)->get_num_args() != 2)) ||
+        (arity > 1 && (!m().is_and(c) || to_app(c)->get_num_args() != arity)))
+        return false;
+
+    args.resize(arity, 0);
+    for (unsigned i = 0; i < arity; i++) {
+        expr * ci = (arity == 1 && i == 0) ? to_app(c) : to_app(c)->get_arg(i);
+
+        if (!m().is_eq(ci) || to_app(ci)->get_num_args() != 2)
+            return false;
+
+        expr * a0 = to_app(ci)->get_arg(0);
+        expr * a1 = to_app(ci)->get_arg(1);
+        if (is_var(a0) && to_var(a0)->get_idx() == i)
+            args[i] = a1;
+        else if (is_var(a1) && to_var(a1)->get_idx() == i)
+            args[i] = a0;
+        else
+            return false;
+    }
+
+    return true;
+}
+
 void extension_model_converter::operator()(model_ref & md, unsigned goal_idx) {
     SASSERT(goal_idx == 0);
     TRACE("extension_mc", model_v2_pp(tout, *md); display_decls_info(tout, md););
@@ -62,7 +97,14 @@ void extension_model_converter::operator()(model_ref & md, unsigned goal_idx) {
         }
         else {
             func_interp * new_fi = alloc(func_interp, m(), arity);
-            new_fi->set_else(val);
+            expr * e = val.get();
+            ptr_vector<expr> args;
+            while (is_fi_entry_expr(e, arity, args)) {
+                TRACE("extension_mc", tout << "fi entry: " << mk_ismt2_pp(e, m()) << std::endl;);
+                new_fi->insert_entry(args.c_ptr(), to_app(e)->get_arg(1));
+                e = to_app(e)->get_arg(2);
+            }
+            new_fi->set_else(e);
             md->register_decl(f, new_fi);
         }
     }
@@ -86,10 +128,10 @@ void extension_model_converter::display(std::ostream & out) {
 }
 
 model_converter * extension_model_converter::translate(ast_translation & translator) {
-    extension_model_converter * res = alloc(extension_model_converter, translator.to());    
+    extension_model_converter * res = alloc(extension_model_converter, translator.to());
     for (unsigned i = 0; i < m_vars.size(); i++)
         res->m_vars.push_back(translator(m_vars[i].get()));
     for (unsigned i = 0; i < m_defs.size(); i++)
-        res->m_defs.push_back(translator(m_defs[i].get()));    
+        res->m_defs.push_back(translator(m_defs[i].get()));
     return res;
 }
