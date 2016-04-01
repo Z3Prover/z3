@@ -63,19 +63,13 @@ protected:
     void add_entry(model_evaluator & evaluator,
         app* term, expr* value,
         obj_map<func_decl, func_interp*>& interpretations);
-    void convert_sorts(model * source, model * destination);
     void convert_constants(model * source, model * destination);
 };
 
 void ackr_model_converter::convert(model * source, model * destination) {
-    //SASSERT(source->get_num_functions() == 0);
-    for (unsigned i = 0; i < source->get_num_functions(); i++) {
-        func_decl * const fd = source->get_function(i);
-        func_interp * const fi = source->get_func_interp(fd);
-        destination->register_decl(fd, fi);
-    }
+    destination->copy_func_interps(*source);
+    destination->copy_usort_interps(*source);
     convert_constants(source,destination);
-    convert_sorts(source,destination);
 }
 
 void ackr_model_converter::convert_constants(model * source, model * destination) {
@@ -133,14 +127,6 @@ void ackr_model_converter::add_entry(model_evaluator & evaluator,
         fi->insert_new_entry(args.c_ptr(), value);
     } else {
         TRACE("ackr_model", tout << "entry already present\n";);
-    }
-}
-
-void ackr_model_converter::convert_sorts(model * source, model * destination) {
-    for (unsigned i = 0; i < source->get_num_uninterpreted_sorts(); i++) {
-        sort * const s = source->get_uninterpreted_sort(i);
-        ptr_vector<expr> u = source->get_universe(s);
-        destination->register_usort(s, u.size(), u.c_ptr());
     }
 }
 
