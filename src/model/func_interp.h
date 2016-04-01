@@ -110,6 +110,9 @@ public:
     expr * get_interp() const;
 
     func_interp * translate(ast_translation & translator) const;
+
+private:
+    bool is_fi_entry_expr(expr * e, ptr_vector<expr> & args);
 };
 
 #endif
