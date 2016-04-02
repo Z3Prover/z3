@@ -69,6 +69,7 @@ class bv_rewriter : public poly_rewriter<bv_rewriter_core> {
     bool       m_udiv2mul;
     bool       m_bvnot2arith;
     bool       m_bv_sort_ac;
+    bool       m_trailing;
 
     bool is_zero_bit(expr * x, unsigned idx);
 

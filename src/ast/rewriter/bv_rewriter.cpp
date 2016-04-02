@@ -20,6 +20,7 @@ Notes:
 #include"bv_rewriter_params.hpp"
 #include"poly_rewriter_def.h"
 #include"ast_smt2_pp.h"
+#include"bv_trailing.h"
 
 
 mk_extract_proc::mk_extract_proc(bv_util & u):
@@ -61,6 +62,7 @@ void bv_rewriter::updt_local_params(params_ref const & _p) {
     m_elim_sign_ext = p.elim_sign_ext();
     m_mul2concat = p.mul2concat();
     m_bit2bool = p.bit2bool();
+    m_trailing = p.bv_trailing();
     m_blast_eq_value = p.blast_eq_value();
     m_split_concat_eq = p.split_concat_eq();
     m_udiv2mul = p.udiv2mul();
@@ -2124,6 +2126,15 @@ br_status bv_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
             return st;
     }
 
+    if (m_trailing) {
+        bv_trailing bvt(m(), m_mk_extract);
+        st = bvt.eq_remove_trailing(lhs, rhs, result);
+        if (st != BR_FAILED) {
+            TRACE("eq_remove_trailing", tout << mk_ismt2_pp(lhs, m()) << "\n=\n" << mk_ismt2_pp(rhs, m()) << "\n----->\n" << mk_ismt2_pp(result, m()) << "\n";);
+            return st;
+        }
+    }
+
     st = mk_mul_eq(lhs, rhs, result);
     if (st != BR_FAILED) {
         TRACE("mk_mul_eq", tout << mk_ismt2_pp(lhs, m()) << "\n=\n" << mk_ismt2_pp(rhs, m()) << "\n----->\n" << mk_ismt2_pp(result,m()) << "\n";);
@@ -2186,6 +2197,7 @@ br_status bv_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
 
     return BR_FAILED;
 }
+
 
 br_status bv_rewriter::mk_mkbv(unsigned num, expr * const * args, expr_ref & result) {
     if (m_mkbv2num) {
