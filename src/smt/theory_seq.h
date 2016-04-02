@@ -358,6 +358,8 @@ namespace smt {
         void init_model(expr_ref_vector const& es);
         // final check 
         bool simplify_and_solve_eqs();   // solve unitary equalities
+        bool reduce_length_eq();
+        bool branch_variable_mb();       // branch on a variable, model based on length
         bool branch_variable();          // branch on a variable
         bool split_variable();           // split a variable
         bool is_solved(); 
@@ -367,6 +369,10 @@ namespace smt {
         bool fixed_length();
         bool fixed_length(expr* e);
         bool propagate_length_coherence(expr* e);  
+        bool split_lengths(dependency* dep,
+                           expr_ref_vector const& ls, expr_ref_vector const& rs, 
+                           vector<rational> const& ll, vector<rational> const& rl);
+        bool set_empty(expr* x);
 
         bool check_extensionality();
         bool check_contains();
@@ -465,6 +471,7 @@ namespace smt {
         bool has_length(expr *e) const { return m_length.contains(e); }
         void add_length(expr* e);
         void enforce_length(enode* n);
+        bool enforce_length(expr_ref_vector const& es, vector<rational>& len);
         void enforce_length_coherence(enode* n1, enode* n2);
 
         void add_elim_string_axiom(expr* n);
