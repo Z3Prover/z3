@@ -26,31 +26,31 @@ extern "C" {
 
 #define CAMLlocal6(X1,X2,X3,X4,X5,X6)                               \
   CAMLlocal5(X1,X2,X3,X4,X5);                                       \
-  CAMLlocal1(X6)                                                      
+  CAMLlocal1(X6)
 #define CAMLlocal7(X1,X2,X3,X4,X5,X6,X7)                            \
   CAMLlocal5(X1,X2,X3,X4,X5);                                       \
-  CAMLlocal2(X6,X7)                                                   
+  CAMLlocal2(X6,X7)
 #define CAMLlocal8(X1,X2,X3,X4,X5,X6,X7,X8)                         \
   CAMLlocal5(X1,X2,X3,X4,X5);                                       \
-  CAMLlocal3(X6,X7,X8)                                                
+  CAMLlocal3(X6,X7,X8)
 
 #define CAMLparam7(X1,X2,X3,X4,X5,X6,X7)                            \
   CAMLparam5(X1,X2,X3,X4,X5);                                       \
-  CAMLxparam2(X6,X7)                                                  
+  CAMLxparam2(X6,X7)
 #define CAMLparam8(X1,X2,X3,X4,X5,X6,X7,X8)                         \
   CAMLparam5(X1,X2,X3,X4,X5);                                       \
-  CAMLxparam3(X6,X7,X8)                                               
+  CAMLxparam3(X6,X7,X8)
 #define CAMLparam9(X1,X2,X3,X4,X5,X6,X7,X8,X9)                      \
   CAMLparam5(X1,X2,X3,X4,X5);                                       \
   CAMLxparam4(X6,X7,X8,X9)
 #define CAMLparam12(X1,X2,X3,X4,X5,X6,X7,X8,X9,X10,X11,X12)     \
   CAMLparam5(X1,X2,X3,X4,X5);                                   \
   CAMLxparam5(X6,X7,X8,X9,X10);                                 \
-  CAMLxparam2(X11,X12)                                                
+  CAMLxparam2(X11,X12)
 #define CAMLparam13(X1,X2,X3,X4,X5,X6,X7,X8,X9,X10,X11,X12,X13) \
   CAMLparam5(X1,X2,X3,X4,X5);                                   \
   CAMLxparam5(X6,X7,X8,X9,X10);                                 \
-  CAMLxparam3(X11,X12,X13)                                            
+  CAMLxparam3(X11,X12,X13)
 
 
 static struct custom_operations default_custom_ops = {
@@ -68,51 +68,68 @@ static struct custom_operations default_custom_ops = {
   CAMLprim DLL_PUBLIC value n_context_of_ ## X(value v) {               \
     CAMLparam1(v);                                                      \
     CAMLlocal1(result);                                                 \
+    Z3_context_plus cp;							\
     Z3_ ## X ## _plus * p = (Z3_ ## X ## _plus *) Data_custom_val(v);   \
+    cp = p->cp;								\
     result = caml_alloc_custom(&Z3_context_plus_custom_ops, sizeof(Z3_context_plus), 0, 1); \
-    *(Z3_context_plus*)Data_custom_val(result) = *p->cp;                \
+    *(Z3_context_plus*)Data_custom_val(result) = cp; 	                \
+    /* We increment the usage counter of the context */                 \
+    cp->obj_count++;							\
     CAMLreturn(result);                                                 \
   }
 
 
 /* Context objects */
 
+/* The Z3context_plus_data exists exactly once for each context,
+   no matter how many custom blocks for that context exist.
+   Each custom block only stores a pointer to the corresponding
+   Z3_context_plus_data. This ensures that the reference counting
+   is performed at exactly one place and not within the custom
+   blocks that get copied. */
 typedef struct {
   Z3_context ctx;
-  unsigned long obj_count:sizeof(unsigned long)-1;
-  unsigned ok_to_delete:1;
-} Z3_context_plus;
+  unsigned long obj_count;
+} Z3_context_plus_data;
+
+/* A context is wrapped to an OCaml value by storing a pointer
+   to its associated Z3_context_plus_data instance.
+   This instance gets created in mk_context and is deleted
+   together with the Z3 context instance in try_to_delete_context
+   whenever the obj_count field is zero. */
+typedef Z3_context_plus_data* Z3_context_plus;
 
 Z3_context_plus Z3_context_plus_mk(Z3_context c) {
-  Z3_context_plus r;
-  r.ctx = c;
-  r.obj_count = 0;
-  r.ok_to_delete = 0;
-  /* printf("ctx++ %p\n", c); */
+  Z3_context_plus r = (Z3_context_plus)malloc(sizeof(Z3_context_plus_data));
+  r->ctx = c;
+  /* The context created here will be wrapped into a custom block.
+     Hence, we assign it a counter of one. */
+  r->obj_count = 1;
   return r;
 }
 
 Z3_context Z3_context_plus_raw(Z3_context_plus * cp) {
-  return cp->ctx;
+  return (*cp)->ctx;
 }
 
-void try_to_delete_context(Z3_context_plus * cp) {
-  if (!cp->ok_to_delete || cp->obj_count != 0)
-    /* printf("Trying to delete context %p.\n", cp->ctx) */ ;
+inline void try_to_delete_context(Z3_context_plus cp) {
+  if (cp->obj_count > 0)
+    /* printf("try_to_delete_context: Not deleting context %p(%p) with cnt=%lu.\n", cp, cp->ctx, cp->obj_count) */ ;
+  else if (cp->obj_count < 0)
+    printf("try_to_delete_context: ERROR, found context %p(%p) with negative cnt=%lu.\n", cp, cp->ctx, cp->obj_count);
   else {
-    /* printf("Actually deleting context %p.\n", cp->ctx); */
+    printf("try_to_delete_context: Deleting context %p(%p) with cnt=%lu.\n", cp, cp->ctx, cp->obj_count);
     Z3_del_context(cp->ctx);
-    cp->ctx = 0;
+    cp->ctx = NULL;
     cp->obj_count = 0;
-    cp->ok_to_delete = 0;
+    free(cp);
   }
 }
 
 void Z3_context_finalize(value v) {
-  Z3_context_plus * cp = (Z3_context_plus*)Data_custom_val(v);
-  /* printf("ctx--; cnt=%lu\n", cp->obj_count); */
-  cp->ok_to_delete = 1;
-  try_to_delete_context(cp);  
+  Z3_context_plus cp = *(Z3_context_plus*)Data_custom_val(v);
+  cp->obj_count--;
+  try_to_delete_context(cp);
 }
 
 static struct custom_operations Z3_context_plus_custom_ops = {
@@ -129,14 +146,14 @@ static struct custom_operations Z3_context_plus_custom_ops = {
 /* AST objects */
 
 typedef struct {
-  Z3_context_plus * cp;
+  Z3_context_plus cp;
   Z3_ast a;
 } Z3_ast_plus;
 
-Z3_ast_plus Z3_ast_plus_mk(Z3_context_plus * cp, Z3_ast a) {
+Z3_ast_plus Z3_ast_plus_mk(Z3_context_plus cp, Z3_ast a) {
   Z3_ast_plus r;
   r.cp = cp;
-  r.a  = a;
+  r.a = a;
   /* printf("++\n"); */
   cp->obj_count++;
   Z3_inc_ref(cp->ctx, a);
@@ -148,7 +165,7 @@ Z3_ast Z3_ast_plus_raw(Z3_ast_plus * ap) {
 }
 
 void Z3_ast_finalize(value v) {
-  /* printf("--\n"); */ 
+  /* printf("--\n"); */
   Z3_ast_plus * ap = (Z3_ast_plus*)(Data_custom_val(v));
   Z3_dec_ref(ap->cp->ctx, ap->a);
   ap->cp->obj_count--;
@@ -203,11 +220,11 @@ MK_CTX_OF(ast)
 
 #define MK_PLUS_OBJ_NO_REF(X)                                           \
   typedef struct {                                                      \
-    Z3_context_plus *  cp;                                              \
+    Z3_context_plus cp;                                                 \
     Z3_ ## X p;                                                         \
   } Z3_ ## X ## _plus;                                                  \
                                                                         \
-  Z3_ ## X ## _plus Z3_ ## X ## _plus_mk(Z3_context_plus * cp, Z3_ ## X p) { \
+  Z3_ ## X ## _plus Z3_ ## X ## _plus_mk(Z3_context_plus cp, Z3_ ## X p) { \
     Z3_ ## X ## _plus  r;                                               \
       r.cp = cp;                                                        \
       r.p = p;                                                          \
@@ -239,11 +256,11 @@ MK_CTX_OF(ast)
 
 #define MK_PLUS_OBJ(X)                                                  \
   typedef struct {                                                      \
-    Z3_context_plus *  cp;                                              \
+    Z3_context_plus cp;                                                 \
     Z3_ ## X p;                                                         \
   } Z3_ ## X ## _plus;                                                  \
                                                                         \
-  Z3_ ## X ## _plus Z3_ ## X ## _plus_mk(Z3_context_plus * cp, Z3_ ## X p) { \
+  Z3_ ## X ## _plus Z3_ ## X ## _plus_mk(Z3_context_plus cp, Z3_ ## X p) { \
     Z3_ ## X ## _plus  r;                                               \
       r.cp = cp;                                                        \
       r.p = p;                                                          \
@@ -309,7 +326,7 @@ CAMLprim DLL_PUBLIC value n_is_null(value p) {
 
 CAMLprim DLL_PUBLIC value n_mk_null( void ) {
   CAMLparam0();
-  CAMLlocal1(result);  
+  CAMLlocal1(result);
   result = caml_alloc(1, 0);
   result = Val_int(0);
   CAMLreturn (result);

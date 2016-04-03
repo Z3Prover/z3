@@ -78,7 +78,7 @@ Type2Dotnet = { VOID : 'void', VOID_PTR : 'IntPtr', INT : 'int', UINT : 'uint', 
 
 # Mapping to Java types
 Type2Java = { VOID : 'void', VOID_PTR : 'long', INT : 'int', UINT : 'int', INT64 : 'long', UINT64 : 'long', DOUBLE : 'double',
-              FLOAT : 'float', STRING : 'String', STRING_PTR : 'StringPtr', 
+              FLOAT : 'float', STRING : 'String', STRING_PTR : 'StringPtr',
               BOOL : 'boolean', SYMBOL : 'long', PRINT_MODE : 'int', ERROR_CODE : 'int'}
 
 Type2JavaW = { VOID : 'void', VOID_PTR : 'jlong', INT : 'jint', UINT : 'jint', INT64 : 'jlong', UINT64 : 'jlong', DOUBLE : 'jdouble',
@@ -87,7 +87,7 @@ Type2JavaW = { VOID : 'void', VOID_PTR : 'jlong', INT : 'jint', UINT : 'jint', I
 
 # Mapping to ML types
 Type2ML = { VOID : 'unit', VOID_PTR : 'VOIDP', INT : 'int', UINT : 'int', INT64 : 'int', UINT64 : 'int', DOUBLE : 'float',
-            FLOAT : 'float', STRING : 'string', STRING_PTR : 'char**', 
+            FLOAT : 'float', STRING : 'string', STRING_PTR : 'char**',
             BOOL : 'bool', SYMBOL : 'z3_symbol', PRINT_MODE : 'int', ERROR_CODE : 'int' }
 
 next_type_id = FIRST_OBJ_ID
@@ -637,18 +637,18 @@ def mk_java(java_dir, package_name):
             elif k == IN_ARRAY or k == INOUT_ARRAY:
                 if param_type(param) == INT or param_type(param) == UINT:
                     java_wrapper.write('  %s * _a%s = (%s*) jenv->GetIntArrayElements(a%s, NULL);\n' % (type2str(param_type(param)), i, type2str(param_type(param)), i))
-                else:                    
+                else:
                     java_wrapper.write('  GETLONGAELEMS(%s, a%s, _a%s);\n' % (type2str(param_type(param)), i, i))
             elif k == OUT_ARRAY:
-                java_wrapper.write('  %s * _a%s = (%s *) malloc(((unsigned)a%s) * sizeof(%s));\n' % (type2str(param_type(param)), 
-                                                                                                     i, 
-                                                                                                     type2str(param_type(param)), 
-                                                                                                     param_array_capacity_pos(param), 
+                java_wrapper.write('  %s * _a%s = (%s *) malloc(((unsigned)a%s) * sizeof(%s));\n' % (type2str(param_type(param)),
+                                                                                                     i,
+                                                                                                     type2str(param_type(param)),
+                                                                                                     param_array_capacity_pos(param),
                                                                                                      type2str(param_type(param))))
                 if param_type(param) == INT or param_type(param) == UINT:
                     java_wrapper.write('  jenv->GetIntArrayRegion(a%s, 0, (jsize)a%s, (jint*)_a%s);\n' % (i, param_array_capacity_pos(param), i))
                 else:
-                    java_wrapper.write('  GETLONGAREGION(%s, a%s, 0, a%s, _a%s);\n' % (type2str(param_type(param)), i, param_array_capacity_pos(param), i))    
+                    java_wrapper.write('  GETLONGAREGION(%s, a%s, 0, a%s, _a%s);\n' % (type2str(param_type(param)), i, param_array_capacity_pos(param), i))
             elif k == IN and param_type(param) == STRING:
                 java_wrapper.write('  Z3_string _a%s = (Z3_string) jenv->GetStringUTFChars(a%s, NULL);\n' % (i, i))
             elif k == OUT_MANAGED_ARRAY:
@@ -679,7 +679,7 @@ def mk_java(java_dir, package_name):
                 java_wrapper.write('(%s)a%i' % (param2str(param), i))
             i = i + 1
         java_wrapper.write(');\n')
-        # cleanup 
+        # cleanup
         i = 0
         for param in params:
             k = param_kind(param)
@@ -715,7 +715,7 @@ def mk_java(java_dir, package_name):
         if result == STRING:
             java_wrapper.write('  return jenv->NewStringUTF(result);\n')
         elif result != VOID:
-            java_wrapper.write('  return (%s) result;\n' % type2javaw(result))        
+            java_wrapper.write('  return (%s) result;\n' % type2javaw(result))
         java_wrapper.write('}\n')
     java_wrapper.write('#ifdef __cplusplus\n')
     java_wrapper.write('}\n')
@@ -945,7 +945,7 @@ def def_API(name, result, params):
                 error ("unsupported parameter for %s, %s" % (ty, name, p))
         elif kind == OUT_ARRAY:
             sz   = param_array_capacity_pos(p)
-            sz_p = params[sz]            
+            sz_p = params[sz]
             sz_p_k = param_kind(sz_p)
             tstr = type2str(ty)
             if sz_p_k == OUT or sz_p_k == INOUT:
@@ -1284,16 +1284,16 @@ def mk_z3native_stubs_c(ml_dir): # C interface
         ret_size = len(op)
         if result != VOID:
             ret_size = ret_size + 1
-            
+
         # Setup frame
-        ml_wrapper.write('CAMLprim DLL_PUBLIC value n_%s(' % ml_method_name(name)) 
+        ml_wrapper.write('CAMLprim DLL_PUBLIC value n_%s(' % ml_method_name(name))
         first = True
         i = 0
         for p in params:
             if is_in_param(p):
                 if first:
                     first = False
-                else:                
+                else:
                     ml_wrapper.write(', ')
                 ml_wrapper.write('value a%d' % i)
             i = i + 1
@@ -1333,7 +1333,7 @@ def mk_z3native_stubs_c(ml_dir): # C interface
         i = 0
         for param in params:
             if param_type(param) == CONTEXT and i == 0:
-                ml_wrapper.write('  Z3_context_plus * ctx_p = (Z3_context_plus*) Data_custom_val(a' + str(i) + ');\n')
+                ml_wrapper.write('  Z3_context_plus ctx_p = *(Z3_context_plus*) Data_custom_val(a' + str(i) + ');\n')
                 ml_wrapper.write('  Z3_context _a0 = ctx_p->ctx;\n')
                 have_context = True
             else:
@@ -1341,7 +1341,7 @@ def mk_z3native_stubs_c(ml_dir): # C interface
                 if k == OUT_ARRAY:
                     ml_wrapper.write('  %s * _a%s = (%s*) malloc(sizeof(%s) * (_a%s));\n' % (
                         type2str(param_type(param)),
-                        i, 
+                        i,
                         type2str(param_type(param)),
                         type2str(param_type(param)),
                         param_array_capacity_pos(param)))
@@ -1350,14 +1350,14 @@ def mk_z3native_stubs_c(ml_dir): # C interface
                 elif k == IN_ARRAY or k == INOUT_ARRAY:
                     t = param_type(param)
                     ts = type2str(t)
-                    ml_wrapper.write('  %s * _a%s = (%s*) malloc(sizeof(%s) * _a%s);\n' % (ts, i, ts, ts, param_array_capacity_pos(param)))                
+                    ml_wrapper.write('  %s * _a%s = (%s*) malloc(sizeof(%s) * _a%s);\n' % (ts, i, ts, ts, param_array_capacity_pos(param)))
                 elif k == IN:
                     t = param_type(param)
                     ml_wrapper.write('  %s _a%s = %s;\n' % (type2str(t), i, ml_unwrap(t, type2str(t), 'a' + str(i))))
                 elif k == OUT:
                     ml_wrapper.write('  %s _a%s;\n' % (type2str(param_type(param)), i))
                 elif k == INOUT:
-                    ml_wrapper.write('  %s _a%s = a%s;\n' % (type2str(param_type(param)), i, i))                
+                    ml_wrapper.write('  %s _a%s = a%s;\n' % (type2str(param_type(param)), i, i))
             i = i + 1
 
         i = 0
@@ -1412,7 +1412,7 @@ def mk_z3native_stubs_c(ml_dir): # C interface
         if result != VOID:
             ts = type2str(result)
             if ml_has_plus_type(ts):
-                pts = ml_plus_type(ts)                    
+                pts = ml_plus_type(ts)
                 ml_wrapper.write('  result = caml_alloc_custom(&%s, sizeof(%s), 0, 1);\n' % (ml_plus_ops_type(ts), pts))
                 if name in NULLWrapped:
                     ml_wrapper.write('  %s z3rv = %s_mk(z3rv_m);\n' % (pts, pts))
@@ -1429,10 +1429,10 @@ def mk_z3native_stubs_c(ml_dir): # C interface
                     ml_wrapper.write('  _a%s_val = caml_alloc(_a%s, 0);\n' % (i, param_array_capacity_pos(p)))
                     ml_wrapper.write('  for (_i = 0; _i < _a%s; _i++) {\n' % param_array_capacity_pos(p))
                     pts = ml_plus_type(ts)
-                    pops = ml_plus_ops_type(ts)                    
+                    pops = ml_plus_ops_type(ts)
                     ml_wrapper.write('    value t;\n')
                     ml_wrapper.write('    t = caml_alloc_custom(&%s, sizeof(%s), 0, 1);\n' % (pops, pts))
-                    if ml_has_plus_type(ts): 
+                    if ml_has_plus_type(ts):
                         ml_wrapper.write('    %s _a%dp = %s_mk(ctx_p, (%s) _a%d[_i]);\n' % (pts, i, pts, ml_minus_type(ts), i))
                         ml_wrapper.write('    %s\n' % ml_set_wrap(pt, 't', '_a%dp' % i))
                     else:
@@ -1453,7 +1453,7 @@ def mk_z3native_stubs_c(ml_dir): # C interface
                         ml_wrapper.write('  %s\n' % ml_set_wrap(pt, '_a%d_val' % i, '_a%d' % i))
                 i = i + 1
 
-        # return tuples                
+        # return tuples
         if len(op) == 0:
             ml_wrapper.write('  %s\n' % ml_set_wrap(result, "result", "z3rv"))
         else:
@@ -1480,7 +1480,7 @@ def mk_z3native_stubs_c(ml_dir): # C interface
         ml_wrapper.write('  CAMLreturn(result);\n')
         ml_wrapper.write('}\n\n')
         if len(ip) > 5:
-            ml_wrapper.write('CAMLprim DLL_PUBLIC value n_%s_bytecode(value * argv, int argn) {\n' % ml_method_name(name)) 
+            ml_wrapper.write('CAMLprim DLL_PUBLIC value n_%s_bytecode(value * argv, int argn) {\n' % ml_method_name(name))
             ml_wrapper.write('  return n_%s(' % ml_method_name(name))
             i = 0
             while i < len(ip):
