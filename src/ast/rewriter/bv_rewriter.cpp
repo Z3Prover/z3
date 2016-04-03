@@ -23,39 +23,6 @@ Notes:
 #include"bv_trailing.h"
 
 
-mk_extract_proc::mk_extract_proc(bv_util & u):
-    m_util(u),
-    m_high(0),
-    m_low(UINT_MAX),
-    m_domain(0),
-    m_f_cached(0) {
-}
-
-mk_extract_proc::~mk_extract_proc() {
-    if (m_f_cached) {
-        // m_f_cached has a reference to m_domain, so, I don't need to inc_ref m_domain
-        ast_manager & m = m_util.get_manager();
-        m.dec_ref(m_f_cached);
-    }
-}
-
-app * mk_extract_proc::operator()(unsigned high, unsigned low, expr * arg) {
-    ast_manager & m = m_util.get_manager();
-    sort * s = m.get_sort(arg);
-    if (m_low == low && m_high == high && m_domain == s)
-        return m.mk_app(m_f_cached, arg);
-    // m_f_cached has a reference to m_domain, so, I don't need to inc_ref m_domain
-    if (m_f_cached)
-        m.dec_ref(m_f_cached);
-    app * r    = to_app(m_util.mk_extract(high, low, arg));
-    m_high     = high;
-    m_low      = low;
-    m_domain   = s;
-    m_f_cached = r->get_decl();
-    m.inc_ref(m_f_cached);
-    return r;
-}
-
 void bv_rewriter::updt_local_params(params_ref const & _p) {
     bv_rewriter_params p(_p);
     m_hi_div0 = p.hi_div0();
@@ -2127,7 +2094,7 @@ br_status bv_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
     }
 
     if (m_trailing) {
-        bv_trailing bvt(m(), m_mk_extract);
+        bv_trailing bvt(m_mk_extract);
         st = bvt.eq_remove_trailing(lhs, rhs, result);
         if (st != BR_FAILED) {
             TRACE("eq_remove_trailing", tout << mk_ismt2_pp(lhs, m()) << "\n=\n" << mk_ismt2_pp(rhs, m()) << "\n----->\n" << mk_ismt2_pp(result, m()) << "\n";);

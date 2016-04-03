@@ -22,19 +22,22 @@
 
 struct bv_trailing::imp {
     typedef rational numeral;
-    bv_util                       m_util;
+    typedef obj_map<expr, std::pair<unsigned,unsigned> > map;
+    mk_extract_proc&     m_mk_extract;
+    bv_util&             m_util;
     ast_manager&         m_m;
-    mk_extract_proc&  m_mk_extract;
-    imp(ast_manager& m, mk_extract_proc& mk_extract)
-        : m_m(m)
-        , m_util(m)
-        , m_mk_extract(mk_extract)
+    map                  m_count_cache;
+    imp(mk_extract_proc& mk_extract)
+        : m_mk_extract(mk_extract)
+        , m_util(mk_extract.bvutil())
+        , m_m(mk_extract.m())
         { }
 
     virtual ~imp() { }
 
     ast_manager & m() const { return m_util.get_manager(); }
 
+    void reset_cache() { m_count_cache.reset(); }
 
     br_status eq_remove_trailing(expr * e1, expr * e2, expr_ref& result) {
         TRACE("bv-trailing", tout << mk_ismt2_pp(e1, m()) << "\n=\n" << mk_ismt2_pp(e2, m()) << "\n";);
@@ -65,14 +68,47 @@ struct bv_trailing::imp {
         return BR_REWRITE2;
     }
 
-    unsigned remove_trailing_mul(app * a, unsigned n, expr_ref& result, unsigned depth) {
-        SASSERT(m_util.is_bv_mul(a));
+    unsigned remove_trailing_add(app * a, unsigned n, expr_ref& result, unsigned depth) {
+        SASSERT(m_util.is_bv_add(a));
+        const unsigned num  = a->get_num_args();
         if (depth <= 1) {
             result = a;
             return 0;
         }
+        unsigned min, max;
+        count_trailing(a, min, max, depth);
+        const unsigned to_rm = std::min(min, n);
+        if (to_rm == 0) {
+            result = a;
+            return 0;
+        }
+
+        const unsigned sz = m_util.get_bv_size(a);
+
+        if (to_rm == sz) {
+            result = NULL;
+            return sz;
+        }
+
+        expr_ref_vector new_args(m());
+        expr_ref tmp(m());
+        for (unsigned i = 0; i < num; ++i) {
+            expr * const curr = a->get_arg(i);
+            const unsigned crm = remove_trailing(curr, to_rm, tmp, depth - 1);
+            new_args.push_back(tmp);
+            SASSERT(crm == to_rm);
+        }
+        result = m().mk_app(m_util.get_fid(), OP_BADD, new_args.size(), new_args.c_ptr());
+        return to_rm;
+    }
+
+    unsigned remove_trailing_mul(app * a, unsigned n, expr_ref& result, unsigned depth) {
+        SASSERT(m_util.is_bv_mul(a));
         const unsigned num  = a->get_num_args();
-        if (!num) return 0;
+        if (depth <= 1 || !num) {
+            result = a;
+            return 0;
+        }
         expr_ref tmp(m());
         expr * const coefficient = a->get_arg(0);
         const unsigned retv = remove_trailing(coefficient, n, tmp, depth - 1);
@@ -114,7 +150,7 @@ struct bv_trailing::imp {
             return 0;
         }
         unsigned num  = a->get_num_args();
-        unsigned  retv = 0;
+        unsigned retv = 0;
         unsigned i = num;
         expr_ref new_last(NULL, m());
         while (i && retv < n) {
@@ -130,8 +166,9 @@ struct bv_trailing::imp {
             return 0;
         }
 
-        if (!i) {
+        if (!i) {// all args eaten completely
             SASSERT(new_last.get() == NULL);
+            SASSERT(retv == m_util.get_bv_size(a));
             result = NULL;
             return retv;
         }
@@ -140,7 +177,8 @@ struct bv_trailing::imp {
         for (size_t j=0; j<i;++j)
             new_args.push_back(a->get_arg(j));
         if (new_last.get()) new_args.push_back(new_last);
-        result = m_util.mk_concat(new_args.size(), new_args.c_ptr());
+        result = new_args.size() == 1 ? new_args.get(0)
+                                      : m_util.mk_concat(new_args.size(), new_args.c_ptr());
         return retv;
     }
 
@@ -157,8 +195,8 @@ struct bv_trailing::imp {
 
     unsigned remove_trailing(expr * e, unsigned n, expr_ref& result, unsigned depth) {
         const unsigned retv = remove_trailing_core(e, n, result, depth);
-        TRACE("bv-trailing", tout << mk_ismt2_pp(e, m()) << "\n" <<
-              "--->" << mk_ismt2_pp(result.get(), m()) << "\n";);
+        CTRACE("bv-trailing", result.get(),  tout << mk_ismt2_pp(e, m()) << "\n--->\n" <<  mk_ismt2_pp(result.get(), m())  << "\n";);
+        CTRACE("bv-trailing", !result.get(), tout << mk_ismt2_pp(e, m()) << "\n---> [EMPTY]\n";);
         return retv;
     }
 
@@ -177,17 +215,29 @@ struct bv_trailing::imp {
         }
         if (m_util.is_bv_mul(e))
             return remove_trailing_mul(to_app(e), n, result, depth);
+        if (m_util.is_bv_add(e))
+            return remove_trailing_add(to_app(e), n, result, depth);
         if (m_util.is_concat(e))
             return remove_trailing_concat(to_app(e), n, result, depth);
         return 0;
     }
 
     void count_trailing(expr * e, unsigned& min, unsigned& max, unsigned depth) {
+        std::pair<unsigned, unsigned> cached;
+        if (m_count_cache.find(e, cached)) { // check cache first
+            min = cached.first;
+            max = cached.second;
+            return;
+        }
         SASSERT(e && m_util.is_bv(e));
         count_trailing_core(e, min, max, depth);
         TRACE("bv-trailing", tout << mk_ismt2_pp(e, m()) << "\n:" << min << " - " << max << "\n";);
         SASSERT(min <= max);
         SASSERT(max <= m_util.get_bv_size(e));
+        // store into the cache
+        cached.first = min;
+        cached.second = max;
+        m_count_cache.insert(e, cached);
     }
 
     void count_trailing_concat(app * a, unsigned& min, unsigned& max, unsigned depth) {
@@ -211,6 +261,29 @@ struct bv_trailing::imp {
             update_min &= curr_sz == tmp_min;
             update_max &= curr_sz == tmp_max;
         }
+    }
+
+    void count_trailing_add(app * a, unsigned& min, unsigned& max, unsigned depth) {
+        if (depth <= 1) {
+            min = 0;
+            max = m_util.get_bv_size(a);
+        }
+        const unsigned num = a->get_num_args();
+        const unsigned sz = m_util.get_bv_size(a);
+        min = max = sz; // treat empty addition as 0
+        unsigned tmp_min;
+        unsigned tmp_max;
+        bool known_parity = true;
+        bool is_odd = false;
+        for (unsigned i = 0; i < num; ++i) {
+            expr * const curr = a->get_arg(i);
+            count_trailing(curr, tmp_min, tmp_max, depth - 1);
+            min = std::min(min, tmp_min);
+            known_parity = known_parity && (!tmp_max || tmp_min);
+            if (known_parity && !tmp_max) is_odd = !is_odd;
+            if (!known_parity && !min) break; // no more information can be gained
+        }
+        max = known_parity && is_odd ? 0 : sz; // max is known if parity is 1
     }
 
     void count_trailing_mul(app * a, unsigned& min, unsigned& max, unsigned depth) {
@@ -251,6 +324,7 @@ struct bv_trailing::imp {
             return;
         }
         if (m_util.is_bv_mul(e)) count_trailing_mul(to_app(e), min, max, depth);
+        else if (m_util.is_bv_add(e)) count_trailing_add(to_app(e), min, max, depth);
         else if (m_util.is_concat(e)) count_trailing_concat(to_app(e), min, max, depth);
         else {
             min = 0;
@@ -259,16 +333,12 @@ struct bv_trailing::imp {
     }
 };
 
-bv_trailing::bv_trailing(ast_manager& m, mk_extract_proc& mk_extract) {
-    m_imp = alloc(imp, m, mk_extract);
+bv_trailing::bv_trailing(mk_extract_proc& mk_extract) {
+    m_imp = alloc(imp, mk_extract);
 }
 
 bv_trailing::~bv_trailing() {
     if (m_imp) dealloc(m_imp);
-}
-
-void bv_trailing::count_trailing(expr * e, unsigned& min, unsigned& max, unsigned depth) {
-    m_imp->count_trailing(e, min, max, depth);
 }
 
 br_status bv_trailing::eq_remove_trailing(expr * e1, expr * e2,  expr_ref& result) {
@@ -279,4 +349,6 @@ unsigned bv_trailing::remove_trailing(expr * e, unsigned n, expr_ref& result, un
     return m_imp->remove_trailing(e, n, result, depth);
 }
 
-
+void bv_trailing::reset_cache() {
+    m_imp->reset_cache();
+}

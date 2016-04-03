@@ -22,18 +22,7 @@ Notes:
 #include"poly_rewriter.h"
 #include"bv_decl_plugin.h"
 #include"arith_decl_plugin.h"
-
-class mk_extract_proc {
-    bv_util &     m_util;
-    unsigned      m_high;
-    unsigned      m_low;
-    sort *        m_domain;
-    func_decl *   m_f_cached;
-public:
-    mk_extract_proc(bv_util & u);
-    ~mk_extract_proc();
-    app * operator()(unsigned high, unsigned low, expr * arg);
-};
+#include"mk_extract_proc.h"
 
 class bv_rewriter_core {
 protected:
