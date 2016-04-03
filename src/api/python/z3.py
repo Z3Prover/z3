@@ -797,7 +797,7 @@ class ExprRef(AstRef):
         False
         """
         if other == None:
-            return BoolVal(False, self.ctx)
+            return False
         a, b = _coerce_exprs(self, other)
         return BoolRef(Z3_mk_eq(self.ctx_ref(), a.as_ast(), b.as_ast()), self.ctx)
 
