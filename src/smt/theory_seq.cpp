@@ -258,7 +258,7 @@ final_check_status theory_seq::final_check_eh() {
         TRACE("seq", tout << ">>fixed_length\n";);
         return FC_CONTINUE;
     }
-    if (reduce_length_eq() || branch_variable_mb() || branch_variable()) {
+    if (reduce_length_eq() || /*branch_variable_mb() || */ branch_variable()) {
         ++m_stats.m_branch_variable;
         TRACE("seq", tout << ">>branch_variable\n";);
         return FC_CONTINUE;
