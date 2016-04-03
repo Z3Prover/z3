@@ -46,7 +46,7 @@ struct bv_trailing::imp {
         unsigned max1, min1, max2, min2;
         count_trailing(e1, min1, max1, TRAILING_DEPTH);
         count_trailing(e2, min2, max2, TRAILING_DEPTH);
-        if (min1 > max2 || min2 > max2) {
+        if (min1 > max2 || min2 > max1) {
             result = m().mk_false();
             return BR_DONE;
         }
