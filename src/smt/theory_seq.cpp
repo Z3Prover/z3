@@ -15,7 +15,6 @@ Author:
 
 Revision History:
 
-    // Use instead reference counts for dependencies to GC?
 
 --*/
 
@@ -258,7 +257,7 @@ final_check_status theory_seq::final_check_eh() {
         TRACE("seq", tout << ">>fixed_length\n";);
         return FC_CONTINUE;
     }
-    if (reduce_length_eq() || /*branch_variable_mb() || */ branch_variable()) {
+    if (reduce_length_eq() || branch_variable_mb() ||  branch_variable()) {
         ++m_stats.m_branch_variable;
         TRACE("seq", tout << ">>branch_variable\n";);
         return FC_CONTINUE;
@@ -315,11 +314,15 @@ bool theory_seq::branch_variable_mb() {
         unsigned k = (i + start) % sz;
         eq const& e = m_eqs[i];
         vector<rational> len1, len2;
+        if (!is_complex(e)) {
+            continue;
+        }
         if (!enforce_length(e.ls(), len1) || !enforce_length(e.rs(), len2)) {
             change = true;
             continue;
         }
-        if (e.ls().empty() || e.rs().empty() || (!is_var(e.ls()[0]) && !is_var(e.rs()[0]))) {
+        if (e.ls().empty() || e.rs().empty() || 
+            (!is_var(e.ls()[0]) && !is_var(e.rs()[0]))) {
             continue;
         }
         rational l1, l2;
@@ -335,11 +338,23 @@ bool theory_seq::branch_variable_mb() {
             continue;
         }
         if (split_lengths(e.dep(), e.ls(), e.rs(), len1, len2)) {
+            TRACE("seq", display_equation(tout, e););
             return true;
         }
     }
-
     return change;
+}
+
+
+bool theory_seq::is_complex(eq const& e) {
+    unsigned num_vars1 = 0, num_vars2 = 0;
+    for (unsigned i = 0; i < e.ls().size(); ++i) {
+        if (is_var(e.ls()[i])) ++num_vars1;
+    }
+    for (unsigned i = 0; i < e.rs().size(); ++i) {
+        if (is_var(e.rs()[i])) ++num_vars2;
+    }
+    return num_vars1 > 0 && num_vars2 > 0 && num_vars1 + num_vars2 > 2;
 }
 
 /*
@@ -432,8 +447,8 @@ bool theory_seq::split_lengths(dependency* dep,
         SASSERT(is_var(Y));
         // split_pred => X = bY1, Y = Y1Y2
         SASSERT(is_split == l_true);
-        expr_ref Y1(mk_skolem(symbol("seq.left"), Y), m);
-        expr_ref Y2(mk_skolem(symbol("seq.right"), Y), m);
+        expr_ref Y1(mk_skolem(symbol("seq.left"), X, b, Y), m);
+        expr_ref Y2(mk_skolem(symbol("seq.right"), X, b, Y), m);
         expr_ref bY1(m_util.str.mk_concat(b, Y1), m);
         expr_ref Y1Y2(m_util.str.mk_concat(Y1, Y2), m);
         literal_vector lits;
@@ -657,7 +672,6 @@ lbool theory_seq::assume_equality(expr* l, expr* r) {
         return l_false;
     }
     return ctx.get_assignment(mk_eq(l, r, false));
-    //return l_undef;
 }
 
 
@@ -2075,10 +2089,13 @@ void theory_seq::display(std::ostream & out) const {
 
 void theory_seq::display_equations(std::ostream& out) const {
     for (unsigned i = 0; i < m_eqs.size(); ++i) {
-        eq const& e = m_eqs[i];
-        out << e.ls() << " = " << e.rs() << " <- \n";
-        display_deps(out, e.dep());
+        display_equation(out, m_eqs[i]);
     }
+}
+
+void theory_seq::display_equation(std::ostream& out, eq const& e) const {
+    out << e.ls() << " = " << e.rs() << " <- \n";
+    display_deps(out, e.dep());    
 }
 
 void theory_seq::display_disequations(std::ostream& out) const {

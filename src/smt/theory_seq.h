@@ -373,6 +373,7 @@ namespace smt {
                            expr_ref_vector const& ls, expr_ref_vector const& rs, 
                            vector<rational> const& ll, vector<rational> const& rl);
         bool set_empty(expr* x);
+        bool is_complex(eq const& e);
 
         bool check_extensionality();
         bool check_contains();
@@ -539,6 +540,7 @@ namespace smt {
 
         // diagnostics
         void display_equations(std::ostream& out) const;
+        void display_equation(std::ostream& out, eq const& e) const;
         void display_disequations(std::ostream& out) const;
         void display_disequation(std::ostream& out, ne const& e) const;
         void display_deps(std::ostream& out, dependency* deps) const;
