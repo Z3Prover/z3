@@ -7,6 +7,8 @@
 
  Abstract:
 
+ A utility to count trailing zeros of an expression.  Treats 2x and x++0 equivalently.
+
 
  Author:
 
@@ -23,10 +25,20 @@ class bv_trailing {
     public:
         bv_trailing(mk_extract_proc& ep);
         virtual ~bv_trailing();
-        void count_trailing(expr * e, unsigned& min, unsigned& max, unsigned depth);
+    public:
+        // Remove trailing zeros from both sides of an equality (might give False).
         br_status eq_remove_trailing(expr * e1, expr * e2,  expr_ref& result);
-        unsigned remove_trailing(expr * e, unsigned n, expr_ref& result, unsigned depth);
-        void reset_cache();
+
+        // Gives a lower and upper bound on trailing zeros in e.
+        void count_trailing(expr * e, unsigned& min, unsigned& max);
+
+        // Attempts removing n trailing zeros from e. Returns how many were successfully removed.
+        // We're assuming that it can remove at least as many zeros as min returned by count_training.
+        // Removing the bit-width of e, sets result to NULL.
+        unsigned remove_trailing(expr * e, unsigned n, expr_ref& result);
+
+        // Reset cache(s) if it exceeded size condition.
+        void reset_cache(unsigned condition);
     protected:
         struct imp;
         imp *        m_imp;
