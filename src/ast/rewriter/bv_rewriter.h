@@ -23,6 +23,7 @@ Notes:
 #include"bv_decl_plugin.h"
 #include"arith_decl_plugin.h"
 #include"mk_extract_proc.h"
+#include"bv_trailing.h"
 
 class bv_rewriter_core {
 protected:
@@ -47,6 +48,7 @@ public:
 
 class bv_rewriter : public poly_rewriter<bv_rewriter_core> {
     mk_extract_proc m_mk_extract;
+    bv_trailing     m_rm_trailing;
     arith_util m_autil;
     bool       m_hi_div0;
     bool       m_elim_sign_ext;
@@ -138,6 +140,7 @@ public:
     bv_rewriter(ast_manager & m, params_ref const & p = params_ref()):
         poly_rewriter<bv_rewriter_core>(m, p),
         m_mk_extract(m_util),
+        m_rm_trailing(m_mk_extract),
         m_autil(m) {
         updt_local_params(p);
     }

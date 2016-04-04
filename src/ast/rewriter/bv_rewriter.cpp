@@ -20,7 +20,6 @@ Notes:
 #include"bv_rewriter_params.hpp"
 #include"poly_rewriter_def.h"
 #include"ast_smt2_pp.h"
-#include"bv_trailing.h"
 
 
 void bv_rewriter::updt_local_params(params_ref const & _p) {
@@ -2094,8 +2093,7 @@ br_status bv_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
     }
 
     if (m_trailing) {
-        bv_trailing bvt(m_mk_extract);
-        st = bvt.eq_remove_trailing(lhs, rhs, result);
+        st = m_rm_trailing.eq_remove_trailing(lhs, rhs, result);
         if (st != BR_FAILED) {
             TRACE("eq_remove_trailing", tout << mk_ismt2_pp(lhs, m()) << "\n=\n" << mk_ismt2_pp(rhs, m()) << "\n----->\n" << mk_ismt2_pp(result, m()) << "\n";);
             return st;

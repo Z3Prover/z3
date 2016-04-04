@@ -17,7 +17,6 @@
 #ifndef BV_TRAILING_H_
 #define BV_TRAILING_H_
 #include"ast.h"
-#include"bv_rewriter.h"
 #include"rewriter_types.h"
 #include"mk_extract_proc.h"
 class bv_trailing {
