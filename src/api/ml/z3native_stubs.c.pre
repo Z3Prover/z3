@@ -72,10 +72,27 @@ static struct custom_operations default_custom_ops = {
     Z3_ ## X ## _plus * p = (Z3_ ## X ## _plus *) Data_custom_val(v);   \
     cp = p->cp;								\
     result = caml_alloc_custom(&Z3_context_plus_custom_ops, sizeof(Z3_context_plus), 0, 1); \
-    *(Z3_context_plus*)Data_custom_val(result) = cp; 	                \
-    /* We increment the usage counter of the context */                 \
+    *(Z3_context_plus *)Data_custom_val(result) = cp; 	                \
+    /* We increment the usage counter of the context, as we just        \
+       created a second custom block holding that context        */     \
     cp->obj_count++;							\
     CAMLreturn(result);                                                 \
+  } 									\
+  									\
+  CAMLprim value DLL_PUBLIC n_is_null_ ## X (value v) {			\
+    CAMLparam1(v);	    	     		       	  		\
+    Z3_ ## X ## _plus* pp = (Z3_ ## X ## _plus*)Data_custom_val(v);	\
+    CAMLreturn(Val_bool(pp->p == NULL)); 				\
+  } 			      	 					\
+									\
+  CAMLprim value DLL_PUBLIC n_mk_null_ ## X (value v) {			\
+    CAMLparam1(v);	    	     		       	  		\
+    CAMLlocal1(result);							\
+    Z3_context_plus cp = *(Z3_context_plus*)(Data_custom_val(v));	\
+    Z3_ ## X ## _plus a = Z3_ ## X ## _plus_mk(cp, NULL);		\
+    result = caml_alloc_custom(&Z3_ ## X ## _plus_custom_ops, sizeof(Z3_ ## X ## _plus), 0, 1); \
+    *(Z3_ ## X ## _plus*)(Data_custom_val(result)) = a;	      		\
+    CAMLreturn(result);							\
   }
 
 
@@ -103,7 +120,8 @@ Z3_context_plus Z3_context_plus_mk(Z3_context c) {
   Z3_context_plus r = (Z3_context_plus)malloc(sizeof(Z3_context_plus_data));
   r->ctx = c;
   /* The context created here will be wrapped into a custom block.
-     Hence, we assign it a counter of one. */
+     We regard custom blocks that point to a Z3_context_plus structure
+     as a usage of this structure. Hence, we assign it a counter of one. */
   r->obj_count = 1;
   return r;
 }
@@ -113,17 +131,17 @@ Z3_context Z3_context_plus_raw(Z3_context_plus * cp) {
 }
 
 inline void try_to_delete_context(Z3_context_plus cp) {
-  if (cp->obj_count > 0)
-    /* printf("try_to_delete_context: Not deleting context %p(%p) with cnt=%lu.\n", cp, cp->ctx, cp->obj_count) */ ;
-  else if (cp->obj_count < 0)
-    printf("try_to_delete_context: ERROR, found context %p(%p) with negative cnt=%lu.\n", cp, cp->ctx, cp->obj_count);
-  else {
-    printf("try_to_delete_context: Deleting context %p(%p) with cnt=%lu.\n", cp, cp->ctx, cp->obj_count);
+  if (cp->obj_count == 0) {
+    /* printf("try_to_delete_context: Deleting context %p(%p) with cnt=0.\n", cp, cp->ctx); */
     Z3_del_context(cp->ctx);
-    cp->ctx = NULL;
-    cp->obj_count = 0;
     free(cp);
   }
+  /*
+  else if (cp->obj_count > 0)
+    printf("try_to_delete_context: Not deleting context %p(%p) with cnt=%lu.\n", cp, cp->ctx, cp->obj_count);
+  else if (cp->obj_count < 0)
+    printf("try_to_delete_context: ERROR, found context %p(%p) with negative cnt=%lu.\n", cp, cp->ctx, cp->obj_count);
+  */
 }
 
 void Z3_context_finalize(value v) {
@@ -147,27 +165,29 @@ static struct custom_operations Z3_context_plus_custom_ops = {
 
 typedef struct {
   Z3_context_plus cp;
-  Z3_ast a;
+  Z3_ast p;
 } Z3_ast_plus;
 
-Z3_ast_plus Z3_ast_plus_mk(Z3_context_plus cp, Z3_ast a) {
+Z3_ast_plus Z3_ast_plus_mk(Z3_context_plus cp, Z3_ast p) {
   Z3_ast_plus r;
   r.cp = cp;
-  r.a = a;
+  r.p = p;
   /* printf("++\n"); */
   cp->obj_count++;
-  Z3_inc_ref(cp->ctx, a);
+  if (p != NULL)
+    Z3_inc_ref(cp->ctx, p);
   return r;
 }
 
 Z3_ast Z3_ast_plus_raw(Z3_ast_plus * ap) {
-  return ap->a;
+  return ap->p;
 }
 
 void Z3_ast_finalize(value v) {
   /* printf("--\n"); */
   Z3_ast_plus * ap = (Z3_ast_plus*)(Data_custom_val(v));
-  Z3_dec_ref(ap->cp->ctx, ap->a);
+  if (ap->p != NULL)
+    Z3_dec_ref(ap->cp->ctx, ap->p);
   ap->cp->obj_count--;
   try_to_delete_context(ap->cp);
 }
@@ -176,8 +196,14 @@ int Z3_ast_compare(value v1, value v2) {
   Z3_ast_plus * a1 = (Z3_ast_plus*)Data_custom_val(v1);
   Z3_ast_plus * a2 = (Z3_ast_plus*)Data_custom_val(v2);
   assert(a1->cp->ctx == a2->cp->ctx);
-  unsigned id1 = Z3_get_ast_id(a1->cp->ctx, a1->a);
-  unsigned id2 = Z3_get_ast_id(a2->cp->ctx, a2->a);
+  if (a1->p == NULL && a2->p == NULL)
+    return 0;
+  if (a1->p == NULL)
+    return -1;
+  if (a2->p == NULL)
+    return +1;
+  unsigned id1 = Z3_get_ast_id(a1->cp->ctx, a1->p);
+  unsigned id2 = Z3_get_ast_id(a2->cp->ctx, a2->p);
   if (id1 == id2)
     return 0;
   else if (id1 < id2)
@@ -188,8 +214,15 @@ int Z3_ast_compare(value v1, value v2) {
 
 int Z3_ast_compare_ext(value v1, value v2) {
   Z3_ast_plus * a1 = (Z3_ast_plus*)Data_custom_val(v1);
-  unsigned id1 = Z3_get_ast_id(a1->cp->ctx, a1->a);
+  unsigned id1;
   int id2 = Val_int(v2);
+  if (a1->p == NULL && id2 == 0)
+    return 0;
+  if (a1->p == NULL)
+    return -1;
+  if (id2 == 0)
+    return +1;
+  id1 = Z3_get_ast_id(a1->cp->ctx, a1->p);
   if (id1 == id2)
     return 0;
   else if (id1 < id2)
@@ -200,7 +233,10 @@ int Z3_ast_compare_ext(value v1, value v2) {
 
 intnat Z3_ast_hash(value v) {
   Z3_ast_plus * ap = (Z3_ast_plus*)Data_custom_val(v);
-  return Z3_get_ast_hash(ap->cp->ctx, ap->a);
+  if (ap->p == NULL)
+    return 0;
+  else
+    return Z3_get_ast_hash(ap->cp->ctx, ap->p);
 }
 
 static struct custom_operations Z3_ast_plus_custom_ops = {
@@ -214,9 +250,6 @@ static struct custom_operations Z3_ast_plus_custom_ops = {
 };
 
 MK_CTX_OF(ast)
-
-
-
 
 #define MK_PLUS_OBJ_NO_REF(X)                                           \
   typedef struct {                                                      \
@@ -241,7 +274,7 @@ MK_CTX_OF(ast)
     pp->cp->obj_count--;                                                \
     try_to_delete_context(pp->cp);                                      \
   }                                                                     \
-                                                                        \
+  									\
   static struct custom_operations Z3_ ## X ## _plus_custom_ops = {      \
     (char*) "Z3_" #X " ops",                                            \
     Z3_ ## X ## _finalize,                                              \
@@ -265,7 +298,8 @@ MK_CTX_OF(ast)
       r.cp = cp;                                                        \
       r.p = p;                                                          \
       r.cp->obj_count++;                                                \
-      Z3_ ## X ## _inc_ref(cp->ctx, p);                                 \
+      if (p != NULL)							\
+        Z3_ ## X ## _inc_ref(cp->ctx, p);                               \
       return r;                                                         \
   }                                                                     \
                                                                         \
@@ -275,7 +309,8 @@ MK_CTX_OF(ast)
                                                                         \
   void Z3_ ## X ## _finalize(value v) {                                 \
     Z3_ ## X ## _plus * pp = (Z3_ ## X ## _plus*)Data_custom_val(v);    \
-    Z3_ ## X ## _dec_ref(pp->cp->ctx, pp->p);                           \
+    if (pp->p != NULL)							\
+      Z3_ ## X ## _dec_ref(pp->cp->ctx, pp->p);                         \
     pp->cp->obj_count--;                                                \
     try_to_delete_context(pp->cp);                                      \
   }                                                                     \
@@ -291,8 +326,6 @@ MK_CTX_OF(ast)
   };                                                                    \
                                                                         \
   MK_CTX_OF(X)
-
-
 
 MK_PLUS_OBJ_NO_REF(symbol)
 MK_PLUS_OBJ_NO_REF(constructor)
@@ -318,19 +351,6 @@ MK_PLUS_OBJ(optimize)
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-CAMLprim DLL_PUBLIC value n_is_null(value p) {
-  void * t = * (void**) Data_custom_val(p);
-  return Val_bool(t == 0);
-}
-
-CAMLprim DLL_PUBLIC value n_mk_null( void ) {
-  CAMLparam0();
-  CAMLlocal1(result);
-  result = caml_alloc(1, 0);
-  result = Val_int(0);
-  CAMLreturn (result);
-}
 
 void MLErrorHandler(Z3_context c, Z3_error_code e)
 {

@@ -95,7 +95,7 @@ next_type_id = FIRST_OBJ_ID
 def def_Type(var, c_type, py_type):
     global next_type_id
     exec('%s = %s' % (var, next_type_id), globals())
-    Type2Str[next_type_id]   = c_type
+    Type2Str[next_type_id] = c_type
     Type2PyStr[next_type_id] = py_type
     next_type_id    = next_type_id + 1
 
@@ -1094,6 +1094,8 @@ def ml_plus_type(ts):
 def ml_minus_type(ts):
     if ts == 'Z3_ast' or ts == 'Z3_sort' or ts == 'Z3_func_decl' or ts == 'Z3_app' or ts == 'Z3_pattern':
         return 'Z3_ast'
+    if ts == 'Z3_ast_plus' or ts == 'Z3_sort_plus' or ts == 'Z3_func_decl_plus' or ts == 'Z3_app_plus' or ts == 'Z3_pattern_plus':
+        return 'Z3_ast'
     elif ts == 'Z3_constructor_plus':
         return 'Z3_constructor'
     elif ts == 'Z3_constructor_list_plus':
@@ -1151,7 +1153,7 @@ def ml_has_plus_type(ts):
 def ml_unwrap(t, ts, s):
     if t == STRING:
         return '(' + ts + ') String_val(' + s + ')'
-    elif t == BOOL:
+    elif t == BOOL or (type2str(t) == 'Z3_bool'):
         return '(' + ts + ') Bool_val(' + s + ')'
     elif t == INT or t == PRINT_MODE or t == ERROR_CODE:
         return '(' + ts + ') Int_val(' + s + ')'
@@ -1172,7 +1174,7 @@ def ml_unwrap(t, ts, s):
 def ml_set_wrap(t, d, n):
     if t == VOID:
         return d + ' = Val_unit;'
-    elif t == BOOL:
+    elif t == BOOL or (type2str(t) == 'Z3_bool'):
         return d + ' = Val_bool(' + n + ');'
     elif t == INT or t == UINT or t == PRINT_MODE or t == ERROR_CODE:
         return d + ' = Val_int(' + n + ');'
@@ -1185,6 +1187,15 @@ def ml_set_wrap(t, d, n):
     else:
         pts = ml_plus_type(type2str(t))
         return '*(' + pts + '*)Data_custom_val(' + d + ') = ' + n + ';'
+
+def ml_alloc_and_store(t, lhs, rhs):
+    if t == VOID or t == BOOL or t == INT or t == UINT or t == PRINT_MODE or t == ERROR_CODE or t == INT64 or t == UINT64 or t == DOUBLE or t == STRING or (type2str(t) == 'Z3_bool'):
+        return ml_set_wrap(t, lhs, rhs)
+    else:
+        pts = ml_plus_type(type2str(t))
+        pops = ml_plus_ops_type(type2str(t))
+        alloc_str = '%s = caml_alloc_custom(&%s, sizeof(%s), 0, 1); ' % (lhs, pops, pts)
+        return alloc_str + ml_set_wrap(t, lhs, rhs)
 
 def mk_ml(ml_dir):
     global Type2Str
@@ -1258,6 +1269,18 @@ def mk_ml(ml_dir):
                 ml_native.write(' a%d' % i)
             i = i + 1
         ml_native.write('\n')
+
+    ml_native.write('\n')
+
+    # null pointer helpers
+    for type_id in Type2Str:
+        type_name = Type2Str[type_id]
+        if ml_has_plus_type(type_name) and not type_name in ['Z3_context', 'Z3_sort', 'Z3_func_decl', 'Z3_app', 'Z3_pattern']:
+            ml_name = type2ml(type_id)
+            ml_native.write('  external context_of_%s : %s -> context = "n_context_of_%s"\n' % (ml_name, ml_name, ml_name))
+            ml_native.write('  external is_null_%s : %s -> bool = "n_is_null_%s"\n' % (ml_name, ml_name, ml_name))
+            ml_native.write('  external mk_null_%s : context -> %s = "n_mk_null_%s"\n\n' % (ml_name, ml_name, ml_name))
+
     ml_native.write('(**/**)\n')
     ml_native.close()
 
@@ -1265,7 +1288,6 @@ def mk_ml(ml_dir):
         print ('Generated "%s"' % ml_nativef)
 
     mk_z3native_stubs_c(ml_dir)
-
 
 def mk_z3native_stubs_c(ml_dir): # C interface
     ml_wrapperf = os.path.join(ml_dir, 'z3native_stubs.c')
@@ -1315,14 +1337,21 @@ def mk_z3native_stubs_c(ml_dir): # C interface
             ml_wrapper.write('  CAMLlocal1(result);\n')
         else:
             c = 0
+            needs_tmp_value = False
             for p in params:
                 if is_out_param(p) or is_array_param(p):
                     c = c + 1
+                    needs_tmp_value = needs_tmp_value or param_kind(p) == OUT_ARRAY or param_kind(p) == INOUT_ARRAY
+            if needs_tmp_value:
+                c = c + 1
             ml_wrapper.write('  CAMLlocal%s(result, z3rv_val' % (c+2))
             for p in params:
                 if is_out_param(p) or is_array_param(p):
                     ml_wrapper.write(', _a%s_val' % i)
                 i = i + 1
+            if needs_tmp_value:
+                ml_wrapper.write(', tmp_val')
+
             ml_wrapper.write(');\n')
 
         if len(ap) != 0:
@@ -1371,19 +1400,13 @@ def mk_z3native_stubs_c(ml_dir): # C interface
                 ml_wrapper.write('  }\n')
             i = i + 1
 
-        ml_wrapper.write('  ')
+        ml_wrapper.write('\n  /* invoke Z3 function */\n  ')
         if result != VOID:
             ts = type2str(result)
             if ml_has_plus_type(ts):
                 ml_wrapper.write('%s z3rv_m = ' % ts)
-            elif (result == BOOL or result == INT or result == UINT or result == PRINT_MODE or result == ERROR_CODE or result ==INT64 or result == UINT64 or result == DOUBLE or result == STRING):
-                ml_wrapper.write('%s z3rv = ' % ts)
             else:
-                ml_wrapper.write('result = caml_alloc_custom(&default_custom_ops, sizeof(%s), 0, 1);\n  ' % ts)
                 ml_wrapper.write('%s z3rv = ' % ts)
-
-        elif len(op) != 0:
-            ml_wrapper.write('result = caml_alloc(%s, 0);\n  ' % ret_size)
 
         # invoke procedure
         ml_wrapper.write('%s(' % name)
@@ -1413,7 +1436,6 @@ def mk_z3native_stubs_c(ml_dir): # C interface
             ts = type2str(result)
             if ml_has_plus_type(ts):
                 pts = ml_plus_type(ts)
-                ml_wrapper.write('  result = caml_alloc_custom(&%s, sizeof(%s), 0, 1);\n' % (ml_plus_ops_type(ts), pts))
                 if name in NULLWrapped:
                     ml_wrapper.write('  %s z3rv = %s_mk(z3rv_m);\n' % (pts, pts))
                 else:
@@ -1421,6 +1443,14 @@ def mk_z3native_stubs_c(ml_dir): # C interface
 
         # convert output params
         if len(op) > 0:
+            # we have output parameters (i.e. call-by-reference arguments to the Z3 native
+            # code function). Hence, the value returned by the OCaml native wrapper is a tuple
+            # which contains the Z3 native function's return value (if it is non-void) in its
+            # first and the output parameters in the following components.
+
+            ml_wrapper.write('\n  /* construct return tuple */\n')
+            ml_wrapper.write('  result = caml_alloc(%s, 0);\n' % ret_size)
+
             i = 0
             for p in params:
                 pt = param_type(p)
@@ -1430,14 +1460,12 @@ def mk_z3native_stubs_c(ml_dir): # C interface
                     ml_wrapper.write('  for (_i = 0; _i < _a%s; _i++) {\n' % param_array_capacity_pos(p))
                     pts = ml_plus_type(ts)
                     pops = ml_plus_ops_type(ts)
-                    ml_wrapper.write('    value t;\n')
-                    ml_wrapper.write('    t = caml_alloc_custom(&%s, sizeof(%s), 0, 1);\n' % (pops, pts))
                     if ml_has_plus_type(ts):
                         ml_wrapper.write('    %s _a%dp = %s_mk(ctx_p, (%s) _a%d[_i]);\n' % (pts, i, pts, ml_minus_type(ts), i))
-                        ml_wrapper.write('    %s\n' % ml_set_wrap(pt, 't', '_a%dp' % i))
+                        ml_wrapper.write('    %s\n' % ml_alloc_and_store(pt, 'tmp_val', '_a%dp' % i))
                     else:
-                        ml_wrapper.write('    %s\n' % ml_set_wrap(pt, 't', '_a%d[_i]' % i))
-                    ml_wrapper.write('    Store_field(_a%s_val, _i, t);\n' % i)
+                        ml_wrapper.write('    %s\n' % ml_alloc_and_store(pt, 'tmp_val', '_a%d[_i]' % i))
+                    ml_wrapper.write('    Store_field(_a%s_val, _i, tmp_val);\n' % i)
                     ml_wrapper.write('  }\n')
                 elif param_kind(p) == OUT_MANAGED_ARRAY:
                     wrp = ml_set_wrap(pt, '_a%d_val' % i, '_a%d' % i)
@@ -1448,18 +1476,15 @@ def mk_z3native_stubs_c(ml_dir): # C interface
                     if ml_has_plus_type(ts):
                         pts = ml_plus_type(ts)
                         ml_wrapper.write('  %s _a%dp = %s_mk(ctx_p, (%s) _a%d);\n' % (pts, i, pts, ml_minus_type(ts), i))
-                        ml_wrapper.write('  %s\n' % ml_set_wrap(pt, '_a%d_val' % i, '_a%dp' % i))
+                        ml_wrapper.write('  %s\n' % ml_alloc_and_store(pt, '_a%d_val' % i, '_a%dp' % i))
                     else:
-                        ml_wrapper.write('  %s\n' % ml_set_wrap(pt, '_a%d_val' % i, '_a%d' % i))
+                        ml_wrapper.write('  %s\n' % ml_alloc_and_store(pt, '_a%d_val' % i, '_a%d' % i))
                 i = i + 1
 
-        # return tuples
-        if len(op) == 0:
-            ml_wrapper.write('  %s\n' % ml_set_wrap(result, "result", "z3rv"))
-        else:
+            # return tuples
             i = j = 0
             if result != VOID:
-                ml_wrapper.write('  %s\n' % ml_set_wrap(result, "z3rv_val", "z3rv"))
+                ml_wrapper.write('  %s' % ml_alloc_and_store(result, 'z3rv_val', 'z3rv'))
                 ml_wrapper.write('  Store_field(result, 0, z3rv_val);\n')
                 j = j + 1
             for p in params:
@@ -1467,8 +1492,13 @@ def mk_z3native_stubs_c(ml_dir): # C interface
                     ml_wrapper.write('  Store_field(result, %s, _a%s_val);\n' % (j, i))
                     j = j + 1
                 i = i + 1
+        else:
+            # As we have no output parameters, we simply return the result
+            ml_wrapper.write('\n  /* construct simple return value */\n')
+            ml_wrapper.write('  %s' % ml_alloc_and_store(result, "result", "z3rv"))
 
         # local array cleanup
+        ml_wrapper.write('\n  /* cleanup and return */\n')
         i = 0
         for p in params:
             k = param_kind(p)
