@@ -26,18 +26,46 @@ struct bv_trailing::imp {
     mk_extract_proc&     m_mk_extract;
     bv_util&             m_util;
     ast_manager&         m_m;
-    map                  m_count_cache;
+    map                  m_count_cache[TRAILING_DEPTH + 1];
+
     imp(mk_extract_proc& mk_extract)
         : m_mk_extract(mk_extract)
         , m_util(mk_extract.bvutil())
         , m_m(mk_extract.m())
         { }
 
-    virtual ~imp() { }
+    virtual ~imp() {
+        reset_cache();
+    }
 
     ast_manager & m() const { return m_util.get_manager(); }
 
-    void reset_cache() { m_count_cache.reset(); }
+    void cache(unsigned depth, expr * e, unsigned min, unsigned max) {
+        SASSERT(depth <= TRAILING_DEPTH);
+        m().inc_ref(e);
+        m_count_cache[depth].insert(e, std::make_pair(min, max));
+        TRACE("bv-trailing", tout << "caching@" << depth <<": " << mk_ismt2_pp(e, m()) << '[' << m_util.get_bv_size(e) << "]\n: " << min << '-' << max << "\n";);
+    }
+
+    bool is_cached(unsigned depth, expr * e, unsigned& min, unsigned& max) {
+        SASSERT(depth <= TRAILING_DEPTH);
+        const map::obj_map_entry * const oe = m_count_cache[depth].find_core(e);
+        if (oe == NULL) return false;
+        min = oe->get_data().m_value.first;
+        max = oe->get_data().m_value.second;
+        TRACE("bv-trailing", tout << "cached@" << depth << ": " << mk_ismt2_pp(e, m()) << '[' << m_util.get_bv_size(e) << "]\n: " << min << '-' << max << "\n";);
+        return true;
+    }
+
+
+    void reset_cache() {
+        for (unsigned i = 0; i <= TRAILING_DEPTH; ++i) {
+            map::iterator it = m_count_cache[i].begin();
+            map::iterator end = m_count_cache[i].end();
+            for (; it != end; ++it) m().dec_ref(it->m_key);
+            m_count_cache[i].reset();
+        }
+    }
 
     br_status eq_remove_trailing(expr * e1, expr * e2, expr_ref& result) {
         TRACE("bv-trailing", tout << mk_ismt2_pp(e1, m()) << "\n=\n" << mk_ismt2_pp(e2, m()) << "\n";);
@@ -223,21 +251,14 @@ struct bv_trailing::imp {
     }
 
     void count_trailing(expr * e, unsigned& min, unsigned& max, unsigned depth) {
-        std::pair<unsigned, unsigned> cached;
-        if (m_count_cache.find(e, cached)) { // check cache first
-            min = cached.first;
-            max = cached.second;
+        if (is_cached(depth, e, min, max))
             return;
-        }
         SASSERT(e && m_util.is_bv(e));
         count_trailing_core(e, min, max, depth);
         TRACE("bv-trailing", tout << mk_ismt2_pp(e, m()) << "\n:" << min << " - " << max << "\n";);
         SASSERT(min <= max);
         SASSERT(max <= m_util.get_bv_size(e));
-        // store into the cache
-        cached.first = min;
-        cached.second = max;
-        m_count_cache.insert(e, cached);
+        cache(depth, e, min, max);  // store result into the cache
     }
 
     void count_trailing_concat(app * a, unsigned& min, unsigned& max, unsigned depth) {

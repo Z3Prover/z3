@@ -2094,6 +2094,7 @@ br_status bv_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
 
     if (m_trailing) {
         st = m_rm_trailing.eq_remove_trailing(lhs, rhs, result);
+        //m_rm_trailing.reset_cache();
         if (st != BR_FAILED) {
             TRACE("eq_remove_trailing", tout << mk_ismt2_pp(lhs, m()) << "\n=\n" << mk_ismt2_pp(rhs, m()) << "\n----->\n" << mk_ismt2_pp(result, m()) << "\n";);
             return st;
