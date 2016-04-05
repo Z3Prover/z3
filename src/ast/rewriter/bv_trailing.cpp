@@ -18,9 +18,9 @@
 #include"bv_decl_plugin.h"
 #include"ast_smt2_pp.h"
 
-// This is not very elegant at this point, this number shouldn't be too big,
-// give up analysis after TRAILING_DEPTH depth.
-#define  TRAILING_DEPTH 4
+// The analyzer gives up analysis after going TRAILING_DEPTH deep.
+// This number shouldn't be too big.
+#define  TRAILING_DEPTH 5
 
 struct bv_trailing::imp {
     typedef rational numeral;
@@ -28,13 +28,17 @@ struct bv_trailing::imp {
     mk_extract_proc&     m_mk_extract;
     bv_util&             m_util;
     ast_manager&         m_m;
-    map                  m_count_cache[TRAILING_DEPTH + 1];
+
+    // keep a cache for each depth, using the convention that m_count_cache[TRAILING_DEPTH] is top-level
+    map*                 m_count_cache[TRAILING_DEPTH + 1];
 
     imp(mk_extract_proc& mk_extract)
         : m_mk_extract(mk_extract)
         , m_util(mk_extract.bvutil())
-        , m_m(mk_extract.m())
-        { }
+        , m_m(mk_extract.m()) {
+            for (unsigned i = 0; i <= TRAILING_DEPTH; ++i)
+                m_count_cache[i] = NULL;
+    }
 
     virtual ~imp() {
         reset_cache(0);
@@ -93,7 +97,7 @@ struct bv_trailing::imp {
         return retv;
     }
 
-    // assumes that count_trailing gives me a lower bound, which we can also remove from each summand
+    // Assumes that count_trailing gives me a lower bound that we can also remove from each summand.
     unsigned remove_trailing_add(app * a, unsigned n, expr_ref& result, unsigned depth) {
         SASSERT(m_util.is_bv_add(a));
         const unsigned num  = a->get_num_args();
@@ -221,8 +225,7 @@ struct bv_trailing::imp {
 
     unsigned remove_trailing_core(expr * e, unsigned n, expr_ref& result, unsigned depth) {
         SASSERT(m_util.is_bv(e));
-        if (!depth) return 0;
-        if (n == 0) return 0;
+        if (!depth || !n) return 0;
         unsigned sz;
         unsigned retv = 0;
         numeral e_val;
@@ -336,14 +339,24 @@ struct bv_trailing::imp {
 
     void cache(unsigned depth, expr * e, unsigned min, unsigned max) {
         SASSERT(depth <= TRAILING_DEPTH);
+        if (depth == 0) return;
+        if (m_count_cache[depth] == NULL)
+            m_count_cache[depth] = alloc(map);
         m().inc_ref(e);
-        m_count_cache[depth].insert(e, std::make_pair(min, max));
+        m_count_cache[depth]->insert(e, std::make_pair(min, max));
         TRACE("bv-trailing", tout << "caching@" << depth <<": " << mk_ismt2_pp(e, m()) << '[' << m_util.get_bv_size(e) << "]\n: " << min << '-' << max << "\n";);
     }
 
     bool is_cached(unsigned depth, expr * e, unsigned& min, unsigned& max) {
         SASSERT(depth <= TRAILING_DEPTH);
-        const map::obj_map_entry * const oe = m_count_cache[depth].find_core(e);
+        if (depth == 0) {
+            min = 0;
+            max = m_util.get_bv_size(e);
+            return true;
+        }
+        if (m_count_cache[depth] == NULL)
+            return false;
+        const map::obj_map_entry * const oe = m_count_cache[depth]->find_core(e);
         if (oe == NULL) return false;
         min = oe->get_data().m_value.first;
         max = oe->get_data().m_value.second;
@@ -351,14 +364,16 @@ struct bv_trailing::imp {
         return true;
     }
 
-
     void reset_cache(unsigned condition) {
-        for (unsigned i = 0; i <= TRAILING_DEPTH; ++i) {
-            if (m_count_cache[i].size() < condition) continue;
-            map::iterator it = m_count_cache[i].begin();
-            map::iterator end = m_count_cache[i].end();
+        SASSERT(m_count_cache[0] == NULL);
+        for (unsigned i = 1; i <= TRAILING_DEPTH; ++i) {
+            if (m_count_cache[i] == NULL) continue;
+            if (m_count_cache[i]->size() < condition) continue;
+            map::iterator it = m_count_cache[i]->begin();
+            map::iterator end = m_count_cache[i]->end();
             for (; it != end; ++it) m().dec_ref(it->m_key);
-            m_count_cache[i].reset();
+            dealloc(m_count_cache[i]);
+            m_count_cache[i] = NULL;
         }
     }
 
