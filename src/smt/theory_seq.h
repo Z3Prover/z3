@@ -359,6 +359,8 @@ namespace smt {
         // final check 
         bool simplify_and_solve_eqs();   // solve unitary equalities
         bool reduce_length_eq();
+        bool branch_unit_variable();     // branch on XYZ = abcdef
+        bool branch_binary_variable();   // branch on abcX = Ydefg 
         bool branch_variable_mb();       // branch on a variable, model based on length
         bool branch_variable();          // branch on a variable
         bool split_variable();           // split a variable
@@ -368,6 +370,10 @@ namespace smt {
         bool check_length_coherence(expr* e);
         bool fixed_length();
         bool fixed_length(expr* e);
+        void branch_unit_variable(dependency* dep, expr* X, expr_ref_vector const& units);
+        bool branch_variable(eq const& e);
+        bool branch_binary_variable(eq const& e);
+        bool is_unit_eq(expr_ref_vector const& ls, expr_ref_vector const& rs);
         bool propagate_length_coherence(expr* e);  
         bool split_lengths(dependency* dep,
                            expr_ref_vector const& ls, expr_ref_vector const& rs, 

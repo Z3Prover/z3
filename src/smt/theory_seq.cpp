@@ -257,7 +257,7 @@ final_check_status theory_seq::final_check_eh() {
         TRACE("seq", tout << ">>fixed_length\n";);
         return FC_CONTINUE;
     }
-    if (reduce_length_eq() || branch_variable_mb() ||  branch_variable()) {
+    if (reduce_length_eq() || branch_unit_variable() || branch_binary_variable() || branch_variable_mb() ||  branch_variable()) {
         ++m_stats.m_branch_variable;
         TRACE("seq", tout << ">>branch_variable\n";);
         return FC_CONTINUE;
@@ -305,40 +305,184 @@ bool theory_seq::reduce_length_eq() {
     return false;
 }
 
+bool theory_seq::branch_binary_variable() {
+    unsigned sz = m_eqs.size();
+    for (unsigned i = 0; i < sz; ++i) {
+        eq const& e = m_eqs[i];
+        if (branch_binary_variable(e)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool theory_seq::branch_binary_variable(eq const& e) {
+    if (is_complex(e)) {
+        return false;
+    }
+    ptr_vector<expr> xs, ys;
+    expr* x, *y;
+    bool is_binary = is_binary_eq(e.ls(), e.rs(), x, xs, ys, y);
+    if (!is_binary) {
+        is_binary = is_binary_eq(e.rs(), e.ls(), x, xs, ys, y);
+    }
+    if (!is_binary) {
+        return false;
+    }
+    if (x == y) {
+        return false;
+    }
+        
+    // Equation is of the form x ++ xs = ys ++ y
+    // where xs, ys are units.
+    // x is either a prefix of ys, all of ys ++ y or ys ++ y1, such that y = y1 ++ y2, y2 = xs 
+    
+    rational lenX, lenY;
+    context& ctx = get_context();
+    if (branch_variable(e)) {
+        return true;
+    }
+    if (!get_length(x, lenX)) {
+        enforce_length(ensure_enode(x));
+        return true;
+    }
+    if (!get_length(y, lenY)) {
+        enforce_length(ensure_enode(y));
+        return true;
+    }
+    if (lenX + rational(xs.size()) != lenY + rational(ys.size())) {
+        // |x| - |y| = |ys| - |xs|
+        expr_ref a(mk_sub(m_util.str.mk_length(x), m_util.str.mk_length(y)), m);
+        expr_ref b(m_autil.mk_int(ys.size()-xs.size()), m);
+        propagate_lit(e.dep(), 0, 0, mk_eq(a, b, false));
+        return true;
+    }
+    if (lenX <= rational(ys.size())) {
+        expr_ref_vector Ys(m);
+        Ys.append(ys.size(), ys.c_ptr());
+        branch_unit_variable(e.dep(), x, Ys);
+        return true;
+    }
+    expr_ref le(m_autil.mk_le(m_util.str.mk_length(x), m_autil.mk_int(ys.size())), m);
+    literal lit = mk_literal(le);
+    if (l_false == ctx.get_assignment(lit)) {
+        // |x| > |ys| => x = ys ++ y1, y = y1 ++ y2, y2 = xs
+        expr_ref Y1(mk_skolem(symbol("seq.left"), x, y), m);
+        expr_ref Y2(mk_skolem(symbol("seq.right"), x, y), m);
+        ys.push_back(Y1);
+        expr_ref ysY1(m_util.str.mk_concat(ys.size(), ys.c_ptr()), m);
+        expr_ref xsE(m_util.str.mk_concat(xs.size(), xs.c_ptr()), m);
+        expr_ref Y1Y2(m_util.str.mk_concat(Y1, Y2), m);
+        literal_vector lits;
+        lits.push_back(~lit);
+        dependency* dep = e.dep();
+        propagate_eq(dep, lits, x, ysY1, true);
+        propagate_eq(dep, lits, y, Y1Y2, true);
+        propagate_eq(dep, lits, Y2, xsE, true);
+    }
+    else {
+        ctx.mark_as_relevant(lit);
+    }
+    return true;
+}
+
+bool theory_seq::branch_unit_variable() {
+    unsigned sz = m_eqs.size();
+    for (unsigned i = 0; i < sz; ++i) {
+        eq const& e = m_eqs[i];
+        if (is_unit_eq(e.ls(), e.rs())) {
+            branch_unit_variable(e.dep(), e.ls()[0], e.rs());
+            return true;
+        }
+        else if (is_unit_eq(e.rs(), e.ls())) {
+            branch_unit_variable(e.dep(), e.rs()[0], e.ls());
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+  \brief ls := X... == rs := abcdef
+*/
+bool theory_seq::is_unit_eq(expr_ref_vector const& ls, expr_ref_vector const& rs) {
+    if (ls.empty() || !is_var(ls[0])) {
+        return false;
+    }
+    for (unsigned i = 0; i < rs.size(); ++i) {
+        if (!m_util.str.is_unit(rs[i])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void theory_seq::branch_unit_variable(dependency* dep, expr* X, expr_ref_vector const& units) {
+    SASSERT(is_var(X));
+    context& ctx = get_context();
+    rational lenX;
+    if (!get_length(X, lenX)) {
+        enforce_length(ensure_enode(X));
+        return;
+    }
+    if (lenX > rational(units.size())) {
+        expr_ref le(m_autil.mk_le(m_util.str.mk_length(X), m_autil.mk_int(units.size())), m);
+        propagate_lit(dep, 0, 0, mk_literal(le));
+        return;
+    }
+    SASSERT(lenX.is_unsigned());
+    unsigned lX = lenX.get_unsigned();
+    if (lX == 0) {
+        set_empty(X);
+    }
+    else {
+        literal lit = mk_eq(m_autil.mk_int(lX), m_util.str.mk_length(X), false);
+        if (l_true == ctx.get_assignment(lit)) {
+            expr_ref R(m_util.str.mk_concat(lX, units.c_ptr()), m);
+            literal_vector lits;
+            lits.push_back(lit);
+            propagate_eq(dep, lits, X, R, true);
+        }
+        else {
+            ctx.mark_as_relevant(lit);
+            ctx.force_phase(lit);
+        }
+    }
+}
+
 bool theory_seq::branch_variable_mb() {
     context& ctx = get_context();
-    unsigned sz = m_eqs.size();
-    int start = ctx.get_random_value();
     bool change = false;
-    for (unsigned i = 0; i < sz; ++i) {
-        unsigned k = (i + start) % sz;
+    for (unsigned i = 0; i < m_eqs.size(); ++i) {
         eq const& e = m_eqs[i];
         vector<rational> len1, len2;
         if (!is_complex(e)) {
-            continue;
-        }
-        if (!enforce_length(e.ls(), len1) || !enforce_length(e.rs(), len2)) {
-            change = true;
             continue;
         }
         if (e.ls().empty() || e.rs().empty() || 
             (!is_var(e.ls()[0]) && !is_var(e.rs()[0]))) {
             continue;
         }
+
+        if (!enforce_length(e.ls(), len1) || !enforce_length(e.rs(), len2)) {
+            change = true;
+            continue;
+        }
         rational l1, l2;
-        for (unsigned i = 0; i < len1.size(); ++i) l1 += len1[i];
-        for (unsigned i = 0; i < len2.size(); ++i) l2 += len2[i];
+        for (unsigned j = 0; j < len1.size(); ++j) l1 += len1[j];
+        for (unsigned j = 0; j < len2.size(); ++j) l2 += len2[j];
         if (l1 != l2) {
             TRACE("seq", tout << "lengths are not compatible\n";);
             expr_ref l = mk_concat(e.ls().size(), e.ls().c_ptr());
             expr_ref r = mk_concat(e.rs().size(), e.rs().c_ptr());
             expr_ref lnl(m_util.str.mk_length(l), m), lnr(m_util.str.mk_length(r), m);
-            add_axiom(~mk_eq(l, r, false), mk_eq(lnl, lnr, false));
+            literal_vector lits;
+            propagate_eq(e.dep(), lits, lnl, lnr, false);
             change = true;
             continue;
         }
         if (split_lengths(e.dep(), e.ls(), e.rs(), len1, len2)) {
-            TRACE("seq", display_equation(tout, e););
+            TRACE("seq", tout << "split lengths\n";);
             return true;
         }
     }
@@ -417,42 +561,38 @@ bool theory_seq::split_lengths(dependency* dep,
     b = mk_concat(bs, m.get_sort(X));
 
     SASSERT(X != Y);
-    expr_ref split_pred = mk_skolem(symbol("seq.split"), X, b, Y, m.mk_bool_sort());
-    literal split_predl = mk_literal(split_pred);
-    lbool is_split = ctx.get_assignment(split_predl);
-    if (is_split != l_true) {
-        // split_pred <=> |b| < |X| <= |b| + |Y|
-        expr_ref lenX(m_util.str.mk_length(X), m);
-        expr_ref lenY(m_util.str.mk_length(Y), m);
-        expr_ref lenb(m_util.str.mk_length(b), m);
-        expr_ref le1(m_autil.mk_le(mk_sub(lenX, lenb), m_autil.mk_int(0)), m);
-        expr_ref le2(m_autil.mk_le(mk_sub(mk_sub(lenX, lenb), lenY), 
-                                   m_autil.mk_int(0)), m);
-        literal  lit1(~mk_literal(le1));
-        literal  lit2(mk_literal(le2));
-        add_axiom(~split_predl, lit1);
-        add_axiom(~split_predl, lit2);
-        add_axiom(split_predl, ~lit1, ~lit2);
+
+
+    // |b| < |X| <= |b| + |Y| => x = bY1, Y = Y1Y2
+    expr_ref lenXE(m_util.str.mk_length(X), m);
+    expr_ref lenYE(m_util.str.mk_length(Y), m);
+    expr_ref lenb(m_util.str.mk_length(b), m);
+    expr_ref le1(m_autil.mk_le(mk_sub(lenXE, lenb), m_autil.mk_int(0)), m);
+    expr_ref le2(m_autil.mk_le(mk_sub(mk_sub(lenXE, lenb), lenYE), 
+                               m_autil.mk_int(0)), m);
+    literal  lit1(~mk_literal(le1));
+    literal  lit2(mk_literal(le2));
+    literal_vector lits;
+    lits.push_back(lit1);
+    lits.push_back(lit2);
+    
+    if (ctx.get_assignment(lit1) != l_true ||
+        ctx.get_assignment(lit2) != l_true) {
+        ctx.mark_as_relevant(lit1);
+        ctx.mark_as_relevant(lit2);
     }
     else if (m_util.str.is_unit(Y)) {
         SASSERT(lenB == lenX);
-        SASSERT(is_split == l_true);
         bs.push_back(Y);
         expr_ref bY(m_util.str.mk_concat(bs), m);
-        literal_vector lits;
-        lits.push_back(split_predl);
         propagate_eq(dep, lits, X, bY, true);
     }
     else {
         SASSERT(is_var(Y));
-        // split_pred => X = bY1, Y = Y1Y2
-        SASSERT(is_split == l_true);
         expr_ref Y1(mk_skolem(symbol("seq.left"), X, b, Y), m);
         expr_ref Y2(mk_skolem(symbol("seq.right"), X, b, Y), m);
         expr_ref bY1(m_util.str.mk_concat(b, Y1), m);
         expr_ref Y1Y2(m_util.str.mk_concat(Y1, Y2), m);
-        literal_vector lits;
-        lits.push_back(split_predl);
         propagate_eq(dep, lits, X, bY1, true);
         propagate_eq(dep, lits, Y, Y1Y2, true);
     }
@@ -495,23 +635,11 @@ bool theory_seq::branch_variable() {
     unsigned sz = m_eqs.size();
     int start = ctx.get_random_value();
 
-    unsigned s = 0;
     for (unsigned i = 0; i < sz; ++i) {
         unsigned k = (i + start) % sz;
         eq const& e = m_eqs[k];
-        unsigned id = e.id();
 
-        s = find_branch_start(2*id);
-        TRACE("seq", tout << s << " " << id << ": " << e.ls() << " = " << e.rs() << "\n";);
-        bool found = find_branch_candidate(s, e.dep(), e.ls(), e.rs());
-        insert_branch_start(2*id, s);
-        if (found) {
-            return true;
-        }
-        s = find_branch_start(2*id + 1);
-        found = find_branch_candidate(s, e.dep(), e.rs(), e.ls());
-        insert_branch_start(2*id + 1, s);
-        if (found) {
+        if (branch_variable(e)) {
             return true;
         }
 
@@ -525,6 +653,22 @@ bool theory_seq::branch_variable() {
 #endif
     }
     return ctx.inconsistent();
+}
+
+bool theory_seq::branch_variable(eq const& e) {
+    unsigned id = e.id();
+    unsigned s = find_branch_start(2*id);
+    TRACE("seq", tout << s << " " << id << ": " << e.ls() << " = " << e.rs() << "\n";);
+    bool found = find_branch_candidate(s, e.dep(), e.ls(), e.rs());
+    insert_branch_start(2*id, s);
+    if (found) {
+        return true;
+    }
+    s = find_branch_start(2*id + 1);
+    found = find_branch_candidate(s, e.dep(), e.rs(), e.ls());
+    insert_branch_start(2*id + 1, s);
+    
+    return found;
 }
 
 void theory_seq::insert_branch_start(unsigned k, unsigned s) {
