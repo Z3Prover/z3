@@ -118,7 +118,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
             expr * val = m_model.get_const_interp(f);
             if (val != 0) {
                 result = val;
-                return m().is_value(val)?BR_DONE:BR_REWRITE_FULL;
+                return BR_DONE;
+//                return m().is_value(val)?BR_DONE:BR_REWRITE_FULL;
             }
 
             if (m_model_completion) {
