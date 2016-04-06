@@ -2753,109 +2753,19 @@ def mk_z3consts_dotnet(api_files):
 
 # Extract enumeration types from z3_api.h, and add Java definitions
 def mk_z3consts_java(api_files):
-    blank_pat      = re.compile("^ *$")
-    comment_pat    = re.compile("^ *//.*$")
-    typedef_pat    = re.compile("typedef enum *")
-    typedef2_pat   = re.compile("typedef enum { *")
-    openbrace_pat  = re.compile("{ *")
-    closebrace_pat = re.compile("}.*;")
-
     java = get_component(JAVA_COMPONENT)
-
-    DeprecatedEnums = [ 'Z3_search_failure' ]
-    gendir = os.path.join(java.src_dir, "enumerations")
-    if not os.path.exists(gendir):
-        os.mkdir(gendir)
-
+    full_path_api_files = []
     for api_file in api_files:
         api_file_c = java.find_file(api_file, java.name)
         api_file   = os.path.join(api_file_c.src_dir, api_file)
-
-        api = open(api_file, 'r')
-
-        SEARCHING  = 0
-        FOUND_ENUM = 1
-        IN_ENUM    = 2
-
-        mode    = SEARCHING
-        decls   = {}
-        idx     = 0
-
-        linenum = 1
-        for line in api:
-            m1 = blank_pat.match(line)
-            m2 = comment_pat.match(line)
-            if m1 or m2:
-                # skip blank lines and comments
-                linenum = linenum + 1
-            elif mode == SEARCHING:
-                m = typedef_pat.match(line)
-                if m:
-                    mode = FOUND_ENUM
-                m = typedef2_pat.match(line)
-                if m:
-                    mode = IN_ENUM
-                    decls = {}
-                    idx   = 0
-            elif mode == FOUND_ENUM:
-                m = openbrace_pat.match(line)
-                if m:
-                    mode  = IN_ENUM
-                    decls = {}
-                    idx   = 0
-                else:
-                    assert False, "Invalid %s, line: %s" % (api_file, linenum)
-            else:
-                assert mode == IN_ENUM
-                words = re.split('[^\-a-zA-Z0-9_]+', line)
-                m = closebrace_pat.match(line)
-                if m:
-                    name = words[1]
-                    if name not in DeprecatedEnums:
-                        efile  = open('%s.java' % os.path.join(gendir, name), 'w')
-                        efile.write('/**\n *  Automatically generated file\n **/\n\n')
-                        efile.write('package %s.enumerations;\n\n' % java.package_name)
-
-                        efile.write('/**\n')
-                        efile.write(' * %s\n' % name)
-                        efile.write(' **/\n')
-                        efile.write('public enum %s {\n' % name)
-                        efile.write
-                        first = True
-                        for k in decls:
-                            i = decls[k]
-                            if first:
-                                first = False
-                            else:
-                                efile.write(',\n')
-                            efile.write('    %s (%s)' % (k, i))
-                        efile.write(";\n")
-                        efile.write('\n    private final int intValue;\n\n')
-                        efile.write('    %s(int v) {\n' % name)
-                        efile.write('        this.intValue = v;\n')
-                        efile.write('    }\n\n')
-                        efile.write('    public static final %s fromInt(int v) {\n' % name)
-                        efile.write('        for (%s k: values()) \n' % name)
-                        efile.write('            if (k.intValue == v) return k;\n')
-                        efile.write('        return values()[0];\n')
-                        efile.write('    }\n\n')
-                        efile.write('    public final int toInt() { return this.intValue; }\n')
-                        #  efile.write(';\n  %s(int v) {}\n' % name)
-                        efile.write('}\n\n')
-                        efile.close()
-                    mode = SEARCHING
-                else:
-                    if words[2] != '':
-                        if len(words[2]) > 1 and words[2][1] == 'x':
-                            idx = int(words[2], 16)
-                        else:
-                            idx = int(words[2])
-                    decls[words[1]] = idx
-                    idx = idx + 1
-            linenum = linenum + 1
-        api.close()
+        full_path_api_files.append(api_file)
+    generated_files = mk_genfile_common.mk_z3consts_java_internal(
+        full_path_api_files,
+        java.package_name,
+        java.src_dir)
     if VERBOSE:
-        print("Generated '%s'" % ('%s' % gendir))
+        for generated_file in generated_files:
+            print("Generated '{}'".format(generated_file))
 
 # Extract enumeration types from z3_api.h, and add ML definitions
 def mk_z3consts_ml(api_files):
