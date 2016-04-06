@@ -51,7 +51,7 @@ void bv_decl_plugin::set_manager(ast_manager * m, family_id id) {
     m_bit1 = m->mk_const_decl(symbol("bit1"), get_bv_sort(1), func_decl_info(m_family_id, OP_BIT1));
     m->inc_ref(m_bit0);
     m->inc_ref(m_bit1);
-    
+
     sort * b = m->mk_bool_sort();
     sort * d[3] = {b, b, b};
     m_carry = m_manager->mk_func_decl(symbol("carry"), 3, d, b, func_decl_info(m_family_id, OP_CARRY));
@@ -105,7 +105,7 @@ void bv_decl_plugin::finalize() {
     DEC_REF(m_bv_slt);
     DEC_REF(m_bv_ugt);
     DEC_REF(m_bv_sgt);
-    
+
     DEC_REF(m_bv_and);
     DEC_REF(m_bv_or);
     DEC_REF(m_bv_not);
@@ -113,7 +113,7 @@ void bv_decl_plugin::finalize() {
     DEC_REF(m_bv_nand);
     DEC_REF(m_bv_nor);
     DEC_REF(m_bv_xnor);
-    
+
     DEC_REF(m_bv_redor);
     DEC_REF(m_bv_redand);
     DEC_REF(m_bv_comp);
@@ -181,7 +181,7 @@ sort * bv_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter c
 func_decl * bv_decl_plugin::mk_binary(ptr_vector<func_decl> & decls, decl_kind k,
                                     char const * name, unsigned bv_size, bool ac, bool idempotent) {
     force_ptr_array_size(decls, bv_size + 1);
-    
+
     if (decls[bv_size] == 0) {
         sort * s = get_bv_sort(bv_size);
         func_decl_info info(m_family_id, k);
@@ -198,7 +198,7 @@ func_decl * bv_decl_plugin::mk_binary(ptr_vector<func_decl> & decls, decl_kind k
 
 func_decl * bv_decl_plugin::mk_unary(ptr_vector<func_decl> & decls, decl_kind k, char const * name, unsigned bv_size) {
     force_ptr_array_size(decls, bv_size + 1);
-    
+
     if (decls[bv_size] == 0) {
         sort * s = get_bv_sort(bv_size);
         decls[bv_size] = m_manager->mk_func_decl(symbol(name), s, s, func_decl_info(m_family_id, k));
@@ -223,7 +223,7 @@ func_decl * bv_decl_plugin::mk_int2bv(unsigned bv_size, unsigned num_parameters,
 
     if (m_int2bv[bv_size] == 0) {
         sort * s = get_bv_sort(bv_size);
-        m_int2bv[bv_size] = m_manager->mk_func_decl(symbol("int2bv"), domain[0], s, 
+        m_int2bv[bv_size] = m_manager->mk_func_decl(symbol("int2bv"), domain[0], s,
                                                     func_decl_info(m_family_id, OP_INT2BV, num_parameters, parameters));
         m_manager->inc_ref(m_int2bv[bv_size]);
     }
@@ -239,9 +239,9 @@ func_decl * bv_decl_plugin::mk_bv2int(unsigned bv_size, unsigned num_parameters,
         m_manager->raise_exception("expecting one argument to bv2int");
         return 0;
     }
-    
+
     if (m_bv2int[bv_size] == 0) {
-        m_bv2int[bv_size] = m_manager->mk_func_decl(symbol("bv2int"), domain[0], m_int_sort, 
+        m_bv2int[bv_size] = m_manager->mk_func_decl(symbol("bv2int"), domain[0], m_int_sort,
                                                     func_decl_info(m_family_id, OP_BV2INT));
         m_manager->inc_ref(m_bv2int[bv_size]);
     }
@@ -251,7 +251,7 @@ func_decl * bv_decl_plugin::mk_bv2int(unsigned bv_size, unsigned num_parameters,
 
 func_decl * bv_decl_plugin::mk_pred(ptr_vector<func_decl> & decls, decl_kind k, char const * name, unsigned bv_size) {
     force_ptr_array_size(decls, bv_size + 1);
-    
+
     if (decls[bv_size] == 0) {
         sort * s = get_bv_sort(bv_size);
         decls[bv_size] = m_manager->mk_func_decl(symbol(name), s, s, m_manager->mk_bool_sort(), func_decl_info(m_family_id, k));
@@ -263,7 +263,7 @@ func_decl * bv_decl_plugin::mk_pred(ptr_vector<func_decl> & decls, decl_kind k, 
 
 func_decl * bv_decl_plugin::mk_reduction(ptr_vector<func_decl> & decls, decl_kind k, char const * name, unsigned bv_size) {
     force_ptr_array_size(decls, bv_size + 1);
-    
+
     if (decls[bv_size] == 0) {
         sort * d = get_bv_sort(bv_size);
         sort * r = get_bv_sort(1);
@@ -276,7 +276,7 @@ func_decl * bv_decl_plugin::mk_reduction(ptr_vector<func_decl> & decls, decl_kin
 
 func_decl * bv_decl_plugin::mk_comp(unsigned bv_size) {
     force_ptr_array_size(m_bv_comp, bv_size + 1);
-    
+
     if (m_bv_comp[bv_size] == 0) {
         sort * d = get_bv_sort(bv_size);
         sort * r = get_bv_sort(1);
@@ -326,7 +326,7 @@ func_decl * bv_decl_plugin::mk_func_decl(decl_kind k, unsigned bv_size) {
     case OP_BXOR:     return mk_binary(m_bv_xor, k, "bvxor", bv_size, true);
     case OP_BNAND:    return mk_binary(m_bv_nand, k, "bvnand", bv_size, false);
     case OP_BNOR:     return mk_binary(m_bv_nor, k, "bvnor", bv_size, false);
-    case OP_BXNOR:    return mk_binary(m_bv_xnor, k, "bvxnor", bv_size, false); 
+    case OP_BXNOR:    return mk_binary(m_bv_xnor, k, "bvxnor", bv_size, false);
 
     case OP_BREDOR:   return mk_reduction(m_bv_redor, k, "bvredor", bv_size);
     case OP_BREDAND:  return mk_reduction(m_bv_redand, k, "bvredand", bv_size);
@@ -334,7 +334,7 @@ func_decl * bv_decl_plugin::mk_func_decl(decl_kind k, unsigned bv_size) {
     case OP_BUMUL_NO_OVFL: return mk_pred(m_bv_mul_ovfl, k, "bvumul_noovfl", bv_size);
     case OP_BSMUL_NO_OVFL: return mk_pred(m_bv_smul_ovfl, k, "bvsmul_noovfl", bv_size);
     case OP_BSMUL_NO_UDFL: return mk_pred(m_bv_smul_udfl, k, "bvsmul_noudfl", bv_size);
-        
+
     case OP_BSHL:     return mk_binary(m_bv_shl, k, "bvshl", bv_size, false);
     case OP_BLSHR:    return mk_binary(m_bv_lshr, k, "bvlshr", bv_size, false);
     case OP_BASHR:    return mk_binary(m_bv_ashr, k, "bvashr", bv_size, false);
@@ -369,23 +369,24 @@ bool bv_decl_plugin::get_concat_size(unsigned arity, sort * const * domain, int 
     return true;
 }
 
-bool bv_decl_plugin::get_extend_size(unsigned num_parameters, parameter const * parameters, 
-                                   unsigned arity, sort * const * domain, int & result) {
+bool bv_decl_plugin::get_extend_size(unsigned num_parameters, parameter const * parameters,
+    unsigned arity, sort * const * domain, int & result) {
     int arg_sz;
-    if (arity != 1 || num_parameters != 1 || !parameters[0].is_int() || !get_bv_size(domain[0], arg_sz)) {
+    if (arity != 1 || !get_bv_size(domain[0], arg_sz) ||
+        num_parameters != 1 || !parameters[0].is_int() || parameters[0].get_int() < 0) {
         return false;
     }
     result = arg_sz + parameters[0].get_int();
     return true;
 }
 
-bool bv_decl_plugin::get_extract_size(unsigned num_parameters, parameter const * parameters, 
+bool bv_decl_plugin::get_extract_size(unsigned num_parameters, parameter const * parameters,
                                     unsigned arity, sort * const * domain, int & result) {
     int arg_sz;
     if (arity != 1 ||
-        !get_bv_size(domain[0], arg_sz) || 
-        num_parameters != 2 || 
-        !parameters[0].is_int() || 
+        !get_bv_size(domain[0], arg_sz) ||
+        num_parameters != 2 ||
+        !parameters[0].is_int() ||
         !parameters[1].is_int() ||
         parameters[1].get_int() > parameters[0].get_int() ||
         parameters[0].get_int() >= arg_sz) {
@@ -432,7 +433,7 @@ func_decl * bv_decl_plugin::mk_num_decl(unsigned num_parameters, parameter const
     return m_manager->mk_const_decl(m_bv_sym, bv, func_decl_info(m_family_id, OP_BV_NUM, num_parameters, ps));
 }
 
-func_decl * bv_decl_plugin::mk_bit2bool(unsigned bv_size, unsigned num_parameters, parameter const * parameters, 
+func_decl * bv_decl_plugin::mk_bit2bool(unsigned bv_size, unsigned num_parameters, parameter const * parameters,
                                         unsigned arity, sort * const * domain) {
     if (!(num_parameters == 1 && parameters[0].is_int() && arity == 1 && parameters[0].get_int() < static_cast<int>(bv_size))) {
         m_manager->raise_exception("invalid bit2bool declaration");
@@ -443,7 +444,7 @@ func_decl * bv_decl_plugin::mk_bit2bool(unsigned bv_size, unsigned num_parameter
     ptr_vector<func_decl> & v = m_bit2bool[bv_size];
     v.reserve(bv_size, 0);
     if (v[idx] == 0) {
-        v[idx] = m_manager->mk_func_decl(m_bit2bool_sym, domain[0], m_manager->mk_bool_sort(), 
+        v[idx] = m_manager->mk_func_decl(m_bit2bool_sym, domain[0], m_manager->mk_bool_sort(),
                                          func_decl_info(m_family_id, OP_BIT2BOOL, num_parameters, parameters));
         m_manager->inc_ref(v[idx]);
     }
@@ -520,34 +521,34 @@ func_decl * bv_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
     switch (k) {
     case OP_BIT2BOOL:
         return mk_bit2bool(bv_size, num_parameters, parameters, arity, domain);
-    case OP_INT2BV:   
+    case OP_INT2BV:
         return mk_int2bv(bv_size, num_parameters, parameters, arity, domain);
-    case OP_BV2INT:   
+    case OP_BV2INT:
         return mk_bv2int(bv_size, num_parameters, parameters, arity, domain);
-    case OP_CONCAT: 
+    case OP_CONCAT:
         if (!get_concat_size(arity, domain, r_size))
             m_manager->raise_exception("invalid concat application");
-        return m_manager->mk_func_decl(m_concat_sym, arity, domain, get_bv_sort(r_size), 
+        return m_manager->mk_func_decl(m_concat_sym, arity, domain, get_bv_sort(r_size),
                                        func_decl_info(m_family_id, k));
     case OP_SIGN_EXT:
         if (!get_extend_size(num_parameters, parameters, arity, domain, r_size))
             m_manager->raise_exception("invalid sign_extend application");
-        return m_manager->mk_func_decl(m_sign_extend_sym, arity, domain, get_bv_sort(r_size), 
+        return m_manager->mk_func_decl(m_sign_extend_sym, arity, domain, get_bv_sort(r_size),
                                        func_decl_info(m_family_id, k, num_parameters, parameters));
     case OP_ZERO_EXT:
         if (!get_extend_size(num_parameters, parameters, arity, domain, r_size))
             m_manager->raise_exception("invalid zero_extend application");
-        return m_manager->mk_func_decl(m_zero_extend_sym, arity, domain, get_bv_sort(r_size), 
+        return m_manager->mk_func_decl(m_zero_extend_sym, arity, domain, get_bv_sort(r_size),
                                        func_decl_info(m_family_id, k, num_parameters, parameters));
     case OP_EXTRACT:
         if (!get_extract_size(num_parameters, parameters, arity, domain, r_size))
             m_manager->raise_exception("invalid extract application");
-        return m_manager->mk_func_decl(m_extract_sym, arity, domain, get_bv_sort(r_size), 
+        return m_manager->mk_func_decl(m_extract_sym, arity, domain, get_bv_sort(r_size),
                                        func_decl_info(m_family_id, k, num_parameters, parameters));
     case OP_ROTATE_LEFT:
         if (arity != 1)
             m_manager->raise_exception("rotate left expects one argument");
-        return m_manager->mk_func_decl(m_rotate_left_sym, arity, domain, domain[0], 
+        return m_manager->mk_func_decl(m_rotate_left_sym, arity, domain, domain[0],
                                        func_decl_info(m_family_id, k, num_parameters, parameters));
     case OP_ROTATE_RIGHT:
         if (arity != 1)
@@ -561,14 +562,14 @@ func_decl * bv_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
             m_manager->raise_exception("repeat expects one nonzero integer parameter");
         if (!get_bv_size(domain[0], bv_size))
             m_manager->raise_exception("repeat expects an argument with bit-vector sort");
-        return m_manager->mk_func_decl(m_repeat_sym, arity, domain, get_bv_sort(bv_size * parameters[0].get_int()), 
+        return m_manager->mk_func_decl(m_repeat_sym, arity, domain, get_bv_sort(bv_size * parameters[0].get_int()),
                                        func_decl_info(m_family_id, k, num_parameters, parameters));
     default:
         return 0;
     }
 }
 
-func_decl * bv_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
+func_decl * bv_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                          unsigned num_args, expr * const * args, sort * range) {
     ast_manager& m = *m_manager;
     int bv_size;
@@ -657,7 +658,7 @@ bool bv_decl_plugin::are_distinct(app * a, app * b) const {
     expr *   b_term;
     get_offset_term(a, a_term, a_offset);
     get_offset_term(b, b_term, b_offset);
-    TRACE("bv_are_distinct", 
+    TRACE("bv_are_distinct",
           tout << mk_ismt2_pp(a, *m_manager) << "\n" << mk_ismt2_pp(b, *m_manager) << "\n";
           tout << "---->\n";
           tout << "a: " << a_offset << " + " << mk_ismt2_pp(a_term, *m_manager) << "\n";
@@ -715,24 +716,24 @@ void bv_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const
     op_names.push_back(builtin_name("bvashr",OP_BASHR));
     op_names.push_back(builtin_name("rotate_left",OP_ROTATE_LEFT));
     op_names.push_back(builtin_name("rotate_right",OP_ROTATE_RIGHT));
-    
+
     if (logic == symbol::null) {
         op_names.push_back(builtin_name("bvumul_noovfl",OP_BUMUL_NO_OVFL));
         op_names.push_back(builtin_name("bvsmul_noovfl",OP_BSMUL_NO_OVFL));
         op_names.push_back(builtin_name("bvsmul_noudfl",OP_BSMUL_NO_UDFL));
-        
+
         op_names.push_back(builtin_name("bvsdiv0", OP_BSDIV0));
         op_names.push_back(builtin_name("bvudiv0", OP_BUDIV0));
         op_names.push_back(builtin_name("bvsrem0", OP_BSREM0));
         op_names.push_back(builtin_name("bvurem0", OP_BUREM0));
         op_names.push_back(builtin_name("bvsmod0", OP_BSMOD0));
-        
+
         op_names.push_back(builtin_name("bvsdiv_i", OP_BSDIV_I));
         op_names.push_back(builtin_name("bvudiv_i", OP_BUDIV_I));
         op_names.push_back(builtin_name("bvsrem_i", OP_BSREM_I));
         op_names.push_back(builtin_name("bvurem_i", OP_BUREM_I));
         op_names.push_back(builtin_name("bvumod_i", OP_BSMOD_I));
-        
+
         op_names.push_back(builtin_name("ext_rotate_left",OP_EXT_ROTATE_LEFT));
         op_names.push_back(builtin_name("ext_rotate_right",OP_EXT_ROTATE_RIGHT));
         op_names.push_back(builtin_name("int2bv",OP_INT2BV));
@@ -755,7 +756,7 @@ rational bv_recognizers::norm(rational const & val, unsigned bv_size, bool is_si
         if (r >= rational::power_of_two(bv_size - 1)) {
             r -= rational::power_of_two(bv_size);
         }
-        if (r < -rational::power_of_two(bv_size - 1)) { 
+        if (r < -rational::power_of_two(bv_size - 1)) {
             r += rational::power_of_two(bv_size);
         }
     }
@@ -770,7 +771,7 @@ bool bv_recognizers::has_sign_bit(rational const & n, unsigned bv_size) const {
 }
 
 bool bv_recognizers::is_bv_sort(sort const * s) const {
-    return (s->get_family_id() == get_fid() && s->get_decl_kind() == BV_SORT && s->get_num_parameters() == 1); 
+    return (s->get_family_id() == get_fid() && s->get_decl_kind() == BV_SORT && s->get_num_parameters() == 1);
 }
 
 bool bv_recognizers::is_numeral(expr const * n, rational & val, unsigned & bv_size) const {
@@ -821,11 +822,11 @@ bool bv_recognizers::mult_inverse(rational const & n, unsigned bv_size, rational
         result = n;
         return true;
     }
-    
+
     if (!mod(n, rational(2)).is_one()) {
         return false;
     }
-    
+
     rational g;
     rational x;
     rational y;
@@ -874,5 +875,5 @@ unsigned bv_util::get_int2bv_size(parameter const& p) {
 app * bv_util::mk_bv2int(expr* e) {
     sort* s = m_manager.mk_sort(m_manager.mk_family_id("arith"), INT_SORT);
     parameter p(s);
-    return m_manager.mk_app(get_fid(), OP_BV2INT, 1, &p, 1, &e); 
+    return m_manager.mk_app(get_fid(), OP_BV2INT, 1, &p, 1, &e);
 }

@@ -3212,7 +3212,8 @@ namespace smt {
     template<typename Ext>
     bool theory_arith<Ext>::get_value(enode * n, expr_ref & r) {
         theory_var v = n->get_th_var(get_id());
-        return v != null_theory_var && to_expr(get_value(v), is_int(v), r);
+        inf_numeral val;
+        return v != null_theory_var && (val = get_value(v), (!is_int(v) || val.is_int())) && to_expr(val, is_int(v), r);
     }
 
     template<typename Ext>

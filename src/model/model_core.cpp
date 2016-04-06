@@ -31,7 +31,7 @@ model_core::~model_core() {
     for (; it2 != end2; ++it2) {
         m_manager.dec_ref(it2->m_key);
         dealloc(it2->m_value);
-    }   
+    }
 }
 
 bool model_core::eval(func_decl* f, expr_ref & r) const {

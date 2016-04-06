@@ -62,7 +62,7 @@ namespace smt {
 
     app* farkas_util::mk_ge(expr* e1, expr* e2) {
         mk_coerce(e1, e2);
-        return a.mk_gt(e1, e2);
+        return a.mk_ge(e1, e2);
     }
 
     app* farkas_util::mk_gt(expr* e1, expr* e2) {

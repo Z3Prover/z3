@@ -25,7 +25,7 @@ Revision History:
 #include"used_symbols.h"
 #include"model_evaluator.h"
 
-model::model(ast_manager & m): 
+model::model(ast_manager & m):
     model_core(m) {
 }
 
@@ -56,7 +56,7 @@ void model::copy_func_interps(model const & source) {
         register_decl(it2->m_key, it2->m_value->copy());
     }
 }
- 
+
 void model::copy_usort_interps(model const & source) {
     sort2universe::iterator it3  = source.m_usort2universe.begin();
     sort2universe::iterator end3 = source.m_usort2universe.end();
@@ -67,7 +67,7 @@ void model::copy_usort_interps(model const & source) {
 
 model * model::copy() const {
     model * m = alloc(model, m_manager);
-    
+
     m->copy_const_interps(*this);
     m->copy_func_interps(*this);
     m->copy_usort_interps(*this);
@@ -121,16 +121,15 @@ bool model::has_uninterpreted_sort(sort * s) const {
     return u != 0;
 }
 
-unsigned model::get_num_uninterpreted_sorts() const { 
-    return m_usorts.size(); 
+unsigned model::get_num_uninterpreted_sorts() const {
+    return m_usorts.size();
 }
 
-sort * model::get_uninterpreted_sort(unsigned idx) const { 
-    return m_usorts[idx]; 
+sort * model::get_uninterpreted_sort(unsigned idx) const {
+    return m_usorts[idx];
 }
 
 void model::register_usort(sort * s, unsigned usize, expr * const * universe) {
-    SASSERT(m_manager.is_uninterp(s));
     sort2universe::obj_map_entry * entry = m_usort2universe.insert_if_not_there2(s, 0);
     m_manager.inc_array_ref(usize, universe);
     if (entry->get_data().m_value == 0) {
@@ -151,7 +150,7 @@ void model::register_usort(sort * s, unsigned usize, expr * const * universe) {
 }
 
 model * model::translate(ast_translation & translator) const {
-    model * res = alloc(model, translator.to());    
+    model * res = alloc(model, translator.to());
 
     // Translate const interps
     decl2expr::iterator it1  = m_interp.begin();
@@ -167,7 +166,7 @@ model * model::translate(ast_translation & translator) const {
         func_interp * fi = it2->m_value;
         res->register_decl(translator(it2->m_key), fi->translate(translator));
     }
-    
+
     // Translate usort interps
     sort2universe::iterator it3  = m_usort2universe.begin();
     sort2universe::iterator end3 = m_usort2universe.end();
@@ -175,8 +174,8 @@ model * model::translate(ast_translation & translator) const {
         ptr_vector<expr> new_universe;
         for (unsigned i=0; i<it3->m_value->size(); i++)
             new_universe.push_back(translator(it3->m_value->get(i)));
-        res->register_usort(translator(it3->m_key), 
-                            new_universe.size(), 
+        res->register_usort(translator(it3->m_key),
+                            new_universe.size(),
                             new_universe.c_ptr());
     }
 

@@ -4538,6 +4538,9 @@ extern "C" {
        If \c model_completion is Z3_TRUE, then Z3 will assign an interpretation for any constant or function that does
        not have an interpretation in \c m. These constants and functions were essentially don't cares.
 
+       If \c model_completion is Z3_FALSE, then Z3 will not assign interpretations to constants for functions that do
+       not have interpretations in \c m. Evaluation behaves as the identify function in this case.
+
        The evaluation may fail for the following reasons:
 
        - \c t contains a quantifier.
@@ -4546,6 +4549,8 @@ extern "C" {
        That is, the option \ccode{MODEL_PARTIAL=true} was used.
 
        - \c t is type incorrect.
+
+       - \c Z3_interrupt was invoked during evaluation.
 
        def_API('Z3_model_eval', BOOL, (_in(CONTEXT), _in(MODEL), _in(AST), _in(BOOL), _out(AST)))
     */
