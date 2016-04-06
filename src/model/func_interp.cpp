@@ -141,8 +141,10 @@ bool func_interp::is_fi_entry_expr(expr * e, ptr_vector<expr> & args) {
 }
 
 void func_interp::set_else(expr * e) {
+    if (e == m_else)
+        return;
+
     reset_interp_cache();
-    m_manager.dec_ref(m_else);
 
     ptr_vector<expr> args;
     while (e && is_fi_entry_expr(e, args)) {
@@ -152,6 +154,7 @@ void func_interp::set_else(expr * e) {
     }
 
     m_manager.inc_ref(e);
+    m_manager.dec_ref(m_else);
     m_else = e;
 }
 
