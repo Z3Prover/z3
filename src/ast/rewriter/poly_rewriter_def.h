@@ -825,15 +825,17 @@ br_status poly_rewriter<Config>::cancel_monomials(expr * lhs, expr * rhs, bool m
     if (c_at_rhs) {
         c.neg();
         normalize(c);
-        new_rhs_monomials[0] = mk_numeral(c);
-        lhs_result = mk_add_app(new_lhs_monomials.size() - 1, new_lhs_monomials.c_ptr() + 1);
-        rhs_result = mk_add_app(new_rhs_monomials.size(), new_rhs_monomials.c_ptr());
     }
-    else {
-        new_lhs_monomials[0] = mk_numeral(c);
-        lhs_result = mk_add_app(new_lhs_monomials.size(), new_lhs_monomials.c_ptr());
-        rhs_result = mk_add_app(new_rhs_monomials.size() - 1, new_rhs_monomials.c_ptr() + 1);
-    }
+    // When recreating the lhs and rhs also insert coefficient on the appropriate side.
+    // Ignore coefficient if it's 0 and there are no other summands.
+    const bool insert_c_lhs = !c_at_rhs && (new_lhs_monomials.size() == 1 || !c.is_zero());
+    const bool insert_c_rhs =  c_at_rhs && (new_rhs_monomials.size() == 1 || !c.is_zero());
+    const unsigned lhs_offset = insert_c_lhs ? 0 : 1;
+    const unsigned rhs_offset = insert_c_rhs ? 0 : 1;
+    new_rhs_monomials[0] = insert_c_rhs ? mk_numeral(c) : NULL;
+    new_lhs_monomials[0] = insert_c_lhs ? mk_numeral(c) : NULL;
+    lhs_result = mk_add_app(new_lhs_monomials.size() - lhs_offset, new_lhs_monomials.c_ptr() + lhs_offset);
+    rhs_result = mk_add_app(new_rhs_monomials.size() - rhs_offset, new_rhs_monomials.c_ptr() + rhs_offset);
     return BR_DONE;
 }
 

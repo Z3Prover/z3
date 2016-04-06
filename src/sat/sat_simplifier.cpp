@@ -401,7 +401,7 @@ namespace sat {
         literal_vector::iterator l_it = m_bs_ls.begin();
         for (; it != end; ++it, ++l_it) {
             clause & c2 = *(*it);
-            if (*l_it == null_literal) {
+            if (!c2.was_removed() && *l_it == null_literal) {
                 // c2 was subsumed
                 if (c1.is_learned() && !c2.is_learned())
                     c1.unset_learned();
