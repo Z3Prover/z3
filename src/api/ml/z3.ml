@@ -679,13 +679,13 @@ struct
       | _ ->
         let nopatterns_arr = Array.of_list nopatterns in
         Z3native.mk_quantifier_ex ctx universal
-        (match weight with | None -> 1 | Some x -> x)
-        (match quantifier_id with | None -> Z3native.mk_null_symbol ctx | Some x -> x)
-        (match skolem_id with | None -> Z3native.mk_null_symbol ctx | Some x -> x)
-        (Array.length patterns_arr) patterns_arr
-        (Array.length nopatterns_arr) nopatterns_arr
-        (Array.length sorts_arr) sorts_arr
-        names_arr body
+          (match weight with | None -> 1 | Some x -> x)
+          (match quantifier_id with | None -> Z3native.mk_null_symbol ctx | Some x -> x)
+          (match skolem_id with | None -> Z3native.mk_null_symbol ctx | Some x -> x)
+          (Array.length patterns_arr) patterns_arr
+          (Array.length nopatterns_arr) nopatterns_arr
+          (Array.length sorts_arr) sorts_arr
+          names_arr body
 
   let _internal_mk_quantifier_const ~universal ctx bound_constants body weight patterns nopatterns quantifier_id skolem_id =
     let patterns_arr = Array.of_list patterns in

@@ -285,7 +285,7 @@ sig
   sig
     (** Parameters of func_decls *)
     type parameter =
-                P_Int of int
+        P_Int of int
       | P_Dbl of float
       | P_Sym of Symbol.symbol
       | P_Srt of Sort.sort
@@ -3232,21 +3232,21 @@ sig
   val add : optimize -> Expr.expr list -> unit
 
   (** Asssert a soft constraint.
-     Supply integer weight and string that identifies a group
+      Supply integer weight and string that identifies a group
       of soft constraints.
-   *)
+  *)
   val add_soft : optimize -> Expr.expr -> string -> Symbol.symbol -> handle
 
   (** Add maximization objective.
-   *)
+  *)
   val maximize : optimize -> Expr.expr -> handle
 
   (** Add minimization objective.
-   *)
+  *)
   val minimize : optimize -> Expr.expr -> handle
 
   (** Checks whether the assertions in the context are satisfiable and solves objectives.
-   *)
+  *)
   val check : optimize -> Solver.status
 
   (** Retrieve model from satisfiable context *)
