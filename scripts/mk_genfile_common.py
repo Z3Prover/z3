@@ -330,13 +330,13 @@ def mk_z3consts_java_internal(api_files, package_name, output_dir):
                         efile.write('public enum %s {\n' % name)
                         efile.write
                         first = True
-                        for k in decls:
-                            i = decls[k]
+                        # Iterate over key-value pairs ordered by value
+                        for k, v in sorted(decls.items(), key=lambda pair: pair[1]):
                             if first:
                                 first = False
                             else:
                                 efile.write(',\n')
-                            efile.write('    %s (%s)' % (k, i))
+                            efile.write('    %s (%s)' % (k, v))
                         efile.write(";\n")
                         efile.write('\n    private final int intValue;\n\n')
                         efile.write('    %s(int v) {\n' % name)
