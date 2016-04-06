@@ -145,7 +145,7 @@ void func_interp::set_else(expr * e) {
     m_manager.dec_ref(m_else);
 
     ptr_vector<expr> args;
-    while (is_fi_entry_expr(e, args)) {
+    while (e && is_fi_entry_expr(e, args)) {
         TRACE("func_interp", tout << "fi entry expr: " << mk_ismt2_pp(e, m()) << std::endl;);
         insert_entry(args.c_ptr(), to_app(e)->get_arg(1));
         e = to_app(e)->get_arg(2);
