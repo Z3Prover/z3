@@ -1208,9 +1208,9 @@ def mk_ml(ml_dir):
         ml_native.write(s);
     ml_pref.close()
 
-    ml_native.write('module ML2C = struct\n\n')
+    ml_native.write('\n')
     for name, result, params in _dotnet_decls:
-        ml_native.write('    external n_%s : ' % ml_method_name(name))
+        ml_native.write('external %s : ' % ml_method_name(name))
         ip = inparams(params)
         op = outparams(params)
         if len(ip) == 0:
@@ -1231,55 +1231,20 @@ def mk_ml(ml_dir):
             ml_native.write('%s' % param2ml(p))
         if len(op) > 0:
             ml_native.write(')')
-        ml_native.write('\n')
         if len(ip) > 5:
-            ml_native.write('      = "n_%s_bytecode"\n' % ml_method_name(name))
-            ml_native.write('        "n_%s"\n' % ml_method_name(name))
+            ml_native.write('  = "n_%s_bytecode" "n_%s"\n' % (ml_method_name(name), ml_method_name(name)))
         else:
-            ml_native.write('      = "n_%s"\n' % ml_method_name(name))
+            ml_native.write('  = "n_%s"\n' % ml_method_name(name))
         ml_native.write('\n')
-    ml_native.write('  end\n\n')
-
-    # Exception wrappers
-    for name, result, params in _dotnet_decls:
-        ip = inparams(params)
-        op = outparams(params)
-        ml_native.write('  let %s ' % ml_method_name(name))
-
-        first = True
-        i = 0
-        for p in params:
-            if is_in_param(p):
-                if first:
-                    first = False
-                else:
-                    ml_native.write(' ')
-                ml_native.write('a%d' % i)
-            i = i + 1
-        if len(ip) == 0:
-            ml_native.write('()')
-        ml_native.write(' = ')
-        ml_native.write('ML2C.n_%s' % (ml_method_name(name)))
-        if len(ip) == 0:
-            ml_native.write(' ()')
-        first = True
-        i = 0
-        for p in params:
-            if is_in_param(p):
-                ml_native.write(' a%d' % i)
-            i = i + 1
-        ml_native.write('\n')
-
-    ml_native.write('\n')
 
     # null pointer helpers
     for type_id in Type2Str:
         type_name = Type2Str[type_id]
         if ml_has_plus_type(type_name) and not type_name in ['Z3_context', 'Z3_sort', 'Z3_func_decl', 'Z3_app', 'Z3_pattern']:
             ml_name = type2ml(type_id)
-            ml_native.write('  external context_of_%s : %s -> context = "n_context_of_%s"\n' % (ml_name, ml_name, ml_name))
-            ml_native.write('  external is_null_%s : %s -> bool = "n_is_null_%s"\n' % (ml_name, ml_name, ml_name))
-            ml_native.write('  external mk_null_%s : context -> %s = "n_mk_null_%s"\n\n' % (ml_name, ml_name, ml_name))
+            ml_native.write('external context_of_%s : %s -> context = "n_context_of_%s"\n' % (ml_name, ml_name, ml_name))
+            ml_native.write('external is_null_%s : %s -> bool = "n_is_null_%s"\n' % (ml_name, ml_name, ml_name))
+            ml_native.write('external mk_null_%s : context -> %s = "n_mk_null_%s"\n\n' % (ml_name, ml_name, ml_name))
 
     ml_native.write('(**/**)\n')
     ml_native.close()
