@@ -159,6 +159,10 @@ void Z3_context_finalize(value v) {
 }
 
 int Z3_context_compare(value v1, value v2) {
+  /* As each context created within the OCaml bindings has a unique
+     Z3_context_plus_data allocated to store the handle and the ref counters,
+     we can just compare pointers here. This suffices to test for (in)equality
+     and induces an arbitrary (but fixed) ordering. */
   Z3_context_plus cp1 = *(Z3_context_plus*)Data_custom_val(v1);
   Z3_context_plus cp2 = *(Z3_context_plus*)Data_custom_val(v2);
   return compare_pointers(cp1, cp2);
@@ -172,6 +176,8 @@ int Z3_context_compare_ext(value v1, value v2) {
 /* We use the pointer to the Z3_context_plus_data structure as
    a hash value; it is unique, at least. */
 intnat Z3_context_hash(value v) {
+  /* We use the address of the context's Z3_context_plus_data structure
+     as a hash value */
   Z3_context_plus cp = *(Z3_context_plus*)Data_custom_val(v);
   return (intnat)cp;
 }
