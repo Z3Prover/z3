@@ -27,7 +27,7 @@ struct bv_trailing::imp {
     typedef obj_map<expr, std::pair<unsigned,unsigned> > map;
     mk_extract_proc&     m_mk_extract;
     bv_util&             m_util;
-    ast_manager&         m_m;
+    ast_manager&         m;
 
     // keep a cache for each depth, using the convention that m_count_cache[TRAILING_DEPTH] is top-level
     map*                 m_count_cache[TRAILING_DEPTH + 1];
@@ -35,7 +35,7 @@ struct bv_trailing::imp {
     imp(mk_extract_proc& mk_extract)
         : m_mk_extract(mk_extract)
         , m_util(mk_extract.bvutil())
-        , m_m(mk_extract.m()) {
+        , m(mk_extract.m()) {
             for (unsigned i = 0; i <= TRAILING_DEPTH; ++i)
                 m_count_cache[i] = NULL;
     }
@@ -44,36 +44,34 @@ struct bv_trailing::imp {
         reset_cache(0);
     }
 
-    ast_manager & m() const { return m_util.get_manager(); }
-
     br_status eq_remove_trailing(expr * e1, expr * e2, expr_ref& result) {
-        TRACE("bv-trailing", tout << mk_ismt2_pp(e1, m()) << "\n=\n" << mk_ismt2_pp(e2, m()) << "\n";);
+        TRACE("bv-trailing", tout << mk_ismt2_pp(e1, m) << "\n=\n" << mk_ismt2_pp(e2, m) << "\n";);
         SASSERT(m_util.is_bv(e1) && m_util.is_bv(e2));
         SASSERT(m_util.get_bv_size(e1) == m_util.get_bv_size(e2));
         unsigned max1, min1, max2, min2;
         count_trailing(e1, min1, max1, TRAILING_DEPTH);
         count_trailing(e2, min2, max2, TRAILING_DEPTH);
         if (min1 > max2 || min2 > max1) { // bounds have empty intersection
-            result = m().mk_false();
+            result = m.mk_false();
             return BR_DONE;
         }
         const unsigned min = std::min(min1, min2); // remove the minimum of the two lower bounds
         if (min == 0) { // nothing to remove
-            result = m().mk_eq(e1, e2);
+            result = m.mk_eq(e1, e2);
             return BR_FAILED;
         }
         const unsigned sz  = m_util.get_bv_size(e1);
         if (min == sz) { // everything removed, unlikely but we check anyhow for safety
-            result = m().mk_true();
+            result = m.mk_true();
             return BR_DONE;
         }
-        expr_ref out1(m());
-        expr_ref out2(m());
+        expr_ref out1(m);
+        expr_ref out2(m);
         const unsigned rm1 = remove_trailing(e1, min, out1, TRAILING_DEPTH);
         const unsigned rm2 = remove_trailing(e2, min, out2, TRAILING_DEPTH);
         SASSERT(rm1 == min && rm2 == min);
-        const bool are_eq = m().are_equal(out1, out2);
-        result = are_eq ? m().mk_true() : m().mk_eq(out1, out2);
+        const bool are_eq = m.are_equal(out1, out2);
+        result = are_eq ? m.mk_true() : m.mk_eq(out1, out2);
         return are_eq ? BR_DONE : BR_REWRITE2;
     }
 
@@ -84,7 +82,7 @@ struct bv_trailing::imp {
         SASSERT(e && m_util.is_bv(e));
         if (is_cached(depth, e, min, max)) return;
         count_trailing_core(e, min, max, depth);
-        TRACE("bv-trailing", tout << mk_ismt2_pp(e, m()) << "\n:" << min << " - " << max << "\n";);
+        TRACE("bv-trailing", tout << mk_ismt2_pp(e, m) << "\n:" << min << " - " << max << "\n";);
         SASSERT(min <= max);
         SASSERT(max <= m_util.get_bv_size(e));
         cache(depth, e, min, max);  // store result into the cache
@@ -92,8 +90,8 @@ struct bv_trailing::imp {
 
     unsigned remove_trailing(expr * e, unsigned n, expr_ref& result, unsigned depth) {
         const unsigned retv = remove_trailing_core(e, n, result, depth);
-        CTRACE("bv-trailing", result.get(),  tout << mk_ismt2_pp(e, m()) << "\n--->\n" <<  mk_ismt2_pp(result.get(), m())  << "\n";);
-        CTRACE("bv-trailing", !result.get(), tout << mk_ismt2_pp(e, m()) << "\n---> [EMPTY]\n";);
+        CTRACE("bv-trailing", result.get(),  tout << mk_ismt2_pp(e, m) << "\n--->\n" <<  mk_ismt2_pp(result.get(), m)  << "\n";);
+        CTRACE("bv-trailing", !result.get(), tout << mk_ismt2_pp(e, m) << "\n---> [EMPTY]\n";);
         return retv;
     }
 
@@ -120,15 +118,15 @@ struct bv_trailing::imp {
             return sz;
         }
 
-        expr_ref_vector new_args(m());
-        expr_ref tmp(m());
+        expr_ref_vector new_args(m);
+        expr_ref tmp(m);
         for (unsigned i = 0; i < num; ++i) {
             expr * const curr = a->get_arg(i);
             const unsigned crm = remove_trailing(curr, to_rm, tmp, depth - 1);
             new_args.push_back(tmp);
             SASSERT(crm == to_rm);
         }
-        result = m().mk_app(m_util.get_fid(), OP_BADD, new_args.size(), new_args.c_ptr());
+        result = m.mk_app(m_util.get_fid(), OP_BADD, new_args.size(), new_args.c_ptr());
         return to_rm;
     }
 
@@ -139,7 +137,7 @@ struct bv_trailing::imp {
             result = a;
             return 0;
         }
-        expr_ref tmp(m());
+        expr_ref tmp(m);
         expr * const coefficient = a->get_arg(0);
         const unsigned retv = remove_trailing(coefficient, n, tmp, depth - 1);
         SASSERT(retv <= n);
@@ -147,7 +145,7 @@ struct bv_trailing::imp {
             result = a;
             return 0;
         }
-        expr_ref_vector new_args(m());
+        expr_ref_vector new_args(m);
         numeral c_val;
         unsigned c_sz;
         if (!m_util.is_numeral(tmp, c_val, c_sz) || !c_val.is_one())
@@ -168,7 +166,7 @@ struct bv_trailing::imp {
         switch (new_args.size()) {
         case 0: result = m_util.mk_numeral(1, new_sz); break;
         case 1: result = new_args.get(0); break;
-        default: result = m().mk_app(m_util.get_fid(), OP_BMUL, new_args.size(), new_args.c_ptr());
+        default: result = m.mk_app(m_util.get_fid(), OP_BMUL, new_args.size(), new_args.c_ptr());
         }
         return retv;
     }
@@ -182,7 +180,7 @@ struct bv_trailing::imp {
         const unsigned num  = a->get_num_args();
         unsigned retv = 0;
         unsigned i = num;
-        expr_ref new_last(NULL, m());
+        expr_ref new_last(NULL, m);
         while (i && retv < n) {
             i--;
             expr * const curr = a->get_arg(i);
@@ -203,8 +201,8 @@ struct bv_trailing::imp {
             return retv;
         }
 
-        expr_ref_vector new_args(m());
-        for (size_t j=0; j<i;++j)
+        expr_ref_vector new_args(m);
+        for (unsigned j = 0; j < i; ++j)
             new_args.push_back(a->get_arg(j));
         if (new_last.get()) new_args.push_back(new_last);
         result = new_args.size() == 1 ? new_args.get(0)
@@ -342,9 +340,9 @@ struct bv_trailing::imp {
         if (depth == 0) return;
         if (m_count_cache[depth] == NULL)
             m_count_cache[depth] = alloc(map);
-        m().inc_ref(e);
+        m.inc_ref(e);
         m_count_cache[depth]->insert(e, std::make_pair(min, max));
-        TRACE("bv-trailing", tout << "caching@" << depth <<": " << mk_ismt2_pp(e, m()) << '[' << m_util.get_bv_size(e) << "]\n: " << min << '-' << max << "\n";);
+        TRACE("bv-trailing", tout << "caching@" << depth <<": " << mk_ismt2_pp(e, m) << '[' << m_util.get_bv_size(e) << "]\n: " << min << '-' << max << "\n";);
     }
 
     bool is_cached(unsigned depth, expr * e, unsigned& min, unsigned& max) {
@@ -360,7 +358,7 @@ struct bv_trailing::imp {
         if (oe == NULL) return false;
         min = oe->get_data().m_value.first;
         max = oe->get_data().m_value.second;
-        TRACE("bv-trailing", tout << "cached@" << depth << ": " << mk_ismt2_pp(e, m()) << '[' << m_util.get_bv_size(e) << "]\n: " << min << '-' << max << "\n";);
+        TRACE("bv-trailing", tout << "cached@" << depth << ": " << mk_ismt2_pp(e, m) << '[' << m_util.get_bv_size(e) << "]\n: " << min << '-' << max << "\n";);
         return true;
     }
 
@@ -371,7 +369,7 @@ struct bv_trailing::imp {
             if (m_count_cache[i]->size() < condition) continue;
             map::iterator it = m_count_cache[i]->begin();
             map::iterator end = m_count_cache[i]->end();
-            for (; it != end; ++it) m().dec_ref(it->m_key);
+            for (; it != end; ++it) m.dec_ref(it->m_key);
             dealloc(m_count_cache[i]);
             m_count_cache[i] = NULL;
         }
@@ -384,7 +382,7 @@ bv_trailing::bv_trailing(mk_extract_proc& mk_extract) {
 }
 
 bv_trailing::~bv_trailing() {
-    if (m_imp) dealloc(m_imp);
+    dealloc(m_imp);
 }
 
 br_status bv_trailing::eq_remove_trailing(expr * e1, expr * e2,  expr_ref& result) {
