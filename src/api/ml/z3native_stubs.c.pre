@@ -24,32 +24,32 @@ extern "C" {
 #include <z3.h>
 #include <z3native_stubs.h>
 
-#define CAMLlocal6(X1,X2,X3,X4,X5,X6)                               \
-  CAMLlocal5(X1,X2,X3,X4,X5);                                       \
+#define CAMLlocal6(X1,X2,X3,X4,X5,X6)                                   \
+  CAMLlocal5(X1,X2,X3,X4,X5);                                       	\
   CAMLlocal1(X6)
-#define CAMLlocal7(X1,X2,X3,X4,X5,X6,X7)                            \
-  CAMLlocal5(X1,X2,X3,X4,X5);                                       \
+#define CAMLlocal7(X1,X2,X3,X4,X5,X6,X7)				\
+  CAMLlocal5(X1,X2,X3,X4,X5);                                       	\
   CAMLlocal2(X6,X7)
-#define CAMLlocal8(X1,X2,X3,X4,X5,X6,X7,X8)                         \
-  CAMLlocal5(X1,X2,X3,X4,X5);                                       \
+#define CAMLlocal8(X1,X2,X3,X4,X5,X6,X7,X8)				\
+  CAMLlocal5(X1,X2,X3,X4,X5);                                       	\
   CAMLlocal3(X6,X7,X8)
 
-#define CAMLparam7(X1,X2,X3,X4,X5,X6,X7)                            \
-  CAMLparam5(X1,X2,X3,X4,X5);                                       \
+#define CAMLparam7(X1,X2,X3,X4,X5,X6,X7)				\
+  CAMLparam5(X1,X2,X3,X4,X5);                                       	\
   CAMLxparam2(X6,X7)
-#define CAMLparam8(X1,X2,X3,X4,X5,X6,X7,X8)                         \
-  CAMLparam5(X1,X2,X3,X4,X5);                                       \
+#define CAMLparam8(X1,X2,X3,X4,X5,X6,X7,X8)				\
+  CAMLparam5(X1,X2,X3,X4,X5);                                       	\
   CAMLxparam3(X6,X7,X8)
-#define CAMLparam9(X1,X2,X3,X4,X5,X6,X7,X8,X9)                      \
-  CAMLparam5(X1,X2,X3,X4,X5);                                       \
+#define CAMLparam9(X1,X2,X3,X4,X5,X6,X7,X8,X9)				\
+  CAMLparam5(X1,X2,X3,X4,X5);                                       	\
   CAMLxparam4(X6,X7,X8,X9)
-#define CAMLparam12(X1,X2,X3,X4,X5,X6,X7,X8,X9,X10,X11,X12)     \
-  CAMLparam5(X1,X2,X3,X4,X5);                                   \
-  CAMLxparam5(X6,X7,X8,X9,X10);                                 \
+#define CAMLparam12(X1,X2,X3,X4,X5,X6,X7,X8,X9,X10,X11,X12)		\
+  CAMLparam5(X1,X2,X3,X4,X5);                                   	\
+  CAMLxparam5(X6,X7,X8,X9,X10);                                 	\
   CAMLxparam2(X11,X12)
-#define CAMLparam13(X1,X2,X3,X4,X5,X6,X7,X8,X9,X10,X11,X12,X13) \
-  CAMLparam5(X1,X2,X3,X4,X5);                                   \
-  CAMLxparam5(X6,X7,X8,X9,X10);                                 \
+#define CAMLparam13(X1,X2,X3,X4,X5,X6,X7,X8,X9,X10,X11,X12,X13)		\
+  CAMLparam5(X1,X2,X3,X4,X5);                                   	\
+  CAMLxparam5(X6,X7,X8,X9,X10);                                 	\
   CAMLxparam3(X11,X12,X13)
 
 
@@ -76,31 +76,31 @@ inline int compare_pointers(void* pt1, void* pt2) {
   CAMLprim DLL_PUBLIC value n_context_of_ ## X(value v) {               \
     CAMLparam1(v);                                                      \
     CAMLlocal1(result);                                                 \
-    Z3_context_plus cp;							\
+    Z3_context_plus cp;                                                 \
     Z3_ ## X ## _plus * p = (Z3_ ## X ## _plus *) Data_custom_val(v);   \
-    cp = p->cp;								\
+    cp = p->cp;                                                         \
     result = caml_alloc_custom(&Z3_context_plus_custom_ops, sizeof(Z3_context_plus), 0, 1); \
-    *(Z3_context_plus *)Data_custom_val(result) = cp; 	                \
+    *(Z3_context_plus *)Data_custom_val(result) = cp;                   \
     /* We increment the usage counter of the context, as we just        \
        created a second custom block holding that context        */     \
-    cp->obj_count++;							\
+    cp->obj_count++;                                                    \
     CAMLreturn(result);                                                 \
-  } 									\
-  									\
-  CAMLprim value DLL_PUBLIC n_is_null_ ## X (value v) {			\
-    CAMLparam1(v);	    	     		       	  		\
-    Z3_ ## X ## _plus* pp = (Z3_ ## X ## _plus*)Data_custom_val(v);	\
-    CAMLreturn(Val_bool(pp->p == NULL)); 				\
-  } 			      	 					\
-									\
-  CAMLprim value DLL_PUBLIC n_mk_null_ ## X (value v) {			\
-    CAMLparam1(v);	    	     		       	  		\
-    CAMLlocal1(result);							\
-    Z3_context_plus cp = *(Z3_context_plus*)(Data_custom_val(v));	\
-    Z3_ ## X ## _plus a = Z3_ ## X ## _plus_mk(cp, NULL);		\
+  }                                                                     \
+                                                                        \
+  CAMLprim value DLL_PUBLIC n_is_null_ ## X (value v) {                 \
+    CAMLparam1(v);                                                      \
+    Z3_ ## X ## _plus* pp = (Z3_ ## X ## _plus*)Data_custom_val(v);     \
+    CAMLreturn(Val_bool(pp->p == NULL));                                \
+  }                                                                     \
+                                                                        \
+  CAMLprim value DLL_PUBLIC n_mk_null_ ## X (value v) {                 \
+    CAMLparam1(v);                                                      \
+    CAMLlocal1(result);                                                 \
+    Z3_context_plus cp = *(Z3_context_plus*)(Data_custom_val(v));       \
+    Z3_ ## X ## _plus a = Z3_ ## X ## _plus_mk(cp, NULL);               \
     result = caml_alloc_custom(&Z3_ ## X ## _plus_custom_ops, sizeof(Z3_ ## X ## _plus), 0, 1); \
-    *(Z3_ ## X ## _plus*)(Data_custom_val(result)) = a;	      		\
-    CAMLreturn(result);							\
+    *(Z3_ ## X ## _plus*)(Data_custom_val(result)) = a;                 \
+    CAMLreturn(result);                                                 \
   }
 
 
@@ -314,34 +314,34 @@ MK_CTX_OF(ast)
     pp->cp->obj_count--;                                                \
     try_to_delete_context(pp->cp);                                      \
   }                                                                     \
-  									\
+                                                                        \
   int Z3_ ## X ## _compare(value v1, value v2) {                        \
     Z3_ ## X ## _plus * pp1 = (Z3_ ## X ## _plus*)Data_custom_val(v1);  \
     Z3_ ## X ## _plus * pp2 = (Z3_ ## X ## _plus*)Data_custom_val(v2);  \
-    if (pp1->cp != pp2->cp)						\
-      return compare_pointers(pp1->cp, pp2->cp);			\
-    else     			       					\
-      return compare_pointers(pp1->p, pp2->p);				\
+    if (pp1->cp != pp2->cp)                                             \
+      return compare_pointers(pp1->cp, pp2->cp);                        \
+    else                                                                \
+      return compare_pointers(pp1->p, pp2->p);                          \
   }                                                                     \
-  									\
-  intnat Z3_ ## X ## _hash(value v) {					\
+                                                                        \
+  intnat Z3_ ## X ## _hash(value v) {                                   \
     Z3_ ## X ## _plus * pp = (Z3_ ## X ## _plus*)Data_custom_val(v);    \
-    return (intnat)pp->p;						\
+    return (intnat)pp->p;                                               \
   }                                                                     \
-  									\
+                                                                        \
   int Z3_ ## X ## _compare_ext(value v1, value v2) {                    \
-    Z3_ ## X ## _plus * pp = (Z3_ ## X ## _plus*)Data_custom_val(v1);  	\
-    return compare_pointers(pp->p, (void*)Val_int(v2));			\
+    Z3_ ## X ## _plus * pp = (Z3_ ## X ## _plus*)Data_custom_val(v1);   \
+    return compare_pointers(pp->p, (void*)Val_int(v2));                 \
   }                                                                     \
-  									\
+                                                                        \
   static struct custom_operations Z3_ ## X ## _plus_custom_ops = {      \
     (char*) "Z3_" #X " ops",                                            \
     Z3_ ## X ## _finalize,                                              \
-    Z3_ ## X ## _compare,                                              	\
-    Z3_ ## X ## _hash,                                                 	\
+    Z3_ ## X ## _compare,                                               \
+    Z3_ ## X ## _hash,                                                  \
     custom_serialize_default,                                           \
     custom_deserialize_default,                                         \
-    Z3_ ## X ## _compare_ext						\
+    Z3_ ## X ## _compare_ext                                            \
   };                                                                    \
                                                                         \
   MK_CTX_OF(X)
@@ -357,7 +357,7 @@ MK_CTX_OF(ast)
       r.cp = cp;                                                        \
       r.p = p;                                                          \
       r.cp->obj_count++;                                                \
-      if (p != NULL)							\
+      if (p != NULL)                                                    \
         Z3_ ## X ## _inc_ref(cp->ctx, p);                               \
       return r;                                                         \
   }                                                                     \
@@ -368,7 +368,7 @@ MK_CTX_OF(ast)
                                                                         \
   void Z3_ ## X ## _finalize(value v) {                                 \
     Z3_ ## X ## _plus * pp = (Z3_ ## X ## _plus*)Data_custom_val(v);    \
-    if (pp->p != NULL)							\
+    if (pp->p != NULL)                                                  \
       Z3_ ## X ## _dec_ref(pp->cp->ctx, pp->p);                         \
     pp->cp->obj_count--;                                                \
     try_to_delete_context(pp->cp);                                      \
@@ -377,30 +377,30 @@ MK_CTX_OF(ast)
   int Z3_ ## X ## _compare(value v1, value v2) {                        \
     Z3_ ## X ## _plus * pp1 = (Z3_ ## X ## _plus*)Data_custom_val(v1);  \
     Z3_ ## X ## _plus * pp2 = (Z3_ ## X ## _plus*)Data_custom_val(v2);  \
-    if (pp1->cp != pp2->cp)						\
-      return compare_pointers(pp1->cp, pp2->cp);			\
-    else     			       					\
-      return compare_pointers(pp1->p, pp2->p);				\
+    if (pp1->cp != pp2->cp)                                             \
+      return compare_pointers(pp1->cp, pp2->cp);                        \
+    else                                                                \
+      return compare_pointers(pp1->p, pp2->p);                          \
   }                                                                     \
-  									\
-  intnat Z3_ ## X ## _hash(value v) {					\
+                                                                        \
+  intnat Z3_ ## X ## _hash(value v) {                                   \
     Z3_ ## X ## _plus * pp = (Z3_ ## X ## _plus*)Data_custom_val(v);    \
-    return (intnat)pp->p;						\
+    return (intnat)pp->p;                                               \
   }                                                                     \
-  									\
+                                                                        \
   int Z3_ ## X ## _compare_ext(value v1, value v2) {                    \
-    Z3_ ## X ## _plus * pp = (Z3_ ## X ## _plus*)Data_custom_val(v1);  	\
-    return compare_pointers(pp->p, (void*)Val_int(v2));		       	\
+    Z3_ ## X ## _plus * pp = (Z3_ ## X ## _plus*)Data_custom_val(v1);   \
+    return compare_pointers(pp->p, (void*)Val_int(v2));                 \
   }                                                                     \
-  									\
+                                                                        \
   static struct custom_operations Z3_ ## X ## _plus_custom_ops = {      \
     (char*) "Z3_" #X " ops",                                            \
     Z3_ ## X ## _finalize,                                              \
-    Z3_ ## X ## _compare,                                              	\
-    Z3_ ## X ## _hash,                                                 	\
+    Z3_ ## X ## _compare,                                               \
+    Z3_ ## X ## _hash,                                                  \
     custom_serialize_default,                                           \
     custom_deserialize_default,                                         \
-    Z3_ ## X ## _compare_ext						\
+    Z3_ ## X ## _compare_ext                                            \
   };                                                                    \
                                                                         \
   MK_CTX_OF(X)
@@ -424,7 +424,6 @@ MK_PLUS_OBJ(ast_map)
 MK_PLUS_OBJ(ast_vector)
 MK_PLUS_OBJ(fixedpoint)
 MK_PLUS_OBJ(optimize)
-
 
 #ifdef __cplusplus
 extern "C" {
