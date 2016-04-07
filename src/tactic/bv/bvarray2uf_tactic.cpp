@@ -62,7 +62,6 @@ class bvarray2uf_tactic : public tactic {
             SASSERT(g->is_well_sorted());
             tactic_report report("bvarray2uf", *g);
             mc = 0; pc = 0; core = 0; result.reset();
-            fail_if_proof_generation("bvarray2uf", g);
             fail_if_unsat_core_generation("bvarray2uf", g);
 
             TRACE("bvarray2uf", tout << "Before: " << std::endl; g->display(tout); );
@@ -73,7 +72,6 @@ class bvarray2uf_tactic : public tactic {
                 filter_model_converter * fmc = alloc(filter_model_converter, m_manager);
                 mc = concat(emc, fmc);
                 m_rw.set_mcs(emc, fmc);
-
             }
 
 
@@ -86,10 +84,10 @@ class bvarray2uf_tactic : public tactic {
                     break;
                 expr * curr = g->form(idx);
                 m_rw(curr, new_curr, new_pr);
-                //if (m_produce_proofs) {
-                //    proof * pr = g->pr(idx);
-                //    new_pr = m.mk_modus_ponens(pr, new_pr);
-                //}
+                if (m_produce_proofs) {
+                    proof * pr = g->pr(idx);
+                    new_pr = m_manager.mk_modus_ponens(pr, new_pr);
+                }
                 g->update(idx, new_curr, new_pr, g->dep(idx));
             }
 
@@ -143,7 +141,7 @@ public:
     virtual void cleanup() {
         ast_manager & m = m_imp->m();
         imp * d = alloc(imp, m, m_params);
-        std::swap(d, m_imp);        
+        std::swap(d, m_imp);
         dealloc(d);
     }
 
