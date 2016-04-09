@@ -104,9 +104,55 @@ void func_interp::reset_interp_cache() {
     m_manager.dec_ref(m_interp);
     m_interp = 0;
 }
-    
+
+bool func_interp::is_fi_entry_expr(expr * e, ptr_vector<expr> & args) {
+    args.reset();
+    if (!is_app(e) || !m().is_ite(to_app(e)))
+        return false;
+
+    app * a = to_app(e);
+    expr * c = a->get_arg(0);
+    expr * t = a->get_arg(1);
+    expr * f = a->get_arg(2);
+
+    if ((m_arity == 0) ||
+        (m_arity == 1 && (!m().is_eq(c) || to_app(c)->get_num_args() != 2)) ||
+        (m_arity > 1 && (!m().is_and(c) || to_app(c)->get_num_args() != m_arity)))
+        return false;
+
+    args.resize(m_arity, 0);
+    for (unsigned i = 0; i < m_arity; i++) {
+        expr * ci = (m_arity == 1 && i == 0) ? to_app(c) : to_app(c)->get_arg(i);
+
+        if (!m().is_eq(ci) || to_app(ci)->get_num_args() != 2)
+            return false;
+
+        expr * a0 = to_app(ci)->get_arg(0);
+        expr * a1 = to_app(ci)->get_arg(1);
+        if (is_var(a0) && to_var(a0)->get_idx() == i)
+            args[i] = a1;
+        else if (is_var(a1) && to_var(a1)->get_idx() == i)
+            args[i] = a0;
+        else
+            return false;
+    }
+
+    return true;
+}
+
 void func_interp::set_else(expr * e) {
+    if (e == m_else)
+        return;
+
     reset_interp_cache();
+
+    ptr_vector<expr> args;
+    while (e && is_fi_entry_expr(e, args)) {
+        TRACE("func_interp", tout << "fi entry expr: " << mk_ismt2_pp(e, m()) << std::endl;);
+        insert_entry(args.c_ptr(), to_app(e)->get_arg(1));
+        e = to_app(e)->get_arg(2);
+    }
+
     m_manager.inc_ref(e);
     m_manager.dec_ref(m_else);
     m_else = e;
@@ -148,7 +194,7 @@ func_entry * func_interp::get_entry(expr * const * args) const {
 
 void func_interp::insert_entry(expr * const * args, expr * r) {
     reset_interp_cache();
-    func_entry * entry = get_entry(args); 
+    func_entry * entry = get_entry(args);
     if (entry != 0) {
         entry->set_result(m_manager, r);
         return;
@@ -201,7 +247,7 @@ expr * func_interp::get_max_occ_result() const {
     for (; it != end; ++it) {
         func_entry * curr = *it;
         expr * r = curr->get_result();
-        unsigned occs = 0; 
+        unsigned occs = 0;
         num_occs.find(r, occs);
         occs++;
         num_occs.insert(r, occs);
@@ -283,13 +329,13 @@ expr * func_interp::get_interp() const {
     return r;
 }
 
-func_interp * func_interp::translate(ast_translation & translator) const {    
+func_interp * func_interp::translate(ast_translation & translator) const {
     func_interp * new_fi = alloc(func_interp, translator.to(), m_arity);
 
     ptr_vector<func_entry>::const_iterator it  = m_entries.begin();
     ptr_vector<func_entry>::const_iterator end = m_entries.end();
     for (; it != end; ++it) {
-        func_entry * curr = *it;        
+        func_entry * curr = *it;
         ptr_buffer<expr> new_args;
         for (unsigned i=0; i<m_arity; i++)
             new_args.push_back(translator(curr->get_arg(i)));

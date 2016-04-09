@@ -22,18 +22,8 @@ Notes:
 #include"poly_rewriter.h"
 #include"bv_decl_plugin.h"
 #include"arith_decl_plugin.h"
-
-class mk_extract_proc {
-    bv_util &     m_util;
-    unsigned      m_high;
-    unsigned      m_low;
-    sort *        m_domain;
-    func_decl *   m_f_cached;
-public:
-    mk_extract_proc(bv_util & u);
-    ~mk_extract_proc();
-    app * operator()(unsigned high, unsigned low, expr * arg);
-};
+#include"mk_extract_proc.h"
+#include"bv_trailing.h"
 
 class bv_rewriter_core {
 protected:
@@ -58,6 +48,7 @@ public:
 
 class bv_rewriter : public poly_rewriter<bv_rewriter_core> {
     mk_extract_proc m_mk_extract;
+    bv_trailing     m_rm_trailing;
     arith_util m_autil;
     bool       m_hi_div0;
     bool       m_elim_sign_ext;
@@ -69,6 +60,7 @@ class bv_rewriter : public poly_rewriter<bv_rewriter_core> {
     bool       m_udiv2mul;
     bool       m_bvnot2arith;
     bool       m_bv_sort_ac;
+    bool       m_trailing;
 
     bool is_zero_bit(expr * x, unsigned idx);
 
@@ -148,6 +140,7 @@ public:
     bv_rewriter(ast_manager & m, params_ref const & p = params_ref()):
         poly_rewriter<bv_rewriter_core>(m, p),
         m_mk_extract(m_util),
+        m_rm_trailing(m_mk_extract),
         m_autil(m) {
         updt_local_params(p);
     }

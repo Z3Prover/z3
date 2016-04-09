@@ -33,19 +33,12 @@ class ackr_helper {
          which are not marked as uninterpreted but effectively are.
         */
         inline bool should_ackermannize(app const * a) const {
-            if (a->get_family_id() == m_bvutil.get_family_id()) {
-                switch (a->get_decl_kind()) {
-                    case OP_BSDIV0:
-                    case OP_BUDIV0:
-                    case OP_BSREM0:
-                    case OP_BUREM0:
-                    case OP_BSMOD0:
-                        return true;
-                    default:
-                        return is_uninterp(a);
-                }
+            if (is_uninterp(a))
+                return true;
+            else {
+                decl_plugin * p = m_bvutil.get_manager().get_plugin(a->get_family_id());
+                return p->is_considered_uninterpreted(a->get_decl());
             }
-            return (is_uninterp(a));
         }
 
         inline bv_util& bvutil() { return m_bvutil; }

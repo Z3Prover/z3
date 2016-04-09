@@ -25,6 +25,7 @@ Notes:
 #include"ast_pp.h"
 #include"bvarray2uf_rewriter.h"
 #include"rewriter_def.h"
+#include"ref_util.h"
 
 // [1] C. M. Wintersteiger, Y. Hamadi, and L. de Moura: Efficiently Solving
 //     Quantified Bit-Vector Formulas, in Formal Methods in System Design,
@@ -50,10 +51,7 @@ bvarray2uf_rewriter_cfg::bvarray2uf_rewriter_cfg(ast_manager & m, params_ref con
 }
 
 bvarray2uf_rewriter_cfg::~bvarray2uf_rewriter_cfg() {
-    for (obj_map<expr, func_decl*>::iterator it = m_arrays_fs.begin();
-    it != m_arrays_fs.end();
-        it++)
-        m_manager.dec_ref(it->m_value);
+    dec_ref_map_key_values(m_manager, m_arrays_fs);
 }
 
 void bvarray2uf_rewriter_cfg::reset() {}
@@ -110,12 +108,12 @@ func_decl_ref bvarray2uf_rewriter_cfg::mk_uf_for_array(expr * e) {
     if (m_array_util.is_as_array(e))
         return func_decl_ref(static_cast<func_decl*>(to_app(e)->get_decl()->get_parameter(0).get_ast()), m_manager);
     else {
-        app * a = to_app(e);
         func_decl * bv_f = 0;
         if (!m_arrays_fs.find(e, bv_f)) {
-            sort * domain = get_index_sort(a);
-            sort * range = get_value_sort(a);
+            sort * domain = get_index_sort(e);
+            sort * range = get_value_sort(e);
             bv_f = m_manager.mk_fresh_func_decl("f_t", "", 1, &domain, range);
+            TRACE("bvarray2uf_rw", tout << "for " << mk_ismt2_pp(e, m_manager) << " new func_decl is " << mk_ismt2_pp(bv_f, m_manager) << std::endl; );
             if (is_uninterp_const(e)) {
                 if (m_emc)
                     m_emc->insert(to_app(e)->get_decl(),
@@ -124,7 +122,11 @@ func_decl_ref bvarray2uf_rewriter_cfg::mk_uf_for_array(expr * e) {
             else if (m_fmc)
                 m_fmc->insert(bv_f);
             m_arrays_fs.insert(e, bv_f);
+            m_manager.inc_ref(e);
             m_manager.inc_ref(bv_f);
+        }
+        else {
+            TRACE("bvarray2uf_rw", tout << "for " << mk_ismt2_pp(e, m_manager) << " found " << mk_ismt2_pp(bv_f, m_manager) << std::endl; );
         }
 
         return func_decl_ref(bv_f, m_manager);
@@ -138,18 +140,24 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
         SASSERT(num == 2);
         // From [1]: Finally, we replace equations of the form t = s,
         // where t and s are arrays, with \forall x . f_t(x) = f_s(x).
-        func_decl_ref f_t(mk_uf_for_array(args[0]), m_manager);
-        func_decl_ref f_s(mk_uf_for_array(args[1]), m_manager);
+        if (m_manager.are_equal(args[0], args[1])) {
+            result = m_manager.mk_true();
+            res = BR_DONE;
+        }
+        else {
+            func_decl_ref f_t(mk_uf_for_array(args[0]), m_manager);
+            func_decl_ref f_s(mk_uf_for_array(args[1]), m_manager);
 
-        sort * sorts[1] = { get_index_sort(m_manager.get_sort(args[0])) };
-        symbol names[1] = { symbol("x") };
-        var_ref x(m_manager.mk_var(0, sorts[0]), m_manager);
+            sort * sorts[1] = { get_index_sort(m_manager.get_sort(args[0])) };
+            symbol names[1] = { symbol("x") };
+            var_ref x(m_manager.mk_var(0, sorts[0]), m_manager);
 
-        expr_ref body(m_manager);
-        body = m_manager.mk_eq(m_manager.mk_app(f_t, x.get()), m_manager.mk_app(f_s, x.get()));
+            expr_ref body(m_manager);
+            body = m_manager.mk_eq(m_manager.mk_app(f_t, x.get()), m_manager.mk_app(f_s, x.get()));
 
-        result = m_manager.mk_forall(1, sorts, names, body);
-        res = BR_DONE;
+            result = m_manager.mk_forall(1, sorts, names, body);
+            res = BR_DONE;
+        }
     }
     else if (m_manager.is_distinct(f) && is_bv_array(f->get_domain()[0])) {
         result = m_manager.mk_distinct_expanded(num, args);
@@ -310,7 +318,7 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
         }
     }
 
-    CTRACE("bvarray2uf_rw", res==BR_DONE, tout << "result: " << mk_ismt2_pp(result, m()) << std::endl; );
+    CTRACE("bvarray2uf_rw", res == BR_DONE, tout << "result: " << mk_ismt2_pp(result, m()) << std::endl; );
     return res;
 }
 

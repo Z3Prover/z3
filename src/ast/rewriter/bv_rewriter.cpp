@@ -22,45 +22,13 @@ Notes:
 #include"ast_smt2_pp.h"
 
 
-mk_extract_proc::mk_extract_proc(bv_util & u):
-    m_util(u),
-    m_high(0),
-    m_low(UINT_MAX),
-    m_domain(0),
-    m_f_cached(0) {
-}
-
-mk_extract_proc::~mk_extract_proc() {
-    if (m_f_cached) {
-        // m_f_cached has a reference to m_domain, so, I don't need to inc_ref m_domain
-        ast_manager & m = m_util.get_manager();
-        m.dec_ref(m_f_cached);
-    }
-}
-
-app * mk_extract_proc::operator()(unsigned high, unsigned low, expr * arg) {
-    ast_manager & m = m_util.get_manager();
-    sort * s = m.get_sort(arg);
-    if (m_low == low && m_high == high && m_domain == s)
-        return m.mk_app(m_f_cached, arg);
-    // m_f_cached has a reference to m_domain, so, I don't need to inc_ref m_domain
-    if (m_f_cached)
-        m.dec_ref(m_f_cached);
-    app * r    = to_app(m_util.mk_extract(high, low, arg));
-    m_high     = high;
-    m_low      = low;
-    m_domain   = s;
-    m_f_cached = r->get_decl();
-    m.inc_ref(m_f_cached);
-    return r;
-}
-
 void bv_rewriter::updt_local_params(params_ref const & _p) {
     bv_rewriter_params p(_p);
     m_hi_div0 = p.hi_div0();
     m_elim_sign_ext = p.elim_sign_ext();
     m_mul2concat = p.mul2concat();
     m_bit2bool = p.bit2bool();
+    m_trailing = p.bv_trailing();
     m_blast_eq_value = p.blast_eq_value();
     m_split_concat_eq = p.split_concat_eq();
     m_udiv2mul = p.udiv2mul();
@@ -2124,6 +2092,15 @@ br_status bv_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
             return st;
     }
 
+    if (m_trailing) {
+        st = m_rm_trailing.eq_remove_trailing(lhs, rhs, result);
+        m_rm_trailing.reset_cache(1 << 12);
+        if (st != BR_FAILED) {
+            TRACE("eq_remove_trailing", tout << mk_ismt2_pp(lhs, m()) << "\n=\n" << mk_ismt2_pp(rhs, m()) << "\n----->\n" << mk_ismt2_pp(result, m()) << "\n";);
+            return st;
+        }
+    }
+
     st = mk_mul_eq(lhs, rhs, result);
     if (st != BR_FAILED) {
         TRACE("mk_mul_eq", tout << mk_ismt2_pp(lhs, m()) << "\n=\n" << mk_ismt2_pp(rhs, m()) << "\n----->\n" << mk_ismt2_pp(result,m()) << "\n";);
@@ -2186,6 +2163,7 @@ br_status bv_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
 
     return BR_FAILED;
 }
+
 
 br_status bv_rewriter::mk_mkbv(unsigned num, expr * const * args, expr_ref & result) {
     if (m_mkbv2num) {
