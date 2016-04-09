@@ -31,6 +31,8 @@ Notes:
 #include "expr_abstract.h"
 #include "qe.h"
 #include "label_rewriter.h"
+#include "expr_replacer.h"
+#include "th_rewriter.h"
 
 
 namespace qe {
@@ -674,22 +676,120 @@ namespace qe {
                 is_forall = true;
                 hoist.pull_quantifier(is_forall, fml, vars);
                 m_vars.push_back(vars);
+                filter_vars(vars);
             }
             else {
                 hoist.pull_quantifier(is_forall, fml, vars);
                 m_vars.back().append(vars);
+                filter_vars(vars);
             }
             do {
                 is_forall = !is_forall;
                 vars.reset();
                 hoist.pull_quantifier(is_forall, fml, vars);
                 m_vars.push_back(vars);
+                filter_vars(vars);
             }
             while (!vars.empty());
             SASSERT(m_vars.back().empty()); 
             initialize_levels();
             TRACE("qe", tout << fml << "\n";);
         }
+
+        void filter_vars(app_ref_vector const& vars) {
+            for (unsigned i = 0; i < vars.size(); ++i) {
+                m_pred_abs.fmc()->insert(vars[i]->get_decl());
+            }
+        }
+
+#if 0
+        void hoist_ite(expr_ref& fml) {
+            app* ite;
+            scoped_ptr<expr_replacer> replace = mk_default_expr_replacer(m);
+            th_rewriter rewriter(m);
+            while (find_ite(fml, ite)) {
+                expr* cond, *th, *el;
+                VERIFY(m.is_ite(ite, cond, th, el));
+                expr_ref tmp1(fml, m), tmp2(fml, m);
+                replace->apply_substitution(cond, m.mk_true(), tmp1);
+                replace->apply_substitution(cond, m.mk_false(), tmp2);
+                fml = m.mk_ite(cond, tmp1, tmp2);
+                rewriter(fml);
+            }
+        }
+
+        bool find_ite(expr* e, app*& ite) {
+            ptr_vector<expr> todo;
+            todo.push_back(e);
+            ast_mark visited;
+            while(!todo.empty()) {
+                e = todo.back();
+                todo.pop_back();
+                if (visited.is_marked(e)) {
+                    continue;
+                }        
+                visited.mark(e, true);
+                if (m.is_ite(e) && !m.is_bool(e)) {
+                    ite = to_app(e);
+                    return true;
+                }
+                if (is_app(e)) {
+                    app* a = to_app(e);
+                    todo.append(a->get_num_args(), a->get_args());
+                }
+            }
+            return false;
+        }
+
+        // slower
+        void hoist_ite2(expr_ref& fml) {
+            obj_map<expr,expr*> result;
+            expr_ref_vector trail(m);
+            ptr_vector<expr> todo, args;
+            todo.push_back(fml);
+            
+            while (!todo.empty()) {
+                expr* e = todo.back();
+                if (result.contains(e)) {
+                    todo.pop_back();
+                    continue;
+                }
+                if (!is_app(e)) {
+                    todo.pop_back();
+                    result.insert(e, e);
+                    continue;
+                }
+                app* a = to_app(e);
+                expr* r;
+                unsigned sz = a->get_num_args();
+                args.reset();
+                for (unsigned i = 0; i < sz; ++i) {
+                    if (result.find(a->get_arg(i), r)) {
+                        args.push_back(r);
+                    }
+                    else {
+                        todo.push_back(a->get_arg(i));
+                    }
+                }
+                if (sz == args.size()) {
+                    r = m.mk_app(a->get_decl(), args.size(), args.c_ptr());
+                    trail.push_back(r);
+                    if (m.is_bool(e) && m.get_basic_family_id() != a->get_family_id()) {
+                        expr_ref fml(r, m);
+                        hoist_ite(fml);
+                        trail.push_back(fml);
+                        r = fml;
+                    }
+                    result.insert(e, r);
+                    todo.pop_back();
+                }                               
+            }
+            fml = result.find(fml);
+        }
+#endif
+
+
+        
 
         void initialize_levels() {
             // initialize levels.
@@ -941,7 +1041,7 @@ namespace qe {
             expr_ref_vector fmls(m);
             fmls.append(core.size(), core.c_ptr());
             fmls.append(k.size(), k.get_formulas());
-            return check_fmls(fmls);
+            return check_fmls(fmls) || m.canceled();
         }
 
         bool check_fmls(expr_ref_vector const& fmls) {
@@ -953,7 +1053,7 @@ namespace qe {
             lbool is_sat = solver.check();
             CTRACE("qe", is_sat != l_false, 
                    tout << fmls << "\nare not unsat\n";);
-            return (is_sat == l_false);
+            return (is_sat == l_false) || m.canceled();
         }
 
         bool validate_model(expr_ref_vector const& asms) {
@@ -967,7 +1067,7 @@ namespace qe {
         bool validate_model(model& mdl, unsigned sz, expr* const* fmls) {
             expr_ref val(m);
             for (unsigned i = 0; i < sz; ++i) {
-                if (!m_model->eval(fmls[i], val)) {
+                if (!m_model->eval(fmls[i], val) && !m.canceled()) {
                     TRACE("qe", tout << "Formula does not evaluate in model: " << mk_pp(fmls[i], m) << "\n";);
                     return false;
                 } 
@@ -1001,6 +1101,9 @@ namespace qe {
                 TRACE("qe", tout << "Projection is false in model\n";);
                 return false;
             }
+            if (m.canceled()) {
+                return true;
+            }
             for (unsigned i = 0; i < m_avars.size(); ++i) {
                 contains_app cont(m, m_avars[i].get());
                 if (cont(proj)) {
@@ -1028,6 +1131,7 @@ namespace qe {
             }
             return true;
         }
+
 
     public:
         
@@ -1070,6 +1174,8 @@ namespace qe {
             expr_ref fml(m);
             mc = 0; pc = 0; core = 0;
             in->get_formulas(fmls);
+
+
             fml = mk_and(m, fmls.size(), fmls.c_ptr());
             
             // for now:
@@ -1091,6 +1197,7 @@ namespace qe {
                 fml = push_not(fml);
             }
             hoist(fml);
+//            hoist_ite(fml); redundant provided theories understand to deal with ite terms.
             m_pred_abs.abstract_atoms(fml, defs);
             fml = m_pred_abs.mk_abstract(fml);
             m_ex.assert_expr(mk_and(defs));

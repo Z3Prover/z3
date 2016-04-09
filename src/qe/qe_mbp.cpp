@@ -107,6 +107,7 @@ void project_plugin::push_back(expr_ref_vector& lits, expr* e) {
 class mbp::impl {
     ast_manager& m;
     ptr_vector<project_plugin> m_plugins;
+    expr_mark m_visited;
 
     void add_plugin(project_plugin* p) {
         family_id fid = p->get_family_id();
@@ -175,12 +176,48 @@ class mbp::impl {
         return false;
     }
 
+
+    void extract_bools(model& model, expr_ref_vector& fmls, expr* fml) {
+        TRACE("qe", tout << "extract bools: " << mk_pp(fml, m) << "\n";);
+        ptr_vector<expr> todo;
+        if (is_app(fml)) {
+            todo.append(to_app(fml)->get_num_args(), to_app(fml)->get_args());
+        }
+        while (!todo.empty()) {
+            expr* e = todo.back();
+            todo.pop_back();
+            if (m_visited.is_marked(e)) {
+                continue;
+            }
+            m_visited.mark(e);
+            if (m.is_bool(e)) {
+                expr_ref val(m);
+                VERIFY(model.eval(e, val));
+                TRACE("qe", tout << "found: " << mk_pp(e, m) << "\n";);
+                if (m.is_true(val)) {
+                    fmls.push_back(e);
+                }
+                else {
+                    fmls.push_back(mk_not(m, e));
+                }
+            }
+            else if (is_app(e)) {
+                todo.append(to_app(e)->get_num_args(), to_app(e)->get_args());
+            }
+            else {
+                TRACE("qe", tout << "expression not handled " << mk_pp(e, m) << "\n";);
+            }
+        }
+    }
+
 public:
+
 
     void extract_literals(model& model, expr_ref_vector& fmls) {
         expr_ref val(m);
         for (unsigned i = 0; i < fmls.size(); ++i) {
             expr* fml = fmls[i].get(), *nfml, *f1, *f2, *f3;
+            SASSERT(m.is_bool(fml));
             if (m.is_not(fml, nfml) && m.is_distinct(nfml)) {
                 fmls[i] = project_plugin::pick_equality(m, model, nfml);
                 --i;
@@ -205,26 +242,28 @@ public:
                     f1 = mk_not(m, f1);
                     f2 = mk_not(m, f2);
                 }
-                project_plugin::push_back(fmls, f1);
+                fmls[i] = f1;
                 project_plugin::push_back(fmls, f2);
-                project_plugin::erase(fmls, i);
+                --i;
             }
             else if (m.is_implies(fml, f1, f2)) {
                 VERIFY (model.eval(f2, val));
                 if (m.is_true(val)) {
-                    project_plugin::push_back(fmls, f2);
+                    fmls[i] = f2;
                 }
                 else {
-                    project_plugin::push_back(fmls, mk_not(m, f1));
+                    fmls[i] = mk_not(m, f1);
                 }
-                project_plugin::erase(fmls, i);
+                --i;
             }
             else if (m.is_ite(fml, f1, f2, f3)) {
                 VERIFY (model.eval(f1, val));                
                 if (m.is_true(val)) {
+                    project_plugin::push_back(fmls, f1);
                     project_plugin::push_back(fmls, f2);
                 }
                 else {
+                    project_plugin::push_back(fmls, mk_not(m, f1));
                     project_plugin::push_back(fmls, f3);
                 }
                 project_plugin::erase(fmls, i);
@@ -269,17 +308,24 @@ public:
             else if (m.is_not(fml, nfml) && m.is_ite(nfml, f1, f2, f3)) {
                 VERIFY (model.eval(f1, val));                
                 if (m.is_true(val)) {
+                    project_plugin::push_back(fmls, f1);
                     project_plugin::push_back(fmls, mk_not(m, f2));
                 }
                 else {
+                    project_plugin::push_back(fmls, mk_not(m, f1));
                     project_plugin::push_back(fmls, mk_not(m, f3));
                 }
                 project_plugin::erase(fmls, i);
             }
+            else if (m.is_not(fml, nfml)) {
+                extract_bools(model, fmls, nfml);
+            }
             else {
+                extract_bools(model, fmls, fml);
                 // TBD other Boolean operations.
             }
         }
+        m_visited.reset();
     }
 
     impl(ast_manager& m):m(m) {
@@ -310,6 +356,7 @@ public:
         app_ref var(m);
         th_rewriter rw(m);
         bool progress = true;
+        TRACE("qe", tout << vars << " " << fmls << "\n";);
         while (progress && !vars.empty()) {
             preprocess_solve(model, vars, fmls);
             app_ref_vector new_vars(m);
@@ -345,6 +392,7 @@ public:
             }
             vars.append(new_vars);
         }
+        TRACE("qe", tout << vars << " " << fmls << "\n";);
     }
 };
     
