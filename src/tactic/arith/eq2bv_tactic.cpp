@@ -191,15 +191,18 @@ public:
             expr* c = it->m_key;
             bool strict;
             rational r;
-            if (m_bounds.has_lower(c, r, strict)) {
+            expr_ref fml(m);
+            if (m_bounds.has_lower(c, r, strict) && !r.is_neg()) {
                 SASSERT(!strict);
                 expr* d = m_fd.find(c);
-                g->assert_expr(bv.mk_ule(bv.mk_numeral(r, m.get_sort(d)), d), m_bounds.lower_dep(c));
+                fml = bv.mk_ule(bv.mk_numeral(r, m.get_sort(d)), d);
+                g->assert_expr(fml, m_bounds.lower_dep(c));
             }
-            if (m_bounds.has_upper(c, r, strict)) {
+            if (m_bounds.has_upper(c, r, strict) && !r.is_neg()) {
                 SASSERT(!strict);
                 expr* d = m_fd.find(c);
-                g->assert_expr(bv.mk_ule(d, bv.mk_numeral(r, m.get_sort(d))), m_bounds.upper_dep(c));
+                fml = bv.mk_ule(d, bv.mk_numeral(r, m.get_sort(d)));
+                g->assert_expr(fml, m_bounds.upper_dep(c));
             }
         }        
         g->inc_depth();
@@ -245,8 +248,9 @@ public:
             else {
                 ++it->m_value; 
             }
-            unsigned p = next_power_of_two(it->m_value);
+            unsigned p = next_power_of_two(it->m_value);            
             if (p <= 1) p = 2;
+            if (it->m_value == p) p *= 2;
             unsigned n = log2(p);
             app* z = m.mk_fresh_const("z", bv.mk_sort(n));
             m_trail.push_back(z);
@@ -302,16 +306,16 @@ public:
             m_nonfd.mark(f, true);
             expr* e1, *e2;
             if (m.is_eq(f, e1, e2)) {
-				if (is_fd(e1, e2) || is_fd(e2, e1)) {
+                if (is_fd(e1, e2) || is_fd(e2, e1)) {
                     continue;
                 }            
             }
-			if (is_app(f)) {
-				m_todo.append(to_app(f)->get_num_args(), to_app(f)->get_args());
-			}
-			else if (is_quantifier(f)) {
-				m_todo.push_back(to_quantifier(f)->get_expr());
-			}
+            if (is_app(f)) {
+                m_todo.append(to_app(f)->get_num_args(), to_app(f)->get_args());
+            }
+            else if (is_quantifier(f)) {
+                m_todo.push_back(to_quantifier(f)->get_expr());
+            }
         }
     }
 
