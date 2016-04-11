@@ -436,8 +436,10 @@ void MLErrorHandler(Z3_context c, Z3_error_code e)
      n_* wrapper functions. */
 }
 
-void DLL_PUBLIC n_set_internal_error_handler(value a0)
+CAMLprim value DLL_PUBLIC n_set_internal_error_handler(value ctx_v)
 {
-  Z3_context _a0 = * (Z3_context*) Data_custom_val(a0);
-  Z3_set_error_handler(_a0, MLErrorHandler);
+  CAMLparam1(ctx_v);
+  Z3_context_plus ctx_p = *(Z3_context_plus*) Data_custom_val(ctx_v);
+  Z3_set_error_handler(ctx_p->ctx, MLErrorHandler);
+  CAMLreturn(Val_unit);
 }
