@@ -172,6 +172,10 @@ struct evaluator_cfg : public default_rewriter_cfg {
             st = m_f_rw.mk_app_core(f, num, args, result);
         else if (fid == m_seq_rw.get_fid())
             st = m_seq_rw.mk_app_core(f, num, args, result);
+        else if (fid == m().get_label_family_id() && num == 1) {
+            result = args[0];
+            st = BR_DONE;
+        }
         else if (evaluate(f, num, args, result)) {
             TRACE("model_evaluator", tout << "reduce_app " << f->get_name() << "\n";
                   for (unsigned i = 0; i < num; i++) tout << mk_ismt2_pp(args[i], m()) << "\n";
