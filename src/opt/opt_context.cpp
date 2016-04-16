@@ -1205,7 +1205,7 @@ namespace opt {
     }
 
     inf_eps context::get_lower_as_num(unsigned idx) {
-        if (idx > m_objectives.size()) {
+        if (idx >= m_objectives.size()) {
             throw default_exception("index out of bounds"); 
         }
         objective const& obj = m_objectives[idx];
@@ -1223,7 +1223,7 @@ namespace opt {
     }
 
     inf_eps context::get_upper_as_num(unsigned idx) {
-        if (idx > m_objectives.size()) {
+        if (idx >= m_objectives.size()) {
             throw default_exception("index out of bounds"); 
         }
         objective const& obj = m_objectives[idx];
