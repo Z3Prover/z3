@@ -23,6 +23,7 @@ Notes:
 #include"symbol.h"
 #include"trace.h"
 #include<sstream>
+#include<vector>
 
 void register_z3_replayer_cmds(z3_replayer & in);
 
@@ -46,7 +47,7 @@ struct z3_replayer::imp {
     size_t                   m_ptr;
     size_t_map<void *>       m_heap;
     svector<z3_replayer_cmd> m_cmds;
-    vector<std::string>      m_cmds_names;
+    std::vector<std::string>      m_cmds_names;
 
     enum value_kind { INT64, UINT64, DOUBLE, STRING, SYMBOL, OBJECT, UINT_ARRAY, INT_ARRAY, SYMBOL_ARRAY, OBJECT_ARRAY, FLOAT };
 
@@ -676,7 +677,9 @@ struct z3_replayer::imp {
 
     void register_cmd(unsigned id, z3_replayer_cmd cmd, char const* name) {
         m_cmds.reserve(id+1, 0);
-        m_cmds_names.reserve(id+1, "");
+        while (static_cast<unsigned>(m_cmds_names.size()) <= id+1) {
+            m_cmds_names.push_back("");
+        }
         m_cmds[id] = cmd;
         m_cmds_names[id] = name;
     }
