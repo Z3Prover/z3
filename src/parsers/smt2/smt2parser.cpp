@@ -298,7 +298,7 @@ namespace smt2 {
         }
 
         unsigned            m_cache_end;
-        vector<std::string> m_cached_strings;
+        std::vector<std::string> m_cached_strings;
 
         int m_num_open_paren;
 
@@ -2197,7 +2197,7 @@ namespace smt2 {
 
             m_scanner.start_caching();
             m_cache_end = 0;
-            m_cached_strings.reset();
+            m_cached_strings.resize(0);
             
             check_lparen_next("invalid get-value command, '(' expected");
             while (!curr_is_rparen()) {
