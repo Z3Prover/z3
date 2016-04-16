@@ -22,6 +22,7 @@ Notes:
 #define CMD_CONTEXT_H_
 
 #include<sstream>
+#include<vector>
 #include"ast.h"
 #include"ast_printer.h"
 #include"pdecl.h"
@@ -37,6 +38,7 @@ Notes:
 #include"progress_callback.h"
 #include"scoped_ptr_vector.h"
 #include"context_params.h"
+
 
 class func_decls {
     func_decl * m_decls;
@@ -189,7 +191,7 @@ protected:
     // 
     ptr_vector<pdecl>            m_aux_pdecls;
     ptr_vector<expr>             m_assertions;
-    vector<std::string>          m_assertion_strings;
+    std::vector<std::string>     m_assertion_strings;
     ptr_vector<expr>             m_assertion_names; // named assertions are represented using boolean variables.
 
     struct scope {

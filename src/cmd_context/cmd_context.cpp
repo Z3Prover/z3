@@ -1322,7 +1322,7 @@ void cmd_context::restore_func_decls(unsigned old_sz) {
         sf_pair const & p = *it;
         erase_func_decl_core(p.first, p.second);
     }
-    m_func_decls_stack.shrink(old_sz);
+    m_func_decls_stack.resize(old_sz);
 }
 
 void cmd_context::restore_psort_decls(unsigned old_sz) {
@@ -1389,7 +1389,7 @@ void cmd_context::restore_assertions(unsigned old_sz) {
     if (produce_unsat_cores())
         restore(m(), m_assertion_names, old_sz);
     if (m_interactive_mode)
-        m_assertion_strings.shrink(old_sz);
+        m_assertion_strings.resize(old_sz);
 }
 
 void cmd_context::pop(unsigned n) {
@@ -1724,8 +1724,8 @@ void cmd_context::display_statistics(bool show_total_time, double total_time) {
 void cmd_context::display_assertions() {
     if (!m_interactive_mode)
         throw cmd_exception("command is only available in interactive mode, use command (set-option :interactive-mode true)");
-    vector<std::string>::const_iterator it  = m_assertion_strings.begin();
-    vector<std::string>::const_iterator end = m_assertion_strings.end();
+    std::vector<std::string>::const_iterator it  = m_assertion_strings.begin();
+    std::vector<std::string>::const_iterator end = m_assertion_strings.end();
     regular_stream() << "(";
     for (bool first = true; it != end; ++it) {
         std::string const & s = *it;
