@@ -33,7 +33,7 @@ then:
 
 ```bash
 cd build
-make
+nmake
 ```
 
 ## Building Z3 using make and GCC/Clang
