@@ -265,9 +265,9 @@ def param2ml(p):
         else:
             return "ptr"
     elif k == IN_ARRAY or k == INOUT_ARRAY or k == OUT_ARRAY:
-        return "%s array" % type2ml(param_type(p))
+        return "%s list" % type2ml(param_type(p))
     elif k == OUT_MANAGED_ARRAY:
-        return "%s array" % type2ml(param_type(p))
+        return "%s list" % type2ml(param_type(p))
     else:
         return type2ml(param_type(p))
 
@@ -1043,8 +1043,6 @@ def arrayparams(params):
             op.append(param)
     return op
 
-
-
 def ml_plus_type(ts):
     if ts == 'Z3_context':
         return 'Z3_context_plus'
@@ -1309,6 +1307,8 @@ def mk_z3native_stubs_c(ml_dir): # C interface
                     needs_tmp_value = needs_tmp_value or param_kind(p) == OUT_ARRAY or param_kind(p) == INOUT_ARRAY
             if needs_tmp_value:
                 c = c + 1
+            if len(ap) > 0:
+                c = c + 1
             ml_wrapper.write('  CAMLlocal%s(result, z3rv_val' % (c+2))
             for p in params:
                 if is_out_param(p) or is_array_param(p):
@@ -1316,10 +1316,12 @@ def mk_z3native_stubs_c(ml_dir): # C interface
                 i = i + 1
             if needs_tmp_value:
                 ml_wrapper.write(', tmp_val')
+            if len(ap) != 0:
+                ml_wrapper.write(', _iter');
 
             ml_wrapper.write(');\n')
 
-        if len(ap) != 0:
+        if len(ap) > 0:
             ml_wrapper.write('  unsigned _i;\n')
 
         # declare locals, preprocess arrays, strings, in/out arguments
@@ -1360,9 +1362,13 @@ def mk_z3native_stubs_c(ml_dir): # C interface
             if k == IN_ARRAY or k == INOUT_ARRAY:
                 t = param_type(param)
                 ts = type2str(t)
+                ml_wrapper.write('  _iter = a' + str(i) + ';\n')
                 ml_wrapper.write('  for (_i = 0; _i < _a%s; _i++) {\n' % param_array_capacity_pos(param))
-                ml_wrapper.write('    _a%s[_i] = %s;\n' % (i, ml_unwrap(t, ts, 'Field(a' + str(i) + ', _i)')))
+                ml_wrapper.write('    assert(iter != Val_emptylist);\n')
+                ml_wrapper.write('    _a%s[_i] = %s;\n' % (i, ml_unwrap(t, ts, 'Field(_iter, 0)')))
+                ml_wrapper.write('    _iter = Field(_iter, 1);\n')
                 ml_wrapper.write('  }\n')
+                ml_wrapper.write('  assert(iter == Val_emptylist);\n\n')
             i = i + 1
 
         ml_wrapper.write('\n  /* invoke Z3 function */\n  ')
@@ -1421,8 +1427,9 @@ def mk_z3native_stubs_c(ml_dir): # C interface
                 pt = param_type(p)
                 ts = type2str(pt)
                 if param_kind(p) == OUT_ARRAY or param_kind(p) == INOUT_ARRAY:
-                    ml_wrapper.write('  _a%s_val = caml_alloc(_a%s, 0);\n' % (i, param_array_capacity_pos(p)))
-                    ml_wrapper.write('  for (_i = 0; _i < _a%s; _i++) {\n' % param_array_capacity_pos(p))
+                    # convert a C-array into an OCaml list and return it
+                    ml_wrapper.write('\n  _a%s_val = Val_emptylist;\n' % i)
+                    ml_wrapper.write('  for (_i = _a%s; _i > 0; _i--) {\n' % param_array_capacity_pos(p))
                     pts = ml_plus_type(ts)
                     pops = ml_plus_ops_type(ts)
                     if ml_has_plus_type(ts):
@@ -1430,8 +1437,11 @@ def mk_z3native_stubs_c(ml_dir): # C interface
                         ml_wrapper.write('    %s\n' % ml_alloc_and_store(pt, 'tmp_val', '_a%dp' % i))
                     else:
                         ml_wrapper.write('    %s\n' % ml_alloc_and_store(pt, 'tmp_val', '_a%d[_i]' % i))
-                    ml_wrapper.write('    Store_field(_a%s_val, _i, tmp_val);\n' % i)
-                    ml_wrapper.write('  }\n')
+                    ml_wrapper.write('    _iter = caml_alloc(2,0);\n')
+                    ml_wrapper.write('    Store_field(_iter, 0, tmp_val);\n')
+                    ml_wrapper.write('    Store_field(_iter, 1, _a%s_val);\n' % i)
+                    ml_wrapper.write('    _a%s_val = _iter;\n' % i)
+                    ml_wrapper.write('  }\n\n')
                 elif param_kind(p) == OUT_MANAGED_ARRAY:
                     wrp = ml_set_wrap(pt, '_a%d_val' % i, '_a%d' % i)
                     wrp = wrp.replace('*)', '**)')
