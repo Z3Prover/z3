@@ -200,12 +200,12 @@ add_custom_target(build_z3_java_bindings
 )
 
 # Rule to build ``com.microsoft.z3.jar``
-# TODO: Add version
 # TODO: Should we set ``CMAKE_JNI_TARGET`` to ``TRUE``?
 add_jar(z3JavaJar
   SOURCES ${Z3_JAVA_JAR_SOURCE_FILES_FULL_PATH}
   OUTPUT_NAME ${Z3_JAVA_PACKAGE_NAME}
   OUTPUT_DIR "${CMAKE_BINARY_DIR}"
+  VERSION "${Z3_VERSION}"
 )
 
 ###############################################################################
