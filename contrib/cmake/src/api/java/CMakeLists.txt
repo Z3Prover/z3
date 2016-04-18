@@ -214,14 +214,15 @@ add_jar(z3JavaJar
 option(INSTALL_JAVA_BINDINGS "Install Java bindings when invoking install target" ON)
 if (INSTALL_JAVA_BINDINGS)
   # Provide cache variables for the install locations that the user can change.
-  # FIXME: I don't think these defaults install locations conform to the Debian
-  # packaging guidelines or any packaging guidelines for that matter...
+  # This defaults to ``/usr/local/java`` which seems to be the location for ``.jar``
+  # files on Linux distributions
   set(Z3_JAVA_JAR_INSTALLDIR
-    "${CMAKE_INSTALL_LIBDIR}"
+    "${CMAKE_INSTALL_DATAROOTDIR}/java"
     CACHE
     PATH
     "Directory to install Z3 Java jar file relative to install prefix"
   )
+  # FIXME: I don't think this the right installation location
   set(Z3_JAVA_JNI_LIB_INSTALLDIR
     "${CMAKE_INSTALL_LIBDIR}"
     CACHE
