@@ -145,13 +145,14 @@ void goal::quick_process(bool save_first, expr * & f, expr_dependency * d) {
     }
     typedef std::pair<expr *, bool> expr_pol;
     sbuffer<expr_pol, 64> todo;
+    expr_ref_vector tmp_exprs(m());
     todo.push_back(expr_pol(f, true));
     while (!todo.empty()) {
         if (m_inconsistent)
             return;
-        expr_pol p  = todo.back();
+        expr_pol p = todo.back();
         expr * curr = p.first;
-        bool   pol  = p.second;
+        bool   pol = p.second;
         todo.pop_back();
         if (pol && m().is_and(curr)) {
             app * t = to_app(curr);
@@ -173,10 +174,12 @@ void goal::quick_process(bool save_first, expr * & f, expr_dependency * d) {
             todo.push_back(expr_pol(to_app(curr)->get_arg(0), !pol));
         }
         else {
-            if (!pol)
+            if (!pol) {
                 curr = m().mk_not(curr);
+                tmp_exprs.push_back(curr);
+            }
             if (save_first) {
-                f  = curr;
+                f = curr;
                 save_first = false;
             }
             else {
