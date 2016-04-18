@@ -22,7 +22,7 @@ Revision History:
 #include"for_each_expr.h"
 #include"well_sorted.h"
 
-goal::precision goal::mk_union(precision p1, precision p2) { 
+goal::precision goal::mk_union(precision p1, precision p2) {
     if (p1 == PRECISE) return p2;
     if (p2 == PRECISE) return p1;
     if (p1 != p2) return UNDER_OVER;
@@ -40,24 +40,24 @@ std::ostream & operator<<(std::ostream & out, goal::precision p) {
 }
 
 goal::goal(ast_manager & m, bool models_enabled, bool core_enabled):
-    m_manager(m), 
+    m_manager(m),
     m_ref_count(0),
-    m_depth(0), 
+    m_depth(0),
     m_models_enabled(models_enabled),
-    m_proofs_enabled(m.proofs_enabled()), 
-    m_core_enabled(core_enabled), 
-    m_inconsistent(false), 
+    m_proofs_enabled(m.proofs_enabled()),
+    m_core_enabled(core_enabled),
+    m_inconsistent(false),
     m_precision(PRECISE) {
     }
-    
+
 goal::goal(ast_manager & m, bool proofs_enabled, bool models_enabled, bool core_enabled):
-    m_manager(m), 
+    m_manager(m),
     m_ref_count(0),
-    m_depth(0), 
+    m_depth(0),
     m_models_enabled(models_enabled),
-    m_proofs_enabled(proofs_enabled), 
-    m_core_enabled(core_enabled), 
-    m_inconsistent(false), 
+    m_proofs_enabled(proofs_enabled),
+    m_core_enabled(core_enabled),
+    m_inconsistent(false),
     m_precision(PRECISE) {
     SASSERT(!proofs_enabled || m.proofs_enabled());
     }
@@ -65,11 +65,11 @@ goal::goal(ast_manager & m, bool proofs_enabled, bool models_enabled, bool core_
 goal::goal(goal const & src):
     m_manager(src.m()),
     m_ref_count(0),
-    m_depth(0), 
+    m_depth(0),
     m_models_enabled(src.models_enabled()),
-    m_proofs_enabled(src.proofs_enabled()), 
-    m_core_enabled(src.unsat_core_enabled()), 
-    m_inconsistent(false), 
+    m_proofs_enabled(src.proofs_enabled()),
+    m_core_enabled(src.unsat_core_enabled()),
+    m_inconsistent(false),
     m_precision(PRECISE) {
     copy_from(src);
     }
@@ -79,16 +79,16 @@ goal::goal(goal const & src):
 goal::goal(goal const & src, bool):
     m_manager(src.m()),
     m_ref_count(0),
-    m_depth(src.m_depth), 
+    m_depth(src.m_depth),
     m_models_enabled(src.models_enabled()),
-    m_proofs_enabled(src.proofs_enabled()), 
-    m_core_enabled(src.unsat_core_enabled()), 
-    m_inconsistent(false), 
+    m_proofs_enabled(src.proofs_enabled()),
+    m_core_enabled(src.unsat_core_enabled()),
+    m_inconsistent(false),
     m_precision(src.m_precision) {
 }
-    
-goal::~goal() { 
-    reset_core(); 
+
+goal::~goal() {
+    reset_core();
 }
 
 void goal::copy_to(goal & target) const {
@@ -141,7 +141,7 @@ void goal::quick_process(bool save_first, expr * & f, expr_dependency * d) {
         if (!save_first) {
             push_back(f, 0, d);
         }
-        return; 
+        return;
     }
     typedef std::pair<expr *, bool> expr_pol;
     sbuffer<expr_pol, 64> todo;
@@ -173,7 +173,7 @@ void goal::quick_process(bool save_first, expr * & f, expr_dependency * d) {
             todo.push_back(expr_pol(to_app(curr)->get_arg(0), !pol));
         }
         else {
-            if (!pol) 
+            if (!pol)
                 curr = m().mk_not(curr);
             if (save_first) {
                 f  = curr;
@@ -214,9 +214,9 @@ void goal::process_not_or(bool save_first, app * f, proof * pr, expr_dependency 
 }
 
 void goal::slow_process(bool save_first, expr * f, proof * pr, expr_dependency * d, expr_ref & out_f, proof_ref & out_pr) {
-    if (m().is_and(f)) 
+    if (m().is_and(f))
         process_and(save_first, to_app(f), pr, d, out_f, out_pr);
-    else if (m().is_not(f) && m().is_or(to_app(f)->get_arg(0))) 
+    else if (m().is_not(f) && m().is_or(to_app(f)->get_arg(0)))
         process_not_or(save_first, to_app(to_app(f)->get_arg(0)), pr, d, out_f, out_pr);
     else if (save_first) {
         out_f  = f;
@@ -255,7 +255,7 @@ void goal::get_formulas(ptr_vector<expr> & result) {
 }
 
 void goal::update(unsigned i, expr * f, proof * pr, expr_dependency * d) {
-    // KLM: don't know why this assertion is no longer true 
+    // KLM: don't know why this assertion is no longer true
     // SASSERT(proofs_enabled() == (pr != 0 && !m().is_undef_proof(pr)));
     if (m_inconsistent)
         return;
@@ -270,7 +270,7 @@ void goal::update(unsigned i, expr * f, proof * pr, expr_dependency * d) {
             else {
                 m().set(m_forms, i, out_f);
                 m().set(m_proofs, i, out_pr);
-                if (unsat_core_enabled()) 
+                if (unsat_core_enabled())
                     m().set(m_dependencies, i, d);
             }
         }
@@ -283,7 +283,7 @@ void goal::update(unsigned i, expr * f, proof * pr, expr_dependency * d) {
             }
             else {
                 m().set(m_forms, i, f);
-                if (unsat_core_enabled()) 
+                if (unsat_core_enabled())
                     m().set(m_dependencies, i, d);
             }
         }
@@ -303,9 +303,9 @@ void goal::reset_all() {
     m_precision = PRECISE;
 }
 
-void goal::reset() { 
-    reset_core(); 
-    m_inconsistent = false; 
+void goal::reset() {
+    reset_core();
+    m_inconsistent = false;
 }
 
 void goal::display(ast_printer & prn, std::ostream & out) const {
@@ -573,7 +573,7 @@ void goal::elim_redundancies() {
                 expr_dependency_ref d(m());
                 if (unsat_core_enabled())
                     d = m().mk_join(dep(get_idx(atom)), dep(i));
-                push_back(m().mk_false(), p, d);                    
+                push_back(m().mk_false(), p, d);
                 return;
             }
             neg_lits.mark(atom);
@@ -627,10 +627,10 @@ goal * goal::translate(ast_translation & translator) const {
 
     ast_manager & m_to = translator.to();
     goal * res = alloc(goal, m_to, m_to.proofs_enabled() && proofs_enabled(), models_enabled(), unsat_core_enabled());
-    
+
     unsigned sz = m().size(m_forms);
     for (unsigned i = 0; i < sz; i++) {
-        res->m().push_back(res->m_forms, translator(m().get(m_forms, i)));        
+        res->m().push_back(res->m_forms, translator(m().get(m_forms, i)));
         if (res->proofs_enabled())
             res->m().push_back(res->m_proofs, translator(m().get(m_proofs, i)));
         if (res->unsat_core_enabled())
@@ -645,15 +645,15 @@ goal * goal::translate(ast_translation & translator) const {
 }
 
 
-bool goal::sat_preserved() const { 
-    return prec() == PRECISE || prec() == UNDER; 
+bool goal::sat_preserved() const {
+    return prec() == PRECISE || prec() == UNDER;
 }
 
 bool goal::unsat_preserved() const {
     return prec() == PRECISE || prec() == OVER;
 }
 
-bool goal::is_decided_sat() const { 
+bool goal::is_decided_sat() const {
     return size() == 0 && sat_preserved();
 }
 
@@ -661,7 +661,7 @@ bool goal::is_decided_unsat() const {
     return inconsistent() && unsat_preserved();
 }
 
-bool goal::is_decided() const { 
+bool goal::is_decided() const {
     return is_decided_sat() || is_decided_unsat();
 }
 
