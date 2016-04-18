@@ -107,13 +107,10 @@ void func_interp::reset_interp_cache() {
 
 bool func_interp::is_fi_entry_expr(expr * e, ptr_vector<expr> & args) {
     args.reset();
-    if (!is_app(e) || !m().is_ite(to_app(e)))
+    expr* c, *t, *f;
+    if (!m().is_ite(e, c, t, f)) {
         return false;
-
-    app * a = to_app(e);
-    expr * c = a->get_arg(0);
-    expr * t = a->get_arg(1);
-    expr * f = a->get_arg(2);
+    }
 
     if ((m_arity == 0) ||
         (m_arity == 1 && (!m().is_eq(c) || to_app(c)->get_num_args() != 2)) ||

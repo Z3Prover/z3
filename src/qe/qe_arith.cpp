@@ -32,7 +32,6 @@ namespace qe {
 
     bool is_divides(arith_util& a, expr* e1, expr* e2, rational& k, expr_ref& p) {  
         expr* t1, *t2;
-        ast_manager& m = a.get_manager();
         if (a.is_mod(e2, t1, t2) && 
             a.is_numeral(e1, k) && 
             k.is_zero() &&

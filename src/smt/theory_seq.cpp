@@ -298,7 +298,6 @@ final_check_status theory_seq::final_check_eh() {
 
 bool theory_seq::reduce_length_eq() {
     context& ctx = get_context();
-    unsigned sz = m_eqs.size();
     int start = ctx.get_random_value();
 
     for (unsigned i = 0; !ctx.inconsistent() && i < m_eqs.size(); ++i) {
@@ -457,7 +456,6 @@ void theory_seq::branch_unit_variable(dependency* dep, expr* X, expr_ref_vector 
 }
 
 bool theory_seq::branch_variable_mb() {
-    context& ctx = get_context();
     bool change = false;
     for (unsigned i = 0; i < m_eqs.size(); ++i) {
         eq const& e = m_eqs[i];
@@ -2208,7 +2206,6 @@ bool theory_seq::check_int_string() {
 }
 
 bool theory_seq::add_itos_axiom(expr* e) {
-    context& ctx = get_context();
     rational val;
     expr* n;
     VERIFY(m_util.str.is_itos(e, n));
