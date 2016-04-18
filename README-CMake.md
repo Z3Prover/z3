@@ -290,6 +290,23 @@ Example
 
 ```
 cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_TRACING=FALSE ../
+
+```
+
+## Z3 API Bindings
+
+Z3 exposes various language bindings for its API. Below are some notes on building
+and/or installing these bindings when building Z3 with CMake.
+
+### Java bindings
+
+The CMake build uses the ``FindJava`` and ``FindJNI`` cmake modules to detect the
+installation of Java. If CMake fails to find your installation of Java set the
+``JAVA_HOME`` environment variable when invoking CMake so that it points at the
+correct location. For example
+
+```
+JAVA_HOME=/usr/lib/jvm/default cmake -DBUILD_JAVA_BINDINGS=ON ../
 ```
 
 ## Developer/packager notes
