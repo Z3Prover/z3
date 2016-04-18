@@ -323,24 +323,22 @@ end = struct
   end
 
   let mk_func_decl (ctx:context) (name:Symbol.symbol) (domain:Sort.sort list) (range:Sort.sort) =
-    let dom_arr = Array.of_list domain in
-    Z3native.mk_func_decl ctx name (Array.length dom_arr) dom_arr range
+    Z3native.mk_func_decl ctx name (List.length domain) domain range
 
   let mk_func_decl_s (ctx:context) (name:string) (domain:Sort.sort list) (range:Sort.sort) =
     mk_func_decl ctx (Symbol.mk_string ctx name) domain range
 
   let mk_fresh_func_decl (ctx:context) (prefix:string) (domain:Sort.sort list) (range:Sort.sort) =
-    let dom_arr = Array.of_list domain in
-    Z3native.mk_fresh_func_decl ctx prefix (Array.length dom_arr) dom_arr range
+    Z3native.mk_fresh_func_decl ctx prefix (List.length domain) domain range
 
   let mk_const_decl (ctx:context) (name:Symbol.symbol) (range:Sort.sort) =
-    Z3native.mk_func_decl ctx name 0 [||] range
+    Z3native.mk_func_decl ctx name 0 [] range
 
   let mk_const_decl_s (ctx:context) (name:string) (range:Sort.sort) =
-    Z3native.mk_func_decl ctx (Symbol.mk_string ctx name) 0 [||] range
+    Z3native.mk_func_decl ctx (Symbol.mk_string ctx name) 0 [] range
 
   let mk_fresh_const_decl (ctx:context) (prefix:string) (range:Sort.sort) =
-    Z3native.mk_fresh_func_decl ctx prefix 0 [||] range
+    Z3native.mk_fresh_func_decl ctx prefix 0 [] range
 
   let equal a b = (a = b) || (gc a = gc b && Z3native.is_eq_func_decl (gc a) a b)
 
@@ -477,8 +475,7 @@ end = struct
   let ast_of_expr e = e
 
   let expr_of_func_app ctx f args =
-    let arg_array = Array.of_list args in
-    Z3native.mk_app ctx f (Array.length arg_array) arg_array
+    Z3native.mk_app ctx f (List.length args) args
 
   let simplify (x:expr) (p:Params.params option) =
     match p with
@@ -498,20 +495,18 @@ end = struct
     if AST.is_app x && List.length args <> get_num_args x then
       raise (Error "Number of arguments does not match")
     else
-      Z3native.update_term (gc x) x (List.length args) (Array.of_list args)
+      Z3native.update_term (gc x) x (List.length args) args
 
   let substitute (x:expr) (from:expr list) (to_:expr list) =
-    let from_array = Array.of_list from in
-    let to_array = Array.of_list to_ in
-    if Array.length from_array <> Array.length to_array then
+    let len = List.length from in
+    if List.length to_ <> len then
       raise (Error "Argument sizes do not match")
     else
-      Z3native.substitute (gc x) x (Array.length from_array) from_array to_array
+      Z3native.substitute (gc x) x len from to_
 
   let substitute_one x from to_ = substitute x [ from ] [ to_ ]
   let substitute_vars x to_ =
-    let to_array = Array.of_list to_ in
-    Z3native.substitute_vars (gc x) x (Array.length to_array) to_array
+    Z3native.substitute_vars (gc x) x (List.length to_) to_
 
   let translate (x:expr) to_ctx =
     if gc x = to_ctx then
@@ -556,18 +551,12 @@ struct
   let mk_implies = Z3native.mk_implies
   let mk_xor = Z3native.mk_xor
 
-  let mk_and ctx args =
-    let arg_arr = Array.of_list args in
-    Z3native.mk_and ctx (Array.length arg_arr) arg_arr
+  let mk_and ctx args = Z3native.mk_and ctx (List.length args) args
 
-  let mk_or ctx args =
-    let arg_arr = Array.of_list args in
-    Z3native.mk_or ctx (Array.length arg_arr) arg_arr
+  let mk_or ctx args = Z3native.mk_or ctx (List.length args) args
 
   let mk_eq = Z3native.mk_eq
-  let mk_distinct ctx args =
-    let arg_arr = Array.of_list args in
-    Z3native.mk_distinct ctx (Array.length arg_arr) arg_arr
+  let mk_distinct ctx args = Z3native.mk_distinct ctx (List.length args) args
 
   let get_bool_value x = lbool_of_int (Z3native.get_bool_value (gc x) x)
 
@@ -656,56 +645,50 @@ struct
   let mk_bound = Z3native.mk_bound
 
   let mk_pattern ctx terms =
-    let terms_arr = Array.of_list terms in
-    if Array.length terms_arr = 0 then
+    let len = List.length terms in
+    if len = 0 then
       raise (Error "Cannot create a pattern from zero terms")
     else
-      Z3native.mk_pattern ctx (Array.length terms_arr) terms_arr
+      Z3native.mk_pattern ctx len terms
 
   let _internal_mk_quantifier ~universal ctx sorts names body weight patterns nopatterns quantifier_id skolem_id =
-    let sorts_arr = Array.of_list sorts in
-    let names_arr = Array.of_list names in
-    if Array.length sorts_arr <> Array.length names_arr then
+    let len = List.length sorts in
+    if List.length names <> len then
       raise (Error "Number of sorts does not match number of names")
     else
-      let patterns_arr = Array.of_list patterns in
       match nopatterns, quantifier_id, skolem_id with
       | [], None, None ->
         Z3native.mk_quantifier ctx universal
           (match weight with | None -> 1 | Some x -> x)
-          (Array.length patterns_arr) patterns_arr
-          (Array.length sorts_arr) sorts_arr
-          names_arr body
+          (List.length patterns) patterns
+          len sorts
+          names body
       | _ ->
-        let nopatterns_arr = Array.of_list nopatterns in
         Z3native.mk_quantifier_ex ctx universal
           (match weight with | None -> 1 | Some x -> x)
           (match quantifier_id with | None -> Z3native.mk_null_symbol ctx | Some x -> x)
           (match skolem_id with | None -> Z3native.mk_null_symbol ctx | Some x -> x)
-          (Array.length patterns_arr) patterns_arr
-          (Array.length nopatterns_arr) nopatterns_arr
-          (Array.length sorts_arr) sorts_arr
-          names_arr body
+          (List.length patterns) patterns
+          (List.length nopatterns) nopatterns
+          len sorts
+          names body
 
   let _internal_mk_quantifier_const ~universal ctx bound_constants body weight patterns nopatterns quantifier_id skolem_id =
-    let patterns_arr = Array.of_list patterns in
-    let bound_constants_arr = Array.of_list bound_constants in
     match nopatterns, quantifier_id, skolem_id with
     | [], None, None ->
       Z3native.mk_quantifier_const ctx universal
         (match weight with | None -> 1 | Some x -> x)
-        (Array.length bound_constants_arr) bound_constants_arr
-        (Array.length patterns_arr) patterns_arr
+        (List.length bound_constants) bound_constants
+        (List.length patterns) patterns
         body
     | _ ->
-      let nopatterns_arr = Array.of_list nopatterns in
       Z3native.mk_quantifier_const_ex ctx universal
         (match weight with | None -> 1 | Some x -> x)
         (match quantifier_id with | None -> Z3native.mk_null_symbol ctx | Some x -> x)
         (match skolem_id with | None -> Z3native.mk_null_symbol ctx | Some x -> x)
-        (Array.length bound_constants_arr) bound_constants_arr
-        (Array.length patterns_arr) patterns_arr
-        (Array.length nopatterns_arr) nopatterns_arr
+        (List.length bound_constants) bound_constants
+        (List.length patterns) patterns
+        (List.length nopatterns) nopatterns
         body
 
   let mk_forall = _internal_mk_quantifier ~universal:true
@@ -754,8 +737,7 @@ struct
   let mk_const_array = Z3native.mk_const_array
 
   let mk_map ctx f args =
-    let args_arr = Array.of_list args in
-    Z3native.mk_map ctx f (Array.length args_arr) args_arr
+    Z3native.mk_map ctx f (List.length args) args
 
   let mk_term_array = Z3native.mk_array_default
   let mk_array_ext = Z3native.mk_array_ext
@@ -777,12 +759,10 @@ struct
   let mk_set_add = Z3native.mk_set_add
   let mk_del = Z3native.mk_set_del
   let mk_union ctx args =
-    let args_arr = Array.of_list args in
-    Z3native.mk_set_union ctx (Array.length args_arr) args_arr
+    Z3native.mk_set_union ctx (List.length args) args
 
   let mk_intersection ctx args =
-    let args_arr = Array.of_list args in
-    Z3native.mk_set_intersect ctx (Array.length args_arr) args_arr
+    Z3native.mk_set_intersect ctx (List.length args) args
 
   let mk_difference = Z3native.mk_set_difference
   let mk_complement = Z3native.mk_set_complement
@@ -855,20 +835,20 @@ struct
     let _field_nums = FieldNumTable.create 0
 
     let create (ctx:context) (name:Symbol.symbol) (recognizer:Symbol.symbol) (field_names:Symbol.symbol list) (sorts:Sort.sort option list) (sort_refs:int list) =
-      let n = (List.length field_names) in
-      if n <> (List.length sorts) then
+      let n = List.length field_names in
+      if n <> List.length sorts then
         raise (Error "Number of field names does not match number of sorts")
       else
-      if n <> (List.length sort_refs) then
+      if n <> List.length sort_refs then
         raise (Error "Number of field names does not match number of sort refs")
       else
         let no = Z3native.mk_constructor ctx name
             recognizer
             n
-            (Array.of_list field_names)
+            field_names
             (let f x = match x with None -> Z3native.mk_null_ast ctx | Some s -> s in
-             Array.of_list (List.map f sorts))
-            (Array.of_list sort_refs) in
+             List.map f sorts)
+            sort_refs in
         FieldNumTable.add _field_nums no n;
         no
 
@@ -884,8 +864,7 @@ struct
 
     let get_accessor_decls (x:constructor) =
       let (_, _, c) = (Z3native.query_constructor (gc x) x (get_num_fields x)) in
-      let f i = Array.get c i in
-      mk_list f (Array.length c)
+      c
   end
 
   module ConstructorList =
@@ -893,7 +872,7 @@ struct
     type constructor_list = Z3native.constructor_list
 
     let create (ctx:context) (c:Constructor.constructor list) =
-      Z3native.mk_constructor_list ctx (List.length c) (Array.of_list c)
+      Z3native.mk_constructor_list ctx (List.length c) c
   end
 
   let mk_constructor (ctx:context) (name:Symbol.symbol) (recognizer:Symbol.symbol) (field_names:Symbol.symbol list) (sorts:Sort.sort option list) (sort_refs:int list) =
@@ -903,7 +882,7 @@ struct
     mk_constructor ctx (Symbol.mk_string ctx name) recognizer field_names sorts sort_refs
 
   let mk_sort (ctx:context) (name:Symbol.symbol) (constructors:Constructor.constructor list) =
-    let (x,_) = (Z3native.mk_datatype ctx name (List.length constructors) (Array.of_list constructors)) in
+    let (x,_) = Z3native.mk_datatype ctx name (List.length constructors) constructors in
     x
 
   let mk_sort_s (ctx:context) (name:string) (constructors:Constructor.constructor list) =
@@ -912,10 +891,9 @@ struct
   let mk_sorts (ctx:context) (names:Symbol.symbol list) (c:Constructor.constructor list list) =
     let n = List.length names in
     let f e = ConstructorList.create ctx e in
-    let cla = Array.of_list (List.map f c) in
-    let (r, a) = Z3native.mk_datatypes ctx n (Array.of_list names) cla in
-    let g i = Array.get r i in
-    mk_list g (Array.length r)
+    let cla = List.map f c in
+    let (r, _) = Z3native.mk_datatypes ctx n names cla in
+    r
 
   let mk_sorts_s (ctx:context) (names:string list) (c:Constructor.constructor list list) =
     mk_sorts ctx (List.map (fun x -> Symbol.mk_string ctx x) names) c
@@ -946,7 +924,7 @@ end
 module Enumeration =
 struct
   let mk_sort (ctx:context) (name:Symbol.symbol) (enum_names:Symbol.symbol list) =
-    let (a, _, _) = (Z3native.mk_enumeration_sort ctx name (List.length enum_names) (Array.of_list enum_names)) in
+    let (a, _, _) = Z3native.mk_enumeration_sort ctx name (List.length enum_names) enum_names in
     a
 
   let mk_sort_s (ctx:context) (name:string) (enum_names:string list) =
@@ -995,7 +973,7 @@ end
 module Tuple =
 struct
   let mk_sort (ctx:context) (name:Symbol.symbol) (field_names:Symbol.symbol list) (field_sorts:Sort.sort list) =
-    let (r, _, _) = (Z3native.mk_tuple_sort ctx name (List.length field_names) (Array.of_list field_names) (Array.of_list field_sorts)) in
+    let (r, _, _) = Z3native.mk_tuple_sort ctx name (List.length field_names) field_names field_sorts in
     r
 
   let get_mk_decl (x:Sort.sort) = Z3native.get_tuple_sort_mk_decl (Sort.gc x) x
@@ -1099,16 +1077,13 @@ struct
   end
 
   let mk_add (ctx:context) (t:expr list) =
-    let t_arr = Array.of_list t in
-    Z3native.mk_add ctx (Array.length t_arr) t_arr
+    Z3native.mk_add ctx (List.length t) t
 
   let mk_mul (ctx:context) (t:expr list) =
-    let t_arr = Array.of_list t in
-    Z3native.mk_mul ctx (Array.length t_arr) t_arr
+    Z3native.mk_mul ctx (List.length t) t
 
   let mk_sub (ctx:context) (t:expr list) =
-    let t_arr = Array.of_list t in
-    Z3native.mk_sub ctx (Array.length t_arr) t_arr
+    Z3native.mk_sub ctx (List.length t) t
 
   let mk_unary_minus = Z3native.mk_unary_minus
   let mk_div = Z3native.mk_div
@@ -1674,7 +1649,7 @@ struct
   let fail_if_not_decided = Z3native.tactic_fail_if_not_decided
   let using_params = Z3native.tactic_using_params
   let with_ = using_params
-  let par_or (ctx:context) (t:tactic list) = Z3native.tactic_par_or ctx (List.length t) (Array.of_list t)
+  let par_or (ctx:context) (t:tactic list) = Z3native.tactic_par_or ctx (List.length t) t
   let par_and_then = Z3native.tactic_par_and_then
   let interrupt = Z3native.interrupt
 end
@@ -1781,8 +1756,7 @@ struct
       match assumptions with
       | [] -> Z3native.solver_check (gc x) x
       | _::_ ->
-        let assumption_array = Array.of_list assumptions in
-        Z3native.solver_check_assumptions (gc x) x (Array.length assumption_array) assumption_array
+        Z3native.solver_check_assumptions (gc x) x (List.length assumptions) assumptions
     in
     match lbool_of_int result with
     | L_TRUE -> SATISFIABLE
@@ -1837,7 +1811,7 @@ struct
     | Some y -> Z3native.fixedpoint_add_rule (gc x) x rule y
 
   let add_fact (x:fixedpoint) (pred:func_decl) (args:int list) =
-    Z3native.fixedpoint_add_fact (gc x) x pred (List.length args) (Array.of_list args)
+    Z3native.fixedpoint_add_fact (gc x) x pred (List.length args) args
 
   let query (x:fixedpoint) (query:expr) =
     match lbool_of_int (Z3native.fixedpoint_query (gc x) x query) with
@@ -1846,7 +1820,7 @@ struct
     | _ -> Solver.UNKNOWN
 
   let query_r (x:fixedpoint) (relations:func_decl list) =
-    match lbool_of_int (Z3native.fixedpoint_query_relations (gc x) x (List.length relations) (Array.of_list relations)) with
+    match lbool_of_int (Z3native.fixedpoint_query_relations (gc x) x (List.length relations) relations) with
     | L_TRUE -> Solver.SATISFIABLE
     | L_FALSE -> Solver.UNSATISFIABLE
     | _ -> Solver.UNKNOWN
@@ -1869,13 +1843,13 @@ struct
   let add_cover (x:fixedpoint) (level:int) (predicate:func_decl) (property:expr) =
     Z3native.fixedpoint_add_cover (gc x) x level predicate property
 
-  let to_string (x:fixedpoint) = Z3native.fixedpoint_to_string (gc x) x 0 [||]
+  let to_string (x:fixedpoint) = Z3native.fixedpoint_to_string (gc x) x 0 []
 
   let set_predicate_representation (x:fixedpoint) (f:func_decl) (kinds:Symbol.symbol list) =
-    Z3native.fixedpoint_set_predicate_representation (gc x) x f (List.length kinds) (Array.of_list kinds)
+    Z3native.fixedpoint_set_predicate_representation (gc x) x f (List.length kinds) kinds
 
   let to_string_q (x:fixedpoint) (queries:expr list) =
-    Z3native.fixedpoint_to_string (gc x) x (List.length queries) (Array.of_list queries)
+    Z3native.fixedpoint_to_string (gc x) x (List.length queries) queries
 
   let get_rules (x:fixedpoint) =
     let av = Z3native.fixedpoint_get_rules (gc x) x in
@@ -1944,24 +1918,19 @@ module SMT =
 struct
   let benchmark_to_smtstring (ctx:context) (name:string) (logic:string) (status:string) (attributes:string) (assumptions:expr list) (formula:expr) =
     Z3native.benchmark_to_smtlib_string ctx name logic status attributes
-      (List.length assumptions) (Array.of_list assumptions)
+      (List.length assumptions) assumptions
       formula
 
   let parse_smtlib_string (ctx:context) (str:string) (sort_names:Symbol.symbol list) (sorts:Sort.sort list) (decl_names:Symbol.symbol list) (decls:func_decl list) =
-    let csn = (List.length sort_names) in
-    let cs = (List.length sorts) in
-    let cdn = (List.length decl_names) in
-    let cd = (List.length decls) in
+    let csn = List.length sort_names in
+    let cs = List.length sorts in
+    let cdn = List.length decl_names in
+    let cd = List.length decls in
     if (csn <> cs || cdn <> cd) then
       raise (Error "Argument size mismatch")
     else
       Z3native.parse_smtlib_string ctx str
-        cs
-        (Array.of_list sort_names)
-        (Array.of_list sorts)
-        cd
-        (Array.of_list decl_names)
-        (Array.of_list decls)
+        cs sort_names sorts cd decl_names decls
 
   let parse_smtlib_file (ctx:context) (file_name:string) (sort_names:Symbol.symbol list) (sorts:Sort.sort list) (decl_names:Symbol.symbol list) (decls:func_decl list) =
     let csn = (List.length sort_names) in
@@ -1972,12 +1941,7 @@ struct
       raise (Error "Argument size mismatch")
     else
       Z3native.parse_smtlib_file ctx file_name
-        cs
-        (Array.of_list sort_names)
-        (Array.of_list sorts)
-        cd
-        (Array.of_list decl_names)
-        (Array.of_list decls)
+        cs sort_names sorts cd decl_names decls
 
   let get_num_smtlib_formulas (ctx:context) = Z3native.get_smtlib_num_formulas ctx
 
@@ -2008,34 +1972,26 @@ struct
     mk_list f n
 
   let parse_smtlib2_string (ctx:context) (str:string) (sort_names:Symbol.symbol list) (sorts:Sort.sort list) (decl_names:Symbol.symbol list) (decls:func_decl list) =
-    let sort_names_arr = Array.of_list sort_names in
-    let sorts_arr = Array.of_list sorts in
-    let decl_names_arr = Array.of_list decl_names in
-    let decls_arr = Array.of_list decls in
-    let csn = Array.length sort_names_arr in
-    let cs = Array.length sorts_arr in
-    let cdn = Array.length decl_names_arr in
-    let cd = Array.length decls_arr in
+    let csn = List.length sort_names in
+    let cs = List.length sorts in
+    let cdn = List.length decl_names in
+    let cd = List.length decls in
     if csn <> cs || cdn <> cd then
       raise (Error "Argument size mismatch")
     else
       Z3native.parse_smtlib2_string ctx str
-        cs sort_names_arr sorts_arr cd decl_names_arr decls_arr
+        cs sort_names sorts cd decl_names decls
 
   let parse_smtlib2_file (ctx:context) (file_name:string) (sort_names:Symbol.symbol list) (sorts:Sort.sort list) (decl_names:Symbol.symbol list) (decls:func_decl list) =
-    let sort_names_arr = Array.of_list sort_names in
-    let sorts_arr = Array.of_list sorts in
-    let decl_names_arr = Array.of_list decl_names in
-    let decls_arr = Array.of_list decls in
-    let csn = Array.length sort_names_arr in
-    let cs = Array.length sorts_arr in
-    let cdn = Array.length decl_names_arr in
-    let cd = Array.length decls_arr in
+    let csn = List.length sort_names in
+    let cs = List.length sorts in
+    let cdn = List.length decl_names in
+    let cd = List.length decls in
     if csn <> cs || cdn <> cd then
       raise (Error "Argument size mismatch")
     else
       Z3native.parse_smtlib2_string ctx file_name
-        cs sort_names_arr sorts_arr cd decl_names_arr decls_arr
+        cs sort_names sorts cd decl_names decls
 end
 
 module Interpolation =
@@ -2072,29 +2028,17 @@ struct
     in
     match r with
     | 0 -> raise (Error "Interpolation problem could not be read.")
-    | _ ->
-      let f1 i = Array.get cnsts i in
-      let f2 i = Array.get parents i in
-      let f3 i = Array.get theory i in
-      (mk_list f1 num,
-       mk_list f2 num,
-       mk_list f3 num_theory)
+    | _ -> (cnsts, parents, theory)
 
   let check_interpolant (ctx:context) (num:int) (cnsts:Expr.expr list) (parents:int list) (interps:Expr.expr list) (num_theory:int) (theory:Expr.expr list) =
-    let (r, str) = Z3native.check_interpolant ctx
-        num
-        (Array.of_list cnsts)
-        (Array.of_list parents)
-        (Array.of_list interps)
-        num_theory
-        (Array.of_list theory) in
+    let (r, str) = Z3native.check_interpolant ctx num cnsts parents interps num_theory theory in
     match (lbool_of_int r) with
     | L_UNDEF -> raise (Error "Interpolant could not be verified.")
     | L_FALSE -> raise (Error "Interpolant could not be verified.")
     | _ -> ()
 
   let write_interpolation_problem (ctx:context) (num:int) (cnsts:Expr.expr list) (parents:int list) (filename:string) (num_theory:int) (theory:Expr.expr list) =
-    Z3native.write_interpolation_problem ctx num (Array.of_list cnsts) (Array.of_list parents) filename num_theory (Array.of_list theory)
+    Z3native.write_interpolation_problem ctx num cnsts parents filename num_theory theory
 end
 
 let set_global_param = Z3native.global_param_set
