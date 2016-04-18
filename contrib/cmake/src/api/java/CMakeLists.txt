@@ -232,5 +232,7 @@ if (INSTALL_JAVA_BINDINGS)
   install(TARGETS z3java
     LIBRARY DESTINATION "${Z3_JAVA_JNI_LIB_INSTALLDIR}"
   )
-  install_jar(z3JavaJar DESTINATION "${Z3_JAVA_JAR_INSTALLDIR}")
+  # Note: Don't use ``DESTINATION`` here as the version of ``UseJava.cmake`` shipped
+  # with CMake 2.8.12.2 handles that incorrectly.
+  install_jar(z3JavaJar "${Z3_JAVA_JAR_INSTALLDIR}")
 endif()
