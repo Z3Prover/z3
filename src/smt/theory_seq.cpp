@@ -2194,7 +2194,7 @@ bool theory_seq::check_int_string() {
     bool change = false;
     for (unsigned i = 0; i < m_int_string.size(); ++i) {
         expr* e = m_int_string[i].get(), *n;
-        if (add_itos_axiom(e)) {
+        if (m_util.str.is_itos(e) && add_itos_axiom(e)) {
             change = true;
         }
         else if (m_util.str.is_stoi(e, n)) {
@@ -2211,11 +2211,12 @@ bool theory_seq::add_itos_axiom(expr* e) {
     context& ctx = get_context();
     rational val;
     expr* n;
-    if (m_util.str.is_itos(e, n) && get_value(n, val)) {
-        app_ref e1(m_util.str.mk_string(symbol(val.to_string().c_str())), m);
+    VERIFY(m_util.str.is_itos(e, n));
+    if (get_value(n, val)) {
         if (!m_itos_axioms.contains(val)) {
             m_itos_axioms.insert(val);
-            
+
+            app_ref e1(m_util.str.mk_string(symbol(val.to_string().c_str())), m);            
             expr_ref n1(arith_util(m).mk_numeral(val, true), m);
             add_axiom(mk_eq(m_util.str.mk_itos(n1), e1, false));
             m_trail_stack.push(insert_map<theory_seq, rational_set, rational>(m_itos_axioms, val));
