@@ -1364,11 +1364,11 @@ def mk_z3native_stubs_c(ml_dir): # C interface
                 ts = type2str(t)
                 ml_wrapper.write('  _iter = a' + str(i) + ';\n')
                 ml_wrapper.write('  for (_i = 0; _i < _a%s; _i++) {\n' % param_array_capacity_pos(param))
-                ml_wrapper.write('    assert(iter != Val_emptylist);\n')
+                ml_wrapper.write('    assert(_iter != Val_emptylist);\n')
                 ml_wrapper.write('    _a%s[_i] = %s;\n' % (i, ml_unwrap(t, ts, 'Field(_iter, 0)')))
                 ml_wrapper.write('    _iter = Field(_iter, 1);\n')
                 ml_wrapper.write('  }\n')
-                ml_wrapper.write('  assert(iter == Val_emptylist);\n\n')
+                ml_wrapper.write('  assert(_iter == Val_emptylist);\n\n')
             i = i + 1
 
         ml_wrapper.write('\n  /* invoke Z3 function */\n  ')
