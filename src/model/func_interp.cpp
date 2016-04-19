@@ -107,25 +107,23 @@ void func_interp::reset_interp_cache() {
 
 bool func_interp::is_fi_entry_expr(expr * e, ptr_vector<expr> & args) {
     args.reset();
-    expr* c, *t, *f;
+    expr* c, *t, *f, *a0, *a1;
     if (!m().is_ite(e, c, t, f)) {
         return false;
     }
 
     if ((m_arity == 0) ||
-        (m_arity == 1 && (!m().is_eq(c) || to_app(c)->get_num_args() != 2)) ||
+        (m_arity == 1 && !m().is_eq(c, a1, a2)) ||
         (m_arity > 1 && (!m().is_and(c) || to_app(c)->get_num_args() != m_arity)))
         return false;
 
     args.resize(m_arity, 0);
     for (unsigned i = 0; i < m_arity; i++) {
-        expr * ci = (m_arity == 1 && i == 0) ? to_app(c) : to_app(c)->get_arg(i);
+        expr * ci = (m_arity == 1 && i == 0) ? c : to_app(c)->get_arg(i);
 
-        if (!m().is_eq(ci) || to_app(ci)->get_num_args() != 2)
+        if (!m().is_eq(ci, a0, a1)) 
             return false;
 
-        expr * a0 = to_app(ci)->get_arg(0);
-        expr * a1 = to_app(ci)->get_arg(1);
         if (is_var(a0) && to_var(a0)->get_idx() == i)
             args[i] = a1;
         else if (is_var(a1) && to_var(a1)->get_idx() == i)
