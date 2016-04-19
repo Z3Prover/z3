@@ -1756,16 +1756,16 @@ namespace smt {
 
             void insert_qinfo(qinfo * qi) {
                 // I'm assuming the number of qinfo's per quantifier is small. So, the linear search is not a big deal.
+                scoped_ptr<qinfo> q(qi);
                 ptr_vector<qinfo>::iterator it  = m_qinfo_vect.begin();            
                 ptr_vector<qinfo>::iterator end = m_qinfo_vect.end();            
                 for (; it != end; ++it) {
                     checkpoint();
                     if (qi->is_equal(*it)) {
-                        dealloc(qi);
                         return;
                     }
                 }
-                m_qinfo_vect.push_back(qi);
+                m_qinfo_vect.push_back(q.detach());
                 TRACE("model_finder", tout << "new quantifier qinfo: "; qi->display(tout); tout << "\n";);
             }
 
