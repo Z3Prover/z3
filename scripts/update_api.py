@@ -1179,7 +1179,7 @@ def ml_set_wrap(t, d, n):
     elif t == INT64 or t == UINT64:
         return d + ' = Val_long(' + n + ');'
     elif t == DOUBLE:
-        return 'Store_double_val(' + d + ', ' + n + ');'
+        return d + '= caml_copy_double(' + n + ');'
     elif t == STRING:
         return d + ' = caml_copy_string((const char*) ' + n + ');'
     else:
