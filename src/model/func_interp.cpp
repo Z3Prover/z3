@@ -113,7 +113,7 @@ bool func_interp::is_fi_entry_expr(expr * e, ptr_vector<expr> & args) {
     }
 
     if ((m_arity == 0) ||
-        (m_arity == 1 && !m().is_eq(c, a1, a2)) ||
+        (m_arity == 1 && !m().is_eq(c, a0, a1)) ||
         (m_arity > 1 && (!m().is_and(c) || to_app(c)->get_num_args() != m_arity)))
         return false;
 
