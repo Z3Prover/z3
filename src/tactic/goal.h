@@ -62,7 +62,7 @@ protected:
     unsigned              m_precision:2;       // PRECISE, UNDER, OVER.
 
     void push_back(expr * f, proof * pr, expr_dependency * d);
-    void quick_process(bool save_first, expr * & f, expr_dependency * d);
+    void quick_process(bool save_first, expr_ref & f, expr_dependency * d);
     void process_and(bool save_first, app * f, proof * pr, expr_dependency * d, expr_ref & out_f, proof_ref & out_pr);
     void process_not_or(bool save_first, app * f, proof * pr, expr_dependency * d, expr_ref & out_f, proof_ref & out_pr);
     void slow_process(bool save_first, expr * f, proof * pr, expr_dependency * d, expr_ref & out_f, proof_ref & out_pr);

@@ -136,7 +136,7 @@ void goal::push_back(expr * f, proof * pr, expr_dependency * d) {
     }
 }
 
-void goal::quick_process(bool save_first, expr * & f, expr_dependency * d) {
+void goal::quick_process(bool save_first, expr_ref& f, expr_dependency * d) {
     if (!m().is_and(f) && !(m().is_not(f) && m().is_or(to_app(f)->get_arg(0)))) {
         if (!save_first) {
             push_back(f, 0, d);
@@ -175,7 +175,7 @@ void goal::quick_process(bool save_first, expr * & f, expr_dependency * d) {
         }
         else {
             if (!pol) {
-                curr = m().mk_not(curr);
+                curr = m().mk_not(curr);                
                 tmp_exprs.push_back(curr);
             }
             if (save_first) {
@@ -242,8 +242,10 @@ void goal::assert_expr(expr * f, proof * pr, expr_dependency * d) {
         return;
     if (proofs_enabled())
         slow_process(f, pr, d);
-    else
-        quick_process(false, f, d);
+    else {
+        expr_ref fr(f, m());
+        quick_process(false, fr, d);
+    }
 }
 
 void goal::assert_expr(expr * f, expr_dependency * d) {
@@ -279,13 +281,14 @@ void goal::update(unsigned i, expr * f, proof * pr, expr_dependency * d) {
         }
     }
     else {
-        quick_process(true, f, d);
+        expr_ref fr(f, m());
+        quick_process(true, fr, d);
         if (!m_inconsistent) {
-            if (m().is_false(f)) {
+            if (m().is_false(fr)) {
                 push_back(f, 0, d);
             }
             else {
-                m().set(m_forms, i, f);
+                m().set(m_forms, i, fr);
                 if (unsat_core_enabled())
                     m().set(m_dependencies, i, d);
             }
