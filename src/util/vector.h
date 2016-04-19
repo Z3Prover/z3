@@ -457,5 +457,15 @@ template<typename Hash>
 struct svector_hash : public vector_hash_tpl<Hash, svector<typename Hash::data> > {};
 
 
+// Specialize vector<std::string> to be inaccessible.
+// This will catch any regression of issue #564 and #420.
+// Use std::vector<std::string> instead.
+template <>
+class vector<std::string, true, unsigned> {
+private:
+    vector<std::string, true, unsigned>();
+};
+
+
 #endif /* VECTOR_H_ */
 

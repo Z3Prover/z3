@@ -87,7 +87,6 @@ namespace qe {
         }
 
         void project_rec(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
-            func_decl* f = m_val->get_decl();
             expr_ref rhs(m);
             expr_ref_vector eqs(m);
             for (unsigned i = 0; i < lits.size(); ++i) {

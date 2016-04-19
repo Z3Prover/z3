@@ -324,6 +324,7 @@ struct goal2sat::imp {
     }
     
     void process(expr * n) {
+        //SASSERT(m_result_stack.empty());
         TRACE("goal2sat", tout << "converting: " << mk_ismt2_pp(n, m) << "\n";);
         if (visit(n, true, false)) {
             SASSERT(m_result_stack.empty());
@@ -342,8 +343,7 @@ struct goal2sat::imp {
             bool sign  = fr.m_sign;
             TRACE("goal2sat_bug", tout << "result stack\n";
                   tout << mk_ismt2_pp(t, m) << " root: " << root << " sign: " << sign << "\n";
-                  for (unsigned i = 0; i < m_result_stack.size(); i++) tout << m_result_stack[i] << " ";
-                  tout << "\n";);
+                  tout << m_result_stack << "\n";);
             if (fr.m_idx == 0 && process_cached(t, root, sign)) {
                 m_frame_stack.pop_back();
                 continue;
@@ -362,11 +362,11 @@ struct goal2sat::imp {
             }
             TRACE("goal2sat_bug", tout << "converting\n";
                   tout << mk_ismt2_pp(t, m) << " root: " << root << " sign: " << sign << "\n";
-                  for (unsigned i = 0; i < m_result_stack.size(); i++) tout << m_result_stack[i] << " ";
-                  tout << "\n";);
+                  tout << m_result_stack << "\n";);
             convert(t, root, sign);
             m_frame_stack.pop_back();
         }
+        CTRACE("goal2sat", !m_result_stack.empty(), tout << m_result_stack << "\n";);
         SASSERT(m_result_stack.empty());
     }
 

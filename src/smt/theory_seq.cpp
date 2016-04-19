@@ -202,6 +202,7 @@ theory_seq::theory_seq(ast_manager& m):
     m_exclude(m),
     m_axioms(m),
     m_axioms_head(0),
+    m_int_string(m),
     m_mg(0),
     m_rewrite(m),
     m_seq_rewrite(m),
@@ -257,6 +258,11 @@ final_check_status theory_seq::final_check_eh() {
         TRACE("seq", tout << ">>fixed_length\n";);
         return FC_CONTINUE;
     }
+    if (check_int_string()) {
+        ++m_stats.m_int_string;
+        TRACE("seq", tout << ">>int_string\n";);
+        return FC_CONTINUE;
+    }
     if (reduce_length_eq() || branch_unit_variable() || branch_binary_variable() || branch_variable_mb() ||  branch_variable()) {
         ++m_stats.m_branch_variable;
         TRACE("seq", tout << ">>branch_variable\n";);
@@ -292,7 +298,6 @@ final_check_status theory_seq::final_check_eh() {
 
 bool theory_seq::reduce_length_eq() {
     context& ctx = get_context();
-    unsigned sz = m_eqs.size();
     int start = ctx.get_random_value();
 
     for (unsigned i = 0; !ctx.inconsistent() && i < m_eqs.size(); ++i) {
@@ -451,7 +456,6 @@ void theory_seq::branch_unit_variable(dependency* dep, expr* X, expr_ref_vector 
 }
 
 bool theory_seq::branch_variable_mb() {
-    context& ctx = get_context();
     bool change = false;
     for (unsigned i = 0; i < m_eqs.size(); ++i) {
         eq const& e = m_eqs[i];
@@ -2160,6 +2164,7 @@ void theory_seq::add_length(expr* e) {
     m_trail_stack.push(insert_obj_trail<theory_seq, expr>(m_length, e));
 }
 
+
 /*
   ensure that all elements in equivalence class occur under an applicatin of 'length'
 */
@@ -2175,6 +2180,48 @@ void theory_seq::enforce_length(enode* n) {
         n = n->get_next();
     }
     while (n1 != n);
+}
+
+
+void theory_seq::add_int_string(expr* e) {
+    m_int_string.push_back(e);
+    m_trail_stack.push(push_back_vector<theory_seq, expr_ref_vector>(m_int_string));
+}
+
+bool theory_seq::check_int_string() {
+    bool change = false;
+    for (unsigned i = 0; i < m_int_string.size(); ++i) {
+        expr* e = m_int_string[i].get(), *n;
+        if (m_util.str.is_itos(e) && add_itos_axiom(e)) {
+            change = true;
+        }
+        else if (m_util.str.is_stoi(e, n)) {
+            // not (yet) handled.
+            // we would check that in the current proto-model
+            // the string at 'n', when denoting integer would map to the
+            // proper integer.
+        }
+    }
+    return change;
+}
+
+bool theory_seq::add_itos_axiom(expr* e) {
+    rational val;
+    expr* n;
+    VERIFY(m_util.str.is_itos(e, n));
+    if (get_value(n, val)) {
+        if (!m_itos_axioms.contains(val)) {
+            m_itos_axioms.insert(val);
+
+            app_ref e1(m_util.str.mk_string(symbol(val.to_string().c_str())), m);            
+            expr_ref n1(arith_util(m).mk_numeral(val, true), m);
+            add_axiom(mk_eq(m_util.str.mk_itos(n1), e1, false));
+            m_trail_stack.push(insert_map<theory_seq, rational_set, rational>(m_itos_axioms, val));
+            m_trail_stack.push(push_replay(alloc(replay_axiom, m, e)));
+            return true;
+        }            
+    }
+    return false;
 }
 
 void theory_seq::apply_sort_cnstr(enode* n, sort* s) {
@@ -2317,6 +2364,7 @@ void theory_seq::collect_statistics(::statistics & st) const {
     st.update("seq add axiom", m_stats.m_add_axiom);
     st.update("seq extensionality", m_stats.m_extensionality);
     st.update("seq fixed length", m_stats.m_fixed_length);
+    st.update("seq int.to.str", m_stats.m_int_string);
 }
 
 void theory_seq::init_model(expr_ref_vector const& es) {
@@ -2627,6 +2675,9 @@ void theory_seq::deque_axiom(expr* n) {
     else if (m_util.str.is_string(n)) {
         add_elim_string_axiom(n);
     }
+    else if (m_util.str.is_itos(n)) {
+        add_itos_axiom(n);
+    }
 }
 
 
@@ -2888,6 +2939,14 @@ static theory_mi_arith* get_th_arith(context& ctx, theory_id afid, expr* e) {
     else {
         return 0;
     }
+}
+
+bool theory_seq::get_value(expr* e, rational& val) const {
+    context& ctx = get_context();
+    theory_mi_arith* tha = get_th_arith(ctx, m_autil.get_family_id(), e);
+    expr_ref _val(m);
+    if (!tha || !tha->get_value(ctx.get_enode(e), _val)) return false;
+    return m_autil.is_numeral(_val, val) && val.is_int();
 }
 
 bool theory_seq::lower_bound(expr* _e, rational& lo) const {
@@ -3523,6 +3582,11 @@ void theory_seq::relevant_eh(app* n) {
         m_util.str.is_empty(n) ||
         m_util.str.is_string(n)) {
         enque_axiom(n);
+    }
+
+    if (m_util.str.is_itos(n) ||
+        m_util.str.is_stoi(n)) {
+        add_int_string(n);
     }
 
     expr* arg;
