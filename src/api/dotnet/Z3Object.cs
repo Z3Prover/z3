@@ -20,6 +20,8 @@ Notes:
 using System;
 using System.Diagnostics.Contracts;
 using System.Threading;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Microsoft.Z3
 {
@@ -132,6 +134,23 @@ namespace Microsoft.Z3
             IntPtr[] an = new IntPtr[a.Length];
             for (uint i = 0; i < a.Length; i++)
                 if (a[i] != null) an[i] = a[i].NativeObject;
+            return an;
+        }
+
+        [Pure]
+        internal static IntPtr[] EnumToNative(IEnumerable<Z3Object> a)
+        {
+            Contract.Ensures(a == null || Contract.Result<IntPtr[]>() != null);
+            Contract.Ensures(a == null || Contract.Result<IntPtr[]>().Length == a.Count());
+
+            if (a == null) return null;
+            IntPtr[] an = new IntPtr[a.Count()];
+            int i = 0;
+            foreach (var ai in a)
+            {
+                if (ai != null) an[i] = ai.NativeObject;
+                ++i;
+            }
             return an;
         }
 

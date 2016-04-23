@@ -39,6 +39,24 @@ namespace Microsoft.Z3
         }
         #endregion
 
+        #region Operators
+
+        private static ArithExpr MkNum(ArithExpr e, int i)
+        {
+            return (ArithExpr)e.Context.MkNumeral(i, e.Context.MkIntSort());
+        }
+
+        private static ArithExpr MkNum(ArithExpr e, double d)
+        {
+            return (ArithExpr)e.Context.MkNumeral(d.ToString(), e.Context.MkRealSort());
+        }
+
+        /// <summary> Operator overloading for arithmetical divsion operator (over reals) </summary>
+        public static ArithExpr operator /(ArithExpr a, ArithExpr b)
+        {
+            return a.Context.MkDiv(a, b);
+        }
+
         /// <summary> Operator overloading for arithmetical operator </summary>
         public static ArithExpr operator -(ArithExpr a, ArithExpr b)
         {
@@ -46,9 +64,57 @@ namespace Microsoft.Z3
         }
 
         /// <summary> Operator overloading for arithmetical operator </summary>
+        public static ArithExpr operator -(ArithExpr a, int b)
+        {
+            return a.Context.MkSub(a, MkNum(a, b));
+        }
+
+        /// <summary> Operator overloading for arithmetical operator </summary>
+        public static ArithExpr operator -(ArithExpr a, double b)
+        {
+            return a.Context.MkSub(a, MkNum(a, b));
+        }
+
+        /// <summary> Operator overloading for arithmetical operator </summary>
+        public static ArithExpr operator -(int a, ArithExpr b)
+        {
+            return b.Context.MkSub(MkNum(b, a), b);
+        }
+
+        /// <summary> Operator overloading for arithmetical operator </summary>
+        public static ArithExpr operator -(double a, ArithExpr b)
+        {
+            return b.Context.MkSub(MkNum(b, a), b);
+        }
+
+        /// <summary> Operator overloading for arithmetical operator </summary>
         public static ArithExpr operator +(ArithExpr a, ArithExpr b)
         {
             return a.Context.MkAdd(a, b);
+        }
+
+        /// <summary> Operator overloading for arithmetical operator </summary>
+        public static ArithExpr operator +(ArithExpr a, int b)
+        {
+            return a.Context.MkAdd(a, MkNum(a, b));
+        }
+
+        /// <summary> Operator overloading for arithmetical operator </summary>
+        public static ArithExpr operator +(ArithExpr a, double b)
+        {
+            return a.Context.MkAdd(a, MkNum(a, b));
+        }
+
+        /// <summary> Operator overloading for arithmetical operator </summary>
+        public static ArithExpr operator +(int a, ArithExpr b)
+        {
+            return b.Context.MkAdd(MkNum(b, a), b);
+        }
+
+        /// <summary> Operator overloading for arithmetical operator </summary>
+        public static ArithExpr operator +(double a, ArithExpr b)
+        {
+            return b.Context.MkAdd(MkNum(b, a), b);
         }
 
         /// <summary> Operator overloading for arithmetical operator </summary>
@@ -60,25 +126,25 @@ namespace Microsoft.Z3
         /// <summary> Operator overloading for arithmetical operator </summary>
         public static ArithExpr operator *(ArithExpr a, int b)
         {
-            return a.Context.MkMul(a, (ArithExpr)a.Context.MkNumeral(b, a.Context.MkIntSort()));
+            return a.Context.MkMul(a, MkNum(a, b));
         }
 
         /// <summary> Operator overloading for arithmetical operator </summary>
         public static ArithExpr operator *(ArithExpr a, double b)
         {
-            return a.Context.MkMul(a, (ArithExpr)a.Context.MkNumeral(b.ToString(), a.Context.MkRealSort()));
+            return a.Context.MkMul(a, MkNum(a, b));
         }
 
         /// <summary> Operator overloading for arithmetical operator </summary>
         public static ArithExpr operator *(int a, ArithExpr b)
         {
-            return b.Context.MkMul((ArithExpr)b.Context.MkNumeral(a, b.Context.MkIntSort()), b);
+            return b.Context.MkMul(MkNum(b, a), b);
         }
 
         /// <summary> Operator overloading for arithmetical operator </summary>
         public static ArithExpr operator *(double a, ArithExpr b)
         {
-            return b.Context.MkMul((ArithExpr)b.Context.MkNumeral(a.ToString(), b.Context.MkRealSort()), b);
+            return b.Context.MkMul(MkNum(b, a), b);
         }
 
         /// <summary> Operator overloading for arithmetical operator </summary>
@@ -90,25 +156,25 @@ namespace Microsoft.Z3
         /// <summary> Operator overloading for arithmetical operator </summary>
         public static BoolExpr operator <=(ArithExpr a, int b)
         {
-            return a <= (ArithExpr)a.Context.MkNumeral(b, a.Context.MkIntSort());
+            return a <= MkNum(a, b);
         }
 
         /// <summary> Operator overloading for arithmetical operator </summary>
         public static BoolExpr operator <=(ArithExpr a, double b)
         {
-            return a <= (ArithExpr)a.Context.MkNumeral(b.ToString(), a.Context.MkRealSort());
+            return a <= MkNum(a, b);
         }
 
         /// <summary> Operator overloading for arithmetical operator </summary>
         public static BoolExpr operator <=(int a, ArithExpr b)
         {
-            return (ArithExpr)b.Context.MkNumeral(a, b.Context.MkIntSort()) <= b;
+            return MkNum(b, a) <= b;
         }
 
         /// <summary> Operator overloading for arithmetical operator </summary>
         public static BoolExpr operator <=(double a, ArithExpr b)
         {
-            return (ArithExpr)b.Context.MkNumeral(a.ToString(), b.Context.MkRealSort()) <= b;
+            return MkNum(b, a) <= b;
         }
 
         /// <summary> Operator overloading for arithmetical operator </summary>
@@ -120,25 +186,25 @@ namespace Microsoft.Z3
         /// <summary> Operator overloading for arithmetical operator </summary>
         public static BoolExpr operator <(ArithExpr a, int b)
         {
-            return a < (ArithExpr)a.Context.MkNumeral(b, a.Context.MkIntSort());
+            return a < MkNum(a, b);
         }
 
         /// <summary> Operator overloading for arithmetical operator </summary>
         public static BoolExpr operator <(ArithExpr a, double b)
         {
-            return a < (ArithExpr)a.Context.MkNumeral(b.ToString(), a.Context.MkRealSort());
+            return a < MkNum(a, b);
         }
 
         /// <summary> Operator overloading for arithmetical operator </summary>
         public static BoolExpr operator <(int a, ArithExpr b)
         {
-            return (ArithExpr)b.Context.MkNumeral(a, b.Context.MkIntSort()) < b;
+            return MkNum(b, a) < b;
         }
 
         /// <summary> Operator overloading for arithmetical operator </summary>
         public static BoolExpr operator <(double a, ArithExpr b)
         {
-            return (ArithExpr)b.Context.MkNumeral(a.ToString(), b.Context.MkRealSort()) < b;
+            return MkNum(b, a) < b;
         }
 
         /// <summary> Operator overloading for arithmetical operator </summary>
@@ -150,25 +216,25 @@ namespace Microsoft.Z3
         /// <summary> Operator overloading for arithmetical operator </summary>
         public static BoolExpr operator >=(ArithExpr a, int b)
         {
-            return a >= (ArithExpr)a.Context.MkNumeral(b, a.Context.MkIntSort());
+            return a >= MkNum(a, b);
         }
 
         /// <summary> Operator overloading for arithmetical operator </summary>
         public static BoolExpr operator >=(ArithExpr a, double b)
         {
-            return a >= (ArithExpr)a.Context.MkNumeral(b.ToString(), a.Context.MkRealSort());
+            return a >= MkNum(a, b);
         }
 
         /// <summary> Operator overloading for arithmetical operator </summary>
         public static BoolExpr operator >=(int a, ArithExpr b)
         {
-            return (ArithExpr)b.Context.MkNumeral(a, b.Context.MkIntSort()) >= b;
+            return MkNum(b, a) >= b;
         }
 
         /// <summary> Operator overloading for arithmetical operator </summary>
         public static BoolExpr operator >=(double a, ArithExpr b)
         {
-            return (ArithExpr)b.Context.MkNumeral(a.ToString(), b.Context.MkRealSort()) >= b;
+            return MkNum(b, a) >= b;
         }
 
         /// <summary> Operator overloading for arithmetical operator </summary>
@@ -180,25 +246,26 @@ namespace Microsoft.Z3
         /// <summary> Operator overloading for arithmetical operator </summary>
         public static BoolExpr operator >(ArithExpr a, int b)
         {
-            return a > (ArithExpr)a.Context.MkNumeral(b, a.Context.MkIntSort());
+            return a > MkNum(a, b);
         }
 
         /// <summary> Operator overloading for arithmetical operator </summary>
         public static BoolExpr operator >(ArithExpr a, double b)
         {
-            return a > (ArithExpr)a.Context.MkNumeral(b.ToString(), a.Context.MkRealSort());
+            return a > MkNum(a, b);
         }
 
         /// <summary> Operator overloading for arithmetical operator </summary>
         public static BoolExpr operator >(int a, ArithExpr b)
         {
-            return (ArithExpr)b.Context.MkNumeral(a, b.Context.MkIntSort()) > b;
+            return MkNum(b, a) > b;
         }
 
         /// <summary> Operator overloading for arithmetical operator </summary>
         public static BoolExpr operator >(double a, ArithExpr b)
         {
-            return (ArithExpr)b.Context.MkNumeral(a.ToString(), b.Context.MkRealSort()) > b;
+            return MkNum(b, a) > b;
         }
+        #endregion
     }
 }
