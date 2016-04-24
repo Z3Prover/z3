@@ -1077,21 +1077,20 @@ void mpf_manager::round_to_integral(mpf_rounding_mode rm, mpf const & x, mpf & o
 
         unsigned shift = (o.sbits - 1) - ((unsigned)o.exponent);
         const mpz & shift_p = m_powers2(shift);
+        const mpz & shiftm1_p = m_powers2(shift-1);
         TRACE("mpf_dbg", tout << "shift=" << shift << std::endl;);
+        TRACE("mpf_dbg", tout << "shiftm1_p=" << m_mpz_manager.to_string(shiftm1_p) << std::endl;);
 
         scoped_mpz div(m_mpz_manager), rem(m_mpz_manager);
         m_mpz_manager.machine_div_rem(o.significand, shift_p, div, rem);
         TRACE("mpf_dbg", tout << "div=" << m_mpz_manager.to_string(div) << " rem=" << m_mpz_manager.to_string(rem) << std::endl;);
 
-        const mpz & shift_p1 = m_powers2(shift-1);
-        TRACE("mpf_dbg", tout << "shift_p1=" << m_mpz_manager.to_string(shift_p1) << std::endl;);
-
         switch (rm) {
         case MPF_ROUND_NEAREST_TEVEN:
         case MPF_ROUND_NEAREST_TAWAY: {
-            bool tie = m_mpz_manager.eq(rem, shift_p1);
-            bool less_than_tie = m_mpz_manager.lt(rem, shift_p1);
-            bool more_than_tie = m_mpz_manager.gt(rem, shift_p1);
+            bool tie = m_mpz_manager.eq(rem, shiftm1_p);
+            bool less_than_tie = m_mpz_manager.lt(rem, shiftm1_p);
+            bool more_than_tie = m_mpz_manager.gt(rem, shiftm1_p);
             TRACE("mpf_dbg", tout << "tie= " << tie << "; <tie = " << less_than_tie << "; >tie = " << more_than_tie << std::endl;);
             if (tie) {
                 if ((rm == MPF_ROUND_NEAREST_TEVEN && m_mpz_manager.is_odd(div)) ||
@@ -1231,43 +1230,18 @@ void mpf_manager::rem(mpf const & x, mpf const & y, mpf & o) {
     else if (is_zero(x))
         set(o, x);
     else {
-        o.ebits = x.ebits;
-        o.sbits = x.sbits;
-        o.sign = x.sign;
+        // r = x - y * n
+        scoped_mpf nr(*this), n(*this), yn(*this);
+        div(MPF_ROUND_NEAREST_TEVEN, x, y, nr);
+        round_to_integral(MPF_ROUND_NEAREST_TEVEN, nr, n);
+        mul(MPF_ROUND_NEAREST_TEVEN, y, n, yn);
+        sub(MPF_ROUND_NEAREST_TEVEN, x, yn, o);
 
-        scoped_mpf a(*this), b(*this);
-        set(a, x);
-        set(b, y);
-        unpack(a, true);
-        unpack(b, true);
+        if (is_zero(o))
+            o.sign = x.sign;
 
-        TRACE("mpf_dbg", tout << "A = " << to_string(a) << std::endl;);
-        TRACE("mpf_dbg", tout << "B = " << to_string(b) << std::endl;);
-
-        if (a.exponent() < b.exponent())
-            set(o, x);
-        else {
-            mpf_exp_t exp_diff = a.exponent() - b.exponent();
-            SASSERT(exp_diff >= 0);
-            TRACE("mpf_dbg", tout << "exp_diff = " << exp_diff << std::endl;);
-
-            SASSERT(exp_diff < INT_MAX);
-            // CMW: This requires rather a lot of memory. There are algorithms that trade space for time by
-            // computing only a small chunk of the remainder bits at a time.
-            unsigned extra_bits = (unsigned) exp_diff;
-            m_mpz_manager.mul2k(a.significand(), extra_bits);
-            m_mpz_manager.rem(a.significand(), b.significand(), o.significand);
-
-            TRACE("mpf_dbg", tout << "REM' = " << to_string(o) << std::endl;);
-
-            if (m_mpz_manager.is_zero(o.significand))
-                mk_zero(o.ebits, o.sbits, o.sign, o);
-            else {
-                o.exponent = b.exponent();
-                m_mpz_manager.mul2k(o.significand, 3); // rounding bits
-                round(MPF_ROUND_NEAREST_TEVEN, o);
-            }
-        }
+        TRACE("mpf_dbg", tout << "N = " << to_string(n) << std::endl;);
+        TRACE("mpf_dbg", tout << "YN = " << to_string(yn) << std::endl;);
     }
 
     TRACE("mpf_dbg", tout << "REMAINDER = " << to_string(o) << std::endl;);
