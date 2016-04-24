@@ -383,17 +383,10 @@ void hwf_manager::round_to_integral(mpf_rounding_mode rm, hwf const & x, hwf & o
 }
 
 void hwf_manager::rem(hwf const & x, hwf const & y, hwf & o) {
-    // The built-in fmod() works, except for the special numbers.
+    o.value = remainder(x.value, y.value);
 
-    if (is_inf(x) && is_inf(y))
-        o.value = x.value/y.value; // NaN
-    else if (is_inf(y))
-        o.value = x.value;
-    else
-        o.value = fmod(x.value, y.value);
-
-    // Here is an x87 alternative if the above makes problems; this may also be faster.
 #if 0
+    // Here is an x87 alternative if the above makes problems; this may also be faster.
     double xv = x.value;
     double yv = y.value;
     double & ov = o.value;
