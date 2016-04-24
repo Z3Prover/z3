@@ -37,18 +37,18 @@ namespace Microsoft.Z3
 
         #region Operators
         /// <summary> Disjunction of Boolean expressions </summary>
-        public static BoolExpr operator|(BoolExpr a, BoolExpr b) => a.Context.MkOr(a, b);
+        public static BoolExpr operator|(BoolExpr a, BoolExpr b) { return a.Context.MkOr(a, b); }
 
         /// <summary>
         /// Conjunction of Boolean expressions
         /// </summary>
-        public static BoolExpr operator &(BoolExpr a, BoolExpr b) => a.Context.MkAnd(a, b);
+        public static BoolExpr operator &(BoolExpr a, BoolExpr b) { return a.Context.MkAnd(a, b); }
        
         /// <summary> Xor of Boolean expressions </summary>
-        public static BoolExpr operator ^(BoolExpr a, BoolExpr b) => a.Context.MkXor(a, b);
+        public static BoolExpr operator ^(BoolExpr a, BoolExpr b) { return a.Context.MkXor(a, b); }
        
         /// <summary> Negation </summary>
-        public static BoolExpr operator !(BoolExpr a) => a.Context.MkNot(a);        
+        public static BoolExpr operator !(BoolExpr a) { return a.Context.MkNot(a); }
 
         #endregion
     }
