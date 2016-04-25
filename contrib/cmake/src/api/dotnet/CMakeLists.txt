@@ -206,9 +206,9 @@ endif()
 # FIXME: The get_property() command only works correctly for single configuration generators
 # so we can't use it. We also can't use ``$<TARGET_FILE_DIR:libz3>`` because the ``OUTPUT``
 # argument to ``add_custom_commands()`` won't accept it. For now just output file to the
-# current binary directory.
+# root binary directory like the Python build system does.
 # get_property(Z3_DOTNET_ASSEMBLY_OUTPUT_DIR TARGET libz3 PROPERTY LIBRARY_OUTPUT_DIRECTORY)
-set(Z3_DOTNET_ASSEMBLY_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}")
+set(Z3_DOTNET_ASSEMBLY_OUTPUT_DIR "${CMAKE_BINARY_DIR}")
 set(Z3_DOTNET_ASSEMBLY_NAME "Microsoft.Z3.dll")
 set(Z3_DOTNET_ASSEMBLY_DLL "${Z3_DOTNET_ASSEMBLY_OUTPUT_DIR}/${Z3_DOTNET_ASSEMBLY_NAME}")
 # csc.exe doesn't work with UNIX style paths so convert to native path
