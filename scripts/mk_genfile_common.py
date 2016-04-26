@@ -255,6 +255,116 @@ def mk_z3consts_dotnet_internal(api_files, output_dir):
     z3consts.close()
     return z3consts_output_path
 
+
+def mk_z3consts_java_internal(api_files, package_name, output_dir):
+    """
+        Generate "com.microsoft.z3.enumerations" package from the list of API
+        header files in ``api_files`` and write the package directory into
+        the ``output_dir`` directory
+
+        Returns a list of the generated java source files.
+    """
+    blank_pat      = re.compile("^ *$")
+    comment_pat    = re.compile("^ *//.*$")
+    typedef_pat    = re.compile("typedef enum *")
+    typedef2_pat   = re.compile("typedef enum { *")
+    openbrace_pat  = re.compile("{ *")
+    closebrace_pat = re.compile("}.*;")
+
+    DeprecatedEnums = [ 'Z3_search_failure' ]
+    gendir = os.path.join(output_dir, "enumerations")
+    if not os.path.exists(gendir):
+        os.mkdir(gendir)
+
+    generated_enumeration_files = []
+    for api_file in api_files:
+        api = open(api_file, 'r')
+
+        SEARCHING  = 0
+        FOUND_ENUM = 1
+        IN_ENUM    = 2
+
+        mode    = SEARCHING
+        decls   = {}
+        idx     = 0
+
+        linenum = 1
+        for line in api:
+            m1 = blank_pat.match(line)
+            m2 = comment_pat.match(line)
+            if m1 or m2:
+                # skip blank lines and comments
+                linenum = linenum + 1
+            elif mode == SEARCHING:
+                m = typedef_pat.match(line)
+                if m:
+                    mode = FOUND_ENUM
+                m = typedef2_pat.match(line)
+                if m:
+                    mode = IN_ENUM
+                    decls = {}
+                    idx   = 0
+            elif mode == FOUND_ENUM:
+                m = openbrace_pat.match(line)
+                if m:
+                    mode  = IN_ENUM
+                    decls = {}
+                    idx   = 0
+                else:
+                    assert False, "Invalid %s, line: %s" % (api_file, linenum)
+            else:
+                assert mode == IN_ENUM
+                words = re.split('[^\-a-zA-Z0-9_]+', line)
+                m = closebrace_pat.match(line)
+                if m:
+                    name = words[1]
+                    if name not in DeprecatedEnums:
+                        efile  = open('%s.java' % os.path.join(gendir, name), 'w')
+                        generated_enumeration_files.append(efile.name)
+                        efile.write('/**\n *  Automatically generated file\n **/\n\n')
+                        efile.write('package %s.enumerations;\n\n' % package_name)
+
+                        efile.write('/**\n')
+                        efile.write(' * %s\n' % name)
+                        efile.write(' **/\n')
+                        efile.write('public enum %s {\n' % name)
+                        efile.write
+                        first = True
+                        # Iterate over key-value pairs ordered by value
+                        for k, v in sorted(decls.items(), key=lambda pair: pair[1]):
+                            if first:
+                                first = False
+                            else:
+                                efile.write(',\n')
+                            efile.write('    %s (%s)' % (k, v))
+                        efile.write(";\n")
+                        efile.write('\n    private final int intValue;\n\n')
+                        efile.write('    %s(int v) {\n' % name)
+                        efile.write('        this.intValue = v;\n')
+                        efile.write('    }\n\n')
+                        efile.write('    public static final %s fromInt(int v) {\n' % name)
+                        efile.write('        for (%s k: values()) \n' % name)
+                        efile.write('            if (k.intValue == v) return k;\n')
+                        efile.write('        return values()[0];\n')
+                        efile.write('    }\n\n')
+                        efile.write('    public final int toInt() { return this.intValue; }\n')
+                        #  efile.write(';\n  %s(int v) {}\n' % name)
+                        efile.write('}\n\n')
+                        efile.close()
+                    mode = SEARCHING
+                else:
+                    if words[2] != '':
+                        if len(words[2]) > 1 and words[2][1] == 'x':
+                            idx = int(words[2], 16)
+                        else:
+                            idx = int(words[2])
+                    decls[words[1]] = idx
+                    idx = idx + 1
+            linenum = linenum + 1
+        api.close()
+    return generated_enumeration_files
+
+
 ###############################################################################
 # Functions for generating a "module definition file" for MSVC
 ###############################################################################

@@ -279,6 +279,10 @@ The following useful options can be passed to CMake whilst configuring.
 * ``INSTALL_DOTNET_BINDINGS`` - BOOL. If set to ``TRUE`` and ``BUILD_DOTNET_BINDINGS`` is ``TRUE`` then running the ``install`` target will install Z3's .NET bindings.
 * ``DOTNET_CSC_EXECUTABLE`` - STRING. The path to the C# compiler to use. Only relevant if ``BUILD_DOTNET_BINDINGS`` is set to ``TRUE``.
 * ``DOTNET_GACUTIL_EXECUTABLE`` - STRING. The path to the gacutil program to use. Only relevant if ``BUILD_DOTNET_BINDINGS`` is set to ``TRUE``.
+* ``BUILD_JAVA_BINDINGS`` - BOOL. If set to ``TRUE`` then Z3's Java bindings will be built.
+* ``INSTALL_JAVA_BINDINGS`` - BOOL. If set to ``TRUE`` and ``BUILD_JAVA_BINDINGS`` is ``TRUE`` then running the ``install`` target will install Z3's Java bindings.
+* ``Z3_JAVA_JAR_INSTALLDIR`` - STRING. The path to directory to install the Z3 Java ``.jar`` file. This path should be relative to ``CMAKE_INSTALL_PREFIX``.
+* ``Z3_JAVA_JNI_LIB_INSTALLDIRR`` - STRING. The path to directory to install the Z3 Java JNI bridge library. This path should be relative to ``CMAKE_INSTALL_PREFIX``.
 
 On the command line these can be passed to ``cmake`` using the ``-D`` option. In ``ccmake`` and ``cmake-gui`` these can be set in the user interface.
 
@@ -286,7 +290,28 @@ Example
 
 ```
 cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_TRACING=FALSE ../
+
 ```
+
+## Z3 API Bindings
+
+Z3 exposes various language bindings for its API. Below are some notes on building
+and/or installing these bindings when building Z3 with CMake.
+
+### Java bindings
+
+The CMake build uses the ``FindJava`` and ``FindJNI`` cmake modules to detect the
+installation of Java. If CMake fails to find your installation of Java set the
+``JAVA_HOME`` environment variable when invoking CMake so that it points at the
+correct location. For example
+
+```
+JAVA_HOME=/usr/lib/jvm/default cmake -DBUILD_JAVA_BINDINGS=ON ../
+```
+Note that the built ``.jar`` file is named ``com.microsoft.z3-VERSION.jar``
+where ``VERSION`` is the Z3 version. Under non Windows systems a
+symbolic link named ``com.microsoft.z3.jar`` is provided. This symbolic
+link is not created when building under Windows.
 
 ## Developer/packager notes
 
