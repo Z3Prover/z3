@@ -474,7 +474,7 @@ def java_array_element_type(p):
     else:
         return 'jlong'
 
-def mk_java(java_dir, package_name):
+def mk_java(java_dir, package_name, load_library_directly):
     java_nativef  = os.path.join(java_dir, 'Native.java')
     java_wrapperf = os.path.join(java_dir, 'Native.cpp')
     java_native   = open(java_nativef, 'w')
@@ -489,10 +489,11 @@ def mk_java(java_dir, package_name):
     java_native.write('  public static class UIntArrayPtr { public int[] value; }\n')
     java_native.write('  public static native void setInternalErrorHandler(long ctx);\n\n')
 
-    java_native.write('  static {\n')
-    java_native.write('    try { System.loadLibrary("z3java"); }\n')
-    java_native.write('    catch (UnsatisfiedLinkError ex) { System.loadLibrary("libz3java"); }\n')
-    java_native.write('  }\n')
+    if load_library_directly:
+        java_native.write('  static {\n')
+        java_native.write('    try { System.loadLibrary("z3java"); }\n')
+        java_native.write('    catch (UnsatisfiedLinkError ex) { System.loadLibrary("libz3java"); }\n')
+        java_native.write('  }\n')
 
     java_native.write('\n')
     for name, result, params in _dotnet_decls:
@@ -1563,6 +1564,7 @@ def generate_files(api_files,
                    dotnet_output_dir=None,
                    java_output_dir=None,
                    java_package_name=None,
+                   java_load_library_directly=True,
                    ml_output_dir=None):
   """
     Scan the api files in ``api_files`` and emit the relevant API files into
@@ -1635,7 +1637,7 @@ def generate_files(api_files,
         print("Generated '{}'".format(dotnet_file.name))
 
   if java_output_dir:
-    mk_java(java_output_dir, java_package_name)
+    mk_java(java_output_dir, java_package_name, java_load_library_directly)
   if ml_output_dir:
     mk_ml(ml_output_dir)
 
