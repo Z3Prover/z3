@@ -282,9 +282,10 @@ if (DOTNET_TOOLCHAIN_IS_MONO)
   add_dependencies(uninstall remove_dotnet_dll_from_gac)
 
 elseif(DOTNET_TOOLCHAIN_IS_WINDOWS)
-  # FIXME: This isn't implemented because I'm not sure how/if the assembly should
-  # be installed to the GAC.
-  message(WARNING "Install of .NET bindings is not implemented for Windows")
+  # Don't install Z3_DOTNET_ASSEMBLY_DLL into the gac. Instead just copy into
+  # installation directory.
+  install(FILES "${Z3_DOTNET_ASSEMBLY_DLL}" DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+  install(FILES "${Z3_DOTNET_ASSEMBLY_DLL_DOC}" DESTINATION "${CMAKE_INSTALL_LIBDIR}")
 else()
   message(FATAL_ERROR "Unknown .NET toolchain")
 endif()
