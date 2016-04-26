@@ -166,7 +166,8 @@ endforeach()
 
 install(TARGETS libz3
   LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-  ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+  ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}" # On Windows this installs ``libz3.lib`` which CMake calls the "corresponding import library". Do we want this installed?
+  RUNTIME DESTINATION "${CMAKE_INSTALL_LIBDIR}" # For Windows. DLLs are runtime targets for CMake
   PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
 
