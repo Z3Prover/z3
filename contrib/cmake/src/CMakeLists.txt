@@ -166,7 +166,8 @@ endforeach()
 
 install(TARGETS libz3
   LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-  ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+  ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}" # On Windows this installs ``libz3.lib`` which CMake calls the "corresponding import library". Do we want this installed?
+  RUNTIME DESTINATION "${CMAKE_INSTALL_LIBDIR}" # For Windows. DLLs are runtime targets for CMake
   PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
 
@@ -232,6 +233,18 @@ if (BUILD_DOTNET_BINDINGS)
       "You either need to disable BUILD_DOTNET_BINDINGS or enable BUILD_LIBZ3_SHARED")
   endif()
   add_subdirectory(api/dotnet)
+endif()
+
+################################################################################
+# Java bindings
+################################################################################
+option(BUILD_JAVA_BINDINGS "Build Java bindings for Z3" OFF)
+if (BUILD_JAVA_BINDINGS)
+  if (NOT BUILD_LIBZ3_SHARED)
+    message(FATAL_ERROR "The Java bindings will not work with a static libz3. "
+      "You either need to disable BUILD_JAVA_BINDINGS or enable BUILD_LIBZ3_SHARED")
+  endif()
+  add_subdirectory(api/java)
 endif()
 
 # TODO: Implement support for other bindigns
