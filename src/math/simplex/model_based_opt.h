@@ -44,23 +44,32 @@ namespace opt {
             unsigned m_id;
             rational m_coeff;
             var(unsigned id, rational const& c): m_id(id), m_coeff(c) {}
+            struct compare {
+                bool operator()(var x, var y) {
+                    return x.m_id < y.m_id;
+                }
+            };
         };
     private:
         struct row {
+            row(): m_type(t_le), m_value(0), m_alive(false) {}
             vector<var> m_vars;         // variables with coefficients
             rational    m_coeff;        // constant in inequality
             ineq_type   m_type;         // inequality type
             rational    m_value;        // value of m_vars + m_coeff under interpretation of m_var2value.
             bool        m_alive;        // rows can be marked dead if they have been processed.
         };
+
         vector<row>             m_rows;
+        unsigned                m_objective_id;
         vector<unsigned_vector> m_var2row_ids;
         vector<rational>        m_var2value;
-        row                     m_objective;
         vector<var>             m_new_vars;
         
         bool invariant();
         bool invariant(row const& r);
+
+        row& objective() { return m_rows[0]; }
         
 
         bool find_bound(unsigned x, unsigned& bound_index, unsigned_vector& other, bool is_pos);
@@ -73,7 +82,11 @@ namespace opt {
 
         void add(unsigned row_id1, unsigned row_id2);
 
+        void set_row(row& r, vector<var> const& coeffs, rational const& c, ineq_type rel);
+
     public:
+
+        model_based_opt();
 
         // add a fresh variable with value 'value'.
         unsigned add_var(rational const& value);
