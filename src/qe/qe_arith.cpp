@@ -20,6 +20,7 @@ Revision History:
 --*/
 
 #include "qe_arith.h"
+#include "qe_mbp.h"
 #include "ast_util.h"
 #include "arith_decl_plugin.h"
 #include "ast_pp.h"
@@ -49,14 +50,185 @@ namespace qe {
         }
         return is_divides(a, e1, e2, k, t) || is_divides(a, e2, e1, k, t);
     }
+
+    enum ineq_type {
+        t_eq,
+        t_lt,
+        t_le
+    };
+
+    struct tableau {
+        struct var {
+            unsigned m_id;
+            rational m_coeff;
+            var(unsigned id, rational const& c): m_id(id), m_coeff(c) {}
+        };
+        struct row {
+            vector<var> m_vars;         // variables with coefficients
+            rational    m_coeff;        // constant in inequality
+            ineq_type   m_type;         // inequality type
+            rational    m_value;        // value of m_vars + m_coeff under interpretation of m_var2value.
+            bool        m_alive;        // rows can be marked dead if they have been processed.
+        };
+        vector<row>             m_rows;
+        vector<unsigned_vector> m_var2rows;
+        vector<rational>        m_var2value;
+        row                     m_objective;
+        
+        void invariant() {
+            // variables in each row are sorted.
+        }
+        
+        mbp::bound_type maximize(rational& value) {
+            // tbd
+            return mbp::unbounded;
+        }
+        
+        rational get_coefficient(unsigned row_id, unsigned var_id) {
+            row const& r = m_rows[row_id];
+            unsigned lo = 0, hi = r.m_vars.size();
+            while (lo < hi) {
+                unsigned mid = lo + (hi - lo)/2;
+                SASSERT(mid < hi);
+                unsigned id = r.m_vars[mid].m_id;
+                if (id == var_id) {
+                    lo = mid;
+                    break;
+                }
+                if (id < var_id) {
+                    lo = mid + 1;
+                }
+                else {
+                    hi = mid - 1;
+                }
+            }
+            unsigned id = r.m_vars[lo].m_id;
+            if (id == var_id) {
+                return r.m_vars[lo].m_coeff;
+            }
+            else {
+                return rational::zero();
+            }
+        }
+
+        void resolve(unsigned row_id1, unsigned row_id2, unsigned x) {
+            // row1 is of the form a1*x + t1 <~ 0
+            // row2 is of the form a2*x + t2 <~ 0
+            // assume that a1, a2 have the same sign.
+            // if a1 is positive, then val(t1*a2/a1) <= val(t2*a1/a2)
+            //   replace row2 with the new inequality of the form:
+            //   t1 - a1*t2/a2 <~~ 0
+            //   where <~~ is strict if either <~1 or <~2 is strict.
+            // if a1 is negative, then ....
+            //   
+        }
+
+        void multiply(rational const& c, unsigned row_id) {
+            if (c.is_one()) {
+                return;
+            }
+            row& r = m_rows[row_id];
+            SASSERT(r.m_alive);
+            for (unsigned i = 0; i < r.m_vars.size(); ++i) {
+                r.m_vars[i].m_coeff *= c;
+            }
+            r.m_coeff *= c;
+            r.m_value *= c;
+        }
+
+        // subtract row2 from row1, store result in row2
+    
+        vector<var> m_new_vars;
+
+        void subtract(unsigned row_id1, unsigned row_id2) {
+            m_new_vars.reset();
+            row const& r1 = m_rows[row_id1];
+            row& r2 = m_rows[row_id2];
+            unsigned i = 0, j = 0;
+            for(; i < r1.m_vars.size() || j < r2.m_vars.size(); ) {
+                if (j == r2.m_vars.size()) {
+                    for (; i < r1.m_vars.size(); ++i) {
+                        m_new_vars.push_back(r1.m_vars[i]);
+                        m_var2rows[r1.m_vars[i].m_id].push_back(row_id2);
+                    }
+                }
+                else if (i == r1.m_vars.size()) {
+                    for (; j < r2.m_vars.size(); ++j) {
+                        m_new_vars.push_back(r2.m_vars[j]);
+                        m_new_vars.back().m_coeff.neg();
+                    }
+                }
+                else {
+                    unsigned v1 = r1.m_vars[i].m_id;
+                    unsigned v2 = r2.m_vars[j].m_id;
+                    if (v1 == v2) {
+                        m_new_vars.push_back(r1.m_vars[i]);
+                        m_new_vars.back().m_coeff -= r2.m_vars[j].m_coeff;
+                        ++i;
+                        ++j;
+                        if (m_new_vars.back().m_coeff.is_zero()) {
+                            m_new_vars.pop_back();
+                        }
+                    }
+                    else if (v1 < v2) {
+                        m_new_vars.push_back(r1.m_vars[i]);
+                        m_var2rows[r1.m_vars[i].m_id].push_back(row_id2);
+                        ++i;                        
+                    }
+                    else {
+                        m_new_vars.push_back(r2.m_vars[j]);
+                        m_new_vars.back().m_coeff.neg();
+                        ++j;                        
+                    }
+                }                
+            }
+            r2.m_coeff.neg();
+            r2.m_coeff += r1.m_coeff;
+            r2.m_vars.swap(m_new_vars);
+            r2.m_value.neg();
+            r2.m_value += r1.m_value;
+            if (r1.m_type == t_lt) {
+                r2.m_type = t_lt;
+            }
+        }
+
+        void display(std::ostream& out) const {
+            for (unsigned i = 0; i < m_rows.size(); ++i) {
+                display(out, m_rows[i]);
+            }
+        }        
+
+        void display(std::ostream& out, row const& r) const {
+            vector<var> const& vars = r.m_vars;
+            for (unsigned i = 0; i < vars.size(); ++i) {
+                if (i > 0 && vars[i].m_coeff.is_pos()) {
+                    out << "+ ";
+                }
+                out << vars[i].m_coeff << "* v" << vars[i].m_id << " ";                
+            }
+            out << r.m_coeff;
+            switch (r.m_type) {
+            case t_eq:
+                out << " = 0\n";
+                break;
+            case t_lt:
+                out << " < 0\n";
+                break;
+            case t_le:
+                out << " <= 0\n";
+                break;
+            }
+        }
+    };
+
+#if 0
+        obj_map<expr, unsigned> m_expr2var;
+        ptr_vector<expr>        m_var2expr;
+
+#endif
     
     struct arith_project_plugin::imp {
 
-        enum ineq_type {
-            t_eq,
-            t_lt,
-            t_le
-        };
         ast_manager&      m;
         arith_util        a;
         th_rewriter       m_rw;
@@ -82,6 +254,62 @@ namespace qe {
             for (unsigned i = 0; i < num_divs(); ++i) {
                 display_div(out, i);
             }            
+        }
+
+        void insert_mul(expr* x, rational const& v, obj_map<expr, rational>& ts)
+        {
+            rational w;
+            if (ts.find(x, w)) {
+                ts.insert(x, w + v);
+            }
+            else {
+                ts.insert(x, v); 
+            }
+        }
+
+        void linearize(model& model, rational const& mul, expr* t, rational& c, obj_map<expr, rational>& ts) {
+            expr* t1, *t2, *t3;
+            rational mul1;
+            expr_ref val(m);
+            if (a.is_mul(t, t1, t2) && is_numeral(model, t1, mul1)) {
+                linearize(model, mul* mul1, t2, c, ts);
+            }
+            else if (a.is_mul(t, t1, t2) && is_numeral(model, t2, mul1)) {
+                linearize(model, mul* mul1, t1, c, ts);
+            }
+            else if (a.is_add(t)) {
+                app* ap = to_app(t);
+                for (unsigned i = 0; i < ap->get_num_args(); ++i) {
+                    linearize(model, mul, ap->get_arg(i), c, ts);
+                }
+            }
+            else if (a.is_sub(t, t1, t2)) {
+                linearize(model, mul, t1, c, ts);
+                linearize(model, -mul, t2, c, ts);
+            }
+            else if (a.is_uminus(t, t1)) {
+                linearize(model, -mul, t1, c, ts);
+            }
+            else if (a.is_numeral(t, mul1)) {
+                c += mul*mul1;
+            }
+            else if (extract_mod(model, t, val)) {
+                insert_mul(val, mul, ts);
+            }
+            else if (m.is_ite(t, t1, t2, t3)) {
+                VERIFY(model.eval(t1, val));
+                SASSERT(m.is_true(val) || m.is_false(val));
+                TRACE("qe", tout << mk_pp(t1, m) << " := " << val << "\n";);
+                if (m.is_true(val)) {
+                    linearize(model, mul, t2, c, ts);
+                }
+                else {
+                    linearize(model, mul, t3, c, ts);
+                }
+            }
+            else {
+                insert_mul(t, mul, ts);
+            }
         }
 
         void is_linear(model& model, rational const& mul, expr* t, rational& c, expr_ref_vector& ts) {
@@ -853,6 +1081,19 @@ namespace qe {
             }
             return true;
         }
+
+        mbp::bound_type maximize(expr_ref_vector const& fmls, model& mdl, app* t, expr_ref& value, expr_ref& bound) {
+            obj_map<expr, rational> ts;
+            rational c(0), mul(1);
+            linearize(mdl, mul, t, c, ts);              
+                
+            
+            // pick variables one by one from ts.
+            // m_var = alloc(contains_app, m, v);
+            // perform upper or lower projection depending on sign of v.
+            // 
+            return mbp::unbounded;
+        }
     };
 
     arith_project_plugin::arith_project_plugin(ast_manager& m) {
@@ -873,6 +1114,10 @@ namespace qe {
 
     family_id arith_project_plugin::get_family_id() {
         return m_imp->a.get_family_id();
+    }
+
+    mbp::bound_type arith_project_plugin::maximize(expr_ref_vector const& fmls, model& mdl, app* t, expr_ref& value, expr_ref& bound) {
+        return m_imp->maximize(fmls, mdl, t, value, bound);
     }
 
     bool arith_project(model& model, app* var, expr_ref_vector& lits) {

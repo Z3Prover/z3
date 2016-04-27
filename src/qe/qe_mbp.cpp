@@ -213,6 +213,11 @@ class mbp::impl {
 public:
 
 
+    mbp::bound_type maximize(expr_ref_vector const& fmls, model& mdl, app* t, expr_ref& value, expr_ref& bound) {
+        arith_project_plugin arith(m);
+        return arith.maximize(fmls, mdl, t, value, bound);
+    }
+
     void extract_literals(model& model, expr_ref_vector& fmls) {
         expr_ref val(m);
         for (unsigned i = 0; i < fmls.size(); ++i) {
@@ -414,4 +419,8 @@ void mbp::solve(model& model, app_ref_vector& vars, expr_ref_vector& fmls) {
         
 void mbp::extract_literals(model& model, expr_ref_vector& lits) {
     m_impl->extract_literals(model, lits);
+}
+
+mbp::bound_type mbp::maximize(expr_ref_vector const& fmls, model& mdl, app* t, expr_ref& value, expr_ref& bound) {
+    return m_impl->maximize(fmls, mdl, t, value, bound);
 }

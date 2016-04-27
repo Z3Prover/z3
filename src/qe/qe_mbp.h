@@ -70,6 +70,17 @@ namespace qe {
            Extract literals from formulas based on model.
          */
         void extract_literals(model& model, expr_ref_vector& lits);
+
+        /**
+           \brief 
+           Maximize objective t under current model for constraints in fmls.
+         */
+        enum bound_type {
+            unbounded,
+            strict,
+            non_strict
+        };
+        bound_type maximize(expr_ref_vector const& fmls, model& mdl, app* t, expr_ref& value, expr_ref& bound);
     };
 }
 
