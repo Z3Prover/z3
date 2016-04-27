@@ -39,9 +39,7 @@ namespace Microsoft.Z3
         /// <summary> Disjunction of Boolean expressions </summary>
         public static BoolExpr operator|(BoolExpr a, BoolExpr b) { return a.Context.MkOr(a, b); }
 
-        /// <summary>
-        /// Conjunction of Boolean expressions
-        /// </summary>
+        /// <summary> Conjunction of Boolean expressions </summary>
         public static BoolExpr operator &(BoolExpr a, BoolExpr b) { return a.Context.MkAnd(a, b); }
        
         /// <summary> Xor of Boolean expressions </summary>

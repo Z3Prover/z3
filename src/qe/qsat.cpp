@@ -1284,16 +1284,16 @@ namespace qe {
 
         app*             m_objective;
         expr_ref         m_value;
-        mbp::bound_type  m_bound;
+        opt::bound_type  m_bound;
         bool             m_was_sat;
 
-        lbool maximize(expr_ref_vector const& fmls, app* t, expr_ref& value, mbp::bound_type& bound) {
+        lbool maximize(expr_ref_vector const& fmls, app* t, expr_ref& value, opt::bound_type& bound) {
             expr_ref_vector defs(m);
             expr_ref fml = negate_core(fmls);
             hoist(fml);
             m_objective = t;
             m_value = 0;
-            m_bound = mbp::unbounded;
+            m_bound = opt::unbounded;
             m_was_sat = false;
             m_pred_abs.abstract_atoms(fml, defs);
             fml = m_pred_abs.mk_abstract(fml);
@@ -1334,14 +1334,14 @@ namespace qe {
             expr_ref bound(m);
             m_bound = m_mbp.maximize(core, mdl, m_objective, m_value, bound);
             switch (m_bound) {
-            case mbp::unbounded:
+            case opt::unbounded:
                 m_ex.assert_expr(m.mk_false());
                 m_fa.assert_expr(m.mk_false());
                 break;
-            case mbp::strict:
+            case opt::strict:
                 m_ex.assert_expr(bound);
                 break;
-            case mbp::non_strict:
+            case opt::non_strict:
                 m_ex.assert_expr(bound);
                 break;
             }
@@ -1349,7 +1349,7 @@ namespace qe {
 
     };
 
-    lbool maximize(expr_ref_vector const& fmls, app* t, expr_ref& value, mbp::bound_type& bound, params_ref const& p) {
+    lbool maximize(expr_ref_vector const& fmls, app* t, expr_ref& value, opt::bound_type& bound, params_ref const& p) {
         ast_manager& m = fmls.get_manager();
         qsat qs(m, p, qsat_maximize);
         return qs.maximize(fmls, t, value, bound);
