@@ -186,6 +186,7 @@ public:
     void mk_ninf(unsigned ebits, unsigned sbits, mpf & o);
 
     std::string to_string_raw(mpf const & a);
+    std::string to_string_hexfloat(mpf const & a);
 
     unsynch_mpz_manager & mpz_manager(void) { return m_mpz_manager; }
     unsynch_mpq_manager & mpq_manager(void) { return m_mpq_manager; }
