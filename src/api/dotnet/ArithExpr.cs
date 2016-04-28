@@ -61,6 +61,9 @@ namespace Microsoft.Z3
         public static ArithExpr operator /(double a, ArithExpr b) { return MkNum(b, a) / b; }
 
         /// <summary> Operator overloading for arithmetical operator </summary>
+        public static ArithExpr operator -(ArithExpr a) { return a.Context.MkUnaryMinus(a); }        
+
+        /// <summary> Operator overloading for arithmetical operator </summary>
         public static ArithExpr operator -(ArithExpr a, ArithExpr b) { return a.Context.MkSub(a, b); }        
 
         /// <summary> Operator overloading for arithmetical operator </summary>
