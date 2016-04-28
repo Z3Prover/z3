@@ -1411,6 +1411,7 @@ std::string mpf_manager::to_string_hexfloat(mpf const & x) {
     std::stringstream ss("");
     std::ios::fmtflags ff = ss.setf(std::ios_base::hex | std::ios_base::uppercase |
                                     std::ios_base::showpoint | std::ios_base::showpos);
+    ss.setf(ff);
     ss.precision(13);
 #if defined(_WIN32) && _MSC_VER >= 1800
     ss << std::hexfloat << to_double(x);
