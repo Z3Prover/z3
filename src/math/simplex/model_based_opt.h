@@ -37,6 +37,8 @@ namespace opt {
         strict,
         non_strict
     };
+
+
     
     class model_based_opt {
     public:
@@ -67,22 +69,20 @@ namespace opt {
         vector<var>             m_new_vars;
         
         bool invariant();
-        bool invariant(row const& r);
+        bool invariant(unsigned index, row const& r);
 
         row& objective() { return m_rows[0]; }
         
 
-        bool find_bound(unsigned x, unsigned& bound_index, unsigned_vector& other, bool is_pos);
+        bool find_bound(unsigned x, unsigned& bound_index, rational& bound_coeff, unsigned_vector& other, bool is_pos);
         
         rational get_coefficient(unsigned row_id, unsigned var_id);
 
         bool resolve(unsigned row_id1, rational const& a1, unsigned row_id2, unsigned x);
 
-        void multiply(rational const& c, unsigned row_id);
+        void mul_add(unsigned row_id1, rational const& c, unsigned row_id2);
 
-        void add(unsigned row_id1, unsigned row_id2);
-
-        void set_row(row& r, vector<var> const& coeffs, rational const& c, ineq_type rel);
+        void set_row(unsigned row_id, vector<var> const& coeffs, rational const& c, ineq_type rel);
 
     public:
 
@@ -111,5 +111,9 @@ namespace opt {
     };
 
 }
+
+std::ostream& operator<<(std::ostream& out, opt::bound_type bt);
+std::ostream& operator<<(std::ostream& out, opt::ineq_type ie);
+
 
 #endif 
