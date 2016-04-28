@@ -383,7 +383,7 @@ void hwf_manager::round_to_integral(mpf_rounding_mode rm, hwf const & x, hwf & o
 }
 
 void hwf_manager::rem(hwf const & x, hwf const & y, hwf & o) {
-#if defined(_WINDOWS) && _MSC_VER < 1700
+#if defined(_WINDOWS) && _MSC_VER <= 1700
     o.value = fmod(x.value, y.value);
     if (o.value >= (y.value/2.0))
         o.value -= y.value;
