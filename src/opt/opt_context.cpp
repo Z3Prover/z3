@@ -42,6 +42,7 @@ Notes:
 #include "filter_model_converter.h"
 #include "ast_pp_util.h"
 #include "inc_sat_solver.h"
+#include "qsat.h"
 
 namespace opt {
 
@@ -1438,5 +1439,43 @@ namespace opt {
             }
             }       
         } 
+    }
+
+    bool context::is_qsat_opt() {
+        if (m_objectives.size() != 1) {
+            return false;
+        }
+        if (m_objectives[0].m_type != O_MAXIMIZE && 
+            m_objectives[0].m_type != O_MINIMIZE) {
+            return false;
+        }
+        for (unsigned i = 0; i < m_hard_constraints.size(); ++i) {
+            if (has_quantifiers(m_hard_constraints[i].get())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    lbool context::run_qsat_opt() {
+        SASSERT(is_qsat_opt());
+        app_ref objective(m);
+        opt::bound_type bound;
+        expr_ref value(m);
+        lbool result = qe::maximize(m_hard_constraints, objective, value, bound, m_params);
+        if (result != l_undef) {
+            switch (bound) {
+            case opt::unbounded:
+            case opt::strict:
+            case opt::non_strict:
+                // set_max
+                break;
+                // TBD:
+                
+            default:
+                break;
+            }
+        }
+        return l_undef;
     }
 }

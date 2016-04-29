@@ -1326,25 +1326,9 @@ namespace qe {
         void maximize(expr_ref_vector const& core, model& mdl) {
             TRACE("qe", tout << "maximize: " << core << "\n";);
             m_was_sat |= !core.empty();
-            if (core.empty()) {
-                m_ex.assert_expr(m.mk_false());
-                m_fa.assert_expr(m.mk_false());
-                return;
-            }
             expr_ref bound(m);
             m_bound = m_mbp.maximize(core, mdl, m_objective, m_value, bound);
-            switch (m_bound) {
-            case opt::unbounded:
-                m_ex.assert_expr(m.mk_false());
-                m_fa.assert_expr(m.mk_false());
-                break;
-            case opt::strict:
-                m_ex.assert_expr(bound);
-                break;
-            case opt::non_strict:
-                m_ex.assert_expr(bound);
-                break;
-            }
+            m_ex.assert_expr(bound);            
         }
 
     };

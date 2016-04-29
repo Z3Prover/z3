@@ -105,13 +105,10 @@ namespace opt {
             var v = objective().m_vars.back();
             unsigned x = v.m_id;
             rational const& coeff = v.m_coeff;
-            rational const& x_val = m_var2value[x];
-            unsigned_vector const& row_ids = m_var2row_ids[x];
             unsigned bound_row_index;
             rational bound_coeff;
             other.reset();
             if (find_bound(x, bound_row_index, bound_coeff, other, coeff.is_pos())) {
-                row& r = m_rows[bound_row_index];
                 SASSERT(!bound_coeff.is_zero());
                 for (unsigned i = 0; i < other.size(); ++i) {
                     resolve(bound_row_index, bound_coeff, other[i], x);
@@ -150,7 +147,7 @@ namespace opt {
                 if (a.is_zero()) {
                     // skip
                 }
-                else if (a.is_pos() == is_pos) {
+                else if (a.is_pos() == is_pos || r.m_type == t_eq) {
                     rational value = x_val - (r.m_value/a);
                     if (bound_row_index == UINT_MAX) {
                         lub_val = value;
@@ -221,6 +218,7 @@ namespace opt {
         SASSERT(a1 == get_coefficient(row_id1, x));
         SASSERT(!a1.is_zero());
 
+        //
         // row1 is of the form a1*x + t1 <~ 0
         // row2 is of the form a2*x + t2 <~ 0
         // assume that a1, a2 have the same sign.
@@ -229,20 +227,22 @@ namespace opt {
         //   t1 - a1*t2/a2 <~~ 0
         //   where <~~ is strict if either <~1 or <~2 is strict.
         // if a1 is negative, then ....
-        //   
-        if (!m_rows[row_id2].m_alive) {
+        //
+   
+        row& row2 = m_rows[row_id2];
+        if (!row2.m_alive) {
             return false;
         }
         rational a2 = get_coefficient(row_id2, x);
         if (a2.is_zero()) {
             return false;
         }
-        if (a1.is_pos() == a2.is_pos()) {
+        if (a1.is_pos() == a2.is_pos() || row2.m_type == t_eq) {
             mul_add(row_id2, -a2/a1, row_id1);
             return true;
         }
         else {
-            m_rows[row_id2].m_alive = false;
+            row2.m_alive = false;
             return false;
         }
     }

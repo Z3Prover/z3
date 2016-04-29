@@ -28,6 +28,7 @@ Revision History:
 #include "expr_functors.h"
 #include "model_v2_pp.h"
 #include "expr_safe_replace.h"
+#include "model_based_opt.h"
 
 namespace qe {
 
@@ -96,6 +97,55 @@ namespace qe {
             else {
                 ts.insert(x, v); 
             }
+        }
+
+        void linearize(model& model, opt::model_based_opt& mbo, expr* lit, obj_map<expr, unsigned>& tids) {
+            obj_map<expr, rational> ts;
+            rational c(0), mul(1);
+            expr_ref t(m);
+            opt::ineq_type ty = opt::t_le;
+            expr* e1, *e2;
+            bool is_not = m.is_not(lit, lit);
+            if (is_not) {
+                mul.neg();
+            }
+            SASSERT(!m.is_not(lit));
+            if (a.is_le(lit, e1, e2) || a.is_ge(lit, e2, e1)) {
+                if (is_not) mul.neg();
+                linearize(model, mul, e1, c, ts);
+                linearize(model, -mul, e2, c, ts);
+                ty = is_not ? opt::t_lt : opt::t_le;
+            }
+            else if (a.is_lt(lit, e1, e2) || a.is_gt(lit, e2, e1)) {
+                if (is_not) mul.neg();
+                linearize(model,  mul, e1, c, ts);
+                linearize(model, -mul, e2, c, ts);
+                ty = is_not ? opt::t_le: opt::t_lt;
+            }
+            else if (m.is_eq(lit, e1, e2) && !is_not && is_arith(e1)) {
+                linearize(model,  mul, e1, c, ts);
+                linearize(model, -mul, e2, c, ts);
+                ty = opt::t_eq;
+            }  
+            else if (m.is_distinct(lit) && !is_not && is_arith(to_app(lit)->get_arg(0))) {
+                UNREACHABLE();
+            }
+            else if (m.is_distinct(lit) && is_not && is_arith(to_app(lit)->get_arg(0))) {
+                UNREACHABLE();
+            }
+            else if (m.is_eq(lit, e1, e2) && is_not && is_arith(e1)) {
+                UNREACHABLE();
+            }            
+            else {
+                return;
+            }
+            if (ty == opt::t_lt && is_int()) {
+                c += rational(1);
+                ty = opt::t_le;
+            }            
+            vars coeffs;
+            extract_coefficients(ts, tids, coeffs);
+            mbo.add_constraint(coeffs, c, ty);
         }
 
         void linearize(model& model, rational const& mul, expr* t, rational& c, obj_map<expr, rational>& ts) {
@@ -913,18 +963,54 @@ namespace qe {
             return true;
         }
 
+        typedef opt::model_based_opt::var var;
+        typedef vector<var> vars;
+
         opt::bound_type maximize(expr_ref_vector const& fmls, model& mdl, app* t, expr_ref& value, expr_ref& bound) {
+            opt::model_based_opt mbo;
+
             obj_map<expr, rational> ts;
+            obj_map<expr, unsigned> tids;
+            vars coeffs;
             rational c(0), mul(1);
             linearize(mdl, mul, t, c, ts);              
-                
-            // TBD: 
-            // pick variables one by one from ts.
-            // m_var = alloc(contains_app, m, v);
-            // perform upper or lower projection depending on sign of v.
-            // 
-            return opt::unbounded;
+            extract_coefficients(ts, tids, coeffs);
+            mbo.set_objective(coeffs, c);
+
+            for (unsigned i = 0; i < fmls.size(); ++i) {
+                linearize(mdl, mbo, fmls[i], tids);
+            }
+
+            rational val;
+            opt::bound_type result = mbo.maximize(val);
+            value = a.mk_numeral(val, false);
+            switch (result) {
+            case opt::unbounded:
+                bound = m.mk_false();
+                break;
+            case opt::strict:
+                bound = a.mk_le(value, t);
+                break;
+            case opt::non_strict:
+                bound = a.mk_lt(value, t);
+                break;
+            }            
+            return result;
         }
+
+        void extract_coefficients(obj_map<expr, rational> const& ts, obj_map<expr, unsigned>& tids, vars& coeffs) {
+            coeffs.reset();
+            obj_map<expr, rational>::iterator it = ts.begin(), end = ts.end();
+            for (; it != end; ++it) {
+                unsigned id;
+                if (!tids.find(it->m_key, id)) {
+                    id = tids.size();
+                    tids.insert(it->m_key, id);
+                }
+                coeffs.push_back(var(id, it->m_value));                
+            }
+        }
+
     };
 
     arith_project_plugin::arith_project_plugin(ast_manager& m) {
