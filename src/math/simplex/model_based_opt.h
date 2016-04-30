@@ -23,6 +23,7 @@ Revision History:
 
 #include "util.h"
 #include "rational.h"
+#include"inf_eps_rational.h"
 
 namespace opt {
    
@@ -38,7 +39,7 @@ namespace opt {
         non_strict
     };
 
-
+    typedef inf_eps_rational<inf_rational> inf_eps;
     
     class model_based_opt {
     public:
@@ -71,8 +72,7 @@ namespace opt {
         bool invariant();
         bool invariant(unsigned index, row const& r);
 
-        row& objective() { return m_rows[0]; }
-        
+        row& objective() { return m_rows[0]; }        
 
         bool find_bound(unsigned x, unsigned& bound_index, rational& bound_coeff, unsigned_vector& other, bool is_pos);
         
@@ -83,6 +83,8 @@ namespace opt {
         void mul_add(unsigned row_id1, rational const& c, unsigned row_id2);
 
         void set_row(unsigned row_id, vector<var> const& coeffs, rational const& c, ineq_type rel);
+        
+        void update_values(unsigned_vector const& bound_vars, unsigned_vector const& bound_trail);
 
     public:
 
@@ -91,6 +93,9 @@ namespace opt {
         // add a fresh variable with value 'value'.
         unsigned add_var(rational const& value);
 
+        // retrieve updated value of variable.
+        rational get_value(unsigned var_id);
+
         // add a constraint. We assume that the constraint is 
         // satisfied under the values provided to the variables.
         void add_constraint(vector<var> const& coeffs, rational const& c, ineq_type r);
@@ -98,12 +103,13 @@ namespace opt {
         // Set the objective function (linear).
         void set_objective(vector<var> const& coeffs, rational const& c);
 
+        //
         // find a maximal value for the objective function over the current values.
         // in other words, the returned maximal value may not be globally optimal,
         // but the current evaluation of variables are used to select a local
         // optimal.
-        bound_type maximize(rational& value);
-
+        //
+        inf_eps maximize();
 
         void display(std::ostream& out) const;
         void display(std::ostream& out, row const& r) const;

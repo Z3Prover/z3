@@ -965,37 +965,57 @@ namespace qe {
 
         typedef opt::model_based_opt::var var;
         typedef vector<var> vars;
+        
 
-        opt::bound_type maximize(expr_ref_vector const& fmls, model& mdl, app* t, expr_ref& value, expr_ref& bound) {
+        opt::inf_eps maximize(expr_ref_vector const& fmls, model& mdl, app* t, expr_ref& bound) {
             opt::model_based_opt mbo;
-
+            opt::inf_eps value;
             obj_map<expr, rational> ts;
             obj_map<expr, unsigned> tids;
             vars coeffs;
             rational c(0), mul(1);
-            linearize(mdl, mul, t, c, ts);              
+            linearize(mdl, mul, t, c, ts);
             extract_coefficients(ts, tids, coeffs);
             mbo.set_objective(coeffs, c);
 
             for (unsigned i = 0; i < fmls.size(); ++i) {
                 linearize(mdl, mbo, fmls[i], tids);
             }
+            
 
-            rational val;
-            opt::bound_type result = mbo.maximize(val);
-            value = a.mk_numeral(val, false);
-            switch (result) {
-            case opt::unbounded:
+            value = mbo.maximize();
+
+
+
+            expr_ref val(a.mk_numeral(value.get_rational(), false), m);
+            if (!value.is_finite()) {
                 bound = m.mk_false();
-                break;
-            case opt::strict:
-                bound = a.mk_le(value, t);
-                break;
-            case opt::non_strict:
-                bound = a.mk_lt(value, t);
-                break;
+                return value;
+            }
+
+            // update model
+            ptr_vector<expr> vars;
+            obj_map<expr, unsigned>::iterator it = tids.begin(), end = tids.end();
+            for (; it != end; ++it) {
+                expr* e = it->m_key;
+                if (is_uninterp_const(e)) {
+                    unsigned id = it->m_value;
+                    func_decl* f = to_app(e)->get_decl();
+                    expr_ref val(a.mk_numeral(mbo.get_value(id), false), m);
+                    mdl.register_decl(f, val);
+                }
+                else {
+                    TRACE("qe", tout << "omitting model update for non-uninterpreted constant " << mk_pp(e, m) << "\n";);
+                }
+            }
+
+            if (value.get_infinitesimal().is_neg()) {
+                bound = a.mk_le(val, t);
+            }
+            else {
+                bound = a.mk_lt(val, t);
             }            
-            return result;
+            return value;
         }
 
         void extract_coefficients(obj_map<expr, rational> const& ts, obj_map<expr, unsigned>& tids, vars& coeffs) {
@@ -1033,8 +1053,8 @@ namespace qe {
         return m_imp->a.get_family_id();
     }
 
-    opt::bound_type arith_project_plugin::maximize(expr_ref_vector const& fmls, model& mdl, app* t, expr_ref& value, expr_ref& bound) {
-        return m_imp->maximize(fmls, mdl, t, value, bound);
+    opt::inf_eps arith_project_plugin::maximize(expr_ref_vector const& fmls, model& mdl, app* t, expr_ref& bound) {
+        return m_imp->maximize(fmls, mdl, t, bound);
     }
 
     bool arith_project(model& model, app* var, expr_ref_vector& lits) {

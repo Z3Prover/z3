@@ -1459,23 +1459,20 @@ namespace opt {
 
     lbool context::run_qsat_opt() {
         SASSERT(is_qsat_opt());
-        app_ref objective(m);
-        opt::bound_type bound;
-        expr_ref value(m);
-        lbool result = qe::maximize(m_hard_constraints, objective, value, bound, m_params);
-        if (result != l_undef) {
-            switch (bound) {
-            case opt::unbounded:
-            case opt::strict:
-            case opt::non_strict:
-                // set_max
-                break;
-                // TBD:
-                
-            default:
-                break;
-            }
+        objective const& obj = m_objectives[0];
+        app_ref term(obj.m_term);
+        if (obj.m_type == O_MINIMIZE) {
+            term = m_arith.mk_uminus(term);
         }
-        return l_undef;
+        inf_eps value;
+        lbool result = qe::maximize(m_hard_constraints, term, value, m_params);
+        if (result != l_undef && obj.m_type == O_MINIMIZE) {
+            value.neg();
+        }
+        if (result != l_undef) {
+            m_optsmt.update_lower(obj.m_index, value);
+            m_optsmt.update_upper(obj.m_index, value);
+        }
+        return result;
     }
 }

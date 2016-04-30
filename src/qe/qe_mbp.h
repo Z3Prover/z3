@@ -76,7 +76,7 @@ namespace qe {
            \brief 
            Maximize objective t under current model for constraints in fmls.
          */
-        opt::bound_type maximize(expr_ref_vector const& fmls, model& mdl, app* t, expr_ref& value, expr_ref& bound);
+        opt::inf_eps maximize(expr_ref_vector const& fmls, model& mdl, app* t, expr_ref& bound);
     };
 }
 

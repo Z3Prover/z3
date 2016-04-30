@@ -23,6 +23,7 @@ Revision History:
 #include"debug.h"
 #include"vector.h"
 #include"rational.h"
+#include"inf_rational.h"
 
 template<typename Numeral>
 class inf_eps_rational {
