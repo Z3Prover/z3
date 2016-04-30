@@ -36,6 +36,10 @@ static void test1() {
 
     opt::inf_eps value = mbo.maximize();    
     std::cout << value << "\n";
+    std::cout << "x: " << mbo.get_value(x) << "\n";
+    std::cout << "y: " << mbo.get_value(y) << "\n";
+    std::cout << "z: " << mbo.get_value(z) << "\n";
+    std::cout << "u: " << mbo.get_value(u) << "\n";
 }
 
 // test with lower bounds
@@ -105,6 +109,10 @@ static void test4() {
 
     opt::inf_eps value = mbo.maximize();    
     std::cout << value << "\n";
+    std::cout << "x: " << mbo.get_value(x) << "\n";
+    std::cout << "y: " << mbo.get_value(y) << "\n";
+    std::cout << "z: " << mbo.get_value(z) << "\n";
+    std::cout << "u: " << mbo.get_value(u) << "\n";
 }
 
 // test with mix of upper and lower bounds

@@ -142,49 +142,61 @@ namespace opt {
         for (unsigned i = bound_trail.size(); i > 0; ) {
             --i;
             unsigned x = bound_vars[i];
-            row const& r = m_rows[bound_trail[i]];
+            row& r = m_rows[bound_trail[i]];
             rational val = r.m_coeff;
+            rational x_val;
             rational x_coeff;
             vector<var> const& vars = r.m_vars;
             for (unsigned j = 0; j < vars.size(); ++j) {
                 var const& v = vars[j];
-                if (x = v.m_id) {
+                if (x == v.m_id) {
                     x_coeff = v.m_coeff;
                 }
                 else {
                     val += m_var2value[v.m_id]*v.m_coeff;
                 }
             }
+            TRACE("opt", display(tout << "v" << x << " val: " << val 
+                                 << " coeff_x: " << x_coeff << " val_x: " << m_var2value[x] << " ", r); );
             SASSERT(!x_coeff.is_zero());
-            val /= -x_coeff;
-            // Adjust epsilon to be s
-            if (!val.is_zero() && (eps.is_zero() || eps > abs(val))) {
-                eps = abs(val)/rational(2);
-            }
-            if (!r.m_value.is_zero() && (eps.is_zero() || eps > abs(r.m_value))) {
-                eps = abs(r.m_value)/rational(2);
-            }
+            x_val = -val/x_coeff;
             //
             //
             //     ax + t < 0
             // <=> x < -t/a
             // <=> x := -t/a - epsilon
             // 
-            if (x_coeff.is_pos() && r.m_type == t_lt) {
-                val -= eps;
+            if (r.m_type == t_lt) {
+                // Adjust epsilon to be 
+                if (!x_val.is_zero() && (eps.is_zero() || eps >= abs(x_val))) {
+                    eps = abs(x_val)/rational(2);
+                }
+                if (!r.m_value.is_zero() && (eps.is_zero() || eps >= abs(r.m_value))) {
+                    eps = abs(r.m_value)/rational(2);
+                }
+
+                SASSERT(!eps.is_zero());
+                if (x_coeff.is_pos()) {
+                    x_val -= eps;
+                }
+                //
+                //     -ax + t < 0 
+                // <=> -ax < -t
+                // <=> -x < -t/a
+                // <=> x > t/a
+                // <=> x := t/a + epsilon
+                //
+                else if (x_coeff.is_neg()) {
+                    x_val += eps;
+                }
             }
-            //
-            //     -ax + t < 0 
-            // <=> -ax < -t
-            // <=> -x < -t/a
-            // <=> x > t/a
-            // <=> x := t/a + epsilon
-            //
-            else if (x_coeff.is_neg() && r.m_type == t_lt) {
-                val += eps;
-            }
-            m_var2value[x] = val;
-        }
+            m_var2value[x] = x_val;
+            r.m_value = (x_val * x_coeff) + val;
+            
+            TRACE("opt", display(tout << "v" << x << " val: " << val << " coeff_x: " 
+                                 << x_coeff << " val_x: " << m_var2value[x] << " ", r); );
+            SASSERT(invariant(bound_trail[i], r));
+        }        
     }
 
     bool model_based_opt::find_bound(unsigned x, unsigned& bound_row_index, rational& bound_coeff, unsigned_vector& other, bool is_pos) {
