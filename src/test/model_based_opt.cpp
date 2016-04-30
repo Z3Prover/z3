@@ -34,9 +34,8 @@ static void test1() {
     vars.push_back(var(x, rational(2)));
     mbo.set_objective(vars, rational(0));
 
-    rational value;
-    opt::bound_type bound = mbo.maximize(value);    
-    std::cout << bound << ": " << value << "\n";
+    opt::inf_eps value = mbo.maximize();    
+    std::cout << value << "\n";
 }
 
 // test with lower bounds
@@ -58,9 +57,8 @@ static void test2() {
     vars.push_back(var(x, rational(-2)));
     mbo.set_objective(vars, rational(0));
 
-    rational value;
-    opt::bound_type bound = mbo.maximize(value);    
-    std::cout << bound << ": " << value << "\n";
+    opt::inf_eps value = mbo.maximize();    
+    std::cout << value << "\n";
 }
 
 // test unbounded
@@ -81,9 +79,9 @@ static void test3() {
     vars.push_back(var(x, rational(2)));
     mbo.set_objective(vars, rational(0));
 
-    rational value;
-    opt::bound_type bound = mbo.maximize(value);    
-    std::cout << bound << ": " << value << "\n";
+    opt::inf_eps value = mbo.maximize();    
+    std::cout << value << "\n";
+
 }
 
 // test strict
@@ -105,9 +103,8 @@ static void test4() {
     vars.push_back(var(x, rational(2)));
     mbo.set_objective(vars, rational(0));
 
-    rational value;
-    opt::bound_type bound = mbo.maximize(value);    
-    std::cout << bound << ": " << value << "\n";
+    opt::inf_eps value = mbo.maximize();    
+    std::cout << value << "\n";
 }
 
 // test with mix of upper and lower bounds
