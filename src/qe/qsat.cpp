@@ -1285,7 +1285,7 @@ namespace qe {
         opt::inf_eps     m_value;
         bool             m_was_sat;
 
-        lbool maximize(expr_ref_vector const& fmls, app* t, opt::inf_eps& value) {
+        lbool maximize(expr_ref_vector const& fmls, app* t, model_ref& mdl, opt::inf_eps& value) {
             expr_ref_vector defs(m);
             expr_ref fml = negate_core(fmls);
             hoist(fml);
@@ -1299,6 +1299,7 @@ namespace qe {
             m_ex.assert_expr(fml);
             m_fa.assert_expr(m.mk_not(fml));
             lbool is_sat = check_sat();
+            mdl = m_model.get();
             switch (is_sat) {
             case l_false:
                 if (!m_was_sat) {
@@ -1329,10 +1330,10 @@ namespace qe {
 
     };
 
-    lbool maximize(expr_ref_vector const& fmls, app* t, opt::inf_eps& value, params_ref const& p) {
+    lbool maximize(expr_ref_vector const& fmls, app* t, opt::inf_eps& value, model_ref& mdl, params_ref const& p) {
         ast_manager& m = fmls.get_manager();
         qsat qs(m, p, qsat_maximize);
-        return qs.maximize(fmls, t, value);
+        return qs.maximize(fmls, t, mdl, value);
     }    
 };
 

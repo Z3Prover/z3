@@ -968,24 +968,26 @@ namespace qe {
         
 
         opt::inf_eps maximize(expr_ref_vector const& fmls, model& mdl, app* t, expr_ref& bound) {
+            SASSERT(a.is_real(t));
             opt::model_based_opt mbo;
             opt::inf_eps value;
             obj_map<expr, rational> ts;
             obj_map<expr, unsigned> tids;
+
+            // extract objective function.
             vars coeffs;
             rational c(0), mul(1);
             linearize(mdl, mul, t, c, ts);
             extract_coefficients(ts, tids, coeffs);
             mbo.set_objective(coeffs, c);
 
+            // extract linear constraints
             for (unsigned i = 0; i < fmls.size(); ++i) {
                 linearize(mdl, mbo, fmls[i], tids);
             }
             
-
+            // find optimal value
             value = mbo.maximize();
-
-
 
             expr_ref val(a.mk_numeral(value.get_rational(), false), m);
             if (!value.is_finite()) {
@@ -993,7 +995,7 @@ namespace qe {
                 return value;
             }
 
-            // update model
+            // update model to use new values that satisfy optimality
             ptr_vector<expr> vars;
             obj_map<expr, unsigned>::iterator it = tids.begin(), end = tids.end();
             for (; it != end; ++it) {
@@ -1009,6 +1011,7 @@ namespace qe {
                 }
             }
 
+            // update the predicate 'bound' which forces larger values.
             if (value.get_infinitesimal().is_neg()) {
                 bound = a.mk_le(val, t);
             }

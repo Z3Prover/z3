@@ -238,6 +238,11 @@ namespace opt {
         import_scoped_state(); 
         normalize();
         internalize();
+#if 0
+        if (is_qsat_opt()) {
+            return run_qsat_opt();
+        }
+#endif
         update_solver();
         solver& s = get_solver();
         s.assert_expr(m_hard_constraints);
@@ -1465,7 +1470,7 @@ namespace opt {
             term = m_arith.mk_uminus(term);
         }
         inf_eps value;
-        lbool result = qe::maximize(m_hard_constraints, term, value, m_params);
+        lbool result = qe::maximize(m_hard_constraints, term, value, m_model, m_params);
         if (result != l_undef && obj.m_type == O_MINIMIZE) {
             value.neg();
         }

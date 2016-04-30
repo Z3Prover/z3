@@ -22,13 +22,13 @@ Revision History:
 #include "vector.h"
 
 class reslimit {
-    volatile bool   m_cancel;
+    volatile unsigned   m_cancel;
     uint64          m_count;
     uint64          m_limit;
     svector<uint64> m_limits;
     ptr_vector<reslimit> m_children;
 
-    void set_cancel(bool f);
+    void set_cancel(unsigned f);
     
 public:    
     reslimit();
@@ -42,10 +42,13 @@ public:
     uint64 count() const; 
 
 
-    bool get_cancel_flag() const { return m_cancel; }
+    bool get_cancel_flag() const { return m_cancel > 0; }
     char const* get_cancel_msg() const;
     void cancel();
     void reset_cancel();
+
+    void inc_cancel();
+    void dec_cancel();
 };
 
 class scoped_rlimit {

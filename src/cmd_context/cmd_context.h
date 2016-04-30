@@ -272,8 +272,6 @@ public:
     cmd_context(bool main_ctx = true, ast_manager * m = 0, symbol const & l = symbol::null);
     ~cmd_context(); 
     void set_cancel(bool f);
-    void cancel() { set_cancel(true); }
-    void reset_cancel() { set_cancel(false); }
     context_params  & params() { return m_params; }
     solver_factory &get_solver_factory() { return *m_solver_factory; }
     solver_factory &get_interpolating_solver_factory() { return *m_interpolating_solver_factory; }

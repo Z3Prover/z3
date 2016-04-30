@@ -114,7 +114,7 @@ namespace qe {
         void collect_statistics(statistics& st) const;
     };
 
-    lbool maximize(expr_ref_vector const& fmls, app* t, opt::inf_eps& value, params_ref const& p);
+    lbool maximize(expr_ref_vector const& fmls, app* t, opt::inf_eps& value, model_ref& mdl, params_ref const& p);
 
 }
 

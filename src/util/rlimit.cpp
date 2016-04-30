@@ -31,7 +31,7 @@ uint64 reslimit::count() const {
 
 bool reslimit::inc() {
     ++m_count;
-    return !m_cancel && (m_limit == 0 || m_count <= m_limit);
+    return m_cancel == 0 && (m_limit == 0 || m_count <= m_limit);
 }
 
 bool reslimit::inc(unsigned offset) {
@@ -46,7 +46,7 @@ void reslimit::push(unsigned delta_limit) {
     }
     m_limits.push_back(m_limit);
     m_limit = m_limit==0?new_limit:std::min(new_limit, m_limit);
-    m_cancel = false;
+    m_cancel = 0;
 }
 
 void reslimit::pop() {
@@ -55,11 +55,11 @@ void reslimit::pop() {
     }
     m_limit = m_limits.back();
     m_limits.pop_back();
-    m_cancel = false;
+    m_cancel = 0;
 }
 
 char const* reslimit::get_cancel_msg() const {
-    if (m_cancel) {
+    if (m_cancel > 0) {
         return Z3_CANCELED_MSG;
     }
     else {
@@ -84,7 +84,7 @@ void reslimit::pop_child() {
 void reslimit::cancel() {
     #pragma omp critical (reslimit_cancel)
     {
-        set_cancel(true);
+        set_cancel(m_cancel+1);
     }
 }
 
@@ -92,11 +92,28 @@ void reslimit::cancel() {
 void reslimit::reset_cancel() {
     #pragma omp critical (reslimit_cancel)
     {
-        set_cancel(false);
+        set_cancel(0);
     }
 }
 
-void reslimit::set_cancel(bool f) { 
+void reslimit::inc_cancel() {
+    #pragma omp critical (reslimit_cancel)
+    {        
+        set_cancel(m_cancel+1);
+    }
+}
+
+
+void reslimit::dec_cancel() {
+    #pragma omp critical (reslimit_cancel)
+    {
+        if (m_cancel > 0) {
+            set_cancel(m_cancel-1);
+        }
+    }
+}
+
+void reslimit::set_cancel(unsigned f) { 
     m_cancel = f; 
     for (unsigned i = 0; i < m_children.size(); ++i) {
         m_children[i]->set_cancel(f);

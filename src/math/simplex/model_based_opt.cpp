@@ -20,14 +20,6 @@ Revision History:
 
 #include "model_based_opt.h"
 
-std::ostream& operator<<(std::ostream& out, opt::bound_type bt) {
-    switch (bt) {
-    case opt::unbounded: return out << "unbounded";
-    case opt::strict: return out << "strict";
-    case opt::non_strict: return out << "non-strict";
-    }
-    return out;
-}
 
 std::ostream& operator<<(std::ostream& out, opt::ineq_type ie) {
     switch (ie) {
@@ -128,8 +120,10 @@ namespace opt {
                 return inf_eps::infinity();
             }
         }
+
         //
         // update the evaluation of variables to satisfy the bound.
+        //
 
         update_values(bound_vars, bound_trail);
 
@@ -164,10 +158,10 @@ namespace opt {
             SASSERT(!x_coeff.is_zero());
             val /= -x_coeff;
             // Adjust epsilon to be s
-            if (eps.is_zero() || (!val.is_zero() && eps > abs(val))) {
+            if (!val.is_zero() && (eps.is_zero() || eps > abs(val))) {
                 eps = abs(val)/rational(2);
             }
-            if (eps.is_zero() || (!r.m_value.is_zero() && eps > abs(r.m_value))) {
+            if (!r.m_value.is_zero() && (eps.is_zero() || eps > abs(r.m_value))) {
                 eps = abs(r.m_value)/rational(2);
             }
             //
@@ -186,10 +180,6 @@ namespace opt {
             // <=> x > t/a
             // <=> x := t/a + epsilon
             //
-
-            if (x_coeff.is_pos() && r.m_type == t_lt) {
-                val -= eps;
-            }
             else if (x_coeff.is_neg() && r.m_type == t_lt) {
                 val += eps;
             }
@@ -265,48 +255,36 @@ namespace opt {
         }
     }
 
-    // v0 - v1 <= 0
-    // v0 - v2 <= 0
-    // v2 >= v1
-    // -> v1 - v2 <= 0
     // 
-    // t1 + a1*x <= 0
-    // t2 + a2*x <= 0
-    // (t2 + a2*x) <= (t1 + a1*x)*a2/a1 
-    // => t2*a1/a2 - t1 <= 0
-    // => t2 - t1*a2/a1 <= 0
+    // Let
+    //   row1: t1 + a1*x <= 0
+    //   row2: t2 + a2*x <= 0
+    //
+    // assume a1, a2 have the same signs:
+    //       (t2 + a2*x) <= (t1 + a1*x)*a2/a1 
+    //   <=> t2*a1/a2 - t1 <= 0
+    //   <=> t2 - t1*a2/a1 <= 0
+    //
+    // assume a1 > 0, -a2 < 0:
+    //       t1 + a1*x <= 0,  t2 - a2*x <= 0
+    //       t2/a2 <= -t1/a1
+    //       t2 + t1*a2/a1 <= 0
+    // assume -a1 < 0, a2 > 0:
+    //       t1 - a1*x <= 0,  t2 + a2*x <= 0
+    //       t1/a1 <= -t2/a2
+    //       t2 + t1*a2/a1 <= 0
+    // 
+    // the resolvent is the same in all cases (simpler proof should exist)
+    // 
 
-    bool model_based_opt::resolve(unsigned row_id1, rational const& a1, unsigned row_id2, unsigned x) {
+    void model_based_opt::resolve(unsigned row_src, rational const& a1, unsigned row_dst, unsigned x) {
 
-        SASSERT(a1 == get_coefficient(row_id1, x));
+        SASSERT(a1 == get_coefficient(row_src, x));
         SASSERT(!a1.is_zero());
-
-        //
-        // row1 is of the form a1*x + t1 <~ 0
-        // row2 is of the form a2*x + t2 <~ 0
-        // assume that a1, a2 have the same sign.
-        // if a1 is positive, then val(t1*a2/a1) <= val(t2*a1/a2)
-        //   replace row2 with the new inequality of the form:
-        //   t1 - a1*t2/a2 <~~ 0
-        //   where <~~ is strict if either <~1 or <~2 is strict.
-        // if a1 is negative, then ....
-        //
    
-        row& row2 = m_rows[row_id2];
-        if (!row2.m_alive) {
-            return false;
-        }
-        rational a2 = get_coefficient(row_id2, x);
-        if (a2.is_zero()) {
-            return false;
-        }
-        if (a1.is_pos() == a2.is_pos() || row2.m_type == t_eq) {
-            mul_add(row_id2, -a2/a1, row_id1);
-            return true;
-        }
-        else {
-            row2.m_alive = false;
-            return false;
+        if (m_rows[row_dst].m_alive) {
+            rational a2 = get_coefficient(row_dst, x);
+            mul_add(row_dst, -a2/a1, row_src);            
         }
     }
     
@@ -314,6 +292,9 @@ namespace opt {
     // set row1 <- row1 + c*row2
     //
     void model_based_opt::mul_add(unsigned row_id1, rational const& c, unsigned row_id2) {
+        if (c.is_zero()) {
+            return;
+        }
         m_new_vars.reset();
         row& r1 = m_rows[row_id1];
         row const& r2 = m_rows[row_id2];
@@ -363,6 +344,9 @@ namespace opt {
         r1.m_value += c*r2.m_value;
         if (r2.m_type == t_lt) {
             r1.m_type = t_lt;
+        }
+        else if (r2.m_type == t_le && r1.m_type == t_eq) {
+            r1.m_type = t_le;
         }
         SASSERT(invariant(row_id1, r1));
     }
