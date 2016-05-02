@@ -75,7 +75,7 @@ namespace opt {
 
         void resolve(unsigned row_src, rational const& a1, unsigned row_dst, unsigned x);
 
-        void mul_add(unsigned row_id1, rational const& c, unsigned row_id2);
+        void mul_add(bool same_sign, unsigned row_id1, rational const& c, unsigned row_id2);
 
         void set_row(unsigned row_id, vector<var> const& coeffs, rational const& c, ineq_type rel);
         

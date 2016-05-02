@@ -19,7 +19,7 @@ Revision History:
 --*/
 
 #include "model_based_opt.h"
-
+#include "uint_set.h"
 
 std::ostream& operator<<(std::ostream& out, opt::ineq_type ie) {
     switch (ie) {
@@ -94,7 +94,7 @@ namespace opt {
         unsigned_vector other;
         unsigned_vector bound_trail, bound_vars;
         while (!objective().m_vars.empty()) {
-            TRACE("opt", tout << "tableau\n";);
+            TRACE("opt", display(tout << "tableau\n"););
             var v = objective().m_vars.back();
             unsigned x = v.m_id;
             rational const& coeff = v.m_coeff;
@@ -111,7 +111,7 @@ namespace opt {
                 // => coeff*x <= -t2*coeff/a2
                 // objective + t2*coeff/a2 <= ub
 
-                mul_add(m_objective_id, - coeff/bound_coeff, bound_row_index);
+                mul_add(false, m_objective_id, - coeff/bound_coeff, bound_row_index);
                 m_rows[bound_row_index].m_alive = false;
                 bound_trail.push_back(bound_row_index);
                 bound_vars.push_back(x);
@@ -204,8 +204,13 @@ namespace opt {
         rational lub_val;
         rational const& x_val = m_var2value[x];
         unsigned_vector const& row_ids = m_var2row_ids[x];
+        uint_set visited;
         for (unsigned i = 0; i < row_ids.size(); ++i) {
             unsigned row_id = row_ids[i];
+            if (visited.contains(row_id)) {
+                continue;
+            }
+            visited.insert(row_id);
             row& r = m_rows[row_id];
             if (r.m_alive) {
                 rational a = get_coefficient(row_id, x);
@@ -219,13 +224,15 @@ namespace opt {
                         bound_row_index = row_id;
                         bound_coeff = a;
                     }
-                    else if ((is_pos && value < lub_val) || (!is_pos && value > lub_val)) {
+                    else if ((value == lub_val && r.m_type == opt::t_lt) ||
+                             (is_pos && value < lub_val) || 
+                             (!is_pos && value > lub_val)) {
                         other.push_back(bound_row_index);
                         lub_val = value;
                         bound_row_index = row_id;                            
                         bound_coeff = a;
                     }
-                    else if (bound_row_index != row_id) {
+                    else {
                         other.push_back(row_id);
                     }
                 }
@@ -253,10 +260,13 @@ namespace opt {
             }
             if (id < var_id) {
                 lo = mid + 1;
-            }
+            }			
             else {
-                hi = mid - 1;
+                hi = mid;
             }
+        }
+        if (lo == r.m_vars.size()) {
+            return rational::zero();
         }
         unsigned id = r.m_vars[lo].m_id;
         if (id == var_id) {
@@ -293,17 +303,18 @@ namespace opt {
 
         SASSERT(a1 == get_coefficient(row_src, x));
         SASSERT(!a1.is_zero());
-   
+        SASSERT(row_src != row_dst);
+                
         if (m_rows[row_dst].m_alive) {
             rational a2 = get_coefficient(row_dst, x);
-            mul_add(row_dst, -a2/a1, row_src);            
+            mul_add(row_dst != m_objective_id && a1.is_pos() == a2.is_pos(), row_dst, -a2/a1, row_src);            
         }
     }
     
     //
     // set row1 <- row1 + c*row2
     //
-    void model_based_opt::mul_add(unsigned row_id1, rational const& c, unsigned row_id2) {
+    void model_based_opt::mul_add(bool same_sign, unsigned row_id1, rational const& c, unsigned row_id2) {
         if (c.is_zero()) {
             return;
         }
@@ -354,11 +365,12 @@ namespace opt {
         r1.m_coeff += c*r2.m_coeff;
         r1.m_vars.swap(m_new_vars);
         r1.m_value += c*r2.m_value;
-        if (r2.m_type == t_lt) {
+
+        if (!same_sign && r2.m_type == t_lt) {
             r1.m_type = t_lt;
         }
-        else if (r2.m_type == t_le && r1.m_type == t_eq) {
-            r1.m_type = t_le;
+        else if (same_sign && r1.m_type == t_lt && r2.m_type == t_lt) {
+            r1.m_type = t_le;        
         }
         SASSERT(invariant(row_id1, r1));
     }
