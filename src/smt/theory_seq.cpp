@@ -2380,7 +2380,7 @@ void theory_seq::init_model(expr_ref_vector const& es) {
 }
 
 void theory_seq::init_model(model_generator & mg) {
-    m_factory = alloc(seq_factory, get_manager(), get_family_id());
+    m_factory = alloc(seq_factory, get_manager(), get_family_id(), mg.get_model());
     mg.register_factory(m_factory);
     for (unsigned j = 0; j < m_nqs.size(); ++j) {
         ne const& n = m_nqs[j];
@@ -2469,7 +2469,9 @@ model_value_proc * theory_seq::mk_value(enode * n, model_generator & mg) {
         for (unsigned i = 0; i < concats.size(); ++i) {
             expr* c = concats[i], *c1;
             if (m_util.str.is_unit(c, c1)) {
-                sv->add_dependency(ctx.get_enode(c1));
+                if (ctx.e_internalized(c1)) {
+                    sv->add_dependency(ctx.get_enode(c1));
+                }
             }
             else if (m_util.str.is_string(c)) {
                 sv->add_string(c);
