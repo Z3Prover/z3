@@ -289,12 +289,15 @@ namespace opt {
 
         void display_benchmark();
 
-
         // pareto
         void yield();
         expr_ref mk_ge(expr* t, expr* s);
         expr_ref mk_cmp(bool is_ge, model_ref& mdl, objective const& obj);
 
+
+        // quantifiers
+        bool is_qsat_opt();
+        lbool run_qsat_opt();
     };
 
 }

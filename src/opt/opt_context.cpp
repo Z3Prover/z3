@@ -42,6 +42,7 @@ Notes:
 #include "filter_model_converter.h"
 #include "ast_pp_util.h"
 #include "inc_sat_solver.h"
+#include "qsat.h"
 
 namespace opt {
 
@@ -237,6 +238,11 @@ namespace opt {
         import_scoped_state(); 
         normalize();
         internalize();
+#if 0
+        if (is_qsat_opt()) {
+            return run_qsat_opt();
+        }
+#endif
         update_solver();
         solver& s = get_solver();
         s.assert_expr(m_hard_constraints);
@@ -1205,7 +1211,7 @@ namespace opt {
     }
 
     inf_eps context::get_lower_as_num(unsigned idx) {
-        if (idx > m_objectives.size()) {
+        if (idx >= m_objectives.size()) {
             throw default_exception("index out of bounds"); 
         }
         objective const& obj = m_objectives[idx];
@@ -1223,7 +1229,7 @@ namespace opt {
     }
 
     inf_eps context::get_upper_as_num(unsigned idx) {
-        if (idx > m_objectives.size()) {
+        if (idx >= m_objectives.size()) {
             throw default_exception("index out of bounds"); 
         }
         objective const& obj = m_objectives[idx];
@@ -1438,5 +1444,40 @@ namespace opt {
             }
             }       
         } 
+    }
+
+    bool context::is_qsat_opt() {
+        if (m_objectives.size() != 1) {
+            return false;
+        }
+        if (m_objectives[0].m_type != O_MAXIMIZE && 
+            m_objectives[0].m_type != O_MINIMIZE) {
+            return false;
+        }
+        for (unsigned i = 0; i < m_hard_constraints.size(); ++i) {
+            if (has_quantifiers(m_hard_constraints[i].get())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    lbool context::run_qsat_opt() {
+        SASSERT(is_qsat_opt());
+        objective const& obj = m_objectives[0];
+        app_ref term(obj.m_term);
+        if (obj.m_type == O_MINIMIZE) {
+            term = m_arith.mk_uminus(term);
+        }
+        inf_eps value;
+        lbool result = qe::maximize(m_hard_constraints, term, value, m_model, m_params);
+        if (result != l_undef && obj.m_type == O_MINIMIZE) {
+            value.neg();
+        }
+        if (result != l_undef) {
+            m_optsmt.update_lower(obj.m_index, value);
+            m_optsmt.update_upper(obj.m_index, value);
+        }
+        return result;
     }
 }

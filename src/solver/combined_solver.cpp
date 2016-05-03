@@ -83,9 +83,14 @@ private:
         solver *        m_solver;
         volatile bool   m_canceled;
         aux_timeout_eh(solver * s):m_solver(s), m_canceled(false) {}
+        ~aux_timeout_eh() {
+            if (m_canceled) {                
+                m_solver->get_manager().limit().dec_cancel();
+            }
+        }
         virtual void operator()() {
-            m_solver->get_manager().limit().cancel();
             m_canceled = true;
+            m_solver->get_manager().limit().inc_cancel();
         }
     };
 
@@ -224,9 +229,6 @@ public:
                 }
                 if ((r != l_undef || !use_solver1_when_undef()) && !eh.m_canceled) {
                     return r;
-                }
-                if (eh.m_canceled) {
-                    m_solver1->get_manager().limit().reset_cancel();
                 }
             }
             IF_VERBOSE(PS_VB_LVL, verbose_stream() << "(combined-solver \"solver 2 failed, trying solver1\")\n";);

@@ -118,8 +118,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
             expr * val = m_model.get_const_interp(f);
             if (val != 0) {
                 result = val;
+                expand_value(result);
                 return BR_DONE;
-//                return m().is_value(val)?BR_DONE:BR_REWRITE_FULL;
             }
 
             if (m_model_completion) {
@@ -172,6 +172,10 @@ struct evaluator_cfg : public default_rewriter_cfg {
             st = m_f_rw.mk_app_core(f, num, args, result);
         else if (fid == m_seq_rw.get_fid())
             st = m_seq_rw.mk_app_core(f, num, args, result);
+        else if (fid == m().get_label_family_id() && num == 1) {
+            result = args[0];
+            st = BR_DONE;
+        }
         else if (evaluate(f, num, args, result)) {
             TRACE("model_evaluator", tout << "reduce_app " << f->get_name() << "\n";
                   for (unsigned i = 0; i < num; i++) tout << mk_ismt2_pp(args[i], m()) << "\n";
@@ -188,6 +192,21 @@ struct evaluator_cfg : public default_rewriter_cfg {
         return st;
     }
 
+    void expand_value(expr_ref& val) {
+        vector<expr_ref_vector> stores;
+        expr_ref else_case(m());
+        if (m_ar.is_array(val) && extract_array_func_interp(val, stores, else_case)) {
+            sort* srt = m().get_sort(val);
+            val = m_ar.mk_const_array(srt, else_case);
+            for (unsigned i = stores.size(); i > 0; ) {
+                --i;
+                expr_ref_vector args(m());
+                args.push_back(val);
+                args.append(stores[i].size(), stores[i].c_ptr());
+                val = m_ar.mk_store(args.size(), args.c_ptr());
+            }
+        }        
+    }
 
     bool get_macro(func_decl * f, expr * & def, quantifier * & q, proof * & def_pr) {
 
@@ -306,6 +325,21 @@ struct evaluator_cfg : public default_rewriter_cfg {
                 TRACE("model_evaluator", tout << "non-ground else case " << mk_pp(a, m()) << "\n" << mk_pp(else_case, m()) << "\n";);
                 return false;
             }
+            bool is_value = true;
+            for (unsigned i = stores.size(); is_value && i > 0; ) {
+                --i;
+                if (else_case == stores[i].back()) {
+                    for (unsigned j = i + 1; j < stores.size(); ++j) {
+                        stores[j-1].reset();
+                        stores[j-1].append(stores[j]);
+                    }
+                    stores.pop_back();
+                    continue;
+                }
+                for (unsigned j = 0; is_value && j + 1 < stores[i].size(); ++j) {
+                    is_value = m().is_value(stores[i][j].get());
+                }
+            }
             TRACE("model_evaluator", tout << "else case: " << mk_pp(else_case, m()) << "\n";);
             return true;
         }
@@ -358,14 +392,10 @@ unsigned model_evaluator::get_num_steps() const {
     return m_imp->get_num_steps();
 }
 
-
 void model_evaluator::cleanup(params_ref const & p) {
     model_core & md = m_imp->cfg().m_model;
-    #pragma omp critical (model_evaluator)
-    {
-        dealloc(m_imp);
-        m_imp = alloc(imp, md, p);
-    }
+    dealloc(m_imp);
+    m_imp = alloc(imp, md, p);    
 }
 
 void model_evaluator::reset(params_ref const & p) {

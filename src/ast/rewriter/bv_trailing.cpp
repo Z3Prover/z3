@@ -194,8 +194,7 @@ struct bv_trailing::imp {
             return 0;
         }
 
-        if (!i) {// all args eaten completely
-            SASSERT(new_last.get() == NULL);
+        if (!i && !new_last) {// all args eaten completely
             SASSERT(retv == m_util.get_bv_size(a));
             result = NULL;
             return retv;
@@ -204,7 +203,7 @@ struct bv_trailing::imp {
         expr_ref_vector new_args(m);
         for (unsigned j = 0; j < i; ++j)
             new_args.push_back(a->get_arg(j));
-        if (new_last.get()) new_args.push_back(new_last);
+        if (new_last) new_args.push_back(new_last);
         result = new_args.size() == 1 ? new_args.get(0)
                                       : m_util.mk_concat(new_args.size(), new_args.c_ptr());
         return retv;
@@ -228,7 +227,7 @@ struct bv_trailing::imp {
         unsigned retv = 0;
         numeral e_val;
         if (m_util.is_numeral(e, e_val, sz)) {
-            retv = remove_trailing(n, e_val);
+            retv = remove_trailing(std::min(n, sz), e_val);
             const unsigned new_sz = sz - retv;
             result = new_sz ? (retv ? m_util.mk_numeral(e_val, new_sz) : e) : NULL;
             return retv;

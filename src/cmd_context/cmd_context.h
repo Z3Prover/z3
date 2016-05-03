@@ -22,6 +22,7 @@ Notes:
 #define CMD_CONTEXT_H_
 
 #include<sstream>
+#include<vector>
 #include"ast.h"
 #include"ast_printer.h"
 #include"pdecl.h"
@@ -37,6 +38,7 @@ Notes:
 #include"progress_callback.h"
 #include"scoped_ptr_vector.h"
 #include"context_params.h"
+
 
 class func_decls {
     func_decl * m_decls;
@@ -189,7 +191,7 @@ protected:
     // 
     ptr_vector<pdecl>            m_aux_pdecls;
     ptr_vector<expr>             m_assertions;
-    vector<std::string>          m_assertion_strings;
+    std::vector<std::string>     m_assertion_strings;
     ptr_vector<expr>             m_assertion_names; // named assertions are represented using boolean variables.
 
     struct scope {
@@ -270,8 +272,6 @@ public:
     cmd_context(bool main_ctx = true, ast_manager * m = 0, symbol const & l = symbol::null);
     ~cmd_context(); 
     void set_cancel(bool f);
-    void cancel() { set_cancel(true); }
-    void reset_cancel() { set_cancel(false); }
     context_params  & params() { return m_params; }
     solver_factory &get_solver_factory() { return *m_solver_factory; }
     solver_factory &get_interpolating_solver_factory() { return *m_interpolating_solver_factory; }

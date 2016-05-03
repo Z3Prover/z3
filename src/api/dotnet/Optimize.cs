@@ -67,6 +67,38 @@ namespace Microsoft.Z3
         /// </summary>        
         public void Assert(params BoolExpr[] constraints)
         {
+            AddConstraints(constraints);
+        }
+
+        /// <summary>
+        /// Assert a constraint (or multiple) into the optimize solver.
+        /// </summary>        
+        public void Assert(IEnumerable<BoolExpr> constraints)
+        {
+            AddConstraints(constraints);
+        }
+
+        /// <summary>
+        /// Alias for Assert.
+        /// </summary>        
+        public void Add(params BoolExpr[] constraints)
+        {
+            AddConstraints(constraints);
+        }
+
+        /// <summary>
+        /// Alias for Assert.
+        /// </summary>        
+        public void Add(IEnumerable<BoolExpr> constraints)
+        {
+            AddConstraints(constraints);
+        }
+
+        /// <summary>
+        /// Assert a constraint (or multiple) into the optimize solver.
+        /// </summary>   
+        private void AddConstraints(IEnumerable<BoolExpr> constraints)
+        {
             Contract.Requires(constraints != null);
             Contract.Requires(Contract.ForAll(constraints, c => c != null));
 
@@ -76,15 +108,6 @@ namespace Microsoft.Z3
                 Native.Z3_optimize_assert(Context.nCtx, NativeObject, a.NativeObject);
             }
         }
-
-        /// <summary>
-        /// Alias for Assert.
-        /// </summary>        
-        public void Add(params BoolExpr[] constraints)
-        {
-            Assert(constraints);
-        }
-
         /// <summary>
         /// Handle to objectives returned by objective functions.
         /// </summary>

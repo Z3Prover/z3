@@ -23,6 +23,7 @@ Revision History:
 
 #include "tactic.h"
 #include "filter_model_converter.h"
+#include "qe_mbp.h"
 
 namespace qe {
 
@@ -113,17 +114,7 @@ namespace qe {
         void collect_statistics(statistics& st) const;
     };
 
-    class min_max_opt {
-        struct imp;
-        imp* m_imp;
-    public:
-        min_max_opt(ast_manager& m);
-        ~min_max_opt();
-        void add(expr* e);
-        void add(expr_ref_vector const& fmls);
-        lbool check(svector<bool> const& is_max, app_ref_vector const& vars, app* t);
-    };
-
+    lbool maximize(expr_ref_vector const& fmls, app* t, opt::inf_eps& value, model_ref& mdl, params_ref const& p);
 
 }
 

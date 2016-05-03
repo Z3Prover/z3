@@ -21,6 +21,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Diagnostics.Contracts;
+using System.Linq;
 
 namespace Microsoft.Z3
 {
@@ -814,6 +815,20 @@ namespace Microsoft.Z3
             return Expr.Create(this, f, args);
         }
 
+        /// <summary>
+        /// Create a new function application.
+        /// </summary>
+        public Expr MkApp(FuncDecl f, IEnumerable<Expr> args)
+        {
+            Contract.Requires(f != null);
+            Contract.Requires(args == null || Contract.ForAll(args, a => a != null));
+            Contract.Ensures(Contract.Result<Expr>() != null);
+
+            CheckContextMatch(f);
+            CheckContextMatch(args);
+            return Expr.Create(this, f, args.ToArray());
+        }
+
         #region Propositional
         /// <summary>
         /// The true Term.
@@ -960,6 +975,18 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Create an expression representing <c>t[0] and t[1] and ...</c>.
+        /// </summary>
+        public BoolExpr MkAnd(IEnumerable<BoolExpr> t)
+        {
+            Contract.Requires(t != null);
+            Contract.Requires(Contract.ForAll(t, a => a != null));
+            Contract.Ensures(Contract.Result<BoolExpr>() != null);
+            CheckContextMatch(t);
+            return new BoolExpr(this, Native.Z3_mk_and(nCtx, (uint)t.Count(), AST.EnumToNative(t)));
+        }
+
+        /// <summary>
         /// Create an expression representing <c>t[0] or t[1] or ...</c>.
         /// </summary>
         public BoolExpr MkOr(params BoolExpr[] t)
@@ -972,6 +999,19 @@ namespace Microsoft.Z3
             return new BoolExpr(this, Native.Z3_mk_or(nCtx, (uint)t.Length, AST.ArrayToNative(t)));
         }
 
+
+        /// <summary>
+        /// Create an expression representing <c>t[0] or t[1] or ...</c>.
+        /// </summary>
+        public BoolExpr MkOr(IEnumerable<BoolExpr> t)
+        {
+            Contract.Requires(t != null);
+            Contract.Requires(Contract.ForAll(t, a => a != null));
+            Contract.Ensures(Contract.Result<BoolExpr>() != null);
+
+            CheckContextMatch(t);
+            return new BoolExpr(this, Native.Z3_mk_or(nCtx, (uint)t.Count(), AST.EnumToNative(t)));
+        }
 
         #endregion
 
@@ -987,6 +1027,19 @@ namespace Microsoft.Z3
 
             CheckContextMatch(t);
             return (ArithExpr)Expr.Create(this, Native.Z3_mk_add(nCtx, (uint)t.Length, AST.ArrayToNative(t)));
+        }
+
+        /// <summary>
+        /// Create an expression representing <c>t[0] + t[1] + ...</c>.
+        /// </summary>
+        public ArithExpr MkAdd(IEnumerable<ArithExpr> t)
+        {
+            Contract.Requires(t != null);
+            Contract.Requires(Contract.ForAll(t, a => a != null));
+            Contract.Ensures(Contract.Result<ArithExpr>() != null);
+
+            CheckContextMatch(t);
+            return (ArithExpr)Expr.Create(this, Native.Z3_mk_add(nCtx, (uint)t.Count(), AST.EnumToNative(t)));
         }
 
         /// <summary>
@@ -4730,6 +4783,21 @@ namespace Microsoft.Z3
 
         [Pure]
         internal void CheckContextMatch(Z3Object[] arr)
+        {
+            Contract.Requires(arr == null || Contract.ForAll(arr, a => a != null));
+
+            if (arr != null)
+            {
+                foreach (Z3Object a in arr)
+                {
+                    Contract.Assert(a != null); // It was an assume, now we added the precondition, and we made it into an assert
+                    CheckContextMatch(a);
+                }
+            }
+        }
+
+        [Pure]
+        internal void CheckContextMatch(IEnumerable<Z3Object> arr)
         {
             Contract.Requires(arr == null || Contract.ForAll(arr, a => a != null));
 

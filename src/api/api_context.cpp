@@ -131,7 +131,7 @@ namespace api {
     }
 
     char * context::mk_external_string(char const * str) {
-        m_string_buffer = str;
+        m_string_buffer = str?str:"";
         return const_cast<char *>(m_string_buffer.c_str());
     }
     

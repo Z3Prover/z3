@@ -298,7 +298,7 @@ namespace smt2 {
         }
 
         unsigned            m_cache_end;
-        vector<std::string> m_cached_strings;
+        std::vector<std::string> m_cached_strings;
 
         int m_num_open_paren;
 
@@ -403,7 +403,7 @@ namespace smt2 {
         void check_float(char const * msg) { if (!curr_is_float()) throw parser_exception(msg); }
 
         void error(unsigned line, unsigned pos, char const * msg) {
-            m_ctx.reset_cancel();
+            m_ctx.set_cancel(false);
             if (use_vs_format()) {
                 m_ctx.diagnostic_stream() << "Z3(" << line << ", " << pos << "): ERROR: " << msg;
                 if (msg[strlen(msg)-1] != '\n')
@@ -2197,7 +2197,7 @@ namespace smt2 {
 
             m_scanner.start_caching();
             m_cache_end = 0;
-            m_cached_strings.reset();
+            m_cached_strings.resize(0);
             
             check_lparen_next("invalid get-value command, '(' expected");
             while (!curr_is_rparen()) {

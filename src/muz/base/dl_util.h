@@ -19,6 +19,7 @@ Revision History:
 #ifndef DL_UTIL_H_
 #define DL_UTIL_H_
 
+#include<vector>
 #include"ast.h"
 #include"hashtable.h"
 #include"obj_hashtable.h"
@@ -67,7 +68,7 @@ namespace datalog {
     typedef idx_set var_idx_set;
     typedef u_map<var *> varidx2var_map;
     typedef obj_hashtable<func_decl> func_decl_set; //!< Rule dependencies.
-    typedef vector<std::string> string_vector;
+    typedef std::vector<std::string> string_vector;
     
     bool contains_var(expr * trm, unsigned var_idx);
 

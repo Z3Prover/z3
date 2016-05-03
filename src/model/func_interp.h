@@ -12,7 +12,7 @@ Abstract:
     modulo a model.
 
     Main goal: Remove some code duplication and make the evaluator more efficient.
-    
+
     Example of code duplication that existed in Z3:
       - smt_model_generator was creating func_values that were essentially partial func_interps
       - smt_model_generator was creating if-then-else (lambda) exprs representing func_values
@@ -39,17 +39,17 @@ class func_entry {
     bool   m_args_are_values; //!< true if is_value(m_args[i]) is true for all i in [0, arity)
 
     // m_result and m_args[i] must be ground terms.
-    
+
     expr * m_result;
     expr * m_args[];
 
     static unsigned get_obj_size(unsigned arity) { return sizeof(func_entry) + arity * sizeof(expr*); }
     func_entry(ast_manager & m, unsigned arity, expr * const * args, expr * result);
-    
+
     friend class func_interp;
-    
+
     void set_result(ast_manager & m, expr * r);
-    
+
 public:
     static func_entry * mk(ast_manager & m, unsigned arity, expr * const * args, expr * result);
     bool args_are_values() const { return m_args_are_values; }
@@ -69,7 +69,7 @@ class func_interp {
     ptr_vector<func_entry> m_entries;
     expr *                 m_else;
     bool                   m_args_are_values; //!< true if forall e in m_entries e.args_are_values() == true
-    
+
     expr *                 m_interp; //!< cache for representing the whole interpretation as a single expression (it uses ite terms).
 
     void reset_interp_cache();
@@ -83,7 +83,7 @@ public:
     ast_manager & m () const { return m_manager; }
 
     func_interp * copy() const;
-    
+
     unsigned get_arity() const { return m_arity; }
 
     bool is_partial() const { return m_else == 0; }
@@ -95,7 +95,7 @@ public:
 
     expr * get_else() const { return m_else; }
     void set_else(expr * e);
-    
+
     void insert_entry(expr * const * args, expr * r);
     void insert_new_entry(expr * const * args, expr * r);
     func_entry * get_entry(expr * const * args) const;
@@ -110,6 +110,9 @@ public:
     expr * get_interp() const;
 
     func_interp * translate(ast_translation & translator) const;
+
+private:
+    bool is_fi_entry_expr(expr * e, ptr_vector<expr> & args);
 };
 
 #endif

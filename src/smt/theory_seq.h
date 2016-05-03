@@ -287,7 +287,10 @@ namespace smt {
             unsigned m_extensionality;
             unsigned m_fixed_length;
             unsigned m_propagate_contains;
+            unsigned m_int_string;
         };
+        typedef hashtable<rational, rational::hash_proc, rational::eq_proc> rational_set;
+
         ast_manager&               m;
         dependency_manager         m_dm;
         solution_map               m_rep;        // unification representative.
@@ -303,6 +306,8 @@ namespace smt {
         obj_hashtable<expr>        m_axiom_set;
         unsigned                   m_axioms_head; // index of first axiom to add.
         bool            m_incomplete;             // is the solver (clearly) incomplete for the fragment.
+        expr_ref_vector     m_int_string;
+        rational_set        m_itos_axioms;
         obj_hashtable<expr> m_length;             // is length applied
         scoped_ptr_vector<apply> m_replay;        // set of actions to replay
         model_generator* m_mg;
@@ -481,9 +486,14 @@ namespace smt {
         bool enforce_length(expr_ref_vector const& es, vector<rational>& len);
         void enforce_length_coherence(enode* n1, enode* n2);
 
+        // model-check the functions that convert integers to strings and the other way.
+        void add_int_string(expr* e);
+        bool check_int_string();
+
         void add_elim_string_axiom(expr* n);
         void add_at_axiom(expr* n);
         void add_in_re_axiom(expr* n);
+        bool add_itos_axiom(expr* n);
         literal mk_literal(expr* n);
         literal mk_eq_empty(expr* n, bool phase = true);
         literal mk_seq_eq(expr* a, expr* b);
@@ -496,6 +506,7 @@ namespace smt {
 
 
         // arithmetic integration
+        bool get_value(expr* s, rational& val) const;
         bool lower_bound(expr* s, rational& lo) const;
         bool upper_bound(expr* s, rational& hi) const;
         bool get_length(expr* s, rational& val) const;

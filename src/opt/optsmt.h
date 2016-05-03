@@ -61,7 +61,9 @@ namespace opt {
         void    get_model(model_ref& mdl, svector<symbol>& labels);
         model*  get_model(unsigned index) const { return m_models[index]; }
 
+
         void update_lower(unsigned idx, inf_eps const& r);
+
         void update_upper(unsigned idx, inf_eps const& r);
 
         void reset();
@@ -81,6 +83,7 @@ namespace opt {
         expr_ref update_lower();
 
         lbool update_upper();
+
 
     };
 

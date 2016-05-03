@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 #include<sstream>
+#include<iomanip>
 #include"mpf.h"
 
 mpf::mpf() :
@@ -1077,21 +1078,20 @@ void mpf_manager::round_to_integral(mpf_rounding_mode rm, mpf const & x, mpf & o
 
         unsigned shift = (o.sbits - 1) - ((unsigned)o.exponent);
         const mpz & shift_p = m_powers2(shift);
+        const mpz & shiftm1_p = m_powers2(shift-1);
         TRACE("mpf_dbg", tout << "shift=" << shift << std::endl;);
+        TRACE("mpf_dbg", tout << "shiftm1_p=" << m_mpz_manager.to_string(shiftm1_p) << std::endl;);
 
         scoped_mpz div(m_mpz_manager), rem(m_mpz_manager);
         m_mpz_manager.machine_div_rem(o.significand, shift_p, div, rem);
         TRACE("mpf_dbg", tout << "div=" << m_mpz_manager.to_string(div) << " rem=" << m_mpz_manager.to_string(rem) << std::endl;);
 
-        const mpz & shift_p1 = m_powers2(shift-1);
-        TRACE("mpf_dbg", tout << "shift_p1=" << m_mpz_manager.to_string(shift_p1) << std::endl;);
-
         switch (rm) {
         case MPF_ROUND_NEAREST_TEVEN:
         case MPF_ROUND_NEAREST_TAWAY: {
-            bool tie = m_mpz_manager.eq(rem, shift_p1);
-            bool less_than_tie = m_mpz_manager.lt(rem, shift_p1);
-            bool more_than_tie = m_mpz_manager.gt(rem, shift_p1);
+            bool tie = m_mpz_manager.eq(rem, shiftm1_p);
+            bool less_than_tie = m_mpz_manager.lt(rem, shiftm1_p);
+            bool more_than_tie = m_mpz_manager.gt(rem, shiftm1_p);
             TRACE("mpf_dbg", tout << "tie= " << tie << "; <tie = " << less_than_tie << "; >tie = " << more_than_tie << std::endl;);
             if (tie) {
                 if ((rm == MPF_ROUND_NEAREST_TEVEN && m_mpz_manager.is_odd(div)) ||
@@ -1231,43 +1231,56 @@ void mpf_manager::rem(mpf const & x, mpf const & y, mpf & o) {
     else if (is_zero(x))
         set(o, x);
     else {
-        o.ebits = x.ebits;
-        o.sbits = x.sbits;
-        o.sign = x.sign;
+        // This is a generalized version of the algorithm for FPREM1 in the `Intel
+        // 64 and IA-32 Architectures Software Developer’s Manual',
+        // Section 3-402 Vol. 2A `FPREM1-Partial Remainder'.
+        scoped_mpf ST0(*this), ST1(*this);
+        set(ST0, x);
+        set(ST1, y);
 
-        scoped_mpf a(*this), b(*this);
-        set(a, x);
-        set(b, y);
-        unpack(a, true);
-        unpack(b, true);
+        const mpf_exp_t B = x.sbits-1; // max bits per iteration.
+        mpf_exp_t D;
+        do {
+            D = ST0.exponent() - ST1.exponent();
+            TRACE("mpf_dbg_rem", tout << "st0=" << to_string_hexfloat(ST0) << std::endl;
+                                 tout << "st1=" << to_string_hexfloat(ST1) << std::endl;
+                                 tout << "D=" << D << std::endl;);
 
-        TRACE("mpf_dbg", tout << "A = " << to_string(a) << std::endl;);
-        TRACE("mpf_dbg", tout << "B = " << to_string(b) << std::endl;);
-
-        if (a.exponent() < b.exponent())
-            set(o, x);
-        else {
-            mpf_exp_t exp_diff = a.exponent() - b.exponent();
-            SASSERT(exp_diff >= 0);
-            TRACE("mpf_dbg", tout << "exp_diff = " << exp_diff << std::endl;);
-
-            SASSERT(exp_diff < INT_MAX);
-            // CMW: This requires rather a lot of memory. There are algorithms that trade space for time by
-            // computing only a small chunk of the remainder bits at a time.
-            unsigned extra_bits = (unsigned) exp_diff;
-            m_mpz_manager.mul2k(a.significand(), extra_bits);
-            m_mpz_manager.rem(a.significand(), b.significand(), o.significand);
-
-            TRACE("mpf_dbg", tout << "REM' = " << to_string(o) << std::endl;);
-
-            if (m_mpz_manager.is_zero(o.significand))
-                mk_zero(o.ebits, o.sbits, o.sign, o);
-            else {
-                o.exponent = b.exponent();
-                m_mpz_manager.mul2k(o.significand, 3); // rounding bits
-                round(MPF_ROUND_NEAREST_TEVEN, o);
+            if (D < B) {
+                scoped_mpf ST0_DIV_ST1(*this), Q(*this), ST1_MUL_Q(*this), ST0p(*this);
+                div(MPF_ROUND_NEAREST_TEVEN, ST0, ST1, ST0_DIV_ST1);
+                round_to_integral(MPF_ROUND_NEAREST_TEVEN, ST0_DIV_ST1, Q);
+                mul(MPF_ROUND_NEAREST_TEVEN, ST1, Q, ST1_MUL_Q);
+                sub(MPF_ROUND_NEAREST_TEVEN, ST0, ST1_MUL_Q, ST0p);
+                TRACE("mpf_dbg_rem", tout << "ST0/ST1=" << to_string_hexfloat(ST0_DIV_ST1) << std::endl;
+                                     tout << "Q=" << to_string_hexfloat(Q) << std::endl;
+                                     tout << "ST1*Q=" << to_string_hexfloat(ST1_MUL_Q) << std::endl;
+                                     tout << "ST0'=" << to_string_hexfloat(ST0p) << std::endl;);
+                set(ST0, ST0p);
             }
-        }
+            else {
+                const mpf_exp_t N = B;
+                scoped_mpf ST0_DIV_ST1(*this), QQ(*this), ST1_MUL_QQ(*this), ST0p(*this);
+                div(MPF_ROUND_TOWARD_ZERO, ST0, ST1, ST0_DIV_ST1);
+                ST0_DIV_ST1.get().exponent -= D - N;
+                round_to_integral(MPF_ROUND_TOWARD_ZERO, ST0_DIV_ST1, QQ);
+                mul(MPF_ROUND_NEAREST_TEVEN, ST1, QQ, ST1_MUL_QQ);
+                ST1_MUL_QQ.get().exponent += D - N;
+                sub(MPF_ROUND_NEAREST_TEVEN, ST0, ST1_MUL_QQ, ST0p);
+                TRACE("mpf_dbg_rem", tout << "ST0/ST1/2^{D-N}=" << to_string_hexfloat(ST0_DIV_ST1) << std::endl;
+                                     tout << "QQ=" << to_string_hexfloat(QQ) << std::endl;
+                                     tout << "ST1*QQ*2^{D-N}=" << to_string_hexfloat(ST1_MUL_QQ) << std::endl;
+                                     tout << "ST0'=" << to_string_hexfloat(ST0p) << std::endl;);
+                SASSERT(!eq(ST0, ST0p));
+                set(ST0, ST0p);
+            }
+
+            SASSERT(ST0.exponent() - ST1.exponent() <= D);
+        } while (D >= B);
+
+        set(o, ST0);
+        if (is_zero(o))
+            o.sign = x.sign;
     }
 
     TRACE("mpf_dbg", tout << "REMAINDER = " << to_string(o) << std::endl;);
@@ -1352,7 +1365,7 @@ std::string mpf_manager::to_string(mpf const & x) {
     }
 
     //DEBUG_CODE(
-    //   res += " " + to_string_raw(x);
+    //   res += " " + to_string_hexfloat(x);
     //);
 
     return res;
@@ -1392,6 +1405,20 @@ std::string mpf_manager::to_string_raw(mpf const & x) {
         res += " D";
     res += "]";
     return res;
+}
+
+std::string mpf_manager::to_string_hexfloat(mpf const & x) {
+    std::stringstream ss("");
+    std::ios::fmtflags ff = ss.setf(std::ios_base::hex | std::ios_base::uppercase |
+                                    std::ios_base::showpoint | std::ios_base::showpos);
+    ss.setf(ff);
+    ss.precision(13);
+#if defined(_WIN32) && _MSC_VER >= 1800
+    ss << std::hexfloat << to_double(x);
+#else
+    ss << std::hex << (*reinterpret_cast<const unsigned long long *>(&(x)));
+#endif
+    return ss.str();
 }
 
 void mpf_manager::to_rational(mpf const & x, unsynch_mpq_manager & qm, mpq & o) {

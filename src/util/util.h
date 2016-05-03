@@ -226,9 +226,7 @@ public:
     }
 
     ~scoped_ptr() {
-        if (m_ptr) {
-            dealloc(m_ptr);
-        }
+        dealloc(m_ptr);
     }
 
     T * operator->() const { 
@@ -253,9 +251,7 @@ public:
 
     scoped_ptr & operator=(T * n) {
         if (m_ptr != n) {
-            if (m_ptr) {
-                dealloc(m_ptr);
-            }
+            dealloc(m_ptr);
             m_ptr = n;
         }
         return *this;

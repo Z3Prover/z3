@@ -43,9 +43,6 @@ public:
     void insert(func_decl * v, expr * def);
 
     virtual model_converter * translate(ast_translation & translator);
-
-private:
-    bool is_fi_entry_expr(expr * e, unsigned arity, ptr_vector<expr> & args);
 };
 
 

@@ -17,6 +17,11 @@ def main(args):
     parser.add_argument("api_files", nargs="+")
     parser.add_argument("--z3py-output-dir", dest="z3py_output_dir", default=None)
     parser.add_argument("--dotnet-output-dir", dest="dotnet_output_dir", default=None)
+    parser.add_argument("--java-output-dir", dest="java_output_dir", default=None)
+    parser.add_argument("--java-package-name",
+                        dest="java_package_name",
+                        default=None,
+                        help="Name to give the Java package (e.g. ``com.microsoft.z3``).")
     pargs = parser.parse_args(args)
 
     if not mk_genfile_common.check_files_exist(pargs.api_files):
@@ -39,6 +44,20 @@ def main(args):
             pargs.api_files,
             pargs.dotnet_output_dir)
         logging.info('Generated "{}"'.format(output))
+        count += 1
+
+    if pargs.java_output_dir:
+        if pargs.java_package_name == None:
+            logging.error('Java package name must be specified')
+            return 1
+        if not mk_genfile_common.check_dir_exists(pargs.java_output_dir):
+            return 1
+        outputs = mk_genfile_common.mk_z3consts_java_internal(
+            pargs.api_files,
+            pargs.java_package_name,
+            pargs.java_output_dir)
+        for generated_file in outputs:
+            logging.info('Generated "{}"'.format(generated_file))
         count += 1
 
     if count == 0:

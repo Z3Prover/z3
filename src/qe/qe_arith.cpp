@@ -20,6 +20,7 @@ Revision History:
 --*/
 
 #include "qe_arith.h"
+#include "qe_mbp.h"
 #include "ast_util.h"
 #include "arith_decl_plugin.h"
 #include "ast_pp.h"
@@ -27,12 +28,12 @@ Revision History:
 #include "expr_functors.h"
 #include "model_v2_pp.h"
 #include "expr_safe_replace.h"
+#include "model_based_opt.h"
 
 namespace qe {
 
     bool is_divides(arith_util& a, expr* e1, expr* e2, rational& k, expr_ref& p) {  
         expr* t1, *t2;
-        ast_manager& m = a.get_manager();
         if (a.is_mod(e2, t1, t2) && 
             a.is_numeral(e1, k) && 
             k.is_zero() &&
@@ -50,20 +51,22 @@ namespace qe {
         }
         return is_divides(a, e1, e2, k, t) || is_divides(a, e2, e1, k, t);
     }
+
+
+#if 0
+        obj_map<expr, unsigned> m_expr2var;
+        ptr_vector<expr>        m_var2expr;
+
+#endif
     
     struct arith_project_plugin::imp {
 
-        enum ineq_type {
-            t_eq,
-            t_lt,
-            t_le
-        };
         ast_manager&      m;
         arith_util        a;
         th_rewriter       m_rw;
         expr_ref_vector   m_ineq_terms;
         vector<rational>  m_ineq_coeffs;
-        svector<ineq_type>  m_ineq_types;
+        svector<opt::ineq_type>  m_ineq_types;
         expr_ref_vector   m_div_terms;
         vector<rational>  m_div_divisors, m_div_coeffs;
         expr_ref_vector   m_new_lits;
@@ -83,6 +86,111 @@ namespace qe {
             for (unsigned i = 0; i < num_divs(); ++i) {
                 display_div(out, i);
             }            
+        }
+
+        void insert_mul(expr* x, rational const& v, obj_map<expr, rational>& ts)
+        {
+            rational w;
+            if (ts.find(x, w)) {
+                ts.insert(x, w + v);
+            }
+            else {
+                ts.insert(x, v); 
+            }
+        }
+
+        void linearize(model& model, opt::model_based_opt& mbo, expr* lit, obj_map<expr, unsigned>& tids) {
+            obj_map<expr, rational> ts;
+            rational c(0), mul(1);
+            expr_ref t(m);
+            opt::ineq_type ty = opt::t_le;
+            expr* e1, *e2;
+            bool is_not = m.is_not(lit, lit);
+            if (is_not) {
+                mul.neg();
+            }
+            SASSERT(!m.is_not(lit));
+            if (a.is_le(lit, e1, e2) || a.is_ge(lit, e2, e1)) {
+                if (is_not) mul.neg();
+                linearize(model, mul, e1, c, ts);
+                linearize(model, -mul, e2, c, ts);
+                ty = is_not ? opt::t_lt : opt::t_le;
+            }
+            else if (a.is_lt(lit, e1, e2) || a.is_gt(lit, e2, e1)) {
+                if (is_not) mul.neg();
+                linearize(model,  mul, e1, c, ts);
+                linearize(model, -mul, e2, c, ts);
+                ty = is_not ? opt::t_le: opt::t_lt;
+            }
+            else if (m.is_eq(lit, e1, e2) && !is_not && is_arith(e1)) {
+                linearize(model,  mul, e1, c, ts);
+                linearize(model, -mul, e2, c, ts);
+                ty = opt::t_eq;
+            }  
+            else if (m.is_distinct(lit) && !is_not && is_arith(to_app(lit)->get_arg(0))) {
+                UNREACHABLE();
+            }
+            else if (m.is_distinct(lit) && is_not && is_arith(to_app(lit)->get_arg(0))) {
+                UNREACHABLE();
+            }
+            else if (m.is_eq(lit, e1, e2) && is_not && is_arith(e1)) {
+                UNREACHABLE();
+            }            
+            else {
+                return;
+            }
+            if (ty == opt::t_lt && is_int()) {
+                c += rational(1);
+                ty = opt::t_le;
+            }            
+            vars coeffs;
+            extract_coefficients(ts, tids, coeffs);
+            mbo.add_constraint(coeffs, c, ty);
+        }
+
+        void linearize(model& model, rational const& mul, expr* t, rational& c, obj_map<expr, rational>& ts) {
+            expr* t1, *t2, *t3;
+            rational mul1;
+            expr_ref val(m);
+            if (a.is_mul(t, t1, t2) && is_numeral(model, t1, mul1)) {
+                linearize(model, mul* mul1, t2, c, ts);
+            }
+            else if (a.is_mul(t, t1, t2) && is_numeral(model, t2, mul1)) {
+                linearize(model, mul* mul1, t1, c, ts);
+            }
+            else if (a.is_add(t)) {
+                app* ap = to_app(t);
+                for (unsigned i = 0; i < ap->get_num_args(); ++i) {
+                    linearize(model, mul, ap->get_arg(i), c, ts);
+                }
+            }
+            else if (a.is_sub(t, t1, t2)) {
+                linearize(model, mul, t1, c, ts);
+                linearize(model, -mul, t2, c, ts);
+            }
+            else if (a.is_uminus(t, t1)) {
+                linearize(model, -mul, t1, c, ts);
+            }
+            else if (a.is_numeral(t, mul1)) {
+                c += mul*mul1;
+            }
+            else if (extract_mod(model, t, val)) {
+                insert_mul(val, mul, ts);
+            }
+            else if (m.is_ite(t, t1, t2, t3)) {
+                VERIFY(model.eval(t1, val));
+                SASSERT(m.is_true(val) || m.is_false(val));
+                TRACE("qe", tout << mk_pp(t1, m) << " := " << val << "\n";);
+                if (m.is_true(val)) {
+                    linearize(model, mul, t2, c, ts);
+                }
+                else {
+                    linearize(model, mul, t3, c, ts);
+                }
+            }
+            else {
+                insert_mul(t, mul, ts);
+            }
         }
 
         void is_linear(model& model, rational const& mul, expr* t, rational& c, expr_ref_vector& ts) {
@@ -117,9 +225,10 @@ namespace qe {
             else if (extract_mod(model, t, val)) {
                 ts.push_back(mk_mul(mul, val));
             }
-            else if (m.is_ite(t, t1, t2, t3)) {
+            else if (m.is_ite(t, t1, t2, t3)) {                
                 VERIFY(model.eval(t1, val));
                 SASSERT(m.is_true(val) || m.is_false(val));
+                TRACE("qe", tout << mk_pp(t1, m) << " := " << val << "\n";);
                 if (m.is_true(val)) {
                     is_linear(model, mul, t2, c, ts); 
                 }
@@ -140,7 +249,7 @@ namespace qe {
         bool is_linear(model& model, expr* lit, bool& found_eq) {
             rational c(0), mul(1);
             expr_ref t(m);
-            ineq_type ty = t_le;
+            opt::ineq_type ty = opt::t_le;
             expr* e1, *e2;
             expr_ref_vector ts(m);            
             bool is_not = m.is_not(lit, lit);
@@ -151,17 +260,17 @@ namespace qe {
             if (a.is_le(lit, e1, e2) || a.is_ge(lit, e2, e1)) {
                 is_linear(model,  mul, e1, c, ts);
                 is_linear(model, -mul, e2, c, ts);
-                ty = is_not?t_lt:t_le;
+                ty = is_not? opt::t_lt : opt::t_le;
             }
             else if (a.is_lt(lit, e1, e2) || a.is_gt(lit, e2, e1)) {
                 is_linear(model,  mul, e1, c, ts);
                 is_linear(model, -mul, e2, c, ts);
-                ty = is_not?t_le:t_lt;
+                ty = is_not? opt::t_le: opt::t_lt;
             }
             else if (m.is_eq(lit, e1, e2) && !is_not && is_arith(e1)) {
                 is_linear(model,  mul, e1, c, ts);
                 is_linear(model, -mul, e2, c, ts);
-                ty = t_eq;
+                ty = opt::t_eq;
             }  
             else if (m.is_distinct(lit) && !is_not && is_arith(to_app(lit)->get_arg(0))) {
                 expr_ref val(m);
@@ -180,7 +289,7 @@ namespace qe {
                     is_linear(model,  mul, nums[i+1].first, c, ts);
                     is_linear(model, -mul, nums[i].first,   c, ts);  
                     t = add(ts);
-                    accumulate_linear(model, c, t, t_lt);
+                    accumulate_linear(model, c, t, opt::t_lt);
                 }
                 t = mk_num(0);
                 c.reset();
@@ -199,7 +308,7 @@ namespace qe {
                 if (r1 < r2) {
                     std::swap(e1, e2);
                 }                
-                ty = t_lt;
+                ty = opt::t_lt;
                 is_linear(model,  mul, e1, c, ts);
                 is_linear(model, -mul, e2, c, ts);    
             }
@@ -207,24 +316,24 @@ namespace qe {
                 TRACE("qe", tout << "can't project:" << mk_pp(lit, m) << "\n";);
                 throw cant_project();
             }
-            if (ty == t_lt && is_int()) {
+            if (ty == opt::t_lt && is_int()) {
                 ts.push_back(mk_num(1));
-                ty = t_le;
+                ty = opt::t_le;
             }
             t = add(ts);
-            if (ty == t_eq && c.is_neg()) {
+            if (ty == opt::t_eq && c.is_neg()) {
                 t = mk_uminus(t);
                 c.neg();
             }
-            if (ty == t_eq && c > rational(1)) {
+            if (ty == opt::t_eq && c > rational(1)) {
                 m_ineq_coeffs.push_back(-c);
                 m_ineq_terms.push_back(mk_uminus(t));
-                m_ineq_types.push_back(t_le);
+                m_ineq_types.push_back(opt::t_le);
                 m_num_neg++;
-                ty = t_le;
+                ty = opt::t_le;
             }
             accumulate_linear(model, c, t, ty);
-            found_eq = !c.is_zero() && ty == t_eq;
+            found_eq = !c.is_zero() && ty == opt::t_eq;
             return true;
         }
 
@@ -275,16 +384,16 @@ namespace qe {
             }
         };
 
-        void accumulate_linear(model& model, rational const& c, expr_ref& t, ineq_type ty) {
+        void accumulate_linear(model& model, rational const& c, expr_ref& t, opt::ineq_type ty) {
             if (c.is_zero()) {
                 switch (ty) {
-                case t_eq:
+                case opt::t_eq:
                     t = a.mk_eq(t, mk_num(0));
                     break;
-                case t_lt:
+                case opt::t_lt:
                     t = a.mk_lt(t, mk_num(0));
                     break;
-                case t_le:
+                case opt::t_le:
                     t = a.mk_le(t, mk_num(0));
                     break;
                 }
@@ -294,7 +403,7 @@ namespace qe {
                 m_ineq_coeffs.push_back(c);
                 m_ineq_terms.push_back(t);
                 m_ineq_types.push_back(ty);
-                if (ty == t_eq) {
+                if (ty == opt::t_eq) {
                     // skip
                 }
                 else if (c.is_pos()) {
@@ -404,18 +513,18 @@ namespace qe {
 
         expr* ineq_term(unsigned i) const { return m_ineq_terms[i]; }
         rational const& ineq_coeff(unsigned i) const { return m_ineq_coeffs[i]; }
-        ineq_type ineq_ty(unsigned i) const { return m_ineq_types[i]; }
+        opt::ineq_type ineq_ty(unsigned i) const { return m_ineq_types[i]; }
         app_ref mk_ineq_pred(unsigned i) { 
             app_ref result(m);
             result = to_app(mk_add(mk_mul(ineq_coeff(i), m_var->x()), ineq_term(i)));
             switch (ineq_ty(i)) {
-            case t_lt:
+            case opt::t_lt:
                 result = a.mk_lt(result, mk_num(0));
                 break;
-            case t_le:
+            case opt::t_le:
                 result = a.mk_le(result, mk_num(0));
                 break;
-            case t_eq:
+            case opt::t_eq:
                 result = m.mk_eq(result, mk_num(0));
                 break;
             }
@@ -424,9 +533,9 @@ namespace qe {
         void display_ineq(std::ostream& out, unsigned i) const {
             out << mk_pp(ineq_term(i), m) << " " << ineq_coeff(i) << "*" << mk_pp(m_var->x(), m);
             switch (ineq_ty(i)) {
-            case t_eq: out <<  " = 0\n"; break;
-            case t_le: out << " <= 0\n"; break;
-            case t_lt: out <<  " < 0\n"; break;
+            case opt::t_eq: out <<  " = 0\n"; break;
+            case opt::t_le: out << " <= 0\n"; break;
+            case opt::t_lt: out <<  " < 0\n"; break;
             }
         }
         unsigned num_ineqs() const { return m_ineq_terms.size(); }
@@ -541,7 +650,7 @@ namespace qe {
             bool is_int = a.is_int(m_var->x());
             for (unsigned i = 0; i < num_ineqs(); ++i) {
                 rational const& ac = m_ineq_coeffs[i];
-                SASSERT(!is_int || t_le == ineq_ty(i));
+                SASSERT(!is_int || opt::t_le == ineq_ty(i));
 
                 //
                 // ac*x + t < 0
@@ -555,7 +664,7 @@ namespace qe {
                     new_max =
                         new_max || 
                         (r > max_r) || 
-                        (r == max_r && t_lt == ineq_ty(i)) ||
+                        (r == max_r && opt::t_lt == ineq_ty(i)) ||
                         (r == max_r && is_int && ac.is_one());
                     TRACE("qe", tout << "max: "  << mk_pp(ineq_term(i), m) << "/" << abs(ac) << " := " << r << " " 
                           << (new_max?"":"not ") << "new max\n";);
@@ -593,7 +702,7 @@ namespace qe {
             expr_ref ts = mk_add(bt, as);
             expr_ref  z = mk_num(0);
             expr_ref  fml(m);
-            if (t_lt == ineq_ty(i) || t_lt == ineq_ty(j)) {
+            if (opt::t_lt == ineq_ty(i) || opt::t_lt == ineq_ty(j)) {
                 fml = a.mk_lt(ts, z);
             }
             else {
@@ -610,7 +719,7 @@ namespace qe {
             rational ac = ineq_coeff(i);
             rational bc = ineq_coeff(j);
             expr_ref tmp(m);
-            SASSERT(t_le == ineq_ty(i) && t_le == ineq_ty(j));
+            SASSERT(opt::t_le == ineq_ty(i) && opt::t_le == ineq_ty(j));
             SASSERT(ac.is_pos() == bc.is_neg());
             rational abs_a = abs(ac);
             rational abs_b = abs(bc);
@@ -689,7 +798,7 @@ namespace qe {
             expr* s = ineq_term(j);
             expr_ref bt = mk_mul(abs(bc), t);
             expr_ref as = mk_mul(abs(ac), s);
-            if (t_lt == ineq_ty(i) && t_le == ineq_ty(j)) {
+            if (opt::t_lt == ineq_ty(i) && opt::t_le == ineq_ty(j)) {
                 return expr_ref(a.mk_lt(bt, as), m);
             }
             else {
@@ -760,9 +869,9 @@ namespace qe {
                     expr_ref lhs(m), val(m);
                     lhs = mk_sub(mk_mul(c, ineq_term(i)), mk_mul(ineq_coeff(i), t));
                     switch (ineq_ty(i)) {
-                    case t_lt: lhs = a.mk_lt(lhs, mk_num(0)); break;
-                    case t_le: lhs = a.mk_le(lhs, mk_num(0)); break;
-                    case t_eq: lhs = m.mk_eq(lhs, mk_num(0)); break;
+                    case opt::t_lt: lhs = a.mk_lt(lhs, mk_num(0)); break;
+                    case opt::t_le: lhs = a.mk_le(lhs, mk_num(0)); break;
+                    case opt::t_eq: lhs = m.mk_eq(lhs, mk_num(0)); break;
                     }
                     TRACE("qe", tout << lhs << "\n";);
                     SASSERT (model.eval(lhs, val) && m.is_true(val));
@@ -853,6 +962,78 @@ namespace qe {
             }
             return true;
         }
+
+        typedef opt::model_based_opt::var var;
+        typedef vector<var> vars;
+        
+
+        opt::inf_eps maximize(expr_ref_vector const& fmls, model& mdl, app* t, expr_ref& bound) {
+            SASSERT(a.is_real(t));
+            opt::model_based_opt mbo;
+            opt::inf_eps value;
+            obj_map<expr, rational> ts;
+            obj_map<expr, unsigned> tids;
+
+            // extract objective function.
+            vars coeffs;
+            rational c(0), mul(1);
+            linearize(mdl, mul, t, c, ts);
+            extract_coefficients(ts, tids, coeffs);
+            mbo.set_objective(coeffs, c);
+
+            // extract linear constraints
+            for (unsigned i = 0; i < fmls.size(); ++i) {
+                linearize(mdl, mbo, fmls[i], tids);
+            }
+            
+            // find optimal value
+            value = mbo.maximize();
+
+            expr_ref val(a.mk_numeral(value.get_rational(), false), m);
+            if (!value.is_finite()) {
+                bound = m.mk_false();
+                return value;
+            }
+
+            // update model to use new values that satisfy optimality
+            ptr_vector<expr> vars;
+            obj_map<expr, unsigned>::iterator it = tids.begin(), end = tids.end();
+            for (; it != end; ++it) {
+                expr* e = it->m_key;
+                if (is_uninterp_const(e)) {
+                    unsigned id = it->m_value;
+                    func_decl* f = to_app(e)->get_decl();
+                    expr_ref val(a.mk_numeral(mbo.get_value(id), false), m);
+                    mdl.register_decl(f, val);
+                }
+                else {
+                    TRACE("qe", tout << "omitting model update for non-uninterpreted constant " << mk_pp(e, m) << "\n";);
+                }
+            }
+
+            // update the predicate 'bound' which forces larger values.
+            if (value.get_infinitesimal().is_neg()) {
+                bound = a.mk_le(val, t);
+            }
+            else {
+                bound = a.mk_lt(val, t);
+            }            
+            return value;
+        }
+
+        void extract_coefficients(obj_map<expr, rational> const& ts, obj_map<expr, unsigned>& tids, vars& coeffs) {
+            coeffs.reset();
+            obj_map<expr, rational>::iterator it = ts.begin(), end = ts.end();
+            for (; it != end; ++it) {
+                unsigned id;
+                if (!tids.find(it->m_key, id)) {
+                    id = tids.size();
+                    tids.insert(it->m_key, id);
+                }
+                coeffs.push_back(var(id, it->m_value));                
+            }
+        }
+
     };
 
     arith_project_plugin::arith_project_plugin(ast_manager& m) {
@@ -873,6 +1054,10 @@ namespace qe {
 
     family_id arith_project_plugin::get_family_id() {
         return m_imp->a.get_family_id();
+    }
+
+    opt::inf_eps arith_project_plugin::maximize(expr_ref_vector const& fmls, model& mdl, app* t, expr_ref& bound) {
+        return m_imp->maximize(fmls, mdl, t, bound);
     }
 
     bool arith_project(model& model, app* var, expr_ref_vector& lits) {
