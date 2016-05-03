@@ -35,6 +35,8 @@ namespace sat {
         unsigned id = c.id();
         if (id >= m_id2pos.size())
             return;
+        if (empty()) 
+            return;
         unsigned pos = m_id2pos[id];
         if (pos == UINT_MAX)
             return;
@@ -52,7 +54,11 @@ namespace sat {
     clause & clause_set::erase() {
         SASSERT(!empty());
         clause & c = *m_set.back(); 
-        m_id2pos[c.id()] = UINT_MAX;
+        SASSERT(c.id() < m_id2pos.size());
+        SASSERT(m_id2pos[c.id()] == m_set.size()-1);
+        if (c.id() < m_id2pos.size()) {
+            m_id2pos[c.id()] = UINT_MAX;
+        }
         m_set.pop_back();
         return c;
     }
