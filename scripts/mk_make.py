@@ -19,5 +19,3 @@ mk_bindings(API_files)
 mk_vs_proj('z3', ['shell'])
 mk_vs_proj_dll('libz3', ['api_dll'])
 mk_makefile()
-
-

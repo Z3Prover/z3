@@ -190,9 +190,10 @@ let basic_tests ( ctx : context ) =
   (* Error handling test. *)
   try (
     let i = Integer.mk_numeral_s ctx "1/2" in
-    raise (TestFailedException (numeral_to_string i)) (* unreachable *)
+    Printf.printf "%s\n" (Expr.to_string i) ;
+    raise (TestFailedException "check")
   )
-  with Z3native.Exception(_) -> (
+  with Z3.Error(_) -> (
     Printf.printf "Exception caught, OK.\n" 
   )
 
@@ -342,7 +343,7 @@ let _ =
       );
     Printf.printf "Exiting.\n" ;
     exit 0
-  ) with Z3native.Exception(msg) -> (
+  ) with Error(msg) -> (
     Printf.printf "Z3 EXCEPTION: %s\n" msg ;
     exit 1
   )    
