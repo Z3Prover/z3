@@ -1,0 +1,36 @@
+(** The native (raw) interface to the dynamic Z3 library. *)
+
+open Z3enums
+
+(**/**)
+type ptr
+and symbol = ptr
+and config = ptr
+and context = ptr
+and ast = ptr
+and app = ast
+and sort = ast
+and func_decl = ast
+and pattern = ast
+and model = ptr
+and literals = ptr
+and constructor = ptr
+and constructor_list = ptr
+and solver = ptr
+and goal = ptr
+and tactic = ptr
+and params = ptr
+and probe = ptr
+and stats = ptr
+and ast_vector = ptr
+and ast_map = ptr
+and apply_result = ptr
+and func_interp = ptr
+and func_entry = ptr
+and fixedpoint = ptr
+and optimize = ptr
+and param_descrs = ptr
+and rcf_num = ptr
+
+external set_internal_error_handler : ptr -> unit
+  = "n_set_internal_error_handler"
