@@ -63,7 +63,7 @@ static struct custom_operations default_custom_ops = {
   custom_compare_ext_default,
 };
 
-inline int compare_pointers(void* pt1, void* pt2) {
+int compare_pointers(void* pt1, void* pt2) {
   if (pt1 == pt2)
     return 0;
   else if ((intnat)pt1 < (intnat)pt2)
@@ -138,7 +138,7 @@ Z3_context Z3_context_plus_raw(Z3_context_plus * cp) {
   return (*cp)->ctx;
 }
 
-inline void try_to_delete_context(Z3_context_plus cp) {
+void try_to_delete_context(Z3_context_plus cp) {
   if (cp->obj_count == 0) {
     /* printf("try_to_delete_context: Deleting context %p(%p) with cnt=0.\n", cp, cp->ctx); */
     Z3_del_context(cp->ctx);
