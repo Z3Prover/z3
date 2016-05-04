@@ -25,6 +25,7 @@ Revision History:
 namespace smt {
     class seq_factory : public value_factory {
         typedef hashtable<symbol, symbol_hash_proc, symbol_eq_proc> symbol_set;
+        proto_model& m_model;
         ast_manager& m;
         seq_util     u;
         symbol_set   m_strings;
@@ -34,8 +35,9 @@ namespace smt {
         expr_ref_vector m_trail;
     public:
 
-        seq_factory(ast_manager & m, family_id fid):
+        seq_factory(ast_manager & m, family_id fid, proto_model& md):
             value_factory(m, fid),
+            m_model(md),
             m(m),
             u(m),
             m_next(0),
@@ -78,6 +80,17 @@ namespace smt {
                 v2 = u.str.mk_string(symbol("b"));
                 return true;
             }
+            sort* ch;
+            if (u.is_seq(s, ch)) {
+                if (m_model.get_some_values(ch, v1, v2)) {
+                    v1 = u.str.mk_unit(v1);
+                    v2 = u.str.mk_unit(v2);
+                    return true;
+                }
+                else {
+                    return false;
+                }
+            }
             NOT_IMPLEMENTED_YET();
             return false; 
         }
@@ -92,7 +105,7 @@ namespace smt {
                     return u.str.mk_string(sym);
                 }
             }
-            sort* seq = 0;
+            sort* seq = 0, *ch = 0;
             if (u.is_re(s, seq)) {
                 expr* v0 = get_fresh_value(seq);
                 return u.re.mk_to_re(v0);
@@ -102,7 +115,11 @@ namespace smt {
                 //return u.str.mk_char(zstring(s), 0);
                 return u.str.mk_char(zstring("a"), 0);
             }
-            NOT_IMPLEMENTED_YET();
+            if (u.is_seq(s, ch)) {
+                expr* v = m_model.get_fresh_value(ch);
+                return u.str.mk_unit(v);
+            }
+            UNREACHABLE();
             return 0;
         }
         virtual void register_value(expr* n) {
@@ -126,7 +143,7 @@ namespace smt {
     public:
         theory_seq_empty(ast_manager& m):theory(m.mk_family_id("seq")), m_used(false) {}
         virtual void init_model(model_generator & mg) {
-            mg.register_factory(alloc(seq_factory, get_manager(), get_family_id()));
+            mg.register_factory(alloc(seq_factory, get_manager(), get_family_id(), mg.get_model()));
         }
 
     };

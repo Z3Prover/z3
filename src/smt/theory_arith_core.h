@@ -1866,7 +1866,7 @@ namespace smt {
     template<typename Ext>
     template<bool Lazy>
     void theory_arith<Ext>::pivot(theory_var x_i, theory_var x_j, numeral const & a_ij, bool apply_gcd_test) {
-        TRACE("arith_pivot", tout << "pivoting: v" << x_i << ", v" << x_j << "\n";);
+        TRACE("arith_pivoting", tout << "pivoting: v" << x_i << ", v" << x_j << "\n";);
         m_stats.m_pivots++;
         SASSERT(is_base(x_i) || is_quasi_base(x_i));
         SASSERT(x_i != x_j);
@@ -2067,14 +2067,14 @@ namespace smt {
         theory_var max    = get_num_vars();
         theory_var result = max;
         row const & r     = m_rows[get_var_row(x_i)];
-        int n;
         int best_col_sz    = INT_MAX;
         int best_so_far    = INT_MAX;
-        
-        typename vector<row_entry>::const_iterator it  = r.begin_entries();
+        int n = 0;
+        typename vector<row_entry>::const_iterator it = r.begin_entries();
         typename vector<row_entry>::const_iterator end = r.end_entries();
-    
-        for (; it != end; ++it) {                                                                                   
+
+        for (; it != end; ++it) {
+
             if (!it->is_dead()) {                                                                                   
                 theory_var x_j       = it->m_var;                                                                             
                 numeral const & a_ij = it->m_coeff;  
@@ -2090,14 +2090,14 @@ namespace smt {
                         best_so_far   = num;
                         best_col_sz   = col_sz;
                         n             = 1;
-                    } 
+                    }
                     else if (num == best_so_far && col_sz == best_col_sz) {
                         n++;
                         if (m_random()%n == 0) {
                             result      = x_j;
                             out_a_ij    = a_ij;
                         }
-                    }                              
+                    }  
                 }
             }
         }
@@ -2174,6 +2174,7 @@ namespace smt {
         inf_numeral curr_error;
         typename var_heap::iterator it  = m_to_patch.begin();
         typename var_heap::iterator end = m_to_patch.end();
+        //unsigned n = 0;
         for (; it != end; ++it) {
             theory_var v = *it;
             if (below_lower(v))
@@ -2188,7 +2189,16 @@ namespace smt {
                       << ", best_error: " << best_error << ", curr_error: " << curr_error << "\n";);
                 best = v;
                 best_error = curr_error;
+                //n = 2;
             }
+#if 0
+            else if (false && n > 0 && curr_error == best_error) {
+                n++;
+                if (m_random()%n == 0) {
+                    best = v;
+                }
+            }
+#endif
         }
         if (best == null_theory_var)
             m_to_patch.clear(); // all variables are satisfied

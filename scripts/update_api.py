@@ -78,7 +78,7 @@ Type2Dotnet = { VOID : 'void', VOID_PTR : 'IntPtr', INT : 'int', UINT : 'uint', 
 
 # Mapping to Java types
 Type2Java = { VOID : 'void', VOID_PTR : 'long', INT : 'int', UINT : 'int', INT64 : 'long', UINT64 : 'long', DOUBLE : 'double',
-              FLOAT : 'float', STRING : 'String', STRING_PTR : 'StringPtr', 
+              FLOAT : 'float', STRING : 'String', STRING_PTR : 'StringPtr',
               BOOL : 'boolean', SYMBOL : 'long', PRINT_MODE : 'int', ERROR_CODE : 'int'}
 
 Type2JavaW = { VOID : 'void', VOID_PTR : 'jlong', INT : 'jint', UINT : 'jint', INT64 : 'jlong', UINT64 : 'jlong', DOUBLE : 'jdouble',
@@ -87,7 +87,7 @@ Type2JavaW = { VOID : 'void', VOID_PTR : 'jlong', INT : 'jint', UINT : 'jint', I
 
 # Mapping to ML types
 Type2ML = { VOID : 'unit', VOID_PTR : 'VOIDP', INT : 'int', UINT : 'int', INT64 : 'int', UINT64 : 'int', DOUBLE : 'float',
-            FLOAT : 'float', STRING : 'string', STRING_PTR : 'char**', 
+            FLOAT : 'float', STRING : 'string', STRING_PTR : 'char**',
             BOOL : 'bool', SYMBOL : 'z3_symbol', PRINT_MODE : 'int', ERROR_CODE : 'int' }
 
 next_type_id = FIRST_OBJ_ID
@@ -95,7 +95,7 @@ next_type_id = FIRST_OBJ_ID
 def def_Type(var, c_type, py_type):
     global next_type_id
     exec('%s = %s' % (var, next_type_id), globals())
-    Type2Str[next_type_id]   = c_type
+    Type2Str[next_type_id] = c_type
     Type2PyStr[next_type_id] = py_type
     next_type_id    = next_type_id + 1
 
@@ -141,7 +141,11 @@ def type2javaw(ty):
 
 def type2ml(ty):
     global Type2ML
-    return Type2ML[ty]
+    q = Type2ML[ty]
+    if q[0:3] == 'z3_':
+        return q[3:]
+    else:
+        return q;
 
 def _in(ty):
     return (IN, ty)
@@ -261,9 +265,9 @@ def param2ml(p):
         else:
             return "ptr"
     elif k == IN_ARRAY or k == INOUT_ARRAY or k == OUT_ARRAY:
-        return "%s array" % type2ml(param_type(p))
+        return "%s list" % type2ml(param_type(p))
     elif k == OUT_MANAGED_ARRAY:
-        return "%s array" % type2ml(param_type(p))
+        return "%s list" % type2ml(param_type(p))
     else:
         return type2ml(param_type(p))
 
@@ -385,7 +389,7 @@ def mk_dotnet(dotnet):
     dotnet.write('        }\n')
 
 
-NULLWrapped = [ 'Z3_mk_context', 'Z3_mk_context_rc' ]
+NULLWrapped = [ 'Z3_mk_context', 'Z3_mk_context_rc', 'Z3_mk_interpolation_context' ]
 Unwrapped = [ 'Z3_del_context', 'Z3_get_error_code' ]
 
 def mk_dotnet_wrappers(dotnet):
@@ -633,18 +637,18 @@ def mk_java(java_dir, package_name):
             elif k == IN_ARRAY or k == INOUT_ARRAY:
                 if param_type(param) == INT or param_type(param) == UINT:
                     java_wrapper.write('  %s * _a%s = (%s*) jenv->GetIntArrayElements(a%s, NULL);\n' % (type2str(param_type(param)), i, type2str(param_type(param)), i))
-                else:                    
+                else:
                     java_wrapper.write('  GETLONGAELEMS(%s, a%s, _a%s);\n' % (type2str(param_type(param)), i, i))
             elif k == OUT_ARRAY:
-                java_wrapper.write('  %s * _a%s = (%s *) malloc(((unsigned)a%s) * sizeof(%s));\n' % (type2str(param_type(param)), 
-                                                                                                     i, 
-                                                                                                     type2str(param_type(param)), 
-                                                                                                     param_array_capacity_pos(param), 
+                java_wrapper.write('  %s * _a%s = (%s *) malloc(((unsigned)a%s) * sizeof(%s));\n' % (type2str(param_type(param)),
+                                                                                                     i,
+                                                                                                     type2str(param_type(param)),
+                                                                                                     param_array_capacity_pos(param),
                                                                                                      type2str(param_type(param))))
                 if param_type(param) == INT or param_type(param) == UINT:
                     java_wrapper.write('  jenv->GetIntArrayRegion(a%s, 0, (jsize)a%s, (jint*)_a%s);\n' % (i, param_array_capacity_pos(param), i))
                 else:
-                    java_wrapper.write('  GETLONGAREGION(%s, a%s, 0, a%s, _a%s);\n' % (type2str(param_type(param)), i, param_array_capacity_pos(param), i))    
+                    java_wrapper.write('  GETLONGAREGION(%s, a%s, 0, a%s, _a%s);\n' % (type2str(param_type(param)), i, param_array_capacity_pos(param), i))
             elif k == IN and param_type(param) == STRING:
                 java_wrapper.write('  Z3_string _a%s = (Z3_string) jenv->GetStringUTFChars(a%s, NULL);\n' % (i, i))
             elif k == OUT_MANAGED_ARRAY:
@@ -675,7 +679,7 @@ def mk_java(java_dir, package_name):
                 java_wrapper.write('(%s)a%i' % (param2str(param), i))
             i = i + 1
         java_wrapper.write(');\n')
-        # cleanup 
+        # cleanup
         i = 0
         for param in params:
             k = param_kind(param)
@@ -711,7 +715,7 @@ def mk_java(java_dir, package_name):
         if result == STRING:
             java_wrapper.write('  return jenv->NewStringUTF(result);\n')
         elif result != VOID:
-            java_wrapper.write('  return (%s) result;\n' % type2javaw(result))        
+            java_wrapper.write('  return (%s) result;\n' % type2javaw(result))
         java_wrapper.write('}\n')
     java_wrapper.write('#ifdef __cplusplus\n')
     java_wrapper.write('}\n')
@@ -941,7 +945,7 @@ def def_API(name, result, params):
                 error ("unsupported parameter for %s, %s" % (ty, name, p))
         elif kind == OUT_ARRAY:
             sz   = param_array_capacity_pos(p)
-            sz_p = params[sz]            
+            sz_p = params[sz]
             sz_p_k = param_kind(sz_p)
             tstr = type2str(ty)
             if sz_p_k == OUT or sz_p_k == INOUT:
@@ -1039,11 +1043,115 @@ def arrayparams(params):
             op.append(param)
     return op
 
+def ml_plus_type(ts):
+    if ts == 'Z3_context':
+        return 'Z3_context_plus'
+    elif ts == 'Z3_ast' or ts == 'Z3_sort' or ts == 'Z3_func_decl' or ts == 'Z3_app' or ts == 'Z3_pattern':
+        return 'Z3_ast_plus'
+    elif ts == 'Z3_symbol':
+        return 'Z3_symbol_plus'
+    elif ts == 'Z3_constructor':
+        return 'Z3_constructor_plus'
+    elif ts == 'Z3_constructor_list':
+        return 'Z3_constructor_list_plus'
+    elif ts == 'Z3_rcf_num':
+        return 'Z3_rcf_num_plus'
+    elif ts == 'Z3_params':
+        return 'Z3_params_plus'
+    elif ts == 'Z3_param_descrs':
+        return 'Z3_param_descrs_plus'
+    elif ts == 'Z3_model':
+        return 'Z3_model_plus'
+    elif ts == 'Z3_func_interp':
+        return 'Z3_func_interp_plus'
+    elif ts == 'Z3_func_entry':
+        return 'Z3_func_entry_plus'
+    elif ts == 'Z3_goal':
+        return 'Z3_goal_plus'
+    elif ts == 'Z3_tactic':
+        return 'Z3_tactic_plus'
+    elif ts == 'Z3_probe':
+        return 'Z3_probe_plus'
+    elif ts == 'Z3_apply_result':
+        return 'Z3_apply_result_plus'
+    elif ts == 'Z3_solver':
+        return 'Z3_solver_plus'
+    elif ts == 'Z3_stats':
+        return 'Z3_stats_plus'
+    elif ts == 'Z3_ast_vector':
+        return 'Z3_ast_vector_plus'
+    elif ts == 'Z3_ast_map':
+        return 'Z3_ast_map_plus'
+    elif ts == 'Z3_fixedpoint':
+        return 'Z3_fixedpoint_plus'
+    elif ts == 'Z3_optimize':
+        return 'Z3_optimize_plus'
+    else:
+        return ts
+
+def ml_minus_type(ts):
+    if ts == 'Z3_ast' or ts == 'Z3_sort' or ts == 'Z3_func_decl' or ts == 'Z3_app' or ts == 'Z3_pattern':
+        return 'Z3_ast'
+    if ts == 'Z3_ast_plus' or ts == 'Z3_sort_plus' or ts == 'Z3_func_decl_plus' or ts == 'Z3_app_plus' or ts == 'Z3_pattern_plus':
+        return 'Z3_ast'
+    elif ts == 'Z3_constructor_plus':
+        return 'Z3_constructor'
+    elif ts == 'Z3_constructor_list_plus':
+        return 'Z3_constructor_list'
+    elif ts == 'Z3_rcf_num_plus':
+        return 'Z3_rcf_num'
+    elif ts == 'Z3_params_plus':
+        return 'Z3_params'
+    elif ts == 'Z3_param_descrs_plus':
+        return 'Z3_param_descrs'
+    elif ts == 'Z3_model_plus':
+        return 'Z3_model'
+    elif ts == 'Z3_func_interp_plus':
+        return 'Z3_func_interp'
+    elif ts == 'Z3_func_entry_plus':
+        return 'Z3_func_entry'
+    elif ts == 'Z3_goal_plus':
+        return 'Z3_goal'
+    elif ts == 'Z3_tactic_plus':
+        return 'Z3_tactic'
+    elif ts == 'Z3_probe_plus':
+        return 'Z3_probe'
+    elif ts == 'Z3_apply_result_plus':
+        return 'Z3_apply_result'
+    elif ts == 'Z3_solver_plus':
+        return 'Z3_solver'
+    elif ts == 'Z3_stats_plus':
+        return 'Z3_stats'
+    elif ts == 'Z3_ast_vector_plus':
+        return 'Z3_ast_vector'
+    elif ts == 'Z3_ast_map_plus':
+        return 'Z3_ast_map'
+    elif ts == 'Z3_fixedpoint_plus':
+        return 'Z3_fixedpoint'
+    elif ts == 'Z3_optimize_plus':
+        return 'Z3_optimize'
+    else:
+        return ts
+
+def ml_plus_type_raw(ts):
+    if ml_has_plus_type(ts):
+        return ml_plus_type(ts) + '_raw';
+    else:
+        return ts
+
+def ml_plus_ops_type(ts):
+    if ml_has_plus_type(ts):
+        return ml_plus_type(ts) + '_custom_ops'
+    else:
+        return 'default_custom_ops'
+
+def ml_has_plus_type(ts):
+    return ts != ml_plus_type(ts)
 
 def ml_unwrap(t, ts, s):
     if t == STRING:
         return '(' + ts + ') String_val(' + s + ')'
-    elif t == BOOL:
+    elif t == BOOL or (type2str(t) == 'Z3_bool'):
         return '(' + ts + ') Bool_val(' + s + ')'
     elif t == INT or t == PRINT_MODE or t == ERROR_CODE:
         return '(' + ts + ') Int_val(' + s + ')'
@@ -1055,232 +1163,105 @@ def ml_unwrap(t, ts, s):
         return '(' + ts + ') Unsigned_long_val(' + s + ')'
     elif t == DOUBLE:
         return '(' + ts + ') Double_val(' + s + ')'
+    elif ml_has_plus_type(ts):
+        pts = ml_plus_type(ts)
+        return '(' + ts + ') ' + ml_plus_type_raw(ts) + '((' + pts + '*) Data_custom_val(' + s + '))'
     else:
-        return '* (' + ts + '*) Data_custom_val(' + s + ')'
+        return '* ((' + ts + '*) Data_custom_val(' + s + '))'
 
 def ml_set_wrap(t, d, n):
     if t == VOID:
         return d + ' = Val_unit;'
-    elif t == BOOL:
+    elif t == BOOL or (type2str(t) == 'Z3_bool'):
         return d + ' = Val_bool(' + n + ');'
     elif t == INT or t == UINT or t == PRINT_MODE or t == ERROR_CODE:
         return d + ' = Val_int(' + n + ');'
     elif t == INT64 or t == UINT64:
         return d + ' = Val_long(' + n + ');'
     elif t == DOUBLE:
-        return 'Store_double_val(' + d + ', ' + n + ');'
+        return d + '= caml_copy_double(' + n + ');'
     elif t == STRING:
         return d + ' = caml_copy_string((const char*) ' + n + ');'
     else:
-        ts = type2str(t)
-        return d + ' = caml_alloc_custom(&default_custom_ops, sizeof(' + ts + '), 0, 1); memcpy( Data_custom_val(' + d + '), &' + n + ', sizeof(' + ts + '));'
+        pts = ml_plus_type(type2str(t))
+        return '*(' + pts + '*)Data_custom_val(' + d + ') = ' + n + ';'
+
+def ml_alloc_and_store(t, lhs, rhs):
+    if t == VOID or t == BOOL or t == INT or t == UINT or t == PRINT_MODE or t == ERROR_CODE or t == INT64 or t == UINT64 or t == DOUBLE or t == STRING or (type2str(t) == 'Z3_bool'):
+        return ml_set_wrap(t, lhs, rhs)
+    else:
+        pts = ml_plus_type(type2str(t))
+        pops = ml_plus_ops_type(type2str(t))
+        alloc_str = '%s = caml_alloc_custom(&%s, sizeof(%s), 0, 1); ' % (lhs, pops, pts)
+        return alloc_str + ml_set_wrap(t, lhs, rhs)
 
 def mk_ml(ml_dir):
     global Type2Str
     ml_nativef  = os.path.join(ml_dir, 'z3native.ml')
-    ml_nativefi = os.path.join(ml_dir, 'z3native.mli')
-    ml_wrapperf = os.path.join(ml_dir, 'z3native_stubs.c')
     ml_native   = open(ml_nativef, 'w')
-    ml_i        = open(ml_nativefi, 'w')
     ml_native.write('(* Automatically generated file *)\n\n')
-    ml_native.write('(** The native (raw) interface to the dynamic Z3 library. *)\n\n')
-    ml_i.write('(* Automatically generated file *)\n\n')
-    ml_i.write('(** The native (raw) interface to the dynamic Z3 library. *)\n\n')
-    ml_i.write('(**/**)\n\n')
-    ml_native.write('open Z3enums\n\n')
-    ml_native.write('(**/**)\n')
-    ml_native.write('type ptr\n')
-    ml_i.write('type ptr\n')
-    ml_native.write('and z3_symbol = ptr\n')
-    ml_i.write('and z3_symbol = ptr\n')
-    for k, v in Type2Str.items():
-        if is_obj(k):
-            ml_native.write('and %s = ptr\n' % v.lower())
-            ml_i.write('and %s = ptr\n' % v.lower())
-    ml_native.write('\n')
-    ml_i.write('\n')
-    ml_native.write('external is_null : ptr -> bool\n  = "n_is_null"\n\n')
-    ml_native.write('external mk_null : unit -> ptr\n  = "n_mk_null"\n\n')
-    ml_native.write('external set_internal_error_handler : ptr -> unit\n  = "n_set_internal_error_handler"\n\n')
-    ml_native.write('exception Exception of string\n\n')
-    ml_i.write('val is_null : ptr -> bool\n')
-    ml_i.write('val mk_null : unit -> ptr\n')
-    ml_i.write('val set_internal_error_handler : ptr -> unit\n\n')
-    ml_i.write('exception Exception of string\n\n')
 
-    # ML declarations
-    ml_native.write('module ML2C = struct\n\n')
+    ml_pref = open(os.path.join(ml_dir, 'z3native.ml.pre'), 'r')
+    for s in ml_pref:
+        ml_native.write(s);
+    ml_pref.close()
+
+    ml_native.write('\n')
     for name, result, params in _dotnet_decls:
-        ml_native.write('    external n_%s : ' % ml_method_name(name))
-        ml_i.write('val %s : ' % ml_method_name(name))
+        ml_native.write('external %s : ' % ml_method_name(name))
         ip = inparams(params)
         op = outparams(params)
         if len(ip) == 0:
             ml_native.write(' unit -> ')
-            ml_i.write(' unit -> ')
         for p in ip:
             ml_native.write('%s -> ' % param2ml(p))
-            ml_i.write('%s -> ' % param2ml(p))
         if len(op) > 0:
             ml_native.write('(')
-            ml_i.write('(')
         first = True
         if result != VOID or len(op) == 0:
             ml_native.write('%s' % type2ml(result))
-            ml_i.write('%s' % type2ml(result))
             first = False
         for p in op:
             if first:
                 first = False
             else:
                 ml_native.write(' * ')
-                ml_i.write(' * ')
             ml_native.write('%s' % param2ml(p))
-            ml_i.write('%s' % param2ml(p))
         if len(op) > 0:
             ml_native.write(')')
-            ml_i.write(')')
-        ml_native.write('\n')
-        ml_i.write('\n')
         if len(ip) > 5:
-            ml_native.write('      = "n_%s_bytecode"\n' % ml_method_name(name))
-            ml_native.write('        "n_%s"\n' % ml_method_name(name))
+            ml_native.write('  = "n_%s_bytecode" "n_%s"\n' % (ml_method_name(name), ml_method_name(name)))
         else:
-            ml_native.write('      = "n_%s"\n' % ml_method_name(name))
+            ml_native.write('  = "n_%s"\n' % ml_method_name(name))
         ml_native.write('\n')
-    ml_native.write('  end\n\n')
-    ml_i.write('\n(**/**)\n')
 
-    # Exception wrappers
-    for name, result, params in _dotnet_decls:
-        ip = inparams(params)
-        op = outparams(params)
-        ml_native.write('  let %s ' % ml_method_name(name))
+    # null pointer helpers
+    for type_id in Type2Str:
+        type_name = Type2Str[type_id]
+        if ml_has_plus_type(type_name) and not type_name in ['Z3_context', 'Z3_sort', 'Z3_func_decl', 'Z3_app', 'Z3_pattern']:
+            ml_name = type2ml(type_id)
+            ml_native.write('external context_of_%s : %s -> context = "n_context_of_%s"\n' % (ml_name, ml_name, ml_name))
+            ml_native.write('external is_null_%s : %s -> bool = "n_is_null_%s"\n' % (ml_name, ml_name, ml_name))
+            ml_native.write('external mk_null_%s : context -> %s = "n_mk_null_%s"\n\n' % (ml_name, ml_name, ml_name))
 
-        first = True
-        i = 0
-        for p in params:
-            if is_in_param(p):
-                if first:
-                    first = False
-                else:
-                    ml_native.write(' ')
-                ml_native.write('a%d' % i)
-            i = i + 1
-        if len(ip) == 0:
-            ml_native.write('()')
-        ml_native.write(' = \n')
-        ml_native.write('    ')
-        if result == VOID and len(op) == 0:
-            ml_native.write('let _ = ')
-        else:
-            ml_native.write('let res = ')
-        ml_native.write('(ML2C.n_%s' % (ml_method_name(name)))
-        if len(ip) == 0:
-            ml_native.write(' ()')
-        first = True
-        i = 0
-        for p in params:
-            if is_in_param(p):
-                ml_native.write(' a%d' % i)
-            i = i + 1
-        ml_native.write(') in\n')
-        if name not in Unwrapped and len(params) > 0 and param_type(params[0]) == CONTEXT:
-            ml_native.write('    let err = (error_code_of_int (ML2C.n_get_error_code a0)) in \n')
-            ml_native.write('      if err <> OK then\n')
-            ml_native.write('        raise (Exception (ML2C.n_get_error_msg a0 (int_of_error_code err)))\n')
-            ml_native.write('      else\n')
-        if result == VOID and len(op) == 0:
-            ml_native.write('        ()\n')
-        else:
-            ml_native.write('        res\n')
-        ml_native.write('\n')
     ml_native.write('(**/**)\n')
+    ml_native.close()
 
-    # C interface
+    if mk_util.is_verbose():
+        print ('Generated "%s"' % ml_nativef)
+
+    mk_z3native_stubs_c(ml_dir)
+
+def mk_z3native_stubs_c(ml_dir): # C interface
+    ml_wrapperf = os.path.join(ml_dir, 'z3native_stubs.c')
     ml_wrapper = open(ml_wrapperf, 'w')
     ml_wrapper.write('// Automatically generated file\n\n')
-    ml_wrapper.write('#include <stddef.h>\n')
-    ml_wrapper.write('#include <string.h>\n\n')
-    ml_wrapper.write('#ifdef __cplusplus\n')
-    ml_wrapper.write('extern "C" {\n')
-    ml_wrapper.write('#endif\n')
-    ml_wrapper.write('#include <caml/mlvalues.h>\n')
-    ml_wrapper.write('#include <caml/memory.h>\n')
-    ml_wrapper.write('#include <caml/alloc.h>\n')
-    ml_wrapper.write('#include <caml/fail.h>\n')
-    ml_wrapper.write('#include <caml/callback.h>\n')
-    ml_wrapper.write('#ifdef Custom_tag\n')
-    ml_wrapper.write('#include <caml/custom.h>\n')
-    ml_wrapper.write('#include <caml/bigarray.h>\n')
-    ml_wrapper.write('#endif\n')
-    ml_wrapper.write('#ifdef __cplusplus\n')
-    ml_wrapper.write('}\n')
-    ml_wrapper.write('#endif\n\n')
-    ml_wrapper.write('#include <z3.h>\n')
-    ml_wrapper.write('#include <z3native_stubs.h>\n\n')
-    ml_wrapper.write('#define CAMLlocal6(X1,X2,X3,X4,X5,X6)                               \\\n')
-    ml_wrapper.write('  CAMLlocal5(X1,X2,X3,X4,X5);                                       \\\n')
-    ml_wrapper.write('  CAMLlocal1(X6)                                                      \n')
-    ml_wrapper.write('#define CAMLlocal7(X1,X2,X3,X4,X5,X6,X7)                            \\\n')
-    ml_wrapper.write('  CAMLlocal5(X1,X2,X3,X4,X5);                                       \\\n')
-    ml_wrapper.write('  CAMLlocal2(X6,X7)                                                   \n')
-    ml_wrapper.write('#define CAMLlocal8(X1,X2,X3,X4,X5,X6,X7,X8)                         \\\n')
-    ml_wrapper.write('  CAMLlocal5(X1,X2,X3,X4,X5);                                       \\\n')
-    ml_wrapper.write('  CAMLlocal3(X6,X7,X8)                                                \n')
-    ml_wrapper.write('\n')
-    ml_wrapper.write('#define CAMLparam7(X1,X2,X3,X4,X5,X6,X7)                            \\\n')
-    ml_wrapper.write('  CAMLparam5(X1,X2,X3,X4,X5);                                       \\\n')
-    ml_wrapper.write('  CAMLxparam2(X6,X7)                                                  \n')
-    ml_wrapper.write('#define CAMLparam8(X1,X2,X3,X4,X5,X6,X7,X8)                         \\\n')
-    ml_wrapper.write('  CAMLparam5(X1,X2,X3,X4,X5);                                       \\\n')
-    ml_wrapper.write('  CAMLxparam3(X6,X7,X8)                                               \n')
-    ml_wrapper.write('#define CAMLparam9(X1,X2,X3,X4,X5,X6,X7,X8,X9)                      \\\n')
-    ml_wrapper.write('  CAMLparam5(X1,X2,X3,X4,X5);                                       \\\n')
-    ml_wrapper.write('  CAMLxparam4(X6,X7,X8,X9)                                            \n')
-    ml_wrapper.write('#define CAMLparam12(X1,X2,X3,X4,X5,X6,X7,X8,X9,X10,X11,X12)         \\\n')
-    ml_wrapper.write('  CAMLparam5(X1,X2,X3,X4,X5);                                       \\\n')
-    ml_wrapper.write('  CAMLxparam5(X6,X7,X8,X9,X10);                                     \\\n')
-    ml_wrapper.write('  CAMLxparam2(X11,X12)                                                \n')
-    ml_wrapper.write('#define CAMLparam13(X1,X2,X3,X4,X5,X6,X7,X8,X9,X10,X11,X12,X13)     \\\n')
-    ml_wrapper.write('  CAMLparam5(X1,X2,X3,X4,X5);                                       \\\n')
-    ml_wrapper.write('  CAMLxparam5(X6,X7,X8,X9,X10);                                     \\\n')
-    ml_wrapper.write('  CAMLxparam3(X11,X12,X13)                                            \n')
-    ml_wrapper.write('\n\n')
-    ml_wrapper.write('static struct custom_operations default_custom_ops = {\n')
-    ml_wrapper.write('  (char*) "default handling",\n')
-    ml_wrapper.write('  custom_finalize_default,\n')
-    ml_wrapper.write('  custom_compare_default,\n')
-    ml_wrapper.write('  custom_hash_default,\n')
-    ml_wrapper.write('  custom_serialize_default,\n')
-    ml_wrapper.write('  custom_deserialize_default\n')
-    ml_wrapper.write('};\n\n')
-    ml_wrapper.write('#ifdef __cplusplus\n')
-    ml_wrapper.write('extern "C" {\n')
-    ml_wrapper.write('#endif\n\n')
-    ml_wrapper.write('CAMLprim DLL_PUBLIC value n_is_null(value p) {\n')
-    ml_wrapper.write('  void * t = * (void**) Data_custom_val(p);\n')
-    ml_wrapper.write('  return Val_bool(t == 0);\n')
-    ml_wrapper.write('}\n\n')
-    ml_wrapper.write('CAMLprim DLL_PUBLIC value n_mk_null( void ) {\n')
-    ml_wrapper.write('  CAMLparam0();\n')
-    ml_wrapper.write('  CAMLlocal1(result);\n')
-    ml_wrapper.write('  void * z3_result = 0;\n')
-    ml_wrapper.write('  result = caml_alloc_custom(&default_custom_ops, sizeof(void*), 0, 1);\n')
-    ml_wrapper.write('  memcpy( Data_custom_val(result), &z3_result, sizeof(void*));\n')
-    ml_wrapper.write('  CAMLreturn (result);\n')
-    ml_wrapper.write('}\n\n')
-    ml_wrapper.write('void MLErrorHandler(Z3_context c, Z3_error_code e)\n')
-    ml_wrapper.write('{\n')
-    ml_wrapper.write('  // Internal do-nothing error handler. This is required to avoid that Z3 calls exit()\n')
-    ml_wrapper.write('  // upon errors, but the actual error handling is done by throwing exceptions in the\n')
-    ml_wrapper.write('  // wrappers below.\n')
-    ml_wrapper.write('}\n\n')
-    ml_wrapper.write('void DLL_PUBLIC n_set_internal_error_handler(value a0)\n')
-    ml_wrapper.write('{\n')
-    ml_wrapper.write('  Z3_context _a0 = * (Z3_context*) Data_custom_val(a0);\n')
-    ml_wrapper.write('  Z3_set_error_handler(_a0, MLErrorHandler);\n')
-    ml_wrapper.write('}\n\n')
+
+    ml_pref = open(os.path.join(ml_dir, 'z3native_stubs.c.pre'), 'r')
+    for s in ml_pref:
+        ml_wrapper.write(s);
+    ml_pref.close()
+
     for name, result, params in _dotnet_decls:
         ip = inparams(params)
         op = outparams(params)
@@ -1288,16 +1269,16 @@ def mk_ml(ml_dir):
         ret_size = len(op)
         if result != VOID:
             ret_size = ret_size + 1
-            
+
         # Setup frame
-        ml_wrapper.write('CAMLprim DLL_PUBLIC value n_%s(' % ml_method_name(name)) 
+        ml_wrapper.write('CAMLprim DLL_PUBLIC value n_%s(' % ml_method_name(name))
         first = True
         i = 0
         for p in params:
             if is_in_param(p):
                 if first:
                     first = False
-                else:                
+                else:
                     ml_wrapper.write(', ')
                 ml_wrapper.write('value a%d' % i)
             i = i + 1
@@ -1319,47 +1300,61 @@ def mk_ml(ml_dir):
             ml_wrapper.write('  CAMLlocal1(result);\n')
         else:
             c = 0
+            needs_tmp_value = False
             for p in params:
                 if is_out_param(p) or is_array_param(p):
                     c = c + 1
-            ml_wrapper.write('  CAMLlocal%s(result, res_val' % (c+2))
+                    needs_tmp_value = needs_tmp_value or param_kind(p) == OUT_ARRAY or param_kind(p) == INOUT_ARRAY
+            if needs_tmp_value:
+                c = c + 1
+            if len(ap) > 0:
+                c = c + 1
+            ml_wrapper.write('  CAMLlocal%s(result, z3rv_val' % (c+2))
             for p in params:
                 if is_out_param(p) or is_array_param(p):
                     ml_wrapper.write(', _a%s_val' % i)
                 i = i + 1
+            if needs_tmp_value:
+                ml_wrapper.write(', tmp_val')
+            if len(ap) != 0:
+                ml_wrapper.write(', _iter');
+
             ml_wrapper.write(');\n')
 
-        if len(ap) != 0:
+        if len(ap) > 0:
             ml_wrapper.write('  unsigned _i;\n')
 
         # declare locals, preprocess arrays, strings, in/out arguments
+        have_context = False
         i = 0
         for param in params:
-            k = param_kind(param)
-            if k == OUT_ARRAY:
-                ml_wrapper.write('  %s * _a%s = (%s*) malloc(sizeof(%s) * (_a%s));\n' % (
+            if param_type(param) == CONTEXT and i == 0:
+                ml_wrapper.write('  Z3_context_plus ctx_p = *(Z3_context_plus*) Data_custom_val(a' + str(i) + ');\n')
+                ml_wrapper.write('  Z3_context _a0 = ctx_p->ctx;\n')
+                have_context = True
+            else:
+                k = param_kind(param)
+                if k == OUT_ARRAY:
+                    ml_wrapper.write('  %s * _a%s = (%s*) malloc(sizeof(%s) * (_a%s));\n' % (
                         type2str(param_type(param)),
-                        i, 
+                        i,
                         type2str(param_type(param)),
                         type2str(param_type(param)),
                         param_array_capacity_pos(param)))
-            elif k == OUT_MANAGED_ARRAY:
-                ml_wrapper.write('  %s * _a%s = 0;\n' % (type2str(param_type(param)), i))
-            elif k == IN_ARRAY or k == INOUT_ARRAY:
-                t = param_type(param)
-                ts = type2str(t)
-                ml_wrapper.write('  %s * _a%s = (%s*) malloc(sizeof(%s) * _a%s);\n' % (ts, i, ts, ts, param_array_capacity_pos(param)))                
-            elif k == IN:
-                t = param_type(param)
-                ml_wrapper.write('  %s _a%s = %s;\n' % (type2str(t), i, ml_unwrap(t, type2str(t), 'a' + str(i))))
-            elif k == OUT:
-                ml_wrapper.write('  %s _a%s;\n' % (type2str(param_type(param)), i))
-            elif k == INOUT:
-                ml_wrapper.write('  %s _a%s = a%s;\n' % (type2str(param_type(param)), i, i))                
+                elif k == OUT_MANAGED_ARRAY:
+                    ml_wrapper.write('  %s * _a%s = 0;\n' % (type2str(param_type(param)), i))
+                elif k == IN_ARRAY or k == INOUT_ARRAY:
+                    t = param_type(param)
+                    ts = type2str(t)
+                    ml_wrapper.write('  %s * _a%s = (%s*) malloc(sizeof(%s) * _a%s);\n' % (ts, i, ts, ts, param_array_capacity_pos(param)))
+                elif k == IN:
+                    t = param_type(param)
+                    ml_wrapper.write('  %s _a%s = %s;\n' % (type2str(t), i, ml_unwrap(t, type2str(t), 'a' + str(i))))
+                elif k == OUT:
+                    ml_wrapper.write('  %s _a%s;\n' % (type2str(param_type(param)), i))
+                elif k == INOUT:
+                    ml_wrapper.write('  %s _a%s = a%s;\n' % (type2str(param_type(param)), i, i))
             i = i + 1
-
-        if result != VOID:
-            ml_wrapper.write('  %s z3_result;\n' % type2str(result))
 
         i = 0
         for param in params:
@@ -1367,13 +1362,24 @@ def mk_ml(ml_dir):
             if k == IN_ARRAY or k == INOUT_ARRAY:
                 t = param_type(param)
                 ts = type2str(t)
-                ml_wrapper.write('  for (_i = 0; _i < _a%s; _i++) { _a%s[_i] = %s; }\n' % (param_array_capacity_pos(param), i, ml_unwrap(t, ts, 'Field(a' + str(i) + ', _i)')))
+                ml_wrapper.write('  _iter = a' + str(i) + ';\n')
+                ml_wrapper.write('  for (_i = 0; _i < _a%s; _i++) {\n' % param_array_capacity_pos(param))
+                ml_wrapper.write('    assert(_iter != Val_emptylist);\n')
+                ml_wrapper.write('    _a%s[_i] = %s;\n' % (i, ml_unwrap(t, ts, 'Field(_iter, 0)')))
+                ml_wrapper.write('    _iter = Field(_iter, 1);\n')
+                ml_wrapper.write('  }\n')
+                ml_wrapper.write('  assert(_iter == Val_emptylist);\n\n')
             i = i + 1
 
-        # invoke procedure
-        ml_wrapper.write('  ')
+        ml_wrapper.write('\n  /* invoke Z3 function */\n  ')
         if result != VOID:
-            ml_wrapper.write('z3_result = ')
+            ts = type2str(result)
+            if ml_has_plus_type(ts):
+                ml_wrapper.write('%s z3rv_m = ' % ts)
+            else:
+                ml_wrapper.write('%s z3rv = ' % ts)
+
+        # invoke procedure
         ml_wrapper.write('%s(' % name)
         i = 0
         first = True
@@ -1390,37 +1396,84 @@ def mk_ml(ml_dir):
             i = i + 1
         ml_wrapper.write(');\n')
 
+        if have_context and name not in Unwrapped:
+            ml_wrapper.write('  int ec = Z3_get_error_code(ctx_p->ctx);\n')
+            ml_wrapper.write('  if (ec != 0) {\n')
+            ml_wrapper.write('    const char * msg = Z3_get_error_msg(ctx_p->ctx, ec);\n')
+            ml_wrapper.write('    caml_raise_with_string(*caml_named_value("Z3EXCEPTION"), msg);\n')
+            ml_wrapper.write('  }\n')
+
+        if result != VOID:
+            ts = type2str(result)
+            if ml_has_plus_type(ts):
+                pts = ml_plus_type(ts)
+                if name in NULLWrapped:
+                    ml_wrapper.write('  %s z3rv = %s_mk(z3rv_m);\n' % (pts, pts))
+                else:
+                    ml_wrapper.write('  %s z3rv = %s_mk(ctx_p, (%s) z3rv_m);\n' % (pts, pts, ml_minus_type(ts)))
+
         # convert output params
         if len(op) > 0:
-            if result != VOID:
-                ml_wrapper.write('  %s\n' % ml_set_wrap(result, "res_val", "z3_result"))
+            # we have output parameters (i.e. call-by-reference arguments to the Z3 native
+            # code function). Hence, the value returned by the OCaml native wrapper is a tuple
+            # which contains the Z3 native function's return value (if it is non-void) in its
+            # first and the output parameters in the following components.
+
+            ml_wrapper.write('\n  /* construct return tuple */\n')
+            ml_wrapper.write('  result = caml_alloc(%s, 0);\n' % ret_size)
+
             i = 0
             for p in params:
+                pt = param_type(p)
+                ts = type2str(pt)
                 if param_kind(p) == OUT_ARRAY or param_kind(p) == INOUT_ARRAY:
-                    ml_wrapper.write('  _a%s_val = caml_alloc(_a%s, 0);\n' % (i, param_array_capacity_pos(p)))
-                    ml_wrapper.write('  for (_i = 0; _i < _a%s; _i++) { value t; %s Store_field(_a%s_val, _i, t); }\n' % (param_array_capacity_pos(p), ml_set_wrap(param_type(p), 't', '_a' + str(i) + '[_i]'), i))
+                    # convert a C-array into an OCaml list and return it
+                    ml_wrapper.write('\n  _a%s_val = Val_emptylist;\n' % i)
+                    ml_wrapper.write('  for (_i = _a%s; _i > 0; _i--) {\n' % param_array_capacity_pos(p))
+                    pts = ml_plus_type(ts)
+                    pops = ml_plus_ops_type(ts)
+                    if ml_has_plus_type(ts):
+                        ml_wrapper.write('    %s _a%dp = %s_mk(ctx_p, (%s) _a%d[_i]);\n' % (pts, i, pts, ml_minus_type(ts), i))
+                        ml_wrapper.write('    %s\n' % ml_alloc_and_store(pt, 'tmp_val', '_a%dp' % i))
+                    else:
+                        ml_wrapper.write('    %s\n' % ml_alloc_and_store(pt, 'tmp_val', '_a%d[_i]' % i))
+                    ml_wrapper.write('    _iter = caml_alloc(2,0);\n')
+                    ml_wrapper.write('    Store_field(_iter, 0, tmp_val);\n')
+                    ml_wrapper.write('    Store_field(_iter, 1, _a%s_val);\n' % i)
+                    ml_wrapper.write('    _a%s_val = _iter;\n' % i)
+                    ml_wrapper.write('  }\n\n')
                 elif param_kind(p) == OUT_MANAGED_ARRAY:
-                    ml_wrapper.write('  %s\n' % ml_set_wrap(param_type(p), "_a" + str(i) + "_val", "_a"  + str(i) ))
+                    wrp = ml_set_wrap(pt, '_a%d_val' % i, '_a%d' % i)
+                    wrp = wrp.replace('*)', '**)')
+                    wrp = wrp.replace('_plus', '')
+                    ml_wrapper.write('  %s\n' % wrp)
                 elif is_out_param(p):
-                    ml_wrapper.write('  %s\n' % ml_set_wrap(param_type(p), "_a" + str(i) + "_val", "_a"  + str(i) ))
+                    if ml_has_plus_type(ts):
+                        pts = ml_plus_type(ts)
+                        ml_wrapper.write('  %s _a%dp = %s_mk(ctx_p, (%s) _a%d);\n' % (pts, i, pts, ml_minus_type(ts), i))
+                        ml_wrapper.write('  %s\n' % ml_alloc_and_store(pt, '_a%d_val' % i, '_a%dp' % i))
+                    else:
+                        ml_wrapper.write('  %s\n' % ml_alloc_and_store(pt, '_a%d_val' % i, '_a%d' % i))
                 i = i + 1
 
-        # return tuples                
-        if len(op) == 0:
-            ml_wrapper.write('  %s\n' % ml_set_wrap(result, "result", "z3_result"))
-        else:
-            ml_wrapper.write('  result = caml_alloc(%s, 0);\n' % ret_size)
+            # return tuples
             i = j = 0
             if result != VOID:
-                ml_wrapper.write('  Store_field(result, 0, res_val);\n')
+                ml_wrapper.write('  %s' % ml_alloc_and_store(result, 'z3rv_val', 'z3rv'))
+                ml_wrapper.write('  Store_field(result, 0, z3rv_val);\n')
                 j = j + 1
             for p in params:
                 if is_out_param(p):
                     ml_wrapper.write('  Store_field(result, %s, _a%s_val);\n' % (j, i))
                     j = j + 1
                 i = i + 1
+        else:
+            # As we have no output parameters, we simply return the result
+            ml_wrapper.write('\n  /* construct simple return value */\n')
+            ml_wrapper.write('  %s' % ml_alloc_and_store(result, "result", "z3rv"))
 
         # local array cleanup
+        ml_wrapper.write('\n  /* cleanup and return */\n')
         i = 0
         for p in params:
             k = param_kind(p)
@@ -1432,7 +1485,7 @@ def mk_ml(ml_dir):
         ml_wrapper.write('  CAMLreturn(result);\n')
         ml_wrapper.write('}\n\n')
         if len(ip) > 5:
-            ml_wrapper.write('CAMLprim DLL_PUBLIC value n_%s_bytecode(value * argv, int argn) {\n' % ml_method_name(name)) 
+            ml_wrapper.write('CAMLprim DLL_PUBLIC value n_%s_bytecode(value * argv, int argn) {\n' % ml_method_name(name))
             ml_wrapper.write('  return n_%s(' % ml_method_name(name))
             i = 0
             while i < len(ip):
@@ -1446,8 +1499,9 @@ def mk_ml(ml_dir):
     ml_wrapper.write('#ifdef __cplusplus\n')
     ml_wrapper.write('}\n')
     ml_wrapper.write('#endif\n')
+
     if mk_util.is_verbose():
-        print ('Generated "%s"' % ml_nativef)
+        print ('Generated "%s"' % ml_wrapperf)
 
 # Collect API(...) commands from
 def def_APIs(api_files):
@@ -1636,6 +1690,7 @@ def generate_files(api_files,
 
   if java_output_dir:
     mk_java(java_output_dir, java_package_name)
+
   if ml_output_dir:
     mk_ml(ml_output_dir)
 

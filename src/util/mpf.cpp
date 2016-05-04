@@ -1231,9 +1231,9 @@ void mpf_manager::rem(mpf const & x, mpf const & y, mpf & o) {
     else if (is_zero(x))
         set(o, x);
     else {
-        // This is a generalized version of the algorithm for FPREM1 in the `Intel
-        // 64 and IA-32 Architectures Software Developer’s Manual',
-        // Section 3-402 Vol. 2A `FPREM1-Partial Remainder'.
+        // This is a generalized version of the algorithm for FPREM1 in the Intel
+        // 64 and IA-32 Architectures Software Developer's Manual',
+        // Section 3-402 Vol. 2A FPREM1-Partial Remainder'.
         scoped_mpf ST0(*this), ST1(*this);
         set(ST0, x);
         set(ST1, y);
