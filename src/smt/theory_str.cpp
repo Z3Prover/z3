@@ -2655,6 +2655,7 @@ void theory_str::init_search_eh() {
      * might not get a chance to see.
      */
 
+    /*
     expr_ref_vector assignments(m);
     ctx.get_assignments(assignments);
     for (expr_ref_vector::iterator i = assignments.begin(); i != assignments.end(); ++i) {
@@ -2676,6 +2677,7 @@ void theory_str::init_search_eh() {
                     << ": expr ignored" << std::endl;);
         }
     }
+    */
 
     TRACE("t_str", tout << "search started" << std::endl;);
     search_started = true;
@@ -2686,16 +2688,12 @@ void theory_str::new_eq_eh(theory_var x, theory_var y) {
     TRACE("t_str", tout << "new eq: " << mk_ismt2_pp(get_enode(x)->get_owner(), get_manager()) << " = " <<
                                   mk_ismt2_pp(get_enode(y)->get_owner(), get_manager()) << std::endl;);
     handle_equality(get_enode(x)->get_owner(), get_enode(y)->get_owner());
-
-    TRACE("t_str_dump_assign", dump_assignments(););
 }
 
 void theory_str::new_diseq_eh(theory_var x, theory_var y) {
     //TRACE("t_str_detail", tout << "new diseq: v#" << x << " != v#" << y << std::endl;);
     TRACE("t_str", tout << "new diseq: " << mk_ismt2_pp(get_enode(x)->get_owner(), get_manager()) << " != " <<
                                   mk_ismt2_pp(get_enode(y)->get_owner(), get_manager()) << std::endl;);
-
-    TRACE("t_str_dump_assign", dump_assignments(););
 }
 
 void theory_str::relevant_eh(app * n) {
@@ -3522,6 +3520,11 @@ final_check_status theory_str::final_check_eh() {
         tout << "Need to assign values to the following free variables:" << std::endl;
         for (std::set<expr*>::iterator itx = free_variables.begin(); itx != free_variables.end(); ++itx) {
             tout << mk_ismt2_pp(*itx, m) << std::endl;
+        }
+        tout << "freeVar_map has the following entries:" << std::endl;
+        for (std::map<expr*, int>::iterator fvIt = freeVar_map.begin(); fvIt != freeVar_map.end(); fvIt++) {
+            expr * var = fvIt->first;
+            tout << mk_ismt2_pp(var, m) << std::endl;
         }
     );
 

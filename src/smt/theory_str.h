@@ -205,6 +205,8 @@ namespace smt {
     public:
         theory_str(ast_manager & m);
         virtual ~theory_str();
+
+        virtual char const * get_name() const { return "strings"; }
     protected:
         virtual bool internalize_atom(app * atom, bool gate_ctx);
         virtual bool internalize_term(app * term);
