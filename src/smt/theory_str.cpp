@@ -212,7 +212,8 @@ bool theory_str::internalize_term(app * term) {
     else {
         e = ctx.mk_enode(term, false, m.is_bool(term), true);
     }
-    mk_var(e);
+    theory_var v = mk_var(e);
+    TRACE("t_str_detail", tout << "term " << mk_ismt2_pp(term, get_manager()) << " = v#" << v << std::endl;);
 
     return true;
 }
@@ -228,7 +229,14 @@ enode* theory_str::ensure_enode(expr* e) {
 }
 
 theory_var theory_str::mk_var(enode* n) {
+    /*
     if (!m_strutil.is_string(n->get_owner())) {
+        return null_theory_var;
+    }
+    */
+    // TODO this may require an overhaul of m_strutil.is_string() if things suddenly start working after the following change:
+    ast_manager & m = get_manager();
+    if (!(is_sort_of(m.get_sort(n->get_owner()), m_strutil.get_fid(), STRING_SORT))) {
         return null_theory_var;
     }
     if (is_attached_to_var(n)) {
@@ -416,6 +424,8 @@ app * theory_str::mk_str_var(std::string name) {
 	ctx.internalize(a, false);
 	SASSERT(ctx.get_enode(a) != NULL);
 	SASSERT(ctx.e_internalized(a));
+	// this might help??
+	mk_var(ctx.get_enode(a));
 	m_basicstr_axiom_todo.push_back(ctx.get_enode(a));
 
 	m_trail.push_back(a);
@@ -442,6 +452,9 @@ app * theory_str::mk_nonempty_str_var() {
 
     ctx.internalize(a, false);
     SASSERT(ctx.get_enode(a) != NULL);
+    // this might help??
+    mk_var(ctx.get_enode(a));
+
     // assert a variation of the basic string axioms that ensures this string is nonempty
     {
         // build LHS
@@ -2496,11 +2509,11 @@ void theory_str::handle_equality(expr * lhs, expr * rhs) {
         );
 
     // step 1: Concat == Concat
-    // I'm disabling this entire code block for now. It may no longer be useful.
+    // This code block may no longer be useful.
     // Z3 seems to be putting LHS and RHS into the same equivalence class extremely early.
     // As a result, simplify_concat_equality() is never getting called,
     // and if it were called, it would probably get called with the same element on both sides.
-    /*
+
     bool hasCommon = false;
     if (eqc_lhs_concat.size() != 0 && eqc_rhs_concat.size() != 0) {
         std::set<expr*>::iterator itor1 = eqc_lhs_concat.begin();
@@ -2521,7 +2534,7 @@ void theory_str::handle_equality(expr * lhs, expr * rhs) {
             simplify_concat_equality(*(eqc_lhs_concat.begin()), *(eqc_rhs_concat.begin()));
         }
     }
-    */
+
     if (eqc_lhs_concat.size() != 0 && eqc_rhs_concat.size() != 0) {
         // let's pick the first concat in the LHS's eqc
         // and find some concat in the RHS's eqc that is
@@ -2591,6 +2604,10 @@ void theory_str::set_up_axioms(expr * ex) {
                 // if ex is a variable, add it to our list of variables
                 TRACE("t_str_detail", tout << "tracking variable " << mk_ismt2_pp(ap, get_manager()) << std::endl;);
                 variable_set.insert(ex);
+                ctx.mark_as_relevant(ex);
+                // this might help??
+                theory_var v = mk_var(n);
+                TRACE("t_str_detail", tout << "variable " << mk_ismt2_pp(ap, get_manager()) << " is #" << v << std::endl;);
             }
         }
     } else {
@@ -2637,7 +2654,7 @@ void theory_str::init_search_eh() {
      * This is done to find equalities between terms, etc. that we otherwise
      * might not get a chance to see.
      */
-    /*
+
     expr_ref_vector assignments(m);
     ctx.get_assignments(assignments);
     for (expr_ref_vector::iterator i = assignments.begin(); i != assignments.end(); ++i) {
@@ -2659,7 +2676,6 @@ void theory_str::init_search_eh() {
                     << ": expr ignored" << std::endl;);
         }
     }
-    */
 
     TRACE("t_str", tout << "search started" << std::endl;);
     search_started = true;
