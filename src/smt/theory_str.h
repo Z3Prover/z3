@@ -208,6 +208,8 @@ namespace smt {
     protected:
         virtual bool internalize_atom(app * atom, bool gate_ctx);
         virtual bool internalize_term(app * term);
+        virtual enode* ensure_enode(expr* e);
+        virtual theory_var mk_var(enode * n);
 
         virtual void new_eq_eh(theory_var, theory_var);
         virtual void new_diseq_eh(theory_var, theory_var);
@@ -224,7 +226,7 @@ namespace smt {
         virtual void propagate();
 
         virtual final_check_status final_check_eh();
-        void attach_new_th_var(enode * n);
+        virtual void attach_new_th_var(enode * n);
 
         virtual void init_model(model_generator & m);
         virtual model_value_proc * mk_value(enode * n, model_generator & mg);

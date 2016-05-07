@@ -139,6 +139,7 @@ void theory_str::assert_implication(expr * premise, expr * conclusion) {
 }
 
 bool theory_str::internalize_atom(app * atom, bool gate_ctx) {
+    /*
     TRACE("t_str", tout << "internalizing atom: " << mk_ismt2_pp(atom, get_manager()) << std::endl;);
     SASSERT(atom->get_family_id() == get_family_id());
 
@@ -152,15 +153,21 @@ bool theory_str::internalize_atom(app * atom, bool gate_ctx) {
         ctx.internalize(atom->get_arg(i), false);
 
     literal l(ctx.mk_bool_var(atom));
+
     ctx.set_var_theory(l.var(), get_id());
 
     return true;
+    */
+    return internalize_term(atom);
 }
 
 bool theory_str::internalize_term(app * term) {
     context & ctx = get_context();
+    ast_manager & m = get_manager();
     TRACE("t_str", tout << "internalizing term: " << mk_ismt2_pp(term, get_manager()) << std::endl;);
     SASSERT(term->get_family_id() == get_family_id());
+
+    /* // what I had before
     SASSERT(!ctx.e_internalized(term));
 
     unsigned num_args = term->get_num_args();
@@ -175,13 +182,65 @@ bool theory_str::internalize_term(app * term) {
 
     attach_new_th_var(e);
 
-    /*
-    if (is_concat(term)) {
-        instantiate_concat_axiom(e);
-    }
+    //if (is_concat(term)) {
+    //    instantiate_concat_axiom(e);
+    //}
     */
 
+    // from theory_seq::internalize_term()
+    if (ctx.e_internalized(term)) {
+        enode* e = ctx.get_enode(term);
+        mk_var(e);
+        return true;
+    }
+    unsigned num_args = term->get_num_args();
+    expr* arg;
+    for (unsigned i = 0; i < num_args; i++) {
+        arg = term->get_arg(i);
+        mk_var(ensure_enode(arg));
+    }
+    if (m.is_bool(term)) {
+        bool_var bv = ctx.mk_bool_var(term);
+        ctx.set_var_theory(bv, get_id());
+        ctx.mark_as_relevant(bv);
+    }
+
+    enode* e = 0;
+    if (ctx.e_internalized(term)) {
+        e = ctx.get_enode(term);
+    }
+    else {
+        e = ctx.mk_enode(term, false, m.is_bool(term), true);
+    }
+    mk_var(e);
+
     return true;
+}
+
+enode* theory_str::ensure_enode(expr* e) {
+    context& ctx = get_context();
+    if (!ctx.e_internalized(e)) {
+        ctx.internalize(e, false);
+    }
+    enode* n = ctx.get_enode(e);
+    ctx.mark_as_relevant(n);
+    return n;
+}
+
+theory_var theory_str::mk_var(enode* n) {
+    if (!m_strutil.is_string(n->get_owner())) {
+        return null_theory_var;
+    }
+    if (is_attached_to_var(n)) {
+        return n->get_th_var(get_id());
+    }
+    else {
+        theory_var v = theory::mk_var(n);
+        // m_find.mk_var();
+        get_context().attach_th_var(n, this, v);
+        get_context().mark_as_relevant(n);
+        return v;
+    }
 }
 
 static void cut_vars_map_copy(std::map<expr*, int> & dest, std::map<expr*, int> & src) {
