@@ -191,26 +191,6 @@ static void cut_vars_map_copy(std::map<expr*, int> & dest, std::map<expr*, int> 
     }
 }
 
-/*
-bool hasSelfCut(Z3_ast n1, Z3_ast n2) {
-  if (cut_VARMap.find(n1) == cut_VARMap.end())
-    return false;
-
-  if (cut_VARMap.find(n2) == cut_VARMap.end())
-    return false;
-
-  if (cut_VARMap[n1].empty() || cut_VARMap[n2].empty())
-    return false;
-
-  std::map<Z3_ast, int>::iterator itor = cut_VARMap[n1].top()->vars.begin();
-  for (; itor != cut_VARMap[n1].top()->vars.end(); itor++) {
-    if (cut_VARMap[n2].top()->vars.find(itor->first) != cut_VARMap[n2].top()->vars.end())
-      return true;
-  }
-  return false;
-}
-*/
-
 bool theory_str::has_self_cut(expr * n1, expr * n2) {
     if (cut_var_map.find(n1) == cut_var_map.end()) {
         return false;
@@ -2653,9 +2633,11 @@ void theory_str::assign_eh(bool_var v, bool is_true) {
 }
 
 void theory_str::push_scope_eh() {
+    theory::push_scope_eh();
     context & ctx = get_context();
     sLevel += 1;
     TRACE("t_str", tout << "push to " << sLevel << std::endl;);
+    TRACE("t_str_dump_assign", dump_assignments(););
 }
 
 void theory_str::pop_scope_eh(unsigned num_scopes) {
@@ -2692,7 +2674,7 @@ void theory_str::pop_scope_eh(unsigned num_scopes) {
             vars.clear();
         }
     }
-
+    theory::pop_scope_eh(num_scopes);
 }
 
 void theory_str::dump_assignments() {
@@ -3128,7 +3110,7 @@ int theory_str::ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr
 	// (4) equivalent concats
 	//     - possibility 1 : concat("str", v1) = concat(concat(v2, v3), v4) = concat(v5, v6)
 	//         ==> v2, v5 are constrained by "str"
-	//     - possibliity 2 : concat(v1, "str") = concat(v2, v3) = concat(v4, v5)
+	//     - possibility 2 : concat(v1, "str") = concat(v2, v3) = concat(v4, v5)
 	//         ==> v2, v4 are constrained by "str"
 	//--------------------------------------------------------------
 
