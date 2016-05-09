@@ -169,6 +169,14 @@ bool str_recognizers::is_string(expr const * n) const {
     return is_string(n, & tmp);
 }
 
+std::string str_recognizers::get_string_constant_value(expr const *n) const {
+    const char * cstr = 0;
+    bool isString = is_string(n, & cstr);
+    SASSERT(isString);
+    std::string strval(cstr);
+    return strval;
+}
+
 str_util::str_util(ast_manager &m) :
     str_recognizers(m.mk_family_id(symbol("str"))),
     m_manager(m) {

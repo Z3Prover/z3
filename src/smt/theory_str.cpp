@@ -797,6 +797,34 @@ void theory_str::get_nodes_in_concat(expr * node, ptr_vector<expr> & nodeList) {
     }
 }
 
+// previously Concat() in strTheory.cpp
+// Evaluates the concatenation (n1 . n2) with respect to
+// the current equivalence classes of n1 and n2.
+// Returns a constant string expression representing this concatenation
+// if one can be determined, or NULL if this is not possible.
+expr * theory_str::eval_concat(expr * n1, expr * n2) {
+    bool n1HasEqcValue = false;
+    bool n2HasEqcValue = false;
+    expr * v1 = get_eqc_value(n1, n1HasEqcValue);
+    expr * v2 = get_eqc_value(n2, n2HasEqcValue);
+    if (n1HasEqcValue && n2HasEqcValue) {
+        std::string n1_str = m_strutil.get_string_constant_value(v1);
+        std::string n2_str = m_strutil.get_string_constant_value(v2);
+        std::string result = n1_str + n2_str;
+        return m_strutil.mk_string(result);
+    } else if (n1HasEqcValue && !n2HasEqcValue) {
+        if (m_strutil.get_string_constant_value(v1) == "") {
+            return n2;
+        }
+    } else if (n2HasEqcValue && !n1HasEqcValue) {
+        if (m_strutil.get_string_constant_value(v2) == "") {
+            return n1;
+        }
+    }
+    // give up
+    return NULL;
+}
+
 /*
  * The inputs:
  *    ~ nn: non const node
@@ -806,8 +834,298 @@ void theory_str::get_nodes_in_concat(expr * node, ptr_vector<expr> & nodeList) {
  *  to see whether some concat nodes can be simplified.
  */
 
+// TODO NEXT complete this method!
 void theory_str::simplify_parent(expr * nn, expr * eq_str) {
-    // TODO strTheory::simplifyParent()
+    ast_manager & m = get_manager();
+    context & ctx = get_context();
+
+    TRACE("t_str", tout << "simplifying parents of " << mk_ismt2_pp(nn, m)
+            << " with respect to " << mk_ismt2_pp(eq_str, m) << std::endl;);
+
+    ctx.internalize(nn, false);
+    enode * n_eq_enode = ctx.get_enode(nn);
+    enode * nn_enode = n_eq_enode;
+
+    const char * tmp = 0;
+    m_strutil.is_string(eq_str, & tmp);
+    std::string eq_strValue(tmp);
+
+    do {
+        app * n_eqNode = n_eq_enode->get_owner();
+        for (enode_vector::iterator parent_it = n_eq_enode->begin_parents(); parent_it != n_eq_enode->end_parents(); parent_it++) {
+            enode * e_parent = *parent_it;
+            app * a_parent = e_parent->get_owner();
+            TRACE("t_str_detail", tout << "considering parent " << mk_ismt2_pp(a_parent, m) << std::endl;);
+
+            if (is_concat(a_parent)) {
+                expr * arg0 = a_parent->get_arg(0);
+                expr * arg1 = a_parent->get_arg(1);
+
+                // TODO getLenValue()
+                // int parentLen = getLenValue(a_parent)
+                int parentLen = -1;
+                if (arg0 == n_eq_enode->get_owner()) {
+                    // TODO getLenValue()
+                    // int arg0Len = getLenValue(eq_str);
+                    // int arg1Len = getLenValue(arg1);
+                    int arg0Len = -1;
+                    int arg1Len = -1;
+
+                    TRACE("t_str_detail",
+                            tout << "simplify_parent #1:" << std::endl
+                            << "* parent = " << mk_ismt2_pp(a_parent, m) << std::endl
+                            << "* |parent| = " << parentLen << std::endl
+                            << "* |arg0| = " << arg0Len << std::endl
+                            << "* |arg1| = " << arg1Len << std::endl;
+                    );
+
+                    if (parentLen != -1 && arg1Len == -1) {
+                        // TODO after getLenValue() above
+                        /*
+                        Z3_ast implyL11 = mk_2_and(t, Z3_mk_eq(ctx, mk_length(t, parent), mk_int(ctx, parentLen)),
+                                Z3_mk_eq(ctx, mk_length(t, arg0), mk_int(ctx, arg0Len)));
+                        int makeUpLenArg1 = parentLen - arg0Len;
+                        Z3_ast lenAss = NULL;
+                        if (makeUpLenArg1 >= 0) {
+                            Z3_ast implyR11 = Z3_mk_eq(ctx, mk_length(t, arg1), mk_int(ctx, makeUpLenArg1));
+                            lenAss = Z3_mk_implies(ctx, implyL11, implyR11);
+                        } else {
+                            lenAss = Z3_mk_not(ctx, implyL11);
+                        }
+                        addAxiom(t, lenAss, __LINE__);
+                        */
+                    }
+
+                    // (Concat n_eqNode arg1) /\ arg1 has eq const
+
+                    expr * concatResult = eval_concat(eq_str, arg1);
+                    if (concatResult != NULL) {
+                        bool arg1HasEqcValue = false;
+                        expr * arg1Value = get_eqc_value(arg1, arg1HasEqcValue);
+                        expr_ref implyL(m);
+                        if (arg1 != arg1Value) {
+                            expr_ref eq_ast1(m);
+                            eq_ast1 = ctx.mk_eq_atom(n_eqNode, eq_str);
+                            SASSERT(eq_ast1);
+
+                            expr_ref eq_ast2(m);
+                            eq_ast2 = ctx.mk_eq_atom(arg1, arg1Value);
+                            SASSERT(eq_ast2);
+
+                            implyL = m.mk_and(eq_ast1, eq_ast2);
+                        } else {
+                            implyL = ctx.mk_eq_atom(n_eqNode, eq_str);
+                        }
+
+
+                        if (!in_same_eqc(a_parent, concatResult)) {
+                            expr_ref implyR(m);
+                            implyR = ctx.mk_eq_atom(a_parent, concatResult);
+                            SASSERT(implyR);
+
+                            assert_implication(implyL, implyR);
+                        }
+                    } else if (is_concat(n_eqNode)) {
+                        expr_ref simpleConcat(m);
+                        simpleConcat = mk_concat(eq_str, arg1);
+                        if (!in_same_eqc(a_parent, simpleConcat)) {
+                            expr_ref implyL(m);
+                            implyL = ctx.mk_eq_atom(n_eqNode, eq_str);
+                            SASSERT(implyL);
+
+                            expr_ref implyR(m);
+                            implyR = ctx.mk_eq_atom(a_parent, simpleConcat);
+                            SASSERT(implyR);
+                            assert_implication(implyL, implyR);
+                        }
+                    }
+                } // if (arg0 == n_eq_enode->get_owner())
+
+                if (arg1 == n_eq_enode->get_owner()) {
+                    // TODO getLenValue()
+                    // int arg0Len = getLenValue(arg0);
+                    // int arg1Len = getLenValue(eq_str);
+                    int arg0Len = -1;
+                    int arg1Len = -1;
+
+                    TRACE("t_str_detail",
+                            tout << "simplify_parent #2:" << std::endl
+                            << "* parent = " << mk_ismt2_pp(a_parent, m) << std::endl
+                            << "* |parent| = " << parentLen << std::endl
+                            << "* |arg0| = " << arg0Len << std::endl
+                            << "* |arg1| = " << arg1Len << std::endl;
+                    );
+
+                    if (parentLen != -1 && arg0Len == -1) {
+                        // TODO after getLenValue() above
+                        /*
+                        Z3_ast implyL11 = mk_2_and(t, Z3_mk_eq(ctx, mk_length(t, parent), mk_int(ctx, parentLen)),
+                                Z3_mk_eq(ctx, mk_length(t, arg1), mk_int(ctx, arg1Len)));
+                        int makeUpLenArg0 = parentLen - arg1Len;
+                        Z3_ast lenAss = NULL;
+                        if (makeUpLenArg0 >= 0) {
+                            Z3_ast implyR11 = Z3_mk_eq(ctx, mk_length(t, arg0), mk_int(ctx, makeUpLenArg0));
+                            lenAss = Z3_mk_implies(ctx, implyL11, implyR11);
+                        } else {
+                            lenAss = Z3_mk_not(ctx, implyL11);
+                        }
+                        addAxiom(t, lenAss, __LINE__);
+                        */
+                    }
+
+                    // (Concat arg0 n_eqNode) /\ arg0 has eq const
+
+                    expr * concatResult = eval_concat(eq_str, arg1);
+                    if (concatResult != NULL) {
+                        bool arg0HasEqcValue = false;
+                        expr * arg0Value = get_eqc_value(arg0, arg0HasEqcValue);
+                        expr_ref implyL(m);
+                        if (arg0 != arg0Value) {
+                            expr_ref eq_ast1(m);
+                            eq_ast1 = ctx.mk_eq_atom(n_eqNode, eq_str);
+                            SASSERT(eq_ast1);
+
+                            expr_ref eq_ast2(m);
+                            eq_ast2 = ctx.mk_eq_atom(arg0, arg0Value);
+                            SASSERT(eq_ast2);
+
+                            implyL = m.mk_and(eq_ast1, eq_ast2);
+                        } else {
+                            implyL = ctx.mk_eq_atom(n_eqNode, eq_str);
+                        }
+
+                        if (!in_same_eqc(a_parent, concatResult)) {
+                            expr_ref implyR(m);
+                            implyR = ctx.mk_eq_atom(a_parent, concatResult);
+                            SASSERT(implyR);
+
+                            assert_implication(implyL, implyR);
+                        }
+                    } else if (is_concat(n_eqNode)) {
+                        expr_ref simpleConcat(m);
+                        simpleConcat = mk_concat(arg0, eq_str);
+                        if (!in_same_eqc(a_parent, simpleConcat)) {
+                            expr_ref implyL(m);
+                            implyL = ctx.mk_eq_atom(n_eqNode, eq_str);
+                            SASSERT(implyL);
+
+                            expr_ref implyR(m);
+                            implyR = ctx.mk_eq_atom(a_parent, simpleConcat);
+                            SASSERT(implyR);
+                            assert_implication(implyL, implyR);
+                        }
+                    }
+                } // if (arg1 == n_eq_enode->get_owner
+
+
+                //---------------------------------------------------------
+                // Case (2-1) begin: (Concat n_eqNode (Concat str var))
+                if (arg0 == n_eqNode && is_concat(to_app(arg1))) {
+                    app * a_arg1 = to_app(arg1);
+                    TRACE("t_str_detail", tout << "simplify_parent #3" << std::endl;);
+                    expr * r_concat_arg0 = a_arg1->get_arg(0);
+                    if (m_strutil.is_string(r_concat_arg0)) {
+                        expr * combined_str = eval_concat(eq_str, r_concat_arg0);
+                        SASSERT(combined_str);
+                        expr * r_concat_arg1 = a_arg1->get_arg(1);
+                        expr_ref implyL(m);
+                        implyL = ctx.mk_eq_atom(n_eqNode, eq_str);
+                        expr * simplifiedAst = mk_concat(combined_str, r_concat_arg1);
+                        if (!in_same_eqc(a_parent, simplifiedAst)) {
+                            expr_ref implyR(m);
+                            implyR = ctx.mk_eq_atom(a_parent, simplifiedAst);
+                            assert_implication(implyL, implyR);
+                        }
+                    }
+                }
+                // Case (2-1) end: (Concat n_eqNode (Concat str var))
+                //---------------------------------------------------------
+
+
+                //---------------------------------------------------------
+                // Case (2-2) begin: (Concat (Concat var str) n_eqNode)
+                if (is_concat(to_app(arg0)) && arg1 == n_eqNode) {
+                    app * a_arg0 = to_app(arg0);
+                    TRACE("t_str_detail", tout << "simplify_parent #4" << std::endl;);
+                    expr * l_concat_arg1 = a_arg0->get_arg(1);
+                    if (m_strutil.is_string(l_concat_arg1)) {
+                        expr * combined_str = eval_concat(l_concat_arg1, eq_str);
+                        SASSERT(combined_str);
+                        expr * l_concat_arg0 = a_arg0->get_arg(0);
+                        expr_ref implyL(m);
+                        implyL = ctx.mk_eq_atom(n_eqNode, eq_str);
+                        expr * simplifiedAst = mk_concat(l_concat_arg0, combined_str);
+                        if (!in_same_eqc(a_parent, simplifiedAst)) {
+                            expr_ref implyR(m);
+                            implyR = ctx.mk_eq_atom(a_parent, simplifiedAst);
+                            assert_implication(implyL, implyR);
+                        }
+                    }
+                }
+                // Case (2-2) end: (Concat (Concat var str) n_eqNode)
+                //---------------------------------------------------------
+
+                // Have to look up one more layer: if the parent of the concat is another concat
+                //-------------------------------------------------
+                // Case (3-1) begin: (Concat (Concat var n_eqNode) str )
+                if (arg1 == n_eqNode) {
+                    for (enode_vector::iterator concat_parent_it = e_parent->begin_parents();
+                            concat_parent_it != e_parent->end_parents(); concat_parent_it++) {
+                        enode * e_concat_parent = *concat_parent_it;
+                        app * concat_parent = e_concat_parent->get_owner();
+                        if (is_concat(concat_parent)) {
+                            expr * concat_parent_arg0 = concat_parent->get_arg(0);
+                            expr * concat_parent_arg1 = concat_parent->get_arg(1);
+                            if (concat_parent_arg0 == a_parent && m_strutil.is_string(concat_parent_arg1)) {
+                                TRACE("t_str_detail", tout << "simplify_parent #5" << std::endl;);
+                                expr * combinedStr = eval_concat(eq_str, concat_parent_arg1);
+                                SASSERT(combinedStr);
+                                expr_ref implyL(m);
+                                implyL = ctx.mk_eq_atom(n_eqNode, eq_str);
+                                expr * simplifiedAst = mk_concat(arg0, combinedStr);
+                                if (!in_same_eqc(concat_parent, simplifiedAst)) {
+                                    expr_ref implyR(m);
+                                    implyR = ctx.mk_eq_atom(concat_parent, simplifiedAst);
+                                    assert_implication(implyL, implyR);
+                                }
+                            }
+                        }
+                    }
+                }
+                // Case (3-1) end: (Concat (Concat var n_eqNode) str )
+                // Case (3-2) begin: (Concat str (Concat n_eqNode var) )
+                if (arg0 == n_eqNode) {
+                    for (enode_vector::iterator concat_parent_it = e_parent->begin_parents();
+                            concat_parent_it != e_parent->end_parents(); concat_parent_it++) {
+                        enode * e_concat_parent = *concat_parent_it;
+                        app * concat_parent = e_concat_parent->get_owner();
+                        if (is_concat(concat_parent)) {
+                            expr * concat_parent_arg0 = concat_parent->get_arg(0);
+                            expr * concat_parent_arg1 = concat_parent->get_arg(1);
+                            if (concat_parent_arg1 == a_parent && m_strutil.is_string(concat_parent_arg0)) {
+                                TRACE("t_str_detail", tout << "simplify_parent #6" << std::endl;);
+                                expr * combinedStr = eval_concat(concat_parent_arg0, eq_str);
+                                SASSERT(combinedStr);
+                                expr_ref implyL(m);
+                                implyL = ctx.mk_eq_atom(n_eqNode, eq_str);
+                                expr * simplifiedAst = mk_concat(combinedStr, arg1);
+                                if (!in_same_eqc(concat_parent, simplifiedAst)) {
+                                    expr_ref implyR(m);
+                                    implyR = ctx.mk_eq_atom(concat_parent, simplifiedAst);
+                                    assert_implication(implyL, implyR);
+                                }
+                            }
+                        }
+                    }
+                }
+                // Case (3-2) end: (Concat str (Concat n_eqNode var) )
+            } // if is_concat(a_parent)
+        } // for parent_it : n_eq_enode->begin_parents()
+
+
+        // check next EQC member
+        n_eq_enode = n_eq_enode->get_next();
+    } while (n_eq_enode != nn_enode);
 }
 
 expr * theory_str::simplify_concat(expr * node) {
@@ -2565,7 +2883,44 @@ void theory_str::handle_equality(expr * lhs, expr * rhs) {
         }
     }
 
-    // TODO simplify_parent over eqc
+    // simplify parents wrt. the equivalence class of both sides
+    // TODO this is slightly broken, re-enable it once some semantics have been fixed
+    // Briefly, Z3str2 expects that as this function is entered,
+    // lhs and rhs are NOT in the same equivalence class yet.
+    // However, newer versions of Z3 appear to behave differently,
+    // putting lhs and rhs into the same equivalence class
+    // *before* this function is called.
+    // Instead we do something possibly more aggressive here.
+    /*
+    bool lhs_has_eqc_value = false;
+    bool rhs_has_eqc_value = false;
+    expr * lhs_value = get_eqc_value(lhs, lhs_has_eqc_value);
+    expr * rhs_value = get_eqc_value(rhs, rhs_has_eqc_value);
+    if (lhs_has_eqc_value && !rhs_has_eqc_value) {
+        simplify_parent(rhs, lhs_value);
+    }
+    if (!lhs_has_eqc_value && rhs_has_eqc_value) {
+        simplify_parent(lhs, rhs_value);
+    }
+    */
+
+    bool lhs_has_eqc_value = false;
+    bool rhs_has_eqc_value = false;
+    expr * lhs_value = get_eqc_value(lhs, lhs_has_eqc_value);
+    expr * rhs_value = get_eqc_value(rhs, rhs_has_eqc_value);
+
+    // TODO this depends on the old, possibly broken, semantics of is_string().
+    // we explicitly want to test whether lhs/rhs is actually a string constant.
+    bool lhs_is_string_constant = m_strutil.is_string(lhs);
+    bool rhs_is_string_constant = m_strutil.is_string(rhs);
+
+
+    if (lhs_has_eqc_value && !rhs_is_string_constant) {
+        simplify_parent(rhs, lhs_value);
+    }
+    if (rhs_has_eqc_value && !lhs_is_string_constant) {
+        simplify_parent(lhs, rhs_value);
+    }
 
     // TODO regex unroll? (much later)
 }

@@ -81,6 +81,8 @@ public:
 
     bool is_string(expr const * n, const char ** val) const;
     bool is_string(expr const * n) const;
+
+    std::string get_string_constant_value(expr const *n) const;
     // TODO
 };
 
