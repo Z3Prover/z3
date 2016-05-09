@@ -74,6 +74,10 @@ public:
         m_lemma_limit = p.div0_ackermann_limit();
     }
 
+    virtual void collect_param_descrs(param_descrs & r) {
+        ackermannize_bv_tactic_params::collect_param_descrs(r);
+    }
+
     virtual void collect_statistics(statistics & st) const {
         st.update("ackr-constraints", m_st.m_ackrs_sz);
     }
