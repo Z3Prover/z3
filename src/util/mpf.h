@@ -223,7 +223,8 @@ protected:
     void round(mpf_rounding_mode rm, mpf & o);
     void round_sqrt(mpf_rounding_mode rm, mpf & o);
 
-    void prem(scoped_mpf & x, scoped_mpf const & y, mpf_exp_t const & exp_diff, bool partial);
+    void renormalize(unsigned ebits, unsigned sbits, mpf_exp_t & exp, mpz & sig);
+    void partial_remainder(scoped_mpf & x, scoped_mpf const & y, mpf_exp_t const & exp_diff, bool partial);
 
     void mk_round_inf(mpf_rounding_mode rm, mpf & o);
 
