@@ -1234,41 +1234,40 @@ void mpf_manager::renormalize(unsigned ebits, unsigned sbits, mpf_exp_t & exp, m
     }
 }
 
-void mpf_manager::partial_remainder(scoped_mpf & x, scoped_mpf const & y, mpf_exp_t const & exp_diff, bool partial) {
-    unsigned ebits = x.get().ebits;
-    unsigned sbits = x.get().sbits;
-    bool sign = x.get().sign;
+void mpf_manager::partial_remainder(mpf & x, mpf const & y, mpf_exp_t const & exp_diff, bool partial) {
+    unsigned ebits = x.ebits;
+    unsigned sbits = x.sbits;
+    bool sign = x.sign;
 
     SASSERT(-1 <= exp_diff && exp_diff < INT64_MAX);
     SASSERT(exp_diff < ebits+sbits || partial);
 
     signed int D = (signed int)(exp_diff);
-    mpf_exp_t N = (sbits+ebits)/2;
+    mpf_exp_t N = sbits-1;
 
     TRACE("mpf_dbg_rem", tout << "x=" << to_string(x) << std::endl;
                          tout << "y=" << to_string(y) << std::endl;
                          tout << "d=" << D << std::endl;
                          tout << "partial=" << partial << std::endl;);
 
-    SASSERT(m_mpz_manager.lt(x.significand(), m_powers2(sbits)));
-    SASSERT(m_mpz_manager.ge(x.significand(), m_powers2(sbits - 1)));
-    SASSERT(m_mpz_manager.lt(y.significand(), m_powers2(sbits)));
-    SASSERT(m_mpz_manager.ge(y.significand(), m_powers2(sbits - 1)));
+    SASSERT(m_mpz_manager.lt(x.significand, m_powers2(sbits)));
+    SASSERT(m_mpz_manager.ge(x.significand, m_powers2(sbits - 1)));
+    SASSERT(m_mpz_manager.lt(y.significand, m_powers2(sbits)));
+    SASSERT(m_mpz_manager.ge(y.significand, m_powers2(sbits - 1)));
 
     // 1. Compute a/b        
-    bool x_div_y_sgn = x.sign() ^ y.sign();
+    bool x_div_y_sgn = x.sign != y.sign;
     mpf_exp_t x_div_y_exp = D;
     scoped_mpz x_sig_shifted(m_mpz_manager), x_div_y_sig_lrg(m_mpz_manager), x_div_y_rem(m_mpz_manager);
     scoped_mpz x_rem_y_sig(m_mpz_manager);
-    m_mpz_manager.mul2k(x.significand(), 2*sbits + 2, x_sig_shifted);
-    m_mpz_manager.machine_div_rem(x_sig_shifted, y.significand(), x_div_y_sig_lrg, x_div_y_rem); // rem useful?
+    m_mpz_manager.mul2k(x.significand, 2*sbits + 2, x_sig_shifted);
+    m_mpz_manager.machine_div_rem(x_sig_shifted, y.significand, x_div_y_sig_lrg, x_div_y_rem); // rem useful?
     // x/y is in x_diuv_y_sig_lrg and has sbits+3 extra bits.
 
     TRACE("mpf_dbg_rem", tout << "X/Y_exp=" << x_div_y_exp << std::endl;
                          tout << "X/Y_sig_lrg=" << m_mpz_manager.to_string(x_div_y_sig_lrg) << std::endl;
                          tout << "X/Y_rem=" << m_mpz_manager.to_string(x_div_y_rem) << std::endl;
-                         scoped_mpf & XdY = to_packed_mpf(x_div_y_sgn, x_div_y_exp, x_div_y_sig_lrg, ebits, sbits, sbits+3);
-                         tout << "X/Y~=" << to_string_hexfloat(XdY) << std::endl;);
+                         tout << "X/Y~=" << to_string_hexfloat(x_div_y_sgn, x_div_y_exp, x_div_y_sig_lrg, ebits, sbits, sbits+3) << std::endl;);
 
     // 2. Round a/b to integer Q/QQ
     bool Q_sgn = x_div_y_sgn;
@@ -1296,8 +1295,7 @@ void mpf_manager::partial_remainder(scoped_mpf & x, scoped_mpf const & y, mpf_ex
 
     TRACE("mpf_dbg_rem", tout << "Q_exp=" << Q_exp << std::endl;
                          tout << "Q_sig=" << m_mpz_manager.to_string(Q_sig) << std::endl;
-                         scoped_mpf & Q = to_packed_mpf(Q_sgn, Q_exp, Q_sig, ebits, sbits, 0);
-                         tout << "Q=" << to_string_hexfloat(Q) << std::endl;);
+                         tout << "Q=" << to_string_hexfloat(Q_sgn, Q_exp, Q_sig, ebits, sbits, 0) << std::endl;);
         
     if ((D == -1 || partial) && m_mpz_manager.is_zero(Q_sig))
         return; // This means x % y = x.
@@ -1309,24 +1307,23 @@ void mpf_manager::partial_remainder(scoped_mpf & x, scoped_mpf const & y, mpf_ex
 
 
     // 3. Compute Y*Q / Y*QQ*2^{D-N}
-    bool YQ_sgn = y.sign() ^ Q_sgn;
+    bool YQ_sgn = y.sign ^ Q_sgn;
     scoped_mpz YQ_sig(m_mpz_manager);
-    mpf_exp_t YQ_exp = Q_exp + y.exponent();
-    m_mpz_manager.mul(y.significand(), Q_sig, YQ_sig);    
+    mpf_exp_t YQ_exp = Q_exp + y.exponent;
+    m_mpz_manager.mul(y.significand, Q_sig, YQ_sig);    
     renormalize(ebits, 2*sbits-1, YQ_exp, YQ_sig); // YQ_sig has `sbits-1' extra bits.
 
     TRACE("mpf_dbg_rem", tout << "YQ_sgn=" << YQ_sgn << std::endl;
                          tout << "YQ_exp=" << YQ_exp << std::endl;
                          tout << "YQ_sig=" << m_mpz_manager.to_string(YQ_sig) << std::endl;
-                         scoped_mpf & YQ = to_packed_mpf(YQ_sgn, YQ_exp, YQ_sig, ebits, sbits, sbits-1);
-                         tout << "YQ=" << to_string_hexfloat(YQ) << std::endl;);
+                         tout << "YQ=" << to_string_hexfloat(YQ_sgn, YQ_exp, YQ_sig, ebits, sbits, sbits-1) << std::endl;);
 
     // `sbits-1' extra bits in YQ_sig.    
     SASSERT(m_mpz_manager.lt(YQ_sig, m_powers2(2*sbits-1)));
     SASSERT(m_mpz_manager.ge(YQ_sig, m_powers2(2*sbits-2)) || YQ_exp <= mk_bot_exp(ebits));
 
     // 4. Compute X-Y*Q    
-    mpf_exp_t X_YQ_exp = x.exponent();
+    mpf_exp_t X_YQ_exp = x.exponent;
     scoped_mpz X_YQ_sig(m_mpz_manager);
     mpf_exp_t exp_delta = exp(x) - YQ_exp;
     TRACE("mpf_dbg_rem", tout << "exp_delta=" << exp_delta << std::endl;);
@@ -1334,7 +1331,7 @@ void mpf_manager::partial_remainder(scoped_mpf & x, scoped_mpf const & y, mpf_ex
     scoped_mpz minuend(m_mpz_manager), subtrahend(m_mpz_manager);
 
     scoped_mpz x_sig_lrg(m_mpz_manager);
-    m_mpz_manager.mul2k(x.significand(), sbits-1, x_sig_lrg); // sbits-1 extra bits into x
+    m_mpz_manager.mul2k(x.significand, sbits-1, x_sig_lrg); // sbits-1 extra bits into x
 
     m_mpz_manager.set(minuend, x_sig_lrg);
     m_mpz_manager.set(subtrahend, YQ_sig);
@@ -1366,23 +1363,22 @@ void mpf_manager::partial_remainder(scoped_mpf & x, scoped_mpf const & y, mpf_ex
 
     bool neg = m_mpz_manager.is_neg(X_YQ_sig);
     if (neg) m_mpz_manager.neg(X_YQ_sig);
-    bool X_YQ_sgn = ((!x.sign() && !YQ_sgn && neg) ||
-                      (x.sign() &&  YQ_sgn && !neg) ||
-                      (x.sign() && !YQ_sgn));
+    bool X_YQ_sgn = ((!x.sign && !YQ_sgn && neg) ||
+                      (x.sign &&  YQ_sgn && !neg) ||
+                      (x.sign && !YQ_sgn));
 
     // 5. Rounding
     if (m_mpz_manager.is_zero(X_YQ_sig))
-        mk_zero(ebits, sbits, x.sign(), x);
+        mk_zero(ebits, sbits, x.sign, x);
     else {
         renormalize(ebits, 2*sbits-1, X_YQ_exp, X_YQ_sig);
 
         TRACE("mpf_dbg_rem", tout << "minuend=" << m_mpz_manager.to_string(minuend) << std::endl;
-        tout << "subtrahend=" << m_mpz_manager.to_string(subtrahend) << std::endl;
-        tout << "X_YQ_sgn=" << X_YQ_sgn << std::endl;
-        tout << "X_YQ_exp=" << X_YQ_exp << std::endl;
-        tout << "X_YQ_sig=" << m_mpz_manager.to_string(X_YQ_sig) << std::endl;
-        scoped_mpf & X_YQ = to_packed_mpf(X_YQ_sgn, X_YQ_exp, X_YQ_sig, ebits, sbits, sbits-1);
-        tout << "X-YQ=" << to_string_hexfloat(X_YQ) << std::endl;);
+                             tout << "subtrahend=" << m_mpz_manager.to_string(subtrahend) << std::endl;
+                             tout << "X_YQ_sgn=" << X_YQ_sgn << std::endl;
+                             tout << "X_YQ_exp=" << X_YQ_exp << std::endl;
+                             tout << "X_YQ_sig=" << m_mpz_manager.to_string(X_YQ_sig) << std::endl;        
+                             tout << "X-YQ=" << to_string_hexfloat(X_YQ_sgn, X_YQ_exp, X_YQ_sig, ebits, sbits, sbits-1) << std::endl;);
 
         // `sbits-1' extra bits in X_YQ_sig
         SASSERT(m_mpz_manager.lt(X_YQ_sig, m_powers2(2*sbits-1)));
@@ -1433,7 +1429,7 @@ void mpf_manager::rem(mpf const & x, mpf const & y, mpf & o) {
         unpack(ST0, true);
         unpack(ST1, true);
 
-        const mpf_exp_t B = x.sbits+x.ebits;
+        const mpf_exp_t B = x.sbits;
         mpf_exp_t D;
         do {
             if (ST0.exponent() < (ST1.exponent()) - 1) {
@@ -1441,7 +1437,7 @@ void mpf_manager::rem(mpf const & x, mpf const & y, mpf & o) {
             }
             else {
                 D = ST0.exponent() - ST1.exponent();
-                partial_remainder(ST0, ST1, D, (D >= B));
+                partial_remainder(ST0.get(), ST1.get(), D, (D >= B));
             }
         } while (D >= B && !ST0.is_zero());
 
@@ -1575,7 +1571,7 @@ std::string mpf_manager::to_string_raw(mpf const & x) {
     return res;
 }
 
-scoped_mpf mpf_manager::to_packed_mpf(bool sgn, mpf_exp_t exp, scoped_mpz const & sig, unsigned ebits, unsigned sbits, unsigned rbits) {
+std::string mpf_manager::to_string_hexfloat(bool sgn, mpf_exp_t exp, scoped_mpz const & sig, unsigned ebits, unsigned sbits, unsigned rbits) {
     scoped_mpf q(*this);
     scoped_mpz q_sig(m_mpz_manager);
     m_mpz_manager.set(q_sig, sig);
@@ -1585,7 +1581,7 @@ scoped_mpf mpf_manager::to_packed_mpf(bool sgn, mpf_exp_t exp, scoped_mpz const 
     else if (exp == mk_min_exp(ebits))
         exp = mk_bot_exp(ebits);
     set(q, ebits, sbits, sgn, exp, q_sig);
-    return q;
+    return to_string(q.get());
 }
 
 std::string mpf_manager::to_string_hexfloat(mpf const & x) {

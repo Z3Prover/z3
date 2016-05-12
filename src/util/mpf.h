@@ -224,7 +224,7 @@ protected:
     void round_sqrt(mpf_rounding_mode rm, mpf & o);
 
     void renormalize(unsigned ebits, unsigned sbits, mpf_exp_t & exp, mpz & sig);
-    void partial_remainder(scoped_mpf & x, scoped_mpf const & y, mpf_exp_t const & exp_diff, bool partial);
+    void partial_remainder(mpf & x, mpf const & y, mpf_exp_t const & exp_diff, bool partial);
 
     void mk_round_inf(mpf_rounding_mode rm, mpf & o);
 
@@ -285,9 +285,8 @@ protected:
     };
 
     std::string to_string_raw(mpf const & a);
-    std::string to_string_hexfloat(mpf const & a);
-    scoped_mpf to_packed_mpf(bool sgn, mpf_exp_t exp, scoped_mpz const & sig, unsigned ebits, unsigned sbits, unsigned rbits);
-
+    std::string to_string_hexfloat(mpf const & a);    
+    std::string to_string_hexfloat(bool sgn, mpf_exp_t exp, scoped_mpz const & sig, unsigned ebits, unsigned sbits, unsigned rbits);
 public:
     powers2 m_powers2;
 };
