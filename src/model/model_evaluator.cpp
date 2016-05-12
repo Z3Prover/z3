@@ -150,7 +150,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
                     st = m_f_rw.mk_eq_core(args[0], args[1], result);
                 else if (s_fid == m_seq_rw.get_fid())
                     st = m_seq_rw.mk_eq_core(args[0], args[1], result);
-                else if (fid == m_ar_rw.get_fid())
+                else if (s_fid == m_ar_rw.get_fid())
                     st = mk_array_eq(args[0], args[1], result);
                 if (st != BR_FAILED)
                     return st;
