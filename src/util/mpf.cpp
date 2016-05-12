@@ -1218,9 +1218,6 @@ void mpf_manager::renormalize(unsigned ebits, unsigned sbits, mpf_exp_t & exp, m
     if (m_mpz_manager.is_zero(sig))
         return;
 
-    mpf_exp_t max_e = mk_max_exp(ebits);
-    mpf_exp_t min_e = mk_min_exp(ebits);
-
     const mpz & pg = m_powers2(sbits);
     while (m_mpz_manager.ge(sig, pg)) {
         m_mpz_manager.machine_div2k(sig, 1);
@@ -1237,8 +1234,7 @@ void mpf_manager::renormalize(unsigned ebits, unsigned sbits, mpf_exp_t & exp, m
 void mpf_manager::partial_remainder(mpf & x, mpf const & y, mpf_exp_t const & exp_diff, bool partial) {
     unsigned ebits = x.ebits;
     unsigned sbits = x.sbits;
-    bool sign = x.sign;
-
+    
     SASSERT(-1 <= exp_diff && exp_diff < INT64_MAX);
     SASSERT(exp_diff < ebits+sbits || partial);
 
