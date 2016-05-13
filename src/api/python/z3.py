@@ -3468,7 +3468,7 @@ def is_bv_value(a):
     """
     return is_bv(a) and _is_numeral(a.ctx, a.as_ast())
 
-def BV2Int(a):
+def BV2Int(a, is_signed=False):
     """Return the Z3 expression BV2Int(a).
 
     >>> b = BitVec('b', 3)
@@ -3477,6 +3477,10 @@ def BV2Int(a):
     >>> x = Int('x')
     >>> x > BV2Int(b)
     x > BV2Int(b)
+    >>> x > BV2Int(b, is_signed=False)
+    x > BV2Int(b)
+    >>> x > BV2Int(b, is_signed=True)
+    x > If(b < 0, BV2Int(b) - 8, BV2Int(b))
     >>> solve(x > BV2Int(b), b == 1, x < 3)
     [b = 1, x = 2]
     """
@@ -3484,7 +3488,7 @@ def BV2Int(a):
         _z3_assert(is_bv(a), "Z3 bit-vector expression expected")
     ctx = a.ctx
     ## investigate problem with bv2int
-    return ArithRef(Z3_mk_bv2int(ctx.ref(), a.as_ast(), 0), ctx)
+    return ArithRef(Z3_mk_bv2int(ctx.ref(), a.as_ast(), is_signed), ctx)
 
 def BitVecSort(sz, ctx=None):
     """Return a Z3 bit-vector sort of the given size. If `ctx=None`, then the global context is used.
