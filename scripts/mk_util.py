@@ -852,7 +852,7 @@ def is_CXX_gpp():
 
 def is_clang_in_gpp_form(cc):
     version_string = check_output([cc, '--version'])
-    return str(version_string).find('clang') != -1
+    return str(version_string.encode('utf_8')).find('clang') != -1
 
 def is_CXX_clangpp():
     if is_compiler(CXX, 'g++'):
