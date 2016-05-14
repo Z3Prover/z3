@@ -1928,8 +1928,7 @@ void fpa2bv_converter::mk_round_to_integral(sort * s, expr_ref & rm, expr_ref & 
     tie_pttrn = m_bv_util.mk_concat(one_1, m_bv_util.mk_numeral(0, sbits-1));
     m_simp.mk_eq(rem, tie_pttrn, tie2);
     div_last = m_bv_util.mk_extract(0, 0, div);
-    tie2_c = m.mk_ite(tie2, m.mk_or(m.mk_and(rm_is_rte, m.mk_eq(div_last, one_1)),
-                                    m.mk_and(rm_is_rta, m.mk_eq(div_last, zero_1))),
+    tie2_c = m.mk_ite(tie2, m.mk_or(m.mk_and(rm_is_rte, m.mk_eq(div_last, one_1)), rm_is_rta),
                             m_bv_util.mk_ule(tie_pttrn, rem));
     m_simp.mk_ite(tie2_c, div_p1, div, v51);
 
