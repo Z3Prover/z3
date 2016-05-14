@@ -1428,7 +1428,7 @@ void mpf_manager::rem(mpf const & x, mpf const & y, mpf & o) {
         const mpf_exp_t B = x.sbits;
         mpf_exp_t D;
         do {
-            if (ST0.exponent() < (ST1.exponent()) - 1) {
+            if (ST0.exponent() < ST1.exponent() - 1) {
                 D = 0;                    
             }
             else {
