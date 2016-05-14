@@ -1060,6 +1060,15 @@ typedef enum {
     Z3_OP_CARRY,
     Z3_OP_XOR3,
 
+    Z3_OP_BSMUL_NO_OVFL,
+    Z3_OP_BUMUL_NO_OVFL,
+    Z3_OP_BSMUL_NO_UDFL,
+    Z3_OP_BSDIV_I,
+    Z3_OP_BUDIV_I,
+    Z3_OP_BSREM_I,
+    Z3_OP_BUREM_I,
+    Z3_OP_BSMOD_I,
+
     // Proofs
     Z3_OP_PR_UNDEF = 0x500,
     Z3_OP_PR_TRUE,
