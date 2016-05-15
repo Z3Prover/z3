@@ -5516,7 +5516,10 @@ class ModelRef(Z3PPObject):
             decl = decl.decl()
         try:
             if decl.arity() == 0:
-                r = _to_expr_ref(Z3_model_get_const_interp(self.ctx.ref(), self.model, decl.ast), self.ctx)
+                _r = Z3_model_get_const_interp(self.ctx.ref(), self.model, decl.ast)
+                if _r.value is None:
+                    return None
+                r = _to_expr_ref(_r, self.ctx)
                 if is_as_array(r):
                     return self.get_interp(get_as_array_func(r))
                 else:
