@@ -219,6 +219,13 @@ public:
 
     virtual void set_next_arg(cmd_context & ctx, func_decl* t) {
         m_target = t;
+        if (t->get_family_id() != null_family_id) {
+            throw cmd_exception("Invalid query argument, expected uinterpreted function name, but argument is interpreted");
+        }
+        datalog::context& dlctx = m_dl_ctx->dlctx();
+        if (!dlctx.get_predicates().contains(t)) {
+            throw cmd_exception("Invalid query argument, expected a predicate registered as a relation");
+        }
     }
 
     virtual void prepare(cmd_context & ctx) { 
