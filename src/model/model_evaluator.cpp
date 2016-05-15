@@ -114,7 +114,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
     br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
         result_pr = 0;
         family_id fid = f->get_family_id();
-        if (num == 0 && (fid == null_family_id || m().get_plugin(f->get_family_id())->is_considered_uninterpreted(f))) {
+        bool is_uninterp = fid != null_family_id && m().get_plugin(fid)->is_considered_uninterpreted(f);
+        if (num == 0 && (fid == null_family_id || is_uninterp)) {
             expr * val = m_model.get_const_interp(f);
             if (val != 0) {
                 result = val;

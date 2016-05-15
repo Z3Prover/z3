@@ -620,7 +620,7 @@ namespace qe {
         }
 
         kernel& get_kernel(unsigned j) {        
-            if (is_exists(j)) {
+            if (m_kernel_ex || is_exists(j)) {
                 return m_ex; 
             }
             else {
@@ -1073,7 +1073,7 @@ namespace qe {
             m_mode(mode),
             m_avars(m),
             m_free_vars(m),
-            m_kernel(m)
+            m_kernel_ex(false)
         {
             reset();
         }
@@ -1240,9 +1240,10 @@ namespace qe {
         }
 
 
-        kernel          m_kernel;
+        bool         m_kernel_ex;
 
         lbool max_min(expr_ref_vector const& fmls, svector<bool> const& is_max, app_ref_vector const& vars, app* t) {
+            m_kernel_ex = true;
             // Assume this is the only call to check.
             expr_ref_vector defs(m);
             app_ref_vector free_vars(m), vars1(m);
@@ -1250,8 +1251,8 @@ namespace qe {
             m_pred_abs.get_free_vars(fml, free_vars);
             m_pred_abs.abstract_atoms(fml, defs);
             fml = m_pred_abs.mk_abstract(fml);
-            m_kernel.assert_expr(mk_and(defs));
-            m_kernel.assert_expr(fml);
+            get_kernel(0).k().assert_expr(mk_and(defs));
+            get_kernel(0).k().assert_expr(fml);
             obj_hashtable<app> var_set;
             for (unsigned i = 0; i < vars.size(); ++i) {
                 var_set.insert(vars[i]);
@@ -1278,8 +1279,6 @@ namespace qe {
             m_vars.push_back(vars1);
             
             return max_min();
-            
-            // return l_undef;
         }
 
         lbool max_min() {
@@ -1288,15 +1287,39 @@ namespace qe {
                 check_cancel();
                 expr_ref_vector asms(m_asms);
                 m_pred_abs.get_assumptions(m_model.get(), asms);
+                //
+                // TBD: add bound to asms.
+                // 
                 smt::kernel& k = get_kernel(m_level).k();
                 lbool res = k.check(asms);
                 switch (res) {
                 case l_true:
+                    k.get_model(m_model);
+                    SASSERT(validate_model(asms));
+                    TRACE("qe", k.display(tout); display(tout << "\n", *m_model.get()); display(tout, asms); );
+                    // 
+                    // TBD: compute new bound on objective.
+                    // 
+                    push();
                     break;
                 case l_false:
+                    switch (m_level) {
+                    case 0: return l_false;
+                    case 1:
+                        // TBD
+                        break;
+                    default:
+                        if (m_model.get()) {
+                            project(asms); 
+                        }
+                        else {
+                            pop(1);
+                        }
+                        break; 
+                    }
                     break;
                 case l_undef:
-                    break;
+                    return res;
                 }
             }
             return l_undef;
