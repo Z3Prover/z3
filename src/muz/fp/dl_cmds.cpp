@@ -229,6 +229,7 @@ public:
     }
 
     virtual void prepare(cmd_context & ctx) { 
+        ctx.m(); // ensure manager is initialized.
         parametric_cmd::prepare(ctx);
         m_target   = 0; 
     }
@@ -390,6 +391,7 @@ public:
     virtual unsigned get_arity() const { return VAR_ARITY; }
 
     virtual void prepare(cmd_context & ctx) {
+        ctx.m(); // ensure manager is initialized.
         m_arg_idx = 0; 
         m_query_arg_idx = 0; 
         m_domain = 0;
@@ -450,6 +452,7 @@ public:
     virtual unsigned get_arity() const { return 2; }
 
     virtual void prepare(cmd_context & ctx) {
+        ctx.m(); // ensure manager is initialized.
         m_arg_idx = 0; 
     }
     virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const { 
