@@ -185,9 +185,6 @@ public:
     void mk_pinf(unsigned ebits, unsigned sbits, mpf & o);
     void mk_ninf(unsigned ebits, unsigned sbits, mpf & o);
 
-    std::string to_string_raw(mpf const & a);
-    std::string to_string_hexfloat(mpf const & a);
-
     unsynch_mpz_manager & mpz_manager(void) { return m_mpz_manager; }
     unsynch_mpq_manager & mpq_manager(void) { return m_mpq_manager; }
 
@@ -225,6 +222,9 @@ protected:
     void add_sub(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf & o, bool sub);
     void round(mpf_rounding_mode rm, mpf & o);
     void round_sqrt(mpf_rounding_mode rm, mpf & o);
+
+    void renormalize(unsigned ebits, unsigned sbits, mpf_exp_t & exp, mpz & sig);
+    void partial_remainder(mpf & x, mpf const & y, mpf_exp_t const & exp_diff, bool partial);
 
     void mk_round_inf(mpf_rounding_mode rm, mpf & o);
 
@@ -284,6 +284,9 @@ protected:
         }
     };
 
+    std::string to_string_raw(mpf const & a);
+    std::string to_string_hexfloat(mpf const & a);    
+    std::string to_string_hexfloat(bool sgn, mpf_exp_t exp, scoped_mpz const & sig, unsigned ebits, unsigned sbits, unsigned rbits);
 public:
     powers2 m_powers2;
 };
@@ -291,6 +294,7 @@ public:
 class scoped_mpf : public _scoped_numeral<mpf_manager> {
     friend class mpf_manager;
     mpz & significand() { return get().significand; }
+    const mpz & significand() const { return get().significand; }
     bool sign() const { return get().sign; }
     mpf_exp_t exponent() const { return get().exponent; }
     unsigned sbits() const { return get().sbits; }
