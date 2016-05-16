@@ -503,13 +503,11 @@ namespace qe {
     }
 
     class kernel {
-        ast_manager& m;
         smt_params   m_smtp;
         smt::kernel  m_kernel;
         
     public:
         kernel(ast_manager& m):
-            m(m),
             m_kernel(m, m_smtp)
         {
             m_smtp.m_model = true;
