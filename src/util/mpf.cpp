@@ -1524,9 +1524,9 @@ std::string mpf_manager::to_string(mpf const & x) {
         }
     }
 
-    DEBUG_CODE(
-       res += " " + to_string_raw(x);
-    );
+    //DEBUG_CODE(
+    //   res += " " + to_string_raw(x);
+    //);
 
     return res;
 }
