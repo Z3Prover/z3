@@ -1095,7 +1095,7 @@ void mpf_manager::round_to_integral(mpf_rounding_mode rm, mpf const & x, mpf & o
             TRACE("mpf_dbg", tout << "tie= " << tie << "; <tie = " << less_than_tie << "; >tie = " << more_than_tie << std::endl;);
             if (tie) {
                 if ((rm == MPF_ROUND_NEAREST_TEVEN && m_mpz_manager.is_odd(div)) ||
-                    (rm == MPF_ROUND_NEAREST_TAWAY && m_mpz_manager.is_even(div))) {
+                    (rm == MPF_ROUND_NEAREST_TAWAY)) {
                     TRACE("mpf_dbg", tout << "div++ (1)" << std::endl;);
                     m_mpz_manager.inc(div);
                 }
@@ -1214,11 +1214,194 @@ void mpf_manager::to_ieee_bv_mpz(const mpf & x, scoped_mpz & o) {
     }
 }
 
+void mpf_manager::renormalize(unsigned ebits, unsigned sbits, mpf_exp_t & exp, mpz & sig) {
+    if (m_mpz_manager.is_zero(sig))
+        return;
+
+    const mpz & pg = m_powers2(sbits);
+    while (m_mpz_manager.ge(sig, pg)) {
+        m_mpz_manager.machine_div2k(sig, 1);
+        exp++;
+    }
+    
+    const mpz & pl = m_powers2(sbits-1);
+    while (m_mpz_manager.lt(sig, pl)) {
+        m_mpz_manager.mul2k(sig, 1);
+        exp--;
+    }
+}
+
+void mpf_manager::partial_remainder(mpf & x, mpf const & y, mpf_exp_t const & exp_diff, bool partial) {
+    unsigned ebits = x.ebits;
+    unsigned sbits = x.sbits;
+    
+    SASSERT(-1 <= exp_diff && exp_diff < INT64_MAX);
+    SASSERT(exp_diff < ebits+sbits || partial);
+
+    signed int D = (signed int)(exp_diff);
+    mpf_exp_t N = sbits-1;
+
+    TRACE("mpf_dbg_rem", tout << "x=" << to_string(x) << std::endl;
+                         tout << "y=" << to_string(y) << std::endl;
+                         tout << "d=" << D << std::endl;
+                         tout << "partial=" << partial << std::endl;);
+
+    SASSERT(m_mpz_manager.lt(x.significand, m_powers2(sbits)));
+    SASSERT(m_mpz_manager.ge(x.significand, m_powers2(sbits - 1)));
+    SASSERT(m_mpz_manager.lt(y.significand, m_powers2(sbits)));
+    SASSERT(m_mpz_manager.ge(y.significand, m_powers2(sbits - 1)));
+
+    // 1. Compute a/b        
+    bool x_div_y_sgn = x.sign != y.sign;
+    mpf_exp_t x_div_y_exp = D;
+    scoped_mpz x_sig_shifted(m_mpz_manager), x_div_y_sig_lrg(m_mpz_manager), x_div_y_rem(m_mpz_manager);
+    scoped_mpz x_rem_y_sig(m_mpz_manager);
+    m_mpz_manager.mul2k(x.significand, 2*sbits + 2, x_sig_shifted);
+    m_mpz_manager.machine_div_rem(x_sig_shifted, y.significand, x_div_y_sig_lrg, x_div_y_rem); // rem useful?
+    // x/y is in x_diuv_y_sig_lrg and has sbits+3 extra bits.
+
+    TRACE("mpf_dbg_rem", tout << "X/Y_exp=" << x_div_y_exp << std::endl;
+                         tout << "X/Y_sig_lrg=" << m_mpz_manager.to_string(x_div_y_sig_lrg) << std::endl;
+                         tout << "X/Y_rem=" << m_mpz_manager.to_string(x_div_y_rem) << std::endl;
+                         tout << "X/Y~=" << to_string_hexfloat(x_div_y_sgn, x_div_y_exp, x_div_y_sig_lrg, ebits, sbits, sbits+3) << std::endl;);
+
+    // 2. Round a/b to integer Q/QQ
+    bool Q_sgn = x_div_y_sgn;
+    mpf_exp_t Q_exp = x_div_y_exp;
+    scoped_mpz Q_sig(m_mpz_manager), Q_rem(m_mpz_manager);
+    unsigned Q_shft = (sbits-1) + (sbits+3) -  (unsigned) (partial ? N :Q_exp);
+    if (partial) {        
+        // Round according to MPF_ROUND_TOWARD_ZERO
+        SASSERT(0 < N && N < Q_exp && Q_exp < INT_MAX);
+        m_mpz_manager.machine_div2k(x_div_y_sig_lrg, Q_shft, Q_sig);
+    }
+    else {
+        // Round according to MPF_ROUND_NEAREST_TEVEN
+        m_mpz_manager.machine_div_rem(x_div_y_sig_lrg, m_powers2(Q_shft), Q_sig, Q_rem);
+        const mpz & shiftm1_p = m_powers2(Q_shft-1);
+        bool tie = m_mpz_manager.eq(Q_rem, shiftm1_p);
+        bool more_than_tie = m_mpz_manager.gt(Q_rem, shiftm1_p);
+        TRACE("mpf_dbg_rem", tout << "tie= " << tie << "; >tie= " << more_than_tie << std::endl;);
+        if ((tie && m_mpz_manager.is_odd(Q_sig)) || more_than_tie)
+            m_mpz_manager.inc(Q_sig);
+    }
+    m_mpz_manager.mul2k(Q_sig, Q_shft);
+    m_mpz_manager.machine_div2k(Q_sig, sbits+3);
+    renormalize(ebits, sbits, Q_exp, Q_sig);
+
+    TRACE("mpf_dbg_rem", tout << "Q_exp=" << Q_exp << std::endl;
+                         tout << "Q_sig=" << m_mpz_manager.to_string(Q_sig) << std::endl;
+                         tout << "Q=" << to_string_hexfloat(Q_sgn, Q_exp, Q_sig, ebits, sbits, 0) << std::endl;);
+        
+    if ((D == -1 || partial) && m_mpz_manager.is_zero(Q_sig))
+        return; // This means x % y = x.
+
+    // no extra bits in Q_sig.
+    SASSERT(!m_mpz_manager.is_zero(Q_sig));
+    SASSERT(m_mpz_manager.lt(Q_sig, m_powers2(sbits)));
+    SASSERT(m_mpz_manager.ge(Q_sig, m_powers2(sbits - 1)));
+
+
+    // 3. Compute Y*Q / Y*QQ*2^{D-N}
+    bool YQ_sgn = y.sign ^ Q_sgn;
+    scoped_mpz YQ_sig(m_mpz_manager);
+    mpf_exp_t YQ_exp = Q_exp + y.exponent;
+    m_mpz_manager.mul(y.significand, Q_sig, YQ_sig);    
+    renormalize(ebits, 2*sbits-1, YQ_exp, YQ_sig); // YQ_sig has `sbits-1' extra bits.
+
+    TRACE("mpf_dbg_rem", tout << "YQ_sgn=" << YQ_sgn << std::endl;
+                         tout << "YQ_exp=" << YQ_exp << std::endl;
+                         tout << "YQ_sig=" << m_mpz_manager.to_string(YQ_sig) << std::endl;
+                         tout << "YQ=" << to_string_hexfloat(YQ_sgn, YQ_exp, YQ_sig, ebits, sbits, sbits-1) << std::endl;);
+
+    // `sbits-1' extra bits in YQ_sig.    
+    SASSERT(m_mpz_manager.lt(YQ_sig, m_powers2(2*sbits-1)));
+    SASSERT(m_mpz_manager.ge(YQ_sig, m_powers2(2*sbits-2)) || YQ_exp <= mk_bot_exp(ebits));
+
+    // 4. Compute X-Y*Q    
+    mpf_exp_t X_YQ_exp = x.exponent;
+    scoped_mpz X_YQ_sig(m_mpz_manager);
+    mpf_exp_t exp_delta = exp(x) - YQ_exp;
+    TRACE("mpf_dbg_rem", tout << "exp_delta=" << exp_delta << std::endl;);
+    SASSERT(INT_MIN < exp_delta && exp_delta <= INT_MAX);
+    scoped_mpz minuend(m_mpz_manager), subtrahend(m_mpz_manager);
+
+    scoped_mpz x_sig_lrg(m_mpz_manager);
+    m_mpz_manager.mul2k(x.significand, sbits-1, x_sig_lrg); // sbits-1 extra bits into x
+
+    m_mpz_manager.set(minuend, x_sig_lrg);
+    m_mpz_manager.set(subtrahend, YQ_sig);
+
+    SASSERT(m_mpz_manager.lt(minuend, m_powers2(2*sbits-1)));
+    SASSERT(m_mpz_manager.ge(minuend, m_powers2(2*sbits-2)));
+    SASSERT(m_mpz_manager.lt(subtrahend, m_powers2(2*sbits-1)));
+    SASSERT(m_mpz_manager.ge(subtrahend, m_powers2(2*sbits-2)));
+    
+    if (exp_delta != 0) {
+        scoped_mpz sticky_rem(m_mpz_manager);
+        m_mpz_manager.set(sticky_rem, 0);
+        if (exp_delta > sbits+5)
+            sticky_rem.swap(subtrahend);        
+        else if (exp_delta > 0)
+            m_mpz_manager.machine_div_rem(subtrahend, m_powers2((unsigned)exp_delta), subtrahend, sticky_rem);        
+        else {
+            SASSERT(exp_delta < 0);
+            exp_delta = -exp_delta;
+            m_mpz_manager.mul2k(subtrahend, (int)exp_delta);
+        }
+        if (!m_mpz_manager.is_zero(sticky_rem) && m_mpz_manager.is_even(subtrahend))
+            m_mpz_manager.inc(subtrahend);
+        TRACE("mpf_dbg_rem", tout << "aligned subtrahend=" << m_mpz_manager.to_string(subtrahend) << std::endl;);
+    }
+           
+    m_mpz_manager.sub(minuend, subtrahend, X_YQ_sig);
+    TRACE("mpf_dbg_rem", tout << "X_YQ_sig'=" << m_mpz_manager.to_string(X_YQ_sig) << std::endl;);
+
+    bool neg = m_mpz_manager.is_neg(X_YQ_sig);
+    if (neg) m_mpz_manager.neg(X_YQ_sig);
+    bool X_YQ_sgn = ((!x.sign && !YQ_sgn && neg) ||
+                      (x.sign &&  YQ_sgn && !neg) ||
+                      (x.sign && !YQ_sgn));
+
+    // 5. Rounding
+    if (m_mpz_manager.is_zero(X_YQ_sig))
+        mk_zero(ebits, sbits, x.sign, x);
+    else {
+        renormalize(ebits, 2*sbits-1, X_YQ_exp, X_YQ_sig);
+
+        TRACE("mpf_dbg_rem", tout << "minuend=" << m_mpz_manager.to_string(minuend) << std::endl;
+                             tout << "subtrahend=" << m_mpz_manager.to_string(subtrahend) << std::endl;
+                             tout << "X_YQ_sgn=" << X_YQ_sgn << std::endl;
+                             tout << "X_YQ_exp=" << X_YQ_exp << std::endl;
+                             tout << "X_YQ_sig=" << m_mpz_manager.to_string(X_YQ_sig) << std::endl;        
+                             tout << "X-YQ=" << to_string_hexfloat(X_YQ_sgn, X_YQ_exp, X_YQ_sig, ebits, sbits, sbits-1) << std::endl;);
+
+        // `sbits-1' extra bits in X_YQ_sig
+        SASSERT(m_mpz_manager.lt(X_YQ_sig, m_powers2(2*sbits-1)));
+        scoped_mpz rnd_bits(m_mpz_manager);
+        m_mpz_manager.machine_div_rem(X_YQ_sig, m_powers2(sbits-1), X_YQ_sig, rnd_bits);
+        TRACE("mpf_dbg_rem", tout << "final sticky=" << m_mpz_manager.to_string(rnd_bits) << std::endl; );
+
+        // Round to nearest, ties to even.
+        if (m_mpz_manager.eq(rnd_bits, mpz(32))) { // tie. 
+            if (m_mpz_manager.is_odd(X_YQ_sig)) {
+                m_mpz_manager.inc(X_YQ_sig);
+            }
+        }
+        else if (m_mpz_manager.gt(rnd_bits, mpz(32)))
+            m_mpz_manager.inc(X_YQ_sig);
+
+        set(x, ebits, sbits, X_YQ_sgn, X_YQ_exp, X_YQ_sig);
+    }
+
+    TRACE("mpf_dbg_rem", tout << "partial remainder = " << to_string_hexfloat(x) << std::endl;);
+}
+
 void mpf_manager::rem(mpf const & x, mpf const & y, mpf & o) {
     SASSERT(x.sbits == y.sbits && x.ebits == y.ebits);
 
-    TRACE("mpf_dbg", tout << "X = " << to_string(x) << std::endl;);
-    TRACE("mpf_dbg", tout << "Y = " << to_string(y) << std::endl;);
+    TRACE("mpf_dbg_rem", tout << "X = " << to_string(x) << "=" << to_string_hexfloat(x) << std::endl;
+                         tout << "Y = " << to_string(y) << "=" << to_string_hexfloat(y) << std::endl;);
 
     if (is_nan(x) || is_nan(y))
         mk_nan(x.ebits, x.sbits, o);
@@ -1231,58 +1414,35 @@ void mpf_manager::rem(mpf const & x, mpf const & y, mpf & o) {
     else if (is_zero(x))
         set(o, x);
     else {
-        // This is a generalized version of the algorithm for FPREM1 in the Intel
+        SASSERT(is_regular(x) && is_regular(y));
+
+        // This is a generalized version of the algorithm for FPREM1 in the `Intel
         // 64 and IA-32 Architectures Software Developer's Manual',
-        // Section 3-402 Vol. 2A FPREM1-Partial Remainder'.
+        // Section 3-402 Vol. 2A `FPREM1-Partial Remainder'.
         scoped_mpf ST0(*this), ST1(*this);
         set(ST0, x);
         set(ST1, y);
+        unpack(ST0, true);
+        unpack(ST1, true);
 
-        const mpf_exp_t B = x.sbits-1; // max bits per iteration.
+        const mpf_exp_t B = x.sbits;
         mpf_exp_t D;
         do {
-            D = ST0.exponent() - ST1.exponent();
-            TRACE("mpf_dbg_rem", tout << "st0=" << to_string_hexfloat(ST0) << std::endl;
-                                 tout << "st1=" << to_string_hexfloat(ST1) << std::endl;
-                                 tout << "D=" << D << std::endl;);
-
-            if (D < B) {
-                scoped_mpf ST0_DIV_ST1(*this), Q(*this), ST1_MUL_Q(*this), ST0p(*this);
-                div(MPF_ROUND_NEAREST_TEVEN, ST0, ST1, ST0_DIV_ST1);
-                round_to_integral(MPF_ROUND_NEAREST_TEVEN, ST0_DIV_ST1, Q);
-                mul(MPF_ROUND_NEAREST_TEVEN, ST1, Q, ST1_MUL_Q);
-                sub(MPF_ROUND_NEAREST_TEVEN, ST0, ST1_MUL_Q, ST0p);
-                TRACE("mpf_dbg_rem", tout << "ST0/ST1=" << to_string_hexfloat(ST0_DIV_ST1) << std::endl;
-                                     tout << "Q=" << to_string_hexfloat(Q) << std::endl;
-                                     tout << "ST1*Q=" << to_string_hexfloat(ST1_MUL_Q) << std::endl;
-                                     tout << "ST0'=" << to_string_hexfloat(ST0p) << std::endl;);
-                set(ST0, ST0p);
+            if (ST0.exponent() < ST1.exponent() - 1) {
+                D = 0;                    
             }
             else {
-                const mpf_exp_t N = B;
-                scoped_mpf ST0_DIV_ST1(*this), QQ(*this), ST1_MUL_QQ(*this), ST0p(*this);
-                div(MPF_ROUND_TOWARD_ZERO, ST0, ST1, ST0_DIV_ST1);
-                ST0_DIV_ST1.get().exponent -= D - N;
-                round_to_integral(MPF_ROUND_TOWARD_ZERO, ST0_DIV_ST1, QQ);
-                mul(MPF_ROUND_NEAREST_TEVEN, ST1, QQ, ST1_MUL_QQ);
-                ST1_MUL_QQ.get().exponent += D - N;
-                sub(MPF_ROUND_NEAREST_TEVEN, ST0, ST1_MUL_QQ, ST0p);
-                TRACE("mpf_dbg_rem", tout << "ST0/ST1/2^{D-N}=" << to_string_hexfloat(ST0_DIV_ST1) << std::endl;
-                                     tout << "QQ=" << to_string_hexfloat(QQ) << std::endl;
-                                     tout << "ST1*QQ*2^{D-N}=" << to_string_hexfloat(ST1_MUL_QQ) << std::endl;
-                                     tout << "ST0'=" << to_string_hexfloat(ST0p) << std::endl;);
-                SASSERT(!eq(ST0, ST0p));
-                set(ST0, ST0p);
+                D = ST0.exponent() - ST1.exponent();
+                partial_remainder(ST0.get(), ST1.get(), D, (D >= B));
             }
+        } while (D >= B && !ST0.is_zero());
 
-            SASSERT(ST0.exponent() - ST1.exponent() <= D);
-        } while (D >= B);
-
-        set(o, ST0);
-        if (is_zero(o))
-            o.sign = x.sign;
+        m_mpz_manager.mul2k(ST0.significand(), 3);
+        set(o, x.ebits, x.sbits, MPF_ROUND_TOWARD_ZERO, ST0);
+        round(MPF_ROUND_NEAREST_TEVEN, o);
     }
 
+    TRACE("mpf_dbg_rem", tout << "R = " << to_string(o) << "=" << to_string_hexfloat(o) << std::endl; );
     TRACE("mpf_dbg", tout << "REMAINDER = " << to_string(o) << std::endl;);
 }
 
@@ -1365,7 +1525,7 @@ std::string mpf_manager::to_string(mpf const & x) {
     }
 
     //DEBUG_CODE(
-    //   res += " " + to_string_hexfloat(x);
+    //   res += " " + to_string_raw(x);
     //);
 
     return res;
@@ -1405,6 +1565,19 @@ std::string mpf_manager::to_string_raw(mpf const & x) {
         res += " D";
     res += "]";
     return res;
+}
+
+std::string mpf_manager::to_string_hexfloat(bool sgn, mpf_exp_t exp, scoped_mpz const & sig, unsigned ebits, unsigned sbits, unsigned rbits) {
+    scoped_mpf q(*this);
+    scoped_mpz q_sig(m_mpz_manager);
+    m_mpz_manager.set(q_sig, sig);
+    if (rbits != 0) m_mpz_manager.div(q_sig, m_powers2(rbits), q_sig); // restore scale
+    if (m_mpz_manager.ge(q_sig, m_powers2(sbits-1)))
+        m_mpz_manager.sub(q_sig, m_powers2(sbits-1), q_sig); // strip hidden bit
+    else if (exp == mk_min_exp(ebits))
+        exp = mk_bot_exp(ebits);
+    set(q, ebits, sbits, sgn, exp, q_sig);
+    return to_string(q.get());
 }
 
 std::string mpf_manager::to_string_hexfloat(mpf const & x) {

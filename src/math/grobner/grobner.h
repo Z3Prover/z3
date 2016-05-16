@@ -175,7 +175,7 @@ protected:
 
     equation * pick_next();
 
-    void simplify_processed(equation * eq);
+    bool simplify_processed(equation * eq);
 
     void simplify_to_process(equation * eq);
 

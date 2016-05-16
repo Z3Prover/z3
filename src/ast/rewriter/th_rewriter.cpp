@@ -212,14 +212,11 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
 
     // auxiliary function for pull_ite_core
     expr * mk_eq_value(expr * lhs, expr * value) {
-        SASSERT(m().is_value(value));
-        if (m().is_value(lhs)) {
-            if (m().are_equal(lhs, value)) {
-                return m().mk_true();
-            }
-            else if (m().are_distinct(lhs, value)) {
-                return m().mk_false();
-            }
+        if (m().are_equal(lhs, value)) {
+            return m().mk_true();
+        }
+        else if (m().are_distinct(lhs, value)) {
+            return m().mk_false();
         }
         return m().mk_eq(lhs, value);
     }

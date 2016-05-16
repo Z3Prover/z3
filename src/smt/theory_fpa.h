@@ -83,7 +83,7 @@ namespace smt {
             virtual ~fpa2bv_converter_wrapped() {}
             virtual void mk_const(func_decl * f, expr_ref & result);
             virtual void mk_rm_const(func_decl * f, expr_ref & result);
-            virtual void mk_uninterpreted_function(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+            virtual void mk_uninterpreted_function(func_decl * f, unsigned num, expr * const * args, expr_ref & result);            
 
             virtual expr_ref mk_min_unspecified(func_decl * f, expr * x, expr * y);
             virtual expr_ref mk_max_unspecified(func_decl * f, expr * x, expr * y);
@@ -112,7 +112,7 @@ namespace smt {
                 result.append(m_deps);
             }
 
-            virtual app * mk_value(model_generator & mg, ptr_vector<expr> & values);
+            virtual app * mk_value(model_generator & mg, ptr_vector<expr> & values);            
         };
 
         class fpa_rm_value_proc : public model_value_proc {
@@ -163,6 +163,7 @@ namespace smt {
         virtual char const * get_name() const { return "fpa"; }
 
         virtual model_value_proc * mk_value(enode * n, model_generator & mg);
+        virtual bool include_func_interp(func_decl * f);
 
         void assign_eh(bool_var v, bool is_true);
         virtual void relevant_eh(app * n);

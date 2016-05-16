@@ -144,6 +144,9 @@ public:
     void dbg_decouple(const char * prefix, expr_ref & e);
     expr_ref_vector m_extra_assertions;
 
+    bool is_special(func_decl * f) { return m_specials.contains(f); }
+    bool is_uf2bvuf(func_decl * f) { return m_uf2bvuf.contains(f); }
+
 protected:
     void mk_one(func_decl *f, expr_ref & sign, expr_ref & result);
 
@@ -201,6 +204,8 @@ private:
     void mk_div(sort * s, expr_ref & bv_rm, expr_ref & x, expr_ref & y, expr_ref & result);
     void mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & result);
     void mk_round_to_integral(sort * s, expr_ref & rm, expr_ref & x, expr_ref & result);
+
+    void mk_to_fp_float(sort * s, expr * rm, expr * x, expr_ref & result);
 };
 
 #endif

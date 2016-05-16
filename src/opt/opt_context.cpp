@@ -218,11 +218,9 @@ namespace opt {
         import_scoped_state(); 
         normalize();
         internalize();
-        update_solver();
-        solver& s = get_solver();
-        s.assert_expr(m_hard_constraints);
-        std::cout << "min-max is TBD\n";
-        return l_undef;
+        qe::max_min_opt max_min(m, m_params);
+        max_min.add(m_hard_constraints);
+        return max_min.check(is_max, vars, t);
     }
 
 

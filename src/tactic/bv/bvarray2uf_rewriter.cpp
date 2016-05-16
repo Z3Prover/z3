@@ -163,6 +163,59 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
         result = m_manager.mk_distinct_expanded(num, args);
         res = BR_REWRITE1;
     }
+    else if (m_manager.is_term_ite(f) && is_bv_array(f->get_range())) {
+        expr_ref c(args[0], m_manager);
+        func_decl_ref f_t(mk_uf_for_array(args[1]), m_manager);
+        func_decl_ref f_f(mk_uf_for_array(args[2]), m_manager);
+
+        TRACE("bvarray2uf_rw", tout << "(ite " << c << ", " << f_t->get_name()
+            << ", " << f_f->get_name() << ")" << std::endl;);
+
+        sort * sorts[1] = { get_index_sort(m_manager.get_sort(args[1])) };
+        symbol names[1] = { symbol("x") };
+        var_ref x(m_manager.mk_var(0, sorts[0]), m_manager);
+
+        app_ref f_a(m_manager), f_ta(m_manager), f_fa(m_manager);
+        f_a = m_manager.mk_app(f, num, args);
+        f_ta = m_manager.mk_app(f_t, x.get());
+        f_fa = m_manager.mk_app(f_f, x.get());
+
+        app_ref e(m_manager);
+        func_decl_ref itefd(m_manager);
+        e = m_manager.mk_ite(c, f_ta, f_fa);
+
+        func_decl * bv_f = 0;
+        if (!m_arrays_fs.find(f_a, bv_f)) {
+            sort * domain = get_index_sort(args[1]);
+            sort * range = get_value_sort(args[1]);
+            bv_f = m_manager.mk_fresh_func_decl("f_t", "", 1, &domain, range);
+            TRACE("bvarray2uf_rw", tout << mk_ismt2_pp(e, m_manager) << " -> " << bv_f->get_name() << std::endl; );
+            if (is_uninterp_const(e)) {
+                if (m_emc)
+                    m_emc->insert(e->get_decl(),
+                        m_array_util.mk_as_array(m_manager.get_sort(e), bv_f));
+            }
+            else if (m_fmc)
+                m_fmc->insert(bv_f);
+            m_arrays_fs.insert(e, bv_f);
+            m_manager.inc_ref(e);
+            m_manager.inc_ref(bv_f);
+        }
+
+        expr_ref q(m_manager), body(m_manager);
+        body = m_manager.mk_eq(m_manager.mk_app(bv_f, x), e);
+        q = m_manager.mk_forall(1, sorts, names, body);
+        extra_assertions.push_back(q);
+
+        result = m_array_util.mk_as_array(f->get_range(), bv_f);
+
+        TRACE("bvarray2uf_rw", tout << "result: " << mk_ismt2_pp(result, m_manager) << ")" << std::endl;);
+        res = BR_DONE;
+        
+    }
+    else if (f->get_family_id() == m_manager.get_basic_family_id() && is_bv_array(f->get_range())) {
+        NOT_IMPLEMENTED_YET();
+    }
     else if (f->get_family_id() == null_family_id) {
         TRACE("bvarray2uf_rw", tout << "UF APP: " << f->get_name() << std::endl; );
 

@@ -50,14 +50,13 @@ extern "C" {
         Z3_CATCH;
     }
 
-    Z3_ast Z3_API Z3_model_get_const_interp(Z3_context c, Z3_model m, Z3_func_decl a) {
+    Z3_ast_opt Z3_API Z3_model_get_const_interp(Z3_context c, Z3_model m, Z3_func_decl a) {
         Z3_TRY;
         LOG_Z3_model_get_const_interp(c, m, a);
         RESET_ERROR_CODE();
         CHECK_NON_NULL(m, 0);
         expr * r = to_model_ref(m)->get_const_interp(to_func_decl(a));
         if (!r) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
             RETURN_Z3(0);
         }
         mk_c(c)->save_ast_trail(r);

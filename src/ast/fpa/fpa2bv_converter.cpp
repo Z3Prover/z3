@@ -1928,8 +1928,7 @@ void fpa2bv_converter::mk_round_to_integral(sort * s, expr_ref & rm, expr_ref & 
     tie_pttrn = m_bv_util.mk_concat(one_1, m_bv_util.mk_numeral(0, sbits-1));
     m_simp.mk_eq(rem, tie_pttrn, tie2);
     div_last = m_bv_util.mk_extract(0, 0, div);
-    tie2_c = m.mk_ite(tie2, m.mk_or(m.mk_and(rm_is_rte, m.mk_eq(div_last, one_1)),
-                                    m.mk_and(rm_is_rta, m.mk_eq(div_last, zero_1))),
+    tie2_c = m.mk_ite(tie2, m.mk_or(m.mk_and(rm_is_rte, m.mk_eq(div_last, one_1)), rm_is_rta),
                             m_bv_util.mk_ule(tie_pttrn, rem));
     m_simp.mk_ite(tie2_c, div_p1, div, v51);
 
@@ -2235,14 +2234,17 @@ void fpa2bv_converter::mk_to_fp(func_decl * f, unsigned num, expr * const * args
     SASSERT(is_well_sorted(m, result));
 }
 
+
 void fpa2bv_converter::mk_to_fp_float(func_decl * f, sort * s, expr * rm, expr * x, expr_ref & result) {
+    SASSERT(is_app_of(rm, m_util.get_family_id(), OP_FPA_INTERNAL_RM));
+    mk_to_fp_float(s, to_app(rm)->get_arg(0), x, result);
+}
+
+void fpa2bv_converter::mk_to_fp_float(sort * to_srt, expr * rm, expr * x, expr_ref & result) {
     unsigned from_sbits = m_util.get_sbits(m.get_sort(x));
     unsigned from_ebits = m_util.get_ebits(m.get_sort(x));
-    unsigned to_sbits = m_util.get_sbits(s);
-    unsigned to_ebits = m_util.get_ebits(s);
-
-    SASSERT(is_app_of(rm, m_util.get_family_id(), OP_FPA_INTERNAL_RM));
-    expr * bv_rm = to_app(rm)->get_arg(0);
+    unsigned to_sbits = m_util.get_sbits(to_srt);
+    unsigned to_ebits = m_util.get_ebits(to_srt);
 
     if (from_sbits == to_sbits && from_ebits == to_ebits)
         result = x;
@@ -2253,20 +2255,20 @@ void fpa2bv_converter::mk_to_fp_float(func_decl * f, sort * s, expr * rm, expr *
 
         one1 = m_bv_util.mk_numeral(1, 1);
         expr_ref ninf(m), pinf(m);
-        mk_pinf(f, pinf);
-        mk_ninf(f, ninf);
+        mk_pinf(to_srt, pinf);
+        mk_ninf(to_srt, ninf);
 
         // NaN -> NaN
         mk_is_nan(x, c1);
-        mk_nan(f, v1);
+        mk_nan(to_srt, v1);
 
         // +0 -> +0
         mk_is_pzero(x, c2);
-        mk_pzero(f, v2);
+        mk_pzero(to_srt, v2);
 
         // -0 -> -0
         mk_is_nzero(x, c3);
-        mk_nzero(f, v3);
+        mk_nzero(to_srt, v3);
 
         // +oo -> +oo
         mk_is_pinf(x, c4);
@@ -2380,8 +2382,8 @@ void fpa2bv_converter::mk_to_fp_float(func_decl * f, sort * s, expr * rm, expr *
         dbg_decouple("fpa2bv_to_float_res_exp", res_exp);
 
         expr_ref rounded(m);
-        expr_ref rm_e(bv_rm, m);
-        round(s, rm_e, res_sgn, res_sig, res_exp, rounded);
+        expr_ref rm_e(rm, m);
+        round(to_srt, rm_e, res_sgn, res_sig, res_exp, rounded);
 
         expr_ref is_neg(m), sig_inf(m);
         m_simp.mk_eq(sgn, one1, is_neg);

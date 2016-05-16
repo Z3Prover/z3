@@ -2823,6 +2823,7 @@ void theory_seq::add_elim_string_axiom(expr* n) {
     - len(unit(u)) = 1              if x = unit(u)
     - len(str) = str.length()       if x = str
     - len(empty) = 0                if x = empty
+    - len(int.to.str(i)) >= 1       if x = int.to.str(i) and more generally if i = 0 then 1 else 1+floor(log(|i|))
     - len(x) >= 0                   otherwise
  */
 void theory_seq::add_length_axiom(expr* n) {
@@ -2837,16 +2838,17 @@ void theory_seq::add_length_axiom(expr* n) {
         m_rewrite(len);
         SASSERT(n != len);
         add_axiom(mk_eq(len, n, false));
-        if (!ctx.at_base_level()) {
-            m_trail_stack.push(push_replay(alloc(replay_axiom, m, n)));
-        }
+    }
+    else if (m_util.str.is_itos(x)) {
+        add_axiom(mk_literal(m_autil.mk_ge(n, m_autil.mk_int(1))));
     }
     else {
         add_axiom(mk_literal(m_autil.mk_ge(n, m_autil.mk_int(0))));
-        if (!ctx.at_base_level()) {
-            m_trail_stack.push(push_replay(alloc(replay_axiom, m, n)));
-        }
     }
+    if (!ctx.at_base_level()) {
+        m_trail_stack.push(push_replay(alloc(replay_axiom, m, n)));
+    }
+
 }
 
 

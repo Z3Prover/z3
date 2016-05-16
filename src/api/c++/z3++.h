@@ -1582,6 +1582,9 @@ namespace z3 {
 	    return static_cast<unsigned>(i) < num_consts() ? get_const_decl(i) : get_func_decl(i - num_consts());
 	}
 
+        // returns interpretation of constant declaration c.
+        // If c is not assigned any value in the model it returns 
+        // an expression with a null ast reference.
         expr get_const_interp(func_decl c) const {
             check_context(*this, c);
             Z3_ast r = Z3_model_get_const_interp(ctx(), m_model, c);

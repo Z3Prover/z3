@@ -51,13 +51,6 @@ namespace qe {
         }
         return is_divides(a, e1, e2, k, t) || is_divides(a, e2, e1, k, t);
     }
-
-
-#if 0
-        obj_map<expr, unsigned> m_expr2var;
-        ptr_vector<expr>        m_var2expr;
-
-#endif
     
     struct arith_project_plugin::imp {
 
@@ -88,18 +81,23 @@ namespace qe {
             }            
         }
 
-        void insert_mul(expr* x, rational const& v, obj_map<expr, rational>& ts)
-        {
+        void insert_mul(expr* x, rational const& v, obj_map<expr, rational>& ts) {
             rational w;
             if (ts.find(x, w)) {
                 ts.insert(x, w + v);
             }
             else {
+                TRACE("qe", tout << "Adding variable " << mk_pp(x, m) << "\n";);
                 ts.insert(x, v); 
             }
         }
 
-        void linearize(model& model, opt::model_based_opt& mbo, expr* lit, obj_map<expr, unsigned>& tids) {
+        //
+        // extract linear inequalities from literal 'lit' into the model-based optimization manager 'mbo'.
+        // It uses the current model to choose values for conditionals and it primes mbo with the current
+        // interpretation of sub-expressions that are treated as variables for mbo.
+        // 
+        void linearize(opt::model_based_opt& mbo, model& model, expr* lit, obj_map<expr, unsigned>& tids) {
             obj_map<expr, rational> ts;
             rational c(0), mul(1);
             expr_ref t(m);
@@ -112,19 +110,19 @@ namespace qe {
             SASSERT(!m.is_not(lit));
             if (a.is_le(lit, e1, e2) || a.is_ge(lit, e2, e1)) {
                 if (is_not) mul.neg();
-                linearize(model, mul, e1, c, ts);
-                linearize(model, -mul, e2, c, ts);
+                linearize(mbo, model, mul, e1, c, ts, tids);
+                linearize(mbo, model, -mul, e2, c, ts, tids);
                 ty = is_not ? opt::t_lt : opt::t_le;
             }
             else if (a.is_lt(lit, e1, e2) || a.is_gt(lit, e2, e1)) {
                 if (is_not) mul.neg();
-                linearize(model,  mul, e1, c, ts);
-                linearize(model, -mul, e2, c, ts);
+                linearize(mbo, model,  mul, e1, c, ts, tids);
+                linearize(mbo, model, -mul, e2, c, ts, tids);
                 ty = is_not ? opt::t_le: opt::t_lt;
             }
             else if (m.is_eq(lit, e1, e2) && !is_not && is_arith(e1)) {
-                linearize(model,  mul, e1, c, ts);
-                linearize(model, -mul, e2, c, ts);
+                linearize(mbo, model,  mul, e1, c, ts, tids);
+                linearize(mbo, model, -mul, e2, c, ts, tids);
                 ty = opt::t_eq;
             }  
             else if (m.is_distinct(lit) && !is_not && is_arith(to_app(lit)->get_arg(0))) {
@@ -137,55 +135,63 @@ namespace qe {
                 UNREACHABLE();
             }            
             else {
+                TRACE("qe", tout << "Skipping " << mk_pp(lit, m) << "\n";);
                 return;
             }
-            if (ty == opt::t_lt && is_int()) {
+#if 0
+            TBD for integers
+            if (ty == opt::t_lt && false) {
                 c += rational(1);
                 ty = opt::t_le;
             }            
+#endif
             vars coeffs;
-            extract_coefficients(ts, tids, coeffs);
+            extract_coefficients(mbo, model, ts, tids, coeffs);
             mbo.add_constraint(coeffs, c, ty);
         }
 
-        void linearize(model& model, rational const& mul, expr* t, rational& c, obj_map<expr, rational>& ts) {
+        //
+        // convert linear arithmetic term into an inequality for mbo.
+        // 
+        void linearize(opt::model_based_opt& mbo, model& model, rational const& mul, expr* t, rational& c, 
+                       obj_map<expr, rational>& ts, obj_map<expr, unsigned>& tids) {
             expr* t1, *t2, *t3;
             rational mul1;
             expr_ref val(m);
             if (a.is_mul(t, t1, t2) && is_numeral(model, t1, mul1)) {
-                linearize(model, mul* mul1, t2, c, ts);
+                linearize(mbo, model, mul* mul1, t2, c, ts, tids);
             }
             else if (a.is_mul(t, t1, t2) && is_numeral(model, t2, mul1)) {
-                linearize(model, mul* mul1, t1, c, ts);
+                linearize(mbo, model, mul* mul1, t1, c, ts, tids);
             }
             else if (a.is_add(t)) {
                 app* ap = to_app(t);
                 for (unsigned i = 0; i < ap->get_num_args(); ++i) {
-                    linearize(model, mul, ap->get_arg(i), c, ts);
+                    linearize(mbo, model, mul, ap->get_arg(i), c, ts, tids);
                 }
             }
             else if (a.is_sub(t, t1, t2)) {
-                linearize(model, mul, t1, c, ts);
-                linearize(model, -mul, t2, c, ts);
+                linearize(mbo, model, mul, t1, c, ts, tids);
+                linearize(mbo, model, -mul, t2, c, ts, tids);
             }
             else if (a.is_uminus(t, t1)) {
-                linearize(model, -mul, t1, c, ts);
+                linearize(mbo, model, -mul, t1, c, ts, tids);
             }
             else if (a.is_numeral(t, mul1)) {
                 c += mul*mul1;
-            }
-            else if (extract_mod(model, t, val)) {
-                insert_mul(val, mul, ts);
             }
             else if (m.is_ite(t, t1, t2, t3)) {
                 VERIFY(model.eval(t1, val));
                 SASSERT(m.is_true(val) || m.is_false(val));
                 TRACE("qe", tout << mk_pp(t1, m) << " := " << val << "\n";);
                 if (m.is_true(val)) {
-                    linearize(model, mul, t2, c, ts);
+                    linearize(mbo, model, mul, t2, c, ts, tids);
+                    linearize(mbo, model, t1, tids);
                 }
                 else {
-                    linearize(model, mul, t3, c, ts);
+                    expr_ref not_t1(mk_not(m, t1), m);
+                    linearize(mbo, model, mul, t3, c, ts, tids);
+                    linearize(mbo, model, not_t1, tids);
                 }
             }
             else {
@@ -193,6 +199,9 @@ namespace qe {
             }
         }
 
+        //
+        // extract linear terms from t into c and ts.
+        // 
         void is_linear(model& model, rational const& mul, expr* t, rational& c, expr_ref_vector& ts) {
             expr* t1, *t2, *t3;
             rational mul1;
@@ -245,7 +254,9 @@ namespace qe {
             }
         }
 
-
+        // 
+        // extract linear inequalities from literal lit.
+        // 
         bool is_linear(model& model, expr* lit, bool& found_eq) {
             rational c(0), mul(1);
             expr_ref t(m);
@@ -977,13 +988,13 @@ namespace qe {
             // extract objective function.
             vars coeffs;
             rational c(0), mul(1);
-            linearize(mdl, mul, t, c, ts);
-            extract_coefficients(ts, tids, coeffs);
+            linearize(mbo, mdl, mul, t, c, ts, tids);
+            extract_coefficients(mbo, mdl, ts, tids, coeffs);
             mbo.set_objective(coeffs, c);
 
             // extract linear constraints
             for (unsigned i = 0; i < fmls.size(); ++i) {
-                linearize(mdl, mbo, fmls[i], tids);
+                linearize(mbo, mdl, fmls[i], tids);
             }
             
             // find optimal value
@@ -1021,13 +1032,21 @@ namespace qe {
             return value;
         }
 
-        void extract_coefficients(obj_map<expr, rational> const& ts, obj_map<expr, unsigned>& tids, vars& coeffs) {
+        void extract_coefficients(opt::model_based_opt& mbo, model& model, obj_map<expr, rational> const& ts, obj_map<expr, unsigned>& tids, vars& coeffs) {
             coeffs.reset();
             obj_map<expr, rational>::iterator it = ts.begin(), end = ts.end();
             for (; it != end; ++it) {
                 unsigned id;
                 if (!tids.find(it->m_key, id)) {
-                    id = tids.size();
+                    rational r;
+                    expr_ref val(m);
+                    if (model.eval(it->m_key, val) && a.is_numeral(val, r)) {
+                        id = mbo.add_var(r);
+                    }
+                    else {
+                        TRACE("qe", tout << "extraction of coefficients cancelled\n";);
+                        return;
+                    }
                     tids.insert(it->m_key, id);
                 }
                 coeffs.push_back(var(id, it->m_value));                
