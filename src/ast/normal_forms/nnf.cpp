@@ -200,14 +200,14 @@ typedef default_exception nnf_exception;
 struct nnf::imp {
 
     struct frame {
-        expr *    m_curr;
+        expr_ref  m_curr;
         unsigned  m_i:28;
         unsigned  m_pol:1;  // pos/neg polarity
         unsigned  m_in_q:1; // true if m_curr is nested in a quantifier
         unsigned  m_new_child:1; 
         unsigned  m_cache_result:1;
         unsigned  m_spos;   // top of the result stack, when the frame was created.
-        frame(expr * n, bool pol, bool in_q, bool cache_res, unsigned spos):
+        frame(expr_ref& n, bool pol, bool in_q, bool cache_res, unsigned spos):
             m_curr(n),
             m_i(0),
             m_pol(pol),
@@ -225,7 +225,7 @@ struct nnf::imp {
 #define POS_Q_CIDX  3   // positive polarity and nested in a quantifier
     
     ast_manager &          m_manager;
-    svector<frame>         m_frame_stack;
+    vector<frame>          m_frame_stack;
     expr_ref_vector        m_result_stack;
     
     typedef act_cache      cache;
@@ -324,7 +324,8 @@ struct nnf::imp {
     }
 
     void push_frame(expr * t, bool pol, bool in_q, bool cache_res) {
-        m_frame_stack.push_back(frame(t, pol, in_q, cache_res, m_result_stack.size()));
+        expr_ref tr(t, m());
+        m_frame_stack.push_back(frame(tr, pol, in_q, cache_res, m_result_stack.size()));
     }
 
     static unsigned get_cache_idx(bool pol, bool in_q) { 
