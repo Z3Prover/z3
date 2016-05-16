@@ -1095,7 +1095,7 @@ void mpf_manager::round_to_integral(mpf_rounding_mode rm, mpf const & x, mpf & o
             TRACE("mpf_dbg", tout << "tie= " << tie << "; <tie = " << less_than_tie << "; >tie = " << more_than_tie << std::endl;);
             if (tie) {
                 if ((rm == MPF_ROUND_NEAREST_TEVEN && m_mpz_manager.is_odd(div)) ||
-                    (rm == MPF_ROUND_NEAREST_TAWAY && m_mpz_manager.is_even(div))) {
+                    (rm == MPF_ROUND_NEAREST_TAWAY)) {
                     TRACE("mpf_dbg", tout << "div++ (1)" << std::endl;);
                     m_mpz_manager.inc(div);
                 }
