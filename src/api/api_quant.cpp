@@ -72,7 +72,7 @@ extern "C" {
         expr * const* no_ps = reinterpret_cast<expr * const*>(no_patterns);
         pattern_validator v(mk_c(c)->m());
         for (unsigned i = 0; i < num_patterns; i++) {
-            if (!v(num_decls, ps[i])) {
+            if (!v(num_decls, ps[i], 0, 0)) {
                 SET_ERROR_CODE(Z3_INVALID_PATTERN);
                 return 0;
             }
