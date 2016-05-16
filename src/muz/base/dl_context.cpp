@@ -188,9 +188,8 @@ namespace datalog {
         if (m_trail.get_num_scopes() == 0) {
             throw default_exception("there are no backtracking points to pop to");
         }
-        if(m_engine.get()){
-            if(get_engine() != DUALITY_ENGINE)
-            throw default_exception("operation is not supported by engine");
+        if (m_engine.get() && get_engine() != DUALITY_ENGINE) {
+            throw default_exception("pop operation is only supported by duality engine");
         }
         m_trail.pop_scope(1); 
     }

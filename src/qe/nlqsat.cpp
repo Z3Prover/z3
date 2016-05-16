@@ -435,12 +435,11 @@ namespace qe {
         };
 
         class div_rewriter_cfg : public default_rewriter_cfg {
-            nlqsat&       s;
             ast_manager&  m;
             arith_util    a;
             vector<div>   m_divs;
         public:
-            div_rewriter_cfg(nlqsat& s): s(s), m(s.m), a(s.m) {}
+            div_rewriter_cfg(nlqsat& s): m(s.m), a(s.m) {}
             ~div_rewriter_cfg() {}
             br_status reduce_app(func_decl* f, unsigned sz, expr* const* args, expr_ref& result, proof_ref& pr) {
                 if (is_decl_of(f, a.get_family_id(), OP_DIV) && sz == 2 && !a.is_numeral(args[1]) && is_ground(args[0]) && is_ground(args[1])) {

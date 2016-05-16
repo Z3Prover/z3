@@ -1856,6 +1856,7 @@ namespace smt {
         ptr_vector<enode>   m_used_enodes;
         unsigned            m_curr_used_enodes_size;
         ptr_vector<enode>   m_pattern_instances; // collect the pattern instances... used for computing min_top_generation and max_top_generation
+        unsigned_vector     m_min_top_generation, m_max_top_generation;
 
         pool<enode_vector>  m_pool;
 
@@ -2034,28 +2035,26 @@ namespace smt {
         // init(t) must be invoked before execute_core
         void execute_core(code_tree * t, enode * n);
 
-        // Return the min generation of the enodes in m_pattern_instances.
-        unsigned get_min_top_generation() const {
-            SASSERT(!m_pattern_instances.empty());
-            unsigned min = m_pattern_instances[0]->get_generation();
-            for (unsigned i = 1; i < m_pattern_instances.size(); i++) {
-                unsigned curr = m_pattern_instances[i]->get_generation();
-                if (min > curr)
-                    min = curr;
-            }
-            return min;
-        }
+        // Return the min, max generation of the enodes in m_pattern_instances.
 
-        // Return the max generation of the enodes in m_pattern_instances.
-        unsigned get_max_top_generation() const {
+        void get_min_max_top_generation(unsigned& min, unsigned& max) {
             SASSERT(!m_pattern_instances.empty());
-            unsigned max = m_pattern_instances[0]->get_generation();
-            for (unsigned i = 1; i < m_pattern_instances.size(); i++) {
-                unsigned curr = m_pattern_instances[i]->get_generation();
-                if (max < curr)
-                    max = curr;
+            if (m_min_top_generation.empty()) {
+                min = max = m_pattern_instances[0]->get_generation();
+                m_min_top_generation.push_back(min);
+                m_max_top_generation.push_back(max);
             }
-            return max;
+            else {
+                min = m_min_top_generation.back();
+                max = m_max_top_generation.back();
+            }
+            for (unsigned i = m_min_top_generation.size(); i < m_pattern_instances.size(); ++i) {
+                unsigned curr = m_pattern_instances[i]->get_generation();
+                min = std::min(min, curr);
+                m_min_top_generation.push_back(min);
+                max = std::max(max, curr);
+                m_max_top_generation.push_back(max);
+            }
         }
     };
 
@@ -2278,6 +2277,8 @@ namespace smt {
         TRACE("mam_execute_core", tout << "EXEC " << t->get_root_lbl()->get_name() << "\n";);
         SASSERT(m_context.is_relevant(n));
         m_pattern_instances.reset();
+        m_min_top_generation.reset();
+        m_max_top_generation.reset();
         m_pattern_instances.push_back(n);
         m_max_generation = n->get_generation();
 
@@ -2289,8 +2290,10 @@ namespace smt {
         m_pc             = t->get_root();
         m_registers[0]   = n;
         m_top            = 0;
+
         
     main_loop:
+
         TRACE("mam_int", display_pc_info(tout););
 #ifdef _PROFILE_MAM
         const_cast<instruction*>(m_pc)->m_counter++;
@@ -2497,8 +2500,11 @@ namespace smt {
 
         case YIELD1:
             m_bindings[0] = m_registers[static_cast<const yield *>(m_pc)->m_bindings[0]];
-#define ON_MATCH(NUM)                                                                                   \
+#define ON_MATCH(NUM)                                                   \
             m_max_generation = std::max(m_max_generation, get_max_generation(NUM, m_bindings.begin())); \
+            if (m_context.get_cancel_flag()) {                          \
+                return;                                                 \
+            }                                                           \
             m_mam.on_match(static_cast<const yield *>(m_pc)->m_qa,                                      \
                            static_cast<const yield *>(m_pc)->m_pat,                                     \
                            NUM,                                                                         \
@@ -2770,9 +2776,12 @@ namespace smt {
                 if (m_app->get_num_args() == c->m_num_args && m_context.is_relevant(m_app)) {
                     // update the pattern instance
                     SASSERT(!m_pattern_instances.empty());
+                    if (m_pattern_instances.size() == m_max_top_generation.size()) {
+                        m_max_top_generation.pop_back();
+                        m_min_top_generation.pop_back();
+                    }
                     m_pattern_instances.pop_back();
                     m_pattern_instances.push_back(m_app);
-                    
                     // continue succeeded
                     update_max_generation(m_app);
                     TRACE("mam_int", tout << "continue next candidate:\n" << mk_ll_pp(m_app->get_owner(), m_ast_manager););
@@ -3932,7 +3941,9 @@ namespace smt {
                 SASSERT(bindings[i]->get_generation() <= max_generation);
             }
 #endif
-            m_context.add_instance(qa, pat, num_bindings, bindings, max_generation, m_interpreter.get_min_top_generation(), m_interpreter.get_max_top_generation(), used_enodes);
+            unsigned min_gen, max_gen;
+            m_interpreter.get_min_max_top_generation(min_gen, max_gen);
+            m_context.add_instance(qa, pat, num_bindings, bindings, max_generation, min_gen, max_gen, used_enodes);
         }
 
         virtual bool is_shared(enode * n) const {

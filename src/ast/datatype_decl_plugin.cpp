@@ -462,7 +462,7 @@ func_decl * datatype_decl_plugin::mk_update_field(
     }
     range = domain[0];
     func_decl_info info(m_family_id, k, num_parameters, parameters);
-    return m.mk_func_decl(symbol("update_field"), arity, domain, range, info);
+    return m.mk_func_decl(symbol("update-field"), arity, domain, range, info);
 }
 
 func_decl * datatype_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
