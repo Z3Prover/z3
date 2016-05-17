@@ -357,15 +357,9 @@ expr * theory_str::mk_internal_lenTest_var(expr * node, int lTries) {
 	ss << "$$_len_" << mk_ismt2_pp(node, m) << "_" << lTries << "_" << tmpLenTestVarCount;
 	tmpLenTestVarCount += 1;
 	std::string name = ss.str();
-	return mk_str_var(name);
-
-	/*
-  Z3_context ctx = Z3_theory_get_context(t);
-  std::stringstream ss;
-  ss << "$$_len_" << Z3_ast_to_string(ctx, node) << "_" << lTries;
-  std::string name = ss.str();
-  return my_mk_str_var(t, name.c_str());
-  */
+	app * var = mk_str_var(name);
+	internal_lenTest_vars.insert(var);
+	return var;
 }
 
 expr * theory_str::mk_internal_valTest_var(expr * node, int len, int vTries) {
@@ -374,15 +368,9 @@ expr * theory_str::mk_internal_valTest_var(expr * node, int len, int vTries) {
 	ss << "$$_val_" << mk_ismt2_pp(node, m) << "_" << len << "_" << vTries << "_" << tmpValTestVarCount;
 	tmpValTestVarCount += 1;
 	std::string name = ss.str();
-	return mk_str_var(name);
-
-	/*
-  Z3_context ctx = Z3_theory_get_context(t);
-  std::stringstream ss;
-  ss << "$$_val_" << Z3_ast_to_string(ctx, node) << "_" << len << "_" << vTries;
-  std::string name = ss.str();
-  return my_mk_str_var(t, name.c_str());
-  */
+	app * var = mk_str_var(name);
+	internal_valTest_vars.insert(var);
+	return var;
 }
 
 void theory_str::track_variable_scope(expr * var) {
@@ -2748,33 +2736,65 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
     }
 }
 
-bool theory_str::free_var_attempt(expr * nn1, expr * nn2) {
-    /*
-    Z3_context ctx = Z3_theory_get_context(t);
-    if (getNodeType(t, nn1) == my_Z3_Str_Var) {
-      std::string vName = std::string(Z3_ast_to_string(ctx, nn1));
-      if (vName.length() >= 6) {
-        std::string vPrefix = vName.substr(0, 6);
-        // length attempts
-        if (vPrefix == "$$_len") {
-          if (getNodeType(t, nn2) == my_Z3_ConstStr) {
-            moreLenTests(t, nn1, getConstStrValue(t, nn2));
-          }
-          return 1;
+void theory_str::more_len_tests(expr * lenTester, std::string lenTesterValue) {
+    ast_manager & m = get_manager();
+    if (lenTester_fvar_map.find(lenTester) != lenTester_fvar_map.end()) {
+        expr * fVar = lenTester_fvar_map[lenTester];
+        expr * toAssert = gen_len_val_options_for_free_var(fVar, lenTester, lenTesterValue);
+        TRACE("t_str_detail", tout << "asserting more length tests for free variable " << mk_ismt2_pp(fVar, m) << std::endl;);
+        if (toAssert != NULL) {
+            assert_axiom(toAssert);
         }
-        // value attempts
-        else if (vPrefix == "$$_val") {
-          if (getNodeType(t, nn2) == my_Z3_ConstStr && "more" == getConstStrValue(t, nn2)) {
-            moreValueTests(t, nn1, getConstStrValue(t, nn2));
-          }
-          return 1;
-        } else if (vPrefix == "$$_uRt") {
-          return 1;
-        }
-      }
     }
-    return 0;
-    */
+}
+
+void theory_str::more_value_tests(expr * valTester, std::string valTesterValue) {
+    ast_manager & m = get_manager();
+
+    expr * fVar = valueTester_fvar_map[valTester];
+    int lenTesterCount = fvar_lenTester_map[fVar].size();
+
+    expr * effectiveLenInd = NULL;
+    std::string effectiveLenIndiStr = "";
+    for (int i = 0; i < lenTesterCount; ++i) {
+        expr * len_indicator_pre = fvar_lenTester_map[fVar][i];
+        bool indicatorHasEqcValue = false;
+        expr * len_indicator_value = get_eqc_value(len_indicator_pre, indicatorHasEqcValue);
+        if (indicatorHasEqcValue) {
+            std::string len_pIndiStr = m_strutil.get_string_constant_value(len_indicator_value);
+            if (len_pIndiStr != "more") {
+                effectiveLenInd = len_indicator_pre;
+                effectiveLenIndiStr = len_pIndiStr;
+                break;
+            }
+        }
+    }
+    expr * valueAssert = gen_free_var_options(fVar, effectiveLenInd, effectiveLenIndiStr, valTester, valTesterValue);
+    TRACE("t_str_detail", tout << "asserting more value tests for free variable " << mk_ismt2_pp(fVar, m) << std::endl;);
+    if (valueAssert != NULL) {
+        assert_axiom(valueAssert);
+    }
+}
+
+bool theory_str::free_var_attempt(expr * nn1, expr * nn2) {
+    ast_manager & m = get_manager();
+
+    if (internal_lenTest_vars.contains(nn1) && m_strutil.is_string(nn2)) {
+        TRACE("t_str", tout << "acting on equivalence between length tester var " << mk_ismt2_pp(nn1, m)
+                << " and constant " << mk_ismt2_pp(nn2, m) << std::endl;);
+        more_len_tests(nn1, m_strutil.get_string_constant_value(nn2));
+        return true;
+    } else if (internal_valTest_vars.contains(nn1) && m_strutil.is_string(nn2)) {
+        std::string nn2_str = m_strutil.get_string_constant_value(nn2);
+        if (nn2_str == "more") {
+            TRACE("t_str", tout << "acting on equivalence between value var " << mk_ismt2_pp(nn1, m)
+                            << " and constant " << mk_ismt2_pp(nn2, m) << std::endl;);
+            more_value_tests(nn1, nn2_str);
+        }
+        return true;
+    } else {
+        return false;
+    }
 }
 
 void theory_str::handle_equality(expr * lhs, expr * rhs) {
@@ -2787,6 +2807,10 @@ void theory_str::handle_equality(expr * lhs, expr * rhs) {
 
     if (lhs_sort != str_sort || rhs_sort != str_sort) {
         TRACE("t_str_detail", tout << "skip equality: not String sort" << std::endl;);
+        return;
+    }
+
+    if (free_var_attempt(lhs, rhs) || free_var_attempt(rhs, lhs)) {
         return;
     }
 

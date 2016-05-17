@@ -90,6 +90,9 @@ namespace smt {
         std::set<expr*> internal_variable_set;
         std::map<int, std::set<expr*> > internal_variable_scope_levels;
 
+        obj_hashtable<expr> internal_lenTest_vars;
+        obj_hashtable<expr> internal_valTest_vars;
+
         std::set<expr*> input_var_in_len;
 
         std::map<expr*, unsigned int> fvar_len_count_map;
@@ -192,6 +195,8 @@ namespace smt {
         std::string gen_val_string(int len, int_vector & encoding);
 
         bool free_var_attempt(expr * nn1, expr * nn2);
+        void more_len_tests(expr * lenTester, std::string lenTesterValue);
+        void more_value_tests(expr * valTester, std::string valTesterValue);
 
         expr * get_alias_index_ast(std::map<expr*, expr*> & aliasIndexMap, expr * node);
         expr * getMostLeftNodeInConcat(expr * node);
