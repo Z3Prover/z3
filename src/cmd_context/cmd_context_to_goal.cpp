@@ -31,8 +31,7 @@ void assert_exprs_from(cmd_context const & ctx, goal & t) {
         ptr_vector<expr>::const_iterator it   = ctx.begin_assertions();
         ptr_vector<expr>::const_iterator end  = ctx.end_assertions();
         ptr_vector<expr>::const_iterator it2  = ctx.begin_assertion_names();
-        ptr_vector<expr>::const_iterator end2 = ctx.end_assertion_names();
-        SASSERT(end - it == end2 - it2);
+        SASSERT(end - it == ctx.end_assertion_names() - it2);
         for (; it != end; ++it, ++it2) {
             t.assert_expr(*it, proofs_enabled ? m.mk_asserted(*it) : 0, m.mk_leaf(*it2));
         }

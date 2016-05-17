@@ -3244,8 +3244,7 @@ void theory_seq::add_at_axiom(expr* e) {
    step(s, idx, re, i, j, t) -> nth(s, idx) == t & len(s) > idx
 */
 void theory_seq::propagate_step(literal lit, expr* step) {
-    context& ctx = get_context();
-    SASSERT(ctx.get_assignment(lit) == l_true);
+    SASSERT(get_context().get_assignment(lit) == l_true);
     expr* re, *acc, *s, *idx, *i, *j;
     VERIFY(is_step(step, s, idx, re, i, j, acc));
     TRACE("seq", tout << mk_pp(step, m) << " -> " << mk_pp(acc, m) << "\n";);
@@ -3265,9 +3264,8 @@ void theory_seq::propagate_step(literal lit, expr* step) {
     lit => s = (nth s 0) ++ (nth s 1) ++ ... ++ (nth s idx) ++ (tail s idx)
 */
 void theory_seq::ensure_nth(literal lit, expr* s, expr* idx) {
-    context& ctx = get_context();
     rational r;
-    SASSERT(ctx.get_assignment(lit) == l_true);
+    SASSERT(get_context().get_assignment(lit) == l_true);
     VERIFY(m_autil.is_numeral(idx, r) && r.is_unsigned());
     unsigned _idx = r.get_unsigned();
     expr_ref head(m), tail(m), conc(m), len1(m), len2(m);

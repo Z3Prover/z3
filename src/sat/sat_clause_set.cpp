@@ -64,6 +64,7 @@ namespace sat {
     }
 
     bool clause_set::check_invariant() const {
+        DEBUG_CODE(
         {
             clause_vector::const_iterator it  = m_set.begin();
             clause_vector::const_iterator end = m_set.end();
@@ -83,7 +84,7 @@ namespace sat {
                 SASSERT(pos < m_set.size());
                 SASSERT(m_set[pos]->id() == id);
             }
-        }
+        });
         return true;
     }
 

@@ -345,10 +345,11 @@ namespace sat {
     }
 
     void bceq::verify_sweep() {
-        for (unsigned i = 0; i < m_L.size(); ++i) {
-            uint64 b = eval_clause(*m_L[i]);
-            SASSERT((~b) == 0);
-        }
+        DEBUG_CODE(
+            for (unsigned i = 0; i < m_L.size(); ++i) {
+                uint64 b = eval_clause(*m_L[i]);
+                SASSERT((~b) == 0);
+            });
     }
 
     struct u64_hash { unsigned operator()(uint64 u) const { return (unsigned)u; } };
