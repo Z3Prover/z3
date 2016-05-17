@@ -3741,7 +3741,6 @@ expr_ref theory_seq::mk_step(expr* s, expr* idx, expr* re, unsigned i, unsigned 
    rej(s, idx, re, i) -> len(s) > idx     if i is final
 */
 void theory_seq::propagate_acc_rej_length(literal lit, expr* e) {
-    context& ctx = get_context();
     expr *s, * idx, *re;
     unsigned src;
     eautomaton* aut = 0;
@@ -3752,7 +3751,7 @@ void theory_seq::propagate_acc_rej_length(literal lit, expr* e) {
     }
     if (m_util.str.is_length(idx)) return;
     SASSERT(m_autil.is_numeral(idx));
-    SASSERT(ctx.get_assignment(lit) == l_true);
+    SASSERT(get_context().get_assignment(lit) == l_true);
     bool is_final = aut->is_final_state(src);
     if (is_final == is_acc) {
         propagate_lit(0, 1, &lit, mk_literal(m_autil.mk_ge(m_util.str.mk_length(s), idx)));

@@ -3545,10 +3545,9 @@ namespace smt {
         //
         // Since we only care about q (and its bindings), it only makes sense to restrict the variables of q.
         bool asserted_something = false;
-        quantifier * flat_q = get_flat_quantifier(q);
         unsigned num_decls      = q->get_num_decls();
         // Remark: sks were created for the flat version of q.
-        SASSERT(flat_q->get_num_decls() == sks.size());
+        SASSERT(get_flat_quantifier(q)->get_num_decls() == sks.size());
         SASSERT(sks.size() >= num_decls);
         for (unsigned i = 0; i < num_decls; i++) {
             expr * sk = sks.get(num_decls - i - 1);
