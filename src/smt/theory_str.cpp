@@ -963,7 +963,7 @@ void theory_str::simplify_parent(expr * nn, expr * eq_str) {
 
                     // (Concat arg0 n_eqNode) /\ arg0 has eq const
 
-                    expr * concatResult = eval_concat(eq_str, arg1);
+                    expr * concatResult = eval_concat(arg0, eq_str);
                     if (concatResult != NULL) {
                         bool arg0HasEqcValue = false;
                         expr * arg0Value = get_eqc_value(arg0, arg0HasEqcValue);
