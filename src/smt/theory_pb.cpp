@@ -787,8 +787,7 @@ namespace smt {
             }
 
             for (unsigned i = 0; i < ineqs->size(); ++i) {
-                ineq* c = (*ineqs)[i]; 
-                SASSERT(c->is_ge());
+                SASSERT((*ineqs)[i]->is_ge());
                 if (assign_watch_ge(v, is_true, *ineqs, i)) {
                     // i was removed from watch list.
                     --i;
@@ -1834,13 +1833,12 @@ namespace smt {
 
     void theory_pb::validate_assign(ineq const& c, literal_vector const& lits, literal l) const {
         uint_set nlits;
-        context& ctx = get_context();
         for (unsigned i = 0; i < lits.size(); ++i) {
-            SASSERT(ctx.get_assignment(lits[i]) == l_true);
+            SASSERT(get_context().get_assignment(lits[i]) == l_true);
             nlits.insert((~lits[i]).index());
         }
-        SASSERT(ctx.get_assignment(l) == l_undef);
-        SASSERT(ctx.get_assignment(c.lit()) == l_true);
+        SASSERT(get_context().get_assignment(l) == l_undef);
+        SASSERT(get_context().get_assignment(c.lit()) == l_true);
         nlits.insert(l.index());
         numeral sum = numeral::zero();
         for (unsigned i = 0; i < c.size(); ++i) {

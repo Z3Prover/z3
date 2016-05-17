@@ -306,9 +306,10 @@ namespace smt {
 
     app * theory_fpa::fpa_rm_value_proc::mk_value(model_generator & mg, ptr_vector<expr> & values) {
         SASSERT(values.size() == 1);
-        ast_manager & m = m_th.get_manager();
 
-        TRACE("t_fpa_detail", for (unsigned i = 0; i < values.size(); i++)
+        TRACE("t_fpa_detail", 
+              ast_manager & m = m_th.get_manager();
+              for (unsigned i = 0; i < values.size(); i++)
               tout << "value[" << i << "] = " << mk_ismt2_pp(values[i], m) << std::endl;);
 
         app * result = 0;

@@ -542,10 +542,11 @@ namespace simplex {
                 continue;
             }
             SASSERT(!rows.contains(c.m_row_id));
-            _row const& row = m_rows[c.m_row_id];
-            _row_entry const& r = row.m_entries[c.m_row_idx];
-            SASSERT(r.m_var == v); 
-            SASSERT((unsigned)r.m_col_idx == i);
+            DEBUG_CODE(
+                _row const& row = m_rows[c.m_row_id];
+                _row_entry const& r = row.m_entries[c.m_row_idx];
+                SASSERT(r.m_var == v); 
+                SASSERT((unsigned)r.m_col_idx == i););
             rows.insert(c.m_row_id);
         }                           
         int idx = col.m_first_free_idx;
