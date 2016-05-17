@@ -1820,15 +1820,22 @@ bool theory_seq::solve_ne(unsigned idx) {
             TRACE("seq", display_disequation(tout << "reduces to false: ", n););
             return true;
         }
-        else if (!change) {
-            TRACE("seq", tout << "no change " << n.ls(i) << " " << n.rs(i) << "\n";);
-            if (updated) {
-                new_ls.push_back(n.ls(i));
-                new_rs.push_back(n.rs(i));
-            }
-            continue;
-        }
         else {
+
+            // eliminate ite expressions.
+            reduce_ite(lhs, new_lits, num_undef_lits, change);
+            reduce_ite(rhs, new_lits, num_undef_lits, change);
+            reduce_ite(ls, new_lits, num_undef_lits, change);
+            reduce_ite(rs, new_lits, num_undef_lits, change);            
+
+            if (!change) {
+                TRACE("seq", tout << "no change " << n.ls(i) << " " << n.rs(i) << "\n";);
+                if (updated) {
+                    new_ls.push_back(n.ls(i));
+                    new_rs.push_back(n.rs(i));
+                }
+                continue;
+            }
 
             if (!updated) {
                 for (unsigned j = 0; j < i; ++j) {
@@ -1932,6 +1939,33 @@ bool theory_seq::solve_ne(unsigned idx) {
     }
     return updated;
 }
+
+void theory_seq::reduce_ite(expr_ref_vector & ls, literal_vector& new_lits, unsigned& num_undef_lits, bool& change) {
+    expr* cond, *th, *el;
+    context& ctx = get_context();
+    for (unsigned i = 0; i < ls.size(); ++i) {
+        expr* e = ls[i].get();
+        if (m.is_ite(e, cond, th, el)) {
+            literal lit(mk_literal(cond));
+            switch (ctx.get_assignment(lit)) {
+            case l_true:
+                change = true;
+                new_lits.push_back(lit);
+                ls[i] = th;
+                break;
+            case l_false:
+                change = true;
+                new_lits.push_back(~lit);
+                ls[i] = el;
+                break;
+            case l_undef:
+                ++num_undef_lits;
+                break;
+            }
+        }
+    }
+}
+
 
 bool theory_seq::solve_nc(unsigned idx) {
     nc const& n = m_ncs[idx];
@@ -2212,7 +2246,6 @@ bool theory_seq::add_itos_axiom(expr* e) {
     if (get_value(n, val)) {
         if (!m_itos_axioms.contains(val)) {
             m_itos_axioms.insert(val);
-
             app_ref e1(m_util.str.mk_string(symbol(val.to_string().c_str())), m);            
             expr_ref n1(arith_util(m).mk_numeral(val, true), m);
             add_axiom(mk_eq(m_util.str.mk_itos(n1), e1, false));
@@ -2603,6 +2636,32 @@ expr_ref theory_seq::expand(expr* e0, dependency*& eqs) {
     }
     else if (m_util.str.is_index(e, e1, e2, e3)) {
         result = m_util.str.mk_index(expand(e1, deps), expand(e2, deps), e3);
+    }
+    else if (m_util.str.is_itos(e, e1)) {
+        rational val;
+        if (get_value(e1, val)) {
+            expr_ref num(m), res(m);
+            context& ctx = get_context();
+            num = m_autil.mk_numeral(val, true);
+            if (!ctx.e_internalized(num)) {
+                ctx.internalize(num, false);
+            }
+            enode* n1 = ctx.get_enode(num);
+            enode* n2 = ctx.get_enode(e1);
+            res = m_util.str.mk_string(symbol(val.to_string().c_str()));
+            if (n1->get_root() == n2->get_root()) {
+                result = res;
+                deps = m_dm.mk_join(deps, m_dm.mk_leaf(assumption(n1, n2)));
+            }
+            else {
+                add_axiom(~mk_eq(num, e1, false), mk_eq(e, res, false));
+                add_axiom(mk_eq(num, e1, false), ~mk_eq(e, res, false));
+                result = e;
+            }
+        }
+        else {
+            result = e;
+        }
     }
     else {
         result = e;

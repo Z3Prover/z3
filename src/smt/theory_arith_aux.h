@@ -813,7 +813,7 @@ namespace smt {
                 continue;
             if (proofs_enabled()) {
                 new_bound.push_lit(l, ante.lit_coeffs()[i]);
-            }			
+            }
             else {
                 new_bound.push_lit(l, numeral::zero());
                 lits.insert(l.index());

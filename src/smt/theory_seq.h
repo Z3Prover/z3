@@ -410,6 +410,7 @@ namespace smt {
         bool solve_nqs(unsigned i);
         bool solve_ne(unsigned i);
         bool solve_nc(unsigned i);
+        void reduce_ite(expr_ref_vector& ls, literal_vector& new_lits, unsigned& num_undef_lits, bool& change);
 
         struct cell {
             cell*       m_parent;

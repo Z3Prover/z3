@@ -71,12 +71,14 @@ void solver_na2as::push() {
 }
 
 void solver_na2as::pop(unsigned n) {
-    pop_core(n);
-    unsigned lvl = m_scopes.size();
-    SASSERT(n <= lvl);
-    unsigned new_lvl = lvl - n;
-    restore_assumptions(m_scopes[new_lvl]);
-    m_scopes.shrink(new_lvl);
+    if (n > 0) {
+        pop_core(n);
+        unsigned lvl = m_scopes.size();
+        SASSERT(n <= lvl);
+        unsigned new_lvl = lvl - n;
+        restore_assumptions(m_scopes[new_lvl]);
+        m_scopes.shrink(new_lvl);
+    }
 }
 
 void solver_na2as::restore_assumptions(unsigned old_sz) {

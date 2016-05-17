@@ -34,6 +34,7 @@ Notes:
 #include "arith_decl_plugin.h"
 #include "theory_arith.h"
 #include "ast_pp.h"
+#include "ast_util.h"
 #include "model_pp.h"
 #include "th_rewriter.h"
 #include "opt_params.hpp"
@@ -96,6 +97,158 @@ namespace opt {
     /*
         Enumerate locally optimal assignments until fixedpoint.
     */
+    lbool optsmt::geometric_opt() {
+        lbool is_sat = l_true;
+
+        expr_ref bound(m);
+
+        vector<inf_eps> lower(m_lower);
+        unsigned steps = 0;
+        unsigned step_incs = 0;
+        rational delta_per_step(1);
+        unsigned num_scopes = 0;
+        unsigned delta_index = 0;    // index of objective to speed up.
+
+        while (!m.canceled()) {
+            SASSERT(delta_per_step.is_int());
+            SASSERT(delta_per_step.is_pos());
+            is_sat = m_s->check_sat(0, 0);
+            if (is_sat == l_true) {                
+                bound = update_lower();
+                if (!get_max_delta(lower, delta_index)) {
+                    delta_per_step = rational::one();
+                }
+                else if (steps > step_incs) {
+                    delta_per_step *= rational(2);
+                    ++step_incs;
+                    steps = 0;
+                }
+                else {
+                    ++steps;
+                }
+                if (delta_per_step > rational::one()) {
+                    m_s->push();
+                    ++num_scopes;
+                    // only try to improve delta_index. 
+                    bound = m_s->mk_ge(delta_index, m_lower[delta_index] + inf_eps(delta_per_step));
+                }
+                TRACE("opt", tout << delta_per_step << " " << bound << "\n";);
+                m_s->assert_expr(bound);
+            }
+            else if (is_sat == l_false && delta_per_step > rational::one()) {
+                steps = 0;
+                step_incs = 0;
+                delta_per_step = rational::one();
+                SASSERT(num_scopes > 0);
+                --num_scopes;
+                m_s->pop(1);             
+            }
+            else {
+                break;
+            }
+        }
+        m_s->pop(num_scopes);        
+        
+        if (m.canceled() || is_sat == l_undef) {
+            return l_undef;
+        }
+
+        // set the solution tight.
+        for (unsigned i = 0; i < m_lower.size(); ++i) {
+            m_upper[i] = m_lower[i];
+        }
+        
+        return l_true;        
+    }
+
+
+    lbool optsmt::geometric_lex(unsigned obj_index, bool is_maximize) {
+        arith_util arith(m);
+        bool is_int = arith.is_int(m_objs[obj_index].get());
+        lbool is_sat = l_true;
+        expr_ref bound(m);
+
+        for (unsigned i = 0; i < obj_index; ++i) {
+            commit_assignment(i);
+        }
+
+        unsigned steps = 0;
+        unsigned step_incs = 0;
+        rational delta_per_step(1);
+        unsigned num_scopes = 0;
+
+        while (!m.canceled()) {
+            SASSERT(delta_per_step.is_int());
+            SASSERT(delta_per_step.is_pos());
+            is_sat = m_s->check_sat(0, 0);
+            if (is_sat == l_true) {                
+                m_s->maximize_objective(obj_index, bound);
+                m_s->get_model(m_model);
+                m_s->get_labels(m_labels);
+                inf_eps obj = m_s->saved_objective_value(obj_index);
+                update_lower_lex(obj_index, obj, is_maximize);
+                if (!is_int || !m_lower[obj_index].is_finite()) {
+                    delta_per_step = rational(1);
+                }
+                else if (steps > step_incs) {
+                    delta_per_step *= rational(2);
+                    ++step_incs;
+                    steps = 0;
+                }
+                else {
+                    ++steps;
+                }
+                if (delta_per_step > rational::one()) {
+                    m_s->push();
+                    ++num_scopes;
+                    bound = m_s->mk_ge(obj_index, obj + inf_eps(delta_per_step));
+                }
+                TRACE("opt", tout << delta_per_step << " " << bound << "\n";);
+                m_s->assert_expr(bound);
+            }
+            else if (is_sat == l_false && delta_per_step > rational::one()) {
+                steps = 0;
+                step_incs = 0;
+                delta_per_step = rational::one();
+                SASSERT(num_scopes > 0);
+                --num_scopes;
+                m_s->pop(1);             
+            }
+            else {
+                break;
+            }
+        }
+        m_s->pop(num_scopes);        
+        
+        if (m.canceled() || is_sat == l_undef) {
+            return l_undef;
+        }
+
+        // set the solution tight.
+        m_upper[obj_index] = m_lower[obj_index];    
+        for (unsigned i = obj_index+1; i < m_lower.size(); ++i) {
+            m_lower[i] = inf_eps(rational(-1), inf_rational(0));
+        }
+        return l_true;
+    }
+
+    bool optsmt::get_max_delta(vector<inf_eps> const& lower, unsigned& idx) {
+        arith_util arith(m);
+        inf_eps max_delta;
+        for (unsigned i = 0; i < m_lower.size(); ++i) {
+            if (arith.is_int(m_objs[i].get())) {
+                inf_eps delta = m_lower[i] - lower[i];  
+                if (m_lower[i].is_finite() && delta > max_delta) {
+                    max_delta = delta;
+                }
+            }
+        }
+        return max_delta.is_pos();
+    }
+
+    /*
+        Enumerate locally optimal assignments until fixedpoint.
+    */
     lbool optsmt::farkas_opt() {
         smt::theory_opt& opt = m_s->get_optimizer();
 
@@ -122,6 +275,7 @@ namespace opt {
     }
 
     lbool optsmt::symba_opt() {
+
         smt::theory_opt& opt = m_s->get_optimizer();
 
         if (typeid(smt::theory_inf_arith) != typeid(opt)) {
@@ -138,7 +292,7 @@ namespace opt {
             }
             
             
-            fml = m.mk_or(ors.size(), ors.c_ptr());
+            fml = mk_or(ors);
             tmp = m.mk_fresh_const("b", m.mk_bool_sort());
             fml = m.mk_implies(tmp, fml);
             vars[0] = tmp;
@@ -163,7 +317,7 @@ namespace opt {
                         }
                     }
                     set_max(m_lower, m_s->get_objective_values(), disj);
-                    fml = m.mk_or(ors.size(), ors.c_ptr());
+                    fml = mk_or(ors);
                     tmp = m.mk_fresh_const("b", m.mk_bool_sort());
                     fml = m.mk_implies(tmp, fml);
                     vars[0] = tmp;
@@ -176,13 +330,30 @@ namespace opt {
                 }
             }
         }
-        bound = m.mk_or(m_lower_fmls.size(), m_lower_fmls.c_ptr());
+        bound = mk_or(m_lower_fmls);
         m_s->assert_expr(bound);
         
         if (m.canceled()) {
             return l_undef;
         }
-        return basic_opt();
+        return geometric_opt();
+    }
+
+    void optsmt::update_lower_lex(unsigned idx, inf_eps const& v, bool is_maximize) {
+        if (v > m_lower[idx]) {
+            m_lower[idx] = v;                
+            IF_VERBOSE(1, 
+                       if (is_maximize) 
+                           verbose_stream() << "(optsmt lower bound: " << v << ")\n";
+                       else
+                           verbose_stream() << "(optsmt upper bound: " << (-v) << ")\n";
+                       );
+            expr_ref tmp(m);
+            for (unsigned i = idx+1; i < m_vars.size(); ++i) {
+                m_s->maximize_objective(i, tmp);
+                m_lower[i] = m_s->saved_objective_value(i);
+            }
+        }
     }
 
     void optsmt::update_lower(unsigned idx, inf_eps const& v) {
@@ -196,28 +367,22 @@ namespace opt {
         m_upper[idx] = v;                    
     }
 
+    std::ostream& operator<<(std::ostream& out, vector<inf_eps> const& vs) {
+        for (unsigned i = 0; i < vs.size(); ++i) {
+            out << vs[i] << " ";
+        }
+        return out;
+    }
+
     expr_ref optsmt::update_lower() {
         expr_ref_vector disj(m);
         m_s->get_model(m_model);
         m_s->get_labels(m_labels);
         m_s->maximize_objectives(disj);
         set_max(m_lower, m_s->get_objective_values(), disj);
-        TRACE("opt",
-              for (unsigned i = 0; i < m_lower.size(); ++i) {
-                  tout << m_lower[i] << " ";
-              }
-              tout << "\n";
-              model_pp(tout, *m_model);
-              );
-        IF_VERBOSE(2, verbose_stream() << "(optsmt.lower ";
-                   for (unsigned i = 0; i < m_lower.size(); ++i) {
-                       verbose_stream() << m_lower[i] << " ";
-                   }
-                   verbose_stream() << ")\n";);
-        IF_VERBOSE(3, verbose_stream() << disj << "\n";);
-        IF_VERBOSE(3, model_pp(verbose_stream(), *m_model););
-
-        return expr_ref(m.mk_or(disj.size(), disj.c_ptr()), m);
+        TRACE("opt", model_pp(tout << m_lower << "\n", *m_model););
+        IF_VERBOSE(2, verbose_stream() << "(optsmt.lower " << m_lower << ")\n";);
+        return mk_or(disj);
     }
 
     lbool optsmt::update_upper() {
@@ -312,12 +477,21 @@ namespace opt {
         TRACE("opt", tout << "optsmt:lex\n";);
         solver::scoped_push _push(*m_s);
         SASSERT(obj_index < m_vars.size());
-        return basic_lex(obj_index, is_maximize);
+        if (is_maximize && m_optsmt_engine == symbol("farkas")) {
+            return farkas_opt();
+        }
+        else if (is_maximize && m_optsmt_engine == symbol("symba")) {
+            return symba_opt();
+        }
+        else {
+            return geometric_lex(obj_index, is_maximize);
+        }
     }
 
+    // deprecated
     lbool optsmt::basic_lex(unsigned obj_index, bool is_maximize) {
         lbool is_sat = l_true;
-        expr_ref block(m), tmp(m);
+        expr_ref bound(m);
 
         for (unsigned i = 0; i < obj_index; ++i) {
             commit_assignment(i);
@@ -326,25 +500,13 @@ namespace opt {
             is_sat = m_s->check_sat(0, 0); 
             if (is_sat != l_true) break;
             
-            m_s->maximize_objective(obj_index, block);
+            m_s->maximize_objective(obj_index, bound);
             m_s->get_model(m_model);
             m_s->get_labels(m_labels);
             inf_eps obj = m_s->saved_objective_value(obj_index);
-            if (obj > m_lower[obj_index]) {
-                m_lower[obj_index] = obj;                
-                IF_VERBOSE(1, 
-                           if (is_maximize) 
-                               verbose_stream() << "(optsmt lower bound: " << obj << ")\n";
-                           else
-                               verbose_stream() << "(optsmt upper bound: " << (-obj) << ")\n";
-                           );
-                for (unsigned i = obj_index+1; i < m_vars.size(); ++i) {
-                    m_s->maximize_objective(i, tmp);
-                    m_lower[i] = m_s->saved_objective_value(i);
-                }
-            }
-            TRACE("opt", tout << "strengthen bound: " << block << "\n";);
-            m_s->assert_expr(block);
+            update_lower_lex(obj_index, obj, is_maximize);
+            TRACE("opt", tout << "strengthen bound: " << bound << "\n";);
+            m_s->assert_expr(bound);
             
             // TBD: only works for simplex 
             // blocking formula should be extracted based
@@ -365,6 +527,7 @@ namespace opt {
     }
 
 
+
     /**
        Takes solver with hard constraints added.
        Returns an optimal assignment to objective functions.
@@ -383,7 +546,7 @@ namespace opt {
             is_sat = symba_opt();
         }
         else {
-            is_sat = basic_opt();
+            is_sat = geometric_opt();
         }
         return is_sat;
     }
