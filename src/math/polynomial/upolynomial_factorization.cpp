@@ -371,9 +371,10 @@ void zp_square_free_factor(zp_manager & upm, numeral_vector const & f, zp_factor
 
 bool zp_factor(zp_manager & upm, numeral_vector const & f, zp_factors & factors) {
 
-    unsigned p = get_p_from_manager(upm.m());
 
-    TRACE("polynomial::factorization", tout << "polynomial::factor("; upm.display(tout, f); tout << ") over Z_" << p << endl;);    
+    TRACE("polynomial::factorization", 
+          unsigned p = get_p_from_manager(upm.m());
+          tout << "polynomial::factor("; upm.display(tout, f); tout << ") over Z_" << p << endl;);    
 
     // get the sq-free parts (all of them will be monic)
     zp_factors sq_free_factors(upm);
@@ -435,6 +436,7 @@ bool zp_factor_square_free_berlekamp(zp_manager & upm, numeral_vector const & f,
 
     // process the null space vectors (skip first one, it's [1, 0, ..., 0]) while generating the factors
     unsigned d = upm.degree(f);
+    (void)d;
     scoped_numeral_vector v_k(zpm);
     while (Q_I.next_null_space_vector(v_k)) {
 

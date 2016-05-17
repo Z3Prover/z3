@@ -2759,6 +2759,7 @@ namespace upolynomial {
     bool manager::refine_core(unsigned sz, numeral const * p, int sign_a, mpbq_manager & bqm, mpbq & a, mpbq & b) {
         SASSERT(sign_a == eval_sign_at(sz, p, a));
         int sign_b = -sign_a;
+        (void)sign_b;
         SASSERT(sign_b == eval_sign_at(sz, p, b));
         SASSERT(sign_a == -sign_b);
         SASSERT(sign_a != 0 && sign_b != 0);
@@ -2810,9 +2811,8 @@ namespace upolynomial {
 
     bool manager::refine(unsigned sz, numeral const * p, mpbq_manager & bqm, mpbq & a, mpbq & b, unsigned prec_k) {
         int sign_a = eval_sign_at(sz, p, a);
-        int sign_b = -sign_a;
-        SASSERT(eval_sign_at(sz, p, b) == sign_b);
-        SASSERT(sign_a != 0 && sign_b != 0);
+        SASSERT(eval_sign_at(sz, p, b) == -sign_a);
+        SASSERT(sign_a != 0);
         return refine_core(sz, p, sign_a, bqm, a, b, prec_k);
     }
 
@@ -2928,6 +2928,7 @@ namespace upolynomial {
                 SASSERT(sign_a == eval_sign_at(sz, p, a));
             }
             int sign_b = -sign_a;
+            (void) sign_b;
             SASSERT(sign_b == eval_sign_at(sz, p, b));
             SASSERT(sign_a != 0 && sign_b != 0);
             if (has_zero_roots(sz, p)) {

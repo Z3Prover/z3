@@ -762,6 +762,7 @@ namespace opt {
         }
 
         bool invariant() {
+            DEBUG_CODE(
             for (unsigned i = 0; i < m_fwatch.size(); ++i) {
                 for (unsigned j = 0; j < m_fwatch[i].size(); ++j) {
                     set const& S = *m_F[m_fwatch[i][j]];
@@ -773,7 +774,7 @@ namespace opt {
                     set const& S = *m_T[m_twatch[i][j]];
                     SASSERT(S[0] == i || S[1] == i);
                 }
-            }
+            });
             return true;
         }
 

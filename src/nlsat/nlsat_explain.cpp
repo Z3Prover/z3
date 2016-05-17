@@ -1165,8 +1165,7 @@ namespace nlsat {
                 if (max_var(new_lit) < max) {
                     // The conflicting core may have redundant literals.
                     // We should check whether new_lit is true in the current model, and discard it if that is the case
-                    lbool val = m_solver.value(new_lit);
-                    SASSERT(val != l_undef);
+                    VERIFY(m_solver.value(new_lit) != l_undef);
                     if (m_solver.value(new_lit) == l_false)
                         add_literal(new_lit);
                     new_lit = true_literal;

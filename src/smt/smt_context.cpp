@@ -2259,6 +2259,7 @@ namespace smt {
                     }
                     
                     unsigned ilvl       = 0;
+                    (void)ilvl;
                     for (unsigned j = 0; j < num; j++) {
                         expr * atom     = cls->get_atom(j);
                         bool   sign     = cls->get_atom_sign(j);
@@ -2855,8 +2856,7 @@ namespace smt {
         propagate();
         if (was_consistent && inconsistent()) {
             // logical context became inconsistent during user PUSH
-            bool res = resolve_conflict(); // build the proof
-            SASSERT(!res);
+            VERIFY(!resolve_conflict()); // build the proof
         }
         push_scope();
         m_base_scopes.push_back(base_scope());
@@ -3110,8 +3110,7 @@ namespace smt {
         else {
             TRACE("after_internalization", display(tout););
             if (inconsistent()) {
-                bool res = resolve_conflict(); // build the proof
-                SASSERT(!res);
+                VERIFY(!resolve_conflict()); // build the proof
                 r = l_false;
             }
             else {
@@ -3197,8 +3196,7 @@ namespace smt {
                 init_assumptions(num_assumptions, assumptions);
                 TRACE("after_internalization", display(tout););
                 if (inconsistent()) {
-                    bool res = resolve_conflict(); // build the proof
-                    SASSERT(!res);
+                    VERIFY(!resolve_conflict()); // build the proof
                     mk_unsat_core();
                     r = l_false;
                 }

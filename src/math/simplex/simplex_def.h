@@ -998,6 +998,7 @@ namespace simplex {
     template<typename Ext>
     bool simplex<Ext>::well_formed_row(row const& r) const {
         var_t s = m_row2base[r.id()];
+        (void)s;
         SASSERT(m_vars[s].m_base2row == r.id());
         SASSERT(m_vars[s].m_is_base);
         // SASSERT(m.is_neg(m_vars[s].m_base_coeff));

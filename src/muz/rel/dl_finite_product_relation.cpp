@@ -1566,13 +1566,12 @@ namespace datalog {
                 return;
             }
 
-            finite_product_relation_plugin & plugin = r.get_plugin();
-            if(!m_neg_intersection_join) {
-            }
             scoped_rel<finite_product_relation> intersection = get((*m_neg_intersection_join)(r, neg));
-            SASSERT(&intersection->get_plugin()==&plugin); //the result of join is also finite product
-            SASSERT(r.get_signature()==intersection->get_signature());
 
+            DEBUG_CODE(
+                finite_product_relation_plugin & plugin = r.get_plugin();
+                SASSERT(&intersection->get_plugin()==&plugin); //the result of join is also finite product
+                SASSERT(r.get_signature()==intersection->get_signature()););
             table_base & r_table = r.get_table();
             table_plugin & tplugin = r_table.get_plugin();
             relation_manager & rmgr = r.get_manager();

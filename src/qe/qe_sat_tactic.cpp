@@ -603,8 +603,7 @@ namespace qe {
                 m_solver.assert_expr(m.mk_iff(proxies.back(), m_assignments[i].get()));
                 TRACE("qe", tout << "assignment: " << mk_pp(m_assignments[i].get(), m) << "\n";);
             }
-            lbool is_sat = m_solver.check(proxies.size(), proxies.c_ptr());
-            SASSERT(is_sat == l_false);
+            VERIFY(l_false == m_solver.check(proxies.size(), proxies.c_ptr()));
             unsigned core_size = m_solver.get_unsat_core_size();
             for (unsigned i = 0; i < core_size; ++i) {
                 core.push_back(proxy_map.find(m_solver.get_unsat_core_expr(i)));

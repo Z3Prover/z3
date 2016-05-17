@@ -71,9 +71,8 @@ namespace datalog {
                 svector<bool> const& is_bound  = m_bound[i];
                 func_interp* f = old_model->get_func_interp(p);
                 expr_ref body(m);                
-                unsigned arity_p = p->get_arity();
                 unsigned arity_q = q->get_arity();
-                SASSERT(0 < arity_p);
+                SASSERT(0 < p->get_arity());
                 func_interp* g = alloc(func_interp, m, arity_q);
 
                 if (f) {

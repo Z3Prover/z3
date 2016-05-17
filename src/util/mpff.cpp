@@ -1395,6 +1395,7 @@ unsigned mpff_manager::prev_power_of_two(mpff const & a) {
 bool mpff_manager::check(mpff const & n) const {
     // n is zero or the most significand bit of the most significand word is 1.
     unsigned * s = sig(n);
+    (void)s;
     SASSERT(is_zero(n) || (s[m_precision - 1] & MIN_MSW) != 0);
     // if n is zero, then the sign must be 0
     SASSERT(!is_zero(n) || n.m_sign == 0);

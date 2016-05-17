@@ -1153,21 +1153,20 @@ namespace qe {
         
 
         bool get_bound(contains_app& contains_x, app* a) {
-            ast_manager& m = m_util.get_manager();
-            app* x = contains_x.x();
-            if (m_mark.is_marked(a) ||
+            bool has_bound = 
+                m_mark.is_marked(a) ||
                 get_le_bound(contains_x, a) ||
                 get_lt_bound(contains_x, a) ||
                 get_divides(contains_x, a) ||
-                get_nested_divs(contains_x, a)) {
-                TRACE("qe_verbose", tout << "Bound for " << mk_pp(x, m) << " within " << mk_pp(a, m) << "\n";);
+                get_nested_divs(contains_x, a);
+            if (has_bound) {
                 m_mark.mark(a, true);
-                return true;
             }
-            else {
-                TRACE("qe", tout << "No bound for " << mk_pp(x, m) << " within " << mk_pp(a, m) << "\n";);
-                return false;
-            }
+            TRACE("qe_verbose", 
+                  ast_manager& m = m_util.get_manager();
+                  app* x = contains_x.x();
+                  tout << has_bound << " bound for " << mk_pp(x, m) << " within " << mk_pp(a, m) << "\n";);
+            return has_bound;
         }
 
         unsigned lt_size() { return m_lt_terms.size(); }
@@ -2323,7 +2322,6 @@ public:
             unsigned sz = bounds.size(is_strict, !is_lower);
             bool is_strict_real = !is_eq_ctx && m_util.is_real(x) && !is_strict_ctx;                   
             bool strict_resolve = is_strict || is_strict_ctx || is_strict_real;
-            app* atm = bounds.atoms(is_strict_ctx, is_lower)[index];    
 
             for (unsigned i = 0; i < sz; ++i) {
                 app* e = bounds.atoms(is_strict, !is_lower)[i];
@@ -2341,6 +2339,7 @@ public:
                 m_ctx.add_constraint(true, mk_not(e), tmp);
 
                 TRACE("qe_verbose", 
+                      app* atm = bounds.atoms(is_strict_ctx, is_lower)[index];    
                       tout << mk_pp(atm, m) << " ";
                       tout << mk_pp(e, m) << " ==>\n";
                       tout << mk_pp(tmp, m) << "\n";

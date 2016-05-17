@@ -1899,8 +1899,7 @@ namespace qe {
         // The variable v is to be assigned a value in a range.
         // 
         void constrain_assignment() {
-            expr* fml = m_current->fml();
-            SASSERT(fml);
+            SASSERT(m_current->fml());
             rational k;
             app* x;
             if (!find_min_weight(x, k)) {

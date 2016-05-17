@@ -1784,7 +1784,7 @@ namespace smt {
     template<typename Ext>
    typename theory_arith<Ext>::max_min_t theory_arith<Ext>::max_min(theory_var v, bool max, bool maintain_integrality, bool& has_shared) {
         expr* e = get_enode(v)->get_owner();
-
+        (void)e;
         SASSERT(!maintain_integrality || valid_assignment());
         SASSERT(satisfy_bounds());
         SASSERT(!is_quasi_base(v));

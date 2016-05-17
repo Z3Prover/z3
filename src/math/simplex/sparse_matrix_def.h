@@ -509,12 +509,13 @@ namespace simplex {
                 dead.insert(i);
                 continue;
             }
-            SASSERT(!vars.contains(e.m_var));
-            SASSERT(!m.is_zero(e.m_coeff));            
-            SASSERT(e.m_var != dead_id);
-            col_entry const& c = m_columns[e.m_var].m_entries[e.m_col_idx];
-            SASSERT((unsigned)c.m_row_id == row_id);
-            SASSERT((unsigned)c.m_row_idx == i);
+            DEBUG_CODE(
+                SASSERT(!vars.contains(e.m_var));
+                SASSERT(!m.is_zero(e.m_coeff));            
+                SASSERT(e.m_var != dead_id);
+                col_entry const& c = m_columns[e.m_var].m_entries[e.m_col_idx];
+                SASSERT((unsigned)c.m_row_id == row_id);
+                SASSERT((unsigned)c.m_row_idx == i););
             vars.insert(e.m_var);
         }                  
         int idx = r.m_first_free_idx;

@@ -580,8 +580,8 @@ struct euclidean_solver::imp {
 
     void substitute_most_recent_solution(var x) {
         SASSERT(!m_solution.empty());
-        equation & eq = *(m_solution.back());
-        TRACE("euclidean_solver", tout << "applying solution for x" << x << "\n"; display(tout, eq); tout << "\n";);
+        TRACE("euclidean_solver", tout << "applying solution for x" << x << "\n"; 
+              display(tout, *(m_solution.back())); tout << "\n";);
         occs & use_list = m_occs[x];
         occs::iterator it  = use_list.begin();
         occs::iterator end = use_list.end();

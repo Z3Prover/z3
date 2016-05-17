@@ -99,9 +99,10 @@ namespace smt {
        This method may update m_antecedents, m_todo_js and m_todo_eqs.
     */
     void conflict_resolution::eq_justification2literals(enode * lhs, enode * rhs, eq_justification js) {
-        ast_manager& m = get_manager();
         SASSERT(m_antecedents);
-        TRACE("conflict_detail", tout << mk_pp(lhs->get_owner(), m) << " = " << mk_pp(rhs->get_owner(), m);
+        TRACE("conflict_detail", 
+              ast_manager& m = get_manager();
+              tout << mk_pp(lhs->get_owner(), m) << " = " << mk_pp(rhs->get_owner(), m);
               switch (js.get_kind()) {
               case eq_justification::AXIOM: tout << " axiom\n";  break;
               case eq_justification::EQUATION:

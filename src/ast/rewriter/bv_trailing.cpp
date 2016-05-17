@@ -67,9 +67,10 @@ struct bv_trailing::imp {
         }
         expr_ref out1(m);
         expr_ref out2(m);
-        const unsigned rm1 = remove_trailing(e1, min, out1, TRAILING_DEPTH);
-        const unsigned rm2 = remove_trailing(e2, min, out2, TRAILING_DEPTH);
-        SASSERT(rm1 == min && rm2 == min);
+        DEBUG_CODE(
+            const unsigned rm1 = remove_trailing(e1, min, out1, TRAILING_DEPTH);
+            const unsigned rm2 = remove_trailing(e2, min, out2, TRAILING_DEPTH);
+            SASSERT(rm1 == min && rm2 == min););
         const bool are_eq = m.are_equal(out1, out2);
         result = are_eq ? m.mk_true() : m.mk_eq(out1, out2);
         return are_eq ? BR_DONE : BR_REWRITE2;
@@ -122,9 +123,8 @@ struct bv_trailing::imp {
         expr_ref tmp(m);
         for (unsigned i = 0; i < num; ++i) {
             expr * const curr = a->get_arg(i);
-            const unsigned crm = remove_trailing(curr, to_rm, tmp, depth - 1);
+            VERIFY(to_rm == remove_trailing(curr, to_rm, tmp, depth - 1));
             new_args.push_back(tmp);
-            SASSERT(crm == to_rm);
         }
         result = m.mk_app(m_util.get_fid(), OP_BADD, new_args.size(), new_args.c_ptr());
         return to_rm;

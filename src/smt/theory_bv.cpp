@@ -457,8 +457,7 @@ namespace smt {
 
     void theory_bv::fixed_var_eh(theory_var v) {
         numeral val;
-        bool r      = get_fixed_value(v, val);
-        SASSERT(r);
+        VERIFY(get_fixed_value(v, val));
         unsigned sz = get_bv_size(v);
         value_sort_pair key(val, sz);
         theory_var v2;
@@ -554,9 +553,8 @@ namespace smt {
 
     void theory_bv::internalize_bv2int(app* n) {
         SASSERT(!get_context().e_internalized(n));
-        ast_manager & m = get_manager();
         context& ctx = get_context();
-        TRACE("bv", tout << mk_bounded_pp(n, m) << "\n";);
+        TRACE("bv", tout << mk_bounded_pp(n, get_manager()) << "\n";);
         process_args(n);
         mk_enode(n);
         if (!ctx.relevancy()) {
@@ -1142,9 +1140,8 @@ namespace smt {
     }
 
     void theory_bv::assign_eh(bool_var v, bool is_true) {
-        context & ctx = get_context();
         atom * a      = get_bv2a(v);
-        TRACE("bv", tout << "assert: v" << v << " #" << ctx.bool_var2expr(v)->get_id() << " is_true: " << is_true << "\n";);
+        TRACE("bv", tout << "assert: v" << v << " #" << get_context().bool_var2expr(v)->get_id() << " is_true: " << is_true << "\n";);
         if (a->is_bit()) {
             // The following optimization is not correct.
             // Boolean variables created for performing bit-blasting are reused.

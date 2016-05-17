@@ -1728,27 +1728,28 @@ namespace nlsat {
         // -----------------------
         
         bool check_watches() const {
-            for (var x = 0; x < num_vars(); x++) {
-                clause_vector const & cs = m_watches[x];
-                unsigned sz = cs.size();
-                for (unsigned i = 0; i < sz; i++) {
-                    clause const & c = *(cs[i]);
-                    SASSERT(max_var(c) == x);
-                }
-            }
+            DEBUG_CODE(
+                for (var x = 0; x < num_vars(); x++) {
+                    clause_vector const & cs = m_watches[x];
+                    unsigned sz = cs.size();
+                    for (unsigned i = 0; i < sz; i++) {
+                        SASSERT(max_var(*(cs[i])) == x);
+                    }
+                });
             return true;
         }
 
         bool check_bwatches() const {
-            for (bool_var b = 0; b < m_bwatches.size(); b++) {
-                clause_vector const & cs = m_bwatches[b];
-                unsigned sz = cs.size();
-                for (unsigned i = 0; i < sz; i++) {
-                    clause const & c = *(cs[i]);
-                    SASSERT(max_var(c) == null_var);
-                    SASSERT(max_bvar(c) == b);
-                }
-            }
+            DEBUG_CODE(
+                for (bool_var b = 0; b < m_bwatches.size(); b++) {
+                    clause_vector const & cs = m_bwatches[b];
+                    unsigned sz = cs.size();
+                    for (unsigned i = 0; i < sz; i++) {
+                        clause const & c = *(cs[i]);
+                        SASSERT(max_var(c) == null_var);
+                        SASSERT(max_bvar(c) == b);
+                    }
+                });
             return true;
         }
 
