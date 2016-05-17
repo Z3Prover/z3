@@ -2748,6 +2748,35 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
     }
 }
 
+bool theory_str::free_var_attempt(expr * nn1, expr * nn2) {
+    /*
+    Z3_context ctx = Z3_theory_get_context(t);
+    if (getNodeType(t, nn1) == my_Z3_Str_Var) {
+      std::string vName = std::string(Z3_ast_to_string(ctx, nn1));
+      if (vName.length() >= 6) {
+        std::string vPrefix = vName.substr(0, 6);
+        // length attempts
+        if (vPrefix == "$$_len") {
+          if (getNodeType(t, nn2) == my_Z3_ConstStr) {
+            moreLenTests(t, nn1, getConstStrValue(t, nn2));
+          }
+          return 1;
+        }
+        // value attempts
+        else if (vPrefix == "$$_val") {
+          if (getNodeType(t, nn2) == my_Z3_ConstStr && "more" == getConstStrValue(t, nn2)) {
+            moreValueTests(t, nn1, getConstStrValue(t, nn2));
+          }
+          return 1;
+        } else if (vPrefix == "$$_uRt") {
+          return 1;
+        }
+      }
+    }
+    return 0;
+    */
+}
+
 void theory_str::handle_equality(expr * lhs, expr * rhs) {
     ast_manager & m = get_manager();
     context & ctx = get_context();
@@ -2760,8 +2789,6 @@ void theory_str::handle_equality(expr * lhs, expr * rhs) {
         TRACE("t_str_detail", tout << "skip equality: not String sort" << std::endl;);
         return;
     }
-
-    // TODO freeVarAttempt()?
 
     // TODO simplify concat?
 
@@ -4245,6 +4272,8 @@ expr * theory_str::gen_free_var_options(expr * freeVar, expr * len_indicator,
 		return gen_val_options(freeVar, len_indicator, val_indicator, len_valueStr, tries);
 	} else {
 		TRACE("t_str_detail", tout << "checking previous value testers" << std::endl;);
+		print_value_tester_list(fvar_valueTester_map[freeVar][len]);
+
 		// go through all previous value testers
 		// If some doesn't have an eqc value, add its assertion again.
 		int testerTotal = fvar_valueTester_map[freeVar][len].size();
@@ -4258,16 +4287,19 @@ expr * theory_str::gen_free_var_options(expr * freeVar, expr * len_indicator,
 
 			bool anEqcHasValue = false;
 			// Z3_ast anEqc = get_eqc_value(t, aTester, anEqcHasValue);
-			get_eqc_value(aTester, anEqcHasValue);
+			expr * aTester_eqc_value = get_eqc_value(aTester, anEqcHasValue);
 			if (!anEqcHasValue) {
 				TRACE("t_str_detail", tout << "value tester " << mk_ismt2_pp(aTester, m)
-						<< "doesn't have an equivalence class value." << std::endl;);
+						<< " doesn't have an equivalence class value." << std::endl;);
 
 				expr * makeupAssert = gen_val_options(freeVar, len_indicator, aTester, len_valueStr, i);
 
 				TRACE("t_str_detail", tout << "var: " << mk_ismt2_pp(freeVar, m) << std::endl
 						<< mk_ismt2_pp(makeupAssert, m) << std::endl;);
 				assert_axiom(makeupAssert);
+			} else {
+			    TRACE("t_str_detail", tout << "value tester " << mk_ismt2_pp(aTester, m)
+			            << " == " << mk_ismt2_pp(aTester_eqc_value, m) << std::endl;);
 			}
 		}
 
@@ -4506,6 +4538,7 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
 				testNum = i + 1;
 			}
 			expr * lenTestAssert = gen_len_test_options(freeVar, indicator, testNum);
+			SASSERT(lenTestAssert != NULL);
 			return lenTestAssert;
 		} else {
 			TRACE("t_str", tout << "length is fixed; generating models for free var" << std::endl;);
@@ -4610,8 +4643,11 @@ void theory_str::process_free_var(std::map<expr*, int> & freeVar_map) {
 	for(std::set<expr*>::iterator itor1 = leafVarSet.begin();
 			itor1 != leafVarSet.end(); ++itor1) {
 		expr * toAssert = gen_len_val_options_for_free_var(*itor1, NULL, "");
-		SASSERT(toAssert != NULL);
-		assert_axiom(toAssert);
+        // gen_len_val_options_for_free_var() can legally return NULL,
+        // as methods that it calls may assert their own axioms instead.
+		if (toAssert != NULL) {
+		    assert_axiom(toAssert);
+		}
 	}
 
 	for (std::map<int, std::set<expr*> >::iterator mItor = aloneVars.begin();
@@ -4619,8 +4655,10 @@ void theory_str::process_free_var(std::map<expr*, int> & freeVar_map) {
 		std::set<expr*>::iterator itor2 = mItor->second.begin();
 		for(; itor2 != mItor->second.end(); ++itor2) {
 			expr * toAssert = gen_len_val_options_for_free_var(*itor2, NULL, "");
-			SASSERT(toAssert != NULL);
-			assert_axiom(toAssert);
+			// same deal with returning a NULL axiom here
+			if(toAssert != NULL) {
+			    assert_axiom(toAssert);
+			}
 		}
 	}
 }

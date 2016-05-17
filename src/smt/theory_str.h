@@ -191,6 +191,8 @@ namespace smt {
         bool get_next_val_encode(int_vector & base, int_vector & next);
         std::string gen_val_string(int len, int_vector & encoding);
 
+        bool free_var_attempt(expr * nn1, expr * nn2);
+
         expr * get_alias_index_ast(std::map<expr*, expr*> & aliasIndexMap, expr * node);
         expr * getMostLeftNodeInConcat(expr * node);
         expr * getMostRightNodeInConcat(expr * node);
