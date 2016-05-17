@@ -84,6 +84,28 @@ namespace smt {
         }
     }
 
+    void theory_fpa::fpa2bv_converter_wrapped::mk_uninterpreted_output(sort * rng, func_decl * fbv, expr_ref_buffer & new_args, expr_ref & result) {
+        if (m_util.is_float(rng)) {
+            unsigned ebits = m_util.get_ebits(rng);
+            unsigned sbits = m_util.get_sbits(rng);
+            unsigned bv_sz = ebits + sbits;
+
+            app_ref na(m);
+            na = m.mk_app(fbv, new_args.size(), new_args.c_ptr());
+            mk_fp(m_bv_util.mk_extract(bv_sz - 1, bv_sz - 1, na),
+                  m_bv_util.mk_extract(bv_sz - 2, sbits - 1, na),
+                  m_bv_util.mk_extract(sbits - 2, 0, na),
+                  result);
+        }
+        else if (m_util.is_rm(rng)) {
+            app_ref na(m);
+            na = m.mk_app(fbv, new_args.size(), new_args.c_ptr());
+            mk_rm(na, result);
+        }
+        else
+            result = m.mk_app(fbv, new_args.size(), new_args.c_ptr());
+    }
+
     void theory_fpa::fpa2bv_converter_wrapped::mk_uninterpreted_function(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
         // TODO: This introduces temporary func_decls that should be filtered in the end.
 
@@ -93,11 +115,13 @@ namespace smt {
         expr_ref_buffer new_args(m);
 
         for (unsigned i = 0; i < num; i++) {
+            TRACE("t_fpa", tout << "UF arg[" << i << "]: " << mk_ismt2_pp(args[i], m) << std::endl; );
             if (is_float(args[i]) || is_rm(args[i])) {
                 expr_ref ai(m), wrapped(m);
-                ai = args[i];                
+                ai = args[i];              
                 wrapped = m_th.wrap(ai);
                 new_args.push_back(wrapped);
+                TRACE("t_fpa", tout << "UF wrap ai: " << mk_ismt2_pp(ai, m) << " --> " << mk_ismt2_pp(wrapped, m) << std::endl; );
                 m_extra_assertions.push_back(m.mk_eq(m_th.unwrap(wrapped, m.get_sort(ai)), ai));
             }
             else
@@ -105,8 +129,10 @@ namespace smt {
         }
 
         func_decl * fd;
-        if (m_uf2bvuf.find(f, fd))
+        if (m_uf2bvuf.find(f, fd)) {
+            TRACE("t_fpa", tout << "UF reused: " << mk_ismt2_pp(fd, m) << std::endl; );
             mk_uninterpreted_output(f->get_range(), fd, new_args, result);
+        }
         else {
             sort_ref_buffer new_domain(m);
 
@@ -372,6 +398,10 @@ namespace smt {
 
             res = m.mk_app(w, e);
         }
+
+        TRACE("t_fpa", tout << "e: " << mk_ismt2_pp(e, m) << "\n";
+                       tout << "r: " << mk_ismt2_pp(res, m) << "\n";);
+
         
         return res;
     }
@@ -414,6 +444,9 @@ namespace smt {
         expr_ref e_conv(m), res(m);
         proof_ref pr(m);
         m_rw(e, e_conv);
+
+        TRACE("t_fpa_detail", tout << "term: " << mk_ismt2_pp(e, get_manager()) << "\n";
+                              tout << "converted term: " << mk_ismt2_pp(e_conv, get_manager()) << "\n";);
 
         if (is_app(e_conv) && to_app(e_conv)->get_family_id() != get_family_id()) {
             if (!m_fpa_util.is_float(e_conv))
@@ -844,7 +877,7 @@ namespace smt {
     void theory_fpa::init_model(model_generator & mg) {
         TRACE("t_fpa", tout << "initializing model" << std::endl; display(tout););
         m_factory = alloc(fpa_value_factory, get_manager(), get_family_id());
-        mg.register_factory(m_factory);
+        mg.register_factory(m_factory);        
     }
 
     model_value_proc * theory_fpa::mk_value(enode * n, model_generator & mg) {
