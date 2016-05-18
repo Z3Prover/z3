@@ -260,7 +260,6 @@ void theory_wmaxsat::block() {
         return;
     }
     ++m_stats.m_num_blocks;
-    ast_manager& m = get_manager();
     context& ctx = get_context();
     literal_vector lits;
     compare_cost compare_cost(*this);
@@ -274,6 +273,7 @@ void theory_wmaxsat::block() {
         lits.push_back(~literal(m_var2bool[costs[i]]));
     }
     TRACE("opt",
+          ast_manager& m = get_manager();
           tout << "block: ";
           for (unsigned i = 0; i < lits.size(); ++i) {
               expr_ref tmp(m);

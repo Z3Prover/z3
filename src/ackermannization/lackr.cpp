@@ -134,7 +134,6 @@ void lackr::eager_enc() {
     const fun2terms_map::iterator e = m_fun2terms.end();
     for (fun2terms_map::iterator i = m_fun2terms.begin(); i != e; ++i) {
         checkpoint();
-        func_decl* const fd = i->m_key;
         app_set * const  ts = i->get_value();
         const app_set::iterator r = ts->end();
         for (app_set::iterator j = ts->begin(); j != r; ++j) {
@@ -143,8 +142,8 @@ void lackr::eager_enc() {
             for (;  k != r; ++k) {
                 app * const t1 = *j;
                 app * const t2 = *k;
-                SASSERT(t1->get_decl() == fd);
-                SASSERT(t2->get_decl() == fd);
+                SASSERT(t1->get_decl() == i->m_key);
+                SASSERT(t2->get_decl() == i->m_key);
                 if (t1 == t2) continue;
                 ackr(t1,t2);
             }

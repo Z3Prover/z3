@@ -70,13 +70,12 @@ namespace datalog {
                 func_interp* f = model->get_func_interp(p);
                 if (!f) continue;
                 expr_ref body(m);                
-                unsigned arity_p = p->get_arity();
                 unsigned arity_q = q->get_arity();
                 TRACE("dl",
                       model_v2_pp(tout, *model);
                       tout << mk_pp(p, m) << "\n";
                       tout << mk_pp(q, m) << "\n";);
-                SASSERT(0 < arity_p);
+                SASSERT(0 < p->get_arity());
                 SASSERT(f);
                 model->register_decl(p, f->copy());
                 func_interp* g = alloc(func_interp, m, arity_q);

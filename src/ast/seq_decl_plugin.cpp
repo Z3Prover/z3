@@ -277,13 +277,12 @@ bool seq_decl_plugin::is_sort_param(sort* s, unsigned& idx) {
 }
 
 bool seq_decl_plugin::match(ptr_vector<sort>& binding, sort* s, sort* sP) {
-    ast_manager& m = *m_manager;
     if (s == sP) return true;
     unsigned i;
     if (is_sort_param(sP, i)) {
         if (binding.size() <= i) binding.resize(i+1);
         if (binding[i] && (binding[i] != s)) return false;
-        TRACE("seq_verbose", tout << "setting binding @ " << i << " to " << mk_pp(s, m) << "\n";);
+        TRACE("seq_verbose", tout << "setting binding @ " << i << " to " << mk_pp(s, *m_manager) << "\n";);
         binding[i] = s;
         return true;
     }
@@ -302,7 +301,7 @@ bool seq_decl_plugin::match(ptr_vector<sort>& binding, sort* s, sort* sP) {
         return true;
     }
     else {
-        TRACE("seq", tout << "Could not match " << mk_pp(s, m) << " and " << mk_pp(sP, m) << "\n";);
+        TRACE("seq", tout << "Could not match " << mk_pp(s, *m_manager) << " and " << mk_pp(sP, *m_manager) << "\n";);
         return false;
     }
 }

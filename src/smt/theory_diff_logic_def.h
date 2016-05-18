@@ -273,8 +273,7 @@ bool theory_diff_logic<Ext>::internalize_atom(app * n, bool gate_ctx) {
 template<typename Ext>
 void theory_diff_logic<Ext>::internalize_eq_eh(app * atom, bool_var v) {
     context & ctx  = get_context();
-    ast_manager& m = get_manager();
-    TRACE("arith", tout << mk_pp(atom, m) << "\n";);
+    TRACE("arith", tout << mk_pp(atom, get_manager()) << "\n";);
     app * lhs      = to_app(atom->get_arg(0));
     app * rhs      = to_app(atom->get_arg(1));
     app * s;
@@ -606,7 +605,6 @@ void theory_diff_logic<Ext>::new_edge(dl_var src, dl_var dst, unsigned num_edges
     atom* a = 0;
     m_bool_var2atom.find(bv, a);
     SASSERT(a);
-    edge_id e_id = a->get_pos();
 
     literal_vector lits;
     for (unsigned i = 0; i < num_edges; ++i) {
@@ -616,7 +614,7 @@ void theory_diff_logic<Ext>::new_edge(dl_var src, dl_var dst, unsigned num_edges
 
     TRACE("dl_activity", 
           tout << mk_pp(le, get_manager()) << "\n";
-          tout << "edge: " << e_id << "\n";
+          tout << "edge: " << a->get_pos() << "\n";
           ctx.display_literals_verbose(tout, lits.size(), lits.c_ptr());
           tout << "\n";
           );
@@ -927,18 +925,19 @@ void theory_diff_logic<Ext>::display(std::ostream & out) const {
 
 template<typename Ext>
 bool theory_diff_logic<Ext>::is_consistent() const {
-    context& ctx = get_context();
-    for (unsigned i = 0; i < m_atoms.size(); ++i) {
-        atom* a = m_atoms[i];
-        bool_var bv = a->get_bool_var();
-        lbool asgn = ctx.get_assignment(bv);        
-        if (ctx.is_relevant(ctx.bool_var2expr(bv)) && asgn != l_undef) {
-            SASSERT((asgn == l_true) == a->is_true());
-            int edge_id = a->get_asserted_edge();
-            SASSERT(m_graph.is_enabled(edge_id));
-            SASSERT(m_graph.is_feasible(edge_id));
-        }
-    }
+    DEBUG_CODE(
+        context& ctx = get_context();
+        for (unsigned i = 0; i < m_atoms.size(); ++i) {
+            atom* a = m_atoms[i];
+            bool_var bv = a->get_bool_var();
+            lbool asgn = ctx.get_assignment(bv);        
+            if (ctx.is_relevant(ctx.bool_var2expr(bv)) && asgn != l_undef) {
+                SASSERT((asgn == l_true) == a->is_true());
+                int edge_id = a->get_asserted_edge();
+                SASSERT(m_graph.is_enabled(edge_id));
+                SASSERT(m_graph.is_feasible(edge_id));
+            }
+        });
     return m_graph.is_feasible();
 }
 
@@ -1194,9 +1193,9 @@ theory_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shar
     ast_manager& m = get_manager();
 
     update_simplex(S);
-    objective_term const& objective = m_objectives[v];
 
     TRACE("arith",
+          objective_term const& objective = m_objectives[v];
           for (unsigned i = 0; i < objective.size(); ++i) {
               tout << "Coefficient " << objective[i].second 
                    << " of theory_var " << objective[i].first << "\n";

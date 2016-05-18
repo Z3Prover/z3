@@ -63,6 +63,7 @@ void simplifier::operator()(expr * s, expr_ref & r, proof_ref & p) {
     m_need_reset = true;
     reinitialize();
     expr  * s_orig = s;
+    (void)s_orig;
     expr  * old_s;
     expr  * result;
     proof * result_proof;

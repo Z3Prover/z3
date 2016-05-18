@@ -52,9 +52,8 @@ namespace smt {
             expr_ref bv(m);
             bv = m_th.wrap(m.mk_const(f));
             unsigned bv_sz = m_th.m_bv_util.get_bv_size(bv);
-            unsigned ebits = m_th.m_fpa_util.get_ebits(s);
             unsigned sbits = m_th.m_fpa_util.get_sbits(s);
-            SASSERT(bv_sz == ebits + sbits);
+            SASSERT(bv_sz == m_th.m_fpa_util.get_ebits(s) + sbits);
             m_th.m_converter.mk_fp(m_bv_util.mk_extract(bv_sz - 1, bv_sz - 1, bv),
                                    m_bv_util.mk_extract(bv_sz - 2, sbits - 1, bv),
                                    m_bv_util.mk_extract(sbits - 2, 0, bv),
@@ -257,10 +256,11 @@ namespace smt {
     }
 
     app * theory_fpa::fpa_value_proc::mk_value(model_generator & mg, ptr_vector<expr> & values) {
-        ast_manager & m = m_th.get_manager();
 
-        TRACE("t_fpa_detail", for (unsigned i = 0; i < values.size(); i++)
-                                  tout << "value[" << i << "] = " << mk_ismt2_pp(values[i], m) << std::endl;);
+        TRACE("t_fpa_detail", 
+              ast_manager & m = m_th.get_manager();
+              for (unsigned i = 0; i < values.size(); i++)
+                  tout << "value[" << i << "] = " << mk_ismt2_pp(values[i], m) << std::endl;);
 
         mpf_manager & mpfm = m_fu.fm();
         unsynch_mpz_manager & mpzm = mpfm.mpz_manager();
@@ -280,8 +280,7 @@ namespace smt {
             rational all_r(0);
             scoped_mpz all_z(mpzm);
 
-            bool r = m_bu.is_numeral(values[0], all_r, bv_sz);
-            SASSERT(r);
+            VERIFY(m_bu.is_numeral(values[0], all_r, bv_sz));
             SASSERT(bv_sz == (m_ebits + m_sbits));
             SASSERT(all_r.is_int());
             mpzm.set(all_z, all_r.to_mpq().numerator());
@@ -333,17 +332,17 @@ namespace smt {
 
     app * theory_fpa::fpa_rm_value_proc::mk_value(model_generator & mg, ptr_vector<expr> & values) {
         SASSERT(values.size() == 1);
-        ast_manager & m = m_th.get_manager();
 
-        TRACE("t_fpa_detail", for (unsigned i = 0; i < values.size(); i++)
+        TRACE("t_fpa_detail", 
+              ast_manager & m = m_th.get_manager();
+              for (unsigned i = 0; i < values.size(); i++)
               tout << "value[" << i << "] = " << mk_ismt2_pp(values[i], m) << std::endl;);
 
         app * result = 0;
         unsigned bv_sz;
 
         rational val(0);
-        bool r = m_bu.is_numeral(values[0], val, bv_sz);
-        SASSERT(r);
+        VERIFY(m_bu.is_numeral(values[0], val, bv_sz));
         SASSERT(bv_sz == 3);
 
         switch (val.get_uint64())
@@ -455,9 +454,8 @@ namespace smt {
                 expr_ref bv(m);
                 bv = wrap(e_conv);
                 unsigned bv_sz = m_bv_util.get_bv_size(bv);
-                unsigned ebits = m_fpa_util.get_ebits(m.get_sort(e_conv));
                 unsigned sbits = m_fpa_util.get_sbits(m.get_sort(e_conv));
-                SASSERT(bv_sz == ebits + sbits);
+                SASSERT(bv_sz == m_fpa_util.get_ebits(m.get_sort(e_conv)) + sbits);
                 m_converter.mk_fp(m_bv_util.mk_extract(bv_sz - 1, bv_sz - 1, bv),
                     m_bv_util.mk_extract(bv_sz - 2, sbits - 1, bv),
                     m_bv_util.mk_extract(sbits - 2, 0, bv),

@@ -861,11 +861,12 @@ namespace qe {
 
         void operator()(expr_ref& fml, atom_set& pos, atom_set& neg) {
             expr_ref orig(fml);
-            ast_manager& m = fml.get_manager();
             m_nnf_core(fml);
             m_normalize_literals(fml);
             m_collect_atoms(fml, pos, neg);
-            TRACE("qe", tout << mk_ismt2_pp(orig, m) << "\n-->\n" << mk_ismt2_pp(fml, m) << "\n";);
+            TRACE("qe",
+                  ast_manager& m = fml.get_manager(); 
+                  tout << mk_ismt2_pp(orig, m) << "\n-->\n" << mk_ismt2_pp(fml, m) << "\n";);
         }      
 
         void reset() {
@@ -1899,8 +1900,7 @@ namespace qe {
         // The variable v is to be assigned a value in a range.
         // 
         void constrain_assignment() {
-            expr* fml = m_current->fml();
-            SASSERT(fml);
+            SASSERT(m_current->fml());
             rational k;
             app* x;
             if (!find_min_weight(x, k)) {

@@ -1092,6 +1092,7 @@ void mpf_manager::round_to_integral(mpf_rounding_mode rm, mpf const & x, mpf & o
             bool tie = m_mpz_manager.eq(rem, shiftm1_p);
             bool less_than_tie = m_mpz_manager.lt(rem, shiftm1_p);
             bool more_than_tie = m_mpz_manager.gt(rem, shiftm1_p);
+            (void)less_than_tie;
             TRACE("mpf_dbg", tout << "tie= " << tie << "; <tie = " << less_than_tie << "; >tie = " << more_than_tie << std::endl;);
             if (tie) {
                 if ((rm == MPF_ROUND_NEAREST_TEVEN && m_mpz_manager.is_odd(div)) ||
@@ -1888,6 +1889,7 @@ void mpf_manager::round(mpf_rounding_mode rm, mpf & o) {
 
     const mpz & p_m1 = m_powers2(o.sbits+2);
     const mpz & p_m2 = m_powers2(o.sbits+3);
+    (void)p_m1;    
 
     TRACE("mpf_dbg", tout << "p_m1 = " << m_mpz_manager.to_string(p_m1) << std::endl <<
                              "p_m2 = " << m_mpz_manager.to_string(p_m2) << std::endl;);
@@ -2079,7 +2081,7 @@ void mpf_manager::round_sqrt(mpf_rounding_mode rm, mpf & o) {
     bool round = !m_mpz_manager.is_even(o.significand);
     m_mpz_manager.machine_div2k(o.significand, 1);
     bool last = !m_mpz_manager.is_even(o.significand);
-
+    (void)last;
     bool inc = false;
 
     // Specialized rounding for sqrt, as there are no negative cases (or half-way cases?)

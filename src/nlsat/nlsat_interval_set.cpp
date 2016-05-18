@@ -102,14 +102,14 @@ namespace nlsat {
     
     // Check if the intervals are valid, ordered, and are disjoint.
     bool check_interval_set(anum_manager & am, unsigned sz, interval const * ints) {
-        for (unsigned i = 0; i < sz; i++) {
-            interval const & curr = ints[i];
-            SASSERT(check_interval(am, curr));
-            if (i < sz - 1) {
-                interval const & next = ints[i+1];
-                SASSERT(check_no_overlap(am, curr, next));
-            }
-        }
+        DEBUG_CODE(
+            for (unsigned i = 0; i < sz; i++) {
+                interval const & curr = ints[i];
+                SASSERT(check_interval(am, curr));
+                if (i < sz - 1) {
+                    SASSERT(check_no_overlap(am, curr, ints[i+1]));
+                }
+            });
         return true;
     }
 

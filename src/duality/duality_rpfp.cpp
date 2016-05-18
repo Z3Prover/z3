@@ -2365,8 +2365,7 @@ namespace Duality {
         Term CanonIneqTerm(const Term &p){
             Term term,bound;
             Term ps = p.simplify();
-            bool ok = IsCanonIneq(ps,term,bound);
-            assert(ok);
+            VERIFY(IsCanonIneq(ps,term,bound));
             return term - bound;
         }
 

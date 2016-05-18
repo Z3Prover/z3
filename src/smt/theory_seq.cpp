@@ -3244,8 +3244,7 @@ void theory_seq::add_at_axiom(expr* e) {
    step(s, idx, re, i, j, t) -> nth(s, idx) == t & len(s) > idx
 */
 void theory_seq::propagate_step(literal lit, expr* step) {
-    context& ctx = get_context();
-    SASSERT(ctx.get_assignment(lit) == l_true);
+    SASSERT(get_context().get_assignment(lit) == l_true);
     expr* re, *acc, *s, *idx, *i, *j;
     VERIFY(is_step(step, s, idx, re, i, j, acc));
     TRACE("seq", tout << mk_pp(step, m) << " -> " << mk_pp(acc, m) << "\n";);
@@ -3265,9 +3264,8 @@ void theory_seq::propagate_step(literal lit, expr* step) {
     lit => s = (nth s 0) ++ (nth s 1) ++ ... ++ (nth s idx) ++ (tail s idx)
 */
 void theory_seq::ensure_nth(literal lit, expr* s, expr* idx) {
-    context& ctx = get_context();
     rational r;
-    SASSERT(ctx.get_assignment(lit) == l_true);
+    SASSERT(get_context().get_assignment(lit) == l_true);
     VERIFY(m_autil.is_numeral(idx, r) && r.is_unsigned());
     unsigned _idx = r.get_unsigned();
     expr_ref head(m), tail(m), conc(m), len1(m), len2(m);
@@ -3743,7 +3741,6 @@ expr_ref theory_seq::mk_step(expr* s, expr* idx, expr* re, unsigned i, unsigned 
    rej(s, idx, re, i) -> len(s) > idx     if i is final
 */
 void theory_seq::propagate_acc_rej_length(literal lit, expr* e) {
-    context& ctx = get_context();
     expr *s, * idx, *re;
     unsigned src;
     eautomaton* aut = 0;
@@ -3754,7 +3751,7 @@ void theory_seq::propagate_acc_rej_length(literal lit, expr* e) {
     }
     if (m_util.str.is_length(idx)) return;
     SASSERT(m_autil.is_numeral(idx));
-    SASSERT(ctx.get_assignment(lit) == l_true);
+    SASSERT(get_context().get_assignment(lit) == l_true);
     bool is_final = aut->is_final_state(src);
     if (is_final == is_acc) {
         propagate_lit(0, 1, &lit, mk_literal(m_autil.mk_ge(m_util.str.mk_length(s), idx)));

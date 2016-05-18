@@ -1495,6 +1495,7 @@ void ast_manager::copy_families_plugins(ast_manager const & from) {
             if (m_family_manager.has_family(fid)) tout << get_family_id(fid_name) << "\n";);
       if (!m_family_manager.has_family(fid)) {
           family_id new_fid = mk_family_id(fid_name);
+          (void)new_fid;
           TRACE("copy_families_plugins", tout << "new target fid created: " << new_fid << " fid_name: " << fid_name << "\n";);
       }
       TRACE("copy_families_plugins", tout << "target fid: " << get_family_id(fid_name) << "\n";);

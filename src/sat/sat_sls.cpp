@@ -269,35 +269,36 @@ namespace sat {
     }
 
     void sls::check_invariant() {
-        for (unsigned i = 0; i < m_clauses.size(); ++i) {
-            clause const& c = *m_clauses[i];
-            bool is_sat = c.satisfied_by(m_model);
-            SASSERT(is_sat != m_false.contains(i));
-            SASSERT(is_sat == (m_num_true[i] > 0));
-        }        
+        DEBUG_CODE(
+            for (unsigned i = 0; i < m_clauses.size(); ++i) {
+                clause const& c = *m_clauses[i];
+                bool is_sat = c.satisfied_by(m_model);
+                SASSERT(is_sat != m_false.contains(i));
+                SASSERT(is_sat == (m_num_true[i] > 0));
+            });
     }
 
     void sls::check_use_list() {
-
-        for (unsigned i = 0; i < m_clauses.size(); ++i) {
-            clause const& c = *m_clauses[i];
-            for (unsigned j = 0; j < c.size(); ++j) {
-                unsigned idx = c[j].index();
-                SASSERT(m_use_list[idx].contains(i));
-            }
-        }
-
-        for (unsigned i = 0; i < m_use_list.size(); ++i) {
-            literal lit = to_literal(i);
-            for (unsigned j = 0; j < m_use_list[i].size(); ++j) {
-                clause const& c = *m_clauses[m_use_list[i][j]];
-                bool found = false;
-                for (unsigned k = 0; !found && k < c.size(); ++k) {
-                    found = c[k] == lit;
+        DEBUG_CODE(
+            for (unsigned i = 0; i < m_clauses.size(); ++i) {
+                clause const& c = *m_clauses[i];
+                for (unsigned j = 0; j < c.size(); ++j) {
+                    unsigned idx = c[j].index();
+                    SASSERT(m_use_list[idx].contains(i));
                 }
-                SASSERT(found);
             }
-        }
+
+            for (unsigned i = 0; i < m_use_list.size(); ++i) {
+                literal lit = to_literal(i);
+                for (unsigned j = 0; j < m_use_list[i].size(); ++j) {
+                    clause const& c = *m_clauses[m_use_list[i][j]];
+                    bool found = false;
+                    for (unsigned k = 0; !found && k < c.size(); ++k) {
+                        found = c[k] == lit;
+                    }
+                    SASSERT(found);
+                }
+            });
     }
 
     void sls::display(std::ostream& out) const {
@@ -556,8 +557,7 @@ namespace sat {
 
     void wsls::recompute_hscores(literal lit) {
         SASSERT(value_at(lit, m_model) == l_true);
-        bool_var v = lit.var();
-        TRACE("sat", tout << v << " := " << m_hscore[v] << "\n";);
+        TRACE("sat", tout << lit.var() << " := " << m_hscore[lit.var()] << "\n";);
         unsigned_vector const& use1 = get_use(lit);
         unsigned sz = use1.size();
         for (unsigned i = 0; i < sz; ++i) {
@@ -647,28 +647,29 @@ namespace sat {
         // The hscore is the reward for flipping the truth value of variable v.
         // hscore(v) = Sum weight(c) for num_true(c) = 0 and v in c
         //           - Sum weight(c) for num_true(c) = 1 and (v in c, M(v) or !v in c and !M(v)) 
-        for (unsigned v = 0; v < s.num_vars(); ++v) {
-            int hs = compute_hscore(v);
-            CTRACE("sat", hs != m_hscore[v], display(tout << v << " - computed: " << hs << " - assigned: " << m_hscore[v] << "\n"););
-            SASSERT(m_hscore[v] == hs);
-        }
-
-        // The score(v) is the reward on soft clauses for flipping v.
-        for (unsigned j = 0; j < m_soft.size(); ++j) {
-            unsigned v = m_soft[j].var();
-            double ss = (l_true == value_at(m_soft[j], m_model))?(-m_weights[j]):m_weights[j];
-            SASSERT(m_sscore[v] == ss);
-        }
-
-        // m_H are values such that m_hscore > 0 and sscore = 0.
-        for (bool_var v = 0; v < m_hscore.size(); ++v) {
-            SASSERT((m_hscore[v] > 0 && !m_tabu[v] && m_sscore[v] == 0) == m_H.contains(v));
-        }
-        
-        // m_S are values such that hscore = 0, sscore > 0
-        for (bool_var v = 0; v < m_sscore.size(); ++v) {
-            SASSERT((m_hscore[v] == 0 && m_sscore[v] > 0 && !m_tabu[v]) == m_S.contains(v));
-        }
+        DEBUG_CODE(
+            for (unsigned v = 0; v < s.num_vars(); ++v) {
+                int hs = compute_hscore(v);
+                CTRACE("sat", hs != m_hscore[v], display(tout << v << " - computed: " << hs << " - assigned: " << m_hscore[v] << "\n"););
+                SASSERT(m_hscore[v] == hs);
+            }
+            
+            // The score(v) is the reward on soft clauses for flipping v.
+            for (unsigned j = 0; j < m_soft.size(); ++j) {
+                unsigned v = m_soft[j].var();
+                double ss = (l_true == value_at(m_soft[j], m_model))?(-m_weights[j]):m_weights[j];
+                SASSERT(m_sscore[v] == ss);
+            }
+            
+            // m_H are values such that m_hscore > 0 and sscore = 0.
+            for (bool_var v = 0; v < m_hscore.size(); ++v) {
+                SASSERT((m_hscore[v] > 0 && !m_tabu[v] && m_sscore[v] == 0) == m_H.contains(v));
+            }
+            
+            // m_S are values such that hscore = 0, sscore > 0
+            for (bool_var v = 0; v < m_sscore.size(); ++v) {
+                SASSERT((m_hscore[v] == 0 && m_sscore[v] > 0 && !m_tabu[v]) == m_S.contains(v));
+            });
     }
 
     void wsls::display(std::ostream& out) const {

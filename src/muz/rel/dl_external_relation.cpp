@@ -338,9 +338,8 @@ namespace datalog {
             : m_plugin(p),
               m_condition(condition, p.get_ast_manager()),
               m_filter_fn(p.get_ast_manager()) {
-            ast_manager& m = p.get_ast_manager();
             p.mk_filter_fn(relation_sort, condition, m_filter_fn);
-            SASSERT(m.is_bool(condition));
+            SASSERT(p.get_ast_manager().is_bool(condition));
         }
 
         virtual void operator()(relation_base & r) {

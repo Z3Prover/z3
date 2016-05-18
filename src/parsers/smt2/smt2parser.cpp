@@ -473,6 +473,7 @@ namespace smt2 {
 
         void parse_sexpr() {
             unsigned stack_pos  = sexpr_stack().size();
+            (void)stack_pos;
             unsigned num_frames = 0;
             do {
                 unsigned line = m_scanner.get_line();
@@ -631,6 +632,7 @@ namespace smt2 {
 
         void parse_psort() {
             unsigned stack_pos  = psort_stack().size();
+            (void)stack_pos;
             unsigned num_frames = 0;
             do {
                 if (curr_is_identifier()) {
@@ -693,6 +695,7 @@ namespace smt2 {
 
         void parse_sort(char const* context) {
             unsigned stack_pos  = sort_stack().size();
+            (void)stack_pos;
             unsigned num_frames = 0;
             do {
                 if (curr_is_identifier()) {

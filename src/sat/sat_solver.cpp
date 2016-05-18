@@ -80,8 +80,7 @@ namespace sat {
                 SASSERT(!src.was_eliminated(v));
                 bool ext  = src.m_external[v] != 0;
                 bool dvar = src.m_decision[v] != 0;
-                bool_var new_v = mk_var(ext, dvar);
-                SASSERT(v == new_v);
+                VERIFY(v == mk_var(ext, dvar));
             }
         }
         {
@@ -407,9 +406,8 @@ namespace sat {
         unsigned num_lits = cls.size();
         for (unsigned i = 1; i < num_lits; i++) {
             literal l    = cls[i];
-            lbool val    = value(l);
-            CTRACE("sat", val != l_false, tout << l << ":=" << val;);
-            SASSERT(val == l_false);
+            CTRACE("sat", value(l) != l_false, tout << l << ":=" << value(l););
+            SASSERT(value(l) == l_false);
             if (max_false_idx == UINT_MAX || lvl(l) > lvl(cls[max_false_idx]))
                 max_false_idx = i;
         }
