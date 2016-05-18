@@ -276,6 +276,7 @@ namespace smt {
             SASSERT(r && bv_sz == m_ebits);
             r = m_bu.is_numeral(values[2], sig_r, bv_sz);
             SASSERT(r && bv_sz == m_sbits - 1);
+            (void)r;
 
             SASSERT(mpzm.is_one(sgn_r.to_mpq().denominator()));
             SASSERT(mpzm.is_one(exp_r.to_mpq().denominator()));

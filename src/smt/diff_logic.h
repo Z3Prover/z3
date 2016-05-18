@@ -739,6 +739,7 @@ public:
         if (idx2 < idx1) {
             std::swap(idx1,idx2);
         }        
+        (void) max_idx;
         SASSERT(idx1 < idx2 && idx2 < edges.size());
         SASSERT(max_idx < edges.size());
         dst = get_source(edges[idx2]);

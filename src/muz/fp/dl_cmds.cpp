@@ -300,6 +300,7 @@ public:
                 break;
 
             case datalog::OK: 
+                (void)query_exn;
                 SASSERT(query_exn);
                 break;
 

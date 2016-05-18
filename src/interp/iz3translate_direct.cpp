@@ -362,6 +362,7 @@ public:
                     else
                         cls1.push_back(cls2[j]);
                 }
+                (void)found_pivot2;
                 assert(found_pivot2);
                 return;
             }

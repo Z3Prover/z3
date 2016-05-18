@@ -159,7 +159,8 @@ namespace sat {
         for (unsigned l_idx = 0; it != end; ++it, ++l_idx) {
             literal l = ~to_literal(l_idx);            
             watch_list const & wlist = *it;
-            CTRACE("sat_bug", s.was_eliminated(l.var()) && !wlist.empty(),
+            CTRACE("sat_bug", 
+                   s.was_eliminated(l.var()) && !wlist.empty(),
                    tout << "l: " << l << "\n";
                    s.display_watches(tout);
                    s.display(tout););
@@ -179,7 +180,7 @@ namespace sat {
                            tout << "\n";
                            sat::display(tout, s.m_cls_allocator, s.get_wlist(~(it2->get_literal())));
                            tout << "\n";);
-                    SASSERT(s.get_wlist(~(it2->get_literal())).contains(watched(l, it2->is_learned())));
+                        SASSERT(s.get_wlist(~(it2->get_literal())).contains(watched(l, it2->is_learned())));
                     break;
                 case watched::TERNARY:
                     SASSERT(!s.was_eliminated(it2->get_literal1().var()));

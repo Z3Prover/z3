@@ -156,6 +156,7 @@ class fm_tactic : public tactic {
                     r = c;
                 }
             }
+            (void)found;
             SASSERT(found);
             return is_lower ? LOWER : UPPER;
         }
