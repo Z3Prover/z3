@@ -274,7 +274,7 @@ void mpn_manager::div_unnormalize(mpn_sbuffer & numer, mpn_sbuffer & denom,
 
 bool mpn_manager::div_1(mpn_sbuffer & numer, mpn_digit const denom,
                         mpn_digit * quot) const {
-    mpn_double_digit q_hat, temp, r_hat, ms;
+    mpn_double_digit q_hat, temp, ms;
     mpn_digit borrow;
 
     for (size_t j = numer.size()-1; j > 0; j--) {
@@ -294,7 +294,7 @@ bool mpn_manager::div_1(mpn_sbuffer & numer, mpn_digit const denom,
             numer[j] = numer[j-1] + denom;
         }
         TRACE("mpn_div1", 
-              r_hat = temp % (mpn_double_digit) denom;
+              mpn_double_digit r_hat = temp % (mpn_double_digit) denom;
               tout << "j=" << j << " q_hat=" << q_hat << " r_hat=" << r_hat;
               tout << " ms=" << ms;
               tout << " new numer="; display_raw(tout, numer.c_ptr(), numer.size());
