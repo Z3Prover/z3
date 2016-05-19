@@ -595,7 +595,7 @@ void rewriter_tpl<Config>::set_inv_bindings(unsigned num_bindings, expr * const 
 template<typename Config>
 template<bool ProofGen>
 void rewriter_tpl<Config>::main_loop(expr * t, expr_ref & result, proof_ref & result_pr) {
-    if (m().canceled()) {
+    if (m_cancel_check && m().canceled()) {
         throw rewriter_exception(m().limit().get_cancel_msg());
     }
     SASSERT(!ProofGen || result_stack().size() == result_pr_stack().size());
@@ -629,7 +629,7 @@ template<bool ProofGen>
 void rewriter_tpl<Config>::resume_core(expr_ref & result, proof_ref & result_pr) {
     SASSERT(!frame_stack().empty());
     while (!frame_stack().empty()) {
-        if (m().canceled()) {
+        if (m_cancel_check && m().canceled()) {
             throw rewriter_exception(m().limit().get_cancel_msg());
         }
         SASSERT(!ProofGen || result_stack().size() == result_pr_stack().size());

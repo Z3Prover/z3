@@ -212,18 +212,6 @@ namespace opt {
         m_hard_constraints.append(s.m_hard);
     }
 
-    lbool context::min_max(app* t, app_ref_vector const& vars, svector<bool> const& is_max) {
-        clear_state();
-        init_solver(); 
-        import_scoped_state(); 
-        normalize();
-        internalize();
-        qe::max_min_opt max_min(m, m_params);
-        max_min.add(m_hard_constraints);
-        return max_min.check(is_max, vars, t);
-    }
-
-
     lbool context::optimize() {
         if (m_pareto) {
             return execute_pareto();
@@ -236,12 +224,12 @@ namespace opt {
         import_scoped_state(); 
         normalize();
         internalize();
+        update_solver();
 #if 0
         if (is_qsat_opt()) {
             return run_qsat_opt();
         }
 #endif
-        update_solver();
         solver& s = get_solver();
         s.assert_expr(m_hard_constraints);
         display_benchmark();
@@ -1473,6 +1461,7 @@ namespace opt {
             value.neg();
         }
         if (result != l_undef) {
+            m_optsmt.setup(*m_opt_solver.get());
             m_optsmt.update_lower(obj.m_index, value);
             m_optsmt.update_upper(obj.m_index, value);
         }

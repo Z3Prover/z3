@@ -48,6 +48,7 @@ protected:
     };
     ast_manager &              m_manager;
     bool                       m_proof_gen; 
+    bool                       m_cancel_check;
     typedef act_cache          cache;
     ptr_vector<cache>          m_cache_stack;
     cache *                    m_cache; // current cache.
@@ -114,6 +115,7 @@ public:
     ast_manager & m() const { return m_manager; }
     void reset();
     void cleanup();
+    void set_cancel_check(bool f) { m_cancel_check = f; }
 #ifdef _TRACE
     void display_stack(std::ostream & out, unsigned pp_depth);
 #endif

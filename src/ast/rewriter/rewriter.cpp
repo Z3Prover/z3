@@ -173,6 +173,7 @@ void rewriter_core::elim_reflex_prs(unsigned spos) {
 rewriter_core::rewriter_core(ast_manager & m, bool proof_gen):
     m_manager(m),
     m_proof_gen(proof_gen),
+    m_cancel_check(true),
     m_result_stack(m),
     m_result_pr_stack(m),
     m_num_qvars(0) {

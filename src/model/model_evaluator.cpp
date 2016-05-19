@@ -365,6 +365,7 @@ struct model_evaluator::imp : public rewriter_tpl<evaluator_cfg> {
                                     false, // no proofs for evaluator
                                     m_cfg),
         m_cfg(md.get_manager(), md, p) {
+        set_cancel_check(false);
     }
 };
 

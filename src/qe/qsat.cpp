@@ -618,7 +618,7 @@ namespace qe {
         }
 
         kernel& get_kernel(unsigned j) {        
-            if (m_kernel_ex || is_exists(j)) {
+            if (is_exists(j)) {
                 return m_ex; 
             }
             else {
@@ -735,11 +735,7 @@ namespace qe {
         void display(std::ostream& out) const {
             out << "level: " << m_level << "\n";
             for (unsigned i = 0; i < m_vars.size(); ++i) {
-                for (unsigned j = 0; j < m_vars[i].size(); ++j) {
-                    expr* v = m_vars[i][j];
-                    out << mk_pp(v, m) << " ";
-                }
-                out << "\n";
+                out << m_vars[i] << "\n";
             }
             m_pred_abs.display(out);
         }
@@ -1070,8 +1066,7 @@ namespace qe {
             m_level(0),
             m_mode(mode),
             m_avars(m),
-            m_free_vars(m),
-            m_kernel_ex(false)
+            m_free_vars(m)
         {
             reset();
         }
@@ -1238,90 +1233,6 @@ namespace qe {
         }
 
 
-        bool         m_kernel_ex;
-
-        lbool max_min(expr_ref_vector const& fmls, svector<bool> const& is_max, app_ref_vector const& vars, app* t) {
-            m_kernel_ex = true;
-            // Assume this is the only call to check.
-            expr_ref_vector defs(m);
-            app_ref_vector free_vars(m), vars1(m);
-            expr_ref fml = mk_and(fmls);
-            m_pred_abs.get_free_vars(fml, free_vars);
-            m_pred_abs.abstract_atoms(fml, defs);
-            fml = m_pred_abs.mk_abstract(fml);
-            get_kernel(0).k().assert_expr(mk_and(defs));
-            get_kernel(0).k().assert_expr(fml);
-            obj_hashtable<app> var_set;
-            for (unsigned i = 0; i < vars.size(); ++i) {
-                var_set.insert(vars[i]);
-            }
-            for (unsigned i = 0; i < free_vars.size(); ++i) {
-                app* v = free_vars[i].get();
-                if (!var_set.contains(v)) {
-                    vars1.push_back(v);
-                }
-            }
-            // 
-            // Insert all variables in alternating list of max/min objectives.
-            // By convention, the outer-most level is max.
-            //
-            bool is_m = true;
-            for (unsigned i = 0; i < vars.size(); ++i) {
-                if (is_m != is_max[i]) {
-                    m_vars.push_back(vars1);
-                    vars1.reset();       
-                    is_m = is_max[i];
-                }
-                vars1.push_back(vars[i]);
-            }
-            m_vars.push_back(vars1);
-            
-            return max_min();
-        }
-
-        lbool max_min() {
-            while (true) {
-                ++m_stats.m_num_rounds;
-                check_cancel();
-                expr_ref_vector asms(m_asms);
-                m_pred_abs.get_assumptions(m_model.get(), asms);
-                //
-                // TBD: add bound to asms.
-                // 
-                smt::kernel& k = get_kernel(m_level).k();
-                lbool res = k.check(asms);
-                switch (res) {
-                case l_true:
-                    k.get_model(m_model);
-                    SASSERT(validate_model(asms));
-                    TRACE("qe", k.display(tout); display(tout << "\n", *m_model.get()); display(tout, asms); );
-                    // 
-                    // TBD: compute new bound on objective.
-                    // 
-                    push();
-                    break;
-                case l_false:
-                    switch (m_level) {
-                    case 0: return l_false;
-                    case 1:
-                        // TBD
-                        break;
-                    default:
-                        if (m_model.get()) {
-                            project(asms); 
-                        }
-                        else {
-                            pop(1);
-                        }
-                        break; 
-                    }
-                    break;
-                case l_undef:
-                    return res;
-                }
-            }
-            return l_undef;
-        }
 
     };
 
@@ -1330,49 +1241,6 @@ namespace qe {
         qsat qs(m, p, qsat_maximize);
         return qs.maximize(fmls, t, mdl, value);
     }    
-
-
-    struct max_min_opt::imp {
-
-        expr_ref_vector m_fmls;
-        qsat            m_qsat;
-
-        imp(ast_manager& m, params_ref const& p): 
-            m_fmls(m), 
-            m_qsat(m, p, qsat_maximize)
-        {}
-
-        void add(expr* e) {
-            m_fmls.push_back(e);
-        }
-
-        lbool check(svector<bool> const& is_max, app_ref_vector const& vars, app* t) {
-            return m_qsat.max_min(m_fmls, is_max, vars, t);
-        }
-
-    };
-
-    max_min_opt::max_min_opt(ast_manager& m, params_ref const& p) {
-        m_imp = alloc(imp, m, p);
-    }
-
-    max_min_opt::~max_min_opt() {
-        dealloc(m_imp);
-    }
-
-    void max_min_opt::add(expr* e) {
-        m_imp->add(e);
-    }
-
-    void max_min_opt::add(expr_ref_vector const& fmls) {
-        for (unsigned i = 0; i < fmls.size(); ++i) {
-            add(fmls[i]);
-        }
-    }
-
-    lbool max_min_opt::check(svector<bool> const& is_max, app_ref_vector const& vars, app* t) {
-        return m_imp->check(is_max, vars, t);
-    }
 
 };
 
