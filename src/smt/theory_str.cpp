@@ -821,8 +821,6 @@ expr * theory_str::eval_concat(expr * n1, expr * n2) {
  *    ~ concat node
  *  to see whether some concat nodes can be simplified.
  */
-
-// TODO NEXT complete this method!
 void theory_str::simplify_parent(expr * nn, expr * eq_str) {
     ast_manager & m = get_manager();
     context & ctx = get_context();
@@ -834,14 +832,17 @@ void theory_str::simplify_parent(expr * nn, expr * eq_str) {
     enode * n_eq_enode = ctx.get_enode(nn);
     enode * nn_enode = n_eq_enode;
 
-    const char * tmp = 0;
-    m_strutil.is_string(eq_str, & tmp);
-    std::string eq_strValue(tmp);
+    std::string eq_strValue = m_strutil.get_string_constant_value(eq_str);
 
     do {
         app * n_eqNode = n_eq_enode->get_owner();
+        TRACE("t_str_detail", tout << "considering all parents of " << mk_ismt2_pp(n_eqNode, m) << std::endl
+                << "associated n_eq_enode has " << n_eq_enode->get_num_parents() << " parents" << std::endl;);
         for (enode_vector::iterator parent_it = n_eq_enode->begin_parents(); parent_it != n_eq_enode->end_parents(); parent_it++) {
             enode * e_parent = *parent_it;
+            // TODO deeper bug hiding here
+            SASSERT(e_parent != NULL);
+
             app * a_parent = e_parent->get_owner();
             TRACE("t_str_detail", tout << "considering parent " << mk_ismt2_pp(a_parent, m) << std::endl;);
 
@@ -2814,7 +2815,32 @@ void theory_str::handle_equality(expr * lhs, expr * rhs) {
         return;
     }
 
-    // TODO simplify concat?
+    if (is_concat(to_app(lhs)) && is_concat(to_app(rhs))) {
+        bool nn1HasEqcValue = false;
+        bool nn2HasEqcValue = false;
+        expr * nn1_value = get_eqc_value(lhs, nn1HasEqcValue);
+        expr * nn2_value = get_eqc_value(rhs, nn2HasEqcValue);
+        if (nn1HasEqcValue && !nn2HasEqcValue) {
+            simplify_parent(rhs, nn1_value);
+        }
+        if (!nn1HasEqcValue && nn2HasEqcValue) {
+            simplify_parent(lhs, nn2_value);
+        }
+
+        expr * nn1_arg0 = to_app(lhs)->get_arg(0);
+        expr * nn1_arg1 = to_app(lhs)->get_arg(1);
+        expr * nn2_arg0 = to_app(rhs)->get_arg(0);
+        expr * nn2_arg1 = to_app(rhs)->get_arg(1);
+        if (nn1_arg0 == nn2_arg0 && in_same_eqc(nn1_arg1, nn2_arg1)) {
+            TRACE("t_str_detail", tout << "skip: lhs arg0 == rhs arg0" << std::endl;);
+            return;
+        }
+
+        if (nn1_arg1 == nn2_arg1 && in_same_eqc(nn1_arg0, nn2_arg0)) {
+            TRACE("t_str_detail", tout << "skip: lhs arg1 == rhs arg1" << std::endl;);
+            return;
+        }
+    }
 
     // newEqCheck() -- check consistency wrt. existing equivalence classes
     if (!new_eq_check(lhs, rhs)) {
