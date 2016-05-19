@@ -838,9 +838,18 @@ void theory_str::simplify_parent(expr * nn, expr * eq_str) {
         app * n_eqNode = n_eq_enode->get_owner();
         TRACE("t_str_detail", tout << "considering all parents of " << mk_ismt2_pp(n_eqNode, m) << std::endl
                 << "associated n_eq_enode has " << n_eq_enode->get_num_parents() << " parents" << std::endl;);
-        for (enode_vector::iterator parent_it = n_eq_enode->begin_parents(); parent_it != n_eq_enode->end_parents(); parent_it++) {
+
+        // the goal of this next bit is to avoid dereferencing a bogus e_parent in the following loop.
+        // what I image is causing this bug is that, for example, we examine some parent, we add an axiom that involves it,
+        // and the parent_it iterator becomes invalidated, because we indirectly modified the container that we're iterating over.
+
+        enode_vector current_parents;
+        for (enode_vector::const_iterator parent_it = n_eq_enode->begin_parents(); parent_it != n_eq_enode->end_parents(); parent_it++) {
+            current_parents.insert(*parent_it);
+        }
+
+        for (enode_vector::iterator parent_it = current_parents.begin(); parent_it != current_parents.end(); ++parent_it) {
             enode * e_parent = *parent_it;
-            // TODO deeper bug hiding here
             SASSERT(e_parent != NULL);
 
             app * a_parent = e_parent->get_owner();
