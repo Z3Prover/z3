@@ -1440,37 +1440,39 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
     expr * m = to_app(concatAst2)->get_arg(0);
     expr * n = to_app(concatAst2)->get_arg(1);
 
-    /* TODO query the integer theory:
-  int x_len = getLenValue(t, x);
-  int y_len = getLenValue(t, y);
-  int m_len = getLenValue(t, m);
-  int n_len = getLenValue(t, n);
-     */
-    int x_len = -1;
-    int y_len = -1;
-    int m_len = -1;
-    int n_len = -1;
+    rational x_len = get_len_value(x);
+    rational y_len = get_len_value(y);
+    rational m_len = get_len_value(m);
+    rational n_len = get_len_value(n);
 
     int splitType = -1;
-    if (x_len != -1 && m_len != -1) {
-        if (x_len < m_len)
+    if (x_len != rational(-1) && m_len != rational(-1)) {
+        if (x_len < m_len) {
             splitType = 0;
-        else if (x_len == m_len)
+        } else if (x_len == m_len) {
             splitType = 1;
-        else
+        } else {
             splitType = 2;
+        }
     }
 
-    if (splitType == -1 && y_len != -1 && n_len != -1) {
-        if (y_len > n_len)
+    if (splitType == -1 && y_len != rational(-1) && n_len != rational(-1)) {
+        if (y_len > n_len) {
             splitType = 0;
-        else if (y_len == n_len)
+        } else if (y_len == n_len) {
             splitType = 1;
-        else
+        } else {
             splitType = 2;
+        }
     }
 
-    TRACE("t_str_detail", tout << "split type " << splitType << std::endl;);
+    TRACE("t_str_detail", tout
+    		<< "len(x) = " << x_len << std::endl
+    		<< "len(y) = " << y_len << std::endl
+			<< "len(m) = " << m_len << std::endl
+			<< "len(n) = " << n_len << std::endl
+    		<< "split type " << splitType << std::endl;
+    );
 
     expr * t1 = NULL;
     expr * t2 = NULL;
@@ -2363,6 +2365,93 @@ expr * theory_str::get_eqc_value(expr * n, bool & hasEqcValue) {
 	return n;
 }
 
+// from Z3: theory_seq.cpp
+
+/*
+static theory_mi_arith* get_th_arith(context& ctx, theory_id afid, expr* e) {
+    theory* th = ctx.get_theory(afid);
+    if (th && ctx.e_internalized(e)) {
+        return dynamic_cast<theory_mi_arith*>(th);
+    }
+    else {
+        return 0;
+    }
+}
+
+bool theory_seq::get_value(expr* e, rational& val) const {
+    context& ctx = get_context();
+    theory_mi_arith* tha = get_th_arith(ctx, m_autil.get_family_id(), e);
+    expr_ref _val(m);
+    if (!tha || !tha->get_value(ctx.get_enode(e), _val)) return false;
+    return m_autil.is_numeral(_val, val) && val.is_int();
+}
+
+bool theory_seq::lower_bound(expr* _e, rational& lo) const {
+    context& ctx = get_context();
+    expr_ref e(m_util.str.mk_length(_e), m);
+    theory_mi_arith* tha = get_th_arith(ctx, m_autil.get_family_id(), e);
+    expr_ref _lo(m);
+    if (!tha || !tha->get_lower(ctx.get_enode(e), _lo)) return false;
+    return m_autil.is_numeral(_lo, lo) && lo.is_int();
+}
+
+bool theory_seq::upper_bound(expr* _e, rational& hi) const {
+    context& ctx = get_context();
+    expr_ref e(m_util.str.mk_length(_e), m);
+    theory_mi_arith* tha = get_th_arith(ctx, m_autil.get_family_id(), e);
+    expr_ref _hi(m);
+    if (!tha || !tha->get_upper(ctx.get_enode(e), _hi)) return false;
+    return m_autil.is_numeral(_hi, hi) && hi.is_int();
+}
+
+bool theory_seq::get_length(expr* e, rational& val) const {
+    context& ctx = get_context();
+    theory* th = ctx.get_theory(m_autil.get_family_id());
+    if (!th) return false;
+    theory_mi_arith* tha = dynamic_cast<theory_mi_arith*>(th);
+    if (!tha) return false;
+    rational val1;
+    expr_ref len(m), len_val(m);
+    expr* e1, *e2;
+    ptr_vector<expr> todo;
+    todo.push_back(e);
+    val.reset();
+    zstring s;
+    while (!todo.empty()) {
+        expr* c = todo.back();
+        todo.pop_back();
+        if (m_util.str.is_concat(c, e1, e2)) {
+            todo.push_back(e1);
+            todo.push_back(e2);
+        }
+        else if (m_util.str.is_unit(c)) {
+            val += rational(1);
+        }
+        else if (m_util.str.is_empty(c)) {
+            continue;
+        }
+        else if (m_util.str.is_string(c, s)) {
+            val += rational(s.length());
+        }
+        else if (!has_length(c)) {
+            return false;
+        }
+        else {
+            len = m_util.str.mk_length(c);
+            if (ctx.e_internalized(len) &&
+                tha->get_value(ctx.get_enode(len), len_val) &&
+                m_autil.is_numeral(len_val, val1)) {
+                val += val1;
+            }
+            else {
+                return false;
+            }
+        }
+    }
+    return val.is_int();
+}
+*/
+
 /*
  * Look through the equivalence class of n to find an integer constant.
  * Return that constant if it is found. Otherwise, return -1.
@@ -2370,9 +2459,11 @@ expr * theory_str::get_eqc_value(expr * n, bool & hasEqcValue) {
  * string length cannot be negative.
  */
 
-rational theory_str::get_len_value(expr * n) {
+rational theory_str::get_len_value(expr * x) {
     ast_manager & m = get_manager();
     context & ctx = get_context();
+    ctx.internalize(x, false);
+    expr * n = mk_strlen(x);
     ctx.internalize(n, false);
 
     TRACE("t_str_detail", tout << "checking eqc of " << mk_ismt2_pp(n, m) << " for an integer constant" << std::endl;);
@@ -2383,13 +2474,15 @@ rational theory_str::get_len_value(expr * n) {
         app * ast = eqcNode->get_owner();
         rational val;
         bool is_int;
-        if (m_autil.is_numeral(n, val, is_int)) {
+        TRACE("t_str_detail", tout << "eqc member: " << mk_ismt2_pp(ast, m) << std::endl;);
+        if (m_autil.is_numeral(ast, val, is_int)) {
             if (is_int) {
                 TRACE("t_str_detail", tout << "eqc contains integer constant " << val << std::endl;);
                 SASSERT(!val.is_neg());
                 return val;
             }
         }
+        eqcNode = eqcNode->get_next();
     } while (eqcNode != nNode);
     // not found
     TRACE("t_str_detail", tout << "eqc contains no integer constants" << std::endl;);

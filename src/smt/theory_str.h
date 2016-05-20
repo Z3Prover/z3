@@ -146,7 +146,7 @@ namespace smt {
         expr * get_eqc_value(expr * n, bool & hasEqcValue);
         bool in_same_eqc(expr * n1, expr * n2);
 
-        rational get_len_value(expr * n);
+        rational get_len_value(expr * x);
 
         bool can_two_nodes_eq(expr * n1, expr * n2);
         bool can_concat_eq_str(expr * concat, std::string str);
