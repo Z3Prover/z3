@@ -2364,6 +2364,39 @@ expr * theory_str::get_eqc_value(expr * n, bool & hasEqcValue) {
 }
 
 /*
+ * Look through the equivalence class of n to find an integer constant.
+ * Return that constant if it is found. Otherwise, return -1.
+ * Note that a return value of -1 should not normally be possible, as
+ * string length cannot be negative.
+ */
+
+rational theory_str::get_len_value(expr * n) {
+    ast_manager & m = get_manager();
+    context & ctx = get_context();
+    ctx.internalize(n, false);
+
+    TRACE("t_str_detail", tout << "checking eqc of " << mk_ismt2_pp(n, m) << " for an integer constant" << std::endl;);
+
+    enode * nNode = ctx.get_enode(n);
+    enode * eqcNode = nNode;
+    do {
+        app * ast = eqcNode->get_owner();
+        rational val;
+        bool is_int;
+        if (m_autil.is_numeral(n, val, is_int)) {
+            if (is_int) {
+                TRACE("t_str_detail", tout << "eqc contains integer constant " << val << std::endl;);
+                SASSERT(!val.is_neg());
+                return val;
+            }
+        }
+    } while (eqcNode != nNode);
+    // not found
+    TRACE("t_str_detail", tout << "eqc contains no integer constants" << std::endl;);
+    return rational(-1);
+}
+
+/*
  * Decide whether n1 and n2 are already in the same equivalence class.
  * This only checks whether the core considers them to be equal;
  * they may not actually be equal.
