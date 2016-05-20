@@ -401,10 +401,19 @@ void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
         func_decl * f = it->m_key;        
         if (f->get_arity() == 0)
         {
-            array_model am = convert_array_func_interp(f, it->m_value, bv_mdl);
-            if (am.new_float_fd) float_mdl->register_decl(am.new_float_fd, am.new_float_fi);
-            if (am.result) float_mdl->register_decl(f, am.result);
-            if (am.bv_fd) seen.insert(am.bv_fd);
+            array_util au(m);
+            if (au.is_array(f->get_range())) {
+                array_model am = convert_array_func_interp(f, it->m_value, bv_mdl);
+                if (am.new_float_fd) float_mdl->register_decl(am.new_float_fd, am.new_float_fi);
+                if (am.result) float_mdl->register_decl(f, am.result);
+                if (am.bv_fd) seen.insert(am.bv_fd);
+            }
+            else {
+                // Just keep.
+                expr_ref val(m);
+                bv_mdl->eval(it->m_value, val);
+                float_mdl->register_decl(f, val);
+            }
         }            
         else {
             func_interp * fmv = convert_func_interp(f, it->m_value, bv_mdl);
