@@ -48,7 +48,6 @@ namespace opt {
                 }
             };
         };
-    private:
         struct row {
             row(): m_type(t_le), m_value(0), m_alive(false) {}
             vector<var> m_vars;         // variables with coefficients
@@ -58,11 +57,14 @@ namespace opt {
             bool        m_alive;        // rows can be marked dead if they have been processed.
         };
 
+    private:
+
         vector<row>             m_rows;
-        unsigned                m_objective_id;
+        static const unsigned   m_objective_id = 0;
         vector<unsigned_vector> m_var2row_ids;
         vector<rational>        m_var2value;
         vector<var>             m_new_vars;
+        unsigned_vector         m_lub, m_glb;
         
         bool invariant();
         bool invariant(unsigned index, row const& r);
@@ -80,6 +82,10 @@ namespace opt {
         void set_row(unsigned row_id, vector<var> const& coeffs, rational const& c, ineq_type rel);
         
         void update_values(unsigned_vector const& bound_vars, unsigned_vector const& bound_trail);
+
+        void project(unsigned var);
+
+        void solve_for(unsigned row_id, unsigned x);
 
     public:
 
@@ -105,6 +111,17 @@ namespace opt {
         // optimal.
         //
         inf_eps maximize();
+
+
+        // 
+        // Project set of variables from inequalities.
+        //
+        void project(unsigned num_vars, unsigned const* vars);
+
+        //
+        // Extract current rows (after projection).
+        // 
+        void get_live_rows(vector<row>& rows);
 
         void display(std::ostream& out) const;
         void display(std::ostream& out, row const& r) const;

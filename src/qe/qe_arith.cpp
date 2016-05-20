@@ -29,6 +29,7 @@ Revision History:
 #include "expr_functors.h"
 #include "expr_safe_replace.h"
 #include "model_based_opt.h"
+#include "model_evaluator.h"
 
 namespace qe {
 
@@ -658,6 +659,9 @@ namespace qe {
             bool new_max = true;
             rational max_r, r;
             expr_ref val(m);
+            model_evaluator eval(mdl);
+            eval.set_model_completion(true);
+            
             bool is_int = a.is_int(m_var->x());
             for (unsigned i = 0; i < num_ineqs(); ++i) {
                 rational const& ac = m_ineq_coeffs[i];
@@ -669,7 +673,7 @@ namespace qe {
                 // ac < 0: x + t/ac > 0 <=> x > max { - t/ac | ac < 0 } = max { t/|ac| | ac < 0 } 
                 //
                 if (ac.is_pos() == do_pos) {
-                    VERIFY(mdl.eval(ineq_term(i), val));
+                    eval(ineq_term(i), val);
                     VERIFY(a.is_numeral(val, r));
                     r /= abs(ac);
                     new_max =

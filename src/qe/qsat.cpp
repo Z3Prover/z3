@@ -575,6 +575,7 @@ namespace qe {
         lbool check_sat() {        
             while (true) {
                 ++m_stats.m_num_rounds;
+                IF_VERBOSE(3, verbose_stream() << "(check-qsat level: " << m_level << " round: " << m_stats.m_num_rounds << ")\n";);
                 check_cancel();
                 expr_ref_vector asms(m_asms);
                 m_pred_abs.get_assumptions(m_model.get(), asms);
@@ -1191,7 +1192,7 @@ namespace qe {
 
         lbool maximize(expr_ref_vector const& fmls, app* t, model_ref& mdl, opt::inf_eps& value) {
             expr_ref_vector defs(m);
-            expr_ref fml = negate_core(fmls);
+            expr_ref fml = mk_and(fmls);
             hoist(fml);
             m_objective = t;
             m_value = opt::inf_eps();

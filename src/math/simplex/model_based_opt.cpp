@@ -34,8 +34,7 @@ std::ostream& operator<<(std::ostream& out, opt::ineq_type ie) {
 namespace opt {
     
 
-    model_based_opt::model_based_opt():
-        m_objective_id(0)
+    model_based_opt::model_based_opt()
     {
         m_rows.push_back(row());
     }
@@ -446,6 +445,133 @@ namespace opt {
 
     void model_based_opt::set_objective(vector<var> const& coeffs, rational const& c) {
         set_row(m_objective_id, coeffs, c, t_le);
+    }
+
+    void model_based_opt::get_live_rows(vector<row>& rows) {
+        for (unsigned i = 0; i < m_rows.size(); ++i) {
+            if (m_rows[i].m_alive) {
+                rows.push_back(m_rows[i]);
+            }
+        }
+    }
+
+    //
+    // pick glb and lub representative.
+    // The representative is picked such that it 
+    // represents the fewest inequalities. 
+    // The constraints that enforce a glb or lub are not forced.
+    // The constraints that separate the glb from ub or the lub from lb
+    // are not forced.
+    // In other words, suppose there are 
+    // . N inequalities of the form t <= x
+    // . M inequalities of the form s >= x
+    // . t0 is glb among N under valuation.
+    // . s0 is lub among M under valuation.
+    // If N < M
+    //    create the inequalities:
+    //       t <= t0 for each t other than t0 (N-1 inequalities).
+    //       t0 <= s for each s (M inequalities).
+    // If N >= M the construction is symmetric.
+    // 
+    void model_based_opt::project(unsigned x) {
+        unsigned_vector& lub_rows = m_lub;
+        unsigned_vector& glb_rows = m_glb;        
+        unsigned lub_index = UINT_MAX, glb_index = UINT_MAX;
+        bool     lub_strict = false, glb_strict = false;
+        rational lub_val, glb_val;
+        rational const& x_val = m_var2value[x];
+        unsigned_vector const& row_ids = m_var2row_ids[x];
+        uint_set visited;
+        lub_rows.reset();
+        glb_rows.reset();
+        // select the lub and glb.
+        for (unsigned i = 0; i < row_ids.size(); ++i) {
+            unsigned row_id = row_ids[i];
+            if (visited.contains(row_id)) {
+                continue;
+            }
+            visited.insert(row_id);
+            row& r = m_rows[row_id];
+            if (!r.m_alive) {
+                continue;
+            }
+            rational a = get_coefficient(row_id, x);
+            if (a.is_zero()) {
+                continue;
+            }
+            if (r.m_type == t_eq) {
+                solve_for(row_id, x);
+                return;
+            }
+            if (a.is_pos()) {
+                rational lub_value = x_val - (r.m_value/a);
+                if (lub_rows.empty() || 
+                    lub_value < lub_val ||
+                    (lub_value == lub_val && r.m_type == t_lt && !lub_strict)) {
+                    lub_val = lub_value;
+                    lub_index = row_id;
+                    lub_strict = r.m_type == t_lt;                    
+                }
+                lub_rows.push_back(row_id);
+            }
+            else {
+                SASSERT(a.is_neg());
+                rational glb_value = x_val - (r.m_value/a);
+                if (glb_rows.empty() || 
+                    glb_value > glb_val ||
+                    (glb_value == glb_val && r.m_type == t_lt && !glb_strict)) {
+                    glb_val = glb_value;
+                    glb_index = row_id;
+                    glb_strict = r.m_type == t_lt;                    
+                }
+                glb_rows.push_back(row_id);
+            }
+        }
+        unsigned row_index = (lub_rows.size() <= glb_rows.size())? lub_index : glb_index;
+        glb_rows.append(lub_rows);            
+        if (row_index == UINT_MAX) {
+            for (unsigned i = 0; i < glb_rows.size(); ++i) {
+                unsigned row_id = glb_rows[i];
+                SASSERT(m_rows[row_id].m_alive);
+                SASSERT(!get_coefficient(row_id, x).is_zero());
+                m_rows[row_id].m_alive = false;
+            }
+        }
+        else {
+            rational coeff = get_coefficient(row_index, x);
+            for (unsigned i = 0; i < glb_rows.size(); ++i) {
+                unsigned row_id = glb_rows[i];
+                if (row_id != row_index) {
+                    resolve(row_index, coeff, row_id, x);
+                }
+            }
+            m_rows[row_index].m_alive = false;
+        }
+    }
+
+    void model_based_opt::solve_for(unsigned row_id1, unsigned x) {
+        rational a = get_coefficient(row_id1, x);
+        row& r1 = m_rows[row_id1];
+        SASSERT(!a.is_zero());
+        SASSERT(r1.m_type == t_eq);
+        SASSERT(r1.m_alive);
+        unsigned_vector const& row_ids = m_var2row_ids[x];
+        uint_set visited;
+        visited.insert(row_id1);
+        for (unsigned i = 0; i < row_ids.size(); ++i) {
+            unsigned row_id2 = row_ids[i];
+            if (!visited.contains(row_id2)) {                
+                visited.insert(row_id2);
+                resolve(row_id1, a, row_id2, x);            
+            }
+        }
+        r1.m_alive = false;
+    }
+
+    void model_based_opt::project(unsigned num_vars, unsigned const* vars) {
+        for (unsigned i = 0; i < num_vars; ++i) {
+            project(vars[i]);
+        }
     }
 
 }
