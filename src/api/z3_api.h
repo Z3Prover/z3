@@ -1214,6 +1214,9 @@ typedef enum {
 
     Z3_OP_FPA_TO_IEEE_BV,
 
+    Z3_OP_FPA_MIN_I,
+    Z3_OP_FPA_MAX_I,
+
     Z3_OP_UNINTERPRETED
 } Z3_decl_kind;
 
