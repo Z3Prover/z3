@@ -1183,10 +1183,10 @@ extern "C" {
             case OP_FPA_TO_SBV: return Z3_OP_FPA_TO_SBV;
             case OP_FPA_TO_REAL: return Z3_OP_FPA_TO_REAL;
             case OP_FPA_TO_IEEE_BV: return Z3_OP_FPA_TO_IEEE_BV;
+            case OP_FPA_INTERNAL_MIN_I: return Z3_OP_FPA_MIN_I;
+            case OP_FPA_INTERNAL_MAX_I: return Z3_OP_FPA_MAX_I;
+            case OP_FPA_INTERNAL_RM_BVWRAP:
             case OP_FPA_INTERNAL_BVWRAP:
-            case OP_FPA_INTERNAL_BVUNWRAP:
-            case OP_FPA_INTERNAL_MIN_I:
-            case OP_FPA_INTERNAL_MAX_I:
             case OP_FPA_INTERNAL_MIN_UNSPECIFIED:
             case OP_FPA_INTERNAL_MAX_UNSPECIFIED:
             case OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED:

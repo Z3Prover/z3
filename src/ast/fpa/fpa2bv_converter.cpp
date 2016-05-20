@@ -77,8 +77,8 @@ void fpa2bv_converter::mk_eq(expr * a, expr * b, expr_ref & result) {
         m_simp.mk_or(both_are_nan, both_the_same, result);
     }
     else if (is_rm(a) && is_rm(b)) {
-        SASSERT(is_app_of(a, m_plugin->get_family_id(), OP_FPA_INTERNAL_RM));
-        SASSERT(is_app_of(b, m_plugin->get_family_id(), OP_FPA_INTERNAL_RM));
+        SASSERT(m_util.is_rm_bvwrap(b));
+        SASSERT(m_util.is_rm_bvwrap(a));
 
         TRACE("fpa2bv", tout << "mk_eq_rm a=" << mk_ismt2_pp(a, m) << std::endl;
         tout << "mk_eq_rm b=" << mk_ismt2_pp(b, m) << std::endl;);
@@ -221,14 +221,14 @@ void fpa2bv_converter::mk_var(unsigned base_inx, sort * srt, expr_ref & result) 
     mk_fp(sgn, e, s, result);
 }
 
-void fpa2bv_converter::mk_uninterpreted_output(sort * rng, func_decl * fbv, expr_ref_buffer & new_args, expr_ref & result) {
+void fpa2bv_converter::mk_function_output(sort * rng, func_decl * fbv, expr * const * new_args, expr_ref & result) {
     if (m_util.is_float(rng)) {
         unsigned ebits = m_util.get_ebits(rng);
         unsigned sbits = m_util.get_sbits(rng);
         unsigned bv_sz = ebits + sbits;
 
         app_ref na(m);
-        na = m.mk_app(fbv, new_args.size(), new_args.c_ptr());
+        na = m.mk_app(fbv, fbv->get_arity(), new_args);
         mk_fp(m_bv_util.mk_extract(bv_sz - 1, bv_sz - 1, na),
             m_bv_util.mk_extract(bv_sz - 2, sbits - 1, na),
             m_bv_util.mk_extract(sbits - 2, 0, na),
@@ -236,71 +236,171 @@ void fpa2bv_converter::mk_uninterpreted_output(sort * rng, func_decl * fbv, expr
     }
     else if (m_util.is_rm(rng)) {
         app_ref na(m);
-        na = m.mk_app(fbv, new_args.size(), new_args.c_ptr());
+        na = m.mk_app(fbv, fbv->get_arity(), new_args);
         mk_rm(na, result);
     }
     else
-        result = m.mk_app(fbv, new_args.size(), new_args.c_ptr());
+        result = m.mk_app(fbv, fbv->get_arity(), new_args);
 }
 
-void fpa2bv_converter::mk_uninterpreted_function(func_decl * f, unsigned num, expr * const * args, expr_ref & result)
+sort_ref fpa2bv_converter::replace_float_sorts(sort * s) {
+    sort_ref ns(m);    
+
+    if (m_util.is_float(s))
+        ns = m_bv_util.mk_sort(m_util.get_sbits(s) + m_util.get_ebits(s));
+    else if (m_util.is_rm(s))
+        ns = m_bv_util.mk_sort(3);
+    else
+        ns = s;
+
+    if (ns->get_num_parameters() != 0) {
+        vector<parameter> new_params;
+        unsigned num_params = ns->get_num_parameters();
+        for (unsigned i = 0; i < num_params; i++)
+        {
+            parameter const & pi = ns->get_parameter(i);
+            if (pi.is_ast() && pi.get_ast()->get_kind() == AST_SORT) {
+                sort_ref nsrt(m);
+                nsrt = replace_float_sorts(to_sort(pi.get_ast()));
+                parameter np = parameter((ast*)nsrt);
+                new_params.push_back(np);
+            }
+            else
+                new_params.push_back(pi);
+        }
+
+        TRACE("fpa2bv", tout << "New sort params:";
+                        for (unsigned i = 0; i < new_params.size(); i++)
+                            tout << " " << new_params[i];
+                        tout << std::endl;);
+
+        ns = m.mk_sort(ns->get_family_id(), ns->get_decl_kind(), new_params.size(), new_params.c_ptr());
+    }
+
+    TRACE("fpa2bv", tout << "sorts replaced: " << mk_ismt2_pp(s, m) << " --> " << mk_ismt2_pp(ns, m) << std::endl; );
+    return ns;
+}
+
+func_decl_ref fpa2bv_converter::replace_function(func_decl * f) {
+    TRACE("fpa2bv", tout << "replacing: " << mk_ismt2_pp(f, m) << std::endl;);
+    func_decl_ref res(m);
+
+    sort_ref_buffer new_domain(m);
+    for (unsigned i = 0; i < f->get_arity(); i++) {
+        sort * di = f->get_domain()[i];
+        new_domain.push_back(replace_float_sorts(di));
+    }
+
+    func_decl * fd;
+    if (m_uf2bvuf.find(f, fd))
+        res = fd;
+    else {
+        sort_ref new_range(m);
+        new_range = replace_float_sorts(f->get_range());
+
+        if (f->get_family_id() == null_family_id) {
+            res = m.mk_fresh_func_decl(f->get_name(), symbol("bv"), new_domain.size(), new_domain.c_ptr(), new_range);
+            TRACE("fpa2bv", tout << "New UF func_decl: " << std::endl << mk_ismt2_pp(res, m) << std::endl;);
+
+            m_uf2bvuf.insert(f, res);
+            m.inc_ref(f);
+            m.inc_ref(res);
+        }
+        else
+        {
+            TRACE("fpa2bv", tout << "New domain:";
+                            for (unsigned i = 0; i < new_domain.size(); i++)
+                                tout << " " << mk_ismt2_pp(new_domain[i], m);
+                            tout << std::endl;);
+
+            res = m.mk_func_decl(f->get_family_id(), f->get_decl_kind(),
+                                 f->get_num_parameters(), f->get_parameters(),
+                                 new_domain.size(), new_domain.c_ptr(), new_range);
+            TRACE("fpa2bv", tout << "New IF func_decl: " << mk_ismt2_pp(res, m) << std::endl;);
+        }
+    }
+
+    return res;
+}
+
+expr_ref fpa2bv_converter::replace_float_arg(expr * a) {
+    expr_ref na(m);
+
+    switch (a->get_kind()) {
+    case AST_APP:
+        if (m_util.is_float(a)) {
+            SASSERT(m_util.is_fp(a));
+            expr * sgn, *exp, *sig;
+            split_fp(a, sgn, exp, sig);
+            expr * args[3] = { sgn, exp, sig };
+            na = m_bv_util.mk_concat(3, args);
+        }
+        else if (is_rm(a)) {
+            SASSERT(m_util.is_rm_bvwrap(a));
+            na = to_app(a)->get_arg(0);
+        }
+        else if (m.is_value(a))
+            na = a;
+        else {            
+            sort_ref ns(m);
+            app_ref ar(m);
+            ar = to_app(a);
+            func_decl * f = to_app(ar)->get_decl();
+            func_decl_ref rf(m);
+            rf = replace_function(f);
+            na = m.mk_app(rf, ar->get_num_args(), ar->get_args());
+        }
+        break;
+    case AST_VAR:
+        na = m.mk_var(to_var(a)->get_idx(), replace_float_sorts(m.get_sort(a)));
+        break;
+    case AST_QUANTIFIER: {
+        quantifier * q = to_quantifier(a);
+        sort * const * srts = q->get_decl_sorts();
+        vector<sort*> new_sorts;
+        for (unsigned i = 0; q->get_num_decls(); i++) {
+            sort_ref ns(m);
+            ns = replace_float_sorts(q->get_decl_sort(i));
+            new_sorts.push_back(ns);
+        }
+        na = m.mk_quantifier(q->is_forall(), 
+                             q->get_num_decls(), new_sorts.c_ptr(),
+                             q->get_decl_names(), q->get_expr(),
+                             q->get_weight(), q->get_qid(), q->get_skid(), 
+                             q->get_num_patterns(), q->get_patterns(), 
+                             q->get_num_no_patterns(), q->get_no_patterns());
+        break;
+    }
+    case AST_SORT:
+    case AST_FUNC_DECL:
+    default:
+        UNREACHABLE();
+    }
+
+    TRACE("fpa2bv", tout << "arg replaced: " << mk_ismt2_pp(a, m) << " --> " << mk_ismt2_pp(na, m) << std::endl; );
+    return na;
+}
+
+void fpa2bv_converter::mk_function(func_decl * f, unsigned num, expr * const * args, expr_ref & result)
 {
     TRACE("fpa2bv", tout << "UF: " << mk_ismt2_pp(f, m) << std::endl; );
     SASSERT(f->get_arity() == num);
 
     expr_ref_buffer new_args(m);
 
-    for (unsigned i = 0; i < num; i++) {
-        if (is_float(args[i])) {
-            expr * sgn, *exp, *sig;
-            split_fp(args[i], sgn, exp, sig);
-            expr * args[3] = { sgn, exp, sig };
-            new_args.push_back(m_bv_util.mk_concat(3, args));
-        }
-        else if (is_rm(args[i])) {
-            SASSERT(is_app_of(args[i], m_util.get_family_id(), OP_FPA_INTERNAL_RM));
-            new_args.push_back(to_app(args[i])->get_arg(0));
-        }
-        else
-            new_args.push_back(args[i]);
-    }
+    for (unsigned i = 0; i < num; i++)
+        new_args.push_back(replace_float_arg(args[i]));
 
-    func_decl * fd;
-    if (m_uf2bvuf.find(f, fd))
-        mk_uninterpreted_output(f->get_range(), fd, new_args, result);
-    else {
-        sort_ref_buffer new_domain(m);
+    TRACE("fpa2bv", tout << "UF bv-args:";
+                    for (unsigned i = 0; i < num; i++)
+                        tout << " " << mk_ismt2_pp(new_args[i], m);
+                    tout << std::endl; );
 
-        for (unsigned i = 0; i < f->get_arity(); i++) {
-            sort * di = f->get_domain()[i];
-            if (is_float(di))
-                new_domain.push_back(m_bv_util.mk_sort(m_util.get_sbits(di) + m_util.get_ebits(di)));
-            else if (is_rm(di))
-                new_domain.push_back(m_bv_util.mk_sort(3));
-            else
-                new_domain.push_back(di);
-        }
-
-        sort * orig_rng = f->get_range();
-        sort_ref rng(orig_rng, m);
-        if (m_util.is_float(orig_rng))
-            rng = m_bv_util.mk_sort(m_util.get_ebits(orig_rng) + m_util.get_sbits(orig_rng));
-        else if (m_util.is_rm(orig_rng))
-            rng = m_bv_util.mk_sort(3);
-
-        func_decl_ref fbv(m);
-        fbv = m.mk_fresh_func_decl(new_domain.size(), new_domain.c_ptr(), rng);
-        TRACE("fpa2bv", tout << "New UF func_decl : " << mk_ismt2_pp(fbv, m) << std::endl;);
-
-        m_uf2bvuf.insert(f, fbv);
-        m.inc_ref(f);
-        m.inc_ref(fbv);
-
-        mk_uninterpreted_output(f->get_range(), fbv, new_args, result);
-    }
+    func_decl_ref rf(m);
+    rf = replace_function(f);
+    mk_function_output(f->get_range(), rf, new_args.c_ptr(), result);
 
     TRACE("fpa2bv", tout << "UF result: " << mk_ismt2_pp(result, m) << std::endl; );
-
     SASSERT(is_well_sorted(m, result));
 }
 
@@ -548,7 +648,7 @@ void fpa2bv_converter::add_core(unsigned sbits, unsigned ebits,
 
 void fpa2bv_converter::mk_add(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 3);
-    SASSERT(is_app_of(args[0], m_util.get_family_id(), OP_FPA_INTERNAL_RM));
+    SASSERT(m_util.is_rm_bvwrap(args[0]));
 
     expr_ref rm(m), x(m), y(m);
     rm = to_app(args[0])->get_arg(0);
@@ -718,7 +818,7 @@ void fpa2bv_converter::mk_neg(sort * srt, expr_ref & x, expr_ref & result) {
 
 void fpa2bv_converter::mk_mul(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 3);
-    SASSERT(is_app_of(args[0], m_util.get_family_id(), OP_FPA_INTERNAL_RM));
+    SASSERT(m_util.is_rm_bvwrap(args[0]));
 
     expr_ref rm(m), x(m), y(m);
     rm = to_app(args[0])->get_arg(0);
@@ -868,7 +968,7 @@ void fpa2bv_converter::mk_mul(sort * s, expr_ref & rm, expr_ref & x, expr_ref & 
 
 void fpa2bv_converter::mk_div(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 3);
-    SASSERT(is_app_of(args[0], m_util.get_family_id(), OP_FPA_INTERNAL_RM));
+    SASSERT(m_util.is_rm_bvwrap(args[0]));
     expr_ref rm(m), x(m), y(m);
     rm = to_app(args[0])->get_arg(0);
     x = args[1];
@@ -1308,7 +1408,7 @@ expr_ref fpa2bv_converter::mk_max_unspecified(func_decl * f, expr * x, expr * y)
 
 void fpa2bv_converter::mk_fma(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 4);
-    SASSERT(is_app_of(args[0], m_util.get_family_id(), OP_FPA_INTERNAL_RM));
+    SASSERT(m_util.is_rm_bvwrap(args[0]));
 
     // fusedma means (x * y) + z
     expr_ref rm(m), x(m), y(m), z(m);
@@ -1626,7 +1726,7 @@ void fpa2bv_converter::mk_fma(func_decl * f, unsigned num, expr * const * args, 
 
 void fpa2bv_converter::mk_sqrt(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 2);
-    SASSERT(is_app_of(args[0], m_util.get_family_id(), OP_FPA_INTERNAL_RM));
+    SASSERT(m_util.is_rm_bvwrap(args[0]));
 
     expr_ref rm(m), x(m);
     rm = to_app(args[0])->get_arg(0);
@@ -1775,7 +1875,7 @@ void fpa2bv_converter::mk_sqrt(func_decl * f, unsigned num, expr * const * args,
 
 void fpa2bv_converter::mk_round_to_integral(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 2);
-    SASSERT(is_app_of(args[0], m_util.get_family_id(), OP_FPA_INTERNAL_RM));
+    SASSERT(m_util.is_rm_bvwrap(args[0]));
 
     expr_ref rm(m), x(m);
     rm = to_app(args[0])->get_arg(0);
@@ -2236,7 +2336,7 @@ void fpa2bv_converter::mk_to_fp(func_decl * f, unsigned num, expr * const * args
 
 
 void fpa2bv_converter::mk_to_fp_float(func_decl * f, sort * s, expr * rm, expr * x, expr_ref & result) {
-    SASSERT(is_app_of(rm, m_util.get_family_id(), OP_FPA_INTERNAL_RM));
+    SASSERT(m_util.is_rm_bvwrap(rm));
     mk_to_fp_float(s, to_app(rm)->get_arg(0), x, result);
 }
 
@@ -2407,7 +2507,7 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
         "x: " << mk_ismt2_pp(x, m) << std::endl;);
     SASSERT(m_util.is_float(s));
     SASSERT(au().is_real(x) || au().is_int(x));
-    SASSERT(is_app_of(rm, m_util.get_family_id(), OP_FPA_INTERNAL_RM));
+    SASSERT(m_util.is_rm_bvwrap(rm));
 
     expr * bv_rm = to_app(rm)->get_arg(0);
     unsigned ebits = m_util.get_ebits(s);
@@ -2542,7 +2642,7 @@ void fpa2bv_converter::mk_to_fp_real_int(func_decl * f, unsigned num, expr * con
     unsigned ebits = m_util.get_ebits(f->get_range());
     unsigned sbits = m_util.get_sbits(f->get_range());
 
-    SASSERT(is_app_of(args[0], m_util.get_family_id(), OP_FPA_INTERNAL_RM));
+    SASSERT(m_util.is_rm_bvwrap(args[0]));
     expr * bv_rm = to_app(args[0])->get_arg(0);
 
     rational e;
@@ -2700,7 +2800,7 @@ void fpa2bv_converter::mk_to_fp_signed(func_decl * f, unsigned num, expr * const
 
     SASSERT(num == 2);
     SASSERT(m_util.is_float(f->get_range()));
-    SASSERT(is_app_of(args[0], m_util.get_family_id(), OP_FPA_INTERNAL_RM));
+    SASSERT(m_util.is_rm_bvwrap(args[0]));
     SASSERT(m_bv_util.is_bv(args[1]));
 
     expr_ref rm(m), x(m);
@@ -2842,7 +2942,7 @@ void fpa2bv_converter::mk_to_fp_unsigned(func_decl * f, unsigned num, expr * con
 
     SASSERT(num == 2);
     SASSERT(m_util.is_float(f->get_range()));
-    SASSERT(is_app_of(args[0], m_util.get_family_id(), OP_FPA_INTERNAL_RM));
+    SASSERT(m_util.is_rm_bvwrap(args[0]));
     SASSERT(m_bv_util.is_bv(args[1]));
 
     expr_ref rm(m), x(m);
@@ -2994,7 +3094,7 @@ void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args
         tout << "arg" << i << " = " << mk_ismt2_pp(args[i], m) << std::endl;);
 
     SASSERT(num == 2);
-    SASSERT(is_app_of(args[0], m_util.get_family_id(), OP_FPA_INTERNAL_RM));
+    SASSERT(m_util.is_rm_bvwrap(args[0]));
     SASSERT(m_util.is_float(args[1]));
 
     expr * rm = to_app(args[0])->get_arg(0);
@@ -3246,7 +3346,7 @@ expr_ref fpa2bv_converter::mk_to_ieee_bv_unspecified(unsigned ebits, unsigned sb
 
 void fpa2bv_converter::mk_rm(expr * bv3, expr_ref & result) {
     SASSERT(m_bv_util.is_bv(bv3) && m_bv_util.get_bv_size(bv3) == 3);
-    result = m.mk_app(m_util.get_family_id(), OP_FPA_INTERNAL_RM, 0, 0, 1, &bv3, m_util.mk_rm_sort());
+    result = m.mk_app(m_util.get_family_id(), OP_FPA_INTERNAL_RM_BVWRAP, 0, 0, 1, &bv3, m_util.mk_rm_sort());
 }
 
 void fpa2bv_converter::mk_fp(expr * sign, expr * exponent, expr * significand, expr_ref & result) {
@@ -3266,7 +3366,7 @@ void fpa2bv_converter::mk_fp(func_decl * f, unsigned num, expr * const * args, e
 }
 
 void fpa2bv_converter::split_fp(expr * e, expr * & sgn, expr * & exp, expr * & sig) const {
-    SASSERT(is_app_of(e, m_plugin->get_family_id(), OP_FPA_FP));
+    SASSERT(m_util.is_fp(e));
     SASSERT(to_app(e)->get_num_args() == 3);
     sgn = to_app(e)->get_arg(0);
     exp = to_app(e)->get_arg(1);
@@ -3274,7 +3374,7 @@ void fpa2bv_converter::split_fp(expr * e, expr * & sgn, expr * & exp, expr * & s
 }
 
 void fpa2bv_converter::split_fp(expr * e, expr_ref & sgn, expr_ref & exp, expr_ref & sig) const {
-    SASSERT(is_app_of(e, m_plugin->get_family_id(), OP_FPA_FP));
+    SASSERT(m_util.is_fp(e));
     SASSERT(to_app(e)->get_num_args() == 3);
     expr *e_sgn, *e_sig, *e_exp;
     split_fp(e, e_sgn, e_exp, e_sig);
@@ -3324,7 +3424,7 @@ void fpa2bv_converter::mk_is_ninf(expr * e, expr_ref & result) {
 }
 
 void fpa2bv_converter::mk_is_pos(expr * e, expr_ref & result) {
-    SASSERT(is_app_of(e, m_plugin->get_family_id(), OP_FPA_FP));
+    SASSERT(m_util.is_fp(e));
     SASSERT(to_app(e)->get_num_args() == 3);
     expr * a0 = to_app(e)->get_arg(0);
     expr_ref zero(m);
@@ -3333,7 +3433,7 @@ void fpa2bv_converter::mk_is_pos(expr * e, expr_ref & result) {
 }
 
 void fpa2bv_converter::mk_is_neg(expr * e, expr_ref & result) {
-    SASSERT(is_app_of(e, m_plugin->get_family_id(), OP_FPA_FP));
+    SASSERT(m_util.is_fp(e));
     SASSERT(to_app(e)->get_num_args() == 3);
     expr * a0 = to_app(e)->get_arg(0);
     expr_ref one(m);
@@ -3502,7 +3602,7 @@ void fpa2bv_converter::mk_unbias(expr * e, expr_ref & result) {
 }
 
 void fpa2bv_converter::unpack(expr * e, expr_ref & sgn, expr_ref & sig, expr_ref & exp, expr_ref & lz, bool normalize) {
-    SASSERT(is_app_of(e, m_plugin->get_family_id(), OP_FPA_FP));
+    SASSERT(m_util.is_fp(e));
     SASSERT(to_app(e)->get_num_args() == 3);
 
     sort * srt = to_app(e)->get_decl()->get_range();
@@ -3599,9 +3699,9 @@ void fpa2bv_converter::unpack(expr * e, expr_ref & sgn, expr_ref & sig, expr_ref
     TRACE("fpa2bv_unpack", tout << "UNPACK EXP = " << mk_ismt2_pp(exp, m) << std::endl; );
 }
 
-void fpa2bv_converter::mk_rounding_mode(func_decl * f, expr_ref & result)
+void fpa2bv_converter::mk_rounding_mode(decl_kind k, expr_ref & result)
 {
-    switch(f->get_decl_kind())
+    switch(k)
     {
     case OP_FPA_RM_NEAREST_TIES_TO_EVEN: result = m_bv_util.mk_numeral(BV_RM_TIES_TO_EVEN, 3); break;
     case OP_FPA_RM_NEAREST_TIES_TO_AWAY: result = m_bv_util.mk_numeral(BV_RM_TIES_TO_AWAY, 3); break;
@@ -3618,9 +3718,9 @@ void fpa2bv_converter::dbg_decouple(const char * prefix, expr_ref & e) {
 #ifdef Z3DEBUG
     return;
     // CMW: This works only for quantifier-free formulas.
-    if (is_app_of(e, m_plugin->get_family_id(), OP_FPA_FP)) {
+    if (m_util.is_fp(e)) {
         expr_ref new_bv(m);
-        expr *e_sgn, *e_sig, *e_exp;
+        expr *e_sgn, *e_sig, *e_exp; 
         split_fp(e, e_sgn, e_exp, e_sig);
         unsigned ebits = m_bv_util.get_bv_size(e_exp);
         unsigned sbits = m_bv_util.get_bv_size(e_sig) + 1;

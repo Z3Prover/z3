@@ -87,9 +87,8 @@ enum fpa_op_kind {
     OP_FPA_TO_IEEE_BV,
 
     /* Internal use only */
-    OP_FPA_INTERNAL_RM, // Internal conversion from (_ BitVec 3) to RoundingMode
     OP_FPA_INTERNAL_BVWRAP,
-    OP_FPA_INTERNAL_BVUNWRAP,
+    OP_FPA_INTERNAL_RM_BVWRAP, // Internal conversion from (_ BitVec 3) to RoundingMode
 
     OP_FPA_INTERNAL_MIN_I,
     OP_FPA_INTERNAL_MAX_I,
@@ -256,12 +255,13 @@ public:
 
     sort * mk_float_sort(unsigned ebits, unsigned sbits);
     sort * mk_rm_sort() { return m().mk_sort(m_fid, ROUNDING_MODE_SORT); }
-    bool is_float(sort * s) { return is_sort_of(s, m_fid, FLOATING_POINT_SORT); }
-    bool is_rm(sort * s) { return is_sort_of(s, m_fid, ROUNDING_MODE_SORT); }
-    bool is_float(expr * e) { return is_float(m_manager.get_sort(e)); }
-    bool is_rm(expr * e) { return is_rm(m_manager.get_sort(e)); }
-    unsigned get_ebits(sort * s);
-    unsigned get_sbits(sort * s);
+    bool is_float(sort * s) const { return is_sort_of(s, m_fid, FLOATING_POINT_SORT); }
+    bool is_rm(sort * s) const { return is_sort_of(s, m_fid, ROUNDING_MODE_SORT); }
+    bool is_float(expr * e) const { return is_float(m_manager.get_sort(e)); }
+    bool is_rm(expr * e) const { return is_rm(m_manager.get_sort(e)); }
+    bool is_fp(expr * e) const { return is_app_of(e, m_fid, OP_FPA_FP); }    
+    unsigned get_ebits(sort * s) const;
+    unsigned get_sbits(sort * s) const;
 
     app * mk_round_nearest_ties_to_even() { return m().mk_const(m_fid, OP_FPA_RM_NEAREST_TIES_TO_EVEN); }
     app * mk_round_nearest_ties_to_away() { return m().mk_const(m_fid, OP_FPA_RM_NEAREST_TIES_TO_AWAY); }
@@ -367,8 +367,10 @@ public:
     app * mk_internal_to_ieee_bv_unspecified(unsigned ebits, unsigned sbits);
     app * mk_internal_to_real_unspecified(unsigned ebits, unsigned sbits);
 
-    bool is_wrap(expr * e) const { return is_app_of(e, get_family_id(), OP_FPA_INTERNAL_BVWRAP); }
-    bool is_unwrap(expr * e) const { return is_app_of(e, get_family_id(), OP_FPA_INTERNAL_BVUNWRAP); }
+    bool is_bvwrap(expr * e) const { return is_app_of(e, get_family_id(), OP_FPA_INTERNAL_BVWRAP); }
+    bool is_bvwrap(func_decl * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_INTERNAL_BVWRAP; }
+    bool is_rm_bvwrap(expr * e) const { return is_app_of(e, get_family_id(), OP_FPA_INTERNAL_RM_BVWRAP); }
+    bool is_rm_bvwrap(func_decl * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_INTERNAL_RM_BVWRAP; }
 };
 
 #endif

@@ -19,18 +19,27 @@ Notes:
 #ifndef FPA2BV_MODEL_CONVERTER_H_
 #define FPA2BV_MODEL_CONVERTER_H_
 
+#include"th_rewriter.h"
 #include"fpa2bv_converter.h"
 #include"model_converter.h"
 
 class fpa2bv_model_converter : public model_converter {
-    ast_manager               & m;
+    ast_manager & m;
+    fpa_util      m_fpa_util;
+    bv_util       m_bv_util;
+    th_rewriter   m_th_rw;
+    
     obj_map<func_decl, expr*>   m_const2bv;
     obj_map<func_decl, expr*>   m_rm_const2bv;
     obj_map<func_decl, func_decl*>  m_uf2bvuf;
     obj_map<func_decl, std::pair<app*, app*> > m_specials;
 
 public:
-    fpa2bv_model_converter(ast_manager & m, fpa2bv_converter const & conv) : m(m) {
+    fpa2bv_model_converter(ast_manager & m, fpa2bv_converter const & conv) : 
+        m(m),
+        m_fpa_util(m),
+        m_bv_util(m),
+        m_th_rw(m) {
         for (obj_map<func_decl, expr*>::iterator it = conv.m_const2bv.begin();
              it != conv.m_const2bv.end();
              it++)
@@ -95,13 +104,32 @@ public:
     virtual model_converter * translate(ast_translation & translator);
 
 protected:
-    fpa2bv_model_converter(ast_manager & m) : m(m){ }
+    fpa2bv_model_converter(ast_manager & m) : 
+        m(m),
+        m_fpa_util(m),
+        m_bv_util(m),
+        m_th_rw(m) {}
 
     void convert(model * bv_mdl, model * float_mdl);
-    expr_ref convert_bv2fp(sort * s, expr * sgn, expr * exp, expr * sig) const;
-    expr_ref convert_bv2fp(model * bv_mdl, sort * s, expr * bv) const;
-    expr_ref convert_bv2rm(expr * eval_v) const;
-    expr_ref convert_bv2rm(model * bv_mdl, func_decl * var, expr * val) const;
+    expr_ref convert_bv2fp(sort * s, expr * sgn, expr * exp, expr * sig);
+    expr_ref convert_bv2fp(model * bv_mdl, sort * s, expr * bv);
+    expr_ref convert_bv2rm(expr * eval_v);
+    expr_ref convert_bv2rm(model * bv_mdl, expr * val);
+
+    func_interp * convert_func_interp(func_decl * f, func_decl * bv_f, model * bv_mdl);
+    expr_ref rebuild_floats(model * bv_mdl, sort * s, expr * e);
+    
+    
+    class array_model {
+    public:
+        func_decl * new_float_fd;
+        func_interp * new_float_fi;
+        func_decl * bv_fd;
+        expr_ref result;
+        array_model(ast_manager & m) : result(m) {}
+    };
+
+    array_model convert_array_func_interp(func_decl * f, func_decl * bv_f, model * bv_mdl);
 };
 
 
