@@ -1342,6 +1342,7 @@ namespace smt {
               tout << "v" << x_i << " ";
               tout << (has_shared?"shared":"not shared") << "\n";);
 
+        (void) empty_column;
         SASSERT(!safe_gain(min_gain, max_gain) ||
                 empty_column ||
                 (unbounded_gain(max_gain) == (x_i == null_theory_var)));

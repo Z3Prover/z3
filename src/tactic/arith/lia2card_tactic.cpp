@@ -300,6 +300,7 @@ public:
     bool get_sum(expr* x, rational const& mul, expr_ref_vector& conds, expr_ref_vector& args, vector<rational>& coeffs, rational& coeff) {
         expr *y, *z, *u;
         rational r, q;
+        if (!is_app(x)) return false;
         app* f = to_app(x);
         bool ok = true;
         if (a.is_add(x)) {

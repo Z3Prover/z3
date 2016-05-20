@@ -249,6 +249,7 @@ void grobner::update_order() {
 }
 
 bool grobner::var_lt::operator()(expr * v1, expr * v2) const {
+    if (v1 == v2) return false;
     int w1 = 0;
     int w2 = 0;
     m_var2weight.find(v1, w1);
@@ -268,6 +269,8 @@ bool grobner::monomial_lt::operator()(monomial * m1, monomial * m2) const {
     for (; it1 != end1; ++it1, ++it2) {
         expr * v1 = *it1;
         expr * v2 = *it2;
+        if (v1 == v2)
+            continue;
         if (m_var_lt(v1, v2))
             return true;
         if (v1 != v2)

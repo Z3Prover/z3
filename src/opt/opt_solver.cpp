@@ -344,6 +344,10 @@ namespace opt {
     }
     
     expr_ref opt_solver::mk_ge(unsigned var, inf_eps const& val) {
+		if (!val.is_finite())
+		{
+			return expr_ref(val.is_pos() ? m.mk_false() : m.mk_true(), m);
+		}
         smt::theory_opt& opt = get_optimizer();
         smt::theory_var v = m_objective_vars[var];
 

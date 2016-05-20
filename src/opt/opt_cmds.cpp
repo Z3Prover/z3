@@ -137,81 +137,12 @@ public:
     }
 };
 
-class alternate_min_max_cmd : public cmd {
-    app_ref_vector*      m_vars;
-    svector<bool>        m_is_max;
-    unsigned             m_position;
-
-    app_ref_vector& vars(cmd_context& ctx) {
-        if (!m_vars) {
-            m_vars = alloc(app_ref_vector, ctx.m());
-        }
-        return *m_vars;
-    }
-public:
-    alternate_min_max_cmd():
-        cmd("min-max"),
-        m_vars(0),
-        m_position(0)
-    {}
-    
-    virtual void reset(cmd_context & ctx) { 
-        dealloc(m_vars);
-        m_vars = 0;
-        m_is_max.reset();
-        m_position = 0;
-    }
-    virtual char const * get_usage() const { return "(min | max | var)+ <term>"; }
-    virtual char const * get_descr(cmd_context & ctx) const { return "check sat modulo alternating min-max objectives";}
-    virtual unsigned get_arity() const { return 2; }
-    virtual void prepare(cmd_context & ctx) {}
-    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const {
-        switch (m_position) {
-        case 0: return CPK_SYMBOL_LIST;
-        case 1: return CPK_EXPR;
-        default: return CPK_SYMBOL;
-        }
-    }
-
-    virtual void set_next_arg(cmd_context & ctx, unsigned num, symbol const * slist) {
-        bool is_max = false;
-        for (unsigned i = 0; i < num; ++i) {
-            if (slist[i] == symbol("max")) {
-                is_max = true;
-            }
-            else if (slist[i] == symbol("min")) {
-                is_max = false;
-            }
-            else {
-                m_is_max.push_back(is_max);
-                vars(ctx).push_back(ctx.m().mk_const(ctx.find_func_decl(slist[i])));
-            }
-        }
-        ++m_position;
-    }
-
-    virtual void set_next_arg(cmd_context & ctx, expr * t) {
-        if (!is_app(t)) {
-            throw cmd_exception("malformed objective term: it cannot be a quantifier or bound variable");
-        }
-        ++m_position;
-        get_opt(ctx).min_max(to_app(t), vars(ctx), m_is_max);
-        reset(ctx);
-    }
-
-    virtual void failure_cleanup(cmd_context & ctx) {
-        reset(ctx);
-    }
-
-    virtual void execute(cmd_context & ctx) { }
-};
 
 
 void install_opt_cmds(cmd_context & ctx) {
     ctx.insert(alloc(assert_soft_cmd));
     ctx.insert(alloc(min_maximize_cmd, true));
     ctx.insert(alloc(min_maximize_cmd, false));
-    ctx.insert(alloc(alternate_min_max_cmd));
 }
 
 

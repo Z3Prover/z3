@@ -274,13 +274,12 @@ void mpn_manager::div_unnormalize(mpn_sbuffer & numer, mpn_sbuffer & denom,
 
 bool mpn_manager::div_1(mpn_sbuffer & numer, mpn_digit const denom,
                         mpn_digit * quot) const {
-    mpn_double_digit q_hat, temp, r_hat, ms;
+    mpn_double_digit q_hat, temp, ms;
     mpn_digit borrow;
 
     for (size_t j = numer.size()-1; j > 0; j--) {
         temp = (((mpn_double_digit)numer[j]) << DIGIT_BITS) | ((mpn_double_digit)numer[j-1]);
         q_hat = temp / (mpn_double_digit) denom;
-        r_hat = temp % (mpn_double_digit) denom;
         if (q_hat >= BASE) {
             UNREACHABLE(); // is this reachable with normalized v?
         }
@@ -294,11 +293,13 @@ bool mpn_manager::div_1(mpn_sbuffer & numer, mpn_digit const denom,
             quot[j-1]--;
             numer[j] = numer[j-1] + denom;
         }
-        TRACE("mpn_div1", tout << "j=" << j << " q_hat=" << q_hat << " r_hat=" << r_hat;
-                          tout << " ms=" << ms;
-                          tout << " new numer="; display_raw(tout, numer.c_ptr(), numer.size());
-                          tout << " borrow=" << borrow;
-                          tout << std::endl; );
+        TRACE("mpn_div1", 
+              mpn_double_digit r_hat = temp % (mpn_double_digit) denom;
+              tout << "j=" << j << " q_hat=" << q_hat << " r_hat=" << r_hat;
+              tout << " ms=" << ms;
+              tout << " new numer="; display_raw(tout, numer.c_ptr(), numer.size());
+              tout << " borrow=" << borrow;
+              tout << std::endl; );
     }
 
     return true; // return rem != 0?

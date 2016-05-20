@@ -173,6 +173,7 @@ namespace datalog {
                 else {
                     processed = false;
                 }
+                (void)processed;
                 TRACE("dl", tout << (processed?"+ ":"- ") << mk_pp(e, m) << "\n";
                       if (processed) matrix::display_ineq(tout, row, M.b.back(), M.eq.back());
                       );

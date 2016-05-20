@@ -1820,22 +1820,16 @@ bool theory_seq::solve_ne(unsigned idx) {
             TRACE("seq", display_disequation(tout << "reduces to false: ", n););
             return true;
         }
+        else if (!change) {
+            TRACE("seq", tout << "no change " << n.ls(i) << " " << n.rs(i) << "\n";);
+            if (updated) {
+                new_ls.push_back(n.ls(i));
+                new_rs.push_back(n.rs(i));
+            }
+            continue;
+        }
         else {
 
-            // eliminate ite expressions.
-            reduce_ite(lhs, new_lits, num_undef_lits, change);
-            reduce_ite(rhs, new_lits, num_undef_lits, change);
-            reduce_ite(ls, new_lits, num_undef_lits, change);
-            reduce_ite(rs, new_lits, num_undef_lits, change);            
-
-            if (!change) {
-                TRACE("seq", tout << "no change " << n.ls(i) << " " << n.rs(i) << "\n";);
-                if (updated) {
-                    new_ls.push_back(n.ls(i));
-                    new_rs.push_back(n.rs(i));
-                }
-                continue;
-            }
 
             if (!updated) {
                 for (unsigned j = 0; j < i; ++j) {
@@ -1938,32 +1932,6 @@ bool theory_seq::solve_ne(unsigned idx) {
         }
     }
     return updated;
-}
-
-void theory_seq::reduce_ite(expr_ref_vector & ls, literal_vector& new_lits, unsigned& num_undef_lits, bool& change) {
-    expr* cond, *th, *el;
-    context& ctx = get_context();
-    for (unsigned i = 0; i < ls.size(); ++i) {
-        expr* e = ls[i].get();
-        if (m.is_ite(e, cond, th, el)) {
-            literal lit(mk_literal(cond));
-            switch (ctx.get_assignment(lit)) {
-            case l_true:
-                change = true;
-                new_lits.push_back(lit);
-                ls[i] = th;
-                break;
-            case l_false:
-                change = true;
-                new_lits.push_back(~lit);
-                ls[i] = el;
-                break;
-            case l_undef:
-                ++num_undef_lits;
-                break;
-            }
-        }
-    }
 }
 
 
@@ -2613,6 +2581,7 @@ expr_ref theory_seq::expand(expr* e0, dependency*& eqs) {
     }
     expr* e = m_rep.find(e0, deps);
     expr* e1, *e2, *e3;
+    context& ctx = get_context();
     if (m_util.str.is_concat(e, e1, e2)) {
         result = mk_concat(expand(e1, deps), expand(e2, deps));
     }
@@ -2637,11 +2606,26 @@ expr_ref theory_seq::expand(expr* e0, dependency*& eqs) {
     else if (m_util.str.is_index(e, e1, e2, e3)) {
         result = m_util.str.mk_index(expand(e1, deps), expand(e2, deps), e3);
     }
+    else if (m.is_ite(e, e1, e2, e3)) {
+        literal lit(mk_literal(e1));
+        switch (ctx.get_assignment(lit)) {
+        case l_true:
+            deps = m_dm.mk_join(deps, m_dm.mk_leaf(assumption(lit)));
+            result = expand(e2, deps);
+            break;
+        case l_false:
+            deps = m_dm.mk_join(deps, m_dm.mk_leaf(assumption(~lit)));
+            result = expand(e3, deps);
+            break;
+        case l_undef:
+            result = e;
+            break;
+        }
+    }
     else if (m_util.str.is_itos(e, e1)) {
         rational val;
         if (get_value(e1, val)) {
             expr_ref num(m), res(m);
-            context& ctx = get_context();
             num = m_autil.mk_numeral(val, true);
             if (!ctx.e_internalized(num)) {
                 ctx.internalize(num, false);

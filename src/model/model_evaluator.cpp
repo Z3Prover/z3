@@ -259,6 +259,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
 
 
     br_status mk_array_eq(expr* a, expr* b, expr_ref& result) {
+        return BR_FAILED;
+        // disabled until made more efficient
         if (a == b) {
             result = m().mk_true();
             return BR_DONE;
@@ -271,6 +273,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
             conj.push_back(m().mk_eq(else1, else2));
             args1.push_back(a);
             args2.push_back(b);
+            // TBD: this is too inefficient.
             for (unsigned i = 0; i < stores.size(); ++i) {
                 args1.resize(1); args1.append(stores[i].size() - 1, stores[i].c_ptr());
                 args2.resize(1); args2.append(stores[i].size() - 1, stores[i].c_ptr());
@@ -362,6 +365,7 @@ struct model_evaluator::imp : public rewriter_tpl<evaluator_cfg> {
                                     false, // no proofs for evaluator
                                     m_cfg),
         m_cfg(md.get_manager(), md, p) {
+        set_cancel_check(false);
     }
 };
 

@@ -52,6 +52,7 @@ namespace sat {
 
     bool clause::check_approx() const {
         var_approx_set curr = m_approx;
+        (void)curr;
         const_cast<clause*>(this)->update_approx();
         SASSERT(may_eq(curr, m_approx));
         return true;

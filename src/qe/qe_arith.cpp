@@ -24,9 +24,9 @@ Revision History:
 #include "ast_util.h"
 #include "arith_decl_plugin.h"
 #include "ast_pp.h"
+#include "model_v2_pp.h"
 #include "th_rewriter.h"
 #include "expr_functors.h"
-#include "model_v2_pp.h"
 #include "expr_safe_replace.h"
 #include "model_based_opt.h"
 
@@ -103,19 +103,19 @@ namespace qe {
             expr_ref t(m);
             opt::ineq_type ty = opt::t_le;
             expr* e1, *e2;
+            DEBUG_CODE(expr_ref val(m); VERIFY(model.eval(lit, val) && m.is_true(val)););
+
             bool is_not = m.is_not(lit, lit);
             if (is_not) {
                 mul.neg();
             }
             SASSERT(!m.is_not(lit));
             if (a.is_le(lit, e1, e2) || a.is_ge(lit, e2, e1)) {
-                if (is_not) mul.neg();
                 linearize(mbo, model, mul, e1, c, ts, tids);
                 linearize(mbo, model, -mul, e2, c, ts, tids);
                 ty = is_not ? opt::t_lt : opt::t_le;
             }
             else if (a.is_lt(lit, e1, e2) || a.is_gt(lit, e2, e1)) {
-                if (is_not) mul.neg();
                 linearize(mbo, model,  mul, e1, c, ts, tids);
                 linearize(mbo, model, -mul, e2, c, ts, tids);
                 ty = is_not ? opt::t_le: opt::t_lt;
