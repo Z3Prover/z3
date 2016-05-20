@@ -98,9 +98,10 @@ br_status fpa_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_FPA_INTERNAL_MIN_UNSPECIFIED:
     case OP_FPA_INTERNAL_MAX_UNSPECIFIED:
         SASSERT(num_args == 2); st = BR_FAILED; break;
+    
+    case OP_FPA_INTERNAL_BVWRAP: SASSERT(num_args == 1); st = mk_bvwrap(args[0], result); break;
+    case OP_FPA_INTERNAL_RM_BVWRAP:SASSERT(num_args == 1); st = mk_rm(args[0], result); break;
 
-    case OP_FPA_INTERNAL_RM:
-        SASSERT(num_args == 1);  SASSERT(num_args == 1); st = mk_rm(args[0], result); break;
     case OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED:
     case OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED:
     case OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED:
@@ -108,8 +109,7 @@ br_status fpa_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         st = BR_FAILED;
         break;
 
-    case OP_FPA_INTERNAL_BVWRAP: SASSERT(num_args == 1); st = mk_bvwrap(args[0], result); break;
-    case OP_FPA_INTERNAL_BVUNWRAP: SASSERT(num_args == 1); st = mk_bvunwrap(args[0], result); break;
+        
 
     default:
         NOT_IMPLEMENTED_YET();
@@ -924,9 +924,9 @@ br_status fpa_rewriter::mk_bvwrap(expr * arg, expr_ref & result) {
     return BR_FAILED;
 }
 
-br_status fpa_rewriter::mk_bvunwrap(expr * arg, expr_ref & result) {
-    if (is_app_of(arg, m_util.get_family_id(), OP_FPA_INTERNAL_BVWRAP))
-        result = to_app(arg)->get_arg(0);
-    
-    return BR_FAILED;
-}
+//br_status fpa_rewriter::mk_bvunwrap(expr * arg, expr_ref & result) {
+//    if (is_app_of(arg, m_util.get_family_id(), OP_FPA_INTERNAL_BVWRAP))
+//        result = to_app(arg)->get_arg(0);
+//    
+//    return BR_FAILED;
+//}

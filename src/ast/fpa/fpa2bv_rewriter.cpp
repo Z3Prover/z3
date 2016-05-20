@@ -107,7 +107,7 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
         case OP_FPA_RM_NEAREST_TIES_TO_EVEN:
         case OP_FPA_RM_TOWARD_NEGATIVE:
         case OP_FPA_RM_TOWARD_POSITIVE:
-        case OP_FPA_RM_TOWARD_ZERO: m_conv.mk_rounding_mode(f, result); return BR_DONE;
+        case OP_FPA_RM_TOWARD_ZERO: m_conv.mk_rounding_mode(f->get_decl_kind(), result); return BR_DONE;
         case OP_FPA_NUM: m_conv.mk_numeral(f, num, args, result); return BR_DONE;
         case OP_FPA_PLUS_INF: m_conv.mk_pinf(f, result); return BR_DONE;
         case OP_FPA_MINUS_INF: m_conv.mk_ninf(f, result); return BR_DONE;
@@ -152,9 +152,9 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
         case OP_FPA_INTERNAL_MIN_I: m_conv.mk_min_i(f, num, args, result); return BR_DONE;
         case OP_FPA_INTERNAL_MAX_I: m_conv.mk_max_i(f, num, args, result); return BR_DONE;
 
-        case OP_FPA_INTERNAL_RM:
         case OP_FPA_INTERNAL_BVWRAP:
-        case OP_FPA_INTERNAL_BVUNWRAP:
+        case OP_FPA_INTERNAL_RM_BVWRAP:
+        
         case OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED:
         case OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED:
         case OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED:
@@ -169,14 +169,14 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
     else {
         SASSERT(!m_conv.is_float_family(f));
         bool is_float_uf = m_conv.is_float(f->get_range()) || m_conv.is_rm(f->get_range());
-
+        
         for (unsigned i = 0; i < f->get_arity(); i++) {
             sort * di = f->get_domain()[i];
             is_float_uf |= m_conv.is_float(di) || m_conv.is_rm(di);
         }
 
         if (is_float_uf) {
-            m_conv.mk_uninterpreted_function(f, num, args, result);
+            m_conv.mk_function(f, num, args, result);
             return BR_DONE;
         }
     }

@@ -72,11 +72,11 @@ public:
     void mk_ite(expr * c, expr * t, expr * f, expr_ref & result);
     void mk_distinct(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
 
-    void mk_rounding_mode(func_decl * f, expr_ref & result);
+    void mk_rounding_mode(decl_kind k, expr_ref & result);
     void mk_numeral(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     virtual void mk_const(func_decl * f, expr_ref & result);
     virtual void mk_rm_const(func_decl * f, expr_ref & result);
-    virtual void mk_uninterpreted_function(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    virtual void mk_function(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_var(unsigned base_inx, sort * srt, expr_ref & result);
 
     void mk_pinf(func_decl * f, expr_ref & result);
@@ -186,7 +186,10 @@ protected:
 
     void mk_to_bv(func_decl * f, unsigned num, expr * const * args, bool is_signed, expr_ref & result);
 
-    void mk_uninterpreted_output(sort * rng, func_decl * fbv, expr_ref_buffer & new_args, expr_ref & result);
+    sort_ref replace_float_sorts(sort * s);
+    func_decl_ref replace_function(func_decl * f);
+    expr_ref replace_float_arg(expr * a);
+    void mk_function_output(sort * rng, func_decl * fbv, expr * const * new_args, expr_ref & result);
 
 private:
     void mk_nan(sort * s, expr_ref & result);

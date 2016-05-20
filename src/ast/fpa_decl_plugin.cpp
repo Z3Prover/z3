@@ -711,18 +711,6 @@ func_decl * fpa_decl_plugin::mk_internal_bv_wrap(decl_kind k, unsigned num_param
     }
 }
 
-func_decl * fpa_decl_plugin::mk_internal_bv_unwrap(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                                     unsigned arity, sort * const * domain, sort * range) {
-    if (arity != 1)
-        m_manager->raise_exception("invalid number of arguments to bv_unwrap");
-    if (!is_sort_of(domain[0], m_bv_fid, BV_SORT))
-        m_manager->raise_exception("sort mismatch, expected argument of bitvector sort");
-    if (!is_float_sort(range) && !is_rm_sort(range))
-        m_manager->raise_exception("sort mismatch, expected range of FloatingPoint or RoundingMode sort");
-
-    return m_manager->mk_func_decl(symbol("bv_unwrap"), 1, domain, range, func_decl_info(m_family_id, k, num_parameters, parameters));
-}
-
 func_decl * fpa_decl_plugin::mk_internal_to_ubv_unspecified(
     decl_kind k, unsigned num_parameters, parameter const * parameters,
     unsigned arity, sort * const * domain, sort * range) {
@@ -847,12 +835,10 @@ func_decl * fpa_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case OP_FPA_TO_IEEE_BV:
         return mk_to_ieee_bv(k, num_parameters, parameters, arity, domain, range);
 
-    case OP_FPA_INTERNAL_RM:
-        return mk_internal_rm(k, num_parameters, parameters, arity, domain, range);
     case OP_FPA_INTERNAL_BVWRAP:
-        return mk_internal_bv_wrap(k, num_parameters, parameters, arity, domain, range);
-    case OP_FPA_INTERNAL_BVUNWRAP:
-        return mk_internal_bv_unwrap(k, num_parameters, parameters, arity, domain, range);
+        return mk_internal_bv_wrap(k, num_parameters, parameters, arity, domain, range);    
+    case OP_FPA_INTERNAL_RM_BVWRAP:
+        return mk_internal_rm(k, num_parameters, parameters, arity, domain, range);
 
     case OP_FPA_INTERNAL_MIN_I:
     case OP_FPA_INTERNAL_MAX_I:
@@ -1027,12 +1013,12 @@ sort * fpa_util::mk_float_sort(unsigned ebits, unsigned sbits) {
     return m().mk_sort(m_fid, FLOATING_POINT_SORT, 2, ps);
 }
 
-unsigned fpa_util::get_ebits(sort * s) {
+unsigned fpa_util::get_ebits(sort * s) const {
     SASSERT(is_float(s));
     return static_cast<unsigned>(s->get_parameter(0).get_int());
 }
 
-unsigned fpa_util::get_sbits(sort * s) {
+unsigned fpa_util::get_sbits(sort * s) const {
     SASSERT(is_float(s));
     return static_cast<unsigned>(s->get_parameter(1).get_int());
 }
