@@ -24,11 +24,11 @@ Notes:
 #include"model_converter.h"
 
 class fpa2bv_model_converter : public model_converter {
-    fpa_util    m_fpa_util;
-    bv_util     m_bv_util;
-    th_rewriter m_th_rw;
-
-    ast_manager               & m;
+    ast_manager & m;
+    fpa_util      m_fpa_util;
+    bv_util       m_bv_util;
+    th_rewriter   m_th_rw;
+    
     obj_map<func_decl, expr*>   m_const2bv;
     obj_map<func_decl, expr*>   m_rm_const2bv;
     obj_map<func_decl, func_decl*>  m_uf2bvuf;
