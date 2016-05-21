@@ -109,7 +109,7 @@ public:
          parameters[o]            - (int) m - number of constructors
          parameters[o+1]          - (int) k_1 - offset for constructor definition
          ...
-         parameters[o+m]          - (int) k_m - offset ofr constructor definition
+         parameters[o+m]          - (int) k_m - offset for constructor definition
       
          for each offset k_i at parameters[o+s] for some s in 0..m-1
          parameters[k_i]          - (symbol) name of the constructor
