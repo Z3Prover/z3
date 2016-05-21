@@ -412,7 +412,7 @@ void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
                 // Just keep.
                 expr_ref val(m);
                 bv_mdl->eval(it->m_value, val);
-                float_mdl->register_decl(f, val);
+                if (val) float_mdl->register_decl(f, val);
             }
         }            
         else {
