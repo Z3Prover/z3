@@ -24,6 +24,11 @@ Notes:
 #include"ref_util.h"
 #include"fpa_decl_plugin.h"
 #include"bv_decl_plugin.h"
+#include"array_decl_plugin.h"
+#include"datatype_decl_plugin.h"
+#include"dl_decl_plugin.h"
+#include"pb_decl_plugin.h"
+#include"seq_decl_plugin.h"
 #include"basic_simplifier_plugin.h"
 
 class fpa2bv_converter {
@@ -33,6 +38,9 @@ protected:
     fpa_util                   m_util;
     bv_util                    m_bv_util;
     arith_util                 m_arith_util;
+    array_util                 m_array_util;
+    datatype_util              m_dt_util;
+    seq_util                   m_seq_util;
     mpf_manager              & m_mpf_manager;
     unsynch_mpz_manager      & m_mpz_manager;
     fpa_decl_plugin          * m_plugin;
@@ -41,6 +49,7 @@ protected:
     obj_map<func_decl, expr*>  m_const2bv;
     obj_map<func_decl, expr*>  m_rm_const2bv;
     obj_map<func_decl, func_decl*>  m_uf2bvuf;
+    obj_map<sort, sort*>       m_subst_sorts;
 
     obj_map<func_decl, std::pair<app *, app *> > m_specials;
 
@@ -145,7 +154,7 @@ public:
     expr_ref_vector m_extra_assertions;
 
     bool is_special(func_decl * f) { return m_specials.contains(f); }
-    bool is_uf2bvuf(func_decl * f) { return m_uf2bvuf.contains(f); }
+    bool is_uf2bvuf(func_decl * f) { return m_uf2bvuf.contains(f); }    
 
 protected:
     void mk_one(func_decl *f, expr_ref & sign, expr_ref & result);

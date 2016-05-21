@@ -691,7 +691,7 @@ func_decl * fpa_decl_plugin::mk_internal_rm(decl_kind k, unsigned num_parameters
 }
 
 func_decl * fpa_decl_plugin::mk_internal_bv_wrap(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                                   unsigned arity, sort * const * domain, sort * range) {
+                                                 unsigned arity, sort * const * domain, sort * range) {
     if (arity != 1)
         m_manager->raise_exception("invalid number of arguments to bv_wrap");
     if (!is_float_sort(domain[0]) && !is_rm_sort(domain[0]))
@@ -1075,4 +1075,65 @@ app * fpa_util::mk_internal_to_real_unspecified(unsigned ebits, unsigned sbits) 
     parameter ps[] = { parameter(ebits), parameter(sbits) };
     sort * range = m_a_util.mk_real();
     return m().mk_app(get_family_id(), OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED, 2, ps, 0, 0, range);
+}
+
+bool fpa_util::contains_floats(ast * a) {
+    switch (a->get_kind()) {
+    case AST_APP: {
+        app * aa = to_app(a);
+        if (contains_floats(aa->get_decl()))
+            return true;
+        else
+            for (unsigned i = 0; i < aa->get_num_args(); i++)
+                if (contains_floats(aa->get_arg(i)))
+                    return true;
+        break;
+    }
+    case AST_VAR:
+        return contains_floats(to_var(a)->get_sort());
+        break;
+    case AST_QUANTIFIER: {
+        quantifier * q = to_quantifier(a);
+        for (unsigned i = 0; i < q->get_num_children(); i++)
+            if (contains_floats(q->get_child(i)))
+                return true;
+        for (unsigned i = 0; i < q->get_num_decls(); i++)
+            if (contains_floats(q->get_decl_sort(i)))
+                return true;
+        if (contains_floats(q->get_expr()))
+            return true;
+        break;
+    }
+    case AST_SORT: {
+        sort * s = to_sort(a);
+        if (is_float(s) || is_rm(s))
+            return true;
+        else {
+            for (unsigned i = 0; i < s->get_num_parameters(); i++) {
+                parameter const & pi = s->get_parameter(i);
+                if (pi.is_ast() && contains_floats(pi.get_ast()))
+                    return true;
+            }
+        }
+        break;
+    }
+    case AST_FUNC_DECL: {
+        func_decl * f = to_func_decl(a);
+        for (unsigned i = 0; i < f->get_arity(); i++)
+            if (contains_floats(f->get_domain(i)))
+                return true;
+        if (contains_floats(f->get_range()))
+            return true;
+        for (unsigned i = 0; i < f->get_num_parameters(); i++) {
+            parameter const & pi = f->get_parameter(i);
+            if (pi.is_ast() && contains_floats(pi.get_ast()))
+                return true;
+        }
+        break;
+    }
+    default:
+        UNREACHABLE();
+    }
+
+    return false;
 }

@@ -370,7 +370,9 @@ public:
     bool is_bvwrap(expr * e) const { return is_app_of(e, get_family_id(), OP_FPA_INTERNAL_BVWRAP); }
     bool is_bvwrap(func_decl * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_INTERNAL_BVWRAP; }
     bool is_rm_bvwrap(expr * e) const { return is_app_of(e, get_family_id(), OP_FPA_INTERNAL_RM_BVWRAP); }
-    bool is_rm_bvwrap(func_decl * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_INTERNAL_RM_BVWRAP; }
+    bool is_rm_bvwrap(func_decl * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_INTERNAL_RM_BVWRAP; }    
+
+    bool contains_floats(ast * a);
 };
 
 #endif

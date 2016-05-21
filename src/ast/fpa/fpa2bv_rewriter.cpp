@@ -71,7 +71,7 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
     if (m().is_eq(f)) {
         SASSERT(num == 2);
         TRACE("fpa2bv_rw", tout << "(= " << mk_ismt2_pp(args[0], m()) << " " <<
-              mk_ismt2_pp(args[1], m()) << ")" << std::endl;);
+            mk_ismt2_pp(args[1], m()) << ")" << std::endl;);
         SASSERT(m().get_sort(args[0]) == m().get_sort(args[1]));
         sort * ds = f->get_domain()[0];
         if (m_conv.is_float(ds)) {
@@ -83,7 +83,7 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
             return BR_DONE;
         }
         return BR_FAILED;
-    }
+    }    
     else if (m().is_ite(f)) {
         SASSERT(num == 3);
         if (m_conv.is_float(args[1])) {
@@ -100,7 +100,7 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
         }
         return BR_FAILED;
     }
-
+    
     if (m_conv.is_float_family(f)) {
         switch (f->get_decl_kind()) {
         case OP_FPA_RM_NEAREST_TIES_TO_AWAY:
@@ -166,16 +166,9 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
             NOT_IMPLEMENTED_YET();
         }
     }
-    else {
-        SASSERT(!m_conv.is_float_family(f));
-        bool is_float_uf = m_conv.is_float(f->get_range()) || m_conv.is_rm(f->get_range());
-        
-        for (unsigned i = 0; i < f->get_arity(); i++) {
-            sort * di = f->get_domain()[i];
-            is_float_uf |= m_conv.is_float(di) || m_conv.is_rm(di);
-        }
-
-        if (is_float_uf) {
+    else if (f->get_arity() > 0 && !m_conv.is_float_family(f)) {
+        expr_ref q(m().mk_app(f, num, args), m());
+        if (m_conv.fu().contains_floats(q)) {
             m_conv.mk_function(f, num, args, result);
             return BR_DONE;
         }
@@ -249,17 +242,16 @@ bool fpa2bv_rewriter_cfg::reduce_var(var * t, expr_ref & result, proof_ref & res
 
     expr_ref new_exp(m());
     sort * s = t->get_sort();
-    if (m_conv.is_float(s))
-        {
-            expr_ref new_var(m());
-            unsigned ebits = m_conv.fu().get_ebits(s);
-            unsigned sbits = m_conv.fu().get_sbits(s);
-            new_var = m().mk_var(t->get_idx(), m_conv.bu().mk_sort(sbits+ebits));
-            m_conv.mk_fp(m_conv.bu().mk_extract(sbits+ebits-1, sbits+ebits-1, new_var),
-                         m_conv.bu().mk_extract(ebits - 1, 0, new_var),
-                         m_conv.bu().mk_extract(sbits+ebits-2, ebits, new_var),
-                         new_exp);
-        }
+    if (m_conv.is_float(s)) {
+        expr_ref new_var(m());
+        unsigned ebits = m_conv.fu().get_ebits(s);
+        unsigned sbits = m_conv.fu().get_sbits(s);
+        new_var = m().mk_var(t->get_idx(), m_conv.bu().mk_sort(sbits+ebits));
+        m_conv.mk_fp(m_conv.bu().mk_extract(sbits+ebits-1, sbits+ebits-1, new_var),
+                        m_conv.bu().mk_extract(ebits - 1, 0, new_var),
+                        m_conv.bu().mk_extract(sbits+ebits-2, ebits, new_var),
+                        new_exp);
+    }
     else
         new_exp = m().mk_var(t->get_idx(), s);
 

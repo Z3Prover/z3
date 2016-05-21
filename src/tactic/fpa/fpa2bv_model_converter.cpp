@@ -46,6 +46,12 @@ void fpa2bv_model_converter::display(std::ostream & out) {
         unsigned indent = n.size() + 4;
         out << mk_ismt2_pp(it->m_value, m, indent) << ")";
     }
+    for (obj_map<sort, sort*>::iterator it = m_subst_sorts.begin();
+         it != m_subst_sorts.end();
+         it++) {
+        out << "\n  " << mk_ismt2_pp(it->m_key, m) << " -> ";
+        out << mk_ismt2_pp(it->m_value, m);
+    }    
     for (obj_map<func_decl, std::pair<app*, app*> >::iterator it = m_specials.begin();
          it != m_specials.end();
          it++) {
@@ -55,6 +61,7 @@ void fpa2bv_model_converter::display(std::ostream & out) {
         out << mk_ismt2_pp(it->m_value.first, m, indent) << "; " <<
                mk_ismt2_pp(it->m_value.second, m, indent) << ")";
     }
+    out << ")";
 }
 
 model_converter * fpa2bv_model_converter::translate(ast_translation & translator) {
@@ -85,6 +92,15 @@ model_converter * fpa2bv_model_converter::translate(ast_translation & translator
         func_decl * k = translator(it->m_key);
         func_decl * v = translator(it->m_value);
         res->m_uf2bvuf.insert(k, v);
+        translator.to().inc_ref(k);
+        translator.to().inc_ref(v);
+    }
+    for (obj_map<sort, sort*>::iterator it = m_subst_sorts.begin();
+         it != m_subst_sorts.end();
+         it++) {
+        sort * k = translator(it->m_key);
+        sort * v = translator(it->m_value);
+        res->m_subst_sorts.insert(k, v);
         translator.to().inc_ref(k);
         translator.to().inc_ref(v);
     }
@@ -410,6 +426,7 @@ void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
             }
             else {
                 // Just keep.
+                SASSERT(!m_fpa_util.is_float(f->get_range()) && !m_fpa_util.is_rm(f->get_range()));
                 expr_ref val(m);
                 bv_mdl->eval(it->m_value, val);
                 if (val) float_mdl->register_decl(f, val);
