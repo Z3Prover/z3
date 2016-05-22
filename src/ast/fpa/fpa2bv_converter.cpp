@@ -300,7 +300,7 @@ sort_ref fpa2bv_converter::replace_float_sorts(sort * s) {
                         has_news = true;
                     }
 
-                    accessor_decl * ad = mk_accessor_decl(name, type_ref(s1r));
+                    accessor_decl * ad = mk_accessor_decl(name, type_ref(s1r.get()));
                     new_cas.push_back(ad);
                 }
 
@@ -455,7 +455,6 @@ expr_ref fpa2bv_converter::replace_float_arg(expr * a) {
         break;
     case AST_QUANTIFIER: {
         quantifier * q = to_quantifier(a);
-        sort * const * srts = q->get_decl_sorts();
         vector<sort*> new_sorts;
         for (unsigned i = 0; q->get_num_decls(); i++) {
             sort_ref ns(m);
