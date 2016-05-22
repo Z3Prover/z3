@@ -48,8 +48,7 @@ protected:
 
     obj_map<func_decl, expr*>  m_const2bv;
     obj_map<func_decl, expr*>  m_rm_const2bv;
-    obj_map<func_decl, func_decl*>  m_uf2bvuf;
-    obj_map<sort, sort*>       m_subst_sorts;
+    obj_map<func_decl, func_decl*>  m_uf2bvuf;    
 
     obj_map<func_decl, std::pair<app *, app *> > m_specials;
 
@@ -68,12 +67,9 @@ public:
     bool is_rm(expr * e) { return is_app(e) && m_util.is_rm(e); }
     bool is_rm(sort * s) { return m_util.is_rm(s); }
     bool is_float_family(func_decl * f) { return f->get_family_id() == m_util.get_family_id(); }
-
-    void mk_rm(expr * bv3, expr_ref & result);
-
-    void mk_fp(expr * sign, expr * exponent, expr * significand, expr_ref & result);
+    
     void mk_fp(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-
+    
     void split_fp(expr * e, expr * & sgn, expr * & exp, expr * & sig) const;
     void split_fp(expr * e, expr_ref & sgn, expr_ref & exp, expr_ref & sig) const;
 
@@ -199,6 +195,7 @@ protected:
     func_decl_ref replace_function(func_decl * f);
     expr_ref replace_float_arg(expr * a);
     void mk_function_output(sort * rng, func_decl * fbv, expr * const * new_args, expr_ref & result);
+    func_decl * get_bv_uf(func_decl * f, sort * bv_rng, unsigned arity);
 
 private:
     void mk_nan(sort * s, expr_ref & result);

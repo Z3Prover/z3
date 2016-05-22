@@ -46,12 +46,6 @@ void fpa2bv_model_converter::display(std::ostream & out) {
         unsigned indent = n.size() + 4;
         out << mk_ismt2_pp(it->m_value, m, indent) << ")";
     }
-    for (obj_map<sort, sort*>::iterator it = m_subst_sorts.begin();
-         it != m_subst_sorts.end();
-         it++) {
-        out << "\n  " << mk_ismt2_pp(it->m_key, m) << " -> ";
-        out << mk_ismt2_pp(it->m_value, m);
-    }    
     for (obj_map<func_decl, std::pair<app*, app*> >::iterator it = m_specials.begin();
          it != m_specials.end();
          it++) {
@@ -92,15 +86,6 @@ model_converter * fpa2bv_model_converter::translate(ast_translation & translator
         func_decl * k = translator(it->m_key);
         func_decl * v = translator(it->m_value);
         res->m_uf2bvuf.insert(k, v);
-        translator.to().inc_ref(k);
-        translator.to().inc_ref(v);
-    }
-    for (obj_map<sort, sort*>::iterator it = m_subst_sorts.begin();
-         it != m_subst_sorts.end();
-         it++) {
-        sort * k = translator(it->m_key);
-        sort * v = translator(it->m_value);
-        res->m_subst_sorts.insert(k, v);
         translator.to().inc_ref(k);
         translator.to().inc_ref(v);
     }
@@ -213,16 +198,25 @@ expr_ref fpa2bv_model_converter::convert_bv2rm(model * bv_mdl, expr * val) {
 
 expr_ref fpa2bv_model_converter::rebuild_floats(model * bv_mdl, sort * s, expr * e) {
     expr_ref result(m);
-
     TRACE("fpa2bv_mc", tout << "rebuild floats in " << mk_ismt2_pp(s, m) << " for " << mk_ismt2_pp(e, m) << std::endl;);
 
     if (m_fpa_util.is_float(s)) {
-        SASSERT(m_bv_util.is_bv(e));
-        result = convert_bv2fp(bv_mdl, s, e);
+        if (m_fpa_util.is_numeral(e)) {
+            result = e;
+        }
+        else {
+            SASSERT(m_bv_util.is_bv(e) && m_bv_util.get_bv_size(e) == (m_fpa_util.get_ebits(s) + m_fpa_util.get_sbits(s)));
+            result = convert_bv2fp(bv_mdl, s, e);
+        }
     }
     else if (m_fpa_util.is_rm(s)) {
-        SASSERT(m_bv_util.get_bv_size(e) == 3);
-        result = convert_bv2rm(bv_mdl, e);
+        if (m_fpa_util.is_rm_numeral(e)) {
+            result = e;
+        }
+        else {
+            SASSERT(m_bv_util.is_bv(e) && m_bv_util.get_bv_size(e) == 3);
+            result = convert_bv2rm(bv_mdl, e);
+        }
     }
     else if (is_app(e)) {
         app * a = to_app(e);
@@ -245,6 +239,7 @@ fpa2bv_model_converter::array_model fpa2bv_model_converter::convert_array_func_i
 
     expr_ref as_arr_mdl(m);
     as_arr_mdl = bv_mdl->get_const_interp(bv_f);
+    if (as_arr_mdl == 0) return am;
     TRACE("fpa2bv_mc", tout << "arity=0 func_interp for " << mk_ismt2_pp(f, m) << " := " << mk_ismt2_pp(as_arr_mdl, m) << std::endl;);
     SASSERT(arr_util.is_as_array(as_arr_mdl));
     for (unsigned i = 0; i < arity; i++)

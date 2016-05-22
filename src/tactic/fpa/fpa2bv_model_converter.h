@@ -32,7 +32,6 @@ class fpa2bv_model_converter : public model_converter {
     obj_map<func_decl, expr*>   m_const2bv;
     obj_map<func_decl, expr*>   m_rm_const2bv;
     obj_map<func_decl, func_decl*>  m_uf2bvuf;
-    obj_map<sort, sort*>        m_subst_sorts;
     obj_map<func_decl, std::pair<app*, app*> > m_specials;
 
 public:
@@ -65,14 +64,6 @@ public:
             m.inc_ref(it->m_key);
             m.inc_ref(it->m_value);
         }
-        for (obj_map<sort, sort*>::iterator it = conv.m_subst_sorts.begin();
-            it != conv.m_subst_sorts.end();
-            it++)
-        {
-            m_subst_sorts.insert(it->m_key, it->m_value);
-            m.inc_ref(it->m_key);
-            m.inc_ref(it->m_value);
-        }
         for (obj_map<func_decl, std::pair<app*, app*> >::iterator it = conv.m_specials.begin();
              it != conv.m_specials.end();
              it++) {
@@ -87,7 +78,6 @@ public:
         dec_ref_map_key_values(m, m_const2bv);
         dec_ref_map_key_values(m, m_rm_const2bv);
         dec_ref_map_key_values(m, m_uf2bvuf);
-        dec_ref_map_key_values(m, m_subst_sorts);
         for (obj_map<func_decl, std::pair<app*, app*> >::iterator it = m_specials.begin();
              it != m_specials.end();
              it++) {
@@ -128,15 +118,14 @@ protected:
 
     func_interp * convert_func_interp(func_decl * f, func_decl * bv_f, model * bv_mdl);
     expr_ref rebuild_floats(model * bv_mdl, sort * s, expr * e);
-    
-    
+        
     class array_model {
     public:
         func_decl * new_float_fd;
         func_interp * new_float_fi;
         func_decl * bv_fd;
         expr_ref result;
-        array_model(ast_manager & m) : result(m) {}
+        array_model(ast_manager & m) : new_float_fd(0), new_float_fi(0), bv_fd(0), result(m) {}
     };
 
     array_model convert_array_func_interp(func_decl * f, func_decl * bv_f, model * bv_mdl);

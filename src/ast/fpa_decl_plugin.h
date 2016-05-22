@@ -294,7 +294,18 @@ public:
     bool is_pzero(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_pzero(v); }
     bool is_nzero(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_nzero(v); }
 
-    app * mk_fp(expr * sgn, expr * exp, expr * sig) { return m().mk_app(m_fid, OP_FPA_FP, sgn, exp, sig); }
+    app * mk_fp(expr * sgn, expr * exp, expr * sig) { 
+        SASSERT(m_bv_util.is_bv(sgn) && m_bv_util.get_bv_size(sgn) == 1);
+        SASSERT(m_bv_util.is_bv(exp));
+        SASSERT(m_bv_util.is_bv(sig));
+        return m().mk_app(m_fid, OP_FPA_FP, sgn, exp, sig); 
+    }
+    
+    app * mk_rm(expr * bv3) { 
+        SASSERT(m_bv_util.is_bv(bv3) && m_bv_util.get_bv_size(bv3) == 3);
+        return m().mk_app(m_fid, OP_FPA_INTERNAL_RM_BVWRAP, 0, 0, 1, &bv3, mk_rm_sort());
+    }
+
     app * mk_to_fp(sort * s, expr * bv_t) {
         SASSERT(is_float(s) && s->get_num_parameters() == 2);
         return m().mk_app(m_fid, OP_FPA_TO_FP, 2, s->get_parameters(), 1, &bv_t);

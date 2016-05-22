@@ -56,7 +56,10 @@ bool fpa2bv_rewriter_cfg::max_steps_exceeded(unsigned num_steps) const {
 
 
 br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
-    TRACE("fpa2bv_rw", tout << "APP: " << f->get_name() << std::endl; );
+    TRACE("fpa2bv_rw", tout << "func: " << f->get_name() << std::endl;
+                       tout << "args: " << std::endl;
+                       for (unsigned i = 0; i < num; i++)
+                           tout << mk_ismt2_pp(args[i], m()) << std::endl;);
 
     if (num == 0 && f->get_family_id() == null_family_id && m_conv.is_float(f->get_range())) {
         m_conv.mk_const(f, result);
@@ -166,12 +169,11 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
             NOT_IMPLEMENTED_YET();
         }
     }
-    else if (f->get_arity() > 0 && !m_conv.is_float_family(f)) {
-        expr_ref q(m().mk_app(f, num, args), m());
-        if (m_conv.fu().contains_floats(q)) {
-            m_conv.mk_function(f, num, args, result);
-            return BR_DONE;
-        }
+    else 
+    {
+        SASSERT(!m_conv.is_float_family(f));
+        m_conv.mk_function(f, num, args, result);
+        return BR_DONE;
     }
 
     return BR_FAILED;
@@ -247,10 +249,9 @@ bool fpa2bv_rewriter_cfg::reduce_var(var * t, expr_ref & result, proof_ref & res
         unsigned ebits = m_conv.fu().get_ebits(s);
         unsigned sbits = m_conv.fu().get_sbits(s);
         new_var = m().mk_var(t->get_idx(), m_conv.bu().mk_sort(sbits+ebits));
-        m_conv.mk_fp(m_conv.bu().mk_extract(sbits+ebits-1, sbits+ebits-1, new_var),
-                        m_conv.bu().mk_extract(ebits - 1, 0, new_var),
-                        m_conv.bu().mk_extract(sbits+ebits-2, ebits, new_var),
-                        new_exp);
+        new_exp = m_conv.fu().mk_fp(m_conv.bu().mk_extract(sbits+ebits-1, sbits+ebits-1, new_var),
+                                    m_conv.bu().mk_extract(ebits - 1, 0, new_var),
+                                    m_conv.bu().mk_extract(sbits+ebits-2, ebits, new_var));
     }
     else
         new_exp = m().mk_var(t->get_idx(), s);

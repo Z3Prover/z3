@@ -54,10 +54,9 @@ namespace smt {
             unsigned bv_sz = m_th.m_bv_util.get_bv_size(bv);
             unsigned sbits = m_th.m_fpa_util.get_sbits(s);
             SASSERT(bv_sz == m_th.m_fpa_util.get_ebits(s) + sbits);
-            m_th.m_converter.mk_fp(m_bv_util.mk_extract(bv_sz - 1, bv_sz - 1, bv),
-                                   m_bv_util.mk_extract(bv_sz - 2, sbits - 1, bv),
-                                   m_bv_util.mk_extract(sbits - 2, 0, bv),
-                                   result);
+            result = m_util.mk_fp(m_bv_util.mk_extract(bv_sz - 1, bv_sz - 1, bv),
+                                  m_bv_util.mk_extract(bv_sz - 2, sbits - 1, bv),
+                                  m_bv_util.mk_extract(sbits - 2, 0, bv));
             SASSERT(m_th.m_fpa_util.is_float(result));
             m_const2bv.insert(f, result);
             m.inc_ref(f);
@@ -76,7 +75,7 @@ namespace smt {
             SASSERT(is_rm(f->get_range()));
             expr_ref bv(m);
             bv = m_th.wrap(m.mk_const(f));
-            mk_rm(bv, result);
+            result = m_util.mk_rm(bv);
             m_rm_const2bv.insert(f, result);
             m.inc_ref(f);
             m.inc_ref(result);
@@ -84,8 +83,8 @@ namespace smt {
     }
 
     void theory_fpa::fpa2bv_converter_wrapped::mk_function(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
-        return fpa2bv_converter::mk_function(f, num, args, result);
-        TRACE("t_fpa", tout << "UF result: " << mk_ismt2_pp(result, m) << std::endl; );
+        // Note: this introduces new UFs that should be filtered afterwards. 
+        return fpa2bv_converter::mk_function(f, num, args, result);        
     }
 
     expr_ref theory_fpa::fpa2bv_converter_wrapped::mk_min_unspecified(func_decl * f, expr * x, expr * y) {
@@ -100,10 +99,9 @@ namespace smt {
         expr_ref a(m), wrapped(m);
         a = m.mk_app(w, x, y);
         wrapped = m_th.wrap(a);
-        m_th.m_converter.mk_fp(m_bv_util.mk_extract(bv_sz - 1, bv_sz - 1, wrapped),
-                               m_bv_util.mk_extract(bv_sz - 2, sbits - 1, wrapped),
-                               m_bv_util.mk_extract(sbits - 2, 0, wrapped),
-                               res);
+        res = m_util.mk_fp(m_bv_util.mk_extract(bv_sz - 1, bv_sz - 1, wrapped),
+                           m_bv_util.mk_extract(bv_sz - 2, sbits - 1, wrapped),
+                           m_bv_util.mk_extract(sbits - 2, 0, wrapped));
 
         expr_ref sc(m);
         m_th.m_converter.mk_is_zero(res, sc);
@@ -123,10 +121,9 @@ namespace smt {
         expr_ref a(m), wrapped(m);
         a = m.mk_app(w, x, y);
         wrapped = m_th.wrap(a);
-        m_th.m_converter.mk_fp(m_bv_util.mk_extract(bv_sz - 1, bv_sz - 1, wrapped),
-                               m_bv_util.mk_extract(bv_sz - 2, sbits - 1, wrapped),
-                               m_bv_util.mk_extract(sbits - 2, 0, wrapped),
-                               res);
+        res = m_util.mk_fp(m_bv_util.mk_extract(bv_sz - 1, bv_sz - 1, wrapped),
+                           m_bv_util.mk_extract(bv_sz - 2, sbits - 1, wrapped),
+                           m_bv_util.mk_extract(sbits - 2, 0, wrapped));
 
         expr_ref sc(m);
         m_th.m_converter.mk_is_zero(res, sc);
@@ -380,7 +377,7 @@ namespace smt {
             SASSERT(m_fpa_util.is_rm_bvwrap(e_conv));
             expr_ref bv_rm(m);
             m_th_rw(to_app(e_conv)->get_arg(0), bv_rm);
-            m_converter.mk_rm(bv_rm, res);
+            res = m_fpa_util.mk_rm(bv_rm);
         }
         else if (m_fpa_util.is_float(e)) {
             SASSERT(m_fpa_util.is_fp(e_conv));
@@ -389,7 +386,7 @@ namespace smt {
             m_th_rw(sgn);
             m_th_rw(exp);
             m_th_rw(sig);
-            m_converter.mk_fp(sgn, exp, sig, res);
+            res = m_fpa_util.mk_fp(sgn, exp, sig);
         }
         else
             UNREACHABLE();
