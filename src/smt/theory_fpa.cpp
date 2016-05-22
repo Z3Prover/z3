@@ -317,8 +317,7 @@ namespace smt {
         SASSERT(!m_fpa_util.is_fp(e));
         SASSERT(m_bv_util.is_bv(e));
         SASSERT(m_fpa_util.is_float(s) || m_fpa_util.is_rm(s));
-        ast_manager & m = get_manager();
-        sort * bv_srt = m.get_sort(e);
+        ast_manager & m = get_manager();        
         app_ref res(m);
 
         unsigned bv_sz = m_bv_util.get_bv_size(e);
