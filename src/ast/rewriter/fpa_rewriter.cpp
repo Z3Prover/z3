@@ -109,8 +109,6 @@ br_status fpa_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         st = BR_FAILED;
         break;
 
-        
-
     default:
         NOT_IMPLEMENTED_YET();
     }
@@ -892,7 +890,6 @@ br_status fpa_rewriter::mk_to_real(expr * arg, expr_ref & result) {
     return BR_FAILED;
 }
 
-
 br_status fpa_rewriter::mk_bvwrap(expr * arg, expr_ref & result) {
     if (is_app_of(arg, m_util.get_family_id(), OP_FPA_FP)) {
         bv_util bu(m());
@@ -923,10 +920,3 @@ br_status fpa_rewriter::mk_bvwrap(expr * arg, expr_ref & result) {
 
     return BR_FAILED;
 }
-
-//br_status fpa_rewriter::mk_bvunwrap(expr * arg, expr_ref & result) {
-//    if (is_app_of(arg, m_util.get_family_id(), OP_FPA_INTERNAL_BVWRAP))
-//        result = to_app(arg)->get_arg(0);
-//    
-//    return BR_FAILED;
-//}

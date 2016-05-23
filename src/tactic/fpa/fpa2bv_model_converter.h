@@ -118,15 +118,14 @@ protected:
 
     func_interp * convert_func_interp(func_decl * f, func_decl * bv_f, model * bv_mdl);
     expr_ref rebuild_floats(model * bv_mdl, sort * s, expr * e);
-    
-    
+        
     class array_model {
     public:
         func_decl * new_float_fd;
         func_interp * new_float_fi;
         func_decl * bv_fd;
         expr_ref result;
-        array_model(ast_manager & m) : result(m) {}
+        array_model(ast_manager & m) : new_float_fd(0), new_float_fi(0), bv_fd(0), result(m) {}
     };
 
     array_model convert_array_func_interp(func_decl * f, func_decl * bv_f, model * bv_mdl);

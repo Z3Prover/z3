@@ -55,6 +55,7 @@ void fpa2bv_model_converter::display(std::ostream & out) {
         out << mk_ismt2_pp(it->m_value.first, m, indent) << "; " <<
                mk_ismt2_pp(it->m_value.second, m, indent) << ")";
     }
+    out << ")";
 }
 
 model_converter * fpa2bv_model_converter::translate(ast_translation & translator) {
@@ -197,16 +198,25 @@ expr_ref fpa2bv_model_converter::convert_bv2rm(model * bv_mdl, expr * val) {
 
 expr_ref fpa2bv_model_converter::rebuild_floats(model * bv_mdl, sort * s, expr * e) {
     expr_ref result(m);
-
     TRACE("fpa2bv_mc", tout << "rebuild floats in " << mk_ismt2_pp(s, m) << " for " << mk_ismt2_pp(e, m) << std::endl;);
 
     if (m_fpa_util.is_float(s)) {
-        SASSERT(m_bv_util.is_bv(e));
-        result = convert_bv2fp(bv_mdl, s, e);
+        if (m_fpa_util.is_numeral(e)) {
+            result = e;
+        }
+        else {
+            SASSERT(m_bv_util.is_bv(e) && m_bv_util.get_bv_size(e) == (m_fpa_util.get_ebits(s) + m_fpa_util.get_sbits(s)));
+            result = convert_bv2fp(bv_mdl, s, e);
+        }
     }
     else if (m_fpa_util.is_rm(s)) {
-        SASSERT(m_bv_util.get_bv_size(e) == 3);
-        result = convert_bv2rm(bv_mdl, e);
+        if (m_fpa_util.is_rm_numeral(e)) {
+            result = e;
+        }
+        else {
+            SASSERT(m_bv_util.is_bv(e) && m_bv_util.get_bv_size(e) == 3);
+            result = convert_bv2rm(bv_mdl, e);
+        }
     }
     else if (is_app(e)) {
         app * a = to_app(e);
@@ -229,6 +239,7 @@ fpa2bv_model_converter::array_model fpa2bv_model_converter::convert_array_func_i
 
     expr_ref as_arr_mdl(m);
     as_arr_mdl = bv_mdl->get_const_interp(bv_f);
+    if (as_arr_mdl == 0) return am;
     TRACE("fpa2bv_mc", tout << "arity=0 func_interp for " << mk_ismt2_pp(f, m) << " := " << mk_ismt2_pp(as_arr_mdl, m) << std::endl;);
     SASSERT(arr_util.is_as_array(as_arr_mdl));
     for (unsigned i = 0; i < arity; i++)
@@ -410,9 +421,10 @@ void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
             }
             else {
                 // Just keep.
+                SASSERT(!m_fpa_util.is_float(f->get_range()) && !m_fpa_util.is_rm(f->get_range()));
                 expr_ref val(m);
                 bv_mdl->eval(it->m_value, val);
-                float_mdl->register_decl(f, val);
+                if (val) float_mdl->register_decl(f, val);
             }
         }            
         else {
