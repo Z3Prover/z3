@@ -194,7 +194,6 @@ class mbp::impl {
 
 
     void filter_variables(model& model, app_ref_vector& vars, expr_ref_vector& lits, expr_ref_vector& unused_lits) {
-        ast_manager& m = vars.get_manager();
         expr_mark lit_visited;
         project_plugin::mark_rec(lit_visited, lits);
 

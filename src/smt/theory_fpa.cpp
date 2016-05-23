@@ -88,8 +88,6 @@ namespace smt {
     }
 
     expr_ref theory_fpa::fpa2bv_converter_wrapped::mk_min_max_unspecified(func_decl * f, expr * x, expr * y) {
-        unsigned ebits = m_util.get_ebits(f->get_range());
-        unsigned sbits = m_util.get_sbits(f->get_range());
 
         expr_ref a(m), wrapped(m), wu(m), wu_eq(m);
         a = m.mk_app(f, x, y);
