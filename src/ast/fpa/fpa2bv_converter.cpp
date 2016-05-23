@@ -1178,10 +1178,10 @@ expr_ref fpa2bv_converter::mk_min_unspecified(func_decl * f, expr * x, expr * y)
     pn = m_util.mk_fp(decls.first, m_bv_util.mk_numeral(0, ebits), m_bv_util.mk_numeral(0, sbits - 1));
     np = m_util.mk_fp(decls.second, m_bv_util.mk_numeral(0, ebits), m_bv_util.mk_numeral(0, sbits - 1));
 
-    expr_ref x_is_pzero(m), x_is_nzero(m), xyzero(m);
+    expr_ref x_is_pzero(m), y_is_nzero(m), xyzero(m);
     mk_is_pzero(x, x_is_pzero);
-    mk_is_nzero(y, x_is_nzero);
-    m_simp.mk_and(x_is_pzero, x_is_nzero, xyzero);
+    mk_is_nzero(y, y_is_nzero);
+    m_simp.mk_and(x_is_pzero, y_is_nzero, xyzero);
     mk_ite(xyzero, pn, np, res);
 
     return res;
@@ -1259,10 +1259,10 @@ expr_ref fpa2bv_converter::mk_max_unspecified(func_decl * f, expr * x, expr * y)
     pn = m_util.mk_fp(decls.first, m_bv_util.mk_numeral(0, ebits), m_bv_util.mk_numeral(0, sbits - 1));
     np = m_util.mk_fp(decls.second, m_bv_util.mk_numeral(0, ebits), m_bv_util.mk_numeral(0, sbits - 1));
 
-    expr_ref x_is_pzero(m), x_is_nzero(m), xyzero(m);
+    expr_ref x_is_pzero(m), y_is_nzero(m), xyzero(m);
     mk_is_pzero(x, x_is_pzero);
-    mk_is_nzero(y, x_is_nzero);
-    m_simp.mk_and(x_is_pzero, x_is_nzero, xyzero);
+    mk_is_nzero(y, y_is_nzero);
+    m_simp.mk_and(x_is_pzero, y_is_nzero, xyzero);
     mk_ite(xyzero, pn, np, res);
 
     return res;
