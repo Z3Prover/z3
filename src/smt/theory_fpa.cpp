@@ -75,7 +75,7 @@ namespace smt {
             SASSERT(is_rm(f->get_range()));
             expr_ref bv(m);
             bv = m_th.wrap(m.mk_const(f));
-            result = m_util.mk_rm(bv);
+            result = m_util.mk_bv2rm(bv);
             m_rm_const2bv.insert(f, result);
             m.inc_ref(f);
             m.inc_ref(result);
@@ -339,18 +339,11 @@ namespace smt {
         TRACE("t_fpa_detail", tout << "term: " << mk_ismt2_pp(e, get_manager()) << std::endl;
                               tout << "converted term: " << mk_ismt2_pp(e_conv, get_manager()) << std::endl;);
 
-        if (is_app(e_conv) && to_app(e_conv)->get_family_id() != get_family_id()) {
-            UNREACHABLE();
-            if (!m_fpa_util.is_float(e_conv) && !m_fpa_util.is_rm(e_conv))
-                m_th_rw(e_conv, res);
-            else
-                res = unwrap(wrap(e_conv), m.get_sort(e));
-        }
-        else if (m_fpa_util.is_rm(e)) {            
-            SASSERT(m_fpa_util.is_rm_bvwrap(e_conv));
+        if (m_fpa_util.is_rm(e)) {            
+            SASSERT(m_fpa_util.is_bv2rm(e_conv));
             expr_ref bv_rm(m);
             m_th_rw(to_app(e_conv)->get_arg(0), bv_rm);
-            res = m_fpa_util.mk_rm(bv_rm);
+            res = m_fpa_util.mk_bv2rm(bv_rm);
         }
         else if (m_fpa_util.is_float(e)) {
             SASSERT(m_fpa_util.is_fp(e_conv));
@@ -363,20 +356,14 @@ namespace smt {
         }
         else
             UNREACHABLE();
-
-        SASSERT(res.get() != 0);
+        
         return res;
     }
 
     expr_ref theory_fpa::convert_conversion_term(expr * e) {
         SASSERT(to_app(e)->get_family_id() == get_family_id());
         /* This is for the conversion functions fp.to_* */
-        ast_manager & m = get_manager();
-        expr_ref res(m);
-        proof_ref pr(m);
-
-        SASSERT(m_arith_util.is_real(e) || m_bv_util.is_bv(e));
-
+        expr_ref res(get_manager());
         m_rw(e, res);
         m_th_rw(res, res);
         return res;
@@ -402,10 +389,8 @@ namespace smt {
                 res = convert_atom(e);
             else if (m_fpa_util.is_float(e) || m_fpa_util.is_rm(e))
                 res = convert_term(e);
-            else if (m_arith_util.is_real(e) || m_bv_util.is_bv(e))
+            else 
                 res = convert_conversion_term(e);
-            else
-                UNREACHABLE();
 
             TRACE("t_fpa_detail", tout << "converted; caching:" << std::endl;
                                   tout << mk_ismt2_pp(e, m) << std::endl << " -> " << std::endl <<
@@ -514,7 +499,6 @@ namespace smt {
             case OP_FPA_TO_SBV:
             case OP_FPA_TO_REAL:
             case OP_FPA_TO_IEEE_BV: {
-
                 expr_ref conv(m);
                 conv = convert(term);
                 assert_cnstr(m.mk_eq(term, conv));
@@ -545,7 +529,7 @@ namespace smt {
             if (m_fpa_util.is_rm(s)) {
                 // For every RM term, we need to make sure that it's
                 // associated bit-vector is within the valid range.
-                if (!m_fpa_util.is_rm_bvwrap(owner)) {
+                if (!m_fpa_util.is_bv2rm(owner)) {
                     expr_ref valid(m), limit(m);
                     limit = m_bv_util.mk_numeral(4, 3);
                     valid = m_bv_util.mk_ule(wrap(owner), limit);
@@ -649,7 +633,6 @@ namespace smt {
     void theory_fpa::pop_scope_eh(unsigned num_scopes) {
         m_trail_stack.pop_scope(num_scopes);
         TRACE("t_fpa", tout << "pop " << num_scopes << "; now " << m_trail_stack.get_num_scopes() << "\n";);
-        // unsigned num_old_vars = get_old_num_vars(num_scopes);
         theory::pop_scope_eh(num_scopes);
     }
 
@@ -785,7 +768,7 @@ namespace smt {
                   mk_ismt2_pp(a2, m) << " eq. cls. #" << get_enode(a2)->get_root()->get_owner()->get_id() << std::endl;);
             res = vp;
         }
-        else if (m_fpa_util.is_rm_bvwrap(owner)) {
+        else if (m_fpa_util.is_bv2rm(owner)) {
             SASSERT(to_app(owner)->get_num_args() == 1);
             app_ref a0(m);
             a0 = to_app(owner->get_arg(0));

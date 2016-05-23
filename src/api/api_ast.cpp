@@ -1185,7 +1185,7 @@ extern "C" {
             case OP_FPA_TO_IEEE_BV: return Z3_OP_FPA_TO_IEEE_BV;
             case OP_FPA_INTERNAL_MIN_I: return Z3_OP_FPA_MIN_I;
             case OP_FPA_INTERNAL_MAX_I: return Z3_OP_FPA_MAX_I;
-            case OP_FPA_INTERNAL_RM_BVWRAP:
+            case OP_FPA_INTERNAL_BV2RM:
             case OP_FPA_INTERNAL_BVWRAP:
             case OP_FPA_INTERNAL_MIN_UNSPECIFIED:
             case OP_FPA_INTERNAL_MAX_UNSPECIFIED:

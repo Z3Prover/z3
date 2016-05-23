@@ -100,7 +100,7 @@ br_status fpa_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         SASSERT(num_args == 2); st = BR_FAILED; break;
     
     case OP_FPA_INTERNAL_BVWRAP: SASSERT(num_args == 1); st = mk_bvwrap(args[0], result); break;
-    case OP_FPA_INTERNAL_RM_BVWRAP:SASSERT(num_args == 1); st = mk_rm(args[0], result); break;
+    case OP_FPA_INTERNAL_BV2RM: SASSERT(num_args == 1); st = mk_bv2rm(args[0], result); break;
 
     case OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED:
     case OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED:
@@ -719,7 +719,7 @@ br_status fpa_rewriter::mk_eq_core(expr * arg1, expr * arg2, expr_ref & result) 
     return BR_FAILED;
 }
 
-br_status fpa_rewriter::mk_rm(expr * arg, expr_ref & result) {
+br_status fpa_rewriter::mk_bv2rm(expr * arg, expr_ref & result) {
     bv_util bu(m());
     rational bv_val;
     unsigned sz = 0;

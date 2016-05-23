@@ -395,7 +395,7 @@ void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
         func_decl * var = it->m_key;
         SASSERT(m_fpa_util.is_rm(var->get_range()));
         expr * val = it->m_value;
-        SASSERT(m_fpa_util.is_rm_bvwrap(val));
+        SASSERT(m_fpa_util.is_bv2rm(val));
         expr * bvval = to_app(val)->get_arg(0);
         expr_ref fv(m);
         fv = convert_bv2rm(bv_mdl, bvval);

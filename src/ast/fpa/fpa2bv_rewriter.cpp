@@ -156,7 +156,7 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
         case OP_FPA_INTERNAL_MAX_I: m_conv.mk_max_i(f, num, args, result); return BR_DONE;
 
         case OP_FPA_INTERNAL_BVWRAP:
-        case OP_FPA_INTERNAL_RM_BVWRAP:
+        case OP_FPA_INTERNAL_BV2RM:
         
         case OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED:
         case OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED:

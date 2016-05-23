@@ -676,7 +676,7 @@ func_decl * fpa_decl_plugin::mk_to_ieee_bv(decl_kind k, unsigned num_parameters,
     return m_manager->mk_func_decl(name, 1, domain, bv_srt, func_decl_info(m_family_id, k));
 }
 
-func_decl * fpa_decl_plugin::mk_internal_rm(decl_kind k, unsigned num_parameters, parameter const * parameters,
+func_decl * fpa_decl_plugin::mk_internal_bv2rm(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                             unsigned arity, sort * const * domain, sort * range) {
     if (arity != 1)
         m_manager->raise_exception("invalid number of arguments to internal_rm");
@@ -837,8 +837,8 @@ func_decl * fpa_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
 
     case OP_FPA_INTERNAL_BVWRAP:
         return mk_internal_bv_wrap(k, num_parameters, parameters, arity, domain, range);    
-    case OP_FPA_INTERNAL_RM_BVWRAP:
-        return mk_internal_rm(k, num_parameters, parameters, arity, domain, range);
+    case OP_FPA_INTERNAL_BV2RM:
+        return mk_internal_bv2rm(k, num_parameters, parameters, arity, domain, range);
 
     case OP_FPA_INTERNAL_MIN_I:
     case OP_FPA_INTERNAL_MAX_I:
