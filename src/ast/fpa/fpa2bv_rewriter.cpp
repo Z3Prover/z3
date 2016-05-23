@@ -150,8 +150,8 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
         case OP_FPA_MIN: m_conv.mk_min(f, num, args, result); return BR_REWRITE_FULL;
         case OP_FPA_MAX: m_conv.mk_max(f, num, args, result); return BR_REWRITE_FULL;
 
-        case OP_FPA_INTERNAL_MIN_UNSPECIFIED: result = m_conv.mk_min_unspecified(f, args[0], args[1]); return BR_DONE;
-        case OP_FPA_INTERNAL_MAX_UNSPECIFIED: result = m_conv.mk_max_unspecified(f, args[0], args[1]); return BR_DONE;
+        case OP_FPA_INTERNAL_MIN_UNSPECIFIED:
+        case OP_FPA_INTERNAL_MAX_UNSPECIFIED: result = m_conv.mk_min_max_unspecified(f, args[0], args[1]); return BR_DONE;
         case OP_FPA_INTERNAL_MIN_I: m_conv.mk_min_i(f, num, args, result); return BR_DONE;
         case OP_FPA_INTERNAL_MAX_I: m_conv.mk_max_i(f, num, args, result); return BR_DONE;
 

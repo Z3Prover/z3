@@ -85,8 +85,7 @@ namespace smt {
             virtual void mk_rm_const(func_decl * f, expr_ref & result);            
             virtual void mk_function(func_decl * f, unsigned num, expr * const * args, expr_ref & result);            
 
-            virtual expr_ref mk_min_unspecified(func_decl * f, expr * x, expr * y);
-            virtual expr_ref mk_max_unspecified(func_decl * f, expr * x, expr * y);
+            virtual expr_ref mk_min_max_unspecified(func_decl * f, expr * x, expr * y);
         };
 
         class fpa_value_proc : public model_value_proc {
@@ -149,6 +148,7 @@ namespace smt {
         obj_map<sort, func_decl*> m_unwraps;
         obj_map<expr, expr*>      m_conversions;
         bool                      m_is_initialized;
+        obj_hashtable<func_decl>  m_is_added_to_model;
 
         virtual final_check_status final_check_eh();
         virtual bool internalize_atom(app * atom, bool gate_ctx);

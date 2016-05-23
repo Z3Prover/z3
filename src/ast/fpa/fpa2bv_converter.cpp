@@ -1156,13 +1156,13 @@ void fpa2bv_converter::mk_min_i(func_decl * f, unsigned num, expr * const * args
     SASSERT(is_well_sorted(m, result));
 }
 
-expr_ref fpa2bv_converter::mk_min_unspecified(func_decl * f, expr * x, expr * y) {
+expr_ref fpa2bv_converter::mk_min_max_unspecified(func_decl * f, expr * x, expr * y) {
     unsigned ebits = m_util.get_ebits(f->get_range());
     unsigned sbits = m_util.get_sbits(f->get_range());
     expr_ref res(m);
 
-    // The only cases in which min is unspecified for is when the arguments are +0.0 and -0.0.
-    // There is no "hardware interpretation" for fp.min.
+    // The only cases in which min/max is unspecified for is when the arguments are +0.0 and -0.0.
+    // There is no "hardware interpretation" for fp.min/fp.max.
 
     std::pair<app*, app*> decls(0, 0);
     if (!m_specials.find(f, decls)) {
@@ -1235,37 +1235,6 @@ void fpa2bv_converter::mk_max_i(func_decl * f, unsigned num, expr * const * args
     mk_ite(x_is_nan, y, result, result);
 
     SASSERT(is_well_sorted(m, result));
-}
-
-expr_ref fpa2bv_converter::mk_max_unspecified(func_decl * f, expr * x, expr * y) {
-    unsigned ebits = m_util.get_ebits(f->get_range());
-    unsigned sbits = m_util.get_sbits(f->get_range());
-    expr_ref res(m);
-
-    // The only cases in which max is unspecified for is when the arguments are +0.0 and -0.0.
-    // There is no "hardware interpretation" for fp.max.
-
-    std::pair<app*, app*> decls(0, 0);
-    if (!m_specials.find(f, decls)) {
-        decls.first = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
-        decls.second = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
-        m_specials.insert(f, decls);
-        m.inc_ref(f);
-        m.inc_ref(decls.first);
-        m.inc_ref(decls.second);
-    }
-
-    expr_ref pn(m), np(m);
-    pn = m_util.mk_fp(decls.first, m_bv_util.mk_numeral(0, ebits), m_bv_util.mk_numeral(0, sbits - 1));
-    np = m_util.mk_fp(decls.second, m_bv_util.mk_numeral(0, ebits), m_bv_util.mk_numeral(0, sbits - 1));
-
-    expr_ref x_is_pzero(m), y_is_nzero(m), xyzero(m);
-    mk_is_pzero(x, x_is_pzero);
-    mk_is_nzero(y, y_is_nzero);
-    m_simp.mk_and(x_is_pzero, y_is_nzero, xyzero);
-    mk_ite(xyzero, pn, np, res);
-
-    return res;
 }
 
 void fpa2bv_converter::mk_fma(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {

@@ -133,11 +133,10 @@ public:
 
     void mk_min(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_min_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-    virtual expr_ref mk_min_unspecified(func_decl * f, expr * x, expr * y);
+    virtual expr_ref mk_min_max_unspecified(func_decl * f, expr * x, expr * y);
 
     void mk_max(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_max_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-    virtual expr_ref mk_max_unspecified(func_decl * f, expr * x, expr * y);
 
     expr_ref mk_to_ubv_unspecified(unsigned ebits, unsigned sbits, unsigned width);
     expr_ref mk_to_sbv_unspecified(unsigned ebits, unsigned sbits, unsigned width);
