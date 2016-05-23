@@ -38,6 +38,17 @@ struct noop_op_proc {
 };
 
 
+void project_plugin::mark_rec(expr_mark& visited, expr* e) {
+    for_each_expr_proc<noop_op_proc> fe;    
+    for_each_expr(fe, visited, e);
+}
+
+void project_plugin::mark_rec(expr_mark& visited, expr_ref_vector const& es) {
+    for (unsigned i = 0; i < es.size(); ++i) {
+        mark_rec(visited, es[i]);
+    }
+}
+
 /**
    \brief return two terms that are equal in the model.
    The distinct term t is false in model, so there 
@@ -185,10 +196,8 @@ class mbp::impl {
     void filter_variables(model& model, app_ref_vector& vars, expr_ref_vector& lits, expr_ref_vector& unused_lits) {
         ast_manager& m = vars.get_manager();
         expr_mark lit_visited;
-        for_each_expr_proc<noop_op_proc> fe;
-        for (unsigned i = 0; i < lits.size(); ++i) {
-            for_each_expr(fe, lit_visited, lits[i].get());
-        }
+        project_plugin::mark_rec(lit_visited, lits);
+
         unsigned j = 0;
         for (unsigned i = 0; i < vars.size(); ++i) {
             app* var = vars[i].get();
@@ -425,13 +434,18 @@ public:
         app_ref var(m);
         expr_ref_vector unused_fmls(m);
         bool progress = true;
-        TRACE("qe", tout << vars << " " << fmls << "\n";);
         preprocess_solve(model, vars, fmls);
         filter_variables(model, vars, fmls, unused_fmls);
         project_bools(model, vars, fmls);
         while (progress && !vars.empty() && !fmls.empty()) {
             app_ref_vector new_vars(m);
             progress = false;
+            for (unsigned i = 0; i < m_plugins.size(); ++i) {
+                project_plugin* p = m_plugins[i];
+                if (p) {
+                    (*p)(model, vars, fmls);
+                }
+            }
             while (!vars.empty() && !fmls.empty()) {
                 var = vars.back();
                 vars.pop_back();

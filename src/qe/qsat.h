@@ -114,6 +114,16 @@ namespace qe {
         void collect_statistics(statistics& st) const;
     };
 
+    class qmax {
+        struct imp;
+        imp* m_imp;
+    public:
+        qmax(ast_manager& m, params_ref const& p = params_ref());
+        ~qmax();
+        lbool operator()(expr_ref_vector const& fmls, app* t, opt::inf_eps& value, model_ref& mdl);
+        void collect_statistics(statistics& st) const;
+    };
+
     lbool maximize(expr_ref_vector const& fmls, app* t, opt::inf_eps& value, model_ref& mdl, params_ref const& p);
 
 }

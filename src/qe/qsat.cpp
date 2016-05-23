@@ -33,6 +33,7 @@ Notes:
 #include "label_rewriter.h"
 #include "expr_replacer.h"
 #include "th_rewriter.h"
+#include "model_evaluator.h"
 
 
 namespace qe {
@@ -154,12 +155,14 @@ namespace qe {
         if (level == 0) {
             return;
         }
+        model_evaluator eval(*mdl);
+
         expr_ref val(m);
         for (unsigned j = 0; j < m_preds[level - 1].size(); ++j) {
             app* p = m_preds[level - 1][j].get();
             TRACE("qe", tout << "process level: " << level - 1 << ": " << mk_pp(p, m) << "\n";);
             
-            VERIFY(mdl->eval(p, val));
+            eval(p, val);
             
             if (m.is_false(val)) {
                 m_asms.push_back(m.mk_not(p));
@@ -179,7 +182,7 @@ namespace qe {
                     (lvl.m_fa == i && (lvl.m_ex == UINT_MAX || lvl.m_ex < level)) ||
                     (lvl.m_ex == i && (lvl.m_fa == UINT_MAX || lvl.m_fa < level));
                 if (use) {
-                    VERIFY(mdl->eval(p, val));
+                    eval(p, val);
                     if (m.is_false(val)) {
                         asms.push_back(m.mk_not(p));
                     }
@@ -566,6 +569,9 @@ namespace qe {
         qsat_mode                  m_mode;
         app_ref_vector             m_avars;       // variables to project
         app_ref_vector             m_free_vars;
+        app*                       m_objective;
+        opt::inf_eps*              m_value;
+        bool                       m_was_sat;
 
         
         /**
@@ -1067,7 +1073,10 @@ namespace qe {
             m_level(0),
             m_mode(mode),
             m_avars(m),
-            m_free_vars(m)
+            m_free_vars(m),
+            m_objective(0),
+            m_value(0),
+            m_was_sat(false)
         {
             reset();
         }
@@ -1162,6 +1171,9 @@ namespace qe {
         
         void collect_statistics(statistics & st) const {
             st.copy(m_st);
+            m_fa.k().collect_statistics(st);
+            m_ex.k().collect_statistics(st);        
+            m_pred_abs.collect_statistics(st);
             st.update("qsat num rounds", m_stats.m_num_rounds); 
             m_pred_abs.collect_statistics(st);
         }
@@ -1169,7 +1181,7 @@ namespace qe {
         void reset_statistics() {
             m_stats.reset();
             m_fa.k().reset_statistics();
-            m_ex.k().reset_statistics();        
+            m_ex.k().reset_statistics();      
         }
         
         void cleanup() {
@@ -1186,16 +1198,12 @@ namespace qe {
             return alloc(qsat, m, m_params, m_mode);
         }        
 
-        app*             m_objective;
-        opt::inf_eps     m_value;
-        bool             m_was_sat;
-
         lbool maximize(expr_ref_vector const& fmls, app* t, model_ref& mdl, opt::inf_eps& value) {
             expr_ref_vector defs(m);
             expr_ref fml = mk_and(fmls);
             hoist(fml);
             m_objective = t;
-            m_value = opt::inf_eps();
+            m_value = &value;
             m_was_sat = false;
             m_pred_abs.abstract_atoms(fml, defs);
             fml = m_pred_abs.mk_abstract(fml);
@@ -1219,17 +1227,20 @@ namespace qe {
                 if (s == "ok") {
                     s = m_fa.k().last_failure_as_string();
                 }
+
                 throw tactic_exception(s.c_str()); 
             }        
-            value = m_value;
             return l_true;
         }
 
         void maximize(expr_ref_vector const& core, model& mdl) {
+            SASSERT(m_value);
+            SASSERT(m_objective);
             TRACE("qe", tout << "maximize: " << core << "\n";);
             m_was_sat |= !core.empty();
             expr_ref bound(m);
-            m_value = m_mbp.maximize(core, mdl, m_objective, bound);
+            *m_value = m_mbp.maximize(core, mdl, m_objective, bound);
+            IF_VERBOSE(0, verbose_stream() << "(maximize " << *m_value << " bound: " << bound << ")\n";);
             m_ex.assert_expr(bound);            
         }
 
@@ -1242,6 +1253,30 @@ namespace qe {
         qsat qs(m, p, qsat_maximize);
         return qs.maximize(fmls, t, mdl, value);
     }    
+
+
+    struct qmax::imp {
+        qsat m_qsat;
+        imp(ast_manager& m, params_ref const& p):
+            m_qsat(m, p, qsat_maximize)
+        {}        
+    };
+
+    qmax::qmax(ast_manager& m, params_ref const& p) {
+        m_imp = alloc(imp, m, p);        
+    }
+
+    qmax::~qmax() {
+        dealloc(m_imp);
+    }
+    
+    lbool qmax::operator()(expr_ref_vector const& fmls, app* t, opt::inf_eps& value, model_ref& mdl) {
+        return m_imp->m_qsat.maximize(fmls, t, mdl, value);
+    }
+
+    void qmax::collect_statistics(statistics& st) const {
+        m_imp->m_qsat.collect_statistics(st);
+    };
 
 };
 

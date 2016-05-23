@@ -1300,6 +1300,9 @@ namespace opt {
         }        
         get_memory_statistics(stats);
         get_rlimit_statistics(m.limit(), stats);
+        if (m_qmax) {
+            m_qmax->collect_statistics(stats);
+        }
     }
 
     void context::collect_param_descrs(param_descrs & r) {
@@ -1440,6 +1443,9 @@ namespace opt {
             m_objectives[0].m_type != O_MINIMIZE) {
             return false;
         }
+        if (!m_arith.is_real(m_objectives[0].m_term)) {
+            return false;
+        }
         for (unsigned i = 0; i < m_hard_constraints.size(); ++i) {
             if (has_quantifiers(m_hard_constraints[i].get())) {
                 return true;
@@ -1456,12 +1462,21 @@ namespace opt {
             term = m_arith.mk_uminus(term);
         }
         inf_eps value;
-        lbool result = qe::maximize(m_hard_constraints, term, value, m_model, m_params);
+        m_qmax = alloc(qe::qmax, m, m_params);
+        lbool result = (*m_qmax)(m_hard_constraints, term, value, m_model);
         if (result != l_undef && obj.m_type == O_MINIMIZE) {
             value.neg();
         }
-        if (result != l_undef) {
-            m_optsmt.setup(*m_opt_solver.get());
+        m_optsmt.setup(*m_opt_solver.get());
+        if (result == l_undef) {
+            if (obj.m_type == O_MINIMIZE) {
+                m_optsmt.update_upper(obj.m_index, value);
+            }
+            else {
+                m_optsmt.update_lower(obj.m_index, value);
+            }
+        }
+        else {
             m_optsmt.update_lower(obj.m_index, value);
             m_optsmt.update_upper(obj.m_index, value);
         }

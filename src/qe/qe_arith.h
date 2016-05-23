@@ -29,6 +29,8 @@ namespace qe {
         virtual bool operator()(model& model, app* var, app_ref_vector& vars, expr_ref_vector& lits);
         virtual bool solve(model& model, app_ref_vector& vars, expr_ref_vector& lits);
         virtual family_id get_family_id();
+        virtual void operator()(model& model, app_ref_vector& vars, expr_ref_vector& lits);
+
 
         opt::inf_eps maximize(expr_ref_vector const& fmls, model& mdl, app* t, expr_ref& bound);
     };
