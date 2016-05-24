@@ -377,6 +377,9 @@ struct model_evaluator::imp : public rewriter_tpl<evaluator_cfg> {
         m_cfg(md.get_manager(), md, p) {
         set_cancel_check(false);
     }
+    void expand_value (expr_ref &val) {
+        m_cfg.expand_value (val);
+    }  
 };
 
 model_evaluator::model_evaluator(model_core & md, params_ref const & p) {
@@ -421,6 +424,7 @@ void model_evaluator::reset(params_ref const & p) {
 void model_evaluator::operator()(expr * t, expr_ref & result) {
     TRACE("model_evaluator", tout << mk_ismt2_pp(t, m()) << "\n";);
     m_imp->operator()(t, result);
+    m_imp->expand_value(result);
 }
 
 
