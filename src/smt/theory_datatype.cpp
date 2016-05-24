@@ -198,7 +198,7 @@ namespace smt {
 
     theory_var theory_datatype::mk_var(enode * n) {
         theory_var r  = theory::mk_var(n);
-        VERIFY(r == m_find.mk_var());
+        VERIFY(r == static_cast<theory_var>(m_find.mk_var()));
         SASSERT(r == static_cast<int>(m_var_data.size()));
         m_var_data.push_back(alloc(var_data));
         var_data * d  = m_var_data[r];
