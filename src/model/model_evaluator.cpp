@@ -119,7 +119,6 @@ struct evaluator_cfg : public default_rewriter_cfg {
             expr * val = m_model.get_const_interp(f);
             if (val != 0) {
                 result = val;
-                expand_value(result);
                 return BR_DONE;
             }
 
@@ -259,8 +258,6 @@ struct evaluator_cfg : public default_rewriter_cfg {
 
 
     br_status mk_array_eq(expr* a, expr* b, expr_ref& result) {
-        return BR_FAILED;
-        // disabled until made more efficient
         if (a == b) {
             result = m().mk_true();
             return BR_DONE;
@@ -270,16 +267,29 @@ struct evaluator_cfg : public default_rewriter_cfg {
         if (extract_array_func_interp(a, stores, else1) &&
             extract_array_func_interp(b, stores, else2)) {
             expr_ref_vector conj(m()), args1(m()), args2(m());
-            conj.push_back(m().mk_eq(else1, else2));
+            if (!m().are_equal(else1, else2)) {
+                if (m().are_distinct (else1, else2)) {
+                    result = m().mk_false();
+                    return BR_DONE;
+                }
+                conj.push_back(m().mk_eq(else1, else2));
+            }
             args1.push_back(a);
             args2.push_back(b);
             // TBD: this is too inefficient.
             for (unsigned i = 0; i < stores.size(); ++i) {
                 args1.resize(1); args1.append(stores[i].size() - 1, stores[i].c_ptr());
                 args2.resize(1); args2.append(stores[i].size() - 1, stores[i].c_ptr());
-                expr* s1 = m_ar.mk_select(args1.size(), args1.c_ptr());
-                expr* s2 = m_ar.mk_select(args2.size(), args2.c_ptr());
-                conj.push_back(m().mk_eq(s1, s2));
+                expr_ref s1(m()), s2(m());
+                s1 = m_ar.mk_select(args1.size(), args1.c_ptr());
+                s2 = m_ar.mk_select(args2.size(), args2.c_ptr());
+                if (!m().are_equal(s1, s2)) {
+                    if (m().are_distinct (s1, s2)) {
+                        result = m().mk_false();
+                        return BR_DONE;
+                    }
+                    conj.push_back(m().mk_eq(s1, s2));
+                }
             }
             result = m().mk_and(conj.size(), conj.c_ptr());
             return BR_REWRITE_FULL;
