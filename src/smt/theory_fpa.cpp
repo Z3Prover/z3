@@ -88,7 +88,6 @@ namespace smt {
     }
 
     expr_ref theory_fpa::fpa2bv_converter_wrapped::mk_min_max_unspecified(func_decl * f, expr * x, expr * y) {
-
         expr_ref a(m), wrapped(m), wu(m), wu_eq(m);
         a = m.mk_app(f, x, y);
         wrapped = m_th.wrap(a);
@@ -96,8 +95,9 @@ namespace smt {
         wu_eq = m.mk_eq(wu, a);
         m_extra_assertions.push_back(wu_eq);
 
+        unsigned bv_sz = m_bv_util.get_bv_size(wrapped);
         expr_ref sc(m);
-        m_th.m_converter.mk_is_zero(wu, sc);
+        sc = m.mk_eq(m_bv_util.mk_extract(bv_sz-2, 0, wrapped), m_bv_util.mk_numeral(0, bv_sz-1));
         m_extra_assertions.push_back(sc);
 
         return wu;
@@ -127,11 +127,14 @@ namespace smt {
             ast_manager & m = get_manager();
             dec_ref_map_values(m, m_conversions);
             dec_ref_map_values(m, m_wraps);
+            dec_ref_collection_values(m, m_is_added_to_model);            
         }
         else {
+            SASSERT(m_trail_stack.get_num_scopes() == 0);
             SASSERT(m_conversions.empty());
             SASSERT(m_wraps.empty());
-        }
+            SASSERT(m_is_added_to_model.empty());
+        }        
 
         m_is_initialized = false;
     }
@@ -371,11 +374,11 @@ namespace smt {
     {
         ast_manager & m = get_manager();
         expr_ref res(m);
-
+        expr * ccnv;
         TRACE("t_fpa", tout << "converting " << mk_ismt2_pp(e, m) << std::endl;);
 
-        if (m_conversions.contains(e)) {
-            res = m_conversions.find(e);
+        if (m_conversions.find(e, ccnv)) {
+            res = ccnv;
             TRACE("t_fpa_detail", tout << "cached:" << std::endl;
             tout << mk_ismt2_pp(e, m) << std::endl << " -> " << std::endl <<
                 mk_ismt2_pp(res, m) << std::endl;);
@@ -461,10 +464,11 @@ namespace smt {
         ctx.set_var_theory(l.var(), get_id());
 
         expr_ref bv_atom(convert_atom(atom));
-        expr_ref bv_atom_w_side_c(m);
+        expr_ref bv_atom_w_side_c(m), atom_eq(m);
         bv_atom_w_side_c = m.mk_and(bv_atom, mk_side_conditions());
         m_th_rw(bv_atom_w_side_c);
-        assert_cnstr(m.mk_eq(atom, bv_atom_w_side_c));
+        atom_eq = m.mk_eq(atom, bv_atom_w_side_c);
+        assert_cnstr(atom_eq);
         return true;
     }
 
@@ -574,7 +578,10 @@ namespace smt {
             c = m.mk_eq(xc, yc);
 
         m_th_rw(c);
-        assert_cnstr(m.mk_iff(m.mk_eq(xe, ye), c));
+        expr_ref xe_eq_ye(m), c_eq_iff(m);
+        xe_eq_ye = m.mk_eq(xe, ye);
+        c_eq_iff = m.mk_iff(xe_eq_ye, c);
+        assert_cnstr(c_eq_iff);
         assert_cnstr(mk_side_conditions());
 
         return;
@@ -609,11 +616,18 @@ namespace smt {
             m_converter.mk_eq(xc, yc, c);
             c = m.mk_not(c);
         }
-        else
-            c = m.mk_not(m.mk_eq(xc, yc));
+        else {
+            expr_ref xc_eq_yc(m);
+            xc_eq_yc = m.mk_eq(xc, yc);
+            c = m.mk_not(xc_eq_yc);
+        }
 
         m_th_rw(c);
-        assert_cnstr(m.mk_iff(m.mk_not(m.mk_eq(xe, ye)), c));
+        expr_ref xe_eq_ye(m), not_xe_eq_ye(m), c_eq_iff(m);
+        xe_eq_ye = m.mk_eq(xe, ye);
+        not_xe_eq_ye = m.mk_not(xe_eq_ye);
+        c_eq_iff = m.mk_iff(not_xe_eq_ye, c);
+        assert_cnstr(c_eq_iff);        
         assert_cnstr(mk_side_conditions());
 
         return;

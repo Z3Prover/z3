@@ -172,8 +172,10 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
     else 
     {
         SASSERT(!m_conv.is_float_family(f));
-        m_conv.mk_function(f, num, args, result);
-        return BR_DONE;
+        if (m_conv.fu().contains_floats(f)) {
+            m_conv.mk_function(f, num, args, result);
+            return BR_DONE;
+        }
     }
 
     return BR_FAILED;
