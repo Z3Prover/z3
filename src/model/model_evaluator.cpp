@@ -262,11 +262,11 @@ struct evaluator_cfg : public default_rewriter_cfg {
 
     br_status mk_array_eq(expr* a, expr* b, expr_ref& result) {
         return BR_FAILED;
-        // disabled until made more efficient
         if (a == b) {
             result = m().mk_true();
             return BR_DONE;
         }
+        // disabled until made more efficient
         vector<expr_ref_vector> stores1, stores2;
         bool args_are_unique1, args_are_unique2;
         expr_ref else1(m()), else2(m());
