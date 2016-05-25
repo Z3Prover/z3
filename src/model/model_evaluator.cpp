@@ -197,8 +197,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
     void expand_value(expr_ref& val) {
         vector<expr_ref_vector> stores;
         expr_ref else_case(m());
-        bool args_are_values;
-        if (m_ar.is_array(val) && extract_array_func_interp(val, stores, else_case, args_are_values)) {
+        bool args_are_unique;
+        if (m_ar.is_array(val) && extract_array_func_interp(val, stores, else_case, args_are_unique)) {
             sort* srt = m().get_sort(val);
             val = m_ar.mk_const_array(srt, else_case);
             for (unsigned i = stores.size(); i > 0; ) {
@@ -268,10 +268,10 @@ struct evaluator_cfg : public default_rewriter_cfg {
             return BR_DONE;
         }
         vector<expr_ref_vector> stores1, stores2;
-        bool args_are_values1, args_are_values2;
+        bool args_are_unique1, args_are_unique2;
         expr_ref else1(m()), else2(m());
-        if (extract_array_func_interp(a, stores1, else1, args_are_values1) &&
-            extract_array_func_interp(b, stores2, else2, args_are_values2)) {
+        if (extract_array_func_interp(a, stores1, else1, args_are_unique1) &&
+            extract_array_func_interp(b, stores2, else2, args_are_unique2)) {
             expr_ref_vector conj(m()), args1(m()), args2(m());
             if (m().are_equal(else1, else2)) {
                 // no op
@@ -285,7 +285,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
             }
             args1.push_back(a);
             args2.push_back(b);
-            if (args_are_values1 && args_are_values2) {
+            if (args_are_unique1 && args_are_unique2 && !stores1.empty()) {
                 return mk_array_eq(stores1, else1, stores2, else2, conj, result);
             }
 
@@ -333,14 +333,22 @@ struct evaluator_cfg : public default_rewriter_cfg {
     br_status mk_array_eq(vector<expr_ref_vector> const& stores1, expr* else1, 
                           vector<expr_ref_vector> const& stores2, expr* else2, 
                           expr_ref_vector& conj, expr_ref& result) {
-        unsigned arity = stores1[0].size()-1;
+        unsigned arity = stores1[0].size()-1; // TBD: fix arity.
         args_hash ah(arity);
         args_eq   ae(arity);
         args_table table1(DEFAULT_HASHTABLE_INITIAL_CAPACITY, ah, ae);
+        args_table table2(DEFAULT_HASHTABLE_INITIAL_CAPACITY, ah, ae);
+
         for (unsigned i = 0; i < stores1.size(); ++i) {
-            table1.insert(stores1[i].c_ptr());
+            table1.insert(stores1[i].c_ptr());            
         }
-        for (unsigned i = 0; i < stores2.size(); ++i) {
+        for (unsigned i = stores2.size(); i > 0; ) {
+            --i;
+            if (table2.contains(stores2[i].c_ptr())) {
+                // first insertion takes precedence.
+                continue;
+            }
+            table2.insert(stores2[i].c_ptr());
             expr * const* args = 0;
             expr* val = stores2[i][arity];
             if (table1.find(stores2[i].c_ptr(), args)) {
@@ -377,23 +385,26 @@ struct evaluator_cfg : public default_rewriter_cfg {
     }
 
     
-    bool args_are_unique_values(expr_ref_vector const& store) {
-        bool args_are_values = true;
-        for (unsigned j = 0; args_are_values && j + 1 < store.size(); ++j) {
-            args_are_values = m().is_unique_value(store[j]);
+    bool args_are_values(expr_ref_vector const& store, bool& are_unique) {
+        bool are_values = true;
+        for (unsigned j = 0; are_values && j + 1 < store.size(); ++j) {
+            are_values = m().is_value(store[j]);
+            are_unique &= m().is_unique_value(store[j]);
         }
-        return args_are_values;
+        SASSERT(!are_unique || are_values);
+        return are_values;
     }
     
 
-    bool extract_array_func_interp(expr* a, vector<expr_ref_vector>& stores, expr_ref& else_case, bool& args_are_values) {
+    bool extract_array_func_interp(expr* a, vector<expr_ref_vector>& stores, expr_ref& else_case, bool& are_unique) {
         SASSERT(m_ar.is_array(a));
-        args_are_values = true;
+        bool are_values = true;
+        are_unique = true;
 
         while (m_ar.is_store(a)) {
             expr_ref_vector store(m());
             store.append(to_app(a)->get_num_args()-1, to_app(a)->get_args()+1);
-            args_are_values &= args_are_unique_values(store);
+            are_values &= args_are_values(store, are_unique);
             stores.push_back(store);
             a = to_app(a)->get_arg(0);
         }
@@ -434,9 +445,9 @@ struct evaluator_cfg : public default_rewriter_cfg {
             TRACE("model_evaluator", tout << "non-ground else case " << mk_pp(a, m()) << "\n" << else_case << "\n";);
             return false;
         }
-        for (unsigned i = stores.size(); args_are_values && i > 0; ) {
+        for (unsigned i = stores.size(); are_values && i > 0; ) {
             --i;
-            if (else_case == stores[i].back()) {
+            if (m().are_equal(else_case, stores[i].back())) {
                 for (unsigned j = i + 1; j < stores.size(); ++j) {
                     stores[j-1].reset();
                     stores[j-1].append(stores[j]);
@@ -444,7 +455,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
                 stores.pop_back();
                 continue;
             }
-            args_are_values &= args_are_unique_values(stores[i]);
+            are_values &= args_are_values(stores[i], are_unique);
         }
         TRACE("model_evaluator", tout << "else case: " << mk_pp(else_case, m()) << "\n";);
         return true;
