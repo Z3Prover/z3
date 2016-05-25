@@ -1324,36 +1324,80 @@ def mk_z3native_stubs_c(ml_dir): # C interface
         if len(ap) > 0:
             ml_wrapper.write('  unsigned _i;\n')
 
-        # declare locals, preprocess arrays, strings, in/out arguments
-        have_context = False
+        # determine if the function has a context as parameter.
+        have_context = (len(params) > 0) and (param_type(params[0]) == CONTEXT)
+
+        if have_context and name not in Unwrapped:
+            ml_wrapper.write('  Z3_error_code ec;\n')
+
+        if result != VOID:
+            ts = type2str(result)
+            if ml_has_plus_type(ts):
+                pts = ml_plus_type(ts)
+                ml_wrapper.write('  %s z3rv_m;\n' % ts)
+                ml_wrapper.write('  %s z3rv;\n' % pts)
+            else:
+                ml_wrapper.write('  %s z3rv;\n' % ts)
+
+        # declare all required local variables
+        # To comply with C89, we need to first declare the variables and initialize them
+        # only afterwards.
         i = 0
         for param in params:
             if param_type(param) == CONTEXT and i == 0:
-                ml_wrapper.write('  Z3_context_plus ctx_p = *(Z3_context_plus*) Data_custom_val(a' + str(i) + ');\n')
-                ml_wrapper.write('  Z3_context _a0 = ctx_p->ctx;\n')
-                have_context = True
+                ml_wrapper.write('  Z3_context_plus ctx_p;\n')
+                ml_wrapper.write('  Z3_context _a0;\n')
             else:
                 k = param_kind(param)
                 if k == OUT_ARRAY:
-                    ml_wrapper.write('  %s * _a%s = (%s*) malloc(sizeof(%s) * (_a%s));\n' % (
-                        type2str(param_type(param)),
+                    ml_wrapper.write('  %s * _a%s;\n' % (type2str(param_type(param)), i))
+                elif k == OUT_MANAGED_ARRAY:
+                    ml_wrapper.write('  %s * _a%s;\n' % (type2str(param_type(param)), i))
+                elif k == IN_ARRAY or k == INOUT_ARRAY:
+                    t = param_type(param)
+                    ts = type2str(t)
+                    ml_wrapper.write('  %s * _a%s;\n' % (ts, i))
+                elif k == IN:
+                    t = param_type(param)
+                    ml_wrapper.write('  %s _a%s;\n' % (type2str(t), i))
+                elif k == OUT or k == INOUT:
+                    t = param_type(param)
+                    ml_wrapper.write('  %s _a%s;\n' % (type2str(t), i))
+                    ts = type2str(t)
+                    if ml_has_plus_type(ts):
+                        pts = ml_plus_type(ts)
+                        ml_wrapper.write('  %s _a%dp;\n' % (pts, i))
+            i = i + 1
+
+
+        # End of variable declarations in outermost block:
+        # To comply with C89, no variable declarations may occur in the outermost block
+        # from that point onwards (breaks builds with at least VC 2012 and prior)
+        ml_wrapper.write('\n')
+
+        # Declare locals, preprocess arrays, strings, in/out arguments
+        i = 0
+        for param in params:
+            if param_type(param) == CONTEXT and i == 0:
+                ml_wrapper.write('  ctx_p = *(Z3_context_plus*) Data_custom_val(a' + str(i) + ');\n')
+                ml_wrapper.write('  _a0 = ctx_p->ctx;\n')
+            else:
+                k = param_kind(param)
+                if k == OUT_ARRAY:
+                    ml_wrapper.write('  _a%s = (%s*) malloc(sizeof(%s) * (_a%s));\n' % (
                         i,
                         type2str(param_type(param)),
                         type2str(param_type(param)),
                         param_array_capacity_pos(param)))
                 elif k == OUT_MANAGED_ARRAY:
-                    ml_wrapper.write('  %s * _a%s = 0;\n' % (type2str(param_type(param)), i))
+                    ml_wrapper.write('  _a%s = 0;\n' % i)
                 elif k == IN_ARRAY or k == INOUT_ARRAY:
                     t = param_type(param)
                     ts = type2str(t)
-                    ml_wrapper.write('  %s * _a%s = (%s*) malloc(sizeof(%s) * _a%s);\n' % (ts, i, ts, ts, param_array_capacity_pos(param)))
+                    ml_wrapper.write('  _a%s = (%s*) malloc(sizeof(%s) * _a%s);\n' % (i, ts, ts, param_array_capacity_pos(param)))
                 elif k == IN:
                     t = param_type(param)
-                    ml_wrapper.write('  %s _a%s = %s;\n' % (type2str(t), i, ml_unwrap(t, type2str(t), 'a' + str(i))))
-                elif k == OUT:
-                    ml_wrapper.write('  %s _a%s;\n' % (type2str(param_type(param)), i))
-                elif k == INOUT:
-                    ml_wrapper.write('  %s _a%s = a%s;\n' % (type2str(param_type(param)), i, i))
+                    ml_wrapper.write('  _a%s = %s;\n' % (i, ml_unwrap(t, type2str(t), 'a' + str(i))))
             i = i + 1
 
         i = 0
@@ -1375,9 +1419,9 @@ def mk_z3native_stubs_c(ml_dir): # C interface
         if result != VOID:
             ts = type2str(result)
             if ml_has_plus_type(ts):
-                ml_wrapper.write('%s z3rv_m = ' % ts)
+                ml_wrapper.write('z3rv_m = ')
             else:
-                ml_wrapper.write('%s z3rv = ' % ts)
+                ml_wrapper.write('z3rv = ')
 
         # invoke procedure
         ml_wrapper.write('%s(' % name)
@@ -1397,8 +1441,8 @@ def mk_z3native_stubs_c(ml_dir): # C interface
         ml_wrapper.write(');\n')
 
         if have_context and name not in Unwrapped:
-            ml_wrapper.write('  int ec = Z3_get_error_code(ctx_p->ctx);\n')
-            ml_wrapper.write('  if (ec != 0) {\n')
+            ml_wrapper.write('  ec = Z3_get_error_code(ctx_p->ctx);\n')
+            ml_wrapper.write('  if (ec != Z3_OK) {\n')
             ml_wrapper.write('    const char * msg = Z3_get_error_msg(ctx_p->ctx, ec);\n')
             ml_wrapper.write('    caml_raise_with_string(*caml_named_value("Z3EXCEPTION"), msg);\n')
             ml_wrapper.write('  }\n')
@@ -1408,9 +1452,9 @@ def mk_z3native_stubs_c(ml_dir): # C interface
             if ml_has_plus_type(ts):
                 pts = ml_plus_type(ts)
                 if name in NULLWrapped:
-                    ml_wrapper.write('  %s z3rv = %s_mk(z3rv_m);\n' % (pts, pts))
+                    ml_wrapper.write('  z3rv = %s_mk(z3rv_m);\n' % pts)
                 else:
-                    ml_wrapper.write('  %s z3rv = %s_mk(ctx_p, (%s) z3rv_m);\n' % (pts, pts, ml_minus_type(ts)))
+                    ml_wrapper.write('  z3rv = %s_mk(ctx_p, (%s) z3rv_m);\n' % (pts, ml_minus_type(ts)))
 
         # convert output params
         if len(op) > 0:
@@ -1450,7 +1494,7 @@ def mk_z3native_stubs_c(ml_dir): # C interface
                 elif is_out_param(p):
                     if ml_has_plus_type(ts):
                         pts = ml_plus_type(ts)
-                        ml_wrapper.write('  %s _a%dp = %s_mk(ctx_p, (%s) _a%d);\n' % (pts, i, pts, ml_minus_type(ts), i))
+                        ml_wrapper.write('  _a%dp = %s_mk(ctx_p, (%s) _a%d);\n' % (i, pts, ml_minus_type(ts), i))
                         ml_wrapper.write('  %s\n' % ml_alloc_and_store(pt, '_a%d_val' % i, '_a%dp' % i))
                     else:
                         ml_wrapper.write('  %s\n' % ml_alloc_and_store(pt, '_a%d_val' % i, '_a%d' % i))
