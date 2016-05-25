@@ -31,6 +31,7 @@ Revision History:
 #include"rewriter_def.h"
 #include"cooperate.h"
 #include"ast_pp.h"
+#include"ast_util.h"
 
 
 struct evaluator_cfg : public default_rewriter_cfg {
@@ -196,7 +197,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
     void expand_value(expr_ref& val) {
         vector<expr_ref_vector> stores;
         expr_ref else_case(m());
-        if (m_ar.is_array(val) && extract_array_func_interp(val, stores, else_case)) {
+        bool args_are_values;
+        if (m_ar.is_array(val) && extract_array_func_interp(val, stores, else_case, args_are_values)) {
             sort* srt = m().get_sort(val);
             val = m_ar.mk_const_array(srt, else_case);
             for (unsigned i = stores.size(); i > 0; ) {
@@ -265,20 +267,35 @@ struct evaluator_cfg : public default_rewriter_cfg {
             result = m().mk_true();
             return BR_DONE;
         }
-        vector<expr_ref_vector> stores;
+        vector<expr_ref_vector> stores1, stores2;
+        bool args_are_values1, args_are_values2;
         expr_ref else1(m()), else2(m());
-        if (extract_array_func_interp(a, stores, else1) &&
-            extract_array_func_interp(b, stores, else2)) {
+        if (extract_array_func_interp(a, stores1, else1, args_are_values1) &&
+            extract_array_func_interp(b, stores2, else2, args_are_values2)) {
             expr_ref_vector conj(m()), args1(m()), args2(m());
-            conj.push_back(m().mk_eq(else1, else2));
+            if (m().are_equal(else1, else2)) {
+                // no op
+            }
+            else if (m().are_distinct(else1, else2) && !(m().get_sort(else1)->get_info()->get_num_elements().is_finite())) {
+                result = m().mk_false();
+                return BR_DONE;
+            }
+            else {
+                conj.push_back(m().mk_eq(else1, else2));
+            }
             args1.push_back(a);
             args2.push_back(b);
+            if (args_are_values1 && args_are_values2) {
+                return mk_array_eq(stores1, else1, stores2, else2, conj, result);
+            }
+
             // TBD: this is too inefficient.
-            for (unsigned i = 0; i < stores.size(); ++i) {
-                args1.resize(1); args1.append(stores[i].size() - 1, stores[i].c_ptr());
-                args2.resize(1); args2.append(stores[i].size() - 1, stores[i].c_ptr());
-                expr* s1 = m_ar.mk_select(args1.size(), args1.c_ptr());
-                expr* s2 = m_ar.mk_select(args2.size(), args2.c_ptr());
+            stores1.append(stores2);
+            for (unsigned i = 0; i < stores1.size(); ++i) {
+                args1.resize(1); args1.append(stores1[i].size() - 1, stores1[i].c_ptr());
+                args2.resize(1); args2.append(stores1[i].size() - 1, stores1[i].c_ptr());
+                expr_ref s1(m_ar.mk_select(args1.size(), args1.c_ptr()), m());
+                expr_ref s2(m_ar.mk_select(args2.size(), args2.c_ptr()), m());
                 conj.push_back(m().mk_eq(s1, s2));
             }
             result = m().mk_and(conj.size(), conj.c_ptr());
@@ -287,12 +304,96 @@ struct evaluator_cfg : public default_rewriter_cfg {
         return BR_FAILED;
     }
 
-    bool extract_array_func_interp(expr* a, vector<expr_ref_vector>& stores, expr_ref& else_case) {
-        SASSERT(m_ar.is_array(a));
+    struct args_eq {
+        unsigned m_arity;
+        args_eq(unsigned arity): m_arity(arity) {}
+        bool operator()(expr * const* args1, expr* const* args2) const {
+            for (unsigned i = 0; i < m_arity; ++i) {
+                if (args1[i] != args2[i]) {
+                    return false;
+                }
+            }
+            return true;
+        }
+    };
+
+    struct args_hash {
+        unsigned m_arity;
+        args_hash(unsigned arity): m_arity(arity) {}
+        unsigned operator()(expr * const* args) const {
+            return get_composite_hash(args, m_arity, default_kind_hash_proc<expr*const*>(), *this);
+        }
+        unsigned operator()(expr* const* args, unsigned idx) const {
+            return args[idx]->hash();
+        }
+    };
+
+    typedef hashtable<expr*const*, args_hash, args_eq> args_table;
+
+    br_status mk_array_eq(vector<expr_ref_vector> const& stores1, expr* else1, 
+                          vector<expr_ref_vector> const& stores2, expr* else2, 
+                          expr_ref_vector& conj, expr_ref& result) {
+        unsigned arity = stores1[0].size()-1;
+        args_hash ah(arity);
+        args_eq   ae(arity);
+        args_table table1(DEFAULT_HASHTABLE_INITIAL_CAPACITY, ah, ae);
+        for (unsigned i = 0; i < stores1.size(); ++i) {
+            table1.insert(stores1[i].c_ptr());
+        }
+        for (unsigned i = 0; i < stores2.size(); ++i) {
+            expr * const* args = 0;
+            expr* val = stores2[i][arity];
+            if (table1.find(stores2[i].c_ptr(), args)) {
+                if (m().are_equal(args[arity], val)) {
+                    table1.remove(stores2[i].c_ptr());
+                } 
+                else if (m().are_distinct(args[arity], val)) {
+                    result = m().mk_false();
+                    return BR_DONE;
+                }
+                else {
+                    conj.push_back(m().mk_eq(val, args[arity]));
+                }
+            }
+            else {
+                if (m().are_equal(else1, val)) {
+                    // no-op
+                }
+                else if (m().are_distinct(else1, val)) {
+                    result = m().mk_false();
+                    return BR_DONE;
+                }
+                else {
+                    conj.push_back(m().mk_eq(else1, val));
+                }
+            }
+        }
+        args_table::iterator it = table1.begin(), end = table1.end();
+        for (; it != end; ++it) {
+            conj.push_back(m().mk_eq((*it)[arity], else2));
+        }
+        result = mk_and(conj);
+        return BR_REWRITE_FULL;
+    }
+
     
+    bool args_are_unique_values(expr_ref_vector const& store) {
+        bool args_are_values = true;
+        for (unsigned j = 0; args_are_values && j + 1 < store.size(); ++j) {
+            args_are_values = m().is_unique_value(store[j]);
+        }
+        return args_are_values;
+    }
+    
+
+    bool extract_array_func_interp(expr* a, vector<expr_ref_vector>& stores, expr_ref& else_case, bool& args_are_values) {
+        SASSERT(m_ar.is_array(a));
+        args_are_values = true;
+
         while (m_ar.is_store(a)) {
             expr_ref_vector store(m());
             store.append(to_app(a)->get_num_args()-1, to_app(a)->get_args()+1);
+            args_are_values &= args_are_unique_values(store);
             stores.push_back(store);
             a = to_app(a)->get_arg(0);
         }
@@ -302,54 +403,51 @@ struct evaluator_cfg : public default_rewriter_cfg {
             return true;
         }
     
-        if (m_ar.is_as_array(a)) {
-            func_decl* f = m_ar.get_as_array_func_decl(to_app(a));
-            func_interp* g = m_model.get_func_interp(f);
-            unsigned sz = g->num_entries();
-            unsigned arity = f->get_arity();
-            for (unsigned i = 0; i < sz; ++i) {
-                expr_ref_vector store(m());
-                func_entry const* fe = g->get_entry(i);
-                store.append(arity, fe->get_args());
-                store.push_back(fe->get_result());
-                for (unsigned j = 0; j < store.size(); ++j) {
-                    if (!is_ground(store[j].get())) {
-                        TRACE("model_evaluator", tout << "could not extract array interpretation: " << mk_pp(a, m()) << "\n" << mk_pp(store[j].get(), m()) << "\n";);
-                        return false;
-                    }
-                }
-                stores.push_back(store);
-            }        
-            else_case = g->get_else();
-            if (!else_case) {
-                TRACE("model_evaluator", tout << "no else case " << mk_pp(a, m()) << "\n";);
-                return false;
-            }
-            if (!is_ground(else_case)) {
-                TRACE("model_evaluator", tout << "non-ground else case " << mk_pp(a, m()) << "\n" << mk_pp(else_case, m()) << "\n";);
-                return false;
-            }
-            bool is_value = true;
-            for (unsigned i = stores.size(); is_value && i > 0; ) {
-                --i;
-                if (else_case == stores[i].back()) {
-                    for (unsigned j = i + 1; j < stores.size(); ++j) {
-                        stores[j-1].reset();
-                        stores[j-1].append(stores[j]);
-                    }
-                    stores.pop_back();
-                    continue;
-                }
-                for (unsigned j = 0; is_value && j + 1 < stores[i].size(); ++j) {
-                    is_value = m().is_value(stores[i][j].get());
-                }
-            }
-            TRACE("model_evaluator", tout << "else case: " << mk_pp(else_case, m()) << "\n";);
-            return true;
+        if (!m_ar.is_as_array(a)) {
+            TRACE("model_evaluator", tout << "no translation: " << mk_pp(a, m()) << "\n";);        
+            return false;
         }
-        TRACE("model_evaluator", tout << "no translation: " << mk_pp(a, m()) << "\n";);
-        
-        return false;
+
+        func_decl* f = m_ar.get_as_array_func_decl(to_app(a));
+        func_interp* g = m_model.get_func_interp(f);
+        unsigned sz = g->num_entries();
+        unsigned arity = f->get_arity();
+        for (unsigned i = 0; i < sz; ++i) {
+            expr_ref_vector store(m());
+            func_entry const* fe = g->get_entry(i);
+            store.append(arity, fe->get_args());
+            store.push_back(fe->get_result());
+            for (unsigned j = 0; j < store.size(); ++j) {
+                if (!is_ground(store[j].get())) {
+                    TRACE("model_evaluator", tout << "could not extract array interpretation: " << mk_pp(a, m()) << "\n" << mk_pp(store[j].get(), m()) << "\n";);
+                    return false;
+                }
+            }
+            stores.push_back(store);
+        }        
+        else_case = g->get_else();
+        if (!else_case) {
+            TRACE("model_evaluator", tout << "no else case " << mk_pp(a, m()) << "\n";);
+            return false;
+        }
+        if (!is_ground(else_case)) {
+            TRACE("model_evaluator", tout << "non-ground else case " << mk_pp(a, m()) << "\n" << else_case << "\n";);
+            return false;
+        }
+        for (unsigned i = stores.size(); args_are_values && i > 0; ) {
+            --i;
+            if (else_case == stores[i].back()) {
+                for (unsigned j = i + 1; j < stores.size(); ++j) {
+                    stores[j-1].reset();
+                    stores[j-1].append(stores[j]);
+                }
+                stores.pop_back();
+                continue;
+            }
+            args_are_values &= args_are_unique_values(stores[i]);
+        }
+        TRACE("model_evaluator", tout << "else case: " << mk_pp(else_case, m()) << "\n";);
+        return true;
     }
 
 
