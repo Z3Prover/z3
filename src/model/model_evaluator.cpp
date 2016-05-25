@@ -344,36 +344,36 @@ struct evaluator_cfg : public default_rewriter_cfg {
             expr * const* args = 0;
             expr* val = stores2[i][arity];
             if (table1.find(stores2[i].c_ptr(), args)) {
-                if (m().are_equal(args[arity], val)) {
-                    table1.remove(stores2[i].c_ptr());
-                } 
-                else if (m().are_distinct(args[arity], val)) {
-                    result = m().mk_false();
-                    return BR_DONE;
-                }
-                else {
-                    conj.push_back(m().mk_eq(val, args[arity]));
+                switch (compare(args[arity], val)) {
+                case l_true: table1.remove(stores2[i].c_ptr()); break;
+                case l_false: result = m().mk_false(); return BR_DONE;
+                default: conj.push_back(m().mk_eq(val, args[arity])); break;
                 }
             }
             else {
-                if (m().are_equal(else1, val)) {
-                    // no-op
-                }
-                else if (m().are_distinct(else1, val)) {
-                    result = m().mk_false();
-                    return BR_DONE;
-                }
-                else {
-                    conj.push_back(m().mk_eq(else1, val));
+                switch (compare(else1, val)) {
+                case l_true: break;
+                case l_false: result = m().mk_false(); return BR_DONE;
+                default: conj.push_back(m().mk_eq(else1, val)); break;
                 }
             }
         }
         args_table::iterator it = table1.begin(), end = table1.end();
         for (; it != end; ++it) {
-            conj.push_back(m().mk_eq((*it)[arity], else2));
+            switch (compare((*it)[arity], else2)) {
+            case l_true: break;
+            case l_false: result = m().mk_false(); return BR_DONE;
+            default: conj.push_back(m().mk_eq((*it)[arity], else2)); break;
+            }
         }
         result = mk_and(conj);
         return BR_REWRITE_FULL;
+    }
+
+    lbool compare(expr* a, expr* b) {
+        if (m().are_equal(a, b)) return l_true;
+        if (m().are_distinct(a, b)) return l_false;
+        return l_undef;        
     }
 
     
