@@ -21,4 +21,8 @@ Notes:
 
 tactic * mk_nra_tactic(ast_manager & m, params_ref const & p = params_ref());
 
+/*
+ADD_TACTIC("nra", "builtin strategy for solving NRA problems.", "mk_nra_tactic(m, p)")
+*/
+
 #endif
