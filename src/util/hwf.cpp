@@ -390,25 +390,6 @@ void hwf_manager::rem(hwf const & x, hwf const & y, hwf & o) {
 #else
     o.value = remainder(x.value, y.value);
 #endif
-
-#if 0
-    // Here is an x87 alternative if the above makes problems; this may also be faster.
-    double xv = x.value;
-    double yv = y.value;
-    double & ov = o.value;
-
-    // This is from: http://webster.cs.ucr.edu/AoA/DOS/ch14/CH14-4.html#HEADING4-173
-    __asm {
-        fld     yv
-        fld     xv
-L:      fprem1
-        fstsw   ax              // Get condition bits in AX.
-        test    ah, 100b        // See if C2 is set.
-        jnz     L               // Repeat if not done yet.
-        fstp    ov              // Store remainder away.
-        fstp    st(0)           // Pop old y value.
-    }
-#endif
 }
 
 void hwf_manager::maximum(hwf const & x, hwf const & y, hwf & o) {
