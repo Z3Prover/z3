@@ -110,8 +110,8 @@ model_converter * pb2bv_model_converter::translate(ast_translation & translator)
         func_decl * f1 = translator(it->first);
         func_decl * f2 = translator(it->second);
         res->m_c2bit.push_back(func_decl_pair(f1, f2));
-        m.inc_ref(f1);
-        m.inc_ref(f2);
+        to.inc_ref(f1);
+        to.inc_ref(f2);
     }
     return res;
 }
