@@ -253,14 +253,13 @@ namespace datalog {
         m_modified = true;
     }
 
-    void mk_unbound_compressor::replace_by_decompression_rule(rule_set const& source, unsigned rule_index, unsigned tail_index, unsigned arg_index)
-    {
+    void mk_unbound_compressor::replace_by_decompression_rule(rule_set const& source, unsigned rule_index, unsigned tail_index, unsigned arg_index) {
         rule * r = m_rules.get(rule_index);
         rule_ref new_rule(m_context.get_rule_manager());
         mk_decompression_rule(r, tail_index, arg_index, new_rule);
         TRACE("dl", tout << "remove\n"; r->display(m_context, tout); tout << "set\n"; new_rule->display(m_context, tout););
-        m_rules.set(rule_index, new_rule);        
-        //we don't update the m_head_occurrence_ctr because the head predicate doesn't change
+        m_rules.set(rule_index, new_rule);
+        // we don't update the m_head_occurrence_ctr because the head predicate doesn't change
         detect_tasks(source, rule_index);
         m_modified = true;
     }
@@ -274,11 +273,6 @@ namespace datalog {
 
         unsigned utail_len = r->get_uninterpreted_tail_size();
         unsigned tail_index = 0;
-#if 0
-        if (utail_len == 1 && r->is_neg_tail(0)) {
-            tail_index = utail_len;
-        }
-#endif
         while (tail_index < utail_len) {
             app * t = r->get_tail(tail_index);
             func_decl * t_pred = t->get_decl();
@@ -297,19 +291,22 @@ namespace datalog {
                 unsigned arg_index = compressed_tail_pred_arg_indexes.back();
                 compressed_tail_pred_arg_indexes.pop_back();
 
+                SASSERT(m_in_progress.contains(c_info(t_pred, arg_index)));
                 bool can_remove_orig_rule = 
                     compressed_tail_pred_arg_indexes.empty() &&
                     !m_non_empty_rels.contains(t_pred) &&
-                    m_head_occurrence_ctr.get(t_pred)==0;                
+                    m_head_occurrence_ctr.get(t_pred) == 0;                
 
                 if (can_remove_orig_rule || is_negated_predicate) {
                     replace_original_rule = true;
                     replace_by_decompression_rule(source, rule_index, tail_index, arg_index);
                     // NB. compressed_tail_pred_arg_indexes becomes stale after original rule is replaced.
-                    break;
+                    if (is_negated_predicate && !can_remove_orig_rule) {
+                        break;
+                    }
                 }
                 else {
-                    add_decompression_rule(source, r, tail_index, arg_index);                
+                    add_decompression_rule(source, r, tail_index, arg_index);
                 }
             }
             if (replace_original_rule) {
