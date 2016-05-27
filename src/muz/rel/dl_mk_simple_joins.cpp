@@ -253,17 +253,10 @@ namespace datalog {
             if (t1n->get_id() > t2n->get_id()) {
                 std::swap(t1n, t2n);
             }
+
             m_pinned.push_back(t1n);
             m_pinned.push_back(t2n);
             
-            /*
-              IF_VERBOSE(0,
-              print_renaming(norm_subst, verbose_stream());
-              display_predicate(m_context, t1, verbose_stream());
-              display_predicate(m_context, t2, verbose_stream());
-              display_predicate(m_context, t1n, verbose_stream());
-              display_predicate(m_context, t2n, verbose_stream()););
-            */
             return app_pair(t1n, t2n);
         }
 
