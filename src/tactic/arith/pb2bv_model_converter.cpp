@@ -21,6 +21,10 @@ Notes:
 #include"model_v2_pp.h"
 #include"pb2bv_model_converter.h"
 
+pb2bv_model_converter::pb2bv_model_converter(ast_manager & _m) : m(_m) {
+
+}
+
 pb2bv_model_converter::pb2bv_model_converter(ast_manager & _m, obj_map<func_decl, expr*> const & c2bit, bound_manager const & bm):
     m(_m) {
     obj_map<func_decl, expr*>::iterator it  = c2bit.begin();
@@ -98,5 +102,16 @@ void pb2bv_model_converter::display(std::ostream & out) {
 }
 
 model_converter * pb2bv_model_converter::translate(ast_translation & translator) {
-    NOT_IMPLEMENTED_YET();
+    ast_manager & to = translator.to();
+    pb2bv_model_converter * res = alloc(pb2bv_model_converter, to);
+    svector<func_decl_pair>::iterator it = m_c2bit.begin();
+    svector<func_decl_pair>::iterator end = m_c2bit.end();
+    for (; it != end; it++) {
+        func_decl * f1 = translator(it->first);
+        func_decl * f2 = translator(it->second);
+        res->m_c2bit.push_back(func_decl_pair(f1, f2));
+        to.inc_ref(f1);
+        to.inc_ref(f2);
+    }
+    return res;
 }

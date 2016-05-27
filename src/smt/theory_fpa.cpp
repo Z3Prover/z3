@@ -623,6 +623,7 @@ namespace smt {
         }
 
         m_th_rw(c);
+
         expr_ref xe_eq_ye(m), not_xe_eq_ye(m), c_eq_iff(m);
         xe_eq_ye = m.mk_eq(xe, ye);
         not_xe_eq_ye = m.mk_not(xe_eq_ye);
@@ -879,6 +880,7 @@ namespace smt {
                 m_fpa_util.is_to_real_unspecified(f);
             if (include && !m_is_added_to_model.contains(f)) {
                 m_is_added_to_model.insert(f);
+                get_manager().inc_ref(f);
                 return true;
             }
             return false;

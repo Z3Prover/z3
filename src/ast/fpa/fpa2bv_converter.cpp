@@ -1880,16 +1880,16 @@ void fpa2bv_converter::mk_round_to_integral(sort * s, expr_ref & rm, expr_ref & 
     expr_ref div_p1(m);
     div_p1 = m_bv_util.mk_bv_add(div, m_bv_util.mk_numeral(1, sbits));
 
-    expr_ref tie2(m), v51(m);
-	expr_ref tie_pttrn(m_bv_util.mk_concat(one_1, m_bv_util.mk_numeral(0, sbits - 1)), m);
+    expr_ref tie_pttrn(m), tie2(m), tie2_c(m), div_last(m), v51(m);
+    tie_pttrn = m_bv_util.mk_concat(one_1, m_bv_util.mk_numeral(0, sbits-1));
     m_simp.mk_eq(rem, tie_pttrn, tie2);
-    expr_ref div_last(m_bv_util.mk_extract(0, 0, div), m);
-    
-    expr_ref div_last_eq_1(m.mk_eq(div_last, one_1), m);
-    expr_ref rte_and_dl_eq_1(m.mk_and(rm_is_rte, div_last_eq_1), m);
-    expr_ref rte_and_dl_eq_1_or_rta(m.mk_or(rte_and_dl_eq_1, rm_is_rta), m);
-    expr_ref tie_pttrn_ule_rem(m_bv_util.mk_ule(tie_pttrn, rem), m);
-    expr_ref tie2_c(m.mk_ite(tie2, rte_and_dl_eq_1_or_rta, tie_pttrn_ule_rem), m);
+    div_last = m_bv_util.mk_extract(0, 0, div);
+    expr_ref div_last_eq_1(m), rte_and_dl_eq_1(m), rte_and_dl_eq_1_or_rta(m), tie_pttrn_ule_rem(m);
+    div_last_eq_1 = m.mk_eq(div_last, one_1);
+    rte_and_dl_eq_1 = m.mk_and(rm_is_rte, div_last_eq_1);
+    rte_and_dl_eq_1_or_rta = m.mk_or(rte_and_dl_eq_1, rm_is_rta);
+    tie_pttrn_ule_rem = m_bv_util.mk_ule(tie_pttrn, rem);
+    tie2_c = m.mk_ite(tie2, rte_and_dl_eq_1_or_rta, tie_pttrn_ule_rem);
     m_simp.mk_ite(tie2_c, div_p1, div, v51);
 
     dbg_decouple("fpa2bv_r2i_v51", v51);

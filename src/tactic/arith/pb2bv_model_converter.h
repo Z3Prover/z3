@@ -28,6 +28,7 @@ class pb2bv_model_converter : public model_converter {
     ast_manager &             m;    
     svector<func_decl_pair>   m_c2bit;
 public:
+    pb2bv_model_converter(ast_manager & _m);
     pb2bv_model_converter(ast_manager & _m, obj_map<func_decl, expr*> const & c2bit, bound_manager const & bm);
     virtual ~pb2bv_model_converter();
     virtual void operator()(model_ref & md);
