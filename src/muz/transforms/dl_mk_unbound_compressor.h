@@ -74,7 +74,7 @@ namespace datalog {
 
         void detect_tasks(rule_set const& source, unsigned rule_index);
         void add_task(func_decl * pred, unsigned arg_index);
-        void try_compress(rule_set const& source, unsigned rule_index);
+        lbool try_compress(rule_set const& source, unsigned rule_index);
         void add_decompression_rules(rule_set const& source, unsigned rule_index);
         void mk_decompression_rule(rule * r, unsigned tail_index, unsigned arg_index, rule_ref& res);
         void add_decompression_rule(rule_set const& source, rule * r, unsigned tail_index, unsigned arg_index);

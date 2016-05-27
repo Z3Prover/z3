@@ -43,12 +43,10 @@ namespace datalog {
     bool mk_unbound_compressor::is_unbound_argument(rule * r, unsigned head_index) {
         app * head = r->get_head();
         expr * head_arg = head->get_arg(head_index);
-        if (!is_var(head_arg)) {
-            return false;
-        }
-        unsigned var_idx = to_var(head_arg)->get_idx();
-
-        return rm.collect_tail_vars(r).contains(var_idx);
+        unsigned var_idx;
+        return 
+            is_var(head_arg, var_idx) &&
+            rm.collect_tail_vars(r).contains(var_idx);
     }
 
     void mk_unbound_compressor::add_task(func_decl * pred, unsigned arg_index) {
@@ -74,9 +72,11 @@ namespace datalog {
         func_decl * cpred = m_context.mk_fresh_head_predicate(parent_name, symbol(name_suffix.str().c_str()), 
             arity, domain.c_ptr(), pred);
         m_pinned.push_back(cpred);
+        m_pinned.push_back(pred);
 
         m_todo.push_back(ci);
         m_map.insert(ci, cpred);
+        TRACE("dl", tout << "inserting: " << pred->get_name() << " " << arg_index << " for " << cpred->get_name() << "\n";);
     }
 
     void mk_unbound_compressor::detect_tasks(rule_set const& source, unsigned rule_index) {
@@ -95,28 +95,27 @@ namespace datalog {
         rm.get_counter().reset();
         rm.get_counter().count_vars(head, 1);
 
-        for (unsigned i=0; i<n; i++) {
+        for (unsigned i = 0; i < n; i++) {
             expr * arg = head->get_arg(i);
-            if (!is_var(arg)) {
-                continue;
-            }
-            unsigned var_idx = to_var(arg)->get_idx();
-            if (!tail_vars.contains(var_idx)) {
-                //unbound
-
-                unsigned occurence_cnt = rm.get_counter().get(var_idx);
-                SASSERT(occurence_cnt>0);
-                if (occurence_cnt == 1) {
-                    TRACE("dl", r->display(m_context, tout << "Compress: "););
-                    add_task(head_pred, i);
-                    return; //we compress out the unbound arguments one by one
-                }
+            unsigned var_idx;
+            if (is_var(arg, var_idx) && 
+                !tail_vars.contains(var_idx) && 
+                (1 == rm.get_counter().get(var_idx))) {
+                TRACE("dl", r->display(m_context, tout << "Compress: "););
+                add_task(head_pred, i);
+                break;
+                //we compress out the unbound arguments one by one
             }
         }
     }
 
-    void mk_unbound_compressor::try_compress(rule_set const& source, unsigned rule_index) {
-    start:
+    // 
+    // l_undef if nothing to compress.
+    // l_true if compressed.
+    // l_false if removed.
+    // 
+    lbool mk_unbound_compressor::try_compress(rule_set const& source, unsigned rule_index) {
+        TRACE("dl", tout << rule_index << "\n";);
         rule * r = m_rules.get(rule_index);
         var_idx_set& tail_vars = rm.collect_tail_vars(r);
         
@@ -130,30 +129,24 @@ namespace datalog {
         unsigned arg_index;
         for (arg_index = 0; arg_index < head_arity; arg_index++) {
             expr * arg = head->get_arg(arg_index);
-            if (!is_var(arg)) {
-                continue;
-            }
-            unsigned var_idx = to_var(arg)->get_idx();
-            if (!tail_vars.contains(var_idx)) {
-                //unbound
-                unsigned occurence_cnt = rm.get_counter().get(var_idx);
-                SASSERT(occurence_cnt>0);
-                if ( occurence_cnt==1 && m_in_progress.contains(c_info(head_pred, arg_index)) ) {
-                    //we have found what to compress
-                    break;
-                }
+            unsigned var_idx;
+            if (is_var(arg, var_idx) && 
+                !tail_vars.contains(var_idx) && 
+                (rm.get_counter().get(var_idx) == 1) && 
+                m_in_progress.contains(c_info(head_pred, arg_index))) {
+                break;
             }
         }
         if (arg_index == head_arity) {
             //we didn't find anything to compress
-            return;
+            return l_undef;
         }
-        SASSERT(arg_index<head_arity);
+        SASSERT(arg_index < head_arity);
         c_info ci(head_pred, arg_index);
-        func_decl * cpred;
-        TRUSTME( m_map.find(ci, cpred) );
+        func_decl * cpred = m_map.find(ci);
+        // VERIFY( m_map.find(ci, cpred) );
         ptr_vector<expr> cargs;
-        for (unsigned i=0; i<head_arity; i++) {
+        for (unsigned i=0; i < head_arity; i++) {
             if (i != arg_index) {
                 cargs.push_back(head->get_arg(i));
             }
@@ -161,29 +154,34 @@ namespace datalog {
 
         app_ref chead(m.mk_app(cpred, head_arity-1, cargs.c_ptr()), m);
 
+        m_modified = true;
         if (r->get_tail_size()==0 && m_context.get_rule_manager().is_fact(chead)) {
             m_non_empty_rels.insert(cpred);
             m_context.add_fact(chead);
             //remove the rule that became fact by placing the last rule on its place
             m_head_occurrence_ctr.dec(m_rules.get(rule_index)->get_decl());
-            m_rules.set(rule_index, m_rules.get(m_rules.size()-1));
-            m_rules.shrink(m_rules.size()-1);
-            //since we moved the last rule to rule_index, we have to try to compress it as well
-            if (rule_index<m_rules.size()) {
-                goto start;
+            unsigned new_size = m_rules.size() - 1;
+            rule* last_rule = m_rules.get(new_size);
+            TRACE("dl", tout << "remove\n"; r->display(m_context, tout); 
+                  tout << "shift\n"; last_rule->display(m_context, tout););
+            if (rule_index < new_size) {
+                m_rules.set(rule_index, last_rule);
             }
+            m_rules.shrink(new_size);
+            return l_false;
         }
         else {
             rule_ref new_rule(m_context.get_rule_manager().mk(r, chead), m_context.get_rule_manager());
             new_rule->set_accounting_parent_object(m_context, r);
 
             m_head_occurrence_ctr.dec(m_rules.get(rule_index)->get_decl());
+            TRACE("dl", tout << "remove\n"; r->display(m_context, tout); 
+                  tout << "set\n"; new_rule->display(m_context, tout););
             m_rules.set(rule_index, new_rule);
             m_head_occurrence_ctr.inc(m_rules.get(rule_index)->get_decl());
             detect_tasks(source, rule_index);
+            return l_true;
         }
-
-        m_modified = true;
     }
 
     void mk_unbound_compressor::mk_decompression_rule(rule * r, unsigned tail_index, unsigned arg_index,
@@ -191,11 +189,14 @@ namespace datalog {
     {
         app * orig_dtail = r->get_tail(tail_index); //dtail ~ decompressed tail
         c_info ci(orig_dtail->get_decl(), arg_index);
-        func_decl * dtail_pred;
-        TRUSTME( m_map.find(ci, dtail_pred) );
+
+        TRACE("dl", tout << "retrieving: " << ci.first->get_name() << " " << ci.second << "\n";);
+
+        func_decl * dtail_pred; // = m_map.find(ci);
+        VERIFY( m_map.find(ci, dtail_pred) );
         ptr_vector<expr> dtail_args;
         unsigned orig_dtail_arity = orig_dtail->get_num_args();
-        for (unsigned i=0;i<orig_dtail_arity;i++) {
+        for (unsigned i = 0; i < orig_dtail_arity; i++) {
             if (i != arg_index) {
                 dtail_args.push_back(orig_dtail->get_arg(i));
             }
@@ -206,9 +207,9 @@ namespace datalog {
         svector<bool> tails_negated;
         app_ref_vector tails(m);
         unsigned tail_len = r->get_tail_size();
-        for (unsigned i=0; i<tail_len; i++) {
+        for (unsigned i = 0; i < tail_len; i++) {
             tails_negated.push_back(r->is_neg_tail(i));
-            if (i==tail_index && !r->is_neg_tail(i)) {
+            if (i == tail_index && !r->is_neg_tail(i)) {
                 tails.push_back(dtail);
             }
             else {
@@ -228,45 +229,39 @@ namespace datalog {
         m_context.get_rule_manager().fix_unbound_vars(res, true);        
     }
 
+
+    //TODO: avoid rule duplicity
+    //If two predicates are compressed in a rule, applying decompression 
+    //to the results can cause a rule being added multiple times:
+    //P:- R(x,y), S(x,y)
+    //is decompressed into rules
+    //P:- R1(x), S(x,y)
+    //P:- R(x,y), S1(x)
+    //and each of these rules is again decompressed giving the same rule
+    //P:- R1(x), S1(x)
+    //P:- R1(x), S1(x)
+
     void mk_unbound_compressor::add_decompression_rule(rule_set const& source, rule * r, unsigned tail_index, unsigned arg_index) {
         rule_ref new_rule(m_context.get_rule_manager());
         mk_decompression_rule(r, tail_index, arg_index, new_rule);
-
         unsigned new_rule_index = m_rules.size();
         m_rules.push_back(new_rule);
+        TRACE("dl", r->display(m_context, tout); new_rule->display(m_context, tout); );
         m_context.get_rule_manager().mk_rule_rewrite_proof(*r, *new_rule.get());
         m_head_occurrence_ctr.inc(new_rule->get_decl());
-
-
         detect_tasks(source, new_rule_index);
-
         m_modified = true;
-
-        //TODO: avoid rule duplicity
-        //If two predicates are compressed in a rule, applying decompression 
-        //to the results can cause a rule being added multiple times:
-        //P:- R(x,y), S(x,y)
-        //is decompressed into rules
-        //P:- R1(x), S(x,y)
-        //P:- R(x,y), S1(x)
-        //and each of these rules is again decompressed giving the same rule
-        //P:- R1(x), S1(x)
-        //P:- R1(x), S1(x)
     }
 
     void mk_unbound_compressor::replace_by_decompression_rule(rule_set const& source, unsigned rule_index, unsigned tail_index, unsigned arg_index)
     {
         rule * r = m_rules.get(rule_index);
-
         rule_ref new_rule(m_context.get_rule_manager());
         mk_decompression_rule(r, tail_index, arg_index, new_rule);
-
-        m_rules.set(rule_index, new_rule);
-        
+        TRACE("dl", tout << "remove\n"; r->display(m_context, tout); tout << "set\n"; new_rule->display(m_context, tout););
+        m_rules.set(rule_index, new_rule);        
         //we don't update the m_head_occurrence_ctr because the head predicate doesn't change
-
         detect_tasks(source, rule_index);
-
         m_modified = true;
     }
 
@@ -278,8 +273,13 @@ namespace datalog {
         rule_ref r(m_rules.get(rule_index), m_context.get_rule_manager());
 
         unsigned utail_len = r->get_uninterpreted_tail_size();
-        unsigned tail_index=0;
-        while (tail_index<utail_len) {
+        unsigned tail_index = 0;
+#if 0
+        if (utail_len == 1 && r->is_neg_tail(0)) {
+            tail_index = utail_len;
+        }
+#endif
+        while (tail_index < utail_len) {
             app * t = r->get_tail(tail_index);
             func_decl * t_pred = t->get_decl();
             unsigned t_arity = t_pred->get_arity();
@@ -291,7 +291,8 @@ namespace datalog {
                     compressed_tail_pred_arg_indexes.push_back(arg_index);
                 }
             }
-            bool orig_rule_replaced = false;
+            TRACE("dl", tout << compressed_tail_pred_arg_indexes.size() << "\n";);
+            bool replace_original_rule = false;
             while (!compressed_tail_pred_arg_indexes.empty()) {
                 unsigned arg_index = compressed_tail_pred_arg_indexes.back();
                 compressed_tail_pred_arg_indexes.pop_back();
@@ -302,14 +303,16 @@ namespace datalog {
                     m_head_occurrence_ctr.get(t_pred)==0;                
 
                 if (can_remove_orig_rule || is_negated_predicate) {
+                    replace_original_rule = true;
                     replace_by_decompression_rule(source, rule_index, tail_index, arg_index);
-                    orig_rule_replaced = true;
+                    // NB. compressed_tail_pred_arg_indexes becomes stale after original rule is replaced.
+                    break;
                 }
                 else {
-                    add_decompression_rule(source, r, tail_index, arg_index);
+                    add_decompression_rule(source, r, tail_index, arg_index);                
                 }
             }
-            if (orig_rule_replaced) {
+            if (replace_original_rule) {
                 //update r with the new rule
                 rule * new_rule = m_rules.get(rule_index);
                 SASSERT(new_rule->get_uninterpreted_tail_size() >= utail_len);
@@ -334,19 +337,20 @@ namespace datalog {
         // TODO mc
         m_modified = false;
 
+        SASSERT(m_rules.empty());
+
         rel_context_base* rel = m_context.get_rel_context();
         if (rel) {
             rel->collect_non_empty_predicates(m_non_empty_rels);
         }
         unsigned init_rule_cnt = source.get_num_rules();
-        SASSERT(m_rules.empty());
-        for (unsigned i=0; i<init_rule_cnt; i++) {
+        for (unsigned i = 0; i < init_rule_cnt; i++) {
             rule * r = source.get_rule(i);
             m_rules.push_back(r);
             m_head_occurrence_ctr.inc(r->get_decl());
         }
 
-        for (unsigned i=0; i<init_rule_cnt; i++) {
+        for (unsigned i = 0; i < init_rule_cnt; i++) {
             detect_tasks(source, i);
         }
 
@@ -357,12 +361,19 @@ namespace datalog {
                 m_todo.pop_back();
             }
             unsigned rule_index = 0;
-            while (rule_index<m_rules.size()) {
-                try_compress(source, rule_index); //m_rules.size() can change here
-                if (rule_index<m_rules.size()) {
-                    add_decompression_rules(source, rule_index); //m_rules.size() can change here
+            while (rule_index < m_rules.size()) {
+                switch (try_compress(source, rule_index)) {
+                case l_true:
+                    add_decompression_rules(source, rule_index); //m_rules.size() can be increased here
+                    ++rule_index;
+                    break;
+                case l_false:
+                    break;
+                case l_undef:
+                    add_decompression_rules(source, rule_index); //m_rules.size() can be increased here
+                    ++rule_index;
+                    break;
                 }
-                rule_index++;
             }
         }
 
