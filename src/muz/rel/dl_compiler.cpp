@@ -26,7 +26,8 @@ Revision History:
 #include"dl_util.h"
 #include"dl_compiler.h"
 #include"ast_pp.h"
-#include"ast_smt2_pp.h"
+// include"ast_smt2_pp.h"
+#include"ast_util.h"
 
 
 namespace datalog {
@@ -185,10 +186,11 @@ namespace datalog {
         }
     }
 
-    void compiler::make_add_unbound_column(rule* compiled_rule, unsigned col_idx, func_decl* pred, reg_idx src, const relation_sort s, reg_idx & result,
+    void compiler::make_add_unbound_column(rule* compiled_rule, unsigned col_idx, func_decl* pred, reg_idx src, const relation_sort& s, reg_idx & result,
             bool & dealloc, instruction_block & acc) {
         
-        TRACE("dl", tout << "Adding unbound column " << mk_pp(pred, m_context.get_manager()) << "\n";);
+        TRACE("dl", tout << "Adding unbound column " << mk_pp(pred, m_context.get_manager()) 
+              << " " << m_context.get_rel_context()->get_rmanager().to_nice_string(s) << "\n";);
             IF_VERBOSE(3, { 
                     expr_ref e(m_context.get_manager()); 
                     m_context.get_rule_manager().to_formula(*compiled_rule, e); 
@@ -328,13 +330,15 @@ namespace datalog {
                 continue;
             }
             unsigned bound_column_index;
-            if(acis[i].kind!=ACK_UNBOUND_VAR || !handled_unbound.find(acis[i].var_index,bound_column_index)) {
+            if(acis[i].kind != ACK_UNBOUND_VAR || !handled_unbound.find(acis[i].var_index,bound_column_index)) {
                 bound_column_index=curr_sig->size();
                 if(acis[i].kind==ACK_CONSTANT) {
                     make_add_constant_column(head_pred, curr, acis[i].domain, acis[i].constant, curr, dealloc, acc);
                 }
                 else {
                     SASSERT(acis[i].kind==ACK_UNBOUND_VAR);
+                    TRACE("dl", tout << head_pred->get_name() << " index: " << i 
+                          << " " << m_context.get_rel_context()->get_rmanager().to_nice_string(acis[i].domain) << "\n";);
                     make_add_unbound_column(compiled_rule, i, head_pred, curr, acis[i].domain, curr, dealloc, acc);
                     handled_unbound.insert(acis[i].var_index,bound_column_index);
                 }
@@ -598,14 +602,15 @@ namespace datalog {
         // add unbounded columns for interpreted filter
         unsigned ut_len = r->get_uninterpreted_tail_size();
         unsigned ft_len = r->get_tail_size(); // full tail
-        ptr_vector<expr> tail;
+        expr_ref_vector tail(m);
         for (unsigned tail_index = ut_len; tail_index < ft_len; ++tail_index) {
             tail.push_back(r->get_tail(tail_index));
         }
 
         expr_ref_vector binding(m);
         if (!tail.empty()) {
-            app_ref filter_cond(tail.size() == 1 ? to_app(tail.back()) : m.mk_and(tail.size(), tail.c_ptr()), m);
+            expr_ref filter_cond = mk_and(tail);
+            m_free_vars.reset();
             m_free_vars(filter_cond);
             // create binding
             binding.resize(m_free_vars.size()+1);
@@ -620,6 +625,7 @@ namespace datalog {
                 } else {
                     // we have an unbound variable, so we add an unbound column for it
                     relation_sort unbound_sort = m_free_vars[v];
+                    TRACE("dl", tout << "unbound: " << v << "\n" << filter_cond << " " << mk_pp(unbound_sort, m) << "\n";);
                     make_add_unbound_column(r, 0, head_pred, filtered_res, unbound_sort, filtered_res, dealloc, acc);
 
                     src_col = single_res_expr.size();

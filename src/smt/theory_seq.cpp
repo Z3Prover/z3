@@ -1398,7 +1398,9 @@ bool theory_seq::is_var(expr* a) {
         !m_util.str.is_concat(a) &&
         !m_util.str.is_empty(a)  &&
         !m_util.str.is_string(a) &&
-        !m_util.str.is_unit(a);
+        !m_util.str.is_unit(a) &&
+        !m_util.str.is_itos(a) && 
+        !m.is_ite(a);
 }
 
 
@@ -2216,7 +2218,10 @@ bool theory_seq::add_itos_axiom(expr* e) {
             m_itos_axioms.insert(val);
             app_ref e1(m_util.str.mk_string(symbol(val.to_string().c_str())), m);            
             expr_ref n1(arith_util(m).mk_numeral(val, true), m);
-            add_axiom(mk_eq(m_util.str.mk_itos(n1), e1, false));
+
+            add_axiom(~mk_eq(n1, n , false), mk_eq(e, e1, false));
+            add_axiom(mk_eq(n1, n, false), ~mk_eq(e, e1, false));
+
             m_trail_stack.push(insert_map<theory_seq, rational_set, rational>(m_itos_axioms, val));
             m_trail_stack.push(push_replay(alloc(replay_axiom, m, e)));
             return true;
@@ -2883,13 +2888,59 @@ void theory_seq::add_length_axiom(expr* n) {
         add_axiom(mk_eq(len, n, false));
     }
     else if (m_util.str.is_itos(x)) {
-        add_axiom(mk_literal(m_autil.mk_ge(n, m_autil.mk_int(1))));
+        add_itos_length_axiom(n);
     }
     else {
         add_axiom(mk_literal(m_autil.mk_ge(n, m_autil.mk_int(0))));
     }
     if (!ctx.at_base_level()) {
         m_trail_stack.push(push_replay(alloc(replay_axiom, m, n)));
+    }
+}
+
+void theory_seq::add_itos_length_axiom(expr* len) {
+    expr* x, *n;
+    VERIFY(m_util.str.is_length(len, x));
+    VERIFY(m_util.str.is_itos(x, n));
+
+    add_axiom(mk_literal(m_autil.mk_ge(len, m_autil.mk_int(1))));
+    rational val;
+    if (get_value(n, val)) {
+        bool neg = val.is_neg();
+        rational ten(10);
+        if (neg) val.neg();
+        unsigned num_char = neg?2:1;
+        // 0 < x < 10
+        // 10 < x < 100
+        // 100 < x < 1000
+        rational hi(10);
+        while (val > hi) {
+            ++num_char;
+            hi *= ten;
+        }
+        rational lo(div(hi - rational(1), ten));
+
+        literal len_le(mk_literal(m_autil.mk_ge(len, m_autil.mk_int(num_char))));
+        literal len_ge(mk_literal(m_autil.mk_le(len, m_autil.mk_int(num_char))));
+        if (neg) {
+            // n <= -lo => len >= num_char
+            // -hi < n <= 0 => len <= num_char
+            // n <= -hi or ~(n <= 0) or len <= num_char
+            literal l1(mk_literal(m_autil.mk_le(n, m_autil.mk_numeral(-lo, true))));
+            add_axiom(~l1, len_ge);
+            literal l3(mk_literal(m_autil.mk_le(n, m_autil.mk_numeral(-hi, true))));
+            literal l4(mk_literal(m_autil.mk_le(n, m_autil.mk_int(0))));
+            add_axiom(l3, ~l4, len_le);
+        }
+        else {
+            // n >= lo => len >= num_char
+            // 0 <= n < hi  => len <= num_char
+            literal l1(mk_literal(m_autil.mk_ge(n, m_autil.mk_numeral(lo, true))));
+            add_axiom(~l1, len_ge);
+            literal l3(mk_literal(m_autil.mk_ge(n, m_autil.mk_numeral(hi, true))));
+            literal l4(mk_literal(m_autil.mk_ge(n, m_autil.mk_int(0))));
+            add_axiom(l3, ~l4, len_le);
+        }        
     }
 
 }
