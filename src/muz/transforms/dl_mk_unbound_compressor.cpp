@@ -50,7 +50,9 @@ namespace datalog {
     }
 
     void mk_unbound_compressor::add_task(func_decl * pred, unsigned arg_index) {
-        c_info ci = c_info(pred, arg_index);
+        SASSERT(pred->get_arity() > 0);
+
+        c_info ci(pred, arg_index);
         if (m_map.contains(ci)) {
             return; //this task was already added
         }
@@ -115,7 +117,6 @@ namespace datalog {
     // l_false if removed.
     // 
     lbool mk_unbound_compressor::try_compress(rule_set const& source, unsigned rule_index) {
-        TRACE("dl", tout << rule_index << "\n";);
         rule * r = m_rules.get(rule_index);
         var_idx_set& tail_vars = rm.collect_tail_vars(r);
         
@@ -141,10 +142,11 @@ namespace datalog {
             //we didn't find anything to compress
             return l_undef;
         }
-        SASSERT(arg_index < head_arity);
         c_info ci(head_pred, arg_index);
+
+        SASSERT(arg_index < head_arity);
+        SASSERT(m_in_progress.contains(ci));
         func_decl * cpred = m_map.find(ci);
-        // VERIFY( m_map.find(ci, cpred) );
         ptr_vector<expr> cargs;
         for (unsigned i=0; i < head_arity; i++) {
             if (i != arg_index) {
@@ -184,16 +186,15 @@ namespace datalog {
         }
     }
 
-    void mk_unbound_compressor::mk_decompression_rule(rule * r, unsigned tail_index, unsigned arg_index,
-        rule_ref& res)
-    {
+    rule_ref mk_unbound_compressor::mk_decompression_rule(rule * r, unsigned tail_index, unsigned arg_index) {
+        rule_ref res(m_context.get_rule_manager());
+
         app * orig_dtail = r->get_tail(tail_index); //dtail ~ decompressed tail
         c_info ci(orig_dtail->get_decl(), arg_index);
 
         TRACE("dl", tout << "retrieving: " << ci.first->get_name() << " " << ci.second << "\n";);
 
-        func_decl * dtail_pred; // = m_map.find(ci);
-        VERIFY( m_map.find(ci, dtail_pred) );
+        func_decl * dtail_pred = m_map.find(ci);
         ptr_vector<expr> dtail_args;
         unsigned orig_dtail_arity = orig_dtail->get_num_args();
         for (unsigned i = 0; i < orig_dtail_arity; i++) {
@@ -227,6 +228,7 @@ namespace datalog {
         res = m_context.get_rule_manager().mk( r->get_head(), tails.size(), tails.c_ptr(), tails_negated.c_ptr());
         res->set_accounting_parent_object(m_context, r);
         m_context.get_rule_manager().fix_unbound_vars(res, true);        
+        return res;
     }
 
 
@@ -242,8 +244,7 @@ namespace datalog {
     //P:- R1(x), S1(x)
 
     void mk_unbound_compressor::add_decompression_rule(rule_set const& source, rule * r, unsigned tail_index, unsigned arg_index) {
-        rule_ref new_rule(m_context.get_rule_manager());
-        mk_decompression_rule(r, tail_index, arg_index, new_rule);
+        rule_ref new_rule = mk_decompression_rule(r, tail_index, arg_index);
         unsigned new_rule_index = m_rules.size();
         m_rules.push_back(new_rule);
         TRACE("dl", r->display(m_context, tout); new_rule->display(m_context, tout); );
@@ -255,20 +256,61 @@ namespace datalog {
 
     void mk_unbound_compressor::replace_by_decompression_rule(rule_set const& source, unsigned rule_index, unsigned tail_index, unsigned arg_index) {
         rule * r = m_rules.get(rule_index);
-        rule_ref new_rule(m_context.get_rule_manager());
-        mk_decompression_rule(r, tail_index, arg_index, new_rule);
+        rule_ref new_rule = mk_decompression_rule(r, tail_index, arg_index);
         TRACE("dl", tout << "remove\n"; r->display(m_context, tout); tout << "set\n"; new_rule->display(m_context, tout););
         m_rules.set(rule_index, new_rule);
         // we don't update the m_head_occurrence_ctr because the head predicate doesn't change
         detect_tasks(source, rule_index);
         m_modified = true;
     }
+    
+    void mk_unbound_compressor::add_in_progress_indices(unsigned_vector& arg_indices, app* p) {
+        arg_indices.reset();
+        for (unsigned i = 0; i < p->get_num_args(); ++i) {
+            if (m_in_progress.contains(c_info(p->get_decl(), i))) {
+                SASSERT(m_map.contains(c_info(p->get_decl(), i)));
+                arg_indices.push_back(i);
+            }
+        }
+    }
 
+    bool mk_unbound_compressor::decompress_rule(rule_set const& source, rule* r, unsigned_vector const& arg_indices, unsigned rule_index, unsigned tail_index) {
+        app * t = r->get_tail(tail_index);
+        func_decl * t_pred = t->get_decl();
+        bool is_negated_predicate = r->is_neg_tail(tail_index);
+
+        bool replace_original_rule = false;
+        for (unsigned i = 0; i < arg_indices.size(); ++i) {
+            unsigned arg_index = arg_indices[i];
+            
+            SASSERT(m_in_progress.contains(c_info(t_pred, arg_index)));
+            SASSERT(m_map.contains(c_info(t_pred, arg_index)));
+            bool can_remove_orig_rule = 
+                arg_indices.empty() &&
+                !m_non_empty_rels.contains(t_pred) &&
+                m_head_occurrence_ctr.get(t_pred) == 0;                
+            
+            if (can_remove_orig_rule || is_negated_predicate) {
+                replace_original_rule = true;
+                replace_by_decompression_rule(source, rule_index, tail_index, arg_index);
+                // NB. arg_indices becomes stale after original rule is replaced.
+                if (is_negated_predicate && !can_remove_orig_rule) {
+                    break;
+                }
+            }
+            else {
+                add_decompression_rule(source, r, tail_index, arg_index);
+            }
+        }
+        return replace_original_rule;
+    }
+
+    
     void mk_unbound_compressor::add_decompression_rules(rule_set const& source, unsigned rule_index) {
-
-        unsigned_vector compressed_tail_pred_arg_indexes;
-
-        //this value is updated inside the loop if replace_by_decompression_rule is called
+        
+        unsigned_vector arg_indices;
+        
+        // this value is updated inside the loop if replace_by_decompression_rule is called
         rule_ref r(m_rules.get(rule_index), m_context.get_rule_manager());
 
         unsigned utail_len = r->get_uninterpreted_tail_size();
@@ -276,47 +318,18 @@ namespace datalog {
         while (tail_index < utail_len) {
             app * t = r->get_tail(tail_index);
             func_decl * t_pred = t->get_decl();
-            unsigned t_arity = t_pred->get_arity();
-            bool is_negated_predicate = r->is_neg_tail(tail_index);
-            compressed_tail_pred_arg_indexes.reset();
-            for (unsigned arg_index=0; arg_index<t_arity; arg_index++) {
-                c_info ci(t_pred, arg_index);
-                if (m_in_progress.contains(ci)) {
-                    compressed_tail_pred_arg_indexes.push_back(arg_index);
-                }
-            }
-            TRACE("dl", tout << compressed_tail_pred_arg_indexes.size() << "\n";);
-            bool replace_original_rule = false;
-            while (!compressed_tail_pred_arg_indexes.empty()) {
-                unsigned arg_index = compressed_tail_pred_arg_indexes.back();
-                compressed_tail_pred_arg_indexes.pop_back();
 
-                SASSERT(m_in_progress.contains(c_info(t_pred, arg_index)));
-                bool can_remove_orig_rule = 
-                    compressed_tail_pred_arg_indexes.empty() &&
-                    !m_non_empty_rels.contains(t_pred) &&
-                    m_head_occurrence_ctr.get(t_pred) == 0;                
+            add_in_progress_indices(arg_indices, t);
 
-                if (can_remove_orig_rule || is_negated_predicate) {
-                    replace_original_rule = true;
-                    replace_by_decompression_rule(source, rule_index, tail_index, arg_index);
-                    // NB. compressed_tail_pred_arg_indexes becomes stale after original rule is replaced.
-                    if (is_negated_predicate && !can_remove_orig_rule) {
-                        break;
-                    }
-                }
-                else {
-                    add_decompression_rule(source, r, tail_index, arg_index);
-                }
-            }
+            bool replace_original_rule = decompress_rule(source, r, arg_indices, rule_index, tail_index);
+
             if (replace_original_rule) {
-                //update r with the new rule
+                // update r with the new rule
                 rule * new_rule = m_rules.get(rule_index);
                 SASSERT(new_rule->get_uninterpreted_tail_size() >= utail_len);
-                //here we check that the rule replacement didn't affect other uninterpreted literals 
-                //in the tail (aside of variable renaming)
-                SASSERT(tail_index==0 || 
-                    new_rule->get_tail(tail_index-1)->get_decl()==r->get_tail(tail_index-1)->get_decl());
+                // here we check that the rule replacement didn't affect other uninterpreted literals 
+                // in the tail (aside of variable renaming)
+                SASSERT(tail_index==0 || new_rule->get_decl(tail_index-1) == r->get_decl(tail_index-1));
 
                 r = new_rule;
 
@@ -357,18 +370,14 @@ namespace datalog {
                 m_in_progress.insert(m_todo.back());
                 m_todo.pop_back();
             }
-            unsigned rule_index = 0;
-            while (rule_index < m_rules.size()) {
+            for (unsigned rule_index = 0; rule_index < m_rules.size(); ) {
                 switch (try_compress(source, rule_index)) {
                 case l_true:
+                case l_undef:
                     add_decompression_rules(source, rule_index); //m_rules.size() can be increased here
                     ++rule_index;
                     break;
                 case l_false:
-                    break;
-                case l_undef:
-                    add_decompression_rules(source, rule_index); //m_rules.size() can be increased here
-                    ++rule_index;
                     break;
                 }
             }
