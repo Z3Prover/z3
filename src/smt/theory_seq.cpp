@@ -827,7 +827,7 @@ bool theory_seq::propagate_length_coherence(expr* e) {
     expr_ref head(m), tail(m);
     rational lo, hi;
 
-    if (!is_var(e) || !m_rep.is_root(e)) {
+    if (!is_var(e) || !m_rep.is_root(e) || m_util.str.is_itos(e)) {
         return false;
     }
     if (!lower_bound(e, lo) || !lo.is_pos() || lo >= rational(2048)) {
@@ -872,7 +872,7 @@ bool theory_seq::propagate_length_coherence(expr* e) {
 
 
 bool theory_seq::check_length_coherence(expr* e) {
-    if (is_var(e) && m_rep.is_root(e)) {
+    if (is_var(e) && m_rep.is_root(e) && !m_util.str.is_itos(e)) {
         if (!check_length_coherence0(e)) {
             expr_ref emp(m_util.str.mk_empty(m.get_sort(e)), m);
             expr_ref head(m), tail(m);
@@ -2438,9 +2438,10 @@ public:
                 }
                 else {
                     zstring zs;
-                    VERIFY(th.m_util.str.is_string(m_strings[k++], zs));
-                    for (unsigned l = 0; l < zs.length(); ++l) {
-                        sbuffer.push_back(zs[l]);
+                    if (th.m_util.str.is_string(m_strings[k++], zs)) {
+                        for (unsigned l = 0; l < zs.length(); ++l) {
+                            sbuffer.push_back(zs[l]);
+                        }
                     }
                 }
             }
