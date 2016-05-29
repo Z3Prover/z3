@@ -827,7 +827,7 @@ bool theory_seq::propagate_length_coherence(expr* e) {
     expr_ref head(m), tail(m);
     rational lo, hi;
 
-    if (!is_var(e) || !m_rep.is_root(e) || m_util.str.is_itos(e)) {
+    if (!is_var(e) || !m_rep.is_root(e)) {
         return false;
     }
     if (!lower_bound(e, lo) || !lo.is_pos() || lo >= rational(2048)) {
@@ -872,7 +872,7 @@ bool theory_seq::propagate_length_coherence(expr* e) {
 
 
 bool theory_seq::check_length_coherence(expr* e) {
-    if (is_var(e) && m_rep.is_root(e) && !m_util.str.is_itos(e)) {
+    if (is_var(e) && m_rep.is_root(e)) {
         if (!check_length_coherence0(e)) {
             expr_ref emp(m_util.str.mk_empty(m.get_sort(e)), m);
             expr_ref head(m), tail(m);
@@ -2219,9 +2219,17 @@ bool theory_seq::add_itos_axiom(expr* e) {
             app_ref e1(m_util.str.mk_string(symbol(val.to_string().c_str())), m);            
             expr_ref n1(arith_util(m).mk_numeral(val, true), m);
 
+#if 1
+            // itos(n) = "25" <=> n = 25
             add_axiom(~mk_eq(n1, n , false), mk_eq(e, e1, false));
             add_axiom(mk_eq(n1, n, false), ~mk_eq(e, e1, false));
-
+#else
+            // "25" = itos(25)
+            // stoi(itos(n)) = n
+            app_ref e2(m_util.str.mk_stoi(e), m);
+            add_axiom(mk_eq(e2, n, false));
+            add_axiom(mk_eq(m_util.str.mk_itos(n1), e1, false));
+#endif
             m_trail_stack.push(insert_map<theory_seq, rational_set, rational>(m_itos_axioms, val));
             m_trail_stack.push(push_replay(alloc(replay_axiom, m, e)));
             return true;
@@ -2923,24 +2931,32 @@ void theory_seq::add_itos_length_axiom(expr* len) {
 
         literal len_le(mk_literal(m_autil.mk_ge(len, m_autil.mk_int(num_char))));
         literal len_ge(mk_literal(m_autil.mk_le(len, m_autil.mk_int(num_char))));
+        literal n_le_mlo(mk_literal(m_autil.mk_le(n, m_autil.mk_numeral(-lo, true))));
+        literal n_ge_lo(mk_literal(m_autil.mk_ge(n, m_autil.mk_numeral(lo, true))));
+
+        // len >= num_char => n <= -lo or n >= lo
+        // len <= num_char => -hi < n < hi
+
+        add_axiom(~len_ge, n_le_mlo, n_ge_lo);
         if (neg) {
             // n <= -lo => len >= num_char
             // -hi < n <= 0 => len <= num_char
             // n <= -hi or ~(n <= 0) or len <= num_char
-            literal l1(mk_literal(m_autil.mk_le(n, m_autil.mk_numeral(-lo, true))));
-            add_axiom(~l1, len_ge);
-            literal l3(mk_literal(m_autil.mk_le(n, m_autil.mk_numeral(-hi, true))));
-            literal l4(mk_literal(m_autil.mk_le(n, m_autil.mk_int(0))));
-            add_axiom(l3, ~l4, len_le);
+
+            add_axiom(~n_le_mlo, len_ge);
+            literal n_le_mhi(mk_literal(m_autil.mk_le(n, m_autil.mk_numeral(-hi, true))));
+            literal n_le_0(mk_literal(m_autil.mk_le(n, m_autil.mk_int(0))));
+            add_axiom(n_le_mhi, ~n_le_0, len_le);
+            add_axiom(~len_le, ~n_le_mhi);
         }
         else {
             // n >= lo => len >= num_char
             // 0 <= n < hi  => len <= num_char
-            literal l1(mk_literal(m_autil.mk_ge(n, m_autil.mk_numeral(lo, true))));
-            add_axiom(~l1, len_ge);
-            literal l3(mk_literal(m_autil.mk_ge(n, m_autil.mk_numeral(hi, true))));
-            literal l4(mk_literal(m_autil.mk_ge(n, m_autil.mk_int(0))));
-            add_axiom(l3, ~l4, len_le);
+            add_axiom(~n_ge_lo, len_ge);
+            literal n_ge_hi(mk_literal(m_autil.mk_ge(n, m_autil.mk_numeral(hi, true))));
+            literal n_ge_0(mk_literal(m_autil.mk_ge(n, m_autil.mk_int(0))));
+            add_axiom(n_ge_hi, ~n_ge_0, len_le);
+            add_axiom(~len_le, ~n_ge_hi);
         }        
     }
 

@@ -1576,18 +1576,12 @@ bool ast_manager::are_equal(expr * a, expr * b) const {
 }
 
 void ast_manager::inc_ref(ast * n) {
-
-    if (n && n->get_id() == 362568) {
-        std::cout << "inc-ref " << n->get_ref_count() << "\n";
-    }
-    if (n)
+    if (n) {
         n->inc_ref();
+    }
 }
 
 void ast_manager::dec_ref(ast* n) {
-	if (n && n->get_id() == 362568) {
-		std::cout << "dec-ref " << n->get_ref_count() << "\n";
-	}
     if (n) {
         n->dec_ref();
         if (n->get_ref_count() == 0)
