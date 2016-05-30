@@ -1883,7 +1883,7 @@ public class Context extends IDisposable
     /**
      * Create the empty sequence.
     */
-    public SeqExpr MkEmptySeq(Sort s) 
+    public SeqExpr mkEmptySeq(Sort s) 
     {
 	checkContextMatch(s);
 	return new SeqExpr(this, Native.mkSeqEmpty(nCtx(), s.getNativeObject()));
@@ -1892,7 +1892,7 @@ public class Context extends IDisposable
     /**
      * Create the singleton sequence.
      */
-    public SeqExpr MkUnit(Expr elem) 
+    public SeqExpr mkUnit(Expr elem) 
     {
 	checkContextMatch(elem);
 	return new SeqExpr(this, Native.mkSeqUnit(nCtx(), elem.getNativeObject()));
@@ -1901,7 +1901,7 @@ public class Context extends IDisposable
     /**
      * Create a string constant.
      */
-    public SeqExpr MkString(String s) 
+    public SeqExpr mkString(String s) 
     {
 	return new SeqExpr(this, Native.mkString(nCtx(), s));
     }
@@ -1909,7 +1909,7 @@ public class Context extends IDisposable
     /**
      * Concatentate sequences.
      */
-    public SeqExpr MkConcat(SeqExpr... t)
+    public SeqExpr mkConcat(SeqExpr... t)
     {
 	checkContextMatch(t);
 	return new SeqExpr(this, Native.mkSeqConcat(nCtx(), (int)t.length, AST.arrayToNative(t)));
@@ -1919,7 +1919,7 @@ public class Context extends IDisposable
     /**
      * Retrieve the length of a given sequence.
      */
-    public IntExpr MkLength(SeqExpr s)
+    public IntExpr mkLength(SeqExpr s)
     {
 	checkContextMatch(s);
 	return (IntExpr) Expr.create(this, Native.mkSeqLength(nCtx(), s.getNativeObject()));
@@ -1928,7 +1928,7 @@ public class Context extends IDisposable
     /**
      * Check for sequence prefix.
      */
-    public BoolExpr MkPrefixOf(SeqExpr s1, SeqExpr s2) 
+    public BoolExpr mkPrefixOf(SeqExpr s1, SeqExpr s2) 
     {
 	checkContextMatch(s1, s2);
 	return new BoolExpr(this, Native.mkSeqPrefix(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
@@ -1937,7 +1937,7 @@ public class Context extends IDisposable
     /**
      * Check for sequence suffix.
      */
-    public BoolExpr MkSuffixOf(SeqExpr s1, SeqExpr s2) 
+    public BoolExpr mkSuffixOf(SeqExpr s1, SeqExpr s2) 
     {
 	checkContextMatch(s1, s2);
 	return new BoolExpr(this, Native.mkSeqSuffix(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
@@ -1946,7 +1946,7 @@ public class Context extends IDisposable
     /**
      * Check for sequence containment of s2 in s1.
      */
-    public BoolExpr MkContains(SeqExpr s1, SeqExpr s2) 
+    public BoolExpr mkContains(SeqExpr s1, SeqExpr s2) 
     {
 	checkContextMatch(s1, s2);
 	return new BoolExpr(this, Native.mkSeqContains(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
@@ -1955,7 +1955,7 @@ public class Context extends IDisposable
     /**
      * Retrieve sequence of length one at index.
      */
-    public SeqExpr MkAt(SeqExpr s, IntExpr index)
+    public SeqExpr mkAt(SeqExpr s, IntExpr index)
     {
 	checkContextMatch(s, index);
 	return new SeqExpr(this, Native.mkSeqAt(nCtx(), s.getNativeObject(), index.getNativeObject()));
@@ -1964,7 +1964,7 @@ public class Context extends IDisposable
     /**
      * Extract subsequence.
      */
-    public SeqExpr MkExtract(SeqExpr s, IntExpr offset, IntExpr length)
+    public SeqExpr mkExtract(SeqExpr s, IntExpr offset, IntExpr length)
     {
 	checkContextMatch(s, offset, length);
 	return new SeqExpr(this, Native.mkSeqExtract(nCtx(), s.getNativeObject(), offset.getNativeObject(), length.getNativeObject()));
@@ -1973,7 +1973,7 @@ public class Context extends IDisposable
     /**
      * Extract index of sub-string starting at offset.
      */
-    public IntExpr MkIndexOf(SeqExpr s, SeqExpr substr, ArithExpr offset)
+    public IntExpr mkIndexOf(SeqExpr s, SeqExpr substr, ArithExpr offset)
     {
 	checkContextMatch(s, substr, offset);
 	return new IntExpr(this, Native.mkSeqIndex(nCtx(), s.getNativeObject(), substr.getNativeObject(), offset.getNativeObject()));
@@ -1982,7 +1982,7 @@ public class Context extends IDisposable
     /**
      * Replace the first occurrence of src by dst in s.
      */
-    public SeqExpr MkReplace(SeqExpr s, SeqExpr src, SeqExpr dst)
+    public SeqExpr mkReplace(SeqExpr s, SeqExpr src, SeqExpr dst)
     {
 	checkContextMatch(s, src, dst);
 	return new SeqExpr(this, Native.mkSeqReplace(nCtx(), s.getNativeObject(), src.getNativeObject(), dst.getNativeObject()));
@@ -1991,7 +1991,7 @@ public class Context extends IDisposable
     /**
      * Convert a regular expression that accepts sequence s.
      */
-    public ReExpr MkToRe(SeqExpr s) 
+    public ReExpr mkToRe(SeqExpr s) 
     {
 	checkContextMatch(s);
 	return new ReExpr(this, Native.mkSeqToRe(nCtx(), s.getNativeObject()));            
@@ -2001,7 +2001,7 @@ public class Context extends IDisposable
     /**
      * Check for regular expression membership.
      */
-    public BoolExpr MkInRe(SeqExpr s, ReExpr re)
+    public BoolExpr mkInRe(SeqExpr s, ReExpr re)
     {
 	checkContextMatch(s, re);
 	return new BoolExpr(this, Native.mkSeqInRe(nCtx(), s.getNativeObject(), re.getNativeObject()));            
@@ -2010,7 +2010,7 @@ public class Context extends IDisposable
     /**
      * Take the Kleene star of a regular expression.
      */
-    public ReExpr MkStar(ReExpr re)
+    public ReExpr mkStar(ReExpr re)
     {
 	checkContextMatch(re);
 	return new ReExpr(this, Native.mkReStar(nCtx(), re.getNativeObject()));            
@@ -2019,7 +2019,7 @@ public class Context extends IDisposable
     /**
      * Take the Kleene plus of a regular expression.
      */
-    public ReExpr MPlus(ReExpr re)
+    public ReExpr mkPlus(ReExpr re)
     {
 	checkContextMatch(re);
 	return new ReExpr(this, Native.mkRePlus(nCtx(), re.getNativeObject()));            
@@ -2028,7 +2028,7 @@ public class Context extends IDisposable
     /**
      * Create the optional regular expression.
      */
-    public ReExpr MOption(ReExpr re)
+    public ReExpr mkOption(ReExpr re)
     {
 	checkContextMatch(re);
 	return new ReExpr(this, Native.mkReOption(nCtx(), re.getNativeObject()));            
@@ -2037,7 +2037,7 @@ public class Context extends IDisposable
     /**
      * Create the concatenation of regular languages.
      */
-    public ReExpr MkConcat(ReExpr... t)
+    public ReExpr mkConcat(ReExpr... t)
     {
 	checkContextMatch(t);
 	return new ReExpr(this, Native.mkReConcat(nCtx(), (int)t.length, AST.arrayToNative(t)));
@@ -2046,7 +2046,7 @@ public class Context extends IDisposable
     /**
      * Create the union of regular languages.
      */
-    public ReExpr MkUnion(ReExpr... t)
+    public ReExpr mkUnion(ReExpr... t)
     {
 	checkContextMatch(t);
 	return new ReExpr(this, Native.mkReUnion(nCtx(), (int)t.length, AST.arrayToNative(t)));
