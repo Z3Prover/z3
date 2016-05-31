@@ -656,10 +656,10 @@ namespace smt {
     /**
        \brief Enable the flag m_merge_tf in the given enode.  When the
        flag m_merge_tf is enabled, the enode n will be merged with the
-       true_enode (false_enode) whenever the boolean variable v is
+       true_enode (false_enode) whenever the Boolean variable v is
        assigned to true (false).
 
-       If is_new_var is true, then trail is not created for the flag uodate.
+       If is_new_var is true, then trail is not created for the flag update.
     */
     void context::set_merge_tf(enode * n, bool_var v, bool is_new_var) {
         SASSERT(bool_var2enode(v) == n);
@@ -674,8 +674,8 @@ namespace smt {
     }
 
     /**
-       \brief Trail object to disable the m_enode flag of a boolean
-       variable. The flag m_enode is true for a boolean variable v,
+       \brief Trail object to disable the m_enode flag of a Boolean
+       variable. The flag m_enode is true for a Boolean variable v,
        if there is an enode n associated with it.
     */
     class set_enode_flag_trail : public trail<context> {
