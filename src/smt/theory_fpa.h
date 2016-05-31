@@ -144,7 +144,6 @@ namespace smt {
         fpa_util                & m_fpa_util;
         bv_util                 & m_bv_util;
         arith_util              & m_arith_util;
-        obj_map<sort, func_decl*> m_wraps;        
         obj_map<expr, expr*>      m_conversions;
         bool                      m_is_initialized;
         obj_hashtable<func_decl>  m_is_added_to_model;
