@@ -28,6 +28,7 @@ Notes:
 #include"eval_cmd.h"
 #include"gparams.h"
 #include"env_params.h"
+#include"well_sorted.h"
 
 class help_cmd : public cmd {
     svector<symbol> m_cmds;
@@ -156,11 +157,16 @@ ATOMIC_CMD(get_proof_cmd, "get-proof", "retrieve proof", {
     pr = ctx.get_check_sat_result()->get_proof();
     if (pr == 0)
         throw cmd_exception("proof is not available");
+    if (ctx.well_sorted_check_enabled() && !is_well_sorted(ctx.m(), pr)) {
+        throw cmd_exception("proof is not well sorted");
+    }
+    
     // TODO: reimplement a new SMT2 pretty printer 
     ast_smt_pp pp(ctx.m());
     cmd_is_declared isd(ctx);
     pp.set_is_declared(&isd);
     pp.set_logic(ctx.get_logic());
+    // ctx.regular_stream() << mk_pp(pr, ctx.m()) << "\n";
     pp.display_smt2(ctx.regular_stream(), pr);
     ctx.regular_stream() << std::endl;
 });

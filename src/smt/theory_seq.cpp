@@ -242,6 +242,7 @@ void theory_seq::init(context* ctx) {
 }
 
 final_check_status theory_seq::final_check_eh() {
+    m_new_propagation = false;
     TRACE("seq", display(tout << "level: " << get_context().get_scope_level() << "\n"););
     if (simplify_and_solve_eqs()) {
         ++m_stats.m_solve_eqs;
@@ -1436,7 +1437,7 @@ bool theory_seq::solve_eqs(unsigned i) {
             change = true;
         }
     }
-    return change || ctx.inconsistent();
+    return change || m_new_propagation || ctx.inconsistent();
 }
 
 bool theory_seq::solve_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* deps) {
@@ -1831,8 +1832,6 @@ bool theory_seq::solve_ne(unsigned idx) {
             continue;
         }
         else {
-
-
             if (!updated) {
                 for (unsigned j = 0; j < i; ++j) {
                     new_ls.push_back(n.ls(j));
@@ -2120,7 +2119,6 @@ bool theory_seq::explain_empty(expr_ref_vector& es, dependency*& dep) {
 
 bool theory_seq::simplify_and_solve_eqs() {
     context & ctx = get_context();
-    m_new_propagation = false;
     m_new_solution = true;
     while (m_new_solution && !ctx.inconsistent()) {
         m_new_solution = false;
@@ -2639,6 +2637,7 @@ expr_ref theory_seq::expand(expr* e0, dependency*& eqs) {
     else if (m_util.str.is_itos(e, e1)) {
         rational val;
         if (get_value(e1, val)) {
+            TRACE("seq", tout << mk_pp(e, m) << " -> " << val << "\n";);
             expr_ref num(m), res(m);
             num = m_autil.mk_numeral(val, true);
             if (!ctx.e_internalized(num)) {
@@ -2652,6 +2651,7 @@ expr_ref theory_seq::expand(expr* e0, dependency*& eqs) {
                 deps = m_dm.mk_join(deps, m_dm.mk_leaf(assumption(n1, n2)));
             }
             else {
+                TRACE("seq", tout << "add axiom\n";);                
                 add_axiom(~mk_eq(num, e1, false), mk_eq(e, res, false));
                 add_axiom(mk_eq(num, e1, false), ~mk_eq(e, res, false));
                 result = e;

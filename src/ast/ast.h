@@ -1571,9 +1571,19 @@ public:
 
     void debug_ref_count() { m_debug_ref_count = true; }
 
-    void inc_ref(ast * n);
-
-    void dec_ref(ast * n); 
+    void inc_ref(ast * n) {
+        if (n) {
+            n->inc_ref();
+        }
+    }
+    
+    void dec_ref(ast* n) {
+        if (n) {
+            n->dec_ref();
+            if (n->get_ref_count() == 0)
+                delete_node(n);
+        }
+    }
 
     template<typename T>
     void inc_array_ref(unsigned sz, T * const * a) {

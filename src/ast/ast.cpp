@@ -1575,19 +1575,6 @@ bool ast_manager::are_equal(expr * a, expr * b) const {
     return false;
 }
 
-void ast_manager::inc_ref(ast * n) {
-    if (n) {
-        n->inc_ref();
-    }
-}
-
-void ast_manager::dec_ref(ast* n) {
-    if (n) {
-        n->dec_ref();
-        if (n->get_ref_count() == 0)
-            delete_node(n);
-    }
-}
 
 bool ast_manager::are_distinct(expr* a, expr* b) const {
     if (is_app(a) && is_app(b)) {
