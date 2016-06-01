@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 #include<sstream>
+#include<cstring>
 #include"ast.h"
 #include"ast_pp.h"
 #include"ast_ll_pp.h"
@@ -58,6 +59,7 @@ parameter& parameter::operator=(parameter const& other) {
     case PARAM_SYMBOL: new (m_symbol) symbol(other.get_symbol()); break;
     case PARAM_RATIONAL: new (m_rational) rational(other.get_rational()); break;
     case PARAM_DOUBLE: m_dval = other.m_dval; break;
+    case PARAM_STRING: m_string = other.m_string; break;
     case PARAM_EXTERNAL: m_ext_id = other.m_ext_id; break;
     default:
         UNREACHABLE();
@@ -90,6 +92,7 @@ bool parameter::operator==(parameter const & p) const {
     case PARAM_SYMBOL: return get_symbol() == p.get_symbol();
     case PARAM_RATIONAL: return get_rational() == p.get_rational();
     case PARAM_DOUBLE: return m_dval == p.m_dval;
+    case PARAM_STRING: return (m_string == NULL && p.m_string == NULL) || strcmp(m_string, p.m_string)==0;
     case PARAM_EXTERNAL: return m_ext_id == p.m_ext_id;
     default: UNREACHABLE(); return false;
     }
@@ -103,6 +106,7 @@ unsigned parameter::hash() const {
     case PARAM_SYMBOL:   b = get_symbol().hash(); break;
     case PARAM_RATIONAL: b = get_rational().hash(); break;
     case PARAM_DOUBLE:   b = static_cast<unsigned>(m_dval); break;
+    case PARAM_STRING:   /* TODO */ b = 42; break;
     case PARAM_EXTERNAL: b = m_ext_id; break;
     }
     return (b << 2) | m_kind;
@@ -115,6 +119,7 @@ std::ostream& parameter::display(std::ostream& out) const {
     case PARAM_RATIONAL: return out << get_rational();
     case PARAM_AST:      return out << "#" << get_ast()->get_id();
     case PARAM_DOUBLE:   return out << m_dval;
+    case PARAM_STRING:   return out << m_string;
     case PARAM_EXTERNAL: return out << "@" << m_ext_id;
     default:
         UNREACHABLE();

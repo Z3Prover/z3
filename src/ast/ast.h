@@ -87,6 +87,7 @@ public:
         PARAM_SYMBOL,
         PARAM_RATIONAL,
         PARAM_DOUBLE,
+        PARAM_STRING,
         // PARAM_EXTERNAL is used for handling decl_plugin specific parameters.
         // For example, it is used for handling mpf numbers in float_decl_plugin,
         // and irrational algebraic numbers in arith_decl_plugin.
@@ -105,6 +106,7 @@ private:
         char         m_symbol[sizeof(symbol)];      // for PARAM_SYMBOL
         char         m_rational[sizeof(rational)];  // for PARAM_RATIONAL
         double       m_dval;   // for PARAM_DOUBLE (remark: this is not used in float_decl_plugin)
+        const char*  m_string; // for PARAM_STRING
         unsigned     m_ext_id; // for PARAM_EXTERNAL
     };
 
@@ -117,6 +119,9 @@ public:
     explicit parameter(symbol const & s): m_kind(PARAM_SYMBOL) { new (m_symbol) symbol(s); }
     explicit parameter(rational const & r): m_kind(PARAM_RATIONAL) { new (m_rational) rational(r); }
     explicit parameter(double d):m_kind(PARAM_DOUBLE), m_dval(d) {}
+    explicit parameter(const char *s):m_kind(PARAM_STRING), m_string(s) {
+        TRACE("parse_string", tout << "parameter(const char *): " << s << "\n";);
+    }
     explicit parameter(unsigned ext_id, bool):m_kind(PARAM_EXTERNAL), m_ext_id(ext_id) {}
     parameter(parameter const&);
 
@@ -130,6 +135,7 @@ public:
     bool is_symbol() const { return m_kind == PARAM_SYMBOL; }
     bool is_rational() const { return m_kind == PARAM_RATIONAL; }
     bool is_double() const { return m_kind == PARAM_DOUBLE; }
+    bool is_string() const { return m_kind == PARAM_STRING; }
     bool is_external() const { return m_kind == PARAM_EXTERNAL; }
 
     bool is_int(int & i) const { return is_int() && (i = get_int(), true); }
@@ -137,6 +143,7 @@ public:
     bool is_symbol(symbol & s) const { return is_symbol() && (s = get_symbol(), true); }
     bool is_rational(rational & r) const { return is_rational() && (r = get_rational(), true); }
     bool is_double(double & d) const { return is_double() && (d = get_double(), true); }
+    // TODO is_string(char*)
     bool is_external(unsigned & id) const { return is_external() && (id = get_ext_id(), true); }
 
     /**
@@ -156,6 +163,7 @@ public:
     symbol const & get_symbol() const { SASSERT(is_symbol()); return *(reinterpret_cast<const symbol *>(m_symbol)); }
     rational const & get_rational() const { SASSERT(is_rational()); return *(reinterpret_cast<const rational *>(m_rational)); }
     double get_double() const { SASSERT(is_double()); return m_dval; }
+    const char * get_string() const { SASSERT(is_string()); return m_string; }
     unsigned get_ext_id() const { SASSERT(is_external()); return m_ext_id; }
 
     bool operator==(parameter const & p) const;

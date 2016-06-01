@@ -26,6 +26,7 @@ Notes:
 #include"seq_decl_plugin.h"
 #include"pb_decl_plugin.h"
 #include"fpa_decl_plugin.h"
+#include"str_decl_plugin.h"
 #include"ast_pp.h"
 #include"var_subst.h"
 #include"pp.h"
@@ -248,6 +249,8 @@ protected:
     array_util    m_arutil;
     fpa_util      m_futil;
     seq_util      m_sutil;
+    str_util      m_strutil;
+
     datalog::dl_decl_util m_dlutil;
 
     format_ns::format * pp_fdecl_name(symbol const & s, func_decls const & fs, func_decl * f, unsigned & len) {
@@ -268,7 +271,7 @@ protected:
     }
 
 public:
-    pp_env(cmd_context & o):m_owner(o), m_autil(o.m()), m_bvutil(o.m()), m_arutil(o.m()), m_futil(o.m()), m_sutil(o.m()), m_dlutil(o.m()) {}
+    pp_env(cmd_context & o):m_owner(o), m_autil(o.m()), m_bvutil(o.m()), m_arutil(o.m()), m_futil(o.m()), m_sutil(o.m()), m_strutil(o.m()), m_dlutil(o.m()) {}
     virtual ~pp_env() {}
     virtual ast_manager & get_manager() const { return m_owner.m(); }
     virtual arith_util & get_autil() { return m_autil; }
@@ -276,6 +279,7 @@ public:
     virtual array_util & get_arutil() { return m_arutil; }
     virtual fpa_util & get_futil() { return m_futil; }
     virtual seq_util & get_sutil() { return m_sutil; }
+    virtual str_util & get_strutil() { return m_strutil; }
     virtual datalog::dl_decl_util& get_dlutil() { return m_dlutil; }
     virtual bool uses(symbol const & s) const {
         return
@@ -593,6 +597,10 @@ bool cmd_context::logic_has_fpa() const {
     return !has_logic() || logic_has_fpa_core(m_logic);
 }
 
+bool cmd_context::logic_has_str() const {
+    return !has_logic() || m_logic == "QF_S";
+}
+
 bool cmd_context::logic_has_array_core(symbol const & s) const {
     return
         s == "QF_AX" ||
@@ -640,6 +648,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         register_plugin(symbol("pb"),     alloc(pb_decl_plugin), !has_logic());
         register_plugin(symbol("fpa"),      alloc(fpa_decl_plugin), logic_has_fpa());
         register_plugin(symbol("datalog_relation"), alloc(datalog::dl_decl_plugin), !has_logic());
+        register_plugin(symbol("str"),      alloc(str_decl_plugin), logic_has_str());
     }
     else {
         // the manager was created by an external module
@@ -653,7 +662,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         load_plugin(symbol("datatype"), logic_has_datatype(), fids);
         load_plugin(symbol("seq"),      logic_has_seq(), fids);
         load_plugin(symbol("fpa"),      logic_has_fpa(), fids);
-
+        load_plugin(symbol("str"),     logic_has_str(), fids);
         svector<family_id>::iterator it  = fids.begin();
         svector<family_id>::iterator end = fids.end();
         for (; it != end; ++it) {
@@ -705,7 +714,8 @@ bool cmd_context::supported_logic(symbol const & s) const {
     return s == "QF_UF" || s == "UF" ||
         logic_has_arith_core(s) || logic_has_bv_core(s) ||
         logic_has_array_core(s) || logic_has_seq_core(s) ||
-        logic_has_horn(s) || logic_has_fpa_core(s);
+        logic_has_horn(s) || logic_has_fpa_core(s) ||
+        s == "QF_S";
 }
 
 bool cmd_context::set_logic(symbol const & s) {

@@ -86,3 +86,11 @@ src/*/*/CMakeLists.txt
 src/*/*/*/CMakeLists.txt
 src/api/dotnet/cmake_install_gac.cmake.in
 src/api/dotnet/cmake_uninstall_gac.cmake.in
+
+# reference code for z3str2
+Z3-str
+Z3-str/**
+# test cases
+tests
+tests/**
+

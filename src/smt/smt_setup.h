@@ -77,6 +77,7 @@ namespace smt {
         void setup_QF_AUFLIA(static_features const & st);
         void setup_QF_FP();
         void setup_QF_FPBV();
+        void setup_QF_S();
         void setup_LRA();
         void setup_AUFLIA(bool simple_array = true);
         void setup_AUFLIA(static_features const & st);
@@ -98,6 +99,7 @@ namespace smt {
         void setup_i_arith();
         void setup_mi_arith();
         void setup_fpa();
+        void setup_str();
 
     public:
         setup(context & c, smt_params & params);
