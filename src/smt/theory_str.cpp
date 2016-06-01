@@ -21,6 +21,7 @@ Revision History:
 #include"ast_pp.h"
 #include"ast_ll_pp.h"
 #include<list>
+#include"theory_arith.h"
 
 namespace smt {
 
@@ -1440,13 +1441,14 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
     expr * m = to_app(concatAst2)->get_arg(0);
     expr * n = to_app(concatAst2)->get_arg(1);
 
-    rational x_len = get_len_value(x);
-    rational y_len = get_len_value(y);
-    rational m_len = get_len_value(m);
-    rational n_len = get_len_value(n);
+    rational x_len, y_len, m_len, n_len;
+    bool x_len_exists = get_len_value(x, x_len);
+    bool y_len_exists = get_len_value(y, y_len);
+    bool m_len_exists = get_len_value(m, m_len);
+    bool n_len_exists = get_len_value(n, n_len);
 
     int splitType = -1;
-    if (x_len != rational(-1) && m_len != rational(-1)) {
+    if (x_len_exists && m_len_exists) {
         if (x_len < m_len) {
             splitType = 0;
         } else if (x_len == m_len) {
@@ -1456,7 +1458,7 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
         }
     }
 
-    if (splitType == -1 && y_len != rational(-1) && n_len != rational(-1)) {
+    if (splitType == -1 && y_len_exists && n_len_exists) {
         if (y_len > n_len) {
             splitType = 0;
         } else if (y_len == n_len) {
@@ -2367,7 +2369,6 @@ expr * theory_str::get_eqc_value(expr * n, bool & hasEqcValue) {
 
 // from Z3: theory_seq.cpp
 
-/*
 static theory_mi_arith* get_th_arith(context& ctx, theory_id afid, expr* e) {
     theory* th = ctx.get_theory(afid);
     if (th && ctx.e_internalized(e)) {
@@ -2378,15 +2379,18 @@ static theory_mi_arith* get_th_arith(context& ctx, theory_id afid, expr* e) {
     }
 }
 
-bool theory_seq::get_value(expr* e, rational& val) const {
+bool theory_str::get_value(expr* e, rational& val) const {
     context& ctx = get_context();
+    ast_manager & m = get_manager();
     theory_mi_arith* tha = get_th_arith(ctx, m_autil.get_family_id(), e);
     expr_ref _val(m);
     if (!tha || !tha->get_value(ctx.get_enode(e), _val)) return false;
     return m_autil.is_numeral(_val, val) && val.is_int();
 }
 
-bool theory_seq::lower_bound(expr* _e, rational& lo) const {
+// TODO bring these in as well
+/*
+bool theory_str::lower_bound(expr* _e, rational& lo) const {
     context& ctx = get_context();
     expr_ref e(m_util.str.mk_length(_e), m);
     theory_mi_arith* tha = get_th_arith(ctx, m_autil.get_family_id(), e);
@@ -2395,7 +2399,7 @@ bool theory_seq::lower_bound(expr* _e, rational& lo) const {
     return m_autil.is_numeral(_lo, lo) && lo.is_int();
 }
 
-bool theory_seq::upper_bound(expr* _e, rational& hi) const {
+bool theory_str::upper_bound(expr* _e, rational& hi) const {
     context& ctx = get_context();
     expr_ref e(m_util.str.mk_length(_e), m);
     theory_mi_arith* tha = get_th_arith(ctx, m_autil.get_family_id(), e);
@@ -2403,54 +2407,60 @@ bool theory_seq::upper_bound(expr* _e, rational& hi) const {
     if (!tha || !tha->get_upper(ctx.get_enode(e), _hi)) return false;
     return m_autil.is_numeral(_hi, hi) && hi.is_int();
 }
+*/
 
-bool theory_seq::get_length(expr* e, rational& val) const {
+bool theory_str::get_len_value(expr* e, rational& val) {
     context& ctx = get_context();
+    ast_manager & m = get_manager();
     theory* th = ctx.get_theory(m_autil.get_family_id());
-    if (!th) return false;
+    if (!th) {
+        TRACE("t_str_int", tout << "oops, can't get m_autil's theory" << std::endl;);
+        return false;
+    }
     theory_mi_arith* tha = dynamic_cast<theory_mi_arith*>(th);
-    if (!tha) return false;
+    if (!tha) {
+        TRACE("t_str_int", tout << "oops, can't cast to theory_mi_arith" << std::endl;);
+        return false;
+    }
+
+    TRACE("t_str_int", tout << "checking len value of " << mk_ismt2_pp(e, m) << std::endl;);
+
     rational val1;
     expr_ref len(m), len_val(m);
     expr* e1, *e2;
     ptr_vector<expr> todo;
     todo.push_back(e);
     val.reset();
-    zstring s;
     while (!todo.empty()) {
         expr* c = todo.back();
         todo.pop_back();
-        if (m_util.str.is_concat(c, e1, e2)) {
+        if (is_concat(to_app(c))) {
+            e1 = to_app(c)->get_arg(0);
+            e2 = to_app(c)->get_arg(1);
             todo.push_back(e1);
             todo.push_back(e2);
         }
-        else if (m_util.str.is_unit(c)) {
-            val += rational(1);
-        }
-        else if (m_util.str.is_empty(c)) {
-            continue;
-        }
-        else if (m_util.str.is_string(c, s)) {
-            val += rational(s.length());
-        }
-        else if (!has_length(c)) {
-            return false;
+        else if (is_string(to_app(c))) {
+            int sl = m_strutil.get_string_constant_value(c).length();
+            val += rational(sl);
         }
         else {
-            len = m_util.str.mk_length(c);
+            len = mk_strlen(c);
             if (ctx.e_internalized(len) &&
                 tha->get_value(ctx.get_enode(len), len_val) &&
                 m_autil.is_numeral(len_val, val1)) {
                 val += val1;
+                TRACE("t_str_int", tout << "subexpression " << mk_ismt2_pp(len, m) << " has length " << val1 << std::endl;);
             }
             else {
+                TRACE("t_str_int", tout << "subexpression " << mk_ismt2_pp(len, m) << " has no length assignment; bailing out" << std::endl;);
                 return false;
             }
         }
     }
+    TRACE("t_str_int", tout << "length of " << mk_ismt2_pp(e, m) << " is " << val << std::endl;);
     return val.is_int();
 }
-*/
 
 /*
  * Look through the equivalence class of n to find an integer constant.
@@ -2459,6 +2469,7 @@ bool theory_seq::get_length(expr* e, rational& val) const {
  * string length cannot be negative.
  */
 
+/*
 rational theory_str::get_len_value(expr * x) {
     ast_manager & m = get_manager();
     context & ctx = get_context();
@@ -2488,6 +2499,7 @@ rational theory_str::get_len_value(expr * x) {
     TRACE("t_str_detail", tout << "eqc contains no integer constants" << std::endl;);
     return rational(-1);
 }
+*/
 
 /*
  * Decide whether n1 and n2 are already in the same equivalence class.
