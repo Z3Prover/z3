@@ -21,6 +21,7 @@ Revision History:
 #include"array_decl_plugin.h"
 #include"bv_decl_plugin.h"
 #include"seq_decl_plugin.h"
+#include"str_decl_plugin.h"
 #include"ast_pp.h"
 #include"for_each_expr.h"
 
@@ -31,6 +32,7 @@ struct check_logic::imp {
     bv_util       m_bv_util;
     array_util    m_ar_util;
     seq_util      m_seq_util;
+    str_util      m_str_util;
     bool          m_uf;        // true if the logic supports uninterpreted functions
     bool          m_arrays;    // true if the logic supports arbitrary arrays
     bool          m_bv_arrays; // true if the logic supports only bv arrays
@@ -42,7 +44,7 @@ struct check_logic::imp {
     bool          m_quantifiers; // true if the logic supports quantifiers
     bool          m_unknown_logic;
 
-    imp(ast_manager & _m):m(_m), m_a_util(m), m_bv_util(m), m_ar_util(m), m_seq_util(m) {
+    imp(ast_manager & _m):m(_m), m_a_util(m), m_bv_util(m), m_ar_util(m), m_seq_util(m), m_str_util(m) {
         reset();
     }
 
@@ -432,6 +434,9 @@ struct check_logic::imp {
         else if (fid == m_seq_util.get_family_id()) {
             // nothing to check
         }
+	else if (fid == m_str_util.get_family_id()) {
+       	    // nothing to check
+	}
         else {
             fail("logic does not support theory");
         }
