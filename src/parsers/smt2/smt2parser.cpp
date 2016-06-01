@@ -1767,9 +1767,6 @@ namespace smt2 {
                         case scanner::BV_TOKEN:
                             parse_bv_numeral();
                             break;
-                        case scanner::STRING_TOKEN:
-                            parse_string();
-                            break;
                         case scanner::LEFT_PAREN:
                             push_expr_frame(m_num_expr_frames == 0 ? 0 : static_cast<expr_frame*>(m_stack.top()));
                             break;

@@ -220,6 +220,7 @@ namespace smt {
         virtual ~theory_str();
 
         virtual char const * get_name() const { return "strings"; }
+        virtual void display(std::ostream & out) const;
     protected:
         virtual bool internalize_atom(app * atom, bool gate_ctx);
         virtual bool internalize_term(app * term);

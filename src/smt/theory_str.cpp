@@ -4962,4 +4962,8 @@ model_value_proc * theory_str::mk_value(enode * n, model_generator & mg) {
 
 void theory_str::finalize_model(model_generator & mg) {}
 
+void theory_str::display(std::ostream & out) const {
+    out << "TODO: theory_str display" << std::endl;
+}
+
 }; /* namespace smt */
