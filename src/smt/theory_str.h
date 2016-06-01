@@ -148,6 +148,8 @@ namespace smt {
 
         bool get_value(expr* e, rational& val) const;
         bool get_len_value(expr* e, rational& val);
+        bool lower_bound(expr* _e, rational& lo);
+        bool upper_bound(expr* _e, rational& hi);
 
         bool can_two_nodes_eq(expr * n1, expr * n2);
         bool can_concat_eq_str(expr * concat, std::string str);

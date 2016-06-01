@@ -165,7 +165,6 @@ bool theory_str::internalize_atom(app * atom, bool gate_ctx) {
 bool theory_str::internalize_term(app * term) {
     context & ctx = get_context();
     ast_manager & m = get_manager();
-    TRACE("t_str", tout << "internalizing term: " << mk_ismt2_pp(term, get_manager()) << std::endl;);
     SASSERT(term->get_family_id() == get_family_id());
 
     /* // what I had before
@@ -194,6 +193,7 @@ bool theory_str::internalize_term(app * term) {
         mk_var(e);
         return true;
     }
+    TRACE("t_str", tout << "internalizing term: " << mk_ismt2_pp(term, get_manager()) << std::endl;);
     unsigned num_args = term->get_num_args();
     expr* arg;
     for (unsigned i = 0; i < num_args; i++) {
@@ -1447,6 +1447,8 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
     bool m_len_exists = get_len_value(m, m_len);
     bool n_len_exists = get_len_value(n, n_len);
 
+    // debugging
+
     int splitType = -1;
     if (x_len_exists && m_len_exists) {
         if (x_len < m_len) {
@@ -2388,26 +2390,25 @@ bool theory_str::get_value(expr* e, rational& val) const {
     return m_autil.is_numeral(_val, val) && val.is_int();
 }
 
-// TODO bring these in as well
-/*
-bool theory_str::lower_bound(expr* _e, rational& lo) const {
+bool theory_str::lower_bound(expr* _e, rational& lo) {
     context& ctx = get_context();
-    expr_ref e(m_util.str.mk_length(_e), m);
+    ast_manager & m = get_manager();
+    expr_ref e(mk_strlen(_e), m);
     theory_mi_arith* tha = get_th_arith(ctx, m_autil.get_family_id(), e);
     expr_ref _lo(m);
     if (!tha || !tha->get_lower(ctx.get_enode(e), _lo)) return false;
     return m_autil.is_numeral(_lo, lo) && lo.is_int();
 }
 
-bool theory_str::upper_bound(expr* _e, rational& hi) const {
+bool theory_str::upper_bound(expr* _e, rational& hi) {
     context& ctx = get_context();
-    expr_ref e(m_util.str.mk_length(_e), m);
+    ast_manager & m = get_manager();
+    expr_ref e(mk_strlen(_e), m);
     theory_mi_arith* tha = get_th_arith(ctx, m_autil.get_family_id(), e);
     expr_ref _hi(m);
     if (!tha || !tha->get_upper(ctx.get_enode(e), _hi)) return false;
     return m_autil.is_numeral(_hi, hi) && hi.is_int();
 }
-*/
 
 bool theory_str::get_len_value(expr* e, rational& val) {
     context& ctx = get_context();
@@ -2450,10 +2451,10 @@ bool theory_str::get_len_value(expr* e, rational& val) {
                 tha->get_value(ctx.get_enode(len), len_val) &&
                 m_autil.is_numeral(len_val, val1)) {
                 val += val1;
-                TRACE("t_str_int", tout << "subexpression " << mk_ismt2_pp(len, m) << " has length " << val1 << std::endl;);
+                TRACE("t_str_int", tout << "integer theory: subexpression " << mk_ismt2_pp(len, m) << " has length " << val1 << std::endl;);
             }
             else {
-                TRACE("t_str_int", tout << "subexpression " << mk_ismt2_pp(len, m) << " has no length assignment; bailing out" << std::endl;);
+                TRACE("t_str_int", tout << "integer theory: subexpression " << mk_ismt2_pp(len, m) << " has no length assignment; bailing out" << std::endl;);
                 return false;
             }
         }
