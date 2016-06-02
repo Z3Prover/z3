@@ -4,6 +4,7 @@ message(STATUS "Emitting rules to build Z3 python bindings")
 ###############################################################################
 # This allows the python bindings to be used directly from the build directory
 set(z3py_files
+  __init__.py
   z3.py
   z3num.py
   z3poly.py
