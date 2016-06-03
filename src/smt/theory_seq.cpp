@@ -2208,6 +2208,7 @@ bool theory_seq::check_int_string() {
 }
 
 bool theory_seq::add_itos_axiom(expr* e) {
+    context& ctx = get_context();
     rational val;
     expr* n;
     VERIFY(m_util.str.is_itos(e, n));
@@ -2219,8 +2220,13 @@ bool theory_seq::add_itos_axiom(expr* e) {
 
 #if 1
             // itos(n) = "25" <=> n = 25
-            add_axiom(~mk_eq(n1, n , false), mk_eq(e, e1, false));
-            add_axiom(mk_eq(n1, n, false), ~mk_eq(e, e1, false));
+            literal eq1 = mk_eq(n1, n , false);
+            literal eq2 = mk_eq(e, e1, false);
+            add_axiom(~eq1, eq2);
+            add_axiom(~eq2, eq1);
+            ctx.force_phase(eq1);
+            ctx.force_phase(eq2);
+
 #else
             // "25" = itos(25)
             // stoi(itos(n)) = n
@@ -2912,54 +2918,61 @@ void theory_seq::add_itos_length_axiom(expr* len) {
     VERIFY(m_util.str.is_length(len, x));
     VERIFY(m_util.str.is_itos(x, n));
 
-    add_axiom(mk_literal(m_autil.mk_ge(len, m_autil.mk_int(1))));
-    rational val;
-    if (get_value(n, val)) {
-        bool neg = val.is_neg();
-        rational ten(10);
-        if (neg) val.neg();
-        unsigned num_char = neg?2:1;
-        // 0 < x < 10
-        // 10 < x < 100
-        // 100 < x < 1000
-        rational hi(10);
-        while (val > hi) {
-            ++num_char;
-            hi *= ten;
+    unsigned num_char1 = 1, num_char2 = 1;
+    rational len1, len2;
+    rational ten(10);
+    if (get_value(n, len1)) {
+        bool neg = len1.is_neg();
+        if (neg) len1.neg();
+        num_char1 = neg?2:1;
+        // 0 <= x < 10
+        // 10 <= x < 100
+        // 100 <= x < 1000
+        rational upper(10);
+        while (len1 > upper) {
+            ++num_char1;
+            upper *= ten;
         }
-        rational lo(div(hi - rational(1), ten));
-
-        literal len_le(mk_literal(m_autil.mk_ge(len, m_autil.mk_int(num_char))));
-        literal len_ge(mk_literal(m_autil.mk_le(len, m_autil.mk_int(num_char))));
-        literal n_le_mlo(mk_literal(m_autil.mk_le(n, m_autil.mk_numeral(-lo, true))));
-        literal n_ge_lo(mk_literal(m_autil.mk_ge(n, m_autil.mk_numeral(lo, true))));
-
-        // len >= num_char => n <= -lo or n >= lo
-        // len <= num_char => -hi < n < hi
-
-        add_axiom(~len_ge, n_le_mlo, n_ge_lo);
-        if (neg) {
-            // n <= -lo => len >= num_char
-            // -hi < n <= 0 => len <= num_char
-            // n <= -hi or ~(n <= 0) or len <= num_char
-
-            add_axiom(~n_le_mlo, len_ge);
-            literal n_le_mhi(mk_literal(m_autil.mk_le(n, m_autil.mk_numeral(-hi, true))));
-            literal n_le_0(mk_literal(m_autil.mk_le(n, m_autil.mk_int(0))));
-            add_axiom(n_le_mhi, ~n_le_0, len_le);
-            add_axiom(~len_le, ~n_le_mhi);
-        }
-        else {
-            // n >= lo => len >= num_char
-            // 0 <= n < hi  => len <= num_char
-            add_axiom(~n_ge_lo, len_ge);
-            literal n_ge_hi(mk_literal(m_autil.mk_ge(n, m_autil.mk_numeral(hi, true))));
-            literal n_ge_0(mk_literal(m_autil.mk_ge(n, m_autil.mk_int(0))));
-            add_axiom(n_ge_hi, ~n_ge_0, len_le);
-            add_axiom(~len_le, ~n_ge_hi);
-        }        
+        SASSERT(len1 <= upper);
     }
+    if (get_value(len, len2) && len2.is_unsigned()) {
+        num_char2 = len2.get_unsigned();
+    }
+    unsigned num_char = std::max(num_char1, num_char2);
+    
 
+    literal len_le(mk_literal(m_autil.mk_le(len, m_autil.mk_int(num_char))));
+    literal len_ge(mk_literal(m_autil.mk_ge(len, m_autil.mk_int(num_char))));
+
+    if (num_char == 1) {
+        add_axiom(len_ge);
+        literal n_ge_0(mk_literal(m_autil.mk_ge(n, m_autil.mk_int(0))));
+        literal n_ge_10(mk_literal(m_autil.mk_ge(n, m_autil.mk_int(10))));
+        add_axiom(~n_ge_0, n_ge_10, len_le);
+        add_axiom(~len_le, n_ge_0);
+        add_axiom(~len_le, ~n_ge_10);
+        return;
+    }
+    rational hi(1);
+    for (unsigned i = 2; i < num_char; ++i) {
+        hi *= ten;
+    }
+    // n <= -hi or n >= hi*10  <=>  len >= num_chars
+    // -10*hi < n < 100*hi    <=>  len <= num_chars
+    literal n_le_hi    = mk_literal(m_autil.mk_le(n, m_autil.mk_numeral(-hi, true)));
+    literal n_ge_10hi  = mk_literal(m_autil.mk_ge(n, m_autil.mk_numeral(ten*hi, true)));
+    literal n_le_m10hi = mk_literal(m_autil.mk_le(n, m_autil.mk_numeral(-ten*hi, true)));
+    literal n_ge_100hi = mk_literal(m_autil.mk_ge(n, m_autil.mk_numeral(ten*ten*hi, true)));
+    
+    add_axiom(~n_le_hi,   len_ge);
+    add_axiom(~n_ge_10hi, len_ge);
+    add_axiom(n_le_hi, n_ge_10hi, ~len_ge);
+
+    add_axiom(n_le_m10hi, n_ge_100hi, len_le);
+    add_axiom(~n_le_m10hi, ~len_le);
+    add_axiom(~n_ge_100hi, ~len_le);
+
+    add_axiom(mk_literal(m_autil.mk_ge(len, m_autil.mk_int(1))));   
 }
 
 
@@ -3060,8 +3073,17 @@ bool theory_seq::get_value(expr* e, rational& val) const {
     context& ctx = get_context();
     theory_mi_arith* tha = get_th_arith(ctx, m_autil.get_family_id(), e);
     expr_ref _val(m);
-    if (!tha || !tha->get_value(ctx.get_enode(e), _val)) return false;
-    return m_autil.is_numeral(_val, val) && val.is_int();
+    if (!tha) return false;
+    enode* next = ctx.get_enode(e), *n;
+    do { 
+        n = next;
+        if (tha->get_value(n, _val) && m_autil.is_numeral(_val, val) && val.is_int()) {
+            return true;
+        }
+        next = n->get_next();
+    }
+    while (next != n);
+    return false;
 }
 
 bool theory_seq::lower_bound(expr* _e, rational& lo) const {
