@@ -35,6 +35,7 @@ namespace smt {
         virtual void undo(theory_fpa & th) {
             expr * val = m_map.find(key);
             m_map.remove(key);
+            m.dec_ref(key);
             m.dec_ref(val);
             key = 0;
         }
@@ -125,20 +126,19 @@ namespace smt {
 
         if (m_is_initialized) {
             ast_manager & m = get_manager();
-            dec_ref_map_values(m, m_conversions);
-            dec_ref_map_values(m, m_wraps);
-            dec_ref_collection_values(m, m_is_added_to_model);            
+            dec_ref_map_key_values(m, m_conversions);
+            dec_ref_collection_values(m, m_is_added_to_model);
+
+            m_converter.reset();
+            m_rw.reset();
+            m_th_rw.reset();
+            m_is_initialized = false;
         }
-        else {
-            SASSERT(m_trail_stack.get_num_scopes() == 0);
-            SASSERT(m_conversions.empty());
-            SASSERT(m_wraps.empty());
-            SASSERT(m_is_added_to_model.empty());
-        }        
 
-        m_is_initialized = false;
-    }
-
+        SASSERT(m_trail_stack.get_num_scopes() == 0);
+        SASSERT(m_conversions.empty());
+        SASSERT(m_is_added_to_model.empty());        
+    }    
     void theory_fpa::init(context * ctx) {
         smt::theory::init(ctx);
         m_is_initialized = true;
@@ -261,28 +261,21 @@ namespace smt {
             m_th_rw((expr_ref&)res);
         }
         else {
-            sort * e_srt = m.get_sort(e);
-            func_decl * w;
+            sort * es = m.get_sort(e);            
 
-            if (!m_wraps.find(e_srt, w)) {
-                SASSERT(!m_wraps.contains(e_srt));
-
-                sort * bv_srt;
-                if (m_converter.is_rm(e_srt))
-                    bv_srt = m_bv_util.mk_sort(3);
-                else {
-                    SASSERT(m_converter.is_float(e_srt));
-                    unsigned ebits = m_fpa_util.get_ebits(e_srt);
-                    unsigned sbits = m_fpa_util.get_sbits(e_srt);
-                    bv_srt = m_bv_util.mk_sort(ebits + sbits);
-                }
-
-                w = m.mk_func_decl(get_family_id(), OP_FPA_INTERNAL_BVWRAP, 0, 0, 1, &e_srt, bv_srt);
-                m_wraps.insert(e_srt, w);
-                m.inc_ref(w);
+            sort_ref bv_srt(m);
+            if (m_converter.is_rm(es))
+                bv_srt = m_bv_util.mk_sort(3);
+            else {
+                SASSERT(m_converter.is_float(es));
+                unsigned ebits = m_fpa_util.get_ebits(es);
+                unsigned sbits = m_fpa_util.get_sbits(es);
+                bv_srt = m_bv_util.mk_sort(ebits + sbits);
             }
 
-            res = m.mk_app(w, e);
+            func_decl_ref wrap_fd(m);
+            wrap_fd = m.mk_func_decl(get_family_id(), OP_FPA_INTERNAL_BVWRAP, 0, 0, 1, &es, bv_srt);
+            res = m.mk_app(wrap_fd, e);
         }
 
         return res;
@@ -398,6 +391,7 @@ namespace smt {
                                           mk_ismt2_pp(res, m) << std::endl;);
 
             m_conversions.insert(e, res);
+            m.inc_ref(e);
             m.inc_ref(res);
             m_trail_stack.push(fpa2bv_conversion_trail_elem(m, m_conversions, e));
         }
@@ -422,7 +416,6 @@ namespace smt {
             res = m.mk_and(res, t);
         }
         m_converter.m_extra_assertions.reset();
-
         m_th_rw(res);
 
         CTRACE("t_fpa", !m.is_true(res), tout << "side condition: " << mk_ismt2_pp(res, m) << std::endl;);
@@ -678,19 +671,23 @@ namespace smt {
                 mpf_rounding_mode rm;
                 scoped_mpf val(mpfm);
                 if (m_fpa_util.is_rm_numeral(n, rm)) {
-                    c = m.mk_eq(wrapped, m_bv_util.mk_numeral(rm, 3));
+                    expr_ref rm_num(m);
+                    rm_num = m_bv_util.mk_numeral(rm, 3);
+                    c = m.mk_eq(wrapped, rm_num);
                     assert_cnstr(c);
                 }
                 else if (m_fpa_util.is_numeral(n, val)) {
-                    expr_ref bv_val_e(m);
+                    expr_ref bv_val_e(m), cc_args(m);
                     bv_val_e = convert(n);
                     SASSERT(is_app(bv_val_e));
                     SASSERT(to_app(bv_val_e)->get_num_args() == 3);
-                    app_ref bv_val_a(to_app(bv_val_e.get()), m);
+                    app_ref bv_val_a(m);
+                    bv_val_a = to_app(bv_val_e.get());
                     expr * args[] = { bv_val_a->get_arg(0), bv_val_a->get_arg(1), bv_val_a->get_arg(2) };
-                    c = m.mk_eq(wrapped, m_bv_util.mk_concat(3, args));
-                    c = m.mk_and(c, mk_side_conditions());
+                    cc_args = m_bv_util.mk_concat(3, args);
+                    c = m.mk_eq(wrapped, cc_args);
                     assert_cnstr(c);
+                    assert_cnstr(mk_side_conditions());
                 }
                 else {
                     expr_ref wu(m);
@@ -713,12 +710,12 @@ namespace smt {
         pop_scope_eh(m_trail_stack.get_num_scopes());
         m_converter.reset();
         m_rw.reset();
-        m_th_rw.reset();
-        m_trail_stack.pop_scope(m_trail_stack.get_num_scopes());
+        m_th_rw.reset();        
+        m_trail_stack.pop_scope(m_trail_stack.get_num_scopes());        
         if (m_factory) dealloc(m_factory); m_factory = 0;
         ast_manager & m = get_manager();
-        dec_ref_map_values(m, m_conversions);
-        dec_ref_map_values(m, m_wraps);
+        dec_ref_map_key_values(m, m_conversions);
+        dec_ref_collection_values(m, m_is_added_to_model);
         theory::reset_eh();
     }
 

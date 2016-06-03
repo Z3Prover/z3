@@ -79,6 +79,7 @@ public:
 
     void mk_rounding_mode(decl_kind k, expr_ref & result);
     void mk_numeral(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_numeral(sort * s, mpf const & v, expr_ref & result);
     virtual void mk_const(func_decl * f, expr_ref & result);
     virtual void mk_rm_const(func_decl * f, expr_ref & result);
     virtual void mk_function(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
@@ -100,12 +101,18 @@ public:
     void mk_fma(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_sqrt(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_round_to_integral(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_abs(sort * s, expr_ref & x, expr_ref & result);
 
     void mk_float_eq(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_float_lt(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_float_gt(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_float_le(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_float_ge(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_float_eq(sort * s, expr_ref & x, expr_ref & y, expr_ref & result);
+    void mk_float_lt(sort * s, expr_ref & x, expr_ref & y, expr_ref & result);
+    void mk_float_gt(sort *, expr_ref & x, expr_ref & y, expr_ref & result);
+    void mk_float_le(sort * s, expr_ref & x, expr_ref & y, expr_ref & result);
+    void mk_float_ge(sort * s, expr_ref & x, expr_ref & y, expr_ref & result);
 
     void mk_is_zero(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_is_nzero(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
