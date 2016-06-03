@@ -889,6 +889,7 @@ namespace pdr {
 
     void model_node::dequeue(model_node*& root) {
         TRACE("pdr", tout << this << " " << state() << "\n";);
+        root = 0;
         if (!m_next && !m_prev) return;
         SASSERT(m_next);
         SASSERT(m_prev);

@@ -114,8 +114,10 @@ tactic * mk_lra_tactic(ast_manager & m, params_ref const & p) {
 #else
     tactic * st = and_then(mk_quant_preprocessor(m),
                            mk_qe_lite_tactic(m, p),
-                           or_else(mk_qsat_tactic(m, p),
-                                   and_then(mk_qe_tactic(m), mk_smt_tactic())));
+                           cond(mk_has_quantifier_probe(), 
+                                or_else(mk_qsat_tactic(m, p),
+                                        and_then(mk_qe_tactic(m), mk_smt_tactic())),
+                                mk_smt_tactic()));
 #endif
     st->updt_params(p);
     return st;

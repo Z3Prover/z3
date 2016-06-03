@@ -87,6 +87,9 @@ namespace pdr {
         void set_subset_based_core(bool f) { m_subset_based_core = f; }
         void set_consequences(expr_ref_vector* consequences) { m_consequences = consequences; }
 
+
+        void set_background_assumptions(expr_ref_vector const& assumptions);
+
         bool assumes_level() const { return m_assumes_level; }
         
         void add_level();
