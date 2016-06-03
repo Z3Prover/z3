@@ -1487,18 +1487,18 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
         return;
     }
     display_sat_result(r);
+    if (r == l_true) {
+        validate_model();
+    }
     validate_check_sat_result(r);
     if (was_opt && r != l_false && !was_pareto) {
         get_opt()->display_assignment(regular_stream());
     }
 
-    if (r == l_true) {
-        validate_model();
-        if (m_params.m_dump_models) {
-            model_ref md;
-            get_check_sat_result()->get_model(md);
-            display_model(md);
-        }
+    if (r == l_true && m_params.m_dump_models) {
+        model_ref md;
+        get_check_sat_result()->get_model(md);
+        display_model(md);
     }
 }
 

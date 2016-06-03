@@ -242,6 +242,7 @@ void theory_seq::init(context* ctx) {
 }
 
 final_check_status theory_seq::final_check_eh() {
+    m_new_propagation = false;
     TRACE("seq", display(tout << "level: " << get_context().get_scope_level() << "\n"););
     if (simplify_and_solve_eqs()) {
         ++m_stats.m_solve_eqs;
@@ -1398,7 +1399,9 @@ bool theory_seq::is_var(expr* a) {
         !m_util.str.is_concat(a) &&
         !m_util.str.is_empty(a)  &&
         !m_util.str.is_string(a) &&
-        !m_util.str.is_unit(a);
+        !m_util.str.is_unit(a) &&
+        !m_util.str.is_itos(a) && 
+        !m.is_ite(a);
 }
 
 
@@ -1434,7 +1437,7 @@ bool theory_seq::solve_eqs(unsigned i) {
             change = true;
         }
     }
-    return change || ctx.inconsistent();
+    return change || m_new_propagation || ctx.inconsistent();
 }
 
 bool theory_seq::solve_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* deps) {
@@ -1829,8 +1832,6 @@ bool theory_seq::solve_ne(unsigned idx) {
             continue;
         }
         else {
-
-
             if (!updated) {
                 for (unsigned j = 0; j < i; ++j) {
                     new_ls.push_back(n.ls(j));
@@ -2118,7 +2119,6 @@ bool theory_seq::explain_empty(expr_ref_vector& es, dependency*& dep) {
 
 bool theory_seq::simplify_and_solve_eqs() {
     context & ctx = get_context();
-    m_new_propagation = false;
     m_new_solution = true;
     while (m_new_solution && !ctx.inconsistent()) {
         m_new_solution = false;
@@ -2208,6 +2208,7 @@ bool theory_seq::check_int_string() {
 }
 
 bool theory_seq::add_itos_axiom(expr* e) {
+    context& ctx = get_context();
     rational val;
     expr* n;
     VERIFY(m_util.str.is_itos(e, n));
@@ -2216,7 +2217,23 @@ bool theory_seq::add_itos_axiom(expr* e) {
             m_itos_axioms.insert(val);
             app_ref e1(m_util.str.mk_string(symbol(val.to_string().c_str())), m);            
             expr_ref n1(arith_util(m).mk_numeral(val, true), m);
+
+#if 1
+            // itos(n) = "25" <=> n = 25
+            literal eq1 = mk_eq(n1, n , false);
+            literal eq2 = mk_eq(e, e1, false);
+            add_axiom(~eq1, eq2);
+            add_axiom(~eq2, eq1);
+            ctx.force_phase(eq1);
+            ctx.force_phase(eq2);
+
+#else
+            // "25" = itos(25)
+            // stoi(itos(n)) = n
+            app_ref e2(m_util.str.mk_stoi(e), m);
+            add_axiom(mk_eq(e2, n, false));
             add_axiom(mk_eq(m_util.str.mk_itos(n1), e1, false));
+#endif
             m_trail_stack.push(insert_map<theory_seq, rational_set, rational>(m_itos_axioms, val));
             m_trail_stack.push(push_replay(alloc(replay_axiom, m, e)));
             return true;
@@ -2433,9 +2450,10 @@ public:
                 }
                 else {
                     zstring zs;
-                    VERIFY(th.m_util.str.is_string(m_strings[k++], zs));
-                    for (unsigned l = 0; l < zs.length(); ++l) {
-                        sbuffer.push_back(zs[l]);
+                    if (th.m_util.str.is_string(m_strings[k++], zs)) {
+                        for (unsigned l = 0; l < zs.length(); ++l) {
+                            sbuffer.push_back(zs[l]);
+                        }
                     }
                 }
             }
@@ -2625,6 +2643,7 @@ expr_ref theory_seq::expand(expr* e0, dependency*& eqs) {
     else if (m_util.str.is_itos(e, e1)) {
         rational val;
         if (get_value(e1, val)) {
+            TRACE("seq", tout << mk_pp(e, m) << " -> " << val << "\n";);
             expr_ref num(m), res(m);
             num = m_autil.mk_numeral(val, true);
             if (!ctx.e_internalized(num)) {
@@ -2638,6 +2657,7 @@ expr_ref theory_seq::expand(expr* e0, dependency*& eqs) {
                 deps = m_dm.mk_join(deps, m_dm.mk_leaf(assumption(n1, n2)));
             }
             else {
+                TRACE("seq", tout << "add axiom\n";);                
                 add_axiom(~mk_eq(num, e1, false), mk_eq(e, res, false));
                 add_axiom(mk_eq(num, e1, false), ~mk_eq(e, res, false));
                 result = e;
@@ -2883,7 +2903,7 @@ void theory_seq::add_length_axiom(expr* n) {
         add_axiom(mk_eq(len, n, false));
     }
     else if (m_util.str.is_itos(x)) {
-        add_axiom(mk_literal(m_autil.mk_ge(n, m_autil.mk_int(1))));
+        add_itos_length_axiom(n);
     }
     else {
         add_axiom(mk_literal(m_autil.mk_ge(n, m_autil.mk_int(0))));
@@ -2891,7 +2911,68 @@ void theory_seq::add_length_axiom(expr* n) {
     if (!ctx.at_base_level()) {
         m_trail_stack.push(push_replay(alloc(replay_axiom, m, n)));
     }
+}
 
+void theory_seq::add_itos_length_axiom(expr* len) {
+    expr* x, *n;
+    VERIFY(m_util.str.is_length(len, x));
+    VERIFY(m_util.str.is_itos(x, n));
+
+    unsigned num_char1 = 1, num_char2 = 1;
+    rational len1, len2;
+    rational ten(10);
+    if (get_value(n, len1)) {
+        bool neg = len1.is_neg();
+        if (neg) len1.neg();
+        num_char1 = neg?2:1;
+        // 0 <= x < 10
+        // 10 <= x < 100
+        // 100 <= x < 1000
+        rational upper(10);
+        while (len1 > upper) {
+            ++num_char1;
+            upper *= ten;
+        }
+        SASSERT(len1 <= upper);
+    }
+    if (get_value(len, len2) && len2.is_unsigned()) {
+        num_char2 = len2.get_unsigned();
+    }
+    unsigned num_char = std::max(num_char1, num_char2);
+    
+
+    literal len_le(mk_literal(m_autil.mk_le(len, m_autil.mk_int(num_char))));
+    literal len_ge(mk_literal(m_autil.mk_ge(len, m_autil.mk_int(num_char))));
+
+    if (num_char == 1) {
+        add_axiom(len_ge);
+        literal n_ge_0(mk_literal(m_autil.mk_ge(n, m_autil.mk_int(0))));
+        literal n_ge_10(mk_literal(m_autil.mk_ge(n, m_autil.mk_int(10))));
+        add_axiom(~n_ge_0, n_ge_10, len_le);
+        add_axiom(~len_le, n_ge_0);
+        add_axiom(~len_le, ~n_ge_10);
+        return;
+    }
+    rational hi(1);
+    for (unsigned i = 2; i < num_char; ++i) {
+        hi *= ten;
+    }
+    // n <= -hi or n >= hi*10  <=>  len >= num_chars
+    // -10*hi < n < 100*hi    <=>  len <= num_chars
+    literal n_le_hi    = mk_literal(m_autil.mk_le(n, m_autil.mk_numeral(-hi, true)));
+    literal n_ge_10hi  = mk_literal(m_autil.mk_ge(n, m_autil.mk_numeral(ten*hi, true)));
+    literal n_le_m10hi = mk_literal(m_autil.mk_le(n, m_autil.mk_numeral(-ten*hi, true)));
+    literal n_ge_100hi = mk_literal(m_autil.mk_ge(n, m_autil.mk_numeral(ten*ten*hi, true)));
+    
+    add_axiom(~n_le_hi,   len_ge);
+    add_axiom(~n_ge_10hi, len_ge);
+    add_axiom(n_le_hi, n_ge_10hi, ~len_ge);
+
+    add_axiom(n_le_m10hi, n_ge_100hi, len_le);
+    add_axiom(~n_le_m10hi, ~len_le);
+    add_axiom(~n_ge_100hi, ~len_le);
+
+    add_axiom(mk_literal(m_autil.mk_ge(len, m_autil.mk_int(1))));   
 }
 
 
@@ -2992,8 +3073,17 @@ bool theory_seq::get_value(expr* e, rational& val) const {
     context& ctx = get_context();
     theory_mi_arith* tha = get_th_arith(ctx, m_autil.get_family_id(), e);
     expr_ref _val(m);
-    if (!tha || !tha->get_value(ctx.get_enode(e), _val)) return false;
-    return m_autil.is_numeral(_val, val) && val.is_int();
+    if (!tha) return false;
+    enode* next = ctx.get_enode(e), *n;
+    do { 
+        n = next;
+        if (tha->get_value(n, _val) && m_autil.is_numeral(_val, val) && val.is_int()) {
+            return true;
+        }
+        next = n->get_next();
+    }
+    while (next != n);
+    return false;
 }
 
 bool theory_seq::lower_bound(expr* _e, rational& lo) const {

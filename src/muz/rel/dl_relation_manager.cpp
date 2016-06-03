@@ -488,7 +488,9 @@ namespace datalog {
     }
 
     std::string relation_manager::to_nice_string(const relation_sort & s) const {
-        return std::string(s->get_name().bare_str());
+        std::ostringstream strm;
+        strm << mk_pp(s, get_context().get_manager());
+        return strm.str();
     }
 
     std::string relation_manager::to_nice_string(const relation_signature & s) const {

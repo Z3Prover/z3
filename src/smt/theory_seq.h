@@ -494,6 +494,7 @@ namespace smt {
         void add_at_axiom(expr* n);
         void add_in_re_axiom(expr* n);
         bool add_itos_axiom(expr* n);
+        void add_itos_length_axiom(expr* n);
         literal mk_literal(expr* n);
         literal mk_eq_empty(expr* n, bool phase = true);
         literal mk_seq_eq(expr* a, expr* b);

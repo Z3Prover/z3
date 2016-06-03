@@ -418,7 +418,7 @@ void bv_simplifier_plugin::mk_extract(unsigned high, unsigned low, expr* arg, ex
         mk_extract_core(high, low, arg, result);
     }
     if (m_extract_cache.size() > (1 << 12)) {
-        m_extract_cache.reset();
+        flush_caches();
     }
 
     TRACE("bv_simplifier_plugin", tout << "mk_extract [" << high << ":" << low << "]\n";

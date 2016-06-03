@@ -74,11 +74,14 @@ namespace datalog {
 
         void detect_tasks(rule_set const& source, unsigned rule_index);
         void add_task(func_decl * pred, unsigned arg_index);
-        void try_compress(rule_set const& source, unsigned rule_index);
+        lbool try_compress(rule_set const& source, unsigned rule_index);
         void add_decompression_rules(rule_set const& source, unsigned rule_index);
-        void mk_decompression_rule(rule * r, unsigned tail_index, unsigned arg_index, rule_ref& res);
+        rule_ref mk_decompression_rule(rule * r, unsigned tail_index, unsigned arg_index);
         void add_decompression_rule(rule_set const& source, rule * r, unsigned tail_index, unsigned arg_index);
         void replace_by_decompression_rule(rule_set const& source, unsigned rule_index, unsigned tail_index, unsigned arg_index);
+
+        void add_in_progress_indices(unsigned_vector& arg_indices, app* p);
+        bool decompress_rule(rule_set const& source, rule* r, unsigned_vector const& cmpressed_tail_pred_arg_indexes, unsigned rule_index, unsigned tail_index);
         void reset();
     public:
         mk_unbound_compressor(context & ctx);

@@ -1052,7 +1052,8 @@ namespace datalog {
         }
         virtual void display_head_impl(execution_context const& ctx, std::ostream & out) const {
             out << "mk_total into " << m_tgt << " sort:" 
-                << ctx.get_rel_context().get_rmanager().to_nice_string(m_sig);
+                << ctx.get_rel_context().get_rmanager().to_nice_string(m_sig)
+                << " " << m_pred->get_name();
         }
         virtual void make_annotations(execution_context & ctx) {
             std::string s;

@@ -40,7 +40,7 @@ Notes:
   The number of unused entries (m_unused) is equal to the number of entries
   of the form
        t -> (s, 0)
-  That is, it is the number of keys that were never accessed by cliend code.
+  That is, it is the number of keys that were never accessed by client code.
   
   The cache maintains at most m_max_unused entries.
   When the maximum number of unused entries exceeds m_max_unused, then

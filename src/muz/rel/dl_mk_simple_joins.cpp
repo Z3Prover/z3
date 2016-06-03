@@ -102,7 +102,7 @@ namespace datalog {
                in the pair, and so it should be removed.
              */
             bool remove_rule(rule * r, unsigned original_length) {
-                TRUSTME( remove_from_vector(m_rules, r) );
+                VERIFY( remove_from_vector(m_rules, r) );
                 if (original_length>2) {
                     SASSERT(m_consumers>0);
                     m_consumers--;
@@ -114,22 +114,23 @@ namespace datalog {
             pair_info & operator=(const pair_info &); //to avoid the implicit one
         };
         typedef std::pair<app*, app*> app_pair;
-        typedef map<app_pair, pair_info *, 
-            pair_hash<obj_ptr_hash<app>, obj_ptr_hash<app> >, default_eq<app_pair> > cost_map;
+        typedef pair_hash<obj_ptr_hash<app>, obj_ptr_hash<app> > app_pair_hash;
+        typedef map<app_pair, pair_info *, app_pair_hash, default_eq<app_pair> > cost_map;
         typedef map<rule *, ptr_vector<app>, ptr_hash<rule>, ptr_eq<rule> > rule_pred_map;
+        typedef ptr_hashtable<rule, rule_hash_proc, default_eq<rule *> > rule_hashtable;
 
-        context & m_context;
-        ast_manager & m;
-        rule_manager & rm;
-        var_subst & m_var_subst;
-        rule_set & m_rs_aux_copy; //reference to a rule_set that will allow to ask for stratum levels
+        context &       m_context;
+        ast_manager &   m;
+        rule_manager &  rm;
+        var_subst &     m_var_subst;
+        rule_set &      m_rs_aux_copy; //reference to a rule_set that will allow to ask for stratum levels
 
-        cost_map m_costs;
-        ptr_vector<app> m_interpreted;
-        rule_pred_map m_rules_content;
-        rule_ref_vector m_introduced_rules;
-        ptr_hashtable<rule, ptr_hash<rule>, ptr_eq<rule> > m_modified_rules;
-
+        cost_map          m_costs;
+        ptr_vector<app>   m_interpreted;
+        rule_pred_map     m_rules_content;
+        rule_ref_vector   m_introduced_rules;
+        bool              m_modified_rules;
+        
         ast_ref_vector m_pinned;
         mutable ptr_vector<sort> m_vars;
 
@@ -140,6 +141,7 @@ namespace datalog {
               m_var_subst(ctx.get_var_subst()),
               m_rs_aux_copy(rs_aux_copy), 
               m_introduced_rules(ctx.get_rule_manager()),
+              m_modified_rules(false),
               m_pinned(ctx.get_manager())
         {
         }
@@ -248,20 +250,13 @@ namespace datalog {
             m_var_subst(t2, norm_subst.size(), norm_subst.c_ptr(), t2n_ref);
             app * t1n = to_app(t1n_ref);
             app * t2n = to_app(t2n_ref);
-            if (t1n>t2n) {
+            if (t1n->get_id() > t2n->get_id()) {
                 std::swap(t1n, t2n);
             }
+
             m_pinned.push_back(t1n);
             m_pinned.push_back(t2n);
             
-            /*
-              IF_VERBOSE(0,
-              print_renaming(norm_subst, verbose_stream());
-              display_predicate(m_context, t1, verbose_stream());
-              display_predicate(m_context, t2, verbose_stream());
-              display_predicate(m_context, t1n, verbose_stream());
-              display_predicate(m_context, t2n, verbose_stream()););
-            */
             return app_pair(t1n, t2n);
         }
 
@@ -392,7 +387,7 @@ namespace datalog {
             func_decl* parent_head = one_parent->get_decl();
             const char * one_parent_name = parent_head->get_name().bare_str();
             std::string parent_name;
-            if (inf.m_rules.size()>1) {
+            if (inf.m_rules.size() > 1) {
                 parent_name = one_parent_name + std::string("_and_") + to_string(inf.m_rules.size()-1);
             }
             else {
@@ -417,15 +412,16 @@ namespace datalog {
             //here we copy the inf.m_rules vector because inf.m_rules will get changed 
             //in the iteration. Also we use hashtable instead of vector because we do 
             //not want to process one rule twice.
-            typedef ptr_hashtable<rule, ptr_hash<rule>, default_eq<rule *> > rule_hashtable;
-            rule_hashtable relevant_rules;
-            insert_into_set(relevant_rules, inf.m_rules);
-            rule_hashtable::iterator rit = relevant_rules.begin();
-            rule_hashtable::iterator rend = relevant_rules.end();
-            for(; rit!=rend; ++rit) {
-                apply_binary_rule(*rit, pair_key, head);
-            }
 
+            rule_hashtable processed_rules;
+            rule_vector rules(inf.m_rules);
+            for (unsigned i = 0; i < rules.size(); ++i) {
+                rule* r = rules[i];
+                if (!processed_rules.contains(r)) {
+                    apply_binary_rule(r, pair_key, head);
+                    processed_rules.insert(r);
+                }
+            }
             // SASSERT(!m_costs.contains(pair_key));
         }
 
@@ -553,7 +549,7 @@ namespace datalog {
             }
             SASSERT(!removed_tails.empty());
             SASSERT(!added_tails.empty());
-            m_modified_rules.insert(r);
+            m_modified_rules = true;
             replace_edges(r, removed_tails, added_tails, rule_content);
         }
 
@@ -705,7 +701,7 @@ namespace datalog {
                 join_pair(selected);
             }
 
-            if (m_modified_rules.empty()) {
+            if (!m_modified_rules) {
                 return 0;
             }
             rule_set * result = alloc(rule_set, m_context);

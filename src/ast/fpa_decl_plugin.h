@@ -88,7 +88,7 @@ enum fpa_op_kind {
 
     /* Internal use only */
     OP_FPA_INTERNAL_BVWRAP,
-    OP_FPA_INTERNAL_RM_BVWRAP, // Internal conversion from (_ BitVec 3) to RoundingMode
+    OP_FPA_INTERNAL_BV2RM,
 
     OP_FPA_INTERNAL_MIN_I,
     OP_FPA_INTERNAL_MAX_I,
@@ -164,8 +164,8 @@ class fpa_decl_plugin : public decl_plugin {
     func_decl * mk_to_ieee_bv(decl_kind k, unsigned num_parameters, parameter const * parameters,
                               unsigned arity, sort * const * domain, sort * range);
 
-    func_decl * mk_internal_rm(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                               unsigned arity, sort * const * domain, sort * range);
+    func_decl * mk_internal_bv2rm(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                                  unsigned arity, sort * const * domain, sort * range);
     func_decl * mk_internal_bv_wrap(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                     unsigned arity, sort * const * domain, sort * range);
     func_decl * mk_internal_bv_unwrap(decl_kind k, unsigned num_parameters, parameter const * parameters,
@@ -301,11 +301,6 @@ public:
         return m().mk_app(m_fid, OP_FPA_FP, sgn, exp, sig); 
     }
     
-    app * mk_rm(expr * bv3) { 
-        SASSERT(m_bv_util.is_bv(bv3) && m_bv_util.get_bv_size(bv3) == 3);
-        return m().mk_app(m_fid, OP_FPA_INTERNAL_RM_BVWRAP, 0, 0, 1, &bv3, mk_rm_sort());
-    }
-
     app * mk_to_fp(sort * s, expr * bv_t) {
         SASSERT(is_float(s) && s->get_num_parameters() == 2);
         return m().mk_app(m_fid, OP_FPA_TO_FP, 2, s->get_parameters(), 1, &bv_t);
@@ -373,6 +368,10 @@ public:
 
     app * mk_to_ieee_bv(expr * arg1) { return m().mk_app(m_fid, OP_FPA_TO_IEEE_BV, arg1); }
 
+    app * mk_bv2rm(expr * bv3) {
+        SASSERT(m_bv_util.is_bv(bv3) && m_bv_util.get_bv_size(bv3) == 3);
+        return m().mk_app(m_fid, OP_FPA_INTERNAL_BV2RM, 0, 0, 1, &bv3, mk_rm_sort());
+    }
     app * mk_internal_to_ubv_unspecified(unsigned ebits, unsigned sbits, unsigned width);
     app * mk_internal_to_sbv_unspecified(unsigned ebits, unsigned sbits, unsigned width);
     app * mk_internal_to_ieee_bv_unspecified(unsigned ebits, unsigned sbits);
@@ -380,8 +379,8 @@ public:
 
     bool is_bvwrap(expr * e) const { return is_app_of(e, get_family_id(), OP_FPA_INTERNAL_BVWRAP); }
     bool is_bvwrap(func_decl * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_INTERNAL_BVWRAP; }
-    bool is_rm_bvwrap(expr * e) const { return is_app_of(e, get_family_id(), OP_FPA_INTERNAL_RM_BVWRAP); }
-    bool is_rm_bvwrap(func_decl * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_INTERNAL_RM_BVWRAP; }    
+    bool is_bv2rm(expr * e) const { return is_app_of(e, get_family_id(), OP_FPA_INTERNAL_BV2RM); }
+    bool is_bv2rm(func_decl * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_INTERNAL_BV2RM; }
 
     bool is_min_interpreted(expr * e) { return is_app_of(e, get_family_id(), OP_FPA_INTERNAL_MIN_I); }
     bool is_min_unspecified(expr * e) { return is_app_of(e, get_family_id(), OP_FPA_INTERNAL_MIN_UNSPECIFIED); }

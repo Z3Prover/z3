@@ -1304,7 +1304,7 @@ void mpf_manager::partial_remainder(mpf & x, mpf const & y, mpf_exp_t const & ex
 
 
     // 3. Compute Y*Q / Y*QQ*2^{D-N}
-    bool YQ_sgn = y.sign ^ Q_sgn;
+    bool YQ_sgn = x.sign;
     scoped_mpz YQ_sig(m_mpz_manager);
     mpf_exp_t YQ_exp = Q_exp + y.exponent;
     m_mpz_manager.mul(y.significand, Q_sig, YQ_sig);    
@@ -1360,9 +1360,7 @@ void mpf_manager::partial_remainder(mpf & x, mpf const & y, mpf_exp_t const & ex
 
     bool neg = m_mpz_manager.is_neg(X_YQ_sig);
     if (neg) m_mpz_manager.neg(X_YQ_sig);
-    bool X_YQ_sgn = ((!x.sign && !YQ_sgn && neg) ||
-                      (x.sign &&  YQ_sgn && !neg) ||
-                      (x.sign && !YQ_sgn));
+    bool X_YQ_sgn = x.sign ^ neg;
 
     // 5. Rounding
     if (m_mpz_manager.is_zero(X_YQ_sig))

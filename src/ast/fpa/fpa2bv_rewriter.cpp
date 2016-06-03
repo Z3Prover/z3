@@ -156,7 +156,7 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
         case OP_FPA_INTERNAL_MAX_I: m_conv.mk_max_i(f, num, args, result); return BR_DONE;
 
         case OP_FPA_INTERNAL_BVWRAP:
-        case OP_FPA_INTERNAL_RM_BVWRAP:
+        case OP_FPA_INTERNAL_BV2RM:
         
         case OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED:
         case OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED:
@@ -172,8 +172,10 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
     else 
     {
         SASSERT(!m_conv.is_float_family(f));
-        m_conv.mk_function(f, num, args, result);
-        return BR_DONE;
+        if (m_conv.fu().contains_floats(f)) {
+            m_conv.mk_function(f, num, args, result);
+            return BR_DONE;
+        }
     }
 
     return BR_FAILED;

@@ -838,6 +838,7 @@ inline bool is_func_decl(ast const * n)  { return n->get_kind() == AST_FUNC_DECL
 inline bool is_expr(ast const * n)       { return !is_decl(n); }
 inline bool is_app(ast const * n)        { return n->get_kind() == AST_APP; }
 inline bool is_var(ast const * n)        { return n->get_kind() == AST_VAR; }
+inline bool is_var(ast const * n, unsigned& idx) { return is_var(n) && (idx = static_cast<var const*>(n)->get_idx(), true); }
 inline bool is_quantifier(ast const * n) { return n->get_kind() == AST_QUANTIFIER; }
 inline bool is_forall(ast const * n)     { return is_quantifier(n) && static_cast<quantifier const *>(n)->is_forall(); }
 inline bool is_exists(ast const * n)     { return is_quantifier(n) && static_cast<quantifier const *>(n)->is_exists(); }
@@ -1571,11 +1572,12 @@ public:
     void debug_ref_count() { m_debug_ref_count = true; }
 
     void inc_ref(ast * n) {
-        if (n)
+        if (n) {
             n->inc_ref();
+        }
     }
-
-    void dec_ref(ast * n) {
+    
+    void dec_ref(ast* n) {
         if (n) {
             n->dec_ref();
             if (n->get_ref_count() == 0)

@@ -97,7 +97,7 @@ namespace datalog {
 
                 TRACE("dl", tout << mk_pp(body, m) << "\n";);
                 // 2. replace bound variables by constants.
-                expr_ref_vector consts(m), bound(m), free(m);
+                expr_ref_vector consts(m), bound(m), _free(m);
                 svector<symbol> names;
                 ptr_vector<sort> bound_sorts;
                 for (unsigned i = 0; i < sorts.size(); ++i) {
@@ -110,7 +110,7 @@ namespace datalog {
                         bound_sorts.push_back(s);
                     }
                     else {
-                        free.push_back(consts.back());
+                        _free.push_back(consts.back());
                     }
                 }
                 rep(body);                
@@ -123,8 +123,8 @@ namespace datalog {
 
                 TRACE("dl", tout << mk_pp(body, m) << "\n";);
                 // 4. replace remaining constants by variables.                                
-                for (unsigned i = 0; i < free.size(); ++i) {
-                    rep.insert(free[i].get(), m.mk_var(i, m.get_sort(free[i].get())));
+                for (unsigned i = 0; i < _free.size(); ++i) {
+                    rep.insert(_free[i].get(), m.mk_var(i, m.get_sort(_free[i].get())));
                 }
                 rep(body);                
                 g->set_else(body);
