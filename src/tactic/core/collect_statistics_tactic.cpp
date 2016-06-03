@@ -133,8 +133,14 @@ protected:
                 params_ref prms;
                 prms.set_bool("pp.single_line", true);
                 std::stringstream ss;
-                ss << mk_ismt2_pp(s, m, prms);
-                m_stats[ss.str().c_str()]++;
+                ss << "(declare-sort " << mk_ismt2_pp(s, m, prms) << ")";
+                m_stats[ss.str()]++;
+                
+                if (s->get_info()->get_num_parameters() > 0) {
+                    std::stringstream ssname;
+                    ssname << "(declare-sort (_ " << s->get_name() << " *))";
+                    m_stats[ssname.str()]++;
+                }
             }
         }
 
@@ -160,8 +166,16 @@ protected:
                 prms.set_bool("pp.single_line", true);
                 std::stringstream ss;
                 ss << mk_ismt2_pp(f, m, prms);
-                m_stats[ss.str().c_str()]++;
+                m_stats[ss.str()]++;
+
+                std::stringstream ssfname;
+                if (f->get_num_parameters() > 0)
+                    ssfname << "(declare-fun (_ " << f->get_name() << " *) *)";
+                else
+                    ssfname << "(declare-fun " << f->get_name() << " *)";
+                m_stats[ssfname.str()]++;
             }
+
             m_stats["function-applications"]++;
         }
     };
