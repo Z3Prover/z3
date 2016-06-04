@@ -1447,10 +1447,9 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
     bool m_len_exists = get_len_value(m, m_len);
     bool n_len_exists = get_len_value(n, n_len);
 
-    // debugging
-
     int splitType = -1;
     if (x_len_exists && m_len_exists) {
+        TRACE("t_str_int", tout << "length values found: x/m" << std::endl;);
         if (x_len < m_len) {
             splitType = 0;
         } else if (x_len == m_len) {
@@ -1461,6 +1460,7 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
     }
 
     if (splitType == -1 && y_len_exists && n_len_exists) {
+        TRACE("t_str_int", tout << "length values found: y/n" << std::endl;);
         if (y_len > n_len) {
             splitType = 0;
         } else if (y_len == n_len) {
@@ -1471,10 +1471,10 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
     }
 
     TRACE("t_str_detail", tout
-    		<< "len(x) = " << x_len << std::endl
-    		<< "len(y) = " << y_len << std::endl
-			<< "len(m) = " << m_len << std::endl
-			<< "len(n) = " << n_len << std::endl
+    		<< "len(x) = " << (x_len_exists ? x_len.to_string() : "?") << std::endl
+    		<< "len(y) = " << (y_len_exists ? y_len.to_string() : "?") << std::endl
+			<< "len(m) = " << (m_len_exists ? m_len.to_string() : "?") << std::endl
+			<< "len(n) = " << (n_len_exists ? n_len.to_string() : "?") << std::endl
     		<< "split type " << splitType << std::endl;
     );
 
@@ -2385,10 +2385,23 @@ bool theory_str::get_value(expr* e, rational& val) const {
     context& ctx = get_context();
     ast_manager & m = get_manager();
     theory_mi_arith* tha = get_th_arith(ctx, m_autil.get_family_id(), e);
+    if (!tha) {
+        return false;
+    }
     expr_ref _val(m);
-    if (!tha || !tha->get_value(ctx.get_enode(e), _val)) return false;
-    return m_autil.is_numeral(_val, val) && val.is_int();
+    enode * en_e = ctx.get_enode(e);
+    enode * it = en_e;
+    do {
+        if (tha->get_value(it, _val)) {
+            // found an arithmetic term
+            return m_autil.is_numeral(_val, val) && val.is_int();
+        }
+        it = it->get_next();
+    } while (it != en_e);
+    return false;
 }
+
+// TODO these methods currently crash the solver, find out why
 
 bool theory_str::lower_bound(expr* _e, rational& lo) {
     context& ctx = get_context();
@@ -2447,9 +2460,7 @@ bool theory_str::get_len_value(expr* e, rational& val) {
         }
         else {
             len = mk_strlen(c);
-            if (ctx.e_internalized(len) &&
-                tha->get_value(ctx.get_enode(len), len_val) &&
-                m_autil.is_numeral(len_val, val1)) {
+            if (ctx.e_internalized(len) && get_value(len, val1)) {
                 val += val1;
                 TRACE("t_str_int", tout << "integer theory: subexpression " << mk_ismt2_pp(len, m) << " has length " << val1 << std::endl;);
             }
