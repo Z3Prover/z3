@@ -18,7 +18,7 @@ Notes:
 
 --*/
 #include<string>
-#include<unordered_map>
+#include<map>
 
 #include"ast.h"
 #include"params.h"
@@ -42,7 +42,7 @@ class collect_statistics_tactic : public tactic {
     datatype_decl_plugin m_datatype_pi;
     fpa_decl_plugin      m_fpa_pi;
 
-    typedef std::unordered_map<std::string, unsigned long> stats_type;
+    typedef std::map<std::string, unsigned long> stats_type;
     stats_type m_stats;
 
 public:
