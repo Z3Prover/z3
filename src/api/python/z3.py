@@ -8994,6 +8994,92 @@ def fpToFP(a1, a2=None, a3=None, ctx=None):
     else:
         raise Z3Exception("Unsupported combination of arguments for conversion to floating-point term.")
 
+def fpBVToFP(v, sort, ctx=None):
+    """Create a Z3 floating-point conversion expression that represents the 
+    conversion from a bit-vector term to a floating-point term.
+
+    >>> x_bv = BitVecVal(0x3F800000, 32)
+    >>> x_fp = fpBVToFP(x_bv, Float32())
+    >>> x_fp
+    fpToFP(1065353216)
+    >>> simplify(x_fp)
+    1
+    """
+    _z3_assert(is_bv(v), "First argument must be a Z3 floating-point rounding mode expression.")
+    _z3_assert(is_fp_sort(sort), "Second argument must be a Z3 floating-point sort.")
+    ctx = _get_ctx(ctx)
+    return FPRef(Z3_mk_fpa_to_fp_bv(ctx.ref(), v.ast, sort.ast), ctx)
+
+def fpFPToFP(rm, v, sort, ctx=None):
+    """Create a Z3 floating-point conversion expression that represents the 
+    conversion from a floating-point term to a floating-point term of different precision.
+
+    >>> x_sgl = FPVal(1.0, Float32())
+    >>> x_dbl = fpFPToFP(RNE(), x_sgl, Float64())
+    >>> x_dbl
+    fpToFP(RNE(), 1)
+    >>> simplify(x_dbl)
+    1
+    >>> x_dbl.sort()
+    FPSort(11, 53)
+    """
+    _z3_assert(is_fprm(rm), "First argument must be a Z3 floating-point rounding mode expression.")
+    _z3_assert(is_fp(v), "Second argument must be a Z3 floating-point expression.")
+    _z3_assert(is_fp_sort(sort), "Third argument must be a Z3 floating-point sort.")
+    ctx = _get_ctx(ctx)
+    return FPRef(Z3_mk_fpa_to_fp_float(ctx.ref(), rm.ast, v.ast, sort.ast), ctx)
+
+def fpRealToFP(rm, v, sort, ctx=None):
+    """Create a Z3 floating-point conversion expression that represents the 
+    conversion from a real term to a floating-point term.
+
+    >>> x_r = RealVal(1.5)
+    >>> x_fp = fpRealToFP(RNE(), x_r, Float32())
+    >>> x_fp
+    fpToFP(RNE(), 3/2)
+    >>> simplify(x_fp)
+    1.5
+    """
+    _z3_assert(is_fprm(rm), "First argument must be a Z3 floating-point rounding mode expression.")
+    _z3_assert(is_real(v), "Second argument must be a Z3 expression or real sort.")
+    _z3_assert(is_fp_sort(sort), "Third argument must be a Z3 floating-point sort.")
+    ctx = _get_ctx(ctx)
+    return FPRef(Z3_mk_fpa_to_fp_real(ctx.ref(), rm.ast, v.ast, sort.ast), ctx)
+
+def fpSignedToFP(rm, v, sort, ctx=None):
+    """Create a Z3 floating-point conversion expression that represents the 
+    conversion from a signed bit-vector term (encoding an integer) to a floating-point term.
+
+    >>> x_signed = BitVecVal(-5, BitVecSort(32))
+    >>> x_fp = fpSignedToFP(RNE(), x_signed, Float32())
+    >>> x_fp
+    fpToFP(RNE(), 4294967291)
+    >>> simplify(x_fp)
+    -1.25*(2**2)
+    """
+    _z3_assert(is_fprm(rm), "First argument must be a Z3 floating-point rounding mode expression.")
+    _z3_assert(is_bv(v), "Second argument must be a Z3 expression or real sort.")
+    _z3_assert(is_fp_sort(sort), "Third argument must be a Z3 floating-point sort.")
+    ctx = _get_ctx(ctx)
+    return FPRef(Z3_mk_fpa_to_fp_signed(ctx.ref(), rm.ast, v.ast, sort.ast), ctx)
+
+def fpUnsignedToFP(rm, v, sort, ctx=None):
+    """Create a Z3 floating-point conversion expression that represents the 
+    conversion from an unsigned bit-vector term (encoding an integer) to a floating-point term.
+
+    >>> x_signed = BitVecVal(-5, BitVecSort(32))
+    >>> x_fp = fpUnsignedToFP(RNE(), x_signed, Float32())
+    >>> x_fp
+    fpToFPUnsigned(RNE(), 4294967291)
+    >>> simplify(x_fp)
+    1*(2**32)
+    """
+    _z3_assert(is_fprm(rm), "First argument must be a Z3 floating-point rounding mode expression.")
+    _z3_assert(is_bv(v), "Second argument must be a Z3 expression or real sort.")
+    _z3_assert(is_fp_sort(sort), "Third argument must be a Z3 floating-point sort.")
+    ctx = _get_ctx(ctx)
+    return FPRef(Z3_mk_fpa_to_fp_unsigned(ctx.ref(), rm.ast, v.ast, sort.ast), ctx)
+
 def fpToFPUnsigned(rm, x, s, ctx=None):
     """Create a Z3 floating-point conversion expression, from unsigned bit-vector to floating-point expression."""
     if __debug__:
