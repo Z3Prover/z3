@@ -53,7 +53,16 @@ public:
 
     //void display(std::ostream & out);
 
-    virtual model_converter * translate(ast_translation & translator) {NOT_IMPLEMENTED_YET();}
+    virtual model_converter * translate(ast_translation & translator) {
+        ackr_info_ref retv_info = info->translate(translator);
+        if (fixed_model) {
+            model_ref retv_mod_ref = abstr_model->translate(translator);
+            return alloc(ackr_model_converter, translator.to(), retv_info, retv_mod_ref);
+        }
+        else {
+            return alloc(ackr_model_converter, translator.to(), retv_info);
+        }
+    }
 protected:
     ast_manager&              m;
     const ackr_info_ref       info;
