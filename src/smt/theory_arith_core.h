@@ -3223,13 +3223,50 @@ namespace smt {
     bool theory_arith<Ext>::get_value(enode * n, expr_ref & r) {
         theory_var v = n->get_th_var(get_id());
         inf_numeral val;
-        return v != null_theory_var && (val = get_value(v), (!is_int(v) || val.is_int())) && to_expr(val, is_int(v), r);
+        // rewrites for tracing purposes
+        if (v == null_theory_var) {
+            TRACE("t_str_int", tout << "WARNING: enode " << mk_pp(n->get_owner(), get_manager())
+                    << " attached to null theory var" << std::endl;
+            );
+            return false;
+        } else {
+            val = get_value(v);
+            TRACE("t_str_int", tout << "enode " << mk_pp(n->get_owner(), get_manager())
+                    << " attached to theory var v#" << v
+                    << ", has val = " << val
+                    << std::endl;
+                    );
+            if (!is_int(v) || val.is_int()) {
+                return to_expr(val, is_int(v), r);
+            } else {
+                return false;
+            }
+        }
+        // return v != null_theory_var && (val = get_value(v), (!is_int(v) || val.is_int())) && to_expr(val, is_int(v), r);
     }
 
     template<typename Ext>
     bool theory_arith<Ext>::get_lower(enode * n, expr_ref & r) {        
         theory_var v = n->get_th_var(get_id());
-        bound* b = (v == null_theory_var) ? 0 : lower(v);
+        bound * b;
+        if (v == null_theory_var) {
+            TRACE("t_str_int", tout << "WARNING: enode " << mk_pp(n->get_owner(), get_manager())
+                    << " attached to null theory var" << std::endl;
+            );
+            b = 0;
+        } else {
+            b = lower(v);
+            TRACE("t_str_int",
+                    tout << "enode " << mk_pp(n->get_owner(), get_manager())
+                    << " attached to theory var v#" << v
+                    << std::endl;
+                    if (b) {
+                        tout << "lower bound = " << b->get_value() << std::endl;
+                    } else {
+                        tout << "WARNING: b = NULL" << std::endl;
+                    }
+                    );
+        }
         return b && to_expr(b->get_value(), is_int(v), r);
     }
     

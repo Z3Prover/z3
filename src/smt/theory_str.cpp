@@ -1470,6 +1470,14 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
         }
     }
 
+    {
+        rational x_lb, x_ub;
+        bool x_lb_p = lower_bound(x, x_lb);
+        bool x_ub_p = upper_bound(x, x_ub);
+        TRACE("t_str_detail", tout << "X [" << x_lb << ":" << x_ub << "]" << std::endl
+                << "lb? " << (x_lb_p?"yes":"no") << " ub? " << (x_ub_p?"yes":"no") << std::endl;);
+    }
+
     TRACE("t_str_detail", tout
     		<< "len(x) = " << (x_len_exists ? x_len.to_string() : "?") << std::endl
     		<< "len(y) = " << (y_len_exists ? y_len.to_string() : "?") << std::endl
@@ -2388,20 +2396,24 @@ bool theory_str::get_value(expr* e, rational& val) const {
     if (!tha) {
         return false;
     }
+    TRACE("t_str_int", tout << "checking eqc of " << mk_pp(e, m) << " for arithmetic value" << std::endl;);
     expr_ref _val(m);
     enode * en_e = ctx.get_enode(e);
     enode * it = en_e;
     do {
         if (tha->get_value(it, _val)) {
             // found an arithmetic term
+            TRACE("t_str_int", tout << "get_value[" << mk_pp(it->get_owner(), m) << "] = " << mk_pp(_val, m)
+                    << std::endl;);
             return m_autil.is_numeral(_val, val) && val.is_int();
+        } else {
+            TRACE("t_str_int", tout << "get_value[" << mk_pp(it->get_owner(), m) << "] not found" << std::endl;);
         }
         it = it->get_next();
     } while (it != en_e);
+    TRACE("t_str_int", tout << "no arithmetic values found in eqc" << std::endl;);
     return false;
 }
-
-// TODO these methods currently crash the solver, find out why
 
 bool theory_str::lower_bound(expr* _e, rational& lo) {
     context& ctx = get_context();
@@ -2460,6 +2472,19 @@ bool theory_str::get_len_value(expr* e, rational& val) {
         }
         else {
             len = mk_strlen(c);
+
+            // debugging
+            TRACE("t_str_int", {
+               tout << mk_pp(len, m) << ":" << std::endl
+               << (ctx.is_relevant(len.get()) ? "relevant" : "not relevant") << std::endl
+               << (ctx.e_internalized(len) ? "internalized" : "not internalized") << std::endl
+               ;
+               if (ctx.e_internalized(len)) {
+                   enode * e_len = ctx.get_enode(len);
+                   tout << "has " << e_len->get_num_th_vars() << " theory vars" << std::endl;
+               }
+            });
+
             if (ctx.e_internalized(len) && get_value(len, val1)) {
                 val += val1;
                 TRACE("t_str_int", tout << "integer theory: subexpression " << mk_ismt2_pp(len, m) << " has length " << val1 << std::endl;);
@@ -3225,7 +3250,7 @@ void theory_str::init_search_eh() {
         unsigned nFormulas = ctx.get_num_asserted_formulas();
         for (unsigned i = 0; i < nFormulas; ++i) {
             expr * ex = ctx.get_asserted_formula(i);
-            tout << mk_ismt2_pp(ex, m) << std::endl;
+            tout << mk_ismt2_pp(ex, m) << (ctx.is_relevant(ex) ? " (rel)" : " (NOT REL)") << std::endl;
         }
     );
     /*

@@ -576,7 +576,19 @@ namespace smt {
             return is_free(get_context().get_enode(n)->get_th_var(get_id())); 
         }
         bool is_fixed(theory_var v) const;
-        void set_bound_core(theory_var v, bound * new_bound, bool upper) { m_bounds[static_cast<unsigned>(upper)][v] = new_bound; }
+        void set_bound_core(theory_var v, bound * new_bound, bool upper) {
+            TRACE("t_str_int",
+                    tout << "setting " << (upper ? "upper" : "lower") << " bound ";
+                    if (new_bound) {
+                        tout << new_bound->get_value();
+                    } else {
+                        tout << "(NULL)";
+                    }
+                    tout << " for theory var v#" << v;
+                    tout << std::endl;
+            );
+            m_bounds[static_cast<unsigned>(upper)][v] = new_bound;
+        }
         void restore_bound(theory_var v, bound * new_bound, bool upper) { set_bound_core(v, new_bound, upper); }
         void restore_nl_propagated_flag(unsigned old_trail_size);
         void set_bound(bound * new_bound, bool upper);
