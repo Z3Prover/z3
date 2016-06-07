@@ -706,7 +706,7 @@ namespace smt {
     }
 
     void setup::setup_QF_S() {
-        setup_QF_LRA();
+        m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
         m_context.register_plugin(alloc(smt::theory_str, m_manager));
     }
 
