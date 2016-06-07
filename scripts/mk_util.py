@@ -70,6 +70,7 @@ IS_OSX=False
 IS_FREEBSD=False
 IS_OPENBSD=False
 IS_CYGWIN=False
+IS_CYGWIN_MINGW=False
 VERBOSE=True
 DEBUG_MODE=False
 SHOW_CPPS = True
@@ -142,6 +143,9 @@ def is_osx():
 
 def is_cygwin():
     return IS_CYGWIN
+
+def is_cygwin_mingw():
+    return IS_CYGWIN_MINGW
 
 def norm_path(p):
     # We use '/' on mk_project for convenience
@@ -219,7 +223,10 @@ def rmf(fname):
 
 def exec_compiler_cmd(cmd):
     r = exec_cmd(cmd)
-    rmf('a.out')
+    if is_windows() or is_cygwin_mingw():
+        rmf('a.exe')
+    else:
+        rmf('a.out')
     return r
 
 def test_cxx_compiler(cc):
@@ -597,6 +604,8 @@ elif os.name == 'posix':
         IS_OPENBSD=True
     elif os.uname()[0][:6] == 'CYGWIN':
         IS_CYGWIN=True
+        if ("mingw" in CC):
+            IS_CYGWIN_MINGW=True
 
 def display_help(exit_code):
     print("mk_make.py: Z3 Makefile generator\n")
@@ -1821,7 +1830,7 @@ class MLComponent(Component):
                 CP_CMD='copy'
 
             OCAML_FLAGS = ''
-            if DEBUG_MODE:             
+            if DEBUG_MODE:
                 OCAML_FLAGS += '-g'
             OCAMLCF = OCAMLC + ' ' + OCAML_FLAGS
             OCAMLOPTF = OCAMLOPT + ' ' + OCAML_FLAGS
@@ -1875,12 +1884,15 @@ class MLComponent(Component):
 
 
             OCAMLMKLIB = 'ocamlmklib'
-            LIBZ3 = '-L. -lz3'
-            if is_cygwin():
-                # Some ocamlmklib's don't like -g; observed on cygwin, but may be others as well.
+
+            LIBZ3 = '-L. -lz3'           
+            if is_cygwin() and not(is_cygwin_mingw()):
                 LIBZ3 = 'libz3.dll'
-            elif DEBUG_MODE:
+
+            if DEBUG_MODE and not(is_cygwin()):
+                # Some ocamlmklib's don't like -g; observed on cygwin, but may be others as well.
                 OCAMLMKLIB += ' -g'
+
             z3mls = os.path.join(self.sub_dir, 'z3ml')
             out.write('%s.cma: %s %s %s\n' % (z3mls, cmos, stubso, z3dllso))
             out.write('\t%s -o %s -I %s %s %s %s\n' % (OCAMLMKLIB, z3mls, self.sub_dir, stubso, cmos, LIBZ3))
@@ -1943,7 +1955,7 @@ class MLComponent(Component):
             out.write(' %s' % ((os.path.join(self.sub_dir, 'z3ml.cmxa'))))
             out.write(' %s' % ((os.path.join(self.sub_dir, 'z3ml.cmxs'))))
             out.write(' %s' % ((os.path.join(self.sub_dir, 'dllz3ml'))))
-            if IS_WINDOWS:
+            if is_windows() or is_cygwin_mingw():
                 out.write('.dll')
             else:
                 out.write('.so') # .so also on OSX!
@@ -2382,6 +2394,12 @@ def mk_config():
             CPPFLAGS     = '%s -DNDEBUG -D_EXTERNAL_RELEASE' % CPPFLAGS
         if TRACE or DEBUG_MODE:
             CPPFLAGS     = '%s -D_TRACE' % CPPFLAGS
+        if is_cygwin_mingw():
+            # when cross-compiling with MinGW, we need to statically link its standard libraries
+            # and to make it create an import library.
+            SLIBEXTRAFLAGS = '%s -static-libgcc -static-libstdc++ -Wl,--out-implib,libz3.dll.a' % SLIBEXTRAFLAGS
+            LDFLAGS = '%s -static-libgcc -static-libstdc++' % LDFLAGS
+                        
         config.write('PREFIX=%s\n' % PREFIX)
         config.write('CC=%s\n' % CC)
         config.write('CXX=%s\n' % CXX)
@@ -2411,6 +2429,8 @@ def mk_config():
             print('Host platform:  %s' % sysname)
             print('C++ Compiler:   %s' % CXX)
             print('C Compiler  :   %s' % CC)
+            if is_cygwin_mingw():
+                print('MinGW32 cross:  %s' % (is_cygwin_mingw()))
             print('Archive Tool:   %s' % AR)
             print('Arithmetic:     %s' % ARITH)
             print('OpenMP:         %s' % HAS_OMP)

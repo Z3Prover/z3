@@ -56,6 +56,16 @@ CXX=clang++ CC=clang python scripts/mk_make.py
 
 Note that Clang < 3.7 does not support OpenMP.
 
+You can also build Z3 for Windows using Cygwin and the Mingw-w64 cross-compiler.
+To configure that case correctly, make sure to use Cygwin's own python and not
+some Windows installation of Python.
+
+For a 64 bit build (from Cygwin64), configure Z3's sources with
+```bash
+CXX=x86_64-w64-mingw32-g++ CC=x86_64-w64-mingw32-gcc AR=x86_64-w64-mingw32-ar python scripts/mk_make.py
+```
+A 32 bit build should work similarly (but is untested); the same is true for 32/64 bit builds from within Cygwin32.
+
 By default, it will install z3 executable at ``PREFIX/bin``, libraries at
 ``PREFIX/lib``, and include files at ``PREFIX/include``, where ``PREFIX``
 installation prefix if inferred by the ``mk_make.py`` script. It is usually
