@@ -27,6 +27,10 @@ namespace smt {
 
 theory_str::theory_str(ast_manager & m):
         theory(m.mk_family_id("str")),
+        /* Options */
+        opt_AggressiveLengthTesting(true),
+        opt_AggressiveValueTesting(true),
+        /* Internal setup */
         search_started(false),
         m_autil(m),
         m_strutil(m),
@@ -342,6 +346,14 @@ void theory_str::check_and_init_cut_var(expr * node) {
     } else if (!m_strutil.is_string(node)) {
         add_cut_info_one_node(node, -1, node);
     }
+}
+
+literal theory_str::mk_literal(expr* _e) {
+    ast_manager & m = get_manager();
+    expr_ref e(_e, m);
+    context& ctx = get_context();
+    ensure_enode(e);
+    return ctx.get_literal(e);
 }
 
 app * theory_str::mk_int(int n) {
@@ -3513,6 +3525,160 @@ inline expr * theory_str::getMostRightNodeInConcat(expr * node) {
 	}
 }
 
+void theory_str::trace_ctx_dep(std::ofstream & tout,
+        std::map<expr*, expr*> & aliasIndexMap,
+        std::map<expr*, expr*> & var_eq_constStr_map,
+        std::map<expr*, std::map<expr*, int> > & var_eq_concat_map,
+        std::map<expr*, expr*> & concat_eq_constStr_map,
+        std::map<expr*, std::map<expr*, int> > & concat_eq_concat_map) {
+#ifdef _TRACE
+    ast_manager & mgr = get_manager();
+    {
+        tout << "(0) alias: variables" << std::endl;
+        std::map<expr*, std::map<expr*, int> > aliasSumMap;
+        std::map<expr*, expr*>::iterator itor0 = aliasIndexMap.begin();
+        for (; itor0 != aliasIndexMap.end(); itor0++) {
+            aliasSumMap[itor0->second][itor0->first] = 1;
+        }
+        std::map<expr*, std::map<expr*, int> >::iterator keyItor = aliasSumMap.begin();
+        for (; keyItor != aliasSumMap.end(); keyItor++) {
+            tout << "    * ";
+            tout << mk_pp(keyItor->first, mgr);
+            tout << " : ";
+            std::map<expr*, int>::iterator innerItor = keyItor->second.begin();
+            for (; innerItor != keyItor->second.end(); innerItor++) {
+                tout << mk_pp(innerItor->first, mgr);
+                tout << ", ";
+            }
+            tout << std::endl;
+        }
+        tout << std::endl;
+    }
+
+    {
+        tout << "(1) var = constStr:" << std::endl;
+        std::map<expr*, expr*>::iterator itor1 = var_eq_constStr_map.begin();
+        for (; itor1 != var_eq_constStr_map.end(); itor1++) {
+            tout << "    * ";
+            tout << mk_pp(itor1->first, mgr);
+            tout << " = ";
+            tout << mk_pp(itor1->second, mgr);
+            if (!in_same_eqc(itor1->first, itor1->second)) {
+                tout << "   (not true in ctx)";
+            }
+            tout << std::endl;
+        }
+        tout << std::endl;
+    }
+
+    {
+        tout << "(2) var = concat:" << std::endl;
+        std::map<expr*, std::map<expr*, int> >::iterator itor2 = var_eq_concat_map.begin();
+        for (; itor2 != var_eq_concat_map.end(); itor2++) {
+            tout << "    * ";
+            tout << mk_pp(itor2->first, mgr);
+            tout << " = { ";
+            std::map<expr*, int>::iterator i_itor = itor2->second.begin();
+            for (; i_itor != itor2->second.end(); i_itor++) {
+                tout << mk_pp(i_itor->first, mgr);
+                tout << ", ";
+            }
+            tout << std::endl;
+        }
+        tout << std::endl;
+    }
+/*// TODO
+    {
+        __debugPrint(logFile, "(3) var = unrollFunc:\n");
+        std::map<Z3_ast, std::map<Z3_ast, int> >::iterator itor2 = var_eq_unroll_map.begin();
+        for (; itor2 != var_eq_unroll_map.end(); itor2++) {
+            __debugPrint(logFile, "    * ");
+            printZ3Node(t, itor2->first);
+            __debugPrint(logFile, " = { ");
+            std::map<Z3_ast, int>::iterator i_itor = itor2->second.begin();
+            for (; i_itor != itor2->second.end(); i_itor++) {
+                printZ3Node(t, i_itor->first);
+                __debugPrint(logFile, ", ");
+            }
+            __debugPrint(logFile, " }\n");
+        }
+        __debugPrint(logFile, "\n");
+    }
+*/
+    {
+        tout << "(4) concat = constStr:" << std::endl;
+        std::map<expr*, expr*>::iterator itor3 = concat_eq_constStr_map.begin();
+        for (; itor3 != concat_eq_constStr_map.end(); itor3++) {
+            tout << "    * ";
+            tout << mk_pp(itor3->first, mgr);
+            tout << " = ";
+            tout << mk_pp(itor3->second, mgr);
+            tout << std::endl;
+
+        }
+        tout << std::endl;
+    }
+
+    {
+        tout << "(5) eq concats:" << std::endl;
+        std::map<expr*, std::map<expr*, int> >::iterator itor4 = concat_eq_concat_map.begin();
+        for (; itor4 != concat_eq_concat_map.end(); itor4++) {
+            if (itor4->second.size() > 1) {
+                std::map<expr*, int>::iterator i_itor = itor4->second.begin();
+                tout << "    * ";
+                for (; i_itor != itor4->second.end(); i_itor++) {
+                    tout << mk_pp(i_itor->first, mgr);
+                    tout << " , ";
+                }
+                tout << std::endl;
+            }
+        }
+        tout << std::endl;
+    }
+/*// TODO
+    {
+        __debugPrint(logFile, "(6) eq unrolls:\n");
+        std::map<Z3_ast, std::set<Z3_ast> >::iterator itor5 = unrollGroupMap.begin();
+        for (; itor5 != unrollGroupMap.end(); itor5++) {
+            __debugPrint(logFile, "    * ");
+            std::set<Z3_ast>::iterator i_itor = itor5->second.begin();
+            for (; i_itor != itor5->second.end(); i_itor++) {
+                printZ3Node(t, *i_itor);
+                __debugPrint(logFile, ",  ");
+            }
+            __debugPrint(logFile, "\n");
+        }
+        __debugPrint(logFile, "\n");
+    }
+
+    {
+        __debugPrint(logFile, "(7) unroll = concats:\n");
+        std::map<Z3_ast, std::set<Z3_ast> >::iterator itor5 = unrollGroupMap.begin();
+        for (; itor5 != unrollGroupMap.end(); itor5++) {
+            __debugPrint(logFile, "    * ");
+            Z3_ast unroll = itor5->first;
+            printZ3Node(t, unroll);
+            __debugPrint(logFile, "\n");
+            Z3_ast curr = unroll;
+            do {
+                if (isConcatFunc(t, curr)) {
+                    __debugPrint(logFile, "      >>> ");
+                    printZ3Node(t, curr);
+                    __debugPrint(logFile, "\n");
+                }
+                curr = Z3_theory_get_eqc_next(t, curr);
+            }while (curr != unroll);
+            __debugPrint(logFile, "\n");
+        }
+        __debugPrint(logFile, "\n");
+    }
+    */
+#else
+    return;
+#endif // _TRACE
+}
+
+
 /*
  * Dependence analysis from current context assignment
  * - "freeVarMap" contains a set of variables that doesn't constrained by Concats.
@@ -3747,7 +3913,9 @@ int theory_str::ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr
 		}
 	}
 
-	// TODO this would be a great place to print some debugging information
+	// print some debugging info
+	TRACE("t_str_detail", trace_ctx_dep(tout, aliasIndexMap, var_eq_constStr_map,
+	        var_eq_concat_map, concat_eq_constStr_map, concat_eq_concat_map););
 
 	// TODO compute Contains
 	/*
@@ -4409,6 +4577,7 @@ bool theory_str::get_next_val_encode(int_vector & base, int_vector & next) {
 expr * theory_str::gen_val_options(expr * freeVar, expr * len_indicator, expr * val_indicator,
 		std::string lenStr, int tries) {
 	ast_manager & m = get_manager();
+	context & ctx = get_context();
 
 	int distance = 32;
 
@@ -4434,8 +4603,11 @@ expr * theory_str::gen_val_options(expr * freeVar, expr * len_indicator, expr * 
 			<< "len_indicator = " << mk_ismt2_pp(len_indicator, m) << std::endl
 			<< "val_indicator = " << mk_ismt2_pp(val_indicator, m) << std::endl
 			<< "lenstr = " << lenStr << std::endl
-			<< "tries = " << tries << std::endl
-			;);
+			<< "tries = " << tries << std::endl;
+            if (opt_AggressiveValueTesting) {
+                tout << "note: aggressive value testing is enabled" << std::endl;
+            }
+	);
 
 	if (tries == 0) {
 		base = int_vector(len + 1, 0);
@@ -4474,12 +4646,23 @@ expr * theory_str::gen_val_options(expr * freeVar, expr * len_indicator, expr * 
 
 	for (long long i = l; i < h; i++) {
 		orList.push_back(m.mk_eq(val_indicator, m_strutil.mk_string(longlong_to_string(i).c_str()) ));
+		if (opt_AggressiveValueTesting) {
+		    literal l = mk_eq(val_indicator, m_strutil.mk_string(longlong_to_string(i).c_str()), false);
+		    ctx.mark_as_relevant(l);
+		    ctx.force_phase(l);
+		}
+
 		std::string aStr = gen_val_string(len, options[i - l]);
 		expr * strAst = m_strutil.mk_string(aStr);
 		andList.push_back(m.mk_eq(orList[orList.size() - 1], m.mk_eq(freeVar, strAst)));
 	}
 	if (!coverAll) {
 		orList.push_back(m.mk_eq(val_indicator, m_strutil.mk_string("more")));
+		if (opt_AggressiveValueTesting) {
+		    literal l = mk_eq(val_indicator, m_strutil.mk_string("more"), false);
+		    ctx.mark_as_relevant(l);
+		    ctx.force_phase(~l);
+		}
 	}
 
 	expr ** or_items = alloc_svect(expr*, orList.size());
@@ -4593,6 +4776,7 @@ expr * theory_str::gen_free_var_options(expr * freeVar, expr * len_indicator,
 
 expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tries) {
 	ast_manager & m = get_manager();
+	context & ctx = get_context();
 
 	TRACE("t_str_detail", tout << "entry" << std::endl;);
 
@@ -4606,7 +4790,12 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 	int l = (tries - 1) * distance;
 	int h = tries * distance;
 
-	TRACE("t_str_detail", tout << "building andList and orList" << std::endl;);
+	TRACE("t_str_detail",
+	        tout << "building andList and orList" << std::endl;
+	        if (opt_AggressiveLengthTesting) {
+	            tout << "note: aggressive length testing is active" << std::endl;
+	        }
+	);
 
 	for (int i = l; i < h; ++i) {
 	    std::string i_str = int_to_string(i);
@@ -4616,12 +4805,24 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 		TRACE("t_str_detail", tout << "or_expr = " << mk_ismt2_pp(or_expr, m) << std::endl;);
 		orList.push_back(or_expr);
 
+		if (opt_AggressiveLengthTesting) {
+		    literal l = mk_eq(indicator, str_indicator, false);
+		    ctx.mark_as_relevant(l);
+		    ctx.force_phase(l);
+		}
+
 		expr * and_expr = m.mk_eq(orList[orList.size() - 1], m.mk_eq(freeVarLen, mk_int(i)));
 		TRACE("t_str_detail", tout << "and_expr = " << mk_ismt2_pp(and_expr, m) << std::endl;);
 		andList.push_back(and_expr);
 	}
 
 	orList.push_back(m.mk_eq(indicator, m_strutil.mk_string("more")));
+	if (opt_AggressiveLengthTesting) {
+	    literal l = mk_eq(indicator, m_strutil.mk_string("more"), false);
+	    ctx.mark_as_relevant(l);
+	    ctx.force_phase(~l);
+	}
+
 	andList.push_back(m.mk_eq(orList[orList.size() - 1], m_autil.mk_ge(freeVarLen, mk_int(h))));
 
 	// TODO refactor this to use expr_ref_vector/svector/buffer instead

@@ -62,6 +62,20 @@ namespace smt {
             }
         };
     protected:
+        // Some options that control how the solver operates.
+
+        /*
+         * If AggressiveLengthTesting is true, we manipulate the phase of length tester equalities
+         * to prioritize trying concrete length options over choosing the "more" option.
+         */
+        bool opt_AggressiveLengthTesting;
+
+        /*
+         * Similarly, if AggressiveValueTesting is true, we manipulate the phase of value tester equalities
+         * to prioritize trying concrete value options over choosing the "more" option.
+         */
+        bool opt_AggressiveValueTesting;
+
         bool search_started;
         arith_util m_autil;
         str_util m_strutil;
@@ -116,6 +130,7 @@ namespace smt {
         expr * mk_concat(expr * n1, expr * n2);
         expr * mk_concat_const_str(expr * n1, expr * n2);
 
+        literal mk_literal(expr* _e);
         app * mk_int(int n);
         app * mk_int(rational & q);
 
@@ -183,6 +198,13 @@ namespace smt {
 
         int ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr*, int> & freeVarMap,
         		std::map<expr*, std::set<expr*> > & unrollGroupMap);
+        void trace_ctx_dep(std::ofstream & tout,
+                std::map<expr*, expr*> & aliasIndexMap,
+                std::map<expr*, expr*> & var_eq_constStr_map,
+                std::map<expr*, std::map<expr*, int> > & var_eq_concat_map,
+                std::map<expr*, expr*> & concat_eq_constStr_map,
+                std::map<expr*, std::map<expr*, int> > & concat_eq_concat_map);
+
         void classify_ast_by_type(expr * node, std::map<expr*, int> & varMap,
         		std::map<expr*, int> & concatMap, std::map<expr*, int> & unrollMap);
         void classify_ast_by_type_in_positive_context(std::map<expr*, int> & varMap,
