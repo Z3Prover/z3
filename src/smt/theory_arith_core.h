@@ -747,17 +747,25 @@ namespace smt {
             enode * e = mk_enode(n);
             return mk_var(e);
         }
-        else {
-            TRACE("arith_internalize_detail", tout << "before:\n" << mk_pp(n, get_manager()) << "\n";);
-            if (!ctx.e_internalized(n))
-                ctx.internalize(n, false);
-            TRACE("arith_internalize_detail", tout << "after:\n" << mk_pp(n, get_manager()) << "\n";);
-            enode * e    = ctx.get_enode(n);
-            if (!is_attached_to_var(e))
-                return mk_var(e);
-            else
-                return e->get_th_var(get_id());
+        if (m_util.get_family_id() == n->get_family_id()) {
+            found_unsupported_op(n);
+            if (ctx.e_internalized(n))
+                return expr2var(n);
+            for (unsigned i = 0; i < n->get_num_args(); ++i) {
+                ctx.internalize(n->get_arg(i), false);
+            }
+            return mk_var(mk_enode(n));
         }
+
+        TRACE("arith_internalize_detail", tout << "before:\n" << mk_pp(n, get_manager()) << "\n";);
+        if (!ctx.e_internalized(n))
+            ctx.internalize(n, false);
+        TRACE("arith_internalize_detail", tout << "after:\n" << mk_pp(n, get_manager()) << "\n";);
+        enode * e    = ctx.get_enode(n);
+        if (!is_attached_to_var(e))
+            return mk_var(e);
+        else
+            return e->get_th_var(get_id());
     }
 
     /**
