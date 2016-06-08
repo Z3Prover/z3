@@ -348,6 +348,10 @@ app * theory_str::mk_int(int n) {
     return m_autil.mk_numeral(rational(n), true);
 }
 
+app * theory_str::mk_int(rational & q) {
+    return m_autil.mk_numeral(q, true);
+}
+
 
 // TODO refactor all of these so that they don't use variable counters, but use ast_manager::mk_fresh_const instead
 
@@ -1470,14 +1474,6 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
         }
     }
 
-    {
-        rational x_lb, x_ub;
-        bool x_lb_p = lower_bound(x, x_lb);
-        bool x_ub_p = upper_bound(x, x_ub);
-        TRACE("t_str_detail", tout << "X [" << x_lb << ":" << x_ub << "]" << std::endl
-                << "lb? " << (x_lb_p?"yes":"no") << " ub? " << (x_ub_p?"yes":"no") << std::endl;);
-    }
-
     TRACE("t_str_detail", tout
     		<< "len(x) = " << (x_len_exists ? x_len.to_string() : "?") << std::endl
     		<< "len(y) = " << (y_len_exists ? y_len.to_string() : "?") << std::endl
@@ -1518,7 +1514,47 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
     // For split types 0 through 2, we can get away with providing
     // fewer split options since more length information is available.
     if (splitType == 0) {
-        NOT_IMPLEMENTED_YET(); // TODO
+        //--------------------------------------
+        // Type 0: M cuts Y.
+        //   len(x) < len(m) || len(y) > len(n)
+        //--------------------------------------
+        if (!has_self_cut(m, y)) {
+            expr ** ax_l_items = alloc_svect(expr*, 3);
+            expr ** ax_r_items = alloc_svect(expr*, 3);
+
+            ax_l_items[0] = ctx.mk_eq_atom(concatAst1, concatAst2);
+
+            expr_ref x_t1(mk_concat(x, t1), mgr);
+            expr_ref t1_n(mk_concat(t1, n), mgr);
+
+            ax_r_items[0] = ctx.mk_eq_atom(m, x_t1);
+            ax_r_items[1] = ctx.mk_eq_atom(y, t1_n);
+
+            if (m_len_exists && x_len_exists) {
+                ax_l_items[1] = ctx.mk_eq_atom(mk_strlen(x), mk_int(x_len));
+                ax_l_items[2] = ctx.mk_eq_atom(mk_strlen(m), mk_int(m_len));
+                rational m_sub_x = m_len - x_len;
+                ax_r_items[2] = ctx.mk_eq_atom(mk_strlen(t1), mk_int(m_sub_x));
+            } else {
+                ax_l_items[1] = ctx.mk_eq_atom(mk_strlen(y), mk_int(y_len));
+                ax_l_items[2] = ctx.mk_eq_atom(mk_strlen(n), mk_int(n_len));
+                rational y_sub_n = y_len - n_len;
+                ax_r_items[2] = ctx.mk_eq_atom(mk_strlen(t1), mk_int(y_sub_n));
+            }
+
+            expr_ref ax_l(mgr.mk_and(3, ax_l_items), mgr);
+            expr_ref ax_r(mgr.mk_and(3, ax_r_items), mgr);
+
+            // Cut Info
+            add_cut_info_merge(t1, sLevel, m);
+            add_cut_info_merge(t1, sLevel, y);
+
+            assert_implication(ax_l, ax_r);
+        } else {
+            loopDetected = true;
+            TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
+            // TODO printCutVar(m, y);
+        }
     } else if (splitType == 1) {
         NOT_IMPLEMENTED_YET(); // TODO
     } else if (splitType == 2) {

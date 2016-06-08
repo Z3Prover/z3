@@ -117,6 +117,7 @@ namespace smt {
         expr * mk_concat_const_str(expr * n1, expr * n2);
 
         app * mk_int(int n);
+        app * mk_int(rational & q);
 
         void check_and_init_cut_var(expr * node);
         void add_cut_info_one_node(expr * baseNode, int slevel, expr * node);
