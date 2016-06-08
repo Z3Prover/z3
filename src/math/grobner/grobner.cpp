@@ -446,6 +446,7 @@ void grobner::merge_monomials(ptr_vector<monomial> & monomials) {
     SASSERT(&m_del_monomials != &monomials);
     ptr_vector<monomial>& to_delete = m_del_monomials;
     to_delete.reset();
+    m_manager.limit().inc(sz);
     for (unsigned i = 1; i < sz; ++i) {
         monomial * m1 = monomials[j];
         monomial * m2 = monomials[i];
