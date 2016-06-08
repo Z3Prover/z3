@@ -292,6 +292,19 @@ class AstRef(Z3PPObject):
     def __hash__(self):
         return self.hash()
 
+    def __nonzero__(self):
+        return self.__bool__()
+        
+    def __bool__(self):
+        if is_true(self):
+            return True
+        elif is_false(self):
+            return False
+        elif is_eq(self) and self.num_args() == 2:
+           return self.arg(0).eq(self.arg(1))
+        else:
+            raise Z3Exception("Symbolic expressions cannot be cast to concrete Boolean values.")
+
     def sexpr(self):
         """Return an string representing the AST node in s-expression notation.
 
