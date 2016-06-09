@@ -3431,10 +3431,12 @@ void theory_str::dump_assignments() {
 void theory_str::classify_ast_by_type(expr * node, std::map<expr*, int> & varMap,
 		std::map<expr*, int> & concatMap, std::map<expr*, int> & unrollMap) {
 
-	// check whether the node is a non-internal string variable;
-	// testing set membership here bypasses several expensive checks
+	// check whether the node is a string variable;
+	// testing set membership here bypasses several expensive checks.
+    // note that internal variables don't count if they're only length tester / value tester vars.
 	if (variable_set.find(node) != variable_set.end()
-			&& internal_variable_set.find(node) == internal_variable_set.end()) {
+			&& internal_lenTest_vars.find(node) == internal_lenTest_vars.end()
+			&& internal_valTest_vars.find(node) == internal_valTest_vars.end()) {
 		varMap[node] = 1;
 	}
 	// check whether the node is a function that we want to inspect
@@ -4140,7 +4142,20 @@ int theory_str::ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr
 		}
 	}
 
-	// TODO this would be a great place to print the dependence map
+	// print the dependence map
+	TRACE("t_str_detail",
+    tout << "Dependence Map" << std::endl;
+	for(std::map<expr*, std::map<expr*, int> >::iterator itor = depMap.begin(); itor != depMap.end(); itor++) {
+	    tout << mk_pp(itor->first, m);
+	    rational nnLen;
+	    bool nnLen_exists = get_len_value(itor->first, nnLen);
+	    tout << "  [len = " << (nnLen_exists ? nnLen.to_string() : "?") << "] \t-->\t";
+	    for (std::map<expr*, int>::iterator itor1 = itor->second.begin(); itor1 != itor->second.end(); itor1++) {
+	        tout << mk_pp(itor1->first, m) << "(" << itor1->second << "), ";
+	    }
+	    tout << std::endl;
+	}
+	        );
 
 	// step, errr, 5: compute free variables based on the dependence map
 
