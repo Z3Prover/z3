@@ -64,8 +64,8 @@ public:
             m.inc_ref(it->m_key);
             m.inc_ref(it->m_value);
         }
-        for (obj_map<func_decl, std::pair<app*, app*> >::iterator it = conv.m_specials.begin();
-             it != conv.m_specials.end();
+        for (obj_map<func_decl, std::pair<app*, app*> >::iterator it = conv.m_min_max_specials.begin();
+             it != conv.m_min_max_specials.end();
              it++) {
             m_specials.insert(it->m_key, it->m_value);
             m.inc_ref(it->m_key);

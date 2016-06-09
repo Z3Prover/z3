@@ -1273,10 +1273,10 @@ expr_ref fpa2bv_converter::mk_min_max_unspecified(func_decl * f, expr * x, expr 
     // There is no "hardware interpretation" for fp.min/fp.max.
 
     std::pair<app*, app*> decls(0, 0);
-    if (!m_specials.find(f, decls)) {
+    if (!m_min_max_specials.find(f, decls)) {
         decls.first = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
         decls.second = m.mk_fresh_const(0, m_bv_util.mk_sort(1));
-        m_specials.insert(f, decls);
+        m_min_max_specials.insert(f, decls);
         m.inc_ref(f);
         m.inc_ref(decls.first);
         m.inc_ref(decls.second);
@@ -4100,13 +4100,13 @@ void fpa2bv_converter::reset(void) {
     dec_ref_map_key_values(m, m_const2bv);
     dec_ref_map_key_values(m, m_rm_const2bv);
     dec_ref_map_key_values(m, m_uf2bvuf);
-    for (obj_map<func_decl, std::pair<app*, app*> >::iterator it = m_specials.begin();
-        it != m_specials.end();
+    for (obj_map<func_decl, std::pair<app*, app*> >::iterator it = m_min_max_specials.begin();
+        it != m_min_max_specials.end();
         it++) {
         m.dec_ref(it->m_key);
         m.dec_ref(it->m_value.first);
         m.dec_ref(it->m_value.second);
     }
-    m_specials.reset();
+    m_min_max_specials.reset();
     m_extra_assertions.reset();
 }

@@ -32,6 +32,11 @@ Notes:
 #include"basic_simplifier_plugin.h"
 
 class fpa2bv_converter {
+public:
+    typedef obj_map<func_decl, std::pair<app *, app *> > special_t;
+    typedef obj_map<func_decl, expr*> const2bv_t;
+    typedef obj_map<func_decl, func_decl*> uf2bvuf_t;
+
 protected:
     ast_manager              & m;
     basic_simplifier_plugin    m_simp;
@@ -46,11 +51,10 @@ protected:
     fpa_decl_plugin          * m_plugin;
     bool                       m_hi_fp_unspecified;
 
-    obj_map<func_decl, expr*>  m_const2bv;
-    obj_map<func_decl, expr*>  m_rm_const2bv;
-    obj_map<func_decl, func_decl*>  m_uf2bvuf;    
-
-    obj_map<func_decl, std::pair<app *, app *> > m_specials;
+    const2bv_t                 m_const2bv;
+    const2bv_t                 m_rm_const2bv;
+    uf2bvuf_t                  m_uf2bvuf;
+    special_t                  m_min_max_specials;
 
     friend class fpa2bv_model_converter;
 
@@ -154,9 +158,11 @@ public:
 
     void dbg_decouple(const char * prefix, expr_ref & e);
     expr_ref_vector m_extra_assertions;
-
-    bool is_special(func_decl * f) { return m_specials.contains(f); }
-    bool is_uf2bvuf(func_decl * f) { return m_uf2bvuf.contains(f); }    
+    
+    special_t const & get_min_max_specials() const { return m_min_max_specials; };
+    const2bv_t const & get_const2bv() const { return m_const2bv; };
+    const2bv_t const & get_rm_const2bv() const { return m_rm_const2bv; };
+    uf2bvuf_t const & get_uf2bvuf() const { return m_uf2bvuf; };
 
 protected:
     void mk_one(func_decl *f, expr_ref & sign, expr_ref & result);

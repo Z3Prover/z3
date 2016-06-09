@@ -83,27 +83,6 @@ namespace smt {
         }
     }
 
-    void theory_fpa::fpa2bv_converter_wrapped::mk_function(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
-        // Note: this introduces new UFs that should be filtered afterwards. 
-        return fpa2bv_converter::mk_function(f, num, args, result);        
-    }
-
-    expr_ref theory_fpa::fpa2bv_converter_wrapped::mk_min_max_unspecified(func_decl * f, expr * x, expr * y) {
-        expr_ref a(m), wrapped(m), wu(m), wu_eq(m);
-        a = m.mk_app(f, x, y);
-        wrapped = m_th.wrap(a);
-        wu = m_th.unwrap(wrapped, f->get_range());
-        wu_eq = m.mk_eq(wu, a);
-        m_extra_assertions.push_back(wu_eq);
-
-        unsigned bv_sz = m_bv_util.get_bv_size(wrapped);
-        expr_ref sc(m);
-        sc = m.mk_eq(m_bv_util.mk_extract(bv_sz-2, 0, wrapped), m_bv_util.mk_numeral(0, bv_sz-1));
-        m_extra_assertions.push_back(sc);
-
-        return wu;
-    }
-
     theory_fpa::theory_fpa(ast_manager & m) :
         theory(m.mk_family_id("fpa")),
         m_converter(m, this),
@@ -727,8 +706,23 @@ namespace smt {
 
     void theory_fpa::init_model(model_generator & mg) {
         TRACE("t_fpa", tout << "initializing model" << std::endl; display(tout););
-        m_factory = alloc(fpa_value_factory, get_manager(), get_family_id());
-        mg.register_factory(m_factory);        
+        ast_manager & m = get_manager();
+        m_factory = alloc(fpa_value_factory, m, get_family_id());
+        mg.register_factory(m_factory);
+
+        fpa2bv_converter::uf2bvuf_t const & uf2bvuf = m_converter.get_uf2bvuf();
+        for (fpa2bv_converter::uf2bvuf_t::iterator it = uf2bvuf.begin();
+             it !=  uf2bvuf.end();
+             it++) {
+            mg.hide(it->m_value);
+        }
+        fpa2bv_converter::special_t const & specials = m_converter.get_min_max_specials();
+        for (fpa2bv_converter::special_t::iterator it = specials.begin();
+             it != specials.end();
+             it++) {
+            mg.hide(it->m_value.first->get_decl());
+            mg.hide(it->m_value.second->get_decl());
+        }
     }
 
     model_value_proc * theory_fpa::mk_value(enode * n, model_generator & mg) {
@@ -882,8 +876,6 @@ namespace smt {
             }
             return false;
         }
-        else if (m_converter.is_uf2bvuf(f) || m_converter.is_special(f))
-            return false;
         else
             return true;
     }

@@ -83,9 +83,6 @@ namespace smt {
             virtual ~fpa2bv_converter_wrapped() {}
             virtual void mk_const(func_decl * f, expr_ref & result);
             virtual void mk_rm_const(func_decl * f, expr_ref & result);            
-            virtual void mk_function(func_decl * f, unsigned num, expr * const * args, expr_ref & result);            
-
-            virtual expr_ref mk_min_max_unspecified(func_decl * f, expr * x, expr * y);
         };
 
         class fpa_value_proc : public model_value_proc {
