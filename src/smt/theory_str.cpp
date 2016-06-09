@@ -1776,21 +1776,14 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 		y = v1_arg1;
 	}
 
-	const char * strValue_tmp = 0;
-	m_strutil.is_string(strAst, &strValue_tmp);
-	std::string strValue(strValue_tmp);
-	// TODO integer theory interaction
-	/*
-	int x_len = getLenValue(t, x);
-	int y_len = getLenValue(t, y);
-	int m_len = getLenValue(t, m);
-	int str_len = getLenValue(t, strAst);
-	*/
+	std::string strValue = m_strutil.get_string_constant_value(strAst);
 
-	int x_len = -1;
-	int y_len = -1;
-	int m_len = -1;
-	int str_len = -1;
+	rational x_len, y_len, m_len, str_len;
+	bool x_len_exists = get_len_value(x, x_len);
+	bool y_len_exists = get_len_value(y, y_len);
+	bool m_len_exists = get_len_value(m, m_len);
+	bool str_len_exists = true;
+	str_len = rational((unsigned)(strValue.length()));
 
 	// setup
 
@@ -1816,7 +1809,7 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 	}
 
 	int splitType = -1;
-	if (x_len != -1 && m_len != -1) {
+	if (x_len_exists && m_len_exists) {
 		if (x_len < m_len)
 			splitType = 0;
 		else if (x_len == m_len)
@@ -1824,7 +1817,7 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 		else
 			splitType = 2;
 	}
-	if (splitType == -1 && y_len != -1 && str_len != -1) {
+	if (splitType == -1 && y_len_exists && str_len_exists) {
 		if (y_len > str_len)
 			splitType = 0;
 		else if (y_len == str_len)
@@ -1838,11 +1831,95 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 	// Provide fewer split options when length information is available.
 
 	if (splitType == 0) {
-		NOT_IMPLEMENTED_YET(); // TODO
+	    // M cuts Y
+	    //   |  x  |      y     |
+        //   |    m   |   str   |
+	    expr_ref temp1_strAst(mk_concat(temp1, strAst), mgr);
+	    if (can_two_nodes_eq(y, temp1_strAst)) {
+	        if (!avoidLoopCut || !(has_self_cut(m, y))) {
+	            // break down option 2-1
+	            expr ** l_items = alloc_svect(expr*, 3);
+	            l_items[0] = ctx.mk_eq_atom(concatAst1, concatAst2);
+
+	            expr ** r_items = alloc_svect(expr*, 3);
+	            expr_ref x_temp1(mk_concat(x, temp1), mgr);
+	            r_items[0] = ctx.mk_eq_atom(m, x_temp1);
+	            r_items[1] = ctx.mk_eq_atom(y, temp1_strAst);
+
+	            if (x_len_exists && m_len_exists) {
+	                l_items[1] = ctx.mk_eq_atom(mk_strlen(x), mk_int(x_len));
+	                l_items[2] = ctx.mk_eq_atom(mk_strlen(m), mk_int(m_len));
+	                rational m_sub_x = (m_len - x_len);
+	                r_items[2] = ctx.mk_eq_atom(mk_strlen(temp1), mk_int(m_sub_x));
+	            } else {
+	                l_items[1] = ctx.mk_eq_atom(mk_strlen(y), mk_int(y_len));
+	                l_items[2] = ctx.mk_eq_atom(mk_strlen(strAst), mk_int(str_len));
+	                rational y_sub_str = (y_len - str_len);
+	                r_items[2] = ctx.mk_eq_atom(mk_strlen(temp1), mk_int(y_sub_str));
+	            }
+
+	            expr_ref ax_l(mgr.mk_and(3, l_items), mgr);
+	            expr_ref ax_r(mgr.mk_and(3, r_items), mgr);
+
+	            add_cut_info_merge(temp1, sLevel, y);
+	            add_cut_info_merge(temp1, sLevel, m);
+
+	            assert_implication(ax_l, ax_r);
+	        } else {
+	            loopDetected = true;
+	            TRACE("t_str", tout << "AVOID LOOP: SKIP" << std::endl;);
+	            // TODO printCutVar(m, y);
+	        }
+	    }
 	} else if (splitType == 1) {
-		NOT_IMPLEMENTED_YET(); // TODO
+	    //   |   x   |    y    |
+	    //   |   m   |   str   |
+	    expr_ref ax_l1(ctx.mk_eq_atom(concatAst1, concatAst2), mgr);
+	    expr_ref ax_l2(mgr.mk_or(
+	            ctx.mk_eq_atom(mk_strlen(x), mk_strlen(m)),
+	            ctx.mk_eq_atom(mk_strlen(y), mk_strlen(strAst))), mgr);
+	    expr_ref ax_l(mgr.mk_and(ax_l1, ax_l2), mgr);
+	    expr_ref ax_r(mgr.mk_and(ctx.mk_eq_atom(x, m), ctx.mk_eq_atom(y, strAst)), mgr);
+	    assert_implication(ax_l, ax_r);
 	} else if (splitType == 2) {
-		NOT_IMPLEMENTED_YET(); // TODO
+	    // m cut y,
+	    //    |   x   |  y  |
+	    //    | m |   str   |
+	    rational lenDelta;
+	    expr ** l_items = alloc_svect(expr*, 3);
+	    int l_count = 0;
+	    l_items[0] = ctx.mk_eq_atom(concatAst1, concatAst2);
+	    if (x_len_exists && m_len_exists) {
+	        l_items[1] = ctx.mk_eq_atom(mk_strlen(x), mk_int(x_len));
+	        l_items[2] = ctx.mk_eq_atom(mk_strlen(m), mk_int(m_len));
+	        l_count = 3;
+	        lenDelta = x_len - m_len;
+	    } else {
+	        l_items[1] = ctx.mk_eq_atom(mk_strlen(y), mk_int(y_len));
+	        l_count = 2;
+	        lenDelta = str_len - y_len;
+	    }
+	    std::string part1Str = strValue.substr(0, lenDelta.get_unsigned());
+	    std::string part2Str = strValue.substr(lenDelta.get_unsigned(), strValue.length() - lenDelta.get_unsigned());
+
+	    expr_ref prefixStr(m_strutil.mk_string(part1Str), mgr);
+	    expr_ref x_concat(mk_concat(m, prefixStr), mgr);
+	    expr_ref cropStr(m_strutil.mk_string(part2Str), mgr);
+
+	    if (can_two_nodes_eq(x, x_concat) && can_two_nodes_eq(y, cropStr)) {
+	        expr ** r_items = alloc_svect(expr*, 2);
+	        r_items[0] = ctx.mk_eq_atom(x, x_concat);
+	        r_items[1] = ctx.mk_eq_atom(y, cropStr);
+	        expr_ref ax_l(mgr.mk_and(l_count, l_items), mgr);
+	        expr_ref ax_r(mgr.mk_and(2, r_items), mgr);
+
+	        assert_implication(ax_l, ax_r);
+	    } else {
+	        // negate! It's impossible to split str with these lengths
+	        TRACE("t_str", tout << "CONFLICT: Impossible to split str with these lengths." << std::endl;);
+	        expr_ref ax_l(mgr.mk_and(l_count, l_items), mgr);
+	        assert_axiom(mgr.mk_not(ax_l));
+	    }
 	} else {
 		// Split type -1: no idea about the length...
 		int optionTotal = 2 + strValue.length();
