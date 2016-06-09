@@ -2042,20 +2042,14 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
         y = v1_arg1;
     }
 
-    const char * strValue_tmp = 0;
-    m_strutil.is_string(strAst, &strValue_tmp);
-    std::string strValue(strValue_tmp);
+    std::string strValue = m_strutil.get_string_constant_value(strAst);
+
     // TODO integer theory interaction
-    /*
-    int x_len = getLenValue(t, x);
-    int y_len = getLenValue(t, y);
-    int str_len = getLenValue(t, strAst);
-    int n_len = getLenValue(t, n);
-    */
-    int x_len = -1;
-    int y_len = -1;
-    int str_len = -1;
-    int n_len = -1;
+    rational x_len, y_len, str_len, n_len;
+    bool x_len_exists = get_len_value(x, x_len);
+    bool y_len_exists = get_len_value(y, y_len);
+    str_len = rational((unsigned)(strValue.length()));
+    bool n_len_exists = get_len_value(n, n_len);
 
     expr_ref xorFlag(mgr);
     expr_ref temp1(mgr);
@@ -2080,7 +2074,7 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
 
 
     int splitType = -1;
-    if (x_len != -1) {
+    if (x_len_exists) {
         if (x_len < str_len)
             splitType = 0;
         else if (x_len == str_len)
@@ -2088,7 +2082,7 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
         else
             splitType = 2;
     }
-    if (splitType == -1 && y_len != -1 && n_len != -1) {
+    if (splitType == -1 && y_len_exists && n_len_exists) {
         if (y_len > n_len)
             splitType = 0;
         else if (y_len == n_len)
@@ -2101,13 +2095,90 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
 
     // Provide fewer split options when length information is available.
     if (splitType == 0) {
-        NOT_IMPLEMENTED_YET(); // TODO
+        //   |   x   |    y     |
+        //   |  str     |   n   |
+        expr_ref_vector litems(mgr);
+        litems.push_back(ctx.mk_eq_atom(concatAst1, concatAst2));
+        rational prefixLen;
+        if (!x_len_exists) {
+            prefixLen = str_len - (y_len - n_len);
+            litems.push_back(ctx.mk_eq_atom(mk_strlen(y), mk_int(y_len)));
+            litems.push_back(ctx.mk_eq_atom(mk_strlen(n), mk_int(n_len)));
+        } else {
+            prefixLen = x_len;
+            litems.push_back(ctx.mk_eq_atom(mk_strlen(x), mk_int(x_len)));
+        }
+        std::string prefixStr = strValue.substr(0, prefixLen.get_unsigned());
+        rational str_sub_prefix = str_len - prefixLen;
+        std::string suffixStr = strValue.substr(prefixLen.get_unsigned(), str_sub_prefix.get_unsigned());
+        expr_ref prefixAst(m_strutil.mk_string(prefixStr), mgr);
+        expr_ref suffixAst(m_strutil.mk_string(suffixStr), mgr);
+        expr_ref ax_l(mgr.mk_and(litems.size(), litems.c_ptr()), mgr);
+
+        expr_ref suf_n_concat(mk_concat(suffixAst, n), mgr);
+        if (can_two_nodes_eq(x, prefixAst) && can_two_nodes_eq(y, suf_n_concat)) {
+            expr ** r_items = alloc_svect(expr*, 2);
+            r_items[0] = ctx.mk_eq_atom(x, prefixAst);
+            r_items[1] = ctx.mk_eq_atom(y, suf_n_concat);
+            assert_implication(ax_l, mgr.mk_and(2, r_items));
+        } else {
+            // negate! It's impossible to split str with these lengths
+            TRACE("t_str", tout << "CONFLICT: Impossible to split str with these lengths." << std::endl;);
+            assert_axiom(mgr.mk_not(ax_l));
+        }
     }
     else if (splitType == 1) {
-        NOT_IMPLEMENTED_YET(); // TODO
+        expr_ref ax_l1(ctx.mk_eq_atom(concatAst1, concatAst2), mgr);
+        expr_ref ax_l2(mgr.mk_or(
+                ctx.mk_eq_atom(mk_strlen(x), mk_strlen(strAst)),
+                ctx.mk_eq_atom(mk_strlen(y), mk_strlen(n))), mgr);
+        expr_ref ax_l(mgr.mk_and(ax_l1, ax_l2), mgr);
+        expr_ref ax_r(mgr.mk_and(ctx.mk_eq_atom(x, strAst), ctx.mk_eq_atom(y, n)), mgr);
+        assert_implication(ax_l, ax_r);
     }
     else if (splitType == 2) {
-        NOT_IMPLEMENTED_YET(); // TODO
+        //   |   x        |    y     |
+        //   |  str   |       n      |
+        expr_ref_vector litems(mgr);
+        litems.push_back(ctx.mk_eq_atom(concatAst1, concatAst2));
+        rational tmpLen;
+        if (!x_len_exists) {
+            tmpLen = n_len - y_len;
+            litems.push_back(ctx.mk_eq_atom(mk_strlen(y), mk_int(y_len)));
+            litems.push_back(ctx.mk_eq_atom(mk_strlen(n), mk_int(n_len)));
+        } else {
+            tmpLen = x_len - str_len;
+            litems.push_back(ctx.mk_eq_atom(mk_strlen(x), mk_int(x_len)));
+        }
+        expr_ref ax_l(mgr.mk_and(litems.size(), litems.c_ptr()), mgr);
+
+        expr_ref str_temp1(mk_concat(strAst, temp1), mgr);
+        expr_ref temp1_y(mk_concat(temp1, y), mgr);
+
+        if (can_two_nodes_eq(x, str_temp1)) {
+            if (!avoidLoopCut || !(has_self_cut(x, n))) {
+                expr ** r_items = alloc_svect(expr*, 3);
+                r_items[0] = ctx.mk_eq_atom(x, str_temp1);
+                r_items[1] = ctx.mk_eq_atom(n, temp1_y);
+                r_items[2] = ctx.mk_eq_atom(mk_strlen(temp1), mk_int(tmpLen));
+                expr_ref ax_r(mgr.mk_and(3, r_items), mgr);
+
+                //Cut Info
+                add_cut_info_merge(temp1, sLevel, x);
+                add_cut_info_merge(temp1, sLevel, n);
+
+                assert_implication(ax_l, ax_r);
+            } else {
+                loopDetected = true;
+                TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
+                // TODO printCutVar(x, n);
+            }
+        }
+        //    else {
+        //      // negate! It's impossible to split str with these lengths
+        //      __debugPrint(logFile, "[Conflict] Negate! It's impossible to split str with these lengths @ %d.\n", __LINE__);
+        //      addAxiom(t, Z3_mk_not(ctx, ax_l), __LINE__);
+        //    }
     }
     else {
         // Split type -1. We know nothing about the length...
