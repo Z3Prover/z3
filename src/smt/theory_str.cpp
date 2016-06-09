@@ -1568,9 +1568,52 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
             // TODO printCutVar(m, y);
         }
     } else if (splitType == 1) {
-        NOT_IMPLEMENTED_YET(); // TODO
+        // Type 1:
+        //   len(x) = len(m) || len(y) = len(n)
+        expr_ref ax_l1(ctx.mk_eq_atom(concatAst1, concatAst2), mgr);
+        expr_ref ax_l2(mgr.mk_or(ctx.mk_eq_atom(mk_strlen(x), mk_strlen(m)), ctx.mk_eq_atom(mk_strlen(y), mk_strlen(n))), mgr);
+        expr_ref ax_l(mgr.mk_and(ax_l1, ax_l2), mgr);
+        expr_ref ax_r(mgr.mk_and(ctx.mk_eq_atom(x,m), ctx.mk_eq_atom(y,n)), mgr);
+        assert_implication(ax_l, ax_r);
     } else if (splitType == 2) {
-        NOT_IMPLEMENTED_YET(); // TODO
+        // Type 2: X cuts N.
+        //   len(x) > len(m) || len(y) < len(n)
+        if (!has_self_cut(x, n)) {
+            expr_ref m_t2(mk_concat(m, t2), mgr);
+            expr_ref t2_y(mk_concat(t2, y), mgr);
+
+            expr ** ax_l_items = alloc_svect(expr*, 3);
+            ax_l_items[0] = ctx.mk_eq_atom(concatAst1, concatAst2);
+
+            expr ** ax_r_items = alloc_svect(expr*, 3);
+            ax_r_items[0] = ctx.mk_eq_atom(x, m_t2);
+            ax_r_items[1] = ctx.mk_eq_atom(t2_y, n);
+
+            if (m_len_exists && x_len_exists) {
+                ax_l_items[1] = ctx.mk_eq_atom(mk_strlen(x), mk_int(x_len));
+                ax_l_items[2] = ctx.mk_eq_atom(mk_strlen(m), mk_int(m_len));
+                rational x_sub_m = x_len - m_len;
+                ax_r_items[2] = ctx.mk_eq_atom(mk_strlen(t2), mk_int(x_sub_m));
+            } else {
+                ax_l_items[1] = ctx.mk_eq_atom(mk_strlen(y), mk_int(y_len));
+                ax_l_items[2] = ctx.mk_eq_atom(mk_strlen(n), mk_int(n_len));
+                rational n_sub_y = n_len - y_len;
+                ax_r_items[2] = ctx.mk_eq_atom(mk_strlen(t2), mk_int(n_sub_y));
+            }
+
+            expr_ref ax_l(mgr.mk_and(3, ax_l_items), mgr);
+            expr_ref ax_r(mgr.mk_and(3, ax_r_items), mgr);
+
+            // Cut Info
+            add_cut_info_merge(t2, sLevel, x);
+            add_cut_info_merge(t2, sLevel, n);
+
+            assert_implication(ax_l, ax_r);
+        } else {
+            loopDetected = true;
+            TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
+            // TODO printCutVar(m, y);
+        }
     } else if (splitType == -1) {
         // Here we don't really have a choice. We have no length information at all...
         expr ** or_item = alloc_svect(expr*, 3);
@@ -1590,7 +1633,7 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
 
             expr_ref x_plus_t1(m_autil.mk_add(mk_strlen(x), mk_strlen(t1)), mgr);
             and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(mk_strlen(m), x_plus_t1));
-            // TODO these are crashing the solvers because the integer theory
+            // These were crashing the solver because the integer theory
             // expects a constant on the right-hand side.
             // The things we want to assert here are len(m) > len(x) and len(y) > len(n).
             // We rewrite A > B as A-B > 0 and then as not(A-B <= 0),
