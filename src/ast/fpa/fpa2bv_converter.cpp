@@ -4107,5 +4107,6 @@ void fpa2bv_converter::reset(void) {
         m.dec_ref(it->m_value.first);
         m.dec_ref(it->m_value.second);
     }
+    m_specials.reset();
     m_extra_assertions.reset();
 }
