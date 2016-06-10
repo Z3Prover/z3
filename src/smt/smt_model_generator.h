@@ -222,7 +222,12 @@ namespace smt {
         obj_map<enode, app *> const & get_root2value() const { return m_root2value; }
         app * get_value(enode * n) const;
 
-        void hide(func_decl * f) { m_hidden_ufs.insert_if_not_there(f); m_manager.inc_ref(f); }
+        void hide(func_decl * f) { 
+            if (!m_hidden_ufs.contains(f)) {
+                m_hidden_ufs.insert(f);
+                m_manager.inc_ref(f); 
+            }
+        }
     };
 };
 
