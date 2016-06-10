@@ -44,9 +44,7 @@ namespace smt {
             return true;
         }
         virtual expr * get_fresh_value(sort * s) {
-            // TODO this may be causing crashes in model gen? investigate
-            //return m_util.mk_fresh_string();
-            NOT_IMPLEMENTED_YET();
+            return m_util.mk_fresh_string();
         }
         virtual void register_value(expr * n) { /* Ignore */ }
     };
