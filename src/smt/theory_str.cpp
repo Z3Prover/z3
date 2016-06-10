@@ -5302,13 +5302,12 @@ void theory_str::process_free_var(std::map<expr*, int> & freeVar_map) {
 		}
 
 		if (standAlone) {
-			// TODO
-			// int lenValue = getLenValue(freeVar);
-			int lenValue = -1;
-			if (lenValue != -1) {
+		    rational len_value;
+		    bool len_value_exists = get_len_value(freeVar, len_value);
+			if (len_value_exists) {
 				leafVarSet.insert(freeVar);
 			} else {
-				aloneVars[lenValue].insert(freeVar);
+				aloneVars[-1].insert(freeVar);
 			}
 		} else {
 			leafVarSet.insert(freeVar);
