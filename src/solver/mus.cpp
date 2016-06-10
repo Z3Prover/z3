@@ -19,14 +19,11 @@ Notes:
 --*/
 
 #include "solver.h"
-#include "smt_literal.h"
 #include "mus.h"
 #include "ast_pp.h"
 #include "ast_util.h"
+#include "uint_set.h"
 
-using namespace opt;
-
-// 
 
 struct mus::imp {
     solver&                  m_s;
@@ -38,15 +35,14 @@ struct mus::imp {
     vector<rational>         m_weights;
     rational                 m_weight;
 
-    imp(solver& s, ast_manager& m): 
-        m_s(s), m(m), m_cls2expr(m),  m_soft(m)
+    imp(solver& s): 
+        m_s(s), m(s.get_manager()), m_cls2expr(m),  m_soft(m)
     {}
 
     void reset() {
         m_cls2expr.reset();
         m_expr2cls.reset();
-    }
-            
+    }            
     
     unsigned add_soft(expr* cls) {
         SASSERT(is_uninterp_const(cls) || 
@@ -55,7 +51,7 @@ struct mus::imp {
         m_expr2cls.insert(cls, idx);
         m_cls2expr.push_back(cls);
         TRACE("opt", tout << idx << ": " << mk_pp(cls, m) << "\n";
-        display_vec(tout, m_cls2expr););
+              display_vec(tout, m_cls2expr););
         return idx;
     }
     
@@ -70,11 +66,16 @@ struct mus::imp {
             mus.push_back(core.back());
             return l_true;
         }
+
         mus.reset();
+        if (core.size() > 64) {
+            return qx(mus);
+        }
+
         expr_ref_vector assumptions(m);
         ptr_vector<expr> core_exprs;
         while (!core.empty()) { 
-            IF_VERBOSE(2, verbose_stream() << "(opt.mus reducing core: " << core.size() << " new core: " << mus.size() << ")\n";);
+            IF_VERBOSE(12, verbose_stream() << "(opt.mus reducing core: " << core.size() << " new core: " << mus.size() << ")\n";);
             unsigned cls_id = core.back();
             TRACE("opt", 
                   display_vec(tout << "core:  ", core);
@@ -84,11 +85,12 @@ struct mus::imp {
             expr* cls = m_cls2expr[cls_id].get();
             expr_ref not_cls(m);
             not_cls = mk_not(m, cls);
-            unsigned sz = assumptions.size();
-            assumptions.push_back(not_cls);
-            add_core(core, assumptions);
-            lbool is_sat = m_s.check_sat(assumptions.size(), assumptions.c_ptr());
-            assumptions.resize(sz);
+            lbool is_sat = l_undef;
+            {
+                scoped_append _sa(*this, assumptions, core);
+                assumptions.push_back(not_cls);
+                is_sat = m_s.check_sat(assumptions);
+            }
             switch (is_sat) {
             case l_undef: 
                 return is_sat;
@@ -131,6 +133,30 @@ struct mus::imp {
 #endif
         return l_true;
     }
+
+    class scoped_append {
+        expr_ref_vector& m_fmls;
+        unsigned         m_size;
+    public:
+        scoped_append(imp& imp, expr_ref_vector& fmls1, unsigned_vector const& fmls2):
+            m_fmls(fmls1),
+            m_size(fmls1.size()) {
+            for (unsigned i = 0; i < fmls2.size(); ++i) {
+                fmls1.push_back(imp.m_cls2expr[fmls2[i]].get());
+            }            
+        }
+        scoped_append(imp& imp, expr_ref_vector& fmls1, uint_set const& fmls2):
+            m_fmls(fmls1),
+            m_size(fmls1.size()) {
+            uint_set::iterator it = fmls2.begin(), end = fmls2.end();
+            for (; it != end; ++it) {
+                fmls1.push_back(imp.m_cls2expr[*it].get());
+            }            
+        }
+        ~scoped_append() {
+            m_fmls.shrink(m_size);
+        }
+    };
 
     void add_core(unsigned_vector const& core, expr_ref_vector& assumptions) {
         for (unsigned i = 0; i < core.size(); ++i) {
@@ -193,10 +219,110 @@ struct mus::imp {
     }
 
 
+    lbool qx(unsigned_vector& mus) {
+        uint_set core, support;
+        for (unsigned i = 0; i < m_cls2expr.size(); ++i) {
+            core.insert(i);
+        }
+        lbool is_sat = qx(core, support, false);
+        if (is_sat == l_true) {
+            uint_set::iterator it = core.begin(), end = core.end();
+            mus.reset();
+            for (; it != end; ++it) {
+                mus.push_back(*it);
+            }
+        }
+        return is_sat;
+    }
+
+    lbool qx(uint_set& assignment, uint_set& support, bool has_support) {
+        lbool is_sat = l_true;
+#if 0
+        if (s.m_config.m_minimize_core_partial && s.m_stats.m_restart - m_restart > m_max_restarts) {
+            IF_VERBOSE(1, verbose_stream() << "(sat restart budget exceeded)\n";);
+            return l_true;
+        }
+#endif
+        if (has_support) {
+            expr_ref_vector asms(m);
+            scoped_append _sa(*this, asms, support);
+            is_sat = m_s.check_sat(asms);
+            switch (is_sat) {
+            case l_false: {
+                uint_set core; 
+                get_core(core);
+                support &= core;
+                assignment.reset();
+                return l_true;
+            }
+            case l_undef:
+                return l_undef;
+            case l_true:
+                update_model();
+                break;
+            default:
+                break;
+            }
+        }
+        if (assignment.num_elems() == 1) {
+            return l_true;
+        }
+        uint_set assign2;
+        split(assignment, assign2);
+        support |= assignment;
+        is_sat = qx(assign2, support, !assignment.empty());        
+        unsplit(support, assignment);
+        if (is_sat != l_true) return is_sat;
+        support |= assign2;
+        is_sat = qx(assignment, support, !assign2.empty());
+        assignment |= assign2;
+        unsplit(support, assign2);
+        return is_sat;
+    }
+
+    void get_core(uint_set& core) {
+        ptr_vector<expr> core_exprs;
+        m_s.get_unsat_core(core_exprs);
+        for (unsigned i = 0; i < core_exprs.size(); ++i) {
+            expr* cls = core_exprs[i];
+            core.insert(m_expr2cls.find(cls));
+        }
+    }
+
+    void unsplit(uint_set& A, uint_set& B) {
+        uint_set A1, B1;
+        uint_set::iterator it = A.begin(), end = A.end();
+        for (; it != end; ++it) {
+            if (B.contains(*it)) {
+                B1.insert(*it);
+            }
+            else {
+                A1.insert(*it);
+            }
+        }
+        A = A1;
+        B = B1;
+    }
+
+    void split(uint_set& lits1, uint_set& lits2) {
+        unsigned half = lits1.num_elems()/2;
+        uint_set lits3;
+        uint_set::iterator it = lits1.begin(), end = lits1.end();
+        for (unsigned i = 0; it != end; ++it, ++i) {
+            if (i < half) {
+                lits3.insert(*it);
+            }
+            else {
+                lits2.insert(*it);
+            }
+        }
+        lits1 = lits3;
+    }
+
 };
 
-mus::mus(solver& s, ast_manager& m) {
-    m_imp = alloc(imp, s, m);
+mus::mus(solver& s) {
+    m_imp = alloc(imp, s);
 }
 
 mus::~mus() {

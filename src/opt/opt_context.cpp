@@ -225,7 +225,7 @@ namespace opt {
         normalize();
         internalize();
         update_solver();
-#if 0
+#if 1
         if (is_qsat_opt()) {
             return run_qsat_opt();
         }

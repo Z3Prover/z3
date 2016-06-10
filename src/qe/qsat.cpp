@@ -34,7 +34,9 @@ Notes:
 #include "expr_replacer.h"
 #include "th_rewriter.h"
 #include "model_evaluator.h"
-
+#include "smt_solver.h"
+#include "solver.h"
+#include "mus.h"
 
 namespace qe {
 
@@ -506,33 +508,58 @@ namespace qe {
     }
 
     class kernel {
-        smt_params   m_smtp;
-        smt::kernel  m_kernel;
+        ast_manager& m;
+        params_ref   m_params;
+        ref<solver>  m_solver;
         
     public:
         kernel(ast_manager& m):
-            m_kernel(m, m_smtp)
+            m(m),
+            m_solver(mk_smt_solver(m, m_params, symbol::null))
         {
-            m_smtp.m_model = true;
-            m_smtp.m_relevancy_lvl = 0;
-            m_smtp.m_case_split_strategy = CS_ACTIVITY_WITH_CACHE;
+            m_params.set_bool("model", true);
+            m_params.set_uint("relevancy_lvl", 0);
+            m_params.set_uint("case_split_strategy", CS_ACTIVITY_WITH_CACHE);
+            m_solver->updt_params(m_params);
         }
         
-        smt::kernel& k() { return m_kernel; }
-        smt::kernel const& k() const { return m_kernel; }
         
+        solver& s() { return *m_solver; }
+        solver const& s() const { return *m_solver; }
+
+        void reset() {
+            m_solver = mk_smt_solver(m, m_params, symbol::null);
+        }
         void assert_expr(expr* e) {
-            m_kernel.assert_expr(e);
+            m_solver->assert_expr(e);
         }
         
+        ptr_vector<expr> m_core;
+
         void get_core(expr_ref_vector& core) {
-            unsigned sz = m_kernel.get_unsat_core_size();
             core.reset();
-            for (unsigned i = 0; i < sz; ++i) {
-                core.push_back(m_kernel.get_unsat_core_expr(i));
+            m_core.reset();
+            m_solver->get_unsat_core(m_core);
+            core.append(m_core.size(), m_core.c_ptr());
+
+#if 0
+
+            mus mus(*m_solver);
+            for (unsigned i = 0; i < m_core.size(); ++i) {
+                VERIFY(i == mus.add_soft(m_core[i]));
             }
+            unsigned_vector mus2;
+            core.reset();
+            if (mus.get_mus(mus2) != l_undef) {
+                for (unsigned i = 0; i < mus2.size(); ++i) {
+                    core.push_back(m_core[mus2[i]]);
+                }
+            }
+            std::cout << m_core.size() << " => " << core.size() << "\n";
+#endif
+
             TRACE("qe", tout << "core: " << core << "\n";
-                  m_kernel.display(tout);
+                  m_solver->display(tout);
                   tout << "\n";
                   );
         }
@@ -586,13 +613,13 @@ namespace qe {
                 expr_ref_vector asms(m_asms);
                 m_pred_abs.get_assumptions(m_model.get(), asms);
                 TRACE("qe", tout << asms << "\n";);
-                smt::kernel& k = get_kernel(m_level).k();
-                lbool res = k.check(asms);
+                solver& s = get_kernel(m_level).s();
+                lbool res = s.check_sat(asms);
                 switch (res) {
                 case l_true:
-                    k.get_model(m_model);
+                    s.get_model(m_model);
                     SASSERT(validate_model(asms));
-                    TRACE("qe", k.display(tout); display(tout << "\n", *m_model.get()); display(tout, asms); );
+                    TRACE("qe", s.display(tout); display(tout << "\n", *m_model.get()); display(tout, asms); );
                     push();
                     break;
                 case l_false:
@@ -655,8 +682,8 @@ namespace qe {
         
         void reset() {
             m_st.reset();        
-            m_fa.k().collect_statistics(m_st);
-            m_ex.k().collect_statistics(m_st);        
+            m_fa.s().collect_statistics(m_st);
+            m_ex.s().collect_statistics(m_st);        
             m_pred_abs.collect_statistics(m_st);
             m_level = 0;
             m_answer.reset();
@@ -664,8 +691,8 @@ namespace qe {
             m_pred_abs.reset();
             m_vars.reset();
             m_model = 0;
-            m_fa.k().reset();
-            m_ex.k().reset();        
+            m_fa.reset();
+            m_ex.reset();        
             m_free_vars.reset();
         }    
         
@@ -964,10 +991,12 @@ namespace qe {
 
         bool validate_core(expr_ref_vector const& core) {
             TRACE("qe", tout << "Validate core\n";);
-            smt::kernel& k = get_kernel(m_level).k();
+            solver& s = get_kernel(m_level).s();
             expr_ref_vector fmls(m);
             fmls.append(core.size(), core.c_ptr());
-            fmls.append(k.size(), k.get_formulas());
+            for (unsigned i = 0; i < s.get_num_assertions(); ++i) {
+                fmls.push_back(s.get_assertion(i));
+            }
             return check_fmls(fmls) || m.canceled();
         }
 
@@ -985,10 +1014,14 @@ namespace qe {
 
         bool validate_model(expr_ref_vector const& asms) {
             TRACE("qe", tout << "Validate model\n";);
-            smt::kernel& k = get_kernel(m_level).k();
+            solver& s = get_kernel(m_level).s();
+            expr_ref_vector fmls(m);
+            for (unsigned i = 0; i < s.get_num_assertions(); ++i) {
+                fmls.push_back(s.get_assertion(i));
+            }
             return 
                 validate_model(*m_model, asms.size(), asms.c_ptr()) &&
-                validate_model(*m_model, k.size(), k.get_formulas());
+                validate_model(*m_model, fmls.size(), fmls.c_ptr());
         }
 
         bool validate_model(model& mdl, unsigned sz, expr* const* fmls) {
@@ -1161,9 +1194,9 @@ namespace qe {
                 break;
             case l_undef:
                 result.push_back(in.get());
-                std::string s = m_ex.k().last_failure_as_string();
-                if (s == "ok") {
-                    s = m_fa.k().last_failure_as_string();
+                std::string s = m_ex.s().reason_unknown();
+                if (s == "ok" || s == "unknown") {
+                    s = m_fa.s().reason_unknown();
                 }
                 throw tactic_exception(s.c_str()); 
             }        
@@ -1171,8 +1204,8 @@ namespace qe {
         
         void collect_statistics(statistics & st) const {
             st.copy(m_st);
-            m_fa.k().collect_statistics(st);
-            m_ex.k().collect_statistics(st);        
+            m_fa.s().collect_statistics(st);
+            m_ex.s().collect_statistics(st);        
             m_pred_abs.collect_statistics(st);
             st.update("qsat num rounds", m_stats.m_num_rounds); 
             m_pred_abs.collect_statistics(st);
@@ -1180,8 +1213,8 @@ namespace qe {
         
         void reset_statistics() {
             m_stats.reset();
-            m_fa.k().reset_statistics();
-            m_ex.k().reset_statistics();      
+            m_fa.reset();
+            m_ex.reset();
         }
         
         void cleanup() {
@@ -1223,9 +1256,9 @@ namespace qe {
                 UNREACHABLE();
                 break;
             case l_undef:
-                std::string s = m_ex.k().last_failure_as_string();
+                std::string s = m_ex.s().reason_unknown();
                 if (s == "ok") {
-                    s = m_fa.k().last_failure_as_string();
+                    s = m_fa.s().reason_unknown();
                 }
 
                 throw tactic_exception(s.c_str()); 

@@ -8,7 +8,6 @@ z3_add_component(opt
     maxsls.cpp
     maxsmt.cpp
     mss.cpp
-    mus.cpp
     opt_cmds.cpp
     opt_context.cpp
     opt_pareto.cpp
