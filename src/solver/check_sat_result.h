@@ -54,6 +54,7 @@ public:
     virtual void set_reason_unknown(char const* msg) = 0;
     virtual void get_labels(svector<symbol> & r) = 0;
     virtual ast_manager& get_manager() = 0;
+
 };
 
 /**

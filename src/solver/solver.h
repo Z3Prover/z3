@@ -108,6 +108,10 @@ public:
     */
     virtual lbool check_sat(unsigned num_assumptions, expr * const * assumptions) = 0;
 
+    lbool check_sat(expr_ref_vector const& asms) { return check_sat(asms.size(), asms.c_ptr()); }
+    
+    lbool check_sat(app_ref_vector const& asms) { return check_sat(asms.size(), (expr* const*)asms.c_ptr()); }
+
 
     /**
        \brief Set a progress callback procedure that is invoked by this solver during check_sat.

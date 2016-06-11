@@ -119,7 +119,7 @@ public:
         maxsmt_solver_base(c, ws, soft),
         m_index(index), 
         m_B(m), m_asms(m), m_defs(m),
-        m_mus(c.get_solver(), m),
+        m_mus(c.get_solver()),
         m_mss(c.get_solver(), m),
         m_trail(m),
         m_st(st),
