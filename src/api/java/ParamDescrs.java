@@ -22,8 +22,7 @@ import com.microsoft.z3.enumerations.Z3_param_kind;
 /**
  * A ParamDescrs describes a set of parameters.
  **/
-public class ParamDescrs extends Z3Object
-{
+public class ParamDescrs extends Z3Object {
     /**
      * validate a set of parameters.
      **/
@@ -92,8 +91,12 @@ public class ParamDescrs extends Z3Object
     }
 
     @Override
-    void incRef(long o) {
-        Native.paramDescrsIncRef(getContext().nCtx(), o);
+    void incRef() {
+        Native.paramDescrsIncRef(getContext().nCtx(), getNativeObject());
+    }
+
+    @Override
+    void addToReferenceQueue() {
         getContext().getParamDescrsDRQ().storeReference(getContext(), this);
     }
 }

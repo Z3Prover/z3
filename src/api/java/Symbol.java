@@ -22,8 +22,7 @@ import com.microsoft.z3.enumerations.Z3_symbol_kind;
 /**
  * Symbols are used to name several term and type constructors.
  **/
-public class Symbol extends Z3Object
-{
+public class Symbol extends Z3Object {
     /**
      * The kind of the symbol (int or string)
      **/
@@ -81,7 +80,13 @@ public class Symbol extends Z3Object
     }
 
     @Override
-    void incRef(long o) {
+    void incRef() {
+        // Symbol does not require tracking.
+    }
+
+    @Override
+    void addToReferenceQueue() {
+
         // Symbol does not require tracking.
     }
 

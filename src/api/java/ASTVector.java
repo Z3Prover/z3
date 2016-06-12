@@ -20,8 +20,7 @@ package com.microsoft.z3;
 /**
  * Vectors of ASTs.
  **/
-public class ASTVector extends Z3Object
-{
+public class ASTVector extends Z3Object {
     /**
      * The size of the vector
      **/
@@ -103,9 +102,12 @@ public class ASTVector extends Z3Object
     }
 
     @Override
-    void incRef(long o)
-    {
-        Native.astVectorIncRef(getContext().nCtx(), o);
+    void incRef() {
+        Native.astVectorIncRef(getContext().nCtx(), getNativeObject());
+    }
+
+    @Override
+    void addToReferenceQueue() {
         getContext().getASTVectorDRQ().storeReference(getContext(), this);
     }
 

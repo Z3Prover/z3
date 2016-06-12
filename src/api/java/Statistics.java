@@ -20,8 +20,7 @@ package com.microsoft.z3;
 /**
  * Objects of this class track statistical information about solvers.
  **/
-public class Statistics extends Z3Object
-{
+public class Statistics extends Z3Object {
     /**
      * Statistical data is organized into pairs of [Key, Entry], where every
      * Entry is either a {@code DoubleEntry} or a {@code UIntEntry}
@@ -191,8 +190,12 @@ public class Statistics extends Z3Object
     }
 
     @Override
-    void incRef(long o) {
-        Native.statsIncRef(getContext().nCtx(), o);
+    void incRef() {
         getContext().getStatisticsDRQ().storeReference(getContext(), this);
+    }
+
+    @Override
+    void addToReferenceQueue() {
+        Native.statsIncRef(getContext().nCtx(), getNativeObject());
     }
 }

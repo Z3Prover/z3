@@ -85,9 +85,12 @@ public class Constructor extends Z3Object {
     }
 
     @Override
-    void incRef(long o) {
-
+    void incRef() {
         // Datatype constructors are not reference counted.
+    }
+
+    @Override
+    void addToReferenceQueue() {
         getContext().getConstructorDRQ().storeReference(getContext(), this);
     }
 

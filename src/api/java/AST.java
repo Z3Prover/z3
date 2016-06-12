@@ -192,9 +192,12 @@ public class AST extends Z3Object implements Comparable<AST>
     }
 
     @Override
-    void incRef(long o)
-    {
-        Native.incRef(getContext().nCtx(), o);
+    void incRef() {
+        Native.incRef(getContext().nCtx(), getNativeObject());
+    }
+
+    @Override
+    void addToReferenceQueue() {
         getContext().getASTDRQ().storeReference(getContext(), this);
     }
 

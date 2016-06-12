@@ -28,7 +28,12 @@ public class ConstructorList extends Z3Object {
     }
 
     @Override
-    void incRef(long o) {
+    void incRef() {
+        // Constructor lists are not reference counted.
+    }
+
+    @Override
+    void addToReferenceQueue() {
         getContext().getConstructorListDRQ().storeReference(getContext(), this);
     }
 

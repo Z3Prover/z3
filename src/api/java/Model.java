@@ -22,8 +22,7 @@ import com.microsoft.z3.enumerations.Z3_sort_kind;
 /**
  * A Model contains interpretations (assignments) of constants and functions.
  **/
-public class Model extends Z3Object
-{
+public class Model extends Z3Object {
     /**
      * Retrieves the interpretation (the assignment) of {@code a} in
      * the model. 
@@ -293,8 +292,12 @@ public class Model extends Z3Object
     }
 
     @Override
-    void incRef(long o) {
-        Native.modelIncRef(getContext().nCtx(), o);
+    void incRef() {
+        Native.modelIncRef(getContext().nCtx(), getNativeObject());
+    }
+
+    @Override
+    void addToReferenceQueue() {
         getContext().getModelDRQ().storeReference(getContext(), this);
     }
 }

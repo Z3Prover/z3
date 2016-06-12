@@ -17,8 +17,7 @@ Notes:
 
 package com.microsoft.z3;
 
-class FixedpointDecRefQueue extends IDecRefQueue<Fixedpoint>
-{
+class FixedpointDecRefQueue extends IDecRefQueue<Fixedpoint> {
     public FixedpointDecRefQueue() 
     {
         super();
@@ -28,7 +27,6 @@ class FixedpointDecRefQueue extends IDecRefQueue<Fixedpoint>
     {
         super(move_limit);
     }
-
 
     @Override
     protected void decRef(Context ctx, long obj)

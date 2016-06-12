@@ -30,15 +30,20 @@ public abstract class Z3Object {
         m_ctx = ctx;
         checkNativeObject(obj);
         m_n_obj = obj;
-        incRef(obj);
+        incRef();
+        addToReferenceQueue();
     }
 
     /**
-     * Increment reference count on {@code o}.
-     *
-     * @param o Z3 object.
+     * Add to ReferenceQueue for tracking reachability on the object and
+     * decreasing the reference count when the object is no longer reachable.
      */
-    abstract void incRef(long o);
+    abstract void addToReferenceQueue();
+
+    /**
+     * Increment reference count on {@code this}.
+     */
+    abstract void incRef();
 
     /**
      * This function is provided for overriding, and a child class

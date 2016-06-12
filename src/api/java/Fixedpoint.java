@@ -349,8 +349,12 @@ public class Fixedpoint extends Z3Object
     }
 
     @Override
-    void incRef(long o) {
-        Native.fixedpointIncRef(getContext().nCtx(), o);
+    void incRef() {
+        Native.fixedpointIncRef(getContext().nCtx(), getNativeObject());
+    }
+
+    @Override
+    void addToReferenceQueue() {
         getContext().getFixedpointDRQ().storeReference(getContext(), this);
     }
 

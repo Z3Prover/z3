@@ -24,8 +24,7 @@ package com.microsoft.z3;
  * also be obtained using the command {@code (help-tactic)} in the SMT 2.0
  * front-end.
  **/
-public class Tactic extends Z3Object
-{
+public class Tactic extends Z3Object {
     /**
      * A string containing a description of parameters accepted by the tactic.
      **/
@@ -93,9 +92,12 @@ public class Tactic extends Z3Object
     }
 
     @Override
-    void incRef(long o)
-    {
-        Native.tacticIncRef(getContext().nCtx(), o);
+    void incRef() {
+        Native.tacticIncRef(getContext().nCtx(), getNativeObject());
+    }
+
+    @Override
+    void addToReferenceQueue() {
         getContext().getTacticDRQ().storeReference(getContext(), this);
     }
 }

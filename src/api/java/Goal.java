@@ -23,8 +23,7 @@ import com.microsoft.z3.enumerations.Z3_goal_prec;
  * A goal (aka problem). A goal is essentially a set of formulas, that can be
  * solved and/or transformed using tactics and solvers.
  **/
-public class Goal extends Z3Object
-{
+public class Goal extends Z3Object {
     /**
      * The precision of the goal.
      * Remarks:  Goals can be transformed using over
@@ -242,8 +241,12 @@ public class Goal extends Z3Object
     }
 
     @Override
-    void incRef(long o) {
-        Native.goalIncRef(getContext().nCtx(), o);
+    void incRef() {
+        Native.goalIncRef(getContext().nCtx(), getNativeObject());
+    }
+
+    @Override
+    void addToReferenceQueue() {
         getContext().getGoalDRQ().storeReference(getContext(), this);
     }
 }

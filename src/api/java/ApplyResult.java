@@ -21,8 +21,7 @@ package com.microsoft.z3;
  * ApplyResult objects represent the result of an application of a tactic to a
  * goal. It contains the subgoals that were produced.
  **/
-public class ApplyResult extends Z3Object
-{
+public class ApplyResult extends Z3Object {
     /**
      * The number of Subgoals.
      **/
@@ -74,8 +73,12 @@ public class ApplyResult extends Z3Object
     }
 
     @Override
-    void incRef(long o) {
-        Native.applyResultIncRef(getContext().nCtx(), o);
+    void incRef() {
+        Native.applyResultIncRef(getContext().nCtx(), getNativeObject());
+    }
+
+    @Override
+    void addToReferenceQueue() {
         getContext().getApplyResultDRQ().storeReference(getContext(), this);
     }
 }

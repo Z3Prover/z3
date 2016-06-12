@@ -21,8 +21,7 @@ package com.microsoft.z3;
 /**
  * A ParameterSet represents a configuration in the form of Symbol/value pairs.
  **/
-public class Params extends Z3Object
-{
+public class Params extends Z3Object {
     /**
      * Adds a parameter setting.
      **/
@@ -123,9 +122,14 @@ public class Params extends Z3Object
         super(ctx, Native.mkParams(ctx.nCtx()));
     }
 
+
     @Override
-    void incRef(long o) {
-        Native.paramsIncRef(getContext().nCtx(), o);
+    void incRef() {
+        Native.paramsIncRef(getContext().nCtx(), getNativeObject());
+    }
+
+    @Override
+    void addToReferenceQueue() {
         getContext().getParamsDRQ().storeReference(getContext(), this);
     }
 }

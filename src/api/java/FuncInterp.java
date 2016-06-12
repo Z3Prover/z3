@@ -22,8 +22,8 @@ package com.microsoft.z3;
  * Each entry in the finite map represents the value of a function given a set
  * of arguments.
  **/
-public class FuncInterp extends Z3Object
-{
+public class FuncInterp extends Z3Object {
+
     /**
      * An Entry object represents an element in the finite map used to encode a
      * function interpretation.
@@ -32,10 +32,10 @@ public class FuncInterp extends Z3Object
 
         /**
          * Return the (symbolic) value of this entry.
-         * 
+         *
          * @throws Z3Exception
          * @throws Z3Exception on error
-     **/
+         **/
         public Expr getValue()
         {
             return Expr.create(getContext(),
@@ -45,7 +45,7 @@ public class FuncInterp extends Z3Object
         /**
          * The number of arguments of the entry.
          * @throws Z3Exception on error
-     **/
+         **/
         public int getNumArgs()
         {
             return Native.funcEntryGetNumArgs(getContext().nCtx(), getNativeObject());
@@ -53,10 +53,10 @@ public class FuncInterp extends Z3Object
 
         /**
          * The arguments of the function entry.
-         * 
+         *
          * @throws Z3Exception
          * @throws Z3Exception on error
-     **/
+         **/
         public Expr[] getArgs()
         {
             int n = getNumArgs();
@@ -81,14 +81,17 @@ public class FuncInterp extends Z3Object
             return res + getValue() + "]";
         }
 
-        Entry(Context ctx, long obj)
-        {
+        Entry(Context ctx, long obj) {
             super(ctx, obj);
         }
 
         @Override
-        void incRef(long o) {
-            Native.funcEntryIncRef(getContext().nCtx(), o);;
+        void incRef() {
+            Native.funcEntryIncRef(getContext().nCtx(), getNativeObject());
+        }
+
+        @Override
+        void addToReferenceQueue() {
             getContext().getFuncEntryDRQ().storeReference(getContext(), this);
         }
     }
@@ -176,8 +179,12 @@ public class FuncInterp extends Z3Object
     }
 
     @Override
-    void incRef(long o) {
-        Native.funcInterpIncRef(getContext().nCtx(), o);
+    void incRef() {
+        Native.funcInterpIncRef(getContext().nCtx(), getNativeObject());
+    }
+
+    @Override
+    void addToReferenceQueue() {
         getContext().getFuncInterpDRQ().storeReference(getContext(), this);
     }
 }
