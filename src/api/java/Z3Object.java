@@ -29,8 +29,8 @@ public abstract class Z3Object {
     Z3Object(Context ctx, long obj) {
         m_ctx = ctx;
         checkNativeObject(obj);
-        incRef(obj);
         m_n_obj = obj;
+        incRef(obj);
     }
 
     /**
