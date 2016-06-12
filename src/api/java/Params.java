@@ -124,16 +124,8 @@ public class Params extends Z3Object
     }
 
     @Override
-    void incRef(long o)
-    {
-        getContext().getParamsDRQ().incAndClear(getContext(), o);
-        super.incRef(o);
-    }
-
-    @Override
-    void decRef(long o)
-    {
-        getContext().getParamsDRQ().add(o);
-        super.decRef(o);
+    void incRef(long o) {
+        Native.paramsIncRef(getContext().nCtx(), o);
+        getContext().getParamsDRQ().storeReference(getContext(), this);
     }
 }

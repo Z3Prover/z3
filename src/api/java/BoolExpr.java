@@ -20,15 +20,7 @@ package com.microsoft.z3;
 /**
  * Boolean expressions
  **/
-public class BoolExpr extends Expr
-{
-    /**
-     * Constructor for BoolExpr
-     **/
-    protected BoolExpr(Context ctx)
-    {
-        super(ctx);
-    }
+public class BoolExpr extends Expr {
 
     /**
      * Constructor for BoolExpr

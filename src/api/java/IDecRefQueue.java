@@ -17,13 +17,21 @@ Notes:
 
 package com.microsoft.z3;
 
-import java.util.LinkedList;
+import java.lang.ref.PhantomReference;
+import java.lang.ref.Reference;
+import java.lang.ref.ReferenceQueue;
+import java.util.IdentityHashMap;
+import java.util.Map;
 
-public abstract class IDecRefQueue
+public abstract class IDecRefQueue<T extends Z3Object>
 {
-    protected final Object m_lock = new Object();
-    protected LinkedList<Long> m_queue = new LinkedList<Long>();
-    protected int m_move_limit;
+    private final int m_move_limit;
+
+    // TODO: problem: ReferenceQueue has no API to return length.
+    private final ReferenceQueue<T> referenceQueue = new ReferenceQueue<>();
+    private int queueSize = 0;
+    private final Map<PhantomReference<T>, Long> referenceMap =
+            new IdentityHashMap<>();
 
     protected IDecRefQueue() 
 	{
@@ -34,38 +42,31 @@ public abstract class IDecRefQueue
     {
     	m_move_limit = move_limit;
     }
- 
-    public void setLimit(int l) { m_move_limit = l; }
- 
-    protected abstract void incRef(Context ctx, long obj);
 
+    /**
+     * An implementation of this method should decrement the reference on a
+     * given native object.
+     * This function should be always called on the {@code ctx} thread.
+     *
+     * @param ctx Z3 context.
+     * @param obj Pointer to a Z3 object.
+     */
     protected abstract void decRef(Context ctx, long obj);
 
-    protected void incAndClear(Context ctx, long o)
-    {
-        incRef(ctx, o);
-        if (m_queue.size() >= m_move_limit)
-            clear(ctx);
-    }
+    public void storeReference(Context ctx, T obj) {
+        PhantomReference<T> ref = new PhantomReference<>(obj, referenceQueue);
+        referenceMap.put(ref, obj.getNativeObject());
 
-    protected void add(long o)
-    {
-        if (o == 0)
-            return;
-
-        synchronized (m_lock)
-        {
-            m_queue.add(o);
-        }
+        // TODO: use move_limit, somehow get the size of referenceQueue.
+        clear(ctx);
     }
 
     protected void clear(Context ctx)
     {
-        synchronized (m_lock)
-        {
-            for (Long o : m_queue)
-                decRef(ctx, o);
-            m_queue.clear();
+        Reference<? extends T> ref;
+        while ((ref = referenceQueue.poll()) != null) {
+            long z3ast = referenceMap.remove(ref);
+            decRef(ctx, z3ast);
         }
     }
 }

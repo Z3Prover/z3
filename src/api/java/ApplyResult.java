@@ -74,16 +74,8 @@ public class ApplyResult extends Z3Object
     }
 
     @Override
-    void incRef(long o)
-    {
-        getContext().getApplyResultDRQ().incAndClear(getContext(), o);
-        super.incRef(o);
-    }
-
-    @Override
-    void decRef(long o)
-    {
-        getContext().getApplyResultDRQ().add(o);
-        super.decRef(o);
+    void incRef(long o) {
+        Native.applyResultIncRef(getContext().nCtx(), o);
+        getContext().getApplyResultDRQ().storeReference(getContext(), this);
     }
 }

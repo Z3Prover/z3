@@ -92,15 +92,10 @@ public class Tactic extends Z3Object
         super(ctx, Native.mkTactic(ctx.nCtx(), name));
     }
 
+    @Override
     void incRef(long o)
     {
-        getContext().getTacticDRQ().incAndClear(getContext(), o);
-        super.incRef(o);
-    }
-
-    void decRef(long o)
-    {
-        getContext().getTacticDRQ().add(o);
-        super.decRef(o);
+        Native.tacticIncRef(getContext().nCtx(), o);
+        getContext().getTacticDRQ().storeReference(getContext(), this);
     }
 }

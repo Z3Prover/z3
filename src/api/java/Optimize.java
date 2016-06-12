@@ -266,17 +266,8 @@ public class Optimize extends Z3Object
     }
 
     @Override
-    void incRef(long o)
-    {
-        getContext().getOptimizeDRQ().incAndClear(getContext(), o);
-        super.incRef(o);
+    void incRef(long o) {
+        Native.optimizeIncRef(getContext().nCtx(), o);
+        getContext().getOptimizeDRQ().storeReference(getContext(), this);
     }
-
-    @Override
-    void decRef(long o)
-    {
-        getContext().getOptimizeDRQ().add(o);
-        super.decRef(o);
-    }
-
 }

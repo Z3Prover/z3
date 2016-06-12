@@ -17,7 +17,7 @@ Notes:
 
 package com.microsoft.z3;
 
-class SolverDecRefQueue extends IDecRefQueue
+class SolverDecRefQueue extends IDecRefQueue<Solver>
 {
     public SolverDecRefQueue() { super(); }
     
@@ -27,26 +27,7 @@ class SolverDecRefQueue extends IDecRefQueue
     }
 
     @Override
-    protected void incRef(Context ctx, long obj)
-    {
-        try
-        {
-            Native.solverIncRef(ctx.nCtx(), obj);
-        } catch (Z3Exception e)
-        {
-            // OK.
-        }
-    }
-
-    @Override
-    protected void decRef(Context ctx, long obj)
-    {
-        try
-        {
-            Native.solverDecRef(ctx.nCtx(), obj);
-        } catch (Z3Exception e)
-        {
-            // OK.
-        }
+    protected void decRef(Context ctx, long obj) {
+        Native.solverDecRef(ctx.nCtx(), obj);
     }
 };

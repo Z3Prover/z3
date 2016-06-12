@@ -17,10 +17,9 @@ Notes:
 
 package com.microsoft.z3;
 
-import java.util.Map;
-import java.lang.String;
-
 import com.microsoft.z3.enumerations.Z3_lbool;
+
+import java.util.Map;
 
 /** 
  *  The InterpolationContext is suitable for generation of interpolants.
@@ -33,13 +32,13 @@ public class InterpolationContext extends Context
     /**
      * Constructor.
      **/
-    public InterpolationContext()
+    public static InterpolationContext mkContext()
     {
-        super();
+        long m_ctx;
         synchronized(creation_lock) {
             m_ctx = Native.mkInterpolationContext(0);
-            initContext(); 
         }
+        return new InterpolationContext(m_ctx);
     }
 
     /** 
@@ -49,17 +48,21 @@ public class InterpolationContext extends Context
      * Remarks: 
      * @see Context#Context
      **/
-    public InterpolationContext(Map<String, String> settings)
+    public static InterpolationContext mkContext(Map<String, String> settings)
     { 
-        super();
+        long m_ctx;
         synchronized(creation_lock) {
             long cfg = Native.mkConfig();
             for (Map.Entry<String, String> kv : settings.entrySet())
                 Native.setParamValue(cfg, kv.getKey(), kv.getValue());
             m_ctx = Native.mkInterpolationContext(cfg);
             Native.delConfig(cfg);
-            initContext();
         }
+        return new InterpolationContext(m_ctx);
+    }
+
+    private InterpolationContext(long m_ctx) {
+        super(m_ctx);
     }
 
     /** 

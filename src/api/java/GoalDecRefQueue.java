@@ -17,7 +17,7 @@ Notes:
 
 package com.microsoft.z3;
 
-class GoalDecRefQueue extends IDecRefQueue
+class GoalDecRefQueue extends IDecRefQueue<Goal>
 {
     public GoalDecRefQueue() 
     {
@@ -30,26 +30,7 @@ class GoalDecRefQueue extends IDecRefQueue
     }
 
     @Override
-    protected void incRef(Context ctx, long obj)
-    {
-        try
-        {
-            Native.goalIncRef(ctx.nCtx(), obj);
-        } catch (Z3Exception e)
-        {
-            // OK.
-        }
-    }
-
-    @Override
-    protected void decRef(Context ctx, long obj)
-    {
-        try
-        {
+    protected void decRef(Context ctx, long obj) {
             Native.goalDecRef(ctx.nCtx(), obj);
-        } catch (Z3Exception e)
-        {
-            // OK.
-        }
     }
 };

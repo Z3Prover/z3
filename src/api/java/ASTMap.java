@@ -120,14 +120,7 @@ class ASTMap extends Z3Object
     @Override
     void incRef(long o)
     {
-        getContext().getASTMapDRQ().incAndClear(getContext(), o);
-        super.incRef(o);
-    }
-
-    @Override
-    void decRef(long o)
-    {
-        getContext().getASTMapDRQ().add(o);
-        super.decRef(o);
+        Native.astMapIncRef(getContext().nCtx(), o);
+        getContext().getASTMapDRQ().storeReference(getContext(), this);
     }
 }

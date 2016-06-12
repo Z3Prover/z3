@@ -95,6 +95,7 @@ public class Sort extends AST
         super(ctx, obj);
     }
 
+    @Override
     void checkNativeObject(long obj)
     {
         if (Native.getAstKind(getContext().nCtx(), obj) != Z3_ast_kind.Z3_SORT_AST

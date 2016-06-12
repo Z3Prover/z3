@@ -120,13 +120,13 @@ public class Expr extends AST
      * @param args arguments
      * @throws Z3Exception on error
      **/
-    public void update(Expr[] args)
+    public Expr update(Expr[] args)
     {
         getContext().checkContextMatch(args);
         if (isApp() && args.length != getNumArgs()) {
             throw new Z3Exception("Number of arguments does not match");
         }
-        setNativeObject(Native.updateTerm(getContext().nCtx(), getNativeObject(),
+        return new Expr(getContext(), Native.updateTerm(getContext().nCtx(), getNativeObject(),
                 args.length, Expr.arrayToNative(args)));
     }
 
@@ -2091,36 +2091,23 @@ public class Expr extends AST
      **/
     public int getIndex()
     {
-        if (!isVar())
+        if (!isVar()) {
             throw new Z3Exception("Term is not a bound variable.");
+        }
 
         return Native.getIndexValue(getContext().nCtx(), getNativeObject());
     }
 
     /**
      * Constructor for Expr
-     **/
-    protected Expr(Context ctx)
-    {
-        super(ctx);
-        {
-        }
-    }
-
-    /**
-     * Constructor for Expr
      * @throws Z3Exception on error
      **/
-    protected Expr(Context ctx, long obj)
-    {
+    protected Expr(Context ctx, long obj) {
         super(ctx, obj);
-        {
-        }
     }
 
     @Override
-    void checkNativeObject(long obj)
-    {
+    void checkNativeObject(long obj) {
         if (!Native.isApp(getContext().nCtx(), obj) && 
             Native.getAstKind(getContext().nCtx(), obj) != Z3_ast_kind.Z3_VAR_AST.toInt() &&
             Native.getAstKind(getContext().nCtx(), obj) != Z3_ast_kind.Z3_QUANTIFIER_AST.toInt()) {

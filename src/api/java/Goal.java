@@ -222,11 +222,11 @@ public class Goal extends Z3Object
      **/
     public BoolExpr AsBoolExpr() {
         int n = size();
-        if (n == 0) 
+        if (n == 0) {
             return getContext().mkTrue();
-        else if (n == 1)                
+        } else if (n == 1) {
             return getFormulas()[0];
-        else {
+        } else {
             return getContext().mkAnd(getFormulas());
         }
     }
@@ -236,23 +236,14 @@ public class Goal extends Z3Object
         super(ctx, obj);
     }
 
-    Goal(Context ctx, boolean models, boolean unsatCores, boolean proofs)
-           
-    {
+    Goal(Context ctx, boolean models, boolean unsatCores, boolean proofs) {
         super(ctx, Native.mkGoal(ctx.nCtx(), (models),
             (unsatCores), (proofs)));
     }
 
-    void incRef(long o)
-    {
-        getContext().getGoalDRQ().incAndClear(getContext(), o);
-        super.incRef(o);
+    @Override
+    void incRef(long o) {
+        Native.goalIncRef(getContext().nCtx(), o);
+        getContext().getGoalDRQ().storeReference(getContext(), this);
     }
-
-    void decRef(long o)
-    {
-        getContext().getGoalDRQ().add(o);
-        super.decRef(o);
-    }
-
 }

@@ -293,16 +293,8 @@ public class Model extends Z3Object
     }
 
     @Override
-    void incRef(long o)
-    {
-        getContext().getModelDRQ().incAndClear(getContext(), o);
-        super.incRef(o);
-    }
-
-    @Override
-    void decRef(long o)
-    {
-        getContext().getModelDRQ().add(o);
-        super.decRef(o);
+    void incRef(long o) {
+        Native.modelIncRef(getContext().nCtx(), o);
+        getContext().getModelDRQ().storeReference(getContext(), this);
     }
 }

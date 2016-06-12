@@ -62,19 +62,13 @@ public class Symbol extends Z3Object
      * A string representation of the symbol.
      **/
     @Override
-    public String toString()
-    {
-        try
-        {
-            if (isIntSymbol())
-                return Integer.toString(((IntSymbol) this).getInt());
-            else if (isStringSymbol())
-                return ((StringSymbol) this).getString();
-            else
-                return "Z3Exception: Unknown symbol kind encountered.";
-        } catch (Z3Exception ex)
-        {
-            return "Z3Exception: " + ex.getMessage();
+    public String toString() {
+        if (isIntSymbol()) {
+            return Integer.toString(((IntSymbol) this).getInt());
+        } else if (isStringSymbol()) {
+            return ((StringSymbol) this).getString();
+        } else {
+            return "Z3Exception: Unknown symbol kind encountered.";
         }
     }
 
@@ -84,6 +78,11 @@ public class Symbol extends Z3Object
     protected Symbol(Context ctx, long obj)
     {
         super(ctx, obj);
+    }
+
+    @Override
+    void incRef(long o) {
+        // Symbol does not require tracking.
     }
 
     static Symbol create(Context ctx, long obj)

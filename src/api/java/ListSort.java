@@ -17,6 +17,8 @@ Notes:
 
 package com.microsoft.z3;
 
+import com.microsoft.z3.Native.LongPtr;
+
 /**
  * List sorts.
  **/
@@ -88,14 +90,9 @@ public class ListSort extends Sort
 
     ListSort(Context ctx, Symbol name, Sort elemSort)
     {
-        super(ctx, 0);
-
-        Native.LongPtr inil = new Native.LongPtr(), iisnil = new Native.LongPtr();
-        Native.LongPtr icons = new Native.LongPtr(), iiscons = new Native.LongPtr();
-        Native.LongPtr ihead = new Native.LongPtr(), itail = new Native.LongPtr();
-
-        setNativeObject(Native.mkListSort(ctx.nCtx(), name.getNativeObject(),
-                elemSort.getNativeObject(), inil, iisnil, icons, iiscons, ihead,
-                itail));
+        super(ctx, Native.mkListSort(ctx.nCtx(), name.getNativeObject(),
+                elemSort.getNativeObject(),
+                new LongPtr(), new Native.LongPtr(), new LongPtr(),
+                new LongPtr(), new LongPtr(), new LongPtr()));
     }
 };

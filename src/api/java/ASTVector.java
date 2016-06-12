@@ -105,17 +105,10 @@ public class ASTVector extends Z3Object
     @Override
     void incRef(long o)
     {
-        getContext().getASTVectorDRQ().incAndClear(getContext(), o);
-        super.incRef(o);
+        Native.astVectorIncRef(getContext().nCtx(), o);
+        getContext().getASTVectorDRQ().storeReference(getContext(), this);
     }
 
-    @Override
-    void decRef(long o)
-    {
-        getContext().getASTVectorDRQ().add(o);
-        super.decRef(o);
-    }
-    
     /**
      * Translates the AST vector into an AST[]
      * */

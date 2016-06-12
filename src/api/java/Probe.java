@@ -54,14 +54,7 @@ public class Probe extends Z3Object
     @Override
     void incRef(long o)
     {
-        getContext().getProbeDRQ().incAndClear(getContext(), o);
-        super.incRef(o);
-    }
-
-    @Override
-    void decRef(long o)
-    {
-        getContext().getProbeDRQ().add(o);
-        super.decRef(o);
+        Native.probeIncRef(getContext().nCtx(), o);
+        getContext().getProbeDRQ().storeReference(getContext(), this);
     }
 }

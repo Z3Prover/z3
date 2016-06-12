@@ -190,15 +190,9 @@ public class Statistics extends Z3Object
         super(ctx, obj);
     }
 
-    void incRef(long o)
-    {
-        getContext().getStatisticsDRQ().incAndClear(getContext(), o);
-        super.incRef(o);
-    }
-
-    void decRef(long o)
-    {
-        getContext().getStatisticsDRQ().add(o);
-        super.decRef(o);
+    @Override
+    void incRef(long o) {
+        Native.statsIncRef(getContext().nCtx(), o);
+        getContext().getStatisticsDRQ().storeReference(getContext(), this);
     }
 }
