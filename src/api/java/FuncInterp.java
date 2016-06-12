@@ -28,8 +28,8 @@ public class FuncInterp extends Z3Object
      * An Entry object represents an element in the finite map used to encode a
      * function interpretation.
      **/
-    public class Entry extends Z3Object
-    {
+    public static class Entry extends Z3Object {
+
         /**
          * Return the (symbolic) value of this entry.
          * 
