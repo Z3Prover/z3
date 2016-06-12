@@ -122,8 +122,9 @@ namespace smt {
             return m_context.get_formulas()[idx];
         }
 
-        virtual void display(std::ostream & out) const {
+        virtual std::ostream& display(std::ostream & out) const {
             m_context.display(out);
+            return out;
         }
    
     };

@@ -534,34 +534,10 @@ namespace qe {
             m_solver->assert_expr(e);
         }
         
-        ptr_vector<expr> m_core;
-
         void get_core(expr_ref_vector& core) {
             core.reset();
-            m_core.reset();
-            m_solver->get_unsat_core(m_core);
-            core.append(m_core.size(), m_core.c_ptr());
-
-#if 0
-
-            mus mus(*m_solver);
-            for (unsigned i = 0; i < m_core.size(); ++i) {
-                VERIFY(i == mus.add_soft(m_core[i]));
-            }
-            unsigned_vector mus2;
-            core.reset();
-            if (mus.get_mus(mus2) != l_undef) {
-                for (unsigned i = 0; i < mus2.size(); ++i) {
-                    core.push_back(m_core[mus2[i]]);
-                }
-            }
-            std::cout << m_core.size() << " => " << core.size() << "\n";
-#endif
-
-            TRACE("qe", tout << "core: " << core << "\n";
-                  m_solver->display(tout);
-                  tout << "\n";
-                  );
+            m_solver->get_unsat_core(core);
+            TRACE("qe", m_solver->display(tout << "core: " << core << "\n") << "\n";);
         }
     };
 
@@ -624,11 +600,14 @@ namespace qe {
                     break;
                 case l_false:
                     switch (m_level) {
-                    case 0: return l_false;
+                    case 0: 
+                        return l_false;
                     case 1: 
-                        if (m_mode == qsat_sat) return l_true; 
+                        if (m_mode == qsat_sat) {
+                            return l_true; 
+                        }
                         if (m_model.get()) {
-                            project_qe(asms);
+                            if (!project_qe(asms)) return l_undef;
                         }
                         else {
                             pop(1);
@@ -636,7 +615,7 @@ namespace qe {
                         break;
                     default: 
                         if (m_model.get()) {
-                            project(asms); 
+                            if (!project(asms)) return l_undef;
                         }
                         else {
                             pop(1);
@@ -755,9 +734,42 @@ namespace qe {
             }
         }
         
-        void get_core(expr_ref_vector& core, unsigned level) {
+        bool get_core(expr_ref_vector& core, unsigned level) {
             get_kernel(level).get_core(core);
             m_pred_abs.pred2lit(core);
+            return true;
+        }
+
+        bool minimize_core(expr_ref_vector& core, unsigned level) {
+            expr_ref_vector core1(m), core2(m), dels(m);
+            TRACE("qe", tout << core.size() << "\n";);
+            mus mus(get_kernel(level).s());
+            for (unsigned i = 0; i < core.size(); ++i) {
+                app* a = to_app(core[i].get());                
+                max_level lvl = m_pred_abs.compute_level(a);
+                if (lvl.max() + 2 <= level) {     
+                    VERIFY(core1.size() == mus.add_soft(a));
+                    core1.push_back(a);
+                }
+                else {
+                    core2.push_back(a);
+                    mus.add_assumption(a);
+                }
+            }
+            TRACE("qe", tout << core1.size() << " " << core2.size() << "\n";);
+            if (core1.size() > 8) {
+                unsigned_vector core_idxs;
+                if (l_true != mus.get_mus(core_idxs)) {
+                    return false;
+                }
+                TRACE("qe", tout << core1.size() << " -> " << core_idxs.size() << "\n";);
+                for (unsigned i = 0; i < core_idxs.size(); ++i) {
+                    core2.push_back(core1[core_idxs[i]].get());
+                }
+                core.reset();
+                core.append(core2);
+            }
+            return true;
         }
         
         void check_cancel() {
@@ -795,11 +807,13 @@ namespace qe {
             m_pred_abs.set_expr_level(b, lvl);
         }
         
-        void project_qe(expr_ref_vector& core) {
+        bool project_qe(expr_ref_vector& core) {
             SASSERT(m_level == 1);
             expr_ref fml(m);
             model& mdl = *m_model.get();
-            get_core(core, m_level);
+            if (!get_core(core, m_level)) {
+                return false;
+            }
             SASSERT(validate_core(core));
             get_vars(m_level);
             m_mbp(force_elim(), m_avars, mdl, core);
@@ -814,10 +828,11 @@ namespace qe {
                 m_free_vars.append(m_avars);
                 pop(1);
             }
+            return true;
         }
                 
-        void project(expr_ref_vector& core) {
-            get_core(core, m_level);
+        bool project(expr_ref_vector& core) {
+            if (!get_core(core, m_level)) return false;
             TRACE("qe", display(tout); display(tout << "core\n", core););
             SASSERT(validate_core(core));
             SASSERT(m_level >= 2);
@@ -860,6 +875,7 @@ namespace qe {
                 fml = m_pred_abs.mk_abstract(fml);
                 get_kernel(m_level).assert_expr(fml);
             }
+            return true;
         }
         
         void get_vars(unsigned level) {
@@ -990,14 +1006,15 @@ namespace qe {
         }
 
         bool validate_core(expr_ref_vector const& core) {
+            return true;
+#if 0
             TRACE("qe", tout << "Validate core\n";);
             solver& s = get_kernel(m_level).s();
             expr_ref_vector fmls(m);
             fmls.append(core.size(), core.c_ptr());
-            for (unsigned i = 0; i < s.get_num_assertions(); ++i) {
-                fmls.push_back(s.get_assertion(i));
-            }
+            s.get_assertions(fmls);
             return check_fmls(fmls) || m.canceled();
+#endif
         }
 
         bool check_fmls(expr_ref_vector const& fmls) {
@@ -1013,15 +1030,16 @@ namespace qe {
         }
 
         bool validate_model(expr_ref_vector const& asms) {
+            return true;
+#if 0
             TRACE("qe", tout << "Validate model\n";);
             solver& s = get_kernel(m_level).s();
             expr_ref_vector fmls(m);
-            for (unsigned i = 0; i < s.get_num_assertions(); ++i) {
-                fmls.push_back(s.get_assertion(i));
-            }
+            s.get_assertions(fmls);
             return 
                 validate_model(*m_model, asms.size(), asms.c_ptr()) &&
                 validate_model(*m_model, fmls.size(), fmls.c_ptr());
+#endif
         }
 
         bool validate_model(model& mdl, unsigned sz, expr* const* fmls) {
@@ -1047,6 +1065,8 @@ namespace qe {
         //  (core[model(vars)/vars] => proj)
               
         bool validate_project(model& mdl, expr_ref_vector const& core) {
+            return true;
+#if 0
             TRACE("qe", tout << "Validate projection\n";);
             if (!validate_model(mdl, core.size(), core.c_ptr())) return false;
 
@@ -1090,6 +1110,7 @@ namespace qe {
                 TRACE("qe", tout << "implication check failed, could be due to turning != into >\n";);
             }
             return true;
+#endif
         }
 
 
@@ -1159,7 +1180,6 @@ namespace qe {
                 fml = push_not(fml);
             }
             hoist(fml);
-//            hoist_ite(fml); redundant provided theories understand to deal with ite terms.
             m_pred_abs.abstract_atoms(fml, defs);
             fml = m_pred_abs.mk_abstract(fml);
             m_ex.assert_expr(mk_and(defs));
@@ -1277,8 +1297,6 @@ namespace qe {
             m_ex.assert_expr(bound);            
         }
 
-
-
     };
 
     lbool maximize(expr_ref_vector const& fmls, app* t, opt::inf_eps& value, model_ref& mdl, params_ref const& p) {
@@ -1309,8 +1327,7 @@ namespace qe {
 
     void qmax::collect_statistics(statistics& st) const {
         m_imp->m_qsat.collect_statistics(st);
-    };
-
+    }
 };
 
 tactic * mk_qsat_tactic(ast_manager& m, params_ref const& p) {

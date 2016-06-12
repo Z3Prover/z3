@@ -34,6 +34,15 @@ class mus {
     */
     unsigned add_soft(expr* cls);
     
+    /**
+       Additional assumption for solver to be used along with solver context, 
+       but not used in core computation. This facility is useful when querying
+       for a core over only a subset of soft constraints. It has the same 
+       logical functionality as asserting 'lit' to the solver and pushing a scope
+       (and popping the scope before the solver is used for other constraints).
+     */
+    void add_assumption(expr* lit);
+
     lbool get_mus(unsigned_vector& mus);
     
     void reset();

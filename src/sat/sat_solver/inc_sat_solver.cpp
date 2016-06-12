@@ -477,6 +477,6 @@ void inc_sat_display(std::ostream& out, solver& _s, unsigned sz, expr*const* sof
         }
         weights.push_back(_weights[i].get_unsigned());
     }
-    return s.display_weighted(out, sz, soft, weights.c_ptr());
+    s.display_weighted(out, sz, soft, weights.c_ptr());
 }
 

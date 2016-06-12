@@ -1072,18 +1072,33 @@ namespace qe {
                 expr_ref_vector ts(m);
                 expr_ref t(m), s(m);
                 row const& r = rows[i];
+                if (r.m_vars.size() == 0) {
+                    continue;
+                }
+                if (r.m_vars.size() == 1 && r.m_vars[0].m_coeff.is_neg()) {
+                    var const& v = r.m_vars[0];
+                    t = index2expr[v.m_id];
+                    if (!v.m_coeff.is_minus_one()) {
+                        t = a.mk_mul(t, a.mk_numeral(-v.m_coeff, a.is_int(t)));
+                    }
+                    s = a.mk_numeral(r.m_coeff, a.is_int(t));
+                    switch (r.m_type) {
+                    case opt::t_lt: t = a.mk_gt(t, s); break;
+                    case opt::t_le: t = a.mk_ge(t, s); break;
+                    case opt::t_eq: t = a.mk_eq(t, s); break;
+                    }
+                    fmls.push_back(t);
+                    continue;
+                }
                 for (j = 0; j < r.m_vars.size(); ++j) {
                     var const& v = r.m_vars[j];
                     t = index2expr[v.m_id];
                     if (!v.m_coeff.is_one()) {
-                        t = a.mk_mul(t, a.mk_numeral(v.m_coeff, v.m_coeff.is_int()));
+                        t = a.mk_mul(t, a.mk_numeral(v.m_coeff, a.is_int(t)));
                     }
                     ts.push_back(t);
                 }
-                if (ts.empty()) {
-                    continue;
-                }
-                s = a.mk_numeral(-r.m_coeff, r.m_coeff.is_int());
+                s = a.mk_numeral(-r.m_coeff, a.is_int(t));
                 if (ts.size() == 1) {
                     t = ts[0].get();
                 }

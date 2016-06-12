@@ -79,6 +79,10 @@ public:
         for (unsigned i = 0; i < ts.size(); ++i) assert_expr(ts[i]); 
     }
 
+    void assert_expr(ptr_vector<expr> const& ts) { 
+        for (unsigned i = 0; i < ts.size(); ++i) assert_expr(ts[i]); 
+    }
+
     /**
        \brief Add a new formula \c t to the assertion stack, and "tag" it with \c a.
        The propositional variable \c a is used to track the use of \c t in a proof
@@ -131,6 +135,11 @@ public:
     virtual expr * get_assertion(unsigned idx) const;
 
     /**
+    \brief Retrieves assertions as a vector.
+    */
+    void get_assertions(expr_ref_vector& fmls) const;
+
+    /**
     \brief The number of tracked assumptions (see assert_expr(t, a)).
     */
     virtual unsigned get_num_assumptions() const = 0;
@@ -142,10 +151,11 @@ public:
 
 
 
+
     /**
        \brief Display the content of this solver.
     */
-    virtual void display(std::ostream & out) const;
+    virtual std::ostream& display(std::ostream & out) const;
 
     class scoped_push {
         solver& s;

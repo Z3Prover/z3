@@ -28,7 +28,13 @@ expr * solver::get_assertion(unsigned idx) const {
     return 0;
 }
 
-void solver::display(std::ostream & out) const {
-    out << "(solver)";
+std::ostream& solver::display(std::ostream & out) const {
+    return out << "(solver)";
 }
 
+void solver::get_assertions(expr_ref_vector& fmls) const {
+    unsigned sz = get_num_assertions();
+    for (unsigned i = 0; i < sz; ++i) {
+        fmls.push_back(get_assertion(i));
+    }
+}

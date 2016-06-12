@@ -555,10 +555,9 @@ namespace opt {
         m_params.set_bool("minimize_core_partial", true); // false);
         m_params.set_bool("minimize_core", true);
         m_sat_solver = mk_inc_sat_solver(m, m_params);
-        unsigned sz = get_solver().get_num_assertions();
-        for (unsigned i = 0; i < sz; ++i) {
-            m_sat_solver->assert_expr(get_solver().get_assertion(i));
-        }   
+        expr_ref_vector fmls(m);
+        get_solver().get_assertions(fmls);
+        m_sat_solver->assert_expr(fmls);
         m_solver = m_sat_solver.get();        
     }
 

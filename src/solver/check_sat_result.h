@@ -48,6 +48,11 @@ public:
     lbool status() const { return m_status; }
     virtual void collect_statistics(statistics & st) const = 0;
     virtual void get_unsat_core(ptr_vector<expr> & r) = 0;
+    virtual void get_unsat_core(expr_ref_vector & r) {
+        ptr_vector<expr> core;
+        get_unsat_core(core);
+        r.append(core.size(), core.c_ptr());
+    }
     virtual void get_model(model_ref & m) = 0;
     virtual proof * get_proof() = 0;
     virtual std::string reason_unknown() const = 0;

@@ -73,7 +73,7 @@ public:
     virtual unsigned get_num_assertions() const;
     virtual expr * get_assertion(unsigned idx) const;
 
-    virtual void display(std::ostream & out) const;
+    virtual std::ostream& display(std::ostream & out) const;
     virtual ast_manager& get_manager(); 
 };
 
@@ -240,7 +240,7 @@ expr * tactic2solver::get_assertion(unsigned idx) const {
     return m_assertions.get(idx);
 }
 
-void tactic2solver::display(std::ostream & out) const {
+std::ostream& tactic2solver::display(std::ostream & out) const {
     ast_pp_util visitor(m_assertions.m());
     visitor.collect(m_assertions);
     visitor.display_decls(out);
@@ -254,6 +254,7 @@ void tactic2solver::display(std::ostream & out) const {
     }
     out << ")";
 #endif
+    return out;
 }
 
 solver * mk_tactic2solver(ast_manager & m, 

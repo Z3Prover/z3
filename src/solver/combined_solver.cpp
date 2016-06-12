@@ -262,8 +262,8 @@ public:
         return m_solver2->get_assumption(idx - c1);
     }
 
-    virtual void display(std::ostream & out) const {
-        m_solver1->display(out);
+    virtual std::ostream& display(std::ostream & out) const {
+        return m_solver1->display(out);
     }
 
     virtual void collect_statistics(statistics & st) const {

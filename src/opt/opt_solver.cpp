@@ -316,8 +316,9 @@ namespace opt {
         return m_context.get_formulas()[idx];
     }
     
-    void opt_solver::display(std::ostream & out) const {
+    std::ostream& opt_solver::display(std::ostream & out) const {
         m_context.display(out);
+        return out;
     }
     
     smt::theory_var opt_solver::add_objective(app* term) {
