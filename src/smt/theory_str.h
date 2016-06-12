@@ -74,6 +74,15 @@ namespace smt {
          */
         bool opt_AggressiveValueTesting;
 
+        /*
+         * Setting EagerStringConstantLengthAssertions to true allows some methods,
+         * in particular internalize_term(), to add
+         * length assertions about relevant string constants.
+         * Note that currently this should always be set to 'true', or else *no* length assertions
+         * will be made about string constants.
+         */
+        bool opt_EagerStringConstantLengthAssertions;
+
         bool search_started;
         arith_util m_autil;
         str_util m_strutil;
@@ -87,6 +96,7 @@ namespace smt {
         ptr_vector<enode> m_basicstr_axiom_todo;
         svector<std::pair<enode*,enode*> > m_str_eq_todo;
         ptr_vector<enode> m_concat_axiom_todo;
+        ptr_vector<enode> m_string_constant_length_todo;
 
         int tmpStringVarCount;
         int tmpXorVarCount;

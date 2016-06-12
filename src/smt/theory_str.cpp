@@ -30,6 +30,7 @@ theory_str::theory_str(ast_manager & m):
         /* Options */
         opt_AggressiveLengthTesting(true),
         opt_AggressiveValueTesting(true),
+        opt_EagerStringConstantLengthAssertions(true),
         /* Internal setup */
         search_started(false),
         m_autil(m),
@@ -191,7 +192,9 @@ bool theory_str::internalize_term(app * term) {
     //}
     */
 
-    // from theory_seq::internalize_term()
+    // TODO do we still need to do instantiate_concat_axiom()?
+
+    // partially from theory_seq::internalize_term()
     if (ctx.e_internalized(term)) {
         enode* e = ctx.get_enode(term);
         mk_var(e);
@@ -217,6 +220,12 @@ bool theory_str::internalize_term(app * term) {
     else {
         e = ctx.mk_enode(term, false, m.is_bool(term), true);
     }
+
+    if (opt_EagerStringConstantLengthAssertions && m_strutil.is_string(term)) {
+        TRACE("t_str", tout << "eagerly asserting length of string term " << mk_pp(term, m) << std::endl;);
+        m_basicstr_axiom_todo.insert(e);
+    }
+
     theory_var v = mk_var(e);
     TRACE("t_str_detail", tout << "term " << mk_ismt2_pp(term, get_manager()) << " = v#" << v << std::endl;);
 
