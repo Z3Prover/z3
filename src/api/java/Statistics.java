@@ -84,15 +84,9 @@ public class Statistics extends Z3Object
         /**
          * The string representation of the Entry.
          **/
-        public String toString()
-        {
-            try
-            {
-                return Key + ": " + getValueString();
-            } catch (Z3Exception e)
-            {
-                return "Z3Exception: " + e.getMessage();
-            }
+        @Override
+        public String toString() {
+            return Key + ": " + getValueString();
         }
 
         private boolean m_is_int = false;
@@ -118,15 +112,10 @@ public class Statistics extends Z3Object
     /**
      * A string representation of the statistical data.
      **/
+    @Override
     public String toString()
     {
-        try
-        {
-            return Native.statsToString(getContext().nCtx(), getNativeObject());
-        } catch (Z3Exception e)
-        {
-            return "Z3Exception: " + e.getMessage();
-        }
+        return Native.statsToString(getContext().nCtx(), getNativeObject());
     }
 
     /**

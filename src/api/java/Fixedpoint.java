@@ -255,14 +255,8 @@ public class Fixedpoint extends Z3Object
     @Override
     public String toString()
     {
-        try
-        {
-            return Native.fixedpointToString(getContext().nCtx(), getNativeObject(),
+        return Native.fixedpointToString(getContext().nCtx(), getNativeObject(),
                     0, null);
-        } catch (Z3Exception e)
-        {
-            return "Z3Exception: " + e.getMessage();
-        }
     }
 
     /**

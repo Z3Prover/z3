@@ -175,15 +175,8 @@ public class AST extends Z3Object implements Comparable<AST>
      * A string representation of the AST.
      **/
     @Override
-    public String toString()
-    {
-        try
-        {
-            return Native.astToString(getContext().nCtx(), getNativeObject());
-        } catch (Z3Exception e)
-        {
-            return "Z3Exception: " + e.getMessage();
-        }
+    public String toString() {
+        return Native.astToString(getContext().nCtx(), getNativeObject());
     }
 
     /**

@@ -115,13 +115,7 @@ public class Params extends Z3Object
     @Override
     public String toString()
     {
-        try
-        {
-            return Native.paramsToString(getContext().nCtx(), getNativeObject());
-        } catch (Z3Exception e)
-        {
-            return "Z3Exception: " + e.getMessage();
-        }
+        return Native.paramsToString(getContext().nCtx(), getNativeObject());
     }
 
     Params(Context ctx)

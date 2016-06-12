@@ -82,15 +82,8 @@ public class ParamDescrs extends Z3Object
      * Retrieves a string representation of the ParamDescrs.
      **/
     @Override
-    public String toString()
-    {
-        try
-        {
-            return Native.paramDescrsToString(getContext().nCtx(), getNativeObject());
-        } catch (Z3Exception e)
-        {
-            return "Z3Exception: " + e.getMessage();
-        }
+    public String toString() {
+        return Native.paramDescrsToString(getContext().nCtx(), getNativeObject());
     }
 
     ParamDescrs(Context ctx, long obj)

@@ -88,15 +88,8 @@ public class ASTVector extends Z3Object
      * Retrieves a string representation of the vector.
      **/
     @Override
-    public String toString()
-    {
-        try
-        {
-            return Native.astVectorToString(getContext().nCtx(), getNativeObject());
-        } catch (Z3Exception e)
-        {
-            return "Z3Exception: " + e.getMessage();
-        }
+    public String toString() {
+        return Native.astVectorToString(getContext().nCtx(), getNativeObject());
     }
 
     ASTVector(Context ctx, long obj)

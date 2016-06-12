@@ -64,15 +64,8 @@ public class ApplyResult extends Z3Object
      * A string representation of the ApplyResult.
      **/
     @Override
-    public String toString()
-    {
-        try
-        {
-            return Native.applyResultToString(getContext().nCtx(), getNativeObject());
-        } catch (Z3Exception e)
-        {
-            return "Z3Exception: " + e.getMessage();
-        }
+    public String toString() {
+        return Native.applyResultToString(getContext().nCtx(), getNativeObject());
     }
 
     ApplyResult(Context ctx, long obj)

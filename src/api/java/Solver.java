@@ -323,14 +323,8 @@ public class Solver extends Z3Object
     @Override
     public String toString()
     {
-        try
-        {
-            return Native
-                    .solverToString(getContext().nCtx(), getNativeObject());
-        } catch (Z3Exception e)
-        {
-            return "Z3Exception: " + e.getMessage();
-        }
+        return Native
+                .solverToString(getContext().nCtx(), getNativeObject());
     }
 
     Solver(Context ctx, long obj)

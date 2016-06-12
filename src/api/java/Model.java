@@ -283,15 +283,8 @@ public class Model extends Z3Object
      * @return A string representation of the model.
      **/
     @Override
-    public String toString()
-    {
-        try
-        {
-            return Native.modelToString(getContext().nCtx(), getNativeObject());
-        } catch (Z3Exception e)
-        {
-            return "Z3Exception: " + e.getMessage();
-        }
+    public String toString() {
+        return Native.modelToString(getContext().nCtx(), getNativeObject());
     }
 
     Model(Context ctx, long obj)

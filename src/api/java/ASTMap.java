@@ -104,13 +104,7 @@ class ASTMap extends Z3Object
     @Override
     public String toString()
     {
-        try
-        {
-            return Native.astMapToString(getContext().nCtx(), getNativeObject());
-        } catch (Z3Exception e)
-        {
-            return "Z3Exception: " + e.getMessage();
-        }
+        return Native.astMapToString(getContext().nCtx(), getNativeObject());
     }
 
     ASTMap(Context ctx, long obj)

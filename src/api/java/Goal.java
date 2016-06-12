@@ -211,15 +211,8 @@ public class Goal extends Z3Object
      * 
      * @return A string representation of the Goal.
      **/
-    public String toString()
-    {
-        try
-        {
-            return Native.goalToString(getContext().nCtx(), getNativeObject());
-        } catch (Z3Exception e)
-        {
-            return "Z3Exception: " + e.getMessage();
-        }
+    public String toString() {
+        return Native.goalToString(getContext().nCtx(), getNativeObject());
     }
     
     /** 
