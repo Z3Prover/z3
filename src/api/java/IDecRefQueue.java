@@ -46,7 +46,7 @@ public abstract class IDecRefQueue<T extends Z3Object>
     /**
      * An implementation of this method should decrement the reference on a
      * given native object.
-     * This function should be always called on the {@code ctx} thread.
+     * This function should always be called on the {@code ctx} thread.
      *
      * @param ctx Z3 context.
      * @param obj Pointer to a Z3 object.
