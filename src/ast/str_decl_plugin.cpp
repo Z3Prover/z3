@@ -26,6 +26,7 @@ str_decl_plugin::str_decl_plugin():
     m_str_decl(0),
     m_concat_decl(0),
     m_length_decl(0),
+    m_charat_decl(0),
     m_arith_plugin(0),
     m_arith_fid(0),
     m_int_sort(0){
@@ -39,6 +40,7 @@ void str_decl_plugin::finalize(void) {
     DEC_REF(m_str_decl);
     DEC_REF(m_concat_decl);
     DEC_REF(m_length_decl);
+    DEC_REF(m_charat_decl);
     DEC_REF(m_int_sort);
 }
 
@@ -64,7 +66,11 @@ void str_decl_plugin::set_manager(ast_manager * m, family_id id) {
 
     MK_OP(m_concat_decl, "Concat", OP_STRCAT, s);
 
-    m_length_decl = m->mk_func_decl(symbol("Length"), s, i, func_decl_info(id, OP_STRLEN)); m_manager->inc_ref(m_length_decl);
+    m_length_decl = m->mk_func_decl(symbol("Length"), s, i, func_decl_info(id, OP_STRLEN));
+    m_manager->inc_ref(m_length_decl);
+
+    m_charat_decl = m->mk_func_decl(symbol("CharAt"), s, i, s, func_decl_info(id, OP_STR_CHARAT));
+    m_manager->inc_ref(m_charat_decl);
 }
 
 decl_plugin * str_decl_plugin::mk_fresh() {
@@ -82,6 +88,7 @@ func_decl * str_decl_plugin::mk_func_decl(decl_kind k) {
     switch(k) {
     case OP_STRCAT: return m_concat_decl;
     case OP_STRLEN: return m_length_decl;
+    case OP_STR_CHARAT: return m_charat_decl;
     default: return 0;
     }
 }
@@ -138,6 +145,7 @@ app * str_decl_plugin::mk_fresh_string() {
 void str_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
     op_names.push_back(builtin_name("Concat", OP_STRCAT));
     op_names.push_back(builtin_name("Length", OP_STRLEN));
+    op_names.push_back(builtin_name("CharAt", OP_STR_CHARAT));
 }
 
 void str_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {
