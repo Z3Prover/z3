@@ -24,11 +24,6 @@ class ProbeDecRefQueue extends IDecRefQueue<Probe>
         super();
     }
 
-    public ProbeDecRefQueue(int move_limit) 
-    {
-        super(move_limit);
-    }
-
     @Override
     protected void decRef(Context ctx, long obj)
     {

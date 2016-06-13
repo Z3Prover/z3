@@ -23,11 +23,6 @@ class TacticDecRefQueue extends IDecRefQueue<Tactic> {
         super();
     }
 
-    public TacticDecRefQueue(int move_limit) 
-    {
-        super(move_limit);
-    }
-
     @Override
     protected void decRef(Context ctx, long obj)
     {

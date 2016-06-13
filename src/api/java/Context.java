@@ -3905,24 +3905,24 @@ public class Context implements AutoCloseable {
     }
 
     private ASTDecRefQueue m_AST_DRQ = new ASTDecRefQueue();
-    private ASTMapDecRefQueue m_ASTMap_DRQ = new ASTMapDecRefQueue(10);
-    private ASTVectorDecRefQueue m_ASTVector_DRQ = new ASTVectorDecRefQueue(10);
-    private ApplyResultDecRefQueue m_ApplyResult_DRQ = new ApplyResultDecRefQueue(10);
-    private FuncInterpEntryDecRefQueue m_FuncEntry_DRQ = new FuncInterpEntryDecRefQueue(10);
-    private FuncInterpDecRefQueue m_FuncInterp_DRQ = new FuncInterpDecRefQueue(10);
-    private GoalDecRefQueue m_Goal_DRQ = new GoalDecRefQueue(10);
-    private ModelDecRefQueue m_Model_DRQ = new ModelDecRefQueue(10);
-    private ParamsDecRefQueue m_Params_DRQ = new ParamsDecRefQueue(10);
-    private ParamDescrsDecRefQueue m_ParamDescrs_DRQ = new ParamDescrsDecRefQueue(10);
-    private ProbeDecRefQueue m_Probe_DRQ = new ProbeDecRefQueue(10);
-    private SolverDecRefQueue m_Solver_DRQ = new SolverDecRefQueue(10);
-    private StatisticsDecRefQueue m_Statistics_DRQ = new StatisticsDecRefQueue(10);
-    private TacticDecRefQueue m_Tactic_DRQ = new TacticDecRefQueue(10);
-    private FixedpointDecRefQueue m_Fixedpoint_DRQ = new FixedpointDecRefQueue(10);
-    private OptimizeDecRefQueue m_Optimize_DRQ = new OptimizeDecRefQueue(10);
-    private ConstructorDecRefQueue m_Constructor_DRQ = new ConstructorDecRefQueue(10);
+    private ASTMapDecRefQueue m_ASTMap_DRQ = new ASTMapDecRefQueue();
+    private ASTVectorDecRefQueue m_ASTVector_DRQ = new ASTVectorDecRefQueue();
+    private ApplyResultDecRefQueue m_ApplyResult_DRQ = new ApplyResultDecRefQueue();
+    private FuncInterpEntryDecRefQueue m_FuncEntry_DRQ = new FuncInterpEntryDecRefQueue();
+    private FuncInterpDecRefQueue m_FuncInterp_DRQ = new FuncInterpDecRefQueue();
+    private GoalDecRefQueue m_Goal_DRQ = new GoalDecRefQueue();
+    private ModelDecRefQueue m_Model_DRQ = new ModelDecRefQueue();
+    private ParamsDecRefQueue m_Params_DRQ = new ParamsDecRefQueue();
+    private ParamDescrsDecRefQueue m_ParamDescrs_DRQ = new ParamDescrsDecRefQueue();
+    private ProbeDecRefQueue m_Probe_DRQ = new ProbeDecRefQueue();
+    private SolverDecRefQueue m_Solver_DRQ = new SolverDecRefQueue();
+    private StatisticsDecRefQueue m_Statistics_DRQ = new StatisticsDecRefQueue();
+    private TacticDecRefQueue m_Tactic_DRQ = new TacticDecRefQueue();
+    private FixedpointDecRefQueue m_Fixedpoint_DRQ = new FixedpointDecRefQueue();
+    private OptimizeDecRefQueue m_Optimize_DRQ = new OptimizeDecRefQueue();
+    private ConstructorDecRefQueue m_Constructor_DRQ = new ConstructorDecRefQueue();
     private ConstructorListDecRefQueue m_ConstructorList_DRQ =
-            new ConstructorListDecRefQueue(10);
+            new ConstructorListDecRefQueue();
 
     public IDecRefQueue<Constructor> getConstructorDRQ() {
         return m_Constructor_DRQ;

@@ -24,11 +24,6 @@ class ASTDecRefQueue extends IDecRefQueue<AST>
         super();
     }
 
-    public ASTDecRefQueue(int move_limit) 
-    {
-        super(move_limit);
-    }
-
     @Override
     protected void decRef(Context ctx, long obj) {
         Native.decRef(ctx.nCtx(), obj);

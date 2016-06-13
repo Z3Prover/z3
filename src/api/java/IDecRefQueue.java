@@ -23,25 +23,16 @@ import java.lang.ref.ReferenceQueue;
 import java.util.IdentityHashMap;
 import java.util.Map;
 
-public abstract class IDecRefQueue<T extends Z3Object>
-{
-    private final int m_move_limit;
-
-    // TODO: problem: ReferenceQueue has no API to return length.
+/**
+ *
+ * @param <T>
+ */
+public abstract class IDecRefQueue<T extends Z3Object> {
     private final ReferenceQueue<T> referenceQueue = new ReferenceQueue<>();
-    private int queueSize = 0;
     private final Map<PhantomReference<T>, Long> referenceMap =
             new IdentityHashMap<>();
 
-    protected IDecRefQueue() 
-	{
-    	m_move_limit = 1024;
-    }
-
-    protected IDecRefQueue(int move_limit) 
-    {
-    	m_move_limit = move_limit;
-    }
+    protected IDecRefQueue() {}
 
     /**
      * An implementation of this method should decrement the reference on a
@@ -56,8 +47,6 @@ public abstract class IDecRefQueue<T extends Z3Object>
     public void storeReference(Context ctx, T obj) {
         PhantomReference<T> ref = new PhantomReference<>(obj, referenceQueue);
         referenceMap.put(ref, obj.getNativeObject());
-
-        // TODO: use move_limit, somehow get the size of referenceQueue.
         clear(ctx);
     }
 

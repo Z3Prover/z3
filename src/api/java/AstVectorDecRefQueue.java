@@ -17,20 +17,14 @@ Notes:
 
 package com.microsoft.z3;
 
-class ASTVectorDecRefQueue extends IDecRefQueue<ASTVector>
-{
+class ASTVectorDecRefQueue extends IDecRefQueue<ASTVector> {
     public ASTVectorDecRefQueue() 
     {
         super();
-    }
-
-    public ASTVectorDecRefQueue(int move_limit) 
-    {
-        super(move_limit);
     }
 
     @Override
     protected void decRef(Context ctx, long obj) {
         Native.astVectorDecRef(ctx.nCtx(), obj);
     }
-};
+}

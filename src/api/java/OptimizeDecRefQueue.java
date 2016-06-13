@@ -23,11 +23,6 @@ class OptimizeDecRefQueue extends IDecRefQueue<Optimize> {
         super();
     }
 
-    public OptimizeDecRefQueue(int move_limit) 
-    {
-        super(move_limit);
-    }
-
     @Override
     protected void decRef(Context ctx, long obj) {
         Native.optimizeDecRef(ctx.nCtx(), obj);

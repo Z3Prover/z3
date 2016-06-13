@@ -17,20 +17,14 @@ Notes:
 
 package com.microsoft.z3;
 
-class ParamsDecRefQueue extends IDecRefQueue<Params>
-{
+class ParamsDecRefQueue extends IDecRefQueue<Params> {
     public ParamsDecRefQueue() 
     {
         super();
-    }
-
-    public ParamsDecRefQueue(int move_limit) 
-    {
-        super(move_limit);
     }
 
     @Override
     protected void decRef(Context ctx, long obj) {
         Native.paramsDecRef(ctx.nCtx(), obj);
     }
-};
+}

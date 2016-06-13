@@ -24,11 +24,6 @@ class ApplyResultDecRefQueue extends IDecRefQueue<ApplyResult>
         super();
     }
 
-    public ApplyResultDecRefQueue(int move_limit) 
-    {
-        super(move_limit);
-    }
-
     @Override
     protected void decRef(Context ctx, long obj) {
         Native.applyResultDecRef(ctx.nCtx(), obj);

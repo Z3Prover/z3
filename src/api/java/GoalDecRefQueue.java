@@ -17,20 +17,14 @@ Notes:
 
 package com.microsoft.z3;
 
-class GoalDecRefQueue extends IDecRefQueue<Goal>
-{
+class GoalDecRefQueue extends IDecRefQueue<Goal> {
     public GoalDecRefQueue() 
     {
         super();
-    }
-
-    public GoalDecRefQueue(int move_limit) 
-    {
-        super(move_limit);
     }
 
     @Override
     protected void decRef(Context ctx, long obj) {
             Native.goalDecRef(ctx.nCtx(), obj);
     }
-};
+}

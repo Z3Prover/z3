@@ -17,20 +17,14 @@ Notes:
 
 package com.microsoft.z3;
 
-class ModelDecRefQueue extends IDecRefQueue<Model>
-{
+class ModelDecRefQueue extends IDecRefQueue<Model> {
     public ModelDecRefQueue() 
     {
         super();
-    }
-
-    public ModelDecRefQueue(int move_limit) 
-    {
-        super(move_limit);
     }
 
     @Override
     protected void decRef(Context ctx, long obj) {
         Native.modelDecRef(ctx.nCtx(), obj);
     }
-};
+}
