@@ -31,12 +31,7 @@ public class Context implements AutoCloseable {
     static final Object creation_lock = new Object();
 
     public static Context mkContext() {
-        long m_ctx;
-        synchronized (creation_lock) {
-            m_ctx = Native.mkContextRc(0);
-            // TODO: then adding settings will not be under the lock.
-        }
-        return new Context(m_ctx);
+        return new Context(Native.mkContextRc(0));
     }
 
 
@@ -59,14 +54,11 @@ public class Context implements AutoCloseable {
      **/
     public static Context mkContext(Map<String, String> settings)
     {
-        long m_ctx;
-        synchronized (creation_lock) {
-            long cfg = Native.mkConfig();
-            for (Map.Entry<String, String> kv : settings.entrySet())
-                Native.setParamValue(cfg, kv.getKey(), kv.getValue());
-            m_ctx = Native.mkContextRc(cfg);
-            Native.delConfig(cfg);
-        }
+        long cfg = Native.mkConfig();
+        for (Map.Entry<String, String> kv : settings.entrySet())
+            Native.setParamValue(cfg, kv.getKey(), kv.getValue());
+        long m_ctx = Native.mkContextRc(cfg);
+        Native.delConfig(cfg);
         return new Context(m_ctx);
     }
 
@@ -4047,8 +4039,6 @@ public class Context implements AutoCloseable {
         m_realSort = null;
         m_stringSort = null;
 
-        synchronized (creation_lock) {
-            Native.delContext(m_ctx);
-        }
+        Native.delContext(m_ctx);
     }
 }
