@@ -83,10 +83,18 @@ namespace smt {
          */
         bool opt_EagerStringConstantLengthAssertions;
 
+        /*
+         * If VerifyFinalCheckProgress is set to true, continuing after final check is invoked
+         * without asserting any new axioms is considered a bug and will throw an exception.
+         */
+        bool opt_VerifyFinalCheckProgress;
+
         bool search_started;
         arith_util m_autil;
         str_util m_strutil;
         int sLevel;
+
+        bool finalCheckProgressIndicator;
 
         // TODO make sure that all generated expressions are saved into the trail
         expr_ref_vector m_trail; // trail for generated terms

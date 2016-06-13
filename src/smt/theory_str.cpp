@@ -31,11 +31,13 @@ theory_str::theory_str(ast_manager & m):
         opt_AggressiveLengthTesting(true),
         opt_AggressiveValueTesting(true),
         opt_EagerStringConstantLengthAssertions(true),
+        opt_VerifyFinalCheckProgress(true),
         /* Internal setup */
         search_started(false),
         m_autil(m),
         m_strutil(m),
         sLevel(0),
+        finalCheckProgressIndicator(false),
         m_trail(m),
         tmpStringVarCount(0),
 		tmpXorVarCount(0),
@@ -125,6 +127,9 @@ void theory_str::initialize_charset() {
 }
 
 void theory_str::assert_axiom(expr * e) {
+    if (opt_VerifyFinalCheckProgress) {
+        finalCheckProgressIndicator = true;
+    }
     if (get_manager().is_true(e)) return;
     TRACE("t_str_detail", tout << "asserting " << mk_ismt2_pp(e, get_manager()) << std::endl;);
     context & ctx = get_context();
@@ -4501,6 +4506,10 @@ final_check_status theory_str::final_check_eh() {
     context & ctx = get_context();
     ast_manager & m = get_manager();
 
+    if (opt_VerifyFinalCheckProgress) {
+        finalCheckProgressIndicator = false;
+    }
+
     TRACE("t_str", tout << "final check" << std::endl;);
     TRACE("t_str_detail", dump_assignments(););
 
@@ -4655,7 +4664,19 @@ final_check_status theory_str::final_check_eh() {
 
     constValue = NULL;
 
-    // TODO this would be a great place to print debugging information
+    {
+        TRACE("t_str_detail", tout << "free var map (# " << freeVar_map.size() << "):" << std::endl;
+        for (std::map<expr*, int>::iterator freeVarItor1 = freeVar_map.begin(); freeVarItor1 != freeVar_map.end(); freeVarItor1++) {
+            expr * freeVar = freeVarItor1->first;
+            rational lenValue;
+            bool lenValue_exists = get_len_value(freeVar, lenValue);
+            // TODO get_bound_strlen()
+            tout << mk_pp(freeVar, m) << " [depCnt = " << freeVarItor1->second << ", length = "
+                    << (lenValue_exists ? lenValue.to_string() : "?")
+                    << "]" << std::endl;
+        }
+        );
+    }
 
     // TODO process_concat_eq_unroll()
     /*
@@ -4711,6 +4732,11 @@ final_check_status theory_str::final_check_eh() {
     	}
     }
     */
+
+    if (opt_VerifyFinalCheckProgress && !finalCheckProgressIndicator) {
+        TRACE("t_str", tout << "BUG: no progress in final check, giving up!!" << std::endl;);
+        m.raise_exception("no progress in theory_str final check");
+    }
 
     return FC_CONTINUE; // since by this point we've added axioms
 }
