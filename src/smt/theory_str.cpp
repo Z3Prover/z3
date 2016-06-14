@@ -832,7 +832,6 @@ void theory_str::instantiate_axiom_StartsWith(enode * e) {
     SASSERT(topLevelCond);
 
     expr_ref finalAxiom(m.mk_ite(topLevelCond, then1, m.mk_not(expr)), m);
-
     SASSERT(finalAxiom);
     assert_axiom(finalAxiom);
 }
@@ -850,22 +849,28 @@ void theory_str::instantiate_axiom_EndsWith(enode * e) {
 
     TRACE("t_str_detail", tout << "instantiate EndsWith axiom for " << mk_pp(expr, m) << std::endl;);
 
-    // TODO NEXT
-    NOT_IMPLEMENTED_YET();
-    /*
-    Z3_ast resBoolVar = my_mk_internal_bool_var(t);
-    Z3_ast ts0 = my_mk_internal_string_var(t);
-    Z3_ast ts1 = my_mk_internal_string_var(t);
-    // boolVar = endswith(arg[0], arg[1])
-    // --------------------------------------------
-    std::vector<Z3_ast> innerItems;
-    innerItems.push_back( Z3_mk_eq(ctx, args[0], mk_concat(t, ts0, ts1)) );
-    innerItems.push_back( Z3_mk_eq(ctx, mk_length(t, ts1), mk_length(t, args[1])) );
-    innerItems.push_back( Z3_mk_ite(ctx, Z3_mk_eq(ctx, ts1, args[1]), Z3_mk_eq(ctx, resBoolVar, Z3_mk_true(ctx)), Z3_mk_eq(ctx, resBoolVar, Z3_mk_false(ctx) ) ) );
-    Z3_ast then1 = mk_and_fromVector(t, innerItems);
-    breakdownAssert = Z3_mk_ite(ctx, Z3_mk_ge(ctx, mk_length(t, args[0]), mk_length(t, args[1])), then1, Z3_mk_eq(ctx, resBoolVar, Z3_mk_false(ctx) ) );
-    reduceAst = resBoolVar;
-    */
+    expr_ref ts0(mk_str_var("ts0"), m);
+    expr_ref ts1(mk_str_var("ts1"), m);
+
+    expr_ref_vector innerItems(m);
+    innerItems.push_back(ctx.mk_eq_atom(expr->get_arg(0), mk_concat(ts0, ts1)));
+    innerItems.push_back(ctx.mk_eq_atom(mk_strlen(ts1), mk_strlen(expr->get_arg(1))));
+    innerItems.push_back(m.mk_ite(ctx.mk_eq_atom(ts1, expr->get_arg(1)), expr, m.mk_not(expr)));
+    expr_ref then1(m.mk_and(innerItems.size(), innerItems.c_ptr()), m);
+    SASSERT(then1);
+
+    // the top-level condition is Length(arg0) >= Length(arg1)
+    expr_ref topLevelCond(
+            m_autil.mk_ge(
+                    m_autil.mk_add(
+                            mk_strlen(expr->get_arg(0)), m_autil.mk_mul(mk_int(-1), mk_strlen(expr->get_arg(1)))),
+                    mk_int(0))
+            , m);
+    SASSERT(topLevelCond);
+
+    expr_ref finalAxiom(m.mk_ite(topLevelCond, then1, m.mk_not(expr)), m);
+    SASSERT(finalAxiom);
+    assert_axiom(finalAxiom);
 }
 
 void theory_str::attach_new_th_var(enode * n) {
