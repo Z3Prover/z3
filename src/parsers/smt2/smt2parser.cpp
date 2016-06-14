@@ -1034,7 +1034,7 @@ namespace smt2 {
                 else {
                     std::ostringstream str;
                     str << "unknown attribute " << id;
-                    warning_msg(str.str().c_str());
+                    warning_msg("%s", str.str().c_str());
                     next();
                     // just consume the 
                     consume_sexpr();

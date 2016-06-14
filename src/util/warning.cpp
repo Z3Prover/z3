@@ -167,4 +167,3 @@ void warning_msg(const char * msg, ...) {
         va_end(args);
     }
 }
-
