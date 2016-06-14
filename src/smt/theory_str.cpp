@@ -601,6 +601,7 @@ void theory_str::propagate() {
         for (unsigned i = 0; i < m_axiom_StartsWith_todo.size(); ++i) {
             instantiate_axiom_StartsWith(m_axiom_StartsWith_todo[i]);
         }
+        m_axiom_StartsWith_todo.reset();
     }
 }
 
@@ -754,6 +755,11 @@ void theory_str::instantiate_axiom_CharAt(enode * e) {
     ast_manager & m = get_manager();
 
     app * expr = e->get_owner();
+    if (axiomatized_terms.contains(expr)) {
+        TRACE("t_str_detail", tout << "already set up CharAt axiom for " << mk_pp(expr, m) << std::endl;);
+        return;
+    }
+    axiomatized_terms.insert(expr);
 
     TRACE("t_str_detail", tout << "instantiate CharAt axiom for " << mk_pp(expr, m) << std::endl;);
 
@@ -790,7 +796,13 @@ void theory_str::instantiate_axiom_CharAt(enode * e) {
 void theory_str::instantiate_axiom_StartsWith(enode * e) {
     context & ctx = get_context();
     ast_manager & m = get_manager();
+
     app * expr = e->get_owner();
+    if (axiomatized_terms.contains(expr)) {
+        TRACE("t_str_detail", tout << "already set up StartsWith axiom for " << mk_pp(expr, m) << std::endl;);
+        return;
+    }
+    axiomatized_terms.insert(expr);
 
     TRACE("t_str_detail", tout << "instantiate StartsWith axiom for " << mk_pp(expr, m) << std::endl;);
 

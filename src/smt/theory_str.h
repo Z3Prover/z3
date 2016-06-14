@@ -110,6 +110,11 @@ namespace smt {
         ptr_vector<enode> m_axiom_CharAt_todo;
         ptr_vector<enode> m_axiom_StartsWith_todo;
 
+        // hashtable of all exprs for which we've already set up term-specific axioms --
+        // this prevents infinite recursive descent with respect to axioms that
+        // include an occurrence of the term for which axioms are being generated
+        obj_hashtable<expr> axiomatized_terms;
+
         int tmpStringVarCount;
         int tmpXorVarCount;
         int tmpLenTestVarCount;
