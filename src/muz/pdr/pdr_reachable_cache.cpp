@@ -109,7 +109,12 @@ namespace pdr {
             UNREACHABLE();
             break;
         }
-        if (found) m_stats.m_hits++; m_stats.m_miss++;
+        if (found) {
+            m_stats.m_hits++; 
+        }
+        else {
+            m_stats.m_miss++;
+        }
         return found;
     }
 
