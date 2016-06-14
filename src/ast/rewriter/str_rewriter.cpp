@@ -42,8 +42,8 @@ br_status str_rewriter::mk_str_CharAt(expr * arg0, expr * arg1, expr_ref & resul
         result = m_strutil.mk_string(resultStr);
         return BR_DONE;
     } else {
-        // TODO NEXT
-        NOT_IMPLEMENTED_YET();
+        // TODO if we ever figure out how to assert axioms in here, add this code
+        return BR_FAILED;
         /*
         Z3_ast ts0 = my_mk_internal_string_var(t);
         Z3_ast ts1 = my_mk_internal_string_var(t);

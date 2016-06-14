@@ -106,6 +106,9 @@ namespace smt {
         ptr_vector<enode> m_concat_axiom_todo;
         ptr_vector<enode> m_string_constant_length_todo;
 
+        // enode lists for term-specific axioms
+        ptr_vector<enode> m_axiom_CharAt_todo;
+
         int tmpStringVarCount;
         int tmpXorVarCount;
         int tmpLenTestVarCount;
@@ -167,9 +170,13 @@ namespace smt {
         bool is_string(enode const * n) const { return is_string(n->get_owner()); }
         bool is_strlen(app const * a) const { return a->is_app_of(get_id(), OP_STRLEN); }
         bool is_strlen(enode const * n) const { return is_strlen(n->get_owner()); }
+        bool is_CharAt(app const * a) const { return a->is_app_of(get_id(), OP_STR_CHARAT); }
+        bool is_CharAt(enode const * n) const { return is_CharAt(n->get_owner()); }
         void instantiate_concat_axiom(enode * cat);
         void instantiate_basic_string_axioms(enode * str);
         void instantiate_str_eq_length_axiom(enode * lhs, enode * rhs);
+
+        void instantiate_axiom_CharAt(enode * e);
 
         void set_up_axioms(expr * ex);
         void handle_equality(expr * lhs, expr * rhs);

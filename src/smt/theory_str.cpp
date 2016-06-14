@@ -567,7 +567,9 @@ expr * theory_str::mk_concat(expr * n1, expr * n2) {
 }
 
 bool theory_str::can_propagate() {
-    return !m_basicstr_axiom_todo.empty() || !m_str_eq_todo.empty() || !m_concat_axiom_todo.empty();
+    return !m_basicstr_axiom_todo.empty() || !m_str_eq_todo.empty() || !m_concat_axiom_todo.empty()
+            || !m_axiom_CharAt_todo.empty()
+            ;
 }
 
 void theory_str::propagate() {
@@ -590,6 +592,11 @@ void theory_str::propagate() {
             instantiate_concat_axiom(m_concat_axiom_todo[i]);
         }
         m_concat_axiom_todo.reset();
+
+        for (unsigned i = 0; i < m_axiom_CharAt_todo.size(); ++i) {
+            instantiate_axiom_CharAt(m_axiom_CharAt_todo[i]);
+        }
+        m_axiom_CharAt_todo.reset();
     }
 }
 
@@ -736,6 +743,44 @@ void theory_str::instantiate_str_eq_length_axiom(enode * lhs, enode * rhs) {
     TRACE("t_str_detail", tout << "string-eq length-eq axiom: "
             << mk_ismt2_pp(premise, m) << " -> " << mk_ismt2_pp(conclusion, m) << std::endl;);
     assert_implication(premise, conclusion);
+}
+
+void theory_str::instantiate_axiom_CharAt(enode * e) {
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+
+    app * expr = e->get_owner();
+
+    TRACE("t_str_detail", tout << "instantiate CharAt axiom for " << mk_pp(expr, m) << std::endl;);
+
+    expr_ref ts0(mk_str_var("ts0"), m);
+    expr_ref ts1(mk_str_var("ts1"), m);
+    expr_ref ts2(mk_str_var("ts2"), m);
+
+    expr_ref cond(m.mk_and(
+            m_autil.mk_ge(expr->get_arg(1), mk_int(0)),
+            // REWRITE for arithmetic theory:
+            // m_autil.mk_lt(expr->get_arg(1), mk_strlen(expr->get_arg(0)))
+            m.mk_not(m_autil.mk_ge(m_autil.mk_add(expr->get_arg(1), m_autil.mk_mul(mk_int(-1), mk_strlen(expr->get_arg(0)))), mk_int(0)))
+            ), m);
+
+    expr_ref_vector and_item(m);
+    and_item.push_back(ctx.mk_eq_atom(expr->get_arg(0), mk_concat(ts0, mk_concat(ts1, ts2))));
+    and_item.push_back(ctx.mk_eq_atom(expr->get_arg(1), mk_strlen(ts0)));
+    and_item.push_back(ctx.mk_eq_atom(mk_strlen(ts1), mk_int(1)));
+
+    expr_ref thenBranch(m.mk_and(and_item.size(), and_item.c_ptr()), m);
+    expr_ref elseBranch(ctx.mk_eq_atom(ts1, m_strutil.mk_string("")), m);
+
+    expr_ref axiom(m.mk_ite(cond, thenBranch, elseBranch), m);
+    expr_ref reductionVar(ctx.mk_eq_atom(expr, ts1), m);
+
+    SASSERT(axiom);
+    SASSERT(reductionVar);
+
+    expr_ref finalAxiom(m.mk_and(axiom, reductionVar), m);
+    SASSERT(finalAxiom);
+    assert_axiom(finalAxiom);
 }
 
 void theory_str::attach_new_th_var(enode * n) {
@@ -3469,6 +3514,8 @@ void theory_str::set_up_axioms(expr * ex) {
             	if (aVar->get_num_args() == 0 && !is_string(aVar)) {
             		input_var_in_len.insert(var);
             	}
+            } else if (is_CharAt(ap)) {
+                m_axiom_CharAt_todo.push_back(n);
             } else if (ap->get_num_args() == 0 && !is_string(ap)) {
                 // if ex is a variable, add it to our list of variables
                 TRACE("t_str_detail", tout << "tracking variable " << mk_ismt2_pp(ap, get_manager()) << std::endl;);
