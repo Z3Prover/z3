@@ -108,6 +108,7 @@ namespace smt {
 
         // enode lists for term-specific axioms
         ptr_vector<enode> m_axiom_CharAt_todo;
+        ptr_vector<enode> m_axiom_StartsWith_todo;
 
         int tmpStringVarCount;
         int tmpXorVarCount;
@@ -172,11 +173,14 @@ namespace smt {
         bool is_strlen(enode const * n) const { return is_strlen(n->get_owner()); }
         bool is_CharAt(app const * a) const { return a->is_app_of(get_id(), OP_STR_CHARAT); }
         bool is_CharAt(enode const * n) const { return is_CharAt(n->get_owner()); }
+        bool is_StartsWith(app const * a) const { return a->is_app_of(get_id(), OP_STR_STARTSWITH); }
+        bool is_StartsWith(enode const * n) const { return is_StartsWith(n->get_owner()); }
         void instantiate_concat_axiom(enode * cat);
         void instantiate_basic_string_axioms(enode * str);
         void instantiate_str_eq_length_axiom(enode * lhs, enode * rhs);
 
         void instantiate_axiom_CharAt(enode * e);
+        void instantiate_axiom_StartsWith(enode * e);
 
         void set_up_axioms(expr * ex);
         void handle_equality(expr * lhs, expr * rhs);

@@ -568,7 +568,7 @@ expr * theory_str::mk_concat(expr * n1, expr * n2) {
 
 bool theory_str::can_propagate() {
     return !m_basicstr_axiom_todo.empty() || !m_str_eq_todo.empty() || !m_concat_axiom_todo.empty()
-            || !m_axiom_CharAt_todo.empty()
+            || !m_axiom_CharAt_todo.empty() || !m_axiom_StartsWith_todo.empty()
             ;
 }
 
@@ -597,6 +597,10 @@ void theory_str::propagate() {
             instantiate_axiom_CharAt(m_axiom_CharAt_todo[i]);
         }
         m_axiom_CharAt_todo.reset();
+
+        for (unsigned i = 0; i < m_axiom_StartsWith_todo.size(); ++i) {
+            instantiate_axiom_StartsWith(m_axiom_StartsWith_todo[i]);
+        }
     }
 }
 
@@ -779,6 +783,39 @@ void theory_str::instantiate_axiom_CharAt(enode * e) {
     SASSERT(reductionVar);
 
     expr_ref finalAxiom(m.mk_and(axiom, reductionVar), m);
+    SASSERT(finalAxiom);
+    assert_axiom(finalAxiom);
+}
+
+void theory_str::instantiate_axiom_StartsWith(enode * e) {
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+    app * expr = e->get_owner();
+
+    TRACE("t_str_detail", tout << "instantiate StartsWith axiom for " << mk_pp(expr, m) << std::endl;);
+
+    expr_ref ts0(mk_str_var("ts0"), m);
+    expr_ref ts1(mk_str_var("ts1"), m);
+
+    expr_ref_vector innerItems(m);
+    innerItems.push_back(ctx.mk_eq_atom(expr->get_arg(0), mk_concat(ts0, ts1)));
+    innerItems.push_back(ctx.mk_eq_atom(mk_strlen(ts0), mk_strlen(expr->get_arg(1))));
+    innerItems.push_back(m.mk_ite(ctx.mk_eq_atom(ts0, expr->get_arg(1)), expr, m.mk_not(expr)));
+    expr_ref then1(m.mk_and(innerItems.size(), innerItems.c_ptr()), m);
+    SASSERT(then1);
+
+    // the top-level condition is Length(arg0) >= Length(arg1).
+    // of course, the integer theory is not so accommodating
+    expr_ref topLevelCond(
+            m_autil.mk_ge(
+                    m_autil.mk_add(
+                            mk_strlen(expr->get_arg(0)), m_autil.mk_mul(mk_int(-1), mk_strlen(expr->get_arg(1)))),
+                    mk_int(0))
+            , m);
+    SASSERT(topLevelCond);
+
+    expr_ref finalAxiom(m.mk_ite(topLevelCond, then1, m.mk_not(expr)), m);
+
     SASSERT(finalAxiom);
     assert_axiom(finalAxiom);
 }
@@ -3491,6 +3528,7 @@ void theory_str::set_up_axioms(expr * ex) {
 
     sort * ex_sort = m.get_sort(ex);
     sort * str_sort = m.mk_sort(get_family_id(), STRING_SORT);
+    sort * bool_sort = m.mk_bool_sort();
 
     if (ex_sort == str_sort) {
         TRACE("t_str_detail", tout << "setting up axioms for " << mk_ismt2_pp(ex, get_manager()) <<
@@ -3524,6 +3562,19 @@ void theory_str::set_up_axioms(expr * ex) {
                 // this might help??
                 theory_var v = mk_var(n);
                 TRACE("t_str_detail", tout << "variable " << mk_ismt2_pp(ap, get_manager()) << " is #" << v << std::endl;);
+            }
+        }
+    } else if (ex_sort == bool_sort) {
+        TRACE("t_str_detail", tout << "setting up axioms for " << mk_ismt2_pp(ex, get_manager()) <<
+                ": expr is of sort Bool" << std::endl;);
+        // set up axioms for boolean terms
+        enode * n = ctx.get_enode(ex);
+        SASSERT(n);
+
+        if (is_app(ex)) {
+            app * ap = to_app(ex);
+            if (is_StartsWith(ap)) {
+                m_axiom_StartsWith_todo.push_back(n);
             }
         }
     } else {
