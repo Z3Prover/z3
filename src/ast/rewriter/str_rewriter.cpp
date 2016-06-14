@@ -42,24 +42,30 @@ br_status str_rewriter::mk_str_CharAt(expr * arg0, expr * arg1, expr_ref & resul
         result = m_strutil.mk_string(resultStr);
         return BR_DONE;
     } else {
-        // TODO if we ever figure out how to assert axioms in here, add this code
+        // TODO if we ever figure out how to assert axioms in here, add the axiom code from Z3str2's strAstReduce.cpp
         return BR_FAILED;
-        /*
-        Z3_ast ts0 = my_mk_internal_string_var(t);
-        Z3_ast ts1 = my_mk_internal_string_var(t);
-        Z3_ast ts2 = my_mk_internal_string_var(t);
+    }
+}
 
-        Z3_ast cond = mk_2_and(t, Z3_mk_ge(ctx, args[1], mk_int(ctx, 0)), Z3_mk_lt(ctx, args[1], mk_length(t, args[0])));
-
-        Z3_ast and_item[3];
-        and_item[0] = Z3_mk_eq(ctx, args[0], mk_concat(t, ts0, mk_concat(t, ts1, ts2)));
-        and_item[1] = Z3_mk_eq(ctx, args[1], mk_length(t, ts0));
-        and_item[2] = Z3_mk_eq(ctx, mk_length(t, ts1), mk_int(ctx, 1));
-        Z3_ast thenBranch = Z3_mk_and(ctx, 3, and_item);
-        Z3_ast elseBranch = Z3_mk_eq(ctx, ts1, my_mk_str_value(t, ""));
-        breakdownAssert = Z3_mk_ite(ctx, cond, thenBranch, elseBranch);
-        return ts1;
-        */
+br_status str_rewriter::mk_str_StartsWith(expr * haystack, expr * needle, expr_ref & result) {
+    TRACE("t_str_rw", tout << "rewrite (StartsWith " << mk_pp(haystack, m()) << " " << mk_pp(needle, m()) << ")" << std::endl;);
+    if (m_strutil.is_string(haystack) && m_strutil.is_string(needle)) {
+        TRACE("t_str_rw", tout << "evaluating constant StartsWith predicate" << std::endl;);
+        std::string haystackStr = m_strutil.get_string_constant_value(haystack);
+        std::string needleStr = m_strutil.get_string_constant_value(needle);
+        if (haystackStr.length() < needleStr.length()) {
+            result = m().mk_false();
+            return BR_DONE;
+        } else {
+            if (haystackStr.substr(0, needleStr.length()) == needleStr) {
+                result = m().mk_true();
+            } else {
+                result = m().mk_false();
+            }
+            return BR_DONE;
+        }
+    } else {
+        return BR_FAILED;
     }
 }
 
@@ -73,6 +79,9 @@ br_status str_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_STR_CHARAT:
         SASSERT(num_args == 2);
         return mk_str_CharAt(args[0], args[1], result);
+    case OP_STR_STARTSWITH:
+        SASSERT(num_args == 2);
+        return mk_str_StartsWith(args[0], args[1], result);
     default:
         return BR_FAILED;
     }

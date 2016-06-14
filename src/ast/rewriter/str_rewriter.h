@@ -41,6 +41,7 @@ public:
     br_status mk_eq_core(expr * lhs, expr * rhs, expr_ref & result);
 
     br_status mk_str_CharAt(expr * arg0, expr * arg1, expr_ref & result);
+    br_status mk_str_StartsWith(expr * haystack, expr * needle, expr_ref & result);
 
     bool reduce_eq(expr * l, expr * r, expr_ref_vector & lhs, expr_ref_vector & rhs, bool & change);
     bool reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_vector& lhs, expr_ref_vector& rhs, bool& change);
