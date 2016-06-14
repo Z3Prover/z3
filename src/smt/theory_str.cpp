@@ -568,7 +568,7 @@ expr * theory_str::mk_concat(expr * n1, expr * n2) {
 
 bool theory_str::can_propagate() {
     return !m_basicstr_axiom_todo.empty() || !m_str_eq_todo.empty() || !m_concat_axiom_todo.empty()
-            || !m_axiom_CharAt_todo.empty() || !m_axiom_StartsWith_todo.empty()
+            || !m_axiom_CharAt_todo.empty() || !m_axiom_StartsWith_todo.empty() || !m_axiom_EndsWith_todo.empty()
             ;
 }
 
@@ -602,6 +602,11 @@ void theory_str::propagate() {
             instantiate_axiom_StartsWith(m_axiom_StartsWith_todo[i]);
         }
         m_axiom_StartsWith_todo.reset();
+
+        for (unsigned i = 0; i < m_axiom_EndsWith_todo.size(); ++i) {
+            instantiate_axiom_EndsWith(m_axiom_EndsWith_todo[i]);
+        }
+        m_axiom_EndsWith_todo.reset();
     }
 }
 
@@ -830,6 +835,37 @@ void theory_str::instantiate_axiom_StartsWith(enode * e) {
 
     SASSERT(finalAxiom);
     assert_axiom(finalAxiom);
+}
+
+void theory_str::instantiate_axiom_EndsWith(enode * e) {
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+
+    app * expr = e->get_owner();
+    if (axiomatized_terms.contains(expr)) {
+        TRACE("t_str_detail", tout << "already set up EndsWith axiom for " << mk_pp(expr, m) << std::endl;);
+        return;
+    }
+    axiomatized_terms.insert(expr);
+
+    TRACE("t_str_detail", tout << "instantiate EndsWith axiom for " << mk_pp(expr, m) << std::endl;);
+
+    // TODO NEXT
+    NOT_IMPLEMENTED_YET();
+    /*
+    Z3_ast resBoolVar = my_mk_internal_bool_var(t);
+    Z3_ast ts0 = my_mk_internal_string_var(t);
+    Z3_ast ts1 = my_mk_internal_string_var(t);
+    // boolVar = endswith(arg[0], arg[1])
+    // --------------------------------------------
+    std::vector<Z3_ast> innerItems;
+    innerItems.push_back( Z3_mk_eq(ctx, args[0], mk_concat(t, ts0, ts1)) );
+    innerItems.push_back( Z3_mk_eq(ctx, mk_length(t, ts1), mk_length(t, args[1])) );
+    innerItems.push_back( Z3_mk_ite(ctx, Z3_mk_eq(ctx, ts1, args[1]), Z3_mk_eq(ctx, resBoolVar, Z3_mk_true(ctx)), Z3_mk_eq(ctx, resBoolVar, Z3_mk_false(ctx) ) ) );
+    Z3_ast then1 = mk_and_fromVector(t, innerItems);
+    breakdownAssert = Z3_mk_ite(ctx, Z3_mk_ge(ctx, mk_length(t, args[0]), mk_length(t, args[1])), then1, Z3_mk_eq(ctx, resBoolVar, Z3_mk_false(ctx) ) );
+    reduceAst = resBoolVar;
+    */
 }
 
 void theory_str::attach_new_th_var(enode * n) {
@@ -3587,6 +3623,8 @@ void theory_str::set_up_axioms(expr * ex) {
             app * ap = to_app(ex);
             if (is_StartsWith(ap)) {
                 m_axiom_StartsWith_todo.push_back(n);
+            } else if (is_EndsWith(ap)) {
+                m_axiom_EndsWith_todo.push_back(n);
             }
         }
     } else {

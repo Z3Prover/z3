@@ -69,6 +69,28 @@ br_status str_rewriter::mk_str_StartsWith(expr * haystack, expr * needle, expr_r
     }
 }
 
+br_status str_rewriter::mk_str_EndsWith(expr * haystack, expr * needle, expr_ref & result) {
+    TRACE("t_str_rw", tout << "rewrite (EndsWith " << mk_pp(haystack, m()) << " " << mk_pp(needle, m()) << ")" << std::endl;);
+    if (m_strutil.is_string(haystack) && m_strutil.is_string(needle)) {
+        TRACE("t_str_rw", tout << "evaluating constant EndsWith predicate" << std::endl;);
+        std::string haystackStr = m_strutil.get_string_constant_value(haystack);
+        std::string needleStr = m_strutil.get_string_constant_value(needle);
+        if (haystackStr.length() < needleStr.length()) {
+            result = m().mk_false();
+            return BR_DONE;
+        } else {
+            if (haystackStr.substr(haystackStr.length() - needleStr.length(), needleStr.length()) == needleStr) {
+                result = m().mk_true();
+            } else {
+                result = m().mk_false();
+            }
+            return BR_DONE;
+        }
+    } else {
+        return BR_FAILED;
+    }
+}
+
 br_status str_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
     SASSERT(f->get_family_id() == get_fid());
 
@@ -82,6 +104,9 @@ br_status str_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_STR_STARTSWITH:
         SASSERT(num_args == 2);
         return mk_str_StartsWith(args[0], args[1], result);
+    case OP_STR_ENDSWITH:
+        SASSERT(num_args == 2);
+        return mk_str_EndsWith(args[0], args[1], result);
     default:
         return BR_FAILED;
     }

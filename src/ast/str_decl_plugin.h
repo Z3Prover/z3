@@ -33,6 +33,7 @@ enum str_op_kind {
     // higher-level string functions -- these are reduced to basic operations
     OP_STR_CHARAT,
     OP_STR_STARTSWITH,
+    OP_STR_ENDSWITH,
     // end
     LAST_STR_OP
 };
@@ -47,6 +48,7 @@ protected:
 
     func_decl * m_charat_decl;
     func_decl * m_startswith_decl;
+    func_decl * m_endswith_decl;
 
     arith_decl_plugin * m_arith_plugin;
     family_id           m_arith_fid;

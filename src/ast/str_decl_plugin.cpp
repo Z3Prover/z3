@@ -28,6 +28,7 @@ str_decl_plugin::str_decl_plugin():
     m_length_decl(0),
     m_charat_decl(0),
     m_startswith_decl(0),
+    m_endswith_decl(0),
     m_arith_plugin(0),
     m_arith_fid(0),
     m_int_sort(0){
@@ -43,6 +44,7 @@ void str_decl_plugin::finalize(void) {
     DEC_REF(m_length_decl);
     DEC_REF(m_charat_decl);
     DEC_REF(m_startswith_decl);
+    DEC_REF(m_endswith_decl);
     DEC_REF(m_int_sort);
 }
 
@@ -78,6 +80,9 @@ void str_decl_plugin::set_manager(ast_manager * m, family_id id) {
 
     m_startswith_decl = m->mk_func_decl(symbol("StartsWith"), s, s, boolT, func_decl_info(id, OP_STR_STARTSWITH));
     m_manager->inc_ref(m_startswith_decl);
+
+    m_endswith_decl = m->mk_func_decl(symbol("EndsWith"), s, s, boolT, func_decl_info(id, OP_STR_ENDSWITH));
+    m_manager->inc_ref(m_endswith_decl);
 }
 
 decl_plugin * str_decl_plugin::mk_fresh() {
@@ -97,6 +102,7 @@ func_decl * str_decl_plugin::mk_func_decl(decl_kind k) {
     case OP_STRLEN: return m_length_decl;
     case OP_STR_CHARAT: return m_charat_decl;
     case OP_STR_STARTSWITH: return m_startswith_decl;
+    case OP_STR_ENDSWITH: return m_endswith_decl;
     default: return 0;
     }
 }
@@ -155,6 +161,7 @@ void str_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol cons
     op_names.push_back(builtin_name("Length", OP_STRLEN));
     op_names.push_back(builtin_name("CharAt", OP_STR_CHARAT));
     op_names.push_back(builtin_name("StartsWith", OP_STR_STARTSWITH));
+    op_names.push_back(builtin_name("EndsWith", OP_STR_ENDSWITH));
 }
 
 void str_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {
