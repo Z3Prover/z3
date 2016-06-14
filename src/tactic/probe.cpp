@@ -287,14 +287,14 @@ struct is_non_qfbv_predicate {
         if (fid == m.get_basic_family_id())
             return;
         if (fid == u.get_family_id()) {
-			if (n->get_decl_kind() == OP_BSDIV0 ||
-				n->get_decl_kind() == OP_BUDIV0 ||
-				n->get_decl_kind() == OP_BSREM0 ||
-				n->get_decl_kind() == OP_BUREM0 ||
-				n->get_decl_kind() == OP_BSMOD0)
-				throw found();
-			return;
-		}
+            if (n->get_decl_kind() == OP_BSDIV0 ||
+                n->get_decl_kind() == OP_BUDIV0 ||
+                n->get_decl_kind() == OP_BSREM0 ||
+                n->get_decl_kind() == OP_BUREM0 ||
+                n->get_decl_kind() == OP_BSMOD0)
+                throw found();
+            return;
+        }
         if (is_uninterp_const(n))
             return;
         throw found();
