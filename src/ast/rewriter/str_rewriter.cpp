@@ -91,6 +91,27 @@ br_status str_rewriter::mk_str_EndsWith(expr * haystack, expr * needle, expr_ref
     }
 }
 
+br_status str_rewriter::mk_str_Contains(expr * haystack, expr * needle, expr_ref & result) {
+    TRACE("t_str_rw", tout << "rewrite (Contains " << mk_pp(haystack, m()) << " " << mk_pp(needle, m()) << ")" << std::endl;);
+    if (haystack == needle) {
+        TRACE("t_str_rw", tout << "eliminate (Contains) over identical terms" << std::endl;);
+        result = m().mk_true();
+        return BR_DONE;
+    } else if (m_strutil.is_string(haystack) && m_strutil.is_string(needle)) {
+        TRACE("t_str_rw", tout << "evaluating constant Contains predicate" << std::endl;);
+        std::string haystackStr = m_strutil.get_string_constant_value(haystack);
+        std::string needleStr = m_strutil.get_string_constant_value(needle);
+        if (haystackStr.find(needleStr) != std::string::npos) {
+            result = m().mk_true();
+        } else {
+            result = m().mk_false();
+        }
+        return BR_DONE;
+    } else {
+        return BR_FAILED;
+    }
+}
+
 br_status str_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
     SASSERT(f->get_family_id() == get_fid());
 
@@ -107,6 +128,9 @@ br_status str_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_STR_ENDSWITH:
         SASSERT(num_args == 2);
         return mk_str_EndsWith(args[0], args[1], result);
+    case OP_STR_CONTAINS:
+        SASSERT(num_args == 2);
+        return mk_str_Contains(args[0], args[1], result);
     default:
         return BR_FAILED;
     }

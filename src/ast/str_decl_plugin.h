@@ -34,6 +34,7 @@ enum str_op_kind {
     OP_STR_CHARAT,
     OP_STR_STARTSWITH,
     OP_STR_ENDSWITH,
+    OP_STR_CONTAINS,
     // end
     LAST_STR_OP
 };
@@ -49,6 +50,7 @@ protected:
     func_decl * m_charat_decl;
     func_decl * m_startswith_decl;
     func_decl * m_endswith_decl;
+    func_decl * m_contains_decl;
 
     arith_decl_plugin * m_arith_plugin;
     family_id           m_arith_fid;
