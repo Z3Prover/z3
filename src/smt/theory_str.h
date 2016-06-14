@@ -110,6 +110,7 @@ namespace smt {
         ptr_vector<enode> m_axiom_CharAt_todo;
         ptr_vector<enode> m_axiom_StartsWith_todo;
         ptr_vector<enode> m_axiom_EndsWith_todo;
+        ptr_vector<enode> m_axiom_Contains_todo;
 
         // hashtable of all exprs for which we've already set up term-specific axioms --
         // this prevents infinite recursive descent with respect to axioms that
@@ -183,6 +184,8 @@ namespace smt {
         bool is_StartsWith(enode const * n) const { return is_StartsWith(n->get_owner()); }
         bool is_EndsWith(app const * a) const { return a->is_app_of(get_id(), OP_STR_ENDSWITH); }
         bool is_EndsWith(enode const * n) const { return is_EndsWith(n->get_owner()); }
+        bool is_Contains(app const * a) const { return a->is_app_of(get_id(), OP_STR_CONTAINS); }
+        bool is_Contains(enode const * n) const { return is_Contains(n->get_owner()); }
 
         void instantiate_concat_axiom(enode * cat);
         void instantiate_basic_string_axioms(enode * str);
@@ -191,6 +194,7 @@ namespace smt {
         void instantiate_axiom_CharAt(enode * e);
         void instantiate_axiom_StartsWith(enode * e);
         void instantiate_axiom_EndsWith(enode * e);
+        void instantiate_axiom_Contains(enode * e);
 
         void set_up_axioms(expr * ex);
         void handle_equality(expr * lhs, expr * rhs);

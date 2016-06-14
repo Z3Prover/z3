@@ -569,6 +569,7 @@ expr * theory_str::mk_concat(expr * n1, expr * n2) {
 bool theory_str::can_propagate() {
     return !m_basicstr_axiom_todo.empty() || !m_str_eq_todo.empty() || !m_concat_axiom_todo.empty()
             || !m_axiom_CharAt_todo.empty() || !m_axiom_StartsWith_todo.empty() || !m_axiom_EndsWith_todo.empty()
+            || !m_axiom_Contains_todo.empty()
             ;
 }
 
@@ -607,6 +608,11 @@ void theory_str::propagate() {
             instantiate_axiom_EndsWith(m_axiom_EndsWith_todo[i]);
         }
         m_axiom_EndsWith_todo.reset();
+
+        for (unsigned i = 0; i < m_axiom_Contains_todo.size(); ++i) {
+            instantiate_axiom_Contains(m_axiom_Contains_todo[i]);
+        }
+        m_axiom_Contains_todo.reset();
     }
 }
 
@@ -871,6 +877,27 @@ void theory_str::instantiate_axiom_EndsWith(enode * e) {
     expr_ref finalAxiom(m.mk_ite(topLevelCond, then1, m.mk_not(expr)), m);
     SASSERT(finalAxiom);
     assert_axiom(finalAxiom);
+}
+
+void theory_str::instantiate_axiom_Contains(enode * e) {
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+
+    app * expr = e->get_owner();
+    if (axiomatized_terms.contains(expr)) {
+        TRACE("t_str_detail", tout << "already set up Contains axiom for " << mk_pp(expr, m) << std::endl;);
+        return;
+    }
+    axiomatized_terms.insert(expr);
+
+    TRACE("t_str_detail", tout << "instantiate Contains axiom for " << mk_pp(expr, m) << std::endl;);
+
+    expr_ref ts0(mk_str_var("ts0"), m);
+    expr_ref ts1(mk_str_var("ts1"), m);
+    // TODO NEXT registerContain(expr);
+    expr_ref breakdownAssert(ctx.mk_eq_atom(expr, ctx.mk_eq_atom(expr->get_arg(0), mk_concat(ts0, mk_concat(expr->get_arg(1), ts1)))), m);
+    SASSERT(breakdownAssert);
+    assert_axiom(breakdownAssert);
 }
 
 void theory_str::attach_new_th_var(enode * n) {
@@ -3630,6 +3657,8 @@ void theory_str::set_up_axioms(expr * ex) {
                 m_axiom_StartsWith_todo.push_back(n);
             } else if (is_EndsWith(ap)) {
                 m_axiom_EndsWith_todo.push_back(n);
+            } else if (is_Contains(ap)) {
+                m_axiom_Contains_todo.push_back(n);
             }
         }
     } else {
