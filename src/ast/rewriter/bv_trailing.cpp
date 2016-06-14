@@ -67,10 +67,8 @@ struct bv_trailing::imp {
         }
         expr_ref out1(m);
         expr_ref out2(m);
-        DEBUG_CODE(
-            const unsigned rm1 = remove_trailing(e1, min, out1, TRAILING_DEPTH);
-            const unsigned rm2 = remove_trailing(e2, min, out2, TRAILING_DEPTH);
-            SASSERT(rm1 == min && rm2 == min););
+        VERIFY(min == remove_trailing(e1, min, out1, TRAILING_DEPTH));
+        VERIFY(min == remove_trailing(e2, min, out2, TRAILING_DEPTH));
         const bool are_eq = m.are_equal(out1, out2);
         result = are_eq ? m.mk_true() : m.mk_eq(out1, out2);
         return are_eq ? BR_DONE : BR_REWRITE2;
