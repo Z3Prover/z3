@@ -430,6 +430,30 @@ app * theory_str::mk_internal_xor_var() {
 	return a;
 }
 
+app * theory_str::mk_int_var(std::string name) {
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+
+    TRACE("t_str_detail", tout << "creating integer variable " << name << " at scope level " << sLevel << std::endl;);
+
+    sort * int_sort = m.mk_sort(m_autil.get_family_id(), INT_SORT);
+    app * a = m.mk_fresh_const(name.c_str(), int_sort);
+
+    ctx.internalize(a, false);
+    SASSERT(ctx.get_enode(a) != NULL);
+    SASSERT(ctx.e_internalized(a));
+    ctx.mark_as_relevant(a);
+    // I'm assuming that this combination will do the correct thing in the integer theory.
+
+    //mk_var(ctx.get_enode(a));
+    m_trail.push_back(a);
+    //variable_set.insert(a);
+    //internal_variable_set.insert(a);
+    //track_variable_scope(a);
+
+    return a;
+}
+
 app * theory_str::mk_str_var(std::string name) {
 	context & ctx = get_context();
 	ast_manager & m = get_manager();
@@ -496,6 +520,15 @@ app * theory_str::mk_nonempty_str_var() {
     track_variable_scope(a);
 
     return a;
+}
+
+app * theory_str::mk_contains(expr * haystack, expr * needle) {
+    expr * args[2] = {haystack, needle};
+    app * contains = get_manager().mk_app(get_id(), OP_STR_CONTAINS, 0, 0, 2, args);
+    // immediately force internalization so that axiom setup does not fail
+    get_context().internalize(contains, false);
+    set_up_axioms(contains);
+    return contains;
 }
 
 app * theory_str::mk_strlen(expr * e) {
@@ -569,7 +602,7 @@ expr * theory_str::mk_concat(expr * n1, expr * n2) {
 bool theory_str::can_propagate() {
     return !m_basicstr_axiom_todo.empty() || !m_str_eq_todo.empty() || !m_concat_axiom_todo.empty()
             || !m_axiom_CharAt_todo.empty() || !m_axiom_StartsWith_todo.empty() || !m_axiom_EndsWith_todo.empty()
-            || !m_axiom_Contains_todo.empty()
+            || !m_axiom_Contains_todo.empty() || !m_axiom_Indexof_todo.empty()
             ;
 }
 
@@ -613,6 +646,11 @@ void theory_str::propagate() {
             instantiate_axiom_Contains(m_axiom_Contains_todo[i]);
         }
         m_axiom_Contains_todo.reset();
+
+        for (unsigned i = 0; i < m_axiom_Indexof_todo.size(); ++i) {
+            instantiate_axiom_Indexof(m_axiom_Indexof_todo[i]);
+        }
+        m_axiom_Indexof_todo.reset();
     }
 }
 
@@ -898,6 +936,62 @@ void theory_str::instantiate_axiom_Contains(enode * e) {
     expr_ref breakdownAssert(ctx.mk_eq_atom(expr, ctx.mk_eq_atom(expr->get_arg(0), mk_concat(ts0, mk_concat(expr->get_arg(1), ts1)))), m);
     SASSERT(breakdownAssert);
     assert_axiom(breakdownAssert);
+}
+
+void theory_str::instantiate_axiom_Indexof(enode * e) {
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+
+    app * expr = e->get_owner();
+    if (axiomatized_terms.contains(expr)) {
+        TRACE("t_str_detail", tout << "already set up Indexof axiom for " << mk_pp(expr, m) << std::endl;);
+        return;
+    }
+    axiomatized_terms.insert(expr);
+
+    TRACE("t_str_detail", tout << "instantiate Indexof axiom for " << mk_pp(expr, m) << std::endl;);
+
+    expr_ref x1(mk_str_var("x1"), m);
+    expr_ref x2(mk_str_var("x2"), m);
+    expr_ref indexAst(mk_int_var("index"), m);
+
+    expr_ref condAst(mk_contains(expr->get_arg(0), expr->get_arg(1)), m);
+    SASSERT(condAst);
+
+    // -----------------------
+    // true branch
+    expr_ref_vector thenItems(m);
+    //  args[0] = x1 . args[1] . x2
+    thenItems.push_back(ctx.mk_eq_atom(expr->get_arg(0), mk_concat(x1, mk_concat(expr->get_arg(1), x2))));
+    //  indexAst = |x1|
+    thenItems.push_back(ctx.mk_eq_atom(indexAst, mk_strlen(x1)));
+    //     args[0]  = x3 . x4
+    //  /\ |x3| = |x1| + |args[1]| - 1
+    //  /\ ! contains(x3, args[1])
+    expr_ref x3(mk_str_var("x3"), m);
+    expr_ref x4(mk_str_var("x4"), m);
+    expr_ref tmpLen(m_autil.mk_add(indexAst, mk_strlen(expr->get_arg(1)), mk_int(-1)), m);
+    SASSERT(tmpLen);
+    thenItems.push_back(ctx.mk_eq_atom(expr->get_arg(0), mk_concat(x3, x4)));
+    thenItems.push_back(ctx.mk_eq_atom(mk_strlen(x3), tmpLen));
+    thenItems.push_back(m.mk_not(mk_contains(x3, expr->get_arg(1))));
+    expr_ref thenBranch(m.mk_and(thenItems.size(), thenItems.c_ptr()), m);
+    SASSERT(thenBranch);
+
+    // -----------------------
+    // false branch
+    expr_ref elseBranch(ctx.mk_eq_atom(indexAst, mk_int(-1)), m);
+    SASSERT(elseBranch);
+
+    expr_ref breakdownAssert(m.mk_ite(condAst, thenBranch, elseBranch), m);
+    SASSERT(breakdownAssert);
+
+    expr_ref reduceToIndex(ctx.mk_eq_atom(expr, indexAst), m);
+    SASSERT(reduceToIndex);
+
+    expr_ref finalAxiom(m.mk_and(breakdownAssert, reduceToIndex), m);
+    SASSERT(finalAxiom);
+    assert_axiom(finalAxiom);
 }
 
 void theory_str::attach_new_th_var(enode * n) {
@@ -3602,13 +3696,15 @@ void theory_str::handle_equality(expr * lhs, expr * rhs) {
 }
 
 void theory_str::set_up_axioms(expr * ex) {
-    // TODO check to make sure we don't set up axioms on the same term twice
     ast_manager & m = get_manager();
     context & ctx = get_context();
 
     sort * ex_sort = m.get_sort(ex);
     sort * str_sort = m.mk_sort(get_family_id(), STRING_SORT);
     sort * bool_sort = m.mk_bool_sort();
+
+    family_id m_arith_fid = m.mk_family_id("arith");
+    sort * int_sort = m.mk_sort(m_arith_fid, INT_SORT);
 
     if (ex_sort == str_sort) {
         TRACE("t_str_detail", tout << "setting up axioms for " << mk_ismt2_pp(ex, get_manager()) <<
@@ -3659,6 +3755,19 @@ void theory_str::set_up_axioms(expr * ex) {
                 m_axiom_EndsWith_todo.push_back(n);
             } else if (is_Contains(ap)) {
                 m_axiom_Contains_todo.push_back(n);
+            }
+        }
+    } else if (ex_sort == int_sort) {
+        TRACE("t_str_detail", tout << "setting up axioms for " << mk_ismt2_pp(ex, get_manager()) <<
+                ": expr is of sort Int" << std::endl;);
+        // set up axioms for boolean terms
+        enode * n = ctx.get_enode(ex);
+        SASSERT(n);
+
+        if (is_app(ex)) {
+            app * ap = to_app(ex);
+            if (is_Indexof(ap)) {
+                m_axiom_Indexof_todo.push_back(n);
             }
         }
     } else {
