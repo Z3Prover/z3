@@ -30,6 +30,7 @@ str_decl_plugin::str_decl_plugin():
     m_startswith_decl(0),
     m_endswith_decl(0),
     m_contains_decl(0),
+    m_indexof_decl(0),
     m_arith_plugin(0),
     m_arith_fid(0),
     m_int_sort(0){
@@ -47,6 +48,7 @@ void str_decl_plugin::finalize(void) {
     DEC_REF(m_startswith_decl);
     DEC_REF(m_endswith_decl);
     DEC_REF(m_contains_decl);
+    DEC_REF(m_indexof_decl);
     DEC_REF(m_int_sort);
 }
 
@@ -88,6 +90,9 @@ void str_decl_plugin::set_manager(ast_manager * m, family_id id) {
 
     m_contains_decl = m->mk_func_decl(symbol("Contains"), s, s, boolT, func_decl_info(id, OP_STR_CONTAINS));
     m_manager->inc_ref(m_contains_decl);
+
+    m_indexof_decl = m->mk_func_decl(symbol("Indexof"), s, s, i, func_decl_info(id, OP_STR_INDEXOF));
+    m_manager->inc_ref(m_indexof_decl);
 }
 
 decl_plugin * str_decl_plugin::mk_fresh() {
@@ -109,6 +114,7 @@ func_decl * str_decl_plugin::mk_func_decl(decl_kind k) {
     case OP_STR_STARTSWITH: return m_startswith_decl;
     case OP_STR_ENDSWITH: return m_endswith_decl;
     case OP_STR_CONTAINS: return m_contains_decl;
+    case OP_STR_INDEXOF: return m_indexof_decl;
     default: return 0;
     }
 }
@@ -169,6 +175,7 @@ void str_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol cons
     op_names.push_back(builtin_name("StartsWith", OP_STR_STARTSWITH));
     op_names.push_back(builtin_name("EndsWith", OP_STR_ENDSWITH));
     op_names.push_back(builtin_name("Contains", OP_STR_CONTAINS));
+    op_names.push_back(builtin_name("Indexof", OP_STR_INDEXOF));
 }
 
 void str_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {
