@@ -36,6 +36,7 @@ enum str_op_kind {
     OP_STR_ENDSWITH,
     OP_STR_CONTAINS,
     OP_STR_INDEXOF,
+    OP_STR_INDEXOF2,
     // end
     LAST_STR_OP
 };
@@ -53,6 +54,7 @@ protected:
     func_decl * m_endswith_decl;
     func_decl * m_contains_decl;
     func_decl * m_indexof_decl;
+    func_decl * m_indexof2_decl;
 
     arith_decl_plugin * m_arith_plugin;
     family_id           m_arith_fid;

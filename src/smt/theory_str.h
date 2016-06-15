@@ -107,11 +107,13 @@ namespace smt {
         ptr_vector<enode> m_string_constant_length_todo;
 
         // enode lists for term-specific axioms
+        // TODO maybe refactor this into a generic "library_aware_axiom_todo" list
         ptr_vector<enode> m_axiom_CharAt_todo;
         ptr_vector<enode> m_axiom_StartsWith_todo;
         ptr_vector<enode> m_axiom_EndsWith_todo;
         ptr_vector<enode> m_axiom_Contains_todo;
         ptr_vector<enode> m_axiom_Indexof_todo;
+        ptr_vector<enode> m_axiom_Indexof2_todo;
 
         // hashtable of all exprs for which we've already set up term-specific axioms --
         // this prevents infinite recursive descent with respect to axioms that
@@ -158,6 +160,7 @@ namespace smt {
         expr * mk_concat(expr * n1, expr * n2);
         expr * mk_concat_const_str(expr * n1, expr * n2);
         app * mk_contains(expr * haystack, expr * needle);
+        app * mk_indexof(expr * haystack, expr * needle);
 
         literal mk_literal(expr* _e);
         app * mk_int(int n);
@@ -191,6 +194,8 @@ namespace smt {
         bool is_Contains(enode const * n) const { return is_Contains(n->get_owner()); }
         bool is_Indexof(app const * a) const { return a->is_app_of(get_id(), OP_STR_INDEXOF); }
         bool is_Indexof(enode const * n) const { return is_Indexof(n->get_owner()); }
+        bool is_Indexof2(app const * a) const { return a->is_app_of(get_id(), OP_STR_INDEXOF2); }
+        bool is_Indexof2(enode const * n) const { return is_Indexof2(n->get_owner()); }
 
         void instantiate_concat_axiom(enode * cat);
         void instantiate_basic_string_axioms(enode * str);
@@ -201,6 +206,7 @@ namespace smt {
         void instantiate_axiom_EndsWith(enode * e);
         void instantiate_axiom_Contains(enode * e);
         void instantiate_axiom_Indexof(enode * e);
+        void instantiate_axiom_Indexof2(enode * e);
 
         void set_up_axioms(expr * ex);
         void handle_equality(expr * lhs, expr * rhs);

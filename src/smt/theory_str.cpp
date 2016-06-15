@@ -531,6 +531,15 @@ app * theory_str::mk_contains(expr * haystack, expr * needle) {
     return contains;
 }
 
+app * theory_str::mk_indexof(expr * haystack, expr * needle) {
+    expr * args[2] = {haystack, needle};
+    app * indexof = get_manager().mk_app(get_id(), OP_STR_INDEXOF, 0, 0, 2, args);
+    // immediately force internalization so that axiom setup does not fail
+    get_context().internalize(indexof, false);
+    set_up_axioms(indexof);
+    return indexof;
+}
+
 app * theory_str::mk_strlen(expr * e) {
     /*if (m_strutil.is_string(e)) {*/ if (false) {
         const char * strval = 0;
@@ -602,7 +611,7 @@ expr * theory_str::mk_concat(expr * n1, expr * n2) {
 bool theory_str::can_propagate() {
     return !m_basicstr_axiom_todo.empty() || !m_str_eq_todo.empty() || !m_concat_axiom_todo.empty()
             || !m_axiom_CharAt_todo.empty() || !m_axiom_StartsWith_todo.empty() || !m_axiom_EndsWith_todo.empty()
-            || !m_axiom_Contains_todo.empty() || !m_axiom_Indexof_todo.empty()
+            || !m_axiom_Contains_todo.empty() || !m_axiom_Indexof_todo.empty() || !m_axiom_Indexof2_todo.empty()
             ;
 }
 
@@ -651,6 +660,11 @@ void theory_str::propagate() {
             instantiate_axiom_Indexof(m_axiom_Indexof_todo[i]);
         }
         m_axiom_Indexof_todo.reset();
+
+        for (unsigned i = 0; i < m_axiom_Indexof2_todo.size(); ++i) {
+            instantiate_axiom_Indexof2(m_axiom_Indexof2_todo[i]);
+        }
+        m_axiom_Indexof2_todo.reset();
     }
 }
 
@@ -992,6 +1006,74 @@ void theory_str::instantiate_axiom_Indexof(enode * e) {
     expr_ref finalAxiom(m.mk_and(breakdownAssert, reduceToIndex), m);
     SASSERT(finalAxiom);
     assert_axiom(finalAxiom);
+}
+
+void theory_str::instantiate_axiom_Indexof2(enode * e) {
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+
+    app * expr = e->get_owner();
+    if (axiomatized_terms.contains(expr)) {
+        TRACE("t_str_detail", tout << "already set up Indexof2 axiom for " << mk_pp(expr, m) << std::endl;);
+        return;
+    }
+    axiomatized_terms.insert(expr);
+
+    TRACE("t_str_detail", tout << "instantiate Indexof2 axiom for " << mk_pp(expr, m) << std::endl;);
+
+    // -------------------------------------------------------------------------------
+    //   if (arg[2] >= length(arg[0]))                          // ite2
+    //     resAst = -1
+    //   else
+    //     args[0] = prefix . suffix
+    //     /\ indexAst = indexof(suffix, arg[1])
+    //     /\ args[2] = len(prefix)
+    //     /\ if (indexAst == -1)  resAst = indexAst            // ite3
+    //        else   resAst = args[2] + indexAst
+    // -------------------------------------------------------------------------------
+
+    expr_ref resAst(mk_int_var("res"), m);
+    expr_ref indexAst(mk_int_var("index"), m);
+    expr_ref prefix(mk_str_var("prefix"), m);
+    expr_ref suffix(mk_str_var("suffix"), m);
+    expr_ref prefixLen(mk_strlen(prefix), m);
+    expr_ref zeroAst(mk_int(0), m);
+    expr_ref negOneAst(mk_int(-1), m);
+
+    expr_ref ite3(m.mk_ite(
+            ctx.mk_eq_atom(indexAst, negOneAst),
+            ctx.mk_eq_atom(resAst, negOneAst),
+            ctx.mk_eq_atom(resAst, m_autil.mk_add(expr->get_arg(2), indexAst))
+            ),m);
+
+    expr_ref_vector ite2ElseItems(m);
+    ite2ElseItems.push_back(ctx.mk_eq_atom(expr->get_arg(0), mk_concat(prefix, suffix)));
+    ite2ElseItems.push_back(ctx.mk_eq_atom(indexAst, mk_indexof(suffix, expr->get_arg(1))));
+    ite2ElseItems.push_back(ctx.mk_eq_atom(expr->get_arg(2), prefixLen));
+    ite2ElseItems.push_back(ite3);
+    expr_ref ite2Else(m.mk_and(ite2ElseItems.size(), ite2ElseItems.c_ptr()), m);
+    SASSERT(ite2Else);
+
+    expr_ref ite2(m.mk_ite(
+            //m_autil.mk_ge(expr->get_arg(2), mk_strlen(expr->get_arg(0))),
+            m_autil.mk_ge(m_autil.mk_add(expr->get_arg(2), m_autil.mk_mul(mk_int(-1), mk_strlen(expr->get_arg(0)))), zeroAst),
+            ctx.mk_eq_atom(resAst, negOneAst),
+            ite2Else
+            ), m);
+    SASSERT(ite2);
+
+    expr_ref ite1(m.mk_ite(
+            //m_autil.mk_lt(expr->get_arg(2), zeroAst),
+            m.mk_not(m_autil.mk_ge(expr->get_arg(2), zeroAst)),
+            ctx.mk_eq_atom(resAst, mk_indexof(expr->get_arg(0), expr->get_arg(1))),
+            ite2
+            ), m);
+    SASSERT(ite1);
+    assert_axiom(ite1);
+
+    expr_ref reduceTerm(ctx.mk_eq_atom(expr, resAst), m);
+    SASSERT(reduceTerm);
+    assert_axiom(reduceTerm);
 }
 
 void theory_str::attach_new_th_var(enode * n) {

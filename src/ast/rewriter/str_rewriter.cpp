@@ -130,6 +130,34 @@ br_status str_rewriter::mk_str_Indexof(expr * haystack, expr * needle, expr_ref 
     }
 }
 
+br_status str_rewriter::mk_str_Indexof2(expr * arg0, expr * arg1, expr * arg2, expr_ref & result) {
+    TRACE("t_str_rw", tout << "rewrite (Indexof2 " << mk_pp(arg0, m()) << " " << mk_pp(arg1, m()) << " " << mk_pp(arg2, m()) << ")" << std::endl;);
+    //if (getNodeType(t, args[0]) == my_Z3_ConstStr && getNodeType(t, args[1]) == my_Z3_ConstStr && getNodeType(t, args[2]) == my_Z3_Num) {
+    rational arg2Int;
+    if (m_strutil.is_string(arg0) && m_strutil.is_string(arg1) && m_autil.is_numeral(arg2, arg2Int)) {
+        TRACE("t_str_rw", tout << "evaluating constant Indexof2 expression" << std::endl;);
+        std::string arg0str = m_strutil.get_string_constant_value(arg0);
+        std::string arg1str = m_strutil.get_string_constant_value(arg1);
+        if (arg2Int >= rational((unsigned)arg0str.length())) {
+            result = m_autil.mk_numeral(rational(-1), true);
+        } else if (arg2Int < rational(0)) {
+            int index = arg0str.find(arg1str);
+            result = m_autil.mk_numeral(rational(index), true);
+        } else {
+            std::string suffixStr = arg0str.substr(arg2Int.get_unsigned(), arg0str.length() - arg2Int.get_unsigned());
+            if (suffixStr.find(arg1str) != std::string::npos) {
+                int index = suffixStr.find(arg1str) + arg2Int.get_unsigned();
+                result = m_autil.mk_numeral(rational(index), true);
+            } else {
+                result = m_autil.mk_numeral(rational(-1), true);
+            }
+        }
+        return BR_DONE;
+    } else {
+        return BR_FAILED;
+    }
+}
+
 br_status str_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
     SASSERT(f->get_family_id() == get_fid());
 
@@ -152,6 +180,9 @@ br_status str_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_STR_INDEXOF:
         SASSERT(num_args == 2);
         return mk_str_Indexof(args[0], args[1], result);
+    case OP_STR_INDEXOF2:
+        SASSERT(num_args == 3);
+        return mk_str_Indexof2(args[0], args[1], args[2], result);
     default:
         return BR_FAILED;
     }
