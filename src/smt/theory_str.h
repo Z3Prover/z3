@@ -114,6 +114,7 @@ namespace smt {
         ptr_vector<enode> m_axiom_Contains_todo;
         ptr_vector<enode> m_axiom_Indexof_todo;
         ptr_vector<enode> m_axiom_Indexof2_todo;
+        ptr_vector<enode> m_axiom_LastIndexof_todo;
 
         // hashtable of all exprs for which we've already set up term-specific axioms --
         // this prevents infinite recursive descent with respect to axioms that
@@ -196,6 +197,8 @@ namespace smt {
         bool is_Indexof(enode const * n) const { return is_Indexof(n->get_owner()); }
         bool is_Indexof2(app const * a) const { return a->is_app_of(get_id(), OP_STR_INDEXOF2); }
         bool is_Indexof2(enode const * n) const { return is_Indexof2(n->get_owner()); }
+        bool is_LastIndexof(app const * a) const { return a->is_app_of(get_id(), OP_STR_LASTINDEXOF); }
+        bool is_LastIndexof(enode const * n) const { return is_LastIndexof(n->get_owner()); }
 
         void instantiate_concat_axiom(enode * cat);
         void instantiate_basic_string_axioms(enode * str);
@@ -207,6 +210,7 @@ namespace smt {
         void instantiate_axiom_Contains(enode * e);
         void instantiate_axiom_Indexof(enode * e);
         void instantiate_axiom_Indexof2(enode * e);
+        void instantiate_axiom_LastIndexof(enode * e);
 
         void set_up_axioms(expr * ex);
         void handle_equality(expr * lhs, expr * rhs);

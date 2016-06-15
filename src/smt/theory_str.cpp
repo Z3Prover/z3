@@ -611,7 +611,7 @@ expr * theory_str::mk_concat(expr * n1, expr * n2) {
 bool theory_str::can_propagate() {
     return !m_basicstr_axiom_todo.empty() || !m_str_eq_todo.empty() || !m_concat_axiom_todo.empty()
             || !m_axiom_CharAt_todo.empty() || !m_axiom_StartsWith_todo.empty() || !m_axiom_EndsWith_todo.empty()
-            || !m_axiom_Contains_todo.empty() || !m_axiom_Indexof_todo.empty() || !m_axiom_Indexof2_todo.empty()
+            || !m_axiom_Contains_todo.empty() || !m_axiom_Indexof_todo.empty() || !m_axiom_Indexof2_todo.empty() || !m_axiom_LastIndexof_todo.empty()
             ;
 }
 
@@ -665,6 +665,11 @@ void theory_str::propagate() {
             instantiate_axiom_Indexof2(m_axiom_Indexof2_todo[i]);
         }
         m_axiom_Indexof2_todo.reset();
+
+        for (unsigned i = 0; i < m_axiom_LastIndexof_todo.size(); ++i) {
+            instantiate_axiom_LastIndexof(m_axiom_LastIndexof_todo[i]);
+        }
+        m_axiom_LastIndexof_todo.reset();
     }
 }
 
@@ -1074,6 +1079,75 @@ void theory_str::instantiate_axiom_Indexof2(enode * e) {
     expr_ref reduceTerm(ctx.mk_eq_atom(expr, resAst), m);
     SASSERT(reduceTerm);
     assert_axiom(reduceTerm);
+}
+
+void theory_str::instantiate_axiom_LastIndexof(enode * e) {
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+
+    app * expr = e->get_owner();
+    if (axiomatized_terms.contains(expr)) {
+        TRACE("t_str_detail", tout << "already set up LastIndexof axiom for " << mk_pp(expr, m) << std::endl;);
+        return;
+    }
+    axiomatized_terms.insert(expr);
+
+    TRACE("t_str_detail", tout << "instantiate LastIndexof axiom for " << mk_pp(expr, m) << std::endl;);
+
+    expr_ref x1(mk_str_var("x1"), m);
+    expr_ref x2(mk_str_var("x2"), m);
+    expr_ref indexAst(mk_int_var("index"), m);
+    expr_ref_vector items(m);
+
+    // args[0] = x1 . args[1] . x2
+    expr_ref eq1(ctx.mk_eq_atom(expr->get_arg(0), mk_concat(x1, mk_concat(expr->get_arg(1), x2))), m);
+    expr_ref arg0HasArg1(mk_contains(expr->get_arg(0), expr->get_arg(1)), m);  // arg0HasArg1 = Contains(args[0], args[1])
+    items.push_back(ctx.mk_eq_atom(arg0HasArg1, eq1));
+
+
+    expr_ref condAst(arg0HasArg1, m);
+    //----------------------------
+    // true branch
+    expr_ref_vector thenItems(m);
+    thenItems.push_back(m_autil.mk_ge(indexAst, mk_int(0)));
+    //  args[0] = x1 . args[1] . x2
+    //  x1 doesn't contain args[1]
+    thenItems.push_back(m.mk_not(mk_contains(x2, expr->get_arg(1))));
+    thenItems.push_back(ctx.mk_eq_atom(indexAst, mk_strlen(x1)));
+
+    bool canSkip = false;
+    if (m_strutil.is_string(expr->get_arg(1))) {
+        std::string arg1Str = m_strutil.get_string_constant_value(expr->get_arg(1));
+        if (arg1Str.length() == 1) {
+            canSkip = true;
+        }
+    }
+
+    if (!canSkip) {
+        // args[0]  = x3 . x4 /\ |x3| = |x1| + 1 /\ ! contains(x4, args[1])
+        expr_ref x3(mk_str_var("x3"), m);
+        expr_ref x4(mk_str_var("x4"), m);
+        expr_ref tmpLen(m_autil.mk_add(indexAst, mk_int(1)), m);
+        thenItems.push_back(ctx.mk_eq_atom(expr->get_arg(0), mk_concat(x3, x4)));
+        thenItems.push_back(ctx.mk_eq_atom(mk_strlen(x3), tmpLen));
+        thenItems.push_back(m.mk_not(mk_contains(x4, expr->get_arg(1))));
+    }
+    //----------------------------
+    // else branch
+    expr_ref_vector elseItems(m);
+    elseItems.push_back(ctx.mk_eq_atom(indexAst, mk_int(-1)));
+
+    items.push_back(m.mk_ite(condAst, m.mk_and(thenItems.size(), thenItems.c_ptr()), m.mk_and(elseItems.size(), elseItems.c_ptr())));
+
+    expr_ref breakdownAssert(m.mk_and(items.size(), items.c_ptr()), m);
+    SASSERT(breakdownAssert);
+
+    expr_ref reduceToIndex(ctx.mk_eq_atom(expr, indexAst), m);
+    SASSERT(reduceToIndex);
+
+    expr_ref finalAxiom(m.mk_and(breakdownAssert, reduceToIndex), m);
+    SASSERT(finalAxiom);
+    assert_axiom(finalAxiom);
 }
 
 void theory_str::attach_new_th_var(enode * n) {
@@ -3850,6 +3924,10 @@ void theory_str::set_up_axioms(expr * ex) {
             app * ap = to_app(ex);
             if (is_Indexof(ap)) {
                 m_axiom_Indexof_todo.push_back(n);
+            } else if (is_Indexof2(ap)) {
+                m_axiom_Indexof2_todo.push_back(n);
+            } else if (is_LastIndexof(ap)) {
+                m_axiom_LastIndexof_todo.push_back(n);
             }
         }
     } else {
