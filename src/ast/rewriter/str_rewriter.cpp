@@ -158,6 +158,24 @@ br_status str_rewriter::mk_str_Indexof2(expr * arg0, expr * arg1, expr * arg2, e
     }
 }
 
+br_status str_rewriter::mk_str_LastIndexof(expr * haystack, expr * needle, expr_ref & result) {
+    TRACE("t_str_rw", tout << "rewrite (LastIndexof " << mk_pp(haystack, m()) << " " << mk_pp(needle, m()) << ")" << std::endl;);
+    if (m_strutil.is_string(haystack) && m_strutil.is_string(needle)) {
+        TRACE("t_str_rw", tout << "evaluating constant LastIndexof expression" << std::endl;);
+        std::string arg0Str = m_strutil.get_string_constant_value(haystack);
+        std::string arg1Str = m_strutil.get_string_constant_value(needle);
+        if (arg0Str.rfind(arg1Str) != std::string::npos) {
+            int index = arg0Str.rfind(arg1Str);
+            result = m_autil.mk_numeral(rational(index), true);
+        } else {
+            result = m_autil.mk_numeral(rational(-1), true);
+        }
+        return BR_DONE;
+    } else {
+        return BR_FAILED;
+    }
+}
+
 br_status str_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
     SASSERT(f->get_family_id() == get_fid());
 
@@ -183,6 +201,9 @@ br_status str_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_STR_INDEXOF2:
         SASSERT(num_args == 3);
         return mk_str_Indexof2(args[0], args[1], args[2], result);
+    case OP_STR_LASTINDEXOF:
+        SASSERT(num_args == 2);
+        return mk_str_LastIndexof(args[0], args[1], result);
     default:
         return BR_FAILED;
     }
