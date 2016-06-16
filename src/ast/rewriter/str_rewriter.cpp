@@ -176,6 +176,28 @@ br_status str_rewriter::mk_str_LastIndexof(expr * haystack, expr * needle, expr_
     }
 }
 
+br_status str_rewriter::mk_str_Replace(expr * base, expr * source, expr * target, expr_ref & result) {
+    TRACE("t_str_rw", tout << "rewrite (Replace " << mk_pp(base, m()) << " " << mk_pp(source, m()) << " " << mk_pp(target, m()) << ")" << std::endl;);
+    if (m_strutil.is_string(base) && m_strutil.is_string(source) && m_strutil.is_string(target)) {
+        std::string arg0Str = m_strutil.get_string_constant_value(base);
+        std::string arg1Str = m_strutil.get_string_constant_value(source);
+        std::string arg2Str = m_strutil.get_string_constant_value(target);
+        if (arg0Str.find(arg1Str) != std::string::npos) {
+            int index1 = arg0Str.find(arg1Str);
+            int index2 = index1 + arg1Str.length();
+            std::string substr0 = arg0Str.substr(0, index1);
+            std::string substr2 = arg0Str.substr(index2);
+            std::string replaced = substr0 + arg2Str + substr2;
+            result = m_strutil.mk_string(replaced);
+        } else {
+            result = base;
+        }
+        return BR_DONE;
+    } else {
+        return BR_FAILED;
+    }
+}
+
 br_status str_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
     SASSERT(f->get_family_id() == get_fid());
 
@@ -204,6 +226,9 @@ br_status str_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_STR_LASTINDEXOF:
         SASSERT(num_args == 2);
         return mk_str_LastIndexof(args[0], args[1], result);
+    case OP_STR_REPLACE:
+        SASSERT(num_args == 3);
+        return mk_str_Replace(args[0], args[1], args[2], result);
     default:
         return BR_FAILED;
     }

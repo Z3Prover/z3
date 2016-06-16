@@ -34,6 +34,7 @@ str_decl_plugin::str_decl_plugin():
     m_indexof2_decl(0),
     m_lastindexof_decl(0),
     m_substr_decl(0),
+    m_replace_decl(0),
     m_arith_plugin(0),
     m_arith_fid(0),
     m_int_sort(0){
@@ -55,6 +56,7 @@ void str_decl_plugin::finalize(void) {
     DEC_REF(m_indexof2_decl);
     DEC_REF(m_lastindexof_decl);
     DEC_REF(m_substr_decl);
+    DEC_REF(m_replace_decl);
     DEC_REF(m_int_sort);
 }
 
@@ -114,6 +116,12 @@ void str_decl_plugin::set_manager(ast_manager * m, family_id id) {
         m_substr_decl = m->mk_func_decl(symbol("Substring"), 3, d, s, func_decl_info(id, OP_STR_SUBSTR));
         m_manager->inc_ref(m_substr_decl);
     }
+
+    {
+        sort * d[3] = {s, s, s};
+        m_replace_decl = m->mk_func_decl(symbol("Replace"), 3, d, s, func_decl_info(id, OP_STR_REPLACE));
+        m_manager->inc_ref(m_replace_decl);
+    }
 }
 
 decl_plugin * str_decl_plugin::mk_fresh() {
@@ -139,6 +147,7 @@ func_decl * str_decl_plugin::mk_func_decl(decl_kind k) {
     case OP_STR_INDEXOF2: return m_indexof2_decl;
     case OP_STR_LASTINDEXOF: return m_lastindexof_decl;
     case OP_STR_SUBSTR: return m_substr_decl;
+    case OP_STR_REPLACE: return m_replace_decl;
     default: return 0;
     }
 }
@@ -203,6 +212,7 @@ void str_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol cons
     op_names.push_back(builtin_name("Indexof2", OP_STR_INDEXOF2));
     op_names.push_back(builtin_name("LastIndexof", OP_STR_LASTINDEXOF));
     op_names.push_back(builtin_name("Substring", OP_STR_SUBSTR));
+    op_names.push_back(builtin_name("Replace", OP_STR_REPLACE));
 }
 
 void str_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {

@@ -612,7 +612,7 @@ bool theory_str::can_propagate() {
     return !m_basicstr_axiom_todo.empty() || !m_str_eq_todo.empty() || !m_concat_axiom_todo.empty()
             || !m_axiom_CharAt_todo.empty() || !m_axiom_StartsWith_todo.empty() || !m_axiom_EndsWith_todo.empty()
             || !m_axiom_Contains_todo.empty() || !m_axiom_Indexof_todo.empty() || !m_axiom_Indexof2_todo.empty() || !m_axiom_LastIndexof_todo.empty()
-            || !m_axiom_Substr_todo.empty()
+            || !m_axiom_Substr_todo.empty() || !m_axiom_Replace_todo.empty()
             ;
 }
 
@@ -676,6 +676,11 @@ void theory_str::propagate() {
             instantiate_axiom_Substr(m_axiom_Substr_todo[i]);
         }
         m_axiom_Substr_todo.reset();
+
+        for (unsigned i = 0; i < m_axiom_Replace_todo.size(); ++i) {
+            instantiate_axiom_Replace(m_axiom_Replace_todo[i]);
+        }
+        m_axiom_Replace_todo.reset();
     }
 }
 
@@ -1188,6 +1193,56 @@ void theory_str::instantiate_axiom_Substr(enode * e) {
     SASSERT(reduceToVar);
 
     expr_ref finalAxiom(m.mk_and(breakdownAssert, reduceToVar), m);
+    SASSERT(finalAxiom);
+    assert_axiom(finalAxiom);
+}
+
+void theory_str::instantiate_axiom_Replace(enode * e) {
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+
+    app * expr = e->get_owner();
+    if (axiomatized_terms.contains(expr)) {
+        TRACE("t_str_detail", tout << "already set up Replace axiom for " << mk_pp(expr, m) << std::endl;);
+        return;
+    }
+    axiomatized_terms.insert(expr);
+
+    TRACE("t_str_detail", tout << "instantiate Replace axiom for " << mk_pp(expr, m) << std::endl;);
+
+    expr_ref x1(mk_str_var("x1"), m);
+    expr_ref x2(mk_str_var("x2"), m);
+    expr_ref i1(mk_int_var("i1"), m);
+    expr_ref result(mk_str_var("result"), m);
+
+    // condAst = Contains(args[0], args[1])
+    expr_ref condAst(mk_contains(expr->get_arg(0), expr->get_arg(1)), m);
+    // -----------------------
+    // true branch
+    expr_ref_vector thenItems(m);
+    //  args[0] = x1 . args[1] . x2
+    thenItems.push_back(ctx.mk_eq_atom(expr->get_arg(0), mk_concat(x1, mk_concat(expr->get_arg(1), x2))));
+    //  i1 = |x1|
+    thenItems.push_back(ctx.mk_eq_atom(i1, mk_strlen(x1)));
+    //  args[0]  = x3 . x4 /\ |x3| = |x1| + |args[1]| - 1 /\ ! contains(x3, args[1])
+    expr_ref x3(mk_str_var("x3"), m);
+    expr_ref x4(mk_str_var("x4"), m);
+    expr_ref tmpLen(m_autil.mk_add(i1, mk_strlen(expr->get_arg(1)), mk_int(-1)), m);
+    thenItems.push_back(ctx.mk_eq_atom(expr->get_arg(0), mk_concat(x3, x4)));
+    thenItems.push_back(ctx.mk_eq_atom(mk_strlen(x3), tmpLen));
+    thenItems.push_back(m.mk_not(mk_contains(x3, expr->get_arg(1))));
+    thenItems.push_back(ctx.mk_eq_atom(result, mk_concat(x1, mk_concat(expr->get_arg(2), x2))));
+    // -----------------------
+    // false branch
+    expr_ref elseBranch(ctx.mk_eq_atom(result, expr->get_arg(0)), m);
+
+    expr_ref breakdownAssert(m.mk_ite(condAst, m.mk_and(thenItems.size(), thenItems.c_ptr()), elseBranch), m);
+    SASSERT(breakdownAssert);
+
+    expr_ref reduceToResult(ctx.mk_eq_atom(expr, result), m);
+    SASSERT(reduceToResult);
+
+    expr_ref finalAxiom(m.mk_and(breakdownAssert, reduceToResult), m);
     SASSERT(finalAxiom);
     assert_axiom(finalAxiom);
 }
@@ -3928,6 +3983,10 @@ void theory_str::set_up_axioms(expr * ex) {
             	}
             } else if (is_CharAt(ap)) {
                 m_axiom_CharAt_todo.push_back(n);
+            } else if (is_Substr(ap)) {
+                m_axiom_Substr_todo.push_back(n);
+            } else if (is_Replace(ap)) {
+                m_axiom_Replace_todo.push_back(n);
             } else if (ap->get_num_args() == 0 && !is_string(ap)) {
                 // if ex is a variable, add it to our list of variables
                 TRACE("t_str_detail", tout << "tracking variable " << mk_ismt2_pp(ap, get_manager()) << std::endl;);
@@ -3942,18 +4001,24 @@ void theory_str::set_up_axioms(expr * ex) {
         TRACE("t_str_detail", tout << "setting up axioms for " << mk_ismt2_pp(ex, get_manager()) <<
                 ": expr is of sort Bool" << std::endl;);
         // set up axioms for boolean terms
-        enode * n = ctx.get_enode(ex);
-        SASSERT(n);
 
-        if (is_app(ex)) {
-            app * ap = to_app(ex);
-            if (is_StartsWith(ap)) {
-                m_axiom_StartsWith_todo.push_back(n);
-            } else if (is_EndsWith(ap)) {
-                m_axiom_EndsWith_todo.push_back(n);
-            } else if (is_Contains(ap)) {
-                m_axiom_Contains_todo.push_back(n);
+        if (ctx.e_internalized(ex)) {
+            enode * n = ctx.get_enode(ex);
+            SASSERT(n);
+
+            if (is_app(ex)) {
+                app * ap = to_app(ex);
+                if (is_StartsWith(ap)) {
+                    m_axiom_StartsWith_todo.push_back(n);
+                } else if (is_EndsWith(ap)) {
+                    m_axiom_EndsWith_todo.push_back(n);
+                } else if (is_Contains(ap)) {
+                    m_axiom_Contains_todo.push_back(n);
+                }
             }
+        } else {
+            TRACE("t_str_detail", tout << "WARNING: Bool term " << mk_ismt2_pp(ex, get_manager()) << " not internalized. Skipping to prevent a crash." << std::endl;);
+            return;
         }
     } else if (ex_sort == int_sort) {
         TRACE("t_str_detail", tout << "setting up axioms for " << mk_ismt2_pp(ex, get_manager()) <<

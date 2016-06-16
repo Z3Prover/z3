@@ -47,6 +47,7 @@ public:
     br_status mk_str_Indexof(expr * haystack, expr * needle, expr_ref & result);
     br_status mk_str_Indexof2(expr * arg0, expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_str_LastIndexof(expr * haystack, expr * needle, expr_ref & result);
+    br_status mk_str_Replace(expr * base, expr * source, expr * target, expr_ref & result);
 
     bool reduce_eq(expr * l, expr * r, expr_ref_vector & lhs, expr_ref_vector & rhs, bool & change);
     bool reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_vector& lhs, expr_ref_vector& rhs, bool& change);
