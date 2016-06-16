@@ -612,6 +612,7 @@ bool theory_str::can_propagate() {
     return !m_basicstr_axiom_todo.empty() || !m_str_eq_todo.empty() || !m_concat_axiom_todo.empty()
             || !m_axiom_CharAt_todo.empty() || !m_axiom_StartsWith_todo.empty() || !m_axiom_EndsWith_todo.empty()
             || !m_axiom_Contains_todo.empty() || !m_axiom_Indexof_todo.empty() || !m_axiom_Indexof2_todo.empty() || !m_axiom_LastIndexof_todo.empty()
+            || !m_axiom_Substr_todo.empty()
             ;
 }
 
@@ -670,6 +671,11 @@ void theory_str::propagate() {
             instantiate_axiom_LastIndexof(m_axiom_LastIndexof_todo[i]);
         }
         m_axiom_LastIndexof_todo.reset();
+
+        for (unsigned i = 0; i < m_axiom_Substr_todo.size(); ++i) {
+            instantiate_axiom_Substr(m_axiom_Substr_todo[i]);
+        }
+        m_axiom_Substr_todo.reset();
     }
 }
 
@@ -1146,6 +1152,42 @@ void theory_str::instantiate_axiom_LastIndexof(enode * e) {
     SASSERT(reduceToIndex);
 
     expr_ref finalAxiom(m.mk_and(breakdownAssert, reduceToIndex), m);
+    SASSERT(finalAxiom);
+    assert_axiom(finalAxiom);
+}
+
+void theory_str::instantiate_axiom_Substr(enode * e) {
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+
+    app * expr = e->get_owner();
+    if (axiomatized_terms.contains(expr)) {
+        TRACE("t_str_detail", tout << "already set up Substr axiom for " << mk_pp(expr, m) << std::endl;);
+        return;
+    }
+    axiomatized_terms.insert(expr);
+
+    TRACE("t_str_detail", tout << "instantiate Substr axiom for " << mk_pp(expr, m) << std::endl;);
+
+    expr_ref ts0(mk_str_var("ts0"), m);
+    expr_ref ts1(mk_str_var("ts1"), m);
+    expr_ref ts2(mk_str_var("ts2"), m);
+
+    expr_ref ts0_contains_ts1(mk_contains(expr->get_arg(0), ts1), m);
+
+    expr_ref_vector and_item(m);
+    and_item.push_back(ts0_contains_ts1);
+    and_item.push_back(ctx.mk_eq_atom(expr->get_arg(0), mk_concat(ts0, mk_concat(ts1, ts2))));
+    and_item.push_back(ctx.mk_eq_atom(expr->get_arg(1), mk_strlen(ts0)));
+    and_item.push_back(ctx.mk_eq_atom(expr->get_arg(2), mk_strlen(ts1)));
+
+    expr_ref breakdownAssert(m.mk_and(and_item.size(), and_item.c_ptr()), m);
+    SASSERT(breakdownAssert);
+
+    expr_ref reduceToVar(ctx.mk_eq_atom(expr, ts1), m);
+    SASSERT(reduceToVar);
+
+    expr_ref finalAxiom(m.mk_and(breakdownAssert, reduceToVar), m);
     SASSERT(finalAxiom);
     assert_axiom(finalAxiom);
 }
