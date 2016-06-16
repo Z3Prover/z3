@@ -30,8 +30,9 @@ public class Context implements AutoCloseable {
     private final long m_ctx;
     static final Object creation_lock = new Object();
 
-    public static Context mkContext() {
-        return new Context(Native.mkContextRc(0));
+    public Context () {
+        m_ctx = Native.mkContextRc(0);
+        init();
     }
 
 
@@ -52,24 +53,17 @@ public class Context implements AutoCloseable {
      * Note that in previous versions of Z3, this constructor was also used to set global and
      * module parameters. For this purpose we should now use {@code Global.setParameter}
      **/
-    public static Context mkContext(Map<String, String> settings)
-    {
+    public Context(Map<String, String> settings) {
         long cfg = Native.mkConfig();
-        for (Map.Entry<String, String> kv : settings.entrySet())
+        for (Map.Entry<String, String> kv : settings.entrySet()) {
             Native.setParamValue(cfg, kv.getKey(), kv.getValue());
-        long m_ctx = Native.mkContextRc(cfg);
+        }
+        m_ctx = Native.mkContextRc(cfg);
         Native.delConfig(cfg);
-        return new Context(m_ctx);
+        init();
     }
 
-    /**
-     * Constructor.
-     **/
-    protected Context(long m_ctx)
-    {
-        this.m_ctx = m_ctx;
-
-        // Code which used to be in "initContext".
+    private void init() {
         setPrintMode(Z3_ast_print_mode.Z3_PRINT_SMTLIB2_COMPLIANT);
         Native.setInternalErrorHandler(m_ctx);
     }
