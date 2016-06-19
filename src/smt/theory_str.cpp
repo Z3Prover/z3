@@ -1733,17 +1733,12 @@ void theory_str::simplify_concat_equality(expr * nn1, expr * nn2) {
     expr * a2_arg0 = a_nn2->get_arg(0);
     expr * a2_arg1 = a_nn2->get_arg(1);
 
-    // TODO
-    /*
-      int a1_arg0_len = getLenValue(t, a1_arg0);
-      int a1_arg1_len = getLenValue(t, a1_arg1);
-      int a2_arg0_len = getLenValue(t, a2_arg0);
-      int a2_arg1_len = getLenValue(t, a2_arg1);
-     */
-    int a1_arg0_len = -1;
-    int a1_arg1_len = -1;
-    int a2_arg0_len = -1;
-    int a2_arg1_len = -1;
+    rational a1_arg0_len, a1_arg1_len, a2_arg0_len, a2_arg1_len;
+
+    bool a1_arg0_len_exists = get_len_value(a1_arg0, a1_arg0_len);
+    bool a1_arg1_len_exists = get_len_value(a1_arg1, a1_arg1_len);
+    bool a2_arg0_len_exists = get_len_value(a2_arg0, a2_arg0_len);
+    bool a2_arg1_len_exists = get_len_value(a2_arg1, a2_arg1_len);
 
     TRACE("t_str", tout << "nn1 = " << mk_ismt2_pp(nn1, m) << std::endl
             << "nn2 = " << mk_ismt2_pp(nn2, m) << std::endl;);
@@ -1797,35 +1792,38 @@ void theory_str::simplify_concat_equality(expr * nn1, expr * nn2) {
         }
     }
 
-    // TODO quick path 1-2
-    /*
-  if(a1_arg0_len != -1 && a2_arg0_len != -1 && a1_arg0_len == a2_arg0_len){
-    if (! inSameEqc(t, a1_arg0, a2_arg0)) {
-      __debugPrint(logFile, ">> [simplifyConcatEq] Quick Path 2-1: len(nn1.arg0) == len(nn2.arg0)\n");
-      Z3_ast ax_l1 = Z3_mk_eq(ctx, nn1, nn2);
-      Z3_ast ax_l2 = Z3_mk_eq(ctx, mk_length(t, a1_arg0), mk_length(t, a2_arg0));
-      Z3_ast ax_r1 = Z3_mk_eq(ctx, a1_arg0, a2_arg0);
-      Z3_ast ax_r2 = Z3_mk_eq(ctx, a1_arg1, a2_arg1);
-      Z3_ast toAdd = Z3_mk_implies(ctx, mk_2_and(t, ax_l1, ax_l2), mk_2_and(t, ax_r1, ax_r2));
-      addAxiom(t, toAdd, __LINE__);
-      return;
-    }
-  }
+    // quick path 2-1
+    if (a1_arg0_len_exists && a2_arg0_len_exists && a1_arg0_len == a2_arg0_len) {
+        if (!in_same_eqc(a1_arg0, a2_arg0)) {
+            TRACE("t_str_detail", tout << "quick path 2-1: len(nn1.arg0) == len(nn2.arg0)" << std::endl;);
+            expr_ref ax_l1(ctx.mk_eq_atom(nn1, nn2), m);
+            expr_ref ax_l2(ctx.mk_eq_atom(mk_strlen(a1_arg0), mk_strlen(a2_arg0)), m);
+            expr_ref ax_r1(ctx.mk_eq_atom(a1_arg0, a2_arg0), m);
+            expr_ref ax_r2(ctx.mk_eq_atom(a1_arg1, a2_arg1), m);
 
-  if (a1_arg1_len != -1 && a2_arg1_len != -1 && a1_arg1_len == a2_arg1_len)
-  {
-    if (!inSameEqc(t, a1_arg1, a2_arg1)) {
-      __debugPrint(logFile, ">> [simplifyConcatEq] Quick Path 2-2: len(nn1.arg1) == len(nn2.arg1)\n");
-      Z3_ast ax_l1 = Z3_mk_eq(ctx, nn1, nn2);
-      Z3_ast ax_l2 = Z3_mk_eq(ctx, mk_length(t, a1_arg1), mk_length(t, a2_arg1));
-      Z3_ast ax_r1 = Z3_mk_eq(ctx, a1_arg0, a2_arg0);
-      Z3_ast ax_r2 = Z3_mk_eq(ctx, a1_arg1, a2_arg1);
-      Z3_ast toAdd = Z3_mk_implies(ctx, mk_2_and(t, ax_l1, ax_l2), mk_2_and(t, ax_r1, ax_r2));
-      addAxiom(t, toAdd, __LINE__);
-      return;
+            expr_ref premise(m.mk_and(ax_l1, ax_l2), m);
+            expr_ref conclusion(m.mk_and(ax_r1, ax_r2), m);
+
+            assert_implication(premise, conclusion);
+            return;
+        }
     }
-  }
-  */
+
+    if (a1_arg1_len_exists && a2_arg1_len_exists && a1_arg1_len == a2_arg1_len) {
+        if (!in_same_eqc(a1_arg1, a2_arg1)) {
+            TRACE("t_str_detail", tout << "quick path 2-2: len(nn1.arg1) == len(nn2.arg1)" << std::endl;);
+            expr_ref ax_l1(ctx.mk_eq_atom(nn1, nn2), m);
+            expr_ref ax_l2(ctx.mk_eq_atom(mk_strlen(a1_arg1), mk_strlen(a2_arg1)), m);
+            expr_ref ax_r1(ctx.mk_eq_atom(a1_arg0, a2_arg0), m);
+            expr_ref ax_r2(ctx.mk_eq_atom(a1_arg1, a2_arg1), m);
+
+            expr_ref premise(m.mk_and(ax_l1, ax_l2), m);
+            expr_ref conclusion(m.mk_and(ax_r1, ax_r2), m);
+
+            assert_implication(premise, conclusion);
+            return;
+        }
+    }
 
     expr * new_nn1 = simplify_concat(nn1);
     expr * new_nn2 = simplify_concat(nn2);
