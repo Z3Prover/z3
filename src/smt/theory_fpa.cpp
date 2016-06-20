@@ -691,7 +691,10 @@ namespace smt {
         m_rw.reset();
         m_th_rw.reset();        
         m_trail_stack.pop_scope(m_trail_stack.get_num_scopes());        
-        if (m_factory) dealloc(m_factory); m_factory = 0;
+        if (m_factory) {
+            dealloc(m_factory); 
+            m_factory = 0;
+        }
         ast_manager & m = get_manager();
         dec_ref_map_key_values(m, m_conversions);
         dec_ref_collection_values(m, m_is_added_to_model);
