@@ -225,7 +225,7 @@ namespace opt {
         normalize();
         internalize();
         update_solver();
-#if 1
+#if 0
         if (is_qsat_opt()) {
             return run_qsat_opt();
         }
@@ -367,6 +367,7 @@ namespace opt {
 
     lbool context::execute_box() {
         if (m_box_index < m_objectives.size()) {
+            SASSERT(m_box_index < m_box_models.size());            
             m_model = m_box_models[m_box_index];
             ++m_box_index;           
             return l_true;
@@ -383,7 +384,9 @@ namespace opt {
             if (obj.m_type == O_MAXSMT) {
                 solver::scoped_push _sp(get_solver());
                 r = execute(obj, false, false);
-                if (r == l_true) m_box_models.push_back(m_model.get());
+                if (r == l_true) {
+                    m_box_models.push_back(m_model.get());
+                }
             }
             else {
                 m_box_models.push_back(m_optsmt.get_model(j));
@@ -391,6 +394,7 @@ namespace opt {
             }
         }
         if (r == l_true && m_objectives.size() > 0) {
+            SASSERT(!m_box_models.empty());
             m_model = m_box_models[0];
         }
         return r;

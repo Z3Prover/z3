@@ -41,7 +41,6 @@ namespace opt {
 
         
     bool model_based_opt::invariant() {
-        // variables in each row are sorted.
         for (unsigned i = 0; i < m_rows.size(); ++i) {
             if (!invariant(i, m_rows[i])) {
                 return false;
@@ -50,19 +49,21 @@ namespace opt {
         return true;
     }
 
+#define PASSERT(_e_) if (!(_e_)) { TRACE("opt", display(tout, r);); SASSERT(_e_); }
+
     bool model_based_opt::invariant(unsigned index, row const& r) {
-        rational val = r.m_coeff;
         vector<var> const& vars = r.m_vars;
         for (unsigned i = 0; i < vars.size(); ++i) {
-            var const& v = vars[i];
-            SASSERT(i + 1 == vars.size() || v.m_id < vars[i+1].m_id);
-            SASSERT(!v.m_coeff.is_zero());
-            val += v.m_coeff * m_var2value[v.m_id];
+            // variables in each row are sorted and have non-zero coefficients
+            SASSERT(i + 1 == vars.size() || vars[i].m_id < vars[i+1].m_id);
+            SASSERT(!vars[i].m_coeff.is_zero());
         }
-        SASSERT(val == r.m_value);
-        SASSERT(r.m_type != t_eq ||  val.is_zero());
-        SASSERT(index == 0 || r.m_type != t_lt ||  val.is_neg());
-        SASSERT(index == 0 || r.m_type != t_le || !val.is_pos());        
+        
+        PASSERT(r.m_value == get_row_value(r));
+        PASSERT(r.m_type != t_eq ||  r.m_value.is_zero());
+        // values satisfy constraints
+        PASSERT(index == 0 || r.m_type != t_lt ||  r.m_value.is_neg());
+        PASSERT(index == 0 || r.m_type != t_le || !r.m_value.is_pos());        
         return true;
     }
         
@@ -90,20 +91,25 @@ namespace opt {
     // 
     inf_eps model_based_opt::maximize() {
         SASSERT(invariant());
-        unsigned_vector other;
         unsigned_vector bound_trail, bound_vars;
+        TRACE("opt", display(tout << "tableau\n"););
         while (!objective().m_vars.empty()) {
-            TRACE("opt", display(tout << "tableau\n"););
             var v = objective().m_vars.back();
             unsigned x = v.m_id;
             rational const& coeff = v.m_coeff;
             unsigned bound_row_index;
             rational bound_coeff;
-            other.reset();
-            if (find_bound(x, bound_row_index, bound_coeff, other, coeff.is_pos())) {
+            if (find_bound(x, bound_row_index, bound_coeff, coeff.is_pos())) {
                 SASSERT(!bound_coeff.is_zero());
-                for (unsigned i = 0; i < other.size(); ++i) {
-                    resolve(bound_row_index, bound_coeff, other[i], x);
+                TRACE("opt", display(tout << "update: " << v << " ", objective());
+                      for (unsigned i = 0; i < m_above.size(); ++i) {
+                          display(tout << "resolve: ", m_rows[m_above[i]]);
+                      });
+                for (unsigned i = 0; i < m_above.size(); ++i) {
+                    resolve(bound_row_index, bound_coeff, m_above[i], x);
+                }
+                for (unsigned i = 0; i < m_below.size(); ++i) {
+                    resolve(bound_row_index, bound_coeff, m_below[i], x);
                 }
                 // coeff*x + objective <= ub
                 // a2*x + t2 <= 0
@@ -116,6 +122,8 @@ namespace opt {
                 bound_vars.push_back(x);
             }
             else {
+                TRACE("opt", display(tout << "unbound: " << v << " ", objective()););
+                update_values(bound_vars, bound_trail);
                 return inf_eps::infinity();
             }
         }
@@ -136,15 +144,33 @@ namespace opt {
     }
 
 
+    void model_based_opt::update_value(unsigned x, rational const& val) {
+        rational old_val = m_var2value[x];
+        m_var2value[x] = val;
+        unsigned_vector const& row_ids = m_var2row_ids[x];
+        for (unsigned i = 0; i < row_ids.size(); ++i) {            
+            unsigned row_id = row_ids[i];
+            rational coeff = get_coefficient(row_id, x);
+            if (coeff.is_zero()) {
+                continue;
+            }
+            row & r = m_rows[row_id];
+            rational delta = coeff * (val - old_val);            
+            r.m_value += delta;
+            SASSERT(invariant(row_id, r));
+        }
+    }
+
+
     void model_based_opt::update_values(unsigned_vector const& bound_vars, unsigned_vector const& bound_trail) {
-        rational eps(0);
         for (unsigned i = bound_trail.size(); i > 0; ) {
             --i;
             unsigned x = bound_vars[i];
             row& r = m_rows[bound_trail[i]];
             rational val = r.m_coeff;
-            rational x_val;
-            rational x_coeff;
+            rational old_x_val = m_var2value[x];
+            rational new_x_val;
+            rational x_coeff, eps(0);
             vector<var> const& vars = r.m_vars;
             for (unsigned j = 0; j < vars.size(); ++j) {
                 var const& v = vars[j];
@@ -155,28 +181,21 @@ namespace opt {
                     val += m_var2value[v.m_id]*v.m_coeff;
                 }
             }
-            TRACE("opt", display(tout << "v" << x << " val: " << val 
-                                 << " coeff_x: " << x_coeff << " val_x: " << m_var2value[x] << " ", r); );
             SASSERT(!x_coeff.is_zero());
-            x_val = -val/x_coeff;
-            //
-            //
-            //     ax + t < 0
-            // <=> x < -t/a
-            // <=> x := -t/a - epsilon
-            // 
-            if (r.m_type == t_lt) {
-                // Adjust epsilon to be 
-                if (!x_val.is_zero() && (eps.is_zero() || eps >= abs(x_val))) {
-                    eps = abs(x_val)/rational(2);
-                }
-                if (!r.m_value.is_zero() && (eps.is_zero() || eps >= abs(r.m_value))) {
-                    eps = abs(r.m_value)/rational(2);
-                }
+            new_x_val = -val/x_coeff;
 
+            if (r.m_type == t_lt) {
+                eps = abs(old_x_val - new_x_val)/rational(2);
+                eps = std::min(rational::one(), eps);
                 SASSERT(!eps.is_zero());
+
+                //
+                //     ax + t < 0
+                // <=> x < -t/a
+                // <=> x := -t/a - epsilon
+                // 
                 if (x_coeff.is_pos()) {
-                    x_val -= eps;
+                    new_x_val -= eps;
                 }
                 //
                 //     -ax + t < 0 
@@ -185,27 +204,47 @@ namespace opt {
                 // <=> x > t/a
                 // <=> x := t/a + epsilon
                 //
-                else if (x_coeff.is_neg()) {
-                    x_val += eps;
+                else {
+                    new_x_val += eps;
                 }
             }
-            m_var2value[x] = x_val;
-            r.m_value = (x_val * x_coeff) + val;
+            TRACE("opt", display(tout << "v" << x 
+                                 << " coeff_x: " << x_coeff 
+                                 << " old_x_val: " << old_x_val
+                                 << " new_x_val: " << new_x_val
+                                 << " eps: " << eps << " ", r); );
+            m_var2value[x] = new_x_val;
             
-            TRACE("opt", display(tout << "v" << x << " val: " << val << " coeff_x: " 
-                                 << x_coeff << " val_x: " << m_var2value[x] << " ", r); );
+            r.m_value = get_row_value(r);
             SASSERT(invariant(bound_trail[i], r));
         }        
+        
+        // update and check bounds for all other affected rows.
+        for (unsigned i = bound_trail.size(); i > 0; ) {
+            --i;
+            unsigned x = bound_vars[i];
+            unsigned_vector const& row_ids = m_var2row_ids[x];
+            for (unsigned j = 0; j < row_ids.size(); ++j) {            
+                unsigned row_id = row_ids[j];
+                row & r = m_rows[row_id];
+                r.m_value = get_row_value(r);
+                SASSERT(invariant(row_id, r));
+            }            
+        }
+        SASSERT(invariant());
     }
 
-    bool model_based_opt::find_bound(unsigned x, unsigned& bound_row_index, rational& bound_coeff, unsigned_vector& other, bool is_pos) {
+    bool model_based_opt::find_bound(unsigned x, unsigned& bound_row_index, rational& bound_coeff, bool is_pos) {
         bound_row_index = UINT_MAX;
         rational lub_val;
         rational const& x_val = m_var2value[x];
         unsigned_vector const& row_ids = m_var2row_ids[x];
         uint_set visited;
+        m_above.reset();
+        m_below.reset();
         for (unsigned i = 0; i < row_ids.size(); ++i) {
             unsigned row_id = row_ids[i];
+            SASSERT(row_id != m_objective_id);
             if (visited.contains(row_id)) {
                 continue;
             }
@@ -226,24 +265,34 @@ namespace opt {
                     else if ((value == lub_val && r.m_type == opt::t_lt) ||
                              (is_pos && value < lub_val) || 
                              (!is_pos && value > lub_val)) {
-                        other.push_back(bound_row_index);
+                        m_above.push_back(bound_row_index);
                         lub_val = value;
-                        bound_row_index = row_id;                            
+                        bound_row_index = row_id;                          
                         bound_coeff = a;
                     }
                     else {
-                        other.push_back(row_id);
+                        m_above.push_back(row_id);
                     }
                 }
                 else {
-                    r.m_alive = false;
+                    m_below.push_back(row_id);
                 }
             }
         }
         return bound_row_index != UINT_MAX;
     }
-        
-    rational model_based_opt::get_coefficient(unsigned row_id, unsigned var_id) {
+       
+    rational model_based_opt::get_row_value(row const& r) const {
+        vector<var> const& vars = r.m_vars;
+        rational val = r.m_coeff;
+        for (unsigned i = 0; i < vars.size(); ++i) {
+            var const& v = vars[i];
+            val += v.m_coeff * m_var2value[v.m_id];
+        }
+        return val;
+    }    
+ 
+    rational model_based_opt::get_coefficient(unsigned row_id, unsigned var_id) const {
         row const& r = m_rows[row_id];
         if (r.m_vars.empty()) {
             return rational::zero();

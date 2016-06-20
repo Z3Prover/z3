@@ -105,7 +105,10 @@ namespace qe {
             expr_ref t(m);
             opt::ineq_type ty = opt::t_le;
             expr* e1, *e2;
-            DEBUG_CODE(expr_ref val(m); VERIFY(model.eval(lit, val) && m.is_true(val)););
+            DEBUG_CODE(expr_ref val(m); 
+                       VERIFY(model.eval(lit, val)); 
+                       CTRACE("qe", !m.is_true(val), tout << mk_pp(lit, m) << " := " << val << "\n";);
+                       SASSERT(m.is_true(val)););
 
             bool is_not = m.is_not(lit, lit);
             if (is_not) {
@@ -942,7 +945,7 @@ namespace qe {
             SASSERT(m_u < m_delta && rational(0) <= m_u);
             for (unsigned i = 0; i < n; ++i) {
                 add_lit(model, lits, mk_divides(div_divisor(i), 
-                                         mk_add(mk_num(div_coeff(i) * m_u), div_term(i))));
+                                                mk_add(mk_num(div_coeff(i) * m_u), div_term(i))));
             }
             reset_divs();
             //
@@ -1070,7 +1073,7 @@ namespace qe {
             
             for (unsigned i = 0; i < rows.size(); ++i) {
                 expr_ref_vector ts(m);
-                expr_ref t(m), s(m);
+                expr_ref t(m), s(m), val(m);
                 row const& r = rows[i];
                 if (r.m_vars.size() == 0) {
                     continue;
@@ -1088,6 +1091,8 @@ namespace qe {
                     case opt::t_eq: t = a.mk_eq(t, s); break;
                     }
                     fmls.push_back(t);
+                    VERIFY(model.eval(t, val));
+                    CTRACE("qe", !m.is_true(val), tout << "Evaluated unit " << t << " to " << val << "\n";);
                     continue;
                 }
                 for (j = 0; j < r.m_vars.size(); ++j) {
@@ -1111,10 +1116,16 @@ namespace qe {
                 case opt::t_eq: t = a.mk_eq(t, s); break;
                 }
                 fmls.push_back(t);
+                
+                
+                VERIFY(model.eval(t, val));
+                CTRACE("qe", !m.is_true(val), tout << "Evaluated " << t << " to " << val << "\n";);
+
             }
         }        
 
-        opt::inf_eps maximize(expr_ref_vector const& fmls0, model& mdl, app* t, expr_ref& bound) {
+        opt::inf_eps maximize(expr_ref_vector const& fmls0, model& mdl, app* t, expr_ref& ge, expr_ref& gt) {
+            validate_model(mdl, fmls0);
             m_trail.reset();
             SASSERT(a.is_real(t));
             expr_ref_vector fmls(fmls0);
@@ -1139,11 +1150,6 @@ namespace qe {
             // find optimal value
             value = mbo.maximize();
 
-            expr_ref val(a.mk_numeral(value.get_rational(), false), m);
-            if (!value.is_finite()) {
-                bound = m.mk_false();
-                return value;
-            }
 
             // update model to use new values that satisfy optimality
             ptr_vector<expr> vars;
@@ -1160,15 +1166,40 @@ namespace qe {
                     TRACE("qe", tout << "omitting model update for non-uninterpreted constant " << mk_pp(e, m) << "\n";);
                 }
             }
+            expr_ref val(a.mk_numeral(value.get_rational(), false), m);
+            expr_ref tval(m);
+            VERIFY (mdl.eval(t, tval));
 
-            // update the predicate 'bound' which forces larger values.
-            if (value.get_infinitesimal().is_neg()) {
-                bound = a.mk_le(val, t);
+            // update the predicate 'bound' which forces larger values when 'strict' is true.
+            // strict:  bound := valuue < t
+            // !strict: bound := value <= t
+            if (!value.is_finite()) {
+                ge = a.mk_ge(t, tval);
+                gt = m.mk_false();
+            }
+            else if (value.get_infinitesimal().is_neg()) {
+                ge = a.mk_ge(t, tval);
+                gt = a.mk_ge(t, val);
             }
             else {
-                bound = a.mk_lt(val, t);
-            }            
+                ge = a.mk_ge(t, val);
+                gt = a.mk_gt(t, val);
+            }
+            validate_model(mdl, fmls0);
             return value;
+        }
+
+        bool validate_model(model& mdl, expr_ref_vector const& fmls) {
+            bool valid = true;
+            for (unsigned i = 0; i < fmls.size(); ++i) {
+                expr_ref val(m);
+                VERIFY(mdl.eval(fmls[i], val));
+                if (!m.is_true(val)) {
+                    valid = false;
+                    TRACE("qe", tout << mk_pp(fmls[i], m) << " := " << val << "\n";);
+                }
+            }
+            return valid;
         }
 
         void extract_coefficients(opt::model_based_opt& mbo, model& model, obj_map<expr, rational> const& ts, obj_map<expr, unsigned>& tids, vars& coeffs) {
@@ -1219,8 +1250,8 @@ namespace qe {
         return m_imp->a.get_family_id();
     }
 
-    opt::inf_eps arith_project_plugin::maximize(expr_ref_vector const& fmls, model& mdl, app* t, expr_ref& bound) {
-        return m_imp->maximize(fmls, mdl, t, bound);
+    opt::inf_eps arith_project_plugin::maximize(expr_ref_vector const& fmls, model& mdl, app* t, expr_ref& ge, expr_ref& gt) {
+        return m_imp->maximize(fmls, mdl, t, ge, gt);
     }
 
     bool arith_project(model& model, app* var, expr_ref_vector& lits) {

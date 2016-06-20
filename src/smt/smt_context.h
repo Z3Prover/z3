@@ -1406,10 +1406,8 @@ namespace smt {
 
         void internalize_instance(expr * body, proof * pr, unsigned generation) {
             internalize_assertion(body, pr, generation);
-#ifndef SMTCOMP
             if (relevancy())
                 m_case_split_queue->internalize_instance_eh(body, generation);
-#endif
         }
 
         bool already_internalized() const { return m_e_internalized_stack.size() > 2 || m_b_internalized_stack.size() > 1; }

@@ -138,8 +138,10 @@ namespace smt {
     }
 
     bool model_checker::add_instance(quantifier * q, model * cex, expr_ref_vector & sks, bool use_inv) {
-        if (cex == 0)
-            return false; // no model available.
+        if (cex == 0) {
+            TRACE("model_checker", tout << "no model is available\n";);
+            return false; 
+        }
         unsigned num_decls = q->get_num_decls();
         // Remark: sks were created for the flat version of q.
         SASSERT(sks.size() >= num_decls);
@@ -153,8 +155,10 @@ namespace smt {
             sk_value  = cex->get_const_interp(sk_d);
             if (sk_value == 0) {
                 sk_value = cex->get_some_value(sk_d->get_range());
-                if (sk_value == 0)
+                if (sk_value == 0) {
+                    TRACE("model_checker", tout << "Could not get value for " << sk_d->get_name() << "\n";);
                     return false; // get_some_value failed... giving up
+                }
             }
             if (use_inv) {
                 unsigned sk_term_gen;
@@ -166,6 +170,7 @@ namespace smt {
                     sk_value = sk_term;
                 }
                 else {
+                    TRACE("model_checker", tout << "no inverse value for " << sk_value << "\n";);
                     return false;
                 }
             }
@@ -175,8 +180,10 @@ namespace smt {
                     sk_value = sk_term;
                 }
             }
-            if (contains_model_value(sk_value))
+            if (contains_model_value(sk_value)) {
+                TRACE("model_checker", tout << "value is private to model: " << sk_value << "\n";);
                 return false;
+            }
             bindings.set(num_decls - i - 1, sk_value);
         }
         
@@ -286,18 +293,15 @@ namespace smt {
                 break; 
             model_ref cex;
             m_aux_context->get_model(cex);
-            if (add_instance(q, cex.get(), sks, true)) {
-                num_new_instances++;
-                if (num_new_instances < m_max_cexs) {
-                    if (!add_blocking_clause(cex.get(), sks))
-                        break; // add_blocking_clause failed... stop the search for new counter-examples...
-                }
-            }
-            else {
+            if (!add_instance(q, cex.get(), sks, true)) {
                 break;
             }
-            if (num_new_instances >= m_max_cexs)
-                break;
+            num_new_instances++;
+            if (num_new_instances >= m_max_cexs || !add_blocking_clause(cex.get(), sks)) {
+                TRACE("model_checker", tout << "Add blocking clause failed\n";);
+                // add_blocking_clause failed... stop the search for new counter-examples...
+                break; 
+            }
         }
 
         if (num_new_instances == 0) {
@@ -368,8 +372,10 @@ namespace smt {
         if (it == end)
             return true;
 
-        if (m_iteration_idx >= m_params.m_mbqi_max_iterations)
+        if (m_iteration_idx >= m_params.m_mbqi_max_iterations) {
+            IF_VERBOSE(10, verbose_stream() << "(smt.mbqi \"max instantiations reached \")" << m_iteration_idx << "\n";);
             return false;
+        }
 
         m_curr_model = md;
         m_value2expr.reset();

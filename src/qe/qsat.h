@@ -112,6 +112,8 @@ namespace qe {
         void display(std::ostream& out) const;
         void display(std::ostream& out, expr_ref_vector const& asms) const;
         void collect_statistics(statistics& st) const;
+
+        bool validate_defs(model& model) const;
     };
 
     class qmax {

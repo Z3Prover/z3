@@ -32,7 +32,7 @@ namespace qe {
         virtual void operator()(model& model, app_ref_vector& vars, expr_ref_vector& lits);
 
 
-        opt::inf_eps maximize(expr_ref_vector const& fmls, model& mdl, app* t, expr_ref& bound);
+        opt::inf_eps maximize(expr_ref_vector const& fmls, model& mdl, app* t, expr_ref& ge, expr_ref& gt);
     };
 
     bool arith_project(model& model, app* var, expr_ref_vector& lits);

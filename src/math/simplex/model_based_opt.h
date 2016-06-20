@@ -65,23 +65,28 @@ namespace opt {
         vector<rational>        m_var2value;
         vector<var>             m_new_vars;
         unsigned_vector         m_lub, m_glb;
+        unsigned_vector         m_above, m_below;
         
         bool invariant();
         bool invariant(unsigned index, row const& r);
 
         row& objective() { return m_rows[0]; }        
 
-        bool find_bound(unsigned x, unsigned& bound_index, rational& bound_coeff, unsigned_vector& other, bool is_pos);
+        bool find_bound(unsigned x, unsigned& bound_index, rational& bound_coeff, bool is_pos);
         
-        rational get_coefficient(unsigned row_id, unsigned var_id);
+        rational get_coefficient(unsigned row_id, unsigned var_id) const;
+
+        rational get_row_value(row const& r) const;
 
         void resolve(unsigned row_src, rational const& a1, unsigned row_dst, unsigned x);
 
         void mul_add(bool same_sign, unsigned row_id1, rational const& c, unsigned row_id2);
 
-        void set_row(unsigned row_id, vector<var> const& coeffs, rational const& c, ineq_type rel);
-        
+        void set_row(unsigned row_id, vector<var> const& coeffs, rational const& c, ineq_type rel);       
+
         void update_values(unsigned_vector const& bound_vars, unsigned_vector const& bound_trail);
+
+        void update_value(unsigned x, rational const& val);
 
         void project(unsigned var);
 
@@ -132,5 +137,6 @@ namespace opt {
 
 std::ostream& operator<<(std::ostream& out, opt::ineq_type ie);
 
+inline std::ostream& operator<<(std::ostream& out, opt::model_based_opt::var const v) { return out << "v" << v.m_id; }
 
 #endif 
