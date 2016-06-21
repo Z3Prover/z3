@@ -1716,6 +1716,64 @@ expr * theory_str::simplify_concat(expr * node) {
 
 }
 
+void theory_str::infer_len_concat_equality(expr * nn1, expr * nn2) {
+    rational nnLen;
+    bool nnLen_exists = get_len_value(nn1, nnLen);
+    if (!nnLen_exists) {
+        nnLen_exists = get_len_value(nn2, nnLen);
+    }
+
+    // case 1:
+    //    Known: a1_arg0 and a1_arg1
+    //    Unknown: nn1
+
+    if (is_concat(to_app(nn1))) {
+        rational nn1ConcatLen;
+        bool nn1ConcatLen_exists = infer_len_concat(nn1, nn1ConcatLen);
+        if (nnLen_exists && nn1ConcatLen_exists) {
+            nnLen = nn1ConcatLen;
+        }
+    }
+
+    // case 2:
+    //    Known: a1_arg0 and a1_arg1
+    //    Unknown: nn1
+
+    if (is_concat(to_app(nn2))) {
+        rational nn2ConcatLen;
+        bool nn2ConcatLen_exists = infer_len_concat(nn2, nn2ConcatLen);
+        if (nnLen_exists && nn2ConcatLen_exists) {
+            nnLen = nn2ConcatLen;
+        }
+    }
+
+    if (nnLen_exists) {
+        if (is_concat(to_app(nn1))) {
+            infer_len_concat_arg(nn1, nnLen);
+        }
+        if (is_concat(to_app(nn2))) {
+            infer_len_concat_arg(nn2, nnLen);
+        }
+    }
+
+    /*
+    if (isConcatFunc(t, nn2)) {
+        int nn2ConcatLen = inferLenConcat(t, nn2);
+        if (nnLen == -1 && nn2ConcatLen != -1)
+            nnLen = nn2ConcatLen;
+    }
+
+    if (nnLen != -1) {
+        if (isConcatFunc(t, nn1)) {
+            inferLenConcatArg(t, nn1, nnLen);
+        }
+        if (isConcatFunc(t, nn2)) {
+            inferLenConcatArg(t, nn2, nnLen);
+        }
+    }
+    */
+}
+
 /*
  * Handle two equivalent Concats.
  */
@@ -1743,7 +1801,7 @@ void theory_str::simplify_concat_equality(expr * nn1, expr * nn2) {
     TRACE("t_str", tout << "nn1 = " << mk_ismt2_pp(nn1, m) << std::endl
             << "nn2 = " << mk_ismt2_pp(nn2, m) << std::endl;);
 
-    // TODO inferLenConcatEq(nn1, nn2);
+    infer_len_concat_equality(nn1, nn2);
 
     if (a1_arg0 == a2_arg0) {
         if (!in_same_eqc(a1_arg1, a2_arg1)) {
