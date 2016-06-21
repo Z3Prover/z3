@@ -1756,6 +1756,61 @@ bool theory_str::infer_len_concat(expr * n, rational & nLen) {
 	}
 }
 
+void theory_str::infer_len_concat_arg(expr * n, rational len) {
+	if (len.is_neg()) {
+		return;
+	}
+
+	context & ctx = get_context();
+	ast_manager & m = get_manager();
+
+	expr * arg0 = to_app(n)->get_arg(0);
+	expr * arg1 = to_app(n)->get_arg(1);
+	rational arg0_len, arg1_len;
+	bool arg0_len_exists = get_len_value(arg0, arg0_len);
+	bool arg1_len_exists = get_len_value(arg1, arg1_len);
+
+	expr_ref_vector l_items(m);
+	expr_ref axr(m);
+	axr.reset();
+
+	// if (mk_length(t, n) != mk_int(ctx, len)) {
+	{
+		l_items.push_back(ctx.mk_eq_atom(mk_strlen(n), mk_int(len)));
+	}
+
+	if (!arg0_len_exists && arg1_len_exists) {
+		//if (mk_length(t, arg1) != mk_int(ctx, arg1_len)) {
+		{
+			l_items.push_back(ctx.mk_eq_atom(mk_strlen(arg1), mk_int(arg1_len)));
+		}
+		rational arg0Len = len - arg1_len;
+		if (arg0Len.is_nonneg()) {
+			axr = ctx.mk_eq_atom(mk_strlen(arg0), mk_int(arg0Len));
+		} else {
+			// TODO negate?
+		}
+	} else if (arg0_len_exists && !arg1_len_exists) {
+		//if (mk_length(t, arg0) != mk_int(ctx, arg0_len)) {
+		{
+			l_items.push_back(ctx.mk_eq_atom(mk_strlen(arg0), mk_int(arg0_len)));
+		}
+		rational arg1Len = len - arg0_len;
+		if (arg1Len.is_nonneg()) {
+			axr = ctx.mk_eq_atom(mk_strlen(arg1), mk_int(arg1Len));
+		} else {
+			// TODO negate?
+		}
+	} else {
+
+	}
+
+	if (axr) {
+		expr_ref axl(m.mk_and(l_items.size(), l_items.c_ptr()), m);
+		assert_implication(axl, axr);
+	}
+}
+
 void theory_str::infer_len_concat_equality(expr * nn1, expr * nn2) {
     rational nnLen;
     bool nnLen_exists = get_len_value(nn1, nnLen);
