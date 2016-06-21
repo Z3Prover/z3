@@ -245,6 +245,7 @@ namespace smt {
         void solve_concat_eq_str(expr * concat, expr * str);
 
         void infer_len_concat_equality(expr * nn1, expr * nn2);
+        bool infer_len_concat(expr * n, rational & nLen);
 
         bool is_concat_eq_type1(expr * concatAst1, expr * concatAst2);
         bool is_concat_eq_type2(expr * concatAst1, expr * concatAst2);

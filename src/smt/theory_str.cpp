@@ -1716,6 +1716,46 @@ expr * theory_str::simplify_concat(expr * node) {
 
 }
 
+// Modified signature of Z3str2's inferLenConcat().
+// Returns true iff nLen can be inferred by this method
+// (i.e. the equivalent of a len_exists flag in get_len_value()).
+
+bool theory_str::infer_len_concat(expr * n, rational & nLen) {
+	context & ctx = get_context();
+	ast_manager & m = get_manager();
+	expr * arg0 = to_app(n)->get_arg(0);
+	expr * arg1 = to_app(n)->get_arg(1);
+
+	rational arg0_len, arg1_len;
+	bool arg0_len_exists = get_len_value(arg0, arg0_len);
+	bool arg1_len_exists = get_len_value(arg1, arg1_len);
+	rational tmp_len;
+	bool nLen_exists = get_len_value(n, tmp_len);
+
+	if (arg0_len_exists && arg1_len_exists && !nLen_exists) {
+		expr_ref_vector l_items(m);
+		// if (mk_strlen(arg0) != mk_int(arg0_len)) {
+		{
+			l_items.push_back(ctx.mk_eq_atom(mk_strlen(arg0), mk_int(arg0_len)));
+		}
+
+		// if (mk_strlen(arg1) != mk_int(arg1_len)) {
+		{
+			l_items.push_back(ctx.mk_eq_atom(mk_strlen(arg1), mk_int(arg1_len)));
+		}
+
+		expr_ref axl(m.mk_and(l_items.size(), l_items.c_ptr()), m);
+		rational nnLen = arg0_len + arg1_len;
+		expr_ref axr(ctx.mk_eq_atom(mk_strlen(n), mk_int(nnLen)), m);
+		TRACE("t_str_detail", tout << "inferred (Length " << mk_pp(n, m) << ") = " << nnLen << std::endl;);
+		assert_implication(axl, axr);
+		nLen = nnLen;
+		return true;
+	} else {
+		return false;
+	}
+}
+
 void theory_str::infer_len_concat_equality(expr * nn1, expr * nn2) {
     rational nnLen;
     bool nnLen_exists = get_len_value(nn1, nnLen);
