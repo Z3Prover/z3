@@ -23,7 +23,7 @@ void demorgan() {
 
     expr x = c.bool_const("x");
     expr y = c.bool_const("y");
-    expr conjecture = !(x && y) == (!x || !y);
+    expr conjecture = (!(x && y)) == (!x || !y);
     
     solver s(c);
     // adding the negation of the conjecture as a constraint.
