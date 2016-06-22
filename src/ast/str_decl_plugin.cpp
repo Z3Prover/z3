@@ -24,6 +24,7 @@ Revision History:
 str_decl_plugin::str_decl_plugin():
     m_strv_sym("String"),
     m_str_decl(0),
+	m_regex_decl(0),
     m_concat_decl(0),
     m_length_decl(0),
     m_charat_decl(0),
@@ -35,6 +36,8 @@ str_decl_plugin::str_decl_plugin():
     m_lastindexof_decl(0),
     m_substr_decl(0),
     m_replace_decl(0),
+	m_re_str2regex_decl(0),
+	m_re_regexin_decl(0),
     m_arith_plugin(0),
     m_arith_fid(0),
     m_int_sort(0){
@@ -46,6 +49,7 @@ str_decl_plugin::~str_decl_plugin(){
 void str_decl_plugin::finalize(void) {
     #define DEC_REF(decl) if (decl) { m_manager->dec_ref(decl); } ((void) 0)
     DEC_REF(m_str_decl);
+    DEC_REF(m_regex_decl);
     DEC_REF(m_concat_decl);
     DEC_REF(m_length_decl);
     DEC_REF(m_charat_decl);
@@ -57,6 +61,8 @@ void str_decl_plugin::finalize(void) {
     DEC_REF(m_lastindexof_decl);
     DEC_REF(m_substr_decl);
     DEC_REF(m_replace_decl);
+    DEC_REF(m_re_str2regex_decl);
+    DEC_REF(m_re_regexin_decl);
     DEC_REF(m_int_sort);
 }
 
@@ -65,6 +71,10 @@ void str_decl_plugin::set_manager(ast_manager * m, family_id id) {
     m_str_decl = m->mk_sort(symbol("String"), sort_info(id, STRING_SORT));
     m->inc_ref(m_str_decl);
     sort * s = m_str_decl;
+
+    m_regex_decl = m->mk_sort(symbol("Regex"), sort_info(id, REGEX_SORT));
+    m->inc_ref(m_regex_decl);
+    sort * re = m_regex_decl;
 
     SASSERT(m_manager->has_plugin(symbol("arith")));
     m_arith_fid = m_manager->mk_family_id("arith");
@@ -122,6 +132,13 @@ void str_decl_plugin::set_manager(ast_manager * m, family_id id) {
         m_replace_decl = m->mk_func_decl(symbol("Replace"), 3, d, s, func_decl_info(id, OP_STR_REPLACE));
         m_manager->inc_ref(m_replace_decl);
     }
+
+    m_re_str2regex_decl = m->mk_func_decl(symbol("Str2Reg"), s, re, func_decl_info(id, OP_RE_STR2REGEX));
+    m_manager->inc_ref(m_re_str2regex_decl);
+
+    m_re_regexin_decl = m->mk_func_decl(symbol("RegexIn"), s, re, boolT, func_decl_info(id, OP_RE_REGEXIN));
+    m_manager->inc_ref(m_re_regexin_decl);
+
 }
 
 decl_plugin * str_decl_plugin::mk_fresh() {
@@ -131,6 +148,7 @@ decl_plugin * str_decl_plugin::mk_fresh() {
 sort * str_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) {
     switch (k) {
     case STRING_SORT: return m_str_decl;
+    case REGEX_SORT: return m_regex_decl;
     default: return 0;
     }
 }
@@ -148,6 +166,8 @@ func_decl * str_decl_plugin::mk_func_decl(decl_kind k) {
     case OP_STR_LASTINDEXOF: return m_lastindexof_decl;
     case OP_STR_SUBSTR: return m_substr_decl;
     case OP_STR_REPLACE: return m_replace_decl;
+    case OP_RE_STR2REGEX: return m_re_str2regex_decl;
+    case OP_RE_REGEXIN: return m_re_regexin_decl;
     default: return 0;
     }
 }
@@ -213,10 +233,13 @@ void str_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol cons
     op_names.push_back(builtin_name("LastIndexof", OP_STR_LASTINDEXOF));
     op_names.push_back(builtin_name("Substring", OP_STR_SUBSTR));
     op_names.push_back(builtin_name("Replace", OP_STR_REPLACE));
+    op_names.push_back(builtin_name("Str2Reg", OP_RE_STR2REGEX));
+    op_names.push_back(builtin_name("RegexIn", OP_RE_REGEXIN));
 }
 
 void str_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {
     sort_names.push_back(builtin_name("String", STRING_SORT));
+    sort_names.push_back(builtin_name("Regex", REGEX_SORT));
 }
 
 bool str_decl_plugin::is_value(app * e) const {

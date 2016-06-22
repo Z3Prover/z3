@@ -198,6 +198,27 @@ br_status str_rewriter::mk_str_Replace(expr * base, expr * source, expr * target
     }
 }
 
+br_status str_rewriter::mk_re_Str2Reg(expr * str, expr_ref & result) {
+	// the argument to Str2Reg *must* be a string constant
+	// TODO is an assertion error too strict here? this basically crashes the solver
+	VERIFY(m_strutil.is_string(str));
+	return BR_FAILED;
+}
+
+br_status str_rewriter::mk_re_RegexIn(expr * str, expr * re, expr_ref & result) {
+	// fast path:
+	// (RegexIn E (Str2Reg S)) --> (= E S)
+	if (m_strutil.is_re_Str2Reg(re)) {
+		TRACE("t_str_rw", tout << "RegexIn fast path: " << mk_pp(str, m()) << " in " << mk_pp(re, m()) << std::endl;);
+		expr * regexStr = to_app(re)->get_arg(0);
+		VERIFY(m_strutil.is_string(regexStr));
+		result = m().mk_eq(str, regexStr);
+		return BR_REWRITE_FULL;
+	}
+
+	return BR_FAILED;
+}
+
 br_status str_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
     SASSERT(f->get_family_id() == get_fid());
 
@@ -229,6 +250,12 @@ br_status str_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_STR_REPLACE:
         SASSERT(num_args == 3);
         return mk_str_Replace(args[0], args[1], args[2], result);
+    case OP_RE_STR2REGEX:
+    	SASSERT(num_args == 1);
+    	return mk_re_Str2Reg(args[0], result);
+    case OP_RE_REGEXIN:
+    	SASSERT(num_args == 2);
+    	return mk_re_RegexIn(args[0], args[1], result);
     default:
         return BR_FAILED;
     }

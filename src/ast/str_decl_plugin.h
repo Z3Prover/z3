@@ -23,6 +23,7 @@ Revision History:
 
 enum str_sort_kind {
    STRING_SORT,
+   REGEX_SORT,
 };
 
 enum str_op_kind {
@@ -40,6 +41,9 @@ enum str_op_kind {
     OP_STR_LASTINDEXOF,
     OP_STR_SUBSTR,
     OP_STR_REPLACE,
+	// regular expression operators
+	OP_RE_STR2REGEX,
+	OP_RE_REGEXIN,
     // end
     LAST_STR_OP
 };
@@ -48,6 +52,7 @@ class str_decl_plugin : public decl_plugin {
 protected:
     symbol m_strv_sym;
     sort * m_str_decl;
+    sort * m_regex_decl;
 
     func_decl * m_concat_decl;
     func_decl * m_length_decl;
@@ -61,6 +66,9 @@ protected:
     func_decl * m_lastindexof_decl;
     func_decl * m_substr_decl;
     func_decl * m_replace_decl;
+
+    func_decl * m_re_str2regex_decl;
+    func_decl * m_re_regexin_decl;
 
     arith_decl_plugin * m_arith_plugin;
     family_id           m_arith_fid;
@@ -102,6 +110,8 @@ public:
 
     bool is_string(expr const * n, const char ** val) const;
     bool is_string(expr const * n) const;
+
+    bool is_re_Str2Reg(expr const * n) const { return is_app_of(n, get_fid(), OP_RE_STR2REGEX); }
 
     std::string get_string_constant_value(expr const *n) const;
     // TODO
