@@ -22,7 +22,7 @@ Revision History:
 struct bit_blaster_params {
     bool  m_bb_ext_gates;
     bool  m_bb_quantifiers;
-    bit_blaster_params():
+    bit_blaster_params() :
         m_bb_ext_gates(false),
         m_bb_quantifiers(false) {
     }
@@ -32,6 +32,11 @@ struct bit_blaster_params {
         p.register_bool_param("bb_quantifiers", m_bb_quantifiers, "convert bit-vectors to Booleans in quantifiers");
     }
 #endif
+
+    void display(std::ostream & out) const {
+        out << "m_bb_ext_gates=" << m_bb_ext_gates << std::endl;
+        out << "m_bb_quantifiers=" << m_bb_quantifiers << std::endl;
+    }
 };
 
 #endif /* BIT_BLASTER_PARAMS_H_ */

@@ -83,6 +83,8 @@ public:
     void updt_local_params(params_ref const & p);
 
     void updt_params(params_ref const & p);
+
+    void display(std::ostream & out) const;
 };
 
 #endif /* PREPROCESSOR_PARAMS_H_ */

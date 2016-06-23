@@ -289,6 +289,8 @@ struct smt_params : public preprocessor_params,
     void updt_params(params_ref const & p);
 
     void updt_params(context_params const & p);
+
+    void display(std::ostream & out) const;
 };
 
 #endif /* SMT_PARAMS_H_ */
