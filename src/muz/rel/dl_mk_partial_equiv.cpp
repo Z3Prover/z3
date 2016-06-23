@@ -109,7 +109,7 @@ namespace datalog {
             rule_vector const& rv = *(it->m_value);
             bool has_symmetry = false;
             bool has_transitivity = false;
-            unsigned i_symmetry, i_transitivity;
+            unsigned i_symmetry = 0, i_transitivity = 0;
             family_id kind = rm.get_requested_predicate_kind(p);
             for (unsigned i = 0; i < rv.size(); ++i) {
                 

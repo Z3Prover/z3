@@ -363,7 +363,7 @@ namespace smt {
               << ", scope_level: " << m_context.get_scope_level() << "\n";);
         if (m_params.m_qi_conservative_final_check) {
             bool  init = false;
-            float min_cost;
+            float min_cost = 0.0;
             unsigned sz = m_delayed_entries.size();
             for (unsigned i = 0; i < sz; i++) {
                 entry & e       = m_delayed_entries[i];

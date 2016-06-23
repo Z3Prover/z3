@@ -210,7 +210,7 @@ bool defined_names::impl::mk_name(expr * e, expr_ref & new_def, proof_ref & new_
         TRACE("mk_definition_bug", tout << "name for expression is already cached..., returning false...\n";);        
         n = n_ptr;
         if (m_manager.proofs_enabled()) {
-            proof * pr_ptr;
+            proof * pr_ptr = 0;
             m_expr2proof.find(e, pr_ptr);
             SASSERT(pr_ptr);
             pr = pr_ptr;

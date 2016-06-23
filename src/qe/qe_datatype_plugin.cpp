@@ -792,9 +792,8 @@ namespace qe {
                 TRACE("qe", tout << mk_pp(x.x(), m) << " has a recognizer\n";);
             }
             else {
-                unsigned sz = m_datatype_util.get_datatype_num_constructors(s);
                 SASSERT(vl.is_unsigned());
-                SASSERT(vl.get_unsigned() < sz);
+                SASSERT(vl.get_unsigned() < m_datatype_util.get_datatype_num_constructors(s));
                 c = (*m_datatype_util.get_datatype_constructors(s))[vl.get_unsigned()];
             }
             subst_constructor(x, c, fml, def);                

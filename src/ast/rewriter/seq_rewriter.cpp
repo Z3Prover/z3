@@ -303,7 +303,7 @@ eautomaton* re2automaton::re2aut(expr* e) {
     }
     else if (u.re.is_full(e)) {
         expr_ref tt(m.mk_true(), m);
-        sort* seq_s, *char_s;
+        sort *seq_s = 0, *char_s = 0;
         VERIFY (u.is_re(m.get_sort(e), seq_s));
         VERIFY (u.is_seq(seq_s, char_s));
         sym_expr* _true = sym_expr::mk_pred(tt, char_s);
@@ -794,7 +794,7 @@ br_status seq_rewriter::mk_seq_suffix(expr* a, expr* b, expr_ref& result) {
 
     bool isc1 = false;
     bool isc2 = false;
-    expr* a1, *a2, *b1, *b2;
+    expr *a1 = 0, *a2 = 0, *b1 = 0, *b2 = 0;
     if (m_util.str.is_concat(a, a1, a2) && m_util.str.is_string(a2, s1)) {
         isc1 = true;
     }
@@ -1321,7 +1321,7 @@ br_status seq_rewriter::mk_re_plus(expr* a, expr_ref& result) {
 }
 
 br_status seq_rewriter::mk_re_opt(expr* a, expr_ref& result) {
-    sort* s;
+    sort* s = 0;
     VERIFY(m_util.is_re(a, s));
     result = m_util.re.mk_union(m_util.re.mk_to_re(m_util.str.mk_empty(s)), a);
     return BR_REWRITE1;

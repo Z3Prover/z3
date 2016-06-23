@@ -2445,7 +2445,7 @@ public:
         }
                 
         virtual void assign(contains_app& x, expr* fml, rational const& vl) {
-            nlarith::branch_conditions *brs;
+            nlarith::branch_conditions *brs = 0;
             VERIFY (m_cache.find(x.x(), fml, brs));
             SASSERT(vl.is_unsigned());
             SASSERT(vl.get_unsigned() < brs->size());

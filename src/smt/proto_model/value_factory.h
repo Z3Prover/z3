@@ -183,7 +183,7 @@ public:
         sort_info* s_info = s->get_info();
         sort_size const* sz = s_info?&s_info->get_num_elements():0;
         bool has_max = false;
-        Number max_size;
+        Number max_size(0);
         if (sz && sz->is_finite() && sz->size() < UINT_MAX) {
             unsigned usz = static_cast<unsigned>(sz->size());
             max_size = Number(usz);

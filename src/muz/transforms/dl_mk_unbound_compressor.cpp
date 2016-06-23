@@ -317,7 +317,6 @@ namespace datalog {
         unsigned tail_index = 0;
         while (tail_index < utail_len) {
             app * t = r->get_tail(tail_index);
-            func_decl * t_pred = t->get_decl();
 
             add_in_progress_indices(arg_indices, t);
 

@@ -277,7 +277,7 @@ namespace datalog {
     relation_plugin & relation_manager::get_relation_plugin(family_id kind) {
         SASSERT(kind>=0);
         SASSERT(kind<m_next_relation_fid);
-        relation_plugin * res;
+        relation_plugin * res = 0;
         VERIFY(m_kind2plugin.find(kind, res));
         return *res;
     }

@@ -2267,6 +2267,7 @@ void fpa2bv_converter::mk_to_fp(func_decl * f, unsigned num, expr * const * args
 
         expr * bv = args[0];
         int sz = m_bv_util.get_bv_size(bv);
+        (void)to_sbits;
         SASSERT((unsigned)sz == to_sbits + to_ebits);
 
         result = m_util.mk_fp(m_bv_util.mk_extract(sz - 1, sz - 1, bv),
@@ -2399,6 +2400,7 @@ void fpa2bv_converter::mk_to_fp_float(sort * to_srt, expr * rm, expr * x, expr_r
 
         res_sig = m_bv_util.mk_zero_extend(1, res_sig); // extra zero in the front for the rounder.
         unsigned sig_sz = m_bv_util.get_bv_size(res_sig);
+        (void) sig_sz;
         SASSERT(sig_sz == to_sbits + 4);
 
         expr_ref exponent_overflow(m), exponent_underflow(m);

@@ -673,7 +673,7 @@ namespace qe {
         }
 
         unsigned find_max(model& mdl, bool do_pos) {
-            unsigned result;
+            unsigned result = 0;
             bool new_max = true;
             rational max_r, r;
             expr_ref val(m);

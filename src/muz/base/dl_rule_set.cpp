@@ -601,7 +601,7 @@ namespace datalog {
                 return;
             }
             while (!m_stack_P.empty()) {
-                unsigned on_stack_num;
+                unsigned on_stack_num = 0;
                 VERIFY( m_preorder_nums.find(m_stack_P.back(), on_stack_num) );
                 if (on_stack_num <= p_num) {
                     break;
@@ -710,7 +710,7 @@ namespace datalog {
                 item_set::iterator eend=deps.end();
                 for (; eit!=eend; ++eit) {
                     T * tgt = *eit;
-                    unsigned tgt_comp;
+                    unsigned tgt_comp = 0;
                     VERIFY( m_component_nums.find(tgt, tgt_comp) );
 
                     //m_components[tgt_comp]==0 means the edge is intra-component.

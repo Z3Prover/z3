@@ -58,7 +58,7 @@ struct pull_quant::imp {
             }
             
             bool found_quantifier = false;
-            bool forall_children;
+            bool forall_children = false;
             
             for (unsigned i = 0; i < num_children; i++) {
                 expr * child = children[i];
