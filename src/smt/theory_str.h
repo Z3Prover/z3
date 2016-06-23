@@ -117,6 +117,7 @@ namespace smt {
         ptr_vector<enode> m_axiom_LastIndexof_todo;
         ptr_vector<enode> m_axiom_Substr_todo;
         ptr_vector<enode> m_axiom_Replace_todo;
+        ptr_vector<enode> m_axiom_RegexIn_todo;
 
         // hashtable of all exprs for which we've already set up term-specific axioms --
         // this prevents infinite recursive descent with respect to axioms that
@@ -135,6 +136,7 @@ namespace smt {
 
         std::set<expr*> variable_set;
         std::set<expr*> internal_variable_set;
+        std::set<expr*> regex_variable_set;
         std::map<int, std::set<expr*> > internal_variable_scope_levels;
 
         obj_hashtable<expr> internal_lenTest_vars;
@@ -180,6 +182,7 @@ namespace smt {
         app * mk_nonempty_str_var();
         app * mk_internal_xor_var();
         expr * mk_internal_valTest_var(expr * node, int len, int vTries);
+        app * mk_regex_rep_var();
 
         bool is_concat(app const * a) const { return a->is_app_of(get_id(), OP_STRCAT); }
         bool is_concat(enode const * n) const { return is_concat(n->get_owner()); }
@@ -206,6 +209,18 @@ namespace smt {
         bool is_Replace(app const * a) const { return a->is_app_of(get_id(), OP_STR_REPLACE); }
         bool is_Replace(enode const * n) const { return is_Replace(n->get_owner()); }
 
+        bool is_RegexIn(app const * a) const { return a->is_app_of(get_id(), OP_RE_REGEXIN); }
+        bool is_RegexIn(enode const * n) const { return is_RegexIn(n->get_owner()); }
+        bool is_RegexConcat(app const * a) const { return a->is_app_of(get_id(), OP_RE_REGEXCONCAT); }
+        bool is_RegexConcat(enode const * n) const { return is_RegexConcat(n->get_owner()); }
+        bool is_RegexStar(app const * a) const { return a->is_app_of(get_id(), OP_RE_REGEXSTAR); }
+        bool is_RegexStar(enode const * n) const { return is_RegexStar(n->get_owner()); }
+        bool is_RegexUnion(app const * a) const { return a->is_app_of(get_id(), OP_RE_REGEXUNION); }
+        bool is_RegexUnion(enode const * n) const { return is_RegexUnion(n->get_owner()); }
+        bool is_Str2Reg(app const * a) const { return a->is_app_of(get_id(), OP_RE_STR2REGEX); }
+		bool is_Str2Reg(enode const * n) const { return is_Str2Reg(n->get_owner()); }
+
+
         void instantiate_concat_axiom(enode * cat);
         void instantiate_basic_string_axioms(enode * str);
         void instantiate_str_eq_length_axiom(enode * lhs, enode * rhs);
@@ -219,6 +234,9 @@ namespace smt {
         void instantiate_axiom_LastIndexof(enode * e);
         void instantiate_axiom_Substr(enode * e);
         void instantiate_axiom_Replace(enode * e);
+
+        expr * mk_RegexIn(expr * str, expr * regexp);
+        void instantiate_axiom_RegexIn(enode * e);
 
         void set_up_axioms(expr * ex);
         void handle_equality(expr * lhs, expr * rhs);

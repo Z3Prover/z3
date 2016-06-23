@@ -479,6 +479,29 @@ app * theory_str::mk_str_var(std::string name) {
 	return a;
 }
 
+app * theory_str::mk_regex_rep_var() {
+	context & ctx = get_context();
+	ast_manager & m = get_manager();
+
+	sort * string_sort = m.mk_sort(get_family_id(), STRING_SORT);
+	app * a = m.mk_fresh_const("regex", string_sort);
+
+	ctx.internalize(a, false);
+	SASSERT(ctx.get_enode(a) != NULL);
+	SASSERT(ctx.e_internalized(a));
+	mk_var(ctx.get_enode(a));
+	m_basicstr_axiom_todo.push_back(ctx.get_enode(a));
+
+	m_trail.push_back(a);
+	// TODO cross-check which variable sets we need
+	variable_set.insert(a);
+	//internal_variable_set.insert(a);
+	regex_variable_set.insert(a);
+	track_variable_scope(a);
+
+	return a;
+}
+
 app * theory_str::mk_nonempty_str_var() {
     context & ctx = get_context();
     ast_manager & m = get_manager();
@@ -613,6 +636,7 @@ bool theory_str::can_propagate() {
             || !m_axiom_CharAt_todo.empty() || !m_axiom_StartsWith_todo.empty() || !m_axiom_EndsWith_todo.empty()
             || !m_axiom_Contains_todo.empty() || !m_axiom_Indexof_todo.empty() || !m_axiom_Indexof2_todo.empty() || !m_axiom_LastIndexof_todo.empty()
             || !m_axiom_Substr_todo.empty() || !m_axiom_Replace_todo.empty()
+			|| !m_axiom_RegexIn_todo.empty()
             ;
 }
 
@@ -681,6 +705,11 @@ void theory_str::propagate() {
             instantiate_axiom_Replace(m_axiom_Replace_todo[i]);
         }
         m_axiom_Replace_todo.reset();
+
+        for (unsigned i = 0; i < m_axiom_RegexIn_todo.size(); ++i) {
+        	instantiate_axiom_RegexIn(m_axiom_RegexIn_todo[i]);
+        }
+        m_axiom_RegexIn_todo.reset();
     }
 }
 
@@ -1245,6 +1274,84 @@ void theory_str::instantiate_axiom_Replace(enode * e) {
     expr_ref finalAxiom(m.mk_and(breakdownAssert, reduceToResult), m);
     SASSERT(finalAxiom);
     assert_axiom(finalAxiom);
+}
+
+expr * theory_str::mk_RegexIn(expr * str, expr * regexp) {
+    expr * args[2] = {str, regexp};
+    app * regexIn = get_manager().mk_app(get_id(), OP_RE_REGEXIN, 0, 0, 2, args);
+    // immediately force internalization so that axiom setup does not fail
+    get_context().internalize(regexIn, false);
+    set_up_axioms(regexIn);
+    return regexIn;
+}
+
+void theory_str::instantiate_axiom_RegexIn(enode * e) {
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+
+    app * expr = e->get_owner();
+    if (axiomatized_terms.contains(expr)) {
+        TRACE("t_str_detail", tout << "already set up RegexIn axiom for " << mk_pp(expr, m) << std::endl;);
+        return;
+    }
+    axiomatized_terms.insert(expr);
+
+    TRACE("t_str_detail", tout << "instantiate RegexIn axiom for " << mk_pp(expr, m) << std::endl;);
+
+    // I don't think we need to port regexInBoolMap and regexInVarStrMap,
+    // but they would go here from reduce_regexIn
+
+    expr_ref str(expr->get_arg(0), m);
+    app * regex = to_app(expr->get_arg(1));
+
+    if (is_Str2Reg(regex)) {
+    	expr_ref rxStr(regex->get_arg(0), m);
+    	// want to assert 'expr IFF (str == rxStr)'
+    	expr_ref rhs(ctx.mk_eq_atom(str, rxStr), m);
+    	expr_ref finalAxiom(m.mk_iff(expr, rhs), m);
+    	SASSERT(finalAxiom);
+    	assert_axiom(finalAxiom);
+    } else if (is_RegexConcat(regex)) {
+    	expr_ref var1(mk_regex_rep_var(), m);
+    	expr_ref var2(mk_regex_rep_var(), m);
+    	expr_ref rhs(mk_concat(var1, var2), m);
+    	expr_ref rx1(regex->get_arg(0), m);
+    	expr_ref rx2(regex->get_arg(1), m);
+    	expr_ref var1InRegex1(mk_RegexIn(var1, rx1), m);
+    	expr_ref var2InRegex2(mk_RegexIn(var2, rx2), m);
+
+    	expr_ref_vector items(m);
+    	items.push_back(var1InRegex1);
+    	items.push_back(var2InRegex2);
+    	items.push_back(ctx.mk_eq_atom(expr, ctx.mk_eq_atom(str, rhs)));
+
+    	expr_ref finalAxiom(mk_and(items), m);
+    	SASSERT(finalAxiom);
+    	assert_axiom(finalAxiom);
+    	/*
+    	Z3_ast var1 = mk_regexRepVar(t);
+    	Z3_ast var2 = mk_regexRepVar(t);
+    	rhs = mk_concat(t, var1, var2);
+
+    	Z3_ast regex1 = Z3_get_app_arg(ctx, arg1_func_app, 0);
+    	Z3_ast regex2 = Z3_get_app_arg(ctx, arg1_func_app, 1);
+    	Z3_ast var1InRegex1 = mk_2_arg_app(ctx, td->RegexIn, var1, regex1);
+    	Z3_ast var2InRegex2 = mk_2_arg_app(ctx, td->RegexIn, var2, regex2);
+    	std::vector<Z3_ast> items;
+    	items.push_back(var1InRegex1);
+    	items.push_back(var2InRegex2);
+    	items.push_back(Z3_mk_eq(ctx, resBoolVar, Z3_mk_eq(ctx, args[0], rhs)));
+    	extraAssert = mk_and_fromVector(t, items);
+    	return resBoolVar;
+    	*/
+    } else if (is_RegexUnion(regex)) {
+
+    } else if (is_RegexStar(regex)) {
+
+    } else {
+    	TRACE("t_str_detail", tout << "ERROR: unknown regex expression " << mk_pp(regex, m) << "!" << std::endl;);
+    	NOT_IMPLEMENTED_YET();
+    }
 }
 
 void theory_str::attach_new_th_var(enode * n) {
@@ -4165,6 +4272,8 @@ void theory_str::set_up_axioms(expr * ex) {
                     m_axiom_EndsWith_todo.push_back(n);
                 } else if (is_Contains(ap)) {
                     m_axiom_Contains_todo.push_back(n);
+                } else if (is_RegexIn(ap)) {
+                	m_axiom_RegexIn_todo.push_back(n);
                 }
             }
         } else {
@@ -4319,6 +4428,7 @@ void theory_str::pop_scope_eh(unsigned num_scopes) {
             for (std::set<expr*>::iterator var_it = vars.begin(); var_it != vars.end(); ++var_it) {
                 variable_set.erase(*var_it);
                 internal_variable_set.erase(*var_it);
+                regex_variable_set.erase(*var_it);
                 count += 1;
             }
             TRACE("t_str_detail", tout << "cleaned up " << count << " variables" << std::endl;);
@@ -5994,13 +6104,10 @@ void theory_str::process_free_var(std::map<expr*, int> & freeVar_map) {
 
 	for (std::map<expr*, int>::iterator fvIt = freeVar_map.begin(); fvIt != freeVar_map.end(); fvIt++) {
 		expr * freeVar = fvIt->first;
-		/*
-		std::string vName = std::string(Z3_ast_to_string(ctx, freeVar));
-		if (vName.length() >= 9 && vName.substr(0, 9) == "$$_regVar") {
+		// skip all regular expression vars
+		if (regex_variable_set.find(freeVar) != regex_variable_set.end()) {
 			continue;
 		}
-		*/
-		// TODO skip all regular expression vars
 
 		// Iterate the EQC of freeVar, its eqc variable should not be in the eqcRepSet.
 		// If found, have to filter it out
