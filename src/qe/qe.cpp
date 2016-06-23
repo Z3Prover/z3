@@ -362,7 +362,7 @@ namespace qe {
             }
             app* ite;
             if (find_ite(fml, ite)) {
-                expr* cond, *th, *el;
+                expr* cond = 0, *th = 0, *el = 0;
                 VERIFY(m.is_ite(ite, cond, th, el));
                 expr_ref tmp1(fml, m), tmp2(fml, m);
                 m_replace->apply_substitution(ite, th, tmp1);

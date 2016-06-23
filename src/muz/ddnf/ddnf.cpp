@@ -836,7 +836,7 @@ namespace datalog {
         }
 
         void compile_eq(expr* e, expr_ref& result, var* v, unsigned hi, unsigned lo, expr* c) {
-            tbv* t;
+            tbv* t = 0;
             // TBD: hi, lo are ignored.
             VERIFY(m_expr2tbv.find(e, t));            
             var_ref w(m);

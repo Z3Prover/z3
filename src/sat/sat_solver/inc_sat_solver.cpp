@@ -381,7 +381,7 @@ private:
 
         m_core.reset();
         for (unsigned i = 0; i < core.size(); ++i) {
-            expr* e;
+            expr* e = 0;
             VERIFY(asm2dep.find(core[i].index(), e));
             m_core.push_back(e);
         }

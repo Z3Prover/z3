@@ -146,7 +146,7 @@ void substitution::apply(unsigned num_actual_offsets, unsigned const * deltas, e
                 bool has_new_args = false;
                 for (unsigned i = 0; i < num_args; i++) {
                     expr * arg     = to_app(e)->get_arg(i);
-                    expr * new_arg;
+                    expr * new_arg = 0;
                     
                     VERIFY(m_apply_cache.find(expr_offset(arg, off), new_arg));
                     new_args.push_back(new_arg);

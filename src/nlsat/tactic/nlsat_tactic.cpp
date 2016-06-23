@@ -140,7 +140,7 @@ class nlsat_tactic : public tactic {
             m_solver.set_display_var(m_display_var);
             
             lbool st = m_solver.check();
-            
+           
             if (st == l_undef) {
             }
             else if (st == l_true) {

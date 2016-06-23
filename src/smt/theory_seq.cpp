@@ -2790,7 +2790,7 @@ void theory_seq::tightest_prefix(expr* s, expr* x) {
    (len(s) <= len(t) -> i <= len(t)-len(s))
 */
 void theory_seq::add_indexof_axiom(expr* i) {
-    expr* s, *t, *offset = 0;
+    expr* s = 0, *t = 0, *offset = 0;
     rational r;
     VERIFY(m_util.str.is_index(i, t, s) ||
            m_util.str.is_index(i, t, s, offset));
@@ -2891,7 +2891,7 @@ void theory_seq::add_elim_string_axiom(expr* n) {
  */
 void theory_seq::add_length_axiom(expr* n) {
     context& ctx = get_context();
-    expr* x;
+    expr* x = 0;
     VERIFY(m_util.str.is_length(n, x));
     if (m_util.str.is_concat(x) ||
         m_util.str.is_unit(x) ||
@@ -2914,7 +2914,7 @@ void theory_seq::add_length_axiom(expr* n) {
 }
 
 void theory_seq::add_itos_length_axiom(expr* len) {
-    expr* x, *n;
+    expr* x = 0, *n = 0;
     VERIFY(m_util.str.is_length(len, x));
     VERIFY(m_util.str.is_itos(x, n));
 
@@ -3295,7 +3295,7 @@ void theory_seq::add_extract_suffix_axiom(expr* e, expr* s, expr* i) {
 
 */
 void theory_seq::add_at_axiom(expr* e) {
-    expr* s, *i;
+    expr* s = 0, *i = 0;
     VERIFY(m_util.str.is_at(e, s, i));
     expr_ref len_e(m_util.str.mk_length(e), m);
     expr_ref len_s(m_util.str.mk_length(s), m);
@@ -4090,7 +4090,7 @@ void theory_seq::propagate_not_prefix2(expr* e) {
 
 void theory_seq::propagate_not_suffix(expr* e) {
     context& ctx = get_context();
-    expr* e1, *e2;
+    expr* e1 = 0, *e2 = 0;
     VERIFY(m_util.str.is_suffix(e, e1, e2));
     literal lit = ctx.get_literal(e);
     SASSERT(ctx.get_assignment(lit) == l_false);
@@ -4119,7 +4119,7 @@ void theory_seq::propagate_not_suffix(expr* e) {
 */
 bool theory_seq::add_prefix2prefix(expr* e, bool& change) {
     context& ctx = get_context();
-    expr* e1, *e2;
+    expr* e1 = 0, *e2 = 0;
     VERIFY(m_util.str.is_prefix(e, e1, e2));
     SASSERT(ctx.get_assignment(e) == l_false);
     if (canonizes(false, e)) {
@@ -4191,7 +4191,7 @@ bool theory_seq::add_prefix2prefix(expr* e, bool& change) {
  */
 bool theory_seq::add_suffix2suffix(expr* e, bool& change) {
     context& ctx = get_context();
-    expr* e1, *e2;
+    expr* e1 = 0, *e2 = 0;
     VERIFY(m_util.str.is_suffix(e, e1, e2));
     SASSERT(ctx.get_assignment(e) == l_false);
     if (canonizes(false, e)) {
@@ -4276,7 +4276,7 @@ bool theory_seq::canonizes(bool sign, expr* e) {
 
 bool theory_seq::add_contains2contains(expr* e, bool& change) {
     context& ctx = get_context();
-    expr* e1, *e2;
+    expr* e1 = 0, *e2 = 0;
     VERIFY(m_util.str.is_contains(e, e1, e2));
     SASSERT(ctx.get_assignment(e) == l_false);
     if (canonizes(false, e)) {
@@ -4346,7 +4346,7 @@ bool theory_seq::propagate_automata() {
 }
 
 void theory_seq::get_concat(expr* e, ptr_vector<expr>& concats) {
-    expr* e1, *e2;
+    expr* e1 = 0, *e2 = 0;
     while (true) {
         e = m_rep.find(e);
         if (m_util.str.is_concat(e, e1, e2)) {

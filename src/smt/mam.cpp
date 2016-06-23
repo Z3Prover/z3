@@ -2147,7 +2147,7 @@ namespace smt {
         enode_vector * best_v   = 0;
         for (unsigned i = 0; i < num_args; i++) {
             enode * bare          = c->m_joints[i];
-            enode_vector * curr_v;
+            enode_vector * curr_v = 0;
             switch (GET_TAG(bare)) {
             case NULL_TAG:
                 curr_v = 0;

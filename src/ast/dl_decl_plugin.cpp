@@ -324,7 +324,7 @@ namespace datalog {
         if (!is_rel_sort(r, sorts)) {
             return 0;
         }
-        unsigned index0;
+        unsigned index0 = 0;
         sort* last_sort = 0;
         SASSERT(num_params > 0);
         for (unsigned i = 0; i < num_params; ++i) {

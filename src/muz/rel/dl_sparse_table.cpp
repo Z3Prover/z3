@@ -327,8 +327,7 @@ namespace datalog {
             key_value key;
             key.resize(key_len);
 
-            offset_vector * index_entry;
-            DEBUG_CODE( index_entry = 0; );
+            offset_vector * index_entry = 0;
             bool key_modified = true;
 
             for (; ofs!=after_last; ofs+=t.m_fact_size) {

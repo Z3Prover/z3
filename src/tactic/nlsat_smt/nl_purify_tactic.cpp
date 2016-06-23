@@ -154,8 +154,7 @@ public:
 
         void mk_interface_bool(func_decl * f, unsigned num, expr* const* args, expr_ref& result, proof_ref& pr) {
             expr_ref old_pred(m.mk_app(f, num, args), m);
-            polarity_t pol;
-            VERIFY(m_polarities.find(old_pred, pol));
+            polarity_t pol = m_polarities.find(old_pred);
             result = m.mk_fresh_const(0, m.mk_bool_sort());
             m_polarities.insert(result, pol);
             m_new_preds.push_back(to_app(result));

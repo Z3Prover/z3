@@ -1035,7 +1035,7 @@ namespace algebraic_numbers {
 
                 unsigned num_rem  = 0; // number of remaining sequences
                 unsigned target_i = UINT_MAX; // index of sequence that is isolating
-                int target_lV, target_uV;
+                int target_lV = 0, target_uV = 0;
                 for (unsigned i = 0; i < num_fs; i++) {
                     if (seqs[i] == 0)
                         continue; // sequence was discarded because it does not contain the root.
@@ -1113,7 +1113,7 @@ namespace algebraic_numbers {
 
                 unsigned num_rem  = 0; // number of remaining sequences
                 unsigned target_i = UINT_MAX; // index of sequence that is isolating
-                int target_lV, target_uV;
+                int target_lV = 0, target_uV = 0;
                 for (unsigned i = 0; i < num_fs; i++) {
                     if (seqs[i] == 0)
                         continue; // sequence was discarded because it does not contain the root.

@@ -1290,6 +1290,7 @@ void mpf_manager::partial_remainder(mpf & x, mpf const & y, mpf_exp_t const & ex
     m_mpz_manager.machine_div2k(Q_sig, sbits+3);
     renormalize(ebits, sbits, Q_exp, Q_sig);
 
+    (void)Q_sgn;
     TRACE("mpf_dbg_rem", tout << "Q_exp=" << Q_exp << std::endl;
                          tout << "Q_sig=" << m_mpz_manager.to_string(Q_sig) << std::endl;
                          tout << "Q=" << to_string_hexfloat(Q_sgn, Q_exp, Q_sig, ebits, sbits, 0) << std::endl;);
@@ -1310,6 +1311,7 @@ void mpf_manager::partial_remainder(mpf & x, mpf const & y, mpf_exp_t const & ex
     m_mpz_manager.mul(y.significand, Q_sig, YQ_sig);    
     renormalize(ebits, 2*sbits-1, YQ_exp, YQ_sig); // YQ_sig has `sbits-1' extra bits.
 
+    (void)YQ_sgn;
     TRACE("mpf_dbg_rem", tout << "YQ_sgn=" << YQ_sgn << std::endl;
                          tout << "YQ_exp=" << YQ_exp << std::endl;
                          tout << "YQ_sig=" << m_mpz_manager.to_string(YQ_sig) << std::endl;

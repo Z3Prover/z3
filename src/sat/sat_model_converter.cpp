@@ -42,7 +42,7 @@ namespace sat {
             // if it->get_kind() == BLOCK_LIT, then it might be the case that m[it->var()] != l_undef,
             // and the following procedure flips its value.
             bool sat = false;
-            bool var_sign;
+            bool var_sign = false;
             literal_vector::const_iterator it2  = it->m_clauses.begin();
             literal_vector::const_iterator end2 = it->m_clauses.end();
             for (; it2 != end2; ++it2) {

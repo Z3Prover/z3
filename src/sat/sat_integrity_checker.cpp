@@ -70,9 +70,9 @@ namespace sat {
                    tout << "watch_list:\n";
                    sat::display(tout, s.m_cls_allocator, s.get_wlist(~c[0]));
                    tout << "\n";);
-            SASSERT(contains_watched(s.get_wlist(~c[0]), c[1], c[2]));
-            SASSERT(contains_watched(s.get_wlist(~c[1]), c[0], c[2]));
-            SASSERT(contains_watched(s.get_wlist(~c[2]), c[0], c[1]));
+            VERIFY(contains_watched(s.get_wlist(~c[0]), c[1], c[2]));
+            VERIFY(contains_watched(s.get_wlist(~c[1]), c[0], c[2]));
+            VERIFY(contains_watched(s.get_wlist(~c[2]), c[0], c[1]));
         }
         else {
             if (s.value(c[0]) == l_false || s.value(c[1]) == l_false) {

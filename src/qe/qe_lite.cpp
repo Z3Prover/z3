@@ -1667,7 +1667,7 @@ namespace fm {
             sbuffer<var>     xs;
             buffer<rational> as;
             rational         c;
-            bool             strict;
+            bool             strict = false;
             unsigned         num;
             expr * const *   args;
             if (m.is_or(f)) {
