@@ -1328,26 +1328,21 @@ void theory_str::instantiate_axiom_RegexIn(enode * e) {
     	expr_ref finalAxiom(mk_and(items), m);
     	SASSERT(finalAxiom);
     	assert_axiom(finalAxiom);
-    	/*
-    	Z3_ast var1 = mk_regexRepVar(t);
-    	Z3_ast var2 = mk_regexRepVar(t);
-    	rhs = mk_concat(t, var1, var2);
-
-    	Z3_ast regex1 = Z3_get_app_arg(ctx, arg1_func_app, 0);
-    	Z3_ast regex2 = Z3_get_app_arg(ctx, arg1_func_app, 1);
-    	Z3_ast var1InRegex1 = mk_2_arg_app(ctx, td->RegexIn, var1, regex1);
-    	Z3_ast var2InRegex2 = mk_2_arg_app(ctx, td->RegexIn, var2, regex2);
-    	std::vector<Z3_ast> items;
+    } else if (is_RegexUnion(regex)) {
+    	expr_ref var1(mk_regex_rep_var(), m);
+    	expr_ref var2(mk_regex_rep_var(), m);
+    	expr_ref orVar(m.mk_or(ctx.mk_eq_atom(str, var1), ctx.mk_eq_atom(str, var2)), m);
+    	expr_ref regex1(regex->get_arg(0), m);
+    	expr_ref regex2(regex->get_arg(1), m);
+    	expr_ref var1InRegex1(mk_RegexIn(var1, regex1), m);
+    	expr_ref var2InRegex2(mk_RegexIn(var2, regex2), m);
+    	expr_ref_vector items(m);
     	items.push_back(var1InRegex1);
     	items.push_back(var2InRegex2);
-    	items.push_back(Z3_mk_eq(ctx, resBoolVar, Z3_mk_eq(ctx, args[0], rhs)));
-    	extraAssert = mk_and_fromVector(t, items);
-    	return resBoolVar;
-    	*/
-    } else if (is_RegexUnion(regex)) {
-
+    	items.push_back(ctx.mk_eq_atom(expr, orVar));
+    	assert_axiom(mk_and(items));
     } else if (is_RegexStar(regex)) {
-
+    	NOT_IMPLEMENTED_YET();
     } else {
     	TRACE("t_str_detail", tout << "ERROR: unknown regex expression " << mk_pp(regex, m) << "!" << std::endl;);
     	NOT_IMPLEMENTED_YET();
