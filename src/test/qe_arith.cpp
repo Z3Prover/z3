@@ -382,8 +382,7 @@ static void add_random_ineq(
 
 static void test_maximize(opt::model_based_opt& mbo, ast_manager& m, unsigned num_vars, expr_ref_vector const& fmls, app* t) {
     qe::arith_project_plugin plugin(m);
-    model mdl(m);
-    expr_ref bound(m);
+    model mdl(m);    
     arith_util a(m);
     for (unsigned i = 0; i < num_vars; ++i) {
         app_ref var(m);
@@ -391,7 +390,8 @@ static void test_maximize(opt::model_based_opt& mbo, ast_manager& m, unsigned nu
         rational val = mbo.get_value(i);
         mdl.register_decl(var->get_decl(), a.mk_numeral(val, false));
     }
-    opt::inf_eps value1 = plugin.maximize(fmls, mdl, t, bound);
+    expr_ref ge(m), gt(m);
+    opt::inf_eps value1 = plugin.maximize(fmls, mdl, t, ge, gt);
     opt::inf_eps value2 = mbo.maximize();    
     std::cout << "optimal: " << value1 << " " << value2 << "\n";
     mbo.display(std::cout);
