@@ -35,6 +35,11 @@ public class Context implements AutoCloseable {
         init();
     }
 
+    protected Context (long m_ctx) {
+        this.m_ctx = m_ctx;
+        init();
+    }
+
 
     /**
      * Constructor.
