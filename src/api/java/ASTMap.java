@@ -20,8 +20,7 @@ package com.microsoft.z3;
 /**
  * Map from AST to AST
  **/
-class ASTMap extends Z3Object
-{
+class ASTMap extends Z3Object {
     /**
      * Checks whether the map contains the key {@code k}. 
      * @param k An AST
@@ -104,13 +103,7 @@ class ASTMap extends Z3Object
     @Override
     public String toString()
     {
-        try
-        {
-            return Native.astMapToString(getContext().nCtx(), getNativeObject());
-        } catch (Z3Exception e)
-        {
-            return "Z3Exception: " + e.getMessage();
-        }
+        return Native.astMapToString(getContext().nCtx(), getNativeObject());
     }
 
     ASTMap(Context ctx, long obj)
@@ -124,16 +117,12 @@ class ASTMap extends Z3Object
     }
 
     @Override
-    void incRef(long o)
-    {
-        getContext().getASTMapDRQ().incAndClear(getContext(), o);
-        super.incRef(o);
+    void incRef() {
+        Native.astMapIncRef(getContext().nCtx(), getNativeObject());
     }
 
     @Override
-    void decRef(long o)
-    {
-        getContext().getASTMapDRQ().add(o);
-        super.decRef(o);
+    void addToReferenceQueue() {
+        getContext().getASTMapDRQ().storeReference(getContext(), this);
     }
 }

@@ -20,8 +20,7 @@ package com.microsoft.z3;
 /**
  * Objects of this class track statistical information about solvers.
  **/
-public class Statistics extends Z3Object
-{
+public class Statistics extends Z3Object {
     /**
      * Statistical data is organized into pairs of [Key, Entry], where every
      * Entry is either a {@code DoubleEntry} or a {@code UIntEntry}
@@ -84,15 +83,9 @@ public class Statistics extends Z3Object
         /**
          * The string representation of the Entry.
          **/
-        public String toString()
-        {
-            try
-            {
-                return Key + ": " + getValueString();
-            } catch (Z3Exception e)
-            {
-                return "Z3Exception: " + e.getMessage();
-            }
+        @Override
+        public String toString() {
+            return Key + ": " + getValueString();
         }
 
         private boolean m_is_int = false;
@@ -118,15 +111,10 @@ public class Statistics extends Z3Object
     /**
      * A string representation of the statistical data.
      **/
+    @Override
     public String toString()
     {
-        try
-        {
-            return Native.statsToString(getContext().nCtx(), getNativeObject());
-        } catch (Z3Exception e)
-        {
-            return "Z3Exception: " + e.getMessage();
-        }
+        return Native.statsToString(getContext().nCtx(), getNativeObject());
     }
 
     /**
@@ -201,15 +189,13 @@ public class Statistics extends Z3Object
         super(ctx, obj);
     }
 
-    void incRef(long o)
-    {
-        getContext().getStatisticsDRQ().incAndClear(getContext(), o);
-        super.incRef(o);
+    @Override
+    void incRef() {
+        getContext().getStatisticsDRQ().storeReference(getContext(), this);
     }
 
-    void decRef(long o)
-    {
-        getContext().getStatisticsDRQ().add(o);
-        super.decRef(o);
+    @Override
+    void addToReferenceQueue() {
+        Native.statsIncRef(getContext().nCtx(), getNativeObject());
     }
 }

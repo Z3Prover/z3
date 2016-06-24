@@ -17,39 +17,16 @@ Notes:
 
 package com.microsoft.z3;
 
-class ProbeDecRefQueue extends IDecRefQueue
+class ProbeDecRefQueue extends IDecRefQueue<Probe>
 {
     public ProbeDecRefQueue() 
     {
         super();
     }
 
-    public ProbeDecRefQueue(int move_limit) 
-    {
-        super(move_limit);
-    }
-
-    @Override
-    protected void incRef(Context ctx, long obj)
-    {
-        try
-        {
-            Native.probeIncRef(ctx.nCtx(), obj);
-        } catch (Z3Exception e)
-        {
-            // OK.
-        }
-    }
-
     @Override
     protected void decRef(Context ctx, long obj)
     {
-        try
-        {
-            Native.probeDecRef(ctx.nCtx(), obj);
-        } catch (Z3Exception e)
-        {
-            // OK.
-        }
+        Native.probeDecRef(ctx.nCtx(), obj);
     }
 };

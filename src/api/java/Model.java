@@ -22,8 +22,7 @@ import com.microsoft.z3.enumerations.Z3_sort_kind;
 /**
  * A Model contains interpretations (assignments) of constants and functions.
  **/
-public class Model extends Z3Object
-{
+public class Model extends Z3Object {
     /**
      * Retrieves the interpretation (the assignment) of {@code a} in
      * the model. 
@@ -283,15 +282,8 @@ public class Model extends Z3Object
      * @return A string representation of the model.
      **/
     @Override
-    public String toString()
-    {
-        try
-        {
-            return Native.modelToString(getContext().nCtx(), getNativeObject());
-        } catch (Z3Exception e)
-        {
-            return "Z3Exception: " + e.getMessage();
-        }
+    public String toString() {
+        return Native.modelToString(getContext().nCtx(), getNativeObject());
     }
 
     Model(Context ctx, long obj)
@@ -300,16 +292,12 @@ public class Model extends Z3Object
     }
 
     @Override
-    void incRef(long o)
-    {
-        getContext().getModelDRQ().incAndClear(getContext(), o);
-        super.incRef(o);
+    void incRef() {
+        Native.modelIncRef(getContext().nCtx(), getNativeObject());
     }
 
     @Override
-    void decRef(long o)
-    {
-        getContext().getModelDRQ().add(o);
-        super.decRef(o);
+    void addToReferenceQueue() {
+        getContext().getModelDRQ().storeReference(getContext(), this);
     }
 }

@@ -17,37 +17,15 @@ Notes:
 
 package com.microsoft.z3;
 
-class TacticDecRefQueue extends IDecRefQueue
-{
+class TacticDecRefQueue extends IDecRefQueue<Tactic> {
     public TacticDecRefQueue() 
     {
         super();
     }
 
-    public TacticDecRefQueue(int move_limit) 
-    {
-        super(move_limit);
-    }
-
-    protected void incRef(Context ctx, long obj)
-    {
-        try
-        {
-            Native.tacticIncRef(ctx.nCtx(), obj);
-        } catch (Z3Exception e)
-        {
-            // OK.
-        }
-    }
-
+    @Override
     protected void decRef(Context ctx, long obj)
     {
-        try
-        {
-            Native.tacticDecRef(ctx.nCtx(), obj);
-        } catch (Z3Exception e)
-        {
-            // OK.
-        }
+        Native.tacticDecRef(ctx.nCtx(), obj);
     }
-};
+}

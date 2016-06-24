@@ -175,15 +175,8 @@ public class AST extends Z3Object implements Comparable<AST>
      * A string representation of the AST.
      **/
     @Override
-    public String toString()
-    {
-        try
-        {
-            return Native.astToString(getContext().nCtx(), getNativeObject());
-        } catch (Z3Exception e)
-        {
-            return "Z3Exception: " + e.getMessage();
-        }
+    public String toString() {
+        return Native.astToString(getContext().nCtx(), getNativeObject());
     }
 
     /**
@@ -194,34 +187,18 @@ public class AST extends Z3Object implements Comparable<AST>
         return Native.astToString(getContext().nCtx(), getNativeObject());
     }
 
-    AST(Context ctx)
-    {
-        super(ctx);
-    }
-
-    AST(Context ctx, long obj)
-    {
+    AST(Context ctx, long obj) {
         super(ctx, obj);
     }
 
     @Override
-    void incRef(long o)
-    {
-        // Console.WriteLine("AST IncRef()");
-        if (getContext() == null || o == 0)
-            return;
-        getContext().getASTDRQ().incAndClear(getContext(), o);
-        super.incRef(o);
+    void incRef() {
+        Native.incRef(getContext().nCtx(), getNativeObject());
     }
 
     @Override
-    void decRef(long o)
-    {
-        // Console.WriteLine("AST DecRef()");
-        if (getContext() == null || o == 0)
-            return;
-        getContext().getASTDRQ().add(o);
-        super.decRef(o);
+    void addToReferenceQueue() {
+        getContext().getASTDRQ().storeReference(getContext(), this);
     }
 
     static AST create(Context ctx, long obj)

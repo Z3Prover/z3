@@ -145,68 +145,67 @@ public class Quantifier extends BoolExpr
                 .nCtx(), getNativeObject()));
     }
 
-    Quantifier(Context ctx, boolean isForall, Sort[] sorts, Symbol[] names,
+    public static Quantifier of(
+            Context ctx, boolean isForall, Sort[] sorts, Symbol[] names,
             Expr body, int weight, Pattern[] patterns, Expr[] noPatterns,
-            Symbol quantifierID, Symbol skolemID)
-    {
-        super(ctx, 0);
-
-        getContext().checkContextMatch(patterns);
-        getContext().checkContextMatch(noPatterns);
-        getContext().checkContextMatch(sorts);
-        getContext().checkContextMatch(names);
-        getContext().checkContextMatch(body);
+            Symbol quantifierID, Symbol skolemID
+    ) {
+        ctx.checkContextMatch(patterns);
+        ctx.checkContextMatch(noPatterns);
+        ctx.checkContextMatch(sorts);
+        ctx.checkContextMatch(names);
+        ctx.checkContextMatch(body);
 
         if (sorts.length != names.length)
             throw new Z3Exception(
                     "Number of sorts does not match number of names");
 
-        if (noPatterns == null && quantifierID == null && skolemID == null)
-        {
-            setNativeObject(Native.mkQuantifier(ctx.nCtx(), (isForall), weight, AST.arrayLength(patterns), AST
+        long nativeObj;
+        if (noPatterns == null && quantifierID == null && skolemID == null) {
+            nativeObj = Native.mkQuantifier(ctx.nCtx(), (isForall), weight, AST.arrayLength(patterns), AST
                     .arrayToNative(patterns), AST.arrayLength(sorts), AST
                     .arrayToNative(sorts), Symbol.arrayToNative(names), body
-                    .getNativeObject()));
-        } else
-        {
-            setNativeObject(Native.mkQuantifierEx(ctx.nCtx(),
-                (isForall), weight, AST.getNativeObject(quantifierID),
-             AST.getNativeObject(skolemID), 
-             AST.arrayLength(patterns), AST.arrayToNative(patterns), 
-             AST.arrayLength(noPatterns), AST.arrayToNative(noPatterns), 
-             AST.arrayLength(sorts), AST.arrayToNative(sorts), 
-             Symbol.arrayToNative(names), 
-             body.getNativeObject()));
+                    .getNativeObject());
+        } else {
+            nativeObj = Native.mkQuantifierEx(ctx.nCtx(),
+                    (isForall), weight, AST.getNativeObject(quantifierID),
+                    AST.getNativeObject(skolemID),
+                    AST.arrayLength(patterns), AST.arrayToNative(patterns),
+                    AST.arrayLength(noPatterns), AST.arrayToNative(noPatterns),
+                    AST.arrayLength(sorts), AST.arrayToNative(sorts),
+                    Symbol.arrayToNative(names),
+                    body.getNativeObject());
         }
+        return new Quantifier(ctx, nativeObj);
     }
 
-    Quantifier(Context ctx, boolean isForall, Expr[] bound, Expr body,
+
+    public static Quantifier of(Context ctx, boolean isForall, Expr[] bound, Expr body,
             int weight, Pattern[] patterns, Expr[] noPatterns,
             Symbol quantifierID, Symbol skolemID)
     {
-        super(ctx, 0);
+        ctx.checkContextMatch(noPatterns);
+        ctx.checkContextMatch(patterns);
+        // ctx.CheckContextMatch(bound);
+        ctx.checkContextMatch(body);
 
-        getContext().checkContextMatch(noPatterns);
-        getContext().checkContextMatch(patterns);
-        // Context().CheckContextMatch(bound);
-        getContext().checkContextMatch(body);
-
+        long nativeObj;
         if (noPatterns == null && quantifierID == null && skolemID == null)
         {
-            setNativeObject(Native.mkQuantifierConst(ctx.nCtx(),
+            nativeObj = Native.mkQuantifierConst(ctx.nCtx(),
                 isForall, weight, AST.arrayLength(bound),
                     AST.arrayToNative(bound), AST.arrayLength(patterns),
-                    AST.arrayToNative(patterns), body.getNativeObject()));
-        } else
-        {
-            setNativeObject(Native.mkQuantifierConstEx(ctx.nCtx(),
+                    AST.arrayToNative(patterns), body.getNativeObject());
+        } else {
+            nativeObj = Native.mkQuantifierConstEx(ctx.nCtx(),
                 isForall, weight,
                     AST.getNativeObject(quantifierID),
                     AST.getNativeObject(skolemID), AST.arrayLength(bound),
                     AST.arrayToNative(bound), AST.arrayLength(patterns),
                     AST.arrayToNative(patterns), AST.arrayLength(noPatterns),
-                    AST.arrayToNative(noPatterns), body.getNativeObject()));
+                    AST.arrayToNative(noPatterns), body.getNativeObject());
         }
+        return new Quantifier(ctx, nativeObj);
     }
 
     Quantifier(Context ctx, long obj)

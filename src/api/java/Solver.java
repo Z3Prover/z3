@@ -22,8 +22,7 @@ import com.microsoft.z3.enumerations.Z3_lbool;
 /**
  * Solvers.
  **/
-public class Solver extends Z3Object
-{
+public class Solver extends Z3Object {
     /**
      * A string that describes all available solver parameters.
      **/
@@ -127,13 +126,13 @@ public class Solver extends Z3Object
      * using the Boolean constants in ps.
      *
      * Remarks: 
-     * This API is an alternative to {@link check} with assumptions for
+     * This API is an alternative to {@link #check()} with assumptions for
      * extracting unsat cores.
      * Both APIs can be used in the same solver. The unsat core will contain a
      * combination
-     * of the Boolean variables provided using {@link assertAndTrack}
+     * of the Boolean variables provided using {@code #assertAndTrack}
      * and the Boolean literals
-     * provided using {@link check} with assumptions.
+     * provided using {@link #check()} with assumptions.
      **/
     public void assertAndTrack(BoolExpr[] constraints, BoolExpr[] ps)
     {
@@ -154,13 +153,13 @@ public class Solver extends Z3Object
      * using the Boolean constant p.
      * 
      * Remarks: 
-     * This API is an alternative to {@link check} with assumptions for
+     * This API is an alternative to {@link #check} with assumptions for
      * extracting unsat cores.
      * Both APIs can be used in the same solver. The unsat core will contain a
      * combination
-     * of the Boolean variables provided using {@link assertAndTrack}
+     * of the Boolean variables provided using {@link #assertAndTrack}
      * and the Boolean literals
-     * provided using {@link check} with assumptions.
+     * provided using {@link #check} with assumptions.
      */ 
     public void assertAndTrack(BoolExpr constraint, BoolExpr p)
     {
@@ -323,14 +322,8 @@ public class Solver extends Z3Object
     @Override
     public String toString()
     {
-        try
-        {
-            return Native
-                    .solverToString(getContext().nCtx(), getNativeObject());
-        } catch (Z3Exception e)
-        {
-            return "Z3Exception: " + e.getMessage();
-        }
+        return Native
+                .solverToString(getContext().nCtx(), getNativeObject());
     }
 
     Solver(Context ctx, long obj)
@@ -339,16 +332,12 @@ public class Solver extends Z3Object
     }
 
     @Override
-    void incRef(long o)
-    {
-        getContext().getSolverDRQ().incAndClear(getContext(), o);
-        super.incRef(o);
+    void incRef() {
+        Native.solverIncRef(getContext().nCtx(), getNativeObject());
     }
 
     @Override
-    void decRef(long o)
-    {
-        getContext().getSolverDRQ().add(o);
-        super.decRef(o);
+    void addToReferenceQueue() {
+        getContext().getSolverDRQ().storeReference(getContext(), this);
     }
 }

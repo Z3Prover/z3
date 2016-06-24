@@ -17,39 +17,15 @@ Notes:
 
 package com.microsoft.z3;
 
-class ParamDescrsDecRefQueue extends IDecRefQueue
-{
+class ParamDescrsDecRefQueue extends IDecRefQueue<ParamDescrs> {
     public ParamDescrsDecRefQueue() 
     {
         super();
     }
 
-    public ParamDescrsDecRefQueue(int move_limit) 
-    {
-        super(move_limit);
-    }
-
-    @Override
-    protected void incRef(Context ctx, long obj)
-    {
-        try
-        {
-            Native.paramDescrsIncRef(ctx.nCtx(), obj);
-        } catch (Z3Exception e)
-        {
-            // OK.
-        }
-    }
-
     @Override
     protected void decRef(Context ctx, long obj)
     {
-        try
-        {
-            Native.paramDescrsDecRef(ctx.nCtx(), obj);
-        } catch (Z3Exception e)
-        {
-            // OK.
-        }
+        Native.paramDescrsDecRef(ctx.nCtx(), obj);
     }
-};
+}

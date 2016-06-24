@@ -17,39 +17,14 @@ Notes:
 
 package com.microsoft.z3;
 
-class ASTMapDecRefQueue extends IDecRefQueue
-{
+class ASTMapDecRefQueue extends IDecRefQueue<ASTMap> {
     public ASTMapDecRefQueue() 
     {
         super();
     }
 
-    public ASTMapDecRefQueue(int move_limit) 
-    {
-        super(move_limit);
-    }
-
     @Override
-    protected void incRef(Context ctx, long obj)
-    {
-        try
-        {
-            Native.astMapIncRef(ctx.nCtx(), obj);
-        } catch (Z3Exception e)
-        {
-            // OK.
-        }
+    protected void decRef(Context ctx, long obj) {
+        Native.astMapDecRef(ctx.nCtx(), obj);
     }
-
-    @Override
-    protected void decRef(Context ctx, long obj)
-    {
-        try
-        {
-            Native.astMapDecRef(ctx.nCtx(), obj);
-        } catch (Z3Exception e)
-        {
-            // OK.
-        }
-    }
-};
+}
