@@ -20,19 +20,25 @@ Notes:
 #include"smt_kernel.h"
 #include"reg_decl_plugins.h"
 #include"smt_params.h"
+#include"smt_params_helper.hpp"
+#include"mus.h"
 
 namespace smt {
 
     class solver : public solver_na2as {
-        smt_params          m_params;
+        smt_params          m_smt_params;
+        params_ref          m_params;
         smt::kernel         m_context;
         progress_callback * m_callback;
         symbol              m_logic;
+        bool                m_minimizing_core;
     public:
         solver(ast_manager & m, params_ref const & p, symbol const & l):
             solver_na2as(m),
+            m_smt_params(p),
             m_params(p),
-            m_context(m, m_params) {
+            m_context(m, m_smt_params),
+            m_minimizing_core(false) {
             m_logic = l;
             if (m_logic != symbol::null)
                 m_context.set_logic(m_logic);
@@ -48,7 +54,8 @@ namespace smt {
         }
 
         virtual void updt_params(params_ref const & p) {
-            m_params.updt_params(p);
+            m_smt_params.updt_params(p);
+            m_params.copy(p);
             m_context.updt_params(p);
         }
 
@@ -77,10 +84,37 @@ namespace smt {
             return m_context.check(num_assumptions, assumptions);
         }
 
+        struct scoped_minimize_core {
+            solver& s;
+            expr_ref_vector m_assumptions;
+            scoped_minimize_core(solver& s): s(s), m_assumptions(s.m_assumptions) {
+                s.m_minimizing_core = true;
+                s.m_assumptions.reset();
+            }
+
+            ~scoped_minimize_core() {
+                s.m_minimizing_core = false;
+                s.m_assumptions.append(m_assumptions);
+            }
+        };
+
         virtual void get_unsat_core(ptr_vector<expr> & r) {
             unsigned sz = m_context.get_unsat_core_size();
-            for (unsigned i = 0; i < sz; i++)
+            for (unsigned i = 0; i < sz; i++) {
                 r.push_back(m_context.get_unsat_core_expr(i));
+            }
+
+            if (m_minimizing_core || smt_params_helper(m_params).core_minimize() == false) {
+                return;
+            }
+            scoped_minimize_core scm(*this);
+            mus mus(*this);
+            mus.add_soft(r.size(), r.c_ptr());
+            ptr_vector<expr> r2;
+            if (l_true == mus.get_mus(r2)) {
+                r.reset();
+                r.append(r2);
+            }
         }
 
         virtual void get_model(model_ref & m) {

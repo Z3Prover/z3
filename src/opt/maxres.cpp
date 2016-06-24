@@ -544,17 +544,10 @@ public:
             return l_true;
         }
         m_mus.reset();
-        for (unsigned i = 0; i < core.size(); ++i) {
-            VERIFY(i == m_mus.add_soft(core[i]));
-        }
-        unsigned_vector mus_idx;
-        lbool is_sat = m_mus.get_mus(mus_idx);
+        m_mus.add_soft(core.size(), core.c_ptr());
+        lbool is_sat = m_mus.get_mus(m_new_core);
         if (is_sat != l_true) {
             return is_sat;
-        }
-        m_new_core.reset();
-        for (unsigned i = 0; i < mus_idx.size(); ++i) {
-            m_new_core.push_back(core[mus_idx[i]]);
         }
         core.reset();
         core.append(m_new_core);

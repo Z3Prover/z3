@@ -33,6 +33,10 @@ class mus {
        Assume also that cls is a literal.           
     */
     unsigned add_soft(expr* cls);
+
+    void add_soft(unsigned sz, expr* const* clss) {
+        for (unsigned i = 0; i < sz; ++i) add_soft(clss[i]);
+    }
     
     /**
        Additional assumption for solver to be used along with solver context, 
@@ -43,7 +47,9 @@ class mus {
      */
     void add_assumption(expr* lit);
 
-    lbool get_mus(unsigned_vector& mus);
+    lbool get_mus(ptr_vector<expr>& mus);
+
+    lbool get_mus(expr_ref_vector& mus);
     
     void reset();
     

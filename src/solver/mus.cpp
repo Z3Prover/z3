@@ -22,10 +22,13 @@ Notes:
 #include "mus.h"
 #include "ast_pp.h"
 #include "ast_util.h"
-#include "uint_set.h"
+#include "model_evaluator.h"
 
 
 struct mus::imp {
+
+    typedef obj_hashtable<expr> expr_set;
+
     solver&                  m_solver;
     ast_manager&             m;
     expr_ref_vector          m_lit2expr;
@@ -56,7 +59,7 @@ struct mus::imp {
         unsigned idx = m_lit2expr.size();
         m_expr2lit.insert(lit, idx);
         m_lit2expr.push_back(lit);
-        TRACE("opt", tout << idx << ": " << mk_pp(lit, m) << "\n" << m_lit2expr << "\n";);
+        TRACE("mus", tout << idx << ": " << mk_pp(lit, m) << "\n" << m_lit2expr << "\n";);
         return idx;
     }
 
@@ -64,66 +67,61 @@ struct mus::imp {
         SASSERT(is_literal(lit));
         m_assumptions.push_back(lit);
     }
-    
-    lbool get_mus(unsigned_vector& mus) {
-        // SASSERT: mus does not have duplicates.
+
+    lbool get_mus(expr_ref_vector& mus) {
         m_model.reset();
-        unsigned_vector core;
-        for (unsigned i = 0; i < m_lit2expr.size(); ++i) {
-            core.push_back(i);
-        }
-        if (core.size() == 1) {
-            mus.push_back(core.back());
+        mus.reset();
+        if (m_lit2expr.size() == 1) {
+            mus.push_back(m_lit2expr.back());
             return l_true;
         }
+        return get_mus1(mus);
+    }
 
+    lbool get_mus(ptr_vector<expr>& mus) {
         mus.reset();
-        if (false && core.size() > 64) {
-            return qx(mus);
-        }
+        expr_ref_vector result(m);
+        lbool r = get_mus(result);
+        mus.append(result.size(), result.c_ptr());
+        return r;
+    }    
 
-        expr_ref_vector assumptions(m);
+    lbool get_mus1(expr_ref_vector& mus) {
+        ptr_vector<expr> unknown(m_lit2expr.size(), m_lit2expr.c_ptr());
         ptr_vector<expr> core_exprs;
-        while (!core.empty()) { 
-            IF_VERBOSE(12, verbose_stream() << "(opt.mus reducing core: " << core.size() << " new core: " << mus.size() << ")\n";);
-            unsigned lit_id = core.back();
-            TRACE("opt", 
-                  display_vec(tout << "core:  ", core);
-                  display_vec(tout << "mus:   ", mus);
-                  );
-            core.pop_back();
-            expr* lit = m_lit2expr[lit_id].get();
-            expr_ref not_lit(m);
-            not_lit = mk_not(m, lit);
+        while (!unknown.empty()) { 
+            IF_VERBOSE(12, verbose_stream() << "(mus reducing core: " << unknown.size() << " new core: " << mus.size() << ")\n";);
+            TRACE("mus", display_vec(tout << "core:  ", unknown); display_vec(tout << "mus:   ", mus););
+            expr* lit = unknown.back();
+            unknown.pop_back();
+            expr_ref not_lit(mk_not(m, lit), m);
             lbool is_sat = l_undef;
             {
-                scoped_append _sa1(*this, assumptions, core);
-                scoped_append _sa2(*this, assumptions, m_assumptions);
-                assumptions.push_back(not_lit);
-                is_sat = m_solver.check_sat(assumptions);
+                scoped_append _sa1(*this, mus, unknown);
+                scoped_append _sa2(*this, mus, m_assumptions);
+                mus.push_back(not_lit);
+                is_sat = m_solver.check_sat(mus);
             }
             switch (is_sat) {
             case l_undef: 
                 return is_sat;
             case l_true:
-                assumptions.push_back(lit);
-                mus.push_back(lit_id);
+                mus.push_back(lit);
                 update_model();
                 break;
             default:
                 core_exprs.reset();
                 m_solver.get_unsat_core(core_exprs);
                 if (!core_exprs.contains(not_lit)) {
-                    // core := core_exprs \ mus
-                    core.reset();
+                    // unknown := core_exprs \ mus
+                    unknown.reset();
                     for (unsigned i = 0; i < core_exprs.size(); ++i) {
-                        lit = core_exprs[i];
-                        if (m_expr2lit.find(lit, lit_id) && !mus.contains(lit_id)) {
-                            core.push_back(lit_id);
+                        if (!mus.contains(core_exprs[i])) {
+                            unknown.push_back(core_exprs[i]);
                         }
                     }
-                    TRACE("opt", display_vec(tout << "core exprs:", core_exprs);
-                        display_vec(tout << "core:", core);
+                    TRACE("mus", display_vec(tout << "core exprs:", core_exprs);
+                        display_vec(tout << "core:", unknown);
                         display_vec(tout << "mus:", mus);
                     );
 
@@ -131,36 +129,146 @@ struct mus::imp {
                 break;
             }
         }
-#if 0
-        DEBUG_CODE(
-            assumptions.reset();
-            for (unsigned i = 0; i < mus.size(); ++i) {
-                assumptions.push_back(m_lit2expr[mus[i]].get());
-            }
-            lbool is_sat = m_solver.check_sat(assumptions.size(), assumptions.c_ptr());
-            SASSERT(is_sat == l_false);
-                   );
-#endif
+        // SASSERT(is_core(mus));
         return l_true;
+    }
+
+    // use correction sets
+    lbool get_mus2(expr_ref_vector& mus) {
+        expr* lit = 0;
+        lbool is_sat;
+        ptr_vector<expr> unknown(m_lit2expr.size(), m_lit2expr.c_ptr());
+        while (!unknown.empty()) { 
+            IF_VERBOSE(12, verbose_stream() << "(mus reducing core: " << unknown.size() << " new core: " << mus.size() << ")\n";);
+            {
+                scoped_append _sa1(*this, mus, m_assumptions);
+                is_sat = get_next_mcs(mus, unknown, lit);
+            }
+            if (l_false == is_sat) {
+                mus.push_back(lit);
+            }
+            else {
+                return is_sat;
+            }
+        }        
+        
+        //SASSERT(is_core(mus));
+        return l_true;
+    }
+
+    // find the next literal to be a member of a core.
+    lbool get_next_mcs(expr_ref_vector& mus, ptr_vector<expr>& unknown, expr*& core_literal) {
+        ptr_vector<expr> mss;
+        expr_ref_vector  nmcs(m);
+        expr_set core, min_core, nmcs_set;
+        bool min_core_valid = false;
+        expr* min_lit = 0;
+        while (!unknown.empty()) {
+            expr* lit = unknown.back();
+            unknown.pop_back();
+            model_ref mdl;
+            scoped_append assume_mss(*this,  mus, mss);      // current satisfied literals
+            scoped_append assume_nmcs(*this, mus, nmcs);     // current non-satisfied literals
+            scoped_append assume_lit(*this,  mus, lit);      // current unknown literal
+            switch (m_solver.check_sat(mus)) {
+            case l_true: {
+                TRACE("mus", tout << "literal can be satisfied: " << mk_pp(lit, m) << "\n";);
+                mss.push_back(lit);
+                m_solver.get_model(mdl);
+                model_evaluator eval(*mdl.get());
+                for (unsigned i = 0; i < unknown.size(); ) {
+                    expr_ref tmp(m);
+                    eval(unknown[i], tmp);
+                    if (m.is_true(tmp)) {
+                        mss.push_back(unknown[i]);
+                        unknown[i] = unknown.back();
+                        unknown.pop_back();
+                    }
+                    else {
+                        ++i;
+                    }
+                }
+                break;
+            }
+            case l_false:
+                TRACE("mus", tout << "literal is in a core: " << mk_pp(lit, m) << "\n";);
+                nmcs.push_back(mk_not(m, lit));
+                nmcs_set.insert(nmcs.back());
+                get_core(core);
+                if (!core.contains(lit)) {
+                    // The current mus is already a core.
+                    unknown.reset();
+                    return l_true;
+                }
+                if (have_intersection(nmcs_set, core)) {
+                    // can't use this core directly. Hypothetically, we 
+                    // could try to combine min_core with core and
+                    // see if the combination produces a better minimal core.
+                    SASSERT(min_core_valid);
+                    break;
+                }
+                if (!min_core_valid || core.size() < min_core.size()) {
+                    // The current core is smallest so far, so we get fewer unknowns from it.
+                    min_core = core;
+                    min_core_valid = true;
+                    min_lit = lit;
+                }
+                break;
+            case l_undef:
+                return l_undef;
+            }
+        }
+        SASSERT(min_core_valid);
+        if (!min_core_valid) {
+            // all unknown soft constraints were satisfiable
+            return l_true;
+        }
+
+        expr_set mss_set;
+        for (unsigned i = 0; i < mss.size(); ++i) {
+            mss_set.insert(mss[i]);
+        }
+        expr_set::iterator it = min_core.begin(), end = min_core.end();
+        for (; it != end; ++it) {
+            if (mss_set.contains(*it) && min_lit != *it) {
+                unknown.push_back(*it);
+            }
+        }
+        core_literal = min_lit;
+        
+        return l_false;
+    }
+
+    bool have_intersection(expr_set const& A, expr_set const& B) {
+        if (A.size() < B.size()) {
+            expr_set::iterator it = A.begin(), end = A.end();
+            for (; it != end; ++it) {
+                if (B.contains(*it)) return true;
+            }
+        }
+        else {
+            expr_set::iterator it = B.begin(), end = B.end();
+            for (; it != end; ++it) {
+                if (A.contains(*it)) return true;
+            }
+        }
+        return false;
+    }
+
+    bool is_core(expr_ref_vector const& mus) {
+        return l_false == m_solver.check_sat(mus); 
     }
 
     class scoped_append {
         expr_ref_vector& m_fmls;
         unsigned         m_size;
     public:
-        scoped_append(imp& imp, expr_ref_vector& fmls1, unsigned_vector const& fmls2):
+        scoped_append(imp& imp, expr_ref_vector& fmls1, expr_set const& fmls2):
             m_fmls(fmls1),
             m_size(fmls1.size()) {
-            for (unsigned i = 0; i < fmls2.size(); ++i) {
-                fmls1.push_back(imp.m_lit2expr[fmls2[i]].get());
-            }            
-        }
-        scoped_append(imp& imp, expr_ref_vector& fmls1, uint_set const& fmls2):
-            m_fmls(fmls1),
-            m_size(fmls1.size()) {
-            uint_set::iterator it = fmls2.begin(), end = fmls2.end();
+            expr_set::iterator it = fmls2.begin(), end = fmls2.end();
             for (; it != end; ++it) {
-                fmls1.push_back(imp.m_lit2expr[*it].get());
+                fmls1.push_back(*it);
             }            
         }
         scoped_append(imp& imp, expr_ref_vector& fmls1, expr_ref_vector const& fmls2):
@@ -168,16 +276,20 @@ struct mus::imp {
             m_size(fmls1.size()) {
             fmls1.append(fmls2);
         }
+        scoped_append(imp& imp, expr_ref_vector& fmls1, ptr_vector<expr> const& fmls2):
+            m_fmls(fmls1),
+            m_size(fmls1.size()) {
+            fmls1.append(fmls2.size(), fmls2.c_ptr());
+        }
+        scoped_append(imp& imp, expr_ref_vector& fmls1, expr* fml):
+            m_fmls(fmls1),
+            m_size(fmls1.size()) {
+            fmls1.push_back(fml);
+        }
         ~scoped_append() {
             m_fmls.shrink(m_size);
         }
     };
-
-    void add_core(unsigned_vector const& core, expr_ref_vector& assumptions) {
-        for (unsigned i = 0; i < core.size(); ++i) {
-            assumptions.push_back(m_lit2expr[core[i]].get());
-        }
-    }
 
     template<class T>
     void display_vec(std::ostream& out, T const& v) const {
@@ -234,14 +346,14 @@ struct mus::imp {
     }
 
 
-    lbool qx(unsigned_vector& mus) {
-        uint_set core, support;
+    lbool qx(expr_ref_vector& mus) {
+        expr_set core, support;
         for (unsigned i = 0; i < m_lit2expr.size(); ++i) {
-            core.insert(i);
+            core.insert(m_lit2expr[i].get());
         }
         lbool is_sat = qx(core, support, false);
         if (is_sat == l_true) {
-            uint_set::iterator it = core.begin(), end = core.end();
+            expr_set::iterator it = core.begin(), end = core.end();
             mus.reset();
             for (; it != end; ++it) {
                 mus.push_back(*it);
@@ -250,7 +362,7 @@ struct mus::imp {
         return is_sat;
     }
 
-    lbool qx(uint_set& assignment, uint_set& support, bool has_support) {
+    lbool qx(expr_set& assignment, expr_set& support, bool has_support) {
         lbool is_sat = l_true;
 #if 0
         if (s.m_config.m_minimize_core_partial && s.m_stats.m_restart - m_restart > m_max_restarts) {
@@ -265,7 +377,7 @@ struct mus::imp {
             is_sat = m_solver.check_sat(asms);
             switch (is_sat) {
             case l_false: {
-                uint_set core; 
+                expr_set core; 
                 get_core(core);
                 support &= core;
                 assignment.reset();
@@ -280,10 +392,10 @@ struct mus::imp {
                 break;
             }
         }
-        if (assignment.num_elems() == 1) {
+        if (assignment.size() == 1) {
             return l_true;
         }
-        uint_set assign2;
+        expr_set assign2;
         split(assignment, assign2);
         support |= assignment;
         is_sat = qx(assign2, support, !assignment.empty());        
@@ -296,20 +408,20 @@ struct mus::imp {
         return is_sat;
     }
 
-    void get_core(uint_set& core) {
+    void get_core(expr_set& core) {
+        core.reset();
         ptr_vector<expr> core_exprs;
-        unsigned lit_id;
         m_solver.get_unsat_core(core_exprs);
         for (unsigned i = 0; i < core_exprs.size(); ++i) {
-            if (m_expr2lit.find(core_exprs[i], lit_id)) {
-                core.insert(lit_id);
+            if (m_expr2lit.contains(core_exprs[i])) {
+                core.insert(core_exprs[i]);
             }
         }
     }
 
-    void unsplit(uint_set& A, uint_set& B) {
-        uint_set A1, B1;
-        uint_set::iterator it = A.begin(), end = A.end();
+    void unsplit(expr_set& A, expr_set& B) {
+        expr_set A1, B1;
+        expr_set::iterator it = A.begin(), end = A.end();
         for (; it != end; ++it) {
             if (B.contains(*it)) {
                 B1.insert(*it);
@@ -322,10 +434,10 @@ struct mus::imp {
         B = B1;
     }
 
-    void split(uint_set& lits1, uint_set& lits2) {
-        unsigned half = lits1.num_elems()/2;
-        uint_set lits3;
-        uint_set::iterator it = lits1.begin(), end = lits1.end();
+    void split(expr_set& lits1, expr_set& lits2) {
+        unsigned half = lits1.size()/2;
+        expr_set lits3;
+        expr_set::iterator it = lits1.begin(), end = lits1.end();
         for (unsigned i = 0; it != end; ++it, ++i) {
             if (i < half) {
                 lits3.insert(*it);
@@ -355,7 +467,11 @@ void mus::add_assumption(expr* lit) {
     return m_imp->add_assumption(lit);
 }
 
-lbool mus::get_mus(unsigned_vector& mus) {
+lbool mus::get_mus(ptr_vector<expr>& mus) {
+    return m_imp->get_mus(mus);
+}
+
+lbool mus::get_mus(expr_ref_vector& mus) {
     return m_imp->get_mus(mus);
 }
 
