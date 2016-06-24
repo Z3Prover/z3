@@ -475,18 +475,6 @@ lbool mus::get_mus(expr_ref_vector& mus) {
     return m_imp->get_mus(mus);
 }
 
-lbool mus::get_mus(ptr_vector<expr>& mus) {
-    return m_imp->get_mus(mus);
-}
-
-lbool mus::get_mus(expr_ref_vector& mus) {
-    ptr_vector<expr> result;
-    lbool r = m_imp->get_mus(result);
-    mus.append(result.size(), result.c_ptr());
-    return r;
-}
-
-
 void mus::reset() {
     m_imp->reset();
 }

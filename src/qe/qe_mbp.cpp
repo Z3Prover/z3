@@ -454,8 +454,7 @@ public:
                     (*p)(model, vars, fmls);
                 }
             }
-            while (!vars.empty() && !fmls.empty()) {
-                std::cout << "mbp: " << var << "\n";
+            while (!vars.empty() && !fmls.empty()) {                
                 var = vars.back();
                 vars.pop_back();
                 project_plugin* p = get_plugin(var);
