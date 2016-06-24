@@ -304,7 +304,10 @@ endif()
 # library. If not building a shared library ``-fPIC`` isn't needed and would add
 # unnecessary overhead.
 if (BUILD_LIBZ3_SHARED)
-  if (NOT MSVC)
+  # Avoid adding -fPIC compiler switch if we compile with MSVC (which does not
+  # support the flag) or if we target Windows, which generally does not use
+  # position independent code for native code shared libraries (DLLs).
+  if (NOT (MSVC OR MINGW OR WIN32))
     z3_add_cxx_flag("-fPIC" REQUIRED)
   endif()
 endif()
@@ -387,4 +390,3 @@ option(ENABLE_EXAMPLE_TARGETS "Build Z3 api examples" ON)
 if (ENABLE_EXAMPLE_TARGETS)
   add_subdirectory(examples)
 endif()
-

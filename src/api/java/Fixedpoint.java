@@ -255,14 +255,8 @@ public class Fixedpoint extends Z3Object
     @Override
     public String toString()
     {
-        try
-        {
-            return Native.fixedpointToString(getContext().nCtx(), getNativeObject(),
+        return Native.fixedpointToString(getContext().nCtx(), getNativeObject(),
                     0, null);
-        } catch (Z3Exception e)
-        {
-            return "Z3Exception: " + e.getMessage();
-        }
     }
 
     /**
@@ -355,16 +349,15 @@ public class Fixedpoint extends Z3Object
     }
 
     @Override
-    void incRef(long o)
-    {
-        getContext().getFixedpointDRQ().incAndClear(getContext(), o);
-        super.incRef(o);
+    void incRef() {
+        Native.fixedpointIncRef(getContext().nCtx(), getNativeObject());
     }
 
     @Override
-    void decRef(long o)
-    {
-        getContext().getFixedpointDRQ().add(o);
-        super.decRef(o);
+    void addToReferenceQueue() {
+        getContext().getFixedpointDRQ().storeReference(getContext(), this);
     }
+
+    @Override
+    void checkNativeObject(long obj) { }
 }

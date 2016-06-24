@@ -71,6 +71,7 @@ struct theory_array_params : public array_simplifier_params {
     }
 #endif
 
+    void display(std::ostream & out) const;
 };
 
 

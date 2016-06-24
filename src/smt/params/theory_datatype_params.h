@@ -31,6 +31,8 @@ struct theory_datatype_params {
         p.register_unsigned_param("dt_lazy_splits", m_dt_lazy_splits, "How lazy datatype splits are performed: 0- eager, 1- lazy for infinite types, 2- lazy");
     }
 #endif
+
+    void display(std::ostream & out) const { out << "m_dt_lazy_splits=" << m_dt_lazy_splits << std::endl; }
 };
 
 

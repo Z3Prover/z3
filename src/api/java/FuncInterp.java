@@ -22,20 +22,20 @@ package com.microsoft.z3;
  * Each entry in the finite map represents the value of a function given a set
  * of arguments.
  **/
-public class FuncInterp extends Z3Object
-{
+public class FuncInterp extends Z3Object {
+
     /**
      * An Entry object represents an element in the finite map used to encode a
      * function interpretation.
      **/
-    public class Entry extends Z3Object
-    {
+    public static class Entry extends Z3Object {
+
         /**
          * Return the (symbolic) value of this entry.
-         * 
+         *
          * @throws Z3Exception
          * @throws Z3Exception on error
-     **/
+         **/
         public Expr getValue()
         {
             return Expr.create(getContext(),
@@ -45,7 +45,7 @@ public class FuncInterp extends Z3Object
         /**
          * The number of arguments of the entry.
          * @throws Z3Exception on error
-     **/
+         **/
         public int getNumArgs()
         {
             return Native.funcEntryGetNumArgs(getContext().nCtx(), getNativeObject());
@@ -53,10 +53,10 @@ public class FuncInterp extends Z3Object
 
         /**
          * The arguments of the function entry.
-         * 
+         *
          * @throws Z3Exception
          * @throws Z3Exception on error
-     **/
+         **/
         public Expr[] getArgs()
         {
             int n = getNumArgs();
@@ -73,37 +73,26 @@ public class FuncInterp extends Z3Object
         @Override
         public String toString()
         {
-            try
-            {
-                int n = getNumArgs();
-                String res = "[";
-                Expr[] args = getArgs();
-                for (int i = 0; i < n; i++)
-                    res += args[i] + ", ";
-                return res + getValue() + "]";
-            } catch (Z3Exception e)
-            {
-                return "Z3Exception: " + e.getMessage();
-            }
+            int n = getNumArgs();
+            String res = "[";
+            Expr[] args = getArgs();
+            for (int i = 0; i < n; i++)
+                res += args[i] + ", ";
+            return res + getValue() + "]";
         }
 
-        Entry(Context ctx, long obj)
-        {
+        Entry(Context ctx, long obj) {
             super(ctx, obj);
         }
 
         @Override
-        void incRef(long o)
-        {
-            getContext().getFuncEntryDRQ().incAndClear(getContext(), o);
-            super.incRef(o);
+        void incRef() {
+            Native.funcEntryIncRef(getContext().nCtx(), getNativeObject());
         }
 
         @Override
-        void decRef(long o)
-        {
-            getContext().getFuncEntryDRQ().add(o);
-            super.decRef(o);
+        void addToReferenceQueue() {
+            getContext().getFuncEntryDRQ().storeReference(getContext(), this);
         }
     }
 
@@ -161,33 +150,27 @@ public class FuncInterp extends Z3Object
      **/
     public String toString()
     {
-        try
+        String res = "";
+        res += "[";
+        for (Entry e : getEntries())
         {
-            String res = "";
-            res += "[";
-            for (Entry e : getEntries())
+            int n = e.getNumArgs();
+            if (n > 1)
+                res += "[";
+            Expr[] args = e.getArgs();
+            for (int i = 0; i < n; i++)
             {
-                int n = e.getNumArgs();
-                if (n > 1)
-                    res += "[";
-                Expr[] args = e.getArgs();
-                for (int i = 0; i < n; i++)
-                {
-                    if (i != 0)
-                        res += ", ";
-                    res += args[i];
-                }
-                if (n > 1)
-                    res += "]";
-                res += " -> " + e.getValue() + ", ";
+                if (i != 0)
+                    res += ", ";
+                res += args[i];
             }
-            res += "else -> " + getElse();
-            res += "]";
-            return res;
-        } catch (Z3Exception e)
-        {
-            return "Z3Exception: " + e.getMessage();
+            if (n > 1)
+                res += "]";
+            res += " -> " + e.getValue() + ", ";
         }
+        res += "else -> " + getElse();
+        res += "]";
+        return res;
     }
 
     FuncInterp(Context ctx, long obj)
@@ -196,16 +179,12 @@ public class FuncInterp extends Z3Object
     }
 
     @Override
-    void incRef(long o)
-    {
-        getContext().getFuncInterpDRQ().incAndClear(getContext(), o);
-        super.incRef(o);
+    void incRef() {
+        Native.funcInterpIncRef(getContext().nCtx(), getNativeObject());
     }
 
     @Override
-    void decRef(long o)
-    {
-        getContext().getFuncInterpDRQ().add(o);
-        super.decRef(o);
+    void addToReferenceQueue() {
+        getContext().getFuncInterpDRQ().storeReference(getContext(), this);
     }
 }

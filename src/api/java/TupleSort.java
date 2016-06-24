@@ -59,11 +59,9 @@ public class TupleSort extends Sort
     TupleSort(Context ctx, Symbol name, int numFields, Symbol[] fieldNames,
             Sort[] fieldSorts)
     {
-        super(ctx, 0);
-
-        Native.LongPtr t = new Native.LongPtr();
-        setNativeObject(Native.mkTupleSort(ctx.nCtx(), name.getNativeObject(),
+        super(ctx, Native.mkTupleSort(ctx.nCtx(), name.getNativeObject(),
                 numFields, Symbol.arrayToNative(fieldNames),
-                AST.arrayToNative(fieldSorts), t, new long[numFields]));
+                AST.arrayToNative(fieldSorts), new Native.LongPtr(),
+                new long[numFields]));
     }
 };

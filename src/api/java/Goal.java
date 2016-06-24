@@ -23,8 +23,7 @@ import com.microsoft.z3.enumerations.Z3_goal_prec;
  * A goal (aka problem). A goal is essentially a set of formulas, that can be
  * solved and/or transformed using tactics and solvers.
  **/
-public class Goal extends Z3Object
-{
+public class Goal extends Z3Object {
     /**
      * The precision of the goal.
      * Remarks:  Goals can be transformed using over
@@ -211,15 +210,8 @@ public class Goal extends Z3Object
      * 
      * @return A string representation of the Goal.
      **/
-    public String toString()
-    {
-        try
-        {
-            return Native.goalToString(getContext().nCtx(), getNativeObject());
-        } catch (Z3Exception e)
-        {
-            return "Z3Exception: " + e.getMessage();
-        }
+    public String toString() {
+        return Native.goalToString(getContext().nCtx(), getNativeObject());
     }
     
     /** 
@@ -229,11 +221,11 @@ public class Goal extends Z3Object
      **/
     public BoolExpr AsBoolExpr() {
         int n = size();
-        if (n == 0) 
+        if (n == 0) {
             return getContext().mkTrue();
-        else if (n == 1)                
+        } else if (n == 1) {
             return getFormulas()[0];
-        else {
+        } else {
             return getContext().mkAnd(getFormulas());
         }
     }
@@ -243,23 +235,18 @@ public class Goal extends Z3Object
         super(ctx, obj);
     }
 
-    Goal(Context ctx, boolean models, boolean unsatCores, boolean proofs)
-           
-    {
+    Goal(Context ctx, boolean models, boolean unsatCores, boolean proofs) {
         super(ctx, Native.mkGoal(ctx.nCtx(), (models),
             (unsatCores), (proofs)));
     }
 
-    void incRef(long o)
-    {
-        getContext().getGoalDRQ().incAndClear(getContext(), o);
-        super.incRef(o);
+    @Override
+    void incRef() {
+        Native.goalIncRef(getContext().nCtx(), getNativeObject());
     }
 
-    void decRef(long o)
-    {
-        getContext().getGoalDRQ().add(o);
-        super.decRef(o);
+    @Override
+    void addToReferenceQueue() {
+        getContext().getGoalDRQ().storeReference(getContext(), this);
     }
-
 }

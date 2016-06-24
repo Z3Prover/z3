@@ -811,14 +811,10 @@ namespace qe {
             }
             TRACE("qe", tout << core1.size() << " " << core2.size() << "\n";);
             if (core1.size() > 8) {
-                unsigned_vector core_idxs;
-                if (l_true != mus.get_mus(core_idxs)) {
+                if (l_true != mus.get_mus(core2)) {
                     return false;
                 }
-                TRACE("qe", tout << core1.size() << " -> " << core_idxs.size() << "\n";);
-                for (unsigned i = 0; i < core_idxs.size(); ++i) {
-                    core2.push_back(core1[core_idxs[i]].get());
-                }
+                TRACE("qe", tout << core1.size() << " -> " << core2.size() << "\n";);
                 core.reset();
                 core.append(core2);
             }

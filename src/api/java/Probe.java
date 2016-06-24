@@ -25,8 +25,7 @@ package com.microsoft.z3;
  * also be obtained using the command {@code (help-tactic)} in the SMT 2.0
  * front-end.
  **/
-public class Probe extends Z3Object
-{
+public class Probe extends Z3Object {
     /**
      * Execute the probe over the goal.
      * 
@@ -46,22 +45,17 @@ public class Probe extends Z3Object
         super(ctx, obj);
     }
 
-    Probe(Context ctx, String name)
-    {
+    Probe(Context ctx, String name) {
         super(ctx, Native.mkProbe(ctx.nCtx(), name));
     }
 
     @Override
-    void incRef(long o)
-    {
-        getContext().getProbeDRQ().incAndClear(getContext(), o);
-        super.incRef(o);
+    void incRef() {
+        Native.probeIncRef(getContext().nCtx(), getNativeObject());
     }
 
     @Override
-    void decRef(long o)
-    {
-        getContext().getProbeDRQ().add(o);
-        super.decRef(o);
+    void addToReferenceQueue() {
+        getContext().getProbeDRQ().storeReference(getContext(), this);
     }
 }

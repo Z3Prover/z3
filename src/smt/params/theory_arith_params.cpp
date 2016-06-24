@@ -38,3 +38,51 @@ void theory_arith_params::updt_params(params_ref const & _p) {
 }
 
 
+#define DISPLAY_PARAM(X) out << #X"=" << X << std::endl;
+
+void theory_arith_params::display(std::ostream & out) const {
+    DISPLAY_PARAM(m_arith_mode);
+    DISPLAY_PARAM(m_arith_auto_config_simplex); //!< force simplex solver in auto_config
+    DISPLAY_PARAM(m_arith_blands_rule_threshold);
+    DISPLAY_PARAM(m_arith_propagate_eqs);
+    DISPLAY_PARAM(m_arith_bound_prop);
+    DISPLAY_PARAM(m_arith_stronger_lemmas);
+    DISPLAY_PARAM(m_arith_skip_rows_with_big_coeffs);
+    DISPLAY_PARAM(m_arith_max_lemma_size);
+    DISPLAY_PARAM(m_arith_small_lemma_size);
+    DISPLAY_PARAM(m_arith_reflect);
+    DISPLAY_PARAM(m_arith_ignore_int);
+    DISPLAY_PARAM(m_arith_lazy_pivoting_lvl);
+    DISPLAY_PARAM(m_arith_random_seed);
+    DISPLAY_PARAM(m_arith_random_initial_value);
+    DISPLAY_PARAM(m_arith_random_lower);
+    DISPLAY_PARAM(m_arith_random_upper);
+    DISPLAY_PARAM(m_arith_adaptive);
+    DISPLAY_PARAM(m_arith_adaptive_assertion_threshold);
+    DISPLAY_PARAM(m_arith_adaptive_propagation_threshold);
+    DISPLAY_PARAM(m_arith_dump_lemmas);
+    DISPLAY_PARAM(m_arith_eager_eq_axioms);
+    DISPLAY_PARAM(m_arith_branch_cut_ratio);
+    DISPLAY_PARAM(m_arith_int_eq_branching);
+    DISPLAY_PARAM(m_arith_enum_const_mod);
+    DISPLAY_PARAM(m_arith_gcd_test);
+    DISPLAY_PARAM(m_arith_eager_gcd);
+    DISPLAY_PARAM(m_arith_adaptive_gcd);
+    DISPLAY_PARAM(m_arith_propagation_threshold);
+    DISPLAY_PARAM(m_arith_pivot_strategy);
+    DISPLAY_PARAM(m_arith_add_binary_bounds);
+    DISPLAY_PARAM(m_arith_propagation_strategy);
+    DISPLAY_PARAM(m_arith_eq_bounds);
+    DISPLAY_PARAM(m_arith_lazy_adapter);
+    DISPLAY_PARAM(m_arith_fixnum);
+    DISPLAY_PARAM(m_arith_int_only);
+    DISPLAY_PARAM(m_nl_arith);
+    DISPLAY_PARAM(m_nl_arith_gb);
+    DISPLAY_PARAM(m_nl_arith_gb_threshold);
+    DISPLAY_PARAM(m_nl_arith_gb_eqs);
+    DISPLAY_PARAM(m_nl_arith_gb_perturbate);
+    DISPLAY_PARAM(m_nl_arith_max_degree);
+    DISPLAY_PARAM(m_nl_arith_branching);
+    DISPLAY_PARAM(m_nl_arith_rounds);
+    DISPLAY_PARAM(m_arith_euclidean_solver);
+}

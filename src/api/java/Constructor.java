@@ -20,8 +20,14 @@ package com.microsoft.z3;
 /**
  * Constructors are used for datatype sorts.
  **/
-public class Constructor extends Z3Object
-{
+public class Constructor extends Z3Object {
+    private final int n;
+
+    Constructor(Context ctx, int n, long nativeObj) {
+        super(ctx, nativeObj);
+        this.n = n;
+    }
+
     /**
      * The number of fields of the constructor.
      * @throws Z3Exception 
@@ -78,29 +84,19 @@ public class Constructor extends Z3Object
         return t;
     }
 
-    /**
-     * Destructor.
-     * @throws Throwable 
-     * @throws Z3Exception on error
-     **/
-    protected void finalize() throws Throwable
-    {
-        try {
-            Native.delConstructor(getContext().nCtx(), getNativeObject());
-        } finally {
-            super.finalize();
-        }
+    @Override
+    void incRef() {
+        // Datatype constructors are not reference counted.
     }
 
-    private int n = 0;
+    @Override
+    void addToReferenceQueue() {
+        getContext().getConstructorDRQ().storeReference(getContext(), this);
+    }
 
-    Constructor(Context ctx, Symbol name, Symbol recognizer,
-            Symbol[] fieldNames, Sort[] sorts, int[] sortRefs)
-           
-    {
-        super(ctx);
-
-        n = AST.arrayLength(fieldNames);
+    static Constructor of(Context ctx, Symbol name, Symbol recognizer,
+            Symbol[] fieldNames, Sort[] sorts, int[] sortRefs) {
+        int n = AST.arrayLength(fieldNames);
 
         if (n != AST.arrayLength(sorts))
             throw new Z3Exception(
@@ -112,9 +108,10 @@ public class Constructor extends Z3Object
         if (sortRefs == null)
             sortRefs = new int[n];
 
-        setNativeObject(Native.mkConstructor(ctx.nCtx(), name.getNativeObject(),
+        long nativeObj = Native.mkConstructor(ctx.nCtx(), name.getNativeObject(),
                 recognizer.getNativeObject(), n, Symbol.arrayToNative(fieldNames),
-                Sort.arrayToNative(sorts), sortRefs));
+                Sort.arrayToNative(sorts), sortRefs);
+        return new Constructor(ctx, n, nativeObj);
 
     }
 }

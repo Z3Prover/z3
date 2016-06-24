@@ -17,39 +17,15 @@ Notes:
 
 package com.microsoft.z3;
 
-class ApplyResultDecRefQueue extends IDecRefQueue
+class ApplyResultDecRefQueue extends IDecRefQueue<ApplyResult>
 {
     public ApplyResultDecRefQueue() 
     {
         super();
     }
 
-    public ApplyResultDecRefQueue(int move_limit) 
-    {
-        super(move_limit);
-    }
-
     @Override
-    protected void incRef(Context ctx, long obj)
-    {
-        try
-        {
-            Native.applyResultIncRef(ctx.nCtx(), obj);
-        } catch (Z3Exception e)
-        {
-            // OK.
-        }
-    }
-
-    @Override
-    protected void decRef(Context ctx, long obj)
-    {
-        try
-        {
-            Native.applyResultDecRef(ctx.nCtx(), obj);
-        } catch (Z3Exception e)
-        {
-            // OK.
-        }
+    protected void decRef(Context ctx, long obj) {
+        Native.applyResultDecRef(ctx.nCtx(), obj);
     }
 };

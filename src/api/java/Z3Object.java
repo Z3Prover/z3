@@ -21,86 +21,41 @@ package com.microsoft.z3;
  * Internal base class for interfacing with native Z3 objects. Should not be
  * used externally.
  **/
-public class Z3Object extends IDisposable
-{
-    /**
-     * Finalizer.
-     * @throws Throwable 
-     **/
-    protected void finalize() throws Throwable
-    {
-        try {
-            dispose();            
-        } finally {
-            super.finalize();
-        }
-    }
+public abstract class Z3Object {
 
-    /**
-     * Disposes of the underlying native Z3 object.
-     **/
-    public void dispose()
-    {
-        if (m_n_obj != 0)
-        {
-            decRef(m_n_obj);
-            m_n_obj = 0;
-        }
+    private final Context m_ctx;
+    private final long m_n_obj;
 
-        if (m_ctx != null)
-        {            
-            if (m_ctx.m_refCount.decrementAndGet() == 0)
-                m_ctx.dispose();
-            m_ctx = null;
-        }
-    }
-
-    private Context m_ctx = null;
-    private long m_n_obj = 0;
-
-    Z3Object(Context ctx)
-    {
-        ctx.m_refCount.incrementAndGet();
+    Z3Object(Context ctx, long obj) {
         m_ctx = ctx;
-    }
-
-    Z3Object(Context ctx, long obj)
-    {
-        ctx.m_refCount.incrementAndGet();
-        m_ctx = ctx;
-        incRef(obj);
+        checkNativeObject(obj);
         m_n_obj = obj;
+        incRef();
+        addToReferenceQueue();
     }
 
-    void incRef(long o)
-    {
-    }
+    /**
+     * Add to ReferenceQueue for tracking reachability on the object and
+     * decreasing the reference count when the object is no longer reachable.
+     */
+    abstract void addToReferenceQueue();
 
-    void decRef(long o)
-    {
-    }
+    /**
+     * Increment reference count on {@code this}.
+     */
+    abstract void incRef();
 
-    void checkNativeObject(long obj)
-    {
-    }
+    /**
+     * This function is provided for overriding, and a child class
+     * can insert consistency checks on {@code obj}.
+     *
+     * @param obj Z3 native object.
+     */
+    void checkNativeObject(long obj) {}
 
     long getNativeObject()
     {
         return m_n_obj;
-    }
-
-    void setNativeObject(long value)
-    {
-        if (value != 0)
-        {
-            checkNativeObject(value);
-            incRef(value);
-        }
-        if (m_n_obj != 0)
-        {
-            decRef(m_n_obj);
-        }
-        m_n_obj = value;
     }
 
     static long getNativeObject(Z3Object s)
@@ -121,7 +76,7 @@ public class Z3Object extends IDisposable
             return null;
         long[] an = new long[a.length];
         for (int i = 0; i < a.length; i++)
-        an[i] = (a[i] == null) ? 0 : a[i].getNativeObject();
+            an[i] = (a[i] == null) ? 0 : a[i].getNativeObject();
         return an;
     }
 

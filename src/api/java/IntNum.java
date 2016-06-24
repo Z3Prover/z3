@@ -63,14 +63,7 @@ public class IntNum extends IntExpr
     /**
      * Returns a string representation of the numeral.
      **/
-    public String toString()
-    {
-        try
-        {
-            return Native.getNumeralString(getContext().nCtx(), getNativeObject());
-        } catch (Z3Exception e)
-        {
-            return "Z3Exception: " + e.getMessage();
-        }
+    public String toString() {
+        return Native.getNumeralString(getContext().nCtx(), getNativeObject());
     }
 }

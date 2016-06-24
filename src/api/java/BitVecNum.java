@@ -66,13 +66,7 @@ public class BitVecNum extends BitVecExpr
     @Override
     public String toString()
     {
-        try
-        {
-            return Native.getNumeralString(getContext().nCtx(), getNativeObject());
-        } catch (Z3Exception e)
-        {
-            return "Z3Exception: " + e.getMessage();
-        }
+        return Native.getNumeralString(getContext().nCtx(), getNativeObject());
     }
 
     BitVecNum(Context ctx, long obj)

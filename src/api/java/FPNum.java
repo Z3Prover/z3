@@ -28,7 +28,7 @@ public class FPNum extends FPExpr
      */
     public boolean getSign() {
         Native.IntPtr res = new Native.IntPtr();
-        if (Native.fpaGetNumeralSign(getContext().nCtx(), getNativeObject(), res) ^ true)                
+        if (!Native.fpaGetNumeralSign(getContext().nCtx(), getNativeObject(), res))
             throw new Z3Exception("Sign is not a Boolean value");
         return res.value != 0;
     }
@@ -53,7 +53,7 @@ public class FPNum extends FPExpr
     public long getSignificandUInt64()
     {
         Native.LongPtr res = new Native.LongPtr();
-        if (Native.fpaGetNumeralSignificandUint64(getContext().nCtx(), getNativeObject(), res) ^ true)
+        if (!Native.fpaGetNumeralSignificandUint64(getContext().nCtx(), getNativeObject(), res))
             throw new Z3Exception("Significand is not a 64 bit unsigned integer");
         return res.value;
     }
@@ -72,7 +72,7 @@ public class FPNum extends FPExpr
      */
     public long getExponentInt64()  {
         Native.LongPtr res = new Native.LongPtr();
-        if (Native.fpaGetNumeralExponentInt64(getContext().nCtx(), getNativeObject(), res) ^ true)
+        if (!Native.fpaGetNumeralExponentInt64(getContext().nCtx(), getNativeObject(), res))
             throw new Z3Exception("Exponent is not a 64 bit integer");
         return res.value;
     }
@@ -87,13 +87,7 @@ public class FPNum extends FPExpr
      */           
     public String toString()
     {
-        try
-        {
-            return Native.getNumeralString(getContext().nCtx(), getNativeObject());
-        } catch (Z3Exception e)
-        {
-            return "Z3Exception: " + e.getMessage();
-        }
+        return Native.getNumeralString(getContext().nCtx(), getNativeObject());
     }
 
 }

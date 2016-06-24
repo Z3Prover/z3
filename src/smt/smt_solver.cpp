@@ -109,10 +109,7 @@ namespace smt {
             }
             scoped_minimize_core scm(*this);
             mus mus(*this);
-            
-            for (unsigned i = 0; i < r.size(); ++i) {
-                VERIFY(i == mus.add_soft(r[i]));
-            }        
+            mus.add_soft(r.size(), r.c_ptr());
             ptr_vector<expr> r2;
             if (l_true == mus.get_mus(r2)) {
                 r.reset();

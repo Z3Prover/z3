@@ -227,6 +227,7 @@ void Z3_ast_finalize(value v) {
 int Z3_ast_compare(value v1, value v2) {
   Z3_ast_plus * a1 = (Z3_ast_plus*)Data_custom_val(v1);
   Z3_ast_plus * a2 = (Z3_ast_plus*)Data_custom_val(v2);
+  unsigned id1, id2;
 
   /* if the two ASTs belong to different contexts, we take
      their contexts' addresses to order them (arbitrarily, but fixed) */
@@ -242,8 +243,8 @@ int Z3_ast_compare(value v1, value v2) {
     return +1;
 
   /* Comparison according to AST ids. */
-  unsigned id1 = Z3_get_ast_id(a1->cp->ctx, a1->p);
-  unsigned id2 = Z3_get_ast_id(a2->cp->ctx, a2->p);
+  id1 = Z3_get_ast_id(a1->cp->ctx, a1->p);
+  id2 = Z3_get_ast_id(a2->cp->ctx, a2->p);
   if (id1 == id2)
     return 0;
   else if (id1 < id2)
@@ -255,7 +256,7 @@ int Z3_ast_compare(value v1, value v2) {
 int Z3_ast_compare_ext(value v1, value v2) {
   Z3_ast_plus * a1 = (Z3_ast_plus*)Data_custom_val(v1);
   unsigned id1;
-  int id2 = Val_int(v2);
+  unsigned id2 = (unsigned)Val_int(v2);
   if (a1->p == NULL && id2 == 0)
     return 0;
   if (a1->p == NULL)

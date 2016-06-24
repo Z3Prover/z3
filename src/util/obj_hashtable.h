@@ -51,6 +51,7 @@ class obj_hashtable : public core_hashtable<obj_hash_entry<T>, obj_ptr_hash<T>, 
 public:
     obj_hashtable(unsigned initial_capacity = DEFAULT_HASHTABLE_INITIAL_CAPACITY):
         core_hashtable<obj_hash_entry<T>, obj_ptr_hash<T>, ptr_eq<T> >(initial_capacity) {}
+
 };
 
 template<typename Key, typename Value>
