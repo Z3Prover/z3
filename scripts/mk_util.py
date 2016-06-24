@@ -604,7 +604,7 @@ elif os.name == 'posix':
         IS_OPENBSD=True
     elif os.uname()[0][:6] == 'CYGWIN':
         IS_CYGWIN=True
-        if ("mingw" in CC):
+        if (CC != None and "mingw" in CC):
             IS_CYGWIN_MINGW=True
 
 def display_help(exit_code):
