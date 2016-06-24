@@ -522,7 +522,7 @@ void array_decl_plugin::get_sort_names(svector<builtin_name>& sort_names, symbol
 void array_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol const & logic) {
     op_names.push_back(builtin_name("store",OP_STORE));
     op_names.push_back(builtin_name("select",OP_SELECT));
-    if (logic == symbol::null) {
+    if (logic == symbol::null || logic == symbol("HORN")) {
         // none of the SMT2 logics support these extensions
         op_names.push_back(builtin_name("const",OP_CONST_ARRAY));
         op_names.push_back(builtin_name("map",OP_ARRAY_MAP));

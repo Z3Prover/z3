@@ -475,7 +475,6 @@ lbool mus::get_mus(expr_ref_vector& mus) {
     return m_imp->get_mus(mus);
 }
 
-
 void mus::reset() {
     m_imp->reset();
 }

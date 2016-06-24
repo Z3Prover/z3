@@ -23,6 +23,7 @@ Notes:
 #include"tactic.h"
 #include"ast_pp_util.h"
 #include"ast_translation.h"
+#include"mus.h"
 
 /**
    \brief Simulates the incremental solver interface using a tactic.
@@ -42,6 +43,7 @@ class tactic2solver : public solver_na2as {
     bool                         m_produce_proofs;
     bool                         m_produce_unsat_cores;
     statistics                   m_stats;
+    
 public:
     tactic2solver(ast_manager & m, tactic * t, params_ref const & p, bool produce_proofs, bool produce_models, bool produce_unsat_cores, symbol const & logic);
     virtual ~tactic2solver();
@@ -203,8 +205,9 @@ void tactic2solver::collect_statistics(statistics & st) const {
 }
 
 void tactic2solver::get_unsat_core(ptr_vector<expr> & r) {
-    if (m_result.get())
+    if (m_result.get()) {
         m_result->get_unsat_core(r);
+    }
 }
 
 void tactic2solver::get_model(model_ref & m) {

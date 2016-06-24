@@ -158,6 +158,8 @@ namespace qe {
             return;
         }
         model_evaluator eval(*mdl);
+        eval.set_model_completion(true);
+        TRACE("qe", model_v2_pp(tout, *mdl););
 
         expr_ref val(m);
         for (unsigned j = 0; j < m_preds[level - 1].size(); ++j) {
@@ -169,7 +171,7 @@ namespace qe {
             if (m.is_false(val)) {
                 m_asms.push_back(m.mk_not(p));
             }
-            else {
+            else {                
                 SASSERT(m.is_true(val));
                 m_asms.push_back(p);
             }
