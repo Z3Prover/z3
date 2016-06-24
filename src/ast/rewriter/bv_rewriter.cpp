@@ -252,7 +252,7 @@ br_status bv_rewriter::mk_leq_core(bool is_signed, expr * a, expr * b, expr_ref 
         r2 = m_util.norm(r2, sz, is_signed);
 
     if (is_num1 && is_num2) {
-        result = r1 <= r2 ? m().mk_true() : m().mk_false();
+        result = m().mk_bool_val(r1 <= r2);
         return BR_DONE;
     }
 
@@ -1785,7 +1785,7 @@ br_status bv_rewriter::mk_bit2bool(expr * lhs, expr * rhs, expr_ref & result) {
 
     if (is_numeral(lhs)) {
         SASSERT(is_numeral(rhs));
-        result = lhs == rhs ? m().mk_true() : m().mk_false();
+        result = m().mk_bool_val(lhs == rhs);
         return BR_DONE;
     }
 
@@ -2134,7 +2134,7 @@ br_status bv_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
         st = cancel_monomials(lhs, rhs, false, new_lhs, new_rhs);
         if (st != BR_FAILED) {
             if (is_numeral(new_lhs) && is_numeral(new_rhs)) {
-                result = new_lhs == new_rhs ? m().mk_true() : m().mk_false();
+                result = m().mk_bool_val(new_lhs == new_rhs);
                 return BR_DONE;
             }
         }
@@ -2213,7 +2213,7 @@ br_status bv_rewriter::mk_bvsmul_no_overflow(unsigned num, expr * const * args, 
     if (is_num1 && is_num2) {
         rational mr = a0_val * a1_val;
         rational lim = rational::power_of_two(bv_sz-1);
-        result = (mr < lim) ? m().mk_true() : m().mk_false();
+        result = m().mk_bool_val(mr < lim);
         return BR_DONE;
     }
 
@@ -2239,7 +2239,7 @@ br_status bv_rewriter::mk_bvumul_no_overflow(unsigned num, expr * const * args, 
     if (is_num1 && is_num2) {
         rational mr = a0_val * a1_val;
         rational lim = rational::power_of_two(bv_sz);
-        result = (mr < lim) ? m().mk_true() : m().mk_false();
+        result = m().mk_bool_val(mr < lim);
         return BR_DONE;
     }
 
@@ -2270,7 +2270,7 @@ br_status bv_rewriter::mk_bvsmul_no_underflow(unsigned num, expr * const * args,
         rational mr = a0_val * a1_val;
         rational neg_lim = -lim;
         TRACE("bv_rewriter_bvsmul_no_underflow", tout << "a0:" << a0_val << " a1:" << a1_val << " mr:" << mr << " neg_lim:" << neg_lim << std::endl;);
-        result = (mr >= neg_lim) ? m().mk_true() : m().mk_false();
+        result = m().mk_bool_val(mr >= neg_lim);
         return BR_DONE;
     }
 
