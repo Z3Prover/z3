@@ -20,6 +20,7 @@ Notes:
 #include"bv_rewriter_params.hpp"
 #include"poly_rewriter_def.h"
 #include"ast_smt2_pp.h"
+#include"bit_blaster/bit_blaster.h"
 
 
 void bv_rewriter::updt_local_params(params_ref const & _p) {
@@ -189,6 +190,15 @@ br_status bv_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
         return mk_bv_comp(args[0], args[1], result);
     case OP_MKBV:
         return mk_mkbv(num_args, args, result);
+    case OP_BUMUL_NO_OVFL:
+        SASSERT(num_args == 2);
+        return mk_bv_umul_no_ovfl(args[0], args[1], result);
+    case OP_BSMUL_NO_OVFL:
+        SASSERT(num_args == 2);
+        return mk_bv_smul_no_ovfl(args[0], args[1], result);        
+    case OP_BSMUL_NO_UDFL: 
+        SASSERT(num_args == 2);
+        return mk_bv_smul_no_udfl(args[0], args[1], result);        
     default:
         return BR_FAILED;
     }
@@ -1099,6 +1109,92 @@ br_status bv_rewriter::mk_concat(unsigned num_args, expr * const * args, expr_re
     else
         return BR_DONE;
 }
+
+br_status bv_rewriter::mk_bv_umul_no_ovfl(expr * arg1, expr * arg2, expr_ref& result) {
+    rational val1, val2;
+    unsigned bv_size;
+    bool is_num1 = is_numeral(arg1, val1, bv_size);
+    bool is_num2 = is_numeral(arg2, val2, bv_size);
+    if (is_num1 && (val1.is_zero() || val1.is_one())) {
+        result = m().mk_true();
+        return BR_DONE;
+    }
+    if (is_num2 && (val2.is_zero() || val2.is_one())) {
+        result = m().mk_true();
+        return BR_DONE;
+    }
+    if (is_num1 && is_num2) {
+        SASSERT(!val1.is_neg());
+        SASSERT(!val2.is_neg());
+        rational r = val1 * val2;
+        result = m().mk_bool_val(r < rational(2).expt(bv_size));
+        return BR_DONE;
+    }
+    return BR_FAILED;
+}
+
+br_status bv_rewriter::mk_bv_smul_no_ovfl(expr * arg1, expr * arg2, expr_ref& result) {
+    rational val1, val2;
+    unsigned bv_size;
+    bool is_num1 = is_numeral(arg1, val1, bv_size);
+    bool is_num2 = is_numeral(arg2, val2, bv_size);
+    if (is_num1 && (val1.is_zero() || val1.is_one())) {
+        result = m().mk_true();
+        return BR_DONE;
+    }
+    if (is_num2 && (val2.is_zero() || val2.is_one())) {
+        result = m().mk_true();
+        return BR_DONE;
+    }
+    if (is_num1 && is_num2) {
+        bit_blaster_params params;
+        bit_blaster blaster(m(), params);
+        SASSERT(!val1.is_neg());
+        SASSERT(!val2.is_neg());
+        expr_ref_vector bits1(m()), bits2(m());
+        for (unsigned i = 0; i < bv_size; ++i) {
+            bits1.push_back(m().mk_bool_val(!val1.is_even()));
+            bits2.push_back(m().mk_bool_val(!val2.is_even()));
+            val1 = div(val1, rational(2));
+            val2 = div(val2, rational(2));
+        }
+        blaster.mk_smul_no_overflow(bits1.size(), bits1.c_ptr(), bits2.c_ptr(), result);
+        return BR_DONE;
+    }
+    return BR_FAILED;
+}
+
+br_status bv_rewriter::mk_bv_smul_no_udfl(expr * arg1, expr * arg2, expr_ref& result) {
+    rational val1, val2;
+    unsigned bv_size;
+    bool is_num1 = is_numeral(arg1, val1, bv_size);
+    bool is_num2 = is_numeral(arg2, val2, bv_size);
+    if (is_num1 && (val1.is_zero() || val1.is_one())) {
+        result = m().mk_true();
+        return BR_DONE;
+    }
+    if (is_num2 && (val2.is_zero() || val2.is_one())) {
+        result = m().mk_true();
+        return BR_DONE;
+    }
+    if (is_num1 && is_num2) {
+        bit_blaster_params params;
+        bit_blaster blaster(m(), params);
+        SASSERT(!val1.is_neg());
+        SASSERT(!val2.is_neg());
+        expr_ref_vector bits1(m()), bits2(m());
+        for (unsigned i = 0; i < bv_size; ++i) {
+            bits1.push_back(m().mk_bool_val(!val1.is_even()));
+            bits2.push_back(m().mk_bool_val(!val2.is_even()));
+            val1 = div(val1, rational(2));
+            val2 = div(val2, rational(2));
+        }
+        blaster.mk_smul_no_underflow(bits1.size(), bits1.c_ptr(), bits2.c_ptr(), result);
+        return BR_DONE;
+    }
+    return BR_FAILED;
+}
+
 
 br_status bv_rewriter::mk_zero_extend(unsigned n, expr * arg, expr_ref & result) {
     if (n == 0) {

@@ -25,6 +25,7 @@ Notes:
 #include"solver.h"
 
 class solver_na2as : public solver {
+ protected:
     ast_manager &      m;
     expr_ref_vector    m_assumptions;
     unsigned_vector    m_scopes;
