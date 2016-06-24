@@ -114,9 +114,6 @@ class bv_rewriter : public poly_rewriter<bv_rewriter_core> {
     br_status mk_bv_srem_i(expr * arg1, expr * arg2, expr_ref & result) { return mk_bv_srem_core(arg1, arg2, true, result); }
     br_status mk_bv_urem_i(expr * arg1, expr * arg2, expr_ref & result) { return mk_bv_urem_core(arg1, arg2, true, result); }
     br_status mk_bv_smod_i(expr * arg1, expr * arg2, expr_ref & result) { return mk_bv_smod_core(arg1, arg2, true, result); }
-    br_status mk_bv_umul_no_ovfl(expr * arg1, expr * arg2, expr_ref& result);
-    br_status mk_bv_smul_no_ovfl(expr * arg1, expr * arg2, expr_ref& result);
-    br_status mk_bv_smul_no_udfl(expr * arg1, expr * arg2, expr_ref& result);
     br_status mk_int2bv(unsigned bv_size, expr * arg, expr_ref & result);
     br_status mk_bv2int(expr * arg, expr_ref & result);
     br_status mk_bv_redor(expr * arg, expr_ref & result);
@@ -126,6 +123,9 @@ class bv_rewriter : public poly_rewriter<bv_rewriter_core> {
     br_status mk_blast_eq_value(expr * lhs, expr * rhs, expr_ref & result);
     br_status mk_eq_concat(expr * lhs, expr * rhs, expr_ref & result);
     br_status mk_mkbv(unsigned num, expr * const * args, expr_ref & result);
+    br_status mk_bvsmul_no_overflow(unsigned num, expr * const * args, expr_ref & result);
+    br_status mk_bvumul_no_overflow(unsigned num, expr * const * args, expr_ref & result);
+    br_status mk_bvsmul_no_underflow(unsigned num, expr * const * args, expr_ref & result);
     bool is_minus_one_times_t(expr * arg);
     void mk_t1_add_t2_eq_c(expr * t1, expr * t2, expr * c, expr_ref & result);
 

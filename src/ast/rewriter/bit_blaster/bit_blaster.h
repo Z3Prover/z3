@@ -20,8 +20,8 @@ Revision History:
 #define BIT_BLASTER_H_
 
 #include"bool_rewriter.h"
-#include"bit_blaster/bit_blaster_params.h"
-#include"bit_blaster/bit_blaster_tpl.h"
+#include"bit_blaster_params.h"
+#include"bit_blaster_tpl.h"
 #include"bv_decl_plugin.h"
 #include"rational.h"
 
