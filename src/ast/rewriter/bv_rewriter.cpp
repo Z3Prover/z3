@@ -189,6 +189,12 @@ br_status bv_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
         return mk_bv_comp(args[0], args[1], result);
     case OP_MKBV:
         return mk_mkbv(num_args, args, result);
+    case OP_BSMUL_NO_OVFL:
+        return mk_bvsmul_no_overflow(num_args, args, result);
+    case OP_BUMUL_NO_OVFL:
+        return mk_bvumul_no_overflow(num_args, args, result);
+    case OP_BSMUL_NO_UDFL:
+        return mk_bvsmul_no_underflow(num_args, args, result);
     default:
         return BR_FAILED;
     }
@@ -2186,6 +2192,58 @@ br_status bv_rewriter::mk_mkbv(unsigned num, expr * const * args, expr_ref & res
     return BR_FAILED;
 }
 
+br_status bv_rewriter::mk_bvsmul_no_overflow(unsigned num, expr * const * args, expr_ref & result) {
+    SASSERT(num == 2);
+    unsigned bv_sz;
+    rational a0_val, a1_val;
+
+    if (m_util.is_numeral(args[0], a0_val, bv_sz) &&
+        m_util.is_numeral(args[1], a1_val, bv_sz)) {
+        rational mr = a0_val * a1_val;
+        rational lim = rational::power_of_two(bv_sz-1);
+        result = (mr < lim) ? m().mk_true() : m().mk_false();
+        return BR_DONE;
+    }
+
+    return BR_FAILED;
+}
+
+br_status bv_rewriter::mk_bvumul_no_overflow(unsigned num, expr * const * args, expr_ref & result) {
+    SASSERT(num == 2);
+    unsigned bv_sz;
+    rational a0_val, a1_val;
+
+    if (m_util.is_numeral(args[0], a0_val, bv_sz) &&
+        m_util.is_numeral(args[1], a1_val, bv_sz)) {
+        rational mr = a0_val * a1_val;
+        rational lim = rational::power_of_two(bv_sz);
+        result = (mr < lim) ? m().mk_true() : m().mk_false();
+        return BR_DONE;
+    }
+
+    return BR_FAILED;
+}
+
+br_status bv_rewriter::mk_bvsmul_no_underflow(unsigned num, expr * const * args, expr_ref & result) {
+    SASSERT(num == 2);
+    unsigned bv_sz;
+    rational a0_val, a1_val;
+
+    if (m_util.is_numeral(args[0], a0_val, bv_sz) &&
+        m_util.is_numeral(args[1], a1_val, bv_sz)) {
+        rational ul = rational::power_of_two(bv_sz);
+        rational lim = rational::power_of_two(bv_sz-1);
+        if (a0_val >= lim) a0_val -= ul;
+        if (a1_val >= lim) a1_val -= ul;        
+        rational mr = a0_val * a1_val;
+        rational neg_lim = -lim;
+        TRACE("bv_rewriter_bvsmul_no_underflow", tout << "a0:" << a0_val << " a1:" << a1_val << " mr:" << mr << " neg_lim:" << neg_lim << std::endl;);
+        result = (mr >= neg_lim) ? m().mk_true() : m().mk_false();
+        return BR_DONE;
+    }
+
+    return BR_FAILED;
+}
+
 
 template class poly_rewriter<bv_rewriter_core>;
-
