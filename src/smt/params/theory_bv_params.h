@@ -44,6 +44,8 @@ struct theory_bv_params {
     }
     
     void updt_params(params_ref const & p);
+
+    void display(std::ostream & out) const;
 };
 
 #endif /* THEORY_BV_PARAMS_H_ */

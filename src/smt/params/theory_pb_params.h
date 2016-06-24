@@ -35,6 +35,8 @@ struct theory_pb_params {
     {}
     
     void updt_params(params_ref const & p);
+
+    void display(std::ostream & out) const;
 };
 
 #endif /* THEORY_PB_PARAMS_H_ */

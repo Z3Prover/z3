@@ -26,3 +26,12 @@ void theory_pb_params::updt_params(params_ref const & _p) {
     m_pb_enable_compilation = p.pb_enable_compilation();
     m_pb_enable_simplex = p.pb_enable_simplex();
 }
+
+#define DISPLAY_PARAM(X) out << #X"=" << X << std::endl;
+
+void theory_pb_params::display(std::ostream & out) const {
+    DISPLAY_PARAM(m_pb_conflict_frequency);
+    DISPLAY_PARAM(m_pb_learn_complements);
+    DISPLAY_PARAM(m_pb_enable_compilation);
+    DISPLAY_PARAM(m_pb_enable_simplex);
+}
