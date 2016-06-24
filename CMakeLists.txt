@@ -246,7 +246,7 @@ endif()
 # FP math
 ################################################################################
 # FIXME: Support ARM "-mfpu=vfp -mfloat-abi=hard"
-if ("${TARGET_ARCHITECTURE}" STREQUAL "x86_64")
+if (("${TARGET_ARCHITECTURE}" STREQUAL "x86_64") OR ("${TARGET_ARCHITECTURE}" STREQUAL "i686"))
   if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU") OR ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang"))
     set(SSE_FLAGS "-mfpmath=sse" "-msse" "-msse2")
     # FIXME: Remove "x.." when CMP0054 is set to NEW
