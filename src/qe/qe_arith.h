@@ -37,8 +37,6 @@ namespace qe {
 
     bool arith_project(model& model, app* var, expr_ref_vector& lits);
 
-    // match e := t mod k = 0.
-    bool is_divides(arith_util& a, expr* e, rational& k, expr_ref& t);
 
 };
 

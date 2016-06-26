@@ -32,33 +32,11 @@ Revision History:
 #include "model_evaluator.h"
 
 namespace qe {
-
-    bool is_divides(arith_util& a, expr* e1, expr* e2, rational& k, expr_ref& p) {  
-        expr* t1, *t2;
-        if (a.is_mod(e2, t1, t2) && 
-            a.is_numeral(e1, k) && 
-            k.is_zero() &&
-            a.is_numeral(t2, k)) {
-            p = t1;
-            return true;
-        }
-        return false;
-    }
-
-    bool is_divides(arith_util& a, expr* e, rational& k, expr_ref& t) {
-        expr* e1, *e2;
-        if (!a.get_manager().is_eq(e, e1, e2)) {
-            return false;
-        }
-        return is_divides(a, e1, e2, k, t) || is_divides(a, e2, e1, k, t);
-    }
     
     struct arith_project_plugin::imp {
 
         ast_manager&      m;
         arith_util        a;
-        th_rewriter       m_rw;
-        expr_ref_vector   m_trail;
 
         void insert_mul(expr* x, rational const& v, obj_map<expr, rational>& ts) {
             TRACE("qe", tout << "Adding variable " << mk_pp(x, m) << " " << v << "\n";);
@@ -108,9 +86,10 @@ namespace qe {
                 ty = opt::t_eq;
             }  
             else if (m.is_eq(lit, e1, e2) && is_not && is_arith(e1)) {
-                expr_ref val1(m), val2(m);
+                
                 rational r1, r2;
-                eval(e1, val1); eval(e2, val2);
+                expr_ref val1 = eval(e1); 
+                expr_ref val2 = eval(e2);
                 VERIFY(a.is_numeral(val1, r1));
                 VERIFY(a.is_numeral(val2, r2));
                 SASSERT(r1 != r2);
@@ -127,7 +106,7 @@ namespace qe {
                 app* alit = to_app(lit);
                 vector<std::pair<expr*,rational> > nums;
                 for (unsigned i = 0; i < alit->get_num_args(); ++i) {
-                    eval(alit->get_arg(i), val);
+                    val = eval(alit->get_arg(i));
                     VERIFY(a.is_numeral(val, r));
                     nums.push_back(std::make_pair(alit->get_arg(i), r));
                 }
@@ -148,9 +127,8 @@ namespace qe {
                 bool found_eq = false;
                 for (unsigned i = 0; !found_eq && i < to_app(lit)->get_num_args(); ++i) {
                     expr* arg1 = to_app(lit)->get_arg(i), *arg2 = 0;
-                    expr_ref val(m);
                     rational r;
-                    eval(arg1, val);
+                    expr_ref val = eval(arg1);
                     VERIFY(a.is_numeral(val, r));
                     if (values.find(r, arg2)) {
                         ty = opt::t_eq;
@@ -182,10 +160,10 @@ namespace qe {
             expr* t1, *t2, *t3;
             rational mul1;
             expr_ref val(m);
-            if (a.is_mul(t, t1, t2) && is_numeral(eval, t1, mul1)) {
+            if (a.is_mul(t, t1, t2) && is_numeral(t1, mul1)) {
                 linearize(mbo, eval, mul* mul1, t2, c, fmls, ts, tids);
             }
-            else if (a.is_mul(t, t1, t2) && is_numeral(eval, t2, mul1)) {
+            else if (a.is_mul(t, t1, t2) && is_numeral(t2, mul1)) {
                 linearize(mbo, eval, mul* mul1, t1, c, fmls, ts, tids);
             }
             else if (a.is_add(t)) {
@@ -205,7 +183,7 @@ namespace qe {
                 c += mul*mul1;
             }
             else if (m.is_ite(t, t1, t2, t3)) {
-                eval(t1, val);
+                val = eval(t1);
                 SASSERT(m.is_true(val) || m.is_false(val));
                 TRACE("qe", tout << mk_pp(t1, m) << " := " << val << "\n";);
                 if (m.is_true(val)) {
@@ -218,9 +196,9 @@ namespace qe {
                     linearize(mbo, eval, mul, t3, c, fmls, ts, tids);
                 }
             }
-            else if (a.is_mod(t, t1, t2) && is_numeral(eval, t2, mul1)) {
+            else if (a.is_mod(t, t1, t2) && is_numeral(t2, mul1)) {
                 rational r;
-                eval(t, val);
+                val = eval(t);
                 VERIFY(a.is_numeral(val, r));
                 c += mul*r;
                 // t1 mod mul1 == r               
@@ -236,44 +214,38 @@ namespace qe {
             }
         }
 
-        bool is_numeral(model_evaluator& eval, expr* t, rational& r) {
-            expr* t1, *t2, *t3;
+        bool is_numeral(expr* t, rational& r) {
+            expr* t1, *t2;
             rational r1, r2;
-            expr_ref val(m);
-            if (a.is_numeral(t, r)) return true;
-
-            if (a.is_uminus(t, t1) && is_numeral(eval, t1, r)) {
-                r.neg();
-                return true;
-            }         
-            else if (a.is_mul(t, t1, t2) && is_numeral(eval, t1, r1) && is_numeral(eval, t2, r2)) {
-                r = r1*r2;
-                return true;
+            if (a.is_numeral(t, r)) {
+                // no-op
             }
-            else if (a.is_add(t)) {
+            else if (a.is_uminus(t, t1) && is_numeral(t1, r)) {
+                r.neg();
+            }         
+            else if (a.is_mul(t)) {
                 app* ap = to_app(t);
                 r = rational(1);
                 for (unsigned i = 0; i < ap->get_num_args(); ++i) {
-                    if (!is_numeral(eval, ap->get_arg(i), r1)) return false;
+                    if (!is_numeral(ap->get_arg(i), r1)) return false;
                     r *= r1;
                 }
-                return true;
             }
-            else if (m.is_ite(t, t1, t2, t3)) {
-                eval(t1, val);
-                if (m.is_true(val)) {
-                    return is_numeral(eval, t1, r);
-                }
-                else {
-                    return is_numeral(eval, t2, r);
+            else if (a.is_add(t)) {
+                app* ap = to_app(t);
+                r = rational(0);
+                for (unsigned i = 0; i < ap->get_num_args(); ++i) {
+                    if (!is_numeral(ap->get_arg(i), r1)) return false;
+                    r += r1;
                 }
             }
-            else if (a.is_sub(t, t1, t2) && is_numeral(eval, t1, r1) && is_numeral(eval, t2, r2)) {
+            else if (a.is_sub(t, t1, t2) && is_numeral(t1, r1) && is_numeral(t2, r2)) {
                 r = r1 - r2;
-                return true;
             }
-            
-            return false;
+            else {
+                return false;
+            }
+            return true;
         }
 
         struct compare_second {
@@ -292,14 +264,9 @@ namespace qe {
         }
 
         imp(ast_manager& m): 
-            m(m), a(m), m_rw(m), m_trail(m) {
-            params_ref params;
-            params.set_bool("gcd_rouding", true);
-            m_rw.updt_params(params);
-        }
+            m(m), a(m) {}
 
-        ~imp() {
-        }
+        ~imp() {}
 
         bool solve(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
             return false;
@@ -330,7 +297,6 @@ namespace qe {
 
             opt::model_based_opt mbo;
             obj_map<expr, unsigned> tids;
-            m_trail.reset();
             unsigned j = 0;
             for (unsigned i = 0; i < fmls.size(); ++i) {
                 expr* fml = fmls[i].get();
@@ -359,9 +325,8 @@ namespace qe {
                 app* v = vars[i].get();
                 var_mark.mark(v);
                 if (is_arith(v) && !tids.contains(v)) {
-                    expr_ref val(m);
                     rational r;
-                    eval(v, val);
+                    expr_ref val = eval(v);
                     a.is_numeral(val, r);
                     TRACE("qe", tout << mk_pp(v, m) << " " << val << "\n";);
                     tids.insert(v, mbo.add_var(r, a.is_int(v)));
@@ -426,7 +391,7 @@ namespace qe {
                     default: UNREACHABLE();
                     }
                     fmls.push_back(t);
-                    VERIFY(model.eval(t, val));
+                    val = eval(t);
                     CTRACE("qe", !m.is_true(val), tout << "Evaluated unit " << t << " to " << val << "\n";);
                     continue;
                 }
@@ -450,8 +415,7 @@ namespace qe {
                 case opt::t_le: t = a.mk_le(t, s); break;
                 case opt::t_eq: t = a.mk_eq(t, s); break;
                 case opt::t_mod: {
-                    rational sval;
-                    if (!a.is_numeral(s, sval) || !sval.is_zero()) {
+                    if (!r.m_coeff.is_zero()) {
                         t = a.mk_sub(t, s);
                     }
                     t = a.mk_eq(a.mk_mod(t, a.mk_numeral(r.m_mod, true)), a.mk_int(0));
@@ -460,15 +424,13 @@ namespace qe {
                 }
                 fmls.push_back(t);
                                 
-                VERIFY(model.eval(t, val));
+                val = eval(t);
                 CTRACE("qe", !m.is_true(val), tout << "Evaluated " << t << " to " << val << "\n";);
 
             }
         }        
 
         opt::inf_eps maximize(expr_ref_vector const& fmls0, model& mdl, app* t, expr_ref& ge, expr_ref& gt) {
-            validate_model(mdl, fmls0);
-            m_trail.reset();
             SASSERT(a.is_real(t));
             expr_ref_vector fmls(fmls0);
             opt::model_based_opt mbo;
@@ -482,6 +444,8 @@ namespace qe {
             linearize(mbo, eval, mul, t, c, fmls, ts, tids);
             extract_coefficients(mbo, eval, ts, tids, coeffs);
             mbo.set_objective(coeffs, c);
+
+            SASSERT(validate_model(eval, fmls0));
 
             // extract linear constraints
             
@@ -509,8 +473,7 @@ namespace qe {
                 }
             }
             expr_ref val(a.mk_numeral(value.get_rational(), false), m);
-            expr_ref tval(m);
-            eval(t, tval);
+            expr_ref tval = eval(t);
 
             // update the predicate 'bound' which forces larger values when 'strict' is true.
             // strict:  bound := valuue < t
@@ -527,15 +490,14 @@ namespace qe {
                 ge = a.mk_ge(t, val);
                 gt = a.mk_gt(t, val);
             }
-            validate_model(mdl, fmls0);
+            SASSERT(validate_model(eval, fmls0));
             return value;
         }
 
-        bool validate_model(model& mdl, expr_ref_vector const& fmls) {
+        bool validate_model(model_evaluator& eval, expr_ref_vector const& fmls) {
             bool valid = true;
             for (unsigned i = 0; i < fmls.size(); ++i) {
-                expr_ref val(m);
-                VERIFY(mdl.eval(fmls[i], val));
+                expr_ref val = eval(fmls[i]);
                 if (!m.is_true(val)) {
                     valid = false;
                     TRACE("qe", tout << mk_pp(fmls[i], m) << " := " << val << "\n";);
@@ -553,17 +515,10 @@ namespace qe {
                 expr* v = it->m_key;
                 if (!tids.find(v, id)) {
                     rational r;
-                    expr_ref val(m);
-                    eval(v, val);
-                    if (a.is_numeral(val, r)) {
-                        id = mbo.add_var(r, a.is_int(v));
-                    }
-                    else {
-                        TRACE("qe", tout << "extraction of coefficients cancelled\n";);
-                        return;
-                    }
+                    expr_ref val = eval(v);
+                    a.is_numeral(val, r);
+                    id = mbo.add_var(r, a.is_int(v));
                     tids.insert(v, id);
-                    m_trail.push_back(v);
                 }
                 CTRACE("qe", it->m_value.is_zero(), tout << mk_pp(v, m) << " has coefficeint 0\n";);
                 if (!it->m_value.is_zero()) {

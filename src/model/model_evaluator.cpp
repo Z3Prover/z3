@@ -522,5 +522,12 @@ void model_evaluator::operator()(expr * t, expr_ref & result) {
     m_imp->operator()(t, result);
 }
 
+expr_ref model_evaluator::operator()(expr * t) {
+    TRACE("model_evaluator", tout << mk_ismt2_pp(t, m()) << "\n";);
+    expr_ref result(m());
+    m_imp->operator()(t, result);
+    return result;
+}
+
 
 

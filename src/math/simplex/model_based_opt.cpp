@@ -35,8 +35,7 @@ std::ostream& operator<<(std::ostream& out, opt::ineq_type ie) {
 namespace opt {
     
 
-    model_based_opt::model_based_opt()
-    {
+    model_based_opt::model_based_opt() {
         m_rows.push_back(row());
     }
 
@@ -288,7 +287,6 @@ namespace opt {
         m_rows[row_id].m_alive = false;
         m_retired_rows.push_back(row_id);
     }
-
        
     rational model_based_opt::get_row_value(row const& r) const {
         vector<var> const& vars = r.m_vars;
@@ -461,7 +459,6 @@ namespace opt {
             if (src[i].m_id != x) dst.push_back(src[i]);
         }
     }
-
 
     rational model_based_opt::n_sign(rational const& b) const {
         return rational(b.is_pos()?-1:1);
@@ -936,16 +933,6 @@ namespace opt {
 
     // 3x + t = 0 & 7 | (c*x + s) & ax <= u 
     // 3 | -t  & 21 | (-ct + 3s) & a-t <= 3u
-
-#if 0
-    void solve_for_int(unsigned row_id1, unsigned x) {
-            
-        for (unsigned i = 0; i < num_divs(); ++i) {
-            add_lit(model, lits, mk_divides(c*div_divisor(i), 
-                                            mk_sub(mk_mul(c, div_term(i)), mk_mul(div_coeff(i), t))));
-        }
-    }
-#endif
 
     void model_based_opt::solve_for(unsigned row_id1, unsigned x) {
         rational a = get_coefficient(row_id1, x), b;
