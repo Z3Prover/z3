@@ -422,5 +422,103 @@ public:
     expr_ref mk_add_simplify(unsigned sz, expr* const* args);
 };
 
+
+inline app_ref mk_numeral(rational const& r, app_ref const& x) {
+    arith_util a(x.get_manager());
+    return app_ref(a.mk_numeral(r, r.is_int() && a.is_int(x)), x.get_manager());
+}
+
+inline app_ref operator+(app_ref const& x, app_ref const& y) {
+    arith_util a(x.get_manager());
+    return app_ref(a.mk_add(x, y), x.get_manager());
+}
+
+inline app_ref operator+(app_ref const& x, rational const& y) {
+    return x + mk_numeral(y, x);
+}
+
+inline app_ref operator+(app_ref const& x, int y) {
+    return x + rational(y);
+}
+
+inline app_ref operator+(rational const& x, app_ref const& y) {
+    return mk_numeral(x, y) + y;
+}
+
+inline app_ref operator+(int x, app_ref const& y) {
+    return rational(x) + y;
+}
+
+inline app_ref operator-(app_ref const& x, app_ref const& y) {
+    arith_util a(x.get_manager());
+    return app_ref(a.mk_sub(x, y), x.get_manager());
+}
+
+inline app_ref operator-(app_ref const& x, rational const& y) {
+    return x - mk_numeral(y, x);
+}
+
+inline app_ref operator-(app_ref const& x, int y) {
+    return x - rational(y);
+}
+
+inline app_ref operator-(rational const& x, app_ref const& y) {
+    return mk_numeral(x, y) - y;
+}
+
+inline app_ref operator-(int x, app_ref const& y) {
+    return rational(x) - y;
+}
+
+
+inline app_ref operator*(app_ref const& x, app_ref const& y) {
+    arith_util a(x.get_manager());
+    return app_ref(a.mk_mul(x, y), x.get_manager());
+}
+
+inline app_ref operator*(app_ref const& x, rational const& y) {
+    return x * mk_numeral(y, x);
+}
+
+inline app_ref operator*(rational const& x, app_ref const& y) {
+    return mk_numeral(x, y) * y;
+}
+
+inline app_ref operator*(app_ref const& x, int y) {
+    return x * rational(y);
+}
+
+inline app_ref operator*(int x, app_ref const& y) {
+    return rational(x) * y;
+}
+
+inline app_ref operator<=(app_ref const& x, app_ref const& y) {
+    arith_util a(x.get_manager());
+    return app_ref(a.mk_le(x, y), x.get_manager());
+}
+
+inline app_ref operator<=(app_ref const& x, rational const& y) {
+    return x <= mk_numeral(y, x);
+}
+
+inline app_ref operator<=(app_ref const& x, int y) {
+    return x <= rational(y);
+}
+
+inline app_ref operator>=(app_ref const& x, app_ref const& y) {
+    arith_util a(x.get_manager());
+    return app_ref(a.mk_ge(x, y), x.get_manager());
+}
+
+inline app_ref operator<(app_ref const& x, app_ref const& y) {
+    arith_util a(x.get_manager());
+    return app_ref(a.mk_lt(x, y), x.get_manager());
+}
+
+inline app_ref operator>(app_ref const& x, app_ref const& y) {
+    arith_util a(x.get_manager());
+    return app_ref(a.mk_gt(x, y), x.get_manager());
+}
+
 #endif /* ARITH_DECL_PLUGIN_H_ */
 

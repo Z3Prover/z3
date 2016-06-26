@@ -30,7 +30,8 @@ namespace opt {
     enum ineq_type {
         t_eq,
         t_lt,
-        t_le
+        t_le,
+        t_mod
     };
 
 
@@ -52,9 +53,11 @@ namespace opt {
             row(): m_type(t_le), m_value(0), m_alive(false) {}
             vector<var> m_vars;         // variables with coefficients
             rational    m_coeff;        // constant in inequality
+            rational    m_mod;          // value the term divide
             ineq_type   m_type;         // inequality type
             rational    m_value;        // value of m_vars + m_coeff under interpretation of m_var2value.
             bool        m_alive;        // rows can be marked dead if they have been processed.
+            void reset() { m_vars.reset(); m_coeff.reset(); m_value.reset(); }
         };
 
     private:
@@ -63,9 +66,11 @@ namespace opt {
         static const unsigned   m_objective_id = 0;
         vector<unsigned_vector> m_var2row_ids;
         vector<rational>        m_var2value;
+        svector<bool>           m_var2is_int;
         vector<var>             m_new_vars;
-        unsigned_vector         m_lub, m_glb;
+        unsigned_vector         m_lub, m_glb, m_mod;
         unsigned_vector         m_above, m_below;
+        unsigned_vector         m_retired_rows;
         
         bool invariant();
         bool invariant(unsigned index, row const& r);
@@ -82,7 +87,29 @@ namespace opt {
 
         void mul_add(bool same_sign, unsigned row_id1, rational const& c, unsigned row_id2);
 
-        void set_row(unsigned row_id, vector<var> const& coeffs, rational const& c, ineq_type rel);       
+        void mul_add(unsigned x, rational const& a1, unsigned row_src, rational const& a2, unsigned row_dst);
+
+        void mul(unsigned dst, rational const& c);
+
+        void add(unsigned dst, rational const& c);
+
+        void sub(unsigned dst, rational const& c);
+
+        void set_row(unsigned row_id, vector<var> const& coeffs, rational const& c, rational const& m, ineq_type rel);       
+
+        void add_constraint(vector<var> const& coeffs, rational const& c, rational const& m, ineq_type r);
+
+        void replace_var(unsigned row_id, unsigned x, rational const& A, unsigned y, rational const& B);
+
+        void replace_var(unsigned row_id, unsigned x, rational const& C);
+
+        void normalize(unsigned row_id);
+
+        void mk_coeffs_without(vector<var>& dst, vector<var> const src, unsigned x);
+
+        unsigned new_row();
+
+        rational n_sign(rational const& b) const;
 
         void update_values(unsigned_vector const& bound_vars, unsigned_vector const& bound_trail);
 
@@ -92,12 +119,18 @@ namespace opt {
 
         void solve_for(unsigned row_id, unsigned x);
 
+        void solve_mod(unsigned x, unsigned_vector const& mod_rows);
+
+        bool is_int(unsigned x) const { return m_var2is_int[x]; }
+
+        void retire_row(unsigned row_id);
+
     public:
 
         model_based_opt();
 
         // add a fresh variable with value 'value'.
-        unsigned add_var(rational const& value);
+        unsigned add_var(rational const& value, bool is_int = false);
 
         // retrieve updated value of variable.
         rational get_value(unsigned var_id);
@@ -105,6 +138,9 @@ namespace opt {
         // add a constraint. We assume that the constraint is 
         // satisfied under the values provided to the variables.
         void add_constraint(vector<var> const& coeffs, rational const& c, ineq_type r);
+
+        // add a divisibility constraint. The row should divide m.
+        void add_divides(vector<var> const& coeffs, rational const& c, rational const& m);
 
         // Set the objective function (linear).
         void set_objective(vector<var> const& coeffs, rational const& c);

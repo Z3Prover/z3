@@ -270,6 +270,8 @@ class mbp::impl {
                 sub(fmls[i].get(), val);
                 m_rw(val);
                 if (!m.is_true(val)) {
+                    TRACE("qe", tout << mk_pp(fmls[i].get(), m) << " -> " << val << "\n";);
+                    fmls[i] = val;
                     if (j != i) {
                         fmls[j] = fmls[i].get();
                     }
