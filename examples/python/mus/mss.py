@@ -104,8 +104,8 @@ class MSSSolver:
    def resolve_core(self, core):
        new_core = set([])
        for x in core:
-           if x in self.mcs_map:
-              new_core |= self.mcs_map[x]
+           if x in self.mcs_explain:
+              new_core |= self.mcs_explain[x]
            else:
               new_core.add(x)
        return new_core
@@ -115,7 +115,7 @@ class MSSSolver:
        self.mss = []
        self.mcs = []
        self.nmcs = []
-       self.mcs_map = {}
+       self.mcs_explain = {}
        self.unknown = self.soft_vars
        self.update_unknown()
        cores = []
@@ -128,7 +128,7 @@ class MSSSolver:
            elif is_sat == unsat:
               core = self.s.unsat_core()
               core = self.resolve_core(core)
-              self.mcs_map[x] = {y for y in core if not eq(x,y)}
+              self.mcs_explain[Not(x)] = {y for y in core if not eq(x,y)}
               self.mcs.append(x)
               self.nmcs.append(Not(x)) 
               cores += [core]              
