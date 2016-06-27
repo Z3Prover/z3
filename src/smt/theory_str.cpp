@@ -454,6 +454,10 @@ app * theory_str::mk_int_var(std::string name) {
     return a;
 }
 
+app * theory_str::mk_unroll_bound_var() {
+	return mk_int_var("unroll");
+}
+
 app * theory_str::mk_str_var(std::string name) {
 	context & ctx = get_context();
 	ast_manager & m = get_manager();
@@ -543,6 +547,24 @@ app * theory_str::mk_nonempty_str_var() {
     track_variable_scope(a);
 
     return a;
+}
+
+app * theory_str::mk_unroll(expr * n, expr * bound) {
+	context & ctx = get_context();
+	ast_manager & m = get_manager();
+
+	expr * args[2] = {n, bound};
+	app * unrollFunc = get_manager().mk_app(get_id(), OP_RE_UNROLL, 0, 0, 2, args);
+
+	expr_ref_vector items(m);
+	items.push_back(ctx.mk_eq_atom(ctx.mk_eq_atom(bound, mk_int(0)), ctx.mk_eq_atom(unrollFunc, m_strutil.mk_string(""))));
+	items.push_back(m_autil.mk_ge(bound, mk_int(0)));
+	items.push_back(m_autil.mk_ge(mk_strlen(unrollFunc), mk_int(0)));
+
+	expr_ref finalAxiom(mk_and(items), m);
+	SASSERT(finalAxiom);
+	assert_axiom(finalAxiom);
+	return unrollFunc;
 }
 
 app * theory_str::mk_contains(expr * haystack, expr * needle) {
@@ -1342,7 +1364,16 @@ void theory_str::instantiate_axiom_RegexIn(enode * e) {
     	items.push_back(ctx.mk_eq_atom(expr, orVar));
     	assert_axiom(mk_and(items));
     } else if (is_RegexStar(regex)) {
-    	NOT_IMPLEMENTED_YET();
+    	// slightly more complex due to the unrolling step.
+    	expr_ref regex1(regex->get_arg(0), m);
+    	expr_ref unrollCount(mk_unroll_bound_var(), m);
+    	expr_ref unrollFunc(mk_unroll(regex1, unrollCount), m);
+    	expr_ref_vector items(m);
+    	items.push_back(ctx.mk_eq_atom(expr, ctx.mk_eq_atom(str, unrollFunc)));
+    	items.push_back(ctx.mk_eq_atom(ctx.mk_eq_atom(unrollCount, mk_int(0)), ctx.mk_eq_atom(unrollFunc, m_strutil.mk_string(""))));
+    	expr_ref finalAxiom(mk_and(items), m);
+    	SASSERT(finalAxiom);
+    	assert_axiom(finalAxiom);
     } else {
     	TRACE("t_str_detail", tout << "ERROR: unknown regex expression " << mk_pp(regex, m) << "!" << std::endl;);
     	NOT_IMPLEMENTED_YET();
@@ -3368,6 +3399,63 @@ void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
     assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
 }
 
+void theory_str::process_unroll_eq_const_str(expr * unrollFunc, expr * constStr) {
+	context & ctx = get_context();
+	ast_manager & m = get_manager();
+
+	if (!is_Unroll(to_app(unrollFunc))) {
+		return;
+	}
+	if (!m_strutil.is_string(constStr)) {
+		return;
+	}
+
+	expr * funcInUnroll = to_app(unrollFunc)->get_arg(0);
+	std::string strValue = m_strutil.get_string_constant_value(constStr);
+
+	TRACE("t_str_detail", tout << "unrollFunc: " << mk_pp(unrollFunc, m) << std::endl
+			<< "constStr: " << mk_pp(constStr, m) << std::endl;);
+
+	if (strValue == "") {
+		return;
+	}
+
+	if (is_Str2Reg(to_app(funcInUnroll))) {
+		unroll_str2reg_constStr(unrollFunc, constStr);
+		return;
+	}
+}
+
+void theory_str::unroll_str2reg_constStr(expr * unrollFunc, expr * eqConstStr) {
+	context & ctx = get_context();
+	expr * str2RegFunc = to_app(unrollFunc)->get_arg(0);
+	expr * strInStr2RegFunc = to_app(str2RegFunc)->get_arg(0);
+	expr * oriCnt = to_app(unrollFunc)->get_arg(1);
+
+	// TODO NEXT
+	NOT_IMPLEMENTED_YET();
+
+	/*
+	Z3_context ctx = Z3_theory_get_context(t);
+	Z3_ast str2RegFunc = Z3_get_app_arg(ctx, Z3_to_app(ctx, unrollFunc), 0);
+	Z3_ast strInStr2RegFunc = Z3_get_app_arg(ctx, Z3_to_app(ctx, str2RegFunc), 0);
+	Z3_ast oriCnt = Z3_get_app_arg(ctx, Z3_to_app(ctx, unrollFunc), 1);
+
+	std::string strValue = getConstStrValue(t, eqConstStr);
+	std::string regStrValue = getConstStrValue(t, strInStr2RegFunc);
+	int strLen = strValue.length();
+	int regStrLen = regStrValue.length();
+	int cnt = strLen / regStrLen;
+
+	Z3_ast implyL = Z3_mk_eq(ctx, unrollFunc, eqConstStr);
+	Z3_ast implyR1 = Z3_mk_eq(ctx, oriCnt, mk_int(ctx, cnt));
+	Z3_ast implyR2 = Z3_mk_eq(ctx, mk_length(t, unrollFunc), mk_int(ctx, strLen));
+	Z3_ast toAssert = Z3_mk_implies(ctx, implyL, mk_2_and(t, implyR1, implyR2));
+
+	addAxiom(t, toAssert, __LINE__);
+	*/
+}
+
 /*
  * Look through the equivalence class of n to find a string constant.
  * Return that constant if it is found, and set hasEqcValue to true.
@@ -3390,6 +3478,26 @@ expr * theory_str::get_eqc_value(expr * n, bool & hasEqcValue) {
 	// not found
 	hasEqcValue = false;
 	return n;
+}
+
+void theory_str::get_eqc_all_unroll(expr * n, expr * & constStr, std::set<expr*> & unrollFuncSet) {
+	context & ctx = get_context();
+
+	constStr = NULL;
+	unrollFuncSet.clear();
+
+	// iterate over the eqc of 'n'
+	enode * n_enode = ctx.get_enode(n);
+	enode * e_curr = n_enode;
+	do {
+		app * curr = e_curr->get_owner();
+		if (m_strutil.is_string(curr)) {
+			constStr = curr;
+		} else if (is_Unroll(curr)) {
+			unrollFuncSet.insert(curr);
+		}
+		e_curr = e_curr->get_next();
+	} while (e_curr != n_enode);
 }
 
 // from Z3: theory_seq.cpp
@@ -4198,7 +4306,45 @@ void theory_str::handle_equality(expr * lhs, expr * rhs) {
         simplify_parent(lhs, rhs_value);
     }
 
-    // TODO regex unroll? (much later)
+    // regex unroll
+    /*
+    Z3_ast nn1EqConst = NULL;
+    std::set<Z3_ast> nn1EqUnrollFuncs;
+    get_eqc_allUnroll(t, nn1, nn1EqConst, nn1EqUnrollFuncs);
+    Z3_ast nn2EqConst = NULL;
+    std::set<Z3_ast> nn2EqUnrollFuncs;
+    get_eqc_allUnroll(t, nn2, nn2EqConst, nn2EqUnrollFuncs);
+
+    if (nn2EqConst != NULL) {
+    	for (std::set<Z3_ast>::iterator itor1 = nn1EqUnrollFuncs.begin(); itor1 != nn1EqUnrollFuncs.end(); itor1++) {
+    		processUnrollEqConstStr(t, *itor1, nn2EqConst);
+    	}
+    }
+
+    if (nn1EqConst != NULL) {
+    	for (std::set<Z3_ast>::iterator itor2 = nn2EqUnrollFuncs.begin(); itor2 != nn2EqUnrollFuncs.end(); itor2++) {
+    		processUnrollEqConstStr(t, *itor2, nn1EqConst);
+    	}
+    }
+    */
+    expr * nn1EqConst = NULL;
+    std::set<expr*> nn1EqUnrollFuncs;
+    get_eqc_all_unroll(lhs, nn1EqConst, nn1EqUnrollFuncs);
+    expr * nn2EqConst = NULL;
+    std::set<expr*> nn2EqUnrollFuncs;
+    get_eqc_all_unroll(rhs, nn2EqConst, nn2EqUnrollFuncs);
+
+    if (nn2EqConst != NULL) {
+    	for (std::set<expr*>::iterator itor1 = nn1EqUnrollFuncs.begin(); itor1 != nn1EqUnrollFuncs.end(); itor1++) {
+    		process_unroll_eq_const_str(*itor1, nn2EqConst);
+    	}
+    }
+
+    if (nn1EqConst != NULL) {
+    	for (std::set<expr*>::iterator itor2 = nn2EqUnrollFuncs.begin(); itor2 != nn2EqUnrollFuncs.end(); itor2++) {
+    		process_unroll_eq_const_str(*itor2, nn1EqConst);
+    	}
+    }
 }
 
 void theory_str::set_up_axioms(expr * ex) {

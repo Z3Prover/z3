@@ -47,6 +47,7 @@ enum str_op_kind {
 	OP_RE_REGEXCONCAT,
 	OP_RE_REGEXSTAR,
 	OP_RE_REGEXUNION,
+	OP_RE_UNROLL,
     // end
     LAST_STR_OP
 };
@@ -75,6 +76,7 @@ protected:
     func_decl * m_re_regexconcat_decl;
     func_decl * m_re_regexstar_decl;
     func_decl * m_re_regexunion_decl;
+    func_decl * m_re_unroll_decl;
 
     arith_decl_plugin * m_arith_plugin;
     family_id           m_arith_fid;

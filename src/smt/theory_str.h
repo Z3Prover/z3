@@ -183,6 +183,7 @@ namespace smt {
         app * mk_internal_xor_var();
         expr * mk_internal_valTest_var(expr * node, int len, int vTries);
         app * mk_regex_rep_var();
+        app * mk_unroll_bound_var();
 
         bool is_concat(app const * a) const { return a->is_app_of(get_id(), OP_STRCAT); }
         bool is_concat(enode const * n) const { return is_concat(n->get_owner()); }
@@ -219,7 +220,8 @@ namespace smt {
         bool is_RegexUnion(enode const * n) const { return is_RegexUnion(n->get_owner()); }
         bool is_Str2Reg(app const * a) const { return a->is_app_of(get_id(), OP_RE_STR2REGEX); }
 		bool is_Str2Reg(enode const * n) const { return is_Str2Reg(n->get_owner()); }
-
+		bool is_Unroll(app const * a) const { return a->is_app_of(get_id(), OP_RE_UNROLL); }
+		bool is_Unroll(enode const * n) const { return is_Unroll(n->get_owner()); }
 
         void instantiate_concat_axiom(enode * cat);
         void instantiate_basic_string_axioms(enode * str);
@@ -237,6 +239,11 @@ namespace smt {
 
         expr * mk_RegexIn(expr * str, expr * regexp);
         void instantiate_axiom_RegexIn(enode * e);
+        app * mk_unroll(expr * n, expr * bound);
+
+        void get_eqc_all_unroll(expr * n, expr * & constStr, std::set<expr*> & unrollFuncSet);
+        void process_unroll_eq_const_str(expr * unrollFunc, expr * constStr);
+        void unroll_str2reg_constStr(expr * unrollFunc, expr * eqConstStr);
 
         void set_up_axioms(expr * ex);
         void handle_equality(expr * lhs, expr * rhs);
