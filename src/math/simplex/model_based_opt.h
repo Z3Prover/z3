@@ -109,6 +109,8 @@ namespace opt {
 
         unsigned new_row();
 
+        unsigned copy_row(unsigned row_id);
+
         rational n_sign(rational const& b) const;
 
         void update_values(unsigned_vector const& bound_vars, unsigned_vector const& bound_trail);

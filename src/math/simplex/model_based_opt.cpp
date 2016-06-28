@@ -57,6 +57,7 @@ namespace opt {
             // variables in each row are sorted and have non-zero coefficients
             PASSERT(i + 1 == vars.size() || vars[i].m_id < vars[i+1].m_id);
             PASSERT(!vars[i].m_coeff.is_zero());
+            PASSERT(index == 0 || m_var2row_ids[vars[i].m_id].contains(index));
         }
         
         PASSERT(r.m_value == get_row_value(r));
@@ -522,6 +523,7 @@ namespace opt {
         if (c.is_zero()) {
             return;
         }
+
         m_new_vars.reset();
         row& r1 = m_rows[row_id1];
         row const& r2 = m_rows[row_id2];
@@ -650,7 +652,6 @@ namespace opt {
             r.m_coeff  += rational::one();
             r.m_value  += rational::one();
         }
-        SASSERT(invariant(row_id, r));
     }
 
     unsigned model_based_opt::new_row() {
@@ -666,6 +667,17 @@ namespace opt {
             m_rows[row_id].m_alive = true;
         }
         return row_id;
+    }
+
+    unsigned model_based_opt::copy_row(unsigned src) {
+        unsigned dst = new_row();
+        row const& r = m_rows[src];
+        set_row(dst, r.m_vars, r.m_coeff, r.m_mod, r.m_type);
+        for (unsigned i = 0; i < r.m_vars.size(); ++i) {
+            m_var2row_ids[r.m_vars[i].m_id].push_back(dst);
+        }
+        SASSERT(invariant(dst, m_rows[dst]));
+        return dst;
     }
 
     void model_based_opt::add_constraint(vector<var> const& coeffs, rational const& c, ineq_type rel) {
@@ -813,9 +825,8 @@ namespace opt {
                         resolve(row_id1, coeff, row_id2, x);
                     }
                     else {
-                        row r(m_rows[row_id2]);
-                        m_rows.push_back(r);
-                        resolve(row_id1, coeff, m_rows.size()-1, x);
+                        unsigned row_id3 = copy_row(row_id2);
+                        resolve(row_id1, coeff, row_id3, x);
                     }
                 }
             }
