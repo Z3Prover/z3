@@ -59,12 +59,25 @@ public abstract class IDecRefQueue<T extends Z3Object> {
         clear(ctx);
     }
 
+    /**
+     * Clean all references currently in {@code referenceQueue}.
+     */
     protected void clear(Context ctx)
     {
         Reference<? extends T> ref;
         while ((ref = referenceQueue.poll()) != null) {
             long z3ast = referenceMap.remove(ref);
             decRef(ctx, z3ast);
+        }
+    }
+
+    /**
+     * Clean all references stored in {@code referenceMap},
+     * <b>regardless</b> of whether they are in {@code referenceMap} or not.
+     */
+    public void forceClear(Context ctx) {
+        for (long ref : referenceMap.values()) {
+            decRef(ctx, ref);
         }
     }
 }
