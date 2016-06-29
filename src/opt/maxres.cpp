@@ -189,10 +189,9 @@ public:
         trace_bounds(m_trace_id.c_str());
     }
 
-#define RUNDEF() { std::cout << __LINE__ << "\n"; return l_undef; }
     lbool mus_solver() {
         lbool is_sat = l_true;
-        if (!init()) RUNDEF();
+        if (!init()) return l_undef;
         init_local();
         trace();
         while (m_lower < m_upper) {
@@ -204,7 +203,7 @@ public:
                   );
             is_sat = check_sat_hill_climb(m_asms);
             if (m.canceled()) {
-                RUNDEF();
+                return l_undef;
             }
             switch (is_sat) {
             case l_true: 
@@ -220,7 +219,7 @@ public:
                 }
                 break;
             case l_undef:
-                RUNDEF();
+                return l_undef;
             default:
                 break;
             }
@@ -230,14 +229,14 @@ public:
     }
 
     lbool primal_dual_solver() {
-        if (!init()) RUNDEF();
+        if (!init()) return l_undef;
         init_local();
         trace();
         exprs cs;
         while (m_lower < m_upper) {
             lbool is_sat = check_sat_hill_climb(m_asms);
             if (m.canceled()) {
-                RUNDEF();
+                return l_undef;
             }
             switch (is_sat) {
             case l_true: 
@@ -260,7 +259,7 @@ public:
                 }
                 break;
             case l_undef:
-                RUNDEF();
+                return l_undef;
             default:
                 break;
             }
@@ -340,7 +339,7 @@ public:
         case s_primal_dual:
             return primal_dual_solver();
         }
-        RUNDEF();
+        return l_undef;
     }
 
     virtual void collect_statistics(statistics& st) const { 
