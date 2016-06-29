@@ -321,10 +321,10 @@ namespace smt {
     void context::internalize(expr * n, bool gate_ctx) {
         TRACE("internalize", tout << "internalizing:\n" << mk_pp(n, m_manager) << "\n";);
         TRACE("internalize_bug", tout << "internalizing:\n" << mk_bounded_pp(n, m_manager) << "\n";);
+        if (is_var(n)) {
+            throw default_exception("Formulas should not contain unbound variables");
+        }
         if (m_manager.is_bool(n)) {
-            if (is_var(n)) {
-                throw default_exception("Formulas should not contain unbound variables");
-            }
             SASSERT(is_quantifier(n) || is_app(n));
             internalize_formula(n, gate_ctx);
         }
