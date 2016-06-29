@@ -463,6 +463,10 @@ extern "C" {
         return _get_error_msg(c, err);
     }
 
+    Z3_API char const * Z3_get_error_msg_ex(Z3_context c, Z3_error_code err) {
+        return Z3_get_error_msg(c, err);
+    }
+
 
     void Z3_API Z3_set_ast_print_mode(Z3_context c, Z3_ast_print_mode mode) {
         Z3_TRY;
