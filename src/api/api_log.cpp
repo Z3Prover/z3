@@ -20,6 +20,7 @@ Revision History:
 #include"z3.h"
 #include"api_log_macros.h"
 #include"util.h"
+#include"version.h"
 
 std::ostream * g_z3_log = 0;
 bool g_z3_log_enabled   = false;
@@ -35,6 +36,8 @@ extern "C" {
             g_z3_log = 0;
             return Z3_FALSE;
         }
+        *g_z3_log << "V \"" << Z3_MAJOR_VERSION << "." << Z3_MINOR_VERSION << "." << Z3_BUILD_NUMBER << "." << Z3_REVISION_NUMBER << " " << __DATE__ << "\"\n";
+        g_z3_log->flush();
         return Z3_TRUE;
     }
 

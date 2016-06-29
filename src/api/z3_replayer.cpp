@@ -415,6 +415,10 @@ struct z3_replayer::imp {
             if (c == EOF)
                 return;
             switch (c) {
+            case 'V':
+                // version
+                next(); skip_blank(); read_string();
+                break;
             case 'R':
                 // reset
                 next(); 
