@@ -366,11 +366,15 @@ namespace opt {
     }    
 
     lbool context::execute_box() {
-        if (m_box_index < m_objectives.size()) {
-            SASSERT(m_box_index < m_box_models.size());            
+        if (m_box_index < m_box_models.size()) {
             m_model = m_box_models[m_box_index];
             ++m_box_index;           
             return l_true;
+        }
+        if (m_box_index < m_objectives.size()) {
+            m_model = 0;
+            ++m_box_index;
+            return l_undef;
         }
         if (m_box_index != UINT_MAX && m_box_index >= m_objectives.size()) {
             m_box_index = UINT_MAX;
@@ -384,17 +388,14 @@ namespace opt {
             if (obj.m_type == O_MAXSMT) {
                 solver::scoped_push _sp(get_solver());
                 r = execute(obj, false, false);
-                if (r == l_true) {
-                    m_box_models.push_back(m_model.get());
-                }
+                m_box_models.push_back(m_model.get());
             }
             else {
                 m_box_models.push_back(m_optsmt.get_model(j));
                 ++j;
             }
         }
-        if (r == l_true && m_objectives.size() > 0) {
-            SASSERT(!m_box_models.empty());
+        if (r == l_true && m_box_models.size() > 0) {
             m_model = m_box_models[0];
         }
         return r;
@@ -498,6 +499,9 @@ namespace opt {
     }
 
     std::string context::reason_unknown() const { 
+        if (m.canceled()) {
+            return Z3_CANCELED_MSG;
+        }
         if (m_solver.get()) {
             return m_solver->reason_unknown();
         }
