@@ -4017,21 +4017,21 @@ public class Context implements AutoCloseable {
     @Override
     public void close()
     {
-        m_AST_DRQ.clear(this);
-        m_ASTMap_DRQ.clear(this);
-        m_ASTVector_DRQ.clear(this);
-        m_ApplyResult_DRQ.clear(this);
-        m_FuncEntry_DRQ.clear(this);
-        m_FuncInterp_DRQ.clear(this);
-        m_Goal_DRQ.clear(this);
-        m_Model_DRQ.clear(this);
-        m_Params_DRQ.clear(this);
-        m_Probe_DRQ.clear(this);
-        m_Solver_DRQ.clear(this);
-        m_Optimize_DRQ.clear(this);
-        m_Statistics_DRQ.clear(this);
-        m_Tactic_DRQ.clear(this);
-        m_Fixedpoint_DRQ.clear(this);
+        m_AST_DRQ.forceClear(this);
+        m_ASTMap_DRQ.forceClear(this);
+        m_ASTVector_DRQ.forceClear(this);
+        m_ApplyResult_DRQ.forceClear(this);
+        m_FuncEntry_DRQ.forceClear(this);
+        m_FuncInterp_DRQ.forceClear(this);
+        m_Goal_DRQ.forceClear(this);
+        m_Model_DRQ.forceClear(this);
+        m_Params_DRQ.forceClear(this);
+        m_Probe_DRQ.forceClear(this);
+        m_Solver_DRQ.forceClear(this);
+        m_Optimize_DRQ.forceClear(this);
+        m_Statistics_DRQ.forceClear(this);
+        m_Tactic_DRQ.forceClear(this);
+        m_Fixedpoint_DRQ.forceClear(this);
 
         m_boolSort = null;
         m_intSort = null;

@@ -145,20 +145,28 @@ public class Quantifier extends BoolExpr
                 .nCtx(), getNativeObject()));
     }
 
+    /**
+     * Create a quantified expression.
+     *
+     * @param patterns Nullable patterns
+     * @param noPatterns Nullable noPatterns
+     * @param quantifierID Nullable quantifierID
+     * @param skolemID Nullable skolemID
+     */
     public static Quantifier of(
             Context ctx, boolean isForall, Sort[] sorts, Symbol[] names,
             Expr body, int weight, Pattern[] patterns, Expr[] noPatterns,
-            Symbol quantifierID, Symbol skolemID
-    ) {
+            Symbol quantifierID, Symbol skolemID) {
         ctx.checkContextMatch(patterns);
         ctx.checkContextMatch(noPatterns);
         ctx.checkContextMatch(sorts);
         ctx.checkContextMatch(names);
         ctx.checkContextMatch(body);
 
-        if (sorts.length != names.length)
+        if (sorts.length != names.length) {
             throw new Z3Exception(
                     "Number of sorts does not match number of names");
+        }
 
         long nativeObj;
         if (noPatterns == null && quantifierID == null && skolemID == null) {
@@ -180,18 +188,26 @@ public class Quantifier extends BoolExpr
     }
 
 
+    /**
+     * @param ctx Context to create the quantifier on.
+     * @param isForall Quantifier type.
+     * @param bound Bound variables.
+     * @param body Body of the quantifier.
+     * @param weight Weight.
+     * @param patterns Nullable array of patterns.
+     * @param noPatterns Nullable array of noPatterns.
+     * @param quantifierID Nullable quantifier identifier.
+     * @param skolemID Nullable skolem identifier.
+     */
     public static Quantifier of(Context ctx, boolean isForall, Expr[] bound, Expr body,
             int weight, Pattern[] patterns, Expr[] noPatterns,
-            Symbol quantifierID, Symbol skolemID)
-    {
+            Symbol quantifierID, Symbol skolemID) {
         ctx.checkContextMatch(noPatterns);
         ctx.checkContextMatch(patterns);
-        // ctx.CheckContextMatch(bound);
         ctx.checkContextMatch(body);
 
         long nativeObj;
-        if (noPatterns == null && quantifierID == null && skolemID == null)
-        {
+        if (noPatterns == null && quantifierID == null && skolemID == null) {
             nativeObj = Native.mkQuantifierConst(ctx.nCtx(),
                 isForall, weight, AST.arrayLength(bound),
                     AST.arrayToNative(bound), AST.arrayLength(patterns),
@@ -214,11 +230,11 @@ public class Quantifier extends BoolExpr
     }
 
     @Override
-    void checkNativeObject(long obj)
-    {
+    void checkNativeObject(long obj) {
         if (Native.getAstKind(getContext().nCtx(), obj) != Z3_ast_kind.Z3_QUANTIFIER_AST
-                .toInt())
+                .toInt()) {
             throw new Z3Exception("Underlying object is not a quantifier");
+        }
         super.checkNativeObject(obj);
     }
 }
