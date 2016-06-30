@@ -461,7 +461,9 @@ app * theory_str::mk_unroll_bound_var() {
 }
 
 app * theory_str::mk_unroll_test_var() {
-	return mk_str_var("unrollTest"); // was uRt
+	app * v = mk_str_var("unrollTest"); // was uRt
+	internal_unrollTest_vars.insert(v);
+	return v;
 }
 
 app * theory_str::mk_str_var(std::string name) {
@@ -4159,6 +4161,8 @@ bool theory_str::free_var_attempt(expr * nn1, expr * nn2) {
             more_value_tests(nn1, nn2_str);
         }
         return true;
+    } else if (internal_unrollTest_vars.contains(nn1)) {
+    	return true;
     } else {
         return false;
     }
@@ -4366,26 +4370,7 @@ void theory_str::handle_equality(expr * lhs, expr * rhs) {
     }
 
     // regex unroll
-    /*
-    Z3_ast nn1EqConst = NULL;
-    std::set<Z3_ast> nn1EqUnrollFuncs;
-    get_eqc_allUnroll(t, nn1, nn1EqConst, nn1EqUnrollFuncs);
-    Z3_ast nn2EqConst = NULL;
-    std::set<Z3_ast> nn2EqUnrollFuncs;
-    get_eqc_allUnroll(t, nn2, nn2EqConst, nn2EqUnrollFuncs);
 
-    if (nn2EqConst != NULL) {
-    	for (std::set<Z3_ast>::iterator itor1 = nn1EqUnrollFuncs.begin(); itor1 != nn1EqUnrollFuncs.end(); itor1++) {
-    		processUnrollEqConstStr(t, *itor1, nn2EqConst);
-    	}
-    }
-
-    if (nn1EqConst != NULL) {
-    	for (std::set<Z3_ast>::iterator itor2 = nn2EqUnrollFuncs.begin(); itor2 != nn2EqUnrollFuncs.end(); itor2++) {
-    		processUnrollEqConstStr(t, *itor2, nn1EqConst);
-    	}
-    }
-    */
     expr * nn1EqConst = NULL;
     std::set<expr*> nn1EqUnrollFuncs;
     get_eqc_allUnroll(lhs, nn1EqConst, nn1EqUnrollFuncs);
@@ -6157,8 +6142,9 @@ void theory_str::gen_assign_unroll_reg(std::set<expr*> & unrolls) {
 				// unroll(r1, t1) = newVar1 . newVar2
 				items.push_back(ctx.mk_eq_atom(unrFunc, concatAst));
 				items.push_back(ctx.mk_eq_atom(mk_strlen(unrFunc), m_autil.mk_add(mk_strlen(newVar1), mk_strlen(newVar2))));
-				items.push_back(ctx.mk_eq_atom(mk_strlen(unrFunc), mk_strlen(newVar1)));
-				items.push_back(ctx.mk_eq_atom(mk_strlen(unrFunc), mk_strlen(newVar2)));
+				// mk_strlen(unrFunc) >= mk_strlen(newVar{1,2})
+				items.push_back(m_autil.mk_ge(m_autil.mk_add(mk_strlen(unrFunc), m_autil.mk_mul(mk_int(-1), mk_strlen(newVar1))), mk_int(0)));
+				items.push_back(m_autil.mk_ge(m_autil.mk_add(mk_strlen(unrFunc), m_autil.mk_mul(mk_int(-1), mk_strlen(newVar2))), mk_int(0)));
 				// newVar1 \in r1
 				reduce_virtual_regex_in(newVar1, regexInUnr, items);
 				items.push_back(ctx.mk_eq_atom(cntInUnr, m_autil.mk_add(newCnt, mk_int(1))));

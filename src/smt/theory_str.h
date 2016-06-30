@@ -146,6 +146,7 @@ namespace smt {
 
         obj_hashtable<expr> internal_lenTest_vars;
         obj_hashtable<expr> internal_valTest_vars;
+        obj_hashtable<expr> internal_unrollTest_vars;
 
         std::set<expr*> input_var_in_len;
 
