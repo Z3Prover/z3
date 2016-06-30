@@ -161,6 +161,7 @@ namespace smt {
         // This can't be an expr_ref_vector because the constructor is wrong,
         // we would need to modify the allocator so we pass in ast_manager
         std::map<expr*, std::map<std::set<expr*>, ptr_vector<expr> > > unroll_tries_map;
+        std::map<expr*, expr*> unroll_var_map;
 
         char * char_set;
         std::map<char, int> charSetLookupTable;
@@ -346,6 +347,7 @@ namespace smt {
         expr * gen_assign_unroll_Str2Reg(expr * n, std::set<expr*> & unrolls);
         expr * gen_unroll_conditional_options(expr * var, std::set<expr*> & unrolls, std::string lcmStr);
         expr * gen_unroll_assign(expr * var, std::string lcmStr, expr * testerVar, int l, int h);
+        void reduce_virtual_regex_in(expr * var, expr * regex, expr_ref_vector & items);
 
         void dump_assignments();
         void initialize_charset();

@@ -131,6 +131,7 @@ void theory_str::assert_axiom(expr * e) {
     if (opt_VerifyFinalCheckProgress) {
         finalCheckProgressIndicator = true;
     }
+    // TODO add to m_trail?
     if (get_manager().is_true(e)) return;
     TRACE("t_str_detail", tout << "asserting " << mk_ismt2_pp(e, get_manager()) << std::endl;);
     context & ctx = get_context();
@@ -3432,6 +3433,11 @@ void theory_str::process_unroll_eq_const_str(expr * unrollFunc, expr * constStr)
 }
 
 void theory_str::process_concat_eq_unroll(expr * concat, expr * unroll) {
+	context & ctx = get_context();
+	ast_manager & mgr = get_manager();
+
+	TRACE("t_str_detail", tout << "concat = " << mk_pp(concat, mgr) << ", unroll = " << mk_pp(unroll, mgr) << std::endl;);
+
 	// TODO NEXT
 	NOT_IMPLEMENTED_YET();
 	/*
@@ -3596,20 +3602,18 @@ bool theory_str::get_value(expr* e, rational& val) const {
 bool theory_str::lower_bound(expr* _e, rational& lo) {
     context& ctx = get_context();
     ast_manager & m = get_manager();
-    expr_ref e(mk_strlen(_e), m);
-    theory_mi_arith* tha = get_th_arith(ctx, m_autil.get_family_id(), e);
+    theory_mi_arith* tha = get_th_arith(ctx, m_autil.get_family_id(), _e);
     expr_ref _lo(m);
-    if (!tha || !tha->get_lower(ctx.get_enode(e), _lo)) return false;
+    if (!tha || !tha->get_lower(ctx.get_enode(_e), _lo)) return false;
     return m_autil.is_numeral(_lo, lo) && lo.is_int();
 }
 
 bool theory_str::upper_bound(expr* _e, rational& hi) {
     context& ctx = get_context();
     ast_manager & m = get_manager();
-    expr_ref e(mk_strlen(_e), m);
-    theory_mi_arith* tha = get_th_arith(ctx, m_autil.get_family_id(), e);
+    theory_mi_arith* tha = get_th_arith(ctx, m_autil.get_family_id(), _e);
     expr_ref _hi(m);
-    if (!tha || !tha->get_upper(ctx.get_enode(e), _hi)) return false;
+    if (!tha || !tha->get_upper(ctx.get_enode(_e), _hi)) return false;
     return m_autil.is_numeral(_hi, hi) && hi.is_int();
 }
 
@@ -5602,6 +5606,7 @@ final_check_status theory_str::final_check_eh() {
     for (std::map<expr*, std::set<expr*> >::iterator fvIt3 = fv_unrolls_map.begin();
     		fvIt3 != fv_unrolls_map.end(); fvIt3++) {
     	expr * var = fvIt3->first;
+    	TRACE("t_str_detail", tout << "erase free variable " << mk_pp(var, m) << " from freeVar_map, it is bounded by an Unroll" << std::endl;);
     	freeVar_map.erase(var);
     }
 
@@ -5665,6 +5670,7 @@ final_check_status theory_str::final_check_eh() {
 		}
     }
     for (std::set<expr*>::iterator vItor = fvUnrollSet.begin(); vItor != fvUnrollSet.end(); vItor++) {
+    	TRACE("t_str_detail", tout << "remove " << mk_pp(*vItor, m) << " from freeVar_map" << std::endl;);
     	freeVar_map.erase(*vItor);
     }
 
@@ -5721,7 +5727,8 @@ final_check_status theory_str::final_check_eh() {
     }
     // experimental free variable assignment - end
 
-    // more unroll stuff
+    // now deal with removed free variables that are bounded by an unroll
+    TRACE("t_str", tout << "fv_unrolls_map (#" << fv_unrolls_map.size() << ")" << std::endl;);
     for (std::map<expr*, std::set<expr*> >::iterator fvIt1 = fv_unrolls_map.begin();
     		fvIt1 != fv_unrolls_map.end(); fvIt1++) {
     	expr * var = fvIt1->first;
@@ -6019,9 +6026,165 @@ expr * theory_str::gen_free_var_options(expr * freeVar, expr * len_indicator,
 	}
 }
 
+void theory_str::reduce_virtual_regex_in(expr * var, expr * regex, expr_ref_vector & items) {
+	context & ctx = get_context();
+	ast_manager & mgr = get_manager();
+
+	TRACE("t_str_detail", tout << "reduce regex " << mk_pp(regex, mgr) << " with respect to variable " << mk_pp(var, mgr) << std::endl;);
+
+	app * regexFuncDecl = to_app(regex);
+	if (is_Str2Reg(regexFuncDecl)) {
+		// ---------------------------------------------------------
+		// var \in Str2Reg(s1)
+		//   ==>
+		// var = s1 /\ length(var) = length(s1)
+		// ---------------------------------------------------------
+		expr * strInside = to_app(regex)->get_arg(0);
+		items.push_back(ctx.mk_eq_atom(var, strInside));
+		items.push_back(ctx.mk_eq_atom(mk_strlen(var), mk_strlen(strInside)));
+		return;
+	}
+	// RegexUnion
+	else if (is_RegexUnion(regexFuncDecl)) {
+		// ---------------------------------------------------------
+		// var \in RegexUnion(r1, r2)
+		//   ==>
+		// (var = newVar1 \/ var = newVar2)
+		// (var = newVar1 --> length(var) = length(newVar1)) /\ (var = newVar2 --> length(var) = length(newVar2))
+		//  /\ (newVar1 \in r1) /\  (newVar2 \in r2)
+		// ---------------------------------------------------------
+		expr_ref newVar1(mk_regex_rep_var(), mgr);
+		expr_ref newVar2(mk_regex_rep_var(), mgr);
+		items.push_back(mgr.mk_or(ctx.mk_eq_atom(var, newVar1), ctx.mk_eq_atom(var, newVar2)));
+		items.push_back(mgr.mk_or(
+				mgr.mk_not(ctx.mk_eq_atom(var, newVar1)),
+				ctx.mk_eq_atom(mk_strlen(var), mk_strlen(newVar1))));
+		items.push_back(mgr.mk_or(
+				mgr.mk_not(ctx.mk_eq_atom(var, newVar2)),
+				ctx.mk_eq_atom(mk_strlen(var), mk_strlen(newVar2))));
+
+		expr * regArg1 = to_app(regex)->get_arg(0);
+		reduce_virtual_regex_in(newVar1, regArg1, items);
+
+		expr * regArg2 = to_app(regex)->get_arg(1);
+		reduce_virtual_regex_in(newVar2, regArg2, items);
+
+		return;
+	}
+	// RegexConcat
+	else if (is_RegexConcat(regexFuncDecl)) {
+		// ---------------------------------------------------------
+		// var \in RegexConcat(r1, r2)
+		//   ==>
+		//    (var = newVar1 . newVar2) /\ (length(var) = length(vewVar1 . newVar2) )
+		// /\ (newVar1 \in r1) /\  (newVar2 \in r2)
+		// ---------------------------------------------------------
+		expr_ref newVar1(mk_regex_rep_var(), mgr);
+		expr_ref newVar2(mk_regex_rep_var(), mgr);
+		expr_ref concatAst(mk_concat(newVar1, newVar2), mgr);
+		items.push_back(ctx.mk_eq_atom(var, concatAst));
+		items.push_back(ctx.mk_eq_atom(mk_strlen(var),
+				m_autil.mk_add(mk_strlen(newVar1), mk_strlen(newVar2))));
+
+		expr * regArg1 = to_app(regex)->get_arg(0);
+		reduce_virtual_regex_in(newVar1, regArg1, items);
+		expr * regArg2 = to_app(regex)->get_arg(1);
+		reduce_virtual_regex_in(newVar2, regArg2, items);
+		return;
+	}
+	// Unroll
+	else if (is_RegexStar(regexFuncDecl)) {
+		// ---------------------------------------------------------
+		// var \in Star(r1)
+		//   ==>
+		// var = unroll(r1, t1) /\ |var| = |unroll(r1, t1)|
+		// ---------------------------------------------------------
+		expr * regArg = to_app(regex)->get_arg(0);
+		expr_ref unrollCnt(mk_unroll_bound_var(), mgr);
+		expr_ref unrollFunc(mk_unroll(regArg, unrollCnt), mgr);
+		items.push_back(ctx.mk_eq_atom(var, unrollFunc));
+		items.push_back(ctx.mk_eq_atom(mk_strlen(var), mk_strlen(unrollFunc)));
+		return;
+	} else {
+		UNREACHABLE();
+	}
+}
+
 void theory_str::gen_assign_unroll_reg(std::set<expr*> & unrolls) {
-	// TODO
-	NOT_IMPLEMENTED_YET();
+	context & ctx = get_context();
+	ast_manager & mgr = get_manager();
+
+	expr_ref_vector items(mgr);
+	for (std::set<expr*>::iterator itor = unrolls.begin(); itor != unrolls.end(); itor++) {
+		expr * unrFunc = *itor;
+		TRACE("t_str_detail", tout << "generating assignment for unroll " << mk_pp(unrFunc, mgr) << std::endl;);
+
+		expr * regexInUnr = to_app(unrFunc)->get_arg(0);
+		expr * cntInUnr = to_app(unrFunc)->get_arg(1);
+		items.reset();
+
+		rational low, high;
+		bool low_exists = lower_bound(cntInUnr, low);
+		bool high_exists = upper_bound(cntInUnr, high);
+
+		TRACE("t_str_detail",
+				tout << "unroll " << mk_pp(unrFunc, mgr) << std::endl;
+				rational unrLenValue;
+				bool unrLenValue_exists = get_len_value(unrFunc, unrLenValue);
+				tout << "unroll length: " << (unrLenValue_exists ? unrLenValue.to_string() : "?") << std::endl;
+				rational cntInUnrValue;
+				bool cntHasValue = get_value(cntInUnr, cntInUnrValue);
+				tout << "unroll count: " << (cntHasValue ? cntInUnrValue.to_string() : "?")
+						<< " low = "
+						<< (low_exists ? low.to_string() : "?")
+						<< " high = "
+						<< (high_exists ? high.to_string() : "?")
+						<< std::endl;
+			);
+
+		expr_ref toAssert(mgr);
+		if (low.is_neg()) {
+			toAssert = m_autil.mk_ge(cntInUnr, mk_int(0));
+		} else {
+			if (unroll_var_map.find(unrFunc) == unroll_var_map.end()) {
+
+				expr_ref newVar1(mk_regex_rep_var(), mgr);
+				expr_ref newVar2(mk_regex_rep_var(), mgr);
+				expr_ref concatAst(mk_concat(newVar1, newVar2), mgr);
+				expr_ref newCnt(mk_unroll_bound_var(), mgr);
+				expr_ref newUnrollFunc(mk_unroll(regexInUnr, newCnt), mgr);
+
+				// unroll(r1, t1) = newVar1 . newVar2
+				items.push_back(ctx.mk_eq_atom(unrFunc, concatAst));
+				items.push_back(ctx.mk_eq_atom(mk_strlen(unrFunc), m_autil.mk_add(mk_strlen(newVar1), mk_strlen(newVar2))));
+				items.push_back(ctx.mk_eq_atom(mk_strlen(unrFunc), mk_strlen(newVar1)));
+				items.push_back(ctx.mk_eq_atom(mk_strlen(unrFunc), mk_strlen(newVar2)));
+				// newVar1 \in r1
+				reduce_virtual_regex_in(newVar1, regexInUnr, items);
+				items.push_back(ctx.mk_eq_atom(cntInUnr, m_autil.mk_add(newCnt, mk_int(1))));
+				items.push_back(ctx.mk_eq_atom(newVar2, newUnrollFunc));
+				items.push_back(ctx.mk_eq_atom(mk_strlen(newVar2), mk_strlen(newUnrollFunc)));
+				toAssert = ctx.mk_eq_atom(
+						m_autil.mk_ge(cntInUnr, mk_int(1)),
+						mk_and(items));
+
+				// option 0
+				expr_ref op0(ctx.mk_eq_atom(cntInUnr, mk_int(0)), mgr);
+				expr_ref ast1(ctx.mk_eq_atom(unrFunc, m_strutil.mk_string("")), mgr);
+				expr_ref ast2(ctx.mk_eq_atom(mk_strlen(unrFunc), mk_int(0)), mgr);
+				expr_ref and1(mgr.mk_and(ast1, ast2), mgr);
+
+				// put together
+				toAssert = mgr.mk_and(ctx.mk_eq_atom(op0, and1), toAssert);
+
+				unroll_var_map[unrFunc] = toAssert;
+			} else {
+				toAssert = unroll_var_map[unrFunc];
+			}
+		}
+		m_trail.push_back(toAssert);
+		assert_axiom(toAssert);
+	}
 }
 
 static int computeGCD(int x, int y) {
