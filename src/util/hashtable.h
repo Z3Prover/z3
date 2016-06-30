@@ -581,7 +581,7 @@ public:
     core_hashtable& operator=(core_hashtable const& other) {
         if (this == &other) return *this;
         reset();
-        core_hashtable::iterator i = other.begin(), e = other.end();
+        iterator i = other.begin(), e = other.end();
         for (; i != e; ++i) {
             insert(*i);
         }
