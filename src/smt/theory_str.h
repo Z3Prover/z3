@@ -244,6 +244,7 @@ namespace smt {
         void get_eqc_all_unroll(expr * n, expr * & constStr, std::set<expr*> & unrollFuncSet);
         void process_unroll_eq_const_str(expr * unrollFunc, expr * constStr);
         void unroll_str2reg_constStr(expr * unrollFunc, expr * eqConstStr);
+        void process_concat_eq_unroll(expr * concat, expr * unroll);
 
         void set_up_axioms(expr * ex);
         void handle_equality(expr * lhs, expr * rhs);
@@ -296,8 +297,10 @@ namespace smt {
                 std::map<expr*, expr*> & aliasIndexMap,
                 std::map<expr*, expr*> & var_eq_constStr_map,
                 std::map<expr*, std::map<expr*, int> > & var_eq_concat_map,
+				std::map<expr*, std::map<expr*, int> > & var_eq_unroll_map,
                 std::map<expr*, expr*> & concat_eq_constStr_map,
-                std::map<expr*, std::map<expr*, int> > & concat_eq_concat_map);
+                std::map<expr*, std::map<expr*, int> > & concat_eq_concat_map,
+				std::map<expr*, std::set<expr*> > & unrollGroupMap);
 
         void classify_ast_by_type(expr * node, std::map<expr*, int> & varMap,
         		std::map<expr*, int> & concatMap, std::map<expr*, int> & unrollMap);

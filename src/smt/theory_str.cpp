@@ -3426,34 +3426,104 @@ void theory_str::process_unroll_eq_const_str(expr * unrollFunc, expr * constStr)
 	}
 }
 
+void theory_str::process_concat_eq_unroll(expr * concat, expr * unroll) {
+	// TODO NEXT
+	NOT_IMPLEMENTED_YET();
+	/*
+#ifdef DEBUGLOG
+  __debugPrint(logFile, ">> processConcatEqUnroll: \n");
+  __debugPrint(logFile, "   * [concat] ");
+  printZ3Node(t, concat);
+  __debugPrint(logFile, "\n");
+  __debugPrint(logFile, "   * [unroll] ");
+  printZ3Node(t, unroll);
+  __debugPrint(logFile, "\n\n");
+#endif
+
+  Z3_context ctx = Z3_theory_get_context(t);
+  std::pair<Z3_ast, Z3_ast> key = std::make_pair(concat, unroll);
+  Z3_ast toAssert = NULL;
+
+  if (concatEqUnroll_AstMap.find(key) == concatEqUnroll_AstMap.end()) {
+    Z3_ast arg1 = Z3_get_app_arg(ctx, Z3_to_app(ctx, concat), 0);
+    Z3_ast arg2 = Z3_get_app_arg(ctx, Z3_to_app(ctx, concat), 1);
+    Z3_ast r1 = Z3_get_app_arg(ctx, Z3_to_app(ctx, unroll), 0);
+    Z3_ast t1 = Z3_get_app_arg(ctx, Z3_to_app(ctx, unroll), 1);
+
+    Z3_ast v1 = mk_regexRepVar(t);
+    Z3_ast v2 = mk_regexRepVar(t);
+    Z3_ast v3 = mk_regexRepVar(t);
+    Z3_ast v4 = mk_regexRepVar(t);
+    Z3_ast v5 = mk_regexRepVar(t);
+
+    Z3_ast t2 = mk_unrollBoundVar(t);
+    Z3_ast t3 = mk_unrollBoundVar(t);
+    Z3_ast emptyStr = my_mk_str_value(t, "");
+
+    Z3_ast unroll1 = mk_unroll(t, r1, t2);
+    Z3_ast unroll2 = mk_unroll(t, r1, t3);
+
+    Z3_ast op0 = Z3_mk_eq(ctx, t1, mk_int(ctx, 0));
+    Z3_ast op1 = Z3_mk_ge(ctx, t1, mk_int(ctx, 1));
+
+    std::vector<Z3_ast> op1Items;
+    std::vector<Z3_ast> op2Items;
+
+    op1Items.push_back(Z3_mk_eq(ctx, arg1, emptyStr));
+    op1Items.push_back(Z3_mk_eq(ctx, arg2, emptyStr));
+    op1Items.push_back(Z3_mk_eq(ctx, mk_length(t, arg1), mk_int(ctx, 0)));
+    op1Items.push_back(Z3_mk_eq(ctx, mk_length(t, arg2), mk_int(ctx, 0)));
+    Z3_ast opAnd1 = Z3_mk_eq(ctx, op0, mk_and_fromVector(t, op1Items));
+
+    Z3_ast v1v2 = mk_concat(t, v1, v2);
+    op2Items.push_back(Z3_mk_eq(ctx, arg1, v1v2));
+    op2Items.push_back(Z3_mk_eq(ctx, mk_length(t, arg1), mk_2_add(t, mk_length(t, v1), mk_length(t, v2))));
+    Z3_ast v3v4 = mk_concat(t, v3, v4);
+    op2Items.push_back(Z3_mk_eq(ctx, arg2, v3v4));
+    op2Items.push_back(Z3_mk_eq(ctx, mk_length(t, arg2), mk_2_add(t, mk_length(t, v3), mk_length(t, v4))));
+
+    op2Items.push_back(Z3_mk_eq(ctx, v1, unroll1));
+    op2Items.push_back(Z3_mk_eq(ctx, mk_length(t, v1), mk_length(t, unroll1)));
+    op2Items.push_back(Z3_mk_eq(ctx, v4, unroll2));
+    op2Items.push_back(Z3_mk_eq(ctx, mk_length(t, v4), mk_length(t, unroll2)));
+    Z3_ast v2v3 = mk_concat(t, v2, v3);
+    op2Items.push_back(Z3_mk_eq(ctx, v5, v2v3));
+    reduceVirtualRegexIn(t, v5, r1, op2Items);
+    op2Items.push_back(Z3_mk_eq(ctx, mk_length(t, v5), mk_2_add(t, mk_length(t, v2), mk_length(t, v3))));
+    op2Items.push_back(Z3_mk_eq(ctx, mk_2_add(t, t2, t3), mk_2_sub(t, t1, mk_int(ctx, 1))));
+    Z3_ast opAnd2 = Z3_mk_eq(ctx, op1, mk_and_fromVector(t, op2Items));
+
+    toAssert = mk_2_and(t, opAnd1, opAnd2);
+    concatEqUnroll_AstMap[key] = toAssert;
+  } else {
+    toAssert = concatEqUnroll_AstMap[key];
+  }
+
+  addAxiom(t, toAssert, __LINE__);
+  */
+}
+
 void theory_str::unroll_str2reg_constStr(expr * unrollFunc, expr * eqConstStr) {
 	context & ctx = get_context();
+	ast_manager & m = get_manager();
+
 	expr * str2RegFunc = to_app(unrollFunc)->get_arg(0);
 	expr * strInStr2RegFunc = to_app(str2RegFunc)->get_arg(0);
 	expr * oriCnt = to_app(unrollFunc)->get_arg(1);
 
-	// TODO NEXT
-	NOT_IMPLEMENTED_YET();
-
-	/*
-	Z3_context ctx = Z3_theory_get_context(t);
-	Z3_ast str2RegFunc = Z3_get_app_arg(ctx, Z3_to_app(ctx, unrollFunc), 0);
-	Z3_ast strInStr2RegFunc = Z3_get_app_arg(ctx, Z3_to_app(ctx, str2RegFunc), 0);
-	Z3_ast oriCnt = Z3_get_app_arg(ctx, Z3_to_app(ctx, unrollFunc), 1);
-
-	std::string strValue = getConstStrValue(t, eqConstStr);
-	std::string regStrValue = getConstStrValue(t, strInStr2RegFunc);
+	std::string strValue = m_strutil.get_string_constant_value(eqConstStr);
+	std::string regStrValue = m_strutil.get_string_constant_value(strInStr2RegFunc);
 	int strLen = strValue.length();
 	int regStrLen = regStrValue.length();
-	int cnt = strLen / regStrLen;
+	int cnt = strLen / regStrLen; // TODO prevent DIV/0 on regStrLen
 
-	Z3_ast implyL = Z3_mk_eq(ctx, unrollFunc, eqConstStr);
-	Z3_ast implyR1 = Z3_mk_eq(ctx, oriCnt, mk_int(ctx, cnt));
-	Z3_ast implyR2 = Z3_mk_eq(ctx, mk_length(t, unrollFunc), mk_int(ctx, strLen));
-	Z3_ast toAssert = Z3_mk_implies(ctx, implyL, mk_2_and(t, implyR1, implyR2));
-
-	addAxiom(t, toAssert, __LINE__);
-	*/
+	expr_ref implyL(ctx.mk_eq_atom(unrollFunc, eqConstStr), m);
+	expr_ref implyR1(ctx.mk_eq_atom(oriCnt, mk_int(cnt)), m);
+	expr_ref implyR2(ctx.mk_eq_atom(mk_strlen(unrollFunc), mk_int(strLen)), m);
+	expr_ref axiomRHS(m.mk_and(implyR1, implyR2), m);
+	SASSERT(implyL);
+	SASSERT(axiomRHS);
+	assert_implication(implyL, axiomRHS);
 }
 
 /*
@@ -4628,7 +4698,7 @@ void theory_str::classify_ast_by_type(expr * node, std::map<expr*, int> & varMap
 			if (canskip == 0 && concatMap.find(node) == concatMap.end()) {
 				concatMap[node] = 1;
 			}
-		} else if (false) { // TODO is_unroll()
+		} else if (is_Unroll(aNode)) {
 			// Unroll
 			if (unrollMap.find(node) == unrollMap.end()) {
 				unrollMap[node] = 1;
@@ -4696,9 +4766,12 @@ void theory_str::trace_ctx_dep(std::ofstream & tout,
         std::map<expr*, expr*> & aliasIndexMap,
         std::map<expr*, expr*> & var_eq_constStr_map,
         std::map<expr*, std::map<expr*, int> > & var_eq_concat_map,
+		std::map<expr*, std::map<expr*, int> > & var_eq_unroll_map,
         std::map<expr*, expr*> & concat_eq_constStr_map,
-        std::map<expr*, std::map<expr*, int> > & concat_eq_concat_map) {
+        std::map<expr*, std::map<expr*, int> > & concat_eq_concat_map,
+		std::map<expr*, std::set<expr*> > & unrollGroupMap) {
 #ifdef _TRACE
+	context & ctx = get_context();
     ast_manager & mgr = get_manager();
     {
         tout << "(0) alias: variables" << std::endl;
@@ -4754,24 +4827,21 @@ void theory_str::trace_ctx_dep(std::ofstream & tout,
         }
         tout << std::endl;
     }
-/*// TODO
+
     {
-        __debugPrint(logFile, "(3) var = unrollFunc:\n");
-        std::map<Z3_ast, std::map<Z3_ast, int> >::iterator itor2 = var_eq_unroll_map.begin();
+        tout << "(3) var = unrollFunc:" << std::endl;
+        std::map<expr*, std::map<expr*, int> >::iterator itor2 = var_eq_unroll_map.begin();
         for (; itor2 != var_eq_unroll_map.end(); itor2++) {
-            __debugPrint(logFile, "    * ");
-            printZ3Node(t, itor2->first);
-            __debugPrint(logFile, " = { ");
-            std::map<Z3_ast, int>::iterator i_itor = itor2->second.begin();
+            tout << "    * " << mk_pp(itor2->first, mgr) << " = { ";
+            std::map<expr*, int>::iterator i_itor = itor2->second.begin();
             for (; i_itor != itor2->second.end(); i_itor++) {
-                printZ3Node(t, i_itor->first);
-                __debugPrint(logFile, ", ");
+            	tout << mk_pp(i_itor->first, mgr) << ", ";
             }
-            __debugPrint(logFile, " }\n");
+            tout << " }" << std::endl;
         }
-        __debugPrint(logFile, "\n");
+        tout << std::endl;
     }
-*/
+
     {
         tout << "(4) concat = constStr:" << std::endl;
         std::map<expr*, expr*>::iterator itor3 = concat_eq_constStr_map.begin();
@@ -4802,44 +4872,41 @@ void theory_str::trace_ctx_dep(std::ofstream & tout,
         }
         tout << std::endl;
     }
-/*// TODO
+
     {
-        __debugPrint(logFile, "(6) eq unrolls:\n");
-        std::map<Z3_ast, std::set<Z3_ast> >::iterator itor5 = unrollGroupMap.begin();
+        tout << "(6) eq unrolls:" << std::endl;
+        std::map<expr*, std::set<expr*> >::iterator itor5 = unrollGroupMap.begin();
         for (; itor5 != unrollGroupMap.end(); itor5++) {
-            __debugPrint(logFile, "    * ");
-            std::set<Z3_ast>::iterator i_itor = itor5->second.begin();
+            tout << "    * ";
+            std::set<expr*>::iterator i_itor = itor5->second.begin();
             for (; i_itor != itor5->second.end(); i_itor++) {
-                printZ3Node(t, *i_itor);
-                __debugPrint(logFile, ",  ");
+            	tout << mk_pp(*i_itor, mgr) << ",  ";
             }
-            __debugPrint(logFile, "\n");
+            tout << std::endl;
         }
-        __debugPrint(logFile, "\n");
+        tout << std::endl;
     }
 
     {
-        __debugPrint(logFile, "(7) unroll = concats:\n");
-        std::map<Z3_ast, std::set<Z3_ast> >::iterator itor5 = unrollGroupMap.begin();
+        tout << "(7) unroll = concats:" << std::endl;
+        std::map<expr*, std::set<expr*> >::iterator itor5 = unrollGroupMap.begin();
         for (; itor5 != unrollGroupMap.end(); itor5++) {
-            __debugPrint(logFile, "    * ");
-            Z3_ast unroll = itor5->first;
-            printZ3Node(t, unroll);
-            __debugPrint(logFile, "\n");
-            Z3_ast curr = unroll;
+            tout << "    * ";
+            expr * unroll = itor5->first;
+            tout << mk_pp(unroll, mgr) << std::endl;
+            enode * e_curr = ctx.get_enode(unroll);
+            enode * e_curr_end = e_curr;
             do {
-                if (isConcatFunc(t, curr)) {
-                    __debugPrint(logFile, "      >>> ");
-                    printZ3Node(t, curr);
-                    __debugPrint(logFile, "\n");
+            	app * curr = e_curr->get_owner();
+                if (is_concat(curr)) {
+                    tout << "      >>> " << mk_pp(curr, mgr) << std::endl;
                 }
-                curr = Z3_theory_get_eqc_next(t, curr);
-            }while (curr != unroll);
-            __debugPrint(logFile, "\n");
+                e_curr = e_curr->get_next();
+            } while (e_curr != e_curr_end);
+            tout << std::endl;
         }
-        __debugPrint(logFile, "\n");
+        tout << std::endl;
     }
-    */
 #else
     return;
 #endif // _TRACE
@@ -4889,32 +4956,32 @@ int theory_str::ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr
 	}
 	classify_ast_by_type_in_positive_context(strVarMap, concatMap, unrollMap);
 
-	// TODO unroll()
-	/*
-	std::map<Z3_ast, Z3_ast> aliasUnrollSet;
-	std::map<Z3_ast, int>::iterator unrollItor = unrollMap.begin();
-	for (; unrollItor != unrollMap.end(); unrollItor++) {
-	    if (aliasUnrollSet.find(unrollItor->first) != aliasUnrollSet.end())
-	        continue;
-	    Z3_ast aRoot = NULL;
-	    Z3_ast curr = unrollItor->first;
-	    do {
-	        if (isUnrollFunc(t, curr)) {
-	            if (aRoot == NULL) {
-	                aRoot = curr;
-	            }
-	            aliasUnrollSet[curr] = aRoot;
-	        }
-	        curr = Z3_theory_get_eqc_next(t, curr);
-	    } while (curr != unrollItor->first);
+	std::map<expr*, expr*> aliasUnrollSet;
+	std::map<expr*, int>::iterator unrollItor = unrollMap.begin();
+	for (; unrollItor != unrollMap.end(); ++unrollItor) {
+		if (aliasUnrollSet.find(unrollItor->first) != aliasUnrollSet.end()) {
+			continue;
+		}
+		expr * aRoot = NULL;
+		enode * e_currEqc = ctx.get_enode(unrollItor->first);
+		enode * e_curr = e_currEqc;
+		do {
+			app * curr = e_currEqc->get_owner();
+			if (is_Unroll(curr)) {
+				if (aRoot == NULL) {
+					aRoot = curr;
+				}
+				aliasUnrollSet[curr] = aRoot;
+			}
+			e_currEqc = e_currEqc->get_next();
+		} while (e_currEqc != e_curr);
 	}
 
 	for (unrollItor = unrollMap.begin(); unrollItor != unrollMap.end(); unrollItor++) {
-	    Z3_ast unrFunc = unrollItor->first;
-	    Z3_ast urKey = aliasUnrollSet[unrFunc];
+	    expr * unrFunc = unrollItor->first;
+	    expr * urKey = aliasUnrollSet[unrFunc];
 	    unrollGroupMap[urKey].insert(unrFunc);
 	}
-	*/
 
 	// Step 2: collect alias relation
 	// e.g. suppose we have the equivalence class {x, y, z};
@@ -4999,13 +5066,9 @@ int theory_str::ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr
 	                if (!is_arg0_emptyStr && !is_arg1_emptyStr) {
 	                    var_eq_concat_map[deAliasNode][curr] = 1;
 	                }
-	            }
-	            // TODO: collect unroll functions
-	            /*
-	            else if (isUnrollFunc(t, curr)) {
+	            } else if (is_Unroll(to_app(curr))) {
 	                var_eq_unroll_map[deAliasNode][curr] = 1;
 	            }
-	            */
 
 	            // curr = get_eqc_next(curr)
 	            e_curr = ctx.get_enode(curr);
@@ -5082,12 +5145,13 @@ int theory_str::ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr
 
 	// print some debugging info
 	TRACE("t_str_detail", trace_ctx_dep(tout, aliasIndexMap, var_eq_constStr_map,
-	        var_eq_concat_map, concat_eq_constStr_map, concat_eq_concat_map););
+	        var_eq_concat_map, var_eq_unroll_map,
+			concat_eq_constStr_map, concat_eq_concat_map, unrollGroupMap););
 
-	// TODO compute Contains
-	/*
+	/*// TODO computeContains()
 	if (containPairBoolMap.size() > 0) {
-		computeContains(t, aliasIndexMap, concats_eq_Index_map, var_eq_constStr_map, concat_eq_constStr_map, var_eq_concat_map);
+		NOT_IMPLEMENTED_YET();
+		compute_contains(aliasIndexMap, concats_eq_Index_map, var_eq_constStr_map, concat_eq_constStr_map, var_eq_concat_map);
 	}
 	*/
 
@@ -5638,17 +5702,14 @@ final_check_status theory_str::final_check_eh() {
         );
     }
 
-    // TODO process_concat_eq_unroll()
-    /*
     for (std::map<expr*, std::set<expr*> >::iterator fvIt2 = concatFreeArgsEqUnrollsMap.begin();
     		fvIt2 != concatFreeArgsEqUnrollsMap.end(); fvIt2++) {
     	expr * concat = fvIt2->first;
     	for (std::set<expr*>::iterator urItor = fvIt2->second.begin(); urItor != fvIt2->second.end(); urItor++) {
-    		Z3_ast unroll = *urItor;
-    		processConcatEqUnroll(concat, unroll);
+    		expr * unroll = *urItor;
+    		process_concat_eq_unroll(concat, unroll);
     	}
     }
-    */
 
     // --------
     // experimental free variable assignment - begin
@@ -5675,12 +5736,13 @@ final_check_status theory_str::final_check_eh() {
     }
     // experimental free variable assignment - end
 
-    // TODO more unroll stuff
-    /*
+    // more unroll stuff
     for (std::map<expr*, std::set<expr*> >::iterator fvIt1 = fv_unrolls_map.begin();
     		fvIt1 != fv_unrolls_map.end(); fvIt1++) {
-    	Z3_ast var = fvIt1->first;
+    	expr * var = fvIt1->first;
     	fSimpUnroll.clear();
+    	NOT_IMPLEMENTED_YET(); // TODO complete this unroll block
+    	/*
     	get_eqc_simpleUnroll(t, var, constValue, fSimpUnroll);
     	if (fSimpUnroll.size() == 0) {
     		genAssignUnrollReg(t, fv_unrolls_map[var]);
@@ -5690,8 +5752,8 @@ final_check_status theory_str::final_check_eh() {
     			addAxiom(t, toAssert, __LINE__);
     		}
     	}
+    	*/
     }
-    */
 
     if (opt_VerifyFinalCheckProgress && !finalCheckProgressIndicator) {
         TRACE("t_str", tout << "BUG: no progress in final check, giving up!!" << std::endl;);
