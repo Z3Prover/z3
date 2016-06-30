@@ -3440,80 +3440,66 @@ void theory_str::process_concat_eq_unroll(expr * concat, expr * unroll) {
 
 	TRACE("t_str_detail", tout << "concat = " << mk_pp(concat, mgr) << ", unroll = " << mk_pp(unroll, mgr) << std::endl;);
 
-	// TODO NEXT
-	NOT_IMPLEMENTED_YET();
-	/*
-#ifdef DEBUGLOG
-  __debugPrint(logFile, ">> processConcatEqUnroll: \n");
-  __debugPrint(logFile, "   * [concat] ");
-  printZ3Node(t, concat);
-  __debugPrint(logFile, "\n");
-  __debugPrint(logFile, "   * [unroll] ");
-  printZ3Node(t, unroll);
-  __debugPrint(logFile, "\n\n");
-#endif
+	std::pair<expr*, expr*> key = std::make_pair(concat, unroll);
+	expr_ref toAssert(mgr);
 
-  Z3_context ctx = Z3_theory_get_context(t);
-  std::pair<Z3_ast, Z3_ast> key = std::make_pair(concat, unroll);
-  Z3_ast toAssert = NULL;
+	if (concat_eq_unroll_ast_map.find(key) == concat_eq_unroll_ast_map.end()) {
+		expr_ref arg1(to_app(concat)->get_arg(0), mgr);
+		expr_ref arg2(to_app(concat)->get_arg(1), mgr);
+		expr_ref r1(to_app(unroll)->get_arg(0), mgr);
+		expr_ref t1(to_app(unroll)->get_arg(1), mgr);
 
-  if (concatEqUnroll_AstMap.find(key) == concatEqUnroll_AstMap.end()) {
-    Z3_ast arg1 = Z3_get_app_arg(ctx, Z3_to_app(ctx, concat), 0);
-    Z3_ast arg2 = Z3_get_app_arg(ctx, Z3_to_app(ctx, concat), 1);
-    Z3_ast r1 = Z3_get_app_arg(ctx, Z3_to_app(ctx, unroll), 0);
-    Z3_ast t1 = Z3_get_app_arg(ctx, Z3_to_app(ctx, unroll), 1);
+		expr_ref v1(mk_regex_rep_var(), mgr);
+		expr_ref v2(mk_regex_rep_var(), mgr);
+		expr_ref v3(mk_regex_rep_var(), mgr);
+		expr_ref v4(mk_regex_rep_var(), mgr);
+		expr_ref v5(mk_regex_rep_var(), mgr);
 
-    Z3_ast v1 = mk_regexRepVar(t);
-    Z3_ast v2 = mk_regexRepVar(t);
-    Z3_ast v3 = mk_regexRepVar(t);
-    Z3_ast v4 = mk_regexRepVar(t);
-    Z3_ast v5 = mk_regexRepVar(t);
+		expr_ref t2(mk_unroll_bound_var(), mgr);
+		expr_ref t3(mk_unroll_bound_var(), mgr);
+		expr_ref emptyStr(m_strutil.mk_string(""), mgr);
 
-    Z3_ast t2 = mk_unrollBoundVar(t);
-    Z3_ast t3 = mk_unrollBoundVar(t);
-    Z3_ast emptyStr = my_mk_str_value(t, "");
+		expr_ref unroll1(mk_unroll(r1, t2), mgr);
+		expr_ref unroll2(mk_unroll(r1, t3), mgr);
 
-    Z3_ast unroll1 = mk_unroll(t, r1, t2);
-    Z3_ast unroll2 = mk_unroll(t, r1, t3);
+		expr_ref op0(ctx.mk_eq_atom(t1, mk_int(0)), mgr);
+		expr_ref op1(m_autil.mk_ge(t1, mk_int(1)), mgr);
 
-    Z3_ast op0 = Z3_mk_eq(ctx, t1, mk_int(ctx, 0));
-    Z3_ast op1 = Z3_mk_ge(ctx, t1, mk_int(ctx, 1));
+		expr_ref_vector op1Items(mgr);
+		expr_ref_vector op2Items(mgr);
 
-    std::vector<Z3_ast> op1Items;
-    std::vector<Z3_ast> op2Items;
+		op1Items.push_back(ctx.mk_eq_atom(arg1, emptyStr));
+		op1Items.push_back(ctx.mk_eq_atom(arg2, emptyStr));
+		op1Items.push_back(ctx.mk_eq_atom(mk_strlen(arg1), mk_int(0)));
+		op1Items.push_back(ctx.mk_eq_atom(mk_strlen(arg2), mk_int(0)));
+		expr_ref opAnd1(ctx.mk_eq_atom(op0, mk_and(op1Items)), mgr);
 
-    op1Items.push_back(Z3_mk_eq(ctx, arg1, emptyStr));
-    op1Items.push_back(Z3_mk_eq(ctx, arg2, emptyStr));
-    op1Items.push_back(Z3_mk_eq(ctx, mk_length(t, arg1), mk_int(ctx, 0)));
-    op1Items.push_back(Z3_mk_eq(ctx, mk_length(t, arg2), mk_int(ctx, 0)));
-    Z3_ast opAnd1 = Z3_mk_eq(ctx, op0, mk_and_fromVector(t, op1Items));
+		expr_ref v1v2(mk_concat(v1, v2), mgr);
+		op2Items.push_back(ctx.mk_eq_atom(arg1, v1v2));
+		op2Items.push_back(ctx.mk_eq_atom(mk_strlen(arg1), m_autil.mk_add(mk_strlen(v1), mk_strlen(v2))));
+		expr_ref v3v4(mk_concat(v3, v4), mgr);
+		op2Items.push_back(ctx.mk_eq_atom(arg2, v3v4));
+		op2Items.push_back(ctx.mk_eq_atom(mk_strlen(arg2), m_autil.mk_add(mk_strlen(v3), mk_strlen(v4))));
 
-    Z3_ast v1v2 = mk_concat(t, v1, v2);
-    op2Items.push_back(Z3_mk_eq(ctx, arg1, v1v2));
-    op2Items.push_back(Z3_mk_eq(ctx, mk_length(t, arg1), mk_2_add(t, mk_length(t, v1), mk_length(t, v2))));
-    Z3_ast v3v4 = mk_concat(t, v3, v4);
-    op2Items.push_back(Z3_mk_eq(ctx, arg2, v3v4));
-    op2Items.push_back(Z3_mk_eq(ctx, mk_length(t, arg2), mk_2_add(t, mk_length(t, v3), mk_length(t, v4))));
+		op2Items.push_back(ctx.mk_eq_atom(v1, unroll1));
+		op2Items.push_back(ctx.mk_eq_atom(mk_strlen(v1), mk_strlen(unroll1)));
+		op2Items.push_back(ctx.mk_eq_atom(v4, unroll2));
+		op2Items.push_back(ctx.mk_eq_atom(mk_strlen(v4), mk_strlen(unroll2)));
+		expr_ref v2v3(mk_concat(v2, v3), mgr);
+		op2Items.push_back(ctx.mk_eq_atom(v5, v2v3));
+		reduce_virtual_regex_in(v5, r1, op2Items);
+		op2Items.push_back(ctx.mk_eq_atom(mk_strlen(v5), m_autil.mk_add(mk_strlen(v2), mk_strlen(v3))));
+		op2Items.push_back(ctx.mk_eq_atom(m_autil.mk_add(t2, t3), m_autil.mk_add(t1, mk_int(-1))));
+		expr_ref opAnd2(ctx.mk_eq_atom(op1, mk_and(op2Items)), mgr);
 
-    op2Items.push_back(Z3_mk_eq(ctx, v1, unroll1));
-    op2Items.push_back(Z3_mk_eq(ctx, mk_length(t, v1), mk_length(t, unroll1)));
-    op2Items.push_back(Z3_mk_eq(ctx, v4, unroll2));
-    op2Items.push_back(Z3_mk_eq(ctx, mk_length(t, v4), mk_length(t, unroll2)));
-    Z3_ast v2v3 = mk_concat(t, v2, v3);
-    op2Items.push_back(Z3_mk_eq(ctx, v5, v2v3));
-    reduceVirtualRegexIn(t, v5, r1, op2Items);
-    op2Items.push_back(Z3_mk_eq(ctx, mk_length(t, v5), mk_2_add(t, mk_length(t, v2), mk_length(t, v3))));
-    op2Items.push_back(Z3_mk_eq(ctx, mk_2_add(t, t2, t3), mk_2_sub(t, t1, mk_int(ctx, 1))));
-    Z3_ast opAnd2 = Z3_mk_eq(ctx, op1, mk_and_fromVector(t, op2Items));
+		toAssert = mgr.mk_and(opAnd1, opAnd2);
+		m_trail.push_back(toAssert);
+		concat_eq_unroll_ast_map[key] = toAssert;
+	} else {
+		toAssert = concat_eq_unroll_ast_map[key];
+	}
 
-    toAssert = mk_2_and(t, opAnd1, opAnd2);
-    concatEqUnroll_AstMap[key] = toAssert;
-  } else {
-    toAssert = concatEqUnroll_AstMap[key];
-  }
-
-  addAxiom(t, toAssert, __LINE__);
-  */
+	assert_axiom(toAssert);
 }
 
 void theory_str::unroll_str2reg_constStr(expr * unrollFunc, expr * eqConstStr) {

@@ -163,6 +163,7 @@ namespace smt {
         // we would need to modify the allocator so we pass in ast_manager
         std::map<expr*, std::map<std::set<expr*>, ptr_vector<expr> > > unroll_tries_map;
         std::map<expr*, expr*> unroll_var_map;
+        std::map<std::pair<expr*, expr*>, expr*> concat_eq_unroll_ast_map;
 
         char * char_set;
         std::map<char, int> charSetLookupTable;
