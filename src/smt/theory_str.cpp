@@ -32,6 +32,7 @@ theory_str::theory_str(ast_manager & m):
         opt_AggressiveValueTesting(true),
         opt_EagerStringConstantLengthAssertions(true),
         opt_VerifyFinalCheckProgress(true),
+		opt_LCMUnrollStep(2),
         /* Internal setup */
         search_started(false),
         m_autil(m),
@@ -456,6 +457,10 @@ app * theory_str::mk_int_var(std::string name) {
 
 app * theory_str::mk_unroll_bound_var() {
 	return mk_int_var("unroll");
+}
+
+app * theory_str::mk_unroll_test_var() {
+	return mk_str_var("unrollTest"); // was uRt
 }
 
 app * theory_str::mk_str_var(std::string name) {
@@ -6093,8 +6098,116 @@ expr * theory_str::gen_assign_unroll_Str2Reg(expr * n, std::set<expr*> & unrolls
 }
 
 expr * theory_str::gen_unroll_conditional_options(expr * var, std::set<expr*> & unrolls, std::string lcmStr) {
-	// TODO NEXT
-	NOT_IMPLEMENTED_YET();
+	context & ctx = get_context();
+	ast_manager & mgr = get_manager();
+
+	int dist = opt_LCMUnrollStep;
+	expr_ref_vector litems(mgr);
+	expr_ref moreAst(m_strutil.mk_string("more"), mgr);
+	for (std::set<expr*>::iterator itor = unrolls.begin(); itor != unrolls.end(); itor++) {
+		expr_ref item(ctx.mk_eq_atom(var, *itor), mgr);
+		TRACE("t_str_detail", tout << "considering unroll " << mk_pp(item, mgr) << std::endl;);
+		litems.push_back(item);
+	}
+
+	if (unroll_tries_map[var][unrolls].size() == 0) {
+		unroll_tries_map[var][unrolls].push_back(mk_unroll_test_var());
+	}
+
+	int tries = unroll_tries_map[var][unrolls].size();
+	for (int i = 0; i < tries; i++) {
+		expr * tester = unroll_tries_map[var][unrolls][i];
+		bool testerHasValue = false;
+		expr * testerVal = get_eqc_value(tester, testerHasValue);
+		if (!testerHasValue) {
+			// generate make-up assertion
+			int l = i * dist;
+			int h = (i + 1) * dist;
+			expr_ref lImp(mk_and(litems), mgr);
+			expr_ref rImp(gen_unroll_assign(var, lcmStr, tester, l, h), mgr);
+
+			SASSERT(lImp);
+			TRACE("t_str_detail", tout << "lImp = " << mk_pp(lImp, mgr) << std::endl;);
+			SASSERT(rImp);
+			TRACE("t_str_detail", tout << "rImp = " << mk_pp(rImp, mgr) << std::endl;);
+
+			expr_ref toAssert(mgr.mk_or(mgr.mk_not(lImp), rImp), mgr);
+			SASSERT(toAssert);
+			TRACE("t_str_detail", tout << "Making up assignments for variable which is equal to unbounded Unroll" << std::endl;);
+			m_trail.push_back(toAssert);
+			return toAssert;
+
+			// insert [tester = "more"] to litems so that the implyL for next tester is correct
+			litems.push_back(ctx.mk_eq_atom(tester, moreAst));
+		} else {
+			std::string testerStr = m_strutil.get_string_constant_value(testerVal);
+			TRACE("t_str_detail", tout << "Tester [" << mk_pp(tester, mgr) << "] = " << testerStr << std::endl;);
+			if (testerStr == "more") {
+				litems.push_back(ctx.mk_eq_atom(tester, moreAst));
+			}
+		}
+	}
+	expr * tester = mk_unroll_test_var();
+	unroll_tries_map[var][unrolls].push_back(tester);
+	int l = tries * dist;
+	int h = (tries + 1) * dist;
+	expr_ref lImp(mk_and(litems), mgr);
+	expr_ref rImp(gen_unroll_assign(var, lcmStr, tester, l, h), mgr);
+	SASSERT(lImp);
+	SASSERT(rImp);
+	expr_ref toAssert(mgr.mk_or(mgr.mk_not(lImp), rImp), mgr);
+	SASSERT(toAssert);
+	TRACE("t_str_detail", tout << "Generating assignment for variable which is equal to unbounded Unroll" << std::endl;);
+	m_trail.push_back(toAssert);
+	return toAssert;
+}
+
+expr * theory_str::gen_unroll_assign(expr * var, std::string lcmStr, expr * testerVar, int l, int h) {
+	context & ctx = get_context();
+	ast_manager & mgr = get_manager();
+
+	TRACE("t_str_detail", tout << "entry: var = " << mk_pp(var, mgr) << ", lcmStr = " << lcmStr
+			<< ", l = " << l << ", h = " << h << std::endl;);
+
+	expr_ref_vector orItems(mgr);
+	expr_ref_vector andItems(mgr);
+
+	for (int i = l; i < h; i++) {
+		std::string iStr = int_to_string(i);
+		expr_ref testerEqAst(ctx.mk_eq_atom(testerVar, m_strutil.mk_string(iStr)), mgr);
+		TRACE("t_str_detail", tout << "testerEqAst = " << mk_pp(testerEqAst, mgr) << std::endl;);
+		orItems.push_back(testerEqAst);
+		std::string unrollStrInstance = get_unrolled_string(lcmStr, i);
+
+		expr_ref x1(ctx.mk_eq_atom(testerEqAst, ctx.mk_eq_atom(var, m_strutil.mk_string(unrollStrInstance))), mgr);
+		TRACE("t_str_detail", tout << "x1 = " << mk_pp(x1, mgr) << std::endl;);
+		andItems.push_back(x1);
+
+		expr_ref x2(ctx.mk_eq_atom(testerEqAst, ctx.mk_eq_atom(mk_strlen(var), mk_int(i * lcmStr.length()))), mgr);
+		TRACE("t_str_detail", tout << "x2 = " << mk_pp(x2, mgr) << std::endl;);
+		andItems.push_back(x2);
+	}
+	expr_ref testerEqMore(ctx.mk_eq_atom(testerVar, m_strutil.mk_string("more")), mgr);
+	TRACE("t_str_detail", tout << "testerEqMore = " << mk_pp(testerEqMore, mgr) << std::endl;);
+	orItems.push_back(testerEqMore);
+	int nextLowerLenBound = h * lcmStr.length();
+	expr_ref more2(ctx.mk_eq_atom(testerEqMore,
+			//Z3_mk_ge(mk_length(t, var), mk_int(ctx, nextLowerLenBound))
+			m_autil.mk_ge(m_autil.mk_add(mk_strlen(var), mk_int(-1 * nextLowerLenBound)), mk_int(0))
+			), mgr);
+	TRACE("t_str_detail", tout << "more2 = " << mk_pp(more2, mgr) << std::endl;);
+	andItems.push_back(more2);
+
+	expr_ref finalOR(mgr.mk_or(orItems.size(), orItems.c_ptr()), mgr);
+	TRACE("t_str_detail", tout << "finalOR = " << mk_pp(finalOR, mgr) << std::endl;);
+	andItems.push_back(mk_or(orItems));
+
+	expr_ref finalAND(mgr.mk_and(andItems.size(), andItems.c_ptr()), mgr);
+	TRACE("t_str_detail", tout << "finalAND = " << mk_pp(finalAND, mgr) << std::endl;);
+
+	// doing the following avoids a segmentation fault
+	m_trail.push_back(finalAND);
+	return finalAND;
 }
 
 expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tries) {

@@ -89,6 +89,11 @@ namespace smt {
          */
         bool opt_VerifyFinalCheckProgress;
 
+        /*
+         * This constant controls how eagerly we expand unrolls in unbounded regex membership tests.
+         */
+        int opt_LCMUnrollStep;
+
         bool search_started;
         arith_util m_autil;
         str_util m_strutil;
@@ -153,6 +158,10 @@ namespace smt {
 
         std::map<expr*, int_vector> val_range_map;
 
+        // This can't be an expr_ref_vector because the constructor is wrong,
+        // we would need to modify the allocator so we pass in ast_manager
+        std::map<expr*, std::map<std::set<expr*>, ptr_vector<expr> > > unroll_tries_map;
+
         char * char_set;
         std::map<char, int> charSetLookupTable;
         int charSetSize;
@@ -184,6 +193,7 @@ namespace smt {
         expr * mk_internal_valTest_var(expr * node, int len, int vTries);
         app * mk_regex_rep_var();
         app * mk_unroll_bound_var();
+        app * mk_unroll_test_var();
 
         bool is_concat(app const * a) const { return a->is_app_of(get_id(), OP_STRCAT); }
         bool is_concat(enode const * n) const { return is_concat(n->get_owner()); }
@@ -335,6 +345,7 @@ namespace smt {
         void gen_assign_unroll_reg(std::set<expr*> & unrolls);
         expr * gen_assign_unroll_Str2Reg(expr * n, std::set<expr*> & unrolls);
         expr * gen_unroll_conditional_options(expr * var, std::set<expr*> & unrolls, std::string lcmStr);
+        expr * gen_unroll_assign(expr * var, std::string lcmStr, expr * testerVar, int l, int h);
 
         void dump_assignments();
         void initialize_charset();
