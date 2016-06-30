@@ -6406,7 +6406,7 @@ void theory_str::get_eqc_allUnroll(expr * n, expr * &constStr, std::set<expr*> &
   do {
     if (is_string(to_app(curr))) {
       constStr = curr;
-    } else if (false) /*(td->Unroll == Z3_get_app_decl(ctx, Z3_to_app(ctx, curr)))*/ { // TODO
+    } else if (is_Unroll(to_app(curr))) {
       if (unrollFuncSet.find(curr) == unrollFuncSet.end()) {
         unrollFuncSet.insert(curr);
       }
