@@ -241,7 +241,6 @@ namespace smt {
         void instantiate_axiom_RegexIn(enode * e);
         app * mk_unroll(expr * n, expr * bound);
 
-        void get_eqc_all_unroll(expr * n, expr * & constStr, std::set<expr*> & unrollFuncSet);
         void process_unroll_eq_const_str(expr * unrollFunc, expr * constStr);
         void unroll_str2reg_constStr(expr * unrollFunc, expr * eqConstStr);
         void process_concat_eq_unroll(expr * concat, expr * unroll);
@@ -332,6 +331,10 @@ namespace smt {
         // strRegex
 
         void get_eqc_allUnroll(expr * n, expr * &constStr, std::set<expr*> & unrollFuncSet);
+        void get_eqc_simpleUnroll(expr * n, expr * &constStr, std::set<expr*> & unrollFuncSet);
+        void gen_assign_unroll_reg(std::set<expr*> & unrolls);
+        expr * gen_assign_unroll_Str2Reg(expr * n, std::set<expr*> & unrolls);
+        expr * gen_unroll_conditional_options(expr * var, std::set<expr*> & unrolls, std::string lcmStr);
 
         void dump_assignments();
         void initialize_charset();

@@ -3550,26 +3550,6 @@ expr * theory_str::get_eqc_value(expr * n, bool & hasEqcValue) {
 	return n;
 }
 
-void theory_str::get_eqc_all_unroll(expr * n, expr * & constStr, std::set<expr*> & unrollFuncSet) {
-	context & ctx = get_context();
-
-	constStr = NULL;
-	unrollFuncSet.clear();
-
-	// iterate over the eqc of 'n'
-	enode * n_enode = ctx.get_enode(n);
-	enode * e_curr = n_enode;
-	do {
-		app * curr = e_curr->get_owner();
-		if (m_strutil.is_string(curr)) {
-			constStr = curr;
-		} else if (is_Unroll(curr)) {
-			unrollFuncSet.insert(curr);
-		}
-		e_curr = e_curr->get_next();
-	} while (e_curr != n_enode);
-}
-
 // from Z3: theory_seq.cpp
 
 static theory_mi_arith* get_th_arith(context& ctx, theory_id afid, expr* e) {
@@ -4399,10 +4379,10 @@ void theory_str::handle_equality(expr * lhs, expr * rhs) {
     */
     expr * nn1EqConst = NULL;
     std::set<expr*> nn1EqUnrollFuncs;
-    get_eqc_all_unroll(lhs, nn1EqConst, nn1EqUnrollFuncs);
+    get_eqc_allUnroll(lhs, nn1EqConst, nn1EqUnrollFuncs);
     expr * nn2EqConst = NULL;
     std::set<expr*> nn2EqUnrollFuncs;
-    get_eqc_all_unroll(rhs, nn2EqConst, nn2EqUnrollFuncs);
+    get_eqc_allUnroll(rhs, nn2EqConst, nn2EqUnrollFuncs);
 
     if (nn2EqConst != NULL) {
     	for (std::set<expr*>::iterator itor1 = nn1EqUnrollFuncs.begin(); itor1 != nn1EqUnrollFuncs.end(); itor1++) {
@@ -5741,18 +5721,15 @@ final_check_status theory_str::final_check_eh() {
     		fvIt1 != fv_unrolls_map.end(); fvIt1++) {
     	expr * var = fvIt1->first;
     	fSimpUnroll.clear();
-    	NOT_IMPLEMENTED_YET(); // TODO complete this unroll block
-    	/*
-    	get_eqc_simpleUnroll(t, var, constValue, fSimpUnroll);
+    	get_eqc_simpleUnroll(var, constValue, fSimpUnroll);
     	if (fSimpUnroll.size() == 0) {
-    		genAssignUnrollReg(t, fv_unrolls_map[var]);
+    		gen_assign_unroll_reg(fv_unrolls_map[var]);
     	} else {
-    		Z3_ast toAssert = genAssignUnrollStr2Reg(t, var, fSimpUnroll);
+    		expr * toAssert = gen_assign_unroll_Str2Reg(var, fSimpUnroll);
     		if (toAssert != NULL) {
-    			addAxiom(t, toAssert, __LINE__);
+    			assert_axiom(toAssert);
     		}
     	}
-    	*/
     }
 
     if (opt_VerifyFinalCheckProgress && !finalCheckProgressIndicator) {
@@ -6035,6 +6012,89 @@ expr * theory_str::gen_free_var_options(expr * freeVar, expr * len_indicator,
 
 		return NULL;
 	}
+}
+
+void theory_str::gen_assign_unroll_reg(std::set<expr*> & unrolls) {
+	// TODO
+	NOT_IMPLEMENTED_YET();
+}
+
+static int computeGCD(int x, int y) {
+	if (x == 0) {
+		return y;
+	}
+	while (y != 0) {
+		if (x > y) {
+			x = x - y;
+		} else {
+			y = y - x;
+		}
+	}
+	return x;
+}
+
+static int computeLCM(int a, int b) {
+	int temp = computeGCD(a, b);
+	return temp ? (a / temp * b) : 0;
+}
+
+static std::string get_unrolled_string(std::string core, int count) {
+	std::string res = "";
+	for (int i = 0; i < count; i++) {
+		res += core;
+	}
+	return res;
+}
+
+expr * theory_str::gen_assign_unroll_Str2Reg(expr * n, std::set<expr*> & unrolls) {
+	context & ctx = get_context();
+	ast_manager & mgr = get_manager();
+
+	int lcm = 1;
+	int coreValueCount = 0;
+	expr * oneUnroll = NULL;
+	std::string oneCoreStr = "";
+	for (std::set<expr*>::iterator itor = unrolls.begin(); itor != unrolls.end(); itor++) {
+		expr * str2RegFunc = to_app(*itor)->get_arg(0);
+		expr * coreVal = to_app(str2RegFunc)->get_arg(0);
+		std::string coreStr = m_strutil.get_string_constant_value(coreVal);
+		if (oneUnroll == NULL) {
+			oneUnroll = *itor;
+			oneCoreStr = coreStr;
+		}
+		coreValueCount++;
+		int core1Len = coreStr.length();
+		lcm = computeLCM(lcm, core1Len);
+	}
+	//
+	bool canHaveNonEmptyAssign = true;
+	expr_ref_vector litems(mgr);
+	std::string lcmStr = get_unrolled_string(oneCoreStr, (lcm / oneCoreStr.length()));
+	for (std::set<expr*>::iterator itor = unrolls.begin(); itor != unrolls.end(); itor++) {
+		expr * str2RegFunc = to_app(*itor)->get_arg(0);
+		expr * coreVal = to_app(str2RegFunc)->get_arg(0);
+		std::string coreStr = m_strutil.get_string_constant_value(coreVal);
+		int core1Len = coreStr.length();
+		std::string uStr = get_unrolled_string(coreStr, (lcm / core1Len));
+		if (uStr != lcmStr) {
+			canHaveNonEmptyAssign = false;
+		}
+		litems.push_back(ctx.mk_eq_atom(n, *itor));
+	}
+
+	if (canHaveNonEmptyAssign) {
+		return gen_unroll_conditional_options(n, unrolls, lcmStr);
+	} else {
+		expr * implyL = mk_and(litems);
+		expr * implyR = ctx.mk_eq_atom(n, m_strutil.mk_string(""));
+		// want to return (implyL -> implyR)
+		return mgr.mk_or(mgr.mk_not(implyL), implyR);
+	}
+}
+
+expr * theory_str::gen_unroll_conditional_options(expr * var, std::set<expr*> & unrolls, std::string lcmStr) {
+	// TODO NEXT
+	NOT_IMPLEMENTED_YET();
 }
 
 expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tries) {
@@ -6415,6 +6475,30 @@ void theory_str::get_eqc_allUnroll(expr * n, expr * &constStr, std::set<expr*> &
     curr = e_curr->get_next()->get_owner();
     // curr = get_eqc_next(t, curr);
   } while (curr != n);
+}
+
+// Collect simple Unroll functions (whose core is Str2Reg) and constant strings in the EQC of n.
+void theory_str::get_eqc_simpleUnroll(expr * n, expr * &constStr, std::set<expr*> & unrollFuncSet) {
+	constStr = NULL;
+	unrollFuncSet.clear();
+	context & ctx = get_context();
+
+	expr * curr = n;
+	do {
+		if (is_string(to_app(curr))) {
+			constStr = curr;
+		} else if (is_Unroll(to_app(curr))) {
+			expr * core = to_app(curr)->get_arg(0);
+			if (is_Str2Reg(to_app(core))) {
+				if (unrollFuncSet.find(curr) == unrollFuncSet.end()) {
+					unrollFuncSet.insert(curr);
+				}
+			}
+		}
+		enode * e_curr = ctx.get_enode(curr);
+		curr = e_curr->get_next()->get_owner();
+		// curr = get_eqc_next(t, curr);
+	} while (curr != n);
 }
 
 void theory_str::init_model(model_generator & mg) {
