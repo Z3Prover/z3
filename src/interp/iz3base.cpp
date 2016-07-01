@@ -280,6 +280,10 @@ bool iz3base::is_sat(const std::vector<ast> &q, ast &_proof, std::vector<ast> &v
     else if(vars.size()) {
         model_ref(_m);
         s.get_model(_m);
+        if (!_m.get()) {
+            SASSERT(l_undef == res);
+            throw iz3_exception("interpolation cannot proceed without a model");
+        }
         for(unsigned i = 0; i < vars.size(); i++){
             expr_ref r(m());
             _m.get()->eval(to_expr(vars[i].raw()),r,true);
