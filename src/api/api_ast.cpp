@@ -335,7 +335,7 @@ extern "C" {
     Z3_bool Z3_API Z3_is_app(Z3_context c, Z3_ast a) {
         LOG_Z3_is_app(c, a);
         RESET_ERROR_CODE();
-        return is_app(reinterpret_cast<ast*>(a));
+        return a != 0 && is_app(reinterpret_cast<ast*>(a));
     }
 
     Z3_app Z3_API Z3_to_app(Z3_context c, Z3_ast a) {

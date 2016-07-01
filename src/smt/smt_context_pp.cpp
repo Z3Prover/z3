@@ -39,6 +39,8 @@ namespace smt {
             return out << "CANCELED";
         case NUM_CONFLICTS:
             return out << "NUM_CONFLICTS";
+        case RESOURCE_LIMIT:
+            return out << "RESOURCE_LIMIT";
         case THEORY:
             if (!m_incomplete_theories.empty()) {
                 ptr_vector<theory>::const_iterator it  = m_incomplete_theories.begin();
@@ -78,6 +80,7 @@ namespace smt {
             r += "))";
             break;
         }
+        case RESOURCE_LIMIT: r = "(resource limits reached)"; break;
         case QUANTIFIERS: r = "(incomplete quantifiers)"; break;
         case UNKNOWN: r = m_unknown; break;
         }

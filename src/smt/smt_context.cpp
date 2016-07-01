@@ -2996,6 +2996,8 @@ namespace smt {
             // in a consistent context.
             if (inconsistent())
                 return; 
+            if (get_cancel_flag())
+                return;
             push_scope();
             for (unsigned i = 0; i < num_assumptions; i++) {
                 expr * curr_assumption = assumptions[i];
@@ -3337,6 +3339,7 @@ namespace smt {
                     break; 
                 }
                 if (cmr == quantifier_manager::UNKNOWN) {
+                    IF_VERBOSE(1, verbose_stream() << "(smt.giveup quantifiers)\n";);
                     // giving up
                     m_last_search_failure = QUANTIFIERS;
                     status                = l_undef;
@@ -3487,6 +3490,7 @@ namespace smt {
             }
 
             if (resource_limits_exceeded() && !inconsistent()) {
+                m_last_search_failure = RESOURCE_LIMIT;
                 return l_undef;
             }
         }
@@ -4109,7 +4113,7 @@ namespace smt {
               m_fingerprints.display(tout); 
               );
         failure fl = get_last_search_failure();
-        if (fl == MEMOUT || fl == CANCELED || fl == TIMEOUT || fl == NUM_CONFLICTS) {
+        if (fl == MEMOUT || fl == CANCELED || fl == TIMEOUT || fl == NUM_CONFLICTS || fl == RESOURCE_LIMIT) {
             return;
         }
 

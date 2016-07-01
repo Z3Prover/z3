@@ -112,7 +112,6 @@ namespace smt {
         if (!m_curr_model->eval(q->get_expr(), tmp, true)) {
             return;
         }
-        //std::cout << tmp << "\n";
         TRACE("model_checker", tout << "q after applying interpretation:\n" << mk_ismt2_pp(tmp, m) << "\n";);        
         ptr_buffer<expr> subst_args;
         unsigned num_decls = q->get_num_decls();
@@ -373,7 +372,8 @@ namespace smt {
             return true;
 
         if (m_iteration_idx >= m_params.m_mbqi_max_iterations) {
-            IF_VERBOSE(10, verbose_stream() << "(smt.mbqi \"max instantiations reached \")" << m_iteration_idx << "\n";);
+            IF_VERBOSE(1, verbose_stream() << "(smt.mbqi \"max instantiations " << m_iteration_idx << " reached\")\n";);
+            m_context->set_reason_unknown("max mbqi instantiations reached");
             return false;
         }
 

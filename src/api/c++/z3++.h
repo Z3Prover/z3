@@ -802,6 +802,9 @@ namespace z3 {
         friend expr implies(expr const & a, bool b);
         friend expr implies(bool a, expr const & b);
 
+        friend expr or(expr_vector const& args);
+        friend expr and(expr_vector const& args);
+
         friend expr ite(expr const & c, expr const & t, expr const & e);
 
         friend expr distinct(expr_vector const& args);
@@ -946,6 +949,7 @@ namespace z3 {
     }
     inline expr implies(expr const & a, bool b) { return implies(a, a.ctx().bool_val(b)); }
     inline expr implies(bool a, expr const & b) { return implies(b.ctx().bool_val(a), b); }
+
 
     inline expr pw(expr const & a, expr const & b) {
         assert(a.is_arith() && b.is_arith());
@@ -1496,6 +1500,20 @@ namespace z3 {
         ctx.check_error();
         return expr(ctx, r);
     }
+
+    inline expr or(expr_vector const& args) { 
+        array<Z3_ast> _args(args);
+        Z3_ast r = Z3_mk_or(args.ctx(), _args.size(), _args.ptr());
+        args.check_error();
+        return expr(args.ctx(), r);
+    }
+    inline expr and(expr_vector const& args) {
+        array<Z3_ast> _args(args);
+        Z3_ast r = Z3_mk_and(args.ctx(), _args.size(), _args.ptr());
+        args.check_error();
+        return expr(args.ctx(), r);
+    }
+
 
     class func_entry : public object {
         Z3_func_entry m_entry;
