@@ -802,8 +802,8 @@ namespace z3 {
         friend expr implies(expr const & a, bool b);
         friend expr implies(bool a, expr const & b);
 
-        friend expr or(expr_vector const& args);
-        friend expr and(expr_vector const& args);
+        friend expr mk_or(expr_vector const& args);
+        friend expr mk_and(expr_vector const& args);
 
         friend expr ite(expr const & c, expr const & t, expr const & e);
 
@@ -1501,13 +1501,13 @@ namespace z3 {
         return expr(ctx, r);
     }
 
-    inline expr or(expr_vector const& args) { 
+    inline expr mk_or(expr_vector const& args) { 
         array<Z3_ast> _args(args);
         Z3_ast r = Z3_mk_or(args.ctx(), _args.size(), _args.ptr());
         args.check_error();
         return expr(args.ctx(), r);
     }
-    inline expr and(expr_vector const& args) {
+    inline expr mk_and(expr_vector const& args) {
         array<Z3_ast> _args(args);
         Z3_ast r = Z3_mk_and(args.ctx(), _args.size(), _args.ptr());
         args.check_error();
