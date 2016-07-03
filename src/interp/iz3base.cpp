@@ -267,12 +267,15 @@ bool iz3base::is_sat(const std::vector<ast> &q, ast &_proof, std::vector<ast> &v
     p.set_bool("model", true); 
     p.set_bool("unsat_core", true); 
     scoped_ptr<solver_factory> sf = mk_smt_solver_factory();
-    ::solver *m_solver = (*sf)(m(), p, true, true, true, ::symbol::null);
-    ::solver &s = *m_solver;
+    scoped_ptr<::solver> solver = (*sf)(m(), p, true, true, true, ::symbol::null);
+    ::solver &s = *solver.get();
 
     for(unsigned i = 0; i < q.size(); i++)
         s.assert_expr(to_expr(q[i].raw()));
     lbool res = s.check_sat(0,0);
+    if (m().canceled()) {
+        throw iz3_exception(Z3_CANCELED_MSG);
+    }
     if(res == l_false){
         ::ast *proof = s.get_proof();
         _proof = cook(proof);
@@ -290,7 +293,7 @@ bool iz3base::is_sat(const std::vector<ast> &q, ast &_proof, std::vector<ast> &v
             vars[i] = cook(r.get());
         }
     }
-    dealloc(m_solver);
+    solver = 0;
     return res != l_false;
 }
 
