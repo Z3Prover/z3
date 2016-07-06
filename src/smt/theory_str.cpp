@@ -799,6 +799,13 @@ void theory_str::instantiate_basic_string_axioms(enode * str) {
     context & ctx = get_context();
     ast_manager & m = get_manager();
 
+    // TESTING: attempt to avoid a crash here when a variable goes out of scope
+    // TODO this seems to work so we probably need to do this for other propagate checks, etc.
+    if (str->get_iscope_lvl() > ctx.get_scope_level()) {
+        TRACE("t_str_detail", tout << "WARNING: skipping axiom setup on out-of-scope string term" << std::endl;);
+        return;
+    }
+
     // generate a stronger axiom for constant strings
     app * a_str = str->get_owner();
     if (m_strutil.is_string(str->get_owner())) {
@@ -1400,6 +1407,7 @@ void theory_str::reset_eh() {
     m_basicstr_axiom_todo.reset();
     m_str_eq_todo.reset();
     m_concat_axiom_todo.reset();
+    // TODO reset a loooooot more internal stuff
     pop_scope_eh(get_context().get_scope_level());
 }
 
@@ -2714,8 +2722,25 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 	        l_count = 2;
 	        lenDelta = str_len - y_len;
 	    }
+	    TRACE("t_str",
+	            tout
+	                << "xLen? " << (x_len_exists ? "yes" : "no") << std::endl
+	                << "mLen? " << (m_len_exists ? "yes" : "no") << std::endl
+	                << "yLen? " << (y_len_exists ? "yes" : "no") << std::endl
+	                << "xLen = " << x_len.to_string() << std::endl
+	                << "yLen = " << y_len.to_string() << std::endl
+	                << "mLen = " << m_len.to_string() << std::endl
+	                << "strLen = " << str_len.to_string() << std::endl
+	                << "lenDelta = " << lenDelta.to_string() << std::endl
+	                << "strValue = \"" << strValue << "\" (len=" << strValue.length() << ")" << std::endl
+	                 ;
+	            );
+
+	    TRACE("t_str", tout << "*** MARKER 1 ***" << std::endl;);
 	    std::string part1Str = strValue.substr(0, lenDelta.get_unsigned());
+	    TRACE("t_str", tout << "*** MARKER 2 ***" << std::endl;);
 	    std::string part2Str = strValue.substr(lenDelta.get_unsigned(), strValue.length() - lenDelta.get_unsigned());
+	    TRACE("t_str", tout << "*** MARKER 3 ***" << std::endl;);
 
 	    expr_ref prefixStr(m_strutil.mk_string(part1Str), mgr);
 	    expr_ref x_concat(mk_concat(m, prefixStr), mgr);
@@ -5495,7 +5520,7 @@ final_check_status theory_str::final_check_eh() {
     }
 
     TRACE("t_str", tout << "final check" << std::endl;);
-    TRACE("t_str_detail", dump_assignments(););
+    TRACE("t_str_dump_assign", dump_assignments(););
 
     // run dependence analysis to find free string variables
     std::map<expr*, int> varAppearInAssign;
