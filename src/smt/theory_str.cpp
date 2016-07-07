@@ -6844,8 +6844,7 @@ model_value_proc * theory_str::mk_value(enode * n, model_generator & mg) {
         TRACE("t_str", tout << "WARNING: failed to find a concrete value, falling back" << std::endl;);
         // TODO make absolutely sure the reason we can't find a concrete value is because of an unassigned temporary
         // e.g. for an expression like (Concat X $$_str0)
-        //return alloc(expr_wrapper_proc, m_strutil.mk_string("**UNUSED**"));
-        NOT_IMPLEMENTED_YET();
+        return alloc(expr_wrapper_proc, m_strutil.mk_string("**UNUSED**"));
     }
 }
 
