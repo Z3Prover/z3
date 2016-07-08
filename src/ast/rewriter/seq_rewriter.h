@@ -125,14 +125,19 @@ class seq_rewriter {
                         expr_ref_vector& lhs, expr_ref_vector& rhs, bool& is_sat);
     bool length_constrained(unsigned n, expr* const* l, unsigned m, expr* const* r, 
                         expr_ref_vector& lhs, expr_ref_vector& rhs, bool& is_sat);
+    bool solve_itos(unsigned n, expr* const* l, unsigned m, expr* const* r, 
+                    expr_ref_vector& lhs, expr_ref_vector& rhs, bool& is_sat);
     bool min_length(unsigned n, expr* const* es, unsigned& len);
     expr* concat_non_empty(unsigned n, expr* const* es);
+
+    bool is_string(unsigned n, expr* const* es, zstring& s) const;
 
     void add_next(u_map<expr*>& next, expr_ref_vector& trail, unsigned idx, expr* cond);
     bool is_sequence(expr* e, expr_ref_vector& seq);
     bool is_sequence(eautomaton& aut, expr_ref_vector& seq);
     bool is_epsilon(expr* e) const;
     void split_units(expr_ref_vector& lhs, expr_ref_vector& rhs);
+
 
 public:    
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
