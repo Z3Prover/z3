@@ -141,6 +141,10 @@ void theory_str::assert_axiom(expr * e) {
     literal lit(ctx.get_literal(e));
     ctx.mark_as_relevant(lit);
     ctx.mk_th_axiom(get_id(), 1, &lit);
+
+    // crash/error avoidance: add all axioms to the trail
+    m_trail.push_back(e);
+
     TRACE("t_str_detail", tout << "done asserting " << mk_ismt2_pp(e, get_manager()) << std::endl;);
 }
 
@@ -4622,6 +4626,7 @@ void theory_str::pop_scope_eh(unsigned num_scopes) {
             unsigned count = 0;
             std::set<expr*> vars = it->second;
             for (std::set<expr*>::iterator var_it = vars.begin(); var_it != vars.end(); ++var_it) {
+                TRACE("t_str_detail", tout << "clean up variable " << mk_pp(*var_it, get_manager()) << std::endl;);
                 variable_set.erase(*var_it);
                 internal_variable_set.erase(*var_it);
                 regex_variable_set.erase(*var_it);
