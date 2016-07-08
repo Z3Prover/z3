@@ -2197,14 +2197,35 @@ bool theory_seq::check_int_string() {
         if (m_util.str.is_itos(e) && add_itos_axiom(e)) {
             change = true;
         }
-        else if (m_util.str.is_stoi(e, n)) {
-            // not (yet) handled.
-            // we would check that in the current proto-model
-            // the string at 'n', when denoting integer would map to the
-            // proper integer.
+        else if (m_util.str.is_stoi(e, n) && add_stoi_axiom(e)) {
+            change = true;
         }
     }
     return change;
+}
+
+bool theory_seq::add_stoi_axiom(expr* e) {
+    context& ctx = get_context();
+    expr* n;
+    rational val;
+    VERIFY(m_util.str.is_stoi(e, n));    
+    if (get_value(e, val) && !m_stoi_axioms.contains(val)) {
+        m_stoi_axioms.insert(val);
+        if (!val.is_minus_one()) {
+            app_ref e1(m_util.str.mk_string(symbol(val.to_string().c_str())), m);            
+            expr_ref n1(arith_util(m).mk_numeral(val, true), m);
+            literal eq1 = mk_eq(e, n1, false);
+            literal eq2 = mk_eq(n, e1, false);
+            add_axiom(~eq1, eq2);
+            add_axiom(~eq2, eq1);
+            ctx.force_phase(eq1);
+            ctx.force_phase(eq2);
+            m_trail_stack.push(insert_map<theory_seq, rational_set, rational>(m_stoi_axioms, val));
+            m_trail_stack.push(push_replay(alloc(replay_axiom, m, e)));
+            return true;
+        }
+    }
+    return false;
 }
 
 bool theory_seq::add_itos_axiom(expr* e) {
