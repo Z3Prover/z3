@@ -135,7 +135,6 @@ public:
         lbool r = internalize_formulas();
         if (r != l_true) return r;
         r = internalize_assumptions(sz, assumptions, dep2asm);
-        SASSERT(sz == m_asms.size());
         if (r != l_true) return r;
 
         r = m_solver.check(m_asms.size(), m_asms.c_ptr(), m_weights.c_ptr(), max_weight);
@@ -147,7 +146,7 @@ public:
             break;
         case l_false:
             // TBD: expr_dependency core is not accounted for.
-            if (sz > 0) {
+            if (!m_asms.empty()) {
                 extract_core(dep2asm);
             }
             break;
@@ -314,13 +313,16 @@ private:
     }
 
     lbool internalize_assumptions(unsigned sz, expr* const* asms, dep2asm_t& dep2asm) {
-        if (sz == 0) {
+        if (sz == 0 && get_num_assumptions() == 0) {
             m_asms.shrink(0);
             return l_true;
         }
         goal_ref g = alloc(goal, m, true, true); // models and cores are enabled.
         for (unsigned i = 0; i < sz; ++i) {
             g->assert_expr(asms[i], m.mk_leaf(asms[i]));
+        }
+        for (unsigned i = 0; i < get_num_assumptions(); ++i) {
+            g->assert_expr(get_assumption(i), m.mk_leaf(get_assumption(i)));
         }
         lbool res = internalize_goal(g, dep2asm);
         if (res == l_true) {
@@ -355,6 +357,13 @@ private:
                 ++j;
             }
         }
+        for (unsigned i = 0; i < get_num_assumptions(); ++i) {
+            if (dep2asm.find(get_assumption(i), lit)) {
+                SASSERT(lit.var() <= m_solver.num_vars());
+                m_asms.push_back(lit);
+            }
+        }
+
         SASSERT(dep2asm.size() == m_asms.size());
     }
 

@@ -1476,7 +1476,7 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
             if (produce_unsat_cores()) {
                 expr_ref_vector asms(m());
                 asms.append(num_assumptions, assumptions);
-                for (unsigned i = 0; i < m_assertion_names.size(); ++i) {
+                for (unsigned i = 0; false && i < m_assertion_names.size(); ++i) {
                     if (m_assertion_names[i]) {
                         asms.push_back(m_assertion_names[i]);
                     }
