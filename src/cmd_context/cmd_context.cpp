@@ -546,6 +546,7 @@ bool cmd_context::logic_has_arith_core(symbol const & s) const {
         s == "QF_FPBV" ||
         s == "QF_BVFP" ||
         s == "QF_S" ||
+        s == "ALL" ||
         s == "HORN";
 }
 
@@ -566,6 +567,7 @@ bool cmd_context::logic_has_bv_core(symbol const & s) const {
         s == "QF_BVRE" ||
         s == "QF_FPBV" ||
         s == "QF_BVFP" ||
+        s == "ALL" ||
         s == "HORN";
 }
 
@@ -609,6 +611,7 @@ bool cmd_context::logic_has_array_core(symbol const & s) const {
         s == "AUFNIRA" ||
         s == "AUFBV" ||
         s == "ABV" ||
+        s == "ALL" ||
         s == "QF_ABV" ||
         s == "QF_AUFBV" ||
         s == "HORN";
@@ -702,7 +705,7 @@ void cmd_context::init_external_manager() {
 }
 
 bool cmd_context::supported_logic(symbol const & s) const {
-    return s == "QF_UF" || s == "UF" ||
+    return s == "QF_UF" || s == "UF" || 
         logic_has_arith_core(s) || logic_has_bv_core(s) ||
         logic_has_array_core(s) || logic_has_seq_core(s) ||
         logic_has_horn(s) || logic_has_fpa_core(s);

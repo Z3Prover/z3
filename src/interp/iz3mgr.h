@@ -45,7 +45,6 @@
 #include"scoped_ctrl_c.h"
 #include"cancel_eh.h"
 #include"scoped_timer.h"
-//#  include"pp_params.hpp"
 
 /* A wrapper around an ast manager, providing convenience methods. */
 
