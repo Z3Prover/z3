@@ -267,7 +267,7 @@ bool iz3base::is_sat(const std::vector<ast> &q, ast &_proof, std::vector<ast> &v
     p.set_bool("model", true); 
     p.set_bool("unsat_core", true); 
     scoped_ptr<solver_factory> sf = mk_smt_solver_factory();
-    scoped_ptr<::solver> solver = (*sf)(m(), p, true, true, true, ::symbol::null);
+    scoped_ptr< ::solver > solver = (*sf)(m(), p, true, true, true, ::symbol::null);
     ::solver &s = *solver.get();
 
     for(unsigned i = 0; i < q.size(); i++)
