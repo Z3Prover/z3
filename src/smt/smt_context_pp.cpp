@@ -253,7 +253,7 @@ namespace smt {
 
     void context::display_app_enode_map(std::ostream & out) const {
         if (!m_e_internalized_stack.empty()) {
-            out << "expresion -> enode:\n";
+            out << "expression -> enode:\n";
             unsigned sz = m_e_internalized_stack.size();
             for (unsigned i = 0; i < sz; i++) {
                 expr *  n = m_e_internalized_stack.get(i);
@@ -265,7 +265,7 @@ namespace smt {
 
     void context::display_expr_bool_var_map(std::ostream & out) const {
         if (!m_b_internalized_stack.empty()) {
-            out << "expresion -> bool_var:\n";
+            out << "expression -> bool_var:\n";
             unsigned sz = m_b_internalized_stack.size();
             for (unsigned i = 0; i < sz; i++) {
                 expr *  n  = m_b_internalized_stack.get(i);

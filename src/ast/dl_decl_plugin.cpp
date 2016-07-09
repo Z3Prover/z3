@@ -461,7 +461,7 @@ namespace datalog {
             return 0;
         }
         if (!ps.is_ast() || !is_sort(ps.get_ast()) || !is_fin_sort(to_sort(ps.get_ast()))) {
-            m_manager->raise_exception("second paramter should be a finite domain sort");
+            m_manager->raise_exception("second parameter should be a finite domain sort");
             return 0;
         }
         sort* s = to_sort(ps.get_ast());

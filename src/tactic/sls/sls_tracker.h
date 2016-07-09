@@ -464,7 +464,7 @@ public:
             if (!m_weights.contains(e))
         		m_weights.insert(e, m_paws_init);
 
-            // positive/negative occurences used for early pruning
+            // positive/negative occurrences used for early pruning
             setup_occs(as[i]);
         }
 
