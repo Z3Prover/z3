@@ -1473,19 +1473,7 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
         scoped_timer timer(timeout, &eh);
         scoped_rlimit _rlimit(m().limit(), rlimit);
         try {
-            if (produce_unsat_cores()) {
-                expr_ref_vector asms(m());
-                asms.append(num_assumptions, assumptions);
-                for (unsigned i = 0; false && i < m_assertion_names.size(); ++i) {
-                    if (m_assertion_names[i]) {
-                        asms.push_back(m_assertion_names[i]);
-                    }
-                }
-                r = m_solver->check_sat(asms); 
-            }
-            else {
-                r = m_solver->check_sat(num_assumptions, assumptions);
-            }
+            r = m_solver->check_sat(num_assumptions, assumptions);
         }
         catch (z3_error & ex) {
             throw ex;
