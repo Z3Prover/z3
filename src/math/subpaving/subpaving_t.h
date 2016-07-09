@@ -354,7 +354,7 @@ public:
     };
 
     /**
-       \brief Watched element (aka occurence) can be:
+       \brief Watched element (aka occurrence) can be:
        
        - A clause
        - A definition (i.e., a variable)

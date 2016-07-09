@@ -62,7 +62,7 @@ probe * mk_depth_probe();
 probe * mk_size_probe();
 
 /*
-  ADD_PROBE("memory", "ammount of used memory in megabytes.", "mk_memory_probe()")
+  ADD_PROBE("memory", "amount of used memory in megabytes.", "mk_memory_probe()")
   ADD_PROBE("depth", "depth of the input goal.", "mk_depth_probe()")
   ADD_PROBE("size", "number of assertions in the given goal.", "mk_size_probe()")
 */

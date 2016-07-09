@@ -591,7 +591,7 @@ namespace datalog {
 
 
     /**
-       \brief Remove the first occurence of \c el from \c v and return \c true. If
+       \brief Remove the first occurrence of \c el from \c v and return \c true. If
        \c el is not present in \c v, return \c false. The order of elements in \c v
        is not preserved.
      */
