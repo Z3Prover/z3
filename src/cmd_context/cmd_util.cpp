@@ -6,7 +6,7 @@ Module Name:
     cmd_util.cpp
 
 Abstract:
-    Macros for definining new SMT2 front-end cmds.
+    Macros for defining new SMT2 front-end cmds.
 
 Author:
 

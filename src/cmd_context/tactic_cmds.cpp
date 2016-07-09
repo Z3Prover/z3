@@ -97,7 +97,7 @@ void help_tactic(cmd_context & ctx) {
     buf << "- (or-else <tactic>+) tries the given tactics in sequence until one of them succeeds (i.e., the first that doesn't fail).\n";
     buf << "- (par-or <tactic>+) executes the given tactics in parallel until one of them succeeds (i.e., the first that doesn't fail).\n";
     buf << "- (par-then <tactic1> <tactic2>) executes tactic1 and then tactic2 to every subgoal produced by tactic1. All subgoals are processed in parallel.\n";
-    buf << "- (try-for <tactic> <num>) excutes the given tactic for at most <num> milliseconds, it fails if the execution takes more than <num> milliseconds.\n";
+    buf << "- (try-for <tactic> <num>) executes the given tactic for at most <num> milliseconds, it fails if the execution takes more than <num> milliseconds.\n";
     buf << "- (if <probe> <tactic> <tactic>) if <probe> evaluates to true, then execute the first tactic. Otherwise execute the second.\n";
     buf << "- (when <probe> <tactic>) shorthand for (if <probe> <tactic> skip).\n";
     buf << "- (fail-if <probe>) fail if <probe> evaluates to true.\n";

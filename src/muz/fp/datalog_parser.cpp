@@ -480,7 +480,7 @@ protected:
     str2sort          m_sort_dict;
 
     
-    // true if an error occured during the current call to the parse_stream
+    // true if an error occurred during the current call to the parse_stream
     // function
     bool              m_error;
 public:
@@ -896,7 +896,7 @@ protected:
                 tok = m_lexer->next_token();
                 if (tok != TK_COLON) {
                     tok = unexpected(tok, 
-                        "Expecting colon in declaration (first occurence of a predicate must be a declaration)");
+                        "Expecting colon in declaration (first occurrence of a predicate must be a declaration)");
                     return tok;
                 }
                 tok = m_lexer->next_token();

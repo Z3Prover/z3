@@ -94,7 +94,7 @@ class mpff_manager {
     //
     // - All values of type int, unsigned, int64 and uint64 can be precisely represented as mpff numerals.
     //
-    // - Hardware float and double values (corresponding to rationals) can also be precisely represented as mpff numberals.
+    // - Hardware float and double values (corresponding to rationals) can also be precisely represented as mpff numerals.
     //   That is, NaN, +oo and -oo are not supported by this module.
     //
     // - An exception (mpff_manager::exception) is thrown if overflow occurs. This can happen because the exponent is
