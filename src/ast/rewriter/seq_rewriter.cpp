@@ -1515,6 +1515,11 @@ bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_
     unsigned szl = ls.size() - head1, szr = rs.size() - head2;
     expr* const* _ls = ls.c_ptr() + head1, * const* _rs = rs.c_ptr() + head2;
 
+    if (solve_itos(szl, _ls, szr, _rs, lhs, rhs, is_sat)) {
+        ls.reset(); rs.reset();
+        change = true;
+        return is_sat;
+    }
 
     if (length_constrained(szl, _ls, szr, _rs, lhs, rhs, is_sat)) {
         ls.reset(); rs.reset();
@@ -1677,6 +1682,56 @@ bool seq_rewriter::min_length(unsigned n, expr* const* es, unsigned& len) {
         }
     }
     return bounded;
+}
+
+bool seq_rewriter::is_string(unsigned n, expr* const* es, zstring& s) const {
+    zstring s1;
+    expr* e;
+    bv_util bv(m());
+    rational val;
+    unsigned sz;
+    for (unsigned i = 0; i < n; ++i) {
+        if (m_util.str.is_string(es[i], s1)) {
+            s = s + s1;
+        }
+        else if (m_util.str.is_unit(es[i], e) && bv.is_numeral(e, val, sz)) {
+            s = s + zstring(val.get_unsigned());
+        }
+        else {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool seq_rewriter::solve_itos(unsigned szl, expr* const* ls, unsigned szr, expr* const* rs, 
+                              expr_ref_vector& lhs, expr_ref_vector& rhs, bool& is_sat) {
+
+    expr* l, *r;
+    if (szl == 1 && m_util.str.is_itos(ls[0], l)) {
+        if (szr == 1 && m_util.str.is_itos(rs[0], r)) {
+            lhs.push_back(l);
+            rhs.push_back(r);
+            is_sat = true;
+            return true;
+        }
+        zstring s;
+        if (is_string(szr, rs, s)) {
+            std::string s1 = s.encode();
+            rational r(s1.c_str());
+            if (s1 == r.to_string()) {
+                lhs.push_back(l);
+                rhs.push_back(m_autil.mk_numeral(r, true));
+                return true;
+            }
+        }
+    }
+
+    if (szr == 1 && m_util.str.is_itos(rs[0], r)) {
+        return solve_itos(szr, rs, szl, ls, rhs, lhs, is_sat);
+    }
+
+    return false;
 }
 
 bool seq_rewriter::length_constrained(unsigned szl, expr* const* l, unsigned szr, expr* const* r, 

@@ -308,6 +308,7 @@ namespace smt {
         bool            m_incomplete;             // is the solver (clearly) incomplete for the fragment.
         expr_ref_vector     m_int_string;
         rational_set        m_itos_axioms;
+        rational_set        m_stoi_axioms;
         obj_hashtable<expr> m_length;             // is length applied
         scoped_ptr_vector<apply> m_replay;        // set of actions to replay
         model_generator* m_mg;
@@ -493,6 +494,7 @@ namespace smt {
         void add_elim_string_axiom(expr* n);
         void add_at_axiom(expr* n);
         void add_in_re_axiom(expr* n);
+        bool add_stoi_axiom(expr* n);
         bool add_itos_axiom(expr* n);
         void add_itos_length_axiom(expr* n);
         literal mk_literal(expr* n);
