@@ -989,7 +989,7 @@ extern "C" {
             case OP_TO_INT: return Z3_OP_TO_INT;
             case OP_IS_INT: return Z3_OP_IS_INT;
             default:
-                //UNREACHABLE();
+                UNREACHABLE();
                 return Z3_OP_UNINTERPRETED;
             }
         }
