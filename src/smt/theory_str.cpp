@@ -5968,8 +5968,28 @@ expr * theory_str::gen_free_var_options(expr * freeVar, expr * len_indicator,
 
 	int len = atoi(len_valueStr.c_str());
 
-	if (fvar_valueTester_map[freeVar].find(len) == fvar_valueTester_map[freeVar].end()) {
-		TRACE("t_str_detail", tout << "no previous value testers" << std::endl;);
+	// check whether any value tester is actually in scope
+	// TODO NEXT we need to do this check for other tester variables that could potentially go out of scope
+	TRACE("t_str_detail", tout << "checking scope of previous value testers" << std::endl;);
+	bool map_effectively_empty = true;
+	if (fvar_valueTester_map[freeVar].find(len) != fvar_valueTester_map[freeVar].end()) {
+	    // there's *something* in the map, but check its scope
+	    svector<std::pair<int, expr*> > entries = fvar_valueTester_map[freeVar][len];
+	    for (svector<std::pair<int,expr*> >::iterator it = entries.begin(); it != entries.end(); ++it) {
+	        std::pair<int,expr*> entry = *it;
+	        expr * aTester = entry.second;
+	        if (internal_variable_set.find(aTester) == internal_variable_set.end()) {
+	            TRACE("t_str_detail", tout << mk_pp(aTester, m) << " out of scope" << std::endl;);
+	        } else {
+	            TRACE("t_str_detail", tout << mk_pp(aTester, m) << " in scope" << std::endl;);
+	            map_effectively_empty = false;
+	            break;
+	        }
+	    }
+	}
+
+	if (map_effectively_empty) {
+		TRACE("t_str_detail", tout << "no previous value testers, or none of them were in scope" << std::endl;);
 		int tries = 0;
 		expr * val_indicator = mk_internal_valTest_var(freeVar, len, tries);
 		valueTester_fvar_map[val_indicator] = freeVar;
