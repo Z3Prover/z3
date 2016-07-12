@@ -284,6 +284,13 @@ public:
     bool is_int_real(sort const * s) const { return s->get_family_id() == m_afid; }
     bool is_int_real(expr const * n) const { return is_int_real(get_sort(n)); }
 
+    bool is_sin(expr const* n) const { return is_app_of(n, m_afid, OP_SIN); }
+    bool is_cos(expr const* n) const { return is_app_of(n, m_afid, OP_COS); }
+    bool is_tan(expr const* n) const { return is_app_of(n, m_afid, OP_TAN); }
+    bool is_asin(expr const* n) const { return is_app_of(n, m_afid, OP_ASIN); }
+    bool is_acos(expr const* n) const { return is_app_of(n, m_afid, OP_ACOS); }
+    bool is_atan(expr const* n) const { return is_app_of(n, m_afid, OP_ATAN); }
+
     MATCH_UNARY(is_uminus);
     MATCH_UNARY(is_to_real);
     MATCH_UNARY(is_to_int);
