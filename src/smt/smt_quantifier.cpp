@@ -147,6 +147,7 @@ namespace smt {
             }
             m_qi_queue.init_search_eh();
             m_plugin->init_search_eh();
+            TRACE("smt_params", m_params.display(tout); );
         }
         
         void assign_eh(quantifier * q) {
