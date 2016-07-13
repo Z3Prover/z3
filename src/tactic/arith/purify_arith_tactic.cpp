@@ -782,8 +782,8 @@ struct purify_arith_proc {
             obj_map<app, std::pair<expr*,expr*> >::iterator it = m_sin_cos.begin(), end = m_sin_cos.end();
             for (; it != end; ++it) {
                 emc->insert(it->m_key->get_decl(), 
-                            u().mk_add(u().mk_asin(it->m_value.first), 
-                                       m().mk_ite(u().mk_ge(it->m_value.second, mk_real_zero()), mk_real_zero(), u().mk_pi())));
+                            u().mk_add(u().mk_acos(it->m_value.second), 
+                                       m().mk_ite(u().mk_ge(it->m_value.first, mk_real_zero()), mk_real_zero(), u().mk_pi())));
             }
 
         }
