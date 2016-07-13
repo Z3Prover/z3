@@ -170,8 +170,8 @@ struct purify_arith_proc {
         }
         std::pair<expr*, expr*> pair;
         if (!m_sin_cos.find(to_app(theta), pair)) {
-            pair.first = m().mk_fresh_const(0, m_util.mk_real());
-            pair.second = m().mk_fresh_const(0, m_util.mk_real());            
+            pair.first = m().mk_fresh_const(0, u().mk_real());
+            pair.second = m().mk_fresh_const(0, u().mk_real());            
             m_sin_cos.insert(to_app(theta), pair);
             m_pinned.push_back(pair.first);
             m_pinned.push_back(pair.second);
@@ -680,6 +680,8 @@ struct purify_arith_proc {
         }
     };
 
+    expr * mk_real_zero() { return u().mk_numeral(rational(0), false); }
+
     struct rw : public rewriter_tpl<rw_cfg> {
         rw_cfg m_cfg;
         rw(purify_arith_proc & o):
@@ -779,13 +781,15 @@ struct purify_arith_proc {
             mc = concat(mc.get(), emc);
             obj_map<app, std::pair<expr*,expr*> >::iterator it = m_sin_cos.begin(), end = m_sin_cos.end();
             for (; it != end; ++it) {
-                emc->insert(it->m_key->get_decl(), m_util.mk_asin(it->m_value.first));
+                emc->insert(it->m_key->get_decl(), 
+                            u().mk_add(u().mk_asin(it->m_value.first), 
+                                       m().mk_ite(u().mk_ge(it->m_value.second, mk_real_zero()), mk_real_zero(), u().mk_pi())));
             }
 
         }
-        // given values for x, y find value for theta
-        // x, y are rational
     }
+
+
 };
 
 class purify_arith_tactic : public tactic {
