@@ -28,7 +28,7 @@ bool macro_finder::is_macro(expr * n, app_ref & head, expr_ref & def) {
     TRACE("macro_finder", tout << "processing: " << mk_pp(n, m_manager) << "\n";);
     expr * body        = to_quantifier(n)->get_expr();
     unsigned num_decls = to_quantifier(n)->get_num_decls();
-    return m_util.is_ite_macro(body, num_decls, head, def);
+    return m_util.is_simple_macro(body, num_decls, head, def);
 }
 
 /**

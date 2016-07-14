@@ -189,21 +189,6 @@ bool macro_util::is_left_simple_macro(expr * n, unsigned num_decls, app_ref & he
     return false;
 }
 
-bool macro_util::is_ite_macro(expr * n, unsigned num_decls, app_ref& head, expr_ref& def) const {
-    if (is_simple_macro(n, num_decls, head, def)) {
-        return true;
-    }
-    expr* c, *t, *e;
-    expr_ref def1(m_manager), def2(m_manager);
-    app_ref head2(m_manager);
-    if (m_manager.is_ite(n, c, t, e) &&
-        is_ite_macro(t, num_decls, head,  def1) &&
-        is_ite_macro(e, num_decls, head2, def2) && head == head2) {
-        def = m_manager.mk_ite(c, def1, def2);
-        return true;
-    }
-    return false;
-}
 
 /**
    \brief Return true if n is of the form

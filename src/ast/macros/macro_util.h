@@ -107,7 +107,6 @@ public:
     bool is_simple_macro(expr * n, unsigned num_decls, app_ref& head, expr_ref & def) const {
         return is_left_simple_macro(n, num_decls, head, def) || is_right_simple_macro(n, num_decls, head, def); 
     }
-    bool is_ite_macro(expr * n, unsigned num_decls, app_ref& head, expr_ref& def) const;
 
     bool is_arith_macro(expr * n, unsigned num_decls, app_ref & head, expr_ref & def, bool & inv) const;
     bool is_arith_macro(expr * n, unsigned num_decls, app_ref & head, expr_ref & def) const {

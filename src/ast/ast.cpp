@@ -1461,8 +1461,8 @@ ast_manager::~ast_manager() {
                 else {
                     std::cout << mk_ll_pp(a, *this, false) << "id: " << a->get_id() << "\n";
                 });
-
-            dec_ref(a);
+            a->m_ref_count = 0;
+            delete_node(a);
         }
     }
     if (m_format_manager != 0)
