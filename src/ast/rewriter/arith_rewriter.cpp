@@ -1196,10 +1196,16 @@ expr * arith_rewriter::mk_sin_value(rational const & k) {
 }
 
 br_status arith_rewriter::mk_sin_core(expr * arg, expr_ref & result) {
-    if (is_app_of(arg, get_fid(), OP_ASIN)) {
+    expr * m, *x;
+    if (m_util.is_asin(arg, x)) {
         // sin(asin(x)) == x
-        result = to_app(arg)->get_arg(0);
+        result = x;
         return BR_DONE;
+    }
+    if (m_util.is_acos(arg, x)) {
+        // sin(acos(x)) == sqrt(1 - x^2)
+        result = m_util.mk_power(m_util.mk_sub(m_util.mk_real(1), m_util.mk_mul(x,x)), m_util.mk_numeral(rational(1,2), false));
+        return BR_REWRITE_FULL;
     }
     rational k;
     if (is_numeral(arg, k) && k.is_zero()) {
@@ -1214,7 +1220,6 @@ br_status arith_rewriter::mk_sin_core(expr * arg, expr_ref & result) {
             return BR_REWRITE_FULL;
     }
 
-    expr * m;
     if (is_pi_offset(arg, k, m)) {
         rational k_prime = mod(floor(k), rational(2)) + k - floor(k);
         SASSERT(k_prime >= rational(0) && k_prime < rational(2));
@@ -1250,10 +1255,14 @@ br_status arith_rewriter::mk_sin_core(expr * arg, expr_ref & result) {
 }
 
 br_status arith_rewriter::mk_cos_core(expr * arg, expr_ref & result) {
-    if (is_app_of(arg, get_fid(), OP_ACOS)) {
+    expr* x;
+    if (m_util.is_acos(arg, x)) {
         // cos(acos(x)) == x
-        result = to_app(arg)->get_arg(0);
+        result = x;
         return BR_DONE;
+    }
+    if (m_util.is_asin(arg, x)) {
+        // cos(asin(x)) == ...
     }
 
     rational k;

@@ -290,6 +290,8 @@ public:
     bool is_asin(expr const* n) const { return is_app_of(n, m_afid, OP_ASIN); }
     bool is_acos(expr const* n) const { return is_app_of(n, m_afid, OP_ACOS); }
     bool is_atan(expr const* n) const { return is_app_of(n, m_afid, OP_ATAN); }
+    bool is_pi(expr * arg) { return is_app_of(arg, m_afid, OP_PI); }
+    bool is_e(expr * arg) { return is_app_of(arg, m_afid, OP_E); }
 
     MATCH_UNARY(is_uminus);
     MATCH_UNARY(is_to_real);
@@ -307,8 +309,13 @@ public:
     MATCH_BINARY(is_idiv);
     MATCH_BINARY(is_power);
 
-    bool is_pi(expr * arg) { return is_app_of(arg, m_afid, OP_PI); }
-    bool is_e(expr * arg) { return is_app_of(arg, m_afid, OP_E); }
+    MATCH_UNARY(is_sin);
+    MATCH_UNARY(is_asin);
+    MATCH_UNARY(is_cos);
+    MATCH_UNARY(is_acos);
+    MATCH_UNARY(is_tan);
+    MATCH_UNARY(is_atan);
+
 };
 
 class arith_util : public arith_recognizers {
@@ -354,6 +361,9 @@ public:
     }
     app * mk_int(int i) {
         return mk_numeral(rational(i), true);
+    }
+    app * mk_real(int i) {
+        return mk_numeral(rational(i), false);
     }
     app * mk_le(expr * arg1, expr * arg2) const { return m_manager.mk_app(m_afid, OP_LE, arg1, arg2); }
     app * mk_ge(expr * arg1, expr * arg2) const { return m_manager.mk_app(m_afid, OP_GE, arg1, arg2); }
