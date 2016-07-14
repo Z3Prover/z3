@@ -102,11 +102,12 @@ public:
     basic_simplifier_plugin * get_basic_simp() const;
 
     bool is_macro_head(expr * n, unsigned num_decls) const;
-    bool is_left_simple_macro(expr * n, unsigned num_decls, app * & head, expr * & def) const;
-    bool is_right_simple_macro(expr * n, unsigned num_decls, app * & head, expr * & def) const;
-    bool is_simple_macro(expr * n, unsigned num_decls, app * & head, expr * & def) const {
+    bool is_left_simple_macro(expr * n, unsigned num_decls, app_ref & head, expr_ref & def) const;
+    bool is_right_simple_macro(expr * n, unsigned num_decls, app_ref & head, expr_ref & def) const;
+    bool is_simple_macro(expr * n, unsigned num_decls, app_ref& head, expr_ref & def) const {
         return is_left_simple_macro(n, num_decls, head, def) || is_right_simple_macro(n, num_decls, head, def); 
     }
+    bool is_ite_macro(expr * n, unsigned num_decls, app_ref& head, expr_ref& def) const;
 
     bool is_arith_macro(expr * n, unsigned num_decls, app_ref & head, expr_ref & def, bool & inv) const;
     bool is_arith_macro(expr * n, unsigned num_decls, app_ref & head, expr_ref & def) const {
@@ -114,8 +115,8 @@ public:
         return is_arith_macro(n, num_decls, head, def, inv);
     }
     
-    bool is_pseudo_head(expr * n, unsigned num_decls, app * & head, app * & t);
-    bool is_pseudo_predicate_macro(expr * n, app * & head, app * & t, expr * & def);
+    bool is_pseudo_head(expr * n, unsigned num_decls, app_ref & head, app_ref & t);
+    bool is_pseudo_predicate_macro(expr * n, app_ref & head, app_ref & t, expr_ref & def);
 
     bool is_quasi_macro_head(expr * n, unsigned num_decls) const;
     void quasi_macro_head_to_macro_head(app * qhead, unsigned num_decls, app_ref & head, expr_ref & cond) const;

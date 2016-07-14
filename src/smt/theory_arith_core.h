@@ -1235,6 +1235,14 @@ namespace smt {
         ctx.set_var_theory(bv, get_id());
         rational _k;
         VERIFY(m_util.is_numeral(rhs, _k));
+        if (is_int(v) && !_k.is_int()) {
+            if (kind == A_UPPER) {
+                _k = floor(_k);
+            }
+            else {
+                _k = ceil(_k);
+            }
+        }
         inf_numeral   k(_k);
         atom * a = alloc(atom, bv, v, k, kind);
         mk_bound_axioms(a);
@@ -1399,22 +1407,22 @@ namespace smt {
         final_check_status result = FC_DONE;
         final_check_status ok;
         do {
-            TRACE("final_check_arith", tout << "m_final_check_idx: " << m_final_check_idx << ", result: " << result << "\n";);
+            TRACE("arith", tout << "m_final_check_idx: " << m_final_check_idx << ", result: " << result << "\n";);
             switch (m_final_check_idx) {
             case 0:
                 ok = check_int_feasibility();
-                TRACE("final_check_arith", tout << "check_int_feasibility(), ok: " << ok << "\n";);
+                TRACE("arith", tout << "check_int_feasibility(), ok: " << ok << "\n";);
                 break;
             case 1:
                 if (assume_eqs_core())
                     ok = FC_CONTINUE;
                 else
                     ok = FC_DONE;
-                TRACE("final_check_arith", tout << "assume_eqs(), ok: " << ok << "\n";);
+                TRACE("arith", tout << "assume_eqs(), ok: " << ok << "\n";);
                 break;
             default:
                 ok = process_non_linear();
-                TRACE("final_check_arith", tout << "non_linear(), ok: " << ok << "\n";);
+                TRACE("arith", tout << "non_linear(), ok: " << ok << "\n";);
                 break;
             }
             m_final_check_idx = (m_final_check_idx + 1) % 3;
@@ -1425,7 +1433,7 @@ namespace smt {
                 result = FC_GIVEUP;
                 break;
             case FC_CONTINUE:
-                TRACE("final_check_arith", 
+                TRACE("arith", 
                       tout << "continue arith..." 
                       << (get_context().inconsistent()?"inconsistent\n":"\n"););
                 return FC_CONTINUE;
@@ -1442,7 +1450,7 @@ namespace smt {
     template<typename Ext>
     final_check_status theory_arith<Ext>::final_check_eh() {
         TRACE("arith_eq_adapter_info", m_arith_eq_adapter.display_already_processed(tout););
-        TRACE("arith_final_check", display(tout););
+        TRACE("arith", display(tout););
 
         if (!propagate_core()) 
             return FC_CONTINUE; 
@@ -1459,7 +1467,7 @@ namespace smt {
         m_liberal_final_check = false;
         m_changed_assignment  = false;
         result = final_check_core();
-        TRACE("final_check_arith", tout << "result: " << result << "\n";);
+        TRACE("arith", tout << "result: " << result << "\n";);
         return result;
     }
     
@@ -2416,6 +2424,7 @@ namespace smt {
         theory_var          v = b->get_var();
         inf_numeral const & k = b->get_value();
 
+        TRACE("arith", display_bound(tout, b); tout << "v" << v << " <= " << k << "\n";);
         bound * u = upper(v);
         bound * l = lower(v);
         
@@ -2456,7 +2465,7 @@ namespace smt {
 
     template<typename Ext>
     bool theory_arith<Ext>::assert_bound(bound * b) {
-        TRACE("assert_bound", display_bound(tout, b););
+        TRACE("assert_bound", display_bound(tout, b); display(tout););
         theory_var v = b->get_var();
 
         if (b->is_atom()) {
@@ -2478,7 +2487,7 @@ namespace smt {
             break;
         }
         
-        TRACE("arith_assert", tout << "result: " << result << "\n"; display(tout););
+        TRACE("arith_bound", tout << "result: " << result << "\n"; display(tout););
         return result;
     }
 

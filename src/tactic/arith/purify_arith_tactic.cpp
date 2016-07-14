@@ -378,12 +378,13 @@ struct purify_arith_proc {
             cache_result(t, result, result_pr);
             
             expr * x = args[0];
-            // to-real(k) - x >= 0
-            expr * diff = u().mk_add(u().mk_to_real(k), u().mk_mul(u().mk_numeral(rational(-1), false), x));
+            // x - to-real(k) >= 0
+            
+            expr * diff = u().mk_add(x, u().mk_mul(u().mk_numeral(rational(-1), false), u().mk_to_real(k)));
             push_cnstr(u().mk_ge(diff, mk_real_zero()));
             push_cnstr_pr(result_pr);
             
-            // not(to-real(k) - x >= 1)
+            // not(x - to-real(k) >= 1)
             push_cnstr(NOT(u().mk_ge(diff, u().mk_numeral(rational(1), false))));
             push_cnstr_pr(result_pr);
         }
@@ -757,6 +758,7 @@ struct purify_arith_proc {
         
         // add cnstraints
         sz = r.cfg().m_new_cnstrs.size();
+        TRACE("purify_arith", tout << r.cfg().m_new_cnstrs << "\n";);
         for (unsigned i = 0; i < sz; i++) {
             m_goal.assert_expr(r.cfg().m_new_cnstrs.get(i), m_produce_proofs ? r.cfg().m_new_cnstr_prs.get(i) : 0, 0);
         }
@@ -827,6 +829,7 @@ public:
             SASSERT(g->is_well_sorted());
             mc = 0; pc = 0; core = 0;
             tactic_report report("purify-arith", *g);
+            TRACE("purify_arith", g->display(tout););
             bool produce_proofs = g->proofs_enabled();
             bool produce_models = g->models_enabled();
             bool elim_root_objs = m_params.get_bool("elim_root_objects", true);

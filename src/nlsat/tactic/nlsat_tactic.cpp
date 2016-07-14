@@ -25,6 +25,7 @@ Notes:
 #include"ast_smt2_pp.h"
 #include"z3_exception.h"
 #include"algebraic_numbers.h"
+#include"ast_pp.h"
 
 class nlsat_tactic : public tactic {
     struct expr_display_var_proc : public nlsat::display_var_proc {
@@ -78,9 +79,21 @@ class nlsat_tactic : public tactic {
             }
             return false;
         }
+
+        bool eval_model(model& model, goal& g) {
+            unsigned sz = g.size();
+            for (unsigned i = 0; i < sz; i++) {
+                expr_ref val(m);
+                if (model.eval(g.form(i), val) && !m.is_true(val)) {
+                    TRACE("nlsat", tout << mk_pp(g.form(i), m) << " -> " << val << "\n";);
+                    return false;
+                }
+            }
+            return true;
+        }
         
         // Return false if nlsat assigned noninteger value to an integer variable.
-        bool mk_model(expr_ref_vector & b2a, expr_ref_vector & x2t, model_converter_ref & mc) {
+        bool mk_model(goal & g, expr_ref_vector & b2a, expr_ref_vector & x2t, model_converter_ref & mc) {
             bool ok = true;
             model_ref md = alloc(model, m);
             arith_util util(m);
@@ -110,6 +123,7 @@ class nlsat_tactic : public tactic {
                     continue; // don't care
                 md->register_decl(to_app(a)->get_decl(), val == l_true ? m.mk_true() : m.mk_false());
             }
+            DEBUG_CODE(eval_model(*md.get(), g););
             mc = model2model_converter(md.get());
             return ok;
         }
@@ -151,7 +165,7 @@ class nlsat_tactic : public tactic {
                 if (!contains_unsupported(b2a, x2t)) {
                     // If mk_model is false it means that the model produced by nlsat 
                     // assigns noninteger values to integer variables
-                    if (mk_model(b2a, x2t, mc)) {
+                    if (mk_model(*g.get(), b2a, x2t, mc)) {
                         // result goal is trivially SAT
                         g->reset(); 
                     }
