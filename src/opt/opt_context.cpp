@@ -241,6 +241,7 @@ namespace opt {
             s.get_labels(m_labels);
         }
         if (is_sat != l_true) {
+            TRACE("opt", tout << m_hard_constraints << "\n";);
             return is_sat;
         }
         IF_VERBOSE(1, verbose_stream() << "(optimize:sat)\n";);
@@ -415,7 +416,7 @@ namespace opt {
     
     expr_ref context::mk_gt(unsigned i, model_ref& mdl) {
         expr_ref result = mk_le(i, mdl);
-        result = m.mk_not(result);
+        result = mk_not(m, result);
         return result;
     }
 
@@ -776,7 +777,7 @@ namespace opt {
                     weights[i].neg();
                 }
                 else {
-                    terms[i] = m.mk_not(terms[i].get());
+                    terms[i] = mk_not(m, terms[i].get());
                 }
             }
             TRACE("opt", 
@@ -805,7 +806,7 @@ namespace opt {
             for (unsigned i = 0; i < weights.size(); ++i) {
                 if (weights[i].is_neg()) {
                     weights[i].neg();
-                    terms[i] = m.mk_not(terms[i].get());
+                    terms[i] = mk_not(m, terms[i].get());
                 }
                 offset += weights[i];
             }

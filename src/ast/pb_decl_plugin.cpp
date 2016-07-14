@@ -18,6 +18,7 @@ Revision History:
 --*/
 
 #include "pb_decl_plugin.h"
+#include "ast_util.h"
 
 pb_decl_plugin::pb_decl_plugin():
     m_at_most_sym("at-most"),
@@ -99,29 +100,47 @@ void pb_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const
     }
 }
 
-app * pb_util::mk_le(unsigned num_args, rational const * coeffs, expr * const * args, rational const& k) {
-    vector<parameter> params;
-    params.push_back(parameter(k));
+void pb_util::normalize(unsigned num_args, rational const* coeffs, rational const& k) {
+    rational d(1);
     for (unsigned i = 0; i < num_args; ++i) {
-        params.push_back(parameter(coeffs[i]));
+        d = lcm(d, denominator(coeffs[i]));
+    }
+    m_coeffs.reset();
+    for (unsigned i = 0; i < num_args; ++i) {
+        m_coeffs.push_back(d*coeffs[i]);
+    }
+    m_k = d*k;
+}
+
+app * pb_util::mk_le(unsigned num_args, rational const * coeffs, expr * const * args, rational const& k) {
+    normalize(num_args, coeffs, k);
+    vector<parameter> params;
+    params.push_back(parameter(floor(m_k)));
+    for (unsigned i = 0; i < num_args; ++i) {
+        params.push_back(parameter(m_coeffs[i]));
     }
     return m.mk_app(m_fid, OP_PB_LE, params.size(), params.c_ptr(), num_args, args, m.mk_bool_sort());
 }
 
 app * pb_util::mk_ge(unsigned num_args, rational const * coeffs, expr * const * args, rational const& k) {
+    normalize(num_args, coeffs, k);
     vector<parameter> params;
-    params.push_back(parameter(k));
+    params.push_back(parameter(ceil(m_k)));
     for (unsigned i = 0; i < num_args; ++i) {
-        params.push_back(parameter(coeffs[i]));
+        params.push_back(parameter(m_coeffs[i]));
     }
     return m.mk_app(m_fid, OP_PB_GE, params.size(), params.c_ptr(), num_args, args, m.mk_bool_sort());
 }
 
 app * pb_util::mk_eq(unsigned num_args, rational const * coeffs, expr * const * args, rational const& k) {
+    normalize(num_args, coeffs, k);
+    if (!m_k.is_int()) {
+        return m.mk_false();
+    }
     vector<parameter> params;
-    params.push_back(parameter(k));
+    params.push_back(parameter(m_k));
     for (unsigned i = 0; i < num_args; ++i) {
-        params.push_back(parameter(coeffs[i]));
+        params.push_back(parameter(m_coeffs[i]));
     }
     return m.mk_app(m_fid, OP_PB_EQ, params.size(), params.c_ptr(), num_args, args, m.mk_bool_sort());
 }
@@ -132,33 +151,18 @@ app * pb_util::mk_eq(unsigned num_args, rational const * coeffs, expr * const * 
 // <=>
 // a(1-x) + b(1-y) >= -k + a + b + 1
 app * pb_util::mk_lt(unsigned num_args, rational const * _coeffs, expr * const * _args, rational const& _k) {
-    vector<rational> coeffs;
-    rational k(_k);
+    normalize(num_args, _coeffs, _k);
     expr_ref_vector args(m);
-    expr* f;
-    rational d(denominator(k));
     for (unsigned i = 0; i < num_args; ++i) {
-        coeffs.push_back(_coeffs[i]);
-        d = lcm(d, denominator(coeffs[i]));
-        if (m.is_not(_args[i], f)) {
-            args.push_back(f);
-        }
-        else {
-            args.push_back(m.mk_not(_args[i]));
-        }
+        args.push_back(mk_not(m, _args[i]));
     }
-    if (!d.is_one()) {
-        k *= d;
-        for (unsigned i = 0; i < num_args; ++i) {
-            coeffs[i] *= d;        
-        }
-    }
-    k.neg();
-    k += rational::one();
+    m_k = floor(m_k);
+    m_k.neg();
+    m_k += rational::one();
     for (unsigned i = 0; i < num_args; ++i) {
-        k += coeffs[i];
+        m_k += m_coeffs[i];
     }
-    return mk_ge(num_args, coeffs.c_ptr(), args.c_ptr(), k);
+    return mk_ge(num_args, m_coeffs.c_ptr(), args.c_ptr(), m_k);
 }
 
 

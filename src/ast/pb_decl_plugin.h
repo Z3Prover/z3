@@ -79,6 +79,9 @@ public:
 class pb_util {
     ast_manager & m;
     family_id     m_fid;
+    vector<rational> m_coeffs;
+    rational         m_k;
+    void normalize(unsigned num_args, rational const* coeffs, rational const& k);
 public:
     pb_util(ast_manager& m):m(m), m_fid(m.mk_family_id("pb")) {}
     ast_manager & get_manager() const { return m; }
