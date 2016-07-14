@@ -23,6 +23,7 @@ Revision History:
 
 struct Z3_stats_ref : public api::object {
     statistics m_stats;
+    Z3_stats_ref(api::context& c): api::object(c) {}
     virtual ~Z3_stats_ref() {}
 };
 

@@ -645,7 +645,6 @@ public:
     ptr_addr_hashtable(unsigned initial_capacity = DEFAULT_HASHTABLE_INITIAL_CAPACITY):
         core_hashtable<ptr_addr_hash_entry<T>, ptr_hash<T>, ptr_eq<T> >(initial_capacity) {}
 
-    // Using iterators to traverse the elements of this kind of hashtable will produce non-determinism.
     iterator begin() const { 
         UNREACHABLE();
     }
@@ -653,6 +652,9 @@ public:
     iterator end() const { 
         UNREACHABLE();
     }
+
+    // NB. Using iterators to traverse the elements of this kind of hashtable will produce non-determinism.
+
 };
 
 /**

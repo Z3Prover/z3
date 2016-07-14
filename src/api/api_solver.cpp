@@ -58,7 +58,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_simple_solver(c);
         RESET_ERROR_CODE();
-        Z3_solver_ref * s = alloc(Z3_solver_ref, mk_smt_solver_factory());
+        Z3_solver_ref * s = alloc(Z3_solver_ref, *mk_c(c), mk_smt_solver_factory());
         mk_c(c)->save_object(s);
         Z3_solver r = of_solver(s);
         RETURN_Z3(r);
@@ -69,7 +69,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_solver(c);
         RESET_ERROR_CODE();
-        Z3_solver_ref * s = alloc(Z3_solver_ref, mk_smt_strategic_solver_factory());
+        Z3_solver_ref * s = alloc(Z3_solver_ref, *mk_c(c), mk_smt_strategic_solver_factory());
         mk_c(c)->save_object(s);
         Z3_solver r = of_solver(s);
         RETURN_Z3(r);
@@ -80,7 +80,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_solver_for_logic(c, logic);
         RESET_ERROR_CODE();
-        Z3_solver_ref * s = alloc(Z3_solver_ref, mk_smt_strategic_solver_factory(to_symbol(logic)));
+        Z3_solver_ref * s = alloc(Z3_solver_ref, *mk_c(c), mk_smt_strategic_solver_factory(to_symbol(logic)));
         mk_c(c)->save_object(s);
         Z3_solver r = of_solver(s);
         RETURN_Z3(r);
@@ -91,7 +91,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_solver_from_tactic(c, t);
         RESET_ERROR_CODE();
-        Z3_solver_ref * s = alloc(Z3_solver_ref, mk_tactic2solver_factory(to_tactic_ref(t)));
+        Z3_solver_ref * s = alloc(Z3_solver_ref, *mk_c(c), mk_tactic2solver_factory(to_tactic_ref(t)));
         mk_c(c)->save_object(s);
         Z3_solver r = of_solver(s);
         RETURN_Z3(r);
@@ -103,7 +103,7 @@ extern "C" {
         LOG_Z3_solver_translate(c, s, target);
         RESET_ERROR_CODE();
         params_ref const& p = to_solver(s)->m_params; 
-        Z3_solver_ref * sr = alloc(Z3_solver_ref, 0);
+        Z3_solver_ref * sr = alloc(Z3_solver_ref, *mk_c(c), 0);
         init_solver(c, s);
         sr->m_solver = to_solver(s)->m_solver->translate(mk_c(target)->m(), p);
         mk_c(target)->save_object(sr);
@@ -134,7 +134,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_solver_get_param_descrs(c, s);
         RESET_ERROR_CODE();
-        Z3_param_descrs_ref * d = alloc(Z3_param_descrs_ref);
+        Z3_param_descrs_ref * d = alloc(Z3_param_descrs_ref, *mk_c(c));
         mk_c(c)->save_object(d);
         bool initialized = to_solver(s)->m_solver.get() != 0;
         if (!initialized)
@@ -255,7 +255,7 @@ extern "C" {
         LOG_Z3_solver_get_assertions(c, s);
         RESET_ERROR_CODE();
         init_solver(c, s);
-        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, mk_c(c)->m());
+        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
         mk_c(c)->save_object(v);
         unsigned sz = to_solver_ref(s)->get_num_assertions();
         for (unsigned i = 0; i < sz; i++) {
@@ -323,7 +323,7 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_USAGE);
             RETURN_Z3(0);
         }
-        Z3_model_ref * m_ref = alloc(Z3_model_ref); 
+        Z3_model_ref * m_ref = alloc(Z3_model_ref, *mk_c(c)); 
         m_ref->m_model = _m;
         mk_c(c)->save_object(m_ref);
         RETURN_Z3(of_model(m_ref));
@@ -352,7 +352,7 @@ extern "C" {
         init_solver(c, s);
         ptr_vector<expr> core;
         to_solver_ref(s)->get_unsat_core(core);
-        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, mk_c(c)->m());
+        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
         mk_c(c)->save_object(v);
         for (unsigned i = 0; i < core.size(); i++) {
             v->m_ast_vector.push_back(core[i]);
@@ -375,7 +375,7 @@ extern "C" {
         LOG_Z3_solver_get_statistics(c, s);
         RESET_ERROR_CODE();
         init_solver(c, s);
-        Z3_stats_ref * st = alloc(Z3_stats_ref);
+        Z3_stats_ref * st = alloc(Z3_stats_ref, *mk_c(c));
         to_solver_ref(s)->collect_statistics(st->m_stats);
         get_memory_statistics(st->m_stats);
         get_rlimit_statistics(mk_c(c)->m().limit(), st->m_stats);

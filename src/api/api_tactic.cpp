@@ -25,13 +25,13 @@ Revision History:
 #include"cancel_eh.h"
 #include"scoped_timer.h"
 
-Z3_apply_result_ref::Z3_apply_result_ref(ast_manager & m):m_core(m) {
+Z3_apply_result_ref::Z3_apply_result_ref(api::context& c, ast_manager & m): api::object(c), m_core(m) {
 }
 
 extern "C" {
 
 #define RETURN_TACTIC(_t_) {                            \
-    Z3_tactic_ref * _ref_ = alloc(Z3_tactic_ref);       \
+        Z3_tactic_ref * _ref_ = alloc(Z3_tactic_ref, *mk_c(c)); \
     _ref_->m_tactic   = _t_;                            \
     mk_c(c)->save_object(_ref_);                        \
     Z3_tactic _result_  = of_tactic(_ref_);             \
@@ -39,7 +39,7 @@ extern "C" {
 }
 
 #define RETURN_PROBE(_t_) {                     \
-    Z3_probe_ref * _ref_ = alloc(Z3_probe_ref); \
+        Z3_probe_ref * _ref_ = alloc(Z3_probe_ref, *mk_c(c));   \
     _ref_->m_probe   = _t_;                     \
     mk_c(c)->save_object(_ref_);                \
     Z3_probe _result_  = of_probe(_ref_);       \
@@ -367,7 +367,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_tactic_get_param_descrs(c, t);
         RESET_ERROR_CODE();
-        Z3_param_descrs_ref * d = alloc(Z3_param_descrs_ref);
+        Z3_param_descrs_ref * d = alloc(Z3_param_descrs_ref, *mk_c(c));
         mk_c(c)->save_object(d);
         to_tactic_ref(t)->collect_param_descrs(d->m_descrs);
         Z3_param_descrs r = of_param_descrs(d);
@@ -404,7 +404,7 @@ extern "C" {
     static Z3_apply_result _tactic_apply(Z3_context c, Z3_tactic t, Z3_goal g, params_ref p) {
         goal_ref new_goal;
         new_goal = alloc(goal, *to_goal_ref(g));
-        Z3_apply_result_ref * ref = alloc(Z3_apply_result_ref, mk_c(c)->m());
+        Z3_apply_result_ref * ref = alloc(Z3_apply_result_ref, (*mk_c(c)), mk_c(c)->m());
         mk_c(c)->save_object(ref); 
 
         unsigned timeout     = p.get_uint("timeout", UINT_MAX);
@@ -505,7 +505,7 @@ extern "C" {
             SET_ERROR_CODE(Z3_IOB);
             RETURN_Z3(0);
         }
-        Z3_goal_ref * g = alloc(Z3_goal_ref);
+        Z3_goal_ref * g = alloc(Z3_goal_ref, *mk_c(c));
         g->m_goal       = to_apply_result(r)->m_subgoals[i];
         mk_c(c)->save_object(g);
         Z3_goal result  = of_goal(g);
@@ -524,7 +524,7 @@ extern "C" {
         model_ref new_m = to_model_ref(m)->copy();
         if (to_apply_result(r)->m_mc)
             to_apply_result(r)->m_mc->operator()(new_m, i);
-        Z3_model_ref * m_ref = alloc(Z3_model_ref); 
+        Z3_model_ref * m_ref = alloc(Z3_model_ref, *mk_c(c)); 
         m_ref->m_model = new_m;
         mk_c(c)->save_object(m_ref);
         RETURN_Z3(of_model(m_ref));

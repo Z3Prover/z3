@@ -31,7 +31,7 @@ extern "C" {
 
     struct Z3_optimize_ref : public api::object {
         opt::context* m_opt;
-        Z3_optimize_ref():m_opt(0) {}
+        Z3_optimize_ref(api::context& c): api::object(c), m_opt(0) {}
         virtual ~Z3_optimize_ref() { dealloc(m_opt); }
     };
     inline Z3_optimize_ref * to_optimize(Z3_optimize o) { return reinterpret_cast<Z3_optimize_ref *>(o); }
@@ -42,7 +42,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_optimize(c);
         RESET_ERROR_CODE();
-        Z3_optimize_ref * o = alloc(Z3_optimize_ref);
+        Z3_optimize_ref * o = alloc(Z3_optimize_ref, *mk_c(c));
         o->m_opt = alloc(opt::context,mk_c(c)->m());
         mk_c(c)->save_object(o);
         RETURN_Z3(of_optimize(o));
@@ -158,7 +158,7 @@ extern "C" {
         RESET_ERROR_CODE();
         model_ref _m;
         to_optimize_ptr(o)->get_model(_m);
-        Z3_model_ref * m_ref = alloc(Z3_model_ref); 
+        Z3_model_ref * m_ref = alloc(Z3_model_ref, *mk_c(c)); 
         if (_m) {
             m_ref->m_model = _m;
         }
@@ -186,7 +186,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_optimize_get_param_descrs(c, o);
         RESET_ERROR_CODE();
-        Z3_param_descrs_ref * d = alloc(Z3_param_descrs_ref);
+        Z3_param_descrs_ref * d = alloc(Z3_param_descrs_ref, *mk_c(c));
         mk_c(c)->save_object(d);
         to_optimize_ptr(o)->collect_param_descrs(d->m_descrs);
         Z3_param_descrs r = of_param_descrs(d);
@@ -240,7 +240,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_optimize_get_statistics(c, d);
         RESET_ERROR_CODE();
-        Z3_stats_ref * st = alloc(Z3_stats_ref);
+        Z3_stats_ref * st = alloc(Z3_stats_ref, *mk_c(c));
         to_optimize_ptr(d)->collect_statistics(st->m_stats);
         mk_c(c)->save_object(st);
         Z3_stats r = of_stats(st);

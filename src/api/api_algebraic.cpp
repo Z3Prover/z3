@@ -378,7 +378,7 @@ extern "C" {
             vector_var2anum v2a(as);
             _am.isolate_roots(_p, v2a, roots);
         }
-        Z3_ast_vector_ref* result = alloc(Z3_ast_vector_ref, mk_c(c)->m());
+        Z3_ast_vector_ref* result = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
         mk_c(c)->save_object(result);
         for (unsigned i = 0; i < roots.size(); i++) {
             result->m_ast_vector.push_back(au(c).mk_numeral(roots.get(i), false));

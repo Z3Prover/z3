@@ -721,7 +721,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_simplify_get_param_descrs(c);
         RESET_ERROR_CODE();
-        Z3_param_descrs_ref * d = alloc(Z3_param_descrs_ref);
+        Z3_param_descrs_ref * d = alloc(Z3_param_descrs_ref, *mk_c(c));
         mk_c(c)->save_object(d);
         th_rewriter::get_param_descrs(d->m_descrs);
         Z3_param_descrs r = of_param_descrs(d);

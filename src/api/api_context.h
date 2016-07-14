@@ -35,6 +35,7 @@ Revision History:
 #include"tactic_manager.h"
 #include"context_params.h"
 #include"api_polynomial.h"
+#include"hashtable.h"
 
 namespace smtlib {
     class parser;
@@ -69,6 +70,8 @@ namespace api {
         ast_ref_vector             m_ast_trail;   //!< used when m_user_ref_count == false
 
         ref<api::object>           m_last_obj; //!< reference to the last API object returned by the APIs
+        u_map<api::object*>        m_allocated_objects; // !< table containing current set of allocated API objects
+        unsigned_vector            m_free_object_ids;   // !< free list of identifiers available for allocated objects.
 
         family_id                  m_basic_fid;
         family_id                  m_array_fid;
@@ -140,6 +143,9 @@ namespace api {
         void set_error_handler(Z3_error_handler h) { m_error_handler = h; }
         // Sign an error if solver is searching
         void check_searching();
+
+        unsigned add_object(api::object* o);
+        void del_object(api::object* o);
 
         Z3_ast_print_mode get_print_mode() const { return m_print_mode; }
         void set_print_mode(Z3_ast_print_mode m) { m_print_mode = m; }

@@ -53,7 +53,7 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return 0;
         }
-        Z3_ast_vector_ref* result = alloc(Z3_ast_vector_ref, mk_c(c)->m());
+        Z3_ast_vector_ref* result = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
         mk_c(c)->save_object(result);
         if (converter.is_var(to_expr(x))) {
             expr2var const & mapping = converter.get_mapping();
