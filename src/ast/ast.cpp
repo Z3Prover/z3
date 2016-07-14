@@ -1386,6 +1386,14 @@ void ast_manager::init() {
     inc_ref(m_false);
 }
 
+template<typename T>
+static void mark_array_ref(ast_mark& mark, unsigned sz, T * const * a) {
+    for(unsigned i = 0; i < sz; i++) {
+        mark.mark(a[i], true);
+    }
+}
+
+
 ast_manager::~ast_manager() {
     SASSERT(is_format_manager() || !m_family_manager.has_family(symbol("format")));
 
@@ -1405,26 +1413,58 @@ ast_manager::~ast_manager() {
         if (*it)
             dealloc(*it);
     }
-    DEBUG_CODE({
-        if (!m_ast_table.empty())
-            std::cout << "ast_manager LEAKED: " << m_ast_table.size() << std::endl;
-    });
-#if 1
-    DEBUG_CODE({
+    while (!m_ast_table.empty()) {
+        DEBUG_CODE(std::cout << "ast_manager LEAKED: " << m_ast_table.size() << std::endl;);
+        ptr_vector<ast> roots;
+        ast_mark mark;
         ast_table::iterator it_a = m_ast_table.begin();
         ast_table::iterator end_a = m_ast_table.end();
         for (; it_a != end_a; ++it_a) {
-            ast* a = (*it_a);
-            std::cout << "Leaked: ";
-            if (is_sort(a)) {
-                std::cout << to_sort(a)->get_name() << "\n";
+            ast* n = (*it_a);
+            switch (n->get_kind()) {
+            case AST_SORT:
+                break;
+            case AST_FUNC_DECL:
+                mark_array_ref(mark, to_func_decl(n)->get_arity(), to_func_decl(n)->get_domain());
+                mark.mark(to_func_decl(n)->get_range(), true);
+                break;
+            case AST_APP:
+                mark.mark(to_app(n)->get_decl(), true);
+                mark_array_ref(mark, to_app(n)->get_num_args(), to_app(n)->get_args());
+                break;
+            case AST_VAR:
+                mark.mark(to_var(n)->get_sort(), true);
+                break;
+            case AST_QUANTIFIER:
+                mark_array_ref(mark, to_quantifier(n)->get_num_decls(), to_quantifier(n)->get_decl_sorts());
+                mark.mark(to_quantifier(n)->get_expr(), true);
+                mark_array_ref(mark, to_quantifier(n)->get_num_patterns(), to_quantifier(n)->get_patterns());
+                mark_array_ref(mark, to_quantifier(n)->get_num_no_patterns(), to_quantifier(n)->get_no_patterns());
+                break;
+            }           
+        }        
+        it_a = m_ast_table.begin();
+        for (; it_a != end_a; ++it_a) {
+            ast* n = *it_a;
+            if (!mark.is_marked(n)) {
+                roots.push_back(n);
             }
-            else {
-                std::cout << mk_ll_pp(a, *this, false) << "id: " << a->get_id() << "\n";
-            }
+        }        
+        SASSERT(!roots.empty());
+        for (unsigned i = 0; i < roots.size(); ++i) {
+            ast* a = roots[i];
+            DEBUG_CODE(
+                std::cout << "Leaked: ";
+                if (is_sort(a)) {
+                    std::cout << to_sort(a)->get_name() << "\n";
+                }
+                else {
+                    std::cout << mk_ll_pp(a, *this, false) << "id: " << a->get_id() << "\n";
+                });
+
+            dec_ref(a);
         }
-    });
-#endif
+    }
     if (m_format_manager != 0)
         dealloc(m_format_manager);
     if (m_trace_stream_owner) {
