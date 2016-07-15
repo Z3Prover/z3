@@ -963,7 +963,6 @@ namespace opt {
             unsigned row_id2 = row_ids[i];
             if (!visited.contains(row_id2)) {                
                 visited.insert(row_id2);
-                row const& r2 = m_rows[row_id2];
                 b = get_coefficient(row_id2, x);
                 if (!b.is_zero()) {
                     resolve(row_id1, a, row_id2, x);            

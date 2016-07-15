@@ -17,6 +17,7 @@ Author:
 Revision History:
 
 --*/
+#include<typeinfo>
 #include"api_context.h"
 #include"smtparser.h"
 #include"version.h"
