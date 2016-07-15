@@ -156,7 +156,7 @@ extern "C" {
         LOG_Z3_goal_translate(c, g, target);
         RESET_ERROR_CODE();
         ast_translation translator(mk_c(c)->m(), mk_c(target)->m());
-        Z3_goal_ref * _r = alloc(Z3_goal_ref, *mk_c(c));
+        Z3_goal_ref * _r = alloc(Z3_goal_ref, *mk_c(target));
         _r->m_goal       = to_goal_ref(g)->translate(translator);
         mk_c(target)->save_object(_r);
         Z3_goal r = of_goal(_r);

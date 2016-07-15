@@ -103,7 +103,7 @@ extern "C" {
         LOG_Z3_solver_translate(c, s, target);
         RESET_ERROR_CODE();
         params_ref const& p = to_solver(s)->m_params; 
-        Z3_solver_ref * sr = alloc(Z3_solver_ref, *mk_c(c), 0);
+        Z3_solver_ref * sr = alloc(Z3_solver_ref, *mk_c(target), 0);
         init_solver(c, s);
         sr->m_solver = to_solver(s)->m_solver->translate(mk_c(target)->m(), p);
         mk_c(target)->save_object(sr);

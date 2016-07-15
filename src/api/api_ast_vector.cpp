@@ -111,7 +111,7 @@ extern "C" {
             RETURN_Z3(0);
         }
         ast_translation translator(mk_c(c)->m(), mk_c(t)->m()); 
-        Z3_ast_vector_ref * new_v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(t)->m());
+        Z3_ast_vector_ref * new_v = alloc(Z3_ast_vector_ref, *mk_c(t), mk_c(t)->m());
         mk_c(t)->save_object(new_v);
         unsigned sz = to_ast_vector_ref(v).size();
         for (unsigned i = 0; i < sz; i++) {

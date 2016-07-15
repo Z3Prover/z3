@@ -131,7 +131,7 @@ namespace api {
         m_last_obj = 0;
         u_map<api::object*>::iterator it = m_allocated_objects.begin();
         while (it != m_allocated_objects.end()) {
-            //warning_msg("Junk: %d", it->m_key);
+            DEBUG_CODE(warning_msg("Uncollected memory: %d: %s", it->m_key, typeid(*it->m_value).name()););
             m_allocated_objects.remove(it->m_key);
             dealloc(it->m_value);
             it = m_allocated_objects.begin();
