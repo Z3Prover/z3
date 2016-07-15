@@ -2408,7 +2408,9 @@ static void prove_tptp() {
         }
         if (g_generate_proof) {
             try {
+                std::cout << "SZS output start Proof\n";
                 display_proof(ctx, fmls, solver);
+                std::cout << "SZS output end Proof\n";
             }
             catch (failure_ex& ex) {
                 std::cerr << "Proof display could not be completed: " << ex.msg << "\n";
@@ -2434,7 +2436,9 @@ static void prove_tptp() {
             std::cout << "SZS status Satisfiable\n";
         }
         if (g_generate_model) {
+            std::cout << "SZS output start Model\n";
             display_model(ctx, solver.get_model());
+            std::cout << "SZS output end Model\n";
         }
         break;
     case z3::unknown:
