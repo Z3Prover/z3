@@ -1393,6 +1393,14 @@ static void mark_array_ref(ast_mark& mark, unsigned sz, T * const * a) {
     }
 }
 
+static void mark_array_ref(ast_mark& mark, unsigned sz, parameter const * a) {
+    for(unsigned i = 0; i < sz; i++) {
+        if (a[i].is_ast()) {
+            mark.mark(a[i].get_ast(), true);
+        }
+    }
+}
+
 
 ast_manager::~ast_manager() {
     SASSERT(is_format_manager() || !m_family_manager.has_family(symbol("format")));
@@ -1423,8 +1431,10 @@ ast_manager::~ast_manager() {
             ast* n = (*it_a);
             switch (n->get_kind()) {
             case AST_SORT:
+                mark_array_ref(mark, to_sort(n)->get_info()->get_num_parameters(), to_sort(n)->get_info()->get_parameters());
                 break;
             case AST_FUNC_DECL:
+                mark_array_ref(mark, to_func_decl(n)->get_info()->get_num_parameters(), to_func_decl(n)->get_info()->get_parameters());
                 mark_array_ref(mark, to_func_decl(n)->get_arity(), to_func_decl(n)->get_domain());
                 mark.mark(to_func_decl(n)->get_range(), true);
                 break;

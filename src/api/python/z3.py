@@ -156,7 +156,7 @@ class Context:
             Z3_set_param_value(conf, str(key).upper(), _to_param_value(value))
         prev = None
         for a in args:
-            if prev == None:
+            if prev is None:
                 prev = a
             else:
                 Z3_set_param_value(conf, str(prev), _to_param_value(a))
@@ -171,6 +171,7 @@ class Context:
 
     def __del__(self):
         self.lib.Z3_del_context(self.ctx)
+        self.ctx = None
 
     def ref(self):
         """Return a reference to the actual C pointer to the Z3 context."""
@@ -203,12 +204,12 @@ def main_ctx():
     False
     """
     global _main_ctx
-    if _main_ctx == None:
+    if _main_ctx is None:
         _main_ctx = Context()
     return _main_ctx
 
 def _get_ctx(ctx):
-    if ctx == None:
+    if ctx is None:
         return main_ctx()
     else:
         return ctx
@@ -230,7 +231,7 @@ def set_param(*args, **kws):
         Z3_global_param_set(str(key).upper(), _to_param_value(value))
     prev = None
     for a in args:
-        if prev == None:
+        if prev is None:
             prev = a
         else:
             Z3_global_param_set(str(prev), _to_param_value(a))
@@ -278,7 +279,8 @@ class AstRef(Z3PPObject):
         Z3_inc_ref(self.ctx.ref(), self.as_ast())
 
     def __del__(self):
-        Z3_dec_ref(self.ctx.ref(), self.as_ast())
+        if self.ctx.ref() is not None:
+           Z3_dec_ref(self.ctx.ref(), self.as_ast())
 
     def __str__(self):
         return obj_to_string(self)
@@ -416,12 +418,12 @@ def _ctx_from_ast_arg_list(args, default_ctx=None):
     ctx = None
     for a in args:
         if is_ast(a) or is_probe(a):
-            if ctx == None:
+            if ctx is None:
                 ctx = a.ctx
             else:
                 if __debug__:
                     _z3_assert(ctx == a.ctx, "Context mismatch")
-    if ctx == None:
+    if ctx is None:
         ctx = default_ctx
     return ctx
 
@@ -533,7 +535,7 @@ class SortRef(AstRef):
         >>> p.sort() == IntSort()
         False
         """
-        if other == None:
+        if other is None:
             return False
         return Z3_is_eq_sort(self.ctx_ref(), self.ast, other.ast)
 
@@ -806,10 +808,10 @@ class ExprRef(AstRef):
         >>> b = Int('b')
         >>> a == b
         a == b
-        >>> a == None
+        >>> a is None
         False
         """
-        if other == None:
+        if other is None:
             return False
         a, b = _coerce_exprs(self, other)
         return BoolRef(Z3_mk_eq(self.ctx_ref(), a.as_ast(), b.as_ast()), self.ctx)
@@ -827,10 +829,10 @@ class ExprRef(AstRef):
         >>> b = Int('b')
         >>> a != b
         a != b
-        >>> a != None
+        >>> a is not None
         True
         """
-        if other == None:
+        if other is None:
             return True
         a, b = _coerce_exprs(self, other)
         _args, sz = _to_ast_array((a, b))
@@ -953,7 +955,7 @@ def _to_expr_ref(a, ctx):
 def _coerce_expr_merge(s, a):
     if is_expr(a):
         s1 = a.sort()
-        if s == None:
+        if s is None:
             return s1
         if s1.eq(s):
             return s
@@ -1169,7 +1171,7 @@ def Distinct(*args):
     args  = _get_args(args)
     ctx   = _ctx_from_ast_arg_list(args)
     if __debug__:
-        _z3_assert(ctx != None, "At least one of the arguments must be a Z3 expression")
+        _z3_assert(ctx is not None, "At least one of the arguments must be a Z3 expression")
     args  = _coerce_expr_list(args, ctx)
     _args, sz = _to_ast_array(args)
     return BoolRef(Z3_mk_distinct(ctx.ref(), sz, _args), ctx)
@@ -1547,8 +1549,8 @@ def And(*args):
     args = _get_args(args)
     ctx_args  = _ctx_from_ast_arg_list(args, ctx)
     if __debug__:
-        _z3_assert(ctx_args == None or ctx_args == ctx, "context mismatch")
-        _z3_assert(ctx != None, "At least one of the arguments must be a Z3 expression or probe")
+        _z3_assert(ctx_args is None or ctx_args == ctx, "context mismatch")
+        _z3_assert(ctx is not None, "At least one of the arguments must be a Z3 expression or probe")
     if _has_probe(args):
         return _probe_and(args, ctx)
     else:
@@ -1577,8 +1579,8 @@ def Or(*args):
     args = _get_args(args)
     ctx_args  = _ctx_from_ast_arg_list(args, ctx)
     if __debug__:
-        _z3_assert(ctx_args == None or ctx_args == ctx, "context mismatch")
-        _z3_assert(ctx != None, "At least one of the arguments must be a Z3 expression or probe")
+        _z3_assert(ctx_args is None or ctx_args == ctx, "context mismatch")
+        _z3_assert(ctx is not None, "At least one of the arguments must be a Z3 expression or probe")
     if _has_probe(args):
         return _probe_or(args, ctx)
     else:
@@ -4346,7 +4348,8 @@ class ScopedConstructor:
         self.c   = c
         self.ctx = ctx
     def __del__(self):
-        Z3_del_constructor(self.ctx.ref(), self.c)
+        if self.ctx.ref() is not None:
+           Z3_del_constructor(self.ctx.ref(), self.c)
 
 class ScopedConstructorList:
     """Auxiliary object used to create Z3 datatypes."""
@@ -4354,7 +4357,8 @@ class ScopedConstructorList:
         self.c   = c
         self.ctx = ctx
     def __del__(self):
-        Z3_del_constructor_list(self.ctx.ref(), self.c)
+        if self.ctx.ref() is not None: 
+           Z3_del_constructor_list(self.ctx.ref(), self.c)
 
 def CreateDatatypes(*ds):
     """Create mutually recursive Z3 datatypes using 1 or more Datatype helper objects.
@@ -4588,7 +4592,8 @@ class ParamsRef:
         Z3_params_inc_ref(self.ctx.ref(), self.params)
 
     def __del__(self):
-        Z3_params_dec_ref(self.ctx.ref(), self.params)
+        if self.ctx.ref() is not None:
+           Z3_params_dec_ref(self.ctx.ref(), self.params)
 
     def set(self, name, val):
         """Set parameter name with value val."""
@@ -4626,7 +4631,7 @@ def args2params(arguments, keywords, ctx=None):
     prev = None
     r    = ParamsRef(ctx)
     for a in arguments:
-        if prev == None:
+        if prev is None:
             prev = a
         else:
             r.set(prev, a)
@@ -4646,7 +4651,8 @@ class ParamDescrsRef:
         Z3_param_descrs_inc_ref(self.ctx.ref(), self.descr)
 
     def __del__(self):
-        Z3_param_descrs_dec_ref(self.ctx.ref(), self.descr)
+        if self.ctx.ref() is not None:
+           Z3_param_descrs_dec_ref(self.ctx.ref(), self.descr)
 
     def size(self):
         """Return the size of in the parameter description `self`.
@@ -4698,15 +4704,15 @@ class Goal(Z3PPObject):
 
     def __init__(self, models=True, unsat_cores=False, proofs=False, ctx=None, goal=None):
         if __debug__:
-            _z3_assert(goal == None or ctx != None, "If goal is different from None, then ctx must be also different from None")
+            _z3_assert(goal is None or ctx is not None, "If goal is different from None, then ctx must be also different from None")
         self.ctx    = _get_ctx(ctx)
         self.goal   = goal
-        if self.goal == None:
+        if self.goal is None:
             self.goal   = Z3_mk_goal(self.ctx.ref(), models, unsat_cores, proofs)
         Z3_goal_inc_ref(self.ctx.ref(), self.goal)
 
     def __del__(self):
-        if self.goal != None:
+        if self.goal is not None and self.ctx.ref() is not None:
             Z3_goal_dec_ref(self.ctx.ref(), self.goal)
 
     def depth(self):
@@ -4958,17 +4964,17 @@ class AstVector(Z3PPObject):
 
     def __init__(self, v=None, ctx=None):
         self.vector = None
-        if v == None:
+        if v is None:
             self.ctx = _get_ctx(ctx)
             self.vector = Z3_mk_ast_vector(self.ctx.ref())
         else:
             self.vector = v
-            assert ctx != None
+            assert ctx is not None
             self.ctx    = ctx
         Z3_ast_vector_inc_ref(self.ctx.ref(), self.vector)
 
     def __del__(self):
-        if self.vector != None:
+        if self.vector is not None and self.ctx.ref() is not None:
             Z3_ast_vector_dec_ref(self.ctx.ref(), self.vector)
 
     def __len__(self):
@@ -5093,17 +5099,17 @@ class AstMap:
 
     def __init__(self, m=None, ctx=None):
         self.map = None
-        if m == None:
+        if m is None:
             self.ctx = _get_ctx(ctx)
             self.map = Z3_mk_ast_map(self.ctx.ref())
         else:
             self.map = m
-            assert ctx != None
+            assert ctx is not None
             self.ctx    = ctx
         Z3_ast_map_inc_ref(self.ctx.ref(), self.map)
 
     def __del__(self):
-        if self.map != None:
+        if self.map is not None and self.ctx.ref() is not None:
             Z3_ast_map_dec_ref(self.ctx.ref(), self.map)
 
     def __len__(self):
@@ -5218,7 +5224,8 @@ class FuncEntry:
         Z3_func_entry_inc_ref(self.ctx.ref(), self.entry)
 
     def __del__(self):
-        Z3_func_entry_dec_ref(self.ctx.ref(), self.entry)
+        if self.ctx.ref() is not None:
+           Z3_func_entry_dec_ref(self.ctx.ref(), self.entry)
 
     def num_args(self):
         """Return the number of arguments in the given entry.
@@ -5319,11 +5326,11 @@ class FuncInterp(Z3PPObject):
     def __init__(self, f, ctx):
         self.f   = f
         self.ctx = ctx
-        if self.f != None:
+        if self.f is not None:
             Z3_func_interp_inc_ref(self.ctx.ref(), self.f)
 
     def __del__(self):
-        if self.f != None:
+        if self.f is not None and self.ctx.ref() is not None:
             Z3_func_interp_dec_ref(self.ctx.ref(), self.f)
 
     def else_value(self):
@@ -5427,13 +5434,14 @@ class ModelRef(Z3PPObject):
     """Model/Solution of a satisfiability problem (aka system of constraints)."""
 
     def __init__(self, m, ctx):
-        assert ctx != None
+        assert ctx is not None
         self.model = m
         self.ctx   = ctx
         Z3_model_inc_ref(self.ctx.ref(), self.model)
 
     def __del__(self):
-        Z3_model_dec_ref(self.ctx.ref(), self.model)
+        if self.ctx.ref() is not None:
+           Z3_model_dec_ref(self.ctx.ref(), self.model)
 
     def __repr__(self):
         return obj_to_string(self)
@@ -5708,7 +5716,8 @@ class Statistics:
         Z3_stats_inc_ref(self.ctx.ref(), self.stats)
 
     def __del__(self):
-        Z3_stats_dec_ref(self.ctx.ref(), self.stats)
+        if self.ctx.ref() is not None:
+           Z3_stats_dec_ref(self.ctx.ref(), self.stats)
 
     def __repr__(self):
         if in_html_mode():
@@ -5870,17 +5879,17 @@ class Solver(Z3PPObject):
     """Solver API provides methods for implementing the main SMT 2.0 commands: push, pop, check, get-model, etc."""
 
     def __init__(self, solver=None, ctx=None):
-        assert solver == None or ctx != None
+        assert solver is None or ctx is not None
         self.ctx    = _get_ctx(ctx)
         self.solver = None
-        if solver == None:
+        if solver is None:
             self.solver = Z3_mk_solver(self.ctx.ref())
         else:
             self.solver = solver
         Z3_solver_inc_ref(self.ctx.ref(), self.solver)
 
     def __del__(self):
-        if self.solver != None:
+        if self.solver is not None and self.ctx.ref() is not None:
             Z3_solver_dec_ref(self.ctx.ref(), self.solver)
 
     def set(self, *args, **keys):
@@ -6257,10 +6266,10 @@ class Fixedpoint(Z3PPObject):
     """Fixedpoint API provides methods for solving with recursive predicates"""
 
     def __init__(self, fixedpoint=None, ctx=None):
-        assert fixedpoint == None or ctx != None
+        assert fixedpoint is None or ctx is not None
         self.ctx    = _get_ctx(ctx)
         self.fixedpoint = None
-        if fixedpoint == None:
+        if fixedpoint is None:
             self.fixedpoint = Z3_mk_fixedpoint(self.ctx.ref())
         else:
             self.fixedpoint = fixedpoint
@@ -6268,7 +6277,7 @@ class Fixedpoint(Z3PPObject):
         self.vars = []
 
     def __del__(self):
-        if self.fixedpoint != None:
+        if self.fixedpoint is not None and self.ctx.ref() is not None:
             Z3_fixedpoint_dec_ref(self.ctx.ref(), self.fixedpoint)
 
     def set(self, *args, **keys):
@@ -6323,10 +6332,10 @@ class Fixedpoint(Z3PPObject):
         >>> s.query(b)
         sat
         """
-        if name == None:
+        if name is None:
             name = ""
         name = to_symbol(name, self.ctx)
-        if body == None:
+        if body is None:
             head = self.abstract(head)
             Z3_fixedpoint_add_rule(self.ctx.ref(), self.fixedpoint, head.as_ast(), name)
         else:
@@ -6374,7 +6383,7 @@ class Fixedpoint(Z3PPObject):
 
     def update_rule(self, head, body, name):
         """update rule"""
-        if name == None:
+        if name is None:
             name = ""
         name = to_symbol(name, self.ctx)
         body = _get_args(body)
@@ -6626,7 +6635,7 @@ class Optimize(Z3PPObject):
         Z3_optimize_inc_ref(self.ctx.ref(), self.optimize)
 
     def __del__(self):
-        if self.optimize != None:
+        if self.optimize is not None and self.ctx.ref() is not None:
             Z3_optimize_dec_ref(self.ctx.ref(), self.optimize)
 
     def set(self, *args, **keys):
@@ -6668,7 +6677,7 @@ class Optimize(Z3PPObject):
             weight = "%d" % weight
         if not isinstance(weight, str):
             raise Z3Exception("weight should be a string or an integer")
-        if id == None:
+        if id is None:
             id = ""
         id = to_symbol(id, self.ctx)
         v = Z3_optimize_assert_soft(self.ctx.ref(), self.optimize, arg.as_ast(), weight, id)
@@ -6746,7 +6755,8 @@ class ApplyResult(Z3PPObject):
         Z3_apply_result_inc_ref(self.ctx.ref(), self.result)
 
     def __del__(self):
-        Z3_apply_result_dec_ref(self.ctx.ref(), self.result)
+        if self.ctx.ref() is not None:
+            Z3_apply_result_dec_ref(self.ctx.ref(), self.result)
 
     def __len__(self):
         """Return the number of subgoals in `self`.
@@ -6873,7 +6883,7 @@ class Tactic:
         Z3_tactic_inc_ref(self.ctx.ref(), self.tactic)
 
     def __del__(self):
-        if self.tactic != None:
+        if self.tactic is not None and self.ctx.ref() is not None:
             Z3_tactic_dec_ref(self.ctx.ref(), self.tactic)
 
     def solver(self):
@@ -7145,7 +7155,7 @@ class Probe:
         Z3_probe_inc_ref(self.ctx.ref(), self.probe)
 
     def __del__(self):
-        if self.probe != None:
+        if self.probe is not None and self.ctx.ref() is not None:
             Z3_probe_dec_ref(self.ctx.ref(), self.probe)
 
     def __lt__(self, other):
@@ -7470,7 +7480,7 @@ def Sum(*args):
         _z3_assert(len(args) > 0, "Non empty list of arguments expected")
     ctx   = _ctx_from_ast_arg_list(args)
     if __debug__:
-        _z3_assert(ctx != None, "At least one of the arguments must be a Z3 expression")
+        _z3_assert(ctx is not None, "At least one of the arguments must be a Z3 expression")
     args  = _coerce_expr_list(args, ctx)
     if is_bv(args[0]):
         return _reduce(lambda a, b: a + b, args, 0)
@@ -7495,7 +7505,7 @@ def Product(*args):
         _z3_assert(len(args) > 0, "Non empty list of arguments expected")
     ctx   = _ctx_from_ast_arg_list(args)
     if __debug__:
-        _z3_assert(ctx != None, "At least one of the arguments must be a Z3 expression")
+        _z3_assert(ctx is not None, "At least one of the arguments must be a Z3 expression")
     args  = _coerce_expr_list(args, ctx)
     if is_bv(args[0]):
         return _reduce(lambda a, b: a * b, args, 1)
@@ -7514,7 +7524,7 @@ def AtMost(*args):
         _z3_assert(len(args) > 1, "Non empty list of arguments expected")
     ctx   = _ctx_from_ast_arg_list(args)
     if __debug__:
-        _z3_assert(ctx != None, "At least one of the arguments must be a Z3 expression")
+        _z3_assert(ctx is not None, "At least one of the arguments must be a Z3 expression")
     args1 = _coerce_expr_list(args[:-1], ctx)
     k = args[-1]
     _args, sz = _to_ast_array(args1)
@@ -7532,7 +7542,7 @@ def PbLe(args, k):
         _z3_assert(len(args) > 0, "Non empty list of arguments expected")
     ctx   = _ctx_from_ast_arg_list(args)
     if __debug__:
-        _z3_assert(ctx != None, "At least one of the arguments must be a Z3 expression")
+        _z3_assert(ctx is not None, "At least one of the arguments must be a Z3 expression")
     args = _coerce_expr_list(args, ctx)
     _args, sz = _to_ast_array(args)
     _coeffs = (ctypes.c_int * len(coeffs))()
@@ -7822,7 +7832,7 @@ def tree_interpolant(pat,p=None,ctx=None):
     ctx = _get_ctx(_ctx_from_ast_arg_list([f], ctx))
     ptr = (AstVectorObj * 1)()
     mptr = (Model * 1)()
-    if p == None:
+    if p is None:
         p = ParamsRef(ctx)
     res = Z3_compute_interpolant(ctx.ref(),f.as_ast(),p.params,ptr,mptr)
     if res == Z3_L_FALSE:
@@ -7857,7 +7867,7 @@ def binary_interpolant(a,b,p=None,ctx=None):
     """
     f = And(Interpolant(a),b)
     ti = tree_interpolant(f,p,ctx)
-    return ti[0] if ti != None else None
+    return ti[0] if ti is not None else None
 
 def sequence_interpolant(v,p=None,ctx=None):
     """Compute interpolant for a sequence of formulas.
@@ -7951,7 +7961,7 @@ def _coerce_fp_expr_list(alist, ctx):
     first_fp_sort = None
     for a in alist:
         if is_fp(a):
-            if first_fp_sort == None:
+            if first_fp_sort is None:
                 first_fp_sort = a.sort()
             elif first_fp_sort == a.sort():
                 pass # OK, same as before
@@ -8561,10 +8571,10 @@ def FPVal(sig, exp=None, fps=None, ctx=None):
     if is_fp_sort(exp):
         fps = exp
         exp = None
-    elif fps == None:
+    elif fps is None:
         fps = _dflt_fps(ctx)
     _z3_assert(is_fp_sort(fps), "sort mismatch")
-    if exp == None:
+    if exp is None:
         exp = 0
     val = _to_float_str(sig)
     if val == "NaN" or val == "nan":
