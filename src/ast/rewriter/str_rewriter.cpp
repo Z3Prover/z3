@@ -219,6 +219,27 @@ br_status str_rewriter::mk_re_RegexIn(expr * str, expr * re, expr_ref & result) 
 	return BR_FAILED;
 }
 
+br_status str_rewriter::mk_re_RegexPlus(expr * re, expr_ref & result) {
+    /*
+     * Two optimizations are possible if we inspect 're'.
+     * If 're' is (RegexPlus X), then reduce to 're'.
+     * If 're' is (RegexStar X), then reduce to 're'.
+     * Otherwise, reduce to (RegexConcat re (RegexStar re)).
+     */
+
+    if (m_strutil.is_re_RegexPlus(re)) {
+        result = re;
+        return BR_REWRITE_FULL;
+    } else if (m_strutil.is_re_RegexStar(re)) {
+        // Z3str2 re-created the AST under 're' here, but I don't think we need to do that
+        result = re;
+        return BR_REWRITE_FULL;
+    } else {
+        result = m_strutil.mk_re_RegexConcat(re, m_strutil.mk_re_RegexStar(re));
+        return BR_REWRITE_FULL;
+    }
+}
+
 br_status str_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
     SASSERT(f->get_family_id() == get_fid());
 
@@ -256,6 +277,9 @@ br_status str_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_RE_REGEXIN:
     	SASSERT(num_args == 2);
     	return mk_re_RegexIn(args[0], args[1], result);
+    case OP_RE_REGEXPLUS:
+        SASSERT(num_args == 1);
+        return mk_re_RegexPlus(args[0], result);
     default:
         return BR_FAILED;
     }

@@ -48,6 +48,8 @@ enum str_op_kind {
 	OP_RE_REGEXSTAR,
 	OP_RE_REGEXUNION,
 	OP_RE_UNROLL,
+	// higher-level regex operators
+	OP_RE_REGEXPLUS,
     // end
     LAST_STR_OP
 };
@@ -77,6 +79,7 @@ protected:
     func_decl * m_re_regexstar_decl;
     func_decl * m_re_regexunion_decl;
     func_decl * m_re_unroll_decl;
+    func_decl * m_re_regexplus_decl;
 
     arith_decl_plugin * m_arith_plugin;
     family_id           m_arith_fid;
@@ -120,6 +123,8 @@ public:
     bool is_string(expr const * n) const;
 
     bool is_re_Str2Reg(expr const * n) const { return is_app_of(n, get_fid(), OP_RE_STR2REGEX); }
+    bool is_re_RegexStar(expr const * n) const { return is_app_of(n, get_fid(), OP_RE_REGEXSTAR); }
+    bool is_re_RegexPlus(expr const * n) const { return is_app_of(n, get_fid(), OP_RE_REGEXPLUS); }
 
     std::string get_string_constant_value(expr const *n) const;
     // TODO
@@ -142,7 +147,17 @@ public:
     app * mk_fresh_string() {
         return m_plugin->mk_fresh_string();
     }
-    // TODO
+
+    app * mk_re_RegexConcat(expr * e1, expr * e2) {
+        expr * es[2] = {e1, e2};
+        return m_manager.mk_app(get_fid(), OP_RE_REGEXCONCAT, 2, es);
+    }
+
+    app * mk_re_RegexStar(expr * r) {
+        expr * es[1] = {r};
+        return m_manager.mk_app(get_fid(), OP_RE_REGEXSTAR, 1, es);
+    }
+
 };
 
 #endif /* _STR_DECL_PLUGIN_H_ */

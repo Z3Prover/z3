@@ -51,6 +51,7 @@ public:
 
     br_status mk_re_Str2Reg(expr * str, expr_ref & result);
     br_status mk_re_RegexIn(expr * str, expr * re, expr_ref & result);
+    br_status mk_re_RegexPlus(expr * re, expr_ref & result);
 
     bool reduce_eq(expr * l, expr * r, expr_ref_vector & lhs, expr_ref_vector & rhs, bool & change);
     bool reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_vector& lhs, expr_ref_vector& rhs, bool& change);
