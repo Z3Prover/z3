@@ -50,6 +50,7 @@ enum str_op_kind {
 	OP_RE_UNROLL,
 	// higher-level regex operators
 	OP_RE_REGEXPLUS,
+	OP_RE_REGEXCHARRANGE,
     // end
     LAST_STR_OP
 };
@@ -80,6 +81,7 @@ protected:
     func_decl * m_re_regexunion_decl;
     func_decl * m_re_unroll_decl;
     func_decl * m_re_regexplus_decl;
+    func_decl * m_re_regexcharrange_decl;
 
     arith_decl_plugin * m_arith_plugin;
     family_id           m_arith_fid;
@@ -146,6 +148,20 @@ public:
     }
     app * mk_fresh_string() {
         return m_plugin->mk_fresh_string();
+    }
+
+    app * mk_re_Str2Reg(expr * s) {
+        expr * es[1] = {s};
+        return m_manager.mk_app(get_fid(), OP_RE_STR2REGEX, 1, es);
+    }
+
+    app * mk_re_Str2Reg(std::string s) {
+        return mk_re_Str2Reg(mk_string(s));
+    }
+
+    app * mk_re_RegexUnion(expr * e1, expr * e2) {
+        expr * es[2] = {e1, e2};
+        return m_manager.mk_app(get_fid(), OP_RE_REGEXUNION, 2, es);
     }
 
     app * mk_re_RegexConcat(expr * e1, expr * e2) {

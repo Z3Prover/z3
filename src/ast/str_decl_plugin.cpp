@@ -43,6 +43,7 @@ str_decl_plugin::str_decl_plugin():
 	m_re_regexunion_decl(0),
 	m_re_unroll_decl(0),
     m_re_regexplus_decl(0),
+    m_re_regexcharrange_decl(0),
     m_arith_plugin(0),
     m_arith_fid(0),
     m_int_sort(0){
@@ -72,6 +73,7 @@ void str_decl_plugin::finalize(void) {
     DEC_REF(m_re_regexstar_decl);
     DEC_REF(m_re_regexunion_decl);
     DEC_REF(m_re_regexplus_decl);
+    DEC_REF(m_re_regexcharrange_decl);
     DEC_REF(m_re_unroll_decl);
     DEC_REF(m_int_sort);
 }
@@ -164,6 +166,9 @@ void str_decl_plugin::set_manager(ast_manager * m, family_id id) {
     m_re_unroll_decl = m->mk_func_decl(symbol("Unroll"), re, i, s, func_decl_info(id, OP_RE_UNROLL));
     m_manager->inc_ref(m_re_unroll_decl);
 
+    m_re_regexcharrange_decl = m->mk_func_decl(symbol("RegexCharRange"), s, s, re, func_decl_info(id, OP_RE_REGEXCHARRANGE));
+    m_manager->inc_ref(m_re_regexcharrange_decl);
+
 }
 
 decl_plugin * str_decl_plugin::mk_fresh() {
@@ -198,6 +203,7 @@ func_decl * str_decl_plugin::mk_func_decl(decl_kind k) {
     case OP_RE_REGEXPLUS: return m_re_regexplus_decl;
     case OP_RE_REGEXUNION: return m_re_regexunion_decl;
     case OP_RE_UNROLL: return m_re_unroll_decl;
+    case OP_RE_REGEXCHARRANGE: return m_re_regexcharrange_decl;
     default: return 0;
     }
 }
@@ -270,6 +276,7 @@ void str_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol cons
     op_names.push_back(builtin_name("RegexUnion", OP_RE_REGEXUNION));
     op_names.push_back(builtin_name("RegexPlus", OP_RE_REGEXPLUS));
     op_names.push_back(builtin_name("Unroll", OP_RE_UNROLL));
+    op_names.push_back(builtin_name("RegexCharRange", OP_RE_REGEXCHARRANGE));
 }
 
 void str_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {

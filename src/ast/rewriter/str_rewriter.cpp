@@ -200,8 +200,7 @@ br_status str_rewriter::mk_str_Replace(expr * base, expr * source, expr * target
 
 br_status str_rewriter::mk_re_Str2Reg(expr * str, expr_ref & result) {
 	// the argument to Str2Reg *must* be a string constant
-	// TODO is an assertion error too strict here? this basically crashes the solver
-	VERIFY(m_strutil.is_string(str));
+	ENSURE(m_strutil.is_string(str));
 	return BR_FAILED;
 }
 
@@ -211,7 +210,7 @@ br_status str_rewriter::mk_re_RegexIn(expr * str, expr * re, expr_ref & result) 
 	if (m_strutil.is_re_Str2Reg(re)) {
 		TRACE("t_str_rw", tout << "RegexIn fast path: " << mk_pp(str, m()) << " in " << mk_pp(re, m()) << std::endl;);
 		expr * regexStr = to_app(re)->get_arg(0);
-		VERIFY(m_strutil.is_string(regexStr));
+		ENSURE(m_strutil.is_string(regexStr));
 		result = m().mk_eq(str, regexStr);
 		return BR_REWRITE_FULL;
 	}
@@ -238,6 +237,35 @@ br_status str_rewriter::mk_re_RegexPlus(expr * re, expr_ref & result) {
         result = m_strutil.mk_re_RegexConcat(re, m_strutil.mk_re_RegexStar(re));
         return BR_REWRITE_FULL;
     }
+}
+
+br_status str_rewriter::mk_re_RegexCharRange(expr * start, expr * end, expr_ref & result) {
+    TRACE("t_str_rw", tout << "rewrite (RegexCharRange " << mk_pp(start, m()) << " " << mk_pp(end, m()) << ")" << std::endl;);
+    // both 'start' and 'end' must be string constants
+    ENSURE(m_strutil.is_string(start) && m_strutil.is_string(end));
+    std::string arg0Value = m_strutil.get_string_constant_value(start);
+    std::string arg1Value = m_strutil.get_string_constant_value(end);
+    ENSURE(arg0Value.length() == 1 && arg1Value.length() == 1);
+    char low = arg0Value[0];
+    char high = arg1Value[0];
+    if (low > high) {
+      char t = low;
+      low = high;
+      high = t;
+    }
+
+    char c = low;
+    std::string cStr;
+    cStr.push_back(c);
+    expr * res = m_strutil.mk_re_Str2Reg(cStr);
+    c++;
+    for (; c <= high; c++) {
+      cStr.clear();
+      cStr.push_back(c);
+      res = m_strutil.mk_re_RegexUnion(res, m_strutil.mk_re_Str2Reg(cStr));
+    }
+    result = res;
+    return BR_DONE;
 }
 
 br_status str_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
@@ -280,6 +308,9 @@ br_status str_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_RE_REGEXPLUS:
         SASSERT(num_args == 1);
         return mk_re_RegexPlus(args[0], result);
+    case OP_RE_REGEXCHARRANGE:
+        SASSERT(num_args == 2);
+        return mk_re_RegexCharRange(args[0], args[1], result);
     default:
         return BR_FAILED;
     }
