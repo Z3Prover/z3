@@ -1658,7 +1658,9 @@ void cmd_context::validate_model() {
                 invalid_model = true;
             }
         }
-        throw cmd_exception("an invalid model was generated");
+        if (invalid_model) {
+            throw cmd_exception("an invalid model was generated");
+        }
     }
 }
 
