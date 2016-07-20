@@ -1045,15 +1045,13 @@ namespace smt {
     bool context::simplify_aux_clause_literals(unsigned & num_lits, literal * lits, literal_buffer & simp_lits) {
         std::sort(lits, lits + num_lits);
         literal prev = null_literal;
-        unsigned i = 0;
         unsigned j = 0;
-        for (; i < num_lits; i++) {
+        for (unsigned i = 0; i < num_lits; i++) {
             literal curr = lits[i];
             lbool   val  = get_assignment(curr);
-            if (val == l_false)
-                simp_lits.push_back(~curr);
             switch(val) {
             case l_false:
+                simp_lits.push_back(~curr);
                 break; // ignore literal
             case l_undef:
                 if (curr == ~prev)
@@ -1295,8 +1293,9 @@ namespace smt {
                     SASSERT(get_assignment(simp_lits[i]) == l_true);
                 }
             });
-            if (old_num_lits != num_lits) 
+            if (!simp_lits.empty()) {
                 j = mk_justification(unit_resolution_justification(m_region, j, simp_lits.size(), simp_lits.c_ptr()));
+            }
             break;
         }
         case CLS_AUX_LEMMA: {
