@@ -945,6 +945,8 @@ typedef enum
 
       - Z3_OP_FPA_TO_IEEE_BV: Floating-point conversion to IEEE-754 bit-vector
 
+      - Z3_OP_INTERNAL: internal (often interpreted) symbol, but no additional information is exposed. Tools may use the string representation of the function declaration to obtain more information.
+
       - Z3_OP_UNINTERPRETED: kind used for uninterpreted symbols.
 */
 typedef enum {
@@ -1216,6 +1218,8 @@ typedef enum {
 
     Z3_OP_FPA_MIN_I,
     Z3_OP_FPA_MAX_I,
+
+    Z3_OP_INTERNAL,
 
     Z3_OP_UNINTERPRETED
 } Z3_decl_kind;
