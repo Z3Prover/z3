@@ -1634,6 +1634,7 @@ void cmd_context::validate_model() {
         scoped_ctrl_c ctrlc(eh);
         ptr_vector<expr>::const_iterator it  = begin_assertions();
         ptr_vector<expr>::const_iterator end = end_assertions();
+        bool invalid_model = false;
         for (; it != end; ++it) {
             expr * a = *it;
             if (is_ground(a)) {
@@ -1654,9 +1655,10 @@ void cmd_context::validate_model() {
                     continue;
                 }
                 TRACE("model_validate", model_smt2_pp(tout, *this, *(md.get()), 0););
-                throw cmd_exception("an invalid model was generated");
+                invalid_model = true;
             }
         }
+        throw cmd_exception("an invalid model was generated");
     }
 }
 

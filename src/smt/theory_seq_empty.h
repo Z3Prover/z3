@@ -126,6 +126,22 @@ namespace smt {
             symbol sym;
             if (u.str.is_string(n, sym)) {
                 m_strings.insert(sym);
+                if (sym.str().find(m_unique_delim) != std::string::npos) {
+                    add_new_delim();
+                }
+            }
+        }
+    private:
+
+        void add_new_delim() {
+            bool found = true;
+            while (found) {
+                found = false;
+                m_unique_delim += "!";
+                symbol_set::iterator it = m_strings.begin(), end = m_strings.end();
+                for (; it != end && !found; ++it) {
+                    found = it->str().find(m_unique_delim) != std::string::npos;                    
+                }
             }
         }
     };

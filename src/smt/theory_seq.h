@@ -294,6 +294,7 @@ namespace smt {
         ast_manager&               m;
         dependency_manager         m_dm;
         solution_map               m_rep;        // unification representative.
+        bool                       m_reset_cache; // invalidate cache.
         scoped_vector<eq>          m_eqs;        // set of current equations.
         scoped_vector<ne>          m_nqs;        // set of current disequalities.
         scoped_vector<nc>          m_ncs;        // set of non-contains constraints.
