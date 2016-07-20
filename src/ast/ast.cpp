@@ -2991,7 +2991,10 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
           for (unsigned i = 0; i < num_proofs; i++) tout << mk_pp(get_fact(proofs[i]), *this) << "\n";
           tout << "===>\n";
           tout << mk_pp(new_fact, *this) << "\n";);
-        SASSERT(num_proofs == cls_sz || (num_proofs == cls_sz + 1 && is_false(new_fact)));
+        //
+        // typically: num_proofs == cls_sz || (num_proofs == cls_sz + 1 && is_false(new_fact))
+        // but formula could have repeated literals that are merged in the clausal representation.
+        //
         unsigned num_matches = 0;
         for (unsigned i = 0; i < cls_sz; i++) {
             expr * lit = cls->get_arg(i);
