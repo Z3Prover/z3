@@ -19,10 +19,7 @@ Notes:
 
 #include <typeinfo>
 #include "maxsmt.h"
-#include "fu_malik.h"
 #include "maxres.h"
-#include "maxhs.h"
-#include "bcd2.h"
 #include "wmax.h"
 #include "maxsls.h"
 #include "ast_pp.h"
@@ -166,19 +163,10 @@ namespace opt {
         else if (maxsat_engine == symbol("pd-maxres")) {            
             m_msolver = mk_primal_dual_maxres(m_c, m_index, m_weights, m_soft_constraints);
         }
-        else if (maxsat_engine == symbol("bcd2")) {
-            m_msolver = mk_bcd2(m_c, m_weights, m_soft_constraints);
-        }
-        else if (maxsat_engine == symbol("maxhs")) {                
-            m_msolver = mk_maxhs(m_c, m_weights, m_soft_constraints);
-        }
         else if (maxsat_engine == symbol("sls")) {                
             // NB: this is experimental one-round version of SLS
             m_msolver = mk_sls(m_c, m_weights, m_soft_constraints);
         }        
-        else if (is_maxsat_problem(m_weights) && maxsat_engine == symbol("fu_malik")) {
-            m_msolver = mk_fu_malik(m_c, m_weights, m_soft_constraints);
-        }
         else {
             if (maxsat_engine != symbol::null && maxsat_engine != symbol("wmax")) {
                 warning_msg("solver %s is not recognized, using default 'wmax'", 

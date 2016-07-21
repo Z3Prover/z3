@@ -828,7 +828,10 @@ class env {
             }
             else if (!strcmp(ch,"$to_real")) {
                 check_arity(terms.size(), 1);
-                r = to_real(terms[0]);
+                r = terms[0];
+                if (r.get_sort().is_int()) {
+                    r = to_real(terms[0]);
+                }
             }
             else if (!strcmp(ch,"$is_int")) {
                 check_arity(terms.size(), 1);
