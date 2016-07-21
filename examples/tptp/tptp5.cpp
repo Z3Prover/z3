@@ -1232,16 +1232,9 @@ public:
     }
 
     void display(std::ostream& out, z3::expr e) {
-        if (e.is_numeral()) {
-            __int64 num, den;
-            if (Z3_get_numeral_small(ctx, e, &num, &den)) {
-                if (num < 0 && den == 1 && num != std::numeric_limits<__int64>::min()) {
-                    out << "-" << (-num);
-                    return;
-                }
-            }
-            // potential incompatibility: prints negative numbers with a space.
-            out << e;
+        std::string s;
+        if (e.is_numeral(s)) {
+            out << s;
         }
         else if (e.is_var()) {
             unsigned idx = Z3_get_index_value(ctx, e);
@@ -2372,7 +2365,7 @@ static void prove_tptp() {
     }
     catch (failure_ex& ex) {
         std::cerr << ex.msg << "\n";
-        std::cout << "SZS status GaveUp\n";
+        std::cout << "% SZS status GaveUp\n";
         return;
     }
 
@@ -2404,16 +2397,16 @@ static void prove_tptp() {
             std::cout << result << "\n";
         }
         else if (fmls.has_conjecture()) {
-            std::cout << "SZS status Theorem\n";
+            std::cout << "% SZS status Theorem\n";
         }
         else {
-            std::cout << "SZS status Unsatisfiable\n";
+            std::cout << "% SZS status Unsatisfiable\n";
         }
         if (g_generate_proof) {
             try {
-                std::cout << "SZS output start Proof\n";
+                std::cout << "% SZS output start Proof\n";
                 display_proof(ctx, fmls, solver);
-                std::cout << "SZS output end Proof\n";
+                std::cout << "% SZS output end Proof\n";
             }
             catch (failure_ex& ex) {
                 std::cerr << "Proof display could not be completed: " << ex.msg << "\n";
@@ -2421,7 +2414,7 @@ static void prove_tptp() {
         }
         if (g_generate_core) {
             z3::expr_vector core = solver.unsat_core();
-            std::cout << "SZS core ";
+            std::cout << "% SZS core ";
             for (unsigned i = 0; i < core.size(); ++i) {
                 std::cout << core[i] << " ";
             }
@@ -2433,15 +2426,15 @@ static void prove_tptp() {
             std::cout << result << "\n";
         }
         else if (fmls.has_conjecture()) {
-            std::cout << "SZS status CounterSatisfiable\n";            
+            std::cout << "% SZS status CounterSatisfiable\n";            
         }
         else {
-            std::cout << "SZS status Satisfiable\n";
+            std::cout << "% SZS status Satisfiable\n";
         }
         if (g_generate_model) {
-            std::cout << "SZS output start Model\n";
+            std::cout << "% SZS output start Model\n";
             display_model(ctx, solver.get_model());
-            std::cout << "SZS output end Model\n";
+            std::cout << "% SZS output end Model\n";
         }
         break;
     case z3::unknown:
@@ -2449,12 +2442,12 @@ static void prove_tptp() {
             std::cout << result << "\n";
         }
         else if (!g_first_interrupt) {
-            std::cout << "SZS status Interrupted\n";
+            std::cout << "% SZS status Interrupted\n";
         }
         else {
-            std::cout << "SZS status GaveUp\n";
+            std::cout << "% SZS status GaveUp\n";
             std::string reason = solver.reason_unknown();
-            std::cout << "SZS reason " << reason << "\n";
+            std::cout << "% SZS reason " << reason << "\n";
         }
         break;
     }    
@@ -2487,7 +2480,14 @@ int main(int argc, char** argv) {
         display_smt2(*g_out);
     }
     else {
-        prove_tptp();
+        try {
+            prove_tptp();
+        }
+        catch (z3::exception& ex) {
+            std::cerr << "Proof display could not be completed: " << ex.msg() << "\n";
+        }
+
+
     }
     return 0;
 }
