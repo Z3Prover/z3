@@ -21,7 +21,6 @@ Notes:
 #include "maxsmt.h"
 #include "maxres.h"
 #include "wmax.h"
-#include "maxsls.h"
 #include "ast_pp.h"
 #include "uint_set.h"
 #include "opt_context.h"
@@ -163,15 +162,12 @@ namespace opt {
         else if (maxsat_engine == symbol("pd-maxres")) {            
             m_msolver = mk_primal_dual_maxres(m_c, m_index, m_weights, m_soft_constraints);
         }
-        else if (maxsat_engine == symbol("sls")) {                
-            // NB: this is experimental one-round version of SLS
-            m_msolver = mk_sls(m_c, m_weights, m_soft_constraints);
-        }        
         else {
             if (maxsat_engine != symbol::null && maxsat_engine != symbol("wmax")) {
                 warning_msg("solver %s is not recognized, using default 'wmax'", 
                             maxsat_engine.str().c_str());
             }
+            std::cout << "wmax\n";
             m_msolver = mk_wmax(m_c, m_weights, m_soft_constraints);
         }
 

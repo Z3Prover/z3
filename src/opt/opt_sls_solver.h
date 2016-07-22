@@ -184,9 +184,10 @@ namespace opt {
             expr_ref tmp(m);
             goal_ref g(alloc(goal, m, true, false));
             for (unsigned i = 0; i < m_solver->get_num_assertions(); ++i) {
-                m_pb2bv(m_solver->get_assertion(i), tmp);
+                m_pb2bv(m_solver->get_assertion(i), tmp);                
                 g->assert_expr(tmp);
             }
+            TRACE("opt", g->display(tout););
             tactic_ref simplify = mk_nnf_tactic(m);
             proof_converter_ref pc;
             expr_dependency_ref core(m);
@@ -198,6 +199,7 @@ namespace opt {
             for (unsigned i = 0; i < r->size(); ++i) {
                 m_bvsls->assert_expr(r->form(i));
             }
+            TRACE("opt", m_bvsls->display(tout););
         }
 
         void pbsls_opt(model_ref& mdl) {
@@ -230,6 +232,7 @@ namespace opt {
             }
             assertions2sls();
             expr_ref objective = soft2bv(m_soft, m_weights);
+            TRACE("opt", tout << objective << "\n";);
             opt_result res(m);
             res.is_sat = l_undef;
             try {

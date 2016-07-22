@@ -474,6 +474,9 @@ lbool inc_sat_check_sat(solver& _s, unsigned sz, expr*const* soft, rational cons
     for (unsigned i = 0; _weights && i < sz; ++i) {
         weights.push_back(_weights[i].get_double());
     }
+    params_ref p;
+    p.set_bool("minimize_core", false);
+    s.updt_params(p);
     return s.check_sat(sz, soft, weights.c_ptr(), max_weight.get_double());
 }
 

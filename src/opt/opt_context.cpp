@@ -561,7 +561,7 @@ namespace opt {
         if (opt_params(m_params).priority() == symbol("pareto")) {
             return;
         }
-        m_params.set_bool("minimize_core_partial", true); // false);
+        m_params.set_bool("minimize_core_partial", true);
         m_params.set_bool("minimize_core", true);
         m_sat_solver = mk_inc_sat_solver(m, m_params);
         expr_ref_vector fmls(m);
