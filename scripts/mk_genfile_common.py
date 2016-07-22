@@ -345,7 +345,7 @@ def mk_z3consts_java_internal(api_files, package_name, output_dir):
                         efile.write('    public static final %s fromInt(int v) {\n' % name)
                         efile.write('        for (%s k: values()) \n' % name)
                         efile.write('            if (k.intValue == v) return k;\n')
-                        efile.write('        return values()[0];\n')
+                        efile.write('        throw new IllegalArgumentException("Illegal value " + v + " for %s");\n' % name)
                         efile.write('    }\n\n')
                         efile.write('    public final int toInt() { return this.intValue; }\n')
                         #  efile.write(';\n  %s(int v) {}\n' % name)
