@@ -282,7 +282,7 @@ public:
             for (unsigned i = 0; i < m_bounds.size(); ++i) {
                 g->assert_expr(m_bounds[i].get());
             }
-            mc = concat(m_ext.get(), m_filter.get());
+            mc = concat(m_filter.get(), m_ext.get());
             report_tactic_progress(":fd-num-translated", m_num_transformed);
         }
         g->inc_depth();
