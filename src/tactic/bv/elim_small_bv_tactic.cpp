@@ -119,9 +119,8 @@ class elim_small_bv_tactic : public tactic {
             return res;
         }
 
-        br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
-            result = m.mk_app(f, num, args);
-            TRACE("elim_small_bv_app", tout << "reduce " << mk_ismt2_pp(result, m) << std::endl; );
+        br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {            
+            TRACE("elim_small_bv_app", expr_ref tmp(m.mk_app(f, num, args), m); tout << "reduce " << tmp << std::endl; );
             return BR_FAILED;
         }
 

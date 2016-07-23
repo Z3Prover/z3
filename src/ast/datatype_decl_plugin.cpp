@@ -933,6 +933,25 @@ bool datatype_util::is_recursive(sort * ty) {
     return r;
 }
 
+
+bool datatype_util::is_enum_sort(sort* s) {
+	if (!is_datatype(s)) {
+		return false;
+	}
+    bool r = false;
+    if (m_is_enum.find(s, r))
+        return r;
+    ptr_vector<func_decl> const& cnstrs = *get_datatype_constructors(s);
+    r = true;
+    for (unsigned i = 0; r && i < cnstrs.size(); ++i) {
+        r = cnstrs[i]->get_arity() == 0;
+    }
+    m_is_enum.insert(s, r);
+    m_asts.push_back(s);
+    return r;
+}
+
+
 void datatype_util::reset() {
     m_datatype2constructors.reset();
     m_datatype2nonrec_constructor.reset();
@@ -941,6 +960,7 @@ void datatype_util::reset() {
     m_recognizer2constructor.reset();
     m_accessor2constructor.reset();
     m_is_recursive.reset();
+    m_is_enum.reset();
     std::for_each(m_vectors.begin(), m_vectors.end(), delete_proc<ptr_vector<func_decl> >());
     m_vectors.reset();
     m_asts.reset();
