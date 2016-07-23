@@ -3363,18 +3363,53 @@ void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
     expr * xorFlag = NULL;
     std::pair<expr*, expr*> key1(concatAst1, concatAst2);
     std::pair<expr*, expr*> key2(concatAst2, concatAst1);
-    if (varForBreakConcat.find(key1) == varForBreakConcat.end() && varForBreakConcat.find(key2) == varForBreakConcat.end()) {
+
+    // check the entries in this map to make sure they're still in scope
+    // before we use them.
+    // TODO something very similar might have to be done elsewhere when we use this map, if this works.
+
+    std::map<std::pair<expr*,expr*>, std::map<int, expr*> >::iterator entry1 = varForBreakConcat.find(key1);
+    std::map<std::pair<expr*,expr*>, std::map<int, expr*> >::iterator entry2 = varForBreakConcat.find(key2);
+
+    bool entry1InScope;
+    if (entry1 == varForBreakConcat.end()) {
+        entry1InScope = false;
+    } else {
+        if (internal_variable_set.find((entry1->second)[0]) == internal_variable_set.end()
+                || internal_variable_set.find((entry1->second)[1]) == internal_variable_set.end()) {
+            entry1InScope = false;
+        } else {
+            entry1InScope = true;
+        }
+    }
+
+    bool entry2InScope;
+    if (entry2 == varForBreakConcat.end()) {
+        entry2InScope = false;
+    } else {
+        if (internal_variable_set.find((entry2->second)[0]) == internal_variable_set.end()
+                || internal_variable_set.find((entry2->second)[1]) == internal_variable_set.end()) {
+            entry2InScope = false;
+        } else {
+            entry2InScope = true;
+        }
+    }
+
+    TRACE("t_str_detail", tout << "entry 1 " << (entry1InScope ? "in scope" : "not in scope") << std::endl
+            << "entry 2 " << (entry2InScope ? "in scope" : "not in scope") << std::endl;);
+
+    if (!entry1InScope && !entry2InScope) {
         commonVar = mk_nonempty_str_var();
         xorFlag = mk_internal_xor_var();
         varForBreakConcat[key1][0] = commonVar;
         varForBreakConcat[key1][1] = xorFlag;
     } else {
-        if (varForBreakConcat.find(key1) != varForBreakConcat.end()) {
-            commonVar = varForBreakConcat[key1][0];
-            xorFlag = varForBreakConcat[key1][1];
+        if (entry1InScope) {
+            commonVar = (entry1->second)[0];
+            xorFlag = (entry1->second)[1];
         } else {
-            commonVar = varForBreakConcat[key2][0];
-            xorFlag = varForBreakConcat[key2][1];
+            commonVar = (entry2->second)[0];
+            xorFlag = (entry2->second)[1];
         }
     }
 
