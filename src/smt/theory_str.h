@@ -100,8 +100,24 @@ namespace smt {
          * will not return from the function after asserting their axioms.
          * This means that control will fall through to the type 1-6 axioms,
          * causing those to be added as well.
+         * The default behaviour of Z3str2 is to set this to 'false'.
          */
         bool opt_NoQuickReturn_Concat_IntegerTheory;
+
+        /*
+         * If DisableIntegerTheoryIntegration is set to true,
+         * ALL calls to the integer theory integration methods
+         * (get_value, get_len_value, lower_bound, upper_bound)
+         * will ignore what the arithmetic solver believes about length terms,
+         * and will return no information.
+         *
+         * This reduces performance significantly, but can be useful to enable
+         * if it is suspected that string-integer integration, or the arithmetic solver itself,
+         * might have a bug.
+         *
+         * The default behaviour of Z3str2 is to set this to 'false'.
+         */
+        bool opt_DisableIntegerTheoryIntegration;
 
         bool search_started;
         arith_util m_autil;

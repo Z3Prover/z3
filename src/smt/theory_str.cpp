@@ -34,6 +34,7 @@ theory_str::theory_str(ast_manager & m):
         opt_VerifyFinalCheckProgress(true),
 		opt_LCMUnrollStep(2),
 		opt_NoQuickReturn_Concat_IntegerTheory(true),
+		opt_DisableIntegerTheoryIntegration(true),
         /* Internal setup */
         search_started(false),
         m_autil(m),
@@ -3747,6 +3748,11 @@ static theory_mi_arith* get_th_arith(context& ctx, theory_id afid, expr* e) {
 }
 
 bool theory_str::get_value(expr* e, rational& val) const {
+    if (opt_DisableIntegerTheoryIntegration) {
+        TRACE("t_str_detail", tout << "WARNING: integer theory integration disabled" << std::endl;);
+        return false;
+    }
+
     context& ctx = get_context();
     ast_manager & m = get_manager();
     theory_mi_arith* tha = get_th_arith(ctx, m_autil.get_family_id(), e);
@@ -3773,6 +3779,11 @@ bool theory_str::get_value(expr* e, rational& val) const {
 }
 
 bool theory_str::lower_bound(expr* _e, rational& lo) {
+    if (opt_DisableIntegerTheoryIntegration) {
+        TRACE("t_str_detail", tout << "WARNING: integer theory integration disabled" << std::endl;);
+        return false;
+    }
+
     context& ctx = get_context();
     ast_manager & m = get_manager();
     theory_mi_arith* tha = get_th_arith(ctx, m_autil.get_family_id(), _e);
@@ -3782,6 +3793,11 @@ bool theory_str::lower_bound(expr* _e, rational& lo) {
 }
 
 bool theory_str::upper_bound(expr* _e, rational& hi) {
+    if (opt_DisableIntegerTheoryIntegration) {
+        TRACE("t_str_detail", tout << "WARNING: integer theory integration disabled" << std::endl;);
+        return false;
+    }
+
     context& ctx = get_context();
     ast_manager & m = get_manager();
     theory_mi_arith* tha = get_th_arith(ctx, m_autil.get_family_id(), _e);
@@ -3791,6 +3807,11 @@ bool theory_str::upper_bound(expr* _e, rational& hi) {
 }
 
 bool theory_str::get_len_value(expr* e, rational& val) {
+    if (opt_DisableIntegerTheoryIntegration) {
+        TRACE("t_str_detail", tout << "WARNING: integer theory integration disabled" << std::endl;);
+        return false;
+    }
+
     context& ctx = get_context();
     ast_manager & m = get_manager();
     theory* th = ctx.get_theory(m_autil.get_family_id());
