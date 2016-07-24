@@ -94,6 +94,15 @@ namespace smt {
          */
         int opt_LCMUnrollStep;
 
+        /*
+         * If NoQuickReturn_Concat_IntegerTheory is set to true,
+         * the integer theory integration conditionals in simplify_concat_equality()
+         * will not return from the function after asserting their axioms.
+         * This means that control will fall through to the type 1-6 axioms,
+         * causing those to be added as well.
+         */
+        bool opt_NoQuickReturn_Concat_IntegerTheory;
+
         bool search_started;
         arith_util m_autil;
         str_util m_strutil;

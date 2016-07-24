@@ -33,6 +33,7 @@ theory_str::theory_str(ast_manager & m):
         opt_EagerStringConstantLengthAssertions(true),
         opt_VerifyFinalCheckProgress(true),
 		opt_LCMUnrollStep(2),
+		opt_NoQuickReturn_Concat_IntegerTheory(true),
         /* Internal setup */
         search_started(false),
         m_autil(m),
@@ -145,7 +146,7 @@ void theory_str::assert_axiom(expr * e) {
     // crash/error avoidance: add all axioms to the trail
     m_trail.push_back(e);
 
-    TRACE("t_str_detail", tout << "done asserting " << mk_ismt2_pp(e, get_manager()) << std::endl;);
+    //TRACE("t_str_detail", tout << "done asserting " << mk_ismt2_pp(e, get_manager()) << std::endl;);
 }
 
 void theory_str::assert_implication(expr * premise, expr * conclusion) {
@@ -2049,8 +2050,16 @@ void theory_str::simplify_concat_equality(expr * nn1, expr * nn2) {
     TRACE("t_str", tout << "nn1 = " << mk_ismt2_pp(nn1, m) << std::endl
             << "nn2 = " << mk_ismt2_pp(nn2, m) << std::endl;);
 
+    TRACE("t_str_detail", tout
+            << "len(" << mk_pp(a1_arg0, m) << ") = " << (a1_arg0_len_exists ? a1_arg0_len.to_string() : "?") << std::endl
+            << "len(" << mk_pp(a1_arg1, m) << ") = " << (a1_arg1_len_exists ? a1_arg1_len.to_string() : "?") << std::endl
+            << "len(" << mk_pp(a2_arg0, m) << ") = " << (a2_arg0_len_exists ? a2_arg0_len.to_string() : "?") << std::endl
+            << "len(" << mk_pp(a2_arg1, m) << ") = " << (a2_arg1_len_exists ? a2_arg1_len.to_string() : "?") << std::endl
+            << std::endl;);
+
     infer_len_concat_equality(nn1, nn2);
 
+    // TODO we may want to add no-quick-return options for these as well
     if (a1_arg0 == a2_arg0) {
         if (!in_same_eqc(a1_arg1, a2_arg1)) {
             expr_ref premise(ctx.mk_eq_atom(nn1, nn2), m);
@@ -2076,6 +2085,8 @@ void theory_str::simplify_concat_equality(expr * nn1, expr * nn2) {
     }
 
     // quick path
+
+    // TODO we may want to add no-quick-return options for these as well
 
     if (in_same_eqc(a1_arg0, a2_arg0)) {
         if (in_same_eqc(a1_arg1, a2_arg1)) {
@@ -2111,7 +2122,12 @@ void theory_str::simplify_concat_equality(expr * nn1, expr * nn2) {
             expr_ref conclusion(m.mk_and(ax_r1, ax_r2), m);
 
             assert_implication(premise, conclusion);
-            return;
+
+            if (opt_NoQuickReturn_Concat_IntegerTheory) {
+                TRACE("t_str_detail", tout << "bypassing quick return from the end of this case" << std::endl;);
+            } else {
+                return;
+            }
         }
     }
 
@@ -2127,7 +2143,11 @@ void theory_str::simplify_concat_equality(expr * nn1, expr * nn2) {
             expr_ref conclusion(m.mk_and(ax_r1, ax_r2), m);
 
             assert_implication(premise, conclusion);
-            return;
+            if (opt_NoQuickReturn_Concat_IntegerTheory) {
+                TRACE("t_str_detail", tout << "bypassing quick return from the end of this case" << std::endl;);
+            } else {
+                return;
+            }
         }
     }
 
@@ -2328,7 +2348,42 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
     std::pair<expr*, expr*> key1(concatAst1, concatAst2);
     std::pair<expr*, expr*> key2(concatAst2, concatAst1);
 
-    if (varForBreakConcat.find(key1) == varForBreakConcat.end() && varForBreakConcat.find(key2) == varForBreakConcat.end()) {
+    // check the entries in this map to make sure they're still in scope
+    // before we use them.
+
+    std::map<std::pair<expr*,expr*>, std::map<int, expr*> >::iterator entry1 = varForBreakConcat.find(key1);
+    std::map<std::pair<expr*,expr*>, std::map<int, expr*> >::iterator entry2 = varForBreakConcat.find(key2);
+
+    bool entry1InScope;
+    if (entry1 == varForBreakConcat.end()) {
+        entry1InScope = false;
+    } else {
+        if (internal_variable_set.find((entry1->second)[0]) == internal_variable_set.end()
+                || internal_variable_set.find((entry1->second)[1]) == internal_variable_set.end()
+                || internal_variable_set.find((entry1->second)[2]) == internal_variable_set.end()) {
+            entry1InScope = false;
+        } else {
+            entry1InScope = true;
+        }
+    }
+
+    bool entry2InScope;
+    if (entry2 == varForBreakConcat.end()) {
+        entry2InScope = false;
+    } else {
+        if (internal_variable_set.find((entry2->second)[0]) == internal_variable_set.end()
+                || internal_variable_set.find((entry2->second)[1]) == internal_variable_set.end()
+                || internal_variable_set.find((entry2->second)[2]) == internal_variable_set.end()) {
+            entry2InScope = false;
+        } else {
+            entry2InScope = true;
+        }
+    }
+
+    TRACE("t_str_detail", tout << "entry 1 " << (entry1InScope ? "in scope" : "not in scope") << std::endl
+            << "entry 2 " << (entry2InScope ? "in scope" : "not in scope") << std::endl;);
+
+    if (!entry1InScope && !entry2InScope) {
         t1 = mk_nonempty_str_var();
         t2 = mk_nonempty_str_var();
         xorFlag = mk_internal_xor_var();
@@ -2339,7 +2394,7 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
         varForBreakConcat[key1][2] = xorFlag;
     } else {
         // match found
-        if (varForBreakConcat.find(key1) != varForBreakConcat.end()) {
+        if (entry1InScope) {
             t1 = varForBreakConcat[key1][0];
             t2 = varForBreakConcat[key1][1];
             xorFlag = varForBreakConcat[key1][2];
@@ -2619,17 +2674,50 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 	std::pair<expr*, expr*> key1(concatAst1, concatAst2);
 	std::pair<expr*, expr*> key2(concatAst2, concatAst1);
 
-	if (varForBreakConcat.find(key1) == varForBreakConcat.end()
-			&& varForBreakConcat.find(key2) == varForBreakConcat.end()) {
+	// check the entries in this map to make sure they're still in scope
+	// before we use them.
+
+	std::map<std::pair<expr*,expr*>, std::map<int, expr*> >::iterator entry1 = varForBreakConcat.find(key1);
+	std::map<std::pair<expr*,expr*>, std::map<int, expr*> >::iterator entry2 = varForBreakConcat.find(key2);
+
+	bool entry1InScope;
+	if (entry1 == varForBreakConcat.end()) {
+	    entry1InScope = false;
+	} else {
+	    if (internal_variable_set.find((entry1->second)[0]) == internal_variable_set.end()
+	            || internal_variable_set.find((entry1->second)[1]) == internal_variable_set.end()) {
+	        entry1InScope = false;
+	    } else {
+	        entry1InScope = true;
+	    }
+	}
+
+	bool entry2InScope;
+	if (entry2 == varForBreakConcat.end()) {
+	    entry2InScope = false;
+	} else {
+	    if (internal_variable_set.find((entry2->second)[0]) == internal_variable_set.end()
+	            || internal_variable_set.find((entry2->second)[1]) == internal_variable_set.end()) {
+	        entry2InScope = false;
+	    } else {
+	        entry2InScope = true;
+	    }
+	}
+
+	TRACE("t_str_detail", tout << "entry 1 " << (entry1InScope ? "in scope" : "not in scope") << std::endl
+	        << "entry 2 " << (entry2InScope ? "in scope" : "not in scope") << std::endl;);
+
+
+	if (!entry1InScope && !entry2InScope) {
 		temp1 = mk_nonempty_str_var();
 		xorFlag = mk_internal_xor_var();
 		varForBreakConcat[key1][0] = temp1;
 		varForBreakConcat[key1][1] = xorFlag;
 	} else {
-		if (varForBreakConcat.find(key1) != varForBreakConcat.end()) {
+		if (entry1InScope) {
 			temp1 = varForBreakConcat[key1][0];
 			xorFlag = varForBreakConcat[key1][1];
-		} else if (varForBreakConcat.find(key2) != varForBreakConcat.end()) {
+		} else if (entry2InScope) {
 			temp1 = varForBreakConcat[key2][0];
 			xorFlag = varForBreakConcat[key2][1];
 		}
@@ -2888,7 +2976,6 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
 
     std::string strValue = m_strutil.get_string_constant_value(strAst);
 
-    // TODO integer theory interaction
     rational x_len, y_len, str_len, n_len;
     bool x_len_exists = get_len_value(x, x_len);
     bool y_len_exists = get_len_value(y, y_len);
@@ -2899,14 +2986,49 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
     expr_ref temp1(mgr);
     std::pair<expr*, expr*> key1(concatAst1, concatAst2);
     std::pair<expr*, expr*> key2(concatAst2, concatAst1);
-    if (varForBreakConcat.find(key1) == varForBreakConcat.end() && varForBreakConcat.find(key2) == varForBreakConcat.end()) {
+
+    // check the entries in this map to make sure they're still in scope
+    // before we use them.
+
+    std::map<std::pair<expr*,expr*>, std::map<int, expr*> >::iterator entry1 = varForBreakConcat.find(key1);
+    std::map<std::pair<expr*,expr*>, std::map<int, expr*> >::iterator entry2 = varForBreakConcat.find(key2);
+
+    bool entry1InScope;
+    if (entry1 == varForBreakConcat.end()) {
+        entry1InScope = false;
+    } else {
+        if (internal_variable_set.find((entry1->second)[0]) == internal_variable_set.end()
+                || internal_variable_set.find((entry1->second)[1]) == internal_variable_set.end()) {
+            entry1InScope = false;
+        } else {
+            entry1InScope = true;
+        }
+    }
+
+    bool entry2InScope;
+    if (entry2 == varForBreakConcat.end()) {
+        entry2InScope = false;
+    } else {
+        if (internal_variable_set.find((entry2->second)[0]) == internal_variable_set.end()
+                || internal_variable_set.find((entry2->second)[1]) == internal_variable_set.end()) {
+            entry2InScope = false;
+        } else {
+            entry2InScope = true;
+        }
+    }
+
+    TRACE("t_str_detail", tout << "entry 1 " << (entry1InScope ? "in scope" : "not in scope") << std::endl
+            << "entry 2 " << (entry2InScope ? "in scope" : "not in scope") << std::endl;);
+
+
+    if (!entry1InScope && !entry2InScope) {
         temp1 = mk_nonempty_str_var();
         xorFlag = mk_internal_xor_var();
 
         varForBreakConcat[key1][0] = temp1;
         varForBreakConcat[key1][1] = xorFlag;
     } else {
-        if (varForBreakConcat.find(key1) != varForBreakConcat.end()) {
+        if (entry1InScope) {
             temp1 = varForBreakConcat[key1][0];
             xorFlag = varForBreakConcat[key1][1];
         } else if (varForBreakConcat.find(key2) != varForBreakConcat.end()) {
@@ -3366,7 +3488,6 @@ void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
 
     // check the entries in this map to make sure they're still in scope
     // before we use them.
-    // TODO something very similar might have to be done elsewhere when we use this map, if this works.
 
     std::map<std::pair<expr*,expr*>, std::map<int, expr*> >::iterator entry1 = varForBreakConcat.find(key1);
     std::map<std::pair<expr*,expr*>, std::map<int, expr*> >::iterator entry2 = varForBreakConcat.find(key2);
@@ -4084,16 +4205,44 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
         			expr_ref xorFlag(m);
         			std::pair<expr*, expr*> key1(arg1, arg2);
         			std::pair<expr*, expr*> key2(arg2, arg1);
-        			std::map<std::pair<expr*, expr*>, std::map<int, expr*> >::iterator varBreak_key1 =
-        					varForBreakConcat.find(key1);
-        			std::map<std::pair<expr*, expr*>, std::map<int, expr*> >::iterator varBreak_key2 =
-							varForBreakConcat.find(key2);
-        			if (varBreak_key1 == varForBreakConcat.end() && varBreak_key2 == varForBreakConcat.end()) {
+
+        			// check the entries in this map to make sure they're still in scope
+        			// before we use them.
+
+        			std::map<std::pair<expr*,expr*>, std::map<int, expr*> >::iterator entry1 = varForBreakConcat.find(key1);
+        			std::map<std::pair<expr*,expr*>, std::map<int, expr*> >::iterator entry2 = varForBreakConcat.find(key2);
+
+        			bool entry1InScope;
+        			if (entry1 == varForBreakConcat.end()) {
+        			    entry1InScope = false;
+        			} else {
+        			    if (internal_variable_set.find((entry1->second)[0]) == internal_variable_set.end()) {
+        			        entry1InScope = false;
+        			    } else {
+        			        entry1InScope = true;
+        			    }
+        			}
+
+        			bool entry2InScope;
+        			if (entry2 == varForBreakConcat.end()) {
+        			    entry2InScope = false;
+        			} else {
+        			    if (internal_variable_set.find((entry2->second)[0]) == internal_variable_set.end()) {
+        			        entry2InScope = false;
+        			    } else {
+        			        entry2InScope = true;
+        			    }
+        			}
+
+        			TRACE("t_str_detail", tout << "entry 1 " << (entry1InScope ? "in scope" : "not in scope") << std::endl
+        			        << "entry 2 " << (entry2InScope ? "in scope" : "not in scope") << std::endl;);
+
+        			if (!entry1InScope && !entry2InScope) {
         				xorFlag = mk_internal_xor_var();
         				varForBreakConcat[key1][0] = xorFlag;
-        			} else if (varBreak_key1 != varForBreakConcat.end()) {
+        			} else if (entry1InScope) {
         				xorFlag = varForBreakConcat[key1][0];
-        			} else { // varBreak_key2 != varForBreakConcat.end()
+        			} else { // entry2InScope
         				xorFlag = varForBreakConcat[key2][0];
         			}
 
@@ -4632,7 +4781,7 @@ void theory_str::push_scope_eh() {
     context & ctx = get_context();
     sLevel += 1;
     TRACE("t_str", tout << "push to " << sLevel << std::endl;);
-    TRACE("t_str_dump_assign", dump_assignments(););
+    TRACE("t_str_dump_assign_on_scope_change", dump_assignments(););
 }
 
 void theory_str::pop_scope_eh(unsigned num_scopes) {
@@ -4683,7 +4832,7 @@ void theory_str::dump_assignments() {
 	ctx.get_assignments(assignments);
 	for (expr_ref_vector::iterator i = assignments.begin(); i != assignments.end(); ++i) {
 		expr * ex = *i;
-		tout << mk_ismt2_pp(ex, m) << std::endl;
+		tout << mk_ismt2_pp(ex, m) << (ctx.is_relevant(ex) ? "" : " (NOT REL)") << std::endl;
 	}
 	);
 }
@@ -4697,6 +4846,9 @@ void theory_str::classify_ast_by_type(expr * node, std::map<expr*, int> & varMap
 	if (variable_set.find(node) != variable_set.end()
 			&& internal_lenTest_vars.find(node) == internal_lenTest_vars.end()
 			&& internal_valTest_vars.find(node) == internal_valTest_vars.end()) {
+	    if (varMap[node] != 1) {
+	        TRACE("t_str_detail", tout << "new variable: " << mk_pp(node, get_manager()) << std::endl;);
+	    }
 		varMap[node] = 1;
 	}
 	// check whether the node is a function that we want to inspect
@@ -4755,6 +4907,10 @@ void theory_str::classify_ast_by_type_in_positive_context(std::map<expr*, int> &
 		// so we bypass a huge amount of work by doing the following...
 
 		if (m.is_eq(argAst)) {
+		    TRACE("t_str_detail", tout
+		            << "eq ast " << mk_pp(argAst, m) << " is between args of sort "
+		            << m.get_sort(to_app(argAst)->get_arg(0))->get_name()
+		            << std::endl;);
 			classify_ast_by_type(argAst, varMap, concatMap, unrollMap);
 		}
 	}
@@ -4976,6 +5132,7 @@ int theory_str::ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr
 	for(std::set<expr*>::iterator it = variable_set.begin(); it != variable_set.end(); ++it) {
 		expr* var = *it;
 		if (internal_variable_set.find(var) == internal_variable_set.end()) {
+		    TRACE("t_str_detail", tout << "new variable: " << mk_pp(var, m) << std::endl;);
 		    strVarMap[*it] = 1;
 		}
 	}
@@ -5716,7 +5873,7 @@ final_check_status theory_str::final_check_eh() {
     constValue = NULL;
 
     {
-        TRACE("t_str_detail", tout << "free var map (# " << freeVar_map.size() << "):" << std::endl;
+        TRACE("t_str_detail", tout << "free var map (#" << freeVar_map.size() << "):" << std::endl;
         for (std::map<expr*, int>::iterator freeVarItor1 = freeVar_map.begin(); freeVarItor1 != freeVar_map.end(); freeVarItor1++) {
             expr * freeVar = freeVarItor1->first;
             rational lenValue;
@@ -5764,7 +5921,7 @@ final_check_status theory_str::final_check_eh() {
     // experimental free variable assignment - end
 
     // now deal with removed free variables that are bounded by an unroll
-    TRACE("t_str", tout << "fv_unrolls_map (#" << fv_unrolls_map.size() << ")" << std::endl;);
+    TRACE("t_str", tout << "fv_unrolls_map (#" << fv_unrolls_map.size() << "):" << std::endl;);
     for (std::map<expr*, std::set<expr*> >::iterator fvIt1 = fv_unrolls_map.begin();
     		fvIt1 != fv_unrolls_map.end(); fvIt1++) {
     	expr * var = fvIt1->first;
@@ -6004,7 +6161,6 @@ expr * theory_str::gen_free_var_options(expr * freeVar, expr * len_indicator,
 	int len = atoi(len_valueStr.c_str());
 
 	// check whether any value tester is actually in scope
-	// TODO NEXT we need to do this check for other tester variables that could potentially go out of scope
 	TRACE("t_str_detail", tout << "checking scope of previous value testers" << std::endl;);
 	bool map_effectively_empty = true;
 	if (fvar_valueTester_map[freeVar].find(len) != fvar_valueTester_map[freeVar].end()) {
@@ -6041,6 +6197,12 @@ expr * theory_str::gen_free_var_options(expr * freeVar, expr * len_indicator,
 		int i = 0;
 		for (; i < testerTotal; i++) {
 			expr * aTester = fvar_valueTester_map[freeVar][len][i].second;
+
+			// it's probably worth checking scope here, actually
+			if (internal_variable_set.find(aTester) == internal_variable_set.end()) {
+			    TRACE("t_str_detail", tout << "value tester " << mk_pp(aTester, m) << " out of scope, skipping" << std::endl;);
+			    continue;
+			}
 
 			if (aTester == valTesterInCbEq) {
 				break;
