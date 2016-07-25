@@ -35,6 +35,7 @@ Notes:
 #include "model_smt2_pp.h"
 #include "card2bv_tactic.h"
 #include "eq2bv_tactic.h"
+#include "dt2bv_tactic.h"
 #include "inc_sat_solver.h"
 #include "bv_decl_plugin.h"
 #include "pb_decl_plugin.h"
@@ -688,21 +689,19 @@ namespace opt {
                      // NB: mk_elim_uncstr_tactic(m) is not sound with soft constraints
                      mk_simplify_tactic(m));   
         opt_params optp(m_params);
-        tactic_ref tac2, tac3, tac4;
+        tactic_ref tac1, tac2, tac3, tac4;
         if (optp.elim_01()) {
+            tac1 = mk_dt2bv_tactic(m);
             tac2 = mk_elim01_tactic(m);
             tac3 = mk_lia2card_tactic(m);
             tac4 = mk_eq2bv_tactic(m);
             params_ref lia_p;
             lia_p.set_bool("compile_equality", optp.pb_compile_equality());
             tac3->updt_params(lia_p);
-            set_simplify(and_then(tac0.get(), tac2.get(), tac3.get(), tac4.get(), mk_simplify_tactic(m)));
+            set_simplify(and_then(tac0.get(), tac1.get(), tac2.get(), tac3.get(), tac4.get(), mk_simplify_tactic(m)));
         }
         else {
-            tactic_ref tac1 = 
-                and_then(tac0.get(),
-                         mk_simplify_tactic(m));            
-            set_simplify(tac1.get());
+            set_simplify(tac0.get());
         }
         proof_converter_ref pc;
         expr_dependency_ref core(m);

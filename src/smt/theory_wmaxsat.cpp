@@ -35,7 +35,8 @@ theory_wmaxsat::theory_wmaxsat(ast_manager& m, filter_model_converter& mc):
     m_zmin_cost(m_mpz),
     m_found_optimal(false),
     m_propagate(false),
-    m_normalize(false)
+    m_normalize(false),
+    m_den(1)
 {}
 
 theory_wmaxsat::~theory_wmaxsat() { 

@@ -156,19 +156,18 @@ namespace opt {
         symbol const& maxsat_engine = m_c.maxsat_engine();
         IF_VERBOSE(1, verbose_stream() << "(maxsmt)\n";);
         TRACE("opt", tout << "maxsmt\n";);
-        if (m_soft_constraints.empty() || maxsat_engine == symbol("maxres")) {            
+        if (m_soft_constraints.empty() || maxsat_engine == symbol("maxres") || maxsat_engine == symbol::null) {            
             m_msolver = mk_maxres(m_c, m_index, m_weights, m_soft_constraints);
         }
         else if (maxsat_engine == symbol("pd-maxres")) {            
             m_msolver = mk_primal_dual_maxres(m_c, m_index, m_weights, m_soft_constraints);
         }
-        else {
-            if (maxsat_engine != symbol::null && maxsat_engine != symbol("wmax")) {
-                warning_msg("solver %s is not recognized, using default 'wmax'", 
-                            maxsat_engine.str().c_str());
-            }
-            std::cout << "wmax\n";
+        else if (maxsat_engine == symbol("wmax")) {
             m_msolver = mk_wmax(m_c, m_weights, m_soft_constraints);
+        }
+        else {
+            warning_msg("solver %s is not recognized, using default 'maxres'", maxsat_engine.str().c_str());
+            m_msolver = mk_maxres(m_c, m_index, m_weights, m_soft_constraints);
         }
 
         if (m_msolver) {
