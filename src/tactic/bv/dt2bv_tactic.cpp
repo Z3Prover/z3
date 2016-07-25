@@ -15,6 +15,8 @@ Author:
 
 Revision History:
 
+    Possible extension is to handle tuple types over finite domains.
+
 --*/
 
 #include "dt2bv_tactic.h"
@@ -28,19 +30,6 @@ Revision History:
 #include "var_subst.h"
 #include "ast_util.h"
 
-#if 0
-
-enumeration types:
-
-a = x: 
-     x = y
-
-forall x . phi
-
-    f(x,y) = z ->      
-
-#endif
-
 
 class dt2bv_tactic : public tactic {
 
@@ -53,7 +42,7 @@ class dt2bv_tactic : public tactic {
     expr_ref_vector     m_bounds;
     ref<extension_model_converter> m_ext;
     ref<filter_model_converter>    m_filter;
-    unsigned                       m_num_transformed;
+    unsigned                       m_num_translated;
 
     struct rw_cfg : public default_rewriter_cfg {
         dt2bv_tactic& m_t;
@@ -72,6 +61,12 @@ class dt2bv_tactic : public tactic {
         br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
             expr_ref a0(m), a1(m);
             if (m.is_eq(f) && reduce_arg(args[0], a0) && reduce_arg(args[1], a1)) {
+                result = m.mk_eq(a0, a1);
+                return BR_DONE;
+            }
+            else if (m_t.m_dt.is_recognizer(f) && reduce_arg(args[0], a0)) {
+                unsigned idx = m_t.m_dt.get_recognizer_constructor_idx(f);
+                a1 = m_t.m_bv.mk_numeral(rational(idx), get_sort(a0));
                 result = m.mk_eq(a0, a1);
                 return BR_DONE;
             }
@@ -122,7 +117,7 @@ class dt2bv_tactic : public tactic {
                 m_t.m_filter->insert(to_app(result)->get_decl());
             }
             m_cache.insert(a, result);
-            ++m_t.m_num_transformed;
+            ++m_t.m_num_translated;
             return true;
         }
 
@@ -208,6 +203,12 @@ class dt2bv_tactic : public tactic {
             if (m.is_eq(a)) {
                 return;
             }
+            if (m_t.m_dt.is_recognizer(a->get_decl()) &&
+                m_t.is_fd(a->get_arg(0))) {
+                m_t.m_fd_sorts.insert(get_sort(a->get_arg(0)));
+                return;
+            }
+
             if (m_t.is_fd(a)) {
                 m_t.m_fd_sorts.insert(get_sort(a));
             }
@@ -265,7 +266,7 @@ public:
         }
         if (!m_fd_sorts.empty()) {
             m_bounds.reset();
-            m_num_transformed = 0;
+            m_num_translated = 0;
             m_ext = alloc(extension_model_converter, m);
             m_filter = alloc(filter_model_converter, m);
             scoped_ptr<rw> r = alloc(rw, *this, m, m_params);
@@ -283,7 +284,7 @@ public:
                 g->assert_expr(m_bounds[i].get());
             }
             mc = concat(m_filter.get(), m_ext.get());
-            report_tactic_progress(":fd-num-translated", m_num_transformed);
+            report_tactic_progress(":fd-num-translated", m_num_translated);
         }
         g->inc_depth();
         result.push_back(g.get());
