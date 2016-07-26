@@ -154,7 +154,18 @@ void parse_cmd_line_args(int argc, char ** argv) {
                 exit(0);
             }
             if (strcmp(opt_name, "version") == 0) {
-                std::cout << "Z3 version " << Z3_MAJOR_VERSION << "." << Z3_MINOR_VERSION << "." << Z3_BUILD_NUMBER << "\n";
+                std::cout << "Z3 version " << Z3_MAJOR_VERSION << "." << Z3_MINOR_VERSION << "." << Z3_BUILD_NUMBER;
+                std::cout << " - ";
+#ifdef _AMD64_
+                std::cout << "64";
+#else
+                std::cout << "32";
+#endif
+                std::cout << " bit";
+#ifdef Z3GITHASH
+                std::cout << " - build hashcode " << STRINGIZE_VALUE_OF(Z3GITHASH);
+#endif
+                std::cout << "\n";
                 exit(0);
             }
             else if (strcmp(opt_name, "smt") == 0) {
