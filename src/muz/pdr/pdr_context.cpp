@@ -895,7 +895,7 @@ namespace pdr {
         SASSERT(m_prev);
         SASSERT(children().empty());
         if (this == m_next) {
-            SASSERT(root == this);
+            // SASSERT(root == this);
             root = 0;
         }
         else {
@@ -1817,6 +1817,10 @@ namespace pdr {
                     IF_VERBOSE(1, verbose_stream() << "UTVPI\n";);
                     m_fparams.m_arith_mode = AS_UTVPI;
                     m_fparams.m_arith_expand_eqs = true;
+                }
+                else {
+                    m_fparams.m_arith_mode = AS_ARITH;
+                    m_fparams.m_arith_expand_eqs = false;
                 }
             }
         }
