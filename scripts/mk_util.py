@@ -1554,11 +1554,17 @@ class DotNetDLLComponent(Component):
                                 '/linkresource:{}.dll'.format(get_component(Z3_DLL_COMPONENT).dll_name),
                                ]
                              )
+            pathToSnk = os.path.join(self.to_src_dir, 'z3.snk')
+            snkFile   = os.path.join(self.src_dir, 'z3.snk')
         else:
             # We need to give the assembly a strong name so that it
             # can be installed into the GAC with ``make install``
             pathToSnk = os.path.join(self.to_src_dir, 'Microsoft.Z3.mono.snk')
+            snkFile  = os.path.join(self.src_dir, 'Microsoft.Z3.mono.snk')
+        if os.path.isfile(snkFile):
             cscCmdLine.append('/keyfile:{}'.format(pathToSnk))
+        else:
+            print("Keyfile is not configured: %s" % snkFile)
 
         cscCmdLine.extend( ['/unsafe+',
                             '/nowarn:1701,1702',
