@@ -96,8 +96,8 @@ class symbolic_automata {
 
 public:
     symbolic_automata(M& m, ba_t& ba): m(m), m_ba(ba) {}
-    automaton_t* mk_determinstic(automaton_t& a);
-    automaton_t* mk_complement(automaton_t& a);
+    //automaton_t* mk_determinstic(automaton_t& a);
+    //automaton_t* mk_complement(automaton_t& a);
     automaton_t* remove_epsilons(automaton_t& a);
     automaton_t* mk_total(automaton_t& a);
     automaton_t* mk_minimize(automaton_t& a);
