@@ -4063,8 +4063,39 @@ bool theory_str::can_concat_eq_str(expr * concat, std::string str) {
 }
 
 bool theory_str::can_concat_eq_concat(expr * concat1, expr * concat2) {
-    // TODO
-    NOT_IMPLEMENTED_YET(); return true;
+	// TODO this method could use some traces and debugging info
+	if (is_concat(to_app(concat1)) && is_concat(to_app(concat2))) {
+		{
+			// Suppose concat1 = (Concat X Y) and concat2 = (Concat M N).
+			expr * concat1_mostL = getMostLeftNodeInConcat(concat1);
+			expr * concat2_mostL = getMostLeftNodeInConcat(concat2);
+			// if both X and M are constant strings, check whether they have the same prefix
+			if (m_strutil.is_string(concat1_mostL) && m_strutil.is_string(concat2_mostL)) {
+				std::string concat1_mostL_str = m_strutil.get_string_constant_value(concat1_mostL);
+				std::string concat2_mostL_str = m_strutil.get_string_constant_value(concat2_mostL);
+				int cLen = std::min(concat1_mostL_str.length(), concat2_mostL_str.length());
+				if (concat1_mostL_str.substr(0, cLen) != concat2_mostL_str.substr(0, cLen)) {
+					return false;
+				}
+			}
+		}
+
+		{
+			// Similarly, if both Y and N are constant strings, check whether they have the same suffix
+			expr * concat1_mostR = getMostRightNodeInConcat(concat1);
+			expr * concat2_mostR = getMostRightNodeInConcat(concat2);
+			if (m_strutil.is_string(concat1_mostR) && m_strutil.is_string(concat2_mostR)) {
+				std::string concat1_mostR_str = m_strutil.get_string_constant_value(concat1_mostR);
+				std::string concat2_mostR_str = m_strutil.get_string_constant_value(concat2_mostR);
+				int cLen = std::min(concat1_mostR_str.length(), concat2_mostR_str.length());
+				if (concat1_mostR_str.substr(concat1_mostR_str.length() - cLen, cLen) !=
+						concat2_mostR_str.substr(concat2_mostR_str.length() - cLen, cLen)) {
+					return false;
+				}
+			}
+		}
+	}
+	return true;
 }
 
 /*
