@@ -4940,11 +4940,12 @@ namespace Microsoft.Z3
             // Console.WriteLine("Context Finalizer from " + System.Threading.Thread.CurrentThread.ManagedThreadId);
             Dispose();
 
-            if (refCount == 0)
+            if (refCount == 0 && m_ctx != IntPtr.Zero)
             {
                 m_n_err_handler = null;
-                Native.Z3_del_context(m_ctx);
+                IntPtr ctx = m_ctx;
                 m_ctx = IntPtr.Zero;
+                Native.Z3_del_context(ctx);
             }
             else
                 GC.ReRegisterForFinalize(this);

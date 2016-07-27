@@ -60,8 +60,13 @@ class dt2bv_tactic : public tactic {
 
         br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
             expr_ref a0(m), a1(m);
+            expr_ref_vector _args(m);
             if (m.is_eq(f) && reduce_arg(args[0], a0) && reduce_arg(args[1], a1)) {
                 result = m.mk_eq(a0, a1);
+                return BR_DONE;
+            }
+            else if (m.is_distinct(f) && reduce_args(num, args, _args)) {
+                result = m.mk_distinct(_args.size(), _args.c_ptr());
                 return BR_DONE;
             }
             else if (m_t.m_dt.is_recognizer(f) && reduce_arg(args[0], a0)) {
@@ -73,6 +78,15 @@ class dt2bv_tactic : public tactic {
             else {
                 return BR_FAILED;
             }
+        }
+
+        bool reduce_args(unsigned sz, expr*const* as, expr_ref_vector& result) {
+            expr_ref tmp(m);
+            for (unsigned i = 0; i < sz; ++i) {
+                if (!reduce_arg(as[i], tmp)) return false;
+                result.push_back(tmp);
+            }
+            return true;
         }
 
         bool reduce_arg(expr* a, expr_ref& result) {
@@ -201,6 +215,9 @@ class dt2bv_tactic : public tactic {
 
         void operator()(app* a) {
             if (m.is_eq(a)) {
+                return;
+            }
+            if (m.is_distinct(a)) {
                 return;
             }
             if (m_t.m_dt.is_recognizer(a->get_decl()) &&
