@@ -4141,9 +4141,36 @@ bool theory_str::can_two_nodes_eq(expr * n1, expr * n2) {
     return true;
 }
 
+// was checkLength2ConstStr() in Z3str2
+// returns true if everything is OK, or false if inconsistency detected
+// - note that these are different from the semantics in Z3str2
+bool theory_str::check_length_const_string(expr * n1, expr * constStr) {
+	// TODO NEXT
+	NOT_IMPLEMENTED_YET(); return true;
+}
+
+// returns true if everything is OK, or false if inconsistency detected
+// - note that these are different from the semantics in Z3str2
+bool theory_str::check_length_eq_var_concat(expr * n1, expr * n2) {
+	// TODO NEXT
+	NOT_IMPLEMENTED_YET(); return true;
+}
+
+// returns false if an inconsistency is detected, or true if no inconsistencies were found
+// - note that these are different from the semantics of checkLengConsistency() in Z3str2
 bool theory_str::check_length_consistency(expr * n1, expr * n2) {
-    // TODO NEXT
-    NOT_IMPLEMENTED_YET(); return true;
+	if (m_strutil.is_string(n1) && m_strutil.is_string(n2)) {
+		// consistency has already been checked in can_two_nodes_eq().
+		return true;
+	} else if (m_strutil.is_string(n1) && (!m_strutil.is_string(n2))) {
+		return check_length_const_string(n2, n1);
+	} else if (m_strutil.is_string(n2) && (!m_strutil.is_string(n1))) {
+		return check_length_const_string(n1, n2);
+	} else {
+		// n1 and n2 are vars or concats
+		return check_length_eq_var_concat(n1, n2);
+	}
+	return 0;
 }
 
 void theory_str::check_concat_len_in_eqc(expr * concat) {
