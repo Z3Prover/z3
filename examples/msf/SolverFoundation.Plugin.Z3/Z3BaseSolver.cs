@@ -47,7 +47,7 @@ namespace Microsoft.SolverFoundation.Plugin.Z3
         private Dictionary<int, Expr> _variables = new Dictionary<int, Expr>();
 
         /// <summary>A map from MSF variable ids to Z3 goal ids</summary>
-        private Dictionary<IGoal, uint> _goals = new Dictionary<IGoal, uint>();
+        private Dictionary<IGoal, Optimize.Handle> _goals = new Dictionary<IGoal, Optimize.Handle>();
 
         internal Z3BaseSolver(IRowVariableModel model)
         {
@@ -64,7 +64,7 @@ namespace Microsoft.SolverFoundation.Plugin.Z3
             get { return _variables; }
         }
 
-        internal Dictionary<IGoal, uint> Goals
+        internal Dictionary<IGoal, Optimize.Handle> Goals
         {
             get { return _goals; }
         }
@@ -332,7 +332,7 @@ namespace Microsoft.SolverFoundation.Plugin.Z3
                             // Remember all objective values
                             foreach (var pair in _goals)
                             {
-                                var optimalValue = Utils.ToRational(_optSolver.GetUpper(pair.Value));
+                                var optimalValue = Utils.ToRational(pair.Value.Upper);
                                 _model.SetValue(pair.Key.Index, optimalValue);
                             }
                             model.Dispose();
@@ -356,7 +356,7 @@ namespace Microsoft.SolverFoundation.Plugin.Z3
                                     // Remember all objective values
                                     foreach (var pair in _goals)
                                     {
-                                        var optimalValue = Utils.ToRational(_optSolver.GetUpper(pair.Value));
+                                        var optimalValue = Utils.ToRational(pair.Value.Upper);
                                         _model.SetValue(pair.Key.Index, optimalValue);
                                     }
                                     subOptimalModel.Dispose();
