@@ -149,6 +149,9 @@ public:
     void updt_params(params_ref const & p) {}
     static void get_param_descrs(param_descrs & r) {}
 
+    void set_solver(expr_solver* solver) { m_re2aut.set_solver(solver); }
+
+
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
     br_status mk_eq_core(expr * lhs, expr * rhs, expr_ref & result);
 
