@@ -4011,52 +4011,55 @@ bool theory_str::in_same_eqc(expr * n1, expr * n2) {
 }
 
 bool theory_str::can_concat_eq_str(expr * concat, std::string str) {
-    /*
-    int strLen = str.length();
-    if (isConcatFunc(t, concat)) {
-        std::vector<Z3_ast> args;
-        getNodesInConcat(t, concat, args);
-        Z3_ast ml_node = args[0];
-        Z3_ast mr_node = args[args.size() - 1];
+	// TODO this method could use some traces and debugging info
+	int strLen = str.length();
+	if (is_concat(to_app(concat))) {
+		ptr_vector<expr> args;
+		get_nodes_in_concat(concat, args);
+		expr * ml_node = args[0];
+		expr * mr_node = args[args.size() - 1];
 
-        if (isConstStr(t, ml_node)) {
-            std::string ml_str = getConstStrValue(t, ml_node);
-            int ml_len = ml_str.length();
-            if (ml_len > strLen)
-                return 0;
-            int cLen = ml_len;
-            if (ml_str != str.substr(0, cLen))
-                return 0;
-        }
+		if (m_strutil.is_string(ml_node)) {
+			std::string ml_str = m_strutil.get_string_constant_value(ml_node);
+			int ml_len = ml_str.length();
+			if (ml_len > strLen) {
+				return false;
+			}
+			int cLen = ml_len;
+			if (ml_str != str.substr(0, cLen)) {
+				return false;
+			}
+		}
 
-        if (isConstStr(t, mr_node)) {
-            std::string mr_str = getConstStrValue(t, mr_node);
-            int mr_len = mr_str.length();
-            if (mr_len > strLen)
-                return 0;
-            int cLen = mr_len;
-            if (mr_str != str.substr(strLen - cLen, cLen))
-                return 0;
-        }
+		if (m_strutil.is_string(mr_node)) {
+			std::string mr_str = m_strutil.get_string_constant_value(mr_node);
+			int mr_len = mr_str.length();
+			if (mr_len > strLen) {
+				return false;
+			}
+			int cLen = mr_len;
+			if (mr_str != str.substr(strLen - cLen, cLen)) {
+				return false;
+			}
+		}
 
-        int sumLen = 0;
-        for (unsigned int i = 0; i < args.size(); i++) {
-            Z3_ast oneArg = args[i];
-            if (isConstStr(t, oneArg)) {
-                std::string arg_str = getConstStrValue(t, oneArg);
-                if (str.find(arg_str) == std::string::npos) {
-                    return 0;
-                }
-                sumLen += getConstStrValue(t, oneArg).length();
-            }
-        }
-        if (sumLen > strLen)
-            return 0;
-    }
-    return 1;
-    */
-    // TODO NEXT
-    NOT_IMPLEMENTED_YET(); return true;
+		int sumLen = 0;
+		for (unsigned int i = 0 ; i < args.size() ; i++) {
+			expr * oneArg = args[i];
+			if (m_strutil.is_string(oneArg)) {
+				std::string arg_str = m_strutil.get_string_constant_value(oneArg);
+				if (str.find(arg_str) == std::string::npos) {
+					return false;
+				}
+				sumLen += arg_str.length();
+			}
+		}
+
+		if (sumLen > strLen) {
+			return false;
+		}
+	}
+	return true;
 }
 
 bool theory_str::can_concat_eq_concat(expr * concat1, expr * concat2) {
