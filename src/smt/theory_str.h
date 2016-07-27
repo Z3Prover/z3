@@ -298,6 +298,8 @@ namespace smt {
         bool can_two_nodes_eq(expr * n1, expr * n2);
         bool can_concat_eq_str(expr * concat, std::string str);
         bool can_concat_eq_concat(expr * concat1, expr * concat2);
+        void check_concat_len_in_eqc(expr * concat);
+        bool check_length_consistency(expr * n1, expr * n2);
 
         void get_nodes_in_concat(expr * node, ptr_vector<expr> & nodeList);
         expr * simplify_concat(expr * node);

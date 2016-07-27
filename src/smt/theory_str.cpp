@@ -33,8 +33,8 @@ theory_str::theory_str(ast_manager & m):
         opt_EagerStringConstantLengthAssertions(true),
         opt_VerifyFinalCheckProgress(true),
 		opt_LCMUnrollStep(2),
-		opt_NoQuickReturn_Concat_IntegerTheory(true),
-		opt_DisableIntegerTheoryIntegration(true),
+		opt_NoQuickReturn_Concat_IntegerTheory(false),
+		opt_DisableIntegerTheoryIntegration(false),
         /* Internal setup */
         search_started(false),
         m_autil(m),
@@ -1428,7 +1428,57 @@ void theory_str::reset_eh() {
  * Then add an assertion: (y2 == (Concat ce m2)) AND ("str3" == (Concat abc x2)) -> (y2 != "str3")
  */
 bool theory_str::new_eq_check(expr * lhs, expr * rhs) {
-    // TODO this involves messing around with enodes and equivalence classes
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+
+    // Previously we did the check between LHS and RHS equivalence classes.
+    // However these have since been merged.
+    // We start by asserting that the EQCs, in fact, really are merged.
+    if (!in_same_eqc(lhs, rhs)) {
+        TRACE("t_str", tout << "BUG: lhs and rhs not in same eqc in new_eq_eh(), loss of invariant!" << std::endl;);
+        UNREACHABLE();
+    }
+
+    check_concat_len_in_eqc(lhs);
+    check_concat_len_in_eqc(rhs);
+
+    // Now we iterate over all pairs of terms in the (shared) eqc
+    // and check whether we can show that any pair of distinct terms
+    // cannot possibly be equal.
+    // If that's the case, we assert an axiom to that effect and stop.
+
+    enode * eqc_root = ctx.get_enode(lhs)->get_root();
+    enode * eqc_iterator1 = eqc_root;
+    do {
+        enode * eqc_iterator2 = eqc_iterator1;
+        do {
+            if (eqc_iterator1 == eqc_iterator2) {
+                continue;
+            }
+            // pull terms out of the enodes
+            app * eqc_nn1 = eqc_iterator1->get_owner();
+            app * eqc_nn2 = eqc_iterator2->get_owner();
+            TRACE("t_str_detail", tout << "checking whether " << mk_pp(eqc_nn1, m) << " and " << mk_pp(eqc_nn2, m) << " can be equal" << std::endl;);
+            if (!can_two_nodes_eq(eqc_nn1, eqc_nn2)) {
+                TRACE("t_str", tout << "inconsistency detected: " << mk_pp(eqc_nn1, m) << " cannot be equal to " << mk_pp(eqc_nn2, m) << std::endl;);
+                expr_ref to_assert(m.mk_not(ctx.mk_eq_atom(eqc_nn1, eqc_nn2)), m);
+                assert_axiom(to_assert);
+                return false;
+            }
+            if (!check_length_consistency(eqc_nn1, eqc_nn2)) {
+                TRACE("t_str", tout << "inconsistency detected: " << mk_pp(eqc_nn1, m) << " and " << mk_pp(eqc_nn2, m) << " have inconsistent lengths" << std::endl;);
+                return false;
+            }
+            eqc_iterator2 = eqc_iterator2->get_next();
+        } while (eqc_iterator2 != eqc_root);
+
+        eqc_iterator1 = eqc_iterator1->get_next();
+    } while (eqc_iterator1 != eqc_root);
+
+    // TODO containPairBoolMap
+    // TODO regexInBoolMap
+
+    // okay, all checks here passed
     return true;
 }
 
@@ -2681,12 +2731,17 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 	std::map<std::pair<expr*,expr*>, std::map<int, expr*> >::iterator entry1 = varForBreakConcat.find(key1);
 	std::map<std::pair<expr*,expr*>, std::map<int, expr*> >::iterator entry2 = varForBreakConcat.find(key2);
 
+    // prevent checking scope for the XOR term, as it's always in the same scope as the split var
+    // TODO probably make this change everywhere else in process_concat_eq*,
+	// and also make sure this is correct.
+
 	bool entry1InScope;
 	if (entry1 == varForBreakConcat.end()) {
 	    entry1InScope = false;
 	} else {
 	    if (internal_variable_set.find((entry1->second)[0]) == internal_variable_set.end()
-	            || internal_variable_set.find((entry1->second)[1]) == internal_variable_set.end()) {
+	            /*|| internal_variable_set.find((entry1->second)[1]) == internal_variable_set.end()*/
+	            ) {
 	        entry1InScope = false;
 	    } else {
 	        entry1InScope = true;
@@ -2698,7 +2753,8 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 	    entry2InScope = false;
 	} else {
 	    if (internal_variable_set.find((entry2->second)[0]) == internal_variable_set.end()
-	            || internal_variable_set.find((entry2->second)[1]) == internal_variable_set.end()) {
+	            /*|| internal_variable_set.find((entry2->second)[1]) == internal_variable_set.end()*/
+	            ) {
 	        entry2InScope = false;
 	    } else {
 	        entry2InScope = true;
@@ -3954,48 +4010,58 @@ bool theory_str::in_same_eqc(expr * n1, expr * n2) {
     return n1Node->get_root() == n2Node->get_root();
 }
 
-/*
-bool canTwoNodesEq(Z3_theory t, Z3_ast n1, Z3_ast n2) {
-  Z3_ast n1_curr = n1;
-  Z3_ast n2_curr = n2;
-
-  // case 0: n1_curr is const string, n2_curr is const string
-  if (isConstStr(t, n1_curr) && isConstStr(t, n2_curr)) {
-    if (n1_curr != n2_curr) {
-      return false;
-    }
-  }
-  // case 1: n1_curr is concat, n2_curr is const string
-  else if (isConcatFunc(t, n1_curr) && isConstStr(t, n2_curr)) {
-    std::string n2_curr_str = getConstStrValue(t, n2_curr);
-    if (canConcatEqStr(t, n1_curr, n2_curr_str) != 1) {
-      return false;
-    }
-  }
-  // case 2: n2_curr is concat, n1_curr is const string
-  else if (isConcatFunc(t, n2_curr) && isConstStr(t, n1_curr)) {
-    std::string n1_curr_str = getConstStrValue(t, n1_curr);
-    if (canConcatEqStr(t, n2_curr, n1_curr_str) != 1) {
-      return false;
-    }
-  } else if (isConcatFunc(t, n1_curr) && isConcatFunc(t, n2_curr)) {
-    if (canConcatEqConcat(t, n1_curr, n2_curr) != 1) {
-      return false;
-    }
-  }
-
-  return true;
-}
-*/
-
 bool theory_str::can_concat_eq_str(expr * concat, std::string str) {
-    // TODO
-    return true;
+    /*
+    int strLen = str.length();
+    if (isConcatFunc(t, concat)) {
+        std::vector<Z3_ast> args;
+        getNodesInConcat(t, concat, args);
+        Z3_ast ml_node = args[0];
+        Z3_ast mr_node = args[args.size() - 1];
+
+        if (isConstStr(t, ml_node)) {
+            std::string ml_str = getConstStrValue(t, ml_node);
+            int ml_len = ml_str.length();
+            if (ml_len > strLen)
+                return 0;
+            int cLen = ml_len;
+            if (ml_str != str.substr(0, cLen))
+                return 0;
+        }
+
+        if (isConstStr(t, mr_node)) {
+            std::string mr_str = getConstStrValue(t, mr_node);
+            int mr_len = mr_str.length();
+            if (mr_len > strLen)
+                return 0;
+            int cLen = mr_len;
+            if (mr_str != str.substr(strLen - cLen, cLen))
+                return 0;
+        }
+
+        int sumLen = 0;
+        for (unsigned int i = 0; i < args.size(); i++) {
+            Z3_ast oneArg = args[i];
+            if (isConstStr(t, oneArg)) {
+                std::string arg_str = getConstStrValue(t, oneArg);
+                if (str.find(arg_str) == std::string::npos) {
+                    return 0;
+                }
+                sumLen += getConstStrValue(t, oneArg).length();
+            }
+        }
+        if (sumLen > strLen)
+            return 0;
+    }
+    return 1;
+    */
+    // TODO NEXT
+    NOT_IMPLEMENTED_YET(); return true;
 }
 
 bool theory_str::can_concat_eq_concat(expr * concat1, expr * concat2) {
     // TODO
-    return true;
+    NOT_IMPLEMENTED_YET(); return true;
 }
 
 /*
@@ -4039,6 +4105,27 @@ bool theory_str::can_two_nodes_eq(expr * n1, expr * n2) {
     }
 
     return true;
+}
+
+bool theory_str::check_length_consistency(expr * n1, expr * n2) {
+    // TODO NEXT
+    NOT_IMPLEMENTED_YET(); return true;
+}
+
+void theory_str::check_concat_len_in_eqc(expr * concat) {
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+
+    enode * eqc_base = ctx.get_enode(concat);
+    enode * eqc_it = eqc_base;
+    do {
+        app * eqc_n = eqc_it->get_owner();
+        if (is_concat(eqc_n)) {
+            rational unused;
+            infer_len_concat(eqc_n, unused);
+        }
+        eqc_it = eqc_it->get_next();
+    } while (eqc_it != eqc_base);
 }
 
 /*
@@ -4499,6 +4586,8 @@ void theory_str::handle_equality(expr * lhs, expr * rhs) {
     // As a result, simplify_concat_equality() is never getting called,
     // and if it were called, it would probably get called with the same element on both sides.
 
+
+    // TODO improve these checks with an all-pairs match over LHS and RHS wrt. other concats
     bool hasCommon = false;
     if (eqc_lhs_concat.size() != 0 && eqc_rhs_concat.size() != 0) {
         std::set<expr*>::iterator itor1 = eqc_lhs_concat.begin();
