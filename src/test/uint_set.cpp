@@ -131,6 +131,32 @@ static void tst4() {
     SASSERT(!s.contains(0));
 }
 
+#include "map.h"
+
+template <typename Value>
+struct uint_map : public map<uint_set, Value, uint_set::hash, uint_set::eq> {};
+
+static void tst5() {
+    uint_set s;
+    std::cout << s.get_hash() << "\n";
+    s.insert(1);
+    std::cout << s.get_hash() << "\n";
+    s.insert(2);
+    std::cout << s.get_hash() << "\n";
+    s.insert(44);
+    std::cout << s.get_hash() << "\n";
+
+    uint_map<unsigned> m;
+    m.insert(s, 1);
+    s.insert(4);
+    m.insert(s, 3);
+    uint_map<unsigned>::iterator it = m.begin(), end = m.end();
+    for (; it != end; ++it) {
+        std::cout << it->m_key << " : " << it->m_value << "\n";
+    }
+    
+}
+
 void tst_uint_set() {
     for (unsigned i = 0; i < 100; i++) {
         tst1(1 + rand()%31);
@@ -146,5 +172,6 @@ void tst_uint_set() {
     tst3(12);
     tst3(100);
     tst4();
+    tst5();
 }
 

@@ -692,6 +692,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         return false;
     }
 
+
 };
 
 template class rewriter_tpl<th_rewriter_cfg>;
@@ -704,6 +705,10 @@ struct th_rewriter::imp : public rewriter_tpl<th_rewriter_cfg> {
     }
     expr_ref mk_app(func_decl* f, unsigned sz, expr* const* args) {
         return m_cfg.mk_app(f, sz, args);
+    }
+
+    void set_solver(expr_solver* solver) {
+        m_cfg.m_seq_rw.set_solver(solver);
     }
 };
 
@@ -789,4 +794,8 @@ void th_rewriter::reset_used_dependencies() {
 
 expr_ref th_rewriter::mk_app(func_decl* f, unsigned num_args, expr* const* args) {
     return m_imp->mk_app(f, num_args, args);
+}
+
+void th_rewriter::set_solver(expr_solver* solver) {
+    m_imp->set_solver(solver);
 }

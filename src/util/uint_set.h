@@ -218,6 +218,18 @@ public:
 
     iterator const begin() const { return iterator(*this, false); }
     iterator const end() const { return iterator(*this, true); }
+
+    unsigned get_hash() const {
+        unsigned h = 0;
+        for (unsigned i = 0; i < size(); ++i) {
+            h += (i+1)*((*this)[i]);
+        }
+        return h;
+    }
+
+    struct eq { bool operator()(uint_set const& s1, uint_set const& s2) const { return s1 == s2; } };
+    struct hash { unsigned operator()(uint_set const& s) const { return s.get_hash(); } };
+        
 };
 
 inline std::ostream & operator<<(std::ostream & target, const uint_set & s) {

@@ -149,8 +149,13 @@ public:
     */
     virtual expr * get_assumption(unsigned idx) const = 0;
 
-
-
+    /**
+    \brief under assumptions, asms, retrieve set of consequences that fix values for expressions that can be 
+      built from fns. For functions that take 0 arguments, we require that the function returns all consequences
+      that mention these functions. The consequences are clauses whose first literal constrain one of the 
+      functions from fns and the other literals are negations of literals from asms.
+     */
+    //virtual lbool get_consequences(expr_ref_vector const& asms, func_ref_vector const& fns, expr_ref_vector& consequences);
 
     /**
        \brief Display the content of this solver.
