@@ -127,6 +127,11 @@ namespace smt {
         lbool check(app_ref_vector const& asms) { return check(asms.size(), (expr* const*)asms.c_ptr()); }
 
         /**
+           \brief extract consequences among variables.
+        */
+        lbool get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq);
+
+        /**
            \brief Return the model associated with the last check command.
         */
         void get_model(model_ref & m) const;

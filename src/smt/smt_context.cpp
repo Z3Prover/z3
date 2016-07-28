@@ -2460,6 +2460,13 @@ namespace smt {
         SASSERT(m_scope_lvl == m_base_lvl);
     }
 
+    void context::pop_to_search_lvl() {
+        unsigned num_levels = m_scope_lvl - get_search_level();
+        if (num_levels > 0) {
+            pop_scope(num_levels);
+        }
+    }
+
     /**
        \brief Simplify the given clause using the assignment.  Return
        true if the clause was already satisfied, and false otherwise.

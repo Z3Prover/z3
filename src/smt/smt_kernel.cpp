@@ -98,6 +98,10 @@ namespace smt {
         lbool check(unsigned num_assumptions, expr * const * assumptions) {
             return m_kernel.check(num_assumptions, assumptions);
         }
+
+        lbool get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq) {
+            return m_kernel.get_consequences(assumptions, vars, conseq);
+        }
         
         void get_model(model_ref & m) const {
             m_kernel.get_model(m);
@@ -262,6 +266,10 @@ namespace smt {
         lbool r = m_imp->check(num_assumptions, assumptions);
         TRACE("smt_kernel", tout << "check result: " << r << "\n";);
         return r;
+    }
+
+    lbool kernel::get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq) {
+        return m_imp->get_consequences(assumptions, vars, conseq);
     }
 
     void kernel::get_model(model_ref & m) const {

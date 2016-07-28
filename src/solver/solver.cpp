@@ -48,6 +48,10 @@ struct scoped_assumption_push {
 };
 
 lbool solver::get_consequences(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) {
+    return get_consequences_core(asms, vars, consequences);
+}
+
+lbool solver::get_consequences_core(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) {
     ast_manager& m = asms.get_manager();
     lbool is_sat = check_sat(asms);
     if (is_sat != l_true) {
