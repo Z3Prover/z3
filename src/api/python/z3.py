@@ -6126,6 +6126,28 @@ class Solver(Z3PPObject):
         """
         return AstVector(Z3_solver_get_unsat_core(self.ctx.ref(), self.solver), self.ctx)
 
+    def consequences(self, assumptions, variables):
+        """Determine fixed values for the variables based on the solver state and assumptions.
+        documentation TBD
+        """
+        if isinstance(assumptions, list):
+            _asms = AstVector(None, self.ctx)
+            for a in assumptions:
+                _asms.push(a)
+            assumptions = _asms
+        if isinstance(variables, list):
+            _vars = AstVector(None, self.ctx)
+            for a in variables:
+                _vars.push(a)
+            variables = _vars            
+        _z3_assert(isinstance(assumptions, AstVector), "ast vector expected")
+        _z3_assert(isinstance(variables, AstVector), "ast vector expected")
+        consequences = AstVector(None, self.ctx)
+        r = Z3_solver_get_consequences(self.ctx.ref(), self.solver, assumptions.vector, variables.vector, consequences.vector)
+        sz = len(consequences)
+        consequences = [ consequences[i] for i in range(sz) ]
+        return CheckSatResult(r), consequences
+    
     def proof(self):
         """Return a proof for the last `check()`. Proof construction must be enabled."""
         return _to_expr_ref(Z3_solver_get_proof(self.ctx.ref(), self.solver), self.ctx)

@@ -413,4 +413,42 @@ extern "C" {
         Z3_CATCH_RETURN(Z3_L_UNDEF);
     }
 
+    Z3_lbool Z3_API Z3_solver_get_consequences(Z3_context c, 
+                                        Z3_solver s,
+                                        Z3_ast_vector assumptions,
+                                        Z3_ast_vector variables,
+                                        Z3_ast_vector consequences) {
+        Z3_TRY;
+        LOG_Z3_solver_get_consequences(c, s, assumptions, variables, consequences);
+        ast_manager& m = mk_c(c)->m();
+        RESET_ERROR_CODE();
+        CHECK_SEARCHING(c);
+        init_solver(c, s);
+        expr_ref_vector _assumptions(m), _consequences(m), _variables(m);
+        ast_ref_vector const& __assumptions = to_ast_vector_ref(assumptions);
+        unsigned sz = __assumptions.size();
+        for (unsigned i = 0; i < sz; ++i) {
+            if (!is_expr(__assumptions[i])) {
+                SET_ERROR_CODE(Z3_INVALID_USAGE);
+                return Z3_L_UNDEF;
+            }
+            _assumptions.push_back(to_expr(__assumptions[i]));
+        }
+        ast_ref_vector const& __variables = to_ast_vector_ref(variables);
+        sz = __variables.size();
+        for (unsigned i = 0; i < sz; ++i) {
+            if (!is_expr(__variables[i])) {
+                SET_ERROR_CODE(Z3_INVALID_USAGE);
+                return Z3_L_UNDEF;
+            }
+            _variables.push_back(to_expr(__variables[i]));
+        }
+        lbool result = to_solver_ref(s)->get_consequences(_assumptions, _variables, _consequences);
+        for (unsigned i = 0; i < _consequences.size(); ++i) {
+            to_ast_vector_ref(consequences).push_back(_consequences[i].get());
+        }
+        return static_cast<Z3_lbool>(result); 
+        Z3_CATCH_RETURN(Z3_L_UNDEF);        
+    }
+
 };
