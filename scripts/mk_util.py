@@ -82,6 +82,7 @@ Z3PY_SRC_DIR=None
 VS_PROJ = False
 TRACE = False
 DOTNET_ENABLED=False
+DOTNET_KEY_FILE=None
 JAVA_ENABLED=False
 ML_ENABLED=False
 PYTHON_INSTALL_ENABLED=False
@@ -638,6 +639,7 @@ def display_help(exit_code):
     if IS_WINDOWS:
         print("  --optimize                    generate optimized code during linking.")
     print("  --dotnet                      generate .NET bindings.")
+    print("  --dotnet-key=<file>           sign the .NET assembly using the private key in <file>.")
     print("  --java                        generate Java bindings.")
     print("  --ml                          generate OCaml bindings.")
     print("  --python                      generate Python bindings.")
@@ -673,14 +675,14 @@ def display_help(exit_code):
 # Parse configuration option for mk_make script
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
-    global DOTNET_ENABLED, JAVA_ENABLED, ML_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, FOCI2, FOCI2LIB, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, PYTHON_INSTALL_ENABLED
+    global DOTNET_ENABLED, DOTNET_KEY_FILE, JAVA_ENABLED, ML_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, FOCI2, FOCI2LIB, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, GIT_DESCRIBE, PYTHON_INSTALL_ENABLED
     global LINUX_X64, SLOW_OPTIMIZE, USE_OMP
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:],
                                                'b:df:sxhmcvtnp:gj',
                                                ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj',
-                                                'trace', 'dotnet', 'staticlib', 'prefix=', 'gmp', 'foci2=', 'java', 'parallel=', 'gprof',
-                                                'githash=', 'x86', 'ml', 'optimize', 'noomp', 'pypkgdir=', 'python', 'staticbin'])
+                                                'trace', 'dotnet', 'dotnet-key=', 'staticlib', 'prefix=', 'gmp', 'foci2=', 'java', 'parallel=', 'gprof',
+                                                'githash=', 'git-describe', 'x86', 'ml', 'optimize', 'noomp', 'pypkgdir=', 'python', 'staticbin'])
     except:
         print("ERROR: Invalid command line option")
         display_help(1)
@@ -713,6 +715,8 @@ def parse_options():
             TRACE = True
         elif opt in ('-.net', '--dotnet'):
             DOTNET_ENABLED = True
+        elif opt in ('--dotnet-key'):
+            DOTNET_KEY_FILE = arg
         elif opt in ('--staticlib'):
             STATIC_LIB = True
         elif opt in ('--staticbin'):
@@ -1498,7 +1502,7 @@ class PythonInstallComponent(Component):
         return
 
 class DotNetDLLComponent(Component):
-    def __init__(self, name, dll_name, path, deps, assembly_info_dir):
+    def __init__(self, name, dll_name, path, deps, assembly_info_dir, default_key_file):
         Component.__init__(self, name, path, deps)
         if dll_name is None:
             dll_name = name
@@ -1506,6 +1510,7 @@ class DotNetDLLComponent(Component):
             assembly_info_dir = "."
         self.dll_name          = dll_name
         self.assembly_info_dir = assembly_info_dir
+        self.key_file = default_key_file
 
     def mk_pkg_config_file(self):
         """
@@ -1531,6 +1536,8 @@ class DotNetDLLComponent(Component):
         configure_file(pkg_config_template, pkg_config_output, substitutions)
 
     def mk_makefile(self, out):
+        global DOTNET_KEY_FILE
+        
         if not is_dotnet_enabled():
             return
         cs_fp_files = []
@@ -1561,17 +1568,24 @@ class DotNetDLLComponent(Component):
                                 '/linkresource:{}.dll'.format(get_component(Z3_DLL_COMPONENT).dll_name),
                                ]
                              )
-            pathToSnk = os.path.join(self.to_src_dir, 'z3.snk')
-            snkFile   = os.path.join(self.src_dir, 'z3.snk')
-        else:
-            # We need to give the assembly a strong name so that it
-            # can be installed into the GAC with ``make install``
-            pathToSnk = os.path.join(self.to_src_dir, 'Microsoft.Z3.mono.snk')
-            snkFile  = os.path.join(self.src_dir, 'Microsoft.Z3.mono.snk')
-        if os.path.isfile(snkFile):
-            cscCmdLine.append('/keyfile:{}'.format(pathToSnk))
-        else:
-            print("Keyfile is not configured: %s" % snkFile)
+
+        # We need to give the assembly a strong name so that it
+        # can be installed into the GAC with ``make install``
+        if not DOTNET_KEY_FILE is None:
+            self.key_file = DOTNET_KEY_FILE
+
+        if not self.key_file is None:
+            if os.path.isfile(self.key_file):
+                self.key_file = os.path.abspath(self.key_file)
+            elif os.path.isfile(os.path.join(self.src_dir, self.key_file)):
+                self.key_file = os.path.abspath(os.path.join(self.src_dir, self.key_file))
+            else:
+                print("Keyfile '%s' could not be found; %s.dll will be unsigned." % (self.dll_name, self.key_file))
+                self.key_file = None
+                
+        if not self.key_file is None:
+            print("%s.dll will be signed using key '%s'." % (self.dll_name, self.key_file))
+            cscCmdLine.append('/keyfile:{}'.format(self.key_file))
 
         cscCmdLine.extend( ['/unsafe+',
                             '/nowarn:1701,1702',
@@ -1595,6 +1609,7 @@ class DotNetDLLComponent(Component):
                              )
         else:
             cscCmdLine.extend(['/optimize+'])
+            
         if IS_WINDOWS:
             if VS_X64:
                 cscCmdLine.extend(['/platform:x64'])
@@ -2179,8 +2194,8 @@ def add_dll(name, deps=[], path=None, dll_name=None, export_files=[], reexports=
     reg_component(name, c)
     return c
 
-def add_dot_net_dll(name, deps=[], path=None, dll_name=None, assembly_info_dir=None):
-    c = DotNetDLLComponent(name, dll_name, path, deps, assembly_info_dir)
+def add_dot_net_dll(name, deps=[], path=None, dll_name=None, assembly_info_dir=None, default_key_file=None):
+    c = DotNetDLLComponent(name, dll_name, path, deps, assembly_info_dir, default_key_file)
     reg_component(name, c)
 
 def add_java_dll(name, deps=[], path=None, dll_name=None, package_name=None, manifest_file=None):
