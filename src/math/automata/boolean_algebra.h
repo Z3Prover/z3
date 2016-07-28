@@ -38,7 +38,7 @@ public:
 template<class T>
 class boolean_algebra : public positive_boolean_algebra<T> {
 public:
-    virtual T mk_not(T x) = 0;
+    virtual T mk_not(T x) = 0;	
     //virtual lbool are_equivalent(T x, T y) = 0;
     //virtual T simplify(T x) = 0;    
 };
