@@ -80,6 +80,9 @@ sig
   (** The revision. *)
   val revision : int
 
+  (** A full version string. *)
+  val full_version : string
+
   (** A string representation of the version information. *)
   val to_string : string
 end

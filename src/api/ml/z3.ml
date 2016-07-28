@@ -25,6 +25,8 @@ module Version =
 struct
   let (major, minor, build, revision) = Z3native.get_version ()
 
+  let full_version : string = Z3native.get_full_version()
+                                                             
   let to_string =
     string_of_int major ^ "." ^
     string_of_int minor ^ "." ^

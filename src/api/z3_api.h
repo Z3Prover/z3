@@ -5140,6 +5140,13 @@ extern "C" {
     void Z3_API Z3_get_version(unsigned * major, unsigned * minor, unsigned * build_number, unsigned * revision_number);
 
     /**
+        \brief Return a string that fully describes the version of Z3 in use.
+
+        def_API('Z3_get_full_version', STRING, ())
+    */
+    Z3_string Z3_API Z3_get_full_version(void);
+
+    /**
        \brief Enable tracing messages tagged as \c tag when Z3 is compiled in debug mode.
        It is a NOOP otherwise
 

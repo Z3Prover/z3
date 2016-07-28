@@ -99,6 +99,7 @@ VS_PAR=False
 VS_PAR_NUM=8
 GPROF=False
 GIT_HASH=False
+GIT_DESCRIBE=False
 SLOW_OPTIMIZE=False
 USE_OMP=True
 
@@ -534,11 +535,14 @@ def find_c_compiler():
     raise MKException('C compiler was not found. Try to set the environment variable CC with the C compiler available in your system.')
 
 def set_version(major, minor, build, revision):
-    global VER_MAJOR, VER_MINOR, VER_BUILD, VER_REVISION
+    global VER_MAJOR, VER_MINOR, VER_BUILD, VER_REVISION, GIT_DESCRIBE
     VER_MAJOR = major
     VER_MINOR = minor
     VER_BUILD = build
     VER_REVISION = revision
+    if GIT_DESCRIBE:
+        branch = check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD'])
+        VER_REVISION = int(check_output(['git', 'rev-list', '--count', 'HEAD']))
 
 def get_version():
     return (VER_MAJOR, VER_MINOR, VER_BUILD, VER_REVISION)
@@ -621,6 +625,7 @@ def display_help(exit_code):
     print("  --pypkgdir=<dir>              Force a particular Python package directory (default %s)" % PYTHON_PACKAGE_DIR)
     print("  -b <subdir>, --build=<subdir>  subdirectory where Z3 will be built (default: %s)." % BUILD_DIR)
     print("  --githash=hash                include the given hash in the binaries.")
+    print("  --git-describe                include the output of 'git describe' in the version information.")
     print("  -d, --debug                   compile Z3 in debug mode.")
     print("  -t, --trace                   enable tracing in release mode.")
     if IS_WINDOWS:
@@ -732,6 +737,8 @@ def parse_options():
             GPROF = True
         elif opt == '--githash':
             GIT_HASH=arg
+        elif opt == '--git-describe':
+            GIT_DESCRIBE = True
         elif opt in ('', '--ml'):
             ML_ENABLED = True
         elif opt in ('', '--noomp'):
@@ -2593,6 +2600,16 @@ def update_version():
         mk_all_assembly_infos(major, minor, build, revision)
         mk_def_files()
 
+def get_full_version_string(major, minor, build, revision):
+    global GIT_HASH, GIT_DESCRIBE
+    res = "Z3 %s.%s.%s.%s" % (major, minor, build, revision)
+    if GIT_HASH:
+        res += " " + GIT_HASH
+    if GIT_DESCRIBE:
+        branch = check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD', '--long'])
+        res += " master " + check_output(['git', 'describe'])
+    return '"' + res + '"'
+        
 # Update files with the version number
 def mk_version_dot_h(major, minor, build, revision):
     c = get_component(UTIL_COMPONENT)
@@ -2606,6 +2623,7 @@ def mk_version_dot_h(major, minor, build, revision):
           'Z3_VERSION_MINOR': str(minor),
           'Z3_VERSION_PATCH': str(build),
           'Z3_VERSION_TWEAK': str(revision),
+          'Z3_FULL_VERSION': get_full_version_string(major, minor, build, revision)
         }
     )
     if VERBOSE:

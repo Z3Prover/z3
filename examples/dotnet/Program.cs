@@ -2159,6 +2159,8 @@ namespace test_mapi
                 Console.WriteLine(Microsoft.Z3.Version.Major.ToString());
                 Console.Write("Z3 Full Version: ");
                 Console.WriteLine(Microsoft.Z3.Version.ToString());
+                Console.Write("Z3 Full Version String: ");
+                Console.WriteLine(Microsoft.Z3.Version.FullVersion);
 
 
                 SimpleExample();
