@@ -1452,24 +1452,24 @@ bool theory_str::new_eq_check(expr * lhs, expr * rhs) {
     do {
         enode * eqc_iterator2 = eqc_iterator1;
         do {
-            if (eqc_iterator1 == eqc_iterator2) {
-                continue;
-            }
-            // pull terms out of the enodes
-            app * eqc_nn1 = eqc_iterator1->get_owner();
-            app * eqc_nn2 = eqc_iterator2->get_owner();
-            TRACE("t_str_detail", tout << "checking whether " << mk_pp(eqc_nn1, m) << " and " << mk_pp(eqc_nn2, m) << " can be equal" << std::endl;);
-            if (!can_two_nodes_eq(eqc_nn1, eqc_nn2)) {
-                TRACE("t_str", tout << "inconsistency detected: " << mk_pp(eqc_nn1, m) << " cannot be equal to " << mk_pp(eqc_nn2, m) << std::endl;);
-                expr_ref to_assert(m.mk_not(ctx.mk_eq_atom(eqc_nn1, eqc_nn2)), m);
-                assert_axiom(to_assert);
-                return false;
-            }
-            if (!check_length_consistency(eqc_nn1, eqc_nn2)) {
-                TRACE("t_str", tout << "inconsistency detected: " << mk_pp(eqc_nn1, m) << " and " << mk_pp(eqc_nn2, m) << " have inconsistent lengths" << std::endl;);
-                return false;
+            if (eqc_iterator1 != eqc_iterator2) {
+                // pull terms out of the enodes
+                app * eqc_nn1 = eqc_iterator1->get_owner();
+                app * eqc_nn2 = eqc_iterator2->get_owner();
+                TRACE("t_str_detail", tout << "checking whether " << mk_pp(eqc_nn1, m) << " and " << mk_pp(eqc_nn2, m) << " can be equal" << std::endl;);
+                if (!can_two_nodes_eq(eqc_nn1, eqc_nn2)) {
+                    TRACE("t_str", tout << "inconsistency detected: " << mk_pp(eqc_nn1, m) << " cannot be equal to " << mk_pp(eqc_nn2, m) << std::endl;);
+                    expr_ref to_assert(m.mk_not(ctx.mk_eq_atom(eqc_nn1, eqc_nn2)), m);
+                    assert_axiom(to_assert);
+                    return false;
+                }
+                if (!check_length_consistency(eqc_nn1, eqc_nn2)) {
+                    TRACE("t_str", tout << "inconsistency detected: " << mk_pp(eqc_nn1, m) << " and " << mk_pp(eqc_nn2, m) << " have inconsistent lengths" << std::endl;);
+                    return false;
+                }
             }
             eqc_iterator2 = eqc_iterator2->get_next();
+
         } while (eqc_iterator2 != eqc_root);
 
         eqc_iterator1 = eqc_iterator1->get_next();
