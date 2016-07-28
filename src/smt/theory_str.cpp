@@ -4195,11 +4195,156 @@ bool theory_str::check_length_const_string(expr * n1, expr * constStr) {
     return true;
 }
 
+bool theory_str::check_length_concat_concat(expr * n1, expr * n2) {
+    context & ctx = get_context();
+    ast_manager & mgr = get_manager();
+
+    ptr_vector<expr> concat1Args;
+    ptr_vector<expr> concat2Args;
+    get_nodes_in_concat(n1, concat1Args);
+    get_nodes_in_concat(n2, concat2Args);
+
+    bool concat1LenFixed = true;
+    bool concat2LenFixed = true;
+
+    expr_ref_vector items(mgr);
+
+    rational sum1(0), sum2(0);
+
+    for (unsigned int i = 0; i < concat1Args.size(); ++i) {
+        expr * oneArg = concat1Args[i];
+        rational argLen;
+        bool argLen_exists = get_len_value(oneArg, argLen);
+        if (argLen_exists) {
+            sum1 += argLen;
+            if (!m_strutil.is_string(oneArg)) {
+                items.push_back(ctx.mk_eq_atom(mk_strlen(oneArg), mk_int(argLen)));
+            }
+        } else {
+            concat1LenFixed = false;
+        }
+    }
+
+    for (unsigned int i = 0; i < concat2Args.size(); ++i) {
+        expr * oneArg = concat2Args[i];
+        rational argLen;
+        bool argLen_exists = get_len_value(oneArg, argLen);
+        if (argLen_exists) {
+            sum2 += argLen;
+            if (!m_strutil.is_string(oneArg)) {
+                items.push_back(ctx.mk_eq_atom(mk_strlen(oneArg), mk_int(argLen)));
+            }
+        } else {
+            concat2LenFixed = false;
+        }
+    }
+
+    items.push_back(ctx.mk_eq_atom(n1, n2));
+
+    expr_ref toAssert(mgr.mk_not(mk_and(items)), mgr);
+
+    bool conflict = false;
+
+    if (concat1LenFixed && concat2LenFixed) {
+        if (sum1 != sum2) {
+            conflict = true;
+        }
+    } else if (!concat1LenFixed && concat2LenFixed) {
+        if (sum1 > sum2) {
+            conflict = true;
+        }
+    } else if (concat1LenFixed && !concat2LenFixed) {
+        if (sum1 < sum2) {
+            conflict = true;
+        }
+    }
+
+    if (conflict) {
+        TRACE("t_str_detail", tout << "inconsistent length detected in concat <==> concat" << std::endl;);
+        return false;
+    }
+    return true;
+}
+
+bool theory_str::check_length_concat_var(expr * concat, expr * var) {
+    context & ctx = get_context();
+    ast_manager & mgr = get_manager();
+
+    rational varLen;
+    bool varLen_exists = get_len_value(var, varLen);
+    if (!varLen_exists) {
+        return true;
+    } else {
+        rational sumLen(0);
+        ptr_vector<expr> args;
+        expr_ref_vector items(mgr);
+        get_nodes_in_concat(concat, args);
+        for (unsigned int i = 0; i < args.size(); ++i) {
+            expr * oneArg = args[i];
+            rational argLen;
+            bool argLen_exists = get_len_value(oneArg, argLen);
+            if (argLen_exists) {
+                if (!m_strutil.is_string(oneArg) && !argLen.is_zero()) {
+                    items.push_back(ctx.mk_eq_atom(mk_strlen(oneArg), mk_int(argLen)));
+                }
+                sumLen += argLen;
+                if (sumLen > varLen) {
+                    TRACE("t_str_detail", tout << "inconsistent length detected in concat <==> var" << std::endl;);
+                    items.push_back(ctx.mk_eq_atom(mk_strlen(var), mk_int(varLen)));
+                    items.push_back(ctx.mk_eq_atom(concat, var));
+                    expr_ref toAssert(mgr.mk_not(mk_and(items)), mgr);
+                    assert_axiom(toAssert);
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+}
+
+bool theory_str::check_length_var_var(expr * var1, expr * var2) {
+    context & ctx = get_context();
+    ast_manager & mgr = get_manager();
+
+    rational var1Len, var2Len;
+    bool var1Len_exists = get_len_value(var1, var1Len);
+    bool var2Len_exists = get_len_value(var2, var2Len);
+
+    if (var1Len_exists && var2Len_exists && var1Len != var2Len) {
+        TRACE("t_str_detail", tout << "inconsistent length detected in var <==> var" << std::endl;);
+        expr_ref_vector items(mgr);
+        items.push_back(ctx.mk_eq_atom(mk_strlen(var1), mk_int(var1Len)));
+        items.push_back(ctx.mk_eq_atom(mk_strlen(var2), mk_int(var2Len)));
+        items.push_back(ctx.mk_eq_atom(var1, var2));
+        expr_ref toAssert(mgr.mk_not(mk_and(items)), mgr);
+        assert_axiom(toAssert);
+        return false;
+    }
+    return true;
+}
+
 // returns true if everything is OK, or false if inconsistency detected
 // - note that these are different from the semantics in Z3str2
 bool theory_str::check_length_eq_var_concat(expr * n1, expr * n2) {
-	// TODO NEXT
-	NOT_IMPLEMENTED_YET(); return true;
+    // n1 and n2 are not const string: either variable or concat
+    bool n1Concat = is_concat(to_app(n1));
+    bool n2Concat = is_concat(to_app(n2));
+    if (n1Concat && n2Concat) {
+        return check_length_concat_concat(n1, n2);
+    }
+    // n1 is concat, n2 is variable
+    else if (n1Concat && (!n2Concat)) {
+        return check_length_concat_var(n1, n2);
+    }
+    // n1 is variable, n2 is concat
+    else if ((!n1Concat) && n2Concat) {
+        return check_length_concat_var(n2, n1);
+    }
+    // n1 and n2 are both variables
+    else {
+        return check_length_var_var(n1, n2);
+    }
+    return 0;
 }
 
 // returns false if an inconsistency is detected, or true if no inconsistencies were found

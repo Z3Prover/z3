@@ -302,6 +302,9 @@ namespace smt {
         bool check_length_consistency(expr * n1, expr * n2);
         bool check_length_const_string(expr * n1, expr * constStr);
         bool check_length_eq_var_concat(expr * n1, expr * n2);
+        bool check_length_concat_concat(expr * n1, expr * n2);
+        bool check_length_concat_var(expr * concat, expr * var);
+        bool check_length_var_var(expr * var1, expr * var2);
 
         void get_nodes_in_concat(expr * node, ptr_vector<expr> & nodeList);
         expr * simplify_concat(expr * node);
