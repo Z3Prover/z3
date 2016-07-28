@@ -30,7 +30,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Constructor.
         /// </summary>
-        /// <remarks><seealso cref="Context.Context(Dictionary&lt;string, string&gt;)"/></remarks>
+        /// <remarks><seealso cref="Context"/></remarks>
         public InterpolationContext(Dictionary<string, string> settings) : base(settings) { }
 
         #region Terms
