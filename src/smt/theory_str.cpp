@@ -4261,6 +4261,7 @@ bool theory_str::check_length_concat_concat(expr * n1, expr * n2) {
 
     if (conflict) {
         TRACE("t_str_detail", tout << "inconsistent length detected in concat <==> concat" << std::endl;);
+        assert_axiom(toAssert);
         return false;
     }
     return true;
