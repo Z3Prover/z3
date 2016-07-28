@@ -67,6 +67,10 @@ namespace smt {
             m_context.collect_statistics(st);
         }
 
+        virtual lbool get_consequences_core(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq) {
+            return m_context.get_consequences(assumptions, vars, conseq);
+        }
+
         virtual void assert_expr(expr * t) {
             m_context.assert_expr(t);
         }

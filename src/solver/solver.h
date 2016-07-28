@@ -171,6 +171,11 @@ public:
         ~scoped_push() { if (!m_nopop) s.pop(1); }
         void disable_pop() { m_nopop = true; }
     };
+ 
+protected:
+
+    virtual lbool get_consequences_core(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences);
+
 };
 
 #endif
