@@ -5888,6 +5888,17 @@ extern "C" {
                                               unsigned class_ids[]);
 
     /**
+       \brief retrieve consequences from solver that determine values of the supplied function symbols.
+       
+       def_API('Z3_solver_get_consequences', INT, (_in(CONTEXT), _in(SOLVER), _in(AST_VECTOR), _in(AST_VECTOR), _in(AST_VECTOR)))
+     */
+
+    Z3_lbool Z3_API Z3_solver_get_consequences(Z3_context c, 
+                                               Z3_solver s,
+                                               Z3_ast_vector assumptions,
+                                               Z3_ast_vector variables,
+                                               Z3_ast_vector consequences);
+    /**
        \brief Retrieve the model for the last #Z3_solver_check or #Z3_solver_check_assumptions
 
        The error handler is invoked if a model is not available because
