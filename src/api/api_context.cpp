@@ -430,6 +430,11 @@ extern "C" {
         *revision_number = Z3_REVISION_NUMBER;
     }
 
+    Z3_string Z3_API Z3_get_full_version(void) {
+        LOG_Z3_get_full_version();
+        return Z3_FULL_VERSION;
+    }
+
     void Z3_API Z3_enable_trace(Z3_string tag) {
         memory::initialize(UINT_MAX);
         LOG_Z3_enable_trace(tag);

@@ -64,6 +64,14 @@ public class Version
     }
 
     /**
+     * A full version string
+     **/
+    public static String getFullVersion()
+    {
+        return Native.getFullVersion();
+    }
+
+    /**
      * A string representation of the version information.
      **/
     public static String getString()

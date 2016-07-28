@@ -79,6 +79,9 @@ def get_version():
   Z3_get_version(major, minor, build, rev)
   return (major.value, minor.value, build.value, rev.value)
 
+def get_full_version():
+  return Z3_get_full_version()
+
 # We use _z3_assert instead of the assert command because we want to
 # produce nice error messages in Z3Py at rise4fun.com
 def _z3_assert(cond, msg):

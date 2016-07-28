@@ -323,6 +323,7 @@ let _ =
     else
       (
 	Printf.printf "Running Z3 version %s\n" Version.to_string ;
+	Printf.printf "Z3 full version string: %s\n" Version.full_version ;
 	let cfg = [("model", "true"); ("proof", "false")] in
 	let ctx = (mk_context cfg) in
 	let is = (Symbol.mk_int ctx 42) in
