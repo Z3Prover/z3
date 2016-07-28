@@ -4145,8 +4145,54 @@ bool theory_str::can_two_nodes_eq(expr * n1, expr * n2) {
 // returns true if everything is OK, or false if inconsistency detected
 // - note that these are different from the semantics in Z3str2
 bool theory_str::check_length_const_string(expr * n1, expr * constStr) {
-	// TODO NEXT
-	NOT_IMPLEMENTED_YET(); return true;
+    ast_manager & mgr = get_manager();
+    context & ctx = get_context();
+
+    rational strLen((unsigned) (m_strutil.get_string_constant_value(constStr).length()));
+
+    if (is_concat(to_app(n1))) {
+        ptr_vector<expr> args;
+        expr_ref_vector items(mgr);
+
+        get_nodes_in_concat(n1, args);
+
+        rational sumLen(0);
+        for (unsigned int i = 0; i < args.size(); ++i) {
+            rational argLen;
+            bool argLen_exists = get_len_value(args[i], argLen);
+            if (argLen_exists) {
+                if (!m_strutil.is_string(args[i])) {
+                    items.push_back(ctx.mk_eq_atom(mk_strlen(args[i]), mk_int(argLen)));
+                }
+                TRACE("t_str_detail", tout << "concat arg: " << mk_pp(args[i], mgr) << " has len = " << argLen.to_string() << std::endl;);
+                sumLen += argLen;
+                if (sumLen > strLen) {
+                    items.push_back(ctx.mk_eq_atom(n1, constStr));
+                    expr_ref toAssert(mgr.mk_not(mk_and(items)), mgr);
+                    TRACE("t_str_detail", tout << "inconsistent length: concat (len = " << sumLen << ") <==> string constant (len = " << strLen << ")" << std::endl;);
+                    assert_axiom(toAssert);
+                    return false;
+                }
+            }
+        }
+    } else { // !is_concat(n1)
+        rational oLen;
+        bool oLen_exists = get_len_value(n1, oLen);
+        if (oLen_exists && oLen != strLen) {
+            TRACE("t_str_detail", tout << "inconsistent length: var (len = " << oLen << ") <==> string constant (len = " << strLen << ")" << std::endl;);
+            expr_ref l(ctx.mk_eq_atom(n1, constStr), mgr);
+            expr_ref r(ctx.mk_eq_atom(mk_strlen(n1), mk_strlen(constStr)), mgr);
+            assert_implication(l, r);
+            return false;
+        }
+    }
+    rational unused;
+    if (get_len_value(n1, unused) == false) {
+        expr_ref l(ctx.mk_eq_atom(n1, constStr), mgr);
+        expr_ref r(ctx.mk_eq_atom(mk_strlen(n1), mk_strlen(constStr)), mgr);
+        assert_implication(l, r);
+    }
+    return true;
 }
 
 // returns true if everything is OK, or false if inconsistency detected
