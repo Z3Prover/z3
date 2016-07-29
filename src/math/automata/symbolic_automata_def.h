@@ -275,89 +275,90 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minim
 
 template<class T, class M>
 typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_determinstic(automaton_t& a) {
-	return mk_determinstic_param(a);
+    return mk_determinstic_param(a);
 }
 
 template<class T, class M>
 typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_complement(automaton_t& a) {
-	return mk_determinstic_param(a, true);
+    return mk_determinstic_param(a, true);
 }
 
 template<class T, class M>
-typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_determinstic_param(automaton_t& a, bool flip_acceptance = false) {
-	vector<std::pair<vector<bool>, ref_t> > min_terms;
-	vector<ref_t> predicates;
-	
-	map<uint_set, unsigned, uint_set::hash, uint_set::eq> s2id;	// set of states to unique id
-	vector<uint_set> id2s;										// unique id to set of b-states
-	uint_set set;
-	unsigned_vector vector;
-	moves_t new_mvs;                                           // moves in the resulting automaton
-	unsigned_vector new_final_states;                            // new final states
-	unsigned p_state_id = 0;                                    // next state identifier
-
-	// adds non-final states of a to final if flipping and and final otherwise
-	if (a.is_final_configuration(set) != flip_acceptance) {
-		new_final_states.push_back(p_state_id);
-	}
-
-	set.insert(a.init());										// initial state as aset
-	s2id.insert(set, p_state_id++);                              // the index to the initial state is 0
-	id2s.push_back(set);
-
-	svector<uint_set> todo; //States to visit
-	todo.push_back(set);
-
-	uint_set state;
-	moves_t mvsA;
-	
-	new_mvs.reset();
-
-	// or just make todo a vector whose indices coincide with state_id.
-	while (!todo.empty()) {
-		uint_set state = todo.back();
-
-		unsigned state_id = s2id[state];
-		todo.pop_back();
-		mvsA.reset();
-
-		min_terms.reset();
-		predicates.reset();
-
-		a.get_moves_from_states(state, mvsA);
-
-		for (unsigned j = 0; j < mvsA.size(); ++j) {			
-			ref_t mv_guard(mvsA[j].t(),m);			
-			predicates.push_back(mv_guard);
-		}
-
-		min_terms = generate_min_terms(predicates);
-		for (unsigned j = 0; j < min_terms.size(); ++j) {
-			set = uint_set();
-			for (unsigned i = 0; i < mvsA.size(); ++i) {
-				if (min_terms[j].first[i])
-					set.insert(mvsA[i].dst());
-			}
-
-			bool is_new = !s2id.contains(set);
-			if (is_new) {
-				if (a.is_final_configuration(set) != flip_acceptance) {
-					new_final_states.push_back(p_state_id);
-				}
-
-				s2id.insert(set, p_state_id++);
-				id2s.push_back(set);
-				todo.push_back(set);
-			}			
-			new_mvs.push_back(move_t(m, state_id, s2id[set], min_terms[j].second));
-		}
-	}
-
-	if (new_final_states.empty()) {
-		return alloc(automaton_t, m);
-	}
-
-	return alloc(automaton_t, m, 0, new_final_states, new_mvs);
+typename symbolic_automata<T, M>::automaton_t* 
+symbolic_automata<T, M>::mk_determinstic_param(automaton_t& a, bool flip_acceptance) {
+    vector<std::pair<vector<bool>, ref_t> > min_terms;
+    vector<ref_t> predicates;
+    
+    map<uint_set, unsigned, uint_set::hash, uint_set::eq> s2id; // set of states to unique id
+    vector<uint_set> id2s;                           // unique id to set of b-states
+    uint_set set;
+    unsigned_vector vector;
+    moves_t new_mvs;                                 // moves in the resulting automaton
+    unsigned_vector new_final_states;                // new final states
+    unsigned p_state_id = 0;                         // next state identifier
+    
+    // adds non-final states of a to final if flipping and and final otherwise
+    if (a.is_final_configuration(set) != flip_acceptance) {
+        new_final_states.push_back(p_state_id);
+    }
+    
+    set.insert(a.init());                         // Initial state as aset
+    s2id.insert(set, p_state_id++);               // the index to the initial state is 0
+    id2s.push_back(set);
+    
+    svector<uint_set> todo; //States to visit
+    todo.push_back(set);
+    
+    uint_set state;
+    moves_t mvsA;
+    
+    new_mvs.reset();
+    
+    // or just make todo a vector whose indices coincide with state_id.
+    while (!todo.empty()) {
+        uint_set state = todo.back();
+        
+        unsigned state_id = s2id[state];
+        todo.pop_back();
+        mvsA.reset();
+        
+        min_terms.reset();
+        predicates.reset();
+        
+        a.get_moves_from_states(state, mvsA);
+        
+        for (unsigned j = 0; j < mvsA.size(); ++j) {
+            ref_t mv_guard(mvsA[j].t(),m);
+            predicates.push_back(mv_guard);
+        }
+        
+        min_terms = generate_min_terms(predicates);
+        for (unsigned j = 0; j < min_terms.size(); ++j) {
+            set = uint_set();
+            for (unsigned i = 0; i < mvsA.size(); ++i) {
+                if (min_terms[j].first[i])
+                    set.insert(mvsA[i].dst());
+            }
+            
+            bool is_new = !s2id.contains(set);
+            if (is_new) {
+                if (a.is_final_configuration(set) != flip_acceptance) {
+                    new_final_states.push_back(p_state_id);
+                }
+                
+                s2id.insert(set, p_state_id++);
+                id2s.push_back(set);
+                todo.push_back(set);
+            }
+            new_mvs.push_back(move_t(m, state_id, s2id[set], min_terms[j].second));
+        }
+    }
+    
+    if (new_final_states.empty()) {
+        return alloc(automaton_t, m);
+    }
+    
+    return alloc(automaton_t, m, 0, new_final_states, new_mvs);
 }
 
 
@@ -455,7 +456,7 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_produ
 
 template<class T, class M>
 typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_difference(automaton_t& a, automaton_t& b) {
-	return mk_product(a,mk_complement(b));
+    return mk_product(a,mk_complement(b));
 }
 
 #endif 
