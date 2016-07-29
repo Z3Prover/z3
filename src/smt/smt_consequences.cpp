@@ -125,7 +125,6 @@ namespace smt {
         unsigned num_units = assigned_literals().size();
         app_ref eq(m_manager);
         TRACE("context", 
-              tout << "pop:  " << num_levels << "\n";
               tout << "vars: " << vars.size() << "\n";
               tout << "lits: " << num_units << "\n";);
         m_case_split_queue->init_search_eh();

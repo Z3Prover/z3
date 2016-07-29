@@ -290,6 +290,9 @@ public:
     bool is_asin(expr const* n) const { return is_app_of(n, m_afid, OP_ASIN); }
     bool is_acos(expr const* n) const { return is_app_of(n, m_afid, OP_ACOS); }
     bool is_atan(expr const* n) const { return is_app_of(n, m_afid, OP_ATAN); }
+    bool is_asinh(expr const* n) const { return is_app_of(n, m_afid, OP_ASINH); }
+    bool is_acosh(expr const* n) const { return is_app_of(n, m_afid, OP_ACOSH); }
+    bool is_atanh(expr const* n) const { return is_app_of(n, m_afid, OP_ATANH); }
     bool is_pi(expr * arg) { return is_app_of(arg, m_afid, OP_PI); }
     bool is_e(expr * arg) { return is_app_of(arg, m_afid, OP_E); }
 
@@ -311,10 +314,13 @@ public:
 
     MATCH_UNARY(is_sin);
     MATCH_UNARY(is_asin);
+    MATCH_UNARY(is_asinh);
     MATCH_UNARY(is_cos);
     MATCH_UNARY(is_acos);
+    MATCH_UNARY(is_acosh);
     MATCH_UNARY(is_tan);
     MATCH_UNARY(is_atan);
+    MATCH_UNARY(is_atanh);
 
 };
 

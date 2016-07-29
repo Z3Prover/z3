@@ -946,12 +946,13 @@ br_status arith_rewriter::mk_power_core(expr * arg1, expr * arg2, expr_ref & res
 
 br_status arith_rewriter::mk_to_int_core(expr * arg, expr_ref & result) {
     numeral a;
+    expr* x;
     if (m_util.is_numeral(arg, a)) {
         result = m_util.mk_numeral(floor(a), true);
         return BR_DONE;
     }
-    else if (m_util.is_to_real(arg)) {
-        result = to_app(arg)->get_arg(0);
+    else if (m_util.is_to_real(arg, x)) {
+        result = x;
         return BR_DONE;
     }
     else {
@@ -982,8 +983,8 @@ br_status arith_rewriter::mk_to_int_core(expr * arg, expr_ref & result) {
                         new_args.push_back(m_util.mk_numeral(a, true));
                     }
                     else {
-                        SASSERT(m_util.is_to_real(c));
-                        new_args.push_back(to_app(c)->get_arg(0));
+                        VERIFY (m_util.is_to_real(c, x));
+                        new_args.push_back(x);
                     }
                 }
                 SASSERT(num_args == new_args.size());
@@ -1315,9 +1316,10 @@ br_status arith_rewriter::mk_cos_core(expr * arg, expr_ref & result) {
 }
 
 br_status arith_rewriter::mk_tan_core(expr * arg, expr_ref & result) {
-    if (is_app_of(arg, get_fid(), OP_ATAN)) {
+    expr* x;
+    if (m_util.is_atan(arg, x)) {
         // tan(atan(x)) == x
-        result = to_app(arg)->get_arg(0);
+        result = x;
         return BR_DONE;
     }
 
@@ -1497,9 +1499,10 @@ br_status arith_rewriter::mk_atan_core(expr * arg, expr_ref & result) {
 }
 
 br_status arith_rewriter::mk_sinh_core(expr * arg, expr_ref & result) {
-    if (is_app_of(arg, get_fid(), OP_ASINH)) {
+    expr* x;
+    if (m_util.is_asinh(arg, x)) {
         // sinh(asinh(x)) == x
-        result = to_app(arg)->get_arg(0);
+        result = x;
         return BR_DONE;
     }
     expr * t;
@@ -1512,12 +1515,12 @@ br_status arith_rewriter::mk_sinh_core(expr * arg, expr_ref & result) {
 }
 
 br_status arith_rewriter::mk_cosh_core(expr * arg, expr_ref & result) {
-    if (is_app_of(arg, get_fid(), OP_ACOSH)) {
-        // cosh(acosh(x)) == x
-        result = to_app(arg)->get_arg(0);
+    expr* t;
+    if (m_util.is_acosh(arg, t)) {
+        // cosh(acosh(t)) == t
+        result = t;
         return BR_DONE;
     }
-    expr * t;
     if (m_util.is_times_minus_one(arg, t)) {
         // cosh(-t) == cosh
         result = m_util.mk_cosh(t);
@@ -1527,12 +1530,12 @@ br_status arith_rewriter::mk_cosh_core(expr * arg, expr_ref & result) {
 }
 
 br_status arith_rewriter::mk_tanh_core(expr * arg, expr_ref & result) {
-    if (is_app_of(arg, get_fid(), OP_ATANH)) {
-        // tanh(atanh(x)) == x
-        result = to_app(arg)->get_arg(0);
+    expr * t;
+    if (m_util.is_atanh(arg, t)) {
+        // tanh(atanh(t)) == t
+        result = t;
         return BR_DONE;
     }
-    expr * t;
     if (m_util.is_times_minus_one(arg, t)) {
         // tanh(-t) == -tanh(t)
         result = m_util.mk_uminus(m_util.mk_tanh(t));
