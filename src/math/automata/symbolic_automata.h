@@ -108,8 +108,8 @@ public:
 private:
 	automaton_t* mk_determinstic_param(automaton_t& a, bool flip_acceptance);
 
-	vector<std::pair<vector<bool>, ref_t>> generate_min_terms(vector<ref_t> &constraints) {
-		vector<std::pair<vector<bool>, ref_t>> min_terms;
+	vector<std::pair<vector<bool>, ref_t> > generate_min_terms(vector<ref_t> &constraints) {
+		vector<std::pair<vector<bool>, ref_t> > min_terms;
 
 		ref_t curr_pred(m_ba.mk_true(), m);
 		vector<bool> curr_bv;
@@ -118,7 +118,7 @@ private:
 
 		return min_terms;
 	}
-	void generate_min_terms_rec(vector<ref_t> &constraints, vector<std::pair<vector<bool>, ref_t>> &min_terms, unsigned i, vector<bool> &curr_bv, ref_t &curr_pred) {
+	void generate_min_terms_rec(vector<ref_t> &constraints, vector<std::pair<vector<bool>, ref_t> > &min_terms, unsigned i, vector<bool> &curr_bv, ref_t &curr_pred) {
 		lbool is_sat = m_ba.is_sat(curr_pred);
 		if (is_sat != l_true) {
 			return;
