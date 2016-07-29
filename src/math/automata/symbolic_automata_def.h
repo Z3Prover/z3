@@ -285,7 +285,7 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_compl
 
 template<class T, class M>
 typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_determinstic_param(automaton_t& a, bool flip_acceptance = false) {
-	vector<std::pair<vector<bool>, ref_t>> min_terms;
+	vector<std::pair<vector<bool>, ref_t> > min_terms;
 	vector<ref_t> predicates;
 	
 	map<uint_set, unsigned, uint_set::hash, uint_set::eq> s2id;	// set of states to unique id
