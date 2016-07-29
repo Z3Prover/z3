@@ -86,20 +86,25 @@ public:
         expr_ref fml(m.mk_true(), m);
         return sym_expr::mk_pred(fml, m.mk_bool_sort());
     }
-    virtual T mk_and(T x, T y) {
-        if (x->is_char() && y->is_char()) {
-            if (x->get_char() == y->get_char()) {
-                return x;
-            }
-            if (m.are_distinct(x->get_char(), y->get_char())) {
-                expr_ref fml(m.mk_false(), m);
-                return sym_expr::mk_pred(fml, x->get_sort());
-            }
-        }
-        var_ref v(m.mk_var(0, x->get_sort()), m);
-        expr_ref fml1 = x->accept(v);
-        expr_ref fml2 = y->accept(v);
-        if (m.is_true(fml1)) return y;
+	virtual T mk_and(T x, T y) {
+		if (x->is_char() && y->is_char()) {
+			if (x->get_char() == y->get_char()) {
+				return x;
+			}
+			if (m.are_distinct(x->get_char(), y->get_char())) {
+				expr_ref fml(m.mk_false(), m);
+				return sym_expr::mk_pred(fml, x->get_sort());
+			}
+		}
+
+		sort* s = x->get_sort();
+		if (m.is_bool(s)) s = y->get_sort();
+		var_ref v(m.mk_var(0, s), m);
+		expr_ref fml1 = x->accept(v);
+		expr_ref fml2 = y->accept(v);
+		if (m.is_true(fml1)) {
+			return y;
+		}
         if (m.is_true(fml2)) return x;
         expr_ref fml(m.mk_and(fml1, fml2), m);
         return sym_expr::mk_pred(fml, x->get_sort());
@@ -166,6 +171,11 @@ public:
         expr_ref fml(m.mk_not(x->accept(v)), m);
         return sym_expr::mk_pred(fml, x->get_sort());
     }
+
+	/*virtual vector<std::pair<vector<bool>, T>> generate_min_terms(vector<T> constraints){
+		
+		return 0;
+	}*/
 };
 
 re2automaton::re2automaton(ast_manager& m): m(m), u(m), bv(m), m_ba(0), m_sa(0) {}
@@ -233,47 +243,9 @@ eautomaton* re2automaton::re2aut(expr* e) {
             TRACE("seq", tout << "Range expression is not handled: " << mk_pp(e, m) << "\n";);
         }
     }
-    else if (u.re.is_complement(e, e0)) {
-        // TBD non-standard semantics of complementation.
-        if (u.re.is_range(e0, e1, e2) && u.str.is_string(e1, s1) && u.str.is_string(e2, s2) &&
-            s1.length() == 1 && s2.length() == 1) {
-            unsigned start = s1[0];
-            unsigned stop = s2[0];
-            unsigned nb = s1.num_bits();
-            sort_ref s(bv.mk_sort(nb), m);          
-            expr_ref v(m.mk_var(0, s), m);
-            expr_ref _start(bv.mk_numeral(start, nb), m);
-            expr_ref _stop(bv.mk_numeral(stop, nb), m);
-            expr_ref _pred(m.mk_not(m.mk_and(bv.mk_ule(_start, v), bv.mk_ule(v, _stop))), m);
-            a = alloc(eautomaton, sm, sym_expr::mk_pred(_pred, s));
-            display_expr1 disp(m);
-            TRACE("seq", tout << mk_pp(e, m) << "\n"; a->display(tout, disp););
-            return a.detach();
-        }
-        else if (u.re.is_to_re(e0, e1) && u.str.is_string(e1, s1) && s1.length() == 1) {
-            unsigned nb = s1.num_bits();
-            sort_ref s(bv.mk_sort(nb), m);          
-            expr_ref v(m.mk_var(0, s), m);
-            expr_ref _ch(bv.mk_numeral(s1[0], nb), m);          
-            expr_ref _pred(m.mk_not(m.mk_eq(v, _ch)), m);
-            a = alloc(eautomaton, sm, sym_expr::mk_pred(_pred, s));
-            display_expr1 disp(m);
-            TRACE("seq", tout << mk_pp(e, m) << "\n"; a->display(tout, disp););
-            return a.detach();
-        }
-        else if (u.re.is_to_re(e0, e1) && u.str.is_unit(e1, e2)) {
-            sort* s = m.get_sort(e2);
-            expr_ref v(m.mk_var(0, s), m);
-            expr_ref _pred(m.mk_not(m.mk_eq(v, e2)), m);
-            a = alloc(eautomaton, sm, sym_expr::mk_pred(_pred, s));
-            display_expr1 disp(m);
-            TRACE("seq", tout << mk_pp(e, m) << "\n"; a->display(tout, disp););
-            return a.detach();
-        }
-        else {
-            TRACE("seq", tout << "Complement expression is not handled: " << mk_pp(e, m) << "\n";);
-        }
-    }
+	else if (u.re.is_complement(e, e0) && (a = re2aut(e0)) && m_sa) {
+		return m_sa->mk_complement(*a);
+	}
     else if (u.re.is_loop(e, e1, lo, hi) && (a = re2aut(e1))) {
         scoped_ptr<eautomaton> eps = eautomaton::mk_epsilon(sm);
         b = eautomaton::mk_epsilon(sm);

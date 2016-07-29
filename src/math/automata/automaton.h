@@ -467,10 +467,17 @@ public:
     unsigned out_degree(unsigned state) const { return m_delta[state].size(); }
     move const& get_move_from(unsigned state) const { SASSERT(m_delta[state].size() == 1); return m_delta[state][0]; }
     move const& get_move_to(unsigned state) const { SASSERT(m_delta_inv[state].size() == 1); return m_delta_inv[state][0]; }
-    moves const& get_moves_from(unsigned state) const { return m_delta[state]; }
+    moves const& get_moves_from(unsigned state) const { return m_delta[state]; }	
     moves const& get_moves_to(unsigned state) const { return m_delta_inv[state]; }
     bool initial_state_is_source() const { return m_delta_inv[m_init].empty(); }
     bool is_final_state(unsigned s) const { return m_final_set.contains(s); }
+	bool is_final_configuration(uint_set s) const { 
+		for (uint_set::iterator it = s.begin(), end = s.end(); it != end; ++it) {
+			if (is_final_state(*it))
+				return true;
+		}
+		return false; 
+	}
     bool is_epsilon_free() const {
         for (unsigned i = 0; i < m_delta.size(); ++i) {
             moves const& mvs = m_delta[i];
@@ -517,6 +524,13 @@ public:
     void get_moves_from(unsigned state, moves& mvs, bool epsilon_closure = true) const {
         get_moves(state, m_delta, mvs, epsilon_closure);
     }
+	void get_moves_from_states(uint_set states, moves& mvs, bool epsilon_closure = true) const {
+		for (uint_set::iterator it = states.begin(), end = states.end(); it != end; ++it) {
+			moves curr;
+			get_moves(*it, m_delta, curr, epsilon_closure);
+			mvs.append(curr);
+		}
+	}
     void get_moves_to(unsigned state, moves& mvs, bool epsilon_closure = true) {
         get_moves(state, m_delta_inv, mvs, epsilon_closure);
     }
