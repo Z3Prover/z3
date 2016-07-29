@@ -6127,8 +6127,14 @@ class Solver(Z3PPObject):
         return AstVector(Z3_solver_get_unsat_core(self.ctx.ref(), self.solver), self.ctx)
 
     def consequences(self, assumptions, variables):
-        """Determine fixed values for the variables based on the solver state and assumptions.
-        documentation TBD
+        """Determine fixed values for the variables based on the solver state and assumptions.        
+        >>> s = Solver()
+        >>> a, b, c, d = Bools('a b c d')
+        >>> s.add(Implies(a,b), Implies(b, c))
+        >>> s.consequences([a],[b,c,d])
+        (sat, [Implies(a, b), Implies(a, c)])
+        >>> s.consequences([Not(c),d],[a,b,c,d])
+        (sat, [Implies(Not(c), Not(a)), Implies(Not(c), Not(b)), Implies(True, Not(c)), Implies(True, d)])
         """
         if isinstance(assumptions, list):
             _asms = AstVector(None, self.ctx)

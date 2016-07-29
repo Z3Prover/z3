@@ -66,11 +66,14 @@ namespace smt {
                 case b_justification::AXIOM: {
                     break;
                 }
-                case b_justification::JUSTIFICATION: 
-                    justification* j = js.get_justification();
-                    // warning_msg("TODO: extract antecedents from theory justification");
-                    // std::cout << "TODO: justification\n";
+                case b_justification::JUSTIFICATION: {
+                    literal_vector literals;
+                    m_conflict_resolution->justification2literals(js.get_justification(), literals);
+                    for (unsigned j = 0; j < literals.size(); ++j) {
+                        s |= m_antecedents.find(literals[j].var());
+                    }
                     break;
+                }
                 }                
             }       
             m_antecedents.insert(lit.var(), s);
@@ -100,6 +103,7 @@ namespace smt {
     lbool context::get_consequences(expr_ref_vector const& assumptions, 
                                     expr_ref_vector const& vars, expr_ref_vector& conseq) {
 
+        m_antecedents.reset();
         lbool is_sat = check(assumptions.size(), assumptions.c_ptr());
         if (is_sat != l_true) {
             return is_sat;
@@ -111,19 +115,20 @@ namespace smt {
         }
         model_ref mdl;
         get_model(mdl);
-        expr_ref_vector trail(m_manager);
+        ast_manager& m = m_manager;
+        expr_ref_vector trail(m);
         model_evaluator eval(*mdl.get());
-        expr_ref val(m_manager);
+        expr_ref val(m);
         for (unsigned i = 0; i < vars.size(); ++i) {
             eval(vars[i], val);
-            if (m_manager.is_value(val)) {
+            if (m.is_value(val)) {
                 trail.push_back(val);
                 var2val.insert(vars[i], val);
             } 
         }
         extract_fixed_consequences(0, var2val, _assumptions, conseq);
         unsigned num_units = assigned_literals().size();
-        app_ref eq(m_manager);
+        app_ref eq(m);
         TRACE("context", 
               tout << "vars: " << vars.size() << "\n";
               tout << "lits: " << num_units << "\n";);
@@ -136,8 +141,8 @@ namespace smt {
             unsigned current_level = m_scope_lvl;
 
             literal lit;
-            if (m_manager.is_bool(e)) {
-                lit = literal(get_bool_var(e), m_manager.is_true(val));
+            if (m.is_bool(e)) {
+                lit = literal(get_bool_var(e), m.is_true(val));
             }
             else {
                 eq = mk_eq_atom(e, val);
@@ -163,17 +168,21 @@ namespace smt {
                 var2val.erase(e);
             }
             else if (get_assign_level(lit) > get_search_level()) {
-                TRACE("context", tout << "Retry fixing: " << mk_pp(e, m_manager) << "\n";);
+                TRACE("context", tout << "Retry fixing: " << mk_pp(e, m) << "\n";);
                 pop_to_search_lvl();
                 continue;
             }
             else {
-                TRACE("context", tout << "Fixed: " << mk_pp(e, m_manager) << "\n";);
+                TRACE("context", tout << "Fixed: " << mk_pp(e, m) << "\n";);
             }
             extract_fixed_consequences(num_units, var2val, _assumptions, conseq);
             num_units = assigned_literals().size();
             if (var2val.contains(e)) {
-                TRACE("context", tout << "TBD: Fixed value to " << mk_pp(e, m_manager) << " was not retrieved\n";);
+                TRACE("context", tout << "Fixed value to " << mk_pp(e, m) << " was not processed\n";);
+                expr_ref fml(m);
+                fml = m.mk_eq(e, var2val.find(e));
+                fml = m.mk_implies(antecedent2fml(m_antecedents[lit.var()]), fml);
+                conseq.push_back(fml);
                 var2val.erase(e);
                 SASSERT(get_assignment(lit) == l_false);
             }
