@@ -194,6 +194,11 @@ public:
         return m_solver1->get_scope_level();
     }
 
+    virtual lbool get_consequences(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) {
+        switch_inc_mode();
+        return m_solver2->get_consequences(asms, vars, consequences);
+    }
+
     virtual lbool check_sat(unsigned num_assumptions, expr * const * assumptions) {
         m_check_sat_executed  = true;        
         m_use_solver1_results = false;
