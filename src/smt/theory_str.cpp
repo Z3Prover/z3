@@ -4779,116 +4779,93 @@ void theory_str::handle_equality(expr * lhs, expr * rhs) {
 
     // BEGIN new_eq_handler() in strTheory
 
-    // TODO there's some setup with getLenValue() that I don't think is necessary
-    // because we should already be generating the string length axioms for all string terms
+    {
+        rational nn1Len, nn2Len;
+        bool nn1Len_exists = get_len_value(lhs, nn1Len);
+        bool nn2Len_exists = get_len_value(rhs, nn2Len);
+        expr * emptyStr = m_strutil.mk_string("");
+
+        if (nn1Len_exists && nn1Len.is_zero()) {
+            if (!in_same_eqc(lhs, emptyStr) && rhs != emptyStr) {
+                expr_ref eql(ctx.mk_eq_atom(mk_strlen(lhs), mk_int(0)), m);
+                expr_ref eqr(ctx.mk_eq_atom(lhs, emptyStr), m);
+                expr_ref toAssert(ctx.mk_eq_atom(eql, eqr), m);
+                assert_axiom(toAssert);
+            }
+        }
+
+        if (nn2Len_exists && nn2Len.is_zero()) {
+            if (!in_same_eqc(rhs, emptyStr) && lhs != emptyStr) {
+                expr_ref eql(ctx.mk_eq_atom(mk_strlen(rhs), mk_int(0)), m);
+                expr_ref eqr(ctx.mk_eq_atom(rhs, emptyStr), m);
+                expr_ref toAssert(ctx.mk_eq_atom(eql, eqr), m);
+                assert_axiom(toAssert);
+            }
+        }
+    }
+
+    // TODO some setup with haveEQLength() which I skip for now, not sure if necessary
 
     instantiate_str_eq_length_axiom(ctx.get_enode(lhs), ctx.get_enode(rhs));
 
     // group terms by equivalence class (groupNodeInEqc())
-    std::set<expr*> eqc_lhs_concat;
-    std::set<expr*> eqc_lhs_var;
-    std::set<expr*> eqc_lhs_const;
-    group_terms_by_eqc(lhs, eqc_lhs_concat, eqc_lhs_var, eqc_lhs_const);
+    // Previously we did the check between LHS and RHS equivalence classes.
+    // However these have since been merged.
+    // We start by asserting that the EQCs, in fact, really are merged.
+    if (!in_same_eqc(lhs, rhs)) {
+        TRACE("t_str", tout << "BUG: lhs and rhs not in same eqc in new_eq_eh(), loss of invariant!" << std::endl;);
+        UNREACHABLE();
+    }
+
+    std::set<expr*> eqc_concat;
+    std::set<expr*> eqc_var;
+    std::set<expr*> eqc_const;
+    group_terms_by_eqc(lhs, eqc_concat, eqc_var, eqc_const);
 
     TRACE("t_str_detail",
-        tout << "eqc[lhs]:" << std::endl;
+        tout << "eqc:" << std::endl;
         tout << "Concats:" << std::endl;
-        for (std::set<expr*>::iterator it = eqc_lhs_concat.begin(); it != eqc_lhs_concat.end(); ++it) {
+        for (std::set<expr*>::iterator it = eqc_concat.begin(); it != eqc_concat.end(); ++it) {
             expr * ex = *it;
             tout << mk_ismt2_pp(ex, get_manager()) << std::endl;
         }
         tout << "Variables:" << std::endl;
-        for (std::set<expr*>::iterator it = eqc_lhs_var.begin(); it != eqc_lhs_var.end(); ++it) {
+        for (std::set<expr*>::iterator it = eqc_var.begin(); it != eqc_var.end(); ++it) {
             expr * ex = *it;
             tout << mk_ismt2_pp(ex, get_manager()) << std::endl;
         }
         tout << "Constants:" << std::endl;
-        for (std::set<expr*>::iterator it = eqc_lhs_const.begin(); it != eqc_lhs_const.end(); ++it) {
-            expr * ex = *it;
-            tout << mk_ismt2_pp(ex, get_manager()) << std::endl;
-        }
-        );
-
-    std::set<expr*> eqc_rhs_concat;
-    std::set<expr*> eqc_rhs_var;
-    std::set<expr*> eqc_rhs_const;
-    group_terms_by_eqc(rhs, eqc_rhs_concat, eqc_rhs_var, eqc_rhs_const);
-
-    TRACE("t_str_detail",
-        tout << "eqc[rhs]:" << std::endl;
-        tout << "Concats:" << std::endl;
-        for (std::set<expr*>::iterator it = eqc_rhs_concat.begin(); it != eqc_rhs_concat.end(); ++it) {
-            expr * ex = *it;
-            tout << mk_ismt2_pp(ex, get_manager()) << std::endl;
-        }
-        tout << "Variables:" << std::endl;
-        for (std::set<expr*>::iterator it = eqc_rhs_var.begin(); it != eqc_rhs_var.end(); ++it) {
-            expr * ex = *it;
-            tout << mk_ismt2_pp(ex, get_manager()) << std::endl;
-        }
-        tout << "Constants:" << std::endl;
-        for (std::set<expr*>::iterator it = eqc_rhs_const.begin(); it != eqc_rhs_const.end(); ++it) {
+        for (std::set<expr*>::iterator it = eqc_const.begin(); it != eqc_const.end(); ++it) {
             expr * ex = *it;
             tout << mk_ismt2_pp(ex, get_manager()) << std::endl;
         }
         );
 
     // step 1: Concat == Concat
-    // This code block may no longer be useful.
-    // Z3 seems to be putting LHS and RHS into the same equivalence class extremely early.
-    // As a result, simplify_concat_equality() is never getting called,
-    // and if it were called, it would probably get called with the same element on both sides.
 
-
-    // TODO improve these checks with an all-pairs match over LHS and RHS wrt. other concats
-    bool hasCommon = false;
-    if (eqc_lhs_concat.size() != 0 && eqc_rhs_concat.size() != 0) {
-        std::set<expr*>::iterator itor1 = eqc_lhs_concat.begin();
-        std::set<expr*>::iterator itor2 = eqc_rhs_concat.begin();
-        for (; itor1 != eqc_lhs_concat.end(); ++itor1) {
-            if (eqc_rhs_concat.find(*itor1) != eqc_rhs_concat.end()) {
-                hasCommon = true;
-                break;
-            }
-        }
-        for (; !hasCommon && itor2 != eqc_rhs_concat.end(); ++itor2) {
-            if (eqc_lhs_concat.find(*itor2) != eqc_lhs_concat.end()) {
-                hasCommon = true;
-                break;
-            }
-        }
-        if (!hasCommon) {
-            simplify_concat_equality(*(eqc_lhs_concat.begin()), *(eqc_rhs_concat.begin()));
-        }
-    }
-
-    if (eqc_lhs_concat.size() != 0 && eqc_rhs_concat.size() != 0) {
-        // let's pick the first concat in the LHS's eqc
-        // and find some concat in the RHS's eqc that is
-        // distinct from the first one we picked
-        expr * lhs = *eqc_lhs_concat.begin();
-        std::set<expr*>::iterator itor2 = eqc_rhs_concat.begin();
-        for (; itor2 != eqc_rhs_concat.end(); ++itor2) {
-            expr * rhs = *itor2;
-            if (lhs != rhs) {
-                simplify_concat_equality(lhs, rhs);
-                break;
+    // enhancement from Z3str2: all-pairs match over LHS and RHS wrt. other concats
+    if (eqc_concat.size() != 0) {
+        std::set<expr*>::iterator itor1, itor2;
+        for (itor1 = eqc_concat.begin(); itor1 != eqc_concat.end(); ++itor1) {
+            for (itor2 = itor1; itor2 != eqc_concat.end(); ++itor2) {
+                if (itor1 == itor2) {
+                    continue;
+                }
+                expr * e1 = *itor1;
+                expr * e2 = *itor2;
+                TRACE("t_str_detail", tout << "simplify concat-concat pair " << mk_pp(e1, m) << " and " << mk_pp(e2, m) << std::endl;);
+                simplify_concat_equality(e1, e2);
             }
         }
     }
 
     // step 2: Concat == Constant
-    if (eqc_lhs_const.size() != 0) {
-        expr * conStr = *(eqc_lhs_const.begin());
-        std::set<expr*>::iterator itor2 = eqc_rhs_concat.begin();
-        for (; itor2 != eqc_rhs_concat.end(); ++itor2) {
+    // same enhancement as above wrt. Z3str2's behaviour
+    if (eqc_const.size() != 0) {
+        expr * conStr = *(eqc_const.begin());
+        std::set<expr*>::iterator itor2;
+        for (itor2 = eqc_concat.begin(); itor2 != eqc_concat.end(); ++itor2) {
             solve_concat_eq_str(*itor2, conStr);
-        }
-    } else if (eqc_rhs_const.size() != 0) {
-        expr * conStr = *(eqc_rhs_const.begin());
-        std::set<expr*>::iterator itor1 = eqc_lhs_concat.begin();
-        for (; itor1 != eqc_lhs_concat.end(); ++itor1) {
-            solve_concat_eq_str(*itor1, conStr);
         }
     }
 
