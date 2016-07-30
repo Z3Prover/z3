@@ -1505,6 +1505,31 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
     }
 }
 
+void cmd_context::get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector & conseq) {
+    unsigned timeout = m_params.m_timeout;
+    unsigned rlimit  = m_params.m_rlimit;
+    lbool r;
+    m_check_sat_result = m_solver.get(); // solver itself stores the result.
+    m_solver->set_progress_callback(this);
+    cancel_eh<reslimit> eh(m().limit());
+    scoped_ctrl_c ctrlc(eh);
+    scoped_timer timer(timeout, &eh);
+    scoped_rlimit _rlimit(m().limit(), rlimit);
+    try {
+        r = m_solver->get_consequences(assumptions, vars, conseq);
+    }
+    catch (z3_error & ex) {
+        throw ex;
+    }
+    catch (z3_exception & ex) {
+        m_solver->set_reason_unknown(ex.msg());
+        r = l_undef;
+    }
+    m_solver->set_status(r);
+    display_sat_result(r);
+}
+
+
 void cmd_context::reset_assertions() {
     if (!m_global_decls) {
         reset(false);
