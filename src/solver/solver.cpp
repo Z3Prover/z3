@@ -19,6 +19,7 @@ Notes:
 #include"solver.h"
 #include"model_evaluator.h"
 #include"ast_util.h"
+#include"ast_pp.h"
 
 unsigned solver::get_num_assertions() const {
     NOT_IMPLEMENTED_YET();

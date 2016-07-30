@@ -3044,7 +3044,7 @@ namespace smt {
             SASSERT(m_assumptions.empty());
             return; 
         }
-        obj_hashtable<expr> already_found_assumptions;
+        uint_set already_found_assumptions;
         literal_vector::const_iterator it  = m_conflict_resolution->begin_unsat_core();
         literal_vector::const_iterator end = m_conflict_resolution->end_unsat_core();
         for (; it != end; ++it) {
@@ -3053,10 +3053,9 @@ namespace smt {
             SASSERT(get_bdata(l.var()).m_assumption);
             if (!m_literal2assumption.contains(l.index())) l.neg();
             SASSERT(m_literal2assumption.contains(l.index()));
-            expr * a = m_literal2assumption[l.index()];
-            if (!already_found_assumptions.contains(a)) {
-                already_found_assumptions.insert(a);
-                m_unsat_core.push_back(a);
+            if (!already_found_assumptions.contains(l.index())) {
+                already_found_assumptions.insert(l.index());
+                m_unsat_core.push_back(m_literal2assumption[l.index()]);
             }
         }
         reset_assumptions();
