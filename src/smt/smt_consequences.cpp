@@ -31,7 +31,7 @@ namespace smt {
         return mk_and(premises);
     }
 
-    void context::extract_fixed_consequences(unsigned start, obj_map<expr, expr*>& vars, obj_hashtable<expr> const& assumptions, expr_ref_vector& conseq) {
+    void context::extract_fixed_consequences(unsigned start, obj_map<expr, expr*>& vars, uint_set const& assumptions, expr_ref_vector& conseq) {
         ast_manager& m = m_manager;
         pop_to_search_lvl();
         literal_vector const& lits = assigned_literals();
@@ -43,8 +43,8 @@ namespace smt {
             if (lit == true_literal) continue;
             expr* e = bool_var2expr(lit.var());
             uint_set s;
-            if (assumptions.contains(e)) {
-                s.insert(get_literal(e).var());
+            if (assumptions.contains(lit.var())) {
+                s.insert(lit.var());
             }
             else {
                 b_justification js = get_justification(lit.var());
@@ -78,6 +78,7 @@ namespace smt {
                 }                
             }       
             m_antecedents.insert(lit.var(), s);
+            TRACE("context", display_literal_verbose(tout, lit); tout << " " << s << "\n";);
             bool found = false;
             if (vars.contains(e)) {
                 found = true;
@@ -110,9 +111,9 @@ namespace smt {
             return is_sat;
         }
         obj_map<expr, expr*> var2val;
-        obj_hashtable<expr> _assumptions;
+        uint_set _assumptions;
         for (unsigned i = 0; i < assumptions.size(); ++i) {
-            _assumptions.insert(assumptions[i]);
+            _assumptions.insert(get_literal(assumptions[i]).var());
         }
         model_ref mdl;
         get_model(mdl);

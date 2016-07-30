@@ -6134,7 +6134,7 @@ class Solver(Z3PPObject):
         >>> s.consequences([a],[b,c,d])
         (sat, [Implies(a, b), Implies(a, c)])
         >>> s.consequences([Not(c),d],[a,b,c,d])
-        (sat, [Implies(Not(c), Not(a)), Implies(Not(c), Not(b)), Implies(True, Not(c)), Implies(True, d)])
+        (sat, [Implies(Not(c), Not(c)), Implies(d, d), Implies(Not(c), Not(b)), Implies(Not(c), Not(a))])
         """
         if isinstance(assumptions, list):
             _asms = AstVector(None, self.ctx)
