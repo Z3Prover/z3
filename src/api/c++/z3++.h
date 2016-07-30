@@ -1723,6 +1723,11 @@ namespace z3 {
             return to_check_result(r);
         }
         model get_model() const { Z3_model m = Z3_solver_get_model(ctx(), m_solver); check_error(); return model(ctx(), m); }
+        check_result consequences(expr_vector& assumptions, expr_vector& vars, expr_vector& conseq) {
+            Z3_lbool r = Z3_solver_get_consequences(ctx(), m_solver, assumptions, vars, conseq);
+            check_error();
+            return to_check_result(r);
+        }
         std::string reason_unknown() const { Z3_string r = Z3_solver_get_reason_unknown(ctx(), m_solver); check_error(); return r; }
         stats statistics() const { Z3_stats r = Z3_solver_get_statistics(ctx(), m_solver); check_error(); return stats(ctx(), r); }
         expr_vector unsat_core() const { Z3_ast_vector r = Z3_solver_get_unsat_core(ctx(), m_solver); check_error(); return expr_vector(ctx(), r); }

@@ -25,7 +25,8 @@ namespace smt {
         expr_ref_vector premises(m_manager);
         uint_set::iterator it = vars.begin(), end = vars.end();
         for (; it != end; ++it) {
-            premises.push_back(bool_var2expr(*it));
+            expr* e =  bool_var2expr(*it);
+            premises.push_back(get_assignment(*it) != l_false ? e : m_manager.mk_not(e));
         }
         return mk_and(premises);
     }

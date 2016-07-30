@@ -1111,6 +1111,24 @@ void param_descrs_example() {
     }
 }
 
+void consequence_example() {
+    std::cout << "consequence example\n";
+    context c;
+    expr A = c.bool_const("a");
+    expr B = c.bool_const("b");
+    expr C = c.bool_const("c");
+    solver s(c);
+    s.add(implies(A, B));
+    s.add(implies(B, C));
+    expr_vector assumptions(c), vars(c), consequences(c);
+    assumptions.push_back(!C);
+    vars.push_back(A);
+    vars.push_back(B);
+    vars.push_back(C);
+    std::cout << s.consequences(assumptions, vars, consequences) << "\n";
+    std::cout << consequences << "\n";
+}
+
 int main() {
 
     try {
@@ -1154,6 +1172,7 @@ int main() {
         extract_example(); std::cout << "\n";
         param_descrs_example(); std::cout << "\n";
         sudoku_example(); std::cout << "\n";
+        consequence_example(); std::cout << "\n";
         std::cout << "done\n";
     }
     catch (exception & ex) {
