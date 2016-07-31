@@ -4555,12 +4555,74 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
         } else {
         	// Case 4: Concat(var, var) == const
         	TRACE("t_str", tout << "Case 4: Concat(var, var) == const" << std::endl;);
-        	// TODO large additions required in this section
-        	if (true) { /* if (Concat(arg1, arg2) == NULL) { */
-        		int arg1Len = -1; /* = getLenValue(arg1); */
-        		int arg2Len = -1; /* = getLenValue(arg2); */
-        		if (arg1Len != -1 || arg2Len != -1) {
-        			NOT_IMPLEMENTED_YET(); // TODO
+        	if (eval_concat(arg1, arg2) == NULL) {
+        	    rational arg1Len, arg2Len;
+        	    bool arg1Len_exists = get_len_value(arg1, arg1Len);
+        	    bool arg2Len_exists = get_len_value(arg2, arg2Len);
+        	    rational concatStrLen((unsigned)const_str.length());
+        		if (arg1Len_exists || arg2Len_exists) {
+        		    expr_ref ax_l1(ctx.mk_eq_atom(concat, str), m);
+        		    expr_ref ax_l2(m);
+        		    std::string prefixStr, suffixStr;
+        		    if (arg1Len_exists) {
+        		        if (arg1Len.is_neg()) {
+        		            TRACE("t_str_detail", tout << "length conflict: arg1Len = " << arg1Len << ", concatStrLen = " << concatStrLen << std::endl;);
+        		            expr_ref toAssert(m_autil.mk_ge(mk_strlen(arg1), mk_int(0)), m);
+        		            assert_axiom(toAssert);
+        		            return;
+        		        } else if (arg1Len > concatStrLen) {
+        		            TRACE("t_str_detail", tout << "length conflict: arg1Len = " << arg1Len << ", concatStrLen = " << concatStrLen << std::endl;);
+        		            expr_ref ax_r1(m_autil.mk_le(mk_strlen(arg1), mk_int(concatStrLen)), m);
+        		            assert_implication(ax_l1, ax_r1);
+        		            return;
+        		        }
+
+        		        prefixStr = const_str.substr(0, arg1Len.get_unsigned());
+        		        rational concat_minus_arg1 = concatStrLen - arg1Len;
+        		        suffixStr = const_str.substr(arg1Len.get_unsigned(), concat_minus_arg1.get_unsigned());
+        		        ax_l2 = ctx.mk_eq_atom(mk_strlen(arg1), mk_int(arg1Len));
+        		    } else {
+        		        // arg2's length is available
+        		        if (arg2Len.is_neg()) {
+        		            TRACE("t_str_detail", tout << "length conflict: arg2Len = " << arg2Len << ", concatStrLen = " << concatStrLen << std::endl;);
+        		            expr_ref toAssert(m_autil.mk_ge(mk_strlen(arg2), mk_int(0)), m);
+        		            assert_axiom(toAssert);
+        		            return;
+        		        } else if (arg2Len > concatStrLen) {
+        		            TRACE("t_str_detail", tout << "length conflict: arg2Len = " << arg2Len << ", concatStrLen = " << concatStrLen << std::endl;);
+        		            expr_ref ax_r1(m_autil.mk_le(mk_strlen(arg2), mk_int(concatStrLen)), m);
+        		            assert_implication(ax_l1, ax_r1);
+        		            return;
+        		        }
+
+        		        rational concat_minus_arg2 = concatStrLen - arg2Len;
+        		        prefixStr = const_str.substr(0, concat_minus_arg2.get_unsigned());
+        		        suffixStr = const_str.substr(concat_minus_arg2.get_unsigned(), arg2Len.get_unsigned());
+        		        ax_l2 = ctx.mk_eq_atom(mk_strlen(arg2), mk_int(arg2Len));
+        		    }
+        		    // consistency check
+        		    if (is_concat(to_app(arg1)) && !can_concat_eq_str(arg1, prefixStr)) {
+        		        expr_ref ax_r(m.mk_not(ax_l2), m);
+        		        assert_implication(ax_l1, ax_r);
+        		        return;
+        		    }
+        		    if (is_concat(to_app(arg2)) && !can_concat_eq_str(arg2, suffixStr)) {
+        		        expr_ref ax_r(m.mk_not(ax_l2), m);
+        		        assert_implication(ax_l1, ax_r);
+        		        return;
+        		    }
+        		    expr_ref_vector r_items(m);
+        		    r_items.push_back(ctx.mk_eq_atom(arg1, m_strutil.mk_string(prefixStr)));
+        		    r_items.push_back(ctx.mk_eq_atom(arg2, m_strutil.mk_string(suffixStr)));
+        		    if (!arg1Len_exists) {
+        		        r_items.push_back(ctx.mk_eq_atom(mk_strlen(arg1), mk_int(prefixStr.size())));
+        		    }
+        		    if (!arg2Len_exists) {
+        		        r_items.push_back(ctx.mk_eq_atom(mk_strlen(arg2), mk_int(suffixStr.size())));
+        		    }
+        		    expr_ref lhs(m.mk_and(ax_l1, ax_l2), m);
+        		    expr_ref rhs(mk_and(r_items), m);
+        		    assert_implication(lhs, rhs);
         		} else { /* ! (arg1Len != 1 || arg2Len != 1) */
         			expr_ref xorFlag(m);
         			std::pair<expr*, expr*> key1(arg1, arg2);
@@ -4568,6 +4630,8 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
 
         			// check the entries in this map to make sure they're still in scope
         			// before we use them.
+
+        			// TODO XOR variables will always show up as "not in scope" because of how we update internal_variable_set
 
         			std::map<std::pair<expr*,expr*>, std::map<int, expr*> >::iterator entry1 = varForBreakConcat.find(key1);
         			std::map<std::pair<expr*,expr*>, std::map<int, expr*> >::iterator entry2 = varForBreakConcat.find(key2);
@@ -4609,10 +4673,7 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
         			int concatStrLen = const_str.length();
         			int xor_pos = 0;
         			int and_count = 1;
-        			/*
-        			expr ** xor_items = new expr*[concatStrLen + 1];
-        			expr ** and_items = new expr*[4 * (concatStrLen+1) + 1];
-        			*/
+
         			expr ** xor_items = alloc_svect(expr*, (concatStrLen+1));
         			expr ** and_items = alloc_svect(expr*, (4 * (concatStrLen+1) + 1));
 
@@ -4620,15 +4681,12 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
         				std::string prefixStr = const_str.substr(0, i);
         				std::string suffixStr = const_str.substr(i, concatStrLen - i);
         				// skip invalid options
-        				// TODO canConcatEqStr() checks:
-        				/*
-							if (isConcatFunc(t, arg1) && canConcatEqStr(t, arg1, prefixStr) == 0) {
-							  continue;
-							}
-							if (isConcatFunc(t, arg2) && canConcatEqStr(t, arg2, suffixStr) == 0) {
-							  continue;
-							}
-        				 */
+        				if (is_concat(to_app(arg1)) && !can_concat_eq_str(arg1, prefixStr)) {
+        				    continue;
+        				}
+        				if (is_concat(to_app(arg2)) && !can_concat_eq_str(arg2, suffixStr)) {
+        				    continue;
+        				}
         				expr_ref xorAst(ctx.mk_eq_atom(xorFlag, m_autil.mk_numeral(rational(xor_pos), true)), m);
         				xor_items[xor_pos++] = xorAst;
 
