@@ -1345,7 +1345,9 @@ namespace smt {
             vector<bool_var> b2v, ast_translation& tr);
 
         u_map<uint_set> m_antecedents;
-        void extract_fixed_consequences(unsigned idx, obj_map<expr, expr*>& vars, uint_set const& assumptions, expr_ref_vector& conseq);
+        void extract_fixed_consequences(unsigned idx, obj_map<expr, expr*>& var2val, uint_set const& assumptions, expr_ref_vector& conseq);
+        
+        void delete_unfixed(obj_map<expr, expr*>& var2val);
 
         expr_ref antecedent2fml(uint_set const& ante);
 

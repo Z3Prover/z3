@@ -2035,6 +2035,8 @@ namespace z3 {
         }
         stats statistics() const { Z3_stats r = Z3_optimize_get_statistics(ctx(), m_opt); check_error(); return stats(ctx(), r); }
         friend std::ostream & operator<<(std::ostream & out, optimize const & s);
+        void from_file(char const* filename) { Z3_optimize_from_file(ctx(), m_opt, filename); check_error(); }
+        void from_string(char const* constraints) { Z3_optimize_from_string(ctx(), m_opt, constraints); check_error(); }
         std::string help() const { char const * r = Z3_optimize_get_help(ctx(), m_opt); check_error();  return r; }
     };
     inline std::ostream & operator<<(std::ostream & out, optimize const & s) { out << Z3_optimize_to_string(s.ctx(), s.m_opt); return out; }

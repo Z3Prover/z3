@@ -6755,6 +6755,14 @@ class Optimize(Z3PPObject):
             raise Z3Exception("Expecting objective handle returned by maximize/minimize")
         return obj.upper()
 
+    def from_file(self, filename):
+        """Parse assertions and objectives from a file"""
+        Z3_optimize_from_file(self.ctx.ref(), self.optimize, filename)
+
+    def from_string(self, s):
+        """Parse assertions and objectives from a string"""
+        Z3_optimize_from_string(self.ctx.ref(), self.optimize, s)
+
     def __repr__(self):
         """Return a formatted string with all added rules and constraints."""
         return self.sexpr()

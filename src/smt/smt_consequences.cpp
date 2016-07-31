@@ -102,6 +102,47 @@ namespace smt {
         }
     }
 
+    void context::delete_unfixed(obj_map<expr, expr*>& var2val) {
+        ast_manager& m = m_manager;
+        ptr_vector<expr> to_delete;
+        obj_map<expr,expr*>::iterator it = var2val.begin(), end = var2val.end();
+        for (; it != end; ++it) {
+            expr* k = it->m_key;
+            expr* v = it->m_value;
+            if (m.is_bool(k)) {
+                literal lit = get_literal(k);
+                switch (get_assignment(lit)) {
+                case l_true: 
+                    if (m.is_false(v)) {
+                        to_delete.push_back(k);
+                    }
+                    else {
+                        force_phase(lit.var(), false);
+                    }
+                    break;
+                case l_false:
+                    if (m.is_true(v)) {
+                        to_delete.push_back(k);
+                    }
+                    else {
+                        force_phase(lit.var(), true);
+                    }
+                    break;
+                default:
+                    to_delete.push_back(k);
+                    break;
+                }
+            }
+            else if (e_internalized(k) && m.are_distinct(v, get_enode(k)->get_root()->get_owner())) {
+                to_delete.push_back(k);
+            }
+        }
+        IF_VERBOSE(1, verbose_stream() << "(get-consequences deleting: " << to_delete.size() << " num-values: " << var2val.size() << ")\n";);
+        for (unsigned i = 0; i < to_delete.size(); ++i) {
+            var2val.remove(to_delete[i]);
+        }
+    }
+
     lbool context::get_consequences(expr_ref_vector const& assumptions, 
                                     expr_ref_vector const& vars, expr_ref_vector& conseq) {
 
@@ -135,7 +176,10 @@ namespace smt {
               tout << "vars: " << vars.size() << "\n";
               tout << "lits: " << num_units << "\n";);
         m_case_split_queue->init_search_eh();
+        unsigned num_iterations = 0;
+        unsigned model_threshold = 2;
         while (!var2val.empty()) {
+            ++num_iterations;
             obj_map<expr,expr*>::iterator it = var2val.begin();
             expr* e = it->m_key;
             expr* val = it->m_value;
@@ -177,6 +221,17 @@ namespace smt {
             else {
                 TRACE("context", tout << "Fixed: " << mk_pp(e, m) << "\n";);
             }
+
+            TRACE("context", tout << "Unfixed variables: " << var2val.size() << "\n";);
+            if (model_threshold <= num_iterations) {
+                delete_unfixed(var2val);
+                // The next time we check the model is after 1.5 additional iterations.
+                model_threshold *= 3;
+                model_threshold /= 2;                
+            }
+            // repeat until we either have a model with negated literal or 
+            // the literal is implied at base.
+
             extract_fixed_consequences(num_units, var2val, _assumptions, conseq);
             num_units = assigned_literals().size();
             if (var2val.contains(e)) {
@@ -189,10 +244,8 @@ namespace smt {
                 SASSERT(get_assignment(lit) == l_false);
             }
         
-            // repeat until we either have a model with negated literal or 
-            // the literal is implied at base.
-            TRACE("context", tout << "Unfixed variables: " << var2val.size() << "\n";);
         }
+        end_search();
         return l_true;
     }
 

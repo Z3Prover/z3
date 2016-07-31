@@ -197,6 +197,34 @@ extern "C" {
     */
     Z3_string Z3_API Z3_optimize_to_string(Z3_context c, Z3_optimize o);
 
+    /**
+       \brief Parse an SMT-LIB2 string with assertions, 
+       soft constraints and optimization objectives.
+       Add the parsed constraints and objectives to the optimization context.
+
+       \param c - context.
+       \param o - optimize context.
+       \param s - string containing SMT2 specification.
+
+       def_API('Z3_optimize_from_string', VOID, (_in(CONTEXT), _in(OPTIMIZE), _in(STRING)))
+    */
+    void Z3_API Z3_optimize_from_string(Z3_context c, Z3_optimize o, Z3_string s);
+
+
+    /**
+       \brief Parse an SMT-LIB2 file with assertions, 
+       soft constraints and optimization objectives.
+       Add the parsed constraints and objectives to the optimization context.
+
+
+       \param c - context.
+       \param o - optimize context.
+       \param s - string containing SMT2 specification.
+
+       def_API('Z3_optimize_from_file', VOID, (_in(CONTEXT), _in(OPTIMIZE), _in(STRING)))
+    */
+    void Z3_API Z3_optimize_from_file(Z3_context c, Z3_optimize o, Z3_string s);
+
 
     /**
        \brief Return a string containing a description of parameters accepted by optimize.

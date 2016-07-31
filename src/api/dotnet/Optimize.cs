@@ -274,6 +274,25 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Parse an SMT-LIB2 file with optimization objectives and constraints.
+        /// The parsed constraints and objectives are added to the optimization context.
+        /// </summary>                
+        public void FromFile(string file)
+        {
+            Native.Z3_optimize_from_file(Context.nCtx, NativeObject, file);
+        }
+
+        /// <summary>
+        /// Similar to FromFile. Instead it takes as argument a string.
+        /// </summary>
+        public void FromString(string s)
+        {
+            Native.Z3_optimize_from_string(Context.nCtx, NativeObject, s);
+        }
+
+
+
+        /// <summary>
         /// Optimize statistics.
         /// </summary>
         public Statistics Statistics

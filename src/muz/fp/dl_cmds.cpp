@@ -527,13 +527,8 @@ static void install_dl_cmds_aux(cmd_context& ctx, dl_collected_cmds* collected_c
     ctx.insert(alloc(dl_query_cmd, dl_ctx));
     ctx.insert(alloc(dl_declare_rel_cmd, dl_ctx));
     ctx.insert(alloc(dl_declare_var_cmd, dl_ctx));
-    // #ifndef _EXTERNAL_RELEASE
-    // TODO: we need these!
-#if 1
-    ctx.insert(alloc(dl_push_cmd, dl_ctx)); // not exposed to keep command-extensions simple.
+    ctx.insert(alloc(dl_push_cmd, dl_ctx)); 
     ctx.insert(alloc(dl_pop_cmd, dl_ctx));
-#endif
-    // #endif
 }
 
 void install_dl_cmds(cmd_context & ctx) {

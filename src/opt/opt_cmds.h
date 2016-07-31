@@ -19,10 +19,11 @@ Notes:
 #define OPT_CMDS_H_
 
 #include "ast.h"
+#include "opt_context.h"
 
 class cmd_context;
 
-void install_opt_cmds(cmd_context & ctx);
+void install_opt_cmds(cmd_context & ctx, opt::context* opt = 0);
 
 
 #endif

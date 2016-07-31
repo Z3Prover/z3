@@ -23,9 +23,10 @@ Revision History:
 #include"api_util.h"
 #include"api_model.h"
 #include"opt_context.h"
+#include"opt_cmds.h"
 #include"cancel_eh.h"
 #include"scoped_timer.h"
-
+#include"smt2parser.h"
 
 extern "C" {
 
@@ -247,6 +248,53 @@ extern "C" {
         RETURN_Z3(r);
         Z3_CATCH_RETURN(0);
     }
+
+    static void Z3_optimize_from_stream(
+        Z3_context    c,
+        Z3_optimize opt,
+        std::istream& s) {
+        ast_manager& m = mk_c(c)->m();
+        cmd_context ctx(false, &m);
+        install_opt_cmds(ctx, to_optimize_ptr(opt));
+        ctx.set_ignore_check(true);
+        if (!parse_smt2_commands(ctx, s)) {
+            SET_ERROR_CODE(Z3_PARSER_ERROR);
+            return;
+        }        
+        ptr_vector<expr>::const_iterator it  = ctx.begin_assertions();
+        ptr_vector<expr>::const_iterator end = ctx.end_assertions();
+        for (; it != end; ++it) {
+            to_optimize_ptr(opt)->add_hard_constraint(*it);
+        }
+    }
+
+    void Z3_API Z3_optimize_from_string(
+        Z3_context    c,
+        Z3_optimize   d,
+        Z3_string     s) {
+        Z3_TRY;
+        //LOG_Z3_optimize_from_string(c, d, s);
+        std::string str(s);
+        std::istringstream is(str);
+        Z3_optimize_from_stream(c, d, is);
+        Z3_CATCH;
+    }
+
+    void Z3_API Z3_optimize_from_file(
+        Z3_context    c,
+        Z3_optimize   d,
+        Z3_string     s) {
+        Z3_TRY;
+        //LOG_Z3_optimize_from_file(c, d, s);
+        std::ifstream is(s);
+        if (!is) {
+            SET_ERROR_CODE(Z3_PARSER_ERROR);
+            return;
+        }
+        Z3_optimize_from_stream(c, d, is);
+        Z3_CATCH;
+    }
+
 
 
 
