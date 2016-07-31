@@ -1495,23 +1495,20 @@ void theory_str::group_terms_by_eqc(expr * n, std::set<expr*> & concats, std::se
     do {
         app * ast = eqcNode->get_owner();
         if (is_concat(eqcNode)) {
-            // TODO simplify_concat
-            /*
-              Z3_ast simConcat = simplifyConcat(t, eqcNode);
-              if (simConcat != eqcNode) {
-                if (isConcatFunc(t, simConcat)) {
-                  concats.insert(simConcat);
+            expr * simConcat = simplify_concat(ast);
+            if (simConcat != ast) {
+                if (is_concat(to_app(simConcat))) {
+                    concats.insert(simConcat);
                 } else {
-                  if (isConstStr(t, simConcat)) {
-                    constStrs.insert(simConcat);
-                  } else {
-                    vars.insert(simConcat);
-                  }
+                    if (m_strutil.is_string(simConcat)) {
+                        consts.insert(simConcat);
+                    } else {
+                        vars.insert(simConcat);
+                    }
                 }
-              } else {
+            } else {
                 concats.insert(simConcat);
-              }
-             */
+            }
             concats.insert(ast);
         } else if (is_string(eqcNode)) {
             consts.insert(ast);
