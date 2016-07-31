@@ -2417,7 +2417,7 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
     } else {
         if (internal_variable_set.find((entry1->second)[0]) == internal_variable_set.end()
                 || internal_variable_set.find((entry1->second)[1]) == internal_variable_set.end()
-                || internal_variable_set.find((entry1->second)[2]) == internal_variable_set.end()) {
+                /*|| internal_variable_set.find((entry1->second)[2]) == internal_variable_set.end() */) {
             entry1InScope = false;
         } else {
             entry1InScope = true;
@@ -2430,7 +2430,7 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
     } else {
         if (internal_variable_set.find((entry2->second)[0]) == internal_variable_set.end()
                 || internal_variable_set.find((entry2->second)[1]) == internal_variable_set.end()
-                || internal_variable_set.find((entry2->second)[2]) == internal_variable_set.end()) {
+                /* || internal_variable_set.find((entry2->second)[2]) == internal_variable_set.end() */) {
             entry2InScope = false;
         } else {
             entry2InScope = true;
@@ -2738,8 +2738,6 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 	std::map<std::pair<expr*,expr*>, std::map<int, expr*> >::iterator entry2 = varForBreakConcat.find(key2);
 
     // prevent checking scope for the XOR term, as it's always in the same scope as the split var
-    // TODO probably make this change everywhere else in process_concat_eq*,
-	// and also make sure this is correct.
 
 	bool entry1InScope;
 	if (entry1 == varForBreakConcat.end()) {
@@ -3061,7 +3059,7 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
         entry1InScope = false;
     } else {
         if (internal_variable_set.find((entry1->second)[0]) == internal_variable_set.end()
-                || internal_variable_set.find((entry1->second)[1]) == internal_variable_set.end()) {
+                /* || internal_variable_set.find((entry1->second)[1]) == internal_variable_set.end() */) {
             entry1InScope = false;
         } else {
             entry1InScope = true;
@@ -3073,7 +3071,7 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
         entry2InScope = false;
     } else {
         if (internal_variable_set.find((entry2->second)[0]) == internal_variable_set.end()
-                || internal_variable_set.find((entry2->second)[1]) == internal_variable_set.end()) {
+                /* || internal_variable_set.find((entry2->second)[1]) == internal_variable_set.end() */) {
             entry2InScope = false;
         } else {
             entry2InScope = true;
@@ -3560,7 +3558,7 @@ void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
         entry1InScope = false;
     } else {
         if (internal_variable_set.find((entry1->second)[0]) == internal_variable_set.end()
-                || internal_variable_set.find((entry1->second)[1]) == internal_variable_set.end()) {
+                /* || internal_variable_set.find((entry1->second)[1]) == internal_variable_set.end() */) {
             entry1InScope = false;
         } else {
             entry1InScope = true;
@@ -3572,7 +3570,7 @@ void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
         entry2InScope = false;
     } else {
         if (internal_variable_set.find((entry2->second)[0]) == internal_variable_set.end()
-                || internal_variable_set.find((entry2->second)[1]) == internal_variable_set.end()) {
+                /* || internal_variable_set.find((entry2->second)[1]) == internal_variable_set.end() */) {
             entry2InScope = false;
         } else {
             entry2InScope = true;
