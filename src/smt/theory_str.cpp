@@ -1564,6 +1564,14 @@ expr * theory_str::eval_concat(expr * n1, expr * n2) {
     return NULL;
 }
 
+static inline std::string rational_to_string_if_exists(const rational & x, bool x_exists) {
+    if (x_exists) {
+        return x.to_string();
+    } else {
+        return "?";
+    }
+}
+
 /*
  * The inputs:
  *    ~ nn: non const node
@@ -1610,39 +1618,34 @@ void theory_str::simplify_parent(expr * nn, expr * eq_str) {
                 expr * arg0 = a_parent->get_arg(0);
                 expr * arg1 = a_parent->get_arg(1);
 
-                // TODO getLenValue()
-                // int parentLen = getLenValue(a_parent)
-                int parentLen = -1;
+                rational parentLen;
+                bool parentLen_exists = get_len_value(a_parent, parentLen);
+
                 if (arg0 == n_eq_enode->get_owner()) {
-                    // TODO getLenValue()
-                    // int arg0Len = getLenValue(eq_str);
-                    // int arg1Len = getLenValue(arg1);
-                    int arg0Len = -1;
-                    int arg1Len = -1;
+                    rational arg0Len, arg1Len;
+                    bool arg0Len_exists = get_len_value(eq_str, arg0Len);
+                    bool arg1Len_exists = get_len_value(arg1, arg1Len);
 
                     TRACE("t_str_detail",
                             tout << "simplify_parent #1:" << std::endl
                             << "* parent = " << mk_ismt2_pp(a_parent, m) << std::endl
-                            << "* |parent| = " << parentLen << std::endl
-                            << "* |arg0| = " << arg0Len << std::endl
-                            << "* |arg1| = " << arg1Len << std::endl;
+                            << "* |parent| = " << rational_to_string_if_exists(parentLen, parentLen_exists) << std::endl
+                            << "* |arg0| = " << rational_to_string_if_exists(arg0Len, arg0Len_exists) << std::endl
+                            << "* |arg1| = " << rational_to_string_if_exists(arg1Len, arg1Len_exists) << std::endl;
                     );
 
-                    if (parentLen != -1 && arg1Len == -1) {
-                        // TODO after getLenValue() above
-                        /*
-                        Z3_ast implyL11 = mk_2_and(t, Z3_mk_eq(ctx, mk_length(t, parent), mk_int(ctx, parentLen)),
-                                Z3_mk_eq(ctx, mk_length(t, arg0), mk_int(ctx, arg0Len)));
-                        int makeUpLenArg1 = parentLen - arg0Len;
-                        Z3_ast lenAss = NULL;
-                        if (makeUpLenArg1 >= 0) {
-                            Z3_ast implyR11 = Z3_mk_eq(ctx, mk_length(t, arg1), mk_int(ctx, makeUpLenArg1));
-                            lenAss = Z3_mk_implies(ctx, implyL11, implyR11);
+                    if (parentLen_exists && !arg1Len_exists) {
+                        TRACE("t_str_detail", tout << "make up len for arg1" << std::endl;);
+                        expr_ref implyL11(m.mk_and(ctx.mk_eq_atom(mk_strlen(a_parent), mk_int(parentLen)),
+                                ctx.mk_eq_atom(mk_strlen(arg0), mk_int(arg0Len))), m);
+                        rational makeUpLenArg1 = parentLen - arg0Len;
+                        if (makeUpLenArg1.is_nonneg()) {
+                            expr_ref implyR11(ctx.mk_eq_atom(mk_strlen(arg1), mk_int(makeUpLenArg1)), m);
+                            assert_implication(implyL11, implyR11);
                         } else {
-                            lenAss = Z3_mk_not(ctx, implyL11);
+                            expr_ref neg(m.mk_not(implyL11), m);
+                            assert_axiom(neg);
                         }
-                        addAxiom(t, lenAss, __LINE__);
-                        */
                     }
 
                     // (Concat n_eqNode arg1) /\ arg1 has eq const
@@ -1691,35 +1694,30 @@ void theory_str::simplify_parent(expr * nn, expr * eq_str) {
                 } // if (arg0 == n_eq_enode->get_owner())
 
                 if (arg1 == n_eq_enode->get_owner()) {
-                    // TODO getLenValue()
-                    // int arg0Len = getLenValue(arg0);
-                    // int arg1Len = getLenValue(eq_str);
-                    int arg0Len = -1;
-                    int arg1Len = -1;
+                    rational arg0Len, arg1Len;
+                    bool arg0Len_exists = get_len_value(arg0, arg0Len);
+                    bool arg1Len_exists = get_len_value(eq_str, arg1Len);
 
                     TRACE("t_str_detail",
                             tout << "simplify_parent #2:" << std::endl
                             << "* parent = " << mk_ismt2_pp(a_parent, m) << std::endl
-                            << "* |parent| = " << parentLen << std::endl
-                            << "* |arg0| = " << arg0Len << std::endl
-                            << "* |arg1| = " << arg1Len << std::endl;
+                            << "* |parent| = " << rational_to_string_if_exists(parentLen, parentLen_exists) << std::endl
+                            << "* |arg0| = " << rational_to_string_if_exists(arg0Len, arg0Len_exists) << std::endl
+                            << "* |arg1| = " << rational_to_string_if_exists(arg1Len, arg1Len_exists) << std::endl;
                     );
 
-                    if (parentLen != -1 && arg0Len == -1) {
-                        // TODO after getLenValue() above
-                        /*
-                        Z3_ast implyL11 = mk_2_and(t, Z3_mk_eq(ctx, mk_length(t, parent), mk_int(ctx, parentLen)),
-                                Z3_mk_eq(ctx, mk_length(t, arg1), mk_int(ctx, arg1Len)));
-                        int makeUpLenArg0 = parentLen - arg1Len;
-                        Z3_ast lenAss = NULL;
-                        if (makeUpLenArg0 >= 0) {
-                            Z3_ast implyR11 = Z3_mk_eq(ctx, mk_length(t, arg0), mk_int(ctx, makeUpLenArg0));
-                            lenAss = Z3_mk_implies(ctx, implyL11, implyR11);
+                    if (parentLen_exists && !arg0Len_exists) {
+                        TRACE("t_str_detail", tout << "make up len for arg0" << std::endl;);
+                        expr_ref implyL11(m.mk_and(ctx.mk_eq_atom(mk_strlen(a_parent), mk_int(parentLen)),
+                                ctx.mk_eq_atom(mk_strlen(arg1), mk_int(arg1Len))), m);
+                        rational makeUpLenArg0 = parentLen - arg1Len;
+                        if (makeUpLenArg0.is_nonneg()) {
+                            expr_ref implyR11(ctx.mk_eq_atom(mk_strlen(arg0), mk_int(makeUpLenArg0)), m);
+                            assert_implication(implyL11, implyR11);
                         } else {
-                            lenAss = Z3_mk_not(ctx, implyL11);
+                            expr_ref neg(m.mk_not(implyL11), m);
+                            assert_axiom(neg);
                         }
-                        addAxiom(t, lenAss, __LINE__);
-                        */
                     }
 
                     // (Concat arg0 n_eqNode) /\ arg0 has eq const
