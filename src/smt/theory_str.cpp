@@ -7105,11 +7105,23 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
 		std::string effectiveLenIndiStr = "";
 		int lenTesterCount = (int) fvar_lenTester_map[freeVar].size();
 
+		TRACE("t_str_detail",
+		        tout << lenTesterCount << " length testers in fvar_lenTester_map[" << mk_pp(freeVar, m) << "]:" << std::endl;
+		        for (int i = 0; i < lenTesterCount; ++i) {
+		            expr * len_indicator = fvar_lenTester_map[freeVar][i];
+		            tout << mk_pp(len_indicator, m) << ": ";
+		            bool effectiveInScope = (internal_variable_set.find(len_indicator) != internal_variable_set.end());
+		            tout << (effectiveInScope ? "in scope" : "NOT in scope");
+		            tout << std::endl;
+		        }
+		        );
+
 		int i = 0;
 		for (; i < lenTesterCount; ++i) {
 			expr * len_indicator_pre = fvar_lenTester_map[freeVar][i];
 			// check whether this is in scope as well
 			if (internal_variable_set.find(len_indicator_pre) == internal_variable_set.end()) {
+			    TRACE("t_str_detail", tout << "length indicator " << mk_pp(len_indicator_pre, m) << " not in scope" << std::endl;);
 			    continue;
 			}
 
@@ -7133,13 +7145,26 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
 							<< " i = " << i << ", lenTesterCount = " << lenTesterCount << std::endl;);
 					if (i > 0) {
 						effectiveLenInd = fvar_lenTester_map[freeVar][i - 1];
+						bool effectiveHasEqcValue;
+						expr * effective_eqc_value = get_eqc_value(effectiveLenInd, effectiveHasEqcValue);
+						bool effectiveInScope = (internal_variable_set.find(effectiveLenInd) != internal_variable_set.end());
+						TRACE("t_str_detail", tout << "checking effective length indicator " << mk_pp(effectiveLenInd, m) << ": "
+						        << (effectiveInScope ? "in scope" : "NOT in scope") << ", ";
+						        if (effectiveHasEqcValue) {
+						            tout << "~= " << mk_pp(effective_eqc_value, m);
+						        } else {
+						            tout << "no eqc string constant";
+						        }
+						        tout << std::endl;);
 						if (effectiveLenInd == lenTesterInCbEq) {
 							effectiveLenIndiStr = lenTesterValue;
 						} else {
-							bool effectiveHasEqcValue = false;
-							const char * val = 0;
-							m_strutil.is_string(get_eqc_value(effectiveLenInd, effectiveHasEqcValue), & val);
-							effectiveLenIndiStr = val;
+						    if (effectiveHasEqcValue) {
+						        effectiveLenIndiStr = m_strutil.get_string_constant_value(effective_eqc_value);
+						    } else {
+						        // TODO this should be unreachable, but can we really do anything here?
+						        NOT_IMPLEMENTED_YET();
+						    }
 						}
 					}
 					break;
@@ -7169,6 +7194,7 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
 				fvar_lenTester_map[freeVar].push_back(indicator);
 				lenTester_fvar_map[indicator] = freeVar;
 			} else {
+			    // TODO make absolutely sure this is safe to do if 'indicator' is technically out of scope
 				indicator = fvar_lenTester_map[freeVar][i];
 				testNum = i + 1;
 			}
