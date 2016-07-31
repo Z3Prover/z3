@@ -306,6 +306,9 @@ bool theory_str::has_self_cut(expr * n1, expr * n2) {
 }
 
 void theory_str::add_cut_info_one_node(expr * baseNode, int slevel, expr * node) {
+    // crash avoidance?
+    m_trail.push_back(baseNode);
+    m_trail.push_back(node);
     if (cut_var_map.find(baseNode) == cut_var_map.end()) {
         T_cut * varInfo = alloc(T_cut);
         varInfo->level = slevel;
@@ -334,6 +337,9 @@ void theory_str::add_cut_info_one_node(expr * baseNode, int slevel, expr * node)
 }
 
 void theory_str::add_cut_info_merge(expr * destNode, int slevel, expr * srcNode) {
+    // crash avoidance?
+    m_trail.push_back(destNode);
+    m_trail.push_back(srcNode);
     if (cut_var_map.find(srcNode) == cut_var_map.end()) {
         get_manager().raise_exception("illegal state in add_cut_info_merge(): cut_var_map doesn't contain srcNode");
     }
