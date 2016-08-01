@@ -33,7 +33,7 @@ theory_str::theory_str(ast_manager & m):
         opt_EagerStringConstantLengthAssertions(true),
         opt_VerifyFinalCheckProgress(true),
 		opt_LCMUnrollStep(2),
-		opt_NoQuickReturn_Concat_IntegerTheory(false),
+		opt_NoQuickReturn_IntegerTheory(true),
 		opt_DisableIntegerTheoryIntegration(false),
         /* Internal setup */
         search_started(false),
@@ -1467,11 +1467,16 @@ bool theory_str::new_eq_check(expr * lhs, expr * rhs) {
                     TRACE("t_str", tout << "inconsistency detected: " << mk_pp(eqc_nn1, m) << " cannot be equal to " << mk_pp(eqc_nn2, m) << std::endl;);
                     expr_ref to_assert(m.mk_not(ctx.mk_eq_atom(eqc_nn1, eqc_nn2)), m);
                     assert_axiom(to_assert);
+                    // this shouldn't use the integer theory at all, so we don't allow the option of quick-return
                     return false;
                 }
                 if (!check_length_consistency(eqc_nn1, eqc_nn2)) {
                     TRACE("t_str", tout << "inconsistency detected: " << mk_pp(eqc_nn1, m) << " and " << mk_pp(eqc_nn2, m) << " have inconsistent lengths" << std::endl;);
-                    return false;
+                    if (opt_NoQuickReturn_IntegerTheory){
+                        TRACE("t_str_detail", tout << "continuing in new_eq_check() due to opt_NoQuickReturn_IntegerTheory" << std::endl;);
+                    } else {
+                        return false;
+                    }
                 }
             }
             eqc_iterator2 = eqc_iterator2->get_next();
@@ -2175,7 +2180,7 @@ void theory_str::simplify_concat_equality(expr * nn1, expr * nn2) {
 
             assert_implication(premise, conclusion);
 
-            if (opt_NoQuickReturn_Concat_IntegerTheory) {
+            if (opt_NoQuickReturn_IntegerTheory) {
                 TRACE("t_str_detail", tout << "bypassing quick return from the end of this case" << std::endl;);
             } else {
                 return;
@@ -2195,7 +2200,7 @@ void theory_str::simplify_concat_equality(expr * nn1, expr * nn2) {
             expr_ref conclusion(m.mk_and(ax_r1, ax_r2), m);
 
             assert_implication(premise, conclusion);
-            if (opt_NoQuickReturn_Concat_IntegerTheory) {
+            if (opt_NoQuickReturn_IntegerTheory) {
                 TRACE("t_str_detail", tout << "bypassing quick return from the end of this case" << std::endl;);
             } else {
                 return;

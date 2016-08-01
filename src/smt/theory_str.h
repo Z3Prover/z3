@@ -95,14 +95,12 @@ namespace smt {
         int opt_LCMUnrollStep;
 
         /*
-         * If NoQuickReturn_Concat_IntegerTheory is set to true,
-         * the integer theory integration conditionals in simplify_concat_equality()
+         * If NoQuickReturn_IntegerTheory is set to true,
+         * integer theory integration checks that assert axioms
          * will not return from the function after asserting their axioms.
-         * This means that control will fall through to the type 1-6 axioms,
-         * causing those to be added as well.
-         * The default behaviour of Z3str2 is to set this to 'false'.
+         * The default behaviour of Z3str2 is to set this to 'false'. This may be incorrect.
          */
-        bool opt_NoQuickReturn_Concat_IntegerTheory;
+        bool opt_NoQuickReturn_IntegerTheory;
 
         /*
          * If DisableIntegerTheoryIntegration is set to true,
