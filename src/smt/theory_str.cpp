@@ -6998,7 +6998,7 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 	ast_manager & m = get_manager();
 	context & ctx = get_context();
 
-	TRACE("t_str_detail", tout << "entry" << std::endl;);
+	//TRACE("t_str_detail", tout << "entry" << std::endl;);
 
 	expr_ref freeVarLen(mk_strlen(freeVar), m);
 	SASSERT(freeVarLen);
@@ -7020,9 +7020,9 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 	for (int i = l; i < h; ++i) {
 	    std::string i_str = int_to_string(i);
 	    expr_ref str_indicator(m_strutil.mk_string(i_str), m);
-	    TRACE("t_str_detail", tout << "just created a string term: " << mk_ismt2_pp(str_indicator, m) << std::endl;);
+	    //TRACE("t_str_detail", tout << "just created a string term: " << mk_ismt2_pp(str_indicator, m) << std::endl;);
 		expr * or_expr = m.mk_eq(indicator, str_indicator); // ARGUMENT 2 IS BOGUS! WRONG SORT
-		TRACE("t_str_detail", tout << "or_expr = " << mk_ismt2_pp(or_expr, m) << std::endl;);
+		//TRACE("t_str_detail", tout << "or_expr = " << mk_ismt2_pp(or_expr, m) << std::endl;);
 		orList.push_back(or_expr);
 
 		if (opt_AggressiveLengthTesting) {
@@ -7032,7 +7032,7 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 		}
 
 		expr * and_expr = m.mk_eq(orList[orList.size() - 1], m.mk_eq(freeVarLen, mk_int(i)));
-		TRACE("t_str_detail", tout << "and_expr = " << mk_ismt2_pp(and_expr, m) << std::endl;);
+		//TRACE("t_str_detail", tout << "and_expr = " << mk_ismt2_pp(and_expr, m) << std::endl;);
 		andList.push_back(and_expr);
 	}
 
@@ -7063,7 +7063,7 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 	expr * lenTestAssert = m.mk_and(andList.size() + 1, and_items);
 	SASSERT(lenTestAssert != NULL);
 
-	TRACE("t_str_detail", tout << "lenTestAssert = " << mk_ismt2_pp(lenTestAssert, m) << std::endl;);
+	//TRACE("t_str_detail", tout << "lenTestAssert = " << mk_ismt2_pp(lenTestAssert, m) << std::endl;);
 
 	expr * assertL = NULL;
 	int testerCount = tries - 1;
@@ -7081,13 +7081,13 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 	}
 
 	if (assertL != NULL) {
-		TRACE("t_str_detail", tout << "assertL = " << mk_ismt2_pp(assertL, m) << std::endl;);
+	    m_trail.push_back(assertL);
 		// return the axiom (assertL -> lenTestAssert)
 		// would like to use mk_implies() here but...
 		lenTestAssert = m.mk_or(m.mk_not(assertL), lenTestAssert);
 	}
 
-	TRACE("t_str_detail", tout << "exit" << std::endl;);
+	//TRACE("t_str_detail", tout << "exit" << std::endl;);
 
 	return lenTestAssert;
 
