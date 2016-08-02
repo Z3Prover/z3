@@ -33,7 +33,7 @@ theory_str::theory_str(ast_manager & m):
         opt_EagerStringConstantLengthAssertions(true),
         opt_VerifyFinalCheckProgress(true),
 		opt_LCMUnrollStep(2),
-		opt_NoQuickReturn_IntegerTheory(true),
+		opt_NoQuickReturn_IntegerTheory(false),
 		opt_DisableIntegerTheoryIntegration(false),
         /* Internal setup */
         search_started(false),
@@ -3882,6 +3882,7 @@ bool theory_str::get_len_value(expr* e, rational& val) {
 
     context& ctx = get_context();
     ast_manager & m = get_manager();
+
     theory* th = ctx.get_theory(m_autil.get_family_id());
     if (!th) {
         TRACE("t_str_int", tout << "oops, can't get m_autil's theory" << std::endl;);
@@ -3926,6 +3927,18 @@ bool theory_str::get_len_value(expr* e, rational& val) {
                if (ctx.e_internalized(len)) {
                    enode * e_len = ctx.get_enode(len);
                    tout << "has " << e_len->get_num_th_vars() << " theory vars" << std::endl;
+
+                   // eqc debugging
+                   {
+                       tout << "dump equivalence class of " << mk_pp(len, get_manager()) << std::endl;
+                       enode * nNode = ctx.get_enode(len);
+                       enode * eqcNode = nNode;
+                       do {
+                           app * ast = eqcNode->get_owner();
+                           tout << mk_pp(ast, get_manager()) << std::endl;
+                           eqcNode = eqcNode->get_next();
+                       } while (eqcNode != nNode);
+                   }
                }
             });
 
@@ -3939,6 +3952,7 @@ bool theory_str::get_len_value(expr* e, rational& val) {
             }
         }
     }
+
     TRACE("t_str_int", tout << "length of " << mk_ismt2_pp(e, m) << " is " << val << std::endl;);
     return val.is_int();
 }
