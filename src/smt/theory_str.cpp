@@ -237,6 +237,7 @@ bool theory_str::internalize_term(app * term) {
     if (opt_EagerStringConstantLengthAssertions && m_strutil.is_string(term)) {
         TRACE("t_str", tout << "eagerly asserting length of string term " << mk_pp(term, m) << std::endl;);
         m_basicstr_axiom_todo.insert(e);
+        TRACE("t_str_axiom_bug", tout << "add " << mk_pp(e->get_owner(), m) << " to m_basicstr_axiom_todo" << std::endl;);
     }
 
     theory_var v = mk_var(e);
@@ -404,6 +405,7 @@ expr * theory_str::mk_internal_lenTest_var(expr * node, int lTries) {
 	std::string name = ss.str();
 	app * var = mk_str_var(name);
 	internal_lenTest_vars.insert(var);
+	m_trail.push_back(var);
 	return var;
 }
 
@@ -415,6 +417,7 @@ expr * theory_str::mk_internal_valTest_var(expr * node, int len, int vTries) {
 	std::string name = ss.str();
 	app * var = mk_str_var(name);
 	internal_valTest_vars.insert(var);
+	m_trail.push_back(var);
 	return var;
 }
 
@@ -494,6 +497,7 @@ app * theory_str::mk_str_var(std::string name) {
 	// this might help??
 	mk_var(ctx.get_enode(a));
 	m_basicstr_axiom_todo.push_back(ctx.get_enode(a));
+	TRACE("t_str_axiom_bug", tout << "add " << mk_pp(a, m) << " to m_basicstr_axiom_todo" << std::endl;);
 
 	m_trail.push_back(a);
 	variable_set.insert(a);
@@ -515,6 +519,7 @@ app * theory_str::mk_regex_rep_var() {
 	SASSERT(ctx.e_internalized(a));
 	mk_var(ctx.get_enode(a));
 	m_basicstr_axiom_todo.push_back(ctx.get_enode(a));
+	TRACE("t_str_axiom_bug", tout << "add " << mk_pp(a, m) << " to m_basicstr_axiom_todo" << std::endl;);
 
 	m_trail.push_back(a);
 	// TODO cross-check which variable sets we need
@@ -689,6 +694,7 @@ void theory_str::propagate() {
             instantiate_basic_string_axioms(m_basicstr_axiom_todo[i]);
         }
         m_basicstr_axiom_todo.reset();
+        TRACE("t_str_axiom_bug", tout << "reset m_basicstr_axiom_todo" << std::endl;);
 
         for (unsigned i = 0; i < m_str_eq_todo.size(); ++i) {
             std::pair<enode*,enode*> pair = m_str_eq_todo[i];
@@ -810,6 +816,8 @@ void theory_str::instantiate_basic_string_axioms(enode * str) {
 
     context & ctx = get_context();
     ast_manager & m = get_manager();
+
+    TRACE("t_str_axiom_bug", tout << "set up basic string axioms on " << mk_pp(str->get_owner(), m) << std::endl;);
 
     // TESTING: attempt to avoid a crash here when a variable goes out of scope
     // TODO this seems to work so we probably need to do this for other propagate checks, etc.
@@ -5010,6 +5018,7 @@ void theory_str::set_up_axioms(expr * ex) {
         enode * n = ctx.get_enode(ex);
         SASSERT(n);
         m_basicstr_axiom_todo.push_back(n);
+        TRACE("t_str_axiom_bug", tout << "add " << mk_pp(ex, m) << " to m_basicstr_axiom_todo" << std::endl;);
 
 
         if (is_app(ex)) {
@@ -5222,6 +5231,22 @@ void theory_str::pop_scope_eh(unsigned num_scopes) {
             vars.clear();
         }
     }
+
+    // TODO if this works, possibly remove axioms from other vectors as well
+    ptr_vector<enode> new_m_basicstr;
+    for (ptr_vector<enode>::iterator it = m_basicstr_axiom_todo.begin(); it != m_basicstr_axiom_todo.end(); ++it) {
+        enode * e = *it;
+        app * a = e->get_owner();
+        TRACE("t_str_axiom_bug", tout << "consider deleting " << mk_pp(a, get_manager())
+                << ", enode scope level is " << e->get_iscope_lvl()
+                << std::endl;);
+        if (e->get_iscope_lvl() <= (unsigned)sLevel) {
+            new_m_basicstr.push_back(e);
+        }
+    }
+    m_basicstr_axiom_todo.reset();
+    m_basicstr_axiom_todo = new_m_basicstr;
+
     theory::pop_scope_eh(num_scopes);
 }
 
@@ -6998,13 +7023,11 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 	ast_manager & m = get_manager();
 	context & ctx = get_context();
 
-	//TRACE("t_str_detail", tout << "entry" << std::endl;);
-
 	expr_ref freeVarLen(mk_strlen(freeVar), m);
 	SASSERT(freeVarLen);
 
-	ptr_vector<expr> orList;
-	ptr_vector<expr> andList;
+	expr_ref_vector orList(m);
+	expr_ref_vector andList(m);
 
 	int distance = 3;
 	int l = (tries - 1) * distance;
@@ -7020,9 +7043,7 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 	for (int i = l; i < h; ++i) {
 	    std::string i_str = int_to_string(i);
 	    expr_ref str_indicator(m_strutil.mk_string(i_str), m);
-	    //TRACE("t_str_detail", tout << "just created a string term: " << mk_ismt2_pp(str_indicator, m) << std::endl;);
-		expr * or_expr = m.mk_eq(indicator, str_indicator); // ARGUMENT 2 IS BOGUS! WRONG SORT
-		//TRACE("t_str_detail", tout << "or_expr = " << mk_ismt2_pp(or_expr, m) << std::endl;);
+		expr_ref or_expr(ctx.mk_eq_atom(indicator, str_indicator), m); // ARGUMENT 2 IS BOGUS! WRONG SORT
 		orList.push_back(or_expr);
 
 		if (opt_AggressiveLengthTesting) {
@@ -7031,8 +7052,7 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 		    ctx.force_phase(l);
 		}
 
-		expr * and_expr = m.mk_eq(orList[orList.size() - 1], m.mk_eq(freeVarLen, mk_int(i)));
-		//TRACE("t_str_detail", tout << "and_expr = " << mk_ismt2_pp(and_expr, m) << std::endl;);
+		expr_ref and_expr(ctx.mk_eq_atom(orList.get(orList.size() - 1), m.mk_eq(freeVarLen, mk_int(i))), m);
 		andList.push_back(and_expr);
 	}
 
@@ -7043,54 +7063,44 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 	    ctx.force_phase(~l);
 	}
 
-	andList.push_back(m.mk_eq(orList[orList.size() - 1], m_autil.mk_ge(freeVarLen, mk_int(h))));
+	andList.push_back(ctx.mk_eq_atom(orList.get(orList.size() - 1), m_autil.mk_ge(freeVarLen, mk_int(h))));
 
-	// TODO refactor this to use expr_ref_vector/svector/buffer instead
-	expr ** or_items = alloc_svect(expr*, orList.size());
-	expr ** and_items = alloc_svect(expr*, andList.size() + 1);
+	expr_ref_vector or_items(m);
+	expr_ref_vector and_items(m);
 
 	for (unsigned i = 0; i < orList.size(); ++i) {
-		SASSERT(orList[i] != NULL);
-		or_items[i] = orList[i];
+		or_items.push_back(orList.get(i));
 	}
 
-	and_items[0] = m.mk_or(orList.size(), or_items);
-	SASSERT(and_items[0] != NULL);
+	and_items.push_back(mk_or(or_items));
 	for(unsigned i = 0; i < andList.size(); ++i) {
-		SASSERT(andList[i] != NULL);
-		and_items[i+1] = andList[i];
+		and_items.push_back(andList.get(i));
 	}
-	expr * lenTestAssert = m.mk_and(andList.size() + 1, and_items);
-	SASSERT(lenTestAssert != NULL);
 
-	//TRACE("t_str_detail", tout << "lenTestAssert = " << mk_ismt2_pp(lenTestAssert, m) << std::endl;);
+	TRACE("t_str_detail", tout << "check: " << mk_pp(mk_and(and_items), m) << std::endl;);
 
-	expr * assertL = NULL;
+	expr_ref lenTestAssert = mk_and(and_items);
+	SASSERT(lenTestAssert);
+	TRACE("t_str_detail", tout << "crash avoidance lenTestAssert: " << mk_pp(lenTestAssert, m) << std::endl;);
+
 	int testerCount = tries - 1;
 	if (testerCount > 0) {
-		expr ** and_items_LHS = alloc_svect(expr*, testerCount);
-		expr * moreAst = m_strutil.mk_string("more");
+	    expr_ref_vector and_items_LHS(m);
+		expr_ref moreAst(m_strutil.mk_string("more"), m);
 		for (int i = 0; i < testerCount; ++i) {
-			and_items_LHS[i] = m.mk_eq(fvar_lenTester_map[freeVar][i], moreAst);
+			and_items_LHS.push_back(ctx.mk_eq_atom(fvar_lenTester_map[freeVar][i], moreAst));
 		}
-		if (testerCount == 1) {
-			assertL = and_items_LHS[0];
-		} else {
-			assertL = m.mk_and(testerCount, and_items_LHS);
-		}
+		expr_ref assertL(mk_and(and_items_LHS), m);
+		SASSERT(assertL);
+		expr * finalAxiom = m.mk_or(m.mk_not(assertL), lenTestAssert.get());
+		SASSERT(finalAxiom != NULL);
+		TRACE("t_str_detail", tout << "crash avoidance finalAxiom: " << mk_pp(finalAxiom, m) << std::endl;);
+		return finalAxiom;
+	} else {
+	    TRACE("t_str_detail", tout << "crash avoidance lenTestAssert.get(): " << mk_pp(lenTestAssert.get(), m) << std::endl;);
+	    m_trail.push_back(lenTestAssert.get());
+	    return lenTestAssert.get();
 	}
-
-	if (assertL != NULL) {
-	    m_trail.push_back(assertL);
-		// return the axiom (assertL -> lenTestAssert)
-		// would like to use mk_implies() here but...
-		lenTestAssert = m.mk_or(m.mk_not(assertL), lenTestAssert);
-	}
-
-	//TRACE("t_str_detail", tout << "exit" << std::endl;);
-
-	return lenTestAssert;
-
 }
 
 // -----------------------------------------------------------------------------------------------------
@@ -7237,7 +7247,7 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
 		} // for (i : [0..lenTesterCount-1])
 		if (effectiveLenIndiStr == "more" || effectiveLenIndiStr == "") {
 			TRACE("t_str", tout << "length is not fixed; generating length tester options for free var" << std::endl;);
-			expr * indicator = NULL;
+			expr_ref indicator(m);
 			unsigned int testNum = 0;
 
 			TRACE("t_str", tout << "effectiveLenIndiStr = " << effectiveLenIndiStr
@@ -7261,6 +7271,7 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
 			TRACE("t_str", tout << "length is fixed; generating models for free var" << std::endl;);
 			// length is fixed
 			expr * valueAssert = gen_free_var_options(freeVar, effectiveLenInd, effectiveLenIndiStr, NULL, "");
+			SASSERT(valueAssert != NULL);
 			return valueAssert;
 		}
 	} // fVarLenCountMap.find(...)
