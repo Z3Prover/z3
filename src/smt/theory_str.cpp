@@ -3832,13 +3832,13 @@ bool theory_str::get_value(expr* e, rational& val) const {
     enode * en_e = ctx.get_enode(e);
     enode * it = en_e;
     do {
-        if (tha->get_value(it, _val)) {
+        if (m_autil.is_numeral(it->get_owner(), val) && val.is_int()) {
             // found an arithmetic term
-            TRACE("t_str_int", tout << "get_value[" << mk_pp(it->get_owner(), m) << "] = " << mk_pp(_val, m)
+            TRACE("t_str_int", tout << mk_pp(it->get_owner(), m) << " is an integer ( ~= " << val << " )"
                     << std::endl;);
-            return m_autil.is_numeral(_val, val) && val.is_int();
+            return true;
         } else {
-            TRACE("t_str_int", tout << "get_value[" << mk_pp(it->get_owner(), m) << "] not found" << std::endl;);
+            TRACE("t_str_int", tout << mk_pp(it->get_owner(), m) << " not a numeral" << std::endl;);
         }
         it = it->get_next();
     } while (it != en_e);
