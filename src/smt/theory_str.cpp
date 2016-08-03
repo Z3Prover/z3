@@ -661,21 +661,86 @@ expr * theory_str::mk_concat_const_str(expr * n1, expr * n2) {
 
 expr * theory_str::mk_concat(expr * n1, expr * n2) {
 	ast_manager & m = get_manager();
-	if (n1 == NULL || n2 == NULL) {
-		m.raise_exception("strings to be concatenated cannot be NULL");
-	}
+	ENSURE(n1 != NULL);
+	ENSURE(n2 != NULL);
 	bool n1HasEqcValue = false;
 	bool n2HasEqcValue = false;
 	n1 = get_eqc_value(n1, n1HasEqcValue);
 	n2 = get_eqc_value(n2, n2HasEqcValue);
 	if (n1HasEqcValue && n2HasEqcValue) {
 	    return mk_concat_const_str(n1, n2);
+	} else if (n1HasEqcValue && !n2HasEqcValue) {
+	    bool n2_isConcatFunc = is_concat(to_app(n2));
+	    if (m_strutil.get_string_constant_value(n1) == "") {
+	        return n2;
+	    }
+	    if (n2_isConcatFunc) {
+	        expr * n2_arg0 = to_app(n2)->get_arg(0);
+	        expr * n2_arg1 = to_app(n2)->get_arg(1);
+	        if (m_strutil.is_string(n2_arg0)) {
+	            n1 = mk_concat_const_str(n1, n2_arg0); // n1 will be a constant
+	            n2 = n2_arg1;
+	        }
+	    }
+	} else if (!n1HasEqcValue && n2HasEqcValue) {
+	    if (m_strutil.get_string_constant_value(n2) == "") {
+	        return n1;
+	    }
+
+	    if (is_concat(to_app(n1))) {
+	        expr * n1_arg0 = to_app(n1)->get_arg(0);
+	        expr * n1_arg1 = to_app(n1)->get_arg(1);
+	        if (m_strutil.is_string(n1_arg1)) {
+	            n1 = n1_arg0;
+	            n2 = mk_concat_const_str(n1_arg1, n2); // n2 will be a constant
+	        }
+	    }
 	} else {
-        // TODO there's a *TON* of missing code here from strTheory::mk_concat()
-        // if all else fails, just build the application AST
-        expr * args[2] = {n1, n2};
-        return get_manager().mk_app(get_id(), OP_STRCAT, 0, 0, 2, args);
+	    if (is_concat(to_app(n1)) && is_concat(to_app(n2))) {
+	        expr * n1_arg0 = to_app(n1)->get_arg(0);
+	        expr * n1_arg1 = to_app(n1)->get_arg(1);
+	        expr * n2_arg0 = to_app(n2)->get_arg(0);
+	        expr * n2_arg1 = to_app(n2)->get_arg(1);
+	        if (m_strutil.is_string(n1_arg1) && m_strutil.is_string(n2_arg0)) {
+	            expr * tmpN1 = n1_arg0;
+	            expr * tmpN2 = mk_concat_const_str(n1_arg1, n2_arg0);
+	            n1 = mk_concat(tmpN1, tmpN2);
+	            n2 = n2_arg1;
+	        }
+	    }
 	}
+
+	//------------------------------------------------------
+	// * expr * ast1 = mk_2_arg_app(ctx, td->Concat, n1, n2);
+	// * expr * ast2 = mk_2_arg_app(ctx, td->Concat, n1, n2);
+	// Z3 treats (ast1) and (ast2) as two different nodes.
+	//-------------------------------------------------------
+	std::pair<expr*, expr*> concatArgs(n1, n2);
+	expr * concatAst = NULL;
+	// TODO NEXT clarify semantics of this, I think we can get around this check.
+	NOT_IMPLEMENTED_YET();
+	/*
+	if (concat_astNode_map.find(concatArgs) == concat_astNode_map.end()) {
+	    concatAst = mk_2_arg_app(ctx, td->Concat, n1, n2);
+	    concat_astNode_map[concatArgs] = concatAst;
+
+	    Z3_ast concat_length = mk_length(t, concatAst);
+
+	    std::vector<Z3_ast> childrenVector;
+	    getNodesInConcat(t, concatAst, childrenVector);
+	    Z3_ast * items = new Z3_ast[childrenVector.size()];
+	    for (unsigned int i = 0; i < childrenVector.size(); i++) {
+	        items[i] = mk_length(t, childrenVector[i]);
+	    }
+	    Z3_ast lenAssert = Z3_mk_eq(ctx, concat_length, Z3_mk_add(ctx, childrenVector.size(), items));
+	    addAxiom(t, lenAssert, __LINE__, false);
+	    delete[] items;
+
+	} else {
+	    concatAst = concat_astNode_map[concatArgs];
+	}
+	*/
+	return concatAst;
 }
 
 bool theory_str::can_propagate() {
