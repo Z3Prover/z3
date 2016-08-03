@@ -102,7 +102,7 @@ namespace smt {
         }
     }
 
-    void context::delete_unfixed(obj_map<expr, expr*>& var2val) {
+    void context::delete_unfixed(obj_map<expr, expr*>& var2val, expr_ref_vector& unfixed) {
         ast_manager& m = m_manager;
         ptr_vector<expr> to_delete;
         obj_map<expr,expr*>::iterator it = var2val.begin(), end = var2val.end();
@@ -137,14 +137,16 @@ namespace smt {
                 to_delete.push_back(k);
             }
         }
-        IF_VERBOSE(1, verbose_stream() << "(get-consequences deleting: " << to_delete.size() << " num-values: " << var2val.size() << ")\n";);
         for (unsigned i = 0; i < to_delete.size(); ++i) {
             var2val.remove(to_delete[i]);
+            unfixed.push_back(to_delete[i]);
         }
     }
 
     lbool context::get_consequences(expr_ref_vector const& assumptions, 
-                                    expr_ref_vector const& vars, expr_ref_vector& conseq) {
+                                    expr_ref_vector const& vars, 
+                                    expr_ref_vector& conseq, 
+                                    expr_ref_vector& unfixed) {
 
         m_antecedents.reset();
         lbool is_sat = check(assumptions.size(), assumptions.c_ptr());
@@ -168,6 +170,9 @@ namespace smt {
                 trail.push_back(val);
                 var2val.insert(vars[i], val);
             } 
+            else {
+                unfixed.push_back(vars[i]);
+            }
         }
         extract_fixed_consequences(0, var2val, _assumptions, conseq);
         unsigned num_units = assigned_literals().size();
@@ -179,7 +184,6 @@ namespace smt {
         unsigned num_iterations = 0;
         unsigned model_threshold = 2;
         while (!var2val.empty()) {
-            ++num_iterations;
             obj_map<expr,expr*>::iterator it = var2val.begin();
             expr* e = it->m_key;
             expr* val = it->m_value;
@@ -212,22 +216,29 @@ namespace smt {
             }
             if (get_assignment(lit) == l_true) {
                 var2val.erase(e);
+                unfixed.push_back(e);
             }
             else if (get_assign_level(lit) > get_search_level()) {
                 TRACE("context", tout << "Retry fixing: " << mk_pp(e, m) << "\n";);
                 pop_to_search_lvl();
+                IF_VERBOSE(1, verbose_stream() << "(get-consequences re-iterating)\n";);
                 continue;
             }
             else {
                 TRACE("context", tout << "Fixed: " << mk_pp(e, m) << "\n";);
             }
+            ++num_iterations;
 
             TRACE("context", tout << "Unfixed variables: " << var2val.size() << "\n";);
-            if (model_threshold <= num_iterations) {
-                delete_unfixed(var2val);
+            if (model_threshold <= num_iterations || num_iterations <= 2) {
+                unsigned num_deleted = unfixed.size();
+                delete_unfixed(var2val, unfixed);
+                num_deleted = unfixed.size() - num_deleted;
                 // The next time we check the model is after 1.5 additional iterations.
                 model_threshold *= 3;
                 model_threshold /= 2;                
+                IF_VERBOSE(1, verbose_stream() << "(get-consequences deleting: " << num_deleted << " num-values: " << var2val.size() << " num-iterations: " << num_iterations << ")\n";);
+
             }
             // repeat until we either have a model with negated literal or 
             // the literal is implied at base.
@@ -242,8 +253,7 @@ namespace smt {
                 conseq.push_back(fml);
                 var2val.erase(e);
                 SASSERT(get_assignment(lit) == l_false);
-            }
-        
+            }        
         }
         end_search();
         return l_true;

@@ -97,6 +97,7 @@ namespace smt {
         virtual void pop_scope_eh(unsigned num_scopes);
         virtual final_check_status final_check_eh();
         virtual void reset_eh();
+        virtual void restart_eh() { m_util.reset(); }
         virtual bool is_shared(theory_var v) const;
     public:
         theory_datatype(ast_manager & m, theory_datatype_params & p);

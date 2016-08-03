@@ -176,7 +176,8 @@ class datatype_util {
     obj_map<sort, bool>                         m_is_enum;
     ast_ref_vector                              m_asts;
     ptr_vector<ptr_vector<func_decl> >          m_vectors;
-    
+    unsigned                                    m_start;
+
     func_decl * get_non_rec_constructor_core(sort * ty, ptr_vector<sort> & forbidden_set);
     func_decl * get_constructor(sort * ty, unsigned c_id);
 

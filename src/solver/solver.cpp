@@ -69,6 +69,7 @@ lbool solver::get_consequences_core(expr_ref_vector const& asms, expr_ref_vector
         tmp = vars[i];
         val = eval(tmp);
         if (!m.is_value(val)) {
+            // vars[i] is unfixed
             continue;
         }
         if (m.is_bool(tmp) && is_uninterp_const(tmp)) {
@@ -81,6 +82,7 @@ lbool solver::get_consequences_core(expr_ref_vector const& asms, expr_ref_vector
                 lit = m.mk_not(tmp);
             }
             else {
+                // vars[i] is unfixed
                 continue;
             }
             scoped_assumption_push _scoped_push(asms1, nlit);
@@ -89,6 +91,7 @@ lbool solver::get_consequences_core(expr_ref_vector const& asms, expr_ref_vector
             case l_undef: 
                 return is_sat;
             case l_true:
+                // vars[i] is unfixed
                 break;
             case l_false:
                 get_unsat_core(core);
@@ -114,6 +117,7 @@ lbool solver::get_consequences_core(expr_ref_vector const& asms, expr_ref_vector
             case l_undef: 
                 return is_sat;
             case l_true:
+                // vars[i] is unfixed
                 break;
             case l_false:
                 get_unsat_core(core);

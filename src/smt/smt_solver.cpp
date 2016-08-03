@@ -68,7 +68,8 @@ namespace smt {
         }
 
         virtual lbool get_consequences_core(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq) {
-            return m_context.get_consequences(assumptions, vars, conseq);
+            expr_ref_vector unfixed(m_context.m());
+            return m_context.get_consequences(assumptions, vars, conseq, unfixed);
         }
 
         virtual void assert_expr(expr * t) {
