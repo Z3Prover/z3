@@ -102,7 +102,7 @@ namespace smt {
         }
     }
 
-    void context::delete_unfixed(obj_map<expr, expr*>& var2val) {
+    unsigned context::delete_unfixed(obj_map<expr, expr*>& var2val, expr_ref_vector& unfixed) {
         ast_manager& m = m_manager;
         ptr_vector<expr> to_delete;
         obj_map<expr,expr*>::iterator it = var2val.begin(), end = var2val.end();
@@ -137,14 +137,59 @@ namespace smt {
                 to_delete.push_back(k);
             }
         }
-        IF_VERBOSE(1, verbose_stream() << "(get-consequences deleting: " << to_delete.size() << " num-values: " << var2val.size() << ")\n";);
+        for (unsigned i = 0; i < to_delete.size(); ++i) {
+            var2val.remove(to_delete[i]);
+            unfixed.push_back(to_delete[i]);
+        }
+        return to_delete.size();
+    }
+
+    //
+    // Extract equalities that are congruent at the search level.
+    // 
+    unsigned context::extract_fixed_eqs(obj_map<expr, expr*>& var2val, expr_ref_vector& conseq) {
+        ast_manager& m = m_manager;
+        ptr_vector<expr> to_delete;
+        expr_ref fml(m), eq(m);
+        obj_map<expr,expr*>::iterator it = var2val.begin(), end = var2val.end();
+        for (; it != end; ++it) {
+            expr* k = it->m_key;
+            expr* v = it->m_value;
+            if (!m.is_bool(k) && e_internalized(k) && e_internalized(v) && 
+                get_enode(k)->get_root() == get_enode(v)->get_root()) {
+                literal_vector literals;
+                m_conflict_resolution->eq2literals(get_enode(v), get_enode(k), literals);
+                uint_set s;
+                for (unsigned i = 0; i < literals.size(); ++i) {
+                    SASSERT(get_assign_level(literals[i]) <= get_search_level());
+                    s |= m_antecedents.find(literals[i].var());
+                }
+                
+                fml = m.mk_eq(k, v);
+                fml = m.mk_implies(antecedent2fml(s), fml);
+                conseq.push_back(fml);
+                to_delete.push_back(k);
+
+                for (unsigned i = 0; i < literals.size(); ++i) {
+                    literals[i].neg();
+                }
+                eq = mk_eq_atom(k, v);
+                internalize_formula(eq, false);
+                literal lit(get_bool_var(eq), true);
+                literals.push_back(lit);
+                mk_clause(literals.size(), literals.c_ptr(), 0);
+            }
+        }    
         for (unsigned i = 0; i < to_delete.size(); ++i) {
             var2val.remove(to_delete[i]);
         }
+        return to_delete.size();
     }
 
     lbool context::get_consequences(expr_ref_vector const& assumptions, 
-                                    expr_ref_vector const& vars, expr_ref_vector& conseq) {
+                                    expr_ref_vector const& vars, 
+                                    expr_ref_vector& conseq, 
+                                    expr_ref_vector& unfixed) {
 
         m_antecedents.reset();
         lbool is_sat = check(assumptions.size(), assumptions.c_ptr());
@@ -168,6 +213,9 @@ namespace smt {
                 trail.push_back(val);
                 var2val.insert(vars[i], val);
             } 
+            else {
+                unfixed.push_back(vars[i]);
+            }
         }
         extract_fixed_consequences(0, var2val, _assumptions, conseq);
         unsigned num_units = assigned_literals().size();
@@ -178,8 +226,10 @@ namespace smt {
         m_case_split_queue->init_search_eh();
         unsigned num_iterations = 0;
         unsigned model_threshold = 2;
+        unsigned num_unfixed = 0;
+        unsigned num_fixed_eqs = 0;
+        unsigned num_reiterations = 0;
         while (!var2val.empty()) {
-            ++num_iterations;
             obj_map<expr,expr*>::iterator it = var2val.begin();
             expr* e = it->m_key;
             expr* val = it->m_value;
@@ -212,28 +262,50 @@ namespace smt {
             }
             if (get_assignment(lit) == l_true) {
                 var2val.erase(e);
+                unfixed.push_back(e);
             }
             else if (get_assign_level(lit) > get_search_level()) {
                 TRACE("context", tout << "Retry fixing: " << mk_pp(e, m) << "\n";);
                 pop_to_search_lvl();
+                ++num_reiterations;
                 continue;
             }
             else {
                 TRACE("context", tout << "Fixed: " << mk_pp(e, m) << "\n";);
             }
+            ++num_iterations;
 
-            TRACE("context", tout << "Unfixed variables: " << var2val.size() << "\n";);
-            if (model_threshold <= num_iterations) {
-                delete_unfixed(var2val);
+            bool apply_slow_pass = model_threshold <= num_iterations || num_iterations <= 2;
+            if (apply_slow_pass) {
+                num_unfixed += delete_unfixed(var2val, unfixed);
                 // The next time we check the model is after 1.5 additional iterations.
                 model_threshold *= 3;
-                model_threshold /= 2;                
+                model_threshold /= 2;                                
             }
             // repeat until we either have a model with negated literal or 
             // the literal is implied at base.
 
             extract_fixed_consequences(num_units, var2val, _assumptions, conseq);
             num_units = assigned_literals().size();
+            if (apply_slow_pass) {
+                num_fixed_eqs += extract_fixed_eqs(var2val, conseq);
+                IF_VERBOSE(1, verbose_stream() << "(get-consequences"
+                           << " iterations: " << num_iterations 
+                           << " variables: " << var2val.size() 
+                           << " fixed: " << conseq.size() 
+                           << " unfixed: " << unfixed.size() 
+                           << " fixed-eqs: " << num_fixed_eqs
+                           << " unfixed-deleted: " << num_unfixed
+                           << ")\n";);        
+                TRACE("context", tout << "(get-consequences"
+                      << " iterations: " << num_iterations 
+                      << " variables: " << var2val.size() 
+                      << " fixed: " << conseq.size() 
+                      << " unfixed: " << unfixed.size() 
+                      << " fixed-eqs: " << num_fixed_eqs
+                      << " unfixed-deleted: " << num_unfixed
+                      << ")\n";);        
+            }
             if (var2val.contains(e)) {
                 TRACE("context", tout << "Fixed value to " << mk_pp(e, m) << " was not processed\n";);
                 expr_ref fml(m);
@@ -242,8 +314,7 @@ namespace smt {
                 conseq.push_back(fml);
                 var2val.erase(e);
                 SASSERT(get_assignment(lit) == l_false);
-            }
-        
+            }        
         }
         end_search();
         return l_true;

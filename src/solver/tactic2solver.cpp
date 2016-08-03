@@ -21,7 +21,6 @@ Notes:
 --*/
 #include"solver_na2as.h"
 #include"tactic.h"
-#include"ast_pp_util.h"
 #include"ast_translation.h"
 #include"mus.h"
 
@@ -75,11 +74,10 @@ public:
     virtual unsigned get_num_assertions() const;
     virtual expr * get_assertion(unsigned idx) const;
 
-    virtual std::ostream& display(std::ostream & out) const;
-    virtual ast_manager& get_manager(); 
+    virtual ast_manager& get_manager() const; 
 };
 
-ast_manager& tactic2solver::get_manager() { return m_assertions.get_manager(); }
+ast_manager& tactic2solver::get_manager() const { return m_assertions.get_manager(); }
 
 tactic2solver::tactic2solver(ast_manager & m, tactic * t, params_ref const & p, bool produce_proofs, bool produce_models, bool produce_unsat_cores, symbol const & logic):
     solver_na2as(m),
@@ -243,22 +241,6 @@ expr * tactic2solver::get_assertion(unsigned idx) const {
     return m_assertions.get(idx);
 }
 
-std::ostream& tactic2solver::display(std::ostream & out) const {
-    ast_pp_util visitor(m_assertions.m());
-    visitor.collect(m_assertions);
-    visitor.display_decls(out);
-    visitor.display_asserts(out, m_assertions, true);
-#if 0
-    ast_manager & m = m_assertions.m();
-    unsigned num = m_assertions.size();
-    out << "(solver";
-    for (unsigned i = 0; i < num; i++) {
-        out << "\n  " << mk_ismt2_pp(m_assertions.get(i), m, 2);
-    }
-    out << ")";
-#endif
-    return out;
-}
 
 solver * mk_tactic2solver(ast_manager & m, 
                           tactic * t, 

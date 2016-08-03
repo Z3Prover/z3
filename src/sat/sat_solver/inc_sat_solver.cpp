@@ -196,7 +196,7 @@ public:
             assert_expr(t);
         }
     }
-    virtual ast_manager& get_manager() { return m; }
+    virtual ast_manager& get_manager() const { return m; }
     virtual void assert_expr(expr * t) {
         TRACE("sat", tout << mk_pp(t, m) << "\n";);
         m_fmls.push_back(t);

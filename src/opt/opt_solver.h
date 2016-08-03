@@ -105,7 +105,7 @@ namespace opt {
         virtual unsigned get_num_assertions() const;
         virtual expr * get_assertion(unsigned idx) const;
         virtual std::ostream& display(std::ostream & out) const;
-        virtual ast_manager& get_manager() { return m; } 
+        virtual ast_manager& get_manager() const { return m; } 
         void set_logic(symbol const& logic);
 
         smt::theory_var add_objective(app* term);

@@ -187,6 +187,10 @@ namespace smt {
         SASSERT(m_todo_js_qhead <= m_todo_js.size());
         m_antecedents = &result;
         mark_justification(js);
+        process_justifications();
+    }
+
+    void conflict_resolution::process_justifications() {
         while (true) {
             unsigned sz = m_todo_js.size();
             while (m_todo_js_qhead < sz) {
@@ -230,6 +234,17 @@ namespace smt {
         SASSERT(m_todo_js_qhead == 0);
         SASSERT(m_todo_eqs.empty());
         justification2literals_core(js, result);
+        unmark_justifications(0);
+        SASSERT(m_todo_eqs.empty());
+    }
+
+    void conflict_resolution::eq2literals(enode* n1, enode* n2, literal_vector & result) {
+        SASSERT(m_todo_js.empty());
+        SASSERT(m_todo_js_qhead == 0);
+        SASSERT(m_todo_eqs.empty());
+        m_antecedents = &result;
+        m_todo_eqs.push_back(enode_pair(n1, n2));
+        process_justifications();
         unmark_justifications(0);
         SASSERT(m_todo_eqs.empty());
     }

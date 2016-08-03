@@ -3422,7 +3422,6 @@ namespace smt {
     }
 
     lbool context::bounded_search() {
-        SASSERT(!inconsistent());
         unsigned counter = 0;
         
         TRACE("bounded_search", tout << "starting bounded search...\n";);

@@ -1347,7 +1347,9 @@ namespace smt {
         u_map<uint_set> m_antecedents;
         void extract_fixed_consequences(unsigned idx, obj_map<expr, expr*>& var2val, uint_set const& assumptions, expr_ref_vector& conseq);
         
-        void delete_unfixed(obj_map<expr, expr*>& var2val);
+        unsigned delete_unfixed(obj_map<expr, expr*>& var2val, expr_ref_vector& unfixed);
+
+        unsigned extract_fixed_eqs(obj_map<expr, expr*>& var2val, expr_ref_vector& conseq);
 
         expr_ref antecedent2fml(uint_set const& ante);
 
@@ -1391,7 +1393,7 @@ namespace smt {
 
         lbool check(unsigned num_assumptions = 0, expr * const * assumptions = 0, bool reset_cancel = true);        
 
-        lbool get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq);
+        lbool get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq, expr_ref_vector& unfixed);
         
         lbool setup_and_check(bool reset_cancel = true);
         

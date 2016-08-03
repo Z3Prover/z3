@@ -101,7 +101,7 @@ private:
         m_inc_unknown_behavior = static_cast<inc_unknown_behavior>(p.solver2_unknown());
     }
 
-    virtual ast_manager& get_manager() { return m_solver1->get_manager(); }
+    virtual ast_manager& get_manager() const { return m_solver1->get_manager(); }
 
     bool has_quantifiers() const {
         unsigned sz = get_num_assertions();
