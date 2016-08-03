@@ -48,7 +48,7 @@ namespace opt {
         virtual filter_model_converter& fm() = 0;   // converter that removes fresh names introduced by simplification.
         virtual bool sat_enabled() const = 0;       // is using th SAT solver core enabled?
         virtual solver& get_solver() = 0;           // retrieve solver object (SAT or SMT solver)
-        virtual ast_manager& get_manager() = 0;      
+        virtual ast_manager& get_manager() const = 0;      
         virtual params_ref& params() = 0;
         virtual void enable_sls(bool force) = 0;              // stochastic local search 
         virtual symbol const& maxsat_engine() const = 0; // retrieve maxsat engine configuration parameter.
@@ -217,7 +217,7 @@ namespace opt {
         virtual filter_model_converter& fm() { return m_fm; }
         virtual bool sat_enabled() const { return 0 != m_sat_solver.get(); }
         virtual solver& get_solver();
-        virtual ast_manager& get_manager() { return this->m; }
+        virtual ast_manager& get_manager() const { return this->m; }
         virtual params_ref& params() { return m_params; }
         virtual void enable_sls(bool force);
         virtual symbol const& maxsat_engine() const { return m_maxsat_engine; }

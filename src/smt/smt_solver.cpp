@@ -23,6 +23,7 @@ Notes:
 #include"smt_params_helper.hpp"
 #include"mus.h"
 
+
 namespace smt {
 
     class solver : public solver_na2as {
@@ -144,8 +145,7 @@ namespace smt {
             r.append(tmp.size(), tmp.c_ptr());
         }
 
-        virtual ast_manager& get_manager() { return m_context.m(); }
-
+        virtual ast_manager& get_manager() const { return m_context.m(); }
 
         virtual void set_progress_callback(progress_callback * callback) {
             m_callback = callback;
@@ -159,15 +159,8 @@ namespace smt {
         virtual expr * get_assertion(unsigned idx) const {
             SASSERT(idx < get_num_assertions());
             return m_context.get_formulas()[idx];
-        }
-
-        virtual std::ostream& display(std::ostream & out) const {
-            m_context.display(out);
-            return out;
-        }
-   
+        }   
     };
-
 };
 
 solver * mk_smt_solver(ast_manager & m, params_ref const & p, symbol const & logic) {

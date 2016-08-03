@@ -20,6 +20,7 @@ Notes:
 #include"model_evaluator.h"
 #include"ast_util.h"
 #include"ast_pp.h"
+#include"ast_pp_util.h"
 
 unsigned solver::get_num_assertions() const {
     NOT_IMPLEMENTED_YET();
@@ -32,7 +33,13 @@ expr * solver::get_assertion(unsigned idx) const {
 }
 
 std::ostream& solver::display(std::ostream & out) const {
-    return out << "(solver)";
+    expr_ref_vector fmls(get_manager());
+    get_assertions(fmls);
+    ast_pp_util visitor(get_manager());
+    visitor.collect(fmls);
+    visitor.display_decls(out);
+    visitor.display_asserts(out, fmls, true);
+    return out;
 }
 
 void solver::get_assertions(expr_ref_vector& fmls) const {
@@ -128,3 +135,5 @@ lbool solver::get_consequences_core(expr_ref_vector const& asms, expr_ref_vector
     }
     return l_true;
 }
+
+

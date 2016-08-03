@@ -168,6 +168,7 @@ namespace smt {
         void eq_branch2literals(enode * n1, enode * n2);
         void eq2literals(enode * n1, enode * n2);
         void justification2literals_core(justification * js, literal_vector & result) ;
+        void process_justifications();
         void unmark_justifications(unsigned old_js_qhead);
 
         literal_vector m_tmp_literal_vector;
@@ -256,6 +257,8 @@ namespace smt {
         }
 
         void justification2literals(justification * js, literal_vector & result);
+
+        void eq2literals(enode * n1, enode * n2, literal_vector & result);
 
     };
 
