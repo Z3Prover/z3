@@ -660,6 +660,7 @@ expr * theory_str::mk_concat_const_str(expr * n1, expr * n2) {
 }
 
 expr * theory_str::mk_concat(expr * n1, expr * n2) {
+    context & ctx = get_context();
 	ast_manager & m = get_manager();
 	ENSURE(n1 != NULL);
 	ENSURE(n2 != NULL);
@@ -717,29 +718,29 @@ expr * theory_str::mk_concat(expr * n1, expr * n2) {
 	//-------------------------------------------------------
 	std::pair<expr*, expr*> concatArgs(n1, n2);
 	expr * concatAst = NULL;
-	// TODO NEXT clarify semantics of this, I think we can get around this check.
-	NOT_IMPLEMENTED_YET();
+	// TODO NEXT add cache lookups. I think we need to be more careful than just using std:: data structures here
 	/*
 	if (concat_astNode_map.find(concatArgs) == concat_astNode_map.end()) {
-	    concatAst = mk_2_arg_app(ctx, td->Concat, n1, n2);
-	    concat_astNode_map[concatArgs] = concatAst;
-
-	    Z3_ast concat_length = mk_length(t, concatAst);
-
-	    std::vector<Z3_ast> childrenVector;
-	    getNodesInConcat(t, concatAst, childrenVector);
-	    Z3_ast * items = new Z3_ast[childrenVector.size()];
-	    for (unsigned int i = 0; i < childrenVector.size(); i++) {
-	        items[i] = mk_length(t, childrenVector[i]);
-	    }
-	    Z3_ast lenAssert = Z3_mk_eq(ctx, concat_length, Z3_mk_add(ctx, childrenVector.size(), items));
-	    addAxiom(t, lenAssert, __LINE__, false);
-	    delete[] items;
-
-	} else {
-	    concatAst = concat_astNode_map[concatArgs];
-	}
 	*/
+	if (true) {
+	    expr * args[2] = {n1, n2};
+	    concatAst = m.mk_app(get_id(), OP_STRCAT, 0, 0, 2, args);
+	    // concat_astNode_map[concatArgs] = concatAst;
+
+	    expr_ref concat_length(mk_strlen(concatAst), m);
+
+	    ptr_vector<expr> childrenVector;
+	    get_nodes_in_concat(concatAst, childrenVector);
+	    expr_ref_vector items(m);
+	    for (unsigned int i = 0; i < childrenVector.size(); i++) {
+	        items.push_back(mk_strlen(childrenVector.get(i)));
+	    }
+	    expr_ref lenAssert(ctx.mk_eq_atom(concat_length, m_autil.mk_add(items.size(), items.c_ptr())), m);
+	    assert_axiom(lenAssert);
+	} else {
+	    // concatAst = concat_astNode_map[concatArgs];
+	    NOT_IMPLEMENTED_YET();
+	}
 	return concatAst;
 }
 
