@@ -422,7 +422,6 @@ expr * theory_str::mk_internal_valTest_var(expr * node, int len, int vTries) {
 }
 
 void theory_str::track_variable_scope(expr * var) {
-    context & ctx = get_context();
     if (internal_variable_scope_levels.find(sLevel) == internal_variable_scope_levels.end()) {
         internal_variable_scope_levels[sLevel] = std::set<expr*>();
     }
@@ -431,7 +430,6 @@ void theory_str::track_variable_scope(expr * var) {
 
 app * theory_str::mk_internal_xor_var() {
 	ast_manager & m = get_manager();
-	context & ctx = get_context();
 	std::stringstream ss;
 	ss << tmpXorVarCount;
 	tmpXorVarCount++;
@@ -3730,7 +3728,6 @@ void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
 }
 
 void theory_str::process_unroll_eq_const_str(expr * unrollFunc, expr * constStr) {
-	context & ctx = get_context();
 	ast_manager & m = get_manager();
 
 	if (!is_Unroll(to_app(unrollFunc))) {
@@ -4461,7 +4458,6 @@ bool theory_str::check_length_consistency(expr * n1, expr * n2) {
 
 void theory_str::check_concat_len_in_eqc(expr * concat) {
     context & ctx = get_context();
-    ast_manager & m = get_manager();
 
     enode * eqc_base = ctx.get_enode(concat);
     enode * eqc_it = eqc_base;
@@ -5271,14 +5267,12 @@ void theory_str::assign_eh(bool_var v, bool is_true) {
 
 void theory_str::push_scope_eh() {
     theory::push_scope_eh();
-    context & ctx = get_context();
     sLevel += 1;
     TRACE("t_str", tout << "push to " << sLevel << std::endl;);
     TRACE("t_str_dump_assign_on_scope_change", dump_assignments(););
 }
 
 void theory_str::pop_scope_eh(unsigned num_scopes) {
-    context & ctx = get_context();
     sLevel -= num_scopes;
     TRACE("t_str", tout << "pop " << num_scopes << " to " << sLevel << std::endl;);
 
@@ -6664,7 +6658,6 @@ expr * theory_str::gen_val_options(expr * freeVar, expr * len_indicator, expr * 
 
 expr * theory_str::gen_free_var_options(expr * freeVar, expr * len_indicator,
 		std::string len_valueStr, expr * valTesterInCbEq, std::string valTesterValueStr) {
-	context & ctx = get_context();
 	ast_manager & m = get_manager();
 
 	int len = atoi(len_valueStr.c_str());
