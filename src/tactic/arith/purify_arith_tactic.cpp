@@ -410,14 +410,12 @@ struct purify_arith_proc {
             expr * x = args[0];
             expr * zero = u().mk_numeral(rational(0), is_int);
             expr * one  = u().mk_numeral(rational(1), is_int);
-            if (y.is_zero() && complete()) {
+            if (y.is_zero()) {
                 // (^ x 0) --> k  |  x != 0 implies k = 1,   x = 0 implies k = 0^0 
                 push_cnstr(OR(EQ(x, zero), EQ(k, one)));
                 push_cnstr_pr(result_pr);
-                if (complete()) {
-                    push_cnstr(OR(NOT(EQ(x, zero)), EQ(k, is_int ? u().mk_0_pw_0_int() : u().mk_0_pw_0_real())));
-                    push_cnstr_pr(result_pr);
-                }
+                push_cnstr(OR(NOT(EQ(x, zero)), EQ(k, is_int ? u().mk_0_pw_0_int() : u().mk_0_pw_0_real())));
+                push_cnstr_pr(result_pr);
             }
             else if (!is_int) {
                 SASSERT(!y.is_int());
