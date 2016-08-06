@@ -2317,9 +2317,12 @@ void theory_str::simplify_concat_equality(expr * nn1, expr * nn2) {
             simplify_parent(new_nn1, new_nn2);
         }
         return;
+    } else if (!n1IsConcat && !n2IsConcat) {
+    	// normally this should never happen, because group_terms_by_eqc() should have pre-simplified
+    	// as much as possible. however, we make a defensive check here just in case
+    	TRACE("t_str_detail", tout << "WARNING: nn1_new and nn2_new both simplify to non-concat terms" << std::endl;);
+    	return;
     }
-
-    // TODO what happens if BOTH of these are simplified into non-concat terms?
 
     expr * v1_arg0 = a_new_nn1->get_arg(0);
     expr * v1_arg1 = a_new_nn1->get_arg(1);
