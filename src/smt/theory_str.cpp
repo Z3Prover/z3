@@ -1588,7 +1588,6 @@ void theory_str::group_terms_by_eqc(expr * n, std::set<expr*> & concats, std::se
             } else {
                 concats.insert(simConcat);
             }
-            concats.insert(ast);
         } else if (is_string(eqcNode)) {
             consts.insert(ast);
         } else {
