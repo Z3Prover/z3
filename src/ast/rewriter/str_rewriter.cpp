@@ -26,11 +26,25 @@ Notes:
 br_status str_rewriter::mk_str_Concat(expr * arg0, expr * arg1, expr_ref & result) {
     TRACE("t_str_rw", tout << "rewrite (Concat " << mk_pp(arg0, m()) << " " << mk_pp(arg1, m()) << ")" << std::endl;);
     if(m_strutil.is_string(arg0) && m_strutil.is_string(arg1)) {
-        TRACE("t_str_rw", tout << "evaluating Concat of two constant strings" << std::endl;);
+        TRACE("t_str_rw", tout << "evaluating concat of two constant strings" << std::endl;);
         std::string arg0Str = m_strutil.get_string_constant_value(arg0);
         std::string arg1Str = m_strutil.get_string_constant_value(arg1);
         std::string resultStr = arg0Str + arg1Str;
         result = m_strutil.mk_string(resultStr);
+        return BR_DONE;
+    } else {
+        return BR_FAILED;
+    }
+}
+
+br_status str_rewriter::mk_str_Length(expr * arg0, expr_ref & result) {
+    TRACE("t_str_rw", tout << "rewrite (Length " << mk_pp(arg0, m()) << ")" << std::endl;);
+    if (m_strutil.is_string(arg0)) {
+        TRACE("t_str_rw", tout << "evaluating length of constant string" << std::endl;);
+        std::string arg0Str = m_strutil.get_string_constant_value(arg0);
+        rational arg0Len((unsigned)arg0Str.length());
+        result = m_autil.mk_numeral(arg0Len, true);
+        TRACE("t_str_rw", tout << "result is " << mk_pp(result, m()) << std::endl;);
         return BR_DONE;
     } else {
         return BR_FAILED;
@@ -287,11 +301,13 @@ br_status str_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
 
     TRACE("t_str_rw", tout << "rewrite app: " << f->get_name() << std::endl;);
 
-    // TODO more rewrites for really easy cases, e.g. (Concat "abc" "def")...
     switch(f->get_decl_kind()) {
     case OP_STRCAT:
         SASSERT(num_args == 2);
         return mk_str_Concat(args[0], args[1], result);
+    case OP_STRLEN:
+        SASSERT(num_args == 1);
+        return mk_str_Length(args[0], result);
     case OP_STR_CHARAT:
         SASSERT(num_args == 2);
         return mk_str_CharAt(args[0], args[1], result);
