@@ -315,12 +315,14 @@ void theory_str::add_cut_info_one_node(expr * baseNode, int slevel, expr * node)
         varInfo->level = slevel;
         varInfo->vars[node] = 1;
         cut_var_map[baseNode].push(varInfo);
+        TRACE("t_str_cut_var_map", tout << "add var info for baseNode=" << mk_pp(baseNode, get_manager()) << ", node=" << mk_pp(node, get_manager()) << std::endl;);
     } else {
         if (cut_var_map[baseNode].empty()) {
             T_cut * varInfo = alloc(T_cut);
             varInfo->level = slevel;
             varInfo->vars[node] = 1;
             cut_var_map[baseNode].push(varInfo);
+            TRACE("t_str_cut_var_map", tout << "add var info for baseNode=" << mk_pp(baseNode, get_manager()) << ", node=" << mk_pp(node, get_manager()) << std::endl;);
         } else {
             if (cut_var_map[baseNode].top()->level < slevel) {
                 T_cut * varInfo = alloc(T_cut);
@@ -328,8 +330,10 @@ void theory_str::add_cut_info_one_node(expr * baseNode, int slevel, expr * node)
                 cut_vars_map_copy(varInfo->vars, cut_var_map[baseNode].top()->vars);
                 varInfo->vars[node] = 1;
                 cut_var_map[baseNode].push(varInfo);
+                TRACE("t_str_cut_var_map", tout << "add var info for baseNode=" << mk_pp(baseNode, get_manager()) << ", node=" << mk_pp(node, get_manager()) << std::endl;);
             } else if (cut_var_map[baseNode].top()->level == slevel) {
                 cut_var_map[baseNode].top()->vars[node] = 1;
+                TRACE("t_str_cut_var_map", tout << "add var info for baseNode=" << mk_pp(baseNode, get_manager()) << ", node=" << mk_pp(node, get_manager()) << std::endl;);
             } else {
                 get_manager().raise_exception("entered illegal state during add_cut_info_one_node()");
             }
@@ -354,6 +358,7 @@ void theory_str::add_cut_info_merge(expr * destNode, int slevel, expr * srcNode)
         varInfo->level = slevel;
         cut_vars_map_copy(varInfo->vars, cut_var_map[srcNode].top()->vars);
         cut_var_map[destNode].push(varInfo);
+        TRACE("t_str_cut_var_map", tout << "merge var info for destNode=" << mk_pp(destNode, get_manager()) << ", srcNode=" << mk_pp(srcNode, get_manager()) << std::endl;);
     } else {
         if (cut_var_map[destNode].empty() || cut_var_map[destNode].top()->level < slevel) {
             T_cut * varInfo = alloc(T_cut);
@@ -361,8 +366,10 @@ void theory_str::add_cut_info_merge(expr * destNode, int slevel, expr * srcNode)
             cut_vars_map_copy(varInfo->vars, cut_var_map[destNode].top()->vars);
             cut_vars_map_copy(varInfo->vars, cut_var_map[srcNode].top()->vars);
             cut_var_map[destNode].push(varInfo);
+            TRACE("t_str_cut_var_map", tout << "merge var info for destNode=" << mk_pp(destNode, get_manager()) << ", srcNode=" << mk_pp(srcNode, get_manager()) << std::endl;);
         } else if (cut_var_map[destNode].top()->level == slevel) {
             cut_vars_map_copy(cut_var_map[destNode].top()->vars, cut_var_map[srcNode].top()->vars);
+            TRACE("t_str_cut_var_map", tout << "merge var info for destNode=" << mk_pp(destNode, get_manager()) << ", srcNode=" << mk_pp(srcNode, get_manager()) << std::endl;);
         } else {
             get_manager().raise_exception("illegal state in add_cut_info_merge(): inconsistent slevels");
         }
@@ -5281,12 +5288,13 @@ void theory_str::pop_scope_eh(unsigned num_scopes) {
         while ((varItor->second.size() > 0) && (varItor->second.top()->level != 0) && (varItor->second.top()->level >= sLevel)) {
             T_cut * aCut = varItor->second.top();
             varItor->second.pop();
-            dealloc(aCut);
+            // dealloc(aCut); // TODO find a safer way to do this, it is causing a crash
         }
         if (varItor->second.size() == 0) {
-            cut_var_map.erase(varItor);
+            cut_var_map.erase(varItor++);
+        } else {
+            varItor++;
         }
-        ++varItor;
     }
 
     // see if any internal variables went out of scope
