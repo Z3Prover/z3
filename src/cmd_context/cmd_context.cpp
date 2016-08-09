@@ -580,7 +580,7 @@ bool cmd_context::logic_has_bv() const {
 }
 
 bool cmd_context::logic_has_seq_core(symbol const& s) const {
-    return s == "QF_BVRE" || s == "QF_S";
+    return s == "QF_BVRE" || s == "QF_S" || "ALL";
 }
 
 bool cmd_context::logic_has_seq() const {
@@ -588,7 +588,7 @@ bool cmd_context::logic_has_seq() const {
 }
 
 bool cmd_context::logic_has_fpa_core(symbol const& s) const {
-    return s == "QF_FP" || s == "QF_FPBV" || s == "QF_BVFP";
+    return s == "QF_FP" || s == "QF_FPBV" || s == "QF_BVFP" || "ALL";
 }
 
 bool cmd_context::logic_has_fpa() const {
@@ -705,7 +705,7 @@ void cmd_context::init_external_manager() {
 }
 
 bool cmd_context::supported_logic(symbol const & s) const {
-    return s == "QF_UF" || s == "UF" || 
+    return s == "QF_UF" || s == "UF" || "ALL" ||
         logic_has_arith_core(s) || logic_has_bv_core(s) ||
         logic_has_array_core(s) || logic_has_seq_core(s) ||
         logic_has_horn(s) || logic_has_fpa_core(s);
