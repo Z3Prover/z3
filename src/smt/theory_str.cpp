@@ -42,6 +42,7 @@ theory_str::theory_str(ast_manager & m):
         sLevel(0),
         finalCheckProgressIndicator(false),
         m_trail(m),
+        m_delayed_axiom_setup_terms(m),
         tmpStringVarCount(0),
 		tmpXorVarCount(0),
 		tmpLenTestVarCount(0),
@@ -755,10 +756,12 @@ bool theory_str::can_propagate() {
             || !m_axiom_Contains_todo.empty() || !m_axiom_Indexof_todo.empty() || !m_axiom_Indexof2_todo.empty() || !m_axiom_LastIndexof_todo.empty()
             || !m_axiom_Substr_todo.empty() || !m_axiom_Replace_todo.empty()
 			|| !m_axiom_RegexIn_todo.empty()
+			|| !m_delayed_axiom_setup_terms.empty();
             ;
 }
 
 void theory_str::propagate() {
+    context & ctx = get_context();
     while (can_propagate()) {
         TRACE("t_str_detail", tout << "propagating..." << std::endl;);
         for (unsigned i = 0; i < m_basicstr_axiom_todo.size(); ++i) {
@@ -829,6 +832,13 @@ void theory_str::propagate() {
         	instantiate_axiom_RegexIn(m_axiom_RegexIn_todo[i]);
         }
         m_axiom_RegexIn_todo.reset();
+
+        for (unsigned i = 0; i < m_delayed_axiom_setup_terms.size(); ++i) {
+            // I think this is okay
+            ctx.internalize(m_delayed_axiom_setup_terms[i].get(), false);
+            set_up_axioms(m_delayed_axiom_setup_terms[i].get());
+        }
+        m_delayed_axiom_setup_terms.reset();
     }
 }
 
@@ -5140,6 +5150,7 @@ void theory_str::set_up_axioms(expr * ex) {
                 ": expr is of sort Bool" << std::endl;);
         // set up axioms for boolean terms
 
+        ensure_enode(ex);
         if (ctx.e_internalized(ex)) {
             enode * n = ctx.get_enode(ex);
             SASSERT(n);
@@ -5157,14 +5168,16 @@ void theory_str::set_up_axioms(expr * ex) {
                 }
             }
         } else {
-            TRACE("t_str_detail", tout << "WARNING: Bool term " << mk_ismt2_pp(ex, get_manager()) << " not internalized. Skipping to prevent a crash." << std::endl;);
+            TRACE("t_str_detail", tout << "WARNING: Bool term " << mk_ismt2_pp(ex, get_manager()) << " not internalized. Delaying axiom setup to prevent a crash." << std::endl;);
+            ENSURE(!search_started); // infinite loop prevention
+            m_delayed_axiom_setup_terms.push_back(ex);
             return;
         }
     } else if (ex_sort == int_sort) {
         TRACE("t_str_detail", tout << "setting up axioms for " << mk_ismt2_pp(ex, get_manager()) <<
                 ": expr is of sort Int" << std::endl;);
-        // set up axioms for boolean terms
-        enode * n = ctx.get_enode(ex);
+        // set up axioms for integer terms
+        enode * n = ensure_enode(ex);
         SASSERT(n);
 
         if (is_app(ex)) {

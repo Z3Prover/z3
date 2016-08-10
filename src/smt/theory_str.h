@@ -129,6 +129,9 @@ namespace smt {
 
         str_value_factory * m_factory;
 
+        // terms we couldn't go through set_up_axioms() with because they weren't internalized
+        expr_ref_vector m_delayed_axiom_setup_terms;
+
         ptr_vector<enode> m_basicstr_axiom_todo;
         svector<std::pair<enode*,enode*> > m_str_eq_todo;
         ptr_vector<enode> m_concat_axiom_todo;
