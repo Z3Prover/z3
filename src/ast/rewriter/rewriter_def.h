@@ -39,7 +39,7 @@ void rewriter_tpl<Config>::process_var(var * v) {
         unsigned idx = v->get_idx();
         if (idx < m_bindings.size()) {
             unsigned index = m_bindings.size() - idx - 1;
-            expr * r = m_bindings[index];
+            var * r = (var*)(m_bindings[index]);
             if (r != 0) {
                 SASSERT(v->get_sort() == m().get_sort(r));
                 if (!is_ground(r) && m_shifts[index] != m_bindings.size()) {
