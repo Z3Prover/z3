@@ -1124,12 +1124,13 @@ void theory_str::instantiate_axiom_Contains(enode * e) {
         return;
     }
     axiomatized_terms.insert(expr);
+    contains_map.push_back(expr); // replaces registerContain() in Z3str2
 
     TRACE("t_str_detail", tout << "instantiate Contains axiom for " << mk_pp(expr, m) << std::endl;);
 
     expr_ref ts0(mk_str_var("ts0"), m);
     expr_ref ts1(mk_str_var("ts1"), m);
-    // TODO NEXT registerContain(expr);
+
     expr_ref breakdownAssert(ctx.mk_eq_atom(expr, ctx.mk_eq_atom(expr->get_arg(0), mk_concat(ts0, mk_concat(expr->get_arg(1), ts1)))), m);
     SASSERT(breakdownAssert);
     assert_axiom(breakdownAssert);
@@ -1575,7 +1576,11 @@ bool theory_str::new_eq_check(expr * lhs, expr * rhs) {
         eqc_iterator1 = eqc_iterator1->get_next();
     } while (eqc_iterator1 != eqc_root);
 
-    // TODO containPairBoolMap
+
+    if (!contains_map.empty()) {
+        check_contain_in_new_eq(lhs, rhs);
+    }
+
     // TODO regexInBoolMap
 
     // okay, all checks here passed
@@ -4116,6 +4121,113 @@ bool theory_str::in_same_eqc(expr * n1, expr * n2) {
     return false;
     */
     return n1Node->get_root() == n2Node->get_root();
+}
+
+expr * theory_str::collect_eq_nodes(expr * n, expr_ref_vector & eqcSet) {
+    context & ctx = get_context();
+    expr * constStrNode = NULL;
+
+    enode * e_base = ctx.get_enode(n);
+    enode * e_curr = e_base;
+    do {
+        app * ex = e_curr->get_owner();
+        if (m_strutil.is_string(ex)) {
+            constStrNode = ex;
+        }
+        eqcSet.push_back(ex);
+
+        e_curr = e_curr->get_next();
+    } while (e_curr != e_base);
+    return constStrNode;
+}
+
+void theory_str::check_contain_by_eqc_val(expr * varNode, expr * constNode) {
+    NOT_IMPLEMENTED_YET(); // TODO NEXT
+}
+
+void theory_str::check_contain_by_substr(expr * varNode, expr_ref_vector & willEqClass) {
+    NOT_IMPLEMENTED_YET(); // TODO NEXT
+}
+
+void theory_str::check_contain_by_eq_nodes(expr * n1, expr * n2) {
+    NOT_IMPLEMENTED_YET(); // TODO NEXT
+}
+
+void theory_str::check_contain_in_new_eq(expr * n1, expr * n2) {
+    if (contains_map.empty()) {
+        return;
+    }
+
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+    TRACE("t_str_detail", tout << "consistency check for contains wrt. " << mk_pp(n1, m) << " and " << mk_pp(n2, m) << std::endl;);
+
+    // Modification from Z3str2: the EQC of n1 and n2 *are* now merged.
+    // So we don't have to do anything too special
+    // to prepare willEqClass any more, we just use the EQC from n1 / n2.
+    expr_ref_vector willEqClass(m);
+    expr * constStrAst = collect_eq_nodes(n1, willEqClass);
+
+    TRACE("t_str_detail", tout << "eqc of n1 is {";
+            for (ptr_vector<expr>::iterator it = willEqClass.begin(); it != willEqClass.end(); ++it) {
+                expr * el = *it;
+                tout << " " << mk_pp(el, m);
+            }
+            tout << std::endl;
+            if (constStrAst == NULL) {
+                tout << "constStrAst = NULL" << std::endl;
+            } else {
+                tout << "constStrAst = " << mk_pp(constStrAst, m) << std::endl;
+            }
+            );
+
+    // step 1: we may have constant values for Contains checks now
+    if (constStrAst != NULL) {
+        ptr_vector<expr>::iterator itAst = willEqClass.begin();
+        for (; itAst != willEqClass.end(); itAst++) {
+            if (*itAst == constStrAst) {
+                continue;
+            }
+            check_contain_by_eqc_val(*itAst, constStrAst);
+        }
+    } else {
+        // no concrete value to be put in eqc, solely based on context
+        // Check here is used to detected the facts as follows:
+        //   * known: contains(Z, Y) /\ Z = "abcdefg" /\ Y = M
+        //   * new fact: M = concat(..., "jio", ...)
+        // Note that in this branch, either M or concat(..., "jio", ...) has a constant value
+        // So, only need to check
+        //   * "EQC(M) U EQC(concat(..., "jio", ...))" as substr and
+        //   * If strAst registered has an eqc constant in the context
+        // -------------------------------------------------------------
+        ptr_vector<expr>::iterator itAst = willEqClass.begin();
+        for (; itAst != willEqClass.end(); ++itAst) {
+            check_contain_by_substr(*itAst, willEqClass);
+        }
+    }
+
+    // ------------------------------------------
+    // step 2: check for b1 = contains(x, m), b2 = contains(y, n)
+    //         (1) x = y /\ m = n  ==>  b1 = b2
+    //         (2) x = y /\ Contains(const(m), const(n))  ==>  (b1 -> b2)
+    //         (3) x = y /\ Contains(const(n), const(m))  ==>  (b2 -> b1)
+    //         (4) x = y /\ containPairBoolMap[<eqc(m), eqc(n)>]  ==>  (b1 -> b2)
+    //         (5) x = y /\ containPairBoolMap[<eqc(n), eqc(m)>]  ==>  (b2 -> b1)
+    //         (6) Contains(const(x), const(y)) /\ m = n  ==>  (b2 -> b1)
+    //         (7) Contains(const(y), const(x)) /\ m = n  ==>  (b1 -> b2)
+    //         (8) containPairBoolMap[<eqc(x), eqc(y)>] /\ m = n  ==>  (b2 -> b1)
+    //         (9) containPairBoolMap[<eqc(y), eqc(x)>] /\ m = n  ==>  (b1 -> b2)
+    // ------------------------------------------
+
+    expr_ref_vector::iterator varItor1 = willEqClass.begin();
+    for (; varItor1 != willEqClass.end(); ++varItor1) {
+        expr * varAst1 = *varItor1;
+        expr_ref_vector::iterator varItor2 = varItor1;
+        for (; varItor2 != willEqClass.end(); ++varItor2) {
+            expr * varAst2 = *varItor2;
+            check_contain_by_eq_nodes(varAst1, varAst2);
+        }
+    }
 }
 
 bool theory_str::can_concat_eq_str(expr * concat, std::string str) {

@@ -191,6 +191,8 @@ namespace smt {
         std::map<expr*, expr*> unroll_var_map;
         std::map<std::pair<expr*, expr*>, expr*> concat_eq_unroll_ast_map;
 
+        expr_ref_vector contains_map; // was containPairBoolMap in Z3str2
+
         char * char_set;
         std::map<char, int> charSetLookupTable;
         int charSetSize;
@@ -290,6 +292,7 @@ namespace smt {
         app * mk_value_helper(app * n);
         expr * get_eqc_value(expr * n, bool & hasEqcValue);
         bool in_same_eqc(expr * n1, expr * n2);
+        expr * collect_eq_nodes(expr * n, expr_ref_vector & eqcSet);
 
         bool get_value(expr* e, rational& val) const;
         bool get_len_value(expr* e, rational& val);
@@ -306,6 +309,10 @@ namespace smt {
         bool check_length_concat_concat(expr * n1, expr * n2);
         bool check_length_concat_var(expr * concat, expr * var);
         bool check_length_var_var(expr * var1, expr * var2);
+        void check_contain_in_new_eq(expr * n1, expr * n2);
+        void check_contain_by_eqc_val(expr * varNode, expr * constNode);
+        void check_contain_by_substr(expr * varNode, expr_ref_vector & willEqClass);
+        void check_contain_by_eq_nodes(expr * n1, expr * n2);
 
         void get_nodes_in_concat(expr * node, ptr_vector<expr> & nodeList);
         expr * simplify_concat(expr * node);
