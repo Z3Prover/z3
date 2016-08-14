@@ -379,6 +379,8 @@ namespace smt {
         expr * getMostLeftNodeInConcat(expr * node);
         expr * getMostRightNodeInConcat(expr * node);
         void get_var_in_eqc(expr * n, std::set<expr*> & varSet);
+        void get_concats_in_eqc(expr * n, std::set<expr*> & concats);
+        void get_const_str_asts_in_node(expr * node, expr_ref_vector & constList);
         expr * eval_concat(expr * n1, expr * n2);
 
         // strRegex
