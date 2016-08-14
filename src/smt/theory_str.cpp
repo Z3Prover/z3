@@ -48,7 +48,8 @@ theory_str::theory_str(ast_manager & m):
 		tmpLenTestVarCount(0),
 		tmpValTestVarCount(0),
 		avoidLoopCut(true),
-		loopDetected(false)
+		loopDetected(false),
+		contains_map(m)
 {
 		initialize_charset();
 }
@@ -4258,7 +4259,7 @@ void theory_str::check_contain_by_eqc_val(expr * varNode, expr * constNode) {
                 }
             }
             // add assertion
-            if (implyR != NULL) {
+            if (implyR) {
                 expr_ref implyLHS(mk_and(litems), m);
                 assert_implication(implyLHS, implyR);
             }
@@ -4290,7 +4291,7 @@ void theory_str::check_contain_by_eqc_val(expr * varNode, expr * constNode) {
             }
 
             // add assertion
-            if (implyR != NULL) {
+            if (implyR) {
                 expr_ref implyLHS(mk_and(litems), m);
                 assert_implication(implyLHS, implyR);
             }
@@ -4329,7 +4330,7 @@ void theory_str::check_contain_by_substr(expr * varNode, expr_ref_vector & willE
             bool strAstHasVal = false;
             expr * strValue = get_eqc_value(strAst, strAstHasVal);
             if (strAstHasVal) {
-                TRACE("t_str_detail", tout << mk_pp(strAst, m) << " has constant eqc value " << mk_pp(strValue) << std::endl;);
+                TRACE("t_str_detail", tout << mk_pp(strAst, m) << " has constant eqc value " << mk_pp(strValue, m) << std::endl;);
                 if (strValue != strAst) {
                     litems.push_back(ctx.mk_eq_atom(strAst, strValue));
                 }
@@ -4387,7 +4388,7 @@ void theory_str::check_contain_in_new_eq(expr * n1, expr * n2) {
     expr * constStrAst = collect_eq_nodes(n1, willEqClass);
 
     TRACE("t_str_detail", tout << "eqc of n1 is {";
-            for (ptr_vector<expr>::iterator it = willEqClass.begin(); it != willEqClass.end(); ++it) {
+            for (expr_ref_vector::iterator it = willEqClass.begin(); it != willEqClass.end(); ++it) {
                 expr * el = *it;
                 tout << " " << mk_pp(el, m);
             }
@@ -4401,7 +4402,7 @@ void theory_str::check_contain_in_new_eq(expr * n1, expr * n2) {
 
     // step 1: we may have constant values for Contains checks now
     if (constStrAst != NULL) {
-        ptr_vector<expr>::iterator itAst = willEqClass.begin();
+        expr_ref_vector::iterator itAst = willEqClass.begin();
         for (; itAst != willEqClass.end(); itAst++) {
             if (*itAst == constStrAst) {
                 continue;
@@ -4418,7 +4419,7 @@ void theory_str::check_contain_in_new_eq(expr * n1, expr * n2) {
         //   * "EQC(M) U EQC(concat(..., "jio", ...))" as substr and
         //   * If strAst registered has an eqc constant in the context
         // -------------------------------------------------------------
-        ptr_vector<expr>::iterator itAst = willEqClass.begin();
+        expr_ref_vector::iterator itAst = willEqClass.begin();
         for (; itAst != willEqClass.end(); ++itAst) {
             check_contain_by_substr(*itAst, willEqClass);
         }
@@ -4443,7 +4444,9 @@ void theory_str::check_contain_in_new_eq(expr * n1, expr * n2) {
         expr_ref_vector::iterator varItor2 = varItor1;
         for (; varItor2 != willEqClass.end(); ++varItor2) {
             expr * varAst2 = *varItor2;
-            check_contain_by_eq_nodes(varAst1, varAst2);
+            // for testing purposes
+            TRACE("t_str", tout << "WARNING: some Contains checks disabled!" << std::endl;);
+            // check_contain_by_eq_nodes(varAst1, varAst2);
         }
     }
 }
