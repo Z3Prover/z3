@@ -49,6 +49,26 @@ namespace smt {
         virtual void register_value(expr * n) { /* Ignore */ }
     };
 
+    // rather than modify obj_pair_map I inherit from it and add my own helper methods
+    class theory_str_contain_pair_bool_map_t : public obj_pair_map<expr, expr, expr*> {
+    public:
+        expr * operator[](std::pair<expr*, expr*> key) const {
+            expr * value;
+            bool found = this->find(key.first, key.second, value);
+            if (found) {
+                return value;
+            } else {
+                TRACE("t_str", tout << "WARNING: lookup miss in contain_pair_bool_map!" << std::endl;);
+                return NULL;
+            }
+        }
+
+        bool contains(std::pair<expr*, expr*> key) const {
+            expr * unused;
+            return this->find(key.first, key.second, unused);
+        }
+    };
+
     class theory_str : public theory {
         struct T_cut
         {
@@ -191,7 +211,10 @@ namespace smt {
         std::map<expr*, expr*> unroll_var_map;
         std::map<std::pair<expr*, expr*>, expr*> concat_eq_unroll_ast_map;
 
-        expr_ref_vector contains_map; // was containPairBoolMap in Z3str2
+        expr_ref_vector contains_map;
+
+        theory_str_contain_pair_bool_map_t contain_pair_bool_map;
+        obj_map<expr, obj_pair_set<expr, expr> > contain_pair_idx_map;
 
         char * char_set;
         std::map<char, int> charSetLookupTable;
@@ -200,6 +223,7 @@ namespace smt {
     protected:
         void assert_axiom(expr * e);
         void assert_implication(expr * premise, expr * conclusion);
+        expr * rewrite_implication(expr * premise, expr * conclusion);
 
         app * mk_strlen(expr * e);
         expr * mk_concat(expr * n1, expr * n2);
@@ -313,6 +337,7 @@ namespace smt {
         void check_contain_by_eqc_val(expr * varNode, expr * constNode);
         void check_contain_by_substr(expr * varNode, expr_ref_vector & willEqClass);
         void check_contain_by_eq_nodes(expr * n1, expr * n2);
+        bool in_contain_idx_map(expr * n);
 
         void get_nodes_in_concat(expr * node, ptr_vector<expr> & nodeList);
         expr * simplify_concat(expr * node);
