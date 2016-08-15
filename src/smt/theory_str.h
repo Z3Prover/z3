@@ -214,7 +214,9 @@ namespace smt {
         expr_ref_vector contains_map;
 
         theory_str_contain_pair_bool_map_t contain_pair_bool_map;
-        obj_map<expr, obj_pair_set<expr, expr> > contain_pair_idx_map;
+        //obj_map<expr, obj_pair_set<expr, expr> > contain_pair_idx_map;
+        // TODO Find a better data structure, this is 100% a hack right now
+        std::map<expr*, std::set<std::pair<expr*, expr*> > > contain_pair_idx_map;
 
         char * char_set;
         std::map<char, int> charSetLookupTable;

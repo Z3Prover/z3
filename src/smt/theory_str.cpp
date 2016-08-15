@@ -4376,7 +4376,7 @@ void theory_str::check_contain_by_substr(expr * varNode, expr_ref_vector & willE
 }
 
 bool theory_str::in_contain_idx_map(expr * n) {
-    return contain_pair_idx_map.contains(n);
+    return contain_pair_idx_map.find(n) != contain_pair_idx_map.end();
 }
 
 void theory_str::check_contain_by_eq_nodes(expr * n1, expr * n2) {
@@ -4384,8 +4384,8 @@ void theory_str::check_contain_by_eq_nodes(expr * n1, expr * n2) {
     ast_manager & m = get_manager();
 
     if (in_contain_idx_map(n1) && in_contain_idx_map(n2)) {
-        obj_pair_set<expr, expr>::iterator keysItor1 = contain_pair_idx_map[n1].begin();
-        obj_pair_set<expr, expr>::iterator keysItor2;
+        std::set<std::pair<expr*, expr*> >::iterator keysItor1 = contain_pair_idx_map[n1].begin();
+        std::set<std::pair<expr*, expr*> >::iterator keysItor2;
 
         for (; keysItor1 != contain_pair_idx_map[n1].end(); keysItor1++) {
             // keysItor1 is on set {<.., n1>, ..., <n1, ...>, ...}
