@@ -6,6 +6,11 @@
 #
 # Author: Leonardo de Moura (leonardo)
 ############################################
+#Fix the utf8 error
+import sys
+reload(sys)
+sys.setdefaultencoding('utf-8')
+
 from mk_util import *
 from mk_project import *
 
