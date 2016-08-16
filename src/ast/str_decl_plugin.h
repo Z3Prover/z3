@@ -111,7 +111,6 @@ public:
 
     virtual bool is_value(app * e) const;
     virtual bool is_unique_value(app * e) const { return is_value(e); }
-    // TODO
 };
 
 class str_recognizers {
@@ -125,11 +124,12 @@ public:
     bool is_string(expr const * n) const;
 
     bool is_re_Str2Reg(expr const * n) const { return is_app_of(n, get_fid(), OP_RE_STR2REGEX); }
+    bool is_re_RegexConcat(expr const * n) const { return is_app_of(n, get_fid(), OP_RE_REGEXCONCAT); }
+    bool is_re_RegexUnion(expr const * n) const { return is_app_of(n, get_fid(), OP_RE_REGEXUNION); }
     bool is_re_RegexStar(expr const * n) const { return is_app_of(n, get_fid(), OP_RE_REGEXSTAR); }
     bool is_re_RegexPlus(expr const * n) const { return is_app_of(n, get_fid(), OP_RE_REGEXPLUS); }
 
     std::string get_string_constant_value(expr const *n) const;
-    // TODO
 };
 
 class str_util : public str_recognizers {
