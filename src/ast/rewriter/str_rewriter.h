@@ -50,6 +50,7 @@ public:
     br_status mk_str_Indexof2(expr * arg0, expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_str_LastIndexof(expr * haystack, expr * needle, expr_ref & result);
     br_status mk_str_Replace(expr * base, expr * source, expr * target, expr_ref & result);
+    br_status mk_str_Substr(expr * base, expr * start, expr * len, expr_ref & result);
 
     br_status mk_re_Str2Reg(expr * str, expr_ref & result);
     br_status mk_re_RegexIn(expr * str, expr * re, expr_ref & result);

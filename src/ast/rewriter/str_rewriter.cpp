@@ -412,6 +412,23 @@ br_status str_rewriter::mk_str_Replace(expr * base, expr * source, expr * target
     }
 }
 
+br_status str_rewriter::mk_str_Substr(expr * base, expr * start, expr * len, expr_ref & result) {
+    TRACE("t_str_rw", tout << "rewrite (Substr " << mk_pp(base, m()) << " " << mk_pp(start, m()) << " " << mk_pp(len, m()) << ")" << std::endl;);
+    rational startVal, lenVal;
+    if (m_strutil.is_string(base) && m_autil.is_numeral(start, startVal) && m_autil.is_numeral(len, lenVal)) {
+        std::string baseStr = m_strutil.get_string_constant_value(base);
+        // TODO handling for invalid start/len
+        if (startVal.is_nonneg() && lenVal.is_nonneg() && startVal.get_unsigned() <= baseStr.length()) {
+            TRACE("t_str_rw", tout << "rewriting constant Substr expression" << std::endl;);
+            std::string substr = baseStr.substr(startVal.get_unsigned(), lenVal.get_unsigned());
+            result = m_strutil.mk_string(substr);
+            return BR_DONE;
+        }
+    }
+
+    return BR_FAILED;
+}
+
 br_status str_rewriter::mk_re_Str2Reg(expr * str, expr_ref & result) {
 	// the argument to Str2Reg *must* be a string constant
 	ENSURE(m_strutil.is_string(str));
@@ -532,6 +549,9 @@ br_status str_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_STR_REPLACE:
         SASSERT(num_args == 3);
         return mk_str_Replace(args[0], args[1], args[2], result);
+    case OP_STR_SUBSTR:
+        SASSERT(num_args == 3);
+        return mk_str_Substr(args[0], args[1], args[2], result);
     case OP_RE_STR2REGEX:
     	SASSERT(num_args == 1);
     	return mk_re_Str2Reg(args[0], result);
