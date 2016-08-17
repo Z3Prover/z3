@@ -218,6 +218,9 @@ namespace smt {
         // TODO Find a better data structure, this is 100% a hack right now
         std::map<expr*, std::set<std::pair<expr*, expr*> > > contain_pair_idx_map;
 
+        std::map<std::pair<expr*, std::string>, expr*> regex_in_bool_map;
+        std::map<expr*, std::set<std::string> > regex_in_var_reg_str_map;
+
         char * char_set;
         std::map<char, int> charSetLookupTable;
         int charSetSize;
@@ -419,6 +422,7 @@ namespace smt {
         expr * gen_unroll_conditional_options(expr * var, std::set<expr*> & unrolls, std::string lcmStr);
         expr * gen_unroll_assign(expr * var, std::string lcmStr, expr * testerVar, int l, int h);
         void reduce_virtual_regex_in(expr * var, expr * regex, expr_ref_vector & items);
+        std::string get_std_regex_str(expr * regex);
 
         void dump_assignments();
         void initialize_charset();

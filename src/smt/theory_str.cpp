@@ -1438,30 +1438,78 @@ expr * theory_str::mk_RegexIn(expr * str, expr * regexp) {
     return regexIn;
 }
 
+static std::string str2RegexStr(std::string str) {
+    std::string res = "";
+    int len = str.size();
+    for (int i = 0; i < len; i++) {
+      char nc = str[i];
+      // 12 special chars
+      if (nc == '\\' || nc == '^' || nc == '$' || nc == '.' || nc == '|' || nc == '?'
+          || nc == '*' || nc == '+' || nc == '(' || nc == ')' || nc == '[' || nc == '{') {
+        res.append(1, '\\');
+      }
+      res.append(1, str[i]);
+    }
+    return res;
+}
+
+std::string theory_str::get_std_regex_str(expr * regex) {
+    app * a_regex = to_app(regex);
+    if (is_Str2Reg(a_regex)) {
+        expr * regAst = a_regex->get_arg(0);
+        std::string regStr = str2RegexStr(m_strutil.get_string_constant_value(regAst));
+        return regStr;
+    } else if (is_RegexConcat(a_regex)) {
+        expr * reg1Ast = a_regex->get_arg(0);
+        expr * reg2Ast = a_regex->get_arg(1);
+        std::string reg1Str = get_std_regex_str(reg1Ast);
+        std::string reg2Str = get_std_regex_str(reg2Ast);
+        return "(" + reg1Str + ")(" + reg2Str + ")";
+    } else if (is_RegexUnion(a_regex)) {
+        expr * reg1Ast = a_regex->get_arg(0);
+        expr * reg2Ast = a_regex->get_arg(1);
+        std::string reg1Str = get_std_regex_str(reg1Ast);
+        std::string reg2Str = get_std_regex_str(reg2Ast);
+        return  "(" + reg1Str + ")|(" + reg2Str + ")";
+    } else if (is_RegexStar(a_regex)) {
+        expr * reg1Ast = a_regex->get_arg(0);
+        std::string reg1Str = get_std_regex_str(reg1Ast);
+        return  "(" + reg1Str + ")*";
+    } else {
+        TRACE("t_str", tout << "BUG: unrecognized regex term " << mk_pp(regex, get_manager()) << std::endl;);
+        UNREACHABLE(); return "";
+    }
+}
+
 void theory_str::instantiate_axiom_RegexIn(enode * e) {
     context & ctx = get_context();
     ast_manager & m = get_manager();
 
-    app * expr = e->get_owner();
-    if (axiomatized_terms.contains(expr)) {
-        TRACE("t_str_detail", tout << "already set up RegexIn axiom for " << mk_pp(expr, m) << std::endl;);
+    app * ex = e->get_owner();
+    if (axiomatized_terms.contains(ex)) {
+        TRACE("t_str_detail", tout << "already set up RegexIn axiom for " << mk_pp(ex, m) << std::endl;);
         return;
     }
-    axiomatized_terms.insert(expr);
+    axiomatized_terms.insert(ex);
 
-    TRACE("t_str_detail", tout << "instantiate RegexIn axiom for " << mk_pp(expr, m) << std::endl;);
+    TRACE("t_str_detail", tout << "instantiate RegexIn axiom for " << mk_pp(ex, m) << std::endl;);
 
-    // I don't think we need to port regexInBoolMap and regexInVarStrMap,
-    // but they would go here from reduce_regexIn
+    {
+        std::string regexStr = get_std_regex_str(ex->get_arg(1));
+        std::pair<expr*, std::string> key1(ex->get_arg(0), regexStr);
+        // skip Z3str's map check, because we already check if we set up axioms on this term
+        regex_in_bool_map[key1] = ex;
+        regex_in_var_reg_str_map[ex->get_arg(0)].insert(regexStr);
+    }
 
-    expr_ref str(expr->get_arg(0), m);
-    app * regex = to_app(expr->get_arg(1));
+    expr_ref str(ex->get_arg(0), m);
+    app * regex = to_app(ex->get_arg(1));
 
     if (is_Str2Reg(regex)) {
     	expr_ref rxStr(regex->get_arg(0), m);
     	// want to assert 'expr IFF (str == rxStr)'
     	expr_ref rhs(ctx.mk_eq_atom(str, rxStr), m);
-    	expr_ref finalAxiom(m.mk_iff(expr, rhs), m);
+    	expr_ref finalAxiom(m.mk_iff(ex, rhs), m);
     	SASSERT(finalAxiom);
     	assert_axiom(finalAxiom);
     } else if (is_RegexConcat(regex)) {
@@ -1476,7 +1524,7 @@ void theory_str::instantiate_axiom_RegexIn(enode * e) {
     	expr_ref_vector items(m);
     	items.push_back(var1InRegex1);
     	items.push_back(var2InRegex2);
-    	items.push_back(ctx.mk_eq_atom(expr, ctx.mk_eq_atom(str, rhs)));
+    	items.push_back(ctx.mk_eq_atom(ex, ctx.mk_eq_atom(str, rhs)));
 
     	expr_ref finalAxiom(mk_and(items), m);
     	SASSERT(finalAxiom);
@@ -1492,7 +1540,7 @@ void theory_str::instantiate_axiom_RegexIn(enode * e) {
     	expr_ref_vector items(m);
     	items.push_back(var1InRegex1);
     	items.push_back(var2InRegex2);
-    	items.push_back(ctx.mk_eq_atom(expr, orVar));
+    	items.push_back(ctx.mk_eq_atom(ex, orVar));
     	assert_axiom(mk_and(items));
     } else if (is_RegexStar(regex)) {
     	// slightly more complex due to the unrolling step.
@@ -1500,7 +1548,7 @@ void theory_str::instantiate_axiom_RegexIn(enode * e) {
     	expr_ref unrollCount(mk_unroll_bound_var(), m);
     	expr_ref unrollFunc(mk_unroll(regex1, unrollCount), m);
     	expr_ref_vector items(m);
-    	items.push_back(ctx.mk_eq_atom(expr, ctx.mk_eq_atom(str, unrollFunc)));
+    	items.push_back(ctx.mk_eq_atom(ex, ctx.mk_eq_atom(str, unrollFunc)));
     	items.push_back(ctx.mk_eq_atom(ctx.mk_eq_atom(unrollCount, mk_int(0)), ctx.mk_eq_atom(unrollFunc, m_strutil.mk_string(""))));
     	expr_ref finalAxiom(mk_and(items), m);
     	SASSERT(finalAxiom);
