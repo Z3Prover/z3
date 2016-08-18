@@ -21,6 +21,8 @@ Notes:
 #include"arith_decl_plugin.h"
 #include"rewriter_types.h"
 #include"params.h"
+#include<set>
+#include<map>
 
 class str_rewriter {
     str_util m_strutil;
@@ -60,4 +62,49 @@ public:
     bool reduce_eq(expr * l, expr * r, expr_ref_vector & lhs, expr_ref_vector & rhs, bool & change);
     bool reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_vector& lhs, expr_ref_vector& rhs, bool& change);
 
+};
+
+class nfa {
+protected:
+    bool m_valid;
+    unsigned m_next_id;
+
+    unsigned next_id() {
+        unsigned retval = m_next_id;
+        ++m_next_id;
+        return retval;
+    }
+
+    unsigned m_start_state;
+    unsigned m_end_state;
+
+    std::map<unsigned, std::map<char, unsigned> > transition_map;
+    std::map<unsigned, std::set<unsigned> > epsilon_map;
+
+    void make_transition(unsigned start, char symbol, unsigned end) {
+        transition_map[start][symbol] = end;
+    }
+
+    void make_epsilon_move(unsigned start, unsigned end) {
+        epsilon_map[start].insert(end);
+    }
+
+    // Convert a regular expression to an e-NFA using Thompson's construction
+    void convert_re(expr * e, unsigned & start, unsigned & end, str_util & m_strutil);
+
+public:
+    nfa(str_util & m_strutil, expr * e)
+: m_valid(true), m_next_id(0), m_start_state(0), m_end_state(0) {
+        convert_re(e, m_start_state, m_end_state, m_strutil);
+    }
+
+    nfa() : m_valid(false), m_next_id(0), m_start_state(0), m_end_state(0) {}
+
+    bool is_valid() const {
+        return m_valid;
+    }
+
+    void epsilon_closure(unsigned start, std::set<unsigned> & closure);
+
+    bool matches(std::string input);
 };

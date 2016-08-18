@@ -35,6 +35,7 @@ theory_str::theory_str(ast_manager & m):
 		opt_LCMUnrollStep(2),
 		opt_NoQuickReturn_IntegerTheory(false),
 		opt_DisableIntegerTheoryIntegration(false),
+		opt_NoCheckRegexIn(false),
         /* Internal setup */
         search_started(false),
         m_autil(m),
@@ -1643,7 +1644,14 @@ bool theory_str::new_eq_check(expr * lhs, expr * rhs) {
         check_contain_in_new_eq(lhs, rhs);
     }
 
-    // TODO regexInBoolMap
+    if (!regex_in_bool_map.empty()) {
+        if (opt_NoCheckRegexIn) {
+            TRACE("t_str", tout << "WARNING: skipping check_regex_in()" << std::endl;);
+        } else {
+            TRACE("t_str", tout << "checking regex consistency" << std::endl;);
+            check_regex_in(lhs, rhs);
+        }
+    }
 
     // okay, all checks here passed
     return true;
@@ -5211,6 +5219,55 @@ void theory_str::check_concat_len_in_eqc(expr * concat) {
         }
         eqc_it = eqc_it->get_next();
     } while (eqc_it != eqc_base);
+}
+
+void theory_str::check_regex_in(expr * nn1, expr * nn2) {
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+
+    expr_ref_vector eqNodeSet(m);
+    expr * constStr = collect_eq_nodes(nn1, eqNodeSet);
+
+    if (constStr == NULL) {
+        return;
+    } else {
+        expr_ref_vector::iterator itor = eqNodeSet.begin();
+        for (; itor != eqNodeSet.end(); itor++) {
+            if (regex_in_var_reg_str_map.find(*itor) != regex_in_var_reg_str_map.end()) {
+                std::set<std::string>::iterator strItor = regex_in_var_reg_str_map[*itor].begin();
+                for (; strItor != regex_in_var_reg_str_map[*itor].end(); strItor++) {
+                    std::string regStr = *strItor;
+                    std::string constStrValue = m_strutil.get_string_constant_value(constStr);
+                    std::pair<expr*, std::string> key1 = std::make_pair(*itor, regStr);
+                    if (regex_in_bool_map.find(key1) != regex_in_bool_map.end()) {
+                        expr * boolVar = regex_in_bool_map[key1]; // actually the RegexIn term
+                        app * a_regexIn = to_app(boolVar);
+                        expr * regexTerm = a_regexIn->get_arg(1);
+
+                        if (regex_nfa_cache.find(regexTerm) == regex_nfa_cache.end()) {
+                            TRACE("t_str_detail", tout << "regex_nfa_cache: cache miss" << std::endl;);
+                            regex_nfa_cache[regexTerm] = nfa(m_strutil, regexTerm);
+                        } else {
+                            TRACE("t_str_detail", tout << "regex_nfa_cache: cache hit" << std::endl;);
+                        }
+
+                        nfa regexNFA = regex_nfa_cache[regexTerm];
+                        ENSURE(regexNFA.is_valid());
+                        bool matchRes = regexNFA.matches(constStrValue);
+
+                        TRACE("t_str_detail", tout << mk_pp(*itor, m) << " in " << regStr << " : " << (matchRes ? "yes" : "no") << std::endl;);
+
+                        expr_ref implyL(ctx.mk_eq_atom(*itor, constStr), m);
+                        if (matchRes) {
+                            assert_implication(implyL, boolVar);
+                        } else {
+                            assert_implication(implyL, m.mk_not(boolVar));
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 /*

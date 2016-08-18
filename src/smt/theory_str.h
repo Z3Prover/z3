@@ -25,6 +25,7 @@ Revision History:
 #include"arith_decl_plugin.h"
 #include<set>
 #include<stack>
+#include"str_rewriter.h"
 
 namespace smt {
 
@@ -137,6 +138,14 @@ namespace smt {
          */
         bool opt_DisableIntegerTheoryIntegration;
 
+        /*
+         * If NoCheckRegexIn is set to true,
+         * an expensive regular expression membership test is skipped.
+         * This option is for experiment purposes only and should be set to 'false'
+         * as skipping this check impacts the correctness of the solver.
+         */
+        bool opt_NoCheckRegexIn;
+
         bool search_started;
         arith_util m_autil;
         str_util m_strutil;
@@ -220,6 +229,8 @@ namespace smt {
 
         std::map<std::pair<expr*, std::string>, expr*> regex_in_bool_map;
         std::map<expr*, std::set<std::string> > regex_in_var_reg_str_map;
+
+        std::map<expr*, nfa> regex_nfa_cache; // Regex term --> NFA
 
         char * char_set;
         std::map<char, int> charSetLookupTable;
@@ -423,6 +434,7 @@ namespace smt {
         expr * gen_unroll_assign(expr * var, std::string lcmStr, expr * testerVar, int l, int h);
         void reduce_virtual_regex_in(expr * var, expr * regex, expr_ref_vector & items);
         std::string get_std_regex_str(expr * regex);
+        void check_regex_in(expr * nn1, expr * nn2);
 
         void dump_assignments();
         void initialize_charset();
