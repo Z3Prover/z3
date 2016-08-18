@@ -7772,10 +7772,11 @@ expr * theory_str::gen_assign_unroll_Str2Reg(expr * n, std::set<expr*> & unrolls
 	if (canHaveNonEmptyAssign) {
 		return gen_unroll_conditional_options(n, unrolls, lcmStr);
 	} else {
-		expr * implyL = mk_and(litems);
-		expr * implyR = ctx.mk_eq_atom(n, m_strutil.mk_string(""));
+		expr_ref implyL(mk_and(litems), mgr);
+		expr_ref implyR(ctx.mk_eq_atom(n, m_strutil.mk_string("")), mgr);
 		// want to return (implyL -> implyR)
-		return mgr.mk_or(mgr.mk_not(implyL), implyR);
+		expr * final_axiom = rewrite_implication(implyL, implyR);
+		return final_axiom;
 	}
 }
 
