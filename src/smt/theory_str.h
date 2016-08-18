@@ -138,14 +138,6 @@ namespace smt {
          */
         bool opt_DisableIntegerTheoryIntegration;
 
-        /*
-         * If NoCheckRegexIn is set to true,
-         * an expensive regular expression membership test is skipped.
-         * This option is for experiment purposes only and should be set to 'false'
-         * as skipping this check impacts the correctness of the solver.
-         */
-        bool opt_NoCheckRegexIn;
-
         bool search_started;
         arith_util m_autil;
         str_util m_strutil;

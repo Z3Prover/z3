@@ -35,7 +35,6 @@ theory_str::theory_str(ast_manager & m):
 		opt_LCMUnrollStep(2),
 		opt_NoQuickReturn_IntegerTheory(false),
 		opt_DisableIntegerTheoryIntegration(false),
-		opt_NoCheckRegexIn(false),
         /* Internal setup */
         search_started(false),
         m_autil(m),
@@ -1645,12 +1644,8 @@ bool theory_str::new_eq_check(expr * lhs, expr * rhs) {
     }
 
     if (!regex_in_bool_map.empty()) {
-        if (opt_NoCheckRegexIn) {
-            TRACE("t_str", tout << "WARNING: skipping check_regex_in()" << std::endl;);
-        } else {
-            TRACE("t_str", tout << "checking regex consistency" << std::endl;);
-            check_regex_in(lhs, rhs);
-        }
+        TRACE("t_str", tout << "checking regex consistency" << std::endl;);
+        check_regex_in(lhs, rhs);
     }
 
     // okay, all checks here passed
