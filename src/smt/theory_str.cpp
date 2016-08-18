@@ -1130,6 +1130,22 @@ void theory_str::instantiate_axiom_Contains(enode * e) {
         return;
     }
     axiomatized_terms.insert(ex);
+
+    // quick path, because this is necessary due to rewriter behaviour
+    // (at minimum it should fix z3str/concat-006.smt2
+    // TODO: see if it's necessary for other such terms
+    if (m_strutil.is_string(ex->get_arg(0)) && m_strutil.is_string(ex->get_arg(1))) {
+        TRACE("t_str_detail", tout << "eval constant Contains term " << mk_pp(ex, m) << std::endl;);
+        std::string haystackStr = m_strutil.get_string_constant_value(ex->get_arg(0));
+        std::string needleStr = m_strutil.get_string_constant_value(ex->get_arg(1));
+        if (haystackStr.find(needleStr) != std::string::npos) {
+            assert_axiom(ex);
+        } else {
+            assert_axiom(m.mk_not(ex));
+        }
+        return;
+    }
+
     { // register Contains()
         expr * str = ex->get_arg(0);
         expr * substr = ex->get_arg(1);
