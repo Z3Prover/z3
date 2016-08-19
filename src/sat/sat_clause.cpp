@@ -123,21 +123,28 @@ namespace sat {
 
     clause_allocator::clause_allocator():
         m_allocator("clause-allocator") {
-#ifdef _AMD64_
+#if defined(_AMD64_) 
         m_num_segments = 0;
+        m_overflow_valid = false;
 #endif
     }
 
     clause * clause_allocator::get_clause(clause_offset cls_off) const {
-#ifdef _AMD64_
+#if defined(_AMD64_) 
+        clause const* result;
+        if (m_overflow_valid && m_cls_offset2ptr.find(cls_off, result)) {
+            return const_cast<clause*>(result);
+        }
         return reinterpret_cast<clause *>(m_segments[cls_off & c_aligment_mask] + (static_cast<size_t>(cls_off) & ~c_aligment_mask));
 #else
         return reinterpret_cast<clause *>(cls_off);
 #endif
     }
 
-#ifdef _AMD64_
-    unsigned clause_allocator::get_segment(size_t ptr) {
+#if defined(_AMD64_) 
+    unsigned clause_allocator::get_segment(clause const* cls) {
+        size_t ptr = reinterpret_cast<size_t>(cls);
+
         SASSERT((ptr & c_aligment_mask) == 0);
         ptr &= ~0xFFFFFFFFull; // Keep only high part
         unsigned i = 0;
@@ -145,18 +152,30 @@ namespace sat {
             if (m_segments[i] == ptr)
                 return i;
         i = m_num_segments;
-        m_num_segments++;
-        SASSERT(m_num_segments <= c_max_segments);
-        if (i >= c_max_segments)
-            throw default_exception("segment out of range");
-        m_segments[i] = ptr;
+        SASSERT(m_num_segments < c_max_segments);
+        if (i + 1 == c_max_segments) {
+            m_overflow_valid = true;
+            i += c_max_segments * m_cls_offset2ptr.size();
+            m_ptr2cls_offset.insert(ptr, i);
+            m_cls_offset2ptr.insert(i, cls);
+        }
+        else {
+            m_num_segments++;
+            m_segments[i] = ptr;
+        }
         return i;
     }
 #endif
 
     clause_offset clause_allocator::get_offset(clause const * ptr) const {
-#ifdef _AMD64_
-        return static_cast<unsigned>(reinterpret_cast<size_t>(ptr)) + const_cast<clause_allocator*>(this)->get_segment(reinterpret_cast<size_t>(ptr));
+#if defined(_AMD64_) 
+        unsigned segment = const_cast<clause_allocator*>(this)->get_segment(ptr);
+        if (segment >= c_max_segments) {
+            return m_ptr2cls_offset.find(reinterpret_cast<size_t>(ptr));
+        }
+        else {
+            return static_cast<unsigned>(reinterpret_cast<size_t>(ptr)) + segment;
+        }
 #else
         return reinterpret_cast<size_t>(ptr);
 #endif
@@ -164,7 +183,7 @@ namespace sat {
     
     clause * clause_allocator::mk_clause(unsigned num_lits, literal const * lits, bool learned) {
         size_t size = clause::get_obj_size(num_lits);
-#ifdef _AMD64_
+#if defined(_AMD64_) 
         size_t slot = size >> c_cls_alignment;
         if ((size & c_aligment_mask) != 0)
             slot++;
@@ -181,7 +200,7 @@ namespace sat {
         TRACE("sat", tout << "delete: " << cls->id() << " " << cls << " " << *cls << "\n";);
         m_id_gen.recycle(cls->id());
         size_t size = clause::get_obj_size(cls->m_capacity);
-#ifdef _AMD64_
+#if defined(_AMD64_) 
         size_t slot = size >> c_cls_alignment;
         if ((size & c_aligment_mask) != 0)
             slot++;
