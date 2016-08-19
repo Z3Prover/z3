@@ -125,7 +125,9 @@ namespace sat {
         m_allocator("clause-allocator") {
 #if defined(_AMD64_) 
         m_num_segments = 0;
+#if defined(Z3DEBUG)
         m_overflow_valid = false;
+#endif
 #endif
     }
 
