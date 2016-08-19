@@ -132,9 +132,11 @@ namespace sat {
         static const size_t    c_aligment_mask = (1ull << c_cls_alignment) - 1ull;
         unsigned               m_num_segments;
         size_t                 m_segments[c_max_segments];
+#if defined(Z3DEBUG)
         bool                   m_overflow_valid;
         size_t_map<unsigned>   m_ptr2cls_offset;
         u_map<clause const*>   m_cls_offset2ptr;
+#endif
 #endif
     public:
         clause_allocator();

@@ -131,10 +131,12 @@ namespace sat {
 
     clause * clause_allocator::get_clause(clause_offset cls_off) const {
 #if defined(_AMD64_) 
+#if defined (Z3DEBUG)
         clause const* result;
         if (m_overflow_valid && m_cls_offset2ptr.find(cls_off, result)) {
             return const_cast<clause*>(result);
         }
+#endif
         return reinterpret_cast<clause *>(m_segments[cls_off & c_aligment_mask] + (static_cast<size_t>(cls_off) & ~c_aligment_mask));
 #else
         return reinterpret_cast<clause *>(cls_off);
@@ -152,7 +154,8 @@ namespace sat {
             if (m_segments[i] == ptr)
                 return i;
         i = m_num_segments;
-        SASSERT(m_num_segments < c_max_segments);
+#if defined(Z3DEBUG)
+        SASSERT(i < c_max_segments);
         if (i + 1 == c_max_segments) {
             m_overflow_valid = true;
             i += c_max_segments * m_cls_offset2ptr.size();
@@ -160,9 +163,17 @@ namespace sat {
             m_cls_offset2ptr.insert(i, cls);
         }
         else {
-            m_num_segments++;
+            ++m_num_segments;
             m_segments[i] = ptr;
         }
+#else
+        SASSERT(i <= c_max_segments);
+        if (i == c_max_segments) {
+            throw default_exception("segment out of range");
+        }
+        m_segments[i] = ptr;
+        ++m_num_segments;
+#endif
         return i;
     }
 #endif
@@ -170,12 +181,12 @@ namespace sat {
     clause_offset clause_allocator::get_offset(clause const * ptr) const {
 #if defined(_AMD64_) 
         unsigned segment = const_cast<clause_allocator*>(this)->get_segment(ptr);
+#if defined(Z3DEBUG)
         if (segment >= c_max_segments) {
             return m_ptr2cls_offset.find(reinterpret_cast<size_t>(ptr));
         }
-        else {
-            return static_cast<unsigned>(reinterpret_cast<size_t>(ptr)) + segment;
-        }
+#endif
+        return static_cast<unsigned>(reinterpret_cast<size_t>(ptr)) + segment;
 #else
         return reinterpret_cast<size_t>(ptr);
 #endif
