@@ -199,6 +199,7 @@ public:
                   tout << "fail-if-inconclusive: " << m_fail_if_inconclusive << "\n";
                   tout << "params_ref: " << m_params_ref << "\n";
                   tout << "nnf: " << fparams().m_nnf_cnf << "\n";);
+            TRACE("smt_tactic_params", m_params.display(tout););
             TRACE("smt_tactic_detail", in->display(tout););
             TRACE("smt_tactic_memory", tout << "wasted_size: " << m.get_allocator().get_wasted_size() << "\n";);
             scoped_init_ctx  init(*this, m);
