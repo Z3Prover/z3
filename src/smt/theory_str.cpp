@@ -6052,6 +6052,10 @@ void theory_str::init_search_eh() {
     }
     */
 
+    // this might be cheating but we need to make sure that certain maps are populated
+    // before the first call to new_eq_eh()
+    propagate();
+
     TRACE("t_str", tout << "search started" << std::endl;);
     search_started = true;
 }
