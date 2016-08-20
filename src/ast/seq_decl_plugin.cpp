@@ -144,6 +144,9 @@ zstring zstring::replace(zstring const& src, zstring const& dst) const {
     if (length() < src.length()) {
         return zstring(*this);
     }
+    if (src.length() == 0) {
+        return zstring(*this);
+    }
     bool found = false;
     for (unsigned i = 0; i < length(); ++i) {
         bool eq = !found && i + src.length() <= length();
