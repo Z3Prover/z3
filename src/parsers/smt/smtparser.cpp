@@ -1573,7 +1573,8 @@ private:
                         return false;
                     }
                 }
-                expr * p = m_manager.mk_pattern(ts.size(), (app*const*)(ts.c_ptr()));
+                expr_ref p(m_manager);
+                p = m_manager.mk_pattern(ts.size(), (app*const*)(ts.c_ptr()));
                 if (!p || (!ignore_user_patterns() && !m_pattern_validator(num_bindings, p, children[0]->line(), children[0]->pos()))) {
                     set_error("invalid pattern", children[0]);
                     return false;
@@ -1581,8 +1582,11 @@ private:
                 patterns.push_back(p);
             }
             else if (children[0]->string() == symbol("ex_act") && ts.size() == 1) {
-                app * sk_hack = m_manager.mk_app(m_sk_hack, 1, ts.c_ptr());
-                expr * p = m_manager.mk_pattern(1, &sk_hack);
+                app_ref sk_hack(m_manager);
+                sk_hack = m_manager.mk_app(m_sk_hack, 1, ts.c_ptr());
+                app * sk_hackp = sk_hack.get();
+                expr_ref p(m_manager);
+                p = m_manager.mk_pattern(1, &sk_hackp);
                 if (!p || (!ignore_user_patterns() && !m_pattern_validator(num_bindings, p, children[0]->line(), children[0]->pos()))) {
                     set_error("invalid pattern", children[0]);
                     return false;
