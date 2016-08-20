@@ -107,8 +107,8 @@ namespace sat {
             m_gc_increment    = p.gc_increment();
         }
         m_minimize_lemmas = p.minimize_lemmas();
-        m_minimize_core   = p.minimize_core();
-        m_minimize_core_partial   = p.minimize_core_partial();
+        m_core_minimize   = p.core_minimize();
+        m_core_minimize_partial   = p.core_minimize_partial();
         m_optimize_model  = p.optimize_model();
         m_bcd             = p.bcd();
         m_dyn_sub_res     = p.dyn_sub_res();

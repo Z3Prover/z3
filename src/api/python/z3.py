@@ -118,6 +118,8 @@ def _get_args(args):
     try:
         if len(args) == 1 and (isinstance(args[0], tuple) or isinstance(args[0], list)):
             return args[0]
+        elif len(args) == 1 and isinstance(args[0], set):
+            return [arg for arg in args[0]]
         else:
             return args
     except:  # len is not necessarily defined when args is not a sequence (use reflection?)

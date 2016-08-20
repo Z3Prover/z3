@@ -937,7 +937,7 @@ namespace sat {
 
 
     bool solver::init_weighted_assumptions(unsigned num_lits, literal const* lits, double const* weights, double max_weight) {
-        flet<bool> _min1(m_config.m_minimize_core, false);
+        flet<bool> _min1(m_config.m_core_minimize, false);
         m_weight = 0;
         m_blocker.reset();
         svector<lbool> values;
@@ -2015,7 +2015,7 @@ namespace sat {
             idx--;
         }        
         reset_unmark(old_size);
-        if (m_config.m_minimize_core) {
+        if (m_config.m_core_minimize) {
             if (m_min_core_valid && m_min_core.size() < m_core.size()) {
                 IF_VERBOSE(1, verbose_stream() << "(sat.updating core " << m_min_core.size() << " " << m_core.size() << ")\n";);
                 m_core.reset();
