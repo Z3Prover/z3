@@ -443,7 +443,24 @@ extern "C" {
             }
             _variables.push_back(to_expr(__variables[i]));
         }
-        lbool result = to_solver_ref(s)->get_consequences(_assumptions, _variables, _consequences);
+        lbool result = l_undef;
+        unsigned timeout     = to_solver(s)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
+        unsigned rlimit      = to_solver(s)->m_params.get_uint("rlimit", mk_c(c)->get_rlimit());
+        bool     use_ctrl_c  = to_solver(s)->m_params.get_bool("ctrl_c", false);
+        cancel_eh<reslimit> eh(mk_c(c)->m().limit());
+        api::context::set_interruptable si(*(mk_c(c)), eh);
+        {
+            scoped_ctrl_c ctrlc(eh, false, use_ctrl_c);
+            scoped_timer timer(timeout, &eh);
+            scoped_rlimit _rlimit(mk_c(c)->m().limit(), rlimit);
+            try {
+                result = to_solver_ref(s)->get_consequences(_assumptions, _variables, _consequences);
+            }
+            catch (z3_exception & ex) {
+                mk_c(c)->handle_exception(ex);
+                return Z3_L_UNDEF;
+            }
+        }
         for (unsigned i = 0; i < _consequences.size(); ++i) {
             to_ast_vector_ref(consequences).push_back(_consequences[i].get());
         }

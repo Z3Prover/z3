@@ -92,7 +92,7 @@ namespace smt2 {
     }
 
     scanner::token scanner::read_symbol_core() {
-        while (true) {
+        while (!m_at_eof) {
             char c = curr();
             signed char n = m_normalized[static_cast<unsigned char>(c)];
             if (n == 'a' || n == '0' || n == '-') {
@@ -106,6 +106,7 @@ namespace smt2 {
                 return SYMBOL_TOKEN;
             }
         }
+        return EOF_TOKEN;
     }
 
     scanner::token scanner::read_symbol() {

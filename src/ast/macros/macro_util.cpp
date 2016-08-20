@@ -482,12 +482,13 @@ void macro_util::normalize_expr(app * head, expr * t, expr_ref & norm_t) const {
     }
     if (changed) {
         // REMARK: t may have nested quantifiers... So, I must use the std order for variable substitution.
-        var_subst subst(m_manager); 
+        var_subst subst(m_manager, true); 
         TRACE("macro_util_bug",
               tout << "head: " << mk_pp(head, m_manager) << "\n";
-              tout << "applying substitution to:\n" << mk_ll_pp(t, m_manager) << "\nsubstitituion:\n";
+              tout << "applying substitution to:\n" << mk_ll_pp(t, m_manager) << "\nsubstitution:\n";
               for (unsigned i = 0; i < var_mapping.size(); i++) {
-                  tout << "#" << i << " -> " << mk_pp(var_mapping[i], m_manager) << "\n";
+                  if (var_mapping[i] != 0)
+                    tout << "#" << i << " -> " << mk_pp(var_mapping[i], m_manager) << "\n";
               });
         subst(t, var_mapping.size(), var_mapping.c_ptr(), norm_t);
     }

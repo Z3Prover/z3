@@ -1056,6 +1056,19 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Create an expression representing <c>t[0] * t[1] * ...</c>.
+        /// </summary>
+        public ArithExpr MkMul(IEnumerable<ArithExpr> t)
+        {
+            Contract.Requires(t != null);
+            Contract.Requires(Contract.ForAll(t, a => a != null));
+            Contract.Ensures(Contract.Result<ArithExpr>() != null);
+
+            CheckContextMatch(t);
+            return (ArithExpr)Expr.Create(this, Native.Z3_mk_mul(nCtx, (uint)t.Count(), AST.EnumToNative(t)));
+        }
+
+        /// <summary>
         /// Create an expression representing <c>t[0] - t[1] - ...</c>.
         /// </summary>
         public ArithExpr MkSub(params ArithExpr[] t)
