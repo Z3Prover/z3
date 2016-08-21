@@ -138,6 +138,13 @@ namespace smt {
          */
         bool opt_DisableIntegerTheoryIntegration;
 
+        /*
+         * If DeferEQCConsistencyCheck is set to true,
+         * expensive calls to new_eq_check() will be deferred until final check,
+         * at which time the consistency of *all* string equivalence classes will be validated.
+         */
+        bool opt_DeferEQCConsistencyCheck;
+
         bool search_started;
         arith_util m_autil;
         str_util m_strutil;
@@ -334,7 +341,7 @@ namespace smt {
         bool can_two_nodes_eq(expr * n1, expr * n2);
         bool can_concat_eq_str(expr * concat, std::string str);
         bool can_concat_eq_concat(expr * concat1, expr * concat2);
-        void check_concat_len_in_eqc(expr * concat);
+        bool check_concat_len_in_eqc(expr * concat);
         bool check_length_consistency(expr * n1, expr * n2);
         bool check_length_const_string(expr * n1, expr * constStr);
         bool check_length_eq_var_concat(expr * n1, expr * n2);

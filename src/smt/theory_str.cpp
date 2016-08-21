@@ -35,6 +35,7 @@ theory_str::theory_str(ast_manager & m):
 		opt_LCMUnrollStep(2),
 		opt_NoQuickReturn_IntegerTheory(false),
 		opt_DisableIntegerTheoryIntegration(false),
+		opt_DeferEQCConsistencyCheck(true),
         /* Internal setup */
         search_started(false),
         m_autil(m),
@@ -1613,8 +1614,11 @@ bool theory_str::new_eq_check(expr * lhs, expr * rhs) {
         UNREACHABLE();
     }
 
-    check_concat_len_in_eqc(lhs);
-    check_concat_len_in_eqc(rhs);
+    // skip this check if we defer consistency checking, as we can do it for every EQC in final check
+    if (!opt_DeferEQCConsistencyCheck) {
+        check_concat_len_in_eqc(lhs);
+        check_concat_len_in_eqc(rhs);
+    }
 
     // Now we iterate over all pairs of terms in the (shared) eqc
     // and check whether we can show that any pair of distinct terms
@@ -5197,7 +5201,7 @@ bool theory_str::check_length_eq_var_concat(expr * n1, expr * n2) {
     else {
         return check_length_var_var(n1, n2);
     }
-    return 0;
+    return true;
 }
 
 // returns false if an inconsistency is detected, or true if no inconsistencies were found
@@ -5214,11 +5218,15 @@ bool theory_str::check_length_consistency(expr * n1, expr * n2) {
 		// n1 and n2 are vars or concats
 		return check_length_eq_var_concat(n1, n2);
 	}
-	return 0;
+	return true;
 }
 
-void theory_str::check_concat_len_in_eqc(expr * concat) {
+// Modified signature: returns true if nothing was learned, or false if at least one axiom was asserted.
+// (This is used for deferred consistency checking)
+bool theory_str::check_concat_len_in_eqc(expr * concat) {
     context & ctx = get_context();
+
+    bool no_assertions = true;
 
     enode * eqc_base = ctx.get_enode(concat);
     enode * eqc_it = eqc_base;
@@ -5226,10 +5234,15 @@ void theory_str::check_concat_len_in_eqc(expr * concat) {
         app * eqc_n = eqc_it->get_owner();
         if (is_concat(eqc_n)) {
             rational unused;
-            infer_len_concat(eqc_n, unused);
+            bool status = infer_len_concat(eqc_n, unused);
+            if (status) {
+                no_assertions = false;
+            }
         }
         eqc_it = eqc_it->get_next();
     } while (eqc_it != eqc_base);
+
+    return no_assertions;
 }
 
 void theory_str::check_regex_in(expr * nn1, expr * nn2) {
@@ -5730,9 +5743,13 @@ void theory_str::handle_equality(expr * lhs, expr * rhs) {
         }
     }
 
-    // newEqCheck() -- check consistency wrt. existing equivalence classes
-    if (!new_eq_check(lhs, rhs)) {
-        return;
+    if (opt_DeferEQCConsistencyCheck) {
+        TRACE("t_str_detail", tout << "opt_DeferEQCConsistencyCheck is set; deferring new_eq_check call" << std::endl;);
+    } else {
+        // newEqCheck() -- check consistency wrt. existing equivalence classes
+        if (!new_eq_check(lhs, rhs)) {
+            return;
+        }
     }
 
     // BEGIN new_eq_handler() in strTheory
@@ -7039,6 +7056,58 @@ final_check_status theory_str::final_check_eh() {
 
     TRACE("t_str", tout << "final check" << std::endl;);
     TRACE("t_str_dump_assign", dump_assignments(););
+
+    if (opt_DeferEQCConsistencyCheck) {
+        TRACE("t_str_detail", tout << "performing deferred EQC consistency check" << std::endl;);
+        std::set<enode*> eqc_roots;
+        for (ptr_vector<enode>::const_iterator it = ctx.begin_enodes(); it != ctx.end_enodes(); ++it) {
+            enode * e = *it;
+            enode * root = e->get_root();
+            eqc_roots.insert(root);
+        }
+
+        bool found_inconsistency = false;
+
+        for (std::set<enode*>::iterator it = eqc_roots.begin(); it != eqc_roots.end(); ++it) {
+            enode * e = *it;
+            app * a = e->get_owner();
+            if (!(is_sort_of(m.get_sort(a), m_strutil.get_fid(), STRING_SORT))) {
+                TRACE("t_str_detail", tout << "EQC root " << mk_pp(a, m) << " not a string term; skipping" << std::endl;);
+            } else {
+                TRACE("t_str_detail", tout << "EQC root " << mk_pp(a, m) << " is a string term. Checking this EQC" << std::endl;);
+                // first call check_concat_len_in_eqc() on each member of the eqc
+                enode * e_it = e;
+                enode * e_root = e_it;
+                do {
+                    bool status = check_concat_len_in_eqc(e_it->get_owner());
+                    if (!status) {
+                        TRACE("t_str_detail", tout << "concat-len check asserted an axiom on " << mk_pp(e_it->get_owner(), m) << std::endl;);
+                        found_inconsistency = true;
+                    }
+                    e_it = e_it->get_next();
+                } while (e_it != e_root);
+
+                // now grab any two distinct elements from the EQC and call new_eq_check() on them
+                enode * e1 = e;
+                enode * e2 = e1->get_next();
+                if (e1 != e2) {
+                    TRACE("t_str_detail", tout << "deferred new_eq_check() over EQC of " << mk_pp(e1->get_owner(), m) << " and " << mk_pp(e2->get_owner(), m) << std::endl;);
+                    bool result = new_eq_check(e1->get_owner(), e2->get_owner());
+                    if (!result) {
+                        TRACE("t_str_detail", tout << "new_eq_check found inconsistencies" << std::endl;);
+                        found_inconsistency = true;
+                    }
+                }
+            }
+        }
+
+        if (found_inconsistency) {
+            TRACE("t_str", tout << "Found inconsistency in final check! Returning to search." << std::endl;);
+            return FC_CONTINUE;
+        } else {
+            TRACE("t_str", tout << "Deferred consistency check passed. Continuing in final check." << std::endl;);
+        }
+    }
 
     // run dependence analysis to find free string variables
     std::map<expr*, int> varAppearInAssign;
