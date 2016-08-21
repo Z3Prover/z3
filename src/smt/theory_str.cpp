@@ -8234,7 +8234,6 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
 			TRACE("t_str", tout << "length is fixed; generating models for free var" << std::endl;);
 			// length is fixed
 			expr * valueAssert = gen_free_var_options(freeVar, effectiveLenInd, effectiveLenIndiStr, NULL, "");
-			SASSERT(valueAssert != NULL);
 			return valueAssert;
 		}
 	} // fVarLenCountMap.find(...)
