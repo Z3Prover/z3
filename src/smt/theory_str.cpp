@@ -28,8 +28,8 @@ namespace smt {
 theory_str::theory_str(ast_manager & m):
         theory(m.mk_family_id("str")),
         /* Options */
-        opt_AggressiveLengthTesting(true),
-        opt_AggressiveValueTesting(true),
+        opt_AggressiveLengthTesting(false),
+        opt_AggressiveValueTesting(false),
         opt_EagerStringConstantLengthAssertions(true),
         opt_VerifyFinalCheckProgress(true),
 		opt_LCMUnrollStep(2),
