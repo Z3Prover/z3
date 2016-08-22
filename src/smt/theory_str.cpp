@@ -21,6 +21,7 @@ Revision History:
 #include"ast_pp.h"
 #include"ast_ll_pp.h"
 #include<list>
+#include<vector>
 #include"theory_arith.h"
 
 namespace smt {
@@ -3102,15 +3103,14 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 		int option = 0;
 		int pos = 1;
 
-		expr_ref temp1_strAst(mk_concat(temp1, strAst), mgr); // TODO assert concat axioms?
+		expr_ref temp1_strAst(mk_concat(temp1, strAst), mgr);
 
 		// m cuts y
 		if (can_two_nodes_eq(y, temp1_strAst)) {
 			if (!avoidLoopCut || !has_self_cut(m, y)) {
 				// break down option 2-1
-				// TODO
 				or_item[option] = ctx.mk_eq_atom(xorFlag, mk_int(option));
-				expr_ref x_temp1(mk_concat(x, temp1), mgr); // TODO assert concat axioms?
+				expr_ref x_temp1(mk_concat(x, temp1), mgr);
 				and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(m, x_temp1));
 				and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(y, temp1_strAst));
 
@@ -3131,7 +3131,7 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 			std::string part1Str = strValue.substr(0, i);
 			std::string part2Str = strValue.substr(i, strValue.size() - i);
 			expr_ref prefixStr(m_strutil.mk_string(part1Str), mgr);
-			expr_ref x_concat(mk_concat(m, prefixStr), mgr); // TODO concat axioms?
+			expr_ref x_concat(mk_concat(m, prefixStr), mgr);
 			expr_ref cropStr(m_strutil.mk_string(part2Str), mgr);
 			if (can_two_nodes_eq(x, x_concat) && can_two_nodes_eq(y, cropStr)) {
 				// break down option 2-2
@@ -4863,6 +4863,332 @@ void theory_str::check_contain_in_new_eq(expr * n1, expr * n2) {
             expr * varAst2 = *varItor2;
             check_contain_by_eq_nodes(varAst1, varAst2);
         }
+    }
+}
+
+expr * theory_str::dealias_node(expr * node, std::map<expr*, expr*> & varAliasMap, std::map<expr*, expr*> & concatAliasMap) {
+    if (variable_set.find(node) != variable_set.end()) {
+        return get_alias_index_ast(varAliasMap, node);
+    } else if (is_concat(to_app(node))) {
+        return get_alias_index_ast(concatAliasMap, node);
+    }
+    return node;
+}
+
+void theory_str::get_grounded_concats(expr* node, std::map<expr*, expr*> & varAliasMap,
+        std::map<expr*, expr*> & concatAliasMap, std::map<expr*, expr*> & varConstMap,
+        std::map<expr*, expr*> & concatConstMap, std::map<expr*, std::map<expr*, int> > & varEqConcatMap,
+        std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap) {
+    if (is_Unroll(to_app(node))) {
+        return;
+    }
+    // **************************************************
+    // first deAlias the node if it is a var or concat
+    // **************************************************
+    node = dealias_node(node, varAliasMap, concatAliasMap);
+
+    if (groundedMap.find(node) != groundedMap.end()) {
+        return;
+    }
+
+    // haven't computed grounded concats for "node" (de-aliased)
+    // ---------------------------------------------------------
+
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+
+    // const strings: node is de-aliased
+    if (m_strutil.is_string(node)) {
+        std::vector<expr*> concatNodes;
+        concatNodes.push_back(node);
+        groundedMap[node][concatNodes].clear();   // no condition
+    }
+    // Concat functions
+    else if (is_concat(to_app(node))) {
+        // if "node" equals to a constant string, thenjust push the constant into the concat vector
+        // Again "node" has been de-aliased at the very beginning
+        if (concatConstMap.find(node) != concatConstMap.end()) {
+            std::vector<expr*> concatNodes;
+            concatNodes.push_back(concatConstMap[node]);
+            groundedMap[node][concatNodes].clear();
+            groundedMap[node][concatNodes].insert(ctx.mk_eq_atom(node, concatConstMap[node]));
+        }
+        // node doesn't have eq constant value. Process its children.
+        else {
+            // merge arg0 and arg1
+            expr * arg0 = to_app(node)->get_arg(0);
+            expr * arg1 = to_app(node)->get_arg(1);
+            expr * arg0DeAlias = dealias_node(arg0, varAliasMap, concatAliasMap);
+            expr * arg1DeAlias = dealias_node(arg1, varAliasMap, concatAliasMap);
+            get_grounded_concats(arg0DeAlias, varAliasMap, concatAliasMap, varConstMap, concatConstMap, varEqConcatMap, groundedMap);
+            get_grounded_concats(arg1DeAlias, varAliasMap, concatAliasMap, varConstMap, concatConstMap, varEqConcatMap, groundedMap);
+
+            std::map<std::vector<expr*>, std::set<expr*> >::iterator arg0_grdItor = groundedMap[arg0DeAlias].begin();
+            std::map<std::vector<expr*>, std::set<expr*> >::iterator arg1_grdItor;
+            for (; arg0_grdItor != groundedMap[arg0DeAlias].end(); arg0_grdItor++) {
+                arg1_grdItor = groundedMap[arg1DeAlias].begin();
+                for (; arg1_grdItor != groundedMap[arg1DeAlias].end(); arg1_grdItor++) {
+                    std::vector<expr*> ndVec;
+                    ndVec.insert(ndVec.end(), arg0_grdItor->first.begin(), arg0_grdItor->first.end());
+                    int arg0VecSize = arg0_grdItor->first.size();
+                    int arg1VecSize = arg1_grdItor->first.size();
+                    if (arg0VecSize > 0 && arg1VecSize > 0 && m_strutil.is_string(arg0_grdItor->first[arg0VecSize - 1]) && m_strutil.is_string(arg1_grdItor->first[0])) {
+                        ndVec.pop_back();
+                        ndVec.push_back(mk_concat(arg0_grdItor->first[arg0VecSize - 1], arg1_grdItor->first[0]));
+                        for (int i = 1; i < arg1VecSize; i++) {
+                            ndVec.push_back(arg1_grdItor->first[i]);
+                        }
+                    } else {
+                        ndVec.insert(ndVec.end(), arg1_grdItor->first.begin(), arg1_grdItor->first.end());
+                    }
+                    // only insert if we don't know "node = concat(ndVec)" since one set of condition leads to this is enough
+                    if (groundedMap[node].find(ndVec) == groundedMap[node].end()) {
+                        groundedMap[node][ndVec];
+                        if (arg0 != arg0DeAlias) {
+                            groundedMap[node][ndVec].insert(ctx.mk_eq_atom(arg0, arg0DeAlias));
+                        }
+                        groundedMap[node][ndVec].insert(arg0_grdItor->second.begin(), arg0_grdItor->second.end());
+
+                        if (arg1 != arg1DeAlias) {
+                            groundedMap[node][ndVec].insert(ctx.mk_eq_atom(arg1, arg1DeAlias));
+                        }
+                        groundedMap[node][ndVec].insert(arg1_grdItor->second.begin(), arg1_grdItor->second.end());
+                    }
+                }
+            }
+        }
+    }
+    // string variables
+    else if (variable_set.find(node) != variable_set.end()) {
+        // deAliasedVar = Constant
+        if (varConstMap.find(node) != varConstMap.end()) {
+            std::vector<expr*> concatNodes;
+            concatNodes.push_back(varConstMap[node]);
+            groundedMap[node][concatNodes].clear();
+            groundedMap[node][concatNodes].insert(ctx.mk_eq_atom(node, varConstMap[node]));
+        }
+        // deAliasedVar = someConcat
+        else if (varEqConcatMap.find(node) != varEqConcatMap.end()) {
+            expr * eqConcat = varEqConcatMap[node].begin()->first;
+            expr * deAliasedEqConcat = dealias_node(eqConcat, varAliasMap, concatAliasMap);
+            get_grounded_concats(deAliasedEqConcat, varAliasMap, concatAliasMap, varConstMap, concatConstMap, varEqConcatMap, groundedMap);
+
+            std::map<std::vector<expr*>, std::set<expr*> >::iterator grdItor = groundedMap[deAliasedEqConcat].begin();
+            for (; grdItor != groundedMap[deAliasedEqConcat].end(); grdItor++) {
+                std::vector<expr*> ndVec;
+                ndVec.insert(ndVec.end(), grdItor->first.begin(), grdItor->first.end());
+                // only insert if we don't know "node = concat(ndVec)" since one set of condition leads to this is enough
+                if (groundedMap[node].find(ndVec) == groundedMap[node].end()) {
+                    // condition: node = deAliasedEqConcat
+                    groundedMap[node][ndVec].insert(ctx.mk_eq_atom(node, deAliasedEqConcat));
+                    // appending conditions for "deAliasedEqConcat = CONCAT(ndVec)"
+                    groundedMap[node][ndVec].insert(grdItor->second.begin(), grdItor->second.end());
+                }
+            }
+        }
+        // node (has been de-aliased) != constant && node (has been de-aliased) != any concat
+        // just push in the deAliasedVar
+        else {
+            std::vector<expr*> concatNodes;
+            concatNodes.push_back(node);
+            groundedMap[node][concatNodes]; // TODO ???
+        }
+    }
+}
+
+void theory_str::print_grounded_concat(expr * node, std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap) {
+    ast_manager & m = get_manager();
+    TRACE("t_str_detail", tout << mk_pp(node, m) << std::endl;);
+    if (groundedMap.find(node) != groundedMap.end()) {
+        std::map<std::vector<expr*>, std::set<expr*> >::iterator itor = groundedMap[node].begin();
+        for (; itor != groundedMap[node].end(); ++itor) {
+            TRACE("t_str_detail",
+                tout << "\t[grounded] ";
+                std::vector<expr*>::const_iterator vIt = itor->first.begin();
+                for (; vIt != itor->first.end(); ++vIt) {
+                    tout << mk_pp(*vIt, m) << ", ";
+                }
+                tout << std::endl;
+                tout << "\t[condition] ";
+                std::set<expr*>::iterator sIt = itor->second.begin();
+                for (; sIt != itor->second.end(); sIt++) {
+                    tout << mk_pp(*sIt, m) << ", ";
+                }
+                tout << std::endl;
+            );
+        }
+    } else {
+        TRACE("t_str_detail", tout << "not found" << std::endl;);
+    }
+}
+
+bool theory_str::is_partial_in_grounded_concat(const std::vector<expr*> & strVec, const std::vector<expr*> & subStrVec) {
+    int strCnt = strVec.size();
+    int subStrCnt = subStrVec.size();
+
+    if (strCnt == 0 || subStrCnt == 0) {
+        return false;
+    }
+
+    // The assumption is that all consecutive constant strings are merged into one node
+    if (strCnt < subStrCnt) {
+        return false;
+    }
+
+    if (subStrCnt == 1) {
+        if (m_strutil.is_string(subStrVec[0])) {
+            std::string subStrVal = m_strutil.get_string_constant_value(subStrVec[0]);
+            for (int i = 0; i < strCnt; i++) {
+                if (m_strutil.is_string(strVec[i])) {
+                    std::string strVal = m_strutil.get_string_constant_value(strVec[i]);
+                    if (strVal.find(subStrVal) != std::string::npos) {
+                        return true;
+                    }
+                }
+            }
+        } else {
+            for (int i = 0; i < strCnt; i++) {
+                if (strVec[i] == subStrVec[0]) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    } else {
+        for (int i = 0; i <= (strCnt - subStrCnt); i++) {
+            // The first node in subStrVect should be
+            //   * constant: a suffix of a note in strVec[i]
+            //   * variable:
+            bool firstNodesOK = true;
+            if (m_strutil.is_string(subStrVec[0])) {
+                std::string subStrHeadVal = m_strutil.get_string_constant_value(subStrVec[0]);
+                if (m_strutil.is_string(strVec[i])) {
+                    std::string strHeadVal = m_strutil.get_string_constant_value(strVec[i]);
+                    if (strHeadVal.size() >= subStrHeadVal.size()) {
+                        std::string suffix = strHeadVal.substr(strHeadVal.size() - subStrHeadVal.size(), subStrHeadVal.size());
+                        if (suffix != subStrHeadVal) {
+                            firstNodesOK = false;
+                        }
+                    } else {
+                        firstNodesOK = false;
+                    }
+                } else {
+                    if (subStrVec[0] != strVec[i]) {
+                        firstNodesOK = false;
+                    }
+                }
+            }
+            if (!firstNodesOK) {
+                continue;
+            }
+
+            // middle nodes
+            bool midNodesOK = true;
+            for (int j = 1; j < subStrCnt - 1; j++) {
+                if (subStrVec[j] != strVec[i + j]) {
+                    midNodesOK = false;
+                    break;
+                }
+            }
+            if (!midNodesOK) {
+                continue;
+            }
+
+            // tail nodes
+            int tailIdx = i + subStrCnt - 1;
+            if (m_strutil.is_string(subStrVec[subStrCnt - 1])) {
+                std::string subStrTailVal = m_strutil.get_string_constant_value(subStrVec[subStrCnt - 1]);
+                if (m_strutil.is_string(strVec[tailIdx])) {
+                    std::string strTailVal = m_strutil.get_string_constant_value(strVec[tailIdx]);
+                    if (strTailVal.size() >= subStrTailVal.size()) {
+                        std::string prefix = strTailVal.substr(0, subStrTailVal.size());
+                        if (prefix == subStrTailVal) {
+                            return true;
+                        } else {
+                            continue;
+                        }
+                    } else {
+                        continue;
+                    }
+                }
+            } else {
+                if (subStrVec[subStrCnt - 1] == strVec[tailIdx]) {
+                    return true;
+                } else {
+                    continue;
+                }
+            }
+        }
+        return false;
+    }
+}
+
+void theory_str::check_subsequence(expr* str, expr* strDeAlias, expr* subStr, expr* subStrDeAlias, expr* boolVar,
+    std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap) {
+
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+    std::map<std::vector<expr*>, std::set<expr*> >::iterator itorStr = groundedMap[strDeAlias].begin();
+    std::map<std::vector<expr*>, std::set<expr*> >::iterator itorSubStr;
+    for (; itorStr != groundedMap[strDeAlias].end(); itorStr++) {
+        itorSubStr = groundedMap[subStrDeAlias].begin();
+        for (; itorSubStr != groundedMap[subStrDeAlias].end(); itorSubStr++) {
+            bool contain = is_partial_in_grounded_concat(itorStr->first, itorSubStr->first);
+            if (contain) {
+                expr_ref_vector litems(m);
+                if (str != strDeAlias) {
+                    litems.push_back(ctx.mk_eq_atom(str, strDeAlias));
+                }
+                if (subStr != subStrDeAlias) {
+                    litems.push_back(ctx.mk_eq_atom(subStr, subStrDeAlias));
+                }
+
+                //litems.insert(itorStr->second.begin(), itorStr->second.end());
+                //litems.insert(itorSubStr->second.begin(), itorSubStr->second.end());
+                for (std::set<expr*>::const_iterator i1 = itorStr->second.begin();
+                        i1 != itorStr->second.end(); ++i1) {
+                    litems.push_back(*i1);
+                }
+                for (std::set<expr*>::const_iterator i1 = itorSubStr->second.begin();
+                        i1 != itorSubStr->second.end(); ++i1) {
+                    litems.push_back(*i1);
+                }
+
+                expr_ref implyR(boolVar, m);
+
+                if (litems.empty()) {
+                    assert_axiom(implyR);
+                } else {
+                    expr_ref implyL(mk_and(litems), m);
+                    assert_implication(implyL, implyR);
+                }
+
+            }
+        }
+    }
+}
+
+void theory_str::compute_contains(std::map<expr*, expr*> & varAliasMap,
+                std::map<expr*, expr*> & concatAliasMap, std::map<expr*, expr*> & varConstMap,
+                std::map<expr*, expr*> & concatConstMap, std::map<expr*, std::map<expr*, int> > & varEqConcatMap) {
+    std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > groundedMap;
+    theory_str_contain_pair_bool_map_t::iterator containItor = contain_pair_bool_map.begin();
+    for (; containItor != contain_pair_bool_map.end(); containItor++) {
+        expr* containBoolVar = containItor->get_value();
+        expr* str = containItor->get_key1();
+        expr* subStr = containItor->get_key2();
+
+        expr* strDeAlias = dealias_node(str, varAliasMap, concatAliasMap);
+        expr* subStrDeAlias = dealias_node(subStr, varAliasMap, concatAliasMap);
+
+        get_grounded_concats(strDeAlias, varAliasMap, concatAliasMap, varConstMap, concatConstMap, varEqConcatMap, groundedMap);
+        get_grounded_concats(subStrDeAlias, varAliasMap, concatAliasMap, varConstMap, concatConstMap, varEqConcatMap, groundedMap);
+
+        // debugging
+        print_grounded_concat(strDeAlias, groundedMap);
+        print_grounded_concat(subStrDeAlias, groundedMap);
+
+        check_subsequence(str, strDeAlias, subStr, subStrDeAlias, containBoolVar, groundedMap);
     }
 }
 
@@ -6668,12 +6994,9 @@ int theory_str::ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr
 	        var_eq_concat_map, var_eq_unroll_map,
 			concat_eq_constStr_map, concat_eq_concat_map, unrollGroupMap););
 
-	/*// TODO computeContains()
-	if (containPairBoolMap.size() > 0) {
-		NOT_IMPLEMENTED_YET();
-		compute_contains(aliasIndexMap, concats_eq_Index_map, var_eq_constStr_map, concat_eq_constStr_map, var_eq_concat_map);
+	if (!contain_pair_bool_map.empty()) {
+		compute_contains(aliasIndexMap, concats_eq_index_map, var_eq_constStr_map, concat_eq_constStr_map, var_eq_concat_map);
 	}
-	*/
 
 	// step 4: dependence analysis
 

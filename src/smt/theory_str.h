@@ -25,6 +25,7 @@ Revision History:
 #include"arith_decl_plugin.h"
 #include<set>
 #include<stack>
+#include<vector>
 #include"str_rewriter.h"
 
 namespace smt {
@@ -353,6 +354,19 @@ namespace smt {
         void check_contain_by_substr(expr * varNode, expr_ref_vector & willEqClass);
         void check_contain_by_eq_nodes(expr * n1, expr * n2);
         bool in_contain_idx_map(expr * n);
+        // TODO refactor these methods to use expr_ref_vector instead of std::vector
+        void compute_contains(std::map<expr*, expr*> & varAliasMap,
+                std::map<expr*, expr*> & concatAliasMap, std::map<expr*, expr *> & varConstMap,
+                std::map<expr*, expr*> & concatConstMap, std::map<expr*, std::map<expr*, int> > & varEqConcatMap);
+        expr * dealias_node(expr * node, std::map<expr*, expr*> & varAliasMap, std::map<expr*, expr*> & concatAliasMap);
+        void get_grounded_concats(expr* node, std::map<expr*, expr*> & varAliasMap,
+                std::map<expr*, expr*> & concatAliasMap, std::map<expr*, expr*> & varConstMap,
+                std::map<expr*, expr*> & concatConstMap, std::map<expr*, std::map<expr*, int> > & varEqConcatMap,
+                std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap);
+        void print_grounded_concat(expr * node, std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap);
+        void check_subsequence(expr* str, expr* strDeAlias, expr* subStr, expr* subStrDeAlias, expr* boolVar,
+            std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap);
+        bool is_partial_in_grounded_concat(const std::vector<expr*> & strVec, const std::vector<expr*> & subStrVec);
 
         void get_nodes_in_concat(expr * node, ptr_vector<expr> & nodeList);
         expr * simplify_concat(expr * node);
