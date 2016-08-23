@@ -1430,14 +1430,22 @@ ast_manager::~ast_manager() {
         for (; it_a != end_a; ++it_a) {
             ast* n = (*it_a);
             switch (n->get_kind()) {
-            case AST_SORT:
-                mark_array_ref(mark, to_sort(n)->get_info()->get_num_parameters(), to_sort(n)->get_info()->get_parameters());
+            case AST_SORT: {
+                sort_info* info = to_sort(n)->get_info();
+                if (info != 0) {
+                    mark_array_ref(mark, info->get_num_parameters(), info->get_parameters());
+                }
                 break;
-            case AST_FUNC_DECL:
-                mark_array_ref(mark, to_func_decl(n)->get_info()->get_num_parameters(), to_func_decl(n)->get_info()->get_parameters());
+            }
+            case AST_FUNC_DECL: {
+                func_decl_info* info = to_func_decl(n)->get_info();
+                if (info != 0) {
+                    mark_array_ref(mark, info->get_num_parameters(), info->get_parameters());
+                }
                 mark_array_ref(mark, to_func_decl(n)->get_arity(), to_func_decl(n)->get_domain());
                 mark.mark(to_func_decl(n)->get_range(), true);
                 break;
+            }
             case AST_APP:
                 mark.mark(to_app(n)->get_decl(), true);
                 mark_array_ref(mark, to_app(n)->get_num_args(), to_app(n)->get_args());
