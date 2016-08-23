@@ -41,11 +41,11 @@ namespace sat {
 
     var_approx_set clause::approx(unsigned num, literal const * lits) {
         var_approx_set r;
-        for (unsigned i = 0; i < num; i++) 
+        for (unsigned i = 0; i < num; i++)
             r.insert(lits[i].var());
         return r;
     }
-    
+
     void clause::update_approx() {
         m_approx = approx(m_size, m_lits);
     }
@@ -123,85 +123,80 @@ namespace sat {
 
     clause_allocator::clause_allocator():
         m_allocator("clause-allocator") {
-#if defined(_AMD64_) 
+#if defined(_AMD64_)
         m_num_segments = 0;
-#if defined(Z3DEBUG)
-        m_overflow_valid = false;
-#endif
 #endif
     }
 
     clause * clause_allocator::get_clause(clause_offset cls_off) const {
-#if defined(_AMD64_) 
+#if defined(_AMD64_)
 #if defined (Z3DEBUG)
         clause const* result;
-        if (m_overflow_valid && m_cls_offset2ptr.find(cls_off, result)) {
+        if (((cls_off & c_alignment_mask) == c_last_segment)) {
+            unsigned id = cls_off >> c_cls_alignment;
+            bool check = m_last_seg_id2cls.find(id, result);
+            SASSERT(check);
             return const_cast<clause*>(result);
         }
 #endif
-        return reinterpret_cast<clause *>(m_segments[cls_off & c_aligment_mask] + (static_cast<size_t>(cls_off) & ~c_aligment_mask));
+        return reinterpret_cast<clause *>(m_segments[cls_off & c_alignment_mask] + (static_cast<size_t>(cls_off) & ~c_alignment_mask));
 #else
         return reinterpret_cast<clause *>(cls_off);
 #endif
     }
 
-#if defined(_AMD64_) 
+#if defined(_AMD64_)
     unsigned clause_allocator::get_segment(clause const* cls) {
         size_t ptr = reinterpret_cast<size_t>(cls);
 
-        SASSERT((ptr & c_aligment_mask) == 0);
-        ptr &= ~0xFFFFFFFFull; // Keep only high part
+        SASSERT((ptr & c_alignment_mask) == 0);
+        ptr &= 0xFFFFFFFF00000000ull; // Keep only high part
         unsigned i = 0;
         for (i = 0; i < m_num_segments; ++i)
-            if (m_segments[i] == ptr)
-                return i;
+          if (m_segments[i] == ptr)
+            return i;
         i = m_num_segments;
 #if defined(Z3DEBUG)
-        SASSERT(i < c_max_segments);
-        if (i + 1 == c_max_segments) {
-            m_overflow_valid = true;
-            i += c_max_segments * m_cls_offset2ptr.size();
-            m_ptr2cls_offset.insert(ptr, i);
-            m_cls_offset2ptr.insert(i, cls);
+        SASSERT(i <= c_last_segment);
+        if (i == c_last_segment) {
+            if (!m_last_seg_id2cls.contains(cls->id()))
+                m_last_seg_id2cls.insert(cls->id(), cls);
         }
         else {
             ++m_num_segments;
             m_segments[i] = ptr;
         }
 #else
-        SASSERT(i <= c_max_segments);
-        if (i == c_max_segments) {
+        SASSERT(i <= c_last_segment);
+        if (i == c_last_segment) {
             throw default_exception("segment out of range");
         }
         m_segments[i] = ptr;
         ++m_num_segments;
 #endif
+
         return i;
     }
 #endif
 
-    clause_offset clause_allocator::get_offset(clause const * ptr) const {
-#if defined(_AMD64_) 
-        unsigned segment = const_cast<clause_allocator*>(this)->get_segment(ptr);
+    clause_offset clause_allocator::get_offset(clause const * cls) const {
+#if defined(_AMD64_)
+        unsigned segment = const_cast<clause_allocator*>(this)->get_segment(cls);
 #if defined(Z3DEBUG)
-        if (segment >= c_max_segments) {
-            return m_ptr2cls_offset.find(reinterpret_cast<size_t>(ptr));
+        SASSERT(segment <= c_last_segment);
+        if (segment == c_last_segment) {
+            SASSERT(m_last_seg_id2cls.contains(cls->id()));
+            return (cls->id() << c_cls_alignment) | c_last_segment;
         }
 #endif
-        return static_cast<unsigned>(reinterpret_cast<size_t>(ptr)) + segment;
+        return static_cast<unsigned>(reinterpret_cast<size_t>(cls)) + segment;
 #else
-        return reinterpret_cast<size_t>(ptr);
+        return reinterpret_cast<size_t>(cls);
 #endif
     }
-    
+
     clause * clause_allocator::mk_clause(unsigned num_lits, literal const * lits, bool learned) {
         size_t size = clause::get_obj_size(num_lits);
-#if defined(_AMD64_) 
-        size_t slot = size >> c_cls_alignment;
-        if ((size & c_aligment_mask) != 0)
-            slot++;
-        size = slot << c_cls_alignment;
-#endif
         void * mem = m_allocator.allocate(size);
         clause * cls = new (mem) clause(m_id_gen.mk(), num_lits, lits, learned);
         TRACE("sat", tout << "alloc: " << cls->id() << " " << cls << " " << *cls << " " << (learned?"l":"a") << "\n";);
@@ -213,12 +208,6 @@ namespace sat {
         TRACE("sat", tout << "delete: " << cls->id() << " " << cls << " " << *cls << "\n";);
         m_id_gen.recycle(cls->id());
         size_t size = clause::get_obj_size(cls->m_capacity);
-#if defined(_AMD64_) 
-        size_t slot = size >> c_cls_alignment;
-        if ((size & c_aligment_mask) != 0)
-            slot++;
-        size = slot << c_cls_alignment;
-#endif
         cls->~clause();
         m_allocator.deallocate(size, cls);
     }
@@ -244,16 +233,16 @@ namespace sat {
         }
         return out;
     }
-    
-    bool clause_wrapper::contains(literal l) const { 
+
+    bool clause_wrapper::contains(literal l) const {
         unsigned sz = size();
         for (unsigned i = 0; i < sz; i++)
             if (operator[](i) == l)
                 return true;
         return false;
     }
-    
-    bool clause_wrapper::contains(bool_var v) const { 
+
+    bool clause_wrapper::contains(bool_var v) const {
         unsigned sz = size();
         for (unsigned i = 0; i < sz; i++)
             if (operator[](i).var() == v)
