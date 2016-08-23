@@ -1865,8 +1865,8 @@ void ast_manager::delete_node(ast * n) {
             dec_array_ref(worklist, to_quantifier(n)->get_num_patterns(), to_quantifier(n)->get_patterns());
             dec_array_ref(worklist, to_quantifier(n)->get_num_no_patterns(), to_quantifier(n)->get_no_patterns());
             break;
-    default:
-        break;
+        default:
+            break;
         }
         if (m_debug_ref_count) {
             m_debug_free_indices.insert(n->m_id,0);

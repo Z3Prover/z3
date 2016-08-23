@@ -234,7 +234,6 @@ namespace smt {
             expr* e = it->m_key;
             expr* val = it->m_value;
             push_scope();
-            unsigned current_level = m_scope_lvl;
 
             literal lit;
             if (m.is_bool(e)) {
