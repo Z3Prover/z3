@@ -207,6 +207,11 @@ namespace sat {
     void clause_allocator::del_clause(clause * cls) {
         TRACE("sat", tout << "delete: " << cls->id() << " " << cls << " " << *cls << "\n";);
         m_id_gen.recycle(cls->id());
+#if defined(_AMD64_)
+#if defined(Z3DEBUG)
+        m_last_seg_id2cls.remove(cls->id());
+#endif
+#endif
         size_t size = clause::get_obj_size(cls->m_capacity);
         cls->~clause();
         m_allocator.deallocate(size, cls);
