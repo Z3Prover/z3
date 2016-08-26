@@ -2737,6 +2737,8 @@ def mk_def_files():
 
 def cp_z3py_to_build():
     mk_dir(BUILD_DIR)
+    z3py_dest = os.path.join(BUILD_DIR, 'z3.py')
+    z3py_src = os.path.join(Z3PY_SRC_DIR, 'z3')
     # Erase existing .pyc files
     for root, dirs, files in os.walk(Z3PY_SRC_DIR):
         for f in files:
@@ -2746,20 +2748,19 @@ def cp_z3py_to_build():
     if compileall.compile_dir(Z3PY_SRC_DIR, force=1) != 1:
         raise MKException("failed to compile Z3Py sources")
     # Copy sources to build
-    for py in filter(lambda f: f.endswith('.py'), os.listdir(Z3PY_SRC_DIR)):
-        shutil.copyfile(os.path.join(Z3PY_SRC_DIR, py), os.path.join(BUILD_DIR, py))
-        if is_verbose():
-            print("Copied '%s'" % py)
+    shutil.copytree(z3py_src, z3py_dest)
+    if is_verbose():
+        print("Copied python bindings")
     # Python 2.x support
-    for pyc in filter(lambda f: f.endswith('.pyc'), os.listdir(Z3PY_SRC_DIR)):
-        shutil.copyfile(os.path.join(Z3PY_SRC_DIR, pyc), os.path.join(BUILD_DIR, pyc))
+    for pyc in filter(lambda f: f.endswith('.pyc'), os.listdir(z3py_src)):
+        shutil.copyfile(os.path.join(z3py_src, pyc), os.path.join(z3py_dest, pyc))
         if is_verbose():
             print("Generated '%s'" % pyc)
     # Python 3.x support
-    src_pycache = os.path.join(Z3PY_SRC_DIR, '__pycache__')
+    src_pycache = os.path.join(z3py_src, '__pycache__')
     if os.path.exists(src_pycache):
         for pyc in filter(lambda f: f.endswith('.pyc'), os.listdir(src_pycache)):
-            target_pycache = os.path.join(BUILD_DIR, '__pycache__')
+            target_pycache = os.path.join(z3py_dest, '__pycache__')
             mk_dir(target_pycache)
             shutil.copyfile(os.path.join(src_pycache, pyc), os.path.join(target_pycache, pyc))
             if is_verbose():

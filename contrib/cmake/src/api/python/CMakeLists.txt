@@ -9,7 +9,6 @@ set(z3py_files
   z3poly.py
   z3printer.py
   z3rcf.py
-  z3test.py
   z3types.py
   z3util.py
 )
@@ -18,12 +17,12 @@ set(z3py_bindings_build_dest "${CMAKE_BINARY_DIR}")
 
 set(build_z3_python_bindings_target_depends "")
 foreach (z3py_file ${z3py_files})
-  add_custom_command(OUTPUT "${z3py_bindings_build_dest}/${z3py_file}"
+  add_custom_command(OUTPUT "${z3py_bindings_build_dest}/z3/${z3py_file}"
     COMMAND "${CMAKE_COMMAND}" "-E" "copy"
-      "${CMAKE_CURRENT_SOURCE_DIR}/${z3py_file}"
-      "${z3py_bindings_build_dest}"
-    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/${z3py_file}"
-    COMMENT "Copying \"${z3py_file}\" to ${z3py_bindings_build_dest}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/z3/${z3py_file}"
+      "${z3py_bindings_build_dest}/z3.py"
+    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/z3/${z3py_file}"
+    COMMENT "Copying \"${z3py_file}\" to ${z3py_bindings_build_dest}/z3.py/${z3py_file}"
   )
   list(APPEND build_z3_python_bindings_target_depends "${z3py_bindings_build_dest}/${z3py_file}")
 endforeach()
