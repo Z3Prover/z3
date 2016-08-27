@@ -1549,6 +1549,9 @@ def And(*args):
     if isinstance(last_arg, Context):
         ctx = args[len(args)-1]
         args = args[:len(args)-1]
+    elif len(args) == 1 and isinstance(args[0], AstVector):
+        ctx = args[0].ctx
+        args = [a for a in args[0]]
     else:
         ctx = main_ctx()
     args = _get_args(args)
@@ -6775,7 +6778,7 @@ class Optimize(Z3PPObject):
         return Z3_optimize_to_string(self.ctx.ref(), self.optimize)
 
     def statistics(self):
-        """Return statistics for the last `query()`.
+        """Return statistics for the last check`.
         """
         return Statistics(Z3_optimize_get_statistics(self.ctx.ref(), self.optimize), self.ctx)
 
