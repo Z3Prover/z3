@@ -1600,6 +1600,7 @@ def write_core_py_preamble(core_py):
   core_py.write('# Automatically generated file\n')
   core_py.write('import sys, os\n')
   core_py.write('import ctypes\n')
+  core_py.write('import pkg_resources\n')
   core_py.write('from .z3types import *\n')
   core_py.write('from .z3consts import *\n')
   core_py.write(
@@ -1608,15 +1609,15 @@ _lib = None
 def lib():
   global _lib
   if _lib == None:
-    _dir = os.path.dirname(os.path.abspath(__file__))
+    _dir = pkg_resources.resource_filename('z3', 'lib')
     for ext in ['dll', 'so', 'dylib']:
       try:
-        init('libz3.%s' % ext)
+        init(os.path.join(_dir, 'libz3.%s' % ext))
         break
       except:
         pass
       try:
-        init(os.path.join(_dir, 'libz3.%s' % ext))
+        init('libz3.%s' % ext)
         break
       except:
         pass

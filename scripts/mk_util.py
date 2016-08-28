@@ -2748,6 +2748,7 @@ def cp_z3py_to_build():
     if compileall.compile_dir(Z3PY_SRC_DIR, force=1) != 1:
         raise MKException("failed to compile Z3Py sources")
     # Copy sources to build
+    shutil.rmtree(z3py_dest, ignore_errors=True)
     shutil.copytree(z3py_src, z3py_dest)
     if is_verbose():
         print("Copied python bindings")
