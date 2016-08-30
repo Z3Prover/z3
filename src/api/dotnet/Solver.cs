@@ -111,7 +111,7 @@ namespace Microsoft.Z3
             Contract.Requires(constraints != null);
             Contract.Requires(Contract.ForAll(constraints, c => c != null));
 
-            Context.CheckContextMatch(constraints);
+            Context.CheckContextMatch<BoolExpr>(constraints);
             foreach (BoolExpr a in constraints)
             {
                 Native.Z3_solver_assert(Context.nCtx, NativeObject, a.NativeObject);
@@ -142,8 +142,8 @@ namespace Microsoft.Z3
             Contract.Requires(constraints != null);
             Contract.Requires(Contract.ForAll(constraints, c => c != null));
             Contract.Requires(Contract.ForAll(ps, c => c != null));
-            Context.CheckContextMatch(constraints);
-            Context.CheckContextMatch(ps);
+            Context.CheckContextMatch<BoolExpr>(constraints);
+            Context.CheckContextMatch<BoolExpr>(ps);
             if (constraints.Length != ps.Length)
                 throw new Z3Exception("Argument size mismatch");
             

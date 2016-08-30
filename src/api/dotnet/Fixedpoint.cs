@@ -71,7 +71,7 @@ namespace Microsoft.Z3
             Contract.Requires(constraints != null);
             Contract.Requires(Contract.ForAll(constraints, c => c != null));
 
-            Context.CheckContextMatch(constraints);
+            Context.CheckContextMatch<BoolExpr>(constraints);
             foreach (BoolExpr a in constraints)
             {
                 Native.Z3_fixedpoint_assert(Context.nCtx, NativeObject, a.NativeObject);
@@ -151,7 +151,7 @@ namespace Microsoft.Z3
             Contract.Requires(relations != null);
             Contract.Requires(Contract.ForAll(0, relations.Length, i => relations[i] != null));
 
-            Context.CheckContextMatch(relations);
+            Context.CheckContextMatch<FuncDecl>(relations);
             Z3_lbool r = (Z3_lbool)Native.Z3_fixedpoint_query_relations(Context.nCtx, NativeObject,
                                    AST.ArrayLength(relations), AST.ArrayToNative(relations));
             switch (r)
