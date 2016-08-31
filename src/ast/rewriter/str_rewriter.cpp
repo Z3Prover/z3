@@ -425,6 +425,15 @@ br_status str_rewriter::mk_re_RegexIn(expr * str, expr * re, expr_ref & result) 
 	return BR_FAILED;
 }
 
+br_status str_rewriter::mk_re_RegexStar(expr * re, expr_ref & result) {
+    if (m_strutil.is_re_RegexStar(re)) {
+        result = re;
+        return BR_REWRITE_FULL;
+    } else {
+        return BR_FAILED;
+    }
+}
+
 br_status str_rewriter::mk_re_RegexPlus(expr * re, expr_ref & result) {
     /*
      * Two optimizations are possible if we inspect 're'.
@@ -523,6 +532,9 @@ br_status str_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_RE_REGEXPLUS:
         SASSERT(num_args == 1);
         return mk_re_RegexPlus(args[0], result);
+    case OP_RE_REGEXSTAR:
+        SASSERT(num_args == 1);
+        return mk_re_RegexStar(args[0], result);
     case OP_RE_REGEXCHARRANGE:
         SASSERT(num_args == 2);
         return mk_re_RegexCharRange(args[0], args[1], result);
