@@ -78,7 +78,10 @@ void parameter::del_eh(ast_manager & m, family_id fid) {
     }
     else if (is_external()) {
         SASSERT(fid != null_family_id);
-        m.get_plugin(fid)->del(*this);
+        decl_plugin * plugin = m.get_plugin(fid);
+        if (plugin) {
+            plugin->del(*this);
+        }
     }
 }
 
@@ -1418,9 +1421,10 @@ ast_manager::~ast_manager() {
     }
     it = m_plugins.begin();
     for (; it != end; ++it) {
-        if (*it)
+        if (*it) 
             dealloc(*it);
     }
+    m_plugins.reset();
     while (!m_ast_table.empty()) {
         DEBUG_CODE(std::cout << "ast_manager LEAKED: " << m_ast_table.size() << std::endl;);
         ptr_vector<ast> roots;
