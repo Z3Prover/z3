@@ -415,6 +415,7 @@ extern "C" {
             return;
         }
         mk_c(c)->m().dec_ref(to_ast(a));
+
         Z3_CATCH;
     }
 

@@ -449,10 +449,12 @@ namespace smt {
         bool is_var(expr* b);
         bool add_solution(expr* l, expr* r, dependency* dep);
         bool is_nth(expr* a) const;
+        bool is_nth(expr* a, expr*& e1, expr*& e2) const;
         bool is_tail(expr* a, expr*& s, unsigned& idx) const;
         bool is_eq(expr* e, expr*& a, expr*& b) const; 
         bool is_pre(expr* e, expr*& s, expr*& i);
         bool is_post(expr* e, expr*& s, expr*& i);
+        expr_ref mk_sk_ite(expr* c, expr* t, expr* f);
         expr_ref mk_nth(expr* s, expr* idx);
         expr_ref mk_last(expr* e);
         expr_ref mk_first(expr* e);

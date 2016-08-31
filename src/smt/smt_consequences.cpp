@@ -18,6 +18,7 @@ Revision History:
 --*/
 #include "smt_context.h"
 #include "ast_util.h"
+#include "datatype_decl_plugin.h"
 
 namespace smt {
 
@@ -31,74 +32,85 @@ namespace smt {
         return mk_and(premises);
     }
 
-    void context::extract_fixed_consequences(unsigned start, obj_map<expr, expr*>& vars, uint_set const& assumptions, expr_ref_vector& conseq) {
+    void context::extract_fixed_consequences(literal lit, obj_map<expr, expr*>& vars, uint_set const& assumptions, expr_ref_vector& conseq) {
         ast_manager& m = m_manager;
+        datatype_util dt(m);
+        expr* e1, *e2;       
+        expr_ref fml(m);        
+        if (lit == true_literal) return;
+        expr* e = bool_var2expr(lit.var());
+        uint_set s;
+        if (assumptions.contains(lit.var())) {
+            s.insert(lit.var());
+        }
+        else {
+            b_justification js = get_justification(lit.var());
+            switch (js.get_kind()) {
+            case b_justification::CLAUSE: {
+                clause * cls = js.get_clause();
+                unsigned num_lits = cls->get_num_literals();
+                for (unsigned j = 0; j < num_lits; ++j) {
+                    literal lit2 = cls->get_literal(j);
+                    if (lit2.var() != lit.var()) {
+                        s |= m_antecedents.find(lit2.var());
+                    }
+                }
+                break;
+            }
+            case b_justification::BIN_CLAUSE: {
+                s |= m_antecedents.find(js.get_literal().var());
+                break;
+            }
+            case b_justification::AXIOM: {
+                break;
+            }
+            case b_justification::JUSTIFICATION: {
+                literal_vector literals;
+                m_conflict_resolution->justification2literals(js.get_justification(), literals);
+                for (unsigned j = 0; j < literals.size(); ++j) {
+                    s |= m_antecedents.find(literals[j].var());
+                }
+                break;
+            }
+            }
+        }
+        m_antecedents.insert(lit.var(), s);
+        TRACE("context", display_literal_verbose(tout, lit); tout << " " << s << "\n";);
+        bool found = false;
+        if (vars.contains(e)) {
+            found = true;
+            fml = lit.sign() ? m.mk_not(e) : e;
+            vars.erase(e);
+        }
+        else if (!lit.sign() && m.is_eq(e, e1, e2)) {
+            if (vars.contains(e2)) {
+                std::swap(e1, e2);
+            }
+            if (vars.contains(e1) && m.is_value(e2)) {
+                found = true;
+                fml = e;
+                vars.erase(e1);
+            }
+        }
+        else if (!lit.sign() && is_app(e) && dt.is_recognizer(to_app(e)->get_decl())) {
+            if (vars.contains(to_app(e)->get_arg(0))) {
+                found = true;
+                fml = m.mk_eq(to_app(e)->get_arg(0), m.mk_const(dt.get_recognizer_constructor(to_app(e)->get_decl())));
+                vars.erase(to_app(e)->get_arg(0));
+            }
+        }
+        if (found) {
+            fml = m.mk_implies(antecedent2fml(s), fml);
+            conseq.push_back(fml);
+        }
+    }
+
+    void context::extract_fixed_consequences(unsigned start, obj_map<expr, expr*>& vars, uint_set const& assumptions, expr_ref_vector& conseq) {
         pop_to_search_lvl();
         literal_vector const& lits = assigned_literals();
         unsigned sz = lits.size();
-        expr* e1, *e2;       
-        expr_ref fml(m);
         for (unsigned i = start; i < sz; ++i) {            
-            literal lit = lits[i];
-            if (lit == true_literal) continue;
-            expr* e = bool_var2expr(lit.var());
-            uint_set s;
-            if (assumptions.contains(lit.var())) {
-                s.insert(lit.var());
-            }
-            else {
-                b_justification js = get_justification(lit.var());
-                switch (js.get_kind()) {
-                case b_justification::CLAUSE: {
-                    clause * cls      = js.get_clause();
-                    unsigned num_lits = cls->get_num_literals();
-                    for (unsigned j = 0; j < num_lits; ++j) {
-                        literal lit2 = cls->get_literal(j);
-                        if (lit2.var() != lit.var()) {
-                            s |= m_antecedents.find(lit2.var());
-                        }
-                    }
-                    break;
-                }
-                case b_justification::BIN_CLAUSE: {
-                    s |= m_antecedents.find(js.get_literal().var());
-                    break;
-                }
-                case b_justification::AXIOM: {
-                    break;
-                }
-                case b_justification::JUSTIFICATION: {
-                    literal_vector literals;
-                    m_conflict_resolution->justification2literals(js.get_justification(), literals);
-                    for (unsigned j = 0; j < literals.size(); ++j) {
-                        s |= m_antecedents.find(literals[j].var());
-                    }
-                    break;
-                }
-                }                
-            }       
-            m_antecedents.insert(lit.var(), s);
-            TRACE("context", display_literal_verbose(tout, lit); tout << " " << s << "\n";);
-            bool found = false;
-            if (vars.contains(e)) {
-                found = true;
-                fml = lit.sign()?m.mk_not(e):e;
-                vars.erase(e);
-            }
-            else if (!lit.sign() && m.is_eq(e, e1, e2)) {
-                if (vars.contains(e2)) {
-                    std::swap(e1, e2);
-                }
-                if (vars.contains(e1) && m.is_value(e2)) {
-                    found = true;
-                    fml = e;
-                    vars.erase(e1);                    
-                }
-            }
-            if (found) {
-                fml = m.mk_implies(antecedent2fml(s), fml);
-                conseq.push_back(fml);
-            }
+            extract_fixed_consequences(lits[i], vars, assumptions, conseq);
         }
     }
 
@@ -240,6 +252,7 @@ namespace smt {
                 lit = literal(get_bool_var(e), m.is_true(val));
             }
             else {
+                TRACE("context", tout << mk_pp(e, m) << " " << mk_pp(val, m) << "\n";);
                 eq = mk_eq_atom(e, val);
                 internalize_formula(eq, false);
                 lit = literal(get_bool_var(eq), true);
@@ -259,9 +272,10 @@ namespace smt {
                 }
                 break;
             }
-            if (get_assignment(lit) == l_true) {
+            if (is_sat == l_true && get_assignment(lit) == l_true) {
                 var2val.erase(e);
                 unfixed.push_back(e);
+                TRACE("context", tout << mk_pp(e, m) << " is unfixed\n";);
             }
             else if (get_assign_level(lit) > get_search_level()) {
                 TRACE("context", tout << "Retry fixing: " << mk_pp(e, m) << "\n";);
@@ -305,10 +319,15 @@ namespace smt {
                       << " unfixed-deleted: " << num_unfixed
                       << ")\n";);        
             }
+            TRACE("context", tout << "finishing " << mk_pp(e, m) << "\n";);
             if (var2val.contains(e)) {
                 TRACE("context", tout << "Fixed value to " << mk_pp(e, m) << " was not processed\n";);
                 expr_ref fml(m);
                 fml = m.mk_eq(e, var2val.find(e));
+                if (!m_antecedents.contains(lit.var()))
+                    {
+                        extract_fixed_consequences(lit, var2val, _assumptions, conseq);
+                    }
                 fml = m.mk_implies(antecedent2fml(m_antecedents[lit.var()]), fml);
                 conseq.push_back(fml);
                 var2val.erase(e);
