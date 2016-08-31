@@ -3401,7 +3401,7 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
             std::string part2Str = strValue.substr(i, strValue.size() - i);
             expr_ref cropStr(m_strutil.mk_string(part1Str), mgr);
             expr_ref suffixStr(m_strutil.mk_string(part2Str), mgr);
-            expr_ref y_concat(mk_concat(suffixStr, n), mgr); // TODO concat axioms?
+            expr_ref y_concat(mk_concat(suffixStr, n), mgr);
 
             if (can_two_nodes_eq(x, cropStr) && can_two_nodes_eq(y, y_concat)) {
                 // break down option 3-1
@@ -6435,6 +6435,7 @@ void theory_str::push_scope_eh() {
 void theory_str::pop_scope_eh(unsigned num_scopes) {
     sLevel -= num_scopes;
     TRACE("t_str", tout << "pop " << num_scopes << " to " << sLevel << std::endl;);
+    TRACE("t_str_dump_assign_on_scope_change", dump_assignments(););
 
     std::map<expr*, std::stack<T_cut *> >::iterator varItor = cut_var_map.begin();
     while (varItor != cut_var_map.end()) {
