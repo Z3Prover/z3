@@ -1354,6 +1354,9 @@ namespace smt {
 
         expr_ref antecedent2fml(uint_set const& ante);
 
+        void validate_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, 
+                                   expr_ref_vector const& conseq, expr_ref_vector const& unfixed);
+
 
     public:
         context(ast_manager & m, smt_params & fp, params_ref const & p = params_ref());

@@ -107,11 +107,13 @@ namespace smt {
 
     void context::extract_fixed_consequences(unsigned start, obj_map<expr, expr*>& vars, uint_set const& assumptions, expr_ref_vector& conseq) {
         pop_to_search_lvl();
+        SASSERT(!inconsistent());
         literal_vector const& lits = assigned_literals();
         unsigned sz = lits.size();
         for (unsigned i = start; i < sz; ++i) {            
             extract_fixed_consequences(lits[i], vars, assumptions, conseq);
         }
+        SASSERT(!inconsistent());
     }
 
     unsigned context::delete_unfixed(obj_map<expr, expr*>& var2val, expr_ref_vector& unfixed) {
@@ -160,6 +162,7 @@ namespace smt {
     // Extract equalities that are congruent at the search level.
     // 
     unsigned context::extract_fixed_eqs(obj_map<expr, expr*>& var2val, expr_ref_vector& conseq) {
+        TRACE("context", tout << "extract fixed consequences\n";);
         ast_manager& m = m_manager;
         ptr_vector<expr> to_delete;
         expr_ref fml(m), eq(m);
@@ -187,9 +190,10 @@ namespace smt {
                 }
                 eq = mk_eq_atom(k, v);
                 internalize_formula(eq, false);
-                literal lit(get_bool_var(eq), true);
+                literal lit(get_bool_var(eq), false);
                 literals.push_back(lit);
                 mk_clause(literals.size(), literals.c_ptr(), 0);
+                TRACE("context", display_literals_verbose(tout, literals.size(), literals.c_ptr()););
             }
         }    
         for (unsigned i = 0; i < to_delete.size(); ++i) {
@@ -247,6 +251,9 @@ namespace smt {
             expr* val = it->m_value;
             push_scope();
 
+            TRACE("context", tout << "scope level: " << get_scope_level() << "\n";);
+            SASSERT(!inconsistent());
+
             literal lit;
             if (m.is_bool(e)) {
                 lit = literal(get_bool_var(e), m.is_true(val));
@@ -277,19 +284,29 @@ namespace smt {
                 unfixed.push_back(e);
                 TRACE("context", tout << mk_pp(e, m) << " is unfixed\n";);
             }
-            else if (get_assign_level(lit) > get_search_level()) {
+            else if (is_sat == l_true && get_assign_level(lit) > get_search_level()) {
                 TRACE("context", tout << "Retry fixing: " << mk_pp(e, m) << "\n";);
-                pop_to_search_lvl();
+                extract_fixed_consequences(num_units, var2val, _assumptions, conseq);
                 ++num_reiterations;
                 continue;
             }
             else {
-                TRACE("context", tout << "Fixed: " << mk_pp(e, m) << "\n";);
+                // The state can be labeled as inconsistent when the implied consequence does
+                // not depend on assumptions, then the conflict level sits at the search level
+                // which causes the conflict resolver to decide that the state is unsat.
+                if (l_false == is_sat) {
+                    SASSERT(inconsistent());
+                    m_conflict = null_b_justification;
+                    m_not_l = null_literal;
+                }
+                TRACE("context", tout << "Fixed: " << mk_pp(e, m) << " " << is_sat << "\n";
+                      if (is_sat == l_false) display(tout););
+                
             }
             ++num_iterations;
 
             bool apply_slow_pass = model_threshold <= num_iterations || num_iterations <= 2;
-            if (apply_slow_pass) {
+            if (apply_slow_pass && is_sat == l_true) {
                 num_unfixed += delete_unfixed(var2val, unfixed);
                 // The next time we check the model is after 1.5 additional iterations.
                 model_threshold *= 3;
@@ -320,14 +337,14 @@ namespace smt {
                       << ")\n";);        
             }
             TRACE("context", tout << "finishing " << mk_pp(e, m) << "\n";);
+            SASSERT(!inconsistent());
             if (var2val.contains(e)) {
                 TRACE("context", tout << "Fixed value to " << mk_pp(e, m) << " was not processed\n";);
                 expr_ref fml(m);
                 fml = m.mk_eq(e, var2val.find(e));
-                if (!m_antecedents.contains(lit.var()))
-                    {
-                        extract_fixed_consequences(lit, var2val, _assumptions, conseq);
-                    }
+                if (!m_antecedents.contains(lit.var())) {
+                    extract_fixed_consequences(lit, var2val, _assumptions, conseq);
+                }
                 fml = m.mk_implies(antecedent2fml(m_antecedents[lit.var()]), fml);
                 conseq.push_back(fml);
                 var2val.erase(e);
@@ -335,7 +352,48 @@ namespace smt {
             }        
         }
         end_search();
+        DEBUG_CODE(validate_consequences(assumptions, vars, conseq, unfixed););
         return l_true;
+    }
+
+    void context::validate_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, 
+                                        expr_ref_vector const& conseq, expr_ref_vector const& unfixed) {
+        ast_manager& m = m_manager;
+        expr_ref tmp(m);
+        SASSERT(!inconsistent());
+        for (unsigned i = 0; i < conseq.size(); ++i) {
+            push();            
+            for (unsigned j = 0; j < assumptions.size(); ++j) {
+                assert_expr(assumptions[j]);
+            }
+            TRACE("context", tout << "checking: " << mk_pp(conseq[i], m) << "\n";);
+            tmp = m.mk_not(conseq[i]);
+            assert_expr(tmp);
+            lbool is_sat = check();
+            SASSERT(is_sat != l_true);
+            pop(1);
+        }
+        model_ref mdl;
+        for (unsigned i = 0; i < unfixed.size(); ++i) {
+            push();            
+            for (unsigned j = 0; j < assumptions.size(); ++j) {
+                assert_expr(assumptions[j]);
+            }
+            TRACE("context", tout << "checking unfixed: " << mk_pp(unfixed[i], m) << "\n";);
+            lbool is_sat = check();            
+            SASSERT(is_sat != l_false);
+            if (is_sat == l_true) {
+                get_model(mdl);
+                mdl->eval(unfixed[i], tmp);
+                if (m.is_value(tmp)) {
+                    tmp = m.mk_not(m.mk_eq(unfixed[i], tmp));
+                    assert_expr(tmp);
+                    is_sat = check();
+                    SASSERT(is_sat != l_false);
+                }
+            }
+            pop(1);
+        }
     }
 
 }

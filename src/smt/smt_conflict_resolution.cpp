@@ -403,7 +403,6 @@ namespace smt {
         // the previous levels were already inconsistent, or the inconsistency was
         // triggered by an axiom or justification proof wrapper, this two kinds
         // of justification are considered level zero.
-
         if (m_conflict_lvl <= m_ctx.get_search_level()) {
             TRACE("conflict", tout << "problem is unsat\n";);
             if (m_manager.proofs_enabled())
