@@ -457,6 +457,8 @@ namespace smt {
 
         virtual char const * get_name() const { return "strings"; }
         virtual void display(std::ostream & out) const;
+
+        bool overlapping_variables_detected() const { return loopDetected; }
     protected:
         virtual bool internalize_atom(app * atom, bool gate_ctx);
         virtual bool internalize_term(app * term);

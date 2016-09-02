@@ -37,6 +37,7 @@ Revision History:
 #include"model_pp.h"
 #include"ast_smt2_pp.h"
 #include"ast_translation.h"
+#include"theory_str.h"
 
 namespace smt {
 
@@ -3086,6 +3087,25 @@ namespace smt {
         if (r == l_true && get_cancel_flag()) {
             r = l_undef;
         }
+
+        // PATCH for theory_str:
+        // UNSAT + overlapping variables => UNKNOWN
+        if (r == l_false) {
+            ptr_vector<theory>::iterator it  = m_theory_set.begin();
+            ptr_vector<theory>::iterator end = m_theory_set.end();
+            for (; it != end; ++it) {
+                theory * th = *it;
+                if (strcmp(th->get_name(), "strings") == 0) {
+                    theory_str * str = (theory_str*)th;
+                    if (str->overlapping_variables_detected()) {
+                        TRACE("t_str", tout << "WARNING: overlapping variables detected, UNSAT changed to UNKNOWN!" << std::endl;);
+                        r = l_undef;
+                    }
+                    break;
+                }
+            }
+        }
+
         return r;
     }
 
