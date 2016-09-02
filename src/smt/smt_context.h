@@ -942,7 +942,7 @@ namespace smt {
             push_eq(n1, n2, eq_justification::mk_cg(used_commutativity));
         }
 
-        void add_diseq(enode * n1, enode * n2);
+        bool add_diseq(enode * n1, enode * n2);
 
         void assign_quantifier(quantifier * q);
 
@@ -1345,6 +1345,7 @@ namespace smt {
             vector<bool_var> b2v, ast_translation& tr);
 
         u_map<uint_set> m_antecedents;
+        void extract_fixed_consequences(literal lit, obj_map<expr, expr*>& var2val, uint_set const& assumptions, expr_ref_vector& conseq);
         void extract_fixed_consequences(unsigned idx, obj_map<expr, expr*>& var2val, uint_set const& assumptions, expr_ref_vector& conseq);
         
         unsigned delete_unfixed(obj_map<expr, expr*>& var2val, expr_ref_vector& unfixed);
@@ -1352,6 +1353,9 @@ namespace smt {
         unsigned extract_fixed_eqs(obj_map<expr, expr*>& var2val, expr_ref_vector& conseq);
 
         expr_ref antecedent2fml(uint_set const& ante);
+
+        void validate_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, 
+                                   expr_ref_vector const& conseq, expr_ref_vector const& unfixed);
 
 
     public:

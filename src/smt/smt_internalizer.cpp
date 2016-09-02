@@ -1284,7 +1284,6 @@ namespace smt {
         TRACE("mk_clause", tout << "creating clause:\n"; display_literals(tout, num_lits, lits); tout << "\n";);
         switch (k) {
         case CLS_AUX: {
-            unsigned old_num_lits = num_lits;
             literal_buffer simp_lits;
             if (!simplify_aux_clause_literals(num_lits, lits, simp_lits))
                 return 0; // clause is equivalent to true;

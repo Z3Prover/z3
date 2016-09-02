@@ -493,14 +493,14 @@ namespace sat {
     void bceq::operator()() {
         if (!m_solver.m_config.m_bcd) return;
         flet<bool> _disable_bcd(m_solver.m_config.m_bcd, false);
-        flet<bool> _disable_min(m_solver.m_config.m_minimize_core, false);
+        flet<bool> _disable_min(m_solver.m_config.m_core_minimize, false);
         flet<bool> _disable_opt(m_solver.m_config.m_optimize_model, false);
         flet<unsigned> _bound_maxc(m_solver.m_config.m_max_conflicts, 1500);
 
         use_list     ul;        
         solver       s(m_solver.m_params, m_solver.rlimit(), 0);
         s.m_config.m_bcd            = false;
-        s.m_config.m_minimize_core  = false;
+        s.m_config.m_core_minimize  = false;
         s.m_config.m_optimize_model = false;
         s.m_config.m_max_conflicts  = 1500;
         m_use_list = &ul;

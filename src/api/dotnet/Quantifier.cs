@@ -172,10 +172,10 @@ namespace Microsoft.Z3
             Contract.Requires(patterns == null || Contract.ForAll(patterns, p => p != null));
             Contract.Requires(noPatterns == null || Contract.ForAll(noPatterns, np => np != null));
 
-            Context.CheckContextMatch(patterns);
-            Context.CheckContextMatch(noPatterns);
-            Context.CheckContextMatch(sorts);
-            Context.CheckContextMatch(names);
+            Context.CheckContextMatch<Pattern>(patterns);
+            Context.CheckContextMatch<Expr>(noPatterns);
+            Context.CheckContextMatch<Sort>(sorts);
+            Context.CheckContextMatch<Symbol>(names);
             Context.CheckContextMatch(body);
 
             if (sorts.Length != names.Length)
@@ -212,8 +212,8 @@ namespace Microsoft.Z3
             Contract.Requires(noPatterns == null || Contract.ForAll(noPatterns, np => np != null));
             Contract.Requires(bound == null || Contract.ForAll(bound, n => n != null));
 
-            Context.CheckContextMatch(noPatterns);
-            Context.CheckContextMatch(patterns);
+            Context.CheckContextMatch<Expr>(noPatterns);
+            Context.CheckContextMatch<Pattern>(patterns);
             //Context.CheckContextMatch(bound);
             Context.CheckContextMatch(body);
 

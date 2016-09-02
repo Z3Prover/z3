@@ -64,7 +64,7 @@ namespace smt {
                     lower(v2)->push_justification(ante, numeral::zero(), proofs_enabled());
                     upper(v)->push_justification(ante, numeral::zero(), proofs_enabled());
 
-                    TRACE("arith_fixed_propagate_eq", tout << "propagate eq: v" << v << " = v" << v2 << "\n";
+                    TRACE("arith_eq", tout << "propagate eq: v" << v << " = v" << v2 << "\n";
                           display_var(tout, v);
                           display_var(tout, v2););
                     m_stats.m_fixed_eqs++;
@@ -175,7 +175,7 @@ namespace smt {
         timer.stop();
         ok++;
         if (ok % 100000 == 0) {
-            TRACE("propagate_cheap_eq", 
+            TRACE("arith_eq", 
                   tout << total << " " << ok << " " 
                   << static_cast<double>(ok)/static_cast<double>(total) 
                   << " " << timer.get_seconds() << "\n";
@@ -216,7 +216,7 @@ namespace smt {
     void theory_arith<Ext>::propagate_cheap_eq(unsigned rid) {
         if (!propagate_eqs())
             return;
-        TRACE("propagate_cheap_eq", tout << "checking if row " << rid << " can propagate equality.\n";
+        TRACE("arith_eq", tout << "checking if row " << rid << " can propagate equality.\n";
               display_row_info(tout, rid););
         row const & r = m_rows[rid];
         theory_var x;
@@ -258,7 +258,7 @@ namespace smt {
                 // found equality x = y
                 antecedents ante(*this);
                 collect_fixed_var_justifications(r, ante);
-                TRACE("propagate_cheap_eq", tout << "propagate eq using x-y=0 row:\n"; display_row_info(tout, r););
+                TRACE("arith_eq", tout << "propagate eq using x-y=0 row:\n"; display_row_info(tout, r););
                 m_stats.m_offset_eqs++;
                 propagate_eq_to_core(x, y, ante);
             }
@@ -299,7 +299,7 @@ namespace smt {
                             antecedents ante(*this);
                             collect_fixed_var_justifications(r, ante);
                             collect_fixed_var_justifications(r2, ante);
-                            TRACE("propagate_cheap_eq", tout << "propagate eq two rows:\n"; 
+                            TRACE("arith_eq", tout << "propagate eq two rows:\n"; 
                                   tout << "swapped: " << swapped << "\n";
                                   tout << "x  : v" << x << "\n";
                                   tout << "x2 : v" << x2 << "\n";
@@ -343,7 +343,7 @@ namespace smt {
                     antecedents.eqs().size(), antecedents.eqs().c_ptr(),
                     _x, _y, 
                     antecedents.num_params(), antecedents.params("eq-propagate")));
-        TRACE("propagate_eq_to_core", tout << "detected equality: #" << _x->get_owner_id() << " = #" << _y->get_owner_id() << "\n";
+        TRACE("arith_eq", tout << "detected equality: #" << _x->get_owner_id() << " = #" << _y->get_owner_id() << "\n";
               display_var(tout, x);
               display_var(tout, y););
         ctx.assign_eq(_x, _y, eq_justification(js));

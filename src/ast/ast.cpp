@@ -78,7 +78,10 @@ void parameter::del_eh(ast_manager & m, family_id fid) {
     }
     else if (is_external()) {
         SASSERT(fid != null_family_id);
-        m.get_plugin(fid)->del(*this);
+        decl_plugin * plugin = m.get_plugin(fid);
+        if (plugin) {
+            plugin->del(*this);
+        }
     }
 }
 
@@ -1418,9 +1421,10 @@ ast_manager::~ast_manager() {
     }
     it = m_plugins.begin();
     for (; it != end; ++it) {
-        if (*it)
+        if (*it) 
             dealloc(*it);
     }
+    m_plugins.reset();
     while (!m_ast_table.empty()) {
         DEBUG_CODE(std::cout << "ast_manager LEAKED: " << m_ast_table.size() << std::endl;);
         ptr_vector<ast> roots;
@@ -1430,14 +1434,22 @@ ast_manager::~ast_manager() {
         for (; it_a != end_a; ++it_a) {
             ast* n = (*it_a);
             switch (n->get_kind()) {
-            case AST_SORT:
-                mark_array_ref(mark, to_sort(n)->get_info()->get_num_parameters(), to_sort(n)->get_info()->get_parameters());
+            case AST_SORT: {
+                sort_info* info = to_sort(n)->get_info();
+                if (info != 0) {
+                    mark_array_ref(mark, info->get_num_parameters(), info->get_parameters());
+                }
                 break;
-            case AST_FUNC_DECL:
-                mark_array_ref(mark, to_func_decl(n)->get_info()->get_num_parameters(), to_func_decl(n)->get_info()->get_parameters());
+            }
+            case AST_FUNC_DECL: {
+                func_decl_info* info = to_func_decl(n)->get_info();
+                if (info != 0) {
+                    mark_array_ref(mark, info->get_num_parameters(), info->get_parameters());
+                }
                 mark_array_ref(mark, to_func_decl(n)->get_arity(), to_func_decl(n)->get_domain());
                 mark.mark(to_func_decl(n)->get_range(), true);
                 break;
+            }
             case AST_APP:
                 mark.mark(to_app(n)->get_decl(), true);
                 mark_array_ref(mark, to_app(n)->get_num_args(), to_app(n)->get_args());
@@ -1857,8 +1869,8 @@ void ast_manager::delete_node(ast * n) {
             dec_array_ref(worklist, to_quantifier(n)->get_num_patterns(), to_quantifier(n)->get_patterns());
             dec_array_ref(worklist, to_quantifier(n)->get_num_no_patterns(), to_quantifier(n)->get_no_patterns());
             break;
-    default:
-        break;
+        default:
+            break;
         }
         if (m_debug_ref_count) {
             m_debug_free_indices.insert(n->m_id,0);

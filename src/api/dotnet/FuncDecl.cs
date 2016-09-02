@@ -339,7 +339,7 @@ namespace Microsoft.Z3
         {
             Contract.Requires(args == null || Contract.ForAll(args, a => a != null));
 
-            Context.CheckContextMatch(args);
+            Context.CheckContextMatch<Expr>(args);
             return Expr.Create(Context, this, args);
         }
 

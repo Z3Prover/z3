@@ -249,6 +249,7 @@ final_check_status theory_seq::final_check_eh() {
     }
     m_new_propagation = false;
     TRACE("seq", display(tout << "level: " << get_context().get_scope_level() << "\n"););
+    TRACE("seq_verbose", get_context().display(tout););
     if (simplify_and_solve_eqs()) {
         ++m_stats.m_solve_eqs;
         TRACE("seq", tout << ">>solve_eqs\n";);
@@ -1009,6 +1010,17 @@ bool theory_seq::is_nth(expr* e) const {
     return is_skolem(m_nth, e);
 }
 
+bool theory_seq::is_nth(expr* e, expr*& e1, expr*& e2) const {
+    if (is_nth(e)) {
+        e1 = to_app(e)->get_arg(0);
+        e2 = to_app(e)->get_arg(1);
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
 bool theory_seq::is_tail(expr* e, expr*& s, unsigned& idx) const {
     rational r;
     return
@@ -1036,6 +1048,10 @@ expr_ref theory_seq::mk_nth(expr* s, expr* idx) {
     sort* char_sort = 0;
     VERIFY(m_util.is_seq(m.get_sort(s), char_sort));
     return mk_skolem(m_nth, s, idx, 0, char_sort);
+}
+
+expr_ref theory_seq::mk_sk_ite(expr* c, expr* t, expr* e) {
+    return mk_skolem(symbol("seq.if"), c, t, e, m.get_sort(t));
 }
 
 expr_ref theory_seq::mk_last(expr* s) {
@@ -1133,7 +1149,7 @@ bool theory_seq::check_extensionality() {
                     continue;
                 }
                 TRACE("seq", tout << m_lhs << " = " << m_rhs << "\n";);
-                ctx.assume_eq(n1, n2);                
+                ctx.assume_eq(n1, n2);
                 return false;
             }
         }
@@ -2668,6 +2684,13 @@ expr_ref theory_seq::expand(expr* e0, dependency*& eqs) {
     }
     else if (m.is_ite(e, e1, e2, e3)) {
         literal lit(mk_literal(e1));
+#if 0
+        expr_ref sk_ite = mk_sk_ite(e1, e2, e3);
+        add_axiom(~lit, mk_eq(e2, sk_ite, false));
+        add_axiom( lit, mk_eq(e3, sk_ite, false));
+        result = sk_ite;
+
+#else
         switch (ctx.get_assignment(lit)) {
         case l_true:
             deps = m_dm.mk_join(deps, m_dm.mk_leaf(assumption(lit)));
@@ -2684,6 +2707,7 @@ expr_ref theory_seq::expand(expr* e0, dependency*& eqs) {
                   tout << lit << "@ level: " << ctx.get_scope_level() << "\n";);
             break;
         }
+#endif
     }
     else if (m_util.str.is_itos(e, e1)) {
         rational val;
@@ -2902,9 +2926,13 @@ void theory_seq::add_replace_axiom(expr* r) {
     expr_ref xty = mk_concat(x, t, y);
     expr_ref xsy = mk_concat(x, s, y);
     literal cnt = mk_literal(m_util.str.mk_contains(a ,s));
+    literal a_emp = mk_eq_empty(a);
+    literal s_emp = mk_eq_empty(s);
+    add_axiom(~a_emp, mk_seq_eq(r, a));
     add_axiom(cnt,  mk_seq_eq(r, a));
-    add_axiom(~cnt, mk_seq_eq(a, xsy));
-    add_axiom(~cnt, mk_seq_eq(r, xty));
+    add_axiom(~s_emp, mk_seq_eq(r, a));
+    add_axiom(~cnt, a_emp, s_emp, mk_seq_eq(a, xsy));
+    add_axiom(~cnt, a_emp, s_emp, mk_seq_eq(r, xty));
     tightest_prefix(s, x);
 }
 

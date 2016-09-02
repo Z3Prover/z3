@@ -112,7 +112,7 @@ class dt2bv_tactic : public tactic {
                 unsigned idx = m_t.m_dt.get_constructor_idx(f);
                 result = m_t.m_bv.mk_numeral(idx, bv_size);
             }
-            else {
+            else if (is_uninterp_const(a)) {
                 // create a fresh variable, add bounds constraints for it.
                 unsigned nc = m_t.m_dt.get_datatype_num_constructors(s);
                 result = m.mk_fresh_const(f->get_name().str().c_str(), m_t.m_bv.mk_sort(bv_size));
@@ -129,6 +129,9 @@ class dt2bv_tactic : public tactic {
                 // update model converters.
                 m_t.m_ext->insert(f, f_def);
                 m_t.m_filter->insert(to_app(result)->get_decl());
+            }
+            else {
+                return false;
             }
             m_cache.insert(a, result);
             ++m_t.m_num_translated;

@@ -138,7 +138,7 @@ namespace Microsoft.Z3
         }
 
         [Pure]
-        internal static IntPtr[] EnumToNative(IEnumerable<Z3Object> a)
+        internal static IntPtr[] EnumToNative<T>(IEnumerable<T> a) where T : Z3Object
         {
             Contract.Ensures(a == null || Contract.Result<IntPtr[]>() != null);
             Contract.Ensures(a == null || Contract.Result<IntPtr[]>().Length == a.Count());

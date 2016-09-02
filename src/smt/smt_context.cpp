@@ -1094,7 +1094,7 @@ namespace smt {
        \brief This method is invoked when a new disequality is asserted.
        The disequality is propagated to the theories.
     */
-    void context::add_diseq(enode * n1, enode * n2) {
+    bool context::add_diseq(enode * n1, enode * n2) {
         enode * r1 = n1->get_root();
         enode * r2 = n2->get_root();
         TRACE("add_diseq", tout << "assigning: #" << n1->get_owner_id() << " != #" << n2->get_owner_id() << "\n";
@@ -1111,7 +1111,7 @@ namespace smt {
 
         if (r1 == r2) {
             TRACE("add_diseq_inconsistent", tout << "add_diseq #" << n1->get_owner_id() << " #" << n2->get_owner_id() << " inconsistency, scope_lvl: " << m_scope_lvl << "\n";);
-            return; // context is inconsistent
+            return false; // context is inconsistent
         }
 
         // Propagate disequalities to theories
@@ -1145,6 +1145,7 @@ namespace smt {
                 l1 = l1->get_next();
             }
         }
+        return true;
     }
     
     /**
@@ -1400,7 +1401,9 @@ namespace smt {
                 }
                 else {
                     TRACE("add_diseq", display_eq_detail(tout, bool_var2enode(v)););
-                    add_diseq(get_enode(lhs), get_enode(rhs));
+                    if (!add_diseq(get_enode(lhs), get_enode(rhs)) && !inconsistent()) {
+                        set_conflict(b_justification(mk_justification(eq_propagation_justification(get_enode(lhs), get_enode(rhs)))), ~l);                        
+                    }
                 }
             }
             else if (d.is_theory_atom()) {
