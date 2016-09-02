@@ -22,6 +22,7 @@ Revision History:
 #include"ast_ll_pp.h"
 #include<list>
 #include<vector>
+#include<algorithm>
 #include"theory_arith.h"
 
 namespace smt {
@@ -8375,7 +8376,14 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 	    expr_ref_vector and_items_LHS(m);
 		expr_ref moreAst(m_strutil.mk_string("more"), m);
 		for (int i = 0; i < testerCount; ++i) {
-			and_items_LHS.push_back(ctx.mk_eq_atom(fvar_lenTester_map[freeVar][i], moreAst));
+		    expr * indicator = fvar_lenTester_map[freeVar][i];
+		    if (internal_variable_set.find(indicator) == internal_variable_set.end()) {
+		        TRACE("t_str_detail", tout << "indicator " << mk_pp(indicator, m) << " out of scope; continuing" << std::endl;);
+		        continue;
+		    } else {
+		        TRACE("t_str_detail", tout << "indicator " << mk_pp(indicator, m) << " in scope" << std::endl;);
+		        and_items_LHS.push_back(ctx.mk_eq_atom(indicator, moreAst));
+		    }
 		}
 		expr_ref assertL(mk_and(and_items_LHS), m);
 		SASSERT(assertL);
@@ -8591,6 +8599,12 @@ void theory_str::get_var_in_eqc(expr * n, std::set<expr*> & varSet) {
 	} while (eqcNode != n);
 }
 
+bool cmpvarnames(expr * lhs, expr * rhs) {
+    symbol lhs_name = to_app(lhs)->get_decl()->get_name();
+    symbol rhs_name = to_app(rhs)->get_decl()->get_name();
+    return lhs_name.str() < rhs_name.str();
+}
+
 void theory_str::process_free_var(std::map<expr*, int> & freeVar_map) {
 	context & ctx = get_context();
 	ast_manager & m = get_manager();
@@ -8664,14 +8678,34 @@ void theory_str::process_free_var(std::map<expr*, int> & freeVar_map) {
 
 	// TODO here's a great place for debugging info
 
-	for(std::set<expr*>::iterator itor1 = leafVarSet.begin();
-			itor1 != leafVarSet.end(); ++itor1) {
-		expr * toAssert = gen_len_val_options_for_free_var(*itor1, NULL, "");
-        // gen_len_val_options_for_free_var() can legally return NULL,
-        // as methods that it calls may assert their own axioms instead.
-		if (toAssert != NULL) {
-		    assert_axiom(toAssert);
-		}
+	// testing: iterate over leafVarSet deterministically
+	if (false) {
+	    // *** TESTING CODE
+	    std::vector<expr*> sortedLeafVarSet;
+	    for (std::set<expr*>::iterator itor1 = leafVarSet.begin(); itor1 != leafVarSet.end(); ++itor1) {
+	        sortedLeafVarSet.push_back(*itor1);
+	    }
+	    std::sort(sortedLeafVarSet.begin(), sortedLeafVarSet.end(), cmpvarnames);
+	    for(std::vector<expr*>::iterator itor1 = sortedLeafVarSet.begin();
+	            itor1 != sortedLeafVarSet.end(); ++itor1) {
+	        expr * toAssert = gen_len_val_options_for_free_var(*itor1, NULL, "");
+	        // gen_len_val_options_for_free_var() can legally return NULL,
+	        // as methods that it calls may assert their own axioms instead.
+	        if (toAssert != NULL) {
+	            assert_axiom(toAssert);
+	        }
+	    }
+	} else {
+	    // *** CODE FROM BEFORE
+	    for(std::set<expr*>::iterator itor1 = leafVarSet.begin();
+	            itor1 != leafVarSet.end(); ++itor1) {
+	        expr * toAssert = gen_len_val_options_for_free_var(*itor1, NULL, "");
+	        // gen_len_val_options_for_free_var() can legally return NULL,
+	        // as methods that it calls may assert their own axioms instead.
+	        if (toAssert != NULL) {
+	            assert_axiom(toAssert);
+	        }
+	    }
 	}
 
 	for (std::map<int, std::set<expr*> >::iterator mItor = aloneVars.begin();
