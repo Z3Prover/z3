@@ -19,6 +19,7 @@ Revision History:
 #include "smt_context.h"
 #include "ast_util.h"
 #include "datatype_decl_plugin.h"
+#include "model_pp.h"
 
 namespace smt {
 
@@ -32,6 +33,15 @@ namespace smt {
         return mk_and(premises);
     }
 
+    //
+    // The literal lit is assigned at the search level, so it follows from the assumptions.
+    // We retrieve the set of assumptions it depends on in the set 's'.
+    // The map m_antecedents contains the association from these literals to the assumptions they depend on.
+    // We then examine the contents of the literal lit and augment the set of consequences in one of the following cases:
+    // - e is a propositional atom and it is one of the variables that is to be fixed.
+    // - e is an equality between a variable and value that is to be fixed.
+    // - e is a data-type recognizer of a variable that is to be fixed.
+    // 
     void context::extract_fixed_consequences(literal lit, obj_map<expr, expr*>& vars, uint_set const& assumptions, expr_ref_vector& conseq) {
         ast_manager& m = m_manager;
         datatype_util dt(m);
@@ -48,6 +58,7 @@ namespace smt {
             switch (js.get_kind()) {
             case b_justification::CLAUSE: {
                 clause * cls = js.get_clause();
+                if (!cls) break;
                 unsigned num_lits = cls->get_num_literals();
                 for (unsigned j = 0; j < num_lits; ++j) {
                     literal lit2 = cls->get_literal(j);
@@ -115,6 +126,18 @@ namespace smt {
         }
         SASSERT(!inconsistent());
     }
+    
+
+    //
+    // The assignment stack is assumed consistent.
+    // For each Boolean variable, we check if there is a literal assigned to the 
+    // opposite value of the reference model, and for non-Boolean variables we
+    // check if the current state forces the variable to be distinct from the reference value.
+    // 
+    // For yet to be determined Boolean variables we furthermore force the phase to be opposite
+    // to the reference value in the attempt to let the sat engine emerge with a model that
+    // rules out as many non-fixed variables as possible.
+    // 
 
     unsigned context::delete_unfixed(obj_map<expr, expr*>& var2val, expr_ref_vector& unfixed) {
         ast_manager& m = m_manager;
@@ -158,8 +181,12 @@ namespace smt {
         return to_delete.size();
     }
 
+#define are_equal(v, k) (e_internalized(k) && e_internalized(v) && get_enode(k)->get_root() == get_enode(v)->get_root())
+
     //
     // Extract equalities that are congruent at the search level.
+    // Add a clause to short-circuit the congruence justifications for
+    // next rounds.
     // 
     unsigned context::extract_fixed_eqs(obj_map<expr, expr*>& var2val, expr_ref_vector& conseq) {
         TRACE("context", tout << "extract fixed consequences\n";);
@@ -170,8 +197,7 @@ namespace smt {
         for (; it != end; ++it) {
             expr* k = it->m_key;
             expr* v = it->m_value;
-            if (!m.is_bool(k) && e_internalized(k) && e_internalized(v) && 
-                get_enode(k)->get_root() == get_enode(v)->get_root()) {
+            if (!m.is_bool(k) && are_equal(k, v)) {
                 literal_vector literals;
                 m_conflict_resolution->eq2literals(get_enode(v), get_enode(k), literals);
                 uint_set s;
@@ -208,6 +234,7 @@ namespace smt {
                                     expr_ref_vector& unfixed) {
 
         m_antecedents.reset();
+        pop_to_base_lvl();
         lbool is_sat = check(assumptions.size(), assumptions.c_ptr());
         if (is_sat != l_true) {
             return is_sat;
@@ -223,6 +250,7 @@ namespace smt {
         expr_ref_vector trail(m);
         model_evaluator eval(*mdl.get());
         expr_ref val(m);
+        TRACE("context", model_pp(tout, *mdl););
         for (unsigned i = 0; i < vars.size(); ++i) {
             eval(vars[i], val);
             if (m.is_value(val)) {
@@ -249,23 +277,39 @@ namespace smt {
             obj_map<expr,expr*>::iterator it = var2val.begin();
             expr* e = it->m_key;
             expr* val = it->m_value;
-            push_scope();
 
             TRACE("context", tout << "scope level: " << get_scope_level() << "\n";);
             SASSERT(!inconsistent());
 
+            //
+            // The current variable is checked to be a backbone
+            // We add the negation of the reference assignment to the variable.
+            // If the variable is a Boolean, it means adding literal that has
+            // the opposite value of the current reference model.
+            // If the variable is a non-Boolean, it means adding a disequality.
+            //
             literal lit;
             if (m.is_bool(e)) {
                 lit = literal(get_bool_var(e), m.is_true(val));
             }
             else {
-                TRACE("context", tout << mk_pp(e, m) << " " << mk_pp(val, m) << "\n";);
                 eq = mk_eq_atom(e, val);
                 internalize_formula(eq, false);
                 lit = literal(get_bool_var(eq), true);
+                TRACE("context", tout << mk_pp(e, m) << " " << mk_pp(val, m) << "\n";
+                      display_literal_verbose(tout, lit); tout << "\n"; 
+                      tout << "Equal: " << are_equal(e, val) << "\n";);
             }
+            mark_as_relevant(lit);
+            push_scope();
             assign(lit, b_justification::mk_axiom(), true);
             flet<bool> l(m_searching, true);
+
+            // 
+            // We check if the current assignment stack can be extended to a 
+            // satisfying assignment. bounded search may decide to restart, 
+            // in which case it returns l_undef and clears search failure.
+            //
             while (true) {
                 is_sat = bounded_search();
                 TRACE("context", tout << "search result: " << is_sat << "\n";);
@@ -279,21 +323,41 @@ namespace smt {
                 }
                 break;
             }
-            if (is_sat == l_true && get_assignment(lit) == l_true) {
+            //
+            // If the state is satisfiable with the current variable assigned to 
+            // a different value from the reference model, it is unfixed.
+            // 
+            // If it is assigned above the search level we can't conclude anything
+            // about its value. 
+            // extract_fixed_consequences pops the assignment stack to the search level
+            // so this sets up the state to retry finding fixed values.
+            // 
+            // Otherwise, the variable is fixed.
+            // - it is either assigned at the search level to l_false, or
+            // - the state is l_false, which means that the variable is fixed by
+            //   the background constraints (and does not depend on assumptions).
+            // 
+            if (is_sat == l_true && get_assignment(lit) == l_true && is_relevant(lit)) { 
                 var2val.erase(e);
                 unfixed.push_back(e);
-                TRACE("context", tout << mk_pp(e, m) << " is unfixed\n";);
+                SASSERT(!are_equal(e, val));
+                TRACE("context", tout << mk_pp(e, m) << " is unfixed\n";
+                      display_literal_verbose(tout, lit); tout << "\n";
+                      tout << "relevant: " << is_relevant(lit) << "\n";
+                      display(tout););
             }
-            else if (is_sat == l_true && get_assign_level(lit) > get_search_level()) {
+            else if (is_sat == l_true && (get_assign_level(lit) > get_search_level() || !is_relevant(lit))) {
                 TRACE("context", tout << "Retry fixing: " << mk_pp(e, m) << "\n";);
                 extract_fixed_consequences(num_units, var2val, _assumptions, conseq);
                 ++num_reiterations;
                 continue;
             }
             else {
+                //
                 // The state can be labeled as inconsistent when the implied consequence does
                 // not depend on assumptions, then the conflict level sits at the search level
                 // which causes the conflict resolver to decide that the state is unsat.
+                //
                 if (l_false == is_sat) {
                     SASSERT(inconsistent());
                     m_conflict = null_b_justification;
@@ -305,6 +369,11 @@ namespace smt {
             }
             ++num_iterations;
 
+            //
+            // Check the slow pass: it retrieves an updated model and checks if the
+            // values in the updated model differ from the values in the reference
+            // model. 
+            // 
             bool apply_slow_pass = model_threshold <= num_iterations || num_iterations <= 2;
             if (apply_slow_pass && is_sat == l_true) {
                 num_unfixed += delete_unfixed(var2val, unfixed);
@@ -312,11 +381,20 @@ namespace smt {
                 model_threshold *= 3;
                 model_threshold /= 2;                                
             }
-            // repeat until we either have a model with negated literal or 
-            // the literal is implied at base.
 
+            //
+            // Walk the assignment stack at level 1 for learned consequences.
+            // The current literal should be assigned at the search level unless
+            // the state is is_sat == l_true and the assignment to lit is l_true.
+            // This condition is checked above.
+            // 
             extract_fixed_consequences(num_units, var2val, _assumptions, conseq);
             num_units = assigned_literals().size();
+
+            //
+            // Fixed equalities can be extracted by walking all variables and checking
+            // if the congruence roots are equal at the search level.
+            // 
             if (apply_slow_pass) {
                 num_fixed_eqs += extract_fixed_eqs(var2val, conseq);
                 IF_VERBOSE(1, verbose_stream() << "(get-consequences"
@@ -338,6 +416,11 @@ namespace smt {
             }
             TRACE("context", tout << "finishing " << mk_pp(e, m) << "\n";);
             SASSERT(!inconsistent());
+            
+            //
+            // This becomes unnecessary when the fixed consequence are 
+            // completely extracted.
+            // 
             if (var2val.contains(e)) {
                 TRACE("context", tout << "Fixed value to " << mk_pp(e, m) << " was not processed\n";);
                 expr_ref fml(m);
@@ -348,7 +431,6 @@ namespace smt {
                 fml = m.mk_implies(antecedent2fml(m_antecedents[lit.var()]), fml);
                 conseq.push_back(fml);
                 var2val.erase(e);
-                SASSERT(get_assignment(lit) == l_false);
             }        
         }
         end_search();
@@ -356,6 +438,10 @@ namespace smt {
         return l_true;
     }
 
+    //
+    // Validate, in a slow pass, that the current consequences are correctly 
+    // extracted.
+    // 
     void context::validate_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, 
                                         expr_ref_vector const& conseq, expr_ref_vector const& unfixed) {
         ast_manager& m = m_manager;

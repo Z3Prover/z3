@@ -942,7 +942,7 @@ namespace smt {
             push_eq(n1, n2, eq_justification::mk_cg(used_commutativity));
         }
 
-        void add_diseq(enode * n1, enode * n2);
+        bool add_diseq(enode * n1, enode * n2);
 
         void assign_quantifier(quantifier * q);
 
