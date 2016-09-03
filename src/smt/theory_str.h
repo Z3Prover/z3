@@ -146,6 +146,14 @@ namespace smt {
          */
         bool opt_DeferEQCConsistencyCheck;
 
+        /*
+         * If CheckVariableScope is set to true,
+         * pop_scope_eh() and final_check_eh() will run extra checks
+         * to determine whether the current assignment
+         * contains references to any internal variables that are no longer in scope.
+         */
+        bool opt_CheckVariableScope;
+
         bool search_started;
         arith_util m_autil;
         str_util m_strutil;
@@ -451,6 +459,10 @@ namespace smt {
 
         void dump_assignments();
         void initialize_charset();
+
+        void check_variable_scope();
+        void recursive_check_variable_scope(expr * ex);
+
     public:
         theory_str(ast_manager & m);
         virtual ~theory_str();

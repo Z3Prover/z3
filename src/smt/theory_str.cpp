@@ -38,6 +38,7 @@ theory_str::theory_str(ast_manager & m):
 		opt_NoQuickReturn_IntegerTheory(false),
 		opt_DisableIntegerTheoryIntegration(false),
 		opt_DeferEQCConsistencyCheck(true),
+		opt_CheckVariableScope(true),
         /* Internal setup */
         search_started(false),
         m_autil(m),
@@ -6433,6 +6434,54 @@ void theory_str::push_scope_eh() {
     TRACE("t_str_dump_assign_on_scope_change", dump_assignments(););
 }
 
+void theory_str::recursive_check_variable_scope(expr * ex) {
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+
+    if (is_app(ex)) {
+        app * a = to_app(ex);
+        if (a->get_num_args() == 0) {
+            // we only care about string variables
+            sort * s = m.get_sort(ex);
+            sort * string_sort = m.mk_sort(get_family_id(), STRING_SORT);
+            if (s != string_sort) {
+                return;
+            }
+            // base case: string constant / var
+            if (m_strutil.is_string(a)) {
+                return;
+            } else {
+                // assume var
+                if (variable_set.find(ex) == variable_set.end()
+                        && internal_variable_set.find(ex) == internal_variable_set.end()) {
+                    TRACE("t_str_detail", tout << "WARNING: possible reference to out-of-scope variable " << mk_pp(ex, m) << std::endl;);
+                }
+            }
+        } else {
+            for (unsigned i = 0; i < a->get_num_args(); ++i) {
+                recursive_check_variable_scope(a->get_arg(i));
+            }
+        }
+    }
+}
+
+void theory_str::check_variable_scope() {
+    if (!opt_CheckVariableScope) {
+        return;
+    }
+    TRACE("t_str_detail", tout << "checking scopes of variables in the current assignment" << std::endl;);
+
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+
+    expr_ref_vector assignments(m);
+        ctx.get_assignments(assignments);
+        for (expr_ref_vector::iterator i = assignments.begin(); i != assignments.end(); ++i) {
+            expr * ex = *i;
+            recursive_check_variable_scope(ex);
+        }
+}
+
 void theory_str::pop_scope_eh(unsigned num_scopes) {
     sLevel -= num_scopes;
     TRACE("t_str", tout << "pop " << num_scopes << " to " << sLevel << std::endl;);
@@ -6487,6 +6536,8 @@ void theory_str::pop_scope_eh(unsigned num_scopes) {
     m_basicstr_axiom_todo = new_m_basicstr;
 
     theory::pop_scope_eh(num_scopes);
+
+    check_variable_scope();
 }
 
 void theory_str::dump_assignments() {
@@ -7381,6 +7432,7 @@ final_check_status theory_str::final_check_eh() {
 
     TRACE("t_str", tout << "final check" << std::endl;);
     TRACE("t_str_dump_assign", dump_assignments(););
+    check_variable_scope();
 
     if (opt_DeferEQCConsistencyCheck) {
         TRACE("t_str_detail", tout << "performing deferred EQC consistency check" << std::endl;);
