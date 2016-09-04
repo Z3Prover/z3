@@ -32,6 +32,7 @@ theory_str::theory_str(ast_manager & m):
         /* Options */
         opt_AggressiveLengthTesting(false),
         opt_AggressiveValueTesting(false),
+        opt_AggressiveUnrollTesting(true),
         opt_EagerStringConstantLengthAssertions(true),
         opt_VerifyFinalCheckProgress(true),
 		opt_LCMUnrollStep(2),
@@ -8265,6 +8266,7 @@ expr * theory_str::gen_unroll_conditional_options(expr * var, std::set<expr*> & 
 
 	int tries = unroll_tries_map[var][unrolls].size();
 	for (int i = 0; i < tries; i++) {
+	    // TODO possibly missing a scope check here
 		expr * tester = unroll_tries_map[var][unrolls][i];
 		bool testerHasValue = false;
 		expr * testerVal = get_eqc_value(tester, testerHasValue);
@@ -8318,6 +8320,10 @@ expr * theory_str::gen_unroll_assign(expr * var, std::string lcmStr, expr * test
 	TRACE("t_str_detail", tout << "entry: var = " << mk_pp(var, mgr) << ", lcmStr = " << lcmStr
 			<< ", l = " << l << ", h = " << h << std::endl;);
 
+	if (opt_AggressiveUnrollTesting) {
+	    TRACE("t_str_detail", tout << "note: aggressive unroll testing is active" << std::endl;);
+	}
+
 	expr_ref_vector orItems(mgr);
 	expr_ref_vector andItems(mgr);
 
@@ -8325,6 +8331,12 @@ expr * theory_str::gen_unroll_assign(expr * var, std::string lcmStr, expr * test
 		std::string iStr = int_to_string(i);
 		expr_ref testerEqAst(ctx.mk_eq_atom(testerVar, m_strutil.mk_string(iStr)), mgr);
 		TRACE("t_str_detail", tout << "testerEqAst = " << mk_pp(testerEqAst, mgr) << std::endl;);
+		if (opt_AggressiveUnrollTesting) {
+		    literal l = mk_eq(testerVar, m_strutil.mk_string(iStr), false);
+		    ctx.mark_as_relevant(l);
+		    ctx.force_phase(l);
+		}
+
 		orItems.push_back(testerEqAst);
 		std::string unrollStrInstance = get_unrolled_string(lcmStr, i);
 
@@ -8338,6 +8350,12 @@ expr * theory_str::gen_unroll_assign(expr * var, std::string lcmStr, expr * test
 	}
 	expr_ref testerEqMore(ctx.mk_eq_atom(testerVar, m_strutil.mk_string("more")), mgr);
 	TRACE("t_str_detail", tout << "testerEqMore = " << mk_pp(testerEqMore, mgr) << std::endl;);
+	if (opt_AggressiveUnrollTesting) {
+	    literal l = mk_eq(testerVar, m_strutil.mk_string("more"), false);
+	    ctx.mark_as_relevant(l);
+	    ctx.force_phase(~l);
+	}
+
 	orItems.push_back(testerEqMore);
 	int nextLowerLenBound = h * lcmStr.length();
 	expr_ref more2(ctx.mk_eq_atom(testerEqMore,

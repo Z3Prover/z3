@@ -97,6 +97,12 @@ namespace smt {
         bool opt_AggressiveValueTesting;
 
         /*
+         * If AggressiveUnrollTesting is true, we manipulate the phase of regex unroll tester equalities
+         * to prioritize trying concrete unroll counts over choosing the "more" option.
+         */
+        bool opt_AggressiveUnrollTesting;
+
+        /*
          * Setting EagerStringConstantLengthAssertions to true allows some methods,
          * in particular internalize_term(), to add
          * length assertions about relevant string constants.
