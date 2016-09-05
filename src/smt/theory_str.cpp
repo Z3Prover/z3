@@ -4773,7 +4773,7 @@ void theory_str::check_contain_by_eq_nodes(expr * n1, expr * n2) {
                                             // key1.first = key2.first /\ containPairBoolMap[<eqc(key2.second), eqc(key1.second)>]
                                             // ==>  (containPairBoolMap[key1] --> containPairBoolMap[key2])
                                             // ------------
-                                            expr_ref implR(ctx.mk_eq_atom(contain_pair_bool_map[key1], contain_pair_bool_map[key2]), m);
+                                            expr_ref implR(rewrite_implication(contain_pair_bool_map[key1], contain_pair_bool_map[key2]), m);
                                             assert_implication(mk_and(litems4), implR);
                                         }
                                     }
