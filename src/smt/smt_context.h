@@ -1346,8 +1346,10 @@ namespace smt {
 
         u_map<uint_set> m_antecedents;
         void extract_fixed_consequences(literal lit, obj_map<expr, expr*>& var2val, uint_set const& assumptions, expr_ref_vector& conseq);
-        void extract_fixed_consequences(unsigned idx, obj_map<expr, expr*>& var2val, uint_set const& assumptions, expr_ref_vector& conseq);
-        
+        void extract_fixed_consequences(unsigned& idx, obj_map<expr, expr*>& var2val, uint_set const& assumptions, expr_ref_vector& conseq);
+       
+        void display_consequence_progress(std::ostream& out, unsigned it, unsigned nv, unsigned fixed, unsigned unfixed, unsigned eq);
+
         unsigned delete_unfixed(obj_map<expr, expr*>& var2val, expr_ref_vector& unfixed);
 
         unsigned extract_fixed_eqs(obj_map<expr, expr*>& var2val, expr_ref_vector& conseq);
@@ -1398,6 +1400,7 @@ namespace smt {
         lbool check(unsigned num_assumptions = 0, expr * const * assumptions = 0, bool reset_cancel = true);        
 
         lbool get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq, expr_ref_vector& unfixed);
+        lbool get_consequences2(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq, expr_ref_vector& unfixed);
         
         lbool setup_and_check(bool reset_cancel = true);
         
