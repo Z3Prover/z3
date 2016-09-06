@@ -80,7 +80,6 @@ class bv_rewriter : public poly_rewriter<bv_rewriter_core> {
     br_status rw_leq_overflow(bool is_signed, expr * _a, expr * _b, expr_ref & result);
     br_status mk_leq_core(bool is_signed, expr * a, expr * b, expr_ref & result);
 
-    br_status fuse_concat(unsigned num_args, expr * const * args, expr_ref & result);
     br_status mk_concat(unsigned num_args, expr * const * args, expr_ref & result);
     unsigned propagate_extract(unsigned high,  expr * arg, expr_ref & result);
     br_status mk_extract(unsigned high, unsigned low, expr * arg, expr_ref & result);
