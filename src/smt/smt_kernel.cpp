@@ -112,7 +112,7 @@ namespace smt {
         }
 
         lbool get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq, expr_ref_vector& unfixed) {
-            return m_kernel.get_consequences(assumptions, vars, conseq, unfixed);
+            return m_kernel.get_consequences2(assumptions, vars, conseq, unfixed);
         }
         
         void get_model(model_ref & m) const {
