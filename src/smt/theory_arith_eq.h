@@ -216,7 +216,7 @@ namespace smt {
     void theory_arith<Ext>::propagate_cheap_eq(unsigned rid) {
         if (!propagate_eqs())
             return;
-        TRACE("arith_eq", tout << "checking if row " << rid << " can propagate equality.\n";
+        TRACE("arith_eq_verbose", tout << "checking if row " << rid << " can propagate equality.\n";
               display_row_info(tout, rid););
         row const & r = m_rows[rid];
         theory_var x;
