@@ -1615,6 +1615,13 @@ namespace z3 {
             check_error();
             return func_interp(ctx(), r);
         }
+        
+        // returns true iff the model contains an interpretation
+        // for function f.
+        bool has_interp(func_decl f) const {
+	    check_context(*this, f);
+	    return Z3_model_has_interp(ctx(), m_model, f);
+        }
 
         friend std::ostream & operator<<(std::ostream & out, model const & m);
     };
