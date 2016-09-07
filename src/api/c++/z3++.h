@@ -122,6 +122,13 @@ namespace z3 {
         unsat, sat, unknown
     };
 
+    inline check_result to_check_result(Z3_lbool l) {
+        if (l == Z3_L_TRUE) return sat;
+        else if (l == Z3_L_FALSE) return unsat;
+        return unknown;
+    }
+
+
     /**
        \brief A Context manages all other Z3 objects, global configuration options, etc.
     */
@@ -146,7 +153,7 @@ namespace z3 {
         struct interpolation {};
         context() { config c; init(c); }
         context(config & c) { init(c); }
-	context(config & c, interpolation) { init_interp(c); }
+        context(config & c, interpolation) { init_interp(c); }
         ~context() { Z3_del_context(m_ctx); }
         operator Z3_context() const { return m_ctx; }
 
@@ -879,7 +886,7 @@ namespace z3 {
         unsigned lo() const { assert (is_app() && Z3_get_decl_num_parameters(ctx(), decl()) == 2); return static_cast<unsigned>(Z3_get_decl_int_parameter(ctx(), decl(), 1)); }
         unsigned hi() const { assert (is_app() && Z3_get_decl_num_parameters(ctx(), decl()) == 2); return static_cast<unsigned>(Z3_get_decl_int_parameter(ctx(), decl(), 0)); }
 
-		/**
+        /**
            \brief sequence and regular expression operations.
            + is overloaeded as sequence concatenation and regular expression union.
            concat is overloaded to handle sequences and regular expressions
@@ -1279,51 +1286,51 @@ namespace z3 {
     inline expr udiv(expr const & a, int b) { return udiv(a, a.ctx().num_val(b, a.get_sort())); }
     inline expr udiv(int a, expr const & b) { return udiv(b.ctx().num_val(a, b.get_sort()), b); }
 
-	/**
-		\brief signed reminder operator for bitvectors
-	*/
-	inline expr srem(expr const & a, expr const & b) { return to_expr(a.ctx(), Z3_mk_bvsrem(a.ctx(), a, b)); }
-	inline expr srem(expr const & a, int b) { return srem(a, a.ctx().num_val(b, a.get_sort())); }
-	inline expr srem(int a, expr const & b) { return srem(b.ctx().num_val(a, b.get_sort()), b); }
-
-	/**
-	\brief unsigned reminder operator for bitvectors
-	*/
-	inline expr urem(expr const & a, expr const & b) { return to_expr(a.ctx(), Z3_mk_bvurem(a.ctx(), a, b)); }
-	inline expr urem(expr const & a, int b) { return urem(a, a.ctx().num_val(b, a.get_sort())); }
-	inline expr urem(int a, expr const & b) { return urem(b.ctx().num_val(a, b.get_sort()), b); }
-
-	/**
-	\brief shift left operator for bitvectors
-	*/
-	inline expr shl(expr const & a, expr const & b) { return to_expr(a.ctx(), Z3_mk_bvshl(a.ctx(), a, b)); }
-	inline expr shl(expr const & a, int b) { return shl(a, a.ctx().num_val(b, a.get_sort())); }
-	inline expr shl(int a, expr const & b) { return shl(b.ctx().num_val(a, b.get_sort()), b); }
-
-	/**
-	\brief logic shift right operator for bitvectors
-	*/
-	inline expr lshr(expr const & a, expr const & b) { return to_expr(a.ctx(), Z3_mk_bvlshr(a.ctx(), a, b)); }
-	inline expr lshr(expr const & a, int b) { return lshr(a, a.ctx().num_val(b, a.get_sort())); }
-	inline expr lshr(int a, expr const & b) { return lshr(b.ctx().num_val(a, b.get_sort()), b); }
-
-	/**
-	\brief arithmetic shift right operator for bitvectors
-	*/
-	inline expr ashr(expr const & a, expr const & b) { return to_expr(a.ctx(), Z3_mk_bvashr(a.ctx(), a, b)); }
-	inline expr ashr(expr const & a, int b) { return ashr(a, a.ctx().num_val(b, a.get_sort())); }
-	inline expr ashr(int a, expr const & b) { return ashr(b.ctx().num_val(a, b.get_sort()), b); }
-
-	/**
-	\brief Extend the given bit-vector with zeros to the (unsigned) equivalent bitvector of size m+i, where m is the size of the given bit-vector.
-	*/
-	inline expr zext(expr const & a, unsigned i) { return to_expr(a.ctx(), Z3_mk_zero_ext(a.ctx(), i, a)); }
-
-	/**
-	\brief Sign-extend of the given bit-vector to the (signed) equivalent bitvector of size m+i, where m is the size of the given bit-vector.
-	*/
-	inline expr sext(expr const & a, unsigned i) { return to_expr(a.ctx(), Z3_mk_sign_ext(a.ctx(), i, a)); }
-
+    /**
+       \brief signed reminder operator for bitvectors
+    */
+    inline expr srem(expr const & a, expr const & b) { return to_expr(a.ctx(), Z3_mk_bvsrem(a.ctx(), a, b)); }
+    inline expr srem(expr const & a, int b) { return srem(a, a.ctx().num_val(b, a.get_sort())); }
+    inline expr srem(int a, expr const & b) { return srem(b.ctx().num_val(a, b.get_sort()), b); }
+    
+    /**
+       \brief unsigned reminder operator for bitvectors
+    */
+    inline expr urem(expr const & a, expr const & b) { return to_expr(a.ctx(), Z3_mk_bvurem(a.ctx(), a, b)); }
+    inline expr urem(expr const & a, int b) { return urem(a, a.ctx().num_val(b, a.get_sort())); }
+    inline expr urem(int a, expr const & b) { return urem(b.ctx().num_val(a, b.get_sort()), b); }
+    
+    /**
+       \brief shift left operator for bitvectors
+    */
+    inline expr shl(expr const & a, expr const & b) { return to_expr(a.ctx(), Z3_mk_bvshl(a.ctx(), a, b)); }
+    inline expr shl(expr const & a, int b) { return shl(a, a.ctx().num_val(b, a.get_sort())); }
+    inline expr shl(int a, expr const & b) { return shl(b.ctx().num_val(a, b.get_sort()), b); }
+    
+    /**
+       \brief logic shift right operator for bitvectors
+    */
+    inline expr lshr(expr const & a, expr const & b) { return to_expr(a.ctx(), Z3_mk_bvlshr(a.ctx(), a, b)); }
+    inline expr lshr(expr const & a, int b) { return lshr(a, a.ctx().num_val(b, a.get_sort())); }
+    inline expr lshr(int a, expr const & b) { return lshr(b.ctx().num_val(a, b.get_sort()), b); }
+    
+    /**
+       \brief arithmetic shift right operator for bitvectors
+    */
+    inline expr ashr(expr const & a, expr const & b) { return to_expr(a.ctx(), Z3_mk_bvashr(a.ctx(), a, b)); }
+    inline expr ashr(expr const & a, int b) { return ashr(a, a.ctx().num_val(b, a.get_sort())); }
+    inline expr ashr(int a, expr const & b) { return ashr(b.ctx().num_val(a, b.get_sort()), b); }
+    
+    /**
+       \brief Extend the given bit-vector with zeros to the (unsigned) equivalent bitvector of size m+i, where m is the size of the given bit-vector.
+    */
+    inline expr zext(expr const & a, unsigned i) { return to_expr(a.ctx(), Z3_mk_zero_ext(a.ctx(), i, a)); }
+    
+    /**
+       \brief Sign-extend of the given bit-vector to the (signed) equivalent bitvector of size m+i, where m is the size of the given bit-vector.
+    */
+    inline expr sext(expr const & a, unsigned i) { return to_expr(a.ctx(), Z3_mk_sign_ext(a.ctx(), i, a)); }
+    
     template<typename T> class cast_ast;
 
     template<> class cast_ast<ast> {
@@ -1596,9 +1603,9 @@ namespace z3 {
         func_decl get_func_decl(unsigned i) const { Z3_func_decl r = Z3_model_get_func_decl(ctx(), m_model, i); check_error(); return func_decl(ctx(), r); }
         unsigned size() const { return num_consts() + num_funcs(); }
         func_decl operator[](int i) const {
-	    assert(0 <= i);
-	    return static_cast<unsigned>(i) < num_consts() ? get_const_decl(i) : get_func_decl(i - num_consts());
-	}
+            assert(0 <= i);
+            return static_cast<unsigned>(i) < num_consts() ? get_const_decl(i) : get_func_decl(i - num_consts());
+        }
 
         // returns interpretation of constant declaration c.
         // If c is not assigned any value in the model it returns 
@@ -1619,8 +1626,8 @@ namespace z3 {
         // returns true iff the model contains an interpretation
         // for function f.
         bool has_interp(func_decl f) const {
-	    check_context(*this, f);
-	    return Z3_model_has_interp(ctx(), m_model, f);
+            check_context(*this, f);
+            return 0 != Z3_model_has_interp(ctx(), m_model, f);
         }
 
         friend std::ostream & operator<<(std::ostream & out, model const & m);
@@ -1664,11 +1671,6 @@ namespace z3 {
         return out;
     }
 
-    inline check_result to_check_result(Z3_lbool l) {
-        if (l == Z3_L_TRUE) return sat;
-        else if (l == Z3_L_FALSE) return unsat;
-        return unknown;
-    }
 
     class solver : public object {
         Z3_solver m_solver;
