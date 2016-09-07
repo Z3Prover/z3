@@ -515,7 +515,7 @@ struct z3_replayer::imp {
                 if (idx >= m_cmds.size())
                     throw z3_replayer_exception("invalid command");
                 try {
-                    TRACE("z3_replayer_cmd", tout << m_cmds_names[idx] << "\n";);
+                    TRACE("z3_replayer_cmd", tout << idx << ":" << m_cmds_names[idx] << "\n";);
                     m_cmds[idx](m_owner);
                 }
                 catch (z3_error & ex) {

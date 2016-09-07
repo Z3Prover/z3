@@ -1356,6 +1356,8 @@ namespace smt {
 
         expr_ref antecedent2fml(uint_set const& ante);
 
+        literal mk_diseq(expr* v, expr* val);
+
         void validate_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, 
                                    expr_ref_vector const& conseq, expr_ref_vector const& unfixed);
 
