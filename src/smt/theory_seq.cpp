@@ -2925,12 +2925,12 @@ void theory_seq::add_replace_axiom(expr* r) {
     expr_ref y  = mk_skolem(m_indexof_right, a, s);
     expr_ref xty = mk_concat(x, t, y);
     expr_ref xsy = mk_concat(x, s, y);
-    literal cnt = mk_literal(m_util.str.mk_contains(a ,s));
+    literal cnt = mk_literal(m_util.str.mk_contains(a, s));
     literal a_emp = mk_eq_empty(a);
     literal s_emp = mk_eq_empty(s);
-    add_axiom(~a_emp, mk_seq_eq(r, a));
+    add_axiom(~a_emp, s_emp, mk_seq_eq(r, a));
     add_axiom(cnt,  mk_seq_eq(r, a));
-    add_axiom(~s_emp, mk_seq_eq(r, a));
+    add_axiom(~s_emp, mk_seq_eq(r, mk_concat(t, a)));
     add_axiom(~cnt, a_emp, s_emp, mk_seq_eq(a, xsy));
     add_axiom(~cnt, a_emp, s_emp, mk_seq_eq(r, xty));
     tightest_prefix(s, x);
