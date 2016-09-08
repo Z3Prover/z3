@@ -543,8 +543,12 @@ void asserted_formulas::infer_patterns() {
 }
 
 void asserted_formulas::commit() {
-    m_macro_manager.mark_forbidden(m_asserted_formulas.size() - m_asserted_qhead, m_asserted_formulas.c_ptr() + m_asserted_qhead);
-    m_asserted_qhead = m_asserted_formulas.size();
+    commit(m_asserted_formulas.size());
+}
+
+void asserted_formulas::commit(unsigned new_qhead) {
+    m_macro_manager.mark_forbidden(new_qhead - m_asserted_qhead, m_asserted_formulas.c_ptr() + m_asserted_qhead);
+    m_asserted_qhead = new_qhead;
 }
 
 void asserted_formulas::eliminate_term_ite() {

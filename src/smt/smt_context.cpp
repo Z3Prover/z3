@@ -1833,7 +1833,7 @@ namespace smt {
         m_stats.m_num_decisions++;
         
         push_scope();
-        TRACE("context", tout << "splitting, lvl: " << m_scope_lvl << "\n";);
+        TRACE("decide", tout << "splitting, lvl: " << m_scope_lvl << "\n";);
 
         TRACE("decide_detail", tout << mk_pp(bool_var2expr(var), m_manager) << "\n";);
 
@@ -2949,7 +2949,11 @@ namespace smt {
         if (!m_asserted_formulas.inconsistent()) {
             unsigned sz    = m_asserted_formulas.get_num_formulas();
             unsigned qhead = m_asserted_formulas.get_qhead();
-            while (qhead < sz && !m_manager.canceled()) {
+            while (qhead < sz) {
+                if (get_cancel_flag()) {
+                    m_asserted_formulas.commit(qhead);
+                    return;
+                }
                 expr * f   = m_asserted_formulas.get_formula(qhead);
                 proof * pr = m_asserted_formulas.get_formula_proof(qhead);
                 internalize_assertion(f, pr, 0);

@@ -22,6 +22,7 @@ Revision History:
 #include"sat_types.h"
 #include"small_object_allocator.h"
 #include"id_gen.h"
+#include"map.h"
 
 #ifdef _MSC_VER
 #pragma warning(disable : 4200)
@@ -124,13 +125,18 @@ namespace sat {
     class clause_allocator {
         small_object_allocator m_allocator;
         id_gen                 m_id_gen;
-#ifdef _AMD64_
-        unsigned get_segment(size_t ptr);
+#if defined(_AMD64_) 
+        unsigned get_segment(clause const* cls);
         static const unsigned  c_cls_alignment = 3; 
         static const unsigned  c_max_segments  = 1 << c_cls_alignment;
         static const size_t    c_aligment_mask = (1ull << c_cls_alignment) - 1ull;
         unsigned               m_num_segments;
         size_t                 m_segments[c_max_segments];
+#if defined(Z3DEBUG)
+        bool                   m_overflow_valid;
+        size_t_map<unsigned>   m_ptr2cls_offset;
+        u_map<clause const*>   m_cls_offset2ptr;
+#endif
 #endif
     public:
         clause_allocator();

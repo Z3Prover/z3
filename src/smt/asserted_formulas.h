@@ -113,6 +113,7 @@ public:
     unsigned get_formulas_last_level() const;
     unsigned get_qhead() const { return m_asserted_qhead; }
     void commit(); 
+    void commit(unsigned new_qhead); 
     expr * get_formula(unsigned idx) const { return m_asserted_formulas.get(idx); }
     proof * get_formula_proof(unsigned idx) const { return m_manager.proofs_enabled() ? m_asserted_formula_prs.get(idx) : 0; }
     expr * const * get_formulas() const { return m_asserted_formulas.c_ptr(); }

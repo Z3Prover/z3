@@ -23,9 +23,9 @@ Revision History:
 
 namespace smt {
 
-    expr_ref context::antecedent2fml(uint_set const& vars) {
+    expr_ref context::antecedent2fml(index_set const& vars) {
         expr_ref_vector premises(m_manager);
-        uint_set::iterator it = vars.begin(), end = vars.end();
+        index_set::iterator it = vars.begin(), end = vars.end();
         for (; it != end; ++it) {
             expr* e =  bool_var2expr(*it);
             premises.push_back(get_assignment(*it) != l_false ? e : m_manager.mk_not(e));
@@ -42,14 +42,14 @@ namespace smt {
     // - e is an equality between a variable and value that is to be fixed.
     // - e is a data-type recognizer of a variable that is to be fixed.
     // 
-    void context::extract_fixed_consequences(literal lit, obj_map<expr, expr*>& vars, uint_set const& assumptions, expr_ref_vector& conseq) {
+    void context::extract_fixed_consequences(literal lit, obj_map<expr, expr*>& vars, index_set const& assumptions, expr_ref_vector& conseq) {
         ast_manager& m = m_manager;
         datatype_util dt(m);
         expr* e1, *e2;       
         expr_ref fml(m);        
         if (lit == true_literal) return;
         expr* e = bool_var2expr(lit.var());
-        uint_set s;
+        index_set s;
         if (assumptions.contains(lit.var())) {
             s.insert(lit.var());
         }
@@ -86,7 +86,11 @@ namespace smt {
             }
         }
         m_antecedents.insert(lit.var(), s);
-        TRACE("context", display_literal_verbose(tout, lit); tout << " " << s << "\n";);
+        TRACE("context", display_literal_verbose(tout, lit); 
+              for (index_set::iterator it = s.begin(), end = s.end(); it != end; ++it) {
+                  tout << " " << *it;
+              }
+              tout << "\n";);
         bool found = false;
         if (vars.contains(e)) {
             found = true;
@@ -116,7 +120,7 @@ namespace smt {
         }
     }
 
-    void context::extract_fixed_consequences(unsigned& start, obj_map<expr, expr*>& vars, uint_set const& assumptions, expr_ref_vector& conseq) {
+    void context::extract_fixed_consequences(unsigned& start, obj_map<expr, expr*>& vars, index_set const& assumptions, expr_ref_vector& conseq) {
         pop_to_search_lvl();
         SASSERT(!inconsistent());
         literal_vector const& lits = assigned_literals();
@@ -174,6 +178,9 @@ namespace smt {
             else if (e_internalized(k) && m.are_distinct(v, get_enode(k)->get_root()->get_owner())) {
                 to_delete.push_back(k);
             }
+            else if (get_assignment(mk_diseq(k, v)) == l_true) {
+                to_delete.push_back(k);
+            }
         }
         for (unsigned i = 0; i < to_delete.size(); ++i) {
             var2val.remove(to_delete[i]);
@@ -201,7 +208,7 @@ namespace smt {
             if (!m.is_bool(k) && are_equal(k, v)) {
                 literal_vector literals;
                 m_conflict_resolution->eq2literals(get_enode(v), get_enode(k), literals);
-                uint_set s;
+                index_set s;
                 for (unsigned i = 0; i < literals.size(); ++i) {
                     SASSERT(get_assign_level(literals[i]) <= get_search_level());
                     s |= m_antecedents.find(literals[i].var());
@@ -215,9 +222,7 @@ namespace smt {
                 for (unsigned i = 0; i < literals.size(); ++i) {
                     literals[i].neg();
                 }
-                eq = mk_eq_atom(k, v);
-                internalize_formula(eq, false);
-                literal lit(get_bool_var(eq), false);
+                literal lit = mk_diseq(k, v);
                 literals.push_back(lit);
                 mk_clause(literals.size(), literals.c_ptr(), 0);
                 TRACE("context", display_literals_verbose(tout, literals.size(), literals.c_ptr()););
@@ -227,6 +232,18 @@ namespace smt {
             var2val.remove(to_delete[i]);
         }
         return to_delete.size();
+    }
+
+    literal context::mk_diseq(expr* e, expr* val) {
+        ast_manager& m = m_manager;
+        if (m.is_bool(e)) {
+            return literal(get_bool_var(e), m.is_true(val));
+        }
+        else {
+            expr_ref eq(mk_eq_atom(e, val), m);
+            internalize_formula(eq, false);
+            return literal(get_bool_var(eq), true);
+        }
     }
 
     lbool context::get_consequences(expr_ref_vector const& assumptions, 
@@ -241,7 +258,7 @@ namespace smt {
             return is_sat;
         }
         obj_map<expr, expr*> var2val;
-        uint_set _assumptions;
+        index_set _assumptions;
         for (unsigned i = 0; i < assumptions.size(); ++i) {
             _assumptions.insert(get_literal(assumptions[i]).var());
         }
@@ -288,18 +305,7 @@ namespace smt {
             // the opposite value of the current reference model.
             // If the variable is a non-Boolean, it means adding a disequality.
             //
-            literal lit;
-            if (m.is_bool(e)) {
-                lit = literal(get_bool_var(e), m.is_true(val));
-            }
-            else {
-                eq = mk_eq_atom(e, val);
-                internalize_formula(eq, false);
-                lit = literal(get_bool_var(eq), true);
-                TRACE("context", tout << mk_pp(e, m) << " " << mk_pp(val, m) << "\n";
-                      display_literal_verbose(tout, lit); tout << "\n"; 
-                      tout << "Equal: " << are_equal(e, val) << "\n";);
-            }
+            literal lit = mk_diseq(e, val);
             mark_as_relevant(lit);
             push_scope();
             assign(lit, b_justification::mk_axiom(), true);
@@ -434,10 +440,11 @@ namespace smt {
         pop_to_base_lvl();
         lbool is_sat = check(assumptions.size(), assumptions.c_ptr());
         if (is_sat != l_true) {
+            TRACE("context", tout << is_sat << "\n";);
             return is_sat;
         }
         obj_map<expr, expr*> var2val;
-        uint_set _assumptions;
+        index_set _assumptions;
         for (unsigned i = 0; i < assumptions.size(); ++i) {
             _assumptions.insert(get_literal(assumptions[i]).var());
         }
@@ -475,20 +482,12 @@ namespace smt {
             obj_map<expr,expr*>::iterator it = var2val.begin(), end = var2val.end();
             unsigned num_vars = 0;
             for (; it != end && num_vars < chunk_size; ++it) {
+                if (get_cancel_flag()) {
+                    return l_undef;
+                }
                 expr* e = it->m_key;
                 expr* val = it->m_value;
-                literal lit;
-                if (m.is_bool(e)) {
-                    lit = literal(get_bool_var(e), m.is_true(val));
-                }
-                else {
-                    eq = mk_eq_atom(e, val);
-                    internalize_formula(eq, false);
-                    lit = literal(get_bool_var(eq), true);
-                    TRACE("context", tout << mk_pp(e, m) << " " << mk_pp(val, m) << "\n";
-                          display_literal_verbose(tout, lit); tout << "\n"; 
-                          tout << "Equal: " << are_equal(e, val) << "\n";);
-                }
+                literal lit = mk_diseq(e, val);
                 mark_as_relevant(lit);
                 if (get_assignment(lit) != l_undef) {
                     continue;
@@ -503,9 +502,6 @@ namespace smt {
                         m_conflict = null_b_justification;
                         m_not_l = null_literal;
                         SASSERT(m_search_lvl == get_search_level());
-                    }
-                    if (get_cancel_flag()) {
-                        return l_undef;
                     }
                 }
             }

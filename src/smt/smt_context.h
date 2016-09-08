@@ -1343,10 +1343,12 @@ namespace smt {
         static literal translate_literal(
             literal lit, context& src_ctx, context& dst_ctx,
             vector<bool_var> b2v, ast_translation& tr);
-
-        u_map<uint_set> m_antecedents;
-        void extract_fixed_consequences(literal lit, obj_map<expr, expr*>& var2val, uint_set const& assumptions, expr_ref_vector& conseq);
-        void extract_fixed_consequences(unsigned& idx, obj_map<expr, expr*>& var2val, uint_set const& assumptions, expr_ref_vector& conseq);
+        
+        typedef hashtable<unsigned, u_hash, u_eq> index_set;
+        //typedef uint_set index_set;
+        u_map<index_set> m_antecedents;
+        void extract_fixed_consequences(literal lit, obj_map<expr, expr*>& var2val, index_set const& assumptions, expr_ref_vector& conseq);
+        void extract_fixed_consequences(unsigned& idx, obj_map<expr, expr*>& var2val, index_set const& assumptions, expr_ref_vector& conseq);
        
         void display_consequence_progress(std::ostream& out, unsigned it, unsigned nv, unsigned fixed, unsigned unfixed, unsigned eq);
 
@@ -1354,7 +1356,9 @@ namespace smt {
 
         unsigned extract_fixed_eqs(obj_map<expr, expr*>& var2val, expr_ref_vector& conseq);
 
-        expr_ref antecedent2fml(uint_set const& ante);
+        expr_ref antecedent2fml(index_set const& ante);
+
+        literal mk_diseq(expr* v, expr* val);
 
         void validate_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, 
                                    expr_ref_vector const& conseq, expr_ref_vector const& unfixed);

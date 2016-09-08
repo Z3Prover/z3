@@ -70,22 +70,6 @@ namespace api {
     //
     // ------------------------
 
-    context::set_interruptable::set_interruptable(context & ctx, event_handler & i):
-        m_ctx(ctx) {
-        #pragma omp critical (set_interruptable) 
-        {
-            SASSERT(m_ctx.m_interruptable == 0);
-            m_ctx.m_interruptable = &i;
-        }
-    }
-
-    context::set_interruptable::~set_interruptable() {
-        #pragma omp critical (set_interruptable) 
-        {
-            m_ctx.m_interruptable = 0;
-        }
-    }
-
     context::context(context_params * p, bool user_ref_count):
         m_params(p != 0 ? *p : context_params()),
         m_user_ref_count(user_ref_count),
@@ -105,11 +89,10 @@ namespace api {
         m_print_mode = Z3_PRINT_SMTLIB_FULL;
         m_searching  = false;
         
-        m_interruptable = 0;
-
         m_smtlib_parser           = 0;
         m_smtlib_parser_has_decls = false;
-                
+
+        m_interruptable = 0;                
         m_error_handler = &default_error_handler;
 
         m_basic_fid = m().get_basic_family_id();
@@ -136,6 +119,22 @@ namespace api {
             m_allocated_objects.remove(it->m_key);
             dealloc(it->m_value);
             it = m_allocated_objects.begin();
+        }
+    }
+
+    context::set_interruptable::set_interruptable(context & ctx, event_handler & i):
+        m_ctx(ctx) {
+        #pragma omp critical (set_interruptable) 
+        {
+            SASSERT(m_ctx.m_interruptable == 0);
+            m_ctx.m_interruptable = &i;
+        }
+    }
+
+    context::set_interruptable::~set_interruptable() {
+        #pragma omp critical (set_interruptable) 
+        {
+            m_ctx.m_interruptable = 0;
         }
     }
 

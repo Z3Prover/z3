@@ -36,7 +36,7 @@ bool reslimit::inc() {
 
 bool reslimit::inc(unsigned offset) {
     m_count += offset;
-    return !m_cancel && (m_limit == 0 || m_count <= m_limit);
+    return m_cancel == 0 && (m_limit == 0 || m_count <= m_limit);
 }
 
 void reslimit::push(unsigned delta_limit) {
