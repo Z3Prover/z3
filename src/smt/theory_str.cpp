@@ -38,7 +38,7 @@ theory_str::theory_str(ast_manager & m):
 		opt_LCMUnrollStep(2),
 		opt_NoQuickReturn_IntegerTheory(false),
 		opt_DisableIntegerTheoryIntegration(false),
-		opt_DeferEQCConsistencyCheck(true),
+		opt_DeferEQCConsistencyCheck(false),
 		opt_CheckVariableScope(true),
         /* Internal setup */
         search_started(false),
