@@ -558,13 +558,12 @@ public:
 
     core_hashtable& operator|=(core_hashtable const& other) {
         if (this == &other) return *this;
-        iterator i = begin(), e = end();
+        iterator i = other.begin(), e = other.end();
         for (; i != e; ++i) {
             insert(*i);
         }
         return *this;
     }
-
 
     core_hashtable& operator&=(core_hashtable const& other) {
         if (this == &other) return *this;

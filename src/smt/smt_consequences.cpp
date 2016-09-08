@@ -23,9 +23,9 @@ Revision History:
 
 namespace smt {
 
-    expr_ref context::antecedent2fml(uint_set const& vars) {
+    expr_ref context::antecedent2fml(index_set const& vars) {
         expr_ref_vector premises(m_manager);
-        uint_set::iterator it = vars.begin(), end = vars.end();
+        index_set::iterator it = vars.begin(), end = vars.end();
         for (; it != end; ++it) {
             expr* e =  bool_var2expr(*it);
             premises.push_back(get_assignment(*it) != l_false ? e : m_manager.mk_not(e));
@@ -42,14 +42,14 @@ namespace smt {
     // - e is an equality between a variable and value that is to be fixed.
     // - e is a data-type recognizer of a variable that is to be fixed.
     // 
-    void context::extract_fixed_consequences(literal lit, obj_map<expr, expr*>& vars, uint_set const& assumptions, expr_ref_vector& conseq) {
+    void context::extract_fixed_consequences(literal lit, obj_map<expr, expr*>& vars, index_set const& assumptions, expr_ref_vector& conseq) {
         ast_manager& m = m_manager;
         datatype_util dt(m);
         expr* e1, *e2;       
         expr_ref fml(m);        
         if (lit == true_literal) return;
         expr* e = bool_var2expr(lit.var());
-        uint_set s;
+        index_set s;
         if (assumptions.contains(lit.var())) {
             s.insert(lit.var());
         }
@@ -86,7 +86,11 @@ namespace smt {
             }
         }
         m_antecedents.insert(lit.var(), s);
-        TRACE("context", display_literal_verbose(tout, lit); tout << " " << s << "\n";);
+        TRACE("context", display_literal_verbose(tout, lit); 
+              for (index_set::iterator it = s.begin(), end = s.end(); it != end; ++it) {
+                  tout << " " << *it;
+              }
+              tout << "\n";);
         bool found = false;
         if (vars.contains(e)) {
             found = true;
@@ -116,7 +120,7 @@ namespace smt {
         }
     }
 
-    void context::extract_fixed_consequences(unsigned& start, obj_map<expr, expr*>& vars, uint_set const& assumptions, expr_ref_vector& conseq) {
+    void context::extract_fixed_consequences(unsigned& start, obj_map<expr, expr*>& vars, index_set const& assumptions, expr_ref_vector& conseq) {
         pop_to_search_lvl();
         SASSERT(!inconsistent());
         literal_vector const& lits = assigned_literals();
@@ -204,7 +208,7 @@ namespace smt {
             if (!m.is_bool(k) && are_equal(k, v)) {
                 literal_vector literals;
                 m_conflict_resolution->eq2literals(get_enode(v), get_enode(k), literals);
-                uint_set s;
+                index_set s;
                 for (unsigned i = 0; i < literals.size(); ++i) {
                     SASSERT(get_assign_level(literals[i]) <= get_search_level());
                     s |= m_antecedents.find(literals[i].var());
@@ -254,7 +258,7 @@ namespace smt {
             return is_sat;
         }
         obj_map<expr, expr*> var2val;
-        uint_set _assumptions;
+        index_set _assumptions;
         for (unsigned i = 0; i < assumptions.size(); ++i) {
             _assumptions.insert(get_literal(assumptions[i]).var());
         }
@@ -440,7 +444,7 @@ namespace smt {
             return is_sat;
         }
         obj_map<expr, expr*> var2val;
-        uint_set _assumptions;
+        index_set _assumptions;
         for (unsigned i = 0; i < assumptions.size(); ++i) {
             _assumptions.insert(get_literal(assumptions[i]).var());
         }
