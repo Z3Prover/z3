@@ -1496,7 +1496,7 @@ bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_
         lchange = true;
     }
 
-    bool is_sat;
+    bool is_sat = true;
     unsigned szl = ls.size() - head1, szr = rs.size() - head2;
     expr* const* _ls = ls.c_ptr() + head1, * const* _rs = rs.c_ptr() + head2;
 
@@ -1693,11 +1693,11 @@ bool seq_rewriter::solve_itos(unsigned szl, expr* const* ls, unsigned szr, expr*
                               expr_ref_vector& lhs, expr_ref_vector& rhs, bool& is_sat) {
 
     expr* l, *r;
+    is_sat = true;
     if (szl == 1 && m_util.str.is_itos(ls[0], l)) {
         if (szr == 1 && m_util.str.is_itos(rs[0], r)) {
             lhs.push_back(l);
             rhs.push_back(r);
-            is_sat = true;
             return true;
         }
         zstring s;
