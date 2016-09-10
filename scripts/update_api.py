@@ -1605,23 +1605,20 @@ def write_core_py_preamble(core_py):
   core_py.write('from .z3consts import *\n')
   core_py.write(
 """
+_ext = 'dll' if sys.platform in ('win32', 'cygwin') else 'dylib' if sys.platform == 'darwin' else 'so'
+
 _lib = None
 def lib():
   global _lib
-  if _lib == None:
-    _dir = pkg_resources.resource_filename('z3', 'lib')
-    for ext in ['dll', 'so', 'dylib']:
+  if _lib is None:
+    _dirs = ['.', pkg_resources.resource_filename('z3', 'lib'), os.path.join(sys.prefix, 'lib'), '']
+    for _dir in _dirs:
       try:
-        init(os.path.join(_dir, 'libz3.%s' % ext))
+        init(_dir)
         break
       except:
         pass
-      try:
-        init('libz3.%s' % ext)
-        break
-      except:
-        pass
-    if _lib == None:
+    if _lib is None:
         raise Z3Exception("init(Z3_LIBRARY_PATH) must be invoked before using Z3-python")
   return _lib
 
@@ -1644,6 +1641,10 @@ else:
         return ""
 
 def init(PATH):
+  PATH = os.path.realpath(PATH)
+  if os.path.isdir(PATH):
+    PATH = os.path.join(PATH, 'libz3.%s' % _ext)
+
   global _lib
   _lib = ctypes.CDLL(PATH)
 """
