@@ -2536,15 +2536,29 @@ public:
 
 
 model_value_proc * theory_seq::mk_value(enode * n, model_generator & mg) {
-    if (m_util.is_seq(n->get_owner())) {
+    app* e = n->get_owner();
+    context& ctx = get_context();
+    expr* e1, *e2, *e3;
+    if (m.is_ite(e, e1, e2, e3) && ctx.e_internalized(e2) && ctx.e_internalized(e3) &&
+        (ctx.get_enode(e2)->get_root() == n->get_root() ||
+         ctx.get_enode(e3)->get_root() == n->get_root())) {
+        if (ctx.get_enode(e2)->get_root() == n->get_root()) {
+            return mk_value(ctx.get_enode(e2), mg);
+        }
+        else {
+            return mk_value(ctx.get_enode(e3), mg);
+        }
+    }
+    else if (m_util.is_seq(e)) {
         ptr_vector<expr> concats;
-        get_concat(n->get_owner(), concats);
-        context& ctx = get_context();
-        sort* srt = m.get_sort(n->get_owner());
+        get_concat(e, concats);
+        sort* srt = m.get_sort(e);
         seq_value_proc* sv = alloc(seq_value_proc, *this, srt);
-        
+       
+        TRACE("seq", tout << mk_pp(e, m) << "\n";);
         for (unsigned i = 0; i < concats.size(); ++i) {
             expr* c = concats[i], *c1;
+            TRACE("seq", tout << mk_pp(c, m) << "\n";);
             if (m_util.str.is_unit(c, c1)) {
                 if (ctx.e_internalized(c1)) {
                     sv->add_dependency(ctx.get_enode(c1));
@@ -2560,7 +2574,7 @@ model_value_proc * theory_seq::mk_value(enode * n, model_generator & mg) {
         return sv;
     }
     else {
-        return alloc(expr_wrapper_proc, mk_value(n->get_owner()));
+        return alloc(expr_wrapper_proc, mk_value(e));
     }
 }
 
@@ -2683,6 +2697,15 @@ expr_ref theory_seq::expand(expr* e0, dependency*& eqs) {
         result = m_util.str.mk_index(expand(e1, deps), expand(e2, deps), e3);
     }
     else if (m.is_ite(e, e1, e2, e3)) {
+        if (ctx.e_internalized(e) && ctx.e_internalized(e2) && ctx.get_enode(e)->get_root() == ctx.get_enode(e2)->get_root()) {
+            result = expand(e2, deps);
+            add_dependency(deps, ctx.get_enode(e), ctx.get_enode(e2));
+        }
+        else if (ctx.e_internalized(e) && ctx.e_internalized(e2) && ctx.get_enode(e)->get_root() == ctx.get_enode(e3)->get_root()) {
+            result = expand(e3, deps);
+            add_dependency(deps, ctx.get_enode(e), ctx.get_enode(e3));
+        }
+        else {
         literal lit(mk_literal(e1));
 #if 0
         expr_ref sk_ite = mk_sk_ite(e1, e2, e3);
@@ -2708,6 +2731,7 @@ expr_ref theory_seq::expand(expr* e0, dependency*& eqs) {
             break;
         }
 #endif
+        }
     }
     else if (m_util.str.is_itos(e, e1)) {
         rational val;
