@@ -2260,7 +2260,6 @@ bool theory_seq::add_itos_axiom(expr* e) {
             app_ref e1(m_util.str.mk_string(symbol(val.to_string().c_str())), m);            
             expr_ref n1(arith_util(m).mk_numeral(val, true), m);
 
-#if 1
             // itos(n) = "25" <=> n = 25
             literal eq1 = mk_eq(n1, n , false);
             literal eq2 = mk_eq(e, e1, false);
@@ -2269,18 +2268,19 @@ bool theory_seq::add_itos_axiom(expr* e) {
             ctx.force_phase(eq1);
             ctx.force_phase(eq2);
 
-#else
-            // "25" = itos(25)
-            // stoi(itos(n)) = n
-            app_ref e2(m_util.str.mk_stoi(e), m);
-            add_axiom(mk_eq(e2, n, false));
-            add_axiom(mk_eq(m_util.str.mk_itos(n1), e1, false));
-#endif
             m_trail_stack.push(insert_map<theory_seq, rational_set, rational>(m_itos_axioms, val));
             m_trail_stack.push(push_replay(alloc(replay_axiom, m, e)));
             return true;
-        }            
+        }
     }
+    else {
+        // stoi(itos(n)) = n
+        app_ref e2(m_util.str.mk_stoi(e), m);
+        add_axiom(mk_eq(e2, n, false));
+        m_trail_stack.push(push_replay(alloc(replay_axiom, m, e)));
+        return true;
+    }
+
     return false;
 }
 
