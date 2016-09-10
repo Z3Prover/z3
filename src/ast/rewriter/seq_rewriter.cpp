@@ -890,6 +890,11 @@ br_status seq_rewriter::mk_str_stoi(expr* a, expr_ref& result) {
         result = m_autil.mk_numeral(r, true);
         return BR_DONE;
     }
+    expr* b;
+    if (m_util.str.is_itos(a, b)) {
+        result = b;
+        return BR_DONE;
+    }
     return BR_FAILED;
 }
 
