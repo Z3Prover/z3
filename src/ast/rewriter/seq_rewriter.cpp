@@ -637,7 +637,7 @@ br_status seq_rewriter::mk_seq_replace(expr* a, expr* b, expr* c, expr_ref& resu
         result = a;
         return BR_DONE;
     }
-    if (m_util.str.is_string(b, s1) && s2.length() == 0) {
+    if (m_util.str.is_string(b, s2) && s2.length() == 0) {
         result = m_util.str.mk_concat(a, c);
         return BR_REWRITE1;
     }
