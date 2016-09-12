@@ -299,10 +299,10 @@ static void cut_vars_map_copy(std::map<expr*, int> & dest, std::map<expr*, int> 
 }
 
 bool theory_str::has_self_cut(expr * n1, expr * n2) {
-    if (cut_var_map.find(n1) == cut_var_map.end()) {
+	if (!cut_var_map.contains(n1)) {
         return false;
     }
-    if (cut_var_map.find(n2) == cut_var_map.end()) {
+    if (!cut_var_map.contains(n2)) {
         return false;
     }
     if (cut_var_map[n1].empty() || cut_var_map[n2].empty()) {
@@ -322,10 +322,11 @@ void theory_str::add_cut_info_one_node(expr * baseNode, int slevel, expr * node)
     // crash avoidance?
     m_trail.push_back(baseNode);
     m_trail.push_back(node);
-    if (cut_var_map.find(baseNode) == cut_var_map.end()) {
+    if (!cut_var_map.contains(baseNode)) {
         T_cut * varInfo = alloc(T_cut);
         varInfo->level = slevel;
         varInfo->vars[node] = 1;
+        cut_var_map.insert(baseNode, std::stack<T_cut*>());
         cut_var_map[baseNode].push(varInfo);
         TRACE("t_str_cut_var_map", tout << "add var info for baseNode=" << mk_pp(baseNode, get_manager()) << ", node=" << mk_pp(node, get_manager()) << std::endl;);
     } else {
@@ -357,7 +358,7 @@ void theory_str::add_cut_info_merge(expr * destNode, int slevel, expr * srcNode)
     // crash avoidance?
     m_trail.push_back(destNode);
     m_trail.push_back(srcNode);
-    if (cut_var_map.find(srcNode) == cut_var_map.end()) {
+    if (!cut_var_map.contains(srcNode)) {
         get_manager().raise_exception("illegal state in add_cut_info_merge(): cut_var_map doesn't contain srcNode");
     }
 
@@ -365,10 +366,11 @@ void theory_str::add_cut_info_merge(expr * destNode, int slevel, expr * srcNode)
         get_manager().raise_exception("illegal state in add_cut_info_merge(): cut_var_map[srcNode] is empty");
     }
 
-    if (cut_var_map.find(destNode) == cut_var_map.end()) {
+    if (!cut_var_map.contains(destNode)) {
         T_cut * varInfo = alloc(T_cut);
         varInfo->level = slevel;
         cut_vars_map_copy(varInfo->vars, cut_var_map[srcNode].top()->vars);
+        cut_var_map.insert(destNode, std::stack<T_cut*>());
         cut_var_map[destNode].push(varInfo);
         TRACE("t_str_cut_var_map", tout << "merge var info for destNode=" << mk_pp(destNode, get_manager()) << ", srcNode=" << mk_pp(srcNode, get_manager()) << std::endl;);
     } else {
@@ -389,7 +391,7 @@ void theory_str::add_cut_info_merge(expr * destNode, int slevel, expr * srcNode)
 }
 
 void theory_str::check_and_init_cut_var(expr * node) {
-    if (cut_var_map.find(node) != cut_var_map.end()) {
+    if (cut_var_map.contains(node)) {
         return;
     } else if (!m_strutil.is_string(node)) {
         add_cut_info_one_node(node, -1, node);
@@ -6488,18 +6490,29 @@ void theory_str::pop_scope_eh(unsigned num_scopes) {
     TRACE("t_str", tout << "pop " << num_scopes << " to " << sLevel << std::endl;);
     TRACE("t_str_dump_assign_on_scope_change", dump_assignments(););
 
-    std::map<expr*, std::stack<T_cut *> >::iterator varItor = cut_var_map.begin();
+    // list of expr* to remove from cut_var_map
+    ptr_vector<expr> cutvarmap_removes;
+
+    obj_map<expr, std::stack<T_cut *> >::iterator varItor = cut_var_map.begin();
     while (varItor != cut_var_map.end()) {
-        while ((varItor->second.size() > 0) && (varItor->second.top()->level != 0) && (varItor->second.top()->level >= sLevel)) {
-            T_cut * aCut = varItor->second.top();
-            varItor->second.pop();
+    	std::stack<T_cut*> & val = cut_var_map[varItor->m_key];
+        while ((val.size() > 0) && (val.top()->level != 0) && (val.top()->level >= sLevel)) {
+            T_cut * aCut = val.top();
+            val.pop();
             // dealloc(aCut); // TODO find a safer way to do this, it is causing a crash
         }
-        if (varItor->second.size() == 0) {
-            cut_var_map.erase(varItor++);
-        } else {
-            varItor++;
+        if (val.size() == 0) {
+        	cutvarmap_removes.insert(varItor->m_key);
         }
+        varItor++;
+    }
+
+    if (!cutvarmap_removes.empty()) {
+    	ptr_vector<expr>::iterator it = cutvarmap_removes.begin();
+    	for (; it != cutvarmap_removes.end(); ++it) {
+    		expr * ex = *it;
+    		cut_var_map.remove(ex);
+    	}
     }
 
     // see if any internal variables went out of scope

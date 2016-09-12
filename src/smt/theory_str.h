@@ -206,7 +206,7 @@ namespace smt {
 
         bool avoidLoopCut;
         bool loopDetected;
-        std::map<expr*, std::stack<T_cut *> > cut_var_map;
+        obj_map<expr, std::stack<T_cut*> > cut_var_map;
 
         std::set<expr*> variable_set;
         std::set<expr*> internal_variable_set;
