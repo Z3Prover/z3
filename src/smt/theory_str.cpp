@@ -6597,10 +6597,10 @@ void theory_str::classify_ast_by_type(expr * node, std::map<expr*, int> & varMap
 			expr * arg1Val = get_eqc_value(arg1, arg1HasEq);
 
 			int canskip = 0;
-			if (arg0HasEq && arg0Val == m_strutil.mk_string("")) {
+			if (arg0HasEq && m_strutil.get_string_constant_value(arg0Val).empty()) {
 				canskip = 1;
 			}
-			if (canskip == 0 && arg1HasEq && arg1Val == m_strutil.mk_string("")) {
+			if (canskip == 0 && arg1HasEq && m_strutil.get_string_constant_value(arg1Val).empty()) {
 				canskip = 1;
 			}
 			if (canskip == 0 && concatMap.find(node) == concatMap.end()) {
