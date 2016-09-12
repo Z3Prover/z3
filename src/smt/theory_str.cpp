@@ -735,16 +735,14 @@ expr * theory_str::mk_concat(expr * n1, expr * n2) {
 	// * expr * ast2 = mk_2_arg_app(ctx, td->Concat, n1, n2);
 	// Z3 treats (ast1) and (ast2) as two different nodes.
 	//-------------------------------------------------------
-	std::pair<expr*, expr*> concatArgs(n1, n2);
+
 	expr * concatAst = NULL;
-	// TODO NEXT add cache lookups. I think we need to be more careful than just using std:: data structures here
-	/*
-	if (concat_astNode_map.find(concatArgs) == concat_astNode_map.end()) {
-	*/
-	if (true) {
+
+	if (!concat_astNode_map.find(n1, n2, concatAst)) {
 	    expr * args[2] = {n1, n2};
 	    concatAst = m.mk_app(get_id(), OP_STRCAT, 0, 0, 2, args);
-	    // concat_astNode_map[concatArgs] = concatAst;
+	    m_trail.push_back(concatAst);
+	    concat_astNode_map.insert(n1, n2, concatAst);
 
 	    expr_ref concat_length(mk_strlen(concatAst), m);
 
@@ -756,9 +754,6 @@ expr * theory_str::mk_concat(expr * n1, expr * n2) {
 	    }
 	    expr_ref lenAssert(ctx.mk_eq_atom(concat_length, m_autil.mk_add(items.size(), items.c_ptr())), m);
 	    assert_axiom(lenAssert);
-	} else {
-	    // concatAst = concat_astNode_map[concatArgs];
-	    NOT_IMPLEMENTED_YET();
 	}
 	return concatAst;
 }

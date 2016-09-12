@@ -250,6 +250,8 @@ namespace smt {
         std::map<char, int> charSetLookupTable;
         int charSetSize;
 
+        obj_pair_map<expr, expr, expr*> concat_astNode_map;
+
     protected:
         void assert_axiom(expr * e);
         void assert_implication(expr * premise, expr * conclusion);
