@@ -6472,6 +6472,11 @@ void theory_str::check_variable_scope() {
     if (!opt_CheckVariableScope) {
         return;
     }
+
+    if (!is_trace_enabled("t_str_detail")) {
+    	return;
+    }
+
     TRACE("t_str_detail", tout << "checking scopes of variables in the current assignment" << std::endl;);
 
     context & ctx = get_context();
