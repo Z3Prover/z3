@@ -8883,9 +8883,7 @@ void theory_str::get_eqc_allUnroll(expr * n, expr * &constStr, std::set<expr*> &
         unrollFuncSet.insert(curr);
       }
     }
-    enode * e_curr = ctx.get_enode(curr);
-    curr = e_curr->get_next()->get_owner();
-    // curr = get_eqc_next(t, curr);
+    curr = get_eqc_next(curr);
   } while (curr != n);
 }
 
@@ -8907,9 +8905,7 @@ void theory_str::get_eqc_simpleUnroll(expr * n, expr * &constStr, std::set<expr*
 				}
 			}
 		}
-		enode * e_curr = ctx.get_enode(curr);
-		curr = e_curr->get_next()->get_owner();
-		// curr = get_eqc_next(t, curr);
+		curr = get_eqc_next(curr);
 	} while (curr != n);
 }
 
