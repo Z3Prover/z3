@@ -6231,14 +6231,14 @@ void theory_str::handle_equality(expr * lhs, expr * rhs) {
 
     if (eqc_const_lhs.size() != 0) {
         expr * conStr = *(eqc_const_lhs.begin());
-        std::set<expr*>::iterator itor2 = eqc_const_rhs.begin();
-        for (; itor2 != eqc_const_rhs.end(); itor2++) {
+        std::set<expr*>::iterator itor2 = eqc_concat_rhs.begin();
+        for (; itor2 != eqc_concat_rhs.end(); itor2++) {
             solve_concat_eq_str(*itor2, conStr);
         }
     } else if (eqc_const_rhs.size() != 0) {
         expr* conStr = *(eqc_const_rhs.begin());
-        std::set<expr*>::iterator itor1 = eqc_const_lhs.begin();
-        for (; itor1 != eqc_const_lhs.end(); itor1++) {
+        std::set<expr*>::iterator itor1 = eqc_concat_lhs.begin();
+        for (; itor1 != eqc_concat_lhs.end(); itor1++) {
             solve_concat_eq_str(*itor1, conStr);
         }
     }
