@@ -27,6 +27,7 @@ Revision History:
 #include<stack>
 #include<vector>
 #include"str_rewriter.h"
+#include"union_find.h"
 
 namespace smt {
 
@@ -81,6 +82,10 @@ namespace smt {
               level = -100;
             }
         };
+
+        typedef trail_stack<theory_str> th_trail_stack;
+        typedef union_find<theory_str> th_union_find;
+
     protected:
         // Some options that control how the solver operates.
 
@@ -252,6 +257,12 @@ namespace smt {
 
         obj_pair_map<expr, expr, expr*> concat_astNode_map;
 
+        th_union_find m_find;
+        th_trail_stack m_trail_stack;
+        theory_var get_var(expr * n) const;
+        expr * get_eqc_next(expr * n);
+        app * get_ast(theory_var i);
+
     protected:
         void assert_axiom(expr * e);
         void assert_implication(expr * premise, expr * conclusion);
@@ -347,6 +358,7 @@ namespace smt {
 
         app * mk_value_helper(app * n);
         expr * get_eqc_value(expr * n, bool & hasEqcValue);
+        expr * z3str2_get_eqc_value(expr * n , bool & hasEqcValue);
         bool in_same_eqc(expr * n1, expr * n2);
         expr * collect_eq_nodes(expr * n, expr_ref_vector & eqcSet);
 
@@ -479,6 +491,11 @@ namespace smt {
         virtual void display(std::ostream & out) const;
 
         bool overlapping_variables_detected() const { return loopDetected; }
+
+        th_trail_stack& get_trail_stack() { return m_trail_stack; }
+        void merge_eh(theory_var, theory_var, theory_var v1, theory_var v2) {}
+        void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) { }
+        void unmerge_eh(theory_var v1, theory_var v2) {}
     protected:
         virtual bool internalize_atom(app * atom, bool gate_ctx);
         virtual bool internalize_term(app * term);
