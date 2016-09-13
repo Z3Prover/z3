@@ -631,7 +631,7 @@ public:
             ctx.regular_stream() << "(:status " << ctx.get_status() << ")" << std::endl;
         }
         else if (opt == m_reason_unknown) {
-            ctx.regular_stream() << "(:reason-unknown " << ctx.reason_unknown() << ")" << std::endl;
+            ctx.regular_stream() << "(:reason-unknown \"" << ctx.reason_unknown() << "\")" << std::endl;
         }
         else if (opt == m_all_statistics) {
             ctx.display_statistics();
