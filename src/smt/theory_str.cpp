@@ -151,7 +151,6 @@ void theory_str::assert_axiom(expr * e) {
         ctx.internalize(e, true);
     }
     literal lit(ctx.get_literal(e));
-    // TESTING!
     ctx.mark_as_relevant(lit);
     ctx.mk_th_axiom(get_id(), 1, &lit);
 
