@@ -1299,7 +1299,7 @@ class DLLComponent(Component):
             if IS_WINDOWS or IS_OSX:
                 out.write('\n\tcp %s %s' % (self.dll_file(), self.staging_link))
             else:
-                out.write('\n\tln -s %s %s' % (os.path.join(reverse_path(self.staging_link), self.dll_file()), self.staging_link))
+                out.write('\n\tln -f -s %s %s' % (os.path.join(reverse_path(self.staging_link), self.dll_file()), self.staging_link))
         out.write('\n')
         if self.static:
             if IS_WINDOWS:

@@ -5,3 +5,4 @@ build
 *.egg-info
 bin
 z3/lib
+z3/include

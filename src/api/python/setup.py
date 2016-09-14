@@ -41,6 +41,9 @@ def _clean_bins():
     shutil.rmtree(HEADERS_DIR, ignore_errors=True)
 
 def _configure_z3():
+    # bail out early if we don't need to do this - it forces a rebuild every time otherwise
+    if os.path.exists(BUILD_DIR):
+        return
     args = [sys.executable, os.path.join(SRC_DIR, 'scripts', 'mk_make.py')]
 
     if sys.platform == 'win32' and platform.architecture()[0] == '64bit':
