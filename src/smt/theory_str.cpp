@@ -3393,10 +3393,10 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
 
         expr_ref suf_n_concat(mk_concat(suffixAst, n), mgr);
         if (can_two_nodes_eq(x, prefixAst) && can_two_nodes_eq(y, suf_n_concat)) {
-            expr ** r_items = alloc_svect(expr*, 2);
-            r_items[0] = ctx.mk_eq_atom(x, prefixAst);
-            r_items[1] = ctx.mk_eq_atom(y, suf_n_concat);
-            assert_implication(ax_l, mgr.mk_and(2, r_items));
+            expr_ref_vector r_items(mgr);
+            r_items.push_back(ctx.mk_eq_atom(x, prefixAst));
+            r_items.push_back(ctx.mk_eq_atom(y, suf_n_concat));
+            assert_implication(ax_l, mk_and(r_items));
         } else {
             // negate! It's impossible to split str with these lengths
             TRACE("t_str", tout << "CONFLICT: Impossible to split str with these lengths." << std::endl;);
@@ -3433,11 +3433,11 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
 
         if (can_two_nodes_eq(x, str_temp1)) {
             if (!avoidLoopCut || !(has_self_cut(x, n))) {
-                expr ** r_items = alloc_svect(expr*, 3);
-                r_items[0] = ctx.mk_eq_atom(x, str_temp1);
-                r_items[1] = ctx.mk_eq_atom(n, temp1_y);
-                r_items[2] = ctx.mk_eq_atom(mk_strlen(temp1), mk_int(tmpLen));
-                expr_ref ax_r(mgr.mk_and(3, r_items), mgr);
+                expr_ref_vector r_items(mgr);
+                r_items.push_back(ctx.mk_eq_atom(x, str_temp1));
+                r_items.push_back(ctx.mk_eq_atom(n, temp1_y));
+                r_items.push_back(ctx.mk_eq_atom(mk_strlen(temp1), mk_int(tmpLen)));
+                expr_ref ax_r(mk_and(r_items), mgr);
 
                 //Cut Info
                 add_cut_info_merge(temp1, sLevel, x);
@@ -3460,9 +3460,9 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
         // Split type -1. We know nothing about the length...
 
         int optionTotal = 2 + strValue.length();
-        expr ** or_item = alloc_svect(expr*, optionTotal);
-        int option = 0;
-        expr ** and_item = alloc_svect(expr*, (2 + 4 * optionTotal));
+        expr_ref_vector or_item(mgr);
+        unsigned option = 0;
+        expr_ref_vector and_item(mgr);
         int pos = 1;
         for (int i = 0; i <= (int) strValue.size(); i++) {
             std::string part1Str = strValue.substr(0, i);
@@ -3474,11 +3474,11 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
             if (can_two_nodes_eq(x, cropStr) && can_two_nodes_eq(y, y_concat)) {
                 // break down option 3-1
                 expr_ref x_eq_str(ctx.mk_eq_atom(x, cropStr), mgr);
-                or_item[option] = ctx.mk_eq_atom(xorFlag, mk_int(option));
-                and_item[pos++] = ctx.mk_eq_atom(or_item[option], x_eq_str);
-                and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(y, y_concat));
+                or_item.push_back(ctx.mk_eq_atom(xorFlag, mk_int(option)));
+                and_item.push_back(ctx.mk_eq_atom(or_item.get(option), x_eq_str)); ++pos;
+                and_item.push_back(ctx.mk_eq_atom(or_item.get(option), ctx.mk_eq_atom(y, y_concat)));
 
-                and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(mk_strlen(x), mk_strlen(cropStr)));
+                and_item.push_back(ctx.mk_eq_atom(or_item.get(option), ctx.mk_eq_atom(mk_strlen(x), mk_strlen(cropStr)))); ++pos;
                 //        and_item[pos++] = Z3_mk_eq(ctx, or_item[option], Z3_mk_eq(ctx, mk_length(t, y), mk_length(t, y_concat)));
 
                 // adding length constraint for _ = constStr seems slowing things down.
@@ -3495,18 +3495,18 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
         if (can_two_nodes_eq(x, strAst_temp1)) {
             if (!avoidLoopCut || !(has_self_cut(x, n))) {
                 // break down option 3-2
-                or_item[option] = ctx.mk_eq_atom(xorFlag, mk_int(option));
+                or_item.push_back(ctx.mk_eq_atom(xorFlag, mk_int(option)));
 
                 expr_ref temp1_y(mk_concat(temp1, y), mgr);
-                and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(x, strAst_temp1));
-                and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(n, temp1_y));
+                and_item.push_back(ctx.mk_eq_atom(or_item.get(option), ctx.mk_eq_atom(x, strAst_temp1))); ++pos;
+                and_item.push_back(ctx.mk_eq_atom(or_item.get(option), ctx.mk_eq_atom(n, temp1_y))); ++pos;
 
-                and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(mk_strlen(x),
-                        m_autil.mk_add(mk_strlen(strAst), mk_strlen(temp1)) ));
+                and_item.push_back(ctx.mk_eq_atom(or_item.get(option), ctx.mk_eq_atom(mk_strlen(x),
+                        m_autil.mk_add(mk_strlen(strAst), mk_strlen(temp1)) )) ); ++pos;
                 option++;
 
-                add_cut_info_merge(temp1, ctx.get_scope_level(), x);
-                add_cut_info_merge(temp1, ctx.get_scope_level(), n);
+                add_cut_info_merge(temp1, sLevel, x);
+                add_cut_info_merge(temp1, sLevel, n);
             } else {
                 loopDetected = true;
                 TRACE("t_str", tout << "AVOID LOOP: SKIPPED." << std::endl;);
@@ -3517,11 +3517,11 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
 
         if (option > 0) {
             if (option == 1) {
-                and_item[0] = or_item[0];
+                and_item.push_back(or_item.get(0));
             } else {
-                and_item[0] = mgr.mk_or(option, or_item);
+                and_item.push_back(mk_or(or_item));
             }
-            expr_ref implyR(mgr.mk_and(pos, and_item), mgr);
+            expr_ref implyR(mk_and(and_item), mgr);
             assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
         } else {
             TRACE("t_str", tout << "STOP: should not split two eq. concats" << std::endl;);
@@ -6531,11 +6531,11 @@ void theory_str::check_variable_scope() {
     ast_manager & m = get_manager();
 
     expr_ref_vector assignments(m);
-        ctx.get_assignments(assignments);
-        for (expr_ref_vector::iterator i = assignments.begin(); i != assignments.end(); ++i) {
-            expr * ex = *i;
-            recursive_check_variable_scope(ex);
-        }
+    ctx.get_assignments(assignments);
+    for (expr_ref_vector::iterator i = assignments.begin(); i != assignments.end(); ++i) {
+        expr * ex = *i;
+        recursive_check_variable_scope(ex);
+    }
 }
 
 void theory_str::pop_scope_eh(unsigned num_scopes) {
@@ -6587,6 +6587,7 @@ void theory_str::pop_scope_eh(unsigned num_scopes) {
         }
     }
 
+    // TODO use the trail stack to do this for us! requires lots of refactoring
     // TODO if this works, possibly remove axioms from other vectors as well
     ptr_vector<enode> new_m_basicstr;
     for (ptr_vector<enode>::iterator it = m_basicstr_axiom_todo.begin(); it != m_basicstr_axiom_todo.end(); ++it) {
