@@ -1708,7 +1708,7 @@ def generate_files(api_files,
   with mk_file_or_temp(api_output_dir, 'api_log_macros.h') as log_h:
     with mk_file_or_temp(api_output_dir, 'api_log_macros.cpp') as log_c:
       with mk_file_or_temp(api_output_dir, 'api_commands.cpp') as exe_c:
-        with mk_file_or_temp(z3py_output_dir, 'z3/z3core.py') as core_py:
+        with mk_file_or_temp(z3py_output_dir, os.path.join('z3', 'z3core.py')) as core_py:
           # Write preambles
           write_log_h_preamble(log_h)
           write_log_c_preamble(log_c)

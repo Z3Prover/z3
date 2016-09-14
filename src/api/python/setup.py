@@ -18,7 +18,7 @@ build_env['CXXFLAGS'] = "-std=c++11"
 
 ROOT_DIR = os.path.abspath(os.path.dirname(__file__))
 SRC_DIR_LOCAL = os.path.join(ROOT_DIR, 'core')
-SRC_DIR_REPO = os.path.join(ROOT_DIR, '../../..')
+SRC_DIR_REPO = os.path.join(ROOT_DIR, '..', '..', '..')
 SRC_DIR = SRC_DIR_LOCAL if os.path.exists(SRC_DIR_LOCAL) else SRC_DIR_REPO
 BUILD_DIR = os.path.join(SRC_DIR, 'build') # implicit in configure script
 LIBS_DIR = os.path.join(ROOT_DIR, 'z3', 'lib')
@@ -72,8 +72,8 @@ def _copy_bins():
     _clean_bins()
 
     if SRC_DIR == SRC_DIR_LOCAL:
-        shutil.copy(os.path.join(SRC_DIR, 'src/api/python/z3/z3core.py'), os.path.join(ROOT_DIR, 'z3'))
-        shutil.copy(os.path.join(SRC_DIR, 'src/api/python/z3/z3consts.py'), os.path.join(ROOT_DIR, 'z3'))
+        shutil.copy(os.path.join(SRC_DIR, 'src', 'api', 'python', 'z3', 'z3core.py'), os.path.join(ROOT_DIR, 'z3'))
+        shutil.copy(os.path.join(SRC_DIR, 'src', 'api', 'python', 'z3', 'z3consts.py'), os.path.join(ROOT_DIR, 'z3'))
 
     # STEP 2: Copy the shared library, the executable and the headers
 
@@ -83,8 +83,8 @@ def _copy_bins():
     os.mkdir(os.path.join(HEADERS_DIR, 'c++'))
     shutil.copy(os.path.join(BUILD_DIR, 'libz3.so'), LIBS_DIR)
     shutil.copy(os.path.join(BUILD_DIR, 'z3'), BINS_DIR)
-    for fname in ('z3.h', 'z3_v1.h', 'z3_macros.h', 'z3_api.h', 'z3_algebraic.h', 'z3_polynomial.h', 'z3_rcf.h', 'z3_interp.h', 'z3_fpa.h', 'c++/z3++.h'):
-        shutil.copy(os.path.join(SRC_DIR, 'src/api', fname), os.path.join(HEADERS_DIR, fname))
+    for fname in ('z3.h', 'z3_v1.h', 'z3_macros.h', 'z3_api.h', 'z3_algebraic.h', 'z3_polynomial.h', 'z3_rcf.h', 'z3_interp.h', 'z3_fpa.h', os.path.join('c++', 'z3++.h')):
+        shutil.copy(os.path.join(SRC_DIR, 'src', 'api', fname), os.path.join(HEADERS_DIR, fname))
 
 def _copy_sources():
     """
@@ -101,9 +101,9 @@ def _copy_sources():
             ignore=lambda src, names: ['python'] if 'api' in src else [])
 
     # stub python dir to make build happy
-    os.mkdir(os.path.join(SRC_DIR_LOCAL, 'src/api/python'))
-    os.mkdir(os.path.join(SRC_DIR_LOCAL, 'src/api/python/z3'))
-    open(os.path.join(SRC_DIR_LOCAL, 'src/api/python/z3/.placeholder'), 'w').close()
+    os.mkdir(os.path.join(SRC_DIR_LOCAL, 'src', 'api', 'python'))
+    os.mkdir(os.path.join(SRC_DIR_LOCAL, 'src', 'api', 'python', 'z3'))
+    open(os.path.join(SRC_DIR_LOCAL, 'src', 'api', 'python', 'z3', '.placeholder'), 'w').close()
 
 class build(_build):
     def run(self):
@@ -148,9 +148,8 @@ setup(
     packages=['z3'],
     include_package_data=True,
     package_data={
-        'z3': ['lib/*', 'include/*']
+        'z3': [os.path.join('lib', '*'), os.path.join('include', '*')]
     },
-    scripts=['bin/z3'],
-    #scripts=[os.path.join(ROOT_DIR, 'build', 'z3')] if sys.version_info[0] == 2 else [],
+    scripts=[os.path.join('bin', 'z3')],
     cmdclass={'build': build, 'develop': develop, 'sdist': sdist, 'bdist_egg': bdist_egg},
 )
