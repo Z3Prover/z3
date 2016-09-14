@@ -3967,6 +3967,7 @@ void theory_str::unroll_str2reg_constStr(expr * unrollFunc, expr * eqConstStr) {
  * Return that constant if it is found, and set hasEqcValue to true.
  * Otherwise, return n, and set hasEqcValue to false.
  */
+/*
 expr * theory_str::get_eqc_value(expr * n, bool & hasEqcValue) {
 	context & ctx = get_context();
 	// I hope this works
@@ -3985,6 +3986,12 @@ expr * theory_str::get_eqc_value(expr * n, bool & hasEqcValue) {
 	hasEqcValue = false;
 	return n;
 }
+*/
+
+expr * theory_str::get_eqc_value(expr * n, bool & hasEqcValue) {
+    return z3str2_get_eqc_value(n, hasEqcValue);
+}
+
 
 // Simulate the behaviour of get_eqc_value() from Z3str2.
 // We only check m_find for a string constant.
