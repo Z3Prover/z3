@@ -1787,7 +1787,7 @@ void theory_str::simplify_parent(expr * nn, expr * eq_str) {
     ctx.internalize(nn, false);
 
     std::string eq_strValue = m_strutil.get_string_constant_value(eq_str);
-    app * n_eqNode = nn;
+    expr * n_eqNode = nn;
     do {
         enode * n_eq_enode = ctx.get_enode(n_eqNode);
         TRACE("t_str_detail", tout << "considering all parents of " << mk_ismt2_pp(n_eqNode, m) << std::endl
@@ -1872,7 +1872,7 @@ void theory_str::simplify_parent(expr * nn, expr * eq_str) {
 
                             assert_implication(implyL, implyR);
                         }
-                    } else if (is_concat(n_eqNode)) {
+                    } else if (is_concat(to_app(n_eqNode))) {
                         expr_ref simpleConcat(m);
                         simpleConcat = mk_concat(eq_str, arg1);
                         if (!in_same_eqc(a_parent, simpleConcat)) {
@@ -1943,7 +1943,7 @@ void theory_str::simplify_parent(expr * nn, expr * eq_str) {
 
                             assert_implication(implyL, implyR);
                         }
-                    } else if (is_concat(n_eqNode)) {
+                    } else if (is_concat(to_app(n_eqNode))) {
                         expr_ref simpleConcat(m);
                         simpleConcat = mk_concat(arg0, eq_str);
                         if (!in_same_eqc(a_parent, simpleConcat)) {
@@ -4198,9 +4198,9 @@ expr * theory_str::collect_eq_nodes(expr * n, expr_ref_vector & eqcSet) {
     context & ctx = get_context();
     expr * constStrNode = NULL;
 
-    app * ex = n;
+    expr * ex = n;
     do {
-        if (m_strutil.is_string(ex)) {
+        if (m_strutil.is_string(to_app(ex))) {
             constStrNode = ex;
         }
         eqcSet.push_back(ex);
@@ -5537,9 +5537,9 @@ bool theory_str::check_concat_len_in_eqc(expr * concat) {
 
     bool no_assertions = true;
 
-    app * eqc_n = concat;
+    expr * eqc_n = concat;
     do {
-        if (is_concat(eqc_n)) {
+        if (is_concat(to_app(eqc_n))) {
             rational unused;
             bool status = infer_len_concat(eqc_n, unused);
             if (status) {
