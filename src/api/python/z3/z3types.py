@@ -6,7 +6,7 @@
 # Author: Leonardo de Moura (leonardo)
 ############################################
 
-import ctypes, z3core
+import ctypes
 
 class Z3Exception(Exception):
     def __init__(self, value):

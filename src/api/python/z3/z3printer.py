@@ -6,8 +6,8 @@
 # Author: Leonardo de Moura (leonardo)
 ############################################
 import sys, io, z3
-from z3consts import *
-from z3core import *
+from .z3consts import *
+from .z3core import *
 from ctypes import *
 
 ##############################

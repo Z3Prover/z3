@@ -11,7 +11,7 @@ Usage:
 import common_z3 as CM_Z3
 """
 
-from z3 import *
+from .z3 import *
 
 def vset(seq, idfun=None, as_list=True):
     # This functions preserves the order of arguments while removing duplicates. 

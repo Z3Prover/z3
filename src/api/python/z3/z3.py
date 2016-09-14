@@ -41,10 +41,10 @@ Z3 exceptions:
 ...   print("failed: %s" % ex)
 failed: sort mismatch
 """
-from z3core import *
-from z3types import *
-from z3consts import *
-from z3printer import *
+from .z3core import *
+from .z3types import *
+from .z3consts import *
+from .z3printer import *
 from fractions import Fraction
 import sys
 import io

@@ -5,7 +5,7 @@
 #
 # Author: Leonardo de Moura (leonardo)
 ############################################
-from z3 import *
+from .z3 import *
 
 def subresultants(p, q, x):
     """

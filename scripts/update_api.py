@@ -1600,8 +1600,8 @@ def write_core_py_preamble(core_py):
   core_py.write('# Automatically generated file\n')
   core_py.write('import sys, os\n')
   core_py.write('import ctypes\n')
-  core_py.write('from z3types import *\n')
-  core_py.write('from z3consts import *\n')
+  core_py.write('from .z3types import *\n')
+  core_py.write('from .z3consts import *\n')
   core_py.write(
 """
 _lib = None
