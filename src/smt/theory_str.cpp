@@ -1785,18 +1785,16 @@ void theory_str::simplify_parent(expr * nn, expr * eq_str) {
             << " with respect to " << mk_ismt2_pp(eq_str, m) << std::endl;);
 
     ctx.internalize(nn, false);
-    enode * n_eq_enode = ctx.get_enode(nn);
-    enode * nn_enode = n_eq_enode;
 
     std::string eq_strValue = m_strutil.get_string_constant_value(eq_str);
-
+    app * n_eqNode = nn;
     do {
-        app * n_eqNode = n_eq_enode->get_owner();
+        enode * n_eq_enode = ctx.get_enode(n_eqNode);
         TRACE("t_str_detail", tout << "considering all parents of " << mk_ismt2_pp(n_eqNode, m) << std::endl
                 << "associated n_eq_enode has " << n_eq_enode->get_num_parents() << " parents" << std::endl;);
 
         // the goal of this next bit is to avoid dereferencing a bogus e_parent in the following loop.
-        // what I image is causing this bug is that, for example, we examine some parent, we add an axiom that involves it,
+        // what I imagine is causing this bug is that, for example, we examine some parent, we add an axiom that involves it,
         // and the parent_it iterator becomes invalidated, because we indirectly modified the container that we're iterating over.
 
         enode_vector current_parents;
@@ -2068,8 +2066,8 @@ void theory_str::simplify_parent(expr * nn, expr * eq_str) {
 
 
         // check next EQC member
-        n_eq_enode = n_eq_enode->get_next();
-    } while (n_eq_enode != nn_enode);
+        n_eqNode = get_eqc_next(n_eqNode);
+    } while (n_eqNode != nn);
 }
 
 expr * theory_str::simplify_concat(expr * node) {
@@ -4159,45 +4157,6 @@ bool theory_str::get_len_value(expr* e, rational& val) {
 }
 
 /*
- * Look through the equivalence class of n to find an integer constant.
- * Return that constant if it is found. Otherwise, return -1.
- * Note that a return value of -1 should not normally be possible, as
- * string length cannot be negative.
- */
-
-/*
-rational theory_str::get_len_value(expr * x) {
-    ast_manager & m = get_manager();
-    context & ctx = get_context();
-    ctx.internalize(x, false);
-    expr * n = mk_strlen(x);
-    ctx.internalize(n, false);
-
-    TRACE("t_str_detail", tout << "checking eqc of " << mk_ismt2_pp(n, m) << " for an integer constant" << std::endl;);
-
-    enode * nNode = ctx.get_enode(n);
-    enode * eqcNode = nNode;
-    do {
-        app * ast = eqcNode->get_owner();
-        rational val;
-        bool is_int;
-        TRACE("t_str_detail", tout << "eqc member: " << mk_ismt2_pp(ast, m) << std::endl;);
-        if (m_autil.is_numeral(ast, val, is_int)) {
-            if (is_int) {
-                TRACE("t_str_detail", tout << "eqc contains integer constant " << val << std::endl;);
-                SASSERT(!val.is_neg());
-                return val;
-            }
-        }
-        eqcNode = eqcNode->get_next();
-    } while (eqcNode != nNode);
-    // not found
-    TRACE("t_str_detail", tout << "eqc contains no integer constants" << std::endl;);
-    return rational(-1);
-}
-*/
-
-/*
  * Decide whether n1 and n2 are already in the same equivalence class.
  * This only checks whether the core considers them to be equal;
  * they may not actually be equal.
@@ -4241,17 +4200,15 @@ expr * theory_str::collect_eq_nodes(expr * n, expr_ref_vector & eqcSet) {
     context & ctx = get_context();
     expr * constStrNode = NULL;
 
-    enode * e_base = ctx.get_enode(n);
-    enode * e_curr = e_base;
+    app * ex = n;
     do {
-        app * ex = e_curr->get_owner();
         if (m_strutil.is_string(ex)) {
             constStrNode = ex;
         }
         eqcSet.push_back(ex);
 
-        e_curr = e_curr->get_next();
-    } while (e_curr != e_base);
+        ex = get_eqc_next(ex);
+    } while (ex != n);
     return constStrNode;
 }
 
@@ -4827,10 +4784,10 @@ void theory_str::check_contain_in_new_eq(expr * n1, expr * n2) {
     ast_manager & m = get_manager();
     TRACE("t_str_detail", tout << "consistency check for contains wrt. " << mk_pp(n1, m) << " and " << mk_pp(n2, m) << std::endl;);
 
-    // Modification from Z3str2: if we use the merged EQC directly from the context,
-    // we don't have to do anything special to merge n1/n2's EQCs.
     expr_ref_vector willEqClass(m);
-    expr * constStrAst = collect_eq_nodes(n1, willEqClass);
+    expr * constStrAst_1 = collect_eq_nodes(n1, willEqClass);
+    expr * constStrAst_2 = collect_eq_nodes(n2, willEqClass);
+    expr * constStrAst = (constStrAst_1 != NULL) ? constStrAst_1 : constStrAst_2;
 
     TRACE("t_str_detail", tout << "eqc of n1 is {";
             for (expr_ref_vector::iterator it = willEqClass.begin(); it != willEqClass.end(); ++it) {
@@ -5582,10 +5539,8 @@ bool theory_str::check_concat_len_in_eqc(expr * concat) {
 
     bool no_assertions = true;
 
-    enode * eqc_base = ctx.get_enode(concat);
-    enode * eqc_it = eqc_base;
+    app * eqc_n = concat;
     do {
-        app * eqc_n = eqc_it->get_owner();
         if (is_concat(eqc_n)) {
             rational unused;
             bool status = infer_len_concat(eqc_n, unused);
@@ -5593,8 +5548,8 @@ bool theory_str::check_concat_len_in_eqc(expr * concat) {
                 no_assertions = false;
             }
         }
-        eqc_it = eqc_it->get_next();
-    } while (eqc_it != eqc_base);
+        eqc_n = get_eqc_next(eqc_n);
+    } while (eqc_n != concat);
 
     return no_assertions;
 }
@@ -5604,7 +5559,10 @@ void theory_str::check_regex_in(expr * nn1, expr * nn2) {
     ast_manager & m = get_manager();
 
     expr_ref_vector eqNodeSet(m);
-    expr * constStr = collect_eq_nodes(nn1, eqNodeSet);
+
+    expr * constStr_1 = collect_eq_nodes(nn1, eqNodeSet);
+    expr * constStr_2 = collect_eq_nodes(nn2, eqNodeSet);
+    expr * constStr = (constStr_1 != NULL) ? constStr_1 : constStr_2;
 
     if (constStr == NULL) {
         return;
