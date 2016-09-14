@@ -32,7 +32,7 @@ theory_str::theory_str(ast_manager & m):
         /* Options */
         opt_AggressiveLengthTesting(false),
         opt_AggressiveValueTesting(false),
-        opt_AggressiveUnrollTesting(false),
+        opt_AggressiveUnrollTesting(true),
         opt_EagerStringConstantLengthAssertions(true),
         opt_VerifyFinalCheckProgress(true),
 		opt_LCMUnrollStep(2),
@@ -453,6 +453,7 @@ void theory_str::track_variable_scope(expr * var) {
 }
 
 app * theory_str::mk_internal_xor_var() {
+    /*
 	ast_manager & m = get_manager();
 	std::stringstream ss;
 	ss << tmpXorVarCount;
@@ -460,6 +461,7 @@ app * theory_str::mk_internal_xor_var() {
 	std::string name = "$$_xor_" + ss.str();
 	// Z3_sort r = of_sort(mk_c(c)->m().mk_sort(mk_c(c)->get_arith_fid(), INT_SORT));
 	sort * int_sort = m.mk_sort(m_autil.get_family_id(), INT_SORT);
+
 	char * new_buffer = alloc_svect(char, name.length() + 1);
     strcpy(new_buffer, name.c_str());
 	symbol sym(new_buffer);
@@ -467,6 +469,8 @@ app * theory_str::mk_internal_xor_var() {
 	app * a = m.mk_const(m.mk_const_decl(sym, int_sort));
 	m_trail.push_back(a);
 	return a;
+	*/
+    return mk_int_var("$$_xor");
 }
 
 app * theory_str::mk_int_var(std::string name) {
