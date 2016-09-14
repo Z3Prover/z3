@@ -32,7 +32,7 @@ theory_str::theory_str(ast_manager & m):
         /* Options */
         opt_AggressiveLengthTesting(false),
         opt_AggressiveValueTesting(false),
-        opt_AggressiveUnrollTesting(true),
+        opt_AggressiveUnrollTesting(false),
         opt_EagerStringConstantLengthAssertions(true),
         opt_VerifyFinalCheckProgress(true),
 		opt_LCMUnrollStep(2),
@@ -143,7 +143,7 @@ void theory_str::assert_axiom(expr * e) {
     if (opt_VerifyFinalCheckProgress) {
         finalCheckProgressIndicator = true;
     }
-    // TODO add to m_trail?
+
     if (get_manager().is_true(e)) return;
     TRACE("t_str_detail", tout << "asserting " << mk_ismt2_pp(e, get_manager()) << std::endl;);
     context & ctx = get_context();
@@ -1612,58 +1612,42 @@ bool theory_str::new_eq_check(expr * lhs, expr * rhs) {
     context & ctx = get_context();
     ast_manager & m = get_manager();
 
-    // Previously we did the check between LHS and RHS equivalence classes.
-    // However these have since been merged.
-    // We start by asserting that the EQCs, in fact, really are merged.
-    if (!in_same_eqc(lhs, rhs)) {
-        TRACE("t_str", tout << "BUG: lhs and rhs not in same eqc in new_eq_eh(), loss of invariant!" << std::endl;);
-        UNREACHABLE();
-    }
-
     // skip this check if we defer consistency checking, as we can do it for every EQC in final check
     if (!opt_DeferEQCConsistencyCheck) {
         check_concat_len_in_eqc(lhs);
         check_concat_len_in_eqc(rhs);
     }
 
-    // Now we iterate over all pairs of terms in the (shared) eqc
+    // Now we iterate over all pairs of terms across both EQCs
     // and check whether we can show that any pair of distinct terms
     // cannot possibly be equal.
     // If that's the case, we assert an axiom to that effect and stop.
 
-    enode * eqc_root = ctx.get_enode(lhs)->get_root();
-    enode * eqc_iterator1 = eqc_root;
+    expr * eqc_nn1 = lhs;
     do {
-        enode * eqc_iterator2 = eqc_iterator1;
+        expr * eqc_nn2 = rhs;
         do {
-            if (eqc_iterator1 != eqc_iterator2) {
-                // pull terms out of the enodes
-                app * eqc_nn1 = eqc_iterator1->get_owner();
-                app * eqc_nn2 = eqc_iterator2->get_owner();
-                TRACE("t_str_detail", tout << "checking whether " << mk_pp(eqc_nn1, m) << " and " << mk_pp(eqc_nn2, m) << " can be equal" << std::endl;);
-                if (!can_two_nodes_eq(eqc_nn1, eqc_nn2)) {
-                    TRACE("t_str", tout << "inconsistency detected: " << mk_pp(eqc_nn1, m) << " cannot be equal to " << mk_pp(eqc_nn2, m) << std::endl;);
-                    expr_ref to_assert(m.mk_not(ctx.mk_eq_atom(eqc_nn1, eqc_nn2)), m);
-                    assert_axiom(to_assert);
-                    // this shouldn't use the integer theory at all, so we don't allow the option of quick-return
+            TRACE("t_str_detail", tout << "checking whether " << mk_pp(eqc_nn1, m) << " and " << mk_pp(eqc_nn2, m) << " can be equal" << std::endl;);
+            // inconsistency check: value
+            if (!can_two_nodes_eq(eqc_nn1, eqc_nn2)) {
+                TRACE("t_str", tout << "inconsistency detected: " << mk_pp(eqc_nn1, m) << " cannot be equal to " << mk_pp(eqc_nn2, m) << std::endl;);
+                expr_ref to_assert(m.mk_not(ctx.mk_eq_atom(eqc_nn1, eqc_nn2)), m);
+                assert_axiom(to_assert);
+                // this shouldn't use the integer theory at all, so we don't allow the option of quick-return
+                return false;
+            }
+            if (!check_length_consistency(eqc_nn1, eqc_nn2)) {
+                TRACE("t_str", tout << "inconsistency detected: " << mk_pp(eqc_nn1, m) << " and " << mk_pp(eqc_nn2, m) << " have inconsistent lengths" << std::endl;);
+                if (opt_NoQuickReturn_IntegerTheory){
+                    TRACE("t_str_detail", tout << "continuing in new_eq_check() due to opt_NoQuickReturn_IntegerTheory" << std::endl;);
+                } else {
                     return false;
                 }
-                if (!check_length_consistency(eqc_nn1, eqc_nn2)) {
-                    TRACE("t_str", tout << "inconsistency detected: " << mk_pp(eqc_nn1, m) << " and " << mk_pp(eqc_nn2, m) << " have inconsistent lengths" << std::endl;);
-                    if (opt_NoQuickReturn_IntegerTheory){
-                        TRACE("t_str_detail", tout << "continuing in new_eq_check() due to opt_NoQuickReturn_IntegerTheory" << std::endl;);
-                    } else {
-                        return false;
-                    }
-                }
             }
-            eqc_iterator2 = eqc_iterator2->get_next();
-
-        } while (eqc_iterator2 != eqc_root);
-
-        eqc_iterator1 = eqc_iterator1->get_next();
-    } while (eqc_iterator1 != eqc_root);
-
+            eqc_nn2 = get_eqc_next(eqc_nn2);
+        } while (eqc_nn2 != rhs);
+        eqc_nn1 = get_eqc_next(eqc_nn1);
+    } while (eqc_nn1 != lhs);
 
     if (!contains_map.empty()) {
         check_contain_in_new_eq(lhs, rhs);
@@ -2327,7 +2311,6 @@ void theory_str::simplify_concat_equality(expr * nn1, expr * nn2) {
 
     infer_len_concat_equality(nn1, nn2);
 
-    // TODO we may want to add no-quick-return options for these as well
     if (a1_arg0 == a2_arg0) {
         if (!in_same_eqc(a1_arg1, a2_arg1)) {
             expr_ref premise(ctx.mk_eq_atom(nn1, nn2), m);
@@ -2353,8 +2336,6 @@ void theory_str::simplify_concat_equality(expr * nn1, expr * nn2) {
     }
 
     // quick path
-
-    // TODO we may want to add no-quick-return options for these as well
 
     if (in_same_eqc(a1_arg0, a2_arg0)) {
         if (in_same_eqc(a1_arg1, a2_arg1)) {
@@ -4846,9 +4827,8 @@ void theory_str::check_contain_in_new_eq(expr * n1, expr * n2) {
     ast_manager & m = get_manager();
     TRACE("t_str_detail", tout << "consistency check for contains wrt. " << mk_pp(n1, m) << " and " << mk_pp(n2, m) << std::endl;);
 
-    // Modification from Z3str2: the EQC of n1 and n2 *are* now merged.
-    // So we don't have to do anything too special
-    // to prepare willEqClass any more, we just use the EQC from n1 / n2.
+    // Modification from Z3str2: if we use the merged EQC directly from the context,
+    // we don't have to do anything special to merge n1/n2's EQCs.
     expr_ref_vector willEqClass(m);
     expr * constStrAst = collect_eq_nodes(n1, willEqClass);
 
@@ -6256,9 +6236,6 @@ void theory_str::handle_equality(expr * lhs, expr * rhs) {
     if (!nn1HasEqcValue && nn2HasEqcValue) {
         simplify_parent(lhs, nn2_value);
     }
-
-    // regex unroll
-    // TODO NEXT check EQC semantics here too
 
     expr * nn1EqConst = NULL;
     std::set<expr*> nn1EqUnrollFuncs;
