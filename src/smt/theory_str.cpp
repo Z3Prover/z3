@@ -8649,9 +8649,7 @@ void theory_str::get_concats_in_eqc(expr * n, std::set<expr*> & concats) {
         if (is_concat(to_app(eqcNode))) {
             concats.insert(eqcNode);
         }
-        enode * e_eqc = ctx.get_enode(eqcNode);
-        eqcNode = e_eqc->get_next()->get_owner();
-        // eqcNode = Z3_theory_get_eqc_next(t, eqcNode);
+        eqcNode = get_eqc_next(eqcNode);
     } while (eqcNode != n);
 }
 
@@ -8663,9 +8661,7 @@ void theory_str::get_var_in_eqc(expr * n, std::set<expr*> & varSet) {
 		if (variable_set.find(eqcNode) != variable_set.end()) {
 			varSet.insert(eqcNode);
 		}
-		enode * e_eqc = ctx.get_enode(eqcNode);
-		eqcNode = e_eqc->get_next()->get_owner();
-		// eqcNode = Z3_theory_get_eqc_next(t, eqcNode);
+		eqcNode = get_eqc_next(eqcNode);
 	} while (eqcNode != n);
 }
 
