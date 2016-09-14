@@ -762,7 +762,7 @@ expr * theory_str::mk_concat(expr * n1, expr * n2) {
 }
 
 bool theory_str::can_propagate() {
-    return !m_basicstr_axiom_todo.empty() || !m_str_eq_todo.empty() || !m_concat_axiom_todo.empty()
+    return !m_basicstr_axiom_todo.empty() || !m_str_eq_todo.empty() || !m_concat_axiom_todo.empty() || !m_concat_eval_todo.empty()
             || !m_axiom_CharAt_todo.empty() || !m_axiom_StartsWith_todo.empty() || !m_axiom_EndsWith_todo.empty()
             || !m_axiom_Contains_todo.empty() || !m_axiom_Indexof_todo.empty() || !m_axiom_Indexof2_todo.empty() || !m_axiom_LastIndexof_todo.empty()
             || !m_axiom_Substr_todo.empty() || !m_axiom_Replace_todo.empty()
@@ -793,6 +793,11 @@ void theory_str::propagate() {
             instantiate_concat_axiom(m_concat_axiom_todo[i]);
         }
         m_concat_axiom_todo.reset();
+
+        for (unsigned i = 0; i < m_concat_eval_todo.size(); ++i) {
+            try_eval_concat(m_concat_eval_todo[i]);
+        }
+        m_concat_eval_todo.reset();
 
         for (unsigned i = 0; i < m_axiom_CharAt_todo.size(); ++i) {
             instantiate_axiom_CharAt(m_axiom_CharAt_todo[i]);
@@ -850,6 +855,58 @@ void theory_str::propagate() {
             set_up_axioms(m_delayed_axiom_setup_terms[i].get());
         }
         m_delayed_axiom_setup_terms.reset();
+    }
+}
+
+/*
+ * Attempt to evaluate a concat over constant strings,
+ * and if this is possible, assert equality between the
+ * flattened string and the original term.
+ */
+
+void theory_str::try_eval_concat(enode * cat) {
+    SASSERT(is_concat(cat));
+    app * a_cat = cat->get_owner();
+
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+
+    TRACE("t_str_detail", tout << "attempting to flatten " << mk_pp(a_cat, m) << std::endl;);
+
+    std::stack<app*> worklist;
+    std::string flattenedString("");
+    bool constOK = true;
+
+    {
+        app * arg0 = to_app(a_cat->get_arg(0));
+        app * arg1 = to_app(a_cat->get_arg(1));
+
+        worklist.push(arg1);
+        worklist.push(arg0);
+    }
+
+    while (constOK && !worklist.empty()) {
+        app * evalArg = worklist.top(); worklist.pop();
+        if (m_strutil.is_string(evalArg)) {
+            std::string nextStr = m_strutil.get_string_constant_value(evalArg);
+            flattenedString.append(nextStr);
+        } else if (is_concat(evalArg)) {
+            app * arg0 = to_app(evalArg->get_arg(0));
+            app * arg1 = to_app(evalArg->get_arg(1));
+
+            worklist.push(arg1);
+            worklist.push(arg0);
+        } else {
+            TRACE("t_str_detail", tout << "non-constant term in concat -- giving up." << std::endl;);
+            constOK = false;
+            break;
+        }
+    }
+    if (constOK) {
+        TRACE("t_str_detail", tout << "flattened to \"" << flattenedString << "\"" << std::endl;);
+        expr_ref constStr(m_strutil.mk_string(flattenedString), m);
+        expr_ref axiom(ctx.mk_eq_atom(a_cat, constStr), m);
+        assert_axiom(axiom);
     }
 }
 
@@ -6240,6 +6297,9 @@ void theory_str::set_up_axioms(expr * ex) {
             if (is_concat(ap)) {
                 // if ex is a concat, set up concat axioms later
                 m_concat_axiom_todo.push_back(n);
+                // we also want to check whether we can eval this concat,
+                // in case the rewriter did not totally finish with this term
+                m_concat_eval_todo.push_back(n);
             } else if (is_strlen(ap)) {
             	// if the argument is a variable,
             	// keep track of this for later, we'll need it during model gen

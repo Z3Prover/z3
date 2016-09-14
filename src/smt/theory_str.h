@@ -184,6 +184,7 @@ namespace smt {
         svector<std::pair<enode*,enode*> > m_str_eq_todo;
         ptr_vector<enode> m_concat_axiom_todo;
         ptr_vector<enode> m_string_constant_length_todo;
+        ptr_vector<enode> m_concat_eval_todo;
 
         // enode lists for term-specific axioms
         // TODO maybe refactor this into a generic "library_aware_axiom_todo" list
@@ -332,6 +333,7 @@ namespace smt {
 		bool is_Unroll(enode const * n) const { return is_Unroll(n->get_owner()); }
 
         void instantiate_concat_axiom(enode * cat);
+        void try_eval_concat(enode * cat);
         void instantiate_basic_string_axioms(enode * str);
         void instantiate_str_eq_length_axiom(enode * lhs, enode * rhs);
 
