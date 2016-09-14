@@ -151,6 +151,7 @@ void theory_str::assert_axiom(expr * e) {
         ctx.internalize(e, true);
     }
     literal lit(ctx.get_literal(e));
+    // TESTING!
     ctx.mark_as_relevant(lit);
     ctx.mk_th_axiom(get_id(), 1, &lit);
 
@@ -3459,7 +3460,6 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
     else {
         // Split type -1. We know nothing about the length...
 
-        int optionTotal = 2 + strValue.length();
         expr_ref_vector or_item(mgr);
         unsigned option = 0;
         expr_ref_vector and_item(mgr);
