@@ -4178,22 +4178,13 @@ bool theory_str::in_same_eqc(expr * n1, expr * n2) {
         ctx.internalize(n2, false);
     }
 
-    enode * n1Node = ctx.get_enode(n1);
-    enode * n2Node = ctx.get_enode(n2);
-
-    // here's what the old Z3str2 would have done; we can do something much better
-    /*
-    n1Node->get_root();
-    enode * curr = n1Node->get_next();
-    while (curr != n1Node) {
-        if (curr == n2Node) {
+    expr * curr = get_eqc_next(n1);
+    while (curr != n1) {
+        if (curr == n2)
             return true;
-        }
-        curr = curr->get_next();
+        curr = get_eqc_next(curr);
     }
     return false;
-    */
-    return n1Node->get_root() == n2Node->get_root();
 }
 
 expr * theory_str::collect_eq_nodes(expr * n, expr_ref_vector & eqcSet) {
