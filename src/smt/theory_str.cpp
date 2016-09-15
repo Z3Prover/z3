@@ -148,7 +148,7 @@ void theory_str::assert_axiom(expr * e) {
     TRACE("t_str_detail", tout << "asserting " << mk_ismt2_pp(e, get_manager()) << std::endl;);
     context & ctx = get_context();
     if (!ctx.b_internalized(e)) {
-        ctx.internalize(e, true);
+        ctx.internalize(e, false);
     }
     literal lit(ctx.get_literal(e));
     ctx.mark_as_relevant(lit);
@@ -6492,7 +6492,7 @@ void theory_str::push_scope_eh() {
 
     sLevel += 1;
     TRACE("t_str", tout << "push to " << sLevel << std::endl;);
-    TRACE_CODE(dump_assignments(););
+    TRACE_CODE(if (is_trace_enabled("t_str_dump_assign_on_scope_change")) { dump_assignments(); });
 }
 
 void theory_str::recursive_check_variable_scope(expr * ex) {
@@ -6557,7 +6557,7 @@ void theory_str::pop_scope_eh(unsigned num_scopes) {
     expr_ref_vector assignments(m);
     ctx.get_assignments(assignments);
 
-    TRACE_CODE(dump_assignments(););
+    TRACE_CODE(if (is_trace_enabled("t_str_dump_assign_on_scope_change")) { dump_assignments(); });
 
     // list of expr* to remove from cut_var_map
     ptr_vector<expr> cutvarmap_removes;
@@ -6627,18 +6627,16 @@ void theory_str::pop_scope_eh(unsigned num_scopes) {
 }
 
 void theory_str::dump_assignments() {
-	ast_manager & m = get_manager();
-	context & ctx = get_context();
-	TRACE("t_str_dump_assign_on_scope_change",
-	tout << "dumping all assignments:" << std::endl;
-	expr_ref_vector assignments(m);
-	ctx.get_assignments(assignments);
-	/*
-	for (expr_ref_vector::iterator i = assignments.begin(); i != assignments.end(); ++i) {
-		expr * ex = *i;
-		tout << mk_ismt2_pp(ex, m) << (ctx.is_relevant(ex) ? "" : " (NOT REL)") << std::endl;
-	}
-	*/
+    TRACE_CODE(
+        ast_manager & m = get_manager();
+        context & ctx = get_context();
+        tout << "dumping all assignments:" << std::endl;
+        expr_ref_vector assignments(m);
+        ctx.get_assignments(assignments);
+        for (expr_ref_vector::iterator i = assignments.begin(); i != assignments.end(); ++i) {
+            expr * ex = *i;
+            tout << mk_ismt2_pp(ex, m) << (ctx.is_relevant(ex) ? "" : " (NOT REL)") << std::endl;
+        }
 	);
 }
 
@@ -7523,7 +7521,7 @@ final_check_status theory_str::final_check_eh() {
     }
 
     TRACE("t_str", tout << "final check" << std::endl;);
-    TRACE_CODE(dump_assignments(););
+    TRACE_CODE(if (is_trace_enabled("t_str_dump_assign")) { dump_assignments(); });
     check_variable_scope();
 
     if (opt_DeferEQCConsistencyCheck) {
