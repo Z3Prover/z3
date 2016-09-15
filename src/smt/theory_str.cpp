@@ -6483,6 +6483,12 @@ void theory_str::push_scope_eh() {
     theory::push_scope_eh();
     m_trail_stack.push_scope();
 
+    // TODO out-of-scope term debugging, see comment in pop_scope_eh()
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+    expr_ref_vector assignments(m);
+    ctx.get_assignments(assignments);
+
     sLevel += 1;
     TRACE("t_str", tout << "push to " << sLevel << std::endl;);
     TRACE_CODE(dump_assignments(););
@@ -6544,6 +6550,12 @@ void theory_str::check_variable_scope() {
 void theory_str::pop_scope_eh(unsigned num_scopes) {
     sLevel -= num_scopes;
     TRACE("t_str", tout << "pop " << num_scopes << " to " << sLevel << std::endl;);
+    // TODO: figure out what's going out of scope and why
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+    expr_ref_vector assignments(m);
+    ctx.get_assignments(assignments);
+
     TRACE_CODE(dump_assignments(););
 
     // list of expr* to remove from cut_var_map
@@ -7499,6 +7511,10 @@ int theory_str::ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr
 final_check_status theory_str::final_check_eh() {
     context & ctx = get_context();
     ast_manager & m = get_manager();
+
+    // TODO out-of-scope term debugging, see comment in pop_scope_eh()
+    expr_ref_vector assignments(m);
+    ctx.get_assignments(assignments);
 
     if (opt_VerifyFinalCheckProgress) {
         finalCheckProgressIndicator = false;
