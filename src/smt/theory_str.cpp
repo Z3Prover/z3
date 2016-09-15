@@ -2161,6 +2161,7 @@ expr * theory_str::simplify_concat(expr * node) {
         if (in_same_eqc(node, resultAst)) {
             TRACE("t_str_detail", tout << "SKIP: both concats are already in the same equivalence class" << std::endl;);
         } else {
+            // TODO refactor
             expr ** items = alloc_svect(expr*, resolvedMap.size());
             int pos = 0;
             std::map<expr*, expr*>::iterator itor = resolvedMap.begin();
@@ -2459,8 +2460,8 @@ void theory_str::simplify_concat_equality(expr * nn1, expr * nn2) {
         }
     }
 
-    expr * new_nn1 = simplify_concat(nn1);
-    expr * new_nn2 = simplify_concat(nn2);
+    expr_ref new_nn1(simplify_concat(nn1), m);
+    expr_ref new_nn2(simplify_concat(nn2), m);
     app * a_new_nn1 = to_app(new_nn1);
     app * a_new_nn2 = to_app(new_nn2);
 
@@ -5466,8 +5467,6 @@ bool theory_str::check_length_concat_concat(expr * n1, expr * n2) {
 
     items.push_back(ctx.mk_eq_atom(n1, n2));
 
-    expr_ref toAssert(mgr.mk_not(mk_and(items)), mgr);
-
     bool conflict = false;
 
     if (concat1LenFixed && concat2LenFixed) {
@@ -5486,6 +5485,7 @@ bool theory_str::check_length_concat_concat(expr * n1, expr * n2) {
 
     if (conflict) {
         TRACE("t_str_detail", tout << "inconsistent length detected in concat <==> concat" << std::endl;);
+        expr_ref toAssert(mgr.mk_not(mk_and(items)), mgr);
         assert_axiom(toAssert);
         return false;
     }
@@ -6619,10 +6619,12 @@ void theory_str::dump_assignments() {
 	tout << "dumping all assignments:" << std::endl;
 	expr_ref_vector assignments(m);
 	ctx.get_assignments(assignments);
+	/*
 	for (expr_ref_vector::iterator i = assignments.begin(); i != assignments.end(); ++i) {
 		expr * ex = *i;
 		tout << mk_ismt2_pp(ex, m) << (ctx.is_relevant(ex) ? "" : " (NOT REL)") << std::endl;
 	}
+	*/
 	);
 }
 

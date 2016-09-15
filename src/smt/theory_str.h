@@ -29,6 +29,8 @@ Revision History:
 #include"str_rewriter.h"
 #include"union_find.h"
 
+// TODO refactor: anything that returns an expr* instead returns an expr_ref
+
 namespace smt {
 
     class str_value_factory : public value_factory {
