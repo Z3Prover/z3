@@ -504,6 +504,7 @@ app * theory_str::mk_unroll_bound_var() {
 app * theory_str::mk_unroll_test_var() {
 	app * v = mk_str_var("unrollTest"); // was uRt
 	internal_unrollTest_vars.insert(v);
+	track_variable_scope(v);
 	return v;
 }
 
@@ -6595,6 +6596,7 @@ void theory_str::pop_scope_eh(unsigned num_scopes) {
                 variable_set.erase(*var_it);
                 internal_variable_set.erase(*var_it);
                 regex_variable_set.erase(*var_it);
+                internal_unrollTest_vars.erase(*var_it);
                 count += 1;
             }
             TRACE("t_str_detail", tout << "cleaned up " << count << " variables" << std::endl;);
@@ -8349,13 +8351,35 @@ expr * theory_str::gen_unroll_conditional_options(expr * var, std::set<expr*> & 
 		litems.push_back(item);
 	}
 
+	// handle out-of-scope entries in unroll_tries_map
+
+	ptr_vector<expr> outOfScopeTesters;
+	// TODO refactor unroll_tries_map and internal_unrollTest_vars to use m_trail_stack
+
+	for (ptr_vector<expr>::iterator it = unroll_tries_map[var][unrolls].begin();
+	        it != unroll_tries_map[var][unrolls].end(); ++it) {
+	    expr * tester = *it;
+	    bool inScope = (internal_unrollTest_vars.find(tester) != internal_unrollTest_vars.end());
+	    TRACE("t_str_detail", tout << "unroll test var " << mk_pp(tester, mgr)
+	            << (inScope ? " in scope" : " out of scope")
+	            << std::endl;);
+	    if (!inScope) {
+	        outOfScopeTesters.push_back(tester);
+	    }
+	}
+
+	for (ptr_vector<expr>::iterator it = outOfScopeTesters.begin();
+	        it != outOfScopeTesters.end(); ++it) {
+	    unroll_tries_map[var][unrolls].erase(*it);
+	}
+
+
 	if (unroll_tries_map[var][unrolls].size() == 0) {
 		unroll_tries_map[var][unrolls].push_back(mk_unroll_test_var());
 	}
 
 	int tries = unroll_tries_map[var][unrolls].size();
 	for (int i = 0; i < tries; i++) {
-	    // TODO possibly missing a scope check here
 		expr * tester = unroll_tries_map[var][unrolls][i];
 		bool testerHasValue = false;
 		expr * testerVal = get_eqc_value(tester, testerHasValue);
@@ -8376,6 +8400,9 @@ expr * theory_str::gen_unroll_conditional_options(expr * var, std::set<expr*> & 
 			TRACE("t_str_detail", tout << "Making up assignments for variable which is equal to unbounded Unroll" << std::endl;);
 			m_trail.push_back(toAssert);
 			return toAssert;
+
+			// note: this is how the code looks in Z3str2's strRegex.cpp:genUnrollConditionalOptions.
+			// the return is in the same place
 
 			// insert [tester = "more"] to litems so that the implyL for next tester is correct
 			litems.push_back(ctx.mk_eq_atom(tester, moreAst));
@@ -8881,21 +8908,21 @@ void theory_str::process_free_var(std::map<expr*, int> & freeVar_map) {
  * and constant string in eqc of node n
  */
 void theory_str::get_eqc_allUnroll(expr * n, expr * &constStr, std::set<expr*> & unrollFuncSet) {
-  constStr = NULL;
-  unrollFuncSet.clear();
-  context & ctx = get_context();
+    constStr = NULL;
+    unrollFuncSet.clear();
+    context & ctx = get_context();
 
-  expr * curr = n;
-  do {
-    if (is_string(to_app(curr))) {
-      constStr = curr;
-    } else if (is_Unroll(to_app(curr))) {
-      if (unrollFuncSet.find(curr) == unrollFuncSet.end()) {
-        unrollFuncSet.insert(curr);
-      }
-    }
-    curr = get_eqc_next(curr);
-  } while (curr != n);
+    expr * curr = n;
+    do {
+        if (is_string(to_app(curr))) {
+            constStr = curr;
+        } else if (is_Unroll(to_app(curr))) {
+            if (unrollFuncSet.find(curr) == unrollFuncSet.end()) {
+                unrollFuncSet.insert(curr);
+            }
+        }
+        curr = get_eqc_next(curr);
+    } while (curr != n);
 }
 
 // Collect simple Unroll functions (whose core is Str2Reg) and constant strings in the EQC of n.
