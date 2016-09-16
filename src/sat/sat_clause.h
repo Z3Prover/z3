@@ -47,7 +47,7 @@ namespace sat {
         unsigned           m_frozen:1;
         unsigned           m_reinit_stack:1;
         unsigned           m_inact_rounds:8;
-        unsigned           m_glue:8; 
+        unsigned           m_glue:8;
         unsigned           m_psm:8;  // transient field used during gc
         literal            m_lits[0];
 
@@ -125,17 +125,15 @@ namespace sat {
     class clause_allocator {
         small_object_allocator m_allocator;
         id_gen                 m_id_gen;
-#if defined(_AMD64_) 
+#if defined(_AMD64_)
         unsigned get_segment(clause const* cls);
-        static const unsigned  c_cls_alignment = 3; 
-        static const unsigned  c_max_segments  = 1 << c_cls_alignment;
-        static const size_t    c_aligment_mask = (1ull << c_cls_alignment) - 1ull;
+        static const unsigned  c_cls_alignment = 3;
+        static const unsigned  c_last_segment  = (1ull << c_cls_alignment) - 1ull;
+        static const size_t    c_alignment_mask = (1ull << c_cls_alignment) - 1ull;
         unsigned               m_num_segments;
-        size_t                 m_segments[c_max_segments];
+        size_t                 m_segments[c_last_segment];
 #if defined(Z3DEBUG)
-        bool                   m_overflow_valid;
-        size_t_map<unsigned>   m_ptr2cls_offset;
-        u_map<clause const*>   m_cls_offset2ptr;
+        u_map<clause const*>   m_last_seg_id2cls;
 #endif
 #endif
     public:
@@ -149,7 +147,7 @@ namespace sat {
     /**
        \brief Wrapper for clauses & binary clauses.
        I do not create clause objects for binary clauses.
-       clause_ref wraps a clause object or a pair of literals (i.e., a binary clause). 
+       clause_ref wraps a clause object or a pair of literals (i.e., a binary clause).
     */
     class clause_wrapper {
         union {
@@ -163,7 +161,7 @@ namespace sat {
 
         bool is_binary() const { return m_l2_idx != null_literal.to_uint(); }
         unsigned size() const { return is_binary() ? 2 : m_cls->size(); }
-        literal operator[](unsigned idx) const { 
+        literal operator[](unsigned idx) const {
             SASSERT(idx < size());
             if (is_binary())
                 return idx == 0 ? to_literal(m_l1_idx) : to_literal(m_l2_idx);
