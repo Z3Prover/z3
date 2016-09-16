@@ -153,11 +153,11 @@ namespace sat {
         ptr &= 0xFFFFFFFF00000000ull; // Keep only high part
         unsigned i = 0;
         for (i = 0; i < m_num_segments; ++i)
-          if (m_segments[i] == ptr)
-            return i;
+            if (m_segments[i] == ptr)
+                return i;
         i = m_num_segments;
-#if defined(Z3DEBUG)
         SASSERT(i <= c_last_segment);
+#if defined(Z3DEBUG)
         if (i == c_last_segment) {
             if (!m_last_seg_id2cls.contains(cls->id()))
                 m_last_seg_id2cls.insert(cls->id(), cls);
@@ -167,7 +167,6 @@ namespace sat {
             m_segments[i] = ptr;
         }
 #else
-        SASSERT(i <= c_last_segment);
         if (i == c_last_segment) {
             throw default_exception("segment out of range");
         }
