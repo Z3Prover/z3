@@ -22,6 +22,33 @@ package com.microsoft.z3;
 public class FPNum extends FPExpr
 {
     /**
+     * The sign of a floating-point numeral as a bit-vector expression
+     * Remarks: NaN's do not have a bit-vector sign, so they are invalid arguments.
+     * @throws Z3Exception 
+     */
+    public BitVecExpr getBVSign() {
+        return new BitVecExpr(getContext(), Native.fpaGetNumeralSignBv(getContext().nCtx(), getNativeObject()));
+    }
+
+    /**
+     * The exponent of a floating-point numeral as a bit-vector expression
+     * Remarks:  +oo, -oo, and NaN's do not have a bit-vector exponent, so they are invalid arguments.
+     * @throws Z3Exception 
+     */
+    public BitVecExpr getBVExponent() {
+        return new BitVecExpr(getContext(), Native.fpaGetNumeralExponentBv(getContext().nCtx(), getNativeObject()));
+    }
+
+    /**
+     * The significand of a floating-point numeral as a bit-vector expression
+     * Remarks: +oo, -oo, and NaN's do not have a bit-vector significand, so they are invalid arguments.
+     * @throws Z3Exception 
+     */
+    public BitVecExpr getBVSignificand() {
+        return new BitVecExpr(getContext(), Native.fpaGetNumeralSignificandBv(getContext().nCtx(), getNativeObject()));
+    }
+    
+    /**
      * Retrieves the sign of a floating-point literal     
      * Remarks: returns true if the numeral is negative 
      * @throws Z3Exception 

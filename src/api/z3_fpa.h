@@ -823,6 +823,42 @@ extern "C" {
     unsigned Z3_API Z3_fpa_get_sbits(Z3_context c, Z3_sort s);
 
     /**
+        \brief Retrieves the sign of a floating-point literal as a bit-vector expression.
+
+        \param c logical context
+        \param t a floating-point numeral
+
+        Remarks: NaN is an invalid argument.
+
+        def_API('Z3_fpa_get_numeral_sign_bv', AST, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_fpa_get_numeral_sign_bv(Z3_context c, Z3_ast t);
+
+    /**
+        \brief Retrieves the significand of a floating-point literal as a bit-vector expression.
+
+        \param c logical context
+        \param t a floating-point numeral
+
+        Remarks: +oo, -oo and NaN are invalid arguments.
+
+        def_API('Z3_fpa_get_numeral_significand_bv', AST, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_fpa_get_numeral_significand_bv(Z3_context c, Z3_ast t);
+
+    /**
+        \brief Retrieves the exponent of a floating-point literal as a bit-vector expression.
+
+        \param c logical context
+        \param t a floating-point numeral
+
+        Remarks: +oo, -oo and NaN are invalid arguments.
+
+        def_API('Z3_fpa_get_numeral_exponent_bv', AST, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_fpa_get_numeral_exponent_bv(Z3_context c, Z3_ast t);
+
+    /**
         \brief Retrieves the sign of a floating-point literal.
 
         \param c logical context

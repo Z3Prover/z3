@@ -2138,6 +2138,18 @@ sig
   (** Retrieves the number of bits reserved for the significand in a FloatingPoint sort. *)
   val get_sbits : context -> Sort.sort -> int
 
+  (** Return the sign of a floating-point numeral as a bit-vector expression. 
+      Remark: NaN's do not have a bit-vector sign, so they are invalid arguments. *)
+  val get_numeral_sign_bv : context -> Expr.expr -> Expr.expr
+
+  (** Return the exponent of a floating-point numeral as a bit-vector expression. 
+      Remark: +oo, -oo and NaN's do not have a bit-vector exponent, so they are invalid arguments. *)
+  val get_numeral_exponent_bv : context -> Expr.expr -> Expr.expr
+
+  (** Return the significand value of a floating-point numeral as a bit-vector expression. 
+      Remark: +oo, -oo and NaN's do not have a bit-vector significand, so they are invalid arguments. *)
+  val get_numeral_significand_bv : context -> Expr.expr -> Expr.expr
+
   (** Retrieves the sign of a floating-point literal. *)
   val get_numeral_sign : context -> Expr.expr -> bool * int
 

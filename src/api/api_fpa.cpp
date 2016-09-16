@@ -909,6 +909,8 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_fpa_get_numeral_sign(c, t, sgn);
         RESET_ERROR_CODE();
+        CHECK_NON_NULL(t, 0);
+        CHECK_VALID_AST(t, 0);
         ast_manager & m = mk_c(c)->m();
         mpf_manager & mpfm = mk_c(c)->fpautil().fm();
         fpa_decl_plugin * plugin = (fpa_decl_plugin*)m.get_plugin(mk_c(c)->get_fpa_fid());
@@ -926,6 +928,101 @@ extern "C" {
         }
         *sgn = mpfm.sgn(val);
         return r;
+        Z3_CATCH_RETURN(0);
+    }
+
+    Z3_ast Z3_API Z3_fpa_get_numeral_sign_bv(Z3_context c, Z3_ast t) {
+        Z3_TRY;
+        LOG_Z3_fpa_get_numeral_sign_bv(c, t);
+        RESET_ERROR_CODE();
+        CHECK_NON_NULL(t, 0);
+        CHECK_VALID_AST(t, 0);
+        ast_manager & m = mk_c(c)->m();
+        mpf_manager & mpfm = mk_c(c)->fpautil().fm();
+        unsynch_mpq_manager & mpqm = mpfm.mpq_manager();
+        family_id fid = mk_c(c)->get_fpa_fid();
+        fpa_util & fu = mk_c(c)->fpautil();
+        api::context * ctx = mk_c(c);
+        expr * e = to_expr(t);
+        if (!is_app(e) ||
+            is_app_of(e, fid, OP_FPA_NAN)) {
+            SET_ERROR_CODE(Z3_INVALID_ARG);
+            RETURN_Z3(0);
+        }
+        if (is_app_of(e, fid, OP_FPA_PLUS_INF)) {
+            expr * r = ctx->bvutil().mk_numeral(0, 1);
+            ctx->save_ast_trail(r);
+            RETURN_Z3(of_expr(r));
+        }
+        if (is_app_of(e, fid, OP_FPA_MINUS_INF)) {
+            expr * r = ctx->bvutil().mk_numeral(1, 1);
+            ctx->save_ast_trail(r);
+            RETURN_Z3(of_expr(r));
+        }
+        if (!fu.is_fp(e)) {
+            SET_ERROR_CODE(Z3_INVALID_ARG);
+            RETURN_Z3(0);
+        }
+        app * a = to_app(e);
+        RETURN_Z3(of_expr(a->get_arg(0)));
+        Z3_CATCH_RETURN(0);
+    }
+
+    Z3_ast Z3_API Z3_fpa_get_numeral_exponent_bv(Z3_context c, Z3_ast t) {
+        Z3_TRY;
+        LOG_Z3_fpa_get_numeral_exponent_bv(c, t);
+        RESET_ERROR_CODE();
+        CHECK_NON_NULL(t, 0);
+        CHECK_VALID_AST(t, 0);
+        ast_manager & m = mk_c(c)->m();
+        mpf_manager & mpfm = mk_c(c)->fpautil().fm();
+        unsynch_mpq_manager & mpqm = mpfm.mpq_manager();
+        family_id fid = mk_c(c)->get_fpa_fid();
+        fpa_util & fu = mk_c(c)->fpautil();
+        expr * e = to_expr(t);
+        if (!is_app(e) ||
+            is_app_of(e, fid, OP_FPA_NAN) ||
+            is_app_of(e, fid, OP_FPA_PLUS_INF) ||
+            is_app_of(e, fid, OP_FPA_MINUS_INF)) {
+            SET_ERROR_CODE(Z3_INVALID_ARG);
+            RETURN_Z3(0);
+        }
+        if (!fu.is_fp(e)) {
+            SET_ERROR_CODE(Z3_INVALID_ARG);
+            RETURN_Z3(0);
+        }
+        api::context * ctx = mk_c(c);
+        app * a = to_app(e);
+        RETURN_Z3(of_expr(a->get_arg(1)));
+        Z3_CATCH_RETURN(0);
+    }
+
+    Z3_ast Z3_API Z3_fpa_get_numeral_significand_bv(Z3_context c, Z3_ast t) {
+        Z3_TRY;
+        LOG_Z3_fpa_get_numeral_significand_bv(c, t);
+        RESET_ERROR_CODE();
+        CHECK_NON_NULL(t, 0);
+        CHECK_VALID_AST(t, 0);
+        ast_manager & m = mk_c(c)->m();
+        mpf_manager & mpfm = mk_c(c)->fpautil().fm();
+        unsynch_mpq_manager & mpqm = mpfm.mpq_manager();
+        family_id fid = mk_c(c)->get_fpa_fid();
+        fpa_util & fu = mk_c(c)->fpautil();
+        expr * e = to_expr(t);
+        if (!is_app(e) ||
+            is_app_of(e, fid, OP_FPA_NAN) ||
+            is_app_of(e, fid, OP_FPA_PLUS_INF) ||
+            is_app_of(e, fid, OP_FPA_MINUS_INF)) {
+            SET_ERROR_CODE(Z3_INVALID_ARG);
+            RETURN_Z3(0);
+        }
+        if (!fu.is_fp(e)) {
+            SET_ERROR_CODE(Z3_INVALID_ARG);
+            RETURN_Z3(0);
+        }
+        api::context * ctx = mk_c(c);
+        app * a = to_app(e);
+        RETURN_Z3(of_expr(a->get_arg(2)));
         Z3_CATCH_RETURN(0);
     }
 

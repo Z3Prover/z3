@@ -1324,6 +1324,9 @@ struct
   let mk_to_real = Z3native.mk_fpa_to_real
   let get_ebits = Z3native.fpa_get_ebits
   let get_sbits = Z3native.fpa_get_sbits
+  let get_numeral_sign_bv = Z3native.fpa_get_numeral_sign_bv
+  let get_numeral_exponent_bv = Z3native.fpa_get_numeral_exponent_bv
+  let get_numeral_significand_bv = Z3native.fpa_get_numeral_significand_bv
   let get_numeral_sign = Z3native.fpa_get_numeral_sign
   let get_numeral_significand_string = Z3native.fpa_get_numeral_significand_string
   let get_numeral_significand_uint = Z3native.fpa_get_numeral_significand_uint64

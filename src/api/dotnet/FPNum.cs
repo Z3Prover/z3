@@ -14,7 +14,7 @@ Author:
     Christoph Wintersteiger (cwinter) 2013-06-10
 
 Notes:
-    
+
 --*/
 using System;
 using System.Diagnostics.Contracts;
@@ -28,6 +28,48 @@ namespace Microsoft.Z3
     public class FPNum : FPExpr
     {
         /// <summary>
+        /// The sign of a floating-point numeral as a bit-vector expression
+        /// </summary>
+        /// <remarks>
+        /// NaN's do not have a bit-vector sign, so they are invalid arguments.
+        /// </remarks>
+        public BitVecExpr BVSign
+        {
+            get
+            {
+                return new BitVecExpr(Context, Native.Z3_fpa_get_numeral_sign_bv(Context.nCtx, NativeObject));
+            }
+        }
+
+        /// <summary>
+        /// The exponent of a floating-point numeral as a bit-vector expression
+        /// </summary>
+        /// <remarks>
+        /// +oo, -oo and NaN's do not have a bit-vector exponent, so they are invalid arguments.
+        /// </remarks>
+        public BitVecExpr BVExponent
+        {
+            get
+            {
+                return new BitVecExpr(Context, Native.Z3_fpa_get_numeral_exponent_bv(Context.nCtx, NativeObject));
+            }
+        }
+
+        /// <summary>
+        /// The significand of a floating-point numeral as a bit-vector expression
+        /// </summary>
+        /// <remarks>
+        /// +oo, -oo and NaN's do not have a bit-vector significand, so they are invalid arguments.
+        /// </remarks>
+        public BitVecExpr BVSignificand
+        {
+            get
+            {
+                return new BitVecExpr(Context, Native.Z3_fpa_get_numeral_significand_bv(Context.nCtx, NativeObject));
+            }
+        }
+
+        /// <summary>
         /// Retrieves the sign of a floating-point literal
         /// </summary>
         /// <remarks>
@@ -38,7 +80,7 @@ namespace Microsoft.Z3
             get
             {
                 int res = 0;
-                if (Native.Z3_fpa_get_numeral_sign(Context.nCtx, NativeObject, ref res) == 0)                
+                if (Native.Z3_fpa_get_numeral_sign(Context.nCtx, NativeObject, ref res) == 0)
                     throw new Z3Exception("Sign is not a Boolean value");
                 return res != 0;
             }
@@ -63,7 +105,7 @@ namespace Microsoft.Z3
         /// The significand value of a floating-point numeral as a UInt64
         /// </summary>
         /// <remarks>
-        /// This function extracts the significand bits, without the 
+        /// This function extracts the significand bits, without the
         /// hidden bit or normalization. Throws an exception if the
         /// significand does not fit into a UInt64.
         /// </remarks>
@@ -73,7 +115,7 @@ namespace Microsoft.Z3
             {
                 UInt64 result = 0;
                 if (Native.Z3_fpa_get_numeral_significand_uint64(Context.nCtx, NativeObject, ref result) == 0)
-                    throw new Z3Exception("Significand is not a 64 bit unsigned integer");                
+                    throw new Z3Exception("Significand is not a 64 bit unsigned integer");
                 return result;
             }
         }
@@ -113,7 +155,7 @@ namespace Microsoft.Z3
 
         /// <summary>
         /// Returns a string representation of the numeral.
-        /// </summary>        
+        /// </summary>
         public override string ToString()
         {
             return Native.Z3_get_numeral_string(Context.nCtx, NativeObject);
