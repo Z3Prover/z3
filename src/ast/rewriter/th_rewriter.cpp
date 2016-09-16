@@ -189,6 +189,14 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                 if (st != BR_FAILED)
                     return st;
             }
+            if (k == OP_ITE) {
+                SASSERT(num == 3);
+                family_id s_fid = m().get_sort(args[1])->get_family_id();
+                if (s_fid == m_bv_rw.get_fid())
+                    st = m_bv_rw.mk_ite_core(args[0], args[1], args[2], result);
+                if (st != BR_FAILED)
+                    return st;
+            }
             return m_b_rw.mk_app_core(f, num, args, result);
         }
         if (fid == m_a_rw.get_fid())

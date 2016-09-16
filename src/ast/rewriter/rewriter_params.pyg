@@ -7,5 +7,6 @@ def_module_params('rewriter',
                           ("push_ite_arith", BOOL, False, "push if-then-else over arithmetic terms."),
                           ("push_ite_bv", BOOL, False, "push if-then-else over bit-vector terms."),
                           ("pull_cheap_ite", BOOL, False, "pull if-then-else terms when cheap."),
+                          ("bv_ineq_consistency_test_max", UINT, 0, "max size of conjunctions on which to perform consistency test based on inequalities on bitvectors."),
                           ("cache_all", BOOL, False, "cache all intermediate results.")))
 
