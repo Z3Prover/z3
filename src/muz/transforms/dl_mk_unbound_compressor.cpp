@@ -344,6 +344,11 @@ namespace datalog {
 
     rule_set * mk_unbound_compressor::operator()(rule_set const & source) {
         // TODO mc
+
+        if (!m_context.compress_unbound()) {
+            return 0;
+        }
+
         m_modified = false;
 
         SASSERT(m_rules.empty());

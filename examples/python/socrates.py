@@ -8,8 +8,6 @@
 
 from z3 import *
 
-set_param(proof=True)
-
 Object = DeclareSort('Object')
 
 Human = Function('Human', Object, BoolSort())
@@ -22,14 +20,15 @@ socrates = Const('socrates', Object)
 x = Const('x', Object)
 
 axioms = [ForAll([x], Implies(Human(x), Mortal(x))), 
-          Human(socrates) == True]
+          Human(socrates)]
 
 
 s = Solver()
 s.add(axioms)
+
+print(s.check()) # prints sat so axioms are coherents
+
 # classical refutation
-s.add(Mortal(socrates) == False)
+s.add(Not(Mortal(socrates)))
 
 print(s.check()) # prints unsat so socrates is Mortal
-
-# print(s.proof()) # prints a low level (not readable) proof object.

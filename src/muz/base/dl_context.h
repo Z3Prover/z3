@@ -272,6 +272,7 @@ namespace datalog {
         bool karr() const;
         bool scale() const;
         bool magic() const;
+        bool compress_unbound() const;
         bool quantify_arrays() const;
         bool instantiate_quantifiers() const;
         bool xform_bit_blast() const;        

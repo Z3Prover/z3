@@ -303,6 +303,7 @@ namespace datalog {
     bool context::karr() const { return m_params->xform_karr(); }
     bool context::scale() const { return m_params->xform_scale(); }
     bool context::magic() const { return m_params->xform_magic(); }
+    bool context::compress_unbound() const { return m_params->xform_compress_unbound(); }
     bool context::quantify_arrays() const { return m_params->xform_quantify_arrays(); }
     bool context::instantiate_quantifiers() const { return m_params->xform_instantiate_quantifiers(); }
 

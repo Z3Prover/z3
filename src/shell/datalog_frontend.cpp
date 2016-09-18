@@ -67,25 +67,27 @@ static void display_statistics(
         p.set_uint("profile_milliseconds_threshold", 100);
         ctx.updt_params(p);
 
-        out << "--------------\n";
-        out << "original rules\n";
-        orig_rules.display(out);
+        IF_VERBOSE(2, 
+                   out << "--------------\n";
+                   out << "original rules\n";
+                   orig_rules.display(out);
+                   
+                   out << "---------------\n";
+                   out << "generated rules\n";
+                   ctx.display_rules(out);
 
-        out << "---------------\n";
-        out << "generated rules\n";
-        ctx.display_rules(out);
-
-        out << "--------------\n";
-        out << "instructions  \n";
-        code.display(ex_ctx, out);
-
-        out << "--------------\n";
-        out << "big relations \n";
-        ex_ctx.report_big_relations(1000, out);
+                   out << "--------------\n";
+                   out << "instructions  \n";
+                   code.display(ex_ctx, out);
+                   
+                   out << "--------------\n";
+                   out << "big relations \n";
+                   ex_ctx.report_big_relations(1000, out););
     }
-    out << "--------------\n";
-    out << "relation sizes\n";
-    ctx.get_rel_context()->get_rmanager().display_relation_sizes(out);
+    IF_VERBOSE(2, 
+               out << "--------------\n";
+               out << "relation sizes\n";
+               ctx.get_rel_context()->get_rmanager().display_relation_sizes(out););
 
     if (verbose) {
         out << "--------------\n";
