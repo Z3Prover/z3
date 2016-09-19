@@ -228,7 +228,7 @@ bool theory_str::internalize_term(app * term) {
         mk_var(e);
         return true;
     }
-    TRACE("t_str", tout << "internalizing term: " << mk_ismt2_pp(term, get_manager()) << std::endl;);
+    TRACE("t_str_detail", tout << "internalizing term: " << mk_ismt2_pp(term, get_manager()) << std::endl;);
     unsigned num_args = term->get_num_args();
     expr* arg;
     for (unsigned i = 0; i < num_args; i++) {
@@ -516,6 +516,9 @@ app * theory_str::mk_str_var(std::string name) {
 
 	sort * string_sort = m.mk_sort(get_family_id(), STRING_SORT);
 	app * a = m.mk_fresh_const(name.c_str(), string_sort);
+
+	TRACE("t_str_detail", tout << "a->get_family_id() = " << a->get_family_id() << std::endl
+	        << "this->get_family_id() = " << this->get_family_id() << std::endl;);
 
 	// I have a hunch that this may not get internalized for free...
 	ctx.internalize(a, false);
@@ -6584,6 +6587,7 @@ void theory_str::pop_scope_eh(unsigned num_scopes) {
     	}
     }
 
+    /*
     // see if any internal variables went out of scope
     for (int check_level = sLevel + num_scopes ; check_level > sLevel; --check_level) {
         TRACE("t_str_detail", tout << "cleaning up internal variables at scope level " << check_level << std::endl;);
@@ -6603,6 +6607,7 @@ void theory_str::pop_scope_eh(unsigned num_scopes) {
             vars.clear();
         }
     }
+    */
 
     // TODO use the trail stack to do this for us! requires lots of refactoring
     // TODO if this works, possibly remove axioms from other vectors as well
@@ -6623,7 +6628,7 @@ void theory_str::pop_scope_eh(unsigned num_scopes) {
     m_trail_stack.pop_scope(num_scopes);
     theory::pop_scope_eh(num_scopes);
 
-    check_variable_scope();
+    //check_variable_scope();
 }
 
 void theory_str::dump_assignments() {
@@ -6648,7 +6653,8 @@ void theory_str::classify_ast_by_type(expr * node, std::map<expr*, int> & varMap
     // note that internal variables don't count if they're only length tester / value tester vars.
 	if (variable_set.find(node) != variable_set.end()
 			&& internal_lenTest_vars.find(node) == internal_lenTest_vars.end()
-			&& internal_valTest_vars.find(node) == internal_valTest_vars.end()) {
+			&& internal_valTest_vars.find(node) == internal_valTest_vars.end()
+	        && internal_unrollTest_vars.find(node) == internal_unrollTest_vars.end()) {
 	    if (varMap[node] != 1) {
 	        TRACE("t_str_detail", tout << "new variable: " << mk_pp(node, get_manager()) << std::endl;);
 	    }
@@ -6988,10 +6994,7 @@ int theory_str::ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr
 	                aliasIndexMap[curr] = aRoot;
 	            }
 	        }
-	        // curr = get_eqc_next(curr);
-	        enode * eqcNode = ctx.get_enode(curr);
-	        eqcNode = eqcNode->get_next();
-	        curr = eqcNode->get_owner();
+	        curr = get_eqc_next(curr);
 	    } while (curr != varItor->first);
 	}
 
@@ -7017,8 +7020,7 @@ int theory_str::ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr
 	    // e.g. z = unroll(...) ::= var_eq_unroll[z][unroll(...)] = 1
 
 	    if (var_eq_concat_map.find(deAliasNode) == var_eq_concat_map.end()) {
-	        enode * e_curr = ctx.get_enode(deAliasNode);
-	        expr * curr = e_curr->get_next()->get_owner();
+	        expr * curr = get_eqc_next(deAliasNode);
 	        while (curr != deAliasNode) {
 	            app * aCurr = to_app(curr);
 	            // collect concat
@@ -7055,9 +7057,7 @@ int theory_str::ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr
 	                var_eq_unroll_map[deAliasNode][curr] = 1;
 	            }
 
-	            // curr = get_eqc_next(curr)
-	            e_curr = ctx.get_enode(curr);
-	            curr = e_curr->get_next()->get_owner();
+	            curr = get_eqc_next(curr);
 	        }
 	    }
 
@@ -7086,9 +7086,7 @@ int theory_str::ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr
 					concats_eq_index_map[curr] = aRoot;
 				}
 			}
-			// curr = get_eqc_next(curr);
-			enode * e_curr = ctx.get_enode(curr);
-			curr = e_curr->get_next()->get_owner();
+			curr = get_eqc_next(curr);
 		} while (curr != concatItor->first);
 	}
 
@@ -7121,9 +7119,7 @@ int theory_str::ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr
 						concat_eq_concat_map[deAliasConcat][curr] = 1;
 					}
 				}
-				// curr = get_eqc_next(curr);
-				enode * e_curr = ctx.get_enode(curr);
-				curr = e_curr->get_next()->get_owner();
+				curr = get_eqc_next(curr);
 			} while (curr != deAliasConcat);
 		}
 	}
