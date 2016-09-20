@@ -32,7 +32,7 @@ theory_str::theory_str(ast_manager & m):
         /* Options */
         opt_AggressiveLengthTesting(false),
         opt_AggressiveValueTesting(false),
-        opt_AggressiveUnrollTesting(true),
+        opt_AggressiveUnrollTesting(false),
         opt_EagerStringConstantLengthAssertions(true),
         opt_VerifyFinalCheckProgress(true),
 		opt_LCMUnrollStep(2),
