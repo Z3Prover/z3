@@ -32,7 +32,7 @@ theory_str::theory_str(ast_manager & m):
         /* Options */
         opt_AggressiveLengthTesting(false),
         opt_AggressiveValueTesting(false),
-        opt_AggressiveUnrollTesting(false),
+        opt_AggressiveUnrollTesting(true),
         opt_EagerStringConstantLengthAssertions(true),
         opt_VerifyFinalCheckProgress(true),
 		opt_LCMUnrollStep(2),
@@ -6551,10 +6551,12 @@ void theory_str::push_scope_eh() {
     m_trail_stack.push_scope();
 
     // TODO out-of-scope term debugging, see comment in pop_scope_eh()
+    /*
     context & ctx = get_context();
     ast_manager & m = get_manager();
     expr_ref_vector assignments(m);
     ctx.get_assignments(assignments);
+    */
 
     sLevel += 1;
     TRACE("t_str", tout << "push to " << sLevel << std::endl;);
