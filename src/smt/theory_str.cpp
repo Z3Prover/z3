@@ -5973,24 +5973,40 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
 
         			bool entry1InScope;
         			if (entry1 == varForBreakConcat.end()) {
+        			    TRACE("t_str_detail", tout << "key1 no entry" << std::endl;);
         			    entry1InScope = false;
         			} else {
+        			    // OVERRIDE.
+        			    entry1InScope = true;
+        			    TRACE("t_str_detail", tout << "key1 entry" << std::endl;);
+        			    /*
         			    if (internal_variable_set.find((entry1->second)[0]) == internal_variable_set.end()) {
+        			        TRACE("t_str_detail", tout << "key1 entry not in scope" << std::endl;);
         			        entry1InScope = false;
         			    } else {
+        			        TRACE("t_str_detail", tout << "key1 entry in scope" << std::endl;);
         			        entry1InScope = true;
         			    }
+        			    */
         			}
 
         			bool entry2InScope;
         			if (entry2 == varForBreakConcat.end()) {
+        			    TRACE("t_str_detail", tout << "key2 no entry" << std::endl;);
         			    entry2InScope = false;
         			} else {
+        			    // OVERRIDE.
+        			    entry2InScope = true;
+        			    TRACE("t_str_detail", tout << "key2 entry" << std::endl;);
+        			    /*
         			    if (internal_variable_set.find((entry2->second)[0]) == internal_variable_set.end()) {
+        			        TRACE("t_str_detail", tout << "key2 entry not in scope" << std::endl;);
         			        entry2InScope = false;
         			    } else {
+        			        TRACE("t_str_detail", tout << "key2 entry in scope" << std::endl;);
         			        entry2InScope = true;
         			    }
+        			    */
         			}
 
         			TRACE("t_str_detail", tout << "entry 1 " << (entry1InScope ? "in scope" : "not in scope") << std::endl
