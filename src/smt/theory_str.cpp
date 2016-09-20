@@ -8786,6 +8786,7 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
 			} else {
 			    // TODO make absolutely sure this is safe to do if 'indicator' is technically out of scope
 				indicator = fvar_lenTester_map[freeVar][i];
+				refresh_theory_var(indicator);
 				testNum = i + 1;
 			}
 			expr * lenTestAssert = gen_len_test_options(freeVar, indicator, testNum);
