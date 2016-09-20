@@ -7641,9 +7641,9 @@ final_check_status theory_str::final_check_eh() {
         get_eqc_value(*it, has_eqc_value);
         if (!has_eqc_value) {
             // if this is an internal variable, it can be ignored...I think
-            if (internal_variable_set.find(*it) != internal_variable_set.end()) {
+            if (internal_variable_set.find(*it) != internal_variable_set.end() || regex_variable_set.find(*it) != regex_variable_set.end()) {
                 TRACE("t_str_detail", tout << "WARNING: free internal variable " << mk_ismt2_pp(*it, m) << std::endl;);
-                unused_internal_variables.insert(*it);
+                //unused_internal_variables.insert(*it);
             } else {
                 needToAssignFreeVars = true;
                 free_variables.insert(*it);
