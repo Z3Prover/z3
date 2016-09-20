@@ -1691,6 +1691,12 @@ namespace smt {
         for (unsigned i = 0; i < m_th_eq_propagation_queue.size() && !inconsistent(); i++) {
             new_th_eq curr = m_th_eq_propagation_queue[i];
             theory * th = get_theory(curr.m_th_id);
+            TRACE("t_str_eq_bug", tout
+                    << "th->name = " << th->get_name() << std::endl
+                    << "m_th_id = " << curr.m_th_id << std::endl
+                    << "m_lhs = " << curr.m_lhs << std::endl
+                    << "m_rhs = " << curr.m_rhs << std::endl
+                    << std::endl;);
             SASSERT(th);
             th->new_eq_eh(curr.m_lhs, curr.m_rhs);
 #ifdef Z3DEBUG

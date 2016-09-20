@@ -487,6 +487,9 @@ namespace smt {
         void check_variable_scope();
         void recursive_check_variable_scope(expr * ex);
 
+        // TESTING
+        void refresh_theory_var(expr * e);
+
     public:
         theory_str(ast_manager & m);
         virtual ~theory_str();

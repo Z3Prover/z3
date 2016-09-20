@@ -200,6 +200,43 @@ bool theory_str::internalize_term(app * term) {
     ast_manager & m = get_manager();
     SASSERT(term->get_family_id() == get_family_id());
 
+    TRACE("t_str_detail", tout << "internalizing term: " << mk_ismt2_pp(term, get_manager()) << std::endl;);
+
+    // emulation of user_smt_theory::internalize_term()
+
+    unsigned num_args = term->get_num_args();
+    for (unsigned i = 0; i < num_args; ++i) {
+        ctx.internalize(term->get_arg(i), false);
+    }
+    if (ctx.e_internalized(term)) {
+        enode * e = ctx.get_enode(term);
+        mk_var(e);
+        return true;
+    }
+    // m_parents.push_back(term);
+    enode * e = ctx.mk_enode(term, false, m.is_bool(term), true);
+    if (m.is_bool(term)) {
+        bool_var bv = ctx.mk_bool_var(term);
+        ctx.set_var_theory(bv, get_id());
+        ctx.set_enode_flag(bv, true);
+    }
+    // make sure every argument is attached to a theory variable
+    for (unsigned i = 0; i < num_args; ++i) {
+        enode * arg = e->get_arg(i);
+        theory_var v_arg = mk_var(arg);
+        TRACE("t_str_detail", tout << "arg has theory var #" << v_arg << std::endl;);
+    }
+
+    theory_var v = mk_var(e);
+    TRACE("t_str_detail", tout << "term has theory var #" << v << std::endl;);
+
+    if (opt_EagerStringConstantLengthAssertions && m_strutil.is_string(term)) {
+        TRACE("t_str", tout << "eagerly asserting length of string term " << mk_pp(term, m) << std::endl;);
+        m_basicstr_axiom_todo.insert(e);
+        TRACE("t_str_axiom_bug", tout << "add " << mk_pp(e->get_owner(), m) << " to m_basicstr_axiom_todo" << std::endl;);
+    }
+    return true;
+
     /* // what I had before
     SASSERT(!ctx.e_internalized(term));
 
@@ -223,6 +260,7 @@ bool theory_str::internalize_term(app * term) {
     // TODO do we still need to do instantiate_concat_axiom()?
 
     // partially from theory_seq::internalize_term()
+    /*
     if (ctx.e_internalized(term)) {
         enode* e = ctx.get_enode(term);
         mk_var(e);
@@ -259,6 +297,7 @@ bool theory_str::internalize_term(app * term) {
     TRACE("t_str_detail", tout << "term " << mk_ismt2_pp(term, get_manager()) << " = v#" << v << std::endl;);
 
     return true;
+    */
 }
 
 enode* theory_str::ensure_enode(expr* e) {
@@ -271,7 +310,14 @@ enode* theory_str::ensure_enode(expr* e) {
     return n;
 }
 
+void theory_str::refresh_theory_var(expr * e) {
+    enode * en = ensure_enode(e);
+    theory_var v = mk_var(en);
+    TRACE("t_str_detail", tout << "refresh " << mk_pp(e, get_manager()) << ": v#" << v << std::endl;);
+}
+
 theory_var theory_str::mk_var(enode* n) {
+    TRACE("t_str_detail", tout << "mk_var for " << mk_pp(n->get_owner(), get_manager()) << std::endl;);
     /*
     if (!m_strutil.is_string(n->get_owner())) {
         return null_theory_var;
@@ -283,11 +329,12 @@ theory_var theory_str::mk_var(enode* n) {
         return null_theory_var;
     }
     if (is_attached_to_var(n)) {
+        TRACE("t_str_detail", tout << "already attached to theory var" << std::endl;);
         return n->get_th_var(get_id());
-    }
-    else {
+    } else {
         theory_var v = theory::mk_var(n);
         m_find.mk_var();
+        TRACE("t_str_detail", tout << "new theory var v#" << v << std::endl;);
         get_context().attach_th_var(n, this, v);
         get_context().mark_as_relevant(n);
         return v;
@@ -8375,6 +8422,8 @@ expr * theory_str::gen_unroll_conditional_options(expr * var, std::set<expr*> & 
 	int tries = unroll_tries_map[var][unrolls].size();
 	for (int i = 0; i < tries; i++) {
 		expr * tester = unroll_tries_map[var][unrolls][i];
+		// TESTING
+		refresh_theory_var(tester);
 		bool testerHasValue = false;
 		expr * testerVal = get_eqc_value(tester, testerHasValue);
 		if (!testerHasValue) {
