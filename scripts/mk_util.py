@@ -1296,7 +1296,9 @@ class DLLComponent(Component):
         if IS_WINDOWS:
             out.write(' /DEF:%s.def' % os.path.join(self.to_src_dir, self.name))
         if self.staging_link:
-            if IS_WINDOWS or IS_OSX:
+            if IS_WINDOWS:
+                out.write('\n\tcopy %s %s' % (self.dll_file(), self.staging_link))
+            elif IS_OSX:
                 out.write('\n\tcp %s %s' % (self.dll_file(), self.staging_link))
             else:
                 out.write('\n\tln -f -s %s %s' % (os.path.join(reverse_path(self.staging_link), self.dll_file()), self.staging_link))
