@@ -64,9 +64,15 @@ add_custom_command(OUTPUT "${z3py_bindings_build_dest}/z3/z3consts.py"
 )
 list(APPEND build_z3_python_bindings_target_depends "${z3py_bindings_build_dest}/z3/z3consts.py")
 
+if (UNIX)
+  set(LINK_COMMAND "create_symlink")
+else()
+  set(LINK_COMMAND "copy")
+endif()
+
 # Link libz3 into the python directory so bindings work out of the box
 add_custom_command(OUTPUT "${z3py_bindings_build_dest}/libz3${CMAKE_SHARED_MODULE_SUFFIX}"
-  COMMAND "${CMAKE_COMMAND}" "-E" "create_symlink"
+  COMMAND "${CMAKE_COMMAND}" "-E" "${LINK_COMMAND}"
     "${CMAKE_BINARY_DIR}/libz3${CMAKE_SHARED_MODULE_SUFFIX}"
     "${z3py_bindings_build_dest}/libz3${CMAKE_SHARED_MODULE_SUFFIX}"
   DEPENDS libz3
