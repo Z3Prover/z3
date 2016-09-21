@@ -148,7 +148,7 @@ setup(
     packages=['z3'],
     include_package_data=True,
     package_data={
-        'z3': [os.path.join('lib', '*'), os.path.join('include', '*')]
+        'z3': [os.path.join('lib', '*'), os.path.join('include', '*.h'), os.path.join('include', 'c++', '*.h')]
     },
     scripts=[os.path.join('bin', 'z3')],
     cmdclass={'build': build, 'develop': develop, 'sdist': sdist, 'bdist_egg': bdist_egg},

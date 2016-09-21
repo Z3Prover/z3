@@ -41,6 +41,7 @@ Z3 exceptions:
 ...   print("failed: %s" % ex)
 failed: sort mismatch
 """
+from . import z3core
 from .z3core import *
 from .z3types import *
 from .z3consts import *
