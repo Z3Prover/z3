@@ -91,10 +91,7 @@ namespace opt {
 
     unsigned context::scoped_state::add(expr* f, rational const& w, symbol const& id) {
         if (w.is_neg()) {
-            throw default_exception("Negative weight supplied. Weight should be positive");
-        }
-        if (w.is_zero()) {
-            throw default_exception("Zero weight supplied. Weight should be positive");
+            throw default_exception("Negative weight supplied. Weight should be non-negative");
         }
         if (!m.is_bool(f)) {
             throw default_exception("Soft constraint should be Boolean");
@@ -105,9 +102,11 @@ namespace opt {
         }
         SASSERT(m_indices.contains(id));        
         unsigned idx = m_indices[id];
-        m_objectives[idx].m_terms.push_back(f);
-        m_objectives[idx].m_weights.push_back(w);
-        m_objectives_term_trail.push_back(idx);
+        if (w.is_pos()) {
+            m_objectives[idx].m_terms.push_back(f);
+            m_objectives[idx].m_weights.push_back(w);
+            m_objectives_term_trail.push_back(idx);
+        }
         return idx;
     }
 
@@ -852,9 +851,7 @@ namespace opt {
         func_decl* f = m.mk_fresh_func_decl(name,"", domain.size(), domain.c_ptr(), m.mk_bool_sort());
         m_objective_fns.insert(f, index);
         m_objective_refs.push_back(f);
-        if (sz > 0) {
-            m_objective_orig.insert(f, args[0]);
-        }
+        m_objective_orig.insert(f, sz > 0 ? args[0] : 0);        
         return m.mk_app(f, sz, args);
     }
 
@@ -873,10 +870,7 @@ namespace opt {
     }
 
     void context::from_fmls(expr_ref_vector const& fmls) {
-        TRACE("opt",
-              for (unsigned i = 0; i < fmls.size(); ++i) {
-                  tout << mk_pp(fmls[i], m) << "\n";
-              });
+        TRACE("opt", tout << fmls << "\n";);
         m_hard_constraints.reset();
         expr_ref orig_term(m);
         for (unsigned i = 0; i < fmls.size(); ++i) {
@@ -1054,10 +1048,7 @@ namespace opt {
                 break;
             }
         }
-        TRACE("opt",
-              for (unsigned i = 0; i < fmls.size(); ++i) {
-                  tout << mk_pp(fmls[i].get(), m) << "\n";
-              });
+        TRACE("opt", tout << fmls << "\n";);
     }
 
     void context::internalize() {

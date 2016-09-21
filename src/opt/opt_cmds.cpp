@@ -97,10 +97,7 @@ public:
 
     virtual void execute(cmd_context & ctx) {
         symbol w("weight");
-        rational weight = ps().get_rat(symbol("weight"), rational(0));
-        if (weight.is_zero()) {
-            weight = rational::one();
-        }
+        rational weight = ps().get_rat(symbol("weight"), rational::one());
         symbol id = ps().get_sym(symbol("id"), symbol::null);        
         get_opt(ctx, m_opt).add_soft_constraint(m_formula, weight, id);
         reset(ctx);

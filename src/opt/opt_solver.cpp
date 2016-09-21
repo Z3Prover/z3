@@ -78,6 +78,9 @@ namespace opt {
     }
     
     void opt_solver::assert_expr(expr * t) {
+        if (has_quantifiers(t)) {
+            m_params.m_relevancy_lvl = 2;
+        }
         m_context.assert_expr(t);
     }
     

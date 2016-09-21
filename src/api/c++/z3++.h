@@ -2331,11 +2331,68 @@ namespace z3 {
     inline expr store(expr const & a, int i, int v) {
         return store(a, a.ctx().num_val(i, a.get_sort().array_domain()), a.ctx().num_val(v, a.get_sort().array_range()));
     }
+
+#define MK_EXPR1(_fn, _arg)                     \
+    Z3_ast r = _fn(_arg.ctx(), _arg);           \
+    _arg.check_error();                         \
+    return expr(_arg.ctx(), r);
+
+#define MK_EXPR2(_fn, _arg1, _arg2)             \
+    check_context(_arg1, _arg2);                \
+    Z3_ast r = _fn(_arg1.ctx(), _arg1, _arg2);  \
+    _arg1.check_error();                        \
+    return expr(_arg1.ctx(), r);
+
     inline expr const_array(sort const & d, expr const & v) {
-        check_context(d, v);
-        Z3_ast r = Z3_mk_const_array(d.ctx(), d, v);
-        d.check_error();
-        return expr(d.ctx(), r);
+        MK_EXPR2(Z3_mk_const_array, d, v);
+    }
+
+    inline expr empty_set(sort const& s) {
+        MK_EXPR1(Z3_mk_empty_set, s);
+    }
+
+    inline expr full_set(sort const& s) {
+        MK_EXPR1(Z3_mk_full_set, s);
+    }
+
+    inline expr set_add(expr const& s, expr const& e) {
+        MK_EXPR2(Z3_mk_set_add, s, e);
+    }
+
+    inline expr set_del(expr const& s, expr const& e) {
+        MK_EXPR2(Z3_mk_set_del, s, e);
+    }    
+
+    inline expr set_union(expr const& a, expr const& b) {
+        check_context(a, b); 
+        Z3_ast es[2] = { a, b };
+        Z3_ast r = Z3_mk_set_union(a.ctx(), 2, es);
+        a.check_error();                    
+        return expr(a.ctx(), r);
+    }
+
+    inline expr set_intersect(expr const& a, expr const& b) {
+        check_context(a, b); 
+        Z3_ast es[2] = { a, b };
+        Z3_ast r = Z3_mk_set_intersect(a.ctx(), 2, es);
+        a.check_error();                    
+        return expr(a.ctx(), r);
+    }
+
+    inline expr set_difference(expr const& a, expr const& b) {
+        MK_EXPR2(Z3_mk_set_difference, a, b);
+    }
+
+    inline expr set_complement(expr const& a) {
+        MK_EXPR1(Z3_mk_set_complement, a);
+    }
+
+    inline expr set_member(expr const& s, expr const& e) {
+        MK_EXPR2(Z3_mk_set_member, s, e);
+    }
+
+    inline expr set_subset(expr const& a, expr const& b) {
+        MK_EXPR2(Z3_mk_set_subset, a, b);
     }
 
     // sequence and regular expression operations.
