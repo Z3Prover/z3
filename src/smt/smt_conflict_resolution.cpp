@@ -948,7 +948,7 @@ namespace smt {
         // 
         // So, the test "m_ctx.get_justification(l.var()) == js" is used to check
         // if l was assigned before ~l.
-        if (m_ctx.is_marked(l.var()) && m_ctx.get_justification(l.var()) == js) {
+        if ((m_ctx.is_marked(l.var()) && m_ctx.get_justification(l.var()) == js) || (js.get_kind() == b_justification::AXIOM)) {
             expr_ref l_expr(m_manager);
             m_ctx.literal2expr(l, l_expr);
             proof * pr = m_manager.mk_hypothesis(l_expr.get());
@@ -1065,7 +1065,7 @@ namespace smt {
         m_js2proof.reset();
         literal_vector::iterator it  = m_lemma.begin();
         literal_vector::iterator end = m_lemma.end();
-        for (; it != end; ++it)
+        for (; it != end;  ++it)
             m_ctx.set_mark((*it).var());
     }
 
@@ -1076,6 +1076,8 @@ namespace smt {
             return true;
         SASSERT(js.get_kind() != b_justification::BIN_CLAUSE);
         CTRACE("visit_b_justification_bug", js.get_kind() == b_justification::AXIOM, tout << "l: " << l << "\n"; m_ctx.display(tout););
+        if (js.get_kind() == b_justification::AXIOM) 
+            return true;
         SASSERT(js.get_kind() != b_justification::AXIOM);
         if (js.get_kind() == b_justification::CLAUSE) {
             clause * cls      = js.get_clause();
