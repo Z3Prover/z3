@@ -98,7 +98,7 @@ def mk_z3consts_py_internal(api_files, output_dir):
     openbrace_pat  = re.compile("{ *")
     closebrace_pat = re.compile("}.*;")
 
-    z3consts  = open(os.path.join(output_dir, 'z3consts.py'), 'w')
+    z3consts  = open(os.path.join(output_dir, 'z3', 'z3consts.py'), 'w')
     z3consts_output_path = z3consts.name
     z3consts.write('# Automatically generated file\n\n')
     for api_file in api_files:

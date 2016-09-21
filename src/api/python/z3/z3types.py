@@ -6,7 +6,7 @@
 # Author: Leonardo de Moura (leonardo)
 ############################################
 
-import ctypes, z3core
+import ctypes
 
 class Z3Exception(Exception):
     def __init__(self, value):
@@ -121,4 +121,3 @@ class FuncEntryObj(ctypes.c_void_p):
 class RCFNumObj(ctypes.c_void_p):
   def __init__(self, e): self._as_parameter_ = e
   def from_param(obj): return obj
-

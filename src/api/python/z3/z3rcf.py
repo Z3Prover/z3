@@ -9,9 +9,9 @@
 #
 # Author: Leonardo de Moura (leonardo)
 ############################################
-from z3 import *
-from z3core import *
-from z3printer import *
+from .z3 import *
+from .z3core import *
+from .z3printer import *
 from fractions import Fraction
 
 def _to_rcfnum(num, ctx=None):

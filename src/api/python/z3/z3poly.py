@@ -5,7 +5,8 @@
 #
 # Author: Leonardo de Moura (leonardo)
 ############################################
-from z3 import *
+
+from .z3 import *
 
 def subresultants(p, q, x):
     """
@@ -32,6 +33,3 @@ if __name__ == "__main__":
     import doctest
     if doctest.testmod().failed:
         exit(1)
-
-
-    
