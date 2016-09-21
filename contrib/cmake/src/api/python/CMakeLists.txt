@@ -10,6 +10,7 @@ set(z3py_files
   z3/z3poly.py
   z3/z3printer.py
   z3/z3rcf.py
+  z3test.py
   z3/z3types.py
   z3/z3util.py
 )
