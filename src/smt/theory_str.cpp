@@ -8131,6 +8131,7 @@ expr * theory_str::gen_free_var_options(expr * freeVar, expr * len_indicator,
 			if (!anEqcHasValue) {
 				TRACE("t_str_detail", tout << "value tester " << mk_ismt2_pp(aTester, m)
 						<< " doesn't have an equivalence class value." << std::endl;);
+				refresh_theory_var(aTester);
 
 				expr * makeupAssert = gen_val_options(freeVar, len_indicator, aTester, len_valueStr, i);
 
@@ -8147,6 +8148,7 @@ expr * theory_str::gen_free_var_options(expr * freeVar, expr * len_indicator,
 			expr * valTester = NULL;
 			if (i + 1 < testerTotal) {
 				valTester = fvar_valueTester_map[freeVar][len][i + 1].second;
+				refresh_theory_var(valTester);
 			} else {
 				valTester = mk_internal_valTest_var(freeVar, len, i + 1);
 				valueTester_fvar_map[valTester] = freeVar;
