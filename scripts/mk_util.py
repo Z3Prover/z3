@@ -2779,6 +2779,8 @@ def cp_z3py_to_build():
             shutil.copyfile(os.path.join(src_pycache, pyc), os.path.join(target_pycache, pyc))
             if is_verbose():
                 print("Copied '%s'" % pyc)
+    # Copy z3test.py
+    shutil.copyfile(os.path.join(Z3PY_SRC_DIR, 'z3test.py'), os.path.join(BUILD_DIR, 'python', 'z3test.py'))
 
 def mk_bindings(api_files):
     if not ONLY_MAKEFILES:
