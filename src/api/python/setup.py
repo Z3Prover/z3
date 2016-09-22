@@ -27,10 +27,13 @@ BINS_DIR = os.path.join(ROOT_DIR, 'bin')
 
 if sys.platform == 'darwin':
     LIBRARY_FILE = "libz3.dylib"
+    EXECUTABLE_FILE = "z3"
 elif sys.platform in ('win32', 'cygwin'):
     LIBRARY_FILE = "libz3.dll"
+    EXECUTABLE_FILE = "z3.exe"
 else:
     LIBRARY_FILE = "libz3.so"
+    EXECUTABLE_FILE = "z3"
 
 def _clean_bins():
     """
@@ -81,8 +84,8 @@ def _copy_bins():
     os.mkdir(BINS_DIR)
     os.mkdir(HEADERS_DIR)
     os.mkdir(os.path.join(HEADERS_DIR, 'c++'))
-    shutil.copy(os.path.join(BUILD_DIR, 'libz3.so'), LIBS_DIR)
-    shutil.copy(os.path.join(BUILD_DIR, 'z3'), BINS_DIR)
+    shutil.copy(os.path.join(BUILD_DIR, LIBRARY_FILE), LIBS_DIR)
+    shutil.copy(os.path.join(BUILD_DIR, EXECUTABLE_FILE), BINS_DIR)
     for fname in ('z3.h', 'z3_v1.h', 'z3_macros.h', 'z3_api.h', 'z3_algebraic.h', 'z3_polynomial.h', 'z3_rcf.h', 'z3_interp.h', 'z3_fpa.h', os.path.join('c++', 'z3++.h')):
         shutil.copy(os.path.join(SRC_DIR, 'src', 'api', fname), os.path.join(HEADERS_DIR, fname))
 
@@ -150,6 +153,6 @@ setup(
     package_data={
         'z3': [os.path.join('lib', '*'), os.path.join('include', '*.h'), os.path.join('include', 'c++', '*.h')]
     },
-    scripts=[os.path.join('bin', 'z3')],
+    scripts=[os.path.join('bin', EXECUTABLE_FILE)],
     cmdclass={'build': build, 'develop': develop, 'sdist': sdist, 'bdist_egg': bdist_egg},
 )
