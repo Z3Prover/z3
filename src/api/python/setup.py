@@ -135,14 +135,14 @@ class sdist(_sdist):
 #except OSError: pass
 
 setup(
-    name='angr-only-z3-custom',
-    version='4.4.1.post4',
-    description='pip installable distribution of The Z3 Theorem Prover, for use with angr. Please send all support requests to angr@lists.cs.ucsb.edu!',
-    long_description='Z3 is a theorem prover from Microsoft Research. This version is slightly modified by the angr project to enable installation via pip, making it unsupportable by the Z3 project. Please direct all support requests to angr@lists.cs.ucsb.edu!',
+    name='z3-solver',
+    version='4.4.2.1',
+    description='an efficient SMT solver library',
+    long_description='Z3 is a theorem prover from Microsoft Research with support for bitvectors, booleans, arrays, floating point numbers, strings, and other data types.\n\nFor documentation, please read http://z3prover.github.io/api/html/z3.html\n\nIn the event of technical difficulties related to configuration, compiliation, or installation, please submit issues to https://github.com/angr/angr-z3',
     author="The Z3 Theorem Prover Project",
-    maintainer="Yan Shoshitaishvili",
-    maintainer_email="yans@yancomm.net",
-    url='https://github.com/angr/angr-z3',
+    maintainer="Andrew Dutcher",
+    maintainer_email="andrew@andrewdutcher.com",
+    url='https://github.com/Z3Prover/z3',
     license='MIT License',
     keywords=['z3', 'smt', 'sat', 'prover', 'theorem'],
     packages=['z3'],
