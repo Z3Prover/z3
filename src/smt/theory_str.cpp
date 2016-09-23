@@ -1496,7 +1496,8 @@ void theory_str::instantiate_axiom_Substr(enode * e) {
     expr_ref ts0_contains_ts1(mk_contains(expr->get_arg(0), ts1), m);
 
     expr_ref_vector and_item(m);
-    and_item.push_back(ts0_contains_ts1);
+    // TODO simulate this contains check; it causes problems with a few regressions but we might need it for performance
+    //and_item.push_back(ts0_contains_ts1);
     and_item.push_back(ctx.mk_eq_atom(expr->get_arg(0), mk_concat(ts0, mk_concat(ts1, ts2))));
     and_item.push_back(ctx.mk_eq_atom(expr->get_arg(1), mk_strlen(ts0)));
     and_item.push_back(ctx.mk_eq_atom(expr->get_arg(2), mk_strlen(ts1)));
