@@ -207,7 +207,7 @@ static void tst_set64(unsigned N, unsigned prec) {
     mpff_manager fm(prec);
     scoped_mpff a(fm);
 
-    fm.set(a, INT64_MAX);
+    fm.set(a, static_cast<int64>(INT64_MAX));
     SASSERT(fm.is_int64(a));
     SASSERT(fm.is_uint64(a));
     fm.inc(a);
@@ -221,7 +221,7 @@ static void tst_set64(unsigned N, unsigned prec) {
     SASSERT(fm.is_int64(a));
     SASSERT(fm.is_uint64(a));
 
-    fm.set(a, INT64_MIN);
+    fm.set(a, static_cast<int64>(INT64_MIN));
     SASSERT(fm.is_int64(a));
     SASSERT(!fm.is_uint64(a));
     fm.dec(a);
@@ -235,7 +235,7 @@ static void tst_set64(unsigned N, unsigned prec) {
     SASSERT(fm.is_int64(a));
     SASSERT(!fm.is_uint64(a));
 
-    fm.set(a, UINT64_MAX);
+    fm.set(a, static_cast<uint64>(UINT64_MAX));
     SASSERT(fm.is_uint64(a));
     SASSERT(!fm.is_int64(a));
     fm.inc(a);
@@ -600,7 +600,7 @@ static void tst_div(unsigned prec) {
     scoped_mpff a(m), b(m), c(m);
     m.round_to_plus_inf();
     m.set(a, 1);
-    m.set(b, UINT64_MAX);
+    m.set(b, static_cast<uint64>(UINT64_MAX));
     m.div(a, b, c);
     m.display_raw(std::cout, a); std::cout << "\n";
     m.display_raw(std::cout, b); std::cout << "\n";
