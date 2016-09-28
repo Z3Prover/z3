@@ -12,7 +12,7 @@ if len(sys.argv) < 2 or sys.argv[1] == 'z3':
 elif sys.argv[1] == 'z3num':
     r = doctest.testmod(z3.z3num)
 else:
-    print 'Usage: z3test.py (z3 | z3num)'
+    print('Usage: z3test.py (z3 | z3num)')
     sys.exit(1)
 
 if r.failed != 0:

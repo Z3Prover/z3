@@ -1482,7 +1482,7 @@ class PythonInstallComponent(Component):
         else:
             MakeRuleCmd.install_files(out,
                                       os.path.join('python', 'z3', '*.pyc'),
-                                      self.pythonPkgDir,
+                                      os.path.join(self.pythonPkgDir,'z3'),
                                       in_prefix=self.in_prefix_install)
         if PYTHON_PACKAGE_DIR != distutils.sysconfig.get_python_lib():
             out.write('\t@echo Z3Py was installed at \'%s\', make sure this directory is in your PYTHONPATH environment variable.' % PYTHON_PACKAGE_DIR)
