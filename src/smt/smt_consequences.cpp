@@ -473,9 +473,7 @@ namespace smt {
               tout << "lits: " << num_units << "\n";);
         m_case_split_queue->init_search_eh();
         unsigned num_iterations = 0;
-        unsigned model_threshold = 2;
         unsigned num_fixed_eqs = 0;
-        unsigned num_reiterations = 0;
         unsigned chunk_size = 100; 
         
         while (!var2val.empty()) {

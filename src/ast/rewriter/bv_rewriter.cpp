@@ -622,7 +622,6 @@ unsigned bv_rewriter::propagate_extract(unsigned high, expr * arg, expr_ref & re
     }
     // perform removal
     SASSERT(removable <= to_remove);
-    const unsigned new_sz = sz - removable;
     ptr_buffer<expr> new_args;
     ptr_buffer<expr> new_concat_args;
     for (unsigned i = 0; i < num; i++) {

@@ -85,7 +85,7 @@ bool bv_bounds::is_uleq(expr * e, expr * & v, numeral & c) {
     if (!m_bv_util.is_extract(eql)) return false;
     expr * const eql0 = to_app(eql)->get_arg(0);
     const unsigned eql0_sz = m_bv_util.get_bv_size(eql0);
-    if (!m_bv_util.get_extract_high(eql) == (eql0_sz - 1)) return false;
+    if (m_bv_util.get_extract_high(eql) != (eql0_sz - 1)) return false;
     if (!m_bv_util.is_numeral(eqr, eqr_val, eqr_sz)) return false;
     if (!eqr_val.is_zero()) return false;
     if (!m_bv_util.is_extract(ulel)) return false;
@@ -245,7 +245,6 @@ void bv_bounds::reset() {
 }
 
 br_status bv_bounds::rewrite(unsigned limit, func_decl * f, unsigned num, expr * const * args, expr_ref& result) {
-    const family_id fid = f->get_family_id();
     if (!m_m.is_bool(f->get_range())) return BR_FAILED;
     const decl_kind k = f->get_decl_kind();
     if ((k != OP_OR && k != OP_AND) || num > limit) return BR_FAILED;
@@ -614,7 +613,6 @@ bool bv_bounds::is_sat(app * v) {
 bool bv_bounds::is_sat_core(app * v) {
     SASSERT(m_bv_util.is_bv(v));
     if (!m_okay) return false;
-    func_decl * const d = v->get_decl();
     unsigned const bv_sz = m_bv_util.get_bv_size(v);
     numeral lower, upper;
     const bool has_upper = m_unsigned_uppers.find(v, upper);

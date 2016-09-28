@@ -158,11 +158,13 @@ namespace smt {
                     TRACE("model_checker", tout << "Could not get value for " << sk_d->get_name() << "\n";);
                     return false; // get_some_value failed... giving up
                 }
+                TRACE("model_checker", tout << "Got some value " << sk_value << "\n";);
             }
             if (use_inv) {
                 unsigned sk_term_gen;
                 expr * sk_term = m_model_finder.get_inv(q, i, sk_value, sk_term_gen);
                 if (sk_term != 0) {
+                    TRACE("model_checker", tout << "Found inverse " << mk_pp(sk_term, m) << "\n";);
                     SASSERT(!m.is_model_value(sk_term));
                     if (sk_term_gen > max_generation)
                         max_generation = sk_term_gen;
