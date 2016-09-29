@@ -1611,7 +1611,7 @@ _lib = None
 def lib():
   global _lib
   if _lib is None:
-    _dirs = ['.', pkg_resources.resource_filename('z3', 'lib'), os.path.join(sys.prefix, 'lib'), '']
+    _dirs = ['.', pkg_resources.resource_filename('z3', 'lib'), os.path.join(sys.prefix, 'lib'), None]
     for _dir in _dirs:
       try:
         init(_dir)
@@ -1641,9 +1641,12 @@ else:
         return ""
 
 def init(PATH):
-  PATH = os.path.realpath(PATH)
-  if os.path.isdir(PATH):
-    PATH = os.path.join(PATH, 'libz3.%s' % _ext)
+  if PATH:
+    PATH = os.path.realpath(PATH)
+    if os.path.isdir(PATH):
+      PATH = os.path.join(PATH, 'libz3.%s' % _ext)
+  else:
+    PATH = 'libz3.%s' % _ext
 
   global _lib
   _lib = ctypes.CDLL(PATH)
