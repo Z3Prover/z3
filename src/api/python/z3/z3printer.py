@@ -10,6 +10,10 @@ from .z3consts import *
 from .z3core import *
 from ctypes import *
 
+def _z3_assert(cond, msg):
+    if not cond:
+        raise Z3Exception(msg)
+
 ##############################
 #
 # Configuration
@@ -580,14 +584,14 @@ class Formatter:
         return to_format(a.as_string())
 
     def pp_fprm_value(self, a):
-        z3._z3_assert(z3.is_fprm_value(a), 'expected FPRMNumRef')
+        _z3_assert(z3.is_fprm_value(a), 'expected FPRMNumRef')
         if self.fpa_pretty and (a.decl().kind() in _z3_op_to_fpa_pretty_str):
             return to_format(_z3_op_to_fpa_pretty_str.get(a.decl().kind()))
         else:
             return to_format(_z3_op_to_fpa_normal_str.get(a.decl().kind()))
 
     def pp_fp_value(self, a):
-        z3._z3_assert(isinstance(a, z3.FPNumRef), 'type mismatch')
+        _z3_assert(isinstance(a, z3.FPNumRef), 'type mismatch')
         if not self.fpa_pretty:
             r = []
             if (a.isNaN()):
@@ -612,7 +616,7 @@ class Formatter:
                 else:
                     return to_format('+zero')
             else:
-                z3._z3_assert(z3.is_fp_value(a), 'expecting FP num ast')
+                _z3_assert(z3.is_fp_value(a), 'expecting FP num ast')
                 r = []
                 sgn = c_int(0)
                 sgnb = Z3_fpa_get_numeral_sign(a.ctx_ref(), a.ast, byref(sgn))
@@ -642,7 +646,7 @@ class Formatter:
                 else:
                     return to_format(_z3_op_to_fpa_pretty_str[Z3_OP_FPA_PLUS_ZERO])
             else:
-                z3._z3_assert(z3.is_fp_value(a), 'expecting FP num ast')
+                _z3_assert(z3.is_fp_value(a), 'expecting FP num ast')
                 r = []
                 sgn = (ctypes.c_int)(0)
                 sgnb = Z3_fpa_get_numeral_sign(a.ctx_ref(), a.ast, byref(sgn))
@@ -659,7 +663,7 @@ class Formatter:
 
 
     def pp_fp(self, a, d, xs):
-        z3._z3_assert(isinstance(a, z3.FPRef), "type mismatch")
+        _z3_assert(isinstance(a, z3.FPRef), "type mismatch")
         k = a.decl().kind()
         op = '?'
         if (self.fpa_pretty and k in _z3_op_to_fpa_pretty_str):
@@ -1164,12 +1168,12 @@ def set_pp_option(k, v):
         return True
     val = getattr(_PP, k, None)
     if val != None:
-        z3._z3_assert(type(v) == type(val), "Invalid pretty print option value")
+        _z3_assert(type(v) == type(val), "Invalid pretty print option value")
         setattr(_PP, k, v)
         return True
     val = getattr(_Formatter, k, None)
     if val != None:
-        z3._z3_assert(type(v) == type(val), "Invalid pretty print option value")
+        _z3_assert(type(v) == type(val), "Invalid pretty print option value")
         setattr(_Formatter, k, v)
         return True
     return False
@@ -1219,13 +1223,13 @@ def pp(a):
         print(a)
 
 def print_matrix(m):
-    z3._z3_assert(isinstance(m, list) or isinstance(m, tuple), "matrix expected")
+    _z3_assert(isinstance(m, list) or isinstance(m, tuple), "matrix expected")
     if not in_html_mode():
         print(obj_to_string(m))
     else:
         print('<table cellpadding="2", cellspacing="0", border="1">')
         for r in m:
-            z3._z3_assert(isinstance(r, list) or isinstance(r, tuple), "matrix expected")
+            _z3_assert(isinstance(r, list) or isinstance(r, tuple), "matrix expected")
             print('<tr>')
             for c in r:
                 print('<td>%s</td>' % c)
