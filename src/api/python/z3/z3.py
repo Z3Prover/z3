@@ -1291,6 +1291,19 @@ class BoolRef(ExprRef):
     def sort(self):
         return BoolSortRef(Z3_get_sort(self.ctx_ref(), self.as_ast()), self.ctx)
 
+    def __rmul__(self, other):
+        return self * other
+    
+    def __mul__(self, other):
+        """Create the Z3 expression `self * other`.
+        """
+        if other == 1:
+            return self
+        if other == 0:
+            return 0        
+        return If(self, other, 0)
+
+
 def is_bool(a):
     """Return `True` if `a` is a Z3 Boolean expression.
 
@@ -6001,6 +6014,10 @@ class Solver(Z3PPObject):
         """
         self.assert_exprs(*args)
 
+    def __iadd__(self, fml):
+        self.add(fml)
+        return self
+
     def append(self, *args):
         """Assert constraints into the solver.
 
@@ -6348,6 +6365,10 @@ class Fixedpoint(Z3PPObject):
     def add(self, *args):
         """Assert constraints as background axioms for the fixedpoint solver. Alias for assert_expr."""
         self.assert_exprs(*args)
+
+    def __iadd__(self, fml):
+        self.add(fml)
+        return self
 
     def append(self, *args):
         """Assert constraints as background axioms for the fixedpoint solver. Alias for assert_expr."""
@@ -6702,6 +6723,10 @@ class Optimize(Z3PPObject):
     def add(self, *args):
         """Assert constraints as background axioms for the optimize solver. Alias for assert_expr."""
         self.assert_exprs(*args)
+
+    def __iadd__(self, fml):
+        self.add(fml)
+        return self
 
     def add_soft(self, arg, weight = "1", id = None):
         """Add soft constraint with optional weight and optional identifier.
@@ -7574,6 +7599,29 @@ def AtMost(*args):
         _z3_assert(ctx is not None, "At least one of the arguments must be a Z3 expression")
     args1 = _coerce_expr_list(args[:-1], ctx)
     k = args[-1]
+    _args, sz = _to_ast_array(args1)
+    return BoolRef(Z3_mk_atmost(ctx.ref(), sz, _args, k), ctx)
+
+def AtLeast(*args):
+    """Create an at-most Pseudo-Boolean k constraint.
+
+    >>> a, b, c = Bools('a b c')
+    >>> f = AtLeast(a, b, c, 2)
+    """
+    def mk_not(a):
+        if is_not(a):
+            return a.arg(0)
+        else:
+            return Not(a)
+    args  = _get_args(args)
+    if __debug__:
+        _z3_assert(len(args) > 1, "Non empty list of arguments expected")
+    ctx   = _ctx_from_ast_arg_list(args)
+    if __debug__:
+        _z3_assert(ctx is not None, "At least one of the arguments must be a Z3 expression")
+    args1 = _coerce_expr_list(args[:-1], ctx)
+    args1 = [ mk_not(a) for a in args1 ]
+    k = len(args1) - args[-1] 
     _args, sz = _to_ast_array(args1)
     return BoolRef(Z3_mk_atmost(ctx.ref(), sz, _args, k), ctx)
 
