@@ -90,9 +90,6 @@ namespace opt {
     }
 
     unsigned context::scoped_state::add(expr* f, rational const& w, symbol const& id) {
-        if (w.is_neg()) {
-            throw default_exception("Negative weight supplied. Weight should be non-negative");
-        }
         if (!m.is_bool(f)) {
             throw default_exception("Soft constraint should be Boolean");
         }
@@ -102,7 +99,7 @@ namespace opt {
         }
         SASSERT(m_indices.contains(id));        
         unsigned idx = m_indices[id];
-        if (w.is_pos()) {
+        if (!w.is_zero()) {
             m_objectives[idx].m_terms.push_back(f);
             m_objectives[idx].m_weights.push_back(w);
             m_objectives_term_trail.push_back(idx);
@@ -743,16 +740,22 @@ namespace opt {
         app* a = to_app(fml);
         if (m_objective_fns.find(a->get_decl(), index) && m_objectives[index].m_type == O_MAXSMT) {
             for (unsigned i = 0; i < a->get_num_args(); ++i) {
-                expr* arg = a->get_arg(i);
-                if (m.is_true(arg)) {
+                expr_ref arg(a->get_arg(i), m);
+                rational weight = m_objectives[index].m_weights[i];
+                if (weight.is_neg()) {
+                    weight.neg();
+                    arg = mk_not(m, arg);
+                    offset -= weight;
+                }
+                if (m.is_true(arg) || weight.is_zero()) {
                     // skip
                 }
                 else if (m.is_false(arg)) {
-                    offset += m_objectives[index].m_weights[i];
+                    offset += weight;
                 }
                 else {
                     terms.push_back(arg);
-                    weights.push_back(m_objectives[index].m_weights[i]);
+                    weights.push_back(weight);
                 }
             } 
             id = m_objectives[index].m_id;
