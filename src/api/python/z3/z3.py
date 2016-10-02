@@ -6712,6 +6712,8 @@ class Optimize(Z3PPObject):
         """
         if _is_int(weight):
             weight = "%d" % weight
+        elif isinstance(weight, (float, double)):
+            weight = "%f" % weight
         if not isinstance(weight, str):
             raise Z3Exception("weight should be a string or an integer")
         if id is None:
