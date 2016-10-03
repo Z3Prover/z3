@@ -267,8 +267,10 @@ namespace opt {
 
     void maxsmt::display_answer(std::ostream& out) const {
         for (unsigned i = 0; i < m_soft_constraints.size(); ++i) {
-            out << mk_pp(m_soft_constraints[i], m)
-                << (get_assignment(i)?" |-> true\n":" |-> false\n");
+            expr* e = m_soft_constraints[i];
+            bool is_not = m.is_not(e, e);
+            out << mk_pp(e, m)
+                << ((is_not != get_assignment(i))?" |-> true\n":" |-> false\n");
         }
     }
     

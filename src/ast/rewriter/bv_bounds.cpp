@@ -92,7 +92,7 @@ bool bv_bounds::is_uleq(expr * e, expr * & v, numeral & c) {
     expr * const ulel0 = to_app(ulel)->get_arg(0);
     if (ulel0 != eql0) return false;
     if ((m_bv_util.get_extract_high(ulel) + 1) != m_bv_util.get_extract_low(eql)) return false;
-    if (!m_bv_util.get_extract_low(ulel) == 0) return false;
+    if (m_bv_util.get_extract_low(ulel) != 0) return false;
     if (!m_bv_util.is_numeral(uler, uleqr_val, uleqr_sz)) return false;
     SASSERT(m_bv_util.get_bv_size(ulel0) == uleqr_sz + eqr_sz);
     v = ulel0;

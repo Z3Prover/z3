@@ -116,6 +116,9 @@ namespace pb {
                 result = m.mk_and(sz, args);
                 return BR_DONE;
             }
+            if (is_atmost1(f, sz, args, result)) {
+                return BR_DONE;
+            }
             br_status st = mk_shannon(f, sz, args, result);
             if (st == BR_FAILED) {
                 mk_bv(f, sz, args, result);
@@ -163,6 +166,43 @@ namespace pb {
         }
         else
             return BR_FAILED;
+    }
+
+    expr_ref card2bv_rewriter::mk_atmost1(unsigned sz, expr * const* args) {
+        expr_ref f1(m), f2(m), f3(m), result(m);
+        f1 = bv.mk_bv(sz, args);
+        f2 = bv.mk_bv_sub(f1, bv.mk_numeral(rational(1), sz));
+        f3 = m.mk_app(bv.get_fid(), OP_BAND, f1, f2);
+        result = m.mk_eq(f3, bv.mk_numeral(rational(0), sz));
+        return result;
+    }
+
+    bool card2bv_rewriter::is_atmost1(func_decl* f, unsigned sz, expr * const* args, expr_ref& result) {
+        switch (f->get_decl_kind()) {
+        case OP_AT_MOST_K:            
+        case OP_PB_LE: 
+            if (pb.get_k(f).is_one() && pb.has_unit_coefficients(f)) {
+                result = mk_atmost1(sz, args);
+                return true;
+            }
+            return false;
+        case OP_AT_LEAST_K:
+        case OP_PB_GE: 
+            if (pb.get_k(f) == rational(sz-1) && pb.has_unit_coefficients(f)) {
+                expr_ref_vector nargs(m);
+                for (unsigned i = 0; i < sz; ++i) {
+                    nargs.push_back(mk_not(args[i]));
+                }
+                result = mk_atmost1(nargs.size(), nargs.c_ptr());
+                return true;
+            }
+            return false;
+        case OP_PB_EQ:
+            return false;
+        default:
+            UNREACHABLE();
+            return false;
+        }        
     }
 
     bool card2bv_rewriter::is_or(func_decl* f) {

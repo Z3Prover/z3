@@ -7548,17 +7548,18 @@ def Sum(*args):
     a__0 + a__1 + a__2 + a__3 + a__4
     """
     args  = _get_args(args)
-    if __debug__:
-        _z3_assert(len(args) > 0, "Non empty list of arguments expected")
+    if len(args) == 0:
+        return 0
     ctx   = _ctx_from_ast_arg_list(args)
-    if __debug__:
-        _z3_assert(ctx is not None, "At least one of the arguments must be a Z3 expression")
+    if ctx is None:
+        return _reduce(lambda a, b: a + b, args, 0)
     args  = _coerce_expr_list(args, ctx)
     if is_bv(args[0]):
         return _reduce(lambda a, b: a + b, args, 0)
     else:
         _args, sz = _to_ast_array(args)
         return ArithRef(Z3_mk_add(ctx.ref(), sz, _args), ctx)
+
 
 def Product(*args):
     """Create the product of the Z3 expressions.
@@ -7573,11 +7574,11 @@ def Product(*args):
     a__0*a__1*a__2*a__3*a__4
     """
     args  = _get_args(args)
-    if __debug__:
-        _z3_assert(len(args) > 0, "Non empty list of arguments expected")
+    if len(args) == 0:
+        return 1
     ctx   = _ctx_from_ast_arg_list(args)
-    if __debug__:
-        _z3_assert(ctx is not None, "At least one of the arguments must be a Z3 expression")
+    if ctx is None:
+        return _reduce(lambda a, b: a * b, args, 1)    
     args  = _coerce_expr_list(args, ctx)
     if is_bv(args[0]):
         return _reduce(lambda a, b: a * b, args, 1)

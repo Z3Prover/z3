@@ -71,7 +71,6 @@ struct bv_bound_chk_rewriter_cfg : public default_rewriter_cfg {
         result_pr = 0;
         const family_id fid = f->get_family_id();
         if (fid != m_b_rw.get_fid()) return BR_FAILED;
-        const decl_kind k = f->get_decl_kind();
         bv_bounds bvb(m());
         const br_status rv = bvb.rewrite(m_bv_ineq_consistency_test_max, f, num, args, result);
         if (rv != BR_FAILED && (m_m.is_false(result) || m_m.is_true(result))) m_stats.m_unsats++;
