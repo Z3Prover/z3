@@ -90,19 +90,28 @@ void fpa2bv_converter::mk_eq(expr * a, expr * b, expr_ref & result) {
 }
 
 void fpa2bv_converter::mk_ite(expr * c, expr * t, expr * f, expr_ref & result) {
-    SASSERT(m_util.is_fp(t) && m_util.is_fp(f));
+    if (m_util.is_fp(t) && m_util.is_fp(f)) {
+        expr *t_sgn, *t_sig, *t_exp;
+        expr *f_sgn, *f_sig, *f_exp;
+        split_fp(t, t_sgn, t_exp, t_sig);
+        split_fp(f, f_sgn, f_exp, f_sig);
 
-    expr *t_sgn, *t_sig, *t_exp;
-    expr *f_sgn, *f_sig, *f_exp;
-    split_fp(t, t_sgn, t_exp, t_sig);
-    split_fp(f, f_sgn, f_exp, f_sig);
+        expr_ref sgn(m), s(m), e(m);
+        m_simp.mk_ite(c, t_sgn, f_sgn, sgn);
+        m_simp.mk_ite(c, t_sig, f_sig, s);
+        m_simp.mk_ite(c, t_exp, f_exp, e);
 
-    expr_ref sgn(m), s(m), e(m);
-    m_simp.mk_ite(c, t_sgn, f_sgn, sgn);
-    m_simp.mk_ite(c, t_sig, f_sig, s);
-    m_simp.mk_ite(c, t_exp, f_exp, e);
-
-    result = m_util.mk_fp(sgn, e, s);
+        result = m_util.mk_fp(sgn, e, s);
+    }
+    else if (m_util.is_rm(t) && m_util.is_rm(f))
+    {
+        SASSERT(m_util.is_bv2rm(t) && m_util.is_bv2rm(f));
+        TRACE("fpa2bv", tout << "ite rm: t=" << mk_ismt2_pp(t, m) << " f=" << mk_ismt2_pp(f, m) << std::endl; );
+        m_simp.mk_ite(c, to_app(t)->get_arg(0), to_app(f)->get_arg(0), result);
+        result = m_util.mk_bv2rm(result);
+    }
+    else
+        UNREACHABLE();
 }
 
 void fpa2bv_converter::mk_distinct(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
