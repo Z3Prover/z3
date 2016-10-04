@@ -194,6 +194,8 @@ public:
         if (!init()) return l_undef;
         init_local();
         trace();
+        is_sat = process_mutex();
+        if (is_sat != l_true) return is_sat;
         while (m_lower < m_upper) {
             TRACE("opt", 
                   display_vec(tout, m_asms);
@@ -269,6 +271,42 @@ public:
         return l_true;
     }
 
+    lbool process_mutex() {
+#if 0
+        vector<expr_ref_vector> mutexes;
+        lbool is_sat = s().find_mutexes(m_asms, mutexes);
+        if (is_sat != l_true) {
+            return is_sat;
+        }
+        for (unsigned i = 0; i < mutexes.size(); ++i) {
+            process_mutex(mutexes[i]);
+        }
+#endif
+        return l_true;
+    }
+
+    void process_mutex(expr_ref_vector& mutex) {
+        TRACE("opt", tout << mutex << "\n";);
+        if (mutex.size() <= 1) {
+            return;
+        }
+        sort_assumptions(mutex);
+        ptr_vector<expr> core(mutex.size(), mutex.c_ptr());
+        remove_soft(core, m_asms);
+        rational weight(0);
+        while (!mutex.empty()) {
+            expr_ref soft = mk_or(mutex);
+            rational w = get_weight(mutex.back());
+            weight = w - weight;
+            m_lower += weight*rational(mutex.size()-1);
+            add_soft(soft, weight);
+            mutex.pop_back();
+            while (!mutex.empty() && get_weight(mutex.back()) == w) {
+                mutex.pop_back();
+            }
+            weight = w;
+        }        
+    }
 
     lbool check_sat_hill_climb(expr_ref_vector& asms1) {
         expr_ref_vector asms(asms1);

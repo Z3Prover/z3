@@ -136,4 +136,73 @@ lbool solver::get_consequences_core(expr_ref_vector const& asms, expr_ref_vector
     return l_true;
 }
 
+lbool solver::find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) {
+    mutexes.reset();
+    ast_manager& m = vars.get_manager();
+
+    typedef obj_hashtable<expr> expr_set;
+    
+    expr_set A, P;
+
+    for (unsigned i = 0; i < vars.size(); ++i) {
+        A.insert(vars[i]);
+    }
+
+    while (!A.empty()) {
+        P = A;
+        expr_ref_vector mutex(m);
+        while (!P.empty()) {
+            expr_ref_vector asms(m);
+            expr* p = *P.begin();
+            P.remove(p);
+            if (!is_literal(m, p)) {
+                break;
+            }
+            mutex.push_back(p);
+            asms.push_back(p);
+            expr_set Q;
+            expr_set::iterator it = P.begin(), end = P.end();
+            for (; it != end; ++it) {
+                expr* q = *it;
+                scoped_assumption_push _scoped_push(asms, q);
+                if (is_literal(m, q)) {
+                    lbool is_sat = check_sat(asms);
+                    switch (is_sat) {
+                    case l_false: 
+                        Q.insert(q);
+                        break;
+                    case l_true:
+                        break;
+                    case l_undef:
+                        return l_undef;
+                    }
+                }
+            }
+            P = Q;
+        }
+        if (mutex.size() > 1) {
+            mutexes.push_back(mutex);            
+        }
+        for (unsigned i = 0; i < mutex.size(); ++i) {
+            A.remove(mutex[i].get());
+        }
+    }
+
+    // While A != {}:
+    // R = {} 
+    // P = ~A
+    //    While P != {}:
+    //       Pick p in ~P, 
+    //       R = R u { p }
+    //       Let Q be consequences over P of p modulo F. 
+    //       Let P &= Q
+    //    If |R| > 1: Yield R
+    //   A \= R               
+
+    return l_true;
+}
+
+bool solver::is_literal(ast_manager& m, expr* e) {
+    return is_uninterp_const(e) || (m.is_not(e, e) && is_uninterp_const(e));
+}
 

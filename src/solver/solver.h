@@ -158,6 +158,14 @@ public:
     
     virtual lbool get_consequences(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences);
 
+
+    /**
+       \brief Find maximal subsets A' of A such that |A'| <= 1. These subsets look somewhat similar to cores: cores have the property 
+       that |~A'| >= 1, where ~A' is the set of negated formulas from A'
+     */
+
+    virtual lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes);
+
     /**
        \brief Display the content of this solver.
     */
@@ -175,6 +183,8 @@ public:
 protected:
 
     virtual lbool get_consequences_core(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences);
+
+    bool is_literal(ast_manager& m, expr* e);
 
 };
 
