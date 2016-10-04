@@ -103,7 +103,7 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
         }
         return BR_FAILED;
     }
-    
+
     if (m_conv.is_float_family(f)) {
         switch (f->get_decl_kind()) {
         case OP_FPA_RM_NEAREST_TIES_TO_AWAY:
@@ -157,7 +157,7 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
 
         case OP_FPA_INTERNAL_BVWRAP:
         case OP_FPA_INTERNAL_BV2RM:
-        
+
         case OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED:
         case OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED:
         case OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED:
@@ -169,7 +169,7 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
             NOT_IMPLEMENTED_YET();
         }
     }
-    else 
+    else
     {
         SASSERT(!m_conv.is_float_family(f));
         if (m_conv.fu().contains_floats(f)) {

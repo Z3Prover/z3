@@ -264,7 +264,7 @@ void fpa2bv_converter::mk_function(func_decl * f, unsigned num, expr * const * a
     rng = f->get_range();
     fapp = m.mk_app(f, num, args);
     if (m_util.is_float(rng)) {
-        sort_ref bv_rng(m);        
+        sort_ref bv_rng(m);
         expr_ref new_eq(m);
         unsigned ebits = m_util.get_ebits(rng);
         unsigned sbits = m_util.get_sbits(rng);
@@ -290,7 +290,7 @@ void fpa2bv_converter::mk_function(func_decl * f, unsigned num, expr * const * a
         m_extra_assertions.push_back(new_eq);
         result = flt_app;
     }
-    else 
+    else
         result = fapp;
 
     TRACE("fpa2bv", tout << "UF result: " << mk_ismt2_pp(result, m) << std::endl; );
@@ -1057,7 +1057,7 @@ void fpa2bv_converter::mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & r
     // (x is 0) -> x
     c5 = x_is_zero;
     v5 = pzero;
-   
+
     // exp(x) < exp(y) -> x
     unsigned ebits = m_util.get_ebits(s);
     unsigned sbits = m_util.get_sbits(s);
@@ -1117,15 +1117,15 @@ void fpa2bv_converter::mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & r
     dbg_decouple("fpa2bv_rem_exp_diff", exp_diff);
 
     // CMW: This creates _huge_ bit-vectors, which is potentially sub-optimal,
-    // but calculating this via rem = x - y * nearest(x/y) creates huge 
+    // but calculating this via rem = x - y * nearest(x/y) creates huge
     // circuits, too. Lazy instantiation seems the way to go in the long run
-    // (using the lazy bit-blaster helps on simple instances).    
+    // (using the lazy bit-blaster helps on simple instances).
     expr_ref a_sig_ext(m), b_sig_ext(m), lshift(m), rshift(m), shifted(m), huge_rem(m);
     a_sig_ext = m_bv_util.mk_concat(m_bv_util.mk_zero_extend(max_exp_diff_ui, a_sig), m_bv_util.mk_numeral(0, 3));
     b_sig_ext = m_bv_util.mk_concat(m_bv_util.mk_zero_extend(max_exp_diff_ui, b_sig), m_bv_util.mk_numeral(0, 3));
     lshift = m_bv_util.mk_zero_extend(max_exp_diff_ui + sbits - (ebits+2) + 3, exp_diff);
     rshift = m_bv_util.mk_zero_extend(max_exp_diff_ui + sbits - (ebits+2) + 3, neg_exp_diff);
-    shifted = m.mk_ite(exp_diff_is_neg, m_bv_util.mk_bv_ashr(a_sig_ext, rshift), 
+    shifted = m.mk_ite(exp_diff_is_neg, m_bv_util.mk_bv_ashr(a_sig_ext, rshift),
                                         m_bv_util.mk_bv_shl(a_sig_ext, lshift));
     huge_rem = m_bv_util.mk_bv_urem(shifted, b_sig_ext);
     dbg_decouple("fpa2bv_rem_huge_rem", huge_rem);
@@ -1142,7 +1142,7 @@ void fpa2bv_converter::mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & r
     expr_ref r_ge_y_half(m), r_gt_ny_half(m), r_le_y_half(m), r_lt_ny_half(m);
     expr_ref r_ge_zero(m), r_le_zero(m);
     expr_ref rounded_sub_y(m), rounded_add_y(m);
-    mpf zero, two;    
+    mpf zero, two;
     m_mpf_manager.set(two, ebits, sbits, 2);
     m_mpf_manager.set(zero, ebits, sbits, 0);
     mk_numeral(s, two, two_e);
@@ -1151,7 +1151,7 @@ void fpa2bv_converter::mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & r
     mk_neg(s, y_half, ny_half);
     mk_is_zero(y_half, y_half_is_zero);
     y_half_is_nz = m.mk_not(y_half_is_zero);
-    
+
     mk_float_ge(s, rndd, y_half, r_ge_y_half);
     mk_float_gt(s, rndd, ny_half, r_gt_ny_half);
     mk_float_le(s, rndd, y_half, r_le_y_half);
@@ -1161,8 +1161,8 @@ void fpa2bv_converter::mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & r
     mk_add(s, rne_bv, rndd, y, rounded_add_y);
 
     expr_ref sub_cnd(m), add_cnd(m);
-    sub_cnd = m.mk_and(y_half_is_nz, 
-                m.mk_or(m.mk_and(y_is_pos, r_ge_y_half), 
+    sub_cnd = m.mk_and(y_half_is_nz,
+                m.mk_or(m.mk_and(y_is_pos, r_ge_y_half),
                         m.mk_and(y_is_neg, r_le_y_half)));
     add_cnd = m.mk_and(y_half_is_nz,
                 m.mk_or(m.mk_and(y_is_pos, r_lt_ny_half),
@@ -1170,7 +1170,7 @@ void fpa2bv_converter::mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & r
 
     mk_ite(add_cnd, rounded_add_y, rndd, v7);
     mk_ite(sub_cnd, rounded_sub_y, v7, v7);
-        
+
     // And finally, we tie them together.
     mk_ite(c6, v6, v7, result);
     mk_ite(c5, v5, result, result);
@@ -3698,7 +3698,7 @@ void fpa2bv_converter::dbg_decouple(const char * prefix, expr_ref & e) {
     // CMW: This works only for quantifier-free formulas.
     if (m_util.is_fp(e)) {
         expr_ref new_bv(m);
-        expr *e_sgn, *e_sig, *e_exp; 
+        expr *e_sgn, *e_sig, *e_exp;
         split_fp(e, e_sgn, e_exp, e_sig);
         unsigned ebits = m_bv_util.get_bv_size(e_exp);
         unsigned sbits = m_bv_util.get_bv_size(e_sig) + 1;
