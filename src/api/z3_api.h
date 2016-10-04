@@ -1997,9 +1997,9 @@ extern "C" {
        \param c logical context.
        \param constr constructor container. The container must have been passed in to a #Z3_mk_datatype call.
        \param num_fields number of accessor fields in the constructor.
-       \param constructor constructor function declaration.
-       \param tester constructor test function declaration.
-       \param accessors array of accessor function declarations.
+       \param constructor constructor function declaration, allocated by user.
+       \param tester constructor test function declaration, allocated by user.
+       \param accessors array of accessor function declarations allocated by user. The array must contain num_fields elements.
 
        def_API('Z3_query_constructor', VOID, (_in(CONTEXT), _in(CONSTRUCTOR), _in(UINT), _out(FUNC_DECL), _out(FUNC_DECL), _out_array(2, FUNC_DECL)))
     */
