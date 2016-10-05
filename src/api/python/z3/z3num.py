@@ -88,7 +88,7 @@ class Numeral:
     def __init__(self, num, ctx=None):
         if isinstance(num, Ast):
             self.ast  = num
-            self.ctx  = z3._get_ctx(ctx)
+            self.ctx  = _get_ctx(ctx)
         elif isinstance(num, RatNumRef) or isinstance(num, AlgebraicNumRef):
             self.ast = num.ast
             self.ctx = num.ctx
