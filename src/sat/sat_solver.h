@@ -300,6 +300,8 @@ namespace sat {
         bool decide();
         bool_var next_var();
         lbool bounded_search();
+        lbool final_check();
+        lbool propagate_and_backjump_step(bool& done);
         void init_search();
         
         literal_vector m_min_core;
@@ -409,6 +411,7 @@ namespace sat {
         void gc_lit(clause_vector& clauses, literal lit);
         void gc_bin(bool learned, literal nlit);
         void gc_var(bool_var v);
+
         bool_var max_var(clause_vector& clauses, bool_var v);
         bool_var max_var(bool learned, bool_var v);
 
@@ -427,6 +430,35 @@ namespace sat {
         void simplify(bool learned = true);
         void asymmetric_branching();
         unsigned scc_bin();
+
+        // -----------------------
+        //
+        // Auxiliary methods.
+        //
+        // -----------------------
+    public:
+        lbool find_mutexes(literal_vector const& lits, vector<literal_vector> & mutexes);
+
+        lbool get_consequences(literal_vector const& assms, bool_var_vector const& vars, vector<literal_vector>& conseq);
+
+    private:
+
+        typedef hashtable<unsigned, u_hash, u_eq> index_set;
+
+        u_map<index_set>       m_antecedents;
+        vector<literal_vector> m_binary_clause_graph;
+
+        void extract_assumptions(literal lit, index_set& s);
+
+        void get_reachable(literal p, literal_set const& goal, literal_set& reachable);
+
+        lbool get_consequences(literal_vector const& assms, literal_vector const& lits, vector<literal_vector>& conseq);
+
+        void delete_unfixed(literal_set& unfixed);
+
+        void extract_fixed_consequences(unsigned& start, literal_set const& assumptions, literal_set& unfixed, vector<literal_vector>& conseq);
+
+        void extract_fixed_consequences(literal lit, literal_set const& assumptions, literal_set& unfixed, vector<literal_vector>& conseq);
 
         // -----------------------
         //

@@ -137,6 +137,11 @@ lbool solver::get_consequences_core(expr_ref_vector const& asms, expr_ref_vector
 }
 
 lbool solver::find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) {
+    return l_true;
+#if 0
+    // complete for literals, but inefficient.
+    // see more efficient (incomplete) version in sat_solver
+
     mutexes.reset();
     ast_manager& m = vars.get_manager();
 
@@ -187,19 +192,9 @@ lbool solver::find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>&
             A.remove(mutex[i].get());
         }
     }
-
-    // While A != {}:
-    // R = {} 
-    // P = ~A
-    //    While P != {}:
-    //       Pick p in ~P, 
-    //       R = R u { p }
-    //       Let Q be consequences over P of p modulo F. 
-    //       Let P &= Q
-    //    If |R| > 1: Yield R
-    //   A \= R               
-
     return l_true;
+#endif
+
 }
 
 bool solver::is_literal(ast_manager& m, expr* e) {

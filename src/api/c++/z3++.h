@@ -63,7 +63,6 @@ namespace z3 {
     class func_entry;
     class statistics;
     class apply_result;
-    class fixedpoint;
     template<typename T> class ast_vector_tpl;
     typedef ast_vector_tpl<ast>       ast_vector;
     typedef ast_vector_tpl<expr>      expr_vector;
@@ -287,6 +286,15 @@ namespace z3 {
         expr num_val(int n, sort const & s);
 
         /**
+           \brief parsing
+         */
+        expr parse_string(char const* s);
+        expr parse_file(char const* file);
+
+        expr parse_string(char const* s, sort_vector const& sorts, func_decl_vector const& decls);
+        expr parse_file(char const* s, sort_vector const& sorts, func_decl_vector const& decls);
+
+        /**
            \brief Interpolation support
         */
         check_result compute_interpolant(expr const& pat, params const& p, expr_vector& interp, model& m);
@@ -442,7 +450,10 @@ namespace z3 {
            \brief Return the internal sort kind.
         */
         Z3_sort_kind sort_kind() const { return Z3_get_sort_kind(*m_ctx, *this); }
-
+        /**
+           \brief Return name of sort.
+        */
+        symbol name() const { Z3_symbol s = Z3_get_sort_name(ctx(), *this); check_error(); return symbol(ctx(), s); }
         /**
             \brief Return true if this sort is the Boolean sort.
         */
@@ -2453,6 +2464,37 @@ namespace z3 {
     inline expr interpolant(expr const& a) {
         return expr(a.ctx(), Z3_mk_interpolant(a.ctx(), a));
     }
+
+    inline expr context::parse_string(char const* s) {
+        Z3_ast r = Z3_parse_smtlib2_string(*this, s, 0, 0, 0, 0, 0, 0);
+        check_error();
+        return expr(*this, r);
+        
+    }
+    inline expr context::parse_file(char const* s) {
+        Z3_ast r = Z3_parse_smtlib2_file(*this, s, 0, 0, 0, 0, 0, 0);
+        check_error();
+        return expr(*this, r);
+    }
+
+    inline expr context::parse_string(char const* s, sort_vector const& sorts, func_decl_vector const& decls) {
+        array<Z3_symbol> sort_names(sorts.size());
+        array<Z3_symbol> decl_names(decls.size());
+        array<Z3_sort>   sorts1(sorts);
+        array<Z3_func_decl> decls1(decls);
+        for (unsigned i = 0; i < sorts.size(); ++i) {
+            sort_names[i] = sorts[i].name();
+        }
+        for (unsigned i = 0; i < decls.size(); ++i) {
+            decl_names[i] = decls[i].name();
+        }
+        Z3_ast r = Z3_parse_smtlib2_string(*this, s, sorts.size(), sort_names.ptr(), sorts1.ptr(), decls.size(), decl_names.ptr(), decls1.ptr());
+        check_error();
+        return expr(*this, r);
+    }
+
+    // inline expr context::parse_file(char const* s, sort_vector const& sorts, func_decl_vector const& decls);
+
 
     inline check_result context::compute_interpolant(expr const& pat, params const& p, expr_vector& i, model& m) {
         Z3_ast_vector interp = 0;

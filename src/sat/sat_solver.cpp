@@ -835,47 +835,65 @@ namespace sat {
     lbool solver::bounded_search() {
         while (true) {
             checkpoint();
-            while (true) {
-                propagate(true);
-                if (!inconsistent())
-                    break;
-                if (!resolve_conflict())
-                    return l_false;
-                if (m_conflicts > m_config.m_max_conflicts)
-                    return l_undef;
-                if (m_conflicts_since_restart > m_restart_threshold)
-                    return l_undef;
-                if (scope_lvl() == 0) {
-                    cleanup(); // cleaner may propagate frozen clauses
-                    if (inconsistent()) {
-                        TRACE("sat", tout << "conflict at level 0\n";);
-                        return l_false;
-                    }
-                    gc();
-                }
+            bool done = false;
+            while (!done) {
+                lbool is_sat = propagate_and_backjump_step(done);
+                if (is_sat != l_true) return is_sat;
             }
 
             gc();
 
             if (!decide()) {
-                if (m_ext) {
-                    switch (m_ext->check()) {
-                    case CR_DONE:
-                        mk_model();
-                        return l_true;
-                    case CR_CONTINUE:
-                        break;
-                    case CR_GIVEUP:
-                        throw abort_solver();
-                    }
-                }
-                else {
-                    mk_model();
-                    return l_true;
+                lbool is_sat = final_check();
+                if (is_sat != l_undef) {
+                    return is_sat;
                 }
             }
         }
     }
+
+    lbool solver::propagate_and_backjump_step(bool& done) {
+        done = true;
+        propagate(true);
+        if (!inconsistent())
+            return l_true;
+        if (!resolve_conflict())
+            return l_false;
+        if (m_conflicts > m_config.m_max_conflicts)
+            return l_undef;
+        if (m_conflicts_since_restart > m_restart_threshold)
+            return l_undef;
+        if (scope_lvl() == 0) {
+            cleanup(); // cleaner may propagate frozen clauses
+            if (inconsistent()) {
+                TRACE("sat", tout << "conflict at level 0\n";);
+                return l_false;
+            }
+            gc();
+        }
+        done = false;
+        return l_true;
+    }
+
+    lbool solver::final_check() {
+        if (m_ext) {
+            switch (m_ext->check()) {
+            case CR_DONE:
+                mk_model();
+                return l_true;
+            case CR_CONTINUE:
+                break;
+            case CR_GIVEUP:
+                throw abort_solver();
+            }
+            return l_undef;
+        }
+        else {
+            mk_model();
+            return l_true;
+        }        
+    }
+
 
     bool solver::check_inconsistent() {
         if (inconsistent()) {
@@ -3033,6 +3051,220 @@ namespace sat {
         if (r > 0 && m_ext)
             m_ext->clauses_modifed();
         return r;
+    }
+
+    lbool solver::find_mutexes(literal_vector const& lits, vector<literal_vector> & mutexes) {
+        literal_vector ps(lits);
+        m_user_bin_clauses.reset();
+        m_binary_clause_graph.reset();
+        collect_bin_clauses(m_user_bin_clauses, true);
+        collect_bin_clauses(m_user_bin_clauses, false);
+        for (unsigned i = 0; i < m_user_bin_clauses.size(); ++i) {
+            literal l1 = m_user_bin_clauses[i].first;
+            literal l2 = m_user_bin_clauses[i].second;
+            m_binary_clause_graph.reserve(l1.index() + 1);
+            m_binary_clause_graph.reserve(l2.index() + 1);
+            m_binary_clause_graph.reserve((~l1).index() + 1);
+            m_binary_clause_graph.reserve((~l2).index() + 1);
+            m_binary_clause_graph[l1.index()].push_back(l2);
+            m_binary_clause_graph[l2.index()].push_back(l1);
+        }
+        while (!ps.empty()) {            
+            literal_vector mutex;
+            literal_set other(ps);
+            while (!other.empty()) {
+                literal_set conseq;
+                literal p = other.pop();
+                mutex.push_back(p);
+                if (other.empty()) {
+                    break;
+                }
+                get_reachable(p, other, conseq);
+                other = conseq;
+            }
+            if (mutex.size() > 1) {
+                mutexes.push_back(mutex);            
+            }
+            for (unsigned i = 0; i < mutex.size(); ++i) {
+                ps.erase(mutex[i]);
+            }
+        }
+        return l_true;
+    }
+
+    void solver::get_reachable(literal p, literal_set const& goal, literal_set& reachable) {
+        literal_set seen;
+        literal_vector todo;
+        todo.push_back(p);
+        while (!todo.empty()) {
+            p = todo.back();
+            todo.pop_back();
+            if (seen.contains(p)) {
+                continue;
+            }
+            seen.insert(p);
+            literal np = ~p;
+            if (goal.contains(np)) {
+                reachable.insert(np);
+            }
+            todo.append(m_binary_clause_graph[np.index()]);
+        }
+    }
+
+    lbool solver::get_consequences(literal_vector const& asms, bool_var_vector const& vars, vector<literal_vector>& conseq) {
+        literal_vector lits;
+        lbool is_sat = check(asms.size(), asms.c_ptr());
+        if (is_sat != l_true) {
+            return is_sat;
+        }
+        for (unsigned i = 0; i < vars.size(); ++i) {
+            bool_var v = vars[i];
+            switch (get_model()[v]) {
+            case l_true: lits.push_back(literal(v, false)); break;
+            case l_false: lits.push_back(literal(v, true)); break;
+            default: break;                
+            }
+        }
+        return get_consequences(asms, lits, conseq);
+    }
+
+    lbool solver::get_consequences(literal_vector const& asms, literal_vector const& lits, vector<literal_vector>& conseq) {
+        m_antecedents.reset();
+        literal_set unfixed(lits), assumptions(asms);
+
+        pop_to_base_level();
+        if (inconsistent()) return l_false;
+        init_search();
+        propagate(false);
+        if (inconsistent()) return l_false;
+        init_assumptions(asms.size(), asms.c_ptr(), 0, 0);
+        propagate(false);
+        if (check_inconsistent()) return l_false;
+       
+        unsigned num_units = 0;
+        extract_fixed_consequences(num_units, assumptions, unfixed, conseq);
+        while (!unfixed.empty()) {
+            checkpoint();
+            literal_set::iterator it = unfixed.begin(), end = unfixed.end();
+            unsigned chunk_size = 100;
+            for (; it != end && chunk_size > 0; ++it) {
+                literal lit = *it;
+                if (value(lit) != l_undef) {
+                    continue;
+                }
+                --chunk_size;
+                push();
+                assign(~lit, justification());
+                propagate(false);
+                while (inconsistent()) {      
+                    if (!resolve_conflict()) {
+                        TRACE("sat", tout << "inconsistent\n";);
+                        return l_false;
+                    }
+                    propagate(false);
+                }
+            }
+            lbool is_sat;
+            while (true) {
+                is_sat = bounded_search();
+                if (is_sat == l_undef) {
+                    restart();                  
+                    continue;
+                }
+                break;
+            }
+            if (is_sat == l_false) {
+                TRACE("sat", tout << "unsat\n";);
+                m_inconsistent = false;
+            }
+            if (is_sat == l_true) {
+                delete_unfixed(unfixed);
+            }
+            extract_fixed_consequences(num_units, assumptions, unfixed, conseq);            
+        }
+        return l_true;
+    }
+
+    void solver::delete_unfixed(literal_set& unfixed) {
+        literal_set to_keep;
+        literal_set::iterator it = unfixed.begin(), end = unfixed.end();
+        for (; it != end; ++it) {
+            literal lit = *it;
+            if (value(lit) == l_true) {
+                to_keep.insert(lit);
+            }
+        }        
+        unfixed = to_keep;
+    }
+    
+    void solver::extract_fixed_consequences(unsigned& start, literal_set const& assumptions, literal_set& unfixed, vector<literal_vector>& conseq) {
+        if (scope_lvl() > 1) {
+            pop(scope_lvl() - 1);
+        }
+        SASSERT(!inconsistent());
+        unsigned sz = m_trail.size();
+        for (unsigned i = start; i < sz; ++i) {
+            extract_fixed_consequences(m_trail[i], assumptions, unfixed, conseq);
+        }
+        start = sz;
+    }
+
+    void solver::extract_assumptions(literal lit, index_set& s) {
+        justification js = m_justification[lit.var()];
+        switch (js.get_kind()) {
+        case justification::NONE:
+            break;
+        case justification::BINARY:
+            s |= m_antecedents.find(js.get_literal().var());
+            break;
+        case justification::TERNARY:
+            s |= m_antecedents.find(js.get_literal1().var());
+            s |= m_antecedents.find(js.get_literal2().var());
+            break;
+        case justification::CLAUSE: {
+            clause & c = *(m_cls_allocator.get_clause(js.get_clause_offset()));
+            for (unsigned i = 0; i < c.size(); ++i) {
+                if (c[i] != lit) {
+                    s |= m_antecedents.find(c[i].var());
+                }
+            }
+            break;
+        }
+        case justification::EXT_JUSTIFICATION: {
+            fill_ext_antecedents(lit, js);
+            literal_vector::iterator it  = m_ext_antecedents.begin();
+            literal_vector::iterator end = m_ext_antecedents.end();
+            for (; it != end; ++it) {
+                s |= m_antecedents.find(it->var());
+            }
+            break;
+        }
+        default:
+            UNREACHABLE();
+            break;
+        }
+    }
+
+    void solver::extract_fixed_consequences(literal lit, literal_set const& assumptions, literal_set& unfixed, vector<literal_vector>& conseq) {
+        index_set s;        
+        if (assumptions.contains(lit)) {
+            s.insert(lit.index());
+        }
+        else {
+            add_assumption(lit);
+            extract_assumptions(lit, s);
+        }
+        m_antecedents.insert(lit.var(), s);
+        if (unfixed.contains(lit)) {
+            literal_vector cons;
+            cons.push_back(lit);
+            index_set::iterator it = s.begin(), end = s.end();
+            for (; it != end; ++it) {
+                cons.push_back(to_literal(*it));
+            }
+            unfixed.remove(lit);
+            conseq.push_back(cons);
+        }
     }
 
     void solver::asymmetric_branching() {

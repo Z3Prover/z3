@@ -107,6 +107,7 @@ public:
         return check_sat(num_assumptions, assumptions, 0, 0);
     }
 
+
     void display_weighted(std::ostream& out, unsigned sz, expr * const * assumptions, unsigned const* weights) {
         m_weights.reset();
         if (weights != 0) {
@@ -230,6 +231,33 @@ public:
         UNREACHABLE();
         return 0;
     }
+
+    virtual lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) {
+        sat::literal_vector ls;
+        u_map<expr*> lit2var;
+        for (unsigned i = 0; i < vars.size(); ++i) {
+            expr* e = vars[i];
+            bool neg = m.is_not(e, e);
+            sat::bool_var v = m_map.to_bool_var(e);
+            if (v != sat::null_bool_var) {
+                sat::literal lit(v, neg);
+                ls.push_back(lit);
+                lit2var.insert(lit.index(), vars[i]);
+            }
+        }
+        vector<sat::literal_vector> ls_mutexes;
+        m_solver.find_mutexes(ls, ls_mutexes);
+        for (unsigned i = 0; i < ls_mutexes.size(); ++i) {
+            sat::literal_vector const ls_mutex = ls_mutexes[i];
+            expr_ref_vector mutex(m);
+            for (unsigned j = 0; j < ls_mutex.size(); ++j) {
+                mutex.push_back(lit2var.find(ls_mutex[j].index()));
+            }
+            mutexes.push_back(mutex);
+        }
+        return l_true;
+    }
+
 
     virtual std::string reason_unknown() const {
         return m_unknown;

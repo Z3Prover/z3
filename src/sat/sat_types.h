@@ -105,6 +105,7 @@ namespace sat {
     inline std::ostream & operator<<(std::ostream & out, literal l) { out << (l.sign() ? "-" : "") << l.var(); return out; }
 
     typedef svector<literal> literal_vector;
+    typedef std::pair<literal, literal> literal_pair;
 
     typedef unsigned clause_offset;
     typedef unsigned ext_constraint_idx;
@@ -159,6 +160,17 @@ namespace sat {
                 return; 
             m_in_set[v] = true; 
             m_set.push_back(v); 
+        }
+
+        void remove(unsigned v) {
+            if (contains(v)) {
+                m_in_set[v] = false;
+                unsigned i = 0;
+                for (i = 0; i < m_set.size() && m_set[i] != v; ++i);
+                SASSERT(i < m_set.size());
+                m_set[i] = m_set.back();
+                m_set.pop_back();
+            }
         }
 
         uint_set& operator=(uint_set const& other) {
@@ -228,6 +240,7 @@ namespace sat {
             return result;
         }
         void insert(literal l) { m_set.insert(l.index()); }
+        void remove(literal l) { m_set.remove(l.index()); }
         literal pop() { return to_literal(m_set.erase()); }
         bool contains(literal l) const { return m_set.contains(l.index()); }
         bool empty() const { return m_set.empty(); }

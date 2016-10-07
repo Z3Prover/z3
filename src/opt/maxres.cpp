@@ -197,6 +197,7 @@ public:
         is_sat = process_mutex();
         if (is_sat != l_true) return is_sat;
         while (m_lower < m_upper) {
+            if (m_lower >= m_upper) break;
             TRACE("opt", 
                   display_vec(tout, m_asms);
                   s().display(tout);
@@ -235,8 +236,10 @@ public:
         init_local();
         trace();
         exprs cs;
+        lbool is_sat = process_mutex();
+        if (is_sat != l_true) return is_sat;
         while (m_lower < m_upper) {
-            lbool is_sat = check_sat_hill_climb(m_asms);
+            is_sat = check_sat_hill_climb(m_asms);
             if (m.canceled()) {
                 return l_undef;
             }
@@ -272,7 +275,6 @@ public:
     }
 
     lbool process_mutex() {
-#if 0
         vector<expr_ref_vector> mutexes;
         lbool is_sat = s().find_mutexes(m_asms, mutexes);
         if (is_sat != l_true) {
@@ -281,7 +283,9 @@ public:
         for (unsigned i = 0; i < mutexes.size(); ++i) {
             process_mutex(mutexes[i]);
         }
-#endif
+        if (!mutexes.empty()) {
+            trace();
+        }
         return l_true;
     }
 
