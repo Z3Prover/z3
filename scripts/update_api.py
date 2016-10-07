@@ -363,7 +363,7 @@ def mk_dotnet(dotnet):
     dotnet.write('    {\n\n')
     dotnet.write('        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]\n')
     dotnet.write('        public delegate void Z3_error_handler(Z3_context c, Z3_error_code e);\n\n')
-    dotnet.write('        public unsafe class LIB\n')
+    dotnet.write('        public class LIB\n')
     dotnet.write('        {\n')
     dotnet.write('            const string Z3_DLL_NAME = \"libz3.dll\";\n'
                  '            \n')
