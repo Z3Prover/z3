@@ -2460,7 +2460,6 @@ namespace z3 {
         return expr(re.ctx(), r);
     }
 
-
     inline expr interpolant(expr const& a) {
         return expr(a.ctx(), Z3_mk_interpolant(a.ctx(), a));
     }
@@ -2493,7 +2492,21 @@ namespace z3 {
         return expr(*this, r);
     }
 
-    // inline expr context::parse_file(char const* s, sort_vector const& sorts, func_decl_vector const& decls);
+    inline expr context::parse_file(char const* s, sort_vector const& sorts, func_decl_vector const& decls) {
+        array<Z3_symbol> sort_names(sorts.size());
+        array<Z3_symbol> decl_names(decls.size());
+        array<Z3_sort>   sorts1(sorts);
+        array<Z3_func_decl> decls1(decls);
+        for (unsigned i = 0; i < sorts.size(); ++i) {
+            sort_names[i] = sorts[i].name();
+        }
+        for (unsigned i = 0; i < decls.size(); ++i) {
+            decl_names[i] = decls[i].name();
+        }
+        Z3_ast r = Z3_parse_smtlib2_file(*this, s, sorts.size(), sort_names.ptr(), sorts1.ptr(), decls.size(), decl_names.ptr(), decls1.ptr());
+        check_error();
+        return expr(*this, r);
+    }
 
 
     inline check_result context::compute_interpolant(expr const& pat, params const& p, expr_vector& i, model& m) {
