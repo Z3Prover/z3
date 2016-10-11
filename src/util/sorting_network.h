@@ -205,7 +205,6 @@ Notes:
                 return mk_at_most_1(full, n, xs);
             }
             else {
-                std::cout << "sort " << k << "\n";
                 SASSERT(2*k <= n);
                 m_t = full?LE_FULL:LE;
                 card(k + 1, n, xs, out);
