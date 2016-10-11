@@ -1344,6 +1344,9 @@ namespace smt {
             literal lit, context& src_ctx, context& dst_ctx,
             vector<bool_var> b2v, ast_translation& tr);
         
+        /*
+          \brief Utilities for consequence finding.
+        */
         typedef hashtable<unsigned, u_hash, u_eq> index_set;
         //typedef uint_set index_set;
         u_map<index_set> m_antecedents;
@@ -1358,11 +1361,17 @@ namespace smt {
 
         expr_ref antecedent2fml(index_set const& ante);
 
+
         literal mk_diseq(expr* v, expr* val);
 
         void validate_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, 
                                    expr_ref_vector const& conseq, expr_ref_vector const& unfixed);
 
+        /*
+          \brief Auxiliry function for mutex finding.
+         */
+
+        void get_reachable(literal p, index_set& goal, index_set& reached);
 
     public:
         context(ast_manager & m, smt_params & fp, params_ref const & p = params_ref());
@@ -1404,7 +1413,8 @@ namespace smt {
         lbool check(unsigned num_assumptions = 0, expr * const * assumptions = 0, bool reset_cancel = true);        
 
         lbool get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq, expr_ref_vector& unfixed);
-        lbool get_consequences2(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq, expr_ref_vector& unfixed);
+
+        lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes);
         
         lbool setup_and_check(bool reset_cancel = true);
         

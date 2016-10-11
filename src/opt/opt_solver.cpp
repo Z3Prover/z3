@@ -194,6 +194,11 @@ namespace opt {
         }
     }
 
+    lbool opt_solver::find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) {
+        return m_context.find_mutexes(vars, mutexes);
+    }
+
+
 
     /**
        \brief maximize the value of objective i in the current state.

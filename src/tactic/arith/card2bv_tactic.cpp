@@ -168,13 +168,39 @@ namespace pb {
             return BR_FAILED;
     }
 
-    expr_ref card2bv_rewriter::mk_atmost1(unsigned sz, expr * const* args) {
-        expr_ref f1(m), f2(m), f3(m), result(m);
-        f1 = bv.mk_bv(sz, args);
-        f2 = bv.mk_bv_sub(f1, bv.mk_numeral(rational(1), sz));
-        f3 = m.mk_app(bv.get_fid(), OP_BAND, f1, f2);
-        result = m.mk_eq(f3, bv.mk_numeral(rational(0), sz));
-        return result;
+    expr_ref card2bv_rewriter::mk_atmost1(unsigned n, expr * const* xs) {
+        expr_ref_vector result(m), in(m);
+        in.append(n, xs);
+        unsigned inc_size = 4;
+        while (!in.empty()) {
+            expr_ref_vector ors(m);
+            unsigned i = 0;
+            unsigned n = in.size();
+            bool last = n <= inc_size;
+            for (; i + inc_size < n; i += inc_size) {                    
+                mk_at_most_1_small(last, inc_size, in.c_ptr() + i, result, ors);
+            }
+            if (i < n) {
+                mk_at_most_1_small(last, n - i, in.c_ptr() + i, result, ors);
+            }
+            if (last) {
+                break;
+            }
+            in.reset();
+            in.append(ors);
+        }
+        return mk_and(result);
+    }
+
+    void card2bv_rewriter::mk_at_most_1_small(bool last, unsigned n, literal const* xs, expr_ref_vector& result, expr_ref_vector& ors) {
+        if (!last) {
+            ors.push_back(m.mk_or(n, xs));
+        }
+        for (unsigned i = 0; i < n; ++i) {
+            for (unsigned j = i + 1; j < n; ++j) {
+                result.push_back(m.mk_not(m.mk_and(xs[i], xs[j])));
+            }
+        }
     }
 
     bool card2bv_rewriter::is_atmost1(func_decl* f, unsigned sz, expr * const* args, expr_ref& result) {

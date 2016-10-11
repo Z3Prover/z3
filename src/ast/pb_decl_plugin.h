@@ -119,6 +119,8 @@ public:
 
     app* mk_fresh_bool();
 
+    expr_ref mk_at_most_1(unsigned num_args, expr * const * args);
+
 
 private:
     rational to_rational(parameter const& p) const;

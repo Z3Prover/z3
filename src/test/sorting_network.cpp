@@ -332,7 +332,32 @@ void test_sorting5(unsigned n, unsigned k) {
     test_sorting_ge(n, k);
 }
 
+void test_at_most_1(unsigned n) {
+    ast_manager m;
+    reg_decl_plugins(m);
+    expr_ref_vector in(m), out(m);
+    for (unsigned i = 0; i < n; ++i) {
+        in.push_back(m.mk_fresh_const("a",m.mk_bool_sort()));
+    }
+
+    
+    ast_ext2 ext(m);
+    psort_nw<ast_ext2> sn(ext);
+    expr_ref result(m);
+    result = sn.le(false, 1, in.size(), in.c_ptr());
+    std::cout << result << "\n";
+    std::cout << ext.m_clauses << "\n";
+}
+
 void tst_sorting_network() {
+    test_at_most_1(1);
+    test_at_most_1(2);
+    test_at_most_1(3);
+    test_at_most_1(4);
+    test_at_most_1(5);
+    test_at_most_1(10);
+    return;
+
     test_sorting_eq(11,7);
     for (unsigned n = 3; n < 20; n += 2) {
         for (unsigned k = 1; k < n; ++k) {

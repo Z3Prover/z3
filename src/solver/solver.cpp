@@ -138,63 +138,6 @@ lbool solver::get_consequences_core(expr_ref_vector const& asms, expr_ref_vector
 
 lbool solver::find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) {
     return l_true;
-#if 0
-    // complete for literals, but inefficient.
-    // see more efficient (incomplete) version in sat_solver
-
-    mutexes.reset();
-    ast_manager& m = vars.get_manager();
-
-    typedef obj_hashtable<expr> expr_set;
-    
-    expr_set A, P;
-
-    for (unsigned i = 0; i < vars.size(); ++i) {
-        A.insert(vars[i]);
-    }
-
-    while (!A.empty()) {
-        P = A;
-        expr_ref_vector mutex(m);
-        while (!P.empty()) {
-            expr_ref_vector asms(m);
-            expr* p = *P.begin();
-            P.remove(p);
-            if (!is_literal(m, p)) {
-                break;
-            }
-            mutex.push_back(p);
-            asms.push_back(p);
-            expr_set Q;
-            expr_set::iterator it = P.begin(), end = P.end();
-            for (; it != end; ++it) {
-                expr* q = *it;
-                scoped_assumption_push _scoped_push(asms, q);
-                if (is_literal(m, q)) {
-                    lbool is_sat = check_sat(asms);
-                    switch (is_sat) {
-                    case l_false: 
-                        Q.insert(q);
-                        break;
-                    case l_true:
-                        break;
-                    case l_undef:
-                        return l_undef;
-                    }
-                }
-            }
-            P = Q;
-        }
-        if (mutex.size() > 1) {
-            mutexes.push_back(mutex);            
-        }
-        for (unsigned i = 0; i < mutex.size(); ++i) {
-            A.remove(mutex[i].get());
-        }
-    }
-    return l_true;
-#endif
-
 }
 
 bool solver::is_literal(ast_manager& m, expr* e) {

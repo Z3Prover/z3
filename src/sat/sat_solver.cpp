@@ -3053,6 +3053,12 @@ namespace sat {
         return r;
     }
 
+    // -----------------------
+    //
+    // Extraction of mutexes
+    //
+    // -----------------------
+
     lbool solver::find_mutexes(literal_vector const& lits, vector<literal_vector> & mutexes) {
         literal_vector ps(lits);
         m_user_bin_clauses.reset();
@@ -3110,6 +3116,12 @@ namespace sat {
             todo.append(m_binary_clause_graph[np.index()]);
         }
     }
+
+    // -----------------------
+    //
+    // Consequence generation.
+    //
+    // -----------------------
 
     lbool solver::get_consequences(literal_vector const& asms, bool_var_vector const& vars, vector<literal_vector>& conseq) {
         literal_vector lits;

@@ -519,6 +519,7 @@ namespace smt {
             c->m_compilation_threshold = th;
             IF_VERBOSE(2, verbose_stream() << "(smt.pb setting compilation threhshold to " << th << ")\n";);
             TRACE("pb", tout << "compilation threshold: " << th << "\n";);
+            compile_ineq(*c);
         }
         else {
             c->m_compilation_threshold = UINT_MAX;
@@ -1216,7 +1217,7 @@ namespace smt {
 
     void theory_pb::inc_propagations(ineq& c) {
         ++c.m_num_propagations;
-        if (c.m_compiled == l_false && c.m_num_propagations > c.m_compilation_threshold) {
+        if (c.m_compiled == l_false && c.m_num_propagations >= c.m_compilation_threshold) {
             c.m_compiled = l_undef;
             m_to_compile.push_back(&c);
         }
@@ -1263,12 +1264,14 @@ namespace smt {
                 n -= rational::one();
             }
         }
+
+
         if (ctx.get_assignment(thl) == l_true  && 
             ctx.get_assign_level(thl) == ctx.get_base_level()) {
             psort_expr ps(ctx, *this);
             psort_nw<psort_expr> sortnw(ps);
             sortnw.m_stats.reset();
-            at_least_k = sortnw.ge(false, k, in.size(), in.c_ptr());
+            at_least_k = sortnw.ge(false, k, in.size(), in.c_ptr());            
             ctx.mk_clause(~thl, at_least_k, justify(~thl, at_least_k));
             m_stats.m_num_compiled_vars += sortnw.m_stats.m_num_compiled_vars;
             m_stats.m_num_compiled_clauses += sortnw.m_stats.m_num_compiled_clauses;

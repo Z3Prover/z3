@@ -73,6 +73,10 @@ namespace smt {
             return m_context.get_consequences(assumptions, vars, conseq, unfixed);
         }
 
+        virtual lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) {
+            return m_context.find_mutexes(vars, mutexes);
+        }
+
         virtual void assert_expr(expr * t) {
             m_context.assert_expr(t);
         }
@@ -160,6 +164,7 @@ namespace smt {
             SASSERT(idx < get_num_assertions());
             return m_context.get_formulas()[idx];
         }   
+
     };
 };
 

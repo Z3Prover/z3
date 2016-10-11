@@ -112,7 +112,11 @@ namespace smt {
         }
 
         lbool get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq, expr_ref_vector& unfixed) {
-            return m_kernel.get_consequences2(assumptions, vars, conseq, unfixed);
+            return m_kernel.get_consequences(assumptions, vars, conseq, unfixed);
+        }
+
+        lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) {
+            return m_kernel.find_mutexes(vars, mutexes);
         }
         
         void get_model(model_ref & m) const {
@@ -270,6 +274,10 @@ namespace smt {
 
     lbool kernel::get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq, expr_ref_vector& unfixed) {
         return m_imp->get_consequences(assumptions, vars, conseq, unfixed);
+    }
+
+    lbool kernel::find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) {
+        return m_imp->find_mutexes(vars, mutexes);
     }
 
     void kernel::get_model(model_ref & m) const {

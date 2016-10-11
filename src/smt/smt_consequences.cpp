@@ -255,191 +255,6 @@ namespace smt {
         pop_to_base_lvl();
         lbool is_sat = check(assumptions.size(), assumptions.c_ptr());
         if (is_sat != l_true) {
-            return is_sat;
-        }
-        obj_map<expr, expr*> var2val;
-        index_set _assumptions;
-        for (unsigned i = 0; i < assumptions.size(); ++i) {
-            _assumptions.insert(get_literal(assumptions[i]).var());
-        }
-        model_ref mdl;
-        get_model(mdl);
-        ast_manager& m = m_manager;
-        expr_ref_vector trail(m);
-        model_evaluator eval(*mdl.get());
-        expr_ref val(m);
-        TRACE("context", model_pp(tout, *mdl););
-        for (unsigned i = 0; i < vars.size(); ++i) {
-            eval(vars[i], val);
-            if (m.is_value(val)) {
-                trail.push_back(val);
-                var2val.insert(vars[i], val);
-            } 
-            else {
-                unfixed.push_back(vars[i]);
-            }
-        }
-        unsigned num_units = 0;
-        extract_fixed_consequences(num_units, var2val, _assumptions, conseq);
-        app_ref eq(m);
-        TRACE("context", 
-              tout << "vars: " << vars.size() << "\n";
-              tout << "lits: " << num_units << "\n";);
-        m_case_split_queue->init_search_eh();
-        unsigned num_iterations = 0;
-        unsigned model_threshold = 2;
-        unsigned num_fixed_eqs = 0;
-        unsigned num_reiterations = 0;
-        while (!var2val.empty()) {
-            obj_map<expr,expr*>::iterator it = var2val.begin();
-            expr* e = it->m_key;
-            expr* val = it->m_value;
-
-            TRACE("context", tout << "scope level: " << get_scope_level() << "\n";);
-            SASSERT(!inconsistent());
-
-            //
-            // The current variable is checked to be a backbone
-            // We add the negation of the reference assignment to the variable.
-            // If the variable is a Boolean, it means adding literal that has
-            // the opposite value of the current reference model.
-            // If the variable is a non-Boolean, it means adding a disequality.
-            //
-            literal lit = mk_diseq(e, val);
-            mark_as_relevant(lit);
-            push_scope();
-            assign(lit, b_justification::mk_axiom(), true);
-            flet<bool> l(m_searching, true);
-
-            // 
-            // We check if the current assignment stack can be extended to a 
-            // satisfying assignment. bounded search may decide to restart, 
-            // in which case it returns l_undef and clears search failure.
-            //
-            while (true) {
-                is_sat = bounded_search();
-                TRACE("context", tout << "search result: " << is_sat << "\n";);
-                if (is_sat != l_true && m_last_search_failure != OK) {
-                    return is_sat;
-                }
-                if (is_sat == l_undef) {
-                    TRACE("context", tout << "restart\n";);
-                    inc_limits();
-                    continue;
-                }
-                break;
-            }
-            //
-            // If the state is satisfiable with the current variable assigned to 
-            // a different value from the reference model, it is unfixed.
-            // 
-            // If it is assigned above the search level we can't conclude anything
-            // about its value. 
-            // extract_fixed_consequences pops the assignment stack to the search level
-            // so this sets up the state to retry finding fixed values.
-            // 
-            // Otherwise, the variable is fixed.
-            // - it is either assigned at the search level to l_false, or
-            // - the state is l_false, which means that the variable is fixed by
-            //   the background constraints (and does not depend on assumptions).
-            // 
-            if (is_sat == l_true && get_assignment(lit) == l_true && is_relevant(lit)) { 
-                var2val.erase(e);
-                unfixed.push_back(e);
-                SASSERT(!are_equal(e, val));
-                TRACE("context", tout << mk_pp(e, m) << " is unfixed\n";
-                      display_literal_verbose(tout, lit); tout << "\n";
-                      tout << "relevant: " << is_relevant(lit) << "\n";
-                      display(tout););
-            }
-            else if (is_sat == l_true && (get_assign_level(lit) > get_search_level() || !is_relevant(lit))) {
-                TRACE("context", tout << "Retry fixing: " << mk_pp(e, m) << "\n";);
-                extract_fixed_consequences(num_units, var2val, _assumptions, conseq);
-                ++num_reiterations;
-                continue;
-            }
-            else {
-                //
-                // The state can be labeled as inconsistent when the implied consequence does
-                // not depend on assumptions, then the conflict level sits at the search level
-                // which causes the conflict resolver to decide that the state is unsat.
-                //
-                if (l_false == is_sat) {
-                    SASSERT(inconsistent());
-                    m_conflict = null_b_justification;
-                    m_not_l = null_literal;
-                }
-                TRACE("context", tout << "Fixed: " << mk_pp(e, m) << " " << is_sat << "\n";
-                      if (is_sat == l_false) display(tout););
-                
-            }
-            ++num_iterations;
-
-            //
-            // Check the slow pass: it retrieves an updated model and checks if the
-            // values in the updated model differ from the values in the reference
-            // model. 
-            // 
-            bool apply_slow_pass = model_threshold <= num_iterations || num_iterations <= 2;
-            if (apply_slow_pass && is_sat == l_true) {
-                delete_unfixed(var2val, unfixed);
-                // The next time we check the model is after 1.5 additional iterations.
-                model_threshold *= 3;
-                model_threshold /= 2;                                
-            }
-
-            //
-            // Walk the assignment stack at level 1 for learned consequences.
-            // The current literal should be assigned at the search level unless
-            // the state is is_sat == l_true and the assignment to lit is l_true.
-            // This condition is checked above.
-            // 
-            extract_fixed_consequences(num_units, var2val, _assumptions, conseq);
-
-            //
-            // Fixed equalities can be extracted by walking all variables and checking
-            // if the congruence roots are equal at the search level.
-            // 
-            if (apply_slow_pass) {
-                num_fixed_eqs += extract_fixed_eqs(var2val, conseq);
-                IF_VERBOSE(1, display_consequence_progress(verbose_stream(), num_iterations, var2val.size(), conseq.size(),
-                                                           unfixed.size(), num_fixed_eqs););
-                TRACE("context", display_consequence_progress(tout, num_iterations, var2val.size(), conseq.size(),
-                                                              unfixed.size(), num_fixed_eqs););
-            }
-            TRACE("context", tout << "finishing " << mk_pp(e, m) << "\n";);
-            SASSERT(!inconsistent());
-            
-            //
-            // This becomes unnecessary when the fixed consequence are 
-            // completely extracted.
-            // 
-            if (var2val.contains(e)) {
-                TRACE("context", tout << "Fixed value to " << mk_pp(e, m) << " was not processed\n";);
-                expr_ref fml(m);
-                fml = m.mk_eq(e, var2val.find(e));
-                if (!m_antecedents.contains(lit.var())) {
-                    extract_fixed_consequences(lit, var2val, _assumptions, conseq);
-                }
-                fml = m.mk_implies(antecedent2fml(m_antecedents[lit.var()]), fml);
-                conseq.push_back(fml);
-                var2val.erase(e);
-            }        
-        }
-        end_search();
-        DEBUG_CODE(validate_consequences(assumptions, vars, conseq, unfixed););
-        return l_true;
-    }
-
-    lbool context::get_consequences2(expr_ref_vector const& assumptions, 
-                                    expr_ref_vector const& vars, 
-                                    expr_ref_vector& conseq, 
-                                    expr_ref_vector& unfixed) {
-
-        m_antecedents.reset();
-        pop_to_base_lvl();
-        lbool is_sat = check(assumptions.size(), assumptions.c_ptr());
-        if (is_sat != l_true) {
             TRACE("context", tout << is_sat << "\n";);
             return is_sat;
         }
@@ -551,6 +366,65 @@ namespace smt {
              << ")\n";
     }  
 
+
+    lbool context::find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) {
+        index_set lits;
+        for (unsigned i = 0; i < vars.size(); ++i) {
+            expr* n = vars[i];
+            bool neg = m_manager.is_not(n, n);
+            if (b_internalized(n)) {
+                lits.insert(literal(get_bool_var(n), !neg).index());
+            }
+        }
+        while (!lits.empty()) {
+            literal_vector mutex;
+            index_set other(lits);
+            while (!other.empty()) {
+                index_set conseq;
+                literal p = to_literal(*other.begin());
+                other.erase(p.index());
+                mutex.push_back(p);
+                if (other.empty()) {
+                    break;
+                }
+                get_reachable(p, other, conseq);
+                other = conseq;
+            }
+            if (mutex.size() > 1) {
+                expr_ref_vector mux(m_manager);
+                for (unsigned i = 0; i < mutex.size(); ++i) {
+                    expr_ref e(m_manager);
+                    literal2expr(mutex[i], e);
+                    mux.push_back(e);
+                }
+                mutexes.push_back(mux);
+            }
+            for (unsigned i = 0; i < mutex.size(); ++i) {
+                lits.remove(mutex[i].index());
+            }
+        }
+        return l_true;
+    }
+
+    void context::get_reachable(literal p, index_set& goal, index_set& reachable) {
+        index_set seen;
+        literal_vector todo;
+        todo.push_back(p);
+        while (!todo.empty()) {
+            p = todo.back();
+            todo.pop_back();
+            if (seen.contains(p.index())) {
+                continue;
+            }
+            seen.insert(p.index());
+            literal np = ~p;
+            if (goal.contains(np.index())) {
+                reachable.insert(np.index());
+            }
+            watch_list & w = m_watches[np.index()];
+            todo.append(static_cast<unsigned>(w.end_literals() - w.begin_literals()), w.begin_literals());
+        }
+    }
 
     //
     // Validate, in a slow pass, that the current consequences are correctly 

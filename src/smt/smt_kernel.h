@@ -132,6 +132,11 @@ namespace smt {
         lbool get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, 
                                expr_ref_vector& conseq, expr_ref_vector& unfixed);
 
+        /*
+          \brief find mutually exclusive variables.
+         */
+        lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes);
+
         /**
            \brief Return the model associated with the last check command.
         */

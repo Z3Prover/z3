@@ -106,6 +106,7 @@ namespace opt {
         virtual expr * get_assertion(unsigned idx) const;
         virtual std::ostream& display(std::ostream & out) const;
         virtual ast_manager& get_manager() const { return m; } 
+        virtual lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes);
         void set_logic(symbol const& logic);
 
         smt::theory_var add_objective(app* term);

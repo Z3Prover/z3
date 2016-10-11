@@ -201,7 +201,11 @@ Notes:
             if (dualize(k, n, xs, in)) {
                 return ge(full, k, n, in.c_ptr());
             }
+            else if (k == 1) {
+                return mk_at_most_1(full, n, xs);
+            }
             else {
+                std::cout << "sort " << k << "\n";
                 SASSERT(2*k <= n);
                 m_t = full?LE_FULL:LE;
                 card(k + 1, n, xs, out);
@@ -229,6 +233,54 @@ Notes:
 
         
     private:
+
+        literal mk_at_most_1(bool full, unsigned n, literal const* xs) {
+            literal_vector in(n, xs);
+            literal result = ctx.fresh();
+            unsigned inc_size = 4;
+            while (!in.empty()) {
+                literal_vector ors;
+                unsigned i = 0;
+                unsigned n = in.size();
+                bool last = n <= inc_size;
+                for (; i + inc_size < n; i += inc_size) {                    
+                    mk_at_most_1_small(full, last, inc_size, in.c_ptr() + i, result, ors);
+                }
+                if (i < n) {
+                    mk_at_most_1_small(full, last, n - i, in.c_ptr() + i, result, ors);
+                }
+                if (last) {
+                    break;
+                }
+                in.reset();
+                in.append(ors);
+                ors.reset();                
+            }
+            return result;
+        }
+
+        void mk_at_most_1_small(bool full, bool last, unsigned n, literal const* xs, literal result, literal_vector& ors) {
+            if (!last) {
+                literal ex = ctx.fresh();
+                for (unsigned j = 0; j < n; ++j) {
+                    add_clause(ctx.mk_not(xs[j]), ex);
+                }
+                if (full) {
+                    literal_vector lits(n, xs);
+                    lits.push_back(ctx.mk_not(ex));
+                    add_clause(lits.size(), lits.c_ptr());
+                }
+                ors.push_back(ex);
+            }
+            for (unsigned i = 0; i < n; ++i) {
+                for (unsigned j = i + 1; j < n; ++j) {
+                    add_clause(ctx.mk_not(result), ctx.mk_not(xs[i]), ctx.mk_not(xs[j]));
+                }
+                if (full) {
+                    add_clause(result, xs[i]);
+                }
+            }
+        }
 
         std::ostream& pp(std::ostream& out, unsigned n, literal const* lits) {
             for (unsigned i = 0; i < n; ++i) ctx.pp(out, lits[i]) << " ";
