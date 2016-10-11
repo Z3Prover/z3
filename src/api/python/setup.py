@@ -27,10 +27,13 @@ BINS_DIR = os.path.join(ROOT_DIR, 'bin')
 
 if sys.platform == 'darwin':
     LIBRARY_FILE = "libz3.dylib"
+    EXECUTABLE_FILE = "z3"
 elif sys.platform in ('win32', 'cygwin'):
     LIBRARY_FILE = "libz3.dll"
+    EXECUTABLE_FILE = "z3.exe"
 else:
     LIBRARY_FILE = "libz3.so"
+    EXECUTABLE_FILE = "z3"
 
 def _clean_bins():
     """
@@ -81,8 +84,8 @@ def _copy_bins():
     os.mkdir(BINS_DIR)
     os.mkdir(HEADERS_DIR)
     os.mkdir(os.path.join(HEADERS_DIR, 'c++'))
-    shutil.copy(os.path.join(BUILD_DIR, 'libz3.so'), LIBS_DIR)
-    shutil.copy(os.path.join(BUILD_DIR, 'z3'), BINS_DIR)
+    shutil.copy(os.path.join(BUILD_DIR, LIBRARY_FILE), LIBS_DIR)
+    shutil.copy(os.path.join(BUILD_DIR, EXECUTABLE_FILE), BINS_DIR)
     for fname in ('z3.h', 'z3_v1.h', 'z3_macros.h', 'z3_api.h', 'z3_algebraic.h', 'z3_polynomial.h', 'z3_rcf.h', 'z3_interp.h', 'z3_fpa.h', os.path.join('c++', 'z3++.h')):
         shutil.copy(os.path.join(SRC_DIR, 'src', 'api', fname), os.path.join(HEADERS_DIR, fname))
 
@@ -135,14 +138,14 @@ class sdist(_sdist):
 #except OSError: pass
 
 setup(
-    name='angr-only-z3-custom',
-    version='4.4.1.post4',
-    description='pip installable distribution of The Z3 Theorem Prover, for use with angr. Please send all support requests to angr@lists.cs.ucsb.edu!',
-    long_description='Z3 is a theorem prover from Microsoft Research. This version is slightly modified by the angr project to enable installation via pip, making it unsupportable by the Z3 project. Please direct all support requests to angr@lists.cs.ucsb.edu!',
+    name='z3-solver',
+    version='4.4.2.1',
+    description='an efficient SMT solver library',
+    long_description='Z3 is a theorem prover from Microsoft Research with support for bitvectors, booleans, arrays, floating point numbers, strings, and other data types.\n\nFor documentation, please read http://z3prover.github.io/api/html/z3.html\n\nIn the event of technical difficulties related to configuration, compiliation, or installation, please submit issues to https://github.com/angr/angr-z3',
     author="The Z3 Theorem Prover Project",
-    maintainer="Yan Shoshitaishvili",
-    maintainer_email="yans@yancomm.net",
-    url='https://github.com/angr/angr-z3',
+    maintainer="Andrew Dutcher",
+    maintainer_email="andrew@andrewdutcher.com",
+    url='https://github.com/Z3Prover/z3',
     license='MIT License',
     keywords=['z3', 'smt', 'sat', 'prover', 'theorem'],
     packages=['z3'],
@@ -150,6 +153,6 @@ setup(
     package_data={
         'z3': [os.path.join('lib', '*'), os.path.join('include', '*.h'), os.path.join('include', 'c++', '*.h')]
     },
-    scripts=[os.path.join('bin', 'z3')],
+    scripts=[os.path.join('bin', EXECUTABLE_FILE)],
     cmdclass={'build': build, 'develop': develop, 'sdist': sdist, 'bdist_egg': bdist_egg},
 )
