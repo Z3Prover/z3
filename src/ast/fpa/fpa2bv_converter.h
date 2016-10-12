@@ -133,6 +133,7 @@ public:
     void mk_to_fp_signed(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_to_fp_unsigned(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_to_ieee_bv(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_to_ieee_bv_unspecified(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * x, expr_ref & result);
     void mk_to_fp_real_int(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
 
@@ -152,13 +153,12 @@ public:
     expr_ref mk_to_ubv_unspecified(unsigned ebits, unsigned sbits, unsigned width);
     expr_ref mk_to_sbv_unspecified(unsigned ebits, unsigned sbits, unsigned width);
     expr_ref mk_to_real_unspecified(unsigned ebits, unsigned sbits);
-    expr_ref mk_to_ieee_bv_unspecified(unsigned ebits, unsigned sbits);
 
     void reset(void);
 
     void dbg_decouple(const char * prefix, expr_ref & e);
     expr_ref_vector m_extra_assertions;
-    
+
     special_t const & get_min_max_specials() const { return m_min_max_specials; };
     const2bv_t const & get_const2bv() const { return m_const2bv; };
     const2bv_t const & get_rm_const2bv() const { return m_rm_const2bv; };

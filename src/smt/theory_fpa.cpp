@@ -715,14 +715,14 @@ namespace smt {
 
         fpa2bv_converter::uf2bvuf_t const & uf2bvuf = m_converter.get_uf2bvuf();
         for (fpa2bv_converter::uf2bvuf_t::iterator it = uf2bvuf.begin();
-             it !=  uf2bvuf.end();
-             it++) {
-            mg.hide(it->m_value);
+            it !=  uf2bvuf.end();
+            it++) {
+            //mg.hide(it->m_value);
         }
         fpa2bv_converter::special_t const & specials = m_converter.get_min_max_specials();
         for (fpa2bv_converter::special_t::iterator it = specials.begin();
-             it != specials.end();
-             it++) {
+            it != specials.end();
+            it++) {
             mg.hide(it->m_value.first->get_decl());
             mg.hide(it->m_value.second->get_decl());
         }
@@ -811,7 +811,25 @@ namespace smt {
         return res;
     }
 
-    void theory_fpa::finalize_model(model_generator & mg) {}
+    void theory_fpa::finalize_model(model_generator & mg) {
+        ast_manager & m = get_manager();
+        proto_model & mdl = mg.get_model();
+
+        fpa2bv_converter::uf2bvuf_t const & uf2bvuf = m_converter.get_uf2bvuf();
+        for (fpa2bv_converter::uf2bvuf_t::iterator it = uf2bvuf.begin();
+            it !=  uf2bvuf.end();
+            it++) {
+            func_decl * bv_fd = it->m_value;
+            if (bv_fd->get_arity() == 0) {
+                expr_ref bve(m), v(m);
+                bve = m.mk_const(bv_fd);
+                mdl.eval(bve, v, true);
+                mdl.register_decl(it->m_key, v);
+            }
+            else
+                NOT_IMPLEMENTED_YET();
+        }
+    }
 
     void theory_fpa::display(std::ostream & out) const
     {

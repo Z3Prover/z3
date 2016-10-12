@@ -3072,13 +3072,57 @@ void fpa2bv_converter::mk_to_ieee_bv(func_decl * f, unsigned num, expr * const *
             m_bv_util.mk_concat(m_bv_util.mk_numeral(-1, ebits),
                 m_bv_util.mk_concat(m_bv_util.mk_numeral(0, sbits - 2),
                     m_bv_util.mk_numeral(1, 1))));
-    else
-        nanv = mk_to_ieee_bv_unspecified(ebits, sbits);
+    else {
+        expr_ref unspec_bits(m);
+        unspec_bits = m_util.mk_internal_to_ieee_bv_unspecified(ebits, sbits);
+        nanv = m_bv_util.mk_concat(m_bv_util.mk_extract(sbits-1, sbits-1, unspec_bits),
+               m_bv_util.mk_concat(m_bv_util.mk_numeral(-1, ebits),
+                                   m_bv_util.mk_extract(sbits-2, 0, unspec_bits)));
+    }
 
     expr_ref sgn_e_s(m);
     sgn_e_s = m_bv_util.mk_concat(m_bv_util.mk_concat(sgn, e), s);
     m_simp.mk_ite(x_is_nan, nanv, sgn_e_s, result);
 
+    TRACE("fpa2bv_to_ieee_bv", tout << "result=" << mk_ismt2_pp(result, m) << std::endl;);
+    SASSERT(is_well_sorted(m, result));
+}
+
+void fpa2bv_converter::mk_to_ieee_bv_unspecified(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+    SASSERT(num == 0);
+    unsigned ebits = f->get_parameter(0).get_int();
+    unsigned sbits = f->get_parameter(1).get_int();
+
+    if (m_hi_fp_unspecified) {
+        result = m_bv_util.mk_concat(m_bv_util.mk_concat(
+                    m_bv_util.mk_numeral(0, 1),
+                    m_bv_util.mk_numeral(-1, ebits)),
+                    m_bv_util.mk_numeral(1, sbits-1));
+    }
+    else {
+        func_decl * fd;
+        if (m_uf2bvuf.find(f, fd))
+            result = m.mk_const(fd);
+        else {
+            fd = m.mk_fresh_func_decl(0, 0, 0, f->get_range());
+            m_uf2bvuf.insert(f, fd);
+            m.inc_ref(f);
+            m.inc_ref(fd);
+            result = m.mk_const(fd);
+
+            expr_ref exp_bv(m), exp_all_ones(m);
+            exp_bv = m_bv_util.mk_extract(ebits+sbits-2, sbits-1, result);
+            exp_all_ones = m.mk_eq(exp_bv, m_bv_util.mk_numeral(-1, ebits));
+            m_extra_assertions.push_back(exp_all_ones);
+
+            expr_ref sig_bv(m), sig_is_non_zero(m);
+            sig_bv = m_bv_util.mk_extract(sbits-2, 0, result);
+            sig_is_non_zero = m.mk_not(m.mk_eq(sig_bv, m_bv_util.mk_numeral(0, sbits-1)));
+            m_extra_assertions.push_back(sig_is_non_zero);
+        }
+    }
+
+    TRACE("fpa2bv_to_ieee_bv_unspecified", tout << "result=" << mk_ismt2_pp(result, m) << std::endl;);
     SASSERT(is_well_sorted(m, result));
 }
 
@@ -3308,38 +3352,7 @@ expr_ref fpa2bv_converter::mk_to_real_unspecified(unsigned ebits, unsigned sbits
             m.inc_ref(fd);
         }
         result = m.mk_const(fd);
-        result = unspec;
     }
-    return result;
-}
-
-expr_ref fpa2bv_converter::mk_to_ieee_bv_unspecified(unsigned ebits, unsigned sbits) {
-    expr_ref result(m);
-
-    app_ref unspec(m);
-    unspec = m_util.mk_internal_to_ieee_bv_unspecified(ebits, sbits);
-    func_decl * unspec_fd = unspec->get_decl();
-    func_decl * fd;
-    if (!m_uf2bvuf.find(unspec_fd, fd)) {
-        app_ref bvc(m);
-        bvc = m.mk_fresh_const(0, unspec_fd->get_range());
-        fd = bvc->get_decl();
-        m_uf2bvuf.insert(unspec_fd, fd);
-        m.inc_ref(unspec_fd);
-        m.inc_ref(fd);
-    }
-    result = m.mk_const(fd);
-
-    app_ref mask(m), extra(m), result_and_mask(m);
-    mask = m_bv_util.mk_concat(m_bv_util.mk_numeral(0, 1),
-        m_bv_util.mk_concat(m_bv_util.mk_numeral(-1, ebits),
-            m_bv_util.mk_concat(m_bv_util.mk_numeral(0, sbits - 2),
-                m_bv_util.mk_numeral(1, 1))));
-    expr * args[2] = { result, mask };
-    result_and_mask = m.mk_app(m_bv_util.get_fid(), OP_BAND, 2, args);
-    extra = m.mk_eq(result_and_mask, mask);
-    m_extra_assertions.push_back(extra);
-
     return result;
 }
 
