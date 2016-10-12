@@ -165,7 +165,6 @@ void fpa2bv_converter::mk_numeral(sort * s, mpf const & v, expr_ref & result) {
         result = m_util.mk_fp(bv_sgn, biased_exp, bv_sig);
         TRACE("fpa2bv_dbg", tout << "value of [" << sign << " " << m_mpz_manager.to_string(sig) << " " << exp << "] is "
             << mk_ismt2_pp(result, m) << std::endl;);
-
     }
 }
 

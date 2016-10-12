@@ -234,7 +234,7 @@ fpa2bv_model_converter::array_model fpa2bv_model_converter::convert_array_func_i
     array_util arr_util(m);
 
     array_model am(m);
-    sort_ref_vector array_domain(m);    
+    sort_ref_vector array_domain(m);
     unsigned arity = f->get_range()->get_num_parameters()-1;
 
     expr_ref as_arr_mdl(m);
@@ -245,21 +245,21 @@ fpa2bv_model_converter::array_model fpa2bv_model_converter::convert_array_func_i
     for (unsigned i = 0; i < arity; i++)
         array_domain.push_back(to_sort(f->get_range()->get_parameter(i).get_ast()));
     sort * rng = to_sort(f->get_range()->get_parameter(arity).get_ast());
-        
+
     bv_f = arr_util.get_as_array_func_decl(to_app(as_arr_mdl));
 
     am.new_float_fd = m.mk_fresh_func_decl(arity, array_domain.c_ptr(), rng);
-    am.new_float_fi = convert_func_interp(am.new_float_fd, bv_f, bv_mdl);    
+    am.new_float_fi = convert_func_interp(am.new_float_fd, bv_f, bv_mdl);
     am.bv_fd = bv_f;
     am.result = arr_util.mk_as_array(f->get_range(), am.new_float_fd);
     return am;
 }
 
-func_interp * fpa2bv_model_converter::convert_func_interp(func_decl * f, func_decl * bv_f, model * bv_mdl) {        
+func_interp * fpa2bv_model_converter::convert_func_interp(func_decl * f, func_decl * bv_f, model * bv_mdl) {
     SASSERT(f->get_arity() > 0);
     func_interp * result = 0;
     sort * rng = f->get_range();
-    sort * const * dmn = f->get_domain();     
+    sort * const * dmn = f->get_domain();
 
     unsigned arity = bv_f->get_arity();
     func_interp * bv_fi = bv_mdl->get_func_interp(bv_f);
@@ -276,7 +276,7 @@ func_interp * fpa2bv_model_converter::convert_func_interp(func_decl * f, func_de
 
             for (unsigned j = 0; j < arity; j++) {
                 sort * ft_dj = dmn[j];
-                expr * bv_aj = bv_args[j];                
+                expr * bv_aj = bv_args[j];
                 ai = rebuild_floats(bv_mdl, ft_dj, bv_aj);
                 m_th_rw(ai);
                 new_args.push_back(ai);
@@ -293,7 +293,7 @@ func_interp * fpa2bv_model_converter::convert_func_interp(func_decl * f, func_de
         bv_els = bv_fi->get_else();
         ft_els = rebuild_floats(bv_mdl, rng, bv_els);
         m_th_rw(ft_els);
-        result->set_else(ft_els);        
+        result->set_else(ft_els);
     }
 
     return result;
@@ -409,7 +409,7 @@ void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
         it++) {
         seen.insert(it->m_value);
 
-        func_decl * f = it->m_key;        
+        func_decl * f = it->m_key;
         if (f->get_arity() == 0)
         {
             array_util au(m);
@@ -426,7 +426,7 @@ void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
                 bv_mdl->eval(it->m_value, val);
                 if (val) float_mdl->register_decl(f, val);
             }
-        }            
+        }
         else {
             func_interp * fmv = convert_func_interp(f, it->m_value, bv_mdl);
             if (fmv) float_mdl->register_decl(f, fmv);

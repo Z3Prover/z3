@@ -71,9 +71,9 @@ public:
     bool is_rm(expr * e) { return is_app(e) && m_util.is_rm(e); }
     bool is_rm(sort * s) { return m_util.is_rm(s); }
     bool is_float_family(func_decl * f) { return f->get_family_id() == m_util.get_family_id(); }
-    
+
     void mk_fp(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-    
+
     void split_fp(expr * e, expr * & sgn, expr * & exp, expr * & sig) const;
     void split_fp(expr * e, expr_ref & sgn, expr_ref & exp, expr_ref & sig) const;
 

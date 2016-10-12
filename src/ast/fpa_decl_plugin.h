@@ -259,7 +259,7 @@ public:
     bool is_rm(sort * s) const { return is_sort_of(s, m_fid, ROUNDING_MODE_SORT); }
     bool is_float(expr * e) const { return is_float(m_manager.get_sort(e)); }
     bool is_rm(expr * e) const { return is_rm(m_manager.get_sort(e)); }
-    bool is_fp(expr * e) const { return is_app_of(e, m_fid, OP_FPA_FP); }    
+    bool is_fp(expr * e) const { return is_app_of(e, m_fid, OP_FPA_FP); }
     unsigned get_ebits(sort * s) const;
     unsigned get_sbits(sort * s) const;
 
@@ -294,13 +294,13 @@ public:
     bool is_pzero(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_pzero(v); }
     bool is_nzero(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_nzero(v); }
 
-    app * mk_fp(expr * sgn, expr * exp, expr * sig) { 
+    app * mk_fp(expr * sgn, expr * exp, expr * sig) {
         SASSERT(m_bv_util.is_bv(sgn) && m_bv_util.get_bv_size(sgn) == 1);
         SASSERT(m_bv_util.is_bv(exp));
-        SASSERT(m_bv_util.is_bv(sig));        
-        return m().mk_app(m_fid, OP_FPA_FP, sgn, exp, sig); 
+        SASSERT(m_bv_util.is_bv(sig));
+        return m().mk_app(m_fid, OP_FPA_FP, sgn, exp, sig);
     }
-    
+
     app * mk_to_fp(sort * s, expr * bv_t) {
         SASSERT(is_float(s) && s->get_num_parameters() == 2);
         return m().mk_app(m_fid, OP_FPA_TO_FP, 2, s->get_parameters(), 1, &bv_t);

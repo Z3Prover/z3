@@ -98,7 +98,7 @@ br_status fpa_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_FPA_INTERNAL_MIN_UNSPECIFIED:
     case OP_FPA_INTERNAL_MAX_UNSPECIFIED:
         SASSERT(num_args == 2); st = BR_FAILED; break;
-    
+
     case OP_FPA_INTERNAL_BVWRAP: SASSERT(num_args == 1); st = mk_bvwrap(args[0], result); break;
     case OP_FPA_INTERNAL_BV2RM: SASSERT(num_args == 1); st = mk_bv2rm(args[0], result); break;
 
