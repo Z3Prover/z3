@@ -120,6 +120,8 @@ public:
     family_id get_fid() const { return m_afid; }
     family_id get_family_id() const { return get_fid(); }
 
+    bool is_str_sort(sort* s) const { return is_sort_of(s, m_afid, STRING_SORT); }
+
     bool is_string(expr const * n, const char ** val) const;
     bool is_string(expr const * n) const;
 
@@ -135,10 +137,13 @@ public:
 class str_util : public str_recognizers {
     ast_manager & m_manager;
     str_decl_plugin * m_plugin;
+    family_id m_fid;
 public:
     str_util(ast_manager & m);
     ast_manager & get_manager() const { return m_manager; }
     str_decl_plugin & plugin() { return *m_plugin; }
+
+    sort* mk_string_sort() const { return get_manager().mk_sort(m_fid, STRING_SORT, 0, 0); }
 
     app * mk_string(const char * val) {
         return m_plugin->mk_string(val);

@@ -647,6 +647,12 @@ extern "C" {
         else if (fid == mk_c(c)->get_seq_fid() && k == RE_SORT) {
             return Z3_RE_SORT;
         }
+        else if (fid == mk_c(c)->get_str_fid() && k == STRING_SORT) {
+        	return Z3_STRING_SORT;
+        }
+        else if (fid == mk_c(c)->get_str_fid() && k == REGEX_SORT) {
+        	return Z3_REGEX_SORT;
+        }
         else {
             return Z3_UNKNOWN_SORT;
         }
@@ -1137,6 +1143,16 @@ extern "C" {
             default:
                 return Z3_OP_UNINTERPRETED;
             }
+        }
+
+        if (mk_c(c)->get_str_fid() == _d->get_family_id()) {
+        	switch (_d->get_decl_kind()) {
+        	// TODO(z3str2) add others
+        	case OP_STRCAT: return Z3_OP_STR_CONCAT;
+        	case OP_STRLEN: return Z3_OP_STR_LENGTH;
+        	default:
+        		return Z3_OP_UNINTERPRETED;
+        	}
         }
 
         if (mk_c(c)->get_fpa_fid() == _d->get_family_id()) {

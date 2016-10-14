@@ -165,6 +165,8 @@ typedef enum
     Z3_ROUNDING_MODE_SORT,
     Z3_SEQ_SORT,
     Z3_RE_SORT,
+	Z3_STRING_SORT,
+	Z3_REGEX_SORT,
     Z3_UNKNOWN_SORT = 1000
 } Z3_sort_kind;
 
@@ -1149,6 +1151,10 @@ typedef enum {
     Z3_OP_RE_OPTION,
     Z3_OP_RE_CONCAT,
     Z3_OP_RE_UNION,
+
+	// theory_str
+	Z3_OP_STR_CONCAT,
+	Z3_OP_STR_LENGTH,
 
     // Auxiliary
     Z3_OP_LABEL = 0x700,
@@ -3142,6 +3148,57 @@ extern "C" {
        def_API('Z3_mk_unsigned_int64', AST, (_in(CONTEXT), _in(UINT64), _in(SORT)))
     */
     Z3_ast Z3_API Z3_mk_unsigned_int64(Z3_context c, unsigned __int64 v, Z3_sort ty);
+
+    /*@}*/
+
+    /** @name Strings and regular expressions (Z3str2 implementation) */
+    /*@{*/
+
+    /**
+     \brief Create a string sort for 8-bit ASCII strings.
+
+     This function creates a sort for ASCII strings.
+     Each character is 8 bits.
+
+     def_API('Z3_mk_str_sort', SORT, (_in(CONTEXT), ))
+     */
+    Z3_sort Z3_API Z3_mk_str_sort(Z3_context c);
+
+    /**
+      \brief Check if \c s is a string sort.
+
+      def_API('Z3_is_str_sort', BOOL, (_in(CONTEXT), _in(SORT)))
+     */
+
+    Z3_bool Z3_API Z3_is_str_sort(Z3_context c, Z3_sort s);
+
+    /**
+      \brief Determine if \c s is a string constant.
+
+      def_API('Z3_is_str', BOOL, (_in(CONTEXT), _in(AST)))
+     */
+
+    Z3_bool Z3_API Z3_is_str(Z3_context c, Z3_ast s);
+
+    /**
+      \brief Retrieve the string constant stored in \c s.
+
+      \pre Z3_is_str(c, s)
+
+      def_API('Z3_get_str', STRING, (_in(CONTEXT), _in(AST)))
+     */
+
+    Z3_string Z3_API Z3_get_str(Z3_context c, Z3_ast s);
+
+    /**
+       \brief Create a string constant.
+
+       \param c logical context.
+       \param str The ASCII representation of the string constant.
+
+       def_API('Z3_mk_str', AST, (_in(CONTEXT), _in(STRING)))
+    */
+    Z3_ast Z3_API Z3_mk_str(Z3_context c, Z3_string str);
 
     /*@}*/
 

@@ -322,4 +322,5 @@ str_util::str_util(ast_manager &m) :
     m_manager(m) {
     SASSERT(m.has_plugin(symbol("str")));
     m_plugin = static_cast<str_decl_plugin*>(m.get_plugin(m.mk_family_id(symbol("str"))));
+    m_fid = m_plugin->get_family_id();
 }
