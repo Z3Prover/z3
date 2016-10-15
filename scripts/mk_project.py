@@ -45,7 +45,7 @@ def init_project_def():
     # Simplifier module will be deleted in the future.
     # It has been replaced with rewriter module.
     add_lib('simplifier', ['rewriter'], 'ast/simplifier')
-    add_lib('fpa', ['ast', 'util', 'simplifier'], 'ast/fpa')
+    add_lib('fpa', ['ast', 'util', 'simplifier', 'model'], 'ast/fpa')
     add_lib('macros', ['simplifier'], 'ast/macros')
     add_lib('pattern', ['normal_forms', 'smt2parser', 'simplifier'], 'ast/pattern')
     add_lib('bit_blaster', ['rewriter', 'simplifier'], 'ast/rewriter/bit_blaster')
