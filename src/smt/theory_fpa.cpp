@@ -21,6 +21,7 @@ Revision History:
 #include"theory_fpa.h"
 #include"theory_bv.h"
 #include"smt_model_generator.h"
+#include"bv2fpa_converter.h"
 
 namespace smt {
 
@@ -83,15 +84,15 @@ namespace smt {
         }
     }
 
-    theory_fpa::theory_fpa(ast_manager & m) :
-        theory(m.mk_family_id("fpa")),
-        m_converter(m, this),
-        m_rw(m, m_converter, params_ref()),
-        m_th_rw(m),
-        m_trail_stack(*this),
-        m_fpa_util(m_converter.fu()),
-        m_bv_util(m_converter.bu()),
-        m_arith_util(m_converter.au()),
+	theory_fpa::theory_fpa(ast_manager & m) :
+		theory(m.mk_family_id("fpa")),
+		m_converter(m, this),
+		m_rw(m, m_converter, params_ref()),
+		m_th_rw(m),
+		m_trail_stack(*this),
+		m_fpa_util(m_converter.fu()),
+		m_bv_util(m_converter.bu()),
+		m_arith_util(m_converter.au()),
         m_is_initialized(false)
     {
         params_ref p;
@@ -712,20 +713,6 @@ namespace smt {
         ast_manager & m = get_manager();
         m_factory = alloc(fpa_value_factory, m, get_family_id());
         mg.register_factory(m_factory);
-
-        fpa2bv_converter::uf2bvuf_t const & uf2bvuf = m_converter.get_uf2bvuf();
-        for (fpa2bv_converter::uf2bvuf_t::iterator it = uf2bvuf.begin();
-            it !=  uf2bvuf.end();
-            it++) {
-            //mg.hide(it->m_value);
-        }
-        fpa2bv_converter::special_t const & specials = m_converter.get_min_max_specials();
-        for (fpa2bv_converter::special_t::iterator it = specials.begin();
-            it != specials.end();
-            it++) {
-            mg.hide(it->m_value.first->get_decl());
-            mg.hide(it->m_value.second->get_decl());
-        }
     }
 
     model_value_proc * theory_fpa::mk_value(enode * n, model_generator & mg) {
@@ -814,21 +801,29 @@ namespace smt {
     void theory_fpa::finalize_model(model_generator & mg) {
         ast_manager & m = get_manager();
         proto_model & mdl = mg.get_model();
+		proto_model new_model(m);
 
-        fpa2bv_converter::uf2bvuf_t const & uf2bvuf = m_converter.get_uf2bvuf();
-        for (fpa2bv_converter::uf2bvuf_t::iterator it = uf2bvuf.begin();
-            it !=  uf2bvuf.end();
-            it++) {
-            func_decl * bv_fd = it->m_value;
-            if (bv_fd->get_arity() == 0) {
-                expr_ref bve(m), v(m);
-                bve = m.mk_const(bv_fd);
-                mdl.eval(bve, v, true);
-                mdl.register_decl(it->m_key, v);
-            }
-            else
-                NOT_IMPLEMENTED_YET();
-        }
+		bv2fpa_converter bv2fp(m, m_converter);
+
+		obj_hashtable<func_decl> seen;
+		bv2fp.convert_min_max_specials(&mdl, &new_model, seen);
+		bv2fp.convert_uf2bvuf(&mdl, &new_model, seen);
+
+		for (obj_hashtable<func_decl>::iterator it = seen.begin();
+			it != seen.end();
+			it++)
+			mdl.unregister_decl(*it);
+
+		for (unsigned i = 0; i < new_model.get_num_constants(); i++) {
+			func_decl * f = new_model.get_constant(i);
+			mdl.register_decl(f, new_model.get_const_interp(f));
+		}
+
+		for (unsigned i = 0; i < new_model.get_num_functions(); i++) {
+			func_decl * f = new_model.get_function(i);
+			func_interp * fi = new_model.get_func_interp(f)->copy();
+			mdl.register_decl(f, fi);
+		}
     }
 
     void theory_fpa::display(std::ostream & out) const

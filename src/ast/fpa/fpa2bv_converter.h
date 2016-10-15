@@ -43,7 +43,6 @@ protected:
     fpa_util                   m_util;
     bv_util                    m_bv_util;
     arith_util                 m_arith_util;
-    array_util                 m_array_util;
     datatype_util              m_dt_util;
     seq_util                   m_seq_util;
     mpf_manager              & m_mpf_manager;
@@ -57,6 +56,7 @@ protected:
     special_t                  m_min_max_specials;
 
     friend class fpa2bv_model_converter;
+	friend class bv2fpa_converter;
 
 public:
     fpa2bv_converter(ast_manager & m);
@@ -138,8 +138,11 @@ public:
     void mk_to_fp_real_int(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
 
     void mk_to_ubv(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+	void mk_to_ubv_unspecified(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_to_sbv(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+	void mk_to_sbv_unspecified(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_to_real(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+	void mk_to_real_unspecified(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
 
     void set_unspecified_fp_hi(bool v) { m_hi_fp_unspecified = v; }
 
@@ -149,10 +152,6 @@ public:
 
     void mk_max(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_max_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-
-    expr_ref mk_to_ubv_unspecified(unsigned ebits, unsigned sbits, unsigned width);
-    expr_ref mk_to_sbv_unspecified(unsigned ebits, unsigned sbits, unsigned width);
-    expr_ref mk_to_real_unspecified(unsigned ebits, unsigned sbits);
 
     void reset(void);
 
@@ -227,6 +226,10 @@ private:
     void mk_round_to_integral(sort * s, expr_ref & rm, expr_ref & x, expr_ref & result);
 
     void mk_to_fp_float(sort * s, expr * rm, expr * x, expr_ref & result);
+
+	expr_ref mk_to_ubv_unspecified(unsigned ebits, unsigned sbits, unsigned width);
+	expr_ref mk_to_sbv_unspecified(unsigned ebits, unsigned sbits, unsigned width);
+	expr_ref mk_to_real_unspecified(unsigned ebits, unsigned sbits);
 };
 
 #endif
