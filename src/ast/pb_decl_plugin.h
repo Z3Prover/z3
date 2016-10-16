@@ -80,6 +80,7 @@ class pb_util {
     ast_manager & m;
     family_id     m_fid;
     vector<rational> m_coeffs;
+    vector<parameter> m_params;
     rational         m_k;
     void normalize(unsigned num_args, rational const* coeffs, rational const& k);
 public:

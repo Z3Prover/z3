@@ -3075,45 +3075,51 @@ namespace sat {
             m_binary_clause_graph[l1.index()].push_back(l2);
             m_binary_clause_graph[l2.index()].push_back(l1);
         }
-        while (!ps.empty()) {            
+        bool non_empty = true;
+        m_seen[0].reset();
+        while (non_empty) {            
             literal_vector mutex;
-            literal_set other(ps);
-            while (!other.empty()) {
-                literal_set conseq;
-                literal p = other.pop();
+            bool turn = false;
+            m_reachable[turn] = ps; 
+            while (!m_reachable[turn].empty()) {
+                literal p = m_reachable[turn].pop();
+                if (m_seen[0].contains(p)) {
+                    continue;
+                }
+                m_reachable[turn].remove(p);
+                m_seen[0].insert(p);
                 mutex.push_back(p);
-                if (other.empty()) {
+                if (m_reachable[turn].empty()) {
                     break;
                 }
-                get_reachable(p, other, conseq);
-                other = conseq;
+                m_reachable[!turn].reset();
+                get_reachable(p, m_reachable[turn], m_reachable[!turn]);
+                turn = !turn;
             }
             if (mutex.size() > 1) {
                 mutexes.push_back(mutex);            
             }
-            for (unsigned i = 0; i < mutex.size(); ++i) {
-                ps.erase(mutex[i]);
-            }
+            non_empty = !mutex.empty();
         }
         return l_true;
     }
 
     void solver::get_reachable(literal p, literal_set const& goal, literal_set& reachable) {
-        literal_set seen;
-        literal_vector todo;
-        todo.push_back(p);
-        while (!todo.empty()) {
-            p = todo.back();
-            todo.pop_back();
-            if (seen.contains(p)) {
+        m_seen[1].reset();
+        m_todo.reset();
+        m_todo.push_back(p);
+        while (!m_todo.empty()) {
+            p = m_todo.back();
+            m_todo.pop_back();
+            if (m_seen[1].contains(p)) {
                 continue;
             }
-            seen.insert(p);
+            m_seen[1].insert(p);
             literal np = ~p;
             if (goal.contains(np)) {
                 reachable.insert(np);
             }
-            todo.append(m_binary_clause_graph[np.index()]);
+            m_todo.append(m_binary_clause_graph[np.index()]);
         }
     }
 
