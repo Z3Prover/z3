@@ -278,21 +278,6 @@ br_status pb_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
           tout << result << "\n";
           );
 
-#if 0
-    static unsigned num_changes = 0;
-    static unsigned num_calls = 0;
-    static unsigned inc = 1;
-    {
-        expr_ref tmp(m);
-        tmp = m.mk_app(f, num_args, args);
-        num_calls++;
-        if (tmp != result) ++num_changes;
-        if (num_calls > inc) {
-            std::cout << num_calls << " " << num_changes << "\n";
-            inc *= 2;
-        }
-    }
-#endif
     TRACE("pb_validate",
           validate_rewrite(f, num_args, args, result););
           

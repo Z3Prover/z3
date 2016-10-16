@@ -519,7 +519,7 @@ namespace smt {
             c->m_compilation_threshold = th;
             IF_VERBOSE(2, verbose_stream() << "(smt.pb setting compilation threhshold to " << th << ")\n";);
             TRACE("pb", tout << "compilation threshold: " << th << "\n";);
-            compile_ineq(*c);
+            //compile_ineq(*c);
         }
         else {
             c->m_compilation_threshold = UINT_MAX;
