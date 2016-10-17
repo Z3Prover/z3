@@ -316,13 +316,21 @@ void bv2fpa_converter::convert_consts(model_core * mc, model_core * target_model
 		app * a2 = to_app(val->get_arg(2));
 
 		expr_ref v0(m), v1(m), v2(m);
+#ifdef Z3DEBUG
 		v0 = mc->get_const_interp(a0->get_decl());
 		v1 = mc->get_const_interp(a1->get_decl());
 		v2 = mc->get_const_interp(a2->get_decl());
+#else
+        expr * bv = mc->get_const_interp(to_app(to_app(a0)->get_arg(0))->get_decl());
+        unsigned bv_sz = m_bv_util.get_bv_size(bv);
+        v0 = m_bv_util.mk_extract(bv_sz-1, bv_sz-1, bv);
+        v1 = m_bv_util.mk_extract(bv_sz-2, sbits-1, bv);
+        v2 = m_bv_util.mk_extract(sbits-2, 0, bv);
+#endif
 
-		if (!v0) v0 = m_bv_util.mk_numeral(0, 1);
-		if (!v1) v1 = m_bv_util.mk_numeral(0, ebits);
-		if (!v2) v2 = m_bv_util.mk_numeral(0, sbits-1);
+        if (!v0) v0 = m_bv_util.mk_numeral(0, 1);
+        if (!v1) v1 = m_bv_util.mk_numeral(0, ebits);
+        if (!v2) v2 = m_bv_util.mk_numeral(0, sbits-1);
 
 		expr_ref sgn(m), exp(m), sig(m);
 		m_th_rw(v0, sgn);
