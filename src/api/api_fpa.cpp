@@ -1183,4 +1183,100 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
+    Z3_bool Z3_API Z3_fpa_is_numeral_nan(Z3_context c, Z3_ast t) {
+        Z3_TRY;
+        Z3_fpa_is_numeral_nan(c, t);
+        RESET_ERROR_CODE();
+        ast_manager & m = mk_c(c)->m();
+        api::context * ctx = mk_c(c);
+        mpf_manager & mpfm = mk_c(c)->fpautil().fm();
+        fpa_util & fu = ctx->fpautil();
+        if (!is_expr(t) || !fu.is_numeral(to_expr(t))) {
+            SET_ERROR_CODE(Z3_INVALID_ARG);
+            return 0;
+        }
+        return fu.is_nan(to_expr(t));
+        Z3_CATCH_RETURN(Z3_FALSE);
+    }
+
+    Z3_bool Z3_API Z3_fpa_is_numeral_inf(Z3_context c, Z3_ast t) {
+        Z3_TRY;
+        Z3_fpa_is_numeral_inf(c, t);
+        RESET_ERROR_CODE();
+        ast_manager & m = mk_c(c)->m();
+        api::context * ctx = mk_c(c);
+        mpf_manager & mpfm = mk_c(c)->fpautil().fm();
+        fpa_util & fu = ctx->fpautil();
+        if (!is_expr(t) || !fu.is_numeral(to_expr(t))) {
+            SET_ERROR_CODE(Z3_INVALID_ARG);
+            return 0;
+        }
+        return fu.is_inf(to_expr(t));
+        Z3_CATCH_RETURN(Z3_FALSE);
+    }
+
+    Z3_bool Z3_API Z3_fpa_is_numeral_zero(Z3_context c, Z3_ast t) {
+        Z3_TRY;
+        Z3_fpa_is_numeral_zero(c, t);
+        RESET_ERROR_CODE();
+        ast_manager & m = mk_c(c)->m();
+        api::context * ctx = mk_c(c);
+        mpf_manager & mpfm = mk_c(c)->fpautil().fm();
+        fpa_util & fu = ctx->fpautil();
+        if (!is_expr(t) || !fu.is_numeral(to_expr(t))) {
+            SET_ERROR_CODE(Z3_INVALID_ARG);
+            return 0;
+        }
+        return fu.is_zero(to_expr(t));
+        Z3_CATCH_RETURN(Z3_FALSE);
+    }
+
+    Z3_bool Z3_API Z3_fpa_is_numeral_normal(Z3_context c, Z3_ast t) {
+        Z3_TRY;
+        Z3_fpa_is_numeral_normal(c, t);
+        RESET_ERROR_CODE();
+        ast_manager & m = mk_c(c)->m();
+        api::context * ctx = mk_c(c);
+        mpf_manager & mpfm = mk_c(c)->fpautil().fm();
+        fpa_util & fu = ctx->fpautil();
+        if (!is_expr(t) || !fu.is_numeral(to_expr(t))) {
+            SET_ERROR_CODE(Z3_INVALID_ARG);
+            return 0;
+        }
+        return fu.is_normal(to_expr(t));
+        Z3_CATCH_RETURN(Z3_FALSE);
+    }
+
+    Z3_bool Z3_API Z3_fpa_is_numeral_subnormal(Z3_context c, Z3_ast t) {
+        Z3_TRY;
+        Z3_fpa_is_numeral_subnormal(c, t);
+        RESET_ERROR_CODE();
+        ast_manager & m = mk_c(c)->m();
+        api::context * ctx = mk_c(c);
+        mpf_manager & mpfm = mk_c(c)->fpautil().fm();
+        fpa_util & fu = ctx->fpautil();
+        if (!is_expr(t) || !fu.is_numeral(to_expr(t))) {
+            SET_ERROR_CODE(Z3_INVALID_ARG);
+            return 0;
+        }
+        return fu.is_subnormal(to_expr(t));
+        Z3_CATCH_RETURN(Z3_FALSE);
+    }
+
+    Z3_bool Z3_API Z3_fpa_is_numeral_positive(Z3_context c, Z3_ast t) {
+        Z3_TRY;
+        Z3_fpa_is_numeral_positive(c, t);
+        RESET_ERROR_CODE();
+        ast_manager & m = mk_c(c)->m();
+        api::context * ctx = mk_c(c);
+        mpf_manager & mpfm = mk_c(c)->fpautil().fm();
+        fpa_util & fu = ctx->fpautil();
+        if (!is_expr(t) || !fu.is_numeral(to_expr(t))) {
+            SET_ERROR_CODE(Z3_INVALID_ARG);
+            return 0;
+        }
+        return fu.is_positive(to_expr(t));
+        Z3_CATCH_RETURN(Z3_FALSE);
+    }
+
 };

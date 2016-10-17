@@ -288,11 +288,15 @@ public:
     app * mk_nzero(sort * s) { return mk_nzero(get_ebits(s), get_sbits(s)); }
 
     bool is_nan(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_nan(v); }
+    bool is_inf(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_inf(v); }
     bool is_pinf(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_pinf(v); }
     bool is_ninf(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_ninf(v); }
     bool is_zero(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_zero(v); }
     bool is_pzero(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_pzero(v); }
     bool is_nzero(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_nzero(v); }
+    bool is_normal(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_normal(v); }
+    bool is_subnormal(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_denormal(v); }
+    bool is_positive(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_pos(v); }
 
     app * mk_fp(expr * sgn, expr * exp, expr * sig) {
         SASSERT(m_bv_util.is_bv(sgn) && m_bv_util.get_bv_size(sgn) == 1);

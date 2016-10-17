@@ -823,6 +823,66 @@ extern "C" {
     unsigned Z3_API Z3_fpa_get_sbits(Z3_context c, Z3_sort s);
 
     /**
+        \brief Checks whether a given floating-point numeral is a NaN.
+
+        \param c logical context
+        \param t a floating-point numeral
+
+        def_API('Z3_fpa_is_numeral_nan', AST, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_bool Z3_API Z3_fpa_is_numeral_nan(Z3_context c, Z3_ast t);
+
+    /**
+        \brief Checks whether a given floating-point numeral is a +oo or -oo.
+
+        \param c logical context
+        \param t a floating-point numeral
+
+        def_API('Z3_fpa_is_numeral_inf', AST, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_bool Z3_API Z3_fpa_is_numeral_inf(Z3_context c, Z3_ast t);
+
+    /**
+        \brief Checks whether a given floating-point numeral is +zero or -zero.
+
+        \param c logical context
+        \param t a floating-point numeral
+
+        def_API('Z3_fpa_is_numeral_zero', AST, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_bool Z3_API Z3_fpa_is_numeral_zero(Z3_context c, Z3_ast t);
+
+    /**
+        \brief Checks whether a given floating-point numeral is normal.
+
+        \param c logical context
+        \param t a floating-point numeral
+
+        def_API('Z3_fpa_is_numeral_normal', AST, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_bool Z3_API Z3_fpa_is_numeral_normal(Z3_context c, Z3_ast t);
+
+    /**
+        \brief Checks whether a given floating-point numeral is subnormal.
+
+        \param c logical context
+        \param t a floating-point numeral
+
+        def_API('Z3_fpa_is_numeral_subnormal', AST, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_bool Z3_API Z3_fpa_is_numeral_subnormal(Z3_context c, Z3_ast t);
+
+    /**
+        \brief Checks whether a given floating-point numeral is positive.
+
+        \param c logical context
+        \param t a floating-point numeral
+
+        def_API('Z3_fpa_is_numeral_positive', AST, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_bool Z3_API Z3_fpa_is_numeral_positive(Z3_context c, Z3_ast t);
+
+    /**
         \brief Retrieves the sign of a floating-point literal as a bit-vector expression.
 
         \param c logical context
