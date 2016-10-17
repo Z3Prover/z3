@@ -8,7 +8,9 @@ Copyright (c) 2016 Microsoft Corporation
 #include "datatype_decl_plugin.h"
 #include "reg_decl_plugins.h"
 #include "ast_pp.h"
-#include "dt2bv.h"
+#include "dt2bv_tactic.h"
+#include "tactic.h"
+#include "model_smt2_pp.h"
 //include 
 
 static expr_ref mk_const(ast_manager& m, char const* name, sort* s) {
@@ -53,38 +55,78 @@ static void test2() {
     ast_manager m;
     reg_decl_plugins(m);
     bv_util bv(m);
+    datatype_util dtutil(m);
+    params_ref p;
 
-    datatype_decl_plugin& dt = static_cast<datatype_decl_plugin>(*m.get_plugin(m.get_family_id("datatype")));
+    datatype_decl_plugin & dt = *(static_cast<datatype_decl_plugin*>(m.get_plugin(m.get_family_id("datatype"))));
     sort_ref_vector new_sorts(m);
     constructor_decl* R = mk_constructor_decl(symbol("R"), symbol("is-R"), 0, 0);
     constructor_decl* G = mk_constructor_decl(symbol("G"), symbol("is-G"), 0, 0);
     constructor_decl* B = mk_constructor_decl(symbol("B"), symbol("is-B"), 0, 0);
     constructor_decl* constrs[3] = { R, G, B };
-    datatype_decl const* enum_sort = mk_datatype_decl(symbol("RGB"), 3, constrs);
+    datatype_decl * enum_sort = mk_datatype_decl(symbol("RGB"), 3, constrs);
     VERIFY(dt.mk_datatypes(1, &enum_sort, new_sorts));    
     del_constructor_decls(3, constrs);
     sort* rgb = new_sorts[0].get();
 
     expr_ref x = mk_const(m, "x", rgb), y = mk_const(m, "y", rgb), z = mk_const(m, "z", rgb);
-    ptr_vector<func_decl> const& enums = dt.geet_datatype_constructors(rgb);
-    expr_ref r = expr_ref(m.mk_const(enums[0], m), m), g = expr_ref(m.mk_const(enums[1], m), m), b = expr_ref(m.mk_const(enums[2], m), m);
+    ptr_vector<func_decl> const& enums = *dtutil.get_datatype_constructors(rgb);
+    expr_ref r = expr_ref(m.mk_const(enums[0]), m);
+    expr_ref g = expr_ref(m.mk_const(enums[1]), m);
+    expr_ref b = expr_ref(m.mk_const(enums[2]), m);
+    expr_ref val(m);
 
-    goal_ref g = alloc(goal, m);
-    g->assert_expr(m.mk_not(m.mk_eq(x, r)));
-    g->assert_expr(m.mk_not(m.mk_eq(x, b)));
-    g->display(std::cout);
-    tactic_ref dt2bv = mk_dt2bv_tactic(m);
+    // Eliminate enumeration data-types:
+    goal_ref gl = alloc(goal, m);
+    gl->assert_expr(m.mk_not(m.mk_eq(x, r)));
+    gl->assert_expr(m.mk_not(m.mk_eq(x, b)));
+    gl->display(std::cout);
+    obj_map<func_decl, expr*> tr;
+    obj_map<expr, func_decl*> rev_tr;
+    ref<tactic> dt2bv = mk_dt2bv_tactic(m, p, &tr);
     goal_ref_buffer result;
     model_converter_ref mc;
     proof_converter_ref pc;
-    expr_dependency_ref core;
-    (*dt2bv)(g, result, mc, pc, core);
-    model_ref mdl1 = alloc(model, m);
-    model_ref mdl2 = (*mc)(*mdl1);
-    expr_ref val(m);
-    mdl2->eval(x, val);
+    expr_dependency_ref core(m);
+    (*dt2bv)(gl, result, mc, pc, core);
+
+    // Collect translations from enumerations to bit-vectors
+    obj_map<func_decl, expr*>::iterator it = tr.begin(), end = tr.end();
+    for (; it != end; ++it) {
+        rev_tr.insert(it->m_value, it->m_key);
+    }
+
+    // Create bit-vector implication problem
+    val = tr.find(to_app(x)->get_decl());
     std::cout << val << "\n";
+    ptr_vector<expr> fmls;
+    result[0]->get_formulas(fmls);    
+    ref<solver> solver = mk_inc_sat_solver(m, p);
+    for (unsigned i = 0; i < fmls.size(); ++i) {
+        solver->assert_expr(fmls[i]);
+    }
+    expr_ref_vector asms(m), vars(m), conseq(m);
+    vars.push_back(val);
+
+    // retrieve consequences
+    solver->get_consequences(asms, vars, conseq);
     
+    // Convert consequences over bit-vectors to enumeration types.
+    std::cout << conseq << "\n";
+    for (unsigned i = 0; i < conseq.size(); ++i) {
+        expr* a, *b, *u, *v;
+        func_decl* f;
+        rational num;
+        unsigned bvsize;
+        VERIFY(m.is_implies(conseq[i].get(), a, b));
+        if (m.is_eq(b, u, v) && rev_tr.find(u, f) && bv.is_numeral(v, num, bvsize)) {
+            SASSERT(num.is_unsigned());
+            expr_ref head(m);
+            head = m.mk_eq(m.mk_const(f), m.mk_const(enums[num.get_unsigned()]));
+            conseq[i] = m.mk_implies(a, head);
+        }
+    }
+    std::cout << conseq << "\n";
 }
 
 void tst_get_consequences() {

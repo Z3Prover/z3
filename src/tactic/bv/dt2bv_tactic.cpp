@@ -43,6 +43,7 @@ class dt2bv_tactic : public tactic {
     ref<extension_model_converter> m_ext;
     ref<filter_model_converter>    m_filter;
     unsigned                       m_num_translated;
+    obj_map<func_decl, expr*>*     m_translate;
 
     struct rw_cfg : public default_rewriter_cfg {
         dt2bv_tactic& m_t;
@@ -117,7 +118,7 @@ class dt2bv_tactic : public tactic {
                 unsigned nc = m_t.m_dt.get_datatype_num_constructors(s);
                 result = m.mk_fresh_const(f->get_name().str().c_str(), m_t.m_bv.mk_sort(bv_size));
                 if (!is_power_of_two(nc)) {
-                    m_t.m_bounds.push_back(m_t.m_bv.mk_ule(result, m_t.m_bv.mk_numeral(nc, bv_size)));
+                    m_t.m_bounds.push_back(m_t.m_bv.mk_ule(result, m_t.m_bv.mk_numeral(nc-1, bv_size)));
                 }                
                 expr_ref f_def(m);
                 ptr_vector<func_decl> const& cs = *m_t.m_dt.get_datatype_constructors(s);
@@ -129,6 +130,9 @@ class dt2bv_tactic : public tactic {
                 // update model converters.
                 m_t.m_ext->insert(f, f_def);
                 m_t.m_filter->insert(to_app(result)->get_decl());
+                if (m_t.m_translate) {
+                    m_t.m_translate->insert(f, result);
+                }
             }
             else {
                 return false;
@@ -253,11 +257,11 @@ class dt2bv_tactic : public tactic {
 
 public:
 
-    dt2bv_tactic(ast_manager& m, params_ref const& p): 
-        m(m), m_params(p), m_dt(m), m_bv(m), m_bounds(m) {}
+    dt2bv_tactic(ast_manager& m, params_ref const& p, obj_map<func_decl, expr*>* tr): 
+        m(m), m_params(p), m_dt(m), m_bv(m), m_bounds(m), m_translate(tr) {}
     
     virtual tactic * translate(ast_manager & m) {
-        return alloc(dt2bv_tactic, m, m_params);
+        return alloc(dt2bv_tactic, m, m_params, 0);
     }
 
     virtual void updt_params(params_ref const & p) {
@@ -320,6 +324,6 @@ public:
 
 };
 
-tactic * mk_dt2bv_tactic(ast_manager & m, params_ref const & p) {
-    return alloc(dt2bv_tactic, m, p);
+tactic * mk_dt2bv_tactic(ast_manager & m, params_ref const & p, obj_map<func_decl, expr*>* tr) {
+    return alloc(dt2bv_tactic, m, p, tr);
 }
