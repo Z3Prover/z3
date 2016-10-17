@@ -5,6 +5,7 @@ Copyright (c) 2016 Microsoft Corporation
 
 #include "inc_sat_solver.h"
 #include "bv_decl_plugin.h"
+#include "datatype_decl_plugin.h"
 #include "reg_decl_plugins.h"
 #include "ast_pp.h"
 //include 
@@ -22,7 +23,7 @@ static expr_ref mk_bv(ast_manager& m, char const* name, unsigned sz) {
     return expr_ref(m.mk_const(symbol(name), bv.mk_sort(sz)), m);
 }
 
-void tst_get_consequences() {
+static void test1() {
     ast_manager m;
     reg_decl_plugins(m);
     bv_util bv(m);
@@ -45,6 +46,37 @@ void tst_get_consequences() {
     solver->get_consequences(asms, vars, conseq);
 
     std::cout << conseq << "\n";
-    
+}
+
+static void test2() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    bv_util bv(m);
+
+    datatype_decl_plugin& dt = static_cast<datatype_decl_plugin>(*m.get_plugin(m.get_family_id("datatype")));
+    sort_ref_vector new_sorts(m);
+    constructor_decl* R = mk_constructor_decl(symbol("R"), symbol("is-R"), 0, 0);
+    constructor_decl* G = mk_constructor_decl(symbol("G"), symbol("is-G"), 0, 0);
+    constructor_decl* B = mk_constructor_decl(symbol("B"), symbol("is-B"), 0, 0);
+    constructor_decl* constrs[3] = { R, G, B };
+    datatype_decl const* enum_sort = mk_datatype_decl(symbol("RGB"), 3, constrs);
+    VERIFY(dt.mk_datatypes(1, &enum_sort, new_sorts));    
+    del_constructor_decls(3, constrs);
+    sort* rgb = new_sorts[0].get();
+
+    expr_ref x = mk_const(m, "x", rgb), y = mk_const(m, "y", rgb), z = mk_const(m, "z", rgb);
+    ptr_vector<func_decl> const& enums = dt.geet_datatype_constructors(rgb);
+    expr_ref r = expr_ref(m.mk_const(enums[0], m), m), g = expr_ref(m.mk_const(enums[1], m), m), b = expr_ref(m.mk_const(enums[2], m), m);
+
+    goal_ref g = alloc(goal, m);
+    g->assert_expr(m.mk_not(m.mk_eq(x, r)));
+    g->assert_expr(m.mk_not(m.mk_eq(x, b)));
+    g->display(std::cout);
+}
+
+void tst_get_consequences() {
+    test1();
+    test2();
+
 
 }
