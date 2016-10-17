@@ -110,7 +110,9 @@ set(Z3_JAVA_JAR_SOURCE_FILES
   BitVecSort.java
   BoolExpr.java
   BoolSort.java
+  ConstructorDecRefQueue.java
   Constructor.java
+  ConstructorListDecRefQueue.java
   ConstructorList.java
   Context.java
   DatatypeExpr.java
@@ -136,7 +138,6 @@ set(Z3_JAVA_JAR_SOURCE_FILES
   GoalDecRefQueue.java
   Goal.java
   IDecRefQueue.java
-  IDisposable.java
   InterpolationContext.java
   IntExpr.java
   IntNum.java

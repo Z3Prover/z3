@@ -136,9 +136,10 @@ if (NOT MSVC)
   set_target_properties(libz3 PROPERTIES OUTPUT_NAME z3)
 endif()
 
-# Using INTERFACE means that targets that try link against libz3 will
-# automatically link against the libs in Z3_DEPENDENT_LIBS
-target_link_libraries(libz3 INTERFACE ${Z3_DEPENDENT_LIBS})
+# The `PRIVATE` usage requirement is specified so that when building Z3 as a
+# shared library the dependent libraries are specified on the link command line
+# so that if those are also shared libraries they are referenced by `libz3.so`.
+target_link_libraries(libz3 PRIVATE ${Z3_DEPENDENT_LIBS})
 
 z3_append_linker_flag_list_to_target(libz3 ${Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS})
 

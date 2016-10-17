@@ -3295,8 +3295,6 @@ void fpa2bv_converter::mk_to_sbv(func_decl * f, unsigned num, expr * const * arg
 
 void fpa2bv_converter::mk_to_ubv_unspecified(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
 	SASSERT(num == 0);
-	unsigned ebits = f->get_parameter(0).get_int();
-	unsigned sbits = f->get_parameter(1).get_int();
 	unsigned width = m_bv_util.get_bv_size(f->get_range());
 
 	if (m_hi_fp_unspecified)
@@ -3326,8 +3324,6 @@ expr_ref fpa2bv_converter::mk_to_ubv_unspecified(unsigned ebits, unsigned sbits,
 
 void fpa2bv_converter::mk_to_sbv_unspecified(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
 	SASSERT(num == 0);
-	unsigned ebits = f->get_parameter(0).get_int();
-	unsigned sbits = f->get_parameter(1).get_int();
 	unsigned width = m_bv_util.get_bv_size(f->get_range());
 
 	if (m_hi_fp_unspecified)
@@ -3339,7 +3335,7 @@ void fpa2bv_converter::mk_to_sbv_unspecified(func_decl * f, unsigned num, expr *
 			m_uf2bvuf.insert(f, fd);
 			m.inc_ref(f);
 			m.inc_ref(fd);
-		}		
+		}
 		result = m.mk_const(fd);
 	}
 
