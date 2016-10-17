@@ -828,7 +828,7 @@ extern "C" {
         \param c logical context
         \param t a floating-point numeral
 
-        def_API('Z3_fpa_is_numeral_nan', AST, (_in(CONTEXT), _in(AST)))
+        def_API('Z3_fpa_is_numeral_nan', BOOL, (_in(CONTEXT), _in(AST)))
     */
     Z3_bool Z3_API Z3_fpa_is_numeral_nan(Z3_context c, Z3_ast t);
 
@@ -838,7 +838,7 @@ extern "C" {
         \param c logical context
         \param t a floating-point numeral
 
-        def_API('Z3_fpa_is_numeral_inf', AST, (_in(CONTEXT), _in(AST)))
+        def_API('Z3_fpa_is_numeral_inf', BOOL, (_in(CONTEXT), _in(AST)))
     */
     Z3_bool Z3_API Z3_fpa_is_numeral_inf(Z3_context c, Z3_ast t);
 
@@ -848,7 +848,7 @@ extern "C" {
         \param c logical context
         \param t a floating-point numeral
 
-        def_API('Z3_fpa_is_numeral_zero', AST, (_in(CONTEXT), _in(AST)))
+        def_API('Z3_fpa_is_numeral_zero', BOOL, (_in(CONTEXT), _in(AST)))
     */
     Z3_bool Z3_API Z3_fpa_is_numeral_zero(Z3_context c, Z3_ast t);
 
@@ -858,7 +858,7 @@ extern "C" {
         \param c logical context
         \param t a floating-point numeral
 
-        def_API('Z3_fpa_is_numeral_normal', AST, (_in(CONTEXT), _in(AST)))
+        def_API('Z3_fpa_is_numeral_normal', BOOL, (_in(CONTEXT), _in(AST)))
     */
     Z3_bool Z3_API Z3_fpa_is_numeral_normal(Z3_context c, Z3_ast t);
 
@@ -868,7 +868,7 @@ extern "C" {
         \param c logical context
         \param t a floating-point numeral
 
-        def_API('Z3_fpa_is_numeral_subnormal', AST, (_in(CONTEXT), _in(AST)))
+        def_API('Z3_fpa_is_numeral_subnormal', BOOL, (_in(CONTEXT), _in(AST)))
     */
     Z3_bool Z3_API Z3_fpa_is_numeral_subnormal(Z3_context c, Z3_ast t);
 
@@ -878,7 +878,7 @@ extern "C" {
         \param c logical context
         \param t a floating-point numeral
 
-        def_API('Z3_fpa_is_numeral_positive', AST, (_in(CONTEXT), _in(AST)))
+        def_API('Z3_fpa_is_numeral_positive', BOOL, (_in(CONTEXT), _in(AST)))
     */
     Z3_bool Z3_API Z3_fpa_is_numeral_positive(Z3_context c, Z3_ast t);
 
