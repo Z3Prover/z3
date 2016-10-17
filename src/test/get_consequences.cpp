@@ -8,6 +8,7 @@ Copyright (c) 2016 Microsoft Corporation
 #include "datatype_decl_plugin.h"
 #include "reg_decl_plugins.h"
 #include "ast_pp.h"
+#include "dt2bv.h"
 //include 
 
 static expr_ref mk_const(ast_manager& m, char const* name, sort* s) {
@@ -72,6 +73,18 @@ static void test2() {
     g->assert_expr(m.mk_not(m.mk_eq(x, r)));
     g->assert_expr(m.mk_not(m.mk_eq(x, b)));
     g->display(std::cout);
+    tactic_ref dt2bv = mk_dt2bv_tactic(m);
+    goal_ref_buffer result;
+    model_converter_ref mc;
+    proof_converter_ref pc;
+    expr_dependency_ref core;
+    (*dt2bv)(g, result, mc, pc, core);
+    model_ref mdl1 = alloc(model, m);
+    model_ref mdl2 = (*mc)(*mdl1);
+    expr_ref val(m);
+    mdl2->eval(x, val);
+    std::cout << val << "\n";
+    
 }
 
 void tst_get_consequences() {

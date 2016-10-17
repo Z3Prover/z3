@@ -84,15 +84,15 @@ namespace smt {
         }
     }
 
-	theory_fpa::theory_fpa(ast_manager & m) :
-		theory(m.mk_family_id("fpa")),
-		m_converter(m, this),
-		m_rw(m, m_converter, params_ref()),
-		m_th_rw(m),
-		m_trail_stack(*this),
-		m_fpa_util(m_converter.fu()),
-		m_bv_util(m_converter.bu()),
-		m_arith_util(m_converter.au()),
+    theory_fpa::theory_fpa(ast_manager & m) :
+        theory(m.mk_family_id("fpa")),
+        m_converter(m, this),
+        m_rw(m, m_converter, params_ref()),
+        m_th_rw(m),
+        m_trail_stack(*this),
+        m_fpa_util(m_converter.fu()),
+        m_bv_util(m_converter.bu()),
+        m_arith_util(m_converter.au()),
         m_is_initialized(false)
     {
         params_ref p;
@@ -799,33 +799,35 @@ namespace smt {
     }
 
     void theory_fpa::finalize_model(model_generator & mg) {
+#if 0
         ast_manager & m = get_manager();
         proto_model & mdl = mg.get_model();
-		proto_model new_model(m);
-
-		bv2fpa_converter bv2fp(m, m_converter);
-
-		obj_hashtable<func_decl> seen;
-		bv2fp.convert_min_max_specials(&mdl, &new_model, seen);
-		bv2fp.convert_uf2bvuf(&mdl, &new_model, seen);
-
-		for (obj_hashtable<func_decl>::iterator it = seen.begin();
-			it != seen.end();
-			it++)
-			mdl.unregister_decl(*it);
-
-		for (unsigned i = 0; i < new_model.get_num_constants(); i++) {
-			func_decl * f = new_model.get_constant(i);
-			mdl.register_decl(f, new_model.get_const_interp(f));
-		}
-
-		for (unsigned i = 0; i < new_model.get_num_functions(); i++) {
-			func_decl * f = new_model.get_function(i);
-			func_interp * fi = new_model.get_func_interp(f)->copy();
-			mdl.register_decl(f, fi);
-		}
+        proto_model new_model(m);
+        
+        bv2fpa_converter bv2fp(m, m_converter);
+        
+        obj_hashtable<func_decl> seen;
+        bv2fp.convert_min_max_specials(&mdl, &new_model, seen);
+        bv2fp.convert_uf2bvuf(&mdl, &new_model, seen);
+        
+        for (obj_hashtable<func_decl>::iterator it = seen.begin();
+             it != seen.end();
+             it++)
+            mdl.unregister_decl(*it);
+        
+        for (unsigned i = 0; i < new_model.get_num_constants(); i++) {
+            func_decl * f = new_model.get_constant(i);
+            mdl.register_decl(f, new_model.get_const_interp(f));
+        }
+        
+        for (unsigned i = 0; i < new_model.get_num_functions(); i++) {
+            func_decl * f = new_model.get_function(i);
+            func_interp * fi = new_model.get_func_interp(f)->copy();
+            mdl.register_decl(f, fi);
+        }
+#endif
     }
-
+    
     void theory_fpa::display(std::ostream & out) const
     {
         ast_manager & m = get_manager();

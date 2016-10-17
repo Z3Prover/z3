@@ -25,23 +25,22 @@ Notes:
 
 class fpa2bv_model_converter : public model_converter {
     ast_manager & m;
-	bv2fpa_converter * m_bv2fp;
+    bv2fpa_converter * m_bv2fp;
     
 public:
-    fpa2bv_model_converter(ast_manager & m, fpa2bv_converter & conv) : 
-        m(m) {
-		m_bv2fp = alloc(bv2fpa_converter, m, conv);
+    fpa2bv_model_converter(ast_manager & m, fpa2bv_converter & conv):
+        m(m),
+        m_bv2fp(alloc(bv2fpa_converter, m, conv)) {
     }
 
     virtual ~fpa2bv_model_converter() {
-		if (m_bv2fp) dealloc(m_bv2fp);
-		m_bv2fp = 0;
+        dealloc(m_bv2fp);
     }
 
     virtual void operator()(model_ref & md, unsigned goal_idx) {
         SASSERT(goal_idx == 0);
         model * new_model = alloc(model, m);
-		convert(md.get(), new_model);
+        convert(md.get(), new_model);
         md = new_model;
     }
 
@@ -56,9 +55,9 @@ public:
 protected:
     fpa2bv_model_converter(ast_manager & m) : 
         m(m),
-		m_bv2fp(0) {}
-
-	void convert(model_core * mc, model * float_mdl);
+        m_bv2fp(0) {}
+    
+    void convert(model_core * mc, model * float_mdl);
 };
 
 
