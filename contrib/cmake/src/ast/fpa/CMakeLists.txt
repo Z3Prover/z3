@@ -1,10 +1,12 @@
 z3_add_component(fpa
   SOURCES
+    bv2fpa_converter.cpp
     fpa2bv_converter.cpp
     fpa2bv_rewriter.cpp
   COMPONENT_DEPENDENCIES
     ast
     simplifier
+    model
     util
   PYG_FILES
     fpa2bv_rewriter_params.pyg
