@@ -799,7 +799,6 @@ namespace smt {
     }
 
     void theory_fpa::finalize_model(model_generator & mg) {
-#if 0
         ast_manager & m = get_manager();
         proto_model & mdl = mg.get_model();
         proto_model new_model(m);
@@ -825,7 +824,6 @@ namespace smt {
             func_interp * fi = new_model.get_func_interp(f)->copy();
             mdl.register_decl(f, fi);
         }
-#endif
     }
     
     void theory_fpa::display(std::ostream & out) const
