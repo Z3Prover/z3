@@ -590,7 +590,7 @@ namespace smt {
         bool propagated = false;
         context & ctx = get_context();
         for (unsigned i = 0; i < m_nl_monomials.size(); i++) {
-            theory_var v = m_nl_monomials.size();
+            theory_var v = m_nl_monomials[i];
             expr * m     = var2expr(v);
             if (!ctx.is_relevant(m))
                 continue;
@@ -705,7 +705,7 @@ namespace smt {
         unsigned n        = 0;
         numeral range;
         for (unsigned i = 0; i < m_nl_monomials.size(); i++) {
-            theory_var v = m_nl_monomials.size();
+            theory_var v = m_nl_monomials[i];
             if (is_real(v))
                 continue;
             bool computed_epsilon = false;
@@ -2337,7 +2337,7 @@ namespace smt {
         var_set             already_found;
         svector<theory_var> vars;
         for (unsigned i = 0; i < m_nl_monomials.size(); i++) {
-            theory_var v = m_nl_monomials.size();
+            theory_var v = m_nl_monomials[i];
             mark_var(v, vars, already_found);
             expr * n     = var2expr(v);
             SASSERT(is_pure_monomial(n));
