@@ -166,7 +166,8 @@ namespace sat {
             if (contains(v)) {
                 m_in_set[v] = false;
                 unsigned i = 0;
-                for (i = 0; i < m_set.size() && m_set[i] != v; ++i);
+                for (i = 0; i < m_set.size() && m_set[i] != v; ++i)
+                    ;
                 SASSERT(i < m_set.size());
                 m_set[i] = m_set.back();
                 m_set.pop_back();
