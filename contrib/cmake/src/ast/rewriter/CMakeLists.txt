@@ -12,6 +12,7 @@ z3_add_component(rewriter
     expr_replacer.cpp
     expr_safe_replace.cpp
     factor_rewriter.cpp
+    fd_rewriter.cpp
     fpa_rewriter.cpp
     label_rewriter.cpp
     mk_simplified_app.cpp

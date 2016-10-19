@@ -228,6 +228,7 @@ int main(int argc, char ** argv) {
     TST(pdr);
     TST_ARGV(ddnf);
     TST(model_evaluator);
+    TST(get_consequences);
     //TST_ARGV(hs);
 }
 

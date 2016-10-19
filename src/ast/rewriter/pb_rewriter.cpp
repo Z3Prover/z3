@@ -277,6 +277,7 @@ br_status pb_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
           tout << tmp << "\n";
           tout << result << "\n";
           );
+
     TRACE("pb_validate",
           validate_rewrite(f, num_args, args, result););
           

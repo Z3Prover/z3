@@ -71,7 +71,7 @@ void extension_model_converter::operator()(model_ref & md, unsigned goal_idx) {
 
 void extension_model_converter::insert(func_decl * v, expr * def) {
     m_vars.push_back(v);
-    m_defs.push_back(def);
+    m_defs.push_back(def);    
 }
 
 

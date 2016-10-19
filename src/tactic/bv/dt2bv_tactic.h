@@ -20,10 +20,11 @@ Revision History:
 #define DT2BV_TACTIC_H_
 
 #include"params.h"
+#include"obj_hashtable.h"
 class ast_manager;
 class tactic;
 
-tactic * mk_dt2bv_tactic(ast_manager & m, params_ref const & p = params_ref());
+tactic * mk_dt2bv_tactic(ast_manager & m, params_ref const & p = params_ref(), obj_map<func_decl, func_decl*>* tr = 0);
 
 /*
     ADD_TACTIC("dt2bv", "eliminate finite domain data-types. Replace by bit-vectors.", "mk_dt2bv_tactic(m, p)")

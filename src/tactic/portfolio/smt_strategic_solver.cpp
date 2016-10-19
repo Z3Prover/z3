@@ -38,6 +38,7 @@ Notes:
 #include"horn_tactic.h"
 #include"smt_solver.h"
 #include"inc_sat_solver.h"
+#include"fd_solver.h"
 #include"bv_rewriter.h"
 
 
@@ -98,6 +99,8 @@ static solver* mk_solver_for_logic(ast_manager & m, params_ref const & p, symbol
     bv_rewriter rw(m);
     if (logic == "QF_BV" && rw.hi_div0()) 
         return mk_inc_sat_solver(m, p);
+    if (logic == "QF_FD") 
+        return mk_fd_solver(m, p);
     return mk_smt_solver(m, p, logic);
 }
 
@@ -116,7 +119,6 @@ public:
         tactic * t = mk_tactic_for_logic(m, p, l);
         return mk_combined_solver(mk_tactic2solver(m, t, p, proofs_enabled, models_enabled, unsat_core_enabled, l),
                                   mk_solver_for_logic(m, p, l), 
-                                  //mk_smt_solver(m, p, l),
                                   p);
     }
 };
