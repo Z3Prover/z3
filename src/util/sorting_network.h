@@ -235,7 +235,7 @@ Notes:
 
         literal mk_at_most_1(bool full, unsigned n, literal const* xs) {
             literal_vector in(n, xs);
-            literal result = ctx.fresh();
+            literal result = fresh();
             unsigned inc_size = 4;
             while (!in.empty()) {
                 literal_vector ors;
@@ -260,7 +260,7 @@ Notes:
 
         void mk_at_most_1_small(bool full, bool last, unsigned n, literal const* xs, literal result, literal_vector& ors) {
             if (!last) {
-                literal ex = ctx.fresh();
+                literal ex = fresh();
                 for (unsigned j = 0; j < n; ++j) {
                     add_clause(ctx.mk_not(xs[j]), ex);
                 }

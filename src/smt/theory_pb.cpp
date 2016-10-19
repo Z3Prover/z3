@@ -1265,6 +1265,7 @@ namespace smt {
             }
         }
 
+        unsigned num_compiled_vars, num_compiled_clauses;
 
         if (ctx.get_assignment(thl) == l_true  && 
             ctx.get_assign_level(thl) == ctx.get_base_level()) {
@@ -1273,8 +1274,8 @@ namespace smt {
             sortnw.m_stats.reset();
             at_least_k = sortnw.ge(false, k, in.size(), in.c_ptr());            
             ctx.mk_clause(~thl, at_least_k, justify(~thl, at_least_k));
-            m_stats.m_num_compiled_vars += sortnw.m_stats.m_num_compiled_vars;
-            m_stats.m_num_compiled_clauses += sortnw.m_stats.m_num_compiled_clauses;
+            num_compiled_vars = sortnw.m_stats.m_num_compiled_vars;
+            num_compiled_clauses = sortnw.m_stats.m_num_compiled_clauses;
         }
         else {
             psort_expr ps(ctx, *this);
@@ -1283,12 +1284,16 @@ namespace smt {
             literal at_least_k = sortnw.ge(true, k, in.size(), in.c_ptr());
             ctx.mk_clause(~thl, at_least_k, justify(~thl, at_least_k));
             ctx.mk_clause(~at_least_k, thl, justify(thl, ~at_least_k));
-            m_stats.m_num_compiled_vars += sortnw.m_stats.m_num_compiled_vars;
-            m_stats.m_num_compiled_clauses += sortnw.m_stats.m_num_compiled_clauses;
+            num_compiled_vars = sortnw.m_stats.m_num_compiled_vars;
+            num_compiled_clauses = sortnw.m_stats.m_num_compiled_clauses;
         }
+        m_stats.m_num_compiled_vars += num_compiled_vars;
+        m_stats.m_num_compiled_clauses += num_compiled_clauses;
         IF_VERBOSE(1, verbose_stream() 
                    << "(smt.pb compile sorting network bound: " 
-                   << k << " literals: " << in.size() << ")\n";);
+                   << k << " literals: " << in.size() 
+                   << " clauses: " << num_compiled_clauses 
+                   << " vars: " << num_compiled_vars << ")\n";);
 
         TRACE("pb", tout << thl << "\n";);
         // auxiliary clauses get removed when popping scopes.
