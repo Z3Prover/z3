@@ -580,7 +580,7 @@ private:
     }
 
     void extract_model() {
-        TRACE("sat", tout << "retrieve model\n";);
+        TRACE("sat", tout << "retrieve model " << (m_solver.model_is_current()?"present":"absent") << "\n";);
         if (!m_solver.model_is_current()) {
             m_model = 0;
             return;

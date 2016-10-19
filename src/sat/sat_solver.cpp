@@ -3135,6 +3135,7 @@ namespace sat {
         if (is_sat != l_true) {
             return is_sat;
         }
+        model mdl = get_model();
         for (unsigned i = 0; i < vars.size(); ++i) {
             bool_var v = vars[i];
             switch (get_model()[v]) {
@@ -3143,7 +3144,9 @@ namespace sat {
             default: break;                
             }
         }
-        return get_consequences(asms, lits, conseq);
+        is_sat = get_consequences(asms, lits, conseq);
+        set_model(mdl);
+        return is_sat;
     }
 
     lbool solver::get_consequences(literal_vector const& asms, literal_vector const& lits, vector<literal_vector>& conseq) {
@@ -3164,13 +3167,11 @@ namespace sat {
         while (!unfixed.empty()) {
             checkpoint();
             literal_set::iterator it = unfixed.begin(), end = unfixed.end();
-            unsigned chunk_size = 100;
-            for (; it != end && chunk_size > 0; ++it) {
+            for (; it != end; ++it) {
                 literal lit = *it;
                 if (value(lit) != l_undef) {
                     continue;
                 }
-                --chunk_size;
                 push();
                 assign(~lit, justification());
                 propagate(false);

@@ -1,6 +1,7 @@
 z3_add_component(portfolio
   SOURCES
     default_tactic.cpp
+    fd_solver.cpp
     smt_strategic_solver.cpp
   COMPONENT_DEPENDENCIES
     aig_tactic
