@@ -589,10 +589,8 @@ namespace smt {
         m_dep_manager.reset();
         bool propagated = false;
         context & ctx = get_context();
-        svector<theory_var>::const_iterator it  = m_nl_monomials.begin();
-        svector<theory_var>::const_iterator end = m_nl_monomials.end();
-        for (; it != end; ++it) {
-            theory_var v = *it;
+        for (unsigned j = 0; j < m_nl_monomials.size(); ++j) {
+            theory_var v = m_nl_monomials[j];
             expr * m     = var2expr(v);
             if (!ctx.is_relevant(m))
                 continue;
@@ -706,10 +704,8 @@ namespace smt {
         bool bounded      = false;
         unsigned n        = 0;
         numeral range;
-        svector<theory_var>::const_iterator it  = m_nl_monomials.begin();
-        svector<theory_var>::const_iterator end = m_nl_monomials.end();
-        for (; it != end; ++it) {
-            theory_var v = *it;
+        for (unsigned j = 0; j < m_nl_monomials.size(); ++j) {
+            theory_var v = m_nl_monomials[j];
             if (is_real(v))
                 continue;
             bool computed_epsilon = false;
@@ -2340,10 +2336,8 @@ namespace smt {
     bool theory_arith<Ext>::max_min_nl_vars() {
         var_set             already_found;
         svector<theory_var> vars;
-        svector<theory_var>::const_iterator it  = m_nl_monomials.begin();
-        svector<theory_var>::const_iterator end = m_nl_monomials.end();
-        for (; it != end; ++it) {
-            theory_var v = *it;
+        for (unsigned j = 0; j < m_nl_monomials.size(); ++j) {
+            theory_var v = m_nl_monomials[j];
             mark_var(v, vars, already_found);
             expr * n     = var2expr(v);
             SASSERT(is_pure_monomial(n));
