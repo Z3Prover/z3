@@ -36,6 +36,7 @@ str_decl_plugin::str_decl_plugin():
     m_lastindexof_decl(0),
     m_substr_decl(0),
     m_replace_decl(0),
+	m_str2int_decl(0),
 	m_re_str2regex_decl(0),
 	m_re_regexin_decl(0),
 	m_re_regexconcat_decl(0),
@@ -67,6 +68,7 @@ void str_decl_plugin::finalize(void) {
     DEC_REF(m_lastindexof_decl);
     DEC_REF(m_substr_decl);
     DEC_REF(m_replace_decl);
+    DEC_REF(m_str2int_decl);
     DEC_REF(m_re_str2regex_decl);
     DEC_REF(m_re_regexin_decl);
     DEC_REF(m_re_regexconcat_decl);
@@ -145,6 +147,9 @@ void str_decl_plugin::set_manager(ast_manager * m, family_id id) {
         m_manager->inc_ref(m_replace_decl);
     }
 
+    m_str2int_decl = m->mk_func_decl(symbol("str.to-int"), s, i, func_decl_info(id, OP_STR_STR2INT));
+    m_manager->inc_ref(m_str2int_decl);
+
     m_re_str2regex_decl = m->mk_func_decl(symbol("Str2Reg"), s, re, func_decl_info(id, OP_RE_STR2REGEX));
     m_manager->inc_ref(m_re_str2regex_decl);
 
@@ -196,6 +201,7 @@ func_decl * str_decl_plugin::mk_func_decl(decl_kind k) {
     case OP_STR_LASTINDEXOF: return m_lastindexof_decl;
     case OP_STR_SUBSTR: return m_substr_decl;
     case OP_STR_REPLACE: return m_replace_decl;
+    case OP_STR_STR2INT: return m_str2int_decl;
     case OP_RE_STR2REGEX: return m_re_str2regex_decl;
     case OP_RE_REGEXIN: return m_re_regexin_decl;
     case OP_RE_REGEXCONCAT: return m_re_regexconcat_decl;
@@ -269,6 +275,7 @@ void str_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol cons
     op_names.push_back(builtin_name("LastIndexof", OP_STR_LASTINDEXOF));
     op_names.push_back(builtin_name("Substring", OP_STR_SUBSTR));
     op_names.push_back(builtin_name("Replace", OP_STR_REPLACE));
+    op_names.push_back(builtin_name("str.to-int", OP_STR_STR2INT));
     op_names.push_back(builtin_name("Str2Reg", OP_RE_STR2REGEX));
     op_names.push_back(builtin_name("RegexIn", OP_RE_REGEXIN));
     op_names.push_back(builtin_name("RegexConcat", OP_RE_REGEXCONCAT));

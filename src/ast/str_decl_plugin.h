@@ -41,6 +41,8 @@ enum str_op_kind {
     OP_STR_LASTINDEXOF,
     OP_STR_SUBSTR,
     OP_STR_REPLACE,
+	// string-integer conversion
+	OP_STR_STR2INT,
 	// regular expression operators
 	OP_RE_STR2REGEX,
 	OP_RE_REGEXIN,
@@ -73,6 +75,7 @@ protected:
     func_decl * m_lastindexof_decl;
     func_decl * m_substr_decl;
     func_decl * m_replace_decl;
+    func_decl * m_str2int_decl;
 
     func_decl * m_re_str2regex_decl;
     func_decl * m_re_regexin_decl;

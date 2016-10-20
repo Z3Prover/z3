@@ -25,6 +25,7 @@ Notes:
 #include<map>
 #include<set>
 #include<deque>
+#include<cctype>
 
 // Convert a regular expression to an e-NFA using Thompson's construction
 void nfa::convert_re(expr * e, unsigned & start, unsigned & end, str_util & m_strutil) {
@@ -374,6 +375,41 @@ br_status str_rewriter::mk_str_Replace(expr * base, expr * source, expr * target
     }
 }
 
+br_status str_rewriter::mk_str_to_int(expr * arg0, expr_ref & result) {
+	TRACE("t_str_rw", tout << "rewrite (str.to-int " << mk_pp(arg0, m()) << ")" << std::endl;);
+
+	if (m_strutil.is_string(arg0)) {
+		std::string str = m_strutil.get_string_constant_value(arg0);
+		if (str.length() == 0) {
+			result = m_autil.mk_numeral(rational::zero(), true);
+			return BR_DONE;
+		}
+
+		// interpret str as a natural number and rewrite to the corresponding integer.
+		// if this is not valid, rewrite to -1
+		// TODO leading zeroes?
+		rational convertedRepresentation(0);
+		rational ten(10);
+		for (unsigned i = 0; i < str.length(); ++i) {
+			char digit = str.at(i);
+			if (isdigit((int)digit)) {
+				std::string sDigit(1, digit);
+				int val = atoi(sDigit.c_str());
+				convertedRepresentation = (ten * convertedRepresentation) + rational(val);
+			} else {
+				// not a digit, invalid
+				TRACE("t_str_rw", tout << "str.to-int argument contains non-digit character '" << digit << "'" << std::endl;);
+				convertedRepresentation = rational::minus_one();
+				break;
+			}
+		}
+		result = m_autil.mk_numeral(convertedRepresentation, true);
+		return BR_DONE;
+	}
+	return BR_FAILED;
+
+}
+
 br_status str_rewriter::mk_str_Substr(expr * base, expr * start, expr * len, expr_ref & result) {
     TRACE("t_str_rw", tout << "rewrite (Substr " << mk_pp(base, m()) << " " << mk_pp(start, m()) << " " << mk_pp(len, m()) << ")" << std::endl;);
     rational startVal, lenVal;
@@ -520,6 +556,9 @@ br_status str_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_STR_REPLACE:
         SASSERT(num_args == 3);
         return mk_str_Replace(args[0], args[1], args[2], result);
+    case OP_STR_STR2INT:
+    	SASSERT(num_args == 1);
+    	return mk_str_to_int(args[0], result);
     case OP_STR_SUBSTR:
         SASSERT(num_args == 3);
         return mk_str_Substr(args[0], args[1], args[2], result);
