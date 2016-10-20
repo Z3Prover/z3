@@ -3200,6 +3200,19 @@ extern "C" {
     */
     Z3_ast Z3_API Z3_mk_str(Z3_context c, Z3_string str);
 
+    /**
+       \brief Create a string concatenation term.
+       def_API('Z3_mk_str_concat', AST, (_in(CONTEXT), _in(AST), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_str_concat(Z3_context c, Z3_ast s1, Z3_ast s2);
+
+    /**
+       \brief Create a string length term. (Integer representation)
+       def_API('Z3_mk_str_length', AST, (_in(CONTEXT), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_str_length(Z3_context c, Z3_ast s);
+
+
     /*@}*/
 
     /** @name Sequences and regular expressions */

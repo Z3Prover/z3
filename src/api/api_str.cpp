@@ -77,4 +77,7 @@ extern "C" {
 		Z3_CATCH_RETURN(0);
 	}
 
+	MK_BINARY(Z3_mk_str_concat, mk_c(c)->get_str_fid(), OP_STRCAT, SKIP);
+	MK_UNARY(Z3_mk_str_length, mk_c(c)->get_str_fid(), OP_STRLEN, SKIP);
+
 };
