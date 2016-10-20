@@ -3212,6 +3212,90 @@ extern "C" {
      */
     Z3_ast Z3_API Z3_mk_str_length(Z3_context c, Z3_ast s);
 
+    /**
+       \brief Create 'character at index' term.
+       def_API('Z3_mk_str_at', AST, (_in(CONTEXT), _in(AST), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_str_at(Z3_context c, Z3_ast s, Z3_ast idx);
+
+    /**
+	   \brief Create 'str.prefixof' term.
+	   def_API('Z3_mk_str_prefixof', AST, (_in(CONTEXT), _in(AST), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_str_prefixof(Z3_context c, Z3_ast pre, Z3_ast full);
+
+    /**
+	   \brief Create 'str.suffixof' term.
+	   def_API('Z3_mk_str_suffixof', AST, (_in(CONTEXT), _in(AST), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_str_suffixof(Z3_context c, Z3_ast suf, Z3_ast full);
+
+    /**
+	   \brief Create 'str.contains' term.
+	   def_API('Z3_mk_str_contains', AST, (_in(CONTEXT), _in(AST), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_str_contains(Z3_context c, Z3_ast needle, Z3_ast haystack);
+
+    /**
+	   \brief Create 'str.indexof' term.
+	   def_API('Z3_mk_str_indexof', AST, (_in(CONTEXT), _in(AST), _in(AST), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_str_indexof(Z3_context c, Z3_ast haystack, Z3_ast needle, Z3_ast start);
+
+    /**
+	   \brief Create 'str.substr' term.
+	   def_API('Z3_mk_str_substr', AST, (_in(CONTEXT), _in(AST), _in(AST), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_str_substr(Z3_context c, Z3_ast s, Z3_ast start, Z3_ast count);
+
+    /**
+	   \brief Create 'str.replace' term.
+	   def_API('Z3_mk_str_replace', AST, (_in(CONTEXT), _in(AST), _in(AST), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_str_replace(Z3_context c, Z3_ast base, Z3_ast target, Z3_ast replacement);
+
+
+    /**
+	   \brief Create a regular expression that matches the given string constant.
+	   def_API('Z3_mk_str_to_regex', AST, (_in(CONTEXT), _in(STRING)))
+     */
+    Z3_ast Z3_API Z3_mk_str_to_regex(Z3_context c, Z3_string str);
+
+    /**
+	   \brief Create a regular expression membership predicate.
+	   def_API('Z3_mk_str_in_regex', AST, (_in(CONTEXT), _in(AST), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_str_in_regex(Z3_context c, Z3_ast str, Z3_ast regex);
+
+    /**
+	   \brief Create a regex concatenation term.
+	   def_API('Z3_mk_regex_concat', AST, (_in(CONTEXT), _in(AST), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_regex_concat(Z3_context c, Z3_ast r1, Z3_ast r2);
+
+    /**
+	   \brief Create a regex union term.
+	   def_API('Z3_mk_regex_union', AST, (_in(CONTEXT), _in(AST), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_regex_union(Z3_context c, Z3_ast r1, Z3_ast r2);
+
+    /**
+	   \brief Create a regex Kleene star term.
+	   def_API('Z3_mk_regex_star', AST, (_in(CONTEXT), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_regex_star(Z3_context c, Z3_ast r);
+
+    /**
+	   \brief Create a regex plus term.
+	   def_API('Z3_mk_regex_plus', AST, (_in(CONTEXT), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_regex_plus(Z3_context c, Z3_ast r);
+
+    /**
+	   \brief Create a regex character range term.
+	   def_API('Z3_mk_regex_range', AST, (_in(CONTEXT), _in(STRING), _in(STRING)))
+     */
+    Z3_ast Z3_API Z3_mk_regex_range(Z3_context c, Z3_string start, Z3_string end);
 
     /*@}*/
 
