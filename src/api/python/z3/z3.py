@@ -8445,31 +8445,7 @@ class FPNumRef(FPRef):
     def isNegative(self):
         k = self.decl().kind()
         return (self.num_args() == 0 and (k == Z3_OP_FPA_MINUS_INF or k == Z3_OP_FPA_MINUS_ZERO)) or (self.sign() == True)
-
-    """
-    The sign of a floating-point numeral as a bit-vector expression
-
-    Remark: NaN's do not have a bit-vector sign, so they are invalid arguments.
-    """
-    def BVSign(self):
-        return BitVecNumRef(Z3_fpa_get_numeral_sign_bv(self.ctx.ref(), self.as_ast()), ctx)
     
-    """
-    The exponent of a floating-point numeral as a bit-vector expression
-
-    Remark: +oo, -oo and NaN's do not have a bit-vector exponent, so they are invalid arguments.
-    """
-    def BVExponent(self):
-        return BitVecNumRef(Z3_fpa_get_numeral_exponent_bv(self.ctx.ref(), self.as_ast()), ctx)
-
-    """
-    The sign of a floating-point numeral as a bit-vector expression
-
-    Remark: +oo, -oo and NaN's do not have a bit-vector significand, so they are invalid arguments.
-    """
-    def BVSignificand(self):
-        return BitVecNumRef(Z3_fpa_get_numeral_significand_bv(self.ctx.ref(), self.as_ast()), ctx)
-
     """
     The sign of the numeral.
 
@@ -8487,6 +8463,15 @@ class FPNumRef(FPRef):
         return l.value != 0
 
     """
+    The sign of a floating-point numeral as a bit-vector expression
+    
+    Remark: NaN's are invalid arguments.
+    """
+    def sign_as_bv(self):
+        return BitVecNumRef(Z3_fpa_get_numeral_sign_bv(self.ctx.ref(), self.as_ast()), self.ctx)
+
+
+    """
     The significand of the numeral.
 
     >>> x = FPNumRef(2.5, FPSort(8, 24))
@@ -8495,6 +8480,14 @@ class FPNumRef(FPRef):
     """
     def significand(self):
         return Z3_fpa_get_numeral_significand_string(self.ctx.ref(), self.as_ast())
+    
+    """
+    The significand of a floating-point numeral as a bit-vector expression
+
+    Remark: NaN are invalid arguments.
+    """
+    def significand_as_bv(self):
+        return BitVecNumRef(Z3_fpa_get_numeral_significand_bv(self.ctx.ref(), self.as_ast()), self.ctx)
 
     """
     The exponent of the numeral.
@@ -8503,8 +8496,8 @@ class FPNumRef(FPRef):
     >>> x.exponent()
     1
     """
-    def exponent(self):
-        return Z3_fpa_get_numeral_exponent_string(self.ctx.ref(), self.as_ast())
+    def exponent(self, biased=True):
+        return Z3_fpa_get_numeral_exponent_string(self.ctx.ref(), self.as_ast(), biased)
 
     """
     The exponent of the numeral as a long.
@@ -8513,11 +8506,20 @@ class FPNumRef(FPRef):
     >>> x.exponent_as_long()
     1
     """
-    def exponent_as_long(self):
+    def exponent_as_long(self, biased=True):
         ptr = (ctypes.c_longlong * 1)()
-        if not Z3_fpa_get_numeral_exponent_int64(self.ctx.ref(), self.as_ast(), ptr):
+        if not Z3_fpa_get_numeral_exponent_int64(self.ctx.ref(), self.as_ast(), ptr, biased):
             raise Z3Exception("error retrieving the exponent of a numeral.")
         return ptr[0]
+
+    """
+    The exponent of a floating-point numeral as a bit-vector expression
+
+    Remark: NaNs are invalid arguments.
+    """
+    def exponent_as_bv(self, biased=True):
+        return BitVecNumRef(Z3_fpa_get_numeral_exponent_bv(self.ctx.ref(), self.as_ast(), biased), self.ctx)
+
 
     """
     The string representation of the numeral.
@@ -8527,7 +8529,7 @@ class FPNumRef(FPRef):
     1.25*(2**4)
     """
     def as_string(self):
-        s = Z3_fpa_get_numeral_string(self.ctx.ref(), self.as_ast())
+        s = Z3_get_numeral_string(self.ctx.ref(), self.as_ast())
         return ("FPVal(%s, %s)" % (s, self.sort()))
 
 def is_fp(a):

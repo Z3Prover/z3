@@ -946,7 +946,7 @@ extern "C" {
         fpa_util & fu = mk_c(c)->fpautil();
         api::context * ctx = mk_c(c);
         expr * e = to_expr(t);
-        if (!is_app(e) || is_app_of(e, fid, OP_FPA_NAN) || !fu.is_fp(e)) {
+        if (!is_app(e) || is_app_of(e, fid, OP_FPA_NAN) || !is_fp(c, t)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             RETURN_Z3(0);
         }
@@ -956,49 +956,12 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return 0;
         }
+        std::cout << "val=" << mpfm.to_string(val) << std::endl;
         app * a;
         if (mpfm.is_pos(val))
             a = ctx->bvutil().mk_numeral(0, 1);
         else
             a = ctx->bvutil().mk_numeral(1, 1);
-        mk_c(c)->save_ast_trail(a);
-        RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
-    }
-
-    Z3_ast Z3_API Z3_fpa_get_numeral_exponent_bv(Z3_context c, Z3_ast t) {
-        Z3_TRY;
-        LOG_Z3_fpa_get_numeral_exponent_bv(c, t);
-        RESET_ERROR_CODE();
-        CHECK_NON_NULL(t, 0);
-        CHECK_VALID_AST(t, 0);
-        ast_manager & m = mk_c(c)->m();
-        mpf_manager & mpfm = mk_c(c)->fpautil().fm();
-        unsynch_mpq_manager & mpqm = mpfm.mpq_manager();
-        family_id fid = mk_c(c)->get_fpa_fid();
-        fpa_decl_plugin * plugin = (fpa_decl_plugin*)m.get_plugin(fid);
-        fpa_util & fu = mk_c(c)->fpautil();
-        expr * e = to_expr(t);
-        if (!is_app(e) || is_app_of(e, fid, OP_FPA_NAN) || !fu.is_fp(e)) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
-        }
-        scoped_mpf val(mpfm);
-        bool r = plugin->is_numeral(e, val);
-        if (!r || !(mpfm.is_normal(val) || mpfm.is_denormal(val) || mpfm.is_zero(val) || mpfm.is_inf(val))) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
-        }
-        unsigned ebits = val.get().get_ebits();
-        mpf_exp_t q = mpfm.exp(val);
-        mpf_exp_t q_biassed = mpfm.bias_exp(ebits, q);
-        app * a;
-        if (mpfm.is_inf(val))
-            a = mk_c(c)->bvutil().mk_numeral(-1, ebits);
-        else if (mpfm.is_zero(val) || mpfm.is_denormal(val))
-            a = mk_c(c)->bvutil().mk_numeral(0, ebits);
-        else
-            a = mk_c(c)->bvutil().mk_numeral(q_biassed, ebits);
         mk_c(c)->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
         Z3_CATCH_RETURN(0);
@@ -1018,7 +981,7 @@ extern "C" {
         SASSERT(plugin != 0);
         fpa_util & fu = mk_c(c)->fpautil();
         expr * e = to_expr(t);
-        if (!is_app(e) || is_app_of(e, fid, OP_FPA_NAN) || !fu.is_fp(e)) {
+        if (!is_app(e) || is_app_of(e, fid, OP_FPA_NAN) || !is_fp(c, t)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             RETURN_Z3(0);
         }
@@ -1106,9 +1069,9 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_string Z3_API Z3_fpa_get_numeral_exponent_string(Z3_context c, Z3_ast t) {
+    Z3_string Z3_API Z3_fpa_get_numeral_exponent_string(Z3_context c, Z3_ast t, Z3_bool biased) {
         Z3_TRY;
-        LOG_Z3_fpa_get_numeral_exponent_string(c, t);
+        LOG_Z3_fpa_get_numeral_exponent_string(c, t, biased);
         RESET_ERROR_CODE();
         ast_manager & m = mk_c(c)->m();
         mpf_manager & mpfm = mk_c(c)->fpautil().fm();
@@ -1127,19 +1090,21 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return "";
         }
+        unsigned ebits = val.get().get_ebits();
         mpf_exp_t exp = mpfm.is_zero(val) ? 0 :
-                        mpfm.is_denormal(val) ? mpfm.mk_min_exp(val.get().get_ebits()) :
-                        mpfm.is_inf(val) ? mpfm.mk_top_exp(val.get().get_ebits()) :
-                        mpfm.exp(val);
+                        mpfm.is_denormal(val) ? mpfm.mk_min_exp(ebits) :
+                        mpfm.is_inf(val) ? mpfm.mk_top_exp(ebits) :
+                        mpfm.bias_exp(ebits, mpfm.exp(val));
+        if (!biased) mpfm.unbias_exp(ebits, exp);
         std::stringstream ss;
         ss << exp;
         return mk_c(c)->mk_external_string(ss.str());
         Z3_CATCH_RETURN("");
     }
 
-    Z3_bool Z3_API Z3_fpa_get_numeral_exponent_int64(Z3_context c, Z3_ast t, __int64 * n) {
+    Z3_bool Z3_API Z3_fpa_get_numeral_exponent_int64(Z3_context c, Z3_ast t, __int64 * n, Z3_bool biased) {
         Z3_TRY;
-        LOG_Z3_fpa_get_numeral_exponent_int64(c, t, n);
+        LOG_Z3_fpa_get_numeral_exponent_int64(c, t, n, biased);
         RESET_ERROR_CODE();
         ast_manager & m = mk_c(c)->m();
         mpf_manager & mpfm = mk_c(c)->fpautil().fm();
@@ -1160,11 +1125,48 @@ extern "C" {
             *n = 0;
             return 0;
         }
+        unsigned ebits = val.get().get_ebits();
         *n = mpfm.is_zero(val) ? 0 :
-             mpfm.is_denormal(val) ? mpfm.mk_min_exp(val.get().get_ebits()) :
-             mpfm.is_inf(val) ? mpfm.mk_top_exp(val.get().get_ebits()) :
-             mpfm.exp(val);
+             mpfm.is_denormal(val) ? mpfm.mk_min_exp(ebits) :
+             mpfm.is_inf(val) ? mpfm.mk_top_exp(ebits) :
+             mpfm.bias_exp(ebits, mpfm.exp(val));
+        if (!biased) *n = mpfm.unbias_exp(ebits, *n);
         return 1;
+        Z3_CATCH_RETURN(0);
+    }
+
+    Z3_ast Z3_API Z3_fpa_get_numeral_exponent_bv(Z3_context c, Z3_ast t, Z3_bool biased) {
+        Z3_TRY;
+        LOG_Z3_fpa_get_numeral_exponent_bv(c, t, biased);
+        RESET_ERROR_CODE();
+        CHECK_NON_NULL(t, 0);
+        CHECK_VALID_AST(t, 0);
+        ast_manager & m = mk_c(c)->m();
+        mpf_manager & mpfm = mk_c(c)->fpautil().fm();
+        unsynch_mpq_manager & mpqm = mpfm.mpq_manager();
+        family_id fid = mk_c(c)->get_fpa_fid();
+        fpa_decl_plugin * plugin = (fpa_decl_plugin*)m.get_plugin(fid);
+        fpa_util & fu = mk_c(c)->fpautil();
+        expr * e = to_expr(t);
+        if (!is_app(e) || is_app_of(e, fid, OP_FPA_NAN) || !is_fp(c, t)) {
+            SET_ERROR_CODE(Z3_INVALID_ARG);
+            RETURN_Z3(0);
+        }
+        scoped_mpf val(mpfm);
+        bool r = plugin->is_numeral(e, val);
+        if (!r || !(mpfm.is_normal(val) || mpfm.is_denormal(val) || mpfm.is_zero(val) || mpfm.is_inf(val))) {
+            SET_ERROR_CODE(Z3_INVALID_ARG);
+            RETURN_Z3(0);
+        }
+        unsigned ebits = val.get().get_ebits();
+        mpf_exp_t exp = mpfm.is_zero(val) ? 0 :
+                        mpfm.is_denormal(val) ? mpfm.mk_min_exp(ebits) :
+                        mpfm.is_inf(val) ? mpfm.mk_top_exp(ebits) :
+                        mpfm.bias_exp(ebits, mpfm.exp(val));
+        if (!biased) exp = mpfm.unbias_exp(ebits, exp);
+        app * a = mk_c(c)->bvutil().mk_numeral(exp, ebits);
+        mk_c(c)->save_ast_trail(a);
+        RETURN_Z3(of_expr(a));
         Z3_CATCH_RETURN(0);
     }
 

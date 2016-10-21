@@ -33,39 +33,11 @@ namespace Microsoft.Z3
         /// <remarks>
         /// NaN's do not have a bit-vector sign, so they are invalid arguments.
         /// </remarks>
-        public BitVecExpr BVSign
+        public BitVecExpr SignBV
         {
             get
             {
                 return new BitVecExpr(Context, Native.Z3_fpa_get_numeral_sign_bv(Context.nCtx, NativeObject));
-            }
-        }
-
-        /// <summary>
-        /// The exponent of a floating-point numeral as a bit-vector expression
-        /// </summary>
-        /// <remarks>
-        /// +oo, -oo and NaN's do not have a bit-vector exponent, so they are invalid arguments.
-        /// </remarks>
-        public BitVecExpr BVExponent
-        {
-            get
-            {
-                return new BitVecExpr(Context, Native.Z3_fpa_get_numeral_exponent_bv(Context.nCtx, NativeObject));
-            }
-        }
-
-        /// <summary>
-        /// The significand of a floating-point numeral as a bit-vector expression
-        /// </summary>
-        /// <remarks>
-        /// +oo, -oo and NaN's do not have a bit-vector significand, so they are invalid arguments.
-        /// </remarks>
-        public BitVecExpr BVSignificand
-        {
-            get
-            {
-                return new BitVecExpr(Context, Native.Z3_fpa_get_numeral_significand_bv(Context.nCtx, NativeObject));
             }
         }
 
@@ -121,28 +93,47 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
-        /// Return the exponent value of a floating-point numeral as a string
+        /// The significand of a floating-point numeral as a bit-vector expression
         /// </summary>
-        public string Exponent
+        /// <remarks>
+        /// +oo, -oo and NaN's do not have a bit-vector significand, so they are invalid arguments.
+        /// </remarks>
+        public BitVecExpr SignificandBV
         {
             get
             {
-                return Native.Z3_fpa_get_numeral_exponent_string(Context.nCtx, NativeObject);
+                return new BitVecExpr(Context, Native.Z3_fpa_get_numeral_significand_bv(Context.nCtx, NativeObject));
             }
+        }
+
+        /// <summary>
+        /// Return the (biased) exponent value of a floating-point numeral as a string
+        /// </summary>
+        public string Exponent(bool biased = true)
+        {
+            return Native.Z3_fpa_get_numeral_exponent_string(Context.nCtx, NativeObject, biased ? 1 : 0);
         }
 
         /// <summary>
         /// Return the exponent value of a floating-point numeral as a signed 64-bit integer
         /// </summary>
-        public Int64 ExponentInt64
+        public Int64 ExponentInt64(bool biased = true)
         {
-            get
-            {
-                Int64 result = 0;
-                if (Native.Z3_fpa_get_numeral_exponent_int64(Context.nCtx, NativeObject, ref result) == 0)
-                    throw new Z3Exception("Exponent is not a 64 bit integer");
-                return result;
-            }
+            Int64 result = 0;
+            if (Native.Z3_fpa_get_numeral_exponent_int64(Context.nCtx, NativeObject, ref result, biased ? 1 : 0) == 0)
+                throw new Z3Exception("Exponent is not a 64 bit integer");
+            return result;
+        }
+
+        /// <summary>
+        /// The exponent of a floating-point numeral as a bit-vector expression
+        /// </summary>
+        /// <remarks>
+        /// +oo, -oo and NaN's do not have a bit-vector exponent, so they are invalid arguments.
+        /// </remarks>
+        public BitVecExpr ExponentBV(bool biased = true)
+        {
+            return new BitVecExpr(Context, Native.Z3_fpa_get_numeral_exponent_bv(Context.nCtx, NativeObject, biased ? 1 : 0));
         }
 
         #region Internal

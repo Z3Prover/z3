@@ -20,34 +20,7 @@ package com.microsoft.z3;
  * FloatingPoint Numerals
  */
 public class FPNum extends FPExpr
-{
-    /**
-     * The sign of a floating-point numeral as a bit-vector expression
-     * Remarks: NaN's do not have a bit-vector sign, so they are invalid arguments.
-     * @throws Z3Exception 
-     */
-    public BitVecExpr getBVSign() {
-        return new BitVecExpr(getContext(), Native.fpaGetNumeralSignBv(getContext().nCtx(), getNativeObject()));
-    }
-
-    /**
-     * The exponent of a floating-point numeral as a bit-vector expression
-     * Remarks:  +oo, -oo, and NaN's do not have a bit-vector exponent, so they are invalid arguments.
-     * @throws Z3Exception 
-     */
-    public BitVecExpr getBVExponent() {
-        return new BitVecExpr(getContext(), Native.fpaGetNumeralExponentBv(getContext().nCtx(), getNativeObject()));
-    }
-
-    /**
-     * The significand of a floating-point numeral as a bit-vector expression
-     * Remarks: +oo, -oo, and NaN's do not have a bit-vector significand, so they are invalid arguments.
-     * @throws Z3Exception 
-     */
-    public BitVecExpr getBVSignificand() {
-        return new BitVecExpr(getContext(), Native.fpaGetNumeralSignificandBv(getContext().nCtx(), getNativeObject()));
-    }
-    
+{    
     /**
      * Retrieves the sign of a floating-point literal     
      * Remarks: returns true if the numeral is negative 
@@ -58,6 +31,15 @@ public class FPNum extends FPExpr
         if (!Native.fpaGetNumeralSign(getContext().nCtx(), getNativeObject(), res))
             throw new Z3Exception("Sign is not a Boolean value");
         return res.value != 0;
+    }
+
+    /**
+     * The sign of a floating-point numeral as a bit-vector expression
+     * Remarks: NaN's do not have a bit-vector sign, so they are invalid arguments.
+     * @throws Z3Exception 
+     */
+    public BitVecExpr getSignBV() {
+        return new BitVecExpr(getContext(), Native.fpaGetNumeralSignBv(getContext().nCtx(), getNativeObject()));
     }
 
     /**
@@ -84,24 +66,44 @@ public class FPNum extends FPExpr
             throw new Z3Exception("Significand is not a 64 bit unsigned integer");
         return res.value;
     }
+
+    /**
+     * The significand of a floating-point numeral as a bit-vector expression
+     * Remarks: NaN is an invalid argument.
+     * @throws Z3Exception 
+     */
+    public BitVecExpr getSignificandBV() {
+        return new BitVecExpr(getContext(), Native.fpaGetNumeralSignificandBv(getContext().nCtx(), getNativeObject()));
+    }
     
     /**
      * Return the exponent value of a floating-point numeral as a string
+     * Remarks: NaN is an invalid argument.
      * @throws Z3Exception 
      */
-    public String getExponent() {
-        return Native.fpaGetNumeralExponentString(getContext().nCtx(), getNativeObject());
+    public String getExponent(boolean biased) {
+        return Native.fpaGetNumeralExponentString(getContext().nCtx(), getNativeObject(), biased);
     }
 
     /**
      * Return the exponent value of a floating-point numeral as a signed 64-bit integer
+     * Remarks: NaN is an invalid argument.
      * @throws Z3Exception 
      */
-    public long getExponentInt64()  {
+    public long getExponentInt64(boolean biased)  {
         Native.LongPtr res = new Native.LongPtr();
-        if (!Native.fpaGetNumeralExponentInt64(getContext().nCtx(), getNativeObject(), res))
+        if (!Native.fpaGetNumeralExponentInt64(getContext().nCtx(), getNativeObject(), res, biased))
             throw new Z3Exception("Exponent is not a 64 bit integer");
         return res.value;
+    }
+
+    /**
+     * The exponent of a floating-point numeral as a bit-vector expression
+     * Remarks: NaN is an invalid argument.
+     * @throws Z3Exception 
+     */
+    public BitVecExpr getExponentBV(boolean biased) {
+        return new BitVecExpr(getContext(), Native.fpaGetNumeralExponentBv(getContext().nCtx(), getNativeObject(), biased));
     }
     
     public FPNum(Context ctx, long obj)
