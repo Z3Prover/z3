@@ -40,9 +40,9 @@ namespace sat {
     typedef unsigned bool_var;
 
     typedef svector<bool_var> bool_var_vector;
-    
+
     const bool_var null_bool_var  = UINT_MAX >> 1;
-    
+
     /**
        \brief The literal b is represented by the value 2*b, and
        the literal (not b) by the value 2*b + 1
@@ -54,33 +54,33 @@ namespace sat {
         literal():m_val(null_bool_var << 1) {
             SASSERT(var() == null_bool_var && !sign());
         }
-        
+
         literal(bool_var v, bool _sign):
             m_val((v << 1) + static_cast<unsigned>(_sign)) {
             SASSERT(var() == v);
             SASSERT(sign() == _sign);
         }
-        
-        bool_var var() const { 
-            return m_val >> 1; 
+
+        bool_var var() const {
+            return m_val >> 1;
         }
-        
+
         bool sign() const {
-            return m_val & 1; 
+            return m_val & 1;
         }
 
         literal unsign() const {
             return literal(m_val & ~1);
         }
-         
+
         unsigned index() const {
             return m_val;
         }
-        
+
         void neg() {
             m_val = m_val ^ 1;
         }
-        
+
         friend literal operator~(literal l) {
             return literal(l.m_val ^ 1);
         }
@@ -116,7 +116,7 @@ namespace sat {
     typedef approx_set_tpl<literal, literal2unsigned, unsigned> literal_approx_set;
 
     typedef approx_set_tpl<bool_var, u2u, unsigned> var_approx_set;
-   
+
     enum phase {
         POS_PHASE, NEG_PHASE, PHASE_NOT_AVAILABLE
     };
@@ -128,7 +128,7 @@ namespace sat {
     typedef ptr_vector<clause> clause_vector;
 
     class solver_exception : public default_exception {
-    public:                                                
+    public:
         solver_exception(char const * msg):default_exception(msg) {}
     };
 
@@ -138,7 +138,7 @@ namespace sat {
 
     inline lbool value_at(bool_var v, model const & m) { return m[v]; }
     inline lbool value_at(literal l, model const & m) { lbool r = value_at(l.var(), m); return l.sign() ? ~r : r; }
-    
+
     inline std::ostream & operator<<(std::ostream & out, model const & m) {
         bool first = true;
         for (bool_var v = 0; v < m.size(); v++) {
@@ -154,19 +154,20 @@ namespace sat {
         svector<unsigned>    m_set;
     public:
         typedef svector<unsigned>::const_iterator iterator;
-        void insert(unsigned v) { 
+        void insert(unsigned v) {
             m_in_set.reserve(v+1, false);
-            if (m_in_set[v]) 
-                return; 
-            m_in_set[v] = true; 
-            m_set.push_back(v); 
+            if (m_in_set[v])
+                return;
+            m_in_set[v] = true;
+            m_set.push_back(v);
         }
 
         void remove(unsigned v) {
             if (contains(v)) {
                 m_in_set[v] = false;
                 unsigned i = 0;
-                for (i = 0; i < m_set.size() && m_set[i] != v; ++i);
+                for (i = 0; i < m_set.size() && m_set[i] != v; ++i)
+                    ;
                 SASSERT(i < m_set.size());
                 m_set[i] = m_set.back();
                 m_set.pop_back();
@@ -178,22 +179,22 @@ namespace sat {
             m_set = other.m_set;
             return *this;
         }
-        
-        bool contains(unsigned v) const { 
-            return v < m_in_set.size() && m_in_set[v] != 0; 
+
+        bool contains(unsigned v) const {
+            return v < m_in_set.size() && m_in_set[v] != 0;
         }
-        
-        bool empty() const { 
-            return m_set.empty(); 
+
+        bool empty() const {
+            return m_set.empty();
         }
 
         // erase some variable from the set
-        unsigned erase() { 
-            SASSERT(!empty()); 
-            unsigned v = m_set.back(); 
-            m_set.pop_back(); 
-            m_in_set[v] = false; 
-            return v; 
+        unsigned erase() {
+            SASSERT(!empty());
+            unsigned v = m_set.back();
+            m_set.pop_back();
+            m_in_set[v] = false;
+            return v;
         }
         unsigned size() const { return m_set.size(); }
         iterator begin() const { return m_set.begin(); }
@@ -280,10 +281,10 @@ namespace sat {
             return *this;
         }
     };
-    
+
     struct mem_stat {
     };
-    
+
     inline std::ostream & operator<<(std::ostream & out, mem_stat const & m) {
         double mem = static_cast<double>(memory::get_allocation_size())/static_cast<double>(1024*1024);
         out << " :memory " << std::fixed << std::setprecision(2) << mem;

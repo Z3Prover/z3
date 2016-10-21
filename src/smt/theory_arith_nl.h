@@ -589,8 +589,8 @@ namespace smt {
         m_dep_manager.reset();
         bool propagated = false;
         context & ctx = get_context();
-        for (unsigned j = 0; j < m_nl_monomials.size(); ++j) {
-            theory_var v = m_nl_monomials[j];
+        for (unsigned i = 0; i < m_nl_monomials.size(); i++) {
+            theory_var v = m_nl_monomials[i];
             expr * m     = var2expr(v);
             if (!ctx.is_relevant(m))
                 continue;
