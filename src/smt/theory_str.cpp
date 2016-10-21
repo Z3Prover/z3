@@ -55,6 +55,7 @@ theory_str::theory_str(ast_manager & m):
 		avoidLoopCut(true),
 		loopDetected(false),
 		contains_map(m),
+		string_int_conversion_terms(m),
 		m_find(*this),
 		m_trail_stack(*this)
 {
@@ -821,7 +822,7 @@ bool theory_str::can_propagate() {
             || !m_axiom_CharAt_todo.empty() || !m_axiom_StartsWith_todo.empty() || !m_axiom_EndsWith_todo.empty()
             || !m_axiom_Contains_todo.empty() || !m_axiom_Indexof_todo.empty() || !m_axiom_Indexof2_todo.empty() || !m_axiom_LastIndexof_todo.empty()
             || !m_axiom_Substr_todo.empty() || !m_axiom_Replace_todo.empty()
-			|| !m_axiom_RegexIn_todo.empty()
+			|| !m_axiom_RegexIn_todo.empty() || !m_library_aware_axiom_todo.empty()
 			|| !m_delayed_axiom_setup_terms.empty();
             ;
 }
@@ -903,6 +904,17 @@ void theory_str::propagate() {
         	instantiate_axiom_RegexIn(m_axiom_RegexIn_todo[i]);
         }
         m_axiom_RegexIn_todo.reset();
+
+        for (unsigned i = 0; i < m_library_aware_axiom_todo.size(); ++i) {
+        	enode * e = m_library_aware_axiom_todo[i];
+        	if (is_str_to_int(e)) {
+        		instantiate_axiom_str_to_int(e);
+        	} else {
+        		TRACE("t_str", tout << "BUG: unhandled library-aware term " << mk_pp(e->get_owner(), get_manager()) << std::endl;);
+        		NOT_IMPLEMENTED_YET();
+        	}
+        }
+        m_library_aware_axiom_todo.reset();
 
         for (unsigned i = 0; i < m_delayed_axiom_setup_terms.size(); ++i) {
             // I think this is okay
@@ -1561,6 +1573,53 @@ void theory_str::instantiate_axiom_Replace(enode * e) {
     expr_ref finalAxiom(m.mk_and(breakdownAssert, reduceToResult), m);
     SASSERT(finalAxiom);
     assert_axiom(finalAxiom);
+}
+
+void theory_str::instantiate_axiom_str_to_int(enode * e) {
+	context & ctx = get_context();
+	ast_manager & m = get_manager();
+
+	app * ex = e->get_owner();
+	if (axiomatized_terms.contains(ex)) {
+		TRACE("t_str_detail", tout << "already set up str.to-int axiom for " << mk_pp(ex, m) << std::endl;);
+		return;
+	}
+	axiomatized_terms.insert(ex);
+
+	TRACE("t_str_detail", tout << "instantiate str.to-int axiom for " << mk_pp(ex, m) << std::endl;);
+
+	// let expr = (str.to-int S)
+	// axiom 1: expr >= -1
+	// axiom 2: expr = 0 <==> S = "0"
+	// axiom 3: expr >= 1 ==> len(S) > 0 AND S[0] != "0"
+
+	expr * S = ex->get_arg(0);
+	{
+		expr_ref axiom1(m_autil.mk_ge(ex, m_autil.mk_numeral(rational::minus_one(), true)), m);
+		SASSERT(axiom1);
+		assert_axiom(axiom1);
+	}
+
+	{
+		expr_ref lhs(ctx.mk_eq_atom(ex, m_autil.mk_numeral(rational::zero(), true)), m);
+		expr_ref rhs(ctx.mk_eq_atom(S, m_strutil.mk_string("0")), m);
+		expr_ref axiom2(ctx.mk_eq_atom(lhs, rhs), m);
+		SASSERT(axiom2);
+		assert_axiom(axiom2);
+	}
+
+	{
+		expr_ref premise(m_autil.mk_ge(ex, m_autil.mk_numeral(rational::one(), true)), m);
+		expr_ref hd(mk_str_var("hd"), m);
+		expr_ref tl(mk_str_var("tl"), m);
+		expr_ref conclusion1(ctx.mk_eq_atom(S, mk_concat(hd, tl)), m);
+		expr_ref conclusion2(ctx.mk_eq_atom(mk_strlen(hd), m_autil.mk_numeral(rational::one(), true)), m);
+		expr_ref conclusion3(m.mk_not(ctx.mk_eq_atom(hd, m_strutil.mk_string("0"))), m);
+		expr_ref conclusion(m.mk_and(conclusion1, conclusion2, conclusion3), m);
+		SASSERT(premise);
+		SASSERT(conclusion);
+		assert_implication(premise, conclusion);
+	}
 }
 
 expr * theory_str::mk_RegexIn(expr * str, expr * regexp) {
@@ -6438,6 +6497,9 @@ void theory_str::set_up_axioms(expr * ex) {
                 m_axiom_Indexof2_todo.push_back(n);
             } else if (is_LastIndexof(ap)) {
                 m_axiom_LastIndexof_todo.push_back(n);
+            } else if (is_str_to_int(ap)) {
+            	string_int_conversion_terms.push_back(ap);
+            	m_library_aware_axiom_todo.push_back(n);
             }
         }
     } else {
@@ -7570,6 +7632,42 @@ int theory_str::ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr
 	return 0;
 }
 
+// Check agreement between integer and string theories for the term a = (str.to-int S).
+// Returns true if axioms were added, and false otherwise.
+bool theory_str::finalcheck_str2int(app * a) {
+	bool axiomAdd = false;
+	context & ctx = get_context();
+	ast_manager & m = get_manager();
+
+	expr * S = a->get_arg(0);
+
+	// check integer theory
+	rational Ival;
+	bool Ival_exists = get_value(a, Ival);
+	if (Ival_exists) {
+		TRACE("t_str_detail", tout << "integer theory assigns " << mk_pp(a, m) << " = " << Ival.to_string() << std::endl;);
+		// if that value is not -1, we can assert (str.to-int S) = Ival --> S = "Ival"
+		if (!Ival.is_minus_one()) {
+			std::string Ival_str = Ival.to_string();
+			expr_ref premise(ctx.mk_eq_atom(a, m_autil.mk_numeral(Ival, true)), m);
+			expr_ref conclusion(ctx.mk_eq_atom(S, m_strutil.mk_string(Ival_str)), m);
+			expr_ref axiom(m.mk_or(m.mk_not(premise), conclusion), m);
+			if (!string_int_axioms.contains(axiom)) {
+				string_int_axioms.insert(axiom);
+				assert_axiom(axiom);
+				m_trail_stack.push(insert_obj_trail<theory_str, expr>(string_int_axioms, axiom));
+				axiomAdd = true;
+			}
+		}
+	} else {
+		TRACE("t_str_detail", tout << "integer theory has no assignment for " << mk_pp(a, m) << std::endl;);
+		NOT_IMPLEMENTED_YET();
+	}
+	// TODO also check assignment in string theory
+
+	return axiomAdd;
+}
+
 final_check_status theory_str::final_check_eh() {
     context & ctx = get_context();
     ast_manager & m = get_manager();
@@ -7671,6 +7769,26 @@ final_check_status theory_str::final_check_eh() {
     }
 
     if (!needToAssignFreeVars) {
+
+    	// check string-int terms
+    	bool addedStrIntAxioms = false;
+    	for (unsigned i = 0; i < string_int_conversion_terms.size(); ++i) {
+    		app * ex = to_app(string_int_conversion_terms[i].get());
+    		if (is_str_to_int(ex)) {
+    			bool axiomAdd = finalcheck_str2int(ex);
+    			if (axiomAdd) {
+    				addedStrIntAxioms = true;
+    			}
+    		} else {
+    			// TODO int.to-str
+    			NOT_IMPLEMENTED_YET();
+    		}
+    	}
+    	if (addedStrIntAxioms) {
+    		TRACE("t_str", tout << "Resuming search due to addition of string-integer conversion axioms." << std::endl;);
+    		return FC_CONTINUE;
+    	}
+
         if (unused_internal_variables.empty()) {
             TRACE("t_str", tout << "All variables are assigned. Done!" << std::endl;);
             return FC_DONE;

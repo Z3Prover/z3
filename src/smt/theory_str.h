@@ -201,6 +201,9 @@ namespace smt {
         ptr_vector<enode> m_axiom_Replace_todo;
         ptr_vector<enode> m_axiom_RegexIn_todo;
 
+        // TODO refactor everything to use this worklist
+        ptr_vector<enode> m_library_aware_axiom_todo;
+
         // hashtable of all exprs for which we've already set up term-specific axioms --
         // this prevents infinite recursive descent with respect to axioms that
         // include an occurrence of the term for which axioms are being generated
@@ -259,6 +262,10 @@ namespace smt {
         int charSetSize;
 
         obj_pair_map<expr, expr, expr*> concat_astNode_map;
+
+        // all (str.to-int) and (int.to-str) terms
+        expr_ref_vector string_int_conversion_terms;
+        obj_hashtable<expr> string_int_axioms;
 
         th_union_find m_find;
         th_trail_stack m_trail_stack;
@@ -320,6 +327,8 @@ namespace smt {
         bool is_Substr(enode const * n) const { return is_Substr(n->get_owner()); }
         bool is_Replace(app const * a) const { return a->is_app_of(get_id(), OP_STR_REPLACE); }
         bool is_Replace(enode const * n) const { return is_Replace(n->get_owner()); }
+        bool is_str_to_int(app const * a) const { return a->is_app_of(get_id(), OP_STR_STR2INT); }
+		bool is_str_to_int(enode const * n) const { return is_str_to_int(n->get_owner()); }
 
         bool is_RegexIn(app const * a) const { return a->is_app_of(get_id(), OP_RE_REGEXIN); }
         bool is_RegexIn(enode const * n) const { return is_RegexIn(n->get_owner()); }
@@ -348,6 +357,7 @@ namespace smt {
         void instantiate_axiom_LastIndexof(enode * e);
         void instantiate_axiom_Substr(enode * e);
         void instantiate_axiom_Replace(enode * e);
+        void instantiate_axiom_str_to_int(enode * e);
 
         expr * mk_RegexIn(expr * str, expr * regexp);
         void instantiate_axiom_RegexIn(enode * e);
@@ -468,6 +478,8 @@ namespace smt {
         void get_concats_in_eqc(expr * n, std::set<expr*> & concats);
         void get_const_str_asts_in_node(expr * node, expr_ref_vector & constList);
         expr * eval_concat(expr * n1, expr * n2);
+
+        bool finalcheck_str2int(app * a);
 
         // strRegex
 
