@@ -6796,6 +6796,15 @@ class Optimize(Z3PPObject):
         """Parse assertions and objectives from a string"""
         Z3_optimize_from_string(self.ctx.ref(), self.optimize, s)
 
+    def assertions(self):
+        """Return an AST vector containing all added constraints."""
+        return AstVector(Z3_optimize_get_assertions(self.ctx.ref(), self.optimize), self.ctx)
+
+    def objectives(self):
+        """returns set of objective functions"""
+        num = Z3_optimize_get_num_objectives(self.ctx.ref(), self.optimize)
+        return [_to_expr_ref(Z3_optimize_get_objective(self.ctx.ref(), self.optimize, i), self.ctx) for i in range(num)]
+
     def __repr__(self):
         """Return a formatted string with all added rules and constraints."""
         return self.sexpr()

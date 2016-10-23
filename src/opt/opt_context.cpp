@@ -181,6 +181,43 @@ namespace opt {
         clear_state();
     }
 
+    void context::get_hard_constraints(expr_ref_vector& hard) {
+        hard.append(m_scoped_state.m_hard);
+    }
+
+    expr_ref context::get_objective(unsigned i) {
+        SASSERT(i < num_objectives());
+        objective const& o = m_scoped_state.m_objectives[i];
+        expr_ref result(m), zero(m);
+        expr_ref_vector args(m);
+        switch (o.m_type) {
+        case O_MAXSMT:
+            zero = m_arith.mk_numeral(rational(0), false);
+            for (unsigned i = 0; i < o.m_terms.size(); ++i) {
+                args.push_back(m.mk_ite(o.m_terms[i], zero, m_arith.mk_numeral(o.m_weights[i], false)));
+            }
+            result = m_arith.mk_add(args.size(), args.c_ptr());
+            break;
+        case O_MAXIMIZE:
+            result = o.m_term;
+            if (m_arith.is_arith_expr(result)) {
+                result = m_arith.mk_uminus(result);
+            }
+            else if (m_bv.is_bv(result)) {
+                result = m_bv.mk_bv_neg(result);
+            }
+            else {
+                UNREACHABLE();
+            }
+            break;
+        case O_MINIMIZE:
+            result = o.m_term;
+            break;
+        }
+        return result;
+    }
+
+
     unsigned context::add_soft_constraint(expr* f, rational const& w, symbol const& id) { 
         clear_state();
         return m_scoped_state.add(f, w, id);
@@ -1328,14 +1365,21 @@ namespace opt {
     }
 
     std::string context::to_string() const {
+        return to_string(m_scoped_state.m_hard, m_scoped_state.m_objectives);
+    }
+
+    std::string context::to_string_internal() const {
+        return to_string(m_hard_constraints, m_objectives);
+    }
+
+    std::string context::to_string(expr_ref_vector const& hard, vector<objective> const& objectives) const {
         smt2_pp_environment_dbg env(m);
         ast_pp_util visitor(m);
         std::ostringstream out;
-#define PP(_e_) ast_smt2_pp(out, _e_, env);
-        visitor.collect(m_scoped_state.m_hard);
+        visitor.collect(hard);
                 
-        for (unsigned i = 0; i < m_scoped_state.m_objectives.size(); ++i) {
-            objective const& obj = m_scoped_state.m_objectives[i];
+        for (unsigned i = 0; i < objectives.size(); ++i) {
+            objective const& obj = objectives[i];
             switch(obj.m_type) {
             case O_MAXIMIZE: 
             case O_MINIMIZE:
@@ -1351,33 +1395,34 @@ namespace opt {
         }
 
         visitor.display_decls(out);
-        visitor.display_asserts(out, m_scoped_state.m_hard, m_pp_neat);
-        for (unsigned i = 0; i < m_scoped_state.m_objectives.size(); ++i) {
-            objective const& obj = m_scoped_state.m_objectives[i];
+        visitor.display_asserts(out, hard, m_pp_neat);
+        for (unsigned i = 0; i < objectives.size(); ++i) {
+            objective const& obj = objectives[i];
             switch(obj.m_type) {
             case O_MAXIMIZE: 
                 out << "(maximize ";
-                PP(obj.m_term);
+                ast_smt2_pp(out, obj.m_term, env);
                 out << ")\n";
                 break;
             case O_MINIMIZE:
                 out << "(minimize ";
-                PP(obj.m_term);
+                ast_smt2_pp(out, obj.m_term, env);
                 out << ")\n";
                 break;
             case O_MAXSMT: 
                 for (unsigned j = 0; j < obj.m_terms.size(); ++j) {
                     out << "(assert-soft ";
-                    PP(obj.m_terms[j]);
+                    ast_smt2_pp(out, obj.m_terms[j], env);
                     rational w = obj.m_weights[j];
-                    if (w.is_int()) {
-                        out << " :weight " << w;
-                    }
-                    else {
-                        out << " :dweight " << w;
-                    }
+                    
+                    w.display_decimal(out << " :weight ", 3, true);
                     if (obj.m_id != symbol::null) {
-                        out << " :id " << obj.m_id;
+                        if (is_smt2_quoted_symbol(obj.m_id)) {
+                            out << " :id " << mk_smt2_quoted_symbol(obj.m_id);
+                        }
+                        else {
+                            out << " :id " << obj.m_id;
+                        }
                     }
                     out << ")\n";
                 }

@@ -265,7 +265,7 @@ public:
 
     void display_smt2(std::ostream & out, mpq const & a, bool decimal) const;
 
-    void display_decimal(std::ostream & out, mpq const & a, unsigned prec);
+    void display_decimal(std::ostream & out, mpq const & a, unsigned prec, bool truncate = false);
 
     void add(mpz const & a, mpz const & b, mpz & c) { mpz_manager<SYNCH>::add(a, b, c); }
     

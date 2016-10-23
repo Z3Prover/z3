@@ -321,7 +321,8 @@ namespace smt {
                 if (m_simplex.upper_valid(v)) {
                     m_simplex.get_upper(v, last_bound);
                     if (m_mpq_inf_mgr.gt(bound, last_bound)) {
-                        literal lit = m_explain_upper.get(v, null_literal);
+                        literal lit = m_explain_upper.get(v, null_literal);                        
+                        TRACE("pb", tout << ~lit << " " << ~explain << "\n";);
                         get_context().mk_clause(~lit, ~explain, justify(~lit, ~explain));
                         return false;
                     }
@@ -342,6 +343,7 @@ namespace smt {
                     m_simplex.get_lower(v, last_bound);
                     if (m_mpq_inf_mgr.gt(last_bound, bound)) {
                         literal lit = m_explain_lower.get(v, null_literal);
+                        TRACE("pb", tout << ~lit << " " << ~explain << "\n";);
                         get_context().mk_clause(~lit, ~explain, justify(~lit, ~explain));
                         return false;
                     }
@@ -405,6 +407,7 @@ namespace smt {
         if (proofs_enabled()) {                                         
             js = alloc(theory_lemma_justification, get_id(), ctx, lits.size(), lits.c_ptr());
         }
+        TRACE("pb", tout << lits << "\n";);
         ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
 
         return false;
@@ -515,11 +518,10 @@ namespace smt {
                 ++log;
                 n *= 2;
             }
-            unsigned th = args.size()*log; // 10*
+            unsigned th = args.size()*log; 
             c->m_compilation_threshold = th;
-            IF_VERBOSE(2, verbose_stream() << "(smt.pb setting compilation threhshold to " << th << ")\n";);
+            IF_VERBOSE(2, verbose_stream() << "(smt.pb setting compilation threshold to " << th << " " << c->k() << ")\n";);
             TRACE("pb", tout << "compilation threshold: " << th << "\n";);
-            //compile_ineq(*c);
         }
         else {
             c->m_compilation_threshold = UINT_MAX;
@@ -1247,9 +1249,9 @@ namespace smt {
         literal_vector in;
         for (unsigned i = 0; i < num_args; ++i) {
             rational n = c.coeff(i);
-            lbool val = ctx.get_assignment(c.lit()); 
-            if (val != l_undef  && 
-                ctx.get_assign_level(thl) == ctx.get_base_level()) {
+            literal lit = c.lit(i);
+            lbool val = ctx.get_assignment(lit); 
+            if (val != l_undef  && ctx.get_assign_level(lit) == ctx.get_base_level()) {
                 if (val == l_true) {
                     unsigned m = n.get_unsigned();
                     if (k < m) {
@@ -1264,6 +1266,8 @@ namespace smt {
                 n -= rational::one();
             }
         }
+        
+        TRACE("pb", tout << in << " >= " << k << "\n";);
 
 
         if (ctx.get_assignment(thl) == l_true  && 
@@ -1272,6 +1276,7 @@ namespace smt {
             psort_nw<psort_expr> sortnw(ps);
             sortnw.m_stats.reset();
             at_least_k = sortnw.ge(false, k, in.size(), in.c_ptr());            
+            TRACE("pb", tout << ~thl << " " << at_least_k << "\n";);
             ctx.mk_clause(~thl, at_least_k, justify(~thl, at_least_k));
             m_stats.m_num_compiled_vars += sortnw.m_stats.m_num_compiled_vars;
             m_stats.m_num_compiled_clauses += sortnw.m_stats.m_num_compiled_clauses;
@@ -1281,6 +1286,7 @@ namespace smt {
             psort_nw<psort_expr> sortnw(ps);
             sortnw.m_stats.reset();
             literal at_least_k = sortnw.ge(true, k, in.size(), in.c_ptr());
+            TRACE("pb", tout << ~thl << " " << at_least_k << "\n";);
             ctx.mk_clause(~thl, at_least_k, justify(~thl, at_least_k));
             ctx.mk_clause(~at_least_k, thl, justify(thl, ~at_least_k));
             m_stats.m_num_compiled_vars += sortnw.m_stats.m_num_compiled_vars;
@@ -1290,7 +1296,6 @@ namespace smt {
                    << "(smt.pb compile sorting network bound: " 
                    << k << " literals: " << in.size() << ")\n";);
 
-        TRACE("pb", tout << thl << "\n";);
         // auxiliary clauses get removed when popping scopes.
         // we have to recompile the circuit after back-tracking.
         c.m_compiled = l_false;
@@ -1300,7 +1305,6 @@ namespace smt {
 
 
     void theory_pb::init_search_eh() {
-        m_to_compile.reset();
     }
 
     void theory_pb::push_scope_eh() {
@@ -1329,6 +1333,7 @@ namespace smt {
                     m_ineq_rep.erase(r_info.m_rep);
                 }
             }
+            m_to_compile.erase(c);
             dealloc(c);
         }
         m_ineqs_lim.resize(new_lim);
@@ -1454,6 +1459,7 @@ namespace smt {
         if (proofs_enabled()) {                                         
             js = alloc(theory_lemma_justification, get_id(), ctx, lits.size(), lits.c_ptr());
         }
+        TRACE("pb", tout << lits << "\n";);
         ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
     }
 
@@ -1760,6 +1766,7 @@ namespace smt {
             for (unsigned i = 0; i < m_ineq_literals.size(); ++i) {
                 m_ineq_literals[i].neg();
             }
+            TRACE("pb", tout << m_ineq_literals << "\n";);
             ctx.mk_clause(m_ineq_literals.size(), m_ineq_literals.c_ptr(), justify(m_ineq_literals), CLS_AUX_LEMMA, 0);
             break;
         default: {

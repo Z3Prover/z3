@@ -5832,7 +5832,7 @@ extern "C" {
     void Z3_API Z3_solver_assert_and_track(Z3_context c, Z3_solver s, Z3_ast a, Z3_ast p);
 
     /**
-       \brief Return the set of asserted formulas as a goal object.
+       \brief Return the set of asserted formulas on the solver.
 
        def_API('Z3_solver_get_assertions', AST_VECTOR, (_in(CONTEXT), _in(SOLVER)))
     */

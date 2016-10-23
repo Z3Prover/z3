@@ -1281,7 +1281,7 @@ namespace smt {
        The deletion event handler is ignored if binary clause optimization is applicable.
     */
     clause * context::mk_clause(unsigned num_lits, literal * lits, justification * j, clause_kind k, clause_del_eh * del_eh) {
-        TRACE("mk_clause", tout << "creating clause:\n"; display_literals(tout, num_lits, lits); tout << "\n";);
+        TRACE("mk_clause", tout << "creating clause:\n"; display_literals_verbose(tout, num_lits, lits); tout << "\n";);
         switch (k) {
         case CLS_AUX: {
             literal_buffer simp_lits;
