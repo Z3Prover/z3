@@ -6802,8 +6802,7 @@ class Optimize(Z3PPObject):
 
     def objectives(self):
         """returns set of objective functions"""
-        num = Z3_optimize_get_num_objectives(self.ctx.ref(), self.optimize)
-        return [_to_expr_ref(Z3_optimize_get_objective(self.ctx.ref(), self.optimize, i), self.ctx) for i in range(num)]
+        return AstVector(Z3_optimize_get_objectives(self.ctx.ref(), self.optimize), self.ctx)
 
     def __repr__(self):
         """Return a formatted string with all added rules and constraints."""

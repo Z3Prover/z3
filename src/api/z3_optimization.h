@@ -249,21 +249,16 @@ extern "C" {
     Z3_ast_vector Z3_API Z3_optimize_get_assertions(Z3_context c, Z3_optimize o);
 
     /**
-       \brief Return number of objectives on the optimization context.
-
-       def_API('Z3_optimize_get_num_objectives', UINT, (_in(CONTEXT), _in(OPTIMIZE)))
-    */
-    unsigned Z3_API Z3_optimize_get_num_objectives(Z3_context c, Z3_optimize o);
-    
-    /**
-       \brief Return i'th objective function. If the objective function is a max-sat objective it is returned
+       \brief Return objectives on the optimization context.
+       If the objective function is a max-sat objective it is returned
        as a Pseudo-Boolean (minimization) sum of the form (+ (if f1 w1 0) (if f2 w2 0) ...)       
        If the objective function is entered as a maximization objective, then return the corresponding minimizaiton
        objective. In this way the resulting objective function is always returned as a minimization objective.
-       
-       def_API('Z3_optimize_get_objective', AST, (_in(CONTEXT), _in(OPTIMIZE), _in(UINT)))
+
+       def_API('Z3_optimize_get_objectives', AST_VECTOR, (_in(CONTEXT), _in(OPTIMIZE)))
     */
-    Z3_ast Z3_API Z3_optimize_get_objective(Z3_context c, Z3_optimize o, unsigned index);
+    Z3_ast_vector Z3_API Z3_optimize_get_objectives(Z3_context c, Z3_optimize o);
+    
         
 
     /*@}*/

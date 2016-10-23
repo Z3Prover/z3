@@ -311,19 +311,18 @@ extern "C" {
         RETURN_Z3(of_ast_vector(v));
         Z3_CATCH_RETURN(0);        
     }
-
-    unsigned Z3_API Z3_optimize_get_num_objectives(Z3_context c, Z3_optimize o) {
-        RESET_ERROR_CODE();
-        return to_optimize_ptr(o)->num_objectives();
-    }
     
-    Z3_ast Z3_API Z3_optimize_get_objective(Z3_context c, Z3_optimize o, unsigned index) {
+    Z3_ast_vector Z3_API Z3_optimize_get_objectives(Z3_context c, Z3_optimize o) {
         Z3_TRY;
-        LOG_Z3_optimize_get_objective(c, o, index);
+        LOG_Z3_optimize_get_objectives(c, o);
         RESET_ERROR_CODE();
-        expr_ref result = to_optimize_ptr(o)->get_objective(index);
-        mk_c(c)->save_ast_trail(result);
-        RETURN_Z3(of_expr(result));
+        unsigned n = to_optimize_ptr(o)->num_objectives();
+        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
+        mk_c(c)->save_object(v);
+        for (unsigned i = 0; i < n; i++) {
+            v->m_ast_vector.push_back(to_optimize_ptr(o)->get_objective(i));
+        }
+        RETURN_Z3(of_ast_vector(v));
         Z3_CATCH_RETURN(0);
     }
 

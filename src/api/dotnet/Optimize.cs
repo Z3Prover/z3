@@ -290,6 +290,33 @@ namespace Microsoft.Z3
             Native.Z3_optimize_from_string(Context.nCtx, NativeObject, s);
         }
 
+        /// <summary>
+        /// The set of asserted formulas.
+        /// </summary>
+        public BoolExpr[] Assertions
+        {
+            get
+            {
+                Contract.Ensures(Contract.Result<BoolExpr[]>() != null);
+
+                ASTVector assertions = new ASTVector(Context, Native.Z3_optimize_get_assertions(Context.nCtx, NativeObject));
+                return assertions.ToBoolExprArray();
+            }
+        }
+
+        /// <summary>
+        /// The set of asserted formulas.
+        /// </summary>
+        public Expr[] Objectives
+        {
+            get
+            {
+                Contract.Ensures(Contract.Result<Expr[]>() != null);
+
+                ASTVector objectives = new ASTVector(Context, Native.Z3_optimize_get_objectives(Context.nCtx, NativeObject));
+                return objectives.ToExprArray();
+            }
+        }
 
 
         /// <summary>
