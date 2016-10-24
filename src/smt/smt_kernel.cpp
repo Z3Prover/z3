@@ -222,6 +222,12 @@ namespace smt {
         m_imp->assert_expr(e);
     }
 
+    void kernel::assert_expr(expr_ref_vector const& es) {
+        for (unsigned i = 0; i < es.size(); ++i) {
+            m_imp->assert_expr(es[i]);
+        }
+    }
+
     void kernel::assert_expr(expr * e, proof * pr) {
         m_imp->assert_expr(e, pr);
     }

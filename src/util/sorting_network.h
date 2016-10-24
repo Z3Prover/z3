@@ -226,7 +226,12 @@ Notes:
                 m_t = EQ;
                 card(k+1, n, xs, out);
                 SASSERT(out.size() >= k+1);
-                return ctx.mk_min(out[k-1], ctx.mk_not(out[k]));
+                if (k == 0) {
+                    return ctx.mk_not(out[k]);
+                }
+                else {
+                    return ctx.mk_min(out[k-1], ctx.mk_not(out[k]));
+                }
             }
         }
 

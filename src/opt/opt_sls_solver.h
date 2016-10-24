@@ -90,19 +90,6 @@ namespace opt {
         virtual void get_labels(svector<symbol> & r) {
             m_solver->get_labels(r);
         }
-        virtual void set_cancel(bool f) {
-            m_solver->set_cancel(f);
-            m_pb2bv.set_cancel(f);
-            #pragma omp critical (sls_solver)
-            {
-                if (m_bvsls) {
-                    m_bvsls->set_cancel(f);
-                }
-                if (m_pbsls) {
-                    m_pbsls->set_cancel(f);
-                }
-            }
-        }
         virtual void set_progress_callback(progress_callback * callback) {
             m_solver->set_progress_callback(callback);
         }
@@ -203,14 +190,11 @@ namespace opt {
         }
 
         void pbsls_opt(model_ref& mdl) {
-            #pragma omp critical (sls_solver)
-            {
-                if (m_pbsls) {
-                    m_pbsls->reset();
-                }
-                else {
-                    m_pbsls = alloc(smt::pb_sls, m);
-                }
+            if (m_pbsls) {
+                m_pbsls->reset();
+            }
+            else {
+                m_pbsls = alloc(smt::pb_sls, m);
             }
             m_pbsls->set_model(mdl);
             m_pbsls->updt_params(m_params);
@@ -226,10 +210,7 @@ namespace opt {
         }
 
         void bvsls_opt(model_ref& mdl) {
-            #pragma omp critical (sls_solver)
-            {
-                m_bvsls = alloc(bvsls_opt_engine, m, m_params);
-            }
+            m_bvsls = alloc(bvsls_opt_engine, m, m_params);            
             assertions2sls();
             expr_ref objective = soft2bv(m_soft, m_weights);
             TRACE("opt", tout << objective << "\n";);

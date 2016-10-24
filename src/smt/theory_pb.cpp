@@ -1270,28 +1270,25 @@ namespace smt {
         TRACE("pb", tout << in << " >= " << k << "\n";);
 
 
+        psort_expr ps(ctx, *this);
+        psort_nw<psort_expr> sortnw(ps);
+        sortnw.m_stats.reset();
+
         if (ctx.get_assignment(thl) == l_true  && 
             ctx.get_assign_level(thl) == ctx.get_base_level()) {
-            psort_expr ps(ctx, *this);
-            psort_nw<psort_expr> sortnw(ps);
-            sortnw.m_stats.reset();
             at_least_k = sortnw.ge(false, k, in.size(), in.c_ptr());            
             TRACE("pb", tout << ~thl << " " << at_least_k << "\n";);
             ctx.mk_clause(~thl, at_least_k, justify(~thl, at_least_k));
-            m_stats.m_num_compiled_vars += sortnw.m_stats.m_num_compiled_vars;
-            m_stats.m_num_compiled_clauses += sortnw.m_stats.m_num_compiled_clauses;
         }
         else {
-            psort_expr ps(ctx, *this);
-            psort_nw<psort_expr> sortnw(ps);
-            sortnw.m_stats.reset();
             literal at_least_k = sortnw.ge(true, k, in.size(), in.c_ptr());
             TRACE("pb", tout << ~thl << " " << at_least_k << "\n";);
             ctx.mk_clause(~thl, at_least_k, justify(~thl, at_least_k));
             ctx.mk_clause(~at_least_k, thl, justify(thl, ~at_least_k));
-            m_stats.m_num_compiled_vars += sortnw.m_stats.m_num_compiled_vars;
-            m_stats.m_num_compiled_clauses += sortnw.m_stats.m_num_compiled_clauses;
         }
+        m_stats.m_num_compiled_vars += sortnw.m_stats.m_num_compiled_vars;
+        m_stats.m_num_compiled_clauses += sortnw.m_stats.m_num_compiled_clauses;
+
         IF_VERBOSE(1, verbose_stream() 
                    << "(smt.pb compile sorting network bound: " 
                    << k << " literals: " << in.size() << ")\n";);

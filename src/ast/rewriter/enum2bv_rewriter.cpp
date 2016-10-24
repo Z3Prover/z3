@@ -3,7 +3,7 @@ Copyright (c) 2016 Microsoft Corporation
 
 Module Name:
 
-    fd_rewriter.cpp
+    enum2bv_rewriter.cpp
 
 Abstract:
 
@@ -19,11 +19,11 @@ Notes:
 
 #include"rewriter.h"
 #include"rewriter_def.h"
-#include"fd_rewriter.h"
+#include"enum2bv_rewriter.h"
 #include"ast_util.h"
 #include"ast_pp.h"
 
-struct fd_rewriter::imp {
+struct enum2bv_rewriter::imp {
     ast_manager&              m;
     params_ref                m_params;
     obj_map<func_decl, func_decl*> m_enum2bv;
@@ -258,6 +258,7 @@ struct fd_rewriter::imp {
             m_enum_defs.resize(lim);
             m_enum_bvs.resize(lim);
         }
+        m_rw.reset();
     }
 
     void flush_side_constraints(expr_ref_vector& side_constraints) { 
@@ -275,18 +276,18 @@ struct fd_rewriter::imp {
 };
 
 
-fd_rewriter::fd_rewriter(ast_manager & m, params_ref const& p) {  m_imp = alloc(imp, m, p); }
-fd_rewriter::~fd_rewriter() { dealloc(m_imp); }
-void fd_rewriter::updt_params(params_ref const & p) { m_imp->updt_params(p); }
-ast_manager & fd_rewriter::m() const { return m_imp->m; }
-unsigned fd_rewriter::get_num_steps() const { return m_imp->get_num_steps(); }
-void fd_rewriter::cleanup() { ast_manager& mgr = m(); params_ref p = m_imp->m_params; dealloc(m_imp); m_imp = alloc(imp, mgr, p);  }
-obj_map<func_decl, func_decl*> const& fd_rewriter::enum2bv() const { return m_imp->m_enum2bv; }
-obj_map<func_decl, func_decl*> const& fd_rewriter::bv2enum() const { return m_imp->m_bv2enum; }
-obj_map<func_decl, expr*> const& fd_rewriter::enum2def() const { return m_imp->m_enum2def; }
-void fd_rewriter::operator()(expr * e, expr_ref & result, proof_ref & result_proof) { (*m_imp)(e, result, result_proof); }
-void fd_rewriter::push() { m_imp->push(); }
-void fd_rewriter::pop(unsigned num_scopes) { m_imp->pop(num_scopes); }
-void fd_rewriter::flush_side_constraints(expr_ref_vector& side_constraints) { m_imp->flush_side_constraints(side_constraints); } 
-unsigned fd_rewriter::num_translated() const { return m_imp->m_num_translated; }
-void fd_rewriter::set_is_fd(i_sort_pred* sp) const { m_imp->set_is_fd(sp); }
+enum2bv_rewriter::enum2bv_rewriter(ast_manager & m, params_ref const& p) {  m_imp = alloc(imp, m, p); }
+enum2bv_rewriter::~enum2bv_rewriter() { dealloc(m_imp); }
+void enum2bv_rewriter::updt_params(params_ref const & p) { m_imp->updt_params(p); }
+ast_manager & enum2bv_rewriter::m() const { return m_imp->m; }
+unsigned enum2bv_rewriter::get_num_steps() const { return m_imp->get_num_steps(); }
+void enum2bv_rewriter::cleanup() { ast_manager& mgr = m(); params_ref p = m_imp->m_params; dealloc(m_imp); m_imp = alloc(imp, mgr, p);  }
+obj_map<func_decl, func_decl*> const& enum2bv_rewriter::enum2bv() const { return m_imp->m_enum2bv; }
+obj_map<func_decl, func_decl*> const& enum2bv_rewriter::bv2enum() const { return m_imp->m_bv2enum; }
+obj_map<func_decl, expr*> const& enum2bv_rewriter::enum2def() const { return m_imp->m_enum2def; }
+void enum2bv_rewriter::operator()(expr * e, expr_ref & result, proof_ref & result_proof) { (*m_imp)(e, result, result_proof); }
+void enum2bv_rewriter::push() { m_imp->push(); }
+void enum2bv_rewriter::pop(unsigned num_scopes) { m_imp->pop(num_scopes); }
+void enum2bv_rewriter::flush_side_constraints(expr_ref_vector& side_constraints) { m_imp->flush_side_constraints(side_constraints); } 
+unsigned enum2bv_rewriter::num_translated() const { return m_imp->m_num_translated; }
+void enum2bv_rewriter::set_is_fd(i_sort_pred* sp) const { m_imp->set_is_fd(sp); }

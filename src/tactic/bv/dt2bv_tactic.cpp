@@ -29,7 +29,7 @@ Revision History:
 #include "extension_model_converter.h"
 #include "var_subst.h"
 #include "ast_util.h"
-#include "fd_rewriter.h"
+#include "enum2bv_rewriter.h"
 
 
 class dt2bv_tactic : public tactic {
@@ -132,7 +132,7 @@ public:
         if (!m_fd_sorts.empty()) {
             ref<extension_model_converter> ext = alloc(extension_model_converter, m);
             ref<filter_model_converter> filter = alloc(filter_model_converter, m);
-            fd_rewriter rw(m, m_params);
+            enum2bv_rewriter rw(m, m_params);
             rw.set_is_fd(&m_is_fd);            
             expr_ref   new_curr(m);
             proof_ref  new_pr(m);

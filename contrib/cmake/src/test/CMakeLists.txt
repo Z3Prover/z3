@@ -78,6 +78,7 @@ add_executable(test-z3
   old_interval.cpp
   optional.cpp
   parray.cpp
+  pb2bv.cpp
   pdr.cpp
   permutation.cpp
   polynomial.cpp

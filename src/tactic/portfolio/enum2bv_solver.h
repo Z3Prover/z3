@@ -1,0 +1,29 @@
+/*++
+Copyright (c) 2016 Microsoft Corporation
+
+Module Name:
+
+    enum2bv_solver.h
+
+Abstract:
+
+    Finite domain solver.
+
+Author:
+
+    Nikolaj Bjorner (nbjorner) 2016-10-17
+
+Notes:
+   
+--*/
+#ifndef ENUM2BV_SOLVER_H_
+#define ENUM2BV_SOLVER_H_
+
+#include"ast.h"
+#include"params.h"
+
+class solver;
+
+solver * mk_enum2bv_solver(ast_manager & m, params_ref const & p, solver* s);
+
+#endif

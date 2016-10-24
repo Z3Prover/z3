@@ -547,6 +547,7 @@ bool cmd_context::logic_has_arith_core(symbol const & s) const {
         s == "QF_BVFP" ||
         s == "QF_S" ||
         s == "ALL" ||
+        s == "QF_FD" || 
         s == "HORN";
 }
 
