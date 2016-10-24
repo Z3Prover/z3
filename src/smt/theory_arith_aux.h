@@ -1709,7 +1709,7 @@ namespace smt {
             SASSERT(!maintain_integrality || valid_assignment());
             SASSERT(satisfy_bounds());
         }
-        TRACE("opt", display(tout););
+        TRACE("opt_verbose", display(tout););
         return (best_efforts>0 || ctx.get_cancel_flag())?BEST_EFFORT:result;
     }
 

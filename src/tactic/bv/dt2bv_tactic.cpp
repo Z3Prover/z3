@@ -29,7 +29,7 @@ Revision History:
 #include "extension_model_converter.h"
 #include "var_subst.h"
 #include "ast_util.h"
-#include "fd_rewriter.h"
+#include "enum2bv_rewriter.h"
 
 
 class dt2bv_tactic : public tactic {
@@ -40,7 +40,6 @@ class dt2bv_tactic : public tactic {
     bv_util       m_bv;
     obj_hashtable<sort> m_fd_sorts;
     obj_hashtable<sort> m_non_fd_sorts;
-    obj_map<func_decl, func_decl*>*     m_translate;
     
 
     bool is_fd(expr* a) { return is_fd(get_sort(a)); }
@@ -99,11 +98,11 @@ class dt2bv_tactic : public tactic {
     sort_pred m_is_fd;
 public:
 
-    dt2bv_tactic(ast_manager& m, params_ref const& p, obj_map<func_decl, func_decl*>* tr): 
-        m(m), m_params(p), m_dt(m), m_bv(m), m_translate(tr), m_is_fd(*this) {}
+    dt2bv_tactic(ast_manager& m, params_ref const& p): 
+        m(m), m_params(p), m_dt(m), m_bv(m), m_is_fd(*this) {}
     
     virtual tactic * translate(ast_manager & m) {
-        return alloc(dt2bv_tactic, m, m_params, 0);
+        return alloc(dt2bv_tactic, m, m_params);
     }
 
     virtual void updt_params(params_ref const & p) {
@@ -133,7 +132,7 @@ public:
         if (!m_fd_sorts.empty()) {
             ref<extension_model_converter> ext = alloc(extension_model_converter, m);
             ref<filter_model_converter> filter = alloc(filter_model_converter, m);
-            fd_rewriter rw(m, m_params);
+            enum2bv_rewriter rw(m, m_params);
             rw.set_is_fd(&m_is_fd);            
             expr_ref   new_curr(m);
             proof_ref  new_pr(m);
@@ -154,9 +153,6 @@ public:
                 obj_map<func_decl, func_decl*>::iterator it = rw.enum2bv().begin(), end = rw.enum2bv().end();
                 for (; it != end; ++it) {
                     filter->insert(it->m_value);
-                    if (m_translate) {
-                        m_translate->insert(it->m_key, it->m_value);
-                    }
                 }
             }
             {
@@ -182,6 +178,6 @@ public:
 
 };
 
-tactic * mk_dt2bv_tactic(ast_manager & m, params_ref const & p, obj_map<func_decl, func_decl*>* tr) {
-    return alloc(dt2bv_tactic, m, p, tr);
+tactic * mk_dt2bv_tactic(ast_manager & m, params_ref const & p) {
+    return alloc(dt2bv_tactic, m, p);
 }

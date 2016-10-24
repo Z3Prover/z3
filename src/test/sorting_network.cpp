@@ -332,31 +332,106 @@ void test_sorting5(unsigned n, unsigned k) {
     test_sorting_ge(n, k);
 }
 
-void test_at_most_1(unsigned n) {
+expr_ref naive_at_most1(expr_ref_vector const& xs) {
+    ast_manager& m = xs.get_manager();
+    expr_ref_vector clauses(m);
+    for (unsigned i = 0; i < xs.size(); ++i) {
+        for (unsigned j = i + 1; j < xs.size(); ++j) {
+            clauses.push_back(m.mk_not(m.mk_and(xs[i], xs[j])));
+        }
+    }
+    return mk_and(clauses);
+}
+
+void test_at_most_1(unsigned n, bool full) {
     ast_manager m;
     reg_decl_plugins(m);
     expr_ref_vector in(m), out(m);
     for (unsigned i = 0; i < n; ++i) {
         in.push_back(m.mk_fresh_const("a",m.mk_bool_sort()));
     }
-
     
     ast_ext2 ext(m);
     psort_nw<ast_ext2> sn(ext);
+    expr_ref result1(m), result2(m);    
+    result1 = sn.le(full, 1, in.size(), in.c_ptr());
+    result2 = naive_at_most1(in);
+
+    std::cout << "clauses: " << ext.m_clauses << "\n-----\n";
+
+    smt_params fp;
+    smt::kernel solver(m, fp);
+    for (unsigned i = 0; i < ext.m_clauses.size(); ++i) {
+        solver.assert_expr(ext.m_clauses[i].get());
+    }
+    lbool res;
+    if (full) {
+        solver.push();
+        solver.assert_expr(m.mk_not(m.mk_eq(result1, result2)));
+        
+        std::cout << result1 << "\n";
+        
+        res = solver.check();
+        SASSERT(res == l_false);
+    
+        solver.pop(1);
+    }
+
+    if (n >= 9) return;
+    for (unsigned i = 0; i < static_cast<unsigned>(1 << n); ++i) {
+        std::cout << "checking: " << n << ": " << i << "\n";
+        solver.push();
+        unsigned k = 0;
+        for (unsigned j = 0; j < n; ++j) {
+            bool is_true = (i & (1 << j)) != 0;
+            expr_ref atom(m);
+            atom = is_true ? in[j].get() : m.mk_not(in[j].get());
+            solver.assert_expr(atom);
+            std::cout << atom << "\n";
+            if (is_true) ++k;
+        }
+        res = solver.check();
+        SASSERT(res == l_true);
+        if (k > 1) {
+            solver.assert_expr(result1);
+        }
+        else if (!full) {
+            solver.pop(1);
+            continue;
+        }
+        else {
+            solver.assert_expr(m.mk_not(result1));
+        }
+        res = solver.check();
+        SASSERT(res == l_false);
+        solver.pop(1);
+    }
+}
+
+
+static void test_at_most1() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    expr_ref_vector in(m), out(m);
+    for (unsigned i = 0; i < 5; ++i) {
+        in.push_back(m.mk_fresh_const("a",m.mk_bool_sort()));
+    }
+    in[4] = in[3];
+
+    ast_ext2 ext(m);
+    psort_nw<ast_ext2> sn(ext);
     expr_ref result(m);
-    result = sn.le(false, 1, in.size(), in.c_ptr());
+    result = sn.le(true, 1, in.size(), in.c_ptr());
     std::cout << result << "\n";
     std::cout << ext.m_clauses << "\n";
 }
 
 void tst_sorting_network() {
-    test_at_most_1(1);
-    test_at_most_1(2);
-    test_at_most_1(3);
-    test_at_most_1(4);
-    test_at_most_1(5);
-    test_at_most_1(10);
-    return;
+    for (unsigned i = 1; i < 17; ++i) {
+        test_at_most_1(i, true);
+        test_at_most_1(i, false);
+    }
+    test_at_most1();
 
     test_sorting_eq(11,7);
     for (unsigned n = 3; n < 20; n += 2) {

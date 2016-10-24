@@ -27,6 +27,7 @@ Revision History:
 #include"cancel_eh.h"
 #include"scoped_timer.h"
 #include"smt2parser.h"
+#include"api_ast_vector.h"
 
 extern "C" {
 
@@ -295,6 +296,35 @@ extern "C" {
         Z3_CATCH;
     }
 
+
+    Z3_ast_vector Z3_API Z3_optimize_get_assertions(Z3_context c, Z3_optimize o) {
+        Z3_TRY;
+        LOG_Z3_optimize_get_assertions(c, o);
+        RESET_ERROR_CODE();
+        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
+        mk_c(c)->save_object(v);
+        expr_ref_vector hard(mk_c(c)->m());
+        to_optimize_ptr(o)->get_hard_constraints(hard);
+        for (unsigned i = 0; i < hard.size(); i++) {
+            v->m_ast_vector.push_back(hard[i].get());
+        }
+        RETURN_Z3(of_ast_vector(v));
+        Z3_CATCH_RETURN(0);        
+    }
+    
+    Z3_ast_vector Z3_API Z3_optimize_get_objectives(Z3_context c, Z3_optimize o) {
+        Z3_TRY;
+        LOG_Z3_optimize_get_objectives(c, o);
+        RESET_ERROR_CODE();
+        unsigned n = to_optimize_ptr(o)->num_objectives();
+        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
+        mk_c(c)->save_object(v);
+        for (unsigned i = 0; i < n; i++) {
+            v->m_ast_vector.push_back(to_optimize_ptr(o)->get_objective(i));
+        }
+        RETURN_Z3(of_ast_vector(v));
+        Z3_CATCH_RETURN(0);
+    }
 
 
 

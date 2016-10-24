@@ -6796,6 +6796,14 @@ class Optimize(Z3PPObject):
         """Parse assertions and objectives from a string"""
         Z3_optimize_from_string(self.ctx.ref(), self.optimize, s)
 
+    def assertions(self):
+        """Return an AST vector containing all added constraints."""
+        return AstVector(Z3_optimize_get_assertions(self.ctx.ref(), self.optimize), self.ctx)
+
+    def objectives(self):
+        """returns set of objective functions"""
+        return AstVector(Z3_optimize_get_objectives(self.ctx.ref(), self.optimize), self.ctx)
+
     def __repr__(self):
         """Return a formatted string with all added rules and constraints."""
         return self.sexpr()
@@ -8496,7 +8504,7 @@ class FPNumRef(FPRef):
     """
     def as_string(self):
         s = Z3_fpa_get_numeral_string(self.ctx.ref(), self.as_ast())
-        return ("FPVal(%s, %s)" % (s, FPSortRef(self.sort()).as_string()))
+        return ("FPVal(%s, %s)" % (s, self.sort()))
 
 def is_fp(a):
     """Return `True` if `a` is a Z3 floating-point expression.
@@ -8536,7 +8544,7 @@ def FPSort(ebits, sbits, ctx=None):
     >>> eq(x, FP('x', FPSort(8, 24)))
     True
     """
-    ctx = z3._get_ctx(ctx)
+    ctx = _get_ctx(ctx)
     return FPSortRef(Z3_mk_fpa_sort(ctx.ref(), ebits, sbits), ctx)
 
 def _to_float_str(val, exp=0):
@@ -8722,7 +8730,7 @@ def FPs(names, fpsort, ctx=None):
     >>> fpMul(RNE(), fpAdd(RNE(), x, y), z)
     fpMul(RNE(), fpAdd(RNE(), x, y), z)
     """
-    ctx = z3._get_ctx(ctx)
+    ctx = _get_ctx(ctx)
     if isinstance(names, str):
         names = names.split(" ")
     return [FP(name, fpsort, ctx) for name in names]

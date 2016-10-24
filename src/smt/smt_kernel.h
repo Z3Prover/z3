@@ -70,7 +70,8 @@ namespace smt {
            This method uses the "asserted" proof as a justification for e.
         */
         void assert_expr(expr * e);
-        
+
+        void assert_expr(expr_ref_vector const& es);
         /**
            \brief Assert the given assertion with the given proof as a justification.
         */

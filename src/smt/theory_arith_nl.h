@@ -704,8 +704,8 @@ namespace smt {
         bool bounded      = false;
         unsigned n        = 0;
         numeral range;
-        for (unsigned i = 0; i < m_nl_monomials.size(); i++) {
-            theory_var v = m_nl_monomials[i];
+        for (unsigned j = 0; j < m_nl_monomials.size(); ++j) {
+            theory_var v = m_nl_monomials[j];
             if (is_real(v))
                 continue;
             bool computed_epsilon = false;
@@ -2336,8 +2336,8 @@ namespace smt {
     bool theory_arith<Ext>::max_min_nl_vars() {
         var_set             already_found;
         svector<theory_var> vars;
-        for (unsigned i = 0; i < m_nl_monomials.size(); i++) {
-            theory_var v = m_nl_monomials[i];
+        for (unsigned j = 0; j < m_nl_monomials.size(); ++j) {
+            theory_var v = m_nl_monomials[j];
             mark_var(v, vars, already_found);
             expr * n     = var2expr(v);
             SASSERT(is_pure_monomial(n));

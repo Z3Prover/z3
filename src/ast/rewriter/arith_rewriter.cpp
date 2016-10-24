@@ -162,8 +162,8 @@ bool arith_rewriter::div_polynomial(expr * t, numeral const & g, const_treatment
 }
 
 bool arith_rewriter::is_bound(expr * arg1, expr * arg2, op_kind kind, expr_ref & result) {
-    numeral c;
-    if (!is_add(arg1) && is_numeral(arg2, c)) {
+    numeral b, c;
+    if (!is_add(arg1) && !m_util.is_mod(arg1) && is_numeral(arg2, c)) {
         numeral a;
         bool r = false;
         expr * pp = get_power_product(arg1, a);
@@ -193,6 +193,45 @@ bool arith_rewriter::is_bound(expr * arg1, expr * arg2, op_kind kind, expr_ref &
         case EQ: result = m_util.mk_eq(pp, k); return true;
         }
     }
+    expr* t1, *t2;
+    bool is_int;
+    if (m_util.is_mod(arg2)) {
+        std::swap(arg1, arg2);
+        switch (kind) {
+        case LE: kind = GE; break;
+        case GE: kind = LE; break;
+        case EQ: break;
+        }
+    }
+
+    if (m_util.is_numeral(arg2, c, is_int) && is_int && 
+        m_util.is_mod(arg1, t1, t2) && m_util.is_numeral(t2, b, is_int) && !b.is_zero()) {
+        //  mod x b <= c = false if c < 0, b != 0, true if c >= b, b != 0
+        if (c.is_neg()) {
+            switch (kind) {
+            case EQ:
+            case LE: result = m().mk_false(); return true;
+            case GE: result = m().mk_true(); return true;
+            }
+        }                    
+        if (c.is_zero() && kind == GE) {
+            result = m().mk_true(); 
+            return true;
+        }
+        if (c.is_pos() && c >= abs(b)) {
+            switch (kind) {
+            case LE: result = m().mk_true(); return true;
+            case EQ:
+            case GE: result = m().mk_false(); return true;
+            }
+        }
+        // mod x b <= b - 1
+        if (c + rational::one() == abs(b) && kind == LE) {
+            result = m().mk_true();
+            return true;
+        }
+    }
+
     return false;
 }
 

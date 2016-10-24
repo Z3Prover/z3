@@ -182,8 +182,8 @@ struct check_logic::imp {
             m_quantifiers = false;
         }
         else if (logic == "QF_FD") {
-            m_bvs = true;
-            m_uf = true;
+            m_bvs         = true;
+            m_uf          = true;
             m_ints        = true;
         }
         else {

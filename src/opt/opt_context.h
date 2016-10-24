@@ -175,6 +175,8 @@ namespace opt {
         unsigned add_objective(app* t, bool is_max);
         void add_hard_constraint(expr* f);
         
+        void get_hard_constraints(expr_ref_vector& hard);
+        expr_ref get_objective(unsigned i);
 
         virtual void push();
         virtual void pop(unsigned n);
@@ -208,7 +210,7 @@ namespace opt {
         std::string to_string() const;
 
 
-        virtual unsigned num_objectives() { return m_objectives.size(); }
+        virtual unsigned num_objectives() { return m_scoped_state.m_objectives.size(); }       
         virtual expr_ref mk_gt(unsigned i, model_ref& model);
         virtual expr_ref mk_ge(unsigned i, model_ref& model);
         virtual expr_ref mk_le(unsigned i, model_ref& model);
@@ -283,6 +285,9 @@ namespace opt {
 
         void display_objective(std::ostream& out, objective const& obj) const;
         void display_bounds(std::ostream& out, bounds_t const& b) const;
+
+        std::string to_string(expr_ref_vector const& hard, vector<objective> const& objectives) const;
+        std::string to_string_internal() const;
 
 
         void validate_lex();

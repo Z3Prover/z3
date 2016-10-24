@@ -2053,6 +2053,8 @@ namespace z3 {
             check_error();
             return expr(ctx(), r);
         }
+        expr_vector assertions() const { Z3_ast_vector r = Z3_optimize_get_assertions(ctx(), m_opt); check_error(); return expr_vector(ctx(), r); }
+        expr_vector objectives() const { Z3_ast_vector r = Z3_optimize_get_objectives(ctx(), m_opt); check_error(); return expr_vector(ctx(), r); }
         stats statistics() const { Z3_stats r = Z3_optimize_get_statistics(ctx(), m_opt); check_error(); return stats(ctx(), r); }
         friend std::ostream & operator<<(std::ostream & out, optimize const & s);
         void from_file(char const* filename) { Z3_optimize_from_file(ctx(), m_opt, filename); check_error(); }

@@ -153,7 +153,7 @@ void mpq_manager<SYNCH>::display_smt2(std::ostream & out, mpq const & a, bool de
 }
 
 template<bool SYNCH>
-void mpq_manager<SYNCH>::display_decimal(std::ostream & out, mpq const & a, unsigned prec) {
+void mpq_manager<SYNCH>::display_decimal(std::ostream & out, mpq const & a, unsigned prec, bool truncate) {
     mpz n1, d1, v1;
     get_numerator(a, n1);
     get_denominator(a, d1);
@@ -177,7 +177,7 @@ void mpq_manager<SYNCH>::display_decimal(std::ostream & out, mpq const & a, unsi
         if (is_zero(n1))
             goto end; // number is precise
     }
-    out << "?";
+    if (!truncate) out << "?";
  end:
     del(ten); del(n1); del(d1); del(v1);
 }

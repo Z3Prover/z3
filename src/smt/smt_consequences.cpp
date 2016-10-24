@@ -373,7 +373,7 @@ namespace smt {
             expr* n = vars[i];
             bool neg = m_manager.is_not(n, n);
             if (b_internalized(n)) {
-                lits.insert(literal(get_bool_var(n), !neg).index());
+                lits.insert(literal(get_bool_var(n), neg).index());
             }
         }
         while (!lits.empty()) {

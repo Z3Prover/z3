@@ -297,12 +297,16 @@ public:
         sort_assumptions(mutex);
         ptr_vector<expr> core(mutex.size(), mutex.c_ptr());
         remove_soft(core, m_asms);
-        rational weight(0);
+        rational weight(0), sum1(0), sum2(0);
+        for (unsigned i = 0; i < mutex.size(); ++i) {
+            sum1 += get_weight(mutex[i].get());
+        }
         while (!mutex.empty()) {
             expr_ref soft = mk_or(mutex);
             rational w = get_weight(mutex.back());
             weight = w - weight;
             m_lower += weight*rational(mutex.size()-1);
+            sum2 += weight*rational(mutex.size());
             add_soft(soft, weight);
             mutex.pop_back();
             while (!mutex.empty() && get_weight(mutex.back()) == w) {
@@ -310,6 +314,7 @@ public:
             }
             weight = w;
         }        
+        SASSERT(sum1 == sum2);
     }
 
     lbool check_sat_hill_climb(expr_ref_vector& asms1) {
@@ -398,7 +403,7 @@ public:
         while (is_sat == l_false) {
             core.reset();
             s().get_unsat_core(core);
-            //verify_core(core);
+            // verify_core(core);
             model_ref mdl;
             get_mus_model(mdl);
             is_sat = minimize_core(core);
@@ -772,8 +777,6 @@ public:
         for (unsigned i = 0; i < m_soft.size(); ++i) {
             m_assignment[i] = is_true(m_soft[i]);
         }
-
-
        
         DEBUG_CODE(verify_assignment(););
 

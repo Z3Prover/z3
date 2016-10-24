@@ -226,7 +226,12 @@ Notes:
                 m_t = EQ;
                 card(k+1, n, xs, out);
                 SASSERT(out.size() >= k+1);
-                return ctx.mk_min(out[k-1], ctx.mk_not(out[k]));
+                if (k == 0) {
+                    return ctx.mk_not(out[k]);
+                }
+                else {
+                    return ctx.mk_min(out[k-1], ctx.mk_not(out[k]));
+                }
             }
         }
 
@@ -234,19 +239,28 @@ Notes:
     private:
 
         literal mk_at_most_1(bool full, unsigned n, literal const* xs) {
+            TRACE("pb", tout << (full?"full":"partial") << " ";
+                  for (unsigned i = 0; i < n; ++i) tout << xs[i] << " ";
+                  tout << "\n";);
+
+            if (!full && n >= 4) {
+                return mk_at_most_1_bimander(n, xs);
+            }
             literal_vector in(n, xs);
             literal result = fresh();
             unsigned inc_size = 4;
+            literal_vector ands;
+            ands.push_back(result);
             while (!in.empty()) {
                 literal_vector ors;
                 unsigned i = 0;
                 unsigned n = in.size();
                 bool last = n <= inc_size;
                 for (; i + inc_size < n; i += inc_size) {                    
-                    mk_at_most_1_small(full, last, inc_size, in.c_ptr() + i, result, ors);
+                    mk_at_most_1_small(full, last, inc_size, in.c_ptr() + i, result, ands, ors);
                 }
                 if (i < n) {
-                    mk_at_most_1_small(full, last, n - i, in.c_ptr() + i, result, ors);
+                    mk_at_most_1_small(full, last, n - i, in.c_ptr() + i, result, ands, ors);
                 }
                 if (last) {
                     break;
@@ -255,10 +269,20 @@ Notes:
                 in.append(ors);
                 ors.reset();                
             }
+            if (full) {
+                add_clause(ands);
+            }
             return result;
         }
 
-        void mk_at_most_1_small(bool full, bool last, unsigned n, literal const* xs, literal result, literal_vector& ors) {
+        void mk_at_most_1_small(bool full, bool last, unsigned n, literal const* xs, literal result, literal_vector& ands, literal_vector& ors) {
+            SASSERT(n > 0);
+            if (n == 1) {
+                if (!last) {
+                    ors.push_back(xs[0]);
+                }
+                return;
+            }
             if (!last) {
                 literal ex = fresh();
                 for (unsigned j = 0; j < n; ++j) {
@@ -271,14 +295,57 @@ Notes:
                 }
                 ors.push_back(ex);
             }
+            // result => xs[0] + ... + xs[n-1] <= 1
             for (unsigned i = 0; i < n; ++i) {
                 for (unsigned j = i + 1; j < n; ++j) {
                     add_clause(ctx.mk_not(result), ctx.mk_not(xs[i]), ctx.mk_not(xs[j]));
                 }
-                if (full) {
-                    add_clause(result, xs[i]);
+            }            
+            // xs[0] + ... + xs[n-1] <= 1 => and_x
+            if (full) {
+                literal and_i = fresh();
+                for (unsigned i = 0; i < n; ++i) {
+                    literal_vector lits;
+                    lits.push_back(and_i);
+                    for (unsigned j = 0; j < n; ++j) {
+                        if (j != i) lits.push_back(xs[j]);
+                    }
+                    add_clause(lits);
                 }
+                ands.push_back(ctx.mk_not(and_i));
             }
+        }
+
+        literal mk_at_most_1_bimander(unsigned n, literal const* xs) {
+            literal_vector in(n, xs);
+            literal result = fresh();
+            unsigned inc_size = 2;
+            bool last = false;
+            bool full = false;
+            literal_vector ors, ands;
+            unsigned i = 0;
+            for (; i + inc_size < n; i += inc_size) {                    
+                mk_at_most_1_small(full, last, inc_size, in.c_ptr() + i, result, ands, ors);
+            }
+            if (i < n) {
+                mk_at_most_1_small(full, last, n - i, in.c_ptr() + i, result, ands, ors);
+            }
+            
+            unsigned nbits = 0;
+            while (static_cast<unsigned>(1 << nbits) < ors.size()) {
+                ++nbits;
+            }
+            literal_vector bits;
+            for (unsigned k = 0; k < nbits; ++k) {
+                bits.push_back(fresh());
+            }
+            for (i = 0; i < ors.size(); ++i) {
+                for (unsigned k = 0; k < nbits; ++k) {
+                    bool bit_set = (i & (static_cast<unsigned>(1 << k))) != 0;
+                    add_clause(ctx.mk_not(result), ctx.mk_not(ors[i]), bit_set ? bits[k] : ctx.mk_not(bits[k]));
+                }
+            }            
+            return result;
         }
 
         std::ostream& pp(std::ostream& out, unsigned n, literal const* lits) {
@@ -344,9 +411,13 @@ Notes:
             literal lits[2] = { l1, l2 };
             add_clause(2, lits);
         }
+        void add_clause(literal_vector const& lits) {
+            add_clause(lits.size(), lits.c_ptr());
+        }
         void add_clause(unsigned n, literal const* ls) {
             m_stats.m_num_compiled_clauses++;
             literal_vector tmp(n, ls);
+            TRACE("pb", for (unsigned i = 0; i < n; ++i) tout << ls[i] << " "; tout << "\n";);
             ctx.mk_clause(n, tmp.c_ptr());
         }
 
@@ -383,7 +454,7 @@ Notes:
         }
 
         void card(unsigned k, unsigned n, literal const* xs, literal_vector& out) {
-            TRACE("pb", tout << "card k:" << k << " n: " << n << "\n";);
+            TRACE("pb", tout << "card k: " << k << " n: " << n << "\n";);
             if (n <= k) {
                 psort_nw<psort_expr>::sorting(n, xs, out);
             }
@@ -397,7 +468,7 @@ Notes:
                 card(k, n-l, xs + l, out2);
                 smerge(k, out1.size(), out1.c_ptr(), out2.size(), out2.c_ptr(), out);
             }
-            TRACE("pb", tout << "card k:" << k << " n: " << n << "\n";
+            TRACE("pb", tout << "card k: " << k << " n: " << n << "\n";
                   pp(tout << "in:", n, xs) << "\n";
                   pp(tout << "out:", out) << "\n";);
 
@@ -743,7 +814,7 @@ Notes:
                         if (j < b) {
                             ls.push_back(as[i]);
                             ls.push_back(bs[j]);
-                            add_clause(ls.size(), ls.c_ptr());
+                            add_clause(ls);
                             ls.pop_back();
                             ls.pop_back();
                         }
@@ -804,7 +875,7 @@ Notes:
                   pp(tout, lits) << "\n";);
             SASSERT(k + offset <= n);
             if (k == 0) {
-                add_clause(lits.size(), lits.c_ptr());
+                add_clause(lits);
                 return;
             }
             for (unsigned i = offset; i < n - k + 1; ++i) {

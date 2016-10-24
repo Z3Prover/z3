@@ -914,7 +914,7 @@ extern "C" {
         fpa_decl_plugin * plugin = (fpa_decl_plugin*)m.get_plugin(mk_c(c)->get_fpa_fid());
         family_id fid = mk_c(c)->get_fpa_fid();
         expr * e = to_expr(t);
-        if (!is_app(e) || is_app_of(e, fid, OP_FPA_NAN)) {
+        if (!is_app(e) || is_app_of(e, fid, OP_FPA_NAN) || !is_fp(c, t)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return 0;
         }
@@ -933,6 +933,8 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_fpa_get_numeral_significand_string(c, t);
         RESET_ERROR_CODE();
+        CHECK_NON_NULL(t, 0);
+        CHECK_VALID_AST(t, 0);
         ast_manager & m = mk_c(c)->m();
         mpf_manager & mpfm = mk_c(c)->fpautil().fm();
         unsynch_mpq_manager & mpqm = mpfm.mpq_manager();
@@ -940,10 +942,7 @@ extern "C" {
         fpa_decl_plugin * plugin = (fpa_decl_plugin*)m.get_plugin(fid);
         SASSERT(plugin != 0);
         expr * e = to_expr(t);
-        if (!is_app(e) ||
-            is_app_of(e, fid, OP_FPA_NAN) ||
-            is_app_of(e, fid, OP_FPA_PLUS_INF) ||
-            is_app_of(e, fid, OP_FPA_MINUS_INF)) {
+        if (!is_app(e) || is_app_of(e, fid, OP_FPA_NAN) || !is_fp(c, t)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return "";
         }
@@ -958,6 +957,7 @@ extern "C" {
         mpqm.set(q, mpfm.sig(val));
         if (!mpfm.is_denormal(val)) mpqm.add(q, mpfm.m_powers2(sbits - 1), q);
         mpqm.div(q, mpfm.m_powers2(sbits - 1), q);
+        if (mpfm.is_inf(val)) mpqm.set(q, 0);
         std::stringstream ss;
         mpqm.display_decimal(ss, q, sbits);
         return mk_c(c)->mk_external_string(ss.str());
@@ -975,10 +975,7 @@ extern "C" {
         fpa_decl_plugin * plugin = (fpa_decl_plugin*)m.get_plugin(fid);
         SASSERT(plugin != 0);
         expr * e = to_expr(t);
-        if (!is_app(e) ||
-            is_app_of(e, fid, OP_FPA_NAN) ||
-            is_app_of(e, fid, OP_FPA_PLUS_INF) ||
-            is_app_of(e, fid, OP_FPA_MINUS_INF)) {
+        if (!is_app(e) || is_app_of(e, fid, OP_FPA_NAN) || !is_fp(c, t)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             *n = 0;
             return 0;
@@ -1008,10 +1005,7 @@ extern "C" {
         fpa_decl_plugin * plugin = (fpa_decl_plugin*)m.get_plugin(mk_c(c)->get_fpa_fid());
         SASSERT(plugin != 0);
         expr * e = to_expr(t);
-        if (!is_app(e) ||
-            is_app_of(e, fid, OP_FPA_NAN) ||
-            is_app_of(e, fid, OP_FPA_PLUS_INF) ||
-            is_app_of(e, fid, OP_FPA_MINUS_INF)) {
+        if (!is_app(e) || is_app_of(e, fid, OP_FPA_NAN) || !is_fp(c, t)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return "";
         }
@@ -1040,10 +1034,7 @@ extern "C" {
         fpa_decl_plugin * plugin = (fpa_decl_plugin*)m.get_plugin(mk_c(c)->get_fpa_fid());
         SASSERT(plugin != 0);
         expr * e = to_expr(t);
-        if (!is_app(e) ||
-            is_app_of(e, fid, OP_FPA_NAN) ||
-            is_app_of(e, fid, OP_FPA_PLUS_INF) ||
-            is_app_of(e, fid, OP_FPA_MINUS_INF)) {
+        if (!is_app(e) || is_app_of(e, fid, OP_FPA_NAN) || !is_fp(c, t)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             *n = 0;
             return 0;
