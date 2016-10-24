@@ -416,7 +416,7 @@ static void test_at_most1() {
     for (unsigned i = 0; i < 5; ++i) {
         in.push_back(m.mk_fresh_const("a",m.mk_bool_sort()));
     }
-    in[4] = in[3];
+    in[4] = in[3].get();
 
     ast_ext2 ext(m);
     psort_nw<ast_ext2> sn(ext);
