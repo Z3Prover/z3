@@ -1,3 +1,10 @@
+# Copyright Microsoft Research 2016
+# The following script finds sequences of length n-1 of
+# integers 0,..,n-1 such that the difference of the n-1
+# adjacent entries fall in the range 0,..,n-1
+# This is known as the "The All-Interval Series Problem"
+# See http://www.csplib.org/Problems/prob007/
+
 from z3 import *
 import time
 
