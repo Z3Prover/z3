@@ -3773,15 +3773,16 @@ namespace smt {
 #ifdef Z3DEBUG
             for (unsigned i = 0; i < num_lits; i++) {
                 literal l = lits[i];
-                if (m_manager.is_not(expr_lits.get(i))) {
+                expr* real_atom;
+                if (expr_signs[i] != l.sign()) {
+
+                    VERIFY(m_manager.is_not(expr_lits.get(i), real_atom));
                     // the sign must have flipped when internalizing
-                    expr * real_atom = to_app(expr_lits.get(i))->get_arg(0);
+                    CTRACE("resolve_conflict_bug", real_atom != bool_var2expr(l.var()), tout << mk_pp(real_atom, m_manager) << "\n" << mk_pp(bool_var2expr(l.var()), m_manager) << "\n";);
                     SASSERT(real_atom == bool_var2expr(l.var()));
-                    SASSERT(expr_signs[i]    != l.sign());
                 }
                 else {
                     SASSERT(expr_lits.get(i) == bool_var2expr(l.var()));
-                    SASSERT(expr_signs[i]    == l.sign());
                 }
             }
 #endif
