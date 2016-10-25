@@ -1505,6 +1505,9 @@ class PythonInstallComponent(Component):
                                            os.path.join(self.pythonPkgDir, 'z3', '__pycache__', '*.pyc'),
                                            in_prefix=self.in_prefix_install
                                           )
+        MakeRuleCmd.remove_installed_files(out,
+                                           os.path.join(self.pythonPkgDir, 'z3', 'lib',
+                                                        self.libz3Component.dll_file()))
 
     def mk_makefile(self, out):
         return
