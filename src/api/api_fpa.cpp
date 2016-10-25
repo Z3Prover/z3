@@ -953,7 +953,6 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return 0;
         }
-        std::cout << "val=" << mpfm.to_string(val) << std::endl;
         app * a;
         if (mpfm.is_pos(val))
             a = ctx->bvutil().mk_numeral(0, 1);
