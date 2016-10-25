@@ -115,8 +115,6 @@ public:
             }
         }
         lbool r = m_solver->get_consequences(asms, bvars, consequences);
-        std::cout << consequences.size() << "\n";
-
 
         // translate bit-vector consequences back to enumeration types
         for (unsigned i = 0; i < consequences.size(); ++i) {
