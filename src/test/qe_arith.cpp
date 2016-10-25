@@ -375,6 +375,9 @@ static void add_random_ineq(
     case opt::t_le:
         fml = a.mk_le(t1, t2);
         break;
+    case opt::t_mod:
+        NOT_IMPLEMENTED_YET();        
+        break;        
     }
     fmls.push_back(fml);
     mbo.add_constraint(vars, rational(coeff), rel);
