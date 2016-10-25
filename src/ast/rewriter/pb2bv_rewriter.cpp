@@ -224,12 +224,12 @@ struct pb2bv_rewriter::imp {
     public:
 
         card2bv_rewriter(imp& i, ast_manager& m):
+            m_sort(*this),
             m(m),
             m_imp(i),
             au(m),
             pb(m),
             bv(m),
-            m_sort(*this),
             m_trail(m),
             m_args(m)
         {}
