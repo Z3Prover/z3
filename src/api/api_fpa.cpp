@@ -1087,7 +1087,7 @@ extern "C" {
                         mpfm.is_denormal(val) ? mpfm.mk_min_exp(ebits) :
                         mpfm.is_inf(val) ? mpfm.mk_top_exp(ebits) :
                         mpfm.bias_exp(ebits, mpfm.exp(val));
-        if (!biased) mpfm.unbias_exp(ebits, exp);
+        if (!biased) exp = mpfm.unbias_exp(ebits, exp);
         std::stringstream ss;
         ss << exp;
         return mk_c(c)->mk_external_string(ss.str());
