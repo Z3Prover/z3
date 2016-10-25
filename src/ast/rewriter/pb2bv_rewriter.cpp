@@ -29,39 +29,6 @@ Notes:
 
 struct pb2bv_rewriter::imp {
 
-    struct argc_t {
-        expr*    m_arg;
-        rational m_coeff;
-        argc_t():m_arg(0), m_coeff(0) {}
-        argc_t(expr* arg, rational const& r): m_arg(arg), m_coeff(r) {}
-    };
-    
-    struct argc_gt {
-        bool operator()(argc_t const& a, argc_t const& b) const {
-            return a.m_coeff > b.m_coeff;
-        }
-    };
-
-    struct argc_entry {
-        unsigned m_index;
-        rational m_k;
-        expr*    m_value;
-        argc_entry(unsigned i, rational const& k): m_index(i), m_k(k), m_value(0) {}
-        argc_entry():m_index(0), m_k(0), m_value(0) {}
-        
-        struct eq {
-            bool operator()(argc_entry const& a, argc_entry const& b) const {
-                return a.m_index == b.m_index && a.m_k == b.m_k;
-            }
-        };
-        struct hash {
-            unsigned operator()(argc_entry const& a) const {
-                return a.m_index ^ a.m_k.hash();
-            }
-        };
-    };
-    typedef hashtable<argc_entry, argc_entry::hash, argc_entry::eq> argc_cache;
-
     ast_manager&              m;
     params_ref                m_params;
     expr_ref_vector           m_lemmas;
@@ -121,6 +88,7 @@ struct pb2bv_rewriter::imp {
             TRACE("pb", 
                   for (unsigned i = 0; i < sz; ++i) {
                       tout << m_coeffs[i] << "*" << mk_pp(args[i], m) << " ";
+                      if (i + 1 < sz && !m_coeffs[i+1].is_neg()) tout << "+ ";
                   }
                   switch (is_le) {
                   case l_true: tout << "<= "; break;
@@ -338,7 +306,7 @@ struct pb2bv_rewriter::imp {
                     return is_pb(a->get_arg(0), -mul);
                 case OP_NUM:
                     VERIFY(au.is_numeral(a, r));
-                    m_k += mul * r;
+                    m_k -= mul * r;
                     return true;
                 case OP_MUL:
                     if (sz != 2) {
