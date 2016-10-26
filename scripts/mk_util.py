@@ -3278,7 +3278,7 @@ class MakeRuleCmd(object):
             #print("WARNING: Generating makefile rule that {}s {} '{}' which is outside the installation prefix '{}'.".format(
             #        action_string, 'to' if is_install else 'from', path, PREFIX))
         else:
-            assert not os.path.isabs(path)
+            # assert not os.path.isabs(path)
             install_root = cls.install_root()
         return install_root
 
