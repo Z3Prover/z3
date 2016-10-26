@@ -105,6 +105,67 @@ public class FPNum extends FPExpr
     public BitVecExpr getExponentBV(boolean biased) {
         return new BitVecExpr(getContext(), Native.fpaGetNumeralExponentBv(getContext().nCtx(), getNativeObject(), biased));
     }
+
+    
+    /**
+     * Indicates whether the numeral is a NaN.
+     * @throws Z3Exception on error
+     * @return a boolean
+     **/
+    public boolean isNaN()
+    {
+        return Native.fpaIsNumeralNan(getContext().nCtx(), getNativeObject());
+    }    
+
+    /**
+     * Indicates whether the numeral is a +oo or -oo.
+     * @throws Z3Exception on error
+     * @return a boolean
+     **/
+    public boolean isInf()
+    {
+        return Native.fpaIsNumeralInf(getContext().nCtx(), getNativeObject());
+    }
+    
+    /**
+     * Indicates whether the numeral is +zero or -zero.
+     * @throws Z3Exception on error
+     * @return a boolean
+     **/
+    public boolean isZero()
+    {
+        return Native.fpaIsNumeralZero(getContext().nCtx(), getNativeObject());
+    }
+
+    /**
+     * Indicates whether the numeral is normal.
+     * @throws Z3Exception on error
+     * @return a boolean
+     **/
+    public boolean isNormal()
+    {
+        return Native.fpaIsNumeralNormal(getContext().nCtx(), getNativeObject());
+    }
+    
+    /**
+     * Indicates whether the numeral is subnormal.
+     * @throws Z3Exception on error
+     * @return a boolean
+     **/
+    public boolean isSubnormal()
+    {
+        return Native.fpaIsNumeralSubnormal(getContext().nCtx(), getNativeObject());
+    }
+
+    /**
+     * Indicates whether the numeral is positive.
+     * @throws Z3Exception on error
+     * @return a boolean
+     **/
+    public boolean isPositive()
+    {
+        return Native.fpaIsNumeralPositive(getContext().nCtx(), getNativeObject());
+    }
     
     public FPNum(Context ctx, long obj)
     {
@@ -117,6 +178,5 @@ public class FPNum extends FPExpr
     public String toString()
     {
         return Native.getNumeralString(getContext().nCtx(), getNativeObject());
-    }
-
+    }    
 }
