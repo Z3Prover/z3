@@ -1087,7 +1087,8 @@ extern "C" {
                         mpfm.is_denormal(val) ? mpfm.mk_min_exp(ebits) :
                         mpfm.is_inf(val) ? mpfm.mk_top_exp(ebits) :
                         mpfm.bias_exp(ebits, mpfm.exp(val));
-        if (!biased) exp = mpfm.unbias_exp(ebits, exp);
+        if (mpfm.is_normal(val) && !biased) 
+            exp = mpfm.exp(val);
         std::stringstream ss;
         ss << exp;
         return mk_c(c)->mk_external_string(ss.str());
@@ -1121,7 +1122,8 @@ extern "C" {
              mpfm.is_denormal(val) ? mpfm.mk_min_exp(ebits) :
              mpfm.is_inf(val) ? mpfm.mk_top_exp(ebits) :
              mpfm.bias_exp(ebits, mpfm.exp(val));
-        if (!biased) *n = mpfm.unbias_exp(ebits, *n);
+        if (mpfm.is_normal(val) && !biased) 
+            *n = mpfm.exp(val);
         return 1;
         Z3_CATCH_RETURN(0);
     }
@@ -1152,7 +1154,11 @@ extern "C" {
                         mpfm.is_denormal(val) ? mpfm.mk_min_exp(ebits) :
                         mpfm.is_inf(val) ? mpfm.mk_top_exp(ebits) :
                         mpfm.bias_exp(ebits, mpfm.exp(val));
-        if (!biased) exp = mpfm.unbias_exp(ebits, exp);
+        if (mpfm.is_normal(val) && !biased)  {
+            std::cout << "unbiassing" << std::endl;            
+            exp = mpfm.exp(val);
+        }
+        
         app * a = mk_c(c)->bvutil().mk_numeral(exp, ebits);
         mk_c(c)->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
