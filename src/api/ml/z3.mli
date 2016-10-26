@@ -2168,6 +2168,24 @@ sig
       significand does not fit into an int. *)
   val get_numeral_significand_uint : context -> Expr.expr -> bool * int
 
+  (** Indicates whether a floating-point numeral is a NaN. *)
+  val is_numeral_nan : context -> Expr.expr -> bool
+
+  (** Indicates whether a floating-point numeral is +oo or -oo. *)
+  val is_numeral_inf : context -> Expr.expr -> bool
+
+  (** Indicates whether a floating-point numeral is +zero or -zero. *)
+  val is_numeral_zero : context -> Expr.expr -> bool
+
+  (** Indicates whether a floating-point numeral is normal. *)
+  val is_numeral_normal : context -> Expr.expr -> bool
+
+  (** Indicates whether a floating-point numeral is subnormal. *)
+  val is_numeral_subnormal : context -> Expr.expr -> bool
+
+  (** Indicates whether a floating-point numeral is positive. *)
+  val is_numeral_positive : context -> Expr.expr -> bool
+   
   (** Conversion of a floating-point term into a bit-vector term in IEEE 754-2008 format. *)
   val mk_to_ieee_bv : context -> Expr.expr -> Expr.expr
 

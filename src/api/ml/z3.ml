@@ -1332,6 +1332,12 @@ struct
   let get_numeral_significand_string = Z3native.fpa_get_numeral_significand_string
   let get_numeral_significand_uint = Z3native.fpa_get_numeral_significand_uint64
   let get_numeral_significand_bv = Z3native.fpa_get_numeral_significand_bv
+  let is_numeral_nan = Z3native.fpa_is_numeral_nan
+  let is_numeral_inf = Z3native.fpa_is_numeral_inf
+  let is_numeral_zero = Z3native.fpa_is_numeral_zero
+  let is_numeral_normal = Z3native.fpa_is_numeral_normal
+  let is_numeral_subnormal = Z3native.fpa_is_numeral_subnormal
+  let is_numeral_positive = Z3native.fpa_is_numeral_positive
   let mk_to_ieee_bv = Z3native.mk_fpa_to_ieee_bv
   let mk_to_fp_int_real = Z3native.mk_fpa_to_fp_int_real
   let numeral_to_string x = Z3native.get_numeral_string (Expr.gc x) x
