@@ -40,6 +40,7 @@ Notes:
 #include"inc_sat_solver.h"
 #include"fd_solver.h"
 #include"bv_rewriter.h"
+#include"solver2tactic.h"
 
 
 tactic * mk_tactic_for_logic(ast_manager & m, params_ref const & p, symbol const & logic) {
@@ -89,6 +90,8 @@ tactic * mk_tactic_for_logic(ast_manager & m, params_ref const & p, symbol const
         return mk_qffpbv_tactic(m, p);
     else if (logic=="HORN")
         return mk_horn_tactic(m, p);
+    else if (logic == "QF_FD")
+        return mk_solver2tactic(mk_fd_solver(m, p));
     //else if (logic=="QF_UFNRA")
     //    return mk_qfufnra_tactic(m, p);
     else 

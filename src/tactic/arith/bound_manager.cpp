@@ -79,11 +79,22 @@ static bool is_strict(decl_kind k) {
     return k == OP_LT || k == OP_GT;
 } 
 
+bool bound_manager::is_numeral(expr* v, numeral& n, bool& is_int) {
+    expr* w;
+    if (m_util.is_uminus(v, w) && is_numeral(w, n, is_int)) {
+        n.neg();
+        return true;
+    }
+    return m_util.is_numeral(v, n, is_int);
+}
+
 void bound_manager::operator()(expr * f, expr_dependency * d) {
     TRACE("bound_manager", tout << "processing:\n" << mk_ismt2_pp(f, m()) << "\n";);
     expr * v;
     numeral n;
     if (is_disjunctive_bound(f, d))
+        return;
+    if (is_equality_bound(f, d))
         return;
     bool pos = true;    
     while (m().is_not(f, f))
@@ -99,10 +110,10 @@ void bound_manager::operator()(expr * f, expr_dependency * d) {
     expr * lhs = t->get_arg(0);
     expr * rhs = t->get_arg(1);
     bool is_int;
-    if (is_uninterp_const(lhs) && m_util.is_numeral(rhs, n, is_int)) {
+    if (is_uninterp_const(lhs) && is_numeral(rhs, n, is_int)) {
         v = lhs;
     }
-    else if (is_uninterp_const(rhs) && m_util.is_numeral(lhs, n, is_int)) {
+    else if (is_uninterp_const(rhs) && is_numeral(lhs, n, is_int)) {
         v = rhs;
         k = swap_decl(k);
     }
@@ -165,6 +176,26 @@ void bound_manager::insert_lower(expr * v, bool strict, numeral const & n, expr_
     }
 }
 
+bool bound_manager::is_equality_bound(expr * f, expr_dependency * d) {
+    expr* x, *y;
+    if (!m().is_eq(f, x, y)) {
+        return false;
+    }
+    if (!is_uninterp_const(x)) {
+        std::swap(x, y);
+    }
+    numeral n;
+    bool is_int;
+    if (is_uninterp_const(x) && is_numeral(y, n, is_int)) {
+        insert_lower(x, false, n, d);
+        insert_upper(x, false, n, d);
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
 bool bound_manager::is_disjunctive_bound(expr * f, expr_dependency * d) {
     numeral lo, hi, n;
     if (!m().is_or(f)) return false;
@@ -176,14 +207,14 @@ bool bound_manager::is_disjunctive_bound(expr * f, expr_dependency * d) {
         expr * e = to_app(f)->get_arg(i);
         if (!m().is_eq(e, x, y)) return false;
         if (is_uninterp_const(x) && 
-            m_util.is_numeral(y, n, is_int) && is_int && 
+            is_numeral(y, n, is_int) && is_int && 
             (x == v || v == 0)) {
             if (v == 0) { v = x; lo = hi = n; }
             if (n < lo) lo = n;
             if (n > hi) hi = n;
         }
         else if (is_uninterp_const(y) && 
-                 m_util.is_numeral(x, n, is_int) && is_int && 
+                 is_numeral(x, n, is_int) && is_int && 
                  (y == v || v == 0)) {
             if (v == 0) { v = y; lo = hi = n; }
             if (n < lo) lo = n;

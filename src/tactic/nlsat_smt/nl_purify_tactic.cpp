@@ -59,6 +59,7 @@ Revision History:
 #include "model_smt2_pp.h"
 #include "expr_safe_replace.h"
 #include "ast_util.h"
+#include "solver2tactic.h"
 
 class nl_purify_tactic : public tactic {
 

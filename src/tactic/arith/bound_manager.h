@@ -36,6 +36,8 @@ private:
     obj_map<expr, expr_dependency*> m_upper_deps;
     ptr_vector<expr>     m_bounded_vars;
     bool is_disjunctive_bound(expr * f, expr_dependency * d);
+    bool is_equality_bound(expr * f, expr_dependency * d);
+    bool is_numeral(expr* v, rational& n, bool& is_int);
     void insert_lower(expr * v, bool strict, numeral const & n, expr_dependency * d);
     void insert_upper(expr * v, bool strict, numeral const & n, expr_dependency * d);
 public:

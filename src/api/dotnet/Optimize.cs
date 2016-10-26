@@ -258,10 +258,13 @@ namespace Microsoft.Z3
 	/// <summary>
 	/// Return a string the describes why the last to check returned unknown
 	/// </summary>	
-    	public String getReasonUnknown()
+    	public String ReasonUnknown
     	{
-            Contract.Ensures(Contract.Result<string>() != null);
-            return Native.Z3_optimize_get_reason_unknown(Context.nCtx, NativeObject);
+            get 
+            {
+                Contract.Ensures(Contract.Result<string>() != null);
+                return Native.Z3_optimize_get_reason_unknown(Context.nCtx, NativeObject);
+            }
     	}
 
 
