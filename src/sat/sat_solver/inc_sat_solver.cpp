@@ -371,8 +371,18 @@ private:
             return l_undef;
         }
         g = m_subgoals[0];
+        expr_ref_vector atoms(m);
         TRACE("sat", g->display_with_dependencies(tout););
         m_goal2sat(*g, m_params, m_solver, m_map, dep2asm, true);
+        m_goal2sat.get_interpreted_atoms(atoms);
+        if (!atoms.empty()) {
+            std::stringstream strm;
+            strm << "interpreted atoms sent to SAT solver " << atoms;
+            TRACE("sat", std::cout << strm.str() << "\n";);
+            IF_VERBOSE(1, verbose_stream() << strm.str() << "\n";);
+            set_reason_unknown(strm.str().c_str());
+            return l_undef;
+        }
         return l_true;
     }
 

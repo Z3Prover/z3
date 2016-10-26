@@ -140,10 +140,17 @@ struct pb2bv_rewriter::imp {
             case l_true: 
                 return mk_and(fmls);
             case l_false:
-                fmls.push_back(bv.mk_ule(bound, es.back()));
+                if (!es.empty()) {
+                    fmls.push_back(bv.mk_ule(bound, es.back()));
+                }
                 return mk_or(fmls);
             case l_undef:
-                fmls.push_back(m.mk_eq(bound, es.back()));
+                if (es.empty()) {
+                    fmls.push_back(m.mk_bool_val(k.is_zero()));
+                }
+                else {
+                    fmls.push_back(m.mk_eq(bound, es.back()));
+                }
                 return mk_and(fmls);
             default:
                 UNREACHABLE();

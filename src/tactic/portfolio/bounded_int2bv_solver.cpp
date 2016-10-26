@@ -251,6 +251,16 @@ private:
                 }
                 sub.insert(e, t);
             }
+            else {
+                IF_VERBOSE(1, 
+                           verbose_stream() << "unprocessed entry: " << mk_pp(e, m) << "\n";
+                           if (bm.has_lower(e, lo, s1)) {
+                               verbose_stream() << "lower: " << lo << " " << s1 << "\n";
+                           } 
+                           if (bm.has_upper(e, hi, s2)) {
+                               verbose_stream() << "upper: " << hi << " " << s2 << "\n";
+                           });
+            }
         }
     }
 

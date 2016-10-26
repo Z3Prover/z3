@@ -202,7 +202,8 @@ Notes:
                 return ge(full, k, n, in.c_ptr());
             }
             else if (k == 1) {
-                return mk_at_most_1(full, n, xs);
+                literal_vector ors;
+                return mk_at_most_1(full, n, xs, ors);
             }
             else {
                 SASSERT(2*k <= n);
@@ -221,6 +222,9 @@ Notes:
             if (dualize(k, n, xs, in)) {
                 return eq(k, n, in.c_ptr());
             }
+            else if (k == 1) {
+                return mk_exactly_1(true, n, xs);
+            }
             else {
                 SASSERT(2*k <= n);
                 m_t = EQ;
@@ -238,12 +242,56 @@ Notes:
         
     private:
 
-        literal mk_at_most_1(bool full, unsigned n, literal const* xs) {
+
+        literal mk_and(literal l1, literal l2) {
+            literal result = fresh();
+            add_clause(ctx.mk_not(result), l1);
+            add_clause(ctx.mk_not(result), l2);
+            add_clause(ctx.mk_not(l1), ctx.mk_not(l2), result);
+            return result;
+        }
+
+        void mk_implies_or(literal l, unsigned n, literal const* xs) {
+            literal_vector lits(n, xs);
+            lits.push_back(ctx.mk_not(l));
+            add_clause(lits);
+        }
+
+        void mk_or_implies(literal l, unsigned n, literal const* xs) {
+            for (unsigned j = 0; j < n; ++j) {
+                add_clause(ctx.mk_not(xs[j]), l);
+            }
+        }
+
+        literal mk_or(literal_vector const& ors) {
+            if (ors.size() == 1) {
+                return ors[0];
+            }
+            literal result = fresh();
+            mk_implies_or(result, ors.size(), ors.c_ptr());
+            mk_or_implies(result, ors.size(), ors.c_ptr());
+            return result;
+        }
+
+        literal mk_exactly_1(bool full, unsigned n, literal const* xs) {
+            literal_vector ors;
+            literal r1 = mk_at_most_1(full, n, xs, ors);
+
+            if (full) {
+                r1 = mk_and(r1, mk_or(ors));
+            }
+            else {
+                mk_implies_or(r1, ors.size(), ors.c_ptr());
+            }
+            return r1;
+        }
+
+        literal mk_at_most_1(bool full, unsigned n, literal const* xs, literal_vector& ors) {
             TRACE("pb", tout << (full?"full":"partial") << " ";
                   for (unsigned i = 0; i < n; ++i) tout << xs[i] << " ";
                   tout << "\n";);
 
-            if (!full && n >= 4) {
+            if (false && !full && n >= 4) {
                 return mk_at_most_1_bimander(n, xs);
             }
             literal_vector in(n, xs);
@@ -252,9 +300,10 @@ Notes:
             literal_vector ands;
             ands.push_back(result);
             while (!in.empty()) {
-                literal_vector ors;
+                ors.reset();
                 unsigned i = 0;
                 unsigned n = in.size();
+                if (n + 1 == inc_size) ++inc_size;
                 bool last = n <= inc_size;
                 for (; i + inc_size < n; i += inc_size) {                    
                     mk_at_most_1_small(full, last, inc_size, in.c_ptr() + i, result, ands, ors);
@@ -267,7 +316,6 @@ Notes:
                 }
                 in.reset();
                 in.append(ors);
-                ors.reset();                
             }
             if (full) {
                 add_clause(ands);
@@ -278,23 +326,16 @@ Notes:
         void mk_at_most_1_small(bool full, bool last, unsigned n, literal const* xs, literal result, literal_vector& ands, literal_vector& ors) {
             SASSERT(n > 0);
             if (n == 1) {
-                if (!last) {
-                    ors.push_back(xs[0]);
-                }
+                ors.push_back(xs[0]);                
                 return;
             }
-            if (!last) {
-                literal ex = fresh();
-                for (unsigned j = 0; j < n; ++j) {
-                    add_clause(ctx.mk_not(xs[j]), ex);
-                }
-                if (full) {
-                    literal_vector lits(n, xs);
-                    lits.push_back(ctx.mk_not(ex));
-                    add_clause(lits.size(), lits.c_ptr());
-                }
-                ors.push_back(ex);
+            literal ex = fresh();
+            mk_or_implies(ex, n, xs);
+            if (full) {
+                mk_implies_or(ex, n, xs);
             }
+            ors.push_back(ex);                
+            
             // result => xs[0] + ... + xs[n-1] <= 1
             for (unsigned i = 0; i < n; ++i) {
                 for (unsigned j = i + 1; j < n; ++j) {

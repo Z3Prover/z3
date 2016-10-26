@@ -861,6 +861,9 @@ typedef enum
       - Z3_OP_PB_GE: Generalized Pseudo-Boolean cardinality constraint.
               Example  2*x + 3*y + 2*z >= 4
 
+      - Z3_OP_PB_EQ: Generalized Pseudo-Boolean equality constraint.
+              Example  2*x + 1*y + 2*z + 1*u = 4
+
       - Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN: Floating-point rounding mode RNE
 
       - Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY: Floating-point rounding mode RNA
@@ -1166,6 +1169,7 @@ typedef enum {
     Z3_OP_PB_AT_MOST=0x900,
     Z3_OP_PB_LE,
     Z3_OP_PB_GE,
+    Z3_OP_PB_EQ,
 
     // Floating-Point Arithmetic
     Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN,
@@ -3910,6 +3914,18 @@ extern "C" {
     */
 
     Z3_ast Z3_API Z3_mk_pble(Z3_context c, unsigned num_args,
+                             Z3_ast const args[], int coeffs[],
+                             int k);
+
+    /**
+       \brief Pseudo-Boolean relations.
+
+       Encode k1*p1 + k2*p2 + ... + kn*pn = k
+
+       def_API('Z3_mk_pbeq', AST, (_in(CONTEXT), _in(UINT), _in_array(1,AST), _in_array(1,INT), _in(INT)))
+    */
+
+    Z3_ast Z3_API Z3_mk_pbeq(Z3_context c, unsigned num_args,
                              Z3_ast const args[], int coeffs[],
                              int k);
 

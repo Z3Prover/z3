@@ -160,6 +160,7 @@ lbool tactic2solver::check_sat_core(unsigned num_assumptions, expr * const * ass
         }
     }
     catch (z3_error & ex) {
+        TRACE("tactic2solver", tout << "exception: " << ex.msg() << "\n";);
         throw ex;
     }
     catch (z3_exception & ex) {
