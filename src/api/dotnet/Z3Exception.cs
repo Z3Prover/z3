@@ -14,7 +14,7 @@ Author:
     Christoph Wintersteiger (cwinter) 2012-03-15
 
 Notes:
-    
+
 --*/
 
 using System;
@@ -24,6 +24,7 @@ namespace Microsoft.Z3
   /// <summary>
   /// The exception base class for error reporting from Z3
   /// </summary>
+  [Serializable]
   public class Z3Exception : Exception
   {
     /// <summary>
