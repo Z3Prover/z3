@@ -1817,7 +1817,7 @@ class QuantifierRef(BoolRef):
         """
         if __debug__:
             _z3_assert(idx < self.num_vars(), "Invalid variable idx")
-        return SortRef(Z3_get_quantifier_bound_sort(self.ctx_ref(), self.ast, idx), self.ctx)
+        return _to_sort_ref(Z3_get_quantifier_bound_sort(self.ctx_ref(), self.ast, idx), self.ctx)
 
     def children(self):
         """Return a list containing a single element self.body()
