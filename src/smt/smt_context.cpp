@@ -1749,8 +1749,10 @@ namespace smt {
             unsigned qhead = m_qhead;
             if (!bcp())
                 return false;
-            if (get_cancel_flag()) 
+            if (get_cancel_flag()) {
+                m_qhead = qhead;
                 return true;
+            }
             SASSERT(!inconsistent());
             propagate_relevancy(qhead);
             if (inconsistent()) 
@@ -1768,8 +1770,10 @@ namespace smt {
             m_qmanager->propagate();
             if (inconsistent())
                 return false;
-            if (resource_limits_exceeded())
+            if (resource_limits_exceeded()) {
+                m_qhead = qhead;
                 return true;
+            }
             if (!can_propagate()) {
                 CASSERT("diseq_bug", inconsistent() || check_missing_diseq_conflict());
                 CASSERT("eqc_bool", check_eqc_bool_assignment());

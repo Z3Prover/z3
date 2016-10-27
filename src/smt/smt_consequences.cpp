@@ -258,6 +258,7 @@ namespace smt {
             TRACE("context", tout << is_sat << "\n";);
             return is_sat;
         }
+
         obj_map<expr, expr*> var2val;
         index_set _assumptions;
         for (unsigned i = 0; i < assumptions.size(); ++i) {

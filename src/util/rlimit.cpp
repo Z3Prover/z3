@@ -29,6 +29,7 @@ uint64 reslimit::count() const {
     return m_count;
 }
 
+
 bool reslimit::inc() {
     ++m_count;
     return m_cancel == 0 && (m_limit == 0 || m_count <= m_limit);
