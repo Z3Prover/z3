@@ -8432,27 +8432,13 @@ def is_fprm_value(a):
 
 ### FP Numerals
 
-class FPNumRef(FPRef):
-    def isNaN(self):
-        return self.decl().kind() == Z3_OP_FPA_NAN
+class FPNumRef(FPRef):   
+    """The sign of the numeral.
 
-    def isInf(self):
-        return self.decl().kind() == Z3_OP_FPA_PLUS_INF or self.decl().kind() == Z3_OP_FPA_MINUS_INF
-
-    def isZero(self):
-        return self.decl().kind() == Z3_OP_FPA_PLUS_ZERO or self.decl().kind() == Z3_OP_FPA_MINUS_ZERO
-
-    def isNegative(self):
-        k = self.decl().kind()
-        return (self.num_args() == 0 and (k == Z3_OP_FPA_MINUS_INF or k == Z3_OP_FPA_MINUS_ZERO)) or (self.sign() == True)
-    
-    """
-    The sign of the numeral.
-
-    >>> x = FPNumRef(+1.0, FPSort(8, 24))
+    >>> x = FPVal(+1.0, FPSort(8, 24))
     >>> x.sign()
     False
-    >>> x = FPNumRef(-1.0, FPSort(8, 24))
+    >>> x = FPVal(-1.0, FPSort(8, 24))
     >>> x.sign()
     True
     """
@@ -8462,47 +8448,50 @@ class FPNumRef(FPRef):
             raise Z3Exception("error retrieving the sign of a numeral.")
         return l.value != 0
 
-    """
-    The sign of a floating-point numeral as a bit-vector expression
+    """The sign of a floating-point numeral as a bit-vector expression.
     
     Remark: NaN's are invalid arguments.
     """
     def sign_as_bv(self):
         return BitVecNumRef(Z3_fpa_get_numeral_sign_bv(self.ctx.ref(), self.as_ast()), self.ctx)
 
+    """The significand of the numeral.
 
-    """
-    The significand of the numeral.
-
-    >>> x = FPNumRef(2.5, FPSort(8, 24))
+    >>> x = FPVal(2.5, FPSort(8, 24))
     >>> x.significand()
     1.25
     """
     def significand(self):
         return Z3_fpa_get_numeral_significand_string(self.ctx.ref(), self.as_ast())
-    
+
+    """The significand of the numeral as a long.
+
+    >>> x = FPVal(2.5, FPSort(8, 24))
+    >>> x.significand_as_long()
+    1.25
     """
-    The significand of a floating-point numeral as a bit-vector expression
+    def significand_as_long(self):
+        return Z3_fpa_get_numeral_significand_uint64(self.ctx.ref(), self.as_ast())
+    
+    """The significand of the numeral as a bit-vector expression.
 
     Remark: NaN are invalid arguments.
     """
     def significand_as_bv(self):
         return BitVecNumRef(Z3_fpa_get_numeral_significand_bv(self.ctx.ref(), self.as_ast()), self.ctx)
 
-    """
-    The exponent of the numeral.
+    """The exponent of the numeral.
 
-    >>> x = FPNumRef(2.5, FPSort(8, 24))
+    >>> x = FPVal(2.5, FPSort(8, 24))
     >>> x.exponent()
     1
     """
     def exponent(self, biased=True):
         return Z3_fpa_get_numeral_exponent_string(self.ctx.ref(), self.as_ast(), biased)
 
-    """
-    The exponent of the numeral as a long.
+    """The exponent of the numeral as a long.
 
-    >>> x = FPNumRef(2.5, FPSort(8, 24))
+    >>> x = FPVal(2.5, FPSort(8, 24))
     >>> x.exponent_as_long()
     1
     """
@@ -8512,19 +8501,45 @@ class FPNumRef(FPRef):
             raise Z3Exception("error retrieving the exponent of a numeral.")
         return ptr[0]
 
-    """
-    The exponent of a floating-point numeral as a bit-vector expression
+    """The exponent of the numeral as a bit-vector expression.
 
     Remark: NaNs are invalid arguments.
     """
     def exponent_as_bv(self, biased=True):
         return BitVecNumRef(Z3_fpa_get_numeral_exponent_bv(self.ctx.ref(), self.as_ast(), biased), self.ctx)
 
+    """Indicates whether the numeral is a NaN."""
+    def isNaN(self):
+        return Z3_fpa_is_numeral_nan(self.ctx.ref(), self.as_ast())
+
+    """Indicates whether the numeral is +oo or -oo."""
+    def isInf(self):
+        return Z3_fpa_is_numeral_inf(self.ctx.ref(), self.as_ast())
+
+    """Indicates whether the numeral is +zero or -zero."""
+    def isZero(self):
+        return Z3_fpa_is_numeral_zero(self.ctx.ref(), self.as_ast())
+
+    """Indicates whether the numeral is normal."""
+    def isNormal(self):
+        return Z3_fpa_is_numeral_normal(self.ctx.ref(), self.as_ast())
+
+    """Indicates whether the numeral is subnormal."""
+    def isSubnormal(self):
+        return Z3_fpa_is_numeral_subnormal(self.ctx.ref(), self.as_ast())
+
+    """Indicates whether the numeral is postitive."""
+    def isPositive(self):
+        return Z3_fpa_is_numeral_positive(self.ctx.ref(), self.as_ast())
+
+    """Indicates whether the numeral is negative."""
+    def isNegative(self):
+        return Z3_fpa_is_numeral_negative(self.ctx.ref(), self.as_ast())
 
     """
     The string representation of the numeral.
 
-    >>> x = FPNumRef(20, FPSort(8, 24))
+    >>> x = FPVal(20, FPSort(8, 24))
     >>> x.as_string()
     1.25*(2**4)
     """
@@ -8682,7 +8697,7 @@ def FPVal(sig, exp=None, fps=None, ctx=None):
     >>> v = FPVal(20.0, FPSort(8, 24))
     >>> v
     1.25*(2**4)
-    >>> print("0x%.8x" % v.exponent_as_long())
+    >>> print("0x%.8x" % v.exponent_as_long(False))
     0x00000004
     >>> v = FPVal(2.25, FPSort(8, 24))
     >>> v
