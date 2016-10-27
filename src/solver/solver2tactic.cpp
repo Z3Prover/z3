@@ -160,9 +160,7 @@ public:
     }
     virtual void reset_statistics() {}
 
-    virtual void cleanup() {
-        m_solver = m_solver->translate(m, m_params);
-    }
+    virtual void cleanup() { }
     virtual void reset() { cleanup(); }
 
     virtual void set_logic(symbol const & l) {}

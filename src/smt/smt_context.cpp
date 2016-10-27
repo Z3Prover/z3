@@ -1111,7 +1111,8 @@ namespace smt {
 
         if (r1 == r2) {
             TRACE("add_diseq_inconsistent", tout << "add_diseq #" << n1->get_owner_id() << " #" << n2->get_owner_id() << " inconsistency, scope_lvl: " << m_scope_lvl << "\n";);
-            return false; // context is inconsistent
+            return true;
+            // return false; // context is inconsistent
         }
 
         // Propagate disequalities to theories

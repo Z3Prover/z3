@@ -251,6 +251,15 @@ Notes:
             return result;
         }
 
+#if 0
+        literal mk_and(literal_vector const& lits) {
+            if (lits.size() == 1) {
+                return lits[0];
+            }
+            
+        }
+#endif
+
         void mk_implies_or(literal l, unsigned n, literal const* xs) {
             literal_vector lits(n, xs);
             lits.push_back(ctx.mk_not(l));
@@ -337,11 +346,28 @@ Notes:
             ors.push_back(ex);                
             
             // result => xs[0] + ... + xs[n-1] <= 1
+#if 1
             for (unsigned i = 0; i < n; ++i) {
                 for (unsigned j = i + 1; j < n; ++j) {
                     add_clause(ctx.mk_not(result), ctx.mk_not(xs[i]), ctx.mk_not(xs[j]));
                 }
             }            
+#else
+            literal_vector atm;
+            for (unsigned i = 0; i < n; ++i) {
+                // at => !xs[1] & .. & !xs[i-1] & !xs[i+1] & ... & !xs[n-1] 
+                literal at = fresh();
+                for (unsigned j = 0; j < n; ++j) {
+                    if (i != j) {
+                        add_clause(ctx.mk_not(at), ctx.mk_not(xs[j]));
+                    }
+                }
+                atm.push_back(at);
+            }            
+            atm.push_back(ctx.mk_not(result));
+            add_clause(atm);
+
+#endif
             // xs[0] + ... + xs[n-1] <= 1 => and_x
             if (full) {
                 literal and_i = fresh();

@@ -3168,7 +3168,8 @@ namespace sat {
             ++num_iterations;
             checkpoint();
             literal_set::iterator it = vars.begin(), end = vars.end();
-            for (; it != end; ++it) {
+            unsigned chunk_size = 100;
+            for (; it != end && chunk_size > 0; ++it) {
                 literal lit = *it;
                 if (value(lit) != l_undef) {
                     continue;
@@ -3182,6 +3183,7 @@ namespace sat {
                         return l_false;
                     }
                     propagate(false);
+                    --chunk_size;
                 }
             }
             lbool is_sat;

@@ -257,10 +257,12 @@ public:
             bool_var2conseq.insert(lconseq[i][0].var(), i);
         }
         
-        // extract original fixed variables 
+        // extract original fixed variables
+        u_map<expr*> asm2dep;
+        extract_asm2dep(dep2asm, asm2dep);
         for (unsigned i = 0; i < vars.size(); ++i) {
             expr_ref cons(m);
-            if (extract_fixed_variable(dep2asm, vars[i], bool_var2conseq, lconseq, cons)) {
+            if (extract_fixed_variable(dep2asm, asm2dep, vars[i], bool_var2conseq, lconseq, cons)) {
                 conseq.push_back(cons);
             }
         }
@@ -378,7 +380,7 @@ private:
         if (!atoms.empty()) {
             std::stringstream strm;
             strm << "interpreted atoms sent to SAT solver " << atoms;
-            TRACE("sat", std::cout << strm.str() << "\n";);
+            TRACE("sat", tout << strm.str() << "\n";);
             IF_VERBOSE(1, verbose_stream() << strm.str() << "\n";);
             set_reason_unknown(strm.str().c_str());
             return l_undef;
@@ -449,9 +451,7 @@ private:
         return internalized;
     }
 
-    bool extract_fixed_variable(dep2asm_t& dep2asm, expr* v, u_map<unsigned> const& bool_var2conseq, vector<sat::literal_vector> const& lconseq, expr_ref& conseq) {
-        u_map<expr*> asm2dep;
-        extract_asm2dep(dep2asm, asm2dep);
+    bool extract_fixed_variable(dep2asm_t& dep2asm, u_map<expr*>& asm2dep, expr* v, u_map<unsigned> const& bool_var2conseq, vector<sat::literal_vector> const& lconseq, expr_ref& conseq) {
 
         sat::bool_var_vector bvars;
         if (!internalize_var(v, bvars)) {
@@ -484,6 +484,7 @@ private:
         return true;
     }
 
+    vector<rational> m_exps;
     void internalize_value(sat::literal_vector const& value, expr* v, expr_ref& val) {
         bv_util bvutil(m);
         if (is_uninterp_const(v) && m.is_bool(v)) {
@@ -492,10 +493,16 @@ private:
         }
         else if (is_uninterp_const(v) && bvutil.is_bv_sort(m.get_sort(v))) {
             SASSERT(value.size() == bvutil.get_bv_size(v));
+            if (m_exps.empty()) {
+                m_exps.push_back(rational::one());
+            }
+            while (m_exps.size() < value.size()) {
+                m_exps.push_back(rational(2)*m_exps.back());
+            }
             rational r(0);
             for (unsigned i = 0; i < value.size(); ++i) {
                 if (!value[i].sign()) {
-                    r += rational(2).expt(i);
+                    r += m_exps[i];
                 }
             }
             val = m.mk_eq(v, bvutil.mk_numeral(r, value.size()));
