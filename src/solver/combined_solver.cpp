@@ -21,6 +21,7 @@ Notes:
 #include"solver.h"
 #include"scoped_timer.h"
 #include"combined_solver_params.hpp"
+#include"common_msgs.h"
 #define PS_VB_LVL 15
 
 /**
@@ -201,7 +202,12 @@ public:
             return m_solver2->get_consequences(asms, vars, consequences);
         }
         catch (z3_exception& ex) {
-            set_reason_unknown(ex.msg());
+            if (get_manager().canceled()) {
+                set_reason_unknown(Z3_CANCELED_MSG);
+            }
+            else {
+                set_reason_unknown(ex.msg());
+            }
         }
         return l_undef;
     }
