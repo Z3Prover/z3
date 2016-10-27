@@ -166,6 +166,11 @@ namespace Microsoft.Z3
         /// </summary>
         public bool IsPositive { get { return Native.Z3_fpa_is_numeral_positive(Context.nCtx, NativeObject) != 0; } }
 
+        /// <summary>
+        /// Indicates whether the numeral is negative.
+        /// </summary>
+        public bool IsNegative { get { return Native.Z3_fpa_is_numeral_negative(Context.nCtx, NativeObject) != 0; } }
+
         #region Internal
         internal FPNum(Context ctx, IntPtr obj)
             : base(ctx, obj)

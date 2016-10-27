@@ -166,6 +166,17 @@ public class FPNum extends FPExpr
     {
         return Native.fpaIsNumeralPositive(getContext().nCtx(), getNativeObject());
     }
+
+    /**
+     * Indicates whether the numeral is negative.
+     * @throws Z3Exception on error
+     * @return a boolean
+     **/
+    public boolean isNegative()
+    {
+        return Native.fpaIsNumeralNegative(getContext().nCtx(), getNativeObject());
+    }
+
     
     public FPNum(Context ctx, long obj)
     {
