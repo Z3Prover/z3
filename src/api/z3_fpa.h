@@ -883,6 +883,16 @@ extern "C" {
     Z3_bool Z3_API Z3_fpa_is_numeral_positive(Z3_context c, Z3_ast t);
 
     /**
+        \brief Checks whether a given floating-point numeral is negative.
+
+        \param c logical context
+        \param t a floating-point numeral
+
+        def_API('Z3_fpa_is_numeral_negative', BOOL, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_bool Z3_API Z3_fpa_is_numeral_negative(Z3_context c, Z3_ast t);
+
+    /**
         \brief Retrieves the sign of a floating-point literal as a bit-vector expression.
 
         \param c logical context

@@ -1087,7 +1087,7 @@ extern "C" {
                         mpfm.is_denormal(val) ? mpfm.mk_min_exp(ebits) :
                         mpfm.is_inf(val) ? mpfm.mk_top_exp(ebits) :
                         mpfm.bias_exp(ebits, mpfm.exp(val));
-        if (mpfm.is_normal(val) && !biased) 
+        if (mpfm.is_normal(val) && !biased)
             exp = mpfm.exp(val);
         std::stringstream ss;
         ss << exp;
@@ -1122,7 +1122,7 @@ extern "C" {
              mpfm.is_denormal(val) ? mpfm.mk_min_exp(ebits) :
              mpfm.is_inf(val) ? mpfm.mk_top_exp(ebits) :
              mpfm.bias_exp(ebits, mpfm.exp(val));
-        if (mpfm.is_normal(val) && !biased) 
+        if (mpfm.is_normal(val) && !biased)
             *n = mpfm.exp(val);
         return 1;
         Z3_CATCH_RETURN(0);
@@ -1155,10 +1155,10 @@ extern "C" {
                         mpfm.is_inf(val) ? mpfm.mk_top_exp(ebits) :
                         mpfm.bias_exp(ebits, mpfm.exp(val));
         if (mpfm.is_normal(val) && !biased)  {
-            std::cout << "unbiassing" << std::endl;            
+            std::cout << "unbiassing" << std::endl;
             exp = mpfm.exp(val);
         }
-        
+
         app * a = mk_c(c)->bvutil().mk_numeral(exp, ebits);
         mk_c(c)->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
@@ -1200,7 +1200,7 @@ extern "C" {
 
     Z3_bool Z3_API Z3_fpa_is_numeral_nan(Z3_context c, Z3_ast t) {
         Z3_TRY;
-        Z3_fpa_is_numeral_nan(c, t);
+        LOG_Z3_fpa_is_numeral_nan(c, t);
         RESET_ERROR_CODE();
         api::context * ctx = mk_c(c);
         fpa_util & fu = ctx->fpautil();
@@ -1214,7 +1214,7 @@ extern "C" {
 
     Z3_bool Z3_API Z3_fpa_is_numeral_inf(Z3_context c, Z3_ast t) {
         Z3_TRY;
-        Z3_fpa_is_numeral_inf(c, t);
+        LOG_Z3_fpa_is_numeral_inf(c, t);
         RESET_ERROR_CODE();
         api::context * ctx = mk_c(c);
         fpa_util & fu = ctx->fpautil();
@@ -1228,7 +1228,7 @@ extern "C" {
 
     Z3_bool Z3_API Z3_fpa_is_numeral_zero(Z3_context c, Z3_ast t) {
         Z3_TRY;
-        Z3_fpa_is_numeral_zero(c, t);
+        LOG_Z3_fpa_is_numeral_zero(c, t);
         RESET_ERROR_CODE();
         api::context * ctx = mk_c(c);
         fpa_util & fu = ctx->fpautil();
@@ -1242,7 +1242,7 @@ extern "C" {
 
     Z3_bool Z3_API Z3_fpa_is_numeral_normal(Z3_context c, Z3_ast t) {
         Z3_TRY;
-        Z3_fpa_is_numeral_normal(c, t);
+        LOG_Z3_fpa_is_numeral_normal(c, t);
         RESET_ERROR_CODE();
         api::context * ctx = mk_c(c);
         fpa_util & fu = ctx->fpautil();
@@ -1256,7 +1256,7 @@ extern "C" {
 
     Z3_bool Z3_API Z3_fpa_is_numeral_subnormal(Z3_context c, Z3_ast t) {
         Z3_TRY;
-        Z3_fpa_is_numeral_subnormal(c, t);
+        LOG_Z3_fpa_is_numeral_subnormal(c, t);
         RESET_ERROR_CODE();
         api::context * ctx = mk_c(c);
         fpa_util & fu = ctx->fpautil();
@@ -1270,7 +1270,7 @@ extern "C" {
 
     Z3_bool Z3_API Z3_fpa_is_numeral_positive(Z3_context c, Z3_ast t) {
         Z3_TRY;
-        Z3_fpa_is_numeral_positive(c, t);
+        LOG_Z3_fpa_is_numeral_positive(c, t);
         RESET_ERROR_CODE();
         api::context * ctx = mk_c(c);
         fpa_util & fu = ctx->fpautil();
@@ -1279,6 +1279,20 @@ extern "C" {
             return 0;
         }
         return fu.is_positive(to_expr(t));
+        Z3_CATCH_RETURN(Z3_FALSE);
+    }
+
+    Z3_bool Z3_API Z3_fpa_is_numeral_negative(Z3_context c, Z3_ast t) {
+        Z3_TRY;
+        LOG_Z3_fpa_is_numeral_negative(c, t);
+        RESET_ERROR_CODE();
+        api::context * ctx = mk_c(c);
+        fpa_util & fu = ctx->fpautil();
+        if (!is_expr(t) || !fu.is_numeral(to_expr(t))) {
+            SET_ERROR_CODE(Z3_INVALID_ARG);
+            return 0;
+        }
+        return fu.is_negative(to_expr(t));
         Z3_CATCH_RETURN(Z3_FALSE);
     }
 

@@ -297,6 +297,7 @@ public:
     bool is_normal(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_normal(v); }
     bool is_subnormal(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_denormal(v); }
     bool is_positive(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_pos(v); }
+    bool is_negative(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_neg(v); }
 
     app * mk_fp(expr * sgn, expr * exp, expr * sig) {
         SASSERT(m_bv_util.is_bv(sgn) && m_bv_util.get_bv_size(sgn) == 1);
