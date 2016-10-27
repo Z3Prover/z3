@@ -322,10 +322,17 @@ void bv2fpa_converter::convert_consts(model_core * mc, model_core * target_model
         v2 = mc->get_const_interp(a2->get_decl());
 #else
         expr * bv = mc->get_const_interp(to_app(to_app(a0)->get_arg(0))->get_decl());
-        unsigned bv_sz = m_bv_util.get_bv_size(bv);
-        v0 = m_bv_util.mk_extract(bv_sz-1, bv_sz-1, bv);
-        v1 = m_bv_util.mk_extract(bv_sz-2, sbits-1, bv);
-        v2 = m_bv_util.mk_extract(sbits-2, 0, bv);
+        if (bv == 0) {
+            v0 = m_bv_util.mk_numeral(0, 1);
+            v1 = m_bv_util.mk_numeral(0, ebits);
+            v2 = m_bv_util.mk_numeral(0, sbits-1);
+        }
+        else {
+            unsigned bv_sz = m_bv_util.get_bv_size(bv);
+            v0 = m_bv_util.mk_extract(bv_sz-1, bv_sz-1, bv);
+            v1 = m_bv_util.mk_extract(bv_sz-2, sbits-1, bv);
+            v2 = m_bv_util.mk_extract(sbits-2, 0, bv);
+        }
 #endif
 
         if (!v0) v0 = m_bv_util.mk_numeral(0, 1);
