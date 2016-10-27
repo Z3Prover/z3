@@ -197,7 +197,13 @@ public:
     virtual lbool get_consequences(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) {
         switch_inc_mode();
         m_use_solver1_results = false;
-        return m_solver2->get_consequences(asms, vars, consequences);
+        try {
+            return m_solver2->get_consequences(asms, vars, consequences);
+        }
+        catch (z3_exception& ex) {
+            set_reason_unknown(ex.msg());
+        }
+        return l_undef;
     }
 
     virtual lbool check_sat(unsigned num_assumptions, expr * const * assumptions) {

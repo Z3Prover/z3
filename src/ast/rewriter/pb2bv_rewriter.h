@@ -36,6 +36,7 @@ public:
     void cleanup();
     func_decl_ref_vector const& fresh_constants() const;
     void operator()(expr * e, expr_ref & result, proof_ref & result_proof);
+    void assert_expr(expr* e, expr_ref & result, proof_ref & result_proof);
     void push();
     void pop(unsigned num_scopes);
     void flush_side_constraints(expr_ref_vector& side_constraints);

@@ -433,6 +433,9 @@ struct pb2bv_rewriter::imp {
     void operator()(expr * e, expr_ref & result, proof_ref & result_proof) {
         m_rw(e, result, result_proof);
     }
+    void assert_expr(expr * e, expr_ref & result, proof_ref & result_proof) {
+        m_rw(e, result, result_proof);
+    }
     void push() {
         m_fresh_lim.push_back(m_fresh.size());
     }
@@ -469,9 +472,13 @@ unsigned pb2bv_rewriter::get_num_steps() const { return m_imp->get_num_steps(); 
 void pb2bv_rewriter::cleanup() { ast_manager& mgr = m(); params_ref p = m_imp->m_params; dealloc(m_imp); m_imp = alloc(imp, mgr, p);  }
 func_decl_ref_vector const& pb2bv_rewriter::fresh_constants() const { return m_imp->m_fresh; }
 void pb2bv_rewriter::operator()(expr * e, expr_ref & result, proof_ref & result_proof) { (*m_imp)(e, result, result_proof); }
+void pb2bv_rewriter::assert_expr(expr* e, expr_ref & result, proof_ref & result_proof) { 
+    m_imp->assert_expr(e, result, result_proof); 
+}
 void pb2bv_rewriter::push() { m_imp->push(); }
 void pb2bv_rewriter::pop(unsigned num_scopes) { m_imp->pop(num_scopes); }
 void pb2bv_rewriter::flush_side_constraints(expr_ref_vector& side_constraints) { m_imp->flush_side_constraints(side_constraints); } 
 unsigned pb2bv_rewriter::num_translated() const { return m_imp->m_num_translated; }
+
 
 void pb2bv_rewriter::collect_statistics(statistics & st) const { m_imp->collect_statistics(st); }

@@ -3168,8 +3168,8 @@ namespace sat {
             ++num_iterations;
             checkpoint();
             literal_set::iterator it = vars.begin(), end = vars.end();
-            unsigned chunk_size = 100;
-            for (; it != end && chunk_size > 0; ++it) {
+            unsigned num_resolves = 0;
+            for (; it != end; ++it) {
                 literal lit = *it;
                 if (value(lit) != l_undef) {
                     continue;
@@ -3182,16 +3182,22 @@ namespace sat {
                         TRACE("sat", tout << "inconsistent\n";);
                         return l_false;
                     }
-                    propagate(false);
-                    --chunk_size;
+                    propagate(false);                    
+                    ++num_resolves;
+                }
+                if (scope_lvl() == 1) {
+                    break;
                 }
             }
             lbool is_sat;
             while (true) {
+                if (scope_lvl() == 1 && num_resolves > 0) {
+                    is_sat = l_undef;
+                    break;
+                }
                 is_sat = bounded_search();
                 if (is_sat == l_undef) {
-                    restart();                  
-                    continue;
+                    restart();      
                 }
                 break;
             }
