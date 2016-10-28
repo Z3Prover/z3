@@ -1154,10 +1154,8 @@ extern "C" {
                         mpfm.is_denormal(val) ? mpfm.mk_min_exp(ebits) :
                         mpfm.is_inf(val) ? mpfm.mk_top_exp(ebits) :
                         mpfm.bias_exp(ebits, mpfm.exp(val));
-        if (mpfm.is_normal(val) && !biased)  {
-            std::cout << "unbiassing" << std::endl;
+        if (mpfm.is_normal(val) && !biased)
             exp = mpfm.exp(val);
-        }
 
         app * a = mk_c(c)->bvutil().mk_numeral(exp, ebits);
         mk_c(c)->save_ast_trail(a);
