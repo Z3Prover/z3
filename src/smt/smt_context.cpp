@@ -3778,14 +3778,8 @@ namespace smt {
 #ifdef Z3DEBUG
             for (unsigned i = 0; i < num_lits; i++) {
                 literal l = lits[i];
-<<<<<<< HEAD
-                expr* real_atom;
-                if (expr_signs[i] != l.sign()) {
-
-=======
                 if (expr_signs[i] != l.sign()) {
                     expr* real_atom;
->>>>>>> f1412d3f3249529224f4180f601652da210b274a
                     VERIFY(m_manager.is_not(expr_lits.get(i), real_atom));
                     // the sign must have flipped when internalizing
                     CTRACE("resolve_conflict_bug", real_atom != bool_var2expr(l.var()), tout << mk_pp(real_atom, m_manager) << "\n" << mk_pp(bool_var2expr(l.var()), m_manager) << "\n";);
