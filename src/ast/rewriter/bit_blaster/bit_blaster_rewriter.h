@@ -37,6 +37,7 @@ public:
     void operator()(expr * e, expr_ref & result, proof_ref & result_proof);
     void push();
     void pop(unsigned num_scopes);
+    unsigned get_num_scopes() const;
 };
 
 #endif

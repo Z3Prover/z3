@@ -3158,7 +3158,14 @@ namespace sat {
         init_search();
         propagate(false);
         if (inconsistent()) return l_false;
-        init_assumptions(asms.size(), asms.c_ptr(), 0, 0);
+        if (asms.empty()) {
+            bool_var v = mk_var(true, false);
+            literal lit(v, false);
+            init_assumptions(1, &lit, 0, 0);
+        }
+        else {
+            init_assumptions(asms.size(), asms.c_ptr(), 0, 0);
+        }
         propagate(false);
         if (check_inconsistent()) return l_false;
        
@@ -3169,6 +3176,7 @@ namespace sat {
             checkpoint();
             literal_set::iterator it = vars.begin(), end = vars.end();
             unsigned num_resolves = 0;
+            lbool is_sat = l_true;
             for (; it != end; ++it) {
                 literal lit = *it;
                 if (value(lit) != l_undef) {
@@ -3179,8 +3187,10 @@ namespace sat {
                 propagate(false);
                 while (inconsistent()) {      
                     if (!resolve_conflict()) {
-                        TRACE("sat", tout << "inconsistent\n";);
-                        return l_false;
+                        TRACE("sat", display(tout << "inconsistent\n"););
+                        m_inconsistent = false;
+                        is_sat = l_undef;
+                        break;
                     }
                     propagate(false);                    
                     ++num_resolves;
@@ -3189,17 +3199,16 @@ namespace sat {
                     break;
                 }
             }
-            lbool is_sat;
-            while (true) {
+            if (is_sat == l_true) {
                 if (scope_lvl() == 1 && num_resolves > 0) {
                     is_sat = l_undef;
-                    break;
                 }
-                is_sat = bounded_search();
-                if (is_sat == l_undef) {
-                    restart();      
+                else {
+                    is_sat = bounded_search();
+                    if (is_sat == l_undef) {
+                        restart();      
+                    }
                 }
-                break;
             }
             if (is_sat == l_false) {
                 TRACE("sat", tout << "unsat\n";);

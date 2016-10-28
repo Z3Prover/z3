@@ -234,6 +234,7 @@ public:
     }
 
     virtual lbool get_consequences_core(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq) {
+        init_preprocess();
         TRACE("sat", tout << assumptions << "\n" << vars << "\n";);
         sat::literal_vector asms;
         sat::bool_var_vector bvars;
@@ -341,7 +342,7 @@ public:
                      mk_bit_blaster_tactic(m, m_bb_rewriter.get()),
                      //mk_aig_tactic(),
                      using_params(mk_simplify_tactic(m), simp2_p));
-        for (unsigned i = 0; i < m_num_scopes; ++i) {
+        while (m_bb_rewriter->get_num_scopes() < m_num_scopes) {
             m_bb_rewriter->push();
         }
         m_preprocess->reset();
@@ -364,6 +365,7 @@ private:
         }
         catch (tactic_exception & ex) {
             IF_VERBOSE(0, verbose_stream() << "exception in tactic " << ex.msg() << "\n";);
+            TRACE("sat", tout << "exception: " << ex.msg() << "\n";);
             m_preprocess = 0;
             m_bb_rewriter = 0;
             return l_undef;
@@ -518,10 +520,14 @@ private:
         }
         dep2asm_t dep2asm;
         goal_ref g = alloc(goal, m, true, false); // models, maybe cores are enabled
-        for (; m_fmls_head < m_fmls.size(); ++m_fmls_head) {
-            g->assert_expr(m_fmls[m_fmls_head].get());
+        for (unsigned i = 0 ; i < m_fmls.size(); ++i) {
+            g->assert_expr(m_fmls[i].get());
         }
-        return internalize_goal(g, dep2asm);
+        lbool res = internalize_goal(g, dep2asm);
+        if (res != l_undef) {
+            m_fmls_head = m_fmls.size();
+        }
+        return res;
     }
 
     void extract_assumptions(unsigned sz, expr* const* asms, dep2asm_t& dep2asm) {

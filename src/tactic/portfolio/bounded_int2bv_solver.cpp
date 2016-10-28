@@ -247,8 +247,9 @@ private:
                 expr_ref t(m.mk_const(fbv), m);
                 t = m_bv.mk_bv2int(t);
                 if (!offset.is_zero()) {
-                    t = m_arith.mk_add(t, m_arith.mk_numeral(lo, true));
+                    t = m_arith.mk_add(t, m_arith.mk_numeral(offset, true));
                 }
+                TRACE("pb", tout << lo << " <= " << hi << " offset: " << offset << "\n"; tout << mk_pp(e, m) << " |-> " << t << "\n";);
                 sub.insert(e, t);
             }
             else {
