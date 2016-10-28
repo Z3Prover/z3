@@ -239,6 +239,17 @@ struct mus::imp {
         return l_false;
     }
 
+    void get_core(expr_set& core) {
+        core.reset();
+        ptr_vector<expr> core_exprs;
+        m_solver.get_unsat_core(core_exprs);
+        for (unsigned i = 0; i < core_exprs.size(); ++i) {
+            if (m_expr2lit.contains(core_exprs[i])) {
+                core.insert(core_exprs[i]);
+            }
+        }
+    }
+
     bool have_intersection(expr_set const& A, expr_set const& B) {
         if (A.size() < B.size()) {
             expr_set::iterator it = A.begin(), end = A.end();
@@ -343,110 +354,6 @@ struct mus::imp {
     rational get_best_model(model_ref& mdl) {
         mdl = m_model;
         return m_weight;
-    }
-
-
-    lbool qx(expr_ref_vector& mus) {
-        expr_set core, support;
-        for (unsigned i = 0; i < m_lit2expr.size(); ++i) {
-            core.insert(m_lit2expr[i].get());
-        }
-        lbool is_sat = qx(core, support, false);
-        if (is_sat == l_true) {
-            expr_set::iterator it = core.begin(), end = core.end();
-            mus.reset();
-            for (; it != end; ++it) {
-                mus.push_back(*it);
-            }
-        }
-        return is_sat;
-    }
-
-    lbool qx(expr_set& assignment, expr_set& support, bool has_support) {
-        lbool is_sat = l_true;
-#if 0
-        if (s.m_config.m_minimize_core_partial && s.m_stats.m_restart - m_restart > m_max_restarts) {
-            IF_VERBOSE(1, verbose_stream() << "(sat restart budget exceeded)\n";);
-            return l_true;
-        }
-#endif
-        if (has_support) {
-            expr_ref_vector asms(m);
-            scoped_append _sa1(*this, asms, support);
-            scoped_append _sa2(*this, asms, m_assumptions);
-            is_sat = m_solver.check_sat(asms);
-            switch (is_sat) {
-            case l_false: {
-                expr_set core; 
-                get_core(core);
-                support &= core;
-                assignment.reset();
-                return l_true;
-            }
-            case l_undef:
-                return l_undef;
-            case l_true:
-                update_model();
-                break;
-            default:
-                break;
-            }
-        }
-        if (assignment.size() == 1) {
-            return l_true;
-        }
-        expr_set assign2;
-        split(assignment, assign2);
-        support |= assignment;
-        is_sat = qx(assign2, support, !assignment.empty());        
-        unsplit(support, assignment);
-        if (is_sat != l_true) return is_sat;
-        support |= assign2;
-        is_sat = qx(assignment, support, !assign2.empty());
-        assignment |= assign2;
-        unsplit(support, assign2);
-        return is_sat;
-    }
-
-    void get_core(expr_set& core) {
-        core.reset();
-        ptr_vector<expr> core_exprs;
-        m_solver.get_unsat_core(core_exprs);
-        for (unsigned i = 0; i < core_exprs.size(); ++i) {
-            if (m_expr2lit.contains(core_exprs[i])) {
-                core.insert(core_exprs[i]);
-            }
-        }
-    }
-
-    void unsplit(expr_set& A, expr_set& B) {
-        expr_set A1, B1;
-        expr_set::iterator it = A.begin(), end = A.end();
-        for (; it != end; ++it) {
-            if (B.contains(*it)) {
-                B1.insert(*it);
-            }
-            else {
-                A1.insert(*it);
-            }
-        }
-        A = A1;
-        B = B1;
-    }
-
-    void split(expr_set& lits1, expr_set& lits2) {
-        unsigned half = lits1.size()/2;
-        expr_set lits3;
-        expr_set::iterator it = lits1.begin(), end = lits1.end();
-        for (unsigned i = 0; it != end; ++it, ++i) {
-            if (i < half) {
-                lits3.insert(*it);
-            }
-            else {
-                lits2.insert(*it);
-            }
-        }
-        lits1 = lits3;
     }
 
 };

@@ -1817,7 +1817,7 @@ class QuantifierRef(BoolRef):
         """
         if __debug__:
             _z3_assert(idx < self.num_vars(), "Invalid variable idx")
-        return SortRef(Z3_get_quantifier_bound_sort(self.ctx_ref(), self.ast, idx), self.ctx)
+        return _to_sort_ref(Z3_get_quantifier_bound_sort(self.ctx_ref(), self.ast, idx), self.ctx)
 
     def children(self):
         """Return a list containing a single element self.body()
@@ -7653,6 +7653,26 @@ def PbLe(args, k):
     for i in range(len(coeffs)):
         _coeffs[i] = coeffs[i]
     return BoolRef(Z3_mk_pble(ctx.ref(), sz, _args, _coeffs, k), ctx)
+
+def PbEq(args, k):
+    """Create a Pseudo-Boolean inequality k constraint.
+
+    >>> a, b, c = Bools('a b c')
+    >>> f = PbEq(((a,1),(b,3),(c,2)), 3)
+    """
+    args  = _get_args(args)
+    args, coeffs = zip(*args)
+    if __debug__:
+        _z3_assert(len(args) > 0, "Non empty list of arguments expected")
+    ctx   = _ctx_from_ast_arg_list(args)
+    if __debug__:
+        _z3_assert(ctx is not None, "At least one of the arguments must be a Z3 expression")
+    args = _coerce_expr_list(args, ctx)
+    _args, sz = _to_ast_array(args)
+    _coeffs = (ctypes.c_int * len(coeffs))()
+    for i in range(len(coeffs)):
+        _coeffs[i] = coeffs[i]
+    return BoolRef(Z3_mk_pbeq(ctx.ref(), sz, _args, _coeffs, k), ctx)
 
 
 def solve(*args, **keywords):

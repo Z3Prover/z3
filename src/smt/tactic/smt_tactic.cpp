@@ -24,63 +24,10 @@ Notes:
 #include"rewriter_types.h"
 #include"filter_model_converter.h"
 #include"ast_util.h"
+#include"solver2tactic.h"
 
 typedef obj_map<expr, expr *> expr2expr_map;
 
-void extract_clauses_and_dependencies(goal_ref const& g, expr_ref_vector& clauses, ptr_vector<expr>& assumptions, expr2expr_map& bool2dep, ref<filter_model_converter>& fmc) {
-    expr2expr_map dep2bool;
-    ptr_vector<expr> deps;
-    ast_manager& m = g->m();
-    expr_ref_vector clause(m);
-    unsigned sz = g->size();
-    for (unsigned i = 0; i < sz; i++) {
-        expr * f            = g->form(i);
-        expr_dependency * d = g->dep(i);
-        if (d == 0 || !g->unsat_core_enabled()) {
-            clauses.push_back(f);
-        }
-        else {
-            // create clause (not d1 \/ ... \/ not dn \/ f) when the d's are the assumptions/dependencies of f.
-            clause.reset();
-            clause.push_back(f);
-            deps.reset();
-            m.linearize(d, deps);
-            SASSERT(!deps.empty()); // d != 0, then deps must not be empty
-            ptr_vector<expr>::iterator it  = deps.begin();
-            ptr_vector<expr>::iterator end = deps.end();
-            for (; it != end; ++it) {
-                expr * d = *it;
-                if (is_uninterp_const(d) && m.is_bool(d)) {
-                    // no need to create a fresh boolean variable for d
-                    if (!bool2dep.contains(d)) {
-                        assumptions.push_back(d);
-                        bool2dep.insert(d, d);
-                    }
-                    clause.push_back(m.mk_not(d));
-                }
-                else {
-                    // must normalize assumption
-                    expr * b = 0;
-                    if (!dep2bool.find(d, b)) {
-                        b = m.mk_fresh_const(0, m.mk_bool_sort());
-                        dep2bool.insert(d, b);
-                        bool2dep.insert(b, d);
-                        assumptions.push_back(b);
-                        if (!fmc) {
-                            fmc = alloc(filter_model_converter, m);
-                        }
-                        fmc->insert(to_app(b)->get_decl());
-                    }
-                    clause.push_back(m.mk_not(b));
-                }
-            }
-            SASSERT(clause.size() > 1);
-            expr_ref cls(m);
-            cls = mk_or(m, clause.size(), clause.c_ptr());
-            clauses.push_back(cls);
-        }
-    }
-}
 
 class smt_tactic : public tactic {
     smt_params                   m_params;

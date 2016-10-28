@@ -1505,6 +1505,9 @@ class PythonInstallComponent(Component):
                                            os.path.join(self.pythonPkgDir, 'z3', '__pycache__', '*.pyc'),
                                            in_prefix=self.in_prefix_install
                                           )
+        MakeRuleCmd.remove_installed_files(out,
+                                           os.path.join(self.pythonPkgDir, 'z3', 'lib',
+                                                        self.libz3Component.dll_file()))
 
     def mk_makefile(self, out):
         return
@@ -3073,6 +3076,11 @@ def mk_vs_proj_property_groups(f, name, target_ext, type):
     f.write('    <CharacterSet>Unicode</CharacterSet>\n')
     f.write('    <UseOfMfc>false</UseOfMfc>\n')
     f.write('  </PropertyGroup>\n')
+    f.write('  <PropertyGroup Condition="\'$(Configuration)|$(Platform)\'==\'Release|Win32\'" Label="Configuration">\n')
+    f.write('    <ConfigurationType>%s</ConfigurationType>\n' % type)
+    f.write('    <CharacterSet>Unicode</CharacterSet>\n')
+    f.write('    <UseOfMfc>false</UseOfMfc>\n')
+    f.write('  </PropertyGroup>\n')
     f.write('  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />\n')
     f.write('  <ImportGroup Label="ExtensionSettings" />\n')
     f.write('   <ImportGroup Label="PropertySheets">\n')
@@ -3275,7 +3283,7 @@ class MakeRuleCmd(object):
             #print("WARNING: Generating makefile rule that {}s {} '{}' which is outside the installation prefix '{}'.".format(
             #        action_string, 'to' if is_install else 'from', path, PREFIX))
         else:
-            assert not os.path.isabs(path)
+            # assert not os.path.isabs(path)
             install_root = cls.install_root()
         return install_root
 

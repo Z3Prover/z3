@@ -29,39 +29,6 @@ Notes:
 
 struct pb2bv_rewriter::imp {
 
-    struct argc_t {
-        expr*    m_arg;
-        rational m_coeff;
-        argc_t():m_arg(0), m_coeff(0) {}
-        argc_t(expr* arg, rational const& r): m_arg(arg), m_coeff(r) {}
-    };
-    
-    struct argc_gt {
-        bool operator()(argc_t const& a, argc_t const& b) const {
-            return a.m_coeff > b.m_coeff;
-        }
-    };
-
-    struct argc_entry {
-        unsigned m_index;
-        rational m_k;
-        expr*    m_value;
-        argc_entry(unsigned i, rational const& k): m_index(i), m_k(k), m_value(0) {}
-        argc_entry():m_index(0), m_k(0), m_value(0) {}
-        
-        struct eq {
-            bool operator()(argc_entry const& a, argc_entry const& b) const {
-                return a.m_index == b.m_index && a.m_k == b.m_k;
-            }
-        };
-        struct hash {
-            unsigned operator()(argc_entry const& a) const {
-                return a.m_index ^ a.m_k.hash();
-            }
-        };
-    };
-    typedef hashtable<argc_entry, argc_entry::hash, argc_entry::eq> argc_cache;
-
     ast_manager&              m;
     params_ref                m_params;
     expr_ref_vector           m_lemmas;
@@ -79,6 +46,9 @@ struct pb2bv_rewriter::imp {
         pb_util      pb;
         bv_util      bv;
         expr_ref_vector m_trail;
+        expr_ref_vector m_args;
+        rational     m_k;
+        vector<rational> m_coeffs;
 
         template<lbool is_le>
         expr_ref mk_le_ge(expr_ref_vector& fmls, expr* a, expr* b, expr* bound) {
@@ -109,8 +79,23 @@ struct pb2bv_rewriter::imp {
         // The procedure for checking >= k is symmetric and checking for = k is
         // achieved by checking <= k on intermediary addends and the resulting sum is = k.
         // 
+        // is_le = l_true  -  <=
+        // is_le = l_undef -  =
+        // is_le = l_false -  >= 
+        //
         template<lbool is_le>
-        expr_ref mk_le_ge(func_decl *f, unsigned sz, expr * const* args, rational const & k) {
+        expr_ref mk_le_ge(unsigned sz, expr * const* args, rational const & k) {
+            TRACE("pb", 
+                  for (unsigned i = 0; i < sz; ++i) {
+                      tout << m_coeffs[i] << "*" << mk_pp(args[i], m) << " ";
+                      if (i + 1 < sz && !m_coeffs[i+1].is_neg()) tout << "+ ";
+                  }
+                  switch (is_le) {
+                  case l_true: tout << "<= "; break;
+                  case l_undef: tout << "= "; break;
+                  case l_false: tout << ">= "; break;
+                  }
+                  tout << m_k << "\n";);
             if (k.is_zero()) {
                 if (is_le != l_false) {
                     return expr_ref(m.mk_not(mk_or(m, sz, args)), m);
@@ -119,6 +104,9 @@ struct pb2bv_rewriter::imp {
                     return expr_ref(m.mk_true(), m);
                 }
             }
+            if (k.is_neg()) {
+                return expr_ref((is_le == l_false)?m.mk_true():m.mk_false(), m);
+            }
             SASSERT(k.is_pos());
             expr_ref zero(m), bound(m);
             expr_ref_vector es(m), fmls(m);
@@ -126,7 +114,8 @@ struct pb2bv_rewriter::imp {
             zero = bv.mk_numeral(rational(0), nb);
             bound = bv.mk_numeral(k, nb);
             for (unsigned i = 0; i < sz; ++i) {
-                if (pb.get_coeff(f, i) > k) {
+                SASSERT(!m_coeffs[i].is_neg());
+                if (m_coeffs[i] > k) {
                     if (is_le != l_false) {
                         fmls.push_back(m.mk_not(args[i]));
                     }
@@ -135,7 +124,7 @@ struct pb2bv_rewriter::imp {
                     }
                 }
                 else {
-                    es.push_back(mk_ite(args[i], bv.mk_numeral(pb.get_coeff(f, i), nb), zero));
+                    es.push_back(mk_ite(args[i], bv.mk_numeral(m_coeffs[i], nb), zero));
                 }
             }
             while (es.size() > 1) {
@@ -151,10 +140,17 @@ struct pb2bv_rewriter::imp {
             case l_true: 
                 return mk_and(fmls);
             case l_false:
-                fmls.push_back(bv.mk_ule(bound, es.back()));
+                if (!es.empty()) {
+                    fmls.push_back(bv.mk_ule(bound, es.back()));
+                }
                 return mk_or(fmls);
             case l_undef:
-                fmls.push_back(m.mk_eq(bound, es.back()));
+                if (es.empty()) {
+                    fmls.push_back(m.mk_bool_val(k.is_zero()));
+                }
+                else {
+                    fmls.push_back(m.mk_eq(bound, es.back()));
+                }
                 return mk_and(fmls);
             default:
                 UNREACHABLE();
@@ -165,6 +161,10 @@ struct pb2bv_rewriter::imp {
         expr_ref mk_bv(func_decl * f, unsigned sz, expr * const* args) {
             decl_kind kind = f->get_decl_kind();
             rational k = pb.get_k(f);
+            m_coeffs.reset();
+            for (unsigned i = 0; i < sz; ++i) {
+                m_coeffs.push_back(pb.get_coeff(f, i));
+            }
             SASSERT(!k.is_neg());
             switch (kind) {
             case OP_PB_GE:
@@ -173,13 +173,13 @@ struct pb2bv_rewriter::imp {
                 nargs.append(sz, args);
                 dualize(f, nargs, k);
                 SASSERT(!k.is_neg());
-                return mk_le_ge<l_true>(f, sz, nargs.c_ptr(), k);
+                return mk_le_ge<l_true>(sz, nargs.c_ptr(), k);
             }
             case OP_PB_LE:
             case OP_AT_MOST_K:
-                return mk_le_ge<l_true>(f, sz, args, k);
+                return mk_le_ge<l_true>(sz, args, k);
             case OP_PB_EQ:
-                return mk_le_ge<l_undef>(f, sz, args, k);
+                return mk_le_ge<l_undef>(sz, args, k);
             default:
                 UNREACHABLE();
                 return expr_ref(m.mk_true(), m);
@@ -228,17 +228,17 @@ struct pb2bv_rewriter::imp {
             }
         }
 
-
     public:
 
         card2bv_rewriter(imp& i, ast_manager& m):
+            m_sort(*this),
             m(m),
             m_imp(i),
             au(m),
             pb(m),
             bv(m),
-            m_sort(*this),
-            m_trail(m)
+            m_trail(m),
+            m_args(m)
         {}
 
         br_status mk_app_core(func_decl * f, unsigned sz, expr * const* args, expr_ref & result) {
@@ -247,8 +247,31 @@ struct pb2bv_rewriter::imp {
                 ++m_imp.m_num_translated;
                 return BR_DONE;
             }
-            else if (f->get_family_id() == au.get_family_id() && mk_arith(f, sz, args, result)) {
+            else if (au.is_le(f) && is_pb(args[0], args[1])) {
                 ++m_imp.m_num_translated;
+                result = mk_le_ge<l_true>(m_args.size(), m_args.c_ptr(), m_k);
+                return BR_DONE;
+            }
+            else if (au.is_lt(f) && is_pb(args[0], args[1])) {
+                ++m_imp.m_num_translated;
+                ++m_k;
+                result = mk_le_ge<l_true>(m_args.size(), m_args.c_ptr(), m_k);
+                return BR_DONE;
+            }
+            else if (au.is_ge(f) && is_pb(args[1], args[0])) {
+                ++m_imp.m_num_translated;
+                result = mk_le_ge<l_true>(m_args.size(), m_args.c_ptr(), m_k);
+                return BR_DONE;
+            }
+            else if (au.is_gt(f) && is_pb(args[1], args[0])) {
+                ++m_imp.m_num_translated;
+                ++m_k;
+                result = mk_le_ge<l_true>(m_args.size(), m_args.c_ptr(), m_k);
+                return BR_DONE;
+            }
+            else if (m.is_eq(f) && is_pb(args[0], args[1])) {
+                ++m_imp.m_num_translated;
+                result = mk_le_ge<l_undef>(m_args.size(), m_args.c_ptr(), m_k);
                 return BR_DONE;
             }
             else {
@@ -256,43 +279,75 @@ struct pb2bv_rewriter::imp {
             }
         }
 
-        //
-        // NSB: review
-        // we should remove this code and rely on a layer above to deal with 
-        // whatever it accomplishes. It seems to break types.
-        // 
-        bool mk_arith(func_decl * f, unsigned sz, expr * const* args, expr_ref & result) {
-            if (f->get_decl_kind() == OP_ADD) {
-                unsigned bits = 0;
-                for (unsigned i = 0; i < sz; i++) {
-                    rational val1, val2;
-                    if (au.is_int(args[i]) && au.is_numeral(args[i], val1)) {
-                        bits += val1.get_num_bits();
+        bool is_pb(expr* x, expr* y) {
+            m_args.reset();
+            m_coeffs.reset();
+            m_k.reset();
+            return is_pb(x, rational::one()) && is_pb(y, rational::minus_one());
+        }
+
+        bool is_pb(expr* e, rational const& mul) {
+            if (!is_app(e)) {
+                return false;
+            }
+            app* a = to_app(e);
+            rational r, r1, r2;
+            expr* c, *th, *el;
+            unsigned sz = a->get_num_args();
+            if (a->get_family_id() == au.get_family_id()) {
+                switch (a->get_decl_kind()) {
+                case OP_ADD:
+                    for (unsigned i = 0; i < sz; ++i) {
+                        if (!is_pb(a->get_arg(i), mul)) return false;
                     }
-                    else if (m.is_ite(args[i]) &&
-                             au.is_numeral(to_app(args[i])->get_arg(1), val1) && val1.is_one() &&
-                             au.is_numeral(to_app(args[i])->get_arg(2), val2) && val2.is_zero()) {
-                        bits++;                        
+                    return true;
+                case OP_SUB: {
+                    if (!is_pb(a->get_arg(0), mul)) return false;
+                    r = -mul;
+                    for (unsigned i = 1; i < sz; ++i) {
+                        if (!is_pb(a->get_arg(1), r)) return false;
                     }
-                    else
-                        return false;
+                    return true;
                 }
-                
-                result = 0;
-                for (unsigned i = 0; i < sz; i++) {
-                    rational val1, val2;
-                    expr * q;
-                    if (au.is_int(args[i]) && au.is_numeral(args[i], val1))
-                        q = bv.mk_numeral(val1, bits);
-                    else
-                        q = mk_ite(to_app(args[i])->get_arg(0), bv.mk_numeral(1, bits), bv.mk_numeral(0, bits));
-                    result = (i == 0) ? q : bv.mk_bv_add(result.get(), q);
-                }                
+                case OP_UMINUS:
+                    return is_pb(a->get_arg(0), -mul);
+                case OP_NUM:
+                    VERIFY(au.is_numeral(a, r));
+                    m_k -= mul * r;
+                    return true;
+                case OP_MUL:
+                    if (sz != 2) {
+                        return false;
+                    }
+                    if (au.is_numeral(a->get_arg(0), r)) {
+                        r *= mul;
+                        return is_pb(a->get_arg(1), r);
+                    }
+                    if (au.is_numeral(a->get_arg(1), r)) {
+                        r *= mul;
+                        return is_pb(a->get_arg(0), r);
+                    }
+                    return false;
+                default:
+                    return false;
+                }
+            }
+            if (m.is_ite(a, c, th, el) && au.is_numeral(th, r1) && au.is_numeral(el, r2)) {
+                r1 *= mul;
+                r2 *= mul;
+                if (r1 < r2) {
+                    m_args.push_back(::mk_not(m, c));
+                    m_coeffs.push_back(r2-r1);
+                    m_k -= r1;
+                }
+                else {
+                    m_args.push_back(c);
+                    m_coeffs.push_back(r1-r2);
+                    m_k -= r2;
+                }
                 return true;
             }
-            else {
-                return false;
-            } 
+            return false;
         }
 
         void mk_pb(func_decl * f, unsigned sz, expr * const* args, expr_ref & result) {
@@ -378,6 +433,9 @@ struct pb2bv_rewriter::imp {
     void operator()(expr * e, expr_ref & result, proof_ref & result_proof) {
         m_rw(e, result, result_proof);
     }
+    void assert_expr(expr * e, expr_ref & result, proof_ref & result_proof) {
+        m_rw(e, result, result_proof);
+    }
     void push() {
         m_fresh_lim.push_back(m_fresh.size());
     }
@@ -414,9 +472,13 @@ unsigned pb2bv_rewriter::get_num_steps() const { return m_imp->get_num_steps(); 
 void pb2bv_rewriter::cleanup() { ast_manager& mgr = m(); params_ref p = m_imp->m_params; dealloc(m_imp); m_imp = alloc(imp, mgr, p);  }
 func_decl_ref_vector const& pb2bv_rewriter::fresh_constants() const { return m_imp->m_fresh; }
 void pb2bv_rewriter::operator()(expr * e, expr_ref & result, proof_ref & result_proof) { (*m_imp)(e, result, result_proof); }
+void pb2bv_rewriter::assert_expr(expr* e, expr_ref & result, proof_ref & result_proof) { 
+    m_imp->assert_expr(e, result, result_proof); 
+}
 void pb2bv_rewriter::push() { m_imp->push(); }
 void pb2bv_rewriter::pop(unsigned num_scopes) { m_imp->pop(num_scopes); }
 void pb2bv_rewriter::flush_side_constraints(expr_ref_vector& side_constraints) { m_imp->flush_side_constraints(side_constraints); } 
 unsigned pb2bv_rewriter::num_translated() const { return m_imp->m_num_translated; }
+
 
 void pb2bv_rewriter::collect_statistics(statistics & st) const { m_imp->collect_statistics(st); }

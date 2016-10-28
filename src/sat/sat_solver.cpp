@@ -3151,22 +3151,32 @@ namespace sat {
 
     lbool solver::get_consequences(literal_vector const& asms, literal_vector const& lits, vector<literal_vector>& conseq) {
         m_antecedents.reset();
-        literal_set unfixed(lits), assumptions(asms);
+        literal_set vars(lits), assumptions(asms);
 
         pop_to_base_level();
         if (inconsistent()) return l_false;
         init_search();
         propagate(false);
         if (inconsistent()) return l_false;
-        init_assumptions(asms.size(), asms.c_ptr(), 0, 0);
+        if (asms.empty()) {
+            bool_var v = mk_var(true, false);
+            literal lit(v, false);
+            init_assumptions(1, &lit, 0, 0);
+        }
+        else {
+            init_assumptions(asms.size(), asms.c_ptr(), 0, 0);
+        }
         propagate(false);
         if (check_inconsistent()) return l_false;
        
-        unsigned num_units = 0;
-        extract_fixed_consequences(num_units, assumptions, unfixed, conseq);
-        while (!unfixed.empty()) {
+        unsigned num_units = 0, num_iterations = 0;
+        extract_fixed_consequences(num_units, assumptions, vars, conseq);
+        while (!vars.empty()) {
+            ++num_iterations;
             checkpoint();
-            literal_set::iterator it = unfixed.begin(), end = unfixed.end();
+            literal_set::iterator it = vars.begin(), end = vars.end();
+            unsigned num_resolves = 0;
+            lbool is_sat = l_true;
             for (; it != end; ++it) {
                 literal lit = *it;
                 if (value(lit) != l_undef) {
@@ -3177,29 +3187,44 @@ namespace sat {
                 propagate(false);
                 while (inconsistent()) {      
                     if (!resolve_conflict()) {
-                        TRACE("sat", tout << "inconsistent\n";);
-                        return l_false;
+                        TRACE("sat", display(tout << "inconsistent\n"););
+                        m_inconsistent = false;
+                        is_sat = l_undef;
+                        break;
                     }
-                    propagate(false);
+                    propagate(false);                    
+                    ++num_resolves;
+                }
+                if (scope_lvl() == 1) {
+                    break;
                 }
             }
-            lbool is_sat;
-            while (true) {
-                is_sat = bounded_search();
-                if (is_sat == l_undef) {
-                    restart();                  
-                    continue;
+            if (is_sat == l_true) {
+                if (scope_lvl() == 1 && num_resolves > 0) {
+                    is_sat = l_undef;
                 }
-                break;
+                else {
+                    is_sat = bounded_search();
+                    if (is_sat == l_undef) {
+                        restart();      
+                    }
+                }
             }
             if (is_sat == l_false) {
                 TRACE("sat", tout << "unsat\n";);
                 m_inconsistent = false;
             }
             if (is_sat == l_true) {
-                delete_unfixed(unfixed);
+                delete_unfixed(vars);
             }
-            extract_fixed_consequences(num_units, assumptions, unfixed, conseq);            
+            extract_fixed_consequences(num_units, assumptions, vars, conseq);            
+            IF_VERBOSE(1, verbose_stream() << "(get-consequences"
+                       << " iterations: " << num_iterations
+                       << " variables: " << vars.size()
+                       << " fixed: " << conseq.size()
+                       << " unfixed: " << lits.size() - conseq.size() - vars.size()
+                       << ")\n";);
+
         }
         return l_true;
     }

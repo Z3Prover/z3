@@ -2640,6 +2640,21 @@ namespace Microsoft.Z3
                                                           AST.ArrayToNative(args),
                                                           coeffs, k));
         }
+
+        /// <summary>
+        /// Create a pseudo-Boolean equal constraint.
+        /// </summary>
+        public BoolExpr MkPBEq(int[] coeffs, BoolExpr[] args, int k)
+        {
+           Contract.Requires(args != null);
+           Contract.Requires(coeffs != null);
+           Contract.Requires(args.Length == coeffs.Length);
+           Contract.Requires(Contract.Result<BoolExpr[]>() != null);
+           CheckContextMatch<BoolExpr>(args);
+           return new BoolExpr(this, Native.Z3_mk_pbeq(nCtx, (uint) args.Length,
+                                                          AST.ArrayToNative(args),
+                                                          coeffs, k));
+        }
         #endregion
 
         #region Numerals

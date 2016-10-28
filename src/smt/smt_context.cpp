@@ -1111,7 +1111,8 @@ namespace smt {
 
         if (r1 == r2) {
             TRACE("add_diseq_inconsistent", tout << "add_diseq #" << n1->get_owner_id() << " #" << n2->get_owner_id() << " inconsistency, scope_lvl: " << m_scope_lvl << "\n";);
-            return false; // context is inconsistent
+            theory_id  t1 = r1->m_th_var_list.get_th_id();
+            return get_theory(t1)->use_diseqs();
         }
 
         // Propagate disequalities to theories
@@ -1748,8 +1749,10 @@ namespace smt {
             unsigned qhead = m_qhead;
             if (!bcp())
                 return false;
-            if (get_cancel_flag()) 
+            if (get_cancel_flag()) {
+                m_qhead = qhead;
                 return true;
+            }
             SASSERT(!inconsistent());
             propagate_relevancy(qhead);
             if (inconsistent()) 
@@ -1767,8 +1770,10 @@ namespace smt {
             m_qmanager->propagate();
             if (inconsistent())
                 return false;
-            if (resource_limits_exceeded())
+            if (resource_limits_exceeded()) {
+                m_qhead = qhead;
                 return true;
+            }
             if (!can_propagate()) {
                 CASSERT("diseq_bug", inconsistent() || check_missing_diseq_conflict());
                 CASSERT("eqc_bool", check_eqc_bool_assignment());
@@ -3773,9 +3778,14 @@ namespace smt {
 #ifdef Z3DEBUG
             for (unsigned i = 0; i < num_lits; i++) {
                 literal l = lits[i];
+<<<<<<< HEAD
                 expr* real_atom;
                 if (expr_signs[i] != l.sign()) {
 
+=======
+                if (expr_signs[i] != l.sign()) {
+                    expr* real_atom;
+>>>>>>> f1412d3f3249529224f4180f601652da210b274a
                     VERIFY(m_manager.is_not(expr_lits.get(i), real_atom));
                     // the sign must have flipped when internalizing
                     CTRACE("resolve_conflict_bug", real_atom != bool_var2expr(l.var()), tout << mk_pp(real_atom, m_manager) << "\n" << mk_pp(bool_var2expr(l.var()), m_manager) << "\n";);

@@ -113,7 +113,7 @@ private:
         expr_ref fml(m);
         expr_ref_vector fmls(m);
         for (unsigned i = 0; i < m_assertions.size(); ++i) {
-            m_rewriter(m_assertions[i].get(), fml, proof);
+            m_rewriter.assert_expr(m_assertions[i].get(), fml, proof);
             m_solver->assert_expr(fml);
         }
         m_rewriter.flush_side_constraints(fmls);

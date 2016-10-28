@@ -126,7 +126,7 @@ struct enum2bv_rewriter::imp {
                 unsigned nc = m_dt.get_datatype_num_constructors(s);
                 result = m.mk_fresh_const(f->get_name().str().c_str(), m_bv.mk_sort(bv_size));
                 f_fresh = to_app(result)->get_decl();
-                if (!is_power_of_two(nc)) {
+                if (!is_power_of_two(nc) || nc == 1) {
                     m_imp.m_bounds.push_back(m_bv.mk_ule(result, m_bv.mk_numeral(nc-1, bv_size)));
                 }                
                 expr_ref f_def(m);
@@ -168,7 +168,7 @@ struct enum2bv_rewriter::imp {
                     unsigned bv_size = get_bv_size(s);
                     m_sorts.push_back(m_bv.mk_sort(bv_size));
                     unsigned nc = m_dt.get_datatype_num_constructors(s);
-                    if (!is_power_of_two(nc)) {
+                    if (!is_power_of_two(nc) || nc == 1) {
                         bounds.push_back(m_bv.mk_ule(m.mk_var(q->get_num_decls()-i-1, m_sorts[i]), m_bv.mk_numeral(nc-1, bv_size)));
                     }                
                     found = true;

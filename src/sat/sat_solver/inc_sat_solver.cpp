@@ -234,6 +234,7 @@ public:
     }
 
     virtual lbool get_consequences_core(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq) {
+        init_preprocess();
         TRACE("sat", tout << assumptions << "\n" << vars << "\n";);
         sat::literal_vector asms;
         sat::bool_var_vector bvars;
@@ -257,10 +258,12 @@ public:
             bool_var2conseq.insert(lconseq[i][0].var(), i);
         }
         
-        // extract original fixed variables 
+        // extract original fixed variables
+        u_map<expr*> asm2dep;
+        extract_asm2dep(dep2asm, asm2dep);
         for (unsigned i = 0; i < vars.size(); ++i) {
             expr_ref cons(m);
-            if (extract_fixed_variable(dep2asm, vars[i], bool_var2conseq, lconseq, cons)) {
+            if (extract_fixed_variable(dep2asm, asm2dep, vars[i], bool_var2conseq, lconseq, cons)) {
                 conseq.push_back(cons);
             }
         }
@@ -339,7 +342,7 @@ public:
                      mk_bit_blaster_tactic(m, m_bb_rewriter.get()),
                      //mk_aig_tactic(),
                      using_params(mk_simplify_tactic(m), simp2_p));
-        for (unsigned i = 0; i < m_num_scopes; ++i) {
+        while (m_bb_rewriter->get_num_scopes() < m_num_scopes) {
             m_bb_rewriter->push();
         }
         m_preprocess->reset();
@@ -362,6 +365,7 @@ private:
         }
         catch (tactic_exception & ex) {
             IF_VERBOSE(0, verbose_stream() << "exception in tactic " << ex.msg() << "\n";);
+            TRACE("sat", tout << "exception: " << ex.msg() << "\n";);
             m_preprocess = 0;
             m_bb_rewriter = 0;
             return l_undef;
@@ -371,8 +375,18 @@ private:
             return l_undef;
         }
         g = m_subgoals[0];
+        expr_ref_vector atoms(m);
         TRACE("sat", g->display_with_dependencies(tout););
         m_goal2sat(*g, m_params, m_solver, m_map, dep2asm, true);
+        m_goal2sat.get_interpreted_atoms(atoms);
+        if (!atoms.empty()) {
+            std::stringstream strm;
+            strm << "interpreted atoms sent to SAT solver " << atoms;
+            TRACE("sat", tout << strm.str() << "\n";);
+            IF_VERBOSE(1, verbose_stream() << strm.str() << "\n";);
+            set_reason_unknown(strm.str().c_str());
+            return l_undef;
+        }
         return l_true;
     }
 
@@ -439,9 +453,7 @@ private:
         return internalized;
     }
 
-    bool extract_fixed_variable(dep2asm_t& dep2asm, expr* v, u_map<unsigned> const& bool_var2conseq, vector<sat::literal_vector> const& lconseq, expr_ref& conseq) {
-        u_map<expr*> asm2dep;
-        extract_asm2dep(dep2asm, asm2dep);
+    bool extract_fixed_variable(dep2asm_t& dep2asm, u_map<expr*>& asm2dep, expr* v, u_map<unsigned> const& bool_var2conseq, vector<sat::literal_vector> const& lconseq, expr_ref& conseq) {
 
         sat::bool_var_vector bvars;
         if (!internalize_var(v, bvars)) {
@@ -474,6 +486,7 @@ private:
         return true;
     }
 
+    vector<rational> m_exps;
     void internalize_value(sat::literal_vector const& value, expr* v, expr_ref& val) {
         bv_util bvutil(m);
         if (is_uninterp_const(v) && m.is_bool(v)) {
@@ -482,10 +495,16 @@ private:
         }
         else if (is_uninterp_const(v) && bvutil.is_bv_sort(m.get_sort(v))) {
             SASSERT(value.size() == bvutil.get_bv_size(v));
+            if (m_exps.empty()) {
+                m_exps.push_back(rational::one());
+            }
+            while (m_exps.size() < value.size()) {
+                m_exps.push_back(rational(2)*m_exps.back());
+            }
             rational r(0);
             for (unsigned i = 0; i < value.size(); ++i) {
                 if (!value[i].sign()) {
-                    r += rational(2).expt(i);
+                    r += m_exps[i];
                 }
             }
             val = m.mk_eq(v, bvutil.mk_numeral(r, value.size()));
@@ -501,10 +520,14 @@ private:
         }
         dep2asm_t dep2asm;
         goal_ref g = alloc(goal, m, true, false); // models, maybe cores are enabled
-        for (; m_fmls_head < m_fmls.size(); ++m_fmls_head) {
-            g->assert_expr(m_fmls[m_fmls_head].get());
+        for (unsigned i = 0 ; i < m_fmls.size(); ++i) {
+            g->assert_expr(m_fmls[i].get());
         }
-        return internalize_goal(g, dep2asm);
+        lbool res = internalize_goal(g, dep2asm);
+        if (res != l_undef) {
+            m_fmls_head = m_fmls.size();
+        }
+        return res;
     }
 
     void extract_assumptions(unsigned sz, expr* const* asms, dep2asm_t& dep2asm) {

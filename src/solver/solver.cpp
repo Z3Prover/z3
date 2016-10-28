@@ -21,6 +21,8 @@ Notes:
 #include"ast_util.h"
 #include"ast_pp.h"
 #include"ast_pp_util.h"
+#include "common_msgs.h"
+
 
 unsigned solver::get_num_assertions() const {
     NOT_IMPLEMENTED_YET();
@@ -56,7 +58,19 @@ struct scoped_assumption_push {
 };
 
 lbool solver::get_consequences(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) {
-    return get_consequences_core(asms, vars, consequences);
+    try {
+        return get_consequences_core(asms, vars, consequences);
+    }
+    catch (z3_exception& ex) {
+        if (asms.get_manager().canceled()) {
+            set_reason_unknown(Z3_CANCELED_MSG);
+            return l_undef;
+        }
+        else {
+            set_reason_unknown(ex.msg());
+        }
+        throw;
+    }
 }
 
 lbool solver::get_consequences_core(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) {

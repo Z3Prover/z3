@@ -14,7 +14,7 @@ Author:
     Nikolaj Bjorner (nbjorner) 2016-10-23
 
 Notes:
-   
+
 --*/
 
 #include "bounded_int2bv_solver.h"
@@ -76,7 +76,7 @@ public:
     virtual solver* translate(ast_manager& m, params_ref const& p) {
         return alloc(bounded_int2bv_solver, m, p, m_solver->translate(m, p));
     }
-    
+
     virtual void assert_expr(expr * t) {
         m_assertions.push_back(t);
     }
@@ -89,7 +89,7 @@ public:
     }
 
     virtual void pop_core(unsigned n) {
-        m_assertions.reset();        
+        m_assertions.reset();
         m_solver->pop(n);
 
         if (n > 0) {
@@ -109,7 +109,7 @@ public:
 
         while (n > 0) {
             dealloc(m_bounds.back());
-            m_bounds.pop_back();            
+            m_bounds.pop_back();
             --n;
         }
     }
@@ -120,25 +120,25 @@ public:
     }
 
     virtual void updt_params(params_ref const & p) { m_solver->updt_params(p);  }
-    virtual void collect_param_descrs(param_descrs & r) { m_solver->collect_param_descrs(r); }    
+    virtual void collect_param_descrs(param_descrs & r) { m_solver->collect_param_descrs(r); }
     virtual void set_produce_models(bool f) { m_solver->set_produce_models(f); }
     virtual void set_progress_callback(progress_callback * callback) { m_solver->set_progress_callback(callback);  }
     virtual void collect_statistics(statistics & st) const { m_solver->collect_statistics(st); }
     virtual void get_unsat_core(ptr_vector<expr> & r) { m_solver->get_unsat_core(r); }
-    virtual void get_model(model_ref & mdl) { 
+    virtual void get_model(model_ref & mdl) {
         m_solver->get_model(mdl);
         if (mdl) {
             extend_model(mdl);
-            filter_model(mdl);            
+            filter_model(mdl);
         }
-    } 
+    }
     virtual proof * get_proof() { return m_solver->get_proof(); }
     virtual std::string reason_unknown() const { return m_solver->reason_unknown(); }
     virtual void set_reason_unknown(char const* msg) { m_solver->set_reason_unknown(msg); }
     virtual void get_labels(svector<symbol> & r) { m_solver->get_labels(r); }
     virtual ast_manager& get_manager() const { return m;  }
-    virtual lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) { return m_solver->find_mutexes(vars, mutexes); }    
-    virtual lbool get_consequences_core(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) { 
+    virtual lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) { return m_solver->find_mutexes(vars, mutexes); }
+    virtual lbool get_consequences_core(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) {
         flush_assertions();
         expr_ref_vector bvars(m);
         for (unsigned i = 0; i < vars.size(); ++i) {
@@ -201,7 +201,7 @@ private:
                 value = m_arith.mk_add(value, m_arith.mk_numeral(offset, true));
             }
             TRACE("int2bv", tout << mk_pp(it->m_key, m) << " " << value << "\n";);
-            ext.insert(it->m_key, value);            
+            ext.insert(it->m_key, value);
         }
         ext(mdl, 0);
     }
@@ -224,7 +224,7 @@ private:
             if (bm.has_lower(e, lo, s1) && bm.has_upper(e, hi, s2) && lo <= hi && !s1 && !s2) {
                 func_decl* fbv;
                 rational offset;
-                if (!m_int2bv.find(f, fbv)) {                    
+                if (!m_int2bv.find(f, fbv)) {
                     rational n = hi - lo + rational::one();
                     unsigned num_bits = get_num_bits(n);
                     expr_ref b(m);
@@ -247,9 +247,20 @@ private:
                 expr_ref t(m.mk_const(fbv), m);
                 t = m_bv.mk_bv2int(t);
                 if (!offset.is_zero()) {
-                    t = m_arith.mk_add(t, m_arith.mk_numeral(lo, true));
+                    t = m_arith.mk_add(t, m_arith.mk_numeral(offset, true));
                 }
+                TRACE("pb", tout << lo << " <= " << hi << " offset: " << offset << "\n"; tout << mk_pp(e, m) << " |-> " << t << "\n";);
                 sub.insert(e, t);
+            }
+            else {
+                IF_VERBOSE(1,
+                           verbose_stream() << "unprocessed entry: " << mk_pp(e, m) << "\n";
+                           if (bm.has_lower(e, lo, s1)) {
+                               verbose_stream() << "lower: " << lo << " " << s1 << "\n";
+                           }
+                           if (bm.has_upper(e, hi, s2)) {
+                               verbose_stream() << "upper: " << hi << " " << s2 << "\n";
+                           });
             }
         }
     }
@@ -273,7 +284,7 @@ private:
             bm(m_assertions[i].get());
         }
         expr_safe_replace sub(m);
-        accumulate_sub(sub);        
+        accumulate_sub(sub);
         proof_ref proof(m);
         expr_ref fml1(m), fml2(m);
         if (sub.empty()) {
@@ -281,8 +292,12 @@ private:
         }
         else {
             for (unsigned i = 0; i < m_assertions.size(); ++i) {
-                sub(m_assertions[i].get(), fml1);            
+                sub(m_assertions[i].get(), fml1);
                 m_rewriter(fml1, fml2, proof);
+                if (m.canceled()) {
+                    m_rewriter.reset();
+                    return;
+                }
                 m_solver->assert_expr(fml2);
                 TRACE("int2bv", tout << fml2 << "\n";);
             }

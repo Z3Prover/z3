@@ -59,6 +59,7 @@ struct goal2sat::imp {
     bool                        m_ite_extra;
     unsigned long long          m_max_memory;
     expr_ref_vector             m_trail;
+    expr_ref_vector             m_interpreted_atoms;
     bool                        m_default_external;
     
     imp(ast_manager & _m, params_ref const & p, sat::solver & s, atom2bool_var & map, dep2asm_map& dep2asm, bool default_external):
@@ -67,6 +68,7 @@ struct goal2sat::imp {
         m_map(map),
         m_dep2asm(dep2asm),
         m_trail(m),
+        m_interpreted_atoms(m),
         m_default_external(default_external) {
         updt_params(p);
         m_true = sat::null_bool_var;
@@ -128,6 +130,9 @@ struct goal2sat::imp {
                 m_map.insert(t, v);
                 l = sat::literal(v, sign);
                 TRACE("goal2sat", tout << "new_var: " << v << "\n" << mk_ismt2_pp(t, m) << "\n";);
+                if (ext && !is_uninterp_const(t)) {
+                    m_interpreted_atoms.push_back(t);
+                }
             }
         }
         else {
@@ -474,7 +479,7 @@ bool goal2sat::has_unsupported_bool(goal const & g) {
     return test<unsupported_bool_proc>(g);
 }
 
-goal2sat::goal2sat():m_imp(0) {
+goal2sat::goal2sat():m_imp(0), m_interpreted_atoms(0) {
 }
 
 void goal2sat::collect_param_descrs(param_descrs & r) {
@@ -492,10 +497,20 @@ struct goal2sat::scoped_set_imp {
     }
 };
 
+
 void goal2sat::operator()(goal const & g, params_ref const & p, sat::solver & t, atom2bool_var & m, dep2asm_map& dep2asm, bool default_external) {
     imp proc(g.m(), p, t, m, dep2asm, default_external);
     scoped_set_imp set(this, &proc);
     proc(g);
+    dealloc(m_interpreted_atoms);
+    m_interpreted_atoms = alloc(expr_ref_vector, g.m());
+    m_interpreted_atoms->append(proc.m_interpreted_atoms);
+}
+
+void goal2sat::get_interpreted_atoms(expr_ref_vector& atoms) {
+    if (m_interpreted_atoms) {
+        atoms.append(*m_interpreted_atoms);
+    }
 }
 
 
