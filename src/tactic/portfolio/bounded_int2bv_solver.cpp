@@ -294,6 +294,10 @@ private:
             for (unsigned i = 0; i < m_assertions.size(); ++i) {
                 sub(m_assertions[i].get(), fml1);
                 m_rewriter(fml1, fml2, proof);
+                if (m.canceled()) {
+                    m_rewriter.reset();
+                    return;
+                }
                 m_solver->assert_expr(fml2);
                 TRACE("int2bv", tout << fml2 << "\n";);
             }
