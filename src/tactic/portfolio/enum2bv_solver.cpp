@@ -102,9 +102,20 @@ public:
 
         datatype_util dt(m);
         bv_util bv(m);
+        expr_ref_vector bvars(m), conseq(m), bounds(m);
+
+        // ensure that enumeration variables that 
+        // don't occur in the constraints
+        // are also internalized.
+        for (unsigned i = 0; i < vars.size(); ++i) {
+            expr_ref tmp(m.mk_eq(vars[i], vars[i]), m);
+            proof_ref proof(m);
+            m_rewriter(tmp, tmp, proof);            
+        }
+        m_rewriter.flush_side_constraints(bounds);
+        m_solver->assert_expr(bounds);
 
         // translate enumeration constants to bit-vectors.
-        expr_ref_vector bvars(m), conseq(m);
         for (unsigned i = 0; i < vars.size(); ++i) {
             func_decl* f;
             if (is_app(vars[i]) && is_uninterp_const(vars[i]) && m_rewriter.enum2bv().find(to_app(vars[i])->get_decl(), f)) {
