@@ -1291,7 +1291,9 @@ namespace smt {
 
         IF_VERBOSE(1, verbose_stream() 
                    << "(smt.pb compile sorting network bound: " 
-                   << k << " literals: " << in.size() << ")\n";);
+                   << k << " literals: " << in.size() 
+                   << " clauses: " << sortnw.m_stats.m_num_compiled_clauses 
+                   << " vars: " << sortnw.m_stats.m_num_compiled_vars << ")\n";);
 
         // auxiliary clauses get removed when popping scopes.
         // we have to recompile the circuit after back-tracking.
