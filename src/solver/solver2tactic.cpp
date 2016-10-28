@@ -84,6 +84,7 @@ class solver2tactic : public tactic {
     ast_manager& m;
     ref<solver> m_solver;
     params_ref m_params;
+    statistics m_st;
 
 public:
     solver2tactic(solver* s):
@@ -109,14 +110,14 @@ public:
         ptr_vector<expr>            assumptions;
         ref<filter_model_converter> fmc;
         extract_clauses_and_dependencies(in, clauses, assumptions, bool2dep, fmc);
-        m_solver->push();
-        m_solver->assert_expr(clauses);
-        lbool r = m_solver->check_sat(assumptions.size(), assumptions.c_ptr()); 
+        ref<solver> local_solver = m_solver->translate(m, m_params);
+        local_solver->assert_expr(clauses);
+        lbool r = local_solver->check_sat(assumptions.size(), assumptions.c_ptr()); 
         switch (r) {
         case l_true: 
             if (in->models_enabled()) {
                 model_ref mdl;
-                m_solver->get_model(mdl);
+                local_solver->get_model(mdl);
                 mc = model2model_converter(mdl.get());
                 mc = concat(fmc.get(), mc.get());
             }
@@ -130,11 +131,11 @@ public:
             proof* pr = 0;
             expr_dependency* lcore = 0;
             if (in->proofs_enabled()) {
-                pr = m_solver->get_proof();
+                pr = local_solver->get_proof();
             }
             if (in->unsat_core_enabled()) {
                 ptr_vector<expr> core;
-                m_solver->get_unsat_core(core);
+                local_solver->get_unsat_core(core);
                 for (unsigned i = 0; i < core.size(); ++i) {
                     lcore = m.mk_join(lcore, m.mk_leaf(bool2dep.find(core[i])));
                 }
@@ -150,15 +151,15 @@ public:
             if (m.canceled()) {
                 throw tactic_exception(Z3_CANCELED_MSG);
             }
-            throw tactic_exception(m_solver->reason_unknown().c_str());
+            throw tactic_exception(local_solver->reason_unknown().c_str());
         }
-        m_solver->pop(1);
+        local_solver->collect_statistics(m_st);
     }
 
     virtual void collect_statistics(statistics & st) const {
-        m_solver->collect_statistics(st);
+        st.copy(m_st);
     }
-    virtual void reset_statistics() {}
+    virtual void reset_statistics() { m_st.reset(); }
 
     virtual void cleanup() { }
     virtual void reset() { cleanup(); }

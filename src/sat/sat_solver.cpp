@@ -745,7 +745,7 @@ namespace sat {
             
 
             if (m_config.m_max_conflicts == 0) {
-                IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "\"abort: max-conflicts = 0\"\n";);
+                IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-conflicts = 0\")\n";);
                 return l_undef;
             }
 
@@ -757,7 +757,7 @@ namespace sat {
                     return r;
 
                 if (m_conflicts > m_config.m_max_conflicts) {
-                    IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "\"abort: max-conflicts = " << m_conflicts << "\"\n";);
+                    IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-conflicts = " << m_conflicts << "\")\n";);
                     return l_undef;
                 }
 
@@ -1016,7 +1016,7 @@ namespace sat {
                 set_conflict(justification(), ~lit);
                 m_conflict_lvl = scope_lvl();
                 resolve_conflict_for_unsat_core();
-                IF_VERBOSE(3, verbose_stream() << "core: " << m_core << "\n";);
+                IF_VERBOSE(3, verbose_stream() << "(sat.core: " << m_core << ")\n";);
                 update_min_core();
                 SASSERT(m_min_core_valid);
                 m_weight += weights[i];
@@ -1029,7 +1029,7 @@ namespace sat {
                 if (m_core.size() <= 3) {
                     m_inconsistent = true;
                     TRACE("opt", tout << "found small core: " << m_core << "\n";); 
-                    IF_VERBOSE(11, verbose_stream() << "small core: " << m_core << "\n";);
+                    IF_VERBOSE(11, verbose_stream() << "(sat.core: " << m_core << ")\n";);
                     return true;
                 }
                 pop_assumption();
@@ -1042,7 +1042,7 @@ namespace sat {
             }
         }
         TRACE("sat", tout << "initialized\n";);
-        IF_VERBOSE(11, verbose_stream() << "Blocker: " << m_blocker << "\nCore: " << m_min_core << "\n";);
+        IF_VERBOSE(11, verbose_stream() << "(sat.blocker: " << m_blocker << "\nCore: " << m_min_core << ")\n";);
         if (m_weight >= max_weight) {
             // block the current correction set candidate.
             ++m_stats.m_blocked_corr_sets;
@@ -2584,7 +2584,7 @@ namespace sat {
     // 
 
     void solver::user_push() {
-        literal lit;
+        literal lit;      
         bool_var new_v = mk_var(true, false);
         lit = literal(new_v, false);
         m_user_scope_literals.push_back(lit);
@@ -2683,6 +2683,9 @@ namespace sat {
         while (num_scopes > 0) {
             literal lit = m_user_scope_literals.back();
             m_user_scope_literals.pop_back();
+            get_wlist(lit).reset();
+            get_wlist(~lit).reset();
+
             gc_lit(m_learned, lit);
             gc_lit(m_clauses, lit);
             gc_bin(true, lit);
@@ -3218,7 +3221,7 @@ namespace sat {
                 delete_unfixed(vars);
             }
             extract_fixed_consequences(num_units, assumptions, vars, conseq);            
-            IF_VERBOSE(1, verbose_stream() << "(get-consequences"
+            IF_VERBOSE(1, verbose_stream() << "(sat.get-consequences"
                        << " iterations: " << num_iterations
                        << " variables: " << vars.size()
                        << " fixed: " << conseq.size()
