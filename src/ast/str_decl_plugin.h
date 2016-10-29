@@ -182,6 +182,8 @@ public:
         return m_manager.mk_app(get_fid(), OP_RE_REGEXSTAR, 1, es);
     }
 
+    std::string get_std_regex_str(expr * regex);
+
 };
 
 #endif /* _STR_DECL_PLUGIN_H_ */

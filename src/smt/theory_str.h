@@ -478,7 +478,6 @@ namespace smt {
         expr * gen_unroll_conditional_options(expr * var, std::set<expr*> & unrolls, std::string lcmStr);
         expr * gen_unroll_assign(expr * var, std::string lcmStr, expr * testerVar, int l, int h);
         void reduce_virtual_regex_in(expr * var, expr * regex, expr_ref_vector & items);
-        std::string get_std_regex_str(expr * regex);
         void check_regex_in(expr * nn1, expr * nn2);
 
         void dump_assignments();

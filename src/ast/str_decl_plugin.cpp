@@ -331,3 +331,46 @@ str_util::str_util(ast_manager &m) :
     m_plugin = static_cast<str_decl_plugin*>(m.get_plugin(m.mk_family_id(symbol("str"))));
     m_fid = m_plugin->get_family_id();
 }
+
+static std::string str2RegexStr(std::string str) {
+    std::string res = "";
+    int len = str.size();
+    for (int i = 0; i < len; i++) {
+      char nc = str[i];
+      // 12 special chars
+      if (nc == '\\' || nc == '^' || nc == '$' || nc == '.' || nc == '|' || nc == '?'
+          || nc == '*' || nc == '+' || nc == '(' || nc == ')' || nc == '[' || nc == '{') {
+        res.append(1, '\\');
+      }
+      res.append(1, str[i]);
+    }
+    return res;
+}
+
+std::string str_util::get_std_regex_str(expr * regex) {
+    app * a_regex = to_app(regex);
+    if (is_re_Str2Reg(a_regex)) {
+        expr * regAst = a_regex->get_arg(0);
+        std::string regStr = str2RegexStr(get_string_constant_value(regAst));
+        return regStr;
+    } else if (is_re_RegexConcat(a_regex)) {
+        expr * reg1Ast = a_regex->get_arg(0);
+        expr * reg2Ast = a_regex->get_arg(1);
+        std::string reg1Str = get_std_regex_str(reg1Ast);
+        std::string reg2Str = get_std_regex_str(reg2Ast);
+        return "(" + reg1Str + ")(" + reg2Str + ")";
+    } else if (is_re_RegexUnion(a_regex)) {
+        expr * reg1Ast = a_regex->get_arg(0);
+        expr * reg2Ast = a_regex->get_arg(1);
+        std::string reg1Str = get_std_regex_str(reg1Ast);
+        std::string reg2Str = get_std_regex_str(reg2Ast);
+        return  "(" + reg1Str + ")|(" + reg2Str + ")";
+    } else if (is_re_RegexStar(a_regex)) {
+        expr * reg1Ast = a_regex->get_arg(0);
+        std::string reg1Str = get_std_regex_str(reg1Ast);
+        return  "(" + reg1Str + ")*";
+    } else {
+        TRACE("t_str", tout << "BUG: unrecognized regex term " << mk_pp(regex, get_manager()) << std::endl;);
+        UNREACHABLE(); return "";
+    }
+}
