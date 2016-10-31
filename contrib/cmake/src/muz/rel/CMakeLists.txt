@@ -12,7 +12,6 @@ z3_add_component(rel
     dl_interval_relation.cpp
     dl_lazy_table.cpp
     dl_mk_explanations.cpp
-    dl_mk_partial_equiv.cpp
     dl_mk_similarity_compressor.cpp
     dl_mk_simple_joins.cpp
     dl_product_relation.cpp

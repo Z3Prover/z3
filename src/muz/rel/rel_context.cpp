@@ -43,7 +43,6 @@ Revision History:
 #include"dl_mk_similarity_compressor.h"
 #include"dl_mk_unbound_compressor.h"
 #include"dl_mk_subsumption_checker.h"
-#include"dl_mk_partial_equiv.h"
 #include"dl_mk_coi_filter.h"
 #include"dl_mk_filter_rules.h"
 #include"dl_mk_rule_inliner.h"
@@ -108,7 +107,6 @@ namespace datalog {
         rm.register_plugin(alloc(sparse_table_plugin, rm));
         rm.register_plugin(alloc(hashtable_table_plugin, rm));
         rm.register_plugin(alloc(bitvector_table_plugin, rm));
-        rm.register_plugin(alloc(equivalence_table_plugin, rm));
         rm.register_plugin(lazy_table_plugin::mk_sparse(rm));
 
         // register plugins for builtin relations
@@ -308,7 +306,6 @@ namespace datalog {
             transf.register_plugin(alloc(mk_similarity_compressor, m_context)); 
         }
         transf.register_plugin(alloc(mk_rule_inliner, m_context));
-        transf.register_plugin(alloc(mk_partial_equivalence_transformer, m_context));
         transf.register_plugin(alloc(mk_interp_tail_simplifier, m_context));
         transf.register_plugin(alloc(mk_separate_negated_tails, m_context));
 
