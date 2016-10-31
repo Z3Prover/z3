@@ -24,7 +24,6 @@ Notes:
 #ifndef SORTING_NETWORK_H_
 #define SORTING_NETWORK_H_
 
-
     template <typename Ext>
     class sorting_network {
         typedef typename Ext::vector vect;
@@ -213,17 +212,17 @@ Notes:
             }
         }
 
-        literal eq(unsigned k, unsigned n, literal const* xs) {
+        literal eq(bool full, unsigned k, unsigned n, literal const* xs) {
             if (k > n) {
                 return ctx.mk_false();
             }
             SASSERT(k <= n);
             literal_vector in, out;
             if (dualize(k, n, xs, in)) {
-                return eq(k, n, in.c_ptr());
+                return eq(full, k, n, in.c_ptr());
             }
             else if (k == 1) {
-                return mk_exactly_1(true, n, xs);
+                return mk_exactly_1(full, n, xs);
             }
             else {
                 SASSERT(2*k <= n);
@@ -242,34 +241,64 @@ Notes:
         
     private:
 
-
-        literal mk_and(literal l1, literal l2) {
-            literal result = fresh();
-            add_clause(ctx.mk_not(result), l1);
-            add_clause(ctx.mk_not(result), l2);
-            add_clause(ctx.mk_not(l1), ctx.mk_not(l2), result);
-            return result;
-        }
-
-        void mk_implies_or(literal l, unsigned n, literal const* xs) {
+        void add_implies_or(literal l, unsigned n, literal const* xs) {
             literal_vector lits(n, xs);
             lits.push_back(ctx.mk_not(l));
             add_clause(lits);
         }
 
-        void mk_or_implies(literal l, unsigned n, literal const* xs) {
+        void add_or_implies(literal l, unsigned n, literal const* xs) {
             for (unsigned j = 0; j < n; ++j) {
                 add_clause(ctx.mk_not(xs[j]), l);
             }
         }
 
-        literal mk_or(literal_vector const& ors) {
-            if (ors.size() == 1) {
+        literal mk_or(unsigned n, literal const* ors) {
+            if (n == 1) {
                 return ors[0];
             }
             literal result = fresh();
-            mk_implies_or(result, ors.size(), ors.c_ptr());
-            mk_or_implies(result, ors.size(), ors.c_ptr());
+            add_implies_or(result, n, ors);
+            add_or_implies(result, n, ors);
+            return result;
+        }
+
+        literal mk_or(literal l1, literal l2) {
+            literal ors[2] = { l1, l2 };
+            return mk_or(2, ors);
+        }
+        literal mk_or(literal_vector const& ors) {
+            return mk_or(ors.size(), ors.c_ptr());
+        }
+
+        void add_implies_and(literal l, literal_vector const& xs) {
+            for (unsigned j = 0; j < xs.size(); ++j) {
+                add_clause(ctx.mk_not(l), xs[j]);
+            }
+        }
+
+        void add_and_implies(literal l, literal_vector const& xs) {
+            literal_vector lits;
+            for (unsigned j = 0; j < xs.size(); ++j) {
+                lits.push_back(ctx.mk_not(xs[j]));
+            }
+            lits.push_back(l);
+            add_clause(lits);
+        }
+
+        literal mk_and(literal l1, literal l2) {
+            literal_vector xs;
+            xs.push_back(l1); xs.push_back(l2);
+            return mk_and(xs);
+        }
+
+        literal mk_and(literal_vector const& ands) {
+            if (ands.size() == 1) {
+                return ands[0];
+            }
+            literal result = fresh();
+            add_implies_and(result, ands);
+            add_and_implies(result, ands);
             return result;
         }
 
@@ -281,18 +310,19 @@ Notes:
                 r1 = mk_and(r1, mk_or(ors));
             }
             else {
-                mk_implies_or(r1, ors.size(), ors.c_ptr());
+                add_implies_or(r1, ors.size(), ors.c_ptr());
             }
             return r1;
         }
 
+#if 1
         literal mk_at_most_1(bool full, unsigned n, literal const* xs, literal_vector& ors) {
             TRACE("pb", tout << (full?"full":"partial") << " ";
                   for (unsigned i = 0; i < n; ++i) tout << xs[i] << " ";
                   tout << "\n";);
 
-            if (false && !full && n >= 4) {
-                return mk_at_most_1_bimander(n, xs);
+            if (n >= 4 && false) {
+                return mk_at_most_1_bimander(full, n, xs, ors);
             }
             literal_vector in(n, xs);
             literal result = fresh();
@@ -301,17 +331,14 @@ Notes:
             ands.push_back(result);
             while (!in.empty()) {
                 ors.reset();
-                unsigned i = 0;
                 unsigned n = in.size();
                 if (n + 1 == inc_size) ++inc_size;
-                bool last = n <= inc_size;
-                for (; i + inc_size < n; i += inc_size) {                    
-                    mk_at_most_1_small(full, last, inc_size, in.c_ptr() + i, result, ands, ors);
+                for (unsigned i = 0; i < n; i += inc_size) {       
+                    unsigned inc = std::min(n - i, inc_size);
+                    mk_at_most_1_small(full, inc, in.c_ptr() + i, result, ands);
+                    ors.push_back(mk_or(inc, in.c_ptr() + i));
                 }
-                if (i < n) {
-                    mk_at_most_1_small(full, last, n - i, in.c_ptr() + i, result, ands, ors);
-                }
-                if (last) {
+                if (n <= inc_size) {
                     break;
                 }
                 in.reset();
@@ -322,19 +349,40 @@ Notes:
             }
             return result;
         }
+#else
+        literal mk_at_most_1(bool full, unsigned n, literal const* xs, literal_vector& ors) {
+            TRACE("pb", tout << (full?"full":"partial") << " ";
+                  for (unsigned i = 0; i < n; ++i) tout << xs[i] << " ";
+                  tout << "\n";);
 
-        void mk_at_most_1_small(bool full, bool last, unsigned n, literal const* xs, literal result, literal_vector& ands, literal_vector& ors) {
+            literal_vector in(n, xs);
+            unsigned inc_size = 4;
+            literal_vector ands;
+            while (!in.empty()) {
+                ors.reset();
+                unsigned i = 0;
+                unsigned n = in.size();
+                if (n + 1 == inc_size) ++inc_size;
+                for (; i < n; i += inc_size) {                    
+                    unsigned inc = std::min(inc_size, n - i);
+                    ands.push_back(mk_at_most_1_small(inc, in.c_ptr() + i));
+                    ors.push_back(mk_or(inc, in.c_ptr() + i));
+                }
+                if (n <= inc_size) {
+                    break;
+                }
+                in.reset();
+                in.append(ors);
+            }
+            return mk_and(ands);
+        }
+
+#endif
+        void mk_at_most_1_small(bool full, unsigned n, literal const* xs, literal result, literal_vector& ands) {
             SASSERT(n > 0);
             if (n == 1) {
-                ors.push_back(xs[0]);                
                 return;
             }
-            literal ex = fresh();
-            mk_or_implies(ex, n, xs);
-            if (full) {
-                mk_implies_or(ex, n, xs);
-            }
-            ors.push_back(ex);                
             
             // result => xs[0] + ... + xs[n-1] <= 1
             for (unsigned i = 0; i < n; ++i) {
@@ -358,19 +406,75 @@ Notes:
             }
         }
 
-        literal mk_at_most_1_bimander(unsigned n, literal const* xs) {
+        literal mk_at_most_1_small(unsigned n, literal const* xs) {
+            SASSERT(n > 0);
+            if (n == 1) {
+                return ctx.mk_true();
+            }
+
+            
+#if 0
+            literal result = fresh();
+
+            // result => xs[0] + ... + xs[n-1] <= 1
+            for (unsigned i = 0; i < n; ++i) {
+                for (unsigned j = i + 1; j < n; ++j) {
+                    add_clause(ctx.mk_not(result), ctx.mk_not(xs[i]), ctx.mk_not(xs[j]));
+                }
+            }            
+
+            // xs[0] + ... + xs[n-1] <= 1 => result
+            for (unsigned i = 0; i < n; ++i) {
+                literal_vector lits;
+                lits.push_back(result);
+                for (unsigned j = 0; j < n; ++j) {
+                    if (j != i) lits.push_back(xs[j]);
+                }
+                add_clause(lits);
+            }
+
+            return result;
+#endif
+#if 1
+            // r <=> and( or(!xi,!xj))
+            // 
+            literal_vector ands;
+            for (unsigned i = 0; i < n; ++i) {
+                for (unsigned j = i + 1; j < n; ++j) {
+                    ands.push_back(mk_or(ctx.mk_not(xs[i]), ctx.mk_not(xs[j])));
+                }                
+            }
+            return mk_and(ands);
+#else
+            // r <=> or (and !x_{j != i})
+
+            literal_vector ors;
+            for (unsigned i = 0; i < n; ++i) {
+                literal_vector ands;
+                for (unsigned j = 0; j < n; ++j) {
+                    if (j != i) {
+                        ands.push_back(ctx.mk_not(xs[j]));
+                    }
+                }                
+                ors.push_back(mk_and(ands));
+            }
+            return mk_or(ors);
+            
+#endif
+        }
+
+        
+        // 
+
+        literal mk_at_most_1_bimander(bool full, unsigned n, literal const* xs, literal_vector& ors) {
             literal_vector in(n, xs);
             literal result = fresh();
             unsigned inc_size = 2;
-            bool last = false;
-            bool full = false;
-            literal_vector ors, ands;
-            unsigned i = 0;
-            for (; i + inc_size < n; i += inc_size) {                    
-                mk_at_most_1_small(full, last, inc_size, in.c_ptr() + i, result, ands, ors);
-            }
-            if (i < n) {
-                mk_at_most_1_small(full, last, n - i, in.c_ptr() + i, result, ands, ors);
+            literal_vector ands;
+            for (unsigned i = 0; i < n; i += inc_size) {                    
+                unsigned inc = std::min(n - i, inc_size);
+                mk_at_most_1_small(full, inc, in.c_ptr() + i, result, ands);
+                ors.push_back(mk_or(inc, in.c_ptr() + i));
             }
             
             unsigned nbits = 0;
@@ -381,7 +485,7 @@ Notes:
             for (unsigned k = 0; k < nbits; ++k) {
                 bits.push_back(fresh());
             }
-            for (i = 0; i < ors.size(); ++i) {
+            for (unsigned i = 0; i < ors.size(); ++i) {
                 for (unsigned k = 0; k < nbits; ++k) {
                     bool bit_set = (i & (static_cast<unsigned>(1 << k))) != 0;
                     add_clause(ctx.mk_not(result), ctx.mk_not(ors[i]), bit_set ? bits[k] : ctx.mk_not(bits[k]));

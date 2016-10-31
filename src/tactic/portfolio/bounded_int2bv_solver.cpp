@@ -303,6 +303,7 @@ private:
             }
         }
         m_assertions.reset();
+        m_rewriter.reset();
     }
 };
 

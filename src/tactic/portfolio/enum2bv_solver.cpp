@@ -99,7 +99,6 @@ public:
     virtual lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) { return m_solver->find_mutexes(vars, mutexes); }
     
     virtual lbool get_consequences_core(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) {
-
         datatype_util dt(m);
         bv_util bv(m);
         expr_ref_vector bvars(m), conseq(m), bounds(m);

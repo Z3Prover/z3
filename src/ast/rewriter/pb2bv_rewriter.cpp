@@ -241,37 +241,36 @@ struct pb2bv_rewriter::imp {
             m_args(m)
         {}
 
-        br_status mk_app_core(func_decl * f, unsigned sz, expr * const* args, expr_ref & result) {
+        bool mk_app(bool full, func_decl * f, unsigned sz, expr * const* args, expr_ref & result) {
             if (f->get_family_id() == pb.get_family_id()) {
-                mk_pb(f, sz, args, result);
-                ++m_imp.m_num_translated;
-                return BR_DONE;
+                mk_pb(full, f, sz, args, result);
             }
             else if (au.is_le(f) && is_pb(args[0], args[1])) {
-                ++m_imp.m_num_translated;
                 result = mk_le_ge<l_true>(m_args.size(), m_args.c_ptr(), m_k);
-                return BR_DONE;
             }
             else if (au.is_lt(f) && is_pb(args[0], args[1])) {
-                ++m_imp.m_num_translated;
                 ++m_k;
                 result = mk_le_ge<l_true>(m_args.size(), m_args.c_ptr(), m_k);
-                return BR_DONE;
             }
             else if (au.is_ge(f) && is_pb(args[1], args[0])) {
-                ++m_imp.m_num_translated;
                 result = mk_le_ge<l_true>(m_args.size(), m_args.c_ptr(), m_k);
-                return BR_DONE;
             }
             else if (au.is_gt(f) && is_pb(args[1], args[0])) {
-                ++m_imp.m_num_translated;
                 ++m_k;
                 result = mk_le_ge<l_true>(m_args.size(), m_args.c_ptr(), m_k);
-                return BR_DONE;
             }
             else if (m.is_eq(f) && is_pb(args[0], args[1])) {
-                ++m_imp.m_num_translated;
                 result = mk_le_ge<l_undef>(m_args.size(), m_args.c_ptr(), m_k);
+            }
+            else {
+                return false;
+            }
+            ++m_imp.m_num_translated;
+            return true;
+        }
+
+        br_status mk_app_core(func_decl * f, unsigned sz, expr * const* args, expr_ref & result) {
+            if (mk_app(true, f, sz, args, result)) {
                 return BR_DONE;
             }
             else {
@@ -350,25 +349,25 @@ struct pb2bv_rewriter::imp {
             return false;
         }
 
-        void mk_pb(func_decl * f, unsigned sz, expr * const* args, expr_ref & result) {
+        void mk_pb(bool full, func_decl * f, unsigned sz, expr * const* args, expr_ref & result) {
             SASSERT(f->get_family_id() == pb.get_family_id());
             if (is_or(f)) {
                 result = m.mk_or(sz, args);
             }
             else if (pb.is_at_most_k(f) && pb.get_k(f).is_unsigned()) {
-                result = m_sort.le(true, pb.get_k(f).get_unsigned(), sz, args);
+                result = m_sort.le(full, pb.get_k(f).get_unsigned(), sz, args);
             }
             else if (pb.is_at_least_k(f) && pb.get_k(f).is_unsigned()) {
-                result = m_sort.ge(true, pb.get_k(f).get_unsigned(), sz, args);
+                result = m_sort.ge(full, pb.get_k(f).get_unsigned(), sz, args);
             }
             else if (pb.is_eq(f) && pb.get_k(f).is_unsigned() && pb.has_unit_coefficients(f)) {
-                result = m_sort.eq(pb.get_k(f).get_unsigned(), sz, args);
+                result = m_sort.eq(full, pb.get_k(f).get_unsigned(), sz, args);
             }
             else if (pb.is_le(f) && pb.get_k(f).is_unsigned() && pb.has_unit_coefficients(f)) {
-                result = m_sort.le(true, pb.get_k(f).get_unsigned(), sz, args);
+                result = m_sort.le(full, pb.get_k(f).get_unsigned(), sz, args);
             }
             else if (pb.is_ge(f) && pb.get_k(f).is_unsigned() && pb.has_unit_coefficients(f)) {
-                result = m_sort.ge(true, pb.get_k(f).get_unsigned(), sz, args);
+                result = m_sort.ge(full, pb.get_k(f).get_unsigned(), sz, args);
             }
             else {
                 result = mk_bv(f, sz, args);
@@ -433,9 +432,6 @@ struct pb2bv_rewriter::imp {
     void operator()(expr * e, expr_ref & result, proof_ref & result_proof) {
         m_rw(e, result, result_proof);
     }
-    void assert_expr(expr * e, expr_ref & result, proof_ref & result_proof) {
-        m_rw(e, result, result_proof);
-    }
     void push() {
         m_fresh_lim.push_back(m_fresh.size());
     }
@@ -472,9 +468,6 @@ unsigned pb2bv_rewriter::get_num_steps() const { return m_imp->get_num_steps(); 
 void pb2bv_rewriter::cleanup() { ast_manager& mgr = m(); params_ref p = m_imp->m_params; dealloc(m_imp); m_imp = alloc(imp, mgr, p);  }
 func_decl_ref_vector const& pb2bv_rewriter::fresh_constants() const { return m_imp->m_fresh; }
 void pb2bv_rewriter::operator()(expr * e, expr_ref & result, proof_ref & result_proof) { (*m_imp)(e, result, result_proof); }
-void pb2bv_rewriter::assert_expr(expr* e, expr_ref & result, proof_ref & result_proof) { 
-    m_imp->assert_expr(e, result, result_proof); 
-}
 void pb2bv_rewriter::push() { m_imp->push(); }
 void pb2bv_rewriter::pop(unsigned num_scopes) { m_imp->pop(num_scopes); }
 void pb2bv_rewriter::flush_side_constraints(expr_ref_vector& side_constraints) { m_imp->flush_side_constraints(side_constraints); } 

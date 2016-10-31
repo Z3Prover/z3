@@ -34,6 +34,7 @@ Notes:
 #include "bit_blaster_model_converter.h"
 #include "ast_translation.h"
 #include "ast_util.h"
+#include "propagate_values_tactic.h"
 
 // incremental SAT solver.
 class inc_sat_solver : public solver {
@@ -341,6 +342,7 @@ public:
                      mk_max_bv_sharing_tactic(m),
                      mk_bit_blaster_tactic(m, m_bb_rewriter.get()),
                      //mk_aig_tactic(),
+                     //mk_propagate_values_tactic(m, simp2_p),
                      using_params(mk_simplify_tactic(m), simp2_p));
         while (m_bb_rewriter->get_num_scopes() < m_num_scopes) {
             m_bb_rewriter->push();
@@ -377,6 +379,7 @@ private:
         g = m_subgoals[0];
         expr_ref_vector atoms(m);
         TRACE("sat", g->display_with_dependencies(tout););
+        std::cout << "exprs: " << g->num_exprs() << "\n";
         m_goal2sat(*g, m_params, m_solver, m_map, dep2asm, true);
         m_goal2sat.get_interpreted_atoms(atoms);
         if (!atoms.empty()) {
@@ -520,7 +523,7 @@ private:
         }
         dep2asm_t dep2asm;
         goal_ref g = alloc(goal, m, true, false); // models, maybe cores are enabled
-        for (unsigned i = 0 ; i < m_fmls.size(); ++i) {
+        for (unsigned i = m_fmls_head ; i < m_fmls.size(); ++i) {
             g->assert_expr(m_fmls[i].get());
         }
         lbool res = internalize_goal(g, dep2asm);
