@@ -42,7 +42,6 @@ Notes:
 #include "ast_smt_pp.h"
 #include "filter_model_converter.h"
 #include "ast_pp_util.h"
-#include "inc_sat_solver.h"
 #include "qsat.h"
 
 namespace opt {
@@ -593,6 +592,9 @@ namespace opt {
             return;
         }
         if (opt_params(m_params).priority() == symbol("pareto")) {
+            return;
+        }
+        if (m.proofs_enabled()) {
             return;
         }
         m_params.set_bool("minimize_core_partial", true);
