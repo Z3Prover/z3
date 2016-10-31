@@ -379,7 +379,6 @@ private:
         g = m_subgoals[0];
         expr_ref_vector atoms(m);
         TRACE("sat", g->display_with_dependencies(tout););
-        std::cout << "exprs: " << g->num_exprs() << "\n";
         m_goal2sat(*g, m_params, m_solver, m_map, dep2asm, true);
         m_goal2sat.get_interpreted_atoms(atoms);
         if (!atoms.empty()) {

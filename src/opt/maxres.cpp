@@ -155,7 +155,7 @@ public:
     
 
     void add_soft(expr* e, rational const& w) {
-        TRACE("opt", tout << mk_pp(e, m) << "\n";);
+        TRACE("opt", tout << mk_pp(e, m) << " |-> " << w << "\n";);
         expr_ref asum(m), fml(m);
         app_ref cls(m);
         rational weight(0);
@@ -290,7 +290,10 @@ public:
     }
 
     void process_mutex(expr_ref_vector& mutex) {
-        TRACE("opt", tout << mutex << "\n";);
+        TRACE("opt", 
+              for (unsigned i = 0; i < mutex.size(); ++i) {
+                  tout << mk_pp(mutex[i].get(), m) << " |-> " << get_weight(mutex[i].get()) << "\n";
+              });
         if (mutex.size() <= 1) {
             return;
         }
@@ -298,20 +301,22 @@ public:
         ptr_vector<expr> core(mutex.size(), mutex.c_ptr());
         remove_soft(core, m_asms);
         rational weight(0), sum1(0), sum2(0);
+        vector<rational> weights;
         for (unsigned i = 0; i < mutex.size(); ++i) {
-            sum1 += get_weight(mutex[i].get());
+            rational w = get_weight(mutex[i].get());
+            weights.push_back(w);
+            sum1 += w;
+            m_asm2weight.remove(mutex[i].get());
         }
-        while (!mutex.empty()) {
-            expr_ref soft = mk_or(mutex);
-            rational w = get_weight(mutex.back());
+        for (unsigned i = mutex.size(); i > 0; ) {
+            --i;
+            expr_ref soft(m.mk_or(i+1, mutex.c_ptr()), m);
+            rational w = weights[i];
             weight = w - weight;
-            m_lower += weight*rational(mutex.size()-1);
-            sum2 += weight*rational(mutex.size());
+            m_lower += weight*rational(i);
+            sum2 += weight*rational(i+1);
             add_soft(soft, weight);
-            mutex.pop_back();
-            while (!mutex.empty() && get_weight(mutex.back()) == w) {
-                mutex.pop_back();
-            }
+            for (; i > 0 && weights[i-1] == w; --i) {} 
             weight = w;
         }        
         SASSERT(sum1 == sum2);
