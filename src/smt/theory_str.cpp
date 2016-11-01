@@ -1631,49 +1631,6 @@ expr * theory_str::mk_RegexIn(expr * str, expr * regexp) {
     return regexIn;
 }
 
-static std::string str2RegexStr(std::string str) {
-    std::string res = "";
-    int len = str.size();
-    for (int i = 0; i < len; i++) {
-      char nc = str[i];
-      // 12 special chars
-      if (nc == '\\' || nc == '^' || nc == '$' || nc == '.' || nc == '|' || nc == '?'
-          || nc == '*' || nc == '+' || nc == '(' || nc == ')' || nc == '[' || nc == '{') {
-        res.append(1, '\\');
-      }
-      res.append(1, str[i]);
-    }
-    return res;
-}
-
-std::string theory_str::get_std_regex_str(expr * regex) {
-    app * a_regex = to_app(regex);
-    if (is_Str2Reg(a_regex)) {
-        expr * regAst = a_regex->get_arg(0);
-        std::string regStr = str2RegexStr(m_strutil.get_string_constant_value(regAst));
-        return regStr;
-    } else if (is_RegexConcat(a_regex)) {
-        expr * reg1Ast = a_regex->get_arg(0);
-        expr * reg2Ast = a_regex->get_arg(1);
-        std::string reg1Str = get_std_regex_str(reg1Ast);
-        std::string reg2Str = get_std_regex_str(reg2Ast);
-        return "(" + reg1Str + ")(" + reg2Str + ")";
-    } else if (is_RegexUnion(a_regex)) {
-        expr * reg1Ast = a_regex->get_arg(0);
-        expr * reg2Ast = a_regex->get_arg(1);
-        std::string reg1Str = get_std_regex_str(reg1Ast);
-        std::string reg2Str = get_std_regex_str(reg2Ast);
-        return  "(" + reg1Str + ")|(" + reg2Str + ")";
-    } else if (is_RegexStar(a_regex)) {
-        expr * reg1Ast = a_regex->get_arg(0);
-        std::string reg1Str = get_std_regex_str(reg1Ast);
-        return  "(" + reg1Str + ")*";
-    } else {
-        TRACE("t_str", tout << "BUG: unrecognized regex term " << mk_pp(regex, get_manager()) << std::endl;);
-        UNREACHABLE(); return "";
-    }
-}
-
 void theory_str::instantiate_axiom_RegexIn(enode * e) {
     context & ctx = get_context();
     ast_manager & m = get_manager();
@@ -1688,7 +1645,7 @@ void theory_str::instantiate_axiom_RegexIn(enode * e) {
     TRACE("t_str_detail", tout << "instantiate RegexIn axiom for " << mk_pp(ex, m) << std::endl;);
 
     {
-        std::string regexStr = get_std_regex_str(ex->get_arg(1));
+        std::string regexStr = m_strutil.get_std_regex_str(ex->get_arg(1));
         std::pair<expr*, std::string> key1(ex->get_arg(0), regexStr);
         // skip Z3str's map check, because we already check if we set up axioms on this term
         regex_in_bool_map[key1] = ex;
