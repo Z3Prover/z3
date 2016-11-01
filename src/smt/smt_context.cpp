@@ -1112,6 +1112,7 @@ namespace smt {
         if (r1 == r2) {
             TRACE("add_diseq_inconsistent", tout << "add_diseq #" << n1->get_owner_id() << " #" << n2->get_owner_id() << " inconsistency, scope_lvl: " << m_scope_lvl << "\n";);
             theory_id  t1 = r1->m_th_var_list.get_th_id();
+            if (t1 == null_theory_id) return false;
             return get_theory(t1)->use_diseqs();
         }
 

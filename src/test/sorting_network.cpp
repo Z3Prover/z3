@@ -22,7 +22,7 @@ struct ast_ext {
     ast_ext(ast_manager& m):m(m) {}
     typedef expr* T;
     typedef expr_ref_vector vector;
-    T mk_ite(T a, T b, T c) { 
+    T mk_ite(T a, T b, T c) {
         return m.mk_ite(a, b, c);
     }
     T mk_le(T a, T b) {
@@ -34,7 +34,7 @@ struct ast_ext {
     }
     T mk_default() {
         return m.mk_false();
-    }        
+    }
 };
 
 
@@ -164,17 +164,17 @@ struct ast_ext2 {
 
     literal mk_false() { return m.mk_false(); }
     literal mk_true() { return m.mk_true(); }
-    literal mk_max(literal a, literal b) { 
-        return trail(m.mk_or(a, b)); 
+    literal mk_max(literal a, literal b) {
+        return trail(m.mk_or(a, b));
     }
     literal mk_min(literal a, literal b) { return trail(m.mk_and(a, b)); }
-    literal mk_not(literal a) { if (m.is_not(a,a)) return a; 
-        return trail(m.mk_not(a)); 
+    literal mk_not(literal a) { if (m.is_not(a,a)) return a;
+        return trail(m.mk_not(a));
     }
     std::ostream& pp(std::ostream& out, literal lit) {
         return out << mk_pp(lit, m);
     }
-    literal fresh() { 
+    literal fresh() {
         return trail(m.mk_fresh_const("x", m.mk_bool_sort()));
     }
     void mk_clause(unsigned n, literal const* lits) {
@@ -210,7 +210,7 @@ static void test_sorting_eq(unsigned n, unsigned k) {
 
     solver.push();
     for (unsigned i = 0; i < k; ++i) {
-        solver.assert_expr(in[i].get());        
+        solver.assert_expr(in[i].get());
     }
     res = solver.check();
     SASSERT(res == l_true);
@@ -256,7 +256,7 @@ static void test_sorting_le(unsigned n, unsigned k) {
     SASSERT(res == l_true);
 
     for (unsigned i = 0; i < k; ++i) {
-        solver.assert_expr(in[i].get());        
+        solver.assert_expr(in[i].get());
     }
     res = solver.check();
     SASSERT(res == l_true);
@@ -304,7 +304,7 @@ void test_sorting_ge(unsigned n, unsigned k) {
 
     solver.push();
     for (unsigned i = 0; i < n - k; ++i) {
-        solver.assert_expr(m.mk_not(in[i].get()));        
+        solver.assert_expr(m.mk_not(in[i].get()));
     }
     res = solver.check();
     SASSERT(res == l_true);
@@ -350,10 +350,10 @@ void test_at_most_1(unsigned n, bool full) {
     for (unsigned i = 0; i < n; ++i) {
         in.push_back(m.mk_fresh_const("a",m.mk_bool_sort()));
     }
-    
+
     ast_ext2 ext(m);
     psort_nw<ast_ext2> sn(ext);
-    expr_ref result1(m), result2(m);    
+    expr_ref result1(m), result2(m);
     result1 = sn.le(full, 1, in.size(), in.c_ptr());
     result2 = naive_at_most1(in);
 
@@ -368,12 +368,12 @@ void test_at_most_1(unsigned n, bool full) {
     if (full) {
         solver.push();
         solver.assert_expr(m.mk_not(m.mk_eq(result1, result2)));
-        
+
         std::cout << result1 << "\n";
-        
+
         res = solver.check();
         SASSERT(res == l_false);
-    
+
         solver.pop(1);
     }
 
