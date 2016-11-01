@@ -200,7 +200,7 @@ static void test_sorting_eq(unsigned n, unsigned k) {
     // equality:
     std::cout << "eq " << k << "\n";
     solver.push();
-    result = sn.eq(k, in.size(), in.c_ptr());
+    result = sn.eq(true, k, in.size(), in.c_ptr());
     solver.assert_expr(result);
     for (unsigned i = 0; i < ext.m_clauses.size(); ++i) {
         solver.assert_expr(ext.m_clauses[i].get());

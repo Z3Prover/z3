@@ -138,6 +138,7 @@ public:
                             proof_converter_ref & pc,
                             expr_dependency_ref & core) {
         try {
+            mc = 0; pc = 0; core = 0;
             SASSERT(in->is_well_sorted());
             ast_manager & m = in->m();
             TRACE("smt_tactic", tout << this << "\nAUTO_CONFIG: " << fparams().m_auto_config << " HIDIV0: " << fparams().m_hi_div0 << " "
@@ -206,8 +207,6 @@ public:
                     mc = model2model_converter(md.get());
                     mc = concat(fmc.get(), mc.get());
                 }
-                pc = 0;
-                core = 0;
                 return;
             }
             case l_false: {
@@ -229,12 +228,10 @@ public:
                         expr * d = bool2dep.find(b);
                         lcore = m.mk_join(lcore, m.mk_leaf(d));
                     }
+                    core = lcore;
                 }
                 in->assert_expr(m.mk_false(), pr, lcore);
                 result.push_back(in.get());
-                mc   = 0;
-                pc   = 0;
-                core = 0;
                 return;
             }
             case l_undef:
@@ -257,8 +254,6 @@ public:
                             m_ctx->get_model(md);
                             mc = model2model_converter(md.get());
                         }
-                        pc   = 0;
-                        core = 0;
                         return;
                     default:
                         break;
