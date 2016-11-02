@@ -89,6 +89,12 @@ namespace smt {
         typedef union_find<theory_str> th_union_find;
 
         typedef map<rational, expr*, obj_hash<rational>, default_eq<rational> > rational_map;
+        struct str_hash_proc {
+            unsigned operator()(std::string const & s) const {
+            	return string_hash(s.c_str(), static_cast<unsigned>(s.length()), 17);
+            }
+        };
+        typedef map<std::string, expr*, str_hash_proc, default_eq<std::string> > string_map;
 
     protected:
         // Some options that control how the solver operates.
@@ -175,6 +181,13 @@ namespace smt {
          * but will be saved in a map and looked up.
          */
         bool opt_UseFastLengthTesterCache;
+
+        /*
+         * If UseFastValueTesterCache is set to true,
+         * value tester terms will not be generated from scratch each time they are needed,
+         * but will be saved in a map and looked up.
+         */
+        bool opt_UseFastValueTesterCache;
 
         bool search_started;
         arith_util m_autil;
@@ -271,6 +284,8 @@ namespace smt {
 
         // used when opt_FastLengthTesterCache is true
         rational_map lengthTesterCache;
+        // used when opt_FastValueTesterCache is true
+        string_map valueTesterCache;
 
         th_union_find m_find;
         th_trail_stack m_trail_stack;

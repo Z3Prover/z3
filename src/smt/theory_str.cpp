@@ -41,6 +41,7 @@ theory_str::theory_str(ast_manager & m):
 		opt_DeferEQCConsistencyCheck(false),
 		opt_CheckVariableScope(true),
 		opt_UseFastLengthTesterCache(true),
+		opt_UseFastValueTesterCache(true),
         /* Internal setup */
         search_started(false),
         m_autil(m),
@@ -7967,6 +7968,7 @@ expr * theory_str::gen_val_options(expr * freeVar, expr * len_indicator, expr * 
 	ptr_vector<expr> andList;
 
 	for (long long i = l; i < h; i++) {
+		// TODO can we share the val_indicator constants with the length tester cache?
 		orList.push_back(m.mk_eq(val_indicator, m_strutil.mk_string(longlong_to_string(i).c_str()) ));
 		if (opt_AggressiveValueTesting) {
 		    literal l = mk_eq(val_indicator, m_strutil.mk_string(longlong_to_string(i).c_str()), false);
@@ -7975,7 +7977,16 @@ expr * theory_str::gen_val_options(expr * freeVar, expr * len_indicator, expr * 
 		}
 
 		std::string aStr = gen_val_string(len, options[i - l]);
-		expr * strAst = m_strutil.mk_string(aStr);
+		expr * strAst;
+		if (opt_UseFastValueTesterCache) {
+			if (!valueTesterCache.find(aStr, strAst)) {
+				strAst = m_strutil.mk_string(aStr);
+				valueTesterCache.insert(aStr, strAst);
+				m_trail.push_back(strAst);
+			}
+		} else {
+			strAst = m_strutil.mk_string(aStr);
+		}
 		andList.push_back(m.mk_eq(orList[orList.size() - 1], m.mk_eq(freeVar, strAst)));
 	}
 	if (!coverAll) {
