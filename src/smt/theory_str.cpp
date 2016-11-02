@@ -8553,7 +8553,7 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 	        }
 	    } else {
 	        std::string i_str = int_to_string(i);
-	        expr_ref str_indicator(m_strutil.mk_string(i_str), m);
+	        str_indicator = expr_ref(m_strutil.mk_string(i_str), m);
 	    }
 		expr_ref or_expr(ctx.mk_eq_atom(indicator, str_indicator), m);
 		orList.push_back(or_expr);
