@@ -4,7 +4,8 @@
         "debugType": "portable",
         "emitEntryPoint": false,
         "outputName": "Microsoft.Z3",
-        "compile": [ "../*.cs", "*.cs" ]
+        "compile": [ "../*.cs", "*.cs" ],
+        "define": ["DOTNET_CORE"]
     },
     "dependencies": { },
     "frameworks": {

@@ -21,11 +21,13 @@ using System;
 
 namespace Microsoft.Z3
 {
-  /// <summary>
-  /// The exception base class for error reporting from Z3
-  /// </summary>
+    /// <summary>
+    /// The exception base class for error reporting from Z3
+    /// </summary>
+#if !DOTNET_CORE
   [Serializable]
-  public class Z3Exception : Exception
+#endif
+    public class Z3Exception : Exception
   {
     /// <summary>
     /// Constructor.
