@@ -183,7 +183,6 @@ class nlsat_tactic : public tactic {
                     }
                 }
                 g->assert_expr(m.mk_false(), 0, lcore);
-                core = lcore;
             }
             
             g->inc_depth();

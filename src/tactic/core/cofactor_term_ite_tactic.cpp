@@ -36,7 +36,7 @@ class cofactor_term_ite_tactic : public tactic {
             expr * f = g.form(i);
             expr_ref new_f(m);
             m_elim_ite(f, new_f);
-            g.update(i, new_f);
+            g.update(i, new_f, 0, g.dep(i));
         }
     }
 

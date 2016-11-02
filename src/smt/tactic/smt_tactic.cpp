@@ -228,7 +228,6 @@ public:
                         expr * d = bool2dep.find(b);
                         lcore = m.mk_join(lcore, m.mk_leaf(d));
                     }
-                    core = lcore;
                 }
                 in->assert_expr(m.mk_false(), pr, lcore);
                 result.push_back(in.get());

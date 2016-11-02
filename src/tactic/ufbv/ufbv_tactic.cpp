@@ -41,21 +41,22 @@ tactic * mk_ufbv_preprocessor_tactic(ast_manager & m, params_ref const & p) {
 
     return and_then(
         mk_trace_tactic("ufbv_pre"),
-                and_then(mk_simplify_tactic(m, p),
-                         mk_propagate_values_tactic(m, p),
-                         and_then(using_params(mk_macro_finder_tactic(m, no_elim_and), no_elim_and), 
-                  mk_simplify_tactic(m, p)),
-                         and_then(mk_snf_tactic(m, p), mk_simplify_tactic(m, p)),             
-                         mk_elim_and_tactic(m, p),
-                         mk_solve_eqs_tactic(m, p),
-                         and_then(mk_der_fp_tactic(m, p), mk_simplify_tactic(m, p)),
-                         and_then(mk_distribute_forall_tactic(m, p), mk_simplify_tactic(m, p))),
-                and_then(and_then(mk_reduce_args_tactic(m, p), mk_simplify_tactic(m, p)),
-                         and_then(mk_macro_finder_tactic(m, p), mk_simplify_tactic(m, p)),
-                         and_then(mk_ufbv_rewriter_tactic(m, p), mk_simplify_tactic(m, p)),
-                         and_then(mk_quasi_macros_tactic(m, p), mk_simplify_tactic(m, p)),
-                         and_then(mk_der_fp_tactic(m, p), mk_simplify_tactic(m, p)),
-                         mk_simplify_tactic(m, p)),
+        and_then(mk_simplify_tactic(m, p),
+                 mk_propagate_values_tactic(m, p),
+                 and_then(if_no_proofs(if_no_unsat_cores(using_params(mk_macro_finder_tactic(m, no_elim_and), no_elim_and))), 
+                          mk_simplify_tactic(m, p)),
+                 and_then(mk_snf_tactic(m, p), mk_simplify_tactic(m, p)),             
+                 mk_elim_and_tactic(m, p),
+                 mk_solve_eqs_tactic(m, p),
+                 and_then(mk_der_fp_tactic(m, p), mk_simplify_tactic(m, p)),
+                 and_then(mk_distribute_forall_tactic(m, p), mk_simplify_tactic(m, p))),
+        if_no_unsat_cores(
+            and_then(and_then(mk_reduce_args_tactic(m, p), mk_simplify_tactic(m, p)),
+                     and_then(mk_macro_finder_tactic(m, p), mk_simplify_tactic(m, p)),
+                     and_then(mk_ufbv_rewriter_tactic(m, p), mk_simplify_tactic(m, p)),
+                     and_then(mk_quasi_macros_tactic(m, p), mk_simplify_tactic(m, p)))),
+        and_then(mk_der_fp_tactic(m, p), mk_simplify_tactic(m, p)),
+        mk_simplify_tactic(m, p),
         mk_trace_tactic("ufbv_post"));
 }
 

@@ -132,8 +132,7 @@ public:
         if (r1_size == 1) {                                                                                 
             if (r1[0]->is_decided()) {
                 result.push_back(r1[0]);    
-                if (models_enabled) mc = mc1; 
-                SASSERT(!pc); SASSERT(!core);
+                if (models_enabled) mc = mc1;
                 return;                                                                                     
             }                                                                                               
             goal_ref r1_0 = r1[0];      
@@ -964,7 +963,7 @@ class repeat_tactical : public unary_tactical {
         pc   = 0;             
         core = 0;
         {
-            goal orig_in(in->m());
+            goal orig_in(in->m(), proofs_enabled, models_enabled, cores_enabled);
             orig_in.copy_from(*(in.get()));
             m_t->operator()(in, r1, mc1, pc1, core1);                                                            
             if (is_equal(orig_in, *(in.get()))) {

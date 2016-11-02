@@ -81,7 +81,6 @@ class sat_tactic : public tactic {
                         expr* dep = asm2dep.find(lit.index());
                         lcore = m.mk_join(lcore, m.mk_leaf(dep));                        
                     }
-                    core = lcore;
                 }
                 g->assert_expr(m.mk_false(), 0, lcore);
             }

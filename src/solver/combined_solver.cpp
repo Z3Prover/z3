@@ -217,7 +217,7 @@ public:
         m_use_solver1_results = false;
 
         if (get_num_assumptions() != 0 ||            
-            num_assumptions > 0 ||  // assumptions were provided
+            num_assumptions > 0 ||  // assumptions were provided            
             m_ignore_solver1)  {
             // must use incremental solver
             switch_inc_mode();
@@ -227,7 +227,7 @@ public:
         if (m_inc_mode) {
             if (m_inc_timeout == UINT_MAX) {
                 IF_VERBOSE(PS_VB_LVL, verbose_stream() << "(combined-solver \"using solver 2 (without a timeout)\")\n";);            
-                lbool r = m_solver2->check_sat(0, 0);
+                lbool r = m_solver2->check_sat(num_assumptions, assumptions);
                 if (r != l_undef || !use_solver1_when_undef()) {
                     return r;
                 }
@@ -238,7 +238,7 @@ public:
                 lbool r = l_undef;
                 try {
                     scoped_timer timer(m_inc_timeout, &eh);
-                    r = m_solver2->check_sat(0, 0);
+                    r = m_solver2->check_sat(num_assumptions, assumptions);
                 }
                 catch (z3_exception&) {
                     if (!eh.m_canceled) {
@@ -254,7 +254,7 @@ public:
         
         IF_VERBOSE(PS_VB_LVL, verbose_stream() << "(combined-solver \"using solver 1\")\n";);
         m_use_solver1_results = true;
-        return m_solver1->check_sat(0, 0);
+        return m_solver1->check_sat(num_assumptions, assumptions);
     }
     
     virtual void set_progress_callback(progress_callback * callback) {

@@ -288,9 +288,7 @@ public:
 #endif
         p.insert("print_model_converter", CPK_BOOL, "(default: false) print model converter.");
         p.insert("print_benchmark", CPK_BOOL, "(default: false) display resultant goals as a SMT2 benchmark.");
-#ifndef _EXTERNAL_RELEASE
         p.insert("print_dependencies", CPK_BOOL, "(default: false) print dependencies when displaying the resultant set of goals.");
-#endif
         exec_given_tactic_cmd::init_pdescrs(ctx, p);
     }
 
