@@ -451,19 +451,6 @@ struct evaluator_cfg : public default_rewriter_cfg {
             TRACE("model_evaluator", tout << "non-ground else case " << mk_pp(a, m()) << "\n" << else_case << "\n";);
             return false;
         }
-        if (m_ar.is_as_array(else_case)) {
-            bool are_unique1 = true;
-            expr_ref tmp(m());
-            unsigned num_stores = stores.size();
-            if (!extract_array_func_interp(else_case, stores, tmp, are_unique1)) {
-                stores.shrink(num_stores);
-            }
-            else {
-                sort* srt = m().get_sort(else_case);
-                else_case = m_ar.mk_const_array(srt, tmp);
-                are_unique &= are_unique1;
-            }
-        }
         for (unsigned i = stores.size(); are_values && i > 0; ) {
             --i;
             if (m().are_equal(else_case, stores[i].back())) {
