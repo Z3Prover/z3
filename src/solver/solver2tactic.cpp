@@ -105,6 +105,7 @@ public:
                             /* out */ model_converter_ref & mc, 
                             /* out */ proof_converter_ref & pc,
                             /* out */ expr_dependency_ref & core) {
+        pc = 0; mc = 0; core = 0;
         expr_ref_vector clauses(m);
         expr2expr_map               bool2dep;
         ptr_vector<expr>            assumptions;
@@ -123,8 +124,6 @@ public:
             }
             in->reset();
             result.push_back(in.get());
-            pc = 0;
-            core = 0;
             break;
         case l_false: {
             in->reset();
@@ -132,6 +131,7 @@ public:
             expr_dependency* lcore = 0;
             if (in->proofs_enabled()) {
                 pr = local_solver->get_proof();
+                pc = proof2proof_converter(m, pr);
             }
             if (in->unsat_core_enabled()) {
                 ptr_vector<expr> core;
@@ -142,9 +142,7 @@ public:
             }
             in->assert_expr(m.mk_false(), pr, lcore);
             result.push_back(in.get());
-            mc = 0;
-            pc = 0;
-            core = 0;
+            core = lcore;
             break;
         }
         case l_undef:

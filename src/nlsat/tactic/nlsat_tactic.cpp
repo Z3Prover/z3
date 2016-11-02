@@ -147,6 +147,7 @@ class nlsat_tactic : public tactic {
             TRACE("nlsat", g->display(tout););
             expr2var  a2b(m);
             expr2var  t2x(m);
+            
             m_g2nl(*g, m_params, m_solver, a2b, t2x);
 
             m_display_var.m_var2expr.reset();
@@ -172,9 +173,19 @@ class nlsat_tactic : public tactic {
                 }
             }
             else {
-                // TODO: extract unsat core
-                g->assert_expr(m.mk_false(), 0, 0);
+                expr_dependency* lcore = 0;
+                if (g->unsat_core_enabled()) {
+                    vector<nlsat::assumption, false> assumptions;
+                    m_solver.get_core(assumptions);
+                    for (unsigned i = 0; i < assumptions.size(); ++i) {
+                        expr_dependency* d = static_cast<expr_dependency*>(assumptions[i]);
+                        lcore = m.mk_join(lcore, d);
+                    }
+                }
+                g->assert_expr(m.mk_false(), 0, lcore);
+                core = lcore;
             }
+            
             g->inc_depth();
             result.push_back(g.get());
             TRACE("nlsat", g->display(tout););
