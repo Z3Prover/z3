@@ -88,6 +88,8 @@ namespace smt {
         typedef trail_stack<theory_str> th_trail_stack;
         typedef union_find<theory_str> th_union_find;
 
+        typedef map<rational, expr*, obj_hash<rational>, default_eq<rational> > rational_map;
+
     protected:
         // Some options that control how the solver operates.
 
@@ -166,6 +168,13 @@ namespace smt {
          * contains references to any internal variables that are no longer in scope.
          */
         bool opt_CheckVariableScope;
+
+        /*
+         * If UseFastLengthTesterCache is set to true,
+         * length tester terms will not be generated from scratch each time they are needed,
+         * but will be saved in a map and looked up.
+         */
+        bool opt_UseFastLengthTesterCache;
 
         bool search_started;
         arith_util m_autil;
@@ -259,6 +268,9 @@ namespace smt {
         int charSetSize;
 
         obj_pair_map<expr, expr, expr*> concat_astNode_map;
+
+        // used when opt_FastLengthTesterCache is true
+        rational_map lengthTesterCache;
 
         th_union_find m_find;
         th_trail_stack m_trail_stack;

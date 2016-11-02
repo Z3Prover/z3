@@ -40,6 +40,7 @@ theory_str::theory_str(ast_manager & m):
 		opt_DisableIntegerTheoryIntegration(false),
 		opt_DeferEQCConsistencyCheck(false),
 		opt_CheckVariableScope(true),
+		opt_UseFastLengthTesterCache(true),
         /* Internal setup */
         search_started(false),
         m_autil(m),
@@ -8536,9 +8537,25 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 	);
 
 	for (int i = l; i < h; ++i) {
-	    std::string i_str = int_to_string(i);
-	    expr_ref str_indicator(m_strutil.mk_string(i_str), m);
-		expr_ref or_expr(ctx.mk_eq_atom(indicator, str_indicator), m); // ARGUMENT 2 IS BOGUS! WRONG SORT
+	    expr_ref str_indicator(m);
+	    if (opt_UseFastLengthTesterCache) {
+	        rational ri(i);
+	        expr * lookup_val;
+	        if(lengthTesterCache.find(ri, lookup_val)) {
+	            str_indicator = expr_ref(lookup_val, m);
+	        } else {
+	            // no match; create and insert
+	            std::string i_str = int_to_string(i);
+                expr_ref new_val(m_strutil.mk_string(i_str), m);
+                lengthTesterCache.insert(ri, new_val);
+                m_trail.push_back(new_val);
+                str_indicator = expr_ref(new_val, m);
+	        }
+	    } else {
+	        std::string i_str = int_to_string(i);
+	        expr_ref str_indicator(m_strutil.mk_string(i_str), m);
+	    }
+		expr_ref or_expr(ctx.mk_eq_atom(indicator, str_indicator), m);
 		orList.push_back(or_expr);
 
 		if (opt_AggressiveLengthTesting) {
@@ -8551,6 +8568,7 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 		andList.push_back(and_expr);
 	}
 
+	// TODO cache mk_string("more")
 	orList.push_back(m.mk_eq(indicator, m_strutil.mk_string("more")));
 	if (opt_AggressiveLengthTesting) {
 	    literal l = mk_eq(indicator, m_strutil.mk_string("more"), false);
