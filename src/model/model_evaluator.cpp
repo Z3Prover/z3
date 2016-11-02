@@ -32,6 +32,7 @@ Revision History:
 #include"cooperate.h"
 #include"ast_pp.h"
 #include"ast_util.h"
+#include"model_smt2_pp.h"
 
 
 struct evaluator_cfg : public default_rewriter_cfg {
@@ -69,6 +70,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
         m_a_rw.set_flat(flat);
         m_bv_rw.set_flat(flat);
         m_bv_rw.set_mkbv2num(true);
+        m_ar_rw.set_expand_select_store(true);
+        m_ar_rw.set_expand_select_ite(true);
         updt_params(p);
     }
 
@@ -400,6 +403,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
         SASSERT(m_ar.is_array(a));
         bool are_values = true;
         are_unique = true;
+        TRACE("model_evaluator", tout << mk_pp(a, m()) << "\n";);
 
         while (m_ar.is_store(a)) {
             expr_ref_vector store(m());
@@ -438,12 +442,27 @@ struct evaluator_cfg : public default_rewriter_cfg {
         }        
         else_case = g->get_else();
         if (!else_case) {
-            TRACE("model_evaluator", tout << "no else case " << mk_pp(a, m()) << "\n";);
+            TRACE("model_evaluator", tout << "no else case " << mk_pp(a, m()) << "\n";
+                  /*model_smt2_pp(tout, m(), m_model, 0);*/
+                  );
             return false;
         }
         if (!is_ground(else_case)) {
             TRACE("model_evaluator", tout << "non-ground else case " << mk_pp(a, m()) << "\n" << else_case << "\n";);
             return false;
+        }
+        if (m_ar.is_as_array(else_case)) {
+            bool are_unique1 = true;
+            expr_ref tmp(m());
+            unsigned num_stores = stores.size();
+            if (!extract_array_func_interp(else_case, stores, tmp, are_unique1)) {
+                stores.shrink(num_stores);
+            }
+            else {
+                sort* srt = m().get_sort(else_case);
+                else_case = m_ar.mk_const_array(srt, tmp);
+                are_unique &= are_unique1;
+            }
         }
         for (unsigned i = stores.size(); are_values && i > 0; ) {
             --i;

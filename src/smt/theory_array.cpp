@@ -404,7 +404,7 @@ namespace smt {
                     r = assert_delayed_axioms();
             }
         }
-        TRACE("as_array", tout << "m_found_unsupported_op: " << m_found_unsupported_op << " " << r << "\n";);
+        TRACE("array", tout << "m_found_unsupported_op: " << m_found_unsupported_op << " " << r << "\n";);
         if (r == FC_DONE && m_found_unsupported_op) 
             r = FC_GIVEUP;
         return r;

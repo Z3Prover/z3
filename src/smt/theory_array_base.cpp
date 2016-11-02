@@ -33,7 +33,7 @@ namespace smt {
     }
 
     void theory_array_base::found_unsupported_op(expr * n) {
-        TRACE("theory_array_unsup", tout << mk_ll_pp(n, get_manager()) << "\n";);
+        TRACE("array", tout << mk_ll_pp(n, get_manager()) << "\n";);
         if (!m_found_unsupported_op) {
             get_context().push_trail(value_trail<context, bool>(m_found_unsupported_op));
             m_found_unsupported_op = true;

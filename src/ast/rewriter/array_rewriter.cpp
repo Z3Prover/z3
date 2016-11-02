@@ -26,6 +26,7 @@ void array_rewriter::updt_params(params_ref const & _p) {
     m_sort_store = p.sort_store();
     m_expand_select_store = p.expand_select_store();
     m_expand_store_eq = p.expand_store_eq();
+    m_expand_select_ite = false;
 }
 
 void array_rewriter::get_param_descrs(param_descrs & r) {
@@ -200,6 +201,17 @@ br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args,
         func_decl * f = m_util.get_as_array_func_decl(to_app(args[0]));
         result = m().mk_app(f, num_args - 1, args + 1);
         return BR_REWRITE1;
+    }
+
+    expr* c, *th, *el;
+    if (m_expand_select_ite && m().is_ite(args[0], c, th, el)) {
+        ptr_vector<expr> args1, args2;
+        args1.push_back(th);
+        args1.append(num_args-1, args + 1);
+        args2.push_back(el);
+        args2.append(num_args-1, args + 1);
+        result = m().mk_ite(c, m_util.mk_select(num_args, args1.c_ptr()), m_util.mk_select(num_args, args2.c_ptr()));
+        return BR_REWRITE2;
     }
     
     return BR_FAILED;
