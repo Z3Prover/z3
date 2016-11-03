@@ -1591,7 +1591,7 @@ class DotNetDLLComponent(Component):
             elif os.path.isfile(os.path.join(self.src_dir, self.key_file)):
                 self.key_file = os.path.abspath(os.path.join(self.src_dir, self.key_file))
             else:
-                print("Keyfile '%s' could not be found; %s.dll will be unsigned." % (self.dll_name, self.key_file))
+                print("Keyfile '%s' could not be found; %s.dll will be unsigned." % (self.key_file, self.dll_name))
                 self.key_file = None
                 
         if not self.key_file is None:
