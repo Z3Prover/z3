@@ -581,38 +581,40 @@ br_status bool_rewriter::try_ite_value(app * ite, app * val, expr_ref & result) 
             TRACE("try_ite_value", tout << mk_ismt2_pp(t, m()) << " " << mk_ismt2_pp(e, m()) << " " << mk_ismt2_pp(val, m()) << "\n";
                   tout << t << " " << e << " " << val << "\n";);
             result = m().mk_false();
-        }        
+        }
         else if (t == val && e == val) {
             result = m().mk_true();
-        }        
+        }
         else if (t == val) {
             result = cond;
         }
         else {
-            SASSERT(e == val);            
+            SASSERT(e == val);
             mk_not(cond, result);
         }
         return BR_DONE;
     }
-    if (m().is_value(t)) {
-        if (val == t) {
-            result = m().mk_or(cond, m().mk_eq(val, e));
+    if (m_ite_extra_rules) {
+        if (m().is_value(t)) {
+            if (val == t) {
+                result = m().mk_or(cond, m().mk_eq(val, e));
+            }
+            else {
+                mk_not(cond, result);
+                result = m().mk_and(result, m().mk_eq(val, e));
+            }
+            return BR_REWRITE2;
         }
-        else {
-            mk_not(cond, result);
-            result = m().mk_and(result, m().mk_eq(val, e));
+        if (m().is_value(e)) {
+            if (val == e) {
+                mk_not(cond, result);
+                result = m().mk_or(result, m().mk_eq(val, t));
+            }
+            else {
+                result = m().mk_and(cond, m().mk_eq(val, t));
+            }
+            return BR_REWRITE2;
         }
-        return BR_REWRITE2;
-    }
-    if (m().is_value(e)) {
-        if (val == e) {
-            mk_not(cond, result);
-            result = m().mk_or(result, m().mk_eq(val, t));
-        }
-        else {
-            result = m().mk_and(cond, m().mk_eq(val, t));
-        }
-        return BR_REWRITE2;
     }
     expr* cond2, *t2, *e2;
     if (m().is_ite(t, cond2, t2, e2) && m().is_value(t2) && m().is_value(e2)) {
