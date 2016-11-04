@@ -1,5 +1,22 @@
 RELEASE NOTES
 
+Version 4.5.0
+=============
+
+- New features:
+  - New theories of strings and sequences.
+  - Incremental consequence finder for finite domains.
+  - CMake build system (thanks @delcypher).
+  - Updated and improved OCaml API (thanks @martin-neuhaeusser).
+  - Updated and improved Java API (thanks @cheshire).
+  - New resource limit facilities to avoid non-deterministic timeout behaviour.
+  - New bit-vector simplification and ackermannization tactics (thanks @MikolasJanota, @nunoplopes).
+  - QSAT: a new solver for quantified arithmetic problems. See:
+    Bjorner, Janota: Playing with Quantified Satisfaction, LPAR 2016.
+
+- A multitude of bugs has been fixed.
+
+
 Version 4.4.1
 =============
 
