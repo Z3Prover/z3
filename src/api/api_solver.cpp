@@ -32,6 +32,7 @@ Revision History:
 #include"smt_strategic_solver.h"
 #include"smt_solver.h"
 #include"smt_implied_equalities.h"
+#include"smt_logics.h"
 
 extern "C" {
 
@@ -80,10 +81,18 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_solver_for_logic(c, logic);
         RESET_ERROR_CODE();
-        Z3_solver_ref * s = alloc(Z3_solver_ref, *mk_c(c), mk_smt_strategic_solver_factory(to_symbol(logic)));
-        mk_c(c)->save_object(s);
-        Z3_solver r = of_solver(s);
-        RETURN_Z3(r);
+        if (!smt_logics::supported_logic(to_symbol(logic))) {
+            std::ostringstream strm;
+            strm << "logic '" << to_symbol(logic) << "' is not recognized";
+            throw default_exception(strm.str());
+            RETURN_Z3(0);
+        }
+        else {
+            Z3_solver_ref * s = alloc(Z3_solver_ref, *mk_c(c), mk_smt_strategic_solver_factory(to_symbol(logic)));
+            mk_c(c)->save_object(s);
+            Z3_solver r = of_solver(s);
+            RETURN_Z3(r);
+        }
         Z3_CATCH_RETURN(0);
     }
 

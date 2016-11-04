@@ -249,19 +249,12 @@ protected:
     void erase_psort_decl_core(symbol const & s);
     void erase_macro_core(symbol const & s);
 
-    bool logic_has_arith_core(symbol const & s) const;
-    bool logic_has_bv_core(symbol const & s) const;
-    bool logic_has_array_core(symbol const & s) const;
-    bool logic_has_seq_core(symbol const & s) const;
-    bool logic_has_fpa_core(symbol const & s) const;
-    bool logic_has_horn(symbol const& s) const;
     bool logic_has_arith() const;
     bool logic_has_bv() const;
     bool logic_has_seq() const;
     bool logic_has_array() const;
     bool logic_has_datatype() const;
     bool logic_has_fpa() const;
-    bool supported_logic(symbol const & s) const;
 
     void print_unsupported_msg() { regular_stream() << "unsupported" << std::endl; }
     void print_unsupported_info(symbol const& s, int line, int pos) { if (s != symbol::null) diagnostic_stream() << "; " << s << " line: " << line << " position: " << pos << std::endl;}
