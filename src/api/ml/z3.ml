@@ -1906,13 +1906,17 @@ struct
     let q = Z3native.optimize_get_model (gc x) x in
     if Z3native.is_null_model q then None else Some q
 
-  let get_lower (x:handle) (idx:int) = Z3native.optimize_get_lower (gc x.opt) x.opt idx
-  let get_upper (x:handle) (idx:int) = Z3native.optimize_get_upper (gc x.opt) x.opt idx
+  let get_lower (x:handle) = Z3native.optimize_get_lower (gc x.opt) x.opt x.h
+  let get_upper (x:handle) = Z3native.optimize_get_upper (gc x.opt) x.opt x.h
   let push (x:optimize) = Z3native.optimize_push (gc x) x
   let pop (x:optimize) = Z3native.optimize_pop (gc x) x
   let get_reason_unknown (x:optimize) = Z3native.optimize_get_reason_unknown (gc x) x
   let to_string (x:optimize) = Z3native.optimize_to_string (gc x) x
   let get_statistics (x:optimize) = Z3native.optimize_get_statistics (gc x) x
+  let from_file (x:optimize) (s:string) = Z3native.optimize_from_file (gc x) x s
+  let from_string (x:optimize) (s:string) = Z3native.optimize_from_string (gc x) x s
+  let get_assertions (x:optimize) = AST.ASTVector.to_expr_list (Z3native.optimize_get_assertions (gc x) x)
+  let get_objectives (x:optimize) = AST.ASTVector.to_expr_list (Z3native.optimize_get_statistics (gc x) x)
 end
 
 
