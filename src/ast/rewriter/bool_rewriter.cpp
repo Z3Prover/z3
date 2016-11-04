@@ -581,15 +581,15 @@ br_status bool_rewriter::try_ite_value(app * ite, app * val, expr_ref & result) 
             TRACE("try_ite_value", tout << mk_ismt2_pp(t, m()) << " " << mk_ismt2_pp(e, m()) << " " << mk_ismt2_pp(val, m()) << "\n";
                   tout << t << " " << e << " " << val << "\n";);
             result = m().mk_false();
-        }        
+        }
         else if (t == val && e == val) {
             result = m().mk_true();
-        }        
+        }
         else if (t == val) {
             result = cond;
         }
         else {
-            SASSERT(e == val);            
+            SASSERT(e == val);
             mk_not(cond, result);
         }
         return BR_DONE;
