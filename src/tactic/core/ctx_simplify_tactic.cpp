@@ -538,6 +538,8 @@ struct ctx_simplify_tactic::imp {
         }
         pop(scope_level() - old_lvl);
 
+        m_occs(g);
+
         // go backwards
         sz = g.size();
         for (unsigned i = sz; !g.inconsistent() && i > 0; ) {
