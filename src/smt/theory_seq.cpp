@@ -1815,7 +1815,10 @@ bool theory_seq::solve_ne(unsigned idx) {
     for (unsigned i = 0; i < n.lits().size(); ++i) {
         switch (ctx.get_assignment(n.lits(i))) {
         case l_false:
-            TRACE("seq", display_disequation(tout << "has false literal\n", n););
+            TRACE("seq", display_disequation(tout << "has false literal\n", n);
+                  ctx.display_literal_verbose(tout, n.lits(i));                  
+                  tout << "\n" << n.lits(i) << " " << ctx.is_relevant(n.lits(i)) << "\n";
+                  );
             return true;
         case l_true:
             break;
@@ -1841,7 +1844,10 @@ bool theory_seq::solve_ne(unsigned idx) {
         change = canonize(n.rs(i), rs, deps) || change;
 
         if (!m_seq_rewrite.reduce_eq(ls, rs, lhs, rhs, change)) {
-            TRACE("seq", display_disequation(tout << "reduces to false: ", n););
+            TRACE("seq", display_disequation(tout << "reduces to false: ", n);
+                  tout << n.ls(i) << " -> " << ls << "\n";
+                  tout << n.rs(i) << " -> " << rs << "\n";);
+
             return true;
         }
         else if (!change) {
@@ -3720,30 +3726,29 @@ void theory_seq::new_diseq_eh(theory_var v1, theory_var v2) {
     expr_ref e2(n2->get_owner(), m);
     m_exclude.update(e1, e2);
     expr_ref eq(m.mk_eq(e1, e2), m);
+    TRACE("seq", tout << "new disequality " << get_context().get_scope_level() << ": " << eq << "\n";);
     m_rewrite(eq);
     if (!m.is_false(eq)) {
-        TRACE("seq", tout << "new disequality " << get_context().get_scope_level() << ": " << eq << "\n";);
 
         literal lit = mk_eq(e1, e2, false);
 
-        // propagate x != "" into x = (++ (unit (nth x 0) (tail x 0)))
         if (m_util.str.is_empty(e2)) {
             std::swap(e1, e2);
         }
+#if 0
         if (false && m_util.str.is_empty(e1)) {
             expr_ref head(m), tail(m), conc(m);
             mk_decompose(e2, head, tail);
             conc = mk_concat(head, tail);
             propagate_eq(~lit, e2, conc, true);
         }
-#if 0
+
         // (e1 = "" & e2 = xdz) or (e2 = "" & e1 = xcy) or (e1 = xcy & e2 = xdz & c != d) or (e1 = x & e2 = xdz) or (e2 = x & e1 = xcy)
         // e1 = "" or e1 = xcy or e1 = x
         // e2 = "" or e2 = xdz or e2 = x
         // e1 = xcy or e2 = xdz
         // c != d
 
-        literal lit = mk_seq_eq(e1, e2);
         sort* char_sort = 0;
         expr_ref emp(m);
         VERIFY(m_util.is_seq(m.get_sort(e1), char_sort));
