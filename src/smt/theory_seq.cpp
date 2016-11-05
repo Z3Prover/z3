@@ -1847,7 +1847,7 @@ bool theory_seq::solve_ne(unsigned idx) {
             TRACE("seq", display_disequation(tout << "reduces to false: ", n);
                   tout << n.ls(i) << " -> " << ls << "\n";
                   tout << n.rs(i) << " -> " << rs << "\n";);
-
+            
             return true;
         }
         else if (!change) {
@@ -3732,16 +3732,18 @@ void theory_seq::new_diseq_eh(theory_var v1, theory_var v2) {
 
         literal lit = mk_eq(e1, e2, false);
 
+
         if (m_util.str.is_empty(e2)) {
             std::swap(e1, e2);
         }
-#if 0
+
         if (false && m_util.str.is_empty(e1)) {
             expr_ref head(m), tail(m), conc(m);
             mk_decompose(e2, head, tail);
             conc = mk_concat(head, tail);
             propagate_eq(~lit, e2, conc, true);
         }
+#if 0
 
         // (e1 = "" & e2 = xdz) or (e2 = "" & e1 = xcy) or (e1 = xcy & e2 = xdz & c != d) or (e1 = x & e2 = xdz) or (e2 = x & e1 = xcy)
         // e1 = "" or e1 = xcy or e1 = x
