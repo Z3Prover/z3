@@ -183,7 +183,6 @@ private:
             return;
         }
         filter_model_converter filter(m);
-        func_decl_ref_vector const& fns = m_bv_fns;
         for (unsigned i = 0; i < m_bv_fns.size(); ++i) {
             filter.insert(m_bv_fns[i]);
         }
