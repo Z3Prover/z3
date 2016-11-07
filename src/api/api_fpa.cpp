@@ -990,7 +990,7 @@ extern "C" {
         scoped_mpq q(mpqm);
         mpqm.set(q, mpfm.sig(val));
         if (mpfm.is_inf(val)) mpqm.set(q, 0);
-        app * a = mk_c(c)->bvutil().mk_numeral(q.get(), sbits);
+        app * a = mk_c(c)->bvutil().mk_numeral(q.get(), sbits-1);
         mk_c(c)->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
         Z3_CATCH_RETURN(0);
@@ -1083,12 +1083,18 @@ extern "C" {
             return "";
         }
         unsigned ebits = val.get().get_ebits();
-        mpf_exp_t exp = mpfm.is_zero(val) ? 0 :
-                        mpfm.is_denormal(val) ? mpfm.mk_min_exp(ebits) :
-                        mpfm.is_inf(val) ? mpfm.mk_top_exp(ebits) :
-                        mpfm.bias_exp(ebits, mpfm.exp(val));
-        if (mpfm.is_normal(val) && !biased)
-            exp = mpfm.exp(val);
+        mpf_exp_t exp;
+        if (biased) {
+            exp = mpfm.is_zero(val) ? 0 :
+                  mpfm.is_inf(val) ? mpfm.mk_top_exp(ebits) :
+                  mpfm.bias_exp(ebits, mpfm.exp(val))
+        }
+        else {
+            exp = mpfm.is_zero(val) ? 0 :
+                  mpfm.is_inf(val) ? mpfm.mk_top_exp(ebits) :
+                  mpfm.is_denormal(val) ? mpfm.mk_min_exp(ebits) :
+                  mpfm.exp(val);
+        }
         std::stringstream ss;
         ss << exp;
         return mk_c(c)->mk_external_string(ss.str());
@@ -1118,12 +1124,17 @@ extern "C" {
             return 0;
         }
         unsigned ebits = val.get().get_ebits();
-        *n = mpfm.is_zero(val) ? 0 :
-             mpfm.is_denormal(val) ? mpfm.mk_min_exp(ebits) :
-             mpfm.is_inf(val) ? mpfm.mk_top_exp(ebits) :
-             mpfm.bias_exp(ebits, mpfm.exp(val));
-        if (mpfm.is_normal(val) && !biased)
-            *n = mpfm.exp(val);
+        if (biased) {
+            *n = mpfm.is_zero(val) ? 0 :
+                 mpfm.is_inf(val) ? mpfm.mk_top_exp(ebits) :
+                 mpfm.bias_exp(ebits, mpfm.exp(val));
+        }
+        else {
+            *n = mpfm.is_zero(val) ? 0 :
+                 mpfm.is_inf(val) ? mpfm.mk_top_exp(ebits) :
+                  mpfm.is_denormal(val) ? mpfm.mk_min_exp(ebits) :
+                 mpfm.exp(val);
+        }
         return 1;
         Z3_CATCH_RETURN(0);
     }
@@ -1150,13 +1161,18 @@ extern "C" {
             RETURN_Z3(0);
         }
         unsigned ebits = val.get().get_ebits();
-        mpf_exp_t exp = mpfm.is_zero(val) ? 0 :
-                        mpfm.is_denormal(val) ? mpfm.mk_min_exp(ebits) :
-                        mpfm.is_inf(val) ? mpfm.mk_top_exp(ebits) :
-                        mpfm.bias_exp(ebits, mpfm.exp(val));
-        if (mpfm.is_normal(val) && !biased)
-            exp = mpfm.exp(val);
-
+        mpf_exp_t exp;
+        if (biased) {
+            exp = mpfm.is_zero(val) ? 0 :
+                  mpfm.is_inf(val) ? mpfm.mk_top_exp(ebits) :
+                  mpfm.bias_exp(ebits, mpfm.exp(val));
+        }
+        else {
+            exp = mpfm.is_zero(val) ? 0 :
+                  mpfm.is_inf(val) ? mpfm.mk_top_exp(ebits) :
+                  mpfm.is_denormal(val) ? mpfm.mk_min_exp(ebits) :
+                  mpfm.exp(val);
+        }
         app * a = mk_c(c)->bvutil().mk_numeral(exp, ebits);
         mk_c(c)->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
