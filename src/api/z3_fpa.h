@@ -253,9 +253,9 @@ extern "C" {
 
         This is the operator named `fp' in the SMT FP theory definition.
         Note that \c sign is required to be a bit-vector of size 1. Significand and exponent
-        are required to be greater than 1 and 2 respectively. The FloatingPoint sort
+        are required to be longer than 1 and 2 respectively. The FloatingPoint sort
         of the resulting expression is automatically determined from the bit-vector sizes
-        of the arguments.
+        of the arguments. The exponent is assumed to be in IEEE-754 biased representation.
 
         \param c logical context
         \param sgn sign
