@@ -1338,6 +1338,7 @@ struct
   let is_numeral_normal = Z3native.fpa_is_numeral_normal
   let is_numeral_subnormal = Z3native.fpa_is_numeral_subnormal
   let is_numeral_positive = Z3native.fpa_is_numeral_positive
+  let is_numeral_negative = Z3native.fpa_is_numeral_negative
   let mk_to_ieee_bv = Z3native.mk_fpa_to_ieee_bv
   let mk_to_fp_int_real = Z3native.mk_fpa_to_fp_int_real
   let numeral_to_string x = Z3native.get_numeral_string (Expr.gc x) x

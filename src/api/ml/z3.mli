@@ -2185,6 +2185,9 @@ sig
 
   (** Indicates whether a floating-point numeral is positive. *)
   val is_numeral_positive : context -> Expr.expr -> bool
+
+  (** Indicates whether a floating-point numeral is negative. *)
+  val is_numeral_negative : context -> Expr.expr -> bool
    
   (** Conversion of a floating-point term into a bit-vector term in IEEE 754-2008 format. *)
   val mk_to_ieee_bv : context -> Expr.expr -> Expr.expr
