@@ -1087,7 +1087,7 @@ extern "C" {
         if (biased) {
             exp = mpfm.is_zero(val) ? 0 :
                   mpfm.is_inf(val) ? mpfm.mk_top_exp(ebits) :
-                  mpfm.bias_exp(ebits, mpfm.exp(val))
+                  mpfm.bias_exp(ebits, mpfm.exp(val));            
         }
         else {
             exp = mpfm.is_zero(val) ? 0 :
