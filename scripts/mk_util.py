@@ -63,6 +63,7 @@ DOTNET_COMPONENT='dotnet'
 JAVA_COMPONENT='java'
 ML_COMPONENT='ml'
 CPP_COMPONENT='cpp'
+PYTHON_COMPONENT='python'
 #####################
 IS_WINDOWS=False
 IS_LINUX=False
@@ -81,6 +82,7 @@ ONLY_MAKEFILES = False
 Z3PY_SRC_DIR=None
 VS_PROJ = False
 TRACE = False
+PYTHON_ENABLED=False
 DOTNET_ENABLED=False
 DOTNET_KEY_FILE=getenv("Z3_DOTNET_KEY_FILE", None)
 JAVA_ENABLED=False
@@ -675,7 +677,7 @@ def display_help(exit_code):
 # Parse configuration option for mk_make script
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
-    global DOTNET_ENABLED, DOTNET_KEY_FILE, JAVA_ENABLED, ML_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, FOCI2, FOCI2LIB, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, GIT_DESCRIBE, PYTHON_INSTALL_ENABLED
+    global DOTNET_ENABLED, DOTNET_KEY_FILE, JAVA_ENABLED, ML_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, FOCI2, FOCI2LIB, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, GIT_DESCRIBE, PYTHON_INSTALL_ENABLED, PYTHON_ENABLED
     global LINUX_X64, SLOW_OPTIMIZE, USE_OMP
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:],
@@ -748,6 +750,7 @@ def parse_options():
         elif opt in ('', '--noomp'):
             USE_OMP = False
         elif opt in ('--python'):
+            PYTHON_ENABLED = True
             PYTHON_INSTALL_ENABLED = True
         else:
             print("ERROR: Invalid command line option '%s'" % opt)
@@ -843,6 +846,9 @@ def is_ml_enabled():
 
 def is_dotnet_enabled():
     return DOTNET_ENABLED
+
+def is_python_enabled():
+    return PYTHON_ENABLED
 
 def is_python_install_enabled():
     return PYTHON_INSTALL_ENABLED
@@ -1382,6 +1388,32 @@ class DLLComponent(Component):
             shutil.copy('%s.a' % os.path.join(build_path, self.dll_name),
                         '%s.a' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
 
+class PythonComponent(Component): 
+    def __init__(self, name, libz3Component):
+        assert isinstance(libz3Component, DLLComponent)
+        global PYTHON_ENABLED
+        Component.__init__(self, name, None, [])
+        self.libz3Component = libz3Component
+
+    def main_component(self):
+        return False
+
+    def mk_win_dist(self, build_path, dist_path):
+        if not is_python_enabled():
+            return
+
+        src = os.path.join(build_path, 'python', 'z3')
+        dst = os.path.join(dist_path, INSTALL_BIN_DIR, 'python', 'z3')
+        if os.path.exists(dst):
+            shutil.rmtree(dst)
+        shutil.copytree(src, dst)
+
+    def mk_unix_dist(self, build_path, dist_path):
+        self.mk_win_dist(build_path, dist_path)
+
+    def mk_makefile(self, out):
+        return
+   
 class PythonInstallComponent(Component):
     def __init__(self, name, libz3Component):
         assert isinstance(libz3Component, DLLComponent)
@@ -1484,6 +1516,7 @@ class PythonInstallComponent(Component):
                                       os.path.join('python', 'z3', '*.pyc'),
                                       os.path.join(self.pythonPkgDir,'z3'),
                                       in_prefix=self.in_prefix_install)
+            
         if PYTHON_PACKAGE_DIR != distutils.sysconfig.get_python_lib():
             out.write('\t@echo Z3Py was installed at \'%s\', make sure this directory is in your PYTHONPATH environment variable.' % PYTHON_PACKAGE_DIR)
 
@@ -2173,6 +2206,15 @@ class PythonExampleComponent(ExampleComponent):
                 print("Copied Z3Py example '%s' to '%s'" % (py, os.path.join(BUILD_DIR, 'python')))
         out.write('_ex_%s: \n\n' % self.name)
 
+    def mk_win_dist(self, build_path, dist_path):
+        full = os.path.join(EXAMPLE_DIR, self.path)
+        py = 'example.py'
+        shutil.copyfile(os.path.join(full, py), 
+                        os.path.join(dist_path, INSTALL_BIN_DIR, 'python', py))
+
+    def mk_unix_dist(self, build_path, dist_path):
+        self.mk_win_dist(build_path, dist_path)
+
 
 def reg_component(name, c):
     global _Id, _Components, _ComponentNames, _Name2Component
@@ -2213,6 +2255,10 @@ def add_java_dll(name, deps=[], path=None, dll_name=None, package_name=None, man
     c = JavaDLLComponent(name, dll_name, package_name, manifest_file, path, deps)
     reg_component(name, c)
 
+def add_python(libz3Component):
+    name = 'python'
+    reg_component(name, PythonComponent(name, libz3Component))
+    
 def add_python_install(libz3Component):
     name = 'python_install'
     reg_component(name, PythonInstallComponent(name, libz3Component))
@@ -3230,11 +3276,6 @@ def mk_vs_proj_dll(name, components):
 def mk_win_dist(build_path, dist_path):
     for c in get_components():
         c.mk_win_dist(build_path, dist_path)
-    # Add Z3Py to bin directory
-    print("Adding to %s\n" % dist_path)
-    for pyc in filter(lambda f: f.endswith('.pyc') or f.endswith('.py'), os.listdir(build_path)):
-        shutil.copy(os.path.join(build_path, pyc),
-                    os.path.join(dist_path, INSTALL_BIN_DIR, pyc))
 
 def mk_unix_dist(build_path, dist_path):
     for c in get_components():
