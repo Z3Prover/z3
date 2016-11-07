@@ -181,7 +181,7 @@ bool macro_util::is_left_simple_macro(expr * n, unsigned num_decls, app_ref & he
         expr * lhs = to_app(n)->get_arg(0);
         expr * rhs = to_app(n)->get_arg(1);
         if (is_macro_head(lhs, num_decls) && !is_forbidden(to_app(lhs)->get_decl()) &&
-            !occurs(to_app(lhs)->get_decl(), rhs) && !has_quantifiers(rhs)) {
+            !occurs(to_app(lhs)->get_decl(), rhs)) {
             head = to_app(lhs);
             def  = rhs;
             return true;
@@ -213,7 +213,7 @@ bool macro_util::is_right_simple_macro(expr * n, unsigned num_decls, app_ref & h
         expr * lhs = to_app(n)->get_arg(0);
         expr * rhs = to_app(n)->get_arg(1);
         if (is_macro_head(rhs, num_decls) && !is_forbidden(to_app(rhs)->get_decl()) &&
-            !occurs(to_app(rhs)->get_decl(), lhs) && !has_quantifiers(lhs)) {
+            !occurs(to_app(rhs)->get_decl(), lhs)) {
             head = to_app(rhs);
             def  = lhs;
             return true;
