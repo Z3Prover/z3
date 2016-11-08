@@ -32,9 +32,9 @@ project(Z3 C CXX)
 # Project version
 ################################################################################
 set(Z3_VERSION_MAJOR 4)
-set(Z3_VERSION_MINOR 4)
-set(Z3_VERSION_PATCH 2)
-set(Z3_VERSION_TWEAK 1)
+set(Z3_VERSION_MINOR 5)
+set(Z3_VERSION_PATCH 1)
+set(Z3_VERSION_TWEAK 0)
 set(Z3_FULL_VERSION 0)
 set(Z3_VERSION "${Z3_VERSION_MAJOR}.${Z3_VERSION_MINOR}.${Z3_VERSION_PATCH}.${Z3_VERSION_TWEAK}")
 message(STATUS "Z3 version ${Z3_VERSION}")
