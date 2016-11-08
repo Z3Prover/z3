@@ -4,6 +4,7 @@ import shutil
 import platform
 import subprocess
 import multiprocessing
+import re
 from setuptools import setup
 from distutils.errors import LibError
 from distutils.command.build import build as _build
@@ -42,6 +43,16 @@ def _clean_bins():
     shutil.rmtree(LIBS_DIR, ignore_errors=True)
     shutil.rmtree(BINS_DIR, ignore_errors=True)
     shutil.rmtree(HEADERS_DIR, ignore_errors=True)
+
+def _z3_version():
+    fn = os.path.join(SRC_DIR, 'scripts', 'mk_project.py')
+    if os.path.exists(fn):        
+        with open(fn) as f:
+            for line in f:
+                n = re.match(".*set_version\((.*), (.*), (.*), (.*)\).*", line)
+                if not n is None:
+                    return n.group(1) + '.' + n.group(2) + '.' + n.group(3) + '.' + n.group(4)
+    return "?.?.?.?"
 
 def _configure_z3():
     # bail out early if we don't need to do this - it forces a rebuild every time otherwise
@@ -139,7 +150,7 @@ class sdist(_sdist):
 
 setup(
     name='z3-solver',
-    version='4.5.1.0',
+    version=_z3_version(),
     description='an efficient SMT solver library',
     long_description='Z3 is a theorem prover from Microsoft Research with support for bitvectors, booleans, arrays, floating point numbers, strings, and other data types.\n\nFor documentation, please read http://z3prover.github.io/api/html/z3.html\n\nIn the event of technical difficulties related to configuration, compiliation, or installation, please submit issues to https://github.com/angr/angr-z3',
     author="The Z3 Theorem Prover Project",
