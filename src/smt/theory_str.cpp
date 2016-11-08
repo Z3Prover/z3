@@ -2726,6 +2726,9 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
             t2 = varForBreakConcat[key2][1];
             xorFlag = varForBreakConcat[key2][2];
         }
+        // TODO do I need to refresh the xorFlag, which is an integer var, and if so, how?
+        refresh_theory_var(t1);
+        refresh_theory_var(t2);
     }
 
     // For split types 0 through 2, we can get away with providing
@@ -3048,6 +3051,8 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 			temp1 = varForBreakConcat[key2][0];
 			xorFlag = varForBreakConcat[key2][1];
 		}
+		// TODO refresh xorFlag?
+		refresh_theory_var(temp1);
 	}
 
 	int splitType = -1;
@@ -3361,6 +3366,7 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
             temp1 = varForBreakConcat[key2][0];
             xorFlag = varForBreakConcat[key2][1];
         }
+        refresh_theory_var(temp1);
     }
 
 
@@ -3857,6 +3863,7 @@ void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
             commonVar = (entry2->second)[0];
             xorFlag = (entry2->second)[1];
         }
+        refresh_theory_var(commonVar);
     }
 
     expr ** or_item = alloc_svect(expr*, (overlapLen.size() + 1));
