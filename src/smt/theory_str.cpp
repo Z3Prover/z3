@@ -696,8 +696,21 @@ app * theory_str::mk_strlen(expr * e) {
         int len = strlen(strval);
         return m_autil.mk_numeral(rational(len), true);
     } else {
-        expr * args[1] = {e};
-        return get_manager().mk_app(get_id(), OP_STRLEN, 0, 0, 1, args);
+        if (false) {
+            // use cache
+            app * lenTerm = NULL;
+            if (!length_ast_map.find(e, lenTerm)) {
+                expr * args[1] = {e};
+                lenTerm = get_manager().mk_app(get_id(), OP_STRLEN, 0, 0, 1, args);
+                length_ast_map.insert(e, lenTerm);
+                m_trail.push_back(lenTerm);
+            }
+            return lenTerm;
+        } else {
+            // always regen
+            expr * args[1] = {e};
+            return get_manager().mk_app(get_id(), OP_STRLEN, 0, 0, 1, args);
+        }
     }
 }
 
