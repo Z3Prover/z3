@@ -88,6 +88,14 @@ namespace smt {
         typedef trail_stack<theory_str> th_trail_stack;
         typedef union_find<theory_str> th_union_find;
 
+        typedef map<rational, expr*, obj_hash<rational>, default_eq<rational> > rational_map;
+        struct str_hash_proc {
+            unsigned operator()(std::string const & s) const {
+            	return string_hash(s.c_str(), static_cast<unsigned>(s.length()), 17);
+            }
+        };
+        typedef map<std::string, expr*, str_hash_proc, default_eq<std::string> > string_map;
+
     protected:
         // Some options that control how the solver operates.
 
@@ -166,6 +174,20 @@ namespace smt {
          * contains references to any internal variables that are no longer in scope.
          */
         bool opt_CheckVariableScope;
+
+        /*
+         * If UseFastLengthTesterCache is set to true,
+         * length tester terms will not be generated from scratch each time they are needed,
+         * but will be saved in a map and looked up.
+         */
+        bool opt_UseFastLengthTesterCache;
+
+        /*
+         * If UseFastValueTesterCache is set to true,
+         * value tester terms will not be generated from scratch each time they are needed,
+         * but will be saved in a map and looked up.
+         */
+        bool opt_UseFastValueTesterCache;
 
         bool search_started;
         arith_util m_autil;
@@ -266,6 +288,14 @@ namespace smt {
         // all (str.to-int) and (int.to-str) terms
         expr_ref_vector string_int_conversion_terms;
         obj_hashtable<expr> string_int_axioms;
+
+        // used when opt_FastLengthTesterCache is true
+        rational_map lengthTesterCache;
+        // used when opt_FastValueTesterCache is true
+        string_map valueTesterCache;
+
+        // cache mapping each string S to Length(S)
+        obj_map<expr, app*> length_ast_map;
 
         th_union_find m_find;
         th_trail_stack m_trail_stack;

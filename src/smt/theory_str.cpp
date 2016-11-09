@@ -40,6 +40,8 @@ theory_str::theory_str(ast_manager & m):
 		opt_DisableIntegerTheoryIntegration(false),
 		opt_DeferEQCConsistencyCheck(false),
 		opt_CheckVariableScope(true),
+		opt_UseFastLengthTesterCache(true),
+		opt_UseFastValueTesterCache(true),
         /* Internal setup */
         search_started(false),
         m_autil(m),
@@ -695,8 +697,21 @@ app * theory_str::mk_strlen(expr * e) {
         int len = strlen(strval);
         return m_autil.mk_numeral(rational(len), true);
     } else {
-        expr * args[1] = {e};
-        return get_manager().mk_app(get_id(), OP_STRLEN, 0, 0, 1, args);
+        if (false) {
+            // use cache
+            app * lenTerm = NULL;
+            if (!length_ast_map.find(e, lenTerm)) {
+                expr * args[1] = {e};
+                lenTerm = get_manager().mk_app(get_id(), OP_STRLEN, 0, 0, 1, args);
+                length_ast_map.insert(e, lenTerm);
+                m_trail.push_back(lenTerm);
+            }
+            return lenTerm;
+        } else {
+            // always regen
+            expr * args[1] = {e};
+            return get_manager().mk_app(get_id(), OP_STRLEN, 0, 0, 1, args);
+        }
     }
 }
 
@@ -2783,6 +2798,9 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
             t2 = varForBreakConcat[key2][1];
             xorFlag = varForBreakConcat[key2][2];
         }
+        // TODO do I need to refresh the xorFlag, which is an integer var, and if so, how?
+        refresh_theory_var(t1);
+        refresh_theory_var(t2);
     }
 
     // For split types 0 through 2, we can get away with providing
@@ -3105,6 +3123,8 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 			temp1 = varForBreakConcat[key2][0];
 			xorFlag = varForBreakConcat[key2][1];
 		}
+		// TODO refresh xorFlag?
+		refresh_theory_var(temp1);
 	}
 
 	int splitType = -1;
@@ -3418,6 +3438,7 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
             temp1 = varForBreakConcat[key2][0];
             xorFlag = varForBreakConcat[key2][1];
         }
+        refresh_theory_var(temp1);
     }
 
 
@@ -3914,6 +3935,7 @@ void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
             commonVar = (entry2->second)[0];
             xorFlag = (entry2->second)[1];
         }
+        refresh_theory_var(commonVar);
     }
 
     expr ** or_item = alloc_svect(expr*, (overlapLen.size() + 1));
@@ -8084,6 +8106,7 @@ expr * theory_str::gen_val_options(expr * freeVar, expr * len_indicator, expr * 
 	ptr_vector<expr> andList;
 
 	for (long long i = l; i < h; i++) {
+		// TODO can we share the val_indicator constants with the length tester cache?
 		orList.push_back(m.mk_eq(val_indicator, m_strutil.mk_string(longlong_to_string(i).c_str()) ));
 		if (opt_AggressiveValueTesting) {
 		    literal l = mk_eq(val_indicator, m_strutil.mk_string(longlong_to_string(i).c_str()), false);
@@ -8092,7 +8115,16 @@ expr * theory_str::gen_val_options(expr * freeVar, expr * len_indicator, expr * 
 		}
 
 		std::string aStr = gen_val_string(len, options[i - l]);
-		expr * strAst = m_strutil.mk_string(aStr);
+		expr * strAst;
+		if (opt_UseFastValueTesterCache) {
+			if (!valueTesterCache.find(aStr, strAst)) {
+				strAst = m_strutil.mk_string(aStr);
+				valueTesterCache.insert(aStr, strAst);
+				m_trail.push_back(strAst);
+			}
+		} else {
+			strAst = m_strutil.mk_string(aStr);
+		}
 		andList.push_back(m.mk_eq(orList[orList.size() - 1], m.mk_eq(freeVar, strAst)));
 	}
 	if (!coverAll) {
@@ -8654,9 +8686,25 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 	);
 
 	for (int i = l; i < h; ++i) {
-	    std::string i_str = int_to_string(i);
-	    expr_ref str_indicator(m_strutil.mk_string(i_str), m);
-		expr_ref or_expr(ctx.mk_eq_atom(indicator, str_indicator), m); // ARGUMENT 2 IS BOGUS! WRONG SORT
+	    expr_ref str_indicator(m);
+	    if (opt_UseFastLengthTesterCache) {
+	        rational ri(i);
+	        expr * lookup_val;
+	        if(lengthTesterCache.find(ri, lookup_val)) {
+	            str_indicator = expr_ref(lookup_val, m);
+	        } else {
+	            // no match; create and insert
+	            std::string i_str = int_to_string(i);
+                expr_ref new_val(m_strutil.mk_string(i_str), m);
+                lengthTesterCache.insert(ri, new_val);
+                m_trail.push_back(new_val);
+                str_indicator = expr_ref(new_val, m);
+	        }
+	    } else {
+	        std::string i_str = int_to_string(i);
+	        str_indicator = expr_ref(m_strutil.mk_string(i_str), m);
+	    }
+		expr_ref or_expr(ctx.mk_eq_atom(indicator, str_indicator), m);
 		orList.push_back(or_expr);
 
 		if (opt_AggressiveLengthTesting) {
@@ -8669,6 +8717,7 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 		andList.push_back(and_expr);
 	}
 
+	// TODO cache mk_string("more")
 	orList.push_back(m.mk_eq(indicator, m_strutil.mk_string("more")));
 	if (opt_AggressiveLengthTesting) {
 	    literal l = mk_eq(indicator, m_strutil.mk_string("more"), false);
