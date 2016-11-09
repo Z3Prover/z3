@@ -63,6 +63,7 @@ namespace sat {
     }
 
     simplifier::~simplifier() {
+        free_memory();
     }
 
     inline watch_list & simplifier::get_wlist(literal l) { return s.get_wlist(l); }
@@ -96,7 +97,7 @@ namespace sat {
     inline void simplifier::remove_clause_core(clause & c) {
         unsigned sz = c.size();
         for (unsigned i = 0; i < sz; i++)
-            insert_todo(c[i].var());
+            insert_elim_todo(c[i].var());
         m_sub_todo.erase(c);
         c.set_removed(true);
         TRACE("resolution_bug", tout << "del_clause: " << c << "\n";);
@@ -116,6 +117,7 @@ namespace sat {
     inline void simplifier::remove_bin_clause_half(literal l1, literal l2, bool learned) {
         SASSERT(s.get_wlist(~l1).contains(watched(l2, learned)));
         s.get_wlist(~l1).erase(watched(l2, learned));
+        m_sub_bin_todo.erase(bin_clause(l1, l2, learned));
     }
 
     void simplifier::init_visited() {
@@ -127,9 +129,23 @@ namespace sat {
         m_use_list.finalize();
         m_sub_todo.finalize();
         m_sub_bin_todo.finalize();
+        m_elim_todo.finalize();
         m_visited.finalize();
         m_bs_cs.finalize();
         m_bs_ls.finalize();
+    }
+
+    void simplifier::initialize() {
+        m_need_cleanup = false;
+        s.m_cleaner(true);
+        m_last_sub_trail_sz = s.m_trail.size();
+        m_use_list.init(s.num_vars());
+        m_sub_todo.reset();
+        m_sub_bin_todo.reset();
+        m_elim_todo.reset();
+        init_visited();
+        TRACE("after_cleanup", s.display(tout););
+        CASSERT("sat_solver", s.check_invariant());
     }
 
     void simplifier::operator()(bool learned) {
@@ -138,16 +154,11 @@ namespace sat {
         if (!m_subsumption && !m_elim_blocked_clauses && !m_resolution)
             return;
 
+        initialize();
+
         CASSERT("sat_solver", s.check_invariant());
         TRACE("before_simplifier", s.display(tout););
 
-        s.m_cleaner(true);
-        m_last_sub_trail_sz = s.m_trail.size();
-        TRACE("after_cleanup", s.display(tout););
-        CASSERT("sat_solver", s.check_invariant());
-        m_need_cleanup = false;
-        m_use_list.init(s.num_vars());
-        init_visited();
         bool learned_in_use_lists = false;
         if (learned) {
             register_clauses(s.m_learned);
@@ -157,7 +168,6 @@ namespace sat {
 
         if (!learned && (m_elim_blocked_clauses || m_elim_blocked_clauses_at == m_num_calls))
             elim_blocked_clauses();
-
 
         if (!learned)
             m_num_calls++;
@@ -617,7 +627,7 @@ namespace sat {
         TRACE("elim_lit", tout << "processing: " << c << "\n";);
         m_need_cleanup = true;
         m_num_elim_lits++;
-        insert_todo(l.var());
+        insert_elim_todo(l.var());
         c.elim(l);
         clause_use_list & occurs = m_use_list.get(l);
         occurs.erase_not_removed(c);
@@ -920,7 +930,7 @@ namespace sat {
         void process(literal l) {
             TRACE("blocked_clause", tout << "processing: " << l << "\n";);
             model_converter::entry * new_entry = 0;
-            if (s.is_external(l.var()) || s.was_eliminated(l.var())) 
+            if (s.is_external(l.var()) || s.was_eliminated(l.var()))
                 return;
             {
 
@@ -1235,12 +1245,14 @@ namespace sat {
                 for (; it2 != end2; ++it2) {
                     if (it2->is_binary_clause() && it2->get_literal() == l) {
                         TRACE("bin_clause_bug", tout << "removing: " << l << " " << it2->get_literal() << "\n";);
+                        m_sub_bin_todo.erase(bin_clause(l2, l, it2->is_learned()));
                         continue;
                     }
                     *itprev = *it2;
                     itprev++;
                 }
                 wlist2.set_end(itprev);
+                m_sub_bin_todo.erase(bin_clause(l, l2, it->is_learned()));
             }
         }
         TRACE("bin_clause_bug", tout << "collapsing watch_list of: " << l << "\n";);
@@ -1343,7 +1355,7 @@ namespace sat {
         }
         TRACE("resolution", tout << "found var to eliminate, before: " << before_clauses << " after: " << after_clauses << "\n";);
 
-        
+
         // eliminate variable
         model_converter::entry & mc_entry = s.m_mc.mk(model_converter::ELIM_VAR, v);
         save_clauses(mc_entry, m_pos_cls);
