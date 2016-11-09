@@ -107,8 +107,8 @@ namespace sat {
         literal get_literal2() const { return to_literal(m_val2 >> 1); }
         bool is_learned() const { return (m_val2 & 1) == 1; }
         bool operator==(const bin_clause & other) const {
-            return  m_val1 == other.m_val1 && m_val2 == other.m_val2 ||
-                    m_val1 == other.m_val2 && m_val2 == other.m_val1;
+            return (m_val1 == other.m_val1 && m_val2 == other.m_val2) ||
+                   (m_val1 == other.m_val2 && m_val2 == other.m_val1);
         }
     };
 
