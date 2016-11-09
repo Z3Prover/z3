@@ -34,7 +34,7 @@ macro_util::macro_util(ast_manager & m, simplifier & s):
     m_simplifier(s),
     m_arith_simp(0),
     m_bv_simp(0),
-    m_basic_simp(0), 
+    m_basic_simp(0),
     m_forbidden_set(0),
     m_curr_clause(0) {
 }
@@ -64,23 +64,23 @@ basic_simplifier_plugin * macro_util::get_basic_simp() const {
 }
 
 bool macro_util::is_bv(expr * n) const {
-    return get_bv_simp()->is_bv(n); 
+    return get_bv_simp()->is_bv(n);
 }
 
 bool macro_util::is_bv_sort(sort * s) const {
-    return get_bv_simp()->is_bv_sort(s); 
+    return get_bv_simp()->is_bv_sort(s);
 }
 
 bool macro_util::is_add(expr * n) const {
-    return get_arith_simp()->is_add(n) || get_bv_simp()->is_add(n); 
+    return get_arith_simp()->is_add(n) || get_bv_simp()->is_add(n);
 }
 
 bool macro_util::is_times_minus_one(expr * n, expr * & arg) const {
     return get_arith_simp()->is_times_minus_one(n, arg) || get_bv_simp()->is_times_minus_one(n, arg);
 }
 
-bool macro_util::is_le(expr * n) const { 
-    return get_arith_simp()->is_le(n) || get_bv_simp()->is_le(n); 
+bool macro_util::is_le(expr * n) const {
+    return get_arith_simp()->is_le(n) || get_bv_simp()->is_le(n);
 }
 
 bool macro_util::is_le_ge(expr * n) const {
@@ -130,7 +130,7 @@ void macro_util::mk_add(unsigned num_args, expr * const * args, sort * s, expr_r
 
 /**
    \brief Return true if \c n is an application of the form
-   
+
    (f x_{k_1}, ..., x_{k_n})
 
    where f is uninterpreted
@@ -147,7 +147,7 @@ bool macro_util::is_macro_head(expr * n, unsigned num_decls) const {
         var2pos.resize(num_decls, -1);
         for (unsigned i = 0; i < num_decls; i++) {
             expr * c = to_app(n)->get_arg(i);
-            if (!is_var(c)) 
+            if (!is_var(c))
                 return false;
             unsigned idx = to_var(c)->get_idx();
             if (idx >= num_decls || var2pos[idx] != -1)
@@ -161,12 +161,12 @@ bool macro_util::is_macro_head(expr * n, unsigned num_decls) const {
 
 /**
    \brief Return true if n is of the form
-   
+
    (= (f x_{k_1}, ..., x_{k_n}) t)    OR
-   (iff (f x_{k_1}, ..., x_{k_n}) t) 
+   (iff (f x_{k_1}, ..., x_{k_n}) t)
 
    where
-   
+
    is_macro_head((f x_{k_1}, ..., x_{k_n})) returns true   AND
    t does not contain f                                    AND
    f is not in forbidden_set
@@ -180,7 +180,8 @@ bool macro_util::is_left_simple_macro(expr * n, unsigned num_decls, app_ref & he
     if (m_manager.is_eq(n) || m_manager.is_iff(n)) {
         expr * lhs = to_app(n)->get_arg(0);
         expr * rhs = to_app(n)->get_arg(1);
-        if (is_macro_head(lhs, num_decls) && !is_forbidden(to_app(lhs)->get_decl()) && !occurs(to_app(lhs)->get_decl(), rhs)) {
+        if (is_macro_head(lhs, num_decls) && !is_forbidden(to_app(lhs)->get_decl()) &&
+            !occurs(to_app(lhs)->get_decl(), rhs)) {
             head = to_app(lhs);
             def  = rhs;
             return true;
@@ -192,12 +193,12 @@ bool macro_util::is_left_simple_macro(expr * n, unsigned num_decls, app_ref & he
 
 /**
    \brief Return true if n is of the form
-   
+
    (= t (f x_{k_1}, ..., x_{k_n}))    OR
    (iff t (f x_{k_1}, ..., x_{k_n}))
 
    where
-   
+
    is_macro_head((f x_{k_1}, ..., x_{k_n})) returns true   AND
    t does not contain f                                    AND
    f is not in forbidden_set
@@ -211,7 +212,8 @@ bool macro_util::is_right_simple_macro(expr * n, unsigned num_decls, app_ref & h
     if (m_manager.is_eq(n) || m_manager.is_iff(n)) {
         expr * lhs = to_app(n)->get_arg(0);
         expr * rhs = to_app(n)->get_arg(1);
-        if (is_macro_head(rhs, num_decls) && !is_forbidden(to_app(rhs)->get_decl()) && !occurs(to_app(rhs)->get_decl(), lhs)) {
+        if (is_macro_head(rhs, num_decls) && !is_forbidden(to_app(rhs)->get_decl()) &&
+            !occurs(to_app(rhs)->get_decl(), lhs)) {
             head = to_app(rhs);
             def  = lhs;
             return true;
@@ -254,7 +256,7 @@ bool macro_util::is_arith_macro(expr * n, unsigned num_decls, app_ref & head, ex
 
     if (!as->is_numeral(rhs))
         return false;
-  
+
     inv = false;
     ptr_buffer<expr> args;
     expr * h = 0;
@@ -271,15 +273,15 @@ bool macro_util::is_arith_macro(expr * n, unsigned num_decls, app_ref & head, ex
     for (unsigned i = 0; i < lhs_num_args; i++) {
         expr * arg = lhs_args[i];
         expr * neg_arg;
-        if (h == 0 && 
-            is_macro_head(arg, num_decls) && 
-            !is_forbidden(to_app(arg)->get_decl()) && 
+        if (h == 0 &&
+            is_macro_head(arg, num_decls) &&
+            !is_forbidden(to_app(arg)->get_decl()) &&
             !poly_contains_head(lhs, to_app(arg)->get_decl(), arg)) {
             h = arg;
         }
         else if (h == 0 && as->is_times_minus_one(arg, neg_arg) &&
-                 is_macro_head(neg_arg, num_decls) && 
-                 !is_forbidden(to_app(neg_arg)->get_decl()) && 
+                 is_macro_head(neg_arg, num_decls) &&
+                 !is_forbidden(to_app(neg_arg)->get_decl()) &&
                  !poly_contains_head(lhs, to_app(neg_arg)->get_decl(), arg)) {
             h = neg_arg;
             inv = true;
@@ -304,7 +306,7 @@ bool macro_util::is_arith_macro(expr * n, unsigned num_decls, app_ref & head, ex
    \brief Auxiliary function for is_pseudo_predicate_macro. It detects the pattern (= (f X) t)
 */
 bool macro_util::is_pseudo_head(expr * n, unsigned num_decls, app_ref & head, app_ref & t) {
-    if (!m_manager.is_eq(n)) 
+    if (!m_manager.is_eq(n))
         return false;
     expr * lhs = to_app(n)->get_arg(0);
     expr * rhs = to_app(n)->get_arg(1);
@@ -331,7 +333,7 @@ bool macro_util::is_pseudo_head(expr * n, unsigned num_decls, app_ref & head, ap
 
 /**
    \brief Returns true if n if of the form (forall (X) (iff (= (f X) t) def[X]))
-   where t is a ground term, (f X) is the head. 
+   where t is a ground term, (f X) is the head.
 */
 bool macro_util::is_pseudo_predicate_macro(expr * n, app_ref & head, app_ref & t, expr_ref & def) {
     if (!is_quantifier(n) || !to_quantifier(n)->is_forall())
@@ -343,14 +345,14 @@ bool macro_util::is_pseudo_predicate_macro(expr * n, app_ref & head, app_ref & t
         return false;
     expr * lhs = to_app(body)->get_arg(0);
     expr * rhs = to_app(body)->get_arg(1);
-    if (is_pseudo_head(lhs, num_decls, head, t) && 
-        !is_forbidden(head->get_decl()) && 
+    if (is_pseudo_head(lhs, num_decls, head, t) &&
+        !is_forbidden(head->get_decl()) &&
         !occurs(head->get_decl(), rhs)) {
         def = rhs;
         return true;
     }
-    if (is_pseudo_head(rhs, num_decls, head, t) && 
-        !is_forbidden(head->get_decl()) && 
+    if (is_pseudo_head(rhs, num_decls, head, t) &&
+        !is_forbidden(head->get_decl()) &&
         !occurs(head->get_decl(), lhs)) {
         def = lhs;
         return true;
@@ -361,7 +363,7 @@ bool macro_util::is_pseudo_predicate_macro(expr * n, app_ref & head, app_ref & t
 /**
    \brief A quasi-macro head is of the form f[X_1, ..., X_n],
    where n == num_decls, f[X_1, ..., X_n] is a term starting with symbol f, f is uninterpreted,
-   contains all universally quantified variables as arguments. 
+   contains all universally quantified variables as arguments.
    Note that, some arguments of f[X_1, ..., X_n] may not be variables.
 
    Examples of quasi-macros:
@@ -477,16 +479,16 @@ void macro_util::normalize_expr(app * head, expr * t, expr_ref & norm_t) const {
         else
             var_mapping.setx(max_var_idx - i, v);
     }
-    
+
     for (unsigned i = num_args; i <= max_var_idx; i++)
-        // CMW: Won't be used, but dictates a larger binding size, 
+        // CMW: Won't be used, but dictates a larger binding size,
         // so that the indexes between here and in the rewriter match.
         // It's possible that we don't see the true max idx of all vars here.
-        var_mapping.setx(max_var_idx - i, 0); 
+        var_mapping.setx(max_var_idx - i, 0);
 
     if (changed) {
         // REMARK: t may have nested quantifiers... So, I must use the std order for variable substitution.
-        var_subst subst(m_manager, true); 
+        var_subst subst(m_manager, true);
         TRACE("macro_util_bug",
               tout << "head: " << mk_pp(head, m_manager) << "\n";
               tout << "applying substitution to:\n" << mk_ll_pp(t, m_manager) << "\nsubstitution:\n";
@@ -503,8 +505,8 @@ void macro_util::normalize_expr(app * head, expr * t, expr_ref & norm_t) const {
 
 // -----------------------------
 //
-// "Hint" support 
-// See comment at is_hint_atom 
+// "Hint" support
+// See comment at is_hint_atom
 // for a definition of what a hint is.
 //
 // -----------------------------
@@ -516,7 +518,7 @@ bool is_hint_head(expr * n, ptr_buffer<var> & vars) {
         return false;
     unsigned num_args = to_app(n)->get_num_args();
     for (unsigned i = 0; i < num_args; i++) {
-        expr * arg = to_app(n)->get_arg(i); 
+        expr * arg = to_app(n)->get_arg(i);
         if (is_var(arg))
             vars.push_back(to_var(arg));
     }
@@ -552,7 +554,7 @@ bool vars_of_is_subset(expr * n, ptr_buffer<var> const & vars) {
             }
         }
         else {
-            SASSERT(is_quantifier(curr)); 
+            SASSERT(is_quantifier(curr));
             return false; // do no support nested quantifier... being conservative.
         }
     }
@@ -560,7 +562,7 @@ bool vars_of_is_subset(expr * n, ptr_buffer<var> const & vars) {
 }
 
 /**
-   \brief (= lhs rhs) is a hint atom if 
+   \brief (= lhs rhs) is a hint atom if
    lhs is of the form (f t_1 ... t_n)
    and all variables occurring in rhs are direct arguments of lhs.
 */
@@ -598,7 +600,7 @@ void hint_to_macro_head(ast_manager & m, app * head, unsigned num_decls, app_ref
 /**
    \brief Return true if n can be viewed as a polynomial "hint" based on head.
    That is, n (but the monomial exception) only uses the variables in head, and does not use
-   head->get_decl(). 
+   head->get_decl().
    is_hint_head(head, vars) must also return true
 */
 bool macro_util::is_poly_hint(expr * n, app * head, expr * exception) {
@@ -630,7 +632,7 @@ bool macro_util::is_poly_hint(expr * n, app * head, expr * exception) {
     }
     TRACE("macro_util_hint", tout << "succeeded\n";);
     return true;
-    
+
 }
 
 // -----------------------------
@@ -681,7 +683,7 @@ void macro_util::insert_macro(app * head, expr * def, expr * cond, bool ineq, bo
     r.insert(head->get_decl(), norm_def.get(), norm_cond.get(), ineq, satisfy_atom, hint);
 }
 
-void macro_util::insert_quasi_macro(app * head, unsigned num_decls, expr * def, expr * cond, bool ineq, bool satisfy_atom, 
+void macro_util::insert_quasi_macro(app * head, unsigned num_decls, expr * def, expr * cond, bool ineq, bool satisfy_atom,
                                     bool hint, macro_candidates & r) {
     if (!is_macro_head(head, head->get_num_args())) {
         app_ref  new_head(m_manager);
@@ -783,8 +785,8 @@ void macro_util::collect_arith_macro_candidates(expr * lhs, expr * rhs, expr * a
         if (!is_app(arg))
             continue;
         func_decl * f = to_app(arg)->get_decl();
-        
-        bool _is_arith_macro = 
+
+        bool _is_arith_macro =
             is_quasi_macro_head(arg, num_decls) &&
             !is_forbidden(f) &&
             !poly_contains_head(lhs, f, arg) &&
@@ -805,14 +807,14 @@ void macro_util::collect_arith_macro_candidates(expr * lhs, expr * rhs, expr * a
         }
         else if (is_times_minus_one(arg, neg_arg) && is_app(neg_arg)) {
             f = to_app(neg_arg)->get_decl();
-            bool _is_arith_macro = 
+            bool _is_arith_macro =
                 is_quasi_macro_head(neg_arg, num_decls) &&
                 !is_forbidden(f) &&
                 !poly_contains_head(lhs, f, arg) &&
                 !occurs(f, rhs) &&
                 !rest_contains_decl(f, atom);
             bool _is_poly_hint   = !_is_arith_macro && is_poly_hint(lhs, to_app(neg_arg), arg);
-            
+
             if (_is_arith_macro || _is_poly_hint) {
                 collect_poly_args(lhs, arg, args);
                 expr_ref rest(m_manager);
@@ -842,34 +844,34 @@ void macro_util::collect_arith_macro_candidates(expr * atom, unsigned num_decls,
 /**
    \brief Collect macro candidates for atom \c atom.
    The candidates are stored in \c r.
-   
+
    The following post-condition holds:
 
    for each i in [0, r.size() - 1]
       we have a conditional macro of the form
-      
+
       r.get_cond(i) IMPLIES f(x_1, ..., x_n) = r.get_def(i)
-      
+
       where
          f == r.get_fs(i) .., x_n), f is uninterpreted and x_1, ..., x_n are variables.
          r.get_cond(i) and r.get_defs(i) do not contain f or variables not in {x_1, ..., x_n}
 
       The idea is to use r.get_defs(i) as the interpretation for f in a model M whenever r.get_cond(i)
-   
-   Given a model M and values { v_1, ..., v_n } 
+
+   Given a model M and values { v_1, ..., v_n }
    Let M' be M{x_1 -> v_1, ..., v_n -> v_n}
-   
+
       Note that M'(f(x_1, ..., x_n)) = M(f)(v_1, ..., v_n)
-      
+
       Then, IF we have that M(f)(v_1, ..., v_n) = M'(r.get_def(i)) AND
                             M'(r.get_cond(i))   = true
             THEN M'(atom) = true
 
       That is, if the conditional macro is used then the atom is satisfied when  M'(r.get_cond(i)) = true
-      
+
       IF r.is_ineq(i) = false, then
       M(f)(v_1, ..., v_n) ***MUST BE*** M'(r.get_def(i)) whenever M'(r.get_cond(i)) = true
- 
+
       IF r.satisfy_atom(i) = true, then we have the stronger property:
 
       Then, IF we have that (M'(r.get_cond(i)) = true IMPLIES M(f)(v_1, ..., v_n) = M'(r.get_def(i)))
@@ -878,8 +880,8 @@ void macro_util::collect_arith_macro_candidates(expr * atom, unsigned num_decls,
 void macro_util::collect_macro_candidates_core(expr * atom, unsigned num_decls, macro_candidates & r) {
     expr* lhs, *rhs;
     if (m_manager.is_eq(atom, lhs, rhs) || m_manager.is_iff(atom, lhs, rhs)) {
-        if (is_quasi_macro_head(lhs, num_decls) && 
-            !is_forbidden(to_app(lhs)->get_decl()) && 
+        if (is_quasi_macro_head(lhs, num_decls) &&
+            !is_forbidden(to_app(lhs)->get_decl()) &&
             !occurs(to_app(lhs)->get_decl(), rhs) &&
             !rest_contains_decl(to_app(lhs)->get_decl(), atom)) {
             expr_ref cond(m_manager);
@@ -889,9 +891,9 @@ void macro_util::collect_macro_candidates_core(expr * atom, unsigned num_decls, 
         else if (is_hint_atom(lhs, rhs)) {
             insert_quasi_macro(to_app(lhs), num_decls, rhs, 0, false, true, true, r);
         }
-        
-        if (is_quasi_macro_head(rhs, num_decls) && 
-            !is_forbidden(to_app(rhs)->get_decl()) && 
+
+        if (is_quasi_macro_head(rhs, num_decls) &&
+            !is_forbidden(to_app(rhs)->get_decl()) &&
             !occurs(to_app(rhs)->get_decl(), lhs) &&
             !rest_contains_decl(to_app(rhs)->get_decl(), atom)) {
             expr_ref cond(m_manager);

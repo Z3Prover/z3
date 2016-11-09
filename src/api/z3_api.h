@@ -1807,7 +1807,7 @@ extern "C" {
 
        def_API('Z3_mk_finite_domain_sort', SORT, (_in(CONTEXT), _in(SYMBOL), _in(UINT64)))
     */
-    Z3_sort Z3_API Z3_mk_finite_domain_sort(Z3_context c, Z3_symbol name, unsigned __int64 size);
+    Z3_sort Z3_API Z3_mk_finite_domain_sort(Z3_context c, Z3_symbol name, __uint64 size);
 
     /**
        \brief Create an array type.
@@ -3143,14 +3143,14 @@ extern "C" {
     /**
        \brief Create a numeral of a int, bit-vector, or finite-domain sort.
 
-       This function can be use to create numerals that fit in a machine unsigned __int64 integer.
+       This function can be use to create numerals that fit in a machine __uint64 integer.
        It is slightly faster than #Z3_mk_numeral since it is not necessary to parse a string.
 
        \sa Z3_mk_numeral
 
        def_API('Z3_mk_unsigned_int64', AST, (_in(CONTEXT), _in(UINT64), _in(SORT)))
     */
-    Z3_ast Z3_API Z3_mk_unsigned_int64(Z3_context c, unsigned __int64 v, Z3_sort ty);
+    Z3_ast Z3_API Z3_mk_unsigned_int64(Z3_context c, __uint64 v, Z3_sort ty);
 
     /*@}*/
 
@@ -3722,7 +3722,7 @@ extern "C" {
 
         def_API('Z3_get_finite_domain_sort_size', BOOL, (_in(CONTEXT), _in(SORT), _out(UINT64)))
     */
-    Z3_bool_opt Z3_API Z3_get_finite_domain_sort_size(Z3_context c, Z3_sort s, unsigned __int64* r);
+    Z3_bool_opt Z3_API Z3_get_finite_domain_sort_size(Z3_context c, Z3_sort s, __uint64* r);
 
     /**
        \brief Return the domain of the given array sort.
@@ -4288,7 +4288,7 @@ extern "C" {
 
     /**
        \brief Similar to #Z3_get_numeral_string, but only succeeds if
-       the value can fit in a machine unsigned __int64 int. Return Z3_TRUE if the call succeeded.
+       the value can fit in a machine __uint64 int. Return Z3_TRUE if the call succeeded.
 
        \pre Z3_get_ast_kind(c, v) == Z3_NUMERAL_AST
 
@@ -4296,7 +4296,7 @@ extern "C" {
 
        def_API('Z3_get_numeral_uint64', BOOL, (_in(CONTEXT), _in(AST), _out(UINT64)))
     */
-    Z3_bool Z3_API Z3_get_numeral_uint64(Z3_context c, Z3_ast v, unsigned __int64* u);
+    Z3_bool Z3_API Z3_get_numeral_uint64(Z3_context c, Z3_ast v, __uint64* u);
 
     /**
        \brief Similar to #Z3_get_numeral_string, but only succeeds if

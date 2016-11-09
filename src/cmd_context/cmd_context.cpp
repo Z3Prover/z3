@@ -1568,6 +1568,9 @@ void cmd_context::validate_model() {
                 // If r contains as_array/store/map/const expressions, then we do not generate the error.
                 // TODO: improve evaluator for model expressions.
                 // Note that, if "a" evaluates to false, then the error will be generated.
+                if (has_quantifiers(r)) {
+                    continue;
+                }
                 try {
                     for_each_expr(contains_array, r);
                 }

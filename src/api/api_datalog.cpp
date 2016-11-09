@@ -189,7 +189,7 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_sort Z3_API Z3_mk_finite_domain_sort(Z3_context c, Z3_symbol name, unsigned __int64 size) {
+    Z3_sort Z3_API Z3_mk_finite_domain_sort(Z3_context c, Z3_symbol name, __uint64 size) {
         Z3_TRY;
         LOG_Z3_mk_finite_domain_sort(c, name, size);
         RESET_ERROR_CODE();
@@ -199,7 +199,7 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_bool Z3_API Z3_get_finite_domain_sort_size(Z3_context c, Z3_sort s, unsigned __int64 * out) {
+    Z3_bool Z3_API Z3_get_finite_domain_sort_size(Z3_context c, Z3_sort s, __uint64 * out) {
         Z3_TRY;
         if (out) {
             *out = 0;
