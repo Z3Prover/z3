@@ -924,6 +924,8 @@ void theory_str::propagate() {
         	enode * e = m_library_aware_axiom_todo[i];
         	if (is_str_to_int(e)) {
         		instantiate_axiom_str_to_int(e);
+        	} else if (is_int_to_str(e)) {
+        	    instantiate_axiom_int_to_str(e);
         	} else {
         		TRACE("t_str", tout << "BUG: unhandled library-aware term " << mk_pp(e->get_owner(), get_manager()) << std::endl;);
         		NOT_IMPLEMENTED_YET();
@@ -1635,6 +1637,30 @@ void theory_str::instantiate_axiom_str_to_int(enode * e) {
 		SASSERT(conclusion);
 		assert_implication(premise, conclusion);
 	}
+}
+
+void theory_str::instantiate_axiom_int_to_str(enode * e) {
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+
+    app * ex = e->get_owner();
+    if (axiomatized_terms.contains(ex)) {
+        TRACE("t_str_detail", tout << "already set up str.from-int axiom for " << mk_pp(ex, m) << std::endl;);
+        return;
+    }
+    axiomatized_terms.insert(ex);
+
+    TRACE("t_str_detail", tout << "instantiate str.from-int axiom for " << mk_pp(ex, m) << std::endl;);
+
+    // axiom 1: N < 0 <==> (str.from-int N) = ""
+    expr * N = ex->get_arg(0);
+    {
+        expr_ref axiom1_lhs(m.mk_not(m_autil.mk_ge(N, m_autil.mk_numeral(rational::zero(), true))), m);
+        expr_ref axiom1_rhs(ctx.mk_eq_atom(ex, m_strutil.mk_string("")), m);
+        expr_ref axiom1(ctx.mk_eq_atom(axiom1_lhs, axiom1_rhs), m);
+        SASSERT(axiom1);
+        assert_axiom(axiom1);
+    }
 }
 
 expr * theory_str::mk_RegexIn(expr * str, expr * regexp) {
@@ -6476,7 +6502,7 @@ void theory_str::set_up_axioms(expr * ex) {
                 m_axiom_Indexof2_todo.push_back(n);
             } else if (is_LastIndexof(ap)) {
                 m_axiom_LastIndexof_todo.push_back(n);
-            } else if (is_str_to_int(ap)) {
+            } else if (is_str_to_int(ap) || is_int_to_str(ap)) {
             	string_int_conversion_terms.push_back(ap);
             	m_library_aware_axiom_todo.push_back(n);
             }
@@ -7630,7 +7656,7 @@ bool theory_str::finalcheck_str2int(app * a) {
 			std::string Ival_str = Ival.to_string();
 			expr_ref premise(ctx.mk_eq_atom(a, m_autil.mk_numeral(Ival, true)), m);
 			expr_ref conclusion(ctx.mk_eq_atom(S, m_strutil.mk_string(Ival_str)), m);
-			expr_ref axiom(m.mk_or(m.mk_not(premise), conclusion), m);
+			expr_ref axiom(rewrite_implication(premise, conclusion), m);
 			if (!string_int_axioms.contains(axiom)) {
 				string_int_axioms.insert(axiom);
 				assert_axiom(axiom);
@@ -7645,6 +7671,66 @@ bool theory_str::finalcheck_str2int(app * a) {
 	// TODO also check assignment in string theory
 
 	return axiomAdd;
+}
+
+bool theory_str::finalcheck_int2str(app * a) {
+    bool axiomAdd = false;
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+
+    expr * N = a->get_arg(0);
+
+    // check string theory
+    bool Sval_expr_exists;
+    expr * Sval_expr = get_eqc_value(a, Sval_expr_exists);
+    if (Sval_expr_exists) {
+        std::string Sval = m_strutil.get_string_constant_value(Sval_expr);
+        TRACE("t_str_detail", tout << "string theory assigns \"" << mk_pp(a, m) << " = " << Sval << std::endl;);
+        // empty string --> integer value < 0
+        if (Sval.empty()) {
+            // ignore this. we should already assert the axiom for what happens when the string is ""
+        } else {
+            // nonempty string --> convert to correct integer value, or disallow it
+            // TODO think about whether we need to persist the axiom in this case?
+            rational convertedRepresentation(0);
+            rational ten(10);
+            bool conversionOK = true;
+            for (unsigned i = 0; i < Sval.length(); ++i) {
+                char digit = Sval.at(i);
+                if (isdigit((int)digit)) {
+                    std::string sDigit(1, digit);
+                    int val = atoi(sDigit.c_str());
+                    convertedRepresentation = (ten * convertedRepresentation) + rational(val);
+                } else {
+                    // not a digit, invalid
+                    TRACE("t_str_rw", tout << "str.to-int argument contains non-digit character '" << digit << "'" << std::endl;);
+                    conversionOK = false;
+                    break;
+                }
+            }
+            if (conversionOK) {
+                expr_ref premise(ctx.mk_eq_atom(a, m_strutil.mk_string(Sval)), m);
+                expr_ref conclusion(ctx.mk_eq_atom(N, m_autil.mk_numeral(convertedRepresentation, true)), m);
+                expr_ref axiom(rewrite_implication(premise, conclusion), m);
+                if (!string_int_axioms.contains(axiom)) {
+                    string_int_axioms.insert(axiom);
+                    assert_axiom(axiom);
+                    m_trail_stack.push(insert_obj_trail<theory_str, expr>(string_int_axioms, axiom));
+                    axiomAdd = true;
+                }
+            } else {
+                expr_ref axiom(m.mk_not(ctx.mk_eq_atom(a, m_strutil.mk_string(Sval))), m);
+                // always assert this axiom because this is a conflict clause
+                assert_axiom(axiom);
+                axiomAdd = true;
+            }
+        }
+    } else {
+        TRACE("t_str_detail", tout << "string theory has no assignment for " << mk_pp(a, m) << std::endl;);
+        NOT_IMPLEMENTED_YET();
+    }
+    // TODO also check assignment in integer theory
+    return axiomAdd;
 }
 
 final_check_status theory_str::final_check_eh() {
@@ -7758,9 +7844,13 @@ final_check_status theory_str::final_check_eh() {
     			if (axiomAdd) {
     				addedStrIntAxioms = true;
     			}
+    		} else if (is_int_to_str(ex)) {
+    		    bool axiomAdd = finalcheck_int2str(ex);
+    		    if (axiomAdd) {
+    		        addedStrIntAxioms = true;
+    		    }
     		} else {
-    			// TODO int.to-str
-    			NOT_IMPLEMENTED_YET();
+    			UNREACHABLE();
     		}
     	}
     	if (addedStrIntAxioms) {

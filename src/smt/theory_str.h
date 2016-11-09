@@ -359,6 +359,8 @@ namespace smt {
         bool is_Replace(enode const * n) const { return is_Replace(n->get_owner()); }
         bool is_str_to_int(app const * a) const { return a->is_app_of(get_id(), OP_STR_STR2INT); }
 		bool is_str_to_int(enode const * n) const { return is_str_to_int(n->get_owner()); }
+		bool is_int_to_str(app const * a) const { return a->is_app_of(get_id(), OP_STR_INT2STR); }
+        bool is_int_to_str(enode const * n) const { return is_int_to_str(n->get_owner()); }
 
         bool is_RegexIn(app const * a) const { return a->is_app_of(get_id(), OP_RE_REGEXIN); }
         bool is_RegexIn(enode const * n) const { return is_RegexIn(n->get_owner()); }
@@ -388,6 +390,7 @@ namespace smt {
         void instantiate_axiom_Substr(enode * e);
         void instantiate_axiom_Replace(enode * e);
         void instantiate_axiom_str_to_int(enode * e);
+        void instantiate_axiom_int_to_str(enode * e);
 
         expr * mk_RegexIn(expr * str, expr * regexp);
         void instantiate_axiom_RegexIn(enode * e);
@@ -510,6 +513,7 @@ namespace smt {
         expr * eval_concat(expr * n1, expr * n2);
 
         bool finalcheck_str2int(app * a);
+        bool finalcheck_int2str(app * a);
 
         // strRegex
 
