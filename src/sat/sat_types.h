@@ -200,7 +200,7 @@ namespace sat {
         iterator begin() const { return m_set.begin(); }
         iterator end() const { return m_set.end(); }
         void reset() { m_set.reset(); m_in_set.reset(); }
-        void cleanup() { m_set.finalize(); m_in_set.finalize(); }
+        void finalize() { m_set.finalize(); m_in_set.finalize(); }
         uint_set& operator&=(uint_set const& other) {
             unsigned j = 0;
             for (unsigned i = 0; i < m_set.size(); ++i) {
@@ -259,7 +259,7 @@ namespace sat {
         bool empty() const { return m_set.empty(); }
         unsigned size() const { return m_set.size(); }
         void reset() { m_set.reset(); }
-        void cleanup() { m_set.cleanup(); }
+        void finalize() { m_set.finalize(); }
         class iterator {
             uint_set::iterator m_it;
         public:
