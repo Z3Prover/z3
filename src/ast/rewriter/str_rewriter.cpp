@@ -410,6 +410,25 @@ br_status str_rewriter::mk_str_to_int(expr * arg0, expr_ref & result) {
 
 }
 
+br_status str_rewriter::mk_str_from_int(expr * arg0, expr_ref & result) {
+    TRACE("t_str_rw", tout << "rewrite (str.from-int " << mk_pp(arg0, m()) << ")" << std::endl;);
+    rational arg0Int;
+    if (m_autil.is_numeral(arg0, arg0Int)) {
+        // (str.from-int N) with N non-negative is the corresponding string in decimal notation.
+        // otherwise it is the empty string
+        if (arg0Int.is_nonneg()) {
+            std::string str = arg0Int.to_string();
+            result = m_strutil.mk_string(str);
+            TRACE("t_str_rw", tout << "convert non-negative integer constant to " << str << std::endl;);
+        } else {
+            result = m_strutil.mk_string("");
+            TRACE("t_str_rw", tout << "convert invalid integer constant to empty string" << std::endl;);
+        }
+        return BR_DONE;
+    }
+    return BR_FAILED;
+}
+
 br_status str_rewriter::mk_str_Substr(expr * base, expr * start, expr * len, expr_ref & result) {
     TRACE("t_str_rw", tout << "rewrite (Substr " << mk_pp(base, m()) << " " << mk_pp(start, m()) << " " << mk_pp(len, m()) << ")" << std::endl;);
     rational startVal, lenVal;
@@ -559,6 +578,9 @@ br_status str_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_STR_STR2INT:
     	SASSERT(num_args == 1);
     	return mk_str_to_int(args[0], result);
+    case OP_STR_INT2STR:
+        SASSERT(num_args == 1);
+        return mk_str_from_int(args[0], result);
     case OP_STR_SUBSTR:
         SASSERT(num_args == 3);
         return mk_str_Substr(args[0], args[1], args[2], result);

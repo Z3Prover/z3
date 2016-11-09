@@ -43,6 +43,7 @@ enum str_op_kind {
     OP_STR_REPLACE,
 	// string-integer conversion
 	OP_STR_STR2INT,
+	OP_STR_INT2STR,
 	// regular expression operators
 	OP_RE_STR2REGEX,
 	OP_RE_REGEXIN,
@@ -76,6 +77,7 @@ protected:
     func_decl * m_substr_decl;
     func_decl * m_replace_decl;
     func_decl * m_str2int_decl;
+    func_decl * m_int2str_decl;
 
     func_decl * m_re_str2regex_decl;
     func_decl * m_re_regexin_decl;
