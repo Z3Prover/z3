@@ -63,7 +63,7 @@ namespace sat {
     }
 
     simplifier::~simplifier() {
-        free_memory();
+        finalize();
     }
 
     inline watch_list & simplifier::get_wlist(literal l) { return s.get_wlist(l); }
@@ -125,7 +125,7 @@ namespace sat {
         m_visited.resize(2*s.num_vars(), false);
     }
 
-    void simplifier::free_memory() {
+    void simplifier::finalize() {
         m_use_list.finalize();
         m_sub_todo.finalize();
         m_sub_bin_todo.finalize();
@@ -154,6 +154,7 @@ namespace sat {
         if (!m_subsumption && !m_elim_blocked_clauses && !m_resolution)
             return;
 
+
         initialize();
 
         CASSERT("sat_solver", s.check_invariant());
@@ -174,6 +175,7 @@ namespace sat {
             learned_in_use_lists = true;
         }
         register_clauses(s.m_clauses);
+
 
         if (!learned && (m_elim_blocked_clauses || m_elim_blocked_clauses_at == m_num_calls))
             elim_blocked_clauses();
@@ -216,7 +218,7 @@ namespace sat {
         }
         CASSERT("sat_solver", s.check_invariant());
         TRACE("after_simplifier", s.display(tout); tout << "model_converter:\n"; s.m_mc.display(tout););
-        free_memory();
+        finalize();
     }
 
     /**
@@ -941,8 +943,8 @@ namespace sat {
             model_converter::entry * new_entry = 0;
             if (s.is_external(l.var()) || s.was_eliminated(l.var()))
                 return;
-            {
 
+            {
                 m_to_remove.reset();
                 {
                     clause_use_list & occs = s.m_use_list.get(l);

@@ -239,7 +239,7 @@ namespace sat {
             m_counter *= 2;
         }
         CASSERT("probing", s.check_invariant());
-        free_memory();
+        finalize();
         return r;
     }
 
@@ -255,9 +255,10 @@ namespace sat {
         // TODO
     }
 
-    void probing::free_memory() {
+    void probing::finalize() {
         m_assigned.finalize();
         m_to_assert.finalize();
+        m_cached_bins.finalize();
     }
 
     void probing::collect_statistics(statistics & st) const {
