@@ -237,7 +237,10 @@ namespace sat {
         lbool status(clause const & c) const;        
         clause_offset get_offset(clause const & c) const { return m_cls_allocator.get_offset(&c); }
         void checkpoint() {
-            if (!m_rlimit.inc()) { throw solver_exception(Z3_CANCELED_MSG); }
+            if (!m_rlimit.inc()) {
+                m_mc.reset();
+                throw solver_exception(Z3_CANCELED_MSG);
+            }
             ++m_num_checkpoints;
             if (m_num_checkpoints < 10) return;
             m_num_checkpoints = 0;
