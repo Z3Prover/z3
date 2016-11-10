@@ -909,6 +909,10 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_fpa_get_numeral_sign(c, t, sgn);
         RESET_ERROR_CODE();
+        if (sgn == 0) {
+            SET_ERROR_CODE(Z3_INVALID_ARG);
+            return 0;
+        }
         ast_manager & m = mk_c(c)->m();
         mpf_manager & mpfm = mk_c(c)->fpautil().fm();
         fpa_decl_plugin * plugin = (fpa_decl_plugin*)m.get_plugin(mk_c(c)->get_fpa_fid());
