@@ -968,6 +968,10 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_fpa_get_numeral_significand_uint64(c, t, n);
         RESET_ERROR_CODE();
+        if (n == 0) {
+            SET_ERROR_CODE(Z3_INVALID_ARG);
+            return 0;
+        }
         ast_manager & m = mk_c(c)->m();
         mpf_manager & mpfm = mk_c(c)->fpautil().fm();
         unsynch_mpz_manager & mpzm = mpfm.mpz_manager();
@@ -1028,6 +1032,10 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_fpa_get_numeral_exponent_int64(c, t, n);
         RESET_ERROR_CODE();
+        if (n == 0) {
+            SET_ERROR_CODE(Z3_INVALID_ARG);
+            return 0;
+        }
         ast_manager & m = mk_c(c)->m();
         mpf_manager & mpfm = mk_c(c)->fpautil().fm();
         family_id fid = mk_c(c)->get_fpa_fid();
