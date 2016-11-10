@@ -3042,7 +3042,7 @@ namespace sat {
         if (scope_lvl() > 0 || inconsistent())
             return;
         m_simplifier(learned);
-        m_simplifier.free_memory();
+        m_simplifier.finalize();
         if (m_ext)
             m_ext->clauses_modifed();
     }

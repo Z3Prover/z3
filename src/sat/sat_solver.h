@@ -239,6 +239,7 @@ namespace sat {
         void checkpoint() {
             if (!m_rlimit.inc()) {
                 m_mc.reset();
+                m_model_is_current = false;
                 throw solver_exception(Z3_CANCELED_MSG);
             }
             ++m_num_checkpoints;
