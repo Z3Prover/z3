@@ -7811,26 +7811,54 @@ final_check_status theory_str::final_check_eh() {
     	return FC_DONE;
     }
 
-    // Check every variable to see if it's eq. to some string constant.
-    // If not, mark it as free.
     bool needToAssignFreeVars = false;
     std::set<expr*> free_variables;
     std::set<expr*> unused_internal_variables;
-    TRACE("t_str_detail", tout << variable_set.size() << " variables in variable_set" << std::endl;);
-    for (std::set<expr*>::iterator it = variable_set.begin(); it != variable_set.end(); ++it) {
-        TRACE("t_str_detail", tout << "checking eqc of variable " << mk_ismt2_pp(*it, m) << std::endl;);
-        bool has_eqc_value = false;
-        get_eqc_value(*it, has_eqc_value);
-        if (!has_eqc_value) {
-            // if this is an internal variable, it can be ignored...I think
-            if (internal_variable_set.find(*it) != internal_variable_set.end() || regex_variable_set.find(*it) != regex_variable_set.end()) {
-                TRACE("t_str_detail", tout << "WARNING: free internal variable " << mk_ismt2_pp(*it, m) << std::endl;);
-                //unused_internal_variables.insert(*it);
-            } else {
-                needToAssignFreeVars = true;
-                free_variables.insert(*it);
-            }
-        }
+    if (true) { // Z3str2 free variables check
+    	std::map<expr*, int>::iterator itor = varAppearInAssign.begin();
+    	for (; itor != varAppearInAssign.end(); ++itor) {
+    		/*
+    		std::string vName = std::string(Z3_ast_to_string(ctx, itor->first));
+    		if (vName.length() >= 3 && vName.substr(0, 3) == "$$_")
+    			continue;
+    			*/
+    		if (internal_variable_set.find(itor->first) != internal_variable_set.end()
+    				|| regex_variable_set.find(itor->first) != regex_variable_set.end()) {
+    			// this can be ignored, I think
+    			TRACE("t_str_detail", tout << "free internal variable " << mk_pp(itor->first, m) << " ignored" << std::endl;);
+    			continue;
+    		}
+    		bool hasEqcValue = false;
+    		expr * eqcString = get_eqc_value(itor->first, hasEqcValue);
+    		if (!hasEqcValue) {
+    			TRACE("t_str_detail", tout << "found free variable " << mk_pp(itor->first, m) << std::endl;);
+    			needToAssignFreeVars = true;
+    			free_variables.insert(itor->first);
+    			// break;
+    		} else {
+    			// debug
+    			TRACE("t_str_detail", tout << "variable " << mk_pp(itor->first, m) << " = " << mk_pp(eqcString, m) << std::endl;);
+    		}
+    	}
+    } else { // new, possibly incorrect free variables check
+		// Check every variable to see if it's eq. to some string constant.
+		// If not, mark it as free.
+		TRACE("t_str_detail", tout << variable_set.size() << " variables in variable_set" << std::endl;);
+		for (std::set<expr*>::iterator it = variable_set.begin(); it != variable_set.end(); ++it) {
+			TRACE("t_str_detail", tout << "checking eqc of variable " << mk_ismt2_pp(*it, m) << std::endl;);
+			bool has_eqc_value = false;
+			get_eqc_value(*it, has_eqc_value);
+			if (!has_eqc_value) {
+				// if this is an internal variable, it can be ignored...I think
+				if (internal_variable_set.find(*it) != internal_variable_set.end() || regex_variable_set.find(*it) != regex_variable_set.end()) {
+					TRACE("t_str_detail", tout << "WARNING: free internal variable " << mk_ismt2_pp(*it, m) << std::endl;);
+					//unused_internal_variables.insert(*it);
+				} else {
+					needToAssignFreeVars = true;
+					free_variables.insert(*it);
+				}
+			}
+		}
     }
 
     if (!needToAssignFreeVars) {
