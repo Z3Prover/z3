@@ -43,7 +43,7 @@ enum str_op_kind {
     OP_STR_REPLACE,
 	// string-integer conversion
 	OP_STR_STR2INT,
-	OP_STR_INT2STR,
+	OP_STR_INT2STR, OP_STR_PLACEHOLDER1, OP_STR_PLACEHOLDER2,
 	// regular expression operators
 	OP_RE_STR2REGEX,
 	OP_RE_REGEXIN,
