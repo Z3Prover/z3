@@ -3078,6 +3078,10 @@ namespace sat {
             m_binary_clause_graph[l1.index()].push_back(l2);
             m_binary_clause_graph[l2.index()].push_back(l1);
         }
+        for (unsigned i = 0; i < lits.size(); ++i) {
+            m_binary_clause_graph.reserve(lits[i].index() + 1);
+            m_binary_clause_graph.reserve((~lits[i]).index() + 1);
+        }
         bool non_empty = true;
         m_seen[0].reset();
         while (non_empty) {            

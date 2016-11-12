@@ -141,6 +141,8 @@ namespace sat {
         CASSERT("sat_solver", s.check_invariant());
         TRACE("before_simplifier", s.display(tout););
 
+        m_sub_todo.reset();
+        m_sub_bin_todo.reset();
         s.m_cleaner(true);
         m_last_sub_trail_sz = s.m_trail.size();
         TRACE("after_cleanup", s.display(tout););
