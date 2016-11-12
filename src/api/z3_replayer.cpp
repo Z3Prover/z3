@@ -30,7 +30,7 @@ void register_z3_replayer_cmds(z3_replayer & in);
 
 void throw_invalid_reference() {
     TRACE("z3_replayer", tout << "invalid argument reference\n";);
-    throw z3_replayer_exception("invalid argument reference1");
+    throw z3_replayer_exception("invalid argument reference");
 }
 
 struct z3_replayer::imp {
