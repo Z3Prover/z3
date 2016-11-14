@@ -2028,7 +2028,6 @@ void theory_str::simplify_parent(expr * nn, expr * eq_str) {
                             expr_ref eq_ast2(m);
                             eq_ast2 = ctx.mk_eq_atom(arg1, arg1Value);
                             SASSERT(eq_ast2);
-
                             implyL = m.mk_and(eq_ast1, eq_ast2);
                         } else {
                             implyL = ctx.mk_eq_atom(n_eqNode, eq_str);
@@ -2070,7 +2069,6 @@ void theory_str::simplify_parent(expr * nn, expr * eq_str) {
                             << "* |arg0| = " << rational_to_string_if_exists(arg0Len, arg0Len_exists) << std::endl
                             << "* |arg1| = " << rational_to_string_if_exists(arg1Len, arg1Len_exists) << std::endl;
                     );
-
                     if (parentLen_exists && !arg0Len_exists) {
                         TRACE("t_str_detail", tout << "make up len for arg0" << std::endl;);
                         expr_ref implyL11(m.mk_and(ctx.mk_eq_atom(mk_strlen(a_parent), mk_int(parentLen)),
@@ -2096,7 +2094,6 @@ void theory_str::simplify_parent(expr * nn, expr * eq_str) {
                             expr_ref eq_ast1(m);
                             eq_ast1 = ctx.mk_eq_atom(n_eqNode, eq_str);
                             SASSERT(eq_ast1);
-
                             expr_ref eq_ast2(m);
                             eq_ast2 = ctx.mk_eq_atom(arg0, arg0Value);
                             SASSERT(eq_ast2);
@@ -7049,13 +7046,12 @@ void theory_str::trace_ctx_dep(std::ofstream & tout,
  *        > should split the unroll function so that var2 and var3 are bounded by new unrolls
  */
 int theory_str::ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr*, int> & freeVarMap,
-		std::map<expr*, std::set<expr*> > & unrollGroupMap) {
+		std::map<expr*, std::set<expr*> > & unrollGroupMap, std::map<expr*, std::map<expr*, int> > & var_eq_concat_map) {
 	std::map<expr*, int> concatMap;
 	std::map<expr*, int> unrollMap;
 	std::map<expr*, expr*> aliasIndexMap;
 	std::map<expr*, expr*> var_eq_constStr_map;
 	std::map<expr*, expr*> concat_eq_constStr_map;
-	std::map<expr*, std::map<expr*, int> > var_eq_concat_map;
 	std::map<expr*, std::map<expr*, int> > var_eq_unroll_map;
 	std::map<expr*, std::map<expr*, int> > concat_eq_concat_map;
 	std::map<expr*, std::map<expr*, int> > depMap;
@@ -7805,10 +7801,49 @@ final_check_status theory_str::final_check_eh() {
     std::map<expr*, int> varAppearInAssign;
     std::map<expr*, int> freeVar_map;
     std::map<expr*, std::set<expr*> > unrollGroup_map;
-    int conflictInDep = ctx_dep_analysis(varAppearInAssign, freeVar_map, unrollGroup_map);
+    std::map<expr*, std::map<expr*, int> > var_eq_concat_map;
+    int conflictInDep = ctx_dep_analysis(varAppearInAssign, freeVar_map, unrollGroup_map, var_eq_concat_map);
     if (conflictInDep == -1) {
     	// return Z3_TRUE;
     	return FC_DONE;
+    }
+
+    // enhancement: improved backpropagation of string constants into var=concat terms
+    bool backpropagation_occurred = false;
+    for (std::map<expr*, std::map<expr*, int> >::iterator veqc_map_it = var_eq_concat_map.begin();
+    		veqc_map_it != var_eq_concat_map.end(); ++veqc_map_it) {
+    	expr * var = veqc_map_it->first;
+    	for (std::map<expr*, int>::iterator concat_map_it = veqc_map_it->second.begin();
+    			concat_map_it != veqc_map_it->second.end(); ++concat_map_it) {
+    		app * concat = to_app(concat_map_it->first);
+    		expr * concat_lhs = concat->get_arg(0);
+    		expr * concat_rhs = concat->get_arg(1);
+    		// If the concat LHS and RHS both have a string constant in their EQC,
+    		// but the var does not, then we assert an axiom of the form
+    		// (lhs = "lhs" AND rhs = "rhs") --> (Concat lhs rhs) = "lhsrhs"
+    		bool concat_lhs_haseqc, concat_rhs_haseqc, var_haseqc;
+    		expr * concat_lhs_str = get_eqc_value(concat_lhs, concat_lhs_haseqc);
+    		expr * concat_rhs_str = get_eqc_value(concat_rhs, concat_rhs_haseqc);
+    		expr * var_str = get_eqc_value(var, var_haseqc);
+    		if (concat_lhs_haseqc && concat_rhs_haseqc && !var_haseqc) {
+    			TRACE("t_str_detail", tout << "backpropagate into " << mk_pp(var, m) << " = " << mk_pp(concat, m) << std::endl
+    					<< "LHS ~= " << mk_pp(concat_lhs_str, m) << " RHS ~= " << mk_pp(concat_rhs_str, m) << std::endl;);
+    			std::string lhsString = m_strutil.get_string_constant_value(concat_lhs_str);
+    			std::string rhsString = m_strutil.get_string_constant_value(concat_rhs_str);
+    			std::string concatString = lhsString + rhsString;
+    			expr_ref lhs1(ctx.mk_eq_atom(concat_lhs, concat_lhs_str), m);
+    			expr_ref lhs2(ctx.mk_eq_atom(concat_rhs, concat_rhs_str), m);
+    			expr_ref lhs(m.mk_and(lhs1, lhs2), m);
+    			expr_ref rhs(ctx.mk_eq_atom(concat, m_strutil.mk_string(concatString)), m);
+    			assert_implication(lhs, rhs);
+    			backpropagation_occurred = true;
+    		}
+    	}
+    }
+
+    if (backpropagation_occurred) {
+    	TRACE("t_str", tout << "Resuming search due to axioms added by backpropagation." << std::endl;);
+    	return FC_CONTINUE;
     }
 
     bool needToAssignFreeVars = false;

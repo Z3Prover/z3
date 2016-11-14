@@ -473,7 +473,7 @@ namespace smt {
         void group_terms_by_eqc(expr * n, std::set<expr*> & concats, std::set<expr*> & vars, std::set<expr*> & consts);
 
         int ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr*, int> & freeVarMap,
-        		std::map<expr*, std::set<expr*> > & unrollGroupMap);
+        		std::map<expr*, std::set<expr*> > & unrollGroupMap, std::map<expr*, std::map<expr*, int> > & var_eq_concat_map);
         void trace_ctx_dep(std::ofstream & tout,
                 std::map<expr*, expr*> & aliasIndexMap,
                 std::map<expr*, expr*> & var_eq_constStr_map,
