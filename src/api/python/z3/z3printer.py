@@ -620,8 +620,8 @@ class Formatter:
                 r = []
                 sgn = c_int(0)
                 sgnb = Z3_fpa_get_numeral_sign(a.ctx_ref(), a.ast, byref(sgn))
+                exp = Z3_fpa_get_numeral_exponent_string(a.ctx_ref(), a.ast, False)
                 sig = Z3_fpa_get_numeral_significand_string(a.ctx_ref(), a.ast)
-                exp = Z3_fpa_get_numeral_exponent_string(a.ctx_ref(), a.ast)
                 r.append(to_format('FPVal('))
                 if sgnb and sgn.value != 0:
                     r.append(to_format('-'))
@@ -650,8 +650,8 @@ class Formatter:
                 r = []
                 sgn = (ctypes.c_int)(0)
                 sgnb = Z3_fpa_get_numeral_sign(a.ctx_ref(), a.ast, byref(sgn))
+                exp = Z3_fpa_get_numeral_exponent_string(a.ctx_ref(), a.ast, False)
                 sig = Z3_fpa_get_numeral_significand_string(a.ctx_ref(), a.ast)
-                exp = Z3_fpa_get_numeral_exponent_string(a.ctx_ref(), a.ast)
                 if sgnb and sgn.value != 0:
                     r.append(to_format('-'))
                 r.append(to_format(sig))

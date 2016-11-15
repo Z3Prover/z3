@@ -2141,21 +2141,54 @@ sig
   (** Retrieves the sign of a floating-point literal. *)
   val get_numeral_sign : context -> Expr.expr -> bool * int
 
+  (** Return the sign of a floating-point numeral as a bit-vector expression. 
+      Remark: NaN's do not have a bit-vector sign, so they are invalid arguments. *)
+  val get_numeral_sign_bv : context -> Expr.expr -> Expr.expr
+
+  (** Return the exponent value of a floating-point numeral as a string *)
+  val get_numeral_exponent_string : context -> Expr.expr -> bool -> string
+
+  (** Return the exponent value of a floating-point numeral as a signed integer *)
+  val get_numeral_exponent_int : context -> Expr.expr -> bool -> bool * int
+
+  (** Return the exponent of a floating-point numeral as a bit-vector expression. 
+      Remark: NaN's do not have a bit-vector exponent, so they are invalid arguments. *)
+  val get_numeral_exponent_bv : context -> Expr.expr -> bool -> Expr.expr
+
+  (** Return the significand value of a floating-point numeral as a bit-vector expression. 
+      Remark: NaN's do not have a bit-vector significand, so they are invalid arguments. *)
+  val get_numeral_significand_bv : context -> Expr.expr -> Expr.expr
+
   (** Return the significand value of a floating-point numeral as a string. *)
   val get_numeral_significand_string : context -> Expr.expr -> string
 
   (** Return the significand value of a floating-point numeral as a uint64.
       Remark: This function extracts the significand bits, without the
       hidden bit or normalization. Throws an exception if the
-      significand does not fit into a uint64. *)
+      significand does not fit into an int. *)
   val get_numeral_significand_uint : context -> Expr.expr -> bool * int
 
-  (** Return the exponent value of a floating-point numeral as a string *)
-  val get_numeral_exponent_string : context -> Expr.expr -> string
+  (** Indicates whether a floating-point numeral is a NaN. *)
+  val is_numeral_nan : context -> Expr.expr -> bool
 
-  (** Return the exponent value of a floating-point numeral as a signed integer *)
-  val get_numeral_exponent_int : context -> Expr.expr -> bool * int
+  (** Indicates whether a floating-point numeral is +oo or -oo. *)
+  val is_numeral_inf : context -> Expr.expr -> bool
 
+  (** Indicates whether a floating-point numeral is +zero or -zero. *)
+  val is_numeral_zero : context -> Expr.expr -> bool
+
+  (** Indicates whether a floating-point numeral is normal. *)
+  val is_numeral_normal : context -> Expr.expr -> bool
+
+  (** Indicates whether a floating-point numeral is subnormal. *)
+  val is_numeral_subnormal : context -> Expr.expr -> bool
+
+  (** Indicates whether a floating-point numeral is positive. *)
+  val is_numeral_positive : context -> Expr.expr -> bool
+
+  (** Indicates whether a floating-point numeral is negative. *)
+  val is_numeral_negative : context -> Expr.expr -> bool
+   
   (** Conversion of a floating-point term into a bit-vector term in IEEE 754-2008 format. *)
   val mk_to_ieee_bv : context -> Expr.expr -> Expr.expr
 
@@ -3023,29 +3056,22 @@ sig
   (** Assert a constraint (or multiple) into the solver. *)
   val add : solver -> Expr.expr list -> unit
 
-  (** * Assert multiple constraints (cs) into the solver, and track them (in the
-      * unsat) core
-      * using the Boolean constants in ps.
-      *
-      * This API is an alternative to {!check} with assumptions for
-      * extracting unsat cores.
-      * Both APIs can be used in the same solver. The unsat core will contain a
-      * combination
-      * of the Boolean variables provided using {!assert_and_track}
-      * and the Boolean literals
-      * provided using {!check} with assumptions. *)
+  (** Assert multiple constraints (cs) into the solver, and track them (in the
+      unsat) core using the Boolean constants in ps.
+     
+      This API is an alternative to {!check} with assumptions for extracting unsat cores.
+      Both APIs can be used in the same solver. The unsat core will contain a combination
+      of the Boolean variables provided using {!assert_and_track} and the Boolean literals
+      provided using {!check} with assumptions. *)
   val assert_and_track_l : solver -> Expr.expr list -> Expr.expr list -> unit
 
-  (** * Assert a constraint (c) into the solver, and track it (in the unsat) core
-      * using the Boolean constant p.
-      *
-      * This API is an alternative to {!check} with assumptions for
-      * extracting unsat cores.
-      * Both APIs can be used in the same solver. The unsat core will contain a
-      * combination
-      * of the Boolean variables provided using {!assert_and_track}
-      * and the Boolean literals
-      * provided using {!check} with assumptions. *)
+  (** Assert a constraint (c) into the solver, and track it (in the unsat) core
+      using the Boolean constant p.
+      
+      This API is an alternative to {!check} with assumptions for extracting unsat cores. 
+      Both APIs can be used in the same solver. The unsat core will contain a combination  
+      of the Boolean variables provided using {!assert_and_track} and the Boolean literals 
+      provided using {!check} with assumptions. *)
   val assert_and_track : solver -> Expr.expr -> Expr.expr -> unit
 
   (** The number of assertions in the solver. *)
