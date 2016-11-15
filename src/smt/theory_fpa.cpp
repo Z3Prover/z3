@@ -750,8 +750,15 @@ namespace smt {
             // These are the conversion functions fp.to_* */
             SASSERT(!m_fpa_util.is_float(n) && !m_fpa_util.is_rm(n));
         }
-        else
-            UNREACHABLE();
+        else {
+            /* Theory variables can be merged when (= bv-term (bvwrap fp-term)),
+               in which case context::relevant_eh may call theory_fpa::relevant_eh
+               after theory_bv::relevant_eh, regardless of whether theory_fpa is
+               interested in this term. But, this can only happen because of
+               (bvwrap ...) terms, i.e., `n' must be a bit-vector expression,
+               which we can safely ignore. */
+            SASSERT(m_bv_util.is_bv(n));
+        }
     }
 
     void theory_fpa::reset_eh() {
