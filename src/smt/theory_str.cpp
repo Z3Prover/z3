@@ -2267,19 +2267,12 @@ expr * theory_str::simplify_concat(expr * node) {
         if (in_same_eqc(node, resultAst)) {
             TRACE("t_str_detail", tout << "SKIP: both concats are already in the same equivalence class" << std::endl;);
         } else {
-            // TODO refactor
-            expr ** items = alloc_svect(expr*, resolvedMap.size());
-            int pos = 0;
+            expr_ref_vector items(m);
             std::map<expr*, expr*>::iterator itor = resolvedMap.begin();
             for (; itor != resolvedMap.end(); ++itor) {
-                items[pos++] = ctx.mk_eq_atom(itor->first, itor->second);
+                items.push_back(ctx.mk_eq_atom(itor->first, itor->second));
             }
-            expr_ref premise(m);
-            if (pos == 1) {
-                premise = items[0];
-            } else {
-                premise = m.mk_and(pos, items);
-            }
+            expr_ref premise(mk_and(items), m);
             expr_ref conclusion(ctx.mk_eq_atom(node, resultAst), m);
             assert_implication(premise, conclusion);
         }
@@ -6374,11 +6367,18 @@ void theory_str::handle_equality(expr * lhs, expr * rhs) {
     // we want the Z3str2 eqc check here...
     expr * nn1_value = z3str2_get_eqc_value(lhs, nn1HasEqcValue);
     expr * nn2_value = z3str2_get_eqc_value(rhs, nn2HasEqcValue);
-    if (nn1HasEqcValue && !nn2HasEqcValue) {
+
+
+    // modification from z3str2: simplify whenever we see a string constant on either side,
+    // not only when it's on one side but not the other.
+    // this may work in cases where a concat is simplified to a string constant in group_terms_by_eqc()
+    // and we fail to simplify parents because we think a string constant is on both sides
+
+    if (nn1HasEqcValue /* && !nn2HasEqcValue */ ) {
         simplify_parent(rhs, nn1_value);
     }
 
-    if (!nn1HasEqcValue && nn2HasEqcValue) {
+    if (/* !nn1HasEqcValue && */ nn2HasEqcValue) {
         simplify_parent(lhs, nn2_value);
     }
 
