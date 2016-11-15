@@ -73,6 +73,8 @@ public:
                                      unsigned arity, sort * const * domain, sort * range);
     virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic);
 
+    virtual bool is_considered_uninterpreted(func_decl * f) { return false; }
+
 };
 
 
