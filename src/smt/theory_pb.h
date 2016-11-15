@@ -316,6 +316,7 @@ namespace smt {
         virtual void collect_statistics(::statistics & st) const;
         virtual model_value_proc * mk_value(enode * n, model_generator & mg);
         virtual void init_model(model_generator & m);        
+        virtual bool include_func_interp(func_decl* f) { return false; }
 
         static literal assert_ge(context& ctx, unsigned k, unsigned n, literal const* xs);
     };
