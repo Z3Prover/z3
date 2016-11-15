@@ -334,23 +334,30 @@ namespace smt {
         TRACE("t_fpa_detail", tout << "term: " << mk_ismt2_pp(e, get_manager()) << std::endl;
                               tout << "converted term: " << mk_ismt2_pp(e_conv, get_manager()) << std::endl;);
 
-        if (m_fpa_util.is_rm(e)) {
-            SASSERT(m_fpa_util.is_bv2rm(e_conv));
-            expr_ref bv_rm(m);
-            m_th_rw(to_app(e_conv)->get_arg(0), bv_rm);
-            res = m_fpa_util.mk_bv2rm(bv_rm);
+        try {
+            if (m_fpa_util.is_rm(e)) {
+                SASSERT(m_fpa_util.is_bv2rm(e_conv));
+                expr_ref bv_rm(m);
+                m_th_rw(to_app(e_conv)->get_arg(0), bv_rm);
+                res = m_fpa_util.mk_bv2rm(bv_rm);
+            }
+            else if (m_fpa_util.is_float(e)) {
+                SASSERT(m_fpa_util.is_fp(e_conv));
+                expr_ref sgn(m), sig(m), exp(m);
+                m_converter.split_fp(e_conv, sgn, exp, sig);
+                m_th_rw(sgn);
+                m_th_rw(exp);
+                m_th_rw(sig);
+                res = m_fpa_util.mk_fp(sgn, exp, sig);
+            }
+            else
+                UNREACHABLE();
         }
-        else if (m_fpa_util.is_float(e)) {
-            SASSERT(m_fpa_util.is_fp(e_conv));
-            expr_ref sgn(m), sig(m), exp(m);
-            m_converter.split_fp(e_conv, sgn, exp, sig);
-            m_th_rw(sgn);
-            m_th_rw(exp);
-            m_th_rw(sig);
-            res = m_fpa_util.mk_fp(sgn, exp, sig);
+        catch (rewriter_exception &)
+        {
+            m_th_rw.reset();
+            throw;
         }
-        else
-            UNREACHABLE();
 
         return res;
     }
@@ -743,8 +750,15 @@ namespace smt {
             // These are the conversion functions fp.to_* */
             SASSERT(!m_fpa_util.is_float(n) && !m_fpa_util.is_rm(n));
         }
-        else
-            UNREACHABLE();
+        else {
+            /* Theory variables can be merged when (= bv-term (bvwrap fp-term)),
+               in which case context::relevant_eh may call theory_fpa::relevant_eh
+               after theory_bv::relevant_eh, regardless of whether theory_fpa is
+               interested in this term. But, this can only happen because of
+               (bvwrap ...) terms, i.e., `n' must be a bit-vector expression,
+               which we can safely ignore. */
+            SASSERT(m_bv_util.is_bv(n));
+        }
     }
 
     void theory_fpa::reset_eh() {

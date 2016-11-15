@@ -3259,15 +3259,18 @@ bool theory_seq::get_length(expr* e, rational& val) const {
 
   let e = extract(s, i, l)
 
-  0 <= i <= len(s) -> prefix(xe,s) 
-  0 <= i <= len(s) -> len(x) = i
-  0 <= i <= len(s) & 0 <= l <= len(s) - i -> len(e) = l
-  0 <= i <= len(s) & len(s) < l + i  -> len(e) = len(s) - i
-  0 <= i <= len(s) & l < 0 -> len(e) = 0
-  *  i < 0 -> e = empty
-  *  i > len(s) -> e = empty
+  0 <= i <= |s| -> prefix(xe,s) 
+  0 <= i <= |s| -> len(x) = i
+  0 <= i <= |s| & 0 <= l <= |s| - i -> |e| = l
+  0 <= i <= |s| & |s| < l + i  -> |e| = |s| - i
+  0 <= i <= |s| & l < 0 -> |e| = 0
+  i >= |s| => |e| = 0
+  i < 0 => |e| = 0
+  l <= 0 => |e| = 0
 
- 
+  It follows that: 
+  |e| = min(l, |s| - i) for 0 <= i < |s| and 0 < |l|
+
 
 */
 
@@ -3301,16 +3304,20 @@ void theory_seq::add_extract_axiom(expr* e) {
     expr_ref zero(m_autil.mk_int(0), m);
 
     literal i_ge_0    = mk_literal(m_autil.mk_ge(i, zero));
-    literal i_le_ls   = mk_literal(m_autil.mk_le(mk_sub(i, ls), zero));
+    literal ls_le_i   = mk_literal(m_autil.mk_le(mk_sub(i, ls), zero));
     literal li_ge_ls  = mk_literal(m_autil.mk_ge(ls_minus_i_l, zero));
     literal l_ge_zero = mk_literal(m_autil.mk_ge(l, zero));
+    literal ls_le_0   = mk_literal(m_autil.mk_le(ls, zero));
 
-//    add_axiom(~i_ge_0, ~i_le_ls, mk_literal(m_util.str.mk_prefix(xe, s)));
-    add_axiom(~i_ge_0, ~i_le_ls, mk_seq_eq(xey, s));
-    add_axiom(~i_ge_0, ~i_le_ls, mk_eq(lx, i, false));
-    add_axiom(~i_ge_0, ~i_le_ls, ~l_ge_zero, ~li_ge_ls, mk_eq(le, l, false));
-    add_axiom(~i_ge_0, ~i_le_ls, li_ge_ls, mk_eq(le, mk_sub(ls, i), false));
-    add_axiom(~i_ge_0, ~i_le_ls, l_ge_zero, mk_eq(le, zero, false));
+//    add_axiom(~i_ge_0, ~ls_le_i, mk_literal(m_util.str.mk_prefix(xe, s)));
+    add_axiom(~i_ge_0, ~ls_le_i, mk_seq_eq(xey, s));
+    add_axiom(~i_ge_0, ~ls_le_i, mk_eq(lx, i, false));
+    add_axiom(~i_ge_0, ~ls_le_i, ~l_ge_zero, ~li_ge_ls, mk_eq(le, l, false));
+    add_axiom(~i_ge_0, ~ls_le_i, li_ge_ls, mk_eq(le, mk_sub(ls, i), false));
+    add_axiom(~i_ge_0, ~ls_le_i, l_ge_zero, mk_eq(le, zero, false));
+    add_axiom(i_ge_0, mk_eq(le, zero, false));
+    add_axiom(ls_le_i, mk_eq(le, zero, false));
+    add_axiom(~ls_le_0, mk_eq(le, zero, false));
 }
 
 void theory_seq::add_tail_axiom(expr* e, expr* s) {

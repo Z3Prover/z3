@@ -1760,6 +1760,7 @@ namespace pdr {
                 smt::kernel solver(m, get_fparams());
                 solver.assert_expr(tmp);
                 lbool res = solver.check();
+                TRACE("pdr", tout << tmp << " " << res << "\n";);
                 if (res != l_false) {
                     msg << "rule validation failed when checking: " << mk_pp(tmp, m);
                     IF_VERBOSE(0, verbose_stream() << msg.str() << "\n";);

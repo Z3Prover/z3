@@ -25,6 +25,7 @@ Notes:
 #include "uint_set.h"
 #include "opt_context.h"
 #include "theory_wmaxsat.h"
+#include "theory_pb.h"
 #include "ast_util.h"
 #include "pb_decl_plugin.h"
 
@@ -123,6 +124,13 @@ namespace opt {
         else {
             wth = alloc(smt::theory_wmaxsat, m, m_c.fm());
             m_c.smt_context().register_plugin(wth);
+        }
+        smt::theory_id th_pb = m.get_family_id("pb");
+        smt::theory_pb* pb = dynamic_cast<smt::theory_pb*>(m_c.smt_context().get_theory(th_pb));
+        if (!pb) {
+            theory_pb_params params;
+            pb = alloc(smt::theory_pb, m, params);
+            m_c.smt_context().register_plugin(pb);
         }
         return wth;
     }
