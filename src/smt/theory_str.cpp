@@ -3180,28 +3180,28 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 	    if (can_two_nodes_eq(y, temp1_strAst)) {
 	        if (!avoidLoopCut || !(has_self_cut(m, y))) {
 	            // break down option 2-1
-	            expr ** l_items = alloc_svect(expr*, 3);
-	            l_items[0] = ctx.mk_eq_atom(concatAst1, concatAst2);
+	            expr_ref_vector l_items(mgr);
+	            l_items.push_back(ctx.mk_eq_atom(concatAst1, concatAst2));
 
-	            expr ** r_items = alloc_svect(expr*, 3);
+	            expr_ref_vector r_items(mgr);
 	            expr_ref x_temp1(mk_concat(x, temp1), mgr);
-	            r_items[0] = ctx.mk_eq_atom(m, x_temp1);
-	            r_items[1] = ctx.mk_eq_atom(y, temp1_strAst);
+	            r_items.push_back(ctx.mk_eq_atom(m, x_temp1));
+	            r_items.push_back(ctx.mk_eq_atom(y, temp1_strAst));
 
 	            if (x_len_exists && m_len_exists) {
-	                l_items[1] = ctx.mk_eq_atom(mk_strlen(x), mk_int(x_len));
-	                l_items[2] = ctx.mk_eq_atom(mk_strlen(m), mk_int(m_len));
+	                l_items.push_back(ctx.mk_eq_atom(mk_strlen(x), mk_int(x_len)));
+	                l_items.push_back(ctx.mk_eq_atom(mk_strlen(m), mk_int(m_len)));
 	                rational m_sub_x = (m_len - x_len);
-	                r_items[2] = ctx.mk_eq_atom(mk_strlen(temp1), mk_int(m_sub_x));
+	                r_items.push_back(ctx.mk_eq_atom(mk_strlen(temp1), mk_int(m_sub_x)));
 	            } else {
-	                l_items[1] = ctx.mk_eq_atom(mk_strlen(y), mk_int(y_len));
-	                l_items[2] = ctx.mk_eq_atom(mk_strlen(strAst), mk_int(str_len));
+	                l_items.push_back(ctx.mk_eq_atom(mk_strlen(y), mk_int(y_len)));
+	                l_items.push_back(ctx.mk_eq_atom(mk_strlen(strAst), mk_int(str_len)));
 	                rational y_sub_str = (y_len - str_len);
-	                r_items[2] = ctx.mk_eq_atom(mk_strlen(temp1), mk_int(y_sub_str));
+	                r_items.push_back(ctx.mk_eq_atom(mk_strlen(temp1), mk_int(y_sub_str)));
 	            }
 
-	            expr_ref ax_l(mgr.mk_and(3, l_items), mgr);
-	            expr_ref ax_r(mgr.mk_and(3, r_items), mgr);
+	            expr_ref ax_l(mk_and(l_items), mgr);
+	            expr_ref ax_r(mk_and(r_items), mgr);
 
 	            add_cut_info_merge(temp1, sLevel, y);
 	            add_cut_info_merge(temp1, sLevel, m);
@@ -3228,16 +3228,16 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 	    //    |   x   |  y  |
 	    //    | m |   str   |
 	    rational lenDelta;
-	    expr ** l_items = alloc_svect(expr*, 3);
+	    expr_ref_vector l_items(mgr);
 	    int l_count = 0;
-	    l_items[0] = ctx.mk_eq_atom(concatAst1, concatAst2);
+	    l_items.push_back(ctx.mk_eq_atom(concatAst1, concatAst2));
 	    if (x_len_exists && m_len_exists) {
-	        l_items[1] = ctx.mk_eq_atom(mk_strlen(x), mk_int(x_len));
-	        l_items[2] = ctx.mk_eq_atom(mk_strlen(m), mk_int(m_len));
+	        l_items.push_back(ctx.mk_eq_atom(mk_strlen(x), mk_int(x_len)));
+	        l_items.push_back(ctx.mk_eq_atom(mk_strlen(m), mk_int(m_len)));
 	        l_count = 3;
 	        lenDelta = x_len - m_len;
 	    } else {
-	        l_items[1] = ctx.mk_eq_atom(mk_strlen(y), mk_int(y_len));
+	        l_items.push_back(ctx.mk_eq_atom(mk_strlen(y), mk_int(y_len)));
 	        l_count = 2;
 	        lenDelta = str_len - y_len;
 	    }
@@ -3255,35 +3255,32 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 	                 ;
 	            );
 
-	    TRACE("t_str", tout << "*** MARKER 1 ***" << std::endl;);
 	    std::string part1Str = strValue.substr(0, lenDelta.get_unsigned());
-	    TRACE("t_str", tout << "*** MARKER 2 ***" << std::endl;);
 	    std::string part2Str = strValue.substr(lenDelta.get_unsigned(), strValue.length() - lenDelta.get_unsigned());
-	    TRACE("t_str", tout << "*** MARKER 3 ***" << std::endl;);
 
 	    expr_ref prefixStr(m_strutil.mk_string(part1Str), mgr);
 	    expr_ref x_concat(mk_concat(m, prefixStr), mgr);
 	    expr_ref cropStr(m_strutil.mk_string(part2Str), mgr);
 
 	    if (can_two_nodes_eq(x, x_concat) && can_two_nodes_eq(y, cropStr)) {
-	        expr ** r_items = alloc_svect(expr*, 2);
-	        r_items[0] = ctx.mk_eq_atom(x, x_concat);
-	        r_items[1] = ctx.mk_eq_atom(y, cropStr);
-	        expr_ref ax_l(mgr.mk_and(l_count, l_items), mgr);
-	        expr_ref ax_r(mgr.mk_and(2, r_items), mgr);
+	        expr_ref_vector r_items(mgr);
+	        r_items.push_back(ctx.mk_eq_atom(x, x_concat));
+	        r_items.push_back(ctx.mk_eq_atom(y, cropStr));
+	        expr_ref ax_l(mk_and(l_items), mgr);
+	        expr_ref ax_r(mk_and(r_items), mgr);
 
 	        assert_implication(ax_l, ax_r);
 	    } else {
 	        // negate! It's impossible to split str with these lengths
 	        TRACE("t_str", tout << "CONFLICT: Impossible to split str with these lengths." << std::endl;);
-	        expr_ref ax_l(mgr.mk_and(l_count, l_items), mgr);
+	        expr_ref ax_l(mk_and(l_items), mgr);
 	        assert_axiom(mgr.mk_not(ax_l));
 	    }
 	} else {
 		// Split type -1: no idea about the length...
 		int optionTotal = 2 + strValue.length();
-		expr ** or_item = alloc_svect(expr*, optionTotal);
-		expr ** and_item = alloc_svect(expr*, (1 + 6 + 4 * (strValue.length() + 1)));
+		expr_ref_vector or_item(mgr);
+		expr_ref_vector and_item(mgr);
 		int option = 0;
 		int pos = 1;
 
@@ -3293,13 +3290,14 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 		if (can_two_nodes_eq(y, temp1_strAst)) {
 			if (!avoidLoopCut || !has_self_cut(m, y)) {
 				// break down option 2-1
-				or_item[option] = ctx.mk_eq_atom(xorFlag, mk_int(option));
+			    expr_ref current_or_item_option(ctx.mk_eq_atom(xorFlag, mk_int(option)), mgr);
+				or_item.push_back(current_or_item_option);
 				expr_ref x_temp1(mk_concat(x, temp1), mgr);
-				and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(m, x_temp1));
-				and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(y, temp1_strAst));
+				and_item.push_back(ctx.mk_eq_atom(current_or_item_option, ctx.mk_eq_atom(m, x_temp1)));
+				and_item.push_back(ctx.mk_eq_atom(current_or_item_option, ctx.mk_eq_atom(y, temp1_strAst)));
 
-				and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(mk_strlen(m),
-						m_autil.mk_add(mk_strlen(x), mk_strlen(temp1))));
+				and_item.push_back(ctx.mk_eq_atom(current_or_item_option, ctx.mk_eq_atom(mk_strlen(m),
+						m_autil.mk_add(mk_strlen(x), mk_strlen(temp1)))));
 
 				++option;
 				add_cut_info_merge(temp1, ctx.get_scope_level(), y);
@@ -3319,21 +3317,18 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 			expr_ref cropStr(m_strutil.mk_string(part2Str), mgr);
 			if (can_two_nodes_eq(x, x_concat) && can_two_nodes_eq(y, cropStr)) {
 				// break down option 2-2
-				or_item[option] = ctx.mk_eq_atom(xorFlag, mk_int(option));
-				and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(x, x_concat));
-				and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(y, cropStr));
-				and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(mk_strlen(y), mk_int(part2Str.length())));
+			    expr_ref current_or_item_option(ctx.mk_eq_atom(xorFlag, mk_int(option)), mgr);
+				or_item.push_back(current_or_item_option);
+				and_item.push_back(ctx.mk_eq_atom(current_or_item_option, ctx.mk_eq_atom(x, x_concat)));
+				and_item.push_back(ctx.mk_eq_atom(current_or_item_option, ctx.mk_eq_atom(y, cropStr)));
+				and_item.push_back(ctx.mk_eq_atom(current_or_item_option, ctx.mk_eq_atom(mk_strlen(y), mk_int(part2Str.length()))));
 				++option;
 			}
 		}
 
 		if (option > 0) {
-			if (option == 1) {
-				and_item[0] = or_item[0];
-			} else {
-				and_item[0] = mgr.mk_or(option, or_item);
-			}
-			expr_ref implyR(mgr.mk_and(pos, and_item), mgr);
+		    and_item.push_back(mk_or(or_item));
+			expr_ref implyR(mk_and(and_item), mgr);
 			assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
 		} else {
 			TRACE("t_str", tout << "STOP: Should not split two EQ concats." << std::endl;);
