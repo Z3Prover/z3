@@ -35,13 +35,13 @@ theory_str::theory_str(ast_manager & m):
         opt_AggressiveUnrollTesting(true),
         opt_EagerStringConstantLengthAssertions(true),
         opt_VerifyFinalCheckProgress(true),
-		opt_LCMUnrollStep(2),
-		opt_NoQuickReturn_IntegerTheory(false),
-		opt_DisableIntegerTheoryIntegration(false),
-		opt_DeferEQCConsistencyCheck(false),
-		opt_CheckVariableScope(true),
-		opt_UseFastLengthTesterCache(true),
-		opt_UseFastValueTesterCache(true),
+        opt_LCMUnrollStep(2),
+        opt_NoQuickReturn_IntegerTheory(false),
+        opt_DisableIntegerTheoryIntegration(false),
+        opt_DeferEQCConsistencyCheck(false),
+        opt_CheckVariableScope(true),
+        opt_UseFastLengthTesterCache(true),
+        opt_UseFastValueTesterCache(true),
         /* Internal setup */
         search_started(false),
         m_autil(m),
@@ -51,17 +51,17 @@ theory_str::theory_str(ast_manager & m):
         m_trail(m),
         m_delayed_axiom_setup_terms(m),
         tmpStringVarCount(0),
-		tmpXorVarCount(0),
-		tmpLenTestVarCount(0),
-		tmpValTestVarCount(0),
-		avoidLoopCut(true),
-		loopDetected(false),
-		contains_map(m),
-		string_int_conversion_terms(m),
-		m_find(*this),
-		m_trail_stack(*this)
+        tmpXorVarCount(0),
+        tmpLenTestVarCount(0),
+        tmpValTestVarCount(0),
+        avoidLoopCut(true),
+        loopDetected(false),
+        contains_map(m),
+        string_int_conversion_terms(m),
+        m_find(*this),
+        m_trail_stack(*this)
 {
-		initialize_charset();
+    initialize_charset();
 }
 
 theory_str::~theory_str() {
