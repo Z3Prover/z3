@@ -9,7 +9,7 @@ Abstract:
 
     SAT simplification procedures that use a "full" occurrence list:
     Subsumption, Blocked Clause Removal, Variable Elimination, ...
-    
+
 
 Author:
 
@@ -83,7 +83,7 @@ namespace sat {
         bool                   m_subsumption;
         unsigned               m_subsumption_limit;
         bool                   m_elim_vars;
-        
+
         // stats
         unsigned               m_num_blocked_clauses;
         unsigned               m_num_subsumed;
@@ -96,6 +96,8 @@ namespace sat {
         };
 
         void checkpoint();
+
+        void initialize();
 
         void init_visited();
         void mark_visited(literal l) { m_visited[l.index()] = true; }
@@ -135,7 +137,7 @@ namespace sat {
         void mark_as_not_learned_core(watch_list & wlist, literal l2);
         void mark_as_not_learned(literal l1, literal l2);
         void subsume();
-        
+
         void cleanup_watches();
         void cleanup_clauses(clause_vector & cs, bool learned, bool vars_eliminated, bool in_use_lists);
 
@@ -145,7 +147,7 @@ namespace sat {
         lbool value(literal l) const;
         watch_list & get_wlist(literal l);
         watch_list const & get_wlist(literal l) const;
-        
+
         struct blocked_clause_elim;
         void elim_blocked_clauses();
 
@@ -172,15 +174,20 @@ namespace sat {
         simplifier(solver & s, params_ref const & p);
         ~simplifier();
 
-        void insert_todo(bool_var v) { m_elim_todo.insert(v); }
-        void reset_todo() { m_elim_todo.reset(); }
+        void insert_elim_todo(bool_var v) { m_elim_todo.insert(v); }
+
+        void reset_todos() {
+            m_elim_todo.reset();
+            m_sub_todo.reset();
+            m_sub_bin_todo.reset();
+        }
 
         void operator()(bool learned);
 
         void updt_params(params_ref const & p);
         static void collect_param_descrs(param_descrs & d);
-        
-        void free_memory();
+
+        void finalize();
 
         void collect_statistics(statistics & st) const;
         void reset_statistics();

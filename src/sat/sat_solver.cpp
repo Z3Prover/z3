@@ -141,7 +141,7 @@ namespace sat {
         m_prev_phase.push_back(PHASE_NOT_AVAILABLE);
         m_assigned_since_gc.push_back(false);
         m_case_split_queue.mk_var_eh(v);
-        m_simplifier.insert_todo(v);
+        m_simplifier.insert_elim_todo(v);
         SASSERT(!was_eliminated(v));
         return v;
     }
@@ -151,7 +151,7 @@ namespace sat {
             for (unsigned i = 0; i < num_lits; i++)
                 SASSERT(m_eliminated[lits[i].var()] == false);
         });
-        
+
         if (m_user_scope_literals.empty()) {
             mk_clause_core(num_lits, lits, false);
         }
@@ -175,8 +175,8 @@ namespace sat {
 
     void solver::del_clause(clause& c) {
         if (!c.is_learned()) m_stats.m_non_learned_generation++;
-        m_cls_allocator.del_clause(&c); 
-        m_stats.m_del_clause++; 
+        m_cls_allocator.del_clause(&c);
+        m_stats.m_del_clause++;
     }
 
     clause * solver::mk_clause_core(unsigned num_lits, literal * lits, bool learned) {
@@ -188,7 +188,7 @@ namespace sat {
                 return 0; // clause is equivalent to true.
             }
             ++m_stats.m_non_learned_generation;
-        }        
+        }
 
         switch (num_lits) {
         case 0:
@@ -739,10 +739,10 @@ namespace sat {
                 m_restart_threshold       = m_config.m_restart_initial;
             }
 
-            // iff3_finder(*this)();            
+            // iff3_finder(*this)();
             simplify_problem();
             if (check_inconsistent()) return l_false;
-            
+
 
             if (m_config.m_max_conflicts == 0) {
                 IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-conflicts = 0\")\n";);
@@ -763,7 +763,7 @@ namespace sat {
 
                 restart();
                 simplify_problem();
-                if (check_inconsistent()) return l_false;                
+                if (check_inconsistent()) return l_false;
                 gc();
             }
         }
@@ -891,7 +891,7 @@ namespace sat {
         else {
             mk_model();
             return l_true;
-        }        
+        }
     }
 
 
@@ -920,8 +920,8 @@ namespace sat {
             return;
         }
 
-        TRACE("sat", 
-              for (unsigned i = 0; i < num_lits; ++i) 
+        TRACE("sat",
+              for (unsigned i = 0; i < num_lits; ++i)
                   tout << lits[i] << " ";
               tout << "\n";
               if (!m_user_scope_literals.empty()) {
@@ -932,7 +932,7 @@ namespace sat {
 
         for (unsigned i = 0; !inconsistent() && i < m_user_scope_literals.size(); ++i) {
             literal nlit = ~m_user_scope_literals[i];
-            assign(nlit, justification());                   
+            assign(nlit, justification());
         }
 
         if (weights && !inconsistent()) {
@@ -947,9 +947,9 @@ namespace sat {
 
         for (unsigned i = 0; !inconsistent() && i < num_lits; ++i) {
             literal lit = lits[i];
-            SASSERT(is_external(lit.var()));  
-            add_assumption(lit);  
-            assign(lit, justification());       
+            SASSERT(is_external(lit.var()));
+            add_assumption(lit);
+            assign(lit, justification());
         }
     }
 
@@ -962,10 +962,10 @@ namespace sat {
         unsigned num_cores = 0;
         for (unsigned i = 0; !inconsistent() && i < num_lits; ++i) {
             literal lit = lits[i];
-            SASSERT(is_external(lit.var()));  
+            SASSERT(is_external(lit.var()));
             TRACE("sat", tout << "propagate: " << lit << " " << value(lit) << "\n";);
             SASSERT(m_scope_lvl == 1);
-            add_assumption(lit);  
+            add_assumption(lit);
             switch(value(lit)) {
             case l_undef:
                 values.push_back(l_true);
@@ -973,10 +973,10 @@ namespace sat {
                 if (num_cores*2 >= num_lits) {
                     break;
                 }
-                propagate(false);                
+                propagate(false);
                 if (inconsistent()) {
                     flet<bool> _init(m_initializing_preferred, true);
-                    while (inconsistent()) {                        
+                    while (inconsistent()) {
                         if (!resolve_conflict()) {
                             return true;
                         }
@@ -1001,15 +1001,15 @@ namespace sat {
                     for (unsigned k = i; k >= j; --k)  {
                         if (is_assumption(lits[k])) {
                             pop_assumption();
-                        }                        
+                        }
                     }
                     values.resize(j);
                     TRACE("sat", tout << "backjump " << (i - j + 1) << " steps " << num_cores << "\n";);
                     i = j - 1;
                 }
-                break;                
-                
-            case l_false: 
+                break;
+
+            case l_false:
                 ++num_cores;
                 values.push_back(l_false);
                 SASSERT(!inconsistent());
@@ -1028,14 +1028,14 @@ namespace sat {
                 SASSERT(m_assumptions.size() <= i+1);
                 if (m_core.size() <= 3) {
                     m_inconsistent = true;
-                    TRACE("opt", tout << "found small core: " << m_core << "\n";); 
+                    TRACE("opt", tout << "found small core: " << m_core << "\n";);
                     IF_VERBOSE(11, verbose_stream() << "(sat.core: " << m_core << ")\n";);
                     return true;
                 }
                 pop_assumption();
-                m_inconsistent = false; 
+                m_inconsistent = false;
                 break;
-            case l_true: 
+            case l_true:
                 values.push_back(l_true);
                 SASSERT(m_justification[lit.var()].get_kind() != justification::NONE || lvl(lit) == 0);
                 break;
@@ -1046,7 +1046,7 @@ namespace sat {
         if (m_weight >= max_weight) {
             // block the current correction set candidate.
             ++m_stats.m_blocked_corr_sets;
-            TRACE("opt", tout << "blocking soft correction set: " << m_blocker << "\n";); 
+            TRACE("opt", tout << "blocking soft correction set: " << m_blocker << "\n";);
             IF_VERBOSE(11, verbose_stream() << "blocking " << m_blocker << "\n";);
             pop_to_base_level();
             mk_clause_core(m_blocker);
@@ -1062,17 +1062,17 @@ namespace sat {
             m_min_core.reset();
             m_min_core.append(m_core);
             m_min_core_valid = true;
-        }        
+        }
     }
 
     void solver::reset_assumptions() {
         m_assumptions.reset();
-        m_assumption_set.reset();                
+        m_assumption_set.reset();
     }
 
     void solver::add_assumption(literal lit) {
-        m_assumption_set.insert(lit);       
-        m_assumptions.push_back(lit);                   
+        m_assumption_set.insert(lit);
+        m_assumptions.push_back(lit);
     }
 
     void solver::pop_assumption() {
@@ -1089,8 +1089,8 @@ namespace sat {
         for (unsigned i = 0; i < m_min_core.size(); ++i) {
             literal lit = m_min_core[i];
             SASSERT(is_external(lit.var()));
-            add_assumption(lit);  
-            assign(lit, justification());       
+            add_assumption(lit);
+            assign(lit, justification());
         }
         propagate(false);
         SASSERT(inconsistent());
@@ -1132,7 +1132,7 @@ namespace sat {
         m_min_core_valid = false;
         m_min_core.reset();
         TRACE("sat", display(tout););
-        
+
         if (m_config.m_bcd) {
             bceq bc(*this);
             bc();
@@ -1149,11 +1149,11 @@ namespace sat {
         }
         IF_VERBOSE(2, verbose_stream() << "(sat.simplify)\n";);
 
-        // Disable simplification during MUS computation.        
+        // Disable simplification during MUS computation.
         // if (m_mus.is_active()) return;
         TRACE("sat", tout << "simplify\n";);
 
-        pop(scope_lvl());        
+        pop(scope_lvl());
 
         SASSERT(scope_lvl() == 0);
 
@@ -1166,7 +1166,7 @@ namespace sat {
         m_simplifier(false);
         CASSERT("sat_simplify_bug", check_invariant());
         CASSERT("sat_missed_prop", check_missed_propagation());
-        
+
         if (!m_learned.empty()) {
             m_simplifier(true);
             CASSERT("sat_missed_prop", check_missed_propagation());
@@ -1260,7 +1260,7 @@ namespace sat {
                     TRACE("sat", tout << "failed: " << c << "\n";
                           tout << "assumptions: " << m_assumptions << "\n";
                           tout << "trail: " << m_trail << "\n";
-                          tout << "model: " << m << "\n";      
+                          tout << "model: " << m << "\n";
                           m_mc.display(tout);
                           );
                     ok = false;
@@ -1289,10 +1289,10 @@ namespace sat {
         }
         for (unsigned i = 0; i < m_assumptions.size(); ++i) {
             if (value_at(m_assumptions[i], m) != l_true) {
-                TRACE("sat", 
+                TRACE("sat",
                       tout << m_assumptions[i] << " does not model check\n";
                       tout << "trail: " << m_trail << "\n";
-                      tout << "model: " << m << "\n";      
+                      tout << "model: " << m << "\n";
                       m_mc.display(tout);
                       );
                 ok = false;
@@ -1664,7 +1664,7 @@ namespace sat {
             resolve_conflict_for_unsat_core();
             return false;
         }
-        
+
         if (m_conflict_lvl == 0) {
             return false;
         }
@@ -1849,11 +1849,11 @@ namespace sat {
     bool solver::resolve_conflict_for_init() {
         if (m_conflict_lvl == 0) {
             return false;
-        }        
+        }
         m_lemma.reset();
         m_lemma.push_back(null_literal); // asserted literal
         if (m_not_l != null_literal) {
-            TRACE("sat", tout << "not_l: " << m_not_l << "\n";);            
+            TRACE("sat", tout << "not_l: " << m_not_l << "\n";);
             process_antecedent_for_init(m_not_l);
         }
         literal consequent = m_not_l;
@@ -1988,7 +1988,7 @@ namespace sat {
                     SASSERT(!is_marked(m_trail[i].var()));
                 }});
 
-        unsigned old_size = m_unmark.size();        
+        unsigned old_size = m_unmark.size();
         int idx = skip_literals_above_conflict_level();
 
         if (m_not_l != null_literal) {
@@ -2005,7 +2005,7 @@ namespace sat {
                 process_consequent_for_unsat_core(m_not_l, js);
             }
         }
-                    
+
         literal consequent = m_not_l;
         justification js   = m_conflict;
 
@@ -2031,7 +2031,7 @@ namespace sat {
             SASSERT(lvl(consequent) == m_conflict_lvl);
             js             = m_justification[c_var];
             idx--;
-        }        
+        }
         reset_unmark(old_size);
         if (m_config.m_core_minimize) {
             if (m_min_core_valid && m_min_core.size() < m_core.size()) {
@@ -2039,7 +2039,7 @@ namespace sat {
                 m_core.reset();
                 m_core.append(m_min_core);
             }
-            // TBD: 
+            // TBD:
             // apply optional clause minimization by detecting subsumed literals.
             // initial experiment suggests it has no effect.
             m_mus(); // ignore return value on cancelation.
@@ -2511,7 +2511,7 @@ namespace sat {
 
     void solver::pop_reinit(unsigned num_scopes) {
         pop(num_scopes);
-        reinit_assumptions();        
+        reinit_assumptions();
     }
 
     void solver::pop(unsigned num_scopes) {
@@ -2578,13 +2578,13 @@ namespace sat {
         m_clauses_to_reinit.shrink(j);
     }
 
-    // 
+    //
     // All new clauses that are added to the solver
     // are relative to the user-scope literals.
-    // 
+    //
 
     void solver::user_push() {
-        literal lit;      
+        literal lit;
         bool_var new_v = mk_var(true, false);
         lit = literal(new_v, false);
         m_user_scope_literals.push_back(lit);
@@ -2674,7 +2674,7 @@ namespace sat {
             m_phase.shrink(v);
             m_prev_phase.shrink(v);
             m_assigned_since_gc.shrink(v);
-            m_simplifier.reset_todo();
+            m_simplifier.reset_todos();
         }
     }
 
@@ -2698,7 +2698,7 @@ namespace sat {
                     unassign_vars(i);
                     break;
                 }
-            }            
+            }
             gc_var(lit.var());
         }
     }
@@ -3042,7 +3042,7 @@ namespace sat {
         if (scope_lvl() > 0 || inconsistent())
             return;
         m_simplifier(learned);
-        m_simplifier.free_memory();
+        m_simplifier.finalize();
         if (m_ext)
             m_ext->clauses_modifed();
     }
@@ -3084,10 +3084,10 @@ namespace sat {
         }
         bool non_empty = true;
         m_seen[0].reset();
-        while (non_empty) {            
+        while (non_empty) {
             literal_vector mutex;
             bool turn = false;
-            m_reachable[turn] = ps; 
+            m_reachable[turn] = ps;
             while (!m_reachable[turn].empty()) {
                 literal p = m_reachable[turn].pop();
                 if (m_seen[0].contains(p)) {
@@ -3104,7 +3104,7 @@ namespace sat {
                 turn = !turn;
             }
             if (mutex.size() > 1) {
-                mutexes.push_back(mutex);            
+                mutexes.push_back(mutex);
             }
             non_empty = !mutex.empty();
         }
@@ -3148,7 +3148,7 @@ namespace sat {
             switch (get_model()[v]) {
             case l_true: lits.push_back(literal(v, false)); break;
             case l_false: lits.push_back(literal(v, true)); break;
-            default: break;                
+            default: break;
             }
         }
         is_sat = get_consequences(asms, lits, conseq);
@@ -3175,7 +3175,7 @@ namespace sat {
         }
         propagate(false);
         if (check_inconsistent()) return l_false;
-       
+
         unsigned num_units = 0, num_iterations = 0;
         extract_fixed_consequences(num_units, assumptions, vars, conseq);
         while (!vars.empty()) {
@@ -3192,14 +3192,14 @@ namespace sat {
                 push();
                 assign(~lit, justification());
                 propagate(false);
-                while (inconsistent()) {      
+                while (inconsistent()) {
                     if (!resolve_conflict()) {
                         TRACE("sat", display(tout << "inconsistent\n"););
                         m_inconsistent = false;
                         is_sat = l_undef;
                         break;
                     }
-                    propagate(false);                    
+                    propagate(false);
                     ++num_resolves;
                 }
                 if (scope_lvl() == 1) {
@@ -3213,7 +3213,7 @@ namespace sat {
                 else {
                     is_sat = bounded_search();
                     if (is_sat == l_undef) {
-                        restart();      
+                        restart();
                     }
                 }
             }
@@ -3224,7 +3224,7 @@ namespace sat {
             if (is_sat == l_true) {
                 delete_unfixed(vars);
             }
-            extract_fixed_consequences(num_units, assumptions, vars, conseq);            
+            extract_fixed_consequences(num_units, assumptions, vars, conseq);
             IF_VERBOSE(1, verbose_stream() << "(sat.get-consequences"
                        << " iterations: " << num_iterations
                        << " variables: " << vars.size()
@@ -3244,10 +3244,10 @@ namespace sat {
             if (value(lit) == l_true) {
                 to_keep.insert(lit);
             }
-        }        
+        }
         unfixed = to_keep;
     }
-    
+
     void solver::extract_fixed_consequences(unsigned& start, literal_set const& assumptions, literal_set& unfixed, vector<literal_vector>& conseq) {
         if (scope_lvl() > 1) {
             pop(scope_lvl() - 1);
@@ -3297,7 +3297,7 @@ namespace sat {
     }
 
     void solver::extract_fixed_consequences(literal lit, literal_set const& assumptions, literal_set& unfixed, vector<literal_vector>& conseq) {
-        index_set s;        
+        index_set s;
         if (assumptions.contains(lit)) {
             s.insert(lit.index());
         }

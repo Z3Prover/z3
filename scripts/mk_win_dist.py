@@ -236,23 +236,9 @@ def mk_zip():
 VS_RUNTIME_PATS = [re.compile('vcomp.*\.dll'),
                    re.compile('msvcp.*\.dll'),
                    re.compile('msvcr.*\.dll')]
-
-VS_RUNTIME_FILES = []
                               
-def cp_vs_runtime_visitor(pattern, dir, files):
-    global VS_RUNTIME_FILES
-    for filename in files:
-        for pat in VS_RUNTIME_PATS:
-            if pat.match(filename):
-                if fnmatch(filename, pattern):
-                    fname = os.path.join(dir, filename)
-                    if not os.path.isdir(fname):
-                        VS_RUNTIME_FILES.append(fname)
-                break
-
 # Copy Visual Studio Runtime libraries
-def cp_vs_runtime_core(x64):
-    global VS_RUNTIME_FILES
+def cp_vs_runtime_core(x64):    
     if x64:
         platform = "x64"
         
@@ -261,7 +247,15 @@ def cp_vs_runtime_core(x64):
     vcdir = os.environ['VCINSTALLDIR']
     path  = '%sredist\\%s' % (vcdir, platform)
     VS_RUNTIME_FILES = []
-    os.walk(path, cp_vs_runtime_visitor, '*.dll')
+    for root, dirs, files in os.walk(path):
+        for filename in files:
+            if fnmatch(filename, '*.dll'):            
+                for pat in VS_RUNTIME_PATS:
+                    if pat.match(filename):
+                        fname = os.path.join(root, filename)
+                        if not os.path.isdir(fname):
+                            VS_RUNTIME_FILES.append(fname)
+
     bin_dist_path = os.path.join(DIST_DIR, get_dist_path(x64), 'bin')
     for f in VS_RUNTIME_FILES:
         shutil.copy(f, bin_dist_path)
