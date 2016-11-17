@@ -369,7 +369,7 @@ namespace smt {
 
 
     lbool context::find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) {
-        index_set lits;
+        uint_set lits;
         for (unsigned i = 0; i < vars.size(); ++i) {
             expr* n = vars[i];
             bool neg = m_manager.is_not(n, n);
@@ -379,11 +379,11 @@ namespace smt {
         }
         while (!lits.empty()) {
             literal_vector mutex;
-            index_set other(lits);
+            uint_set other(lits);
             while (!other.empty()) {
-                index_set conseq;
+                uint_set conseq;
                 literal p = to_literal(*other.begin());
-                other.erase(p.index());
+                other.remove(p.index());
                 mutex.push_back(p);
                 if (other.empty()) {
                     break;
@@ -407,11 +407,12 @@ namespace smt {
         return l_true;
     }
 
-    void context::get_reachable(literal p, index_set& goal, index_set& reachable) {
-        index_set seen;
+    void context::get_reachable(literal p, uint_set& goal, uint_set& reachable) {
+        uint_set seen;
         literal_vector todo;
         todo.push_back(p);
         while (!todo.empty()) {
+            // std::cout << "todo: " << todo.size() << "\n";
             p = todo.back();
             todo.pop_back();
             if (seen.contains(p.index())) {

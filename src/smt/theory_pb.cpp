@@ -1289,7 +1289,7 @@ namespace smt {
         m_stats.m_num_compiled_vars += sortnw.m_stats.m_num_compiled_vars;
         m_stats.m_num_compiled_clauses += sortnw.m_stats.m_num_compiled_clauses;
 
-        IF_VERBOSE(1, verbose_stream() 
+        IF_VERBOSE(2, verbose_stream() 
                    << "(smt.pb compile sorting network bound: " 
                    << k << " literals: " << in.size() 
                    << " clauses: " << sortnw.m_stats.m_num_compiled_clauses 

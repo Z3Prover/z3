@@ -38,7 +38,8 @@ namespace opt {
         m_c(c),
         m_soft(soft),
         m_weights(ws),
-        m_assertions(m) {
+        m_assertions(m),
+        m_trail(m) {
         c.get_base_model(m_model);
         SASSERT(m_model);
         updt_params(c.params());
@@ -150,6 +151,67 @@ namespace opt {
                    rational u = m_adjust_value(m_upper);
                    if (l > u) std::swap(l, u);
                    verbose_stream() << "(opt." << solver << " [" << l << ":" << u << "])\n";);        
+    }
+
+    lbool maxsmt_solver_base::find_mutexes(obj_map<expr, rational>& new_soft) {
+        m_lower.reset();
+        for (unsigned i = 0; i < m_soft.size(); ++i) {
+            new_soft.insert(m_soft[i], m_weights[i]);
+        }
+        vector<expr_ref_vector> mutexes;
+        lbool is_sat = s().find_mutexes(m_soft, mutexes);
+        if (is_sat != l_true) {
+            return is_sat;
+        }
+        for (unsigned i = 0; i < mutexes.size(); ++i) {
+            process_mutex(mutexes[i], new_soft);
+        }
+        return l_true;
+    }
+
+    struct maxsmt_compare_soft {
+        obj_map<expr, rational> const& m_soft;
+        maxsmt_compare_soft(obj_map<expr, rational> const& soft): m_soft(soft) {}
+        bool operator()(expr* a, expr* b) const {
+            return m_soft.find(a) > m_soft.find(b);
+        }
+    };
+
+    void maxsmt_solver_base::process_mutex(expr_ref_vector& mutex, obj_map<expr, rational>& new_soft) {
+        TRACE("opt", 
+              for (unsigned i = 0; i < mutex.size(); ++i) {
+                  tout << mk_pp(mutex[i].get(), m) << " |-> " << new_soft.find(mutex[i].get()) << "\n";
+              });
+        if (mutex.size() <= 1) {
+            return;
+        }
+        maxsmt_compare_soft cmp(new_soft);
+        ptr_vector<expr> _mutex(mutex.size(), mutex.c_ptr());
+        std::sort(_mutex.begin(), _mutex.end(), cmp);
+        mutex.reset();
+        mutex.append(_mutex.size(), _mutex.c_ptr());
+
+        rational weight(0), sum1(0), sum2(0);
+        vector<rational> weights;
+        for (unsigned i = 0; i < mutex.size(); ++i) {
+            rational w = new_soft.find(mutex[i].get());
+            weights.push_back(w);
+            sum1 += w;
+            new_soft.remove(mutex[i].get());
+        }
+        for (unsigned i = mutex.size(); i > 0; ) {
+            --i;
+            expr_ref soft(m.mk_or(i+1, mutex.c_ptr()), m);
+            m_trail.push_back(soft);
+            rational w = weights[i];
+            weight = w - weight;
+            m_lower += weight*rational(i);
+            sum2 += weight*rational(i+1);
+            new_soft.insert(soft, weight);
+            for (; i > 0 && weights[i-1] == w; --i) {} 
+            weight = w;
+        }        
+        SASSERT(sum1 == sum2);        
     }
 
 
@@ -308,6 +370,7 @@ namespace opt {
     solver& maxsmt::s() {
         return m_c.get_solver(); 
     }
+
 
 
 };

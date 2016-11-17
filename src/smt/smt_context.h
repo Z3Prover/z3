@@ -1371,7 +1371,7 @@ namespace smt {
           \brief Auxiliry function for mutex finding.
          */
 
-        void get_reachable(literal p, index_set& goal, index_set& reached);
+        void get_reachable(literal p, uint_set& goal, uint_set& reached);
 
     public:
         context(ast_manager & m, smt_params & fp, params_ref const & p = params_ref());

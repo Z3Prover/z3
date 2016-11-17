@@ -62,6 +62,7 @@ namespace opt {
         const expr_ref_vector  m_soft;
         vector<rational> m_weights;
         expr_ref_vector  m_assertions;
+        expr_ref_vector  m_trail;
         rational         m_lower;
         rational         m_upper;
         model_ref        m_model;
@@ -95,11 +96,16 @@ namespace opt {
             ~scoped_ensure_theory();
             smt::theory_wmaxsat& operator()();
         };
+
+        lbool find_mutexes(obj_map<expr, rational>& new_soft);
         
 
     protected:
         void enable_sls(bool force);
         void trace_bounds(char const* solver);
+
+        void process_mutex(expr_ref_vector& mutex, obj_map<expr, rational>& new_soft);
+
 
     };
 

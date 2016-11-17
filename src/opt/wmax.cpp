@@ -40,19 +40,28 @@ namespace opt {
         lbool operator()() {
             TRACE("opt", tout << "weighted maxsat\n";);
             scoped_ensure_theory wth(*this);
-            lbool is_sat = l_true;
-            bool was_sat = false;
-            for (unsigned i = 0; i < m_soft.size(); ++i) {
-                wth().assert_weighted(m_soft[i], m_weights[i]);
+            obj_map<expr, rational> soft;            
+            lbool is_sat = find_mutexes(soft);
+            if (is_sat != l_true) {
+                return is_sat;
             }
-            while (l_true == is_sat) {
-                is_sat = s().check_sat(0,0);
+            rational offset = m_lower;
+            m_upper = offset;
+            bool was_sat = false;
+            obj_map<expr, rational>::iterator it = soft.begin(), end = soft.end();
+            for (; it != end; ++it) {
+                wth().assert_weighted(it->m_key, it->m_value);
+                m_upper += it->m_value;
+            }
+            trace_bounds("wmax");
+            while (l_true == is_sat && m_lower < m_upper) {
+                is_sat = s().check_sat(0, 0);
                 if (m.canceled()) {
                     is_sat = l_undef;
                 }
                 if (is_sat == l_true) {
                     if (wth().is_optimal()) {
-                        m_upper = wth().get_min_cost();
+                        m_upper = offset + wth().get_min_cost();
                         s().get_model(m_model);
                     }
                     expr_ref fml = wth().mk_block();
@@ -63,11 +72,11 @@ namespace opt {
             }
             if (was_sat) {
                 wth().get_assignment(m_assignment);
+                m_upper = offset + wth().get_min_cost();
             }
             if (is_sat == l_false && was_sat) {
                 is_sat = l_true;
             }
-            m_upper = wth().get_min_cost();
             if (is_sat == l_true) {
                 m_lower = m_upper;
             }

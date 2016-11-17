@@ -231,7 +231,7 @@ struct scoped_timer::imp {
 };
 
 scoped_timer::scoped_timer(unsigned ms, event_handler * eh) {
-    if (ms != UINT_MAX)
+    if (ms != UINT_MAX && ms != 0)
         m_imp = alloc(imp, ms, eh);
     else
         m_imp = 0;
