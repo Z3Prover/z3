@@ -3105,6 +3105,7 @@ namespace smt {
                     theory_str * str = (theory_str*)th;
                     if (str->overlapping_variables_detected()) {
                         TRACE("t_str", tout << "WARNING: overlapping variables detected, UNSAT changed to UNKNOWN!" << std::endl;);
+                        TRACE("context", tout << "WARNING: overlapping variables detected in theory_str. UNSAT changed to UNKNOWN!" << std::endl;);
                         r = l_undef;
                     }
                     break;
