@@ -23,6 +23,8 @@ Revision History:
 #include<list>
 #include<vector>
 #include<algorithm>
+
+#include "../ast/ast.h"
 #include"theory_arith.h"
 
 namespace smt {
@@ -2834,31 +2836,31 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
         //   len(x) < len(m) || len(y) > len(n)
         //--------------------------------------
         if (!has_self_cut(m, y)) {
-            expr ** ax_l_items = alloc_svect(expr*, 3);
-            expr ** ax_r_items = alloc_svect(expr*, 3);
+            expr_ref_vector ax_l_items(mgr);
+            expr_ref_vector ax_r_items(mgr);
 
-            ax_l_items[0] = ctx.mk_eq_atom(concatAst1, concatAst2);
+            ax_l_items.push_back(ctx.mk_eq_atom(concatAst1, concatAst2));
 
             expr_ref x_t1(mk_concat(x, t1), mgr);
             expr_ref t1_n(mk_concat(t1, n), mgr);
 
-            ax_r_items[0] = ctx.mk_eq_atom(m, x_t1);
-            ax_r_items[1] = ctx.mk_eq_atom(y, t1_n);
+            ax_r_items.push_back(ctx.mk_eq_atom(m, x_t1));
+            ax_r_items.push_back(ctx.mk_eq_atom(y, t1_n));
 
             if (m_len_exists && x_len_exists) {
-                ax_l_items[1] = ctx.mk_eq_atom(mk_strlen(x), mk_int(x_len));
-                ax_l_items[2] = ctx.mk_eq_atom(mk_strlen(m), mk_int(m_len));
+                ax_l_items.push_back(ctx.mk_eq_atom(mk_strlen(x), mk_int(x_len)));
+                ax_l_items.push_back(ctx.mk_eq_atom(mk_strlen(m), mk_int(m_len)));
                 rational m_sub_x = m_len - x_len;
-                ax_r_items[2] = ctx.mk_eq_atom(mk_strlen(t1), mk_int(m_sub_x));
+                ax_r_items.push_back(ctx.mk_eq_atom(mk_strlen(t1), mk_int(m_sub_x)));
             } else {
-                ax_l_items[1] = ctx.mk_eq_atom(mk_strlen(y), mk_int(y_len));
-                ax_l_items[2] = ctx.mk_eq_atom(mk_strlen(n), mk_int(n_len));
+                ax_l_items.push_back(ctx.mk_eq_atom(mk_strlen(y), mk_int(y_len)));
+                ax_l_items.push_back(ctx.mk_eq_atom(mk_strlen(n), mk_int(n_len)));
                 rational y_sub_n = y_len - n_len;
-                ax_r_items[2] = ctx.mk_eq_atom(mk_strlen(t1), mk_int(y_sub_n));
+                ax_r_items.push_back(ctx.mk_eq_atom(mk_strlen(t1), mk_int(y_sub_n)));
             }
 
-            expr_ref ax_l(mgr.mk_and(3, ax_l_items), mgr);
-            expr_ref ax_r(mgr.mk_and(3, ax_r_items), mgr);
+            expr_ref ax_l(mk_and(ax_l_items), mgr);
+            expr_ref ax_r(mk_and(ax_r_items), mgr);
 
             // Cut Info
             add_cut_info_merge(t1, sLevel, m);
@@ -2885,27 +2887,27 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
             expr_ref m_t2(mk_concat(m, t2), mgr);
             expr_ref t2_y(mk_concat(t2, y), mgr);
 
-            expr ** ax_l_items = alloc_svect(expr*, 3);
-            ax_l_items[0] = ctx.mk_eq_atom(concatAst1, concatAst2);
+            expr_ref_vector ax_l_items(mgr);
+            ax_l_items.push_back(ctx.mk_eq_atom(concatAst1, concatAst2));
 
-            expr ** ax_r_items = alloc_svect(expr*, 3);
-            ax_r_items[0] = ctx.mk_eq_atom(x, m_t2);
-            ax_r_items[1] = ctx.mk_eq_atom(t2_y, n);
+            expr_ref_vector ax_r_items(mgr);
+            ax_r_items.push_back(ctx.mk_eq_atom(x, m_t2));
+            ax_r_items.push_back(ctx.mk_eq_atom(t2_y, n));
 
             if (m_len_exists && x_len_exists) {
-                ax_l_items[1] = ctx.mk_eq_atom(mk_strlen(x), mk_int(x_len));
-                ax_l_items[2] = ctx.mk_eq_atom(mk_strlen(m), mk_int(m_len));
+                ax_l_items.push_back(ctx.mk_eq_atom(mk_strlen(x), mk_int(x_len)));
+                ax_l_items.push_back(ctx.mk_eq_atom(mk_strlen(m), mk_int(m_len)));
                 rational x_sub_m = x_len - m_len;
-                ax_r_items[2] = ctx.mk_eq_atom(mk_strlen(t2), mk_int(x_sub_m));
+                ax_r_items.push_back(ctx.mk_eq_atom(mk_strlen(t2), mk_int(x_sub_m)));
             } else {
-                ax_l_items[1] = ctx.mk_eq_atom(mk_strlen(y), mk_int(y_len));
-                ax_l_items[2] = ctx.mk_eq_atom(mk_strlen(n), mk_int(n_len));
+                ax_l_items.push_back(ctx.mk_eq_atom(mk_strlen(y), mk_int(y_len)));
+                ax_l_items.push_back(ctx.mk_eq_atom(mk_strlen(n), mk_int(n_len)));
                 rational n_sub_y = n_len - y_len;
-                ax_r_items[2] = ctx.mk_eq_atom(mk_strlen(t2), mk_int(n_sub_y));
+                ax_r_items.push_back(ctx.mk_eq_atom(mk_strlen(t2), mk_int(n_sub_y)));
             }
 
-            expr_ref ax_l(mgr.mk_and(3, ax_l_items), mgr);
-            expr_ref ax_r(mgr.mk_and(3, ax_r_items), mgr);
+            expr_ref ax_l(mk_and(ax_l_items), mgr);
+            expr_ref ax_r(mk_and(ax_r_items), mgr);
 
             // Cut Info
             add_cut_info_merge(t2, sLevel, x);
@@ -2919,8 +2921,8 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
         }
     } else if (splitType == -1) {
         // Here we don't really have a choice. We have no length information at all...
-        expr ** or_item = alloc_svect(expr*, 3);
-        expr ** and_item = alloc_svect(expr*, 20);
+        expr_ref_vector or_item(mgr);
+        expr_ref_vector and_item(mgr);
         int option = 0;
         int pos = 1;
 
@@ -2928,28 +2930,29 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
         // len(x) < len(m) || len(y) > len(n)
         if (!avoidLoopCut || !has_self_cut(m, y)) {
             // break down option 1-1
-            expr * x_t1 = mk_concat(x, t1);
-            expr * t1_n = mk_concat(t1, n);
-            or_item[option] = ctx.mk_eq_atom(xorFlag, mk_int(option));
-            and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(m, x_t1));
-            and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(y, t1_n));
+            expr_ref x_t1(mk_concat(x, t1), mgr);
+            expr_ref t1_n(mk_concat(t1, n), mgr);
+            expr_ref or_item_option(ctx.mk_eq_atom(xorFlag, mk_int(option)), mgr);
+            or_item.push_back(or_item_option);
+            and_item.push_back(ctx.mk_eq_atom(or_item_option, ctx.mk_eq_atom(m, x_t1)));
+            and_item.push_back(ctx.mk_eq_atom(or_item_option, ctx.mk_eq_atom(y, t1_n)));
 
             expr_ref x_plus_t1(m_autil.mk_add(mk_strlen(x), mk_strlen(t1)), mgr);
-            and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(mk_strlen(m), x_plus_t1));
+            and_item.push_back(ctx.mk_eq_atom(or_item_option, ctx.mk_eq_atom(mk_strlen(m), x_plus_t1)));
             // These were crashing the solver because the integer theory
             // expects a constant on the right-hand side.
             // The things we want to assert here are len(m) > len(x) and len(y) > len(n).
             // We rewrite A > B as A-B > 0 and then as not(A-B <= 0),
             // and then, *because we aren't allowed to use subtraction*,
             // as not(A + -1*B <= 0)
-            and_item[pos++] = ctx.mk_eq_atom(or_item[option],
+            and_item.push_back(ctx.mk_eq_atom(or_item_option,
                     mgr.mk_not(m_autil.mk_le(
                     		m_autil.mk_add(mk_strlen(m), m_autil.mk_mul(mk_int(-1), mk_strlen(x))),
-							mk_int(0))) );
-            and_item[pos++] = ctx.mk_eq_atom(or_item[option],
+							mk_int(0))) ));
+            and_item.push_back(ctx.mk_eq_atom(or_item_option,
                     mgr.mk_not(m_autil.mk_le(
                     		m_autil.mk_add(mk_strlen(y),m_autil.mk_mul(mk_int(-1), mk_strlen(n))),
-							mk_int(0))) );
+							mk_int(0))) ));
 
             option++;
 
@@ -2965,25 +2968,26 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
         // x = m || y = n
         if (!avoidLoopCut || !has_self_cut(x, n)) {
             // break down option 1-2
-            expr * m_t2 = mk_concat(m, t2);
-            expr * t2_y = mk_concat(t2, y);
-            or_item[option] = ctx.mk_eq_atom(xorFlag, mk_int(option));
-            and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(x, m_t2));
-            and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(n, t2_y));
+            expr_ref m_t2(mk_concat(m, t2), mgr);
+            expr_ref t2_y(mk_concat(t2, y), mgr);
+            expr_ref or_item_option(ctx.mk_eq_atom(xorFlag, mk_int(option)), mgr);
+            or_item.push_back(or_item_option);
+            and_item.push_back(ctx.mk_eq_atom(or_item_option, ctx.mk_eq_atom(x, m_t2)));
+            and_item.push_back(ctx.mk_eq_atom(or_item_option, ctx.mk_eq_atom(n, t2_y)));
 
 
             expr_ref m_plus_t2(m_autil.mk_add(mk_strlen(m), mk_strlen(t2)), mgr);
 
-            and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(mk_strlen(x), m_plus_t2));
+            and_item.push_back(ctx.mk_eq_atom(or_item_option, ctx.mk_eq_atom(mk_strlen(x), m_plus_t2)));
             // want len(x) > len(m) and len(n) > len(y)
-            and_item[pos++] = ctx.mk_eq_atom(or_item[option],
+            and_item.push_back(ctx.mk_eq_atom(or_item_option,
             		mgr.mk_not(m_autil.mk_le(
             				m_autil.mk_add(mk_strlen(x), m_autil.mk_mul(mk_int(-1), mk_strlen(m))),
-							mk_int(0))) );
-            and_item[pos++] = ctx.mk_eq_atom(or_item[option],
+							mk_int(0))) ));
+            and_item.push_back(ctx.mk_eq_atom(or_item_option,
             		mgr.mk_not(m_autil.mk_le(
             				m_autil.mk_add(mk_strlen(n), m_autil.mk_mul(mk_int(-1), mk_strlen(y))),
-							mk_int(0))) );
+							mk_int(0))) ));
 
 
             option++;
@@ -2997,22 +3001,20 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
         }
 
         if (can_two_nodes_eq(x, m) && can_two_nodes_eq(y, n)) {
-            or_item[option] = ctx.mk_eq_atom(xorFlag, mk_int(option));
-            and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(x, m));
-            and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(y, n));
-            and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(mk_strlen(x), mk_strlen(m)));
-            and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(mk_strlen(y), mk_strlen(n)));
+            expr_ref or_item_option(ctx.mk_eq_atom(xorFlag, mk_int(option)), mgr);
+            or_item.push_back(or_item_option);
+            and_item.push_back(ctx.mk_eq_atom(or_item_option, ctx.mk_eq_atom(x, m)));
+            and_item.push_back(ctx.mk_eq_atom(or_item_option, ctx.mk_eq_atom(y, n)));
+            and_item.push_back(ctx.mk_eq_atom(or_item_option, ctx.mk_eq_atom(mk_strlen(x), mk_strlen(m))));
+            and_item.push_back(ctx.mk_eq_atom(or_item_option, ctx.mk_eq_atom(mk_strlen(y), mk_strlen(n))));
             ++option;
         }
 
         if (option > 0) {
-            if (option == 1) {
-                and_item[0] = or_item[0];
-            } else {
-                and_item[0] = mgr.mk_or(option, or_item);
-            }
+            and_item.push_back(mk_or(or_item));
+
             expr_ref premise(ctx.mk_eq_atom(concatAst1, concatAst2), mgr);
-            expr_ref conclusion(mgr.mk_and(pos, and_item), mgr);
+            expr_ref conclusion(mk_and(and_item), mgr);
             assert_implication(premise, conclusion);
         } else {
             TRACE("t_str", tout << "STOP: no split option found for two EQ concats." << std::endl;);
