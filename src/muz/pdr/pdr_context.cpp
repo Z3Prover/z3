@@ -901,7 +901,10 @@ namespace pdr {
         SASSERT(m_prev);
         SASSERT(children().empty());
         if (this == m_next) {
-            root = 0;
+            SASSERT(m_prev == this);
+            if (root == this) {
+                root = 0;
+            }
         }
         else {
             m_next->m_prev = m_prev;
