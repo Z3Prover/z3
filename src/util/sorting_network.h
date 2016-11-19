@@ -744,6 +744,7 @@ Notes:
             return vc_cmp()*std::min(a-1,b);
         }
         
+    public:
         void sorting(unsigned n, literal const* xs, literal_vector& out) {
             TRACE("pb", tout << "sorting: " << n << "\n";);
             switch(n) {
@@ -773,8 +774,9 @@ Notes:
             TRACE("pb", tout << "sorting: " << n << "\n";
                   pp(tout << "in:", n, xs) << "\n"; 
                   pp(tout << "out:", out) << "\n";);
-
         }
+
+    private:
         vc vc_sorting(unsigned n) {
             switch(n) {
             case 0: return vc(0,0);

@@ -96,6 +96,7 @@ namespace sat {
     };
 
     const literal null_literal;
+    struct literal_hash : obj_hash<literal> {};
 
     inline literal to_literal(unsigned x) { return literal(x); }
     inline bool operator<(literal const & l1, literal const & l2) { return l1.m_val < l2.m_val;  }

@@ -162,7 +162,6 @@ public:
         if (m_asm2weight.find(e, weight)) {
             weight += w;
             m_asm2weight.insert(e, weight);
-            m_upper += w;
             return;
         }
         if (is_literal(e)) {
@@ -174,7 +173,6 @@ public:
             s().assert_expr(fml);
         }
         new_assumption(asum, w);
-        m_upper += w;
     }
 
     void new_assumption(expr* e, rational const& w) {
@@ -805,7 +803,6 @@ public:
     }
 
     lbool init_local() {
-        m_upper.reset();
         m_lower.reset();
         m_trail.reset();
         obj_map<expr, rational> new_soft;

@@ -51,7 +51,10 @@ namespace opt {
             obj_map<expr, rational>::iterator it = soft.begin(), end = soft.end();
             for (; it != end; ++it) {
                 wth().assert_weighted(it->m_key, it->m_value);
-                m_upper += it->m_value;
+                expr_ref tmp(m);
+                if (!m_model->eval(it->m_key, tmp) || !m.is_true(tmp)) {
+                    m_upper += it->m_value;
+                }
             }
             trace_bounds("wmax");
             while (l_true == is_sat && m_lower < m_upper) {

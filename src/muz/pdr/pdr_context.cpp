@@ -584,6 +584,7 @@ namespace pdr {
         init_atom(pts, rule.get_head(), var_reprs, conj, UINT_MAX);
         for (unsigned i = 0; i < ut_size; ++i) {
             if (rule.is_neg_tail(i)) {
+                dealloc(&var_reprs);
                 throw default_exception("PDR does not support negated predicates in rule tails");
             }
             init_atom(pts, rule.get_tail(i), var_reprs, conj, i);
@@ -602,7 +603,13 @@ namespace pdr {
             var_subst(m, false)(tail[i].get(), var_reprs.size(), (expr*const*)var_reprs.c_ptr(), tmp);
             conj.push_back(tmp);
             TRACE("pdr", tout << mk_pp(tail[i].get(), m) << "\n" << mk_pp(tmp, m) << "\n";);
-            SASSERT(is_ground(tmp));
+            if (!is_ground(tmp)) {
+                std::stringstream msg;
+                msg << "PDR cannot solve non-ground tails: " << tmp;
+                IF_VERBOSE(0, verbose_stream() << msg.str() << "\n";);
+                dealloc(&var_reprs);
+                throw default_exception(msg.str());
+            }
         }
         expr_ref fml = pm.mk_and(conj);
         th_rewriter rw(m);

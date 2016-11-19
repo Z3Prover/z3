@@ -451,13 +451,8 @@ namespace sat {
 
         u_map<index_set>       m_antecedents;
         vector<literal_vector> m_binary_clause_graph;
-        literal_set            m_reachable[2];
-        literal_set            m_seen[2];
-        literal_vector         m_todo;
 
         void extract_assumptions(literal lit, index_set& s);
-
-        void get_reachable(literal p, literal_set const& goal, literal_set& reachable);
 
         lbool get_consequences(literal_vector const& assms, literal_vector const& lits, vector<literal_vector>& conseq);
 
