@@ -238,14 +238,7 @@ namespace smt {
         if (m_fpa_util.is_fp(e)) {
             expr * cargs[3] = { to_app(e)->get_arg(0), to_app(e)->get_arg(1), to_app(e)->get_arg(2) };
             res = m_bv_util.mk_concat(3, cargs);
-
-            try {
-                m_th_rw((expr_ref&)res);
-            }
-            catch (rewriter_exception &) {
-                m_th_rw.reset();
-                throw;
-            }
+            m_th_rw((expr_ref&)res);
         }
         else {
             sort * es = m.get_sort(e);
@@ -302,15 +295,8 @@ namespace smt {
         TRACE("t_fpa_detail", tout << "converting atom: " << mk_ismt2_pp(e, get_manager()) << std::endl;);
         expr_ref res(m);
         proof_ref pr(m);
-        try {
-            m_rw(e, res);
-            m_th_rw(res, res);
-        }
-        catch (rewriter_exception &) {
-            m_rw.reset();
-            m_th_rw.reset();
-            throw;
-        }
+        m_rw(e, res);
+        m_th_rw(res, res);
         SASSERT(is_app(res));
         SASSERT(m.is_bool(res));
         return res;
@@ -323,41 +309,28 @@ namespace smt {
         expr_ref e_conv(m), res(m);
         proof_ref pr(m);
 
-        try {
-            m_rw(e, e_conv);
-        }
-        catch (rewriter_exception &) {
-            m_rw.reset();
-            throw;
-        }
+        m_rw(e, e_conv);
 
         TRACE("t_fpa_detail", tout << "term: " << mk_ismt2_pp(e, get_manager()) << std::endl;
                               tout << "converted term: " << mk_ismt2_pp(e_conv, get_manager()) << std::endl;);
 
-        try {
-            if (m_fpa_util.is_rm(e)) {
-                SASSERT(m_fpa_util.is_bv2rm(e_conv));
-                expr_ref bv_rm(m);
-                m_th_rw(to_app(e_conv)->get_arg(0), bv_rm);
-                res = m_fpa_util.mk_bv2rm(bv_rm);
-            }
-            else if (m_fpa_util.is_float(e)) {
-                SASSERT(m_fpa_util.is_fp(e_conv));
-                expr_ref sgn(m), sig(m), exp(m);
-                m_converter.split_fp(e_conv, sgn, exp, sig);
-                m_th_rw(sgn);
-                m_th_rw(exp);
-                m_th_rw(sig);
-                res = m_fpa_util.mk_fp(sgn, exp, sig);
-            }
-            else
-                UNREACHABLE();
+        if (m_fpa_util.is_rm(e)) {
+            SASSERT(m_fpa_util.is_bv2rm(e_conv));
+            expr_ref bv_rm(m);
+            m_th_rw(to_app(e_conv)->get_arg(0), bv_rm);
+            res = m_fpa_util.mk_bv2rm(bv_rm);
         }
-        catch (rewriter_exception &)
-        {
-            m_th_rw.reset();
-            throw;
+        else if (m_fpa_util.is_float(e)) {
+            SASSERT(m_fpa_util.is_fp(e_conv));
+            expr_ref sgn(m), sig(m), exp(m);
+            m_converter.split_fp(e_conv, sgn, exp, sig);
+            m_th_rw(sgn);
+            m_th_rw(exp);
+            m_th_rw(sig);
+            res = m_fpa_util.mk_fp(sgn, exp, sig);
         }
+        else
+            UNREACHABLE();
 
         return res;
     }
@@ -366,15 +339,8 @@ namespace smt {
         SASSERT(to_app(e)->get_family_id() == get_family_id());
         /* This is for the conversion functions fp.to_* */
         expr_ref res(get_manager());
-        try {
-            m_rw(e, res);
-            m_th_rw(res, res);
-        }
-        catch (rewriter_exception &) {
-            m_rw.reset();
-            m_th_rw.reset();
-            throw;
-        }
+        m_rw(e, res);
+        m_th_rw(res, res);
         return res;
     }
 
@@ -432,13 +398,7 @@ namespace smt {
         }
         m_converter.m_extra_assertions.reset();
 
-        try {
-            m_th_rw(res);
-        }
-        catch (rewriter_exception &) {
-            m_th_rw.reset();
-            throw;
-        }
+        m_th_rw(res);
 
         CTRACE("t_fpa", !m.is_true(res), tout << "side condition: " << mk_ismt2_pp(res, m) << std::endl;);
         return res;
@@ -481,15 +441,7 @@ namespace smt {
         expr_ref bv_atom(convert_atom(atom));
         expr_ref bv_atom_w_side_c(m), atom_eq(m);
         bv_atom_w_side_c = m.mk_and(bv_atom, mk_side_conditions());
-
-        try {
-            m_th_rw(bv_atom_w_side_c);
-        }
-        catch (rewriter_exception &) {
-            m_th_rw.reset();
-            throw;
-        }
-
+        m_th_rw(bv_atom_w_side_c);
         atom_eq = m.mk_eq(atom, bv_atom_w_side_c);
         assert_cnstr(atom_eq);
         return true;
@@ -600,13 +552,7 @@ namespace smt {
         else
             c = m.mk_eq(xc, yc);
 
-        try {
-            m_th_rw(c);
-        }
-        catch (rewriter_exception &) {
-            m_th_rw.reset();
-            throw;
-        }
+        m_th_rw(c);
 
         expr_ref xe_eq_ye(m), c_eq_iff(m);
         xe_eq_ye = m.mk_eq(xe, ye);
@@ -652,13 +598,7 @@ namespace smt {
             c = m.mk_not(xc_eq_yc);
         }
 
-        try {
-            m_th_rw(c);
-        }
-        catch (rewriter_exception &) {
-            m_th_rw.reset();
-            throw;
-        }
+        m_th_rw(c);
 
         expr_ref xe_eq_ye(m), not_xe_eq_ye(m), c_eq_iff(m);
         xe_eq_ye = m.mk_eq(xe, ye);
@@ -697,13 +637,7 @@ namespace smt {
 
         expr_ref cnstr(m);
         cnstr = (is_true) ? m.mk_implies(e, converted) : m.mk_implies(converted, e);
-        try {
-            m_th_rw(cnstr);
-        }
-        catch (rewriter_exception &) {
-            m_th_rw.reset();
-            throw;
-        }
+        m_th_rw(cnstr);
         assert_cnstr(cnstr);
     }
 
