@@ -895,14 +895,12 @@ namespace pdr {
 
 
     void model_node::dequeue(model_node*& root) {
-        TRACE("pdr", tout << this << " " << state() << "\n";);
-        root = 0;
+        TRACE("pdr", tout << this << " root: " << root << " " << state() << "\n";);
         if (!m_next && !m_prev) return;
         SASSERT(m_next);
         SASSERT(m_prev);
         SASSERT(children().empty());
         if (this == m_next) {
-            // SASSERT(root == this);
             root = 0;
         }
         else {
@@ -975,7 +973,7 @@ namespace pdr {
     }
 
     void model_search::enqueue_leaf(model_node* n) {
-        TRACE("pdr_verbose", tout << n << " " << n->state() << " goal: " << m_goal << "\n";);
+        TRACE("pdr_verbose", tout << "node: " << n << " " << n->state() << " goal: " << m_goal << "\n";);
         SASSERT(n->is_open());
         if (!m_goal) {
             m_goal = n;
@@ -1005,7 +1003,7 @@ namespace pdr {
         return m_cache[l];
     }
 
-    void model_search::erase_children(model_node& n, bool backtrack) {
+    void model_search::erase_children(model_node& n, bool backtrack) {        
         ptr_vector<model_node> todo, nodes;
         todo.append(n.children());
         remove_goal(n);

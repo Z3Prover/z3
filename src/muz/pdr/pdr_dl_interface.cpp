@@ -148,6 +148,7 @@ lbool dl_interface::query(expr * query) {
     TRACE("pdr",
           tout << "rules:\n";
           m_ctx.display_rules(tout);
+          m_ctx.display_smt2(0, 0, tout);
           );
 
     IF_VERBOSE(2, m_ctx.display_rules(verbose_stream()););

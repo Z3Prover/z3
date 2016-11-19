@@ -1001,14 +1001,20 @@ namespace datalog {
                 if (is_quantifier(body)) {
                     quantifier* q = to_quantifier(body);
                     expr* e = q->get_expr();
-                    VERIFY(m.is_implies(e, body, e2));
-                    fml = m.mk_quantifier(false, q->get_num_decls(),
-                                          q->get_decl_sorts(), q->get_decl_names(),
-                                          body);
+                    if (m.is_implies(e, body, e2)) {
+                        fml = m.mk_quantifier(false, q->get_num_decls(),
+                                              q->get_decl_sorts(), q->get_decl_names(),
+                                              body);
+                    }
+                    else {
+                        fml = body;
+                    }
                 }
                 else {
-                    VERIFY(m.is_implies(body, body, e2));
                     fml = body;
+                    if (m.is_implies(body, body, e2)) {
+                        fml = body;
+                    }
                 }
                 queries.push_back(fml);
             }
