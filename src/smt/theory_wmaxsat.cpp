@@ -87,7 +87,7 @@ void theory_wmaxsat::init_search_eh() {
     m_propagate = true;
 }
 
-bool_var theory_wmaxsat::assert_weighted(expr* fml, rational const& w) {
+expr* theory_wmaxsat::assert_weighted(expr* fml, rational const& w, bool is_true) {
     context & ctx = get_context();
     ast_manager& m = get_manager();
     app_ref var(m), wfml(m);
@@ -99,9 +99,11 @@ bool_var theory_wmaxsat::assert_weighted(expr* fml, rational const& w) {
     m_vars.push_back(var);
     m_fmls.push_back(fml);
     m_assigned.push_back(false);
-    m_rmin_cost += w;
+    if (!is_true) {
+        m_rmin_cost += w;
+    }
     m_normalize = true;
-    return register_var(var, true);
+    return ctx.bool_var2expr(register_var(var, true));
 }
 
 bool_var theory_wmaxsat::register_var(app* var, bool attach) {

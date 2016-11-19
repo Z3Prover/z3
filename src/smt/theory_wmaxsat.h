@@ -57,7 +57,7 @@ namespace smt {
         virtual ~theory_wmaxsat();
         void get_assignment(svector<bool>& result);
         virtual void init_search_eh();
-        bool_var assert_weighted(expr* fml, rational const& w);
+        expr* assert_weighted(expr* fml, rational const& w, bool is_true);
         bool_var register_var(app* var, bool attach);
         rational const& get_min_cost();
         class numeral_trail : public trail<context> {

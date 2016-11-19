@@ -48,14 +48,18 @@ namespace opt {
             rational offset = m_lower;
             m_upper = offset;
             bool was_sat = false;
+            expr_ref_vector disj(m);
             obj_map<expr, rational>::iterator it = soft.begin(), end = soft.end();
             for (; it != end; ++it) {
-                wth().assert_weighted(it->m_key, it->m_value);
                 expr_ref tmp(m);
-                if (!m_model->eval(it->m_key, tmp) || !m.is_true(tmp)) {
+                bool is_true = m_model->eval(it->m_key, tmp) && m.is_true(tmp);
+                expr* c = wth().assert_weighted(it->m_key, it->m_value, is_true);
+                if (!is_true) {
                     m_upper += it->m_value;
+                    disj.push_back(c);
                 }
             }
+            s().assert_expr(mk_or(disj));
             trace_bounds("wmax");
             while (l_true == is_sat && m_lower < m_upper) {
                 is_sat = s().check_sat(0, 0);

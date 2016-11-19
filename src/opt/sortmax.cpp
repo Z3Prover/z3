@@ -58,15 +58,34 @@ namespace opt {
             ptr_vector<expr> out;
             obj_map<expr, rational>::iterator it = soft.begin(), end = soft.end();
             for (; it != end; ++it) {
+                if (!it->m_value.is_unsigned()) {
+                    throw default_exception("sortmax can only handle unsigned weights. Use a different heuristic.");
+                }
                 unsigned n = it->m_value.get_unsigned();
                 while (n > 0) {
                     in.push_back(it->m_key);
                     --n;
                 }
-                m_upper += it->m_value;
             }
             m_sort.sorting(in.size(), in.c_ptr(), out);
+
+            // initialize sorting network outputs using the initial assignment.
             unsigned first = 0;
+            it = soft.begin();
+            for (; it != end; ++it) {
+                expr_ref tmp(m);
+                if (m_model->eval(it->m_key, tmp) && m.is_true(tmp)) {
+                    unsigned n = it->m_value.get_unsigned();
+                    while (n > 0) {
+                        s().assert_expr(out[first]);
+                        ++first;
+                        --n;
+                    }
+                }
+                else {
+                    m_upper += it->m_value;
+                }
+            }
             while (l_true == is_sat && first < out.size() && m_lower < m_upper) {
                 trace_bounds("sortmax");
                 s().assert_expr(out[first]);

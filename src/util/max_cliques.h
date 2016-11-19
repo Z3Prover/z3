@@ -21,10 +21,6 @@ Notes:
 #include "vector.h"
 #include "uint_set.h"
 
-class max_cliques_plugin {
-public:
-    virtual unsigned operator()(unsigned i) = 0;
-};
 
 template<class T>
 class max_cliques : public T {
@@ -130,7 +126,6 @@ public:
                 turn = !turn;
             }
             if (clique.size() > 1) {
-                std::cout << clique.size() << "\n";
                 cliques.push_back(clique);
             }
         }
