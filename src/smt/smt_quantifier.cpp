@@ -481,7 +481,7 @@ namespace smt {
             if (!m_fparams->m_ematching) {
                 return;
             }
-            if (m_context->get_manager().is_rec_fun_def(q) && mbqi_enabled(q)) {
+            if (false && m_context->get_manager().is_rec_fun_def(q) && mbqi_enabled(q)) {
                 return;
             }
             bool has_unary_pattern = false;
