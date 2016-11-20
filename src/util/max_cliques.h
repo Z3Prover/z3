@@ -90,7 +90,7 @@ public:
         m_next.reserve(std::max(src, dst) + 1);
         m_next.reserve(std::max(negate(src), negate(dst)) + 1);
         m_next[src].push_back(dst);
-        m_next[dst].push_back(src);
+		m_next[dst].push_back(src);
     }
 
     void cliques(unsigned_vector const& ps, vector<unsigned_vector>& cliques) {     
@@ -102,7 +102,7 @@ public:
             max = std::max(max, std::max(np, p) + 1);
         }
         m_next.reserve(max);
-        m_tc.reserve(max);
+		m_tc.reserve(m_next.size());
         unsigned_vector clique;
         uint_set vars;
         for (unsigned i = 0; i < num_ps; ++i) {
