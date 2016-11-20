@@ -24,6 +24,8 @@ Notes:
 
 template<class T>
 class max_cliques : public T {
+    using T::negate;
+
     vector<unsigned_vector> m_next, m_tc;
     uint_set                m_reachable[2];
     uint_set                m_seen1, m_seen2;
