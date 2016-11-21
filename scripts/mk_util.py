@@ -2870,7 +2870,8 @@ def mk_bindings(api_files):
           dotnet_output_dir=dotnet_output_dir,
           java_output_dir=java_output_dir,
           java_package_name=java_package_name,
-          ml_output_dir=ml_output_dir
+          ml_output_dir=ml_output_dir,
+          ml_src_dir=ml_output_dir
         )
         cp_z3py_to_build()
         if is_ml_enabled():
