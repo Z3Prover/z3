@@ -186,7 +186,7 @@ namespace smt {
         }
 
         bool check_quantifier(quantifier* q) {
-            return m_context.is_relevant(q) && m_context.get_assignment(q) == l_true; // TBD: && !m_context->get_manager().is_rec_fun_def(q);
+            return m_context.is_relevant(q) && m_context.get_assignment(q) == l_true; // && !m_context.get_manager().is_rec_fun_def(q);
         }
 
         bool quick_check_quantifiers() {
@@ -357,15 +357,12 @@ namespace smt {
     }
 
     void quantifier_manager::reset() {
-        #pragma omp critical (quantifier_manager)
-        {
-            context & ctx        = m_imp->m_context;
-            smt_params & p = m_imp->m_params;
-            quantifier_manager_plugin * plugin = m_imp->m_plugin->mk_fresh();
-            m_imp->~imp();
-            m_imp = new (m_imp) imp(*this, ctx, p, plugin);
-            plugin->set_manager(*this);
-        }
+        context & ctx        = m_imp->m_context;
+        smt_params & p = m_imp->m_params;
+        quantifier_manager_plugin * plugin = m_imp->m_plugin->mk_fresh();
+        m_imp->~imp();
+        m_imp = new (m_imp) imp(*this, ctx, p, plugin);
+        plugin->set_manager(*this);        
     }
 
     void quantifier_manager::display(std::ostream & out) const {
@@ -481,36 +478,40 @@ namespace smt {
 
         virtual void assign_eh(quantifier * q) {
             m_active = true;
-            if (m_fparams->m_ematching) {
-                bool has_unary_pattern = false;
-                unsigned num_patterns = q->get_num_patterns();
-                for (unsigned i = 0; i < num_patterns; i++) {
-                    app * mp = to_app(q->get_pattern(i));
-                    if (mp->get_num_args() == 1) {
-                        has_unary_pattern = true;
-                        break;
-                    }
+            if (!m_fparams->m_ematching) {
+                return;
+            }
+            if (false && m_context->get_manager().is_rec_fun_def(q) && mbqi_enabled(q)) {
+                return;
+            }
+            bool has_unary_pattern = false;
+            unsigned num_patterns = q->get_num_patterns();
+            for (unsigned i = 0; i < num_patterns; i++) {
+                app * mp = to_app(q->get_pattern(i));
+                if (mp->get_num_args() == 1) {
+                    has_unary_pattern = true;
+                    break;
                 }
-                unsigned num_eager_multi_patterns = m_fparams->m_qi_max_eager_multipatterns;
-                if (!has_unary_pattern)
-                    num_eager_multi_patterns++;
-                for (unsigned i = 0, j = 0; i < num_patterns; i++) {
-                    app * mp = to_app(q->get_pattern(i));
-                    SASSERT(m_context->get_manager().is_pattern(mp));
-                    bool unary = (mp->get_num_args() == 1);
-                    if (!unary && j >= num_eager_multi_patterns) {
-                        TRACE("assign_quantifier", tout << "delaying (too many multipatterns):\n" << mk_ismt2_pp(mp, m_context->get_manager()) << "\n"
-                              << "j: " << j << " unary: " << unary << " m_params.m_qi_max_eager_multipatterns: " << m_fparams->m_qi_max_eager_multipatterns
-                              << " num_eager_multi_patterns: " << num_eager_multi_patterns << "\n";);
-                        m_lazy_mam->add_pattern(q, mp);
-                    }
-                    else {
-                        TRACE("assign_quantifier", tout << "adding:\n" << mk_ismt2_pp(mp, m_context->get_manager()) << "\n";);
-                        m_mam->add_pattern(q, mp);
-                    }
-                    if (!unary)
-                        j++;
+            }
+            unsigned num_eager_multi_patterns = m_fparams->m_qi_max_eager_multipatterns;
+            if (!has_unary_pattern)
+                num_eager_multi_patterns++;
+            for (unsigned i = 0, j = 0; i < num_patterns; i++) {
+                app * mp = to_app(q->get_pattern(i));
+                SASSERT(m_context->get_manager().is_pattern(mp));
+                bool unary = (mp->get_num_args() == 1);
+                if (!unary && j >= num_eager_multi_patterns) {
+                    TRACE("assign_quantifier", tout << "delaying (too many multipatterns):\n" << mk_ismt2_pp(mp, m_context->get_manager()) << "\n"
+                          << "j: " << j << " unary: " << unary << " m_params.m_qi_max_eager_multipatterns: " << m_fparams->m_qi_max_eager_multipatterns
+                          << " num_eager_multi_patterns: " << num_eager_multi_patterns << "\n";);
+                    m_lazy_mam->add_pattern(q, mp);
                 }
+                else {
+                    TRACE("assign_quantifier", tout << "adding:\n" << mk_ismt2_pp(mp, m_context->get_manager()) << "\n";);
+                    m_mam->add_pattern(q, mp);
+                }
+                if (!unary)
+                    j++;
             }
         }
 

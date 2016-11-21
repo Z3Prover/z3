@@ -194,6 +194,7 @@ namespace smt {
               }
               tout << "\n";);
         
+        max_generation = std::max(m_qm->get_generation(q), max_generation);
         add_instance(q, bindings, max_generation);
         return true;
     }

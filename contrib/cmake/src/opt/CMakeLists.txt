@@ -9,6 +9,7 @@ z3_add_component(opt
     optsmt.cpp
     opt_solver.cpp
     pb_sls.cpp
+    sortmax.cpp
     wmax.cpp
   COMPONENT_DEPENDENCIES
     sat_solver

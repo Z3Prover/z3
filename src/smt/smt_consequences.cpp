@@ -20,6 +20,8 @@ Revision History:
 #include "ast_util.h"
 #include "datatype_decl_plugin.h"
 #include "model_pp.h"
+#include "max_cliques.h"
+#include "stopwatch.h"
 
 namespace smt {
 
@@ -367,65 +369,44 @@ namespace smt {
              << ")\n";
     }  
 
+    struct neg_literal {
+        unsigned negate(unsigned i) {
+            return (~to_literal(i)).index();
+        }
+    };
 
     lbool context::find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) {
-        uint_set lits;
+        unsigned_vector ps;
+        max_cliques<neg_literal> mc;
+        expr_ref lit(m_manager);
         for (unsigned i = 0; i < vars.size(); ++i) {
             expr* n = vars[i];
             bool neg = m_manager.is_not(n, n);
             if (b_internalized(n)) {
-                lits.insert(literal(get_bool_var(n), neg).index());
+                ps.push_back(literal(get_bool_var(n), neg).index());
             }
         }
-        while (!lits.empty()) {
-            literal_vector mutex;
-            uint_set other(lits);
-            while (!other.empty()) {
-                uint_set conseq;
-                literal p = to_literal(*other.begin());
-                other.remove(p.index());
-                mutex.push_back(p);
-                if (other.empty()) {
-                    break;
+        for (unsigned i = 0; i < m_watches.size(); ++i) {
+            watch_list & w = m_watches[i];
+            for (literal const* it = w.begin_literals(), *end = w.end_literals(); it != end; ++it) {
+                unsigned idx1 = (~to_literal(i)).index();
+                unsigned idx2 = it->index();
+                if (idx1 < idx2) {
+                    mc.add_edge(idx1, idx2);
                 }
-                get_reachable(p, other, conseq);
-                other = conseq;
-            }
-            if (mutex.size() > 1) {
-                expr_ref_vector mux(m_manager);
-                for (unsigned i = 0; i < mutex.size(); ++i) {
-                    expr_ref e(m_manager);
-                    literal2expr(mutex[i], e);
-                    mux.push_back(e);
-                }
-                mutexes.push_back(mux);
-            }
-            for (unsigned i = 0; i < mutex.size(); ++i) {
-                lits.remove(mutex[i].index());
             }
         }
+        vector<unsigned_vector> _mutexes;
+        mc.cliques(ps, _mutexes);
+        for (unsigned i = 0; i < _mutexes.size(); ++i) {
+            expr_ref_vector lits(m_manager);
+            for (unsigned j = 0; j < _mutexes[i].size(); ++j) {
+                literal2expr(to_literal(_mutexes[i][j]), lit);
+                lits.push_back(lit);
+            }
+            mutexes.push_back(lits);
+        }        
         return l_true;
-    }
-
-    void context::get_reachable(literal p, uint_set& goal, uint_set& reachable) {
-        uint_set seen;
-        literal_vector todo;
-        todo.push_back(p);
-        while (!todo.empty()) {
-            // std::cout << "todo: " << todo.size() << "\n";
-            p = todo.back();
-            todo.pop_back();
-            if (seen.contains(p.index())) {
-                continue;
-            }
-            seen.insert(p.index());
-            literal np = ~p;
-            if (goal.contains(np.index())) {
-                reachable.insert(np.index());
-            }
-            watch_list & w = m_watches[np.index()];
-            todo.append(static_cast<unsigned>(w.end_literals() - w.begin_literals()), w.begin_literals());
-        }
     }
 
     //

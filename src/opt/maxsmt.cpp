@@ -235,6 +235,9 @@ namespace opt {
         else if (maxsat_engine == symbol("wmax")) {
             m_msolver = mk_wmax(m_c, m_weights, m_soft_constraints);
         }
+        else if (maxsat_engine == symbol("sortmax")) {
+            m_msolver = mk_sortmax(m_c, m_weights, m_soft_constraints);
+        }
         else {
             warning_msg("solver %s is not recognized, using default 'maxres'", maxsat_engine.str().c_str());
             m_msolver = mk_maxres(m_c, m_index, m_weights, m_soft_constraints);

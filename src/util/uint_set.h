@@ -163,10 +163,11 @@ public:
     class iterator {
         uint_set const* m_set;
         unsigned  m_index;
+        unsigned  m_last;
 
-        bool invariant() const { return m_index <= m_set->get_max_elem(); }
+        bool invariant() const { return m_index <= m_last; }
 
-        bool at_end() const { return m_index == m_set->get_max_elem(); }
+        bool at_end() const { return m_index == m_last; }
 
         void scan_idx() {
             SASSERT(invariant());
@@ -200,7 +201,7 @@ public:
         }
     public:
         iterator(uint_set const& s, bool at_end): 
-            m_set(&s), m_index(at_end?s.get_max_elem():0) {
+            m_set(&s), m_index(at_end?s.get_max_elem():0), m_last(s.get_max_elem()) {
             scan();
             SASSERT(invariant());
           }
@@ -212,6 +213,7 @@ public:
         iterator & operator=(iterator const& other) { 
             m_set = other.m_set;
             m_index = other.m_index;
+            m_last = other.m_last;
             return *this;
         }
     };

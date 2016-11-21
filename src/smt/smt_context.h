@@ -1367,11 +1367,6 @@ namespace smt {
         void validate_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, 
                                    expr_ref_vector const& conseq, expr_ref_vector const& unfixed);
 
-        /*
-          \brief Auxiliry function for mutex finding.
-         */
-
-        void get_reachable(literal p, uint_set& goal, uint_set& reached);
 
     public:
         context(ast_manager & m, smt_params & fp, params_ref const & p = params_ref());

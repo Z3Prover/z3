@@ -21,6 +21,7 @@ Revision History:
 #include"luby.h"
 #include"trace.h"
 #include"sat_bceq.h"
+#include"max_cliques.h"
 
 // define to update glue during propagation
 #define UPDATE_GLUE
@@ -3062,72 +3063,42 @@ namespace sat {
     //
     // -----------------------
 
+    struct neg_literal {
+        unsigned negate(unsigned idx) {
+            return (~to_literal(idx)).index();
+        }
+    };
+
     lbool solver::find_mutexes(literal_vector const& lits, vector<literal_vector> & mutexes) {
-        literal_vector ps(lits);
+        max_cliques<neg_literal> mc;
         m_user_bin_clauses.reset();
         m_binary_clause_graph.reset();
         collect_bin_clauses(m_user_bin_clauses, true);
         collect_bin_clauses(m_user_bin_clauses, false);
+        hashtable<literal_pair, pair_hash<literal_hash, literal_hash>, default_eq<literal_pair> > seen_bc;
         for (unsigned i = 0; i < m_user_bin_clauses.size(); ++i) {
             literal l1 = m_user_bin_clauses[i].first;
             literal l2 = m_user_bin_clauses[i].second;
-            m_binary_clause_graph.reserve(l1.index() + 1);
-            m_binary_clause_graph.reserve(l2.index() + 1);
-            m_binary_clause_graph.reserve((~l1).index() + 1);
-            m_binary_clause_graph.reserve((~l2).index() + 1);
-            m_binary_clause_graph[l1.index()].push_back(l2);
-            m_binary_clause_graph[l2.index()].push_back(l1);
+            literal_pair p(l1, l2);
+            if (!seen_bc.contains(p)) {
+                seen_bc.insert(p);
+                mc.add_edge(l1.index(), l2.index());             
+            }
         }
+        vector<unsigned_vector> _mutexes;
+        unsigned_vector ps;
         for (unsigned i = 0; i < lits.size(); ++i) {
-            m_binary_clause_graph.reserve(lits[i].index() + 1);
-            m_binary_clause_graph.reserve((~lits[i]).index() + 1);
+            ps.push_back(lits[i].index());
         }
-        bool non_empty = true;
-        m_seen[0].reset();
-        while (non_empty) {
-            literal_vector mutex;
-            bool turn = false;
-            m_reachable[turn] = ps;
-            while (!m_reachable[turn].empty()) {
-                literal p = m_reachable[turn].pop();
-                if (m_seen[0].contains(p)) {
-                    continue;
-                }
-                m_reachable[turn].remove(p);
-                m_seen[0].insert(p);
-                mutex.push_back(p);
-                if (m_reachable[turn].empty()) {
-                    break;
-                }
-                m_reachable[!turn].reset();
-                get_reachable(p, m_reachable[turn], m_reachable[!turn]);
-                turn = !turn;
+        mc.cliques(ps, _mutexes);
+        for (unsigned i = 0; i < _mutexes.size(); ++i) {
+            literal_vector lits;
+            for (unsigned j = 0; j < _mutexes[i].size(); ++j) {
+                lits.push_back(to_literal(_mutexes[i][j]));
             }
-            if (mutex.size() > 1) {
-                mutexes.push_back(mutex);
-            }
-            non_empty = !mutex.empty();
+            mutexes.push_back(lits);
         }
         return l_true;
-    }
-
-    void solver::get_reachable(literal p, literal_set const& goal, literal_set& reachable) {
-        m_seen[1].reset();
-        m_todo.reset();
-        m_todo.push_back(p);
-        while (!m_todo.empty()) {
-            p = m_todo.back();
-            m_todo.pop_back();
-            if (m_seen[1].contains(p)) {
-                continue;
-            }
-            m_seen[1].insert(p);
-            literal np = ~p;
-            if (goal.contains(np)) {
-                reachable.insert(np);
-            }
-            m_todo.append(m_binary_clause_graph[np.index()]);
-        }
     }
 
     // -----------------------
