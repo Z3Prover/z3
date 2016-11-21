@@ -2924,173 +2924,17 @@ def mk_z3consts_java(api_files):
 
 # Extract enumeration types from z3_api.h, and add ML definitions
 def mk_z3consts_ml(api_files):
-    blank_pat      = re.compile("^ *$")
-    comment_pat    = re.compile("^ *//.*$")
-    typedef_pat    = re.compile("typedef enum *")
-    typedef2_pat   = re.compile("typedef enum { *")
-    openbrace_pat  = re.compile("{ *")
-    closebrace_pat = re.compile("}.*;")
-
     ml = get_component(ML_COMPONENT)
-
-    DeprecatedEnums = [ 'Z3_search_failure' ]
-    gendir = ml.src_dir
-    if not os.path.exists(gendir):
-        os.mkdir(gendir)
-
-    efile  = open('%s.ml' % os.path.join(gendir, "z3enums"), 'w')
-    efile.write('(* Automatically generated file *)\n\n')
-    efile.write('(** The enumeration types of Z3. *)\n\n')
+    full_path_api_files = []
     for api_file in api_files:
         api_file_c = ml.find_file(api_file, ml.name)
         api_file   = os.path.join(api_file_c.src_dir, api_file)
-
-        api = open(api_file, 'r')
-
-        SEARCHING  = 0
-        FOUND_ENUM = 1
-        IN_ENUM    = 2
-
-        mode    = SEARCHING
-        decls   = {}
-        idx     = 0
-
-        linenum = 1
-        for line in api:
-            m1 = blank_pat.match(line)
-            m2 = comment_pat.match(line)
-            if m1 or m2:
-                # skip blank lines and comments
-                linenum = linenum + 1
-            elif mode == SEARCHING:
-                m = typedef_pat.match(line)
-                if m:
-                    mode = FOUND_ENUM
-                m = typedef2_pat.match(line)
-                if m:
-                    mode = IN_ENUM
-                    decls = {}
-                    idx   = 0
-            elif mode == FOUND_ENUM:
-                m = openbrace_pat.match(line)
-                if m:
-                    mode  = IN_ENUM
-                    decls = {}
-                    idx   = 0
-                else:
-                    assert False, "Invalid %s, line: %s" % (api_file, linenum)
-            else:
-                assert mode == IN_ENUM
-                words = re.split('[^\-a-zA-Z0-9_]+', line)
-                m = closebrace_pat.match(line)
-                if m:
-                    name = words[1]
-                    if name not in DeprecatedEnums:
-                        sorted_decls = sorted(decls.items(), key=lambda pair: pair[1])
-                        efile.write('(** %s *)\n' % name[3:])
-                        efile.write('type %s =\n' % name[3:]) # strip Z3_
-                        for k, i in sorted_decls:
-                            efile.write('  | %s \n' % k[3:]) # strip Z3_
-                        efile.write('\n')
-                        efile.write('(** Convert %s to int*)\n' % name[3:])
-                        efile.write('let int_of_%s x : int =\n' % (name[3:])) # strip Z3_
-                        efile.write('  match x with\n')
-                        for k, i in sorted_decls:
-                            efile.write('  | %s -> %d\n' % (k[3:], i))
-                        efile.write('\n')
-                        efile.write('(** Convert int to %s*)\n' % name[3:])
-                        efile.write('let %s_of_int x : %s =\n' % (name[3:],name[3:])) # strip Z3_
-                        efile.write('  match x with\n')
-                        for k, i in sorted_decls:
-                            efile.write('  | %d -> %s\n' % (i, k[3:]))
-                        # use Z3.Exception?
-                        efile.write('  | _ -> raise (Failure "undefined enum value")\n\n')
-                    mode = SEARCHING
-                else:
-                    if words[2] != '':
-                        if len(words[2]) > 1 and words[2][1] == 'x':
-                            idx = int(words[2], 16)
-                        else:
-                            idx = int(words[2])
-                    decls[words[1]] = idx
-                    idx = idx + 1
-            linenum = linenum + 1
-        api.close()
-    efile.close()
+        full_path_api_files.append(api_file)
+    generated_file = mk_genfile_common.mk_z3consts_ml_internal(
+        full_path_api_files,
+        ml.src_dir)
     if VERBOSE:
-        print ('Generated "%s/z3enums.ml"' % ('%s' % gendir))
-    # efile  = open('%s.mli' % os.path.join(gendir, "z3enums"), 'w')
-    # efile.write('(* Automatically generated file *)\n\n')
-    # efile.write('(** The enumeration types of Z3. *)\n\n')
-    # for api_file in api_files:
-    #     api_file_c = ml.find_file(api_file, ml.name)
-    #     api_file   = os.path.join(api_file_c.src_dir, api_file)
-
-    #     api = open(api_file, 'r')
-
-    #     SEARCHING  = 0
-    #     FOUND_ENUM = 1
-    #     IN_ENUM    = 2
-
-    #     mode    = SEARCHING
-    #     decls   = {}
-    #     idx     = 0
-
-    #     linenum = 1
-    #     for line in api:
-    #         m1 = blank_pat.match(line)
-    #         m2 = comment_pat.match(line)
-    #         if m1 or m2:
-    #             # skip blank lines and comments
-    #             linenum = linenum + 1
-    #         elif mode == SEARCHING:
-    #             m = typedef_pat.match(line)
-    #             if m:
-    #                 mode = FOUND_ENUM
-    #             m = typedef2_pat.match(line)
-    #             if m:
-    #                 mode = IN_ENUM
-    #                 decls = {}
-    #                 idx   = 0
-    #         elif mode == FOUND_ENUM:
-    #             m = openbrace_pat.match(line)
-    #             if m:
-    #                 mode  = IN_ENUM
-    #                 decls = {}
-    #                 idx   = 0
-    #             else:
-    #                 assert False, "Invalid %s, line: %s" % (api_file, linenum)
-    #         else:
-    #             assert mode == IN_ENUM
-    #             words = re.split('[^\-a-zA-Z0-9_]+', line)
-    #             m = closebrace_pat.match(line)
-    #             if m:
-    #                 name = words[1]
-    #                 if name not in DeprecatedEnums:
-    #                     efile.write('(** %s *)\n' % name[3:])
-    #                     efile.write('type %s =\n' % name[3:]) # strip Z3_
-    #                     for k, i in sorted(decls.items(), key=lambda pair: pair[1]):
-    #                         efile.write('  | %s \n' % k[3:]) # strip Z3_
-    #                     efile.write('\n')
-    #                     efile.write('(** Convert %s to int*)\n' % name[3:])
-    #                     efile.write('val int_of_%s : %s -> int\n' % (name[3:], name[3:])) # strip Z3_
-    #                     efile.write('(** Convert int to %s*)\n' % name[3:])
-    #                     efile.write('val %s_of_int : int -> %s\n' % (name[3:],name[3:])) # strip Z3_
-    #                     efile.write('\n')
-    #                 mode = SEARCHING
-    #             else:
-    #                 if words[2] != '':
-    #                     if len(words[2]) > 1 and words[2][1] == 'x':
-    #                         idx = int(words[2], 16)
-    #                     else:
-    #                         idx = int(words[2])
-    #                 decls[words[1]] = idx
-    #                 idx = idx + 1
-    #         linenum = linenum + 1
-    #     api.close()
-    # efile.close()
-    # if VERBOSE:
-    #     print ('Generated "%s/z3enums.mli"' % ('%s' % gendir))
+        print ('Generated "%s"' % generated_file)
 
 def mk_gui_str(id):
     return '4D2F40D8-E5F9-473B-B548-%012d' % id
