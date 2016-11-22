@@ -339,6 +339,70 @@ str_util::str_util(ast_manager &m) :
     m_fid = m_plugin->get_family_id();
 }
 
+/*
+ * Scan through the string 'val' and interpret each instance of "backslash followed by a character"
+ * as a possible escape sequence. Emit all other characters as-is.
+ * This exists because the SMT-LIB 2.5 standard does not recognize escape sequences other than "" -> " .
+ * The escape sequences recognized are as follows:
+ *   \a \b \e \f \n \r \t \v : as specified by the C++ standard
+ *   \ooo : produces the ASCII character corresponding to the octal value "ooo", where each "o" is a
+ *          single octal digit and between 1 and 3 valid digits are given
+ *   \xhh : produces the ASCII character corresponding to the hexadecimal value "hh", where each "h" is a
+ *          single case-insensitive hex digit (0-9A-F) and exactly 2 digits are given
+ *   \C, for any character C that does not start a legal escape sequence : the backslash is ignored and "C" is produced.
+ */
+app * str_util::mk_string_with_escape_characters(std::string & val) {
+    std::string parsedStr;
+    parsedStr.reserve(val.length());
+    for (unsigned i = 0; i < val.length(); ++i) {
+        char nextChar = val.at(i);
+
+        if (nextChar == '\\') {
+            // check escape sequence
+            i++;
+            if (i >= val.length()) {
+                // TODO illegal escape sequence
+                NOT_IMPLEMENTED_YET();
+            }
+            char escapeChar1 = val.at(i);
+            if (escapeChar1 == 'a') {
+                parsedStr.push_back('\a');
+            } else if (escapeChar1 == 'b') {
+                parsedStr.push_back('\b');
+            } else if (escapeChar1 == 'e') {
+                parsedStr.push_back('\e');
+            } else if (escapeChar1 == 'f') {
+                parsedStr.push_back('\f');
+            } else if (escapeChar1 == 'n') {
+                parsedStr.push_back('\n');
+            } else if (escapeChar1 == 'r') {
+                parsedStr.push_back('\r');
+            } else if (escapeChar1 == 't') {
+                parsedStr.push_back('\t');
+            } else if (escapeChar1 == 'v') {
+                parsedStr.push_back('\v');
+            } else if (escapeChar1 == 'x') {
+                // TODO hex escape
+                NOT_IMPLEMENTED_YET();
+            } else if (escapeChar1 == '0' || escapeChar1 == '1' || escapeChar1 == '2' || escapeChar1 == '3' ||
+                    escapeChar1 == '4' || escapeChar1 == '5' || escapeChar1 == '6' || escapeChar1 == '7') {
+                // TODO octal escape
+                NOT_IMPLEMENTED_YET();
+            } else {
+                // unrecognized escape sequence -- just emit that character
+                parsedStr.push_back(escapeChar1);
+            }
+        } else {
+            parsedStr.push_back(nextChar);
+        }
+
+        // i is incremented at the end of this loop.
+        // If it is modified, ensure that it points to the index before
+        // the next character.
+    }
+    return mk_string(parsedStr);
+}
+
 static std::string str2RegexStr(std::string str) {
     std::string res = "";
     int len = str.size();

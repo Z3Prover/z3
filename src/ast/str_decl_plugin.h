@@ -156,9 +156,16 @@ public:
     app * mk_string(std::string & val) {
     	return m_plugin->mk_string(val);
     }
+
     app * mk_fresh_string() {
         return m_plugin->mk_fresh_string();
     }
+
+    app * mk_string_with_escape_characters(const char * val) {
+        std::string str(val);
+        return mk_string_with_escape_characters(str);
+    }
+    app * mk_string_with_escape_characters(std::string & val);
 
     app * mk_re_Str2Reg(expr * s) {
         expr * es[1] = {s};

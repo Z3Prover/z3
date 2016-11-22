@@ -1104,7 +1104,7 @@ namespace smt2 {
             strncpy(buf, original_token, bufsize);
             buf[bufsize] = '\0';
             TRACE("parse_string", tout << "new string constant: " << buf << " length=" << bufsize << "\n";);
-            expr_stack().push_back(strutil().mk_string(buf));
+            expr_stack().push_back(strutil().mk_string_with_escape_characters(buf));
             next();
         }
 
