@@ -1241,6 +1241,8 @@ struct
   let mk_sort_32 = Z3native.mk_fpa_sort_32
   let mk_sort_double = Z3native.mk_fpa_sort_double
   let mk_sort_64 = Z3native.mk_fpa_sort_64
+  let mk_sort_extended = Z3native.mk_fpa_sort_extended
+  let mk_sort_80 = Z3native.mk_fpa_sort_80
   let mk_sort_quadruple = Z3native.mk_fpa_sort_quadruple
   let mk_sort_128 = Z3native.mk_fpa_sort_128
 

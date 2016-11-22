@@ -4050,6 +4050,24 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Create the extended-precision (80-bit) FloatingPoint sort.
+        /// </summary>
+        public FPSort MkFPSortExtended()
+        {
+            Contract.Ensures(Contract.Result<FPSort>() != null);
+            return new FPSort(this, Native.Z3_mk_fpa_sort_extended(nCtx));
+        }
+
+        /// <summary>
+        /// Create the extended-precision (80-bit) FloatingPoint sort.
+        /// </summary>
+        public FPSort MkFPSort80()
+        {
+            Contract.Ensures(Contract.Result<FPSort>() != null);
+            return new FPSort(this, Native.Z3_mk_fpa_sort_80(nCtx));
+        }
+
+        /// <summary>
         /// Create the quadruple-precision (128-bit) FloatingPoint sort.
         /// </summary>
         public FPSort MkFPSortQuadruple()
