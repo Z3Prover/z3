@@ -344,7 +344,7 @@ str_util::str_util(ast_manager &m) :
  * as a possible escape sequence. Emit all other characters as-is.
  * This exists because the SMT-LIB 2.5 standard does not recognize escape sequences other than "" -> " .
  * The escape sequences recognized are as follows:
- *   \a \b \e \f \n \r \t \v : as specified by the C++ standard
+ *   \a \b \e \f \n \r \t \v \\ : as specified by the C++ standard
  *   \ooo : produces the ASCII character corresponding to the octal value "ooo", where each "o" is a
  *          single octal digit and between 1 and 3 valid digits are given
  *   \xhh : produces the ASCII character corresponding to the hexadecimal value "hh", where each "h" is a
@@ -381,6 +381,8 @@ app * str_util::mk_string_with_escape_characters(std::string & val) {
                 parsedStr.push_back('\t');
             } else if (escapeChar1 == 'v') {
                 parsedStr.push_back('\v');
+            } else if (escapeChar1 == '\\') {
+                parsedStr.push_back('\\');
             } else if (escapeChar1 == 'x') {
                 // TODO hex escape
                 NOT_IMPLEMENTED_YET();

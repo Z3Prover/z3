@@ -305,14 +305,45 @@ format * smt2_pp_environment::mk_float(rational const & val) const {
 }
 
 format * smt2_pp_environment::pp_str_literal(app * t) {
-    TRACE("parse_string", tout << "pp_str_literal\n";);
-    str_util & u = get_strutil();
-    SASSERT(u.is_string(t));
-    const char * val;
-    u.is_string(t, &val);
     ast_manager & m = get_manager();
+    str_util & u = get_strutil();
+    TRACE("parse_string", tout << "pp_str_literal\n";);
+
+    SASSERT(u.is_string(t));
+    std::string strVal = u.get_string_constant_value(t);
     string_buffer<> buf;
-    buf << "\"" << val << "\"";
+    buf << "\"";
+
+    // we want to scan strVal and escape every non-printable character
+    for (unsigned int i = 0; i < strVal.length(); ++i) {
+        char c = strVal.at(i);
+        if (isprint(c)) {
+            buf << c;
+        } else if (c == '\a') {
+            buf << "\\a";
+        } else if (c == '\b') {
+            buf << "\\b";
+        } else if (c == '\e') {
+            buf << "\\e";
+        } else if (c == '\f') {
+            buf << "\\f";
+        } else if (c == '\n') {
+            buf << "\\n";
+        } else if (c == '\r') {
+            buf << "\\r";
+        } else if (c == '\t') {
+            buf << "\\t";
+        } else if (c == '\v') {
+            buf << "\\v";
+        } else if (c == '\\') {
+            buf << "\\" << "\\";
+        } else {
+            // TODO general hex escape
+            NOT_IMPLEMENTED_YET();
+        }
+    }
+
+    buf << "\"";
     return mk_string(m, buf.c_str());
 }
 
