@@ -105,6 +105,7 @@ GIT_HASH=False
 GIT_DESCRIBE=False
 SLOW_OPTIMIZE=False
 USE_OMP=True
+LOG_SYNC=False
 
 FPMATH="Default"
 FPMATH_FLAGS="-mfpmath=sse -msse -msse2"
@@ -652,6 +653,7 @@ def display_help(exit_code):
         print("  --gprof                       enable gprof")
     print("  -f <path> --foci2=<path>      use foci2 library at path")
     print("  --noomp                       disable OpenMP and all features that require it.")
+    print("  --log-sync                    synchronize access to API log files to enable multi-thread API logging.")
     print("")
     print("Some influential environment variables:")
     if not IS_WINDOWS:
@@ -678,13 +680,13 @@ def display_help(exit_code):
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
     global DOTNET_ENABLED, DOTNET_KEY_FILE, JAVA_ENABLED, ML_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, FOCI2, FOCI2LIB, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, GIT_DESCRIBE, PYTHON_INSTALL_ENABLED, PYTHON_ENABLED
-    global LINUX_X64, SLOW_OPTIMIZE, USE_OMP
+    global LINUX_X64, SLOW_OPTIMIZE, USE_OMP, LOG_SYNC
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:],
                                                'b:df:sxhmcvtnp:gj',
                                                ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj',
                                                 'trace', 'dotnet', 'dotnet-key=', 'staticlib', 'prefix=', 'gmp', 'foci2=', 'java', 'parallel=', 'gprof',
-                                                'githash=', 'git-describe', 'x86', 'ml', 'optimize', 'noomp', 'pypkgdir=', 'python', 'staticbin'])
+                                                'githash=', 'git-describe', 'x86', 'ml', 'optimize', 'noomp', 'pypkgdir=', 'python', 'staticbin', 'log-sync'])
     except:
         print("ERROR: Invalid command line option")
         display_help(1)
@@ -749,6 +751,8 @@ def parse_options():
             ML_ENABLED = True
         elif opt in ('', '--noomp'):
             USE_OMP = False
+        elif opt in ('', '--log-sync'):
+            LOG_SYNC = True
         elif opt in ('--python'):
             PYTHON_ENABLED = True
             PYTHON_INSTALL_ENABLED = True
@@ -2316,7 +2320,9 @@ def mk_config():
         if HAS_OMP:
             extra_opt = ' /openmp'
         else:
-            extra_opt = ' -D_NO_OMP_'
+            extra_opt = ' /D_NO_OMP_'
+        if HAS_OMP and LOG_SYNC:
+            extra_opt = '%s /DZ3_LOG_SYNC' % extra_opt
         if GIT_HASH:
             extra_opt = ' %s /D Z3GITHASH=%s' % (extra_opt, GIT_HASH)
         if STATIC_BIN:
@@ -2385,7 +2391,7 @@ def mk_config():
                 print('OCaml Native:   %s' % OCAMLOPT)
                 print('OCaml Library:  %s' % OCAML_LIB)
     else:
-        global CXX, CC, GMP, FOCI2, CPPFLAGS, CXXFLAGS, LDFLAGS, EXAMP_DEBUG_FLAG, FPMATH_FLAGS
+        global CXX, CC, GMP, FOCI2, CPPFLAGS, CXXFLAGS, LDFLAGS, EXAMP_DEBUG_FLAG, FPMATH_FLAGS, HAS_OMP, LOG_SYNC
         OS_DEFINES = ""
         ARITH = "internal"
         check_ar()
@@ -2423,6 +2429,8 @@ def mk_config():
             SLIBEXTRAFLAGS = '%s -fopenmp' % SLIBEXTRAFLAGS
         else:
             CXXFLAGS = '%s -D_NO_OMP_' % CXXFLAGS
+        if HAS_OMP and LOG_SYNC:
+            CXXFLAGS = '%s -DZ3_LOG_SYNC' % CXXFLAGS
         if DEBUG_MODE:
             CXXFLAGS     = '%s -g -Wall' % CXXFLAGS
             EXAMP_DEBUG_FLAG = '-g'
