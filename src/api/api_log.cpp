@@ -35,6 +35,8 @@ extern "C" {
     }
 
     Z3_bool Z3_API Z3_open_log(Z3_string filename) {
+        Z3_bool res = Z3_TRUE;
+
 #ifdef Z3_LOG_SYNC
         #pragma omp critical (z3_log)
         {
@@ -45,15 +47,18 @@ extern "C" {
             if (g_z3_log->bad() || g_z3_log->fail()) {
                 dealloc(g_z3_log);
                 g_z3_log = 0;
-                return Z3_FALSE;
+                res = Z3_FALSE;
             }
-            *g_z3_log << "V \"" << Z3_MAJOR_VERSION << "." << Z3_MINOR_VERSION << "." << Z3_BUILD_NUMBER << "." << Z3_REVISION_NUMBER << " " << __DATE__ << "\"\n";
-            g_z3_log->flush();
-            g_z3_log_enabled = true;
+            else {
+                *g_z3_log << "V \"" << Z3_MAJOR_VERSION << "." << Z3_MINOR_VERSION << "." << Z3_BUILD_NUMBER << "." << Z3_REVISION_NUMBER << " " << __DATE__ << "\"\n";
+                g_z3_log->flush();
+                g_z3_log_enabled = true;
+            }
 #ifdef Z3_LOG_SYNC
         }
 #endif
-        return Z3_TRUE;
+
+        return res;
     }
 
     void Z3_API Z3_append_log(Z3_string str) {
@@ -63,9 +68,8 @@ extern "C" {
         #pragma omp critical (z3_log)
         {
 #endif
-            if (g_z3_log == 0)
-                return;
-            _Z3_append_log(static_cast<char const *>(str));
+            if (g_z3_log != 0)
+                _Z3_append_log(static_cast<char const *>(str));
 #ifdef Z3_LOG_SYNC
         }
 #endif
