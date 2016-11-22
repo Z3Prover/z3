@@ -335,6 +335,9 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         SASSERT(num_args == 1);
         return mk_re_opt(args[0], result);
     case OP_RE_CONCAT:
+        if (num_args == 1) {
+            result = args[0]; return BR_DONE;
+        }
         SASSERT(num_args == 2);
         return mk_re_concat(args[0], args[1], result);
     case OP_RE_UNION:

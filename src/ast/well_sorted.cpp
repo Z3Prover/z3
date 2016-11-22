@@ -44,7 +44,8 @@ struct well_sorted_proc {
     void operator()(app * n) {   
         unsigned num_args  = n->get_num_args();
         func_decl * decl   = n->get_decl();
-        if (num_args != decl->get_arity() && !decl->is_associative()) {
+        if (num_args != decl->get_arity() && !decl->is_associative() && 
+            !decl->is_right_associative() && !decl->is_left_associative()) {
             TRACE("ws", tout << "unexpected number of arguments.\n" << mk_ismt2_pp(n, m_manager););
             warning_msg("unexpected number of arguments.");
             m_error = true;
