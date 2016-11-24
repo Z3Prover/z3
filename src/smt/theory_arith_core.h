@@ -1069,7 +1069,7 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::flush_bound_axioms() {
-        CTRACE("arith", !m_new_atoms.empty(), tout << "flush bound axioms\n";);
+        CTRACE("arith_verbose", !m_new_atoms.empty(), tout << "flush bound axioms\n";);
 
         while (!m_new_atoms.empty()) {
             ptr_vector<atom> atoms;            
@@ -1084,7 +1084,7 @@ namespace smt {
                     --i;
                 }
             }            
-            CTRACE("arith", !atoms.empty(),  
+            CTRACE("arith", atoms.size() > 1,  
                   for (unsigned i = 0; i < atoms.size(); ++i) {
                       atoms[i]->display(*this, tout); tout << "\n";
                   });
@@ -1292,7 +1292,7 @@ namespace smt {
     
     template<typename Ext>
     void theory_arith<Ext>::assign_eh(bool_var v, bool is_true) {
-        TRACE("arith", tout << "p" << v << " := " << (is_true?"true":"false") << "\n";);
+        TRACE("arith_verbose", tout << "p" << v << " := " << (is_true?"true":"false") << "\n";);
         atom * a = get_bv2a(v);
         if (!a) return;
         SASSERT(get_context().get_assignment(a->get_bool_var()) != l_undef);
@@ -3043,12 +3043,14 @@ namespace smt {
         m_stats.m_conflicts++;
         m_num_conflicts++;
         TRACE("arith_conflict", 
+              tout << "scope: " << ctx.get_scope_level() << "\n";
               for (unsigned i = 0; i < num_literals; i++) {
                   ctx.display_detailed_literal(tout, lits[i]);
                   tout << " ";
                   if (coeffs_enabled()) {
                       tout << "bound: " << bounds.lit_coeffs()[i] << "\n";
                   }
+                  tout << "\n";
               }
               for (unsigned i = 0; i < num_eqs; i++) {
                   tout << "#" << eqs[i].first->get_owner_id() << "=#" << eqs[i].second->get_owner_id() << " ";
