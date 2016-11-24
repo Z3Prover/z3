@@ -317,7 +317,10 @@ format * smt2_pp_environment::pp_str_literal(app * t) {
     // we want to scan strVal and escape every non-printable character
     for (unsigned int i = 0; i < strVal.length(); ++i) {
         char c = strVal.at(i);
-        if (isprint(c)) {
+        if (c == '"') {
+            // SMT-LIB 2.5 string escape
+            buf << "\"\"";
+        } else if (isprint(c)) {
             buf << c;
         } else if (c == '\a') {
             buf << "\\a";
