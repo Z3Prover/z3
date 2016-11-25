@@ -341,8 +341,14 @@ format * smt2_pp_environment::pp_str_literal(app * t) {
         } else if (c == '\\') {
             buf << "\\" << "\\";
         } else {
-            // TODO general hex escape
-            NOT_IMPLEMENTED_YET();
+            // general hex escape
+            buf << "\\x";
+            unsigned int cVal = (unsigned int)c;
+            const char convtable[16] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
+            unsigned int highPart = cVal / 16;
+            unsigned int lowPart = cVal % 16;
+            SASSERT(highPart < 16); SASSERT(lowPart < 16);
+            buf << convtable[highPart] << convtable[lowPart];
         }
     }
 
