@@ -795,7 +795,7 @@ namespace smt {
         code_tree *             m_tree;
         unsigned                m_num_choices;
         bool                    m_is_tmp_tree; 
-        svector<unsigned>       m_mp_already_processed;
+        svector<bool>           m_mp_already_processed;
         obj_map<expr, unsigned> m_matched_exprs;
         
         struct pcheck_checked {
@@ -1116,7 +1116,7 @@ namespace smt {
                 unsigned best_j = 0;
                 bool     found_bounded_mp = false;
                 for (unsigned j = 0; j < m_mp->get_num_args(); j++) {
-                    if (std::find(m_mp_already_processed.begin(), m_mp_already_processed.end(), j) != m_mp_already_processed.end())
+                    if (m_mp_already_processed[j])
                         continue;
                     app * p            = to_app(m_mp->get_arg(j));
                     bool has_unbound_vars = false;
@@ -1133,7 +1133,7 @@ namespace smt {
                         best_j         = j;
                     }
                 }
-                m_mp_already_processed.push_back(best_j);
+                m_mp_already_processed[best_j] = true;
                 SASSERT(best != 0);
                 app * p                 = best;
                 func_decl * lbl         = p->get_decl();
@@ -1226,13 +1226,15 @@ namespace smt {
         */
         void linearise(instruction * head, unsigned first_idx) {
             m_seq.reset();
-            m_mp_already_processed.reset();
-            m_mp_already_processed.push_back(first_idx);
             while (!m_todo.empty())
                 linearise_core();
 
-            if (m_mp->get_num_args() > 1)
+            if (m_mp->get_num_args() > 1) {
+                m_mp_already_processed.reset();
+                m_mp_already_processed.resize(m_mp->get_num_args());
+                m_mp_already_processed[first_idx] = true;
                 linearise_multi_pattern(first_idx);
+            }
             
 #ifdef Z3DEBUG
             for (unsigned i = 0; i < m_qa->get_num_decls(); i++) {
