@@ -2272,19 +2272,14 @@ expr * theory_str::simplify_concat(expr * node) {
         if (in_same_eqc(node, resultAst)) {
             TRACE("t_str_detail", tout << "SKIP: both concats are already in the same equivalence class" << std::endl;);
         } else {
-            // TODO refactor
-            expr ** items = alloc_svect(expr*, resolvedMap.size());
+            expr_ref_vector items(m);
             int pos = 0;
             std::map<expr*, expr*>::iterator itor = resolvedMap.begin();
             for (; itor != resolvedMap.end(); ++itor) {
-                items[pos++] = ctx.mk_eq_atom(itor->first, itor->second);
+                items.push_back(ctx.mk_eq_atom(itor->first, itor->second));
+                pos += 1;
             }
-            expr_ref premise(m);
-            if (pos == 1) {
-                premise = items[0];
-            } else {
-                premise = m.mk_and(pos, items);
-            }
+            expr_ref premise(mk_and(items), m);
             expr_ref conclusion(ctx.mk_eq_atom(node, resultAst), m);
             assert_implication(premise, conclusion);
         }
@@ -3961,22 +3956,26 @@ void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
         refresh_theory_var(commonVar);
     }
 
-    expr ** or_item = alloc_svect(expr*, (overlapLen.size() + 1));
+    expr_ref_vector or_item(mgr);
     int option = 0;
-    expr ** and_item = alloc_svect(expr*, (1 + 4 * (overlapLen.size() + 1)));
+    expr_ref_vector and_item(mgr);
     int pos = 1;
 
     if (!avoidLoopCut || !has_self_cut(m, y)) {
-        or_item[option] = ctx.mk_eq_atom(xorFlag, mk_int(option));
+        expr_ref or_item_option(ctx.mk_eq_atom(xorFlag, mk_int(option)), mgr);
+        or_item.push_back(or_item_option);
 
         expr_ref str1_commonVar(mk_concat(str1Ast, commonVar), mgr);
-        and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(m, str1_commonVar));
+        and_item.push_back(ctx.mk_eq_atom(or_item_option, ctx.mk_eq_atom(m, str1_commonVar)));
+        pos += 1;
 
         expr_ref commonVar_str2(mk_concat(commonVar, str2Ast), mgr);
-        and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(y, commonVar_str2));
+        and_item.push_back(ctx.mk_eq_atom(or_item_option, ctx.mk_eq_atom(y, commonVar_str2)));
+        pos += 1;
 
-        and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(mk_strlen(m),
-                m_autil.mk_add(mk_strlen(str1Ast), mk_strlen(commonVar)) ));
+        and_item.push_back(ctx.mk_eq_atom(or_item_option, ctx.mk_eq_atom(mk_strlen(m),
+                m_autil.mk_add(mk_strlen(str1Ast), mk_strlen(commonVar)) )));
+        pos += 1;
 
         //    addItems[0] = mk_length(t, commonVar);
         //    addItems[1] = mk_length(t, str2Ast);
@@ -3993,29 +3992,34 @@ void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
         int overLen = *itor;
         std::string prefix = str1Value.substr(0, str1Len - overLen);
         std::string suffix = str2Value.substr(overLen, str2Len - overLen);
-        or_item[option] = ctx.mk_eq_atom(xorFlag, mk_int(option));
+        expr_ref or_item_option(ctx.mk_eq_atom(xorFlag, mk_int(option)), mgr);
+        or_item.push_back(or_item_option);
 
         expr_ref prefixAst(m_strutil.mk_string(prefix), mgr);
         expr_ref x_eq_prefix(ctx.mk_eq_atom(m, prefixAst), mgr);
-        and_item[pos++] = ctx.mk_eq_atom(or_item[option], x_eq_prefix);
+        and_item.push_back(ctx.mk_eq_atom(or_item_option, x_eq_prefix));
+        pos += 1;
 
-        and_item[pos++] = ctx.mk_eq_atom(or_item[option],
-                ctx.mk_eq_atom(mk_strlen(m), mk_strlen(prefixAst)));
+        and_item.push_back(ctx.mk_eq_atom(or_item_option,
+                ctx.mk_eq_atom(mk_strlen(m), mk_strlen(prefixAst))));
+        pos += 1;
 
         // adding length constraint for _ = constStr seems slowing things down.
 
         expr_ref suffixAst(m_strutil.mk_string(suffix), mgr);
         expr_ref y_eq_suffix(ctx.mk_eq_atom(y, suffixAst), mgr);
-        and_item[pos++] = ctx.mk_eq_atom(or_item[option], y_eq_suffix);
+        and_item.push_back(ctx.mk_eq_atom(or_item_option, y_eq_suffix));
+        pos += 1;
 
-        and_item[pos++] = ctx.mk_eq_atom(or_item[option], ctx.mk_eq_atom(mk_strlen(y), mk_strlen(suffixAst)));
+        and_item.push_back(ctx.mk_eq_atom(or_item_option, ctx.mk_eq_atom(mk_strlen(y), mk_strlen(suffixAst))));
+        pos += 1;
 
         option++;
     }
 
     //  case 6: concat("str1", y) = concat(m, "str2")
-    and_item[0] = mgr.mk_or(option, or_item);
-    expr_ref implyR(mgr.mk_and(pos, and_item), mgr);
+    and_item.push_back(mk_or(or_item));
+    expr_ref implyR(mk_and(and_item), mgr);
     assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
 }
 
