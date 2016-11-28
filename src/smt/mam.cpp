@@ -841,7 +841,6 @@ namespace smt {
             m_mp          = mp;
             m_num_choices = 0;
             m_todo.reset();
-            m_matched_exprs.reset();
             m_registers.fill(0);
             
             app * p = to_app(mp->get_arg(first_idx));
@@ -1226,6 +1225,7 @@ namespace smt {
         */
         void linearise(instruction * head, unsigned first_idx) {
             m_seq.reset();
+            m_matched_exprs.reset();
             while (!m_todo.empty())
                 linearise_core();
 
