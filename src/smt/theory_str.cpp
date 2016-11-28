@@ -5824,19 +5824,16 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
         if (arg1 != a1 || arg2 != a2) {
         	TRACE("t_str", tout << "resolved concat argument(s) to eqc string constants" << std::endl;);
         	int iPos = 0;
-        	app * item1[2];
+        	expr_ref_vector item1(m);
         	if (a1 != arg1) {
-        		item1[iPos++] = ctx.mk_eq_atom(a1, arg1);
+        		item1.push_back(ctx.mk_eq_atom(a1, arg1));
+        		iPos += 1;
         	}
         	if (a2 != arg2) {
-        		item1[iPos++] = ctx.mk_eq_atom(a2, arg2);
+        		item1.push_back(ctx.mk_eq_atom(a2, arg2));
+        		iPos += 1;
         	}
-        	expr_ref implyL1(m);
-        	if (iPos == 1) {
-        		implyL1 = item1[0];
-        	} else {
-        		implyL1 = m.mk_and(item1[0], item1[1]);
-        	}
+        	expr_ref implyL1(mk_and(item1), m);
         	newConcat = mk_concat(arg1, arg2);
         	if (newConcat != str) {
         		expr_ref implyR1(ctx.mk_eq_atom(concat, newConcat), m);
@@ -6091,8 +6088,8 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
         			int xor_pos = 0;
         			int and_count = 1;
 
-        			expr ** xor_items = alloc_svect(expr*, (concatStrLen+1));
-        			expr ** and_items = alloc_svect(expr*, (4 * (concatStrLen+1) + 1));
+        			expr_ref_vector xor_items(m);
+        			expr_ref_vector and_items(m);
 
         			for (int i = 0; i < concatStrLen + 1; ++i) {
         				std::string prefixStr = const_str.substr(0, i);
@@ -6105,15 +6102,18 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
         				    continue;
         				}
         				expr_ref xorAst(ctx.mk_eq_atom(xorFlag, m_autil.mk_numeral(rational(xor_pos), true)), m);
-        				xor_items[xor_pos++] = xorAst;
+        				xor_items.push_back(xorAst);
+        				xor_pos += 1;
 
         				expr_ref prefixAst(m_strutil.mk_string(prefixStr), m);
         				expr_ref arg1_eq (ctx.mk_eq_atom(arg1, prefixAst), m);
-        				and_items[and_count++] = ctx.mk_eq_atom(xorAst, arg1_eq);
+        				and_items.push_back(ctx.mk_eq_atom(xorAst, arg1_eq));
+        				and_count += 1;
 
         				expr_ref suffixAst(m_strutil.mk_string(suffixStr), m);
         				expr_ref arg2_eq (ctx.mk_eq_atom(arg2, suffixAst), m);
-        				and_items[and_count++] = ctx.mk_eq_atom(xorAst, arg2_eq);
+        				and_items.push_back(ctx.mk_eq_atom(xorAst, arg2_eq));
+        				and_count += 1;
         			}
 
         			expr_ref implyL(ctx.mk_eq_atom(concat, str), m);
@@ -6124,13 +6124,8 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
         				expr_ref negate_ast(m.mk_not(concat_eq_str), m);
         				assert_axiom(negate_ast);
         			} else {
-        				if (xor_pos == 1) {
-        				    and_items[0] = xor_items[0];
-        				    implyR1 = m.mk_and(and_count, and_items);
-        				} else {
-        				    and_items[0] = m.mk_or(xor_pos, xor_items);
-        				    implyR1 = m.mk_and(and_count, and_items);
-        				}
+        			    and_items.push_back(mk_or(xor_items));
+        			    implyR1 = mk_and(and_items);
         				assert_implication(implyL, implyR1);
         			}
         		} /* (arg1Len != 1 || arg2Len != 1) */
