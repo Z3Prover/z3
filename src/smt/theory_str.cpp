@@ -662,6 +662,7 @@ app * theory_str::mk_unroll(expr * n, expr * bound) {
 
 	expr * args[2] = {n, bound};
 	app * unrollFunc = get_manager().mk_app(get_id(), OP_RE_UNROLL, 0, 0, 2, args);
+	m_trail.push_back(unrollFunc);
 
 	expr_ref_vector items(m);
 	items.push_back(ctx.mk_eq_atom(ctx.mk_eq_atom(bound, mk_int(0)), ctx.mk_eq_atom(unrollFunc, m_strutil.mk_string(""))));
@@ -677,6 +678,7 @@ app * theory_str::mk_unroll(expr * n, expr * bound) {
 app * theory_str::mk_contains(expr * haystack, expr * needle) {
     expr * args[2] = {haystack, needle};
     app * contains = get_manager().mk_app(get_id(), OP_STR_CONTAINS, 0, 0, 2, args);
+    m_trail.push_back(contains);
     // immediately force internalization so that axiom setup does not fail
     get_context().internalize(contains, false);
     set_up_axioms(contains);
@@ -686,6 +688,7 @@ app * theory_str::mk_contains(expr * haystack, expr * needle) {
 app * theory_str::mk_indexof(expr * haystack, expr * needle) {
     expr * args[2] = {haystack, needle};
     app * indexof = get_manager().mk_app(get_id(), OP_STR_INDEXOF, 0, 0, 2, args);
+    m_trail.push_back(indexof);
     // immediately force internalization so that axiom setup does not fail
     get_context().internalize(indexof, false);
     set_up_axioms(indexof);
