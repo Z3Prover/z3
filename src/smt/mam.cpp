@@ -424,7 +424,7 @@ namespace smt {
             out << *curr;
             curr = curr->m_next;
             while (curr != 0 && curr->m_opcode != CHOOSE && curr->m_opcode != NOOP) {
-                out << " ";
+                out << "\n";
                 out << *curr;
                 curr = curr->m_next;
             }
@@ -796,6 +796,7 @@ namespace smt {
         unsigned                m_num_choices;
         bool                    m_is_tmp_tree; 
         svector<unsigned>       m_mp_already_processed;
+        obj_map<expr, unsigned> m_matched_exprs;
         
         struct pcheck_checked {
             func_decl * m_label;
@@ -840,6 +841,7 @@ namespace smt {
             m_mp          = mp;
             m_num_choices = 0;
             m_todo.reset();
+            m_matched_exprs.reset();
             m_registers.fill(0);
             
             app * p = to_app(mp->get_arg(first_idx));
@@ -951,7 +953,15 @@ namespace smt {
                     set_check_mark(reg, NOT_CHECKED); // reset mark, register was fully processed.
                     continue;
                 }
-                
+
+                unsigned matched_reg;
+                if (m_matched_exprs.find(p, matched_reg) && reg != matched_reg) {
+                    m_seq.push_back(m_ct_manager.mk_compare(matched_reg, reg));
+                    set_check_mark(reg, NOT_CHECKED); // reset mark, register was fully processed.
+                    continue;
+                }
+                m_matched_exprs.insert(p, reg);
+
                 if (m_use_filters && get_check_mark(reg) != CHECK_SINGLETON) {
                     func_decl * lbl = to_app(p)->get_decl();
                     approx_set s(m_lbl_hasher(lbl));
@@ -1311,9 +1321,6 @@ namespace smt {
             unsigned reg2 = instr->m_reg2;
             return 
                 m_registers[reg1] != 0 &&
-                m_registers[reg2] != 0 &&
-                is_var(m_registers[reg1]) &&
-                is_var(m_registers[reg2]) &&
                 m_registers[reg1] == m_registers[reg2];
         }
     
@@ -1571,12 +1578,13 @@ namespace smt {
                             unsigned reg1   = static_cast<compare*>(curr)->m_reg1;
                             unsigned reg2   = static_cast<compare*>(curr)->m_reg2;
                             SASSERT(m_todo.contains(reg2));
-                            m_todo.erase(reg1);
                             m_todo.erase(reg2);
-                            SASSERT(is_var(m_registers[reg1]));
-                            unsigned var_id = to_var(m_registers[reg1])->get_idx();
-                            if (m_vars[var_id] == -1)
-                                m_vars[var_id] = reg1;
+                            if (is_var(m_registers[reg1])) {
+                                m_todo.erase(reg1);
+                                unsigned var_id = to_var(m_registers[reg1])->get_idx();
+                                if (m_vars[var_id] == -1)
+                                    m_vars[var_id] = reg1;
+                            }
                             m_compatible.push_back(curr);
                         }
                         else {
