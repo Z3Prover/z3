@@ -336,6 +336,7 @@ public:
         simp2_p.set_bool("flat", true); // required by som
         simp2_p.set_bool("hoist_mul", false); // required by som
         simp2_p.set_bool("elim_and", true);
+        simp2_p.set_bool("blast_distinct", true);
         m_preprocess =
             and_then(mk_card2bv_tactic(m, m_params),
                      using_params(mk_simplify_tactic(m), simp2_p),
