@@ -6686,8 +6686,9 @@ void theory_str::pop_scope_eh(unsigned num_scopes) {
     // TODO: figure out what's going out of scope and why
     context & ctx = get_context();
     ast_manager & m = get_manager();
-    expr_ref_vector assignments(m);
-    ctx.get_assignments(assignments);
+
+    // expr_ref_vector assignments(m);
+    // ctx.get_assignments(assignments);
 
     TRACE_CODE(if (is_trace_enabled("t_str_dump_assign_on_scope_change")) { dump_assignments(); });
 
@@ -8254,6 +8255,7 @@ expr * theory_str::gen_val_options(expr * freeVar, expr * len_indicator, expr * 
 
 	// ----------------------------------------------------------------------------------------
 
+	// TODO refactor this and below to use expr_ref_vector instead of ptr_vector/svect
 	ptr_vector<expr> orList;
 	ptr_vector<expr> andList;
 
