@@ -5569,7 +5569,13 @@ bool theory_str::check_length_concat_concat(expr * n1, expr * n2) {
     bool concat1LenFixed = true;
     bool concat2LenFixed = true;
 
-    expr_ref_vector items(mgr);
+    /*
+     * Refactored from the Z3str2 version.
+     * We delay creation of new terms until a conflict
+     * is actually detected.
+     */
+    expr_ref_vector eq_args(mgr);
+    vector<rational> eq_lens;
 
     rational sum1(0), sum2(0);
 
@@ -5580,7 +5586,9 @@ bool theory_str::check_length_concat_concat(expr * n1, expr * n2) {
         if (argLen_exists) {
             sum1 += argLen;
             if (!m_strutil.is_string(oneArg)) {
-                items.push_back(ctx.mk_eq_atom(mk_strlen(oneArg), mk_int(argLen)));
+                // items.push_back(ctx.mk_eq_atom(mk_strlen(oneArg), mk_int(argLen)));
+                eq_args.push_back(oneArg);
+                eq_lens.push_back(rational(argLen));
             }
         } else {
             concat1LenFixed = false;
@@ -5594,14 +5602,14 @@ bool theory_str::check_length_concat_concat(expr * n1, expr * n2) {
         if (argLen_exists) {
             sum2 += argLen;
             if (!m_strutil.is_string(oneArg)) {
-                items.push_back(ctx.mk_eq_atom(mk_strlen(oneArg), mk_int(argLen)));
+                // items.push_back(ctx.mk_eq_atom(mk_strlen(oneArg), mk_int(argLen)));
+                eq_args.push_back(oneArg);
+                eq_lens.push_back(rational(argLen));
             }
         } else {
             concat2LenFixed = false;
         }
     }
-
-    items.push_back(ctx.mk_eq_atom(n1, n2));
 
     bool conflict = false;
 
@@ -5621,6 +5629,13 @@ bool theory_str::check_length_concat_concat(expr * n1, expr * n2) {
 
     if (conflict) {
         TRACE("t_str_detail", tout << "inconsistent length detected in concat <==> concat" << std::endl;);
+        expr_ref_vector items(mgr);
+        for (unsigned int z = 0; z < eq_args.size(); ++z) {
+            expr * arg = eq_args.get(z);
+            rational len = eq_lens.get(z);
+            items.push_back(ctx.mk_eq_atom(mk_strlen(arg), mk_int(len)));
+        }
+        items.push_back(ctx.mk_eq_atom(n1, n2));
         expr_ref toAssert(mgr.mk_not(mk_and(items)), mgr);
         assert_axiom(toAssert);
         return false;
