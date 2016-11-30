@@ -198,6 +198,10 @@ namespace opt {
         return m_context.find_mutexes(vars, mutexes);
     }
 
+    lbool opt_solver::preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores) {
+        return m_context.preferred_sat(asms, cores);
+    }
+
 
 
     /**

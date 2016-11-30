@@ -200,7 +200,20 @@ namespace smt {
         model_ref                  m_model;
         std::string                m_unknown;
         void                       mk_proto_model(lbool r);
-        struct scoped_mk_model;
+        struct scoped_mk_model {
+            context & m_ctx;
+            scoped_mk_model(context & ctx):m_ctx(ctx) {
+                m_ctx.m_proto_model = 0;
+                m_ctx.m_model       = 0;
+            }
+            ~scoped_mk_model() {
+                if (m_ctx.m_proto_model.get() != 0) {
+                    m_ctx.m_model = m_ctx.m_proto_model->mk_model();
+                    m_ctx.m_proto_model = 0; // proto_model is not needed anymore.
+                }
+            }
+        };
+
 
         // -----------------------------------
         //
@@ -233,7 +246,6 @@ namespace smt {
         params_ref const & get_params() {
             return m_params;
         }
-
 
         bool get_cancel_flag() { return !m_manager.limit().inc(); }
 
@@ -1056,6 +1068,8 @@ namespace smt {
 
         void inc_limits();
 
+        bool restart(lbool& status, unsigned curr_lvl);
+
         void tick(unsigned & counter) const;
 
         lbool bounded_search();
@@ -1367,6 +1381,13 @@ namespace smt {
         void validate_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, 
                                    expr_ref_vector const& conseq, expr_ref_vector const& unfixed);
 
+        void justify(literal lit, index_set& s);
+
+        void extract_cores(expr_ref_vector const& asms, vector<expr_ref_vector>& cores, unsigned& min_core_size);
+
+        void preferred_sat(literal_vector& literals);
+
+        void display_partial_assignment(std::ostream& out, expr_ref_vector const& asms, unsigned min_core_size);
 
     public:
         context(ast_manager & m, smt_params & fp, params_ref const & p = params_ref());
@@ -1410,6 +1431,8 @@ namespace smt {
         lbool get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq, expr_ref_vector& unfixed);
 
         lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes);
+
+        lbool preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores);
         
         lbool setup_and_check(bool reset_cancel = true);
         
