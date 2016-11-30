@@ -424,7 +424,7 @@ namespace smt {
             out << *curr;
             curr = curr->m_next;
             while (curr != 0 && curr->m_opcode != CHOOSE && curr->m_opcode != NOOP) {
-                out << " ";
+                out << "\n";
                 out << *curr;
                 curr = curr->m_next;
             }
@@ -795,7 +795,8 @@ namespace smt {
         code_tree *             m_tree;
         unsigned                m_num_choices;
         bool                    m_is_tmp_tree; 
-        svector<unsigned>       m_mp_already_processed;
+        svector<bool>           m_mp_already_processed;
+        obj_map<expr, unsigned> m_matched_exprs;
         
         struct pcheck_checked {
             func_decl * m_label;
@@ -951,7 +952,15 @@ namespace smt {
                     set_check_mark(reg, NOT_CHECKED); // reset mark, register was fully processed.
                     continue;
                 }
-                
+
+                unsigned matched_reg;
+                if (m_matched_exprs.find(p, matched_reg) && reg != matched_reg) {
+                    m_seq.push_back(m_ct_manager.mk_compare(matched_reg, reg));
+                    set_check_mark(reg, NOT_CHECKED); // reset mark, register was fully processed.
+                    continue;
+                }
+                m_matched_exprs.insert(p, reg);
+
                 if (m_use_filters && get_check_mark(reg) != CHECK_SINGLETON) {
                     func_decl * lbl = to_app(p)->get_decl();
                     approx_set s(m_lbl_hasher(lbl));
@@ -1106,7 +1115,7 @@ namespace smt {
                 unsigned best_j = 0;
                 bool     found_bounded_mp = false;
                 for (unsigned j = 0; j < m_mp->get_num_args(); j++) {
-                    if (std::find(m_mp_already_processed.begin(), m_mp_already_processed.end(), j) != m_mp_already_processed.end())
+                    if (m_mp_already_processed[j])
                         continue;
                     app * p            = to_app(m_mp->get_arg(j));
                     bool has_unbound_vars = false;
@@ -1123,7 +1132,7 @@ namespace smt {
                         best_j         = j;
                     }
                 }
-                m_mp_already_processed.push_back(best_j);
+                m_mp_already_processed[best_j] = true;
                 SASSERT(best != 0);
                 app * p                 = best;
                 func_decl * lbl         = p->get_decl();
@@ -1216,13 +1225,16 @@ namespace smt {
         */
         void linearise(instruction * head, unsigned first_idx) {
             m_seq.reset();
-            m_mp_already_processed.reset();
-            m_mp_already_processed.push_back(first_idx);
+            m_matched_exprs.reset();
             while (!m_todo.empty())
                 linearise_core();
 
-            if (m_mp->get_num_args() > 1)
+            if (m_mp->get_num_args() > 1) {
+                m_mp_already_processed.reset();
+                m_mp_already_processed.resize(m_mp->get_num_args());
+                m_mp_already_processed[first_idx] = true;
                 linearise_multi_pattern(first_idx);
+            }
             
 #ifdef Z3DEBUG
             for (unsigned i = 0; i < m_qa->get_num_decls(); i++) {
@@ -1311,9 +1323,6 @@ namespace smt {
             unsigned reg2 = instr->m_reg2;
             return 
                 m_registers[reg1] != 0 &&
-                m_registers[reg2] != 0 &&
-                is_var(m_registers[reg1]) &&
-                is_var(m_registers[reg2]) &&
                 m_registers[reg1] == m_registers[reg2];
         }
     
@@ -1571,12 +1580,13 @@ namespace smt {
                             unsigned reg1   = static_cast<compare*>(curr)->m_reg1;
                             unsigned reg2   = static_cast<compare*>(curr)->m_reg2;
                             SASSERT(m_todo.contains(reg2));
-                            m_todo.erase(reg1);
                             m_todo.erase(reg2);
-                            SASSERT(is_var(m_registers[reg1]));
-                            unsigned var_id = to_var(m_registers[reg1])->get_idx();
-                            if (m_vars[var_id] == -1)
-                                m_vars[var_id] = reg1;
+                            if (is_var(m_registers[reg1])) {
+                                m_todo.erase(reg1);
+                                unsigned var_id = to_var(m_registers[reg1])->get_idx();
+                                if (m_vars[var_id] == -1)
+                                    m_vars[var_id] = reg1;
+                            }
                             m_compatible.push_back(curr);
                         }
                         else {
