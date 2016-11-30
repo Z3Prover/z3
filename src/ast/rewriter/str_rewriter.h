@@ -60,6 +60,7 @@ public:
     br_status mk_re_RegexIn(expr * str, expr * re, expr_ref & result);
     br_status mk_re_RegexPlus(expr * re, expr_ref & result);
     br_status mk_re_RegexStar(expr * re, expr_ref & result);
+    br_status mk_re_RegexConcat(expr * r0, expr * r1, expr_ref & result);
     br_status mk_re_RegexCharRange(expr * start, expr * end, expr_ref & result);
 
     bool reduce_eq(expr * l, expr * r, expr_ref_vector & lhs, expr_ref_vector & rhs, bool & change);

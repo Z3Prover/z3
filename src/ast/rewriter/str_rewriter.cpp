@@ -489,6 +489,25 @@ br_status str_rewriter::mk_re_RegexStar(expr * re, expr_ref & result) {
     }
 }
 
+br_status str_rewriter::mk_re_RegexConcat(expr * r0, expr * r1, expr_ref & result) {
+    TRACE("t_str_rw", tout << "rewrite (RegexConcat " << mk_pp(r0, m()) << " " << mk_pp(r1, m()) << ")" << std::endl;);
+    // (RegexConcat (Str2Reg "A") (Str2Reg "B")) --> (Str2Reg "AB")
+    if (m_strutil.is_re_Str2Reg(r0) && m_strutil.is_re_Str2Reg(r1)) {
+        expr * r0str = to_app(r0)->get_arg(0);
+        expr * r1str = to_app(r1)->get_arg(0);
+        ENSURE(m_strutil.is_string(r0str));
+        ENSURE(m_strutil.is_string(r1str));
+        std::string r0val = m_strutil.get_string_constant_value(r0str);
+        std::string r1val = m_strutil.get_string_constant_value(r1str);
+        std::string simplifyVal = r0val + r1val;
+        TRACE("t_str_rw", tout << "RegexConcat fast path: both sides are Str2Reg, simplify to (Str2Reg \"" << simplifyVal << "\")" << std::endl;);
+        result = m_strutil.mk_re_Str2Reg(simplifyVal);
+        return BR_DONE;
+    }
+
+    return BR_FAILED;
+}
+
 br_status str_rewriter::mk_re_RegexPlus(expr * re, expr_ref & result) {
     /*
      * Two optimizations are possible if we inspect 're'.
@@ -596,6 +615,9 @@ br_status str_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_RE_REGEXSTAR:
         SASSERT(num_args == 1);
         return mk_re_RegexStar(args[0], result);
+    case OP_RE_REGEXCONCAT:
+        SASSERT(num_args == 2);
+        return mk_re_RegexConcat(args[0], args[1], result);
     case OP_RE_REGEXCHARRANGE:
         SASSERT(num_args == 2);
         return mk_re_RegexCharRange(args[0], args[1], result);
