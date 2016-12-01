@@ -23,8 +23,6 @@ Notes:
 class ast_manager;
 class tactic;
 
-tactic * mk_ufbv_preprocessor_tactic(ast_manager & m, params_ref const & p = params_ref());
-
 tactic * mk_ufbv_tactic(ast_manager & m, params_ref const & p = params_ref());
 
 /*

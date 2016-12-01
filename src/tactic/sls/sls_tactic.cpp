@@ -94,13 +94,13 @@ public:
 
 };
 
-tactic * mk_sls_tactic(ast_manager & m, params_ref const & p) {
+static tactic * mk_sls_tactic(ast_manager & m, params_ref const & p) {
     return and_then(fail_if_not(mk_is_qfbv_probe()), // Currently only QF_BV is supported.
                     clean(alloc(sls_tactic, m, p)));
 }
 
 
-tactic * mk_preamble(ast_manager & m, params_ref const & p) {
+static tactic * mk_preamble(ast_manager & m, params_ref const & p) {
     params_ref main_p;
     main_p.set_bool("elim_and", true);
     // main_p.set_bool("pull_cheap_ite", true);
