@@ -66,9 +66,6 @@ struct blaster_cfg {
     void mk_nor(expr * a, expr * b, expr_ref & r) { m_rewriter.mk_nor(a, b, r); }
 };
 
-// CMW: GCC/LLVM do not like this definition because a symbol of the same name exists in assert_set_bit_blaster.o
-// template class bit_blaster_tpl<blaster_cfg>;
-
 class blaster : public bit_blaster_tpl<blaster_cfg> {
     bool_rewriter           m_rewriter;
     bv_util                 m_util;
@@ -624,9 +621,6 @@ MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
         return true;
     }
 };
-
-// CMW: GCC/LLVM do not like this definition because a symbol of the same name exists in assert_set_bit_blaster.o
-// template class rewriter_tpl<blaster_rewriter_cfg>;
 
 struct bit_blaster_rewriter::imp : public rewriter_tpl<blaster_rewriter_cfg> {
     blaster              m_blaster;
