@@ -363,9 +363,6 @@ namespace smt {
         }
     }
 
-    struct scoped_set_relevancy {
-    };
-
     bool model_checker::check(proto_model * md, obj_map<enode, app *> const & root2value) {
         SASSERT(md != 0);
         m_root2value = &root2value;

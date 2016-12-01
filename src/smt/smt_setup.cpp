@@ -188,7 +188,7 @@ namespace smt {
         }
     }
 
-    void check_no_arithmetic(static_features const & st, char const * logic) {
+    static void check_no_arithmetic(static_features const & st, char const * logic) {
         if (st.m_num_arith_ineqs > 0 || st.m_num_arith_terms > 0 || st.m_num_arith_eqs > 0) 
             throw default_exception("Benchmark constains arithmetic, but specified loging does not support it.");
     }
@@ -231,21 +231,21 @@ namespace smt {
             (st.m_num_arith_eqs + st.m_num_arith_ineqs) > st.m_num_uninterpreted_constants * 9;
     }
 
-    bool is_in_diff_logic(static_features const & st) {
+    static bool is_in_diff_logic(static_features const & st) {
         return 
             st.m_num_arith_eqs == st.m_num_diff_eqs && 
             st.m_num_arith_terms == st.m_num_diff_terms && 
             st.m_num_arith_ineqs == st.m_num_diff_ineqs;
     }
 
-    bool is_diff_logic(static_features const & st) {
+    static bool is_diff_logic(static_features const & st) {
         return 
             is_in_diff_logic(st) && 
             (st.m_num_diff_ineqs > 0 || st.m_num_diff_eqs > 0 || st.m_num_diff_terms > 0)
             ;
     }
 
-    void check_no_uninterpreted_functions(static_features const & st, char const * logic) {
+    static void check_no_uninterpreted_functions(static_features const & st, char const * logic) {
         if (st.m_num_uninterpreted_functions != 0)
             throw default_exception("Benchmark contains uninterpreted function symbols, but specified logic does not support them.");
     }
