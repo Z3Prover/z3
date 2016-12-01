@@ -2815,12 +2815,13 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
         if (entry1InScope) {
             t1 = varForBreakConcat[key1][0];
             t2 = varForBreakConcat[key1][1];
-            xorFlag = mk_internal_xor_var();
+            xorFlag = varForBreakConcat[key1][2];
         } else {
             t1 = varForBreakConcat[key2][0];
             t2 = varForBreakConcat[key2][1];
-            xorFlag = mk_internal_xor_var();
+            xorFlag = varForBreakConcat[key2][2];
         }
+        // TODO do I need to refresh the xorFlag, which is an integer var, and if so, how?
         refresh_theory_var(t1);
         refresh_theory_var(t2);
     }
@@ -3140,11 +3141,12 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 	} else {
 		if (entry1InScope) {
 			temp1 = varForBreakConcat[key1][0];
-			xorFlag = mk_internal_xor_var();
+			xorFlag = varForBreakConcat[key1][1];
 		} else if (entry2InScope) {
 			temp1 = varForBreakConcat[key2][0];
-			xorFlag = mk_internal_xor_var();
+			xorFlag = varForBreakConcat[key2][1];
 		}
+		// TODO refresh xorFlag?
 		refresh_theory_var(temp1);
 	}
 
@@ -3449,10 +3451,10 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
     } else {
         if (entry1InScope) {
             temp1 = varForBreakConcat[key1][0];
-            xorFlag = mk_internal_xor_var();
+            xorFlag = varForBreakConcat[key1][1];
         } else if (varForBreakConcat.find(key2) != varForBreakConcat.end()) {
             temp1 = varForBreakConcat[key2][0];
-            xorFlag = mk_internal_xor_var();
+            xorFlag = varForBreakConcat[key2][1];
         }
         refresh_theory_var(temp1);
     }
@@ -3946,10 +3948,10 @@ void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
     } else {
         if (entry1InScope) {
             commonVar = (entry1->second)[0];
-            xorFlag = mk_internal_xor_var();
+            xorFlag = (entry1->second)[1];
         } else {
             commonVar = (entry2->second)[0];
-            xorFlag = mk_internal_xor_var();
+            xorFlag = (entry2->second)[1];
         }
         refresh_theory_var(commonVar);
     }
@@ -6111,9 +6113,9 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
         				xorFlag = mk_internal_xor_var();
         				varForBreakConcat[key1][0] = xorFlag;
         			} else if (entry1InScope) {
-        				xorFlag = mk_internal_xor_var();
+        				xorFlag = varForBreakConcat[key1][0];
         			} else { // entry2InScope
-        				xorFlag = mk_internal_xor_var();
+        				xorFlag = varForBreakConcat[key2][0];
         			}
 
         			int concatStrLen = const_str.length();
