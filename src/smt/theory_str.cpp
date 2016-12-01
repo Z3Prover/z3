@@ -5652,7 +5652,15 @@ bool theory_str::check_length_concat_var(expr * concat, expr * var) {
     } else {
         rational sumLen(0);
         ptr_vector<expr> args;
-        expr_ref_vector items(mgr);
+
+        /*
+         * Refactor from the Z3str2 version.
+         * Only generate new terms if a conflict is actually detected.
+         */
+
+        expr_ref_vector eq_args(mgr);
+        vector<rational> eq_lens;
+
         get_nodes_in_concat(concat, args);
         for (unsigned int i = 0; i < args.size(); ++i) {
             expr * oneArg = args[i];
@@ -5660,11 +5668,19 @@ bool theory_str::check_length_concat_var(expr * concat, expr * var) {
             bool argLen_exists = get_len_value(oneArg, argLen);
             if (argLen_exists) {
                 if (!m_strutil.is_string(oneArg) && !argLen.is_zero()) {
-                    items.push_back(ctx.mk_eq_atom(mk_strlen(oneArg), mk_int(argLen)));
+                    // items.push_back(ctx.mk_eq_atom(mk_strlen(oneArg), mk_int(argLen)));
+                    eq_args.push_back(oneArg);
+                    eq_lens.push_back(rational(argLen));
                 }
                 sumLen += argLen;
                 if (sumLen > varLen) {
                     TRACE("t_str_detail", tout << "inconsistent length detected in concat <==> var" << std::endl;);
+                    expr_ref_vector items(mgr);
+                    for (unsigned int z = 0; z < eq_args.size(); ++z) {
+                        expr * arg = eq_args.get(z);
+                        rational len = eq_lens.get(z);
+                        items.push_back(ctx.mk_eq_atom(mk_strlen(arg), mk_int(len)));
+                    }
                     items.push_back(ctx.mk_eq_atom(mk_strlen(var), mk_int(varLen)));
                     items.push_back(ctx.mk_eq_atom(concat, var));
                     expr_ref toAssert(mgr.mk_not(mk_and(items)), mgr);
