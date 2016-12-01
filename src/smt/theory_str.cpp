@@ -5453,7 +5453,6 @@ bool theory_str::can_two_nodes_eq(expr * n1, expr * n2) {
     // case 0: n1_curr is const string, n2_curr is const string
     if (is_string(n1_curr) && is_string(n2_curr)) {
       if (n1_curr != n2_curr) {
-        // TODO confirm whether it's okay to compare the pointers like this
         return false;
       }
     }
@@ -5495,18 +5494,8 @@ bool theory_str::check_length_const_string(expr * n1, expr * constStr) {
     rational strLen((unsigned) (m_strutil.get_string_constant_value(constStr).length()));
 
     if (is_concat(to_app(n1))) {
-        /*
-         * This has been refactored from Z3str2.
-         * We avoid creating new subexpressions until we actually detect a conflict.
-         * This may avoid a bit of overhead incurred by creating these terms.
-         */
-
         ptr_vector<expr> args;
-
-        expr_ref_vector eq_args(mgr);
-        vector<rational> eq_lens;
-        // foreach (arg, len) in zip(eq_args, eq_lens):
-        //   generate eq(mk_strlen(arg), mk_int(len))
+        expr_ref_vector items(mgr);
 
         get_nodes_in_concat(n1, args);
 
@@ -5516,20 +5505,12 @@ bool theory_str::check_length_const_string(expr * n1, expr * constStr) {
             bool argLen_exists = get_len_value(args[i], argLen);
             if (argLen_exists) {
                 if (!m_strutil.is_string(args[i])) {
-                    // items.push_back(ctx.mk_eq_atom(mk_strlen(args[i]), mk_int(argLen)));
-                    eq_args.push_back(args[i]);
-                    eq_lens.push_back(rational(argLen));
+                    items.push_back(ctx.mk_eq_atom(mk_strlen(args[i]), mk_int(argLen)));
                 }
                 TRACE("t_str_detail", tout << "concat arg: " << mk_pp(args[i], mgr) << " has len = " << argLen.to_string() << std::endl;);
                 sumLen += argLen;
                 if (sumLen > strLen) {
-                    expr_ref_vector items(mgr);
                     items.push_back(ctx.mk_eq_atom(n1, constStr));
-                    for (unsigned int z = 0; z < eq_args.size(); ++z) {
-                        expr * arg = eq_args.get(z);
-                        rational len = eq_lens.get(z);
-                        items.push_back(ctx.mk_eq_atom(mk_strlen(arg), mk_int(len)));
-                    }
                     expr_ref toAssert(mgr.mk_not(mk_and(items)), mgr);
                     TRACE("t_str_detail", tout << "inconsistent length: concat (len = " << sumLen << ") <==> string constant (len = " << strLen << ")" << std::endl;);
                     assert_axiom(toAssert);
