@@ -189,6 +189,15 @@ namespace smt {
          */
         bool opt_UseFastValueTesterCache;
 
+        /*
+         * If AssertStrongerArrangements is set to true,
+         * the implications that would normally be asserted during arrangement generation
+         * will instead be asserted as equivalences.
+         * This is a stronger version of the regular axiom.
+         * The default (Z3str2) behaviour is to set this to false.
+         */
+        bool opt_AssertStrongerArrangements;
+
         bool search_started;
         arith_util m_autil;
         str_util m_strutil;
