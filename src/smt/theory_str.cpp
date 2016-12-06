@@ -2449,13 +2449,8 @@ expr_ref theory_str::generate_mutual_exclusion(expr_ref_vector & terms) {
 
     expr_ref_vector result(m);
 
-    // TODO this can probably be made more efficient
-
     for (unsigned int majorIndex = 0; majorIndex < terms.size(); ++majorIndex) {
-        for (unsigned int minorIndex = 0; minorIndex < terms.size(); ++minorIndex) {
-            if (majorIndex == minorIndex) {
-                continue;
-            }
+        for (unsigned int minorIndex = majorIndex + 1; minorIndex < terms.size(); ++minorIndex) {
             // generate an expression of the form
             // terms[majorIndex] --> NOT(terms[minorIndex])
             expr_ref ex(rewrite_implication(terms.get(majorIndex), m.mk_not(terms.get(minorIndex))), m);
