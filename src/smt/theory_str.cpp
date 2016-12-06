@@ -44,6 +44,7 @@ theory_str::theory_str(ast_manager & m):
         opt_CheckVariableScope(true),
         opt_UseFastLengthTesterCache(true),
         opt_UseFastValueTesterCache(true),
+        opt_AssertStrongerArrangements(true),
         /* Internal setup */
         search_started(false),
         m_autil(m),
@@ -2865,7 +2866,12 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
             add_cut_info_merge(t1, sLevel, m);
             add_cut_info_merge(t1, sLevel, y);
 
-            assert_implication(ax_l, ax_r);
+            if (opt_AssertStrongerArrangements) {
+                expr_ref ax_strong(ctx.mk_eq_atom(ax_l, ax_r), mgr);
+                assert_axiom(ax_strong);
+            } else {
+                assert_implication(ax_l, ax_r);
+            }
         } else {
             loopDetected = true;
             TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
@@ -2912,7 +2918,12 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
             add_cut_info_merge(t2, sLevel, x);
             add_cut_info_merge(t2, sLevel, n);
 
-            assert_implication(ax_l, ax_r);
+            if (opt_AssertStrongerArrangements) {
+                expr_ref ax_strong(ctx.mk_eq_atom(ax_l, ax_r), mgr);
+                assert_axiom(ax_strong);
+            } else {
+                assert_implication(ax_l, ax_r);
+            }
         } else {
             loopDetected = true;
             TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
@@ -3014,7 +3025,12 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
 
             expr_ref premise(ctx.mk_eq_atom(concatAst1, concatAst2), mgr);
             expr_ref conclusion(mk_and(and_item), mgr);
-            assert_implication(premise, conclusion);
+            if (opt_AssertStrongerArrangements) {
+                expr_ref ax_strong(ctx.mk_eq_atom(premise, conclusion), mgr);
+                assert_axiom(ax_strong);
+            } else {
+                assert_implication(premise, conclusion);
+            }
         } else {
             TRACE("t_str", tout << "STOP: no split option found for two EQ concats." << std::endl;);
         }
@@ -3207,7 +3223,12 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 	            add_cut_info_merge(temp1, sLevel, y);
 	            add_cut_info_merge(temp1, sLevel, m);
 
-	            assert_implication(ax_l, ax_r);
+	            if (opt_AssertStrongerArrangements) {
+	                expr_ref ax_strong(ctx.mk_eq_atom(ax_l, ax_r), mgr);
+	                assert_axiom(ax_strong);
+	            } else {
+	                assert_implication(ax_l, ax_r);
+	            }
 	        } else {
 	            loopDetected = true;
 	            TRACE("t_str", tout << "AVOID LOOP: SKIP" << std::endl;);
@@ -3270,7 +3291,12 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 	        expr_ref ax_l(mk_and(l_items), mgr);
 	        expr_ref ax_r(mk_and(r_items), mgr);
 
-	        assert_implication(ax_l, ax_r);
+	        if (opt_AssertStrongerArrangements) {
+	            expr_ref ax_strong(ctx.mk_eq_atom(ax_l, ax_r), mgr);
+	            assert_axiom(ax_strong);
+	        } else {
+	            assert_implication(ax_l, ax_r);
+	        }
 	    } else {
 	        // negate! It's impossible to split str with these lengths
 	        TRACE("t_str", tout << "CONFLICT: Impossible to split str with these lengths." << std::endl;);
@@ -3330,7 +3356,14 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 		if (option > 0) {
 		    and_item.push_back(mk_or(or_item));
 			expr_ref implyR(mk_and(and_item), mgr);
-			assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
+
+			if (opt_AssertStrongerArrangements) {
+			    expr_ref implyLHS(ctx.mk_eq_atom(concatAst1, concatAst2), mgr);
+			    expr_ref ax_strong(ctx.mk_eq_atom(implyLHS, implyR), mgr);
+			    assert_axiom(ax_strong);
+			} else {
+			    assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
+			}
 		} else {
 			TRACE("t_str", tout << "STOP: Should not split two EQ concats." << std::endl;);
 		}
@@ -3509,7 +3542,13 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
             expr_ref_vector r_items(mgr);
             r_items.push_back(ctx.mk_eq_atom(x, prefixAst));
             r_items.push_back(ctx.mk_eq_atom(y, suf_n_concat));
-            assert_implication(ax_l, mk_and(r_items));
+
+            if (opt_AssertStrongerArrangements) {
+                expr_ref ax_strong(ctx.mk_eq_atom(ax_l, mk_and(r_items)), mgr);
+                assert_axiom(ax_strong);
+            } else {
+                assert_implication(ax_l, mk_and(r_items));
+            }
         } else {
             // negate! It's impossible to split str with these lengths
             TRACE("t_str", tout << "CONFLICT: Impossible to split str with these lengths." << std::endl;);
@@ -3523,7 +3562,13 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
                 ctx.mk_eq_atom(mk_strlen(y), mk_strlen(n))), mgr);
         expr_ref ax_l(mgr.mk_and(ax_l1, ax_l2), mgr);
         expr_ref ax_r(mgr.mk_and(ctx.mk_eq_atom(x, strAst), ctx.mk_eq_atom(y, n)), mgr);
-        assert_implication(ax_l, ax_r);
+
+        if (opt_AssertStrongerArrangements) {
+            expr_ref ax_strong(ctx.mk_eq_atom(ax_l, ax_r), mgr);
+            assert_axiom(ax_strong);
+        } else {
+            assert_implication(ax_l, ax_r);
+        }
     }
     else if (splitType == 2) {
         //   |   x        |    y     |
@@ -3556,7 +3601,12 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
                 add_cut_info_merge(temp1, sLevel, x);
                 add_cut_info_merge(temp1, sLevel, n);
 
-                assert_implication(ax_l, ax_r);
+                if (opt_AssertStrongerArrangements) {
+                    expr_ref ax_strong(ctx.mk_eq_atom(ax_l, ax_r), mgr);
+                    assert_axiom(ax_strong);
+                } else {
+                    assert_implication(ax_l, ax_r);
+                }
             } else {
                 loopDetected = true;
                 TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
@@ -3634,7 +3684,14 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
                 and_item.push_back(mk_or(or_item));
             }
             expr_ref implyR(mk_and(and_item), mgr);
-            assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
+
+            if (opt_AssertStrongerArrangements) {
+                expr_ref ax_lhs(ctx.mk_eq_atom(concatAst1, concatAst2), mgr);
+                expr_ref ax_strong(ctx.mk_eq_atom(ax_lhs, implyR), mgr);
+                assert_axiom(ax_strong);
+            } else {
+                assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
+            }
         } else {
             TRACE("t_str", tout << "STOP: should not split two eq. concats" << std::endl;);
         }
@@ -3709,13 +3766,24 @@ void theory_str::process_concat_eq_type4(expr * concatAst1, expr * concatAst2) {
             if (!in_same_eqc(tmpAst, n)) {
                 // break down option 4-1
                 expr_ref implyR(ctx.mk_eq_atom(n, tmpAst), mgr);
-                assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
+                if (opt_AssertStrongerArrangements) {
+                    expr_ref ax_strong(ctx.mk_eq_atom( ctx.mk_eq_atom(concatAst1, concatAst2), implyR ), mgr);
+                    assert_axiom(ax_strong);
+                } else {
+                    assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
+                }
             }
         } else if (str1Len == str2Len) {
             if (!in_same_eqc(n, y)) {
                 //break down option 4-2
                 expr_ref implyR(ctx.mk_eq_atom(n, y), mgr);
-                assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
+
+                if (opt_AssertStrongerArrangements) {
+                    expr_ref ax_strong(ctx.mk_eq_atom( ctx.mk_eq_atom(concatAst1, concatAst2), implyR ), mgr);
+                    assert_axiom(ax_strong);
+                } else {
+                    assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
+                }
             }
         } else {
             std::string deltaStr = str2Value.substr(str1Len, str2Len - str1Len);
@@ -3723,7 +3791,12 @@ void theory_str::process_concat_eq_type4(expr * concatAst1, expr * concatAst2) {
             if (!in_same_eqc(y, tmpAst)) {
                 //break down option 4-3
                 expr_ref implyR(ctx.mk_eq_atom(y, tmpAst), mgr);
-                assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
+                if (opt_AssertStrongerArrangements) {
+                    expr_ref ax_strong(ctx.mk_eq_atom( ctx.mk_eq_atom(concatAst1, concatAst2), implyR ), mgr);
+                    assert_axiom(ax_strong);
+                } else {
+                    assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
+                }
             }
         }
     }
@@ -3795,20 +3868,35 @@ void theory_str::process_concat_eq_type5(expr * concatAst1, expr * concatAst2) {
             expr_ref x_deltaStr(mk_concat(x, m_strutil.mk_string(deltaStr)), mgr);
             if (!in_same_eqc(m, x_deltaStr)) {
                 expr_ref implyR(ctx.mk_eq_atom(m, x_deltaStr), mgr);
-                assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
+                if (opt_AssertStrongerArrangements) {
+                    expr_ref ax_strong(ctx.mk_eq_atom( ctx.mk_eq_atom(concatAst1, concatAst2), implyR ), mgr);
+                    assert_axiom(ax_strong);
+                } else {
+                    assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
+                }
             }
         } else if (str1Len == str2Len) {
             // test
             if (!in_same_eqc(x, m)) {
                 expr_ref implyR(ctx.mk_eq_atom(x, m), mgr);
-                assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
+                if (opt_AssertStrongerArrangements) {
+                    expr_ref ax_strong(ctx.mk_eq_atom( ctx.mk_eq_atom(concatAst1, concatAst2), implyR ), mgr);
+                    assert_axiom(ax_strong);
+                } else {
+                    assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
+                }
             }
         } else {
             std::string deltaStr = str2Value.substr(0, str2Len - str1Len);
             expr_ref m_deltaStr(mk_concat(m, m_strutil.mk_string(deltaStr)), mgr);
             if (!in_same_eqc(x, m_deltaStr)) {
                 expr_ref implyR(ctx.mk_eq_atom(x, m_deltaStr), mgr);
-                assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
+                if (opt_AssertStrongerArrangements) {
+                    expr_ref ax_strong(ctx.mk_eq_atom( ctx.mk_eq_atom(concatAst1, concatAst2), implyR ), mgr);
+                    assert_axiom(ax_strong);
+                } else {
+                    assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
+                }
             }
         }
     }
@@ -4021,7 +4109,13 @@ void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
     //  case 6: concat("str1", y) = concat(m, "str2")
     and_item.push_back(mk_or(or_item));
     expr_ref implyR(mk_and(and_item), mgr);
-    assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
+
+    if (opt_AssertStrongerArrangements) {
+        expr_ref ax_strong(ctx.mk_eq_atom( ctx.mk_eq_atom(concatAst1, concatAst2), implyR ), mgr);
+        assert_axiom(ax_strong);
+    } else {
+        assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
+    }
 }
 
 void theory_str::process_unroll_eq_const_str(expr * unrollFunc, expr * constStr) {
