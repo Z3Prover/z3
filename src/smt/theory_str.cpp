@@ -3643,9 +3643,9 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
     else {
         // Split type -1. We know nothing about the length...
 
-        expr_ref_vector or_item(mgr);
+        expr_ref_vector arrangement_disjunction(mgr);
         unsigned option = 0;
-        expr_ref_vector and_item(mgr);
+
         int pos = 1;
         for (int i = 0; i <= (int) strValue.size(); i++) {
             std::string part1Str = strValue.substr(0, i);
@@ -3655,17 +3655,18 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
             expr_ref y_concat(mk_concat(suffixStr, n), mgr);
 
             if (can_two_nodes_eq(x, cropStr) && can_two_nodes_eq(y, y_concat)) {
+                expr_ref_vector and_item(mgr);
                 // break down option 3-1
                 expr_ref x_eq_str(ctx.mk_eq_atom(x, cropStr), mgr);
-                or_item.push_back(ctx.mk_eq_atom(xorFlag, mk_int(option)));
-                and_item.push_back(ctx.mk_eq_atom(or_item.get(option), x_eq_str)); ++pos;
-                and_item.push_back(ctx.mk_eq_atom(or_item.get(option), ctx.mk_eq_atom(y, y_concat)));
 
-                and_item.push_back(ctx.mk_eq_atom(or_item.get(option), ctx.mk_eq_atom(mk_strlen(x), mk_strlen(cropStr)))); ++pos;
+                and_item.push_back(x_eq_str); ++pos;
+                and_item.push_back(ctx.mk_eq_atom(y, y_concat));
+                and_item.push_back(ctx.mk_eq_atom(mk_strlen(x), mk_strlen(cropStr))); ++pos;
+
                 //        and_item[pos++] = Z3_mk_eq(ctx, or_item[option], Z3_mk_eq(ctx, mk_length(t, y), mk_length(t, y_concat)));
-
                 // adding length constraint for _ = constStr seems slowing things down.
-                option++;
+
+                arrangement_disjunction.push_back(mk_and(and_item));
             }
         }
 
@@ -3678,15 +3679,16 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
         if (can_two_nodes_eq(x, strAst_temp1)) {
             if (!avoidLoopCut || !(has_self_cut(x, n))) {
                 // break down option 3-2
-                or_item.push_back(ctx.mk_eq_atom(xorFlag, mk_int(option)));
+                expr_ref_vector and_item(mgr);
 
                 expr_ref temp1_y(mk_concat(temp1, y), mgr);
-                and_item.push_back(ctx.mk_eq_atom(or_item.get(option), ctx.mk_eq_atom(x, strAst_temp1))); ++pos;
-                and_item.push_back(ctx.mk_eq_atom(or_item.get(option), ctx.mk_eq_atom(n, temp1_y))); ++pos;
+                and_item.push_back(ctx.mk_eq_atom(x, strAst_temp1)); ++pos;
+                and_item.push_back(ctx.mk_eq_atom(n, temp1_y)); ++pos;
 
-                and_item.push_back(ctx.mk_eq_atom(or_item.get(option), ctx.mk_eq_atom(mk_strlen(x),
-                        m_autil.mk_add(mk_strlen(strAst), mk_strlen(temp1)) )) ); ++pos;
-                option++;
+                and_item.push_back(ctx.mk_eq_atom(mk_strlen(x),
+                        m_autil.mk_add(mk_strlen(strAst), mk_strlen(temp1)) ) ); ++pos;
+
+                arrangement_disjunction.push_back(mk_and(and_item));
 
                 add_cut_info_merge(temp1, sLevel, x);
                 add_cut_info_merge(temp1, sLevel, n);
@@ -3698,13 +3700,8 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
         }
 
 
-        if (option > 0) {
-            if (option == 1) {
-                and_item.push_back(or_item.get(0));
-            } else {
-                and_item.push_back(mk_or(or_item));
-            }
-            expr_ref implyR(mk_and(and_item), mgr);
+        if (!arrangement_disjunction.empty()) {
+            expr_ref implyR(mk_or(arrangement_disjunction), mgr);
 
             if (opt_AssertStrongerArrangements) {
                 expr_ref ax_lhs(ctx.mk_eq_atom(concatAst1, concatAst2), mgr);
@@ -3713,6 +3710,7 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
             } else {
                 assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
             }
+            assert_axiom(generate_mutual_exclusion(arrangement_disjunction));
         } else {
             TRACE("t_str", tout << "STOP: should not split two eq. concats" << std::endl;);
         }
@@ -4066,32 +4064,30 @@ void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
         refresh_theory_var(commonVar);
     }
 
-    expr_ref_vector or_item(mgr);
+    expr_ref_vector arrangement_disjunction(mgr);
     int option = 0;
-    expr_ref_vector and_item(mgr);
     int pos = 1;
 
     if (!avoidLoopCut || !has_self_cut(m, y)) {
-        expr_ref or_item_option(ctx.mk_eq_atom(xorFlag, mk_int(option)), mgr);
-        or_item.push_back(or_item_option);
+        expr_ref_vector and_item(mgr);
 
         expr_ref str1_commonVar(mk_concat(str1Ast, commonVar), mgr);
-        and_item.push_back(ctx.mk_eq_atom(or_item_option, ctx.mk_eq_atom(m, str1_commonVar)));
+        and_item.push_back(ctx.mk_eq_atom(m, str1_commonVar));
         pos += 1;
 
         expr_ref commonVar_str2(mk_concat(commonVar, str2Ast), mgr);
-        and_item.push_back(ctx.mk_eq_atom(or_item_option, ctx.mk_eq_atom(y, commonVar_str2)));
+        and_item.push_back(ctx.mk_eq_atom(y, commonVar_str2));
         pos += 1;
 
-        and_item.push_back(ctx.mk_eq_atom(or_item_option, ctx.mk_eq_atom(mk_strlen(m),
-                m_autil.mk_add(mk_strlen(str1Ast), mk_strlen(commonVar)) )));
+        and_item.push_back(ctx.mk_eq_atom(mk_strlen(m),
+                m_autil.mk_add(mk_strlen(str1Ast), mk_strlen(commonVar)) ));
         pos += 1;
 
         //    addItems[0] = mk_length(t, commonVar);
         //    addItems[1] = mk_length(t, str2Ast);
         //    and_item[pos++] = Z3_mk_eq(ctx, or_item[option], Z3_mk_eq(ctx, mk_length(t, y), Z3_mk_add(ctx, 2, addItems)));
 
-        option++;
+        arrangement_disjunction.push_back(mk_and(and_item));
     } else {
         loopDetected = true;
         TRACE("t_str", tout << "AVOID LOOP: SKIPPED." << std::endl;);
@@ -4102,34 +4098,34 @@ void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
         int overLen = *itor;
         std::string prefix = str1Value.substr(0, str1Len - overLen);
         std::string suffix = str2Value.substr(overLen, str2Len - overLen);
-        expr_ref or_item_option(ctx.mk_eq_atom(xorFlag, mk_int(option)), mgr);
-        or_item.push_back(or_item_option);
+
+        expr_ref_vector and_item(mgr);
 
         expr_ref prefixAst(m_strutil.mk_string(prefix), mgr);
         expr_ref x_eq_prefix(ctx.mk_eq_atom(m, prefixAst), mgr);
-        and_item.push_back(ctx.mk_eq_atom(or_item_option, x_eq_prefix));
+        and_item.push_back(x_eq_prefix);
         pos += 1;
 
-        and_item.push_back(ctx.mk_eq_atom(or_item_option,
-                ctx.mk_eq_atom(mk_strlen(m), mk_strlen(prefixAst))));
+        and_item.push_back(
+                ctx.mk_eq_atom(mk_strlen(m), mk_strlen(prefixAst)));
         pos += 1;
 
         // adding length constraint for _ = constStr seems slowing things down.
 
         expr_ref suffixAst(m_strutil.mk_string(suffix), mgr);
         expr_ref y_eq_suffix(ctx.mk_eq_atom(y, suffixAst), mgr);
-        and_item.push_back(ctx.mk_eq_atom(or_item_option, y_eq_suffix));
+        and_item.push_back(y_eq_suffix);
         pos += 1;
 
-        and_item.push_back(ctx.mk_eq_atom(or_item_option, ctx.mk_eq_atom(mk_strlen(y), mk_strlen(suffixAst))));
+        and_item.push_back(ctx.mk_eq_atom(mk_strlen(y), mk_strlen(suffixAst)));
         pos += 1;
 
-        option++;
+        arrangement_disjunction.push_back(mk_and(and_item));
     }
 
     //  case 6: concat("str1", y) = concat(m, "str2")
-    and_item.push_back(mk_or(or_item));
-    expr_ref implyR(mk_and(and_item), mgr);
+
+    expr_ref implyR(mk_or(arrangement_disjunction), mgr);
 
     if (opt_AssertStrongerArrangements) {
         expr_ref ax_strong(ctx.mk_eq_atom( ctx.mk_eq_atom(concatAst1, concatAst2), implyR ), mgr);
@@ -4137,6 +4133,7 @@ void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
     } else {
         assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
     }
+    assert_axiom(generate_mutual_exclusion(arrangement_disjunction));
 }
 
 void theory_str::process_unroll_eq_const_str(expr * unrollFunc, expr * constStr) {
