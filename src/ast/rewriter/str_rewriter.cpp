@@ -456,10 +456,10 @@ br_status str_rewriter::mk_re_RegexIn(expr * str, expr * re, expr_ref & result) 
 	// fast path:
 	// (RegexIn E (Str2Reg S)) --> (= E S)
 	if (m_strutil.is_re_Str2Reg(re)) {
-		TRACE("t_str_rw", tout << "RegexIn fast path: " << mk_pp(str, m()) << " in " << mk_pp(re, m()) << std::endl;);
 		expr * regexStr = to_app(re)->get_arg(0);
 		ENSURE(m_strutil.is_string(regexStr));
 		result = m().mk_eq(str, regexStr);
+		TRACE("t_str_rw", tout << "RegexIn fast path: " << mk_pp(str, m()) << " in " << mk_pp(re, m()) << " ==> " << mk_pp(result, m()) << std::endl;);
 		return BR_REWRITE_FULL;
 	}
 

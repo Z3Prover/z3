@@ -1708,6 +1708,7 @@ void theory_str::instantiate_axiom_RegexIn(enode * e) {
     	expr_ref finalAxiom(m.mk_iff(ex, rhs), m);
     	SASSERT(finalAxiom);
     	assert_axiom(finalAxiom);
+    	TRACE("t_str", tout << "set up Str2Reg: (RegexIn " << mk_pp(str, m) << " " << mk_pp(regex, m) << ")" << std::endl;);
     } else if (is_RegexConcat(regex)) {
     	expr_ref var1(mk_regex_rep_var(), m);
     	expr_ref var2(mk_regex_rep_var(), m);
