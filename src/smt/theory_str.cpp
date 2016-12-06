@@ -3328,8 +3328,8 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 	} else {
 		// Split type -1: no idea about the length...
 		int optionTotal = 2 + strValue.length();
-		expr_ref_vector or_item(mgr);
-		expr_ref_vector and_item(mgr);
+		expr_ref_vector arrangement_disjunction(mgr);
+
 		int option = 0;
 		int pos = 1;
 
@@ -3339,16 +3339,16 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 		if (can_two_nodes_eq(y, temp1_strAst)) {
 			if (!avoidLoopCut || !has_self_cut(m, y)) {
 				// break down option 2-1
-			    expr_ref current_or_item_option(ctx.mk_eq_atom(xorFlag, mk_int(option)), mgr);
-				or_item.push_back(current_or_item_option);
+			    expr_ref_vector and_item(mgr);
+
 				expr_ref x_temp1(mk_concat(x, temp1), mgr);
-				and_item.push_back(ctx.mk_eq_atom(current_or_item_option, ctx.mk_eq_atom(m, x_temp1)));
-				and_item.push_back(ctx.mk_eq_atom(current_or_item_option, ctx.mk_eq_atom(y, temp1_strAst)));
+				and_item.push_back(ctx.mk_eq_atom(m, x_temp1));
+				and_item.push_back(ctx.mk_eq_atom(y, temp1_strAst));
 
-				and_item.push_back(ctx.mk_eq_atom(current_or_item_option, ctx.mk_eq_atom(mk_strlen(m),
-						m_autil.mk_add(mk_strlen(x), mk_strlen(temp1)))));
+				and_item.push_back(ctx.mk_eq_atom(mk_strlen(m),
+						m_autil.mk_add(mk_strlen(x), mk_strlen(temp1))));
 
-				++option;
+				arrangement_disjunction.push_back(mk_and(and_item));
 				add_cut_info_merge(temp1, ctx.get_scope_level(), y);
 				add_cut_info_merge(temp1, ctx.get_scope_level(), m);
 			} else {
@@ -3366,18 +3366,16 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 			expr_ref cropStr(m_strutil.mk_string(part2Str), mgr);
 			if (can_two_nodes_eq(x, x_concat) && can_two_nodes_eq(y, cropStr)) {
 				// break down option 2-2
-			    expr_ref current_or_item_option(ctx.mk_eq_atom(xorFlag, mk_int(option)), mgr);
-				or_item.push_back(current_or_item_option);
-				and_item.push_back(ctx.mk_eq_atom(current_or_item_option, ctx.mk_eq_atom(x, x_concat)));
-				and_item.push_back(ctx.mk_eq_atom(current_or_item_option, ctx.mk_eq_atom(y, cropStr)));
-				and_item.push_back(ctx.mk_eq_atom(current_or_item_option, ctx.mk_eq_atom(mk_strlen(y), mk_int(part2Str.length()))));
-				++option;
+			    expr_ref_vector and_item(mgr);
+				and_item.push_back(ctx.mk_eq_atom(x, x_concat));
+				and_item.push_back(ctx.mk_eq_atom(y, cropStr));
+				and_item.push_back(ctx.mk_eq_atom(mk_strlen(y), mk_int(part2Str.length())));
+				arrangement_disjunction.push_back(mk_and(and_item));
 			}
 		}
 
-		if (option > 0) {
-		    and_item.push_back(mk_or(or_item));
-			expr_ref implyR(mk_and(and_item), mgr);
+		if (!arrangement_disjunction.empty()) {
+			expr_ref implyR(mk_or(arrangement_disjunction), mgr);
 
 			if (opt_AssertStrongerArrangements) {
 			    expr_ref implyLHS(ctx.mk_eq_atom(concatAst1, concatAst2), mgr);
@@ -3386,6 +3384,7 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 			} else {
 			    assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
 			}
+			assert_axiom(generate_mutual_exclusion(arrangement_disjunction));
 		} else {
 			TRACE("t_str", tout << "STOP: Should not split two EQ concats." << std::endl;);
 		}
