@@ -478,6 +478,8 @@ namespace smt {
         void process_concat_eq_type5(expr * concatAst1, expr * concatAst2);
         void process_concat_eq_type6(expr * concatAst1, expr * concatAst2);
 
+        expr_ref generate_mutual_exclusion(expr_ref_vector & exprs);
+
         bool new_eq_check(expr * lhs, expr * rhs);
         void group_terms_by_eqc(expr * n, std::set<expr*> & concats, std::set<expr*> & vars, std::set<expr*> & consts);
 

@@ -2443,6 +2443,30 @@ void theory_str::infer_len_concat_equality(expr * nn1, expr * nn2) {
     */
 }
 
+expr_ref theory_str::generate_mutual_exclusion(expr_ref_vector & terms) {
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+
+    expr_ref_vector result(m);
+
+    // TODO this can probably be made more efficient
+
+    for (unsigned int majorIndex = 0; majorIndex < terms.size(); ++majorIndex) {
+        for (unsigned int minorIndex = 0; minorIndex < terms.size(); ++minorIndex) {
+            if (majorIndex == minorIndex) {
+                continue;
+            }
+            // generate an expression of the form
+            // terms[majorIndex] --> NOT(terms[minorIndex])
+            expr_ref ex(rewrite_implication(terms.get(majorIndex), m.mk_not(terms.get(minorIndex))), m);
+            result.push_back(ex);
+        }
+    }
+
+    expr_ref final_result(mk_and(result), m);
+    return final_result;
+}
+
 /*
  * Handle two equivalent Concats.
  */
@@ -2931,40 +2955,42 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
         }
     } else if (splitType == -1) {
         // Here we don't really have a choice. We have no length information at all...
-        expr_ref_vector or_item(mgr);
-        expr_ref_vector and_item(mgr);
+
+        // This vector will eventually contain one term for each possible arrangement we explore.
+        expr_ref_vector arrangement_disjunction(mgr);
+
         int option = 0;
         int pos = 1;
 
         // break option 1: m cuts y
         // len(x) < len(m) || len(y) > len(n)
         if (!avoidLoopCut || !has_self_cut(m, y)) {
+            expr_ref_vector and_item(mgr);
             // break down option 1-1
             expr_ref x_t1(mk_concat(x, t1), mgr);
             expr_ref t1_n(mk_concat(t1, n), mgr);
-            expr_ref or_item_option(ctx.mk_eq_atom(xorFlag, mk_int(option)), mgr);
-            or_item.push_back(or_item_option);
-            and_item.push_back(ctx.mk_eq_atom(or_item_option, ctx.mk_eq_atom(m, x_t1)));
-            and_item.push_back(ctx.mk_eq_atom(or_item_option, ctx.mk_eq_atom(y, t1_n)));
+
+            and_item.push_back(ctx.mk_eq_atom(m, x_t1));
+            and_item.push_back(ctx.mk_eq_atom(y, t1_n));
 
             expr_ref x_plus_t1(m_autil.mk_add(mk_strlen(x), mk_strlen(t1)), mgr);
-            and_item.push_back(ctx.mk_eq_atom(or_item_option, ctx.mk_eq_atom(mk_strlen(m), x_plus_t1)));
+            and_item.push_back(ctx.mk_eq_atom(mk_strlen(m), x_plus_t1));
             // These were crashing the solver because the integer theory
             // expects a constant on the right-hand side.
             // The things we want to assert here are len(m) > len(x) and len(y) > len(n).
             // We rewrite A > B as A-B > 0 and then as not(A-B <= 0),
             // and then, *because we aren't allowed to use subtraction*,
             // as not(A + -1*B <= 0)
-            and_item.push_back(ctx.mk_eq_atom(or_item_option,
+            and_item.push_back(
                     mgr.mk_not(m_autil.mk_le(
                     		m_autil.mk_add(mk_strlen(m), m_autil.mk_mul(mk_int(-1), mk_strlen(x))),
-							mk_int(0))) ));
-            and_item.push_back(ctx.mk_eq_atom(or_item_option,
+							mk_int(0))) );
+            and_item.push_back(
                     mgr.mk_not(m_autil.mk_le(
                     		m_autil.mk_add(mk_strlen(y),m_autil.mk_mul(mk_int(-1), mk_strlen(n))),
-							mk_int(0))) ));
+							mk_int(0))) );
 
-            option++;
+            arrangement_disjunction.push_back(mk_and(and_item));
 
             add_cut_info_merge(t1, ctx.get_scope_level(), m);
             add_cut_info_merge(t1, ctx.get_scope_level(), y);
@@ -2977,30 +3003,30 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
         // break option 2:
         // x = m || y = n
         if (!avoidLoopCut || !has_self_cut(x, n)) {
+            expr_ref_vector and_item(mgr);
             // break down option 1-2
             expr_ref m_t2(mk_concat(m, t2), mgr);
             expr_ref t2_y(mk_concat(t2, y), mgr);
-            expr_ref or_item_option(ctx.mk_eq_atom(xorFlag, mk_int(option)), mgr);
-            or_item.push_back(or_item_option);
-            and_item.push_back(ctx.mk_eq_atom(or_item_option, ctx.mk_eq_atom(x, m_t2)));
-            and_item.push_back(ctx.mk_eq_atom(or_item_option, ctx.mk_eq_atom(n, t2_y)));
+
+            and_item.push_back(ctx.mk_eq_atom(x, m_t2));
+            and_item.push_back(ctx.mk_eq_atom(n, t2_y));
 
 
             expr_ref m_plus_t2(m_autil.mk_add(mk_strlen(m), mk_strlen(t2)), mgr);
 
-            and_item.push_back(ctx.mk_eq_atom(or_item_option, ctx.mk_eq_atom(mk_strlen(x), m_plus_t2)));
+            and_item.push_back(ctx.mk_eq_atom(mk_strlen(x), m_plus_t2));
             // want len(x) > len(m) and len(n) > len(y)
-            and_item.push_back(ctx.mk_eq_atom(or_item_option,
+            and_item.push_back(
             		mgr.mk_not(m_autil.mk_le(
             				m_autil.mk_add(mk_strlen(x), m_autil.mk_mul(mk_int(-1), mk_strlen(m))),
-							mk_int(0))) ));
-            and_item.push_back(ctx.mk_eq_atom(or_item_option,
+							mk_int(0))) );
+            and_item.push_back(
             		mgr.mk_not(m_autil.mk_le(
             				m_autil.mk_add(mk_strlen(n), m_autil.mk_mul(mk_int(-1), mk_strlen(y))),
-							mk_int(0))) ));
+							mk_int(0))) );
 
 
-            option++;
+            arrangement_disjunction.push_back(mk_and(and_item));
 
             add_cut_info_merge(t2, ctx.get_scope_level(), x);
             add_cut_info_merge(t2, ctx.get_scope_level(), n);
@@ -3011,26 +3037,27 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
         }
 
         if (can_two_nodes_eq(x, m) && can_two_nodes_eq(y, n)) {
-            expr_ref or_item_option(ctx.mk_eq_atom(xorFlag, mk_int(option)), mgr);
-            or_item.push_back(or_item_option);
-            and_item.push_back(ctx.mk_eq_atom(or_item_option, ctx.mk_eq_atom(x, m)));
-            and_item.push_back(ctx.mk_eq_atom(or_item_option, ctx.mk_eq_atom(y, n)));
-            and_item.push_back(ctx.mk_eq_atom(or_item_option, ctx.mk_eq_atom(mk_strlen(x), mk_strlen(m))));
-            and_item.push_back(ctx.mk_eq_atom(or_item_option, ctx.mk_eq_atom(mk_strlen(y), mk_strlen(n))));
-            ++option;
+            expr_ref_vector and_item(mgr);
+
+            and_item.push_back(ctx.mk_eq_atom(x, m));
+            and_item.push_back(ctx.mk_eq_atom(y, n));
+            and_item.push_back(ctx.mk_eq_atom(mk_strlen(x), mk_strlen(m)));
+            and_item.push_back(ctx.mk_eq_atom(mk_strlen(y), mk_strlen(n)));
+
+            arrangement_disjunction.push_back(mk_and(and_item));
         }
 
-        if (option > 0) {
-            and_item.push_back(mk_or(or_item));
-
+        if (!arrangement_disjunction.empty()) {
             expr_ref premise(ctx.mk_eq_atom(concatAst1, concatAst2), mgr);
-            expr_ref conclusion(mk_and(and_item), mgr);
+            expr_ref conclusion(mk_or(arrangement_disjunction), mgr);
             if (opt_AssertStrongerArrangements) {
                 expr_ref ax_strong(ctx.mk_eq_atom(premise, conclusion), mgr);
                 assert_axiom(ax_strong);
             } else {
                 assert_implication(premise, conclusion);
             }
+            // assert mutual exclusion between each branch of the arrangement
+            assert_axiom(generate_mutual_exclusion(arrangement_disjunction));
         } else {
             TRACE("t_str", tout << "STOP: no split option found for two EQ concats." << std::endl;);
         }
