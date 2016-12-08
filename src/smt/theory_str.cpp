@@ -6201,10 +6201,10 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
         			int xor_pos = 0;
         			int and_count = 1;
 
-        			expr_ref_vector xor_items(m);
-        			expr_ref_vector and_items(m);
+        			expr_ref_vector arrangement_disjunction(m);
 
         			for (int i = 0; i < concatStrLen + 1; ++i) {
+        			    expr_ref_vector and_items(m);
         				std::string prefixStr = const_str.substr(0, i);
         				std::string suffixStr = const_str.substr(i, concatStrLen - i);
         				// skip invalid options
@@ -6214,32 +6214,36 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
         				if (is_concat(to_app(arg2)) && !can_concat_eq_str(arg2, suffixStr)) {
         				    continue;
         				}
-        				expr_ref xorAst(ctx.mk_eq_atom(xorFlag, m_autil.mk_numeral(rational(xor_pos), true)), m);
-        				xor_items.push_back(xorAst);
-        				xor_pos += 1;
 
         				expr_ref prefixAst(m_strutil.mk_string(prefixStr), m);
         				expr_ref arg1_eq (ctx.mk_eq_atom(arg1, prefixAst), m);
-        				and_items.push_back(ctx.mk_eq_atom(xorAst, arg1_eq));
+        				and_items.push_back(arg1_eq);
         				and_count += 1;
 
         				expr_ref suffixAst(m_strutil.mk_string(suffixStr), m);
         				expr_ref arg2_eq (ctx.mk_eq_atom(arg2, suffixAst), m);
-        				and_items.push_back(ctx.mk_eq_atom(xorAst, arg2_eq));
+        				and_items.push_back(arg2_eq);
         				and_count += 1;
+
+        				arrangement_disjunction.push_back(mk_and(and_items));
         			}
 
         			expr_ref implyL(ctx.mk_eq_atom(concat, str), m);
         			expr_ref implyR1(m);
-        			if (xor_pos == 0) {
+        			if (arrangement_disjunction.empty()) {
         				// negate
         				expr_ref concat_eq_str(ctx.mk_eq_atom(concat, str), m);
         				expr_ref negate_ast(m.mk_not(concat_eq_str), m);
         				assert_axiom(negate_ast);
         			} else {
-        			    and_items.push_back(mk_or(xor_items));
-        			    implyR1 = mk_and(and_items);
-        				assert_implication(implyL, implyR1);
+        			    implyR1 = mk_or(arrangement_disjunction);
+        			    if (opt_AssertStrongerArrangements) {
+        			        expr_ref ax_strong(ctx.mk_eq_atom(implyL, implyR1), m);
+        			        assert_axiom(ax_strong);
+        			    } else {
+        			        assert_implication(implyL, implyR1);
+        			    }
+        			    assert_axiom(generate_mutual_exclusion(arrangement_disjunction));
         			}
         		} /* (arg1Len != 1 || arg2Len != 1) */
         	} /* if (Concat(arg1, arg2) == NULL) */
