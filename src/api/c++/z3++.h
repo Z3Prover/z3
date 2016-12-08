@@ -934,6 +934,8 @@ namespace z3 {
             check_error();
             return expr(ctx(), r);
         }
+        friend expr range(expr const& lo, expr const& hi);
+       
 
 
 
@@ -1224,6 +1226,8 @@ namespace z3 {
     inline expr operator|(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) | b; }
 
     inline expr operator~(expr const & a) { Z3_ast r = Z3_mk_bvnot(a.ctx(), a); return expr(a.ctx(), r); }
+
+    inline expr range(expr const& lo, expr const& hi) { check_context(lo, hi); Z3_ast r = Z3_mk_re_range(lo.ctx(), lo, hi); lo.check_error(); return expr(lo.ctx(), r); }
 
 
 

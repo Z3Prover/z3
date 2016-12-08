@@ -3367,6 +3367,14 @@ extern "C" {
      */
     Z3_ast Z3_API Z3_mk_re_concat(Z3_context c, unsigned n, Z3_ast const args[]);
 
+
+    /**
+       \brief Create the range regular expression over two sequences of length 1.
+
+       def_API('Z3_mk_re_range' ,AST ,(_in(CONTEXT), _in(AST), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_re_range(Z3_context c, Z3_ast lo, Z3_ast hi);
+
     /*@}*/
 
 
