@@ -2609,6 +2609,19 @@ namespace Microsoft.Z3
             CheckContextMatch<ReExpr>(t);
             return new ReExpr(this, Native.Z3_mk_re_union(nCtx, (uint)t.Length, AST.ArrayToNative(t)));
         }
+
+
+        /// <summary>
+        /// Create a range expression.
+        /// </summary>
+	public ReExpr MkRange(SeqExpr lo, SeqExpr hi) 
+        {
+            Contract.Requires(lo != null);
+            Contract.Requires(hi != null);
+            Contract.Ensures(Contract.Result<ReExpr>() != null);
+            CheckContextMatch(lo, hi);
+            return new ReExpr(this, Native.Z3_mk_re_range(nCtx, lo.NativeObject, hi.NativeObject));
+        }
     
         #endregion
 
