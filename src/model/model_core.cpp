@@ -93,6 +93,7 @@ void model_core::unregister_decl(func_decl * d) {
 		m_manager.dec_ref(ec->get_data().m_key);
 		m_manager.dec_ref(ec->get_data().m_value);
 		m_interp.remove(d);
+        m_const_decls.erase(d);
 		return;
 	}
 
@@ -101,5 +102,6 @@ void model_core::unregister_decl(func_decl * d) {
 		m_manager.dec_ref(ef->get_data().m_key);
 		dealloc(ef->get_data().m_value);
 		m_finterp.remove(d);
+        m_func_decls.erase(d);
 	}
 }
