@@ -934,9 +934,20 @@ namespace z3 {
             check_error();
             return expr(ctx(), r);
         }
-        friend expr range(expr const& lo, expr const& hi);
-       
-
+        friend expr range(expr const& lo, expr const& hi);       
+        /**
+           \brief create a looping regular expression.
+        */
+        expr loop(unsigned lo) {
+            Z3_ast r = Z3_mk_re_loop(ctx(), m_ast, lo, 0); 
+            check_error(); 
+            return expr(ctx(), r); 
+        }
+        expr loop(unsigned lo, unsigned hi) {
+            Z3_ast r = Z3_mk_re_loop(ctx(), m_ast, lo, hi); 
+            check_error(); 
+            return expr(ctx(), r); 
+        }
 
 
         /**
@@ -1226,9 +1237,6 @@ namespace z3 {
     inline expr operator|(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) | b; }
 
     inline expr operator~(expr const & a) { Z3_ast r = Z3_mk_bvnot(a.ctx(), a); return expr(a.ctx(), r); }
-
-    inline expr range(expr const& lo, expr const& hi) { check_context(lo, hi); Z3_ast r = Z3_mk_re_range(lo.ctx(), lo, hi); lo.check_error(); return expr(lo.ctx(), r); }
-
 
 
 
@@ -2465,6 +2473,34 @@ namespace z3 {
         re.check_error();
         return expr(re.ctx(), r);
     }
+    inline expr re_empty(sort const& s) {
+        Z3_ast r = Z3_mk_re_empty(s.ctx(), s);
+        s.check_error();
+        return expr(s.ctx(), r);
+    }
+    inline expr re_full(sort const& s) {
+        Z3_ast r = Z3_mk_re_full(s.ctx(), s);
+        s.check_error();
+        return expr(s.ctx(), r);
+    }
+    inline expr re_intersect(expr_vector const& args) {
+        assert(args.size() > 0);
+        context& ctx = args[0].ctx();
+        array<Z3_ast> _args(args);
+        Z3_ast r = Z3_mk_re_intersect(ctx, _args.size(), _args.ptr());
+        ctx.check_error();
+        return expr(ctx, r);
+    }
+    inline expr range(expr const& lo, expr const& hi) {
+        check_context(lo, hi); 
+        Z3_ast r = Z3_mk_re_range(lo.ctx(), lo, hi); 
+        lo.check_error(); 
+        return expr(lo.ctx(), r); 
+    }
+
+
+
+
 
     inline expr interpolant(expr const& a) {
         return expr(a.ctx(), Z3_mk_interpolant(a.ctx(), a));
