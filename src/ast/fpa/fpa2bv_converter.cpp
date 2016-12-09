@@ -1463,11 +1463,17 @@ void fpa2bv_converter::mk_fma(func_decl * f, unsigned num, expr * const * args, 
     v6 = z;
 
     // (x is 0) || (y is 0) -> z
+    expr_ref c71(m), xy_sgn(m), xyz_sgn(m);
     m_simp.mk_or(x_is_zero, y_is_zero, c7);
-    expr_ref ite_c(m), rm_is_not_to_neg(m);
+    m_simp.mk_xor(x_is_neg, y_is_neg, xy_sgn);
+
+    m_simp.mk_xor(xy_sgn, z_is_neg, xyz_sgn);
+    m_simp.mk_and(z_is_zero, xyz_sgn, c71);
+
+    expr_ref zero_cond(m), rm_is_not_to_neg(m);
     rm_is_not_to_neg = m.mk_not(rm_is_to_neg);
-    m_simp.mk_and(z_is_zero, rm_is_not_to_neg, ite_c);
-    mk_ite(ite_c, pzero, z, v7);
+    m_simp.mk_ite(rm_is_to_neg, nzero, pzero, zero_cond);
+    mk_ite(c71, zero_cond, z, v7);
 
     // else comes the fused multiplication.
     unsigned ebits = m_util.get_ebits(f->get_range());
