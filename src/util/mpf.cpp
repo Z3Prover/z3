@@ -795,8 +795,9 @@ void mpf_manager::fma(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf co
         set(o, z);
     }
     else if (is_zero(x) || is_zero(y)) {
-        if (is_zero(z) && rm != MPF_ROUND_TOWARD_NEGATIVE)
-            mk_pzero(x.ebits, x.sbits, o);
+        bool xy_sgn = is_neg(x) ^ is_neg(y);
+        if (is_zero(z) && xy_sgn ^ is_neg(z))
+            mk_zero(x.ebits, x.sbits, rm != MPF_ROUND_TOWARD_NEGATIVE, o);
         else
             set(o, z);
     }
