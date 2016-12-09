@@ -2448,30 +2448,19 @@ namespace z3 {
         return expr(s.ctx(), r);
     }
     inline expr to_re(expr const& s) {
-        Z3_ast r = Z3_mk_seq_to_re(s.ctx(), s);
-        s.check_error();
-        return expr(s.ctx(), r);
+        MK_EXPR1(Z3_mk_seq_to_re, s);
     }
     inline expr in_re(expr const& s, expr const& re) {
-        check_context(s, re);
-        Z3_ast r = Z3_mk_seq_in_re(s.ctx(), s, re);
-        s.check_error();
-        return expr(s.ctx(), r);
+        MK_EXPR2(Z3_mk_seq_in_re, s, re);
     }
     inline expr plus(expr const& re) {
-        Z3_ast r = Z3_mk_re_plus(re.ctx(), re);
-        re.check_error();
-        return expr(re.ctx(), r);
+        MK_EXPR1(Z3_mk_re_plus, re);
     }
     inline expr option(expr const& re) {
-        Z3_ast r = Z3_mk_re_option(re.ctx(), re);
-        re.check_error();
-        return expr(re.ctx(), r);
+        MK_EXPR1(Z3_mk_re_option, re);
     }
     inline expr star(expr const& re) {
-        Z3_ast r = Z3_mk_re_star(re.ctx(), re);
-        re.check_error();
-        return expr(re.ctx(), r);
+        MK_EXPR1(Z3_mk_re_star, re);
     }
     inline expr re_empty(sort const& s) {
         Z3_ast r = Z3_mk_re_empty(s.ctx(), s);
@@ -2490,6 +2479,9 @@ namespace z3 {
         Z3_ast r = Z3_mk_re_intersect(ctx, _args.size(), _args.ptr());
         ctx.check_error();
         return expr(ctx, r);
+    }
+    inline expr re_complement(expr const& a) {
+        MK_EXPR1(Z3_mk_re_complement, a);
     }
     inline expr range(expr const& lo, expr const& hi) {
         check_context(lo, hi); 

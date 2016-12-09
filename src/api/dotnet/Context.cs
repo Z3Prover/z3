@@ -2577,7 +2577,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Take the Kleene plus of a regular expression.
         /// </summary>
-        public ReExpr MPlus(ReExpr re)
+        public ReExpr MkPlus(ReExpr re)
         {
             Contract.Requires(re != null);
             Contract.Ensures(Contract.Result<ReExpr>() != null);
@@ -2587,11 +2587,21 @@ namespace Microsoft.Z3
         /// <summary>
         /// Create the optional regular expression.
         /// </summary>
-        public ReExpr MOption(ReExpr re)
+        public ReExpr MkOption(ReExpr re)
         {
             Contract.Requires(re != null);
             Contract.Ensures(Contract.Result<ReExpr>() != null);
             return new ReExpr(this, Native.Z3_mk_re_option(nCtx, re.NativeObject));            
+        }
+
+        /// <summary>
+        /// Create the complement regular expression.
+        /// </summary>
+        public ReExpr MkComplement(ReExpr re)
+        {
+            Contract.Requires(re != null);
+            Contract.Ensures(Contract.Result<ReExpr>() != null);
+            return new ReExpr(this, Native.Z3_mk_re_complement(nCtx, re.NativeObject));            
         }
 
         /// <summary>
