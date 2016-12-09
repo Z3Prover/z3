@@ -169,6 +169,11 @@ namespace opt {
         r.append(m_labels);
     }
 
+    void context::get_unsat_core(ptr_vector<expr> & r) { 
+        throw default_exception("Unsat cores are not supported with optimization"); 
+    }
+
+
     void context::set_hard_constraints(ptr_vector<expr>& fmls) {
         if (m_scoped_state.set(fmls)) {
             clear_state();
