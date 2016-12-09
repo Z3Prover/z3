@@ -44,7 +44,7 @@ theory_str::theory_str(ast_manager & m):
         opt_CheckVariableScope(true),
         opt_UseFastLengthTesterCache(true),
         opt_UseFastValueTesterCache(true),
-        opt_AssertStrongerArrangements(true),
+        opt_AssertStrongerArrangements(false),
         /* Internal setup */
         search_started(false),
         m_autil(m),
