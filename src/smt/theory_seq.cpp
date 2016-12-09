@@ -2916,7 +2916,7 @@ void theory_seq::add_indexof_axiom(expr* i) {
 
         expr_ref len_t(m_util.str.mk_length(t), m);
         literal offset_ge_len = mk_literal(m_autil.mk_ge(mk_sub(offset, len_t), zero));
-        add_axiom(offset_ge_len, mk_eq(i, minus_one, false));
+        add_axiom(~offset_ge_len, mk_eq(i, minus_one, false));
 
         expr_ref x = mk_skolem(m_indexof_left, t, s, offset);
         expr_ref y = mk_skolem(m_indexof_right, t, s, offset);
