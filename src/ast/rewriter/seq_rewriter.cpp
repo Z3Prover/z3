@@ -243,9 +243,9 @@ eautomaton* re2automaton::re2aut(expr* e) {
             TRACE("seq", tout << "Range expression is not handled: " << mk_pp(e, m) << "\n";);
         }
     }
-	else if (u.re.is_complement(e, e0) && (a = re2aut(e0)) && m_sa) {
-		return m_sa->mk_complement(*a);
-	}
+    else if (u.re.is_complement(e, e0) && (a = re2aut(e0)) && m_sa) {
+        return m_sa->mk_complement(*a);
+    }
     else if (u.re.is_loop(e, e1, lo, hi) && (a = re2aut(e1))) {
         scoped_ptr<eautomaton> eps = eautomaton::mk_epsilon(sm);
         b = eautomaton::mk_epsilon(sm);
