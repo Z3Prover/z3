@@ -1128,6 +1128,10 @@ extern "C" {
             case Z3_OP_RE_OPTION: return Z3_OP_RE_OPTION;
             case Z3_OP_RE_CONCAT: return Z3_OP_RE_CONCAT;
             case Z3_OP_RE_UNION: return Z3_OP_RE_UNION;
+            case Z3_OP_RE_INTERSECT: return Z3_OP_RE_INTERSECT;
+            case Z3_OP_RE_LOOP: return Z3_OP_RE_LOOP;
+            case Z3_OP_RE_FULL_SET: return Z3_OP_RE_FULL_SET;
+            case Z3_OP_RE_EMPTY_SET: return Z3_OP_RE_EMPTY_SET;
             default:
                 return Z3_OP_INTERNAL;
             }
