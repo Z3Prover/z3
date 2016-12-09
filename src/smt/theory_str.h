@@ -341,6 +341,7 @@ namespace smt {
         app * mk_regex_rep_var();
         app * mk_unroll_bound_var();
         app * mk_unroll_test_var();
+        void add_nonempty_constraint(expr * s);
 
         bool is_concat(app const * a) const { return a->is_app_of(get_id(), OP_STRCAT); }
         bool is_concat(enode const * n) const { return is_concat(n->get_owner()); }

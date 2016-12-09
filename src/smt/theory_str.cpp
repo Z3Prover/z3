@@ -321,7 +321,6 @@ void theory_str::refresh_theory_var(expr * e) {
     theory_var v = mk_var(en);
     TRACE("t_str_detail", tout << "refresh " << mk_pp(e, get_manager()) << ": v#" << v << std::endl;);
     // TODO this is probably sub-optimal
-    // TODO case where the refreshed var must be non-empty?
     m_basicstr_axiom_todo.push_back(en);
 }
 
@@ -617,6 +616,28 @@ app * theory_str::mk_regex_rep_var() {
 	return a;
 }
 
+void theory_str::add_nonempty_constraint(expr * s) {
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+
+    expr_ref ax1(m.mk_not(ctx.mk_eq_atom(s, m_strutil.mk_string(""))), m);
+    assert_axiom(ax1);
+
+    {
+        // build LHS
+        expr_ref len_str(mk_strlen(s), m);
+        SASSERT(len_str);
+        // build RHS
+        expr_ref zero(m_autil.mk_numeral(rational(0), true), m);
+        SASSERT(zero);
+        // build LHS > RHS and assert
+        // we have to build !(LHS <= RHS) instead
+        expr_ref lhs_gt_rhs(m.mk_not(m_autil.mk_le(len_str, zero)), m);
+        SASSERT(lhs_gt_rhs);
+        assert_axiom(lhs_gt_rhs);
+    }
+}
+
 app * theory_str::mk_nonempty_str_var() {
     context & ctx = get_context();
     ast_manager & m = get_manager();
@@ -639,14 +660,14 @@ app * theory_str::mk_nonempty_str_var() {
     // assert a variation of the basic string axioms that ensures this string is nonempty
     {
         // build LHS
-        expr * len_str = mk_strlen(a);
+        expr_ref len_str(mk_strlen(a), m);
         SASSERT(len_str);
         // build RHS
-        expr * zero = m_autil.mk_numeral(rational(0), true);
+        expr_ref zero(m_autil.mk_numeral(rational(0), true), m);
         SASSERT(zero);
         // build LHS > RHS and assert
         // we have to build !(LHS <= RHS) instead
-        app * lhs_gt_rhs = m.mk_not(m_autil.mk_le(len_str, zero));
+        expr_ref lhs_gt_rhs(m.mk_not(m_autil.mk_le(len_str, zero)), m);
         SASSERT(lhs_gt_rhs);
         assert_axiom(lhs_gt_rhs);
     }
@@ -2847,7 +2868,9 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
         }
         // TODO do I need to refresh the xorFlag, which is an integer var, and if so, how?
         refresh_theory_var(t1);
+        add_nonempty_constraint(t1);
         refresh_theory_var(t2);
+        add_nonempty_constraint(t2);
     }
 
     // For split types 0 through 2, we can get away with providing
@@ -3190,6 +3213,7 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 		}
 		// TODO refresh xorFlag?
 		refresh_theory_var(temp1);
+		add_nonempty_constraint(temp1);
 	}
 
 	int splitType = -1;
@@ -3515,6 +3539,7 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
             xorFlag = varForBreakConcat[key2][1];
         }
         refresh_theory_var(temp1);
+        add_nonempty_constraint(temp1);
     }
 
 
@@ -4065,6 +4090,7 @@ void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
             xorFlag = (entry2->second)[1];
         }
         refresh_theory_var(commonVar);
+        add_nonempty_constraint(commonVar);
     }
 
     expr_ref_vector arrangement_disjunction(mgr);
