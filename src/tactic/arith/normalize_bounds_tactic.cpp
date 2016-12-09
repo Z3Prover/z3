@@ -80,11 +80,11 @@ class normalize_bounds_tactic : public tactic {
             return false;
         }
         
-        virtual void operator()(goal_ref const & in, 
-                                goal_ref_buffer & result, 
-                                model_converter_ref & mc, 
-                                proof_converter_ref & pc,
-                                expr_dependency_ref & core) {
+        void operator()(goal_ref const & in, 
+                        goal_ref_buffer & result, 
+                        model_converter_ref & mc, 
+                        proof_converter_ref & pc,
+                        expr_dependency_ref & core) {
             mc = 0; pc = 0; core = 0;
             bool produce_models = in->models_enabled();
             bool produce_proofs = in->proofs_enabled();

@@ -885,11 +885,11 @@ private:
             r.erase("elim_and");            
         }
         
-        virtual void operator()(goal_ref const & g, 
-                                goal_ref_buffer & result, 
-                                model_converter_ref & mc, 
-                                proof_converter_ref & pc,
-                                expr_dependency_ref & core) {
+        void operator()(goal_ref const & g, 
+                        goal_ref_buffer & result, 
+                        model_converter_ref & mc, 
+                        proof_converter_ref & pc,
+                        expr_dependency_ref & core) {
             TRACE("pb2bv", g->display(tout););
             SASSERT(g->is_well_sorted());
             fail_if_proof_generation("pb2bv", g);
