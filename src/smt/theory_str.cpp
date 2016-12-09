@@ -320,6 +320,9 @@ void theory_str::refresh_theory_var(expr * e) {
     enode * en = ensure_enode(e);
     theory_var v = mk_var(en);
     TRACE("t_str_detail", tout << "refresh " << mk_pp(e, get_manager()) << ": v#" << v << std::endl;);
+    // TODO this is probably sub-optimal
+    // TODO case where the refreshed var must be non-empty?
+    m_basicstr_axiom_todo.push_back(en);
 }
 
 theory_var theory_str::mk_var(enode* n) {
