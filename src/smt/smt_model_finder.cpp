@@ -498,7 +498,7 @@ namespace smt {
                 m_bvsimp = static_cast<bv_simplifier_plugin*>(s.get_plugin(m.mk_family_id("bv")));
             }
 
-            ~auf_solver() {
+            virtual ~auf_solver() {
                 flush_nodes();
                 reset_eval_cache();
             }

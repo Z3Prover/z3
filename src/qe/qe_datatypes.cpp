@@ -37,7 +37,7 @@ namespace qe {
         imp(ast_manager& m):
             m(m), dt(m), m_val(m) {}
         
-        virtual bool solve(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
+        bool solve(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
             return lift_foreign(vars, lits);
         }
 

@@ -110,7 +110,7 @@ namespace qe {
         imp(ast_manager& m): m(m), a(m) {}
         ~imp() {}
 
-        virtual bool solve(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
+        bool solve(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
             return false;
         }
 
