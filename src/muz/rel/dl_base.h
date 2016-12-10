@@ -871,6 +871,7 @@ namespace datalog {
 
     class table_row_mutator_fn {
     public:
+        virtual ~table_row_mutator_fn() {}
         /**
             \brief The function is called for a particular table row. The \c func_columns contains 
             a pointer to an array of functional column values that can be modified. If the function 
