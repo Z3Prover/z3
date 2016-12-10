@@ -2236,7 +2236,7 @@ bool theory_seq::add_stoi_axiom(expr* e) {
     expr* n;
     rational val;
     VERIFY(m_util.str.is_stoi(e, n));    
-    if (get_value(e, val) && !m_stoi_axioms.contains(val)) {
+    if (get_num_value(e, val) && !m_stoi_axioms.contains(val)) {
         m_stoi_axioms.insert(val);
         if (!val.is_minus_one()) {
             app_ref e1(m_util.str.mk_string(symbol(val.to_string().c_str())), m);            
@@ -2260,7 +2260,7 @@ bool theory_seq::add_itos_axiom(expr* e) {
     rational val;
     expr* n;
     VERIFY(m_util.str.is_itos(e, n));
-    if (get_value(n, val)) {
+    if (get_num_value(n, val)) {
         if (!m_itos_axioms.contains(val)) {
             m_itos_axioms.insert(val);
             app_ref e1(m_util.str.mk_string(symbol(val.to_string().c_str())), m);            
@@ -2741,7 +2741,7 @@ expr_ref theory_seq::expand(expr* e0, dependency*& eqs) {
     }
     else if (m_util.str.is_itos(e, e1)) {
         rational val;
-        if (get_value(e1, val)) {
+        if (get_num_value(e1, val)) {
             TRACE("seq", tout << mk_pp(e, m) << " -> " << val << "\n";);
             expr_ref num(m), res(m);
             num = m_autil.mk_numeral(val, true);
@@ -3024,7 +3024,7 @@ void theory_seq::add_itos_length_axiom(expr* len) {
     unsigned num_char1 = 1, num_char2 = 1;
     rational len1, len2;
     rational ten(10);
-    if (get_value(n, len1)) {
+    if (get_num_value(n, len1)) {
         bool neg = len1.is_neg();
         if (neg) len1.neg();
         num_char1 = neg?2:1;
@@ -3038,7 +3038,7 @@ void theory_seq::add_itos_length_axiom(expr* len) {
         }
         SASSERT(len1 <= upper);
     }
-    if (get_value(len, len2) && len2.is_unsigned()) {
+    if (get_num_value(len, len2) && len2.is_unsigned()) {
         num_char2 = len2.get_unsigned();
     }
     unsigned num_char = std::max(num_char1, num_char2);
@@ -3172,7 +3172,7 @@ static theory_mi_arith* get_th_arith(context& ctx, theory_id afid, expr* e) {
     }
 }
 
-bool theory_seq::get_value(expr* e, rational& val) const {
+bool theory_seq::get_num_value(expr* e, rational& val) const {
     context& ctx = get_context();
     theory_mi_arith* tha = get_th_arith(ctx, m_autil.get_family_id(), e);
     expr_ref _val(m);

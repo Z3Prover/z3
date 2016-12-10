@@ -57,7 +57,7 @@ namespace opt {
     opt_solver::~opt_solver() {
     }
 
-    void opt_solver::updt_params(params_ref & _p) {
+    void opt_solver::updt_params(params_ref const & _p) {
         opt_params p(_p);
         m_dump_benchmarks = p.dump_benchmarks();
         m_params.updt_params(_p);
@@ -383,13 +383,13 @@ namespace opt {
 
         if (typeid(smt::theory_idl) == typeid(opt)) {
             smt::theory_idl& th = dynamic_cast<smt::theory_idl&>(opt);
-            return th.mk_ge(m_fm, v, val.get_rational());
+            return th.mk_ge(m_fm, v, val);
         }
 
         if (typeid(smt::theory_rdl) == typeid(opt) &&
             val.get_infinitesimal().is_zero()) {
             smt::theory_rdl& th = dynamic_cast<smt::theory_rdl&>(opt);
-            return th.mk_ge(m_fm, v, val.get_rational());
+            return th.mk_ge(m_fm, v, val);
         }
 
         // difference logic?

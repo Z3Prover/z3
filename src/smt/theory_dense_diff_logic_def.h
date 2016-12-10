@@ -828,7 +828,7 @@ namespace smt {
         SASSERT(v != null_theory_var);
         numeral const & val = m_assignment[v];
         rational num = val.get_rational().to_rational() +  m_epsilon *  val.get_infinitesimal().to_rational();
-        return alloc(expr_wrapper_proc, m_factory->mk_value(num, is_int(v)));
+        return alloc(expr_wrapper_proc, m_factory->mk_num_value(num, is_int(v)));
     }
 
     // TBD: code is common to both sparse and dense difference logic solvers.
@@ -1002,9 +1002,10 @@ namespace smt {
                 m_assignment[i] = a;
                 // TBD: if epsilon is != 0, then adjust a by some small fraction.
             }
-            blocker = mk_gt(v, r);
+            inf_eps result(rational(0), r);
+            blocker = mk_gt(v, result);
             IF_VERBOSE(10, verbose_stream() << blocker << "\n";);
-            return inf_eps(rational(0), r);
+            return result;
         }
         default:
             TRACE("opt", tout << "unbounded\n"; );        
@@ -1034,18 +1035,18 @@ namespace smt {
     }
 
     template<typename Ext>
-    expr_ref theory_dense_diff_logic<Ext>::mk_gt(theory_var v, inf_rational const& val) {
+    expr_ref theory_dense_diff_logic<Ext>::mk_gt(theory_var v, inf_eps const& val) {
         return mk_ineq(v, val, true);
     }
 
     template<typename Ext>
     expr_ref theory_dense_diff_logic<Ext>::mk_ge(
-        filter_model_converter& fm, theory_var v, inf_rational const& val) {
+        filter_model_converter& fm, theory_var v, inf_eps const& val) {
         return mk_ineq(v, val, false);
     }
 
     template<typename Ext>
-    expr_ref theory_dense_diff_logic<Ext>::mk_ineq(theory_var v, inf_rational const& val, bool is_strict) {
+    expr_ref theory_dense_diff_logic<Ext>::mk_ineq(theory_var v, inf_eps const& val, bool is_strict) {
         ast_manager& m = get_manager();
         objective_term const& t = m_objectives[v];
         expr_ref e(m), f(m), f2(m);

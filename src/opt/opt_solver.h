@@ -88,7 +88,7 @@ namespace opt {
         virtual ~opt_solver();
 
         virtual solver* translate(ast_manager& m, params_ref const& p);
-        virtual void updt_params(params_ref & p);
+        virtual void updt_params(params_ref const& p);
         virtual void collect_param_descrs(param_descrs & r);
         virtual void collect_statistics(statistics & st) const;
         virtual void assert_expr(expr * t);

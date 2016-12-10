@@ -512,7 +512,7 @@ namespace smt {
 
 
         // arithmetic integration
-        bool get_value(expr* s, rational& val) const;
+        bool get_num_value(expr* s, rational& val) const;
         bool lower_bound(expr* s, rational& lo) const;
         bool upper_bound(expr* s, rational& hi) const;
         bool get_length(expr* s, rational& val) const;

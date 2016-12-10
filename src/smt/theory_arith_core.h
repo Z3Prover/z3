@@ -3231,7 +3231,7 @@ namespace smt {
             TRACE("arith", tout << "Truncating non-integer value. This is possible for non-linear constraints v" << v << " " << num << "\n";);
             num = floor(num);
         }
-        return alloc(expr_wrapper_proc, m_factory->mk_value(num, m_util.is_int(var2expr(v))));
+        return alloc(expr_wrapper_proc, m_factory->mk_num_value(num, m_util.is_int(var2expr(v))));
     }
 
     // -----------------------------------

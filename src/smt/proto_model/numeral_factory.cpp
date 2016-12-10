@@ -31,7 +31,7 @@ arith_factory::arith_factory(ast_manager & m):
 arith_factory::~arith_factory() {
 }
 
-app * arith_factory::mk_value(rational const & val, bool is_int) {
+app * arith_factory::mk_num_value(rational const & val, bool is_int) {
     return numeral_factory::mk_value(val, is_int ? m_util.mk_int() : m_util.mk_real());
 }
 
