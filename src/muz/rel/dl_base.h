@@ -220,6 +220,8 @@ namespace datalog {
         */
         class mutator_fn : public base_fn {
         public:
+            virtual ~mutator_fn() {}
+
             virtual void operator()(base_object & t) = 0;
 
             virtual bool supports_attachment(base_object& other) { return false; }
