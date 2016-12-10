@@ -1622,7 +1622,7 @@ namespace datalog {
             m_union_fn = plugin.mk_union_fn(t, *m_aux_table, static_cast<table_base *>(0));
         }
 
-        virtual ~default_table_map() {}
+        virtual ~default_table_map_fn() {}
 
         virtual void operator()(table_base & t) {
             SASSERT(t.get_signature()==m_aux_table->get_signature());
