@@ -50,6 +50,9 @@ public:
     bv_factory(ast_manager & m);
     virtual ~bv_factory();
 
+    // Explicitly use `mk_value` from parent class so
+    // `mk_value(rational const&, sort*)` is not hidden.
+    using numeral_factory::mk_value;
     app * mk_value(rational const & val, unsigned bv_size);
 };
 
