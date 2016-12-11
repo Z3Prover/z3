@@ -885,6 +885,7 @@ namespace datalog {
 
     class table_row_pair_reduce_fn {
     public:
+        virtual ~table_row_pair_reduce_fn() {}
         /**
             \brief The function is called for pair of table rows that became duplicit due to projection.
             The values that are in the first array after return from the function will be used for the 
