@@ -524,7 +524,7 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
         result = m().mk_bool_val(c.contains(d));
         return BR_DONE;
     }
-    // check if subsequence of b is in a.
+    // check if subsequence of a is in b.
     expr_ref_vector as(m()), bs(m());
     m_util.str.get_concat(a, as);
     m_util.str.get_concat(b, bs);
@@ -587,6 +587,12 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
         SASSERT(sz > offs);
         result = m_util.str.mk_contains(m_util.str.mk_concat(sz-offs, as.c_ptr()+offs), b);
         return BR_REWRITE2;
+    }    
+
+    expr* x, *y, *z;
+    if (m_util.str.is_extract(b, x, y, z) && x == a) {
+        result = m().mk_true();
+        return BR_DONE;
     }
 
     return BR_FAILED;
