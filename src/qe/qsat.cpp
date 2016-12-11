@@ -909,7 +909,7 @@ namespace qe {
                 num_scopes = 2;
             }
             else {
-				if (level.max() + 2 > m_level) return false;
+                if (level.max() + 2 > m_level) return false;
                 SASSERT(level.max() + 2 <= m_level);
                 num_scopes = m_level - level.max();
                 SASSERT(num_scopes >= 2);
