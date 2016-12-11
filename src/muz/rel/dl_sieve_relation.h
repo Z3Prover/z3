@@ -104,6 +104,9 @@ namespace datalog {
         sieve_relation * mk_empty(const relation_signature & s, relation_plugin & inner_plugin);
 
         virtual relation_base * mk_full(func_decl* p, const relation_signature & s);
+        // Explicitly use `mk_full` from parent class so
+        // `mk_full(func_decl*, const relation_signature&, family_id)` is not hidden.
+        using relation_plugin::mk_full;
         sieve_relation * mk_full(func_decl* p, const relation_signature & s, relation_plugin & inner_plugin);
 
 
