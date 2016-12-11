@@ -294,6 +294,7 @@ public:
 
     void extract_literals(model& model, expr_ref_vector& fmls) {
         expr_ref val(m);
+        TRACE("qe", tout << fmls << "\n";);
         for (unsigned i = 0; i < fmls.size(); ++i) {
             expr* fml = fmls[i].get(), *nfml, *f1, *f2, *f3;
             SASSERT(m.is_bool(fml));
@@ -404,6 +405,7 @@ public:
                 // TBD other Boolean operations.
             }
         }
+        TRACE("qe", tout << fmls << "\n";);
         m_visited.reset();
     }
 
