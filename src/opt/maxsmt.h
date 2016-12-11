@@ -120,6 +120,7 @@ namespace opt {
         unsigned                  m_index;
         scoped_ptr<maxsmt_solver_base> m_msolver;
         expr_ref_vector  m_soft_constraints;
+        obj_map<expr, unsigned> m_soft_constraint_index;
         expr_ref_vector  m_answer;
         vector<rational> m_weights;
         rational         m_lower;
@@ -138,7 +139,6 @@ namespace opt {
         expr* operator[](unsigned idx) const { return m_soft_constraints[idx]; }
         rational weight(unsigned idx) const { return m_weights[idx]; }
         void commit_assignment();
-        rational get_value() const;
         rational get_lower() const;
         rational get_upper() const;        
         void update_lower(rational const& r);

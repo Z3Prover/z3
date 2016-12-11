@@ -291,6 +291,7 @@ namespace opt {
 
 
         void validate_lex();
+        void validate_maxsat(symbol const& id);
 
         void display_benchmark();
 

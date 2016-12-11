@@ -360,6 +360,7 @@ namespace opt {
         }
         if (scoped) get_solver().pop(1);
         if (result == l_true && committed) ms.commit_assignment();
+        DEBUG_CODE(if (result == l_true) validate_maxsat(id););
         return result;
     }
 
@@ -1446,6 +1447,32 @@ namespace opt {
         
         out << "(check-sat)\n"; 
         return out.str();
+    }
+
+    void context::validate_maxsat(symbol const& id) {
+        maxsmt& ms = *m_maxsmts.find(id);
+        for (unsigned i = 0; i < m_objectives.size(); ++i) {
+            objective const& obj = m_objectives[i];
+            if (obj.m_id == id) {
+                SASSERT(obj.m_type == O_MAXSMT);
+                rational value(0);
+                expr_ref val(m);
+                for (unsigned i = 0; i < obj.m_terms.size(); ++i) {
+                    bool evaluated = m_model->eval(obj.m_terms[i], val);
+                    SASSERT(evaluated);
+                    CTRACE("opt", evaluated && !m.is_true(val) && !m.is_false(val), tout << mk_pp(obj.m_terms[i], m) << " " << val << "\n";);
+                    CTRACE("opt", !evaluated, tout << mk_pp(obj.m_terms[i], m) << "\n";);
+                    if (evaluated && !m.is_true(val)) {
+                        value += obj.m_weights[i];
+                    }
+                    // TBD: check that optimal was not changed.
+                }
+                value = obj.m_adjust_value(value);
+                rational value0 = ms.get_lower();
+                TRACE("opt", tout << "value " << value << " " << value0 << "\n";);
+                SASSERT(value == value0);
+            }
+        }
     }
 
     void context::validate_lex() {
