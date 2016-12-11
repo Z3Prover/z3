@@ -499,6 +499,8 @@ namespace smt {
         void add_in_re_axiom(expr* n);
         bool add_stoi_axiom(expr* n);
         bool add_itos_axiom(expr* n);
+        literal is_digit(expr* ch);
+        expr_ref digit2int(expr* ch);
         void add_itos_length_axiom(expr* n);
         literal mk_literal(expr* n);
         literal mk_eq_empty(expr* n, bool phase = true);

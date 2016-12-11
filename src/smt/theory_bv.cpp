@@ -1583,7 +1583,7 @@ namespace smt {
 #endif
         get_fixed_value(v, val);
         SASSERT(r);
-        return alloc(expr_wrapper_proc, m_factory->mk_value(val, get_bv_size(v)));
+        return alloc(expr_wrapper_proc, m_factory->mk_num_value(val, get_bv_size(v)));
     }
 
     void theory_bv::display_var(std::ostream & out, theory_var v) const {

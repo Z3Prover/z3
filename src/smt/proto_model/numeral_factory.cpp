@@ -47,6 +47,6 @@ app * bv_factory::mk_value_core(rational const & val, sort * s) {
     return m_util.mk_numeral(val, s);
 }
 
-app * bv_factory::mk_value(rational const & val, unsigned bv_size) {
+app * bv_factory::mk_num_value(rational const & val, unsigned bv_size) {
     return numeral_factory::mk_value(val, m_util.mk_sort(bv_size));
 }

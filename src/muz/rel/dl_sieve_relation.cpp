@@ -253,7 +253,7 @@ namespace datalog {
         return mk_from_inner(s, inner_cols, inner);
     }
 
-    sieve_relation * sieve_relation_plugin::mk_full(func_decl* p, const relation_signature & s, relation_plugin & inner_plugin) {
+    sieve_relation * sieve_relation_plugin::full(func_decl* p, const relation_signature & s, relation_plugin & inner_plugin) {
         SASSERT(!inner_plugin.is_sieve_relation()); //it does not make sense to make a sieve of a sieve
         svector<bool> inner_cols(s.size());
         extract_inner_columns(s, inner_plugin, inner_cols);
