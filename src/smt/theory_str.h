@@ -101,18 +101,6 @@ namespace smt {
         theory_str_params const & m_params;
 
         /*
-         * If AggressiveLengthTesting is true, we manipulate the phase of length tester equalities
-         * to prioritize trying concrete length options over choosing the "more" option.
-         */
-        bool opt_AggressiveLengthTesting;
-
-        /*
-         * Similarly, if AggressiveValueTesting is true, we manipulate the phase of value tester equalities
-         * to prioritize trying concrete value options over choosing the "more" option.
-         */
-        bool opt_AggressiveValueTesting;
-
-        /*
          * If AggressiveUnrollTesting is true, we manipulate the phase of regex unroll tester equalities
          * to prioritize trying concrete unroll counts over choosing the "more" option.
          */

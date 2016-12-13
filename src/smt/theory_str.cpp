@@ -33,8 +33,6 @@ theory_str::theory_str(ast_manager & m, theory_str_params const & params):
         theory(m.mk_family_id("str")),
         m_params(params),
         /* Options */
-        opt_AggressiveLengthTesting(false),
-        opt_AggressiveValueTesting(false),
         opt_AggressiveUnrollTesting(true),
         opt_EagerStringConstantLengthAssertions(true),
         opt_VerifyFinalCheckProgress(true),
@@ -8364,7 +8362,7 @@ expr * theory_str::gen_val_options(expr * freeVar, expr * len_indicator, expr * 
 			<< "val_indicator = " << mk_ismt2_pp(val_indicator, m) << std::endl
 			<< "lenstr = " << lenStr << std::endl
 			<< "tries = " << tries << std::endl;
-            if (opt_AggressiveValueTesting) {
+            if (m_params.m_AggressiveValueTesting) {
                 tout << "note: aggressive value testing is enabled" << std::endl;
             }
 	);
@@ -8408,7 +8406,7 @@ expr * theory_str::gen_val_options(expr * freeVar, expr * len_indicator, expr * 
 	for (long long i = l; i < h; i++) {
 		// TODO can we share the val_indicator constants with the length tester cache?
 		orList.push_back(m.mk_eq(val_indicator, m_strutil.mk_string(longlong_to_string(i).c_str()) ));
-		if (opt_AggressiveValueTesting) {
+		if (m_params.m_AggressiveValueTesting) {
 		    literal l = mk_eq(val_indicator, m_strutil.mk_string(longlong_to_string(i).c_str()), false);
 		    ctx.mark_as_relevant(l);
 		    ctx.force_phase(l);
@@ -8429,7 +8427,7 @@ expr * theory_str::gen_val_options(expr * freeVar, expr * len_indicator, expr * 
 	}
 	if (!coverAll) {
 		orList.push_back(m.mk_eq(val_indicator, m_strutil.mk_string("more")));
-		if (opt_AggressiveValueTesting) {
+		if (m_params.m_AggressiveValueTesting) {
 		    literal l = mk_eq(val_indicator, m_strutil.mk_string("more"), false);
 		    ctx.mark_as_relevant(l);
 		    ctx.force_phase(~l);
@@ -8980,7 +8978,7 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 
 	TRACE("t_str_detail",
 	        tout << "building andList and orList" << std::endl;
-	        if (opt_AggressiveLengthTesting) {
+	        if (m_params.m_AggressiveLengthTesting) {
 	            tout << "note: aggressive length testing is active" << std::endl;
 	        }
 	);
@@ -9007,7 +9005,7 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 		expr_ref or_expr(ctx.mk_eq_atom(indicator, str_indicator), m);
 		orList.push_back(or_expr);
 
-		if (opt_AggressiveLengthTesting) {
+		if (m_params.m_AggressiveLengthTesting) {
 		    literal l = mk_eq(indicator, str_indicator, false);
 		    ctx.mark_as_relevant(l);
 		    ctx.force_phase(l);
@@ -9019,7 +9017,7 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 
 	// TODO cache mk_string("more")
 	orList.push_back(m.mk_eq(indicator, m_strutil.mk_string("more")));
-	if (opt_AggressiveLengthTesting) {
+	if (m_params.m_AggressiveLengthTesting) {
 	    literal l = mk_eq(indicator, m_strutil.mk_string("more"), false);
 	    ctx.mark_as_relevant(l);
 	    ctx.force_phase(~l);

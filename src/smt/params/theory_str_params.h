@@ -30,8 +30,22 @@ struct theory_str_params {
      */
     bool m_AssertStrongerArrangements;
 
+    /*
+     * If AggressiveLengthTesting is true, we manipulate the phase of length tester equalities
+     * to prioritize trying concrete length options over choosing the "more" option.
+     */
+    bool m_AggressiveLengthTesting;
+
+    /*
+     * Similarly, if AggressiveValueTesting is true, we manipulate the phase of value tester equalities
+     * to prioritize trying concrete value options over choosing the "more" option.
+     */
+    bool m_AggressiveValueTesting;
+
     theory_str_params(params_ref const & p = params_ref()):
-        m_AssertStrongerArrangements(true)
+        m_AssertStrongerArrangements(true),
+        m_AggressiveLengthTesting(false),
+        m_AggressiveValueTesting(false)
     {
         updt_params(p);
     }
