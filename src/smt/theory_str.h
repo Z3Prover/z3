@@ -18,6 +18,7 @@ Revision History:
 #define _THEORY_STR_H_
 
 #include"smt_theory.h"
+#include"theory_str_params.h"
 #include"trail.h"
 #include"th_rewriter.h"
 #include"value_factory.h"
@@ -97,7 +98,7 @@ namespace smt {
         typedef map<std::string, expr*, str_hash_proc, default_eq<std::string> > string_map;
 
     protected:
-        // Some options that control how the solver operates.
+        theory_str_params const & m_params;
 
         /*
          * If AggressiveLengthTesting is true, we manipulate the phase of length tester equalities
@@ -188,15 +189,6 @@ namespace smt {
          * but will be saved in a map and looked up.
          */
         bool opt_UseFastValueTesterCache;
-
-        /*
-         * If AssertStrongerArrangements is set to true,
-         * the implications that would normally be asserted during arrangement generation
-         * will instead be asserted as equivalences.
-         * This is a stronger version of the regular axiom.
-         * The default (Z3str2) behaviour is to set this to false.
-         */
-        bool opt_AssertStrongerArrangements;
 
         bool search_started;
         arith_util m_autil;
@@ -548,7 +540,7 @@ namespace smt {
         void refresh_theory_var(expr * e);
 
     public:
-        theory_str(ast_manager & m);
+        theory_str(ast_manager & m, theory_str_params const & params);
         virtual ~theory_str();
 
         virtual char const * get_name() const { return "strings"; }
@@ -569,7 +561,7 @@ namespace smt {
         virtual void new_eq_eh(theory_var, theory_var);
         virtual void new_diseq_eh(theory_var, theory_var);
 
-        virtual theory* mk_fresh(context*) { return alloc(theory_str, get_manager()); }
+        virtual theory* mk_fresh(context*) { return alloc(theory_str, get_manager(), m_params); }
         virtual void init_search_eh();
         virtual void relevant_eh(app * n);
         virtual void assign_eh(bool_var v, bool is_true);

@@ -25,6 +25,7 @@ Revision History:
 #include"theory_arith_params.h"
 #include"theory_array_params.h"
 #include"theory_bv_params.h"
+#include"theory_str_params.h"
 #include"theory_pb_params.h"
 #include"theory_datatype_params.h"
 #include"preprocessor_params.h"
@@ -75,6 +76,7 @@ struct smt_params : public preprocessor_params,
                     public theory_arith_params, 
                     public theory_array_params, 
                     public theory_bv_params,
+                    public theory_str_params,
                     public theory_pb_params,
                     public theory_datatype_params {
     bool             m_display_proof;
