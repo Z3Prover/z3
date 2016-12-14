@@ -2481,6 +2481,43 @@ expr_ref theory_str::generate_mutual_exclusion(expr_ref_vector & terms) {
     return final_result;
 }
 
+void theory_str::print_cut_var(expr * node, std::ofstream & xout) {
+    ast_manager & m = get_manager();
+    /*
+#ifdef DEBUGLOG
+  __debugPrint(logFile, "\n>> CUT info of [");
+  printZ3Node(t, node);
+  __debugPrint(logFile, "]\n");
+
+  if (cut_VARMap.find(node) != cut_VARMap.end()) {
+    if (!cut_VARMap[node].empty()) {
+      __debugPrint(logFile, "[%2d] {", cut_VARMap[node].top()->level);
+      std::map<Z3_ast, int>::iterator itor = cut_VARMap[node].top()->vars.begin();
+      for (; itor != cut_VARMap[node].top()->vars.end(); itor++) {
+        printZ3Node(t, itor->first);
+        __debugPrint(logFile, ", ");
+      }
+      __debugPrint(logFile, "}\n");
+    } else {
+
+    }
+  }
+  __debugPrint(logFile, "------------------------\n\n");
+#endif
+*/
+    xout << "Cut info of " << mk_pp(node, m) << std::endl;
+    if (cut_var_map.contains(node)) {
+        if (!cut_var_map[node].empty()) {
+            xout << "[" << cut_var_map[node].top()->level << "] ";
+            std::map<expr*, int>::iterator itor = cut_var_map[node].top()->vars.begin();
+            for (; itor != cut_var_map[node].top()->vars.end(); ++itor) {
+                xout << mk_pp(itor->first, m) << ", ";
+            }
+            xout << std::endl;
+        }
+    }
+}
+
 /*
  * Handle two equivalent Concats.
  */
@@ -3013,7 +3050,7 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
         } else {
             loopDetected = true;
             TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
-            // TODO printCutVar(m, y);
+            TRACE("t_str_detail", {print_cut_var(m, tout); print_cut_var(y, tout);});
         }
 
         // break option 2:
