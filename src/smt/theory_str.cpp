@@ -33,7 +33,6 @@ theory_str::theory_str(ast_manager & m, theory_str_params const & params):
         theory(m.mk_family_id("str")),
         m_params(params),
         /* Options */
-        opt_AggressiveUnrollTesting(true),
         opt_EagerStringConstantLengthAssertions(true),
         opt_VerifyFinalCheckProgress(true),
         opt_LCMUnrollStep(2),
@@ -41,8 +40,6 @@ theory_str::theory_str(ast_manager & m, theory_str_params const & params):
         opt_DisableIntegerTheoryIntegration(false),
         opt_DeferEQCConsistencyCheck(false),
         opt_CheckVariableScope(true),
-        opt_UseFastLengthTesterCache(true),
-        opt_UseFastValueTesterCache(true),
         /* Internal setup */
         search_started(false),
         m_autil(m),
@@ -8414,7 +8411,7 @@ expr * theory_str::gen_val_options(expr * freeVar, expr * len_indicator, expr * 
 
 		std::string aStr = gen_val_string(len, options[i - l]);
 		expr * strAst;
-		if (opt_UseFastValueTesterCache) {
+		if (m_params.m_UseFastValueTesterCache) {
 			if (!valueTesterCache.find(aStr, strAst)) {
 				strAst = m_strutil.mk_string(aStr);
 				valueTesterCache.insert(aStr, strAst);
@@ -8905,7 +8902,7 @@ expr * theory_str::gen_unroll_assign(expr * var, std::string lcmStr, expr * test
 	TRACE("t_str_detail", tout << "entry: var = " << mk_pp(var, mgr) << ", lcmStr = " << lcmStr
 			<< ", l = " << l << ", h = " << h << std::endl;);
 
-	if (opt_AggressiveUnrollTesting) {
+	if (m_params.m_AggressiveUnrollTesting) {
 	    TRACE("t_str_detail", tout << "note: aggressive unroll testing is active" << std::endl;);
 	}
 
@@ -8916,7 +8913,7 @@ expr * theory_str::gen_unroll_assign(expr * var, std::string lcmStr, expr * test
 		std::string iStr = int_to_string(i);
 		expr_ref testerEqAst(ctx.mk_eq_atom(testerVar, m_strutil.mk_string(iStr)), mgr);
 		TRACE("t_str_detail", tout << "testerEqAst = " << mk_pp(testerEqAst, mgr) << std::endl;);
-		if (opt_AggressiveUnrollTesting) {
+		if (m_params.m_AggressiveUnrollTesting) {
 		    literal l = mk_eq(testerVar, m_strutil.mk_string(iStr), false);
 		    ctx.mark_as_relevant(l);
 		    ctx.force_phase(l);
@@ -8935,7 +8932,7 @@ expr * theory_str::gen_unroll_assign(expr * var, std::string lcmStr, expr * test
 	}
 	expr_ref testerEqMore(ctx.mk_eq_atom(testerVar, m_strutil.mk_string("more")), mgr);
 	TRACE("t_str_detail", tout << "testerEqMore = " << mk_pp(testerEqMore, mgr) << std::endl;);
-	if (opt_AggressiveUnrollTesting) {
+	if (m_params.m_AggressiveUnrollTesting) {
 	    literal l = mk_eq(testerVar, m_strutil.mk_string("more"), false);
 	    ctx.mark_as_relevant(l);
 	    ctx.force_phase(~l);
@@ -8985,7 +8982,7 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 
 	for (int i = l; i < h; ++i) {
 	    expr_ref str_indicator(m);
-	    if (opt_UseFastLengthTesterCache) {
+	    if (m_params.m_UseFastLengthTesterCache) {
 	        rational ri(i);
 	        expr * lookup_val;
 	        if(lengthTesterCache.find(ri, lookup_val)) {

@@ -42,10 +42,33 @@ struct theory_str_params {
      */
     bool m_AggressiveValueTesting;
 
+    /*
+     * If AggressiveUnrollTesting is true, we manipulate the phase of regex unroll tester equalities
+     * to prioritize trying concrete unroll counts over choosing the "more" option.
+     */
+    bool m_AggressiveUnrollTesting;
+
+    /*
+     * If UseFastLengthTesterCache is set to true,
+     * length tester terms will not be generated from scratch each time they are needed,
+     * but will be saved in a map and looked up.
+     */
+    bool m_UseFastLengthTesterCache;
+
+    /*
+     * If UseFastValueTesterCache is set to true,
+     * value tester terms will not be generated from scratch each time they are needed,
+     * but will be saved in a map and looked up.
+     */
+    bool m_UseFastValueTesterCache;
+
     theory_str_params(params_ref const & p = params_ref()):
         m_AssertStrongerArrangements(true),
         m_AggressiveLengthTesting(false),
-        m_AggressiveValueTesting(false)
+        m_AggressiveValueTesting(false),
+        m_AggressiveUnrollTesting(true),
+        m_UseFastLengthTesterCache(false),
+        m_UseFastValueTesterCache(true)
     {
         updt_params(p);
     }

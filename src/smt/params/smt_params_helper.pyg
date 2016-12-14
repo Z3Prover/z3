@@ -64,5 +64,9 @@ def_module_params(module_name='smt',
                           ('core.validate', BOOL, False, 'validate unsat core produced by SMT context'),
                           ('str.strong_arrangements', BOOL, True, 'assert equivalences instead of implications when generating string arrangement axioms'),
                           ('str.aggressive_length_testing', BOOL, False, 'prioritize testing concrete length values over generating more options'),
-                          ('str.aggressive_value_testing', BOOL, False, 'prioritize testing concrete string constant values over generating more options')
+                          ('str.aggressive_value_testing', BOOL, False, 'prioritize testing concrete string constant values over generating more options'),
+                          ('str.aggressive_unroll_testing', BOOL, True, 'prioritize testing concrete regex unroll counts over generating more options'),
+                          ('str.fast_length_tester_cache', BOOL, False, 'cache length tester constants instead of regenerating them'),
+                          ('str.fast_value_tester_cache', BOOL, True, 'cache value tester constants instead of regenerating them')
+                          
                           ))

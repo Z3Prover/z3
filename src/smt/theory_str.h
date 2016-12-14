@@ -101,12 +101,6 @@ namespace smt {
         theory_str_params const & m_params;
 
         /*
-         * If AggressiveUnrollTesting is true, we manipulate the phase of regex unroll tester equalities
-         * to prioritize trying concrete unroll counts over choosing the "more" option.
-         */
-        bool opt_AggressiveUnrollTesting;
-
-        /*
          * Setting EagerStringConstantLengthAssertions to true allows some methods,
          * in particular internalize_term(), to add
          * length assertions about relevant string constants.
@@ -163,20 +157,6 @@ namespace smt {
          * contains references to any internal variables that are no longer in scope.
          */
         bool opt_CheckVariableScope;
-
-        /*
-         * If UseFastLengthTesterCache is set to true,
-         * length tester terms will not be generated from scratch each time they are needed,
-         * but will be saved in a map and looked up.
-         */
-        bool opt_UseFastLengthTesterCache;
-
-        /*
-         * If UseFastValueTesterCache is set to true,
-         * value tester terms will not be generated from scratch each time they are needed,
-         * but will be saved in a map and looked up.
-         */
-        bool opt_UseFastValueTesterCache;
 
         bool search_started;
         arith_util m_autil;
