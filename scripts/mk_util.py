@@ -2086,12 +2086,12 @@ class CppExampleComponent(ExampleComponent):
 
         exefile = '%s$(EXE_EXT)' % self.name
         out.write('%s: %s %s\n' % (exefile, dll, objfiles))
-        out.write('\t$(SLINK) $(SLINK_OUT_FLAG)%s $(SLINK_FLAGS) %s ' % (exefile, objfiles))
+        out.write('\t$(LINK) $(LINK_OUT_FLAG)%s $(LINK_FLAGS) %s ' % (exefile, objfiles))
         if IS_WINDOWS:
             out.write('%s.lib' % dll_name)
         else:
             out.write(dll)
-        out.write(' $(SLINK_EXTRA_FLAGS)\n')
+        out.write(' $(LINK_EXTRA_FLAGS)\n')
         out.write('_ex_%s: %s\n\n' % (self.name, exefile))
 
 class CExampleComponent(CppExampleComponent):
