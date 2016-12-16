@@ -441,7 +441,7 @@ namespace smt {
 
         void print_cut_var(expr * node, std::ofstream & xout);
 
-        expr_ref generate_mutual_exclusion(expr_ref_vector & exprs);
+        void generate_mutual_exclusion(expr_ref_vector & exprs);
 
         bool new_eq_check(expr * lhs, expr * rhs);
         void group_terms_by_eqc(expr * n, std::set<expr*> & concats, std::set<expr*> & vars, std::set<expr*> & consts);

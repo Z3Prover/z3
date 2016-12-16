@@ -805,6 +805,14 @@ namespace smt {
 
         void mk_th_axiom(theory_id tid, literal l1, literal l2, literal l3, unsigned num_params = 0, parameter * params = 0);
 
+        /*
+         * Provide a hint to the core solver that the specified literals form a "theory case split".
+         * The core solver will enforce the condition that exactly one of these literals can be
+         * assigned 'true' at any time.
+         * We assume that the theory solver has already asserted the disjunction of these literals
+         * or some other axiom that means at least one of them must be assigned 'true'.
+         */
+        void mk_th_case_split(unsigned num_lits, literal * lits);
 
         bool_var mk_bool_var(expr * n);
         

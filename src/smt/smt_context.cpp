@@ -2939,6 +2939,27 @@ namespace smt {
         assert_expr_core(e, pr);
     }
 
+    void context::mk_th_case_split(unsigned num_lits, literal * lits) {
+        TRACE("theory_case_split", display_literals_verbose(tout << "theory case split: ", num_lits, lits); tout << std::endl;);
+        // If we don't use the theory case split heuristic,
+        // for each pair of literals (l1, l2) we add the clause (~l1 OR ~l2)
+        // to enforce the condition that more than one literal can't be
+        // assigned 'true' simultaneously.
+        if (!m_fparams.m_theory_case_split) {
+            for (unsigned i = 0; i < num_lits; ++i) {
+                for (unsigned j = i+1; j < num_lits; ++j) {
+                    literal l1 = lits[i];
+                    literal l2 = lits[j];
+                    literal excl[2] = {~l1, ~l2};
+                    justification * j_excl = 0;
+                    mk_clause(2, excl, j_excl);
+                }
+            }
+        } else {
+            NOT_IMPLEMENTED_YET();
+        }
+    }
+
     bool context::reduce_assertions() {
         if (!m_asserted_formulas.inconsistent()) {
             SASSERT(at_base_level());

@@ -2466,8 +2466,19 @@ void theory_str::infer_len_concat_equality(expr * nn1, expr * nn2) {
     */
 }
 
-expr_ref theory_str::generate_mutual_exclusion(expr_ref_vector & terms) {
+void theory_str::generate_mutual_exclusion(expr_ref_vector & terms) {
     context & ctx = get_context();
+    // pull each literal out of the arrangement disjunction
+    literal_vector ls;
+    for (unsigned i = 0; i < terms.size(); ++i) {
+        expr * e = terms.get(i);
+        literal l = ctx.get_literal(e);
+        ls.push_back(l);
+    }
+    ctx.mk_th_case_split(ls.size(), ls.c_ptr());
+
+    // old version, without special support in the context
+    /*
     ast_manager & m = get_manager();
 
     expr_ref_vector result(m);
@@ -2482,7 +2493,8 @@ expr_ref theory_str::generate_mutual_exclusion(expr_ref_vector & terms) {
     }
 
     expr_ref final_result(mk_and(result), m);
-    return final_result;
+    assert_axiom(final_result);
+    */
 }
 
 void theory_str::print_cut_var(expr * node, std::ofstream & xout) {
@@ -3114,7 +3126,7 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
                 assert_implication(premise, conclusion);
             }
             // assert mutual exclusion between each branch of the arrangement
-            assert_axiom(generate_mutual_exclusion(arrangement_disjunction));
+            generate_mutual_exclusion(arrangement_disjunction);
         } else {
             TRACE("t_str", tout << "STOP: no split option found for two EQ concats." << std::endl;);
         }
@@ -3447,7 +3459,7 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 			} else {
 			    assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
 			}
-			assert_axiom(generate_mutual_exclusion(arrangement_disjunction));
+			generate_mutual_exclusion(arrangement_disjunction);
 		} else {
 			TRACE("t_str", tout << "STOP: Should not split two EQ concats." << std::endl;);
 		}
@@ -3774,7 +3786,7 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
             } else {
                 assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
             }
-            assert_axiom(generate_mutual_exclusion(arrangement_disjunction));
+            generate_mutual_exclusion(arrangement_disjunction);
         } else {
             TRACE("t_str", tout << "STOP: should not split two eq. concats" << std::endl;);
         }
@@ -4198,7 +4210,7 @@ void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
     } else {
         assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
     }
-    assert_axiom(generate_mutual_exclusion(arrangement_disjunction));
+    generate_mutual_exclusion(arrangement_disjunction);
 }
 
 void theory_str::process_unroll_eq_const_str(expr * unrollFunc, expr * constStr) {
@@ -6308,7 +6320,7 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
         			    } else {
         			        assert_implication(implyL, implyR1);
         			    }
-        			    assert_axiom(generate_mutual_exclusion(arrangement_disjunction));
+        			    generate_mutual_exclusion(arrangement_disjunction);
         			}
         		} /* (arg1Len != 1 || arg2Len != 1) */
         	} /* if (Concat(arg1, arg2) == NULL) */
