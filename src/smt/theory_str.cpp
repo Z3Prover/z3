@@ -1805,6 +1805,7 @@ void theory_str::reset_eh() {
  * Then add an assertion: (y2 == (Concat ce m2)) AND ("str3" == (Concat abc x2)) -> (y2 != "str3")
  */
 bool theory_str::new_eq_check(expr * lhs, expr * rhs) {
+    TRACE("t_str_refcount_hack", tout << "begin new_eq_check in theory_str" << std::endl;);
     context & ctx = get_context();
     ast_manager & m = get_manager();
 
@@ -1830,6 +1831,7 @@ bool theory_str::new_eq_check(expr * lhs, expr * rhs) {
                 expr_ref to_assert(m.mk_not(ctx.mk_eq_atom(eqc_nn1, eqc_nn2)), m);
                 assert_axiom(to_assert);
                 // this shouldn't use the integer theory at all, so we don't allow the option of quick-return
+                TRACE("t_str_refcount_hack", tout << "end new_eq_check in theory_str" << std::endl;);
                 return false;
             }
             if (!check_length_consistency(eqc_nn1, eqc_nn2)) {
@@ -1837,6 +1839,7 @@ bool theory_str::new_eq_check(expr * lhs, expr * rhs) {
                 if (opt_NoQuickReturn_IntegerTheory){
                     TRACE("t_str_detail", tout << "continuing in new_eq_check() due to opt_NoQuickReturn_IntegerTheory" << std::endl;);
                 } else {
+                    TRACE("t_str_refcount_hack", tout << "end new_eq_check in theory_str" << std::endl;);
                     return false;
                 }
             }
@@ -1855,6 +1858,7 @@ bool theory_str::new_eq_check(expr * lhs, expr * rhs) {
     }
 
     // okay, all checks here passed
+    TRACE("t_str_refcount_hack", tout << "end new_eq_check in theory_str" << std::endl;);
     return true;
 }
 
@@ -6859,14 +6863,20 @@ void theory_str::check_variable_scope() {
 }
 
 void theory_str::pop_scope_eh(unsigned num_scopes) {
+    TRACE("t_str_refcount_hack", tout << "begin pop_scope_eh in theory_str" << std::endl;);
+
     sLevel -= num_scopes;
     TRACE("t_str", tout << "pop " << num_scopes << " to " << sLevel << std::endl;);
     // TODO: figure out what's going out of scope and why
     context & ctx = get_context();
     ast_manager & m = get_manager();
 
+    // {
     // expr_ref_vector assignments(m);
     // ctx.get_assignments(assignments);
+    // TRACE("t_str_refcount_hack", tout << "assignment vector about to go out of scope" << std::endl;);
+    // }
+    // TRACE("t_str_refcount_hack", tout << "assignment vector has gone out of scope" << std::endl;);
 
     TRACE_CODE(if (is_trace_enabled("t_str_dump_assign_on_scope_change")) { dump_assignments(); });
 
@@ -6937,6 +6947,8 @@ void theory_str::pop_scope_eh(unsigned num_scopes) {
     theory::pop_scope_eh(num_scopes);
 
     //check_variable_scope();
+
+    TRACE("t_str_refcount_hack", tout << "end pop_scope_eh in theory_str" << std::endl;);
 }
 
 void theory_str::dump_assignments() {

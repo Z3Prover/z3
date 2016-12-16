@@ -67,6 +67,6 @@ def_module_params(module_name='smt',
                           ('str.aggressive_value_testing', BOOL, False, 'prioritize testing concrete string constant values over generating more options'),
                           ('str.aggressive_unroll_testing', BOOL, True, 'prioritize testing concrete regex unroll counts over generating more options'),
                           ('str.fast_length_tester_cache', BOOL, False, 'cache length tester constants instead of regenerating them'),
-                          ('str.fast_value_tester_cache', BOOL, True, 'cache value tester constants instead of regenerating them')
-                          
+                          ('str.fast_value_tester_cache', BOOL, True, 'cache value tester constants instead of regenerating them'),
+                          ('theory_case_split', BOOL, False, 'Allow the context to use heuristics involving theory case splits, which are a set of literals of which exactly one can be assigned True. If this option is false, the context will generate extra axioms to enforce this instead.')
                           ))
