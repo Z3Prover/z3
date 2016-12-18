@@ -26,4 +26,5 @@ void theory_str_params::updt_params(params_ref const & _p) {
     m_AggressiveUnrollTesting = p.str_aggressive_unroll_testing();
     m_UseFastLengthTesterCache = p.str_fast_length_tester_cache();
     m_UseFastValueTesterCache = p.str_fast_value_tester_cache();
+    m_StringConstantCache = p.str_string_constant_cache();
 }

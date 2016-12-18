@@ -70,25 +70,29 @@ theory_str::~theory_str() {
 }
 
 expr * theory_str::mk_string(std::string str) {
-    ++totalCacheAccessCount;
-    expr * val;
-    if (stringConstantCache.find(str, val)) {
-        // cache hit
-        ++cacheHitCount;
-        TRACE("t_str_cache", tout << "cache hit: \"" << str << "\" ("
-                << cacheHitCount << " hits, " << cacheMissCount << " misses out of "
-                << totalCacheAccessCount << " accesses)" << std::endl;);
-        return val;
+    if (m_params.m_StringConstantCache) {
+        ++totalCacheAccessCount;
+        expr * val;
+        if (stringConstantCache.find(str, val)) {
+            // cache hit
+            ++cacheHitCount;
+            TRACE("t_str_cache", tout << "cache hit: \"" << str << "\" ("
+                    << cacheHitCount << " hits, " << cacheMissCount << " misses out of "
+                    << totalCacheAccessCount << " accesses)" << std::endl;);
+            return val;
+        } else {
+            // cache miss
+            ++cacheMissCount;
+            TRACE("t_str_cache", tout << "cache miss: \"" << str << "\" ("
+                            << cacheHitCount << " hits, " << cacheMissCount << " misses out of "
+                            << totalCacheAccessCount << " accesses)" << std::endl;);
+            val = m_strutil.mk_string(str);
+            m_trail.push_back(val);
+            stringConstantCache.insert(str, val);
+            return val;
+        }
     } else {
-        // cache miss
-        ++cacheMissCount;
-        TRACE("t_str_cache", tout << "cache miss: \"" << str << "\" ("
-                        << cacheHitCount << " hits, " << cacheMissCount << " misses out of "
-                        << totalCacheAccessCount << " accesses)" << std::endl;);
-        val = m_strutil.mk_string(str);
-        m_trail.push_back(val);
-        stringConstantCache.insert(str, val);
-        return val;
+        return m_strutil.mk_string(str);
     }
 }
 

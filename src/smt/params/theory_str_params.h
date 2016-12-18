@@ -62,13 +62,20 @@ struct theory_str_params {
      */
     bool m_UseFastValueTesterCache;
 
+    /*
+     * If StringConstantCache is set to true,
+     * all string constants in theory_str generated from anywhere will be cached and saved.
+     */
+    bool m_StringConstantCache;
+
     theory_str_params(params_ref const & p = params_ref()):
         m_AssertStrongerArrangements(true),
         m_AggressiveLengthTesting(false),
         m_AggressiveValueTesting(false),
         m_AggressiveUnrollTesting(true),
         m_UseFastLengthTesterCache(false),
-        m_UseFastValueTesterCache(true)
+        m_UseFastValueTesterCache(true),
+        m_StringConstantCache(true)
     {
         updt_params(p);
     }
