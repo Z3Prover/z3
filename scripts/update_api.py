@@ -1611,7 +1611,7 @@ _lib = None
 def lib():
   global _lib
   if _lib is None:
-    _dirs = ['.', pkg_resources.resource_filename('z3', 'lib'), os.path.join(sys.prefix, 'lib'), None]
+    _dirs = ['.', os.path.dirname(os.path.abspath(__file__)), pkg_resources.resource_filename('z3', 'lib'), os.path.join(sys.prefix, 'lib'), None]
     for _dir in _dirs:
       try:
         init(_dir)
