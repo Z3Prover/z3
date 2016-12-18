@@ -29,8 +29,8 @@ class reslimit {
     ptr_vector<reslimit> m_children;
 
     void set_cancel(unsigned f);
-    
-public:    
+
+public:
     reslimit();
     void push(unsigned delta_limit);
     void pop();
@@ -39,7 +39,7 @@ public:
 
     bool inc();
     bool inc(unsigned offset);
-    uint64 count() const; 
+    uint64 count() const;
 
 
     bool get_cancel_flag() const { return m_cancel > 0; }
