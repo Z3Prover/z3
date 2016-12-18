@@ -519,6 +519,10 @@ bool cmd_context::logic_has_seq() const {
     return !has_logic() || smt_logics::logic_has_seq(m_logic);
 }
 
+bool cmd_context::logic_has_pb() const {
+    return !has_logic() || smt_logics::logic_has_pb(m_logic);
+}
+
 bool cmd_context::logic_has_fpa() const {
     return !has_logic() || smt_logics::logic_has_fpa(m_logic);
 }
@@ -547,7 +551,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         register_plugin(symbol("array"),    alloc(array_decl_plugin), logic_has_array());
         register_plugin(symbol("datatype"), alloc(datatype_decl_plugin), logic_has_datatype());
         register_plugin(symbol("seq"),      alloc(seq_decl_plugin), logic_has_seq());
-        register_plugin(symbol("pb"),     alloc(pb_decl_plugin), !has_logic());
+        register_plugin(symbol("pb"),       alloc(pb_decl_plugin), logic_has_pb());
         register_plugin(symbol("fpa"),      alloc(fpa_decl_plugin), logic_has_fpa());
         register_plugin(symbol("datalog_relation"), alloc(datalog::dl_decl_plugin), !has_logic());
     }
@@ -563,6 +567,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         load_plugin(symbol("datatype"), logic_has_datatype(), fids);
         load_plugin(symbol("seq"),      logic_has_seq(), fids);
         load_plugin(symbol("fpa"),      logic_has_fpa(), fids);
+        load_plugin(symbol("pb"),       logic_has_pb(), fids);
 
         svector<family_id>::iterator it  = fids.begin();
         svector<family_id>::iterator end = fids.end();

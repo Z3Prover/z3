@@ -251,6 +251,7 @@ protected:
 
     bool logic_has_arith() const;
     bool logic_has_bv() const;
+    bool logic_has_pb() const;
     bool logic_has_seq() const;
     bool logic_has_array() const;
     bool logic_has_datatype() const;

@@ -144,6 +144,10 @@ bool smt_logics::logic_has_horn(symbol const& s) {
     return s == "HORN";
 }
 
+bool smt_logics::logic_has_pb(symbol const& s) {
+    return s == "QF_FD" || s == "ALL";
+}
+
 bool smt_logics::logic_has_datatype(symbol const& s) {
     return s == "QF_FD";
 }
