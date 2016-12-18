@@ -263,6 +263,11 @@ namespace smt {
         // used when opt_FastValueTesterCache is true
         string_map valueTesterCache;
 
+        string_map stringConstantCache;
+        unsigned long totalCacheAccessCount;
+        unsigned long cacheHitCount;
+        unsigned long cacheMissCount;
+
         // cache mapping each string S to Length(S)
         obj_map<expr, app*> length_ast_map;
 
@@ -276,6 +281,9 @@ namespace smt {
         void assert_axiom(expr * e);
         void assert_implication(expr * premise, expr * conclusion);
         expr * rewrite_implication(expr * premise, expr * conclusion);
+
+        expr * mk_string(std::string str);
+        expr * mk_string(const char * str);
 
         app * mk_strlen(expr * e);
         expr * mk_concat(expr * n1, expr * n2);

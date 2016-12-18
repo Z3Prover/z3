@@ -56,6 +56,9 @@ theory_str::theory_str(ast_manager & m, theory_str_params const & params):
         loopDetected(false),
         contains_map(m),
         string_int_conversion_terms(m),
+        totalCacheAccessCount(0),
+        cacheHitCount(0),
+        cacheMissCount(0),
         m_find(*this),
         m_trail_stack(*this)
 {
@@ -64,6 +67,34 @@ theory_str::theory_str(ast_manager & m, theory_str_params const & params):
 
 theory_str::~theory_str() {
     m_trail_stack.reset();
+}
+
+expr * theory_str::mk_string(std::string str) {
+    ++totalCacheAccessCount;
+    expr * val;
+    if (stringConstantCache.find(str, val)) {
+        // cache hit
+        ++cacheHitCount;
+        TRACE("t_str_cache", tout << "cache hit: \"" << str << "\" ("
+                << cacheHitCount << " hits, " << cacheMissCount << " misses out of "
+                << totalCacheAccessCount << " accesses)" << std::endl;);
+        return val;
+    } else {
+        // cache miss
+        ++cacheMissCount;
+        TRACE("t_str_cache", tout << "cache miss: \"" << str << "\" ("
+                        << cacheHitCount << " hits, " << cacheMissCount << " misses out of "
+                        << totalCacheAccessCount << " accesses)" << std::endl;);
+        val = m_strutil.mk_string(str);
+        m_trail.push_back(val);
+        stringConstantCache.insert(str, val);
+        return val;
+    }
+}
+
+expr * theory_str::mk_string(const char * str) {
+    std::string valStr(str);
+    return mk_string(valStr);
 }
 
 void theory_str::initialize_charset() {
@@ -615,7 +646,7 @@ void theory_str::add_nonempty_constraint(expr * s) {
     context & ctx = get_context();
     ast_manager & m = get_manager();
 
-    expr_ref ax1(m.mk_not(ctx.mk_eq_atom(s, m_strutil.mk_string(""))), m);
+    expr_ref ax1(m.mk_not(ctx.mk_eq_atom(s, mk_string(""))), m);
     assert_axiom(ax1);
 
     {
@@ -685,7 +716,7 @@ app * theory_str::mk_unroll(expr * n, expr * bound) {
 	m_trail.push_back(unrollFunc);
 
 	expr_ref_vector items(m);
-	items.push_back(ctx.mk_eq_atom(ctx.mk_eq_atom(bound, mk_int(0)), ctx.mk_eq_atom(unrollFunc, m_strutil.mk_string(""))));
+	items.push_back(ctx.mk_eq_atom(ctx.mk_eq_atom(bound, mk_int(0)), ctx.mk_eq_atom(unrollFunc, mk_string(""))));
 	items.push_back(m_autil.mk_ge(bound, mk_int(0)));
 	items.push_back(m_autil.mk_ge(mk_strlen(unrollFunc), mk_int(0)));
 
@@ -760,7 +791,7 @@ expr * theory_str::mk_concat_const_str(expr * n1, expr * n2) {
         m_strutil.is_string(v2, & n2_str_tmp);
         std::string n2_str(n2_str_tmp);
         std::string result = n1_str + n2_str;
-        return m_strutil.mk_string(result);
+        return mk_string(result);
     } else if (n1HasEqcValue && !n2HasEqcValue) {
         const char * n1_str_tmp;
         m_strutil.is_string(v1, & n1_str_tmp);
@@ -1013,7 +1044,7 @@ void theory_str::try_eval_concat(enode * cat) {
     }
     if (constOK) {
         TRACE("t_str_detail", tout << "flattened to \"" << flattenedString << "\"" << std::endl;);
-        expr_ref constStr(m_strutil.mk_string(flattenedString), m);
+        expr_ref constStr(mk_string(flattenedString), m);
         expr_ref axiom(ctx.mk_eq_atom(a_cat, constStr), m);
         assert_axiom(axiom);
     }
@@ -1132,7 +1163,7 @@ void theory_str::instantiate_basic_string_axioms(enode * str) {
             SASSERT(lhs);
             // build RHS of iff
             expr_ref empty_str(m);
-            empty_str = m_strutil.mk_string("");
+            empty_str = mk_string("");
             SASSERT(empty_str);
             expr_ref rhs(m);
             rhs = ctx.mk_eq_atom(a_str, empty_str);
@@ -1203,7 +1234,7 @@ void theory_str::instantiate_axiom_CharAt(enode * e) {
     and_item.push_back(ctx.mk_eq_atom(mk_strlen(ts1), mk_int(1)));
 
     expr_ref thenBranch(m.mk_and(and_item.size(), and_item.c_ptr()), m);
-    expr_ref elseBranch(ctx.mk_eq_atom(ts1, m_strutil.mk_string("")), m);
+    expr_ref elseBranch(ctx.mk_eq_atom(ts1, mk_string("")), m);
 
     expr_ref axiom(m.mk_ite(cond, thenBranch, elseBranch), m);
     expr_ref reductionVar(ctx.mk_eq_atom(expr, ts1), m);
@@ -1644,7 +1675,7 @@ void theory_str::instantiate_axiom_str_to_int(enode * e) {
 
 	{
 		expr_ref lhs(ctx.mk_eq_atom(ex, m_autil.mk_numeral(rational::zero(), true)), m);
-		expr_ref rhs(ctx.mk_eq_atom(S, m_strutil.mk_string("0")), m);
+		expr_ref rhs(ctx.mk_eq_atom(S, mk_string("0")), m);
 		expr_ref axiom2(ctx.mk_eq_atom(lhs, rhs), m);
 		SASSERT(axiom2);
 		assert_axiom(axiom2);
@@ -1656,7 +1687,7 @@ void theory_str::instantiate_axiom_str_to_int(enode * e) {
 		expr_ref tl(mk_str_var("tl"), m);
 		expr_ref conclusion1(ctx.mk_eq_atom(S, mk_concat(hd, tl)), m);
 		expr_ref conclusion2(ctx.mk_eq_atom(mk_strlen(hd), m_autil.mk_numeral(rational::one(), true)), m);
-		expr_ref conclusion3(m.mk_not(ctx.mk_eq_atom(hd, m_strutil.mk_string("0"))), m);
+		expr_ref conclusion3(m.mk_not(ctx.mk_eq_atom(hd, mk_string("0"))), m);
 		expr_ref conclusion(m.mk_and(conclusion1, conclusion2, conclusion3), m);
 		SASSERT(premise);
 		SASSERT(conclusion);
@@ -1681,7 +1712,7 @@ void theory_str::instantiate_axiom_int_to_str(enode * e) {
     expr * N = ex->get_arg(0);
     {
         expr_ref axiom1_lhs(m.mk_not(m_autil.mk_ge(N, m_autil.mk_numeral(rational::zero(), true))), m);
-        expr_ref axiom1_rhs(ctx.mk_eq_atom(ex, m_strutil.mk_string("")), m);
+        expr_ref axiom1_rhs(ctx.mk_eq_atom(ex, mk_string("")), m);
         expr_ref axiom1(ctx.mk_eq_atom(axiom1_lhs, axiom1_rhs), m);
         SASSERT(axiom1);
         assert_axiom(axiom1);
@@ -1766,7 +1797,7 @@ void theory_str::instantiate_axiom_RegexIn(enode * e) {
     	expr_ref unrollFunc(mk_unroll(regex1, unrollCount), m);
     	expr_ref_vector items(m);
     	items.push_back(ctx.mk_eq_atom(ex, ctx.mk_eq_atom(str, unrollFunc)));
-    	items.push_back(ctx.mk_eq_atom(ctx.mk_eq_atom(unrollCount, mk_int(0)), ctx.mk_eq_atom(unrollFunc, m_strutil.mk_string(""))));
+    	items.push_back(ctx.mk_eq_atom(ctx.mk_eq_atom(unrollCount, mk_int(0)), ctx.mk_eq_atom(unrollFunc, mk_string(""))));
     	expr_ref finalAxiom(mk_and(items), m);
     	SASSERT(finalAxiom);
     	assert_axiom(finalAxiom);
@@ -1947,7 +1978,7 @@ expr * theory_str::eval_concat(expr * n1, expr * n2) {
         std::string n1_str = m_strutil.get_string_constant_value(v1);
         std::string n2_str = m_strutil.get_string_constant_value(v2);
         std::string result = n1_str + n2_str;
-        return m_strutil.mk_string(result);
+        return mk_string(result);
     } else if (n1HasEqcValue && !n2HasEqcValue) {
         if (m_strutil.get_string_constant_value(v1) == "") {
             return n2;
@@ -2286,7 +2317,7 @@ expr * theory_str::simplify_concat(expr * node) {
         // no simplification possible
         return node;
     } else {
-        expr * resultAst = m_strutil.mk_string("");
+        expr * resultAst = mk_string("");
         for (unsigned i = 0; i < argVec.size(); ++i) {
             bool vArgHasEqcValue = false;
             expr * vArg = get_eqc_value(argVec[i], vArgHasEqcValue);
@@ -3377,9 +3408,9 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 	    std::string part1Str = strValue.substr(0, lenDelta.get_unsigned());
 	    std::string part2Str = strValue.substr(lenDelta.get_unsigned(), strValue.length() - lenDelta.get_unsigned());
 
-	    expr_ref prefixStr(m_strutil.mk_string(part1Str), mgr);
+	    expr_ref prefixStr(mk_string(part1Str), mgr);
 	    expr_ref x_concat(mk_concat(m, prefixStr), mgr);
-	    expr_ref cropStr(m_strutil.mk_string(part2Str), mgr);
+	    expr_ref cropStr(mk_string(part2Str), mgr);
 
 	    if (can_two_nodes_eq(x, x_concat) && can_two_nodes_eq(y, cropStr)) {
 	        expr_ref_vector r_items(mgr);
@@ -3436,9 +3467,9 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 		for (int i = 0; i <= (int)strValue.size(); ++i) {
 			std::string part1Str = strValue.substr(0, i);
 			std::string part2Str = strValue.substr(i, strValue.size() - i);
-			expr_ref prefixStr(m_strutil.mk_string(part1Str), mgr);
+			expr_ref prefixStr(mk_string(part1Str), mgr);
 			expr_ref x_concat(mk_concat(m, prefixStr), mgr);
-			expr_ref cropStr(m_strutil.mk_string(part2Str), mgr);
+			expr_ref cropStr(mk_string(part2Str), mgr);
 			if (can_two_nodes_eq(x, x_concat) && can_two_nodes_eq(y, cropStr)) {
 				// break down option 2-2
 			    expr_ref_vector and_item(mgr);
@@ -3630,8 +3661,8 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
         std::string prefixStr = strValue.substr(0, prefixLen.get_unsigned());
         rational str_sub_prefix = str_len - prefixLen;
         std::string suffixStr = strValue.substr(prefixLen.get_unsigned(), str_sub_prefix.get_unsigned());
-        expr_ref prefixAst(m_strutil.mk_string(prefixStr), mgr);
-        expr_ref suffixAst(m_strutil.mk_string(suffixStr), mgr);
+        expr_ref prefixAst(mk_string(prefixStr), mgr);
+        expr_ref suffixAst(mk_string(suffixStr), mgr);
         expr_ref ax_l(mgr.mk_and(litems.size(), litems.c_ptr()), mgr);
 
         expr_ref suf_n_concat(mk_concat(suffixAst, n), mgr);
@@ -3726,8 +3757,8 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
         for (int i = 0; i <= (int) strValue.size(); i++) {
             std::string part1Str = strValue.substr(0, i);
             std::string part2Str = strValue.substr(i, strValue.size() - i);
-            expr_ref cropStr(m_strutil.mk_string(part1Str), mgr);
-            expr_ref suffixStr(m_strutil.mk_string(part2Str), mgr);
+            expr_ref cropStr(mk_string(part1Str), mgr);
+            expr_ref suffixStr(mk_string(part2Str), mgr);
             expr_ref y_concat(mk_concat(suffixStr, n), mgr);
 
             if (can_two_nodes_eq(x, cropStr) && can_two_nodes_eq(y, y_concat)) {
@@ -3857,7 +3888,7 @@ void theory_str::process_concat_eq_type4(expr * concatAst1, expr * concatAst2) {
     } else {
         if (str1Len > str2Len) {
             std::string deltaStr = str1Value.substr(str2Len, str1Len - str2Len);
-            expr_ref tmpAst(mk_concat(m_strutil.mk_string(deltaStr), y), mgr);
+            expr_ref tmpAst(mk_concat(mk_string(deltaStr), y), mgr);
             if (!in_same_eqc(tmpAst, n)) {
                 // break down option 4-1
                 expr_ref implyR(ctx.mk_eq_atom(n, tmpAst), mgr);
@@ -3882,7 +3913,7 @@ void theory_str::process_concat_eq_type4(expr * concatAst1, expr * concatAst2) {
             }
         } else {
             std::string deltaStr = str2Value.substr(str1Len, str2Len - str1Len);
-            expr_ref tmpAst(mk_concat(m_strutil.mk_string(deltaStr), n), mgr);
+            expr_ref tmpAst(mk_concat(mk_string(deltaStr), n), mgr);
             if (!in_same_eqc(y, tmpAst)) {
                 //break down option 4-3
                 expr_ref implyR(ctx.mk_eq_atom(y, tmpAst), mgr);
@@ -3960,7 +3991,7 @@ void theory_str::process_concat_eq_type5(expr * concatAst1, expr * concatAst2) {
     } else {
         if (str1Len > str2Len) {
             std::string deltaStr = str1Value.substr(0, str1Len - str2Len);
-            expr_ref x_deltaStr(mk_concat(x, m_strutil.mk_string(deltaStr)), mgr);
+            expr_ref x_deltaStr(mk_concat(x, mk_string(deltaStr)), mgr);
             if (!in_same_eqc(m, x_deltaStr)) {
                 expr_ref implyR(ctx.mk_eq_atom(m, x_deltaStr), mgr);
                 if (m_params.m_AssertStrongerArrangements) {
@@ -3983,7 +4014,7 @@ void theory_str::process_concat_eq_type5(expr * concatAst1, expr * concatAst2) {
             }
         } else {
             std::string deltaStr = str2Value.substr(0, str2Len - str1Len);
-            expr_ref m_deltaStr(mk_concat(m, m_strutil.mk_string(deltaStr)), mgr);
+            expr_ref m_deltaStr(mk_concat(m, mk_string(deltaStr)), mgr);
             if (!in_same_eqc(x, m_deltaStr)) {
                 expr_ref implyR(ctx.mk_eq_atom(x, m_deltaStr), mgr);
                 if (m_params.m_AssertStrongerArrangements) {
@@ -4178,7 +4209,7 @@ void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
 
         expr_ref_vector and_item(mgr);
 
-        expr_ref prefixAst(m_strutil.mk_string(prefix), mgr);
+        expr_ref prefixAst(mk_string(prefix), mgr);
         expr_ref x_eq_prefix(ctx.mk_eq_atom(m, prefixAst), mgr);
         and_item.push_back(x_eq_prefix);
         pos += 1;
@@ -4189,7 +4220,7 @@ void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
 
         // adding length constraint for _ = constStr seems slowing things down.
 
-        expr_ref suffixAst(m_strutil.mk_string(suffix), mgr);
+        expr_ref suffixAst(mk_string(suffix), mgr);
         expr_ref y_eq_suffix(ctx.mk_eq_atom(y, suffixAst), mgr);
         and_item.push_back(y_eq_suffix);
         pos += 1;
@@ -4262,7 +4293,7 @@ void theory_str::process_concat_eq_unroll(expr * concat, expr * unroll) {
 
 		expr_ref t2(mk_unroll_bound_var(), mgr);
 		expr_ref t3(mk_unroll_bound_var(), mgr);
-		expr_ref emptyStr(m_strutil.mk_string(""), mgr);
+		expr_ref emptyStr(mk_string(""), mgr);
 
 		expr_ref unroll1(mk_unroll(r1, t2), mgr);
 		expr_ref unroll2(mk_unroll(r1, t3), mgr);
@@ -6093,7 +6124,7 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
 					assert_axiom(diseq);
 					return;
 				} else {
-					expr_ref tmpStrConst(m_strutil.mk_string(firstPart), m);
+					expr_ref tmpStrConst(mk_string(firstPart), m);
 					expr_ref premise(ctx.mk_eq_atom(newConcat, str), m);
 					expr_ref conclusion(ctx.mk_eq_atom(arg1, tmpStrConst), m);
 					assert_implication(premise, conclusion);
@@ -6133,7 +6164,7 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
 					assert_axiom(diseq);
 					return;
 				} else {
-					expr_ref tmpStrConst(m_strutil.mk_string(secondPart), m);
+					expr_ref tmpStrConst(mk_string(secondPart), m);
 					expr_ref premise(ctx.mk_eq_atom(newConcat, str), m);
 					expr_ref conclusion(ctx.mk_eq_atom(arg2, tmpStrConst), m);
 					assert_implication(premise, conclusion);
@@ -6200,8 +6231,8 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
         		        return;
         		    }
         		    expr_ref_vector r_items(m);
-        		    r_items.push_back(ctx.mk_eq_atom(arg1, m_strutil.mk_string(prefixStr)));
-        		    r_items.push_back(ctx.mk_eq_atom(arg2, m_strutil.mk_string(suffixStr)));
+        		    r_items.push_back(ctx.mk_eq_atom(arg1, mk_string(prefixStr)));
+        		    r_items.push_back(ctx.mk_eq_atom(arg2, mk_string(suffixStr)));
         		    if (!arg1Len_exists) {
         		        r_items.push_back(ctx.mk_eq_atom(mk_strlen(arg1), mk_int(prefixStr.size())));
         		    }
@@ -6292,12 +6323,12 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
         				    continue;
         				}
 
-        				expr_ref prefixAst(m_strutil.mk_string(prefixStr), m);
+        				expr_ref prefixAst(mk_string(prefixStr), m);
         				expr_ref arg1_eq (ctx.mk_eq_atom(arg1, prefixAst), m);
         				and_items.push_back(arg1_eq);
         				and_count += 1;
 
-        				expr_ref suffixAst(m_strutil.mk_string(suffixStr), m);
+        				expr_ref suffixAst(mk_string(suffixStr), m);
         				expr_ref arg2_eq (ctx.mk_eq_atom(arg2, suffixAst), m);
         				and_items.push_back(arg2_eq);
         				and_count += 1;
@@ -6450,7 +6481,7 @@ void theory_str::handle_equality(expr * lhs, expr * rhs) {
         rational nn1Len, nn2Len;
         bool nn1Len_exists = get_len_value(lhs, nn1Len);
         bool nn2Len_exists = get_len_value(rhs, nn2Len);
-        expr * emptyStr = m_strutil.mk_string("");
+        expr * emptyStr = mk_string("");
 
         if (nn1Len_exists && nn1Len.is_zero()) {
             if (!in_same_eqc(lhs, emptyStr) && rhs != emptyStr) {
@@ -7853,7 +7884,7 @@ bool theory_str::finalcheck_str2int(app * a) {
 		if (!Ival.is_minus_one()) {
 			std::string Ival_str = Ival.to_string();
 			expr_ref premise(ctx.mk_eq_atom(a, m_autil.mk_numeral(Ival, true)), m);
-			expr_ref conclusion(ctx.mk_eq_atom(S, m_strutil.mk_string(Ival_str)), m);
+			expr_ref conclusion(ctx.mk_eq_atom(S, mk_string(Ival_str)), m);
 			expr_ref axiom(rewrite_implication(premise, conclusion), m);
 			if (!string_int_axioms.contains(axiom)) {
 				string_int_axioms.insert(axiom);
@@ -7907,7 +7938,7 @@ bool theory_str::finalcheck_int2str(app * a) {
                 }
             }
             if (conversionOK) {
-                expr_ref premise(ctx.mk_eq_atom(a, m_strutil.mk_string(Sval)), m);
+                expr_ref premise(ctx.mk_eq_atom(a, mk_string(Sval)), m);
                 expr_ref conclusion(ctx.mk_eq_atom(N, m_autil.mk_numeral(convertedRepresentation, true)), m);
                 expr_ref axiom(rewrite_implication(premise, conclusion), m);
                 if (!string_int_axioms.contains(axiom)) {
@@ -7917,7 +7948,7 @@ bool theory_str::finalcheck_int2str(app * a) {
                     axiomAdd = true;
                 }
             } else {
-                expr_ref axiom(m.mk_not(ctx.mk_eq_atom(a, m_strutil.mk_string(Sval))), m);
+                expr_ref axiom(m.mk_not(ctx.mk_eq_atom(a, mk_string(Sval))), m);
                 // always assert this axiom because this is a conflict clause
                 assert_axiom(axiom);
                 axiomAdd = true;
@@ -8036,7 +8067,7 @@ final_check_status theory_str::final_check_eh() {
     			expr_ref lhs1(ctx.mk_eq_atom(concat_lhs, concat_lhs_str), m);
     			expr_ref lhs2(ctx.mk_eq_atom(concat_rhs, concat_rhs_str), m);
     			expr_ref lhs(m.mk_and(lhs1, lhs2), m);
-    			expr_ref rhs(ctx.mk_eq_atom(concat, m_strutil.mk_string(concatString)), m);
+    			expr_ref rhs(ctx.mk_eq_atom(concat, mk_string(concatString)), m);
     			assert_implication(lhs, rhs);
     			backpropagation_occurred = true;
     		}
@@ -8130,7 +8161,7 @@ final_check_status theory_str::final_check_eh() {
             TRACE("t_str", tout << "Assigning decoy values to free internal variables." << std::endl;);
             for (std::set<expr*>::iterator it = unused_internal_variables.begin(); it != unused_internal_variables.end(); ++it) {
                 expr * var = *it;
-                expr_ref assignment(m.mk_eq(var, m_strutil.mk_string("**unused**")), m);
+                expr_ref assignment(m.mk_eq(var, mk_string("**unused**")), m);
                 assert_axiom(assignment);
             }
             return FC_CONTINUE;
@@ -8463,9 +8494,9 @@ expr * theory_str::gen_val_options(expr * freeVar, expr * len_indicator, expr * 
 
 	for (long long i = l; i < h; i++) {
 		// TODO can we share the val_indicator constants with the length tester cache?
-		orList.push_back(m.mk_eq(val_indicator, m_strutil.mk_string(longlong_to_string(i).c_str()) ));
+		orList.push_back(m.mk_eq(val_indicator, mk_string(longlong_to_string(i).c_str()) ));
 		if (m_params.m_AggressiveValueTesting) {
-		    literal l = mk_eq(val_indicator, m_strutil.mk_string(longlong_to_string(i).c_str()), false);
+		    literal l = mk_eq(val_indicator, mk_string(longlong_to_string(i).c_str()), false);
 		    ctx.mark_as_relevant(l);
 		    ctx.force_phase(l);
 		}
@@ -8474,19 +8505,19 @@ expr * theory_str::gen_val_options(expr * freeVar, expr * len_indicator, expr * 
 		expr * strAst;
 		if (m_params.m_UseFastValueTesterCache) {
 			if (!valueTesterCache.find(aStr, strAst)) {
-				strAst = m_strutil.mk_string(aStr);
+				strAst = mk_string(aStr);
 				valueTesterCache.insert(aStr, strAst);
 				m_trail.push_back(strAst);
 			}
 		} else {
-			strAst = m_strutil.mk_string(aStr);
+			strAst = mk_string(aStr);
 		}
 		andList.push_back(m.mk_eq(orList[orList.size() - 1], m.mk_eq(freeVar, strAst)));
 	}
 	if (!coverAll) {
-		orList.push_back(m.mk_eq(val_indicator, m_strutil.mk_string("more")));
+		orList.push_back(m.mk_eq(val_indicator, mk_string("more")));
 		if (m_params.m_AggressiveValueTesting) {
-		    literal l = mk_eq(val_indicator, m_strutil.mk_string("more"), false);
+		    literal l = mk_eq(val_indicator, mk_string("more"), false);
 		    ctx.mark_as_relevant(l);
 		    ctx.force_phase(~l);
 		}
@@ -8513,11 +8544,11 @@ expr * theory_str::gen_val_options(expr * freeVar, expr * len_indicator, expr * 
 	// Should add ($$_len_x_j = 16) /\ ($$_val_x_16_i = "more")
 	// ---------------------------------------
 	andList.reset();
-	andList.push_back(m.mk_eq(len_indicator, m_strutil.mk_string(lenStr.c_str())));
+	andList.push_back(m.mk_eq(len_indicator, mk_string(lenStr.c_str())));
 	for (int i = 0; i < tries; i++) {
 		expr * vTester = fvar_valueTester_map[freeVar][len][i].second;
 		if (vTester != val_indicator)
-			andList.push_back(m.mk_eq(vTester, m_strutil.mk_string("more")));
+			andList.push_back(m.mk_eq(vTester, mk_string("more")));
 	}
 	expr * assertL = NULL;
 	if (andList.size() == 1) {
@@ -8772,7 +8803,7 @@ void theory_str::gen_assign_unroll_reg(std::set<expr*> & unrolls) {
 
 				// option 0
 				expr_ref op0(ctx.mk_eq_atom(cntInUnr, mk_int(0)), mgr);
-				expr_ref ast1(ctx.mk_eq_atom(unrFunc, m_strutil.mk_string("")), mgr);
+				expr_ref ast1(ctx.mk_eq_atom(unrFunc, mk_string("")), mgr);
 				expr_ref ast2(ctx.mk_eq_atom(mk_strlen(unrFunc), mk_int(0)), mgr);
 				expr_ref and1(mgr.mk_and(ast1, ast2), mgr);
 
@@ -8856,7 +8887,7 @@ expr * theory_str::gen_assign_unroll_Str2Reg(expr * n, std::set<expr*> & unrolls
 		return gen_unroll_conditional_options(n, unrolls, lcmStr);
 	} else {
 		expr_ref implyL(mk_and(litems), mgr);
-		expr_ref implyR(ctx.mk_eq_atom(n, m_strutil.mk_string("")), mgr);
+		expr_ref implyR(ctx.mk_eq_atom(n, mk_string("")), mgr);
 		// want to return (implyL -> implyR)
 		expr * final_axiom = rewrite_implication(implyL, implyR);
 		return final_axiom;
@@ -8869,7 +8900,7 @@ expr * theory_str::gen_unroll_conditional_options(expr * var, std::set<expr*> & 
 
 	int dist = opt_LCMUnrollStep;
 	expr_ref_vector litems(mgr);
-	expr_ref moreAst(m_strutil.mk_string("more"), mgr);
+	expr_ref moreAst(mk_string("more"), mgr);
 	for (std::set<expr*>::iterator itor = unrolls.begin(); itor != unrolls.end(); itor++) {
 		expr_ref item(ctx.mk_eq_atom(var, *itor), mgr);
 		TRACE("t_str_detail", tout << "considering unroll " << mk_pp(item, mgr) << std::endl;);
@@ -8972,10 +9003,10 @@ expr * theory_str::gen_unroll_assign(expr * var, std::string lcmStr, expr * test
 
 	for (int i = l; i < h; i++) {
 		std::string iStr = int_to_string(i);
-		expr_ref testerEqAst(ctx.mk_eq_atom(testerVar, m_strutil.mk_string(iStr)), mgr);
+		expr_ref testerEqAst(ctx.mk_eq_atom(testerVar, mk_string(iStr)), mgr);
 		TRACE("t_str_detail", tout << "testerEqAst = " << mk_pp(testerEqAst, mgr) << std::endl;);
 		if (m_params.m_AggressiveUnrollTesting) {
-		    literal l = mk_eq(testerVar, m_strutil.mk_string(iStr), false);
+		    literal l = mk_eq(testerVar, mk_string(iStr), false);
 		    ctx.mark_as_relevant(l);
 		    ctx.force_phase(l);
 		}
@@ -8983,7 +9014,7 @@ expr * theory_str::gen_unroll_assign(expr * var, std::string lcmStr, expr * test
 		orItems.push_back(testerEqAst);
 		std::string unrollStrInstance = get_unrolled_string(lcmStr, i);
 
-		expr_ref x1(ctx.mk_eq_atom(testerEqAst, ctx.mk_eq_atom(var, m_strutil.mk_string(unrollStrInstance))), mgr);
+		expr_ref x1(ctx.mk_eq_atom(testerEqAst, ctx.mk_eq_atom(var, mk_string(unrollStrInstance))), mgr);
 		TRACE("t_str_detail", tout << "x1 = " << mk_pp(x1, mgr) << std::endl;);
 		andItems.push_back(x1);
 
@@ -8991,10 +9022,10 @@ expr * theory_str::gen_unroll_assign(expr * var, std::string lcmStr, expr * test
 		TRACE("t_str_detail", tout << "x2 = " << mk_pp(x2, mgr) << std::endl;);
 		andItems.push_back(x2);
 	}
-	expr_ref testerEqMore(ctx.mk_eq_atom(testerVar, m_strutil.mk_string("more")), mgr);
+	expr_ref testerEqMore(ctx.mk_eq_atom(testerVar, mk_string("more")), mgr);
 	TRACE("t_str_detail", tout << "testerEqMore = " << mk_pp(testerEqMore, mgr) << std::endl;);
 	if (m_params.m_AggressiveUnrollTesting) {
-	    literal l = mk_eq(testerVar, m_strutil.mk_string("more"), false);
+	    literal l = mk_eq(testerVar, mk_string("more"), false);
 	    ctx.mark_as_relevant(l);
 	    ctx.force_phase(~l);
 	}
@@ -9051,14 +9082,14 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 	        } else {
 	            // no match; create and insert
 	            std::string i_str = int_to_string(i);
-                expr_ref new_val(m_strutil.mk_string(i_str), m);
+                expr_ref new_val(mk_string(i_str), m);
                 lengthTesterCache.insert(ri, new_val);
                 m_trail.push_back(new_val);
                 str_indicator = expr_ref(new_val, m);
 	        }
 	    } else {
 	        std::string i_str = int_to_string(i);
-	        str_indicator = expr_ref(m_strutil.mk_string(i_str), m);
+	        str_indicator = expr_ref(mk_string(i_str), m);
 	    }
 		expr_ref or_expr(ctx.mk_eq_atom(indicator, str_indicator), m);
 		orList.push_back(or_expr);
@@ -9074,9 +9105,9 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 	}
 
 	// TODO cache mk_string("more")
-	orList.push_back(m.mk_eq(indicator, m_strutil.mk_string("more")));
+	orList.push_back(m.mk_eq(indicator, mk_string("more")));
 	if (m_params.m_AggressiveLengthTesting) {
-	    literal l = mk_eq(indicator, m_strutil.mk_string("more"), false);
+	    literal l = mk_eq(indicator, mk_string("more"), false);
 	    ctx.mark_as_relevant(l);
 	    ctx.force_phase(~l);
 	}
@@ -9104,7 +9135,7 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 	int testerCount = tries - 1;
 	if (testerCount > 0) {
 	    expr_ref_vector and_items_LHS(m);
-		expr_ref moreAst(m_strutil.mk_string("more"), m);
+		expr_ref moreAst(mk_string("more"), m);
 		for (int i = 0; i < testerCount; ++i) {
 		    expr * indicator = fvar_lenTester_map[freeVar][i];
 		    if (internal_variable_set.find(indicator) == internal_variable_set.end()) {
@@ -9530,7 +9561,7 @@ app * theory_str::mk_value_helper(app * n) {
             std::string a0_s(a0_str);
             std::string a1_s(a1_str);
             std::string result = a0_s + a1_s;
-            return m_strutil.mk_string(result);
+            return to_app(mk_string(result));
         }
     }
     // fallback path
@@ -9562,7 +9593,7 @@ model_value_proc * theory_str::mk_value(enode * n, model_generator & mg) {
         TRACE("t_str", tout << "WARNING: failed to find a concrete value, falling back" << std::endl;);
         // TODO make absolutely sure the reason we can't find a concrete value is because of an unassigned temporary
         // e.g. for an expression like (Concat X $$_str0)
-        return alloc(expr_wrapper_proc, m_strutil.mk_string("**UNUSED**"));
+        return alloc(expr_wrapper_proc, to_app(mk_string("**UNUSED**")));
     }
 }
 
