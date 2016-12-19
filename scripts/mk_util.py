@@ -1168,7 +1168,8 @@ class ExeComponent(Component):
             c_dep = get_component(dep)
             out.write(' ' + c_dep.get_link_name())
         out.write('\n')
-        out.write('\t$(LINK) $(LINK_OUT_FLAG)%s $(LINK_FLAGS)' % exefile)
+        extra_opt = '-static' if not IS_WINDOWS and STATIC_BIN else ''
+        out.write('\t$(LINK) %s $(LINK_OUT_FLAG)%s $(LINK_FLAGS)' % (extra_opt, exefile))
         for obj in objs:
             out.write(' ')
             out.write(obj)
@@ -2506,10 +2507,7 @@ def mk_config():
         config.write('AR_OUTFLAG=\n')
         config.write('EXE_EXT=\n')
         config.write('LINK=%s\n' % CXX)
-        if STATIC_BIN:
-            config.write('LINK_FLAGS=-static\n')
-        else:
-            config.write('LINK_FLAGS=\n')
+        config.write('LINK_FLAGS=\n')
         config.write('LINK_OUT_FLAG=-o \n')
         config.write('LINK_EXTRA_FLAGS=-lpthread %s\n' % LDFLAGS)
         config.write('SO_EXT=%s\n' % SO_EXT)
