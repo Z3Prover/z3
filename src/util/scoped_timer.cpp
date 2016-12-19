@@ -230,8 +230,9 @@ struct scoped_timer::imp {
         }
         pthread_mutex_lock(&m_mutex);
         m_signal_sent = true;
-        pthread_cond_signal(&m_cond);
         pthread_mutex_unlock(&m_mutex);
+        // Perform signal outside of lock to avoid waking timing thread twice.
+        pthread_cond_signal(&m_cond);
 
         pthread_join(m_thread_id, NULL);
         pthread_cond_destroy(&m_cond);
