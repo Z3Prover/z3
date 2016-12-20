@@ -1750,6 +1750,8 @@ namespace smt {
             if (inconsistent())
                 return false;
             unsigned qhead = m_qhead;
+            if (!propagate_th_case_split())
+                return false;
             if (!bcp())
                 return false;
             if (get_cancel_flag()) 
@@ -2956,8 +2958,30 @@ namespace smt {
                 }
             }
         } else {
-            NOT_IMPLEMENTED_YET();
+            int_set new_case_split; // TODO is it okay to allocate this on the stack?
+            for (unsigned i = 0; i < num_lits; ++i) {
+                literal l = lits[i];
+                // TODO do we need to enforce this invariant? can we make undo information work without it?
+                SASSERT(!m_all_th_case_split_literals.contains(l.index()));
+                m_all_th_case_split_literals.insert(l.index());
+                // TODO add undo information for this insert
+                new_case_split.insert(l.index());
+            }
+            m_th_case_split_sets.push_back(new_case_split);
+            push_trail(push_back_vector<context, vector<int_set> >(m_th_case_split_sets));
+            for (unsigned i = 0; i < num_lits; ++i) {
+                literal l = lits[i];
+                m_literal2casesplitsets[l.index()].push_back(new_case_split);
+                push_trail(push_back_vector<context, vector<int_set> >(m_literal2casesplitsets[l.index()]));
+            }
         }
+    }
+
+    bool context::propagate_th_case_split() {
+        if (m_all_th_case_split_literals.empty())
+            return true;
+
+        NOT_IMPLEMENTED_YET(); return true;
     }
 
     bool context::reduce_assertions() {

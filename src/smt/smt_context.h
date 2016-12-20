@@ -214,6 +214,16 @@ namespace smt {
 
         // -----------------------------------
         //
+        // Theory case split
+        //
+        // -----------------------------------
+        typedef int_hashtable<int_hash, default_eq<int> > int_set;
+        int_set m_all_th_case_split_literals;
+        vector<int_set> m_th_case_split_sets;
+        u_map< vector<int_set> > m_literal2casesplitsets; // returns the case split literal sets that a literal participates in
+
+        // -----------------------------------
+        //
         // Accessors
         //
         // -----------------------------------
@@ -813,6 +823,8 @@ namespace smt {
          * or some other axiom that means at least one of them must be assigned 'true'.
          */
         void mk_th_case_split(unsigned num_lits, literal * lits);
+
+        bool propagate_th_case_split();
 
         bool_var mk_bool_var(expr * n);
         
