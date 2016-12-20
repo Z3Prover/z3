@@ -219,8 +219,9 @@ namespace smt {
         // -----------------------------------
         typedef int_hashtable<int_hash, default_eq<int> > int_set;
         int_set m_all_th_case_split_literals;
-        vector<int_set> m_th_case_split_sets;
-        u_map< vector<int_set> > m_literal2casesplitsets; // returns the case split literal sets that a literal participates in
+        vector<literal_vector> m_th_case_split_sets;
+        u_map< vector<literal_vector> > m_literal2casesplitsets; // returns the case split literal sets that a literal participates in
+        unsigned m_th_case_split_qhead;
 
         // -----------------------------------
         //
@@ -823,6 +824,9 @@ namespace smt {
          * or some other axiom that means at least one of them must be assigned 'true'.
          */
         void mk_th_case_split(unsigned num_lits, literal * lits);
+
+        // helper function for trail
+        void undo_th_case_split(literal l);
 
         bool propagate_th_case_split();
 

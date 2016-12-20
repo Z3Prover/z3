@@ -63,6 +63,7 @@ namespace smt {
         m_is_diseq_tmp(0),
         m_units_to_reassert(m_manager),
         m_qhead(0),
+        m_th_case_split_qhead(0),
         m_simp_qhead(0),
         m_simp_counter(0),
         m_bvar_inc(1.0),
@@ -325,6 +326,7 @@ namespace smt {
     
     bool context::bcp() {
         SASSERT(!inconsistent());
+        m_th_case_split_qhead = m_qhead;
         while (m_qhead < m_assigned_literals.size()) {
             if (get_cancel_flag()) {
                 return true;
@@ -1750,9 +1752,9 @@ namespace smt {
             if (inconsistent())
                 return false;
             unsigned qhead = m_qhead;
-            if (!propagate_th_case_split())
-                return false;
             if (!bcp())
+                return false;
+            if (!propagate_th_case_split())
                 return false;
             if (get_cancel_flag()) 
                 return true;
@@ -2941,6 +2943,18 @@ namespace smt {
         assert_expr_core(e, pr);
     }
 
+    class case_split_insert_trail : public trail<context> {
+        literal l;
+    public:
+        case_split_insert_trail(literal l):
+            l(l) {
+
+        }
+        virtual void undo(context & ctx) {
+            ctx.undo_th_case_split(l);
+        }
+    };
+
     void context::mk_th_case_split(unsigned num_lits, literal * lits) {
         TRACE("theory_case_split", display_literals_verbose(tout << "theory case split: ", num_lits, lits); tout << std::endl;);
         // If we don't use the theory case split heuristic,
@@ -2958,30 +2972,93 @@ namespace smt {
                 }
             }
         } else {
-            int_set new_case_split; // TODO is it okay to allocate this on the stack?
+            literal_vector new_case_split; // TODO is it okay to allocate this on the stack?
             for (unsigned i = 0; i < num_lits; ++i) {
                 literal l = lits[i];
                 // TODO do we need to enforce this invariant? can we make undo information work without it?
                 SASSERT(!m_all_th_case_split_literals.contains(l.index()));
                 m_all_th_case_split_literals.insert(l.index());
-                // TODO add undo information for this insert
-                new_case_split.insert(l.index());
+                push_trail(case_split_insert_trail(l));
+                new_case_split.push_back(l);
             }
             m_th_case_split_sets.push_back(new_case_split);
-            push_trail(push_back_vector<context, vector<int_set> >(m_th_case_split_sets));
+            push_trail(push_back_vector<context, vector<literal_vector> >(m_th_case_split_sets));
             for (unsigned i = 0; i < num_lits; ++i) {
                 literal l = lits[i];
+                if (!m_literal2casesplitsets.contains(l.index())) {
+                    m_literal2casesplitsets.insert(l.index(), vector<literal_vector>());
+                }
                 m_literal2casesplitsets[l.index()].push_back(new_case_split);
-                push_trail(push_back_vector<context, vector<int_set> >(m_literal2casesplitsets[l.index()]));
+                push_trail(push_back_vector<context, vector<literal_vector> >(m_literal2casesplitsets[l.index()]));
             }
+            TRACE("theory_case_split", tout << "tracking case split literal set { ";
+            for (unsigned i = 0; i < num_lits; ++i) {
+                tout << lits[i].index() << " ";
+            }
+            tout << "}" << std::endl;
+            );
         }
+    }
+
+    void context::undo_th_case_split(literal l) {
+        m_all_th_case_split_literals.remove(l.index());
     }
 
     bool context::propagate_th_case_split() {
         if (m_all_th_case_split_literals.empty())
             return true;
 
-        NOT_IMPLEMENTED_YET(); return true;
+        // iterate over all literals assigned since the last time this method was called,
+        // not counting any literals that get assigned by this method
+        // this relies on bcp() to give us its old m_qhead and therefore
+        // bcp() should always be called before this method
+        unsigned assigned_literal_idx = m_th_case_split_qhead;
+        unsigned assigned_literal_end = m_assigned_literals.size();
+        while(assigned_literal_idx < assigned_literal_end) {
+            literal l = m_assigned_literals[assigned_literal_idx];
+            TRACE("theory_case_split", tout << "check literal " << l.index() << std::endl; display_literal_verbose(tout, l); tout << std::endl;);
+            ++assigned_literal_idx;
+            // check if this literal participates in any theory case split
+            if (m_all_th_case_split_literals.contains(l.index())) {
+                TRACE("theory_case_split", tout << "assigned literal " << l.index() << " is a theory case split literal" << std::endl;);
+                // now find the sets of literals which contain l
+                vector<literal_vector> case_split_sets = m_literal2casesplitsets.get(l.index(), vector<literal_vector>());
+                for (vector<literal_vector>::const_iterator it = case_split_sets.begin(); it != case_split_sets.end(); ++it) {
+                    literal_vector case_split_set = *it;
+                    TRACE("theory_case_split", tout << "found case split set { ";
+                        for(literal_vector::iterator set_it = case_split_set.begin(); set_it != case_split_set.end(); ++set_it) {
+                            tout << set_it->index() << " ";
+                        }
+                        tout << "}" << std::endl;);
+                    for(literal_vector::iterator set_it = case_split_set.begin(); set_it != case_split_set.end(); ++set_it) {
+                        literal l2 = *set_it;
+                        if (l2 != l) {
+                            b_justification js(l);
+                            switch (get_assignment(l2)) {
+                            case l_false:
+                                TRACE("theory_case_split", tout << "case split literal " << l2.index() << " is already assigned False" << std::endl;);
+                                break;
+                            // TODO these next two cases can be combined. I'm doing this for debugging purposes
+                            case l_undef:
+                                TRACE("theory_case_split", tout << "case split literal " << l2.index() << " is not assigned" << std::endl;);
+                                assign(~l2, js);
+                                break;
+                            case l_true:
+                                TRACE("theory_case_split", tout << "case split literal " << l2.index() << " is already assigned True" << std::endl;);
+                                assign(~l2, js);
+                                break;
+                            }
+                            if (inconsistent()) {
+                                TRACE("theory_case_split", tout << "conflict detected!" << std::endl;);
+                                return false;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // if we get here without detecting a conflict, we're fine
+        return true;
     }
 
     bool context::reduce_assertions() {
