@@ -2989,7 +2989,6 @@ namespace smt {
                     m_literal2casesplitsets.insert(l.index(), vector<literal_vector>());
                 }
                 m_literal2casesplitsets[l.index()].push_back(new_case_split);
-                push_trail(push_back_vector<context, vector<literal_vector> >(m_literal2casesplitsets[l.index()]));
             }
             TRACE("theory_case_split", tout << "tracking case split literal set { ";
             for (unsigned i = 0; i < num_lits; ++i) {
@@ -3002,6 +3001,11 @@ namespace smt {
 
     void context::undo_th_case_split(literal l) {
         m_all_th_case_split_literals.remove(l.index());
+        if (m_literal2casesplitsets.contains(l.index())) {
+            if (!m_literal2casesplitsets[l.index()].empty()) {
+                m_literal2casesplitsets[l.index()].pop_back();
+            }
+        }
     }
 
     bool context::propagate_th_case_split() {
