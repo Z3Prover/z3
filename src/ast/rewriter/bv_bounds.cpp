@@ -25,7 +25,7 @@ bv_bounds::conv_res bv_bounds::record(app * v, numeral lo, numeral hi, bool nega
     TRACE("bv_bounds", tout << "record0 " << mk_ismt2_pp(v, m_m) << ":" << (negated ? "~[" : "[") << lo << ";" << hi << "]" << std::endl;);
     const unsigned bv_sz = m_bv_util.get_bv_size(v);
     const numeral& one = numeral::one();
-    SASSERT(numerl::zero() <= lo);
+    SASSERT(numeral::zero() <= lo);
     SASSERT(lo <= hi);
     SASSERT(hi < numeral::power_of_two(bv_sz));
     numeral vmax, vmin;

@@ -113,6 +113,8 @@ unsigned arith_eq_solver::find_abs_min(vector<numeral>& values) {
     return index;
 }
 
+#ifdef _TRACE
+
 static void print_row(std::ostream& out, vector<rational> const& row) {
     for(unsigned i = 0; i < row.size(); ++i) { 
         out << row[i] << " "; 
@@ -125,6 +127,7 @@ static void print_rows(std::ostream& out, vector<vector<rational> > const& rows)
         print_row(out, rows[i]);
     }
 }
+#endif
 
 //
 // The gcd of the coefficients to variables have to divide the

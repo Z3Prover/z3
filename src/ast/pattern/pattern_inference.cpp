@@ -474,13 +474,15 @@ void pattern_inference::reset_pre_patterns() {
     m_pre_patterns.reset();
 }
 
-
+#ifdef _TRACE
 static void dump_app_vector(std::ostream & out, ptr_vector<app> const & v, ast_manager & m) {
     ptr_vector<app>::const_iterator it  = v.begin();
     ptr_vector<app>::const_iterator end = v.end();
     for (; it != end; ++it) 
         out << mk_pp(*it, m) << "\n";
 }
+#endif
+
 bool pattern_inference::is_forbidden(app * n) const {
     func_decl const * decl = n->get_decl();
     if (is_ground(n))
