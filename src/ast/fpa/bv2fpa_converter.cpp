@@ -312,11 +312,11 @@ void bv2fpa_converter::convert_consts(model_core * mc, model_core * target_model
         unsigned sbits = m_fpa_util.get_sbits(var->get_range());
 
         app * a0 = to_app(val->get_arg(0));
-        app * a1 = to_app(val->get_arg(1));
-        app * a2 = to_app(val->get_arg(2));
 
         expr_ref v0(m), v1(m), v2(m);
 #ifdef Z3DEBUG
+        app * a1 = to_app(val->get_arg(1));
+        app * a2 = to_app(val->get_arg(2));
         v0 = mc->get_const_interp(a0->get_decl());
         v1 = mc->get_const_interp(a1->get_decl());
         v2 = mc->get_const_interp(a2->get_decl());

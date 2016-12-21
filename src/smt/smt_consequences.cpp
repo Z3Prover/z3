@@ -426,8 +426,7 @@ namespace smt {
             TRACE("context", tout << "checking: " << mk_pp(conseq[i], m) << "\n";);
             tmp = m.mk_not(conseq[i]);
             assert_expr(tmp);
-            lbool is_sat = check();
-            SASSERT(is_sat != l_true);
+            VERIFY(check() != l_true);
             pop(1);
         }
         model_ref mdl;

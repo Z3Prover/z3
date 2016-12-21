@@ -13,9 +13,6 @@ Copyright (c) 2015 Microsoft Corporation
 
 expr_rand::expr_rand(ast_manager& m):
     m_manager(m),
-    m_num_vars(0),
-    m_num_apps(0),
-    m_num_nodes(0),
     m_max_steps(10),
     m_funcs(m)
 {}
