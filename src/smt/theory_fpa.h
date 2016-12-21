@@ -112,6 +112,7 @@ namespace smt {
         };
 
         class fpa_rm_value_proc : public model_value_proc {
+            theory_fpa  & m_th;
             ast_manager & m;
             fpa_util    & m_fu;
             bv_util     & m_bu;
@@ -119,7 +120,7 @@ namespace smt {
 
         public:
             fpa_rm_value_proc(theory_fpa * th) :
-                m(th->get_manager()), m_fu(th->m_fpa_util), m_bu(th->m_bv_util) {}
+                m_th(*th), m(th->get_manager()), m_fu(th->m_fpa_util), m_bu(th->m_bv_util) { (void) m_th; }
 
             void add_dependency(enode * e) { m_deps.push_back(model_value_dependency(e)); }
 
