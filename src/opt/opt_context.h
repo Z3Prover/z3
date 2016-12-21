@@ -190,7 +190,7 @@ namespace opt {
         virtual void collect_statistics(statistics& stats) const;
         virtual proof* get_proof() { return 0; }
         virtual void get_labels(svector<symbol> & r);
-        virtual void get_unsat_core(ptr_vector<expr> & r) {}
+        virtual void get_unsat_core(ptr_vector<expr> & r);
         virtual std::string reason_unknown() const;
         virtual void set_reason_unknown(char const* msg) { m_unknown = msg; }
 
@@ -291,6 +291,7 @@ namespace opt {
 
 
         void validate_lex();
+        void validate_maxsat(symbol const& id);
 
         void display_benchmark();
 

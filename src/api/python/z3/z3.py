@@ -9384,6 +9384,7 @@ class SeqSortRef(SortRef):
         False
         """
         return Z3_is_string_sort(self.ctx_ref(), self.ast)
+        
 
 def StringSort(ctx=None):
     """Create a string sort
@@ -9507,8 +9508,29 @@ def Empty(s):
     >>> e3 = Empty(SeqSort(IntSort()))
     >>> print(e3)
     seq.empty
+    >>> e4 = Empty(ReSort(SeqSort(IntSort())))
+    >>> print(e4)
+    re.empty
     """
-    return SeqRef(Z3_mk_seq_empty(s.ctx_ref(), s.ast), s.ctx)
+    if isinstance(s, SeqSortRef):
+       return SeqRef(Z3_mk_seq_empty(s.ctx_ref(), s.ast), s.ctx)
+    if isinstance(s, ReSortRef):
+       return ReRef(Z3_mk_re_empty(s.ctx_ref(), s.ast), s.ctx)
+    raise Z3Exception("Non-sequence, non-regular expression sort passed to Empty")
+
+def Full(s):
+    """Create the regular expression that accepts the universal langauge
+    >>> e = Full(ReSort(SeqSort(IntSort())))
+    >>> print(e)
+    re.all
+    >>> e1 = Full(ReSort(StringSort()))
+    >>> print(e1)
+    re.allchar
+    """
+    if isinstance(s, ReSortRef):
+       return ReRef(Z3_mk_re_full(s.ctx_ref(), s.ast), s.ctx)
+    raise Z3Exception("Non-sequence, non-regular expression sort passed to Full")
+
 
 def Unit(a):
     """Create a singleton sequence"""
@@ -9624,10 +9646,10 @@ class ReSortRef(SortRef):
 
 def ReSort(s):
     if is_ast(s):
-        return ReSortRef(Z3_mk_re_sort(s.ctx.ref(), s.as_ast()), ctx)
+        return ReSortRef(Z3_mk_re_sort(s.ctx.ref(), s.ast), s.ctx)
     if s is None or isinstance(s, Context):
         ctx = _get_ctx(s)
-        return ReSortRef(Z3_mk_re_sort(ctx.ref(), Z3_mk_string_sort(ctx.ref())), ctx)
+        return ReSortRef(Z3_mk_re_sort(ctx.ref(), Z3_mk_string_sort(ctx.ref())), s.ctx)
     raise Z3Exception("Regular expression sort constructor expects either a string or a context or no argument")
 
 
@@ -9698,6 +9720,10 @@ def Option(re):
     """
     return ReRef(Z3_mk_re_option(re.ctx_ref(), re.as_ast()), re.ctx)
 
+def Complement(re):
+    """Create the complement regular expression."""
+    return ReRef(Z3_mk_re_complement(re.ctx_ref(), re.as_ast()), re.ctx)
+
 def Star(re):
     """Create the regular expression accepting zero or more repetitions of argument.
     >>> re = Star(Re("a"))
@@ -9709,3 +9735,15 @@ def Star(re):
     True
     """
     return ReRef(Z3_mk_re_star(re.ctx_ref(), re.as_ast()), re.ctx)
+
+def Loop(re, lo, hi=0):
+    """Create the regular expression accepting between a lower and upper bound repetitions
+    >>> re = Loop(Re("a"), 1, 3)
+    >>> print(simplify(InRe("aa", re)))
+    True
+    >>> print(simplify(InRe("aaaa", re)))
+    False
+    >>> print(simplify(InRe("", re)))
+    False
+    """
+    return ReRef(Z3_mk_re_loop(re.ctx_ref(), re.as_ast(), lo, hi), re.ctx)

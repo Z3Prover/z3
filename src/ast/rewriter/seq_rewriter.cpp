@@ -243,9 +243,9 @@ eautomaton* re2automaton::re2aut(expr* e) {
             TRACE("seq", tout << "Range expression is not handled: " << mk_pp(e, m) << "\n";);
         }
     }
-	else if (u.re.is_complement(e, e0) && (a = re2aut(e0)) && m_sa) {
-		return m_sa->mk_complement(*a);
-	}
+    else if (u.re.is_complement(e, e0) && (a = re2aut(e0)) && m_sa) {
+        return m_sa->mk_complement(*a);
+    }
     else if (u.re.is_loop(e, e1, lo, hi) && (a = re2aut(e1))) {
         scoped_ptr<eautomaton> eps = eautomaton::mk_epsilon(sm);
         b = eautomaton::mk_epsilon(sm);
@@ -524,7 +524,7 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
         result = m().mk_bool_val(c.contains(d));
         return BR_DONE;
     }
-    // check if subsequence of b is in a.
+    // check if subsequence of a is in b.
     expr_ref_vector as(m()), bs(m());
     m_util.str.get_concat(a, as);
     m_util.str.get_concat(b, bs);
@@ -587,6 +587,12 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
         SASSERT(sz > offs);
         result = m_util.str.mk_contains(m_util.str.mk_concat(sz-offs, as.c_ptr()+offs), b);
         return BR_REWRITE2;
+    }    
+
+    expr* x, *y, *z;
+    if (m_util.str.is_extract(b, x, y, z) && x == a) {
+        result = m().mk_true();
+        return BR_DONE;
     }
 
     return BR_FAILED;
@@ -1715,7 +1721,7 @@ bool seq_rewriter::solve_itos(unsigned szl, expr* const* ls, unsigned szr, expr*
         }
     }
 
-    if (szr == 1 && m_util.str.is_itos(rs[0], r)) {
+    if (szr == 1 && m_util.str.is_itos(rs[0], r) && !m_util.str.is_itos(ls[0])) {
         return solve_itos(szr, rs, szl, ls, rhs, lhs, is_sat);
     }
 

@@ -1154,6 +1154,12 @@ typedef enum {
     Z3_OP_RE_OPTION,
     Z3_OP_RE_CONCAT,
     Z3_OP_RE_UNION,
+    Z3_OP_RE_RANGE,
+    Z3_OP_RE_LOOP,
+    Z3_OP_RE_INTERSECT,
+    Z3_OP_RE_EMPTY_SET,
+    Z3_OP_RE_FULL_SET,
+    Z3_OP_RE_COMPLEMENT,
 
     // Auxiliary
     Z3_OP_LABEL = 0x700,
@@ -3366,6 +3372,60 @@ extern "C" {
        def_API('Z3_mk_re_concat' ,AST ,(_in(CONTEXT), _in(UINT), _in_array(1, AST)))
      */
     Z3_ast Z3_API Z3_mk_re_concat(Z3_context c, unsigned n, Z3_ast const args[]);
+
+
+    /**
+       \brief Create the range regular expression over two sequences of length 1.
+
+       def_API('Z3_mk_re_range' ,AST ,(_in(CONTEXT), _in(AST), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_re_range(Z3_context c, Z3_ast lo, Z3_ast hi);
+
+    /**
+       \brief Create a regular expression loop. The supplied regular expression \c r is repated
+       between \c lo and \c hi times. The \c lo should be below \c hi with one exection: when
+       supplying the value \c hi as 0, the meaning is to repeat the argument \c r at least
+       \c lo number of times, and with an unbounded upper bound.
+
+       def_API('Z3_mk_re_loop', AST, (_in(CONTEXT), _in(AST), _in(UINT), _in(UINT)))
+     */    
+    Z3_ast Z3_API Z3_mk_re_loop(Z3_context c, Z3_ast r, unsigned lo, unsigned hi);
+
+    /**
+       \brief Create the intersection of the regular languages.
+
+       \pre n > 0
+
+       def_API('Z3_mk_re_intersect' ,AST ,(_in(CONTEXT), _in(UINT), _in_array(1, AST)))
+     */
+    Z3_ast Z3_API Z3_mk_re_intersect(Z3_context c, unsigned n, Z3_ast const args[]);
+
+    /**
+       \brief Create the complement of the regular language \c re.
+
+       def_API('Z3_mk_re_complement' ,AST ,(_in(CONTEXT), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_re_complement(Z3_context c, Z3_ast re);
+
+    /**
+       \brief Create an empty regular expression of sort \c re.
+
+       \pre re is a regular expression sort.
+
+       def_API('Z3_mk_re_empty' ,AST ,(_in(CONTEXT), _in(SORT)))
+     */
+    Z3_ast Z3_API Z3_mk_re_empty(Z3_context c, Z3_sort re);
+
+
+    /**
+       \brief Create an universal regular expression of sort \c re.
+
+       \pre re is a regular expression sort.
+
+       def_API('Z3_mk_re_full' ,AST ,(_in(CONTEXT), _in(SORT)))
+     */
+    Z3_ast Z3_API Z3_mk_re_full(Z3_context c, Z3_sort re);
+    
 
     /*@}*/
 

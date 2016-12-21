@@ -499,6 +499,8 @@ namespace smt {
         void add_in_re_axiom(expr* n);
         bool add_stoi_axiom(expr* n);
         bool add_itos_axiom(expr* n);
+        literal is_digit(expr* ch);
+        expr_ref digit2int(expr* ch);
         void add_itos_length_axiom(expr* n);
         literal mk_literal(expr* n);
         literal mk_eq_empty(expr* n, bool phase = true);
@@ -512,7 +514,7 @@ namespace smt {
 
 
         // arithmetic integration
-        bool get_value(expr* s, rational& val) const;
+        bool get_num_value(expr* s, rational& val) const;
         bool lower_bound(expr* s, rational& lo) const;
         bool upper_bound(expr* s, rational& hi) const;
         bool get_length(expr* s, rational& val) const;

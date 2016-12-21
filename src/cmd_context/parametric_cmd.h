@@ -72,6 +72,7 @@ public:
         // m_params.set_func_decl(m_last, f); 
         // m_last = symbol::null; 
     }
+    virtual void set_next_arg(cmd_context & ctx, sexpr * n) { UNREACHABLE(); }
 };
 
 #endif

@@ -255,7 +255,7 @@ namespace datalog {
             table_plugin & tplugin = rmgr.get_appropriate_plugin(tsig);
             relation_plugin & inner_plugin = rmgr.get_table_relation_plugin(tplugin);
 
-            return sieve_relation_plugin::get_plugin(rmgr).mk_full(p, sig, inner_plugin);
+            return sieve_relation_plugin::get_plugin(rmgr).full(p, sig, inner_plugin);
         }
 
         void init(relation_signature const& r1_sig, unsigned num_rels1, relation_base const* const* r1, 
@@ -294,7 +294,7 @@ namespace datalog {
                         rel2 = r1_plugin.mk_full(p, r2_sig, r1_kind);
                     }
                     else {
-                        rel2 = sieve_relation_plugin::get_plugin(rmgr).mk_full(p, r2_sig, r1_plugin);
+                        rel2 = sieve_relation_plugin::get_plugin(rmgr).full(p, r2_sig, r1_plugin);
                     }
                     m_offset1.push_back(i);
                     m_kind1.push_back(T_INPUT);
@@ -318,7 +318,7 @@ namespace datalog {
                         rel1 = r2_plugin.mk_full(p, r1_sig, r2_kind);
                     }
                     else {
-                        rel1 = sieve_relation_plugin::get_plugin(rmgr).mk_full(p, r1_sig, r2_plugin);
+                        rel1 = sieve_relation_plugin::get_plugin(rmgr).full(p, r1_sig, r2_plugin);
                     }
                     m_offset1.push_back(m_full.size());
                     m_kind1.push_back(T_FULL);

@@ -31,13 +31,17 @@ public class Context implements AutoCloseable {
     static final Object creation_lock = new Object();
 
     public Context () {
-        m_ctx = Native.mkContextRc(0);
-        init();
+        synchronized (creation_lock) {
+            m_ctx = Native.mkContextRc(0);
+            init();
+        }
     }
 
     protected Context (long m_ctx) {
-        this.m_ctx = m_ctx;
-        init();
+        synchronized (creation_lock) {
+            this.m_ctx = m_ctx;
+            init();
+        }
     }
 
 
@@ -59,13 +63,15 @@ public class Context implements AutoCloseable {
      * module parameters. For this purpose we should now use {@code Global.setParameter}
      **/
     public Context(Map<String, String> settings) {
-        long cfg = Native.mkConfig();
-        for (Map.Entry<String, String> kv : settings.entrySet()) {
-            Native.setParamValue(cfg, kv.getKey(), kv.getValue());
+        synchronized (creation_lock) {
+            long cfg = Native.mkConfig();
+            for (Map.Entry<String, String> kv : settings.entrySet()) {
+                Native.setParamValue(cfg, kv.getKey(), kv.getValue());
+            }
+            m_ctx = Native.mkContextRc(cfg);
+            Native.delConfig(cfg);
+            init();
         }
-        m_ctx = Native.mkContextRc(cfg);
-        Native.delConfig(cfg);
-        init();
     }
 
     private void init() {
@@ -4037,7 +4043,9 @@ public class Context implements AutoCloseable {
         m_intSort = null;
         m_realSort = null;
         m_stringSort = null;
-
-        Native.delContext(m_ctx);
+        
+        synchronized (creation_lock) {
+            Native.delContext(m_ctx);
+        }
     }
 }

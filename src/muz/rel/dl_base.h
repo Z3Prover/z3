@@ -220,6 +220,8 @@ namespace datalog {
         */
         class mutator_fn : public base_fn {
         public:
+            virtual ~mutator_fn() {}
+
             virtual void operator()(base_object & t) = 0;
 
             virtual bool supports_attachment(base_object& other) { return false; }
@@ -869,6 +871,7 @@ namespace datalog {
 
     class table_row_mutator_fn {
     public:
+        virtual ~table_row_mutator_fn() {}
         /**
             \brief The function is called for a particular table row. The \c func_columns contains 
             a pointer to an array of functional column values that can be modified. If the function 
@@ -882,6 +885,7 @@ namespace datalog {
 
     class table_row_pair_reduce_fn {
     public:
+        virtual ~table_row_pair_reduce_fn() {}
         /**
             \brief The function is called for pair of table rows that became duplicit due to projection.
             The values that are in the first array after return from the function will be used for the 

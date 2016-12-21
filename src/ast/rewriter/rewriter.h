@@ -111,7 +111,7 @@ protected:
     void elim_reflex_prs(unsigned spos);
 public:
     rewriter_core(ast_manager & m, bool proof_gen);
-    ~rewriter_core();
+    virtual ~rewriter_core();
     ast_manager & m() const { return m_manager; }
     void reset();
     void cleanup();

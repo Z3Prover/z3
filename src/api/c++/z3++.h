@@ -934,7 +934,20 @@ namespace z3 {
             check_error();
             return expr(ctx(), r);
         }
-
+        friend expr range(expr const& lo, expr const& hi);       
+        /**
+           \brief create a looping regular expression.
+        */
+        expr loop(unsigned lo) {
+            Z3_ast r = Z3_mk_re_loop(ctx(), m_ast, lo, 0); 
+            check_error(); 
+            return expr(ctx(), r); 
+        }
+        expr loop(unsigned lo, unsigned hi) {
+            Z3_ast r = Z3_mk_re_loop(ctx(), m_ast, lo, hi); 
+            check_error(); 
+            return expr(ctx(), r); 
+        }
 
 
         /**
@@ -1224,7 +1237,6 @@ namespace z3 {
     inline expr operator|(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) | b; }
 
     inline expr operator~(expr const & a) { Z3_ast r = Z3_mk_bvnot(a.ctx(), a); return expr(a.ctx(), r); }
-
 
 
 
@@ -2436,31 +2448,51 @@ namespace z3 {
         return expr(s.ctx(), r);
     }
     inline expr to_re(expr const& s) {
-        Z3_ast r = Z3_mk_seq_to_re(s.ctx(), s);
-        s.check_error();
-        return expr(s.ctx(), r);
+        MK_EXPR1(Z3_mk_seq_to_re, s);
     }
     inline expr in_re(expr const& s, expr const& re) {
-        check_context(s, re);
-        Z3_ast r = Z3_mk_seq_in_re(s.ctx(), s, re);
+        MK_EXPR2(Z3_mk_seq_in_re, s, re);
+    }
+    inline expr plus(expr const& re) {
+        MK_EXPR1(Z3_mk_re_plus, re);
+    }
+    inline expr option(expr const& re) {
+        MK_EXPR1(Z3_mk_re_option, re);
+    }
+    inline expr star(expr const& re) {
+        MK_EXPR1(Z3_mk_re_star, re);
+    }
+    inline expr re_empty(sort const& s) {
+        Z3_ast r = Z3_mk_re_empty(s.ctx(), s);
         s.check_error();
         return expr(s.ctx(), r);
     }
-    inline expr plus(expr const& re) {
-        Z3_ast r = Z3_mk_re_plus(re.ctx(), re);
-        re.check_error();
-        return expr(re.ctx(), r);
+    inline expr re_full(sort const& s) {
+        Z3_ast r = Z3_mk_re_full(s.ctx(), s);
+        s.check_error();
+        return expr(s.ctx(), r);
     }
-    inline expr option(expr const& re) {
-        Z3_ast r = Z3_mk_re_option(re.ctx(), re);
-        re.check_error();
-        return expr(re.ctx(), r);
+    inline expr re_intersect(expr_vector const& args) {
+        assert(args.size() > 0);
+        context& ctx = args[0].ctx();
+        array<Z3_ast> _args(args);
+        Z3_ast r = Z3_mk_re_intersect(ctx, _args.size(), _args.ptr());
+        ctx.check_error();
+        return expr(ctx, r);
     }
-    inline expr star(expr const& re) {
-        Z3_ast r = Z3_mk_re_star(re.ctx(), re);
-        re.check_error();
-        return expr(re.ctx(), r);
+    inline expr re_complement(expr const& a) {
+        MK_EXPR1(Z3_mk_re_complement, a);
     }
+    inline expr range(expr const& lo, expr const& hi) {
+        check_context(lo, hi); 
+        Z3_ast r = Z3_mk_re_range(lo.ctx(), lo, hi); 
+        lo.check_error(); 
+        return expr(lo.ctx(), r); 
+    }
+
+
+
+
 
     inline expr interpolant(expr const& a) {
         return expr(a.ctx(), Z3_mk_interpolant(a.ctx(), a));

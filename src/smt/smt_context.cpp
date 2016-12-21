@@ -1111,6 +1111,8 @@ namespace smt {
 
         if (r1 == r2) {
             TRACE("add_diseq_inconsistent", tout << "add_diseq #" << n1->get_owner_id() << " #" << n2->get_owner_id() << " inconsistency, scope_lvl: " << m_scope_lvl << "\n";);
+            //return false;
+
             theory_id  t1 = r1->m_th_var_list.get_th_id();
             if (t1 == null_theory_id) return false;
             return get_theory(t1)->use_diseqs();
@@ -3293,19 +3295,6 @@ namespace smt {
         m_num_conflicts_since_restart = 0;
     }
 
-    struct context::scoped_mk_model {
-        context & m_ctx;
-        scoped_mk_model(context & ctx):m_ctx(ctx) {
-            m_ctx.m_proto_model = 0;
-            m_ctx.m_model       = 0;
-        }
-        ~scoped_mk_model() {
-            if (m_ctx.m_proto_model.get() != 0) {
-                m_ctx.m_model = m_ctx.m_proto_model->mk_model();
-                m_ctx.m_proto_model = 0; // proto_model is not needed anymore.
-            }
-        }
-    };
 
     lbool context::search() {
 #ifndef _EXTERNAL_RELEASE 
@@ -3333,79 +3322,10 @@ namespace smt {
             TRACE("search_bug", tout << "status: " << status << ", inconsistent: " << inconsistent() << "\n";);
             TRACE("assigned_literals_per_lvl", display_num_assigned_literals_per_lvl(tout); 
                   tout << ", num_assigned: " << m_assigned_literals.size() << "\n";);
-            
-            if (m_last_search_failure != OK) {
-                if (status != l_false) {
-                    // build candidate model before returning
-                    mk_proto_model(status);
-                    // status = l_undef;
-                }
+                                    
+            if (!restart(status, curr_lvl)) {
                 break;
             }
-            
-            bool force_restart = false;
-            
-            if (status == l_false) {
-                break;
-            }
-            else if (status == l_true) {
-                SASSERT(!inconsistent());
-                mk_proto_model(l_true);
-                // possible outcomes   DONE l_true, DONE l_undef, CONTINUE
-                quantifier_manager::check_model_result cmr = m_qmanager->check_model(m_proto_model.get(), m_model_generator->get_root2value());
-                if (cmr == quantifier_manager::SAT) {
-                    // done 
-                    break; 
-                }
-                if (cmr == quantifier_manager::UNKNOWN) {
-                    IF_VERBOSE(1, verbose_stream() << "(smt.giveup quantifiers)\n";);
-                    // giving up
-                    m_last_search_failure = QUANTIFIERS;
-                    status                = l_undef;
-                    break;
-                }
-                status        = l_undef;
-                force_restart = true;
-            }
-            
-            SASSERT(status == l_undef);
-            inc_limits();
-            if (force_restart || !m_fparams.m_restart_adaptive || m_agility < m_fparams.m_restart_agility_threshold) {
-                SASSERT(!inconsistent());
-                IF_VERBOSE(1, verbose_stream() << "(smt.restarting :propagations " << m_stats.m_num_propagations 
-                           << " :decisions " << m_stats.m_num_decisions
-                           << " :conflicts " << m_stats.m_num_conflicts << " :restart " << m_restart_threshold;
-                           if (m_fparams.m_restart_strategy == RS_IN_OUT_GEOMETRIC) {
-                               verbose_stream() << " :restart-outer " << m_restart_outer_threshold;
-                           }
-                           if (m_fparams.m_restart_adaptive) {
-                               verbose_stream() << " :agility " << m_agility;
-                           }
-                           verbose_stream() << ")" << std::endl; verbose_stream().flush(););
-                // execute the restart
-                m_stats.m_num_restarts++;
-                if (m_scope_lvl > curr_lvl) {
-                    pop_scope(m_scope_lvl - curr_lvl);
-                    SASSERT(at_search_level());
-                }
-                ptr_vector<theory>::iterator it  = m_theory_set.begin();
-                ptr_vector<theory>::iterator end = m_theory_set.end();
-                for (; it != end && !inconsistent(); ++it)
-                    (*it)->restart_eh();
-                TRACE("mbqi_bug_detail", tout << "before instantiating quantifiers...\n";); 
-                if (!inconsistent()) {
-                    m_qmanager->restart_eh();                
-                }
-                if (inconsistent()) {
-                    VERIFY(!resolve_conflict());
-                    status = l_false;      
-                    break;
-                }
-            }
-            if (m_fparams.m_simplify_clauses)
-                simplify_clauses();
-            if (m_fparams.m_lemma_gc_strategy == LGC_AT_RESTART)
-                del_inactive_lemmas();
         }
         
         TRACE("search_lite", tout << "status: " << status << "\n";);
@@ -3418,6 +3338,80 @@ namespace smt {
               });
         end_search();
         return status;
+    }
+
+    bool context::restart(lbool& status, unsigned curr_lvl) {
+
+        if (m_last_search_failure != OK) {
+            if (status != l_false) {
+                // build candidate model before returning
+                mk_proto_model(status);
+                // status = l_undef;
+            }
+            return false;
+        }
+
+        if (status == l_false) {
+            return false;
+        }
+        if (status == l_true) {
+            SASSERT(!inconsistent());
+            mk_proto_model(l_true);
+            // possible outcomes   DONE l_true, DONE l_undef, CONTINUE
+            quantifier_manager::check_model_result cmr = m_qmanager->check_model(m_proto_model.get(), m_model_generator->get_root2value());
+            if (cmr == quantifier_manager::SAT) {
+                // done 
+                status = l_true;
+                return false;
+            }
+            if (cmr == quantifier_manager::UNKNOWN) {
+                IF_VERBOSE(1, verbose_stream() << "(smt.giveup quantifiers)\n";);
+                // giving up
+                m_last_search_failure = QUANTIFIERS;
+                status = l_undef;
+                return false;
+            }
+        }
+        inc_limits();
+        if (status == l_true || !m_fparams.m_restart_adaptive || m_agility < m_fparams.m_restart_agility_threshold) {
+            SASSERT(!inconsistent());
+            IF_VERBOSE(1, verbose_stream() << "(smt.restarting :propagations " << m_stats.m_num_propagations 
+                       << " :decisions " << m_stats.m_num_decisions
+                       << " :conflicts " << m_stats.m_num_conflicts << " :restart " << m_restart_threshold;
+                       if (m_fparams.m_restart_strategy == RS_IN_OUT_GEOMETRIC) {
+                           verbose_stream() << " :restart-outer " << m_restart_outer_threshold;
+                       }
+                       if (m_fparams.m_restart_adaptive) {
+                           verbose_stream() << " :agility " << m_agility;
+                       }
+                       verbose_stream() << ")" << std::endl; verbose_stream().flush(););
+            // execute the restart
+            m_stats.m_num_restarts++;
+            if (m_scope_lvl > curr_lvl) {
+                pop_scope(m_scope_lvl - curr_lvl);
+                SASSERT(at_search_level());
+            }
+            ptr_vector<theory>::iterator it  = m_theory_set.begin();
+            ptr_vector<theory>::iterator end = m_theory_set.end();
+            for (; it != end && !inconsistent(); ++it)
+                (*it)->restart_eh();
+            TRACE("mbqi_bug_detail", tout << "before instantiating quantifiers...\n";); 
+            if (!inconsistent()) {
+                m_qmanager->restart_eh();                
+            }
+            if (inconsistent()) {
+                VERIFY(!resolve_conflict());
+                status = l_false;
+                return false;
+            }
+        }
+        if (m_fparams.m_simplify_clauses)
+            simplify_clauses();
+        if (m_fparams.m_lemma_gc_strategy == LGC_AT_RESTART)
+            del_inactive_lemmas();
+
+        status = l_undef;
+        return true;
     }
     
     void context::tick(unsigned & counter) const {

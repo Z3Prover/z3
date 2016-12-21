@@ -154,6 +154,10 @@ lbool solver::find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>&
     return l_true;
 }
 
+lbool solver::preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores) {
+    return check_sat(0, 0);
+}
+
 bool solver::is_literal(ast_manager& m, expr* e) {
     return is_uninterp_const(e) || (m.is_not(e, e) && is_uninterp_const(e));
 }

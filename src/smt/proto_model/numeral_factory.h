@@ -38,7 +38,7 @@ public:
     arith_factory(ast_manager & m);
     virtual ~arith_factory();
 
-    app * mk_value(rational const & val, bool is_int);
+    app * mk_num_value(rational const & val, bool is_int);
 };
 
 class bv_factory : public numeral_factory {
@@ -50,7 +50,7 @@ public:
     bv_factory(ast_manager & m);
     virtual ~bv_factory();
 
-    app * mk_value(rational const & val, unsigned bv_size);
+    app * mk_num_value(rational const & val, unsigned bv_size);
 };
 
 #endif /* NUMERAL_FACTORY_H_ */

@@ -115,6 +115,11 @@ namespace smt {
             return m_kernel.get_consequences(assumptions, vars, conseq, unfixed);
         }
 
+        lbool preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores) {
+            return m_kernel.preferred_sat(asms, cores);
+        }
+
+
         lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) {
             return m_kernel.find_mutexes(vars, mutexes);
         }
@@ -280,6 +285,10 @@ namespace smt {
 
     lbool kernel::get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq, expr_ref_vector& unfixed) {
         return m_imp->get_consequences(assumptions, vars, conseq, unfixed);
+    }
+
+    lbool kernel::preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores) {
+        return m_imp->preferred_sat(asms, cores);
     }
 
     lbool kernel::find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) {

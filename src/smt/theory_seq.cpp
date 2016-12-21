@@ -2235,8 +2235,9 @@ bool theory_seq::add_stoi_axiom(expr* e) {
     context& ctx = get_context();
     expr* n;
     rational val;
+    TRACE("seq", tout << mk_pp(e, m) << "\n";);
     VERIFY(m_util.str.is_stoi(e, n));    
-    if (get_value(e, val) && !m_stoi_axioms.contains(val)) {
+    if (get_num_value(e, val) && !m_stoi_axioms.contains(val)) {
         m_stoi_axioms.insert(val);
         if (!val.is_minus_one()) {
             app_ref e1(m_util.str.mk_string(symbol(val.to_string().c_str())), m);            
@@ -2252,15 +2253,72 @@ bool theory_seq::add_stoi_axiom(expr* e) {
             return true;
         }
     }
+    if (upper_bound(n, val) && get_length(n, val) && val.is_pos() && !m_stoi_axioms.contains(val)) {
+        zstring s;
+        SASSERT(val.is_unsigned());
+        unsigned sz = val.get_unsigned();
+        expr_ref len1(m), len2(m), ith_char(m), num(m), coeff(m);
+        expr_ref_vector nums(m);
+        len1 = m_util.str.mk_length(n);
+        len2 = m_autil.mk_int(sz);
+        literal lit = mk_eq(len1, len2, false);
+        literal_vector lits;
+        lits.push_back(~lit);
+        for (unsigned i = 0; i < sz; ++i) {
+            ith_char = mk_nth(n, m_autil.mk_int(i));
+            lits.push_back(~is_digit(ith_char));
+            nums.push_back(digit2int(ith_char));
+        }        
+        for (unsigned i = sz-1, c = 1; i > 0; c *= 10) {
+            --i;
+            coeff = m_autil.mk_int(c);
+            nums[i] = m_autil.mk_mul(coeff, nums[i].get());
+        }
+        num = m_autil.mk_add(nums.size(), nums.c_ptr());
+        lits.push_back(mk_eq(e, num, false));
+        ++m_stats.m_add_axiom;
+        m_new_propagation = true;
+        for (unsigned i = 0; i < lits.size(); ++i) {
+            ctx.mark_as_relevant(lits[i]);
+        }
+        ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
+        m_stoi_axioms.insert(val);
+        m_trail_stack.push(insert_map<theory_seq, rational_set, rational>(m_stoi_axioms, val));
+        m_trail_stack.push(push_replay(alloc(replay_axiom, m, e)));
+        return true;
+    }
+    
     return false;
+}
+
+literal theory_seq::is_digit(expr* ch) {
+    bv_util bv(m);
+    literal isd = mk_literal(mk_skolem(symbol("seq.is_digit"), ch, 0, 0, m.mk_bool_sort()));
+    expr_ref d2i = digit2int(ch);
+    expr_ref _lo(bv.mk_ule(bv.mk_numeral(rational('0'), bv.mk_sort(8)), ch), m);
+    expr_ref _hi(bv.mk_ule(ch, bv.mk_numeral(rational('9'), bv.mk_sort(8))), m);
+    literal lo = mk_literal(_lo);
+    literal hi = mk_literal(_hi);
+    add_axiom(~lo, ~hi, isd);
+    add_axiom(~isd, lo);
+    add_axiom(~isd, hi);
+    for (unsigned i = 0; i < 10; ++i) {
+        add_axiom(~mk_eq(ch, bv.mk_numeral(rational('0'+i), bv.mk_sort(8)), false), mk_eq(d2i, m_autil.mk_int(i), false));
+    }
+    return isd;
+}
+
+expr_ref theory_seq::digit2int(expr* ch) {
+    return expr_ref(mk_skolem(symbol("seq.digit2int"), ch, 0, 0, m_autil.mk_int()), m);
 }
 
 bool theory_seq::add_itos_axiom(expr* e) {
     context& ctx = get_context();
     rational val;
     expr* n;
+    TRACE("seq", tout << mk_pp(e, m) << "\n";);
     VERIFY(m_util.str.is_itos(e, n));
-    if (get_value(n, val)) {
+    if (get_num_value(n, val)) {
         if (!m_itos_axioms.contains(val)) {
             m_itos_axioms.insert(val);
             app_ref e1(m_util.str.mk_string(symbol(val.to_string().c_str())), m);            
@@ -2282,6 +2340,9 @@ bool theory_seq::add_itos_axiom(expr* e) {
     else {
         // stoi(itos(n)) = n
         app_ref e2(m_util.str.mk_stoi(e), m);
+        if (ctx.e_internalized(e2) && ctx.get_enode(e2)->get_root() == ctx.get_enode(n)->get_root()) {
+            return false;
+        }
         add_axiom(mk_eq(e2, n, false));
         m_trail_stack.push(push_replay(alloc(replay_axiom, m, e)));
         return true;
@@ -2464,22 +2525,27 @@ void theory_seq::init_model(model_generator & mg) {
 
 
 class theory_seq::seq_value_proc : public model_value_proc {
+    enum source_t { unit_source, int_source, string_source };
     theory_seq&                     th;
     sort*                           m_sort;
     svector<model_value_dependency> m_dependencies;
     ptr_vector<expr>                m_strings;
-    svector<bool>                   m_source;
+    svector<source_t>               m_source;
 public:
     seq_value_proc(theory_seq& th, sort* s): th(th), m_sort(s) {
     }
     virtual ~seq_value_proc() {}
-    void add_dependency(enode* n) { 
+    void add_unit(enode* n) { 
         m_dependencies.push_back(model_value_dependency(n)); 
-        m_source.push_back(true);
+        m_source.push_back(unit_source);
+    }
+    void add_int(enode* n) { 
+        m_dependencies.push_back(model_value_dependency(n)); 
+        m_source.push_back(int_source);
     }
     void add_string(expr* n) {
         m_strings.push_back(n);
-        m_source.push_back(false);
+        m_source.push_back(string_source);
     }
     virtual void get_dependencies(buffer<model_value_dependency> & result) {
         result.append(m_dependencies.size(), m_dependencies.c_ptr());
@@ -2504,11 +2570,13 @@ public:
             unsigned sz;
 
             for (unsigned i = 0; i < m_source.size(); ++i) {
-                if (m_source[i]) {
+                switch (m_source[i]) {
+                case unit_source: {
                     VERIFY(bv.is_numeral(values[j++], val, sz));
                     sbuffer.push_back(val.get_unsigned());
+                    break;
                 }
-                else {
+                case string_source: {
                     dependency* deps = 0;
                     expr_ref tmp = th.canonize(m_strings[k], deps);
                     zstring zs;
@@ -2519,17 +2587,34 @@ public:
                         TRACE("seq", tout << "Not a string: " << tmp << "\n";);
                     }
                     ++k;
+                    break;
+                }
+                case int_source: {
+                    std::ostringstream strm;
+                    arith_util arith(th.m);
+                    VERIFY(arith.is_numeral(values[j++], val));
+                    if (val.is_neg()) strm << "-";
+                    strm << abs(val);
+                    zstring zs(strm.str().c_str());
+                    add_buffer(sbuffer, zs);
+                    break;
+                }
                 }
             }
             result = th.m_util.str.mk_string(zstring(sbuffer.size(), sbuffer.c_ptr()));
         }
         else {
             for (unsigned i = 0; i < m_source.size(); ++i) {
-                if (m_source[i]) {
+                switch (m_source[i]) {
+                case unit_source:
                     args.push_back(th.m_util.str.mk_unit(values[j++]));
-                }
-                else {
+                    break;
+                case string_source:
                     args.push_back(m_strings[k++]);
+                    break;
+                case int_source:
+                    UNREACHABLE();
+                    break;
                 }
             }
             result = th.mk_concat(args, m_sort);
@@ -2567,7 +2652,12 @@ model_value_proc * theory_seq::mk_value(enode * n, model_generator & mg) {
             TRACE("seq", tout << mk_pp(c, m) << "\n";);
             if (m_util.str.is_unit(c, c1)) {
                 if (ctx.e_internalized(c1)) {
-                    sv->add_dependency(ctx.get_enode(c1));
+                    sv->add_unit(ctx.get_enode(c1));
+                }
+            }
+            else if (m_util.str.is_itos(c, c1)) {
+                if (ctx.e_internalized(c1)) {
+                    sv->add_int(ctx.get_enode(c1));
                 }
             }
             else if (m_util.str.is_string(c)) {
@@ -2741,7 +2831,8 @@ expr_ref theory_seq::expand(expr* e0, dependency*& eqs) {
     }
     else if (m_util.str.is_itos(e, e1)) {
         rational val;
-        if (get_value(e1, val)) {
+        TRACE("seq", tout << mk_pp(e, m) << "\n";);
+        if (get_num_value(e1, val)) {
             TRACE("seq", tout << mk_pp(e, m) << " -> " << val << "\n";);
             expr_ref num(m), res(m);
             num = m_autil.mk_numeral(val, true);
@@ -2916,7 +3007,7 @@ void theory_seq::add_indexof_axiom(expr* i) {
 
         expr_ref len_t(m_util.str.mk_length(t), m);
         literal offset_ge_len = mk_literal(m_autil.mk_ge(mk_sub(offset, len_t), zero));
-        add_axiom(offset_ge_len, mk_eq(i, minus_one, false));
+        add_axiom(~offset_ge_len, mk_eq(i, minus_one, false));
 
         expr_ref x = mk_skolem(m_indexof_left, t, s, offset);
         expr_ref y = mk_skolem(m_indexof_right, t, s, offset);
@@ -3024,7 +3115,7 @@ void theory_seq::add_itos_length_axiom(expr* len) {
     unsigned num_char1 = 1, num_char2 = 1;
     rational len1, len2;
     rational ten(10);
-    if (get_value(n, len1)) {
+    if (get_num_value(n, len1)) {
         bool neg = len1.is_neg();
         if (neg) len1.neg();
         num_char1 = neg?2:1;
@@ -3038,7 +3129,7 @@ void theory_seq::add_itos_length_axiom(expr* len) {
         }
         SASSERT(len1 <= upper);
     }
-    if (get_value(len, len2) && len2.is_unsigned()) {
+    if (get_num_value(len, len2) && len2.is_unsigned()) {
         num_char2 = len2.get_unsigned();
     }
     unsigned num_char = std::max(num_char1, num_char2);
@@ -3172,18 +3263,17 @@ static theory_mi_arith* get_th_arith(context& ctx, theory_id afid, expr* e) {
     }
 }
 
-bool theory_seq::get_value(expr* e, rational& val) const {
+bool theory_seq::get_num_value(expr* e, rational& val) const {
     context& ctx = get_context();
     theory_mi_arith* tha = get_th_arith(ctx, m_autil.get_family_id(), e);
     expr_ref _val(m);
     if (!tha) return false;
-    enode* next = ctx.get_enode(e), *n;
+    enode* next = ctx.get_enode(e), *n = next;
     do { 
-        n = next;
-        if (tha->get_value(n, _val) && m_autil.is_numeral(_val, val) && val.is_int()) {
+        if (tha->get_value(next, _val) && m_autil.is_numeral(_val, val) && val.is_int()) {
             return true;
         }
-        next = n->get_next();
+        next = next->get_next();
     }
     while (next != n);
     return false;
@@ -3692,7 +3782,10 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
     else if (is_skolem(symbol("seq.split"), e)) {
         // propagate equalities
     }
+    else if (is_skolem(symbol("seq.is_digit"), e)) {
+    }
     else {
+        TRACE("seq", tout << mk_pp(e, m) << "\n";);
         UNREACHABLE();
     }
 }

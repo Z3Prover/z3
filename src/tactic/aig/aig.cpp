@@ -68,7 +68,8 @@ inline aig_lit right(aig_lit const & n) { return right(n.ptr()); }
 
 inline unsigned to_idx(aig * p) { SASSERT(!is_var(p)); return p->m_id - FIRST_NODE_ID; }
 
-void unmark(unsigned sz, aig * const * ns) {
+
+static void unmark(unsigned sz, aig * const * ns) {
     for (unsigned i = 0; i < sz; i++) {
         ns[i]->m_mark = false;
     }

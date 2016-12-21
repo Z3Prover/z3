@@ -31,11 +31,11 @@ Notes:
 #include"ufbv_tactic.h"
 
 
-tactic * mk_der_fp_tactic(ast_manager & m, params_ref const & p) {
+static tactic * mk_der_fp_tactic(ast_manager & m, params_ref const & p) {
     return repeat(and_then(mk_der_tactic(m), mk_simplify_tactic(m, p)));
 }
 
-tactic * mk_ufbv_preprocessor_tactic(ast_manager & m, params_ref const & p) {
+static tactic * mk_ufbv_preprocessor_tactic(ast_manager & m, params_ref const & p) {
     params_ref no_elim_and(p);
     no_elim_and.set_bool("elim_and", false);
 

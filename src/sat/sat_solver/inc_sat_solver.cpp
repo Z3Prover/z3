@@ -115,10 +115,18 @@ public:
         if (weights != 0) {
             for (unsigned i = 0; i < sz; ++i) m_weights.push_back(weights[i]);
         }
+        init_preprocess();
         m_solver.pop_to_base_level();
         dep2asm_t dep2asm;
+        expr_ref_vector asms(m);
+        for (unsigned i = 0; i < sz; ++i) {
+            expr_ref a(m.mk_fresh_const("s", m.mk_bool_sort()), m);
+            expr_ref fml(m.mk_implies(a, assumptions[i]), m);
+            assert_expr(fml);
+            asms.push_back(a);
+        }
         VERIFY(l_true == internalize_formulas());
-        VERIFY(l_true == internalize_assumptions(sz, assumptions, dep2asm));
+        VERIFY(l_true == internalize_assumptions(sz, asms.c_ptr(), dep2asm));
         svector<unsigned> nweights;
         for (unsigned i = 0; i < m_asms.size(); ++i) {
             nweights.push_back((unsigned) m_weights[i]);

@@ -417,8 +417,8 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::atom::display(theory_arith<Ext> const& th, std::ostream& out) const {
         literal l(get_bool_var(), !m_is_true);
-        out << "v" << bound::get_var() << " " << bound::get_bound_kind() << " " << get_k() << " ";
-        out << l << ":";
+        // out << "v" << bound::get_var() << " " << bound::get_bound_kind() << " " << get_k() << " ";
+        // out << l << ":";
         th.get_context().display_detailed_literal(out, l);
     }
 

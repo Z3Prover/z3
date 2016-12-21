@@ -333,8 +333,15 @@ namespace opt {
         TRACE("opt", tout << mk_pp(f, m) << " weight: " << w << "\n";);
         SASSERT(m.is_bool(f));
         SASSERT(w.is_pos());
-        m_soft_constraints.push_back(f);
-        m_weights.push_back(w);
+        unsigned index = 0;
+        if (m_soft_constraint_index.find(f, index)) {
+            m_weights[index] += w;
+        }
+        else {
+            m_soft_constraint_index.insert(f, m_weights.size());
+            m_soft_constraints.push_back(f);
+            m_weights.push_back(w);
+        }
         m_upper += w;
     }
 

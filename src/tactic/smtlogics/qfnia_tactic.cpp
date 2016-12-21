@@ -29,7 +29,7 @@ Notes:
 #include"ctx_simplify_tactic.h"
 #include"cofactor_term_ite_tactic.h"
 
-tactic * mk_qfnia_bv_solver(ast_manager & m, params_ref const & p_ref) {
+static tactic * mk_qfnia_bv_solver(ast_manager & m, params_ref const & p_ref) {
     params_ref p = p_ref;
     p.set_bool("flat", false);
     p.set_bool("hi_div0", true); 
@@ -51,7 +51,7 @@ tactic * mk_qfnia_bv_solver(ast_manager & m, params_ref const & p_ref) {
     return r;
 }
 
-tactic * mk_qfnia_premable(ast_manager & m, params_ref const & p_ref) {
+static tactic * mk_qfnia_premable(ast_manager & m, params_ref const & p_ref) {
     params_ref pull_ite_p = p_ref;
     pull_ite_p.set_bool("pull_cheap_ite", true);
     pull_ite_p.set_bool("local_ctx", true);
@@ -77,7 +77,7 @@ tactic * mk_qfnia_premable(ast_manager & m, params_ref const & p_ref) {
                  using_params(mk_simplify_tactic(m), simp_p));    
 }
 
-tactic * mk_qfnia_sat_solver(ast_manager & m, params_ref const & p) {
+static tactic * mk_qfnia_sat_solver(ast_manager & m, params_ref const & p) {
     params_ref nia2sat_p = p;
     nia2sat_p.set_uint("nla2bv_max_bv_size", 64);   
 

@@ -51,6 +51,7 @@ public:
     virtual result operator()(goal const & g) {
         return is_unbounded(g);
     }
+    virtual ~is_unbounded_probe() {}
 };
 
 probe * mk_is_unbounded_probe() {
@@ -109,11 +110,11 @@ class add_bounds_tactic : public tactic {
             void operator()(quantifier*) {}
         };
         
-        virtual void operator()(goal_ref const & g, 
-                                goal_ref_buffer & result, 
-                                model_converter_ref & mc, 
-                                proof_converter_ref & pc,
-                                expr_dependency_ref & core) {
+        void operator()(goal_ref const & g, 
+                        goal_ref_buffer & result, 
+                        model_converter_ref & mc, 
+                        proof_converter_ref & pc,
+                        expr_dependency_ref & core) {
             mc = 0; pc = 0; core = 0;
             tactic_report report("add-bounds", *g);
             bound_manager bm(m);

@@ -2917,6 +2917,7 @@ namespace sat {
         ++max_weight;
 
         out << "p wcnf " << num_vars() << " " << num_clauses() + sz << " " << max_weight << "\n";
+        out << "c soft " << sz << "\n";
 
         for (unsigned i = 0; i < m_trail.size(); i++) {
             out << max_weight << " " << dimacs_lit(m_trail[i]) << " 0\n";
@@ -2940,9 +2941,9 @@ namespace sat {
             clause_vector::const_iterator end = cs.end();
             for (; it != end; ++it) {
                 clause const & c = *(*it);
-                unsigned sz = c.size();
+                unsigned clsz = c.size();
                 out << max_weight << " ";
-                for (unsigned j = 0; j < sz; j++)
+                for (unsigned j = 0; j < clsz; j++)
                     out << dimacs_lit(c[j]) << " ";
                 out << "0\n";
             }
@@ -2950,6 +2951,7 @@ namespace sat {
         for (unsigned i = 0; i < sz; ++i) {
             out << weights[i] << " " << lits[i] << " 0\n";
         }
+        out.flush();
     }
 
 

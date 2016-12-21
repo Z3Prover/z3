@@ -3099,7 +3099,7 @@ namespace Duality {
             // Maps nodes of derivation tree into old subtree
             hash_map<Node *, Node*> cex_map;
       
-            virtual void ChooseExpand(const std::set<RPFP::Node *> &choices, std::set<RPFP::Node *> &best){
+            virtual void ChooseExpand(const std::set<RPFP::Node *> &choices, std::set<RPFP::Node *> &best, bool, bool){
                 if(old_node == 0){
                     Heuristic::ChooseExpand(choices,best);
                     return;

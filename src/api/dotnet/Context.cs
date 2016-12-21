@@ -2565,9 +2565,19 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Take the bounded Kleene star of a regular expression.
+        /// </summary>
+        public ReExpr MkLoop(ReExpr re, uint lo, uint hi = 0)
+        {
+            Contract.Requires(re != null);
+            Contract.Ensures(Contract.Result<ReExpr>() != null);
+            return new ReExpr(this, Native.Z3_mk_re_loop(nCtx, re.NativeObject, lo, hi));            
+        }
+
+        /// <summary>
         /// Take the Kleene plus of a regular expression.
         /// </summary>
-        public ReExpr MPlus(ReExpr re)
+        public ReExpr MkPlus(ReExpr re)
         {
             Contract.Requires(re != null);
             Contract.Ensures(Contract.Result<ReExpr>() != null);
@@ -2577,11 +2587,21 @@ namespace Microsoft.Z3
         /// <summary>
         /// Create the optional regular expression.
         /// </summary>
-        public ReExpr MOption(ReExpr re)
+        public ReExpr MkOption(ReExpr re)
         {
             Contract.Requires(re != null);
             Contract.Ensures(Contract.Result<ReExpr>() != null);
             return new ReExpr(this, Native.Z3_mk_re_option(nCtx, re.NativeObject));            
+        }
+
+        /// <summary>
+        /// Create the complement regular expression.
+        /// </summary>
+        public ReExpr MkComplement(ReExpr re)
+        {
+            Contract.Requires(re != null);
+            Contract.Ensures(Contract.Result<ReExpr>() != null);
+            return new ReExpr(this, Native.Z3_mk_re_complement(nCtx, re.NativeObject));            
         }
 
         /// <summary>
@@ -2608,6 +2628,52 @@ namespace Microsoft.Z3
 
             CheckContextMatch<ReExpr>(t);
             return new ReExpr(this, Native.Z3_mk_re_union(nCtx, (uint)t.Length, AST.ArrayToNative(t)));
+        }
+
+        /// <summary>
+        /// Create the intersection of regular languages.
+        /// </summary>
+        public ReExpr MkIntersect(params ReExpr[] t)
+        {
+            Contract.Requires(t != null);
+            Contract.Requires(Contract.ForAll(t, a => a != null));
+            Contract.Ensures(Contract.Result<ReExpr>() != null);
+
+            CheckContextMatch<ReExpr>(t);
+            return new ReExpr(this, Native.Z3_mk_re_intersect(nCtx, (uint)t.Length, AST.ArrayToNative(t)));
+        }
+
+        /// <summary>
+        /// Create the empty regular expression.
+        /// </summary>
+        public ReExpr MkEmptyRe(Sort s) 
+        {
+            Contract.Requires(s != null);
+            Contract.Ensures(Contract.Result<SeqExpr>() != null);
+            return new ReExpr(this, Native.Z3_mk_re_empty(nCtx, s.NativeObject));
+        }
+
+        /// <summary>
+        /// Create the full regular expression.
+        /// </summary>
+        public ReExpr MkFullRe(Sort s) 
+        {
+            Contract.Requires(s != null);
+            Contract.Ensures(Contract.Result<SeqExpr>() != null);
+            return new ReExpr(this, Native.Z3_mk_re_full(nCtx, s.NativeObject));
+        }
+
+
+        /// <summary>
+        /// Create a range expression.
+        /// </summary>
+	public ReExpr MkRange(SeqExpr lo, SeqExpr hi) 
+        {
+            Contract.Requires(lo != null);
+            Contract.Requires(hi != null);
+            Contract.Ensures(Contract.Result<ReExpr>() != null);
+            CheckContextMatch(lo, hi);
+            return new ReExpr(this, Native.Z3_mk_re_range(nCtx, lo.NativeObject, hi.NativeObject));
         }
     
         #endregion

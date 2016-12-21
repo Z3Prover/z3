@@ -494,7 +494,7 @@ void macro_util::normalize_expr(app * head, expr * t, expr_ref & norm_t) const {
               tout << "applying substitution to:\n" << mk_ll_pp(t, m_manager) << "\nsubstitution:\n";
               for (unsigned i = 0; i < var_mapping.size(); i++) {
                   if (var_mapping[i] != 0)
-                    tout << "#" << i << " -> " << mk_ll_pp(var_mapping[i], m_manager);
+                      tout << "#" << i << " -> " << mk_ll_pp(var_mapping[i], m_manager);
               });
         subst(t, var_mapping.size(), var_mapping.c_ptr(), norm_t);
     }

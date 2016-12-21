@@ -901,7 +901,7 @@ namespace smt {
         bool is_int = a.is_int(n->get_owner());
         rational num = mk_value(v, is_int);
         TRACE("utvpi", tout << mk_pp(n->get_owner(), get_manager()) << " |-> " << num << "\n";);
-        return alloc(expr_wrapper_proc, m_factory->mk_value(num, is_int));
+        return alloc(expr_wrapper_proc, m_factory->mk_num_value(num, is_int));
     }
 
     /**

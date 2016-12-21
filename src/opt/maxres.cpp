@@ -805,8 +805,9 @@ public:
     lbool init_local() {
         m_lower.reset();
         m_trail.reset();
+        lbool is_sat = l_true;
         obj_map<expr, rational> new_soft;
-        lbool is_sat = find_mutexes(new_soft);
+        is_sat = find_mutexes(new_soft);
         if (is_sat != l_true) {
             return is_sat;
         }

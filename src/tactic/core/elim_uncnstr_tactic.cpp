@@ -819,7 +819,7 @@ class elim_uncnstr_tactic : public tactic {
             m_rw = alloc(rw, m(), produce_proofs, m_vars, m_mc.get(), m_max_memory, m_max_steps);            
         }
 
-        virtual void operator()(goal_ref const & g, 
+        void operator()(goal_ref const & g, 
                                 goal_ref_buffer & result, 
                                 model_converter_ref & mc, 
                                 proof_converter_ref & pc,

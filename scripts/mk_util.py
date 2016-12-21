@@ -1168,7 +1168,8 @@ class ExeComponent(Component):
             c_dep = get_component(dep)
             out.write(' ' + c_dep.get_link_name())
         out.write('\n')
-        out.write('\t$(LINK) $(LINK_OUT_FLAG)%s $(LINK_FLAGS)' % exefile)
+        extra_opt = '-static' if not IS_WINDOWS and STATIC_BIN else ''
+        out.write('\t$(LINK) %s $(LINK_OUT_FLAG)%s $(LINK_FLAGS)' % (extra_opt, exefile))
         for obj in objs:
             out.write(' ')
             out.write(obj)
@@ -1972,7 +1973,7 @@ class MLComponent(Component):
             z3mls = os.path.join(self.sub_dir, 'z3ml')
             out.write('%s.cma: %s %s %s\n' % (z3mls, cmos, stubso, z3dllso))
             out.write('\t%s -o %s -I %s %s %s %s\n' % (OCAMLMKLIB, z3mls, self.sub_dir, stubso, cmos, LIBZ3))
-            out.write('%s.cmxa: %s %s %s\n' % (z3mls, cmxs, stubso, z3dllso))
+            out.write('%s.cmxa: %s %s %s %s.cma\n' % (z3mls, cmxs, stubso, z3dllso, z3mls))
             out.write('\t%s -o %s -I %s %s %s %s\n' % (OCAMLMKLIB, z3mls, self.sub_dir, stubso, cmxs, LIBZ3))
             out.write('%s.cmxs: %s.cmxa\n' % (z3mls, z3mls))
             out.write('\t%s -shared -o %s.cmxs -I %s %s.cmxa\n' % (OCAMLOPTF, z3mls, self.sub_dir, z3mls))
@@ -2506,10 +2507,7 @@ def mk_config():
         config.write('AR_OUTFLAG=\n')
         config.write('EXE_EXT=\n')
         config.write('LINK=%s\n' % CXX)
-        if STATIC_BIN:
-            config.write('LINK_FLAGS=-static\n')
-        else:
-            config.write('LINK_FLAGS=\n')
+        config.write('LINK_FLAGS=\n')
         config.write('LINK_OUT_FLAG=-o \n')
         config.write('LINK_EXTRA_FLAGS=-lpthread %s\n' % LDFLAGS)
         config.write('SO_EXT=%s\n' % SO_EXT)
