@@ -357,7 +357,7 @@ struct z3_replayer::imp {
                 v.push_back(static_cast<unsigned>(m_args[i].m_uint));
             }
         }
-        if (k == INT64) {
+        else if (k == INT64) {
             aidx = m_int_arrays.size();
             nk   = INT_ARRAY;
             m_int_arrays.push_back(svector<int>());
