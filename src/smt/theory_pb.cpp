@@ -518,7 +518,7 @@ namespace smt {
                 ++log;
                 n *= 2;
             }
-            unsigned th = args.size()*log; 
+            unsigned th = args.size()*log*log; 
             c->m_compilation_threshold = th;
             IF_VERBOSE(2, verbose_stream() << "(smt.pb setting compilation threshold to " << th << ")\n";);
             TRACE("pb", tout << "compilation threshold: " << th << "\n";);

@@ -164,10 +164,26 @@ Notes:
         struct stats {
             unsigned m_num_compiled_vars;
             unsigned m_num_compiled_clauses;
+            unsigned m_num_clause_vars;
             void reset() { memset(this, 0, sizeof(*this)); }
             stats() { reset(); }
         };
         stats        m_stats;
+
+        struct scoped_stats {
+            stats& m_stats;
+            stats  m_save;
+            unsigned m_k, m_n;
+            scoped_stats(stats& st, unsigned k, unsigned n): m_stats(st), m_save(st), m_k(k), m_n(n) {}
+            ~scoped_stats() {
+                IF_VERBOSE(1, 
+                           verbose_stream() << "k: " << m_k << " n: " << m_n;
+                           verbose_stream() << " clauses: " << m_stats.m_num_compiled_clauses - m_save.m_num_compiled_clauses;
+                           verbose_stream() << " vars: " << m_stats.m_num_clause_vars - m_save.m_num_clause_vars;
+                           verbose_stream() << " clauses: " << m_stats.m_num_compiled_clauses;
+                           verbose_stream() << " vars: " << m_stats.m_num_clause_vars << "\n";);
+            }
+        };
 
         psort_nw(psort_expr& c): ctx(c) {}
 
@@ -186,6 +202,7 @@ Notes:
             else {
                 SASSERT(2*k <= n);
                 m_t = full?GE_FULL:GE;
+                // scoped_stats _ss(m_stats, k, n);
                 psort_nw<psort_expr>::card(k, n, xs, out);                
                 return out[k-1]; 
             }
@@ -202,11 +219,13 @@ Notes:
             }
             else if (k == 1) {
                 literal_vector ors;
-                return mk_at_most_1(full, n, xs, ors);
+                // scoped_stats _ss(m_stats, k, n);
+                return mk_at_most_1(full, n, xs, ors, false);
             }
             else {
                 SASSERT(2*k <= n);
                 m_t = full?LE_FULL:LE;
+                // scoped_stats _ss(m_stats, k, n);
                 card(k + 1, n, xs, out);
                 return ctx.mk_not(out[k]); 
             }
@@ -222,9 +241,11 @@ Notes:
                 return eq(full, k, n, in.c_ptr());
             }
             else if (k == 1) {
+                // scoped_stats _ss(m_stats, k, n);
                 return mk_exactly_1(full, n, xs);
             }
             else {
+                // scoped_stats _ss(m_stats, k, n);
                 SASSERT(2*k <= n);
                 m_t = EQ;
                 card(k+1, n, xs, out);
@@ -304,7 +325,7 @@ Notes:
 
         literal mk_exactly_1(bool full, unsigned n, literal const* xs) {
             literal_vector ors;
-            literal r1 = mk_at_most_1(full, n, xs, ors);
+            literal r1 = mk_at_most_1(full, n, xs, ors, true);
 
             if (full) {
                 r1 = mk_and(r1, mk_or(ors));
@@ -315,8 +336,7 @@ Notes:
             return r1;
         }
 
-#if 1
-        literal mk_at_most_1(bool full, unsigned n, literal const* xs, literal_vector& ors) {
+        literal mk_at_most_1(bool full, unsigned n, literal const* xs, literal_vector& ors, bool use_ors) {
             TRACE("pb", tout << (full?"full":"partial") << " ";
                   for (unsigned i = 0; i < n; ++i) tout << xs[i] << " ";
                   tout << "\n";);
@@ -336,7 +356,9 @@ Notes:
                 for (unsigned i = 0; i < n; i += inc_size) {       
                     unsigned inc = std::min(n - i, inc_size);
                     mk_at_most_1_small(full, inc, in.c_ptr() + i, result, ands);
-                    ors.push_back(mk_or(inc, in.c_ptr() + i));
+                    if (use_ors || n > inc_size) {
+                        ors.push_back(mk_or(inc, in.c_ptr() + i));
+                    }
                 }
                 if (n <= inc_size) {
                     break;
@@ -349,35 +371,7 @@ Notes:
             }
             return result;
         }
-#else
-        literal mk_at_most_1(bool full, unsigned n, literal const* xs, literal_vector& ors) {
-            TRACE("pb", tout << (full?"full":"partial") << " ";
-                  for (unsigned i = 0; i < n; ++i) tout << xs[i] << " ";
-                  tout << "\n";);
 
-            literal_vector in(n, xs);
-            unsigned inc_size = 4;
-            literal_vector ands;
-            while (!in.empty()) {
-                ors.reset();
-                unsigned i = 0;
-                unsigned n = in.size();
-                if (n + 1 == inc_size) ++inc_size;
-                for (; i < n; i += inc_size) {                    
-                    unsigned inc = std::min(inc_size, n - i);
-                    ands.push_back(mk_at_most_1_small(inc, in.c_ptr() + i));
-                    ors.push_back(mk_or(inc, in.c_ptr() + i));
-                }
-                if (n <= inc_size) {
-                    break;
-                }
-                in.reset();
-                in.append(ors);
-            }
-            return mk_and(ands);
-        }
-
-#endif
         void mk_at_most_1_small(bool full, unsigned n, literal const* xs, literal result, literal_vector& ands) {
             SASSERT(n > 0);
             if (n == 1) {
@@ -562,6 +556,7 @@ Notes:
         }
         void add_clause(unsigned n, literal const* ls) {
             m_stats.m_num_compiled_clauses++;
+            m_stats.m_num_clause_vars += n;
             literal_vector tmp(n, ls);
             TRACE("pb", for (unsigned i = 0; i < n; ++i) tout << ls[i] << " "; tout << "\n";);
             ctx.mk_clause(n, tmp.c_ptr());

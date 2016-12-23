@@ -206,6 +206,7 @@ namespace opt {
             rational w = weights[i];
             weight = w - weight;
             m_lower += weight*rational(i);
+            IF_VERBOSE(1, verbose_stream() << "(opt.maxsat mutex size: " << i + 1 << " weight: " << weight << ")\n";);
             sum2 += weight*rational(i+1);
             new_soft.insert(soft, weight);
             for (; i > 0 && weights[i-1] == w; --i) {} 
