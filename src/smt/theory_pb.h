@@ -193,10 +193,32 @@ namespace smt {
         typedef ptr_vector<ineq> watch_list;
         typedef map<arg_t, bool_var, arg_t::hash, arg_t::eq> arg_map;
 
+        struct var_info {
+            watch_list* m_lit_watch[2];
+            watch_list* m_var_watch;
+            ineq*       m_ineq;
+            
+            var_info(): m_var_watch(0), m_ineq(0)
+            {
+                m_lit_watch[0] = 0;
+                m_lit_watch[1] = 0;
+            }
+
+            void reset() {
+                dealloc(m_lit_watch[0]);
+                dealloc(m_lit_watch[1]);
+                dealloc(m_var_watch);
+                dealloc(m_ineq);
+            }
+        };
+
+
         theory_pb_params         m_params;        
-        u_map<watch_list*>       m_lwatch;      // per literal.
-        u_map<watch_list*>       m_vwatch;      // per variable.
-        u_map<ineq*>             m_ineqs;       // per inequality.
+
+        svector<var_info>        m_var_infos; 
+//        u_map<watch_list*>       m_lwatch;      // per literal.
+//        u_map<watch_list*>       m_vwatch;      // per variable.
+//        u_map<ineq*>             m_ineqs;       // per inequality.
         arg_map                  m_ineq_rep;       // Simplex: representative inequality
         u_map<row_info>          m_ineq_row_info;  // Simplex: row information per variable
         uint_set                 m_vars;           // Simplex: 0-1 variables.
@@ -221,6 +243,7 @@ namespace smt {
         literal compile_arg(expr* arg);
         void add_watch(ineq& c, unsigned index);
         void del_watch(watch_list& watch, unsigned index, ineq& c, unsigned ineq_index);
+        void init_watch(bool_var v);
         void init_watch_literal(ineq& c);
         void init_watch_var(ineq& c);
         void clear_watch(ineq& c);
@@ -242,6 +265,7 @@ namespace smt {
         std::ostream& display(std::ostream& out, ineq const& c, bool values = false) const;
         std::ostream& display(std::ostream& out, arg_t const& c, bool values = false) const;
         virtual void display(std::ostream& out) const;
+        void display_watch(std::ostream& out, bool_var v, bool sign) const;
         void display_resolved_lemma(std::ostream& out) const;
 
         void add_clause(ineq& c, literal_vector const& lits);

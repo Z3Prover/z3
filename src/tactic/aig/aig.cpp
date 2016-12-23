@@ -53,24 +53,21 @@ struct aig {
     aig() {}
 };
 
-static bool is_true(aig_lit const & r) { return !r.is_inverted() && r.ptr_non_inverted()->m_id == 0; }
-static bool is_false(aig_lit const & r) { return r.is_inverted() && r.ptr()->m_id == 0; }
-static bool is_var(aig * n) { return n->m_children[0].is_null(); }
-static bool is_var(aig_lit const & n) { return is_var(n.ptr()); }
-static unsigned id(aig_lit const & n) { return n.ptr()->m_id; }
-static unsigned ref_count(aig_lit const & n) { return n.ptr()->m_ref_count; }
-static aig_lit left(aig * n) { return n->m_children[0]; }
-static aig_lit right(aig * n) { return n->m_children[1]; }
-static aig_lit left(aig_lit const & n) { return left(n.ptr()); }
-static aig_lit right(aig_lit const & n) { return right(n.ptr()); }
+#if Z3DEBUG
+inline bool is_true(aig_lit const & r) { return !r.is_inverted() && r.ptr_non_inverted()->m_id == 0; }
+#endif
+// inline bool is_false(aig_lit const & r) { return r.is_inverted() && r.ptr()->m_id == 0; }
+inline bool is_var(aig * n) { return n->m_children[0].is_null(); }
+inline bool is_var(aig_lit const & n) { return is_var(n.ptr()); }
+inline unsigned id(aig_lit const & n) { return n.ptr()->m_id; }
+inline unsigned ref_count(aig_lit const & n) { return n.ptr()->m_ref_count; }
+inline aig_lit left(aig * n) { return n->m_children[0]; }
+inline aig_lit right(aig * n) { return n->m_children[1]; }
+inline aig_lit left(aig_lit const & n) { return left(n.ptr()); }
+inline aig_lit right(aig_lit const & n) { return right(n.ptr()); }
 
 inline unsigned to_idx(aig * p) { SASSERT(!is_var(p)); return p->m_id - FIRST_NODE_ID; }
 
-static void unmark(unsigned sz, aig_lit const * ns) {
-    for (unsigned i = 0; i < sz; i++) {
-        ns[i].ptr()->m_mark = false;
-    }
-}
 
 static void unmark(unsigned sz, aig * const * ns) {
     for (unsigned i = 0; i < sz; i++) {

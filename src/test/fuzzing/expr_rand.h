@@ -24,9 +24,6 @@ Revision History:
 
 class expr_rand {
     ast_manager& m_manager;
-    unsigned     m_num_vars;
-    unsigned     m_num_apps;
-    unsigned     m_num_nodes;
     unsigned     m_max_steps;
     random_gen   m_random;
 

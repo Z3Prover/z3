@@ -25,7 +25,7 @@ Notes:
 extension_model_converter::~extension_model_converter() {
 }
 
-
+#ifdef _TRACE
 static void display_decls_info(std::ostream & out, model_ref & md) {
     ast_manager & m = md->get_manager();
     unsigned sz = md->get_num_decls();
@@ -42,6 +42,7 @@ static void display_decls_info(std::ostream & out, model_ref & md) {
         out << " :id " << d->get_id() << "\n";
     }
 }
+#endif
 
 void extension_model_converter::operator()(model_ref & md, unsigned goal_idx) {
     SASSERT(goal_idx == 0);

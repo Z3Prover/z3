@@ -2183,7 +2183,7 @@ namespace smt2 {
             SASSERT(curr_id() == m_check_sat_assuming);
             next();
             unsigned spos = expr_stack().size();
-            check_rparen_next("invalid check-sat-assuming command, '(', expected");
+            check_lparen_next("invalid check-sat-assuming command, '(', expected");
             parse_assumptions();
             check_rparen_next("invalid check-sat-assuming command, ')', expected");            
             m_ctx.check_sat(expr_stack().size() - spos, expr_stack().c_ptr() + spos);

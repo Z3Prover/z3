@@ -126,7 +126,7 @@ tactic * mk_report_verbose_tactic(char const * msg, unsigned lvl) {
 class trace_tactic : public skip_tactic {
     char const * m_tag;
 public:
-    trace_tactic(char const * tag):m_tag(tag) {}
+    trace_tactic(char const * tag): m_tag(tag) {}
     
     virtual void operator()(goal_ref const & in, 
                             goal_ref_buffer & result, 
@@ -134,6 +134,7 @@ public:
                             proof_converter_ref & pc,
                             expr_dependency_ref & core) {
         TRACE(m_tag, in->display(tout););
+        (void)m_tag;
         skip_tactic::operator()(in, result, mc, pc, core);
     }
 };

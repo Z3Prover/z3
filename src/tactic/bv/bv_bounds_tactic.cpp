@@ -148,10 +148,12 @@ struct interval {
     }
 };
 
+#ifdef _TRACE
 std::ostream& operator<<(std::ostream& o, const interval& I) {
     o << "[" << I.l << ", " << I.h << "]";
     return o;
 }
+#endif
 
 
 struct undo_bound {

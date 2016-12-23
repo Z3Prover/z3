@@ -490,6 +490,7 @@ namespace smt {
 #ifdef _PROFILE_MAM
             m_counter = 0;
 #endif
+            (void)m_lbl_hasher;
         }
 
 #ifdef _PROFILE_MAM
@@ -2881,6 +2882,7 @@ namespace smt {
            - first_idx: index to be used as head of the multi-pattern mp
         */
         void add_pattern(quantifier * qa, app * mp, unsigned first_idx) {
+            (void)m_ast_manager;
             SASSERT(m_ast_manager.is_pattern(mp));
             SASSERT(first_idx < mp->get_num_args());
             app * p           = to_app(mp->get_arg(first_idx));

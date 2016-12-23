@@ -102,6 +102,7 @@ namespace smt {
         m_enabled.push_back(true);
         m_normalize = true;
         bool_var bv = register_var(var, true);
+        (void)bv;
         TRACE("opt", tout << "enable: v" << m_bool2var[bv] << " b" << bv << " " << mk_pp(var, get_manager()) << "\n";
               tout << wfml << "\n";);
         return var;

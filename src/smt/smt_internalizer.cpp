@@ -335,23 +335,6 @@ namespace smt {
         }
     }
 
-    static bool find_arg(app * n, expr * t, expr * & other) {
-        SASSERT(n->get_num_args() == 2);
-        if (n->get_arg(0) == t) {
-            other = n->get_arg(1);
-            return true;
-        }
-        else if (n->get_arg(1) == t) {
-            other = n->get_arg(0);
-            return true;
-        }
-        return false;
-    }
-
-    static bool check_args(app * n, expr * t1, expr * t2) {
-        SASSERT(n->get_num_args() == 2);
-        return (n->get_arg(0) == t1 && n->get_arg(1) == t2) || (n->get_arg(1) == t1 && n->get_arg(0) == t2);
-    }
 
     /**
        \brief Internalize the given formula into the logical context.
