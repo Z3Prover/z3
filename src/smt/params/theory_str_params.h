@@ -68,6 +68,9 @@ struct theory_str_params {
      */
     bool m_StringConstantCache;
 
+    bool m_UseBinarySearch;
+    unsigned m_BinarySearchInitialUpperBound;
+
     theory_str_params(params_ref const & p = params_ref()):
         m_AssertStrongerArrangements(true),
         m_AggressiveLengthTesting(false),
@@ -75,7 +78,9 @@ struct theory_str_params {
         m_AggressiveUnrollTesting(true),
         m_UseFastLengthTesterCache(false),
         m_UseFastValueTesterCache(true),
-        m_StringConstantCache(true)
+        m_StringConstantCache(true),
+        m_UseBinarySearch(false),
+        m_BinarySearchInitialUpperBound(64)
     {
         updt_params(p);
     }

@@ -75,6 +75,27 @@ namespace smt {
         }
     };
 
+    template<typename Ctx>
+    class binary_search_trail : public trail<Ctx> {
+        obj_map<expr, ptr_vector<expr> > & target;
+        expr * entry;
+    public:
+        binary_search_trail(obj_map<expr, ptr_vector<expr> > & target, expr * entry) :
+            target(target), entry(entry) {}
+        virtual ~binary_search_trail() {}
+        virtual void undo(Ctx & ctx) {
+            if (target.contains(entry)) {
+                if (!target[entry].empty()) {
+                    target[entry].pop_back();
+                } else {
+                    TRACE("t_str_binary_search", tout << "WARNING: attempt to remove length tester from an empty stack" << std::endl;);
+                }
+            } else {
+                TRACE("t_str_binary_search", tout << "WARNING: attempt to access length tester map via invalid key" << std::endl;);
+            }
+        }
+    };
+
     class theory_str : public theory {
         struct T_cut
         {
@@ -276,6 +297,34 @@ namespace smt {
         theory_var get_var(expr * n) const;
         expr * get_eqc_next(expr * n);
         app * get_ast(theory_var i);
+
+        // binary search heuristic data
+        struct binary_search_info {
+            rational lowerBound;
+            rational midPoint;
+            rational upperBound;
+            rational windowSize;
+
+            binary_search_info() : lowerBound(rational::zero()), midPoint(rational::zero()),
+                    upperBound(rational::zero()), windowSize(rational::zero()) {}
+            binary_search_info(rational lower, rational mid, rational upper, rational windowSize) :
+                lowerBound(lower), midPoint(mid), upperBound(upper), windowSize(windowSize) {}
+
+            void calculate_midpoint() {
+                midPoint = floor(lowerBound + ((upperBound - lowerBound) / rational(2)) );
+            }
+        };
+        // maps a free string var to a stack of active length testers.
+        // can use binary_search_trail to record changes to this object
+        obj_map<expr, ptr_vector<expr> > binary_search_len_tester_stack;
+        // maps a length tester var to the *active* search window
+        obj_map<expr, binary_search_info> binary_search_len_tester_info;
+        // maps a free string var to the first length tester to be (re)used
+        obj_map<expr, expr*> binary_search_starting_len_tester;
+        // maps a length tester to the next length tester to be (re)used if the split is "low"
+        obj_map<expr, expr*> binary_search_next_var_low;
+        // maps a length tester to the next length tester to be (re)used if the split is "high"
+        obj_map<expr, expr*> binary_search_next_var_high;
 
     protected:
         void assert_axiom(expr * e);
@@ -481,6 +530,10 @@ namespace smt {
         void print_value_tester_list(svector<std::pair<int, expr*> > & testerList);
         bool get_next_val_encode(int_vector & base, int_vector & next);
         std::string gen_val_string(int len, int_vector & encoding);
+
+        // binary search heuristic
+        expr * binary_search_length_test(expr * freeVar, expr * previousLenTester, std::string previousLenTesterValue);
+        expr_ref binary_search_case_split(expr * freeVar, expr * tester, binary_search_info & bounds);
 
         bool free_var_attempt(expr * nn1, expr * nn2);
         void more_len_tests(expr * lenTester, std::string lenTesterValue);

@@ -6379,27 +6379,53 @@ void theory_str::more_value_tests(expr * valTester, std::string valTesterValue) 
     ast_manager & m = get_manager();
 
     expr * fVar = valueTester_fvar_map[valTester];
-    int lenTesterCount = fvar_lenTester_map[fVar].size();
-
-    expr * effectiveLenInd = NULL;
-    std::string effectiveLenIndiStr = "";
-    for (int i = 0; i < lenTesterCount; ++i) {
-        expr * len_indicator_pre = fvar_lenTester_map[fVar][i];
-        bool indicatorHasEqcValue = false;
-        expr * len_indicator_value = get_eqc_value(len_indicator_pre, indicatorHasEqcValue);
-        if (indicatorHasEqcValue) {
-            std::string len_pIndiStr = m_strutil.get_string_constant_value(len_indicator_value);
-            if (len_pIndiStr != "more") {
-                effectiveLenInd = len_indicator_pre;
-                effectiveLenIndiStr = len_pIndiStr;
-                break;
+    if (m_params.m_UseBinarySearch) {
+        if (!binary_search_len_tester_stack.contains(fVar) || binary_search_len_tester_stack[fVar].empty()) {
+            TRACE("t_str_binary_search", tout << "WARNING: no active length testers for " << mk_pp(fVar, m) << std::endl;);
+            // TODO handle this?
+            NOT_IMPLEMENTED_YET();
+        }
+        expr * effectiveLenInd = binary_search_len_tester_stack[fVar].back();
+        bool hasEqcValue;
+        expr * len_indicator_value = get_eqc_value(effectiveLenInd, hasEqcValue);
+        if (!hasEqcValue) {
+            TRACE("t_str_binary_search", tout << "WARNING: length tester " << mk_pp(effectiveLenInd, m) << " at top of stack for " << mk_pp(fVar, m) << " has no EQC value" << std::endl;);
+        } else {
+            // safety check
+            std::string effectiveLenIndiStr = m_strutil.get_string_constant_value(len_indicator_value);
+            if (effectiveLenIndiStr == "more" || effectiveLenIndiStr == "less") {
+                TRACE("t_str_binary_search", tout << "ERROR: illegal state -- requesting 'more value tests' but a length tester is not yet concrete!" << std::endl;);
+                UNREACHABLE();
+            }
+            expr * valueAssert = gen_free_var_options(fVar, effectiveLenInd, effectiveLenIndiStr, valTester, valTesterValue);
+            TRACE("t_str_detail", tout << "asserting more value tests for free variable " << mk_ismt2_pp(fVar, m) << std::endl;);
+            if (valueAssert != NULL) {
+                assert_axiom(valueAssert);
             }
         }
-    }
-    expr * valueAssert = gen_free_var_options(fVar, effectiveLenInd, effectiveLenIndiStr, valTester, valTesterValue);
-    TRACE("t_str_detail", tout << "asserting more value tests for free variable " << mk_ismt2_pp(fVar, m) << std::endl;);
-    if (valueAssert != NULL) {
-        assert_axiom(valueAssert);
+    } else {
+        int lenTesterCount = fvar_lenTester_map[fVar].size();
+
+        expr * effectiveLenInd = NULL;
+        std::string effectiveLenIndiStr = "";
+        for (int i = 0; i < lenTesterCount; ++i) {
+            expr * len_indicator_pre = fvar_lenTester_map[fVar][i];
+            bool indicatorHasEqcValue = false;
+            expr * len_indicator_value = get_eqc_value(len_indicator_pre, indicatorHasEqcValue);
+            if (indicatorHasEqcValue) {
+                std::string len_pIndiStr = m_strutil.get_string_constant_value(len_indicator_value);
+                if (len_pIndiStr != "more") {
+                    effectiveLenInd = len_indicator_pre;
+                    effectiveLenIndiStr = len_pIndiStr;
+                    break;
+                }
+            }
+        }
+        expr * valueAssert = gen_free_var_options(fVar, effectiveLenInd, effectiveLenIndiStr, valTester, valTesterValue);
+        TRACE("t_str_detail", tout << "asserting more value tests for free variable " << mk_ismt2_pp(fVar, m) << std::endl;);
+        if (valueAssert != NULL) {
+            assert_axiom(valueAssert);
+        }
     }
 }
 
@@ -9163,6 +9189,186 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 	}
 }
 
+// Return an expression of the form
+// (tester = "less" | tester = "N" | tester = "more") &
+//   (tester = "less" iff len(freeVar) < N) & (tester = "more" iff len(freeVar) > N) & (tester = "N" iff len(freeVar) = N))
+expr_ref theory_str::binary_search_case_split(expr * freeVar, expr * tester, binary_search_info & bounds) {
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+    rational N = bounds.midPoint;
+    rational N_minus_one = N - rational::one();
+    rational N_plus_one = N + rational::one();
+    expr_ref lenFreeVar(mk_strlen(freeVar), m);
+
+    TRACE("t_str_binary_search", tout << "create case split for free var " << mk_pp(freeVar, m)
+            << " over " << mk_pp(tester, m) << " with midpoint " << N << std::endl;);
+
+    expr_ref_vector combinedCaseSplit(m);
+    expr_ref_vector testerCases(m);
+
+    expr_ref caseLess(ctx.mk_eq_atom(tester, mk_string("less")), m);
+    testerCases.push_back(caseLess);
+    combinedCaseSplit.push_back(ctx.mk_eq_atom(caseLess, m_autil.mk_le(lenFreeVar, m_autil.mk_numeral(N_minus_one, true) )));
+
+    expr_ref caseMore(ctx.mk_eq_atom(tester, mk_string("more")), m);
+    testerCases.push_back(caseMore);
+    combinedCaseSplit.push_back(ctx.mk_eq_atom(caseMore, m_autil.mk_ge(lenFreeVar, m_autil.mk_numeral(N_plus_one, true) )));
+
+    expr_ref caseEq(ctx.mk_eq_atom(tester, mk_string(N.to_string())), m);
+    testerCases.push_back(caseEq);
+    combinedCaseSplit.push_back(ctx.mk_eq_atom(caseEq, ctx.mk_eq_atom(lenFreeVar, m_autil.mk_numeral(N, true))));
+
+    combinedCaseSplit.push_back(mk_or(testerCases));
+
+    expr_ref final_term(mk_and(combinedCaseSplit), m);
+    SASSERT(final_term);
+    TRACE("t_str_binary_search", tout << "final term: " << mk_pp(final_term, m) << std::endl;);
+    return final_term;
+}
+
+expr * theory_str::binary_search_length_test(expr * freeVar, expr * previousLenTester, std::string previousLenTesterValue) {
+    ast_manager & m = get_manager();
+
+    if (binary_search_len_tester_stack.contains(freeVar)) {
+        TRACE("t_str_binary_search", tout << "checking existing length testers for " << mk_pp(freeVar, m) << std::endl;
+            for (ptr_vector<expr>::const_iterator it = binary_search_len_tester_stack[freeVar].begin();
+                    it != binary_search_len_tester_stack[freeVar].end(); ++it) {
+                expr * tester = *it;
+                tout << mk_pp(tester, m) << ": ";
+                if (binary_search_len_tester_info.contains(tester)) {
+                    binary_search_info & bounds = binary_search_len_tester_info[tester];
+                    tout << "[" << bounds.lowerBound << " | " << bounds.midPoint << " | " << bounds.upperBound << "]!" << bounds.windowSize;
+                } else {
+                    tout << "[WARNING: no bounds info available]";
+                }
+                bool hasEqcValue;
+                expr * testerEqcValue = get_eqc_value(tester, hasEqcValue);
+                if (hasEqcValue) {
+                    tout << " = " << mk_pp(testerEqcValue, m);
+                } else {
+                    tout << " [no eqc value]";
+                }
+                tout << std::endl;
+            }
+        );
+        expr * lastTester = binary_search_len_tester_stack[freeVar].back();
+        bool lastTesterHasEqcValue;
+        expr * lastTesterValue = get_eqc_value(lastTester, lastTesterHasEqcValue);
+        std::string lastTesterConstant;
+        if (!lastTesterHasEqcValue) {
+            TRACE("t_str_binary_search", tout << "length tester " << mk_pp(lastTester, m) << " at top of stack doesn't have an EQC value yet" << std::endl;);
+            // check previousLenTester
+            if (previousLenTester == lastTester) {
+                lastTesterConstant = previousLenTesterValue;
+                TRACE("t_str_binary_search", tout << "invoked with previousLenTester info matching top of stack" << std::endl;);
+            } else {
+                // this is a bit unexpected
+                TRACE("t_str_binary_search", tout << "WARNING: unexpected reordering of length testers!" << std::endl;);
+                // TODO resolve this case
+                NOT_IMPLEMENTED_YET(); return NULL;
+            }
+        } else {
+            lastTesterConstant = m_strutil.get_string_constant_value(lastTesterValue);
+        }
+        TRACE("t_str_binary_search", tout << "last length tester is assigned \"" << lastTesterConstant << "\"" << std::endl;);
+        if (lastTesterConstant == "more" || lastTesterConstant == "less") {
+            // use the previous bounds info to generate a new midpoint
+            binary_search_info lastBounds;
+            if (!binary_search_len_tester_info.find(lastTester, lastBounds)) {
+                // unexpected
+                TRACE("t_str_binary_search", tout << "WARNING: no bounds information available for last tester!" << std::endl;);
+                // TODO resolve this
+                NOT_IMPLEMENTED_YET();
+            }
+            TRACE("t_str_binary_search", tout << "last bounds are [" << lastBounds.lowerBound << " | " << lastBounds.midPoint << " | " << lastBounds.upperBound << "]!" << lastBounds.windowSize << std::endl;);
+            binary_search_info newBounds;
+            expr * newTester;
+            if (lastTesterConstant == "more") {
+                // special case: if the midpoint, upper bound, and window size are all equal,
+                // we double the window size and adjust the bounds
+                if (lastBounds.midPoint == lastBounds.upperBound && lastBounds.upperBound == lastBounds.windowSize) {
+                    TRACE("t_str_binary_search", tout << "search hit window size; expanding" << std::endl;);
+                    // TODO is this correct?
+                    newBounds.lowerBound = lastBounds.windowSize + rational::one();
+                    newBounds.windowSize = lastBounds.windowSize * rational(2);
+                    newBounds.upperBound = newBounds.windowSize;
+                    newBounds.calculate_midpoint();
+                } else if (false) {
+                    // TODO handle the case where the midpoint can't be increased further
+                    // (e.g. a window like [50 | 50 | 50]!64 and we don't answer "50")
+                } else {
+                    // general case
+                    newBounds.lowerBound = lastBounds.midPoint + rational::one();
+                    newBounds.windowSize = lastBounds.windowSize;
+                    newBounds.upperBound = lastBounds.upperBound;
+                    newBounds.calculate_midpoint();
+                }
+                if (!binary_search_next_var_high.find(lastTester, newTester)) {
+                    newTester = mk_internal_lenTest_var(freeVar, newBounds.midPoint.get_int32());
+                    binary_search_next_var_high.insert(lastTester, newTester);
+                }
+                refresh_theory_var(newTester);
+            } else if (lastTesterConstant == "less") {
+                if (false) {
+                    // TODO handle the case where the midpoint can't be decreased further
+                    // (e.g. a window like [0 | 0 | 0]!64 and we don't answer "0"
+                } else {
+                    // general case
+                    newBounds.upperBound = lastBounds.midPoint - rational::one();
+                    newBounds.windowSize = lastBounds.windowSize;
+                    newBounds.lowerBound = lastBounds.lowerBound;
+                    newBounds.calculate_midpoint();
+                }
+                if (!binary_search_next_var_low.find(lastTester, newTester)) {
+                    newTester = mk_internal_lenTest_var(freeVar, newBounds.midPoint.get_int32());
+                    binary_search_next_var_low.insert(lastTester, newTester);
+                }
+                refresh_theory_var(newTester);
+            }
+            TRACE("t_str_binary_search", tout << "new bounds are [" << newBounds.lowerBound << " | " << newBounds.midPoint << " | " << newBounds.upperBound << "]!" << newBounds.windowSize << std::endl;);
+            binary_search_len_tester_stack[freeVar].push_back(newTester);
+            m_trail_stack.push(binary_search_trail<theory_str>(binary_search_len_tester_stack, freeVar));
+            binary_search_len_tester_info.insert(newTester, newBounds);
+            m_trail_stack.push(insert_obj_map<theory_str, expr, binary_search_info>(binary_search_len_tester_info, newTester));
+
+            expr_ref next_case_split(binary_search_case_split(freeVar, newTester, newBounds));
+            m_trail.push_back(next_case_split);
+            // TODO assert a precondition about all previous length testers that got us here
+            return next_case_split;
+        } else { // lastTesterConstant is a concrete value
+            TRACE("t_str", tout << "length is fixed; generating models for free var" << std::endl;);
+            // length is fixed
+            expr * valueAssert = gen_free_var_options(freeVar, lastTester, lastTesterConstant, NULL, "");
+            return valueAssert;
+        }
+    } else {
+        // no length testers yet
+        TRACE("t_str_binary_search", tout << "no length testers for " << mk_pp(freeVar, m) << std::endl;);
+        binary_search_len_tester_stack.insert(freeVar, ptr_vector<expr>());
+
+        expr * firstTester;
+        rational lowerBound(0);
+        rational upperBound(m_params.m_BinarySearchInitialUpperBound);
+        rational windowSize(upperBound);
+        rational midPoint(floor(upperBound / rational(2)));
+        if (!binary_search_starting_len_tester.find(freeVar, firstTester)) {
+            firstTester = mk_internal_lenTest_var(freeVar, midPoint.get_int32());
+            binary_search_starting_len_tester.insert(freeVar, firstTester);
+        }
+        refresh_theory_var(firstTester);
+
+        binary_search_len_tester_stack[freeVar].push_back(firstTester);
+        m_trail_stack.push(binary_search_trail<theory_str>(binary_search_len_tester_stack, freeVar));
+        binary_search_info new_info(lowerBound, midPoint, upperBound, windowSize);
+        binary_search_len_tester_info.insert(firstTester, new_info);
+        m_trail_stack.push(insert_obj_map<theory_str, expr, binary_search_info>(binary_search_len_tester_info, firstTester));
+
+        expr_ref initial_case_split(binary_search_case_split(freeVar, firstTester, new_info));
+        m_trail.push_back(initial_case_split);
+        return initial_case_split;
+    }
+}
+
 // -----------------------------------------------------------------------------------------------------
 // True branch will be taken in final_check:
 //   - When we discover a variable is "free" for the first time
@@ -9180,161 +9386,167 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
 
 	TRACE("t_str_detail", tout << "gen for free var " << mk_ismt2_pp(freeVar, m) << std::endl;);
 
-	bool map_effectively_empty = false;
-	if (fvar_len_count_map.find(freeVar) == fvar_len_count_map.end()) {
-	    TRACE("t_str_detail", tout << "fvar_len_count_map is empty" << std::endl;);
-	    map_effectively_empty = true;
-	}
-
-	if (!map_effectively_empty) {
-	    // check whether any entries correspond to variables that went out of scope;
-	    // if every entry is out of scope then the map counts as being empty
-	    // TODO: maybe remove them from the map instead? either here or in pop_scope_eh()
-
-	    // assume empty and find a counterexample
-	    map_effectively_empty = true;
-        ptr_vector<expr> indicator_set = fvar_lenTester_map[freeVar];
-        for (ptr_vector<expr>::iterator it = indicator_set.begin(); it != indicator_set.end(); ++it) {
-            expr * indicator = *it;
-            if (internal_variable_set.find(indicator) != internal_variable_set.end()) {
-                TRACE("t_str_detail", tout <<"found active internal variable " << mk_ismt2_pp(indicator, m)
-                        << " in fvar_lenTester_map[freeVar]" << std::endl;);
-                map_effectively_empty = false;
-                break;
-            }
-        }
-        CTRACE("t_str_detail", map_effectively_empty, tout << "all variables in fvar_lenTester_map[freeVar] out of scope" << std::endl;);
-	}
-
-	if (map_effectively_empty) {
-	    // no length assertions for this free variable have ever been added.
-		TRACE("t_str_detail", tout << "no length assertions yet" << std::endl;);
-
-		fvar_len_count_map[freeVar] = 1;
-		unsigned int testNum = fvar_len_count_map[freeVar];
-
-		expr_ref indicator(mk_internal_lenTest_var(freeVar, testNum), m);
-		SASSERT(indicator);
-
-		// since the map is "effectively empty", we can remove those variables that have left scope...
-		fvar_lenTester_map[freeVar].shrink(0);
-		fvar_lenTester_map[freeVar].push_back(indicator);
-		lenTester_fvar_map[indicator] = freeVar;
-
-		expr * lenTestAssert = gen_len_test_options(freeVar, indicator, testNum);
-		SASSERT(lenTestAssert != NULL);
-		return lenTestAssert;
+	if (m_params.m_UseBinarySearch) {
+	    TRACE("t_str_detail", tout << "using binary search heuristic" << std::endl;);
+	    return binary_search_length_test(freeVar, lenTesterInCbEq, lenTesterValue);
 	} else {
-		TRACE("t_str_detail", tout << "found previous in-scope length assertions" << std::endl;);
+        bool map_effectively_empty = false;
+        if (fvar_len_count_map.find(freeVar) == fvar_len_count_map.end()) {
+            TRACE("t_str_detail", tout << "fvar_len_count_map is empty" << std::endl;);
+            map_effectively_empty = true;
+        }
 
-		expr * effectiveLenInd = NULL;
-		std::string effectiveLenIndiStr = "";
-		int lenTesterCount = (int) fvar_lenTester_map[freeVar].size();
+        if (!map_effectively_empty) {
+            // check whether any entries correspond to variables that went out of scope;
+            // if every entry is out of scope then the map counts as being empty
+            // TODO: maybe remove them from the map instead? either here or in pop_scope_eh()
 
-		TRACE("t_str_detail",
-		        tout << lenTesterCount << " length testers in fvar_lenTester_map[" << mk_pp(freeVar, m) << "]:" << std::endl;
-		        for (int i = 0; i < lenTesterCount; ++i) {
-		            expr * len_indicator = fvar_lenTester_map[freeVar][i];
-		            tout << mk_pp(len_indicator, m) << ": ";
-		            bool effectiveInScope = (internal_variable_set.find(len_indicator) != internal_variable_set.end());
-		            tout << (effectiveInScope ? "in scope" : "NOT in scope");
-		            tout << std::endl;
-		        }
-		        );
+            // assume empty and find a counterexample
+            map_effectively_empty = true;
+            ptr_vector<expr> indicator_set = fvar_lenTester_map[freeVar];
+            for (ptr_vector<expr>::iterator it = indicator_set.begin(); it != indicator_set.end(); ++it) {
+                expr * indicator = *it;
+                if (internal_variable_set.find(indicator) != internal_variable_set.end()) {
+                    TRACE("t_str_detail", tout <<"found active internal variable " << mk_ismt2_pp(indicator, m)
+                            << " in fvar_lenTester_map[freeVar]" << std::endl;);
+                    map_effectively_empty = false;
+                    break;
+                }
+            }
+            CTRACE("t_str_detail", map_effectively_empty, tout << "all variables in fvar_lenTester_map[freeVar] out of scope" << std::endl;);
+        }
 
-		int i = 0;
-		for (; i < lenTesterCount; ++i) {
-			expr * len_indicator_pre = fvar_lenTester_map[freeVar][i];
-			// check whether this is in scope as well
-			if (internal_variable_set.find(len_indicator_pre) == internal_variable_set.end()) {
-			    TRACE("t_str_detail", tout << "length indicator " << mk_pp(len_indicator_pre, m) << " not in scope" << std::endl;);
-			    continue;
-			}
+        if (map_effectively_empty) {
+            // no length assertions for this free variable have ever been added.
+            TRACE("t_str_detail", tout << "no length assertions yet" << std::endl;);
 
-			bool indicatorHasEqcValue = false;
-			expr * len_indicator_value = get_eqc_value(len_indicator_pre, indicatorHasEqcValue);
-			TRACE("t_str_detail", tout << "length indicator " << mk_ismt2_pp(len_indicator_pre, m) <<
-					" = " << mk_ismt2_pp(len_indicator_value, m) << std::endl;);
-			if (indicatorHasEqcValue) {
-				const char * val = 0;
-				m_strutil.is_string(len_indicator_value, & val);
-				std::string len_pIndiStr(val);
-				if (len_pIndiStr != "more") {
-					effectiveLenInd = len_indicator_pre;
-					effectiveLenIndiStr = len_pIndiStr;
-					break;
-				}
-			} else {
-				if (lenTesterInCbEq != len_indicator_pre) {
-					TRACE("t_str", tout << "WARNING: length indicator " << mk_ismt2_pp(len_indicator_pre, m)
-							<< " does not have an equivalence class value."
-							<< " i = " << i << ", lenTesterCount = " << lenTesterCount << std::endl;);
-					if (i > 0) {
-						effectiveLenInd = fvar_lenTester_map[freeVar][i - 1];
-						bool effectiveHasEqcValue;
-						expr * effective_eqc_value = get_eqc_value(effectiveLenInd, effectiveHasEqcValue);
-						bool effectiveInScope = (internal_variable_set.find(effectiveLenInd) != internal_variable_set.end());
-						TRACE("t_str_detail", tout << "checking effective length indicator " << mk_pp(effectiveLenInd, m) << ": "
-						        << (effectiveInScope ? "in scope" : "NOT in scope") << ", ";
-						        if (effectiveHasEqcValue) {
-						            tout << "~= " << mk_pp(effective_eqc_value, m);
-						        } else {
-						            tout << "no eqc string constant";
-						        }
-						        tout << std::endl;);
-						if (effectiveLenInd == lenTesterInCbEq) {
-							effectiveLenIndiStr = lenTesterValue;
-						} else {
-						    if (effectiveHasEqcValue) {
-						        effectiveLenIndiStr = m_strutil.get_string_constant_value(effective_eqc_value);
-						    } else {
-						        // TODO this should be unreachable, but can we really do anything here?
-						        NOT_IMPLEMENTED_YET();
-						    }
-						}
-					}
-					break;
-				}
-				// lenTesterInCbEq == len_indicator_pre
-				else {
-					if (lenTesterValue != "more") {
-						effectiveLenInd = len_indicator_pre;
-						effectiveLenIndiStr = lenTesterValue;
-						break;
-					}
-				}
-			} // !indicatorHasEqcValue
-		} // for (i : [0..lenTesterCount-1])
-		if (effectiveLenIndiStr == "more" || effectiveLenIndiStr == "") {
-			TRACE("t_str", tout << "length is not fixed; generating length tester options for free var" << std::endl;);
-			expr_ref indicator(m);
-			unsigned int testNum = 0;
+            fvar_len_count_map[freeVar] = 1;
+            unsigned int testNum = fvar_len_count_map[freeVar];
 
-			TRACE("t_str", tout << "effectiveLenIndiStr = " << effectiveLenIndiStr
-					<< ", i = " << i << ", lenTesterCount = " << lenTesterCount << std::endl;);
+            expr_ref indicator(mk_internal_lenTest_var(freeVar, testNum), m);
+            SASSERT(indicator);
 
-			if (i == lenTesterCount) {
-				fvar_len_count_map[freeVar] = fvar_len_count_map[freeVar] + 1;
-				testNum = fvar_len_count_map[freeVar];
-				indicator = mk_internal_lenTest_var(freeVar, testNum);
-				fvar_lenTester_map[freeVar].push_back(indicator);
-				lenTester_fvar_map[indicator] = freeVar;
-			} else {
-			    // TODO make absolutely sure this is safe to do if 'indicator' is technically out of scope
-				indicator = fvar_lenTester_map[freeVar][i];
-				refresh_theory_var(indicator);
-				testNum = i + 1;
-			}
-			expr * lenTestAssert = gen_len_test_options(freeVar, indicator, testNum);
-			SASSERT(lenTestAssert != NULL);
-			return lenTestAssert;
-		} else {
-			TRACE("t_str", tout << "length is fixed; generating models for free var" << std::endl;);
-			// length is fixed
-			expr * valueAssert = gen_free_var_options(freeVar, effectiveLenInd, effectiveLenIndiStr, NULL, "");
-			return valueAssert;
-		}
-	} // fVarLenCountMap.find(...)
+            // since the map is "effectively empty", we can remove those variables that have left scope...
+            fvar_lenTester_map[freeVar].shrink(0);
+            fvar_lenTester_map[freeVar].push_back(indicator);
+            lenTester_fvar_map[indicator] = freeVar;
+
+            expr * lenTestAssert = gen_len_test_options(freeVar, indicator, testNum);
+            SASSERT(lenTestAssert != NULL);
+            return lenTestAssert;
+        } else {
+            TRACE("t_str_detail", tout << "found previous in-scope length assertions" << std::endl;);
+
+            expr * effectiveLenInd = NULL;
+            std::string effectiveLenIndiStr = "";
+            int lenTesterCount = (int) fvar_lenTester_map[freeVar].size();
+
+            TRACE("t_str_detail",
+                    tout << lenTesterCount << " length testers in fvar_lenTester_map[" << mk_pp(freeVar, m) << "]:" << std::endl;
+                    for (int i = 0; i < lenTesterCount; ++i) {
+                        expr * len_indicator = fvar_lenTester_map[freeVar][i];
+                        tout << mk_pp(len_indicator, m) << ": ";
+                        bool effectiveInScope = (internal_variable_set.find(len_indicator) != internal_variable_set.end());
+                        tout << (effectiveInScope ? "in scope" : "NOT in scope");
+                        tout << std::endl;
+                    }
+                    );
+
+            int i = 0;
+            for (; i < lenTesterCount; ++i) {
+                expr * len_indicator_pre = fvar_lenTester_map[freeVar][i];
+                // check whether this is in scope as well
+                if (internal_variable_set.find(len_indicator_pre) == internal_variable_set.end()) {
+                    TRACE("t_str_detail", tout << "length indicator " << mk_pp(len_indicator_pre, m) << " not in scope" << std::endl;);
+                    continue;
+                }
+
+                bool indicatorHasEqcValue = false;
+                expr * len_indicator_value = get_eqc_value(len_indicator_pre, indicatorHasEqcValue);
+                TRACE("t_str_detail", tout << "length indicator " << mk_ismt2_pp(len_indicator_pre, m) <<
+                        " = " << mk_ismt2_pp(len_indicator_value, m) << std::endl;);
+                if (indicatorHasEqcValue) {
+                    const char * val = 0;
+                    m_strutil.is_string(len_indicator_value, & val);
+                    std::string len_pIndiStr(val);
+                    if (len_pIndiStr != "more") {
+                        effectiveLenInd = len_indicator_pre;
+                        effectiveLenIndiStr = len_pIndiStr;
+                        break;
+                    }
+                } else {
+                    if (lenTesterInCbEq != len_indicator_pre) {
+                        TRACE("t_str", tout << "WARNING: length indicator " << mk_ismt2_pp(len_indicator_pre, m)
+                                << " does not have an equivalence class value."
+                                << " i = " << i << ", lenTesterCount = " << lenTesterCount << std::endl;);
+                        if (i > 0) {
+                            effectiveLenInd = fvar_lenTester_map[freeVar][i - 1];
+                            bool effectiveHasEqcValue;
+                            expr * effective_eqc_value = get_eqc_value(effectiveLenInd, effectiveHasEqcValue);
+                            bool effectiveInScope = (internal_variable_set.find(effectiveLenInd) != internal_variable_set.end());
+                            TRACE("t_str_detail", tout << "checking effective length indicator " << mk_pp(effectiveLenInd, m) << ": "
+                                    << (effectiveInScope ? "in scope" : "NOT in scope") << ", ";
+                                    if (effectiveHasEqcValue) {
+                                        tout << "~= " << mk_pp(effective_eqc_value, m);
+                                    } else {
+                                        tout << "no eqc string constant";
+                                    }
+                                    tout << std::endl;);
+                            if (effectiveLenInd == lenTesterInCbEq) {
+                                effectiveLenIndiStr = lenTesterValue;
+                            } else {
+                                if (effectiveHasEqcValue) {
+                                    effectiveLenIndiStr = m_strutil.get_string_constant_value(effective_eqc_value);
+                                } else {
+                                    // TODO this should be unreachable, but can we really do anything here?
+                                    NOT_IMPLEMENTED_YET();
+                                }
+                            }
+                        }
+                        break;
+                    }
+                    // lenTesterInCbEq == len_indicator_pre
+                    else {
+                        if (lenTesterValue != "more") {
+                            effectiveLenInd = len_indicator_pre;
+                            effectiveLenIndiStr = lenTesterValue;
+                            break;
+                        }
+                    }
+                } // !indicatorHasEqcValue
+            } // for (i : [0..lenTesterCount-1])
+            if (effectiveLenIndiStr == "more" || effectiveLenIndiStr == "") {
+                TRACE("t_str", tout << "length is not fixed; generating length tester options for free var" << std::endl;);
+                expr_ref indicator(m);
+                unsigned int testNum = 0;
+
+                TRACE("t_str", tout << "effectiveLenIndiStr = " << effectiveLenIndiStr
+                        << ", i = " << i << ", lenTesterCount = " << lenTesterCount << std::endl;);
+
+                if (i == lenTesterCount) {
+                    fvar_len_count_map[freeVar] = fvar_len_count_map[freeVar] + 1;
+                    testNum = fvar_len_count_map[freeVar];
+                    indicator = mk_internal_lenTest_var(freeVar, testNum);
+                    fvar_lenTester_map[freeVar].push_back(indicator);
+                    lenTester_fvar_map[indicator] = freeVar;
+                } else {
+                    // TODO make absolutely sure this is safe to do if 'indicator' is technically out of scope
+                    indicator = fvar_lenTester_map[freeVar][i];
+                    refresh_theory_var(indicator);
+                    testNum = i + 1;
+                }
+                expr * lenTestAssert = gen_len_test_options(freeVar, indicator, testNum);
+                SASSERT(lenTestAssert != NULL);
+                return lenTestAssert;
+            } else {
+                TRACE("t_str", tout << "length is fixed; generating models for free var" << std::endl;);
+                // length is fixed
+                expr * valueAssert = gen_free_var_options(freeVar, effectiveLenInd, effectiveLenIndiStr, NULL, "");
+                return valueAssert;
+            }
+        } // fVarLenCountMap.find(...)
+
+	} // !UseBinarySearch
 }
 
 void theory_str::get_concats_in_eqc(expr * n, std::set<expr*> & concats) {
