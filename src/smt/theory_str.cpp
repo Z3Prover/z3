@@ -9229,7 +9229,7 @@ expr_ref theory_str::binary_search_case_split(expr * freeVar, expr * tester, bin
 expr * theory_str::binary_search_length_test(expr * freeVar, expr * previousLenTester, std::string previousLenTesterValue) {
     ast_manager & m = get_manager();
 
-    if (binary_search_len_tester_stack.contains(freeVar)) {
+    if (binary_search_len_tester_stack.contains(freeVar) && !binary_search_len_tester_stack[freeVar].empty()) {
         TRACE("t_str_binary_search", tout << "checking existing length testers for " << mk_pp(freeVar, m) << std::endl;
             for (ptr_vector<expr>::const_iterator it = binary_search_len_tester_stack[freeVar].begin();
                     it != binary_search_len_tester_stack[freeVar].end(); ++it) {
