@@ -227,7 +227,43 @@ namespace smt {
         SASSERT(sum >= k());
         return true;
     }
-    
+
+    // cardinality
+
+    //
+    // 
+    lbool theory_pb::cardinality::assign_at_least(theory_pb& th, literal lit) {
+        // literal is assigned to false.
+        context& ctx = th.get_context();
+        SASSERT(m_type == le_t);
+        SASSERT(m_bound > 0);
+        SASSERT(m_args.size() >= 2*m_bound);
+        SASSERT(m_watch_sum < m_bound);
+        unsigned index = m_bound + 1;
+        bool all_false = true;
+        for (unsigned i = 0; i <= m_bound; ++i) {
+            if (m_args[i] == lit) {
+                index = i;
+                break;
+            }
+            all_false &= (value(args[i]) == l_false);
+        }
+        
+        for (unsigned i = m_bound + 1; i < m_args.size(); ++i) {
+            if (value(m_args[i]) != l_false) {
+                std::swap(m_args[index], m_args[i]);
+                // watch m_args[index] now
+                // end-clause-case
+            }
+        }
+
+        if (all_false) {
+            
+        }        
+
+        return l_undef;
+    }
+
     theory_pb::theory_pb(ast_manager& m, theory_pb_params& p):
         theory(m.mk_family_id("pb")),
         m_params(p),

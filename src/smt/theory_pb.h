@@ -181,6 +181,55 @@ namespace smt {
 
         };
 
+        enum card_t {
+            eq_t,
+            le_t,
+            ge_t
+        };
+
+        struct cardinality {
+            literal         m_lit;      // literal repesenting predicate
+            card_t          m_type;
+            literal_vector  m_args;
+            unsigned        m_bound;
+            unsigned        m_watch_sum;
+            unsigned        m_num_propagations;
+            unsigned        m_compilation_threshold;
+            lbool           m_compiled;
+            
+            cardinality(literal l, card_t t, unsigned bound):
+                m_lit(l),
+                m_type(t),
+                m_bound(bound),
+                m_watch_sum(0),
+                m_num_propagations(0),
+                m_compilation_threshold(0),
+                m_compiled(0)
+            {}            
+
+            std::ostream& display(std::ostream& out) const;
+
+            app_ref to_expr(context& ctx);
+
+            lbool assign_at_least(literal lit);
+            //
+            // lit occurs within m_bound positions
+            // m_bound <= m_args.size()/2
+            // m_lit is pos
+            // type at least: m_args >= m_bound
+            //   lit occurs with opposite sign in m_args
+            // type at most: m_args <= m_bound
+            //   lit occurs with same sign in m_args
+            // search for literal above m_bound, such that 
+            // either lit' is positive, type = ge_t
+            //        lit' is negative, type = le_t
+            //        lit' is unassigned
+            // swap lit and lit' in watch list
+            // If there is a single unassigned lit', and no other to swap, perform unit propagation
+            // If there are no literals to swap with, then create conflict clause
+            // 
+        };
+
         struct row_info {
             unsigned     m_slack;   // slack variable in simplex tableau
             numeral      m_bound;   // bound
@@ -216,9 +265,6 @@ namespace smt {
         theory_pb_params         m_params;        
 
         svector<var_info>        m_var_infos; 
-//        u_map<watch_list*>       m_lwatch;      // per literal.
-//        u_map<watch_list*>       m_vwatch;      // per variable.
-//        u_map<ineq*>             m_ineqs;       // per inequality.
         arg_map                  m_ineq_rep;       // Simplex: representative inequality
         u_map<row_info>          m_ineq_row_info;  // Simplex: row information per variable
         uint_set                 m_vars;           // Simplex: 0-1 variables.
