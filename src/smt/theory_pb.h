@@ -216,9 +216,6 @@ namespace smt {
         theory_pb_params         m_params;        
 
         svector<var_info>        m_var_infos; 
-//        u_map<watch_list*>       m_lwatch;      // per literal.
-//        u_map<watch_list*>       m_vwatch;      // per variable.
-//        u_map<ineq*>             m_ineqs;       // per inequality.
         arg_map                  m_ineq_rep;       // Simplex: representative inequality
         u_map<row_info>          m_ineq_row_info;  // Simplex: row information per variable
         uint_set                 m_vars;           // Simplex: 0-1 variables.

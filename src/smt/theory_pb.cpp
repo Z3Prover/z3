@@ -772,6 +772,7 @@ namespace smt {
     void theory_pb::assign_eh(bool_var v, bool is_true) {
         ptr_vector<ineq>* ineqs = 0;
         literal nlit(v, is_true);
+        init_watch(v);
         TRACE("pb", tout << "assign: " << ~nlit << "\n";);
         ineqs = m_var_infos[v].m_lit_watch[nlit.sign()];
         if (ineqs != 0) {
