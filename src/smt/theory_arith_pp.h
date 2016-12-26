@@ -27,22 +27,22 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::collect_statistics(::statistics & st) const {
         st.update("arith conflicts", m_stats.m_conflicts);
-        st.update("add rows", m_stats.m_add_rows);
-        st.update("pivots", m_stats.m_pivots);
-        st.update("assert lower", m_stats.m_assert_lower);
-        st.update("assert upper", m_stats.m_assert_upper);
-        st.update("assert diseq", m_stats.m_assert_diseq);
-        st.update("bound prop", m_stats.m_bound_props);
-        st.update("fixed eqs", m_stats.m_fixed_eqs);
-        st.update("offset eqs", m_stats.m_offset_eqs);
-        st.update("gcd tests", m_stats.m_gcd_tests);
-        st.update("ineq splits", m_stats.m_branches);
-        st.update("gomory cuts", m_stats.m_gomory_cuts);
-        st.update("max-min", m_stats.m_max_min);
-        st.update("grobner", m_stats.m_gb_compute_basis);
-        st.update("pseudo nonlinear", m_stats.m_nl_linear);
-        st.update("nonlinear bounds", m_stats.m_nl_bounds);
-        st.update("nonlinear horner", m_stats.m_nl_cross_nested);
+        st.update("arith add rows", m_stats.m_add_rows);
+        st.update("arith pivots", m_stats.m_pivots);
+        st.update("arith assert lower", m_stats.m_assert_lower);
+        st.update("arith assert upper", m_stats.m_assert_upper);
+        st.update("arith assert diseq", m_stats.m_assert_diseq);
+        st.update("arith bound prop", m_stats.m_bound_props);
+        st.update("arith fixed eqs", m_stats.m_fixed_eqs);
+        st.update("arith offset eqs", m_stats.m_offset_eqs);
+        st.update("arith gcd tests", m_stats.m_gcd_tests);
+        st.update("arith ineq splits", m_stats.m_branches);
+        st.update("arith gomory cuts", m_stats.m_gomory_cuts);
+        st.update("arith max-min", m_stats.m_max_min);
+        st.update("arith grobner", m_stats.m_gb_compute_basis);
+        st.update("arith pseudo nonlinear", m_stats.m_nl_linear);
+        st.update("arith nonlinear bounds", m_stats.m_nl_bounds);
+        st.update("arith nonlinear horner", m_stats.m_nl_cross_nested);
         m_arith_eq_adapter.collect_statistics(st);
     }
 

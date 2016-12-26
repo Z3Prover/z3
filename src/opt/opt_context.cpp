@@ -792,10 +792,14 @@ namespace opt {
                     arg = mk_not(m, arg);
                     offset -= weight;
                 }
-                if (m.is_true(arg) || weight.is_zero()) {
+                if (m.is_true(arg)) {
+                    IF_VERBOSE(1, verbose_stream() << weight << ": " << mk_pp(m_objectives[index].m_terms[i].get(), m) << " |-> true\n";);
+                }
+                else if (weight.is_zero()) {
                     // skip
                 }
                 else if (m.is_false(arg)) {
+                    IF_VERBOSE(1, verbose_stream() << weight << ": " << mk_pp(m_objectives[index].m_terms[i].get(), m) << " |-> false\n";);
                     offset += weight;
                 }
                 else {

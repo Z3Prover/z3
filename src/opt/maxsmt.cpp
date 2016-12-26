@@ -350,8 +350,10 @@ namespace opt {
         for (unsigned i = 0; i < m_soft_constraints.size(); ++i) {
             expr* e = m_soft_constraints[i];
             bool is_not = m.is_not(e, e);
-            out << mk_pp(e, m)
-                << ((is_not != get_assignment(i))?" |-> true\n":" |-> false\n");
+            out << m_weights[i] << ": " << mk_pp(e, m)
+                << ((is_not != get_assignment(i))?" |-> true ":" |-> false ")
+                << "\n";
+            
         }
     }
     

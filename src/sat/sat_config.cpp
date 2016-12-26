@@ -26,6 +26,7 @@ namespace sat {
         m_always_true("always_true"),
         m_always_false("always_false"),
         m_caching("caching"),
+        m_restart_max(0),
         m_random("random"),
         m_geometric("geometric"),
         m_luby("luby"),
@@ -66,7 +67,8 @@ namespace sat {
 
         m_restart_initial = p.restart_initial();
         m_restart_factor  = p.restart_factor();
-        
+        m_restart_max     = p.restart_max();
+
         m_random_freq     = p.random_freq();
         m_random_seed     = p.random_seed();
         if (m_random_seed == 0) 
