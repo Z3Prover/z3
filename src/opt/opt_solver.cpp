@@ -47,7 +47,6 @@ namespace opt {
         m_first(true),
         m_was_unknown(false) {
         m_params.updt_params(p);
-        std::cout << "Case split strategy " << m_params.m_case_split_strategy << "\n";
         if (m_params.m_case_split_strategy == CS_ACTIVITY_DELAY_NEW) {
             m_params.m_relevancy_lvl = 0;
         }

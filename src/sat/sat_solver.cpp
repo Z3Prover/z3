@@ -744,7 +744,6 @@ namespace sat {
             simplify_problem();
             if (check_inconsistent()) return l_false;
 
-
             if (m_config.m_max_conflicts == 0) {
                 IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-conflicts = 0\")\n";);
                 return l_undef;
@@ -766,6 +765,12 @@ namespace sat {
                 simplify_problem();
                 if (check_inconsistent()) return l_false;
                 gc();
+
+                if (m_config.m_restart_max != 0 && m_config.m_restart_max <= m_restarts) {
+                    IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-restarts\")\n";);
+                    return l_undef;
+                }
+
             }
         }
         catch (abort_solver) {
@@ -1126,6 +1131,7 @@ namespace sat {
         m_restart_threshold       = m_config.m_restart_initial;
         m_luby_idx                = 1;
         m_gc_threshold            = m_config.m_gc_initial;
+        m_restarts                = 0;
         m_min_d_tk                = 1.0;
         m_stopwatch.reset();
         m_stopwatch.start();
@@ -1308,6 +1314,7 @@ namespace sat {
 
     void solver::restart() {
         m_stats.m_restart++;
+        m_restarts++;
         IF_VERBOSE(1,
                    verbose_stream() << "(sat-restart :conflicts " << m_stats.m_conflict << " :decisions " << m_stats.m_decision
                    << " :restarts " << m_stats.m_restart << mk_stat(*this)

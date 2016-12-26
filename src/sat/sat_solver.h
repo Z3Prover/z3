@@ -293,6 +293,7 @@ namespace sat {
 
     protected:
         unsigned m_conflicts;
+        unsigned m_restarts;
         unsigned m_conflicts_since_restart;
         unsigned m_restart_threshold;
         unsigned m_luby_idx;
