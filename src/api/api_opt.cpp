@@ -289,6 +289,10 @@ extern "C" {
         //LOG_Z3_optimize_from_file(c, d, s);
         std::ifstream is(s);
         if (!is) {
+            std::ostringstream strm;
+            strm << "Could not open file " << s;
+            throw default_exception(strm.str());
+
             SET_ERROR_CODE(Z3_PARSER_ERROR);
             return;
         }

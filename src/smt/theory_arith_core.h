@@ -465,7 +465,7 @@ namespace smt {
               tout << s_ante << "\n" << s_conseq << "\n";);
 
         literal lits[2] = {l_ante, l_conseq};
-        ctx.mk_th_axiom(get_id(), 2, lits);
+        mk_clause(l_ante, l_conseq, 0, 0);
         if (ctx.relevancy()) {
             if (l_ante == false_literal) {
                 ctx.mark_as_relevant(l_conseq);
@@ -934,11 +934,13 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::mk_clause(literal l1, literal l2, unsigned num_params, parameter * params) {
+        TRACE("arith", literal lits[2]; lits[0] = l1; lits[1] = l2; get_context().display_literals_verbose(tout, 2, lits); tout << "\n";);
         get_context().mk_th_axiom(get_id(), l1, l2, num_params, params);
     }
 
     template<typename Ext>
     void theory_arith<Ext>::mk_clause(literal l1, literal l2, literal l3, unsigned num_params, parameter * params) {
+        TRACE("arith", literal lits[3]; lits[0] = l1; lits[1] = l2; lits[2] = l3; get_context().display_literals_verbose(tout, 3, lits); tout << "\n";);
         get_context().mk_th_axiom(get_id(), l1, l2, l3, num_params, params);
     }
 
