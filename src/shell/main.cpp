@@ -371,7 +371,7 @@ int STD_CALL main(int argc, char ** argv) {
             UNREACHABLE();
         }
         memory::finalize();
-#ifdef _WINDOWS
+#if defined(_WINDOWS) && defined(_MSC_VER)
         _CrtDumpMemoryLeaks();
 #endif
         return return_value;

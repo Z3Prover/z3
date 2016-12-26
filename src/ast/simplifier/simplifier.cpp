@@ -430,7 +430,7 @@ void simplifier::dump_rewrite_lemma(func_decl * decl, unsigned num_args, expr * 
     arg = m.mk_app(decl, num_args, args);
     if (arg.get() != result) {
         char buffer[128];
-#ifdef _WINDOWS
+#if defined(_WINDOWS) && defined(_MSC_VER)
         sprintf_s(buffer, ARRAYSIZE(buffer), "lemma_%d.smt", g_rewrite_lemma_id);
 #else
         sprintf(buffer, "rewrite_lemma_%d.smt", g_rewrite_lemma_id);

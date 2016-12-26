@@ -362,7 +362,7 @@ char * mpn_manager::to_string(mpn_digit const * a, size_t const lng, char * buf,
     TRACE("mpn_to_string", tout << "[mpn] to_string "; display_raw(tout, a, lng); tout << " == "; );
 
     if (lng == 1) {
-#ifdef _WINDOWS
+#if defined(_WINDOWS) && defined(_MSC_VER)
         sprintf_s(buf, lbuf, "%u", *a);
 #else
         snprintf(buf, lbuf, "%u", *a);

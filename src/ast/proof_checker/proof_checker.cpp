@@ -1271,7 +1271,7 @@ void proof_checker::dump_proof(proof * pr) {
 
 void proof_checker::dump_proof(unsigned num_antecedents, expr * const * antecedents, expr * consequent) {
     char buffer[128];
-#ifdef _WINDOWS
+#if defined(_WINDOWS) && defined(_MSC_VER)
     sprintf_s(buffer, ARRAYSIZE(buffer), "proof_lemma_%d.smt", m_proof_lemma_id);
 #else
     sprintf(buffer, "proof_lemma_%d.smt", m_proof_lemma_id);

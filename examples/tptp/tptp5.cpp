@@ -1057,7 +1057,7 @@ class env {
     }
 
     bool mk_env_filename(const char* rel_name, std::string& inc_name) {
-#ifdef _WINDOWS
+#if defined(_WINDOWS) && defined(_MSC_VER)
         char buffer[1024];
         size_t sz;
         errno_t err = getenv_s( 

@@ -24,7 +24,7 @@ Revision History:
 #include "buffer.h"
 #include "vector.h"
 
-#ifdef _WINDOWS
+#if defined(_WINDOWS) && defined(_MSC_VER)
 #define PRF sprintf_s
 #define VPRF vsprintf_s
 

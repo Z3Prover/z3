@@ -446,7 +446,7 @@ namespace smt {
 
     void context::display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents, literal consequent, symbol const& logic) const {
         char buffer[BUFFER_SZ];
-#ifdef _WINDOWS
+#if defined(_WINDOWS) && defined(_MSC_VER)
         sprintf_s(buffer, BUFFER_SZ, "lemma_%d.smt2", g_lemma_id);
 #else
         sprintf(buffer, "lemma_%d.smt2", g_lemma_id);
@@ -485,7 +485,7 @@ namespace smt {
                                                unsigned num_eq_antecedents, enode_pair const * eq_antecedents,
                                                literal consequent, symbol const& logic) const {
         char buffer[BUFFER_SZ];
-#ifdef _WINDOWS
+#if defined(_WINDOWS) && defined(_MSC_VER)
         sprintf_s(buffer, BUFFER_SZ, "lemma_%d.smt2", g_lemma_id);
 #else
         sprintf(buffer, "lemma_%d.smt2", g_lemma_id);

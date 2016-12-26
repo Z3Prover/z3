@@ -99,7 +99,7 @@ public:
          m_data_size(0) {
         m_data.resize(2*s_expansion_step);
         resize_data(0);
-#if _WINDOWS
+#if defined(_WINDOWS) && defined(_MSC_VER)
         errno_t err = fopen_s(&m_file, fname, "rb");
         m_ok = (m_file != NULL) && (err == 0);
 #else

@@ -9,7 +9,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include"ast_pp.h"
 #include"ast_smt2_pp.h"
 
-#ifdef _WINDOWS
+#if defined(_WINDOWS) && defined(_MSC_VER)
 #ifdef ARRAYSIZE
 #undef ARRAYSIZE
 #endif 

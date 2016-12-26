@@ -20,7 +20,7 @@ Revision History:
 #include<float.h>
 #include<sstream>
 
-#ifdef _WINDOWS
+#if defined(_WINDOWS) && defined(_MSC_VER)
 #pragma float_control( except, on )   // exception semantics; this does _not_ mean that exceptions are enabled (we want them off!)
 #pragma float_control( precise, on )  // precise semantics (no guessing!)
 #pragma fp_contract(off)              // contractions off (`contraction' means x*y+z is turned into a fused-mul-add).
@@ -264,7 +264,7 @@ void hwf_manager::fma(mpf_rounding_mode rm, hwf const & x, hwf const & y, hwf co
     // IA64 (Itanium) will do it, if contractions are on.
     o.value = x.value * y.value + z.value;
 #else
-#if defined(_WINDOWS)
+#if defined(_WINDOWS) && defined(_MSC_VER)
 #if _MSC_VER >= 1800
     o.value = ::fma(x.value, y.value, z.value);
 #else // Windows, older than VS 2013
@@ -302,7 +302,7 @@ void hwf_manager::round_to_integral(mpf_rounding_mode rm, hwf const & x, hwf & o
 
     // According to the Intel Architecture manual, the x87-instrunction FRNDINT is the
     // same in 32-bit and 64-bit mode. The _mm_round_* intrinsics are SSE4 extensions.
-#ifdef _WINDOWS
+#if defined(_WINDOWS) && defined(_MSC_VER)
 #ifdef USE_INTRINSICS
     switch (rm) {
     case 0: _mm_store_sd(&o.value, _mm_round_pd(_mm_set_sd(x.value), _MM_FROUND_TO_NEAREST_INT)); break;
