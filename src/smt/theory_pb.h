@@ -37,6 +37,9 @@ namespace smt {
         class  negate_ineq;
         class  remove_var;
         class  undo_bound;
+
+        class  card_justification;
+
         typedef rational numeral;
         typedef simplex::simplex<simplex::mpz_ext> simplex;
         typedef simplex::row row;
@@ -181,54 +184,54 @@ namespace smt {
 
         };
 
-        enum card_t {
-            eq_t,
-            le_t,
-            ge_t
-        };
-
-        struct cardinality {
+        // cardinality constraint args >= bound
+        class card {
             literal         m_lit;      // literal repesenting predicate
-            card_t          m_type;
             literal_vector  m_args;
             unsigned        m_bound;
-            unsigned        m_watch_sum;
             unsigned        m_num_propagations;
             unsigned        m_compilation_threshold;
             lbool           m_compiled;
             
-            cardinality(literal l, card_t t, unsigned bound):
+        public:
+            card(literal l, unsigned bound):
                 m_lit(l),
-                m_type(t),
                 m_bound(bound),
-                m_watch_sum(0),
                 m_num_propagations(0),
                 m_compilation_threshold(0),
-                m_compiled(0)
-            {}            
+                m_compiled(l_false)
+            {
+            }            
+            
+            literal lit() const { return m_lit; }
+            literal lit(unsigned i) const { return m_args[i]; }
+            unsigned k() const { return m_bound; }
+            unsigned size() const { return m_args.size(); }
+            unsigned num_propagations() const { return m_num_propagations; }
+            void add_arg(literal l);
+        
+            void init_watch(theory_pb& th, bool is_true);
 
-            std::ostream& display(std::ostream& out) const;
+            lbool assign(theory_pb& th, literal lit);
+        
+            void negate();
 
             app_ref to_expr(context& ctx);
 
-            lbool assign_at_least(literal lit);
-            //
-            // lit occurs within m_bound positions
-            // m_bound <= m_args.size()/2
-            // m_lit is pos
-            // type at least: m_args >= m_bound
-            //   lit occurs with opposite sign in m_args
-            // type at most: m_args <= m_bound
-            //   lit occurs with same sign in m_args
-            // search for literal above m_bound, such that 
-            // either lit' is positive, type = ge_t
-            //        lit' is negative, type = le_t
-            //        lit' is unassigned
-            // swap lit and lit' in watch list
-            // If there is a single unassigned lit', and no other to swap, perform unit propagation
-            // If there are no literals to swap with, then create conflict clause
-            // 
+            void inc_propagations(theory_pb& th);
+        private:
+
+            bool validate_conflict(theory_pb& th);
+            
+            bool validate_assign(theory_pb& th, literal_vector const& lits, literal l);
+
+            void set_conflict(theory_pb& th, literal l1, literal l2);
         };
+
+        typedef ptr_vector<card> card_watch;
+        typedef ptr_vector<ineq> ineq_watch;
+        typedef map<arg_t, bool_var, arg_t::hash, arg_t::eq> arg_map;
+
 
         struct row_info {
             unsigned     m_slack;   // slack variable in simplex tableau
@@ -239,18 +242,21 @@ namespace smt {
             row_info(): m_slack(0) {}
         };
 
-        typedef ptr_vector<ineq> watch_list;
-        typedef map<arg_t, bool_var, arg_t::hash, arg_t::eq> arg_map;
 
         struct var_info {
-            watch_list* m_lit_watch[2];
-            watch_list* m_var_watch;
-            ineq*       m_ineq;
+            ineq_watch*  m_lit_watch[2];
+            ineq_watch*  m_var_watch;
+            ineq*        m_ineq;
+
+            card_watch*  m_lit_cwatch[2];
+            card*        m_card;
             
-            var_info(): m_var_watch(0), m_ineq(0)
+            var_info(): m_var_watch(0), m_ineq(0), m_card(0)
             {
                 m_lit_watch[0] = 0;
                 m_lit_watch[1] = 0;
+                m_lit_cwatch[0] = 0;
+                m_lit_cwatch[1] = 0;
             }
 
             void reset() {
@@ -258,6 +264,9 @@ namespace smt {
                 dealloc(m_lit_watch[1]);
                 dealloc(m_var_watch);
                 dealloc(m_ineq);
+                dealloc(m_lit_cwatch[0]);
+                dealloc(m_lit_cwatch[1]);
+                dealloc(m_card);
             }
         };
 
@@ -287,9 +296,11 @@ namespace smt {
 
         // internalize_atom:
         literal compile_arg(expr* arg);
-        void add_watch(ineq& c, unsigned index);
-        void del_watch(watch_list& watch, unsigned index, ineq& c, unsigned ineq_index);
         void init_watch(bool_var v);
+        
+        // general purpose pb constraints
+        void add_watch(ineq& c, unsigned index);
+        void del_watch(ineq_watch& watch, unsigned index, ineq& c, unsigned ineq_index);
         void init_watch_literal(ineq& c);
         void init_watch_var(ineq& c);
         void clear_watch(ineq& c);
@@ -298,10 +309,30 @@ namespace smt {
         void unwatch_literal(literal w, ineq* c);
         void unwatch_var(bool_var v, ineq* c);
         void remove(ptr_vector<ineq>& ineqs, ineq* c);
-        bool assign_watch_ge(bool_var v, bool is_true, watch_list& watch, unsigned index);
+
+        bool assign_watch_ge(bool_var v, bool is_true, ineq_watch& watch, unsigned index);
         void assign_watch(bool_var v, bool is_true, ineq& c);
         void assign_ineq(ineq& c, bool is_true);
         void assign_eq(ineq& c, bool is_true);
+
+        // cardinality constraints
+        // these are cheaper to handle than general purpose PB constraints
+        // and in the common case PB constraints with small coefficients can
+        // be handled using cardinality constraints.
+
+        unsigned_vector          m_card_trail;
+        unsigned_vector          m_card_lim;
+        bool is_cardinality_constraint(app * atom);
+        bool internalize_card(app * atom, bool gate_ctx);
+
+        void watch_literal(literal lit, card* c);
+        void unwatch_literal(literal w, card* c);
+        void add_clause(card& c, literal_vector const& lits);
+        void add_assign(card& c, literal_vector const& lits, literal l);
+        void remove(ptr_vector<card>& cards, card* c);
+        void clear_watch(card& c);        
+        std::ostream& display(std::ostream& out, card const& c, bool values = false) const;
+
 
         // simplex:
         literal set_explain(literal_vector& explains, unsigned var, literal expl);

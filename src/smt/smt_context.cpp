@@ -3342,6 +3342,11 @@ namespace smt {
 
     bool context::restart(lbool& status, unsigned curr_lvl) {
 
+        std::cout << "restart: " << m_lemmas.size() << "\n";
+        for (unsigned i = 0; i < m_lemmas.size(); ++i) {
+            display_clause(std::cout, m_lemmas[i]); std::cout << "\n";
+        }
+
         if (m_last_search_failure != OK) {
             if (status != l_false) {
                 // build candidate model before returning
