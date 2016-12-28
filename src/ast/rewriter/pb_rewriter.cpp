@@ -264,7 +264,7 @@ br_status pb_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
                 result = m_util.mk_eq(sz, m_coeffs.c_ptr(), m_args.c_ptr(), k);
             }
         }
-        else if (all_unit && k.is_one()) {
+        else if (all_unit && k.is_one() && sz < 10) {
             result = mk_or(m, sz, m_args.c_ptr());
         }
         else if (all_unit && k == rational(sz)) {

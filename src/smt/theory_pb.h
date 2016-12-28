@@ -225,7 +225,7 @@ namespace smt {
             
             bool validate_assign(theory_pb& th, literal_vector const& lits, literal l);
 
-            void set_conflict(theory_pb& th, literal l1, literal l2);
+            void set_conflict(theory_pb& th, literal l);
         };
 
         typedef ptr_vector<card> card_watch;
@@ -366,22 +366,19 @@ namespace smt {
         // 
         unsigned          m_num_marks;
         unsigned          m_conflict_lvl;
-        arg_t             m_lemma;
-        literal_vector    m_ineq_literals;
-        svector<bool_var> m_marked;
+        svector<int>      m_coeffs;
+        svector<bool_var> m_active_coeffs;
+        int               m_bound;
+        literal_vector    m_antecedents;
 
-        // bool_var |-> index into m_lemma
-        unsigned_vector   m_conseq_index;
-        static const unsigned null_index;
-        bool is_marked(bool_var v) const;
-        void set_mark(bool_var v, unsigned idx);
-        void unset_mark(bool_var v);
-        void unset_marks();
+        void inc_coeff(literal l, int offset);
+        int get_coeff(bool_var v) const;
 
-        bool resolve_conflict(ineq& c);
-        void process_antecedent(literal l, numeral coeff);
-        void process_ineq(ineq& c, literal conseq, numeral coeff);
-        void remove_from_lemma(unsigned idx);
+        void reset_coeffs();
+
+        bool resolve_conflict(card& c, literal_vector const& conflict_clause);
+        void process_antecedent(literal l, int offset);
+        void process_card(card& c, int offset);
         bool is_proof_justification(justification const& j) const;
 
         void hoist_maximal_values();
