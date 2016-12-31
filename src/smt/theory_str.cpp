@@ -8426,6 +8426,13 @@ std::string theory_str::gen_val_string(int len, int_vector & encoding) {
 bool theory_str::get_next_val_encode(int_vector & base, int_vector & next) {
 	SASSERT(charSetSize > 0);
 
+	TRACE("t_str_value_test_bug", tout << "base vector: [ ";
+	    for (unsigned i = 0; i < base.size(); ++i) {
+	        tout << base[i] << " ";
+	    }
+	    tout << "]" << std::endl;
+	);
+
     int s = 0;
     int carry = 0;
     next.reset();
@@ -9228,6 +9235,7 @@ expr_ref theory_str::binary_search_case_split(expr * freeVar, expr * tester, bin
 
 expr * theory_str::binary_search_length_test(expr * freeVar, expr * previousLenTester, std::string previousLenTesterValue) {
     ast_manager & m = get_manager();
+    context & ctx = get_context();
 
     if (binary_search_len_tester_stack.contains(freeVar) && !binary_search_len_tester_stack[freeVar].empty()) {
         TRACE("t_str_binary_search", tout << "checking existing length testers for " << mk_pp(freeVar, m) << std::endl;
@@ -9337,6 +9345,19 @@ expr * theory_str::binary_search_length_test(expr * freeVar, expr * previousLenT
             return next_case_split;
         } else { // lastTesterConstant is a concrete value
             TRACE("t_str", tout << "length is fixed; generating models for free var" << std::endl;);
+            // defensive check that this length did not converge on a negative value.
+            binary_search_info lastBounds;
+            if (!binary_search_len_tester_info.find(lastTester, lastBounds)) {
+                // unexpected
+                TRACE("t_str_binary_search", tout << "WARNING: no bounds information available for last tester!" << std::endl;);
+                // TODO resolve this
+                NOT_IMPLEMENTED_YET();
+            }
+            if (lastBounds.midPoint.is_neg()) {
+                TRACE("t_str_binary_search", tout << "WARNING: length search converged on a negative value. Negating this constraint." << std::endl;);
+                expr_ref axiom(m.mk_not(ctx.mk_eq_atom(mk_strlen(freeVar), m_autil.mk_numeral(lastBounds.midPoint, true))), m);
+                return axiom;
+            }
             // length is fixed
             expr * valueAssert = gen_free_var_options(freeVar, lastTester, lastTesterConstant, NULL, "");
             return valueAssert;
