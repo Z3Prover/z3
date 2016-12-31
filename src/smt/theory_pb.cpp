@@ -1752,7 +1752,7 @@ namespace smt {
         //    verbose_stream() << "(pb.conflict min size: " << l_size << ")\n";
         //    s_min_l_size = l_size;        
         //}
-        //IF_VERBOSE(1, verbose_stream() << "(pb.conflict " << m_ineq_literals.size() << " " << m_lemma.size() << "\n";);
+        IF_VERBOSE(1, verbose_stream() << "(pb.conflict " << m_ineq_literals.size() << " " << m_lemma.size() << ")\n";);
         switch(is_true) {
         case l_true:
             UNREACHABLE();

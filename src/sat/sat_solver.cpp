@@ -123,6 +123,7 @@ namespace sat {
     // -----------------------
 
     bool_var solver::mk_var(bool ext, bool dvar) {
+        m_model_is_current = false;
         m_stats.m_mk_var++;
         bool_var v = m_level.size();
         m_watches.push_back(watch_list());
@@ -148,6 +149,7 @@ namespace sat {
     }
 
     void solver::mk_clause(unsigned num_lits, literal * lits) {
+        m_model_is_current = false;
         DEBUG_CODE({
             for (unsigned i = 0; i < num_lits; i++)
                 SASSERT(m_eliminated[lits[i].var()] == false);
@@ -3118,7 +3120,11 @@ namespace sat {
 
     lbool solver::get_consequences(literal_vector const& asms, bool_var_vector const& vars, vector<literal_vector>& conseq) {
         literal_vector lits;
-        lbool is_sat = check(asms.size(), asms.c_ptr());
+        lbool is_sat = l_true;
+
+        if (!m_model_is_current) {
+            is_sat = check(asms.size(), asms.c_ptr());
+        }
         if (is_sat != l_true) {
             return is_sat;
         }
@@ -3211,6 +3217,12 @@ namespace sat {
                        << " fixed: " << conseq.size()
                        << " unfixed: " << lits.size() - conseq.size() - vars.size()
                        << ")\n";);
+
+            if (!vars.empty() && 
+                m_config.m_restart_max != 0 &&
+                m_config.m_restart_max <= num_iterations) {
+                return l_undef;
+            }
 
         }
         return l_true;

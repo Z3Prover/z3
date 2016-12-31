@@ -257,7 +257,7 @@ public:
         r = internalize_vars(vars, bvars);
 
         r = m_solver.get_consequences(m_asms, bvars, lconseq);
-        if (r != l_true) return r;
+        if (r == l_false) return r;
 
         // build map from bound variables to 
         // the consequences that cover them.
