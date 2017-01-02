@@ -768,7 +768,7 @@ namespace sat {
                 if (check_inconsistent()) return l_false;
                 gc();
 
-                if (m_config.m_restart_max != 0 && m_config.m_restart_max <= m_restarts) {
+                if (m_config.m_restart_max <= m_restarts) {
                     IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-restarts\")\n";);
                     return l_undef;
                 }
@@ -3122,6 +3122,9 @@ namespace sat {
         literal_vector lits;
         lbool is_sat = l_true;
 
+        if (m_config.m_restart_max != UINT_MAX && !m_model_is_current) {
+            return get_bounded_consequences(asms, vars, conseq);
+        }
         if (!m_model_is_current) {
             is_sat = check(asms.size(), asms.c_ptr());
         }
@@ -3142,9 +3145,89 @@ namespace sat {
         return is_sat;
     }
 
+    void solver::fixup_consequence_core() {
+        index_set s;        
+        for (unsigned i = 0; i < m_core.size(); ++i) {
+            s |= m_antecedents.find(m_core[i].var());
+        }
+        m_core.reset();
+        index_set::iterator it = s.begin(), end = s.end();
+        for (; it != end; ++it) {
+            m_core.push_back(to_literal(*it));
+        }
+    }
+
+
+    lbool solver::get_bounded_consequences(literal_vector const& asms, bool_var_vector const& vars, vector<literal_vector>& conseq) {
+        bool_var_set unfixed_vars;
+        unsigned num_units = 0, num_iterations = 0;
+        for (unsigned i = 0; i < vars.size(); ++i) {
+            unfixed_vars.insert(vars[i]);
+        }
+        m_antecedents.reset();
+        pop_to_base_level();
+        if (inconsistent()) return l_false;
+        init_search();
+        propagate(false);
+        if (inconsistent()) return l_false;
+        if (asms.empty()) {
+            bool_var v = mk_var(true, false);
+            literal lit(v, false);
+            init_assumptions(1, &lit, 0, 0);
+        }
+        else {
+            init_assumptions(asms.size(), asms.c_ptr(), 0, 0);
+        }
+        propagate(false);
+        if (check_inconsistent()) return l_false;
+
+        extract_fixed_consequences(num_units, asms, unfixed_vars, conseq);
+
+        simplify_problem();
+        if (check_inconsistent()) {
+            fixup_consequence_core();
+            return l_false;
+        }
+
+        while (true) {
+            ++num_iterations;
+            SASSERT(!inconsistent());
+            
+            lbool r = bounded_search();
+            if (r != l_undef) {
+                fixup_consequence_core();
+                return r;
+            }
+            
+            extract_fixed_consequences(num_units, asms, unfixed_vars, conseq);
+
+            if (m_conflicts > m_config.m_max_conflicts) {
+                IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-conflicts = " << m_conflicts << "\")\n";);
+                return l_undef;
+            }
+            
+            restart();
+            simplify_problem();
+            if (check_inconsistent()) {
+                fixup_consequence_core();
+                return l_false;
+            }
+            gc();
+            
+            if (m_config.m_restart_max <= num_iterations) {
+                IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-restarts\")\n";);
+                return l_undef;
+            }            
+        }
+    }
+
     lbool solver::get_consequences(literal_vector const& asms, literal_vector const& lits, vector<literal_vector>& conseq) {
         m_antecedents.reset();
-        literal_set vars(lits), assumptions(asms);
+        literal_set unfixed_lits(lits), assumptions(asms);
+        bool_var_set unfixed_vars;
+        for (unsigned i = 0; i < lits.size(); ++i) {
+            unfixed_vars.insert(lits[i].var());
+        }
 
         pop_to_base_level();
         if (inconsistent()) return l_false;
@@ -3163,11 +3246,15 @@ namespace sat {
         if (check_inconsistent()) return l_false;
 
         unsigned num_units = 0, num_iterations = 0;
-        extract_fixed_consequences(num_units, assumptions, vars, conseq);
-        while (!vars.empty()) {
+        extract_fixed_consequences(num_units, assumptions, unfixed_vars, conseq);
+        update_unfixed_literals(unfixed_lits, unfixed_vars);
+        while (!unfixed_lits.empty()) {
+            if (scope_lvl() > 1) {
+                pop(scope_lvl() - 1);
+            }
             ++num_iterations;
             checkpoint();
-            literal_set::iterator it = vars.begin(), end = vars.end();
+            literal_set::iterator it = unfixed_lits.begin(), end = unfixed_lits.end();
             unsigned num_resolves = 0;
             lbool is_sat = l_true;
             for (; it != end; ++it) {
@@ -3208,45 +3295,58 @@ namespace sat {
                 m_inconsistent = false;
             }
             if (is_sat == l_true) {
-                delete_unfixed(vars);
+                delete_unfixed(unfixed_lits, unfixed_vars);
             }
-            extract_fixed_consequences(num_units, assumptions, vars, conseq);
+            extract_fixed_consequences(num_units, assumptions, unfixed_vars, conseq);
+            update_unfixed_literals(unfixed_lits, unfixed_vars);
             IF_VERBOSE(1, verbose_stream() << "(sat.get-consequences"
                        << " iterations: " << num_iterations
-                       << " variables: " << vars.size()
+                       << " variables: " << unfixed_lits.size()
                        << " fixed: " << conseq.size()
-                       << " unfixed: " << lits.size() - conseq.size() - vars.size()
+                       << " unfixed: " << lits.size() - conseq.size() - unfixed_lits.size()
                        << ")\n";);
 
-            if (!vars.empty() && 
-                m_config.m_restart_max != 0 &&
-                m_config.m_restart_max <= num_iterations) {
+            if (!unfixed_lits.empty() && m_config.m_restart_max <= num_iterations) {
                 return l_undef;
             }
-
         }
         return l_true;
     }
 
-    void solver::delete_unfixed(literal_set& unfixed) {
+    void solver::delete_unfixed(literal_set& unfixed_lits, bool_var_set& unfixed_vars) {
         literal_set to_keep;
-        literal_set::iterator it = unfixed.begin(), end = unfixed.end();
+        literal_set::iterator it = unfixed_lits.begin(), end = unfixed_lits.end();
         for (; it != end; ++it) {
             literal lit = *it;
             if (value(lit) == l_true) {
                 to_keep.insert(lit);
             }
+            else {
+                unfixed_vars.remove(lit.var());
+            }
         }
-        unfixed = to_keep;
+        unfixed_lits = to_keep;
     }
 
-    void solver::extract_fixed_consequences(unsigned& start, literal_set const& assumptions, literal_set& unfixed, vector<literal_vector>& conseq) {
-        if (scope_lvl() > 1) {
-            pop(scope_lvl() - 1);
+    void solver::update_unfixed_literals(literal_set& unfixed_lits, bool_var_set& unfixed_vars) {
+        literal_vector to_delete;
+        literal_set::iterator it = unfixed_lits.begin(), end = unfixed_lits.end();
+        for (; it != end; ++it) {
+            literal lit = *it;
+            if (!unfixed_vars.contains(lit.var())) {
+                to_delete.push_back(lit);
+            }
         }
+        for (unsigned i = 0; i < to_delete.size(); ++i) {
+            unfixed_lits.remove(to_delete[i]);
+        }
+    }
+
+
+    void solver::extract_fixed_consequences(unsigned& start, literal_set const& assumptions, bool_var_set& unfixed, vector<literal_vector>& conseq) {
         SASSERT(!inconsistent());
         unsigned sz = m_trail.size();
-        for (unsigned i = start; i < sz; ++i) {
+        for (unsigned i = start; i < sz && lvl(m_trail[i]) <= 1; ++i) {
             extract_fixed_consequences(m_trail[i], assumptions, unfixed, conseq);
         }
         start = sz;
@@ -3288,7 +3388,7 @@ namespace sat {
         }
     }
 
-    void solver::extract_fixed_consequences(literal lit, literal_set const& assumptions, literal_set& unfixed, vector<literal_vector>& conseq) {
+    void solver::extract_fixed_consequences(literal lit, literal_set const& assumptions, bool_var_set& unfixed, vector<literal_vector>& conseq) {
         index_set s;
         if (assumptions.contains(lit)) {
             s.insert(lit.index());
@@ -3298,14 +3398,14 @@ namespace sat {
             extract_assumptions(lit, s);
         }
         m_antecedents.insert(lit.var(), s);
-        if (unfixed.contains(lit)) {
+        if (unfixed.contains(lit.var())) {
             literal_vector cons;
             cons.push_back(lit);
             index_set::iterator it = s.begin(), end = s.end();
             for (; it != end; ++it) {
                 cons.push_back(to_literal(*it));
             }
-            unfixed.remove(lit);
+            unfixed.remove(lit.var());
             conseq.push_back(cons);
         }
     }
