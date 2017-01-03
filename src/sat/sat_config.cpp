@@ -23,10 +23,10 @@ Revision History:
 namespace sat {
 
     config::config(params_ref const & p):
+        m_restart_max(0),
         m_always_true("always_true"),
         m_always_false("always_false"),
         m_caching("caching"),
-        m_restart_max(0),
         m_random("random"),
         m_geometric("geometric"),
         m_luby("luby"),
