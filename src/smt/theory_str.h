@@ -84,6 +84,7 @@ namespace smt {
             target(target), entry(entry) {}
         virtual ~binary_search_trail() {}
         virtual void undo(Ctx & ctx) {
+            TRACE("t_str_binary_search", tout << "in binary_search_trail::undo()" << std::endl;);
             if (target.contains(entry)) {
                 if (!target[entry].empty()) {
                     target[entry].pop_back();
@@ -533,7 +534,7 @@ namespace smt {
 
         // binary search heuristic
         expr * binary_search_length_test(expr * freeVar, expr * previousLenTester, std::string previousLenTesterValue);
-        expr_ref binary_search_case_split(expr * freeVar, expr * tester, binary_search_info & bounds);
+        expr_ref binary_search_case_split(expr * freeVar, expr * tester, binary_search_info & bounds, literal_vector & case_split_lits);
 
         bool free_var_attempt(expr * nn1, expr * nn2);
         void more_len_tests(expr * lenTester, std::string lenTesterValue);

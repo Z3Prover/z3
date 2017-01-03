@@ -2507,6 +2507,7 @@ void theory_str::generate_mutual_exclusion(expr_ref_vector & terms) {
     literal_vector ls;
     for (unsigned i = 0; i < terms.size(); ++i) {
         expr * e = terms.get(i);
+        // TODO make sure the terms are internalized, etc.?
         literal l = ctx.get_literal(e);
         ls.push_back(l);
     }
@@ -9199,7 +9200,7 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 // Return an expression of the form
 // (tester = "less" | tester = "N" | tester = "more") &
 //   (tester = "less" iff len(freeVar) < N) & (tester = "more" iff len(freeVar) > N) & (tester = "N" iff len(freeVar) = N))
-expr_ref theory_str::binary_search_case_split(expr * freeVar, expr * tester, binary_search_info & bounds) {
+expr_ref theory_str::binary_search_case_split(expr * freeVar, expr * tester, binary_search_info & bounds, literal_vector & case_split) {
     context & ctx = get_context();
     ast_manager & m = get_manager();
     rational N = bounds.midPoint;
@@ -9226,6 +9227,16 @@ expr_ref theory_str::binary_search_case_split(expr * freeVar, expr * tester, bin
     combinedCaseSplit.push_back(ctx.mk_eq_atom(caseEq, ctx.mk_eq_atom(lenFreeVar, m_autil.mk_numeral(N, true))));
 
     combinedCaseSplit.push_back(mk_or(testerCases));
+
+    // force internalization on all terms in testerCases so we can extract literals
+    for (unsigned i = 0; i < testerCases.size(); ++i) {
+        expr * testerCase = testerCases.get(i);
+        if (!ctx.b_internalized(testerCase)) {
+            ctx.internalize(testerCase, false);
+        }
+        literal l = ctx.get_literal(testerCase);
+        case_split.push_back(l);
+    }
 
     expr_ref final_term(mk_and(combinedCaseSplit), m);
     SASSERT(final_term);
@@ -9339,9 +9350,10 @@ expr * theory_str::binary_search_length_test(expr * freeVar, expr * previousLenT
             binary_search_len_tester_info.insert(newTester, newBounds);
             m_trail_stack.push(insert_obj_map<theory_str, expr, binary_search_info>(binary_search_len_tester_info, newTester));
 
-            expr_ref next_case_split(binary_search_case_split(freeVar, newTester, newBounds));
+            literal_vector case_split_literals;
+            expr_ref next_case_split(binary_search_case_split(freeVar, newTester, newBounds, case_split_literals));
             m_trail.push_back(next_case_split);
-            // TODO assert a precondition about all previous length testers that got us here
+            ctx.mk_th_case_split(case_split_literals.size(), case_split_literals.c_ptr());
             return next_case_split;
         } else { // lastTesterConstant is a concrete value
             TRACE("t_str", tout << "length is fixed; generating models for free var" << std::endl;);
@@ -9384,8 +9396,10 @@ expr * theory_str::binary_search_length_test(expr * freeVar, expr * previousLenT
         binary_search_len_tester_info.insert(firstTester, new_info);
         m_trail_stack.push(insert_obj_map<theory_str, expr, binary_search_info>(binary_search_len_tester_info, firstTester));
 
-        expr_ref initial_case_split(binary_search_case_split(freeVar, firstTester, new_info));
+        literal_vector case_split_literals;
+        expr_ref initial_case_split(binary_search_case_split(freeVar, firstTester, new_info, case_split_literals));
         m_trail.push_back(initial_case_split);
+        ctx.mk_th_case_split(case_split_literals.size(), case_split_literals.c_ptr());
         return initial_case_split;
     }
 }
