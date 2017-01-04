@@ -18,6 +18,7 @@ Notes:
 --*/
 
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
 
@@ -124,6 +125,14 @@ namespace Microsoft.Z3
         public void Add(params BoolExpr[] constraints)
         {
             Assert(constraints);
+        }
+
+        /// <summary>
+        /// Alias for Assert.
+        /// </summary>        
+        public void Add(IEnumerable<BoolExpr> constraints)
+        {
+            Assert(constraints.ToArray());
         }
 
         /// <summary>
