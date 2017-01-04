@@ -9367,7 +9367,7 @@ expr * theory_str::binary_search_length_test(expr * freeVar, expr * previousLenT
             }
             if (lastBounds.midPoint.is_neg()) {
                 TRACE("t_str_binary_search", tout << "WARNING: length search converged on a negative value. Negating this constraint." << std::endl;);
-                expr_ref axiom(m.mk_not(ctx.mk_eq_atom(mk_strlen(freeVar), m_autil.mk_numeral(lastBounds.midPoint, true))), m);
+                expr_ref axiom(m_autil.mk_ge(mk_strlen(freeVar), m_autil.mk_numeral(rational::zero(), true)), m);
                 return axiom;
             }
             // length is fixed
