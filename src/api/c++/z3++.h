@@ -345,7 +345,7 @@ namespace z3 {
         object(context & c):m_ctx(&c) {}
         object(object const & s):m_ctx(s.m_ctx) {}
         context & ctx() const { return *m_ctx; }
-        void check_error() const { m_ctx->check_error(); }
+        Z3_error_code check_error() const { return m_ctx->check_error(); }
         friend void check_context(object const & a, object const & b);
     };
     inline void check_context(object const & a, object const & b) { assert(a.m_ctx == b.m_ctx); }
@@ -687,12 +687,18 @@ namespace z3 {
         /**
            \brief Return int value of numeral, throw if result cannot fit in
            machine int
+
+           It only makes sense to use this function if the caller can ensure that
+           the result is an integer or if exceptions are enabled. 
+           If exceptions are disabled, then use the the is_numeral_i function.
            
            \pre is_numeral()
         */
         int get_numeral_int() const {             
             int result = 0;
-            if (!is_numeral_i(result) && ctx().enable_exceptions()) {
+            if (!is_numeral_i(result)) {
+                assert(ctx().enable_exceptions());
+                if (!ctx().enable_exceptions()) return 0;
                 throw exception("numeral does not fit in machine int");
             }
             return result;
@@ -701,13 +707,18 @@ namespace z3 {
         /**
            \brief Return uint value of numeral, throw if result cannot fit in
            machine uint
-           
+
+           It only makes sense to use this function if the caller can ensure that
+           the result is an integer or if exceptions are enabled. 
+           If exceptions are disabled, then use the the is_numeral_u function.           
            \pre is_numeral()
         */
         unsigned get_numeral_uint() const {
             assert(is_numeral());
             unsigned result = 0;
-            if (!is_numeral_u(result) && ctx().enable_exceptions()) {
+            if (!is_numeral_u(result)) {
+                assert(ctx().enable_exceptions());
+                if (!ctx().enable_exceptions()) return 0;
                 throw exception("numeral does not fit in machine uint");
             }
             return result;
@@ -722,7 +733,9 @@ namespace z3 {
         __int64 get_numeral_int64() const {
             assert(is_numeral());
             __int64 result = 0;
-            if (!is_numeral_i64(result) && ctx().enable_exceptions()) {
+            if (!is_numeral_i64(result)) {
+                assert(ctx().enable_exceptions());
+                if (!ctx().enable_exceptions()) return 0;
                 throw exception("numeral does not fit in machine __int64");
             }
             return result;
@@ -737,7 +750,9 @@ namespace z3 {
         __uint64 get_numeral_uint64() const {
             assert(is_numeral());
             __uint64 result = 0;
-            if (!is_numeral_u64(result) && ctx().enable_exceptions()) {
+            if (!is_numeral_u64(result)) {
+                assert(ctx().enable_exceptions());
+                if (!ctx().enable_exceptions()) return 0;
                 throw exception("numeral does not fit in machine __uint64");
             }
             return result;
