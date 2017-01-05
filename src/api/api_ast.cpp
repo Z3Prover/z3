@@ -1063,9 +1063,10 @@ extern "C" {
             case OP_BV2INT:    return Z3_OP_BV2INT;
             case OP_CARRY:     return Z3_OP_CARRY;
             case OP_XOR3:      return Z3_OP_XOR3;
+            case OP_BIT2BOOL: return Z3_OP_BIT2BOOL;
             case OP_BSMUL_NO_OVFL: return Z3_OP_BSMUL_NO_OVFL;
             case OP_BUMUL_NO_OVFL: return Z3_OP_BUMUL_NO_OVFL;
-            case OP_BSMUL_NO_UDFL: return Z3_OP_BSMUL_NO_UDFL;
+            case OP_BSMUL_NO_UDFL: return Z3_OP_BSMUL_NO_UDFL;                
             case OP_BSDIV_I: return Z3_OP_BSDIV_I;
             case OP_BUDIV_I: return Z3_OP_BUDIV_I;
             case OP_BSREM_I: return Z3_OP_BSREM_I;
