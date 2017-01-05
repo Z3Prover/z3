@@ -132,16 +132,19 @@ namespace z3 {
        \brief A Context manages all other Z3 objects, global configuration options, etc.
     */
     class context {
+        bool       m_enable_exceptions;
         Z3_context m_ctx;
         static void error_handler(Z3_context /*c*/, Z3_error_code /*e*/) { /* do nothing */ }
         void init(config & c) {
             m_ctx = Z3_mk_context_rc(c);
+            m_enable_exceptions = true;
             Z3_set_error_handler(m_ctx, error_handler);
             Z3_set_ast_print_mode(m_ctx, Z3_PRINT_SMTLIB2_COMPLIANT);
         }
 
         void init_interp(config & c) {
             m_ctx = Z3_mk_interpolation_context(c);
+            m_enable_exceptions = true;
             Z3_set_error_handler(m_ctx, error_handler);
             Z3_set_ast_print_mode(m_ctx, Z3_PRINT_SMTLIB2_COMPLIANT);
         }
@@ -159,11 +162,23 @@ namespace z3 {
         /**
            \brief Auxiliary method used to check for API usage errors.
         */
-        void check_error() const {
+        Z3_error_code check_error() const {
             Z3_error_code e = Z3_get_error_code(m_ctx);
-            if (e != Z3_OK)
+            if (e != Z3_OK && enable_exceptions())
                 throw exception(Z3_get_error_msg(m_ctx, e));
+            return e;
         }
+
+        /**
+           \brief The C++ API uses by defaults exceptions on errors. 
+           For applications that don't work well with exceptions (there should be only few)
+           you have the ability to turn off exceptions. The tradeoffs are that applications
+           have to very careful about using check_error() after calls that may result in an errornous
+           state.
+         */
+        void set_enable_exceptions(bool f) { m_enable_exceptions = f; }
+
+        bool enable_exceptions() const { return m_enable_exceptions; }
 
         /**
            \brief Update global parameter \c param with string \c value.
@@ -676,8 +691,8 @@ namespace z3 {
            \pre is_numeral()
         */
         int get_numeral_int() const {             
-            int result;
-            if (!is_numeral_i(result)) {
+            int result = 0;
+            if (!is_numeral_i(result) && ctx().enable_exceptions()) {
                 throw exception("numeral does not fit in machine int");
             }
             return result;
@@ -691,8 +706,8 @@ namespace z3 {
         */
         unsigned get_numeral_uint() const {
             assert(is_numeral());
-            unsigned result;
-            if (!is_numeral_u(result)) {
+            unsigned result = 0;
+            if (!is_numeral_u(result) && ctx().enable_exceptions()) {
                 throw exception("numeral does not fit in machine uint");
             }
             return result;
@@ -706,8 +721,8 @@ namespace z3 {
         */
         __int64 get_numeral_int64() const {
             assert(is_numeral());
-            __int64 result;
-            if (!is_numeral_i64(result)) {
+            __int64 result = 0;
+            if (!is_numeral_i64(result) && ctx().enable_exceptions()) {
                 throw exception("numeral does not fit in machine __int64");
             }
             return result;
@@ -721,8 +736,8 @@ namespace z3 {
         */
         __uint64 get_numeral_uint64() const {
             assert(is_numeral());
-            __uint64 result;
-            if (!is_numeral_u64(result)) {
+            __uint64 result = 0;
+            if (!is_numeral_u64(result) && ctx().enable_exceptions()) {
                 throw exception("numeral does not fit in machine __uint64");
             }
             return result;
@@ -1615,7 +1630,7 @@ namespace z3 {
             Z3_ast r = 0;
             Z3_bool status = Z3_model_eval(ctx(), m_model, n, model_completion, &r);
             check_error();
-            if (status == Z3_FALSE)
+            if (status == Z3_FALSE && ctx().enable_exceptions())
                 throw exception("failed to evaluate expression");
             return expr(ctx(), r);
         }
