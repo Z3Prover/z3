@@ -1114,6 +1114,13 @@ namespace sat {
             for (unsigned i = 0; !inconsistent() && i < m_assumptions.size(); ++i) {
                 assign(m_assumptions[i], justification());
             }
+            TRACE("sat", 
+                 for (unsigned i = 0; i < m_assumptions.size(); ++i) {
+                     index_set s;
+                     if (m_antecedents.find(m_assumptions[i].var(), s)) {
+                         tout << m_assumptions[i] << ": "; display_index_set(tout, s) << "\n";
+                     }
+                 });
         }
     }
 
@@ -3147,7 +3154,9 @@ namespace sat {
 
     void solver::fixup_consequence_core() {
         index_set s;        
+        TRACE("sat", tout << m_core << "\n";);
         for (unsigned i = 0; i < m_core.size(); ++i) {
+            TRACE("sat", tout << m_core[i] << ": "; display_index_set(tout, m_antecedents.find(m_core[i].var())) << "\n";);
             s |= m_antecedents.find(m_core[i].var());
         }
         m_core.reset();
@@ -3155,6 +3164,7 @@ namespace sat {
         for (; it != end; ++it) {
             m_core.push_back(to_literal(*it));
         }
+        TRACE("sat", tout << m_core << "\n";);
     }
 
 
@@ -3164,6 +3174,7 @@ namespace sat {
         for (unsigned i = 0; i < vars.size(); ++i) {
             unfixed_vars.insert(vars[i]);
         }
+        TRACE("sat", tout << asms << "\n";);
         m_antecedents.reset();
         pop_to_base_level();
         if (inconsistent()) return l_false;
@@ -3222,6 +3233,7 @@ namespace sat {
     }
 
     lbool solver::get_consequences(literal_vector const& asms, literal_vector const& lits, vector<literal_vector>& conseq) {
+        TRACE("sat", tout << asms << "\n";);
         m_antecedents.reset();
         literal_set unfixed_lits(lits), assumptions(asms);
         bool_var_set unfixed_vars;
@@ -3386,10 +3398,24 @@ namespace sat {
             UNREACHABLE();
             break;
         }
+        TRACE("sat", display_index_set(tout << lit << ": " , s) << "\n";);
     }
+
+    std::ostream& solver::display_index_set(std::ostream& out, index_set const& s) const {
+        index_set::iterator it  = s.begin();
+        index_set::iterator end = s.end();
+        for (; it != end; ++it) {
+            out << to_literal(*it) << " ";
+        }
+        return out;
+    }
+
 
     void solver::extract_fixed_consequences(literal lit, literal_set const& assumptions, bool_var_set& unfixed, vector<literal_vector>& conseq) {
         index_set s;
+        if (m_antecedents.contains(lit.var())) {
+            return;
+        }
         if (assumptions.contains(lit)) {
             s.insert(lit.index());
         }

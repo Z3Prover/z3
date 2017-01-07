@@ -455,6 +455,8 @@ namespace sat {
 
         void extract_assumptions(literal lit, index_set& s);
 
+        std::ostream& display_index_set(std::ostream& out, index_set const& s) const;
+
         lbool get_consequences(literal_vector const& assms, literal_vector const& lits, vector<literal_vector>& conseq);
 
         lbool get_bounded_consequences(literal_vector const& assms, bool_var_vector const& vars, vector<literal_vector>& conseq);
