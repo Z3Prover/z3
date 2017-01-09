@@ -9,7 +9,7 @@ Abstract:
 
 Author:
 
-    Murphy Berzish (mtrberzi) 2015-09-03
+    Murphy Berzish and Yunhui Zheng
 
 Revision History:
 
@@ -567,6 +567,11 @@ namespace smt {
 
         void check_variable_scope();
         void recursive_check_variable_scope(expr * ex);
+
+        void collect_var_concat(expr * node, std::set<expr*> & varSet, std::set<expr*> & concatSet);
+        bool propagate_length(std::set<expr*> & varSet, std::set<expr*> & concatSet, std::map<expr*, int> & exprLenMap);
+        void get_unique_non_concat_nodes(expr * node, std::set<expr*> & argSet);
+        bool propagate_length_within_eqc(expr * var);
 
         // TESTING
         void refresh_theory_var(expr * e);

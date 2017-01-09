@@ -9,7 +9,7 @@ Abstract:
 
 Author:
 
-    Murphy Berzish (mtrberzi) 2015-09-03
+    Murphy Berzish and Yunhui Zheng
 
 Revision History:
 
@@ -7993,6 +7993,160 @@ bool theory_str::finalcheck_int2str(app * a) {
     return axiomAdd;
 }
 
+void theory_str::collect_var_concat(expr * node, std::set<expr*> & varSet, std::set<expr*> & concatSet) {
+    if (variable_set.find(node) != variable_set.end()) {
+        if (internal_lenTest_vars.find(node) == internal_lenTest_vars.end()) {
+            varSet.insert(node);
+        }
+    }
+    else if (is_app(node)) {
+        app * aNode = to_app(node);
+        if (is_strlen(aNode)) {
+            // Length
+            return;
+        }
+        if (is_concat(aNode)) {
+            expr * arg0 = aNode->get_arg(0);
+            expr * arg1 = aNode->get_arg(1);
+            if (concatSet.find(node) == concatSet.end()) {
+                concatSet.insert(node);
+            }
+        }
+        // recursively visit all arguments
+        for (unsigned i = 0; i < aNode->get_num_args(); ++i) {
+            expr * arg = aNode->get_arg(i);
+            collect_var_concat(arg, varSet, concatSet);
+        }
+    }
+}
+
+bool theory_str::propagate_length_within_eqc(expr * var) {
+    bool res = false;
+    ast_manager & m = get_manager();
+    context & ctx = get_context();
+
+    TRACE("t_str_length", tout << "propagate_length_within_eqc: " << mk_ismt2_pp(var, m) << std::endl ;);
+
+    enode * n_eq_enode = ctx.get_enode(var);
+    rational varLen;
+    if (! get_len_value(var, varLen)) {
+        bool hasLen = false;
+        expr * nodeWithLen= var;
+        do {
+            if (get_len_value(nodeWithLen, varLen)) {
+                hasLen = true;
+                break;
+            }
+            nodeWithLen = get_eqc_next(nodeWithLen);
+        } while (nodeWithLen != var);
+
+        if (hasLen) {
+            // var = nodeWithLen --> |var| = |nodeWithLen|
+            expr_ref_vector l_items(m);
+            expr_ref varEqNode(ctx.mk_eq_atom(var, nodeWithLen), m);
+            l_items.push_back(varEqNode);
+
+            expr_ref nodeWithLenExpr (mk_strlen(nodeWithLen), m);
+            expr_ref varLenExpr (mk_int(varLen), m);
+            expr_ref lenEqNum(ctx.mk_eq_atom(nodeWithLenExpr, varLenExpr), m);
+            l_items.push_back(lenEqNum);
+
+            expr_ref axl(m.mk_and(l_items.size(), l_items.c_ptr()), m);
+            expr_ref varLen(mk_strlen(var), m);
+            expr_ref axr(ctx.mk_eq_atom(varLen, mk_int(varLen)), m);
+            assert_implication(axl, axr);
+            TRACE("t_str_length", tout <<  mk_ismt2_pp(axl, m) << std::endl << "  --->  " << std::endl <<  mk_ismt2_pp(axr, m););
+            res = true;
+        }
+    }
+    return res;
+}
+
+bool theory_str::propagate_length(std::set<expr*> & varSet, std::set<expr*> & concatSet, std::map<expr*, int> & exprLenMap) {
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+    expr_ref_vector assignments(m);
+    ctx.get_assignments(assignments);
+    bool axiomAdded = false;
+    // collect all concats in context
+    for (expr_ref_vector::iterator it = assignments.begin(); it != assignments.end(); ++it) {
+        if (! ctx.is_relevant(*it)) {
+            continue;
+        }
+        if (m.is_eq(*it)) {
+            collect_var_concat(*it, varSet, concatSet);
+        }
+    }
+    // iterate each concat
+    // if a concat doesn't have length info, check if the length of all leaf nodes can be resolved
+    for (std::set<expr*>::iterator it = concatSet.begin(); it != concatSet.end(); it++) {
+        expr * concat = *it;
+        rational lenValue;
+        expr_ref concatlenExpr (mk_strlen(concat), m) ;
+        bool allLeafResolved = true;
+        if (! get_value(concatlenExpr, lenValue)) {
+            // the length fo concat is unresolved yet
+            if (get_len_value(concat, lenValue)) {
+                // but all leaf nodes have length information
+                TRACE("t_str_length", tout << "* length pop-up: " <<  mk_ismt2_pp(concat, m) << "| = " << lenValue << std::endl;);
+                std::set<expr*> leafNodes;
+                get_unique_non_concat_nodes(concat, leafNodes);
+                expr_ref_vector l_items(m);
+                for (std::set<expr*>::iterator leafIt = leafNodes.begin(); leafIt != leafNodes.end(); ++leafIt) {
+                    rational leafLenValue;
+                    if (get_len_value(*leafIt, leafLenValue)) {
+                        expr_ref leafItLenExpr (mk_strlen(*leafIt), m);
+                        expr_ref leafLenValueExpr (mk_int(leafLenValue), m);
+                        expr_ref lcExpr (ctx.mk_eq_atom(leafItLenExpr, leafLenValueExpr), m);
+                        l_items.push_back(lcExpr);
+                    } else {
+                        allLeafResolved = false;
+                        break;
+                    }
+                }
+                if (allLeafResolved) {
+                    expr_ref axl(m.mk_and(l_items.size(), l_items.c_ptr()), m);
+                    expr_ref lenValueExpr (mk_int(lenValue), m);
+                    expr_ref axr(ctx.mk_eq_atom(concatlenExpr, lenValueExpr), m);
+                    assert_implication(axl, axr);
+                    TRACE("t_str_length", tout <<  mk_ismt2_pp(axl, m) << std::endl << "  --->  " << std::endl <<  mk_ismt2_pp(axr, m)<< std::endl;);
+                    axiomAdded = true;
+                }
+            }
+        }
+    }
+    // if no concat length is propagated, check the length of variables.
+    if (! axiomAdded) {
+        for (std::set<expr*>::iterator it = varSet.begin(); it != varSet.end(); it++) {
+            expr * var = *it;
+            rational lenValue;
+            expr_ref varlen (mk_strlen(var), m) ;
+            bool allLeafResolved = true;
+            if (! get_value(varlen, lenValue)) {
+                if (propagate_length_within_eqc(var)) {
+                    axiomAdded = true;
+                }
+            }
+        }
+
+    }
+    return axiomAdded;
+}
+
+void theory_str::get_unique_non_concat_nodes(expr * node, std::set<expr*> & argSet) {
+    app * a_node = to_app(node);
+    if (!is_concat(a_node)) {
+        argSet.insert(node);
+        return;
+    } else {
+        SASSERT(a_node->get_num_args() == 2);
+        expr * leftArg = a_node->get_arg(0);
+        expr * rightArg = a_node->get_arg(1);
+        get_unique_non_concat_nodes(leftArg, argSet);
+        get_unique_non_concat_nodes(rightArg, argSet);
+    }
+}
+
 final_check_status theory_str::final_check_eh() {
     context & ctx = get_context();
     ast_manager & m = get_manager();
@@ -8108,6 +8262,19 @@ final_check_status theory_str::final_check_eh() {
     if (backpropagation_occurred) {
     	TRACE("t_str", tout << "Resuming search due to axioms added by backpropagation." << std::endl;);
     	return FC_CONTINUE;
+    }
+
+    // enhancement: improved backpropagation of length information
+    {
+        std::set<expr*> varSet;
+        std::set<expr*> concatSet;
+        std::map<expr*, int> exprLenMap;
+
+        bool length_propagation_occurred = propagate_length(varSet, concatSet, exprLenMap);
+        if (length_propagation_occurred) {
+            TRACE("t_str", tout << "Resuming search due to axioms added by length propagation." << std::endl;);
+            return FC_CONTINUE;
+        }
     }
 
     bool needToAssignFreeVars = false;
