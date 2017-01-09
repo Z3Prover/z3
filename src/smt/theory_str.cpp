@@ -9277,6 +9277,9 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 	        }
 	);
 
+	// experimental theory-aware case split support
+	literal_vector case_split_literals;
+
 	for (int i = l; i < h; ++i) {
 	    expr_ref str_indicator(m);
 	    if (m_params.m_UseFastLengthTesterCache) {
@@ -9305,6 +9308,8 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 		    ctx.force_phase(l);
 		}
 
+		case_split_literals.insert(mk_eq(freeVarLen, mk_int(i), false));
+
 		expr_ref and_expr(ctx.mk_eq_atom(orList.get(orList.size() - 1), m.mk_eq(freeVarLen, mk_int(i))), m);
 		andList.push_back(and_expr);
 	}
@@ -9318,6 +9323,13 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 	}
 
 	andList.push_back(ctx.mk_eq_atom(orList.get(orList.size() - 1), m_autil.mk_ge(freeVarLen, mk_int(h))));
+
+	{ // more experimental theory case split support
+	    expr_ref tmp(m_autil.mk_ge(freeVarLen, mk_int(h)), m);
+	    ctx.internalize(m_autil.mk_ge(freeVarLen, mk_int(h)), false);
+        case_split_literals.push_back(ctx.get_literal(tmp));
+        ctx.mk_th_case_split(case_split_literals.size(), case_split_literals.c_ptr());
+	}
 
 	expr_ref_vector or_items(m);
 	expr_ref_vector and_items(m);
