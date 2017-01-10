@@ -27,6 +27,8 @@ namespace smt {
             out << "true";
         else if (*this == false_literal)
             out << "false";
+        else if (*this == null_literal)
+            out << "null";
         else if (sign())
             out << "(not " << mk_pp(bool_var2expr_map[var()], m) << ")";
         else

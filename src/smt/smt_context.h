@@ -363,8 +363,10 @@ namespace smt {
         void get_assignments(expr_ref_vector& assignments);
 
         b_justification get_justification(bool_var v) const {
-            return get_bdata(v).m_justification;
+            return get_bdata(v).justification();
         }
+
+        void set_justification(bool_var v, bool_var_data& d, b_justification const& j);
 
         bool has_th_justification(bool_var v, theory_id th_id) const {
             b_justification js = get_justification(v);
@@ -1380,6 +1382,8 @@ namespace smt {
 
         void validate_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, 
                                    expr_ref_vector const& conseq, expr_ref_vector const& unfixed);
+
+        bool validate_justification(bool_var v, bool_var_data const& d, b_justification const& j);
 
         void justify(literal lit, index_set& s);
 

@@ -1211,7 +1211,9 @@ extern "C" {
             switch(_d->get_decl_kind()) {
             case OP_PB_LE: return Z3_OP_PB_LE;
             case OP_PB_GE: return Z3_OP_PB_GE;
+            case OP_PB_EQ: return Z3_OP_PB_EQ;
             case OP_AT_MOST_K: return Z3_OP_PB_AT_MOST;
+            case OP_AT_LEAST_K: return Z3_OP_PB_AT_LEAST;
             default: return Z3_OP_INTERNAL;
             }
         }

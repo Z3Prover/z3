@@ -855,6 +855,9 @@ typedef enum
       - Z3_OP_PB_AT_MOST: Cardinality constraint.
               E.g., x + y + z <= 2
 
+      - Z3_OP_PB_AT_LEAST: Cardinality constraint.
+              E.g., x + y + z >= 2
+
       - Z3_OP_PB_LE: Generalized Pseudo-Boolean cardinality constraint.
               Example  2*x + 3*y <= 4
 
@@ -1174,6 +1177,7 @@ typedef enum {
 
     // Pseudo Booleans
     Z3_OP_PB_AT_MOST=0x900,
+    Z3_OP_PB_AT_LEAST,
     Z3_OP_PB_LE,
     Z3_OP_PB_GE,
     Z3_OP_PB_EQ,
@@ -3966,6 +3970,17 @@ extern "C" {
     Z3_ast Z3_API Z3_mk_atmost(Z3_context c, unsigned num_args,
                                Z3_ast const args[], unsigned k);
 
+
+    /**
+       \brief Pseudo-Boolean relations.
+
+       Encode p1 + p2 + ... + pn >= k
+
+       def_API('Z3_mk_atleast', AST, (_in(CONTEXT), _in(UINT), _in_array(1,AST), _in(UINT)))
+    */
+
+    Z3_ast Z3_mk_atleast(Z3_context c, unsigned num_args,
+                                Z3_ast const args[], unsigned k);
     /**
        \brief Pseudo-Boolean relations.
 
@@ -3975,6 +3990,19 @@ extern "C" {
     */
 
     Z3_ast Z3_API Z3_mk_pble(Z3_context c, unsigned num_args,
+                             Z3_ast const args[], int coeffs[],
+                             int k);
+
+
+    /**
+       \brief Pseudo-Boolean relations.
+
+       Encode k1*p1 + k2*p2 + ... + kn*pn >= k
+
+       def_API('Z3_mk_pbge', AST, (_in(CONTEXT), _in(UINT), _in_array(1,AST), _in_array(1,INT), _in(INT)))
+    */
+
+    Z3_ast Z3_mk_pbge(Z3_context c, unsigned num_args,
                              Z3_ast const args[], int coeffs[],
                              int k);
 
