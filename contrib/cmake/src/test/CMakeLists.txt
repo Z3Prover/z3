@@ -82,7 +82,6 @@ add_executable(test-z3
   pdr.cpp
   permutation.cpp
   polynomial.cpp
-  polynomial_factorization.cpp
   polynorm.cpp
   prime_generator.cpp
   proof_checker.cpp
