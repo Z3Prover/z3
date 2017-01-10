@@ -9324,12 +9324,14 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 
 	andList.push_back(ctx.mk_eq_atom(orList.get(orList.size() - 1), m_autil.mk_ge(freeVarLen, mk_int(h))));
 
+	/*
 	{ // more experimental theory case split support
 	    expr_ref tmp(m_autil.mk_ge(freeVarLen, mk_int(h)), m);
 	    ctx.internalize(m_autil.mk_ge(freeVarLen, mk_int(h)), false);
         case_split_literals.push_back(ctx.get_literal(tmp));
         ctx.mk_th_case_split(case_split_literals.size(), case_split_literals.c_ptr());
 	}
+	*/
 
 	expr_ref_vector or_items(m);
 	expr_ref_vector and_items(m);
@@ -9532,7 +9534,7 @@ expr * theory_str::binary_search_length_test(expr * freeVar, expr * previousLenT
             literal_vector case_split_literals;
             expr_ref next_case_split(binary_search_case_split(freeVar, newTester, newBounds, case_split_literals));
             m_trail.push_back(next_case_split);
-            ctx.mk_th_case_split(case_split_literals.size(), case_split_literals.c_ptr());
+	    // ctx.mk_th_case_split(case_split_literals.size(), case_split_literals.c_ptr());
             return next_case_split;
         } else { // lastTesterConstant is a concrete value
             TRACE("t_str", tout << "length is fixed; generating models for free var" << std::endl;);
@@ -9578,7 +9580,7 @@ expr * theory_str::binary_search_length_test(expr * freeVar, expr * previousLenT
         literal_vector case_split_literals;
         expr_ref initial_case_split(binary_search_case_split(freeVar, firstTester, new_info, case_split_literals));
         m_trail.push_back(initial_case_split);
-        ctx.mk_th_case_split(case_split_literals.size(), case_split_literals.c_ptr());
+        // ctx.mk_th_case_split(case_split_literals.size(), case_split_literals.c_ptr());
         return initial_case_split;
     }
 }
