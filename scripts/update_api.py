@@ -1574,6 +1574,7 @@ def write_log_h_preamble(log_h):
   log_h.write('#define _Z3_UNUSED\n')
   log_h.write('#endif\n')
   #
+  log_h.write('#include<iostream>\n')
   log_h.write('extern std::ostream * g_z3_log;\n')
   log_h.write('extern bool           g_z3_log_enabled;\n')
   log_h.write('class z3_log_ctx { bool m_prev; public: z3_log_ctx():m_prev(g_z3_log_enabled) { g_z3_log_enabled = false; } ~z3_log_ctx() { g_z3_log_enabled = m_prev; } bool enabled() const { return m_prev; } };\n')

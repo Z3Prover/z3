@@ -15,7 +15,6 @@ Author:
 Revision History:
 
 --*/
-#include<iostream>
 #include"z3.h"
 #include"api_log_macros.h"
 #include"api_context.h"
@@ -23,8 +22,8 @@ Revision History:
 #include"pb_decl_plugin.h"
 
 extern "C" {
-    
-    Z3_ast Z3_API Z3_mk_atmost(Z3_context c, unsigned num_args, 
+
+    Z3_ast Z3_API Z3_mk_atmost(Z3_context c, unsigned num_args,
                                Z3_ast const args[], unsigned k) {
         Z3_TRY;
         LOG_Z3_mk_atmost(c, num_args, args, k);
@@ -38,9 +37,8 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-
-    Z3_ast Z3_API Z3_mk_atleast(Z3_context c, unsigned num_args, 
-                               Z3_ast const args[], unsigned k) {
+    Z3_ast Z3_API Z3_mk_atleast(Z3_context c, unsigned num_args,
+                                Z3_ast const args[], unsigned k) {
         Z3_TRY;
         LOG_Z3_mk_atmost(c, num_args, args, k);
         RESET_ERROR_CODE();
@@ -53,7 +51,7 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_ast Z3_API Z3_mk_pble(Z3_context c, unsigned num_args, 
+    Z3_ast Z3_API Z3_mk_pble(Z3_context c, unsigned num_args,
                              Z3_ast const args[], int _coeffs[],
                              int k) {
         Z3_TRY;
@@ -71,7 +69,7 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_ast Z3_API Z3_mk_pbge(Z3_context c, unsigned num_args, 
+    Z3_ast Z3_API Z3_mk_pbge(Z3_context c, unsigned num_args,
                              Z3_ast const args[], int _coeffs[],
                              int k) {
         Z3_TRY;
@@ -89,7 +87,7 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_ast Z3_API Z3_mk_pbeq(Z3_context c, unsigned num_args, 
+    Z3_ast Z3_API Z3_mk_pbeq(Z3_context c, unsigned num_args,
                              Z3_ast const args[], int _coeffs[],
                              int k) {
         Z3_TRY;
