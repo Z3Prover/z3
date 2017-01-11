@@ -1130,9 +1130,6 @@ namespace smt {
         }
 
         virtual void activity_increased_eh(bool_var v) {
-            if (m_theory_queue.contains(v)) {
-                m_theory_queue.decreased(v);
-            }
             m_base_queue->activity_increased_eh(v);
         }
 
@@ -1214,6 +1211,7 @@ namespace smt {
             m_theory_vars.insert(v);
             m_theory_var_phase.insert(v, phase);
             m_theory_var_priority.insert(v, priority);
+            m_theory_queue.reserve(v+1);
             m_theory_queue.insert(v);
         }
 
