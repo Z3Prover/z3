@@ -500,6 +500,7 @@ namespace smt {
         void print_cut_var(expr * node, std::ofstream & xout);
 
         void generate_mutual_exclusion(expr_ref_vector & exprs);
+        void add_theory_aware_branching_info(expr * term, double priority, lbool phase);
 
         bool new_eq_check(expr * lhs, expr * rhs);
         void group_terms_by_eqc(expr * n, std::set<expr*> & concats, std::set<expr*> & vars, std::set<expr*> & consts);

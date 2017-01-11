@@ -2501,6 +2501,13 @@ void theory_str::infer_len_concat_equality(expr * nn1, expr * nn2) {
     */
 }
 
+void theory_str::add_theory_aware_branching_info(expr * term, double priority, lbool phase) {
+    context & ctx = get_context();
+    ctx.internalize(term, false);
+    bool_var v = ctx.get_bool_var(term);
+    ctx.add_theory_aware_branching_info(v, priority, phase);
+}
+
 void theory_str::generate_mutual_exclusion(expr_ref_vector & terms) {
     context & ctx = get_context();
     // pull each literal out of the arrangement disjunction
@@ -2512,25 +2519,6 @@ void theory_str::generate_mutual_exclusion(expr_ref_vector & terms) {
         ls.push_back(l);
     }
     ctx.mk_th_case_split(ls.size(), ls.c_ptr());
-
-    // old version, without special support in the context
-    /*
-    ast_manager & m = get_manager();
-
-    expr_ref_vector result(m);
-
-    for (unsigned int majorIndex = 0; majorIndex < terms.size(); ++majorIndex) {
-        for (unsigned int minorIndex = majorIndex + 1; minorIndex < terms.size(); ++minorIndex) {
-            // generate an expression of the form
-            // terms[majorIndex] --> NOT(terms[minorIndex])
-            expr_ref ex(rewrite_implication(terms.get(majorIndex), m.mk_not(terms.get(minorIndex))), m);
-            result.push_back(ex);
-        }
-    }
-
-    expr_ref final_result(mk_and(result), m);
-    assert_axiom(final_result);
-    */
 }
 
 void theory_str::print_cut_var(expr * node, std::ofstream & xout) {
@@ -3095,7 +3083,9 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
                     		m_autil.mk_add(mk_strlen(y),m_autil.mk_mul(mk_int(-1), mk_strlen(n))),
 							mk_int(0))) );
 
-            arrangement_disjunction.push_back(mk_and(and_item));
+            expr_ref option1(mk_and(and_item), mgr);
+            arrangement_disjunction.push_back(option1);
+            add_theory_aware_branching_info(option1, 0.0, l_true);
 
             add_cut_info_merge(t1, ctx.get_scope_level(), m);
             add_cut_info_merge(t1, ctx.get_scope_level(), y);
@@ -3130,8 +3120,9 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
             				m_autil.mk_add(mk_strlen(n), m_autil.mk_mul(mk_int(-1), mk_strlen(y))),
 							mk_int(0))) );
 
-
-            arrangement_disjunction.push_back(mk_and(and_item));
+            expr_ref option2(mk_and(and_item), mgr);
+            arrangement_disjunction.push_back(option2);
+            add_theory_aware_branching_info(option2, 0.0, l_true);
 
             add_cut_info_merge(t2, ctx.get_scope_level(), x);
             add_cut_info_merge(t2, ctx.get_scope_level(), n);
@@ -3149,7 +3140,10 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
             and_item.push_back(ctx.mk_eq_atom(mk_strlen(x), mk_strlen(m)));
             and_item.push_back(ctx.mk_eq_atom(mk_strlen(y), mk_strlen(n)));
 
-            arrangement_disjunction.push_back(mk_and(and_item));
+            expr_ref option3(mk_and(and_item), mgr);
+            arrangement_disjunction.push_back(option3);
+            // prioritize this case, it is easier
+            add_theory_aware_branching_info(option3, 2.0, l_true);
         }
 
         if (!arrangement_disjunction.empty()) {
