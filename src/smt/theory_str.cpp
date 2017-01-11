@@ -3453,7 +3453,9 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 				and_item.push_back(ctx.mk_eq_atom(mk_strlen(m),
 						m_autil.mk_add(mk_strlen(x), mk_strlen(temp1))));
 
-				arrangement_disjunction.push_back(mk_and(and_item));
+				expr_ref option1(mk_and(and_item), mgr);
+				arrangement_disjunction.push_back(option1);
+				add_theory_aware_branching_info(option1, 0.0, l_true);
 				add_cut_info_merge(temp1, ctx.get_scope_level(), y);
 				add_cut_info_merge(temp1, ctx.get_scope_level(), m);
 			} else {
@@ -3475,7 +3477,16 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 				and_item.push_back(ctx.mk_eq_atom(x, x_concat));
 				and_item.push_back(ctx.mk_eq_atom(y, cropStr));
 				and_item.push_back(ctx.mk_eq_atom(mk_strlen(y), mk_int(part2Str.length())));
-				arrangement_disjunction.push_back(mk_and(and_item));
+				expr_ref option2(mk_and(and_item), mgr);
+				arrangement_disjunction.push_back(option2);
+				double priority;
+				// prioritize the option where y is equal to the original string
+				if (i == 0) {
+				    priority = 2.0;
+				} else {
+				    priority = 0.0;
+				}
+				add_theory_aware_branching_info(option2, priority, l_true);
 			}
 		}
 
@@ -3772,7 +3783,15 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
                 //        and_item[pos++] = Z3_mk_eq(ctx, or_item[option], Z3_mk_eq(ctx, mk_length(t, y), mk_length(t, y_concat)));
                 // adding length constraint for _ = constStr seems slowing things down.
 
-                arrangement_disjunction.push_back(mk_and(and_item));
+                expr_ref option1(mk_and(and_item), mgr);
+                arrangement_disjunction.push_back(option1);
+                double priority;
+                if (i == (int)strValue.size()) {
+                    priority = 1.0;
+                } else {
+                    priority = 0.0;
+                }
+                add_theory_aware_branching_info(option1, priority, l_true);
             }
         }
 
@@ -3794,7 +3813,9 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
                 and_item.push_back(ctx.mk_eq_atom(mk_strlen(x),
                         m_autil.mk_add(mk_strlen(strAst), mk_strlen(temp1)) ) ); ++pos;
 
-                arrangement_disjunction.push_back(mk_and(and_item));
+                expr_ref option2(mk_and(and_item), mgr);
+                arrangement_disjunction.push_back(option2);
+                add_theory_aware_branching_info(option2, 0.0, l_true);
 
                 add_cut_info_merge(temp1, sLevel, x);
                 add_cut_info_merge(temp1, sLevel, n);
@@ -4194,7 +4215,9 @@ void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
         //    addItems[1] = mk_length(t, str2Ast);
         //    and_item[pos++] = Z3_mk_eq(ctx, or_item[option], Z3_mk_eq(ctx, mk_length(t, y), Z3_mk_add(ctx, 2, addItems)));
 
-        arrangement_disjunction.push_back(mk_and(and_item));
+        expr_ref option1(mk_and(and_item), mgr);
+        arrangement_disjunction.push_back(option1);
+        add_theory_aware_branching_info(option1, 0.0, l_true);
     } else {
         loopDetected = true;
         TRACE("t_str", tout << "AVOID LOOP: SKIPPED." << std::endl;);
@@ -4227,7 +4250,16 @@ void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
         and_item.push_back(ctx.mk_eq_atom(mk_strlen(y), mk_strlen(suffixAst)));
         pos += 1;
 
-        arrangement_disjunction.push_back(mk_and(and_item));
+        expr_ref option2(mk_and(and_item), mgr);
+        arrangement_disjunction.push_back(option2);
+        double priority;
+        // prefer the option "str1" = x
+        if (prefix == str1Value) {
+            priority = 1.0;
+        } else {
+            priority = 0.0;
+        }
+        add_theory_aware_branching_info(option2, priority, l_true);
     }
 
     //  case 6: concat("str1", y) = concat(m, "str2")
@@ -9296,6 +9328,16 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 		expr_ref or_expr(ctx.mk_eq_atom(indicator, str_indicator), m);
 		orList.push_back(or_expr);
 
+		double priority;
+		// give high priority to small lengths if this is available
+		if (i <= 5) {
+		    priority = 3.0;
+		} else {
+		    // prioritize over "more"
+		    priority = 0.5;
+		}
+		add_theory_aware_branching_info(or_expr, priority, l_true);
+
 		if (m_params.m_AggressiveLengthTesting) {
 		    literal l = mk_eq(indicator, str_indicator, false);
 		    ctx.mark_as_relevant(l);
@@ -9309,7 +9351,10 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 	}
 
 	// TODO cache mk_string("more")
-	orList.push_back(m.mk_eq(indicator, mk_string("more")));
+	expr_ref more_option(ctx.mk_eq_atom(indicator, mk_string("more")), m);
+	orList.push_back(more_option);
+	// decrease priority of this option
+	add_theory_aware_branching_info(more_option, -1.0, l_true);
 	if (m_params.m_AggressiveLengthTesting) {
 	    literal l = mk_eq(indicator, mk_string("more"), false);
 	    ctx.mark_as_relevant(l);
