@@ -416,14 +416,14 @@ void theory_str::add_cut_info_one_node(expr * baseNode, int slevel, expr * node)
         varInfo->vars[node] = 1;
         cut_var_map.insert(baseNode, std::stack<T_cut*>());
         cut_var_map[baseNode].push(varInfo);
-        TRACE("t_str_cut_var_map", tout << "add var info for baseNode=" << mk_pp(baseNode, get_manager()) << ", node=" << mk_pp(node, get_manager()) << std::endl;);
+        TRACE("t_str_cut_var_map", tout << "add var info for baseNode=" << mk_pp(baseNode, get_manager()) << ", node=" << mk_pp(node, get_manager()) << " [" << slevel << "]" << std::endl;);
     } else {
         if (cut_var_map[baseNode].empty()) {
             T_cut * varInfo = alloc(T_cut);
             varInfo->level = slevel;
             varInfo->vars[node] = 1;
             cut_var_map[baseNode].push(varInfo);
-            TRACE("t_str_cut_var_map", tout << "add var info for baseNode=" << mk_pp(baseNode, get_manager()) << ", node=" << mk_pp(node, get_manager()) << std::endl;);
+            TRACE("t_str_cut_var_map", tout << "add var info for baseNode=" << mk_pp(baseNode, get_manager()) << ", node=" << mk_pp(node, get_manager()) << " [" << slevel << "]" << std::endl;);
         } else {
             if (cut_var_map[baseNode].top()->level < slevel) {
                 T_cut * varInfo = alloc(T_cut);
@@ -431,10 +431,10 @@ void theory_str::add_cut_info_one_node(expr * baseNode, int slevel, expr * node)
                 cut_vars_map_copy(varInfo->vars, cut_var_map[baseNode].top()->vars);
                 varInfo->vars[node] = 1;
                 cut_var_map[baseNode].push(varInfo);
-                TRACE("t_str_cut_var_map", tout << "add var info for baseNode=" << mk_pp(baseNode, get_manager()) << ", node=" << mk_pp(node, get_manager()) << std::endl;);
+                TRACE("t_str_cut_var_map", tout << "add var info for baseNode=" << mk_pp(baseNode, get_manager()) << ", node=" << mk_pp(node, get_manager()) << " [" << slevel << "]" << std::endl;);
             } else if (cut_var_map[baseNode].top()->level == slevel) {
                 cut_var_map[baseNode].top()->vars[node] = 1;
-                TRACE("t_str_cut_var_map", tout << "add var info for baseNode=" << mk_pp(baseNode, get_manager()) << ", node=" << mk_pp(node, get_manager()) << std::endl;);
+                TRACE("t_str_cut_var_map", tout << "add var info for baseNode=" << mk_pp(baseNode, get_manager()) << ", node=" << mk_pp(node, get_manager()) << " [" << slevel << "]" << std::endl;);
             } else {
                 get_manager().raise_exception("entered illegal state during add_cut_info_one_node()");
             }
@@ -460,7 +460,7 @@ void theory_str::add_cut_info_merge(expr * destNode, int slevel, expr * srcNode)
         cut_vars_map_copy(varInfo->vars, cut_var_map[srcNode].top()->vars);
         cut_var_map.insert(destNode, std::stack<T_cut*>());
         cut_var_map[destNode].push(varInfo);
-        TRACE("t_str_cut_var_map", tout << "merge var info for destNode=" << mk_pp(destNode, get_manager()) << ", srcNode=" << mk_pp(srcNode, get_manager()) << std::endl;);
+        TRACE("t_str_cut_var_map", tout << "merge var info for destNode=" << mk_pp(destNode, get_manager()) << ", srcNode=" << mk_pp(srcNode, get_manager()) << " [" << slevel << "]" << std::endl;);
     } else {
         if (cut_var_map[destNode].empty() || cut_var_map[destNode].top()->level < slevel) {
             T_cut * varInfo = alloc(T_cut);
@@ -468,10 +468,10 @@ void theory_str::add_cut_info_merge(expr * destNode, int slevel, expr * srcNode)
             cut_vars_map_copy(varInfo->vars, cut_var_map[destNode].top()->vars);
             cut_vars_map_copy(varInfo->vars, cut_var_map[srcNode].top()->vars);
             cut_var_map[destNode].push(varInfo);
-            TRACE("t_str_cut_var_map", tout << "merge var info for destNode=" << mk_pp(destNode, get_manager()) << ", srcNode=" << mk_pp(srcNode, get_manager()) << std::endl;);
+            TRACE("t_str_cut_var_map", tout << "merge var info for destNode=" << mk_pp(destNode, get_manager()) << ", srcNode=" << mk_pp(srcNode, get_manager()) << " [" << slevel << "]" << std::endl;);
         } else if (cut_var_map[destNode].top()->level == slevel) {
             cut_vars_map_copy(cut_var_map[destNode].top()->vars, cut_var_map[srcNode].top()->vars);
-            TRACE("t_str_cut_var_map", tout << "merge var info for destNode=" << mk_pp(destNode, get_manager()) << ", srcNode=" << mk_pp(srcNode, get_manager()) << std::endl;);
+            TRACE("t_str_cut_var_map", tout << "merge var info for destNode=" << mk_pp(destNode, get_manager()) << ", srcNode=" << mk_pp(srcNode, get_manager()) << " [" << slevel << "]" << std::endl;);
         } else {
             get_manager().raise_exception("illegal state in add_cut_info_merge(): inconsistent slevels");
         }
@@ -4221,7 +4221,7 @@ void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
     } else {
         loopDetected = true;
         TRACE("t_str", tout << "AVOID LOOP: SKIPPED." << std::endl;);
-        // TODO printCutVAR(m, y)
+        TRACE("t_str", print_cut_var(m, tout); print_cut_var(y, tout););
     }
 
     for (std::list<int>::iterator itor = overlapLen.begin(); itor != overlapLen.end(); itor++) {
@@ -6985,8 +6985,10 @@ void theory_str::pop_scope_eh(unsigned num_scopes) {
 
     obj_map<expr, std::stack<T_cut *> >::iterator varItor = cut_var_map.begin();
     while (varItor != cut_var_map.end()) {
+        expr * e = varItor->m_key;
     	std::stack<T_cut*> & val = cut_var_map[varItor->m_key];
         while ((val.size() > 0) && (val.top()->level != 0) && (val.top()->level >= sLevel)) {
+            TRACE("t_str_cut_var_map", tout << "remove cut info for " << mk_pp(e, m) << std::endl; print_cut_var(e, tout););
             T_cut * aCut = val.top();
             val.pop();
             // dealloc(aCut); // TODO find a safer way to do this, it is causing a crash
