@@ -44,15 +44,21 @@ namespace System.Diagnostics.Contracts
 
     public static class Contract
     {
+        [Conditional("false")]
         public static void Ensures(bool b) { }
+        [Conditional("false")]
         public static void Requires(bool b) { }
+        [Conditional("false")]
         public static void Assume(bool b, string msg) { }
+        [Conditional("false")]
         public static void Assert(bool b) { }
         public static bool ForAll(bool b) { return true; }
         public static bool ForAll(Object c, Func<Object, bool> p) { return true; }
         public static bool ForAll(int from, int to, Predicate<int> p) { return true; }
+        [Conditional("false")]
         public static void Invariant(bool b) { }
         public static T[] Result<T>() { return new T[1]; }
+        [Conditional("false")]
         public static void EndContractBlock() { }
         public static T ValueAtReturn<T>(out T v) { T[] t = new T[1]; v = t[0]; return v; }
     }

@@ -365,7 +365,7 @@ def mk_dotnet(dotnet):
     dotnet.write('        public delegate void Z3_error_handler(Z3_context c, Z3_error_code e);\n\n')
     dotnet.write('        public class LIB\n')
     dotnet.write('        {\n')
-    dotnet.write('            const string Z3_DLL_NAME = \"libz3.dll\";\n'
+    dotnet.write('            const string Z3_DLL_NAME = \"libz3\";\n'
                  '            \n')
     dotnet.write('            [DllImport(Z3_DLL_NAME, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]\n')
     dotnet.write('            public extern static void Z3_set_error_handler(Z3_context a0, Z3_error_handler a1);\n\n')
