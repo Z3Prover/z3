@@ -40,6 +40,7 @@ theory_str::theory_str(ast_manager & m, theory_str_params const & params):
         opt_DisableIntegerTheoryIntegration(false),
         opt_DeferEQCConsistencyCheck(false),
         opt_CheckVariableScope(true),
+        opt_ConcatOverlapAvoid(true),
         /* Internal setup */
         search_started(false),
         m_autil(m),
@@ -2799,6 +2800,179 @@ void theory_str::simplify_concat_equality(expr * nn1, expr * nn2) {
         return;
     }
 
+}
+
+/*
+ * Returns true if attempting to process a concat equality between lhs and rhs
+ * will result in overlapping variables (false otherwise).
+ */
+bool theory_str::will_result_in_overlap(expr * lhs, expr * rhs) {
+    ast_manager & m = get_manager();
+
+    expr_ref new_nn1(simplify_concat(lhs), m);
+    expr_ref new_nn2(simplify_concat(rhs), m);
+    app * a_new_nn1 = to_app(new_nn1);
+    app * a_new_nn2 = to_app(new_nn2);
+
+    bool n1IsConcat = is_concat(a_new_nn1);
+    bool n2IsConcat = is_concat(a_new_nn2);
+    if (!n1IsConcat && !n2IsConcat) {
+        // we simplified both sides to non-concat expressions...
+        return false;
+    }
+
+    expr * v1_arg0 = a_new_nn1->get_arg(0);
+    expr * v1_arg1 = a_new_nn1->get_arg(1);
+    expr * v2_arg0 = a_new_nn2->get_arg(0);
+    expr * v2_arg1 = a_new_nn2->get_arg(1);
+
+    TRACE("t_str_detail", tout << "checking whether " << mk_pp(new_nn1, m) << " and " << mk_pp(new_nn1, m) << " might overlap." << std::endl;);
+
+    check_and_init_cut_var(v1_arg0);
+    check_and_init_cut_var(v1_arg1);
+    check_and_init_cut_var(v2_arg0);
+    check_and_init_cut_var(v2_arg1);
+
+    //*************************************************************
+    // case 1: concat(x, y) = concat(m, n)
+    //*************************************************************
+    if (is_concat_eq_type1(new_nn1, new_nn2)) {
+        TRACE("t_str_detail", tout << "Type 1 check." << std::endl;);
+        expr * x = to_app(new_nn1)->get_arg(0);
+        expr * y = to_app(new_nn1)->get_arg(1);
+        expr * m = to_app(new_nn2)->get_arg(0);
+        expr * n = to_app(new_nn2)->get_arg(1);
+
+        // TODO is it too slow to perform length checks here to avoid false positives?
+
+        if (has_self_cut(m, y)) {
+            TRACE("t_str_detail", tout << "Possible overlap found" << std::endl; print_cut_var(m, tout); print_cut_var(y, tout););
+            return true;
+        } else if (has_self_cut(x, n)) {
+            TRACE("t_str_detail", tout << "Possible overlap found" << std::endl; print_cut_var(x, tout); print_cut_var(n, tout););
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    //*************************************************************
+    // case 2: concat(x, y) = concat(m, "str")
+    //*************************************************************
+    if (is_concat_eq_type2(new_nn1, new_nn2)) {
+        expr * x = NULL;
+        expr * y = NULL;
+        expr * strAst = NULL;
+        expr * m = NULL;
+
+        expr * v1_arg0 = to_app(new_nn1)->get_arg(0);
+        expr * v1_arg1 = to_app(new_nn1)->get_arg(1);
+        expr * v2_arg0 = to_app(new_nn2)->get_arg(0);
+        expr * v2_arg1 = to_app(new_nn2)->get_arg(1);
+
+        if (m_strutil.is_string(v1_arg1) && !m_strutil.is_string(v2_arg1)) {
+            m = v1_arg0;
+            strAst = v1_arg1;
+            x = v2_arg0;
+            y = v2_arg1;
+        } else {
+            m = v2_arg0;
+            strAst = v2_arg1;
+            x = v1_arg0;
+            y = v1_arg1;
+        }
+
+        if (has_self_cut(m, y)) {
+            TRACE("t_str_detail", tout << "Possible overlap found" << std::endl; print_cut_var(m, tout); print_cut_var(y, tout););
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    //*************************************************************
+    // case 3: concat(x, y) = concat("str", n)
+    //*************************************************************
+    if (is_concat_eq_type3(new_nn1, new_nn2)) {
+        expr * v1_arg0 = to_app(new_nn1)->get_arg(0);
+        expr * v1_arg1 = to_app(new_nn1)->get_arg(1);
+        expr * v2_arg0 = to_app(new_nn2)->get_arg(0);
+        expr * v2_arg1 = to_app(new_nn2)->get_arg(1);
+
+        expr * x = NULL;
+        expr * y = NULL;
+        expr * strAst = NULL;
+        expr * n = NULL;
+
+        if (m_strutil.is_string(v1_arg0) && !m_strutil.is_string(v2_arg0)) {
+            strAst = v1_arg0;
+            n = v1_arg1;
+            x = v2_arg0;
+            y = v2_arg1;
+        } else {
+            strAst = v2_arg0;
+            n = v2_arg1;
+            x = v1_arg0;
+            y = v1_arg1;
+        }
+        if (has_self_cut(x, n)) {
+            TRACE("t_str_detail", tout << "Possible overlap found" << std::endl; print_cut_var(x, tout); print_cut_var(n, tout););
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    //*************************************************************
+    //  case 4: concat("str1", y) = concat("str2", n)
+    //*************************************************************
+    if (is_concat_eq_type4(new_nn1, new_nn2)) {
+        // This case can never result in an overlap.
+        return false;
+    }
+
+    //*************************************************************
+    //  case 5: concat(x, "str1") = concat(m, "str2")
+    //*************************************************************
+    if (is_concat_eq_type5(new_nn1, new_nn2)) {
+        // This case can never result in an overlap.
+        return false;
+    }
+    //*************************************************************
+    //  case 6: concat("str1", y) = concat(m, "str2")
+    //*************************************************************
+    if (is_concat_eq_type6(new_nn1, new_nn2)) {
+        expr * v1_arg0 = to_app(new_nn1)->get_arg(0);
+        expr * v1_arg1 = to_app(new_nn1)->get_arg(1);
+        expr * v2_arg0 = to_app(new_nn2)->get_arg(0);
+        expr * v2_arg1 = to_app(new_nn2)->get_arg(1);
+
+        expr * str1Ast = NULL;
+        expr * y = NULL;
+        expr * m = NULL;
+        expr * str2Ast = NULL;
+
+        if (m_strutil.is_string(v1_arg0)) {
+            str1Ast = v1_arg0;
+            y = v1_arg1;
+            m = v2_arg0;
+            str2Ast = v2_arg1;
+        } else {
+            str1Ast = v2_arg0;
+            y = v2_arg1;
+            m = v1_arg0;
+            str2Ast = v1_arg1;
+        }
+        if (has_self_cut(m, y)) {
+            TRACE("t_str_detail", tout << "Possible overlap found" << std::endl; print_cut_var(m, tout); print_cut_var(y, tout););
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    TRACE("t_str_detail", tout << "warning: unrecognized concat case" << std::endl;);
+    return false;
 }
 
 /*************************************************************
@@ -6629,7 +6803,33 @@ void theory_str::handle_equality(expr * lhs, expr * rhs) {
             }
         }
         if (hasCommon == 0) {
-            simplify_concat_equality(*(eqc_concat_lhs.begin()), *(eqc_concat_rhs.begin()));
+            if (opt_ConcatOverlapAvoid) {
+                bool found = false;
+                // check each pair and take the first ones that won't immediately overlap
+                for (itor1 = eqc_concat_lhs.begin(); itor1 != eqc_concat_lhs.end() && !found; ++itor1) {
+                    expr * concat_lhs = *itor1;
+                    for (itor2 = eqc_concat_rhs.begin(); itor2 != eqc_concat_rhs.end() && !found; ++itor2) {
+                        expr * concat_rhs = *itor2;
+                        if (will_result_in_overlap(concat_lhs, concat_rhs)) {
+                            TRACE("t_str_detail", tout << "Concats " << mk_pp(concat_lhs, m) << " and "
+                                    << mk_pp(concat_rhs, m) << " will result in overlap; skipping." << std::endl;);
+                        } else {
+                            TRACE("t_str_detail", tout << "Concats " << mk_pp(concat_lhs, m) << " and "
+                                    << mk_pp(concat_rhs, m) << " won't overlap. Simplifying here." << std::endl;);
+                            simplify_concat_equality(concat_lhs, concat_rhs);
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+                if (!found) {
+                    TRACE("t_str_detail", tout << "All pairs of concats expected to overlap, falling back." << std::endl;);
+                    simplify_concat_equality(*(eqc_concat_lhs.begin()), *(eqc_concat_rhs.begin()));
+                }
+            } else {
+                // default behaviour
+                simplify_concat_equality(*(eqc_concat_lhs.begin()), *(eqc_concat_rhs.begin()));
+            }
         }
     }
 
