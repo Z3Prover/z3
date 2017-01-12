@@ -113,16 +113,19 @@ namespace smt {
         }
 
         virtual void pop_core(unsigned n) {
-            unsigned lvl = m_scopes.size();
-            SASSERT(n <= lvl);
-            unsigned new_lvl = lvl - n;
-            unsigned old_sz = m_scopes[new_lvl];
-            for (unsigned i = m_assumptions.size() - 1; i >= old_sz; i--) {
-                expr * key = m_assumptions[i].get();
-                SASSERT(m_name2assertion.contains(key));
-                expr * value = m_name2assertion.find(key);
-                m.dec_ref(value);
-                m_name2assertion.erase(key);
+            unsigned cur_sz = m_assumptions.size();
+            if (n > 0 && cur_sz > 0) {
+                unsigned lvl = m_scopes.size();
+                SASSERT(n <= lvl);
+                unsigned new_lvl = lvl - n;
+                unsigned old_sz = m_scopes[new_lvl];
+                for (unsigned i = cur_sz - 1; i >= old_sz; i--) {
+                    expr * key = m_assumptions[i].get();
+                    SASSERT(m_name2assertion.contains(key));
+                    expr * value = m_name2assertion.find(key);
+                    m.dec_ref(value);
+                    m_name2assertion.erase(key);
+                }
             }
             m_context.pop(n);
         }
