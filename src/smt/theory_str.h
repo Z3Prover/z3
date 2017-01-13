@@ -180,6 +180,14 @@ namespace smt {
          */
         bool opt_CheckVariableScope;
 
+        /*
+         * If ConcatOverlapAvoid is set to true,
+         * the check to simplify Concat = Concat in handle_equality() will
+         * avoid simplifying wrt. pairs of Concat terms that will immediately
+         * result in an overlap. (false = Z3str2 behaviour)
+         */
+        bool opt_ConcatOverlapAvoid;
+
         bool search_started;
         arith_util m_autil;
         str_util m_strutil;
@@ -349,6 +357,9 @@ namespace smt {
         void add_cut_info_one_node(expr * baseNode, int slevel, expr * node);
         void add_cut_info_merge(expr * destNode, int slevel, expr * srcNode);
         bool has_self_cut(expr * n1, expr * n2);
+
+        // for ConcatOverlapAvoid
+        bool will_result_in_overlap(expr * lhs, expr * rhs);
 
         void track_variable_scope(expr * var);
         app * mk_str_var(std::string name);
