@@ -40,18 +40,20 @@ namespace smt {
     typedef heap<bool_var_act_lt> bool_var_act_queue;
 
     struct theory_aware_act_lt {
-        // only take into account theory var priority for now
+        svector<double> const & m_activity;
         theory_var_priority_map const & m_theory_var_priority;
-        theory_aware_act_lt(theory_var_priority_map const & a):m_theory_var_priority(a) {}
+        theory_aware_act_lt(svector<double> const & act, theory_var_priority_map const & a):m_activity(act),m_theory_var_priority(a) {}
         bool operator()(bool_var v1, bool_var v2) const {
             double p_v1, p_v2;
-            // safety -- use a large negative number if some var isn't in the map
             if (!m_theory_var_priority.find(v1, p_v1)) {
-                p_v1 = -1000.0;
-            }
+  	        p_v1 = 0.0;
+	    }
             if (!m_theory_var_priority.find(v2, p_v2)) {
-                p_v2 = -1000.0;
+                p_v2 = 0.0;
             }
+	    // add clause activity
+	    p_v1 += m_activity[v1];
+	    p_v2 += m_activity[v2];
             return p_v1 > p_v2;
         }
     };
@@ -1109,7 +1111,8 @@ namespace smt {
                 m_params.m_qi_eager_threshold += start_gen;
         }
     };
-   
+
+  /*
     class theory_aware_branching_queue : public case_split_queue {
     protected:
         context & m_context;
@@ -1220,7 +1223,114 @@ namespace smt {
             m_base_queue->display(out);
         }
     };
+  */
 
+    class theory_aware_branching_queue : public case_split_queue {
+    protected:
+        context &          m_context;
+        smt_params &       m_params;
+        theory_var_priority_map m_theory_var_priority;
+        theory_aware_act_queue m_queue;
+    public:
+        theory_aware_branching_queue(context & ctx, smt_params & p):
+            m_context(ctx),
+            m_params(p),
+	    m_theory_var_priority(),
+            m_queue(1024, theory_aware_act_lt(ctx.get_activity_vector(), m_theory_var_priority)) {
+        }
+            
+        virtual void activity_increased_eh(bool_var v) {
+            if (m_queue.contains(v))
+                m_queue.decreased(v);
+        }
+
+        virtual void mk_var_eh(bool_var v) {
+            m_queue.reserve(v+1);
+            m_queue.insert(v);
+        }
+
+        virtual void del_var_eh(bool_var v) {
+            if (m_queue.contains(v))
+                m_queue.erase(v);
+        }
+
+        virtual void unassign_var_eh(bool_var v) {
+            if (!m_queue.contains(v))
+                m_queue.insert(v);
+        }
+
+        virtual void relevant_eh(expr * n) {}
+
+        virtual void init_search_eh() {}
+
+        virtual void end_search_eh() {}
+
+        virtual void reset() {
+            m_queue.reset();
+        }
+
+        virtual void push_scope() {}
+
+        virtual void pop_scope(unsigned num_scopes) {}
+
+        virtual void next_case_split(bool_var & next, lbool & phase) {
+            phase = l_undef;
+            
+            if (m_context.get_random_value() < static_cast<int>(m_params.m_random_var_freq * random_gen::max_value())) {
+                next = m_context.get_random_value() % m_context.get_num_b_internalized(); 
+                TRACE("random_split", tout << "next: " << next << " get_assignment(next): " << m_context.get_assignment(next) << "\n";);
+                if (m_context.get_assignment(next) == l_undef)
+                    return;
+            }
+            
+            while (!m_queue.empty()) {
+                next = m_queue.erase_min();
+                if (m_context.get_assignment(next) == l_undef)
+                    return;
+            }
+            
+            next = null_bool_var;
+        }
+
+        virtual void add_theory_aware_branching_info(bool_var v, double priority, lbool phase) {
+            TRACE("theory_aware_branching", tout << "Add theory-aware branching information for l#" << v << ": priority=" << priority << std::endl;);
+            // m_theory_vars.insert(v);
+            // m_theory_var_phase.insert(v, phase);
+            m_theory_var_priority.insert(v, priority);
+	    if (m_queue.contains(v)) {
+	      if (priority > 0.0) {
+	          m_queue.decreased(v);
+	      } else {
+  		  m_queue.increased(v);
+	      }
+	    }
+            // m_theory_queue.reserve(v+1);
+            // m_theory_queue.insert(v);
+        }
+      
+        virtual void display(std::ostream & out) {
+            bool first = true;
+            bool_var_act_queue::const_iterator it  = m_queue.begin();
+            bool_var_act_queue::const_iterator end = m_queue.end();
+            for (; it != end ; ++it) {
+                unsigned v = *it;
+                if (m_context.get_assignment(v) == l_undef) {
+                    if (first) {
+                        out << "remaining case-splits:\n";
+                        first = false;
+                    }
+                    out << "#" << m_context.bool_var2expr(v)->get_id() << " ";
+                }
+            }
+            if (!first)
+                out << "\n";
+
+        }
+
+        virtual ~theory_aware_branching_queue() {};
+    };
+
+  
     case_split_queue * mk_case_split_queue(context & ctx, smt_params & p) {
         if (p.m_relevancy_lvl < 2 && (p.m_case_split_strategy == CS_RELEVANCY || p.m_case_split_strategy == CS_RELEVANCY_ACTIVITY || 
                                       p.m_case_split_strategy == CS_RELEVANCY_GOAL)) {
@@ -1235,6 +1345,10 @@ namespace smt {
 
         case_split_queue * baseQueue;
 
+	if (p.m_theory_aware_branching) {
+	  // override
+	  baseQueue = alloc(theory_aware_branching_queue, ctx, p);
+	} else {
         switch (p.m_case_split_strategy) {
         case CS_ACTIVITY_DELAY_NEW:
             baseQueue = alloc(dact_case_split_queue, ctx, p);
@@ -1255,14 +1369,9 @@ namespace smt {
             baseQueue = alloc(act_case_split_queue, ctx, p);
             break;
         }
+	}
 
-        if (p.m_theory_aware_branching) {
-            TRACE("theory_aware_branching", tout << "Allocating and returning theory-aware branching queue." << std::endl;);
-            case_split_queue * theory_aware_queue = alloc(theory_aware_branching_queue, ctx, p, baseQueue);
-            return theory_aware_queue;
-        } else {
-            return baseQueue;
-        }
+	return baseQueue;
     }
 
 };

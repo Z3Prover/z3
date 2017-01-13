@@ -3085,7 +3085,7 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
 
             expr_ref option1(mk_and(and_item), mgr);
             arrangement_disjunction.push_back(option1);
-            add_theory_aware_branching_info(option1, 0.0, l_true);
+            add_theory_aware_branching_info(option1, 0.1, l_true);
 
             add_cut_info_merge(t1, ctx.get_scope_level(), m);
             add_cut_info_merge(t1, ctx.get_scope_level(), y);
@@ -3122,7 +3122,7 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
 
             expr_ref option2(mk_and(and_item), mgr);
             arrangement_disjunction.push_back(option2);
-            add_theory_aware_branching_info(option2, 0.0, l_true);
+            add_theory_aware_branching_info(option2, 0.1, l_true);
 
             add_cut_info_merge(t2, ctx.get_scope_level(), x);
             add_cut_info_merge(t2, ctx.get_scope_level(), n);
@@ -3143,7 +3143,7 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
             expr_ref option3(mk_and(and_item), mgr);
             arrangement_disjunction.push_back(option3);
             // prioritize this case, it is easier
-            add_theory_aware_branching_info(option3, 2.0, l_true);
+            add_theory_aware_branching_info(option3, 0.5, l_true);
         }
 
         if (!arrangement_disjunction.empty()) {
@@ -3455,7 +3455,7 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 
 				expr_ref option1(mk_and(and_item), mgr);
 				arrangement_disjunction.push_back(option1);
-				add_theory_aware_branching_info(option1, 0.0, l_true);
+				add_theory_aware_branching_info(option1, 0.1, l_true);
 				add_cut_info_merge(temp1, ctx.get_scope_level(), y);
 				add_cut_info_merge(temp1, ctx.get_scope_level(), m);
 			} else {
@@ -3482,9 +3482,9 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 				double priority;
 				// prioritize the option where y is equal to the original string
 				if (i == 0) {
-				    priority = 2.0;
+				    priority = 0.5;
 				} else {
-				    priority = 0.0;
+				    priority = 0.1;
 				}
 				add_theory_aware_branching_info(option2, priority, l_true);
 			}
@@ -3787,9 +3787,9 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
                 arrangement_disjunction.push_back(option1);
                 double priority;
                 if (i == (int)strValue.size()) {
-                    priority = 1.0;
+                    priority = 0.5;
                 } else {
-                    priority = 0.0;
+                    priority = 0.1;
                 }
                 add_theory_aware_branching_info(option1, priority, l_true);
             }
@@ -3815,7 +3815,7 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
 
                 expr_ref option2(mk_and(and_item), mgr);
                 arrangement_disjunction.push_back(option2);
-                add_theory_aware_branching_info(option2, 0.0, l_true);
+                add_theory_aware_branching_info(option2, 0.1, l_true);
 
                 add_cut_info_merge(temp1, sLevel, x);
                 add_cut_info_merge(temp1, sLevel, n);
@@ -4217,7 +4217,7 @@ void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
 
         expr_ref option1(mk_and(and_item), mgr);
         arrangement_disjunction.push_back(option1);
-        add_theory_aware_branching_info(option1, 0.0, l_true);
+        add_theory_aware_branching_info(option1, 0.1, l_true);
     } else {
         loopDetected = true;
         TRACE("t_str", tout << "AVOID LOOP: SKIPPED." << std::endl;);
@@ -4255,9 +4255,9 @@ void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
         double priority;
         // prefer the option "str1" = x
         if (prefix == str1Value) {
-            priority = 1.0;
+            priority = 0.5;
         } else {
-            priority = 0.0;
+            priority = 0.1;
         }
         add_theory_aware_branching_info(option2, priority, l_true);
     }
@@ -9333,10 +9333,10 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 		double priority;
 		// give high priority to small lengths if this is available
 		if (i <= 5) {
-		    priority = 3.0;
+		    priority = 0.3;
 		} else {
 		    // prioritize over "more"
-		    priority = 0.5;
+		    priority = 0.2;
 		}
 		add_theory_aware_branching_info(or_expr, priority, l_true);
 
@@ -9356,7 +9356,7 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 	expr_ref more_option(ctx.mk_eq_atom(indicator, mk_string("more")), m);
 	orList.push_back(more_option);
 	// decrease priority of this option
-	add_theory_aware_branching_info(more_option, -1.0, l_true);
+	add_theory_aware_branching_info(more_option, -0.1, l_true);
 	if (m_params.m_AggressiveLengthTesting) {
 	    literal l = mk_eq(indicator, mk_string("more"), false);
 	    ctx.mark_as_relevant(l);
