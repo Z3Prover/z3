@@ -824,6 +824,7 @@ namespace smt {
          * or some other axiom that means at least one of them must be assigned 'true'.
          */
         void mk_th_case_split(unsigned num_lits, literal * lits);
+        double get_bvar_inc() const { return m_bvar_inc; }
 
         /*
          * Provide a hint to the branching heuristic about the priority of a "theory-aware literal".
