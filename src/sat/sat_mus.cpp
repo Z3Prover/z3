@@ -20,11 +20,10 @@ Notes:
 
 #include "sat_solver.h"
 #include "sat_mus.h"
-#include "sat_sls.h"
 
 namespace sat {
 
-    mus::mus(solver& s):s(s), m_is_active(false), m_best_value(0), m_restart(0), m_max_restarts(0) {}
+    mus::mus(solver& s):s(s), m_is_active(false),m_restart(0), m_max_restarts(0) {}
 
     mus::~mus() {}
    
@@ -32,7 +31,6 @@ namespace sat {
         m_core.reset();
         m_mus.reset();
         m_model.reset();
-        m_best_value = 0;
         m_max_restarts = (s.m_stats.m_restart - m_restart) + 10;
         m_restart = s.m_stats.m_restart;
     }
@@ -45,21 +43,13 @@ namespace sat {
     }
 
     void mus::update_model() {
-        double new_value = s.m_wsls.evaluate_model(s.m_model);
         if (m_model.empty()) {
             m_model.append(s.m_model);
-            m_best_value = new_value;
-        }
-        else if (m_best_value > new_value) {
-            m_model.reset();
-            m_model.append(s.m_model);
-            m_best_value = new_value;
         }
     }
 
     lbool mus::operator()() {
         flet<bool> _disable_min(s.m_config.m_core_minimize, false);
-        flet<bool> _disable_opt(s.m_config.m_optimize_model, false);
         flet<bool> _is_active(m_is_active, true);
         IF_VERBOSE(3, verbose_stream() << "(sat.mus " << s.get_core() << ")\n";);
         reset();
@@ -120,9 +110,6 @@ namespace sat {
                 SASSERT(value_at(lit, s.get_model()) == l_false);
                 mus.push_back(lit);
                 update_model();
-                if (!core.empty()) {
-                    // mr(); // TBD: measure
-                }
                 break;
             }
             case l_false:
@@ -262,27 +249,5 @@ namespace sat {
         IF_VERBOSE(3, verbose_stream() << "core verification: " << is_sat << " " << core << "\n";);
     }
 
-    void mus::mr() {
-        sls sls(s);
-        literal_vector tabu;
-        tabu.append(m_mus);
-        tabu.append(m_core);
-        bool reuse_model = false;
-        for (unsigned i = m_mus.size(); i < tabu.size(); ++i) {
-            tabu[i] = ~tabu[i];
-            lbool is_sat = sls(tabu.size(), tabu.c_ptr(), reuse_model); 
-            tabu[i] = ~tabu[i];
-            if (is_sat == l_true) {
-                m_mus.push_back(tabu[i]);
-                m_core.erase(tabu[i]);
-                IF_VERBOSE(3, verbose_stream() << "in core " << tabu[i] << "\n";);
-                reuse_model = true;
-            }
-            else {
-                IF_VERBOSE(3, verbose_stream() << "NOT in core " << tabu[i] << "\n";);
-                reuse_model = false;
-            }
-        }
-    }
 }
 

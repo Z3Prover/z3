@@ -302,17 +302,7 @@ public:
     }
 
     lbool check_sat(unsigned sz, expr* const* asms) {
-        if (m_st == s_primal_dual && m_c.sat_enabled()) {
-            rational max_weight = m_upper;
-            vector<rational> weights;
-            for (unsigned i = 0; i < sz; ++i) {
-                weights.push_back(get_weight(asms[i]));
-            }
-            return inc_sat_check_sat(s(), sz, asms, weights.c_ptr(), max_weight);
-        }
-        else {
-            return s().check_sat(sz, asms);
-        }
+        return s().check_sat(sz, asms);        
     }
 
     void found_optimum() {

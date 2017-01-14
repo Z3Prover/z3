@@ -20,7 +20,6 @@ Revision History:
 #include"sat_integrity_checker.h"
 #include"luby.h"
 #include"trace.h"
-#include"sat_bceq.h"
 #include"max_cliques.h"
 
 // define to update glue during propagation
@@ -42,7 +41,6 @@ namespace sat {
         m_asymm_branch(*this, p),
         m_probing(*this, p),
         m_mus(*this),
-        m_wsls(*this),
         m_inconsistent(false),
         m_num_frozen(0),
         m_activity_inc(128),
@@ -55,7 +53,6 @@ namespace sat {
         m_conflicts               = 0;
         m_next_simplify           = 0;
         m_num_checkpoints         = 0;
-        m_initializing_preferred  = false;
     }
 
     solver::~solver() {
@@ -713,7 +710,7 @@ namespace sat {
     // Search
     //
     // -----------------------
-    lbool solver::check(unsigned num_lits, literal const* lits, double const* weights, double max_weight) {
+    lbool solver::check(unsigned num_lits, literal const* lits) {
         pop_to_base_level();
         IF_VERBOSE(2, verbose_stream() << "(sat.sat-solver)\n";);
         SASSERT(scope_lvl() == 0);
@@ -728,7 +725,7 @@ namespace sat {
             init_search();
             propagate(false);
             if (inconsistent()) return l_false;
-            init_assumptions(num_lits, lits, weights, max_weight);
+            init_assumptions(num_lits, lits);
             propagate(false);
             if (check_inconsistent()) return l_false;
             cleanup();
@@ -914,12 +911,11 @@ namespace sat {
         }
     }
 
-    void solver::init_assumptions(unsigned num_lits, literal const* lits, double const* weights, double max_weight) {
+    void solver::init_assumptions(unsigned num_lits, literal const* lits) {
         if (num_lits == 0 && m_user_scope_literals.empty()) {
             return;
         }
 
-    retry_init_assumptions:
         reset_assumptions();
         push();
 
@@ -943,16 +939,6 @@ namespace sat {
             assign(nlit, justification());
         }
 
-        if (weights && !inconsistent()) {
-            if (m_config.m_optimize_model) {
-                m_wsls.set_soft(num_lits, lits, weights);
-            }
-            if (!init_weighted_assumptions(num_lits, lits, weights, max_weight)) {
-                goto retry_init_assumptions;
-            }
-            return;
-        }
-
         for (unsigned i = 0; !inconsistent() && i < num_lits; ++i) {
             literal lit = lits[i];
             SASSERT(is_external(lit.var()));
@@ -960,109 +946,6 @@ namespace sat {
             assign(lit, justification());
         }
     }
-
-
-    bool solver::init_weighted_assumptions(unsigned num_lits, literal const* lits, double const* weights, double max_weight) {
-        flet<bool> _min1(m_config.m_core_minimize, false);
-        m_weight = 0;
-        m_blocker.reset();
-        svector<lbool> values;
-        unsigned num_cores = 0;
-        for (unsigned i = 0; !inconsistent() && i < num_lits; ++i) {
-            literal lit = lits[i];
-            SASSERT(is_external(lit.var()));
-            TRACE("sat", tout << "propagate: " << lit << " " << value(lit) << "\n";);
-            SASSERT(m_scope_lvl == 1);
-            add_assumption(lit);
-            switch(value(lit)) {
-            case l_undef:
-                values.push_back(l_true);
-                assign(lit, justification());
-                if (num_cores*2 >= num_lits) {
-                    break;
-                }
-                propagate(false);
-                if (inconsistent()) {
-                    flet<bool> _init(m_initializing_preferred, true);
-                    while (inconsistent()) {
-                        if (!resolve_conflict()) {
-                            return true;
-                        }
-                        propagate(true);
-                    }
-                    if (m_scope_lvl == 0) {
-                        return false;
-                    }
-                    // backjump to last consistent assumption:
-                    unsigned j;
-                    m_weight = 0;
-                    m_blocker.reset();
-                    for (j = 0; j < i && value(lits[j]) == values[j]; ++j) {
-                        if (values[j] == l_false) {
-                            m_weight += weights[j];
-                            m_blocker.push_back(lits[j]);
-                        }
-                    }
-                    SASSERT(value(lits[j]) != values[j]);
-                    SASSERT(j <= i);
-                    SASSERT(j == 0 || value(lits[j-1]) == values[j-1]);
-                    for (unsigned k = i; k >= j; --k)  {
-                        if (is_assumption(lits[k])) {
-                            pop_assumption();
-                        }
-                    }
-                    values.resize(j);
-                    TRACE("sat", tout << "backjump " << (i - j + 1) << " steps " << num_cores << "\n";);
-                    i = j - 1;
-                }
-                break;
-
-            case l_false:
-                ++num_cores;
-                values.push_back(l_false);
-                SASSERT(!inconsistent());
-                set_conflict(justification(), ~lit);
-                m_conflict_lvl = scope_lvl();
-                resolve_conflict_for_unsat_core();
-                IF_VERBOSE(3, verbose_stream() << "(sat.core: " << m_core << ")\n";);
-                update_min_core();
-                SASSERT(m_min_core_valid);
-                m_weight += weights[i];
-                if (m_weight <= max_weight) {
-                    m_blocker.push_back(lit);
-                }
-                TRACE("sat", tout << "core: " << m_core << "\nassumptions: " << m_assumptions << "\n";);
-                SASSERT(m_core.size() <= m_assumptions.size());
-                SASSERT(m_assumptions.size() <= i+1);
-                if (m_core.size() <= 3) {
-                    m_inconsistent = true;
-                    TRACE("opt", tout << "found small core: " << m_core << "\n";);
-                    IF_VERBOSE(11, verbose_stream() << "(sat.core: " << m_core << ")\n";);
-                    return true;
-                }
-                pop_assumption();
-                m_inconsistent = false;
-                break;
-            case l_true:
-                values.push_back(l_true);
-                SASSERT(m_justification[lit.var()].get_kind() != justification::NONE || lvl(lit) == 0);
-                break;
-            }
-        }
-        TRACE("sat", tout << "initialized\n";);
-        IF_VERBOSE(11, verbose_stream() << "(sat.blocker: " << m_blocker << "\nCore: " << m_min_core << ")\n";);
-        if (m_weight >= max_weight) {
-            // block the current correction set candidate.
-            ++m_stats.m_blocked_corr_sets;
-            TRACE("opt", tout << "blocking soft correction set: " << m_blocker << "\n";);
-            IF_VERBOSE(11, verbose_stream() << "blocking " << m_blocker << "\n";);
-            pop_to_base_level();
-            mk_clause_core(m_blocker);
-            return false;
-        }
-        return true;
-    }
-
 
 
     void solver::update_min_core() {
@@ -1148,11 +1031,6 @@ namespace sat {
         m_min_core_valid = false;
         m_min_core.reset();
         TRACE("sat", display(tout););
-
-        if (m_config.m_bcd) {
-            bceq bc(*this);
-            bc();
-        }
     }
 
     /**
@@ -1244,9 +1122,6 @@ namespace sat {
                 m_model[v] = value(v);
         }
         TRACE("sat_mc_bug", m_mc.display(tout););
-        if (m_config.m_optimize_model) {
-            m_wsls.opt(0, 0, false);
-        }
         m_mc(m_model);
         TRACE("sat", for (bool_var v = 0; v < num; v++) tout << v << ": " << m_model[v] << "\n";);
 
@@ -1673,10 +1548,6 @@ namespace sat {
               if (m_not_l == literal()) tout << "null literal\n";
               else tout << m_not_l << "\n";);
 
-        if (m_initializing_preferred) {
-            SASSERT(m_conflict_lvl <= 1);
-            return resolve_conflict_for_init();
-        }
         if (m_conflict_lvl <= 1 && tracking_assumptions()) {
             resolve_conflict_for_unsat_core();
             return false;
@@ -3184,10 +3055,10 @@ namespace sat {
         if (asms.empty()) {
             bool_var v = mk_var(true, false);
             literal lit(v, false);
-            init_assumptions(1, &lit, 0, 0);
+            init_assumptions(1, &lit);
         }
         else {
-            init_assumptions(asms.size(), asms.c_ptr(), 0, 0);
+            init_assumptions(asms.size(), asms.c_ptr());
         }
         propagate(false);
         if (check_inconsistent()) return l_false;
@@ -3249,10 +3120,10 @@ namespace sat {
         if (asms.empty()) {
             bool_var v = mk_var(true, false);
             literal lit(v, false);
-            init_assumptions(1, &lit, 0, 0);
+            init_assumptions(1, &lit);
         }
         else {
-            init_assumptions(asms.size(), asms.c_ptr(), 0, 0);
+            init_assumptions(asms.size(), asms.c_ptr());
         }
         propagate(false);
         if (check_inconsistent()) return l_false;

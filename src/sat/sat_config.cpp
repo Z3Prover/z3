@@ -111,8 +111,6 @@ namespace sat {
         m_minimize_lemmas = p.minimize_lemmas();
         m_core_minimize   = p.core_minimize();
         m_core_minimize_partial   = p.core_minimize_partial();
-        m_optimize_model  = p.optimize_model();
-        m_bcd             = p.bcd();
         m_dyn_sub_res     = p.dyn_sub_res();
     }
 
