@@ -1231,14 +1231,17 @@ namespace smt {
         smt_params &       m_params;
         theory_var_priority_map m_theory_var_priority;
         theory_aware_act_queue m_queue;
+
+        int_hashtable<int_hash, default_eq<bool_var> > m_theory_vars;
+        map<bool_var, lbool, int_hash, default_eq<bool_var> > m_theory_var_phase;
     public:
         theory_aware_branching_queue(context & ctx, smt_params & p):
             m_context(ctx),
             m_params(p),
-	    m_theory_var_priority(),
+            m_theory_var_priority(),
             m_queue(1024, theory_aware_act_lt(ctx.get_activity_vector(), m_theory_var_priority)) {
         }
-            
+
         virtual void activity_increased_eh(bool_var v) {
             if (m_queue.contains(v))
                 m_queue.decreased(v);
@@ -1275,39 +1278,44 @@ namespace smt {
 
         virtual void next_case_split(bool_var & next, lbool & phase) {
             phase = l_undef;
-            
+
             if (m_context.get_random_value() < static_cast<int>(m_params.m_random_var_freq * random_gen::max_value())) {
                 next = m_context.get_random_value() % m_context.get_num_b_internalized(); 
                 TRACE("random_split", tout << "next: " << next << " get_assignment(next): " << m_context.get_assignment(next) << "\n";);
                 if (m_context.get_assignment(next) == l_undef)
                     return;
             }
-            
+
             while (!m_queue.empty()) {
                 next = m_queue.erase_min();
                 if (m_context.get_assignment(next) == l_undef)
                     return;
             }
-            
+
             next = null_bool_var;
+            if (m_theory_vars.contains(next)) {
+                if (!m_theory_var_phase.find(next, phase)) {
+                    phase = l_undef;
+                }
+            }
         }
 
         virtual void add_theory_aware_branching_info(bool_var v, double priority, lbool phase) {
             TRACE("theory_aware_branching", tout << "Add theory-aware branching information for l#" << v << ": priority=" << priority << std::endl;);
-            // m_theory_vars.insert(v);
-            // m_theory_var_phase.insert(v, phase);
+            m_theory_vars.insert(v);
+            m_theory_var_phase.insert(v, phase);
             m_theory_var_priority.insert(v, priority);
-	    if (m_queue.contains(v)) {
-	      if (priority > 0.0) {
-	          m_queue.decreased(v);
-	      } else {
-  		  m_queue.increased(v);
-	      }
-	    }
+            if (m_queue.contains(v)) {
+                if (priority > 0.0) {
+                    m_queue.decreased(v);
+                } else {
+                    m_queue.increased(v);
+                }
+            }
             // m_theory_queue.reserve(v+1);
             // m_theory_queue.insert(v);
         }
-      
+
         virtual void display(std::ostream & out) {
             bool first = true;
             bool_var_act_queue::const_iterator it  = m_queue.begin();
@@ -1330,15 +1338,15 @@ namespace smt {
         virtual ~theory_aware_branching_queue() {};
     };
 
-  
+
     case_split_queue * mk_case_split_queue(context & ctx, smt_params & p) {
         if (p.m_relevancy_lvl < 2 && (p.m_case_split_strategy == CS_RELEVANCY || p.m_case_split_strategy == CS_RELEVANCY_ACTIVITY || 
-                                      p.m_case_split_strategy == CS_RELEVANCY_GOAL)) {
+                p.m_case_split_strategy == CS_RELEVANCY_GOAL)) {
             warning_msg("relevancy must be enabled to use option CASE_SPLIT=3, 4 or 5");
             p.m_case_split_strategy = CS_ACTIVITY;
         }
         if (p.m_auto_config && (p.m_case_split_strategy == CS_RELEVANCY || p.m_case_split_strategy == CS_RELEVANCY_ACTIVITY || 
-                                p.m_case_split_strategy == CS_RELEVANCY_GOAL)) {
+                p.m_case_split_strategy == CS_RELEVANCY_GOAL)) {
             warning_msg("auto configuration (option AUTO_CONFIG) must be disabled to use option CASE_SPLIT=3, 4 or 5");
             p.m_case_split_strategy = CS_ACTIVITY;
         }
