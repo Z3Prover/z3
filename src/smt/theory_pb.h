@@ -365,6 +365,7 @@ namespace smt {
         // Conflict resolution, cutting plane derivation.
         // 
         unsigned          m_num_marks;
+        unsigned_vector   m_resolved;
         unsigned          m_conflict_lvl;
         svector<int>      m_coeffs;
         svector<bool_var> m_active_coeffs;
@@ -379,7 +380,10 @@ namespace smt {
         bool resolve_conflict(card& c, literal_vector const& conflict_clause);
         void process_antecedent(literal l, int offset);
         void process_card(card& c, int offset);
+        void cut();
         bool is_proof_justification(justification const& j) const;
+
+        void validate_lemma();
 
         void hoist_maximal_values();
 
