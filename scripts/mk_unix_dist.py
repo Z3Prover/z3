@@ -27,6 +27,7 @@ DOTNET_KEY_FILE=None
 JAVA_ENABLED=True
 GIT_HASH=False
 PYTHON_ENABLED=True
+MAKEJOBS=getenv("MAKEJOBS", '8')
 
 def set_verbose(flag):
     global VERBOSE
@@ -139,7 +140,7 @@ class cd:
 def mk_z3():
     with cd(BUILD_DIR):
         try:
-            return subprocess.call(['make', '-j', '8'])
+            return subprocess.call(['make', '-j', MAKEJOBS])
         except:
             return 1
 
