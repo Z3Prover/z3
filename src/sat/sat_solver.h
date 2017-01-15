@@ -184,11 +184,9 @@ namespace sat {
         void mk_bin_clause(literal l1, literal l2, bool learned);
         bool propagate_bin_clause(literal l1, literal l2);
         clause * mk_ter_clause(literal * lits, bool learned);
-        void attach_ter_clause(clause & c, bool & reinit);
-        void attach_ter_clause(clause & c) { bool reinit; attach_ter_clause(c, reinit); }
+        bool attach_ter_clause(clause & c);
         clause * mk_nary_clause(unsigned num_lits, literal * lits, bool learned);
-        void attach_nary_clause(clause & c, bool & reinit);
-        void attach_nary_clause(clause & c) { bool reinit; attach_nary_clause(c, reinit); }
+        bool attach_nary_clause(clause & c);
         void attach_clause(clause & c, bool & reinit);
         void attach_clause(clause & c) { bool reinit; attach_clause(c, reinit); }
         unsigned select_watch_lit(clause const & cls, unsigned starting_at) const;

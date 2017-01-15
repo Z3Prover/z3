@@ -180,7 +180,7 @@ namespace smt {
 
     final_check_status theory_wmaxsat::final_check_eh() {
         if (m_normalize) normalize();
-        // std::cout << "cost: " << m_zcost << " min cost: " << m_zmin_cost << "\n";
+        TRACE("opt", tout << "cost: " << m_zcost << " min cost: " << m_zmin_cost << "\n";);
         return FC_DONE;
     }
 

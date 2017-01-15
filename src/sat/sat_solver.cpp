@@ -211,7 +211,7 @@ namespace sat {
         if (propagate_bin_clause(l1, l2)) {
             if (scope_lvl() == 0)
                 return;
-            if (!learned)
+            if (!learned) 
                 m_clauses_to_reinit.push_back(clause_wrapper(l1, l2));
         }
         m_stats.m_mk_bin_clause++;
@@ -234,19 +234,18 @@ namespace sat {
     }
 
     void solver::push_reinit_stack(clause & c) {
+        TRACE("sat_reinit", tout << "adding to reinit stack: " << c << "\n";);
         m_clauses_to_reinit.push_back(clause_wrapper(c));
-        c.set_reinit_stack(true);
+        c.set_reinit_stack(true);    
     }
+
 
     clause * solver::mk_ter_clause(literal * lits, bool learned) {
         m_stats.m_mk_ter_clause++;
         clause * r = m_cls_allocator.mk_clause(3, lits, learned);
-        bool reinit;
-        attach_ter_clause(*r, reinit);
-        if (!learned && reinit) {
-            TRACE("sat_reinit", tout << "adding to reinit stack: " << *r << "\n";);
-            push_reinit_stack(*r);
-        }
+        bool reinit = attach_ter_clause(*r);
+        if (reinit && !learned) push_reinit_stack(*r);
+        
         if (learned)
             m_learned.push_back(r);
         else
@@ -254,8 +253,8 @@ namespace sat {
         return r;
     }
 
-    void solver::attach_ter_clause(clause & c, bool & reinit) {
-        reinit = false;
+    bool solver::attach_ter_clause(clause & c) {
+        bool reinit = false;
         m_watches[(~c[0]).index()].push_back(watched(c[1], c[2]));
         m_watches[(~c[1]).index()].push_back(watched(c[0], c[2]));
         m_watches[(~c[2]).index()].push_back(watched(c[0], c[1]));
@@ -276,18 +275,15 @@ namespace sat {
                 reinit = true;
             }
         }
+        return reinit;
     }
 
     clause * solver::mk_nary_clause(unsigned num_lits, literal * lits, bool learned) {
         m_stats.m_mk_clause++;
         clause * r = m_cls_allocator.mk_clause(num_lits, lits, learned);
         SASSERT(!learned || r->is_learned());
-        bool reinit;
-        attach_nary_clause(*r, reinit);
-        if (!learned && reinit) {
-            TRACE("sat_reinit", tout << "adding to reinit stack: " << *r << "\n";);
-            push_reinit_stack(*r);
-        }
+        bool reinit = attach_nary_clause(*r);
+        if (reinit && !learned) push_reinit_stack(*r);
         if (learned)
             m_learned.push_back(r);
         else
@@ -295,8 +291,8 @@ namespace sat {
         return r;
     }
 
-    void solver::attach_nary_clause(clause & c, bool & reinit) {
-        reinit = false;
+    bool solver::attach_nary_clause(clause & c) {
+        bool reinit = false;
         clause_offset cls_off = m_cls_allocator.get_offset(&c);
         if (scope_lvl() > 0) {
             if (c.is_learned()) {
@@ -325,15 +321,16 @@ namespace sat {
         literal block_lit = c[some_idx];
         m_watches[(~c[0]).index()].push_back(watched(block_lit, cls_off));
         m_watches[(~c[1]).index()].push_back(watched(block_lit, cls_off));
+        return reinit;
     }
 
     void solver::attach_clause(clause & c, bool & reinit) {
         SASSERT(c.size() > 2);
         reinit = false;
         if (c.size() == 3)
-            attach_ter_clause(c, reinit);
+            reinit = attach_ter_clause(c);
         else
-            attach_nary_clause(c, reinit);
+            reinit = attach_nary_clause(c);
     }
 
     /**
