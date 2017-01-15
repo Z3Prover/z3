@@ -31,7 +31,7 @@ GIT_HASH=False
 PYTHON_ENABLED=True
 X86ONLY=False
 X64ONLY=False
-MAKEJOBS=getenv("MAKEJOBS", 24)
+MAKEJOBS=getenv("MAKEJOBS", "24")
 
 def set_verbose(flag):
     global VERBOSE
