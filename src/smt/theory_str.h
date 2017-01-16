@@ -97,8 +97,6 @@ namespace smt {
         }
     };
 
-    typedef std::pair<theory_var, theory_var> var_pair;
-
     class theory_str : public theory {
         struct T_cut
         {
@@ -189,16 +187,6 @@ namespace smt {
          * result in an overlap. (false = Z3str2 behaviour)
          */
         bool opt_ConcatOverlapAvoid;
-
-        /*
-         * If DeferredSearchOrder is set to true,
-         * certain behaviours from user_smt_theory will be emulated in order to
-         * reproduce more faithfully the search order used by Z3str2.
-         * In particular, new equalities will be saved and processed during propagate(),
-         * and asserted axioms will be deferred until the end of each propagate() step.
-         */
-        bool opt_DeferredSearchOrder;
-        svector<var_pair> m_new_eqs;
 
         bool search_started;
         arith_util m_autil;
@@ -597,10 +585,8 @@ namespace smt {
         void get_unique_non_concat_nodes(expr * node, std::set<expr*> & argSet);
         bool propagate_length_within_eqc(expr * var);
 
+        // TESTING
         void refresh_theory_var(expr * e);
-
-        // user_smt_theory search order emulation
-        void cb_new_eq(theory_var v1, theory_var v2);
 
     public:
         theory_str(ast_manager & m, theory_str_params const & params);
