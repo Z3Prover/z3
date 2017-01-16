@@ -3126,33 +3126,33 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
         // Type 0: M cuts Y.
         //   len(x) < len(m) || len(y) > len(n)
         //--------------------------------------
+        expr_ref_vector ax_l_items(mgr);
+        expr_ref_vector ax_r_items(mgr);
+
+        ax_l_items.push_back(ctx.mk_eq_atom(concatAst1, concatAst2));
+
+        expr_ref x_t1(mk_concat(x, t1), mgr);
+        expr_ref t1_n(mk_concat(t1, n), mgr);
+
+        ax_r_items.push_back(ctx.mk_eq_atom(m, x_t1));
+        ax_r_items.push_back(ctx.mk_eq_atom(y, t1_n));
+
+        if (m_len_exists && x_len_exists) {
+            ax_l_items.push_back(ctx.mk_eq_atom(mk_strlen(x), mk_int(x_len)));
+            ax_l_items.push_back(ctx.mk_eq_atom(mk_strlen(m), mk_int(m_len)));
+            rational m_sub_x = m_len - x_len;
+            ax_r_items.push_back(ctx.mk_eq_atom(mk_strlen(t1), mk_int(m_sub_x)));
+        } else {
+            ax_l_items.push_back(ctx.mk_eq_atom(mk_strlen(y), mk_int(y_len)));
+            ax_l_items.push_back(ctx.mk_eq_atom(mk_strlen(n), mk_int(n_len)));
+            rational y_sub_n = y_len - n_len;
+            ax_r_items.push_back(ctx.mk_eq_atom(mk_strlen(t1), mk_int(y_sub_n)));
+        }
+
+        expr_ref ax_l(mk_and(ax_l_items), mgr);
+        expr_ref ax_r(mk_and(ax_r_items), mgr);
+
         if (!has_self_cut(m, y)) {
-            expr_ref_vector ax_l_items(mgr);
-            expr_ref_vector ax_r_items(mgr);
-
-            ax_l_items.push_back(ctx.mk_eq_atom(concatAst1, concatAst2));
-
-            expr_ref x_t1(mk_concat(x, t1), mgr);
-            expr_ref t1_n(mk_concat(t1, n), mgr);
-
-            ax_r_items.push_back(ctx.mk_eq_atom(m, x_t1));
-            ax_r_items.push_back(ctx.mk_eq_atom(y, t1_n));
-
-            if (m_len_exists && x_len_exists) {
-                ax_l_items.push_back(ctx.mk_eq_atom(mk_strlen(x), mk_int(x_len)));
-                ax_l_items.push_back(ctx.mk_eq_atom(mk_strlen(m), mk_int(m_len)));
-                rational m_sub_x = m_len - x_len;
-                ax_r_items.push_back(ctx.mk_eq_atom(mk_strlen(t1), mk_int(m_sub_x)));
-            } else {
-                ax_l_items.push_back(ctx.mk_eq_atom(mk_strlen(y), mk_int(y_len)));
-                ax_l_items.push_back(ctx.mk_eq_atom(mk_strlen(n), mk_int(n_len)));
-                rational y_sub_n = y_len - n_len;
-                ax_r_items.push_back(ctx.mk_eq_atom(mk_strlen(t1), mk_int(y_sub_n)));
-            }
-
-            expr_ref ax_l(mk_and(ax_l_items), mgr);
-            expr_ref ax_r(mk_and(ax_r_items), mgr);
-
             // Cut Info
             add_cut_info_merge(t1, sLevel, m);
             add_cut_info_merge(t1, sLevel, y);
@@ -3165,8 +3165,14 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
             }
         } else {
             loopDetected = true;
-            TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
-            // TODO printCutVar(m, y);
+            if (m_params.m_FiniteOverlapModels) {
+                expr_ref tester = set_up_finite_model_test(concatAst1, concatAst2);
+                assert_implication(ax_l, tester);
+                add_theory_aware_branching_info(tester, -0.1, l_true);
+            } else {
+                TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
+                // TODO printCutVar(m, y);
+            }
         }
     } else if (splitType == 1) {
         // Type 1:
@@ -3179,32 +3185,32 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
     } else if (splitType == 2) {
         // Type 2: X cuts N.
         //   len(x) > len(m) || len(y) < len(n)
+        expr_ref m_t2(mk_concat(m, t2), mgr);
+        expr_ref t2_y(mk_concat(t2, y), mgr);
+
+        expr_ref_vector ax_l_items(mgr);
+        ax_l_items.push_back(ctx.mk_eq_atom(concatAst1, concatAst2));
+
+        expr_ref_vector ax_r_items(mgr);
+        ax_r_items.push_back(ctx.mk_eq_atom(x, m_t2));
+        ax_r_items.push_back(ctx.mk_eq_atom(t2_y, n));
+
+        if (m_len_exists && x_len_exists) {
+            ax_l_items.push_back(ctx.mk_eq_atom(mk_strlen(x), mk_int(x_len)));
+            ax_l_items.push_back(ctx.mk_eq_atom(mk_strlen(m), mk_int(m_len)));
+            rational x_sub_m = x_len - m_len;
+            ax_r_items.push_back(ctx.mk_eq_atom(mk_strlen(t2), mk_int(x_sub_m)));
+        } else {
+            ax_l_items.push_back(ctx.mk_eq_atom(mk_strlen(y), mk_int(y_len)));
+            ax_l_items.push_back(ctx.mk_eq_atom(mk_strlen(n), mk_int(n_len)));
+            rational n_sub_y = n_len - y_len;
+            ax_r_items.push_back(ctx.mk_eq_atom(mk_strlen(t2), mk_int(n_sub_y)));
+        }
+
+        expr_ref ax_l(mk_and(ax_l_items), mgr);
+        expr_ref ax_r(mk_and(ax_r_items), mgr);
+
         if (!has_self_cut(x, n)) {
-            expr_ref m_t2(mk_concat(m, t2), mgr);
-            expr_ref t2_y(mk_concat(t2, y), mgr);
-
-            expr_ref_vector ax_l_items(mgr);
-            ax_l_items.push_back(ctx.mk_eq_atom(concatAst1, concatAst2));
-
-            expr_ref_vector ax_r_items(mgr);
-            ax_r_items.push_back(ctx.mk_eq_atom(x, m_t2));
-            ax_r_items.push_back(ctx.mk_eq_atom(t2_y, n));
-
-            if (m_len_exists && x_len_exists) {
-                ax_l_items.push_back(ctx.mk_eq_atom(mk_strlen(x), mk_int(x_len)));
-                ax_l_items.push_back(ctx.mk_eq_atom(mk_strlen(m), mk_int(m_len)));
-                rational x_sub_m = x_len - m_len;
-                ax_r_items.push_back(ctx.mk_eq_atom(mk_strlen(t2), mk_int(x_sub_m)));
-            } else {
-                ax_l_items.push_back(ctx.mk_eq_atom(mk_strlen(y), mk_int(y_len)));
-                ax_l_items.push_back(ctx.mk_eq_atom(mk_strlen(n), mk_int(n_len)));
-                rational n_sub_y = n_len - y_len;
-                ax_r_items.push_back(ctx.mk_eq_atom(mk_strlen(t2), mk_int(n_sub_y)));
-            }
-
-            expr_ref ax_l(mk_and(ax_l_items), mgr);
-            expr_ref ax_r(mk_and(ax_r_items), mgr);
-
             // Cut Info
             add_cut_info_merge(t2, sLevel, x);
             add_cut_info_merge(t2, sLevel, n);
@@ -3217,8 +3223,14 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
             }
         } else {
             loopDetected = true;
-            TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
-            // TODO printCutVar(m, y);
+            if (m_params.m_FiniteOverlapModels) {
+                expr_ref tester = set_up_finite_model_test(concatAst1, concatAst2);
+                assert_implication(ax_l, tester);
+                add_theory_aware_branching_info(tester, -0.1, l_true);
+            } else {
+                TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
+                // TODO printCutVar(m, y);
+            }
         }
     } else if (splitType == -1) {
         // Here we don't really have a choice. We have no length information at all...
@@ -3265,12 +3277,19 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
             add_cut_info_merge(t1, ctx.get_scope_level(), y);
         } else {
             loopDetected = true;
-            TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
-            TRACE("t_str_detail", {print_cut_var(m, tout); print_cut_var(y, tout);});
+            if (m_params.m_FiniteOverlapModels) {
+                expr_ref tester = set_up_finite_model_test(concatAst1, concatAst2);
+                arrangement_disjunction.push_back(tester);
+                add_theory_aware_branching_info(tester, -0.1, l_true);
+            } else {
+                TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
+                TRACE("t_str_detail", {print_cut_var(m, tout); print_cut_var(y, tout);});
+            }
         }
 
         // break option 2:
-        // x = m || y = n
+        // x = m . t2
+        // n = t2 . y
         if (!avoidLoopCut || !has_self_cut(x, n)) {
             expr_ref_vector and_item(mgr);
             // break down option 1-2
@@ -3302,10 +3321,19 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
             add_cut_info_merge(t2, ctx.get_scope_level(), n);
         } else {
             loopDetected = true;
-            TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
-            // TODO printCutVar(x, n);
+            if (m_params.m_FiniteOverlapModels) {
+                // TODO this might repeat the case above, we may wish to avoid doing this twice
+                expr_ref tester = set_up_finite_model_test(concatAst1, concatAst2);
+                arrangement_disjunction.push_back(tester);
+                add_theory_aware_branching_info(tester, -0.1, l_true);
+            } else {
+                TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
+                // TODO printCutVar(x, n);
+            }
         }
 
+        // option 3:
+        // x = m, y = n
         if (can_two_nodes_eq(x, m) && can_two_nodes_eq(y, n)) {
             expr_ref_vector and_item(mgr);
 
@@ -3496,31 +3524,31 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
         //   |    m   |   str   |
 	    expr_ref temp1_strAst(mk_concat(temp1, strAst), mgr);
 	    if (can_two_nodes_eq(y, temp1_strAst)) {
+            expr_ref_vector l_items(mgr);
+            l_items.push_back(ctx.mk_eq_atom(concatAst1, concatAst2));
+
+            expr_ref_vector r_items(mgr);
+            expr_ref x_temp1(mk_concat(x, temp1), mgr);
+            r_items.push_back(ctx.mk_eq_atom(m, x_temp1));
+            r_items.push_back(ctx.mk_eq_atom(y, temp1_strAst));
+
+            if (x_len_exists && m_len_exists) {
+                l_items.push_back(ctx.mk_eq_atom(mk_strlen(x), mk_int(x_len)));
+                l_items.push_back(ctx.mk_eq_atom(mk_strlen(m), mk_int(m_len)));
+                rational m_sub_x = (m_len - x_len);
+                r_items.push_back(ctx.mk_eq_atom(mk_strlen(temp1), mk_int(m_sub_x)));
+            } else {
+                l_items.push_back(ctx.mk_eq_atom(mk_strlen(y), mk_int(y_len)));
+                l_items.push_back(ctx.mk_eq_atom(mk_strlen(strAst), mk_int(str_len)));
+                rational y_sub_str = (y_len - str_len);
+                r_items.push_back(ctx.mk_eq_atom(mk_strlen(temp1), mk_int(y_sub_str)));
+            }
+
+            expr_ref ax_l(mk_and(l_items), mgr);
+            expr_ref ax_r(mk_and(r_items), mgr);
+
 	        if (!avoidLoopCut || !(has_self_cut(m, y))) {
 	            // break down option 2-1
-	            expr_ref_vector l_items(mgr);
-	            l_items.push_back(ctx.mk_eq_atom(concatAst1, concatAst2));
-
-	            expr_ref_vector r_items(mgr);
-	            expr_ref x_temp1(mk_concat(x, temp1), mgr);
-	            r_items.push_back(ctx.mk_eq_atom(m, x_temp1));
-	            r_items.push_back(ctx.mk_eq_atom(y, temp1_strAst));
-
-	            if (x_len_exists && m_len_exists) {
-	                l_items.push_back(ctx.mk_eq_atom(mk_strlen(x), mk_int(x_len)));
-	                l_items.push_back(ctx.mk_eq_atom(mk_strlen(m), mk_int(m_len)));
-	                rational m_sub_x = (m_len - x_len);
-	                r_items.push_back(ctx.mk_eq_atom(mk_strlen(temp1), mk_int(m_sub_x)));
-	            } else {
-	                l_items.push_back(ctx.mk_eq_atom(mk_strlen(y), mk_int(y_len)));
-	                l_items.push_back(ctx.mk_eq_atom(mk_strlen(strAst), mk_int(str_len)));
-	                rational y_sub_str = (y_len - str_len);
-	                r_items.push_back(ctx.mk_eq_atom(mk_strlen(temp1), mk_int(y_sub_str)));
-	            }
-
-	            expr_ref ax_l(mk_and(l_items), mgr);
-	            expr_ref ax_r(mk_and(r_items), mgr);
-
 	            add_cut_info_merge(temp1, sLevel, y);
 	            add_cut_info_merge(temp1, sLevel, m);
 
@@ -3532,8 +3560,15 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 	            }
 	        } else {
 	            loopDetected = true;
-	            TRACE("t_str", tout << "AVOID LOOP: SKIP" << std::endl;);
-	            // TODO printCutVar(m, y);
+
+	            if (m_params.m_FiniteOverlapModels) {
+	                expr_ref tester = set_up_finite_model_test(concatAst1, concatAst2);
+                    assert_implication(ax_l, tester);
+                    add_theory_aware_branching_info(tester, -0.1, l_true);
+	            } else {
+	                TRACE("t_str", tout << "AVOID LOOP: SKIP" << std::endl;);
+	                // TODO printCutVar(m, y);
+	            }
 	        }
 	    }
 	} else if (splitType == 1) {
@@ -3634,8 +3669,14 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 				add_cut_info_merge(temp1, ctx.get_scope_level(), m);
 			} else {
 				loopDetected = true;
-				TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
-				// TODO printCutVar(m, y)
+				if (m_params.m_FiniteOverlapModels) {
+				    expr_ref tester = set_up_finite_model_test(concatAst1, concatAst2);
+                    arrangement_disjunction.push_back(tester);
+                    add_theory_aware_branching_info(tester, -0.1, l_true);
+				} else {
+				    TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
+				    // TODO printCutVar(m, y)
+				}
 			}
 		}
 
@@ -3921,8 +3962,14 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
                 }
             } else {
                 loopDetected = true;
-                TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
-                // TODO printCutVar(x, n);
+                if (m_params.m_FiniteOverlapModels) {
+                    expr_ref tester = set_up_finite_model_test(concatAst1, concatAst2);
+                    assert_implication(ax_l, tester);
+                    add_theory_aware_branching_info(tester, -0.1, l_true);
+                } else {
+                    TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
+                    // TODO printCutVar(x, n);
+                }
             }
         }
         //    else {
@@ -3995,8 +4042,14 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
                 add_cut_info_merge(temp1, sLevel, n);
             } else {
                 loopDetected = true;
-                TRACE("t_str", tout << "AVOID LOOP: SKIPPED." << std::endl;);
-                // TODO printCutVAR(x, n)
+                if (m_params.m_FiniteOverlapModels) {
+                    expr_ref tester = set_up_finite_model_test(concatAst1, concatAst2);
+                    arrangement_disjunction.push_back(tester);
+                    add_theory_aware_branching_info(tester, -0.1, l_true);
+                } else {
+                    TRACE("t_str", tout << "AVOID LOOP: SKIPPED." << std::endl;);
+                    // TODO printCutVAR(x, n)
+                }
             }
         }
 
@@ -4396,41 +4449,9 @@ void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
         loopDetected = true;
 
         if (m_params.m_FiniteOverlapModels) {
-            // TODO refactor this entire segment into its own method. this is really just for experiment purposes
-            TRACE("t_str", tout << "activating finite model testing for overlapping concats "
-                    << mk_pp(concatAst1, mgr) << " and " << mk_pp(concatAst2, mgr) << std::endl;);
-            std::map<expr*, int> concatMap;
-            std::map<expr*, int> unrollMap;
-            std::map<expr*, int> varMap;
-            classify_ast_by_type(concatAst1, varMap, concatMap, unrollMap);
-            classify_ast_by_type(concatAst2, varMap, concatMap, unrollMap);
-            TRACE("t_str_detail", tout << "found vars:";
-            for (std::map<expr*,int>::iterator it = varMap.begin(); it != varMap.end(); ++it) {
-                tout << " " << mk_pp(it->first, mgr);
-            }
-            tout << std::endl;
-            );
-
-            expr_ref testvar(mk_str_var("finiteModelTest"), mgr);
-            m_trail.push_back(testvar);
-            ptr_vector<expr> varlist;
-
-            for (std::map<expr*, int>::iterator it = varMap.begin(); it != varMap.end(); ++it) {
-                expr * v = it->first;
-                varlist.push_back(v);
-            }
-
-            // make things easy for the core wrt. testvar
-            expr_ref t1(ctx.mk_eq_atom(testvar, m_strutil.mk_string("")), mgr);
-            expr_ref t_yes(ctx.mk_eq_atom(testvar, m_strutil.mk_string("yes")), mgr);
-            expr_ref testvaraxiom(mgr.mk_or(t1, t_yes), mgr);
-            assert_axiom(testvaraxiom);
-
-            finite_model_test_varlists.insert(testvar, varlist);
-            m_trail_stack.push(insert_obj_map<theory_str, expr, ptr_vector<expr> >(finite_model_test_varlists, testvar) );
-
-            arrangement_disjunction.push_back(t_yes);
-            add_theory_aware_branching_info(t_yes, -0.1, l_true);
+            expr_ref tester = set_up_finite_model_test(concatAst1, concatAst2);
+            arrangement_disjunction.push_back(tester);
+            add_theory_aware_branching_info(tester, -0.1, l_true);
         } else {
             TRACE("t_str", tout << "AVOID LOOP: SKIPPED." << std::endl;);
             TRACE("t_str", print_cut_var(m, tout); print_cut_var(y, tout););
@@ -6603,6 +6624,44 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
     }
 }
 
+expr_ref theory_str::set_up_finite_model_test(expr * lhs, expr * rhs) {
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+
+    TRACE("t_str", tout << "activating finite model testing for overlapping concats "
+            << mk_pp(lhs, m) << " and " << mk_pp(rhs, m) << std::endl;);
+    std::map<expr*, int> concatMap;
+    std::map<expr*, int> unrollMap;
+    std::map<expr*, int> varMap;
+    classify_ast_by_type(lhs, varMap, concatMap, unrollMap);
+    classify_ast_by_type(rhs, varMap, concatMap, unrollMap);
+    TRACE("t_str_detail", tout << "found vars:";
+    for (std::map<expr*,int>::iterator it = varMap.begin(); it != varMap.end(); ++it) {
+        tout << " " << mk_pp(it->first, m);
+    }
+    tout << std::endl;
+    );
+
+    expr_ref testvar(mk_str_var("finiteModelTest"), m);
+    m_trail.push_back(testvar);
+    ptr_vector<expr> varlist;
+
+    for (std::map<expr*, int>::iterator it = varMap.begin(); it != varMap.end(); ++it) {
+        expr * v = it->first;
+        varlist.push_back(v);
+    }
+
+    // make things easy for the core wrt. testvar
+    expr_ref t1(ctx.mk_eq_atom(testvar, m_strutil.mk_string("")), m);
+    expr_ref t_yes(ctx.mk_eq_atom(testvar, m_strutil.mk_string("yes")), m);
+    expr_ref testvaraxiom(m.mk_or(t1, t_yes), m);
+    assert_axiom(testvaraxiom);
+
+    finite_model_test_varlists.insert(testvar, varlist);
+    m_trail_stack.push(insert_obj_map<theory_str, expr, ptr_vector<expr> >(finite_model_test_varlists, testvar) );
+    return t_yes;
+}
+
 void theory_str::finite_model_test(expr * testvar, expr * str) {
     context & ctx = get_context();
     ast_manager & m = get_manager();
@@ -6638,14 +6697,15 @@ void theory_str::finite_model_test(expr * testvar, expr * str) {
                 if (map_effectively_empty) {
                     TRACE("t_str_detail", tout << "no existing length testers for " << mk_pp(v, m) << std::endl;);
                     rational v_len;
+                    rational v_lower_bound;
+                    rational v_upper_bound;
+                    expr_ref vLengthExpr(mk_strlen(v), m);
                     if (get_len_value(v, v_len)) {
                         TRACE("t_str_detail", tout << "length = " << v_len.to_string() << std::endl;);
+                        v_lower_bound = v_len;
+                        v_upper_bound = v_len;
                     } else {
-                        expr_ref vLengthExpr(mk_strlen(v), m);
-
-                        rational v_lower_bound;
                         bool lower_bound_exists = lower_bound(vLengthExpr, v_lower_bound);
-                        rational v_upper_bound;
                         bool upper_bound_exists = upper_bound(vLengthExpr, v_upper_bound);
                         TRACE("t_str_detail", tout << "bounds = [" << (lower_bound_exists?v_lower_bound.to_string():"?")
                                 << ".." << (upper_bound_exists?v_upper_bound.to_string():"?") << "]" << std::endl;);
@@ -6672,36 +6732,36 @@ void theory_str::finite_model_test(expr * testvar, expr * str) {
                             v_lower_bound = rational::zero();
                             v_upper_bound = v_lower_bound + rational(10);
                         }
-                        // now create a fake length tester over this finite disjunction of lengths
-
-                        fvar_len_count_map[v] = 1;
-                        unsigned int testNum = fvar_len_count_map[v];
-
-                        expr_ref indicator(mk_internal_lenTest_var(v, testNum), m);
-                        SASSERT(indicator);
-                        m_trail.push_back(indicator);
-
-                        fvar_lenTester_map[v].shrink(0);
-                        fvar_lenTester_map[v].push_back(indicator);
-                        lenTester_fvar_map[indicator] = v;
-
-                        expr_ref_vector orList(m);
-                        expr_ref_vector andList(m);
-
-                        for (rational l = v_lower_bound; l <= v_upper_bound; l += rational::one()) {
-                            // TODO integrate with the enhancements in gen_len_test_options()
-                            std::string lStr = l.to_string();
-                            expr_ref str_indicator(m_strutil.mk_string(lStr), m);
-                            expr_ref or_expr(ctx.mk_eq_atom(indicator, str_indicator), m);
-                            orList.push_back(or_expr);
-                            expr_ref and_expr(ctx.mk_eq_atom(or_expr, ctx.mk_eq_atom(vLengthExpr, m_autil.mk_numeral(l, true))), m);
-                            andList.push_back(and_expr);
-                        }
-                        andList.push_back(mk_or(orList));
-                        expr_ref implLhs(ctx.mk_eq_atom(testvar, str), m);
-                        expr_ref implRhs(mk_and(andList), m);
-                        assert_implication(implLhs, implRhs);
                     }
+                    // now create a fake length tester over this finite disjunction of lengths
+
+                    fvar_len_count_map[v] = 1;
+                    unsigned int testNum = fvar_len_count_map[v];
+
+                    expr_ref indicator(mk_internal_lenTest_var(v, testNum), m);
+                    SASSERT(indicator);
+                    m_trail.push_back(indicator);
+
+                    fvar_lenTester_map[v].shrink(0);
+                    fvar_lenTester_map[v].push_back(indicator);
+                    lenTester_fvar_map[indicator] = v;
+
+                    expr_ref_vector orList(m);
+                    expr_ref_vector andList(m);
+
+                    for (rational l = v_lower_bound; l <= v_upper_bound; l += rational::one()) {
+                        // TODO integrate with the enhancements in gen_len_test_options()
+                        std::string lStr = l.to_string();
+                        expr_ref str_indicator(m_strutil.mk_string(lStr), m);
+                        expr_ref or_expr(ctx.mk_eq_atom(indicator, str_indicator), m);
+                        orList.push_back(or_expr);
+                        expr_ref and_expr(ctx.mk_eq_atom(or_expr, ctx.mk_eq_atom(vLengthExpr, m_autil.mk_numeral(l, true))), m);
+                        andList.push_back(and_expr);
+                    }
+                    andList.push_back(mk_or(orList));
+                    expr_ref implLhs(ctx.mk_eq_atom(testvar, str), m);
+                    expr_ref implRhs(mk_and(andList), m);
+                    assert_implication(implLhs, implRhs);
                 } else {
                     // TODO figure out this case
                     NOT_IMPLEMENTED_YET();

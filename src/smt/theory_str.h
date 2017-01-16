@@ -592,6 +592,7 @@ namespace smt {
         // TESTING
         void refresh_theory_var(expr * e);
 
+        expr_ref set_up_finite_model_test(expr * lhs, expr * rhs);
         void finite_model_test(expr * v, expr * c);
 
     public:
