@@ -42,23 +42,18 @@ namespace smt {
     struct theory_aware_act_lt {
         svector<double> const & m_activity;
         theory_var_priority_map const & m_theory_var_priority;
-        double const & m_bvar_inc;
-        theory_aware_act_lt(svector<double> const & act,
-                theory_var_priority_map const & a,
-                double const & bvar_inc):m_activity(act),m_theory_var_priority(a),m_bvar_inc(bvar_inc) {}
+        theory_aware_act_lt(svector<double> const & act, theory_var_priority_map const & a):m_activity(act),m_theory_var_priority(a) {}
         bool operator()(bool_var v1, bool_var v2) const {
             double p_v1, p_v2;
             if (!m_theory_var_priority.find(v1, p_v1)) {
-                p_v1 = 0.0;
-            }
-            p_v1 *= m_bvar_inc;
+  	        p_v1 = 0.0;
+	    }
             if (!m_theory_var_priority.find(v2, p_v2)) {
                 p_v2 = 0.0;
             }
-            p_v2 *= m_bvar_inc;
-            // add clause activity
-            p_v1 += m_activity[v1];
-            p_v2 += m_activity[v2];
+	    // add clause activity
+	    p_v1 += m_activity[v1];
+	    p_v2 += m_activity[v2];
             return p_v1 > p_v2;
         }
     };
@@ -1244,7 +1239,7 @@ namespace smt {
             m_context(ctx),
             m_params(p),
             m_theory_var_priority(),
-            m_queue(1024, theory_aware_act_lt(ctx.get_activity_vector(), m_theory_var_priority, ctx.get_bvar_inc())) {
+            m_queue(1024, theory_aware_act_lt(ctx.get_activity_vector(), m_theory_var_priority)) {
         }
 
         virtual void activity_increased_eh(bool_var v) {
