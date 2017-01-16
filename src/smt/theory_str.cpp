@@ -41,6 +41,7 @@ theory_str::theory_str(ast_manager & m, theory_str_params const & params):
         opt_DeferEQCConsistencyCheck(false),
         opt_CheckVariableScope(true),
         opt_ConcatOverlapAvoid(true),
+        opt_DeferredSearchOrder(true),
         /* Internal setup */
         search_started(false),
         m_autil(m),
@@ -899,7 +900,8 @@ bool theory_str::can_propagate() {
             || !m_axiom_Contains_todo.empty() || !m_axiom_Indexof_todo.empty() || !m_axiom_Indexof2_todo.empty() || !m_axiom_LastIndexof_todo.empty()
             || !m_axiom_Substr_todo.empty() || !m_axiom_Replace_todo.empty()
 			|| !m_axiom_RegexIn_todo.empty() || !m_library_aware_axiom_todo.empty()
-			|| !m_delayed_axiom_setup_terms.empty();
+			|| !m_delayed_axiom_setup_terms.empty()
+            || (opt_DeferredSearchOrder && !m_new_eqs.empty())
             ;
 }
 
@@ -1000,6 +1002,14 @@ void theory_str::propagate() {
             set_up_axioms(m_delayed_axiom_setup_terms[i].get());
         }
         m_delayed_axiom_setup_terms.reset();
+
+        if (opt_DeferredSearchOrder) {
+            for (unsigned i = 0; i < m_new_eqs.size(); ++i) {
+                var_pair & p = m_new_eqs[i];
+                cb_new_eq(p.first, p.second);
+            }
+            m_new_eqs.reset();
+        }
     }
 }
 
@@ -7062,7 +7072,15 @@ void theory_str::init_search_eh() {
     search_started = true;
 }
 
-void theory_str::new_eq_eh(theory_var x, theory_var y) {
+void theory_str::new_eq_eh(theory_var v1, theory_var v2) {
+    if (opt_DeferredSearchOrder) {
+        m_new_eqs.push_back(var_pair(v1,v2));
+    } else {
+        cb_new_eq(v1, v2);
+    }
+}
+
+void theory_str::cb_new_eq(theory_var x, theory_var y) {
     //TRACE("t_str_detail", tout << "new eq: v#" << x << " = v#" << y << std::endl;);
     TRACE("t_str", tout << "new eq: " << mk_ismt2_pp(get_enode(x)->get_owner(), get_manager()) << " = " <<
                                   mk_ismt2_pp(get_enode(y)->get_owner(), get_manager()) << std::endl;);
