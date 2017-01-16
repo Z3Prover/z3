@@ -466,7 +466,7 @@ void macro_util::normalize_expr(app * head, expr * t, expr_ref & norm_t) const {
         if (v->get_idx() > max_var_idx)
             max_var_idx = v->get_idx();
     }
-    TRACE("normalize_expr_bug",
+    TRACE("macro_util",
           tout << "head: " << mk_pp(head, m_manager) << "\n";
           tout << "applying substitution to:\n" << mk_bounded_pp(t, m_manager) << "\n";);
     for (unsigned i = 0; i < num_args; i++) {
@@ -489,7 +489,7 @@ void macro_util::normalize_expr(app * head, expr * t, expr_ref & norm_t) const {
     if (changed) {
         // REMARK: t may have nested quantifiers... So, I must use the std order for variable substitution.
         var_subst subst(m_manager, true);
-        TRACE("macro_util_bug",
+        TRACE("macro_util",
               tout << "head: " << mk_pp(head, m_manager) << "\n";
               tout << "applying substitution to:\n" << mk_ll_pp(t, m_manager) << "\nsubstitution:\n";
               for (unsigned i = 0; i < var_mapping.size(); i++) {
@@ -604,12 +604,12 @@ void hint_to_macro_head(ast_manager & m, app * head, unsigned num_decls, app_ref
    is_hint_head(head, vars) must also return true
 */
 bool macro_util::is_poly_hint(expr * n, app * head, expr * exception) {
-    TRACE("macro_util_hint", tout << "is_poly_hint n:\n" << mk_pp(n, m_manager) << "\nhead:\n" << mk_pp(head, m_manager) << "\nexception:\n";
+    TRACE("macro_util", tout << "is_poly_hint n:\n" << mk_pp(n, m_manager) << "\nhead:\n" << mk_pp(head, m_manager) << "\nexception:\n";
           if (exception) tout << mk_pp(exception, m_manager); else tout << "<null>";
           tout << "\n";);
     ptr_buffer<var> vars;
     if (!is_hint_head(head, vars)) {
-        TRACE("macro_util_hint", tout << "failed because head is not hint head\n";);
+        TRACE("macro_util", tout << "failed because head is not hint head\n";);
         return false;
     }
     func_decl * f = head->get_decl();
@@ -626,11 +626,11 @@ bool macro_util::is_poly_hint(expr * n, app * head, expr * exception) {
     for (unsigned i = 0; i < num_args; i++) {
         expr * arg = args[i];
         if (arg != exception && (occurs(f, arg) || !vars_of_is_subset(arg, vars))) {
-            TRACE("macro_util_hint", tout << "failed because of:\n" << mk_pp(arg, m_manager) << "\n";);
+            TRACE("macro_util", tout << "failed because of:\n" << mk_pp(arg, m_manager) << "\n";);
             return false;
         }
     }
-    TRACE("macro_util_hint", tout << "succeeded\n";);
+    TRACE("macro_util", tout << "succeeded\n";);
     return true;
 
 }
@@ -831,7 +831,7 @@ void macro_util::collect_arith_macro_candidates(expr * lhs, expr * rhs, expr * a
 }
 
 void macro_util::collect_arith_macro_candidates(expr * atom, unsigned num_decls, macro_candidates & r) {
-    TRACE("macro_util_hint", tout << "collect_arith_macro_candidates:\n" << mk_pp(atom, m_manager) << "\n";);
+    TRACE("macro_util", tout << "collect_arith_macro_candidates:\n" << mk_pp(atom, m_manager) << "\n";);
     if (!m_manager.is_eq(atom) && !is_le_ge(atom))
         return;
     expr * lhs = to_app(atom)->get_arg(0);
