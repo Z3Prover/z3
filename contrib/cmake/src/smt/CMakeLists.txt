@@ -43,6 +43,7 @@ z3_add_component(smt
     smt_statistics.cpp
     smt_theory.cpp
     smt_value_sort.cpp
+    smt2_extra_cmds.cpp
     theory_arith.cpp
     theory_array_base.cpp
     theory_array.cpp
