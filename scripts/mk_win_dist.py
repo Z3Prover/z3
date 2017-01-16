@@ -315,7 +315,7 @@ def main():
         init_project_def()
         mk_dist_dirs()
         cp_licenses()
-        cp_vs_runtime()
+        cp_vs_runtimes()
         mk_zip()
 
 main()
