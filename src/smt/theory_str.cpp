@@ -4394,8 +4394,47 @@ void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
         add_theory_aware_branching_info(option1, 0.1, l_true);
     } else {
         loopDetected = true;
-        TRACE("t_str", tout << "AVOID LOOP: SKIPPED." << std::endl;);
-        TRACE("t_str", print_cut_var(m, tout); print_cut_var(y, tout););
+
+        if (m_params.m_FiniteOverlapModels) {
+            // TODO refactor this entire segment into its own method. this is really just for experiment purposes
+            TRACE("t_str", tout << "activating finite model testing for overlapping concats "
+                    << mk_pp(concatAst1, mgr) << " and " << mk_pp(concatAst2, mgr) << std::endl;);
+            std::map<expr*, int> concatMap;
+            std::map<expr*, int> unrollMap;
+            std::map<expr*, int> varMap;
+            classify_ast_by_type(concatAst1, varMap, concatMap, unrollMap);
+            classify_ast_by_type(concatAst2, varMap, concatMap, unrollMap);
+            TRACE("t_str_detail", tout << "found vars:";
+            for (std::map<expr*,int>::iterator it = varMap.begin(); it != varMap.end(); ++it) {
+                tout << " " << mk_pp(it->first, mgr);
+            }
+            tout << std::endl;
+            );
+
+            expr_ref testvar(mk_str_var("finiteModelTest"), mgr);
+            m_trail.push_back(testvar);
+            ptr_vector<expr> varlist;
+
+            for (std::map<expr*, int>::iterator it = varMap.begin(); it != varMap.end(); ++it) {
+                expr * v = it->first;
+                varlist.push_back(v);
+            }
+
+            // make things easy for the core wrt. testvar
+            expr_ref t1(ctx.mk_eq_atom(testvar, m_strutil.mk_string("")), mgr);
+            expr_ref t_yes(ctx.mk_eq_atom(testvar, m_strutil.mk_string("yes")), mgr);
+            expr_ref testvaraxiom(mgr.mk_or(t1, t_yes), mgr);
+            assert_axiom(testvaraxiom);
+
+            finite_model_test_varlists.insert(testvar, varlist);
+            m_trail_stack.push(insert_obj_map<theory_str, expr, ptr_vector<expr> >(finite_model_test_varlists, testvar) );
+
+            arrangement_disjunction.push_back(t_yes);
+            add_theory_aware_branching_info(t_yes, -0.1, l_true);
+        } else {
+            TRACE("t_str", tout << "AVOID LOOP: SKIPPED." << std::endl;);
+            TRACE("t_str", print_cut_var(m, tout); print_cut_var(y, tout););
+        }
     }
 
     for (std::list<int>::iterator itor = overlapLen.begin(); itor != overlapLen.end(); itor++) {
@@ -6564,6 +6603,114 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
     }
 }
 
+void theory_str::finite_model_test(expr * testvar, expr * str) {
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+
+    if (!m_strutil.is_string(str)) return;
+    std::string s = m_strutil.get_string_constant_value(str);
+    if (s == "yes") {
+        TRACE("t_str", tout << "start finite model test for " << mk_pp(testvar, m) << std::endl;);
+        ptr_vector<expr> & vars = finite_model_test_varlists[testvar];
+        for (ptr_vector<expr>::iterator it = vars.begin(); it != vars.end(); ++it) {
+            expr * v = *it;
+            // check for any sort of existing length tester we might interfere with
+            if (m_params.m_UseBinarySearch) {
+                NOT_IMPLEMENTED_YET();
+            } else {
+                bool map_effectively_empty = false;
+                if (fvar_len_count_map.find(v) == fvar_len_count_map.end()) {
+                    map_effectively_empty = true;
+                }
+
+                if (!map_effectively_empty) {
+                    map_effectively_empty = true;
+                    ptr_vector<expr> indicator_set = fvar_lenTester_map[v];
+                    for (ptr_vector<expr>::iterator it = indicator_set.begin(); it != indicator_set.end(); ++it) {
+                        expr * indicator = *it;
+                        if (internal_variable_set.find(indicator) != internal_variable_set.end()) {
+                            map_effectively_empty = false;
+                            break;
+                        }
+                    }
+                }
+
+                if (map_effectively_empty) {
+                    TRACE("t_str_detail", tout << "no existing length testers for " << mk_pp(v, m) << std::endl;);
+                    rational v_len;
+                    if (get_len_value(v, v_len)) {
+                        TRACE("t_str_detail", tout << "length = " << v_len.to_string() << std::endl;);
+                    } else {
+                        expr_ref vLengthExpr(mk_strlen(v), m);
+
+                        rational v_lower_bound;
+                        bool lower_bound_exists = lower_bound(vLengthExpr, v_lower_bound);
+                        rational v_upper_bound;
+                        bool upper_bound_exists = upper_bound(vLengthExpr, v_upper_bound);
+                        TRACE("t_str_detail", tout << "bounds = [" << (lower_bound_exists?v_lower_bound.to_string():"?")
+                                << ".." << (upper_bound_exists?v_upper_bound.to_string():"?") << "]" << std::endl;);
+
+                        // make sure the bounds are non-negative
+                        if (lower_bound_exists && v_lower_bound.is_neg()) {
+                            v_lower_bound = rational::zero();
+                        }
+                        if (upper_bound_exists && v_upper_bound.is_neg()) {
+                            v_upper_bound = rational::zero();
+                        }
+
+                        if (lower_bound_exists && upper_bound_exists) {
+                            // easiest case. we will search within these bounds
+                        } else if (upper_bound_exists && !lower_bound_exists) {
+                            // search between 0 and the upper bound
+                            v_lower_bound == rational::zero();
+                        } else if (lower_bound_exists && !upper_bound_exists) {
+                            // check some finite portion of the search space
+                            // TODO here and below, factor out the increment to a param
+                            v_upper_bound = v_lower_bound + rational(10);
+                        } else {
+                            // no bounds information
+                            v_lower_bound = rational::zero();
+                            v_upper_bound = v_lower_bound + rational(10);
+                        }
+                        // now create a fake length tester over this finite disjunction of lengths
+
+                        fvar_len_count_map[v] = 1;
+                        unsigned int testNum = fvar_len_count_map[v];
+
+                        expr_ref indicator(mk_internal_lenTest_var(v, testNum), m);
+                        SASSERT(indicator);
+                        m_trail.push_back(indicator);
+
+                        fvar_lenTester_map[v].shrink(0);
+                        fvar_lenTester_map[v].push_back(indicator);
+                        lenTester_fvar_map[indicator] = v;
+
+                        expr_ref_vector orList(m);
+                        expr_ref_vector andList(m);
+
+                        for (rational l = v_lower_bound; l <= v_upper_bound; l += rational::one()) {
+                            // TODO integrate with the enhancements in gen_len_test_options()
+                            std::string lStr = l.to_string();
+                            expr_ref str_indicator(m_strutil.mk_string(lStr), m);
+                            expr_ref or_expr(ctx.mk_eq_atom(indicator, str_indicator), m);
+                            orList.push_back(or_expr);
+                            expr_ref and_expr(ctx.mk_eq_atom(or_expr, ctx.mk_eq_atom(vLengthExpr, m_autil.mk_numeral(l, true))), m);
+                            andList.push_back(and_expr);
+                        }
+                        andList.push_back(mk_or(orList));
+                        expr_ref implLhs(ctx.mk_eq_atom(testvar, str), m);
+                        expr_ref implRhs(mk_and(andList), m);
+                        assert_implication(implLhs, implRhs);
+                    }
+                } else {
+                    // TODO figure out this case
+                    NOT_IMPLEMENTED_YET();
+                }
+            }
+        } // foreach (v in vars)
+    } // (s == "yes")
+}
+
 void theory_str::more_len_tests(expr * lenTester, std::string lenTesterValue) {
     ast_manager & m = get_manager();
     if (lenTester_fvar_map.find(lenTester) != lenTester_fvar_map.end()) {
@@ -6664,6 +6811,15 @@ void theory_str::handle_equality(expr * lhs, expr * rhs) {
     if (lhs_sort != str_sort || rhs_sort != str_sort) {
         TRACE("t_str_detail", tout << "skip equality: not String sort" << std::endl;);
         return;
+    }
+
+    if (m_params.m_FiniteOverlapModels && !finite_model_test_varlists.empty()) {
+        // TODO NEXT
+        if (finite_model_test_varlists.contains(lhs)) {
+            finite_model_test(lhs, rhs); return;
+        } else if (finite_model_test_varlists.contains(rhs)) {
+            finite_model_test(rhs, lhs); return;
+        }
     }
 
     if (free_var_attempt(lhs, rhs) || free_var_attempt(rhs, lhs)) {

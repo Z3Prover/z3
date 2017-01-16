@@ -68,6 +68,13 @@ struct theory_str_params {
      */
     bool m_StringConstantCache;
 
+    /*
+     * If FiniteOverlapModels is set to true,
+     * arrangements that result in overlapping variables will generate a small number of models
+     * to test instead of completely giving up on the case.
+     */
+    bool m_FiniteOverlapModels;
+
     bool m_UseBinarySearch;
     unsigned m_BinarySearchInitialUpperBound;
 
@@ -79,6 +86,7 @@ struct theory_str_params {
         m_UseFastLengthTesterCache(false),
         m_UseFastValueTesterCache(true),
         m_StringConstantCache(true),
+        m_FiniteOverlapModels(false),
         m_UseBinarySearch(false),
         m_BinarySearchInitialUpperBound(64)
     {

@@ -335,6 +335,10 @@ namespace smt {
         // maps a length tester to the next length tester to be (re)used if the split is "high"
         obj_map<expr, expr*> binary_search_next_var_high;
 
+        // finite model finding data
+        // maps a finite model tester var to a list of variables that will be tested
+        obj_map<expr, ptr_vector<expr> > finite_model_test_varlists;
+
     protected:
         void assert_axiom(expr * e);
         void assert_implication(expr * premise, expr * conclusion);
@@ -587,6 +591,8 @@ namespace smt {
 
         // TESTING
         void refresh_theory_var(expr * e);
+
+        void finite_model_test(expr * v, expr * c);
 
     public:
         theory_str(ast_manager & m, theory_str_params const & params);
