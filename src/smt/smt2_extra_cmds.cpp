@@ -34,7 +34,7 @@ public:
         std::ifstream is(m_filename);
         if (is.bad() || is.fail())
             throw cmd_exception(std::string("failed to open file '") + m_filename + "'");
-        parse_smt2_commands(ctx, is, false);
+        parse_smt2_commands(ctx, is, false, params_ref(), m_filename);
         is.close();
     }
     virtual void prepare(cmd_context & ctx) { reset(ctx); }
