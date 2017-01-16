@@ -19,12 +19,8 @@ Revision History:
 
 #include "dl_context.h"
 #include "dl_mk_coi_filter.h"
-#include "dl_mk_interp_tail_simplifier.h"
-#include "dl_mk_subsumption_checker.h"
-#include "dl_mk_rule_inliner.h"
 #include "dl_rule.h"
 #include "dl_rule_transformer.h"
-#include "smt2parser.h"
 #include "pdr_context.h"
 #include "pdr_dl_interface.h"
 #include "dl_rule_set.h"
@@ -164,7 +160,7 @@ lbool dl_interface::query(expr * query) {
     m_context->set_proof_converter(m_ctx.get_proof_converter());
     m_context->set_model_converter(m_ctx.get_model_converter());
     m_context->set_query(query_pred);
-    m_context->set_axioms(bg_assertion);
+    m_context->set_axioms(bg_assertion);    
     m_context->update_rules(m_pdr_rules);
     
     if (m_pdr_rules.get_rules().empty()) {
