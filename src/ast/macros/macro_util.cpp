@@ -405,7 +405,7 @@ bool macro_util::is_quasi_macro_head(expr * n, unsigned num_decls) const {
    \brief Convert a quasi-macro head into a macro head, and store the conditions under
    which it is valid in cond.
 */
-void macro_util::quasi_macro_head_to_macro_head(app * qhead, unsigned num_decls, app_ref & head, expr_ref & cond) const {
+void macro_util::quasi_macro_head_to_macro_head(app * qhead, unsigned & num_decls, app_ref & head, expr_ref & cond) const {
     unsigned num_args = qhead->get_num_args();
     sbuffer<bool> found_vars;
     found_vars.resize(num_decls, false);
@@ -431,6 +431,7 @@ void macro_util::quasi_macro_head_to_macro_head(app * qhead, unsigned num_decls,
     }
     get_basic_simp()->mk_and(new_conds.size(), new_conds.c_ptr(), cond);
     head = m_manager.mk_app(qhead->get_decl(), new_args.size(), new_args.c_ptr());
+    num_decls = next_var_idx;
 }
 
 /**
@@ -440,10 +441,10 @@ void macro_util::quasi_macro_head_to_macro_head(app * qhead, unsigned num_decls,
 
    See normalize_expr
 */
-void macro_util::mk_macro_interpretation(app * head, expr * def, expr_ref & interp) const {
+void macro_util::mk_macro_interpretation(app * head, unsigned num_decls, expr * def, expr_ref & interp) const {
     SASSERT(is_macro_head(head, head->get_num_args()));
     SASSERT(!occurs(head->get_decl(), def));
-    normalize_expr(head, def, interp);
+    normalize_expr(head, num_decls, def, interp);
 }
 
 /**
@@ -456,35 +457,26 @@ void macro_util::mk_macro_interpretation(app * head, expr * def, expr_ref & inte
    f(x_1, x_2) --> f(x_0, x_1)
    f(x_3, x_2) --> f(x_0, x_1)
 */
-void macro_util::normalize_expr(app * head, expr * t, expr_ref & norm_t) const {
-    expr_ref_buffer  var_mapping(m_manager);
+void macro_util::normalize_expr(app * head, unsigned num_decls, expr * t, expr_ref & norm_t) const {
+    expr_ref_buffer var_mapping(m_manager);
+    var_mapping.resize(num_decls);
     bool changed = false;
     unsigned num_args = head->get_num_args();
-    unsigned max_var_idx = 0;
-    for (unsigned i = 0; i < num_args; i++) {
-        var const * v = to_var(head->get_arg(i));
-        if (v->get_idx() > max_var_idx)
-            max_var_idx = v->get_idx();
-    }
     TRACE("macro_util",
           tout << "head: " << mk_pp(head, m_manager) << "\n";
           tout << "applying substitution to:\n" << mk_bounded_pp(t, m_manager) << "\n";);
     for (unsigned i = 0; i < num_args; i++) {
         var * v = to_var(head->get_arg(i));
-        if (v->get_idx() != i) {
+        unsigned vi = v->get_idx();
+        SASSERT(vi < num_decls);
+        if (vi != i) {
             changed = true;
             var_ref new_var(m_manager.mk_var(i, v->get_sort()), m_manager);
-            var_mapping.setx(max_var_idx - v->get_idx(), new_var);
+            var_mapping.setx(num_decls - vi - 1, new_var);
         }
         else
-            var_mapping.setx(max_var_idx - i, v);
+            var_mapping.setx(num_decls - i - 1, v);
     }
-
-    for (unsigned i = num_args; i <= max_var_idx; i++)
-        // CMW: Won't be used, but dictates a larger binding size,
-        // so that the indexes between here and in the rewriter match.
-        // It's possible that we don't see the true max idx of all vars here.
-        var_mapping.setx(max_var_idx - i, 0);
 
     if (changed) {
         // REMARK: t may have nested quantifiers... So, I must use the std order for variable substitution.
@@ -573,7 +565,7 @@ bool is_hint_atom(expr * lhs, expr * rhs) {
     return !occurs(to_app(lhs)->get_decl(), rhs) && vars_of_is_subset(rhs, vars);
 }
 
-void hint_to_macro_head(ast_manager & m, app * head, unsigned num_decls, app_ref & new_head) {
+void hint_to_macro_head(ast_manager & m, app * head, unsigned & num_decls, app_ref & new_head) {
     unsigned num_args = head->get_num_args();
     ptr_buffer<expr> new_args;
     sbuffer<bool> found_vars;
@@ -595,6 +587,7 @@ void hint_to_macro_head(ast_manager & m, app * head, unsigned num_decls, app_ref
         new_args.push_back(new_var);
     }
     new_head = m.mk_app(head->get_decl(), new_args.size(), new_args.c_ptr());
+    num_decls = next_var_idx;
 }
 
 /**
@@ -671,12 +664,12 @@ void macro_util::macro_candidates::insert(func_decl * f, expr * def, expr * cond
 //
 // -----------------------------
 
-void macro_util::insert_macro(app * head, expr * def, expr * cond, bool ineq, bool satisfy_atom, bool hint, macro_candidates & r) {
+void macro_util::insert_macro(app * head, unsigned num_decls, expr * def, expr * cond, bool ineq, bool satisfy_atom, bool hint, macro_candidates & r) {
     expr_ref norm_def(m_manager);
     expr_ref norm_cond(m_manager);
-    normalize_expr(head, def, norm_def);
+    normalize_expr(head, num_decls, def, norm_def);
     if (cond != 0)
-        normalize_expr(head, cond, norm_cond);
+        normalize_expr(head, num_decls, cond, norm_cond);
     else if (!hint)
         norm_cond = m_manager.mk_true();
     SASSERT(!hint || norm_cond.get() == 0);
@@ -698,11 +691,14 @@ void macro_util::insert_quasi_macro(app * head, unsigned num_decls, expr * def, 
         }
         else {
             hint_to_macro_head(m_manager, head, num_decls, new_head);
+            TRACE("macro_util",
+                tout << "hint macro head: " << mk_ismt2_pp(new_head, m_manager) << std::endl;
+                tout << "hint macro def: " << mk_ismt2_pp(def, m_manager) << std::endl; );
         }
-        insert_macro(new_head, def, new_cond, ineq, satisfy_atom, hint, r);
+        insert_macro(new_head, num_decls, def, new_cond, ineq, satisfy_atom, hint, r);
     }
     else {
-        insert_macro(head, def, cond, ineq, satisfy_atom, hint, r);
+        insert_macro(head, num_decls, def, cond, ineq, satisfy_atom, hint, r);
     }
 }
 
@@ -879,6 +875,9 @@ void macro_util::collect_arith_macro_candidates(expr * atom, unsigned num_decls,
 */
 void macro_util::collect_macro_candidates_core(expr * atom, unsigned num_decls, macro_candidates & r) {
     expr* lhs, *rhs;
+
+    TRACE("macro_util", tout << "Candidate check for: " << mk_ismt2_pp(atom, m_manager) << std::endl;);
+
     if (m_manager.is_eq(atom, lhs, rhs) || m_manager.is_iff(atom, lhs, rhs)) {
         if (is_quasi_macro_head(lhs, num_decls) &&
             !is_forbidden(to_app(lhs)->get_decl()) &&
