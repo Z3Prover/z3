@@ -316,7 +316,7 @@ def main():
         mk_dist_dirs()
         cp_licenses()
         cp_vs_runtimes()
-        mk_zip()
+        mk_zips()
 
 main()
 
