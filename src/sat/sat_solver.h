@@ -439,7 +439,9 @@ namespace sat {
         u_map<index_set>       m_antecedents;
         vector<literal_vector> m_binary_clause_graph;
 
-        void extract_assumptions(literal lit, index_set& s);
+        bool extract_assumptions(literal lit, index_set& s);
+        
+        bool check_domain(literal lit, literal lit2);
 
         std::ostream& display_index_set(std::ostream& out, index_set const& s) const;
 
@@ -451,7 +453,7 @@ namespace sat {
 
         void extract_fixed_consequences(unsigned& start, literal_set const& assumptions, bool_var_set& unfixed, vector<literal_vector>& conseq);
 
-        void extract_fixed_consequences(literal lit, literal_set const& assumptions, bool_var_set& unfixed, vector<literal_vector>& conseq);
+        bool extract_fixed_consequences(literal lit, literal_set const& assumptions, bool_var_set& unfixed, vector<literal_vector>& conseq);
 
         void update_unfixed_literals(literal_set& unfixed_lits, bool_var_set& unfixed_vars);
 
