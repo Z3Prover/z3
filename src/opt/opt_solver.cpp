@@ -327,12 +327,7 @@ namespace opt {
         SASSERT(idx < get_num_assertions());
         return m_context.get_formulas()[idx];
     }
-    
-    std::ostream& opt_solver::display(std::ostream & out) const {
-        m_context.display(out);
-        return out;
-    }
-    
+        
     smt::theory_var opt_solver::add_objective(app* term) {
         smt::theory_var v = get_optimizer().add_objective(term);
         m_objective_vars.push_back(v);

@@ -104,7 +104,6 @@ namespace opt {
         virtual void set_progress_callback(progress_callback * callback);
         virtual unsigned get_num_assertions() const;
         virtual expr * get_assertion(unsigned idx) const;
-        virtual std::ostream& display(std::ostream & out) const;
         virtual ast_manager& get_manager() const { return m; } 
         virtual lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes);
         virtual lbool preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores);
