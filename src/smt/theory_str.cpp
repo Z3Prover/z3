@@ -6681,7 +6681,15 @@ void theory_str::finite_model_test(expr * testvar, expr * str) {
             }
             // check for any sort of existing length tester we might interfere with
             if (m_params.m_UseBinarySearch) {
-                NOT_IMPLEMENTED_YET();
+                if (binary_search_len_tester_stack.contains(v) && !binary_search_len_tester_stack[v].empty()) {
+                    TRACE("t_str_detail", tout << "already found existing length testers for " << mk_pp(v, m) << std::endl;);
+                    continue;
+                } else {
+                    // start binary search as normal
+                    expr_ref implLhs(ctx.mk_eq_atom(testvar, str), m);
+                    expr_ref implRhs(binary_search_length_test(v, NULL, ""), m);
+                    assert_implication(implLhs, implRhs);
+                }
             } else {
                 bool map_effectively_empty = false;
                 if (fvar_len_count_map.find(v) == fvar_len_count_map.end()) {
