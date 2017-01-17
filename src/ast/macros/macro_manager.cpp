@@ -106,7 +106,7 @@ bool macro_manager::insert(func_decl * f, quantifier * m, proof * pr) {
     if (!m_deps.insert(f, s)) {
         return false;
     }
-    
+
     // add macro
     m_decl2macro.insert(f, m);
     m_decls.push_back(f);
@@ -117,8 +117,8 @@ bool macro_manager::insert(func_decl * f, quantifier * m, proof * pr) {
     }
 
     TRACE("macro_insert", tout << "A macro was successfully created for: " << f->get_name() << "\n";);
-    
-    // Nothing's forbidden anymore; if something's bad, we detected it earlier. 
+
+    // Nothing's forbidden anymore; if something's bad, we detected it earlier.
     // mark_forbidden(m->get_expr());
     return true;
 }
@@ -144,7 +144,7 @@ namespace macro_manager_ns {
    \brief Mark all func_decls used in exprs as forbidden.
 */
 void macro_manager::mark_forbidden(unsigned n, expr * const * exprs) {
-    expr_mark visited; 
+    expr_mark visited;
     macro_manager_ns::proc p(m_forbidden_set, m_forbidden);
     for (unsigned i = 0; i < n; i++)
         for_each_expr(p, visited, exprs[i]);
@@ -187,9 +187,9 @@ func_decl * macro_manager::get_macro_interpretation(unsigned i, expr_ref & inter
     app * head;
     expr * def;
     get_head_def(q, f, head, def);
-    TRACE("macro_bug", 
+    TRACE("macro_bug",
           tout << f->get_name() << "\n" << mk_pp(head, m_manager) << "\n" << mk_pp(q, m_manager) << "\n";);
-    m_util.mk_macro_interpretation(head, def, interp);
+    m_util.mk_macro_interpretation(head, q->get_num_decls(), def, interp);
     return f;
 }
 
@@ -237,7 +237,7 @@ void macro_manager::macro_expander::reduce1_quantifier(quantifier * q) {
                 erase_patterns = true;
         }
         for (unsigned i = 0; !erase_patterns && i < q->get_num_no_patterns(); i++) {
-            if (q->get_no_pattern(i) != new_q->get_no_pattern(i)) 
+            if (q->get_no_pattern(i) != new_q->get_no_pattern(i))
                 erase_patterns = true;
         }
     }
@@ -254,7 +254,7 @@ bool macro_manager::macro_expander::get_subst(expr * _n, expr_ref & r, proof_ref
         return false;
     app * n = to_app(_n);
     quantifier * q = 0;
-    func_decl * d  = n->get_decl(); 
+    func_decl * d  = n->get_decl();
     TRACE("macro_manager_bug", tout << "trying to expand:\n" << mk_pp(n, m) << "\nd:\n" << d->get_name() << "\n";);
     if (m_macro_manager.m_decl2macro.find(d, q)) {
         TRACE("macro_manager", tout << "expanding: " << mk_pp(n, m) << "\n";);
@@ -308,7 +308,7 @@ void macro_manager::expand_macros(expr * n, proof * pr, expr_ref & r, proof_ref 
             if (r.get() == old_n.get())
                 return;
             old_n  = r;
-            old_pr = new_pr; 
+            old_pr = new_pr;
         }
     }
     else {
