@@ -6673,6 +6673,12 @@ void theory_str::finite_model_test(expr * testvar, expr * str) {
         ptr_vector<expr> & vars = finite_model_test_varlists[testvar];
         for (ptr_vector<expr>::iterator it = vars.begin(); it != vars.end(); ++it) {
             expr * v = *it;
+            bool v_has_eqc = false;
+            get_eqc_value(v, v_has_eqc);
+            if (v_has_eqc) {
+                TRACE("t_str_detail", tout << "variable " << mk_pp(v,m) << " already equivalent to a string constant" << std::endl;);
+                continue;
+            }
             // check for any sort of existing length tester we might interfere with
             if (m_params.m_UseBinarySearch) {
                 NOT_IMPLEMENTED_YET();
@@ -6763,8 +6769,8 @@ void theory_str::finite_model_test(expr * testvar, expr * str) {
                     expr_ref implRhs(mk_and(andList), m);
                     assert_implication(implLhs, implRhs);
                 } else {
-                    // TODO figure out this case
-                    NOT_IMPLEMENTED_YET();
+                    TRACE("t_str_detail", tout << "already found existing length testers for " << mk_pp(v, m) << std::endl;);
+                    continue;
                 }
             }
         } // foreach (v in vars)
