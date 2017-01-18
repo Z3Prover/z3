@@ -1795,6 +1795,7 @@ namespace smt {
 
     void context::set_conflict(b_justification js, literal not_l) {
         if (!inconsistent()) {
+            TRACE("set_conflict", display_literal_verbose(tout, not_l); display(tout, js); );
             m_conflict = js;
             m_not_l    = not_l;
         }

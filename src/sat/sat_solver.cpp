@@ -3227,20 +3227,32 @@ namespace sat {
         SASSERT(!inconsistent());
         unsigned sz = m_trail.size();
         for (unsigned i = start; i < sz && lvl(m_trail[i]) <= 1; ++i) {
-            extract_fixed_consequences(m_trail[i], assumptions, unfixed, conseq);
+            if (!extract_fixed_consequences(m_trail[i], assumptions, unfixed, conseq)) {
+                for (i = 0; i < sz && lvl(m_trail[i]) <= 1; ++i) {
+                    VERIFY(extract_fixed_consequences(m_trail[i], assumptions, unfixed, conseq));
+                }
+                break;
+            }
         }
         start = sz;
     }
 
-    void solver::extract_assumptions(literal lit, index_set& s) {
+    bool solver::check_domain(literal lit, literal lit2) {
+        return m_antecedents.contains(lit2.var());
+    }
+
+    bool solver::extract_assumptions(literal lit, index_set& s) {
         justification js = m_justification[lit.var()];
         switch (js.get_kind()) {
         case justification::NONE:
             break;
         case justification::BINARY:
+            if (!check_domain(lit, js.get_literal())) return false;
             s |= m_antecedents.find(js.get_literal().var());
             break;
         case justification::TERNARY:
+            if (!check_domain(lit, js.get_literal1())) return false;
+            if (!check_domain(lit, js.get_literal2())) return false;
             s |= m_antecedents.find(js.get_literal1().var());
             s |= m_antecedents.find(js.get_literal2().var());
             break;
@@ -3248,6 +3260,7 @@ namespace sat {
             clause & c = *(m_cls_allocator.get_clause(js.get_clause_offset()));
             for (unsigned i = 0; i < c.size(); ++i) {
                 if (c[i] != lit) {
+                    if (!check_domain(lit, c[i])) return false;
                     s |= m_antecedents.find(c[i].var());
                 }
             }
@@ -3258,6 +3271,7 @@ namespace sat {
             literal_vector::iterator it  = m_ext_antecedents.begin();
             literal_vector::iterator end = m_ext_antecedents.end();
             for (; it != end; ++it) {
+                if (!check_domain(lit, *it)) return false;
                 s |= m_antecedents.find(it->var());
             }
             break;
@@ -3267,6 +3281,7 @@ namespace sat {
             break;
         }
         TRACE("sat", display_index_set(tout << lit << ": " , s) << "\n";);
+        return true;
     }
 
     std::ostream& solver::display_index_set(std::ostream& out, index_set const& s) const {
@@ -3279,17 +3294,19 @@ namespace sat {
     }
 
 
-    void solver::extract_fixed_consequences(literal lit, literal_set const& assumptions, bool_var_set& unfixed, vector<literal_vector>& conseq) {
+    bool solver::extract_fixed_consequences(literal lit, literal_set const& assumptions, bool_var_set& unfixed, vector<literal_vector>& conseq) {
         index_set s;
         if (m_antecedents.contains(lit.var())) {
-            return;
+            return true;
         }
         if (assumptions.contains(lit)) {
             s.insert(lit.index());
         }
         else {
+            if (!extract_assumptions(lit, s)) {
+                return false;
+            }
             add_assumption(lit);
-            extract_assumptions(lit, s);
         }
         m_antecedents.insert(lit.var(), s);
         if (unfixed.contains(lit.var())) {
@@ -3302,6 +3319,7 @@ namespace sat {
             unfixed.remove(lit.var());
             conseq.push_back(cons);
         }
+        return true;
     }
 
     void solver::asymmetric_branching() {
