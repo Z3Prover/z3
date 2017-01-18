@@ -2442,7 +2442,7 @@ def mk_config():
                 CXXFLAGS     = '%s -O3 -D _EXTERNAL_RELEASE -fomit-frame-pointer' % CXXFLAGS
         if is_CXX_clangpp():
             CXXFLAGS   = '%s -Wno-unknown-pragmas -Wno-overloaded-virtual -Wno-unused-value' % CXXFLAGS
-        sysname = os.uname()[0]
+        sysname, _, _, _, machine = os.uname()
         if sysname == 'Darwin':
             SO_EXT    = '.dylib'
             SLIBFLAGS = '-dynamiclib'
@@ -2493,7 +2493,9 @@ def mk_config():
             # and to make it create an import library.
             SLIBEXTRAFLAGS = '%s -static-libgcc -static-libstdc++ -Wl,--out-implib,libz3.dll.a' % SLIBEXTRAFLAGS
             LDFLAGS = '%s -static-libgcc -static-libstdc++' % LDFLAGS
-                        
+        if sysname == 'Linux' and machine.startswith('armv7') or machine.startswith('armv8'):
+            CXXFLAGS = '%s -fpic' % CXXFLAGS
+
         config.write('PREFIX=%s\n' % PREFIX)
         config.write('CC=%s\n' % CC)
         config.write('CXX=%s\n' % CXX)
