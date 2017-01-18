@@ -373,9 +373,14 @@ namespace smt {
         literal_vector    m_antecedents;
 
         void inc_coeff(literal l, int offset);
+
         int get_coeff(bool_var v) const;
+        int get_abs_coeff(bool_var v) const;
+       
+        int arg_max(uint_set& seen, int& coeff); 
 
         void reset_coeffs();
+        literal cardinality_reduction();
 
         bool resolve_conflict(card& c, literal_vector const& conflict_clause);
         void process_antecedent(literal l, int offset);
@@ -383,7 +388,7 @@ namespace smt {
         void cut();
         bool is_proof_justification(justification const& j) const;
 
-        void validate_lemma();
+        bool validate_lemma();
 
         void hoist_maximal_values();
 

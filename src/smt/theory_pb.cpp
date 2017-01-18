@@ -1895,6 +1895,11 @@ namespace smt {
         return m_coeffs.get(v, 0); 
     }
 
+    int theory_pb::get_abs_coeff(bool_var v) const { 
+        int coeff = get_coeff(v);
+        if (coeff < 0) coeff = -coeff;
+        return coeff;
+    }
 
     void theory_pb::reset_coeffs() {
         for (unsigned i = 0; i < m_active_coeffs.size(); ++i) {
@@ -1932,7 +1937,7 @@ namespace smt {
         SASSERT(ctx.get_assignment(c.lit()) == l_true);
     }
 
-    void theory_pb::validate_lemma() {
+    bool theory_pb::validate_lemma() {
         uint_set seen;
         int value = -m_bound;
         context& ctx = get_context();
@@ -1951,7 +1956,87 @@ namespace smt {
                 value += coeff;
             }
         }
-        std::cout << "bound: " << m_bound << " value " << value << " lemma is " << (value >= 0 ? "sat" : "unsat") << "\n";        
+        std::cout << "bound: " << m_bound << " value " << value << " lemma is " << (value >= 0 ? "sat" : "unsat") << "\n";    
+        return value < 0;
+    }
+
+    int theory_pb::arg_max(uint_set& seen, int& max_coeff) {
+        max_coeff = 0;
+        int arg_max = -1;
+        for (unsigned i = 0; i < m_active_coeffs.size(); ++i) {
+            bool_var v = m_active_coeffs[i];
+            if (seen.contains(v)) {
+                continue;
+            }         
+            int coeff = get_abs_coeff(v);
+            if (coeff > 0 && (max_coeff == 0 || max_coeff < coeff)) {
+                arg_max = v;
+                max_coeff = coeff;
+            }
+        }    
+        return arg_max;
+    }
+
+    literal theory_pb::cardinality_reduction() {
+        uint_set seen;
+        int s = 0;
+        int new_bound = 0;
+        int coeff;
+        while (s < m_bound) {
+            int arg = arg_max(seen, coeff);
+            if (arg == -1) break;
+            s += coeff;
+            ++new_bound;
+            seen.insert(arg);
+        }
+        int slack = m_bound;
+        for (unsigned i = 0; i < m_active_coeffs.size(); ++i) {
+            coeff = get_abs_coeff(m_active_coeffs[i]);
+            slack = std::min(slack, coeff - 1);
+        }
+
+        while (slack > 0) {
+            bool found = false;
+            int v = 0;
+            for (unsigned i = 0; !found && i < m_active_coeffs.size(); ++i) {            
+                bool_var v = m_active_coeffs[i];
+                coeff = get_abs_coeff(v);
+                if (0 < coeff && coeff < slack) {
+                    found = true;
+                }
+            }
+            if (!found) {
+                break;
+            }
+            slack -= coeff;
+            m_coeffs[v] = 0; // deactivate coefficient.
+        }
+        // create cardinality constraint
+        literal card_lit = null_literal;
+        card* c = alloc(card, card_lit, new_bound);
+        seen.reset();
+        for (unsigned i = 0; i < m_active_coeffs.size(); ++i) {
+            bool_var v = m_active_coeffs[i];
+            if (seen.contains(v)) continue;
+            seen.insert(v);
+            coeff = get_coeff(v);
+            if (coeff < 0) {
+                c->add_arg(literal(v, true));
+                m_coeffs[v] = -1;
+            }
+            else if (coeff > 0) {
+                c->add_arg(literal(v, false));
+                m_coeffs[v] = 1;
+            }
+        }
+        
+        // display(std::cout, *c, true);
+        dealloc(c);
+
+        m_bound = new_bound;
+        validate_lemma();
+
+        return card_lit;
     }
 
     void theory_pb::inc_coeff(literal l, int offset) {        
@@ -2017,24 +2102,6 @@ namespace smt {
             TRACE("pb", display_resolved_lemma(tout << "cut\n"););
         }
     }
-
-#if 0
-    void theory_pb::reduce2(int s1, int alpha, bool_var v, card& asserting) {
-        // m_coeffs one for each boolean variable.
-        int beta = coeff_of(v);
-        if (beta == 1) {
-            process_card(asserting, alpha);
-            return;
-        }
-        int s2 = slack(asserting);
-        while (beta * s1 + s2 * alpha >= 0) {
-            bool_var x = pick_var(asserting);
-            reduce();
-            reduce_degree();
-            s2 = s2 + delta_slack;
-        }
-    }
-#endif
         
     bool theory_pb::resolve_conflict(card& c, literal_vector const& confl) {
        
@@ -2180,13 +2247,21 @@ namespace smt {
                 continue;
             }
             seen.insert(v);
-            int coeff = get_coeff(v);
+            int coeff = get_abs_coeff(v);
             if (coeff == 0) continue;
-            if (coeff < 0) coeff = -coeff;
             ++sz;
             count += coeff;
         }
         std::cout << "New " << count << "(" << sz << ") >= " << m_bound << " " << c.size() << " >= " << c.k() << " new diff: " << count - m_bound  << " old diff: " << c.size() - c.k() << "\n";
+        literal card_lit = cardinality_reduction();
+
+        if (card_lit != null_literal) {
+            for (unsigned i = 0; i < m_antecedents.size(); ++i) {
+                m_antecedents[i].neg();
+            }
+            m_antecedents.push_back(card_lit);
+            ctx.mk_clause(m_antecedents.size(), m_antecedents.c_ptr(), 0, CLS_AUX_LEMMA, 0); // TBD add delete handler to GC card closure.
+        }
 
         return true;    
     }
