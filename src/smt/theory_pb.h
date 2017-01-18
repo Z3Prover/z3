@@ -324,6 +324,7 @@ namespace smt {
         unsigned_vector          m_card_lim;
         bool is_cardinality_constraint(app * atom);
         bool internalize_card(app * atom, bool gate_ctx);
+        void card2conjunction(card const& c);
 
         void watch_literal(literal lit, card* c);
         void unwatch_literal(literal w, card* c);
@@ -367,20 +368,22 @@ namespace smt {
         unsigned          m_num_marks;
         unsigned_vector   m_resolved;
         unsigned          m_conflict_lvl;
+
+        // Conflict PB constraints
         svector<int>      m_coeffs;
         svector<bool_var> m_active_coeffs;
         int               m_bound;
         literal_vector    m_antecedents;
+        uint_set          m_seen;
 
+        void normalize_active_coeffs();
         void inc_coeff(literal l, int offset);
-
         int get_coeff(bool_var v) const;
-        int get_abs_coeff(bool_var v) const;
-       
+        int get_abs_coeff(bool_var v) const;       
         int arg_max(uint_set& seen, int& coeff); 
 
         void reset_coeffs();
-        literal cardinality_reduction();
+        literal cardinality_reduction(card*& c);
 
         bool resolve_conflict(card& c, literal_vector const& conflict_clause);
         void process_antecedent(literal l, int offset);
