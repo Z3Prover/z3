@@ -241,8 +241,8 @@ def mk_zip(x64):
 
 # Create a zip file for each platform
 def mk_zips():
-    mk_zip_core(False)
-    mk_zip_core(True)
+    mk_zip(False)
+    mk_zip(True)
 
 
 VS_RUNTIME_PATS = [re.compile('vcomp.*\.dll'),
