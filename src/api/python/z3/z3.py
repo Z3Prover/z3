@@ -691,6 +691,30 @@ class FuncDeclRef(AstRef):
         """
         return Z3_get_decl_kind(self.ctx_ref(), self.ast)
 
+    def params(self):
+        ctx = self.ctx
+        n = Z3_get_decl_num_parameters(self.ctx_ref(), self.ast)
+        result = [ None for i in range(n) ]
+        for i in range(n):
+            k = Z3_get_decl_parameter_kind(self.ctx_ref(), self.ast, i)
+            if k == Z3_PARAMETER_INT:
+               result[i] = Z3_get_decl_int_parameter(self.ctx_ref(), self.ast, i)
+            elif k == Z3_PARAMETER_DOUBLE:
+               result[i] = Z3_get_decl_double_parameter(self.ctx_ref(), self.ast, i)               
+            elif k == Z3_PARAMETER_RATIONAL:
+               result[i] = Z3_get_decl_rational_parameter(self.ctx_ref(), self.ast, i)               
+            elif k == Z3_PARAMETER_SYMBOL:
+               result[i] = Z3_get_decl_symbol_parameter(self.ctx_ref(), self.ast, i)
+            elif k == Z3_PARAMETER_SORT:
+               result[i] = SortRef(Z3_get_decl_sort_parameter(self.ctx_ref(), self.ast, i), ctx)
+            elif k == Z3_PARAMETER_AST:
+               result[i] = ExprRef(Z3_get_decl_ast_parameter(self.ctx_ref(), self.ast, i), ctx)
+            elif k == Z3_PARAMETER_FUNC_DECL:
+               result[i] = FuncDeclRef(Z3_get_decl_func_decl_parameter(self.ctx_ref(), self.ast, i), ctx)
+            else:
+               assert(False)
+        return result
+
     def __call__(self, *args):
         """Create a Z3 application expression using the function `self`, and the given arguments.
 
@@ -2636,6 +2660,13 @@ class RatNumRef(ArithRef):
         3
         """
         return self.denominator().as_long()
+
+    def is_int(self):
+        return self.denominator().is_int() and self.denominator_as_long() == 1
+
+    def as_long(self):
+        _z3_assert(self.is_int(), "Expected integer fraction")
+        return self.numerator_as_long()
 
     def as_decimal(self, prec):
         """ Return a Z3 rational value as a string in decimal notation using at most `prec` decimal places.

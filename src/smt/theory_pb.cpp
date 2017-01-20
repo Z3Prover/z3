@@ -438,9 +438,6 @@ namespace smt {
         }
     }
 
-
-
-
     // ------------------------
     // theory_pb
 
@@ -454,7 +451,6 @@ namespace smt {
         m_learn_complements  = p.m_pb_learn_complements;
         m_conflict_frequency = p.m_pb_conflict_frequency;
         m_enable_compilation = p.m_pb_enable_compilation;
-        m_enable_simplex     = p.m_pb_enable_simplex;
     }
 
     theory_pb::~theory_pb() {
@@ -464,169 +460,6 @@ namespace smt {
 
     theory * theory_pb::mk_fresh(context * new_ctx) { 
         return alloc(theory_pb, new_ctx->get_manager(), m_params); 
-    }
-
-    class theory_pb::remove_var : public trail<context> {
-        theory_pb& pb;
-        unsigned   v;
-    public:
-        remove_var(theory_pb& pb, unsigned v): pb(pb), v(v) {}
-        virtual void undo(context& ctx) {
-            pb.m_vars.remove(v);
-            pb.m_simplex.unset_lower(v);
-            pb.m_simplex.unset_upper(v);
-        }        
-    };
-
-    class theory_pb::undo_bound : public trail<context> {
-        theory_pb&         pb;
-        unsigned           m_v;
-        bool               m_is_lower;
-        scoped_eps_numeral m_last_bound;
-        bool               m_last_bound_valid;
-        literal            m_last_explain;
-        
-    public:
-        undo_bound(theory_pb& pb, unsigned v, 
-                   bool is_lower, 
-                   scoped_eps_numeral& last_bound, 
-                   bool last_bound_valid, 
-                   literal last_explain):
-            pb(pb), 
-            m_v(v), 
-            m_is_lower(is_lower), 
-            m_last_bound(last_bound), 
-            m_last_bound_valid(last_bound_valid),
-            m_last_explain(last_explain) {}
-
-        virtual void undo(context& ctx) {
-            if (m_is_lower) {
-                if (m_last_bound_valid) {
-                    pb.m_simplex.set_lower(m_v, m_last_bound);
-                }
-                else {
-                    pb.m_simplex.unset_lower(m_v);
-                }
-                pb.set_explain(pb.m_explain_lower, m_v, m_last_explain);
-            }
-            else {
-                if (m_last_bound_valid) {
-                    pb.m_simplex.set_upper(m_v, m_last_bound);
-                }
-                else {
-                    pb.m_simplex.unset_upper(m_v);
-                }
-                pb.set_explain(pb.m_explain_upper, m_v, m_last_explain);
-            }
-            m_last_bound.reset();
-        }
-    };
-
-    literal theory_pb::set_explain(literal_vector& explains, unsigned var, literal expl) {
-        if (var >= explains.size()) {
-            explains.resize(var+1, null_literal);
-        }
-        literal last_explain = explains[var];
-        explains[var] = expl;
-        return last_explain;
-    }
-
-    bool theory_pb::update_bound(bool_var v, literal explain, bool is_lower, mpq_inf const& bound) {
-        if (is_lower) {
-            if (m_simplex.above_lower(v, bound)) {
-                scoped_eps_numeral last_bound(m_mpq_inf_mgr);
-                if (m_simplex.upper_valid(v)) {
-                    m_simplex.get_upper(v, last_bound);
-                    if (m_mpq_inf_mgr.gt(bound, last_bound)) {
-                        literal lit = m_explain_upper.get(v, null_literal);                        
-                        TRACE("pb", tout << ~lit << " " << ~explain << "\n";);
-                        get_context().mk_clause(~lit, ~explain, justify(~lit, ~explain));
-                        return false;
-                    }
-                }
-                bool last_bound_valid = m_simplex.lower_valid(v);
-                if (last_bound_valid) {
-                    m_simplex.get_lower(v, last_bound);
-                }
-                m_simplex.set_lower(v, bound);
-                literal last_explain = set_explain(m_explain_lower, v, explain);
-                get_context().push_trail(undo_bound(*this, v, true, last_bound, last_bound_valid, last_explain));
-            }
-        }
-        else {
-            if (m_simplex.below_upper(v, bound)) {
-                scoped_eps_numeral last_bound(m_mpq_inf_mgr);
-                if (m_simplex.lower_valid(v)) {
-                    m_simplex.get_lower(v, last_bound);
-                    if (m_mpq_inf_mgr.gt(last_bound, bound)) {
-                        literal lit = m_explain_lower.get(v, null_literal);
-                        TRACE("pb", tout << ~lit << " " << ~explain << "\n";);
-                        get_context().mk_clause(~lit, ~explain, justify(~lit, ~explain));
-                        return false;
-                    }
-                }
-                bool last_bound_valid = m_simplex.upper_valid(v);
-                if (last_bound_valid) {
-                    m_simplex.get_upper(v, last_bound);
-                }
-                m_simplex.set_upper(v, bound);
-                literal last_explain = set_explain(m_explain_upper, v, explain);
-                get_context().push_trail(undo_bound(*this, v, false, last_bound, last_bound_valid, last_explain));
-            }
-        }
-        return true;
-    };
-
-    bool theory_pb::check_feasible() {
-        context& ctx = get_context();
-        lbool is_sat = m_simplex.make_feasible();
-        if (l_false != is_sat) {
-            return true;
-        }
-
-        row r = m_simplex.get_infeasible_row();
-        mpz const& coeff = m_simplex.get_base_coeff(r);
-        bool_var base_var = m_simplex.get_base_var(r);
-        SASSERT(m_simplex.below_lower(base_var) || m_simplex.above_upper(base_var));
-        bool cant_increase = m_simplex.below_lower(base_var)?m_mpz_mgr.is_pos(coeff):m_mpz_mgr.is_neg(coeff);
-
-        literal_vector explains;
-        row_iterator it = m_simplex.row_begin(r), end = m_simplex.row_end(r);        
-        for (; it != end; ++it) {
-            bool_var v = it->m_var;
-            if (v == base_var) {
-                if (m_simplex.below_lower(base_var)) {
-                    explains.push_back(m_explain_lower.get(v, null_literal));
-                }
-                else {
-                    explains.push_back(m_explain_upper.get(v, null_literal));
-                }
-            }
-            else if (cant_increase == m_mpz_mgr.is_pos(it->m_coeff)) {
-                explains.push_back(m_explain_lower.get(v, null_literal));
-            }
-            else {
-                explains.push_back(m_explain_upper.get(v, null_literal));
-            }
-        }
-        
-        literal_vector lits;
-        for (unsigned i = 0; i < explains.size(); ++i) {
-            literal lit(explains[i]);
-            if (lit != null_literal) {
-                lits.push_back(~lit);
-            }
-        }
-
-        m_stats.m_num_conflicts++;
-        justification* js = 0;
-        if (proofs_enabled()) {                                         
-            js = alloc(theory_lemma_justification, get_id(), ctx, lits.size(), lits.c_ptr());
-        }
-        TRACE("pb", tout << lits << "\n";);
-        ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
-
-        return false;
     }
 
     bool theory_pb::internalize_atom(app * atom, bool gate_ctx) {
@@ -639,6 +472,7 @@ namespace smt {
         m_stats.m_num_predicates++;
 
         if (m_util.is_aux_bool(atom)) {
+            std::cout << "aux bool\n";
             bool_var abv = ctx.mk_bool_var(atom);
             ctx.set_var_theory(abv, get_id());
             return true;
@@ -706,7 +540,7 @@ namespace smt {
             break;
         }
             
-        if (c->k().is_one() && c->is_ge() && !m_enable_simplex) {
+        if (c->k().is_one() && c->is_ge()) {
             literal_vector& lits = get_lits();
             lits.push_back(~lit);
             for (unsigned i = 0; i < c->size(); ++i) {
@@ -752,64 +586,6 @@ namespace smt {
         m_var_infos[abv].m_ineq = c;
         m_ineqs_trail.push_back(abv);
 
-        if (m_enable_simplex) {
-            //
-            // TBD: using abv as slack identity doesn't quite 
-            // work if psuedo-Booleans are used 
-            // in a nested way. So assume 
-            //
-
-            arg_t rep(c->args());
-            rep.remove_negations();  // normalize representative
-            numeral k = rep.k();
-            theory_var slack;
-            bool_var abv2;
-            TRACE("pb", display(tout << abv <<"\n", rep););
-            if (m_ineq_rep.find(rep, abv2)) {
-                slack = abv2; 
-                TRACE("pb", 
-                      tout << "Old row: " << abv << " |-> " << slack << " ";
-                      tout << m_ineq_row_info.find(abv2).m_bound << " vs. " << k << "\n";
-                      display(tout, rep););
-            }
-            else {
-                m_ineq_rep.insert(rep, abv);
-                svector<unsigned> vars;
-                scoped_mpz_vector coeffs(m_mpz_mgr);
-                for (unsigned i = 0; i < rep.size(); ++i) {
-                    unsigned v = rep.lit(i).var();
-                    m_simplex.ensure_var(v);
-                    vars.push_back(v);
-                    if (!m_vars.contains(v)) {
-                        mpq_inf zero(mpq(0),mpq(0)), one(mpq(1),mpq(0));
-                        switch(ctx.get_assignment(rep.lit(i))) {
-                        case l_true:
-                            VERIFY(update_bound(v, literal(v), true, one));
-                            m_simplex.set_lower(v, one);
-                            break;
-                        case l_false:
-                            VERIFY(update_bound(v, ~literal(v), false, zero));
-                            m_simplex.set_upper(v, zero);
-                            break;
-                        default:
-                            m_simplex.set_lower(v, zero);
-                            m_simplex.set_upper(v, one);
-                            break;
-                        }
-                        m_vars.insert(v);
-                        ctx.push_trail(remove_var(*this, v));                        
-                    }
-                    coeffs.push_back(rep.coeff(i).to_mpq().numerator());
-                }
-                slack = abv;
-                m_simplex.ensure_var(slack);
-                vars.push_back(slack);
-                coeffs.push_back(mpz(-1));
-                m_simplex.add_row(slack, vars.size(), vars.c_ptr(), coeffs.c_ptr());
-                TRACE("pb", tout << "New row: " << abv << " " << k << "\n"; display(tout, rep););
-            }
-            m_ineq_row_info.insert(abv, row_info(slack, k, rep));
-        }
 
         TRACE("pb", display(tout, *c););
 
@@ -1124,7 +900,6 @@ namespace smt {
         if (!resolve_conflict(c, lits)) {
             ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
         }
-        std::cout << "inconsistent: " << ctx.inconsistent() << "\n";
         SASSERT(ctx.inconsistent());
     }
 
@@ -1154,7 +929,6 @@ namespace smt {
         st.update("pb compilations", m_stats.m_num_compiles);
         st.update("pb compiled clauses", m_stats.m_num_compiled_clauses);
         st.update("pb compiled vars", m_stats.m_num_compiled_vars);
-        m_simplex.collect_statistics(st);
     }
     
     void theory_pb::reset_eh() {
@@ -1188,17 +962,6 @@ namespace smt {
         TRACE("pb", tout << "assign: " << ~nlit << "\n";);
         ineqs = m_var_infos[v].m_lit_watch[nlit.sign()];
         if (ineqs != 0) {
-            if (m_enable_simplex) {
-                mpq_inf num(mpq(is_true?1:0),mpq(0));
-                if (!update_bound(v, ~nlit, is_true, num)) {
-                    return;
-                }
-
-                if (!check_feasible()) {
-                    return;
-                }
-            }
-
             for (unsigned i = 0; i < ineqs->size(); ++i) {
                 SASSERT((*ineqs)[i]->is_ge());
                 if (assign_watch_ge(v, is_true, *ineqs, i)) {
@@ -1216,26 +979,6 @@ namespace smt {
         }
         ineq* c = m_var_infos[v].m_ineq;
         if (c != 0) {
-            if (m_enable_simplex) {
-                row_info const& info = m_ineq_row_info.find(v);
-                scoped_eps_numeral coeff(m_mpq_inf_mgr);
-                coeff = std::make_pair(info.m_bound.to_mpq(), mpq(0));
-                unsigned slack = info.m_slack;
-                if (is_true) {
-                    update_bound(slack, literal(v), true, coeff);
-                    if (c->is_eq()) {
-                        update_bound(slack, literal(v), false, coeff);
-                    }
-                }
-                else if (c->is_ge()) {
-                    m_mpq_inf_mgr.sub(coeff, std::make_pair(mpq(1),mpq(0)), coeff);
-                    update_bound(slack, ~literal(v), false, coeff);
-                }
-
-                if (!check_feasible()) {
-                    return;
-                }
-            }
             if (c->is_ge()) {
                 assign_ineq(*c, is_true);
             }
@@ -1765,16 +1508,6 @@ namespace smt {
             clear_watch(*c);
             m_var_infos[v].m_ineq = 0;
             m_ineqs_trail.pop_back();
-            if (m_enable_simplex) {
-                row_info r_info;
-                VERIFY(m_ineq_row_info.find(v, r_info));
-                m_ineq_row_info.erase(v);
-                bool_var v2 = m_ineq_rep.find(r_info.m_rep);
-                if (v == v2) {
-                    m_simplex.del_row(r_info.m_slack);
-                    m_ineq_rep.erase(r_info.m_rep);
-                }
-            }
             m_to_compile.erase(c);
             dealloc(c);
         }
@@ -1925,7 +1658,6 @@ namespace smt {
         bool_var v = l.var();
         unsigned lvl = ctx.get_assign_level(v);
 
-        TRACE("pb", tout << l << " " << ctx.is_marked(v) << " " << m_conflict_lvl << " " << ctx.get_base_level() << "\n";);
         if (lvl > ctx.get_base_level() && !ctx.is_marked(v) && lvl == m_conflict_lvl) {
             ctx.set_mark(v);
             ++m_num_marks;
@@ -1963,10 +1695,10 @@ namespace smt {
                 value += coeff;
             }
             else if (coeff == 0) {
-                std::cout << "unexpected 0 coefficient\n";
+                UNREACHABLE();
             }
         }
-        std::cout << "bound: " << m_bound << " value " << value << " coeffs: " << m_active_coeffs.size() << " lemma is " << (value >= 0 ? "sat" : "unsat") << "\n";    
+        // std::cout << "bound: " << m_bound << " value " << value << " coeffs: " << m_active_coeffs.size() << " lemma is " << (value >= 0 ? "sat" : "unsat") << "\n";    
         return value < 0;
     }
 
@@ -1990,27 +1722,33 @@ namespace smt {
     literal theory_pb::cardinality_reduction(card*& c) {
         normalize_active_coeffs();
         SASSERT(m_seen.empty());
+        SASSERT(m_seen_trail.empty());
         c = 0;        
         int s = 0;
         int new_bound = 0;
-        int coeff;
         while (s < m_bound) {
+            int coeff;
             int arg = arg_max(m_seen, coeff);
             if (arg == -1) break;
             s += coeff;
             ++new_bound;
             m_seen.insert(arg);
+            m_seen_trail.push_back(arg);
         }
-        m_seen.reset(); // use a trail
+        for (unsigned i = 0; i < m_seen_trail.size(); ++i) {
+            m_seen.remove(m_seen_trail[i]);
+        }
+        m_seen_trail.reset(); 
         int slack = m_bound;
         for (unsigned i = 0; i < m_active_coeffs.size(); ++i) {
-            coeff = get_abs_coeff(m_active_coeffs[i]);
+            int coeff = get_abs_coeff(m_active_coeffs[i]);
             slack = std::min(slack, coeff - 1);
         }
 
         while (slack > 0) {
             bool found = false;
             int v = 0;
+            int coeff = 0;
             for (unsigned i = 0; !found && i < m_active_coeffs.size(); ++i) {            
                 bool_var v = m_active_coeffs[i];
                 coeff = get_abs_coeff(v);
@@ -2028,7 +1766,7 @@ namespace smt {
         literal card_lit = null_literal;
         for (unsigned i = 0; i < m_active_coeffs.size(); ++i) {
             bool_var v = m_active_coeffs[i];
-            coeff = get_coeff(v);
+            int coeff = get_coeff(v);
             if (coeff < 0) {
                 m_coeffs[v] = -1;
             }
@@ -2047,14 +1785,17 @@ namespace smt {
             ctx.set_var_theory(abv, get_id());
             card_lit = literal(abv);
             c = alloc(card, card_lit, new_bound);
-            normalize_active_coeffs();
             for (unsigned i = 0; i < m_active_coeffs.size(); ++i) {
                 bool_var v = m_active_coeffs[i];
+                int coeff = get_coeff(v);
                 if (coeff < 0) {
                     c->add_arg(literal(v, true));
                 }
                 else if (coeff > 0) {
                     c->add_arg(literal(v, false));
+                }
+                else {
+                    UNREACHABLE();
                 }
             }
             m_stats.m_num_predicates++;
@@ -2077,7 +1818,7 @@ namespace smt {
                         card_lit = lit;
                     }
                 }
-                std::cout << "cardinality: " << card_lit << " " << atom << "\n";
+                SASSERT(card_lit != null_literal);
                 dealloc(c);
                 c = 0;                
             }
@@ -2132,7 +1873,7 @@ namespace smt {
             m_bound -= coeff0 - std::max(0, coeff1);
         }
         else if (coeff0 < 0 && inc > 0) {
-            m_bound -= std::min(0, coeff1) + coeff0;
+            m_bound -= std::min(0, coeff1) - coeff0;
         }
     }
 
@@ -2191,7 +1932,7 @@ namespace smt {
             return false;
         }
 
-        std::cout << c.lit() << "\n";
+        // std::cout << c.lit() << "\n";
 
         reset_coeffs();
         m_num_marks = 0;
@@ -2214,7 +1955,6 @@ namespace smt {
         while (m_num_marks > 0) {
 
             v = conseq.var();
-            TRACE("pb", display_resolved_lemma(tout << conseq << "\n"););
 
             int offset = get_abs_coeff(v);
 
@@ -2236,8 +1976,12 @@ namespace smt {
             SASSERT(offset > 0);
 
             js = ctx.get_justification(v);
-            // ctx.display(std::cout, js);
-            
+
+            TRACE("pb", 
+                  display_resolved_lemma(tout << conseq << "\n");
+                  ctx.display(tout, js););
+
+            m_resolved.push_back(conseq);
 
             
             //
@@ -2249,7 +1993,6 @@ namespace smt {
             switch(js.get_kind()) {
                 
             case b_justification::CLAUSE: {
-                inc_coeff(conseq, offset);
                 clause& cls = *js.get_clause();
                 justification* cjs = cls.get_justification();
                 if (cjs && !is_proof_justification(*cjs)) {
@@ -2274,10 +2017,8 @@ namespace smt {
             case b_justification::BIN_CLAUSE:
                 inc_coeff(conseq, offset);
                 process_antecedent(~js.get_literal(), offset);
-                TRACE("pb", tout << "binary: " << js.get_literal() << "\n";);
                 break;
             case b_justification::AXIOM:
-                TRACE("pb", tout << "axiom " << conseq << "\n";);
                 break;
             case b_justification::JUSTIFICATION: {
                 justification* j = js.get_justification(); 
@@ -2295,10 +2036,11 @@ namespace smt {
                     process_card(c2, offset);
                     unsigned i = 0;
                     for (i = 0; i < c2.size() && c2.lit(i) != conseq; ++i) {}
-                    std::cout << c2.lit() << " index at " << i << " of " << c2.size();
+                    // std::cout << c2.lit() << " index at " << i << " of " << c2.size();
                     bound = c2.k();
                 }
-                std::cout << " offset: " << offset << " bound: " << bound << "\n";
+                
+                // std::cout << " offset: " << offset << " bound: " << bound << "\n";
                 break;
             }
             default:
@@ -2320,7 +2062,6 @@ namespace smt {
 
             SASSERT(ctx.get_assign_level(v) == m_conflict_lvl);
             ctx.unset_mark(v);
-            m_resolved.push_back(idx);
             --idx;
             --m_num_marks;
         }
@@ -2338,7 +2079,7 @@ namespace smt {
             ++sz;
             count += coeff;
         }
-        std::cout << "New " << count << "(" << sz << ") >= " << m_bound << " " << c.size() << " >= " << c.k() << " new diff: " << count - m_bound  << " old diff: " << c.size() - c.k() << "\n";
+        // std::cout << "New " << count << "(" << sz << ") >= " << m_bound << " " << c.size() << " >= " << c.k() << " new diff: " << count - m_bound  << " old diff: " << c.size() - c.k() << "\n";
         card* cr = 0;
         literal card_lit = cardinality_reduction(cr);
 
@@ -2350,7 +2091,8 @@ namespace smt {
             m_antecedents.reset();
             m_antecedents.push_back(card_lit);
             unsigned slack = cr ? (cr->size() - cr->k()) : 0;
-            for (unsigned i = 0; 0 < slack && i < cr->size(); ++i) {
+            for (unsigned i = 0; 0 < slack; ++i) {
+                SASSERT(i < cr->size());
                 literal lit = cr->lit(i);
                 SASSERT(lit.var() != conseq.var() || lit == ~conseq);
                 if (lit.var() != conseq.var() && ctx.get_assignment(lit) == l_false) {
@@ -2358,8 +2100,9 @@ namespace smt {
                     --slack;
                 }
             }
+            SASSERT(slack == 0);
             ctx.assign(~conseq, ctx.mk_justification(theory_propagation_justification(get_id(), ctx.get_region(), m_antecedents.size(), m_antecedents.c_ptr(), ~conseq, 0, 0)));
-            std::cout << conseq << " " << ctx.get_assignment(conseq) << "\n";
+            // std::cout << "slack " << slack << " " << conseq << " " << ctx.get_assignment(conseq) << "\n";
         }
 
         return card_lit != null_literal;
@@ -2477,9 +2220,9 @@ namespace smt {
         out << "num marks: " << m_num_marks << "\n";
         out << "conflict level: " << m_conflict_lvl << "\n";
         for (unsigned i = 0; i < m_resolved.size(); ++i) {
-            v = lits[m_resolved[i]].var();
+            v = m_resolved[i].var();
             lvl = ctx.get_assign_level(v);
-            out << lvl << ": " << lits[i] << " ";
+            out << lvl << ": " << m_resolved[i] << " ";
             ctx.display(out, ctx.get_justification(v));
         }
 

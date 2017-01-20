@@ -291,7 +291,6 @@ namespace smt {
         unsigned                 m_conflict_frequency;
         bool                     m_learn_complements;
         bool                     m_enable_compilation;
-        bool                     m_enable_simplex;
         rational                 m_max_compiled_coeff;
 
         // internalize_atom:
@@ -336,8 +335,6 @@ namespace smt {
 
 
         // simplex:
-        literal set_explain(literal_vector& explains, unsigned var, literal expl);
-        bool update_bound(bool_var v, literal explain, bool is_lower, mpq_inf const& bound);
         bool check_feasible();
 
         std::ostream& display(std::ostream& out, ineq const& c, bool values = false) const;
@@ -366,7 +363,7 @@ namespace smt {
         // Conflict resolution, cutting plane derivation.
         // 
         unsigned          m_num_marks;
-        unsigned_vector   m_resolved;
+        literal_vector    m_resolved;
         unsigned          m_conflict_lvl;
 
         // Conflict PB constraints
@@ -375,6 +372,7 @@ namespace smt {
         int               m_bound;
         literal_vector    m_antecedents;
         uint_set          m_seen;
+        unsigned_vector   m_seen_trail;
 
         void normalize_active_coeffs();
         void inc_coeff(literal l, int offset);
