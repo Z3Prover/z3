@@ -270,6 +270,15 @@ namespace smt {
             }
         };
 
+        struct card_reinit {
+            literal_vector m_lits;
+            card*          m_card;
+
+            card_reinit(literal_vector const& lits, card* c):
+                m_lits(lits),
+                m_card(c)
+            {}
+        };
 
         theory_pb_params         m_params;        
 
@@ -292,6 +301,8 @@ namespace smt {
         bool                     m_learn_complements;
         bool                     m_enable_compilation;
         rational                 m_max_compiled_coeff;
+
+        bool                     m_card_reinit;
 
         // internalize_atom:
         literal compile_arg(expr* arg);
@@ -381,7 +392,8 @@ namespace smt {
         int arg_max(uint_set& seen, int& coeff); 
 
         void reset_coeffs();
-        literal cardinality_reduction(card*& c);
+        literal cardinality_reduction(literal propagation_lit);
+        void add_cardinality_lemma();
 
         bool resolve_conflict(card& c, literal_vector const& conflict_clause);
         void process_antecedent(literal l, int offset);
