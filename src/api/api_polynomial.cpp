@@ -14,9 +14,8 @@ Author:
     Leonardo de Moura (leonardo) 2012-12-08
 
 Notes:
-    
+
 --*/
-#include<iostream>
 #include"z3.h"
 #include"api_log_macros.h"
 #include"api_context.h"
@@ -35,7 +34,7 @@ namespace api {
 
     pmanager::~pmanager() {
     }
-    
+
 };
 
 extern "C" {

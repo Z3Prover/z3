@@ -10,6 +10,12 @@ Z3 can be built using [Visual Studio][1], a [Makefile][2] or using [CMake][3]. I
 
 See the [release notes](RELEASE_NOTES) for notes on various stable releases of Z3.
 
+## Build status
+
+| Windows x86 | Windows x64 | Ubuntu x64 | Ubuntu x86 | Debian x64 | OSX |
+| ----------- | ----------- | ---------- | ---------- | ---------- | --- |
+![win32-badge](https://cz3.visualstudio.com/_apis/public/build/definitions/bf14bcc7-ebd4-4240-812c-5972fa59e0ad/4/badge) | ![win64-badge](https://cz3.visualstudio.com/_apis/public/build/definitions/bf14bcc7-ebd4-4240-812c-5972fa59e0ad/7/badge) | ![ubuntu-x64-badge](https://cz3.visualstudio.com/_apis/public/build/definitions/bf14bcc7-ebd4-4240-812c-5972fa59e0ad/3/badge) | ![ubuntu-x86-badge](https://cz3.visualstudio.com/_apis/public/build/definitions/bf14bcc7-ebd4-4240-812c-5972fa59e0ad/6/badge) | ![debian-badge](https://cz3.visualstudio.com/_apis/public/build/definitions/bf14bcc7-ebd4-4240-812c-5972fa59e0ad/5/badge) | ![osx-badge](https://cz3.visualstudio.com/_apis/public/build/definitions/bf14bcc7-ebd4-4240-812c-5972fa59e0ad/2/badge)
+
 [1]: #building-z3-on-windows-using-visual-studio-command-prompt
 [2]: #building-z3-using-make-and-gccclang
 [3]: #building-z3-using-cmake

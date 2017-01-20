@@ -15,7 +15,6 @@ Author:
 Revision History:
 
 --*/
-#include<iostream>
 #include<fstream>
 #include"z3.h"
 #include"api_log_macros.h"

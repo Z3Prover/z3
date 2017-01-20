@@ -62,20 +62,22 @@ namespace opt {
             }
             m_upper = m_lower;
             bool was_sat = false;
-            expr_ref_vector disj(m), asms(m);
+            expr_ref_vector asms(m);
             vector<expr_ref_vector> cores;
+
             obj_map<expr, rational>::iterator it = soft.begin(), end = soft.end();
             for (; it != end; ++it) {
                 expr* c = assert_weighted(wth(), it->m_key, it->m_value);
                 if (!is_true(it->m_key)) {
-                    disj.push_back(m.mk_not(c));
                     m_upper += it->m_value;
                 }
             }
             wth().init_min_cost(m_upper - m_lower);
-            s().assert_expr(mk_or(disj));
             trace_bounds("wmax");
             
+            TRACE("opt", 
+                  s().display(tout); tout << "\n";
+                  tout << "lower: " << m_lower << " upper: " << m_upper << "\n";);
             while (!m.canceled() && m_lower < m_upper) {
                 //mk_assumptions(asms);
                 //is_sat = s().preferred_sat(asms, cores);
@@ -84,6 +86,7 @@ namespace opt {
                     is_sat = l_undef;
                 }
                 if (is_sat == l_false) {
+                    TRACE("opt", tout << "Unsat\n";);
                     break;
                 }
                 if (is_sat == l_true) {

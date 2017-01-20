@@ -2693,6 +2693,18 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Create an at-least-k constraint.
+        /// </summary>
+        public BoolExpr MkAtLeast(BoolExpr[] args, uint k)
+        {
+           Contract.Requires(args != null);
+           Contract.Requires(Contract.Result<BoolExpr[]>() != null);
+           CheckContextMatch<BoolExpr>(args);
+           return new BoolExpr(this, Native.Z3_mk_atleast(nCtx, (uint) args.Length,
+                                                          AST.ArrayToNative(args), k));
+        }
+
+        /// <summary>
         /// Create a pseudo-Boolean less-or-equal constraint.
         /// </summary>
         public BoolExpr MkPBLe(int[] coeffs, BoolExpr[] args, int k)
@@ -2707,6 +2719,20 @@ namespace Microsoft.Z3
                                                           coeffs, k));
         }
 
+        /// <summary>
+        /// Create a pseudo-Boolean greater-or-equal constraint.
+        /// </summary>
+        public BoolExpr MkPBGe(int[] coeffs, BoolExpr[] args, int k)
+        {
+           Contract.Requires(args != null);
+           Contract.Requires(coeffs != null);
+           Contract.Requires(args.Length == coeffs.Length);
+           Contract.Requires(Contract.Result<BoolExpr[]>() != null);
+           CheckContextMatch<BoolExpr>(args);
+           return new BoolExpr(this, Native.Z3_mk_pbge(nCtx, (uint) args.Length,
+                                                          AST.ArrayToNative(args),
+                                                          coeffs, k));
+        }
         /// <summary>
         /// Create a pseudo-Boolean equal constraint.
         /// </summary>

@@ -72,8 +72,6 @@ namespace sat {
         bool               m_dyn_sub_res;
         bool               m_core_minimize;
         bool               m_core_minimize_partial;
-        bool               m_optimize_model;
-        bool               m_bcd;
 
 
         symbol             m_always_true;

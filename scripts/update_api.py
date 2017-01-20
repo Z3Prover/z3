@@ -365,7 +365,7 @@ def mk_dotnet(dotnet):
     dotnet.write('        public delegate void Z3_error_handler(Z3_context c, Z3_error_code e);\n\n')
     dotnet.write('        public class LIB\n')
     dotnet.write('        {\n')
-    dotnet.write('            const string Z3_DLL_NAME = \"libz3.dll\";\n'
+    dotnet.write('            const string Z3_DLL_NAME = \"libz3\";\n'
                  '            \n')
     dotnet.write('            [DllImport(Z3_DLL_NAME, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]\n')
     dotnet.write('            public extern static void Z3_set_error_handler(Z3_context a0, Z3_error_handler a1);\n\n')
@@ -1195,13 +1195,13 @@ def ml_alloc_and_store(t, lhs, rhs):
         alloc_str = '%s = caml_alloc_custom(&%s, sizeof(%s), 0, 1); ' % (lhs, pops, pts)
         return alloc_str + ml_set_wrap(t, lhs, rhs)
 
-def mk_ml(ml_dir):
+def mk_ml(ml_src_dir, ml_output_dir):
     global Type2Str
-    ml_nativef  = os.path.join(ml_dir, 'z3native.ml')
+    ml_nativef  = os.path.join(ml_output_dir, 'z3native.ml')
     ml_native   = open(ml_nativef, 'w')
     ml_native.write('(* Automatically generated file *)\n\n')
 
-    ml_pref = open(os.path.join(ml_dir, 'z3native.ml.pre'), 'r')
+    ml_pref = open(os.path.join(ml_src_dir, 'z3native.ml.pre'), 'r')
     for s in ml_pref:
         ml_native.write(s);
     ml_pref.close()
@@ -1250,14 +1250,14 @@ def mk_ml(ml_dir):
     if mk_util.is_verbose():
         print ('Generated "%s"' % ml_nativef)
 
-    mk_z3native_stubs_c(ml_dir)
+    mk_z3native_stubs_c(ml_src_dir, ml_output_dir)
 
-def mk_z3native_stubs_c(ml_dir): # C interface
-    ml_wrapperf = os.path.join(ml_dir, 'z3native_stubs.c')
+def mk_z3native_stubs_c(ml_src_dir, ml_output_dir): # C interface
+    ml_wrapperf = os.path.join(ml_output_dir, 'z3native_stubs.c')
     ml_wrapper = open(ml_wrapperf, 'w')
     ml_wrapper.write('// Automatically generated file\n\n')
 
-    ml_pref = open(os.path.join(ml_dir, 'z3native_stubs.c.pre'), 'r')
+    ml_pref = open(os.path.join(ml_src_dir, 'z3native_stubs.c.pre'), 'r')
     for s in ml_pref:
         ml_wrapper.write(s);
     ml_pref.close()
@@ -1574,6 +1574,7 @@ def write_log_h_preamble(log_h):
   log_h.write('#define _Z3_UNUSED\n')
   log_h.write('#endif\n')
   #
+  log_h.write('#include<iostream>\n')
   log_h.write('extern std::ostream * g_z3_log;\n')
   log_h.write('extern bool           g_z3_log_enabled;\n')
   log_h.write('class z3_log_ctx { bool m_prev; public: z3_log_ctx():m_prev(g_z3_log_enabled) { g_z3_log_enabled = false; } ~z3_log_ctx() { g_z3_log_enabled = m_prev; } bool enabled() const { return m_prev; } };\n')
@@ -1666,7 +1667,8 @@ def generate_files(api_files,
                    dotnet_output_dir=None,
                    java_output_dir=None,
                    java_package_name=None,
-                   ml_output_dir=None):
+                   ml_output_dir=None,
+                   ml_src_dir=None):
   """
     Scan the api files in ``api_files`` and emit the relevant API files into
     the output directories specified. If an output directory is set to ``None``
@@ -1741,7 +1743,8 @@ def generate_files(api_files,
     mk_java(java_output_dir, java_package_name)
 
   if ml_output_dir:
-    mk_ml(ml_output_dir)
+    assert not ml_src_dir is None
+    mk_ml(ml_src_dir, ml_output_dir)
 
 def main(args):
   logging.basicConfig(level=logging.INFO)
@@ -1768,6 +1771,10 @@ def main(args):
                       dest="java_package_name",
                       default=None,
                       help="Name to give the Java package (e.g. ``com.microsoft.z3``).")
+  parser.add_argument("--ml-src-dir",
+                      dest="ml_src_dir",
+                      default=None,
+                      help="Directory containing OCaml source files. If not specified no files are emitted")
   parser.add_argument("--ml-output-dir",
                       dest="ml_output_dir",
                       default=None,
@@ -1777,6 +1784,11 @@ def main(args):
   if pargs.java_output_dir:
     if pargs.java_package_name == None:
       logging.error('--java-package-name must be specified')
+      return 1
+
+  if pargs.ml_output_dir:
+    if pargs.ml_src_dir is None:
+      logging.error('--ml-src-dir must be specified')
       return 1
 
   for api_file in pargs.api_files:
@@ -1790,7 +1802,8 @@ def main(args):
                  dotnet_output_dir=pargs.dotnet_output_dir,
                  java_output_dir=pargs.java_output_dir,
                  java_package_name=pargs.java_package_name,
-                 ml_output_dir=pargs.ml_output_dir)
+                 ml_output_dir=pargs.ml_output_dir,
+                 ml_src_dir=pargs.ml_src_dir)
   return 0
 
 if __name__ == '__main__':

@@ -23,10 +23,10 @@ Revision History:
 namespace sat {
 
     config::config(params_ref const & p):
+        m_restart_max(0),
         m_always_true("always_true"),
         m_always_false("always_false"),
         m_caching("caching"),
-        m_restart_max(0),
         m_random("random"),
         m_geometric("geometric"),
         m_luby("luby"),
@@ -111,8 +111,6 @@ namespace sat {
         m_minimize_lemmas = p.minimize_lemmas();
         m_core_minimize   = p.core_minimize();
         m_core_minimize_partial   = p.core_minimize_partial();
-        m_optimize_model  = p.optimize_model();
-        m_bcd             = p.bcd();
         m_dyn_sub_res     = p.dyn_sub_res();
     }
 

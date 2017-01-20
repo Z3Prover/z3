@@ -261,10 +261,11 @@ namespace smt {
         m_assignment[false_literal.index()]    = l_false;
         if (m_manager.proofs_enabled()) {
             proof * pr = m_manager.mk_true_proof();
-            m_bdata[true_bool_var].m_justification = b_justification(mk_justification(justification_proof_wrapper(*this, pr)));
+
+            set_justification(true_bool_var, m_bdata[true_bool_var], b_justification(mk_justification(justification_proof_wrapper(*this, pr))));
         }
         else {
-            m_bdata[true_bool_var].m_justification = b_justification::mk_axiom();
+            m_bdata[true_bool_var].set_axiom();
         }
         m_true_enode  = mk_enode(t, true, true, false);
         // internalizer is marking enodes as interpreted whenever the associated ast is a value and a constant.
@@ -292,6 +293,12 @@ namespace smt {
             std::swap(lhs, rhs);
         return m_manager.mk_eq(lhs, rhs);
     }
+
+    void context::set_justification(bool_var v, bool_var_data& d, b_justification const& j) {
+        SASSERT(validate_justification(v, d, j));
+        d.set_justification(j);
+    }
+
     
     void context::assign_core(literal l, b_justification j, bool decision) {
         TRACE("assign_core", tout << (decision?"decision: ":"propagating: ") << l << " ";              
@@ -302,7 +309,7 @@ namespace smt {
         m_assignment[l.index()]    = l_true;
         m_assignment[(~l).index()] = l_false;
         bool_var_data & d          = get_bdata(l.var());
-        d.m_justification          = j;
+        set_justification(l.var(), d, j);
         d.m_scope_lvl              = m_scope_lvl;
         if (m_fparams.m_restart_adaptive && d.m_phase_available) {
             m_agility             *= m_fparams.m_agility_factor;
@@ -1406,7 +1413,8 @@ namespace smt {
                 else {
                     TRACE("add_diseq", display_eq_detail(tout, bool_var2enode(v)););
                     if (!add_diseq(get_enode(lhs), get_enode(rhs)) && !inconsistent()) {
-                        set_conflict(b_justification(mk_justification(eq_propagation_justification(get_enode(lhs), get_enode(rhs)))), ~l);                        
+                        literal n_eq = literal(l.var(), true);
+                        set_conflict(b_justification(mk_justification(eq_propagation_justification(get_enode(lhs), get_enode(rhs)))), n_eq);
                     }
                 }
             }
@@ -1787,6 +1795,7 @@ namespace smt {
 
     void context::set_conflict(b_justification js, literal not_l) {
         if (!inconsistent()) {
+            TRACE("set_conflict", display_literal_verbose(tout, not_l); display(tout, js); );
             m_conflict = js;
             m_not_l    = not_l;
         }
@@ -2042,7 +2051,7 @@ namespace smt {
             m_assignment[(~l).index()] = l_undef;
             bool_var v                 = l.var();
             bool_var_data & d          = get_bdata(v);
-            d.m_justification          = null_b_justification;
+            d.set_null_justification();
             m_case_split_queue->unassign_var_eh(v);
         }
         
@@ -2593,10 +2602,10 @@ namespace smt {
                                 cls->set_justification(0);
                                 m_justifications.push_back(js);
                             }
-                            m_bdata[v0].m_justification = b_justification(js);
+                            set_justification(v0, m_bdata[v0], b_justification(js));
                         }
                         else
-                            m_bdata[v0].m_justification = b_justification::mk_axiom();
+                            m_bdata[v0].set_axiom();
                     }
                 }
                 del_clause(cls);

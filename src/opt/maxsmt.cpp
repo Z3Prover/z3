@@ -55,15 +55,18 @@ namespace opt {
 
     void maxsmt_solver_base::commit_assignment() {
         expr_ref tmp(m);
-        rational k(0);
+        rational k(0), cost(0);
         for (unsigned i = 0; i < m_soft.size(); ++i) {
             if (get_assignment(i)) {
                 k += m_weights[i];
             }
+            else {
+                cost += m_weights[i];
+            }
         }       
         pb_util pb(m);
         tmp = pb.mk_ge(m_weights.size(), m_weights.c_ptr(), m_soft.c_ptr(), k);
-        TRACE("opt", tout << tmp << "\n";);
+        TRACE("opt", tout << "cost: " << cost << "\n" << tmp << "\n";);
         s().assert_expr(tmp);
     }
 
@@ -140,7 +143,9 @@ namespace opt {
         m_wth = s.ensure_wmax_theory();
     }
     maxsmt_solver_base::scoped_ensure_theory::~scoped_ensure_theory() {
-        //m_wth->reset_local();
+        if (m_wth) {
+            m_wth->reset_local();
+        }
     }
     smt::theory_wmaxsat& maxsmt_solver_base::scoped_ensure_theory::operator()() { return *m_wth; }
 
@@ -226,7 +231,9 @@ namespace opt {
         m_msolver = 0;
         symbol const& maxsat_engine = m_c.maxsat_engine();
         IF_VERBOSE(1, verbose_stream() << "(maxsmt)\n";);
-        TRACE("opt", tout << "maxsmt\n";);
+        TRACE("opt", tout << "maxsmt\n";
+              s().display(tout); tout << "\n";
+              );
         if (m_soft_constraints.empty() || maxsat_engine == symbol("maxres") || maxsat_engine == symbol::null) {            
             m_msolver = mk_maxres(m_c, m_index, m_weights, m_soft_constraints);
         }

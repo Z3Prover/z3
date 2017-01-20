@@ -855,6 +855,9 @@ typedef enum
       - Z3_OP_PB_AT_MOST: Cardinality constraint.
               E.g., x + y + z <= 2
 
+      - Z3_OP_PB_AT_LEAST: Cardinality constraint.
+              E.g., x + y + z >= 2
+
       - Z3_OP_PB_LE: Generalized Pseudo-Boolean cardinality constraint.
               Example  2*x + 3*y <= 4
 
@@ -1060,6 +1063,7 @@ typedef enum {
     Z3_OP_EXT_ROTATE_LEFT,
     Z3_OP_EXT_ROTATE_RIGHT,
 
+    Z3_OP_BIT2BOOL,
     Z3_OP_INT2BV,
     Z3_OP_BV2INT,
     Z3_OP_CARRY,
@@ -1173,6 +1177,7 @@ typedef enum {
 
     // Pseudo Booleans
     Z3_OP_PB_AT_MOST=0x900,
+    Z3_OP_PB_AT_LEAST,
     Z3_OP_PB_LE,
     Z3_OP_PB_GE,
     Z3_OP_PB_EQ,
@@ -1948,7 +1953,7 @@ extern "C" {
        The datatype may be recursive. Return the datatype sort.
 
        \param c logical context.
-	   \param name name of datatype.
+       \param name name of datatype.
        \param num_constructors number of constructors passed in.
        \param constructors array of constructor containers.
 
@@ -3083,7 +3088,7 @@ extern "C" {
 
        \param c logical context.
        \param numeral A string representing the numeral value in decimal notation. The string may be of the form \code{[num]*[.[num]*][E[+|-][num]+]}.
-                      If the given sort is a real, then the numeral can be a rational, that is, a string of the form \ccode{[num]* / [num]*}.                      
+                      If the given sort is a real, then the numeral can be a rational, that is, a string of the form \ccode{[num]* / [num]*}.
        \param ty The sort of the numeral. In the current implementation, the given sort can be an int, real, finite-domain, or bit-vectors of arbitrary size.
 
        \sa Z3_mk_int
@@ -3388,7 +3393,7 @@ extern "C" {
        \c lo number of times, and with an unbounded upper bound.
 
        def_API('Z3_mk_re_loop', AST, (_in(CONTEXT), _in(AST), _in(UINT), _in(UINT)))
-     */    
+     */
     Z3_ast Z3_API Z3_mk_re_loop(Z3_context c, Z3_ast r, unsigned lo, unsigned hi);
 
     /**
@@ -3425,7 +3430,7 @@ extern "C" {
        def_API('Z3_mk_re_full' ,AST ,(_in(CONTEXT), _in(SORT)))
      */
     Z3_ast Z3_API Z3_mk_re_full(Z3_context c, Z3_sort re);
-    
+
 
     /*@}*/
 
@@ -3961,9 +3966,18 @@ extern "C" {
 
        def_API('Z3_mk_atmost', AST, (_in(CONTEXT), _in(UINT), _in_array(1,AST), _in(UINT)))
     */
-
     Z3_ast Z3_API Z3_mk_atmost(Z3_context c, unsigned num_args,
                                Z3_ast const args[], unsigned k);
+
+    /**
+       \brief Pseudo-Boolean relations.
+
+       Encode p1 + p2 + ... + pn >= k
+
+       def_API('Z3_mk_atleast', AST, (_in(CONTEXT), _in(UINT), _in_array(1,AST), _in(UINT)))
+    */
+    Z3_ast Z3_API Z3_mk_atleast(Z3_context c, unsigned num_args,
+                                Z3_ast const args[], unsigned k);
 
     /**
        \brief Pseudo-Boolean relations.
@@ -3972,8 +3986,18 @@ extern "C" {
 
        def_API('Z3_mk_pble', AST, (_in(CONTEXT), _in(UINT), _in_array(1,AST), _in_array(1,INT), _in(INT)))
     */
-
     Z3_ast Z3_API Z3_mk_pble(Z3_context c, unsigned num_args,
+                             Z3_ast const args[], int coeffs[],
+                             int k);
+
+    /**
+       \brief Pseudo-Boolean relations.
+
+       Encode k1*p1 + k2*p2 + ... + kn*pn >= k
+
+       def_API('Z3_mk_pbge', AST, (_in(CONTEXT), _in(UINT), _in_array(1,AST), _in_array(1,INT), _in(INT)))
+    */
+    Z3_ast Z3_API Z3_mk_pbge(Z3_context c, unsigned num_args,
                              Z3_ast const args[], int coeffs[],
                              int k);
 
@@ -3984,7 +4008,6 @@ extern "C" {
 
        def_API('Z3_mk_pbeq', AST, (_in(CONTEXT), _in(UINT), _in_array(1,AST), _in_array(1,INT), _in(INT)))
     */
-
     Z3_ast Z3_API Z3_mk_pbeq(Z3_context c, unsigned num_args,
                              Z3_ast const args[], int coeffs[],
                              int k);
@@ -5199,7 +5222,7 @@ extern "C" {
     /*@}*/
 
     /**
-       \brief Return a string describing the given error code. 
+       \brief Return a string describing the given error code.
        Retained function name for backwards compatibility within v4.1
     */
     Z3_string Z3_API Z3_get_error_msg_ex(Z3_context c, Z3_error_code err);
@@ -5972,11 +5995,11 @@ extern "C" {
 
     /**
        \brief retrieve consequences from solver that determine values of the supplied function symbols.
-       
+
        def_API('Z3_solver_get_consequences', INT, (_in(CONTEXT), _in(SOLVER), _in(AST_VECTOR), _in(AST_VECTOR), _in(AST_VECTOR)))
      */
 
-    Z3_lbool Z3_API Z3_solver_get_consequences(Z3_context c, 
+    Z3_lbool Z3_API Z3_solver_get_consequences(Z3_context c,
                                                Z3_solver s,
                                                Z3_ast_vector assumptions,
                                                Z3_ast_vector variables,

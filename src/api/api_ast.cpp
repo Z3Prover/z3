@@ -1063,9 +1063,10 @@ extern "C" {
             case OP_BV2INT:    return Z3_OP_BV2INT;
             case OP_CARRY:     return Z3_OP_CARRY;
             case OP_XOR3:      return Z3_OP_XOR3;
+            case OP_BIT2BOOL: return Z3_OP_BIT2BOOL;
             case OP_BSMUL_NO_OVFL: return Z3_OP_BSMUL_NO_OVFL;
             case OP_BUMUL_NO_OVFL: return Z3_OP_BUMUL_NO_OVFL;
-            case OP_BSMUL_NO_UDFL: return Z3_OP_BSMUL_NO_UDFL;
+            case OP_BSMUL_NO_UDFL: return Z3_OP_BSMUL_NO_UDFL;                
             case OP_BSDIV_I: return Z3_OP_BSDIV_I;
             case OP_BUDIV_I: return Z3_OP_BUDIV_I;
             case OP_BSREM_I: return Z3_OP_BSREM_I;
@@ -1210,7 +1211,9 @@ extern "C" {
             switch(_d->get_decl_kind()) {
             case OP_PB_LE: return Z3_OP_PB_LE;
             case OP_PB_GE: return Z3_OP_PB_GE;
+            case OP_PB_EQ: return Z3_OP_PB_EQ;
             case OP_AT_MOST_K: return Z3_OP_PB_AT_MOST;
+            case OP_AT_LEAST_K: return Z3_OP_PB_AT_LEAST;
             default: return Z3_OP_INTERNAL;
             }
         }

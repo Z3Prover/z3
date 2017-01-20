@@ -22,6 +22,7 @@ def main(args):
                         dest="java_package_name",
                         default=None,
                         help="Name to give the Java package (e.g. ``com.microsoft.z3``).")
+    parser.add_argument("--ml-output-dir", dest="ml_output_dir", default=None)
     pargs = parser.parse_args(args)
 
     if not mk_genfile_common.check_files_exist(pargs.api_files):
@@ -58,6 +59,15 @@ def main(args):
             pargs.java_output_dir)
         for generated_file in outputs:
             logging.info('Generated "{}"'.format(generated_file))
+        count += 1
+
+    if pargs.ml_output_dir:
+        if not mk_genfile_common.check_dir_exists(pargs.ml_output_dir):
+            return 1
+        output = mk_genfile_common.mk_z3consts_ml_internal(
+            pargs.api_files,
+            pargs.ml_output_dir)
+        logging.info('Generated "{}"'.format(output))
         count += 1
 
     if count == 0:

@@ -25,7 +25,6 @@ Notes:
 #include"scoped_ptr_vector.h"
 #include"cooperate.h"
 #include"upolynomial_factorization.h"
-#include"polynomial_factorization.h"
 #include"polynomial_primes.h"
 #include"permutation.h"
 #include"algebraic_numbers.h"

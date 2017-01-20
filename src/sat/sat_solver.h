@@ -33,7 +33,6 @@ Revision History:
 #include"sat_iff3_finder.h"
 #include"sat_probing.h"
 #include"sat_mus.h"
-#include"sat_sls.h"
 #include"params.h"
 #include"statistics.h"
 #include"stopwatch.h"
@@ -86,7 +85,6 @@ namespace sat {
         asymm_branch            m_asymm_branch;
         probing                 m_probing;
         mus                     m_mus;           // MUS for minimal core extraction
-        wsls                    m_wsls;          // SLS facility for MaxSAT use
         bool                    m_inconsistent;
         // A conflict is usually a single justification. That is, a justification
         // for false. If m_not_l is not null_literal, then m_conflict is a
@@ -141,9 +139,6 @@ namespace sat {
         friend class probing;
         friend class iff3_finder;
         friend class mus;
-        friend class sls;
-        friend class wsls;
-        friend class bceq;
         friend struct mk_stat;
     public:
         solver(params_ref const & p, reslimit& l, extension * ext);
@@ -189,11 +184,9 @@ namespace sat {
         void mk_bin_clause(literal l1, literal l2, bool learned);
         bool propagate_bin_clause(literal l1, literal l2);
         clause * mk_ter_clause(literal * lits, bool learned);
-        void attach_ter_clause(clause & c, bool & reinit);
-        void attach_ter_clause(clause & c) { bool reinit; attach_ter_clause(c, reinit); }
+        bool attach_ter_clause(clause & c);
         clause * mk_nary_clause(unsigned num_lits, literal * lits, bool learned);
-        void attach_nary_clause(clause & c, bool & reinit);
-        void attach_nary_clause(clause & c) { bool reinit; attach_nary_clause(c, reinit); }
+        bool attach_nary_clause(clause & c);
         void attach_clause(clause & c, bool & reinit);
         void attach_clause(clause & c) { bool reinit; attach_clause(c, reinit); }
         unsigned select_watch_lit(clause const & cls, unsigned starting_at) const;
@@ -280,10 +273,7 @@ namespace sat {
         //
         // -----------------------
     public:
-        lbool check(unsigned num_lits = 0, literal const* lits = 0) {
-            return check(num_lits, lits, 0, 0);
-        }
-        lbool check(unsigned num_lits, literal const* lits, double const* weights, double max_weight);
+        lbool check(unsigned num_lits = 0, literal const* lits = 0);
 
         model const & get_model() const { return m_model; }
         bool model_is_current() const { return m_model_is_current; }
@@ -311,11 +301,7 @@ namespace sat {
         
         literal_vector m_min_core;
         bool           m_min_core_valid;
-        literal_vector m_blocker;
-        double         m_weight;
-        bool           m_initializing_preferred;
-        void init_assumptions(unsigned num_lits, literal const* lits, double const* weights, double max_weight);
-        bool init_weighted_assumptions(unsigned num_lits, literal const* lits, double const* weights, double max_weight);
+        void init_assumptions(unsigned num_lits, literal const* lits);
         void reassert_min_core();
         void update_min_core();
         void resolve_weighted();
@@ -453,15 +439,25 @@ namespace sat {
         u_map<index_set>       m_antecedents;
         vector<literal_vector> m_binary_clause_graph;
 
-        void extract_assumptions(literal lit, index_set& s);
+        bool extract_assumptions(literal lit, index_set& s);
+        
+        bool check_domain(literal lit, literal lit2);
+
+        std::ostream& display_index_set(std::ostream& out, index_set const& s) const;
 
         lbool get_consequences(literal_vector const& assms, literal_vector const& lits, vector<literal_vector>& conseq);
 
-        void delete_unfixed(literal_set& unfixed);
+        lbool get_bounded_consequences(literal_vector const& assms, bool_var_vector const& vars, vector<literal_vector>& conseq);
 
-        void extract_fixed_consequences(unsigned& start, literal_set const& assumptions, literal_set& unfixed, vector<literal_vector>& conseq);
+        void delete_unfixed(literal_set& unfixed_lits, bool_var_set& unfixed_vars);
 
-        void extract_fixed_consequences(literal lit, literal_set const& assumptions, literal_set& unfixed, vector<literal_vector>& conseq);
+        void extract_fixed_consequences(unsigned& start, literal_set const& assumptions, bool_var_set& unfixed, vector<literal_vector>& conseq);
+
+        bool extract_fixed_consequences(literal lit, literal_set const& assumptions, bool_var_set& unfixed, vector<literal_vector>& conseq);
+
+        void update_unfixed_literals(literal_set& unfixed_lits, bool_var_set& unfixed_vars);
+
+        void fixup_consequence_core();
 
         // -----------------------
         //

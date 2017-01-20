@@ -193,7 +193,6 @@ int main(int argc, char ** argv) {
     TST(polynomial);
     TST(upolynomial);
     TST(algebraic);
-    TST(polynomial_factorization);
     TST(prime_generator);
     TST(permutation);
     TST(nlsat);

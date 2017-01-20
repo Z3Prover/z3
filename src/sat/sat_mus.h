@@ -26,7 +26,6 @@ namespace sat {
         literal_vector m_mus;
         bool           m_is_active;
         model          m_model;       // model obtained during minimal unsat core
-        double         m_best_value;
         unsigned       m_restart;
         unsigned       m_max_restarts;
 
@@ -41,7 +40,6 @@ namespace sat {
         lbool mus1();
         lbool mus2();
         lbool qx(literal_set& assignment, literal_set& support, bool has_support);
-        void mr();
         void reset();
         void set_core();
         void update_model();

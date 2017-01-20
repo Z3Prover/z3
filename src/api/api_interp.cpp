@@ -15,7 +15,6 @@
   Revision History:
 
   --*/
-#include<iostream>
 #include<sstream>
 #include<vector>
 #include"z3.h"
@@ -375,7 +374,7 @@ extern "C" {
         for(int i = 0; i < num_theory; i++)
             fmlas[i] = Z3_mk_implies(ctx,Z3_mk_true(ctx),fmlas[i]);
         std::copy(cnsts,cnsts+num,fmlas.begin()+num_theory);
-        Z3_string smt = Z3_benchmark_to_smtlib_string(ctx,"none","AUFLIA","unknown","",num_fmlas-1,&fmlas[0],fmlas[num_fmlas-1]);  
+        Z3_string smt = Z3_benchmark_to_smtlib_string(ctx,"none","AUFLIA","unknown","",num_fmlas-1,&fmlas[0],fmlas[num_fmlas-1]);
         std::ofstream f(filename);
         if(num_theory)
             f << ";! THEORY=" << num_theory << "\n";
@@ -469,7 +468,7 @@ extern "C" {
         }
         f.close();
 
-#if 0    
+#if 0
 
 
         if(!parents){

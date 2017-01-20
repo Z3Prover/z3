@@ -1,4 +1,4 @@
-def_module_params(module_name='smt', 
+def_module_params(module_name='smt',
                   class_name='smt_params_helper',
                   description='smt solver based on lazy smt',
                   export=True,
@@ -17,7 +17,7 @@ def_module_params(module_name='smt',
                           ('pull_nested_quantifiers', BOOL, False, 'pull nested quantifiers'),
                           ('refine_inj_axioms', BOOL, True, 'refine injectivity axioms'),
                           ('timeout', UINT, UINT_MAX, 'timeout (in milliseconds) (UINT_MAX and 0 mean no timeout)'),
-	                  ('rlimit', UINT, 0, 'resource limit (0 means no limit)'),
+                          ('rlimit', UINT, 0, 'resource limit (0 means no limit)'),
                           ('max_conflicts', UINT, UINT_MAX, 'maximum number of conflicts before giving up.'),
                           ('mbqi', BOOL, True, 'model based quantifier instantiation (MBQI)'),
                           ('mbqi.max_cexs', UINT, 1, 'initial maximal number of counterexamples used in MBQI, each counterexample generates a quantifier instantiation'),
@@ -62,5 +62,6 @@ def_module_params(module_name='smt',
                           ('dack.gc_inv_decay', DOUBLE, 0.8, 'Dynamic ackermannization garbage collection decay'),
                           ('dack.threshold', UINT, 10, ' number of times the congruence rule must be used before Leibniz\'s axiom is expanded'),
                           ('core.validate', BOOL, False, 'validate unsat core produced by SMT context'),
-                          ('core.minimize', BOOL, False, 'minimize unsat core produced by SMT context')
+                          ('core.minimize', BOOL, False, 'minimize unsat core produced by SMT context'),
+                          ('core.extend_patterns', BOOL, False, 'extend unsat core with literals that trigger (potential) quantifier instances')
                           ))

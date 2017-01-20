@@ -290,8 +290,8 @@ extern "C" {
                 r = to_fixedpoint_ref(d)->ctx().query(to_expr(q));
             }
             catch (z3_exception& ex) {
-                mk_c(c)->handle_exception(ex);
                 r = l_undef;
+                mk_c(c)->handle_exception(ex);                
             }
             to_fixedpoint_ref(d)->ctx().cleanup();
         }
