@@ -64,6 +64,7 @@ namespace opt {
             bool was_sat = false;
             expr_ref_vector asms(m);
             vector<expr_ref_vector> cores;
+
             obj_map<expr, rational>::iterator it = soft.begin(), end = soft.end();
             for (; it != end; ++it) {
                 expr* c = assert_weighted(wth(), it->m_key, it->m_value);
