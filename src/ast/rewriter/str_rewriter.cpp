@@ -431,16 +431,45 @@ br_status str_rewriter::mk_str_from_int(expr * arg0, expr_ref & result) {
 
 br_status str_rewriter::mk_str_Substr(expr * base, expr * start, expr * len, expr_ref & result) {
     TRACE("t_str_rw", tout << "rewrite (Substr " << mk_pp(base, m()) << " " << mk_pp(start, m()) << " " << mk_pp(len, m()) << ")" << std::endl;);
-    rational startVal, lenVal;
-    if (m_strutil.is_string(base) && m_autil.is_numeral(start, startVal) && m_autil.is_numeral(len, lenVal)) {
-        std::string baseStr = m_strutil.get_string_constant_value(base);
-        // TODO handling for invalid start/len
-        if (startVal.is_nonneg() && lenVal.is_nonneg() && startVal.get_unsigned() <= baseStr.length()) {
-            TRACE("t_str_rw", tout << "rewriting constant Substr expression" << std::endl;);
-            std::string substr = baseStr.substr(startVal.get_unsigned(), lenVal.get_unsigned());
-            result = m_strutil.mk_string(substr);
+
+    bool constant_base = m_strutil.is_string(base);
+    std::string baseStr;
+    if (constant_base) {
+        baseStr = m_strutil.get_string_constant_value(base);
+    }
+    rational startVal;
+    bool constant_start = m_autil.is_numeral(start, startVal);
+    rational lenVal;
+    bool constant_len = m_autil.is_numeral(len, lenVal);
+
+    // case 1: start < 0 or len < 0
+    if ( (constant_start && startVal.is_neg()) || (constant_len && lenVal.is_neg()) ) {
+        TRACE("t_str_rw", tout << "start/len of substr is negative" << std::endl;);
+        result = m_strutil.mk_string("");
+        return BR_DONE;
+    }
+    // case 1.1: start >= length(base)
+    if (constant_start && constant_base) {
+        rational baseStrlen((unsigned int)baseStr.length());
+        if (startVal >= baseStrlen) {
+            TRACE("t_str_rw", tout << "start >= strlen for substr" << std::endl;);
+            result = m_strutil.mk_string("");
             return BR_DONE;
         }
+    }
+
+    if (constant_base && constant_start && constant_len) {
+        rational baseStrlen((unsigned int)baseStr.length());
+        std::string retval;
+        if (startVal + lenVal >= baseStrlen) {
+            // case 2: pos+len goes past the end of the string
+            retval = baseStr.substr(startVal.get_unsigned(), std::string::npos);
+        } else {
+            // case 3: pos+len still within string
+            retval = baseStr.substr(startVal.get_unsigned(), lenVal.get_unsigned());
+        }
+        result = m_strutil.mk_string(retval);
+        return BR_DONE;
     }
 
     return BR_FAILED;
