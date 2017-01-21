@@ -236,6 +236,7 @@ namespace smt {
             m_args[i].neg();
         }
         m_bound = sz - m_bound + 1;
+        SASSERT(m_bound > 0);
     }
 
     lbool theory_pb::card::assign(theory_pb& th, literal lit) {
@@ -258,6 +259,10 @@ namespace smt {
                 index = i;
                 break;
             }
+        }
+        if (index == m_bound + 1) {
+            // literal is no longer watched.
+            return l_undef;
         }
         SASSERT(index <= m_bound);
         SASSERT(m_args[index] == lit);
@@ -401,7 +406,9 @@ namespace smt {
         }
         else if (j == m_bound) {
             literal_vector lits(size() - m_bound, m_args.c_ptr() + m_bound);
-            for (i = 0; i < j; ++i) {
+            th.negate(lits);
+            lits.push_back(lit());
+            for (i = 0; i < m_bound; ++i) {
                 if (ctx.get_assignment(lit(i)) == l_undef) {
                     th.add_assign(*this, lits, lit(i));
                 }
@@ -473,9 +480,9 @@ namespace smt {
         m_stats.m_num_predicates++;
 
         if (m_util.is_aux_bool(atom)) {
-            std::cout << "aux bool\n";
             bool_var abv = ctx.mk_bool_var(atom);
             ctx.set_var_theory(abv, get_id());
+            // std::cout << "aux bool " << ctx.get_scope_level() << " " << mk_pp(atom, get_manager()) << " " << literal(abv) << "\n";
             return true;
         }
 
@@ -909,6 +916,7 @@ namespace smt {
         m_stats.m_num_propagations++;
         context& ctx = get_context();
         TRACE("pb", tout << "#prop: " << c.num_propagations() << " - " << lits << " " << c.lit() << " => " << l << "\n";);
+        SASSERT(validate_antecedents(lits));
         ctx.assign(l, ctx.mk_justification(
                        card_justification(
                            c, get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), l)));
@@ -1528,9 +1536,6 @@ namespace smt {
         }
 
         m_card_lim.resize(new_lim);
-
-        add_cardinality_lemma();
-
     }
 
     void theory_pb::clear_watch(ineq& c) {
@@ -1619,6 +1624,7 @@ namespace smt {
               tout << " => " << l << "\n";
               display(tout, c, true););
 
+        SASSERT(validate_antecedents(lits));
         ctx.assign(l, ctx.mk_justification(
                        pb_justification(
                            c, get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), l)));
@@ -1672,7 +1678,7 @@ namespace smt {
 
     void theory_pb::process_card(card& c, int offset) {
         context& ctx = get_context();
-        process_antecedent(c.lit(0), offset);
+        inc_coeff(c.lit(0), offset);
         for (unsigned i = c.k() + 1; i < c.size(); ++i) {
             process_antecedent(c.lit(i), offset);
         }
@@ -1893,7 +1899,10 @@ namespace smt {
         }
     }
 
-    void theory_pb::add_cardinality_lemma() {
+    bool theory_pb::can_propagate() { return m_card_reinit; }
+
+    
+    void theory_pb::propagate() {
         context& ctx = get_context();
         ast_manager& m = get_manager();
         if (ctx.inconsistent() || !m_card_reinit) {
@@ -1901,11 +1910,15 @@ namespace smt {
         }
         m_card_reinit = false;
 
+        if (!validate_antecedents(m_antecedents)) {
+            return;
+        }
         pb_util pb(m);
         expr_ref pred(pb.mk_fresh_bool(), m);
         bool_var abv = ctx.mk_bool_var(pred);
         ctx.set_var_theory(abv, get_id());
         literal lit(abv);
+        // std::cout << "fresh " << pred << " " << lit << "\n";
         
         card* c = alloc(card, lit, m_bound);
         for (unsigned i = 0; i < m_active_coeffs.size(); ++i) {
@@ -1966,7 +1979,6 @@ namespace smt {
         unsigned idx = lits.size()-1;
         b_justification js;
         literal conseq = ~confl[2];
-
 
         while (m_num_marks > 0) {
 
@@ -2112,6 +2124,7 @@ namespace smt {
                     --slack;
                 }
             }
+            SASSERT(validate_antecedents(m_antecedents));
             ctx.assign(prop_lit, ctx.mk_justification(theory_propagation_justification(get_id(), ctx.get_region(), m_antecedents.size(), m_antecedents.c_ptr(), prop_lit, 0, 0)));
         }
 
@@ -2218,6 +2231,22 @@ namespace smt {
         SASSERT(!c.is_ge() || (sum >= c.k()) == (ctx.get_assignment(c.lit()) == l_true));
         SASSERT(!c.is_ge() || (maxsum < c.k()) == (ctx.get_assignment(c.lit()) == l_false));
         SASSERT(!c.is_eq() || (sum == c.k()) == (ctx.get_assignment(c.lit()) == l_true));
+    }
+
+    bool theory_pb::validate_antecedents(literal_vector const& lits) {
+        context& ctx = get_context();
+        for (unsigned i = 0; i < lits.size(); ++i) {
+            if (ctx.get_assignment(lits[i]) != l_true) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    void theory_pb::negate(literal_vector & lits) {
+        for (unsigned i = 0; i < lits.size(); ++i) {
+            lits[i].neg();
+        }
     }
 
     // display methods

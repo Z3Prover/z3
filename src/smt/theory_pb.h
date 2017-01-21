@@ -201,6 +201,7 @@ namespace smt {
                 m_compilation_threshold(0),
                 m_compiled(l_false)
             {
+                SASSERT(bound > 0);
             }            
             
             literal lit() const { return m_lit; }
@@ -268,16 +269,6 @@ namespace smt {
                 dealloc(m_lit_cwatch[1]);
                 dealloc(m_card);
             }
-        };
-
-        struct card_reinit {
-            literal_vector m_lits;
-            card*          m_card;
-
-            card_reinit(literal_vector const& lits, card* c):
-                m_lits(lits),
-                m_card(c)
-            {}
         };
 
         theory_pb_params         m_params;        
@@ -393,7 +384,6 @@ namespace smt {
 
         void reset_coeffs();
         literal cardinality_reduction(literal propagation_lit);
-        void add_cardinality_lemma();
 
         bool resolve_conflict(card& c, literal_vector const& conflict_clause);
         void process_antecedent(literal l, int offset);
@@ -409,6 +399,8 @@ namespace smt {
         void validate_final_check(ineq& c);
         void validate_assign(ineq const& c, literal_vector const& lits, literal l) const;
         void validate_watch(ineq const& c) const;
+        bool validate_antecedents(literal_vector const& lits);
+        void negate(literal_vector & lits);
 
         bool proofs_enabled() const { return get_manager().proofs_enabled(); }
         justification* justify(literal l1, literal l2);
@@ -437,6 +429,8 @@ namespace smt {
         virtual model_value_proc * mk_value(enode * n, model_generator & mg);
         virtual void init_model(model_generator & m);        
         virtual bool include_func_interp(func_decl* f) { return false; }
+        virtual bool can_propagate();
+        virtual void propagate();
 
         static literal assert_ge(context& ctx, unsigned k, unsigned n, literal const* xs);
     };

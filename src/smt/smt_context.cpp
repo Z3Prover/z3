@@ -3719,6 +3719,9 @@ namespace smt {
             svector<bool>   expr_signs;
             for (unsigned i = 0; i < num_lits; i++) {
                 literal l = lits[i];
+                if (get_assignment(l) != l_false) {
+                    std::cout << l << " " << get_assignment(l) << "\n";
+                }
                 SASSERT(get_assignment(l) == l_false);
                 expr_lits.push_back(bool_var2expr(l.var()));
                 expr_signs.push_back(l.sign());
