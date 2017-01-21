@@ -37,6 +37,7 @@ namespace smt {
         symbol               m_logic;
         bool                 m_minimizing_core;
         bool                 m_core_extend_patterns;
+        unsigned             m_core_extend_patterns_max_distance;
         obj_map<expr, expr*> m_name2assertion;
 
     public:
@@ -46,12 +47,14 @@ namespace smt {
             m_params(p),
             m_context(m, m_smt_params),
             m_minimizing_core(false),
-            m_core_extend_patterns(false) {
+            m_core_extend_patterns(false),
+            m_core_extend_patterns_max_distance(UINT_MAX) {
             m_logic = l;
             if (m_logic != symbol::null)
                 m_context.set_logic(m_logic);
             smt_params_helper smth(p);
             m_core_extend_patterns = smth.core_extend_patterns();
+            m_core_extend_patterns_max_distance = smth.core_extend_patterns_max_distance();
         }
 
         virtual solver * translate(ast_manager & m, params_ref const & p) {
@@ -283,7 +286,7 @@ namespace smt {
             func_decl_set pattern_fds;
             vector<func_decl_set> assrtn_fds;
 
-            do {
+            for (unsigned d = 0; d < m_core_extend_patterns_max_distance; d++) {
                 new_core_literals.reset();
 
                 unsigned sz = core.size();
@@ -308,8 +311,10 @@ namespace smt {
                 }
 
                 core.append(new_core_literals.size(), new_core_literals.c_ptr());
+
+                if (new_core_literals.empty())
+                    break;
             }
-            while (!new_core_literals.empty());
         }
     };
 };
