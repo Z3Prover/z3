@@ -236,42 +236,35 @@ namespace smt {
             m_args[i].neg();
         }
         m_bound = sz - m_bound + 1;
-        SASSERT(m_bound > 0);
+        SASSERT(sz >= m_bound && m_bound > 0);
     }
 
-    lbool theory_pb::card::assign(theory_pb& th, literal lit) {
-        TRACE("pb", tout << "assign: " << m_lit << " " << ~lit << " " << m_bound << "\n";);
+    lbool theory_pb::card::assign(theory_pb& th, literal alit) {
         // literal is assigned to false.        
         context& ctx = th.get_context();
-        SASSERT(m_bound > 0);
-        SASSERT(ctx.get_assignment(lit) == l_false);
-        unsigned index = m_bound + 1;
-        //
-        // We give preference to a watched literal in position 1..m_bound.
-        // Notice, that if a literal occurs multiple
-        // times in m_args, within [0..m_bound] then it is inserted into the watch 
-        // list for this cardinality constraint. For each occurrence, a callback
-        // to assign is made.
-        //
-        for (unsigned i = m_bound + 1; i > 0; ) {
-            --i;
-            if (m_args[i] == lit) {
-                index = i;
+        unsigned sz = size();
+        unsigned bound = k();
+        TRACE("pb", tout << "assign: " << m_lit << " " << ~alit << " " << bound << "\n";);
+
+        SASSERT(0 < bound && bound < sz);
+        SASSERT(ctx.get_assignment(alit) == l_false);
+        SASSERT(ctx.get_assignment(m_lit) == l_true);
+        unsigned index = 0;
+        for (index = 0; index <= bound; ++index) {
+            if (lit(index) == alit) {
                 break;
             }
         }
-        if (index == m_bound + 1) {
+        if (index == bound + 1) {
             // literal is no longer watched.
             return l_undef;
         }
-        SASSERT(index <= m_bound);
-        SASSERT(m_args[index] == lit);
-
-        unsigned sz = size();
+        SASSERT(index <= bound);
+        SASSERT(lit(index) == alit);
         
         // find a literal to swap with:
-        for (unsigned i = m_bound + 1; i < sz; ++i) {
-            literal lit2 = m_args[i];
+        for (unsigned i = bound + 1; i < sz; ++i) {
+            literal lit2 = lit(i);
             if (ctx.get_assignment(lit2) != l_false) {
                 TRACE("pb", tout << "swap " << lit2 << "\n";);
                 std::swap(m_args[index], m_args[i]);
@@ -281,37 +274,36 @@ namespace smt {
         }
 
         // conflict
-        if (0 != index && ctx.get_assignment(m_args[0]) == l_false) {
-            TRACE("pb", tout << "conflict " << m_args[0] << " " << lit << "\n";);
-            set_conflict(th, lit);
+        if (bound != index && ctx.get_assignment(lit(bound)) == l_false) {
+            TRACE("pb", tout << "conflict " << lit(bound) << " " << alit << "\n";);
+            set_conflict(th, alit);
             return l_false;
         }
 
-        TRACE("pb", tout << "no swap " << index << " " << lit << "\n";);
+        TRACE("pb", tout << "no swap " << index << " " << alit << "\n";);
         // there are no literals to swap with,
         // prepare for unit propagation by swapping the false literal into 
-        // position 0. Then literals in positions 1..m_bound have to be
+        // position bound. Then literals in positions 0..bound-1 have to be
         // assigned l_true.
-        if (index != 0) {
-            std::swap(m_args[index], m_args[0]);
+        if (index != bound) {
+            std::swap(m_args[index], m_args[bound]);
         }
-        SASSERT(m_args[0] == lit);
-        literal_vector lits;
+        SASSERT(th.validate_unit_propagation(*this));
+        literal_vector& lits = th.get_literals();
         lits.push_back(m_lit);
-        lits.push_back(~lit);
-        for (unsigned i = m_bound + 1; i < sz; ++i) {
-            SASSERT(ctx.get_assignment(m_args[i]) == l_false);
-            lits.push_back(~m_args[i]);
+        for (unsigned i = bound; i < sz; ++i) {
+            SASSERT(ctx.get_assignment(lit(i)) == l_false);
+            lits.push_back(~lit(i));
         }
         
-        for (unsigned i = 1; i <= m_bound; ++i) {
-            literal lit2 = m_args[i];
+        for (unsigned i = 0; i < bound; ++i) {
+            literal lit2 = lit(i);
             lbool value = ctx.get_assignment(lit2);
             switch (value) {
             case l_true: 
                 break;
             case l_false: 
-                TRACE("pb", tout << "conflict: " << lit << " " << lit2 << "\n";);
+                TRACE("pb", tout << "conflict: " << alit << " " << lit2 << "\n";);
                 set_conflict(th, lit2);
                 return l_false;
             case l_undef:
@@ -335,16 +327,13 @@ namespace smt {
     void theory_pb::card::set_conflict(theory_pb& th, literal l) {
         SASSERT(validate_conflict(th));
         context& ctx = th.get_context();
-        literal l0 = m_args[0];
-        literal_vector lits;
-        SASSERT(ctx.get_assignment(l0) == l_false);
+        literal_vector& lits = th.get_literals();
         SASSERT(ctx.get_assignment(l) == l_false);
         SASSERT(ctx.get_assignment(lit()) == l_true);
         lits.push_back(~lit()); 
-        lits.push_back(l0);
         lits.push_back(l);
         unsigned sz = size();
-        for (unsigned i = m_bound + 1; i < sz; ++i) {
+        for (unsigned i = m_bound; i < sz; ++i) {
             SASSERT(ctx.get_assignment(m_args[i]) == l_false);
             lits.push_back(m_args[i]);
         }
@@ -373,13 +362,22 @@ namespace smt {
 
     void theory_pb::card::init_watch(theory_pb& th, bool is_true) {
         context& ctx = th.get_context();
-        
+        th.clear_watch(*this);
         if (lit().sign() == is_true) {
             negate();
         }
+        SASSERT(ctx.get_assignment(lit()) == l_true);
+        unsigned j = 0, sz = size(), bound = k();
+        if (bound == sz) {
+            literal_vector& lits = th.get_literals();
+            lits.push_back(lit());
+            for (unsigned i = 0; i < sz && !ctx.inconsistent(); ++i) {
+                th.add_assign(*this, lits, lit(i));                
+            }
+            return;
+        }
         // put the non-false literals into the head.
-        unsigned i = 0, j = 0, sz = size();
-        for (i = 0; i < sz; ++i) {
+        for (unsigned i = 0; i < sz; ++i) {
             if (ctx.get_assignment(lit(i)) != l_false) {
                 if (j != i) {
                     std::swap(m_args[i], m_args[j]);                 
@@ -387,35 +385,42 @@ namespace smt {
                 ++j;
             }
         }
+        DEBUG_CODE(
+            bool is_false = false;
+            for (unsigned k = 0; k < sz; ++k) {
+                SASSERT(!is_false || ctx.get_assignment(lit(k)) == l_false);
+                is_false = ctx.get_assignment(lit(k)) == l_false;
+            });
+
         // j is the number of non-false, sz - j the number of false.
-        if (j < m_bound) {
-            std::swap(m_args[0], m_args[m_bound-1]);
+        if (j < bound) {
+            SASSERT(0 < bound && bound < sz);
+            literal alit = lit(j);
+            
             //
             // we need the assignment level of the asserting literal to be maximal.
             // such that conflict resolution can use the asserting literal as a starting
             // point.
-            if (ctx.get_assign_level(m_args[0]) > ctx.get_assign_level(m_args[m_bound])) {
-                std::swap(m_args[0], m_args[m_bound]);
-            }
-            for (i = m_bound + 1; i < sz; ++i) {
-                if (ctx.get_assign_level(m_args[i]) > ctx.get_assign_level(m_args[m_bound])) {
-                    std::swap(m_args[i], m_args[m_bound]);
+            //
+
+            for (unsigned i = bound; i < sz; ++i) {                
+                if (ctx.get_assign_level(alit) < ctx.get_assign_level(lit(i))) {
+                    std::swap(m_args[j], m_args[i]);
+                    alit = lit(j);
                 }
             }
-            set_conflict(th, m_args[m_bound]);
+            set_conflict(th, alit);
         }
-        else if (j == m_bound) {
-            literal_vector lits(size() - m_bound, m_args.c_ptr() + m_bound);
+        else if (j == bound) {
+            literal_vector lits(sz - bound, m_args.c_ptr() + bound);
             th.negate(lits);
             lits.push_back(lit());
-            for (i = 0; i < m_bound; ++i) {
-                if (ctx.get_assignment(lit(i)) == l_undef) {
-                    th.add_assign(*this, lits, lit(i));
-                }
+            for (unsigned i = 0; i < bound && !ctx.inconsistent(); ++i) {
+                th.add_assign(*this, lits, lit(i));                
             }
         }
         else {
-            for (unsigned i = 0; i <= m_bound; ++i) {
+            for (unsigned i = 0; i <= bound; ++i) {
                 th.watch_literal(lit(i), this);
             }
         }
@@ -454,7 +459,9 @@ namespace smt {
         m_simplex(m.limit()),
         m_util(m),
         m_max_compiled_coeff(rational(8)),
-        m_card_reinit(false)
+        m_cardinality_lemma(false),
+        m_antecedent_exprs(m),
+        m_cardinality_exprs(m)
     {        
         m_learn_complements  = p.m_pb_learn_complements;
         m_conflict_frequency = p.m_pb_conflict_frequency;
@@ -465,7 +472,6 @@ namespace smt {
         reset_eh();
     }
 
-
     theory * theory_pb::mk_fresh(context * new_ctx) { 
         return alloc(theory_pb, new_ctx->get_manager(), m_params); 
     }
@@ -474,7 +480,7 @@ namespace smt {
         context& ctx = get_context();
         TRACE("pb", tout << mk_pp(atom, get_manager()) << "\n";);
         if (ctx.b_internalized(atom)) {
-            return false;
+            return true;
         }
         SASSERT(!ctx.b_internalized(atom));
         m_stats.m_num_predicates++;
@@ -482,7 +488,7 @@ namespace smt {
         if (m_util.is_aux_bool(atom)) {
             bool_var abv = ctx.mk_bool_var(atom);
             ctx.set_var_theory(abv, get_id());
-            // std::cout << "aux bool " << ctx.get_scope_level() << " " << mk_pp(atom, get_manager()) << " " << literal(abv) << "\n";
+            std::cout << "aux bool " << ctx.get_scope_level() << " " << mk_pp(atom, get_manager()) << " " << literal(abv) << "\n";
             return true;
         }
 
@@ -549,7 +555,7 @@ namespace smt {
         }
             
         if (c->k().is_one() && c->is_ge()) {
-            literal_vector& lits = get_lits();
+            literal_vector& lits = get_literals();
             lits.push_back(~lit);
             for (unsigned i = 0; i < c->size(); ++i) {
                 lits.push_back(c->lit(i));
@@ -764,7 +770,7 @@ namespace smt {
         if (m_util.is_ge(atom) && m_util.has_unit_coefficients(atom)) {
             return true;
         }
-        if (m_util.is_at_most_k(atom)) {
+        if (m_util.is_at_least_k(atom)) {
             return true;
         }
         // TBD: other conditions
@@ -772,15 +778,29 @@ namespace smt {
     }
 
     bool theory_pb::internalize_card(app * atom, bool gate_ctx) {
+        context& ctx = get_context();
+        if (ctx.b_internalized(atom)) {
+            return true;
+        }
+
         if (!is_cardinality_constraint(atom)) {
             return false;
-        }
-        context& ctx = get_context();        
+        }       
         unsigned num_args = atom->get_num_args();
         bool_var abv = ctx.mk_bool_var(atom);
         ctx.set_var_theory(abv, get_id());
         unsigned bound = m_util.get_k(atom).get_unsigned();
         literal lit(abv);
+
+        if (bound == 0) {
+            ctx.mk_th_axiom(get_id(), 1, &lit);
+            return true;
+        }
+        if (bound > num_args) {
+            lit.neg();
+            ctx.mk_th_axiom(get_id(), 1, &lit);
+            return true;
+        }
 
         card* c = alloc(card, lit, bound);
         
@@ -789,25 +809,21 @@ namespace smt {
             c->add_arg(compile_arg(arg));
         }
 
+        if (bound == c->size() || bound == 1) {
+            std::cout << "is-clause\n";
+        }
         
-        if (c->k() == 0) {
-            ctx.mk_th_axiom(get_id(), 1, &lit);
-            dealloc(c);
-        }
-        else if (c->k() > c->size()) {
-            lit.neg();
-            ctx.mk_th_axiom(get_id(), 1, &lit);
-            dealloc(c);
-        }
-        else if (c->k() == c->size()) {
+        if (bound == c->size()) {
             card2conjunction(*c);
             dealloc(c);
         }
+        else if (1 == c->size()) {
+            card2disjunction(*c);
+            dealloc(c);
+        }
         else {
-            SASSERT(0 < c->k() && c->k() < c->size());
-            
-            // initialize compilation thresholds, TBD
-                        
+            SASSERT(0 < c->k() && c->k() < c->size());            
+            // initialize compilation thresholds, TBD                        
             init_watch(abv);
             m_var_infos[abv].m_card = c;
             m_card_trail.push_back(abv);
@@ -820,7 +836,7 @@ namespace smt {
     void theory_pb::card2conjunction(card const& c) {
         context& ctx = get_context();
         literal lit = c.lit();
-        literal_vector lits;
+        literal_vector& lits = get_literals();
         for (unsigned i = 0; i < c.size(); ++i) {
             lits.push_back(~c.lit(i));
         }
@@ -828,6 +844,21 @@ namespace smt {
         ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
         for (unsigned i = 0; i < c.size(); ++i) {
             literal lits2[2] = { ~lit, c.lit(i) };
+            ctx.mk_th_axiom(get_id(), 2, lits2);
+        }
+    }
+
+    void theory_pb::card2disjunction(card const& c) {
+        context& ctx = get_context();
+        literal lit = c.lit();
+        literal_vector& lits = get_literals();
+        for (unsigned i = 0; i < c.size(); ++i) {
+            lits.push_back(c.lit(i));
+        }
+        lits.push_back(~lit);
+        ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
+        for (unsigned i = 0; i < c.size(); ++i) {
+            literal lits2[2] = { lit, ~c.lit(i) };
             ctx.mk_th_axiom(get_id(), 2, lits2);
         }
     }
@@ -911,21 +942,25 @@ namespace smt {
         SASSERT(ctx.inconsistent());
     }
 
-    void theory_pb::add_assign(card& c, literal_vector const& lits, literal l) {
+    void theory_pb::add_assign(card& c, literal_vector const& lits, literal l) {        
+        context& ctx = get_context();
+        if (ctx.get_assignment(l) == l_true) {
+            return;
+        }
         c.inc_propagations(*this);
         m_stats.m_num_propagations++;
-        context& ctx = get_context();
         TRACE("pb", tout << "#prop: " << c.num_propagations() << " - " << lits << " " << c.lit() << " => " << l << "\n";);
         SASSERT(validate_antecedents(lits));
+        SASSERT(validate_unit_propagation(c));
         ctx.assign(l, ctx.mk_justification(
                        card_justification(
                            c, get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), l)));
     }
 
     void theory_pb::clear_watch(card& c) {
-        for (unsigned i = 0; i <= c.k(); ++i) {
-            literal w = c.lit(i);
-            unwatch_literal(w, &c);            
+        unsigned sz = std::min(c.k() + 1, c.size());
+        for (unsigned i = 0; i < sz; ++i) {
+            unwatch_literal(c.lit(i), &c);            
         }
     }
 
@@ -951,7 +986,7 @@ namespace smt {
         m_card_lim.reset();
         m_stats.reset();
         m_to_compile.reset();
-        m_card_reinit = false;
+        m_cardinality_lemma = false;
     }
 
     void theory_pb::new_eq_eh(theory_var v1, theory_var v2) {
@@ -998,7 +1033,7 @@ namespace smt {
         }
 
         ptr_vector<card>* cards = m_var_infos[v].m_lit_cwatch[nlit.sign()];
-        if (cards != 0 && !ctx.inconsistent())  {
+        if (cards != 0  && !cards->empty() && !ctx.inconsistent())  {
             ptr_vector<card>::iterator it = cards->begin(), it2 = it, end = cards->end();
             for (; it != end; ++it) {
                 if (ctx.get_assignment((*it)->lit()) != l_true) {
@@ -1009,6 +1044,7 @@ namespace smt {
                     for (; it != end; ++it, ++it2) {
                         *it2 = *it;
                     }
+                    SASSERT(ctx.inconsistent());
                     cards->set_end(it2);
                     return;
                 case l_undef: // watch literal was swapped
@@ -1033,7 +1069,7 @@ namespace smt {
 
     literal_vector& theory_pb::get_all_literals(ineq& c, bool negate) {
         context& ctx = get_context();
-        literal_vector& lits = get_lits();
+        literal_vector& lits = get_literals();
         for (unsigned i = 0; i < c.size(); ++i) {
             literal l = c.lit(i);
             switch(ctx.get_assignment(l)) {
@@ -1048,14 +1084,13 @@ namespace smt {
             }
         }
         return lits;
-
     }
 
     literal_vector& theory_pb::get_helpful_literals(ineq& c, bool negate) {
         scoped_mpz sum(m_mpz_mgr);
         mpz const& k = c.mpz_k();
         context& ctx = get_context();
-        literal_vector& lits = get_lits();
+        literal_vector& lits = get_literals();
         for (unsigned i = 0; sum < k && i < c.size(); ++i) {
             literal l = c.lit(i);
             if (ctx.get_assignment(l) == l_true) {
@@ -1070,7 +1105,7 @@ namespace smt {
 
     literal_vector& theory_pb::get_unhelpful_literals(ineq& c, bool negate) {
         context& ctx = get_context();
-        literal_vector& lits = get_lits();
+        literal_vector& lits = get_literals();
         for (unsigned i = 0; i < c.size(); ++i) {
             literal l = c.lit(i);
             if (ctx.get_assignment(l) == l_false) {
@@ -1154,10 +1189,8 @@ namespace smt {
             literal_vector& lits = get_unhelpful_literals(c, true);
             lits.push_back(c.lit());
             for (unsigned i = 0; i < sz; ++i) {
-                if (ctx.get_assignment(c.lit(i)) == l_undef) {
-                    DEBUG_CODE(validate_assign(c, lits, c.lit(i)););
-                    add_assign(c, lits, c.lit(i));
-                }                
+                DEBUG_CODE(validate_assign(c, lits, c.lit(i)););
+                add_assign(c, lits, c.lit(i));                               
             }
         }
     }
@@ -1600,11 +1633,6 @@ namespace smt {
         }                   
     }
 
-    literal_vector& theory_pb::get_lits() {
-        m_literals.reset();
-        return m_literals;
-    }
-
     class theory_pb::pb_justification : public theory_propagation_justification {
         ineq& m_ineq;
     public:
@@ -1657,10 +1685,10 @@ namespace smt {
     }
 
     void theory_pb::reset_coeffs() {
-        for (unsigned i = 0; i < m_active_coeffs.size(); ++i) {
-            m_coeffs[m_active_coeffs[i]] = 0;
+        for (unsigned i = 0; i < m_active_vars.size(); ++i) {
+            m_coeffs[m_active_vars[i]] = 0;
         }
-        m_active_coeffs.reset();
+        m_active_vars.reset();
     }
 
     void theory_pb::process_antecedent(literal l, int offset) {        
@@ -1678,25 +1706,25 @@ namespace smt {
 
     void theory_pb::process_card(card& c, int offset) {
         context& ctx = get_context();
-        inc_coeff(c.lit(0), offset);
-        for (unsigned i = c.k() + 1; i < c.size(); ++i) {
+        SASSERT(c.k() <= c.size());
+        SASSERT(ctx.get_assignment(c.lit()) == l_true);
+        for (unsigned i = c.k(); i < c.size(); ++i) {
             process_antecedent(c.lit(i), offset);
         }
-        for (unsigned i = 1; i <= c.k(); ++i) {
+        for (unsigned i = 0; i < c.k(); ++i) {
             inc_coeff(c.lit(i), offset);                        
         }
         if (ctx.get_assign_level(c.lit()) > ctx.get_base_level()) {
             m_antecedents.push_back(c.lit());
         }
-        SASSERT(ctx.get_assignment(c.lit()) == l_true);
     }
 
     bool theory_pb::validate_lemma() {
         int value = -m_bound;
         context& ctx = get_context();
         normalize_active_coeffs();
-        for (unsigned i = 0; i < m_active_coeffs.size(); ++i) {
-            bool_var v = m_active_coeffs[i];
+        for (unsigned i = 0; i < m_active_vars.size(); ++i) {
+            bool_var v = m_active_vars[i];
             int coeff = get_coeff(v);
             SASSERT(coeff != 0);
             if (coeff < 0 && ctx.get_assignment(v) != l_true) {
@@ -1705,53 +1733,103 @@ namespace smt {
             else if (coeff > 0 && ctx.get_assignment(v) != l_false) {
                 value += coeff;
             }
-            else if (coeff == 0) {
-                UNREACHABLE();
-            }
         }
-        // std::cout << "bound: " << m_bound << " value " << value << " coeffs: " << m_active_coeffs.size() << " lemma is " << (value >= 0 ? "sat" : "unsat") << "\n";    
+        // std::cout << "bound: " << m_bound << " value " << value << " coeffs: " << m_active_vars.size() << " lemma is " << (value >= 0 ? "sat" : "unsat") << "\n";    
         return value < 0;
     }
 
-    int theory_pb::arg_max(uint_set& seen, int& max_coeff) {
+    int theory_pb::arg_max(int& max_coeff) {
         max_coeff = 0;
         int arg_max = -1;
-        for (unsigned i = 0; i < m_active_coeffs.size(); ++i) {
-            bool_var v = m_active_coeffs[i];
-            if (seen.contains(v)) {
-                continue;
-            }         
-            int coeff = get_abs_coeff(v);
-            if (coeff > 0 && (max_coeff == 0 || max_coeff < coeff)) {
-                arg_max = v;
-                max_coeff = coeff;
+        while (!m_active_coeffs.empty()) {
+            max_coeff = m_active_coeffs.back();
+            if (m_coeff2args[max_coeff].empty()) {
+                m_active_coeffs.pop_back();
             }
-        }    
+            else {
+                arg_max = m_coeff2args[max_coeff].back();
+                m_coeff2args[max_coeff].pop_back();
+                break;
+            }
+        }
         return arg_max;
     }
 
-    literal theory_pb::cardinality_reduction(literal prop_lit) {
+    literal theory_pb::get_asserting_literal(literal p) {
+        if (get_abs_coeff(p.var()) != 0) {
+            return p;
+        }
+        context& ctx = get_context();
+        unsigned lvl = 0;
+        
+        for (unsigned i = 0; i < m_active_vars.size(); ++i) { 
+            bool_var v = m_active_vars[i];
+            literal lit(v, get_coeff(v) < 0);
+            if (ctx.get_assignment(lit) == l_false && ctx.get_assign_level(lit) > lvl) {
+                p = lit;
+            }
+        }
+
+        return p;
+    }
+
+    void theory_pb::reset_arg_max() {
+        for (unsigned i = 0; i < m_active_vars.size(); ++i) {
+            int coeff = get_abs_coeff(m_active_vars[i]);
+            if (static_cast<int>(m_coeff2args.size()) > coeff) {
+                m_coeff2args[coeff].reset();
+            }
+        }
+    }
+
+    bool theory_pb::init_arg_max() {
+        if (m_coeff2args.size() < (1 << 10)) {
+            m_coeff2args.resize(1 << 10);
+        }
+        m_active_coeffs.reset();
+        if (m_active_vars.empty()) {
+            return false;
+        }
+        for (unsigned i = 0; i < m_active_vars.size(); ++i) {
+            bool_var v = m_active_vars[i];
+            int coeff = get_abs_coeff(v);
+            if (coeff >= static_cast<int>(m_coeff2args.size())) {
+                reset_arg_max();
+                return false;
+            }
+            if (m_coeff2args[coeff].empty()) {
+                m_active_coeffs.push_back(coeff);
+            }
+            m_coeff2args[coeff].push_back(v);
+        }
+        std::sort(m_active_coeffs.begin(), m_active_coeffs.end());
+        for (unsigned i = 0; i < m_active_coeffs.size(); ++i) {
+            std::cout << m_active_coeffs[i] << " ";
+        }
+        std::cout << "\n";
+        return true;
+    }
+
+    void theory_pb::add_cardinality_lemma() {
+        context& ctx = get_context();
         normalize_active_coeffs();
         SASSERT(m_seen.empty());
-        SASSERT(m_seen_trail.empty());
         int s = 0;
         int new_bound = 0;
+        if (!init_arg_max()) {
+            return;
+        }
         while (s < m_bound) {
             int coeff;
-            int arg = arg_max(m_seen, coeff);
+            int arg = arg_max(coeff);
             if (arg == -1) break;
             s += coeff;
             ++new_bound;
-            m_seen.insert(arg);
-            m_seen_trail.push_back(arg);
         }
-        for (unsigned i = 0; i < m_seen_trail.size(); ++i) {
-            m_seen.remove(m_seen_trail[i]);
-        }
-        m_seen_trail.reset(); 
+        reset_arg_max();
         int slack = m_bound;
-        for (unsigned i = 0; i < m_active_coeffs.size(); ++i) {
-            int coeff = get_abs_coeff(m_active_coeffs[i]);
+        for (unsigned i = 0; i < m_active_vars.size(); ++i) {
+            int coeff = get_abs_coeff(m_active_vars[i]);
             slack = std::min(slack, coeff - 1);
         }
 
@@ -1759,8 +1837,8 @@ namespace smt {
             bool found = false;
             int v = 0;
             int coeff = 0;
-            for (unsigned i = 0; !found && i < m_active_coeffs.size(); ++i) {            
-                bool_var v = m_active_coeffs[i];
+            for (unsigned i = 0; !found && i < m_active_vars.size(); ++i) {            
+                bool_var v = m_active_vars[i];
                 coeff = get_abs_coeff(v);
                 if (0 < coeff && coeff < slack) {
                     found = true;
@@ -1772,8 +1850,8 @@ namespace smt {
             slack -= coeff;
             m_coeffs[v] = 0; // deactivate coefficient.
         }
-        for (unsigned i = 0; i < m_active_coeffs.size(); ++i) {
-            bool_var v = m_active_coeffs[i];
+        for (unsigned i = 0; i < m_active_vars.size(); ++i) {
+            bool_var v = m_active_vars[i];
             int coeff = get_coeff(v);
             if (coeff < 0) {
                 m_coeffs[v] = -1;
@@ -1784,54 +1862,51 @@ namespace smt {
         }        
 
         m_bound = new_bound;
-        if (validate_lemma()) {
-            SASSERT(m_bound > 0);
-            if (m_bound > static_cast<int>(m_active_coeffs.size())) {
-                return false_literal;
-            }           
-            if (m_bound == m_active_coeffs.size()) {
-                prop_lit = null_literal;
-                context& ctx = get_context();
-                for (unsigned i = 0; i < m_active_coeffs.size(); ++i) {
-                    bool_var v = m_active_coeffs[i];
-                    literal lit(get_coeff(v) < 0);
-                    unsigned lvl = UINT_MAX;
-                    if (ctx.get_assignment(lit) == l_false && ctx.get_assign_level(lit) < lvl) {
-                        prop_lit = lit;
-                        lvl = ctx.get_assign_level(lit);
-                    }
-                }
-                SASSERT(prop_lit != null_literal);                
-            }
-            else {
-                m_card_reinit = true;
-                return prop_lit;
-            }
+        if (!validate_lemma()) {
+            return;
         }
-        else {
-            TRACE("pb", display_resolved_lemma(tout););  
+        SASSERT(m_bound > 0);
+        if (m_bound > static_cast<int>(m_active_vars.size())) {
+            return;
+        }           
+        if (m_bound == m_active_vars.size()) {
+            return;
         }
 
-        return null_literal;
+        m_antecedent_exprs.reset();
+        m_antecedent_signs.reset();
+        m_cardinality_exprs.reset();
+        m_cardinality_signs.reset();
+        for (unsigned i = 0; i < m_antecedents.size(); ++i) {
+            literal lit = m_antecedents[i];
+            m_antecedent_exprs.push_back(ctx.bool_var2expr(lit.var()));
+            m_antecedent_signs.push_back(lit.sign());
+        }
+        for (unsigned i = 0; i < m_active_vars.size(); ++i) {
+            bool_var v = m_active_vars[i];
+            m_cardinality_exprs.push_back(ctx.bool_var2expr(v));
+            m_cardinality_signs.push_back(get_coeff(v) < 0);
+        }
+        m_cardinality_lemma = true;
     }
 
     void theory_pb::normalize_active_coeffs() {
         SASSERT(m_seen.empty());
-        unsigned i = 0, j = 0, sz = m_active_coeffs.size();
+        unsigned i = 0, j = 0, sz = m_active_vars.size();
         for (; i < sz; ++i) {
-            bool_var v = m_active_coeffs[i];
+            bool_var v = m_active_vars[i];
             if (!m_seen.contains(v) && get_coeff(v) != 0) {
                 m_seen.insert(v);
                 if (j != i) {
-                    m_active_coeffs[j] = m_active_coeffs[i];
+                    m_active_vars[j] = m_active_vars[i];
                 }
                 ++j;
             }
         }
         sz = j;
-        m_active_coeffs.shrink(sz);
+        m_active_vars.shrink(sz);
         for (i = 0; i < sz; ++i) {
-            m_seen.remove(m_active_coeffs[i]);
+            m_seen.remove(m_active_vars[i]);
         }
         SASSERT(m_seen.empty());
     }
@@ -1845,7 +1920,7 @@ namespace smt {
         }
         int coeff0 = m_coeffs[v];
         if (coeff0 == 0) {
-            m_active_coeffs.push_back(v);
+            m_active_vars.push_back(v);
         }
         
         int inc = l.sign() ? -offset : offset;
@@ -1865,8 +1940,8 @@ namespace smt {
      */
     void theory_pb::cut() {
         unsigned g = 0;
-        for (unsigned i = 0; g != 1 && i < m_active_coeffs.size(); ++i) {
-            bool_var v = m_active_coeffs[i];
+        for (unsigned i = 0; g != 1 && i < m_active_vars.size(); ++i) {
+            bool_var v = m_active_vars[i];
             int coeff = get_abs_coeff(v);
             if (coeff == 0) {
                 continue;
@@ -1890,8 +1965,8 @@ namespace smt {
         }
         if (g >= 2) {
             normalize_active_coeffs();
-            for (unsigned i = 0; i < m_active_coeffs.size(); ++i) {
-                m_coeffs[m_active_coeffs[i]] /= g;                
+            for (unsigned i = 0; i < m_active_vars.size(); ++i) {
+                m_coeffs[m_active_vars[i]] /= g;                
             }
             m_bound /= g;
             std::cout << "CUT " << g << "\n";
@@ -1899,48 +1974,48 @@ namespace smt {
         }
     }
 
-    bool theory_pb::can_propagate() { return m_card_reinit; }
+    bool theory_pb::can_propagate() { return m_cardinality_lemma; }
 
     
     void theory_pb::propagate() {
         context& ctx = get_context();
         ast_manager& m = get_manager();
-        if (ctx.inconsistent() || !m_card_reinit) {
+        if (!m_cardinality_lemma) {
             return;
         }
-        m_card_reinit = false;
+        m_cardinality_lemma = false;
+        if (ctx.inconsistent()) {
+            return;
+        }
+        m_antecedents.reset();
 
-        if (!validate_antecedents(m_antecedents)) {
-            return;
+        for (unsigned i = 0; i < m_antecedent_exprs.size(); ++i) {
+            expr* a = m_antecedent_exprs[i].get();
+            if (!ctx.b_internalized(a)) {
+                std::cout << "not internalized " << mk_pp(a, m) << "\n";
+                return;
+            }
+            m_antecedents.push_back(~literal(ctx.get_bool_var(a), m_antecedent_signs[i]));
         }
+        for (unsigned i = 0; i < m_cardinality_exprs.size(); ++i) {
+            expr* a = m_cardinality_exprs[i].get();
+            if (!ctx.b_internalized(a)) {
+                std::cout << "not internalized " << mk_pp(a, m) << "\n";
+                return;
+            }
+            if (m_cardinality_signs[i]) {
+                m_cardinality_exprs[i] = m.mk_not(a);
+            }
+        }        
         pb_util pb(m);
-        expr_ref pred(pb.mk_fresh_bool(), m);
-        bool_var abv = ctx.mk_bool_var(pred);
-        ctx.set_var_theory(abv, get_id());
-        literal lit(abv);
-        // std::cout << "fresh " << pred << " " << lit << "\n";
-        
-        card* c = alloc(card, lit, m_bound);
-        for (unsigned i = 0; i < m_active_coeffs.size(); ++i) {
-            bool_var v = m_active_coeffs[i];
-            int coeff = get_coeff(v);
-            SASSERT(coeff != 0);
-            c->add_arg(literal(v, coeff < 0));
-        }
-        
-        init_watch(abv);
-        m_var_infos[abv].m_card = c;
-        m_card_trail.push_back(abv);
-        for (unsigned i = 0; i < m_antecedents.size(); ++i) {
-            m_antecedents[i].neg();
-        }
-        m_antecedents.push_back(lit);
-        TRACE("pb", tout << m_antecedents << "\n";);
+        app_ref atl(pb.mk_at_least_k(m_cardinality_exprs.size(), m_cardinality_exprs.c_ptr(), m_bound), m);
+        VERIFY(internalize_card(atl, false));
+        bool_var abv = ctx.get_bool_var(atl);
+        m_antecedents.push_back(literal(abv));
         justification* js = 0;
         if (proofs_enabled()) {
             js = 0; // 
         }
-        ++m_stats.m_num_predicates;
         ctx.mk_clause(m_antecedents.size(), m_antecedents.c_ptr(), js, CLS_AUX_LEMMA, 0);
     }
 
@@ -1951,7 +2026,7 @@ namespace smt {
         bool_var v;
         context& ctx = get_context();
         m_conflict_lvl = 0;
-        m_card_reinit = false;
+        m_cardinality_lemma = false;
         for (unsigned i = 0; i < confl.size(); ++i) {
             literal lit = confl[i];
             SASSERT(ctx.get_assignment(lit) == l_false);
@@ -2100,35 +2175,29 @@ namespace smt {
         
 
         normalize_active_coeffs();
-        int count = 0, sz = 0;
-        for (unsigned i = 0; i < m_active_coeffs.size(); ++i) {
-            bool_var v = m_active_coeffs[i];
-            int coeff = get_abs_coeff(v);
-            SASSERT(coeff > 0);
-            ++sz;
-            count += coeff;
-        }
-        // std::cout << "New " << count << "(" << sz << ") >= " << m_bound << " " << c.size() << " >= " << c.k() << " new diff: " << count - m_bound  << " old diff: " << c.size() - c.k() << "\n";
-        literal prop_lit = cardinality_reduction(~conseq);
 
-        if (prop_lit != null_literal) {
-            TRACE("pb", tout << "cardinality literal: " << prop_lit << "\n";);
-            SASSERT(static_cast<int>(m_active_coeffs.size()) >= m_bound);
-            unsigned slack = m_active_coeffs.size() - m_bound;
-            for (unsigned i = 0; i < slack; ++i) { 
-                bool_var v = m_active_coeffs[i];
-                literal lit(v, get_coeff(v) < 0);
-                SASSERT(lit.var() != prop_lit.var() || lit == prop_lit);
-                if (lit != prop_lit && ctx.get_assignment(lit) == l_false) {
-                    m_antecedents.push_back(~lit);
-                    --slack;
-                }
+        literal alit = get_asserting_literal(~conseq);
+        int slack = -m_bound;
+        for (unsigned i = 0; i < m_active_vars.size(); ++i) { 
+            bool_var v = m_active_vars[i];
+            slack += get_abs_coeff(v);
+        }
+        slack -= get_abs_coeff(alit.var());
+
+        for (unsigned i = 0; 0 <= slack; ++i) { 
+			SASSERT(i < m_active_vars.size());
+            bool_var v = m_active_vars[i];
+            literal lit(v, get_coeff(v) < 0);
+            if (v != alit.var() && ctx.get_assignment(lit) == l_false) {
+                m_antecedents.push_back(~lit);
+                slack -= get_abs_coeff(v);
             }
-            SASSERT(validate_antecedents(m_antecedents));
-            ctx.assign(prop_lit, ctx.mk_justification(theory_propagation_justification(get_id(), ctx.get_region(), m_antecedents.size(), m_antecedents.c_ptr(), prop_lit, 0, 0)));
         }
+        SASSERT(validate_antecedents(m_antecedents));
+        ctx.assign(alit, ctx.mk_justification(theory_propagation_justification(get_id(), ctx.get_region(), m_antecedents.size(), m_antecedents.c_ptr(), alit, 0, 0)));
 
-        return prop_lit != null_literal;
+        add_cardinality_lemma();
+        return true;
     }
 
     bool theory_pb::is_proof_justification(justification const& j) const {
@@ -2243,6 +2312,14 @@ namespace smt {
         return true;
     }
 
+    bool theory_pb::validate_unit_propagation(card const& c) {
+        context& ctx = get_context();
+        for (unsigned i = c.k(); i < c.size(); ++i) {
+            SASSERT(ctx.get_assignment(c.lit(i)) == l_false);
+        }
+        return true;
+    }
+
     void theory_pb::negate(literal_vector & lits) {
         for (unsigned i = 0; i < lits.size(); ++i) {
             lits[i].neg();
@@ -2270,8 +2347,8 @@ namespace smt {
         }
         uint_set seen;
         bool first = true;
-        for (unsigned i = 0; i < m_active_coeffs.size(); ++i) {
-            bool_var v = m_active_coeffs[i];
+        for (unsigned i = 0; i < m_active_vars.size(); ++i) {
+            bool_var v = m_active_vars[i];
             if (seen.contains(v)) {
                 continue;
             }

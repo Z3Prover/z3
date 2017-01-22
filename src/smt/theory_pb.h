@@ -185,6 +185,14 @@ namespace smt {
         };
 
         // cardinality constraint args >= bound
+        // unit propagation on cardinality constraints is valid if the literals
+        // from k() up to size are false.
+        // In this case the literals 0..k()-1 need to be true. 
+        // The literals in position 0..k() are watched.
+        // whenever they are assigned to false, then find a literal among
+        // k() + 1.. sz() to swap with.
+        // If none are available, then perform unit propagation.
+        // 
         class card {
             literal         m_lit;      // literal repesenting predicate
             literal_vector  m_args;
@@ -293,7 +301,7 @@ namespace smt {
         bool                     m_enable_compilation;
         rational                 m_max_compiled_coeff;
 
-        bool                     m_card_reinit;
+        bool                     m_cardinality_lemma;
 
         // internalize_atom:
         literal compile_arg(expr* arg);
@@ -326,6 +334,7 @@ namespace smt {
         bool is_cardinality_constraint(app * atom);
         bool internalize_card(app * atom, bool gate_ctx);
         void card2conjunction(card const& c);
+        void card2disjunction(card const& c);
 
         void watch_literal(literal lit, card* c);
         void unwatch_literal(literal w, card* c);
@@ -370,20 +379,31 @@ namespace smt {
 
         // Conflict PB constraints
         svector<int>      m_coeffs;
-        svector<bool_var> m_active_coeffs;
+        svector<bool_var> m_active_vars;
         int               m_bound;
         literal_vector    m_antecedents;
         uint_set          m_seen;
-        unsigned_vector   m_seen_trail;
+        expr_ref_vector   m_antecedent_exprs;
+        svector<bool>     m_antecedent_signs;
+        expr_ref_vector   m_cardinality_exprs;
+        svector<bool>     m_cardinality_signs;
 
         void normalize_active_coeffs();
         void inc_coeff(literal l, int offset);
         int get_coeff(bool_var v) const;
         int get_abs_coeff(bool_var v) const;       
-        int arg_max(uint_set& seen, int& coeff); 
+        int arg_max(int& coeff); 
+
+        literal_vector& get_literals() { m_literals.reset(); return m_literals; }
+
+        vector<svector<bool_var> > m_coeff2args;
+        unsigned_vector m_active_coeffs;
+        bool init_arg_max();
+        void reset_arg_max();
 
         void reset_coeffs();
-        literal cardinality_reduction(literal propagation_lit);
+        void add_cardinality_lemma();
+        literal get_asserting_literal(literal conseq);
 
         bool resolve_conflict(card& c, literal_vector const& conflict_clause);
         void process_antecedent(literal l, int offset);
@@ -399,6 +419,7 @@ namespace smt {
         void validate_final_check(ineq& c);
         void validate_assign(ineq const& c, literal_vector const& lits, literal l) const;
         void validate_watch(ineq const& c) const;
+        bool validate_unit_propagation(card const& c);
         bool validate_antecedents(literal_vector const& lits);
         void negate(literal_vector & lits);
 
