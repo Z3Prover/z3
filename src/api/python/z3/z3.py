@@ -2394,7 +2394,7 @@ def is_int_value(a):
     >>> is_int_value(RealVal(1))
     False
     """
-    return is_arith(a) and a.is_int() and _is_numeral(a.ctx, a.as_ast())
+    return isinstance(a, IntNumRef)
 
 def is_rational_value(a):
     """Return `True` if `a` is rational value of sort Real.
