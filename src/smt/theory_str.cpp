@@ -3249,7 +3249,7 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
             if (m_params.m_FiniteOverlapModels) {
                 expr_ref tester = set_up_finite_model_test(concatAst1, concatAst2);
                 assert_implication(ax_l, tester);
-                add_theory_aware_branching_info(tester, -0.1, l_true);
+                add_theory_aware_branching_info(tester, m_params.m_OverlapTheoryAwarePriority, l_true);
             } else {
                 TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
                 // TODO printCutVar(m, y);
@@ -3307,7 +3307,7 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
             if (m_params.m_FiniteOverlapModels) {
                 expr_ref tester = set_up_finite_model_test(concatAst1, concatAst2);
                 assert_implication(ax_l, tester);
-                add_theory_aware_branching_info(tester, -0.1, l_true);
+                add_theory_aware_branching_info(tester, m_params.m_OverlapTheoryAwarePriority, l_true);
             } else {
                 TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
                 // TODO printCutVar(m, y);
@@ -3361,7 +3361,7 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
             if (m_params.m_FiniteOverlapModels) {
                 expr_ref tester = set_up_finite_model_test(concatAst1, concatAst2);
                 arrangement_disjunction.push_back(tester);
-                add_theory_aware_branching_info(tester, -0.1, l_true);
+                add_theory_aware_branching_info(tester, m_params.m_OverlapTheoryAwarePriority, l_true);
             } else {
                 TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
                 TRACE("t_str_detail", {print_cut_var(m, tout); print_cut_var(y, tout);});
@@ -3406,7 +3406,7 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
                 // TODO this might repeat the case above, we may wish to avoid doing this twice
                 expr_ref tester = set_up_finite_model_test(concatAst1, concatAst2);
                 arrangement_disjunction.push_back(tester);
-                add_theory_aware_branching_info(tester, -0.1, l_true);
+                add_theory_aware_branching_info(tester, m_params.m_OverlapTheoryAwarePriority, l_true);
             } else {
                 TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
                 // TODO printCutVar(x, n);
@@ -3645,7 +3645,7 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 	            if (m_params.m_FiniteOverlapModels) {
 	                expr_ref tester = set_up_finite_model_test(concatAst1, concatAst2);
                     assert_implication(ax_l, tester);
-                    add_theory_aware_branching_info(tester, -0.1, l_true);
+                    add_theory_aware_branching_info(tester, m_params.m_OverlapTheoryAwarePriority, l_true);
 	            } else {
 	                TRACE("t_str", tout << "AVOID LOOP: SKIP" << std::endl;);
 	                // TODO printCutVar(m, y);
@@ -3753,7 +3753,7 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 				if (m_params.m_FiniteOverlapModels) {
 				    expr_ref tester = set_up_finite_model_test(concatAst1, concatAst2);
                     arrangement_disjunction.push_back(tester);
-                    add_theory_aware_branching_info(tester, -0.1, l_true);
+                    add_theory_aware_branching_info(tester, m_params.m_OverlapTheoryAwarePriority, l_true);
 				} else {
 				    TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
 				    // TODO printCutVar(m, y)
@@ -4046,7 +4046,7 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
                 if (m_params.m_FiniteOverlapModels) {
                     expr_ref tester = set_up_finite_model_test(concatAst1, concatAst2);
                     assert_implication(ax_l, tester);
-                    add_theory_aware_branching_info(tester, -0.1, l_true);
+                    add_theory_aware_branching_info(tester, m_params.m_OverlapTheoryAwarePriority, l_true);
                 } else {
                     TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
                     // TODO printCutVar(x, n);
@@ -4126,7 +4126,7 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
                 if (m_params.m_FiniteOverlapModels) {
                     expr_ref tester = set_up_finite_model_test(concatAst1, concatAst2);
                     arrangement_disjunction.push_back(tester);
-                    add_theory_aware_branching_info(tester, -0.1, l_true);
+                    add_theory_aware_branching_info(tester, m_params.m_OverlapTheoryAwarePriority, l_true);
                 } else {
                     TRACE("t_str", tout << "AVOID LOOP: SKIPPED." << std::endl;);
                     // TODO printCutVAR(x, n)
@@ -4532,7 +4532,7 @@ void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
         if (m_params.m_FiniteOverlapModels) {
             expr_ref tester = set_up_finite_model_test(concatAst1, concatAst2);
             arrangement_disjunction.push_back(tester);
-            add_theory_aware_branching_info(tester, -0.1, l_true);
+            add_theory_aware_branching_info(tester, m_params.m_OverlapTheoryAwarePriority, l_true);
         } else {
             TRACE("t_str", tout << "AVOID LOOP: SKIPPED." << std::endl;);
             TRACE("t_str", print_cut_var(m, tout); print_cut_var(y, tout););

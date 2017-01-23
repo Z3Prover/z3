@@ -73,5 +73,6 @@ def_module_params(module_name='smt',
                           ('str.binary_search_start', UINT, 64, 'initial upper bound for theory_str binary search'),
                           ('theory_case_split', BOOL, False, 'Allow the context to use heuristics involving theory case splits, which are a set of literals of which exactly one can be assigned True. If this option is false, the context will generate extra axioms to enforce this instead.'),
                           ('theory_aware_branching', BOOL, False, 'Allow the context to use extra information from theory solvers regarding literal branching prioritization.'),
-                          ('str.finite_overlap_models', BOOL, False, 'attempt a finite model search for overlapping variables instead of completely giving up on the arrangement')
+                          ('str.finite_overlap_models', BOOL, False, 'attempt a finite model search for overlapping variables instead of completely giving up on the arrangement'),
+                          ('str.overlap_priority', DOUBLE, -0.1, 'theory-aware priority for overlapping variable cases; use smt.theory_aware_branching=true')
                           ))

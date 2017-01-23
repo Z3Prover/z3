@@ -78,6 +78,8 @@ struct theory_str_params {
     bool m_UseBinarySearch;
     unsigned m_BinarySearchInitialUpperBound;
 
+    double m_OverlapTheoryAwarePriority;
+
     theory_str_params(params_ref const & p = params_ref()):
         m_AssertStrongerArrangements(true),
         m_AggressiveLengthTesting(false),
@@ -88,7 +90,8 @@ struct theory_str_params {
         m_StringConstantCache(true),
         m_FiniteOverlapModels(false),
         m_UseBinarySearch(false),
-        m_BinarySearchInitialUpperBound(64)
+        m_BinarySearchInitialUpperBound(64),
+        m_OverlapTheoryAwarePriority(-0.1)
     {
         updt_params(p);
     }

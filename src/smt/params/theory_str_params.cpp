@@ -30,4 +30,5 @@ void theory_str_params::updt_params(params_ref const & _p) {
     m_FiniteOverlapModels = p.str_finite_overlap_models();
     m_UseBinarySearch = p.str_use_binary_search();
     m_BinarySearchInitialUpperBound = p.str_binary_search_start();
+    m_OverlapTheoryAwarePriority = p.str_overlap_priority();
 }
