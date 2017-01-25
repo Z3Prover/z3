@@ -2394,7 +2394,7 @@ def is_int_value(a):
     >>> is_int_value(RealVal(1))
     False
     """
-    return isinstance(a, IntNumRef)
+    return is_arith(a) and a.is_int() and _is_numeral(a.ctx, a.as_ast())
 
 def is_rational_value(a):
     """Return `True` if `a` is rational value of sort Real.
@@ -2662,6 +2662,12 @@ class RatNumRef(ArithRef):
         return self.denominator().as_long()
 
     def is_int(self):
+        return False
+
+    def is_real(self):
+        return True
+
+    def is_int_value(self):
         return self.denominator().is_int() and self.denominator_as_long() == 1
 
     def as_long(self):
