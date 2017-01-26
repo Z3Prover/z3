@@ -2958,22 +2958,19 @@ void theory_seq::tightest_prefix(expr* s, expr* x) {
   let i = Index(t, s, offset):
 
   offset >= len(t) => i = -1
-
-  offset fixed to 0:
-
   len(t) != 0 & !contains(t, s) => i = -1
-  len(t) != 0 & contains(t, s) => t = xsy & i = len(x)
+
+
+  offset = 0 & len(t) != 0 & contains(t, s) => t = xsy & i = len(x)
   tightest_prefix(x, s)
 
-  offset not fixed:
 
   0 <= offset < len(t) => xy = t &
                           len(x) = offset &
                           (-1 = indexof(y, s, 0) => -1 = i) &
                           (indexof(y, s, 0) >= 0 => indexof(t, s, 0) + offset = i)
 
-  if offset < 0
-     under specified
+  offset < 0 => i = -1
 
   optional lemmas:
    (len(s) > len(t)  -> i = -1)
@@ -2987,17 +2984,19 @@ void theory_seq::add_indexof_axiom(expr* i) {
     expr_ref minus_one(m_autil.mk_int(-1), m);
     expr_ref zero(m_autil.mk_int(0), m);
     expr_ref xsy(m);
+    
+    literal cnt = mk_literal(m_util.str.mk_contains(t, s));
+    literal i_eq_m1 = mk_eq(i, minus_one, false);
+    add_axiom(cnt,  i_eq_m1);
+    literal s_eq_empty = mk_eq_empty(s);
+    add_axiom(~s_eq_empty, mk_eq(i, zero, false));
+    add_axiom(s_eq_empty, ~mk_eq_empty(t), i_eq_m1);
 
     if (!offset || (m_autil.is_numeral(offset, r) && r.is_zero())) {
         expr_ref x  = mk_skolem(m_indexof_left, t, s);
         expr_ref y  = mk_skolem(m_indexof_right, t, s);
         xsy         = mk_concat(x, s, y);
         expr_ref lenx(m_util.str.mk_length(x), m);
-        literal cnt = mk_literal(m_util.str.mk_contains(t, s));
-        literal s_eq_empty = mk_eq_empty(s);
-        add_axiom(cnt,  mk_eq(i, minus_one, false));
-        add_axiom(~s_eq_empty, mk_eq(i, zero, false));
-        add_axiom(s_eq_empty, ~mk_eq_empty(t), mk_eq(i, minus_one, false));
         add_axiom(~cnt, s_eq_empty, mk_seq_eq(t, xsy));
         add_axiom(~cnt, s_eq_empty, mk_eq(i, lenx, false));
         tightest_prefix(s, x);
@@ -3024,10 +3023,13 @@ void theory_seq::add_indexof_axiom(expr* i) {
         add_axiom(~offset_ge_0, offset_ge_len, mk_seq_eq(t, mk_concat(x, y)));
         add_axiom(~offset_ge_0, offset_ge_len, mk_eq(m_util.str.mk_length(x), offset, false));
         add_axiom(~offset_ge_0, offset_ge_len,
-                  ~mk_eq(indexof0, minus_one, false), mk_eq(i, minus_one, false));
+                  ~mk_eq(indexof0, minus_one, false), i_eq_m1);
         add_axiom(~offset_ge_0, offset_ge_len,
                   ~mk_literal(m_autil.mk_ge(indexof0, zero)),
                   mk_eq(offset_p_indexof0, i, false));
+
+        // offset < 0 => -1 = i
+        add_axiom(offset_ge_0, i_eq_m1);
     }
 }
 
@@ -3816,6 +3818,15 @@ void theory_seq::new_eq_eh(dependency* deps, enode* n1, enode* n2) {
         m_eqs.push_back(mk_eqdep(o1, o2, deps));
         solve_eqs(m_eqs.size()-1);
         enforce_length_coherence(n1, n2);
+    }
+    else if (n1 != n2 && m_util.is_re(n1->get_owner())) {
+        warning_msg("equality between regular expressions is not yet supported");
+        eautomaton* a1 = get_automaton(n1->get_owner());
+        eautomaton* a2 = get_automaton(n2->get_owner());
+        // eautomaton* b1 = mk_difference(*a1, *a2);
+        // eautomaton* b2 = mk_difference(*a2, *a1);
+        // eautomaton* c = mk_union(*b1, *b2);
+        // then some emptiness check.
     }
 }
 
