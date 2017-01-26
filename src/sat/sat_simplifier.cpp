@@ -896,7 +896,7 @@ namespace sat {
                 unsigned idx = l.index();
                 if (m_queue.contains(idx))
                     m_queue.decreased(idx);
-                else
+                else 
                     m_queue.insert(idx);
             }
             literal next() { SASSERT(!empty()); return to_literal(m_queue.erase_min()); }
@@ -918,16 +918,19 @@ namespace sat {
         }
 
         void insert(literal l) {
-            bool_var v = l.var();
-            if (s.is_external(v) || s.was_eliminated(v))
-                return;
             m_queue.insert(l);
+        }
+
+        bool process_var(bool_var v) {
+            return !s.is_external(v) && !s.was_eliminated(v);
         }
 
         void operator()(unsigned num_vars) {
             for (bool_var v = 0; v < num_vars; v++) {
-                insert(literal(v, false));
-                insert(literal(v, true));
+                if (process_var(v)) {
+                    insert(literal(v, false));
+                    insert(literal(v, true));
+                }
             }
             while (!m_queue.empty()) {
                 s.checkpoint();
@@ -941,9 +944,9 @@ namespace sat {
         void process(literal l) {
             TRACE("blocked_clause", tout << "processing: " << l << "\n";);
             model_converter::entry * new_entry = 0;
-            if (s.is_external(l.var()) || s.was_eliminated(l.var()))
+            if (!process_var(l.var())) {
                 return;
-
+            }
             {
                 m_to_remove.reset();
                 {
@@ -963,8 +966,10 @@ namespace sat {
                             mc.insert(*new_entry, c);
                             unsigned sz = c.size();
                             for (unsigned i = 0; i < sz; i++) {
-                                if (c[i] != l)
-                                    m_queue.decreased(~c[i]);
+                                literal lit = c[i];
+                                if (lit != l && process_var(lit.var())) {
+                                    m_queue.decreased(~lit);
+                                }
                             }
                         }
                         s.unmark_all(c);
