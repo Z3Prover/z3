@@ -2662,6 +2662,12 @@ class RatNumRef(ArithRef):
         return self.denominator().as_long()
 
     def is_int(self):
+        return False
+
+    def is_real(self):
+        return True
+
+    def is_int_value(self):
         return self.denominator().is_int() and self.denominator_as_long() == 1
 
     def as_long(self):
