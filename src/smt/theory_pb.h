@@ -198,16 +198,20 @@ namespace smt {
             literal_vector  m_args;
             unsigned        m_bound;
             unsigned        m_num_propagations;
+            unsigned        m_all_propagations;
             unsigned        m_compilation_threshold;
             lbool           m_compiled;
+            bool            m_aux;
             
         public:
-            card(literal l, unsigned bound):
+            card(literal l, unsigned bound, bool is_aux):
                 m_lit(l),
                 m_bound(bound),
                 m_num_propagations(0),
+                m_all_propagations(0),
                 m_compilation_threshold(0),
-                m_compiled(l_false)
+                m_compiled(l_false),
+                m_aux(is_aux)
             {
                 SASSERT(bound > 0);
             }            
@@ -216,6 +220,7 @@ namespace smt {
             literal lit(unsigned i) const { return m_args[i]; }
             unsigned k() const { return m_bound; }
             unsigned size() const { return m_args.size(); }
+            unsigned all_propagations() const { return m_all_propagations; }
             unsigned num_propagations() const { return m_num_propagations; }
             void add_arg(literal l);
         
@@ -228,6 +233,11 @@ namespace smt {
             app_ref to_expr(context& ctx);
 
             void inc_propagations(theory_pb& th);
+
+            void reset_propagations() { m_all_propagations += m_num_propagations; m_num_propagations = 0; }
+
+            bool is_aux() const { return m_aux; }
+
         private:
 
             bool validate_conflict(theory_pb& th);
@@ -293,7 +303,7 @@ namespace smt {
         unsigned_vector          m_ineqs_trail;
         unsigned_vector          m_ineqs_lim;
         literal_vector           m_literals;    // temporary vector
-        pb_util                  m_util;
+        pb_util                  pb;
         stats                    m_stats;
         ptr_vector<ineq>         m_to_compile;  // inequalities to compile.
         unsigned                 m_conflict_frequency;
@@ -302,6 +312,9 @@ namespace smt {
         rational                 m_max_compiled_coeff;
 
         bool                     m_cardinality_lemma;
+        unsigned                 m_restart_lim;
+        unsigned                 m_restart_inc;
+        uint_set                 m_occs;
 
         // internalize_atom:
         literal compile_arg(expr* arg);
@@ -330,7 +343,7 @@ namespace smt {
         // be handled using cardinality constraints.
 
         unsigned_vector          m_card_trail;
-        unsigned_vector          m_card_lim;
+        unsigned_vector          m_card_lim;       
         bool is_cardinality_constraint(app * atom);
         bool internalize_card(app * atom, bool gate_ctx);
         void card2conjunction(card const& c);
@@ -339,9 +352,10 @@ namespace smt {
         void watch_literal(literal lit, card* c);
         void unwatch_literal(literal w, card* c);
         void add_clause(card& c, literal_vector const& lits);
-        void add_assign(card& c, literal_vector const& lits, literal l);
+        void add_assign(card& c, literal l);
         void remove(ptr_vector<card>& cards, card* c);
-        void clear_watch(card& c);        
+        void clear_watch(card& c); 
+        bool gc();
         std::ostream& display(std::ostream& out, card const& c, bool values = false) const;
 
 

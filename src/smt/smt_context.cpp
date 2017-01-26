@@ -1986,6 +1986,15 @@ namespace smt {
     }
 
     /**
+       \brief Remove boolean variable from watch lists.
+    */
+    void context::remove_watch(bool_var v) {
+        literal lit(v);
+        m_watches[lit.index()].reset();
+        m_watches[(~lit).index()].reset();
+    }
+
+    /**
        \brief Update the index used for backward subsumption.
     */
     void context::remove_lit_occs(clause * cls) {

@@ -302,6 +302,7 @@ namespace smt {
         }
 #endif
 
+        clause_vector const& get_lemmas() const { return m_lemmas; }
 
         literal get_literal(expr * n) const;
 
@@ -604,8 +605,6 @@ namespace smt {
 
         void remove_cls_occs(clause * cls);
 
-        void mark_as_deleted(clause * cls);
-
         void del_clause(clause * cls);
 
         void del_clauses(clause_vector & v, unsigned old_size);
@@ -629,6 +628,14 @@ namespace smt {
         void reinit_clauses(unsigned num_scopes, unsigned num_bool_vars);
 
         void reassert_units(unsigned units_to_reassert_lim);
+
+    public:
+        // \brief exposed for PB solver to participate in GC
+
+        void remove_watch(bool_var v);
+
+        void mark_as_deleted(clause * cls);
+
 
         // -----------------------------------
         //
