@@ -209,6 +209,7 @@ namespace sat {
         bool inconsistent() const { return m_inconsistent; }
         unsigned num_vars() const { return m_level.size(); }
         unsigned num_clauses() const;
+        unsigned num_restarts() const { return m_restarts; }
         bool is_external(bool_var v) const { return m_external[v] != 0; }
         bool was_eliminated(bool_var v) const { return m_eliminated[v] != 0; }
         unsigned scope_lvl() const { return m_scope_lvl; }

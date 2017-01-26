@@ -26,8 +26,7 @@ namespace sat {
         literal_vector m_mus;
         bool           m_is_active;
         model          m_model;       // model obtained during minimal unsat core
-        unsigned       m_restart;
-        unsigned       m_max_restarts;
+        unsigned       m_max_num_restarts;
 
 
     public:
