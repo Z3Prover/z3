@@ -112,12 +112,12 @@ void str_decl_plugin::set_manager(ast_manager * m, family_id id) {
     FIELD = m->mk_func_decl(symbol(NAME), SORT, SORT, SORT, func_decl_info(id, KIND));  \
     m->inc_ref(FIELD)
 
-    MK_OP(m_concat_decl, "Concat", OP_STRCAT, s);
+    MK_OP(m_concat_decl, "str.++", OP_STRCAT, s);
 
-    m_length_decl = m->mk_func_decl(symbol("Length"), s, i, func_decl_info(id, OP_STRLEN));
+    m_length_decl = m->mk_func_decl(symbol("str.len"), s, i, func_decl_info(id, OP_STRLEN));
     m_manager->inc_ref(m_length_decl);
 
-    m_charat_decl = m->mk_func_decl(symbol("CharAt"), s, i, s, func_decl_info(id, OP_STR_CHARAT));
+    m_charat_decl = m->mk_func_decl(symbol("str.at"), s, i, s, func_decl_info(id, OP_STR_CHARAT));
     m_manager->inc_ref(m_charat_decl);
 
     m_startswith_decl = m->mk_func_decl(symbol("StartsWith"), s, s, boolT, func_decl_info(id, OP_STR_STARTSWITH));
@@ -126,10 +126,10 @@ void str_decl_plugin::set_manager(ast_manager * m, family_id id) {
     m_endswith_decl = m->mk_func_decl(symbol("EndsWith"), s, s, boolT, func_decl_info(id, OP_STR_ENDSWITH));
     m_manager->inc_ref(m_endswith_decl);
 
-    m_contains_decl = m->mk_func_decl(symbol("Contains"), s, s, boolT, func_decl_info(id, OP_STR_CONTAINS));
+    m_contains_decl = m->mk_func_decl(symbol("str.contains"), s, s, boolT, func_decl_info(id, OP_STR_CONTAINS));
     m_manager->inc_ref(m_contains_decl);
 
-    m_indexof_decl = m->mk_func_decl(symbol("Indexof"), s, s, i, func_decl_info(id, OP_STR_INDEXOF));
+    m_indexof_decl = m->mk_func_decl(symbol("str.indexof"), s, s, i, func_decl_info(id, OP_STR_INDEXOF));
     m_manager->inc_ref(m_indexof_decl);
 
     {
@@ -138,18 +138,18 @@ void str_decl_plugin::set_manager(ast_manager * m, family_id id) {
         m_manager->inc_ref(m_indexof2_decl);
     }
 
-    m_lastindexof_decl = m->mk_func_decl(symbol("LastIndexof"), s, s, i, func_decl_info(id, OP_STR_LASTINDEXOF));
+    m_lastindexof_decl = m->mk_func_decl(symbol("str.lastindexof"), s, s, i, func_decl_info(id, OP_STR_LASTINDEXOF));
     m_manager->inc_ref(m_lastindexof_decl);
 
     {
         sort * d[3] = {s, i, i };
-        m_substr_decl = m->mk_func_decl(symbol("Substring"), 3, d, s, func_decl_info(id, OP_STR_SUBSTR));
+        m_substr_decl = m->mk_func_decl(symbol("str.substr"), 3, d, s, func_decl_info(id, OP_STR_SUBSTR));
         m_manager->inc_ref(m_substr_decl);
     }
 
     {
         sort * d[3] = {s, s, s};
-        m_replace_decl = m->mk_func_decl(symbol("Replace"), 3, d, s, func_decl_info(id, OP_STR_REPLACE));
+        m_replace_decl = m->mk_func_decl(symbol("str.replace"), 3, d, s, func_decl_info(id, OP_STR_REPLACE));
         m_manager->inc_ref(m_replace_decl);
     }
 
@@ -165,28 +165,28 @@ void str_decl_plugin::set_manager(ast_manager * m, family_id id) {
     m_int2str_decl = m->mk_func_decl(symbol("str.from-int"), i, s, func_decl_info(id, OP_STR_INT2STR));
     m_manager->inc_ref(m_int2str_decl);
 
-    m_re_str2regex_decl = m->mk_func_decl(symbol("Str2Reg"), s, re, func_decl_info(id, OP_RE_STR2REGEX));
+    m_re_str2regex_decl = m->mk_func_decl(symbol("str.to.re"), s, re, func_decl_info(id, OP_RE_STR2REGEX));
     m_manager->inc_ref(m_re_str2regex_decl);
 
-    m_re_regexin_decl = m->mk_func_decl(symbol("RegexIn"), s, re, boolT, func_decl_info(id, OP_RE_REGEXIN));
+    m_re_regexin_decl = m->mk_func_decl(symbol("str.in.re"), s, re, boolT, func_decl_info(id, OP_RE_REGEXIN));
     m_manager->inc_ref(m_re_regexin_decl);
 
-    m_re_regexconcat_decl = m->mk_func_decl(symbol("RegexConcat"), re, re, re, func_decl_info(id, OP_RE_REGEXCONCAT));
+    m_re_regexconcat_decl = m->mk_func_decl(symbol("re.++"), re, re, re, func_decl_info(id, OP_RE_REGEXCONCAT));
     m_manager->inc_ref(m_re_regexconcat_decl);
 
-    m_re_regexstar_decl = m->mk_func_decl(symbol("RegexStar"), re, re, func_decl_info(id, OP_RE_REGEXSTAR));
+    m_re_regexstar_decl = m->mk_func_decl(symbol("re.*"), re, re, func_decl_info(id, OP_RE_REGEXSTAR));
     m_manager->inc_ref(m_re_regexstar_decl);
 
-    m_re_regexplus_decl = m->mk_func_decl(symbol("RegexPlus"), re, re, func_decl_info(id, OP_RE_REGEXPLUS));
+    m_re_regexplus_decl = m->mk_func_decl(symbol("re.+"), re, re, func_decl_info(id, OP_RE_REGEXPLUS));
     m_manager->inc_ref(m_re_regexplus_decl);
 
-    m_re_regexunion_decl = m->mk_func_decl(symbol("RegexUnion"), re, re, re, func_decl_info(id, OP_RE_REGEXUNION));
+    m_re_regexunion_decl = m->mk_func_decl(symbol("re.union"), re, re, re, func_decl_info(id, OP_RE_REGEXUNION));
     m_manager->inc_ref(m_re_regexunion_decl);
 
     m_re_unroll_decl = m->mk_func_decl(symbol("Unroll"), re, i, s, func_decl_info(id, OP_RE_UNROLL));
     m_manager->inc_ref(m_re_unroll_decl);
 
-    m_re_regexcharrange_decl = m->mk_func_decl(symbol("RegexCharRange"), s, s, re, func_decl_info(id, OP_RE_REGEXCHARRANGE));
+    m_re_regexcharrange_decl = m->mk_func_decl(symbol("re.range"), s, s, re, func_decl_info(id, OP_RE_REGEXCHARRANGE));
     m_manager->inc_ref(m_re_regexcharrange_decl);
 
 }
@@ -282,29 +282,29 @@ app * str_decl_plugin::mk_fresh_string() {
 }
 
 void str_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
-    op_names.push_back(builtin_name("Concat", OP_STRCAT));
-    op_names.push_back(builtin_name("Length", OP_STRLEN));
-    op_names.push_back(builtin_name("CharAt", OP_STR_CHARAT));
+    op_names.push_back(builtin_name("str.++", OP_STRCAT));
+    op_names.push_back(builtin_name("str.len", OP_STRLEN));
+    op_names.push_back(builtin_name("str.at", OP_STR_CHARAT));
     op_names.push_back(builtin_name("StartsWith", OP_STR_STARTSWITH));
     op_names.push_back(builtin_name("EndsWith", OP_STR_ENDSWITH));
-    op_names.push_back(builtin_name("Contains", OP_STR_CONTAINS));
-    op_names.push_back(builtin_name("Indexof", OP_STR_INDEXOF));
+    op_names.push_back(builtin_name("str.contains", OP_STR_CONTAINS));
+    op_names.push_back(builtin_name("str.indexof", OP_STR_INDEXOF));
     op_names.push_back(builtin_name("Indexof2", OP_STR_INDEXOF2));
-    op_names.push_back(builtin_name("LastIndexof", OP_STR_LASTINDEXOF));
-    op_names.push_back(builtin_name("Substring", OP_STR_SUBSTR));
-    op_names.push_back(builtin_name("Replace", OP_STR_REPLACE));
+    op_names.push_back(builtin_name("str.lastindexof", OP_STR_LASTINDEXOF));
+    op_names.push_back(builtin_name("str.substr", OP_STR_SUBSTR));
+    op_names.push_back(builtin_name("str.replace", OP_STR_REPLACE));
     op_names.push_back(builtin_name("str.prefixof", OP_STR_PREFIXOF));
     op_names.push_back(builtin_name("str.suffixof", OP_STR_SUFFIXOF));
     op_names.push_back(builtin_name("str.to-int", OP_STR_STR2INT));
     op_names.push_back(builtin_name("str.from-int", OP_STR_INT2STR));
-    op_names.push_back(builtin_name("Str2Reg", OP_RE_STR2REGEX));
-    op_names.push_back(builtin_name("RegexIn", OP_RE_REGEXIN));
-    op_names.push_back(builtin_name("RegexConcat", OP_RE_REGEXCONCAT));
-    op_names.push_back(builtin_name("RegexStar", OP_RE_REGEXSTAR));
-    op_names.push_back(builtin_name("RegexUnion", OP_RE_REGEXUNION));
-    op_names.push_back(builtin_name("RegexPlus", OP_RE_REGEXPLUS));
+    op_names.push_back(builtin_name("str.to.reg", OP_RE_STR2REGEX));
+    op_names.push_back(builtin_name("str.in.reg", OP_RE_REGEXIN));
+    op_names.push_back(builtin_name("re.++", OP_RE_REGEXCONCAT));
+    op_names.push_back(builtin_name("re.*", OP_RE_REGEXSTAR));
+    op_names.push_back(builtin_name("re.union", OP_RE_REGEXUNION));
+    op_names.push_back(builtin_name("re.+", OP_RE_REGEXPLUS));
     op_names.push_back(builtin_name("Unroll", OP_RE_UNROLL));
-    op_names.push_back(builtin_name("RegexCharRange", OP_RE_REGEXCHARRANGE));
+    op_names.push_back(builtin_name("re.range", OP_RE_REGEXCHARRANGE));
 }
 
 void str_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {
