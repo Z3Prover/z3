@@ -165,7 +165,23 @@ public:
     }
 };
 
-typedef simple_check_sat_result check_sat_tactic_result;
+struct check_sat_tactic_result : public simple_check_sat_result {
+public:
+  svector<symbol> labels;
+
+  check_sat_tactic_result(ast_manager & m) : simple_check_sat_result(m) {
+  }
+
+  virtual void get_labels(svector<symbol> & r) {
+    r.append(labels);
+  }
+
+  virtual void add_labels(svector<symbol> & r) {
+    labels.append(r);
+  }
+};
+
+typedef svector<symbol> & labels_ref;
 
 class check_sat_using_tactict_cmd : public exec_given_tactic_cmd {
 public:
@@ -189,6 +205,7 @@ public:
         ast_manager & m = ctx.m();
         unsigned timeout   = p.get_uint("timeout", ctx.params().m_timeout);
         unsigned rlimit  =   p.get_uint("rlimit", ctx.params().m_rlimit);
+        svector<symbol> labels;
         goal_ref g = alloc(goal, m, ctx.produce_proofs(), ctx.produce_models(), ctx.produce_unsat_cores());
         assert_exprs_from(ctx, *g);
         TRACE("check_sat_using", g->display(tout););
@@ -208,7 +225,7 @@ public:
                 cmd_context::scoped_watch sw(ctx);
                 lbool r = l_undef;
                 try {
-                    r = check_sat(t, g, md, pr, core, reason_unknown);
+                    r = check_sat(t, g, md, result->labels, pr, core, reason_unknown);
                     ctx.display_sat_result(r);
                     result->set_status(r);
                     if (r == l_undef) {

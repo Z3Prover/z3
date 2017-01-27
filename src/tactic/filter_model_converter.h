@@ -32,6 +32,8 @@ public:
     
     virtual void operator()(model_ref & md, unsigned goal_idx);
 
+    virtual void operator()(svector<symbol> & labels, unsigned goal_idx);
+    
     virtual void operator()(model_ref & md) { operator()(md, 0); } // TODO: delete
 
     virtual void cancel() {}

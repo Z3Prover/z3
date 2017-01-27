@@ -32,6 +32,8 @@ public:
         SASSERT(goal_idx == 0);
         operator()(m);
     }
+
+    virtual void operator()(svector<symbol> & r, unsigned goal_idx) {}
     
     virtual model_converter * translate(ast_translation & translator) = 0;
 };
@@ -48,6 +50,8 @@ model_converter * concat(model_converter * mc1, model_converter * mc2);
 model_converter * concat(model_converter * mc1, unsigned num, model_converter * const * mc2s, unsigned * num_subgoals);
 
 model_converter * model2model_converter(model * m);
+
+model_converter * model_and_labels2model_converter(model * m, buffer<symbol> &r);
 
 void model_converter2model(ast_manager & mng, model_converter * mc, model_ref & m);
 
