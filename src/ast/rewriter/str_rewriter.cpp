@@ -375,6 +375,18 @@ br_status str_rewriter::mk_str_Replace(expr * base, expr * source, expr * target
     }
 }
 
+br_status str_rewriter::mk_str_prefixof(expr * pre, expr * full, expr_ref & result) {
+    TRACE("t_str_rw", tout << "rewrite (str.prefixof " << mk_pp(pre, m()) << " " << mk_pp(full, m()) << ")" << std::endl;);
+    result = m_strutil.mk_str_StartsWith(full, pre);
+    return BR_REWRITE_FULL;
+}
+
+br_status str_rewriter::mk_str_suffixof(expr * post, expr * full, expr_ref & result) {
+    TRACE("t_str_rw", tout << "rewrite (str.suffixof" << mk_pp(post, m()) << " " << mk_pp(full, m()) << ")" << std::endl;);
+    result = m_strutil.mk_str_EndsWith(full, post);
+    return BR_REWRITE_FULL;
+}
+
 br_status str_rewriter::mk_str_to_int(expr * arg0, expr_ref & result) {
 	TRACE("t_str_rw", tout << "rewrite (str.to-int " << mk_pp(arg0, m()) << ")" << std::endl;);
 
@@ -623,6 +635,12 @@ br_status str_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_STR_REPLACE:
         SASSERT(num_args == 3);
         return mk_str_Replace(args[0], args[1], args[2], result);
+    case OP_STR_PREFIXOF:
+        SASSERT(num_args == 2);
+        return mk_str_prefixof(args[0], args[1], result);
+    case OP_STR_SUFFIXOF:
+        SASSERT(num_args == 2);
+        return mk_str_suffixof(args[0], args[1], result);
     case OP_STR_STR2INT:
     	SASSERT(num_args == 1);
     	return mk_str_to_int(args[0], result);

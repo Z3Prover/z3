@@ -41,6 +41,9 @@ enum str_op_kind {
     OP_STR_LASTINDEXOF,
     OP_STR_SUBSTR,
     OP_STR_REPLACE,
+    // SMT-LIB 2.5 standard operators -- these are rewritten to internal ones
+    OP_STR_PREFIXOF,
+    OP_STR_SUFFIXOF,
 	// string-integer conversion
 	OP_STR_STR2INT,
 	OP_STR_INT2STR, OP_STR_PLACEHOLDER1, OP_STR_PLACEHOLDER2,
@@ -78,6 +81,8 @@ protected:
     func_decl * m_replace_decl;
     func_decl * m_str2int_decl;
     func_decl * m_int2str_decl;
+    func_decl * m_prefixof_decl;
+    func_decl * m_suffixof_decl;
 
     func_decl * m_re_str2regex_decl;
     func_decl * m_re_regexin_decl;
@@ -166,6 +171,16 @@ public:
         return mk_string_with_escape_characters(str);
     }
     app * mk_string_with_escape_characters(std::string & val);
+
+    app * mk_str_StartsWith(expr * haystack, expr * needle) {
+        expr * es[2] = {haystack, needle};
+        return m_manager.mk_app(get_fid(), OP_STR_STARTSWITH, 2, es);
+    }
+
+    app * mk_str_EndsWith(expr * haystack, expr * needle) {
+        expr * es[2] = {haystack, needle};
+        return m_manager.mk_app(get_fid(), OP_STR_ENDSWITH, 2, es);
+    }
 
     app * mk_re_Str2Reg(expr * s) {
         expr * es[1] = {s};

@@ -53,6 +53,8 @@ public:
     br_status mk_str_LastIndexof(expr * haystack, expr * needle, expr_ref & result);
     br_status mk_str_Replace(expr * base, expr * source, expr * target, expr_ref & result);
     br_status mk_str_Substr(expr * base, expr * start, expr * len, expr_ref & result);
+    br_status mk_str_prefixof(expr * pre, expr * full, expr_ref & result);
+    br_status mk_str_suffixof(expr * post, expr * full, expr_ref & result);
     br_status mk_str_to_int(expr * arg0, expr_ref & result);
     br_status mk_str_from_int(expr * arg0, expr_ref & result);
 
