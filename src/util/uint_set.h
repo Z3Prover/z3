@@ -25,9 +25,9 @@ Revision History:
 COMPILE_TIME_ASSERT(sizeof(unsigned) == 4);
 
 class uint_set : unsigned_vector {
-
+    
 public:
-
+    
     typedef unsigned data;
 
     uint_set() {}
@@ -252,6 +252,82 @@ inline std::ostream & operator<<(std::ostream & target, const uint_set & s) {
     target << "}";
     return target;
 }
+
+
+class tracked_uint_set {
+    svector<char>        m_in_set;
+    svector<unsigned>    m_set;
+public:
+    typedef svector<unsigned>::const_iterator iterator;
+    void insert(unsigned v) {
+        m_in_set.reserve(v+1, false);
+        if (m_in_set[v])
+            return;
+        m_in_set[v] = true;
+        m_set.push_back(v);
+    }
+    
+    void remove(unsigned v) {
+        if (contains(v)) {
+            m_in_set[v] = false;
+            unsigned i = 0;
+            for (i = 0; i < m_set.size() && m_set[i] != v; ++i)
+                ;
+            SASSERT(i < m_set.size());
+            m_set[i] = m_set.back();
+            m_set.pop_back();
+        }
+    }
+    
+    tracked_uint_set& operator=(tracked_uint_set const& other) {
+        m_in_set = other.m_in_set;
+        m_set = other.m_set;
+        return *this;
+    }
+    
+    bool contains(unsigned v) const {
+        return v < m_in_set.size() && m_in_set[v] != 0;
+    }
+    
+    bool empty() const {
+        return m_set.empty();
+    }
+    
+    // erase some variable from the set
+    unsigned erase() {
+        SASSERT(!empty());
+        unsigned v = m_set.back();
+        m_set.pop_back();
+        m_in_set[v] = false;
+        return v;
+    }
+    unsigned size() const { return m_set.size(); }
+    iterator begin() const { return m_set.begin(); }
+    iterator end() const { return m_set.end(); }
+    void reset() { m_set.reset(); m_in_set.reset(); }
+    void finalize() { m_set.finalize(); m_in_set.finalize(); }
+    tracked_uint_set& operator&=(tracked_uint_set const& other) {
+        unsigned j = 0;
+        for (unsigned i = 0; i < m_set.size(); ++i) {
+            if (other.contains(m_set[i])) {
+                m_set[j] = m_set[i];
+                ++j;
+            }
+            else {
+                m_in_set[m_set[i]] = false;
+            }
+        }
+        m_set.resize(j);
+        return *this;
+    }
+    tracked_uint_set& operator|=(tracked_uint_set const& other) {
+        for (unsigned i = 0; i < other.m_set.size(); ++i) {
+            insert(other.m_set[i]);
+        }
+        return *this;
+    }
+};
+
 
 #endif /* UINT_SET_H_ */
 

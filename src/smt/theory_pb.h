@@ -24,6 +24,7 @@ Notes:
 #include "pb_decl_plugin.h"
 #include "smt_clause.h"
 #include "theory_pb_params.h"
+#include "smt_b_justification.h"
 #include "simplex.h"
 
 namespace smt {
@@ -41,9 +42,6 @@ namespace smt {
         class  card_justification;
 
         typedef rational numeral;
-        typedef simplex::simplex<simplex::mpz_ext> simplex;
-        typedef simplex::row row;
-        typedef simplex::row_iterator row_iterator;
         typedef unsynch_mpq_inf_manager eps_manager;
         typedef _scoped_numeral<eps_manager> scoped_eps_numeral;
 
@@ -230,7 +228,7 @@ namespace smt {
         
             void negate();
 
-            app_ref to_expr(context& ctx);
+            app_ref to_expr(theory_pb& th);
 
             void inc_propagations(theory_pb& th);
 
@@ -292,12 +290,6 @@ namespace smt {
         theory_pb_params         m_params;        
 
         svector<var_info>        m_var_infos; 
-        arg_map                  m_ineq_rep;       // Simplex: representative inequality
-        u_map<row_info>          m_ineq_row_info;  // Simplex: row information per variable
-        uint_set                 m_vars;           // Simplex: 0-1 variables.
-        simplex                  m_simplex;        // Simplex: tableau
-        literal_vector           m_explain_lower;  // Simplex: explanations for lower bounds
-        literal_vector           m_explain_upper;  // Simplex: explanations for upper bounds
         unsynch_mpq_inf_manager  m_mpq_inf_mgr;    // Simplex: manage inf_mpq numerals
         mutable unsynch_mpz_manager      m_mpz_mgr;        // Simplex: manager mpz numerals
         unsigned_vector          m_ineqs_trail;
@@ -396,7 +388,7 @@ namespace smt {
         svector<bool_var> m_active_vars;
         int               m_bound;
         literal_vector    m_antecedents;
-        uint_set          m_seen;
+        tracked_uint_set  m_active_var_set;
         expr_ref_vector   m_antecedent_exprs;
         svector<bool>     m_antecedent_signs;
         expr_ref_vector   m_cardinality_exprs;
@@ -425,17 +417,21 @@ namespace smt {
         void cut();
         bool is_proof_justification(justification const& j) const;
 
-        bool validate_lemma();
 
         void hoist_maximal_values();
 
+        bool validate_lemma();
         void validate_final_check();
         void validate_final_check(ineq& c);
         void validate_assign(ineq const& c, literal_vector const& lits, literal l) const;
         void validate_watch(ineq const& c) const;
         bool validate_unit_propagation(card const& c);
         bool validate_antecedents(literal_vector const& lits);
-        void negate(literal_vector & lits);
+        bool validate_implies(app_ref& A, app_ref& B);
+        app_ref active2expr();
+        app_ref literal2expr(literal lit);
+        app_ref card2expr(card& c) { return c.to_expr(*this); }
+        app_ref justification2expr(b_justification& js, literal conseq);
 
         bool proofs_enabled() const { return get_manager().proofs_enabled(); }
         justification* justify(literal l1, literal l2);

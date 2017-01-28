@@ -26,10 +26,8 @@ Notes:
 #include "uint_set.h"
 #include "smt_model_generator.h"
 #include "pb_rewriter_def.h"
-#include "sparse_matrix_def.h"
-#include "simplex_def.h"
 #include "mpz.h"
-
+#include "smt_kernel.h"
 
 namespace smt {
 
@@ -239,6 +237,15 @@ namespace smt {
         SASSERT(sz >= m_bound && m_bound > 0);
     }
 
+    app_ref theory_pb::card::to_expr(theory_pb& th) {
+        ast_manager& m = th.get_manager();
+        expr_ref_vector args(m);
+        for (unsigned i = 0; i < size(); ++i) {
+            args.push_back(th.literal2expr(m_args[i]));
+        }
+        return app_ref(th.pb.mk_at_least_k(args.size(), args.c_ptr(), k()), m);        
+    }
+
     lbool theory_pb::card::assign(theory_pb& th, literal alit) {
         // literal is assigned to false.        
         context& ctx = th.get_context();
@@ -432,7 +439,6 @@ namespace smt {
     theory_pb::theory_pb(ast_manager& m, theory_pb_params& p):
         theory(m.mk_family_id("pb")),
         m_params(p),
-        m_simplex(m.limit()),
         pb(m),
         m_max_compiled_coeff(rational(8)),
         m_cardinality_lemma(false),
@@ -1809,6 +1815,69 @@ namespace smt {
         return value < 0;
     }
 
+    bool theory_pb::validate_implies(app_ref& A, app_ref& B) {
+        static bool validating = false;
+        if (validating) return true;
+        validating = true;
+        ast_manager& m = get_manager();
+        smt_params fp;
+        kernel k(m, fp);
+        k.assert_expr(A);
+        k.assert_expr(m.mk_not(B));
+        lbool is_sat = k.check();
+        validating = false;
+        std::cout << is_sat << "\n";
+        if (is_sat != l_false) {
+            std::cout << A << "\n";
+            std::cout << B << "\n";
+        }
+        SASSERT(is_sat == l_false);
+        return true;
+    }
+
+    app_ref theory_pb::justification2expr(b_justification& js, literal conseq) {
+        ast_manager& m = get_manager();
+        app_ref result(m.mk_true(), m);
+        expr_ref_vector args(m);
+        vector<rational> coeffs;
+        switch(js.get_kind()) {
+            
+        case b_justification::CLAUSE: {
+            clause& cls = *js.get_clause();
+            justification* cjs = cls.get_justification();
+            if (cjs && !is_proof_justification(*cjs)) {
+                break;
+            }
+            for (unsigned i = 0; i < cls.get_num_literals(); ++i) {
+                literal lit = cls.get_literal(i);
+                args.push_back(literal2expr(lit));
+            }
+            result = m.mk_or(args.size(), args.c_ptr());
+            break;
+        }
+        case b_justification::BIN_CLAUSE:
+            result = m.mk_or(literal2expr(conseq), literal2expr(~js.get_literal()));
+            break;
+        case b_justification::AXIOM:
+            break;
+        case b_justification::JUSTIFICATION: {
+            justification* j = js.get_justification(); 
+            card_justification* pbj = 0;            
+            if (j->get_from_theory() == get_id()) {
+                pbj = dynamic_cast<card_justification*>(j);
+            }
+            if (pbj != 0) {
+                card& c2 = pbj->get_card();
+                result = card2expr(c2);
+            }            
+            break;
+        }
+        default:
+            break;
+        }
+        return result;
+    }
+
     int theory_pb::arg_max(int& max_coeff) {
         max_coeff = 0;
         int arg_max = -1;
@@ -1954,12 +2023,12 @@ namespace smt {
     }
 
     void theory_pb::normalize_active_coeffs() {
-        SASSERT(m_seen.empty());
+        while (!m_active_var_set.empty()) m_active_var_set.erase();
         unsigned i = 0, j = 0, sz = m_active_vars.size();
         for (; i < sz; ++i) {
             bool_var v = m_active_vars[i];
-            if (!m_seen.contains(v) && get_coeff(v) != 0) {
-                m_seen.insert(v);
+            if (!m_active_var_set.contains(v) && get_coeff(v) != 0) {
+                m_active_var_set.insert(v);
                 if (j != i) {
                     m_active_vars[j] = m_active_vars[i];
                 }
@@ -1968,10 +2037,6 @@ namespace smt {
         }
         sz = j;
         m_active_vars.shrink(sz);
-        for (i = 0; i < sz; ++i) {
-            m_seen.remove(m_active_vars[i]);
-        }
-        SASSERT(m_seen.empty());
     }
 
     void theory_pb::inc_coeff(literal l, int offset) {        
@@ -2087,6 +2152,7 @@ namespace smt {
 
         bool_var v;
         context& ctx = get_context();
+        ast_manager& m = get_manager();
         m_conflict_lvl = 0;
         m_cardinality_lemma = false;
         for (unsigned i = 0; i < confl.size(); ++i) {
@@ -2109,6 +2175,8 @@ namespace smt {
 
         process_card(c, 1);
 
+        app_ref A(m), B(m), C(m);
+        DEBUG_CODE(A = c.to_expr(*this););
         
         // point into stack of assigned literals
         literal_vector const& lits = ctx.assigned_literals();        
@@ -2211,6 +2279,15 @@ namespace smt {
             }            
             m_bound += offset * bound;
 
+            DEBUG_CODE(
+                B = justification2expr(js, conseq);
+                C = active2expr();
+                B = m.mk_and(A, B);
+                validate_implies(B, C);
+                A = C;);
+
+            cut();
+
         process_next_resolvent:
 
             // find the next marked variable in the assignment stack
@@ -2235,12 +2312,49 @@ namespace smt {
 
         normalize_active_coeffs();
 
-        literal alit = get_asserting_literal(~conseq);
+        if (m_bound > 0 && m_active_vars.empty()) {
+            return false;
+        }
+
         int slack = -m_bound;
         for (unsigned i = 0; i < m_active_vars.size(); ++i) { 
             bool_var v = m_active_vars[i];
             slack += get_abs_coeff(v);
         }
+
+#if 1
+        //std::cout << slack << " " << m_bound << "\n";
+        unsigned i = 0;
+        literal_vector const& alits = ctx.assigned_literals();
+
+        literal alit = get_asserting_literal(~conseq);
+        slack -= get_abs_coeff(alit.var());
+
+        for (i = alits.size(); 0 <= slack && i > 0; ) {
+            --i;
+            literal lit = alits[i];
+            bool_var v = lit.var();
+            // -3*x >= k 
+            if (m_active_var_set.contains(v) && v != alit.var()) {
+                int coeff = get_coeff(v);
+                //std::cout << coeff << " " << lit << "\n";
+                if (coeff < 0 && !lit.sign()) {
+                    slack += coeff;
+                    m_antecedents.push_back(lit);
+                    //std::cout << "ante: " << lit << "\n";
+                }
+                else if (coeff > 0 && lit.sign()) {
+                    slack -= coeff;
+                    m_antecedents.push_back(lit);
+                    //std::cout << "ante: " << lit << "\n";
+                }
+            }
+        }
+        SASSERT(slack < 0);
+
+#else 
+
+        literal alit = get_asserting_literal(~conseq);
         slack -= get_abs_coeff(alit.var());
 
         for (unsigned i = 0; 0 <= slack; ++i) { 
@@ -2251,10 +2365,22 @@ namespace smt {
                 m_antecedents.push_back(~lit);
                 slack -= get_abs_coeff(v);
             }
+            if (slack < 0) {
+                std::cout << i << " " << m_active_vars.size() << "\n";
+            }
         }
+#endif
         SASSERT(validate_antecedents(m_antecedents));
         ctx.assign(alit, ctx.mk_justification(theory_propagation_justification(get_id(), ctx.get_region(), m_antecedents.size(), m_antecedents.c_ptr(), alit, 0, 0)));
 
+        DEBUG_CODE(
+            m_antecedents.push_back(~alit);
+            expr_ref_vector args(m);
+            for (unsigned i = 0; i < m_antecedents.size(); ++i) {
+                args.push_back(literal2expr(m_antecedents[i]));
+            }
+            B = m.mk_not(m.mk_and(args.size(), args.c_ptr()));
+            validate_implies(A, B); );
         // add_cardinality_lemma();
         return true;
     }
@@ -2379,10 +2505,26 @@ namespace smt {
         return true;
     }
 
-    void theory_pb::negate(literal_vector & lits) {
-        for (unsigned i = 0; i < lits.size(); ++i) {
-            lits[i].neg();
+    app_ref theory_pb::literal2expr(literal lit) {
+        ast_manager& m = get_manager();
+        app_ref arg(m.mk_const(symbol(lit.var()), m.mk_bool_sort()), m);                
+        return app_ref(lit.sign() ? m.mk_not(arg) : arg, m);
+    }
+
+    app_ref theory_pb::active2expr() {
+        ast_manager& m = get_manager();
+        expr_ref_vector args(m);
+        vector<rational> coeffs;
+        normalize_active_coeffs();
+        for (unsigned i = 0; i < m_active_vars.size(); ++i) {
+            bool_var v = m_active_vars[i];
+            int coeff = get_coeff(v);
+            literal lit(v, get_coeff(v) < 0);
+            args.push_back(literal2expr(lit));
+            coeffs.push_back(rational(get_abs_coeff(v)));
         }
+        rational k(m_bound);
+        return app_ref(pb.mk_ge(args.size(), coeffs.c_ptr(), args.c_ptr(), k), m);
     }
 
     // display methods
