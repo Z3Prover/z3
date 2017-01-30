@@ -240,9 +240,9 @@ namespace smt {
         bool loopDetected;
         obj_map<expr, std::stack<T_cut*> > cut_var_map;
 
-        std::set<expr*> variable_set;
-        std::set<expr*> internal_variable_set;
-        std::set<expr*> regex_variable_set;
+        obj_hashtable<expr> variable_set;
+        obj_hashtable<expr> internal_variable_set;
+        obj_hashtable<expr> regex_variable_set;
         std::map<int, std::set<expr*> > internal_variable_scope_levels;
 
         obj_hashtable<expr> internal_lenTest_vars;

@@ -7870,7 +7870,7 @@ int theory_str::ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr
 	// Step 1: get variables / concat AST appearing in the context
 	// the thing we iterate over should just be variable_set - internal_variable_set
 	// so we avoid computing the set difference (but this might be slower)
-	for(std::set<expr*>::iterator it = variable_set.begin(); it != variable_set.end(); ++it) {
+	for(obj_hashtable<expr>::iterator it = variable_set.begin(); it != variable_set.end(); ++it) {
 		expr* var = *it;
 		if (internal_variable_set.find(var) == internal_variable_set.end()) {
 		    TRACE("t_str_detail", tout << "new variable: " << mk_pp(var, m) << std::endl;);
@@ -8819,7 +8819,7 @@ final_check_status theory_str::final_check_eh() {
     bool needToAssignFreeVars = false;
     std::set<expr*> free_variables;
     std::set<expr*> unused_internal_variables;
-    if (true) { // Z3str2 free variables check
+    { // Z3str2 free variables check
     	std::map<expr*, int>::iterator itor = varAppearInAssign.begin();
     	for (; itor != varAppearInAssign.end(); ++itor) {
     		/*
@@ -8845,25 +8845,6 @@ final_check_status theory_str::final_check_eh() {
     			TRACE("t_str_detail", tout << "variable " << mk_pp(itor->first, m) << " = " << mk_pp(eqcString, m) << std::endl;);
     		}
     	}
-    } else { // new, possibly incorrect free variables check
-		// Check every variable to see if it's eq. to some string constant.
-		// If not, mark it as free.
-		TRACE("t_str_detail", tout << variable_set.size() << " variables in variable_set" << std::endl;);
-		for (std::set<expr*>::iterator it = variable_set.begin(); it != variable_set.end(); ++it) {
-			TRACE("t_str_detail", tout << "checking eqc of variable " << mk_ismt2_pp(*it, m) << std::endl;);
-			bool has_eqc_value = false;
-			get_eqc_value(*it, has_eqc_value);
-			if (!has_eqc_value) {
-				// if this is an internal variable, it can be ignored...I think
-				if (internal_variable_set.find(*it) != internal_variable_set.end() || regex_variable_set.find(*it) != regex_variable_set.end()) {
-					TRACE("t_str_detail", tout << "WARNING: free internal variable " << mk_ismt2_pp(*it, m) << std::endl;);
-					//unused_internal_variables.insert(*it);
-				} else {
-					needToAssignFreeVars = true;
-					free_variables.insert(*it);
-				}
-			}
-		}
     }
 
     if (!needToAssignFreeVars) {
