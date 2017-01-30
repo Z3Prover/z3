@@ -1477,10 +1477,10 @@ def mk_z3native_stubs_c(ml_src_dir, ml_output_dir): # C interface
                     pts = ml_plus_type(ts)
                     pops = ml_plus_ops_type(ts)
                     if ml_has_plus_type(ts):
-                        ml_wrapper.write('    %s _a%dp = %s_mk(ctx_p, (%s) _a%d[_i]);\n' % (pts, i, pts, ml_minus_type(ts), i))
+                        ml_wrapper.write('    %s _a%dp = %s_mk(ctx_p, (%s) _a%d[_i - 1]);\n' % (pts, i, pts, ml_minus_type(ts), i))
                         ml_wrapper.write('    %s\n' % ml_alloc_and_store(pt, 'tmp_val', '_a%dp' % i))
                     else:
-                        ml_wrapper.write('    %s\n' % ml_alloc_and_store(pt, 'tmp_val', '_a%d[_i]' % i))
+                        ml_wrapper.write('    %s\n' % ml_alloc_and_store(pt, 'tmp_val', '_a%d[_i - 1]' % i))
                     ml_wrapper.write('    _iter = caml_alloc(2,0);\n')
                     ml_wrapper.write('    Store_field(_iter, 0, tmp_val);\n')
                     ml_wrapper.write('    Store_field(_iter, 1, _a%s_val);\n' % i)
