@@ -77,6 +77,7 @@ namespace sat {
         m_burst_search    = p.burst_search();
         
         m_max_conflicts   = p.max_conflicts();
+        m_num_parallel    = p.parallel_threads();
         
         // These parameters are not exposed
         m_simplify_mult1  = _p.get_uint("simplify_mult1", 300);

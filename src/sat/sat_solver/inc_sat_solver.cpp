@@ -140,6 +140,7 @@ public:
         if (r != l_true) return r;
 
         r = m_solver.check(m_asms.size(), m_asms.c_ptr());
+        
         switch (r) {
         case l_true:
             if (sz > 0) {
@@ -275,6 +276,8 @@ public:
 
         return r;
     }
+
+
 
     virtual lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) {
         sat::literal_vector ls;

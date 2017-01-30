@@ -1816,6 +1816,7 @@ namespace z3 {
                                    fmls,
                                    fml));
         }
+
         param_descrs get_param_descrs() { return param_descrs(ctx(), Z3_solver_get_param_descrs(ctx(), m_solver)); }
 
     };
