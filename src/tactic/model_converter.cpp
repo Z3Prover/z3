@@ -130,7 +130,7 @@ class model2mc : public model_converter {
 public:
     model2mc(model * m):m_model(m) {}
 
-    model2mc(model * m, buffer<symbol> r):m_model(m), m_labels(r) {}
+    model2mc(model * m, buffer<symbol> const & r):m_model(m), m_labels(r) {}
 
     virtual ~model2mc() {}
 
