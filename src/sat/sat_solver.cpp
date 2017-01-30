@@ -35,6 +35,7 @@ namespace sat {
         m_rlimit(l),
         m_config(p),
         m_ext(ext),
+        m_par(0),
         m_cleaner(*this),
         m_simplifier(*this, p),
         m_scc(*this, p),
@@ -72,6 +73,8 @@ namespace sat {
 
     void solver::copy(solver const & src) {
         SASSERT(m_mc.empty() && src.m_mc.empty());
+        SASSERT(scope_lvl() == 0);
+        SASSERT(src.scope_lvl() == 0);
         // create new vars
         if (num_vars() < src.num_vars()) {
             for (bool_var v = num_vars(); v < src.num_vars(); v++) {
@@ -81,19 +84,25 @@ namespace sat {
                 VERIFY(v == mk_var(ext, dvar));
             }
         }
+        unsigned sz = src.scope_lvl() == 0 ? src.m_trail.size() : src.m_scopes[0].m_trail_lim;
+        for (unsigned i = 0; i < sz; ++i) {
+            assign(src.m_trail[i], justification());
+        }
+
         {
             // copy binary clauses
-            vector<watch_list>::const_iterator it  = src.m_watches.begin();
-            vector<watch_list>::const_iterator end = src.m_watches.begin();
-            for (unsigned l_idx = 0; it != end; ++it, ++l_idx) {
-                watch_list const & wlist = *it;
+            unsigned sz = src.m_watches.size();
+            for (unsigned l_idx = 0; l_idx < sz; ++l_idx) {
                 literal l = ~to_literal(l_idx);
-                watch_list::const_iterator it2  = wlist.begin();
-                watch_list::const_iterator end2 = wlist.end();
-                for (; it2 != end2; ++it2) {
-                    if (!it2->is_binary_non_learned_clause())
+                watch_list const & wlist = src.m_watches[l_idx];
+                watch_list::const_iterator it  = wlist.begin();
+                watch_list::const_iterator end = wlist.end();
+                for (; it != end; ++it) {
+                    if (!it->is_binary_non_learned_clause())
                         continue;
-                    literal l2 = it2->get_literal();
+                    literal l2 = it->get_literal();
+                    if (l.index() > l2.index()) 
+                        continue;
                     mk_clause_core(l, l2);
                 }
             }
@@ -711,6 +720,9 @@ namespace sat {
         pop_to_base_level();
         IF_VERBOSE(2, verbose_stream() << "(sat.sat-solver)\n";);
         SASSERT(scope_lvl() == 0);
+        if (m_config.m_num_parallel > 0 && !m_par) {
+            return check_par(num_lits, lits);
+        }
 #ifdef CLONE_BEFORE_SOLVING
         if (m_mc.empty()) {
             m_clone = alloc(solver, m_params, 0 /* do not clone extension */);
@@ -759,6 +771,7 @@ namespace sat {
 
                 restart();
                 simplify_problem();
+                exchange_par();
                 if (check_inconsistent()) return l_false;
                 gc();
 
@@ -772,6 +785,121 @@ namespace sat {
         catch (abort_solver) {
             return l_undef;
         }
+    }
+
+    enum par_exception_kind {
+        DEFAULT_EX,
+        ERROR_EX
+    };
+
+    lbool solver::check_par(unsigned num_lits, literal const* lits) {
+        int num_threads = static_cast<int>(m_config.m_num_parallel);
+        scoped_limits scoped_rlimit(rlimit());
+        vector<reslimit> rlims(num_threads);
+        ptr_vector<sat::solver> solvers(num_threads);
+        sat::par par;
+        for (int i = 0; i < num_threads; ++i) {
+            m_params.set_uint("random_seed", i);
+            solvers[i] = alloc(sat::solver, m_params, rlims[i], 0);
+            solvers[i]->copy(*this);
+            solvers[i]->set_par(&par);
+            scoped_rlimit.push_child(&solvers[i]->rlimit());
+        }
+        int finished_id = -1;
+        std::string        ex_msg;
+        par_exception_kind ex_kind;
+        unsigned error_code = 0;
+        lbool result = l_undef;
+        #pragma omp parallel for
+        for (int i = 0; i < num_threads; ++i) {
+            try {                
+                lbool r = solvers[i]->check(num_lits, lits);
+                bool first = false;
+                #pragma omp critical (par_solver)
+                {
+                    if (finished_id == UINT_MAX) {
+                        finished_id = i;
+                        first = true;
+                        result = r;
+                    }
+                }
+                if (first) {
+                    if (r == l_true) {
+                        set_model(solvers[i]->get_model());
+                    }
+                    else if (r == l_false) {
+                        m_core.reset();
+                        m_core.append(solvers[i]->get_core());
+                    }
+                    for (int j = 0; j < num_threads; ++j) {
+                        if (i != j) {
+                            rlims[j].cancel();
+                        }
+                    }
+                }                
+            }
+            catch (z3_error & err) {
+                if (i == 0) {
+                    error_code = err.error_code();
+                    ex_kind = ERROR_EX;
+                }
+            }
+            catch (z3_exception & ex) {
+                if (i == 0) {
+                    ex_msg = ex.msg();
+                    ex_kind = DEFAULT_EX;
+                }
+            }
+        }
+        for (int i = 0; i < num_threads; ++i) {
+            dealloc(solvers[i]);
+        }
+        if (finished_id == -1) {
+            switch (ex_kind) {
+            case ERROR_EX: throw z3_error(error_code);
+            default: throw default_exception(ex_msg.c_str());
+            }
+        }
+        return result;
+
+    }
+
+    /*
+      \brief import lemmas/units from parallel sat solvers.
+     */
+    void solver::exchange_par() {
+        if (m_par && scope_lvl() == 0) {
+            unsigned num_in = 0, num_out = 0;
+            SASSERT(scope_lvl() == 0); // parallel with assumptions is TBD
+            literal_vector in, out;
+            for (unsigned i = m_par_limit_out; i < m_trail.size(); ++i) {
+                literal lit = m_trail[i];
+                if (lit.var() < m_par_num_vars) {
+                    ++num_out;
+                    out.push_back(lit);
+                }
+            }
+            m_par_limit_out = m_trail.size();
+            m_par->exchange(out, m_par_limit_in, in);
+            for (unsigned i = 0; !inconsistent() && i < in.size(); ++i) {
+                literal lit = in[i];
+                SASSERT(lit.var() < m_par_num_vars);
+                if (lvl(lit.var()) != 0 || value(lit) != l_true) {
+                    ++num_in;
+                    assign(lit, justification());
+                }
+            }
+            if (num_in > 0 || num_out > 0) {
+                IF_VERBOSE(1, verbose_stream() << "(sat-sync out: " << num_out << " in: " << num_in << ")\n";);
+            }
+        }
+    }
+
+    void solver::set_par(par* p) {
+        m_par = p;
+        m_par_num_vars = num_vars();
+        m_par_limit_in = 0;
+        m_par_limit_out = 0;
     }
 
     bool_var solver::next_var() {

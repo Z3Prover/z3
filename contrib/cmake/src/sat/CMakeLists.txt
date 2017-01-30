@@ -12,6 +12,7 @@ z3_add_component(sat
     sat_integrity_checker.cpp
     sat_model_converter.cpp
     sat_mus.cpp
+    sat_par.cpp
     sat_probing.cpp
     sat_scc.cpp
     sat_simplifier.cpp

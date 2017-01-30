@@ -2940,8 +2940,8 @@ void theory_seq::deque_axiom(expr* n) {
   encode that s is not contained in of xs1
   where s1 is all of s, except the last element.
 
-  lit or s = "" or s = s1*(unit c)
-  lit or s = "" or !contains(x*s1, s)
+  s = "" or s = s1*(unit c)
+  s = "" or !contains(x*s1, s)
 */
 void theory_seq::tightest_prefix(expr* s, expr* x) {
     expr_ref s1 = mk_first(s);
