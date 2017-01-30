@@ -23,6 +23,8 @@ Notes:
 #include"converter.h"
 #include"ref.h"
 
+class labels_vec : public svector<symbol> {};
+
 class model_converter : public converter {
 public:
     virtual void operator()(model_ref & m) {}  // TODO: delete
@@ -33,7 +35,7 @@ public:
         operator()(m);
     }
 
-    virtual void operator()(svector<symbol> & r, unsigned goal_idx) {}
+    virtual void operator()(labels_vec & r, unsigned goal_idx) {}
     
     virtual model_converter * translate(ast_translation & translator) = 0;
 };

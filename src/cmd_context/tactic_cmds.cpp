@@ -167,7 +167,7 @@ public:
 
 struct check_sat_tactic_result : public simple_check_sat_result {
 public:
-  svector<symbol> labels;
+  labels_vec labels;
 
   check_sat_tactic_result(ast_manager & m) : simple_check_sat_result(m) {
   }
@@ -180,8 +180,6 @@ public:
     labels.append(r);
   }
 };
-
-typedef svector<symbol> & labels_ref;
 
 class check_sat_using_tactict_cmd : public exec_given_tactic_cmd {
 public:
@@ -205,7 +203,7 @@ public:
         ast_manager & m = ctx.m();
         unsigned timeout   = p.get_uint("timeout", ctx.params().m_timeout);
         unsigned rlimit  =   p.get_uint("rlimit", ctx.params().m_rlimit);
-        svector<symbol> labels;
+        labels_vec labels;
         goal_ref g = alloc(goal, m, ctx.produce_proofs(), ctx.produce_models(), ctx.produce_unsat_cores());
         assert_exprs_from(ctx, *g);
         TRACE("check_sat_using", g->display(tout););

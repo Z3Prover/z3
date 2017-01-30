@@ -33,7 +33,7 @@ public:
         this->m_c1->operator()(m, 0);
     }
 
-    virtual void operator()(svector<symbol> & r, unsigned goal_idx) {
+    virtual void operator()(labels_vec & r, unsigned goal_idx) {
         this->m_c2->operator()(r, goal_idx);
         this->m_c1->operator()(r, 0);
     }
@@ -83,7 +83,7 @@ public:
         UNREACHABLE();
     }
 
-    virtual void operator()(svector<symbol> & r, unsigned goal_idx) {
+    virtual void operator()(labels_vec & r, unsigned goal_idx) {
         unsigned num = this->m_c2s.size();
         for (unsigned i = 0; i < num; i++) {
             if (goal_idx < this->m_szs[i]) {
@@ -142,7 +142,7 @@ public:
         m = m_model;
     }
 
-    virtual void operator()(svector<symbol> & r, unsigned goal_idx) {
+    virtual void operator()(labels_vec & r, unsigned goal_idx) {
       r.append(m_labels.size(), m_labels.c_ptr());
     }
 
