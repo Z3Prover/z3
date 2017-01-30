@@ -2752,6 +2752,7 @@ namespace sat {
         m_scc.collect_statistics(st);
         m_asymm_branch.collect_statistics(st);
         m_probing.collect_statistics(st);
+        if (m_ext) m_ext->collect_statistics(st);
     }
 
     void solver::reset_statistics() {
@@ -2856,6 +2857,9 @@ namespace sat {
         display_units(out);
         display_binary(out);
         out << m_clauses << m_learned;
+        if (m_ext) {
+            m_ext->display(out);
+        }
         out << ")\n";
     }
 

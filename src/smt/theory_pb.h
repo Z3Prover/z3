@@ -250,16 +250,6 @@ namespace smt {
         typedef map<arg_t, bool_var, arg_t::hash, arg_t::eq> arg_map;
 
 
-        struct row_info {
-            unsigned     m_slack;   // slack variable in simplex tableau
-            numeral      m_bound;   // bound
-            arg_t        m_rep;     // representative
-            row_info(theory_var slack, numeral const& b, arg_t const& r):
-                m_slack(slack), m_bound(b), m_rep(r) {}
-            row_info(): m_slack(0) {}
-        };
-
-
         struct var_info {
             ineq_watch*  m_lit_watch[2];
             ineq_watch*  m_var_watch;
@@ -290,7 +280,6 @@ namespace smt {
         theory_pb_params         m_params;        
 
         svector<var_info>        m_var_infos; 
-        unsynch_mpq_inf_manager  m_mpq_inf_mgr;    // Simplex: manage inf_mpq numerals
         mutable unsynch_mpz_manager      m_mpz_mgr;        // Simplex: manager mpz numerals
         unsigned_vector          m_ineqs_trail;
         unsigned_vector          m_ineqs_lim;

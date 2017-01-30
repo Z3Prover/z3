@@ -21,6 +21,7 @@ Revision History:
 
 #include"sat_types.h"
 #include"params.h"
+#include"statistics.h"
 
 namespace sat {
 
@@ -30,6 +31,7 @@ namespace sat {
 
     class extension {
     public:
+        virtual ~extension() {}
         virtual void propagate(literal l, ext_constraint_idx idx, bool & keep) = 0;
         virtual void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r) = 0;
         virtual void asserted(literal l) = 0;
@@ -39,6 +41,8 @@ namespace sat {
         virtual void simplify() = 0;
         virtual void clauses_modifed() = 0;
         virtual lbool get_phase(bool_var v) = 0;
+        virtual std::ostream& display(std::ostream& out) const = 0;
+        virtual void collect_statistics(statistics& st) const = 0;
     };
 
 };
