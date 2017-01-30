@@ -122,7 +122,8 @@ namespace smt {
                 SASSERT(n <= lvl);
                 unsigned new_lvl = lvl - n;
                 unsigned old_sz = m_scopes[new_lvl];
-                for (unsigned i = cur_sz - 1; i >= old_sz; i--) {
+                for (unsigned i = cur_sz; i > old_sz; ) {
+                    --i;
                     expr * key = m_assumptions[i].get();
                     SASSERT(m_name2assertion.contains(key));
                     expr * value = m_name2assertion.find(key);
