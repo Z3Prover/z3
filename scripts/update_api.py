@@ -942,7 +942,7 @@ def def_API(name, result, params):
                 log_c.write("  Au(a%s);\n" % sz)
                 exe_c.write("in.get_int_array(%s)" % i)
             else:
-                error ("unsupported parameter for %s, %s" % (ty, name, p))
+                error ("unsupported parameter for %s, %s, %s" % (ty, name, p))
         elif kind == OUT_ARRAY:
             sz   = param_array_capacity_pos(p)
             sz_p = params[sz]

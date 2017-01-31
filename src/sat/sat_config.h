@@ -57,6 +57,7 @@ namespace sat {
         unsigned           m_random_seed;
         unsigned           m_burst_search;
         unsigned           m_max_conflicts;
+        unsigned           m_num_parallel;
 
         unsigned           m_simplify_mult1;
         double             m_simplify_mult2;

@@ -461,13 +461,6 @@ enum par_exception_kind {
 
 class par_tactical : public or_else_tactical {
 
-    struct scoped_limits {
-        reslimit&  m_limit;
-        unsigned   m_sz;
-        scoped_limits(reslimit& lim): m_limit(lim), m_sz(0) {}
-        ~scoped_limits() { for (unsigned i = 0; i < m_sz; ++i) m_limit.pop_child(); }
-        void push_child(reslimit* lim) { m_limit.push_child(lim); ++m_sz; }
-    };
 
 public:
     par_tactical(unsigned num, tactic * const * ts):or_else_tactical(num, ts) {}

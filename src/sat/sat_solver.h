@@ -33,6 +33,7 @@ Revision History:
 #include"sat_iff3_finder.h"
 #include"sat_probing.h"
 #include"sat_mus.h"
+#include"sat_par.h"
 #include"params.h"
 #include"statistics.h"
 #include"stopwatch.h"
@@ -74,6 +75,7 @@ namespace sat {
         config                  m_config;
         stats                   m_stats;
         extension *             m_ext;
+        par*                    m_par;
         random_gen              m_rand;
         clause_allocator        m_cls_allocator;
         cleaner                 m_cleaner;
@@ -128,6 +130,10 @@ namespace sat {
         literal_set             m_assumption_set;   // set of enabled assumptions
         literal_vector          m_core;             // unsat core
 
+        unsigned                m_par_limit_in;
+        unsigned                m_par_limit_out;
+        unsigned                m_par_num_vars;
+
         void del_clauses(clause * const * begin, clause * const * end);
 
         friend class integrity_checker;
@@ -139,6 +145,7 @@ namespace sat {
         friend class probing;
         friend class iff3_finder;
         friend class mus;
+        friend class card_extension;
         friend struct mk_stat;
     public:
         solver(params_ref const & p, reslimit& l, extension * ext);
@@ -209,6 +216,7 @@ namespace sat {
         bool inconsistent() const { return m_inconsistent; }
         unsigned num_vars() const { return m_level.size(); }
         unsigned num_clauses() const;
+        unsigned num_restarts() const { return m_restarts; }
         bool is_external(bool_var v) const { return m_external[v] != 0; }
         bool was_eliminated(bool_var v) const { return m_eliminated[v] != 0; }
         unsigned scope_lvl() const { return m_scope_lvl; }
@@ -240,7 +248,9 @@ namespace sat {
             m_num_checkpoints = 0;
             if (memory::get_allocation_size() > m_config.m_max_memory) throw solver_exception(Z3_MAX_MEMORY_MSG);
         }
+        void set_par(par* p);
         bool canceled() { return !m_rlimit.inc(); }
+        config const& get_config() { return m_config; }
         typedef std::pair<literal, literal> bin_clause;
     protected:
         watch_list & get_wlist(literal l) { return m_watches[l.index()]; }
@@ -316,6 +326,8 @@ namespace sat {
         bool check_model(model const & m) const;
         void restart();
         void sort_watch_lits();
+        void exchange_par();
+        lbool check_par(unsigned num_lits, literal const* lits);
 
         // -----------------------
         //

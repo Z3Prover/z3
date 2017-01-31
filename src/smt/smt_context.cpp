@@ -2040,11 +2040,13 @@ namespace smt {
         v.shrink(old_size);
     }
 
+#if 0
     void context::mark_as_deleted(clause * cls) {
         SASSERT(!cls->deleted());
         remove_cls_occs(cls);
         cls->mark_as_deleted(m_manager);
     }
+#endif
 
     /**
        \brief Undo variable assignments.

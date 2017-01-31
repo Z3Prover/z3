@@ -1,5 +1,6 @@
 z3_add_component(sat
   SOURCES
+    card_extension.cpp
     dimacs.cpp
     sat_asymm_branch.cpp
     sat_clause.cpp
@@ -12,6 +13,7 @@ z3_add_component(sat
     sat_integrity_checker.cpp
     sat_model_converter.cpp
     sat_mus.cpp
+    sat_par.cpp
     sat_probing.cpp
     sat_scc.cpp
     sat_simplifier.cpp
