@@ -23,7 +23,7 @@ Revision History:
 #include"sat_solver.h"
 
 namespace sat {
-
+    
     class card_extension : public extension {
         struct stats {
             unsigned m_num_propagations;
@@ -31,7 +31,7 @@ namespace sat {
             stats() { reset(); }
             void reset() { memset(this, 0, sizeof(*this)); }
         };
-
+        
         class card {
             unsigned       m_index;
             literal        m_lit;
@@ -47,6 +47,14 @@ namespace sat {
             unsigned size() const { return m_size; }
             void swap(unsigned i, unsigned j) { std::swap(m_lits[i], m_lits[j]); }
             void negate();                       
+        };
+
+        struct ineq {
+            literal_vector  m_lits;
+            unsigned_vector m_coeffs;
+            unsigned        m_k;
+            void reset(unsigned k) { m_lits.reset(); m_coeffs.reset(); m_k = k; }
+            void push(literal l, unsigned c) { m_lits.push_back(l); m_coeffs.push_back(c); }
         };
 
         typedef ptr_vector<card> watch;
@@ -95,6 +103,10 @@ namespace sat {
         void clear_watch(card& c);
         void reset_coeffs();
 
+        inline lbool value(literal lit) const { return m_solver->value(lit); }
+        inline unsigned lvl(literal lit) const { return m_solver->lvl(lit); }
+        inline unsigned lvl(bool_var v) const { return m_solver->lvl(v); }
+
         void unwatch_literal(literal w, card* c);
         void remove(ptr_vector<card>& cards, card* c);
 
@@ -105,7 +117,7 @@ namespace sat {
 
         literal_vector& get_literals() { m_literals.reset(); return m_literals; }
         literal get_asserting_literal(literal conseq);
-        bool resolve_conflict(card& c, literal_vector const& conflict_clause);
+        bool resolve_conflict(card& c, literal alit);
         void process_antecedent(literal l, int offset);
         void process_card(card& c, int offset);
         void cut();
@@ -116,6 +128,11 @@ namespace sat {
         bool validate_lemma();
         bool validate_unit_propagation(card const& c);
         bool validate_conflict(literal_vector const& lits);
+
+        ineq m_A, m_B, m_C;
+        void active2pb(ineq& p);
+        void justification2pb(justification const& j, literal lit, unsigned offset, ineq& p);
+        bool validate_resolvent();
 
         void display(std::ostream& out, card& c, bool values) const;
         void display_watch(std::ostream& out, bool_var v, bool sign) const;
