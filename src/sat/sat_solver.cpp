@@ -797,29 +797,39 @@ namespace sat {
 
     lbool solver::check_par(unsigned num_lits, literal const* lits) {
         int num_threads = static_cast<int>(m_config.m_num_parallel);
+        int num_extra_solvers = num_threads - 1;
         scoped_limits scoped_rlimit(rlimit());
-        vector<reslimit> rlims(num_threads);
-        ptr_vector<sat::solver> solvers(num_threads);
+        vector<reslimit> rlims(num_extra_solvers);
+        ptr_vector<sat::solver> solvers(num_extra_solvers);
         sat::par par;
-        for (int i = 0; i < num_threads; ++i) {
-            m_params.set_uint("random_seed", i);
-            if (i < num_threads/2) {
+        symbol saved_phase = m_params.get_sym("phase", symbol("caching"));
+        for (int i = 0; i < num_extra_solvers; ++i) {
+            m_params.set_uint("random_seed", i + m_config.m_random_seed);
+            if (i == 1 + num_threads/2) {
                 m_params.set_sym("phase", symbol("random"));
-            }
+            }                        
             solvers[i] = alloc(sat::solver, m_params, rlims[i], 0);
             solvers[i]->copy(*this);
             solvers[i]->set_par(&par);
-            scoped_rlimit.push_child(&solvers[i]->rlimit());
+            scoped_rlimit.push_child(&solvers[i]->rlimit());            
         }
+        m_params.set_sym("phase", saved_phase);
         int finished_id = -1;
         std::string        ex_msg;
         par_exception_kind ex_kind;
         unsigned error_code = 0;
         lbool result = l_undef;
+        flet<unsigned> _overwrite_thread_number(m_config.m_num_parallel, 1);
         #pragma omp parallel for
         for (int i = 0; i < num_threads; ++i) {
             try {                
-                lbool r = solvers[i]->check(num_lits, lits);
+                lbool r = l_undef;
+                if (i < num_extra_solvers) {
+                    r = solvers[i]->check(num_lits, lits);
+                }
+                else {
+                    r = check(num_lits, lits);
+                }
                 bool first = false;
                 #pragma omp critical (par_solver)
                 {
@@ -830,14 +840,14 @@ namespace sat {
                     }
                 }
                 if (first) {
-                    if (r == l_true) {
+                    if (r == l_true && i < num_extra_solvers) {
                         set_model(solvers[i]->get_model());
                     }
-                    else if (r == l_false) {
+                    else if (r == l_false && i < num_extra_solvers) {
                         m_core.reset();
                         m_core.append(solvers[i]->get_core());
                     }
-                    for (int j = 0; j < num_threads; ++j) {
+                    for (int j = 0; j < num_extra_solvers; ++j) {
                         if (i != j) {
                             rlims[j].cancel();
                         }
@@ -857,7 +867,11 @@ namespace sat {
                 }
             }
         }
-        for (int i = 0; i < num_threads; ++i) {
+        if (finished_id != -1 && finished_id < num_extra_solvers) {
+            m_stats = solvers[finished_id]->m_stats;
+        }
+
+        for (int i = 0; i < num_extra_solvers; ++i) {            
             dealloc(solvers[i]);
         }
         if (finished_id == -1) {
