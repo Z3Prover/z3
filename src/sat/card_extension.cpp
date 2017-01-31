@@ -457,7 +457,7 @@ namespace sat {
 
     void card_extension::add_at_least(bool_var v, literal_vector const& lits, unsigned k) {
         unsigned index = m_constraints.size();
-        card* c = new (memory::allocate(__FILE__,__LINE__, "card", card::get_obj_size(lits.size()))) card(index, literal(v, false), lits, k);
+        card* c = new (memory::allocate(card::get_obj_size(lits.size()))) card(index, literal(v, false), lits, k);
         m_constraints.push_back(c);
         init_watch(v);
         m_var_infos[v].m_card = c;
