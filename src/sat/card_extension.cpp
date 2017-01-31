@@ -159,6 +159,7 @@ namespace sat {
     }
 
     void card_extension::set_conflict(card& c, literal lit) {
+        std::cout << "conflict\n";
         SASSERT(validate_conflict(c));
 
         m_stats.m_num_conflicts++;
@@ -689,8 +690,8 @@ namespace sat {
     }
 
     void card_extension::collect_statistics(statistics& st) const {
-        st.update("card propagations", m_stats.m_num_propagations);
-        st.update("card conflicts", m_stats.m_num_conflicts);
+        st.update("cardinality propagations", m_stats.m_num_propagations);
+        st.update("cardinality conflicts", m_stats.m_num_conflicts);
     }
 
     bool card_extension::validate_conflict(card& c) { 
