@@ -54,6 +54,7 @@ namespace sat {
         m_conflicts               = 0;
         m_next_simplify           = 0;
         m_num_checkpoints         = 0;
+        if (m_ext) m_ext->set_solver(this);
     }
 
     solver::~solver() {
@@ -84,13 +85,15 @@ namespace sat {
                 VERIFY(v == mk_var(ext, dvar));
             }
         }
-        unsigned sz = src.scope_lvl() == 0 ? src.m_trail.size() : src.m_scopes[0].m_trail_lim;
-        for (unsigned i = 0; i < sz; ++i) {
-            assign(src.m_trail[i], justification());
+        {
+            unsigned sz = src.scope_lvl() == 0 ? src.m_trail.size() : src.m_scopes[0].m_trail_lim;
+            for (unsigned i = 0; i < sz; ++i) {
+                assign(src.m_trail[i], justification());
+            }
         }
 
+        // copy binary clauses
         {
-            // copy binary clauses
             unsigned sz = src.m_watches.size();
             for (unsigned l_idx = 0; l_idx < sz; ++l_idx) {
                 literal l = ~to_literal(l_idx);
@@ -107,6 +110,7 @@ namespace sat {
                 }
             }
         }
+
         {
             literal_vector buffer;
             // copy clause
@@ -119,6 +123,10 @@ namespace sat {
                     buffer.push_back(c[i]);
                 mk_clause_core(buffer);
             }
+        }
+
+        if (src.get_extension()) {
+            m_ext = src.get_extension()->copy(this);
         }
     }
 

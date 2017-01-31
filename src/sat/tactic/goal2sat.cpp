@@ -37,6 +37,7 @@ Notes:
 #include"tactic.h"
 #include"ast_pp.h"
 #include"pb_decl_plugin.h"
+#include"card_extension.h"
 #include<sstream>
 
 struct goal2sat::imp {
@@ -50,6 +51,7 @@ struct goal2sat::imp {
     };
     ast_manager &               m;
     pb_util                     pb;
+    sat::card_extension*        m_ext;
     svector<frame>              m_frame_stack;
     svector<sat::literal>       m_result_stack;
     obj_map<app, sat::literal>  m_cache;
@@ -67,6 +69,7 @@ struct goal2sat::imp {
     imp(ast_manager & _m, params_ref const & p, sat::solver & s, atom2bool_var & map, dep2asm_map& dep2asm, bool default_external):
         m(_m),
         pb(m),
+        m_ext(0),
         m_solver(s),
         m_map(map),
         m_dep2asm(dep2asm),
@@ -75,6 +78,11 @@ struct goal2sat::imp {
         m_default_external(default_external) {
         updt_params(p);
         m_true = sat::null_bool_var;
+        sat::extension* e = m_solver.get_extension();
+        if (e) {
+            sat::card_extension* ce = dynamic_cast<sat::card_extension*>(e);
+            m_ext = ce;
+        }
     }
         
     void updt_params(params_ref const & p) {
@@ -116,7 +124,7 @@ struct goal2sat::imp {
         return m_true;
     }
 
-    bool convert_atom(expr * t, bool root, bool sign) {
+   void convert_atom(expr * t, bool root, bool sign) {
         SASSERT(m.is_bool(t));
         sat::literal  l;
         sat::bool_var v = m_map.to_bool_var(t);
@@ -147,15 +155,17 @@ struct goal2sat::imp {
             mk_clause(l);
         else
             m_result_stack.push_back(l);
-        return true;
     }
 
     bool convert_app(app* t, bool root, bool sign) {
-        return convert_atom(t, root, sign);
-    }
-
-    bool convert_pb(app* t, bool root, bool sign) {
-        
+        if (m_ext && t->get_family_id() == pb.get_family_id()) {
+            m_frame_stack.push_back(frame(to_app(t), root, sign, 0));
+            return false;
+        }
+        else {
+            convert_atom(t, root, sign);
+            return true;
+        }
     }
 
     bool process_cached(app * t, bool root, bool sign) {
@@ -175,7 +185,8 @@ struct goal2sat::imp {
 
     bool visit(expr * t, bool root, bool sign) {
         if (!is_app(t)) {
-            return convert_atom(t, root, sign);
+            convert_atom(t, root, sign);
+            return true;
         }
         if (process_cached(to_app(t), root, sign))
             return true;
@@ -195,7 +206,10 @@ struct goal2sat::imp {
                 m_frame_stack.push_back(frame(to_app(t), root, sign, 0));
                 return false;
             }
-            return convert_atom(t, root, sign);
+            else {
+                convert_atom(t, root, sign);
+                return true;
+            }
         case OP_XOR:
         case OP_IMPLIES:
         case OP_DISTINCT: {
@@ -205,7 +219,8 @@ struct goal2sat::imp {
             throw_op_not_handled(strm.str());
         }
         default:
-            return convert_atom(t, root, sign);
+            convert_atom(t, root, sign);
+            return true;
         }
     }
 
@@ -361,6 +376,95 @@ struct goal2sat::imp {
         }
     }
 
+    void convert_pb_args(app* t, sat::literal_vector& lits) {
+        unsigned num_args = t->get_num_args();
+        unsigned sz = m_result_stack.size();
+        for (unsigned i = 0; i < num_args; ++i) {
+            sat::literal lit(m_result_stack[sz - num_args + i]);
+            if (!m_solver.is_external(lit.var())) {
+                sat::bool_var w = m_solver.mk_var(true);
+                sat::literal lit2(w, false);
+                mk_clause(lit, ~lit2);
+                mk_clause(~lit, lit2);
+                lit = lit2;
+            }
+            lits.push_back(lit);
+        }
+    }
+
+    void convert_at_least_k(app* t, rational k, bool root, bool sign) {
+        SASSERT(k.is_unsigned());
+        sat::literal_vector lits;
+        unsigned sz = m_result_stack.size();
+        convert_pb_args(t, lits);
+        sat::bool_var v = m_solver.mk_var(true);
+        sat::literal lit(v, sign);
+        m_ext->add_at_least(v, lits, k.get_unsigned());
+        TRACE("sat", tout << "root: " << root << " lit: " << lit << "\n";);
+        if (root) {
+            m_result_stack.reset();
+            mk_clause(lit);
+        }
+        else {
+            m_result_stack.shrink(sz - t->get_num_args());
+            m_result_stack.push_back(lit);
+        }
+    }
+
+    void convert_at_most_k(app* t, rational k, bool root, bool sign) {
+        SASSERT(k.is_unsigned());
+        sat::literal_vector lits;
+        unsigned sz = m_result_stack.size();
+        convert_pb_args(t, lits);
+        for (unsigned i = 0; i < lits.size(); ++i) {
+            lits[i].neg();
+        }
+        sat::bool_var v = m_solver.mk_var(true);
+        m_ext->add_at_least(v, lits, lits.size() - k.get_unsigned() + 1);
+        if (root) {
+            m_result_stack.reset();
+            mk_clause(sat::literal(v, sign));
+        }
+        else {
+            m_result_stack.shrink(sz - t->get_num_args());
+            m_result_stack.push_back(sat::literal(v, sign));
+        }        
+    }
+
+    void convert_eq_k(app* t, rational k, bool root, bool sign) {
+        SASSERT(k.is_unsigned());
+        sat::literal_vector lits;
+        convert_pb_args(t, lits);
+        sat::bool_var v1 = m_solver.mk_var(true);
+        sat::bool_var v2 = m_solver.mk_var(true);
+        sat::literal l1(v1, false), l2(v2, false);
+        m_ext->add_at_least(v1, lits, k.get_unsigned());        
+        for (unsigned i = 0; i < lits.size(); ++i) {
+            lits[i].neg();
+        }
+        m_ext->add_at_least(v2, lits, lits.size() - k.get_unsigned() + 1);
+        if (root) {
+            m_result_stack.reset();
+            if (sign) {
+                mk_clause(~l1, ~l2);
+            }
+            else {
+                mk_clause(l1);
+                mk_clause(l2);
+            }
+            m_result_stack.reset();
+        }
+        else {
+            sat::bool_var v = m_solver.mk_var();
+            sat::literal l(v, false);
+            mk_clause(~l, l1);
+            mk_clause(~l, l2);
+            mk_clause(~l1, ~l2, l);
+            m_result_stack.shrink(m_result_stack.size() - t->get_num_args());
+            m_result_stack.push_back(l);
+        }
+    }
+
     void convert(app * t, bool root, bool sign) {
         if (t->get_family_id() == m.get_basic_family_id()) {
             switch (to_app(t)->get_decl_kind()) {
@@ -376,13 +480,34 @@ struct goal2sat::imp {
             case OP_IFF:
             case OP_EQ:
                 convert_iff(t, root, sign);
-            break;
+                break;
             default:
                 UNREACHABLE();
             }
         }
-        else if (t->get_family_id() == pb.get_fid()) {
-            NOT_IMPLEMENTED_YET();
+        else if (m_ext && t->get_family_id() == pb.get_family_id()) {
+            switch (t->get_decl_kind()) {
+            case OP_AT_MOST_K:
+                convert_at_most_k(t, pb.get_k(t), root, sign);
+                break;
+            case OP_AT_LEAST_K:
+                convert_at_least_k(t, pb.get_k(t), root, sign);
+                break;
+            case OP_PB_LE:
+                SASSERT(pb.has_unit_coefficients(t));
+                convert_at_most_k(t, pb.get_k(t), root, sign);
+                break;
+            case OP_PB_GE:
+                SASSERT(pb.has_unit_coefficients(t));
+                convert_at_least_k(t, pb.get_k(t), root, sign);
+                break;
+            case OP_PB_EQ:
+                SASSERT(pb.has_unit_coefficients(t));
+                convert_eq_k(t, pb.get_k(t), root, sign);
+                break;
+            default:
+                UNREACHABLE();
+            }
         }
         else {
             UNREACHABLE();

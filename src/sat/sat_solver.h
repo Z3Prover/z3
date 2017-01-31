@@ -74,7 +74,7 @@ namespace sat {
         reslimit&               m_rlimit;
         config                  m_config;
         stats                   m_stats;
-        extension *             m_ext;
+        scoped_ptr<extension>   m_ext;
         par*                    m_par;
         random_gen              m_rand;
         clause_allocator        m_cls_allocator;
@@ -251,6 +251,7 @@ namespace sat {
         void set_par(par* p);
         bool canceled() { return !m_rlimit.inc(); }
         config const& get_config() { return m_config; }
+        extension* get_extension() const { return m_ext.get(); }
         typedef std::pair<literal, literal> bin_clause;
     protected:
         watch_list & get_wlist(literal l) { return m_watches[l.index()]; }

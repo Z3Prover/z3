@@ -20,6 +20,7 @@ Notes:
 #include "solver.h"
 #include "tactical.h"
 #include "sat_solver.h"
+#include "card_extension.h"
 #include "tactic2solver.h"
 #include "aig_tactic.h"
 #include "propagate_values_tactic.h"
@@ -35,6 +36,8 @@ Notes:
 #include "ast_translation.h"
 #include "ast_util.h"
 #include "propagate_values_tactic.h"
+#include "sat_params.hpp"
+
 
 // incremental SAT solver.
 class inc_sat_solver : public solver {
@@ -68,7 +71,8 @@ class inc_sat_solver : public solver {
     typedef obj_map<expr, sat::literal> dep2asm_t;
 public:
     inc_sat_solver(ast_manager& m, params_ref const& p):
-        m(m), m_solver(p, m.limit(), 0),
+        m(m), 
+        m_solver(p, m.limit(), alloc(sat::card_extension)),
         m_params(p), m_optimize_model(false),
         m_fmls(m),
         m_asmsf(m),
@@ -79,6 +83,8 @@ public:
         m_dep_core(m),
         m_unknown("no reason given") {
         m_params.set_bool("elim_vars", false);
+        sat_params p1(m_params);
+        m_params.set_bool("cardinality_solver", p1.cardinality_solver());
         m_solver.updt_params(m_params);
         init_preprocess();
     }
@@ -86,6 +92,7 @@ public:
     virtual ~inc_sat_solver() {}
 
     virtual solver* translate(ast_manager& dst_m, params_ref const& p) {
+        std::cout << "translate\n";
         ast_translation tr(m, dst_m);
         if (m_num_scopes > 0) {
             throw default_exception("Cannot translate sat solver at non-base level");
@@ -210,8 +217,11 @@ public:
         sat::solver::collect_param_descrs(r);
     }
     virtual void updt_params(params_ref const & p) {
-        m_params = p;
+        m_params.append(p);
+        sat_params p1(p);
+        m_params.set_bool("cardinality_solver", p1.cardinality_solver());
         m_params.set_bool("elim_vars", false);
+        std::cout << m_params << "\n";
         m_solver.updt_params(m_params);
         m_optimize_model = m_params.get_bool("optimize_model", false);
     }

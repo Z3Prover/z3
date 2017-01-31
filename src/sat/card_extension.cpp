@@ -144,12 +144,14 @@ namespace sat {
     }
 
     void card_extension::watch_literal(card& c, literal lit) {
+        TRACE("sat", tout << "watch: " << lit << "\n";);
         init_watch(lit.var());
         ptr_vector<card>* cards = m_var_infos[lit.var()].m_lit_watch[lit.sign()];
         if (cards == 0) {
             cards = alloc(ptr_vector<card>);
             m_var_infos[lit.var()].m_lit_watch[lit.sign()] = cards;
         }
+        TRACE("sat", tout << "insert: " << lit.var() << " " << lit.sign() << "\n";);
         cards->push_back(&c);
     }
 
@@ -436,7 +438,9 @@ namespace sat {
         return p;        
     }
 
-    card_extension::card_extension(): m_solver(0) {}
+    card_extension::card_extension(): m_solver(0) {        
+        TRACE("sat", tout << this << "\n";);
+    }
 
     card_extension::~card_extension() {
         for (unsigned i = 0; i < m_var_infos.size(); ++i) {
@@ -537,7 +541,10 @@ namespace sat {
 
     void card_extension::asserted(literal l) {
         bool_var v = l.var();
+        if (v >= m_var_infos.size()) return;
         ptr_vector<card>* cards = m_var_infos[v].m_lit_watch[!l.sign()];
+        TRACE("sat", tout << "retrieve: " << v << " " << !l.sign() << "\n";);
+        TRACE("sat", tout << "asserted: " << l << " " << (cards ? "non-empty" : "empty") << "\n";);
         if (cards != 0  && !cards->empty() && !s().inconsistent())  {
             ptr_vector<card>::iterator it = cards->begin(), it2 = it, end = cards->end();
             for (; it != end; ++it) {
@@ -545,7 +552,7 @@ namespace sat {
                 if (value(c.lit()) != l_true) {
                     continue;
                 }
-                switch (add_assign(c, l)) {
+                switch (add_assign(c, ~l)) {
                 case l_false: // conflict
                     for (; it != end; ++it, ++it2) {
                         *it2 = *it;
@@ -579,6 +586,7 @@ namespace sat {
     }
 
     void card_extension::pop(unsigned n) {        
+        TRACE("sat", tout << "pop:" << n << "\n";);
         unsigned new_lim = m_var_lim.size() - n;
         unsigned sz = m_var_lim[new_lim];
         while (m_var_trail.size() > sz) {
@@ -597,6 +605,21 @@ namespace sat {
     void card_extension::simplify() {}
     void card_extension::clauses_modifed() {}
     lbool card_extension::get_phase(bool_var v) { return l_undef; }
+
+    extension* card_extension::copy(solver* s) {
+        card_extension* result = alloc(card_extension);
+        result->set_solver(s);
+        for (unsigned i = 0; i < m_constraints.size(); ++i) {
+            literal_vector lits;
+            card& c = *m_constraints[i];
+            for (unsigned i = 0; i < c.size(); ++i) {
+                lits.push_back(c[i]);
+            }
+            result->add_at_least(c.lit().var(), lits, c.k());
+        }
+        return result;
+    }
+
 
     void card_extension::display_watch(std::ostream& out, bool_var v, bool sign) const {
         watch const* w = m_var_infos[v].m_lit_watch[sign];
@@ -647,7 +670,7 @@ namespace sat {
         for (unsigned vi = 0; vi < m_var_infos.size(); ++vi) {
             card* c = m_var_infos[vi].m_card;
             if (c) {
-                display(out, *c, true);
+                display(out, *c, false);
             }
         }
         return out;

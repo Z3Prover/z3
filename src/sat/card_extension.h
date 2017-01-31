@@ -139,7 +139,7 @@ namespace sat {
     public:
         card_extension();
         virtual ~card_extension();
-        void    set_solver(solver* s) { m_solver = s; }
+        virtual void set_solver(solver* s) { m_solver = s; }
         void    add_at_least(bool_var v, literal_vector const& lits, unsigned k);
         virtual void propagate(literal l, ext_constraint_idx idx, bool & keep);
         virtual void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r);
@@ -152,6 +152,7 @@ namespace sat {
         virtual lbool get_phase(bool_var v);
         virtual std::ostream& display(std::ostream& out) const;
         virtual void collect_statistics(statistics& st) const;
+        virtual extension* copy(solver* s);
     };
 
 };
