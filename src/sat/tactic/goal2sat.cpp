@@ -36,6 +36,7 @@ Notes:
 #include"model_v2_pp.h"
 #include"tactic.h"
 #include"ast_pp.h"
+#include"pb_decl_plugin.h"
 #include<sstream>
 
 struct goal2sat::imp {
@@ -48,6 +49,7 @@ struct goal2sat::imp {
             m_t(t), m_root(r), m_sign(s), m_idx(idx) {}
     };
     ast_manager &               m;
+    pb_util                     pb;
     svector<frame>              m_frame_stack;
     svector<sat::literal>       m_result_stack;
     obj_map<app, sat::literal>  m_cache;
@@ -64,6 +66,7 @@ struct goal2sat::imp {
     
     imp(ast_manager & _m, params_ref const & p, sat::solver & s, atom2bool_var & map, dep2asm_map& dep2asm, bool default_external):
         m(_m),
+        pb(m),
         m_solver(s),
         m_map(map),
         m_dep2asm(dep2asm),
@@ -113,7 +116,7 @@ struct goal2sat::imp {
         return m_true;
     }
 
-    void convert_atom(expr * t, bool root, bool sign) {
+    bool convert_atom(expr * t, bool root, bool sign) {
         SASSERT(m.is_bool(t));
         sat::literal  l;
         sat::bool_var v = m_map.to_bool_var(t);
@@ -144,6 +147,15 @@ struct goal2sat::imp {
             mk_clause(l);
         else
             m_result_stack.push_back(l);
+        return true;
+    }
+
+    bool convert_app(app* t, bool root, bool sign) {
+        return convert_atom(t, root, sign);
+    }
+
+    bool convert_pb(app* t, bool root, bool sign) {
+        
     }
 
     bool process_cached(app * t, bool root, bool sign) {
@@ -160,16 +172,15 @@ struct goal2sat::imp {
         return false;
     }
 
+
     bool visit(expr * t, bool root, bool sign) {
         if (!is_app(t)) {
-            convert_atom(t, root, sign);
-            return true;
+            return convert_atom(t, root, sign);
         }
         if (process_cached(to_app(t), root, sign))
             return true;
         if (to_app(t)->get_family_id() != m.get_basic_family_id()) {
-            convert_atom(t, root, sign);
-            return true;
+            return convert_app(to_app(t), root, sign);
         }
         switch (to_app(t)->get_decl_kind()) {
         case OP_NOT:
@@ -184,8 +195,7 @@ struct goal2sat::imp {
                 m_frame_stack.push_back(frame(to_app(t), root, sign, 0));
                 return false;
             }
-            convert_atom(t, root, sign);
-            return true;
+            return convert_atom(t, root, sign);
         case OP_XOR:
         case OP_IMPLIES:
         case OP_DISTINCT: {
@@ -195,8 +205,7 @@ struct goal2sat::imp {
             throw_op_not_handled(strm.str());
         }
         default:
-            convert_atom(t, root, sign);
-            return true;
+            return convert_atom(t, root, sign);
         }
     }
 
@@ -353,22 +362,29 @@ struct goal2sat::imp {
     }
 
     void convert(app * t, bool root, bool sign) {
-        SASSERT(t->get_family_id() == m.get_basic_family_id());
-        switch (to_app(t)->get_decl_kind()) {
-        case OP_OR:
-            convert_or(t, root, sign);
+        if (t->get_family_id() == m.get_basic_family_id()) {
+            switch (to_app(t)->get_decl_kind()) {
+            case OP_OR:
+                convert_or(t, root, sign);
+                break;
+            case OP_AND:
+                convert_and(t, root, sign);
+                break;
+            case OP_ITE:
+                convert_ite(t, root, sign);
+                break;
+            case OP_IFF:
+            case OP_EQ:
+                convert_iff(t, root, sign);
             break;
-        case OP_AND:
-            convert_and(t, root, sign);
-            break;
-        case OP_ITE:
-            convert_ite(t, root, sign);
-            break;
-        case OP_IFF:
-        case OP_EQ:
-            convert_iff(t, root, sign);
-            break;
-        default:
+            default:
+                UNREACHABLE();
+            }
+        }
+        else if (t->get_family_id() == pb.get_fid()) {
+            NOT_IMPLEMENTED_YET();
+        }
+        else {
             UNREACHABLE();
         }
     }
