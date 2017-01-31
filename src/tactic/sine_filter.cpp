@@ -31,15 +31,11 @@ class sine_tactic : public tactic {
 
     ast_manager&  m;
     params_ref    m_params;
-    datatype_util m_dt;
-    ref<extension_model_converter> m_ext;
-    ref<filter_model_converter>    m_filter;
-    unsigned                       m_num_transformed;
 
 public:
 
     sine_tactic(ast_manager& m, params_ref const& p): 
-        m(m), m_params(p), m_dt(m) {}
+      m(m), m_params(p) {}
     
     virtual tactic * translate(ast_manager & m) {
         return alloc(sine_tactic, m, m_params);
