@@ -297,8 +297,8 @@ void str_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol cons
     op_names.push_back(builtin_name("str.suffixof", OP_STR_SUFFIXOF));
     op_names.push_back(builtin_name("str.to-int", OP_STR_STR2INT));
     op_names.push_back(builtin_name("str.from-int", OP_STR_INT2STR));
-    op_names.push_back(builtin_name("str.to.reg", OP_RE_STR2REGEX));
-    op_names.push_back(builtin_name("str.in.reg", OP_RE_REGEXIN));
+    op_names.push_back(builtin_name("str.to.re", OP_RE_STR2REGEX));
+    op_names.push_back(builtin_name("str.in.re", OP_RE_REGEXIN));
     op_names.push_back(builtin_name("re.++", OP_RE_REGEXCONCAT));
     op_names.push_back(builtin_name("re.*", OP_RE_REGEXSTAR));
     op_names.push_back(builtin_name("re.union", OP_RE_REGEXUNION));
