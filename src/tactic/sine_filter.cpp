@@ -98,8 +98,8 @@ private:
             if (is_app(curr)) {
                 app *a = to_app(curr);
                 func_decl *f = a->get_decl();
-                if (is_name(f) && !consts.contains(f)) {
-                    consts.insert(f);
+                if (is_name(f)) {
+                    consts.insert_if_not_there(f);
                 }
             }
         }
