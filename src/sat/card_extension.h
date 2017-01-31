@@ -32,13 +32,17 @@ namespace sat {
             void reset() { memset(this, 0, sizeof(*this)); }
         };
         
+        // class card_allocator;
         class card {
+            //friend class card_allocator;
             unsigned       m_index;
             literal        m_lit;
             unsigned       m_k;
             unsigned       m_size;
-            literal_vector m_lits;
+            literal        m_lits[0];
+
         public:
+            static size_t get_obj_size(unsigned num_lits) { return sizeof(card) + num_lits * sizeof(literal); }
             card(unsigned index, literal lit, literal_vector const& lits, unsigned k);
             unsigned index() const { return m_index; }
             literal lit() const { return m_lit; }

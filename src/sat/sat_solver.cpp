@@ -73,9 +73,9 @@ namespace sat {
     }
 
     void solver::copy(solver const & src) {
+        pop_to_base_level();
         SASSERT(m_mc.empty() && src.m_mc.empty());
         SASSERT(scope_lvl() == 0);
-        SASSERT(src.scope_lvl() == 0);
         // create new vars
         if (num_vars() < src.num_vars()) {
             for (bool_var v = num_vars(); v < src.num_vars(); v++) {
@@ -128,6 +128,8 @@ namespace sat {
         if (src.get_extension()) {
             m_ext = src.get_extension()->copy(this);
         }
+        m_user_scope_literals.reset();
+        m_user_scope_literals.append(src.m_user_scope_literals);
     }
 
     // -----------------------
@@ -728,7 +730,7 @@ namespace sat {
         pop_to_base_level();
         IF_VERBOSE(2, verbose_stream() << "(sat.sat-solver)\n";);
         SASSERT(scope_lvl() == 0);
-        if (m_config.m_num_parallel > 0 && !m_par) {
+        if (m_config.m_num_parallel > 1 && !m_par) {
             return check_par(num_lits, lits);
         }
 #ifdef CLONE_BEFORE_SOLVING
@@ -808,6 +810,9 @@ namespace sat {
         sat::par par;
         for (int i = 0; i < num_threads; ++i) {
             m_params.set_uint("random_seed", i);
+            if (i < num_threads/2) {
+                m_params.set_sym("phase", symbol("random"));
+            }
             solvers[i] = alloc(sat::solver, m_params, rlims[i], 0);
             solvers[i]->copy(*this);
             solvers[i]->set_par(&par);
@@ -825,7 +830,7 @@ namespace sat {
                 bool first = false;
                 #pragma omp critical (par_solver)
                 {
-                    if (finished_id == UINT_MAX) {
+                    if (finished_id == -1) {
                         finished_id = i;
                         first = true;
                         result = r;
@@ -877,17 +882,18 @@ namespace sat {
      */
     void solver::exchange_par() {
         if (m_par && scope_lvl() == 0) {
+            unsigned sz = scope_lvl() == 0 ? m_trail.size() : m_scopes[0].m_trail_lim;
             unsigned num_in = 0, num_out = 0;
             SASSERT(scope_lvl() == 0); // parallel with assumptions is TBD
             literal_vector in, out;
-            for (unsigned i = m_par_limit_out; i < m_trail.size(); ++i) {
+            for (unsigned i = m_par_limit_out; i < sz; ++i) {
                 literal lit = m_trail[i];
                 if (lit.var() < m_par_num_vars) {
                     ++num_out;
                     out.push_back(lit);
                 }
             }
-            m_par_limit_out = m_trail.size();
+            m_par_limit_out = sz;
             m_par->exchange(out, m_par_limit_in, in);
             for (unsigned i = 0; !inconsistent() && i < in.size(); ++i) {
                 literal lit = in[i];

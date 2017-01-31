@@ -26,8 +26,11 @@ namespace sat {
         m_index(index),
         m_lit(lit),
         m_k(k),
-        m_size(lits.size()), 
-        m_lits(lits) {
+        m_size(lits.size())
+    {
+        for (unsigned i = 0; i < lits.size(); ++i) {
+            m_lits[i] = lits[i];
+        }
     }
 
     void card_extension::card::negate() {
@@ -453,7 +456,7 @@ namespace sat {
 
     void card_extension::add_at_least(bool_var v, literal_vector const& lits, unsigned k) {
         unsigned index = m_constraints.size();
-        card* c = alloc(card, index, literal(v, false), lits, k);
+        card* c = new (memory::allocate(__FILE__,__LINE__, "card", card::get_obj_size(lits.size()))) card(index, literal(v, false), lits, k);
         m_constraints.push_back(c);
         init_watch(v);
         m_var_infos[v].m_card = c;
@@ -617,6 +620,15 @@ namespace sat {
             }
             result->add_at_least(c.lit().var(), lits, c.k());
         }
+        for (unsigned i = 0; i < m_var_trail.size(); ++i) {
+            bool_var v = m_var_trail[i];
+            if (v != null_bool_var) {
+                card* c = m_var_infos[v].m_card;
+                card* c2 = m_constraints[c->index()];
+                result->m_var_trail.reserve(v + 10);
+                NOT_IMPLEMENTED_YET();
+            }
+        }
         return result;
     }
 
@@ -635,18 +647,15 @@ namespace sat {
 
     void card_extension::display(std::ostream& out, card& c, bool values) const {
         out << c.lit();
-        if (c.lit() != null_literal) {
-            if (values) {
-                out << "@(" << value(c.lit());
-                if (value(c.lit()) != l_undef) {
-                    out << ":" << lvl(c.lit());
-                }
-                out << ")";
+        if (c.lit() != null_literal && values) {
+            out << "@(" << value(c.lit());
+            if (value(c.lit()) != l_undef) {
+                out << ":" << lvl(c.lit());
             }
-            out << c.lit() << "\n";
+            out << "): ";
         }
         else {
-            out << " ";
+            out << ": ";
         }
         for (unsigned i = 0; i < c.size(); ++i) {
             literal l = c[i];
@@ -658,8 +667,11 @@ namespace sat {
                 }
                 out << ") ";
             }
+            else {
+                out << " ";
+            }
         }
-        out << " >= " << c.k()  << "\n";
+        out << ">= " << c.k()  << "\n";
     }
 
     std::ostream& card_extension::display(std::ostream& out) const {
