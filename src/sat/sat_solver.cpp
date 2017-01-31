@@ -723,7 +723,7 @@ namespace sat {
         pop_to_base_level();
         IF_VERBOSE(2, verbose_stream() << "(sat.sat-solver)\n";);
         SASSERT(scope_lvl() == 0);
-        if (m_config.m_num_parallel > 0 && !m_par) {
+        if (m_config.m_num_parallel > 1 && !m_par) {
             return check_par(num_lits, lits);
         }
 #ifdef CLONE_BEFORE_SOLVING
@@ -823,7 +823,7 @@ namespace sat {
                 bool first = false;
                 #pragma omp critical (par_solver)
                 {
-                    if (finished_id == UINT_MAX) {
+                    if (finished_id == -1) {
                         finished_id = i;
                         first = true;
                         result = r;
