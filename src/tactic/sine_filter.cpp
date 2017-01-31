@@ -27,11 +27,6 @@ Revision History:
 #include "ast_util.h"
 #include "obj_pair_hashtable.h"
 
-#if 0
-TODO documentation here
-#endif
-
-
 class sine_tactic : public tactic {
 
     ast_manager&  m;
