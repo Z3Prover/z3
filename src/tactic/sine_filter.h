@@ -9,6 +9,10 @@ Abstract:
 
     Tactic that performs Sine Qua Non premise selection
 
+Author:
+
+    Doug Woos
+
 Revision History:
 
 --*/
