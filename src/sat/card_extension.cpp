@@ -161,8 +161,7 @@ namespace sat {
     void card_extension::set_conflict(card& c, literal lit) {
         SASSERT(validate_conflict(c));
         m_stats.m_num_conflicts++;
-        if (!resolve_conflict(c, lit)) {
-            
+        if (!resolve_conflict(c, lit)) {            
             m_conflict.reset();
             m_conflict.push_back(~c.lit()); 
             unsigned sz = c.size();
@@ -366,15 +365,46 @@ namespace sat {
             slack += get_abs_coeff(v);
         }
         
-        alit = get_asserting_literal(~consequent);
-        slack -= get_abs_coeff(alit.var());
-
-        for (unsigned i = lits.size(); 0 <= slack && i > 0; ) {
-            --i;
+        ++idx;
+        alit = null_literal;
+#if 0
+        while (0 <= slack) {            
+            literal lit = lits[idx];
+            bool_var v = lit.var();
+            if (m_active_vars.contains(v)) {
+                int coeff = get_coeff(v);
+                bool append = false;
+                if (coeff < 0 && !lit.sign()) {
+                    slack += coeff;
+                    append = true;
+                }
+                else if (coeff > 0 && lit.sign()) {
+                    slack -= coeff;
+                    append = true;
+                }
+                if (append) {
+                    if (alit == null_literal) {
+                        alit = ~lit;
+                    }
+                    else {
+                        m_conflict.push_back(~lit);
+                    }
+                }
+            }
+            SASSERT(idx > 0 || slack < 0);
+            --idx;
+        }
+        if (alit != null_literal) {
+            m_conflict.push_back(alit);
+        }
+#else
+        for (unsigned i = 0; 0 <= slack; ++i) {
+            SASSERT(i <= idx);
             literal lit = lits[i];
             bool_var v = lit.var();
-            if (m_active_var_set.contains(v) && v != alit.var()) {
+            if (m_active_vars.contains(v)) {
                 int coeff = get_coeff(v);
+                
                 if (coeff < 0 && !lit.sign()) {
                     slack += coeff;
                     m_conflict.push_back(~lit);
@@ -385,13 +415,20 @@ namespace sat {
                 }
             }
         }
-        m_conflict.push_back(alit);
+        
+        if (!m_conflict.empty()) {
+            alit = m_conflict.back();
+        }
+#endif
+
+        if (m_conflict.empty()) {
+            IF_VERBOSE(0, verbose_stream() << "(empty conflict)\n";);
+            return false;
+        }
         SASSERT(slack < 0);
         SASSERT(validate_conflict(m_conflict));
-        
-        // std::cout << alit << ": " << m_conflict << "\n";
+
         s().assign(alit, justification::mk_ext_justification(0));
-        // s().mk_clause_core(m_conflict.size(), m_conflict.c_ptr(), true);
         return true;
 
     bail_out:
@@ -399,6 +436,7 @@ namespace sat {
             v = lits[idx].var();
             if (s().is_marked(v)) {
                 s().reset_mark(v);
+                --m_num_marks;
             }
             --idx;
         }
@@ -561,7 +599,8 @@ namespace sat {
     void card_extension::asserted(literal l) {
         bool_var v = l.var();
         if (v >= m_var_infos.size()) return;
-        ptr_vector<card>* cards = m_var_infos[v].m_lit_watch[!l.sign()];
+        var_info& vinfo = m_var_infos[v];
+        ptr_vector<card>* cards = vinfo.m_lit_watch[!l.sign()];
         TRACE("sat", tout << "retrieve: " << v << " " << !l.sign() << "\n";);
         TRACE("sat", tout << "asserted: " << l << " " << (cards ? "non-empty" : "empty") << "\n";);
         if (cards != 0  && !cards->empty() && !s().inconsistent())  {
@@ -592,7 +631,7 @@ namespace sat {
             cards->set_end(it2);
         }
 
-        card* crd = m_var_infos[v].m_card;
+        card* crd = vinfo.m_card;
         if (crd != 0 && !s().inconsistent()) {
             init_watch(*crd, !l.sign());
         }

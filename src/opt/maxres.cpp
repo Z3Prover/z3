@@ -368,7 +368,8 @@ public:
                 break;
             }
             remove_soft(core, asms);
-            is_sat = check_sat_hill_climb(asms);
+            //is_sat = check_sat_hill_climb(asms);
+            is_sat = l_true;
         }
         TRACE("opt", 
               tout << "num cores: " << cores.size() << "\n";
