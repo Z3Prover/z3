@@ -75,7 +75,7 @@ namespace sat {
     void solver::copy(solver const & src) {
         pop_to_base_level();
         SASSERT(m_mc.empty() && src.m_mc.empty());
-        SASSERT(scope_lvl() == 0);
+        SASSERT(at_search_lvl());
         // create new vars
         if (num_vars() < src.num_vars()) {
             for (bool_var v = num_vars(); v < src.num_vars(); v++) {
@@ -85,8 +85,15 @@ namespace sat {
                 VERIFY(v == mk_var(ext, dvar));
             }
         }
+        //
+        // register the extension before performing assignments.
+        // the assignments may call back into the extension.
+        //
+        if (src.get_extension()) {
+            m_ext = src.get_extension()->copy(this);
+        }
         {
-            unsigned sz = src.scope_lvl() == 0 ? src.m_trail.size() : src.m_scopes[0].m_trail_lim;
+            unsigned sz = scope_lvl() == 0 ? src.m_trail.size() : src.m_scopes[0].m_trail_lim;
             for (unsigned i = 0; i < sz; ++i) {
                 assign(src.m_trail[i], justification());
             }
@@ -125,9 +132,6 @@ namespace sat {
             }
         }
 
-        if (src.get_extension()) {
-            m_ext = src.get_extension()->copy(this);
-        }
         m_user_scope_literals.reset();
         m_user_scope_literals.append(src.m_user_scope_literals);
     }

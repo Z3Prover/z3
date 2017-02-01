@@ -676,14 +676,6 @@ namespace sat {
             }
             result->add_at_least(c.lit().var(), lits, c.k());
         }
-        for (unsigned i = 0; i < m_var_trail.size(); ++i) {
-            bool_var v = m_var_trail[i];
-            if (v != null_bool_var) {
-                card* c = m_var_infos[v].m_card;
-                card* c2 = m_constraints[c->index()];
-                NOT_IMPLEMENTED_YET();
-            }
-        }
         return result;
     }
 
