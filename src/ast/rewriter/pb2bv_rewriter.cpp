@@ -355,6 +355,7 @@ struct pb2bv_rewriter::imp {
             SASSERT(f->get_family_id() == pb.get_family_id());
             std::cout << "card: " << m_enable_card << "\n";
             if (is_or(f)) {
+                if (m_enable_card) return false;
                 result = m.mk_or(sz, args);
             }
             else if (pb.is_at_most_k(f) && pb.get_k(f).is_unsigned()) {

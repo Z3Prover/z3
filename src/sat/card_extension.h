@@ -138,6 +138,7 @@ namespace sat {
         void justification2pb(justification const& j, literal lit, unsigned offset, ineq& p);
         bool validate_resolvent();
 
+        void display(std::ostream& out, ineq& p) const;
         void display(std::ostream& out, card& c, bool values) const;
         void display_watch(std::ostream& out, bool_var v, bool sign) const;
     public:

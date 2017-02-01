@@ -565,7 +565,7 @@ namespace sat {
         while (m_qhead < m_trail.size()) {
             checkpoint();
             m_cleaner.dec();
-            SASSERT(!m_inconsistent);
+            if (m_inconsistent) return false;
             l = m_trail[m_qhead];
             TRACE("sat_propagate", tout << "propagating: " << l << " " << m_justification[l.var()] << "\n";);
             m_qhead++;
@@ -1682,7 +1682,7 @@ namespace sat {
         m_conflicts_since_restart++;
         m_conflicts_since_gc++;
 
-        m_conflict_lvl = get_max_lvl(m_not_l, m_conflict);
+        m_conflict_lvl = get_max_lvl(m_not_l == literal() ? m_not_l : ~m_not_l, m_conflict);
         TRACE("sat", tout << "conflict detected at level " << m_conflict_lvl << " for ";
               if (m_not_l == literal()) tout << "null literal\n";
               else tout << m_not_l << "\n";);
@@ -1710,7 +1710,7 @@ namespace sat {
             process_antecedent(m_not_l, num_marks);
         }
 
-        literal consequent = m_not_l;
+        literal consequent = m_not_l == null_literal ? m_not_l : ~m_not_l;
         justification js   = m_conflict;
 
         do {
@@ -2033,7 +2033,7 @@ namespace sat {
             }
         }
 
-        literal consequent = m_not_l;
+        literal consequent = m_not_l == null_literal ? m_not_l : ~m_not_l;
         justification js   = m_conflict;
 
 

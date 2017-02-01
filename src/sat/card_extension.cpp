@@ -159,23 +159,19 @@ namespace sat {
     }
 
     void card_extension::set_conflict(card& c, literal lit) {
-        std::cout << "conflict\n";
         SASSERT(validate_conflict(c));
-
         m_stats.m_num_conflicts++;
         if (!resolve_conflict(c, lit)) {
-
-            literal_vector& lits = get_literals();
-            SASSERT(value(lit) == l_false);
-            SASSERT(value(c.lit()) == l_true);
-            lits.push_back(~c.lit()); 
-            lits.push_back(lit);
+            
+            m_conflict.reset();
+            m_conflict.push_back(~c.lit()); 
             unsigned sz = c.size();
             for (unsigned i = c.k(); i < sz; ++i) {
-                SASSERT(value(c[i]) == l_false);
-                lits.push_back(c[i]);
+                m_conflict.push_back(c[i]);
             }
-            s().mk_clause_core(lits.size(), lits.c_ptr(), true);
+            m_conflict.push_back(lit);
+            SASSERT(validate_conflict(m_conflict));
+            s().assign(lit, justification::mk_ext_justification(0));
         }
         SASSERT(s().inconsistent());
     }
@@ -242,7 +238,7 @@ namespace sat {
 
         bool_var v;
         m_conflict_lvl = 0;
-        for (unsigned i = 0; i < c.size(); ++i) {
+        for (unsigned i = c.k(); i < c.size(); ++i) {
             literal lit = c[i];
             SASSERT(value(lit) == l_false);
             m_conflict_lvl = std::max(m_conflict_lvl, lvl(lit));
@@ -276,6 +272,7 @@ namespace sat {
             }
 
             SASSERT(validate_lemma());
+            
             SASSERT(offset > 0);
 
             js = s().m_justification[v];
@@ -284,17 +281,22 @@ namespace sat {
             int bound = 1;            
             switch(js.get_kind()) {
             case justification::NONE:
+                //std::cout << "NONE\n";
+                inc_coeff(consequent, offset);
                 break;
             case justification::BINARY:
+                //std::cout << "BINARY\n";
                 inc_coeff(consequent, offset);
-                process_antecedent(~(js.get_literal()), offset);
+                process_antecedent((js.get_literal()), offset);
                 break;
             case justification::TERNARY:
+                //std::cout << "TERNARY\n";
                 inc_coeff(consequent, offset);
-                process_antecedent(~(js.get_literal1()), offset);
-                process_antecedent(~(js.get_literal2()), offset);
+                process_antecedent((js.get_literal1()), offset);
+                process_antecedent((js.get_literal2()), offset);
                 break;
             case justification::CLAUSE: {
+                //std::cout << "CLAUSE\n";
                 inc_coeff(consequent, offset);
                 clause & c = *(s().m_cls_allocator.get_clause(js.get_clause_offset()));
                 unsigned i   = 0;
@@ -303,15 +305,16 @@ namespace sat {
                     i = 1;
                 }
                 else {
-                    process_antecedent(~c[0], offset);
+                    process_antecedent(c[0], offset);
                     i = 2;
                 }
-                unsigned sz  = c.size();
+                unsigned sz = c.size();
                 for (; i < sz; i++)
-                    process_antecedent(~c[i], offset);
+                    process_antecedent(c[i], offset);
                 break;
             }
             case justification::EXT_JUSTIFICATION: {
+                //std::cout << "CARDINALITY\n";
                 unsigned index = js.get_ext_justification_idx();
                 card& c2 = *m_constraints[index];
                 process_card(c2, offset);
@@ -365,7 +368,6 @@ namespace sat {
         
         alit = get_asserting_literal(~consequent);
         slack -= get_abs_coeff(alit.var());
-        m_conflict.push_back(alit);
 
         for (unsigned i = lits.size(); 0 <= slack && i > 0; ) {
             --i;
@@ -383,10 +385,13 @@ namespace sat {
                 }
             }
         }
+        m_conflict.push_back(alit);
         SASSERT(slack < 0);
         SASSERT(validate_conflict(m_conflict));
         
-        s().mk_clause_core(m_conflict.size(), m_conflict.c_ptr(), true);
+        // std::cout << alit << ": " << m_conflict << "\n";
+        s().assign(alit, justification::mk_ext_justification(0));
+        // s().mk_clause_core(m_conflict.size(), m_conflict.c_ptr(), true);
         return true;
 
     bail_out:
@@ -444,6 +449,7 @@ namespace sat {
 
     card_extension::card_extension(): m_solver(0) {        
         TRACE("sat", tout << this << "\n";);
+        m_constraints.push_back(0); // dummy constraint for conflicts
     }
 
     card_extension::~card_extension() {
@@ -469,20 +475,29 @@ namespace sat {
     }
 
     void card_extension::get_antecedents(literal l, ext_justification_idx idx, literal_vector & r) {
-        card& c = *m_constraints[idx];
-
-        DEBUG_CODE(
-            bool found = false;
-            for (unsigned i = 0; !found && i < c.k(); ++i) {
-                found = c[i] == l;
+        if (idx == 0) {
+            SASSERT(m_conflict.back() == l);
+            for (unsigned i = 0; i + 1 < m_conflict.size(); ++i) {
+                SASSERT(value(m_conflict[i]) == l_false);
+                r.push_back(~m_conflict[i]);
             }
-            SASSERT(found););
-
-        r.push_back(c.lit());
-        SASSERT(value(c.lit()) == l_true);
-        for (unsigned i = c.k(); i < c.size(); ++i) {
-            SASSERT(value(c[i]) == l_false);
-            r.push_back(~c[i]);
+        }
+        else {
+            card& c = *m_constraints[idx];
+            
+            DEBUG_CODE(
+                bool found = false;
+                for (unsigned i = 0; !found && i < c.k(); ++i) {
+                    found = c[i] == l;
+                }
+                SASSERT(found););
+            
+            r.push_back(c.lit());
+            SASSERT(value(c.lit()) == l_true);
+            for (unsigned i = c.k(); i < c.size(); ++i) {
+                SASSERT(value(c[i]) == l_false);
+                r.push_back(~c[i]);
+            }
         }
     }
 
@@ -613,7 +628,8 @@ namespace sat {
     extension* card_extension::copy(solver* s) {
         card_extension* result = alloc(card_extension);
         result->set_solver(s);
-        for (unsigned i = 0; i < m_constraints.size(); ++i) {
+        result->m_constraints.push_back(0);
+        for (unsigned i = 1; i < m_constraints.size(); ++i) {
             literal_vector lits;
             card& c = *m_constraints[i];
             for (unsigned i = 0; i < c.size(); ++i) {
@@ -626,7 +642,6 @@ namespace sat {
             if (v != null_bool_var) {
                 card* c = m_var_infos[v].m_card;
                 card* c2 = m_constraints[c->index()];
-                result->m_var_trail.reserve(v + 10);
                 NOT_IMPLEMENTED_YET();
             }
         }
@@ -644,6 +659,13 @@ namespace sat {
             }
             out << "\n";        
         }
+    }
+
+    void card_extension::display(std::ostream& out, ineq& ineq) const {
+        for (unsigned i = 0; i < ineq.m_lits.size(); ++i) {
+            out << ineq.m_coeffs[i] << "*" << ineq.m_lits[i] << " ";
+        }
+        out << ">= " << ineq.m_k << "\n";
     }
 
     void card_extension::display(std::ostream& out, card& c, bool values) const {
@@ -740,25 +762,26 @@ namespace sat {
     void card_extension::justification2pb(justification const& js, literal lit, unsigned offset, ineq& p) {
         switch (js.get_kind()) {
         case justification::NONE:
-            p.reset(0);
+            p.reset(offset);
+			p.push(lit, offset);
             break;
         case justification::BINARY:
             p.reset(offset);
             p.push(lit, offset);
-            p.push(~js.get_literal(), offset);
+            p.push(js.get_literal(), offset);
             break;
         case justification::TERNARY:
             p.reset(offset);
             p.push(lit, offset);
-            p.push(~(js.get_literal1()), offset);
-            p.push(~(js.get_literal2()), offset);
+            p.push(js.get_literal1(), offset);
+            p.push(js.get_literal2(), offset);
             break;
         case justification::CLAUSE: {
             p.reset(offset);
             clause & c = *(s().m_cls_allocator.get_clause(js.get_clause_offset()));
             unsigned sz  = c.size();
             for (unsigned i = 0; i < sz; i++)
-                p.push(~c[i], offset);
+                p.push(c[i], offset);
             break;
         }
         case justification::EXT_JUSTIFICATION: {
@@ -820,6 +843,15 @@ namespace sat {
             if (coeffs.find(lit.index(), coeff)) {
                 SASSERT(coeff <= m_C.m_coeffs[i]);
                 coeffs.remove(lit.index());
+            }
+        }
+        if (!coeffs.empty() || m_C.m_k > k) {
+            display(std::cout, m_A);
+            display(std::cout, m_B);
+            display(std::cout, m_C);
+            u_map<unsigned>::iterator it = coeffs.begin(), end = coeffs.end();
+            for (; it != end; ++it) {
+                std::cout << to_literal(it->m_key) << ": " << it->m_value << "\n";
             }
         }
         SASSERT(coeffs.empty());
