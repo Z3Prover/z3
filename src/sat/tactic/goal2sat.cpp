@@ -420,7 +420,7 @@ struct goal2sat::imp {
             lits[i].neg();
         }
         sat::bool_var v = m_solver.mk_var(true);
-        m_ext->add_at_least(v, lits, lits.size() - k.get_unsigned() + 1);
+        m_ext->add_at_least(v, lits, lits.size() - k.get_unsigned());
         if (root) {
             m_result_stack.reset();
             mk_clause(sat::literal(v, sign));
@@ -442,7 +442,7 @@ struct goal2sat::imp {
         for (unsigned i = 0; i < lits.size(); ++i) {
             lits[i].neg();
         }
-        m_ext->add_at_least(v2, lits, lits.size() - k.get_unsigned() + 1);
+        m_ext->add_at_least(v2, lits, lits.size() - k.get_unsigned());
         if (root) {
             m_result_stack.reset();
             if (sign) {
