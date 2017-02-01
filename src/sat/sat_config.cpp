@@ -35,6 +35,7 @@ namespace sat {
         m_glue("glue"),
         m_glue_psm("glue_psm"),
         m_psm_glue("psm_glue") {
+        m_num_parallel = 1;
         updt_params(p); 
     }
 

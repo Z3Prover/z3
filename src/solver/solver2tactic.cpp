@@ -93,6 +93,7 @@ public:
     {}
     
     virtual void updt_params(params_ref const & p) {
+        m_params.append(p);
         m_solver->updt_params(p);
     }
 

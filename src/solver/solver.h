@@ -54,7 +54,7 @@ public:
     /**
        \brief Update the solver internal settings. 
     */
-    virtual void updt_params(params_ref const & p) {}
+    virtual void updt_params(params_ref const & p) { }
 
     /**
        \brief Store in \c r a description of the configuration
