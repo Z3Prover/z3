@@ -223,6 +223,7 @@ namespace sat {
         lbool value(bool_var v) const { return static_cast<lbool>(m_assignment[literal(v, false).index()]); }
         unsigned lvl(bool_var v) const { return m_level[v]; }
         unsigned lvl(literal l) const { return m_level[l.var()]; }
+        unsigned init_trail_size() const { return scope_lvl() == 0 ? m_trail.size() : m_scopes[0].m_trail_lim; }
         void assign(literal l, justification j) {
             TRACE("sat_assign", tout << l << " previous value: " << value(l) << "\n";);
             switch (value(l)) {
