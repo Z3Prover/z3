@@ -804,7 +804,7 @@ namespace sat {
         sat::par par;
         symbol saved_phase = m_params.get_sym("phase", symbol("caching"));
         for (int i = 0; i < num_extra_solvers; ++i) {
-            m_params.set_uint("random_seed", i + m_config.m_random_seed);
+            m_params.set_uint("random_seed", m_rand());
             if (i == 1 + num_threads/2) {
                 m_params.set_sym("phase", symbol("random"));
             }                        
@@ -813,13 +813,13 @@ namespace sat {
             solvers[i]->set_par(&par);
             scoped_rlimit.push_child(&solvers[i]->rlimit());            
         }
+        set_par(&par);
         m_params.set_sym("phase", saved_phase);
         int finished_id = -1;
         std::string        ex_msg;
         par_exception_kind ex_kind;
         unsigned error_code = 0;
         lbool result = l_undef;
-        flet<unsigned> _overwrite_thread_number(m_config.m_num_parallel, 1);
         #pragma omp parallel for
         for (int i = 0; i < num_threads; ++i) {
             try {                
@@ -867,6 +867,7 @@ namespace sat {
                 }
             }
         }
+        set_par(0);
         if (finished_id != -1 && finished_id < num_extra_solvers) {
             m_stats = solvers[finished_id]->m_stats;
         }

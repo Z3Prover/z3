@@ -96,7 +96,7 @@ tactic2solver::~tactic2solver() {
 }
 
 void tactic2solver::updt_params(params_ref const & p) {
-    m_params = p;
+    m_params.append(p);
 }
 
 void tactic2solver::collect_param_descrs(param_descrs & r) {
