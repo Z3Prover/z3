@@ -84,7 +84,7 @@ namespace sat {
                 VERIFY(v == mk_var(ext, dvar));
             }
         }
-        unsigned sz = src.scope_lvl() == 0 ? src.m_trail.size() : src.m_scopes[0].m_trail_lim;
+        unsigned sz = src.init_trail_size();
         for (unsigned i = 0; i < sz; ++i) {
             assign(src.m_trail[i], justification());
         }
@@ -774,7 +774,6 @@ namespace sat {
 
                 restart();
                 simplify_problem();
-                exchange_par();
                 if (check_inconsistent()) return l_false;
                 gc();
 
@@ -890,9 +889,8 @@ namespace sat {
      */
     void solver::exchange_par() {
         if (m_par && scope_lvl() == 0) {
-            unsigned sz = scope_lvl() == 0 ? m_trail.size() : m_scopes[0].m_trail_lim;
+            unsigned sz = init_trail_size();
             unsigned num_in = 0, num_out = 0;
-            SASSERT(scope_lvl() == 0); // parallel with assumptions is TBD
             literal_vector in, out;
             for (unsigned i = m_par_limit_out; i < sz; ++i) {
                 literal lit = m_trail[i];
@@ -2544,6 +2542,7 @@ namespace sat {
 
     void solver::pop_reinit(unsigned num_scopes) {
         pop(num_scopes);
+        exchange_par();
         reinit_assumptions();
     }
 
@@ -2863,7 +2862,7 @@ namespace sat {
     }
 
     void solver::display_units(std::ostream & out) const {
-        unsigned end = scope_lvl() == 0 ? m_trail.size() : m_scopes[0].m_trail_lim;
+        unsigned end = init_trail_size();
         for (unsigned i = 0; i < end; i++) {
             out << m_trail[i] << " ";
         }

@@ -154,7 +154,6 @@ namespace sat {
         if (!m_subsumption && !m_elim_blocked_clauses && !m_resolution)
             return;
 
-
         initialize();
 
         CASSERT("sat_solver", s.check_invariant());

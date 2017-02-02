@@ -98,13 +98,20 @@ tactic * mk_tactic_for_logic(ast_manager & m, params_ref const & p, symbol const
         return mk_default_tactic(m, p);
 }
 
-static solver* mk_solver_for_logic(ast_manager & m, params_ref const & p, symbol const& logic) {
-    bv_rewriter rw(m);
-    if (logic == "QF_BV" && rw.hi_div0()) 
-        return mk_inc_sat_solver(m, p);
+static solver* mk_special_solver_for_logic(ast_manager & m, params_ref const & p, symbol const& logic) {
     if (logic == "QF_FD") 
         return mk_fd_solver(m, p);
-    return mk_smt_solver(m, p, logic);
+    return 0;
+}
+
+static solver* mk_solver_for_logic(ast_manager & m, params_ref const & p, symbol const& logic) {
+    bv_rewriter rw(m);
+    solver* s = mk_special_solver_for_logic(m, p, logic);
+    if (!s && logic == "QF_BV" && rw.hi_div0()) 
+        s = mk_inc_sat_solver(m, p);
+    if (!s) 
+        s = mk_smt_solver(m, p, logic);
+    return s;
 }
 
 class smt_strategic_solver_factory : public solver_factory {
@@ -119,6 +126,8 @@ public:
             l = m_logic;
         else
             l = logic;
+        solver* s = mk_special_solver_for_logic(m, p, l);
+        if (s) return s;
         tactic * t = mk_tactic_for_logic(m, p, l);
         return mk_combined_solver(mk_tactic2solver(m, t, p, proofs_enabled, models_enabled, unsat_core_enabled, l),
                                   mk_solver_for_logic(m, p, l), 
