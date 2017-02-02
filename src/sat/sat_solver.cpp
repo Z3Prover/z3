@@ -192,7 +192,7 @@ namespace sat {
     }
 
     clause * solver::mk_clause_core(unsigned num_lits, literal * lits, bool learned) {
-        TRACE("sat", tout << "mk_clause: " << mk_lits_pp(num_lits, lits) << "\n";);
+        TRACE("sat", tout << "mk_clause: " << mk_lits_pp(num_lits, lits) << (learned?" learned":" aux") << "\n";);
         if (!learned) {
             bool keep = simplify_clause(num_lits, lits);
             TRACE("sat_mk_clause", tout << "mk_clause (after simp), keep: " << keep << "\n" << mk_lits_pp(num_lits, lits) << "\n";);
@@ -502,7 +502,7 @@ namespace sat {
 
     void solver::assign_core(literal l, justification j) {
         SASSERT(value(l) == l_undef);
-        TRACE("sat_assign_core", tout << l << "\n";);
+        TRACE("sat_assign_core", tout << l << " " << j << " level: " << scope_lvl() << "\n";);
         if (scope_lvl() == 0)
             j = justification(); // erase justification for level 0
         m_assignment[l.index()]    = l_true;
@@ -1070,9 +1070,7 @@ namespace sat {
         }
 
         TRACE("sat",
-              for (unsigned i = 0; i < num_lits; ++i)
-                  tout << lits[i] << " ";
-              tout << "\n";
+              tout << literal_vector(num_lits, lits) << "\n";
               if (!m_user_scope_literals.empty()) {
                   tout << "user literals: " << m_user_scope_literals << "\n";
               }
@@ -2039,7 +2037,7 @@ namespace sat {
             }
         }
 
-        literal consequent = m_not_l;
+        literal consequent = m_not_l; 
         justification js   = m_conflict;
 
 
