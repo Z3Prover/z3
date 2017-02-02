@@ -26,6 +26,7 @@ Revision History:
 #include "var_subst.h"
 #include "ast_util.h"
 #include "obj_pair_hashtable.h"
+#include "ast_pp.h"
 
 class sine_tactic : public tactic {
 
@@ -121,7 +122,7 @@ private:
                     app *a = to_app(curr);
                     func_decl *f = a->get_decl();
                     if (!consts.contains(f)) {
-                        TRACE("sine", tout << f; tout << "\n";);
+                        TRACE("sine", tout << mk_pp(f, m) << "\n";);
                         p_matched = false;
                         next_consts.push_back(f);
                         break;
