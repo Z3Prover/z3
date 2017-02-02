@@ -136,7 +136,6 @@ namespace sat {
         m_user_scope_literals.reset();
         m_user_scope_literals.append(src.m_user_scope_literals);
 
-        std::cout << "copy: " << init_trail_size() << " " << src.init_trail_size() << "\n";
     }
 
     // -----------------------
@@ -1152,9 +1151,6 @@ namespace sat {
     }
 
     void solver::reinit_assumptions() {
-        if (at_search_lvl()) {
-            std::cout << " " << init_trail_size() << " " << m_trail.size() << "\n";
-        }
         if (tracking_assumptions() && at_base_lvl()) {
             TRACE("sat", tout << m_assumptions << "\n";);
             push();

@@ -353,7 +353,6 @@ struct pb2bv_rewriter::imp {
 
         bool mk_pb(bool full, func_decl * f, unsigned sz, expr * const* args, expr_ref & result) {
             SASSERT(f->get_family_id() == pb.get_family_id());
-            std::cout << "card: " << m_enable_card << "\n";
             if (is_or(f)) {
                 if (m_enable_card) return false;
                 result = m.mk_or(sz, args);
@@ -408,7 +407,6 @@ struct pb2bv_rewriter::imp {
         }        
 
         void enable_card(bool f) {
-            std::cout << "set " << f << "\n";
             m_enable_card = f;
             m_enable_card = true;
         }
