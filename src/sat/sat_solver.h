@@ -115,6 +115,7 @@ namespace sat {
         var_queue               m_case_split_queue;
         unsigned                m_qhead;
         unsigned                m_scope_lvl;
+        unsigned                m_search_lvl;
         literal_vector          m_trail;
         clause_wrapper_vector   m_clauses_to_reinit;
         struct scope {
@@ -220,11 +221,14 @@ namespace sat {
         bool is_external(bool_var v) const { return m_external[v] != 0; }
         bool was_eliminated(bool_var v) const { return m_eliminated[v] != 0; }
         unsigned scope_lvl() const { return m_scope_lvl; }
-        bool  at_search_lvl() const { return m_scope_lvl == 0; }
+        unsigned search_lvl() const { return m_search_lvl; }
+        bool  at_search_lvl() const { return m_scope_lvl == m_search_lvl; }
+        bool  at_base_lvl() const { return m_scope_lvl == 0; }
         lbool value(literal l) const { return static_cast<lbool>(m_assignment[l.index()]); }
         lbool value(bool_var v) const { return static_cast<lbool>(m_assignment[literal(v, false).index()]); }
         unsigned lvl(bool_var v) const { return m_level[v]; }
         unsigned lvl(literal l) const { return m_level[l.var()]; }
+        unsigned init_trail_size() const { return at_base_lvl() ? m_trail.size() : m_scopes[0].m_trail_lim; }
         void assign(literal l, justification j) {
             TRACE("sat_assign", tout << l << " previous value: " << value(l) << "\n";);
             switch (value(l)) {
