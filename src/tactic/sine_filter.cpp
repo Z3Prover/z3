@@ -77,11 +77,6 @@ public:
 
 private:
 
-    // is this a user-defined symbol name?
-    bool is_name(func_decl * f) {
-        return f->get_family_id() < 0;
-    }
-
     typedef std::pair<expr*,expr*> t_work_item;
 
     t_work_item work_item(expr *e, expr *root) {
@@ -97,8 +92,8 @@ private:
             stack.pop_back();
             if (is_app(curr)) {
                 app *a = to_app(curr);
-                func_decl *f = a->get_decl();
-                if (is_name(f)) {
+                if (is_uninterp(a)) {
+                    func_decl *f = a->get_decl();
                     consts.insert_if_not_there(f);
                 }
             }
@@ -159,8 +154,8 @@ private:
             stack.pop_back();
             if (is_app(curr.first)) {
                 app *a = to_app(curr.first);
-                func_decl *f = a->get_decl();
-                if (is_name(f)) {
+                if (is_uninterp(a)) {
+                    func_decl *f = a->get_decl();
                     if (!consts.contains(f)) {
                         consts.insert(f);
                         if (const2quantifier.contains(f)) {
