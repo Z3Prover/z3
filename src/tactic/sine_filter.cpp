@@ -111,10 +111,12 @@ private:
         bool matched = false;
         for (int i = 0; i < q->get_num_patterns(); i++) {
             bool p_matched = true;
-            vector<expr *> stack;
+            ptr_vector<expr> stack;
             expr *curr;
             // patterns are wrapped with "pattern"
-            stack.push_back(to_app(q->get_pattern(i))->get_arg(0));
+            if (!m.is_pattern(q->get_pattern(i), stack)) {
+                continue;
+            }
             while (!stack.empty()) {
                 curr = stack.back();
                 stack.pop_back();

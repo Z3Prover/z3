@@ -1840,6 +1840,8 @@ public:
 
     bool is_pattern(expr const * n) const;
 
+    bool is_pattern(expr const *n, ptr_vector<expr> &args);
+
 public:
 
     quantifier * mk_quantifier(bool forall, unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names, expr * body,
