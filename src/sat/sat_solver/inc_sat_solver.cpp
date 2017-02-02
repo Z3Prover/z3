@@ -283,11 +283,8 @@ public:
                 conseq.push_back(cons);
             }
         }
-
         return r;
     }
-
-
 
     virtual lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) {
         sat::literal_vector ls;

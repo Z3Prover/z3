@@ -205,7 +205,7 @@ namespace sat {
     }
 
     clause * solver::mk_clause_core(unsigned num_lits, literal * lits, bool learned) {
-        TRACE("sat", tout << "mk_clause: " << mk_lits_pp(num_lits, lits) << "\n";);
+        TRACE("sat", tout << "mk_clause: " << mk_lits_pp(num_lits, lits) << (learned?" learned":" aux") << "\n";);
         if (!learned) {
             bool keep = simplify_clause(num_lits, lits);
             TRACE("sat_mk_clause", tout << "mk_clause (after simp), keep: " << keep << "\n" << mk_lits_pp(num_lits, lits) << "\n";);
@@ -515,7 +515,7 @@ namespace sat {
 
     void solver::assign_core(literal l, justification j) {
         SASSERT(value(l) == l_undef);
-        TRACE("sat_assign_core", tout << l << "\n";);
+        TRACE("sat_assign_core", tout << l << " " << j << " level: " << scope_lvl() << "\n";);
         if (at_base_lvl())
             j = justification(); // erase justification for level 0
         m_assignment[l.index()]    = l_true;
@@ -1086,9 +1086,7 @@ namespace sat {
         }
 
         TRACE("sat",
-              for (unsigned i = 0; i < num_lits; ++i)
-                  tout << lits[i] << " ";
-              tout << "\n";
+              tout << literal_vector(num_lits, lits) << "\n";
               if (!m_user_scope_literals.empty()) {
                   tout << "user literals: " << m_user_scope_literals << "\n";
               }
@@ -1705,7 +1703,7 @@ namespace sat {
         m_conflicts_since_restart++;
         m_conflicts_since_gc++;
 
-        m_conflict_lvl = get_max_lvl(m_not_l == literal() ? m_not_l : ~m_not_l, m_conflict);
+        m_conflict_lvl = get_max_lvl(m_not_l, m_conflict);
         TRACE("sat", tout << "conflict detected at level " << m_conflict_lvl << " for ";
               if (m_not_l == literal()) tout << "null literal\n";
               else tout << m_not_l << "\n";);
@@ -1733,7 +1731,7 @@ namespace sat {
             process_antecedent(m_not_l, num_marks);
         }
 
-        literal consequent = m_not_l == null_literal ? m_not_l : ~m_not_l;
+        literal consequent = m_not_l; 
         justification js   = m_conflict;
 
         do {
@@ -2056,9 +2054,8 @@ namespace sat {
             }
         }
 
-        literal consequent = m_not_l == null_literal ? m_not_l : ~m_not_l;
+        literal consequent = m_not_l;
         justification js   = m_conflict;
-
 
         while (true) {
             process_consequent_for_unsat_core(consequent, js);
@@ -2099,59 +2096,32 @@ namespace sat {
     }
 
 
-    unsigned solver::get_max_lvl(literal consequent, justification js) {
-        if (!m_ext)
+    unsigned solver::get_max_lvl(literal not_l, justification js) {
+        if (!m_ext || at_base_lvl())
             return scope_lvl();
-
-        if (at_base_lvl())
-            return 0;
-
-        unsigned r = 0;
-
-        if (consequent != null_literal)
-            r = lvl(consequent);
 
         switch (js.get_kind()) {
         case justification::NONE:
-            break;
         case justification::BINARY:
-            r = std::max(r, lvl(js.get_literal()));
-            break;
         case justification::TERNARY:
-            r = std::max(r, lvl(js.get_literal1()));
-            r = std::max(r, lvl(js.get_literal2()));
-            break;
         case justification::CLAUSE: {
-            clause & c = *(m_cls_allocator.get_clause(js.get_clause_offset()));
-            unsigned i   = 0;
-            if (consequent != null_literal) {
-                SASSERT(c[0] == consequent || c[1] == consequent);
-                if (c[0] == consequent) {
-                    i = 1;
-                }
-                else {
-                    r = std::max(r, lvl(c[0]));
-                    i = 2;
-                }
-            }
-            unsigned sz = c.size();
-            for (; i < sz; i++)
-                r = std::max(r, lvl(c[i]));
-            break;
+            return scope_lvl();
         }
         case justification::EXT_JUSTIFICATION: {
-            fill_ext_antecedents(consequent, js);
+            unsigned r = 0;
+            if (not_l != null_literal)
+                r = lvl(~not_l);
+            fill_ext_antecedents(~not_l, js);
             literal_vector::iterator it  = m_ext_antecedents.begin();
             literal_vector::iterator end = m_ext_antecedents.end();
             for (; it != end; ++it)
                 r = std::max(r, lvl(*it));
-            break;
+            return r;
         }
         default:
             UNREACHABLE();
-            break;
+            return 0;
         }
-        return r;
     }
 
     /**

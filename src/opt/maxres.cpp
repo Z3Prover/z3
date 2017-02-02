@@ -193,7 +193,6 @@ public:
         trace();
         if (is_sat != l_true) return is_sat;
         while (m_lower < m_upper) {
-            if (m_lower >= m_upper) break;
             TRACE("opt", 
                   display_vec(tout, m_asms);
                   s().display(tout);
@@ -206,6 +205,7 @@ public:
             }
             switch (is_sat) {
             case l_true: 
+                SASSERT(is_true(m_asms));
                 found_optimum();
                 return l_true;
             case l_false:
@@ -223,6 +223,7 @@ public:
                 break;
             }
         }
+        found_optimum();
         trace();
         return l_true;
     }
@@ -296,18 +297,24 @@ public:
         }
         else {
             is_sat = check_sat(asms.size(), asms.c_ptr());            
-        }
+        }              
         return is_sat;
     }
 
     lbool check_sat(unsigned sz, expr* const* asms) {
-        return s().check_sat(sz, asms);        
+        lbool r = s().check_sat(sz, asms);        
+        if (r == l_true) {
+            model_ref mdl;
+            s().get_model(mdl);
+            if (mdl.get()) {
+                update_assignment(mdl.get());            
+            }
+        }
+        return r;
     }
 
     void found_optimum() {
         IF_VERBOSE(1, verbose_stream() << "found optimum\n";);
-        s().get_model(m_model);
-        SASSERT(is_true(m_asms));
         rational upper(0);
         for (unsigned i = 0; i < m_soft.size(); ++i) {
             m_assignment[i] = is_true(m_soft[i]);
@@ -745,6 +752,7 @@ public:
             nsoft.push_back(mk_not(m, m_soft[i]));
         }            
         fml = u.mk_lt(nsoft.size(), m_weights.c_ptr(), nsoft.c_ptr(), m_upper);
+        TRACE("opt", tout << "block upper bound " << fml << "\n";);;
         s().assert_expr(fml); 
     }
 
