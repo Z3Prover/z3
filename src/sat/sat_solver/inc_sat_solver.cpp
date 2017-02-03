@@ -208,7 +208,7 @@ public:
     }
     virtual ast_manager& get_manager() const { return m; }
     virtual void assert_expr(expr * t) {
-        TRACE("sat", tout << mk_pp(t, m) << "\n";);
+        TRACE("goal2sat", tout << mk_pp(t, m) << "\n";);
         m_fmls.push_back(t);
     }
     virtual void set_produce_models(bool f) {}
@@ -376,7 +376,7 @@ private:
         init_preprocess();
         SASSERT(g->models_enabled());
         SASSERT(!g->proofs_enabled());
-        TRACE("sat", g->display(tout););
+        TRACE("goal2sat", g->display(tout););
         try {
             (*m_preprocess)(g, m_subgoals, m_mc, m_pc, m_dep_core);
         }
@@ -393,7 +393,7 @@ private:
         }
         g = m_subgoals[0];
         expr_ref_vector atoms(m);
-        TRACE("sat", g->display_with_dependencies(tout););
+        TRACE("goal2sat", g->display_with_dependencies(tout););
         m_goal2sat(*g, m_params, m_solver, m_map, dep2asm, true);
         m_goal2sat.get_interpreted_atoms(atoms);
         if (!atoms.empty()) {

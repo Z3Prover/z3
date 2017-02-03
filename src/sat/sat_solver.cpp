@@ -42,6 +42,7 @@ namespace sat {
         m_asymm_branch(*this, p),
         m_probing(*this, p),
         m_mus(*this),
+        m_drat(*this),
         m_inconsistent(false),
         m_num_frozen(0),
         m_activity_inc(128),
@@ -199,7 +200,11 @@ namespace sat {
     }
 
     void solver::del_clause(clause& c) {
-        if (!c.is_learned()) m_stats.m_non_learned_generation++;
+        if (!c.is_learned()) {
+            m_stats.m_non_learned_generation++;
+        } else if (m_config.m_drat) {
+            m_drat.del_clause(c);
+        }
         m_cls_allocator.del_clause(&c);
         m_stats.m_del_clause++;
     }
@@ -214,9 +219,10 @@ namespace sat {
             }
             ++m_stats.m_non_learned_generation;
         }
-
+        
         switch (num_lits) {
         case 0:
+            if (m_config.m_drat) m_drat.add_empty();
             set_conflict(justification());
             return 0;
         case 1:
@@ -233,6 +239,8 @@ namespace sat {
     }
 
     void solver::mk_bin_clause(literal l1, literal l2, bool learned) {
+        if (learned && m_config.m_drat) 
+            m_drat.add_binary(l1, l2);
         if (propagate_bin_clause(l1, l2)) {
             if (at_base_lvl())
                 return;
@@ -266,6 +274,8 @@ namespace sat {
 
 
     clause * solver::mk_ter_clause(literal * lits, bool learned) {
+        if (learned && m_config.m_drat) 
+            m_drat.add_ternary(lits[0], lits[1], lits[2]);
         m_stats.m_mk_ter_clause++;
         clause * r = m_cls_allocator.mk_clause(3, lits, learned);
         bool reinit = attach_ter_clause(*r);
@@ -309,8 +319,10 @@ namespace sat {
         SASSERT(!learned || r->is_learned());
         bool reinit = attach_nary_clause(*r);
         if (reinit && !learned) push_reinit_stack(*r);
-        if (learned)
+        if (learned) {
             m_learned.push_back(r);
+            if (m_config.m_drat) m_drat.add_clause(*r);
+        }
         else
             m_clauses.push_back(r);
         return r;
@@ -516,8 +528,10 @@ namespace sat {
     void solver::assign_core(literal l, justification j) {
         SASSERT(value(l) == l_undef);
         TRACE("sat_assign_core", tout << l << " " << j << " level: " << scope_lvl() << "\n";);
-        if (at_base_lvl())
+        if (at_base_lvl()) {
             j = justification(); // erase justification for level 0
+            if (m_config.m_drat) m_drat.add_literal(l);
+        }
         m_assignment[l.index()]    = l_true;
         m_assignment[(~l).index()] = l_false;
         bool_var v = l.var();
@@ -2058,6 +2072,10 @@ namespace sat {
             }
             consequent = ~m_not_l;
         }
+        std::cout << "CONFLICT: " << m_core << "\n";
+        display_status(std::cout);
+        ++count;
+        exit(0);
 
         justification js   = m_conflict;
 
@@ -2098,8 +2116,6 @@ namespace sat {
             IF_VERBOSE(2, verbose_stream() << "(sat.core: " << m_core << ")\n";);
         }
 
-        ++count;
-        SASSERT(count == 1);
     }
 
 
@@ -2124,7 +2140,7 @@ namespace sat {
             for (; it != end; ++it)
                 r = std::max(r, lvl(*it));
             if (true || r != scope_lvl() || r != lvl(not_l)) {
-                std::cout << "get max level " << r << " scope level " << scope_lvl() << " lvl(l): " << lvl(not_l) << "\n";
+                // std::cout << "get max level " << r << " scope level " << scope_lvl() << " lvl(l): " << lvl(not_l) << "\n";
             }
             return r;
         }
@@ -2862,12 +2878,14 @@ namespace sat {
     }
 
     void solver::display_units(std::ostream & out) const {
-        unsigned end = init_trail_size();
+        unsigned end = m_trail.size(); // init_trail_size();
         for (unsigned i = 0; i < end; i++) {
             out << m_trail[i] << " ";
-        }
-        if (end != 0)
+            display_justification(out, m_justification[m_trail[i].var()]);
             out << "\n";
+        }
+        //if (end != 0)
+        //    out << "\n";
     }
 
     void solver::display(std::ostream & out) const {
@@ -2885,6 +2903,9 @@ namespace sat {
         out << js;
         if (js.is_clause()) {
             out << *(m_cls_allocator.get_clause(js.get_clause_offset()));
+        }
+        else if (js.is_ext_justification() && m_ext) {
+            m_ext->display_justification(out << " ", js.get_ext_justification_idx());
         }
     }
 

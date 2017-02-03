@@ -33,6 +33,7 @@ Revision History:
 #include"sat_iff3_finder.h"
 #include"sat_probing.h"
 #include"sat_mus.h"
+#include"sat_drat.h"
 #include"sat_par.h"
 #include"params.h"
 #include"statistics.h"
@@ -87,6 +88,7 @@ namespace sat {
         asymm_branch            m_asymm_branch;
         probing                 m_probing;
         mus                     m_mus;           // MUS for minimal core extraction
+        drat                    m_drat;          // DRAT for generating proofs
         bool                    m_inconsistent;
         // A conflict is usually a single justification. That is, a justification
         // for false. If m_not_l is not null_literal, then m_conflict is a
@@ -146,6 +148,7 @@ namespace sat {
         friend class probing;
         friend class iff3_finder;
         friend class mus;
+        friend class drat;
         friend class card_extension;
         friend struct mk_stat;
     public:

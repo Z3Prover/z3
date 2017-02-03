@@ -400,7 +400,7 @@ struct goal2sat::imp {
         sat::bool_var v = m_solver.mk_var(true);
         sat::literal lit(v, sign);
         m_ext->add_at_least(v, lits, k.get_unsigned());
-        TRACE("sat", tout << "root: " << root << " lit: " << lit << "\n";);
+        TRACE("goal2sat", tout << "root: " << root << " lit: " << lit << "\n";);
         if (root) {
             m_result_stack.reset();
             mk_clause(lit);
@@ -616,7 +616,7 @@ struct goal2sat::imp {
                 }                
                 f = m.mk_or(fmls.size(), fmls.c_ptr());
             }
-            TRACE("sat", tout << mk_pp(f, m) << "\n";);
+            TRACE("goal2sat", tout << mk_pp(f, m) << "\n";);
             process(f);
         skip_dep:
             ;

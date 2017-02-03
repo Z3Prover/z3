@@ -73,7 +73,7 @@ namespace sat {
         bool               m_dyn_sub_res;
         bool               m_core_minimize;
         bool               m_core_minimize_partial;
-
+        bool               m_drat;
 
         symbol             m_always_true;
         symbol             m_always_false;

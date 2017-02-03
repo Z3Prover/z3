@@ -8,6 +8,7 @@ z3_add_component(sat
     sat_clause_use_list.cpp
     sat_cleaner.cpp
     sat_config.cpp
+    sat_drat.cpp
     sat_elim_eqs.cpp
     sat_iff3_finder.cpp
     sat_integrity_checker.cpp

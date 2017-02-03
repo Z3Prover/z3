@@ -103,7 +103,8 @@ namespace sat {
         void assign(card& c, literal lit);
         lbool add_assign(card& c, literal lit);
         void watch_literal(card& c, literal lit);
-        void set_conflict(card& c, literal lit);
+        void set_conflict(card& c);
+        literal last_false_literal(card& c);
         void clear_watch(card& c);
         void reset_coeffs();
 
@@ -131,7 +132,7 @@ namespace sat {
         bool validate_assign(literal_vector const& lits, literal lit);
         bool validate_lemma();
         bool validate_unit_propagation(card const& c);
-        bool validate_conflict(literal_vector const& lits);
+        bool validate_conflict(literal_vector const& lits, ineq& p);
 
         ineq m_A, m_B, m_C;
         void active2pb(ineq& p);
@@ -156,6 +157,7 @@ namespace sat {
         virtual void clauses_modifed();
         virtual lbool get_phase(bool_var v);
         virtual std::ostream& display(std::ostream& out) const;
+        virtual std::ostream& display_justification(std::ostream& out, ext_justification_idx idx) const;
         virtual void collect_statistics(statistics& st) const;
         virtual extension* copy(solver* s);
     };

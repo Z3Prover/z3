@@ -94,7 +94,7 @@ namespace sat {
                     alit = c[j];
                 }
             }
-            set_conflict(c, alit);
+            set_conflict(c);
         }
         else if (j == bound) {
             for (unsigned i = 0; i < bound && !s().inconsistent(); ++i) {
@@ -136,32 +136,40 @@ namespace sat {
     }
 
     void card_extension::assign(card& c, literal lit) {
-        if (value(lit) == l_true) {
-            return;
+        switch (value(lit)) {
+        case l_true: 
+            break;
+        case l_false: 
+            set_conflict(c); 
+            break;
+        default:
+            m_stats.m_num_propagations++;
+            //TRACE("sat", tout << "#prop: " << m_stats.m_num_propagations << " - " << c.lit() << " => " << lit << "\n";);
+            SASSERT(validate_unit_propagation(c));
+            s().assign(lit, justification::mk_ext_justification(c.index()));
+            break;
         }
-        m_stats.m_num_propagations++;
-        //TRACE("sat", tout << "#prop: " << m_stats.m_num_propagations << " - " << c.lit() << " => " << lit << "\n";);
-        SASSERT(validate_unit_propagation(c));
-        s().assign(lit, justification::mk_ext_justification(c.index()));
-        
     }
 
     void card_extension::watch_literal(card& c, literal lit) {
-        TRACE("sat", tout << "watch: " << lit << "\n";);
+        TRACE("sat_verbose", tout << "watch: " << lit << "\n";);
         init_watch(lit.var());
         ptr_vector<card>* cards = m_var_infos[lit.var()].m_lit_watch[lit.sign()];
         if (cards == 0) {
             cards = alloc(ptr_vector<card>);
             m_var_infos[lit.var()].m_lit_watch[lit.sign()] = cards;
         }
-        TRACE("sat", tout << "insert: " << lit.var() << " " << lit.sign() << "\n";);
+        TRACE("sat_verbose", tout << "insert: " << lit.var() << " " << lit.sign() << "\n";);
         cards->push_back(&c);
     }
 
-    void card_extension::set_conflict(card& c, literal lit) {
+    void card_extension::set_conflict(card& c) {
+        TRACE("sat", display(tout, c, true); );
         SASSERT(validate_conflict(c));
         m_stats.m_num_conflicts++;
-        if (!resolve_conflict(c, lit)) {            
+        literal lit = last_false_literal(c);
+        if (!resolve_conflict(c, lit)) {   
+            TRACE("sat", tout << "bail out conflict resolution\n";);
             m_conflict.reset();
             m_conflict.push_back(~c.lit()); 
             unsigned sz = c.size();
@@ -169,10 +177,39 @@ namespace sat {
                 m_conflict.push_back(c[i]);
             }
             m_conflict.push_back(lit);
-            SASSERT(validate_conflict(m_conflict));
+            // SASSERT(validate_conflict(m_conflict));
             s().assign(lit, justification::mk_ext_justification(0));
         }
         SASSERT(s().inconsistent());
+    }
+
+    literal card_extension::last_false_literal(card& c) {
+        while (!m_active_var_set.empty()) m_active_var_set.erase();
+        reset_coeffs();
+        for (unsigned i = 0; i < c.size(); ++i) {
+            bool_var v = c[i].var();
+            m_active_var_set.insert(v);
+            m_active_vars.push_back(v);
+            m_coeffs.setx(v, c[i].sign() ? -1 : 1, 0); 
+        }
+        literal_vector const& lits = s().m_trail;
+        for (unsigned i = lits.size(); i > 0; ) {
+            --i;
+            literal lit = lits[i];
+            bool_var v = lit.var();
+            if (m_active_var_set.contains(v) && 
+                (m_coeffs[v] > 0 == lits[i].sign())) {
+                //std::cout << "last literal: " << lit << "\n";       
+                for (unsigned j = 0; j < c.size(); ++j) {
+                    if (~lit == c[j] && j != c.k()-1) {
+                        // std::cout << "POSITION " << j << " bound " << c.k() << "\n";
+                    }
+                }
+                return ~lit;
+            }
+        }
+        UNREACHABLE();
+        return null_literal;
     }
     
     void card_extension::normalize_active_coeffs() {
@@ -244,7 +281,7 @@ namespace sat {
         if (m_conflict_lvl < lvl(c.lit()) || m_conflict_lvl == 0) {
             return false;
         }
-        std::cout << "conflict level: " << m_conflict_lvl << " " << lvl(~alit) << "\n";
+        // std::cout << "conflict level: " << m_conflict_lvl << " " << lvl(~alit) << "\n";
 
         reset_coeffs();
         m_num_marks = 0;
@@ -262,6 +299,8 @@ namespace sat {
             SASSERT(value(consequent) == l_true);
             v = consequent.var();
             int offset = get_abs_coeff(v);
+
+            // TRACE("sat", display(tout, m_A););
 
             if (offset == 0) {
                 goto process_next_resolvent;            
@@ -365,12 +404,14 @@ namespace sat {
             bool_var v = m_active_vars[i];
             slack += get_abs_coeff(v);
         }
+
+        TRACE("sat", display(tout, m_A););
         
         ++idx;
         alit = null_literal;
 #if 1
-        std::cout << c.size() << " >= " << c.k() << "\n";
-        std::cout << m_active_vars.size() << ": " << slack + m_bound << " >= " << m_bound << "\n";
+        // std::cout << c.size() << " >= " << c.k() << "\n";
+        // std::cout << m_active_vars.size() << ": " << slack + m_bound << " >= " << m_bound << "\n";
         while (0 <= slack) {            
             literal lit = lits[idx];
             bool_var v = lit.var();
@@ -432,7 +473,9 @@ namespace sat {
             return false;
         }
         SASSERT(slack < 0);
-        SASSERT(validate_conflict(m_conflict));
+        SASSERT(validate_conflict(m_conflict, m_A));
+
+        TRACE("sat", tout << m_conflict << "\n";);
 
         s().assign(alit, justification::mk_ext_justification(0));
         return true;
@@ -520,7 +563,7 @@ namespace sat {
 
     void card_extension::get_antecedents(literal l, ext_justification_idx idx, literal_vector & r) {
         if (idx == 0) {
-            std::cout << "antecedents0: " << l << " " << m_conflict.size() << "\n";
+            // std::cout << "antecedents0: " << l << " " << m_conflict.size() << "\n";
             SASSERT(m_conflict.back() == l);
             for (unsigned i = 0; i + 1 < m_conflict.size(); ++i) {
                 SASSERT(value(m_conflict[i]) == l_false);
@@ -537,7 +580,7 @@ namespace sat {
                 }
                 SASSERT(found););
 
-            std::cout << "antecedents: " << idx << ": " << l << " " << c.size() - c.k() + 1 << "\n";            
+            // std::cout << "antecedents: " << idx << ": " << l << " " << c.size() - c.k() + 1 << "\n";            
             r.push_back(c.lit());
             SASSERT(value(c.lit()) == l_true);
             for (unsigned i = c.k(); i < c.size(); ++i) {
@@ -552,7 +595,7 @@ namespace sat {
         // literal is assigned to false.        
         unsigned sz = c.size();
         unsigned bound = c.k();
-        TRACE("sat", tout << "assign: " << c.lit() << " " << ~alit << " " << bound << "\n";);
+        TRACE("sat", tout << "assign: " << c.lit() << ": " << ~alit << "@" << lvl(~alit) << "\n";);
 
         SASSERT(0 < bound && bound < sz);
         SASSERT(value(alit) == l_false);
@@ -583,11 +626,11 @@ namespace sat {
         // conflict
         if (bound != index && value(c[bound]) == l_false) {
             TRACE("sat", tout << "conflict " << c[bound] << " " << alit << "\n";);
-            set_conflict(c, alit);
+            set_conflict(c);
             return l_false;
         }
 
-        TRACE("sat", tout << "no swap " << index << " " << alit << "\n";);
+        // TRACE("sat", tout << "no swap " << index << " " << alit << "\n";);
         // there are no literals to swap with,
         // prepare for unit propagation by swapping the false literal into 
         // position bound. Then literals in positions 0..bound-1 have to be
@@ -609,8 +652,8 @@ namespace sat {
         if (v >= m_var_infos.size()) return;
         var_info& vinfo = m_var_infos[v];
         ptr_vector<card>* cards = vinfo.m_lit_watch[!l.sign()];
-        TRACE("sat", tout << "retrieve: " << v << " " << !l.sign() << "\n";);
-        TRACE("sat", tout << "asserted: " << l << " " << (cards ? "non-empty" : "empty") << "\n";);
+        //TRACE("sat", tout << "retrieve: " << v << " " << !l.sign() << "\n";);
+        //TRACE("sat", tout << "asserted: " << l << " " << (cards ? "non-empty" : "empty") << "\n";);
         if (cards != 0  && !cards->empty() && !s().inconsistent())  {
             ptr_vector<card>::iterator it = cards->begin(), it2 = it, end = cards->end();
             for (; it != end; ++it) {
@@ -652,7 +695,7 @@ namespace sat {
     }
 
     void card_extension::pop(unsigned n) {        
-        TRACE("sat", tout << "pop:" << n << "\n";);
+        TRACE("sat_verbose", tout << "pop:" << n << "\n";);
         unsigned new_lim = m_var_lim.size() - n;
         unsigned sz = m_var_lim[new_lim];
         while (m_var_trail.size() > sz) {
@@ -690,9 +733,9 @@ namespace sat {
 
     void card_extension::display_watch(std::ostream& out, bool_var v, bool sign) const {
         watch const* w = m_var_infos[v].m_lit_watch[sign];
-        if (w) {
+        if (w && !w->empty()) {
             watch const& wl = *w;
-            out << "watch: " << literal(v, sign) << " |-> ";
+            out << literal(v, sign) << " |-> ";
             for (unsigned i = 0; i < wl.size(); ++i) {
                 out << wl[i]->lit() << " ";
             }
@@ -708,7 +751,7 @@ namespace sat {
     }
 
     void card_extension::display(std::ostream& out, card& c, bool values) const {
-        out << c.lit();
+        out << c.lit() << "[" << c.size() << "]";
         if (c.lit() != null_literal && values) {
             out << "@(" << value(c.lit());
             if (value(c.lit()) != l_undef) {
@@ -746,6 +789,21 @@ namespace sat {
             if (c) {
                 display(out, *c, false);
             }
+        }
+        return out;
+    }
+
+    std::ostream& card_extension::display_justification(std::ostream& out, ext_justification_idx idx) const {
+        if (idx == 0) {
+            out << "conflict: " << m_conflict;
+        }
+        else {
+            card& c = *m_constraints[idx];
+            out << "bound " << c.lit() << ": ";
+            for (unsigned i = c.k(); i < c.size(); ++i) {
+                out << c[i] << " ";
+            }
+            out << ">= " << c.k();
         }
         return out;
     }
@@ -842,7 +900,6 @@ namespace sat {
     // validate that m_A & m_B implies m_C
 
     bool card_extension::validate_resolvent() {
-        std::cout << "validate resolvent\n";
         u_map<unsigned> coeffs;
         unsigned k = m_A.m_k + m_B.m_k;
         for (unsigned i = 0; i < m_A.m_lits.size(); ++i) {
@@ -899,11 +956,18 @@ namespace sat {
         return true;
     }
 
-    bool card_extension::validate_conflict(literal_vector const& lits) { 
+    bool card_extension::validate_conflict(literal_vector const& lits, ineq& p) { 
         for (unsigned i = 0; i < lits.size(); ++i) {
             if (value(lits[i]) != l_false) return false;
         }
-        return true; 
+        unsigned value = 0;
+        for (unsigned i = 0; i < p.m_lits.size(); ++i) {
+            unsigned coeff = p.m_coeffs[i];
+            if (!lits.contains(p.m_lits[i])) {
+                value += coeff;
+            }
+        }
+        return value < p.m_k;
     }
 
     

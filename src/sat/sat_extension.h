@@ -43,6 +43,7 @@ namespace sat {
         virtual void clauses_modifed() = 0;
         virtual lbool get_phase(bool_var v) = 0;
         virtual std::ostream& display(std::ostream& out) const = 0;
+        virtual std::ostream& display_justification(std::ostream& out, ext_justification_idx idx) const = 0;
         virtual void collect_statistics(statistics& st) const = 0;
         virtual extension* copy(solver* s) = 0;
     };
