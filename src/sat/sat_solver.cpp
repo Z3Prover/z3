@@ -1726,12 +1726,13 @@ namespace sat {
         m_lemma.push_back(null_literal);
 
         unsigned num_marks = 0;
+        literal consequent = null_literal;
         if (m_not_l != null_literal) {
             TRACE("sat_conflict", tout << "not_l: " << m_not_l << "\n";);
             process_antecedent(m_not_l, num_marks);
+            consequent = ~m_not_l;
         }
 
-        literal consequent = m_not_l; 
         justification js   = m_conflict;
 
         do {
@@ -1900,11 +1901,12 @@ namespace sat {
         }
         m_lemma.reset();
         m_lemma.push_back(null_literal); // asserted literal
+        literal consequent = null_literal;
         if (m_not_l != null_literal) {
             TRACE("sat", tout << "not_l: " << m_not_l << "\n";);
             process_antecedent_for_init(m_not_l);
+            consequent = ~m_not_l;
         }
-        literal consequent = m_not_l;
         justification js   = m_conflict;
 
         SASSERT(m_trail.size() > 0);
@@ -2008,6 +2010,7 @@ namespace sat {
     }
 
 
+    static int count = 0;
     void solver::resolve_conflict_for_unsat_core() {
         TRACE("sat", display(tout);
               unsigned level = 0;
@@ -2039,6 +2042,7 @@ namespace sat {
         unsigned old_size = m_unmark.size();
         int idx = skip_literals_above_conflict_level();
 
+        literal consequent = m_not_l;
         if (m_not_l != null_literal) {
             justification js = m_justification[m_not_l.var()];
             TRACE("sat", tout << "not_l: " << m_not_l << "\n";
@@ -2052,9 +2056,9 @@ namespace sat {
             else {
                 process_consequent_for_unsat_core(m_not_l, js);
             }
+            consequent = ~m_not_l;
         }
 
-        literal consequent = m_not_l;
         justification js   = m_conflict;
 
         while (true) {
@@ -2093,6 +2097,9 @@ namespace sat {
             set_model(m_mus.get_model());
             IF_VERBOSE(2, verbose_stream() << "(sat.core: " << m_core << ")\n";);
         }
+
+        ++count;
+        SASSERT(count == 1);
     }
 
 
@@ -2116,6 +2123,9 @@ namespace sat {
             literal_vector::iterator end = m_ext_antecedents.end();
             for (; it != end; ++it)
                 r = std::max(r, lvl(*it));
+            if (true || r != scope_lvl() || r != lvl(not_l)) {
+                std::cout << "get max level " << r << " scope level " << scope_lvl() << " lvl(l): " << lvl(not_l) << "\n";
+            }
             return r;
         }
         default:

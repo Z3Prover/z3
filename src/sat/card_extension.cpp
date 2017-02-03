@@ -234,9 +234,8 @@ namespace sat {
     }
 
     bool card_extension::resolve_conflict(card& c, literal alit) {
-
         bool_var v;
-        m_conflict_lvl = 0;
+        m_conflict_lvl = lvl(~alit);       
         for (unsigned i = c.k(); i < c.size(); ++i) {
             literal lit = c[i];
             SASSERT(value(lit) == l_false);
@@ -245,6 +244,7 @@ namespace sat {
         if (m_conflict_lvl < lvl(c.lit()) || m_conflict_lvl == 0) {
             return false;
         }
+        std::cout << "conflict level: " << m_conflict_lvl << " " << lvl(~alit) << "\n";
 
         reset_coeffs();
         m_num_marks = 0;
@@ -351,10 +351,11 @@ namespace sat {
             --m_num_marks;
         }        
         
+        DEBUG_CODE(for (bool_var i = 0; i < static_cast<bool_var>(s().num_vars()); ++i) SASSERT(!s().is_marked(i)););
         SASSERT(validate_lemma());
 
         normalize_active_coeffs();
-
+        
         if (m_bound > 0 && m_active_vars.empty()) {
             return false;
         }
@@ -367,11 +368,13 @@ namespace sat {
         
         ++idx;
         alit = null_literal;
-#if 0
+#if 1
+        std::cout << c.size() << " >= " << c.k() << "\n";
+        std::cout << m_active_vars.size() << ": " << slack + m_bound << " >= " << m_bound << "\n";
         while (0 <= slack) {            
             literal lit = lits[idx];
             bool_var v = lit.var();
-            if (m_active_vars.contains(v)) {
+            if (m_active_var_set.contains(v)) {
                 int coeff = get_coeff(v);
                 bool append = false;
                 if (coeff < 0 && !lit.sign()) {
@@ -394,6 +397,9 @@ namespace sat {
             SASSERT(idx > 0 || slack < 0);
             --idx;
         }
+        if (alit == null_literal) {
+            return false;
+        }
         if (alit != null_literal) {
             m_conflict.push_back(alit);
         }
@@ -402,7 +408,7 @@ namespace sat {
             SASSERT(i <= idx);
             literal lit = lits[i];
             bool_var v = lit.var();
-            if (m_active_vars.contains(v)) {
+            if (m_active_var_set.contains(v)) {
                 int coeff = get_coeff(v);
                 
                 if (coeff < 0 && !lit.sign()) {
@@ -514,6 +520,7 @@ namespace sat {
 
     void card_extension::get_antecedents(literal l, ext_justification_idx idx, literal_vector & r) {
         if (idx == 0) {
+            std::cout << "antecedents0: " << l << " " << m_conflict.size() << "\n";
             SASSERT(m_conflict.back() == l);
             for (unsigned i = 0; i + 1 < m_conflict.size(); ++i) {
                 SASSERT(value(m_conflict[i]) == l_false);
@@ -529,7 +536,8 @@ namespace sat {
                     found = c[i] == l;
                 }
                 SASSERT(found););
-            
+
+            std::cout << "antecedents: " << idx << ": " << l << " " << c.size() - c.k() + 1 << "\n";            
             r.push_back(c.lit());
             SASSERT(value(c.lit()) == l_true);
             for (unsigned i = c.k(); i < c.size(); ++i) {
@@ -834,6 +842,7 @@ namespace sat {
     // validate that m_A & m_B implies m_C
 
     bool card_extension::validate_resolvent() {
+        std::cout << "validate resolvent\n";
         u_map<unsigned> coeffs;
         unsigned k = m_A.m_k + m_B.m_k;
         for (unsigned i = 0; i < m_A.m_lits.size(); ++i) {
