@@ -207,7 +207,9 @@ namespace sat {
         if (m_config.m_drat) {
             m_drat.del(c);
         }
-        m_cls_allocator.del_clause(&c);
+        else if (!m_config.m_drat || !m_config.m_drat_check) {
+            m_cls_allocator.del_clause(&c);
+        }
         m_stats.m_del_clause++;
     }
 
@@ -276,13 +278,12 @@ namespace sat {
 
 
     clause * solver::mk_ter_clause(literal * lits, bool learned) {
-        if (m_config.m_drat) 
-            m_drat.add(lits[0], lits[1], lits[2], learned);
         m_stats.m_mk_ter_clause++;
         clause * r = m_cls_allocator.mk_clause(3, lits, learned);
         bool reinit = attach_ter_clause(*r);
         if (reinit && !learned) push_reinit_stack(*r);
-        
+        if (m_config.m_drat) m_drat.add(*r, learned);
+
         if (learned)
             m_learned.push_back(r);
         else
@@ -494,6 +495,7 @@ namespace sat {
     void solver::dettach_bin_clause(literal l1, literal l2, bool learned) {
         get_wlist(~l1).erase(watched(l2, learned));
         get_wlist(~l2).erase(watched(l1, learned));
+        if (m_config.m_drat) m_drat.del(l1, l2);       
     }
 
     void solver::dettach_clause(clause & c) {
