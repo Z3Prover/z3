@@ -153,7 +153,7 @@ public:                                                                         
 #define MK_SIMPLE_TACTIC_FACTORY(NAME, ST)  MK_TACTIC_FACTORY(NAME, return ST;)
 
 void exec(tactic & t, goal_ref const & in, goal_ref_buffer & result, model_converter_ref & mc, proof_converter_ref & pc, expr_dependency_ref & core);
-lbool check_sat(tactic & t, goal_ref & g, model_ref & md, proof_ref & pr, expr_dependency_ref & core, std::string & reason_unknown);
+lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, proof_ref & pr, expr_dependency_ref & core, std::string & reason_unknown);
 
 // Throws an exception if goal \c in requires proof generation.
 void fail_if_proof_generation(char const * tactic_name, goal_ref const & in);
