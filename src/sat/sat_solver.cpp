@@ -44,6 +44,7 @@ namespace sat {
         m_mus(*this),
         m_drat(*this),
         m_inconsistent(false),
+        m_searching(false),
         m_num_frozen(0),
         m_activity_inc(128),
         m_case_split_queue(m_activity),
@@ -202,8 +203,9 @@ namespace sat {
     void solver::del_clause(clause& c) {
         if (!c.is_learned()) {
             m_stats.m_non_learned_generation++;
-        } else if (m_config.m_drat) {
-            m_drat.del_clause(c);
+        } 
+        if (m_config.m_drat) {
+            m_drat.del(c);
         }
         m_cls_allocator.del_clause(&c);
         m_stats.m_del_clause++;
@@ -222,7 +224,7 @@ namespace sat {
         
         switch (num_lits) {
         case 0:
-            if (m_config.m_drat) m_drat.add_empty();
+            if (m_config.m_drat) m_drat.add();
             set_conflict(justification());
             return 0;
         case 1:
@@ -239,8 +241,8 @@ namespace sat {
     }
 
     void solver::mk_bin_clause(literal l1, literal l2, bool learned) {
-        if (learned && m_config.m_drat) 
-            m_drat.add_binary(l1, l2);
+        if (m_config.m_drat) 
+            m_drat.add(l1, l2, learned);
         if (propagate_bin_clause(l1, l2)) {
             if (at_base_lvl())
                 return;
@@ -274,8 +276,8 @@ namespace sat {
 
 
     clause * solver::mk_ter_clause(literal * lits, bool learned) {
-        if (learned && m_config.m_drat) 
-            m_drat.add_ternary(lits[0], lits[1], lits[2]);
+        if (m_config.m_drat) 
+            m_drat.add(lits[0], lits[1], lits[2], learned);
         m_stats.m_mk_ter_clause++;
         clause * r = m_cls_allocator.mk_clause(3, lits, learned);
         bool reinit = attach_ter_clause(*r);
@@ -321,10 +323,12 @@ namespace sat {
         if (reinit && !learned) push_reinit_stack(*r);
         if (learned) {
             m_learned.push_back(r);
-            if (m_config.m_drat) m_drat.add_clause(*r);
         }
-        else
+        else {
             m_clauses.push_back(r);
+        }
+        if (m_config.m_drat) 
+            m_drat.add(*r, learned);
         return r;
     }
 
@@ -529,8 +533,9 @@ namespace sat {
         SASSERT(value(l) == l_undef);
         TRACE("sat_assign_core", tout << l << " " << j << " level: " << scope_lvl() << "\n";);
         if (at_base_lvl()) {
+            if (m_config.m_drat) m_drat.add(l, !j.is_none());
+
             j = justification(); // erase justification for level 0
-            if (m_config.m_drat) m_drat.add_literal(l);
         }
         m_assignment[l.index()]    = l_true;
         m_assignment[(~l).index()] = l_false;
@@ -753,6 +758,7 @@ namespace sat {
         if (m_config.m_num_parallel > 1 && !m_par) {
             return check_par(num_lits, lits);
         }
+        flet<bool> _searching(m_searching, true);
 #ifdef CLONE_BEFORE_SOLVING
         if (m_mc.empty()) {
             m_clone = alloc(solver, m_params, 0 /* do not clone extension */);

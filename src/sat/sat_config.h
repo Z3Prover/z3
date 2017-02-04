@@ -74,6 +74,8 @@ namespace sat {
         bool               m_core_minimize;
         bool               m_core_minimize_partial;
         bool               m_drat;
+        symbol             m_drat_file;
+        bool               m_drat_check;
 
         symbol             m_always_true;
         symbol             m_always_false;

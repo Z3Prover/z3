@@ -25,4 +25,7 @@ def_module_params('sat',
                           ('parallel_threads', UINT, 1, 'number of parallel threads to use'),
                           ('cardinality_solver', BOOL, False, 'enable cardinality based solver'),
                           ('dimacs.core', BOOL, False, 'extract core from DIMACS benchmarks'),
-                          ('drat', BOOL, False, 'produce DRAT proofs'),))
+                          ('drat', BOOL, False, 'produce DRAT proofs'),
+                          ('drat.file', SYMBOL, '', 'file to dump DRAT proofs'),
+                          ('drat.check', BOOL, False, 'build up internal proof and check'),
+                       ))

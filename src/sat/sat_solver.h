@@ -90,6 +90,7 @@ namespace sat {
         mus                     m_mus;           // MUS for minimal core extraction
         drat                    m_drat;          // DRAT for generating proofs
         bool                    m_inconsistent;
+        bool                    m_searching;
         // A conflict is usually a single justification. That is, a justification
         // for false. If m_not_l is not null_literal, then m_conflict is a
         // justification for l, and the conflict is union of m_no_l and m_conflict;

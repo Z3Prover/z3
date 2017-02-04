@@ -114,6 +114,8 @@ namespace sat {
         m_core_minimize   = p.core_minimize();
         m_core_minimize_partial   = p.core_minimize_partial();
         m_drat            = p.drat();
+        m_drat_check      = p.drat_check();
+        m_drat_file       = p.drat_file();
         m_dyn_sub_res     = p.dyn_sub_res();
     }
 
