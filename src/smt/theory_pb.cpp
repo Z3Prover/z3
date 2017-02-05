@@ -811,7 +811,7 @@ namespace smt {
         }
 
         if (bound == c->size() || bound == 1) {
-            std::cout << "is-clause\n";
+            //
         }
         
         if (bound == c->size()) {
@@ -1827,11 +1827,11 @@ namespace smt {
         lbool is_sat = k.check();
         validating = false;
         std::cout << is_sat << "\n";
-        if (is_sat != l_false) {
+        if (is_sat == l_true) {
             std::cout << A << "\n";
             std::cout << B << "\n";
         }
-        SASSERT(is_sat == l_false);
+        SASSERT(is_sat != l_true);
         return true;
     }
 

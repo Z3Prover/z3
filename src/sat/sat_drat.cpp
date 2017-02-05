@@ -52,6 +52,7 @@ namespace sat {
         case drat::status::learned:  return out << "l";
         case drat::status::asserted: return out << "a";
         case drat::status::deleted:  return out << "d";
+        case drat::status::external: return out << "e";
         default: return out;
         }
     }
@@ -60,16 +61,11 @@ namespace sat {
         if (is_cleaned(n, c)) return;
         switch (st) {
         case status::asserted: return;
+        case status::external: return; // requires extension to drat format.
         case status::learned: break;
         case status::deleted: (*m_out) << "d "; break;
         }
-        literal last = null_literal;
-        for (unsigned i = 0; i < n; ++i) {
-            if (c[i] != last) {
-                (*m_out) << c[i] << " ";
-                last = c[i];
-            }
-        }
+        for (unsigned i = 0; i < n; ++i) (*m_out) << c[i] << " ";
         (*m_out) << "0\n";
     }
 
@@ -186,7 +182,6 @@ namespace sat {
         }
     }
 
-
     void drat::declare(literal l) {
         unsigned n = static_cast<unsigned>(l.var());
         while (m_assignment.size() <= n) {
@@ -196,11 +191,8 @@ namespace sat {
         }
     }
 
-    void drat::verify(unsigned n, literal const* c) {
-        if (m_inconsistent) {
-            std::cout << "inconsistent\n";
-            return;
-        }
+    bool drat::is_drup(unsigned n, literal const* c) {
+        if (m_inconsistent || n == 0) return true;
         unsigned num_units = m_units.size();
         for (unsigned i = 0; !m_inconsistent && i < n; ++i) {            
             assign_propagate(~c[i]);
@@ -211,12 +203,38 @@ namespace sat {
         m_units.resize(num_units);
         bool ok = m_inconsistent;
         m_inconsistent = false;
-        if (ok) {
-            std::cout << "Verified\n";
+        return ok;
+    }
+
+    bool drat::is_drat(unsigned n, literal const* c) {
+        if (m_inconsistent || n == 0) return true;
+        literal l = c[0];
+        literal_vector lits(n - 1, c + 1);
+        for (unsigned i = 0; m_proof.size(); ++i) {
+            status st = m_status[i];
+            if (m_proof[i] && (st == status::asserted || st == status::external)) {
+                clause& c = *m_proof[i];
+                unsigned j = 0;
+                for (; j < c.size() && c[j] != ~l; ++j) {}
+                if (j != c.size()) {
+                    lits.append(j, c.begin());
+                    lits.append(c.size() - j - 1, c.begin() + j + 1);
+                    if (!is_drup(lits.size(), lits.c_ptr())) return false;
+                    lits.resize(n - 1);
+                }
+            }
+        }
+        return true;
+    }
+
+    void drat::verify(unsigned n, literal const* c) {
+        if (is_drup(n, c) || is_drat(n, c)) {
+            std::cout << "Verified\n";            
         }
         else {
             std::cout << "Verification failed\n";
             display(std::cout);
+            exit(0);
         }
     }
 
@@ -356,11 +374,18 @@ namespace sat {
         if (m_out) dump(c.size(), c.begin(), st);
         if (s.m_config.m_drat_check) append(c, get_status(learned));
     }
-    void drat::add(unsigned n, literal const* lits, unsigned m, premise * const* premises) {
+    void drat::add(literal_vector const& lits, svector<premise> const& premises) {
         if (s.m_config.m_drat_check) {
-            clause* c = s.m_cls_allocator.mk_clause(n, lits, true);
-            append(*c, status::external);
-        }        
+            switch (lits.size()) {
+            case 0: add(); break;
+            case 1: append(lits[0], status::external); break;
+            default: {
+                clause* c = s.m_cls_allocator.mk_clause(lits.size(), lits.c_ptr(), true);
+                append(*c, status::external);
+                break;
+            }
+            }
+        }                        
     }
     void drat::del(literal l) {
         if (m_out) dump(1, &l, status::deleted);

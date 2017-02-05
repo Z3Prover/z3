@@ -138,6 +138,7 @@ namespace sat {
 
     typedef svector<lbool> model;
 
+    inline void negate(literal_vector& ls) { for (unsigned i = 0; i < ls.size(); ++i) ls[i].neg(); }
     inline lbool value_at(bool_var v, model const & m) { return m[v]; }
     inline lbool value_at(literal l, model const & m) { lbool r = value_at(l.var(), m); return l.sign() ? ~r : r; }
 

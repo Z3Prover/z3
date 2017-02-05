@@ -21,15 +21,22 @@ Notes:
 
 namespace sat {
     class drat {
-        enum status { asserted, learned, deleted, external };
-        typedef ptr_vector<clause> watch;
+    public:
+        struct s_ext {};
+        struct s_unit {};
         struct premise {
             enum { t_clause, t_unit, t_ext } m_type;
-            union evidence {
+            union {
                 clause* m_clause;
                 literal m_literal;                
-            } m_evidence;
+            };
+            premise(s_ext, literal l): m_type(t_ext), m_literal(l) {}
+            premise(s_unit, literal l): m_type(t_unit), m_literal(l) {}
+            premise(clause* c): m_type(t_clause), m_clause(c) {}
         };
+    private:
+        enum status { asserted, learned, deleted, external };
+        typedef ptr_vector<clause> watch;
         solver& s;
         std::ostream*           m_out;
         ptr_vector<clause>      m_proof;
@@ -53,6 +60,8 @@ namespace sat {
         void assign_propagate(literal l);
         void del_watch(clause& c, literal l);
         void verify(unsigned n, literal const* c);
+        bool is_drup(unsigned n, literal const* c);
+        bool is_drat(unsigned n, literal const* c);
         lbool value(literal l) const; 
         void trace(std::ostream& out, unsigned n, literal const* c, status st);
         void display(std::ostream& out) const;
@@ -64,7 +73,7 @@ namespace sat {
         void add(literal l, bool learned);
         void add(literal l1, literal l2, bool learned);
         void add(clause& c, bool learned);
-        void add(unsigned n, literal const* c, unsigned m, premise* const* premises);
+        void add(literal_vector const& c, svector<premise> const& premises);
         
         void del(literal l);
         void del(literal l1, literal l2);

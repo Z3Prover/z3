@@ -1739,11 +1739,17 @@ namespace sat {
             return false;
         }
 
-        m_lemma.reset();
-
         forget_phase_of_vars(m_conflict_lvl);
 
+        if (m_ext && m_ext->resolve_conflict()) {
+            learn_lemma_and_backjump();
+            return true;
+        }
+
+        m_lemma.reset();
+
         unsigned idx = skip_literals_above_conflict_level();
+
         // save space for first uip
         m_lemma.push_back(null_literal);
 
@@ -1820,6 +1826,11 @@ namespace sat {
         while (num_marks > 0);
 
         m_lemma[0] = ~consequent;
+        learn_lemma_and_backjump();
+        return true;
+    }
+
+    void solver::learn_lemma_and_backjump() {
         TRACE("sat_lemma", tout << "new lemma size: " << m_lemma.size() << "\n" << m_lemma << "\n";);
 
         if (m_config.m_minimize_lemmas) {
@@ -1851,7 +1862,6 @@ namespace sat {
         }
         decay_activity();
         updt_phase_counters();
-        return true;
     }
 
     void solver::process_antecedent_for_unsat_core(literal antecedent) {
@@ -1917,122 +1927,6 @@ namespace sat {
         }
     }
 
-    bool solver::resolve_conflict_for_init() {
-        if (m_conflict_lvl == 0) {
-            return false;
-        }
-        m_lemma.reset();
-        m_lemma.push_back(null_literal); // asserted literal
-        literal consequent = null_literal;
-        if (m_not_l != null_literal) {
-            TRACE("sat", tout << "not_l: " << m_not_l << "\n";);
-            process_antecedent_for_init(m_not_l);
-            consequent = ~m_not_l;
-        }
-        justification js   = m_conflict;
-
-        SASSERT(m_trail.size() > 0);
-        unsigned idx = m_trail.size();
-        while (process_consequent_for_init(consequent, js)) {
-            while (true) {
-                --idx;
-                literal l = m_trail[idx];
-                if (is_marked(l.var()))
-                    break;
-                SASSERT(idx > 0);
-            }
-            consequent     = m_trail[idx];
-            bool_var c_var = consequent.var();
-            if (lvl(consequent) == 0) {
-                return false;
-            }
-            SASSERT(m_conflict_lvl == 1);
-            js = m_justification[c_var];
-            reset_mark(c_var);
-        }
-
-        unsigned new_scope_lvl = 0;
-        m_lemma[0] = ~consequent;
-        for (unsigned i = 1; i < m_lemma.size(); ++i) {
-            bool_var var = m_lemma[i].var();
-            if (is_marked(var)) {
-                reset_mark(var);
-                new_scope_lvl = std::max(new_scope_lvl, lvl(var));
-            }
-            else {
-                m_lemma[i] = m_lemma.back();
-                m_lemma.pop_back();
-                --i;
-            }
-        }
-        TRACE("sat", tout << "lemma: " << m_lemma << "\n"; display(tout); tout << "assignment:\n"; display_assignment(tout););
-        if (new_scope_lvl == 0) {
-            pop_reinit(m_scope_lvl);
-        }
-        else {
-            unassign_vars(idx);
-        }
-        mk_clause_core(m_lemma.size(), m_lemma.c_ptr(), true);
-        TRACE("sat", tout << "Trail: " << m_trail << "\n";);
-        m_inconsistent = false;
-        return true;
-    }
-
-    bool solver::process_consequent_for_init(literal consequent, justification const& js) {
-        switch (js.get_kind()) {
-        case justification::NONE:
-            return false;
-        case justification::BINARY:
-            process_antecedent_for_init(~(js.get_literal()));
-            break;
-        case justification::TERNARY:
-            process_antecedent_for_init(~(js.get_literal1()));
-            process_antecedent_for_init(~(js.get_literal2()));
-            break;
-        case justification::CLAUSE: {
-            clause & c = *(m_cls_allocator.get_clause(js.get_clause_offset()));
-            unsigned i   = 0;
-            if (consequent != null_literal) {
-                SASSERT(c[0] == consequent || c[1] == consequent);
-                if (c[0] == consequent) {
-                    i = 1;
-                }
-                else {
-                    process_antecedent_for_init(~c[0]);
-                    i = 2;
-                }
-            }
-            unsigned sz  = c.size();
-            for (; i < sz; i++)
-                process_antecedent_for_init(~c[i]);
-            break;
-        }
-        case justification::EXT_JUSTIFICATION: {
-            fill_ext_antecedents(consequent, js);
-            literal_vector::iterator it  = m_ext_antecedents.begin();
-            literal_vector::iterator end = m_ext_antecedents.end();
-            for (; it != end; ++it)
-                process_antecedent_for_init(*it);
-            break;
-        }
-        default:
-            UNREACHABLE();
-            break;
-        }
-        return true;
-    }
-
-    void solver::process_antecedent_for_init(literal antecedent) {
-        bool_var var     = antecedent.var();
-        SASSERT(var < num_vars());
-        if (!is_marked(var) && lvl(var) > 0) {
-            mark(var);
-            m_lemma.push_back(~antecedent);
-        }
-    }
-
-
-    static int count = 0;
     void solver::resolve_conflict_for_unsat_core() {
         TRACE("sat", display(tout);
               unsigned level = 0;
@@ -2080,12 +1974,8 @@ namespace sat {
             }
             consequent = ~m_not_l;
         }
-        std::cout << "CONFLICT: " << m_core << "\n";
-        display_status(std::cout);
-        ++count;
-        exit(0);
 
-        justification js   = m_conflict;
+        justification js = m_conflict;
 
         while (true) {
             process_consequent_for_unsat_core(consequent, js);
@@ -2140,16 +2030,13 @@ namespace sat {
         }
         case justification::EXT_JUSTIFICATION: {
             unsigned r = 0;
-            if (not_l != null_literal)
-                r = lvl(~not_l);
+            SASSERT(not_l != null_literal);
+            r = lvl(not_l);
             fill_ext_antecedents(~not_l, js);
             literal_vector::iterator it  = m_ext_antecedents.begin();
             literal_vector::iterator end = m_ext_antecedents.end();
             for (; it != end; ++it)
                 r = std::max(r, lvl(*it));
-            if (true || r != scope_lvl() || r != lvl(not_l)) {
-                // std::cout << "get max level " << r << " scope level " << scope_lvl() << " lvl(l): " << lvl(not_l) << "\n";
-            }
             return r;
         }
         default:

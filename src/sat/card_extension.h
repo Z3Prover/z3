@@ -94,8 +94,9 @@ namespace sat {
         svector<bool_var> m_active_vars;
         int               m_bound;
         tracked_uint_set  m_active_var_set;
-        literal_vector    m_conflict;
+        literal_vector    m_lemma;
         literal_vector    m_literals;
+        unsigned          m_num_propagations_since_pop;
 
         solver& s() const { return *m_solver; }
         void init_watch(card& c, bool is_true);
@@ -103,7 +104,7 @@ namespace sat {
         void assign(card& c, literal lit);
         lbool add_assign(card& c, literal lit);
         void watch_literal(card& c, literal lit);
-        void set_conflict(card& c);
+        void set_conflict(card& c, literal lit);
         literal last_false_literal(card& c);
         void clear_watch(card& c);
         void reset_coeffs();
@@ -122,9 +123,8 @@ namespace sat {
 
         literal_vector& get_literals() { m_literals.reset(); return m_literals; }
         literal get_asserting_literal(literal conseq);
-        bool resolve_conflict(card& c, literal alit);
         void process_antecedent(literal l, int offset);
-        void process_card(card& c, int offset);
+        bool process_card(card& c, int offset);
         void cut();
 
         // validation utilities
@@ -148,6 +148,7 @@ namespace sat {
         virtual void set_solver(solver* s) { m_solver = s; }
         void    add_at_least(bool_var v, literal_vector const& lits, unsigned k);
         virtual void propagate(literal l, ext_constraint_idx idx, bool & keep);
+        virtual bool resolve_conflict();
         virtual void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r);
         virtual void asserted(literal l);
         virtual check_result check();

@@ -37,6 +37,7 @@ namespace sat {
         virtual void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r) = 0;
         virtual void asserted(literal l) = 0;
         virtual check_result check() = 0;
+        virtual bool resolve_conflict() { return false; } // stores result in sat::solver::m_lemma
         virtual void push() = 0;
         virtual void pop(unsigned n) = 0;
         virtual void simplify() = 0;
