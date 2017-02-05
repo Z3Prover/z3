@@ -200,7 +200,8 @@ lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, p
 
     if (is_decided_sat(r)) {
         if (models_enabled) {
-            (*mc)(labels, 0);
+            if (mc)
+                (*mc)(labels, 0);
             model_converter2model(m, mc.get(), md);
             if (!md) {
                 // create empty model.
