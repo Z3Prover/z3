@@ -109,7 +109,7 @@ private:
             TRACE("sine", tout << *constit; tout << "\n";);
         }
         bool matched = false;
-        for (int i = 0; i < q->get_num_patterns(); i++) {
+        for (unsigned i = 0; i < q->get_num_patterns(); i++) {
             bool p_matched = true;
             ptr_vector<expr> stack;
             expr *curr;
@@ -129,7 +129,7 @@ private:
                         next_consts.push_back(f);
                         break;
                     }
-                    for (int j = 0; j < a->get_num_args(); j++) {
+                    for (unsigned j = 0; j < a->get_num_args(); j++) {
                         stack.push_back(a->get_arg(j));
                     }
                 }
@@ -148,7 +148,7 @@ private:
         obj_map<func_decl, obj_pair_hashtable<expr, expr> > const2quantifier;
         obj_hashtable<func_decl> consts;
         vector<t_work_item> stack;
-        for (int i = 0; i < g->size(); i++) {
+        for (unsigned i = 0; i < g->size(); i++) {
             stack.push_back(work_item(g->form(i), g->form(i)));
         }
         t_work_item curr;
@@ -181,7 +181,7 @@ private:
                         exp2const[curr.second].insert(f);
                     }
                 }
-                for (int i = 0; i < a->get_num_args(); i++) {
+                for (unsigned i = 0; i < a->get_num_args(); i++) {
                     stack.push_back(work_item(a->get_arg(i), curr.second));
                 }
             }
@@ -232,7 +232,7 @@ private:
                 }
             }
         }
-        for (int i = 0; i < g->size(); i++) {
+        for (unsigned i = 0; i < g->size(); i++) {
             if (visited.contains(g->form(i))) {
                 new_exprs.push_back(g->form(i));
             }
