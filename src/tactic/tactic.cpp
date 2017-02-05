@@ -220,7 +220,8 @@ lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, p
     else {
         if (models_enabled) {
           model_converter2model(m, mc.get(), md);
-          (*mc)(labels, 0);
+          if (mc)
+              (*mc)(labels, 0);
         }
         reason_unknown = "incomplete";
         return l_undef;
