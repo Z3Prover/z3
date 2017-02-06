@@ -352,9 +352,6 @@ public:
         while (is_sat == l_false) {
             core.reset();
             s().get_unsat_core(core);
-            expr_ref_vector core1(m);
-            core1.append(core.size(), core.c_ptr());
-            std::cout << core1 << "\n";
             // verify_core(core);
             model_ref mdl;
             get_mus_model(mdl);

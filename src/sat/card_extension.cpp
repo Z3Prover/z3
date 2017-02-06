@@ -378,7 +378,7 @@ namespace sat {
             if (offset > m_bound) {
                 m_coeffs[v] = (get_coeff(v) < 0) ? -m_bound : m_bound;
                 offset = m_bound;
-                // TBD: also adjust coefficient in m_A.
+                DEBUG_CODE(active2pb(m_A););
             }
             SASSERT(value(consequent) == l_true);
 
@@ -424,7 +424,7 @@ namespace sat {
                         m_lemma.push_back(~lit);
                         if (lvl(lit) == m_conflict_lvl) {
                             TRACE("sat", tout << "Bail out on no progress " << lit << "\n";);
-                            IF_VERBOSE(1, verbose_stream() << "bail cardinality lemma\n";);
+                            IF_VERBOSE(3, verbose_stream() << "(sat.card bail resolve)\n";);
                             return false;
                         }
                     }

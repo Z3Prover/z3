@@ -22,6 +22,7 @@ Revision History:
 #include"sat_types.h"
 #include"hashtable.h"
 #include"map.h"
+#include"rlimit.h"
 
 namespace sat {
 
@@ -53,12 +54,25 @@ namespace sat {
         index_set      m_unit_set;
         literal_vector m_lits;
         vector_pool    m_pool;
+
+        scoped_limits      m_scoped_rlimit;
+        vector<reslimit>   m_limits;
+        ptr_vector<solver> m_solvers;
+        
     public:
 
-        par();
+        par(solver& s);
+
+        ~par();
+
+        void init_solvers(solver& s, unsigned num_extra_solvers);
 
         // reserve space
         void reserve(unsigned num_owners, unsigned sz) { m_pool.reserve(num_owners, sz); }
+
+        solver& get_solver(unsigned i) { return *m_solvers[i]; }
+
+        void cancel_solver(unsigned i) { m_limits[i].cancel(); }
 
         // exchange unit literals
         void exchange(solver& s, literal_vector const& in, unsigned& limit, literal_vector& out);

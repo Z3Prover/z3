@@ -50,10 +50,12 @@ namespace sat {
         if (m_tail >= m_size) {
             // move tail to the front.
             for (unsigned i = 0; i < m_heads.size(); ++i) {
+                // the tail could potentially loop around full circle before one of the heads picks up anything.
+                // in this case the we miss the newly inserted record.
                 while (m_heads[i] < capacity) {
                     next(m_heads[i]);
                 }
-                IF_VERBOSE(3, verbose_stream() << owner << ": head: " << m_heads[i] << "\n";);
+                IF_VERBOSE(3, verbose_stream() << owner << ": head: " << m_heads[i] << "\n";);                
             }
             m_tail = 0;            
         }
@@ -75,8 +77,8 @@ namespace sat {
 
     bool par::vector_pool::get_vector(unsigned owner, unsigned& n, unsigned const*& ptr) {
         unsigned head = m_heads[owner];      
-        SASSERT(head < m_size);
         while (head != m_tail) {
+            SASSERT(head < m_size);
             IF_VERBOSE(3, verbose_stream() << owner << ": head: " << head << " tail: " << m_tail << "\n";);
             bool is_self = owner == get_owner(head);
             next(m_heads[owner]);
@@ -86,11 +88,40 @@ namespace sat {
                 return true;
             }
             head = m_heads[owner];
+            if (head == 0 && m_tail >= m_size) {
+                break;
+            }
         }
         return false;
     }
 
-    par::par() {}
+    par::par(solver& s): m_scoped_rlimit(s.rlimit()) {}
+
+    par::~par() {
+        for (unsigned i = 0; i < m_solvers.size(); ++i) {            
+            dealloc(m_solvers[i]);
+        }
+    }
+
+    void par::init_solvers(solver& s, unsigned num_extra_solvers) {
+        unsigned num_threads = num_extra_solvers + 1;
+        m_solvers.resize(num_extra_solvers, 0);
+        symbol saved_phase = s.m_params.get_sym("phase", symbol("caching"));
+        for (unsigned i = 0; i < num_extra_solvers; ++i) {
+            m_limits.push_back(reslimit());
+            s.m_params.set_uint("random_seed", s.m_rand());
+            if (i == 1 + num_threads/2) {
+                s.m_params.set_sym("phase", symbol("random"));
+            }                        
+            m_solvers[i] = alloc(sat::solver, s.m_params, m_limits[i], 0);
+            m_solvers[i]->copy(s);
+            m_solvers[i]->set_par(this, i);
+            m_scoped_rlimit.push_child(&m_solvers[i]->rlimit());            
+        }
+        s.set_par(this, num_extra_solvers);
+        s.m_params.set_sym("phase", saved_phase);        
+    }
+
 
     void par::exchange(solver& s, literal_vector const& in, unsigned& limit, literal_vector& out) {
         if (s.m_par_syncing_clauses) return;
@@ -125,18 +156,16 @@ namespace sat {
     }
 
     void par::share_clause(solver& s, clause const& c) {        
-        if (s.m_par_syncing_clauses) return;
+        if (!enable_add(c) || s.m_par_syncing_clauses) return;
         flet<bool> _disable_sync_clause(s.m_par_syncing_clauses, true);
         unsigned n = c.size();
         unsigned owner = s.m_par_id;
         #pragma omp critical (par_solver)
         {
-            if (enable_add(c)) {
-                IF_VERBOSE(3, verbose_stream() << owner << ": share " <<  c << "\n";);
-                m_pool.begin_add_vector(owner, n);                
-                for (unsigned i = 0; i < n; ++i) {
-                    m_pool.add_vector_elem(c[i].index());
-                }
+            IF_VERBOSE(3, verbose_stream() << owner << ": share " <<  c << "\n";);
+            m_pool.begin_add_vector(owner, n);                
+            for (unsigned i = 0; i < n; ++i) {
+                m_pool.add_vector_elem(c[i].index());
             }
         }
     }

@@ -835,35 +835,21 @@ namespace sat {
     lbool solver::check_par(unsigned num_lits, literal const* lits) {
         int num_threads = static_cast<int>(m_config.m_num_parallel);
         int num_extra_solvers = num_threads - 1;
-        scoped_limits scoped_rlimit(rlimit());
-        vector<reslimit> rlims(num_extra_solvers);
-        ptr_vector<sat::solver> solvers(num_extra_solvers);
-        sat::par par;
-        par.reserve(num_threads, 1 << 9);
-        symbol saved_phase = m_params.get_sym("phase", symbol("caching"));
-        for (int i = 0; i < num_extra_solvers; ++i) {
-            m_params.set_uint("random_seed", m_rand());
-            if (i == 1 + num_threads/2) {
-                m_params.set_sym("phase", symbol("random"));
-            }                        
-            solvers[i] = alloc(sat::solver, m_params, rlims[i], 0);
-            solvers[i]->copy(*this);
-            solvers[i]->set_par(&par, i);
-            scoped_rlimit.push_child(&solvers[i]->rlimit());            
-        }
-        set_par(&par, num_extra_solvers);
-        m_params.set_sym("phase", saved_phase);
+        sat::par par(*this);
+        par.reserve(num_threads, 1 << 16);
+        par.init_solvers(*this, num_extra_solvers);
         int finished_id = -1;
         std::string        ex_msg;
         par_exception_kind ex_kind;
         unsigned error_code = 0;
         lbool result = l_undef;
+        bool canceled = false;
         #pragma omp parallel for
         for (int i = 0; i < num_threads; ++i) {
             try {                
                 lbool r = l_undef;
                 if (i < num_extra_solvers) {
-                    r = solvers[i]->check(num_lits, lits);
+                    r = par.get_solver(i).check(num_lits, lits);
                 }
                 else {
                     r = check(num_lits, lits);
@@ -879,40 +865,40 @@ namespace sat {
                 }
                 if (first) {
                     if (r == l_true && i < num_extra_solvers) {
-                        set_model(solvers[i]->get_model());
+                        set_model(par.get_solver(i).get_model());
                     }
                     else if (r == l_false && i < num_extra_solvers) {
                         m_core.reset();
-                        m_core.append(solvers[i]->get_core());
+                        m_core.append(par.get_solver(i).get_core());
                     }
                     for (int j = 0; j < num_extra_solvers; ++j) {
                         if (i != j) {
-                            rlims[j].cancel();
+                            par.cancel_solver(j);
                         }
+                    }
+                    if (i != num_extra_solvers) {
+                        canceled = rlimit().inc();
+                        rlimit().cancel();
                     }
                 }                
             }
             catch (z3_error & err) {
-                if (i == 0) {
-                    error_code = err.error_code();
-                    ex_kind = ERROR_EX;
-                }
+                error_code = err.error_code();
+                ex_kind = ERROR_EX;                
             }
             catch (z3_exception & ex) {
-                if (i == 0) {
-                    ex_msg = ex.msg();
-                    ex_kind = DEFAULT_EX;
-                }
+                ex_msg = ex.msg();
+                ex_kind = DEFAULT_EX;    
             }
         }
         set_par(0, 0);
         if (finished_id != -1 && finished_id < num_extra_solvers) {
-            m_stats = solvers[finished_id]->m_stats;
+            m_stats = par.get_solver(finished_id).m_stats;
+        }
+        if (!canceled) {
+            rlimit().reset_cancel();
         }
 
-        for (int i = 0; i < num_extra_solvers; ++i) {            
-            dealloc(solvers[i]);
-        }
         if (finished_id == -1) {
             switch (ex_kind) {
             case ERROR_EX: throw z3_error(error_code);
@@ -1728,10 +1714,10 @@ namespace sat {
 
     bool solver::resolve_conflict_core() {
 
-        m_stats.m_conflict++;
         m_conflicts++;
         m_conflicts_since_restart++;
         m_conflicts_since_gc++;
+        m_stats.m_conflict++;
 
         m_conflict_lvl = get_max_lvl(m_not_l, m_conflict);
         TRACE("sat", tout << "conflict detected at level " << m_conflict_lvl << " for ";
@@ -1751,6 +1737,7 @@ namespace sat {
 
         if (m_ext && m_ext->resolve_conflict()) {
             learn_lemma_and_backjump();
+            m_stats.m_conflict--;
             return true;
         }
 
