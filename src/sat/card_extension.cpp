@@ -181,35 +181,6 @@ namespace sat {
         s().set_conflict(justification::mk_ext_justification(c.index()), ~lit);
         SASSERT(s().inconsistent());
     }
-
-    literal card_extension::last_false_literal(card& c) {
-        while (!m_active_var_set.empty()) m_active_var_set.erase();
-        reset_coeffs();
-        for (unsigned i = 0; i < c.size(); ++i) {
-            bool_var v = c[i].var();
-            m_active_var_set.insert(v);
-            m_active_vars.push_back(v);
-            m_coeffs.setx(v, c[i].sign() ? -1 : 1, 0); 
-        }
-        literal_vector const& lits = s().m_trail;
-        for (unsigned i = lits.size(); i > 0; ) {
-            --i;
-            literal lit = lits[i];
-            bool_var v = lit.var();
-            if (m_active_var_set.contains(v) && 
-                (m_coeffs[v] > 0 == lits[i].sign())) {
-                //std::cout << "last literal: " << lit << "\n";       
-                for (unsigned j = 0; j < c.size(); ++j) {
-                    if (~lit == c[j] && j != c.k()-1) {
-                        // std::cout << "POSITION " << j << " bound " << c.k() << "\n";
-                    }
-                }
-                return ~lit;
-            }
-        }
-        UNREACHABLE();
-        return null_literal;
-    }
     
     void card_extension::normalize_active_coeffs() {
         while (!m_active_var_set.empty()) m_active_var_set.erase();
@@ -252,11 +223,9 @@ namespace sat {
         }
         // reduce coefficient to be no larger than bound.
         if (coeff1 > m_bound) {
-            //if (m_bound > 1) std::cout << m_bound << " " << coeff1 << "\n";
             m_coeffs[v] = m_bound;
         }
         else if (coeff1 < 0 && -coeff1 > m_bound) {
-            //if (m_bound > 1) std::cout << m_bound << " " << coeff1 << "\n";
             m_coeffs[v] = -m_bound;
         }
     }
@@ -302,19 +271,19 @@ namespace sat {
         DEBUG_CODE(active2pb(m_A););
 
         do {
-            // TRACE("sat", display(tout, m_A););
 
             if (offset == 0) {
                 goto process_next_resolvent;            
             }
             // TBD: need proper check for overflow.
             if (offset > (1 << 12)) {
-                // std::cout << "offset: " << offset << "\n";
                 goto bail_out;
             }
 
             ++num_steps;
 
+            // TRACE("sat", display(tout, m_A););
+            TRACE("sat", tout << "process consequent: " << consequent << ":\n"; s().display_justification(tout, js) << "\n";);
             SASSERT(offset > 0);
             SASSERT(m_bound >= 0);
 
@@ -366,7 +335,7 @@ namespace sat {
                 card& c = *m_constraints[index];
                 m_bound += offset * c.k();
                 if (!process_card(c, offset)) {
-                    std::cout << "failed to process card\n";
+                    TRACE("sat", tout << "failed to process card\n";);
                     goto bail_out;
                 }
                 break;
@@ -378,11 +347,13 @@ namespace sat {
             
             SASSERT(validate_lemma());            
 
+
             DEBUG_CODE(
                 active2pb(m_C);
-                SASSERT(validate_resolvent());
+                //SASSERT(validate_resolvent());
                 m_A = m_C;);
 
+            TRACE("sat", display(tout << "conflict:\n", m_A););
             // cut();
 
         process_next_resolvent:
@@ -404,31 +375,32 @@ namespace sat {
             --m_num_marks;
             js = s().m_justification[v];
             offset = get_abs_coeff(v);
+            if (offset > m_bound) {
+                m_coeffs[v] = (get_coeff(v) < 0) ? -m_bound : m_bound;
+                offset = m_bound;
+                // TBD: also adjust coefficient in m_A.
+            }
             SASSERT(value(consequent) == l_true);
+
         }        
         while (m_num_marks > 0);
-
-        std::cout << m_num_propagations_since_pop << " " << num_steps << " " << num_card << "\n";
-        // std::cout << consequent << "\n";
         
         DEBUG_CODE(for (bool_var i = 0; i < static_cast<bool_var>(s().num_vars()); ++i) SASSERT(!s().is_marked(i)););
         SASSERT(validate_lemma());
 
         normalize_active_coeffs();
         
+        if (consequent == null_literal) {
+            return false;
+        }
         int slack = -m_bound;
         for (unsigned i = 0; i < m_active_vars.size(); ++i) { 
             bool_var v = m_active_vars[i];
             slack += get_abs_coeff(v);
         }
-
-        TRACE("sat", display(tout, m_A););
         
-        ++idx;
         consequent = null_literal;
-
-        // std::cout << c.size() << " >= " << c.k() << "\n";
-        // std::cout << m_active_vars.size() << ": " << slack + m_bound << " >= " << m_bound << "\n";
+        ++idx;
 
         while (0 <= slack) {            
             literal lit = lits[idx];
@@ -450,6 +422,11 @@ namespace sat {
                     }
                     else {
                         m_lemma.push_back(~lit);
+                        if (lvl(lit) == m_conflict_lvl) {
+                            TRACE("sat", tout << "Bail out on no progress " << lit << "\n";);
+                            IF_VERBOSE(1, verbose_stream() << "bail cardinality lemma\n";);
+                            return false;
+                        }
                     }
                 }
             }
@@ -460,7 +437,6 @@ namespace sat {
         SASSERT(slack < 0);
 
         if (consequent == null_literal) {
-            std::cout << "null literal: " << m_lemma.empty() << "\n";
             if (!m_lemma.empty()) return false;
         }
         else {
@@ -473,8 +449,7 @@ namespace sat {
             svector<drat::premise> ps; // TBD fill in
             s().m_drat.add(m_lemma, ps);
         }
-
-        // std::cout << m_lemma << "\n";
+        
         s().m_lemma.reset();
         s().m_lemma.append(m_lemma);
         for (unsigned i = 1; i < m_lemma.size(); ++i) {
@@ -575,7 +550,6 @@ namespace sat {
             }
             SASSERT(found););
         
-        // std::cout << "antecedents: " << idx << ": " << l << " " << c.size() - c.k() + 1 << "\n";            
         r.push_back(c.lit());
         SASSERT(value(c.lit()) == l_true);
         for (unsigned i = c.k(); i < c.size(); ++i) {
@@ -788,17 +762,12 @@ namespace sat {
     }
 
     std::ostream& card_extension::display_justification(std::ostream& out, ext_justification_idx idx) const {
-        if (idx == 0) {
-            out << "conflict: " << m_lemma;
+        card& c = *m_constraints[idx];
+        out << "bound " << c.lit() << ": ";
+        for (unsigned i = 0; i < c.size(); ++i) {
+            out << c[i] << " ";
         }
-        else {
-            card& c = *m_constraints[idx];
-            out << "bound " << c.lit() << ": ";
-            for (unsigned i = c.k(); i < c.size(); ++i) {
-                out << c[i] << " ";
-            }
-            out << ">= " << c.k();
-        }
+        out << ">= " << c.k();
         return out;
     }
 
@@ -932,22 +901,29 @@ namespace sat {
             literal lit = m_C.m_lits[i];
             unsigned coeff;
             if (coeffs.find(lit.index(), coeff)) {
-                SASSERT(coeff <= m_C.m_coeffs[i] || m_C.m_coeffs[i] == m_C.m_k);
+                if (coeff > m_C.m_coeffs[i] && m_C.m_coeffs[i] < m_C.m_k) {
+                    std::cout << i << ": " << m_C.m_coeffs[i] << " " << m_C.m_k << "\n";
+                    goto violated;
+                }
                 coeffs.remove(lit.index());
             }
         }
-        if (!coeffs.empty() || m_C.m_k > k) {
-            display(std::cout, m_A);
-            display(std::cout, m_B);
-            display(std::cout, m_C);
-            u_map<unsigned>::iterator it = coeffs.begin(), end = coeffs.end();
-            for (; it != end; ++it) {
-                std::cout << to_literal(it->m_key) << ": " << it->m_value << "\n";
-            }
-        }
+        if (!coeffs.empty()) goto violated;
+        if (m_C.m_k > k) goto violated;
         SASSERT(coeffs.empty());
         SASSERT(m_C.m_k <= k);
         return true;
+
+    violated:
+        display(std::cout, m_A);
+        display(std::cout, m_B);
+        display(std::cout, m_C);
+        u_map<unsigned>::iterator it = coeffs.begin(), end = coeffs.end();
+        for (; it != end; ++it) {
+            std::cout << to_literal(it->m_key) << ": " << it->m_value << "\n";
+        }
+        
+        return false;
     }
 
     bool card_extension::validate_conflict(literal_vector const& lits, ineq& p) { 

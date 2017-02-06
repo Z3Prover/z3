@@ -134,9 +134,11 @@ namespace sat {
         literal_set             m_assumption_set;   // set of enabled assumptions
         literal_vector          m_core;             // unsat core
 
+        unsigned                m_par_id;        
         unsigned                m_par_limit_in;
         unsigned                m_par_limit_out;
         unsigned                m_par_num_vars;
+        bool                    m_par_syncing_clauses;
 
         void del_clauses(clause * const * begin, clause * const * end);
 
@@ -151,6 +153,7 @@ namespace sat {
         friend class mus;
         friend class drat;
         friend class card_extension;
+        friend class par;
         friend struct mk_stat;
     public:
         solver(params_ref const & p, reslimit& l, extension * ext);
@@ -257,7 +260,7 @@ namespace sat {
             m_num_checkpoints = 0;
             if (memory::get_allocation_size() > m_config.m_max_memory) throw solver_exception(Z3_MAX_MEMORY_MSG);
         }
-        void set_par(par* p);
+        void set_par(par* p, unsigned id);
         bool canceled() { return !m_rlimit.inc(); }
         config const& get_config() { return m_config; }
         extension* get_extension() const { return m_ext.get(); }
@@ -525,7 +528,7 @@ namespace sat {
         void display_dimacs(std::ostream & out) const;
         void display_wcnf(std::ostream & out, unsigned sz, literal const* lits, unsigned const* weights) const;
         void display_assignment(std::ostream & out) const;
-        void display_justification(std::ostream & out, justification const& j) const;
+        std::ostream& display_justification(std::ostream & out, justification const& j) const;
 
     protected:
         void display_binary(std::ostream & out) const;

@@ -36,6 +36,8 @@ namespace sat {
         m_config(p),
         m_ext(ext),
         m_par(0),
+        m_par_syncing_clauses(false),
+        m_par_id(0),
         m_cleaner(*this),
         m_simplifier(*this, p),
         m_scc(*this, p),
@@ -234,6 +236,7 @@ namespace sat {
             return 0;
         case 2:
             mk_bin_clause(lits[0], lits[1], learned);
+            if (learned && m_par) m_par->share_clause(*this, lits[0], lits[1]);
             return 0;
         case 3:
             return mk_ter_clause(lits, learned);
@@ -836,6 +839,7 @@ namespace sat {
         vector<reslimit> rlims(num_extra_solvers);
         ptr_vector<sat::solver> solvers(num_extra_solvers);
         sat::par par;
+        par.reserve(num_threads, 1 << 9);
         symbol saved_phase = m_params.get_sym("phase", symbol("caching"));
         for (int i = 0; i < num_extra_solvers; ++i) {
             m_params.set_uint("random_seed", m_rand());
@@ -844,10 +848,10 @@ namespace sat {
             }                        
             solvers[i] = alloc(sat::solver, m_params, rlims[i], 0);
             solvers[i]->copy(*this);
-            solvers[i]->set_par(&par);
+            solvers[i]->set_par(&par, i);
             scoped_rlimit.push_child(&solvers[i]->rlimit());            
         }
-        set_par(&par);
+        set_par(&par, num_extra_solvers);
         m_params.set_sym("phase", saved_phase);
         int finished_id = -1;
         std::string        ex_msg;
@@ -901,7 +905,7 @@ namespace sat {
                 }
             }
         }
-        set_par(0);
+        set_par(0, 0);
         if (finished_id != -1 && finished_id < num_extra_solvers) {
             m_stats = solvers[finished_id]->m_stats;
         }
@@ -923,7 +927,9 @@ namespace sat {
       \brief import lemmas/units from parallel sat solvers.
      */
     void solver::exchange_par() {
-        if (m_par) {
+        if (m_par && at_base_lvl()) m_par->get_clauses(*this);
+        if (m_par && at_base_lvl()) {
+            // std::cout << scope_lvl() << " " << search_lvl() << "\n";
             SASSERT(scope_lvl() == search_lvl());
             // TBD: import also dependencies of assumptions.
             unsigned sz = init_trail_size();
@@ -937,7 +943,7 @@ namespace sat {
                 }
             }
             m_par_limit_out = sz;
-            m_par->exchange(out, m_par_limit_in, in);
+            m_par->exchange(*this, out, m_par_limit_in, in);
             for (unsigned i = 0; !inconsistent() && i < in.size(); ++i) {
                 literal lit = in[i];
                 SASSERT(lit.var() < m_par_num_vars);
@@ -952,11 +958,13 @@ namespace sat {
         }
     }
 
-    void solver::set_par(par* p) {
+    void solver::set_par(par* p, unsigned id) {
         m_par = p;
         m_par_num_vars = num_vars();
         m_par_limit_in = 0;
         m_par_limit_out = 0;
+        m_par_id = id; 
+        m_par_syncing_clauses = false;
     }
 
     bool_var solver::next_var() {
@@ -1855,10 +1863,11 @@ namespace sat {
         unsigned glue = num_diff_levels(m_lemma.size(), m_lemma.c_ptr());
 
         pop_reinit(m_scope_lvl - new_scope_lvl);
-        TRACE("sat_conflict_detail", display(tout); tout << "assignment:\n"; display_assignment(tout););
+        TRACE("sat_conflict_detail", tout << new_scope_lvl << "\n"; display(tout););
         clause * lemma = mk_clause_core(m_lemma.size(), m_lemma.c_ptr(), true);
         if (lemma) {
             lemma->set_glue(glue);
+            if (m_par) m_par->share_clause(*this, *lemma);
         }
         decay_activity();
         updt_phase_counters();
@@ -1881,8 +1890,7 @@ namespace sat {
         TRACE("sat", tout << "processing consequent: ";
               if (consequent == null_literal) tout << "null\n";
               else tout << consequent << "\n";
-              display_justification(tout << "js kind: ", js);
-              tout << "\n";);
+              display_justification(tout << "js kind: ", js) << "\n";);
         switch (js.get_kind()) {
         case justification::NONE:
             break;
@@ -1962,8 +1970,7 @@ namespace sat {
         if (m_not_l != null_literal) {
             justification js = m_justification[m_not_l.var()];
             TRACE("sat", tout << "not_l: " << m_not_l << "\n";
-                  display_justification(tout, js);
-                  tout << "\n";);
+                  display_justification(tout, js) << "\n";);
 
             process_antecedent_for_unsat_core(m_not_l);
             if (is_assumption(~m_not_l)) {
@@ -2774,10 +2781,15 @@ namespace sat {
 
     void solver::display_units(std::ostream & out) const {
         unsigned end = m_trail.size(); // init_trail_size();
+        unsigned level = 0;
         for (unsigned i = 0; i < end; i++) {
-            out << m_trail[i] << " ";
-            display_justification(out, m_justification[m_trail[i].var()]);
-            out << "\n";
+            literal lit = m_trail[i];
+            if (lvl(lit) > level) {
+                level = lvl(lit);
+                out << "level: " << level << " - ";
+            }
+            out << lit << " ";
+            display_justification(out, m_justification[lit.var()]) << "\n";
         }
         //if (end != 0)
         //    out << "\n";
@@ -2794,7 +2806,7 @@ namespace sat {
         out << ")\n";
     }
 
-    void solver::display_justification(std::ostream & out, justification const& js) const {
+    std::ostream& solver::display_justification(std::ostream & out, justification const& js) const {
         out << js;
         if (js.is_clause()) {
             out << *(m_cls_allocator.get_clause(js.get_clause_offset()));
@@ -2802,6 +2814,7 @@ namespace sat {
         else if (js.is_ext_justification() && m_ext) {
             m_ext->display_justification(out << " ", js.get_ext_justification_idx());
         }
+        return out;
     }
 
     unsigned solver::num_clauses() const {

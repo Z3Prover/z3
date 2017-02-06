@@ -105,7 +105,6 @@ namespace sat {
         lbool add_assign(card& c, literal lit);
         void watch_literal(card& c, literal lit);
         void set_conflict(card& c, literal lit);
-        literal last_false_literal(card& c);
         void clear_watch(card& c);
         void reset_coeffs();
 
