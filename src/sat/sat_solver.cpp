@@ -364,6 +364,11 @@ namespace sat {
         }
         unsigned some_idx = c.size() >> 1;
         literal block_lit = c[some_idx];
+        if (m_watches.size() <= (~c[0]).index()) std::cout << c << "\n";
+        if (m_watches.size() <= (~c[1]).index()) std::cout << c << "\n";
+        if (m_watches[(~c[0]).index()].size() >= 20000) {
+            std::cout << m_par_id << ": " << c << "\n";
+        }
         m_watches[(~c[0]).index()].push_back(watched(block_lit, cls_off));
         m_watches[(~c[1]).index()].push_back(watched(block_lit, cls_off));
         return reinit;
@@ -836,7 +841,8 @@ namespace sat {
         int num_threads = static_cast<int>(m_config.m_num_parallel);
         int num_extra_solvers = num_threads - 1;
         sat::par par(*this);
-        par.reserve(num_threads, 1 << 16);
+        // par.reserve(num_threads, 1 << 16);
+        par.reserve(num_threads, 1 << 9);
         par.init_solvers(*this, num_extra_solvers);
         int finished_id = -1;
         std::string        ex_msg;
@@ -877,8 +883,10 @@ namespace sat {
                         }
                     }
                     if (i != num_extra_solvers) {
-                        canceled = rlimit().inc();
-                        rlimit().cancel();
+                        canceled = !rlimit().inc();
+                        if (!canceled) {
+                            rlimit().cancel();
+                        }
                     }
                 }                
             }

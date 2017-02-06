@@ -77,9 +77,14 @@ namespace sat {
 
     bool par::vector_pool::get_vector(unsigned owner, unsigned& n, unsigned const*& ptr) {
         unsigned head = m_heads[owner];      
+        unsigned iterations = 0;
         while (head != m_tail) {
+            ++iterations;
+            if (head == 0 && m_tail >= m_size) {
+                break;
+            }
             SASSERT(head < m_size);
-            IF_VERBOSE(3, verbose_stream() << owner << ": head: " << head << " tail: " << m_tail << "\n";);
+            IF_VERBOSE((iterations > m_size ? 0 : 3), verbose_stream() << owner << ": head: " << head << " tail: " << m_tail << "\n";);
             bool is_self = owner == get_owner(head);
             next(m_heads[owner]);
             if (!is_self) {
@@ -88,9 +93,6 @@ namespace sat {
                 return true;
             }
             head = m_heads[owner];
-            if (head == 0 && m_tail >= m_size) {
-                break;
-            }
         }
         return false;
     }
@@ -107,8 +109,10 @@ namespace sat {
         unsigned num_threads = num_extra_solvers + 1;
         m_solvers.resize(num_extra_solvers, 0);
         symbol saved_phase = s.m_params.get_sym("phase", symbol("caching"));
-        for (unsigned i = 0; i < num_extra_solvers; ++i) {
+        for (unsigned i = 0; i < num_extra_solvers; ++i) {        
             m_limits.push_back(reslimit());
+        }
+        for (unsigned i = 0; i < num_extra_solvers; ++i) {
             s.m_params.set_uint("random_seed", s.m_rand());
             if (i == 1 + num_threads/2) {
                 s.m_params.set_sym("phase", symbol("random"));
