@@ -3648,7 +3648,7 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
                     add_theory_aware_branching_info(tester, m_params.m_OverlapTheoryAwarePriority, l_true);
 	            } else {
 	                TRACE("t_str", tout << "AVOID LOOP: SKIP" << std::endl;);
-	                // TODO printCutVar(m, y);
+	                TRACE("t_str_detail", {print_cut_var(m, tout); print_cut_var(y, tout);});
 	            }
 	        }
 	    }
@@ -3756,7 +3756,7 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
                     add_theory_aware_branching_info(tester, m_params.m_OverlapTheoryAwarePriority, l_true);
 				} else {
 				    TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
-				    // TODO printCutVar(m, y)
+				    TRACE("t_str_detail", {print_cut_var(m, tout); print_cut_var(y, tout);});
 				}
 			}
 		}
