@@ -84,7 +84,7 @@ namespace sat {
                 break;
             }
             SASSERT(head < m_size);
-            IF_VERBOSE((iterations > m_size ? 0 : 3), verbose_stream() << owner << ": head: " << head << " tail: " << m_tail << "\n";);
+            IF_VERBOSE(static_cast<unsigned>(iterations > m_size ? 0 : 3), verbose_stream() << owner << ": head: " << head << " tail: " << m_tail << "\n";);
             bool is_self = owner == get_owner(head);
             next(m_heads[owner]);
             if (!is_self) {
