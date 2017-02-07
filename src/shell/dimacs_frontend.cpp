@@ -126,7 +126,6 @@ static void track_clauses(sat::solver const& src,
     }
 }
 
-
 unsigned read_dimacs(char const * file_name) {
     g_start_time = clock();
     register_on_timeout_proc(on_timeout);
@@ -134,7 +133,7 @@ unsigned read_dimacs(char const * file_name) {
     params_ref p = gparams::get_module("sat");
     p.set_bool("produce_models", true);
     reslimit limit;
-    sat::solver solver(p, limit, 0);
+    sat::solver solver(p, limit);
     g_solver = &solver;
 
     if (file_name) {
@@ -152,7 +151,7 @@ unsigned read_dimacs(char const * file_name) {
     
     lbool r;
     vector<sat::literal_vector> tracking_clauses;
-    sat::solver solver2(p, limit, 0);
+    sat::solver solver2(p, limit);
     if (p.get_bool("dimacs.core", false)) {
         g_solver = &solver2;        
         sat::literal_vector assumptions;

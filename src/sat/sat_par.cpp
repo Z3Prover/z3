@@ -117,7 +117,7 @@ namespace sat {
             if (i == 1 + num_threads/2) {
                 s.m_params.set_sym("phase", symbol("random"));
             }                        
-            m_solvers[i] = alloc(sat::solver, s.m_params, m_limits[i], 0);
+            m_solvers[i] = alloc(sat::solver, s.m_params, m_limits[i]);
             m_solvers[i]->copy(s);
             m_solvers[i]->set_par(this, i);
             m_scoped_rlimit.push_child(&m_solvers[i]->rlimit());            

@@ -142,11 +142,16 @@ namespace sat {
                         c.shrink(new_sz);
                         *it2 = *it;
                         it2++;
-                        if (!c.frozen()) {
-                            if (new_sz == 3)
+                        if (!c.frozen()) {                            
+                            if (new_sz == 3) 
                                 s.attach_ter_clause(c);
                             else
                                 s.attach_nary_clause(c);
+                        }
+                        if (s.m_config.m_drat) {
+                            // for optimization, could also report deletion 
+                            // of previous version of clause.
+                            s.m_drat.add(c, true);
                         }
                     }
                 }

@@ -78,11 +78,6 @@ struct goal2sat::imp {
         m_default_external(default_external) {
         updt_params(p);
         m_true = sat::null_bool_var;
-        sat::extension* e = m_solver.get_extension();
-        if (e) {
-            sat::card_extension* ce = dynamic_cast<sat::card_extension*>(e);
-            m_ext = ce;
-        }
     }
         
     void updt_params(params_ref const & p) {
@@ -158,7 +153,8 @@ struct goal2sat::imp {
     }
 
     bool convert_app(app* t, bool root, bool sign) {
-        if (m_ext && t->get_family_id() == pb.get_family_id()) {
+        if (t->get_family_id() == pb.get_family_id()) {
+            ensure_extension();
             m_frame_stack.push_back(frame(to_app(t), root, sign, 0));
             return false;
         }
@@ -465,6 +461,20 @@ struct goal2sat::imp {
         }
     }
 
+    void ensure_extension() {
+        if (!m_ext) {
+            sat::extension* ext = m_solver.get_extension();
+            if (ext) {
+                m_ext = dynamic_cast<sat::card_extension*>(ext);
+                SASSERT(m_ext);
+            }
+            if (!m_ext) {
+                m_ext = alloc(sat::card_extension);
+                m_solver.set_extension(m_ext);
+            }
+        }
+    }
+
     void convert(app * t, bool root, bool sign) {
         if (t->get_family_id() == m.get_basic_family_id()) {
             switch (to_app(t)->get_decl_kind()) {
@@ -485,7 +495,8 @@ struct goal2sat::imp {
                 UNREACHABLE();
             }
         }
-        else if (m_ext && t->get_family_id() == pb.get_family_id()) {
+        else if (t->get_family_id() == pb.get_family_id()) {
+            ensure_extension();
             switch (t->get_decl_kind()) {
             case OP_AT_MOST_K:
                 convert_at_most_k(t, pb.get_k(t), root, sign);

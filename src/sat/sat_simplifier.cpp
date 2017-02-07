@@ -304,6 +304,9 @@ namespace sat {
                     s.attach_ter_clause(c);
                 else
                     s.attach_nary_clause(c);
+                if (s.m_config.m_drat) {
+                    s.m_drat.add(c, true);
+                }
             }
         }
         cs.set_end(it2);

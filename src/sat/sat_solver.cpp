@@ -31,10 +31,9 @@ Revision History:
 
 namespace sat {
 
-    solver::solver(params_ref const & p, reslimit& l, extension * ext):
+    solver::solver(params_ref const & p, reslimit& l):
         m_rlimit(l),
         m_config(p),
-        m_ext(ext),
         m_par(0),
         m_par_syncing_clauses(false),
         m_par_id(0),
@@ -59,7 +58,6 @@ namespace sat {
         m_conflicts               = 0;
         m_next_simplify           = 0;
         m_num_checkpoints         = 0;
-        if (m_ext) m_ext->set_solver(this);
     }
 
     solver::~solver() {
@@ -75,6 +73,11 @@ namespace sat {
             m_cls_allocator.del_clause(*it);
         }
         ++m_stats.m_non_learned_generation;
+    }
+
+    void solver::set_extension(extension* ext) {
+        m_ext = ext;
+        if (ext) ext->set_solver(this);
     }
 
     void solver::copy(solver const & src) {
@@ -771,7 +774,7 @@ namespace sat {
         flet<bool> _searching(m_searching, true);
 #ifdef CLONE_BEFORE_SOLVING
         if (m_mc.empty()) {
-            m_clone = alloc(solver, m_params, 0 /* do not clone extension */);
+            m_clone = alloc(solver, m_params);
             SASSERT(m_clone);
         }
 #endif

@@ -72,7 +72,7 @@ class inc_sat_solver : public solver {
 public:
     inc_sat_solver(ast_manager& m, params_ref const& p):
         m(m), 
-        m_solver(p, m.limit(), alloc(sat::card_extension)),
+        m_solver(p, m.limit()),
         m_params(p), m_optimize_model(false),
         m_fmls(m),
         m_asmsf(m),

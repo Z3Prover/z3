@@ -71,11 +71,14 @@ namespace sat {
             }
             void reset() {
                 dealloc(m_card);
-                dealloc(m_lit_watch[0]);
-                dealloc(m_lit_watch[1]);
+                dealloc(card_extension::set_tag_non_empty(m_lit_watch[0]));
+                dealloc(card_extension::set_tag_non_empty(m_lit_watch[1]));
             }
         };
 
+        ptr_vector<card>* set_tag_empty(ptr_vector<card>* c);        
+        bool is_tag_empty(ptr_vector<card>* c);
+        static ptr_vector<card>* set_tag_non_empty(ptr_vector<card>* c);
 
         solver*             m_solver;
         stats               m_stats;        
@@ -113,7 +116,7 @@ namespace sat {
         inline unsigned lvl(bool_var v) const { return m_solver->lvl(v); }
 
         void unwatch_literal(literal w, card* c);
-        void remove(ptr_vector<card>& cards, card* c);
+        bool remove(ptr_vector<card>& cards, card* c);
 
         void normalize_active_coeffs();
         void inc_coeff(literal l, int offset);

@@ -156,7 +156,7 @@ namespace sat {
         friend class par;
         friend struct mk_stat;
     public:
-        solver(params_ref const & p, reslimit& l, extension * ext);
+        solver(params_ref const & p, reslimit& l);
         ~solver();
 
         // -----------------------
@@ -264,6 +264,7 @@ namespace sat {
         bool canceled() { return !m_rlimit.inc(); }
         config const& get_config() { return m_config; }
         extension* get_extension() const { return m_ext.get(); }
+        void       set_extension(extension* e);
         typedef std::pair<literal, literal> bin_clause;
     protected:
         watch_list & get_wlist(literal l) { return m_watches[l.index()]; }

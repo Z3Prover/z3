@@ -119,20 +119,37 @@ namespace sat {
         if (m_var_infos.size() <= static_cast<unsigned>(lit.var())) {
             return;
         }
-        ptr_vector<card>* cards = m_var_infos[lit.var()].m_lit_watch[lit.sign()];
+        ptr_vector<card>*& cards = m_var_infos[lit.var()].m_lit_watch[lit.sign()];
         if (cards) {
-            remove(*cards, c);        
+            if (remove(*cards, c)) {
+                std::cout << "Empty: " << cards->empty() << "\n";
+                cards = set_tag_empty(cards);
+            }        
         }
     }
 
-    void card_extension::remove(ptr_vector<card>& cards, card* c) {
-        for (unsigned j = 0; j < cards.size(); ++j) {
+    ptr_vector<card_extension::card>* card_extension::set_tag_empty(ptr_vector<card>* c) {
+        return TAG(ptr_vector<card>*, c, 1);
+    }
+
+    bool card_extension::is_tag_empty(ptr_vector<card>* c) {
+        return !c || GET_TAG(c) == 1;
+    }
+
+    ptr_vector<card_extension::card>* card_extension::set_tag_non_empty(ptr_vector<card>* c) {
+        return UNTAG(ptr_vector<card>*, c);
+    }
+
+    bool card_extension::remove(ptr_vector<card>& cards, card* c) {
+        unsigned sz = cards.size();
+        for (unsigned j = 0; j < sz; ++j) {
             if (cards[j] == c) {                        
-                std::swap(cards[j], cards[cards.size()-1]);
+                std::swap(cards[j], cards[sz-1]);
                 cards.pop_back();
-                break;
+                return sz == 1;
             }
         }
+        return false;
     }
 
     void card_extension::assign(card& c, literal lit) {
@@ -170,6 +187,10 @@ namespace sat {
         if (cards == 0) {
             cards = alloc(ptr_vector<card>);
             m_var_infos[lit.var()].m_lit_watch[lit.sign()] = cards;
+        }
+        else if (is_tag_empty(cards)) {
+            cards = set_tag_non_empty(cards);
+            m_var_infos[lit.var()].m_lit_watch[lit.sign()] = cards;            
         }
         TRACE("sat_verbose", tout << "insert: " << lit.var() << " " << lit.sign() << "\n";);
         cards->push_back(&c);
@@ -617,13 +638,16 @@ namespace sat {
 
     void card_extension::asserted(literal l) {
         bool_var v = l.var();
+        if (s().inconsistent()) return;
         if (v >= m_var_infos.size()) return;
         var_info& vinfo = m_var_infos[v];
         ptr_vector<card>* cards = vinfo.m_lit_watch[!l.sign()];
         //TRACE("sat", tout << "retrieve: " << v << " " << !l.sign() << "\n";);
         //TRACE("sat", tout << "asserted: " << l << " " << (cards ? "non-empty" : "empty") << "\n";);
-        if (cards != 0  && !cards->empty() && !s().inconsistent())  {
-            ptr_vector<card>::iterator it = cards->begin(), it2 = it, end = cards->end();
+        static unsigned is_empty = 0, non_empty = 0;
+        if (!is_tag_empty(cards)) {
+            ptr_vector<card>::iterator begin = cards->begin();
+            ptr_vector<card>::iterator it = begin, it2 = it, end = cards->end();
             for (; it != end; ++it) {
                 card& c = *(*it);
                 if (value(c.lit()) != l_true) {
@@ -648,6 +672,9 @@ namespace sat {
                 }
             }
             cards->set_end(it2);
+            if (cards->empty()) {
+                m_var_infos[v].m_lit_watch[!l.sign()] = set_tag_empty(cards);
+            }
         }
 
         card* crd = vinfo.m_card;
