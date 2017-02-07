@@ -206,10 +206,10 @@ namespace sat {
         if (!c.is_learned()) {
             m_stats.m_non_learned_generation++;
         } 
-        if (m_config.m_drat) {
+        if (m_config.m_drat && !m_drat.is_cleaned(c)) {
             m_drat.del(c);
         }
-        else if (!m_config.m_drat || !m_config.m_drat_check) {
+        else if (!m_config.m_drat || !m_config.m_drat_check || m_drat.is_cleaned(c)) {
             m_cls_allocator.del_clause(&c);
         }
         m_stats.m_del_clause++;

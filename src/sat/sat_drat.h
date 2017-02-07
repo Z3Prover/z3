@@ -28,10 +28,10 @@ namespace sat {
             enum { t_clause, t_unit, t_ext } m_type;
             union {
                 clause* m_clause;
-                literal m_literal;                
+                unsigned m_literal;                
             };
-            premise(s_ext, literal l): m_type(t_ext), m_literal(l) {}
-            premise(s_unit, literal l): m_type(t_unit), m_literal(l) {}
+            premise(s_ext, literal l): m_type(t_ext), m_literal(l.index()) {}
+            premise(s_unit, literal l): m_type(t_unit), m_literal(l.index()) {}
             premise(clause* c): m_type(t_clause), m_clause(c) {}
         };
     private:
@@ -52,7 +52,6 @@ namespace sat {
         void append(clause& c, status st);
         friend std::ostream& operator<<(std::ostream & out, status st);
         status get_status(bool learned) const;
-        bool is_cleaned(unsigned n, literal const* lits) const;
 
         void declare(literal l);
         void assign(literal l);
@@ -74,7 +73,8 @@ namespace sat {
         void add(literal l1, literal l2, bool learned);
         void add(clause& c, bool learned);
         void add(literal_vector const& c, svector<premise> const& premises);
-        
+
+        bool is_cleaned(clause& c) const;        
         void del(literal l);
         void del(literal l1, literal l2);
         void del(clause& c);

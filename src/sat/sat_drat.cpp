@@ -58,7 +58,6 @@ namespace sat {
     }
 
     void drat::dump(unsigned n, literal const* c, status st) {
-        if (is_cleaned(n, c)) return;
         switch (st) {
         case status::asserted: return;
         case status::external: return; // requires extension to drat format.
@@ -69,8 +68,9 @@ namespace sat {
         (*m_out) << "0\n";
     }
 
-    bool drat::is_cleaned(unsigned n, literal const* c) const {
+    bool drat::is_cleaned(clause& c) const {
         literal last = null_literal;
+        unsigned n = c.size();
         for (unsigned i = 0; i < n; ++i) {
             if (c[i] == last) return true;
             last = c[i];
@@ -133,7 +133,6 @@ namespace sat {
 
     void drat::append(clause& c, status st) {
         unsigned n = c.size();
-        if (is_cleaned(n, c.begin())) return;
         trace(std::cout, n, c.begin(), st);
 
         if (st == status::learned) {
@@ -394,10 +393,13 @@ namespace sat {
     void drat::del(literal l1, literal l2) {
         literal ls[2] = {l1, l2};
         if (m_out) dump(2, ls, status::deleted);
-        if (s.m_config.m_drat_check) append(l1, l2, status::deleted);
+        if (s.m_config.m_drat_check) 
+            append(l1, l2, status::deleted);
     }
     void drat::del(clause& c) {
         if (m_out) dump(c.size(), c.begin(), status::deleted);
-        if (s.m_config.m_drat_check) append(c, status::deleted);
+        if (s.m_config.m_drat_check) 
+            append(c, status::deleted);
+        else s.m_cls_allocator.del_clause(&c);
     }
 }
