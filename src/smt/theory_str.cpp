@@ -6968,6 +6968,7 @@ void theory_str::handle_equality(expr * lhs, expr * rhs) {
         return;
     }
 
+    /* // temporarily disabled, we are borrowing these testers for something else
     if (m_params.m_FiniteOverlapModels && !finite_model_test_varlists.empty()) {
         // TODO NEXT
         if (finite_model_test_varlists.contains(lhs)) {
@@ -6976,6 +6977,7 @@ void theory_str::handle_equality(expr * lhs, expr * rhs) {
             finite_model_test(rhs, lhs); return;
         }
     }
+    */
 
     if (free_var_attempt(lhs, rhs) || free_var_attempt(rhs, lhs)) {
         return;
