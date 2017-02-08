@@ -53,6 +53,7 @@ namespace sat {
         if (c.lit().sign() == is_true) {
             c.negate();
         }
+        TRACE("sat", display(tout << "init watch: ", c, true););
         SASSERT(value(c.lit()) == l_true);
         unsigned j = 0, sz = c.size(), bound = c.k();
         if (bound == sz) {
@@ -131,7 +132,7 @@ namespace sat {
         return TAG(ptr_vector<card>*, c, 1);
     }
 
-    bool card_extension::is_tag_empty(ptr_vector<card>* c) {
+    bool card_extension::is_tag_empty(ptr_vector<card> const* c) {
         return !c || GET_TAG(c) == 1;
     }
 
@@ -255,9 +256,7 @@ namespace sat {
     }
 
     int card_extension::get_abs_coeff(bool_var v) const {
-        int coeff = get_coeff(v);
-        if (coeff < 0) coeff = -coeff;
-        return coeff;
+        return abs(get_coeff(v));
     }
 
     void card_extension::reset_coeffs() {
@@ -265,6 +264,13 @@ namespace sat {
             m_coeffs[m_active_vars[i]] = 0;
         }
         m_active_vars.reset();
+    }
+
+    void card_extension::reset_marked_literals() {
+        for (unsigned i = 0; i < m_marked_literals.size(); ++i) {
+            s().unmark_lit(m_marked_literals[i]);
+        }
+        m_marked_literals.reset();
     }
 
     bool card_extension::resolve_conflict() {        
@@ -290,7 +296,8 @@ namespace sat {
         unsigned num_steps = 0;
         DEBUG_CODE(active2pb(m_A););
 
-        std::cout << m_num_marks << "\n";
+        unsigned init_marks = m_num_marks;
+
         do {
 
             if (offset == 0) {
@@ -298,7 +305,6 @@ namespace sat {
             }
             // TBD: need proper check for overflow.
             if (offset > (1 << 12)) {
-                std::cout << "Offset: " << offset << "\n";
                 goto bail_out;
             }
 
@@ -388,6 +394,7 @@ namespace sat {
                 v = consequent.var();
                 if (s().is_marked(v)) break;
                 if (idx == 0) {
+                    std::cout << num_steps << " " << init_marks << "\n";
                     goto bail_out;
                 }
                 SASSERT(idx > 0);
@@ -414,6 +421,7 @@ namespace sat {
         SASSERT(validate_lemma());
 
         normalize_active_coeffs();
+        reset_marked_literals();
         
         if (consequent == null_literal) {
             return false;
@@ -427,6 +435,7 @@ namespace sat {
         consequent = null_literal;
         ++idx;
 
+        unsigned num_atoms = m_lemma.size();
         while (0 <= slack) {            
             literal lit = lits[idx];
             bool_var v = lit.var();
@@ -447,11 +456,6 @@ namespace sat {
                     }
                     else {
                         m_lemma.push_back(~lit);
-                        if (lvl(lit) == m_conflict_lvl) {
-                            TRACE("sat", tout << "Bail out on no progress " << lit << "\n";);
-                            IF_VERBOSE(3, verbose_stream() << "(sat.card bail resolve)\n";);
-                            return false;
-                        }
                     }
                 }
             }
@@ -459,10 +463,18 @@ namespace sat {
             --idx;
         }
 
+        for (unsigned i = 1; i < std::min(m_lemma.size(), num_atoms + 1); ++i) {            
+            if (lvl(m_lemma[i]) == m_conflict_lvl) {
+                TRACE("sat", tout << "Bail out on no progress " << lit << "\n";);
+                IF_VERBOSE(3, verbose_stream() << "(sat.card bail resolve)\n";);
+                return false;
+            }
+        }
+
         SASSERT(slack < 0);
 
         if (consequent == null_literal) {
-            if (!m_lemma.empty()) return false;
+            if (!m_lemma.empty())  return false;
         }
         else {
             m_lemma[0] = consequent;        
@@ -478,6 +490,7 @@ namespace sat {
         s().m_lemma.reset();
         s().m_lemma.append(m_lemma);
         for (unsigned i = 1; i < m_lemma.size(); ++i) {
+            CTRACE("sat", s().is_marked(m_lemma[i].var()), tout << "marked: " << m_lemma[i] << "\n";);
             s().mark(m_lemma[i].var());
         }
         m_stats.m_num_conflicts++;
@@ -485,6 +498,7 @@ namespace sat {
         return true;
 
     bail_out:
+        reset_marked_literals();
         std::cout << "bail num marks: " << m_num_marks << " idx: " << idx << "\n";
         while (m_num_marks > 0 && idx >= 0) {
             bool_var v = lits[idx].var();
@@ -498,18 +512,21 @@ namespace sat {
     }
 
     bool card_extension::process_card(card& c, int offset) {
-        SASSERT(c.k() <= c.size());
-        SASSERT(value(c.lit()) == l_true);
+        literal lit = c.lit();
+        SASSERT(c.k() <= c.size());       
+        SASSERT(value(lit) == l_true);
         for (unsigned i = c.k(); i < c.size(); ++i) {
             process_antecedent(c[i], offset);
         }
         for (unsigned i = 0; i < c.k(); ++i) {
             inc_coeff(c[i], offset);                        
         }
-        if (lvl(c.lit()) > 0) {
-            m_lemma.push_back(~c.lit());
+        if (lvl(lit) > 0 && !s().is_marked_lit(lit)) {
+            m_lemma.push_back(~lit);
+            s().mark_lit(lit);
+            m_marked_literals.push_back(lit);
         }
-        return (lvl(c.lit()) <= m_conflict_lvl);
+        return (lvl(lit) <= m_conflict_lvl);
     }
 
     void card_extension::process_antecedent(literal l, int offset) {
@@ -733,7 +750,7 @@ namespace sat {
 
     void card_extension::display_watch(std::ostream& out, bool_var v, bool sign) const {
         watch const* w = m_var_infos[v].m_lit_watch[sign];
-        if (w && !w->empty()) {
+        if (!is_tag_empty(w)) {
             watch const& wl = *w;
             out << literal(v, sign) << " |-> ";
             for (unsigned i = 0; i < wl.size(); ++i) {

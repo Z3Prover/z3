@@ -76,8 +76,8 @@ namespace sat {
             }
         };
 
-        ptr_vector<card>* set_tag_empty(ptr_vector<card>* c);        
-        bool is_tag_empty(ptr_vector<card>* c);
+        static ptr_vector<card>* set_tag_empty(ptr_vector<card>* c);        
+        static bool is_tag_empty(ptr_vector<card> const* c);
         static ptr_vector<card>* set_tag_non_empty(ptr_vector<card>* c);
 
         solver*             m_solver;
@@ -99,6 +99,7 @@ namespace sat {
         tracked_uint_set  m_active_var_set;
         literal_vector    m_lemma;
         literal_vector    m_literals;
+        literal_vector    m_marked_literals;
         unsigned          m_num_propagations_since_pop;
 
         solver& s() const { return *m_solver; }
@@ -110,6 +111,7 @@ namespace sat {
         void set_conflict(card& c, literal lit);
         void clear_watch(card& c);
         void reset_coeffs();
+        void reset_marked_literals();
 
         inline lbool value(literal lit) const { return m_solver->value(lit); }
         inline unsigned lvl(literal lit) const { return m_solver->lvl(lit); }
