@@ -120,9 +120,8 @@ namespace sat {
             return;
         }
         ptr_vector<card>*& cards = m_var_infos[lit.var()].m_lit_watch[lit.sign()];
-        if (cards) {
+        if (!is_tag_empty(cards)) {
             if (remove(*cards, c)) {
-                std::cout << "Empty: " << cards->empty() << "\n";
                 cards = set_tag_empty(cards);
             }        
         }
@@ -291,6 +290,7 @@ namespace sat {
         unsigned num_steps = 0;
         DEBUG_CODE(active2pb(m_A););
 
+        std::cout << m_num_marks << "\n";
         do {
 
             if (offset == 0) {
@@ -298,6 +298,7 @@ namespace sat {
             }
             // TBD: need proper check for overflow.
             if (offset > (1 << 12)) {
+                std::cout << "Offset: " << offset << "\n";
                 goto bail_out;
             }
 
@@ -386,6 +387,9 @@ namespace sat {
                 consequent = lits[idx];
                 v = consequent.var();
                 if (s().is_marked(v)) break;
+                if (idx == 0) {
+                    goto bail_out;
+                }
                 SASSERT(idx > 0);
                 --idx;
             }
@@ -481,7 +485,8 @@ namespace sat {
         return true;
 
     bail_out:
-        while (m_num_marks > 0 && idx > 0) {
+        std::cout << "bail num marks: " << m_num_marks << " idx: " << idx << "\n";
+        while (m_num_marks > 0 && idx >= 0) {
             bool_var v = lits[idx].var();
             if (s().is_marked(v)) {
                 s().reset_mark(v);

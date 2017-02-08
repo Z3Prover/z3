@@ -371,6 +371,7 @@ namespace sat {
         if (m_watches.size() <= (~c[1]).index()) std::cout << c << "\n";
         if (m_watches[(~c[0]).index()].size() >= 20000) {
             std::cout << m_par_id << ": " << c << "\n";
+            enable_trace("sat");
         }
         m_watches[(~c[0]).index()].push_back(watched(block_lit, cls_off));
         m_watches[(~c[1]).index()].push_back(watched(block_lit, cls_off));
