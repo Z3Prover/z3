@@ -718,8 +718,8 @@ namespace sat {
                         assign_core(c[0], justification(cls_off));
 #ifdef UPDATE_GLUE
                         if (update && c.is_learned() && c.glue() > 2) {
-                            unsigned glue = num_diff_levels(c.size(), c.begin());
-                            if (glue+1 < c.glue()) {
+                            unsigned glue;
+                            if (num_diff_levels_below(c.size(), c.begin(), c.glue()-1, glue)) {
                                 c.set_glue(glue);
                             }
                         }
@@ -2142,6 +2142,26 @@ namespace sat {
         return r;
     }
 
+    bool solver::num_diff_levels_below(unsigned num, literal const* lits, unsigned max_glue, unsigned& glue) {
+        m_diff_levels.reserve(scope_lvl() + 1, false);
+        glue = 0;
+        unsigned i = 0;
+        for (; i < num && glue < max_glue; i++) {
+            SASSERT(value(lits[i]) != l_undef);
+            unsigned lit_lvl = lvl(lits[i]);
+            if (m_diff_levels[lit_lvl] == false) {
+                m_diff_levels[lit_lvl] = true;
+                glue++;
+            }
+        }
+        num = i;
+        // reset m_diff_levels.
+        for (i = 0; i < num; i++)
+            m_diff_levels[lvl(lits[i])] = false;
+        return glue < max_glue;        
+    }
+
+
     /**
        \brief Process an antecedent for lemma minimization.
     */
@@ -2278,11 +2298,14 @@ namespace sat {
         unsigned sz   = m_lemma.size();
         unsigned i    = 1; // the first literal is the FUIP
         unsigned j    = 1;
+        //bool drop = false;
+        //unsigned bound = sz/5+10;
         for (; i < sz; i++) {
             literal l = m_lemma[i];
             if (implied_by_marked(l)) {
                 TRACE("sat", tout << "drop: " << l << "\n";);
                 m_unmark.push_back(l.var());
+                //drop = true;
             }
             else {
                 if (j != i) {
@@ -2290,6 +2313,13 @@ namespace sat {
                 }
                 j++;
             }
+#if 0
+            if (!drop && i >= bound) {
+                // std::cout << "drop\n";
+                j = sz;
+                break;
+            }
+#endif
         }
 
         reset_unmark(0);

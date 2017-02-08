@@ -38,10 +38,7 @@ namespace sat {
         dealloc(m_out);
         for (unsigned i = 0; i < m_proof.size(); ++i) {
             clause* c = m_proof[i];
-            if (m_status[i] == status::deleted || m_status[i] == status::external) {
-                s.m_cls_allocator.del_clause(c);
-            }
-            else if (c && c->size() == 2) {
+            if (c && (c->size() == 2 || m_status[i] == status::deleted || m_status[i] == status::external)) {
                 s.m_cls_allocator.del_clause(c);
             }
         }
@@ -116,8 +113,10 @@ namespace sat {
             clause* c = s.m_cls_allocator.mk_clause(2, lits, st == status::learned);
             m_proof.push_back(c);
             m_status.push_back(st);
-            m_watches[(~l1).index()].push_back(c);
-            m_watches[(~l2).index()].push_back(c);
+            unsigned idx = m_watched_clauses.size();
+            m_watched_clauses.push_back(watched_clause(c, l1, l2));
+            m_watches[(~l1).index()].push_back(idx);
+            m_watches[(~l2).index()].push_back(idx);
 
             if (value(l1) == l_false && value(l2) == l_false) {
                 m_inconsistent = true;
@@ -146,34 +145,43 @@ namespace sat {
             del_watch(c, c[1]);
             return;
         }
-        literal l1 = null_literal, l2 = null_literal;
+        unsigned num_watch = 0;
+        literal l1, l2;
         for (unsigned i = 0; i < n; ++i) {
             if (value(c[i]) != l_false) {
-                if (l1 == null_literal) {
-                    l1 = c[i];                    
+                if (num_watch == 0) {
+                    l1 = c[i];
+                    ++num_watch;
                 }
                 else {
                     l2 = c[i];
+                    ++num_watch;
                     break;
                 }
             }
         }
-        if (l2 == null_literal && l1 != null_literal) {
-            assign_propagate(l1);
+        switch (num_watch) {
+        case 0: 
+            m_inconsistent = true; 
+            break;
+        case 1: 
+            assign_propagate(l1); 
+            break;
+        default: {
+            SASSERT(num_watch == 2);
+            unsigned idx = m_watched_clauses.size();
+            m_watched_clauses.push_back(watched_clause(&c, l1, l2));
+            m_watches[(~l1).index()].push_back(idx);
+            m_watches[(~l2).index()].push_back(idx);
+            break;
         }
-        else if (l1 == null_literal) {
-            m_inconsistent = true;
-        }
-        else {
-            m_watches[(~l1).index()].push_back(&c);
-            m_watches[(~l2).index()].push_back(&c);
         }
     }
 
     void drat::del_watch(clause& c, literal l) {
         watch& w = m_watches[(~l).index()];      
         for (unsigned i = 0; i < w.size(); ++i) {
-            if (w[i] == &c) {
+            if (m_watched_clauses[w[i]].m_clause == &c) {
                 w[i] = w.back();
                 w.pop_back();
                 break;
@@ -195,6 +203,9 @@ namespace sat {
         unsigned num_units = m_units.size();
         for (unsigned i = 0; !m_inconsistent && i < n; ++i) {            
             assign_propagate(~c[i]);
+        }
+        if (!m_inconsistent) {
+            TRACE("sat", display(tout););
         }
         for (unsigned i = num_units; i < m_units.size(); ++i) {
             m_assignment[m_units[i].var()] = l_undef;
@@ -233,36 +244,53 @@ namespace sat {
         else {
             std::cout << "Verification failed\n";
             display(std::cout);
+            TRACE("sat", display(tout); s.display(tout););
+            UNREACHABLE();
             exit(0);
         }
     }
 
     void drat::display(std::ostream& out) const {
         out << "units: " << m_units << "\n";
-#if 0
+#if 1
         for (unsigned i = 0; i < m_assignment.size(); ++i) {
-            lbool v = value(literal(i, false));
-            if (v != l_undef) std::cout << i << ": " << v << "\n";
+            lbool v = value(literal(i, false));            
+            if (v != l_undef) out << i << ": " << v << "\n";
         }
 #endif
         for (unsigned i = 0; i < m_proof.size(); ++i) {
             clause* c = m_proof[i];
             if (m_status[i] != status::deleted && c) {
+                unsigned num_true = 0;
+                unsigned num_undef = 0;
+                for (unsigned j = 0; j < c->size(); ++j) {
+                    switch (value((*c)[j])) {
+                    case l_true: num_true++; break;
+                    case l_undef: num_undef++; break;
+                    default: break;
+                    }
+                }
+                if (num_true == 0 && num_undef == 0) {
+                    out << "False ";
+                }
+                if (num_true == 0 && num_undef == 1) {
+                    out << "Unit ";
+                }
                 out << i << ": " << *c << "\n";
             }
         }
-#if 0
+#if 1
         for (unsigned i = 0; i < m_assignment.size(); ++i) {
             watch const& w1 = m_watches[2*i];
             watch const& w2 = m_watches[2*i + 1];
             if (!w1.empty()) {
                 out << i << " |-> ";
-                for (unsigned i = 0; i < w1.size(); ++i) out << w1[i] << " ";
+                for (unsigned i = 0; i < w1.size(); ++i) out << *(m_watched_clauses[w1[i]].m_clause) << " ";
                 out << "\n";
             }
             if (!w2.empty()) {
                 out << "-" << i << " |-> ";
-                for (unsigned i = 0; i < w2.size(); ++i) out << w2[i] << " ";
+                for (unsigned i = 0; i < w2.size(); ++i) out << *(m_watched_clauses[w2[i]].m_clause) << " ";
                 out << "\n";
             }
         }
@@ -302,41 +330,45 @@ namespace sat {
         watch::iterator it2 = it;
         watch::iterator end = clauses.end();
         for (; it != end; ++it) {
-            clause& c = *(*it);
-            if (c[0] == ~l) {
-                std::swap(c[0], c[1]);
+            unsigned idx = *it;
+            watched_clause& wc = m_watched_clauses[idx];
+            clause& c = *wc.m_clause;
+
+            TRACE("sat", tout << "Propagate " << l << " " << c << " watch: " << wc.m_l1 << " " << wc.m_l2 << "\n";);
+            if (wc.m_l1 == ~l) {
+                std::swap(wc.m_l1, wc.m_l2);
             }
-            if (c[1] != ~l) {
+            if (wc.m_l2 != ~l) {
+                std::cout << wc.m_l1 << " " << wc.m_l2 << " ~l: " << ~l << "\n";
+                std::cout << *wc.m_clause << "\n";
+            }
+            SASSERT(wc.m_l2 == ~l);
+            if (value(wc.m_l1) == l_true) {
                 *it2 = *it;
-                it2++;
-                continue;
-            }
-            SASSERT(c[1] == ~l);
-            if (value(c[0]) == l_true) {
                 it2++;
             }
             else {
-                literal * l_it = c.begin() + 2;
-                literal * l_end = c.end();
                 bool done = false;
-                for (; l_it != l_end && !done; ++l_it) {
-                    if (value(*l_it) != l_false) {
-                        c[1] = *l_it;
-                        *l_it = ~l;
-                        m_watches[(~c[1]).index()].push_back(&c);
+                for (unsigned i = 0; !done && i < c.size(); ++i) {
+                    literal lit = c[i];
+                    if (lit != wc.m_l1 && lit != wc.m_l2 && value(lit) != l_false) {
+                        wc.m_l2 = lit;
+                        m_watches[(~lit).index()].push_back(idx);
                         done = true;
-                    }
+                    } 
                 }
-                if (done) 
+                if (done) {
+                    it2++;
                     continue;                
-                else if (value(c[0]) == l_false) {
+                }
+                else if (value(wc.m_l1) == l_false) {
                     m_inconsistent = true;
                     goto end_process_watch;
                 }
                 else {
                     *it2 = *it;
                     it2++;
-                    assign(c[0]);
+                    assign(wc.m_l1);
                 }
             }
         }

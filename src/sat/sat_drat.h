@@ -36,7 +36,14 @@ namespace sat {
         };
     private:
         enum status { asserted, learned, deleted, external };
-        typedef ptr_vector<clause> watch;
+        struct watched_clause {
+            clause* m_clause;
+            literal m_l1, m_l2;
+            watched_clause(clause* c, literal l1, literal l2):
+                m_clause(c), m_l1(l1), m_l2(l2) {}
+        };
+        svector<watched_clause>   m_watched_clauses;
+        typedef svector<unsigned> watch;
         solver& s;
         std::ostream*           m_out;
         ptr_vector<clause>      m_proof;

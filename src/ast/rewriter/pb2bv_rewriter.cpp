@@ -49,7 +49,7 @@ struct pb2bv_rewriter::imp {
         expr_ref_vector m_args;
         rational     m_k;
         vector<rational> m_coeffs;
-        bool m_enable_card;
+        bool m_keep_cardinality_constraints;
 
         template<lbool is_le>
         expr_ref mk_le_ge(expr_ref_vector& fmls, expr* a, expr* b, expr* bound) {
@@ -240,7 +240,7 @@ struct pb2bv_rewriter::imp {
             bv(m),
             m_trail(m),
             m_args(m),
-            m_enable_card(false)
+            m_keep_cardinality_constraints(true)
         {}
 
         bool mk_app(bool full, func_decl * f, unsigned sz, expr * const* args, expr_ref & result) {
@@ -354,27 +354,27 @@ struct pb2bv_rewriter::imp {
         bool mk_pb(bool full, func_decl * f, unsigned sz, expr * const* args, expr_ref & result) {
             SASSERT(f->get_family_id() == pb.get_family_id());
             if (is_or(f)) {
-                if (m_enable_card) return false;
+                if (m_keep_cardinality_constraints) return false;
                 result = m.mk_or(sz, args);
             }
             else if (pb.is_at_most_k(f) && pb.get_k(f).is_unsigned()) {
-                if (m_enable_card) return false;
+                if (m_keep_cardinality_constraints) return false;
                 result = m_sort.le(full, pb.get_k(f).get_unsigned(), sz, args);
             }
             else if (pb.is_at_least_k(f) && pb.get_k(f).is_unsigned()) {
-                if (m_enable_card) return false;
+                if (m_keep_cardinality_constraints) return false;
                 result = m_sort.ge(full, pb.get_k(f).get_unsigned(), sz, args);
             }
             else if (pb.is_eq(f) && pb.get_k(f).is_unsigned() && pb.has_unit_coefficients(f)) {
-                if (m_enable_card) return false;
+                if (m_keep_cardinality_constraints) return false;
                 result = m_sort.eq(full, pb.get_k(f).get_unsigned(), sz, args);
             }
             else if (pb.is_le(f) && pb.get_k(f).is_unsigned() && pb.has_unit_coefficients(f)) {
-                if (m_enable_card) return false;
+                if (m_keep_cardinality_constraints) return false;
                 result = m_sort.le(full, pb.get_k(f).get_unsigned(), sz, args);
             }
             else if (pb.is_ge(f) && pb.get_k(f).is_unsigned() && pb.has_unit_coefficients(f)) {
-                if (m_enable_card) return false;
+                if (m_keep_cardinality_constraints) return false;
                 result = m_sort.ge(full, pb.get_k(f).get_unsigned(), sz, args);
             }
             else {
@@ -406,9 +406,8 @@ struct pb2bv_rewriter::imp {
             m_imp.m_lemmas.push_back(mk_or(m, n, lits));
         }        
 
-        void enable_card(bool f) {
-            m_enable_card = f;
-            m_enable_card = true;
+        void keep_cardinality_constraints(bool f) {
+            m_keep_cardinality_constraints = f;
         }
     };
 
@@ -421,7 +420,7 @@ struct pb2bv_rewriter::imp {
             return m_r.mk_app_core(f, num, args, result);
         }
         card2bv_rewriter_cfg(imp& i, ast_manager & m):m_r(i, m) {}
-        void enable_card(bool f) { m_r.enable_card(f); }
+        void keep_cardinality_constraints(bool f) { m_r.keep_cardinality_constraints(f); }
     };
     
     class card_pb_rewriter : public rewriter_tpl<card2bv_rewriter_cfg> {
@@ -430,7 +429,7 @@ struct pb2bv_rewriter::imp {
         card_pb_rewriter(imp& i, ast_manager & m):
             rewriter_tpl<card2bv_rewriter_cfg>(m, false, m_cfg),
             m_cfg(i, m) {}
-        void enable_card(bool f) { m_cfg.enable_card(f); }
+        void keep_cardinality_constraints(bool f) { m_cfg.keep_cardinality_constraints(f); }
     };
 
     card_pb_rewriter m_rw;
@@ -440,13 +439,17 @@ struct pb2bv_rewriter::imp {
         m_fresh(m),
         m_num_translated(0), 
         m_rw(*this, m) {
-        m_rw.enable_card(p.get_bool("cardinality_solver", false));
+        m_rw.keep_cardinality_constraints(p.get_bool("keep_cardinality_constraints", true));
     }
 
     void updt_params(params_ref const & p) {
         m_params.append(p);
-        m_rw.enable_card(m_params.get_bool("cardinality_solver", false));        
+        m_rw.keep_cardinality_constraints(m_params.get_bool("keep_cardinality_constraints", true));
     }
+    void collect_param_descrs(param_descrs& r) const {
+        r.insert("keep_cardinality_constraints", CPK_BOOL, "(default: true) retain cardinality constraints (don't bit-blast them) and use built-in cardinality solver");
+    }
+
     unsigned get_num_steps() const { return m_rw.get_num_steps(); }
     void cleanup() { m_rw.cleanup(); }
     void operator()(expr * e, expr_ref & result, proof_ref & result_proof) {
@@ -483,6 +486,8 @@ struct pb2bv_rewriter::imp {
 pb2bv_rewriter::pb2bv_rewriter(ast_manager & m, params_ref const& p) {  m_imp = alloc(imp, m, p); }
 pb2bv_rewriter::~pb2bv_rewriter() { dealloc(m_imp); }
 void pb2bv_rewriter::updt_params(params_ref const & p) { m_imp->updt_params(p); }
+void pb2bv_rewriter::collect_param_descrs(param_descrs& r) const { m_imp->collect_param_descrs(r); }
+
 ast_manager & pb2bv_rewriter::m() const { return m_imp->m; }
 unsigned pb2bv_rewriter::get_num_steps() const { return m_imp->get_num_steps(); }
 void pb2bv_rewriter::cleanup() { ast_manager& mgr = m(); params_ref p = m_imp->m_params; dealloc(m_imp); m_imp = alloc(imp, mgr, p);  }

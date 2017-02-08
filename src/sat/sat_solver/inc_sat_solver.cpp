@@ -84,7 +84,6 @@ public:
         m_unknown("no reason given") {
         m_params.set_bool("elim_vars", false);
         sat_params p1(m_params);
-        m_params.set_bool("cardinality_solver", p1.cardinality_solver());
         m_solver.updt_params(m_params);
         init_preprocess();
     }
@@ -219,7 +218,6 @@ public:
     virtual void updt_params(params_ref const & p) {
         m_params.append(p);
         sat_params p1(p);
-        m_params.set_bool("cardinality_solver", p1.cardinality_solver());
         m_params.set_bool("elim_vars", false);
         std::cout << m_params << "\n";
         m_solver.updt_params(m_params);

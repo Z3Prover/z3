@@ -70,8 +70,8 @@ public:
         return m_solver->check_sat(num_assumptions, assumptions);
     }
 
-    virtual void updt_params(params_ref const & p) { m_solver->updt_params(p);  }
-    virtual void collect_param_descrs(param_descrs & r) { m_solver->collect_param_descrs(r); }    
+    virtual void updt_params(params_ref const & p) { m_solver->updt_params(p); m_rewriter.updt_params(p); }
+    virtual void collect_param_descrs(param_descrs & r) { m_solver->collect_param_descrs(r); m_rewriter.collect_param_descrs(r); }    
     virtual void set_produce_models(bool f) { m_solver->set_produce_models(f); }
     virtual void set_progress_callback(progress_callback * callback) { m_solver->set_progress_callback(callback);  }
     virtual void collect_statistics(statistics & st) const { 
