@@ -3,9 +3,9 @@ Copyright (c) 2017 Microsoft Corporation
 
 Module Name:
 
-    sat_par.cpp
+    sat_parallel.cpp
 
-Abstract:
+    Abstract:
 
     Utilities for parallel SAT solving.
 
@@ -16,14 +16,14 @@ Author:
 Revision History:
 
 --*/
-#include "sat_par.h"
+#include "sat_parallel.h"
 #include "sat_clause.h"
 #include "sat_solver.h"
 
 
 namespace sat {
 
-    void par::vector_pool::next(unsigned& index) {
+    void parallel::vector_pool::next(unsigned& index) {
         SASSERT(index < m_size);
         unsigned n = index + 2 + get_length(index);
         if (n >= m_size) {
@@ -34,7 +34,7 @@ namespace sat {
         }
     }
 
-    void par::vector_pool::reserve(unsigned num_threads, unsigned sz) {
+    void parallel::vector_pool::reserve(unsigned num_threads, unsigned sz) {
         m_vectors.reset();
         m_vectors.resize(sz, 0);
         m_heads.reset();
@@ -43,7 +43,7 @@ namespace sat {
         m_size = sz;
     }
     
-    void par::vector_pool::begin_add_vector(unsigned owner, unsigned n) {
+    void parallel::vector_pool::begin_add_vector(unsigned owner, unsigned n) {
         unsigned capacity = n + 2;
         m_vectors.reserve(m_size + capacity, 0);
         IF_VERBOSE(3, verbose_stream() << owner << ": begin-add " << n << " tail: " << m_tail << " size: " << m_size << "\n";);
@@ -71,11 +71,11 @@ namespace sat {
         m_vectors[m_tail++] = n;    
     }
 
-    void par::vector_pool::add_vector_elem(unsigned e) {
+    void parallel::vector_pool::add_vector_elem(unsigned e) {
         m_vectors[m_tail++] = e;
     }
 
-    bool par::vector_pool::get_vector(unsigned owner, unsigned& n, unsigned const*& ptr) {
+    bool parallel::vector_pool::get_vector(unsigned owner, unsigned& n, unsigned const*& ptr) {
         unsigned head = m_heads[owner];      
         unsigned iterations = 0;
         while (head != m_tail) {
@@ -97,15 +97,15 @@ namespace sat {
         return false;
     }
 
-    par::par(solver& s): m_scoped_rlimit(s.rlimit()) {}
+    parallel::parallel(solver& s): m_scoped_rlimit(s.rlimit()) {}
 
-    par::~par() {
+    parallel::~parallel() {
         for (unsigned i = 0; i < m_solvers.size(); ++i) {            
             dealloc(m_solvers[i]);
         }
     }
 
-    void par::init_solvers(solver& s, unsigned num_extra_solvers) {
+    void parallel::init_solvers(solver& s, unsigned num_extra_solvers) {
         unsigned num_threads = num_extra_solvers + 1;
         m_solvers.resize(num_extra_solvers, 0);
         symbol saved_phase = s.m_params.get_sym("phase", symbol("caching"));
@@ -127,7 +127,7 @@ namespace sat {
     }
 
 
-    void par::exchange(solver& s, literal_vector const& in, unsigned& limit, literal_vector& out) {
+    void parallel::exchange(solver& s, literal_vector const& in, unsigned& limit, literal_vector& out) {
         if (s.m_par_syncing_clauses) return;
         flet<bool> _disable_sync_clause(s.m_par_syncing_clauses, true);
         #pragma omp critical (par_solver)
@@ -147,7 +147,7 @@ namespace sat {
         }
     }
 
-    void par::share_clause(solver& s, literal l1, literal l2) {        
+    void parallel::share_clause(solver& s, literal l1, literal l2) {        
         if (s.m_par_syncing_clauses) return;
         flet<bool> _disable_sync_clause(s.m_par_syncing_clauses, true);
         #pragma omp critical (par_solver)
@@ -159,7 +159,7 @@ namespace sat {
         }        
     }
 
-    void par::share_clause(solver& s, clause const& c) {        
+    void parallel::share_clause(solver& s, clause const& c) {        
         if (!enable_add(c) || s.m_par_syncing_clauses) return;
         flet<bool> _disable_sync_clause(s.m_par_syncing_clauses, true);
         unsigned n = c.size();
@@ -174,7 +174,7 @@ namespace sat {
         }
     }
 
-    void par::get_clauses(solver& s) {
+    void parallel::get_clauses(solver& s) {
         if (s.m_par_syncing_clauses) return;
         flet<bool> _disable_sync_clause(s.m_par_syncing_clauses, true);
         #pragma omp critical (par_solver)
@@ -183,7 +183,7 @@ namespace sat {
         }
     }
 
-    void par::_get_clauses(solver& s) {
+    void parallel::_get_clauses(solver& s) {
         unsigned n;
         unsigned const* ptr;
         unsigned owner = s.m_par_id;
@@ -198,7 +198,7 @@ namespace sat {
         }        
     }
 
-    bool par::enable_add(clause const& c) const {
+    bool parallel::enable_add(clause const& c) const {
         // plingeling, glucose heuristic:
         return (c.size() <= 40 && c.glue() <= 8) || c.glue() <= 2;
     }

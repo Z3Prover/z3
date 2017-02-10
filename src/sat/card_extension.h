@@ -98,8 +98,7 @@ namespace sat {
         int               m_bound;
         tracked_uint_set  m_active_var_set;
         literal_vector    m_lemma;
-        literal_vector    m_literals;
-        literal_vector    m_marked_literals;
+//        literal_vector    m_literals;
         unsigned          m_num_propagations_since_pop;
 
         solver& s() const { return *m_solver; }
@@ -125,10 +124,9 @@ namespace sat {
         int get_coeff(bool_var v) const;
         int get_abs_coeff(bool_var v) const;       
 
-        literal_vector& get_literals() { m_literals.reset(); return m_literals; }
         literal get_asserting_literal(literal conseq);
         void process_antecedent(literal l, int offset);
-        bool process_card(card& c, int offset);
+        void process_card(card& c, int offset);
         void cut();
 
         // validation utilities

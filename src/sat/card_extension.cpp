@@ -266,12 +266,6 @@ namespace sat {
         m_active_vars.reset();
     }
 
-    void card_extension::reset_marked_literals() {
-        for (unsigned i = 0; i < m_marked_literals.size(); ++i) {
-            s().unmark_lit(m_marked_literals[i]);
-        }
-        m_marked_literals.reset();
-    }
 
     bool card_extension::resolve_conflict() {        
         if (0 == m_num_propagations_since_pop) 
@@ -280,7 +274,7 @@ namespace sat {
         m_num_marks = 0;
         m_bound = 0;
         m_lemma.reset();        
-        m_lemma.push_back(null_literal);
+        // m_lemma.push_back(null_literal);
         literal consequent = s().m_not_l;
         justification js = s().m_conflict;
         m_conflict_lvl = s().get_max_lvl(consequent, js);
@@ -292,8 +286,6 @@ namespace sat {
         unsigned idx = lits.size()-1;
         int offset = 1;
 
-        unsigned num_card = 0;
-        unsigned num_steps = 0;
         DEBUG_CODE(active2pb(m_A););
 
         unsigned init_marks = m_num_marks;
@@ -305,10 +297,12 @@ namespace sat {
             }
             // TBD: need proper check for overflow.
             if (offset > (1 << 12)) {
+                IF_VERBOSE(2, verbose_stream() << "offset: " << offset << "\n";
+                           active2pb(m_A);
+                           display(verbose_stream(), m_A);
+                           );
                 goto bail_out;
             }
-
-            ++num_steps;
 
             // TRACE("sat", display(tout, m_A););
             TRACE("sat", tout << "process consequent: " << consequent << ":\n"; s().display_justification(tout, js) << "\n";);
@@ -320,9 +314,7 @@ namespace sat {
             switch(js.get_kind()) {
             case justification::NONE:
                 SASSERT (consequent != null_literal);
-                m_lemma.push_back(~consequent);
                 m_bound += offset;
-                inc_coeff(consequent, offset);
                 break;
             case justification::BINARY:
                 m_bound += offset;
@@ -358,14 +350,10 @@ namespace sat {
                 break;
             }
             case justification::EXT_JUSTIFICATION: {
-                ++num_card;
                 unsigned index = js.get_ext_justification_idx();
                 card& c = *m_constraints[index];
                 m_bound += offset * c.k();
-                if (!process_card(c, offset)) {
-                    TRACE("sat", tout << "failed to process card\n";);
-                    goto bail_out;
-                }
+                process_card(c, offset);
                 break;
             }
             default:
@@ -394,7 +382,7 @@ namespace sat {
                 v = consequent.var();
                 if (s().is_marked(v)) break;
                 if (idx == 0) {
-                    std::cout << num_steps << " " << init_marks << "\n";
+                    IF_VERBOSE(2, verbose_stream() << "did not find marked literal\n";);
                     goto bail_out;
                 }
                 SASSERT(idx > 0);
@@ -421,65 +409,45 @@ namespace sat {
         SASSERT(validate_lemma());
 
         normalize_active_coeffs();
-        reset_marked_literals();
         
-        if (consequent == null_literal) {
-            return false;
-        }
         int slack = -m_bound;
         for (unsigned i = 0; i < m_active_vars.size(); ++i) { 
             bool_var v = m_active_vars[i];
             slack += get_abs_coeff(v);
         }
-        
-        consequent = null_literal;
         ++idx;
-
-        unsigned num_atoms = m_lemma.size();
         while (0 <= slack) {            
             literal lit = lits[idx];
             bool_var v = lit.var();
             if (m_active_var_set.contains(v)) {
                 int coeff = get_coeff(v);
-                bool append = false;
                 if (coeff < 0 && !lit.sign()) {
                     slack += coeff;
-                    append = true;
+                    m_lemma.push_back(~lit);
                 }
                 else if (coeff > 0 && lit.sign()) {
                     slack -= coeff;
-                    append = true;
+                    m_lemma.push_back(~lit);
                 }
-                if (append) {
-                    if (consequent == null_literal) {
-                        consequent = ~lit;
-                    }
-                    else {
-                        m_lemma.push_back(~lit);
-                    }
-                }
+            }
+            if (idx == 0 && slack >= 0) {
+                IF_VERBOSE(2, verbose_stream() << "(sat.card non-asserting)\n";);
+                goto bail_out;
             }
             SASSERT(idx > 0 || slack < 0);
             --idx;
         }
 
-        for (unsigned i = 1; i < std::min(m_lemma.size(), num_atoms + 1); ++i) {            
-            if (lvl(m_lemma[i]) == m_conflict_lvl) {
-                TRACE("sat", tout << "Bail out on no progress " << lit << "\n";);
-                IF_VERBOSE(3, verbose_stream() << "(sat.card bail resolve)\n";);
-                return false;
-            }
+        if (m_lemma.size() >= 2 && lvl(m_lemma[1]) == m_conflict_lvl) {
+            // TRACE("sat", tout << "Bail out on no progress " << lit << "\n";);
+            IF_VERBOSE(2, verbose_stream() << "(sat.card bail non-asserting resolvent)\n";);
+            goto bail_out;
         }
 
         SASSERT(slack < 0);
 
-        if (consequent == null_literal) {
-            if (!m_lemma.empty())  return false;
-        }
-        else {
-            m_lemma[0] = consequent;        
-            SASSERT(validate_conflict(m_lemma, m_A));
-        }
+        SASSERT(validate_conflict(m_lemma, m_A));
+        
         TRACE("sat", tout << m_lemma << "\n";);
 
         if (s().m_config.m_drat) {
@@ -498,8 +466,6 @@ namespace sat {
         return true;
 
     bail_out:
-        reset_marked_literals();
-        std::cout << "bail num marks: " << m_num_marks << " idx: " << idx << "\n";
         while (m_num_marks > 0 && idx >= 0) {
             bool_var v = lits[idx].var();
             if (s().is_marked(v)) {
@@ -511,22 +477,18 @@ namespace sat {
         return false;
     }
 
-    bool card_extension::process_card(card& c, int offset) {
+    void card_extension::process_card(card& c, int offset) {
         literal lit = c.lit();
         SASSERT(c.k() <= c.size());       
         SASSERT(value(lit) == l_true);
+        SASSERT(0 < offset);
         for (unsigned i = c.k(); i < c.size(); ++i) {
             process_antecedent(c[i], offset);
         }
         for (unsigned i = 0; i < c.k(); ++i) {
             inc_coeff(c[i], offset);                        
         }
-        if (lvl(lit) > 0 && !s().is_marked_lit(lit)) {
-            m_lemma.push_back(~lit);
-            s().mark_lit(lit);
-            m_marked_literals.push_back(lit);
-        }
-        return (lvl(lit) <= m_conflict_lvl);
+        process_antecedent(~lit, c.k() * offset);
     }
 
     void card_extension::process_antecedent(literal l, int offset) {
@@ -900,6 +862,7 @@ namespace sat {
             for (unsigned i = 0; i < c.size(); ++i) {
                 p.push(c[i], offset);
             }
+            p.push(~c.lit(), offset*c.k());
             break;
         }
         default:
@@ -977,7 +940,10 @@ namespace sat {
 
     bool card_extension::validate_conflict(literal_vector const& lits, ineq& p) { 
         for (unsigned i = 0; i < lits.size(); ++i) {
-            if (value(lits[i]) != l_false) return false;
+            if (value(lits[i]) != l_false) {
+                TRACE("sat", tout << "literal " << lits[i] << " is not false\n";);
+                return false;
+            }
         }
         unsigned value = 0;
         for (unsigned i = 0; i < p.m_lits.size(); ++i) {
@@ -986,6 +952,9 @@ namespace sat {
                 value += coeff;
             }
         }
+        CTRACE("sat", value >= p.m_k, tout << "slack: " << value << " bound " << p.m_k << "\n";
+               display(tout, p);
+               tout << lits << "\n";);
         return value < p.m_k;
     }
 

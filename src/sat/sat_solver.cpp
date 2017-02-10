@@ -212,9 +212,7 @@ namespace sat {
         if (m_config.m_drat && !m_drat.is_cleaned(c)) {
             m_drat.del(c);
         }
-        else if (!m_config.m_drat || !m_config.m_drat_check || m_drat.is_cleaned(c)) {
-            m_cls_allocator.del_clause(&c);
-        }
+        m_cls_allocator.del_clause(&c);        
         m_stats.m_del_clause++;
     }
 
@@ -769,7 +767,7 @@ namespace sat {
         pop_to_base_level();
         IF_VERBOSE(2, verbose_stream() << "(sat.sat-solver)\n";);
         SASSERT(at_base_lvl());
-        if (m_config.m_num_parallel > 1 && !m_par) {
+        if (m_config.m_num_threads > 1 && !m_par) {
             return check_par(num_lits, lits);
         }
         flet<bool> _searching(m_searching, true);
@@ -842,9 +840,9 @@ namespace sat {
     };
 
     lbool solver::check_par(unsigned num_lits, literal const* lits) {
-        int num_threads = static_cast<int>(m_config.m_num_parallel);
+        int num_threads = static_cast<int>(m_config.m_num_threads);
         int num_extra_solvers = num_threads - 1;
-        sat::par par(*this);
+        sat::parallel par(*this);
         // par.reserve(num_threads, 1 << 16);
         par.reserve(num_threads, 1 << 9);
         par.init_solvers(*this, num_extra_solvers);
@@ -956,7 +954,7 @@ namespace sat {
         }
     }
 
-    void solver::set_par(par* p, unsigned id) {
+    void solver::set_par(parallel* p, unsigned id) {
         m_par = p;
         m_par_num_vars = num_vars();
         m_par_limit_in = 0;
@@ -1662,7 +1660,9 @@ namespace sat {
             case l_false:
                 break;
             case l_undef:
-                c[j] = c[i];
+                if (i != j) {
+                    std::swap(c[i], c[j]);
+                }
                 j++;
                 break;
             }
@@ -1680,7 +1680,12 @@ namespace sat {
             mk_bin_clause(c[0], c[1], true);
             return false;
         default:
-            c.shrink(new_sz);
+            if (new_sz != sz) {
+                std::cout << "shrinking " << c << "\n";
+                if (m_config.m_drat) m_drat.del(c);
+                c.shrink(new_sz);
+                if (m_config.m_drat) m_drat.add(c, true);
+            }
             attach_clause(c);
             return true;
         }
@@ -1749,7 +1754,6 @@ namespace sat {
 
         if (m_ext && m_ext->resolve_conflict()) {
             learn_lemma_and_backjump();
-            m_stats.m_conflict--;
             return true;
         }
 
@@ -2815,7 +2819,10 @@ namespace sat {
             literal lit = m_trail[i];
             if (lvl(lit) > level) {
                 level = lvl(lit);
-                out << "level: " << level << " - ";
+                out << level << ": ";
+            }
+            else {
+                out << "    ";
             }
             out << lit << " ";
             display_justification(out, m_justification[lit.var()]) << "\n";

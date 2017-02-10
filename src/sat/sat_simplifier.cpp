@@ -554,7 +554,9 @@ namespace sat {
             literal l = c[i];
             switch (value(l)) {
             case l_undef:
-                c[j] = l;
+                if (i != j) {
+                    std::swap(c[j], c[i]);
+                }
                 j++;
                 break;
             case l_false:
@@ -567,12 +569,18 @@ namespace sat {
                 break;
             case l_true:
                 r = true;
-                c[j] = l;
+                if (i != j) {
+                    std::swap(c[j], c[i]);
+                }
                 j++;
                 break;
             }
         }
-        c.shrink(j);
+        if (j < sz) {
+            if (s.m_config.m_drat) s.m_drat.del(c);
+            c.shrink(j);
+            if (s.m_config.m_drat) s.m_drat.add(c, true);
+        }
         return r;
     }
 
@@ -588,7 +596,9 @@ namespace sat {
             literal l = c[i];
             switch (value(l)) {
             case l_undef:
-                c[j] = l;
+                if (i != j) {
+                    std::swap(c[j], c[i]);
+                }
                 j++;
                 break;
             case l_false:
@@ -597,7 +607,7 @@ namespace sat {
                 return true;
             }
         }
-        c.shrink(j);
+        c.shrink(j);            
         return false;
     }
 
@@ -642,6 +652,8 @@ namespace sat {
         m_num_elim_lits++;
         insert_elim_todo(l.var());
         c.elim(l);
+        if (s.m_config.m_drat) s.m_drat.add(c, true); 
+        // if (s.m_config.m_drat) s.m_drat.del(c0); // can delete previous version 
         clause_use_list & occurs = m_use_list.get(l);
         occurs.erase_not_removed(c);
         m_sub_counter -= occurs.size()/2;
@@ -1418,6 +1430,7 @@ namespace sat {
                     else
                         s.m_stats.m_mk_clause++;
                     clause * new_c = s.m_cls_allocator.mk_clause(m_new_cls.size(), m_new_cls.c_ptr(), false);
+                    if (s.m_config.m_drat) s.m_drat.add(*new_c, true);
                     s.m_clauses.push_back(new_c);
                     m_use_list.insert(*new_c);
                     if (m_sub_counter > 0)

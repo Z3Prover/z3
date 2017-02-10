@@ -34,7 +34,7 @@ Revision History:
 #include"sat_probing.h"
 #include"sat_mus.h"
 #include"sat_drat.h"
-#include"sat_par.h"
+#include"sat_parallel.h"
 #include"params.h"
 #include"statistics.h"
 #include"stopwatch.h"
@@ -76,7 +76,7 @@ namespace sat {
         config                  m_config;
         stats                   m_stats;
         scoped_ptr<extension>   m_ext;
-        par*                    m_par;
+        parallel*               m_par;
         random_gen              m_rand;
         clause_allocator        m_cls_allocator;
         cleaner                 m_cleaner;
@@ -153,7 +153,7 @@ namespace sat {
         friend class mus;
         friend class drat;
         friend class card_extension;
-        friend class par;
+        friend class parallel;
         friend struct mk_stat;
     public:
         solver(params_ref const & p, reslimit& l);
@@ -260,7 +260,7 @@ namespace sat {
             m_num_checkpoints = 0;
             if (memory::get_allocation_size() > m_config.m_max_memory) throw solver_exception(Z3_MAX_MEMORY_MSG);
         }
-        void set_par(par* p, unsigned id);
+        void set_par(parallel* p, unsigned id);
         bool canceled() { return !m_rlimit.inc(); }
         config const& get_config() { return m_config; }
         extension* get_extension() const { return m_ext.get(); }

@@ -35,7 +35,7 @@ namespace sat {
         m_glue("glue"),
         m_glue_psm("glue_psm"),
         m_psm_glue("psm_glue") {
-        m_num_parallel = 1;
+        m_num_threads = 1;
         updt_params(p); 
     }
 
@@ -78,7 +78,7 @@ namespace sat {
         m_burst_search    = p.burst_search();
         
         m_max_conflicts   = p.max_conflicts();
-        m_num_parallel    = p.parallel_threads();
+        m_num_threads     = p.threads();
         
         // These parameters are not exposed
         m_simplify_mult1  = _p.get_uint("simplify_mult1", 300);
@@ -113,7 +113,7 @@ namespace sat {
         m_minimize_lemmas = p.minimize_lemmas();
         m_core_minimize   = p.core_minimize();
         m_core_minimize_partial   = p.core_minimize_partial();
-        m_drat            = p.drat();
+        m_drat            = p.drat() && p.threads() == 1;
         m_drat_check      = p.drat_check();
         m_drat_file       = p.drat_file();
         m_dyn_sub_res     = p.dyn_sub_res();

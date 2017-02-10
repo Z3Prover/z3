@@ -3,7 +3,7 @@ Copyright (c) 2017 Microsoft Corporation
 
 Module Name:
 
-    sat_par.h
+    sat_parallel.h
 
 Abstract:
 
@@ -26,7 +26,7 @@ Revision History:
 
 namespace sat {
 
-    class par {
+    class parallel {
 
         // shared pool of learned clauses.
         class vector_pool {
@@ -61,9 +61,9 @@ namespace sat {
         
     public:
 
-        par(solver& s);
+        parallel(solver& s);
 
-        ~par();
+        ~parallel();
 
         void init_solvers(solver& s, unsigned num_extra_solvers);
 

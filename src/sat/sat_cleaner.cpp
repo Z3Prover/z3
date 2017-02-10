@@ -99,7 +99,9 @@ namespace sat {
                     m_elim_literals++;
                     break;
                 case l_undef:
-                    c[j] = c[i];
+                    if (i != j) {
+                        std::swap(c[j], c[i]);
+                    }
                     j++;
                     break;
                 }

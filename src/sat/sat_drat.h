@@ -68,9 +68,11 @@ namespace sat {
         void verify(unsigned n, literal const* c);
         bool is_drup(unsigned n, literal const* c);
         bool is_drat(unsigned n, literal const* c);
+        bool is_drat(unsigned n, literal const* c, unsigned pos);
         lbool value(literal l) const; 
         void trace(std::ostream& out, unsigned n, literal const* c, status st);
         void display(std::ostream& out) const;
+        void validate_propagation() const;
 
     public:
         drat(solver& s);

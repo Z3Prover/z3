@@ -117,7 +117,9 @@ namespace sat {
                     break; // clause was satisfied
                 if (val == l_false)
                     continue; // skip
-                c[j] = l;
+                if (i != j) {
+                    std::swap(c[i], c[j]);
+                }
                 j++;
             }
             if (i < sz) {
@@ -136,16 +138,7 @@ namespace sat {
                 return;
             }
             TRACE("elim_eqs", tout << "after removing duplicates: " << c << " j: " << j << "\n";);
-            if (j < sz)
-                c.shrink(j);
-            else
-                c.update_approx();
-            SASSERT(c.size() == j);
-            DEBUG_CODE({
-                for (unsigned i = 0; i < c.size(); i++) {
-                    SASSERT(c[i] == norm(roots, c[i]));
-                }
-            });
+
             SASSERT(j >= 1);
             switch (j) {
             case 1:
@@ -160,8 +153,22 @@ namespace sat {
                 SASSERT(*it == &c);
                 *it2 = *it;
                 it2++;
-                if (!c.frozen())
+                if (j < sz) {
+                    if (m_solver.m_config.m_drat) m_solver.m_drat.del(c); 
+                    c.shrink(j);
+                    if (m_solver.m_config.m_drat) m_solver.m_drat.add(c, true); 
+                }
+                else
+                    c.update_approx();
+
+                DEBUG_CODE({
+                        for (unsigned i = 0; i < sz; i++) {
+                            SASSERT(c[i] == norm(roots, c[i]));
+                        } });
+                
+                if (!c.frozen()) {
                     m_solver.attach_clause(c);
+                }
                 break;
             }
         }

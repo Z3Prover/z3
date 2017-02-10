@@ -169,7 +169,9 @@ namespace sat {
             literal l = c[i];
             switch (s.value(l)) {
             case l_undef:
-                c[j] = l;
+                if (i != j) {
+                    std::swap(c[i], c[j]);
+                }
                 j++;
                 break;
             case l_false:
@@ -201,6 +203,8 @@ namespace sat {
         default:
             c.shrink(new_sz);
             s.attach_clause(c);
+            if (s.m_config.m_drat) s.m_drat.add(c, true);
+            // if (s.m_config.m_drat) s.m_drat.del(c0); // TBD
             SASSERT(s.m_qhead == s.m_trail.size());
             return true;
         }
