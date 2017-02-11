@@ -1405,6 +1405,7 @@ namespace smt {
 
     template<typename Ext>
     final_check_status theory_arith<Ext>::final_check_core() {
+        m_model_depends_on_computed_epsilon = false;
         unsigned old_idx = m_final_check_idx;
         final_check_status result = FC_DONE;
         final_check_status ok;
@@ -1669,6 +1670,7 @@ namespace smt {
         m_liberal_final_check(true),
         m_changed_assignment(false),
         m_assume_eq_head(0),
+        m_model_depends_on_computed_epsilon(false),
         m_nl_rounds(0),
         m_nl_gb_exhausted(false),
         m_nl_new_exprs(m),
@@ -3220,7 +3222,9 @@ namespace smt {
         m_factory = alloc(arith_factory, get_manager());
         m.register_factory(m_factory);
         compute_epsilon();
-        refine_epsilon();
+        if (!m_model_depends_on_computed_epsilon) {
+            refine_epsilon();
+        }
     }
 
     template<typename Ext>
