@@ -327,6 +327,7 @@ public:
         m_found_feasible_optimum = true;
     }
 
+
     virtual lbool operator()() {
         m_defs.reset();
         switch(m_st) {
@@ -731,7 +732,7 @@ public:
             m_assignment[i] = is_true(m_soft[i]);
         }
        
-        DEBUG_CODE(verify_assignment(););
+        // DEBUG_CODE(verify_assignment(););
 
         m_upper = upper;
         trace();
@@ -866,6 +867,7 @@ public:
         if (is_sat == l_false) {
             IF_VERBOSE(0, verbose_stream() << "assignment is infeasible\n";);
         }
+        IF_VERBOSE(1, verbose_stream() << "verified\n";);        
     }
 };
 

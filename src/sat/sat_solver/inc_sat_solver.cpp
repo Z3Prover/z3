@@ -91,7 +91,6 @@ public:
     virtual ~inc_sat_solver() {}
 
     virtual solver* translate(ast_manager& dst_m, params_ref const& p) {
-        std::cout << "translate\n";
         ast_translation tr(m, dst_m);
         if (m_num_scopes > 0) {
             throw default_exception("Cannot translate sat solver at non-base level");
@@ -219,7 +218,6 @@ public:
         m_params.append(p);
         sat_params p1(p);
         m_params.set_bool("elim_vars", false);
-        std::cout << m_params << "\n";
         m_solver.updt_params(m_params);
         m_optimize_model = m_params.get_bool("optimize_model", false);
     }

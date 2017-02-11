@@ -39,33 +39,22 @@ namespace sat {
         m_vectors.resize(sz, 0);
         m_heads.reset();
         m_heads.resize(num_threads, 0);
+        m_at_end.reset();
+        m_at_end.resize(num_threads, true);
         m_tail = 0;
         m_size = sz;
     }
     
     void parallel::vector_pool::begin_add_vector(unsigned owner, unsigned n) {
+        SASSERT(m_tail < m_size);
         unsigned capacity = n + 2;
         m_vectors.reserve(m_size + capacity, 0);
         IF_VERBOSE(3, verbose_stream() << owner << ": begin-add " << n << " tail: " << m_tail << " size: " << m_size << "\n";);
-        if (m_tail >= m_size) {
-            // move tail to the front.
-            for (unsigned i = 0; i < m_heads.size(); ++i) {
-                // the tail could potentially loop around full circle before one of the heads picks up anything.
-                // in this case the we miss the newly inserted record.
-                while (m_heads[i] < capacity) {
-                    next(m_heads[i]);
-                }
-                IF_VERBOSE(3, verbose_stream() << owner << ": head: " << m_heads[i] << "\n";);                
+        for (unsigned i = 0; i < m_heads.size(); ++i) {
+            while (m_tail < m_heads[i] && m_heads[i] < m_tail + capacity) {
+                next(m_heads[i]);
             }
-            m_tail = 0;            
-        }
-        else {
-            for (unsigned i = 0; i < m_heads.size(); ++i) {
-                while (m_tail < m_heads[i] && m_heads[i] < m_tail + capacity) {
-                    next(m_heads[i]);
-                }
-                IF_VERBOSE(3, verbose_stream() << owner << ": head: " << m_heads[i] << "\n";);
-            }
+            m_at_end[i] = false;
         }
         m_vectors[m_tail++] = owner;
         m_vectors[m_tail++] = n;    
@@ -75,18 +64,23 @@ namespace sat {
         m_vectors[m_tail++] = e;
     }
 
+    void parallel::vector_pool::end_add_vector() {
+        if (m_tail >= m_size) {
+            m_tail = 0;
+        }
+    }
+
+
     bool parallel::vector_pool::get_vector(unsigned owner, unsigned& n, unsigned const*& ptr) {
         unsigned head = m_heads[owner];      
         unsigned iterations = 0;
-        while (head != m_tail) {
+        while (head != m_tail || !m_at_end[owner]) {
             ++iterations;
-            if (head == 0 && m_tail >= m_size) {
-                break;
-            }
-            SASSERT(head < m_size);
-            IF_VERBOSE(static_cast<unsigned>(iterations > m_size ? 0 : 3), verbose_stream() << owner << ": head: " << head << " tail: " << m_tail << "\n";);
+            SASSERT(head < m_size && m_tail < m_size);            
             bool is_self = owner == get_owner(head);
             next(m_heads[owner]);
+            IF_VERBOSE(static_cast<unsigned>(iterations > m_size ? 0 : 3), verbose_stream() << owner << ": [" << head << ":" << m_heads[owner] << "] tail: " << m_tail << "\n";);
+            m_at_end[owner] = (m_heads[owner] == m_tail);
             if (!is_self) {
                 n = get_length(head);
                 ptr = get_ptr(head);
@@ -156,6 +150,7 @@ namespace sat {
             m_pool.begin_add_vector(s.m_par_id, 2);
             m_pool.add_vector_elem(l1.index());
             m_pool.add_vector_elem(l2.index());            
+            m_pool.end_add_vector();
         }        
     }
 
@@ -171,6 +166,7 @@ namespace sat {
             for (unsigned i = 0; i < n; ++i) {
                 m_pool.add_vector_elem(c[i].index());
             }
+            m_pool.end_add_vector();
         }
     }
 

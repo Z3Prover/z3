@@ -100,11 +100,10 @@ namespace sat {
         if (src.get_extension()) {
             m_ext = src.get_extension()->copy(this);
         }
-        {
-            unsigned sz = src.init_trail_size();
-            for (unsigned i = 0; i < sz; ++i) {
-                assign(src.m_trail[i], justification());
-            }
+
+        unsigned trail_sz = src.init_trail_size();
+        for (unsigned i = 0; i < trail_sz; ++i) {
+            assign(src.m_trail[i], justification());
         }
 
         // copy binary clauses
@@ -365,12 +364,6 @@ namespace sat {
         }
         unsigned some_idx = c.size() >> 1;
         literal block_lit = c[some_idx];
-        if (m_watches.size() <= (~c[0]).index()) std::cout << c << "\n";
-        if (m_watches.size() <= (~c[1]).index()) std::cout << c << "\n";
-        if (m_watches[(~c[0]).index()].size() >= 20000) {
-            std::cout << m_par_id << ": " << c << "\n";
-            enable_trace("sat");
-        }
         m_watches[(~c[0]).index()].push_back(watched(block_lit, cls_off));
         m_watches[(~c[1]).index()].push_back(watched(block_lit, cls_off));
         return reinit;
@@ -843,7 +836,6 @@ namespace sat {
         int num_threads = static_cast<int>(m_config.m_num_threads);
         int num_extra_solvers = num_threads - 1;
         sat::parallel par(*this);
-        // par.reserve(num_threads, 1 << 16);
         par.reserve(num_threads, 1 << 9);
         par.init_solvers(*this, num_extra_solvers);
         int finished_id = -1;
@@ -872,13 +864,6 @@ namespace sat {
                     }
                 }
                 if (first) {
-                    if (r == l_true && i < num_extra_solvers) {
-                        set_model(par.get_solver(i).get_model());
-                    }
-                    else if (r == l_false && i < num_extra_solvers) {
-                        m_core.reset();
-                        m_core.append(par.get_solver(i).get_core());
-                    }
                     for (int j = 0; j < num_extra_solvers; ++j) {
                         if (i != j) {
                             par.cancel_solver(j);
@@ -901,14 +886,21 @@ namespace sat {
                 ex_kind = DEFAULT_EX;    
             }
         }
-        set_par(0, 0);
+        
         if (finished_id != -1 && finished_id < num_extra_solvers) {
             m_stats = par.get_solver(finished_id).m_stats;
+        }
+        if (result == l_true && finished_id != -1 && finished_id < num_extra_solvers) {
+            set_model(par.get_solver(finished_id).get_model());
+        }
+        else if (result == l_false && finished_id != -1 && finished_id < num_extra_solvers) {
+            m_core.reset();
+            m_core.append(par.get_solver(finished_id).get_core());
         }
         if (!canceled) {
             rlimit().reset_cancel();
         }
-
+        set_par(0, 0);
         if (finished_id == -1) {
             switch (ex_kind) {
             case ERROR_EX: throw z3_error(error_code);
@@ -925,8 +917,7 @@ namespace sat {
     void solver::exchange_par() {
         if (m_par && at_base_lvl()) m_par->get_clauses(*this);
         if (m_par && at_base_lvl()) {
-            // std::cout << scope_lvl() << " " << search_lvl() << "\n";
-            SASSERT(scope_lvl() == search_lvl());
+            // SASSERT(scope_lvl() == search_lvl());
             // TBD: import also dependencies of assumptions.
             unsigned sz = init_trail_size();
             unsigned num_in = 0, num_out = 0;
@@ -1681,7 +1672,6 @@ namespace sat {
             return false;
         default:
             if (new_sz != sz) {
-                std::cout << "shrinking " << c << "\n";
                 if (m_config.m_drat) m_drat.del(c);
                 c.shrink(new_sz);
                 if (m_config.m_drat) m_drat.add(c, true);
@@ -2320,7 +2310,6 @@ namespace sat {
             }
 #if 0
             if (!drop && i >= bound) {
-                // std::cout << "drop\n";
                 j = sz;
                 break;
             }

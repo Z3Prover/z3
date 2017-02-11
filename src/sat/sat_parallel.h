@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef SAT_PAR_H_
-#define SAT_PAR_H_
+#ifndef SAT_PARALLEL_H_
+#define SAT_PARALLEL_H_
 
 #include"sat_types.h"
 #include"hashtable.h"
@@ -34,6 +34,7 @@ namespace sat {
             unsigned        m_size;
             unsigned        m_tail;
             unsigned_vector m_heads;
+            svector<bool>   m_at_end;
             void next(unsigned& index);
             unsigned get_owner(unsigned index) const { return m_vectors[index]; }
             unsigned get_length(unsigned index) const { return m_vectors[index+1]; }
@@ -42,6 +43,7 @@ namespace sat {
             vector_pool() {}
             void reserve(unsigned num_owners, unsigned sz);
             void begin_add_vector(unsigned owner, unsigned n);
+            void end_add_vector();
             void add_vector_elem(unsigned e);
             bool get_vector(unsigned owner, unsigned& n, unsigned const*& ptr);
         };

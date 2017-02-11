@@ -297,7 +297,7 @@ namespace sat {
             }
             // TBD: need proper check for overflow.
             if (offset > (1 << 12)) {
-                IF_VERBOSE(2, verbose_stream() << "offset: " << offset << "\n";
+                IF_VERBOSE(12, verbose_stream() << "offset: " << offset << "\n";
                            active2pb(m_A);
                            display(verbose_stream(), m_A);
                            );
@@ -698,7 +698,7 @@ namespace sat {
     extension* card_extension::copy(solver* s) {
         card_extension* result = alloc(card_extension);
         result->set_solver(s);
-        for (unsigned i = 1; i < m_constraints.size(); ++i) {
+        for (unsigned i = 0; i < m_constraints.size(); ++i) {
             literal_vector lits;
             card& c = *m_constraints[i];
             for (unsigned i = 0; i < c.size(); ++i) {
