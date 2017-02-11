@@ -175,7 +175,7 @@ void exec(tactic & t, goal_ref const & in, goal_ref_buffer & result, model_conve
     }
 }
 
-lbool check_sat(tactic & t, goal_ref & g, model_ref & md, proof_ref & pr, expr_dependency_ref & core, std::string & reason_unknown) {
+lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, proof_ref & pr, expr_dependency_ref & core, std::string & reason_unknown) {
     bool models_enabled = g->models_enabled();
     bool proofs_enabled = g->proofs_enabled();
     bool cores_enabled  = g->unsat_core_enabled();
@@ -200,6 +200,8 @@ lbool check_sat(tactic & t, goal_ref & g, model_ref & md, proof_ref & pr, expr_d
 
     if (is_decided_sat(r)) {
         if (models_enabled) {
+            if (mc)
+                (*mc)(labels, 0);
             model_converter2model(m, mc.get(), md);
             if (!md) {
                 // create empty model.
@@ -216,7 +218,11 @@ lbool check_sat(tactic & t, goal_ref & g, model_ref & md, proof_ref & pr, expr_d
         return l_false;
     }
     else {
-        if (models_enabled) model_converter2model(m, mc.get(), md);
+        if (models_enabled) {
+          model_converter2model(m, mc.get(), md);
+          if (mc)
+              (*mc)(labels, 0);
+        }
         reason_unknown = "incomplete";
         return l_undef;
     }
