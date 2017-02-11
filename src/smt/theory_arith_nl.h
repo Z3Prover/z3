@@ -638,6 +638,7 @@ namespace smt {
         if (!val.get_infinitesimal().is_zero() && !computed_epsilon) {
             compute_epsilon();
             computed_epsilon = true;
+            m_model_depends_on_computed_epsilon = true;
         }
         return  val.get_rational().to_rational() + m_epsilon.to_rational() * val.get_infinitesimal().to_rational();
     }
@@ -652,14 +653,18 @@ namespace smt {
     bool theory_arith<Ext>::check_monomial_assignment(theory_var v, bool & computed_epsilon) {
         SASSERT(is_pure_monomial(var2expr(v)));
         expr * m      = var2expr(v);
-        rational val(1);
+        rational val(1), v_val;
         for (unsigned i = 0; i < to_app(m)->get_num_args(); i++) {
             expr * arg = to_app(m)->get_arg(i);
             theory_var curr = expr2var(arg);
             SASSERT(curr != null_theory_var);
-            val *= get_value(curr, computed_epsilon);
+            v_val = get_value(curr, computed_epsilon);
+            TRACE("non_linear", tout << mk_pp(arg, get_manager()) << " = " << v_val << "\n";);
+            val *= v_val;
         }
-        return get_value(v, computed_epsilon) == val;
+        v_val = get_value(v, computed_epsilon);
+        TRACE("non_linear", tout << "v" << v << " := " << v_val << " == " << val << "\n";);
+        return v_val == val;
     }
 
 
@@ -2356,6 +2361,7 @@ namespace smt {
     */
     template<typename Ext>
     final_check_status theory_arith<Ext>::process_non_linear() {
+        m_model_depends_on_computed_epsilon = false;
         if (m_nl_monomials.empty())
             return FC_DONE;
 

@@ -946,6 +946,7 @@ namespace smt {
         //
         // -----------------------------------
         typedef int_hashtable<int_hash, default_eq<int> > row_set;
+        bool            m_model_depends_on_computed_epsilon;
         unsigned        m_nl_rounds;
         bool            m_nl_gb_exhausted;
         unsigned        m_nl_strategy_idx; // for fairness
