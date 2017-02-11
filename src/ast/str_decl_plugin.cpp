@@ -375,8 +375,7 @@ app * str_util::mk_string_with_escape_characters(std::string & val) {
             // check escape sequence
             i++;
             if (i >= val.length()) {
-                // TODO illegal escape sequence
-                NOT_IMPLEMENTED_YET();
+                get_manager().raise_exception("invalid escape sequence");
             }
             char escapeChar1 = val.at(i);
             if (escapeChar1 == 'a') {
@@ -398,8 +397,21 @@ app * str_util::mk_string_with_escape_characters(std::string & val) {
             } else if (escapeChar1 == '\\') {
                 parsedStr.push_back('\\');
             } else if (escapeChar1 == 'x') {
-                // TODO hex escape
-                NOT_IMPLEMENTED_YET();
+                // hex escape: we expect 'x' to be followed by exactly two hex digits
+                // which means that i+2 must be a valid index
+                if (i+2 >= val.length()) {
+                    get_manager().raise_exception("invalid hex escape: \\x must be followed by exactly two hex digits");
+                }
+                char hexDigitHi = val.at(i+1);
+                char hexDigitLo = val.at(i+2);
+                i += 2;
+                if (!isxdigit((int)hexDigitHi) || !isxdigit((int)hexDigitLo)) {
+                    get_manager().raise_exception("invalid hex escape: \\x must be followed by exactly two hex digits");
+                }
+                char tmp[3] = {hexDigitHi, hexDigitLo, '\0'};
+                long converted = strtol(tmp, NULL, 16);
+                unsigned char convChar = (unsigned char)converted;
+                parsedStr.push_back(convChar);
             } else if (escapeChar1 == '0' || escapeChar1 == '1' || escapeChar1 == '2' || escapeChar1 == '3' ||
                     escapeChar1 == '4' || escapeChar1 == '5' || escapeChar1 == '6' || escapeChar1 == '7') {
                 // TODO octal escape
