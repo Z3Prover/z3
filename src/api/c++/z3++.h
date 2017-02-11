@@ -758,6 +758,20 @@ namespace z3 {
             return result;
         }
            
+        expr numerator() const { 
+            assert(is_numeral());
+            Z3_ast r = Z3_get_numerator(ctx(), m_ast);
+            check_error();
+            return expr(ctx(),r);
+        }
+
+
+        expr denominator() const { 
+            assert(is_numeral());
+            Z3_ast r = Z3_get_denominator(ctx(), m_ast);
+            check_error();
+            return expr(ctx(),r);
+        }
 
         operator Z3_app() const { assert(is_app()); return reinterpret_cast<Z3_app>(m_ast); }
 
