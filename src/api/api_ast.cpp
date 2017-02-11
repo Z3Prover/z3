@@ -1110,29 +1110,32 @@ extern "C" {
 
         if (mk_c(c)->get_seq_fid() == _d->get_family_id()) {
             switch (_d->get_decl_kind()) {
-            case Z3_OP_SEQ_UNIT: return Z3_OP_SEQ_UNIT;
-            case Z3_OP_SEQ_EMPTY: return Z3_OP_SEQ_EMPTY;
-            case Z3_OP_SEQ_CONCAT: return Z3_OP_SEQ_CONCAT;
-            case Z3_OP_SEQ_PREFIX: return Z3_OP_SEQ_PREFIX;
-            case Z3_OP_SEQ_SUFFIX: return Z3_OP_SEQ_SUFFIX;
-            case Z3_OP_SEQ_CONTAINS: return Z3_OP_SEQ_CONTAINS;
-            case Z3_OP_SEQ_EXTRACT: return Z3_OP_SEQ_EXTRACT;
-            case Z3_OP_SEQ_REPLACE: return Z3_OP_SEQ_REPLACE;
-            case Z3_OP_SEQ_AT: return Z3_OP_SEQ_AT;
-            case Z3_OP_SEQ_LENGTH: return Z3_OP_SEQ_LENGTH;
-            case Z3_OP_SEQ_INDEX: return Z3_OP_SEQ_INDEX;
-            case Z3_OP_SEQ_TO_RE: return Z3_OP_SEQ_TO_RE;
-            case Z3_OP_SEQ_IN_RE: return Z3_OP_SEQ_IN_RE;
+            case OP_SEQ_UNIT: return Z3_OP_SEQ_UNIT;
+            case OP_SEQ_EMPTY: return Z3_OP_SEQ_EMPTY;
+            case OP_SEQ_CONCAT: return Z3_OP_SEQ_CONCAT;
+            case OP_SEQ_PREFIX: return Z3_OP_SEQ_PREFIX;
+            case OP_SEQ_SUFFIX: return Z3_OP_SEQ_SUFFIX;
+            case OP_SEQ_CONTAINS: return Z3_OP_SEQ_CONTAINS;
+            case OP_SEQ_EXTRACT: return Z3_OP_SEQ_EXTRACT;
+            case OP_SEQ_REPLACE: return Z3_OP_SEQ_REPLACE;
+            case OP_SEQ_AT: return Z3_OP_SEQ_AT;
+            case OP_SEQ_LENGTH: return Z3_OP_SEQ_LENGTH;
+            case OP_SEQ_INDEX: return Z3_OP_SEQ_INDEX;
+            case OP_SEQ_TO_RE: return Z3_OP_SEQ_TO_RE;
+            case OP_SEQ_IN_RE: return Z3_OP_SEQ_IN_RE;
 
-            case Z3_OP_RE_PLUS: return Z3_OP_RE_PLUS;
-            case Z3_OP_RE_STAR: return Z3_OP_RE_STAR;
-            case Z3_OP_RE_OPTION: return Z3_OP_RE_OPTION;
-            case Z3_OP_RE_CONCAT: return Z3_OP_RE_CONCAT;
-            case Z3_OP_RE_UNION: return Z3_OP_RE_UNION;
-            case Z3_OP_RE_INTERSECT: return Z3_OP_RE_INTERSECT;
-            case Z3_OP_RE_LOOP: return Z3_OP_RE_LOOP;
-            case Z3_OP_RE_FULL_SET: return Z3_OP_RE_FULL_SET;
-            case Z3_OP_RE_EMPTY_SET: return Z3_OP_RE_EMPTY_SET;
+            case OP_STRING_STOI: return Z3_OP_STR_TO_INT;
+            case OP_STRING_ITOS: return Z3_OP_INT_TO_STR;
+
+            case OP_RE_PLUS: return Z3_OP_RE_PLUS;
+            case OP_RE_STAR: return Z3_OP_RE_STAR;
+            case OP_RE_OPTION: return Z3_OP_RE_OPTION;
+            case OP_RE_CONCAT: return Z3_OP_RE_CONCAT;
+            case OP_RE_UNION: return Z3_OP_RE_UNION;
+            case OP_RE_INTERSECT: return Z3_OP_RE_INTERSECT;
+            case OP_RE_LOOP: return Z3_OP_RE_LOOP;
+            case OP_RE_FULL_SET: return Z3_OP_RE_FULL_SET;
+            case OP_RE_EMPTY_SET: return Z3_OP_RE_EMPTY_SET;
             default:
                 return Z3_OP_INTERNAL;
             }

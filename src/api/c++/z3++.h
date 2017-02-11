@@ -964,6 +964,17 @@ namespace z3 {
             check_error();
             return expr(ctx(), r);
         }
+        expr stoi() const {
+            Z3_ast r = Z3_mk_str_to_int(ctx(), *this);
+            check_error();
+            return expr(ctx(), r);
+        }
+        expr itos() const {
+            Z3_ast r = Z3_mk_int_to_str(ctx(), *this);
+            check_error();
+            return expr(ctx(), r);
+        }
+
         friend expr range(expr const& lo, expr const& hi);       
         /**
            \brief create a looping regular expression.
