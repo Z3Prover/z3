@@ -163,6 +163,7 @@ namespace sat {
         virtual std::ostream& display_justification(std::ostream& out, ext_justification_idx idx) const;
         virtual void collect_statistics(statistics& st) const;
         virtual extension* copy(solver* s);
+        virtual void find_mutexes(literal_vector& lits, vector<literal_vector> & mutexes);
     };
 
 };

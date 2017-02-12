@@ -709,6 +709,37 @@ namespace sat {
         return result;
     }
 
+    void card_extension::find_mutexes(literal_vector& lits, vector<literal_vector> & mutexes) {
+        literal_set slits(lits);
+        bool change = false;
+        for (unsigned i = 0; i < m_constraints.size(); ++i) {
+            card& c = *m_constraints[i];
+            if (c.size() == c.k() + 1) {
+                literal_vector mux;
+                for (unsigned j = 0; j < c.size(); ++j) {
+                    literal lit = ~c[j];
+                    if (slits.contains(lit)) {
+                        mux.push_back(lit);
+                    }
+                }
+                if (mux.size() <= 1) {
+                    continue;
+                }
+
+                for (unsigned j = 0; j < mux.size(); ++j) {
+                    slits.remove(mux[j]);
+                }
+                change = true;
+                mutexes.push_back(mux);
+            }
+        }        
+        if (!change) return;
+        literal_set::iterator it = slits.begin(), end = slits.end();
+        lits.reset();
+        for (; it != end; ++it) {
+            lits.push_back(*it);
+        }
+    }
 
     void card_extension::display_watch(std::ostream& out, bool_var v, bool sign) const {
         watch const* w = m_var_infos[v].m_lit_watch[sign];
@@ -957,7 +988,6 @@ namespace sat {
                tout << lits << "\n";);
         return value < p.m_k;
     }
-
     
 };
 

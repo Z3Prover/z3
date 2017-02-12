@@ -113,9 +113,9 @@ namespace sat {
         m_minimize_lemmas = p.minimize_lemmas();
         m_core_minimize   = p.core_minimize();
         m_core_minimize_partial   = p.core_minimize_partial();
-        m_drat            = p.drat() && p.threads() == 1;
         m_drat_check      = p.drat_check();
         m_drat_file       = p.drat_file();
+        m_drat            = (m_drat_check || m_drat_file != symbol("")) && p.threads() == 1;
         m_dyn_sub_res     = p.dyn_sub_res();
     }
 

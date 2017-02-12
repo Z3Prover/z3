@@ -35,6 +35,10 @@ namespace sat {
     void use_list::insert(clause & c) {
         unsigned sz = c.size();
         for (unsigned i = 0; i < sz; i++) {
+            if (m_use_list.size() <= c[i].index()) {
+                std::cout << c[i] << "\n";
+                std::cout << m_use_list.size() << "\n";
+            }
             m_use_list[c[i].index()].insert(c);
         }
     }

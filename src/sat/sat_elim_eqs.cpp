@@ -151,8 +151,6 @@ namespace sat {
                 break;
             default:
                 SASSERT(*it == &c);
-                *it2 = *it;
-                it2++;
                 if (j < sz) {
                     if (m_solver.m_config.m_drat) m_solver.m_drat.del(c); 
                     c.shrink(j);
@@ -162,10 +160,12 @@ namespace sat {
                     c.update_approx();
 
                 DEBUG_CODE({
-                        for (unsigned i = 0; i < sz; i++) {
+                        for (unsigned i = 0; i < j; i++) {
                             SASSERT(c[i] == norm(roots, c[i]));
                         } });
                 
+                *it2 = *it;
+                it2++;
                 if (!c.frozen()) {
                     m_solver.attach_clause(c);
                 }

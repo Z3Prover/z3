@@ -836,7 +836,7 @@ namespace sat {
         int num_threads = static_cast<int>(m_config.m_num_threads);
         int num_extra_solvers = num_threads - 1;
         sat::parallel par(*this);
-        par.reserve(num_threads, 1 << 9);
+        par.reserve(num_threads, 1 << 12);
         par.init_solvers(*this, num_extra_solvers);
         int finished_id = -1;
         std::string        ex_msg;
@@ -3076,17 +3076,21 @@ namespace sat {
             }
         }
         vector<unsigned_vector> _mutexes;
+        literal_vector _lits(lits);
+        if (m_ext) {
+            m_ext->find_mutexes(_lits, mutexes);
+        }
         unsigned_vector ps;
-        for (unsigned i = 0; i < lits.size(); ++i) {
-            ps.push_back(lits[i].index());
+        for (unsigned i = 0; i < _lits.size(); ++i) {
+            ps.push_back(_lits[i].index());
         }
         mc.cliques(ps, _mutexes);
         for (unsigned i = 0; i < _mutexes.size(); ++i) {
-            literal_vector lits;
+            literal_vector clique;
             for (unsigned j = 0; j < _mutexes[i].size(); ++j) {
-                lits.push_back(to_literal(_mutexes[i][j]));
+                clique.push_back(to_literal(_mutexes[i][j]));
             }
-            mutexes.push_back(lits);
+            mutexes.push_back(clique);
         }
         return l_true;
     }

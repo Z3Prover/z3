@@ -229,6 +229,7 @@ int main(int argc, char ** argv) {
     TST(model_evaluator);
     TST(get_consequences);
     TST(pb2bv);
+    TST_ARGV(sat_lookahead);
     //TST_ARGV(hs);
 }
 

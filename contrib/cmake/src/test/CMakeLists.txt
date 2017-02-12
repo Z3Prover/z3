@@ -92,6 +92,7 @@ add_executable(test-z3
   rational.cpp
   rcf.cpp
   region.cpp
+  sat_lookahead.cpp
   sat_user_scope.cpp
   simple_parser.cpp
   simplex.cpp

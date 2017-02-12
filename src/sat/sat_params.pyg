@@ -24,7 +24,6 @@ def_module_params('sat',
                           ('core.minimize_partial', BOOL, False, 'apply partial (cheap) core minimization'),
                           ('threads', UINT, 1, 'number of parallel threads to use'),
                           ('dimacs.core', BOOL, False, 'extract core from DIMACS benchmarks'),
-                          ('drat', BOOL, False, 'produce DRAT proofs'),
                           ('drat.file', SYMBOL, '', 'file to dump DRAT proofs'),
                           ('drat.check', BOOL, False, 'build up internal proof and check'),
                        ))

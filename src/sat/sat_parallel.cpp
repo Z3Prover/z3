@@ -185,12 +185,17 @@ namespace sat {
         unsigned owner = s.m_par_id;
         while (m_pool.get_vector(owner, n, ptr)) {
             m_lits.reset();
-            for (unsigned i = 0; i < n; ++i) {
-                m_lits.push_back(to_literal(ptr[i]));
+            bool usable_clause = true;
+            for (unsigned i = 0; usable_clause && i < n; ++i) {
+                literal lit(to_literal(ptr[i]));                
+                m_lits.push_back(lit);
+                usable_clause = lit.var() <= s.m_par_num_vars && !s.was_eliminated(lit.var());
             }
             IF_VERBOSE(3, verbose_stream() << s.m_par_id << ": retrieve " << m_lits << "\n";);
             SASSERT(n >= 2);
-            s.mk_clause_core(m_lits.size(), m_lits.c_ptr(), true);
+            if (usable_clause) {
+                s.mk_clause_core(m_lits.size(), m_lits.c_ptr(), true);
+            }
         }        
     }
 
