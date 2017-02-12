@@ -868,6 +868,9 @@ class ExprRef(AstRef):
         _args, sz = _to_ast_array((a, b))
         return BoolRef(Z3_mk_distinct(self.ctx_ref(), 2, _args), self.ctx)
 
+    def params(self):
+        return self.decl().params()
+
     def decl(self):
         """Return the Z3 function declaration associated with a Z3 application.
 
