@@ -273,68 +273,6 @@ bool theory_str::internalize_term(app * term) {
         TRACE("t_str_axiom_bug", tout << "add " << mk_pp(e->get_owner(), m) << " to m_basicstr_axiom_todo" << std::endl;);
     }
     return true;
-
-    /* // what I had before
-    SASSERT(!ctx.e_internalized(term));
-
-    unsigned num_args = term->get_num_args();
-    for (unsigned i = 0; i < num_args; i++)
-        ctx.internalize(term->get_arg(i), false);
-
-    enode * e = (ctx.e_internalized(term)) ? ctx.get_enode(term) :
-                                             ctx.mk_enode(term, false, false, true);
-
-    if (is_attached_to_var(e))
-        return false;
-
-    attach_new_th_var(e);
-
-    //if (is_concat(term)) {
-    //    instantiate_concat_axiom(e);
-    //}
-    */
-
-    // TODO do we still need to do instantiate_concat_axiom()?
-
-    // partially from theory_seq::internalize_term()
-    /*
-    if (ctx.e_internalized(term)) {
-        enode* e = ctx.get_enode(term);
-        mk_var(e);
-        return true;
-    }
-    TRACE("t_str_detail", tout << "internalizing term: " << mk_ismt2_pp(term, get_manager()) << std::endl;);
-    unsigned num_args = term->get_num_args();
-    expr* arg;
-    for (unsigned i = 0; i < num_args; i++) {
-        arg = term->get_arg(i);
-        mk_var(ensure_enode(arg));
-    }
-    if (m.is_bool(term)) {
-        bool_var bv = ctx.mk_bool_var(term);
-        ctx.set_var_theory(bv, get_id());
-        ctx.mark_as_relevant(bv);
-    }
-
-    enode* e = 0;
-    if (ctx.e_internalized(term)) {
-        e = ctx.get_enode(term);
-    }
-    else {
-        e = ctx.mk_enode(term, false, m.is_bool(term), true);
-    }
-
-    if (opt_EagerStringConstantLengthAssertions && m_strutil.is_string(term)) {
-        TRACE("t_str", tout << "eagerly asserting length of string term " << mk_pp(term, m) << std::endl;);
-        m_basicstr_axiom_todo.insert(e);
-        TRACE("t_str_axiom_bug", tout << "add " << mk_pp(e->get_owner(), m) << " to m_basicstr_axiom_todo" << std::endl;);
-    }
-
-    theory_var v = mk_var(e);
-    TRACE("t_str_detail", tout << "term " << mk_ismt2_pp(term, get_manager()) << " = v#" << v << std::endl;);
-
-    return true;
-    */
 }
 
 enode* theory_str::ensure_enode(expr* e) {
@@ -351,18 +289,11 @@ void theory_str::refresh_theory_var(expr * e) {
     enode * en = ensure_enode(e);
     theory_var v = mk_var(en);
     TRACE("t_str_detail", tout << "refresh " << mk_pp(e, get_manager()) << ": v#" << v << std::endl;);
-    // TODO this is probably sub-optimal
     m_basicstr_axiom_todo.push_back(en);
 }
 
 theory_var theory_str::mk_var(enode* n) {
     TRACE("t_str_detail", tout << "mk_var for " << mk_pp(n->get_owner(), get_manager()) << std::endl;);
-    /*
-    if (!m_strutil.is_string(n->get_owner())) {
-        return null_theory_var;
-    }
-    */
-    // TODO this may require an overhaul of m_strutil.is_string() if things suddenly start working after the following change:
     ast_manager & m = get_manager();
     if (!(is_sort_of(m.get_sort(n->get_owner()), m_strutil.get_fid(), STRING_SORT))) {
         return null_theory_var;
@@ -503,9 +434,6 @@ app * theory_str::mk_int(rational & q) {
     return m_autil.mk_numeral(q, true);
 }
 
-
-// TODO refactor all of these so that they don't use variable counters, but use ast_manager::mk_fresh_const instead
-
 expr * theory_str::mk_internal_lenTest_var(expr * node, int lTries) {
 	ast_manager & m = get_manager();
 
@@ -539,23 +467,6 @@ void theory_str::track_variable_scope(expr * var) {
 }
 
 app * theory_str::mk_internal_xor_var() {
-    /*
-	ast_manager & m = get_manager();
-	std::stringstream ss;
-	ss << tmpXorVarCount;
-	tmpXorVarCount++;
-	std::string name = "$$_xor_" + ss.str();
-	// Z3_sort r = of_sort(mk_c(c)->m().mk_sort(mk_c(c)->get_arith_fid(), INT_SORT));
-	sort * int_sort = m.mk_sort(m_autil.get_family_id(), INT_SORT);
-
-	char * new_buffer = alloc_svect(char, name.length() + 1);
-    strcpy(new_buffer, name.c_str());
-	symbol sym(new_buffer);
-
-	app * a = m.mk_const(m.mk_const_decl(sym, int_sort));
-	m_trail.push_back(a);
-	return a;
-	*/
     return mk_int_var("$$_xor");
 }
 
@@ -1069,7 +980,6 @@ void theory_str::instantiate_concat_axiom(enode * cat) {
 
     // build LHS
     expr_ref len_xy(m);
-    // TODO should we use str_util for these and other expressions?
     len_xy = mk_strlen(a_cat);
     SASSERT(len_xy);
 
@@ -1106,15 +1016,12 @@ void theory_str::instantiate_concat_axiom(enode * cat) {
  *    Length(x) == strlen(x)
  */
 void theory_str::instantiate_basic_string_axioms(enode * str) {
-    // TODO keep track of which enodes we have added axioms for, so we don't add the same ones twice?
-
     context & ctx = get_context();
     ast_manager & m = get_manager();
 
     TRACE("t_str_axiom_bug", tout << "set up basic string axioms on " << mk_pp(str->get_owner(), m) << std::endl;);
 
     // TESTING: attempt to avoid a crash here when a variable goes out of scope
-    // TODO this seems to work so we probably need to do this for other propagate checks, etc.
     if (str->get_iscope_lvl() > ctx.get_scope_level()) {
         TRACE("t_str_detail", tout << "WARNING: skipping axiom setup on out-of-scope string term" << std::endl;);
         return;
@@ -2596,7 +2503,6 @@ void theory_str::generate_mutual_exclusion(expr_ref_vector & terms) {
     literal_vector ls;
     for (unsigned i = 0; i < terms.size(); ++i) {
         expr * e = terms.get(i);
-        // TODO make sure the terms are internalized, etc.?
         literal l = ctx.get_literal(e);
         ls.push_back(l);
     }
@@ -2605,28 +2511,6 @@ void theory_str::generate_mutual_exclusion(expr_ref_vector & terms) {
 
 void theory_str::print_cut_var(expr * node, std::ofstream & xout) {
     ast_manager & m = get_manager();
-    /*
-#ifdef DEBUGLOG
-  __debugPrint(logFile, "\n>> CUT info of [");
-  printZ3Node(t, node);
-  __debugPrint(logFile, "]\n");
-
-  if (cut_VARMap.find(node) != cut_VARMap.end()) {
-    if (!cut_VARMap[node].empty()) {
-      __debugPrint(logFile, "[%2d] {", cut_VARMap[node].top()->level);
-      std::map<Z3_ast, int>::iterator itor = cut_VARMap[node].top()->vars.begin();
-      for (; itor != cut_VARMap[node].top()->vars.end(); itor++) {
-        printZ3Node(t, itor->first);
-        __debugPrint(logFile, ", ");
-      }
-      __debugPrint(logFile, "}\n");
-    } else {
-
-    }
-  }
-  __debugPrint(logFile, "------------------------\n\n");
-#endif
-*/
     xout << "Cut info of " << mk_pp(node, m) << std::endl;
     if (cut_var_map.contains(node)) {
         if (!cut_var_map[node].empty()) {
@@ -2924,8 +2808,6 @@ bool theory_str::will_result_in_overlap(expr * lhs, expr * rhs) {
         expr * m = to_app(new_nn2)->get_arg(0);
         expr * n = to_app(new_nn2)->get_arg(1);
 
-        // TODO is it too slow to perform length checks here to avoid false positives?
-
         if (has_self_cut(m, y)) {
             TRACE("t_str_detail", tout << "Possible overlap found" << std::endl; print_cut_var(m, tout); print_cut_var(y, tout););
             return true;
@@ -3193,7 +3075,6 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
             t2 = varForBreakConcat[key2][1];
             xorFlag = varForBreakConcat[key2][2];
         }
-        // TODO do I need to refresh the xorFlag, which is an integer var, and if so, how?
         refresh_theory_var(t1);
         add_nonempty_constraint(t1);
         refresh_theory_var(t2);
@@ -3252,7 +3133,7 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
                 add_theory_aware_branching_info(tester, m_params.m_OverlapTheoryAwarePriority, l_true);
             } else {
                 TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
-                // TODO printCutVar(m, y);
+                TRACE("t_str_detail", {print_cut_var(m, tout); print_cut_var(y, tout);});
             }
         }
     } else if (splitType == 1) {
@@ -3310,7 +3191,7 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
                 add_theory_aware_branching_info(tester, m_params.m_OverlapTheoryAwarePriority, l_true);
             } else {
                 TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
-                // TODO printCutVar(m, y);
+                TRACE("t_str_detail", {print_cut_var(m, tout); print_cut_var(y, tout);});
             }
         }
     } else if (splitType == -1) {
@@ -3409,7 +3290,7 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
                 add_theory_aware_branching_info(tester, m_params.m_OverlapTheoryAwarePriority, l_true);
             } else {
                 TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
-                // TODO printCutVar(x, n);
+                TRACE("t_str_detail", {print_cut_var(x, tout); print_cut_var(n, tout);});
             }
         }
 
@@ -3572,7 +3453,6 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 			temp1 = varForBreakConcat[key2][0];
 			xorFlag = varForBreakConcat[key2][1];
 		}
-		// TODO refresh xorFlag?
 		refresh_theory_var(temp1);
 		add_nonempty_constraint(temp1);
 	}
@@ -4049,7 +3929,7 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
                     add_theory_aware_branching_info(tester, m_params.m_OverlapTheoryAwarePriority, l_true);
                 } else {
                     TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
-                    // TODO printCutVar(x, n);
+                    TRACE("t_str_detail", {print_cut_var(x, tout); print_cut_var(n, tout);});
                 }
             }
         }
@@ -4129,7 +4009,7 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
                     add_theory_aware_branching_info(tester, m_params.m_OverlapTheoryAwarePriority, l_true);
                 } else {
                     TRACE("t_str", tout << "AVOID LOOP: SKIPPED." << std::endl;);
-                    // TODO printCutVAR(x, n)
+                    TRACE("t_str_detail", {print_cut_var(x, tout); print_cut_var(n, tout);});
                 }
             }
         }
@@ -4712,26 +4592,6 @@ void theory_str::unroll_str2reg_constStr(expr * unrollFunc, expr * eqConstStr) {
  * Return that constant if it is found, and set hasEqcValue to true.
  * Otherwise, return n, and set hasEqcValue to false.
  */
-/*
-expr * theory_str::get_eqc_value(expr * n, bool & hasEqcValue) {
-	context & ctx = get_context();
-	// I hope this works
-	ctx.internalize(n, false);
-	enode * nNode = ctx.get_enode(n);
-	enode * eqcNode = nNode;
-	do {
-		app * ast = eqcNode->get_owner();
-		if (is_string(eqcNode)) {
-			hasEqcValue = true;
-			return ast;
-		}
-		eqcNode = eqcNode->get_next();
-	} while (eqcNode != nNode);
-	// not found
-	hasEqcValue = false;
-	return n;
-}
-*/
 
 expr * theory_str::get_eqc_value(expr * n, bool & hasEqcValue) {
     return z3str2_get_eqc_value(n, hasEqcValue);
@@ -6596,8 +6456,6 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
         			// check the entries in this map to make sure they're still in scope
         			// before we use them.
 
-        			// TODO XOR variables will always show up as "not in scope" because of how we update internal_variable_set
-
         			std::map<std::pair<expr*,expr*>, std::map<int, expr*> >::iterator entry1 = varForBreakConcat.find(key1);
         			std::map<std::pair<expr*,expr*>, std::map<int, expr*> >::iterator entry2 = varForBreakConcat.find(key2);
 
@@ -7408,14 +7266,6 @@ void theory_str::assign_eh(bool_var v, bool is_true) {
 void theory_str::push_scope_eh() {
     theory::push_scope_eh();
     m_trail_stack.push_scope();
-
-    // TODO out-of-scope term debugging, see comment in pop_scope_eh()
-    /*
-    context & ctx = get_context();
-    ast_manager & m = get_manager();
-    expr_ref_vector assignments(m);
-    ctx.get_assignments(assignments);
-    */
 
     sLevel += 1;
     TRACE("t_str", tout << "push to " << sLevel << std::endl;);
@@ -9846,7 +9696,6 @@ expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tr
 		andList.push_back(and_expr);
 	}
 
-	// TODO cache mk_string("more")
 	expr_ref more_option(ctx.mk_eq_atom(indicator, mk_string("more")), m);
 	orList.push_back(more_option);
 	// decrease priority of this option
@@ -10558,8 +10407,6 @@ model_value_proc * theory_str::mk_value(enode * n, model_generator & mg) {
         return alloc(expr_wrapper_proc, val);
     } else {
         TRACE("t_str", tout << "WARNING: failed to find a concrete value, falling back" << std::endl;);
-        // TODO make absolutely sure the reason we can't find a concrete value is because of an unassigned temporary
-        // e.g. for an expression like (Concat X $$_str0)
         return alloc(expr_wrapper_proc, to_app(mk_string("**UNUSED**")));
     }
 }
