@@ -117,14 +117,16 @@ else()
   set(lib_type "STATIC")
 endif()
 add_library(libz3 ${lib_type} ${object_files})
-# FIXME: Set "VERSION" and "SOVERSION" properly
 set_target_properties(libz3 PROPERTIES
-  # FIXME: Should we be using ${Z3_VERSION} here?
-  # VERSION: Sets up symlinks, does it do anything else?
+  # VERSION determines the version in the filename of the shared library.
+  # SOVERSION determines the value of the DT_SONAME field on ELF platforms.
+  # On ELF platforms the final compiled filename will be libz3.so.W.X.Y.Z
+  # but symlinks will be made to this file from libz3.so and also from
+  # libz3.so.W.X.
+  # This indicates that no breaking API changes will be made within a single
+  # minor version.
   VERSION ${Z3_VERSION}
-  # SOVERSION: On platforms that use ELF this sets the API version
-  # and should be incremented everytime the API changes
-  SOVERSION ${Z3_VERSION})
+  SOVERSION ${Z3_VERSION_MAJOR}.${Z3_VERSION_MINOR})
 
 if (NOT MSVC)
   # On UNIX like platforms if we don't change the OUTPUT_NAME

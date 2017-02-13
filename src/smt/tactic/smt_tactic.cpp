@@ -204,7 +204,9 @@ public:
                 if (in->models_enabled()) {
                     model_ref md;
                     m_ctx->get_model(md);
-                    mc = model2model_converter(md.get());
+                    buffer<symbol> r;
+                    m_ctx->get_relevant_labels(0, r);
+                    mc = model_and_labels2model_converter(md.get(), r);
                     mc = concat(fmc.get(), mc.get());
                 }
                 return;
@@ -251,7 +253,9 @@ public:
                         if (in->models_enabled()) {
                             model_ref md;
                             m_ctx->get_model(md);
-                            mc = model2model_converter(md.get());
+                            buffer<symbol> r;
+                            m_ctx->get_relevant_labels(0, r);
+                            mc = model_and_labels2model_converter(md.get(), r);
                         }
                         return;
                     default:

@@ -146,8 +146,9 @@ lbool tactic2solver::check_sat_core(unsigned num_assumptions, expr * const * ass
     proof_ref           pr(m);
     expr_dependency_ref core(m);
     std::string         reason_unknown = "unknown";
+    labels_vec labels;
     try {
-        switch (::check_sat(*m_tactic, g, md, pr, core, reason_unknown)) {
+        switch (::check_sat(*m_tactic, g, md, labels, pr, core, reason_unknown)) {
         case l_true: 
             m_result->set_status(l_true);
             break;

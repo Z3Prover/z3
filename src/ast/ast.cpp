@@ -2326,6 +2326,22 @@ bool ast_manager::is_pattern(expr const * n) const {
     return true;
 }
 
+
+bool ast_manager::is_pattern(expr const * n, ptr_vector<expr> &args) {
+    if (!is_app_of(n, m_pattern_family_id, OP_PATTERN)) {
+        return false;
+    }
+    for (unsigned i = 0; i < to_app(n)->get_num_args(); ++i) {
+        expr *arg = to_app(n)->get_arg(i);
+        if (!is_app(arg)) {
+            return false;
+        }
+        args.push_back(arg);
+    }
+    return true;
+}
+
+
 quantifier * ast_manager::mk_quantifier(bool forall, unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names,
                                         expr * body, int weight , symbol const & qid, symbol const & skid,
                                         unsigned num_patterns, expr * const * patterns,

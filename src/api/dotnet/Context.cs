@@ -2421,6 +2421,29 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Convert an integer expression to a string.
+        /// </summary>
+        public SeqExpr IntToString(Expr e) 
+        {
+            Contract.Requires(e != null);
+	    Contract.Requires(e is ArithExpr);
+            Contract.Ensures(Contract.Result<SeqExpr>() != null);
+            return new SeqExpr(this, Native.Z3_mk_int_to_str(nCtx, e.NativeObject));
+        }
+
+        /// <summary>
+        /// Convert an integer expression to a string.
+        /// </summary>
+        public IntExpr StringToInt(Expr e) 
+        {
+            Contract.Requires(e != null);
+            Contract.Requires(e is SeqExpr);
+            Contract.Ensures(Contract.Result<IntExpr>() != null);
+            return new IntExpr(this, Native.Z3_mk_str_to_int(nCtx, e.NativeObject));
+        }
+
+
+        /// <summary>
         /// Concatentate sequences.
         /// </summary>
         public SeqExpr MkConcat(params SeqExpr[] t)

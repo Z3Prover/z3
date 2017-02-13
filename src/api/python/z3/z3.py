@@ -868,6 +868,9 @@ class ExprRef(AstRef):
         _args, sz = _to_ast_array((a, b))
         return BoolRef(Z3_mk_distinct(self.ctx_ref(), 2, _args), self.ctx)
 
+    def params(self):
+        return self.decl().params()
+
     def decl(self):
         """Return the Z3 function declaration associated with a Z3 application.
 
@@ -1010,6 +1013,7 @@ def _coerce_exprs(a, b, ctx=None):
     a = s.cast(a)
     b = s.cast(b)
     return (a, b)
+
 
 def _reduce(f, l, a):
     r = a
@@ -1296,7 +1300,7 @@ class BoolSortRef(SortRef):
         if isinstance(val, bool):
             return BoolVal(val, self.ctx)
         if __debug__:
-            _z3_assert(is_expr(val), "True, False or Z3 Boolean expression expected")
+            _z3_assert(is_expr(val), "True, False or Z3 Boolean expression expected. Received %s" % val)
             _z3_assert(self.eq(val.sort()), "Value cannot be converted into a Z3 Boolean value")
         return val
 
@@ -2012,7 +2016,7 @@ class ArithSortRef(SortRef):
             if self.is_real():
                 return RealVal(val, self.ctx)
             if __debug__:
-                _z3_assert(False, "int, long, float, string (numeral), or Z3 Integer/Real expression expected")
+                _z3_assert(False, "int, long, float, string (numeral), or Z3 Integer/Real expression expected. Got %s" % self)
 
 def is_arith_sort(s):
     """Return `True` if s is an arithmetical sort (type).
@@ -9659,6 +9663,29 @@ def Length(s):
     """
     s = _coerce_seq(s)
     return ArithRef(Z3_mk_seq_length(s.ctx_ref(), s.as_ast()), s.ctx)
+
+def StrToInt(s):
+    """Convert string expression to integer
+    >>> a = StrToInt("1")
+    >>> simplify(1 == a)
+    True
+    >>> b = StrToInt("2")
+    >>> simplify(1 == b)
+    False
+    >>> c = StrToInt(IntToStr(2))
+    >>> simplify(1 == c)
+    False
+    """
+    s = _coerce_seq(s)
+    return ArithRef(Z3_mk_str_to_int(s.ctx_ref(), s.as_ast()), s.ctx)
+
+
+def IntToStr(s):
+    """Convert integer expression to string"""
+    if not is_expr(s):
+        s = _py2expr(s)
+    return SeqRef(Z3_mk_int_to_str(s.ctx_ref(), s.as_ast()), s.ctx)
+
 
 def Re(s, ctx=None):
     """The regular expression that accepts sequence 's'

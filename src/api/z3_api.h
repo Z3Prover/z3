@@ -1152,6 +1152,10 @@ typedef enum {
     Z3_OP_SEQ_TO_RE,
     Z3_OP_SEQ_IN_RE,
 
+    // strings
+    Z3_OP_STR_TO_INT,
+    Z3_OP_INT_TO_STR,
+
     // regular expressions
     Z3_OP_RE_PLUS,
     Z3_OP_RE_STAR,
@@ -3324,6 +3328,21 @@ extern "C" {
        def_API('Z3_mk_seq_index' ,AST ,(_in(CONTEXT), _in(AST), _in(AST), _in(AST)))
      */
     Z3_ast Z3_API Z3_mk_seq_index(Z3_context c, Z3_ast s, Z3_ast substr, Z3_ast offset);
+
+    /**
+       \brief Convert string to integer.
+
+       def_API('Z3_mk_str_to_int' ,AST ,(_in(CONTEXT), _in(AST)))
+     */    
+    Z3_ast Z3_API Z3_mk_str_to_int(Z3_context c, Z3_ast s);
+
+
+    /**
+       \brief Integer to string conversion.
+
+       def_API('Z3_mk_int_to_str' ,AST ,(_in(CONTEXT), _in(AST)))
+     */    
+    Z3_ast Z3_API Z3_mk_int_to_str(Z3_context c, Z3_ast s);
 
     /**
        \brief Create a regular expression that accepts the sequence \c seq.
