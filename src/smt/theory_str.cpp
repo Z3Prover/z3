@@ -4576,7 +4576,8 @@ void theory_str::unroll_str2reg_constStr(expr * unrollFunc, expr * eqConstStr) {
 	std::string regStrValue = m_strutil.get_string_constant_value(strInStr2RegFunc);
 	int strLen = strValue.length();
 	int regStrLen = regStrValue.length();
-	int cnt = strLen / regStrLen; // TODO prevent DIV/0 on regStrLen
+	SASSERT(regStrLen != 0); // this should never occur -- the case for empty string is handled elsewhere
+	int cnt = strLen / regStrLen;
 
 	expr_ref implyL(ctx.mk_eq_atom(unrollFunc, eqConstStr), m);
 	expr_ref implyR1(ctx.mk_eq_atom(oriCnt, mk_int(cnt)), m);
@@ -7446,7 +7447,7 @@ void theory_str::classify_ast_by_type(expr * node, std::map<expr*, int> & varMap
 		varMap[node] = 1;
 	}
 	// check whether the node is a function that we want to inspect
-	else if (is_app(node)) { // TODO
+	else if (is_app(node)) {
 		app * aNode = to_app(node);
 		if (is_strlen(aNode)) {
 			// Length
