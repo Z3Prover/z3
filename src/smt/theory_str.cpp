@@ -4842,130 +4842,134 @@ void theory_str::check_contain_by_eqc_val(expr * varNode, expr * constNode) {
 
     expr_ref_vector litems(m);
 
-    // TODO refactor to use the new contain_pair_idx_map
+    if (contain_pair_idx_map.find(varNode) != contain_pair_idx_map.end()) {
+        std::set<std::pair<expr*, expr*> >::iterator itor1 = contain_pair_idx_map[varNode].begin();
+        for (; itor1 != contain_pair_idx_map[varNode].end(); ++itor1) {
+            expr * strAst = itor1->first;
+            expr * substrAst = itor1->second;
 
-    expr_ref_vector::iterator itor1 = contains_map.begin();
-    for (; itor1 != contains_map.end(); ++itor1) {
-        expr * boolVar = *itor1;
-        // boolVar is actually a Contains term
-        app * containsApp = to_app(boolVar);
-        expr * strAst = containsApp->get_arg(0);
-        expr * substrAst = containsApp->get_arg(1);
-
-        // we only want to inspect the Contains terms where either of strAst or substrAst
-        // are equal to varNode.
-
-        TRACE("t_str_detail", tout << "considering Contains with strAst = " << mk_pp(strAst, m) << ", substrAst = " << mk_pp(substrAst, m) << "..." << std::endl;);
-
-        if (varNode != strAst && varNode != substrAst) {
-            TRACE("t_str_detail", tout << "varNode not equal to strAst or substrAst, skip" << std::endl;);
-            continue;
-        }
-        TRACE("t_str_detail", tout << "varNode matched one of strAst or substrAst. Continuing" << std::endl;);
-
-        // varEqcNode is str
-        if (strAst == varNode) {
-            expr_ref implyR(m);
-            litems.reset();
-
-            if (strAst != constNode) {
-                litems.push_back(ctx.mk_eq_atom(strAst, constNode));
+            expr * boolVar;
+            if (!contain_pair_bool_map.find(strAst, substrAst, boolVar)) {
+                TRACE("t_str_detail", tout << "warning: no entry for boolVar in contain_pair_bool_map" << std::endl;);
             }
-            std::string strConst = m_strutil.get_string_constant_value(constNode);
-            bool subStrHasEqcValue = false;
-            expr * substrValue = get_eqc_value(substrAst, subStrHasEqcValue);
-            if (substrValue != substrAst) {
-                litems.push_back(ctx.mk_eq_atom(substrAst, substrValue));
+            // boolVar is actually a Contains term
+            app * containsApp = to_app(boolVar);
+
+            // we only want to inspect the Contains terms where either of strAst or substrAst
+            // are equal to varNode.
+
+            TRACE("t_str_detail", tout << "considering Contains with strAst = " << mk_pp(strAst, m) << ", substrAst = " << mk_pp(substrAst, m) << "..." << std::endl;);
+
+            if (varNode != strAst && varNode != substrAst) {
+                TRACE("t_str_detail", tout << "varNode not equal to strAst or substrAst, skip" << std::endl;);
+                continue;
             }
+            TRACE("t_str_detail", tout << "varNode matched one of strAst or substrAst. Continuing" << std::endl;);
 
-            if (subStrHasEqcValue) {
-                // subStr has an eqc constant value
-                std::string subStrConst = m_strutil.get_string_constant_value(substrValue);
+            // varEqcNode is str
+            if (strAst == varNode) {
+                expr_ref implyR(m);
+                litems.reset();
 
-                TRACE("t_str_detail", tout << "strConst = " << strConst << ", subStrConst = " << subStrConst << std::endl;);
-
-                if (strConst.find(subStrConst) != std::string::npos) {
-                    //implyR = ctx.mk_eq(ctx, boolVar, Z3_mk_true(ctx));
-                    implyR = boolVar;
-                } else {
-                    //implyR = Z3_mk_eq(ctx, boolVar, Z3_mk_false(ctx));
-                    implyR = m.mk_not(boolVar);
+                if (strAst != constNode) {
+                    litems.push_back(ctx.mk_eq_atom(strAst, constNode));
                 }
-            } else {
-                // ------------------------------------------------------------------------------------------------
-                // subStr doesn't have an eqc contant value
-                // however, subStr equals to some concat(arg_1, arg_2, ..., arg_n)
-                // if arg_j is a constant and is not a part of the strConst, it's sure that the contains is false
-                // ** This check is needed here because the "strConst" and "strAst" may not be in a same eqc yet
-                // ------------------------------------------------------------------------------------------------
-                // collect eqc concat
-                std::set<expr*> eqcConcats;
-                get_concats_in_eqc(substrAst, eqcConcats);
-                for (std::set<expr*>::iterator concatItor = eqcConcats.begin();
-                        concatItor != eqcConcats.end(); concatItor++) {
-                    expr_ref_vector constList(m);
-                    bool counterEgFound = false;
-                    // get constant strings in concat
-                    expr * aConcat = *concatItor;
-                    get_const_str_asts_in_node(aConcat, constList);
-                    for (expr_ref_vector::iterator cstItor = constList.begin();
-                            cstItor != constList.end(); cstItor++) {
-                        std::string pieceStr = m_strutil.get_string_constant_value(*cstItor);
-                        if (strConst.find(pieceStr) == std::string::npos) {
-                            counterEgFound = true;
-                            if (aConcat != substrAst) {
-                                litems.push_back(ctx.mk_eq_atom(substrAst, aConcat));
+                std::string strConst = m_strutil.get_string_constant_value(constNode);
+                bool subStrHasEqcValue = false;
+                expr * substrValue = get_eqc_value(substrAst, subStrHasEqcValue);
+                if (substrValue != substrAst) {
+                    litems.push_back(ctx.mk_eq_atom(substrAst, substrValue));
+                }
+
+                if (subStrHasEqcValue) {
+                    // subStr has an eqc constant value
+                    std::string subStrConst = m_strutil.get_string_constant_value(substrValue);
+
+                    TRACE("t_str_detail", tout << "strConst = " << strConst << ", subStrConst = " << subStrConst << std::endl;);
+
+                    if (strConst.find(subStrConst) != std::string::npos) {
+                        //implyR = ctx.mk_eq(ctx, boolVar, Z3_mk_true(ctx));
+                        implyR = boolVar;
+                    } else {
+                        //implyR = Z3_mk_eq(ctx, boolVar, Z3_mk_false(ctx));
+                        implyR = m.mk_not(boolVar);
+                    }
+                } else {
+                    // ------------------------------------------------------------------------------------------------
+                    // subStr doesn't have an eqc contant value
+                    // however, subStr equals to some concat(arg_1, arg_2, ..., arg_n)
+                    // if arg_j is a constant and is not a part of the strConst, it's sure that the contains is false
+                    // ** This check is needed here because the "strConst" and "strAst" may not be in a same eqc yet
+                    // ------------------------------------------------------------------------------------------------
+                    // collect eqc concat
+                    std::set<expr*> eqcConcats;
+                    get_concats_in_eqc(substrAst, eqcConcats);
+                    for (std::set<expr*>::iterator concatItor = eqcConcats.begin();
+                            concatItor != eqcConcats.end(); concatItor++) {
+                        expr_ref_vector constList(m);
+                        bool counterEgFound = false;
+                        // get constant strings in concat
+                        expr * aConcat = *concatItor;
+                        get_const_str_asts_in_node(aConcat, constList);
+                        for (expr_ref_vector::iterator cstItor = constList.begin();
+                                cstItor != constList.end(); cstItor++) {
+                            std::string pieceStr = m_strutil.get_string_constant_value(*cstItor);
+                            if (strConst.find(pieceStr) == std::string::npos) {
+                                counterEgFound = true;
+                                if (aConcat != substrAst) {
+                                    litems.push_back(ctx.mk_eq_atom(substrAst, aConcat));
+                                }
+                                //implyR = Z3_mk_eq(ctx, boolVar, Z3_mk_false(ctx));
+                                implyR = m.mk_not(boolVar);
+                                break;
                             }
-                            //implyR = Z3_mk_eq(ctx, boolVar, Z3_mk_false(ctx));
-                            implyR = m.mk_not(boolVar);
+                        }
+                        if (counterEgFound) {
+                            TRACE("t_str_detail", tout << "Inconsistency found!" << std::endl;);
                             break;
                         }
                     }
-                    if (counterEgFound) {
-                        TRACE("t_str_detail", tout << "Inconsistency found!" << std::endl;);
-                        break;
+                }
+                // add assertion
+                if (implyR) {
+                    expr_ref implyLHS(mk_and(litems), m);
+                    assert_implication(implyLHS, implyR);
+                }
+            }
+            // varEqcNode is subStr
+            else if (substrAst == varNode) {
+                expr_ref implyR(m);
+                litems.reset();
+
+                if (substrAst != constNode) {
+                    litems.push_back(ctx.mk_eq_atom(substrAst, constNode));
+                }
+                bool strHasEqcValue = false;
+                expr * strValue = get_eqc_value(strAst, strHasEqcValue);
+                if (strValue != strAst) {
+                    litems.push_back(ctx.mk_eq_atom(strAst, strValue));
+                }
+
+                if (strHasEqcValue) {
+                    std::string strConst = m_strutil.get_string_constant_value(strValue);
+                    std::string subStrConst = m_strutil.get_string_constant_value(constNode);
+                    if (strConst.find(subStrConst) != std::string::npos) {
+                        //implyR = Z3_mk_eq(ctx, boolVar, Z3_mk_true(ctx));
+                        implyR = boolVar;
+                    } else {
+                        // implyR = Z3_mk_eq(ctx, boolVar, Z3_mk_false(ctx));
+                        implyR = m.mk_not(boolVar);
                     }
                 }
-            }
-            // add assertion
-            if (implyR) {
-                expr_ref implyLHS(mk_and(litems), m);
-                assert_implication(implyLHS, implyR);
-            }
-        }
-        // varEqcNode is subStr
-        else if (substrAst == varNode) {
-            expr_ref implyR(m);
-            litems.reset();
 
-            if (substrAst != constNode) {
-                litems.push_back(ctx.mk_eq_atom(substrAst, constNode));
-            }
-            bool strHasEqcValue = false;
-            expr * strValue = get_eqc_value(strAst, strHasEqcValue);
-            if (strValue != strAst) {
-                litems.push_back(ctx.mk_eq_atom(strAst, strValue));
-            }
-
-            if (strHasEqcValue) {
-                std::string strConst = m_strutil.get_string_constant_value(strValue);
-                std::string subStrConst = m_strutil.get_string_constant_value(constNode);
-                if (strConst.find(subStrConst) != std::string::npos) {
-                    //implyR = Z3_mk_eq(ctx, boolVar, Z3_mk_true(ctx));
-                    implyR = boolVar;
-                } else {
-                    // implyR = Z3_mk_eq(ctx, boolVar, Z3_mk_false(ctx));
-                    implyR = m.mk_not(boolVar);
+                // add assertion
+                if (implyR) {
+                    expr_ref implyLHS(mk_and(litems), m);
+                    assert_implication(implyLHS, implyR);
                 }
             }
-
-            // add assertion
-            if (implyR) {
-                expr_ref implyLHS(mk_and(litems), m);
-                assert_implication(implyLHS, implyR);
-            }
-        }
-    } // for (itor1 : contains_map)
+        } // for (itor1 : contains_map)
+    } // if varNode in contain_pair_idx_map
 }
 
 void theory_str::check_contain_by_substr(expr * varNode, expr_ref_vector & willEqClass) {
@@ -5782,7 +5786,6 @@ void theory_str::compute_contains(std::map<expr*, expr*> & varAliasMap,
 }
 
 bool theory_str::can_concat_eq_str(expr * concat, std::string str) {
-	// TODO this method could use some traces and debugging info
 	int strLen = str.length();
 	if (is_concat(to_app(concat))) {
 		ptr_vector<expr> args;
@@ -5834,7 +5837,6 @@ bool theory_str::can_concat_eq_str(expr * concat, std::string str) {
 }
 
 bool theory_str::can_concat_eq_concat(expr * concat1, expr * concat2) {
-	// TODO this method could use some traces and debugging info
 	if (is_concat(to_app(concat1)) && is_concat(to_app(concat2))) {
 		{
 			// Suppose concat1 = (Concat X Y) and concat2 = (Concat M N).
