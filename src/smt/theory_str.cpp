@@ -4977,67 +4977,71 @@ void theory_str::check_contain_by_substr(expr * varNode, expr_ref_vector & willE
     ast_manager & m = get_manager();
     expr_ref_vector litems(m);
 
-    // TODO refactor to use the new contain_pair_idx_map
+    if (contain_pair_idx_map.find(varNode) != contain_pair_idx_map.end()) {
+        std::set<std::pair<expr*, expr*> >::iterator itor1 = contain_pair_idx_map[varNode].begin();
+        for (; itor1 != contain_pair_idx_map[varNode].end(); ++itor1) {
+            expr * strAst = itor1->first;
+            expr * substrAst = itor1->second;
 
-    expr_ref_vector::iterator itor1 = contains_map.begin();
-    for (; itor1 != contains_map.end(); ++itor1) {
-        expr * boolVar = *itor1;
-        // boolVar is actually a Contains term
-        app * containsApp = to_app(boolVar);
-        expr * strAst = containsApp->get_arg(0);
-        expr * substrAst = containsApp->get_arg(1);
+            expr * boolVar;
+            if (!contain_pair_bool_map.find(strAst, substrAst, boolVar)) {
+                TRACE("t_str_detail", tout << "warning: no entry for boolVar in contain_pair_bool_map" << std::endl;);
+            }
+            // boolVar is actually a Contains term
+            app * containsApp = to_app(boolVar);
 
-        // we only want to inspect the Contains terms where either of strAst or substrAst
-        // are equal to varNode.
+            // we only want to inspect the Contains terms where either of strAst or substrAst
+            // are equal to varNode.
 
-        TRACE("t_str_detail", tout << "considering Contains with strAst = " << mk_pp(strAst, m) << ", substrAst = " << mk_pp(substrAst, m) << "..." << std::endl;);
+            TRACE("t_str_detail", tout << "considering Contains with strAst = " << mk_pp(strAst, m) << ", substrAst = " << mk_pp(substrAst, m) << "..." << std::endl;);
 
-        if (varNode != strAst && varNode != substrAst) {
-            TRACE("t_str_detail", tout << "varNode not equal to strAst or substrAst, skip" << std::endl;);
-            continue;
-        }
-        TRACE("t_str_detail", tout << "varNode matched one of strAst or substrAst. Continuing" << std::endl;);
+            if (varNode != strAst && varNode != substrAst) {
+                TRACE("t_str_detail", tout << "varNode not equal to strAst or substrAst, skip" << std::endl;);
+                continue;
+            }
+            TRACE("t_str_detail", tout << "varNode matched one of strAst or substrAst. Continuing" << std::endl;);
 
-        if (substrAst == varNode) {
-            bool strAstHasVal = false;
-            expr * strValue = get_eqc_value(strAst, strAstHasVal);
-            if (strAstHasVal) {
-                TRACE("t_str_detail", tout << mk_pp(strAst, m) << " has constant eqc value " << mk_pp(strValue, m) << std::endl;);
-                if (strValue != strAst) {
-                    litems.push_back(ctx.mk_eq_atom(strAst, strValue));
-                }
-                std::string strConst = m_strutil.get_string_constant_value(strValue);
-                // iterate eqc (also eqc-to-be) of substr
-                for (expr_ref_vector::iterator itAst = willEqClass.begin(); itAst != willEqClass.end(); itAst++) {
-                    bool counterEgFound = false;
-                    if (is_concat(to_app(*itAst))) {
-                        expr_ref_vector constList(m);
-                        // get constant strings in concat
-                        app * aConcat = to_app(*itAst);
-                        get_const_str_asts_in_node(aConcat, constList);
-                        for (expr_ref_vector::iterator cstItor = constList.begin();
-                                cstItor != constList.end(); cstItor++) {
-                            std::string pieceStr = m_strutil.get_string_constant_value(*cstItor);
-                            if (strConst.find(pieceStr) == std::string::npos) {
-                                TRACE("t_str_detail", tout << "Inconsistency found!" << std::endl;);
-                                counterEgFound = true;
-                                if (aConcat != substrAst) {
-                                    litems.push_back(ctx.mk_eq_atom(substrAst, aConcat));
+            if (substrAst == varNode) {
+                bool strAstHasVal = false;
+                expr * strValue = get_eqc_value(strAst, strAstHasVal);
+                if (strAstHasVal) {
+                    TRACE("t_str_detail", tout << mk_pp(strAst, m) << " has constant eqc value " << mk_pp(strValue, m) << std::endl;);
+                    if (strValue != strAst) {
+                        litems.push_back(ctx.mk_eq_atom(strAst, strValue));
+                    }
+                    std::string strConst = m_strutil.get_string_constant_value(strValue);
+                    // iterate eqc (also eqc-to-be) of substr
+                    for (expr_ref_vector::iterator itAst = willEqClass.begin(); itAst != willEqClass.end(); itAst++) {
+                        bool counterEgFound = false;
+                        if (is_concat(to_app(*itAst))) {
+                            expr_ref_vector constList(m);
+                            // get constant strings in concat
+                            app * aConcat = to_app(*itAst);
+                            get_const_str_asts_in_node(aConcat, constList);
+                            for (expr_ref_vector::iterator cstItor = constList.begin();
+                                    cstItor != constList.end(); cstItor++) {
+                                std::string pieceStr = m_strutil.get_string_constant_value(*cstItor);
+                                if (strConst.find(pieceStr) == std::string::npos) {
+                                    TRACE("t_str_detail", tout << "Inconsistency found!" << std::endl;);
+                                    counterEgFound = true;
+                                    if (aConcat != substrAst) {
+                                        litems.push_back(ctx.mk_eq_atom(substrAst, aConcat));
+                                    }
+                                    expr_ref implyLHS(mk_and(litems), m);
+                                    expr_ref implyR(m.mk_not(boolVar), m);
+                                    assert_implication(implyLHS, implyR);
+                                    break;
                                 }
-                                expr_ref implyLHS(mk_and(litems), m);
-                                expr_ref implyR(m.mk_not(boolVar), m);
-                                assert_implication(implyLHS, implyR);
-                                break;
                             }
                         }
-                    }
-                    if (counterEgFound) {
-                        break;
+                        if (counterEgFound) {
+                            break;
+                        }
                     }
                 }
             }
         }
-    }
+    } // varNode in contain_pair_idx_map
 }
 
 bool theory_str::in_contain_idx_map(expr * n) {
