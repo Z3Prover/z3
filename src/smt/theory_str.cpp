@@ -805,11 +805,9 @@ expr * theory_str::mk_concat(expr * n1, expr * n2) {
 }
 
 bool theory_str::can_propagate() {
-    return !m_basicstr_axiom_todo.empty() || !m_str_eq_todo.empty() || !m_concat_axiom_todo.empty() || !m_concat_eval_todo.empty()
-            || !m_axiom_CharAt_todo.empty() || !m_axiom_StartsWith_todo.empty() || !m_axiom_EndsWith_todo.empty()
-            || !m_axiom_Contains_todo.empty() || !m_axiom_Indexof_todo.empty() || !m_axiom_Indexof2_todo.empty() || !m_axiom_LastIndexof_todo.empty()
-            || !m_axiom_Substr_todo.empty() || !m_axiom_Replace_todo.empty()
-			|| !m_axiom_RegexIn_todo.empty() || !m_library_aware_axiom_todo.empty()
+    return !m_basicstr_axiom_todo.empty() || !m_str_eq_todo.empty()
+            || !m_concat_axiom_todo.empty() || !m_concat_eval_todo.empty()
+            || !m_library_aware_axiom_todo.empty()
 			|| !m_delayed_axiom_setup_terms.empty();
             ;
 }
@@ -842,62 +840,32 @@ void theory_str::propagate() {
         }
         m_concat_eval_todo.reset();
 
-        for (unsigned i = 0; i < m_axiom_CharAt_todo.size(); ++i) {
-            instantiate_axiom_CharAt(m_axiom_CharAt_todo[i]);
-        }
-        m_axiom_CharAt_todo.reset();
-
-        for (unsigned i = 0; i < m_axiom_StartsWith_todo.size(); ++i) {
-            instantiate_axiom_StartsWith(m_axiom_StartsWith_todo[i]);
-        }
-        m_axiom_StartsWith_todo.reset();
-
-        for (unsigned i = 0; i < m_axiom_EndsWith_todo.size(); ++i) {
-            instantiate_axiom_EndsWith(m_axiom_EndsWith_todo[i]);
-        }
-        m_axiom_EndsWith_todo.reset();
-
-        for (unsigned i = 0; i < m_axiom_Contains_todo.size(); ++i) {
-            instantiate_axiom_Contains(m_axiom_Contains_todo[i]);
-        }
-        m_axiom_Contains_todo.reset();
-
-        for (unsigned i = 0; i < m_axiom_Indexof_todo.size(); ++i) {
-            instantiate_axiom_Indexof(m_axiom_Indexof_todo[i]);
-        }
-        m_axiom_Indexof_todo.reset();
-
-        for (unsigned i = 0; i < m_axiom_Indexof2_todo.size(); ++i) {
-            instantiate_axiom_Indexof2(m_axiom_Indexof2_todo[i]);
-        }
-        m_axiom_Indexof2_todo.reset();
-
-        for (unsigned i = 0; i < m_axiom_LastIndexof_todo.size(); ++i) {
-            instantiate_axiom_LastIndexof(m_axiom_LastIndexof_todo[i]);
-        }
-        m_axiom_LastIndexof_todo.reset();
-
-        for (unsigned i = 0; i < m_axiom_Substr_todo.size(); ++i) {
-            instantiate_axiom_Substr(m_axiom_Substr_todo[i]);
-        }
-        m_axiom_Substr_todo.reset();
-
-        for (unsigned i = 0; i < m_axiom_Replace_todo.size(); ++i) {
-            instantiate_axiom_Replace(m_axiom_Replace_todo[i]);
-        }
-        m_axiom_Replace_todo.reset();
-
-        for (unsigned i = 0; i < m_axiom_RegexIn_todo.size(); ++i) {
-        	instantiate_axiom_RegexIn(m_axiom_RegexIn_todo[i]);
-        }
-        m_axiom_RegexIn_todo.reset();
-
         for (unsigned i = 0; i < m_library_aware_axiom_todo.size(); ++i) {
         	enode * e = m_library_aware_axiom_todo[i];
         	if (is_str_to_int(e)) {
         		instantiate_axiom_str_to_int(e);
         	} else if (is_int_to_str(e)) {
         	    instantiate_axiom_int_to_str(e);
+        	} else if (is_CharAt(e)) {
+        	    instantiate_axiom_CharAt(e);
+        	} else if (is_StartsWith(e)) {
+        	    instantiate_axiom_StartsWith(e);
+        	} else if (is_EndsWith(e)) {
+        	    instantiate_axiom_EndsWith(e);
+        	} else if (is_Contains(e)) {
+        	    instantiate_axiom_Contains(e);
+        	} else if (is_Indexof(e)) {
+        	    instantiate_axiom_Indexof(e);
+        	} else if (is_Indexof2(e)) {
+        	    instantiate_axiom_Indexof2(e);
+        	} else if (is_LastIndexof(e)) {
+        	    instantiate_axiom_LastIndexof(e);
+        	} else if (is_Substr(e)) {
+        	    instantiate_axiom_Substr(e);
+        	} else if (is_Replace(e)) {
+        	    instantiate_axiom_Replace(e);
+        	} else if (is_RegexIn(e)) {
+        	    instantiate_axiom_RegexIn(e);
         	} else {
         		TRACE("t_str", tout << "BUG: unhandled library-aware term " << mk_pp(e->get_owner(), get_manager()) << std::endl;);
         		NOT_IMPLEMENTED_YET();
@@ -7099,12 +7067,8 @@ void theory_str::set_up_axioms(expr * ex) {
             	if (aVar->get_num_args() == 0 && !is_string(aVar)) {
             		input_var_in_len.insert(var);
             	}
-            } else if (is_CharAt(ap)) {
-                m_axiom_CharAt_todo.push_back(n);
-            } else if (is_Substr(ap)) {
-                m_axiom_Substr_todo.push_back(n);
-            } else if (is_Replace(ap)) {
-                m_axiom_Replace_todo.push_back(n);
+            } else if (is_CharAt(ap) || is_Substr(ap) || is_Replace(ap)) {
+                m_library_aware_axiom_todo.push_back(n);
             } else if (ap->get_num_args() == 0 && !is_string(ap)) {
                 // if ex is a variable, add it to our list of variables
                 TRACE("t_str_detail", tout << "tracking variable " << mk_ismt2_pp(ap, get_manager()) << std::endl;);
@@ -7127,14 +7091,8 @@ void theory_str::set_up_axioms(expr * ex) {
 
             if (is_app(ex)) {
                 app * ap = to_app(ex);
-                if (is_StartsWith(ap)) {
-                    m_axiom_StartsWith_todo.push_back(n);
-                } else if (is_EndsWith(ap)) {
-                    m_axiom_EndsWith_todo.push_back(n);
-                } else if (is_Contains(ap)) {
-                    m_axiom_Contains_todo.push_back(n);
-                } else if (is_RegexIn(ap)) {
-                	m_axiom_RegexIn_todo.push_back(n);
+                if (is_StartsWith(ap) || is_EndsWith(ap) || is_Contains(ap) || is_RegexIn(ap)) {
+                    m_library_aware_axiom_todo.push_back(n);
                 }
             }
         } else {
@@ -7152,12 +7110,8 @@ void theory_str::set_up_axioms(expr * ex) {
 
         if (is_app(ex)) {
             app * ap = to_app(ex);
-            if (is_Indexof(ap)) {
-                m_axiom_Indexof_todo.push_back(n);
-            } else if (is_Indexof2(ap)) {
-                m_axiom_Indexof2_todo.push_back(n);
-            } else if (is_LastIndexof(ap)) {
-                m_axiom_LastIndexof_todo.push_back(n);
+            if (is_Indexof(ap) || is_Indexof2(ap) || is_LastIndexof(ap)) {
+                m_library_aware_axiom_todo.push_back(n);
             } else if (is_str_to_int(ap) || is_int_to_str(ap)) {
             	string_int_conversion_terms.push_back(ap);
             	m_library_aware_axiom_todo.push_back(n);

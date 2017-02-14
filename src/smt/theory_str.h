@@ -210,7 +210,7 @@ namespace smt {
         ptr_vector<enode> m_concat_eval_todo;
 
         // enode lists for term-specific axioms
-        // TODO maybe refactor this into a generic "library_aware_axiom_todo" list
+        /*
         ptr_vector<enode> m_axiom_CharAt_todo;
         ptr_vector<enode> m_axiom_StartsWith_todo;
         ptr_vector<enode> m_axiom_EndsWith_todo;
@@ -221,8 +221,8 @@ namespace smt {
         ptr_vector<enode> m_axiom_Substr_todo;
         ptr_vector<enode> m_axiom_Replace_todo;
         ptr_vector<enode> m_axiom_RegexIn_todo;
+         */
 
-        // TODO refactor everything to use this worklist
         ptr_vector<enode> m_library_aware_axiom_todo;
 
         // hashtable of all exprs for which we've already set up term-specific axioms --
