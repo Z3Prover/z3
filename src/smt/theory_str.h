@@ -209,20 +209,7 @@ namespace smt {
         ptr_vector<enode> m_string_constant_length_todo;
         ptr_vector<enode> m_concat_eval_todo;
 
-        // enode lists for term-specific axioms
-        /*
-        ptr_vector<enode> m_axiom_CharAt_todo;
-        ptr_vector<enode> m_axiom_StartsWith_todo;
-        ptr_vector<enode> m_axiom_EndsWith_todo;
-        ptr_vector<enode> m_axiom_Contains_todo;
-        ptr_vector<enode> m_axiom_Indexof_todo;
-        ptr_vector<enode> m_axiom_Indexof2_todo;
-        ptr_vector<enode> m_axiom_LastIndexof_todo;
-        ptr_vector<enode> m_axiom_Substr_todo;
-        ptr_vector<enode> m_axiom_Replace_todo;
-        ptr_vector<enode> m_axiom_RegexIn_todo;
-         */
-
+        // enode lists for library-aware/high-level string terms (e.g. substr, contains)
         ptr_vector<enode> m_library_aware_axiom_todo;
 
         // hashtable of all exprs for which we've already set up term-specific axioms --
