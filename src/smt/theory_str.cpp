@@ -9981,7 +9981,7 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
             // no length assertions for this free variable have ever been added.
             TRACE("t_str_detail", tout << "no length assertions yet" << std::endl;);
 
-            fvar_len_count_map[freeVar] = 1;
+            fvar_len_count_map.insert(freeVar, 1);
             unsigned int testNum = fvar_len_count_map[freeVar];
 
             expr_ref indicator(mk_internal_lenTest_var(freeVar, testNum), m);
@@ -9990,7 +9990,7 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
             // since the map is "effectively empty", we can remove those variables that have left scope...
             fvar_lenTester_map[freeVar].shrink(0);
             fvar_lenTester_map[freeVar].push_back(indicator);
-            lenTester_fvar_map[indicator] = freeVar;
+            lenTester_fvar_map.insert(indicator, freeVar);
 
             expr * lenTestAssert = gen_len_test_options(freeVar, indicator, testNum);
             SASSERT(lenTestAssert != NULL);
@@ -10089,7 +10089,7 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
                     testNum = fvar_len_count_map[freeVar];
                     indicator = mk_internal_lenTest_var(freeVar, testNum);
                     fvar_lenTester_map[freeVar].push_back(indicator);
-                    lenTester_fvar_map[indicator] = freeVar;
+                    lenTester_fvar_map.insert(indicator, freeVar);
                 } else {
                     // TODO make absolutely sure this is safe to do if 'indicator' is technically out of scope
                     indicator = fvar_lenTester_map[freeVar][i];
