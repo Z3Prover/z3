@@ -195,7 +195,6 @@ namespace smt {
 
         bool finalCheckProgressIndicator;
 
-        // TODO make sure that all generated expressions are saved into the trail
         expr_ref_vector m_trail; // trail for generated terms
 
         str_value_factory * m_factory;
@@ -236,11 +235,11 @@ namespace smt {
         obj_hashtable<expr> internal_valTest_vars;
         obj_hashtable<expr> internal_unrollTest_vars;
 
-        std::set<expr*> input_var_in_len;
+        obj_hashtable<expr> input_var_in_len;
 
-        std::map<expr*, unsigned int> fvar_len_count_map;
+        obj_map<expr, unsigned int> fvar_len_count_map;
         std::map<expr*, ptr_vector<expr> > fvar_lenTester_map;
-        std::map<expr*, expr*> lenTester_fvar_map;
+        obj_map<expr, expr*> lenTester_fvar_map;
 
         std::map<expr*, std::map<int, svector<std::pair<int, expr*> > > > fvar_valueTester_map;
         std::map<expr*, expr*> valueTester_fvar_map;

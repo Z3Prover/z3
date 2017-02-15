@@ -6606,7 +6606,7 @@ void theory_str::finite_model_test(expr * testvar, expr * str) {
                 }
             } else {
                 bool map_effectively_empty = false;
-                if (fvar_len_count_map.find(v) == fvar_len_count_map.end()) {
+                if (!fvar_len_count_map.contains(v)) {
                     map_effectively_empty = true;
                 }
 
@@ -6701,7 +6701,7 @@ void theory_str::finite_model_test(expr * testvar, expr * str) {
 
 void theory_str::more_len_tests(expr * lenTester, std::string lenTesterValue) {
     ast_manager & m = get_manager();
-    if (lenTester_fvar_map.find(lenTester) != lenTester_fvar_map.end()) {
+    if (lenTester_fvar_map.contains(lenTester)) {
         expr * fVar = lenTester_fvar_map[lenTester];
         expr * toAssert = gen_len_val_options_for_free_var(fVar, lenTester, lenTesterValue);
         TRACE("t_str_detail", tout << "asserting more length tests for free variable " << mk_ismt2_pp(fVar, m) << std::endl;);
@@ -9952,7 +9952,7 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
 	    return binary_search_length_test(freeVar, lenTesterInCbEq, lenTesterValue);
 	} else {
         bool map_effectively_empty = false;
-        if (fvar_len_count_map.find(freeVar) == fvar_len_count_map.end()) {
+        if (!fvar_len_count_map.contains(freeVar)) {
             TRACE("t_str_detail", tout << "fvar_len_count_map is empty" << std::endl;);
             map_effectively_empty = true;
         }
