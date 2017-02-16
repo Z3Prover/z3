@@ -209,6 +209,7 @@ namespace smt {
             ~scoped_mk_model() {
                 if (m_ctx.m_proto_model.get() != 0) {
                     m_ctx.m_model = m_ctx.m_proto_model->mk_model();
+                    m_ctx.add_rec_funs_to_model();            
                     m_ctx.m_proto_model = 0; // proto_model is not needed anymore.
                 }
             }
@@ -1155,6 +1156,10 @@ namespace smt {
         bool can_theories_propagate() const;
 
         bool propagate();
+
+        void add_rec_funs_to_model();
+
+        bool is_fun_def(expr* f, expr* q, expr_ref& body);
 
     public:
         bool can_propagate() const;

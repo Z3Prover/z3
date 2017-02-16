@@ -184,9 +184,20 @@ void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
         unsigned num_args = t->get_num_args();
         while (fr.m_i < num_args) {
             expr * arg = t->get_arg(fr.m_i);
+            if (fr.m_i >= 1 && m().is_ite(t) && !ProofGen) {
+                expr * cond = result_stack()[fr.m_spos].get();
+                if (m().is_true(cond)) {
+                    arg = t->get_arg(1);
+                }
+                else if (m().is_false(cond)) {
+                    arg = t->get_arg(2);
+                }
+            }
             fr.m_i++;
             if (!visit<ProofGen>(arg, fr.m_max_depth))
                 return;
+
+
         }
         func_decl * f = t->get_decl();
 
