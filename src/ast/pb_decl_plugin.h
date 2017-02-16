@@ -35,6 +35,7 @@ enum pb_op_kind {
     OP_PB_LE,      // pseudo-Boolean <= (generalizes at_most_k)
     OP_PB_GE,      // pseudo-Boolean >= 
     OP_PB_EQ,      // equality
+    OP_PB_ODD,    // parity of arguments is odd
     OP_PB_AUX_BOOL, // auxiliary internal Boolean variable.
     LAST_PB_OP
 };
@@ -95,12 +96,14 @@ public:
     app * mk_ge(unsigned num_args, rational const * coeffs, expr * const * args, rational const& k);
     app * mk_eq(unsigned num_args, rational const * coeffs, expr * const * args, rational const& k);
     app * mk_lt(unsigned num_args, rational const * coeffs, expr * const * args, rational const& k);
+    app * mk_odd(unsigned num_args, expr * const * args);
     bool is_at_most_k(func_decl *a) const;
     bool is_at_most_k(expr *a) const { return is_app(a) && is_at_most_k(to_app(a)->get_decl()); }
     bool is_at_most_k(expr *a, rational& k) const;
     bool is_at_least_k(func_decl *a) const;
     bool is_at_least_k(expr *a) const { return is_app(a) && is_at_least_k(to_app(a)->get_decl()); }
     bool is_at_least_k(expr *a, rational& k) const;
+    bool is_odd(expr* a) const;
     rational get_k(func_decl *a) const;
     rational get_k(expr *a) const { return get_k(to_app(a)->get_decl()); }
     bool is_le(func_decl *a) const;

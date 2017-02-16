@@ -44,6 +44,7 @@ func_decl * pb_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
     case OP_PB_LE: sym = m_pble_sym; break;
     case OP_PB_GE: sym = m_pbge_sym; break;
     case OP_PB_EQ: sym = m_pbeq_sym; break;
+    case OP_PB_ODD: sym = symbol("is-odd"); break;
     default: break;
     }
     switch(k) {
@@ -55,6 +56,14 @@ func_decl * pb_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
         func_decl_info info(m_family_id, k, 1, parameters);
         return m.mk_func_decl(sym, arity, domain, m.mk_bool_sort(), info);
     }
+    case OP_PB_ODD:{
+        if (num_parameters != 0) {
+            m.raise_exception("function expects no parameters");
+        }
+        func_decl_info info(m_family_id, k, 0, parameters);
+        return m.mk_func_decl(sym, arity, domain, m.mk_bool_sort(), info);
+    }
+      
     case OP_PB_GE:
     case OP_PB_LE: 
     case OP_PB_EQ: {
@@ -97,6 +106,7 @@ void pb_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const
         op_names.push_back(builtin_name(m_pble_sym.bare_str(), OP_PB_LE));
         op_names.push_back(builtin_name(m_pbge_sym.bare_str(), OP_PB_GE));
         op_names.push_back(builtin_name(m_pbeq_sym.bare_str(), OP_PB_EQ));
+        op_names.push_back(builtin_name("is-odd", OP_PB_ODD));
     }
 }
 

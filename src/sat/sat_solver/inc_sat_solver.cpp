@@ -82,9 +82,7 @@ public:
         m_num_scopes(0),
         m_dep_core(m),
         m_unknown("no reason given") {
-        m_params.set_bool("elim_vars", false);
-        sat_params p1(m_params);
-        m_solver.updt_params(m_params);
+        updt_params(p);
         init_preprocess();
     }
 
@@ -218,8 +216,10 @@ public:
         m_params.append(p);
         sat_params p1(p);
         m_params.set_bool("elim_vars", false);
+        m_params.set_bool("keep_cardinality_constraints", p1.cardinality_solver());
         m_solver.updt_params(m_params);
         m_optimize_model = m_params.get_bool("optimize_model", false);
+
     }
     virtual void collect_statistics(statistics & st) const {
         if (m_preprocess) m_preprocess->collect_statistics(st);
