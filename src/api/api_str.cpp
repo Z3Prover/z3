@@ -81,7 +81,6 @@ extern "C" {
 	MK_UNARY(Z3_mk_str_length, mk_c(c)->get_str_fid(), OP_STRLEN, SKIP);
 	MK_BINARY(Z3_mk_str_at, mk_c(c)->get_str_fid(), OP_STR_CHARAT, SKIP);
 	// translate prefixof/suffixof to StartsWith/EndsWith
-	// TODO string standardization might just remove StartsWith/EndsWith in future
 	Z3_ast Z3_API Z3_mk_str_prefixof(Z3_context c, Z3_ast pre, Z3_ast full) {
 		LOG_Z3_mk_str_prefixof(c, pre, full);
 		Z3_TRY;
