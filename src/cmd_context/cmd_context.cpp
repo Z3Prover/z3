@@ -528,38 +528,12 @@ bool cmd_context::logic_has_pb() const {
 }
 
 bool cmd_context::logic_has_fpa() const {
-<<<<<<< HEAD
-    return !has_logic() || logic_has_fpa_core(m_logic);
+    return !has_logic() || smt_logics::logic_has_fpa(m_logic);
 }
 
 bool cmd_context::logic_has_str() const {
     return !has_logic() || m_logic == "QF_S";
 }
-
-bool cmd_context::logic_has_array_core(symbol const & s) const {
-    return
-        s == "QF_AX" ||
-        s == "QF_AUFLIA" ||
-        s == "QF_ANIA" ||
-        s == "QF_ALIA" ||
-        s == "QF_AUFLIRA" ||
-        s == "QF_AUFNIA" ||
-        s == "QF_AUFNIRA" ||
-        s == "ALIA" ||
-        s == "AUFLIA" ||
-        s == "AUFLIRA" ||
-        s == "AUFNIA" ||
-        s == "AUFNIRA" ||
-        s == "AUFBV" ||
-        s == "ABV" ||
-        s == "QF_ABV" ||
-        s == "QF_AUFBV" ||
-        s == "HORN";
-=======
-    return !has_logic() || smt_logics::logic_has_fpa(m_logic);
->>>>>>> upstream-master
-}
-
 
 bool cmd_context::logic_has_array() const {
     return !has_logic() || smt_logics::logic_has_array(m_logic);
@@ -601,12 +575,8 @@ void cmd_context::init_manager_core(bool new_manager) {
         load_plugin(symbol("datatype"), logic_has_datatype(), fids);
         load_plugin(symbol("seq"),      logic_has_seq(), fids);
         load_plugin(symbol("fpa"),      logic_has_fpa(), fids);
-<<<<<<< HEAD
         load_plugin(symbol("str"),     logic_has_str(), fids);
-=======
         load_plugin(symbol("pb"),       logic_has_pb(), fids);
-
->>>>>>> upstream-master
         svector<family_id>::iterator it  = fids.begin();
         svector<family_id>::iterator end = fids.end();
         for (; it != end; ++it) {
