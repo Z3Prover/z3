@@ -321,10 +321,10 @@ namespace smt {
     void context::internalize(expr * n, bool gate_ctx) {
         TRACE("internalize", tout << "internalizing:\n" << mk_pp(n, m_manager) << "\n";);
         TRACE("internalize_bug", tout << "internalizing:\n" << mk_bounded_pp(n, m_manager) << "\n";);
+        if (is_var(n)) {
+            throw default_exception("Formulas should not contain unbound variables");
+        }
         if (m_manager.is_bool(n)) {
-            if (is_var(n)) {
-                throw default_exception("Formulas should not contain unbound variables");
-            }
             SASSERT(is_quantifier(n) || is_app(n));
             internalize_formula(n, gate_ctx);
         }
@@ -335,23 +335,6 @@ namespace smt {
         }
     }
 
-    bool find_arg(app * n, expr * t, expr * & other) {
-        SASSERT(n->get_num_args() == 2);
-        if (n->get_arg(0) == t) {
-            other = n->get_arg(1);
-            return true;
-        }
-        else if (n->get_arg(1) == t) {
-            other = n->get_arg(0);
-            return true;
-        }
-        return false;
-    }
-
-    bool check_args(app * n, expr * t1, expr * t2) {
-        SASSERT(n->get_num_args() == 2);
-        return (n->get_arg(0) == t1 && n->get_arg(1) == t2) || (n->get_arg(1) == t1 && n->get_arg(0) == t2);
-    }
 
     /**
        \brief Internalize the given formula into the logical context.
@@ -840,7 +823,7 @@ namespace smt {
         }
 #endif
         TRACE("mk_bool_var", tout << "creating boolean variable: " << v << " for:\n" << mk_pp(n, m_manager) << "\n";);
-        TRACE("mk_var_bug", tout << "mk_bool: " << v << "\n";);        
+        TRACE("mk_var_bug", tout << "mk_bool: " << v << "\n";);                
         set_bool_var(id, v);
         m_bdata.reserve(v+1);
         m_activity.reserve(v+1);
@@ -1045,15 +1028,13 @@ namespace smt {
     bool context::simplify_aux_clause_literals(unsigned & num_lits, literal * lits, literal_buffer & simp_lits) {
         std::sort(lits, lits + num_lits);
         literal prev = null_literal;
-        unsigned i = 0;
         unsigned j = 0;
-        for (; i < num_lits; i++) {
+        for (unsigned i = 0; i < num_lits; i++) {
             literal curr = lits[i];
             lbool   val  = get_assignment(curr);
-            if (val == l_false)
-                simp_lits.push_back(~curr);
             switch(val) {
             case l_false:
+                simp_lits.push_back(~curr);
                 break; // ignore literal
             case l_undef:
                 if (curr == ~prev)
@@ -1283,10 +1264,9 @@ namespace smt {
        The deletion event handler is ignored if binary clause optimization is applicable.
     */
     clause * context::mk_clause(unsigned num_lits, literal * lits, justification * j, clause_kind k, clause_del_eh * del_eh) {
-        TRACE("mk_clause", tout << "creating clause:\n"; display_literals(tout, num_lits, lits); tout << "\n";);
+        TRACE("mk_clause", tout << "creating clause:\n"; display_literals_verbose(tout, num_lits, lits); tout << "\n";);
         switch (k) {
         case CLS_AUX: {
-            unsigned old_num_lits = num_lits;
             literal_buffer simp_lits;
             if (!simplify_aux_clause_literals(num_lits, lits, simp_lits))
                 return 0; // clause is equivalent to true;
@@ -1295,8 +1275,9 @@ namespace smt {
                     SASSERT(get_assignment(simp_lits[i]) == l_true);
                 }
             });
-            if (old_num_lits != num_lits) 
+            if (!simp_lits.empty()) {
                 j = mk_justification(unit_resolution_justification(m_region, j, simp_lits.size(), simp_lits.c_ptr()));
+            }
             break;
         }
         case CLS_AUX_LEMMA: {

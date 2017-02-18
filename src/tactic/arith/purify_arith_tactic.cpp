@@ -28,6 +28,7 @@ Revision History:
 #include"simplify_tactic.h"
 #include"th_rewriter.h"
 #include"filter_model_converter.h"
+#include"extension_model_converter.h"
 #include"ast_smt2_pp.h"
 #include"expr_replacer.h"
 
@@ -102,17 +103,26 @@ Rules
 
 struct purify_arith_proc {
     arith_util &         m_util;
+    goal &               m_goal;
     bool                 m_produce_proofs;
     bool                 m_elim_root_objs;
     bool                 m_elim_inverses;
     bool                 m_complete;
 
-    purify_arith_proc(arith_util & u, bool produce_proofs, bool elim_root_objs, bool elim_inverses, bool complete):
+    ast_mark             m_unsafe_exprs;
+    bool                 m_unsafe_found;
+    obj_map<app, std::pair<expr*, expr*> > m_sin_cos;
+    expr_ref_vector      m_pinned;
+
+    purify_arith_proc(goal & g, arith_util & u, bool produce_proofs, bool elim_root_objs, bool elim_inverses, bool complete):
         m_util(u),
+        m_goal(g),
         m_produce_proofs(produce_proofs),
         m_elim_root_objs(elim_root_objs),
         m_elim_inverses(elim_inverses),
-        m_complete(complete) {
+        m_complete(complete),
+        m_unsafe_found(false),
+        m_pinned(m()) {
     }
 
     arith_util & u() { 
@@ -122,6 +132,56 @@ struct purify_arith_proc {
     ast_manager & m() { 
         return u().get_manager();
     }
+
+    struct find_unsafe_proc {
+        purify_arith_proc& m_owner;
+        find_unsafe_proc(purify_arith_proc& o) : m_owner(o) {}
+        void operator()(app* a) {
+            if (!m_owner.u().is_sin(a) && 
+                !m_owner.u().is_cos(a)) {               
+                for (unsigned i = 0; i < a->get_num_args(); ++i) {
+                    m_owner.m_unsafe_exprs.mark(a->get_arg(i), true);
+                }
+            }
+        }
+        void operator()(quantifier *q) {}
+        void operator()(var* v) {}
+    };
+
+    void find_unsafe() {
+        if (m_unsafe_found) return;
+        find_unsafe_proc proc(*this);
+        expr_fast_mark1 visited;
+        unsigned sz = m_goal.size();
+        for (unsigned i = 0; i < sz; i++) {
+            expr * curr = m_goal.form(i);
+            for_each_expr_core<find_unsafe_proc, expr_fast_mark1, true, true>(proc, visited, curr);
+        }        
+        m_unsafe_found = true;
+    }
+
+    bool convert_basis(expr* theta, expr*& x, expr*& y) {
+        if (!is_uninterp_const(theta)) {
+            return false;
+        }
+        find_unsafe();
+        if (m_unsafe_exprs.is_marked(theta)) {
+            return false;
+        }
+        std::pair<expr*, expr*> pair;
+        if (!m_sin_cos.find(to_app(theta), pair)) {
+            pair.first = m().mk_fresh_const(0, u().mk_real());
+            pair.second = m().mk_fresh_const(0, u().mk_real());            
+            m_sin_cos.insert(to_app(theta), pair);
+            m_pinned.push_back(pair.first);
+            m_pinned.push_back(pair.second);
+            // TBD for model conversion
+        }
+        x = pair.first;
+        y = pair.second;
+        return true;
+    }
+  
 
     struct rw_cfg : public default_rewriter_cfg {
         purify_arith_proc &  m_owner;
@@ -166,6 +226,8 @@ struct purify_arith_proc {
         expr * mk_int_zero() { return u().mk_numeral(rational(0), true); }
 
         expr * mk_real_zero() { return u().mk_numeral(rational(0), false); }
+
+        expr * mk_real_one() { return u().mk_numeral(rational(1), false); }
 
         bool already_processed(app * t, expr_ref & result, proof_ref & result_pr) { 
             expr * r;
@@ -316,12 +378,13 @@ struct purify_arith_proc {
             cache_result(t, result, result_pr);
             
             expr * x = args[0];
-            // to-real(k) - x >= 0
-            expr * diff = u().mk_add(u().mk_to_real(k), u().mk_mul(u().mk_numeral(rational(-1), false), x));
+            // x - to-real(k) >= 0
+            
+            expr * diff = u().mk_add(x, u().mk_mul(u().mk_numeral(rational(-1), false), u().mk_to_real(k)));
             push_cnstr(u().mk_ge(diff, mk_real_zero()));
             push_cnstr_pr(result_pr);
             
-            // not(to-real(k) - x >= 1)
+            // not(x - to-real(k) >= 1)
             push_cnstr(NOT(u().mk_ge(diff, u().mk_numeral(rational(1), false))));
             push_cnstr_pr(result_pr);
         }
@@ -347,14 +410,12 @@ struct purify_arith_proc {
             expr * x = args[0];
             expr * zero = u().mk_numeral(rational(0), is_int);
             expr * one  = u().mk_numeral(rational(1), is_int);
-            if (y.is_zero() && complete()) {
+            if (y.is_zero()) {
                 // (^ x 0) --> k  |  x != 0 implies k = 1,   x = 0 implies k = 0^0 
                 push_cnstr(OR(EQ(x, zero), EQ(k, one)));
                 push_cnstr_pr(result_pr);
-                if (complete()) {
-                    push_cnstr(OR(NOT(EQ(x, zero)), EQ(k, is_int ? u().mk_0_pw_0_int() : u().mk_0_pw_0_real())));
-                    push_cnstr_pr(result_pr);
-                }
+                push_cnstr(OR(NOT(EQ(x, zero)), EQ(k, is_int ? u().mk_0_pw_0_int() : u().mk_0_pw_0_real())));
+                push_cnstr_pr(result_pr);
             }
             else if (!is_int) {
                 SASSERT(!y.is_int());
@@ -434,6 +495,30 @@ struct purify_arith_proc {
             push_cnstr_pr(result_pr);
             push_cnstr(u().mk_lt(k, u().mk_numeral(upper, false)));
             push_cnstr_pr(result_pr);
+        }
+
+        br_status process_sin_cos(bool first, func_decl *f, expr * theta, expr_ref & result, proof_ref & result_pr) {
+            expr* x, *y;
+            if (m_owner.convert_basis(theta, x, y)) {
+                result = first ? x : y;
+                app_ref t(m().mk_app(f, theta), m());
+                mk_def_proof(result, t, result_pr);
+                cache_result(t, result, result_pr);
+                push_cnstr(EQ(mk_real_one(), u().mk_add(u().mk_mul(x, x), u().mk_mul(y, y))));
+                push_cnstr_pr(result_pr);
+                return BR_DONE;
+            }
+            else {
+                return BR_FAILED;
+            }
+        }
+
+        br_status process_sin(func_decl *f, expr * theta, expr_ref & result, proof_ref & result_pr) {
+            return process_sin_cos(true, f, theta, result, result_pr);
+        }
+
+        br_status process_cos(func_decl *f, expr * theta, expr_ref & result, proof_ref & result_pr) {
+            return process_sin_cos(false, f, theta, result, result_pr);
         }
 
         br_status process_asin(func_decl * f, expr * x, expr_ref & result, proof_ref & result_pr) {
@@ -566,6 +651,10 @@ struct purify_arith_proc {
                 return process_asin(f, args[0], result, result_pr);
             case OP_ACOS:
                 return process_acos(f, args[0], result, result_pr);
+            case OP_SIN:
+                return process_sin(f, args[0], result, result_pr);
+            case OP_COS:
+                return process_cos(f, args[0], result, result_pr);
             case OP_ATAN:
                 return process_atan(f, args[0], result, result_pr);
             default:
@@ -589,6 +678,8 @@ struct purify_arith_proc {
             return false;
         }
     };
+
+    expr * mk_real_zero() { return u().mk_numeral(rational(0), false); }
 
     struct rw : public rewriter_tpl<rw_cfg> {
         rw_cfg m_cfg;
@@ -649,26 +740,27 @@ struct purify_arith_proc {
         }
     }
 
-    void operator()(goal & g, model_converter_ref & mc, bool produce_models) {
+    void operator()(model_converter_ref & mc, bool produce_models) {
         rw r(*this);
         // purify
         expr_ref   new_curr(m());
         proof_ref  new_pr(m());
-        unsigned sz = g.size();
+        unsigned sz = m_goal.size();
         for (unsigned i = 0; i < sz; i++) {
-            expr * curr = g.form(i);
+            expr * curr = m_goal.form(i);
             r(curr, new_curr, new_pr);
             if (m_produce_proofs) {
-                proof * pr = g.pr(i);
+                proof * pr = m_goal.pr(i);
                 new_pr     = m().mk_modus_ponens(pr, new_pr);
             }
-            g.update(i, new_curr, new_pr, g.dep(i));
+            m_goal.update(i, new_curr, new_pr, m_goal.dep(i));
         }
         
         // add cnstraints
         sz = r.cfg().m_new_cnstrs.size();
+        TRACE("purify_arith", tout << r.cfg().m_new_cnstrs << "\n";);
         for (unsigned i = 0; i < sz; i++) {
-            g.assert_expr(r.cfg().m_new_cnstrs.get(i), m_produce_proofs ? r.cfg().m_new_cnstr_prs.get(i) : 0, 0);
+            m_goal.assert_expr(r.cfg().m_new_cnstrs.get(i), m_produce_proofs ? r.cfg().m_new_cnstr_prs.get(i) : 0, 0);
         }
         
         // add filter_model_converter to eliminate auxiliary variables from model
@@ -684,7 +776,20 @@ struct purify_arith_proc {
                 fmc->insert(v->get_decl());
             }
         }
+        if (produce_models && !m_sin_cos.empty()) {
+            extension_model_converter* emc = alloc(extension_model_converter, m());
+            mc = concat(mc.get(), emc);
+            obj_map<app, std::pair<expr*,expr*> >::iterator it = m_sin_cos.begin(), end = m_sin_cos.end();
+            for (; it != end; ++it) {
+                emc->insert(it->m_key->get_decl(), 
+                            m().mk_ite(u().mk_ge(it->m_value.first, mk_real_zero()), u().mk_acos(it->m_value.second), 
+                                       u().mk_add(u().mk_acos(u().mk_uminus(it->m_value.second)), u().mk_pi())));
+            }
+
+        }
     }
+
+
 };
 
 class purify_arith_tactic : public tactic {
@@ -726,14 +831,15 @@ public:
             SASSERT(g->is_well_sorted());
             mc = 0; pc = 0; core = 0;
             tactic_report report("purify-arith", *g);
+            TRACE("purify_arith", g->display(tout););
             bool produce_proofs = g->proofs_enabled();
             bool produce_models = g->models_enabled();
             bool elim_root_objs = m_params.get_bool("elim_root_objects", true);
             bool elim_inverses  = m_params.get_bool("elim_inverses", true);
             bool complete       = m_params.get_bool("complete", true);
-            purify_arith_proc proc(m_util, produce_proofs, elim_root_objs, elim_inverses, complete);
+            purify_arith_proc proc(*(g.get()), m_util, produce_proofs, elim_root_objs, elim_inverses, complete);
             
-            proc(*(g.get()), mc, produce_models);
+            proc(mc, produce_models);
             
             g->inc_depth();
             result.push_back(g.get());

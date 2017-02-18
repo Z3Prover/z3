@@ -828,7 +828,10 @@ class env {
             }
             else if (!strcmp(ch,"$to_real")) {
                 check_arity(terms.size(), 1);
-                r = to_real(terms[0]);
+                r = terms[0];
+                if (r.get_sort().is_int()) {
+                    r = to_real(terms[0]);
+                }
             }
             else if (!strcmp(ch,"$is_int")) {
                 check_arity(terms.size(), 1);
@@ -1224,21 +1227,14 @@ public:
 
     void display_axiom(std::ostream& out, z3::expr e) {
         out << "tff(formula" << (++m_formula_id) << ", axiom,\n    ";
-        display(out, e);
+        display(out, e, true);
         out << ").\n";
     }
 
-    void display(std::ostream& out, z3::expr e) {
-        if (e.is_numeral()) {
-            __int64 num, den;
-            if (Z3_get_numeral_small(ctx, e, &num, &den)) {
-                if (num < 0 && den == 1 && num != std::numeric_limits<__int64>::min()) {
-                    out << "-" << (-num);
-                    return;
-                }
-            }
-            // potential incompatibility: prints negative numbers with a space.
-            out << e;
+    void display(std::ostream& out, z3::expr e, bool in_paren) {
+        std::string s;
+        if (e.is_numeral(s)) {
+            out << s;
         }
         else if (e.is_var()) {
             unsigned idx = Z3_get_index_value(ctx, e);
@@ -1253,32 +1249,33 @@ public:
                 out << "$false";
                 break;
             case Z3_OP_AND:
-                display_infix(out, "&", e);
+                display_infix(out, "&", e, in_paren);
                 break;
             case Z3_OP_OR:
-                display_infix(out, "|", e);
+                display_infix(out, "|", e, in_paren);
                 break;
             case Z3_OP_IMPLIES:
-                display_infix(out, "=>", e);
+                display_infix(out, "=>", e, in_paren);
                 break;
             case Z3_OP_NOT:
-                out << "(~";
-                display(out, e.arg(0));
-                out << ")";
+                if (!in_paren) out << "(";
+                out << "~";
+                display(out, e.arg(0), false);
+                if (!in_paren) out << ")";
                 break;
             case Z3_OP_EQ:
                 if (e.arg(0).is_bool()) {
-                    display_infix(out, "<=>", e);
+                    display_infix(out, "<=>", e, in_paren);
                 }
                 else {
-                    display_infix(out, "=", e);
+                    display_infix(out, "=", e, in_paren);
                 }
                 break;
             case Z3_OP_IFF:
-                display_infix(out, "<=>", e);
+                display_infix(out, "<=>", e, in_paren);
                 break;
             case Z3_OP_XOR:
-                display_infix(out, "<~>", e);
+                display_infix(out, "<~>", e, in_paren);
                 break;
             case Z3_OP_MUL:  
                 display_binary(out, "$product", e);
@@ -1355,7 +1352,7 @@ public:
                 }
             }
             out << "] : ";
-            display(out, e.body());
+            display(out, e.body(), false);
             for (unsigned i = 0; i < nb; ++i) {
                 names.pop_back();
             }
@@ -1370,7 +1367,7 @@ public:
         out << lower_case_fun(e.decl().name()) << "(";
         unsigned n = e.num_args();
         for(unsigned i = 0; i < n; ++i) {
-            display(out, e.arg(i));
+            display(out, e.arg(i), n == 1);
             if (i + 1 < n) {
                 out << ", ";
             }
@@ -1393,23 +1390,23 @@ public:
         }
     }
 
-    void display_infix(std::ostream& out, char const* conn, z3::expr& e) {
-        out << "(";
+    void display_infix(std::ostream& out, char const* conn, z3::expr& e, bool in_paren) {
+        if (!in_paren) out << "(";
         unsigned sz = e.num_args();
         for (unsigned i = 0; i < sz; ++i) {
-            display(out, e.arg(i));
+            display(out, e.arg(i), false);
             if (i + 1 < sz) {
                 out << " " << conn << " ";
             }
         }
-        out << ")";
+        if (!in_paren) out << ")";
     }
 
     void display_prefix(std::ostream& out, char const* conn, z3::expr& e) {
         out << conn << "(";
         unsigned sz = e.num_args();
         for (unsigned i = 0; i < sz; ++i) {
-            display(out, e.arg(i));
+            display(out, e.arg(i), sz == 1);
             if (i + 1 < sz) {
                 out << ", ";
             }
@@ -1422,7 +1419,7 @@ public:
         unsigned sz = e.num_args();
         unsigned np = 1;
         for (unsigned i = 0; i < sz; ++i) {
-            display(out, e.arg(i));
+            display(out, e.arg(i), false);
             if (i + 1 < sz) {
                 out << ", ";
             }
@@ -1566,7 +1563,7 @@ public:
                     formula_file = "unknown";
                 }
                 out << "tff(" << m_node_number << ",axiom,(";
-                display(out, get_proof_formula(p));
+                display(out, get_proof_formula(p), true);
                 out << "), file('" << formula_file << "','";
                 out << formula_name << "')).\n";
                 break;               
@@ -1629,12 +1626,12 @@ public:
                 break;
             case Z3_OP_PR_HYPOTHESIS: 
                 out << "tff(" << m_node_number << ",assumption,(";
-                display(out, get_proof_formula(p));
+                display(out, get_proof_formula(p), true);
                 out << "), introduced(assumption)).\n";
                 break;                
             case Z3_OP_PR_LEMMA: {
                 out << "tff(" << m_node_number << ",plain,(";
-                display(out, get_proof_formula(p));
+                display(out, get_proof_formula(p), true);
                 out << "), inference(lemma,lemma(discharge,";
                 unsigned parent_id = Z3_get_ast_id(ctx, p.arg(0));
                 std::set<unsigned> const& hyps = m_proof_hypotheses.find(parent_id)->second;
@@ -1751,7 +1748,7 @@ public:
         unsigned id = Z3_get_ast_id(ctx, p);
         std::set<unsigned> const& hyps = m_proof_hypotheses.find(id)->second;
         out << "tff(" << m_node_number << ",plain,\n    (";
-        display(out, get_proof_formula(p));
+        display(out, get_proof_formula(p), true);
         out << "),\n    inference(" << name << ",[status(" << status << ")";
         if (!hyps.empty()) {
             out << ", assumptions(";
@@ -1780,7 +1777,7 @@ public:
     unsigned display_hyp_inference(std::ostream& out, char const* name, char const* status, z3::expr conclusion, unsigned hyp1, unsigned hyp2 = 0) {
         ++m_node_number;
         out << "tff(" << m_node_number << ",plain,(\n    ";
-        display(out, conclusion);
+        display(out, conclusion, true);
         out << "),\n    inference(" << name << ",[status(" << status << ")],";
         out << "[" << hyp1;
         if (hyp2) {
@@ -2369,7 +2366,7 @@ static void prove_tptp() {
     }
     catch (failure_ex& ex) {
         std::cerr << ex.msg << "\n";
-        std::cout << "SZS status GaveUp\n";
+        std::cout << "% SZS status GaveUp\n";
         return;
     }
 
@@ -2401,14 +2398,16 @@ static void prove_tptp() {
             std::cout << result << "\n";
         }
         else if (fmls.has_conjecture()) {
-            std::cout << "SZS status Theorem\n";
+            std::cout << "% SZS status Theorem\n";
         }
         else {
-            std::cout << "SZS status Unsatisfiable\n";
+            std::cout << "% SZS status Unsatisfiable\n";
         }
         if (g_generate_proof) {
             try {
+                std::cout << "% SZS output start Proof\n";
                 display_proof(ctx, fmls, solver);
+                std::cout << "% SZS output end Proof\n";
             }
             catch (failure_ex& ex) {
                 std::cerr << "Proof display could not be completed: " << ex.msg << "\n";
@@ -2416,7 +2415,7 @@ static void prove_tptp() {
         }
         if (g_generate_core) {
             z3::expr_vector core = solver.unsat_core();
-            std::cout << "SZS core ";
+            std::cout << "% SZS core ";
             for (unsigned i = 0; i < core.size(); ++i) {
                 std::cout << core[i] << " ";
             }
@@ -2428,13 +2427,15 @@ static void prove_tptp() {
             std::cout << result << "\n";
         }
         else if (fmls.has_conjecture()) {
-            std::cout << "SZS status CounterSatisfiable\n";            
+            std::cout << "% SZS status CounterSatisfiable\n";            
         }
         else {
-            std::cout << "SZS status Satisfiable\n";
+            std::cout << "% SZS status Satisfiable\n";
         }
         if (g_generate_model) {
+            std::cout << "% SZS output start Model\n";
             display_model(ctx, solver.get_model());
+            std::cout << "% SZS output end Model\n";
         }
         break;
     case z3::unknown:
@@ -2442,12 +2443,12 @@ static void prove_tptp() {
             std::cout << result << "\n";
         }
         else if (!g_first_interrupt) {
-            std::cout << "SZS status Interrupted\n";
+            std::cout << "% SZS status Interrupted\n";
         }
         else {
-            std::cout << "SZS status GaveUp\n";
+            std::cout << "% SZS status GaveUp\n";
             std::string reason = solver.reason_unknown();
-            std::cout << "SZS reason " << reason << "\n";
+            std::cout << "% SZS reason " << reason << "\n";
         }
         break;
     }    
@@ -2467,7 +2468,6 @@ static void prove_tptp() {
 
 int main(int argc, char** argv) {
 
-    //std::ostream* out = &std::cout;
     g_start_time = static_cast<double>(clock());
     signal(SIGINT, on_ctrl_c);
 
@@ -2480,7 +2480,12 @@ int main(int argc, char** argv) {
         display_smt2(*g_out);
     }
     else {
-        prove_tptp();
+        try {
+            prove_tptp();
+        }
+        catch (z3::exception& ex) {
+            std::cerr << "Exception during proof: " << ex.msg() << "\n";
+        }
     }
     return 0;
 }

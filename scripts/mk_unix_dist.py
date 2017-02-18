@@ -23,8 +23,11 @@ VERBOSE=True
 DIST_DIR='dist'
 FORCE_MK=False
 DOTNET_ENABLED=True
+DOTNET_KEY_FILE=None
 JAVA_ENABLED=True
 GIT_HASH=False
+PYTHON_ENABLED=True
+MAKEJOBS=getenv("MAKEJOBS", '8')
 
 def set_verbose(flag):
     global VERBOSE
@@ -52,13 +55,15 @@ def display_help():
     print("  -b <sudir>, --build=<subdir>  subdirectory where x86 and x64 Z3 versions will be built (default: build-dist).")
     print("  -f, --force                   force script to regenerate Makefiles.")
     print("  --nodotnet                    do not include .NET bindings in the binary distribution files.")
+    print("  --dotnet-key=<file>           sign the .NET assembly with the private key in <file>.")
     print("  --nojava                      do not include Java bindings in the binary distribution files.")
+    print("  --nopython                    do not include Python bindings in the binary distribution files.")
     print("  --githash                     include git hash in the Zip file.")
     exit(0)
 
 # Parse configuration option for mk_make script
 def parse_options():
-    global FORCE_MK, JAVA_ENABLED, GIT_HASH, DOTNET_ENABLED
+    global FORCE_MK, JAVA_ENABLED, GIT_HASH, DOTNET_ENABLED, DOTNET_KEY_FILE
     path = BUILD_DIR
     options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:hsf', ['build=', 
                                                                    'help',
@@ -66,7 +71,9 @@ def parse_options():
                                                                    'force',
                                                                    'nojava',
                                                                    'nodotnet',
-                                                                   'githash'
+                                                                   'dotnet-key=',
+                                                                   'githash',
+                                                                   'nopython'
                                                                    ])
     for opt, arg in options:
         if opt in ('-b', '--build'):
@@ -80,7 +87,11 @@ def parse_options():
         elif opt in ('-f', '--force'):
             FORCE_MK = True
         elif opt == '--nodotnet':
-            DOTNET_ENABLED = False            
+            DOTNET_ENABLED = False
+        elif opt == '--nopython':
+            PYTHON_ENABLED = False            
+        elif opt == '--dotnet-key':
+            DOTNET_KEY_FILE = arg
         elif opt == '--nojava':
             JAVA_ENABLED = False
         elif opt == '--githash':
@@ -98,11 +109,16 @@ def mk_build_dir(path):
     if not check_build_dir(path) or FORCE_MK:
         opts = ["python", os.path.join('scripts', 'mk_make.py'), "-b", path, "--staticlib"]
         if DOTNET_ENABLED:
-            opts.append('--dotnet')            
+            opts.append('--dotnet')
+            if not DOTNET_KEY_FILE is None:
+                opts.append('--dotnet-key=' + DOTNET_KEY_FILE)
         if JAVA_ENABLED:
             opts.append('--java')
         if GIT_HASH:
             opts.append('--githash=%s' % mk_util.git_hash())
+            opts.append('--git-describe')
+        if PYTHON_ENABLED:
+            opts.append('--python')
         if subprocess.call(opts) != 0:
             raise MKException("Failed to generate build directory at '%s'" % path)
     
@@ -124,7 +140,7 @@ class cd:
 def mk_z3():
     with cd(BUILD_DIR):
         try:
-            return subprocess.call(['make', '-j', '8'])
+            return subprocess.call(['make', '-j', MAKEJOBS])
         except:
             return 1
 
@@ -171,7 +187,9 @@ def mk_dist_dir():
     dist_path = os.path.join(DIST_DIR, get_z3_name())
     mk_dir(dist_path)
     mk_util.DOTNET_ENABLED = DOTNET_ENABLED
+    mk_util.DOTNET_KEY_FILE = DOTNET_KEY_FILE
     mk_util.JAVA_ENABLED = JAVA_ENABLED
+    mk_util.PYTHON_ENABLED = PYTHON_ENABLED
     mk_unix_dist(build_path, dist_path)
     if is_verbose():
         print("Generated distribution folder at '%s'" % dist_path)

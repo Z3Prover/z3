@@ -286,8 +286,8 @@ namespace Microsoft.Z3
             Contract.Ensures(Contract.Result<TupleSort>() != null);
 
             CheckContextMatch(name);
-            CheckContextMatch(fieldNames);
-            CheckContextMatch(fieldSorts);
+            CheckContextMatch<Symbol>(fieldNames);
+            CheckContextMatch<Sort>(fieldSorts);
             return new TupleSort(this, name, (uint)fieldNames.Length, fieldNames, fieldSorts);
         }
 
@@ -303,7 +303,7 @@ namespace Microsoft.Z3
             Contract.Ensures(Contract.Result<EnumSort>() != null);
 
             CheckContextMatch(name);
-            CheckContextMatch(enumNames);
+            CheckContextMatch<Symbol>(enumNames);
             return new EnumSort(this, name, enumNames);
         }
 
@@ -423,7 +423,7 @@ namespace Microsoft.Z3
             Contract.Ensures(Contract.Result<DatatypeSort>() != null);
 
             CheckContextMatch(name);
-            CheckContextMatch(constructors);
+            CheckContextMatch<Constructor>(constructors);
             return new DatatypeSort(this, name, constructors);
         }
 
@@ -436,7 +436,7 @@ namespace Microsoft.Z3
             Contract.Requires(Contract.ForAll(constructors, c => c != null));
             Contract.Ensures(Contract.Result<DatatypeSort>() != null);
 
-            CheckContextMatch(constructors);
+            CheckContextMatch<Constructor>(constructors);
             return new DatatypeSort(this, MkSymbol(name), constructors);
         }
 
@@ -454,7 +454,7 @@ namespace Microsoft.Z3
             Contract.Requires(Contract.ForAll(names, name => name != null));
             Contract.Ensures(Contract.Result<DatatypeSort[]>() != null);
 
-            CheckContextMatch(names);
+            CheckContextMatch<Symbol>(names);
             uint n = (uint)names.Length;
             ConstructorList[] cla = new ConstructorList[n];
             IntPtr[] n_constr = new IntPtr[n];
@@ -462,7 +462,7 @@ namespace Microsoft.Z3
             {
                 Constructor[] constructor = c[i];
                 Contract.Assume(Contract.ForAll(constructor, arr => arr != null), "Clousot does not support yet quantified formula on multidimensional arrays");
-                CheckContextMatch(constructor);
+                CheckContextMatch<Constructor>(constructor);
                 cla[i] = new ConstructorList(this, constructor);
                 n_constr[i] = cla[i].NativeObject;
             }
@@ -520,7 +520,7 @@ namespace Microsoft.Z3
             Contract.Ensures(Contract.Result<FuncDecl>() != null);
 
             CheckContextMatch(name);
-            CheckContextMatch(domain);
+            CheckContextMatch<Sort>(domain);
             CheckContextMatch(range);
             return new FuncDecl(this, name, domain, range);
         }
@@ -551,7 +551,7 @@ namespace Microsoft.Z3
             Contract.Requires(Contract.ForAll(domain, d => d != null));
             Contract.Ensures(Contract.Result<FuncDecl>() != null);
 
-            CheckContextMatch(domain);
+            CheckContextMatch<Sort>(domain);
             CheckContextMatch(range);
             return new FuncDecl(this, MkSymbol(name), domain, range);
         }
@@ -582,7 +582,7 @@ namespace Microsoft.Z3
             Contract.Requires(Contract.ForAll(domain, d => d != null));
             Contract.Ensures(Contract.Result<FuncDecl>() != null);
 
-            CheckContextMatch(domain);
+            CheckContextMatch<Sort>(domain);
             CheckContextMatch(range);
             return new FuncDecl(this, prefix, domain, range);
         }
@@ -811,7 +811,7 @@ namespace Microsoft.Z3
             Contract.Ensures(Contract.Result<Expr>() != null);
 
             CheckContextMatch(f);
-            CheckContextMatch(args);
+            CheckContextMatch<Expr>(args);
             return Expr.Create(this, f, args);
         }
 
@@ -884,7 +884,7 @@ namespace Microsoft.Z3
 
             Contract.Ensures(Contract.Result<BoolExpr>() != null);
 
-            CheckContextMatch(args);
+            CheckContextMatch<Expr>(args);
             return new BoolExpr(this, Native.Z3_mk_distinct(nCtx, (uint)args.Length, AST.ArrayToNative(args)));
         }
 
@@ -970,7 +970,7 @@ namespace Microsoft.Z3
             Contract.Requires(Contract.ForAll(t, a => a != null));
             Contract.Ensures(Contract.Result<BoolExpr>() != null);
 
-            CheckContextMatch(t);
+            CheckContextMatch<BoolExpr>(t);
             return new BoolExpr(this, Native.Z3_mk_and(nCtx, (uint)t.Length, AST.ArrayToNative(t)));
         }
 
@@ -982,7 +982,7 @@ namespace Microsoft.Z3
             Contract.Requires(t != null);
             Contract.Requires(Contract.ForAll(t, a => a != null));
             Contract.Ensures(Contract.Result<BoolExpr>() != null);
-            CheckContextMatch(t);
+            CheckContextMatch<BoolExpr>(t);
             return new BoolExpr(this, Native.Z3_mk_and(nCtx, (uint)t.Count(), AST.EnumToNative(t)));
         }
 
@@ -995,7 +995,7 @@ namespace Microsoft.Z3
             Contract.Requires(Contract.ForAll(t, a => a != null));
             Contract.Ensures(Contract.Result<BoolExpr>() != null);
 
-            CheckContextMatch(t);
+            CheckContextMatch<BoolExpr>(t);
             return new BoolExpr(this, Native.Z3_mk_or(nCtx, (uint)t.Length, AST.ArrayToNative(t)));
         }
 
@@ -1025,7 +1025,7 @@ namespace Microsoft.Z3
             Contract.Requires(Contract.ForAll(t, a => a != null));
             Contract.Ensures(Contract.Result<ArithExpr>() != null);
 
-            CheckContextMatch(t);
+            CheckContextMatch<ArithExpr>(t);
             return (ArithExpr)Expr.Create(this, Native.Z3_mk_add(nCtx, (uint)t.Length, AST.ArrayToNative(t)));
         }
 
@@ -1051,8 +1051,21 @@ namespace Microsoft.Z3
             Contract.Requires(Contract.ForAll(t, a => a != null));
             Contract.Ensures(Contract.Result<ArithExpr>() != null);
 
-            CheckContextMatch(t);
+            CheckContextMatch<ArithExpr>(t);
             return (ArithExpr)Expr.Create(this, Native.Z3_mk_mul(nCtx, (uint)t.Length, AST.ArrayToNative(t)));
+        }
+
+        /// <summary>
+        /// Create an expression representing <c>t[0] * t[1] * ...</c>.
+        /// </summary>
+        public ArithExpr MkMul(IEnumerable<ArithExpr> t)
+        {
+            Contract.Requires(t != null);
+            Contract.Requires(Contract.ForAll(t, a => a != null));
+            Contract.Ensures(Contract.Result<ArithExpr>() != null);
+
+            CheckContextMatch<ArithExpr>(t);
+            return (ArithExpr)Expr.Create(this, Native.Z3_mk_mul(nCtx, (uint)t.Count(), AST.EnumToNative(t)));
         }
 
         /// <summary>
@@ -1064,7 +1077,7 @@ namespace Microsoft.Z3
             Contract.Requires(Contract.ForAll(t, a => a != null));
             Contract.Ensures(Contract.Result<ArithExpr>() != null);
 
-            CheckContextMatch(t);
+            CheckContextMatch<ArithExpr>(t);
             return (ArithExpr)Expr.Create(this, Native.Z3_mk_sub(nCtx, (uint)t.Length, AST.ArrayToNative(t)));
         }
 
@@ -2192,7 +2205,7 @@ namespace Microsoft.Z3
             Contract.Ensures(Contract.Result<ArrayExpr>() != null);
 
             CheckContextMatch(f);
-            CheckContextMatch(args);
+            CheckContextMatch<ArrayExpr>(args);
             return (ArrayExpr)Expr.Create(this, Native.Z3_mk_map(nCtx, f.NativeObject, AST.ArrayLength(args), AST.ArrayToNative(args)));
         }
 
@@ -2302,7 +2315,7 @@ namespace Microsoft.Z3
             Contract.Requires(args != null);
             Contract.Requires(Contract.ForAll(args, a => a != null));
 
-            CheckContextMatch(args);
+            CheckContextMatch<ArrayExpr>(args);
             return (ArrayExpr)Expr.Create(this, Native.Z3_mk_set_union(nCtx, (uint)args.Length, AST.ArrayToNative(args)));
         }
 
@@ -2315,7 +2328,7 @@ namespace Microsoft.Z3
             Contract.Requires(Contract.ForAll(args, a => a != null));
             Contract.Ensures(Contract.Result<Expr>() != null);
 
-            CheckContextMatch(args);
+            CheckContextMatch<ArrayExpr>(args);
             return (ArrayExpr)Expr.Create(this, Native.Z3_mk_set_intersect(nCtx, (uint)args.Length, AST.ArrayToNative(args)));
         }
 
@@ -2408,6 +2421,29 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Convert an integer expression to a string.
+        /// </summary>
+        public SeqExpr IntToString(Expr e) 
+        {
+            Contract.Requires(e != null);
+	    Contract.Requires(e is ArithExpr);
+            Contract.Ensures(Contract.Result<SeqExpr>() != null);
+            return new SeqExpr(this, Native.Z3_mk_int_to_str(nCtx, e.NativeObject));
+        }
+
+        /// <summary>
+        /// Convert an integer expression to a string.
+        /// </summary>
+        public IntExpr StringToInt(Expr e) 
+        {
+            Contract.Requires(e != null);
+            Contract.Requires(e is SeqExpr);
+            Contract.Ensures(Contract.Result<IntExpr>() != null);
+            return new IntExpr(this, Native.Z3_mk_str_to_int(nCtx, e.NativeObject));
+        }
+
+
+        /// <summary>
         /// Concatentate sequences.
         /// </summary>
         public SeqExpr MkConcat(params SeqExpr[] t)
@@ -2416,7 +2452,7 @@ namespace Microsoft.Z3
             Contract.Requires(Contract.ForAll(t, a => a != null));
             Contract.Ensures(Contract.Result<SeqExpr>() != null);
 
-            CheckContextMatch(t);
+            CheckContextMatch<SeqExpr>(t);
             return new SeqExpr(this, Native.Z3_mk_seq_concat(nCtx, (uint)t.Length, AST.ArrayToNative(t)));
         }
 
@@ -2552,9 +2588,19 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Take the bounded Kleene star of a regular expression.
+        /// </summary>
+        public ReExpr MkLoop(ReExpr re, uint lo, uint hi = 0)
+        {
+            Contract.Requires(re != null);
+            Contract.Ensures(Contract.Result<ReExpr>() != null);
+            return new ReExpr(this, Native.Z3_mk_re_loop(nCtx, re.NativeObject, lo, hi));            
+        }
+
+        /// <summary>
         /// Take the Kleene plus of a regular expression.
         /// </summary>
-        public ReExpr MPlus(ReExpr re)
+        public ReExpr MkPlus(ReExpr re)
         {
             Contract.Requires(re != null);
             Contract.Ensures(Contract.Result<ReExpr>() != null);
@@ -2564,11 +2610,21 @@ namespace Microsoft.Z3
         /// <summary>
         /// Create the optional regular expression.
         /// </summary>
-        public ReExpr MOption(ReExpr re)
+        public ReExpr MkOption(ReExpr re)
         {
             Contract.Requires(re != null);
             Contract.Ensures(Contract.Result<ReExpr>() != null);
             return new ReExpr(this, Native.Z3_mk_re_option(nCtx, re.NativeObject));            
+        }
+
+        /// <summary>
+        /// Create the complement regular expression.
+        /// </summary>
+        public ReExpr MkComplement(ReExpr re)
+        {
+            Contract.Requires(re != null);
+            Contract.Ensures(Contract.Result<ReExpr>() != null);
+            return new ReExpr(this, Native.Z3_mk_re_complement(nCtx, re.NativeObject));            
         }
 
         /// <summary>
@@ -2580,7 +2636,7 @@ namespace Microsoft.Z3
             Contract.Requires(Contract.ForAll(t, a => a != null));
             Contract.Ensures(Contract.Result<ReExpr>() != null);
 
-            CheckContextMatch(t);
+            CheckContextMatch<ReExpr>(t);
             return new ReExpr(this, Native.Z3_mk_re_concat(nCtx, (uint)t.Length, AST.ArrayToNative(t)));
         }
 
@@ -2593,8 +2649,54 @@ namespace Microsoft.Z3
             Contract.Requires(Contract.ForAll(t, a => a != null));
             Contract.Ensures(Contract.Result<ReExpr>() != null);
 
-            CheckContextMatch(t);
+            CheckContextMatch<ReExpr>(t);
             return new ReExpr(this, Native.Z3_mk_re_union(nCtx, (uint)t.Length, AST.ArrayToNative(t)));
+        }
+
+        /// <summary>
+        /// Create the intersection of regular languages.
+        /// </summary>
+        public ReExpr MkIntersect(params ReExpr[] t)
+        {
+            Contract.Requires(t != null);
+            Contract.Requires(Contract.ForAll(t, a => a != null));
+            Contract.Ensures(Contract.Result<ReExpr>() != null);
+
+            CheckContextMatch<ReExpr>(t);
+            return new ReExpr(this, Native.Z3_mk_re_intersect(nCtx, (uint)t.Length, AST.ArrayToNative(t)));
+        }
+
+        /// <summary>
+        /// Create the empty regular expression.
+        /// </summary>
+        public ReExpr MkEmptyRe(Sort s) 
+        {
+            Contract.Requires(s != null);
+            Contract.Ensures(Contract.Result<SeqExpr>() != null);
+            return new ReExpr(this, Native.Z3_mk_re_empty(nCtx, s.NativeObject));
+        }
+
+        /// <summary>
+        /// Create the full regular expression.
+        /// </summary>
+        public ReExpr MkFullRe(Sort s) 
+        {
+            Contract.Requires(s != null);
+            Contract.Ensures(Contract.Result<SeqExpr>() != null);
+            return new ReExpr(this, Native.Z3_mk_re_full(nCtx, s.NativeObject));
+        }
+
+
+        /// <summary>
+        /// Create a range expression.
+        /// </summary>
+	public ReExpr MkRange(SeqExpr lo, SeqExpr hi) 
+        {
+            Contract.Requires(lo != null);
+            Contract.Requires(hi != null);
+            Contract.Ensures(Contract.Result<ReExpr>() != null);
+            CheckContextMatch(lo, hi);
+            return new ReExpr(this, Native.Z3_mk_re_range(nCtx, lo.NativeObject, hi.NativeObject));
         }
     
         #endregion
@@ -2608,8 +2710,20 @@ namespace Microsoft.Z3
         {
            Contract.Requires(args != null);
            Contract.Requires(Contract.Result<BoolExpr[]>() != null);
-           CheckContextMatch(args);
+           CheckContextMatch<BoolExpr>(args);
            return new BoolExpr(this, Native.Z3_mk_atmost(nCtx, (uint) args.Length,
+                                                          AST.ArrayToNative(args), k));
+        }
+
+        /// <summary>
+        /// Create an at-least-k constraint.
+        /// </summary>
+        public BoolExpr MkAtLeast(BoolExpr[] args, uint k)
+        {
+           Contract.Requires(args != null);
+           Contract.Requires(Contract.Result<BoolExpr[]>() != null);
+           CheckContextMatch<BoolExpr>(args);
+           return new BoolExpr(this, Native.Z3_mk_atleast(nCtx, (uint) args.Length,
                                                           AST.ArrayToNative(args), k));
         }
 
@@ -2622,8 +2736,37 @@ namespace Microsoft.Z3
            Contract.Requires(coeffs != null);
            Contract.Requires(args.Length == coeffs.Length);
            Contract.Requires(Contract.Result<BoolExpr[]>() != null);
-           CheckContextMatch(args);
+           CheckContextMatch<BoolExpr>(args);
            return new BoolExpr(this, Native.Z3_mk_pble(nCtx, (uint) args.Length,
+                                                          AST.ArrayToNative(args),
+                                                          coeffs, k));
+        }
+
+        /// <summary>
+        /// Create a pseudo-Boolean greater-or-equal constraint.
+        /// </summary>
+        public BoolExpr MkPBGe(int[] coeffs, BoolExpr[] args, int k)
+        {
+           Contract.Requires(args != null);
+           Contract.Requires(coeffs != null);
+           Contract.Requires(args.Length == coeffs.Length);
+           Contract.Requires(Contract.Result<BoolExpr[]>() != null);
+           CheckContextMatch<BoolExpr>(args);
+           return new BoolExpr(this, Native.Z3_mk_pbge(nCtx, (uint) args.Length,
+                                                          AST.ArrayToNative(args),
+                                                          coeffs, k));
+        }
+        /// <summary>
+        /// Create a pseudo-Boolean equal constraint.
+        /// </summary>
+        public BoolExpr MkPBEq(int[] coeffs, BoolExpr[] args, int k)
+        {
+           Contract.Requires(args != null);
+           Contract.Requires(coeffs != null);
+           Contract.Requires(args.Length == coeffs.Length);
+           Contract.Requires(Contract.Result<BoolExpr[]>() != null);
+           CheckContextMatch<BoolExpr>(args);
+           return new BoolExpr(this, Native.Z3_mk_pbeq(nCtx, (uint) args.Length,
                                                           AST.ArrayToNative(args),
                                                           coeffs, k));
         }
@@ -3373,7 +3516,7 @@ namespace Microsoft.Z3
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            CheckContextMatch(ts);
+            CheckContextMatch<Tactic>(ts);
 
             IntPtr last = IntPtr.Zero;
             if (ts != null && ts.Length > 0)
@@ -3564,7 +3707,7 @@ namespace Microsoft.Z3
             Contract.Requires(t == null || Contract.ForAll(t, tactic => tactic != null));
             Contract.Ensures(Contract.Result<Tactic>() != null);
 
-            CheckContextMatch(t);
+            CheckContextMatch<Tactic>(t);
             return new Tactic(this, Native.Z3_tactic_par_or(nCtx, Tactic.ArrayLength(t), Tactic.ArrayToNative(t)));
         }
 
@@ -4797,7 +4940,7 @@ namespace Microsoft.Z3
         }
 
         [Pure]
-        internal void CheckContextMatch(IEnumerable<Z3Object> arr)
+        internal void CheckContextMatch<T>(IEnumerable<T> arr) where T : Z3Object
         {
             Contract.Requires(arr == null || Contract.ForAll(arr, a => a != null));
 
@@ -4940,11 +5083,12 @@ namespace Microsoft.Z3
             // Console.WriteLine("Context Finalizer from " + System.Threading.Thread.CurrentThread.ManagedThreadId);
             Dispose();
 
-            if (refCount == 0)
+            if (refCount == 0 && m_ctx != IntPtr.Zero)
             {
                 m_n_err_handler = null;
-                Native.Z3_del_context(m_ctx);
+                IntPtr ctx = m_ctx;
                 m_ctx = IntPtr.Zero;
+                Native.Z3_del_context(ctx);
             }
             else
                 GC.ReRegisterForFinalize(this);

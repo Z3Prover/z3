@@ -250,7 +250,6 @@ public:
         }
 
         bool is_string(expr const* n, zstring& s) const;
-        bool is_char(expr* n, zstring& s) const;
 
         bool is_empty(expr const* n) const { symbol s;
             return is_app_of(n, m_fid, OP_SEQ_EMPTY) || (is_string(n, s) && !s.is_numerical() && *s.bare_str() == 0);

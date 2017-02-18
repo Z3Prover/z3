@@ -39,6 +39,8 @@ namespace smt {
             return out << "CANCELED";
         case NUM_CONFLICTS:
             return out << "NUM_CONFLICTS";
+        case RESOURCE_LIMIT:
+            return out << "RESOURCE_LIMIT";
         case THEORY:
             if (!m_incomplete_theories.empty()) {
                 ptr_vector<theory>::const_iterator it  = m_incomplete_theories.begin();
@@ -78,6 +80,7 @@ namespace smt {
             r += "))";
             break;
         }
+        case RESOURCE_LIMIT: r = "(resource limits reached)"; break;
         case QUANTIFIERS: r = "(incomplete quantifiers)"; break;
         case UNKNOWN: r = m_unknown; break;
         }
@@ -250,7 +253,7 @@ namespace smt {
 
     void context::display_app_enode_map(std::ostream & out) const {
         if (!m_e_internalized_stack.empty()) {
-            out << "expresion -> enode:\n";
+            out << "expression -> enode:\n";
             unsigned sz = m_e_internalized_stack.size();
             for (unsigned i = 0; i < sz; i++) {
                 expr *  n = m_e_internalized_stack.get(i);
@@ -262,7 +265,7 @@ namespace smt {
 
     void context::display_expr_bool_var_map(std::ostream & out) const {
         if (!m_b_internalized_stack.empty()) {
-            out << "expresion -> bool_var:\n";
+            out << "expression -> bool_var:\n";
             unsigned sz = m_b_internalized_stack.size();
             for (unsigned i = 0; i < sz; i++) {
                 expr *  n  = m_b_internalized_stack.get(i);

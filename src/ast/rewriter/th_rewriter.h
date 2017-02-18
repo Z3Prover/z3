@@ -25,6 +25,8 @@ Notes:
 
 class expr_substitution;
 
+class expr_solver;
+
 class th_rewriter {
     struct     imp;
     imp *      m_imp;
@@ -58,6 +60,9 @@ public:
     // Remark: reset_used_dependecies will reset the internal cache if get_used_dependencies() != 0
     expr_dependency * get_used_dependencies();
     void reset_used_dependencies();
+
+    void set_solver(expr_solver* solver);
+
 };
 
 #endif

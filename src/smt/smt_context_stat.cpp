@@ -32,7 +32,7 @@ namespace smt {
         return static_cast<unsigned>(acc / m_lemmas.size());
     }
 
-    void acc_num_occs(clause * cls, unsigned_vector & lit2num_occs) {
+    static void acc_num_occs(clause * cls, unsigned_vector & lit2num_occs) {
         unsigned num_lits = cls->get_num_literals();
         for (unsigned i = 0; i < num_lits; i++) {
             literal l = cls->get_literal(i);
@@ -40,7 +40,7 @@ namespace smt {
         }
     }
 
-    void acc_num_occs(clause_vector const & v, unsigned_vector & lit2num_occs) {
+    static void acc_num_occs(clause_vector const & v, unsigned_vector & lit2num_occs) {
         clause_vector::const_iterator it  = v.begin();
         clause_vector::const_iterator end = v.end();
         for (; it != end; ++it)
@@ -79,7 +79,7 @@ namespace smt {
         out << (m_assigned_literals.size() - n) << "]";
     }
 
-    void acc_var_num_occs(clause * cls, unsigned_vector & var2num_occs) {
+    static void acc_var_num_occs(clause * cls, unsigned_vector & var2num_occs) {
         unsigned num_lits = cls->get_num_literals();
         for (unsigned i = 0; i < num_lits; i++) {
             literal l = cls->get_literal(i);
@@ -87,7 +87,7 @@ namespace smt {
         }
     }
 
-    void acc_var_num_occs(clause_vector const & v, unsigned_vector & var2num_occs) {
+    static void acc_var_num_occs(clause_vector const & v, unsigned_vector & var2num_occs) {
         clause_vector::const_iterator it  = v.begin();
         clause_vector::const_iterator end = v.end();
         for (; it != end; ++it)
@@ -114,7 +114,7 @@ namespace smt {
         out << "\n";
     }
 
-    void acc_var_num_min_occs(clause * cls, unsigned_vector & var2num_min_occs) {
+    static void acc_var_num_min_occs(clause * cls, unsigned_vector & var2num_min_occs) {
         unsigned num_lits = cls->get_num_literals();
         bool_var min_var  = cls->get_literal(0).var();
         for (unsigned i = 1; i < num_lits; i++) {
@@ -125,7 +125,7 @@ namespace smt {
         var2num_min_occs[min_var]++;
     }
 
-    void acc_var_num_min_occs(clause_vector const & v, unsigned_vector & var2num_min_occs) {
+    static void acc_var_num_min_occs(clause_vector const & v, unsigned_vector & var2num_min_occs) {
         clause_vector::const_iterator it  = v.begin();
         clause_vector::const_iterator end = v.end();
         for (; it != end; ++it)

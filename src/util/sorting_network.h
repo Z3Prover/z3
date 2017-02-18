@@ -24,7 +24,6 @@ Notes:
 #ifndef SORTING_NETWORK_H_
 #define SORTING_NETWORK_H_
 
-
     template <typename Ext>
     class sorting_network {
         typedef typename Ext::vector vect;
@@ -165,10 +164,26 @@ Notes:
         struct stats {
             unsigned m_num_compiled_vars;
             unsigned m_num_compiled_clauses;
+            unsigned m_num_clause_vars;
             void reset() { memset(this, 0, sizeof(*this)); }
             stats() { reset(); }
         };
         stats        m_stats;
+
+        struct scoped_stats {
+            stats& m_stats;
+            stats  m_save;
+            unsigned m_k, m_n;
+            scoped_stats(stats& st, unsigned k, unsigned n): m_stats(st), m_save(st), m_k(k), m_n(n) {}
+            ~scoped_stats() {
+                IF_VERBOSE(1, 
+                           verbose_stream() << "k: " << m_k << " n: " << m_n;
+                           verbose_stream() << " clauses: " << m_stats.m_num_compiled_clauses - m_save.m_num_compiled_clauses;
+                           verbose_stream() << " vars: " << m_stats.m_num_clause_vars - m_save.m_num_clause_vars;
+                           verbose_stream() << " clauses: " << m_stats.m_num_compiled_clauses;
+                           verbose_stream() << " vars: " << m_stats.m_num_clause_vars << "\n";);
+            }
+        };
 
         psort_nw(psort_expr& c): ctx(c) {}
 
@@ -187,6 +202,7 @@ Notes:
             else {
                 SASSERT(2*k <= n);
                 m_t = full?GE_FULL:GE;
+                // scoped_stats _ss(m_stats, k, n);
                 psort_nw<psort_expr>::card(k, n, xs, out);                
                 return out[k-1]; 
             }
@@ -201,34 +217,276 @@ Notes:
             if (dualize(k, n, xs, in)) {
                 return ge(full, k, n, in.c_ptr());
             }
+            else if (k == 1) {
+                literal_vector ors;
+                // scoped_stats _ss(m_stats, k, n);
+                return mk_at_most_1(full, n, xs, ors, false);
+            }
             else {
                 SASSERT(2*k <= n);
                 m_t = full?LE_FULL:LE;
+                // scoped_stats _ss(m_stats, k, n);
                 card(k + 1, n, xs, out);
                 return ctx.mk_not(out[k]); 
             }
         }
 
-        literal eq(unsigned k, unsigned n, literal const* xs) {
+        literal eq(bool full, unsigned k, unsigned n, literal const* xs) {
             if (k > n) {
                 return ctx.mk_false();
             }
             SASSERT(k <= n);
             literal_vector in, out;
             if (dualize(k, n, xs, in)) {
-                return eq(k, n, in.c_ptr());
+                return eq(full, k, n, in.c_ptr());
+            }
+            else if (k == 1) {
+                // scoped_stats _ss(m_stats, k, n);
+                return mk_exactly_1(full, n, xs);
             }
             else {
+                // scoped_stats _ss(m_stats, k, n);
                 SASSERT(2*k <= n);
                 m_t = EQ;
                 card(k+1, n, xs, out);
                 SASSERT(out.size() >= k+1);
-                return ctx.mk_min(out[k-1], ctx.mk_not(out[k]));
+                if (k == 0) {
+                    return ctx.mk_not(out[k]);
+                }
+                else {
+                    return ctx.mk_min(out[k-1], ctx.mk_not(out[k]));
+                }
             }
         }
 
         
     private:
+
+        void add_implies_or(literal l, unsigned n, literal const* xs) {
+            literal_vector lits(n, xs);
+            lits.push_back(ctx.mk_not(l));
+            add_clause(lits);
+        }
+
+        void add_or_implies(literal l, unsigned n, literal const* xs) {
+            for (unsigned j = 0; j < n; ++j) {
+                add_clause(ctx.mk_not(xs[j]), l);
+            }
+        }
+
+        literal mk_or(unsigned n, literal const* ors) {
+            if (n == 1) {
+                return ors[0];
+            }
+            literal result = fresh();
+            add_implies_or(result, n, ors);
+            add_or_implies(result, n, ors);
+            return result;
+        }
+
+        literal mk_or(literal l1, literal l2) {
+            literal ors[2] = { l1, l2 };
+            return mk_or(2, ors);
+        }
+        literal mk_or(literal_vector const& ors) {
+            return mk_or(ors.size(), ors.c_ptr());
+        }
+
+        void add_implies_and(literal l, literal_vector const& xs) {
+            for (unsigned j = 0; j < xs.size(); ++j) {
+                add_clause(ctx.mk_not(l), xs[j]);
+            }
+        }
+
+        void add_and_implies(literal l, literal_vector const& xs) {
+            literal_vector lits;
+            for (unsigned j = 0; j < xs.size(); ++j) {
+                lits.push_back(ctx.mk_not(xs[j]));
+            }
+            lits.push_back(l);
+            add_clause(lits);
+        }
+
+        literal mk_and(literal l1, literal l2) {
+            literal_vector xs;
+            xs.push_back(l1); xs.push_back(l2);
+            return mk_and(xs);
+        }
+
+        literal mk_and(literal_vector const& ands) {
+            if (ands.size() == 1) {
+                return ands[0];
+            }
+            literal result = fresh();
+            add_implies_and(result, ands);
+            add_and_implies(result, ands);
+            return result;
+        }
+
+        literal mk_exactly_1(bool full, unsigned n, literal const* xs) {
+            literal_vector ors;
+            literal r1 = mk_at_most_1(full, n, xs, ors, true);
+
+            if (full) {
+                r1 = mk_and(r1, mk_or(ors));
+            }
+            else {
+                add_implies_or(r1, ors.size(), ors.c_ptr());
+            }
+            return r1;
+        }
+
+        literal mk_at_most_1(bool full, unsigned n, literal const* xs, literal_vector& ors, bool use_ors) {
+            TRACE("pb", tout << (full?"full":"partial") << " ";
+                  for (unsigned i = 0; i < n; ++i) tout << xs[i] << " ";
+                  tout << "\n";);
+
+            if (n >= 4 && false) {
+                return mk_at_most_1_bimander(full, n, xs, ors);
+            }
+            literal_vector in(n, xs);
+            literal result = fresh();
+            unsigned inc_size = 4;
+            literal_vector ands;
+            ands.push_back(result);
+            while (!in.empty()) {
+                ors.reset();
+                unsigned n = in.size();
+                if (n + 1 == inc_size) ++inc_size;
+                for (unsigned i = 0; i < n; i += inc_size) {       
+                    unsigned inc = std::min(n - i, inc_size);
+                    mk_at_most_1_small(full, inc, in.c_ptr() + i, result, ands);
+                    if (use_ors || n > inc_size) {
+                        ors.push_back(mk_or(inc, in.c_ptr() + i));
+                    }
+                }
+                if (n <= inc_size) {
+                    break;
+                }
+                in.reset();
+                in.append(ors);
+            }
+            if (full) {
+                add_clause(ands);
+            }
+            return result;
+        }
+
+        void mk_at_most_1_small(bool full, unsigned n, literal const* xs, literal result, literal_vector& ands) {
+            SASSERT(n > 0);
+            if (n == 1) {
+                return;
+            }
+            
+            // result => xs[0] + ... + xs[n-1] <= 1
+            for (unsigned i = 0; i < n; ++i) {
+                for (unsigned j = i + 1; j < n; ++j) {
+                    add_clause(ctx.mk_not(result), ctx.mk_not(xs[i]), ctx.mk_not(xs[j]));
+                }
+            }            
+
+            // xs[0] + ... + xs[n-1] <= 1 => and_x
+            if (full) {
+                literal and_i = fresh();
+                for (unsigned i = 0; i < n; ++i) {
+                    literal_vector lits;
+                    lits.push_back(and_i);
+                    for (unsigned j = 0; j < n; ++j) {
+                        if (j != i) lits.push_back(xs[j]);
+                    }
+                    add_clause(lits);
+                }
+                ands.push_back(ctx.mk_not(and_i));
+            }
+        }
+
+        literal mk_at_most_1_small(unsigned n, literal const* xs) {
+            SASSERT(n > 0);
+            if (n == 1) {
+                return ctx.mk_true();
+            }
+
+            
+#if 0
+            literal result = fresh();
+
+            // result => xs[0] + ... + xs[n-1] <= 1
+            for (unsigned i = 0; i < n; ++i) {
+                for (unsigned j = i + 1; j < n; ++j) {
+                    add_clause(ctx.mk_not(result), ctx.mk_not(xs[i]), ctx.mk_not(xs[j]));
+                }
+            }            
+
+            // xs[0] + ... + xs[n-1] <= 1 => result
+            for (unsigned i = 0; i < n; ++i) {
+                literal_vector lits;
+                lits.push_back(result);
+                for (unsigned j = 0; j < n; ++j) {
+                    if (j != i) lits.push_back(xs[j]);
+                }
+                add_clause(lits);
+            }
+
+            return result;
+#endif
+#if 1
+            // r <=> and( or(!xi,!xj))
+            // 
+            literal_vector ands;
+            for (unsigned i = 0; i < n; ++i) {
+                for (unsigned j = i + 1; j < n; ++j) {
+                    ands.push_back(mk_or(ctx.mk_not(xs[i]), ctx.mk_not(xs[j])));
+                }                
+            }
+            return mk_and(ands);
+#else
+            // r <=> or (and !x_{j != i})
+
+            literal_vector ors;
+            for (unsigned i = 0; i < n; ++i) {
+                literal_vector ands;
+                for (unsigned j = 0; j < n; ++j) {
+                    if (j != i) {
+                        ands.push_back(ctx.mk_not(xs[j]));
+                    }
+                }                
+                ors.push_back(mk_and(ands));
+            }
+            return mk_or(ors);
+            
+#endif
+        }
+
+        
+        // 
+
+        literal mk_at_most_1_bimander(bool full, unsigned n, literal const* xs, literal_vector& ors) {
+            literal_vector in(n, xs);
+            literal result = fresh();
+            unsigned inc_size = 2;
+            literal_vector ands;
+            for (unsigned i = 0; i < n; i += inc_size) {                    
+                unsigned inc = std::min(n - i, inc_size);
+                mk_at_most_1_small(full, inc, in.c_ptr() + i, result, ands);
+                ors.push_back(mk_or(inc, in.c_ptr() + i));
+            }
+            
+            unsigned nbits = 0;
+            while (static_cast<unsigned>(1 << nbits) < ors.size()) {
+                ++nbits;
+            }
+            literal_vector bits;
+            for (unsigned k = 0; k < nbits; ++k) {
+                bits.push_back(fresh());
+            }
+            for (unsigned i = 0; i < ors.size(); ++i) {
+                for (unsigned k = 0; k < nbits; ++k) {
+                    bool bit_set = (i & (static_cast<unsigned>(1 << k))) != 0;
+                    add_clause(ctx.mk_not(result), ctx.mk_not(ors[i]), bit_set ? bits[k] : ctx.mk_not(bits[k]));
+                }
+            }            
+            return result;
+        }
 
         std::ostream& pp(std::ostream& out, unsigned n, literal const* lits) {
             for (unsigned i = 0; i < n; ++i) ctx.pp(out, lits[i]) << " ";
@@ -293,9 +551,14 @@ Notes:
             literal lits[2] = { l1, l2 };
             add_clause(2, lits);
         }
+        void add_clause(literal_vector const& lits) {
+            add_clause(lits.size(), lits.c_ptr());
+        }
         void add_clause(unsigned n, literal const* ls) {
             m_stats.m_num_compiled_clauses++;
+            m_stats.m_num_clause_vars += n;
             literal_vector tmp(n, ls);
+            TRACE("pb", for (unsigned i = 0; i < n; ++i) tout << ls[i] << " "; tout << "\n";);
             ctx.mk_clause(n, tmp.c_ptr());
         }
 
@@ -332,7 +595,7 @@ Notes:
         }
 
         void card(unsigned k, unsigned n, literal const* xs, literal_vector& out) {
-            TRACE("pb", tout << "card k:" << k << " n: " << n << "\n";);
+            TRACE("pb", tout << "card k: " << k << " n: " << n << "\n";);
             if (n <= k) {
                 psort_nw<psort_expr>::sorting(n, xs, out);
             }
@@ -346,7 +609,7 @@ Notes:
                 card(k, n-l, xs + l, out2);
                 smerge(k, out1.size(), out1.c_ptr(), out2.size(), out2.c_ptr(), out);
             }
-            TRACE("pb", tout << "card k:" << k << " n: " << n << "\n";
+            TRACE("pb", tout << "card k: " << k << " n: " << n << "\n";
                   pp(tout << "in:", n, xs) << "\n";
                   pp(tout << "out:", out) << "\n";);
 
@@ -476,6 +739,7 @@ Notes:
             return vc_cmp()*std::min(a-1,b);
         }
         
+    public:
         void sorting(unsigned n, literal const* xs, literal_vector& out) {
             TRACE("pb", tout << "sorting: " << n << "\n";);
             switch(n) {
@@ -505,8 +769,9 @@ Notes:
             TRACE("pb", tout << "sorting: " << n << "\n";
                   pp(tout << "in:", n, xs) << "\n"; 
                   pp(tout << "out:", out) << "\n";);
-
         }
+
+    private:
         vc vc_sorting(unsigned n) {
             switch(n) {
             case 0: return vc(0,0);
@@ -692,7 +957,7 @@ Notes:
                         if (j < b) {
                             ls.push_back(as[i]);
                             ls.push_back(bs[j]);
-                            add_clause(ls.size(), ls.c_ptr());
+                            add_clause(ls);
                             ls.pop_back();
                             ls.pop_back();
                         }
@@ -753,7 +1018,7 @@ Notes:
                   pp(tout, lits) << "\n";);
             SASSERT(k + offset <= n);
             if (k == 0) {
-                add_clause(lits.size(), lits.c_ptr());
+                add_clause(lits);
                 return;
             }
             for (unsigned i = offset; i < n - k + 1; ++i) {

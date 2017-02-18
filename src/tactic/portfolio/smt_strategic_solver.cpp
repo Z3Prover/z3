@@ -38,7 +38,9 @@ Notes:
 #include"horn_tactic.h"
 #include"smt_solver.h"
 #include"inc_sat_solver.h"
+#include"fd_solver.h"
 #include"bv_rewriter.h"
+#include"solver2tactic.h"
 
 
 tactic * mk_tactic_for_logic(ast_manager & m, params_ref const & p, symbol const & logic) {
@@ -88,17 +90,28 @@ tactic * mk_tactic_for_logic(ast_manager & m, params_ref const & p, symbol const
         return mk_qffpbv_tactic(m, p);
     else if (logic=="HORN")
         return mk_horn_tactic(m, p);
+    else if (logic == "QF_FD")
+        return mk_solver2tactic(mk_fd_solver(m, p));
     //else if (logic=="QF_UFNRA")
     //    return mk_qfufnra_tactic(m, p);
     else 
         return mk_default_tactic(m, p);
 }
 
+static solver* mk_special_solver_for_logic(ast_manager & m, params_ref const & p, symbol const& logic) {
+    if (logic == "QF_FD") 
+        return mk_fd_solver(m, p);
+    return 0;
+}
+
 static solver* mk_solver_for_logic(ast_manager & m, params_ref const & p, symbol const& logic) {
     bv_rewriter rw(m);
-    if (logic == "QF_BV" && rw.hi_div0()) 
-        return mk_inc_sat_solver(m, p);
-    return mk_smt_solver(m, p, logic);
+    solver* s = mk_special_solver_for_logic(m, p, logic);
+    if (!s && logic == "QF_BV" && rw.hi_div0()) 
+        s = mk_inc_sat_solver(m, p);
+    if (!s) 
+        s = mk_smt_solver(m, p, logic);
+    return s;
 }
 
 class smt_strategic_solver_factory : public solver_factory {
@@ -113,10 +126,11 @@ public:
             l = m_logic;
         else
             l = logic;
+        solver* s = mk_special_solver_for_logic(m, p, l);
+        if (s) return s;
         tactic * t = mk_tactic_for_logic(m, p, l);
         return mk_combined_solver(mk_tactic2solver(m, t, p, proofs_enabled, models_enabled, unsat_core_enabled, l),
                                   mk_solver_for_logic(m, p, l), 
-                                  //mk_smt_solver(m, p, l),
                                   p);
     }
 };

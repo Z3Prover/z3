@@ -273,7 +273,7 @@ void bit2int::visit(app* n) {
     // bv2int(x) <= z - bv2int(y) -> bv2int(x) + bv2int(y) <= z
     //
     
-    expr* e1, *e2;
+    expr* e1 = 0, *e2 = 0;
     expr_ref tmp1(m_manager), tmp2(m_manager);
     expr_ref tmp3(m_manager);
     expr_ref pos1(m_manager), neg1(m_manager);

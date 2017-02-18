@@ -80,7 +80,10 @@ void parameter::del_eh(ast_manager & m, family_id fid) {
     }
     else if (is_external()) {
         SASSERT(fid != null_family_id);
-        m.get_plugin(fid)->del(*this);
+        decl_plugin * plugin = m.get_plugin(fid);
+        if (plugin) {
+            plugin->del(*this);
+        }
     }
 }
 
@@ -1391,6 +1394,22 @@ void ast_manager::init() {
     inc_ref(m_false);
 }
 
+template<typename T>
+static void mark_array_ref(ast_mark& mark, unsigned sz, T * const * a) {
+    for(unsigned i = 0; i < sz; i++) {
+        mark.mark(a[i], true);
+    }
+}
+
+static void mark_array_ref(ast_mark& mark, unsigned sz, parameter const * a) {
+    for(unsigned i = 0; i < sz; i++) {
+        if (a[i].is_ast()) {
+            mark.mark(a[i].get_ast(), true);
+        }
+    }
+}
+
+
 ast_manager::~ast_manager() {
     SASSERT(is_format_manager() || !m_family_manager.has_family(symbol("format")));
 
@@ -1407,29 +1426,72 @@ ast_manager::~ast_manager() {
     }
     it = m_plugins.begin();
     for (; it != end; ++it) {
-        if (*it)
+        if (*it) 
             dealloc(*it);
     }
-    DEBUG_CODE({
-        if (!m_ast_table.empty())
-            std::cout << "ast_manager LEAKED: " << m_ast_table.size() << std::endl;
-    });
-#if 1
-    DEBUG_CODE({
+    m_plugins.reset();
+    while (!m_ast_table.empty()) {
+        DEBUG_CODE(std::cout << "ast_manager LEAKED: " << m_ast_table.size() << std::endl;);
+        ptr_vector<ast> roots;
+        ast_mark mark;
         ast_table::iterator it_a = m_ast_table.begin();
         ast_table::iterator end_a = m_ast_table.end();
         for (; it_a != end_a; ++it_a) {
-            ast* a = (*it_a);
-            std::cout << "Leaked: ";
-            if (is_sort(a)) {
-                std::cout << to_sort(a)->get_name() << "\n";
+            ast* n = (*it_a);
+            switch (n->get_kind()) {
+            case AST_SORT: {
+                sort_info* info = to_sort(n)->get_info();
+                if (info != 0) {
+                    mark_array_ref(mark, info->get_num_parameters(), info->get_parameters());
+                }
+                break;
             }
-            else {
-                std::cout << mk_ll_pp(a, *this, false) << "id: " << a->get_id() << "\n";
+            case AST_FUNC_DECL: {
+                func_decl_info* info = to_func_decl(n)->get_info();
+                if (info != 0) {
+                    mark_array_ref(mark, info->get_num_parameters(), info->get_parameters());
+                }
+                mark_array_ref(mark, to_func_decl(n)->get_arity(), to_func_decl(n)->get_domain());
+                mark.mark(to_func_decl(n)->get_range(), true);
+                break;
             }
+            case AST_APP:
+                mark.mark(to_app(n)->get_decl(), true);
+                mark_array_ref(mark, to_app(n)->get_num_args(), to_app(n)->get_args());
+                break;
+            case AST_VAR:
+                mark.mark(to_var(n)->get_sort(), true);
+                break;
+            case AST_QUANTIFIER:
+                mark_array_ref(mark, to_quantifier(n)->get_num_decls(), to_quantifier(n)->get_decl_sorts());
+                mark.mark(to_quantifier(n)->get_expr(), true);
+                mark_array_ref(mark, to_quantifier(n)->get_num_patterns(), to_quantifier(n)->get_patterns());
+                mark_array_ref(mark, to_quantifier(n)->get_num_no_patterns(), to_quantifier(n)->get_no_patterns());
+                break;
+            }           
+        }        
+        it_a = m_ast_table.begin();
+        for (; it_a != end_a; ++it_a) {
+            ast* n = *it_a;
+            if (!mark.is_marked(n)) {
+                roots.push_back(n);
+            }
+        }        
+        SASSERT(!roots.empty());
+        for (unsigned i = 0; i < roots.size(); ++i) {
+            ast* a = roots[i];
+            DEBUG_CODE(
+                std::cout << "Leaked: ";
+                if (is_sort(a)) {
+                    std::cout << to_sort(a)->get_name() << "\n";
+                }
+                else {
+                    std::cout << mk_ll_pp(a, *this, false) << "id: " << a->get_id() << "\n";
+                });
+            a->m_ref_count = 0;
+            delete_node(a);
         }
-    });
-#endif
+    }
     if (m_format_manager != 0)
         dealloc(m_format_manager);
     if (m_trace_stream_owner) {
@@ -1813,8 +1875,8 @@ void ast_manager::delete_node(ast * n) {
             dec_array_ref(worklist, to_quantifier(n)->get_num_patterns(), to_quantifier(n)->get_patterns());
             dec_array_ref(worklist, to_quantifier(n)->get_num_no_patterns(), to_quantifier(n)->get_no_patterns());
             break;
-    default:
-        break;
+        default:
+            break;
         }
         if (m_debug_ref_count) {
             m_debug_free_indices.insert(n->m_id,0);
@@ -1971,7 +2033,7 @@ bool ast_manager::check_sorts(ast const * n) const {
         return true;
     }
     catch (ast_exception & ex) {
-        warning_msg(ex.msg());
+        warning_msg("%s", ex.msg());
         return false;
     }
 }
@@ -2269,6 +2331,22 @@ bool ast_manager::is_pattern(expr const * n) const {
     }
     return true;
 }
+
+
+bool ast_manager::is_pattern(expr const * n, ptr_vector<expr> &args) {
+    if (!is_app_of(n, m_pattern_family_id, OP_PATTERN)) {
+        return false;
+    }
+    for (unsigned i = 0; i < to_app(n)->get_num_args(); ++i) {
+        expr *arg = to_app(n)->get_arg(i);
+        if (!is_app(arg)) {
+            return false;
+        }
+        args.push_back(arg);
+    }
+    return true;
+}
+
 
 quantifier * ast_manager::mk_quantifier(bool forall, unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names,
                                         expr * body, int weight , symbol const & qid, symbol const & skid,
@@ -2569,6 +2647,8 @@ proof * ast_manager::mk_modus_ponens(proof * p1, proof * p2) {
     CTRACE("mk_modus_ponens", to_app(get_fact(p2))->get_arg(0) != get_fact(p1),
            tout << mk_pp(get_fact(p1), *this) << "\n" << mk_pp(get_fact(p2), *this) << "\n";);
     SASSERT(to_app(get_fact(p2))->get_arg(0) == get_fact(p1));
+    CTRACE("mk_modus_ponens", !is_ground(p2) && !has_quantifiers(p2), tout << "Non-ground: " << mk_pp(p2, *this) << "\n";);
+    CTRACE("mk_modus_ponens", !is_ground(p1) && !has_quantifiers(p1), tout << "Non-ground: " << mk_pp(p1, *this) << "\n";);
     if (is_reflexivity(p2))
         return p1;
     expr * f = to_app(get_fact(p2))->get_arg(1);
@@ -2945,7 +3025,10 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
           for (unsigned i = 0; i < num_proofs; i++) tout << mk_pp(get_fact(proofs[i]), *this) << "\n";
           tout << "===>\n";
           tout << mk_pp(new_fact, *this) << "\n";);
-        SASSERT(num_proofs == cls_sz || (num_proofs == cls_sz + 1 && is_false(new_fact)));
+        //
+        // typically: num_proofs == cls_sz || (num_proofs == cls_sz + 1 && is_false(new_fact))
+        // but formula could have repeated literals that are merged in the clausal representation.
+        //
         unsigned num_matches = 0;
         for (unsigned i = 0; i < cls_sz; i++) {
             expr * lit = cls->get_arg(i);

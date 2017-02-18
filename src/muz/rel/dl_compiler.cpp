@@ -466,7 +466,7 @@ namespace datalog {
 
         //used to save on filter_identical instructions where the check is already done 
         //by the join operation
-        unsigned second_tail_arg_ofs;
+        unsigned second_tail_arg_ofs = 0;
 
         // whether to dealloc the previous result
         bool dealloc = true;

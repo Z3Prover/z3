@@ -24,63 +24,10 @@ Notes:
 #include"rewriter_types.h"
 #include"filter_model_converter.h"
 #include"ast_util.h"
+#include"solver2tactic.h"
 
 typedef obj_map<expr, expr *> expr2expr_map;
 
-void extract_clauses_and_dependencies(goal_ref const& g, expr_ref_vector& clauses, ptr_vector<expr>& assumptions, expr2expr_map& bool2dep, ref<filter_model_converter>& fmc) {
-    expr2expr_map dep2bool;
-    ptr_vector<expr> deps;
-    ast_manager& m = g->m();
-    expr_ref_vector clause(m);
-    unsigned sz = g->size();
-    for (unsigned i = 0; i < sz; i++) {
-        expr * f            = g->form(i);
-        expr_dependency * d = g->dep(i);
-        if (d == 0 || !g->unsat_core_enabled()) {
-            clauses.push_back(f);
-        }
-        else {
-            // create clause (not d1 \/ ... \/ not dn \/ f) when the d's are the assumptions/dependencies of f.
-            clause.reset();
-            clause.push_back(f);
-            deps.reset();
-            m.linearize(d, deps);
-            SASSERT(!deps.empty()); // d != 0, then deps must not be empty
-            ptr_vector<expr>::iterator it  = deps.begin();
-            ptr_vector<expr>::iterator end = deps.end();
-            for (; it != end; ++it) {
-                expr * d = *it;
-                if (is_uninterp_const(d) && m.is_bool(d)) {
-                    // no need to create a fresh boolean variable for d
-                    if (!bool2dep.contains(d)) {
-                        assumptions.push_back(d);
-                        bool2dep.insert(d, d);
-                    }
-                    clause.push_back(m.mk_not(d));
-                }
-                else {
-                    // must normalize assumption
-                    expr * b = 0;
-                    if (!dep2bool.find(d, b)) {
-                        b = m.mk_fresh_const(0, m.mk_bool_sort());
-                        dep2bool.insert(d, b);
-                        bool2dep.insert(b, d);
-                        assumptions.push_back(b);
-                        if (!fmc) {
-                            fmc = alloc(filter_model_converter, m);
-                        }
-                        fmc->insert(to_app(b)->get_decl());
-                    }
-                    clause.push_back(m.mk_not(b));
-                }
-            }
-            SASSERT(clause.size() > 1);
-            expr_ref cls(m);
-            cls = mk_or(m, clause.size(), clause.c_ptr());
-            clauses.push_back(cls);
-        }
-    }
-}
 
 class smt_tactic : public tactic {
     smt_params                   m_params;
@@ -191,6 +138,7 @@ public:
                             proof_converter_ref & pc,
                             expr_dependency_ref & core) {
         try {
+            mc = 0; pc = 0; core = 0;
             SASSERT(in->is_well_sorted());
             ast_manager & m = in->m();
             TRACE("smt_tactic", tout << this << "\nAUTO_CONFIG: " << fparams().m_auto_config << " HIDIV0: " << fparams().m_hi_div0 << " "
@@ -199,6 +147,7 @@ public:
                   tout << "fail-if-inconclusive: " << m_fail_if_inconclusive << "\n";
                   tout << "params_ref: " << m_params_ref << "\n";
                   tout << "nnf: " << fparams().m_nnf_cnf << "\n";);
+            TRACE("smt_tactic_params", m_params.display(tout););
             TRACE("smt_tactic_detail", in->display(tout););
             TRACE("smt_tactic_memory", tout << "wasted_size: " << m.get_allocator().get_wasted_size() << "\n";);
             scoped_init_ctx  init(*this, m);
@@ -255,11 +204,11 @@ public:
                 if (in->models_enabled()) {
                     model_ref md;
                     m_ctx->get_model(md);
-                    mc = model2model_converter(md.get());
+                    buffer<symbol> r;
+                    m_ctx->get_relevant_labels(0, r);
+                    mc = model_and_labels2model_converter(md.get(), r);
                     mc = concat(fmc.get(), mc.get());
                 }
-                pc = 0;
-                core = 0;
                 return;
             }
             case l_false: {
@@ -284,17 +233,17 @@ public:
                 }
                 in->assert_expr(m.mk_false(), pr, lcore);
                 result.push_back(in.get());
-                mc   = 0;
-                pc   = 0;
-                core = 0;
                 return;
             }
             case l_undef:
                 if (m_ctx->canceled()) {
                     throw tactic_exception(Z3_CANCELED_MSG);
                 }
-                if (m_fail_if_inconclusive)
-                    throw tactic_exception("smt tactic failed to show goal to be sat/unsat");
+                if (m_fail_if_inconclusive) {
+                    std::stringstream strm;
+                    strm << "smt tactic failed to show goal to be sat/unsat " << m_ctx->last_failure_as_string();
+                    throw tactic_exception(strm.str().c_str());
+                }
                 result.push_back(in.get());
                 if (m_candidate_models) {
                     switch (m_ctx->last_failure()) {
@@ -304,10 +253,10 @@ public:
                         if (in->models_enabled()) {
                             model_ref md;
                             m_ctx->get_model(md);
-                            mc = model2model_converter(md.get());
+                            buffer<symbol> r;
+                            m_ctx->get_relevant_labels(0, r);
+                            mc = model_and_labels2model_converter(md.get(), r);
                         }
-                        pc   = 0;
-                        core = 0;
                         return;
                     default:
                         break;

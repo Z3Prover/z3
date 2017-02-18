@@ -17,37 +17,14 @@ Notes:
 
 package com.microsoft.z3;
 
-class StatisticsDecRefQueue extends IDecRefQueue
-{
+class StatisticsDecRefQueue extends IDecRefQueue<Statistics> {
     public StatisticsDecRefQueue() 
     {
         super();
     }
 
-    public StatisticsDecRefQueue(int move_limit) 
-    {
-        super(move_limit);
+    @Override
+    protected void decRef(Context ctx, long obj) {
+        Native.statsDecRef(ctx.nCtx(), obj);
     }
-
-    protected void incRef(Context ctx, long obj)
-    {
-        try
-        {
-            Native.statsIncRef(ctx.nCtx(), obj);
-        } catch (Z3Exception e)
-        {
-            // OK.
-        }
-    }
-
-    protected void decRef(Context ctx, long obj)
-    {
-        try
-        {
-            Native.statsDecRef(ctx.nCtx(), obj);
-        } catch (Z3Exception e)
-        {
-            // OK.
-        }
-    }
-};
+}

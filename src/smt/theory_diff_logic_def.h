@@ -905,7 +905,7 @@ model_value_proc * theory_diff_logic<Ext>::mk_value(enode * n, model_generator &
     numeral val = m_graph.get_assignment(v);
     rational num = val.get_rational().to_rational() + m_delta * val.get_infinitesimal().to_rational();
     TRACE("arith", tout << mk_pp(n->get_owner(), get_manager()) << " |-> " << num << "\n";);
-    return alloc(expr_wrapper_proc, m_factory->mk_value(num, m_util.is_int(n->get_owner())));
+    return alloc(expr_wrapper_proc, m_factory->mk_num_value(num, m_util.is_int(n->get_owner())));
 }
 
 template<typename Ext>
@@ -1242,7 +1242,8 @@ theory_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shar
             rational r = rational(val.first) + m_delta*rational(val.second);
             m_graph.set_assignment(i, numeral(r));
         }
-        blocker = mk_gt(v, r);
+        inf_eps r1(rational(0), r);
+        blocker = mk_gt(v, r1);
         return inf_eps(rational(0), r + m_objective_consts[v]);
     }
     default:
@@ -1273,7 +1274,7 @@ theory_var theory_diff_logic<Ext>::add_objective(app* term) {
 }
 
 template<typename Ext>
-expr_ref theory_diff_logic<Ext>::mk_ineq(theory_var v, inf_rational const& val, bool is_strict) {
+expr_ref theory_diff_logic<Ext>::mk_ineq(theory_var v, inf_eps const& val, bool is_strict) {
     ast_manager& m = get_manager();
     objective_term const& t = m_objectives[v];
     expr_ref e(m), f(m), f2(m);
@@ -1304,7 +1305,7 @@ expr_ref theory_diff_logic<Ext>::mk_ineq(theory_var v, inf_rational const& val, 
         return f;
     }
 
-    inf_rational new_val = val; // - inf_rational(m_objective_consts[v]);
+    inf_eps new_val = val; // - inf_rational(m_objective_consts[v]);
     e = m_util.mk_numeral(new_val.get_rational(), m.get_sort(f));
     
     if (new_val.get_infinitesimal().is_neg()) {
@@ -1328,12 +1329,12 @@ expr_ref theory_diff_logic<Ext>::mk_ineq(theory_var v, inf_rational const& val, 
 }
 
 template<typename Ext>
-expr_ref theory_diff_logic<Ext>::mk_gt(theory_var v, inf_rational const& val) {
+expr_ref theory_diff_logic<Ext>::mk_gt(theory_var v, inf_eps const& val) {
     return mk_ineq(v, val, true);
 }
 
 template<typename Ext>
-expr_ref theory_diff_logic<Ext>::mk_ge(filter_model_converter& fm, theory_var v, inf_rational const& val) {
+expr_ref theory_diff_logic<Ext>::mk_ge(filter_model_converter& fm, theory_var v, inf_eps const& val) {
     return mk_ineq(v, val, false);
 }
 

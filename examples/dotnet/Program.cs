@@ -818,6 +818,7 @@ namespace test_mapi
             BigIntCheck(ctx, ctx.MkReal("234234333/2"));
 
 
+#if !FRAMEWORK_LT_4
             string bn = "1234567890987654321";
 
             if (ctx.MkInt(bn).BigInteger.ToString() != bn)
@@ -828,6 +829,7 @@ namespace test_mapi
 
             if (ctx.MkBV(bn, 32).BigInteger.ToString() == bn)
                 throw new TestFailedException();
+#endif
 
             // Error handling test.
             try
@@ -1094,8 +1096,10 @@ namespace test_mapi
 
         static void BigIntCheck(Context ctx, RatNum r)
         {
+#if !FRAMEWORK_LT_4
             Console.WriteLine("Num: " + r.BigIntNumerator);
             Console.WriteLine("Den: " + r.BigIntDenominator);
+#endif
         }
 
         /// <summary>
@@ -2159,6 +2163,8 @@ namespace test_mapi
                 Console.WriteLine(Microsoft.Z3.Version.Major.ToString());
                 Console.Write("Z3 Full Version: ");
                 Console.WriteLine(Microsoft.Z3.Version.ToString());
+                Console.Write("Z3 Full Version String: ");
+                Console.WriteLine(Microsoft.Z3.Version.FullVersion);
 
 
                 SimpleExample();

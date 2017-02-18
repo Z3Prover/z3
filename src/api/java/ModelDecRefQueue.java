@@ -17,39 +17,14 @@ Notes:
 
 package com.microsoft.z3;
 
-class ModelDecRefQueue extends IDecRefQueue
-{
+class ModelDecRefQueue extends IDecRefQueue<Model> {
     public ModelDecRefQueue() 
     {
         super();
     }
 
-    public ModelDecRefQueue(int move_limit) 
-    {
-        super(move_limit);
-    }
-
     @Override
-    protected void incRef(Context ctx, long obj)
-    {
-        try
-        {
-            Native.modelIncRef(ctx.nCtx(), obj);
-        } catch (Z3Exception e)
-        {
-            // OK.
-        }
+    protected void decRef(Context ctx, long obj) {
+        Native.modelDecRef(ctx.nCtx(), obj);
     }
-
-    @Override
-    protected void decRef(Context ctx, long obj)
-    {
-        try
-        {
-            Native.modelDecRef(ctx.nCtx(), obj);
-        } catch (Z3Exception e)
-        {
-            // OK.
-        }
-    }
-};
+}

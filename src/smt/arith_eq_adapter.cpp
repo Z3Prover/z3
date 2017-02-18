@@ -264,7 +264,7 @@ namespace smt {
     }
 
     void arith_eq_adapter::collect_statistics(::statistics & st) const {
-        st.update("eq adapter", m_stats.m_num_eq_axioms);
+        st.update("arith eq adapter", m_stats.m_num_eq_axioms);
     }
 
     void arith_eq_adapter::display_already_processed(std::ostream & out) const {

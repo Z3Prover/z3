@@ -84,6 +84,17 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// A full version string
+        /// </summary>
+        public static string FullVersion
+        {
+            get
+            {
+                return Native.Z3_get_full_version();
+            }
+        }
+
+        /// <summary>
         /// A string representation of the version information.
         /// </summary>
         new public static string ToString()

@@ -36,6 +36,7 @@ Revision History:
 #include"tactic_manager.h"
 #include"context_params.h"
 #include"api_polynomial.h"
+#include"hashtable.h"
 
 namespace smtlib {
     class parser;
@@ -72,6 +73,8 @@ namespace api {
         ast_ref_vector             m_ast_trail;   //!< used when m_user_ref_count == false
 
         ref<api::object>           m_last_obj; //!< reference to the last API object returned by the APIs
+        u_map<api::object*>        m_allocated_objects; // !< table containing current set of allocated API objects
+        unsigned_vector            m_free_object_ids;   // !< free list of identifiers available for allocated objects.
 
         family_id                  m_basic_fid;
         family_id                  m_array_fid;
@@ -95,7 +98,7 @@ namespace api {
 
         event_handler *            m_interruptable; // Reference to an object that can be interrupted by Z3_interrupt
 
-    public:
+     public:
         // Scoped obj for setting m_interruptable
         class set_interruptable {
             context & m_ctx;
@@ -146,6 +149,9 @@ namespace api {
         void set_error_handler(Z3_error_handler h) { m_error_handler = h; }
         // Sign an error if solver is searching
         void check_searching();
+
+        unsigned add_object(api::object* o);
+        void del_object(api::object* o);
 
         Z3_ast_print_mode get_print_mode() const { return m_print_mode; }
         void set_print_mode(Z3_ast_print_mode m) { m_print_mode = m; }
@@ -245,7 +251,7 @@ inline api::context * mk_c(Z3_context c) { return reinterpret_cast<api::context*
 #define CHECK_VALID_AST(_a_, _ret_) { if (_a_ == 0 || !CHECK_REF_COUNT(_a_)) { SET_ERROR_CODE(Z3_INVALID_ARG); return _ret_; } }
 #define CHECK_SEARCHING(c) mk_c(c)->check_searching();
 inline bool is_expr(Z3_ast a) { return is_expr(to_ast(a)); }
-#define CHECK_IS_EXPR(_p_, _ret_) { if (!is_expr(_p_)) { SET_ERROR_CODE(Z3_INVALID_ARG); return _ret_; } }
+#define CHECK_IS_EXPR(_p_, _ret_) { if (_p_ == 0 || !is_expr(_p_)) { SET_ERROR_CODE(Z3_INVALID_ARG); return _ret_; } }
 inline bool is_bool_expr(Z3_context c, Z3_ast a) { return is_expr(a) && mk_c(c)->m().is_bool(to_expr(a)); }
 #define CHECK_FORMULA(_a_, _ret_) { if (_a_ == 0 || !CHECK_REF_COUNT(_a_) || !is_bool_expr(c, _a_)) { SET_ERROR_CODE(Z3_INVALID_ARG); return _ret_; } }
 inline void check_sorts(Z3_context c, ast * n) { mk_c(c)->check_sorts(n); }

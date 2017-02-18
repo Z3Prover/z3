@@ -23,10 +23,12 @@ namespace smt2 {
 
     void scanner::next() {
         if (m_cache_input)
-            m_cache.push_back(m_curr);
-        SASSERT(m_curr != EOF);
+            m_cache.push_back(m_curr);                
+        SASSERT(!m_at_eof);
         if (m_interactive) {
             m_curr = m_stream.get();
+            if (m_stream.eof())
+                m_at_eof = true;
         }
         else if (m_bpos < m_bend) {
             m_curr = m_buffer[m_bpos];
@@ -37,7 +39,7 @@ namespace smt2 {
             m_bend = static_cast<unsigned>(m_stream.gcount());
             m_bpos = 0;
             if (m_bpos == m_bend) {
-                m_curr = EOF;
+                m_at_eof = true;
             }
             else {
                 m_curr = m_buffer[m_bpos];
@@ -52,7 +54,7 @@ namespace smt2 {
         next();
         while (true) {
             char c = curr();
-            if (c == EOF)
+            if (m_at_eof)
                 return;
             if (c == '\n') {
                 new_line();
@@ -70,7 +72,7 @@ namespace smt2 {
         next();
         while (true) {
             char c = curr();
-            if (c == EOF) {
+            if (m_at_eof) {
                 throw scanner_exception("unexpected end of quoted symbol", m_line, m_spos);
             }
             else if (c == '\n') {
@@ -90,7 +92,7 @@ namespace smt2 {
     }
 
     scanner::token scanner::read_symbol_core() {
-        while (true) {
+        while (!m_at_eof) {
             char c = curr();
             signed char n = m_normalized[static_cast<unsigned char>(c)];
             if (n == 'a' || n == '0' || n == '-') {
@@ -104,6 +106,7 @@ namespace smt2 {
                 return SYMBOL_TOKEN;
             }
         }
+        return EOF_TOKEN;
     }
 
     scanner::token scanner::read_symbol() {
@@ -167,7 +170,7 @@ namespace smt2 {
         m_string.reset();
         while (true) {
             char c = curr();
-            if (c == EOF)
+            if (m_at_eof)
                 throw scanner_exception("unexpected end of string", m_line, m_spos);
             if (c == '\n') {
                 new_line();
@@ -237,10 +240,11 @@ namespace smt2 {
         }
     }
 
-    scanner::scanner(cmd_context & ctx, std::istream& stream, bool interactive):
+    scanner::scanner(cmd_context & ctx, std::istream& stream, bool interactive) :
         m_interactive(interactive),
         m_spos(0),
         m_curr(0), // avoid Valgrind warning
+        m_at_eof(false),
         m_line(1),
         m_pos(0),
         m_bv_size(UINT_MAX),
@@ -289,9 +293,13 @@ namespace smt2 {
     }
 
     scanner::token scanner::scan() {
-        while (true) {
+        while (true) {            
             signed char c = curr();
             m_pos = m_spos;
+
+            if (m_at_eof)                
+                return EOF_TOKEN;
+
             switch (m_normalized[(unsigned char) c]) {
             case ' ':
                 next();
@@ -327,8 +335,6 @@ namespace smt2 {
                     return read_symbol();
                 else
                     return read_signed_number();
-            case -1:
-                return EOF_TOKEN;
             default: {
                 scanner_exception ex("unexpected character", m_line, m_spos);
                 next();

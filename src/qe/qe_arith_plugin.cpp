@@ -36,6 +36,27 @@ Revision History:
 
 namespace qe {
 
+
+    static bool is_divides(arith_util& a, expr* e1, expr* e2, rational& k, expr_ref& p) {  
+        expr* t1, *t2;
+        if (a.is_mod(e2, t1, t2) && 
+            a.is_numeral(e1, k) && 
+            k.is_zero() &&
+            a.is_numeral(t2, k)) {
+            p = t1;
+            return true;
+        }
+        return false;
+    }
+
+    static bool is_divides(arith_util& a, expr* e, rational& k, expr_ref& t) {
+        expr* e1, *e2;
+        if (!a.get_manager().is_eq(e, e1, e2)) {
+            return false;
+        }
+        return is_divides(a, e1, e2, k, t) || is_divides(a, e2, e1, k, t);
+    }
+
     class bound {        
         rational   m_coeff;
         expr_ref  m_term;
@@ -2445,7 +2466,7 @@ public:
         }
                 
         virtual void assign(contains_app& x, expr* fml, rational const& vl) {
-            nlarith::branch_conditions *brs;
+            nlarith::branch_conditions *brs = 0;
             VERIFY (m_cache.find(x.x(), fml, brs));
             SASSERT(vl.is_unsigned());
             SASSERT(vl.get_unsigned() < brs->size());

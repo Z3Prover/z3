@@ -33,7 +33,7 @@ Revision History:
 #include"sat_iff3_finder.h"
 #include"sat_probing.h"
 #include"sat_mus.h"
-#include"sat_sls.h"
+#include"sat_par.h"
 #include"params.h"
 #include"statistics.h"
 #include"stopwatch.h"
@@ -75,6 +75,7 @@ namespace sat {
         config                  m_config;
         stats                   m_stats;
         extension *             m_ext;
+        par*                    m_par;
         random_gen              m_rand;
         clause_allocator        m_cls_allocator;
         cleaner                 m_cleaner;
@@ -86,7 +87,6 @@ namespace sat {
         asymm_branch            m_asymm_branch;
         probing                 m_probing;
         mus                     m_mus;           // MUS for minimal core extraction
-        wsls                    m_wsls;          // SLS facility for MaxSAT use
         bool                    m_inconsistent;
         // A conflict is usually a single justification. That is, a justification
         // for false. If m_not_l is not null_literal, then m_conflict is a
@@ -130,6 +130,10 @@ namespace sat {
         literal_set             m_assumption_set;   // set of enabled assumptions
         literal_vector          m_core;             // unsat core
 
+        unsigned                m_par_limit_in;
+        unsigned                m_par_limit_out;
+        unsigned                m_par_num_vars;
+
         void del_clauses(clause * const * begin, clause * const * end);
 
         friend class integrity_checker;
@@ -141,9 +145,6 @@ namespace sat {
         friend class probing;
         friend class iff3_finder;
         friend class mus;
-        friend class sls;
-        friend class wsls;
-        friend class bceq;
         friend struct mk_stat;
     public:
         solver(params_ref const & p, reslimit& l, extension * ext);
@@ -189,11 +190,9 @@ namespace sat {
         void mk_bin_clause(literal l1, literal l2, bool learned);
         bool propagate_bin_clause(literal l1, literal l2);
         clause * mk_ter_clause(literal * lits, bool learned);
-        void attach_ter_clause(clause & c, bool & reinit);
-        void attach_ter_clause(clause & c) { bool reinit; attach_ter_clause(c, reinit); }
+        bool attach_ter_clause(clause & c);
         clause * mk_nary_clause(unsigned num_lits, literal * lits, bool learned);
-        void attach_nary_clause(clause & c, bool & reinit);
-        void attach_nary_clause(clause & c) { bool reinit; attach_nary_clause(c, reinit); }
+        bool attach_nary_clause(clause & c);
         void attach_clause(clause & c, bool & reinit);
         void attach_clause(clause & c) { bool reinit; attach_clause(c, reinit); }
         unsigned select_watch_lit(clause const & cls, unsigned starting_at) const;
@@ -216,6 +215,7 @@ namespace sat {
         bool inconsistent() const { return m_inconsistent; }
         unsigned num_vars() const { return m_level.size(); }
         unsigned num_clauses() const;
+        unsigned num_restarts() const { return m_restarts; }
         bool is_external(bool_var v) const { return m_external[v] != 0; }
         bool was_eliminated(bool_var v) const { return m_eliminated[v] != 0; }
         unsigned scope_lvl() const { return m_scope_lvl; }
@@ -223,6 +223,7 @@ namespace sat {
         lbool value(bool_var v) const { return static_cast<lbool>(m_assignment[literal(v, false).index()]); }
         unsigned lvl(bool_var v) const { return m_level[v]; }
         unsigned lvl(literal l) const { return m_level[l.var()]; }
+        unsigned init_trail_size() const { return scope_lvl() == 0 ? m_trail.size() : m_scopes[0].m_trail_lim; }
         void assign(literal l, justification j) {
             TRACE("sat_assign", tout << l << " previous value: " << value(l) << "\n";);
             switch (value(l)) {
@@ -237,13 +238,19 @@ namespace sat {
         lbool status(clause const & c) const;        
         clause_offset get_offset(clause const & c) const { return m_cls_allocator.get_offset(&c); }
         void checkpoint() {
-            if (!m_rlimit.inc()) { throw solver_exception(Z3_CANCELED_MSG); }
+            if (!m_rlimit.inc()) {
+                m_mc.reset();
+                m_model_is_current = false;
+                throw solver_exception(Z3_CANCELED_MSG);
+            }
             ++m_num_checkpoints;
             if (m_num_checkpoints < 10) return;
             m_num_checkpoints = 0;
             if (memory::get_allocation_size() > m_config.m_max_memory) throw solver_exception(Z3_MAX_MEMORY_MSG);
         }
+        void set_par(par* p);
         bool canceled() { return !m_rlimit.inc(); }
+        config const& get_config() { return m_config; }
         typedef std::pair<literal, literal> bin_clause;
     protected:
         watch_list & get_wlist(literal l) { return m_watches[l.index()]; }
@@ -276,10 +283,7 @@ namespace sat {
         //
         // -----------------------
     public:
-        lbool check(unsigned num_lits = 0, literal const* lits = 0) {
-            return check(num_lits, lits, 0, 0);
-        }
-        lbool check(unsigned num_lits, literal const* lits, double const* weights, double max_weight);
+        lbool check(unsigned num_lits = 0, literal const* lits = 0);
 
         model const & get_model() const { return m_model; }
         bool model_is_current() const { return m_model_is_current; }
@@ -289,6 +293,7 @@ namespace sat {
 
     protected:
         unsigned m_conflicts;
+        unsigned m_restarts;
         unsigned m_conflicts_since_restart;
         unsigned m_restart_threshold;
         unsigned m_luby_idx;
@@ -300,15 +305,13 @@ namespace sat {
         bool decide();
         bool_var next_var();
         lbool bounded_search();
+        lbool final_check();
+        lbool propagate_and_backjump_step(bool& done);
         void init_search();
         
         literal_vector m_min_core;
         bool           m_min_core_valid;
-        literal_vector m_blocker;
-        double         m_weight;
-        bool           m_initializing_preferred;
-        void init_assumptions(unsigned num_lits, literal const* lits, double const* weights, double max_weight);
-        bool init_weighted_assumptions(unsigned num_lits, literal const* lits, double const* weights, double max_weight);
+        void init_assumptions(unsigned num_lits, literal const* lits);
         void reassert_min_core();
         void update_min_core();
         void resolve_weighted();
@@ -323,6 +326,8 @@ namespace sat {
         bool check_model(model const & m) const;
         void restart();
         void sort_watch_lits();
+        void exchange_par();
+        lbool check_par(unsigned num_lits, literal const* lits);
 
         // -----------------------
         //
@@ -409,6 +414,7 @@ namespace sat {
         void gc_lit(clause_vector& clauses, literal lit);
         void gc_bin(bool learned, literal nlit);
         void gc_var(bool_var v);
+
         bool_var max_var(clause_vector& clauses, bool_var v);
         bool_var max_var(bool learned, bool_var v);
 
@@ -427,6 +433,43 @@ namespace sat {
         void simplify(bool learned = true);
         void asymmetric_branching();
         unsigned scc_bin();
+
+        // -----------------------
+        //
+        // Auxiliary methods.
+        //
+        // -----------------------
+    public:
+        lbool find_mutexes(literal_vector const& lits, vector<literal_vector> & mutexes);
+
+        lbool get_consequences(literal_vector const& assms, bool_var_vector const& vars, vector<literal_vector>& conseq);
+
+    private:
+
+        typedef hashtable<unsigned, u_hash, u_eq> index_set;
+
+        u_map<index_set>       m_antecedents;
+        vector<literal_vector> m_binary_clause_graph;
+
+        bool extract_assumptions(literal lit, index_set& s);
+        
+        bool check_domain(literal lit, literal lit2);
+
+        std::ostream& display_index_set(std::ostream& out, index_set const& s) const;
+
+        lbool get_consequences(literal_vector const& assms, literal_vector const& lits, vector<literal_vector>& conseq);
+
+        lbool get_bounded_consequences(literal_vector const& assms, bool_var_vector const& vars, vector<literal_vector>& conseq);
+
+        void delete_unfixed(literal_set& unfixed_lits, bool_var_set& unfixed_vars);
+
+        void extract_fixed_consequences(unsigned& start, literal_set const& assumptions, bool_var_set& unfixed, vector<literal_vector>& conseq);
+
+        bool extract_fixed_consequences(literal lit, literal_set const& assumptions, bool_var_set& unfixed, vector<literal_vector>& conseq);
+
+        void update_unfixed_literals(literal_set& unfixed_lits, bool_var_set& unfixed_vars);
+
+        void fixup_consequence_core();
 
         // -----------------------
         //

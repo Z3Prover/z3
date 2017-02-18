@@ -10,6 +10,12 @@ Z3 can be built using [Visual Studio][1], a [Makefile][2] or using [CMake][3]. I
 
 See the [release notes](RELEASE_NOTES) for notes on various stable releases of Z3.
 
+## Build status
+
+| Windows x86 | Windows x64 | Ubuntu x64 | Ubuntu x86 | Debian x64 | OSX |
+| ----------- | ----------- | ---------- | ---------- | ---------- | --- |
+![win32-badge](https://cz3.visualstudio.com/_apis/public/build/definitions/bf14bcc7-ebd4-4240-812c-5972fa59e0ad/4/badge) | ![win64-badge](https://cz3.visualstudio.com/_apis/public/build/definitions/bf14bcc7-ebd4-4240-812c-5972fa59e0ad/7/badge) | ![ubuntu-x64-badge](https://cz3.visualstudio.com/_apis/public/build/definitions/bf14bcc7-ebd4-4240-812c-5972fa59e0ad/3/badge) | ![ubuntu-x86-badge](https://cz3.visualstudio.com/_apis/public/build/definitions/bf14bcc7-ebd4-4240-812c-5972fa59e0ad/6/badge) | ![debian-badge](https://cz3.visualstudio.com/_apis/public/build/definitions/bf14bcc7-ebd4-4240-812c-5972fa59e0ad/5/badge) | ![osx-badge](https://cz3.visualstudio.com/_apis/public/build/definitions/bf14bcc7-ebd4-4240-812c-5972fa59e0ad/2/badge)
+
 [1]: #building-z3-on-windows-using-visual-studio-command-prompt
 [2]: #building-z3-using-make-and-gccclang
 [3]: #building-z3-using-cmake
@@ -55,6 +61,16 @@ CXX=clang++ CC=clang python scripts/mk_make.py
 ```
 
 Note that Clang < 3.7 does not support OpenMP.
+
+You can also build Z3 for Windows using Cygwin and the Mingw-w64 cross-compiler.
+To configure that case correctly, make sure to use Cygwin's own python and not
+some Windows installation of Python.
+
+For a 64 bit build (from Cygwin64), configure Z3's sources with
+```bash
+CXX=x86_64-w64-mingw32-g++ CC=x86_64-w64-mingw32-gcc AR=x86_64-w64-mingw32-ar python scripts/mk_make.py
+```
+A 32 bit build should work similarly (but is untested); the same is true for 32/64 bit builds from within Cygwin32.
 
 By default, it will install z3 executable at ``PREFIX/bin``, libraries at
 ``PREFIX/lib``, and include files at ``PREFIX/include``, where ``PREFIX``

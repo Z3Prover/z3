@@ -33,6 +33,12 @@ public:
         this->m_c1->operator()(m, 0);
     }
 
+    virtual void operator()(labels_vec & r, unsigned goal_idx) {
+        this->m_c2->operator()(r, goal_idx);
+        this->m_c1->operator()(r, 0);
+    }
+
+  
     virtual char const * get_name() const { return "concat-model-converter"; }
 
     virtual model_converter * translate(ast_translation & translator) {
@@ -76,6 +82,24 @@ public:
         }
         UNREACHABLE();
     }
+
+    virtual void operator()(labels_vec & r, unsigned goal_idx) {
+        unsigned num = this->m_c2s.size();
+        for (unsigned i = 0; i < num; i++) {
+            if (goal_idx < this->m_szs[i]) {
+                // found the model converter that should be used
+                model_converter * c2 = this->m_c2s[i];
+                if (c2)
+                  c2->operator()(r, goal_idx);
+                if (m_c1)
+                  this->m_c1->operator()(r, i);
+                return;
+            }
+            // invalid goal
+            goal_idx -= this->m_szs[i];
+        }
+        UNREACHABLE();
+    }
     
     virtual char const * get_name() const { return "concat-star-model-converter"; }
 
@@ -102,8 +126,12 @@ model_converter * concat(model_converter * mc1, unsigned num, model_converter * 
 
 class model2mc : public model_converter {
     model_ref m_model;
+    buffer<symbol> m_labels;
 public:
     model2mc(model * m):m_model(m) {}
+
+    model2mc(model * m, buffer<symbol> const & r):m_model(m), m_labels(r) {}
+
     virtual ~model2mc() {}
 
     virtual void operator()(model_ref & m) {
@@ -114,7 +142,11 @@ public:
         m = m_model;
     }
 
-    virtual void cancel() {
+    virtual void operator()(labels_vec & r, unsigned goal_idx) {
+      r.append(m_labels.size(), m_labels.c_ptr());
+    }
+
+  virtual void cancel() {
     }
     
     virtual void display(std::ostream & out) {
@@ -133,6 +165,12 @@ model_converter * model2model_converter(model * m) {
     if (m == 0)
         return 0;
     return alloc(model2mc, m);
+}
+
+model_converter * model_and_labels2model_converter(model * m, buffer<symbol> & r) {
+    if (m == 0)
+        return 0;
+    return alloc(model2mc, m, r);
 }
 
 void model_converter2model(ast_manager & mng, model_converter * mc, model_ref & m) {

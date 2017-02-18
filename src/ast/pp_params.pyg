@@ -15,5 +15,6 @@ def_module_params('pp',
                           ('flat_assoc', BOOL, True, 'flat associative operators (when pretty printing SMT2 terms/formulas)'),
                           ('fixed_indent', BOOL, False, 'use a fixed indentation for applications'),
                           ('single_line', BOOL, False, 'ignore line breaks when true'),
-                          ('bounded', BOOL, False, 'ignore characters exceeding max widht'),
+                          ('bounded', BOOL, False, 'ignore characters exceeding max width'),
+                          ('pretty_proof', BOOL, False, 'use slower, but prettier, printer for proofs'),
                           ('simplify_implies', BOOL, True, 'simplify nested implications for pretty printing')))

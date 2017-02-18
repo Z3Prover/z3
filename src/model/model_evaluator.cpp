@@ -33,6 +33,7 @@ Revision History:
 #include"cooperate.h"
 #include"ast_pp.h"
 #include"ast_util.h"
+#include"model_smt2_pp.h"
 
 
 struct evaluator_cfg : public default_rewriter_cfg {
@@ -72,6 +73,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
         m_a_rw.set_flat(flat);
         m_bv_rw.set_flat(flat);
         m_bv_rw.set_mkbv2num(true);
+        m_ar_rw.set_expand_select_store(true);
+        m_ar_rw.set_expand_select_ite(true);
         updt_params(p);
     }
 
@@ -407,6 +410,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
         SASSERT(m_ar.is_array(a));
         bool are_values = true;
         are_unique = true;
+        TRACE("model_evaluator", tout << mk_pp(a, m()) << "\n";);
 
         while (m_ar.is_store(a)) {
             expr_ref_vector store(m());
@@ -445,7 +449,9 @@ struct evaluator_cfg : public default_rewriter_cfg {
         }        
         else_case = g->get_else();
         if (!else_case) {
-            TRACE("model_evaluator", tout << "no else case " << mk_pp(a, m()) << "\n";);
+            TRACE("model_evaluator", tout << "no else case " << mk_pp(a, m()) << "\n";
+                  /*model_smt2_pp(tout, m(), m_model, 0);*/
+                  );
             return false;
         }
         if (!is_ground(else_case)) {
@@ -527,6 +533,13 @@ void model_evaluator::reset(params_ref const & p) {
 void model_evaluator::operator()(expr * t, expr_ref & result) {
     TRACE("model_evaluator", tout << mk_ismt2_pp(t, m()) << "\n";);
     m_imp->operator()(t, result);
+}
+
+expr_ref model_evaluator::operator()(expr * t) {
+    TRACE("model_evaluator", tout << mk_ismt2_pp(t, m()) << "\n";);
+    expr_ref result(m());
+    m_imp->operator()(t, result);
+    return result;
 }
 
 

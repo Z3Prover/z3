@@ -17,39 +17,14 @@ Notes:
 
 package com.microsoft.z3;
 
-class FuncInterpEntryDecRefQueue extends IDecRefQueue
-{
+class FuncInterpEntryDecRefQueue extends IDecRefQueue<FuncInterp.Entry> {
     public FuncInterpEntryDecRefQueue() 
     {
         super();
     }
 
-    public FuncInterpEntryDecRefQueue(int move_limit) 
-    {
-        super(move_limit);
-    }
-
     @Override
-    protected void incRef(Context ctx, long obj)
-    {
-        try
-        {
-            Native.funcEntryIncRef(ctx.nCtx(), obj);
-        } catch (Z3Exception e)
-        {
-            // OK.
-        }
+    protected void decRef(Context ctx, long obj) {
+        Native.funcEntryDecRef(ctx.nCtx(), obj);
     }
-
-    @Override
-    protected void decRef(Context ctx, long obj)
-    {
-        try
-        {
-            Native.funcEntryDecRef(ctx.nCtx(), obj);
-        } catch (Z3Exception e)
-        {
-            // OK.
-        }
-    }
-};
+}

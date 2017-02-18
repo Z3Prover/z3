@@ -57,7 +57,7 @@ namespace opt {
     opt_solver::~opt_solver() {
     }
 
-    void opt_solver::updt_params(params_ref & _p) {
+    void opt_solver::updt_params(params_ref const & _p) {
         opt_params p(_p);
         m_dump_benchmarks = p.dump_benchmarks();
         m_params.updt_params(_p);
@@ -78,6 +78,9 @@ namespace opt {
     }
     
     void opt_solver::assert_expr(expr * t) {
+        if (has_quantifiers(t)) {
+            m_params.m_relevancy_lvl = 2;
+        }
         m_context.assert_expr(t);
     }
     
@@ -190,6 +193,15 @@ namespace opt {
             blockers.push_back(blocker);
         }
     }
+
+    lbool opt_solver::find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) {
+        return m_context.find_mutexes(vars, mutexes);
+    }
+
+    lbool opt_solver::preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores) {
+        return m_context.preferred_sat(asms, cores);
+    }
+
 
 
     /**
@@ -315,11 +327,7 @@ namespace opt {
         SASSERT(idx < get_num_assertions());
         return m_context.get_formulas()[idx];
     }
-    
-    void opt_solver::display(std::ostream & out) const {
-        m_context.display(out);
-    }
-    
+        
     smt::theory_var opt_solver::add_objective(app* term) {
         smt::theory_var v = get_optimizer().add_objective(term);
         m_objective_vars.push_back(v);
@@ -344,10 +352,9 @@ namespace opt {
     }
     
     expr_ref opt_solver::mk_ge(unsigned var, inf_eps const& val) {
-		if (!val.is_finite())
-		{
-			return expr_ref(val.is_pos() ? m.mk_false() : m.mk_true(), m);
-		}
+        if (!val.is_finite()) {
+            return expr_ref(val.is_pos() ? m.mk_false() : m.mk_true(), m);
+        }
         smt::theory_opt& opt = get_optimizer();
         smt::theory_var v = m_objective_vars[var];
 
@@ -371,13 +378,13 @@ namespace opt {
 
         if (typeid(smt::theory_idl) == typeid(opt)) {
             smt::theory_idl& th = dynamic_cast<smt::theory_idl&>(opt);
-            return th.mk_ge(m_fm, v, val.get_rational());
+            return th.mk_ge(m_fm, v, val);
         }
 
         if (typeid(smt::theory_rdl) == typeid(opt) &&
             val.get_infinitesimal().is_zero()) {
             smt::theory_rdl& th = dynamic_cast<smt::theory_rdl&>(opt);
-            return th.mk_ge(m_fm, v, val.get_rational());
+            return th.mk_ge(m_fm, v, val);
         }
 
         // difference logic?

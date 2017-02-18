@@ -156,7 +156,7 @@ elseif (DOTNET_TOOLCHAIN_IS_MONO)
   # We need to give the assembly a strong name so that it can be installed
   # into the GAC.
   list(APPEND CSC_FLAGS
-    "/keyfile:${CMAKE_CURRENT_SOURCE_DIR}/Microsoft.Z3.mono.snk"
+    "/keyfile:${CMAKE_CURRENT_SOURCE_DIR}/Microsoft.Z3.snk"
   )
 else()
   message(FATAL_ERROR "Unknown .NET toolchain")

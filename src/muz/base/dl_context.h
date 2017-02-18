@@ -119,7 +119,6 @@ namespace datalog {
         virtual expr_ref try_get_formula(func_decl * pred) const = 0;
         virtual void display_output_facts(rule_set const& rules, std::ostream & out) const = 0;
         virtual void display_facts(std::ostream & out) const = 0;
-        virtual void display_profile(std::ostream& out) = 0;
         virtual void restrict_predicates(func_decl_set const& predicates) = 0;
         virtual bool result_contains_fact(relation_fact const& f) = 0;
         virtual void add_fact(func_decl* pred, relation_fact const& fact) = 0;
@@ -272,6 +271,7 @@ namespace datalog {
         bool karr() const;
         bool scale() const;
         bool magic() const;
+        bool compress_unbound() const;
         bool quantify_arrays() const;
         bool instantiate_quantifiers() const;
         bool xform_bit_blast() const;        

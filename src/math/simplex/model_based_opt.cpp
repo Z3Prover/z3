@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    Model-based optimization for linear real arithmetic.
+    Model-based optimization and projection for linear real, integer arithmetic.
 
 Author:
 
@@ -26,6 +26,7 @@ std::ostream& operator<<(std::ostream& out, opt::ineq_type ie) {
     case opt::t_eq: return out << " = ";
     case opt::t_lt: return out << " < ";
     case opt::t_le: return out << " <= ";        
+    case opt::t_mod: return out << " mod ";
     }
     return out;
 }
@@ -34,14 +35,12 @@ std::ostream& operator<<(std::ostream& out, opt::ineq_type ie) {
 namespace opt {
     
 
-    model_based_opt::model_based_opt()
-    {
+    model_based_opt::model_based_opt() {
         m_rows.push_back(row());
     }
 
         
     bool model_based_opt::invariant() {
-        // variables in each row are sorted.
         for (unsigned i = 0; i < m_rows.size(); ++i) {
             if (!invariant(i, m_rows[i])) {
                 return false;
@@ -50,19 +49,23 @@ namespace opt {
         return true;
     }
 
+#define PASSERT(_e_) if (!(_e_)) { TRACE("opt", display(tout, r);); SASSERT(_e_); }
+
     bool model_based_opt::invariant(unsigned index, row const& r) {
-        rational val = r.m_coeff;
         vector<var> const& vars = r.m_vars;
         for (unsigned i = 0; i < vars.size(); ++i) {
-            var const& v = vars[i];
-            SASSERT(i + 1 == vars.size() || v.m_id < vars[i+1].m_id);
-            SASSERT(!v.m_coeff.is_zero());
-            val += v.m_coeff * m_var2value[v.m_id];
+            // variables in each row are sorted and have non-zero coefficients
+            PASSERT(i + 1 == vars.size() || vars[i].m_id < vars[i+1].m_id);
+            PASSERT(!vars[i].m_coeff.is_zero());
+            PASSERT(index == 0 || m_var2row_ids[vars[i].m_id].contains(index));
         }
-        SASSERT(val == r.m_value);
-        SASSERT(r.m_type != t_eq ||  val.is_zero());
-        SASSERT(index == 0 || r.m_type != t_lt ||  val.is_neg());
-        SASSERT(index == 0 || r.m_type != t_le || !val.is_pos());        
+        
+        PASSERT(r.m_value == get_row_value(r));
+        PASSERT(r.m_type != t_eq ||  r.m_value.is_zero());
+        // values satisfy constraints
+        PASSERT(index == 0 || r.m_type != t_lt ||  r.m_value.is_neg());
+        PASSERT(index == 0 || r.m_type != t_le || !r.m_value.is_pos());        
+        PASSERT(index == 0 || r.m_type != t_mod || (mod(r.m_value, r.m_mod).is_zero()));
         return true;
     }
         
@@ -90,20 +93,25 @@ namespace opt {
     // 
     inf_eps model_based_opt::maximize() {
         SASSERT(invariant());
-        unsigned_vector other;
         unsigned_vector bound_trail, bound_vars;
+        TRACE("opt", display(tout << "tableau\n"););
         while (!objective().m_vars.empty()) {
-            TRACE("opt", display(tout << "tableau\n"););
             var v = objective().m_vars.back();
             unsigned x = v.m_id;
             rational const& coeff = v.m_coeff;
             unsigned bound_row_index;
             rational bound_coeff;
-            other.reset();
-            if (find_bound(x, bound_row_index, bound_coeff, other, coeff.is_pos())) {
+            if (find_bound(x, bound_row_index, bound_coeff, coeff.is_pos())) {
                 SASSERT(!bound_coeff.is_zero());
-                for (unsigned i = 0; i < other.size(); ++i) {
-                    resolve(bound_row_index, bound_coeff, other[i], x);
+                TRACE("opt", display(tout << "update: " << v << " ", objective());
+                      for (unsigned i = 0; i < m_above.size(); ++i) {
+                          display(tout << "resolve: ", m_rows[m_above[i]]);
+                      });
+                for (unsigned i = 0; i < m_above.size(); ++i) {
+                    resolve(bound_row_index, bound_coeff, m_above[i], x);
+                }
+                for (unsigned i = 0; i < m_below.size(); ++i) {
+                    resolve(bound_row_index, bound_coeff, m_below[i], x);
                 }
                 // coeff*x + objective <= ub
                 // a2*x + t2 <= 0
@@ -111,11 +119,13 @@ namespace opt {
                 // objective + t2*coeff/a2 <= ub
 
                 mul_add(false, m_objective_id, - coeff/bound_coeff, bound_row_index);
-                m_rows[bound_row_index].m_alive = false;
+                retire_row(bound_row_index);
                 bound_trail.push_back(bound_row_index);
                 bound_vars.push_back(x);
             }
             else {
+                TRACE("opt", display(tout << "unbound: " << v << " ", objective()););
+                update_values(bound_vars, bound_trail);
                 return inf_eps::infinity();
             }
         }
@@ -136,15 +146,33 @@ namespace opt {
     }
 
 
+    void model_based_opt::update_value(unsigned x, rational const& val) {
+        rational old_val = m_var2value[x];
+        m_var2value[x] = val;
+        unsigned_vector const& row_ids = m_var2row_ids[x];
+        for (unsigned i = 0; i < row_ids.size(); ++i) {            
+            unsigned row_id = row_ids[i];
+            rational coeff = get_coefficient(row_id, x);
+            if (coeff.is_zero()) {
+                continue;
+            }
+            row & r = m_rows[row_id];
+            rational delta = coeff * (val - old_val);            
+            r.m_value += delta;
+            SASSERT(invariant(row_id, r));
+        }
+    }
+
+
     void model_based_opt::update_values(unsigned_vector const& bound_vars, unsigned_vector const& bound_trail) {
-        rational eps(0);
         for (unsigned i = bound_trail.size(); i > 0; ) {
             --i;
             unsigned x = bound_vars[i];
             row& r = m_rows[bound_trail[i]];
             rational val = r.m_coeff;
-            rational x_val;
-            rational x_coeff;
+            rational old_x_val = m_var2value[x];
+            rational new_x_val;
+            rational x_coeff, eps(0);
             vector<var> const& vars = r.m_vars;
             for (unsigned j = 0; j < vars.size(); ++j) {
                 var const& v = vars[j];
@@ -155,28 +183,21 @@ namespace opt {
                     val += m_var2value[v.m_id]*v.m_coeff;
                 }
             }
-            TRACE("opt", display(tout << "v" << x << " val: " << val 
-                                 << " coeff_x: " << x_coeff << " val_x: " << m_var2value[x] << " ", r); );
             SASSERT(!x_coeff.is_zero());
-            x_val = -val/x_coeff;
-            //
-            //
-            //     ax + t < 0
-            // <=> x < -t/a
-            // <=> x := -t/a - epsilon
-            // 
-            if (r.m_type == t_lt) {
-                // Adjust epsilon to be 
-                if (!x_val.is_zero() && (eps.is_zero() || eps >= abs(x_val))) {
-                    eps = abs(x_val)/rational(2);
-                }
-                if (!r.m_value.is_zero() && (eps.is_zero() || eps >= abs(r.m_value))) {
-                    eps = abs(r.m_value)/rational(2);
-                }
+            new_x_val = -val/x_coeff;
 
+            if (r.m_type == t_lt) {
+                eps = abs(old_x_val - new_x_val)/rational(2);
+                eps = std::min(rational::one(), eps);
                 SASSERT(!eps.is_zero());
+
+                //
+                //     ax + t < 0
+                // <=> x < -t/a
+                // <=> x := -t/a - epsilon
+                // 
                 if (x_coeff.is_pos()) {
-                    x_val -= eps;
+                    new_x_val -= eps;
                 }
                 //
                 //     -ax + t < 0 
@@ -185,27 +206,47 @@ namespace opt {
                 // <=> x > t/a
                 // <=> x := t/a + epsilon
                 //
-                else if (x_coeff.is_neg()) {
-                    x_val += eps;
+                else {
+                    new_x_val += eps;
                 }
             }
-            m_var2value[x] = x_val;
-            r.m_value = (x_val * x_coeff) + val;
+            TRACE("opt", display(tout << "v" << x 
+                                 << " coeff_x: " << x_coeff 
+                                 << " old_x_val: " << old_x_val
+                                 << " new_x_val: " << new_x_val
+                                 << " eps: " << eps << " ", r); );
+            m_var2value[x] = new_x_val;
             
-            TRACE("opt", display(tout << "v" << x << " val: " << val << " coeff_x: " 
-                                 << x_coeff << " val_x: " << m_var2value[x] << " ", r); );
+            r.m_value = get_row_value(r);
             SASSERT(invariant(bound_trail[i], r));
         }        
+        
+        // update and check bounds for all other affected rows.
+        for (unsigned i = bound_trail.size(); i > 0; ) {
+            --i;
+            unsigned x = bound_vars[i];
+            unsigned_vector const& row_ids = m_var2row_ids[x];
+            for (unsigned j = 0; j < row_ids.size(); ++j) {            
+                unsigned row_id = row_ids[j];
+                row & r = m_rows[row_id];
+                r.m_value = get_row_value(r);
+                SASSERT(invariant(row_id, r));
+            }            
+        }
+        SASSERT(invariant());
     }
 
-    bool model_based_opt::find_bound(unsigned x, unsigned& bound_row_index, rational& bound_coeff, unsigned_vector& other, bool is_pos) {
+    bool model_based_opt::find_bound(unsigned x, unsigned& bound_row_index, rational& bound_coeff, bool is_pos) {
         bound_row_index = UINT_MAX;
         rational lub_val;
         rational const& x_val = m_var2value[x];
         unsigned_vector const& row_ids = m_var2row_ids[x];
         uint_set visited;
+        m_above.reset();
+        m_below.reset();
         for (unsigned i = 0; i < row_ids.size(); ++i) {
             unsigned row_id = row_ids[i];
+            SASSERT(row_id != m_objective_id);
             if (visited.contains(row_id)) {
                 continue;
             }
@@ -226,24 +267,39 @@ namespace opt {
                     else if ((value == lub_val && r.m_type == opt::t_lt) ||
                              (is_pos && value < lub_val) || 
                              (!is_pos && value > lub_val)) {
-                        other.push_back(bound_row_index);
+                        m_above.push_back(bound_row_index);
                         lub_val = value;
-                        bound_row_index = row_id;                            
+                        bound_row_index = row_id;                          
                         bound_coeff = a;
                     }
                     else {
-                        other.push_back(row_id);
+                        m_above.push_back(row_id);
                     }
                 }
                 else {
-                    r.m_alive = false;
+                    m_below.push_back(row_id);
                 }
             }
         }
         return bound_row_index != UINT_MAX;
     }
-        
-    rational model_based_opt::get_coefficient(unsigned row_id, unsigned var_id) {
+
+    void model_based_opt::retire_row(unsigned row_id) {
+        m_rows[row_id].m_alive = false;
+        m_retired_rows.push_back(row_id);
+    }
+       
+    rational model_based_opt::get_row_value(row const& r) const {
+        vector<var> const& vars = r.m_vars;
+        rational val = r.m_coeff;
+        for (unsigned i = 0; i < vars.size(); ++i) {
+            var const& v = vars[i];
+            val += v.m_coeff * m_var2value[v.m_id];
+        }
+        return val;
+    }    
+ 
+    rational model_based_opt::get_coefficient(unsigned row_id, unsigned var_id) const {
         row const& r = m_rows[row_id];
         if (r.m_vars.empty()) {
             return rational::zero();
@@ -259,7 +315,7 @@ namespace opt {
             }
             if (id < var_id) {
                 lo = mid + 1;
-            }			
+            }
             else {
                 hi = mid;
             }
@@ -306,10 +362,160 @@ namespace opt {
                 
         if (m_rows[row_dst].m_alive) {
             rational a2 = get_coefficient(row_dst, x);
-            mul_add(row_dst != m_objective_id && a1.is_pos() == a2.is_pos(), row_dst, -a2/a1, row_src);            
+            if (is_int(x)) {
+                TRACE("opt", 
+                      tout << a1 << " " << a2 << ": ";
+                      display(tout, m_rows[row_dst]);
+                      display(tout, m_rows[row_src]););
+                if (a1.is_pos() != a2.is_pos()) {  
+                    mul_add(x, a1, row_src, a2, row_dst);
+                }
+                else {
+                    mul(row_dst, abs(a1));
+                    mul_add(false, row_dst, -abs(a2), row_src);
+                }
+                TRACE("opt", display(tout, m_rows[row_dst]););
+                normalize(row_dst);
+            }
+            else {
+                mul_add(row_dst != m_objective_id && a1.is_pos() == a2.is_pos(), row_dst, -a2/a1, row_src);            
+            }
         }
     }
-    
+
+    // resolution for integer rows.
+    void model_based_opt::mul_add(
+        unsigned x, rational const& src_c, unsigned row_src, rational const& dst_c, unsigned row_dst) {
+        row& dst = m_rows[row_dst];
+        row const& src = m_rows[row_src];
+        SASSERT(is_int(x));
+        SASSERT(t_le == dst.m_type && t_le == src.m_type);
+        SASSERT(src_c.is_int());
+        SASSERT(dst_c.is_int());
+
+        rational abs_src_c = abs(src_c);
+        rational abs_dst_c = abs(dst_c);            
+        rational x_val = m_var2value[x];
+        rational slack = (abs_src_c - rational::one()) * (abs_dst_c - rational::one());
+        rational dst_val = dst.m_value - x_val*dst_c;
+        rational src_val = src.m_value - x_val*src_c;
+        bool use_case1 = 
+            (src_c * dst_val + dst_c * src_val + slack).is_nonpos() 
+            || abs_src_c.is_one() 
+            || abs_dst_c.is_one();
+
+        if (use_case1) {
+            // dst <- abs_src_c*dst + abs_dst_c*src - slack
+            mul(row_dst, abs_src_c);
+            sub(row_dst, slack);
+            mul_add(false, row_dst, abs_dst_c, row_src);
+            return;
+        }
+
+        //
+        // create finite disjunction for |b|.                                
+        //    exists x, z in [0 .. |b|-2] . b*x + s + z = 0 && ax + t <= 0 && bx + s <= 0
+        // <=> 
+        //    exists x, z in [0 .. |b|-2] . b*x = -z - s && ax + t <= 0 && bx + s <= 0
+        // <=>
+        //    exists x, z in [0 .. |b|-2] . b*x = -z - s && a|b|x + |b|t <= 0 && bx + s <= 0
+        // <=>
+        //    exists x, z in [0 .. |b|-2] . b*x = -z - s && a|b|x + |b|t <= 0 && -z - s + s <= 0
+        // <=>
+        //    exists x, z in [0 .. |b|-2] . b*x = -z - s && a|b|x + |b|t <= 0 && -z <= 0
+        // <=>
+        //    exists x, z in [0 .. |b|-2] . b*x = -z - s && a|b|x + |b|t <= 0
+        // <=>
+        //    exists x, z in [0 .. |b|-2] . b*x = -z - s && a*n_sign(b)(s + z) + |b|t <= 0
+        // <=>
+        //    exists z in [0 .. |b|-2] . |b| | (z + s) && a*n_sign(b)(s + z) + |b|t <= 0
+        //
+
+        vector<var> coeffs;
+        if (abs_dst_c <= abs_src_c) {
+            rational z = mod(dst_val, abs_dst_c);
+            if (!z.is_zero()) z = abs_dst_c - z;
+            mk_coeffs_without(coeffs, dst.m_vars, x); 
+            add_divides(coeffs, dst.m_coeff + z, abs_dst_c);
+            add(row_dst, z);
+            mul(row_dst, src_c * n_sign(dst_c));
+            mul_add(false, row_dst, abs_dst_c, row_src);            
+        }
+        else {
+            // z := b - (s + bx) mod b 
+            //   := b - s mod b
+            // b | s + z <=> b | s + b - s mod b <=> b | s - s mod b
+            rational z = mod(src_val, abs_src_c);
+            if (!z.is_zero()) z = abs_src_c - z;      
+            mk_coeffs_without(coeffs, src.m_vars, x);
+            add_divides(coeffs, src.m_coeff + z, abs_src_c);
+            mul(row_dst, abs_src_c);
+            add(row_dst, z * dst_c * n_sign(src_c));            
+            mul_add(false, row_dst, dst_c * n_sign(src_c), row_src);
+        }
+    }
+
+    void model_based_opt::mk_coeffs_without(vector<var>& dst, vector<var> const src, unsigned x) {
+        for (unsigned i = 0; i < src.size(); ++i) {
+            if (src[i].m_id != x) dst.push_back(src[i]);
+        }
+    }
+
+    rational model_based_opt::n_sign(rational const& b) const {
+        return rational(b.is_pos()?-1:1);
+    }
+   
+    void model_based_opt::mul(unsigned dst, rational const& c) {
+        if (c.is_one()) return;
+        row& r = m_rows[dst];
+        for (unsigned i = 0; i < r.m_vars.size(); ++i) {
+            r.m_vars[i].m_coeff *= c;
+        }
+        r.m_coeff *= c;
+        r.m_value *= c;
+    }
+
+    void model_based_opt::add(unsigned dst, rational const& c) {
+        row& r = m_rows[dst];
+        r.m_coeff += c;
+        r.m_value += c;
+    }
+
+    void model_based_opt::sub(unsigned dst, rational const& c) {
+        row& r = m_rows[dst];
+        r.m_coeff -= c;
+        r.m_value -= c;
+    }
+
+    void model_based_opt::normalize(unsigned row_id) {
+        row& r = m_rows[row_id];
+        if (r.m_vars.empty()) return;
+        if (r.m_type == t_mod) return;
+        rational g(abs(r.m_vars[0].m_coeff));
+        bool all_int = g.is_int();
+        for (unsigned i = 1; all_int && !g.is_one() && i < r.m_vars.size(); ++i) {
+            rational const& coeff = r.m_vars[i].m_coeff;
+            if (coeff.is_int()) {
+                g = gcd(g, abs(coeff));
+            }
+            else {
+                all_int = false;
+            }
+        }
+        if (all_int && !r.m_coeff.is_zero()) {
+            if (r.m_coeff.is_int()) {
+                g = gcd(g, abs(r.m_coeff));
+            }
+            else {
+                all_int = false;
+            }
+        }
+        if (all_int && !g.is_one()) {
+            SASSERT(!g.is_zero());
+            mul(row_id, rational::one()/g);
+        }
+    }
+ 
     //
     // set row1 <- row1 + c*row2
     //
@@ -317,6 +523,7 @@ namespace opt {
         if (c.is_zero()) {
             return;
         }
+
         m_new_vars.reset();
         row& r1 = m_rows[row_id1];
         row const& r2 = m_rows[row_id2];
@@ -403,12 +610,18 @@ namespace opt {
         else if (r.m_coeff.is_neg()) {
             out << r.m_coeff << " ";
         }        
-        out << r.m_type << " 0; value: " << r.m_value  << "\n";
+        if (r.m_type == opt::t_mod) {
+            out << r.m_type << " " << r.m_mod << " = 0; value: " << r.m_value  << "\n";
+        }
+        else {
+            out << r.m_type << " 0; value: " << r.m_value  << "\n";
+        }
     }
 
-    unsigned model_based_opt::add_var(rational const& value) {
+    unsigned model_based_opt::add_var(rational const& value, bool is_int) {
         unsigned v = m_var2value.size();
         m_var2value.push_back(value);
+        m_var2is_int.push_back(is_int);
         m_var2row_ids.push_back(unsigned_vector());
         return v;
     }
@@ -417,34 +630,75 @@ namespace opt {
         return m_var2value[var];
     }
 
-    void model_based_opt::set_row(unsigned row_id, vector<var> const& coeffs, rational const& c, ineq_type rel) {
+    void model_based_opt::set_row(unsigned row_id, vector<var> const& coeffs, rational const& c, rational const& m, ineq_type rel) {
         row& r = m_rows[row_id];
         rational val(c);
         SASSERT(r.m_vars.empty());
         r.m_vars.append(coeffs.size(), coeffs.c_ptr());
+        bool is_int_row = true;
         std::sort(r.m_vars.begin(), r.m_vars.end(), var::compare());
         for (unsigned i = 0; i < coeffs.size(); ++i) {
             val += m_var2value[coeffs[i].m_id] * coeffs[i].m_coeff;
+            SASSERT(!is_int(coeffs[i].m_id) || coeffs[i].m_coeff.is_int());
+            is_int_row &= is_int(coeffs[i].m_id);
         }
         r.m_alive = true;
         r.m_coeff = c;
         r.m_value = val;
         r.m_type = rel;
-        SASSERT(invariant(row_id, r));
-    }
-
-    void model_based_opt::add_constraint(vector<var> const& coeffs, rational const& c, ineq_type rel) {
-        rational val(c);        
-        unsigned row_id = m_rows.size();
-        m_rows.push_back(row());
-        set_row(row_id, coeffs, c, rel);
-        for (unsigned i = 0; i < coeffs.size(); ++i) {
-            m_var2row_ids[coeffs[i].m_id].push_back(row_id); 
+        r.m_mod = m;
+        if (is_int_row && rel == t_lt) {
+            r.m_type = t_le;
+            r.m_coeff  += rational::one();
+            r.m_value  += rational::one();
         }
     }
 
+    unsigned model_based_opt::new_row() {
+        unsigned row_id = 0;
+        if (m_retired_rows.empty()) {
+            row_id = m_rows.size();
+            m_rows.push_back(row());
+        }
+        else {
+            row_id = m_retired_rows.back();
+            m_retired_rows.pop_back();
+            m_rows[row_id].reset();
+            m_rows[row_id].m_alive = true;
+        }
+        return row_id;
+    }
+
+    unsigned model_based_opt::copy_row(unsigned src) {
+        unsigned dst = new_row();
+        row const& r = m_rows[src];
+        set_row(dst, r.m_vars, r.m_coeff, r.m_mod, r.m_type);
+        for (unsigned i = 0; i < r.m_vars.size(); ++i) {
+            m_var2row_ids[r.m_vars[i].m_id].push_back(dst);
+        }
+        SASSERT(invariant(dst, m_rows[dst]));
+        return dst;
+    }
+
+    void model_based_opt::add_constraint(vector<var> const& coeffs, rational const& c, ineq_type rel) {
+        add_constraint(coeffs, c, rational::zero(), rel);
+    }
+
+    void model_based_opt::add_divides(vector<var> const& coeffs, rational const& c, rational const& m) {
+        add_constraint(coeffs, c, m, t_mod);
+    }
+
+    void model_based_opt::add_constraint(vector<var> const& coeffs, rational const& c, rational const& m, ineq_type rel) {
+        unsigned row_id = new_row();
+        set_row(row_id, coeffs, c, m, rel);
+        for (unsigned i = 0; i < coeffs.size(); ++i) {
+            m_var2row_ids[coeffs[i].m_id].push_back(row_id); 
+        }
+        SASSERT(invariant(row_id, m_rows[row_id]));
+    }
+
     void model_based_opt::set_objective(vector<var> const& coeffs, rational const& c) {
-        set_row(m_objective_id, coeffs, c, t_le);
+        set_row(m_objective_id, coeffs, c, rational::zero(), t_le);
     }
 
     void model_based_opt::get_live_rows(vector<row>& rows) {
@@ -475,7 +729,8 @@ namespace opt {
     // 
     void model_based_opt::project(unsigned x) {
         unsigned_vector& lub_rows = m_lub;
-        unsigned_vector& glb_rows = m_glb;        
+        unsigned_vector& glb_rows = m_glb;
+        unsigned_vector& mod_rows = m_mod;
         unsigned lub_index = UINT_MAX, glb_index = UINT_MAX;
         bool     lub_strict = false, glb_strict = false;
         rational lub_val, glb_val;
@@ -484,6 +739,8 @@ namespace opt {
         uint_set visited;
         lub_rows.reset();
         glb_rows.reset();
+        mod_rows.reset();
+        bool lub_is_unit = false, glb_is_unit = false;
         // select the lub and glb.
         for (unsigned i = 0; i < row_ids.size(); ++i) {
             unsigned row_id = row_ids[i];
@@ -503,7 +760,10 @@ namespace opt {
                 solve_for(row_id, x);
                 return;
             }
-            if (a.is_pos()) {
+            if (r.m_type == t_mod) {
+                mod_rows.push_back(row_id);
+            }
+            else if (a.is_pos()) {
                 rational lub_value = x_val - (r.m_value/a);
                 if (lub_rows.empty() || 
                     lub_value < lub_val ||
@@ -513,6 +773,7 @@ namespace opt {
                     lub_strict = r.m_type == t_lt;                    
                 }
                 lub_rows.push_back(row_id);
+                lub_is_unit &= a.is_one();
             }
             else {
                 SASSERT(a.is_neg());
@@ -525,36 +786,176 @@ namespace opt {
                     glb_strict = r.m_type == t_lt;                    
                 }
                 glb_rows.push_back(row_id);
+                glb_is_unit &= a.is_minus_one();
             }
         }
-        unsigned row_index = (lub_rows.size() <= glb_rows.size())? lub_index : glb_index;
-        glb_rows.append(lub_rows);            
+
+        if (!mod_rows.empty()) {
+            solve_mod(x, mod_rows);
+            return;
+        }
+        
+        unsigned lub_size = lub_rows.size();
+        unsigned glb_size = glb_rows.size();
+        unsigned row_index = (lub_size <= glb_size) ? lub_index : glb_index;
+        glb_rows.append(lub_rows);  
+        
+        // There are only upper or only lower bounds.
         if (row_index == UINT_MAX) {
             for (unsigned i = 0; i < glb_rows.size(); ++i) {
                 unsigned row_id = glb_rows[i];
                 SASSERT(m_rows[row_id].m_alive);
                 SASSERT(!get_coefficient(row_id, x).is_zero());
-                m_rows[row_id].m_alive = false;
+                retire_row(row_id);
             }
+            return;
         }
-        else {
-            rational coeff = get_coefficient(row_index, x);
-            for (unsigned i = 0; i < glb_rows.size(); ++i) {
-                unsigned row_id = glb_rows[i];
-                if (row_id != row_index) {
-                    resolve(row_index, coeff, row_id, x);
+
+        // The number of matching lower and upper bounds is small.
+        if ((lub_size <= 2 || glb_size <= 2) &&
+            (lub_size <= 3 && glb_size <= 3) && 
+            (!is_int(x) || lub_is_unit || glb_is_unit)) {
+            for (unsigned i = 0; i < lub_size; ++i) {
+                unsigned row_id1 = lub_rows[i];
+                bool last = i + 1 == lub_rows.size();
+                rational coeff = get_coefficient(row_id1, x);
+                for (unsigned j = 0; j < glb_size; ++j) {
+                    unsigned row_id2 = glb_rows[j];
+                    if (last) {
+                        resolve(row_id1, coeff, row_id2, x);
+                    }
+                    else {
+                        unsigned row_id3 = copy_row(row_id2);
+                        resolve(row_id1, coeff, row_id3, x);
+                    }
                 }
             }
-            m_rows[row_index].m_alive = false;
+            for (unsigned i = 0; i < lub_size; ++i) {
+                retire_row(lub_rows[i]);
+            }
+            return;
         }
+
+        // General case.
+        rational coeff = get_coefficient(row_index, x);
+        for (unsigned i = 0; i < glb_rows.size(); ++i) {
+            unsigned row_id = glb_rows[i];
+            if (row_id != row_index) {
+                resolve(row_index, coeff, row_id, x);
+            }
+        }
+        retire_row(row_index);
     }
 
+    // 
+    // compute D and u.
+    //
+    // D = lcm(d1, d2)
+    // u = eval(x) mod D
+    // 
+    //   d1 | (a1x + t1) & d2 | (a2x + t2)
+    // = 
+    //   d1 | (a1(D*x' + u) + t1) & d2 | (a2(D*x' + u) + t2)
+    // =
+    //   d1 | (a1*u + t1) & d2 | (a2*u + t2)
+    // 
+    // x := D*x' + u
+    // 
+
+    void model_based_opt::solve_mod(unsigned x, unsigned_vector const& mod_rows) {
+        SASSERT(!mod_rows.empty());
+        rational D(1);
+        for (unsigned i = 0; i < mod_rows.size(); ++i) {
+            D = lcm(D, m_rows[mod_rows[i]].m_mod);            
+        }
+        TRACE("opt", display(tout << "lcm: " << D << " tableau\n"););
+        rational val_x = m_var2value[x];
+        rational u = mod(val_x, D);
+        SASSERT(u.is_nonneg() && u < D);
+        for (unsigned i = 0; i < mod_rows.size(); ++i) {
+            replace_var(mod_rows[i], x, u);            
+            SASSERT(invariant(mod_rows[i], m_rows[mod_rows[i]]));
+        }
+        //
+        // update inequalities such that u is added to t and
+        // D is multiplied to coefficient of x.
+        // the interpretation of the new version of x is (x-u)/D
+        //
+        // a*x + t <= 0
+        // a*(D*x' + u) + t <= 0
+        // a*D*x' + a*u + t <= 0
+        //
+        rational new_val = (val_x - u) / D;
+        SASSERT(new_val.is_int());
+        unsigned y = add_var(new_val, true);
+        unsigned_vector const& row_ids = m_var2row_ids[x];
+        uint_set visited;
+        for (unsigned i = 0; i < row_ids.size(); ++i) {
+            unsigned row_id = row_ids[i];
+            if (!visited.contains(row_id)) {
+                // x |-> D*y + u
+                replace_var(row_id, x, D, y, u);
+                visited.insert(row_id);
+            }
+        }
+        project(y);
+    }
+
+    // update row with: x |-> C
+    void model_based_opt::replace_var(unsigned row_id, unsigned x, rational const& C) {
+        row& r = m_rows[row_id];
+        SASSERT(!get_coefficient(row_id, x).is_zero());
+        unsigned sz = r.m_vars.size();
+        unsigned i = 0, j = 0;
+        rational coeff(0);
+        for (; i < sz; ++i) {
+            if (r.m_vars[i].m_id == x) {
+                coeff = r.m_vars[i].m_coeff;
+            }
+            else {
+                if (i != j) {
+                    r.m_vars[j] = r.m_vars[i];
+                }
+                ++j;
+            }
+        }
+        if (j != sz) {
+            r.m_vars.shrink(j);
+        }
+        r.m_coeff += coeff*C;
+        r.m_value += coeff*(C - m_var2value[x]);
+    }
+
+    // update row with: x |-> A*y + B
+    void model_based_opt::replace_var(unsigned row_id, unsigned x, rational const& A, unsigned y, rational const& B) {
+        row& r = m_rows[row_id];
+        rational coeff = get_coefficient(row_id, x);
+        if (coeff.is_zero()) return;
+        if (!r.m_alive) return;
+        replace_var(row_id, x, B);        
+        r.m_vars.push_back(var(y, coeff*A));
+        r.m_value += coeff*A*m_var2value[y];
+        if (!r.m_vars.empty() && r.m_vars.back().m_id > y) {
+            std::sort(r.m_vars.begin(), r.m_vars.end(), var::compare());
+        }
+        m_var2row_ids[y].push_back(row_id);
+        SASSERT(invariant(row_id, r));
+    }
+
+    // 3x + t = 0 & 7 | (c*x + s) & ax <= u 
+    // 3 | -t  & 21 | (-ct + 3s) & a-t <= 3u
+
     void model_based_opt::solve_for(unsigned row_id1, unsigned x) {
-        rational a = get_coefficient(row_id1, x);
-        row& r1 = m_rows[row_id1];
+        rational a = get_coefficient(row_id1, x), b;
         SASSERT(!a.is_zero());
-        SASSERT(r1.m_type == t_eq);
-        SASSERT(r1.m_alive);
+        SASSERT(m_rows[row_id1].m_type == t_eq);
+        SASSERT(m_rows[row_id1].m_alive);
+        if (m_var2is_int[x] && !abs(a).is_one()) {
+            row& r1 = m_rows[row_id1];
+            vector<var> coeffs;
+            mk_coeffs_without(coeffs, r1.m_vars, x);
+            add_divides(coeffs, r1.m_coeff, abs(a));
+        }
         unsigned_vector const& row_ids = m_var2row_ids[x];
         uint_set visited;
         visited.insert(row_id1);
@@ -562,15 +963,19 @@ namespace opt {
             unsigned row_id2 = row_ids[i];
             if (!visited.contains(row_id2)) {                
                 visited.insert(row_id2);
-                resolve(row_id1, a, row_id2, x);            
+                b = get_coefficient(row_id2, x);
+                if (!b.is_zero()) {
+                    resolve(row_id1, a, row_id2, x);            
+                }
             }
         }
-        r1.m_alive = false;
+        retire_row(row_id1);
     }
 
     void model_based_opt::project(unsigned num_vars, unsigned const* vars) {
         for (unsigned i = 0; i < num_vars; ++i) {
             project(vars[i]);
+            TRACE("opt", display(tout << "After projecting: v" << vars[i] << "\n"););
         }
     }
 

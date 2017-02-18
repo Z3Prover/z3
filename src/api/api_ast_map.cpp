@@ -34,7 +34,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_ast_map(c);
         RESET_ERROR_CODE();
-        Z3_ast_map_ref * m = alloc(Z3_ast_map_ref, mk_c(c)->m());
+        Z3_ast_map_ref * m = alloc(Z3_ast_map_ref, *mk_c(c), mk_c(c)->m());
         mk_c(c)->save_object(m);
         Z3_ast_map r       = of_ast_map(m);
         RETURN_Z3(r);
@@ -137,7 +137,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_ast_map_keys(c, m);
         RESET_ERROR_CODE();
-        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, to_ast_map(m)->m);
+        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), to_ast_map(m)->m);
         mk_c(c)->save_object(v);
         obj_map<ast, ast*>::iterator it  = to_ast_map_ref(m).begin();
         obj_map<ast, ast*>::iterator end = to_ast_map_ref(m).end();

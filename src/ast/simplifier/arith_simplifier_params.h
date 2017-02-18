@@ -30,6 +30,8 @@ struct arith_simplifier_params {
     }
 
     void updt_params(params_ref const & _p);
+
+    void display(std::ostream & out) const;
 };
     
 #endif /* ARITH_SIMPLIFIER_PARAMS_H_ */

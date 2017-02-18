@@ -12,6 +12,7 @@ z3_add_component(tactic
     probe.cpp
     proof_converter.cpp
     replace_proof_converter.cpp
+    sine_filter.cpp
     tactical.cpp
     tactic.cpp
   COMPONENT_DEPENDENCIES

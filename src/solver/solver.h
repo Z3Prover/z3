@@ -54,7 +54,7 @@ public:
     /**
        \brief Update the solver internal settings. 
     */
-    virtual void updt_params(params_ref const & p) {}
+    virtual void updt_params(params_ref const & p) { }
 
     /**
        \brief Store in \c r a description of the configuration
@@ -76,6 +76,10 @@ public:
     virtual void assert_expr(expr * t) = 0;
 
     void assert_expr(expr_ref_vector const& ts) { 
+        for (unsigned i = 0; i < ts.size(); ++i) assert_expr(ts[i]); 
+    }
+
+    void assert_expr(ptr_vector<expr> const& ts) { 
         for (unsigned i = 0; i < ts.size(); ++i) assert_expr(ts[i]); 
     }
 
@@ -108,6 +112,10 @@ public:
     */
     virtual lbool check_sat(unsigned num_assumptions, expr * const * assumptions) = 0;
 
+    lbool check_sat(expr_ref_vector const& asms) { return check_sat(asms.size(), asms.c_ptr()); }
+    
+    lbool check_sat(app_ref_vector const& asms) { return check_sat(asms.size(), (expr* const*)asms.c_ptr()); }
+
 
     /**
        \brief Set a progress callback procedure that is invoked by this solver during check_sat.
@@ -127,6 +135,11 @@ public:
     virtual expr * get_assertion(unsigned idx) const;
 
     /**
+    \brief Retrieves assertions as a vector.
+    */
+    void get_assertions(expr_ref_vector& fmls) const;
+
+    /**
     \brief The number of tracked assumptions (see assert_expr(t, a)).
     */
     virtual unsigned get_num_assumptions() const = 0;
@@ -136,12 +149,33 @@ public:
     */
     virtual expr * get_assumption(unsigned idx) const = 0;
 
+    /**
+    \brief under assumptions, asms, retrieve set of consequences that 
+      fix values for expressions that can be built from vars. 
+      The consequences are clauses whose first literal constrain one of the 
+      functions from vars and the other literals are negations of literals from asms.
+    */
+    
+    virtual lbool get_consequences(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences);
 
+
+    /**
+       \brief Find maximal subsets A' of A such that |A'| <= 1. These subsets look somewhat similar to cores: cores have the property 
+       that |~A'| >= 1, where ~A' is the set of negated formulas from A'
+     */
+
+    virtual lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes);
+
+    /**
+       \brief Preferential SAT. Prefer assumptions to be true, produce cores that witness cases when not all assumptions can be met.
+       by default, preferred sat ignores the assumptions.
+     */
+    virtual lbool preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores);
 
     /**
        \brief Display the content of this solver.
     */
-    virtual void display(std::ostream & out) const;
+    virtual std::ostream& display(std::ostream & out) const;
 
     class scoped_push {
         solver& s;
@@ -151,6 +185,13 @@ public:
         ~scoped_push() { if (!m_nopop) s.pop(1); }
         void disable_pop() { m_nopop = true; }
     };
+ 
+protected:
+
+    virtual lbool get_consequences_core(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences);
+
+    bool is_literal(ast_manager& m, expr* e);
+
 };
 
 #endif

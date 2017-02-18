@@ -41,6 +41,8 @@ public:
 
     void operator()(expr * t, expr_ref & r);
 
+    expr_ref operator()(expr* t);
+
     void cleanup(params_ref const & p = params_ref());
     void reset(params_ref const & p = params_ref());
     

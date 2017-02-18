@@ -41,7 +41,7 @@ class macro_finder {
     bool expand_macros(unsigned num, expr * const * exprs, proof * const * prs, expr_ref_vector & new_exprs, proof_ref_vector & new_prs);
     bool is_arith_macro(expr * n, proof * pr, expr_ref_vector & new_exprs, proof_ref_vector & new_prs);
 
-    bool is_macro(expr * n, app * & head, expr * & def);
+    bool is_macro(expr * n, app_ref & head, expr_ref & def);
     bool is_pseudo_head(expr * n, unsigned num_decls, app * & head, app * & t);
     bool is_pseudo_predicate_macro(expr * n, app * & head, app * & t, expr * & def);
 

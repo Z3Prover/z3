@@ -18,6 +18,8 @@ Notes:
 --*/
 
 using System;
+using System.Linq;
+using System.Collections.Generic;
 using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
@@ -110,7 +112,7 @@ namespace Microsoft.Z3
             Contract.Requires(constraints != null);
             Contract.Requires(Contract.ForAll(constraints, c => c != null));
 
-            Context.CheckContextMatch(constraints);
+            Context.CheckContextMatch<BoolExpr>(constraints);
             foreach (BoolExpr a in constraints)
             {
                 Native.Z3_solver_assert(Context.nCtx, NativeObject, a.NativeObject);
@@ -123,6 +125,14 @@ namespace Microsoft.Z3
         public void Add(params BoolExpr[] constraints)
         {
             Assert(constraints);
+        }
+
+        /// <summary>
+        /// Alias for Assert.
+        /// </summary>        
+        public void Add(IEnumerable<BoolExpr> constraints)
+        {
+            Assert(constraints.ToArray());
         }
 
         /// <summary>
@@ -141,8 +151,8 @@ namespace Microsoft.Z3
             Contract.Requires(constraints != null);
             Contract.Requires(Contract.ForAll(constraints, c => c != null));
             Contract.Requires(Contract.ForAll(ps, c => c != null));
-            Context.CheckContextMatch(constraints);
-            Context.CheckContextMatch(ps);
+            Context.CheckContextMatch<BoolExpr>(constraints);
+            Context.CheckContextMatch<BoolExpr>(ps);
             if (constraints.Length != ps.Length)
                 throw new Z3Exception("Argument size mismatch");
             
@@ -212,12 +222,34 @@ namespace Microsoft.Z3
                 r = (Z3_lbool)Native.Z3_solver_check(Context.nCtx, NativeObject);
             else
                 r = (Z3_lbool)Native.Z3_solver_check_assumptions(Context.nCtx, NativeObject, (uint)assumptions.Length, AST.ArrayToNative(assumptions));
-            switch (r)
-            {
-                case Z3_lbool.Z3_L_TRUE: return Status.SATISFIABLE;
-                case Z3_lbool.Z3_L_FALSE: return Status.UNSATISFIABLE;
-                default: return Status.UNKNOWN;
-            }
+            return lboolToStatus(r);
+        }
+
+        /// <summary>
+        /// Retrieve fixed assignments to the set of variables in the form of consequences.
+        /// Each consequence is an implication of the form 
+        ///
+        ///       relevant-assumptions Implies variable = value
+        /// 
+        /// where the relevant assumptions is a subset of the assumptions that are passed in
+        /// and the equality on the right side of the implication indicates how a variable
+        /// is fixed.
+        /// </summary>
+        /// <remarks>
+        /// <seealso cref="Model"/>
+        /// <seealso cref="UnsatCore"/>
+        /// <seealso cref="Proof"/>    
+        /// </remarks>    
+        public Status Consequences(IEnumerable<BoolExpr> assumptions, IEnumerable<Expr> variables, out BoolExpr[] consequences) 
+        {
+            ASTVector result = new ASTVector(Context);
+            ASTVector asms = new ASTVector(Context);
+            ASTVector vars = new ASTVector(Context);
+            foreach (var asm in assumptions) asms.Push(asm);
+            foreach (var v in variables) vars.Push(v);
+            Z3_lbool r = (Z3_lbool)Native.Z3_solver_get_consequences(Context.nCtx, NativeObject, asms.NativeObject, vars.NativeObject, result.NativeObject);
+            consequences = result.ToBoolExprArray();
+            return lboolToStatus(r);
         }
 
         /// <summary>
@@ -295,7 +327,7 @@ namespace Microsoft.Z3
         /// </summary>
         public Solver Translate(Context ctx) 
         {
-	     Contract.Requires(ctx != null);
+             Contract.Requires(ctx != null);
              Contract.Ensures(Contract.Result<Solver>() != null);
              return new Solver(ctx, Native.Z3_solver_translate(Context.nCtx, NativeObject, ctx.nCtx));
         }
@@ -355,6 +387,17 @@ namespace Microsoft.Z3
             Context.Solver_DRQ.Add(o);
             base.DecRef(o);
         }
+
+        private Status lboolToStatus(Z3_lbool r) 
+        {
+            switch (r)
+            {
+                case Z3_lbool.Z3_L_TRUE: return Status.SATISFIABLE;
+                case Z3_lbool.Z3_L_FALSE: return Status.UNSATISFIABLE;
+                default: return Status.UNKNOWN;
+            }
+        }
+
         #endregion
     }
 }

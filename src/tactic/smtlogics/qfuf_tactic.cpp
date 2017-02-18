@@ -33,7 +33,7 @@ tactic * mk_qfuf_tactic(ast_manager & m, params_ref const & p) {
                     mk_propagate_values_tactic(m, p),
                     mk_solve_eqs_tactic(m, p),
                     using_params(mk_simplify_tactic(m, p), s2_p),
-                    mk_symmetry_reduce_tactic(m, p),
+                    if_no_proofs(if_no_unsat_cores(mk_symmetry_reduce_tactic(m, p))),
                     mk_smt_tactic(p));
 }
 

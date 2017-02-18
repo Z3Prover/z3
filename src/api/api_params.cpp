@@ -30,7 +30,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_params(c);
         RESET_ERROR_CODE();
-        Z3_params_ref * p = alloc(Z3_params_ref);
+        Z3_params_ref * p = alloc(Z3_params_ref, *mk_c(c));
         mk_c(c)->save_object(p);
         Z3_params r = of_params(p);
         RETURN_Z3(r);

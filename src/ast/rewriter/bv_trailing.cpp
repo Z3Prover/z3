@@ -36,11 +36,14 @@ struct bv_trailing::imp {
         : m_mk_extract(mk_extract)
         , m_util(mk_extract.bvutil())
         , m(mk_extract.m()) {
+        TRACE("bv-trailing", tout << "ctor\n";);
+
             for (unsigned i = 0; i <= TRAILING_DEPTH; ++i)
                 m_count_cache[i] = NULL;
     }
 
     virtual ~imp() {
+        TRACE("bv-trailing", tout << "dtor\n";);
         reset_cache(0);
     }
 
@@ -67,10 +70,8 @@ struct bv_trailing::imp {
         }
         expr_ref out1(m);
         expr_ref out2(m);
-        DEBUG_CODE(
-            const unsigned rm1 = remove_trailing(e1, min, out1, TRAILING_DEPTH);
-            const unsigned rm2 = remove_trailing(e2, min, out2, TRAILING_DEPTH);
-            SASSERT(rm1 == min && rm2 == min););
+        VERIFY(min == remove_trailing(e1, min, out1, TRAILING_DEPTH));
+        VERIFY(min == remove_trailing(e2, min, out2, TRAILING_DEPTH));
         const bool are_eq = m.are_equal(out1, out2);
         result = are_eq ? m.mk_true() : m.mk_eq(out1, out2);
         return are_eq ? BR_DONE : BR_REWRITE2;
@@ -339,6 +340,7 @@ struct bv_trailing::imp {
         if (depth == 0) return;
         if (m_count_cache[depth] == NULL)
             m_count_cache[depth] = alloc(map);
+        SASSERT(!m_count_cache[depth]->contains(e));
         m.inc_ref(e);
         m_count_cache[depth]->insert(e, std::make_pair(min, max));
         TRACE("bv-trailing", tout << "caching@" << depth <<": " << mk_ismt2_pp(e, m) << '[' << m_util.get_bv_size(e) << "]\n: " << min << '-' << max << "\n";);
@@ -361,11 +363,13 @@ struct bv_trailing::imp {
         return true;
     }
 
-    void reset_cache(unsigned condition) {
+    void reset_cache(const unsigned condition) {
         SASSERT(m_count_cache[0] == NULL);
         for (unsigned i = 1; i <= TRAILING_DEPTH; ++i) {
             if (m_count_cache[i] == NULL) continue;
-            if (m_count_cache[i]->size() < condition) continue;
+            TRACE("bv-trailing", tout << "may reset cache " << i << " " << condition <<  "\n";);
+            if (condition && m_count_cache[i]->size() < condition) continue;
+            TRACE("bv-trailing", tout << "reset cache " << i << "\n";);
             map::iterator it = m_count_cache[i]->begin();
             map::iterator end = m_count_cache[i]->end();
             for (; it != end; ++it) m.dec_ref(it->m_key);

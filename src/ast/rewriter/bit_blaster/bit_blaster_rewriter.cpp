@@ -66,9 +66,6 @@ struct blaster_cfg {
     void mk_nor(expr * a, expr * b, expr_ref & r) { m_rewriter.mk_nor(a, b, r); }
 };
 
-// CMW: GCC/LLVM do not like this definition because a symbol of the same name exists in assert_set_bit_blaster.o
-// template class bit_blaster_tpl<blaster_cfg>;
-
 class blaster : public bit_blaster_tpl<blaster_cfg> {
     bool_rewriter           m_rewriter;
     bv_util                 m_util;
@@ -163,6 +160,10 @@ struct blaster_rewriter_cfg : public default_rewriter_cfg {
 
     void push() {
         m_keyval_lim.push_back(m_keys.size());
+    }
+
+    unsigned get_num_scopes() const {
+        return m_keyval_lim.size();
     }
 
     void pop(unsigned num_scopes) {
@@ -621,9 +622,6 @@ MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
     }
 };
 
-// CMW: GCC/LLVM do not like this definition because a symbol of the same name exists in assert_set_bit_blaster.o
-// template class rewriter_tpl<blaster_rewriter_cfg>;
-
 struct bit_blaster_rewriter::imp : public rewriter_tpl<blaster_rewriter_cfg> {
     blaster              m_blaster;
     blaster_rewriter_cfg m_cfg;
@@ -637,6 +635,7 @@ struct bit_blaster_rewriter::imp : public rewriter_tpl<blaster_rewriter_cfg> {
     }
     void push() { m_cfg.push(); }
     void pop(unsigned s) { m_cfg.pop(s); }
+    unsigned get_num_scopes() const { return m_cfg.get_num_scopes(); }
 };
 
 bit_blaster_rewriter::bit_blaster_rewriter(ast_manager & m, params_ref const & p):
@@ -678,5 +677,9 @@ obj_map<func_decl, expr*> const & bit_blaster_rewriter::const2bits() const {
 
 void bit_blaster_rewriter::operator()(expr * e, expr_ref & result, proof_ref & result_proof) {
     m_imp->operator()(e, result, result_proof);
+}
+
+unsigned bit_blaster_rewriter::get_num_scopes() const {
+    return m_imp->get_num_scopes();
 }
 

@@ -27,7 +27,7 @@ Revision History:
 #include"ast_smt2_pp.h"
 
 namespace smt {
-    
+
     quantifier_manager_plugin * mk_default_plugin();
 
     struct quantifier_manager::imp {
@@ -40,7 +40,7 @@ namespace smt {
         ptr_vector<quantifier>                 m_quantifiers;
         scoped_ptr<quantifier_manager_plugin>  m_plugin;
         unsigned                               m_num_instances;
-        
+
         imp(quantifier_manager & wrapper, context & ctx, smt_params & p, quantifier_manager_plugin * plugin):
             m_wrapper(wrapper),
             m_context(ctx),
@@ -85,7 +85,7 @@ namespace smt {
                 out << max_generation << " : " << max_cost << "\n";
             }
         }
-        
+
         void del(quantifier * q) {
             if (m_params.m_qi_profile) {
                 display_stats(verbose_stream(), q);
@@ -99,15 +99,15 @@ namespace smt {
         }
 
         bool is_shared(enode * n) const {
-            return m_plugin->is_shared(n); 
+            return m_plugin->is_shared(n);
         }
 
-        bool add_instance(quantifier * q, app * pat, 
-                          unsigned num_bindings, 
-                          enode * const * bindings, 
-                          unsigned max_generation, 
-                          unsigned min_top_generation, 
-                          unsigned max_top_generation, 
+        bool add_instance(quantifier * q, app * pat,
+                          unsigned num_bindings,
+                          enode * const * bindings,
+                          unsigned max_generation,
+                          unsigned min_top_generation,
+                          unsigned max_top_generation,
                           ptr_vector<enode> & used_enodes) {
             max_generation = std::max(max_generation, get_generation(q));
             if (m_num_instances > m_params.m_qi_max_instances)
@@ -136,7 +136,7 @@ namespace smt {
             }
             return false;
         }
-        
+
         void init_search_eh() {
             m_num_instances = 0;
             ptr_vector<quantifier>::iterator it2  = m_quantifiers.begin();
@@ -147,8 +147,9 @@ namespace smt {
             }
             m_qi_queue.init_search_eh();
             m_plugin->init_search_eh();
+            TRACE("smt_params", m_params.display(tout); );
         }
-        
+
         void assign_eh(quantifier * q) {
             m_plugin->assign_eh(q);
         }
@@ -174,7 +175,7 @@ namespace smt {
             m_plugin->pop(num_scopes);
             m_qi_queue.pop_scope(num_scopes);
         }
-        
+
         bool can_propagate() {
             return m_qi_queue.has_work() || m_plugin->can_propagate();
         }
@@ -183,9 +184,9 @@ namespace smt {
             m_plugin->propagate();
             m_qi_queue.instantiate();
         }
-        
+
         bool check_quantifier(quantifier* q) {
-            return m_context.is_relevant(q) && m_context.get_assignment(q) == l_true; // TBD: && !m_context->get_manager().is_rec_fun_def(q);
+            return m_context.is_relevant(q) && m_context.get_assignment(q) == l_true; // && !m_context.get_manager().is_rec_fun_def(q);
         }
 
         bool quick_check_quantifiers() {
@@ -250,7 +251,7 @@ namespace smt {
     quantifier_manager::~quantifier_manager() {
         dealloc(m_imp);
     }
-        
+
     context & quantifier_manager::get_context() const {
         return m_imp->m_context;
     }
@@ -284,16 +285,16 @@ namespace smt {
         return m_imp->get_generation(q);
     }
 
-    bool quantifier_manager::add_instance(quantifier * q, app * pat, 
-                                          unsigned num_bindings, 
-                                          enode * const * bindings, 
-                                          unsigned max_generation, 
-                                          unsigned min_top_generation, 
-                                          unsigned max_top_generation, 
+    bool quantifier_manager::add_instance(quantifier * q, app * pat,
+                                          unsigned num_bindings,
+                                          enode * const * bindings,
+                                          unsigned max_generation,
+                                          unsigned min_top_generation,
+                                          unsigned max_top_generation,
                                           ptr_vector<enode> & used_enodes) {
         return m_imp->add_instance(q, pat, num_bindings, bindings, max_generation, min_top_generation, max_generation, used_enodes);
     }
-    
+
     bool quantifier_manager::add_instance(quantifier * q, unsigned num_bindings, enode * const * bindings, unsigned generation) {
         ptr_vector<enode> tmp;
         return add_instance(q, 0, num_bindings, bindings, generation, generation, generation, tmp);
@@ -346,7 +347,7 @@ namespace smt {
     quantifier_manager::check_model_result quantifier_manager::check_model(proto_model * m, obj_map<enode, app *> const & root2value) {
         return m_imp->check_model(m, root2value);
     }
-        
+
     void quantifier_manager::push() {
         m_imp->push();
     }
@@ -356,17 +357,14 @@ namespace smt {
     }
 
     void quantifier_manager::reset() {
-        #pragma omp critical (quantifier_manager)
-        {
-            context & ctx        = m_imp->m_context;
-            smt_params & p = m_imp->m_params;
-            quantifier_manager_plugin * plugin = m_imp->m_plugin->mk_fresh();
-            m_imp->~imp();
-            m_imp = new (m_imp) imp(*this, ctx, p, plugin);
-            plugin->set_manager(*this);
-        }
+        context & ctx        = m_imp->m_context;
+        smt_params & p = m_imp->m_params;
+        quantifier_manager_plugin * plugin = m_imp->m_plugin->mk_fresh();
+        m_imp->~imp();
+        m_imp = new (m_imp) imp(*this, ctx, p, plugin);
+        plugin->set_manager(*this);        
     }
-             
+
     void quantifier_manager::display(std::ostream & out) const {
     }
 
@@ -381,12 +379,12 @@ namespace smt {
         m_imp->display_stats(out, q);
     }
 
-    ptr_vector<quantifier>::const_iterator quantifier_manager::begin_quantifiers() const { 
-        return m_imp->m_quantifiers.begin(); 
+    ptr_vector<quantifier>::const_iterator quantifier_manager::begin_quantifiers() const {
+        return m_imp->m_quantifiers.begin();
     }
-    
-    ptr_vector<quantifier>::const_iterator quantifier_manager::end_quantifiers() const { 
-        return m_imp->m_quantifiers.end(); 
+
+    ptr_vector<quantifier>::const_iterator quantifier_manager::end_quantifiers() const {
+        return m_imp->m_quantifiers.end();
     }
 
     // The default plugin uses E-matching, MBQI and quick-checker
@@ -403,13 +401,13 @@ namespace smt {
         bool                        m_active;
     public:
         default_qm_plugin():
-            m_qm(0), 
-            m_context(0), 
-            m_new_enode_qhead(0), 
+            m_qm(0),
+            m_context(0),
+            m_new_enode_qhead(0),
             m_lazy_matching_idx(0),
             m_active(false) {
         }
-        
+
         virtual ~default_qm_plugin() {
         }
 
@@ -433,20 +431,18 @@ namespace smt {
 
         virtual bool model_based() const { return m_fparams->m_mbqi; }
 
-        virtual bool mbqi_enabled(quantifier *q) const {             
-            if(!m_fparams->m_mbqi_id) return true;
+        virtual bool mbqi_enabled(quantifier *q) const {
+            if (!m_fparams->m_mbqi_id) return true;
             const symbol &s = q->get_qid();
             size_t len = strlen(m_fparams->m_mbqi_id);
-            if(s == symbol::null || s.is_numerical())
+            if (s == symbol::null || s.is_numerical())
                 return len == 0;
-            return strncmp(s.bare_str(),m_fparams->m_mbqi_id,len) == 0;
-	}
+            return strncmp(s.bare_str(), m_fparams->m_mbqi_id, len) == 0;
+        }
 
-      /* Quantifier id's must begin with the prefix specified by
-	 parameter mbqi.id to be instantiated with MBQI.  The default
-	 value is the empty string, so all quantifiers are
-	 instantiated.
-       */
+        /* Quantifier id's must begin with the prefix specified by parameter
+           mbqi.id to be instantiated with MBQI. The default value is the
+           empty string, so all quantifiers are instantiated. */
         virtual void add(quantifier * q) {
             if (m_fparams->m_mbqi && mbqi_enabled(q)) {
                 m_active = true;
@@ -454,8 +450,7 @@ namespace smt {
             }
         }
 
-        virtual void del(quantifier * q) {
-        }
+        virtual void del(quantifier * q) { }
 
         virtual void push() {
             m_mam->push_scope();
@@ -464,7 +459,7 @@ namespace smt {
                 m_model_finder->push_scope();
             }
         }
-        
+
         virtual void pop(unsigned num_scopes) {
             m_mam->pop_scope(num_scopes);
             m_lazy_mam->pop_scope(num_scopes);
@@ -472,7 +467,7 @@ namespace smt {
                 m_model_finder->pop_scope(num_scopes);
             }
         }
-        
+
         virtual void init_search_eh() {
             m_lazy_matching_idx = 0;
             if (m_fparams->m_mbqi) {
@@ -483,39 +478,43 @@ namespace smt {
 
         virtual void assign_eh(quantifier * q) {
             m_active = true;
-            if (m_fparams->m_ematching) {
-                bool has_unary_pattern = false;
-                unsigned num_patterns = q->get_num_patterns();
-                for (unsigned i = 0; i < num_patterns; i++) {
-                    app * mp = to_app(q->get_pattern(i));
-                    if (mp->get_num_args() == 1) {
-                        has_unary_pattern = true;
-                        break;
-                    }
-                }
-                unsigned num_eager_multi_patterns = m_fparams->m_qi_max_eager_multipatterns;
-                if (!has_unary_pattern)
-                    num_eager_multi_patterns++;
-                for (unsigned i = 0, j = 0; i < num_patterns; i++) {
-                    app * mp = to_app(q->get_pattern(i));
-                    SASSERT(m_context->get_manager().is_pattern(mp));
-                    bool unary = (mp->get_num_args() == 1);
-                    if (!unary && j >= num_eager_multi_patterns) {
-                        TRACE("assign_quantifier", tout << "delaying (too many multipatterns):\n" << mk_ismt2_pp(mp, m_context->get_manager()) << "\n"
-                              << "j: " << j << " unary: " << unary << " m_params.m_qi_max_eager_multipatterns: " << m_fparams->m_qi_max_eager_multipatterns
-                              << " num_eager_multi_patterns: " << num_eager_multi_patterns << "\n";);
-                        m_lazy_mam->add_pattern(q, mp);
-                    }
-                    else {
-                        TRACE("assign_quantifier", tout << "adding:\n" << mk_ismt2_pp(mp, m_context->get_manager()) << "\n";);
-                        m_mam->add_pattern(q, mp);
-                    }
-                    if (!unary)
-                        j++;
+            if (!m_fparams->m_ematching) {
+                return;
+            }
+            if (false && m_context->get_manager().is_rec_fun_def(q) && mbqi_enabled(q)) {
+                return;
+            }
+            bool has_unary_pattern = false;
+            unsigned num_patterns = q->get_num_patterns();
+            for (unsigned i = 0; i < num_patterns; i++) {
+                app * mp = to_app(q->get_pattern(i));
+                if (mp->get_num_args() == 1) {
+                    has_unary_pattern = true;
+                    break;
                 }
             }
+            unsigned num_eager_multi_patterns = m_fparams->m_qi_max_eager_multipatterns;
+            if (!has_unary_pattern)
+                num_eager_multi_patterns++;
+            for (unsigned i = 0, j = 0; i < num_patterns; i++) {
+                app * mp = to_app(q->get_pattern(i));
+                SASSERT(m_context->get_manager().is_pattern(mp));
+                bool unary = (mp->get_num_args() == 1);
+                if (!unary && j >= num_eager_multi_patterns) {
+                    TRACE("assign_quantifier", tout << "delaying (too many multipatterns):\n" << mk_ismt2_pp(mp, m_context->get_manager()) << "\n"
+                          << "j: " << j << " unary: " << unary << " m_params.m_qi_max_eager_multipatterns: " << m_fparams->m_qi_max_eager_multipatterns
+                          << " num_eager_multi_patterns: " << num_eager_multi_patterns << "\n";);
+                    m_lazy_mam->add_pattern(q, mp);
+                }
+                else {
+                    TRACE("assign_quantifier", tout << "adding:\n" << mk_ismt2_pp(mp, m_context->get_manager()) << "\n";);
+                    m_mam->add_pattern(q, mp);
+                }
+                if (!unary)
+                    j++;
+            }
         }
-        
+
         bool use_ematching() const {
             return m_fparams->m_ematching && !m_qm->empty();
         }
@@ -537,7 +536,7 @@ namespace smt {
         }
 
         virtual void restart_eh() {
-            if (m_fparams->m_mbqi) { 
+            if (m_fparams->m_mbqi) {
                 m_model_finder->restart_eh();
                 m_model_checker->restart_eh();
             }
@@ -612,7 +611,7 @@ namespace smt {
             }
             return FC_DONE;
         }
-        
+
     };
 
     quantifier_manager_plugin * mk_default_plugin() {

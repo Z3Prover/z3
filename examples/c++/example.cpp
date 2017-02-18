@@ -23,7 +23,7 @@ void demorgan() {
 
     expr x = c.bool_const("x");
     expr y = c.bool_const("y");
-    expr conjecture = !(x && y) == (!x || !y);
+    expr conjecture = (!(x && y)) == (!x || !y);
     
     solver s(c);
     // adding the negation of the conjecture as a constraint.
@@ -1111,6 +1111,35 @@ void param_descrs_example() {
     }
 }
 
+void consequence_example() {
+    std::cout << "consequence example\n";
+    context c;
+    expr A = c.bool_const("a");
+    expr B = c.bool_const("b");
+    expr C = c.bool_const("c");
+    solver s(c);
+    s.add(implies(A, B));
+    s.add(implies(B, C));
+    expr_vector assumptions(c), vars(c), consequences(c);
+    assumptions.push_back(!C);
+    vars.push_back(A);
+    vars.push_back(B);
+    vars.push_back(C);
+    std::cout << s.consequences(assumptions, vars, consequences) << "\n";
+    std::cout << consequences << "\n";
+}
+
+static void parse_example() {
+    std::cout << "parse example\n";
+    context c;
+    sort_vector sorts(c);
+    func_decl_vector decls(c);
+    sort B = c.bool_sort();
+    decls.push_back(c.function("a", 0, 0, B));
+    expr a = c.parse_string("(assert a)", sorts, decls);
+    std::cout << a << "\n";
+}
+
 int main() {
 
     try {
@@ -1154,6 +1183,8 @@ int main() {
         extract_example(); std::cout << "\n";
         param_descrs_example(); std::cout << "\n";
         sudoku_example(); std::cout << "\n";
+        consequence_example(); std::cout << "\n";
+        parse_example(); std::cout << "\n";
         std::cout << "done\n";
     }
     catch (exception & ex) {

@@ -58,7 +58,7 @@ struct pull_quant::imp {
             }
             
             bool found_quantifier = false;
-            bool forall_children;
+            bool forall_children = false;
             
             for (unsigned i = 0; i < num_children; i++) {
                 expr * child = children[i];
@@ -125,8 +125,8 @@ struct pull_quant::imp {
                         //   of nested_q->get_expr().
                         m_shift(nested_q->get_expr(), 
                                 nested_q->get_num_decls(),             // bound for shift1/shift2
-                                num_decls - nested_q->get_num_decls(), // shift1  (shift by this ammount if var idx >= bound)
-                                shift_amount,                          // shift2  (shift by this ammount if var idx < bound)
+                                num_decls - nested_q->get_num_decls(), // shift1  (shift by this amount if var idx >= bound)
+                                shift_amount,                          // shift2  (shift by this amount if var idx < bound)
                                 adjusted_child);
                         TRACE("pull_quant", tout << "shifted  bound: " << nested_q->get_num_decls() << " shift1: " << shift_amount <<
                               " shift2: " << (num_decls - nested_q->get_num_decls()) << "\n" << mk_pp(nested_q->get_expr(), m_manager) << 

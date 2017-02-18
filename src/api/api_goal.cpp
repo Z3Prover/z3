@@ -32,7 +32,7 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             RETURN_Z3(0);
         }
-        Z3_goal_ref * g = alloc(Z3_goal_ref);
+        Z3_goal_ref * g = alloc(Z3_goal_ref, *mk_c(c));
         g->m_goal       = alloc(goal, mk_c(c)->m(), proofs != 0, models != 0, unsat_cores != 0);
         mk_c(c)->save_object(g);
         Z3_goal r       = of_goal(g);
@@ -156,7 +156,7 @@ extern "C" {
         LOG_Z3_goal_translate(c, g, target);
         RESET_ERROR_CODE();
         ast_translation translator(mk_c(c)->m(), mk_c(target)->m());
-        Z3_goal_ref * _r = alloc(Z3_goal_ref);
+        Z3_goal_ref * _r = alloc(Z3_goal_ref, *mk_c(target));
         _r->m_goal       = to_goal_ref(g)->translate(translator);
         mk_c(target)->save_object(_r);
         Z3_goal r = of_goal(_r);

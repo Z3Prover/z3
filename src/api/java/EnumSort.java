@@ -92,13 +92,9 @@ public class EnumSort extends Sort
 
     EnumSort(Context ctx, Symbol name, Symbol[] enumNames)
     {
-        super(ctx, 0);
-
-        int n = enumNames.length;
-        long[] n_constdecls = new long[n];
-        long[] n_testers = new long[n];
-        setNativeObject(Native.mkEnumerationSort(ctx.nCtx(),
-                name.getNativeObject(), n, Symbol.arrayToNative(enumNames),
-                n_constdecls, n_testers));        
+        super(ctx, Native.mkEnumerationSort(ctx.nCtx(),
+                name.getNativeObject(), enumNames.length,
+                Symbol.arrayToNative(enumNames),
+                new long[enumNames.length], new long[enumNames.length]));
     }
 };

@@ -321,7 +321,8 @@ namespace smt {
                 if (m_simplex.upper_valid(v)) {
                     m_simplex.get_upper(v, last_bound);
                     if (m_mpq_inf_mgr.gt(bound, last_bound)) {
-                        literal lit = m_explain_upper.get(v, null_literal);
+                        literal lit = m_explain_upper.get(v, null_literal);                        
+                        TRACE("pb", tout << ~lit << " " << ~explain << "\n";);
                         get_context().mk_clause(~lit, ~explain, justify(~lit, ~explain));
                         return false;
                     }
@@ -342,6 +343,7 @@ namespace smt {
                     m_simplex.get_lower(v, last_bound);
                     if (m_mpq_inf_mgr.gt(last_bound, bound)) {
                         literal lit = m_explain_lower.get(v, null_literal);
+                        TRACE("pb", tout << ~lit << " " << ~explain << "\n";);
                         get_context().mk_clause(~lit, ~explain, justify(~lit, ~explain));
                         return false;
                     }
@@ -405,6 +407,7 @@ namespace smt {
         if (proofs_enabled()) {                                         
             js = alloc(theory_lemma_justification, get_id(), ctx, lits.size(), lits.c_ptr());
         }
+        TRACE("pb", tout << lits << "\n";);
         ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
 
         return false;
@@ -515,16 +518,17 @@ namespace smt {
                 ++log;
                 n *= 2;
             }
-            unsigned th = args.size()*log; // 10*
+            unsigned th = args.size()*log*log; 
             c->m_compilation_threshold = th;
-            IF_VERBOSE(2, verbose_stream() << "(smt.pb setting compilation threhshold to " << th << ")\n";);
+            IF_VERBOSE(2, verbose_stream() << "(smt.pb setting compilation threshold to " << th << ")\n";);
             TRACE("pb", tout << "compilation threshold: " << th << "\n";);
         }
         else {
             c->m_compilation_threshold = UINT_MAX;
         }
         init_watch_var(*c);
-        m_ineqs.insert(abv, c);
+        init_watch(abv);
+        m_var_infos[abv].m_ineq = c;
         m_ineqs_trail.push_back(abv);
 
         if (m_enable_simplex) {
@@ -684,35 +688,43 @@ namespace smt {
         watch_literal(lit, &c);
     }
 
+    void theory_pb::init_watch(bool_var v) {
+        if (m_var_infos.size() <= static_cast<unsigned>(v)) {
+            m_var_infos.resize(static_cast<unsigned>(v)+100);
+        }
+    }
+
     void theory_pb::watch_literal(literal lit, ineq* c) {
-        ptr_vector<ineq>* ineqs;
-        if (!m_lwatch.find(lit.index(), ineqs)) {
+        init_watch(lit.var());
+        ptr_vector<ineq>* ineqs = m_var_infos[lit.var()].m_lit_watch[lit.sign()];
+        if (ineqs == 0) {
             ineqs = alloc(ptr_vector<ineq>);
-            m_lwatch.insert(lit.index(), ineqs);
+            m_var_infos[lit.var()].m_lit_watch[lit.sign()] = ineqs;
         }
         ineqs->push_back(c);
     }
 
     void theory_pb::watch_var(bool_var v, ineq* c) {
-        ptr_vector<ineq>* ineqs;
-        if (!m_vwatch.find(v, ineqs)) {
+        init_watch(v);
+        ptr_vector<ineq>* ineqs = m_var_infos[v].m_var_watch;
+        if (ineqs == 0) {
             ineqs = alloc(ptr_vector<ineq>);
-            m_vwatch.insert(v, ineqs);
+            m_var_infos[v].m_var_watch = ineqs;
         }
         ineqs->push_back(c);
     }
 
     void theory_pb::unwatch_var(bool_var v, ineq* c) {
-        ptr_vector<ineq>* ineqs = 0;            
-        if (m_vwatch.find(v, ineqs)) {
+        ptr_vector<ineq>* ineqs = m_var_infos[v].m_var_watch;
+        if (ineqs) {
             remove(*ineqs, c);
         }
     }
 
-    void theory_pb::unwatch_literal(literal w, ineq* c) {
-        ptr_vector<ineq>* ineqs = 0;            
-        if (m_lwatch.find(w.index(), ineqs)) {
-            remove(*ineqs, c);
+    void theory_pb::unwatch_literal(literal lit, ineq* c) {
+        ptr_vector<ineq>* ineqs = m_var_infos[lit.var()].m_lit_watch[lit.sign()];
+        if (ineqs) {
+            remove(*ineqs, c);        
         }
     }
 
@@ -738,22 +750,9 @@ namespace smt {
     
     void theory_pb::reset_eh() {
         
-        // m_watch;
-        u_map<ptr_vector<ineq>*>::iterator it = m_lwatch.begin(), end = m_lwatch.end();
-        for (; it != end; ++it) {
-            dealloc(it->m_value);
+        for (unsigned i = 0; i < m_var_infos.size(); ++i) {
+            m_var_infos[i].reset();
         }
-        it = m_vwatch.begin(), end = m_vwatch.end();
-        for (; it != end; ++it) {
-            dealloc(it->m_value);
-        }
-        u_map<ineq*>::iterator itc = m_ineqs.begin(), endc = m_ineqs.end();
-        for (; itc != endc; ++itc) {
-            dealloc(itc->m_value);
-        }
-        m_lwatch.reset();
-        m_vwatch.reset();
-        m_ineqs.reset();
         m_ineqs_trail.reset();
         m_ineqs_lim.reset();
         m_stats.reset();
@@ -773,8 +772,10 @@ namespace smt {
     void theory_pb::assign_eh(bool_var v, bool is_true) {
         ptr_vector<ineq>* ineqs = 0;
         literal nlit(v, is_true);
+        init_watch(v);
         TRACE("pb", tout << "assign: " << ~nlit << "\n";);
-        if (m_lwatch.find(nlit.index(), ineqs)) {
+        ineqs = m_var_infos[v].m_lit_watch[nlit.sign()];
+        if (ineqs != 0) {
             if (m_enable_simplex) {
                 mpq_inf num(mpq(is_true?1:0),mpq(0));
                 if (!update_bound(v, ~nlit, is_true, num)) {
@@ -794,14 +795,15 @@ namespace smt {
                 }
             }
         }
-        if (m_vwatch.find(v, ineqs)) {
+        ineqs = m_var_infos[v].m_var_watch;
+        if (ineqs != 0) {
             for (unsigned i = 0; i < ineqs->size(); ++i) {
                 ineq* c = (*ineqs)[i]; 
                 assign_watch(v, is_true, *c);
             }
         }
-        ineq* c = 0;
-        if (m_ineqs.find(v, c)) {
+        ineq* c = m_var_infos[v].m_ineq;
+        if (c != 0) {
             if (m_enable_simplex) {
                 row_info const& info = m_ineq_row_info.find(v);
                 scoped_eps_numeral coeff(m_mpq_inf_mgr);
@@ -1216,7 +1218,7 @@ namespace smt {
 
     void theory_pb::inc_propagations(ineq& c) {
         ++c.m_num_propagations;
-        if (c.m_compiled == l_false && c.m_num_propagations > c.m_compilation_threshold) {
+        if (c.m_compiled == l_false && c.m_num_propagations >= c.m_compilation_threshold) {
             c.m_compiled = l_undef;
             m_to_compile.push_back(&c);
         }
@@ -1246,9 +1248,9 @@ namespace smt {
         literal_vector in;
         for (unsigned i = 0; i < num_args; ++i) {
             rational n = c.coeff(i);
-            lbool val = ctx.get_assignment(c.lit()); 
-            if (val != l_undef  && 
-                ctx.get_assign_level(thl) == ctx.get_base_level()) {
+            literal lit = c.lit(i);
+            lbool val = ctx.get_assignment(lit); 
+            if (val != l_undef  && ctx.get_assign_level(lit) == ctx.get_base_level()) {
                 if (val == l_true) {
                     unsigned m = n.get_unsigned();
                     if (k < m) {
@@ -1263,31 +1265,35 @@ namespace smt {
                 n -= rational::one();
             }
         }
+        
+        TRACE("pb", tout << in << " >= " << k << "\n";);
+
+
+        psort_expr ps(ctx, *this);
+        psort_nw<psort_expr> sortnw(ps);
+        sortnw.m_stats.reset();
+
         if (ctx.get_assignment(thl) == l_true  && 
             ctx.get_assign_level(thl) == ctx.get_base_level()) {
-            psort_expr ps(ctx, *this);
-            psort_nw<psort_expr> sortnw(ps);
-            sortnw.m_stats.reset();
-            at_least_k = sortnw.ge(false, k, in.size(), in.c_ptr());
+            at_least_k = sortnw.ge(false, k, in.size(), in.c_ptr());            
+            TRACE("pb", tout << ~thl << " " << at_least_k << "\n";);
             ctx.mk_clause(~thl, at_least_k, justify(~thl, at_least_k));
-            m_stats.m_num_compiled_vars += sortnw.m_stats.m_num_compiled_vars;
-            m_stats.m_num_compiled_clauses += sortnw.m_stats.m_num_compiled_clauses;
         }
         else {
-            psort_expr ps(ctx, *this);
-            psort_nw<psort_expr> sortnw(ps);
-            sortnw.m_stats.reset();
             literal at_least_k = sortnw.ge(true, k, in.size(), in.c_ptr());
+            TRACE("pb", tout << ~thl << " " << at_least_k << "\n";);
             ctx.mk_clause(~thl, at_least_k, justify(~thl, at_least_k));
             ctx.mk_clause(~at_least_k, thl, justify(thl, ~at_least_k));
-            m_stats.m_num_compiled_vars += sortnw.m_stats.m_num_compiled_vars;
-            m_stats.m_num_compiled_clauses += sortnw.m_stats.m_num_compiled_clauses;
         }
-        IF_VERBOSE(1, verbose_stream() 
-                   << "(smt.pb compile sorting network bound: " 
-                   << k << " literals: " << in.size() << ")\n";);
+        m_stats.m_num_compiled_vars += sortnw.m_stats.m_num_compiled_vars;
+        m_stats.m_num_compiled_clauses += sortnw.m_stats.m_num_compiled_clauses;
 
-        TRACE("pb", tout << thl << "\n";);
+        IF_VERBOSE(2, verbose_stream() 
+                   << "(smt.pb compile sorting network bound: " 
+                   << k << " literals: " << in.size() 
+                   << " clauses: " << sortnw.m_stats.m_num_compiled_clauses 
+                   << " vars: " << sortnw.m_stats.m_num_compiled_vars << ")\n";);
+
         // auxiliary clauses get removed when popping scopes.
         // we have to recompile the circuit after back-tracking.
         c.m_compiled = l_false;
@@ -1297,7 +1303,6 @@ namespace smt {
 
 
     void theory_pb::init_search_eh() {
-        m_to_compile.reset();
     }
 
     void theory_pb::push_scope_eh() {
@@ -1311,10 +1316,9 @@ namespace smt {
         unsigned sz = m_ineqs_lim[new_lim];
         while (m_ineqs_trail.size() > sz) {
             bool_var v = m_ineqs_trail.back();
-            ineq* c = 0;
-            VERIFY(m_ineqs.find(v, c));
+            ineq* c = m_var_infos[v].m_ineq;
             clear_watch(*c);
-            m_ineqs.remove(v);
+            m_var_infos[v].m_ineq = 0;
             m_ineqs_trail.pop_back();
             if (m_enable_simplex) {
                 row_info r_info;
@@ -1326,6 +1330,7 @@ namespace smt {
                     m_ineq_rep.erase(r_info.m_rep);
                 }
             }
+            m_to_compile.erase(c);
             dealloc(c);
         }
         m_ineqs_lim.resize(new_lim);
@@ -1451,6 +1456,7 @@ namespace smt {
         if (proofs_enabled()) {                                         
             js = alloc(theory_lemma_justification, get_id(), ctx, lits.size(), lits.c_ptr());
         }
+        TRACE("pb", tout << lits << "\n";);
         ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
     }
 
@@ -1746,7 +1752,7 @@ namespace smt {
         //    verbose_stream() << "(pb.conflict min size: " << l_size << ")\n";
         //    s_min_l_size = l_size;        
         //}
-        //IF_VERBOSE(1, verbose_stream() << "(pb.conflict " << m_ineq_literals.size() << " " << m_lemma.size() << "\n";);
+        IF_VERBOSE(1, verbose_stream() << "(pb.conflict " << m_ineq_literals.size() << " " << m_lemma.size() << ")\n";);
         switch(is_true) {
         case l_true:
             UNREACHABLE();
@@ -1757,6 +1763,7 @@ namespace smt {
             for (unsigned i = 0; i < m_ineq_literals.size(); ++i) {
                 m_ineq_literals[i].neg();
             }
+            TRACE("pb", tout << m_ineq_literals << "\n";);
             ctx.mk_clause(m_ineq_literals.size(), m_ineq_literals.c_ptr(), justify(m_ineq_literals), CLS_AUX_LEMMA, 0);
             break;
         default: {
@@ -1857,9 +1864,11 @@ namespace smt {
     }
 
     void theory_pb::validate_final_check() {
-        u_map<ineq*>::iterator itc = m_ineqs.begin(), endc = m_ineqs.end();
-        for (; itc != endc; ++itc) {
-            validate_final_check(*itc->m_value);                
+        for (unsigned i = 0; i < m_var_infos.size(); ++i) {
+            ineq* c = m_var_infos[i].m_ineq;
+            if (c) {
+                validate_final_check(*c);
+            }
         }
     }
 
@@ -2067,29 +2076,37 @@ namespace smt {
         return p;
     }
 
+    void theory_pb::display_watch(std::ostream& out, bool_var v, bool sign) const {
+        watch_list const* w = m_var_infos[v].m_lit_watch[sign];
+        if (!w) return;
+        watch_list const& wl = *w;
+        out << "watch: " << literal(v, sign) << " |-> ";
+        for (unsigned i = 0; i < wl.size(); ++i) {
+            out << wl[i]->lit() << " ";
+        }
+        out << "\n";        
+    }
+
     void theory_pb::display(std::ostream& out) const {
-        u_map<ptr_vector<ineq>*>::iterator it = m_lwatch.begin(), end = m_lwatch.end();
-        for (; it != end; ++it) {
-            out << "watch: " << to_literal(it->m_key) << " |-> ";
-            watch_list const& wl = *it->m_value;
+        for (unsigned vi = 0; vi < m_var_infos.size(); ++vi) {
+            display_watch(out, vi, false);
+            display_watch(out, vi, true);
+        }
+        for (unsigned vi = 0; vi < m_var_infos.size(); ++vi) {
+            watch_list const* w = m_var_infos[vi].m_var_watch;
+            if (!w) continue;
+            out << "watch (v): " << literal(vi) << " |-> ";
+            watch_list const& wl = *w;
             for (unsigned i = 0; i < wl.size(); ++i) {
                 out << wl[i]->lit() << " ";
             }
             out << "\n";
         }
-        it = m_vwatch.begin(), end = m_vwatch.end();
-        for (; it != end; ++it) {
-            out << "watch (v): " << literal(it->m_key) << " |-> ";
-            watch_list const& wl = *it->m_value;
-            for (unsigned i = 0; i < wl.size(); ++i) {
-                out << wl[i]->lit() << " ";
+        for (unsigned vi = 0; vi < m_var_infos.size(); ++vi) {
+            ineq* c = m_var_infos[vi].m_ineq;
+            if (c) {
+                display(out, *c, true);
             }
-            out << "\n";
-        }
-        u_map<ineq*>::iterator itc = m_ineqs.begin(), endc = m_ineqs.end();
-        for (; itc != endc; ++itc) {
-            ineq& c = *itc->m_value;
-            display(out, c, true);
         }
     }
 

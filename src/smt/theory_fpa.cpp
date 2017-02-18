@@ -21,6 +21,7 @@ Revision History:
 #include"theory_fpa.h"
 #include"theory_bv.h"
 #include"smt_model_generator.h"
+#include"bv2fpa_converter.h"
 
 namespace smt {
 
@@ -83,27 +84,6 @@ namespace smt {
         }
     }
 
-    void theory_fpa::fpa2bv_converter_wrapped::mk_function(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
-        // Note: this introduces new UFs that should be filtered afterwards. 
-        return fpa2bv_converter::mk_function(f, num, args, result);        
-    }
-
-    expr_ref theory_fpa::fpa2bv_converter_wrapped::mk_min_max_unspecified(func_decl * f, expr * x, expr * y) {
-        expr_ref a(m), wrapped(m), wu(m), wu_eq(m);
-        a = m.mk_app(f, x, y);
-        wrapped = m_th.wrap(a);
-        wu = m_th.unwrap(wrapped, f->get_range());
-        wu_eq = m.mk_eq(wu, a);
-        m_extra_assertions.push_back(wu_eq);
-
-        unsigned bv_sz = m_bv_util.get_bv_size(wrapped);
-        expr_ref sc(m);
-        sc = m.mk_eq(m_bv_util.mk_extract(bv_sz-2, 0, wrapped), m_bv_util.mk_numeral(0, bv_sz-1));
-        m_extra_assertions.push_back(sc);
-
-        return wu;
-    }
-
     theory_fpa::theory_fpa(ast_manager & m) :
         theory(m.mk_family_id("fpa")),
         m_converter(m, this),
@@ -137,15 +117,15 @@ namespace smt {
 
         SASSERT(m_trail_stack.get_num_scopes() == 0);
         SASSERT(m_conversions.empty());
-        SASSERT(m_is_added_to_model.empty());        
-    }    
+        SASSERT(m_is_added_to_model.empty());
+    }
     void theory_fpa::init(context * ctx) {
         smt::theory::init(ctx);
         m_is_initialized = true;
     }
 
     app * theory_fpa::fpa_value_proc::mk_value(model_generator & mg, ptr_vector<expr> & values) {
-        TRACE("t_fpa_detail", 
+        TRACE("t_fpa_detail",
               ast_manager & m = m_th.get_manager();
               for (unsigned i = 0; i < values.size(); i++)
                   tout << "value[" << i << "] = " << mk_ismt2_pp(values[i], m) << std::endl;);
@@ -222,7 +202,7 @@ namespace smt {
     app * theory_fpa::fpa_rm_value_proc::mk_value(model_generator & mg, ptr_vector<expr> & values) {
         SASSERT(values.size() == 1);
 
-        TRACE("t_fpa_detail", 
+        TRACE("t_fpa_detail",
               ast_manager & m = m_th.get_manager();
               for (unsigned i = 0; i < values.size(); i++)
               tout << "value[" << i << "] = " << mk_ismt2_pp(values[i], m) << std::endl;);
@@ -256,12 +236,12 @@ namespace smt {
         app_ref res(m);
 
         if (m_fpa_util.is_fp(e)) {
-            expr * cargs[3] = { to_app(e)->get_arg(0), to_app(e)->get_arg(1), to_app(e)->get_arg(2) };            
+            expr * cargs[3] = { to_app(e)->get_arg(0), to_app(e)->get_arg(1), to_app(e)->get_arg(2) };
             res = m_bv_util.mk_concat(3, cargs);
             m_th_rw((expr_ref&)res);
         }
         else {
-            sort * es = m.get_sort(e);            
+            sort * es = m.get_sort(e);
 
             sort_ref bv_srt(m);
             if (m_converter.is_rm(es))
@@ -285,7 +265,7 @@ namespace smt {
         SASSERT(!m_fpa_util.is_fp(e));
         SASSERT(m_bv_util.is_bv(e));
         SASSERT(m_fpa_util.is_float(s) || m_fpa_util.is_rm(s));
-        ast_manager & m = get_manager();        
+        ast_manager & m = get_manager();
         app_ref res(m);
 
         unsigned bv_sz = m_bv_util.get_bv_size(e);
@@ -306,7 +286,7 @@ namespace smt {
                                    m_bv_util.mk_extract(bv_sz - 2, sbits - 1, e),
                                    m_bv_util.mk_extract(sbits - 2, 0, e));
         }
-        
+
         return res;
     }
 
@@ -328,12 +308,13 @@ namespace smt {
 
         expr_ref e_conv(m), res(m);
         proof_ref pr(m);
+
         m_rw(e, e_conv);
 
         TRACE("t_fpa_detail", tout << "term: " << mk_ismt2_pp(e, get_manager()) << std::endl;
                               tout << "converted term: " << mk_ismt2_pp(e_conv, get_manager()) << std::endl;);
 
-        if (m_fpa_util.is_rm(e)) {            
+        if (m_fpa_util.is_rm(e)) {
             SASSERT(m_fpa_util.is_bv2rm(e_conv));
             expr_ref bv_rm(m);
             m_th_rw(to_app(e_conv)->get_arg(0), bv_rm);
@@ -350,7 +331,7 @@ namespace smt {
         }
         else
             UNREACHABLE();
-        
+
         return res;
     }
 
@@ -383,7 +364,7 @@ namespace smt {
                 res = convert_atom(e);
             else if (m_fpa_util.is_float(e) || m_fpa_util.is_rm(e))
                 res = convert_term(e);
-            else 
+            else
                 res = convert_conversion_term(e);
 
             TRACE("t_fpa_detail", tout << "converted; caching:" << std::endl;
@@ -416,6 +397,7 @@ namespace smt {
             res = m.mk_and(res, t);
         }
         m_converter.m_extra_assertions.reset();
+
         m_th_rw(res);
 
         CTRACE("t_fpa", !m.is_true(res), tout << "side condition: " << mk_ismt2_pp(res, m) << std::endl;);
@@ -469,7 +451,7 @@ namespace smt {
         TRACE("t_fpa_internalize", tout << "internalizing term: " << mk_ismt2_pp(term, get_manager()) << "\n";);
         SASSERT(term->get_family_id() == get_family_id());
         SASSERT(!get_context().e_internalized(term));
-        
+
         ast_manager & m = get_manager();
         context & ctx = get_context();
 
@@ -515,7 +497,7 @@ namespace smt {
         SASSERT(n->get_owner()->get_decl()->get_range() == s);
 
         ast_manager & m = get_manager();
-        context & ctx = get_context();        
+        context & ctx = get_context();
         app_ref owner(n->get_owner(), m);
 
         if (!is_attached_to_var(n)) {
@@ -531,7 +513,7 @@ namespace smt {
                     assert_cnstr(valid);
                 }
             }
-            
+
             if (!ctx.relevancy())
                 relevant_eh(owner);
         }
@@ -571,6 +553,7 @@ namespace smt {
             c = m.mk_eq(xc, yc);
 
         m_th_rw(c);
+
         expr_ref xe_eq_ye(m), c_eq_iff(m);
         xe_eq_ye = m.mk_eq(xe, ye);
         c_eq_iff = m.mk_iff(xe_eq_ye, c);
@@ -621,7 +604,7 @@ namespace smt {
         xe_eq_ye = m.mk_eq(xe, ye);
         not_xe_eq_ye = m.mk_not(xe_eq_ye);
         c_eq_iff = m.mk_iff(not_xe_eq_ye, c);
-        assert_cnstr(c_eq_iff);        
+        assert_cnstr(c_eq_iff);
         assert_cnstr(mk_side_conditions());
 
         return;
@@ -701,8 +684,15 @@ namespace smt {
             // These are the conversion functions fp.to_* */
             SASSERT(!m_fpa_util.is_float(n) && !m_fpa_util.is_rm(n));
         }
-        else
-            UNREACHABLE();
+        else {
+            /* Theory variables can be merged when (= bv-term (bvwrap fp-term)),
+               in which case context::relevant_eh may call theory_fpa::relevant_eh
+               after theory_bv::relevant_eh, regardless of whether theory_fpa is
+               interested in this term. But, this can only happen because of
+               (bvwrap ...) terms, i.e., `n' must be a bit-vector expression,
+               which we can safely ignore. */
+            SASSERT(m_bv_util.is_bv(n));
+        }
     }
 
     void theory_fpa::reset_eh() {
@@ -710,9 +700,12 @@ namespace smt {
         pop_scope_eh(m_trail_stack.get_num_scopes());
         m_converter.reset();
         m_rw.reset();
-        m_th_rw.reset();        
-        m_trail_stack.pop_scope(m_trail_stack.get_num_scopes());        
-        if (m_factory) dealloc(m_factory); m_factory = 0;
+        m_th_rw.reset();
+        m_trail_stack.pop_scope(m_trail_stack.get_num_scopes());
+        if (m_factory) {
+            dealloc(m_factory);
+            m_factory = 0;
+        }
         ast_manager & m = get_manager();
         dec_ref_map_key_values(m, m_conversions);
         dec_ref_collection_values(m, m_is_added_to_model);
@@ -727,8 +720,9 @@ namespace smt {
 
     void theory_fpa::init_model(model_generator & mg) {
         TRACE("t_fpa", tout << "initializing model" << std::endl; display(tout););
-        m_factory = alloc(fpa_value_factory, get_manager(), get_family_id());
-        mg.register_factory(m_factory);        
+        ast_manager & m = get_manager();
+        m_factory = alloc(fpa_value_factory, m, get_family_id());
+        mg.register_factory(m_factory);
     }
 
     model_value_proc * theory_fpa::mk_value(enode * n, model_generator & mg) {
@@ -814,7 +808,33 @@ namespace smt {
         return res;
     }
 
-    void theory_fpa::finalize_model(model_generator & mg) {}
+    void theory_fpa::finalize_model(model_generator & mg) {
+        ast_manager & m = get_manager();
+        proto_model & mdl = mg.get_model();
+        proto_model new_model(m);
+
+        bv2fpa_converter bv2fp(m, m_converter);
+
+        obj_hashtable<func_decl> seen;
+        bv2fp.convert_min_max_specials(&mdl, &new_model, seen);
+        bv2fp.convert_uf2bvuf(&mdl, &new_model, seen);
+
+        for (obj_hashtable<func_decl>::iterator it = seen.begin();
+             it != seen.end();
+             it++)
+            mdl.unregister_decl(*it);
+
+        for (unsigned i = 0; i < new_model.get_num_constants(); i++) {
+            func_decl * f = new_model.get_constant(i);
+            mdl.register_decl(f, new_model.get_const_interp(f));
+        }
+
+        for (unsigned i = 0; i < new_model.get_num_functions(); i++) {
+            func_decl * f = new_model.get_function(i);
+            func_interp * fi = new_model.get_func_interp(f)->copy();
+            mdl.register_decl(f, fi);
+        }
+    }
 
     void theory_fpa::display(std::ostream & out) const
     {
@@ -865,8 +885,8 @@ namespace smt {
     }
 
     bool theory_fpa::include_func_interp(func_decl * f) {
-        TRACE("t_fpa", tout << "f = " << mk_ismt2_pp(f, get_manager()) << std::endl;);        
-        
+        TRACE("t_fpa", tout << "f = " << mk_ismt2_pp(f, get_manager()) << std::endl;);
+
         if (f->get_family_id() == get_family_id()) {
             bool include =
                 m_fpa_util.is_min_unspecified(f) ||
@@ -882,8 +902,6 @@ namespace smt {
             }
             return false;
         }
-        else if (m_converter.is_uf2bvuf(f) || m_converter.is_special(f))
-            return false;
         else
             return true;
     }

@@ -176,7 +176,7 @@ private:
         app_map coloring;
         app_map depth;
         inv_app_map inv_color;
-        unsigned num_occs;
+        unsigned num_occs = 0;
         compute_sort_colors(fml, coloring);
         compute_max_depth(fml, depth);
         merge_colors(occs, coloring);        
@@ -233,7 +233,7 @@ private:
     typedef map<u_pair, unsigned, u_pair::hash, u_pair::eq> pair_map;
     bool merge_colors(app_map const& colors1, app_map& colors2) {
         pair_map recolor;
-        unsigned num_colors = 0, v1, v2, w, old_max = 0;
+        unsigned num_colors = 0, v1 = 0, v2 = 0, w = 0, old_max = 0;
         app_map::iterator it = colors2.begin(), end = colors2.end();
         for (; it != end; ++it) {
             app* a = it->m_key;
@@ -545,7 +545,7 @@ private:
         term_set& cts, term_set const& consts, app_map const& occs) {
         SASSERT(!T.empty());
         app* t = T[0];
-        unsigned weight, weight1;
+        unsigned weight = 0, weight1 = 0;
         VERIFY(occs.find(t, weight));
         unsigned cts_delta = compute_cts_delta(t, cts, consts);
         TRACE("symmetry_reduce", tout << mk_pp(t, m()) << " " << weight << " " << cts_delta << "\n";);
@@ -559,9 +559,9 @@ private:
             TRACE("symmetry_reduce", tout << mk_pp(t1, m()) << " " << weight1 << " " << cts_delta1 << "\n";);
             if ((t->get_num_args() == t1->get_num_args() && (weight1 > weight || cts_delta1 < cts_delta)) || 
                 t->get_num_args() > t1->get_num_args()) {
-                 cts_delta = cts_delta1;
-                 weight = weight1;
-                 t = t1;
+                cts_delta = cts_delta1;
+                weight = weight1;
+                t = t1;
             }
         }        
         return t;

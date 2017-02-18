@@ -280,7 +280,7 @@ void tst_int_min_bug() {
     mpz big;
     mpz expected;
     mpz r;
-    m.set(big, UINT64_MAX);
+    m.set(big, static_cast<uint64>(UINT64_MAX));
     m.set(expected, "18446744075857035263");
     m.sub(big, intmin, r);
     std::cout << "r: " << m.to_string(r) << "\nexpected: " << m.to_string(expected) << "\n";

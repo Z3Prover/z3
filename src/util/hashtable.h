@@ -556,6 +556,37 @@ public:
         out << "]";
     }
 
+    core_hashtable& operator|=(core_hashtable const& other) {
+        if (this == &other) return *this;
+        iterator i = other.begin(), e = other.end();
+        for (; i != e; ++i) {
+            insert(*i);
+        }
+        return *this;
+    }
+
+    core_hashtable& operator&=(core_hashtable const& other) {
+        if (this == &other) return *this;
+        core_hashtable copy(*this);
+        iterator i = copy.begin(), e = copy.end();
+        for (; i != e; ++i) {
+            if (!other.contains(*i)) {
+                remove(*i);
+            }
+        }
+        return *this;
+    }
+
+    core_hashtable& operator=(core_hashtable const& other) {
+        if (this == &other) return *this;
+        reset();
+        iterator i = other.begin(), e = other.end();
+        for (; i != e; ++i) {
+            insert(*i);
+        }
+        return *this;
+    }
+
 #ifdef Z3DEBUG
     bool check_invariant() {
         entry * curr = m_table;
@@ -582,9 +613,6 @@ public:
     unsigned long long get_num_collision() const { return 0; }
 #endif
 
- private:
-
-    core_hashtable& operator=(core_hashtable const&);
     
 };
 
@@ -616,7 +644,6 @@ public:
     ptr_addr_hashtable(unsigned initial_capacity = DEFAULT_HASHTABLE_INITIAL_CAPACITY):
         core_hashtable<ptr_addr_hash_entry<T>, ptr_hash<T>, ptr_eq<T> >(initial_capacity) {}
 
-    // Using iterators to traverse the elements of this kind of hashtable will produce non-determinism.
     iterator begin() const { 
         UNREACHABLE();
     }
@@ -624,6 +651,9 @@ public:
     iterator end() const { 
         UNREACHABLE();
     }
+
+    // NB. Using iterators to traverse the elements of this kind of hashtable will produce non-determinism.
+
 };
 
 /**
@@ -639,5 +669,6 @@ public:
                   EqProc const & e = EqProc()):
         core_hashtable<int_hash_entry<INT_MIN, INT_MIN + 1>, HashProc, EqProc>(initial_capacity, h, e) {}
 };
+
 
 #endif /* HASHTABLE_H_ */

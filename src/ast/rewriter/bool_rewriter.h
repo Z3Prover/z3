@@ -75,6 +75,8 @@ class bool_rewriter {
     bool local_ctx_simp(unsigned num_args, expr * const * args, expr_ref & result);
     br_status try_ite_value(app * ite, app * val, expr_ref & result);
 
+    void push_new_arg(expr* arg, expr_ref_vector& new_args, expr_fast_mark1& neg_lits, expr_fast_mark2& pos_lits);
+
 public:
     bool_rewriter(ast_manager & m, params_ref const & p = params_ref()):m_manager(m), m_local_ctx_cost(0) { updt_params(p); }
     ast_manager & m() const { return m_manager; }

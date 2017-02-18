@@ -17,55 +17,67 @@ Notes:
 
 package com.microsoft.z3;
 
-import java.util.LinkedList;
+import java.lang.ref.PhantomReference;
+import java.lang.ref.Reference;
+import java.lang.ref.ReferenceQueue;
+import java.util.IdentityHashMap;
+import java.util.Map;
 
-public abstract class IDecRefQueue
-{
-    protected final Object m_lock = new Object();
-    protected LinkedList<Long> m_queue = new LinkedList<Long>();
-    protected int m_move_limit;
+/**
+ * A queue to handle management of native memory.
+ *
+ * <p><b>Mechanics: </b>once an object is created, a metadata is stored for it in
+ * {@code referenceMap}, and a {@link PhantomReference} is created with a
+ * reference  to {@code referenceQueue}.
+ * Once the object becomes strongly unreachable, the phantom reference gets
+ * added by JVM to the {@code referenceQueue}.
+ * After each object creation, we iterate through the available objects in
+ * {@code referenceQueue} and decrement references for them.
+ *
+ * @param <T> Type of object stored in queue.
+ */
+public abstract class IDecRefQueue<T extends Z3Object> {
+    private final ReferenceQueue<T> referenceQueue = new ReferenceQueue<>();
+    private final Map<PhantomReference<T>, Long> referenceMap =
+            new IdentityHashMap<>();
 
-    protected IDecRefQueue() 
-	{
-    	m_move_limit = 1024;
-    }
+    protected IDecRefQueue() {}
 
-    protected IDecRefQueue(int move_limit) 
-    {
-    	m_move_limit = move_limit;
-    }
- 
-    public void setLimit(int l) { m_move_limit = l; }
- 
-    protected abstract void incRef(Context ctx, long obj);
-
+    /**
+     * An implementation of this method should decrement the reference on a
+     * given native object.
+     * This function should always be called on the {@code ctx} thread.
+     *
+     * @param ctx Z3 context.
+     * @param obj Pointer to a Z3 object.
+     */
     protected abstract void decRef(Context ctx, long obj);
 
-    protected void incAndClear(Context ctx, long o)
-    {
-        incRef(ctx, o);
-        if (m_queue.size() >= m_move_limit)
-            clear(ctx);
+    public void storeReference(Context ctx, T obj) {
+        PhantomReference<T> ref = new PhantomReference<>(obj, referenceQueue);
+        referenceMap.put(ref, obj.getNativeObject());
+        clear(ctx);
     }
 
-    protected void add(long o)
+    /**
+     * Clean all references currently in {@code referenceQueue}.
+     */
+    protected void clear(Context ctx)
     {
-        if (o == 0)
-            return;
-
-        synchronized (m_lock)
-        {
-            m_queue.add(o);
+        Reference<? extends T> ref;
+        while ((ref = referenceQueue.poll()) != null) {
+            long z3ast = referenceMap.remove(ref);
+            decRef(ctx, z3ast);
         }
     }
 
-    protected void clear(Context ctx)
-    {
-        synchronized (m_lock)
-        {
-            for (Long o : m_queue)
-                decRef(ctx, o);
-            m_queue.clear();
+    /**
+     * Clean all references stored in {@code referenceMap},
+     * <b>regardless</b> of whether they are in {@code referenceMap} or not.
+     */
+    public void forceClear(Context ctx) {
+        for (long ref : referenceMap.values()) {
+            decRef(ctx, ref);
         }
     }
 }

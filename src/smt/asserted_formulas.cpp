@@ -184,13 +184,13 @@ void asserted_formulas::get_assertions(ptr_vector<expr> & result) {
 }
 
 void asserted_formulas::push_scope() {
-    SASSERT(inconsistent() || m_asserted_qhead == m_asserted_formulas.size());
+    SASSERT(inconsistent() || m_asserted_qhead == m_asserted_formulas.size() || m_manager.canceled());
     TRACE("asserted_formulas_scopes", tout << "push:\n"; display(tout););
     m_scopes.push_back(scope());
     m_macro_manager.push_scope();
     scope & s = m_scopes.back();
     s.m_asserted_formulas_lim    = m_asserted_formulas.size();
-    SASSERT(inconsistent() || s.m_asserted_formulas_lim == m_asserted_qhead);
+    SASSERT(inconsistent() || s.m_asserted_formulas_lim == m_asserted_qhead || m_manager.canceled());
     s.m_inconsistent_old         = m_inconsistent;
     m_defined_names.push();
     m_bv_sharing.push_scope();
@@ -543,8 +543,12 @@ void asserted_formulas::infer_patterns() {
 }
 
 void asserted_formulas::commit() {
-    m_macro_manager.mark_forbidden(m_asserted_formulas.size() - m_asserted_qhead, m_asserted_formulas.c_ptr() + m_asserted_qhead);
-    m_asserted_qhead = m_asserted_formulas.size();
+    commit(m_asserted_formulas.size());
+}
+
+void asserted_formulas::commit(unsigned new_qhead) {
+    m_macro_manager.mark_forbidden(new_qhead - m_asserted_qhead, m_asserted_formulas.c_ptr() + m_asserted_qhead);
+    m_asserted_qhead = new_qhead;
 }
 
 void asserted_formulas::eliminate_term_ite() {

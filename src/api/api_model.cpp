@@ -86,7 +86,7 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             RETURN_Z3(0);
         }
-        Z3_func_interp_ref * fi = alloc(Z3_func_interp_ref, to_model_ref(m));
+        Z3_func_interp_ref * fi = alloc(Z3_func_interp_ref, *mk_c(c), to_model_ref(m));
         fi->m_func_interp       = _fi;
         mk_c(c)->save_object(fi);
         RETURN_Z3(of_func_interp(fi));
@@ -192,7 +192,7 @@ extern "C" {
             RETURN_Z3(0);
         }
         ptr_vector<expr> const & universe = to_model_ref(m)->get_universe(to_sort(s));
-        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, mk_c(c)->m());
+        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
         mk_c(c)->save_object(v);
         unsigned sz = universe.size();
         for (unsigned i = 0; i < sz; i++) {
@@ -262,7 +262,7 @@ extern "C" {
             SET_ERROR_CODE(Z3_IOB);
             RETURN_Z3(0);
         }
-        Z3_func_entry_ref * e = alloc(Z3_func_entry_ref, to_func_interp(f)->m_model.get());
+        Z3_func_entry_ref * e = alloc(Z3_func_entry_ref, *mk_c(c), to_func_interp(f)->m_model.get());
         e->m_func_interp = to_func_interp_ref(f);
         e->m_func_entry  = to_func_interp_ref(f)->get_entry(i);
         mk_c(c)->save_object(e);

@@ -43,8 +43,7 @@ bool arith_simplifier_plugin::is_neg_poly(expr * t) const {
     if (m_util.is_mul(t)) {
         t = to_app(t)->get_arg(0);
         rational r;
-        bool is_int;
-        if (m_util.is_numeral(t, r, is_int))
+        if (is_numeral(t, r))
             return r.is_neg();
     }
     return false;

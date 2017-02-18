@@ -88,7 +88,7 @@ namespace datalog {
             svector<bool> m_can_remove, m_can_expand;
             obj_map<expr, unsigned_vector> m_positions;
         public:
-            visitor(context& c, substitution & s): st_visitor(s), m_context(c) {}
+            visitor(context& c, substitution & s): st_visitor(s), m_context(c) { (void) m_context; }
             virtual bool operator()(expr* e);
             void         reset() { m_unifiers.reset(); }
             void         reset(unsigned sz);

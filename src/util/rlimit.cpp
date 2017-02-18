@@ -20,7 +20,7 @@ Revision History:
 #include "common_msgs.h"
 
 reslimit::reslimit():
-    m_cancel(false),
+    m_cancel(0),
     m_count(0),
     m_limit(0) {
 }
@@ -36,7 +36,7 @@ bool reslimit::inc() {
 
 bool reslimit::inc(unsigned offset) {
     m_count += offset;
-    return !m_cancel && (m_limit == 0 || m_count <= m_limit);
+    return m_cancel == 0 && (m_limit == 0 || m_count <= m_limit);
 }
 
 void reslimit::push(unsigned delta_limit) {
@@ -45,7 +45,7 @@ void reslimit::push(unsigned delta_limit) {
         new_limit = 0;
     }
     m_limits.push_back(m_limit);
-    m_limit = m_limit==0?new_limit:std::min(new_limit, m_limit);
+    m_limit = m_limit==0 ? new_limit : std::min(new_limit, m_limit);
     m_cancel = 0;
 }
 
@@ -70,14 +70,14 @@ char const* reslimit::get_cancel_msg() const {
 void reslimit::push_child(reslimit* r) {
     #pragma omp critical (reslimit_cancel)
     {
-        m_children.push_back(r); 
+        m_children.push_back(r);
     }
 }
 
 void reslimit::pop_child() {
     #pragma omp critical (reslimit_cancel)
     {
-        m_children.pop_back(); 
+        m_children.pop_back();
     }
 }
 
@@ -98,7 +98,7 @@ void reslimit::reset_cancel() {
 
 void reslimit::inc_cancel() {
     #pragma omp critical (reslimit_cancel)
-    {        
+    {
         set_cancel(m_cancel+1);
     }
 }
@@ -113,8 +113,8 @@ void reslimit::dec_cancel() {
     }
 }
 
-void reslimit::set_cancel(unsigned f) { 
-    m_cancel = f; 
+void reslimit::set_cancel(unsigned f) {
+    m_cancel = f;
     for (unsigned i = 0; i < m_children.size(); ++i) {
         m_children[i]->set_cancel(f);
     }

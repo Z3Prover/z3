@@ -268,7 +268,7 @@ namespace smt {
         }
         rational _val; 
         expr* arg1, *arg2;
-        if (m_util.is_mul(m, arg1, arg2) && m_util.is_numeral(arg1, _val)) {
+        if (m_util.is_mul(m, arg1, arg2) && m_util.is_numeral(arg1, _val) && is_app(arg1) && is_app(arg2)) {
             SASSERT(m->get_num_args() == 2);
             numeral val(_val);
             theory_var v = internalize_term_core(to_app(arg2));
@@ -297,6 +297,11 @@ namespace smt {
         scoped_row_vars _sc(m_row_vars, m_row_vars_top);
         unsigned num_args = n->get_num_args();
         for (unsigned i = 0; i < num_args; i++) {
+            if (is_var(n->get_arg(i))) {
+                std::ostringstream strm;
+                strm << mk_pp(n, get_manager()) << " contains a free variable";
+                throw default_exception(strm.str());
+            }
             internalize_internal_monomial(to_app(n->get_arg(i)), r_id);
         }
         enode * e = mk_enode(n);
@@ -356,6 +361,11 @@ namespace smt {
             SASSERT(!val.is_one());
             unsigned r_id = mk_row();
             scoped_row_vars _sc(m_row_vars, m_row_vars_top);
+            if (is_var(m->get_arg(1))) {
+                std::ostringstream strm;
+                strm << mk_pp(m, get_manager()) << " contains a free variable";
+                throw default_exception(strm.str());
+            }
             if (reflection_enabled())
                 internalize_term_core(to_app(m->get_arg(0)));
             theory_var v = internalize_mul_core(to_app(m->get_arg(1)));
@@ -455,7 +465,7 @@ namespace smt {
               tout << s_ante << "\n" << s_conseq << "\n";);
 
         literal lits[2] = {l_ante, l_conseq};
-        ctx.mk_th_axiom(get_id(), 2, lits);
+        mk_clause(l_ante, l_conseq, 0, 0);
         if (ctx.relevancy()) {
             if (l_ante == false_literal) {
                 ctx.mark_as_relevant(l_conseq);
@@ -747,17 +757,25 @@ namespace smt {
             enode * e = mk_enode(n);
             return mk_var(e);
         }
-        else {
-            TRACE("arith_internalize_detail", tout << "before:\n" << mk_pp(n, get_manager()) << "\n";);
-            if (!ctx.e_internalized(n))
-                ctx.internalize(n, false);
-            TRACE("arith_internalize_detail", tout << "after:\n" << mk_pp(n, get_manager()) << "\n";);
-            enode * e    = ctx.get_enode(n);
-            if (!is_attached_to_var(e))
-                return mk_var(e);
-            else
-                return e->get_th_var(get_id());
+        if (m_util.get_family_id() == n->get_family_id()) {
+            found_unsupported_op(n);
+            if (ctx.e_internalized(n))
+                return expr2var(n);
+            for (unsigned i = 0; i < n->get_num_args(); ++i) {
+                ctx.internalize(n->get_arg(i), false);
+            }
+            return mk_var(mk_enode(n));
         }
+
+        TRACE("arith_internalize_detail", tout << "before:\n" << mk_pp(n, get_manager()) << "\n";);
+        if (!ctx.e_internalized(n))
+            ctx.internalize(n, false);
+        TRACE("arith_internalize_detail", tout << "after:\n" << mk_pp(n, get_manager()) << "\n";);
+        enode * e    = ctx.get_enode(n);
+        if (!is_attached_to_var(e))
+            return mk_var(e);
+        else
+            return e->get_th_var(get_id());
     }
 
     /**
@@ -916,11 +934,13 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::mk_clause(literal l1, literal l2, unsigned num_params, parameter * params) {
+        TRACE("arith", literal lits[2]; lits[0] = l1; lits[1] = l2; get_context().display_literals_verbose(tout, 2, lits); tout << "\n";);
         get_context().mk_th_axiom(get_id(), l1, l2, num_params, params);
     }
 
     template<typename Ext>
     void theory_arith<Ext>::mk_clause(literal l1, literal l2, literal l3, unsigned num_params, parameter * params) {
+        TRACE("arith", literal lits[3]; lits[0] = l1; lits[1] = l2; lits[2] = l3; get_context().display_literals_verbose(tout, 3, lits); tout << "\n";);
         get_context().mk_th_axiom(get_id(), l1, l2, l3, num_params, params);
     }
 
@@ -1051,7 +1071,7 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::flush_bound_axioms() {
-        CTRACE("arith", !m_new_atoms.empty(), tout << "flush bound axioms\n";);
+        CTRACE("arith_verbose", !m_new_atoms.empty(), tout << "flush bound axioms\n";);
 
         while (!m_new_atoms.empty()) {
             ptr_vector<atom> atoms;            
@@ -1066,7 +1086,7 @@ namespace smt {
                     --i;
                 }
             }            
-            CTRACE("arith", !atoms.empty(),  
+            CTRACE("arith", atoms.size() > 1,  
                   for (unsigned i = 0; i < atoms.size(); ++i) {
                       atoms[i]->display(*this, tout); tout << "\n";
                   });
@@ -1196,6 +1216,9 @@ namespace smt {
             kind = A_UPPER;
         else
             kind = A_LOWER;
+        if (!is_app(n->get_arg(0)) || !is_app(n->get_arg(1))) {
+            return false;
+        }
         app * lhs      = to_app(n->get_arg(0));
         app * rhs      = to_app(n->get_arg(1));
         expr * rhs2;
@@ -1214,6 +1237,14 @@ namespace smt {
         ctx.set_var_theory(bv, get_id());
         rational _k;
         VERIFY(m_util.is_numeral(rhs, _k));
+        if (is_int(v) && !_k.is_int()) {
+            if (kind == A_UPPER) {
+                _k = floor(_k);
+            }
+            else {
+                _k = ceil(_k);
+            }
+        }
         inf_numeral   k(_k);
         atom * a = alloc(atom, bv, v, k, kind);
         mk_bound_axioms(a);
@@ -1237,10 +1268,11 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::internalize_eq_eh(app * atom, bool_var v) {
-        if (m_params.m_arith_eager_eq_axioms) {
+        expr* _lhs, *_rhs;
+        if (m_params.m_arith_eager_eq_axioms && get_manager().is_eq(atom, _lhs, _rhs) && is_app(_lhs) && is_app(_rhs)) {
             context & ctx  = get_context();
-            app * lhs      = to_app(atom->get_arg(0));
-            app * rhs      = to_app(atom->get_arg(1));
+            app * lhs      = to_app(_lhs);
+            app * rhs      = to_app(_rhs);
             enode * n1 = ctx.get_enode(lhs);
             enode * n2 = ctx.get_enode(rhs);
             // The expression atom may be a theory axiom. In this case, it may not be in simplified form.
@@ -1262,7 +1294,7 @@ namespace smt {
     
     template<typename Ext>
     void theory_arith<Ext>::assign_eh(bool_var v, bool is_true) {
-        TRACE("arith", tout << "p" << v << " := " << (is_true?"true":"false") << "\n";);
+        TRACE("arith_verbose", tout << "p" << v << " := " << (is_true?"true":"false") << "\n";);
         atom * a = get_bv2a(v);
         if (!a) return;
         SASSERT(get_context().get_assignment(a->get_bool_var()) != l_undef);
@@ -1373,26 +1405,27 @@ namespace smt {
 
     template<typename Ext>
     final_check_status theory_arith<Ext>::final_check_core() {
+        m_model_depends_on_computed_epsilon = false;
         unsigned old_idx = m_final_check_idx;
         final_check_status result = FC_DONE;
         final_check_status ok;
         do {
-            TRACE("final_check_arith", tout << "m_final_check_idx: " << m_final_check_idx << ", result: " << result << "\n";);
+            TRACE("arith", tout << "m_final_check_idx: " << m_final_check_idx << ", result: " << result << "\n";);
             switch (m_final_check_idx) {
             case 0:
                 ok = check_int_feasibility();
-                TRACE("final_check_arith", tout << "check_int_feasibility(), ok: " << ok << "\n";);
+                TRACE("arith", tout << "check_int_feasibility(), ok: " << ok << "\n";);
                 break;
             case 1:
                 if (assume_eqs_core())
                     ok = FC_CONTINUE;
                 else
                     ok = FC_DONE;
-                TRACE("final_check_arith", tout << "assume_eqs(), ok: " << ok << "\n";);
+                TRACE("arith", tout << "assume_eqs(), ok: " << ok << "\n";);
                 break;
             default:
                 ok = process_non_linear();
-                TRACE("final_check_arith", tout << "non_linear(), ok: " << ok << "\n";);
+                TRACE("arith", tout << "non_linear(), ok: " << ok << "\n";);
                 break;
             }
             m_final_check_idx = (m_final_check_idx + 1) % 3;
@@ -1403,7 +1436,7 @@ namespace smt {
                 result = FC_GIVEUP;
                 break;
             case FC_CONTINUE:
-                TRACE("final_check_arith", 
+                TRACE("arith", 
                       tout << "continue arith..." 
                       << (get_context().inconsistent()?"inconsistent\n":"\n"););
                 return FC_CONTINUE;
@@ -1420,7 +1453,7 @@ namespace smt {
     template<typename Ext>
     final_check_status theory_arith<Ext>::final_check_eh() {
         TRACE("arith_eq_adapter_info", m_arith_eq_adapter.display_already_processed(tout););
-        TRACE("arith_final_check", display(tout););
+        TRACE("arith", display(tout););
 
         if (!propagate_core()) 
             return FC_CONTINUE; 
@@ -1437,7 +1470,7 @@ namespace smt {
         m_liberal_final_check = false;
         m_changed_assignment  = false;
         result = final_check_core();
-        TRACE("final_check_arith", tout << "result: " << result << "\n";);
+        TRACE("arith", tout << "result: " << result << "\n";);
         return result;
     }
     
@@ -1637,6 +1670,7 @@ namespace smt {
         m_liberal_final_check(true),
         m_changed_assignment(false),
         m_assume_eq_head(0),
+        m_model_depends_on_computed_epsilon(false),
         m_nl_rounds(0),
         m_nl_gb_exhausted(false),
         m_nl_new_exprs(m),
@@ -2394,6 +2428,7 @@ namespace smt {
         theory_var          v = b->get_var();
         inf_numeral const & k = b->get_value();
 
+        TRACE("arith", display_bound(tout, b); tout << "v" << v << " <= " << k << "\n";);
         bound * u = upper(v);
         bound * l = lower(v);
         
@@ -2434,7 +2469,7 @@ namespace smt {
 
     template<typename Ext>
     bool theory_arith<Ext>::assert_bound(bound * b) {
-        TRACE("assert_bound", display_bound(tout, b););
+        TRACE("assert_bound", display_bound(tout, b); display(tout););
         theory_var v = b->get_var();
 
         if (b->is_atom()) {
@@ -2456,7 +2491,7 @@ namespace smt {
             break;
         }
         
-        TRACE("arith_assert", tout << "result: " << result << "\n"; display(tout););
+        TRACE("arith_bound", tout << "result: " << result << "\n"; display(tout););
         return result;
     }
 
@@ -3012,12 +3047,14 @@ namespace smt {
         m_stats.m_conflicts++;
         m_num_conflicts++;
         TRACE("arith_conflict", 
+              tout << "scope: " << ctx.get_scope_level() << "\n";
               for (unsigned i = 0; i < num_literals; i++) {
                   ctx.display_detailed_literal(tout, lits[i]);
                   tout << " ";
                   if (coeffs_enabled()) {
                       tout << "bound: " << bounds.lit_coeffs()[i] << "\n";
                   }
+                  tout << "\n";
               }
               for (unsigned i = 0; i < num_eqs; i++) {
                   tout << "#" << eqs[i].first->get_owner_id() << "=#" << eqs[i].second->get_owner_id() << " ";
@@ -3185,7 +3222,9 @@ namespace smt {
         m_factory = alloc(arith_factory, get_manager());
         m.register_factory(m_factory);
         compute_epsilon();
-        refine_epsilon();
+        if (!m_model_depends_on_computed_epsilon) {
+            refine_epsilon();
+        }
     }
 
     template<typename Ext>
@@ -3198,7 +3237,7 @@ namespace smt {
             TRACE("arith", tout << "Truncating non-integer value. This is possible for non-linear constraints v" << v << " " << num << "\n";);
             num = floor(num);
         }
-        return alloc(expr_wrapper_proc, m_factory->mk_value(num, m_util.is_int(var2expr(v))));
+        return alloc(expr_wrapper_proc, m_factory->mk_num_value(num, m_util.is_int(var2expr(v))));
     }
 
     // -----------------------------------

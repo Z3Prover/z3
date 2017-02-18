@@ -95,7 +95,7 @@ namespace sat {
             if (updt_cache)
                 cache_bins(l, old_tr_sz);
             s.pop(1);
-            
+
             literal_vector::iterator it  = m_to_assert.begin();
             literal_vector::iterator end = m_to_assert.end();
             for (; it != end; ++it) {
@@ -139,17 +139,17 @@ namespace sat {
 
         if (m_probing_binary) {
             watch_list & wlist = s.get_wlist(~l);
-            watch_list::iterator it  = wlist.begin();
-            watch_list::iterator end = wlist.end();
-            for (; it != end ; ++it) {
-                if (!it->is_binary_clause())
+            for (unsigned i = 0; i < wlist.size(); i++) {
+                watched & w = wlist[i];
+                if (!w.is_binary_clause())
                     break;
-                literal l2 = it->get_literal();
+                literal l2 = w.get_literal();
                 if (l.index() > l2.index())
                     continue;
                 if (s.value(l2) != l_undef)
                     continue;
                 // verbose_stream() << "probing " << l << " " << l2 << " " << m_counter << "\n";
+                // Note: that try_lit calls propagate, which may update the watch lists.
                 if (!try_lit(l2, false))
                     return;
                 if (s.inconsistent())
@@ -178,10 +178,10 @@ namespace sat {
             m_num_assigned(p.m_num_assigned) {
             m_watch.start();
         }
-        
+
         ~report() {
             m_watch.stop();
-            IF_VERBOSE(SAT_VB_LVL, 
+            IF_VERBOSE(SAT_VB_LVL,
                        verbose_stream() << " (sat-probing :probing-assigned "
                        << (m_probing.m_num_assigned - m_num_assigned)
                        << " :cost " << m_probing.m_counter;
@@ -189,7 +189,7 @@ namespace sat {
                        verbose_stream() << mem_stat() << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds() << ")\n";);
         }
     };
-     
+
     bool probing::operator()(bool force) {
         if (!m_probing)
             return true;
@@ -200,8 +200,8 @@ namespace sat {
         CASSERT("probing", s.check_invariant());
         if (!force && m_counter > 0)
             return true;
-        
-        if (m_probing_cache && memory::get_allocation_size() > m_probing_cache_limit) 
+
+        if (m_probing_cache && memory::get_allocation_size() > m_probing_cache_limit)
             m_cached_bins.finalize();
 
         report rpt(*this);
@@ -239,7 +239,7 @@ namespace sat {
             m_counter *= 2;
         }
         CASSERT("probing", s.check_invariant());
-        free_memory();
+        finalize();
         return r;
     }
 
@@ -255,15 +255,16 @@ namespace sat {
         // TODO
     }
 
-    void probing::free_memory() {
-        m_assigned.cleanup();
+    void probing::finalize() {
+        m_assigned.finalize();
         m_to_assert.finalize();
+        m_cached_bins.finalize();
     }
-    
+
     void probing::collect_statistics(statistics & st) const {
         st.update("probing assigned", m_num_assigned);
     }
-    
+
     void probing::reset_statistics() {
         m_num_assigned = 0;
     }

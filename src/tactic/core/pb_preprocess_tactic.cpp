@@ -151,9 +151,6 @@ public:
         SASSERT(g->is_well_sorted());
         pc = 0; core = 0;
 
-        if (g->unsat_core_enabled()) {
-            throw tactic_exception("pb-preprocess does not support cores");
-        }
         if (g->proofs_enabled()) {
             throw tactic_exception("pb-preprocess does not support proofs");
         }
@@ -202,6 +199,7 @@ public:
         while (it != m_vars.end()) {            
             app * e = it->m_key;
             rec const& r = it->m_value;
+            TRACE("pb", tout << mk_pp(e, m) << " " << r.pos.size() << " " << r.neg.size() << "\n";);
             if (r.pos.empty()) {                
                 replace(r.neg, e, m.mk_false(), g);
                 mc.set_value(e, false);
@@ -249,11 +247,11 @@ public:
             unsigned_vector const& pos = neg?r.neg:r.pos;
             for (unsigned j = 0; j < pos.size(); ++j) {
                 unsigned k = pos[j];
-                if (k == i) continue;
+                if (k == m_ge[i]) continue;
                 if (!to_ge(g->form(k), args2, coeffs2, k2)) continue;
                 if (subsumes(args1, coeffs1, k1, args2, coeffs2, k2)) {
                     IF_VERBOSE(3, verbose_stream() << "replace " << mk_pp(g->form(k), m) << "\n";);
-                    g->update(k, m.mk_true());                    
+                    g->update(k, m.mk_true(), 0, m.mk_join(g->dep(m_ge[i]), g->dep(k))); 
                     m_progress = true;
                 }
             }
@@ -299,7 +297,7 @@ private:
                     args.push_back(negate(to_app(r)->get_arg(j)));
                 }
                 tmp = pb.mk_ge(args.size(), coeffs.c_ptr(), args.c_ptr(), sum - k + rational::one());
-                g->update(i, tmp);
+                g->update(i, tmp, g->pr(i), g->dep(i));
             }
         }
     }
@@ -331,12 +329,12 @@ private:
                 for (unsigned j = 0; j < cuts.size(); ++j) {
                     unsigned end = cuts[j];
                     fml1 = decompose_cut(a, start, end, cut_args, cut_coeffs); 
-                    g->assert_expr(fml1);
+                    g->assert_expr(fml1, 0, g->dep(i));
                     start = end;
                     TRACE("pb", tout << fml1 << "\n";);
                 }
                 fml2 = pb.mk_ge(cut_args.size(), cut_coeffs.c_ptr(), cut_args.c_ptr(), pb.get_k(e));
-                g->update(i, fml2);
+                g->update(i, fml2, 0, g->dep(i));
                 TRACE("pb", tout << fml2 << "\n";);
             }
         }
@@ -577,8 +575,12 @@ private:
                    verbose_stream() << "resolve: " << mk_pp(fml1, m) << "\n" << mk_pp(fml2, m) << "\n" << tmp1 << "\n";
                    verbose_stream() << "to\n" << mk_pp(fml2, m) << " -> " << tmp2 << "\n";);
 
-        g->update(idx1, m.mk_true()); // proof & dependencies
-        g->update(idx2, tmp2);        // proof & dependencies
+        TRACE("pb",
+              tout << "resolve: " << mk_pp(fml1, m) << "\n" << mk_pp(fml2, m) << "\n" << tmp1 << "\n";
+              tout << "to\n" << mk_pp(fml2, m) << " -> " << tmp2 << "\n";);
+
+        g->update(idx2, tmp2, 0, m.mk_join(g->dep(idx1), g->dep(idx2)));
+        g->update(idx1, m.mk_true(), 0, 0); 
         m_progress = true;
         //IF_VERBOSE(0, if (!g->inconsistent()) display_annotation(verbose_stream(), g););
     }
@@ -634,14 +636,18 @@ private:
         for (unsigned i = 0; i < positions.size(); ++i) {
             unsigned idx = positions[i];
             expr_ref f(m);
+            proof_ref new_pr(m);
             f = g->form(idx);
             if (!m.is_true(f)) {
-                m_r(f, tmp);
+                m_r(f, tmp, new_pr);
                 if (tmp != f) {
                     TRACE("pb", tout << mk_pp(f, m) << " -> " << tmp 
                           << " by " << mk_pp(e, m) << " |-> " << mk_pp(v, m) << "\n";);
                     IF_VERBOSE(3, verbose_stream() << "replace " << mk_pp(f, m) << " -> " << tmp << "\n";);
-                    g->update(idx, tmp); // proof & dependencies.
+                    if (g->proofs_enabled()) {
+                        new_pr = m.mk_modus_ponens(g->pr(idx), new_pr);
+                    }
+                    g->update(idx, tmp, new_pr, g->dep(idx)); 
                     m_progress = true;
                 }
             }

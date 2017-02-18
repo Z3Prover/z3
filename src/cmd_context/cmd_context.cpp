@@ -46,6 +46,7 @@ Notes:
 #include"model_params.hpp"
 #include"th_rewriter.h"
 #include"tactic_exception.h"
+#include"smt_logics.h"
 
 func_decls::func_decls(ast_manager & m, func_decl * f):
     m_decls(TAG(func_decl*, f, 0)) {
@@ -507,93 +508,27 @@ void cmd_context::load_plugin(symbol const & name, bool install, svector<family_
     fids.erase(id);
 }
 
-bool cmd_context::logic_has_arith_core(symbol const & s) const {
-    return
-        s == "QF_LRA" ||
-        s == "QF_LIA" ||
-        s == "QF_RDL" ||
-        s == "QF_IDL" ||
-        s == "QF_AUFLIA" ||
-        s == "QF_ALIA" ||
-        s == "QF_AUFLIRA" ||
-        s == "QF_AUFNIA" ||
-        s == "QF_AUFNIRA" ||
-        s == "QF_ANIA" ||
-        s == "QF_LIRA" ||
-        s == "QF_UFLIA" ||
-        s == "QF_UFLRA" ||
-        s == "QF_UFIDL" ||
-        s == "QF_UFRDL" ||
-        s == "QF_NIA" ||
-        s == "QF_NRA" ||
-        s == "QF_NIRA" ||
-        s == "QF_UFNRA" ||
-        s == "QF_UFNIA" ||
-        s == "QF_UFNIRA" ||
-        s == "QF_BVRE" ||
-        s == "ALIA" ||
-        s == "AUFLIA" ||
-        s == "AUFLIRA" ||
-        s == "AUFNIA" ||
-        s == "AUFNIRA" ||
-        s == "UFLIA" ||
-        s == "UFLRA" ||
-        s == "UFNRA" ||
-        s == "UFNIRA" ||
-        s == "NIA" ||
-        s == "NRA" ||
-        s == "UFNIA" ||
-        s == "LIA" ||
-        s == "LRA" ||
-        s == "UFIDL" ||
-        s == "QF_FP" ||
-        s == "QF_FPBV" ||
-        s == "QF_BVFP" ||
-        s == "QF_S" ||
-        s == "HORN";
-}
 
 bool cmd_context::logic_has_arith() const {
-    return !has_logic() || logic_has_arith_core(m_logic);
+    return !has_logic() || smt_logics::logic_has_arith(m_logic);
 }
 
-bool cmd_context::logic_has_bv_core(symbol const & s) const {
-    return
-        s == "UFBV" ||
-        s == "AUFBV" ||
-        s == "ABV" ||
-        s == "BV" ||
-        s == "QF_BV" ||
-        s == "QF_UFBV" ||
-        s == "QF_ABV" ||
-        s == "QF_AUFBV" ||
-        s == "QF_BVRE" ||
-        s == "QF_FPBV" ||
-        s == "QF_BVFP" ||
-        s == "HORN";
-}
 
-bool cmd_context::logic_has_horn(symbol const& s) const {
-    return s == "HORN";
-}
 
 bool cmd_context::logic_has_bv() const {
-    return !has_logic() || logic_has_bv_core(m_logic);
-}
-
-bool cmd_context::logic_has_seq_core(symbol const& s) const {
-    return s == "QF_BVRE" || s == "QF_S";
+    return !has_logic() || smt_logics::logic_has_bv(m_logic);
 }
 
 bool cmd_context::logic_has_seq() const {
-    return !has_logic() || logic_has_seq_core(m_logic);
+    return !has_logic() || smt_logics::logic_has_seq(m_logic);
 }
 
-bool cmd_context::logic_has_fpa_core(symbol const& s) const {
-    return s == "QF_FP" || s == "QF_FPBV" || s == "QF_BVFP";
+bool cmd_context::logic_has_pb() const {
+    return !has_logic() || smt_logics::logic_has_pb(m_logic);
 }
 
 bool cmd_context::logic_has_fpa() const {
+<<<<<<< HEAD
     return !has_logic() || logic_has_fpa_core(m_logic);
 }
 
@@ -620,14 +555,18 @@ bool cmd_context::logic_has_array_core(symbol const & s) const {
         s == "QF_ABV" ||
         s == "QF_AUFBV" ||
         s == "HORN";
+=======
+    return !has_logic() || smt_logics::logic_has_fpa(m_logic);
+>>>>>>> upstream-master
 }
 
+
 bool cmd_context::logic_has_array() const {
-    return !has_logic() || logic_has_array_core(m_logic);
+    return !has_logic() || smt_logics::logic_has_array(m_logic);
 }
 
 bool cmd_context::logic_has_datatype() const {
-    return !has_logic();
+    return !has_logic() || smt_logics::logic_has_datatype(m_logic);
 }
 
 void cmd_context::init_manager_core(bool new_manager) {
@@ -645,7 +584,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         register_plugin(symbol("array"),    alloc(array_decl_plugin), logic_has_array());
         register_plugin(symbol("datatype"), alloc(datatype_decl_plugin), logic_has_datatype());
         register_plugin(symbol("seq"),      alloc(seq_decl_plugin), logic_has_seq());
-        register_plugin(symbol("pb"),     alloc(pb_decl_plugin), !has_logic());
+        register_plugin(symbol("pb"),       alloc(pb_decl_plugin), logic_has_pb());
         register_plugin(symbol("fpa"),      alloc(fpa_decl_plugin), logic_has_fpa());
         register_plugin(symbol("datalog_relation"), alloc(datalog::dl_decl_plugin), !has_logic());
         register_plugin(symbol("str"),      alloc(str_decl_plugin), logic_has_str());
@@ -662,7 +601,12 @@ void cmd_context::init_manager_core(bool new_manager) {
         load_plugin(symbol("datatype"), logic_has_datatype(), fids);
         load_plugin(symbol("seq"),      logic_has_seq(), fids);
         load_plugin(symbol("fpa"),      logic_has_fpa(), fids);
+<<<<<<< HEAD
         load_plugin(symbol("str"),     logic_has_str(), fids);
+=======
+        load_plugin(symbol("pb"),       logic_has_pb(), fids);
+
+>>>>>>> upstream-master
         svector<family_id>::iterator it  = fids.begin();
         svector<family_id>::iterator end = fids.end();
         for (; it != end; ++it) {
@@ -710,38 +654,24 @@ void cmd_context::init_external_manager() {
     init_manager_core(false);
 }
 
-bool cmd_context::supported_logic(symbol const & s) const {
-    return s == "QF_UF" || s == "UF" ||
-        logic_has_arith_core(s) || logic_has_bv_core(s) ||
-        logic_has_array_core(s) || logic_has_seq_core(s) ||
-        logic_has_horn(s) || logic_has_fpa_core(s) ||
-        s == "QF_S";
-}
-
 bool cmd_context::set_logic(symbol const & s) {
     if (has_logic())
         throw cmd_exception("the logic has already been set");
     if (has_manager() && m_main_ctx)
         throw cmd_exception("logic must be set before initialization");
-    if (!supported_logic(s)) {
+    if (!smt_logics::supported_logic(s)) {
         return false;
     }
     m_logic = s;
-    if (is_logic("QF_RDL") ||
-        is_logic("QF_LRA") ||
-        is_logic("UFLRA") ||
-        is_logic("LRA") ||
-        is_logic("RDL") ||
-        is_logic("QF_NRA") ||
-        is_logic("QF_UFNRA") ||
-        is_logic("QF_UFLRA"))
+    if (smt_logics::logic_has_reals_only(s)) {
         m_numeral_as_real = true;
+    }
     return true;
 }
 
 std::string cmd_context::reason_unknown() const {
     if (m_check_sat_result.get() == 0)
-        throw cmd_exception("state of the most recent check-sat command is not unknown");
+        throw cmd_exception("state of the most recent check-sat command is not known");
     return m_check_sat_result->reason_unknown();
 }
 
@@ -1512,6 +1442,31 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
     }
 }
 
+void cmd_context::get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector & conseq) {
+    unsigned timeout = m_params.m_timeout;
+    unsigned rlimit  = m_params.m_rlimit;
+    lbool r;
+    m_check_sat_result = m_solver.get(); // solver itself stores the result.
+    m_solver->set_progress_callback(this);
+    cancel_eh<reslimit> eh(m().limit());
+    scoped_ctrl_c ctrlc(eh);
+    scoped_timer timer(timeout, &eh);
+    scoped_rlimit _rlimit(m().limit(), rlimit);
+    try {
+        r = m_solver->get_consequences(assumptions, vars, conseq);
+    }
+    catch (z3_error & ex) {
+        throw ex;
+    }
+    catch (z3_exception & ex) {
+        m_solver->set_reason_unknown(ex.msg());
+        r = l_undef;
+    }
+    m_solver->set_status(r);
+    display_sat_result(r);
+}
+
+
 void cmd_context::reset_assertions() {
     if (!m_global_decls) {
         reset(false);
@@ -1641,6 +1596,7 @@ void cmd_context::validate_model() {
         scoped_ctrl_c ctrlc(eh);
         ptr_vector<expr>::const_iterator it  = begin_assertions();
         ptr_vector<expr>::const_iterator end = end_assertions();
+        bool invalid_model = false;
         for (; it != end; ++it) {
             expr * a = *it;
             if (is_ground(a)) {
@@ -1654,6 +1610,9 @@ void cmd_context::validate_model() {
                 // If r contains as_array/store/map/const expressions, then we do not generate the error.
                 // TODO: improve evaluator for model expressions.
                 // Note that, if "a" evaluates to false, then the error will be generated.
+                if (has_quantifiers(r)) {
+                    continue;
+                }
                 try {
                     for_each_expr(contains_array, r);
                 }
@@ -1661,8 +1620,11 @@ void cmd_context::validate_model() {
                     continue;
                 }
                 TRACE("model_validate", model_smt2_pp(tout, *this, *(md.get()), 0););
-                throw cmd_exception("an invalid model was generated");
+                invalid_model = true;
             }
+        }
+        if (invalid_model) {
+            throw cmd_exception("an invalid model was generated");
         }
     }
 }

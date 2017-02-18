@@ -15,7 +15,6 @@ Author:
 Revision History:
 
 --*/
-#include<iostream>
 #include"z3.h"
 #include"api_log_macros.h"
 #include"api_context.h"
@@ -27,7 +26,7 @@ extern "C" {
     Z3_sort Z3_API Z3_mk_bv_sort(Z3_context c, unsigned sz) {
         Z3_TRY;
         LOG_Z3_mk_bv_sort(c, sz);
-        RESET_ERROR_CODE(); 
+        RESET_ERROR_CODE();
         if (sz == 0) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
         }
@@ -39,7 +38,7 @@ extern "C" {
 
 #define MK_BV_UNARY(NAME, OP) MK_UNARY(NAME, mk_c(c)->get_bv_fid(), OP, SKIP)
 #define MK_BV_BINARY(NAME, OP) MK_BINARY(NAME, mk_c(c)->get_bv_fid(), OP, SKIP)
-    
+
     MK_BV_UNARY(Z3_mk_bvnot, OP_BNOT);
     MK_BV_UNARY(Z3_mk_bvredand, OP_BREDAND);
     MK_BV_UNARY(Z3_mk_bvredor, OP_BREDOR);
@@ -75,11 +74,11 @@ extern "C" {
         expr * _n = to_expr(n);
         parameter params[2] = { parameter(high), parameter(low) };
         expr * a = mk_c(c)->m().mk_app(mk_c(c)->get_bv_fid(), OP_EXTRACT, 2, params, 1, &_n);
-        mk_c(c)->save_ast_trail(a);  
+        mk_c(c)->save_ast_trail(a);
         check_sorts(c, a);
         return of_ast(a);
     }
-    
+
     Z3_ast Z3_API Z3_mk_extract(Z3_context c, unsigned high, unsigned low, Z3_ast n) {
         Z3_TRY;
         LOG_Z3_mk_extract(c, high, low, n);
@@ -88,7 +87,7 @@ extern "C" {
         RETURN_Z3(r);
         Z3_CATCH_RETURN(0);
     }
-    
+
 #define MK_BV_PUNARY(NAME, OP)                                          \
 Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
     Z3_TRY;                                                             \
@@ -113,7 +112,7 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
     Z3_ast Z3_API Z3_mk_bv2int(Z3_context c, Z3_ast n, Z3_bool is_signed) {
         Z3_TRY;
         LOG_Z3_mk_bv2int(c, n, is_signed);
-        RESET_ERROR_CODE();                                                         
+        RESET_ERROR_CODE();
         Z3_sort int_s = Z3_mk_int_sort(c);
         if (is_signed) {
             Z3_ast r = Z3_mk_bv2int(c, n, false);
@@ -125,7 +124,7 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
             Z3_inc_ref(c, bound);
             Z3_ast zero = Z3_mk_int(c, 0, s);
             Z3_inc_ref(c, zero);
-            Z3_ast pred = Z3_mk_bvslt(c, n, zero);        
+            Z3_ast pred = Z3_mk_bvslt(c, n, zero);
             Z3_inc_ref(c, pred);
             // if n <_sigend 0 then r - s^sz else r
             Z3_ast args[2] = { r, bound };
@@ -140,19 +139,19 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
             RETURN_Z3(res);
         }
         else {
-            expr * _n = to_expr(n);                                                     
-            parameter p(to_sort(int_s));                                                             
-            ast* a = mk_c(c)->m().mk_app(mk_c(c)->get_bv_fid(), OP_BV2INT, 1, &p, 1, &_n);   
-            mk_c(c)->save_ast_trail(a);                                                 
-            check_sorts(c, a);                                                          
-            RETURN_Z3(of_ast(a)); 
+            expr * _n = to_expr(n);
+            parameter p(to_sort(int_s));
+            ast* a = mk_c(c)->m().mk_app(mk_c(c)->get_bv_fid(), OP_BV2INT, 1, &p, 1, &_n);
+            mk_c(c)->save_ast_trail(a);
+            check_sorts(c, a);
+            RETURN_Z3(of_ast(a));
         }
         Z3_CATCH_RETURN(0);
     }
 
     /**
        \brief Create a bit-vector of sort \s with 1 in the most significant bit position.
-       
+
        The sort \s must be a bit-vector sort.
 
        This function is a shorthand for <tt>shl(1, N-1)</tt>
@@ -343,7 +342,7 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
         return Z3_mk_not(c, eq);
         Z3_CATCH_RETURN(0);
     }
-    
+
     // only for signed machine integers
     Z3_ast Z3_API Z3_mk_bvsdiv_no_overflow(Z3_context c, Z3_ast t1, Z3_ast t2) {
         Z3_TRY;
@@ -369,7 +368,7 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
         return result;
         Z3_CATCH_RETURN(0);
     }
-    
+
     Z3_ast Z3_API Z3_mk_bvsub(Z3_context c, Z3_ast n1, Z3_ast n2) {
         Z3_TRY;
         LOG_Z3_mk_bvsub(c, n1, n2);
@@ -389,7 +388,7 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
     unsigned Z3_API Z3_get_bv_sort_size(Z3_context c, Z3_sort t) {
         Z3_TRY;
         LOG_Z3_get_bv_sort_size(c, t);
-        RESET_ERROR_CODE(); 
+        RESET_ERROR_CODE();
         CHECK_VALID_AST(t, 0);
         if (to_sort(t)->get_family_id() == mk_c(c)->get_bv_fid() && to_sort(t)->get_decl_kind() == BV_SORT) {
             return to_sort(t)->get_parameter(0).get_int();
@@ -398,5 +397,5 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
         return 0;
         Z3_CATCH_RETURN(0);
     }
-    
+
 };

@@ -53,13 +53,7 @@ public class Pattern extends AST
     @Override
     public String toString()
     {
-        try
-        {
-            return Native.patternToString(getContext().nCtx(), getNativeObject());
-        } catch (Z3Exception e)
-        {
-            return "Z3Exception: " + e.getMessage();
-        }
+        return Native.patternToString(getContext().nCtx(), getNativeObject());
     }
 
     Pattern(Context ctx, long obj)

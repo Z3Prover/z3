@@ -31,8 +31,8 @@ public:
     ~timer();
     void start();
     double get_seconds();
-    bool timeout(unsigned secs) { return secs > 0 && get_seconds() > secs; }
-    bool ms_timeout(unsigned ms) { return ms > 0 && get_seconds() * 1000 > ms; }
+    bool timeout(unsigned secs) { return secs > 0 && secs != UINT_MAX && get_seconds() > secs; }
+    bool ms_timeout(unsigned ms) { return ms > 0 && ms != UINT_MAX && get_seconds() * 1000 > ms; }
 };
 
 #endif /* TIMER_H_ */

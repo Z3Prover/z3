@@ -32,9 +32,10 @@ project(Z3 C CXX)
 # Project version
 ################################################################################
 set(Z3_VERSION_MAJOR 4)
-set(Z3_VERSION_MINOR 4)
-set(Z3_VERSION_PATCH 2)
+set(Z3_VERSION_MINOR 5)
+set(Z3_VERSION_PATCH 1)
 set(Z3_VERSION_TWEAK 0)
+set(Z3_FULL_VERSION 0)
 set(Z3_VERSION "${Z3_VERSION_MAJOR}.${Z3_VERSION_MINOR}.${Z3_VERSION_PATCH}.${Z3_VERSION_TWEAK}")
 message(STATUS "Z3 version ${Z3_VERSION}")
 
@@ -246,7 +247,7 @@ endif()
 # FP math
 ################################################################################
 # FIXME: Support ARM "-mfpu=vfp -mfloat-abi=hard"
-if ("${TARGET_ARCHITECTURE}" STREQUAL "x86_64")
+if (("${TARGET_ARCHITECTURE}" STREQUAL "x86_64") OR ("${TARGET_ARCHITECTURE}" STREQUAL "i686"))
   if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU") OR ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang"))
     set(SSE_FLAGS "-mfpmath=sse" "-msse" "-msse2")
     # FIXME: Remove "x.." when CMP0054 is set to NEW
@@ -304,7 +305,10 @@ endif()
 # library. If not building a shared library ``-fPIC`` isn't needed and would add
 # unnecessary overhead.
 if (BUILD_LIBZ3_SHARED)
-  if (NOT MSVC)
+  # Avoid adding -fPIC compiler switch if we compile with MSVC (which does not
+  # support the flag) or if we target Windows, which generally does not use
+  # position independent code for native code shared libraries (DLLs).
+  if (NOT (MSVC OR MINGW OR WIN32))
     z3_add_cxx_flag("-fPIC" REQUIRED)
   endif()
 endif()
@@ -387,4 +391,3 @@ option(ENABLE_EXAMPLE_TARGETS "Build Z3 api examples" ON)
 if (ENABLE_EXAMPLE_TARGETS)
   add_subdirectory(examples)
 endif()
-

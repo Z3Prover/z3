@@ -17,34 +17,40 @@ Notes:
 
 package com.microsoft.z3;
 
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
+import static com.microsoft.z3.Constructor.of;
 
 import com.microsoft.z3.enumerations.Z3_ast_print_mode;
+
+import java.util.Map;
 
 /**
  * The main interaction with Z3 happens via the Context.
  **/
-public class Context extends IDisposable
-{
-    /**
-     * Constructor.
-     **/
-    public Context()
-    {        
-        super();
-        synchronized (creation_lock) {            
+public class Context implements AutoCloseable {
+    private final long m_ctx;
+    static final Object creation_lock = new Object();
+
+    public Context () {
+        synchronized (creation_lock) {
             m_ctx = Native.mkContextRc(0);
-            initContext();
+            init();
         }
     }
+
+    protected Context (long m_ctx) {
+        synchronized (creation_lock) {
+            this.m_ctx = m_ctx;
+            init();
+        }
+    }
+
 
     /**
      * Constructor.
      * Remarks:
-     * The following parameters can be set:        
+     * The following parameters can be set:
      *     - proof  (Boolean)           Enable proof generation
-     *     - debug_ref_count (Boolean)  Enable debug support for Z3_ast reference counting 
+     *     - debug_ref_count (Boolean)  Enable debug support for Z3_ast reference counting
      *     - trace  (Boolean)           Tracing support for VCC
      *     - trace_file_name (String)   Trace out file for VCC traces
      *     - timeout (unsigned)         default timeout (in milliseconds) used for solvers
@@ -53,20 +59,24 @@ public class Context extends IDisposable
      *     - model                      model generation for solvers, this parameter can be overwritten when creating a solver
      *     - model_validate             validate models produced by solvers
      *     - unsat_core                 unsat-core generation for solvers, this parameter can be overwritten when creating a solver
-     * Note that in previous versions of Z3, this constructor was also used to set global and 
+     * Note that in previous versions of Z3, this constructor was also used to set global and
      * module parameters. For this purpose we should now use {@code Global.setParameter}
      **/
-    public Context(Map<String, String> settings)
-    {
-        super();
-        synchronized (creation_lock) {            
+    public Context(Map<String, String> settings) {
+        synchronized (creation_lock) {
             long cfg = Native.mkConfig();
-            for (Map.Entry<String, String> kv : settings.entrySet())
+            for (Map.Entry<String, String> kv : settings.entrySet()) {
                 Native.setParamValue(cfg, kv.getKey(), kv.getValue());
+            }
             m_ctx = Native.mkContextRc(cfg);
             Native.delConfig(cfg);
-            initContext();
+            init();
         }
+    }
+
+    private void init() {
+        setPrintMode(Z3_ast_print_mode.Z3_PRINT_SMTLIB2_COMPLIANT);
+        Native.setInternalErrorHandler(m_ctx);
     }
 
     /**
@@ -242,7 +252,7 @@ public class Context extends IDisposable
         checkContextMatch(name);
         checkContextMatch(fieldNames);
         checkContextMatch(fieldSorts);
-        return new TupleSort(this, name, (int) fieldNames.length, fieldNames,
+        return new TupleSort(this, name, fieldNames.length, fieldNames,
                 fieldSorts);
     }
 
@@ -319,8 +329,7 @@ public class Context extends IDisposable
             Symbol[] fieldNames, Sort[] sorts, int[] sortRefs)
            
     {
-
-        return new Constructor(this, name, recognizer, fieldNames, sorts,
+        return of(this, name, recognizer, fieldNames, sorts,
                 sortRefs);
     }
 
@@ -329,10 +338,8 @@ public class Context extends IDisposable
      **/
     public Constructor mkConstructor(String name, String recognizer,
             String[] fieldNames, Sort[] sorts, int[] sortRefs)
-           
     {
-
-        return new Constructor(this, mkSymbol(name), mkSymbol(recognizer),
+        return of(this, mkSymbol(name), mkSymbol(recognizer),
                 mkSymbols(fieldNames), sorts, sortRefs);
     }
 
@@ -525,7 +532,7 @@ public class Context extends IDisposable
             throw new Z3Exception("Cannot create a pattern from zero terms");
 
         long[] termsNative = AST.arrayToNative(terms);
-        return new Pattern(this, Native.mkPattern(nCtx(), (int) terms.length,
+        return new Pattern(this, Native.mkPattern(nCtx(), terms.length,
                 termsNative));
     }
 
@@ -688,7 +695,7 @@ public class Context extends IDisposable
     public BoolExpr mkDistinct(Expr... args)
     {
         checkContextMatch(args);
-        return new BoolExpr(this, Native.mkDistinct(nCtx(), (int) args.length,
+        return new BoolExpr(this, Native.mkDistinct(nCtx(), args.length,
                 AST.arrayToNative(args)));
     }
 
@@ -756,7 +763,7 @@ public class Context extends IDisposable
     public BoolExpr mkAnd(BoolExpr... t)
     {
         checkContextMatch(t);
-        return new BoolExpr(this, Native.mkAnd(nCtx(), (int) t.length,
+        return new BoolExpr(this, Native.mkAnd(nCtx(), t.length,
                 AST.arrayToNative(t)));
     }
 
@@ -766,7 +773,7 @@ public class Context extends IDisposable
     public BoolExpr mkOr(BoolExpr... t)
     {
         checkContextMatch(t);
-        return new BoolExpr(this, Native.mkOr(nCtx(), (int) t.length,
+        return new BoolExpr(this, Native.mkOr(nCtx(), t.length,
                 AST.arrayToNative(t)));
     }
 
@@ -777,7 +784,7 @@ public class Context extends IDisposable
     {
         checkContextMatch(t);
         return (ArithExpr) Expr.create(this,
-                Native.mkAdd(nCtx(), (int) t.length, AST.arrayToNative(t)));
+                Native.mkAdd(nCtx(), t.length, AST.arrayToNative(t)));
     }
 
     /**
@@ -787,7 +794,7 @@ public class Context extends IDisposable
     {
         checkContextMatch(t);
         return (ArithExpr) Expr.create(this,
-                Native.mkMul(nCtx(), (int) t.length, AST.arrayToNative(t)));
+                Native.mkMul(nCtx(), t.length, AST.arrayToNative(t)));
     }
 
     /**
@@ -797,7 +804,7 @@ public class Context extends IDisposable
     {
         checkContextMatch(t);
         return (ArithExpr) Expr.create(this,
-                Native.mkSub(nCtx(), (int) t.length, AST.arrayToNative(t)));
+                Native.mkSub(nCtx(), t.length, AST.arrayToNative(t)));
     }
 
     /**
@@ -1814,7 +1821,7 @@ public class Context extends IDisposable
     {
         checkContextMatch(args);
         return (ArrayExpr)Expr.create(this,
-                Native.mkSetUnion(nCtx(), (int) args.length,
+                Native.mkSetUnion(nCtx(), args.length,
                         AST.arrayToNative(args)));
     }
 
@@ -1825,7 +1832,7 @@ public class Context extends IDisposable
     {
         checkContextMatch(args);
         return (ArrayExpr)Expr.create(this,
-                Native.mkSetIntersect(nCtx(), (int) args.length,
+                Native.mkSetIntersect(nCtx(), args.length,
                         AST.arrayToNative(args)));
     }
 
@@ -1912,7 +1919,7 @@ public class Context extends IDisposable
     public SeqExpr MkConcat(SeqExpr... t)
     {
 	checkContextMatch(t);
-	return new SeqExpr(this, Native.mkSeqConcat(nCtx(), (int)t.length, AST.arrayToNative(t)));
+	return new SeqExpr(this, Native.mkSeqConcat(nCtx(), t.length, AST.arrayToNative(t)));
     }
     
     
@@ -2040,7 +2047,7 @@ public class Context extends IDisposable
     public ReExpr MkConcat(ReExpr... t)
     {
 	checkContextMatch(t);
-	return new ReExpr(this, Native.mkReConcat(nCtx(), (int)t.length, AST.arrayToNative(t)));
+	return new ReExpr(this, Native.mkReConcat(nCtx(), t.length, AST.arrayToNative(t)));
     }
     
     /**
@@ -2049,7 +2056,7 @@ public class Context extends IDisposable
     public ReExpr MkUnion(ReExpr... t)
     {
 	checkContextMatch(t);
-	return new ReExpr(this, Native.mkReUnion(nCtx(), (int)t.length, AST.arrayToNative(t)));
+	return new ReExpr(this, Native.mkReUnion(nCtx(), t.length, AST.arrayToNative(t)));
     }
     
 
@@ -2258,7 +2265,7 @@ public class Context extends IDisposable
                                Symbol quantifierID, Symbol skolemID)
     {
 
-        return new Quantifier(this, true, sorts, names, body, weight, patterns,
+        return Quantifier.of(this, true, sorts, names, body, weight, patterns,
                 noPatterns, quantifierID, skolemID);
     }
 
@@ -2271,7 +2278,7 @@ public class Context extends IDisposable
                                Symbol skolemID)
     {
 
-        return new Quantifier(this, true, boundConstants, body, weight,
+        return Quantifier.of(this, true, boundConstants, body, weight,
                 patterns, noPatterns, quantifierID, skolemID);
     }
 
@@ -2284,7 +2291,7 @@ public class Context extends IDisposable
                                Symbol quantifierID, Symbol skolemID)
     {
 
-        return new Quantifier(this, false, sorts, names, body, weight,
+        return Quantifier.of(this, false, sorts, names, body, weight,
                 patterns, noPatterns, quantifierID, skolemID);
     }
 
@@ -2297,7 +2304,7 @@ public class Context extends IDisposable
                                Symbol skolemID)
     {
 
-        return new Quantifier(this, false, boundConstants, body, weight,
+        return Quantifier.of(this, false, boundConstants, body, weight,
                 patterns, noPatterns, quantifierID, skolemID);
     }
 
@@ -3814,7 +3821,7 @@ public class Context extends IDisposable
      * must be a native object obtained from Z3 (e.g., through 
      * {@code UnwrapAST}) and that it must have a correct reference count.
      * @see Native#incRef 
-     * @see unwrapAST
+     * @see #unwrapAST
      * @param nativeObject The native pointer to wrap.
      **/
     public AST wrapAST(long nativeObject)
@@ -3869,19 +3876,12 @@ public class Context extends IDisposable
         Native.updateParamValue(nCtx(), id, value);
     }
 
-    protected long m_ctx = 0;
-    protected static final Object creation_lock = new Object();
 
     long nCtx()
     {
         return m_ctx;
     }
 
-    void initContext()
-    {
-        setPrintMode(Z3_ast_print_mode.Z3_PRINT_SMTLIB2_COMPLIANT);
-        Native.setInternalErrorHandler(nCtx());
-    }
 
     void checkContextMatch(Z3Object other)
     {
@@ -3910,157 +3910,142 @@ public class Context extends IDisposable
     }
 
     private ASTDecRefQueue m_AST_DRQ = new ASTDecRefQueue();
-    private ASTMapDecRefQueue m_ASTMap_DRQ = new ASTMapDecRefQueue(10);
-    private ASTVectorDecRefQueue m_ASTVector_DRQ = new ASTVectorDecRefQueue(10);
-    private ApplyResultDecRefQueue m_ApplyResult_DRQ = new ApplyResultDecRefQueue(10);
-    private FuncInterpEntryDecRefQueue m_FuncEntry_DRQ = new FuncInterpEntryDecRefQueue(10);
-    private FuncInterpDecRefQueue m_FuncInterp_DRQ = new FuncInterpDecRefQueue(10);
-    private GoalDecRefQueue m_Goal_DRQ = new GoalDecRefQueue(10);
-    private ModelDecRefQueue m_Model_DRQ = new ModelDecRefQueue(10);
-    private ParamsDecRefQueue m_Params_DRQ = new ParamsDecRefQueue(10);
-    private ParamDescrsDecRefQueue m_ParamDescrs_DRQ = new ParamDescrsDecRefQueue(10);
-    private ProbeDecRefQueue m_Probe_DRQ = new ProbeDecRefQueue(10);
-    private SolverDecRefQueue m_Solver_DRQ = new SolverDecRefQueue(10);
-    private StatisticsDecRefQueue m_Statistics_DRQ = new StatisticsDecRefQueue(10);
-    private TacticDecRefQueue m_Tactic_DRQ = new TacticDecRefQueue(10);
-    private FixedpointDecRefQueue m_Fixedpoint_DRQ = new FixedpointDecRefQueue(10);
-    private OptimizeDecRefQueue m_Optimize_DRQ = new OptimizeDecRefQueue(10);
+    private ASTMapDecRefQueue m_ASTMap_DRQ = new ASTMapDecRefQueue();
+    private ASTVectorDecRefQueue m_ASTVector_DRQ = new ASTVectorDecRefQueue();
+    private ApplyResultDecRefQueue m_ApplyResult_DRQ = new ApplyResultDecRefQueue();
+    private FuncInterpEntryDecRefQueue m_FuncEntry_DRQ = new FuncInterpEntryDecRefQueue();
+    private FuncInterpDecRefQueue m_FuncInterp_DRQ = new FuncInterpDecRefQueue();
+    private GoalDecRefQueue m_Goal_DRQ = new GoalDecRefQueue();
+    private ModelDecRefQueue m_Model_DRQ = new ModelDecRefQueue();
+    private ParamsDecRefQueue m_Params_DRQ = new ParamsDecRefQueue();
+    private ParamDescrsDecRefQueue m_ParamDescrs_DRQ = new ParamDescrsDecRefQueue();
+    private ProbeDecRefQueue m_Probe_DRQ = new ProbeDecRefQueue();
+    private SolverDecRefQueue m_Solver_DRQ = new SolverDecRefQueue();
+    private StatisticsDecRefQueue m_Statistics_DRQ = new StatisticsDecRefQueue();
+    private TacticDecRefQueue m_Tactic_DRQ = new TacticDecRefQueue();
+    private FixedpointDecRefQueue m_Fixedpoint_DRQ = new FixedpointDecRefQueue();
+    private OptimizeDecRefQueue m_Optimize_DRQ = new OptimizeDecRefQueue();
+    private ConstructorDecRefQueue m_Constructor_DRQ = new ConstructorDecRefQueue();
+    private ConstructorListDecRefQueue m_ConstructorList_DRQ =
+            new ConstructorListDecRefQueue();
 
-    public IDecRefQueue getASTDRQ()
+    public IDecRefQueue<Constructor> getConstructorDRQ() {
+        return m_Constructor_DRQ;
+    }
+
+    public IDecRefQueue<ConstructorList> getConstructorListDRQ() {
+        return m_ConstructorList_DRQ;
+    }
+
+    public IDecRefQueue<AST> getASTDRQ()
     {
         return m_AST_DRQ;
     }
 
-    public IDecRefQueue getASTMapDRQ()
+    public IDecRefQueue<ASTMap> getASTMapDRQ()
     {
         return m_ASTMap_DRQ;
     }
 
-    public IDecRefQueue getASTVectorDRQ()
+    public IDecRefQueue<ASTVector> getASTVectorDRQ()
     {
         return m_ASTVector_DRQ;
     }
 
-    public IDecRefQueue getApplyResultDRQ()
+    public IDecRefQueue<ApplyResult> getApplyResultDRQ()
     {
         return m_ApplyResult_DRQ;
     }
 
-    public IDecRefQueue getFuncEntryDRQ()
+    public IDecRefQueue<FuncInterp.Entry> getFuncEntryDRQ()
     {
         return m_FuncEntry_DRQ;
     }
 
-    public IDecRefQueue getFuncInterpDRQ()
+    public IDecRefQueue<FuncInterp> getFuncInterpDRQ()
     {
         return m_FuncInterp_DRQ;
     }
 
-    public IDecRefQueue getGoalDRQ()
+    public IDecRefQueue<Goal> getGoalDRQ()
     {
         return m_Goal_DRQ;
     }
 
-    public IDecRefQueue getModelDRQ()
+    public IDecRefQueue<Model> getModelDRQ()
     {
         return m_Model_DRQ;
     }
 
-    public IDecRefQueue getParamsDRQ()
+    public IDecRefQueue<Params> getParamsDRQ()
     {
         return m_Params_DRQ;
     }
 
-    public IDecRefQueue getParamDescrsDRQ()
+    public IDecRefQueue<ParamDescrs> getParamDescrsDRQ()
     {
         return m_ParamDescrs_DRQ;
     }
 
-    public IDecRefQueue getProbeDRQ()
+    public IDecRefQueue<Probe> getProbeDRQ()
     {
         return m_Probe_DRQ;
     }
 
-    public IDecRefQueue getSolverDRQ()
+    public IDecRefQueue<Solver> getSolverDRQ()
     {
         return m_Solver_DRQ;
     }
 
-    public IDecRefQueue getStatisticsDRQ()
+    public IDecRefQueue<Statistics> getStatisticsDRQ()
     {
         return m_Statistics_DRQ;
     }
 
-    public IDecRefQueue getTacticDRQ()
+    public IDecRefQueue<Tactic> getTacticDRQ()
     {
         return m_Tactic_DRQ;
     }
 
-    public IDecRefQueue getFixedpointDRQ()
+    public IDecRefQueue<Fixedpoint> getFixedpointDRQ()
     {
         return m_Fixedpoint_DRQ;
     }
 
-    public IDecRefQueue getOptimizeDRQ()
+    public IDecRefQueue<Optimize> getOptimizeDRQ()
     {
         return m_Optimize_DRQ;
-    }
-
-    protected AtomicInteger m_refCount = new AtomicInteger(0);
-
-    /**
-     * Finalizer.
-     * @throws Throwable 
-     **/
-    protected void finalize() throws Throwable
-    {
-        try {            
-            dispose();
-        }
-        catch (Throwable t) {
-            throw t;
-        }
-        finally {
-            super.finalize();
-        }
     }
 
     /**
      * Disposes of the context.
      **/
-    public void dispose()
+    @Override
+    public void close()
     {
-        m_AST_DRQ.clear(this);
-        m_ASTMap_DRQ.clear(this);
-        m_ASTVector_DRQ.clear(this);
-        m_ApplyResult_DRQ.clear(this);
-        m_FuncEntry_DRQ.clear(this);
-        m_FuncInterp_DRQ.clear(this);
-        m_Goal_DRQ.clear(this);
-        m_Model_DRQ.clear(this);
-        m_Params_DRQ.clear(this);
-        m_Probe_DRQ.clear(this);
-        m_Solver_DRQ.clear(this);
-        m_Optimize_DRQ.clear(this);
-        m_Statistics_DRQ.clear(this);
-        m_Tactic_DRQ.clear(this);
-        m_Fixedpoint_DRQ.clear(this);
+        m_AST_DRQ.forceClear(this);
+        m_ASTMap_DRQ.forceClear(this);
+        m_ASTVector_DRQ.forceClear(this);
+        m_ApplyResult_DRQ.forceClear(this);
+        m_FuncEntry_DRQ.forceClear(this);
+        m_FuncInterp_DRQ.forceClear(this);
+        m_Goal_DRQ.forceClear(this);
+        m_Model_DRQ.forceClear(this);
+        m_Params_DRQ.forceClear(this);
+        m_Probe_DRQ.forceClear(this);
+        m_Solver_DRQ.forceClear(this);
+        m_Optimize_DRQ.forceClear(this);
+        m_Statistics_DRQ.forceClear(this);
+        m_Tactic_DRQ.forceClear(this);
+        m_Fixedpoint_DRQ.forceClear(this);
 
         m_boolSort = null;
         m_intSort = null;
         m_realSort = null;
         m_stringSort = null;
-
+        
         synchronized (creation_lock) {
-            if (m_refCount.get() == 0 && m_ctx != 0) {
-                try {
-                    Native.delContext(m_ctx);
-                } catch (Z3Exception e) {
-                    // OK?
-                    System.out.println("Context deletion failed; memory leak possible.");
-                }
-                m_ctx = 0;
-            }
+            Native.delContext(m_ctx);
         }
     }
 }

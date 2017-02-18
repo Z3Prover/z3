@@ -315,6 +315,7 @@ namespace smt {
 
             void mk_instantiation_set(ast_manager & m) {
                 SASSERT(is_root());
+                SASSERT(!m_set);
                 m_set = alloc(instantiation_set, m);
             }
 
@@ -497,7 +498,7 @@ namespace smt {
                 m_bvsimp = static_cast<bv_simplifier_plugin*>(s.get_plugin(m.mk_family_id("bv")));
             }
 
-            ~auf_solver() {
+            virtual ~auf_solver() {
                 flush_nodes();
                 reset_eval_cache();
             }
@@ -1001,10 +1002,13 @@ namespace smt {
             void add_elem_to_empty_inst_sets() {
                 ptr_vector<node>::const_iterator it  = m_root_nodes.begin();
                 ptr_vector<node>::const_iterator end = m_root_nodes.end();
+                obj_map<sort, expr*> sort2elems;
+                ptr_vector<node> need_fresh;
                 for (; it != end; ++it) {
                     node * n = *it;
                     SASSERT(n->is_root());
                     instantiation_set const * s           = n->get_instantiation_set();
+                    TRACE("model_finder", s->display(tout););
                     obj_map<expr, unsigned> const & elems = s->get_elems();
                     if (elems.empty()) {
                         // The method get_some_value cannot be used if n->get_sort() is an uninterpreted sort or is a sort built using uninterpreted sorts 
@@ -1013,11 +1017,29 @@ namespace smt {
                         // If these module values "leak" inside the logical context, they may affect satisfiability.
                         // 
                         sort * ns = n->get_sort();
-                        if (m_manager.is_fully_interp(ns))
+                        if (m_manager.is_fully_interp(ns)) {
                             n->insert(m_model->get_some_value(ns), 0);
-                        else
-                            n->insert(m_manager.mk_fresh_const("elem", ns), 0);
+                        }
+                        else {
+                            need_fresh.push_back(n);
+                        }
                     }
+                    else {
+                        sort2elems.insert(n->get_sort(), elems.begin()->m_key);
+                    }
+                }
+                expr_ref_vector trail(m_manager);
+                for (unsigned i = 0; i < need_fresh.size(); ++i) {
+                    expr * e;
+                    node* n = need_fresh[i];
+                    sort* s = n->get_sort();
+                    if (!sort2elems.find(s, e)) {
+                        e = m_manager.mk_fresh_const("elem", s);
+                        trail.push_back(e);
+                        sort2elems.insert(s, e);
+                    }
+                    n->insert(e, 0);
+                    TRACE("model_finder", tout << "fresh constant: " << mk_pp(e, m_manager) << "\n";);
                 }
             }
 

@@ -18,7 +18,6 @@ Notes:
 --*/
 #if !defined(__clang__)
 #include"polynomial.h"
-#include"polynomial_factorization.h"
 #include"polynomial_var2value.h"
 #include"polynomial_cache.h"
 #include"linear_eq_solver.h"

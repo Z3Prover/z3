@@ -607,12 +607,25 @@ void poly_simplifier_plugin::append_to_monomial(expr * n, numeral & k, ptr_buffe
     k *= val;
     n  = get_monomial_body(n);
 
-    if (is_mul(n)) {
-        for (unsigned i = 0; i < to_app(n)->get_num_args(); i++)
-            result.push_back(to_app(n)->get_arg(i));
-    }
-    else {
-        result.push_back(n);
+    unsigned hd = result.size();
+    result.push_back(n);
+    while (hd < result.size()) {
+        n = result[hd];
+        if (is_mul(n)) {
+            result[hd] = result.back();
+            result.pop_back();
+            for (unsigned i = 0; i < to_app(n)->get_num_args(); i++) {
+                result.push_back(to_app(n)->get_arg(i));
+            }
+        }
+        else if (is_numeral(n, val)) {
+            k *= val;
+            result[hd] = result.back();
+            result.pop_back();
+        }
+        else {
+            ++hd;
+        }
     }
 }
 

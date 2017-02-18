@@ -312,11 +312,11 @@ class diff_neq_tactic : public tactic {
             return md;
         }
 
-        virtual void operator()(goal_ref const & g, 
-                                goal_ref_buffer & result, 
-                                model_converter_ref & mc, 
-                                proof_converter_ref & pc,
-                                expr_dependency_ref & core) {
+        void operator()(goal_ref const & g, 
+                        goal_ref_buffer & result, 
+                        model_converter_ref & mc, 
+                        proof_converter_ref & pc,
+                        expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
             m_produce_models = g->models_enabled();
             mc = 0; pc = 0; core = 0; result.reset();

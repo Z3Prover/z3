@@ -15,7 +15,6 @@ Author:
 Revision History:
 
 --*/
-#include<iostream>
 #include"z3.h"
 #include"api_log_macros.h"
 #include"api_context.h"
@@ -37,7 +36,7 @@ extern "C" {
         RETURN_Z3(r);
         Z3_CATCH_RETURN(0);
     }
-    
+
     Z3_sort Z3_API Z3_mk_real_sort(Z3_context c) {
         Z3_TRY;
         LOG_Z3_mk_real_sort(c);
@@ -50,7 +49,7 @@ extern "C" {
     Z3_ast Z3_API Z3_mk_real(Z3_context c, int num, int den) {
         Z3_TRY;
         LOG_Z3_mk_real(c, num, den);
-        RESET_ERROR_CODE();          
+        RESET_ERROR_CODE();
         if (den == 0) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             RETURN_Z3(0);
@@ -60,7 +59,7 @@ extern "C" {
         RETURN_Z3(of_ast(a));
         Z3_CATCH_RETURN(0);
     }
-    
+
     MK_ARITH_OP(Z3_mk_add, OP_ADD);
     MK_ARITH_OP(Z3_mk_mul, OP_MUL);
     MK_BINARY_ARITH_OP(Z3_mk_power, OP_POWER);
@@ -70,17 +69,17 @@ extern "C" {
     Z3_ast Z3_API Z3_mk_div(Z3_context c, Z3_ast n1, Z3_ast n2) {
         Z3_TRY;
         LOG_Z3_mk_div(c, n1, n2);
-        RESET_ERROR_CODE();                                                 
+        RESET_ERROR_CODE();
         decl_kind k = OP_IDIV;
         sort* ty = mk_c(c)->m().get_sort(to_expr(n1));
         sort* real_ty = mk_c(c)->m().mk_sort(mk_c(c)->get_arith_fid(), REAL_SORT);
         if (ty == real_ty) {
             k = OP_DIV;
         }
-        expr * args[2] = { to_expr(n1), to_expr(n2) };                         
-        ast* a = mk_c(c)->m().mk_app(mk_c(c)->get_arith_fid(), k, 0, 0, 2, args);       
-        mk_c(c)->save_ast_trail(a);                                         
-        check_sorts(c, a);                                                  
+        expr * args[2] = { to_expr(n1), to_expr(n2) };
+        ast* a = mk_c(c)->m().mk_app(mk_c(c)->get_arith_fid(), k, 0, 0, 2, args);
+        mk_c(c)->save_ast_trail(a);
+        check_sorts(c, a);
         RETURN_Z3(of_ast(a));
         Z3_CATCH_RETURN(0);
     }
@@ -142,7 +141,7 @@ extern "C" {
         rational l;
         mk_c(c)->autil().am().get_lower(val, l, precision);
         expr * r = mk_c(c)->autil().mk_numeral(l, false);
-        mk_c(c)->save_ast_trail(r);                                         
+        mk_c(c)->save_ast_trail(r);
         RETURN_Z3(of_expr(r));
         Z3_CATCH_RETURN(0);
     }
@@ -160,7 +159,7 @@ extern "C" {
         rational l;
         mk_c(c)->autil().am().get_upper(val, l, precision);
         expr * r = mk_c(c)->autil().mk_numeral(l, false);
-        mk_c(c)->save_ast_trail(r);                                         
+        mk_c(c)->save_ast_trail(r);
         RETURN_Z3(of_expr(r));
         Z3_CATCH_RETURN(0);
     }
@@ -176,7 +175,7 @@ extern "C" {
             RETURN_Z3(0);
         }
         expr * r = mk_c(c)->autil().mk_numeral(numerator(val), true);
-        mk_c(c)->save_ast_trail(r);                                         
+        mk_c(c)->save_ast_trail(r);
         RETURN_Z3(of_expr(r));
         Z3_CATCH_RETURN(0);
     }
@@ -192,7 +191,7 @@ extern "C" {
             RETURN_Z3(0);
         }
         expr * r = mk_c(c)->autil().mk_numeral(denominator(val), true);
-        mk_c(c)->save_ast_trail(r);                                         
+        mk_c(c)->save_ast_trail(r);
         RETURN_Z3(of_expr(r));
         Z3_CATCH_RETURN(0);
     }

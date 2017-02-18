@@ -1,5 +1,48 @@
 RELEASE NOTES
 
+Version 4.5.0
+=============
+
+- New features:
+  - New theories of strings and sequences.
+  - Consequence finding API "get-consequences" to compute
+    set of consequences modulo hard constraints and set of
+    assumptions. Optimized implementations provided for finite
+    domains (QF_FD) and for most SMT logics. 
+  - CMake build system (thanks @delcypher).
+  - New API functions, including accessing assertions, parsing SMT-LIB benchmarks.
+  - Updated and improved OCaml API (thanks @martin-neuhaeusser).
+  - Updated and improved Java API (thanks @cheshire).
+  - New resource limit facilities to avoid non-deterministic timeout behaviour.
+    You can enable it from the command-line using the switch rlimit=<numeral>.
+  - New bit-vector simplification and ackermannization 
+    tactics (thanks @MikolasJanota, @nunoplopes).
+  - QSAT: a new solver for satisfiability of quantified arithmetic formulas. 
+    See: Bjorner, Janota: Playing with Quantified Satisfaction, LPAR 2016.
+    This is the new default solver for logics LIA, LRA, NRA. It furthermore
+    can be applied as a tactic on quantified formulas using algebraic 
+    data-types (but excluding selector sub-terms because Z3 does not
+    specify the semantics of applying a selector to a non-matching 
+    constructor term). 
+  - A specialized logic QF_FD and associated incremental solver 
+    (that supports push/pop). 
+    The QF_FD domain comprises of bit-vectors, enumeration data-types 
+    used only in equalities, and bounded integers: Integers used in 
+    QF_FD problems have to be constrained by a finite bound. 
+  - Queries in the fixedpoint engine are now function symbols and not 
+    formulas with free variables. This makes the association of
+    free variables in the answers unambiguous. To emulate queries 
+    over compound formulas, introduce a fresh predicate whose 
+    arguments are the relevant free variables in the formula and add a rule
+    that uses the fresh predicate in the head and formula in the body.
+  - minimization of unsat cores is avaialble as an option for the SAT and SMT cores.
+    By setting smt.core.minimize=true resp. sat.core.minimize=true
+    cores produced by these modules are minimized.
+    
+
+- A multitude of bugs has been fixed.
+
+
 Version 4.4.1
 =============
 

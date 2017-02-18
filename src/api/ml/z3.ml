@@ -25,6 +25,8 @@ module Version =
 struct
   let (major, minor, build, revision) = Z3native.get_version ()
 
+  let full_version : string = Z3native.get_full_version()
+                                                             
   let to_string =
     string_of_int major ^ "." ^
     string_of_int minor ^ "." ^
@@ -1323,10 +1325,20 @@ struct
   let get_ebits = Z3native.fpa_get_ebits
   let get_sbits = Z3native.fpa_get_sbits
   let get_numeral_sign = Z3native.fpa_get_numeral_sign
-  let get_numeral_significand_string = Z3native.fpa_get_numeral_significand_string
-  let get_numeral_significand_uint = Z3native.fpa_get_numeral_significand_uint64
+  let get_numeral_sign_bv = Z3native.fpa_get_numeral_sign_bv
   let get_numeral_exponent_string = Z3native.fpa_get_numeral_exponent_string
   let get_numeral_exponent_int = Z3native.fpa_get_numeral_exponent_int64
+  let get_numeral_exponent_bv = Z3native.fpa_get_numeral_exponent_bv
+  let get_numeral_significand_string = Z3native.fpa_get_numeral_significand_string
+  let get_numeral_significand_uint = Z3native.fpa_get_numeral_significand_uint64
+  let get_numeral_significand_bv = Z3native.fpa_get_numeral_significand_bv
+  let is_numeral_nan = Z3native.fpa_is_numeral_nan
+  let is_numeral_inf = Z3native.fpa_is_numeral_inf
+  let is_numeral_zero = Z3native.fpa_is_numeral_zero
+  let is_numeral_normal = Z3native.fpa_is_numeral_normal
+  let is_numeral_subnormal = Z3native.fpa_is_numeral_subnormal
+  let is_numeral_positive = Z3native.fpa_is_numeral_positive
+  let is_numeral_negative = Z3native.fpa_is_numeral_negative
   let mk_to_ieee_bv = Z3native.mk_fpa_to_ieee_bv
   let mk_to_fp_int_real = Z3native.mk_fpa_to_fp_int_real
   let numeral_to_string x = Z3native.get_numeral_string (Expr.gc x) x
@@ -1904,13 +1916,17 @@ struct
     let q = Z3native.optimize_get_model (gc x) x in
     if Z3native.is_null_model q then None else Some q
 
-  let get_lower (x:handle) (idx:int) = Z3native.optimize_get_lower (gc x.opt) x.opt idx
-  let get_upper (x:handle) (idx:int) = Z3native.optimize_get_upper (gc x.opt) x.opt idx
+  let get_lower (x:handle) = Z3native.optimize_get_lower (gc x.opt) x.opt x.h
+  let get_upper (x:handle) = Z3native.optimize_get_upper (gc x.opt) x.opt x.h
   let push (x:optimize) = Z3native.optimize_push (gc x) x
   let pop (x:optimize) = Z3native.optimize_pop (gc x) x
   let get_reason_unknown (x:optimize) = Z3native.optimize_get_reason_unknown (gc x) x
   let to_string (x:optimize) = Z3native.optimize_to_string (gc x) x
   let get_statistics (x:optimize) = Z3native.optimize_get_statistics (gc x) x
+  let from_file (x:optimize) (s:string) = Z3native.optimize_from_file (gc x) x s
+  let from_string (x:optimize) (s:string) = Z3native.optimize_from_string (gc x) x s
+  let get_assertions (x:optimize) = AST.ASTVector.to_expr_list (Z3native.optimize_get_assertions (gc x) x)
+  let get_objectives (x:optimize) = AST.ASTVector.to_expr_list (Z3native.optimize_get_statistics (gc x) x)
 end
 
 

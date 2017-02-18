@@ -27,3 +27,10 @@ void bv_simplifier_params::updt_params(params_ref const & _p) {
     m_bv2int_distribute = p.bv_bv2int_distribute();
 
 }
+
+#define DISPLAY_PARAM(X) out << #X"=" << X << std::endl;
+
+void bv_simplifier_params::display(std::ostream & out) const {
+    DISPLAY_PARAM(m_hi_div0);
+    DISPLAY_PARAM(m_bv2int_distribute);
+}

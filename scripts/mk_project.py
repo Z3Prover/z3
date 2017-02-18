@@ -9,7 +9,7 @@ from mk_util import *
 
 # Z3 Project definition
 def init_project_def():
-    set_version(4, 4, 2, 0)
+    set_version(4, 5, 1, 0)
     add_lib('util', [])
     add_lib('polynomial', ['util'], 'math/polynomial')
     add_lib('sat', ['util'])
@@ -45,7 +45,7 @@ def init_project_def():
     # Simplifier module will be deleted in the future.
     # It has been replaced with rewriter module.
     add_lib('simplifier', ['rewriter'], 'ast/simplifier')
-    add_lib('fpa', ['ast', 'util', 'simplifier'], 'ast/fpa')
+    add_lib('fpa', ['ast', 'util', 'simplifier', 'model'], 'ast/fpa')
     add_lib('macros', ['simplifier'], 'ast/macros')
     add_lib('pattern', ['normal_forms', 'smt2parser', 'simplifier'], 'ast/pattern')
     add_lib('bit_blaster', ['rewriter', 'simplifier'], 'ast/rewriter/bit_blaster')
@@ -87,12 +87,14 @@ def init_project_def():
                               reexports=['api'],
                               dll_name='libz3',
                               static=build_static_lib(),
-                              export_files=API_files)
-    add_dot_net_dll('dotnet', ['api_dll'], 'api/dotnet', dll_name='Microsoft.Z3', assembly_info_dir='Properties')
+                              export_files=API_files,
+                              staging_link='python')
+    add_dot_net_dll('dotnet', ['api_dll'], 'api/dotnet', dll_name='Microsoft.Z3', assembly_info_dir='Properties', default_key_file='src/api/dotnet/Microsoft.Z3.snk')
     add_java_dll('java', ['api_dll'], 'api/java', dll_name='libz3java', package_name="com.microsoft.z3", manifest_file='manifest')
     add_ml_lib('ml', ['api_dll'], 'api/ml', lib_name='libz3ml')
     add_hlib('cpp', 'api/c++', includes2install=['z3++.h'])
     set_z3py_dir('api/python')
+    add_python(_libz3Component)
     add_python_install(_libz3Component)
     # Examples
     add_cpp_example('cpp_example', 'c++') 

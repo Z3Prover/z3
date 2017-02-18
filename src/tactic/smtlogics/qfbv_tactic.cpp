@@ -32,7 +32,7 @@ Notes:
 
 #define MEMLIMIT 300
 
-tactic * mk_qfbv_preamble(ast_manager& m, params_ref const& p) {
+static tactic * mk_qfbv_preamble(ast_manager& m, params_ref const& p) {
 
     params_ref solve_eq_p;
     // conservative guassian elimination.
@@ -80,7 +80,7 @@ static tactic * main_p(tactic* t) {
 }
 
 
-tactic * mk_qfbv_tactic(ast_manager& m, params_ref const & p, tactic* sat, tactic* smt) {
+static tactic * mk_qfbv_tactic(ast_manager& m, params_ref const & p, tactic* sat, tactic* smt) {
 
     params_ref local_ctx_p = p;
     local_ctx_p.set_bool("local_ctx", true);

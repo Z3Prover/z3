@@ -32,7 +32,10 @@ Notes:
 #include "opt_params.hpp"
 #include "model_smt2_pp.h"
 
-static opt::context& get_opt(cmd_context& cmd) {
+static opt::context& get_opt(cmd_context& cmd, opt::context* opt) {
+    if (opt) {
+        return *opt;
+    }
     if (!cmd.get_opt()) {
         cmd.set_opt(alloc(opt::context, cmd.m()));
     }
@@ -43,12 +46,14 @@ static opt::context& get_opt(cmd_context& cmd) {
 class assert_soft_cmd : public parametric_cmd {
     unsigned     m_idx;
     expr*        m_formula;
+    opt::context* m_opt;
 
 public:
-    assert_soft_cmd():
+    assert_soft_cmd(opt::context* opt):
         parametric_cmd("assert-soft"),
         m_idx(0),
-        m_formula(0)
+        m_formula(0),
+        m_opt(opt)
     {}
 
     virtual ~assert_soft_cmd() {
@@ -92,12 +97,9 @@ public:
 
     virtual void execute(cmd_context & ctx) {
         symbol w("weight");
-        rational weight = ps().get_rat(symbol("weight"), rational(0));
-        if (weight.is_zero()) {
-            weight = rational::one();
-        }
-        symbol id = ps().get_sym(symbol("id"), symbol::null);
-        get_opt(ctx).add_soft_constraint(m_formula, weight, id);
+        rational weight = ps().get_rat(symbol("weight"), rational::one());
+        symbol id = ps().get_sym(symbol("id"), symbol::null);        
+        get_opt(ctx, m_opt).add_soft_constraint(m_formula, weight, id);
         reset(ctx);
     }
 
@@ -108,11 +110,13 @@ public:
 
 class min_maximize_cmd : public cmd {
     bool         m_is_max;
+    opt::context* m_opt;
 
 public:
-    min_maximize_cmd(bool is_max):
+    min_maximize_cmd(bool is_max, opt::context* opt):
         cmd(is_max?"maximize":"minimize"),
-        m_is_max(is_max)
+        m_is_max(is_max),
+        m_opt(opt)
     {}
 
     virtual void reset(cmd_context & ctx) { }
@@ -126,7 +130,7 @@ public:
         if (!is_app(t)) {
             throw cmd_exception("malformed objective term: it cannot be a quantifier or bound variable");
         }
-        get_opt(ctx).add_objective(to_app(t), m_is_max);
+        get_opt(ctx, m_opt).add_objective(to_app(t), m_is_max);
     }
 
     virtual void failure_cleanup(cmd_context & ctx) {
@@ -139,10 +143,10 @@ public:
 
 
 
-void install_opt_cmds(cmd_context & ctx) {
-    ctx.insert(alloc(assert_soft_cmd));
-    ctx.insert(alloc(min_maximize_cmd, true));
-    ctx.insert(alloc(min_maximize_cmd, false));
+void install_opt_cmds(cmd_context & ctx, opt::context* opt) {
+    ctx.insert(alloc(assert_soft_cmd, opt));
+    ctx.insert(alloc(min_maximize_cmd, true, opt));
+    ctx.insert(alloc(min_maximize_cmd, false, opt));
 }
 
 

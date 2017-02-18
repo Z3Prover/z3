@@ -44,6 +44,7 @@ namespace datalog {
                 if (m_context.has_facts(r->get_decl(i))) {
                     return 0;
                 }
+
                 if (r->is_neg_tail(i)) {
                     if (!engine.get_fact(r->get_decl(i)).is_reachable()) {
                         if (!new_tail) {
@@ -53,11 +54,14 @@ namespace datalog {
                             }
                             new_tail = true;
                         }
-                    } else if (new_tail) {
+                    } 
+                    else if (new_tail) {
                         m_new_tail.push_back(r->get_tail(i));
                         m_new_tail_neg.push_back(true);
                     }
-                } else {
+                } 
+
+                else {
                     SASSERT(!new_tail);
                     if (!engine.get_fact(r->get_decl(i)).is_reachable()) {
                         contained = false;

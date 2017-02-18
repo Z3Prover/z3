@@ -86,10 +86,10 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
             return BR_DONE;
         }
         return BR_FAILED;
-    }    
+    }
     else if (m().is_ite(f)) {
         SASSERT(num == 3);
-        if (m_conv.is_float(args[1])) {
+        if (m_conv.is_float(args[1]) || m_conv.is_rm(args[1])) {
             m_conv.mk_ite(args[0], args[1], args[2], result);
             return BR_DONE;
         }
@@ -103,7 +103,7 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
         }
         return BR_FAILED;
     }
-    
+
     if (m_conv.is_float_family(f)) {
         switch (f->get_decl_kind()) {
         case OP_FPA_RM_NEAREST_TIES_TO_AWAY:
@@ -143,9 +143,13 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
         case OP_FPA_TO_FP_UNSIGNED: m_conv.mk_to_fp_unsigned(f, num, args, result); return BR_DONE;
         case OP_FPA_FP: m_conv.mk_fp(f, num, args, result); return BR_DONE;
         case OP_FPA_TO_UBV: m_conv.mk_to_ubv(f, num, args, result); return BR_DONE;
+		case OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED: m_conv.mk_to_ubv_unspecified(f, num, args, result); return BR_DONE;
         case OP_FPA_TO_SBV: m_conv.mk_to_sbv(f, num, args, result); return BR_DONE;
+		case OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED: m_conv.mk_to_sbv_unspecified(f, num, args, result); return BR_DONE;
         case OP_FPA_TO_REAL: m_conv.mk_to_real(f, num, args, result); return BR_DONE;
+		case OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED: m_conv.mk_to_real_unspecified(f, num, args, result); return BR_DONE;
         case OP_FPA_TO_IEEE_BV: m_conv.mk_to_ieee_bv(f, num, args, result); return BR_DONE;
+        case OP_FPA_INTERNAL_TO_IEEE_BV_UNSPECIFIED: m_conv.mk_to_ieee_bv_unspecified(f, num, args, result); return BR_DONE;
 
         case OP_FPA_MIN: m_conv.mk_min(f, num, args, result); return BR_REWRITE_FULL;
         case OP_FPA_MAX: m_conv.mk_max(f, num, args, result); return BR_REWRITE_FULL;
@@ -157,19 +161,15 @@ br_status fpa2bv_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr * co
 
         case OP_FPA_INTERNAL_BVWRAP:
         case OP_FPA_INTERNAL_BV2RM:
-        
-        case OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED:
-        case OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED:
-        case OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED:
-        case OP_FPA_INTERNAL_TO_IEEE_BV_UNSPECIFIED:
                 return BR_FAILED;
+
         default:
             TRACE("fpa2bv", tout << "unsupported operator: " << f->get_name() << "\n";
                   for (unsigned i = 0; i < num; i++) tout << mk_ismt2_pp(args[i], m()) << std::endl;);
             NOT_IMPLEMENTED_YET();
         }
     }
-    else 
+    else
     {
         SASSERT(!m_conv.is_float_family(f));
         if (m_conv.fu().contains_floats(f)) {

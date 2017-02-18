@@ -88,7 +88,7 @@ namespace opt {
         virtual ~opt_solver();
 
         virtual solver* translate(ast_manager& m, params_ref const& p);
-        virtual void updt_params(params_ref & p);
+        virtual void updt_params(params_ref const& p);
         virtual void collect_param_descrs(param_descrs & r);
         virtual void collect_statistics(statistics & st) const;
         virtual void assert_expr(expr * t);
@@ -104,8 +104,9 @@ namespace opt {
         virtual void set_progress_callback(progress_callback * callback);
         virtual unsigned get_num_assertions() const;
         virtual expr * get_assertion(unsigned idx) const;
-        virtual void display(std::ostream & out) const;
-        virtual ast_manager& get_manager() { return m; } 
+        virtual ast_manager& get_manager() const { return m; } 
+        virtual lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes);
+        virtual lbool preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores);
         void set_logic(symbol const& logic);
 
         smt::theory_var add_objective(app* term);

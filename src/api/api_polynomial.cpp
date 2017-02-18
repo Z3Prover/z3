@@ -14,9 +14,8 @@ Author:
     Leonardo de Moura (leonardo) 2012-12-08
 
 Notes:
-    
+
 --*/
-#include<iostream>
 #include"z3.h"
 #include"api_log_macros.h"
 #include"api_context.h"
@@ -35,7 +34,7 @@ namespace api {
 
     pmanager::~pmanager() {
     }
-    
+
 };
 
 extern "C" {
@@ -53,7 +52,7 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return 0;
         }
-        Z3_ast_vector_ref* result = alloc(Z3_ast_vector_ref, mk_c(c)->m());
+        Z3_ast_vector_ref* result = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
         mk_c(c)->save_object(result);
         if (converter.is_var(to_expr(x))) {
             expr2var const & mapping = converter.get_mapping();

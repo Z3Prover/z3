@@ -73,6 +73,7 @@ struct scoped_timer::imp {
     pthread_cond_t  m_cond;
     unsigned        m_ms;
     bool            m_initialized;
+    bool            m_signal_sent;
 #else
     // Other
 #endif
@@ -119,10 +120,18 @@ struct scoped_timer::imp {
 
         pthread_mutex_lock(&st->m_mutex);
         st->m_initialized = true;
-        int e = pthread_cond_timedwait(&st->m_cond, &st->m_mutex, &end_time);
-        ENSURE(e == 0 || e == ETIMEDOUT);
-
+        int e = 0;
+        // `pthread_cond_timedwait()` may spuriously wake even if the signal
+        // was not sent so we loop until a timeout occurs or the signal was
+        // **really** sent.
+        while (!(e == 0 && st->m_signal_sent)) {
+          e = pthread_cond_timedwait(&st->m_cond, &st->m_mutex, &end_time);
+          ENSURE(e == 0 || e == ETIMEDOUT);
+          if (e == ETIMEDOUT)
+            break;
+        }
         pthread_mutex_unlock(&st->m_mutex);
+
         if (e == ETIMEDOUT)
             st->m_eh->operator()();
         return 0;
@@ -170,6 +179,7 @@ struct scoped_timer::imp {
         // Linux & FreeBSD
         m_ms = ms;
         m_initialized = false;
+        m_signal_sent = false;
         ENSURE(pthread_mutex_init(&m_mutex, NULL) == 0);
         ENSURE(pthread_cond_init(&m_cond, NULL) == 0);
         ENSURE(pthread_create(&m_thread_id, NULL, &thread_func, this) == 0);
@@ -218,6 +228,10 @@ struct scoped_timer::imp {
             if (!init)
                 sched_yield();
         }
+        pthread_mutex_lock(&m_mutex);
+        m_signal_sent = true;
+        pthread_mutex_unlock(&m_mutex);
+        // Perform signal outside of lock to avoid waking timing thread twice.
         pthread_cond_signal(&m_cond);
 
         pthread_join(m_thread_id, NULL);
@@ -231,7 +245,7 @@ struct scoped_timer::imp {
 };
 
 scoped_timer::scoped_timer(unsigned ms, event_handler * eh) {
-    if (ms != UINT_MAX)
+    if (ms != UINT_MAX && ms != 0)
         m_imp = alloc(imp, ms, eh);
     else
         m_imp = 0;

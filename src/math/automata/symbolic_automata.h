@@ -104,7 +104,46 @@ public:
     automaton_t* mk_minimize_total(automaton_t& a);
     automaton_t* mk_difference(automaton_t& a, automaton_t& b);
     automaton_t* mk_product(automaton_t& a, automaton_t& b);
+
+private:
+    automaton_t* mk_determinstic_param(automaton_t& a, bool flip_acceptance);
+    
+    vector<std::pair<vector<bool>, ref_t> > generate_min_terms(vector<ref_t> &constraints) {
+        vector<std::pair<vector<bool>, ref_t> > min_terms;
+        
+        ref_t curr_pred(m_ba.mk_true(), m);
+        vector<bool> curr_bv;
+        
+        generate_min_terms_rec(constraints, min_terms, 0, curr_bv, curr_pred);
+        
+        return min_terms;
+    }
+    void generate_min_terms_rec(vector<ref_t> &constraints, vector<std::pair<vector<bool>, ref_t> > &min_terms, unsigned i, vector<bool> &curr_bv, ref_t &curr_pred) {
+        lbool is_sat = m_ba.is_sat(curr_pred);
+        if (is_sat != l_true) {
+            return;
+        }
+        
+        if (i == constraints.size()) {
+            min_terms.push_back(std::pair<vector<bool>, ref_t>(curr_bv, curr_pred));
+        }
+        else {
+            //true case
+            curr_bv.push_back(true);
+            ref_t new_pred_pos(m_ba.mk_and(curr_pred, constraints[i]), m);			
+            generate_min_terms_rec(constraints, min_terms, i + 1, curr_bv, new_pred_pos);
+            curr_bv.pop_back();
+            
+            //false case
+            curr_bv.push_back(false);
+            ref_t new_pred_neg(m_ba.mk_and(curr_pred, m_ba.mk_not(constraints[i])), m);
+            generate_min_terms_rec(constraints, min_terms, i + 1, curr_bv, new_pred_neg);
+            curr_bv.pop_back();
+        }
+    }
+
 };
+
 
 
 

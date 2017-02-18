@@ -666,8 +666,8 @@ void model_implicant::eval_eq(app* e, expr* arg1, expr* arg2) {
 }
 
 void model_implicant::eval_basic(app* e) {
-    expr* arg1, *arg2;
-    expr *argCond, *argThen, *argElse, *arg;
+    expr* arg1 = 0, *arg2 = 0;
+    expr *argCond = 0, *argThen = 0, *argElse = 0, *arg = 0;
     bool has_x = false;
     unsigned arity = e->get_num_args();
     switch(e->get_decl_kind()) {

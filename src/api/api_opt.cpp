@@ -23,15 +23,17 @@ Revision History:
 #include"api_util.h"
 #include"api_model.h"
 #include"opt_context.h"
+#include"opt_cmds.h"
 #include"cancel_eh.h"
 #include"scoped_timer.h"
-
+#include"smt2parser.h"
+#include"api_ast_vector.h"
 
 extern "C" {
 
     struct Z3_optimize_ref : public api::object {
         opt::context* m_opt;
-        Z3_optimize_ref():m_opt(0) {}
+        Z3_optimize_ref(api::context& c): api::object(c), m_opt(0) {}
         virtual ~Z3_optimize_ref() { dealloc(m_opt); }
     };
     inline Z3_optimize_ref * to_optimize(Z3_optimize o) { return reinterpret_cast<Z3_optimize_ref *>(o); }
@@ -42,7 +44,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_optimize(c);
         RESET_ERROR_CODE();
-        Z3_optimize_ref * o = alloc(Z3_optimize_ref);
+        Z3_optimize_ref * o = alloc(Z3_optimize_ref, *mk_c(c));
         o->m_opt = alloc(opt::context,mk_c(c)->m());
         mk_c(c)->save_object(o);
         RETURN_Z3(of_optimize(o));
@@ -158,7 +160,7 @@ extern "C" {
         RESET_ERROR_CODE();
         model_ref _m;
         to_optimize_ptr(o)->get_model(_m);
-        Z3_model_ref * m_ref = alloc(Z3_model_ref); 
+        Z3_model_ref * m_ref = alloc(Z3_model_ref, *mk_c(c)); 
         if (_m) {
             m_ref->m_model = _m;
         }
@@ -186,7 +188,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_optimize_get_param_descrs(c, o);
         RESET_ERROR_CODE();
-        Z3_param_descrs_ref * d = alloc(Z3_param_descrs_ref);
+        Z3_param_descrs_ref * d = alloc(Z3_param_descrs_ref, *mk_c(c));
         mk_c(c)->save_object(d);
         to_optimize_ptr(o)->collect_param_descrs(d->m_descrs);
         Z3_param_descrs r = of_param_descrs(d);
@@ -240,11 +242,91 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_optimize_get_statistics(c, d);
         RESET_ERROR_CODE();
-        Z3_stats_ref * st = alloc(Z3_stats_ref);
+        Z3_stats_ref * st = alloc(Z3_stats_ref, *mk_c(c));
         to_optimize_ptr(d)->collect_statistics(st->m_stats);
         mk_c(c)->save_object(st);
         Z3_stats r = of_stats(st);
         RETURN_Z3(r);
+        Z3_CATCH_RETURN(0);
+    }
+
+    static void Z3_optimize_from_stream(
+        Z3_context    c,
+        Z3_optimize opt,
+        std::istream& s) {
+        ast_manager& m = mk_c(c)->m();
+        cmd_context ctx(false, &m);
+        install_opt_cmds(ctx, to_optimize_ptr(opt));
+        ctx.set_ignore_check(true);
+        if (!parse_smt2_commands(ctx, s)) {
+            SET_ERROR_CODE(Z3_PARSER_ERROR);
+            return;
+        }        
+        ptr_vector<expr>::const_iterator it  = ctx.begin_assertions();
+        ptr_vector<expr>::const_iterator end = ctx.end_assertions();
+        for (; it != end; ++it) {
+            to_optimize_ptr(opt)->add_hard_constraint(*it);
+        }
+    }
+
+    void Z3_API Z3_optimize_from_string(
+        Z3_context    c,
+        Z3_optimize   d,
+        Z3_string     s) {
+        Z3_TRY;
+        //LOG_Z3_optimize_from_string(c, d, s);
+        std::string str(s);
+        std::istringstream is(str);
+        Z3_optimize_from_stream(c, d, is);
+        Z3_CATCH;
+    }
+
+    void Z3_API Z3_optimize_from_file(
+        Z3_context    c,
+        Z3_optimize   d,
+        Z3_string     s) {
+        Z3_TRY;
+        //LOG_Z3_optimize_from_file(c, d, s);
+        std::ifstream is(s);
+        if (!is) {
+            std::ostringstream strm;
+            strm << "Could not open file " << s;
+            throw default_exception(strm.str());
+
+            SET_ERROR_CODE(Z3_PARSER_ERROR);
+            return;
+        }
+        Z3_optimize_from_stream(c, d, is);
+        Z3_CATCH;
+    }
+
+
+    Z3_ast_vector Z3_API Z3_optimize_get_assertions(Z3_context c, Z3_optimize o) {
+        Z3_TRY;
+        LOG_Z3_optimize_get_assertions(c, o);
+        RESET_ERROR_CODE();
+        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
+        mk_c(c)->save_object(v);
+        expr_ref_vector hard(mk_c(c)->m());
+        to_optimize_ptr(o)->get_hard_constraints(hard);
+        for (unsigned i = 0; i < hard.size(); i++) {
+            v->m_ast_vector.push_back(hard[i].get());
+        }
+        RETURN_Z3(of_ast_vector(v));
+        Z3_CATCH_RETURN(0);        
+    }
+    
+    Z3_ast_vector Z3_API Z3_optimize_get_objectives(Z3_context c, Z3_optimize o) {
+        Z3_TRY;
+        LOG_Z3_optimize_get_objectives(c, o);
+        RESET_ERROR_CODE();
+        unsigned n = to_optimize_ptr(o)->num_objectives();
+        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
+        mk_c(c)->save_object(v);
+        for (unsigned i = 0; i < n; i++) {
+            v->m_ast_vector.push_back(to_optimize_ptr(o)->get_objective(i));
+        }
+        RETURN_Z3(of_ast_vector(v));
         Z3_CATCH_RETURN(0);
     }
 

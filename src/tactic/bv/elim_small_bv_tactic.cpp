@@ -119,9 +119,8 @@ class elim_small_bv_tactic : public tactic {
             return res;
         }
 
-        br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
-            result = m.mk_app(f, num, args);
-            TRACE("elim_small_bv_app", tout << "reduce " << mk_ismt2_pp(result, m) << std::endl; );
+        br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {            
+            TRACE("elim_small_bv_app", expr_ref tmp(m.mk_app(f, num, args), m); tout << "reduce " << tmp << std::endl; );
             return BR_FAILED;
         }
 
@@ -147,11 +146,10 @@ class elim_small_bv_tactic : public tactic {
             expr_ref body(old_body, m);
             for (unsigned i = num_decls-1; i != ((unsigned)-1) && !max_steps_exceeded(num_steps); i--) {
                 sort * s = q->get_decl_sort(i);
-                symbol const & name = q->get_decl_name(i);
                 unsigned bv_sz = m_util.get_bv_size(s);
 
                 if (is_small_bv(s) && !max_steps_exceeded(num_steps)) {
-                    TRACE("elim_small_bv", tout << "eliminating " << name <<
+                    TRACE("elim_small_bv", tout << "eliminating " << q->get_decl_name(i) <<
                         "; sort = " << mk_ismt2_pp(s, m) <<
                         "; body = " << mk_ismt2_pp(body, m) << std::endl;);
 

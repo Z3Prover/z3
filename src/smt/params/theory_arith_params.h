@@ -156,6 +156,8 @@ struct theory_arith_params {
     }
 
     void updt_params(params_ref const & p);
+
+    void display(std::ostream & out) const;
 };
 
 #endif /* THEORY_ARITH_PARAMS_H_ */

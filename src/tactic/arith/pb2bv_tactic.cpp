@@ -29,10 +29,11 @@ Notes:
 #include"filter_model_converter.h"
 #include"pb2bv_model_converter.h"
 #include"pb2bv_tactic.h"
+#include"ast_pp.h"
 
 class pb2bv_tactic : public tactic {
 public:
-    struct non_pb {};
+    struct non_pb { expr* e; non_pb(expr* e) : e(e) {}};
 
     struct only_01_visitor {
         typedef rational numeral;
@@ -48,7 +49,7 @@ public:
     
         void throw_non_pb(expr * n) {
             TRACE("pb2bv", tout << "Not pseudo-Boolean: " << mk_ismt2_pp(n, m) << "\n";);
-            throw non_pb();
+            throw non_pb(n);
         }
     
         void operator()(var * n) { 
@@ -575,7 +576,7 @@ private:
     
         void throw_non_pb(expr * n) {        
             TRACE("pb2bv", tout << "Not pseudo-Boolean: " << mk_ismt2_pp(n, m) << "\n";);
-            throw non_pb();
+            throw non_pb(n);
         }
 
         // check if polynomial is encoding 
@@ -884,11 +885,11 @@ private:
             r.erase("elim_and");            
         }
         
-        virtual void operator()(goal_ref const & g, 
-                                goal_ref_buffer & result, 
-                                model_converter_ref & mc, 
-                                proof_converter_ref & pc,
-                                expr_dependency_ref & core) {
+        void operator()(goal_ref const & g, 
+                        goal_ref_buffer & result, 
+                        model_converter_ref & mc, 
+                        proof_converter_ref & pc,
+                        expr_dependency_ref & core) {
             TRACE("pb2bv", g->display(tout););
             SASSERT(g->is_well_sorted());
             fail_if_proof_generation("pb2bv", g);
@@ -910,8 +911,8 @@ private:
             try {
                 quick_pb_check(g);
             }
-            catch (non_pb) {
-                throw tactic_exception("goal is in a fragment unsupported by pb2bv");
+            catch (non_pb& p) {
+                throw_tactic(p.e);
             }
                         
             unsigned size = g->size();
@@ -940,8 +941,8 @@ private:
                     new_exprs.push_back(new_f);
                 }                
             }
-            catch (non_pb) {
-                throw tactic_exception("goal is in a fragment unsupported by pb2bv");
+            catch (non_pb& p) {
+                throw_tactic(p.e);
             }
 
             for (unsigned idx = 0; idx < size; idx++)
@@ -965,6 +966,12 @@ private:
             result.push_back(g.get());
             TRACE("pb2bv", g->display(tout););
             SASSERT(g->is_well_sorted());
+        }
+
+        void throw_tactic(expr* e) {
+            std::stringstream strm;
+            strm << "goal is in a fragment unsupported by pb2bv. Offending expression: " << mk_pp(e, m);
+            throw tactic_exception(strm.str().c_str());
         }
     };
 

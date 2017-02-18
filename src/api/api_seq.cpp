@@ -16,7 +16,6 @@ Author:
 Revision History:
 
 --*/
-#include<iostream>
 #include"z3.h"
 #include"api_log_macros.h"
 #include"api_context.h"
@@ -28,7 +27,7 @@ extern "C" {
     Z3_sort Z3_API Z3_mk_seq_sort(Z3_context c, Z3_sort domain) {
         Z3_TRY;
         LOG_Z3_mk_seq_sort(c, domain);
-        RESET_ERROR_CODE();  
+        RESET_ERROR_CODE();
         sort * ty =  mk_c(c)->sutil().str.mk_seq(to_sort(domain));
         mk_c(c)->save_ast_trail(ty);
         RETURN_Z3(of_sort(ty));
@@ -38,7 +37,7 @@ extern "C" {
     Z3_sort Z3_API Z3_mk_re_sort(Z3_context c, Z3_sort domain) {
         Z3_TRY;
         LOG_Z3_mk_re_sort(c, domain);
-        RESET_ERROR_CODE();  
+        RESET_ERROR_CODE();
         sort * ty =  mk_c(c)->sutil().re.mk_re(to_sort(domain));
         mk_c(c)->save_ast_trail(ty);
         RETURN_Z3(of_sort(ty));
@@ -48,14 +47,14 @@ extern "C" {
     Z3_ast Z3_API Z3_mk_string(Z3_context c, Z3_string str) {
         Z3_TRY;
         LOG_Z3_mk_string(c, str);
-        RESET_ERROR_CODE();  
+        RESET_ERROR_CODE();
         zstring s(str, zstring::ascii);
         app* a = mk_c(c)->sutil().str.mk_string(s);
         mk_c(c)->save_ast_trail(a);
         RETURN_Z3(of_ast(a));
         Z3_CATCH_RETURN(0);
     }
-    
+
     Z3_sort Z3_API Z3_mk_string_sort(Z3_context c) {
         Z3_TRY;
         LOG_Z3_mk_string_sort(c);
@@ -71,8 +70,8 @@ extern "C" {
         LOG_Z3_is_seq_sort(c, s);
         RESET_ERROR_CODE();
         bool result = mk_c(c)->sutil().is_seq(to_sort(s));
-        return result?Z3_TRUE:Z3_FALSE;        
-        Z3_CATCH_RETURN(Z3_FALSE);        
+        return result?Z3_TRUE:Z3_FALSE;
+        Z3_CATCH_RETURN(Z3_FALSE);
     }
 
     Z3_bool Z3_API Z3_is_re_sort(Z3_context c, Z3_sort s) {
@@ -80,8 +79,8 @@ extern "C" {
         LOG_Z3_is_re_sort(c, s);
         RESET_ERROR_CODE();
         bool result = mk_c(c)->sutil().is_re(to_sort(s));
-        return result?Z3_TRUE:Z3_FALSE;        
-        Z3_CATCH_RETURN(Z3_FALSE);        
+        return result?Z3_TRUE:Z3_FALSE;
+        Z3_CATCH_RETURN(Z3_FALSE);
     }
 
     Z3_bool Z3_API Z3_is_string_sort(Z3_context c, Z3_sort s) {
@@ -89,8 +88,8 @@ extern "C" {
         LOG_Z3_is_string_sort(c, s);
         RESET_ERROR_CODE();
         bool result = mk_c(c)->sutil().is_string(to_sort(s));
-        return result?Z3_TRUE:Z3_FALSE;        
-        Z3_CATCH_RETURN(Z3_FALSE);        
+        return result?Z3_TRUE:Z3_FALSE;
+        Z3_CATCH_RETURN(Z3_FALSE);
     }
 
     Z3_bool Z3_API Z3_is_string(Z3_context c, Z3_ast s) {
@@ -98,7 +97,7 @@ extern "C" {
         LOG_Z3_is_string(c, s);
         RESET_ERROR_CODE();
         bool result = mk_c(c)->sutil().str.is_string(to_expr(s));
-        return result?Z3_TRUE:Z3_FALSE;        
+        return result?Z3_TRUE:Z3_FALSE;
         Z3_CATCH_RETURN(Z3_FALSE);
     }
 
@@ -116,15 +115,18 @@ extern "C" {
         Z3_CATCH_RETURN("");
     }
 
-    Z3_ast Z3_API Z3_mk_seq_empty(Z3_context c, Z3_sort seq) {
-        Z3_TRY;
-        LOG_Z3_mk_seq_empty(c, seq);
-        RESET_ERROR_CODE();  
-        app* a = mk_c(c)->sutil().str.mk_empty(to_sort(seq));
-        mk_c(c)->save_ast_trail(a);
-        RETURN_Z3(of_ast(a));
-        Z3_CATCH_RETURN(0);
+#define MK_SORTED(NAME, FN )                                    \
+    Z3_ast Z3_API NAME(Z3_context c, Z3_sort s) {               \
+    Z3_TRY;                                                     \
+    LOG_ ## NAME(c, s);                                         \
+    RESET_ERROR_CODE();                                         \
+    app* a = FN(to_sort(s));                                    \
+    mk_c(c)->save_ast_trail(a);                                 \
+    RETURN_Z3(of_ast(a));                                       \
+    Z3_CATCH_RETURN(0);                                         \
     }
+
+    MK_SORTED(Z3_mk_seq_empty, mk_c(c)->sutil().str.mk_empty);
 
     MK_UNARY(Z3_mk_seq_unit, mk_c(c)->get_seq_fid(), OP_SEQ_UNIT, SKIP);
     MK_NARY(Z3_mk_seq_concat, mk_c(c)->get_seq_fid(), OP_SEQ_CONCAT, SKIP);
@@ -139,12 +141,31 @@ extern "C" {
     MK_UNARY(Z3_mk_seq_to_re, mk_c(c)->get_seq_fid(), OP_SEQ_TO_RE, SKIP);
     MK_BINARY(Z3_mk_seq_in_re, mk_c(c)->get_seq_fid(), OP_SEQ_IN_RE, SKIP);
 
+    MK_UNARY(Z3_mk_int_to_str, mk_c(c)->get_seq_fid(), OP_STRING_ITOS, SKIP);
+    MK_UNARY(Z3_mk_str_to_int, mk_c(c)->get_seq_fid(), OP_STRING_STOI, SKIP);
+
+
+    Z3_ast Z3_API Z3_mk_re_loop(Z3_context c, Z3_ast r, unsigned lo, unsigned hi) {
+        Z3_TRY;
+        LOG_Z3_mk_re_loop(c, r, lo, hi);
+        RESET_ERROR_CODE();
+        app* a = hi == 0 ? mk_c(c)->sutil().re.mk_loop(to_expr(r), lo) : mk_c(c)->sutil().re.mk_loop(to_expr(r), lo, hi);
+        mk_c(c)->save_ast_trail(a);
+        RETURN_Z3(of_ast(a));
+        Z3_CATCH_RETURN(0);
+    }
 
     MK_UNARY(Z3_mk_re_plus, mk_c(c)->get_seq_fid(), OP_RE_PLUS, SKIP);
     MK_UNARY(Z3_mk_re_star, mk_c(c)->get_seq_fid(), OP_RE_STAR, SKIP);
     MK_UNARY(Z3_mk_re_option, mk_c(c)->get_seq_fid(), OP_RE_OPTION, SKIP);
+    MK_UNARY(Z3_mk_re_complement, mk_c(c)->get_seq_fid(), OP_RE_COMPLEMENT, SKIP);
     MK_NARY(Z3_mk_re_union, mk_c(c)->get_seq_fid(), OP_RE_UNION, SKIP);
+    MK_NARY(Z3_mk_re_intersect, mk_c(c)->get_seq_fid(), OP_RE_INTERSECT, SKIP);
     MK_NARY(Z3_mk_re_concat, mk_c(c)->get_seq_fid(), OP_RE_CONCAT, SKIP);
+    MK_BINARY(Z3_mk_re_range, mk_c(c)->get_seq_fid(), OP_RE_RANGE, SKIP);
+
+    MK_SORTED(Z3_mk_re_empty, mk_c(c)->sutil().re.mk_empty);
+    MK_SORTED(Z3_mk_re_full, mk_c(c)->sutil().re.mk_full);
 
 
 

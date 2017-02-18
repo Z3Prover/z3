@@ -274,7 +274,7 @@ namespace pdr {
 
         for (unsigned i = 0; i < src.size(); ) {
             expr * curr = src[i].get();
-            unsigned stored_lvl;
+            unsigned stored_lvl = 0;
             VERIFY(m_prop2level.find(curr, stored_lvl));
             SASSERT(stored_lvl >= src_level);
             bool assumes_level;
@@ -575,7 +575,7 @@ namespace pdr {
         // Predicates that are variable representatives. Other predicates at
         // positions the variables occur are made equivalent with these.
         expr_ref_vector conj(m);
-        app_ref_vector& var_reprs = *(alloc(app_ref_vector, m));
+        app_ref_vector var_reprs(m);
         ptr_vector<app> aux_vars;
 
         unsigned ut_size = rule.get_uninterpreted_tail_size();
@@ -584,7 +584,9 @@ namespace pdr {
         init_atom(pts, rule.get_head(), var_reprs, conj, UINT_MAX);
         for (unsigned i = 0; i < ut_size; ++i) {
             if (rule.is_neg_tail(i)) {
-                throw default_exception("PDR does not support negated predicates in rule tails");
+                char const* msg = "PDR does not supported negated predicates in rule tails";
+                IF_VERBOSE(0, verbose_stream() << msg << "\n";);
+                throw default_exception(msg);
             }
             init_atom(pts, rule.get_tail(i), var_reprs, conj, i);
         }
@@ -599,10 +601,16 @@ namespace pdr {
         flatten_and(tail);
         for (unsigned i = 0; i < tail.size(); ++i) {
             expr_ref tmp(m);
-            var_subst(m, false)(tail[i].get(), var_reprs.size(), (expr*const*)var_reprs.c_ptr(), tmp);
+            var_subst vs(m, false);
+            vs(tail[i].get(), var_reprs.size(), (expr*const*)var_reprs.c_ptr(), tmp);
             conj.push_back(tmp);
             TRACE("pdr", tout << mk_pp(tail[i].get(), m) << "\n" << mk_pp(tmp, m) << "\n";);
-            SASSERT(is_ground(tmp));
+            if (!is_ground(tmp)) {
+                std::stringstream msg;
+                msg << "PDR cannot solve non-ground tails: " << tmp;
+                IF_VERBOSE(0, verbose_stream() << msg.str() << "\n";);
+                throw default_exception(msg.str());
+            }
         }
         expr_ref fml = pm.mk_and(conj);
         th_rewriter rw(m);
@@ -624,7 +632,7 @@ namespace pdr {
             m_rule2transition.insert(&rule, fml.get());
             rules.push_back(&rule);
         }
-        m_rule2inst.insert(&rule, &var_reprs);
+        m_rule2inst.insert(&rule, alloc(app_ref_vector, var_reprs));
         m_rule2vars.insert(&rule, aux_vars);
         TRACE("pdr",
               tout << rule.get_decl()->get_name() << "\n";
@@ -888,14 +896,16 @@ namespace pdr {
 
 
     void model_node::dequeue(model_node*& root) {
-        TRACE("pdr", tout << this << " " << state() << "\n";);
+        TRACE("pdr", tout << this << " root: " << root << " " << state() << "\n";);
         if (!m_next && !m_prev) return;
         SASSERT(m_next);
         SASSERT(m_prev);
         SASSERT(children().empty());
         if (this == m_next) {
-            SASSERT(root == this);
-            root = 0;
+            SASSERT(m_prev == this);
+            if (root == this) {
+                root = 0;
+            }
         }
         else {
             m_next->m_prev = m_prev;
@@ -967,7 +977,7 @@ namespace pdr {
     }
 
     void model_search::enqueue_leaf(model_node* n) {
-        TRACE("pdr_verbose", tout << n << " " << n->state() << " goal: " << m_goal << "\n";);
+        TRACE("pdr_verbose", tout << "node: " << n << " " << n->state() << " goal: " << m_goal << "\n";);
         SASSERT(n->is_open());
         if (!m_goal) {
             m_goal = n;
@@ -997,7 +1007,7 @@ namespace pdr {
         return m_cache[l];
     }
 
-    void model_search::erase_children(model_node& n, bool backtrack) {
+    void model_search::erase_children(model_node& n, bool backtrack) {        
         ptr_vector<model_node> todo, nodes;
         todo.append(n.children());
         remove_goal(n);
@@ -1459,13 +1469,20 @@ namespace pdr {
         reset();
     }
 
-    void context::reset() {
-        TRACE("pdr", tout << "\n";);
-        decl2rel::iterator it = m_rels.begin(), end = m_rels.end();
+    void context::reset(decl2rel& rels) {
+        decl2rel::iterator it = rels.begin(), end = rels.end();
         for (; it != end; ++it) {
             dealloc(it->m_value);
         }
-        m_rels.reset();
+        rels.reset();
+    }
+
+    void context::reset(bool full) {
+        TRACE("pdr", tout << "reset\n";);
+        reset(m_rels);
+        if (full) {
+            reset(m_rels_tmp);
+        }
         m_search.reset();
         m_query = 0;
         m_last_result = l_undef;
@@ -1487,6 +1504,7 @@ namespace pdr {
                 e->get_data().m_value->add_rule(pred_rules[i]);
             }
         }
+        TRACE("pdr", tout << "adding rules\n";);
         datalog::rule_set::iterator rit = rules.begin(), rend = rules.end();
         for (; rit != rend; ++rit) {
             datalog::rule* r = *rit;
@@ -1501,6 +1519,7 @@ namespace pdr {
             }
         }
         // Initialize use list dependencies
+        TRACE("pdr", tout << "initialize use list dependencies\n";);
         decl2rel::iterator it = rels.begin(), end = rels.end();
         for (; it != end; ++it) {
             func_decl* pred = it->m_key;
@@ -1514,9 +1533,11 @@ namespace pdr {
             }
         }
 
+        TRACE("pdr", tout << "initialize predicate transformers\n";);
         // Initialize the predicate transformers.
         it = rels.begin(), end = rels.end();
         for (; it != end; ++it) {
+            SASSERT(it->m_value);
             pred_transformer& rel = *it->m_value;
             rel.initialize(rels);
             TRACE("pdr", rel.display(tout); );
@@ -1524,21 +1545,24 @@ namespace pdr {
     }
 
     void context::update_rules(datalog::rule_set& rules) {
-        decl2rel rels;
+        TRACE("pdr", tout << "update rules\n";);
+        reset(m_rels_tmp);
         init_core_generalizers(rules);
-        init_rules(rules, rels);
-        decl2rel::iterator it = rels.begin(), end = rels.end();
+        init_rules(rules, m_rels_tmp);
+        decl2rel::iterator it = m_rels_tmp.begin(), end = m_rels_tmp.end();
         for (; it != end; ++it) {
             pred_transformer* pt = 0;
             if (m_rels.find(it->m_key, pt)) {
                 it->m_value->inherit_properties(*pt);
             }
         }
-        reset();
-        it = rels.begin(), end = rels.end();
+        reset(false);
+        it = m_rels_tmp.begin(), end = m_rels_tmp.end();
         for (; it != end; ++it) {
             m_rels.insert(it->m_key, it->m_value);
         }
+        m_rels_tmp.reset();
+        TRACE("pdr", tout << "done update rules\n";);
     }
 
     unsigned context::get_num_levels(func_decl* p) {
@@ -1759,6 +1783,7 @@ namespace pdr {
                 smt::kernel solver(m, get_fparams());
                 solver.assert_expr(tmp);
                 lbool res = solver.check();
+                TRACE("pdr", tout << tmp << " " << res << "\n";);
                 if (res != l_false) {
                     msg << "rule validation failed when checking: " << mk_pp(tmp, m);
                     IF_VERBOSE(0, verbose_stream() << msg.str() << "\n";);
@@ -1817,6 +1842,10 @@ namespace pdr {
                     m_fparams.m_arith_mode = AS_UTVPI;
                     m_fparams.m_arith_expand_eqs = true;
                 }
+                else {
+                    m_fparams.m_arith_mode = AS_ARITH;
+                    m_fparams.m_arith_expand_eqs = false;
+                }
             }
         }
         if (m_params.pdr_use_convex_closure_generalizer()) {
@@ -1861,6 +1890,7 @@ namespace pdr {
     }
 
     lbool context::solve() {
+        TRACE("pdr", tout << "solve\n";);
         m_last_result = l_undef;
         try {
             solve_impl();
@@ -2076,6 +2106,7 @@ namespace pdr {
             }
             case l_undef: {
                 TRACE("pdr", tout << "unknown state: " << mk_pp(m_pm.mk_and(cube), m) << "\n";);
+                IF_VERBOSE(1, verbose_stream() << "unknown state\n";);
                 throw unknown_exception();
             }
             }

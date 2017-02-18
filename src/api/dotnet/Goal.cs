@@ -82,7 +82,7 @@ namespace Microsoft.Z3
             Contract.Requires(constraints != null);
             Contract.Requires(Contract.ForAll(constraints, c => c != null));
 
-            Context.CheckContextMatch(constraints);
+            Context.CheckContextMatch<BoolExpr>(constraints);
             foreach (BoolExpr c in constraints)
             {
                 Contract.Assert(c != null); // It was an assume, now made an assert just to be sure we do not regress

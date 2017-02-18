@@ -42,6 +42,7 @@ add_executable(test-z3
   factor_rewriter.cpp
   fixed_bit_vector.cpp
   for_each_file.cpp
+  get_consequences.cpp
   get_implied_equalities.cpp
   "${CMAKE_CURRENT_BINARY_DIR}/gparams_register_modules.cpp"
   hashtable.cpp
@@ -77,10 +78,10 @@ add_executable(test-z3
   old_interval.cpp
   optional.cpp
   parray.cpp
+  pb2bv.cpp
   pdr.cpp
   permutation.cpp
   polynomial.cpp
-  polynomial_factorization.cpp
   polynorm.cpp
   prime_generator.cpp
   proof_checker.cpp

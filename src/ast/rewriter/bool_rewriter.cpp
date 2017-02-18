@@ -59,9 +59,12 @@ br_status bool_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * co
         mk_implies(args[0], args[1], result);
         return BR_DONE;
     case OP_XOR:
-        SASSERT(num_args == 2);
-        mk_xor(args[0], args[1], result);
-        return BR_DONE;
+        switch (num_args) {
+        case 0: return BR_FAILED;
+        case 1: result = args[0]; return BR_DONE;
+        case 2: mk_xor(args[0], args[1], result); return BR_DONE;
+        default: UNREACHABLE(); return BR_FAILED;
+        }
     default:
         return BR_FAILED;
     }
@@ -456,6 +459,22 @@ bool bool_rewriter::simp_nested_eq_ite(expr * t, expr_fast_mark1 & neg_lits, exp
     return false;
 }
 
+void bool_rewriter::push_new_arg(expr* arg, expr_ref_vector& new_args, expr_fast_mark1& neg_lits, expr_fast_mark2& pos_lits) {
+    expr* narg;
+    if (m().is_not(arg, narg)) {
+        if (!neg_lits.is_marked(narg)) {
+            neg_lits.mark(narg);
+            new_args.push_back(arg);
+        }
+    }
+    else { 
+        if (!pos_lits.is_marked(arg)) {
+            pos_lits.mark(arg);            
+            new_args.push_back(arg);
+        }
+    }
+}
+
 /**
    \brief Apply local context simplification at (OR args[0] ... args[num_args-1])
    Basic idea:
@@ -473,6 +492,7 @@ bool bool_rewriter::local_ctx_simp(unsigned num_args, expr * const * args, expr_
     bool modified = false;
     bool forward  = true;
     unsigned rounds = 0;
+    expr* narg;
 
     while (true) {
         rounds++;
@@ -481,20 +501,13 @@ bool bool_rewriter::local_ctx_simp(unsigned num_args, expr * const * args, expr_
             verbose_stream() << "rounds: " << rounds << "\n";
 #endif
 
-#define PUSH_NEW_ARG(ARG) {                     \
-    new_args.push_back(ARG);                    \
-    if (m().is_not(ARG))                        \
-        neg_lits.mark(to_app(ARG)->get_arg(0)); \
-    else                                        \
-        pos_lits.mark(ARG);                     \
-}
 
 #define PROCESS_ARG()                                                                           \
         {                                                                                       \
             expr * arg = args[i];                                                               \
-            if (m().is_not(arg) && m().is_or(to_app(arg)->get_arg(0)) &&                        \
-                simp_nested_not_or(to_app(to_app(arg)->get_arg(0))->get_num_args(),             \
-                                   to_app(to_app(arg)->get_arg(0))->get_args(),                 \
+            if (m().is_not(arg, narg) && m().is_or(narg) &&                                     \
+                simp_nested_not_or(to_app(narg)->get_num_args(),                                \
+                                   to_app(narg)->get_args(),                                    \
                                    neg_lits,                                                    \
                                    pos_lits,                                                    \
                                    new_arg)) {                                                  \
@@ -515,11 +528,11 @@ bool bool_rewriter::local_ctx_simp(unsigned num_args, expr * const * args, expr_
                 unsigned sz = to_app(arg)->get_num_args();                                      \
                 for (unsigned j = 0; j < sz; j++) {                                             \
                     expr * arg_arg = to_app(arg)->get_arg(j);                                   \
-                    PUSH_NEW_ARG(arg_arg);                                                      \
+                    push_new_arg(arg_arg, new_args, neg_lits, pos_lits);                        \
                 }                                                                               \
             }                                                                                   \
             else {                                                                              \
-                PUSH_NEW_ARG(arg);                                                              \
+                push_new_arg(arg, new_args, neg_lits, pos_lits);                                \
             }                                                                                   \
         }
 
@@ -528,7 +541,7 @@ bool bool_rewriter::local_ctx_simp(unsigned num_args, expr * const * args, expr_
         static unsigned counter = 0;
         counter++;
         if (counter % 10000 == 0)
-            verbose_stream() << "local-ctx-cost: " << m_local_ctx_cost << "\n";
+            verbose_stream() << "local-ctx-cost: " << m_local_ctx_cost << " " << num_args << "\n";
 #endif
 
         if (forward) {
@@ -572,7 +585,7 @@ bool bool_rewriter::local_ctx_simp(unsigned num_args, expr * const * args, expr_
 
 */
 br_status bool_rewriter::try_ite_value(app * ite, app * val, expr_ref & result) {
-    expr* cond, *t, *e;
+    expr* cond = 0, *t = 0, *e = 0;
     VERIFY(m().is_ite(ite, cond, t, e));
     SASSERT(m().is_value(val));
 
@@ -581,38 +594,40 @@ br_status bool_rewriter::try_ite_value(app * ite, app * val, expr_ref & result) 
             TRACE("try_ite_value", tout << mk_ismt2_pp(t, m()) << " " << mk_ismt2_pp(e, m()) << " " << mk_ismt2_pp(val, m()) << "\n";
                   tout << t << " " << e << " " << val << "\n";);
             result = m().mk_false();
-        }        
+        }
         else if (t == val && e == val) {
             result = m().mk_true();
-        }        
+        }
         else if (t == val) {
             result = cond;
         }
         else {
-            SASSERT(e == val);            
+            SASSERT(e == val);
             mk_not(cond, result);
         }
         return BR_DONE;
     }
-    if (m().is_value(t)) {
-        if (val == t) {
-            result = m().mk_or(cond, m().mk_eq(val, e));
+    if (m_ite_extra_rules) {
+        if (m().is_value(t)) {
+            if (val == t) {
+                result = m().mk_or(cond, m().mk_eq(val, e));
+            }
+            else {
+                mk_not(cond, result);
+                result = m().mk_and(result, m().mk_eq(val, e));
+            }
+            return BR_REWRITE2;
         }
-        else {
-            mk_not(cond, result);
-            result = m().mk_and(result, m().mk_eq(val, e));
+        if (m().is_value(e)) {
+            if (val == e) {
+                mk_not(cond, result);
+                result = m().mk_or(result, m().mk_eq(val, t));
+            }
+            else {
+                result = m().mk_and(cond, m().mk_eq(val, t));
+            }
+            return BR_REWRITE2;
         }
-        return BR_REWRITE2;
-    }
-    if (m().is_value(e)) {
-        if (val == e) {
-            mk_not(cond, result);
-            result = m().mk_or(result, m().mk_eq(val, t));
-        }
-        else {
-            result = m().mk_and(cond, m().mk_eq(val, t));
-        }
-        return BR_REWRITE2;
     }
     expr* cond2, *t2, *e2;
     if (m().is_ite(t, cond2, t2, e2) && m().is_value(t2) && m().is_value(e2)) {

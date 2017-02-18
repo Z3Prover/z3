@@ -540,7 +540,7 @@ namespace simplex {
         var_t max    = get_num_vars();
         var_t result = max;
         row r = row(m_vars[x_i].m_base2row);
-        int n;
+        int n = 0;
         unsigned best_col_sz = UINT_MAX;
         int best_so_far    = INT_MAX;
         

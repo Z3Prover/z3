@@ -33,7 +33,6 @@ namespace smt {
         virtual inf_eps value(theory_var) = 0;
         virtual inf_eps maximize(theory_var v, expr_ref& blocker, bool& has_shared) = 0; 
         virtual theory_var add_objective(app* term) = 0;
-        virtual expr_ref mk_ge(filter_model_converter& fm, theory_var v, inf_eps const& val) { UNREACHABLE(); return expr_ref(*((ast_manager*)0)); }
         bool is_linear(ast_manager& m, expr* term);
         bool is_numeral(arith_util& a, expr* term);
     };

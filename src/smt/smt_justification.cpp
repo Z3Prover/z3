@@ -52,6 +52,7 @@ namespace smt {
                   tout << lits[i] << " ";
               }
               tout << "\n";);
+        SASSERT(m_num_literals > 0);
     }
 
     unit_resolution_justification::unit_resolution_justification(justification * js, 
@@ -68,6 +69,7 @@ namespace smt {
                   tout << lits[i] << " ";
               }
               tout << "\n";);
+        SASSERT(num_lits != 0);
     }
 
     unit_resolution_justification::~unit_resolution_justification() {

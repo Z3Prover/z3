@@ -250,7 +250,7 @@ namespace smt {
             std::stringstream msg;
             msg << "found non utvpi logic expression:\n" << mk_pp(n, get_manager()) << "\n";
             TRACE("utvpi", tout << msg.str(););
-            warning_msg(msg.str().c_str());
+            warning_msg("%s", msg.str().c_str());
             get_context().push_trail(value_trail<context, bool>(m_non_utvpi_exprs));
             m_non_utvpi_exprs = true;
         }
@@ -901,7 +901,7 @@ namespace smt {
         bool is_int = a.is_int(n->get_owner());
         rational num = mk_value(v, is_int);
         TRACE("utvpi", tout << mk_pp(n->get_owner(), get_manager()) << " |-> " << num << "\n";);
-        return alloc(expr_wrapper_proc, m_factory->mk_value(num, is_int));
+        return alloc(expr_wrapper_proc, m_factory->mk_num_value(num, is_int));
     }
 
     /**

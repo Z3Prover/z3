@@ -87,12 +87,11 @@ public class Fixedpoint extends Z3Object
 
     /**
      * Add rule into the fixedpoint solver.
-     * 
+     *
+     * @param name Nullable rule name.
      * @throws Z3Exception
      **/
-    public void addRule(BoolExpr rule, Symbol name)
-    {
-
+    public void addRule(BoolExpr rule, Symbol name) {
         getContext().checkContextMatch(rule);
         Native.fixedpointAddRule(getContext().nCtx(), getNativeObject(),
                 rule.getNativeObject(), AST.getNativeObject(name));
@@ -103,11 +102,10 @@ public class Fixedpoint extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public void addFact(FuncDecl pred, int ... args)
-    {
+    public void addFact(FuncDecl pred, int ... args) {
         getContext().checkContextMatch(pred);
         Native.fixedpointAddFact(getContext().nCtx(), getNativeObject(),
-                pred.getNativeObject(), (int) args.length, args);
+                pred.getNativeObject(), args.length, args);
     }
 
     /**
@@ -119,9 +117,7 @@ public class Fixedpoint extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public Status query(BoolExpr query)
-    {
-
+    public Status query(BoolExpr query) {
         getContext().checkContextMatch(query);
         Z3_lbool r = Z3_lbool.fromInt(Native.fixedpointQuery(getContext().nCtx(),
                 getNativeObject(), query.getNativeObject()));
@@ -144,9 +140,7 @@ public class Fixedpoint extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public Status query(FuncDecl[] relations)
-    {
-
+    public Status query(FuncDecl[] relations) {
         getContext().checkContextMatch(relations);
         Z3_lbool r = Z3_lbool.fromInt(Native.fixedpointQueryRelations(getContext()
                 .nCtx(), getNativeObject(), AST.arrayLength(relations), AST
@@ -166,8 +160,7 @@ public class Fixedpoint extends Z3Object
      * Creates a backtracking point. 
      * @see #pop
      **/
-    public void push()
-    {
+    public void push() {
         Native.fixedpointPush(getContext().nCtx(), getNativeObject());
     }
 
@@ -178,19 +171,17 @@ public class Fixedpoint extends Z3Object
      *  
      * @see #push
      **/
-    public void pop()
-    {
+    public void pop() {
         Native.fixedpointPop(getContext().nCtx(), getNativeObject());
     }
 
     /**
      * Update named rule into in the fixedpoint solver.
-     * 
+     *
+     * @param name Nullable rule name.
      * @throws Z3Exception
      **/
-    public void updateRule(BoolExpr rule, Symbol name)
-    {
-
+    public void updateRule(BoolExpr rule, Symbol name) {
         getContext().checkContextMatch(rule);
         Native.fixedpointUpdateRule(getContext().nCtx(), getNativeObject(),
                 rule.getNativeObject(), AST.getNativeObject(name));
@@ -255,14 +246,8 @@ public class Fixedpoint extends Z3Object
     @Override
     public String toString()
     {
-        try
-        {
-            return Native.fixedpointToString(getContext().nCtx(), getNativeObject(),
+        return Native.fixedpointToString(getContext().nCtx(), getNativeObject(),
                     0, null);
-        } catch (Z3Exception e)
-        {
-            return "Z3Exception: " + e.getMessage();
-        }
     }
 
     /**
@@ -355,16 +340,15 @@ public class Fixedpoint extends Z3Object
     }
 
     @Override
-    void incRef(long o)
-    {
-        getContext().getFixedpointDRQ().incAndClear(getContext(), o);
-        super.incRef(o);
+    void incRef() {
+        Native.fixedpointIncRef(getContext().nCtx(), getNativeObject());
     }
 
     @Override
-    void decRef(long o)
-    {
-        getContext().getFixedpointDRQ().add(o);
-        super.decRef(o);
+    void addToReferenceQueue() {
+        getContext().getFixedpointDRQ().storeReference(getContext(), this);
     }
+
+    @Override
+    void checkNativeObject(long obj) { }
 }

@@ -31,32 +31,33 @@ Notes:
 #include"ufbv_tactic.h"
 
 
-tactic * mk_der_fp_tactic(ast_manager & m, params_ref const & p) {
+static tactic * mk_der_fp_tactic(ast_manager & m, params_ref const & p) {
     return repeat(and_then(mk_der_tactic(m), mk_simplify_tactic(m, p)));
 }
 
-tactic * mk_ufbv_preprocessor_tactic(ast_manager & m, params_ref const & p) {
+static tactic * mk_ufbv_preprocessor_tactic(ast_manager & m, params_ref const & p) {
     params_ref no_elim_and(p);
     no_elim_and.set_bool("elim_and", false);
 
     return and_then(
-		mk_trace_tactic("ufbv_pre"),
-                and_then(mk_simplify_tactic(m, p),
-                         mk_propagate_values_tactic(m, p),
-                         and_then(using_params(mk_macro_finder_tactic(m, no_elim_and), no_elim_and), 
-				  mk_simplify_tactic(m, p)),
-                         and_then(mk_snf_tactic(m, p), mk_simplify_tactic(m, p)),			 
-                         mk_elim_and_tactic(m, p),
-                         mk_solve_eqs_tactic(m, p),
-                         and_then(mk_der_fp_tactic(m, p), mk_simplify_tactic(m, p)),
-                         and_then(mk_distribute_forall_tactic(m, p), mk_simplify_tactic(m, p))),
-                and_then(and_then(mk_reduce_args_tactic(m, p), mk_simplify_tactic(m, p)),
-                         and_then(mk_macro_finder_tactic(m, p), mk_simplify_tactic(m, p)),
-                         and_then(mk_ufbv_rewriter_tactic(m, p), mk_simplify_tactic(m, p)),
-                         and_then(mk_quasi_macros_tactic(m, p), mk_simplify_tactic(m, p)),
-                         and_then(mk_der_fp_tactic(m, p), mk_simplify_tactic(m, p)),
-                         mk_simplify_tactic(m, p)),
-		mk_trace_tactic("ufbv_post"));
+        mk_trace_tactic("ufbv_pre"),
+        and_then(mk_simplify_tactic(m, p),
+                 mk_propagate_values_tactic(m, p),
+                 and_then(if_no_proofs(if_no_unsat_cores(using_params(mk_macro_finder_tactic(m, no_elim_and), no_elim_and))), 
+                          mk_simplify_tactic(m, p)),
+                 and_then(mk_snf_tactic(m, p), mk_simplify_tactic(m, p)),             
+                 mk_elim_and_tactic(m, p),
+                 mk_solve_eqs_tactic(m, p),
+                 and_then(mk_der_fp_tactic(m, p), mk_simplify_tactic(m, p)),
+                 and_then(mk_distribute_forall_tactic(m, p), mk_simplify_tactic(m, p))),
+        if_no_unsat_cores(
+            and_then(and_then(mk_reduce_args_tactic(m, p), mk_simplify_tactic(m, p)),
+                     and_then(mk_macro_finder_tactic(m, p), mk_simplify_tactic(m, p)),
+                     and_then(mk_ufbv_rewriter_tactic(m, p), mk_simplify_tactic(m, p)),
+                     and_then(mk_quasi_macros_tactic(m, p), mk_simplify_tactic(m, p)))),
+        and_then(mk_der_fp_tactic(m, p), mk_simplify_tactic(m, p)),
+        mk_simplify_tactic(m, p),
+        mk_trace_tactic("ufbv_post"));
 }
 
 tactic * mk_ufbv_tactic(ast_manager & m, params_ref const & p) {

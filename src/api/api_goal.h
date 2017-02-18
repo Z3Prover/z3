@@ -23,6 +23,7 @@ Revision History:
 
 struct Z3_goal_ref : public api::object {
     goal_ref m_goal;
+    Z3_goal_ref(api::context& c) : api::object(c) {}
     virtual ~Z3_goal_ref() {}
 };
 

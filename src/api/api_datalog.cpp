@@ -189,7 +189,7 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_sort Z3_API Z3_mk_finite_domain_sort(Z3_context c, Z3_symbol name, unsigned __int64 size) {
+    Z3_sort Z3_API Z3_mk_finite_domain_sort(Z3_context c, Z3_symbol name, __uint64 size) {
         Z3_TRY;
         LOG_Z3_mk_finite_domain_sort(c, name, size);
         RESET_ERROR_CODE();
@@ -199,7 +199,7 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_bool Z3_API Z3_get_finite_domain_sort_size(Z3_context c, Z3_sort s, unsigned __int64 * out) {
+    Z3_bool Z3_API Z3_get_finite_domain_sort_size(Z3_context c, Z3_sort s, __uint64 * out) {
         Z3_TRY;
         if (out) {
             *out = 0;
@@ -223,7 +223,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_fixedpoint(c);
         RESET_ERROR_CODE();
-        Z3_fixedpoint_ref * d = alloc(Z3_fixedpoint_ref);
+        Z3_fixedpoint_ref * d = alloc(Z3_fixedpoint_ref, *mk_c(c));
         d->m_datalog = alloc(api::fixedpoint_context, mk_c(c)->m(), mk_c(c)->fparams());
         mk_c(c)->save_object(d);
         Z3_fixedpoint r = of_datalog(d);
@@ -290,8 +290,8 @@ extern "C" {
                 r = to_fixedpoint_ref(d)->ctx().query(to_expr(q));
             }
             catch (z3_exception& ex) {
-                mk_c(c)->handle_exception(ex);
                 r = l_undef;
+                mk_c(c)->handle_exception(ex);                
             }
             to_fixedpoint_ref(d)->ctx().cleanup();
         }
@@ -369,7 +369,7 @@ extern "C" {
             return 0;
         }
 
-        Z3_ast_vector_ref* v = alloc(Z3_ast_vector_ref, m);
+        Z3_ast_vector_ref* v = alloc(Z3_ast_vector_ref, *mk_c(c), m);
         mk_c(c)->save_object(v);
         for (unsigned i = 0; i < coll.m_queries.size(); ++i) {
             v->m_ast_vector.push_back(coll.m_queries[i].get());
@@ -421,7 +421,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_fixedpoint_get_statistics(c, d);
         RESET_ERROR_CODE();
-        Z3_stats_ref * st = alloc(Z3_stats_ref);
+        Z3_stats_ref * st = alloc(Z3_stats_ref, (*mk_c(c)));
         to_fixedpoint_ref(d)->ctx().collect_statistics(st->m_stats);
         mk_c(c)->save_object(st);
         Z3_stats r = of_stats(st);
@@ -460,7 +460,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_fixedpoint_get_rules(c, d);
         ast_manager& m = mk_c(c)->m();
-        Z3_ast_vector_ref* v = alloc(Z3_ast_vector_ref, m);
+        Z3_ast_vector_ref* v = alloc(Z3_ast_vector_ref, *mk_c(c), m);
         mk_c(c)->save_object(v);
         expr_ref_vector rules(m), queries(m);
         svector<symbol> names;
@@ -483,7 +483,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_fixedpoint_get_assertions(c, d);
         ast_manager& m = mk_c(c)->m();
-        Z3_ast_vector_ref* v = alloc(Z3_ast_vector_ref, m);
+        Z3_ast_vector_ref* v = alloc(Z3_ast_vector_ref, *mk_c(c), m);
         mk_c(c)->save_object(v);
         unsigned num_asserts = to_fixedpoint_ref(d)->ctx().get_num_assertions();
         for (unsigned i = 0; i < num_asserts; ++i) {
@@ -568,7 +568,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_fixedpoint_get_param_descrs(c, f);
         RESET_ERROR_CODE();
-        Z3_param_descrs_ref * d = alloc(Z3_param_descrs_ref);
+        Z3_param_descrs_ref * d = alloc(Z3_param_descrs_ref, *mk_c(c));
         mk_c(c)->save_object(d);
         to_fixedpoint_ref(f)->collect_param_descrs(d->m_descrs);
         Z3_param_descrs r = of_param_descrs(d);

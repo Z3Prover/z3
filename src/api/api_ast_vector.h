@@ -20,9 +20,13 @@ Revision History:
 
 #include"api_util.h"
 
+namespace api {
+    class context;
+};
+
 struct Z3_ast_vector_ref : public api::object {
     ast_ref_vector  m_ast_vector;
-    Z3_ast_vector_ref(ast_manager & m):m_ast_vector(m) {}
+    Z3_ast_vector_ref(api::context& c, ast_manager & m): api::object(c), m_ast_vector(m) {}
     virtual ~Z3_ast_vector_ref() {}
 };
 

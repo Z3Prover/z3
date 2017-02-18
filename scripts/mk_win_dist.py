@@ -25,8 +25,13 @@ VERBOSE=True
 DIST_DIR='dist'
 FORCE_MK=False
 DOTNET_ENABLED=True
+DOTNET_KEY_FILE=None
 JAVA_ENABLED=True
 GIT_HASH=False
+PYTHON_ENABLED=True
+X86ONLY=False
+X64ONLY=False
+MAKEJOBS=getenv("MAKEJOBS", "24")
 
 def set_verbose(flag):
     global VERBOSE
@@ -57,13 +62,17 @@ def display_help():
     print("  -b <sudir>, --build=<subdir>  subdirectory where x86 and x64 Z3 versions will be built (default: build-dist).")
     print("  -f, --force                   force script to regenerate Makefiles.")
     print("  --nodotnet                    do not include .NET bindings in the binary distribution files.")
+    print("  --dotnet-key=<file>           sign the .NET assembly with the private key in <file>.")
     print("  --nojava                      do not include Java bindings in the binary distribution files.")
+    print("  --nopython                    do not include Python bindings in the binary distribution files.")
     print("  --githash                     include git hash in the Zip file.")
+    print("  --x86-only                    x86 dist only.")
+    print("  --x64-only                    x64 dist only.")
     exit(0)
 
 # Parse configuration option for mk_make script
 def parse_options():
-    global FORCE_MK, JAVA_ENABLED, GIT_HASH, DOTNET_ENABLED
+    global FORCE_MK, JAVA_ENABLED, GIT_HASH, DOTNET_ENABLED, DOTNET_KEY_FILE, PYTHON_ENABLED, X86ONLY, X64ONLY
     path = BUILD_DIR
     options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:hsf', ['build=', 
                                                                    'help',
@@ -71,7 +80,11 @@ def parse_options():
                                                                    'force',
                                                                    'nojava',
                                                                    'nodotnet',
-                                                                   'githash'
+                                                                   'dotnet-key=',
+                                                                   'githash',
+                                                                   'nopython',
+                                                                   'x86-only',
+                                                                   'x64-only'
                                                                    ])
     for opt, arg in options:
         if opt in ('-b', '--build'):
@@ -86,10 +99,18 @@ def parse_options():
             FORCE_MK = True
         elif opt == '--nodotnet':
             DOTNET_ENABLED = False
+        elif opt == '--nopython':
+            PYTHON_ENABLED = False
+        elif opt == '--dotnet-key':
+            DOTNET_KEY_FILE = arg            
         elif opt == '--nojava':
             JAVA_ENABLED = False
         elif opt == '--githash':
             GIT_HASH = True
+        elif opt == '--x86-only' and not X64ONLY:
+            X86ONLY = True
+        elif opt == '--x64-only' and not X86ONLY:
+            X64ONLY = True
         else:
             raise MKException("Invalid command line option '%s'" % opt)
     set_build_dir(path)
@@ -101,15 +122,21 @@ def check_build_dir(path):
 # Create a build directory using mk_make.py
 def mk_build_dir(path, x64):
     if not check_build_dir(path) or FORCE_MK:
-        opts = ["python", os.path.join('scripts', 'mk_make.py'), "--parallel=24", "-b", path]
+        parallel = '--parallel=' + MAKEJOBS
+        opts = ["python", os.path.join('scripts', 'mk_make.py'), parallel, "-b", path]
         if DOTNET_ENABLED:
             opts.append('--dotnet')
+            if not DOTNET_KEY_FILE is None:
+                opts.append('--dotnet-key=' + DOTNET_KEY_FILE)
         if JAVA_ENABLED:
             opts.append('--java')
         if x64:
             opts.append('-x')
         if GIT_HASH:
             opts.append('--githash=%s' % mk_util.git_hash())
+            opts.append('--git-describe')
+        if PYTHON_ENABLED:
+            opts.append('--python')
         if subprocess.call(opts) != 0:
             raise MKException("Failed to generate build directory at '%s'" % path)
     
@@ -145,7 +172,7 @@ def exec_cmds(cmds):
     return res
 
 # Compile Z3 (if x64 == True, then it builds it in x64 mode).
-def mk_z3_core(x64):
+def mk_z3(x64):
     cmds = []
     if x64:
         cmds.append('call "%VCINSTALLDIR%vcvarsall.bat" amd64')
@@ -157,9 +184,9 @@ def mk_z3_core(x64):
     if exec_cmds(cmds) != 0:
         raise MKException("Failed to make z3, x64: %s" % x64)
 
-def mk_z3():
-    mk_z3_core(False)
-    mk_z3_core(True)
+def mk_z3s():
+    mk_z3(False)
+    mk_z3(True)
 
 def get_z3_name(x64):
     major, minor, build, revision = get_version()
@@ -172,7 +199,7 @@ def get_z3_name(x64):
     else:
         return 'z3-%s.%s.%s-%s-win' % (major, minor, build, platform)
 
-def mk_dist_dir_core(x64):
+def mk_dist_dir(x64):
     if x64:
         platform = "x64"
         build_path = BUILD_X64_DIR
@@ -182,19 +209,21 @@ def mk_dist_dir_core(x64):
     dist_path = os.path.join(DIST_DIR, get_z3_name(x64))
     mk_dir(dist_path)
     mk_util.DOTNET_ENABLED = DOTNET_ENABLED
+    mk_util.DOTNET_KEY_FILE = DOTNET_KEY_FILE
     mk_util.JAVA_ENABLED = JAVA_ENABLED
+    mk_util.PYTHON_ENABLED = PYTHON_ENABLED
     mk_win_dist(build_path, dist_path)
     if is_verbose():
         print("Generated %s distribution folder at '%s'" % (platform, dist_path))
 
-def mk_dist_dir():
-    mk_dist_dir_core(False)
-    mk_dist_dir_core(True)
+def mk_dist_dirs():
+    mk_dist_dir(False)
+    mk_dist_dir(True)
 
 def get_dist_path(x64):
     return get_z3_name(x64)
 
-def mk_zip_core(x64):
+def mk_zip(x64):
     dist_path = get_dist_path(x64)
     old = os.getcwd()
     try:
@@ -211,31 +240,17 @@ def mk_zip_core(x64):
     os.chdir(old)
 
 # Create a zip file for each platform
-def mk_zip():
-    mk_zip_core(False)
-    mk_zip_core(True)
+def mk_zips():
+    mk_zip(False)
+    mk_zip(True)
 
 
 VS_RUNTIME_PATS = [re.compile('vcomp.*\.dll'),
                    re.compile('msvcp.*\.dll'),
                    re.compile('msvcr.*\.dll')]
-
-VS_RUNTIME_FILES = []
                               
-def cp_vs_runtime_visitor(pattern, dir, files):
-    global VS_RUNTIME_FILES
-    for filename in files:
-        for pat in VS_RUNTIME_PATS:
-            if pat.match(filename):
-                if fnmatch(filename, pattern):
-                    fname = os.path.join(dir, filename)
-                    if not os.path.isdir(fname):
-                        VS_RUNTIME_FILES.append(fname)
-                break
-
 # Copy Visual Studio Runtime libraries
-def cp_vs_runtime_core(x64):
-    global VS_RUNTIME_FILES
+def cp_vs_runtime(x64):    
     if x64:
         platform = "x64"
         
@@ -244,34 +259,64 @@ def cp_vs_runtime_core(x64):
     vcdir = os.environ['VCINSTALLDIR']
     path  = '%sredist\\%s' % (vcdir, platform)
     VS_RUNTIME_FILES = []
-    os.walk(path, cp_vs_runtime_visitor, '*.dll')
+    for root, dirs, files in os.walk(path):
+        for filename in files:
+            if fnmatch(filename, '*.dll'):            
+                for pat in VS_RUNTIME_PATS:
+                    if pat.match(filename):
+                        fname = os.path.join(root, filename)
+                        if not os.path.isdir(fname):
+                            VS_RUNTIME_FILES.append(fname)
+
     bin_dist_path = os.path.join(DIST_DIR, get_dist_path(x64), 'bin')
     for f in VS_RUNTIME_FILES:
         shutil.copy(f, bin_dist_path)
         if is_verbose():
             print("Copied '%s' to '%s'" % (f, bin_dist_path))
 
-def cp_vs_runtime():
-    cp_vs_runtime_core(True)
-    cp_vs_runtime_core(False)
+def cp_vs_runtimes():
+    cp_vs_runtime(True)
+    cp_vs_runtime(False)
 
-def cp_license():
-    shutil.copy("LICENSE.txt", os.path.join(DIST_DIR, get_dist_path(True)))
-    shutil.copy("LICENSE.txt", os.path.join(DIST_DIR, get_dist_path(False)))
+def cp_license(x64):
+    shutil.copy("LICENSE.txt", os.path.join(DIST_DIR, get_dist_path(x64)))
+
+def cp_licenses():
+    cp_license(True)
+    cp_license(False)
 
 # Entry point
 def main():
     if os.name != 'nt':
         raise MKException("This script is for Windows only")
+
     parse_options()
     check_vc_cmd_prompt()
-    mk_build_dirs()
-    mk_z3()
-    init_project_def()
-    mk_dist_dir()
-    cp_license()
-    cp_vs_runtime()
-    mk_zip()
+
+    if X86ONLY:
+        mk_build_dir(BUILD_X86_DIR, False)
+        mk_z3(False)
+        init_project_def()
+        mk_dist_dir(False)
+        cp_license(False)
+        cp_vs_runtime(False)
+        mk_zip(False)
+    elif X64ONLY:
+        mk_build_dir(BUILD_X64_DIR, True)
+        mk_z3(True)
+        init_project_def()
+        mk_dist_dir(True)
+        cp_license(True)
+        cp_vs_runtime(True)
+        mk_zip(True)
+    else:
+        mk_build_dirs()
+        mk_z3s()
+        init_project_def()
+        mk_dist_dirs()
+        cp_licenses()
+        cp_vs_runtimes()
+        mk_zips()
 
 main()
 

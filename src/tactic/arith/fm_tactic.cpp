@@ -993,7 +993,7 @@ class fm_tactic : public tactic {
             sbuffer<var>     xs;
             buffer<rational> as;
             rational         c;
-            bool             strict;
+            bool             strict = false;
             unsigned         num;
             expr * const *   args;
             if (m.is_or(f)) {
@@ -1549,11 +1549,11 @@ class fm_tactic : public tactic {
                 throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
         }
         
-        virtual void operator()(goal_ref const & g, 
-                                goal_ref_buffer & result, 
-                                model_converter_ref & mc, 
-                                proof_converter_ref & pc,
-                                expr_dependency_ref & core) {
+        void operator()(goal_ref const & g, 
+                        goal_ref_buffer & result, 
+                        model_converter_ref & mc, 
+                        proof_converter_ref & pc,
+                        expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
             mc = 0; pc = 0; core = 0;
             tactic_report report("fm", *g);

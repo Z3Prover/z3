@@ -366,6 +366,7 @@ public:
         app * a = to_app(s);
         func_decl * sym = a->get_decl();
         if(!m_parent.has_index(sym, m_from_idx)) {
+            (void) m_homogenous;
             SASSERT(!m_homogenous || !m_parent.is_muxed(sym));
             return false;
         }

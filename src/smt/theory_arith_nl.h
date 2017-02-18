@@ -23,9 +23,9 @@ Revision History:
 
 namespace smt {
 
-    template<typename Ext> 
+    template<typename Ext>
     expr * theory_arith<Ext>::mk_nary_mul(unsigned sz, expr * const * args, bool is_int) {
-        if (sz == 0) 
+        if (sz == 0)
             return m_util.mk_numeral(rational(1), is_int);
         if (sz == 1)
             return args[0];
@@ -36,21 +36,21 @@ namespace smt {
         return m_util.mk_mul(sz, args);
     }
 
-    template<typename Ext> 
+    template<typename Ext>
     expr * theory_arith<Ext>::mk_nary_add(unsigned sz, expr * const * args, bool is_int) {
-        if (sz == 0) 
+        if (sz == 0)
             return m_util.mk_numeral(rational(0), is_int);
         if (sz == 1)
             return args[0];
         return m_util.mk_add(sz, args);
     }
 
-    template<typename Ext> 
+    template<typename Ext>
     expr * theory_arith<Ext>::mk_nary_add(unsigned sz, expr * const * args) {
         SASSERT(sz != 0);
         return mk_nary_add(sz, args, false);
     }
-        
+
     /**
        \brief Insert v into vars and already_found if v is not already in already_found.
     */
@@ -92,21 +92,21 @@ namespace smt {
             theory_var s  = r.get_base_var();
             // ignore quasi base vars... actually they should not be used if the problem is non linear...
             if (is_quasi_base(s))
-                continue; 
+                continue;
             // If s is a base variable different from v and it is free, then this row can be ignored.
             // It doesn't need to be part of the non linear cluster. For all purposes, this variable
             // was eliminated by substitution.
             if (is_free(s) && s != v)
-                continue; 
+                continue;
             typename vector<row_entry>::const_iterator it2  = r.begin_entries();
             typename vector<row_entry>::const_iterator end2 = r.end_entries();
-            for (; it2 != end2; ++it2) {  
-                if (!it2->is_dead() && !is_fixed(it2->m_var))                          
+            for (; it2 != end2; ++it2) {
+                if (!it2->is_dead() && !is_fixed(it2->m_var))
                     mark_var(it2->m_var, vars, already_found);
             }
         }
     }
-    
+
     /**
        \brief Store in vars the variables that are in the non linear cluster of constraints,
        and are not satisfied by the current assignment.
@@ -123,7 +123,7 @@ namespace smt {
         for (; it != end; ++it) {
             theory_var v = *it;
             expr * n     = var2expr(v);
-            if (ctx.is_relevant(n)) 
+            if (ctx.is_relevant(n))
                 mark_var(v, vars, already_found);
         }
         for (unsigned idx = 0; idx < vars.size(); idx++) {
@@ -134,7 +134,7 @@ namespace smt {
               svector<theory_var>::const_iterator it  = vars.begin();
               svector<theory_var>::const_iterator end = vars.end();
               for (; it != end; ++it) tout << "v" << *it << " ";
-              tout << "\n";);              
+              tout << "\n";);
     }
 
     /**
@@ -148,7 +148,7 @@ namespace smt {
 
        \remark if a variables has an even number of occurrences, then
        I consider that it has a bound associated with it.
-       
+
        Examples:
        1) Assume x1, x4 have bounds:
        analyze_monomial(x1 * x2 * x2 * x3 * x3 * x3 * x4)
@@ -168,24 +168,24 @@ namespace smt {
         int idx          = 0;
         for (unsigned i = 0; i < to_app(m)->get_num_args(); i++) {
             expr * arg = to_app(m)->get_arg(i);
-            if (var == 0) {                                     
-                var   = arg;                                   
-                power = 1;                                      
-            }                                                   
-            else if (arg == var) {                             
-                power++;                                        
-            }                                                   
-            else {                                              
-                if (power % 2 == 1 && is_free(var)) {           
-                    c++;                                        
-                    free_var_idx = idx;                         
-                    if (c > 1)                                  
-                        return std::make_pair(2, free_var_idx); 
-                }                                               
-                var   = arg;                                   
-                power = 1;                                      
-                idx++;                                         
-            }                                                  
+            if (var == 0) {
+                var   = arg;
+                power = 1;
+            }
+            else if (arg == var) {
+                power++;
+            }
+            else {
+                if (power % 2 == 1 && is_free(var)) {
+                    c++;
+                    free_var_idx = idx;
+                    if (c > 1)
+                        return std::make_pair(2, free_var_idx);
+                }
+                var   = arg;
+                power = 1;
+                idx++;
+            }
         }
         if (power % 2 == 1 && is_free(var)) {
             c++;
@@ -257,17 +257,17 @@ namespace smt {
             unsigned j;
             for (j = 0; j < to_app(m)->get_num_args(); j++) {
                 expr * arg = to_app(m)->get_arg(j);
-                if (var == 0) {                            
-                    var   = arg;                           
-                    power = 1;                             
-                }                                          
-                else if (var == arg) {                     
-                    power++;                               
-                }                                          
-                else {                                     
-                    if (curr_idx == i)                     
-                        return var_power_pair(var, power); 
-                    curr_idx++; 
+                if (var == 0) {
+                    var   = arg;
+                    power = 1;
+                }
+                else if (var == arg) {
+                    power++;
+                }
+                else {
+                    if (curr_idx == i)
+                        return var_power_pair(var, power);
+                    curr_idx++;
                     var   = arg;
                     power = 1;
                 }
@@ -289,24 +289,24 @@ namespace smt {
         bound * l = lower(v);
         bound * u = upper(v);
         if (l && u) {
-            return interval(m_dep_manager, 
-                            l->get_value().get_rational().to_rational(), 
+            return interval(m_dep_manager,
+                            l->get_value().get_rational().to_rational(),
                             !l->get_value().get_infinitesimal().to_rational().is_zero(),
                             m_dep_manager.mk_leaf(l),
-                            u->get_value().get_rational().to_rational(), 
+                            u->get_value().get_rational().to_rational(),
                             !u->get_value().get_infinitesimal().to_rational().is_zero(),
                             m_dep_manager.mk_leaf(u));
         }
         else if (l) {
             return interval(m_dep_manager,
-                            l->get_value().get_rational().to_rational(), 
+                            l->get_value().get_rational().to_rational(),
                             !l->get_value().get_infinitesimal().to_rational().is_zero(),
                             true,
                             m_dep_manager.mk_leaf(l));
         }
         else if (u) {
             return interval(m_dep_manager,
-                            u->get_value().get_rational().to_rational(), 
+                            u->get_value().get_rational().to_rational(),
                             !u->get_value().get_infinitesimal().to_rational().is_zero(),
                             false,
                             m_dep_manager.mk_leaf(u));
@@ -333,12 +333,12 @@ namespace smt {
     void theory_arith<Ext>::mul_bound_of(expr * var, unsigned power, interval & target) {
         theory_var v  = expr2var(var);
         interval i = mk_interval_for(v);
-        
-        TRACE("non_linear", 
+
+        TRACE("non_linear",
               display_interval(tout << "bound: ",i); tout << i << "\n";
               tout << mk_pp(var, get_manager()) << "\n";
               tout << "power " << power << ": " << expt(i, power) << "\n";
-              display_interval(tout << "target before: ", target); tout << "\n";); 
+              display_interval(tout << "target before: ", target); tout << "\n";);
         i.expt(power);
         target *= i;
         TRACE("non_linear", display_interval(tout << "target after: ", target); tout << "\n";);
@@ -348,7 +348,7 @@ namespace smt {
        \brief Evaluate the given expression using interval arithmetic.
 
        - If a subexpression is internalized, then mk_interval_for is used to
-       compute its interval. 
+       compute its interval.
 
        - Only +, *, and numerals are handled.
     */
@@ -382,7 +382,7 @@ namespace smt {
                 interval it      = evaluate_as_interval(var);
                 it.expt(power);
                 r               *= it;
-            } 
+            }
             TRACE("cross_nested_eval_bug", display_nested_form(tout, n); tout << "\ninterval: " << r << "\n";);
             return r;
         }
@@ -424,7 +424,7 @@ namespace smt {
         ptr_vector<void>::const_iterator end = bounds.end();
         for (; it != end; ++it) {
             bound * b = static_cast<bound*>(*it);
-            accumulate_justification(*b, new_bound, numeral::zero(), m_tmp_lit_set, m_tmp_eq_set);            
+            accumulate_justification(*b, new_bound, numeral::zero(), m_tmp_lit_set, m_tmp_eq_set);
         }
     }
 
@@ -476,7 +476,7 @@ namespace smt {
         }
         return r;
     }
-    
+
     template<typename Ext>
     bool theory_arith<Ext>::update_bounds_using_interval(expr * n, interval const & i) {
         SASSERT(expr2var(n) != null_theory_var);
@@ -510,7 +510,7 @@ namespace smt {
     }
 
     /**
-       \brief Propagate a bound to the i-th variable of the given monomial 
+       \brief Propagate a bound to the i-th variable of the given monomial
        using the bounds of m and other variables in m.
 
        \remark We do not support roots in interval... so, if the i-th var has power != 1
@@ -523,7 +523,7 @@ namespace smt {
         var_power_pair p = get_var_and_degree(m, i);
         expr * v         = p.first;
         unsigned power   = p.second;
-        TRACE("propagate_nl_downward", tout << "m: " << mk_ismt2_pp(m, get_manager()) << "\nv: " << mk_ismt2_pp(v, get_manager()) << 
+        TRACE("propagate_nl_downward", tout << "m: " << mk_ismt2_pp(m, get_manager()) << "\nv: " << mk_ismt2_pp(v, get_manager()) <<
               "\npower: " << power << "\n";);
         if (power != 1)
             return false; // TODO: remove, when the n-th root is implemented in interval.
@@ -556,7 +556,7 @@ namespace smt {
     template<typename Ext>
     bool theory_arith<Ext>::propagate_nl_bound(expr * m, int i) {
         TRACE("propagate_nl_bound", tout << "propagate using i: " << i << "\n"; display_monomial(tout, m); tout << "\n";);
-        if (i == -1) 
+        if (i == -1)
             return propagate_nl_upward(m);
         else
             return propagate_nl_downward(m, i);
@@ -589,10 +589,8 @@ namespace smt {
         m_dep_manager.reset();
         bool propagated = false;
         context & ctx = get_context();
-        svector<theory_var>::const_iterator it  = m_nl_monomials.begin();
-        svector<theory_var>::const_iterator end = m_nl_monomials.end();
-        for (; it != end; ++it) {
-            theory_var v = *it;
+        for (unsigned i = 0; i < m_nl_monomials.size(); i++) {
+            theory_var v = m_nl_monomials[i];
             expr * m     = var2expr(v);
             if (!ctx.is_relevant(m))
                 continue;
@@ -640,6 +638,7 @@ namespace smt {
         if (!val.get_infinitesimal().is_zero() && !computed_epsilon) {
             compute_epsilon();
             computed_epsilon = true;
+            m_model_depends_on_computed_epsilon = true;
         }
         return  val.get_rational().to_rational() + m_epsilon.to_rational() * val.get_infinitesimal().to_rational();
     }
@@ -654,16 +653,20 @@ namespace smt {
     bool theory_arith<Ext>::check_monomial_assignment(theory_var v, bool & computed_epsilon) {
         SASSERT(is_pure_monomial(var2expr(v)));
         expr * m      = var2expr(v);
-        rational val(1);
+        rational val(1), v_val;
         for (unsigned i = 0; i < to_app(m)->get_num_args(); i++) {
             expr * arg = to_app(m)->get_arg(i);
-            theory_var curr = expr2var(arg);           
-            SASSERT(curr != null_theory_var);           
-            val *= get_value(curr, computed_epsilon);   
+            theory_var curr = expr2var(arg);
+            SASSERT(curr != null_theory_var);
+            v_val = get_value(curr, computed_epsilon);
+            TRACE("non_linear", tout << mk_pp(arg, get_manager()) << " = " << v_val << "\n";);
+            val *= v_val;
         }
-        return get_value(v, computed_epsilon) == val;
+        v_val = get_value(v, computed_epsilon);
+        TRACE("non_linear", tout << "v" << v << " := " << v_val << " == " << val << "\n";);
+        return v_val == val;
     }
-    
+
 
     /**
        \brief Return true if for every monomial x_1 * ... * x_n,
@@ -691,11 +694,11 @@ namespace smt {
     /**
        \brief Try to find an integer variable for performing branching
        in the non linear cluster.
-       
+
        The idea is select a variable in a monomial with an invalid
        assignment. I give preference to variables with small ranges.
        If no variable is bounded, then select a random one.
-       
+
        Free variables are not considered.
     */
     template<typename Ext>
@@ -705,44 +708,42 @@ namespace smt {
         theory_var target = null_theory_var;
         bool bounded      = false;
         unsigned n        = 0;
-        numeral range; 
-        svector<theory_var>::const_iterator it  = m_nl_monomials.begin();
-        svector<theory_var>::const_iterator end = m_nl_monomials.end();
-        for (; it != end; ++it) {
-            theory_var v = *it;
-            if (is_real(v)) 
+        numeral range;
+        for (unsigned j = 0; j < m_nl_monomials.size(); ++j) {
+            theory_var v = m_nl_monomials[j];
+            if (is_real(v))
                 continue;
             bool computed_epsilon = false;
-            bool r = check_monomial_assignment(v, computed_epsilon); 
+            bool r = check_monomial_assignment(v, computed_epsilon);
             SASSERT(!computed_epsilon); // integer variables do not use epsilon
             if (!r) {
                 expr * m = get_enode(v)->get_owner();
                 SASSERT(is_pure_monomial(m));
                 for (unsigned i = 0; i < to_app(m)->get_num_args(); i++) {
                     expr * arg = to_app(m)->get_arg(i);
-                    theory_var curr = ctx.get_enode(arg)->get_th_var(get_id());                          
-                    TRACE("nl_branching", tout << "target: v" << target << ", curr: v" << curr << "\n";);   
-                    if (!is_fixed(curr) && is_int(curr)) {                                                 
-                        if (is_bounded(curr)) {                                                             
-                            numeral new_range;                                                              
-                            new_range  = upper_bound(curr).get_rational();                                  
-                            new_range -= lower_bound(curr).get_rational();                                  
-                            if (!bounded || new_range < range) {                                            
-                                target  = curr;                                                             
-                                range   = new_range;                                                        
-                                bounded = true;                                                             
-                            }                                                                               
-                        }                                                                                   
-                        else if (!bounded) {                                                                
-                            n++;                                                                            
-                            TRACE("nl_branching", tout << "n: " << n << "\n";);                             
-                            if (m_random()%n == 0)                                                          
-                                target = curr;                                                              
-                            SASSERT(target != null_theory_var);                                             
-                        }                                                                                   
-                        SASSERT(target != null_theory_var);                                                 
-                    }                                                                                       
-                    TRACE("nl_branching", tout << "after target: v" << target << "\n";);                    
+                    theory_var curr = ctx.get_enode(arg)->get_th_var(get_id());
+                    TRACE("nl_branching", tout << "target: v" << target << ", curr: v" << curr << "\n";);
+                    if (!is_fixed(curr) && is_int(curr)) {
+                        if (is_bounded(curr)) {
+                            numeral new_range;
+                            new_range  = upper_bound(curr).get_rational();
+                            new_range -= lower_bound(curr).get_rational();
+                            if (!bounded || new_range < range) {
+                                target  = curr;
+                                range   = new_range;
+                                bounded = true;
+                            }
+                        }
+                        else if (!bounded) {
+                            n++;
+                            TRACE("nl_branching", tout << "n: " << n << "\n";);
+                            if (m_random()%n == 0)
+                                target = curr;
+                            SASSERT(target != null_theory_var);
+                        }
+                        SASSERT(target != null_theory_var);
+                    }
+                    TRACE("nl_branching", tout << "after target: v" << target << "\n";);
                 }
             }
         }
@@ -762,7 +763,7 @@ namespace smt {
         m_stats.m_nl_branching++;
         SASSERT(is_int(v));
         expr * bound = 0;
-        if (lower(v)) 
+        if (lower(v))
             bound  = m_util.mk_le(var2expr(v), m_util.mk_numeral(lower_bound(v).get_rational().to_rational(), true));
         else if (upper(v))
             bound  = m_util.mk_ge(var2expr(v), m_util.mk_numeral(upper_bound(v).get_rational().to_rational(), true));
@@ -787,14 +788,14 @@ namespace smt {
         unsigned num_nl_vars = 0;
         for (unsigned i = 0; i < to_app(m)->get_num_args(); i++) {
             expr * arg = to_app(m)->get_arg(i);
-            theory_var _var = expr2var(arg);            
-            if (!is_fixed(_var)) {                      
-                num_nl_vars++;                          
-            }                                           
-            else {                                      
-                if (lower_bound(_var).is_zero())        
-                     return true;                       
-            }                                           
+            theory_var _var = expr2var(arg);
+            if (!is_fixed(_var)) {
+                num_nl_vars++;
+            }
+            else {
+                if (lower_bound(_var).is_zero())
+                     return true;
+            }
         }
         return num_nl_vars <= 1;
     }
@@ -809,9 +810,9 @@ namespace smt {
         numeral r(1);
         for (unsigned i = 0; i < to_app(m)->get_num_args(); i++) {
             expr * arg = to_app(m)->get_arg(i);
-            theory_var _var = expr2var(arg);            
-            if (is_fixed(_var))                         
-                r *= lower_bound(_var).get_rational();  
+            theory_var _var = expr2var(arg);
+            if (is_fixed(_var))
+                r *= lower_bound(_var).get_rational();
         }
         return r;
     }
@@ -825,9 +826,9 @@ namespace smt {
         SASSERT(is_pure_monomial(m));
         for (unsigned i = 0; i < to_app(m)->get_num_args(); i++) {
             expr * arg = to_app(m)->get_arg(i);
-            theory_var _var = expr2var(arg);    
-            if (!is_fixed(_var))                
-                return arg;                     
+            theory_var _var = expr2var(arg);
+            if (!is_fixed(_var))
+                return arg;
         }
         return 0;
     }
@@ -886,7 +887,7 @@ namespace smt {
         }
         else {
             // One of the x_i variables is zero,
-            // or all of them are assigned. 
+            // or all of them are assigned.
 
             // Assert the equality
             // (= (* x_1 ... x_n) k)
@@ -908,45 +909,45 @@ namespace smt {
 
         SASSERT(is_pure_monomial(m));
         bool found_zero = false;
-        for (unsigned i = 0; !found_zero && i < to_app(m)->get_num_args(); i++) {            
-            expr * arg = to_app(m)->get_arg(i);            
-            theory_var _var = expr2var(arg);                                                
-            if (is_fixed(_var)) {                                                           
-                bound * l  = lower(_var);                                                   
-                bound * u  = upper(_var);                                                   
-                if (l->get_value().is_zero()) {                                             
-                    /* if zero was found, then it is the explanation */                     
-                    SASSERT(k.is_zero());                                                   
-                    found_zero = true;                                                      
-                    m_tmp_lit_set.reset();                                                  
-                    m_tmp_eq_set.reset();                                                   
-                    new_lower->m_lits.reset();                                              
-                    new_lower->m_eqs.reset();                                               
-                }                                                                           
+        for (unsigned i = 0; !found_zero && i < to_app(m)->get_num_args(); i++) {
+            expr * arg = to_app(m)->get_arg(i);
+            theory_var _var = expr2var(arg);
+            if (is_fixed(_var)) {
+                bound * l  = lower(_var);
+                bound * u  = upper(_var);
+                if (l->get_value().is_zero()) {
+                    /* if zero was found, then it is the explanation */
+                    SASSERT(k.is_zero());
+                    found_zero = true;
+                    m_tmp_lit_set.reset();
+                    m_tmp_eq_set.reset();
+                    new_lower->m_lits.reset();
+                    new_lower->m_eqs.reset();
+                }
                 accumulate_justification(*l, *new_lower, numeral::zero(), m_tmp_lit_set, m_tmp_eq_set);
-                
-                TRACE("non_linear", 
+
+                TRACE("non_linear",
                       for (unsigned j = 0; j < new_lower->m_lits.size(); ++j) {
                           ctx.display_detailed_literal(tout, new_lower->m_lits[j]);
                           tout << " ";
                       }
                       tout << "\n";);
-      
+
                 accumulate_justification(*u, *new_lower, numeral::zero(), m_tmp_lit_set, m_tmp_eq_set);
-      
-                TRACE("non_linear", 
+
+                TRACE("non_linear",
                       for (unsigned j = 0; j < new_lower->m_lits.size(); ++j) {
                           ctx.display_detailed_literal(tout, new_lower->m_lits[j]);
                           tout << " ";
                       }
                       tout << "\n";);
-                    
-            }                                                                               
-        } 
+
+            }
+        }
         new_upper->m_lits.append(new_lower->m_lits);
         new_upper->m_eqs.append(new_lower->m_eqs);
 
-        TRACE("non_linear", 
+        TRACE("non_linear",
               tout << "lower: " << new_lower << " upper: " << new_upper << "\n";
               for (unsigned j = 0; j < new_upper->m_lits.size(); ++j) {
                   ctx.display_detailed_literal(tout, new_upper->m_lits[j]);
@@ -965,10 +966,19 @@ namespace smt {
     bool theory_arith<Ext>::propagate_linear_monomials() {
         TRACE("non_linear", tout << "propagating linear monomials...\n";);
         bool p = false;
-        svector<theory_var>::const_iterator it  = m_nl_monomials.begin();
-        svector<theory_var>::const_iterator end = m_nl_monomials.end();
-        for (; it != end; ++it) {
-            theory_var v = *it;
+        // CMW: m_nl_monomials is sometimes modified while executing
+        // propagate_linear_monomial(...), invalidating the iterator `it'.
+        // (Via the relevancy propagation that internalizes a new axiom
+        // in mk_div_axiom and possibly others.) I'm replacing the iterator
+        // with an index `i'.
+
+        // Was previously:
+        // svector<theory_var>::const_iterator it  = m_nl_monomials.begin();
+        // svector<theory_var>::const_iterator end = m_nl_monomials.end();
+        // for (; it != end; ++it) {
+        //     theory_var v = *it;
+        for (unsigned i = 0; i < m_nl_monomials.size(); i++) {
+            theory_var v = m_nl_monomials[i];
             if (propagate_linear_monomial(v))
                 p = true;
         }
@@ -979,9 +989,9 @@ namespace smt {
     /*
       Interval arithmetic does not satisfy distributivity.
       Actually, it satisfies the sub-distributivity property:
-      
+
       x*(y + z) \subseteq x*y + x*z
- 
+
       The sub-distributivity property only holds if condensation
       is not used. For example:
 
@@ -995,11 +1005,11 @@ namespace smt {
 
       x*(x^3+1) = [-7, 14]
       x^4 + x   = [-2, 17]
-    
+
       This weakness of AI is known as the "dependency problem",
       which comes from the decorrelation of the multiple occurrences
       of one variable during interval evaluation.
-      
+
       Given a polynomial:
       p(x) = a_0 + a_1 * x + ... + a_n * x^n
       The horner extension is:
@@ -1009,13 +1019,13 @@ namespace smt {
       h_p(x) = x(2 + x^3(1 + x))
 
       The horner extension evaluates tighter intervals when
-      condensation is not used. 
+      condensation is not used.
 
       Remark: there is no guarantee that horner extension will
       provide a tighter interval than a sum of monomials when
       condensation is used.
 
-      For multivariate polynomials nested (or cross nested) forms 
+      For multivariate polynomials nested (or cross nested) forms
       are used. The idea is to select one variable, and pretend the
       other are parameters. The horner form is computed for the selected
       variable, and the computation continues for the polynomials on the
@@ -1027,13 +1037,13 @@ namespace smt {
 
       p(x) = a*x^n + b*x^{n+m}  for n >= m
       is equivalent to
-      
+
       b*x^{n-m}*[(x^{m} + a/(2b))^2 - (a/2b)^2]
-      
+
       This polynomial provides tight bound when n and m have the same parity and:
         1) a*b > 0 and (lower(x) >= 0 or upper(x)^m <= -a/b)
         2) a*b < 0 and (upper(x) <= 0 or lower(x)^m >=  a/b)
-        
+
       This polynomial also provides tight bounds when n = m,
       and the polynomial is simplified to, and n and m may have arbitrary parities:
 
@@ -1047,7 +1057,7 @@ namespace smt {
       If we compute the bounds for x^2 - x we obtain
       (-oo, oo).
 
-      On the other hand, if we compute the bounds for 
+      On the other hand, if we compute the bounds for
       (x - 1/2)^2 - 1/4
       we obtain the bounds (0, oo), and the inconsistency
       is detected.
@@ -1055,8 +1065,8 @@ namespace smt {
       Remark: In Z3, I condensate multiple occurrences of a variable
       when evaluating monomials.  So, the interval for a monomial is
       always tight.
-      
-      Remark: M1*(M2 + M3) is more precise than M1 * M2 + M1 * M3,       
+
+      Remark: M1*(M2 + M3) is more precise than M1 * M2 + M1 * M3,
       if intersection(Vars(M1), union(Vars(M2), Vars(M3))) = empty-set,
 
       Remark: A trivial consequence of Moore's theorem for interval
@@ -1066,7 +1076,7 @@ namespace smt {
 
     /**
        \brief Check whether the same variable occurs in two different monomials.
-       
+
        \remark Fixed variables are ignored.
 
        \remark A trivial consequence of Moore's theorem for interval
@@ -1208,7 +1218,7 @@ namespace smt {
                 UNREACHABLE();
             }
         }
-     
+
         // Update the number of occurrences in the result vector.
         typename var2num_occs::iterator it2  = m_var2num_occs.begin();
         typename var2num_occs::iterator end2 = m_var2num_occs.end();
@@ -1263,14 +1273,14 @@ namespace smt {
         m_nl_new_exprs.push_back(r);
         return r;
     }
-    
+
     /**
        \brief Return true if var only occurs in two monovariate monomials,
        and return its power and coefficients and these monomials.
        The arguments i1 and i2 contain the position in p of the two monomials.
     */
     template<typename Ext>
-    bool theory_arith<Ext>::in_monovariate_monomials(sbuffer<coeff_expr> & p, expr * var, 
+    bool theory_arith<Ext>::in_monovariate_monomials(sbuffer<coeff_expr> & p, expr * var,
                                                      unsigned & i1, rational & c1, unsigned & n1, unsigned & i2, rational & c2, unsigned & n2) {
         int idx = 0;
 #define SET_RESULT(POWER) {                     \
@@ -1289,7 +1299,7 @@ namespace smt {
             else                                \
                 return false;                   \
         }
- 
+
         typename sbuffer<coeff_expr>::const_iterator it  = p.begin();
         typename sbuffer<coeff_expr>::const_iterator end = p.end();
         for (unsigned i = 0; it != end; ++it, ++i) {
@@ -1396,7 +1406,7 @@ namespace smt {
         SASSERT(d != UINT_MAX);
         return d;
     }
-    
+
     /**
        \brief Divide m by var^d.
     */
@@ -1416,19 +1426,19 @@ namespace smt {
         ptr_buffer<expr> new_args;
         for (unsigned i = 0; i < to_app(m)->get_num_args(); i++) {
             expr * arg = to_app(m)->get_arg(i);
-            if (arg == var) {                   
-                if (idx < d)                    
-                    idx++;                      
-                else                            
-                    new_args.push_back(arg);    
-            }                                   
-            else {                              
-                new_args.push_back(arg);        
-            }                                   
+            if (arg == var) {
+                if (idx < d)
+                    idx++;
+                else
+                    new_args.push_back(arg);
+            }
+            else {
+                new_args.push_back(arg);
+            }
         }
         SASSERT(idx == d);
         TRACE("factor_bug", tout << "new_args:\n"; for(unsigned i = 0; i < new_args.size(); i++) tout << mk_pp(new_args[i], get_manager()) << "\n";);
-        expr * result = mk_nary_mul(new_args.size(), new_args.c_ptr(), m_util.is_int(var)); 
+        expr * result = mk_nary_mul(new_args.size(), new_args.c_ptr(), m_util.is_int(var));
         m_nl_new_exprs.push_back(result);
         TRACE("factor", tout << "result: " << mk_pp(result, get_manager()) << "\n";);
         return result;
@@ -1442,7 +1452,7 @@ namespace smt {
         SASSERT(!p.empty());
         SASSERT(var != 0);
         unsigned d = get_min_degree(p, var);
-        TRACE("horner_bug", tout << "poly:\n"; 
+        TRACE("horner_bug", tout << "poly:\n";
               for (unsigned i = 0; i < p.size(); i++) { if (i > 0) tout << " + "; tout << p[i].first << "*" << mk_pp(p[i].second, get_manager()); } tout << "\n";
               tout << "var: " << mk_pp(var, get_manager()) << "\n";
               tout << "min_degree: " << d << "\n";);
@@ -1467,7 +1477,7 @@ namespace smt {
             // TODO: improve here
             s        = m_util.mk_add(q, s);
         }
-        
+
         expr * result   = s;
         if (d != 0) {
             expr * xd = power(var, d);
@@ -1513,9 +1523,9 @@ namespace smt {
         unsigned nm = UINT_MAX;
         if (in_monovariate_monomials(p, var, i1, a, n, i2, b, nm)) {
             CTRACE("in_monovariate_monomials", n == nm,
-                   for (unsigned i = 0; i < p.size(); i++) { 
-                       if (i > 0) tout << " + "; tout << p[i].first << "*" << mk_pp(p[i].second, get_manager()); 
-                   } 
+                   for (unsigned i = 0; i < p.size(); i++) {
+                       if (i > 0) tout << " + "; tout << p[i].first << "*" << mk_pp(p[i].second, get_manager());
+                   }
                    tout << "\n";
                    tout << "var: " << mk_pp(var, get_manager()) << "\n";
                    tout << "i1: "  << i1 << "\n";
@@ -1556,7 +1566,7 @@ namespace smt {
                     sbuffer<coeff_expr> rest;
                     unsigned sz    = p.size();
                     for (unsigned i = 0; i < sz; i++) {
-                        if (i != i1 && i != i2) 
+                        if (i != i1 && i != i2)
                             rest.push_back(p[i]);
                     }
                     if (rest.empty())
@@ -1620,7 +1630,7 @@ namespace smt {
 
     /**
        \brief Check whether the polynomial represented by the current row is
-       consistent with respect to the known bound when converted into a 
+       consistent with respect to the known bound when converted into a
        equivalent cross nested form.
     */
     template<typename Ext>
@@ -1630,17 +1640,17 @@ namespace smt {
             return true;
 
         TRACE("cross_nested", tout << "problematic...\n";);
-        
+
         /*
           The method is_cross_nested converts rows back to expressions.
           The conversion back to expressions may create sort incorrect expressions.
-          This is in some sense ok, since these expressions are temporary, but 
+          This is in some sense ok, since these expressions are temporary, but
           the sort incorrect expressions may generate assertion violations.
-          
+
           Sort incorrect expressions may be created in the following cases:
-          
+
           1) mixed real int rows.
-          
+
           2) int rows that contain non integer coefficients.
 
           3) int rows that when converted to cross nested form use non integer coefficients.
@@ -1654,10 +1664,10 @@ namespace smt {
           c) Disable the assertions temporally. This sounds like a big HACK.
 
           d) Use a different data-structure to represent polynomials in cross-nested form. Disadvantage: code duplication, the data-structure
-          is essentially identical to the ASTs we are using right now. 
+          is essentially identical to the ASTs we are using right now.
 
           e) Disable the test when we cannot create a well-sorted expression.
-             I'm temporally using this solution. 
+             I'm temporally using this solution.
              I implemented the following logic:
                 1) (mixed real int) Disable the test. Most benchmarks do not contain mixed int real variables.
                 2) (int coeffs) I multiply the row by a constant to force it to have only integer coefficients.
@@ -1696,7 +1706,7 @@ namespace smt {
         svector<theory_var>::const_iterator end = nl_cluster.end();
         for (; it != end; ++it) {
             theory_var v = *it;
-            if (!is_base(v)) 
+            if (!is_base(v))
                 continue;
             m_stats.m_nl_cross_nested++;
             row const & r = m_rows[get_var_row(v)];
@@ -1719,8 +1729,8 @@ namespace smt {
     /**
        \brief Initialize variable order for grobner basis computation.
        Make:
-       "quoted free vars" > "free vars" > "quoted variables with lower or upper bounds" > 
-       "variables with lower or upper bounds" > "quoted bounded variables" > 
+       "quoted free vars" > "free vars" > "quoted variables with lower or upper bounds" >
+       "variables with lower or upper bounds" > "quoted bounded variables" >
        "bounded variables" > "quoted fixed variables" > "fixed variables"
     */
     template<typename Ext>
@@ -1801,7 +1811,7 @@ namespace smt {
         }
         if (!coeff.is_zero())
             return gb.mk_monomial(coeff, vars.size(), vars.c_ptr());
-        else 
+        else
             return 0;
     }
 
@@ -1918,7 +1928,7 @@ namespace smt {
         derived_bound  b(null_theory_var, inf_numeral(0), B_LOWER);
         dependency2new_bound(d, b);
         set_conflict(b, ante, "arith_nl");
-        TRACE("non_linear", 
+        TRACE("non_linear",
               for (unsigned i = 0; i < b.m_lits.size(); ++i) {
                   tout << b.m_lits[i] << " ";
               });
@@ -2027,7 +2037,7 @@ namespace smt {
         unsigned num1  = m1_sq->get_degree();
         unsigned num2  = m2_sq->get_degree();
         unsigned num12 = m1m2->get_degree();
-        if (num1 + num2 != num12 * 2) 
+        if (num1 + num2 != num12 * 2)
             return false;
         unsigned i1, i2, i12;
         i1 = i2 = i12 = 0;
@@ -2072,8 +2082,8 @@ namespace smt {
     */
     template<typename Ext>
     bool theory_arith<Ext>::is_inconsistent2(grobner::equation const * eq, grobner & gb) {
-        // TODO: a possible improvement: create a quotation for (M1 - M2)^2 
-        // instead of trying to find it in a specific equation. 
+        // TODO: a possible improvement: create a quotation for (M1 - M2)^2
+        // instead of trying to find it in a specific equation.
         // This approach is more precise, but more expensive
         // since a new row must be created.
         buffer<interval> intervals;
@@ -2117,7 +2127,7 @@ namespace smt {
                         continue;
                     // m1, m2, and m1m2 form a perfect square.
                     // check if [0, oo) provides a better lowerbound than adding the intervals of m1, m2 and m1m2;
-                    TRACE("non_linear", tout << "found perfect square (M1-M2)^2:\n"; 
+                    TRACE("non_linear", tout << "found perfect square (M1-M2)^2:\n";
                           gb.display_monomial(tout, *m1); tout << "\n";
                           gb.display_monomial(tout, *m2); tout << "\n";
                           gb.display_monomial(tout, *m1m2); tout << "\n";);
@@ -2131,7 +2141,7 @@ namespace smt {
                         deleted[i] = true;
                         deleted[j] = true;
                         deleted[k] = true;
-                        break; 
+                        break;
                     }
                 }
                 if (k < num)
@@ -2184,7 +2194,7 @@ namespace smt {
             grobner::monomial const * m = eq->get_monomial(i);
             if (m->get_degree() == 0)
                 k -= m->get_coeff();
-            else 
+            else
                 args.push_back(monomial2expr(eq->get_monomial(i), is_int));
         }
         context & ctx   = get_context();
@@ -2213,7 +2223,7 @@ namespace smt {
         TRACE("non_linear", tout << "inserted new equation into the tableau\n"; display_var(tout, v););
         return true;
     }
-    
+
     /**
        \brief Compute Grobner basis, return true if a conflict or new fixed variables were detected.
     */
@@ -2227,7 +2237,7 @@ namespace smt {
         bool warn            = false;
         unsigned next_weight = MAX_DEFAULT_WEIGHT + 1; // next weight using during perturbation phase.
         ptr_vector<grobner::equation> eqs;
-        
+
         while (true) {
             TRACE("non_linear_gb", tout << "before:\n"; gb.display(tout););
             bool r = false;
@@ -2267,7 +2277,7 @@ namespace smt {
                 if (is_inconsistent2(eq, gb))
                     return GB_PROGRESS;
             }
-            // Scan the grobner basis eqs for equations of the form x - k = 0 or x = 0 is found, and x is not fixed, 
+            // Scan the grobner basis eqs for equations of the form x - k = 0 or x = 0 is found, and x is not fixed,
             // then assert bounds for x, and continue
             gb_result result = GB_FAIL;
             if (m_params.m_nl_arith_gb_eqs) {
@@ -2277,7 +2287,7 @@ namespace smt {
                     if (!eq->is_linear_combination()) {
                         TRACE("non_linear", tout << "processing new equality:\n"; gb.display_equation(tout, *eq););
                         TRACE("non_linear_bug", tout << "processing new equality:\n"; gb.display_equation(tout, *eq););
-                        if (internalize_gb_eq(eq)) 
+                        if (internalize_gb_eq(eq))
                             result = GB_NEW_EQ;
                     }
                 }
@@ -2331,10 +2341,8 @@ namespace smt {
     bool theory_arith<Ext>::max_min_nl_vars() {
         var_set             already_found;
         svector<theory_var> vars;
-        svector<theory_var>::const_iterator it  = m_nl_monomials.begin();
-        svector<theory_var>::const_iterator end = m_nl_monomials.end();
-        for (; it != end; ++it) {
-            theory_var v = *it;
+        for (unsigned j = 0; j < m_nl_monomials.size(); ++j) {
+            theory_var v = m_nl_monomials[j];
             mark_var(v, vars, already_found);
             expr * n     = var2expr(v);
             SASSERT(is_pure_monomial(n));
@@ -2353,6 +2361,7 @@ namespace smt {
     */
     template<typename Ext>
     final_check_status theory_arith<Ext>::process_non_linear() {
+        m_model_depends_on_computed_epsilon = false;
         if (m_nl_monomials.empty())
             return FC_DONE;
 
@@ -2372,10 +2381,10 @@ namespace smt {
             IF_VERBOSE(3, verbose_stream() << "Max. non linear arithmetic rounds. Increase threshold using NL_ARITH_ROUNDS=<limit>\n";);
             return FC_GIVEUP;
         }
-        
+
         get_context().push_trail(value_trail<context, unsigned>(m_nl_rounds));
         m_nl_rounds++;
-        
+
         elim_quasi_base_rows();
         move_non_base_vars_to_bounds();
         TRACE("non_linear", tout << "processing non linear constraints...\n"; get_context().display(tout););
@@ -2384,8 +2393,8 @@ namespace smt {
             failed();
             return FC_CONTINUE;
         }
-        
-        if (!max_min_nl_vars()) 
+
+        if (!max_min_nl_vars())
             return FC_CONTINUE;
 
         if (check_monomial_assignments()) {
@@ -2409,20 +2418,20 @@ namespace smt {
                 }
                 break;
             case 1:
-                if (!is_cross_nested_consistent(vars)) 
+                if (!is_cross_nested_consistent(vars))
                     progress = true;
                 break;
             case 2:
                 if (m_params.m_nl_arith_gb) {
                     switch(compute_grobner(vars)) {
-                    case GB_PROGRESS: 
+                    case GB_PROGRESS:
                         progress = true;
                         break;
-                    case GB_NEW_EQ: 
+                    case GB_NEW_EQ:
                         progress = true;
                         propagate_core();
                         break;
-                    case GB_FAIL: 
+                    case GB_FAIL:
                         break;
                     }
                 }

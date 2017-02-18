@@ -75,15 +75,8 @@ public class RatNum extends RealExpr
      * Returns a string representation of the numeral.
      **/
     @Override
-    public String toString()
-    {
-        try
-        {
-            return Native.getNumeralString(getContext().nCtx(), getNativeObject());
-        } catch (Z3Exception e)
-        {
-            return "Z3Exception: " + e.getMessage();
-        }
+    public String toString() {
+        return Native.getNumeralString(getContext().nCtx(), getNativeObject());
     }
 
     RatNum(Context ctx, long obj)

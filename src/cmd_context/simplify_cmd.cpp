@@ -24,9 +24,30 @@ Notes:
 #include"scoped_timer.h"
 #include"scoped_ctrl_c.h"
 #include"cancel_eh.h"
+#include"seq_rewriter.h"
 #include<iomanip>
 
 class simplify_cmd : public parametric_cmd {
+
+    class th_solver : public expr_solver {
+        cmd_context& m_ctx;
+        params_ref   m_params;
+        ref<solver> m_solver;
+    public:
+        th_solver(cmd_context& ctx): m_ctx(ctx) {}
+        
+        virtual lbool check_sat(expr* e) {
+            if (!m_solver) {
+                m_solver = m_ctx.get_solver_factory()(m_ctx.m(), m_params, false, true, false, symbol::null);
+            }
+            m_solver->push();
+            m_solver->assert_expr(e);
+            lbool r = m_solver->check_sat(0,0);
+            m_solver->pop(1);
+            return r;
+        }
+    };
+
     expr *                   m_target;
 public:
     simplify_cmd(char const * name = "simplify"):parametric_cmd(name) {}
@@ -70,10 +91,12 @@ public:
         if (m_params.get_bool("som", false))
             m_params.set_bool("flat", true);
         th_rewriter s(ctx.m(), m_params);
+        th_solver solver(ctx);
+        s.set_solver(alloc(th_solver, ctx));
         unsigned cache_sz;
         unsigned num_steps = 0;
         unsigned timeout   = m_params.get_uint("timeout", UINT_MAX);
-        unsigned rlimit    = m_params.get_uint("rlimit", UINT_MAX);
+        unsigned rlimit    = m_params.get_uint("rlimit", UINT_MAX);        
         bool failed = false;
         cancel_eh<reslimit> eh(ctx.m().limit());
         { 

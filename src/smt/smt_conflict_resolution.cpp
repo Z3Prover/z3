@@ -22,13 +22,13 @@ Revision History:
 #include"ast_ll_pp.h"
 
 namespace smt {
-    
+
     // ---------------------------
     //
     // Base class
     //
     // ---------------------------
-    
+
     conflict_resolution::conflict_resolution(ast_manager & m,
                                              context & ctx,
                                              dyn_ack_manager & dyn_ack_manager,
@@ -42,7 +42,7 @@ namespace smt {
         m_dyn_ack_manager(dyn_ack_manager),
         m_assigned_literals(assigned_literals),
         m_lemma_atoms(m),
-        m_todo_js_qhead(0), 
+        m_todo_js_qhead(0),
         m_antecedents(0),
         m_watches(watches),
         m_new_proofs(m),
@@ -67,7 +67,7 @@ namespace smt {
     }
 
     /**
-       \brief Find a common ancestor (anc) of n1 and n2 in the 'proof' tree. 
+       \brief Find a common ancestor (anc) of n1 and n2 in the 'proof' tree.
        The common ancestor is used to produce irredundant transitivity proofs.
 
        n1 = a1 = ... = ai = ANC = ... = root
@@ -100,7 +100,7 @@ namespace smt {
     */
     void conflict_resolution::eq_justification2literals(enode * lhs, enode * rhs, eq_justification js) {
         SASSERT(m_antecedents);
-        TRACE("conflict_detail", 
+        TRACE("conflict_detail",
               ast_manager& m = get_manager();
               tout << mk_pp(lhs->get_owner(), m) << " = " << mk_pp(rhs->get_owner(), m);
               switch (js.get_kind()) {
@@ -133,7 +133,7 @@ namespace smt {
                 mark_eq(lhs->get_arg(1), rhs->get_arg(0));
             }
             else {
-                for (unsigned i = 0; i < num_args; i++) 
+                for (unsigned i = 0; i < num_args; i++)
                     mark_eq(lhs->get_arg(i), rhs->get_arg(i));
             }
             break;
@@ -146,9 +146,9 @@ namespace smt {
     /**
        \brief Process the transitivity 'proof' from n1 and n2, where
        n1 and n2 are in the same branch
-       
+
        n1 -> ... -> n2
-       
+
        This method may update m_antecedents, m_todo_js and m_todo_eqs.
 
        The resultant set of literals is stored in m_antecedents.
@@ -163,7 +163,7 @@ namespace smt {
 
     /**
        \brief Process the justification of n1 = n2.
-       
+
        This method may update m_antecedents, m_todo_js and m_todo_eqs.
 
        The resultant set of literals is stored in m_antecedents.
@@ -180,13 +180,17 @@ namespace smt {
 
        The result is stored in result.
 
-       \remark This method does not reset the vectors m_antecedents, m_todo_js, m_todo_eqs, nor reset the 
-       marks in the justification objects. 
+       \remark This method does not reset the vectors m_antecedents, m_todo_js, m_todo_eqs, nor reset the
+       marks in the justification objects.
     */
     void conflict_resolution::justification2literals_core(justification * js, literal_vector & result) {
         SASSERT(m_todo_js_qhead <= m_todo_js.size());
         m_antecedents = &result;
         mark_justification(js);
+        process_justifications();
+    }
+
+    void conflict_resolution::process_justifications() {
         while (true) {
             unsigned sz = m_todo_js.size();
             while (m_todo_js_qhead < sz) {
@@ -230,6 +234,17 @@ namespace smt {
         SASSERT(m_todo_js_qhead == 0);
         SASSERT(m_todo_eqs.empty());
         justification2literals_core(js, result);
+        unmark_justifications(0);
+        SASSERT(m_todo_eqs.empty());
+    }
+
+    void conflict_resolution::eq2literals(enode* n1, enode* n2, literal_vector & result) {
+        SASSERT(m_todo_js.empty());
+        SASSERT(m_todo_js_qhead == 0);
+        SASSERT(m_todo_eqs.empty());
+        m_antecedents = &result;
+        m_todo_eqs.push_back(enode_pair(n1, n2));
+        process_justifications();
         unmark_justifications(0);
         SASSERT(m_todo_eqs.empty());
     }
@@ -279,13 +294,13 @@ namespace smt {
             if (js)
                 r = std::max(r, get_justification_max_lvl(js));
             break;
-        }   
+        }
         case b_justification::BIN_CLAUSE:
             r = std::max(r, m_ctx.get_assign_level(js.get_literal()));
             break;
         case b_justification::AXIOM:
             break;
-        case b_justification::JUSTIFICATION: 
+        case b_justification::JUSTIFICATION:
             r = std::max(r, get_justification_max_lvl(js.get_justification()));
             break;
         default:
@@ -298,8 +313,8 @@ namespace smt {
         bool_var var = antecedent.var();
         unsigned lvl = m_ctx.get_assign_level(var);
         SASSERT(var < static_cast<int>(m_ctx.get_num_bool_vars()));
-        TRACE("conflict", tout << "processing antecedent (level " << lvl << "):"; 
-              m_ctx.display_literal(tout, antecedent); 
+        TRACE("conflict", tout << "processing antecedent (level " << lvl << "):";
+              m_ctx.display_literal(tout, antecedent);
               m_ctx.display_detailed_literal(tout << " ", antecedent); tout << "\n";);
 
         if (!m_ctx.is_marked(var) && lvl > m_ctx.get_base_level()) {
@@ -371,24 +386,23 @@ namespace smt {
         consequent          = false_literal;
         if (not_l != null_literal)
             consequent      = ~not_l;
-        
+
         m_conflict_lvl      = get_max_lvl(consequent, js);
 
-        TRACE("conflict_bug", 
-              tout << "conflict_lvl: " << m_conflict_lvl << " scope_lvl: " << m_ctx.get_scope_level() << " base_lvl: " << m_ctx.get_base_level() 
+        TRACE("conflict_bug",
+              tout << "conflict_lvl: " << m_conflict_lvl << " scope_lvl: " << m_ctx.get_scope_level() << " base_lvl: " << m_ctx.get_base_level()
               << " search_lvl: " << m_ctx.get_search_level() << "\n";
               tout << "js.kind: " << js.get_kind() << "\n";
               tout << "consequent: " << consequent << ": ";
               m_ctx.display_literal_verbose(tout, consequent); tout << "\n";
               m_ctx.display(tout, js); tout << "\n";
-	      );
+          );
 
         // m_conflict_lvl can be smaller than m_ctx.get_search_level() when:
         // there are user level scopes created using the Z3 API, and
         // the previous levels were already inconsistent, or the inconsistency was
         // triggered by an axiom or justification proof wrapper, this two kinds
         // of justification are considered level zero.
-
         if (m_conflict_lvl <= m_ctx.get_search_level()) {
             TRACE("conflict", tout << "problem is unsat\n";);
             if (m_manager.proofs_enabled())
@@ -399,7 +413,7 @@ namespace smt {
         }
 
         TRACE("conflict", tout << "conflict_lvl: " << m_conflict_lvl << "\n";);
-        
+
         SASSERT(!m_assigned_literals.empty());
 
         SASSERT(m_todo_js.empty());
@@ -411,32 +425,32 @@ namespace smt {
     /**
        \brief Cleanup datastructures used during resolve(), minimize lemma (when minimization is enabled),
        compute m_new_scope_lvl and m_lemma_iscope_lvl, generate proof if needed.
-       
+
        This method assumes that the lemma is stored in m_lemma (and the associated atoms in m_lemma_atoms).
-       
+
        \warning This method assumes the literals in m_lemma[1] ... m_lemma[m_lemma.size() - 1] are marked.
     */
     void conflict_resolution::finalize_resolve(b_justification conflict, literal not_l) {
         unmark_justifications(0);
-        
+
         TRACE("conflict",
               tout << "before minimization:\n";
               m_ctx.display_literals(tout, m_lemma);
               tout << "\n";);
-        
+
         TRACE("conflict_verbose",
               tout << "before minimization:\n";
               m_ctx.display_literals_verbose(tout, m_lemma);
               tout << "\n";);
-        
+
         if (m_params.m_minimize_lemmas)
             minimize_lemma();
-        
+
         TRACE("conflict",
               tout << "after minimization:\n";
               m_ctx.display_literals(tout, m_lemma);
               tout << "\n";);
-        
+
         TRACE("conflict_verbose",
               tout << "after minimization:\n";
               m_ctx.display_literals_verbose(tout, m_lemma);
@@ -445,7 +459,7 @@ namespace smt {
         TRACE("conflict_bug",
               m_ctx.display_literals_verbose(tout, m_lemma);
               tout << "\n";);
-        
+
         literal_vector::iterator it  = m_lemma.begin();
         literal_vector::iterator end = m_lemma.end();
         m_new_scope_lvl              = m_ctx.get_search_level();
@@ -464,11 +478,11 @@ namespace smt {
                     m_lemma_iscope_lvl = lvl;
             }
         }
-        
+
         TRACE("conflict",
               tout << "new scope level:     " << m_new_scope_lvl << "\n";
               tout << "intern. scope level: " << m_lemma_iscope_lvl << "\n";);
-        
+
         if (m_manager.proofs_enabled())
             mk_conflict_proof(conflict, not_l);
     }
@@ -482,16 +496,18 @@ namespace smt {
 
         unsigned idx = skip_literals_above_conflict_level();
 
+        TRACE("conflict", m_ctx.display_literal_verbose(tout, not_l); m_ctx.display(tout << " ", conflict););
+
         // save space for first uip
         m_lemma.push_back(null_literal);
         m_lemma_atoms.push_back(0);
 
         unsigned num_marks = 0;
         if (not_l != null_literal) {
-            TRACE("conflict", tout << "not_l: "; m_ctx.display_literal(tout, not_l); tout << "\n";);
+            TRACE("conflict", tout << "not_l: "; m_ctx.display_literal_verbose(tout, not_l); tout << "\n";);
             process_antecedent(not_l, num_marks);
         }
-        
+
         do {
 
             if (get_manager().has_trace_stream()) {
@@ -500,7 +516,7 @@ namespace smt {
                 get_manager().trace_stream() << "\n";
             }
 
-            TRACE("conflict", tout << "processing consequent: "; m_ctx.display_literal(tout, consequent); tout << "\n";
+            TRACE("conflict", tout << "processing consequent: "; m_ctx.display_literal_verbose(tout, consequent); tout << "\n";
                   tout << "num_marks: " << num_marks << ", js kind: " << js.get_kind() << "\n";);
             SASSERT(js != null_b_justification);
             switch (js.get_kind()) {
@@ -528,7 +544,7 @@ namespace smt {
                     process_antecedent(~l, num_marks);
                 }
                 justification * js = cls->get_justification();
-                if (js) 
+                if (js)
                     process_justification(js, num_marks);
                 break;
             }
@@ -544,13 +560,13 @@ namespace smt {
             default:
                 UNREACHABLE();
             }
-            
+
             while (true) {
                 literal l = m_assigned_literals[idx];
-                if (m_ctx.is_marked(l.var())) 
+                if (m_ctx.is_marked(l.var()))
                     break;
                 CTRACE("conflict", m_ctx.get_assign_level(l) != m_conflict_lvl && m_ctx.get_assign_level(l) != m_ctx.get_base_level(),
-                       tout << "assign_level(l): " << m_ctx.get_assign_level(l) << ", conflict_lvl: " << m_conflict_lvl << ", l: "; m_ctx.display_literal(tout, l); 
+                       tout << "assign_level(l): " << m_ctx.get_assign_level(l) << ", conflict_lvl: " << m_conflict_lvl << ", l: "; m_ctx.display_literal(tout, l);
                        tout << "\n";);
                 SASSERT(m_ctx.get_assign_level(l) == m_conflict_lvl ||
                         // it may also be an (out-of-order) asserted literal
@@ -566,7 +582,7 @@ namespace smt {
             idx--;
             num_marks--;
             m_ctx.unset_mark(c_var);
-        } 
+        }
         while (num_marks > 0);
 
         TRACE("conflict", tout << "FUIP: "; m_ctx.display_literal(tout, consequent); tout << "\n";);
@@ -575,8 +591,8 @@ namespace smt {
         m_lemma_atoms.set(0, m_ctx.bool_var2expr(consequent.var()));
 
         // TODO:
-        // 
-        // equality optimization should go here. 
+        //
+        // equality optimization should go here.
         //
 
         finalize_resolve(conflict, not_l);
@@ -586,7 +602,7 @@ namespace smt {
 
     /**
        \brief Return an approximation for the set of scope levels where the literals in m_lemma
-       were assigned. 
+       were assigned.
     */
     level_approx_set conflict_resolution::get_lemma_approx_level_set() {
         level_approx_set result;
@@ -626,7 +642,7 @@ namespace smt {
         unsigned lvl = m_ctx.get_assign_level(var);
         if (!m_ctx.is_marked(var) && lvl > m_ctx.get_base_level()) {
             if (m_lvl_set.may_contain(lvl)) {
-                m_ctx.set_mark(var);                
+                m_ctx.set_mark(var);
                 m_unmark.push_back(var);
                 m_lemma_min_stack.push_back(var);
             }
@@ -653,18 +669,18 @@ namespace smt {
     }
 
     /**
-       \brief Return true if lit is implied by other marked literals 
-       and/or literals assigned at the base level. 
-       The set lvl_set is used as an optimization. 
+       \brief Return true if lit is implied by other marked literals
+       and/or literals assigned at the base level.
+       The set lvl_set is used as an optimization.
        The idea is to stop the recursive search with a failure
-       as soon as we find a literal assigned in a level that is not in lvl_set. 
+       as soon as we find a literal assigned in a level that is not in lvl_set.
     */
     bool conflict_resolution::implied_by_marked(literal lit) {
         m_lemma_min_stack.reset();  // avoid recursive function
         m_lemma_min_stack.push_back(lit.var());
         unsigned old_size     = m_unmark.size();
         unsigned old_js_qhead = m_todo_js_qhead;
-        
+
         while (!m_lemma_min_stack.empty()) {
             bool_var var       = m_lemma_min_stack.back();
             m_lemma_min_stack.pop_back();
@@ -725,7 +741,7 @@ namespace smt {
         m_unmark.reset();
 
         m_lvl_set   = get_lemma_approx_level_set();
-    
+
         unsigned sz   = m_lemma.size();
         unsigned i    = 1; // the first literal is the FUIP
         unsigned j    = 1;
@@ -742,7 +758,7 @@ namespace smt {
                 j++;
             }
         }
-        
+
         reset_unmark_and_justifications(0, 0);
         m_lemma      .shrink(j);
         m_lemma_atoms.shrink(j);
@@ -796,7 +812,7 @@ namespace smt {
         }
         if (m_manager.coarse_grain_proofs())
             return pr;
-        TRACE("norm_eq_proof", 
+        TRACE("norm_eq_proof",
               tout << "#" << n1->get_owner_id() << " = #" << n2->get_owner_id() << "\n";
               tout << mk_ll_pp(pr, m_manager, true, false););
         SASSERT(m_manager.is_eq(fact) || m_manager.is_iff(fact));
@@ -892,7 +908,7 @@ namespace smt {
             return 0;
         }
     }
-    
+
     /**
        \brief Return the proof object associated with the given literal if it already
        exists. Otherwise, return 0 and add l to the todo-list.
@@ -925,16 +941,16 @@ namespace smt {
         //  p1: is a proof of "A"
         //  p2: is a proof of "not A"
         //  [unit-resolution p1 p2]: false
-        //  
+        //
         // Let us assume that "A" was assigned first during propagation.
         // Then, the "resolve" method will never select "not A" as a hypothesis.
-        // "not_A" will be the not_l argument in this method. 
+        // "not_A" will be the not_l argument in this method.
         // Since we are assuming that "A" was assigned first", m_ctx.get_justification("A") will be
         // p1.
-        // 
+        //
         // So, the test "m_ctx.get_justification(l.var()) == js" is used to check
         // if l was assigned before ~l.
-        if (m_ctx.is_marked(l.var()) && m_ctx.get_justification(l.var()) == js) {
+        if ((m_ctx.is_marked(l.var()) && m_ctx.get_justification(l.var()) == js) || (js.get_kind() == b_justification::AXIOM)) {
             expr_ref l_expr(m_manager);
             m_ctx.literal2expr(l, l_expr);
             proof * pr = m_manager.mk_hypothesis(l_expr.get());
@@ -1008,11 +1024,11 @@ namespace smt {
                            tout << mk_pp(m_manager.get_fact(prs[i]), m_manager) << "\n";
                        }
                        tout << "consequent:\n" << mk_pp(l_exr, m_manager) << "\n";);
-                TRACE("get_proof", 
+                TRACE("get_proof",
                       tout << l.index() << " " << true_literal.index() << " " << false_literal.index() << " ";
                       m_ctx.display_literal(tout, l); tout << " --->\n";
                       tout << mk_ll_pp(l_exr, m_manager););
-                CTRACE("get_proof_bug_after", 
+                CTRACE("get_proof_bug_after",
                        invocation_counter >= DUMP_AFTER_NUM_INVOCATIONS,
                        tout << l.index() << " " << true_literal.index() << " " << false_literal.index() << " ";
                        m_ctx.display_literal(tout, l); tout << " --->\n";
@@ -1026,7 +1042,7 @@ namespace smt {
             }
         }
     }
-    
+
     /**
        \brief Return the proof object associated with the given justification
        if it already exists. Otherwise, return 0 and add js to the todo-list.
@@ -1051,7 +1067,7 @@ namespace smt {
         m_js2proof.reset();
         literal_vector::iterator it  = m_lemma.begin();
         literal_vector::iterator end = m_lemma.end();
-        for (; it != end; ++it)
+        for (; it != end;  ++it)
             m_ctx.set_mark((*it).var());
     }
 
@@ -1062,6 +1078,9 @@ namespace smt {
             return true;
         SASSERT(js.get_kind() != b_justification::BIN_CLAUSE);
         CTRACE("visit_b_justification_bug", js.get_kind() == b_justification::AXIOM, tout << "l: " << l << "\n"; m_ctx.display(tout););
+
+        if (js.get_kind() == b_justification::AXIOM) 
+            return true;
         SASSERT(js.get_kind() != b_justification::AXIOM);
         if (js.get_kind() == b_justification::CLAUSE) {
             clause * cls      = js.get_clause();
@@ -1073,14 +1092,17 @@ namespace smt {
                     i = 1;
                 }
                 else {
+                    SASSERT(cls->get_literal(1) == l);
                     if (get_proof(~cls->get_literal(0)) == 0)
                         visited = false;
                     i = 2;
                 }
             }
-            for (; i < num_lits; i++) 
+            for (; i < num_lits; i++) {
+                SASSERT(cls->get_literal(i) != l);
                 if (get_proof(~cls->get_literal(i)) == 0)
                     visited = false;
+            }
             return visited;
         }
         else
@@ -1093,7 +1115,7 @@ namespace smt {
         SASSERT(pr);
         TRACE("proof_gen_bug", tout << "lit2pr_saved: #" << l << "\n";);
         m_lit2proof.insert(l, pr);
-        TRACE("mk_proof", 
+        TRACE("mk_proof",
               tout << mk_bounded_pp(m_ctx.bool_var2expr(l.var()), m_manager, 10) << "\n";
               tout << "storing proof for: "; m_ctx.display_literal(tout, l); tout << "\n";
               tout << mk_ll_pp(pr, m_manager););
@@ -1102,7 +1124,7 @@ namespace smt {
     /**
        \brief Given that lhs = ... = rhs, and lhs reaches rhs in the 'proof' tree branch.
        Then, return true if all proof objects needed to create the proof steps are already
-       available. Otherwise return false and update m_todo_pr with info about the proof 
+       available. Otherwise return false and update m_todo_pr with info about the proof
        objects that need to be created.
     */
     bool conflict_resolution::visit_trans_proof(enode * lhs, enode * rhs) {
@@ -1158,7 +1180,7 @@ namespace smt {
 
     /**
        \brief Return true if all proof objects that are used to build the proof that lhs = rhs were
-       already built. If the result is false, then m_todo_pr is updated with info about the proof 
+       already built. If the result is false, then m_todo_pr is updated with info about the proof
        objects that need to be created.
     */
     bool conflict_resolution::visit_eq_justications(enode * lhs, enode * rhs) {
@@ -1210,7 +1232,7 @@ namespace smt {
         if (prs1.size() == 1)
             pr = prs1[0];
         else {
-            TRACE("mk_transitivity", 
+            TRACE("mk_transitivity",
                   unsigned sz = prs1.size();
                   for (unsigned i = 0; i < sz; i++) {
                       tout << mk_ll_pp(prs1[i], m_manager) << "\n";
@@ -1235,14 +1257,19 @@ namespace smt {
               }
               tout << "\n";);
         init_mk_proof();
-        literal consequent  = false_literal;
-        if (not_l != null_literal)
-            consequent      = ~not_l;
-        visit_b_justification(consequent, conflict);
-        if (not_l != null_literal)
+        literal consequent;
+        if (not_l == null_literal) {
+            consequent = false_literal;
+        }
+        else {
+            consequent = ~not_l;
             m_todo_pr.push_back(tp_elem(not_l));
+        }
+        visit_b_justification(consequent, conflict);
+        
         while (!m_todo_pr.empty()) {
             tp_elem & elem = m_todo_pr.back();
+
             switch (elem.m_kind) {
             case tp_elem::EQUALITY: {
                 enode * lhs        = elem.m_lhs;
@@ -1272,7 +1299,7 @@ namespace smt {
             }
             case tp_elem::LITERAL: {
                 literal l = to_literal(elem.m_lidx);
-                if (m_lit2proof.contains(l)) 
+                if (m_lit2proof.contains(l))
                     m_todo_pr.pop_back();
                 else {
                     b_justification js = m_ctx.get_justification(l.var());
@@ -1326,19 +1353,20 @@ namespace smt {
 
     void conflict_resolution::process_antecedent_for_unsat_core(literal antecedent) {
         bool_var var = antecedent.var();
-        TRACE("conflict", tout << "processing antecedent: "; 
-	      m_ctx.display_literal_info(tout << antecedent << " ", antecedent);
-	      tout << (m_ctx.is_marked(var)?"marked":"not marked");
-	      tout << "\n";);
-        
+        TRACE("conflict", tout << "processing antecedent: ";
+          m_ctx.display_literal_info(tout << antecedent << " ", antecedent);
+          tout << (m_ctx.is_marked(var)?"marked":"not marked");
+          tout << "\n";);
+
         if (!m_ctx.is_marked(var)) {
             m_ctx.set_mark(var);
             m_unmark.push_back(var);
-            if (m_ctx.is_assumption(var)) 
-                m_assumptions.push_back(antecedent);
+        }
+        if (m_ctx.is_assumption(var)) {
+            m_assumptions.push_back(antecedent);
         }
     }
-    
+
     void conflict_resolution::process_justification_for_unsat_core(justification * js) {
         literal_vector & antecedents = m_tmp_literal_vector;
         antecedents.reset();
@@ -1353,7 +1381,7 @@ namespace smt {
         SASSERT(m_ctx.tracking_assumptions());
         m_assumptions.reset();
         m_unmark.reset();
-        
+
         SASSERT(m_conflict_lvl <= m_ctx.get_search_level());
         unsigned search_lvl = m_ctx.get_search_level();
 
@@ -1361,19 +1389,19 @@ namespace smt {
         literal consequent  = false_literal;
         if (not_l != null_literal) {
             consequent      = ~not_l;
-	}
-        
+        }
+
         int idx = skip_literals_above_conflict_level();
-        
+
         if (not_l != null_literal)
             process_antecedent_for_unsat_core(consequent);
-        
+
         if (m_assigned_literals.empty()) {
             goto end_unsat_core;
         }
-        
+
         while (true) {
-            TRACE("unsat_core_bug", tout << "js.get_kind(): " << js.get_kind() << ", idx: " << idx << "\n";);
+            TRACE("unsat_core_bug", tout << consequent << " js.get_kind(): " << js.get_kind() << ", idx: " << idx << "\n";);
             switch (js.get_kind()) {
             case b_justification::CLAUSE: {
                 clause * cls = js.get_clause();
@@ -1394,7 +1422,7 @@ namespace smt {
                     process_antecedent_for_unsat_core(~l);
                 }
                 justification * js = cls->get_justification();
-                if (js) 
+                if (js)
                     process_justification_for_unsat_core(js);
                 break;
             }
@@ -1410,17 +1438,21 @@ namespace smt {
             default:
                 UNREACHABLE();
             }
-            
-            while (true) {
-                if (idx < 0) 
-                    goto end_unsat_core;
+
+            if (m_ctx.is_assumption(consequent.var())) {
+                m_assumptions.push_back(consequent);
+            }
+            while (idx >= 0) {
                 literal l = m_assigned_literals[idx];
                 TRACE("unsat_core_bug", tout << "l: " << l << ", get_assign_level(l): " << m_ctx.get_assign_level(l) << ", is_marked(l): " << m_ctx.is_marked(l.var()) << "\n";);
-                if (m_ctx.get_assign_level(l) < search_lvl || idx == 0) 
+                if (m_ctx.get_assign_level(l) < search_lvl)
                     goto end_unsat_core;
-                if (m_ctx.is_marked(l.var())) 
+                if (m_ctx.is_marked(l.var()))
                     break;
                 idx--;
+            }
+            if (idx < 0) {
+                goto end_unsat_core;
             }
 
             SASSERT(idx >= 0);
@@ -1435,12 +1467,12 @@ namespace smt {
         TRACE("unsat_core", tout << "assumptions:\n"; m_ctx.display_literals(tout, m_assumptions); tout << "\n";);
         reset_unmark_and_justifications(0, 0);
     }
-    
-    conflict_resolution * mk_conflict_resolution(ast_manager & m, 
+
+    conflict_resolution * mk_conflict_resolution(ast_manager & m,
                                                  context & ctx,
                                                  dyn_ack_manager & dack_manager,
                                                  smt_params const & params,
-                                                 literal_vector const & assigned_literals,  
+                                                 literal_vector const & assigned_literals,
                                                  vector<watch_list> & watches) {
         return alloc(conflict_resolution, m, ctx, dack_manager, params, assigned_literals, watches);
     }

@@ -29,7 +29,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_ast_vector(c);
         RESET_ERROR_CODE();
-        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, mk_c(c)->m());
+        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
         mk_c(c)->save_object(v);
         Z3_ast_vector r       = of_ast_vector(v);
         RETURN_Z3(r);
@@ -111,7 +111,7 @@ extern "C" {
             RETURN_Z3(0);
         }
         ast_translation translator(mk_c(c)->m(), mk_c(t)->m()); 
-        Z3_ast_vector_ref * new_v = alloc(Z3_ast_vector_ref, mk_c(t)->m());
+        Z3_ast_vector_ref * new_v = alloc(Z3_ast_vector_ref, *mk_c(t), mk_c(t)->m());
         mk_c(t)->save_object(new_v);
         unsigned sz = to_ast_vector_ref(v).size();
         for (unsigned i = 0; i < sz; i++) {

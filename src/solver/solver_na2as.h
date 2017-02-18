@@ -25,6 +25,7 @@ Notes:
 #include"solver.h"
 
 class solver_na2as : public solver {
+ protected:
     ast_manager &      m;
     expr_ref_vector    m_assumptions;
     unsigned_vector    m_scopes;
@@ -44,6 +45,8 @@ public:
     
     virtual unsigned get_num_assumptions() const { return m_assumptions.size(); }
     virtual expr * get_assumption(unsigned idx) const { return m_assumptions[idx]; }
+    virtual lbool get_consequences(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences);
+    virtual lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes);
 protected:
     virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) = 0;
     virtual void push_core() = 0;

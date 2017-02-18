@@ -958,6 +958,7 @@ namespace smt {
         //
         // -----------------------------------
         typedef int_hashtable<int_hash, default_eq<int> > row_set;
+        bool            m_model_depends_on_computed_epsilon;
         unsigned        m_nl_rounds;
         bool            m_nl_gb_exhausted;
         unsigned        m_nl_strategy_idx; // for fairness
@@ -1092,7 +1093,7 @@ namespace smt {
         virtual inf_eps_rational<inf_rational> maximize(theory_var v, expr_ref& blocker, bool& has_shared);
         virtual inf_eps_rational<inf_rational> value(theory_var v);
         virtual theory_var add_objective(app* term);
-        virtual expr_ref mk_ge(filter_model_converter& fm, theory_var v, inf_numeral const& val);
+        expr_ref mk_ge(filter_model_converter& fm, theory_var v, inf_numeral const& val);
         void enable_record_conflict(expr* bound);
         void record_conflict(unsigned num_lits, literal const * lits, 
                           unsigned num_eqs, enode_pair const * eqs,

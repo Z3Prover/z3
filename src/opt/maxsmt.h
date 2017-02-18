@@ -62,6 +62,7 @@ namespace opt {
         const expr_ref_vector  m_soft;
         vector<rational> m_weights;
         expr_ref_vector  m_assertions;
+        expr_ref_vector  m_trail;
         rational         m_lower;
         rational         m_upper;
         model_ref        m_model;
@@ -95,11 +96,16 @@ namespace opt {
             ~scoped_ensure_theory();
             smt::theory_wmaxsat& operator()();
         };
+
+        lbool find_mutexes(obj_map<expr, rational>& new_soft);
         
 
     protected:
         void enable_sls(bool force);
         void trace_bounds(char const* solver);
+
+        void process_mutex(expr_ref_vector& mutex, obj_map<expr, rational>& new_soft);
+
 
     };
 
@@ -114,6 +120,7 @@ namespace opt {
         unsigned                  m_index;
         scoped_ptr<maxsmt_solver_base> m_msolver;
         expr_ref_vector  m_soft_constraints;
+        obj_map<expr, unsigned> m_soft_constraint_index;
         expr_ref_vector  m_answer;
         vector<rational> m_weights;
         rational         m_lower;
@@ -132,7 +139,6 @@ namespace opt {
         expr* operator[](unsigned idx) const { return m_soft_constraints[idx]; }
         rational weight(unsigned idx) const { return m_weights[idx]; }
         void commit_assignment();
-        rational get_value() const;
         rational get_lower() const;
         rational get_upper() const;        
         void update_lower(rational const& r);

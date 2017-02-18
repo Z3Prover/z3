@@ -66,7 +66,7 @@ namespace datalog {
         }
 
         virtual void reset_statistics() {}
-        virtual void display_profile(std::ostream& out) const {}
+        virtual void display_profile(std::ostream& out) {}
         virtual void collect_statistics(statistics& st) const {}
         virtual unsigned get_num_levels(func_decl* pred) {
             throw default_exception(std::string("get_num_levels is not supported for ") + m_name);

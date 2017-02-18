@@ -53,8 +53,10 @@ struct aig {
     aig() {}
 };
 
+#if Z3DEBUG
 inline bool is_true(aig_lit const & r) { return !r.is_inverted() && r.ptr_non_inverted()->m_id == 0; }
-inline bool is_false(aig_lit const & r) { return r.is_inverted() && r.ptr()->m_id == 0; }
+#endif
+// inline bool is_false(aig_lit const & r) { return r.is_inverted() && r.ptr()->m_id == 0; }
 inline bool is_var(aig * n) { return n->m_children[0].is_null(); }
 inline bool is_var(aig_lit const & n) { return is_var(n.ptr()); }
 inline unsigned id(aig_lit const & n) { return n.ptr()->m_id; }
@@ -66,13 +68,8 @@ inline aig_lit right(aig_lit const & n) { return right(n.ptr()); }
 
 inline unsigned to_idx(aig * p) { SASSERT(!is_var(p)); return p->m_id - FIRST_NODE_ID; }
 
-void unmark(unsigned sz, aig_lit const * ns) {
-    for (unsigned i = 0; i < sz; i++) {
-        ns[i].ptr()->m_mark = false;
-    }
-}
 
-void unmark(unsigned sz, aig * const * ns) {
+static void unmark(unsigned sz, aig * const * ns) {
     for (unsigned i = 0; i < sz; i++) {
         ns[i]->m_mark = false;
     }

@@ -22,7 +22,7 @@ Revision History:
 #include"ast_pp.h"
 #include"ast_ll_pp.h"
 
-bool macro_finder::is_macro(expr * n, app * & head, expr * & def) {
+bool macro_finder::is_macro(expr * n, app_ref & head, expr_ref & def) {
     if (!is_quantifier(n) || !to_quantifier(n)->is_forall())
         return false;
     TRACE("macro_finder", tout << "processing: " << mk_pp(n, m_manager) << "\n";);
@@ -171,23 +171,20 @@ bool macro_finder::expand_macros(unsigned num, expr * const * exprs, proof * con
     for (unsigned i = 0; i < num; i++) {
         expr * n       = exprs[i];
         proof * pr     = m_manager.proofs_enabled() ? prs[i] : 0;
-        expr_ref new_n(m_manager);
+        expr_ref new_n(m_manager), def(m_manager);
         proof_ref new_pr(m_manager);
         m_macro_manager.expand_macros(n, pr, new_n, new_pr);
-        app * head = 0;
-        expr * def = 0;
-        app * t    = 0;
+        app_ref head(m_manager), t(m_manager);
         if (is_macro(new_n, head, def) && m_macro_manager.insert(head->get_decl(), to_quantifier(new_n.get()), new_pr)) {
-            TRACE("macro_finder_found", tout << "found new macro: " << head->get_decl()->get_name() << "\n" << mk_pp(new_n, m_manager) << "\n";);
+            TRACE("macro_finder_found", tout << "found new macro: " << head->get_decl()->get_name() << "\n" << new_n << "\n";);
             found_new_macro = true;
         }
         else if (is_arith_macro(new_n, new_pr, new_exprs, new_prs)) {
-            TRACE("macro_finder_found", tout << "found new arith macro:\n" << mk_pp(new_n, m_manager) << "\n";);
+            TRACE("macro_finder_found", tout << "found new arith macro:\n" << new_n << "\n";);
             found_new_macro = true;
         }
         else if (m_util.is_pseudo_predicate_macro(new_n, head, t, def)) { 
-            TRACE("macro_finder_found", tout << "found new pseudo macro:\n" << mk_pp(head, m_manager) << "\n" << mk_pp(t, m_manager) << "\n" << 
-                  mk_pp(def, m_manager) << "\n";);
+            TRACE("macro_finder_found", tout << "found new pseudo macro:\n" << head << "\n" << t << "\n" << def << "\n";);
             pseudo_predicate_macro2macro(m_manager, head, t, def, to_quantifier(new_n), new_pr, new_exprs, new_prs);
             found_new_macro = true;
         }

@@ -20,6 +20,7 @@ Revision History:
 #include"smt_context.h"
 #include"smt_model_generator.h"
 #include"proto_model.h"
+#include"ref_util.h"
 #include"for_each_expr.h"
 #include"ast_ll_pp.h"
 #include"ast_pp.h"
@@ -36,6 +37,7 @@ namespace smt {
     }
 
     model_generator::~model_generator() {
+        dec_ref_collection_values(m_manager, m_hidden_ufs);
     }
 
     void model_generator::reset() {
@@ -386,6 +388,7 @@ namespace smt {
             enode * n = *it3;
             if (is_uninterp_const(n->get_owner()) && m_context->is_relevant(n)) {
                 func_decl * d = n->get_owner()->get_decl();
+                if (m_hidden_ufs.contains(d)) continue;
                 expr * val    = get_value(n);
                 m_model->register_decl(d, val);
             }
@@ -404,9 +407,9 @@ namespace smt {
     */
     bool model_generator::include_func_interp(func_decl * f) const {
         family_id fid = f->get_family_id();
-        if (fid == null_family_id) return true;
+        if (fid == null_family_id) return !m_hidden_ufs.contains(f); 
         if (fid == m_manager.get_basic_family_id()) return false;
-        theory * th   = m_context->get_theory(fid);
+        theory * th = m_context->get_theory(fid);
         if (!th) return true;
         return th->include_func_interp(f);
     }

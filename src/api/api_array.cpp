@@ -15,7 +15,6 @@ Author:
 Revision History:
 
 --*/
-#include<iostream>
 #include"z3.h"
 #include"api_log_macros.h"
 #include"api_context.h"
@@ -27,7 +26,7 @@ extern "C" {
     Z3_sort Z3_API Z3_mk_array_sort(Z3_context c, Z3_sort domain, Z3_sort range) {
         Z3_TRY;
         LOG_Z3_mk_array_sort(c, domain, range);
-        RESET_ERROR_CODE();  
+        RESET_ERROR_CODE();
         parameter params[2]  = { parameter(to_sort(domain)), parameter(to_sort(range)) };
         sort * ty =  mk_c(c)->m().mk_sort(mk_c(c)->get_array_fid(), ARRAY_SORT, 2, params);
         mk_c(c)->save_ast_trail(ty);
@@ -57,7 +56,7 @@ extern "C" {
         RETURN_Z3(of_ast(r));
         Z3_CATCH_RETURN(0);
     }
-    
+
     Z3_ast Z3_API Z3_mk_store(Z3_context c, Z3_ast a, Z3_ast i, Z3_ast v) {
         Z3_TRY;
         LOG_Z3_mk_store(c, a, i, v);
@@ -82,7 +81,7 @@ extern "C" {
         RETURN_Z3(of_ast(r));
         Z3_CATCH_RETURN(0);
     }
-  
+
     Z3_ast Z3_API Z3_mk_map(Z3_context c, Z3_func_decl f, unsigned n, Z3_ast const* args) {
         Z3_TRY;
         LOG_Z3_mk_map(c, f, n, args);
@@ -94,7 +93,7 @@ extern "C" {
         ast_manager & m = mk_c(c)->m();
         func_decl* _f      = to_func_decl(f);
         expr* const* _args = to_exprs(args);
-        
+
         ptr_vector<sort> domain;
         for (unsigned i = 0; i < n; ++i) {
             domain.push_back(m.get_sort(_args[i]));
@@ -111,7 +110,7 @@ extern "C" {
     Z3_ast Z3_API Z3_mk_const_array(Z3_context c, Z3_sort domain, Z3_ast v) {
         Z3_TRY;
         LOG_Z3_mk_const_array(c, domain, v);
-        RESET_ERROR_CODE(); 
+        RESET_ERROR_CODE();
         ast_manager & m = mk_c(c)->m();
         expr * _v        = to_expr(v);
         sort * _range = m.get_sort(_v);
@@ -123,14 +122,14 @@ extern "C" {
         app * r        = m.mk_app(cd, 1, &_v);
         mk_c(c)->save_ast_trail(r);
         check_sorts(c, r);
-        RETURN_Z3(of_ast(r));        
+        RETURN_Z3(of_ast(r));
         Z3_CATCH_RETURN(0);
     }
 
     Z3_ast Z3_API Z3_mk_array_default(Z3_context c, Z3_ast array) {
         Z3_TRY;
         LOG_Z3_mk_array_default(c, array);
-        RESET_ERROR_CODE(); 
+        RESET_ERROR_CODE();
         ast_manager & m = mk_c(c)->m();
         expr * _a        = to_expr(array);
 
@@ -138,12 +137,12 @@ extern "C" {
         app * r        = m.mk_app(f, 1, &_a);
         mk_c(c)->save_ast_trail(r);
         check_sorts(c, r);
-        RETURN_Z3(of_ast(r));        
+        RETURN_Z3(of_ast(r));
         Z3_CATCH_RETURN(0);
     }
 
     Z3_ast mk_app_array_core(Z3_context c, Z3_sort domain, Z3_ast v) {
-        RESET_ERROR_CODE();   
+        RESET_ERROR_CODE();
         ast_manager & m = mk_c(c)->m();
         expr * _v        = to_expr(v);
         sort * _range = m.get_sort(_v);
@@ -178,7 +177,7 @@ extern "C" {
         LOG_Z3_mk_full_set(c, domain);
         RESET_ERROR_CODE();
         Z3_ast r = mk_app_array_core(c, domain, Z3_mk_true(c));
-        RETURN_Z3(r);  
+        RETURN_Z3(r);
         Z3_CATCH_RETURN(0);
     }
 
@@ -205,8 +204,8 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_get_array_sort_domain(c, t);
         RESET_ERROR_CODE();
-        CHECK_VALID_AST(t, 0); 
-        if (to_sort(t)->get_family_id() == mk_c(c)->get_array_fid() && 
+        CHECK_VALID_AST(t, 0);
+        if (to_sort(t)->get_family_id() == mk_c(c)->get_array_fid() &&
             to_sort(t)->get_decl_kind() == ARRAY_SORT) {
             Z3_sort r = reinterpret_cast<Z3_sort>(to_sort(t)->get_parameter(0).get_ast());
             RETURN_Z3(r);
@@ -215,13 +214,13 @@ extern "C" {
         RETURN_Z3(0);
         Z3_CATCH_RETURN(0);
     }
-    
+
     Z3_sort Z3_API Z3_get_array_sort_range(Z3_context c, Z3_sort t) {
         Z3_TRY;
         LOG_Z3_get_array_sort_range(c, t);
-        RESET_ERROR_CODE(); 
+        RESET_ERROR_CODE();
         CHECK_VALID_AST(t, 0);
-        if (to_sort(t)->get_family_id() == mk_c(c)->get_array_fid() && 
+        if (to_sort(t)->get_family_id() == mk_c(c)->get_array_fid() &&
             to_sort(t)->get_decl_kind() == ARRAY_SORT) {
             Z3_sort r = reinterpret_cast<Z3_sort>(to_sort(t)->get_parameter(1).get_ast());
             RETURN_Z3(r);

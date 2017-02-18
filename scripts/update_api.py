@@ -363,9 +363,9 @@ def mk_dotnet(dotnet):
     dotnet.write('    {\n\n')
     dotnet.write('        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]\n')
     dotnet.write('        public delegate void Z3_error_handler(Z3_context c, Z3_error_code e);\n\n')
-    dotnet.write('        public unsafe class LIB\n')
+    dotnet.write('        public class LIB\n')
     dotnet.write('        {\n')
-    dotnet.write('            const string Z3_DLL_NAME = \"libz3.dll\";\n'
+    dotnet.write('            const string Z3_DLL_NAME = \"libz3\";\n'
                  '            \n')
     dotnet.write('            [DllImport(Z3_DLL_NAME, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]\n')
     dotnet.write('            public extern static void Z3_set_error_handler(Z3_context a0, Z3_error_handler a1);\n\n')
@@ -942,7 +942,7 @@ def def_API(name, result, params):
                 log_c.write("  Au(a%s);\n" % sz)
                 exe_c.write("in.get_int_array(%s)" % i)
             else:
-                error ("unsupported parameter for %s, %s" % (ty, name, p))
+                error ("unsupported parameter for %s, %s, %s" % (ty, name, p))
         elif kind == OUT_ARRAY:
             sz   = param_array_capacity_pos(p)
             sz_p = params[sz]
@@ -1195,13 +1195,13 @@ def ml_alloc_and_store(t, lhs, rhs):
         alloc_str = '%s = caml_alloc_custom(&%s, sizeof(%s), 0, 1); ' % (lhs, pops, pts)
         return alloc_str + ml_set_wrap(t, lhs, rhs)
 
-def mk_ml(ml_dir):
+def mk_ml(ml_src_dir, ml_output_dir):
     global Type2Str
-    ml_nativef  = os.path.join(ml_dir, 'z3native.ml')
+    ml_nativef  = os.path.join(ml_output_dir, 'z3native.ml')
     ml_native   = open(ml_nativef, 'w')
     ml_native.write('(* Automatically generated file *)\n\n')
 
-    ml_pref = open(os.path.join(ml_dir, 'z3native.ml.pre'), 'r')
+    ml_pref = open(os.path.join(ml_src_dir, 'z3native.ml.pre'), 'r')
     for s in ml_pref:
         ml_native.write(s);
     ml_pref.close()
@@ -1250,14 +1250,14 @@ def mk_ml(ml_dir):
     if mk_util.is_verbose():
         print ('Generated "%s"' % ml_nativef)
 
-    mk_z3native_stubs_c(ml_dir)
+    mk_z3native_stubs_c(ml_src_dir, ml_output_dir)
 
-def mk_z3native_stubs_c(ml_dir): # C interface
-    ml_wrapperf = os.path.join(ml_dir, 'z3native_stubs.c')
+def mk_z3native_stubs_c(ml_src_dir, ml_output_dir): # C interface
+    ml_wrapperf = os.path.join(ml_output_dir, 'z3native_stubs.c')
     ml_wrapper = open(ml_wrapperf, 'w')
     ml_wrapper.write('// Automatically generated file\n\n')
 
-    ml_pref = open(os.path.join(ml_dir, 'z3native_stubs.c.pre'), 'r')
+    ml_pref = open(os.path.join(ml_src_dir, 'z3native_stubs.c.pre'), 'r')
     for s in ml_pref:
         ml_wrapper.write(s);
     ml_pref.close()
@@ -1324,36 +1324,80 @@ def mk_z3native_stubs_c(ml_dir): # C interface
         if len(ap) > 0:
             ml_wrapper.write('  unsigned _i;\n')
 
-        # declare locals, preprocess arrays, strings, in/out arguments
-        have_context = False
+        # determine if the function has a context as parameter.
+        have_context = (len(params) > 0) and (param_type(params[0]) == CONTEXT)
+
+        if have_context and name not in Unwrapped:
+            ml_wrapper.write('  Z3_error_code ec;\n')
+
+        if result != VOID:
+            ts = type2str(result)
+            if ml_has_plus_type(ts):
+                pts = ml_plus_type(ts)
+                ml_wrapper.write('  %s z3rv_m;\n' % ts)
+                ml_wrapper.write('  %s z3rv;\n' % pts)
+            else:
+                ml_wrapper.write('  %s z3rv;\n' % ts)
+
+        # declare all required local variables
+        # To comply with C89, we need to first declare the variables and initialize them
+        # only afterwards.
         i = 0
         for param in params:
             if param_type(param) == CONTEXT and i == 0:
-                ml_wrapper.write('  Z3_context_plus ctx_p = *(Z3_context_plus*) Data_custom_val(a' + str(i) + ');\n')
-                ml_wrapper.write('  Z3_context _a0 = ctx_p->ctx;\n')
-                have_context = True
+                ml_wrapper.write('  Z3_context_plus ctx_p;\n')
+                ml_wrapper.write('  Z3_context _a0;\n')
             else:
                 k = param_kind(param)
                 if k == OUT_ARRAY:
-                    ml_wrapper.write('  %s * _a%s = (%s*) malloc(sizeof(%s) * (_a%s));\n' % (
-                        type2str(param_type(param)),
+                    ml_wrapper.write('  %s * _a%s;\n' % (type2str(param_type(param)), i))
+                elif k == OUT_MANAGED_ARRAY:
+                    ml_wrapper.write('  %s * _a%s;\n' % (type2str(param_type(param)), i))
+                elif k == IN_ARRAY or k == INOUT_ARRAY:
+                    t = param_type(param)
+                    ts = type2str(t)
+                    ml_wrapper.write('  %s * _a%s;\n' % (ts, i))
+                elif k == IN:
+                    t = param_type(param)
+                    ml_wrapper.write('  %s _a%s;\n' % (type2str(t), i))
+                elif k == OUT or k == INOUT:
+                    t = param_type(param)
+                    ml_wrapper.write('  %s _a%s;\n' % (type2str(t), i))
+                    ts = type2str(t)
+                    if ml_has_plus_type(ts):
+                        pts = ml_plus_type(ts)
+                        ml_wrapper.write('  %s _a%dp;\n' % (pts, i))
+            i = i + 1
+
+
+        # End of variable declarations in outermost block:
+        # To comply with C89, no variable declarations may occur in the outermost block
+        # from that point onwards (breaks builds with at least VC 2012 and prior)
+        ml_wrapper.write('\n')
+
+        # Declare locals, preprocess arrays, strings, in/out arguments
+        i = 0
+        for param in params:
+            if param_type(param) == CONTEXT and i == 0:
+                ml_wrapper.write('  ctx_p = *(Z3_context_plus*) Data_custom_val(a' + str(i) + ');\n')
+                ml_wrapper.write('  _a0 = ctx_p->ctx;\n')
+            else:
+                k = param_kind(param)
+                if k == OUT_ARRAY:
+                    ml_wrapper.write('  _a%s = (%s*) malloc(sizeof(%s) * (_a%s));\n' % (
                         i,
                         type2str(param_type(param)),
                         type2str(param_type(param)),
                         param_array_capacity_pos(param)))
                 elif k == OUT_MANAGED_ARRAY:
-                    ml_wrapper.write('  %s * _a%s = 0;\n' % (type2str(param_type(param)), i))
+                    ml_wrapper.write('  _a%s = 0;\n' % i)
                 elif k == IN_ARRAY or k == INOUT_ARRAY:
                     t = param_type(param)
                     ts = type2str(t)
-                    ml_wrapper.write('  %s * _a%s = (%s*) malloc(sizeof(%s) * _a%s);\n' % (ts, i, ts, ts, param_array_capacity_pos(param)))
+                    ml_wrapper.write('  _a%s = (%s*) malloc(sizeof(%s) * _a%s);\n' % (i, ts, ts, param_array_capacity_pos(param)))
                 elif k == IN:
                     t = param_type(param)
-                    ml_wrapper.write('  %s _a%s = %s;\n' % (type2str(t), i, ml_unwrap(t, type2str(t), 'a' + str(i))))
-                elif k == OUT:
-                    ml_wrapper.write('  %s _a%s;\n' % (type2str(param_type(param)), i))
-                elif k == INOUT:
-                    ml_wrapper.write('  %s _a%s = a%s;\n' % (type2str(param_type(param)), i, i))
+                    ml_wrapper.write('  _a%s = %s;\n' % (i, ml_unwrap(t, type2str(t), 'a' + str(i))))
             i = i + 1
 
         i = 0
@@ -1375,9 +1419,9 @@ def mk_z3native_stubs_c(ml_dir): # C interface
         if result != VOID:
             ts = type2str(result)
             if ml_has_plus_type(ts):
-                ml_wrapper.write('%s z3rv_m = ' % ts)
+                ml_wrapper.write('z3rv_m = ')
             else:
-                ml_wrapper.write('%s z3rv = ' % ts)
+                ml_wrapper.write('z3rv = ')
 
         # invoke procedure
         ml_wrapper.write('%s(' % name)
@@ -1397,8 +1441,8 @@ def mk_z3native_stubs_c(ml_dir): # C interface
         ml_wrapper.write(');\n')
 
         if have_context and name not in Unwrapped:
-            ml_wrapper.write('  int ec = Z3_get_error_code(ctx_p->ctx);\n')
-            ml_wrapper.write('  if (ec != 0) {\n')
+            ml_wrapper.write('  ec = Z3_get_error_code(ctx_p->ctx);\n')
+            ml_wrapper.write('  if (ec != Z3_OK) {\n')
             ml_wrapper.write('    const char * msg = Z3_get_error_msg(ctx_p->ctx, ec);\n')
             ml_wrapper.write('    caml_raise_with_string(*caml_named_value("Z3EXCEPTION"), msg);\n')
             ml_wrapper.write('  }\n')
@@ -1408,9 +1452,9 @@ def mk_z3native_stubs_c(ml_dir): # C interface
             if ml_has_plus_type(ts):
                 pts = ml_plus_type(ts)
                 if name in NULLWrapped:
-                    ml_wrapper.write('  %s z3rv = %s_mk(z3rv_m);\n' % (pts, pts))
+                    ml_wrapper.write('  z3rv = %s_mk(z3rv_m);\n' % pts)
                 else:
-                    ml_wrapper.write('  %s z3rv = %s_mk(ctx_p, (%s) z3rv_m);\n' % (pts, pts, ml_minus_type(ts)))
+                    ml_wrapper.write('  z3rv = %s_mk(ctx_p, (%s) z3rv_m);\n' % (pts, ml_minus_type(ts)))
 
         # convert output params
         if len(op) > 0:
@@ -1433,10 +1477,10 @@ def mk_z3native_stubs_c(ml_dir): # C interface
                     pts = ml_plus_type(ts)
                     pops = ml_plus_ops_type(ts)
                     if ml_has_plus_type(ts):
-                        ml_wrapper.write('    %s _a%dp = %s_mk(ctx_p, (%s) _a%d[_i]);\n' % (pts, i, pts, ml_minus_type(ts), i))
+                        ml_wrapper.write('    %s _a%dp = %s_mk(ctx_p, (%s) _a%d[_i - 1]);\n' % (pts, i, pts, ml_minus_type(ts), i))
                         ml_wrapper.write('    %s\n' % ml_alloc_and_store(pt, 'tmp_val', '_a%dp' % i))
                     else:
-                        ml_wrapper.write('    %s\n' % ml_alloc_and_store(pt, 'tmp_val', '_a%d[_i]' % i))
+                        ml_wrapper.write('    %s\n' % ml_alloc_and_store(pt, 'tmp_val', '_a%d[_i - 1]' % i))
                     ml_wrapper.write('    _iter = caml_alloc(2,0);\n')
                     ml_wrapper.write('    Store_field(_iter, 0, tmp_val);\n')
                     ml_wrapper.write('    Store_field(_iter, 1, _a%s_val);\n' % i)
@@ -1450,7 +1494,7 @@ def mk_z3native_stubs_c(ml_dir): # C interface
                 elif is_out_param(p):
                     if ml_has_plus_type(ts):
                         pts = ml_plus_type(ts)
-                        ml_wrapper.write('  %s _a%dp = %s_mk(ctx_p, (%s) _a%d);\n' % (pts, i, pts, ml_minus_type(ts), i))
+                        ml_wrapper.write('  _a%dp = %s_mk(ctx_p, (%s) _a%d);\n' % (i, pts, ml_minus_type(ts), i))
                         ml_wrapper.write('  %s\n' % ml_alloc_and_store(pt, '_a%d_val' % i, '_a%dp' % i))
                     else:
                         ml_wrapper.write('  %s\n' % ml_alloc_and_store(pt, '_a%d_val' % i, '_a%d' % i))
@@ -1530,6 +1574,7 @@ def write_log_h_preamble(log_h):
   log_h.write('#define _Z3_UNUSED\n')
   log_h.write('#endif\n')
   #
+  log_h.write('#include<iostream>\n')
   log_h.write('extern std::ostream * g_z3_log;\n')
   log_h.write('extern bool           g_z3_log_enabled;\n')
   log_h.write('class z3_log_ctx { bool m_prev; public: z3_log_ctx():m_prev(g_z3_log_enabled) { g_z3_log_enabled = false; } ~z3_log_ctx() { g_z3_log_enabled = m_prev; } bool enabled() const { return m_prev; } };\n')
@@ -1556,27 +1601,25 @@ def write_core_py_preamble(core_py):
   core_py.write('# Automatically generated file\n')
   core_py.write('import sys, os\n')
   core_py.write('import ctypes\n')
-  core_py.write('from z3types import *\n')
-  core_py.write('from z3consts import *\n')
+  core_py.write('import pkg_resources\n')
+  core_py.write('from .z3types import *\n')
+  core_py.write('from .z3consts import *\n')
   core_py.write(
 """
+_ext = 'dll' if sys.platform in ('win32', 'cygwin') else 'dylib' if sys.platform == 'darwin' else 'so'
+
 _lib = None
 def lib():
   global _lib
-  if _lib == None:
-    _dir = os.path.dirname(os.path.abspath(__file__))
-    for ext in ['dll', 'so', 'dylib']:
+  if _lib is None:
+    _dirs = ['.', os.path.dirname(os.path.abspath(__file__)), pkg_resources.resource_filename('z3', 'lib'), os.path.join(sys.prefix, 'lib'), None]
+    for _dir in _dirs:
       try:
-        init('libz3.%s' % ext)
+        init(_dir)
         break
       except:
         pass
-      try:
-        init(os.path.join(_dir, 'libz3.%s' % ext))
-        break
-      except:
-        pass
-    if _lib == None:
+    if _lib is None:
         raise Z3Exception("init(Z3_LIBRARY_PATH) must be invoked before using Z3-python")
   return _lib
 
@@ -1599,6 +1642,13 @@ else:
         return ""
 
 def init(PATH):
+  if PATH:
+    PATH = os.path.realpath(PATH)
+    if os.path.isdir(PATH):
+      PATH = os.path.join(PATH, 'libz3.%s' % _ext)
+  else:
+    PATH = 'libz3.%s' % _ext
+
   global _lib
   _lib = ctypes.CDLL(PATH)
 """
@@ -1617,7 +1667,8 @@ def generate_files(api_files,
                    dotnet_output_dir=None,
                    java_output_dir=None,
                    java_package_name=None,
-                   ml_output_dir=None):
+                   ml_output_dir=None,
+                   ml_src_dir=None):
   """
     Scan the api files in ``api_files`` and emit the relevant API files into
     the output directories specified. If an output directory is set to ``None``
@@ -1662,7 +1713,7 @@ def generate_files(api_files,
   with mk_file_or_temp(api_output_dir, 'api_log_macros.h') as log_h:
     with mk_file_or_temp(api_output_dir, 'api_log_macros.cpp') as log_c:
       with mk_file_or_temp(api_output_dir, 'api_commands.cpp') as exe_c:
-        with mk_file_or_temp(z3py_output_dir, 'z3core.py') as core_py:
+        with mk_file_or_temp(z3py_output_dir, os.path.join('z3', 'z3core.py')) as core_py:
           # Write preambles
           write_log_h_preamble(log_h)
           write_log_c_preamble(log_c)
@@ -1692,7 +1743,8 @@ def generate_files(api_files,
     mk_java(java_output_dir, java_package_name)
 
   if ml_output_dir:
-    mk_ml(ml_output_dir)
+    assert not ml_src_dir is None
+    mk_ml(ml_src_dir, ml_output_dir)
 
 def main(args):
   logging.basicConfig(level=logging.INFO)
@@ -1719,6 +1771,10 @@ def main(args):
                       dest="java_package_name",
                       default=None,
                       help="Name to give the Java package (e.g. ``com.microsoft.z3``).")
+  parser.add_argument("--ml-src-dir",
+                      dest="ml_src_dir",
+                      default=None,
+                      help="Directory containing OCaml source files. If not specified no files are emitted")
   parser.add_argument("--ml-output-dir",
                       dest="ml_output_dir",
                       default=None,
@@ -1728,6 +1784,11 @@ def main(args):
   if pargs.java_output_dir:
     if pargs.java_package_name == None:
       logging.error('--java-package-name must be specified')
+      return 1
+
+  if pargs.ml_output_dir:
+    if pargs.ml_src_dir is None:
+      logging.error('--ml-src-dir must be specified')
       return 1
 
   for api_file in pargs.api_files:
@@ -1741,7 +1802,8 @@ def main(args):
                  dotnet_output_dir=pargs.dotnet_output_dir,
                  java_output_dir=pargs.java_output_dir,
                  java_package_name=pargs.java_package_name,
-                 ml_output_dir=pargs.ml_output_dir)
+                 ml_output_dir=pargs.ml_output_dir,
+                 ml_src_dir=pargs.ml_src_dir)
   return 0
 
 if __name__ == '__main__':

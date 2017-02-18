@@ -28,6 +28,7 @@ namespace smt {
     class theory_wmaxsat : public theory {
         struct stats {
             unsigned m_num_blocks;
+            unsigned m_num_propagations;
             void reset() { memset(this, 0, sizeof(*this)); }
             stats() { reset(); }
         };        
@@ -39,27 +40,31 @@ namespace smt {
         scoped_mpz_vector        m_zweights;
         scoped_mpz_vector        m_old_values;
         svector<theory_var>      m_costs;       // set of asserted theory variables
+        unsigned                 m_max_unassigned_index; // index of literal that is not yet assigned and has maximal weight.
+        svector<theory_var>      m_sorted_vars; // set of all theory variables, sorted by cost
         svector<theory_var>      m_cost_save;   // set of asserted theory variables
-        rational                 m_rcost;       // current sum of asserted costs
         rational                 m_rmin_cost;   // current maximal cost assignment.
         scoped_mpz               m_zcost;       // current sum of asserted costs
         scoped_mpz               m_zmin_cost;   // current maximal cost assignment.
         bool                     m_found_optimal; 
         u_map<theory_var>        m_bool2var;    // bool_var -> theory_var
         svector<bool_var>        m_var2bool;    // theory_var -> bool_var
-        bool                     m_propagate;  
+        bool                     m_propagate;
+        bool                     m_can_propagate;
         bool                     m_normalize; 
         rational                 m_den;         // lcm of denominators for rational weights.
-        svector<bool>            m_assigned;
+        svector<bool>            m_assigned, m_enabled;
         stats                    m_stats;
     public:
         theory_wmaxsat(ast_manager& m, filter_model_converter& mc);
         virtual ~theory_wmaxsat();
         void get_assignment(svector<bool>& result);
-        virtual void init_search_eh();
-        bool_var assert_weighted(expr* fml, rational const& w);
+        expr* assert_weighted(expr* fml, rational const& w);
+        void  disable_var(expr* var);
         bool_var register_var(app* var, bool attach);
-        rational const& get_min_cost();
+        rational get_cost();
+        void init_min_cost(rational const& r);
+
         class numeral_trail : public trail<context> {
             typedef scoped_mpz T;
             T & m_value;
@@ -79,6 +84,8 @@ namespace smt {
                 m_old_values.shrink(m_old_values.size() - 1);
             }
         };
+
+        virtual void init_search_eh();
         virtual void assign_eh(bool_var v, bool is_true);
         virtual final_check_status final_check_eh();
         virtual bool use_diseqs() const { 
@@ -95,23 +102,30 @@ namespace smt {
         virtual void new_eq_eh(theory_var v1, theory_var v2) { }
         virtual void new_diseq_eh(theory_var v1, theory_var v2) { }
         virtual void display(std::ostream& out) const {}
+        virtual void restart_eh();
 
         virtual void collect_statistics(::statistics & st) const {
             st.update("wmaxsat num blocks", m_stats.m_num_blocks);
+            st.update("wmaxsat num props", m_stats.m_num_propagations);
         }
         virtual bool can_propagate() {
-            return m_propagate;
+            return m_propagate || m_can_propagate;
         }
 
         virtual void propagate();
+
         bool is_optimal() const;
         expr_ref mk_block();
 
-        expr_ref mk_optimal_block(svector<bool_var> const& ws, rational const& weight);
+        
+
     private:
 
         void block();
+        void propagate(bool_var v);
         void normalize();
+
+        bool max_unassigned_is_blocked();
        
         class compare_cost {
             theory_wmaxsat& m_th;

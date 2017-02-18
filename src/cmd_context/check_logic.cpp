@@ -22,8 +22,11 @@ Revision History:
 #include"bv_decl_plugin.h"
 #include"seq_decl_plugin.h"
 #include"str_decl_plugin.h"
+#include"pb_decl_plugin.h"
+#include"datatype_decl_plugin.h"
 #include"ast_pp.h"
 #include"for_each_expr.h"
+#include<sstream>
 
 struct check_logic::imp {
     ast_manager & m;
@@ -33,6 +36,8 @@ struct check_logic::imp {
     array_util    m_ar_util;
     seq_util      m_seq_util;
     str_util      m_str_util;
+    datatype_util m_dt_util;
+    pb_util       m_pb_util;
     bool          m_uf;        // true if the logic supports uninterpreted functions
     bool          m_arrays;    // true if the logic supports arbitrary arrays
     bool          m_bv_arrays; // true if the logic supports only bv arrays
@@ -44,7 +49,7 @@ struct check_logic::imp {
     bool          m_quantifiers; // true if the logic supports quantifiers
     bool          m_unknown_logic;
 
-    imp(ast_manager & _m):m(_m), m_a_util(m), m_bv_util(m), m_ar_util(m), m_seq_util(m), m_str_util(m) {
+    imp(ast_manager & _m):m(_m), m_a_util(m), m_bv_util(m), m_ar_util(m), m_seq_util(m), m_str_util(m), m_dt_util(m), m_pb_util(m) {
         reset();
     }
 
@@ -180,10 +185,15 @@ struct check_logic::imp {
             m_reals       = true;
             m_quantifiers = false;
         }
+        else if (logic == "QF_FD") {
+            m_bvs         = true;
+            m_uf          = true;
+            m_ints        = true;
+        }
         else {
             m_unknown_logic = true;
         }
-        
+
         m_logic = logic;
     }
 
@@ -231,7 +241,7 @@ struct check_logic::imp {
         }
     }
 
-    void operator()(var * n) { 
+    void operator()(var * n) {
         if (!m_quantifiers)
             fail("logic does not support quantifiers");
         check_sort(m.get_sort(n));
@@ -273,7 +283,7 @@ struct check_logic::imp {
             }
         }
     }
-    
+
     // check if the divisor is a numeral
     void check_div(app * n) {
         SASSERT(n->get_num_args() == 2);
@@ -322,8 +332,8 @@ struct check_logic::imp {
                     return false;
                 non_numeral = arg;
             }
-            if (non_numeral == 0) 
-                return true; 
+            if (non_numeral == 0)
+                return true;
             if (is_diff_var(non_numeral))
                 return true;
             if (!m_a_util.is_add(non_numeral) && !m_a_util.is_sub(non_numeral))
@@ -332,10 +342,10 @@ struct check_logic::imp {
         }
         return true;
     }
-    
+
     bool is_diff_arg(expr * t) {
         if (is_diff_var(t))
-            return true; 
+            return true;
         if (is_numeral(t))
             return true;
         if (m_a_util.is_add(t) || m_a_util.is_sub(t))
@@ -360,7 +370,7 @@ struct check_logic::imp {
         expr * t1 = to_app(lhs)->get_arg(0);
         expr * t2 = to_app(lhs)->get_arg(1);
         if (is_diff_var(t1) && is_diff_var(t2))
-            return; 
+            return;
         if (m_a_util.is_add(t1) && m_a_util.is_add(t2)) {
             // QF_RDL supports (<= (- (+ x ... x) (+ y ... y)) c)
             if (to_app(t1)->get_num_args() != to_app(t2)->get_num_args())
@@ -385,7 +395,7 @@ struct check_logic::imp {
                 check_diff_arg(n);
         }
     }
-    
+
     void operator()(app * n) {
         sort * s = m.get_sort(n);
         check_sort(s);
@@ -409,18 +419,18 @@ struct check_logic::imp {
             if (!m_ints || !m_reals) {
                 if (m_a_util.is_to_real(n) || m_a_util.is_to_int(n))
                     fail("logic does not support casting operators");
-            }                
+            }
         }
         else if (fid == m_bv_util.get_family_id()) {
-            // nothing to check... 
+            // nothing to check...
         }
         else if (fid == m_ar_util.get_family_id()) {
-            // nothing to check... 
+            // nothing to check...
             if (m_diff)
                 check_diff_args(n);
         }
         else if (fid == m.get_basic_family_id()) {
-            // nothing to check... 
+            // nothing to check...
             if (m_diff) {
                 if (m.is_eq(n))
                     check_diff_predicate(n);
@@ -434,15 +444,23 @@ struct check_logic::imp {
         else if (fid == m_seq_util.get_family_id()) {
             // nothing to check
         }
-	else if (fid == m_str_util.get_family_id()) {
-       	    // nothing to check
-	}
+        else if (fid == m_str_util.get_family_id()) {
+            // nothing to check
+        }
+        else if (fid == m_dt_util.get_family_id() && m_logic == "QF_FD") {
+            // nothing to check
+        }
+        else if (fid == m_pb_util.get_family_id() && m_logic == "QF_FD") {
+            // nothing to check
+        }
         else {
-            fail("logic does not support theory");
+            std::stringstream strm;
+            strm << "logic does not support theory " << m.get_family_name(fid);
+            fail(strm.str().c_str());
         }
     }
-    
-    void operator()(quantifier * n) { 
+
+    void operator()(quantifier * n) {
         if (!m_quantifiers)
             fail("logic does not support quantifiers");
     }
@@ -482,7 +500,7 @@ struct check_logic::imp {
 check_logic::check_logic() {
     m_imp = 0;
 }
-   
+
 check_logic::~check_logic() {
     if (m_imp)
         dealloc(m_imp);

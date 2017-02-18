@@ -47,6 +47,8 @@ public:
     }
 
     void updt_params(params_ref const & _p);
+
+    void display(std::ostream & out) const;
 };
 
 

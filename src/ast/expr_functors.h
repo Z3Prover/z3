@@ -31,6 +31,14 @@ public:
     virtual ~i_expr_pred() {}
 };
 
+
+class i_sort_pred {
+public:
+    virtual bool operator()(sort* s) = 0;
+    virtual ~i_sort_pred() {}
+};
+
+
 /**
    \brief Memoizing predicate functor on sub-expressions.
    

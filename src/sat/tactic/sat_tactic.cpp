@@ -73,11 +73,11 @@ class sat_tactic : public tactic {
             if (r == l_false) {
                 expr_dependency * lcore = 0;
                 if (produce_core) {
-                    sat::literal_vector const& core = m_solver.get_core();
+                    sat::literal_vector const& ucore = m_solver.get_core();
                     u_map<expr*> asm2dep;
                     mk_asm2dep(dep2asm, asm2dep);
-                    for (unsigned i = 0; i < core.size(); ++i) {
-                        sat::literal lit = core[i];
+                    for (unsigned i = 0; i < ucore.size(); ++i) {
+                        sat::literal lit = ucore[i];
                         expr* dep = asm2dep.find(lit.index());
                         lcore = m.mk_join(lcore, m.mk_leaf(dep));                        
                     }

@@ -98,7 +98,7 @@ namespace Microsoft.Z3
             Contract.Requires(args != null);
             Contract.Requires(Contract.ForAll(args, a => a != null));
 
-            Context.CheckContextMatch(args);
+            Context.CheckContextMatch<Expr>(args);
             if (IsApp && args.Length != NumArgs)
                 throw new Z3Exception("Number of arguments does not match");
             NativeObject = Native.Z3_update_term(Context.nCtx, NativeObject, (uint)args.Length, Expr.ArrayToNative(args));
@@ -120,8 +120,8 @@ namespace Microsoft.Z3
             Contract.Requires(Contract.ForAll(to, t => t != null));
             Contract.Ensures(Contract.Result<Expr>() != null);
 
-            Context.CheckContextMatch(from);
-            Context.CheckContextMatch(to);
+            Context.CheckContextMatch<Expr>(from);
+            Context.CheckContextMatch<Expr>(to);
             if (from.Length != to.Length)
                 throw new Z3Exception("Argument sizes do not match");
             return Expr.Create(Context, Native.Z3_substitute(Context.nCtx, NativeObject, (uint)from.Length, Expr.ArrayToNative(from), Expr.ArrayToNative(to)));
@@ -152,7 +152,7 @@ namespace Microsoft.Z3
             Contract.Requires(Contract.ForAll(to, t => t != null));
             Contract.Ensures(Contract.Result<Expr>() != null);
 
-            Context.CheckContextMatch(to);
+            Context.CheckContextMatch<Expr>(to);
             return Expr.Create(Context, Native.Z3_substitute_vars(Context.nCtx, NativeObject, (uint)to.Length, Expr.ArrayToNative(to)));
         }
 

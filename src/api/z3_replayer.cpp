@@ -14,7 +14,7 @@ Author:
     Leonardo de Moura (leonardo) 2011-09-22
 
 Notes:
-    
+
 --*/
 #include"vector.h"
 #include"map.h"
@@ -30,7 +30,7 @@ void register_z3_replayer_cmds(z3_replayer & in);
 
 void throw_invalid_reference() {
     TRACE("z3_replayer", tout << "invalid argument reference\n";);
-    throw z3_replayer_exception("invalid argument reference1");
+    throw z3_replayer_exception("invalid argument reference");
 }
 
 struct z3_replayer::imp {
@@ -72,17 +72,17 @@ struct z3_replayer::imp {
     void check_arg(unsigned pos, value_kind k) const {
         if (pos >= m_args.size()) {
             TRACE("z3_replayer", tout << "too few arguments " << m_args.size() << " expecting " << kind2string(k) << "\n";);
-            throw z3_replayer_exception("invalid argument reference2");
+            throw z3_replayer_exception("invalid argument reference");
         }
         if (m_args[pos].m_kind != k) {
             std::stringstream strm;
-            strm << "expecting " << kind2string(k) << " at position " 
+            strm << "expecting " << kind2string(k) << " at position "
                  << pos << " but got " << kind2string(m_args[pos].m_kind);
             throw z3_replayer_exception(strm.str().c_str());
         }
     }
 
-    struct value { 
+    struct value {
         value_kind m_kind;
         union {
             __int64      m_int;
@@ -129,7 +129,7 @@ struct z3_replayer::imp {
             break;
         case DOUBLE:
             out << v.m_double;
-            break;        
+            break;
         case STRING:
             out << v.m_str;
             break;
@@ -160,7 +160,7 @@ struct z3_replayer::imp {
     char curr() const { return m_curr; }
     void new_line() { m_line++; }
     void next() { m_curr = m_stream.get(); }
-    
+
     void read_string_core(char delimiter) {
         if (curr() != delimiter)
             throw z3_replayer_exception("invalid string/symbol");
@@ -258,7 +258,7 @@ struct z3_replayer::imp {
     }
 
     bool is_double_char() const {
-        return curr() == '-' || curr() == '.' || ('0' <= curr() && curr() <= '9') || curr() == 'e' || curr() == 'E'; 
+        return curr() == '-' || curr() == '.' || ('0' <= curr() && curr() <= '9') || curr() == 'e' || curr() == 'E';
     }
 
 #if (!defined(strtof))
@@ -357,7 +357,7 @@ struct z3_replayer::imp {
                 v.push_back(static_cast<unsigned>(m_args[i].m_uint));
             }
         }
-        if (k == INT64) {
+        else if (k == INT64) {
             aidx = m_int_arrays.size();
             nk   = INT_ARRAY;
             m_int_arrays.push_back(svector<int>());
@@ -376,7 +376,7 @@ struct z3_replayer::imp {
             }
         }
         else if (k == OBJECT) {
-            TRACE("z3_replayer_bug", 
+            TRACE("z3_replayer_bug",
                   tout << "args: "; display_args(tout); tout << "\n";
                   tout << "push_back, sz: " << sz << ", m_obj_arrays.size(): " << m_obj_arrays.size() << "\n";
                   for (unsigned i = asz - sz; i < asz; i++) {
@@ -415,9 +415,13 @@ struct z3_replayer::imp {
             if (c == EOF)
                 return;
             switch (c) {
+            case 'V':
+                // version
+                next(); skip_blank(); read_string();
+                break;
             case 'R':
                 // reset
-                next(); 
+                next();
                 TRACE("z3_replayer", tout << "[" << m_line << "] " << "R\n";);
                 reset();
                 break;
@@ -428,7 +432,7 @@ struct z3_replayer::imp {
                 if (m_ptr == 0) {
                     m_args.push_back(0);
                 }
-                else { 
+                else {
                     void * obj = 0;
                     if (!m_heap.find(m_ptr, obj))
                         throw z3_replayer_exception("invalid pointer");
@@ -489,7 +493,7 @@ struct z3_replayer::imp {
                 next(); skip_blank(); read_double();
                 TRACE("z3_replayer", tout << "[" << m_line << "] " << "D " << m_double << "\n";);
                 m_args.push_back(value(DOUBLE, m_double));
-                break;            
+                break;
             case 'p':
             case 's':
             case 'u':
@@ -511,7 +515,7 @@ struct z3_replayer::imp {
                 if (idx >= m_cmds.size())
                     throw z3_replayer_exception("invalid command");
                 try {
-                    TRACE("z3_replayer_cmd", tout << m_cmds_names[idx] << "\n";);
+                    TRACE("z3_replayer_cmd", tout << idx << ":" << m_cmds_names[idx] << "\n";);
                     m_cmds[idx](m_owner);
                 }
                 catch (z3_error & ex) {
@@ -692,15 +696,15 @@ struct z3_replayer::imp {
         m_unsigned_arrays.reset();
         m_int_arrays.reset();
     }
-    
-  
+
+
 };
 
 z3_replayer::z3_replayer(std::istream & in) {
     m_imp = alloc(imp, *this, in);
     register_z3_replayer_cmds(*this);
 }
-    
+
 z3_replayer::~z3_replayer() {
     dealloc(m_imp);
 }

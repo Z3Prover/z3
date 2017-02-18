@@ -15,7 +15,6 @@
   Revision History:
 
   --*/
-#include<iostream>
 #include<sstream>
 #include<vector>
 #include"z3.h"
@@ -212,7 +211,7 @@ extern "C" {
         LOG_Z3_get_interpolant(c, pf, pat, p);
         RESET_ERROR_CODE();
 
-        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, mk_c(c)->m());
+        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
         mk_c(c)->save_object(v);
 
         ast *_pf = to_ast(pf);
@@ -303,7 +302,7 @@ extern "C" {
 
         if (_status == l_false){
             // copy result back
-            v = alloc(Z3_ast_vector_ref, mk_c(c)->m());
+            v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
             mk_c(c)->save_object(v);
             for (unsigned i = 0; i < interp.size(); i++){
                 v->m_ast_vector.push_back(interp[i]);
@@ -314,7 +313,7 @@ extern "C" {
             model_ref mr;
             m_solver.get()->get_model(mr);
             if(mr.get()){
-                Z3_model_ref *tmp_val = alloc(Z3_model_ref);
+                Z3_model_ref *tmp_val = alloc(Z3_model_ref, *mk_c(c));
                 tmp_val->m_model = mr.get();
                 mk_c(c)->save_object(tmp_val);
                 *model = of_model(tmp_val);
@@ -375,7 +374,7 @@ extern "C" {
         for(int i = 0; i < num_theory; i++)
             fmlas[i] = Z3_mk_implies(ctx,Z3_mk_true(ctx),fmlas[i]);
         std::copy(cnsts,cnsts+num,fmlas.begin()+num_theory);
-        Z3_string smt = Z3_benchmark_to_smtlib_string(ctx,"none","AUFLIA","unknown","",num_fmlas-1,&fmlas[0],fmlas[num_fmlas-1]);  
+        Z3_string smt = Z3_benchmark_to_smtlib_string(ctx,"none","AUFLIA","unknown","",num_fmlas-1,&fmlas[0],fmlas[num_fmlas-1]);
         std::ofstream f(filename);
         if(num_theory)
             f << ";! THEORY=" << num_theory << "\n";
@@ -469,7 +468,7 @@ extern "C" {
         }
         f.close();
 
-#if 0    
+#if 0
 
 
         if(!parents){

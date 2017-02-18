@@ -47,13 +47,7 @@ public class FuncDecl extends AST
     @Override
     public String toString()
     {
-        try
-        {
-            return Native.funcDeclToString(getContext().nCtx(), getNativeObject());
-        } catch (Z3Exception e)
-        {
-            return "Z3Exception: " + e.getMessage();
-        }
+        return Native.funcDeclToString(getContext().nCtx(), getNativeObject());
     }
 
     /**

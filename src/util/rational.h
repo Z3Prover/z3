@@ -86,7 +86,7 @@ public:
 
     void display(std::ostream & out) const { return m().display(out, m_val); }
     
-    void display_decimal(std::ostream & out, unsigned prec) const { return m().display_decimal(out, m_val, prec); }
+    void display_decimal(std::ostream & out, unsigned prec, bool truncate = false) const { return m().display_decimal(out, m_val, prec, truncate); }
 
     bool is_uint64() const { return m().is_uint64(m_val); }
 

@@ -25,6 +25,7 @@ Notes:
 #include"ast_smt2_pp.h"
 #include"z3_exception.h"
 #include"algebraic_numbers.h"
+#include"ast_pp.h"
 
 class nlsat_tactic : public tactic {
     struct expr_display_var_proc : public nlsat::display_var_proc {
@@ -78,9 +79,21 @@ class nlsat_tactic : public tactic {
             }
             return false;
         }
+
+        bool eval_model(model& model, goal& g) {
+            unsigned sz = g.size();
+            for (unsigned i = 0; i < sz; i++) {
+                expr_ref val(m);
+                if (model.eval(g.form(i), val) && !m.is_true(val)) {
+                    TRACE("nlsat", tout << mk_pp(g.form(i), m) << " -> " << val << "\n";);
+                    return false;
+                }
+            }
+            return true;
+        }
         
         // Return false if nlsat assigned noninteger value to an integer variable.
-        bool mk_model(expr_ref_vector & b2a, expr_ref_vector & x2t, model_converter_ref & mc) {
+        bool mk_model(goal & g, expr_ref_vector & b2a, expr_ref_vector & x2t, model_converter_ref & mc) {
             bool ok = true;
             model_ref md = alloc(model, m);
             arith_util util(m);
@@ -110,6 +123,7 @@ class nlsat_tactic : public tactic {
                     continue; // don't care
                 md->register_decl(to_app(a)->get_decl(), val == l_true ? m.mk_true() : m.mk_false());
             }
+            DEBUG_CODE(eval_model(*md.get(), g););
             mc = model2model_converter(md.get());
             return ok;
         }
@@ -133,6 +147,7 @@ class nlsat_tactic : public tactic {
             TRACE("nlsat", g->display(tout););
             expr2var  a2b(m);
             expr2var  t2x(m);
+            
             m_g2nl(*g, m_params, m_solver, a2b, t2x);
 
             m_display_var.m_var2expr.reset();
@@ -140,7 +155,7 @@ class nlsat_tactic : public tactic {
             m_solver.set_display_var(m_display_var);
             
             lbool st = m_solver.check();
-            
+           
             if (st == l_undef) {
             }
             else if (st == l_true) {
@@ -151,16 +166,25 @@ class nlsat_tactic : public tactic {
                 if (!contains_unsupported(b2a, x2t)) {
                     // If mk_model is false it means that the model produced by nlsat 
                     // assigns noninteger values to integer variables
-                    if (mk_model(b2a, x2t, mc)) {
+                    if (mk_model(*g.get(), b2a, x2t, mc)) {
                         // result goal is trivially SAT
                         g->reset(); 
                     }
                 }
             }
             else {
-                // TODO: extract unsat core
-                g->assert_expr(m.mk_false(), 0, 0);
+                expr_dependency* lcore = 0;
+                if (g->unsat_core_enabled()) {
+                    vector<nlsat::assumption, false> assumptions;
+                    m_solver.get_core(assumptions);
+                    for (unsigned i = 0; i < assumptions.size(); ++i) {
+                        expr_dependency* d = static_cast<expr_dependency*>(assumptions[i]);
+                        lcore = m.mk_join(lcore, d);
+                    }
+                }
+                g->assert_expr(m.mk_false(), 0, lcore);
             }
+            
             g->inc_depth();
             result.push_back(g.get());
             TRACE("nlsat", g->display(tout););

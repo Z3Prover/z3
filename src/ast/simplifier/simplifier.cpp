@@ -650,10 +650,12 @@ void simplifier::mk_ac_congruent_term(app * n, app_ref & r, proof_ref & p) {
 #define Grey  1
 #define Black 2
 
+#ifdef Z3DEBUG
 static int get_color(obj_map<expr, int> & colors, expr * n) {
     obj_map<expr, int>::obj_map_entry * entry = colors.insert_if_not_there2(n, White);
     return entry->get_data().m_value;
 }
+#endif
 
 static bool visit_ac_children(func_decl * f, expr * n, obj_map<expr, int> & colors, ptr_buffer<expr> & todo, ptr_buffer<expr> & result) {
     if (is_app_of(n, f)) {

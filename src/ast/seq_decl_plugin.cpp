@@ -144,6 +144,9 @@ zstring zstring::replace(zstring const& src, zstring const& dst) const {
     if (length() < src.length()) {
         return zstring(*this);
     }
+    if (src.length() == 0) {
+        return zstring(*this);
+    }
     bool found = false;
     for (unsigned i = 0; i < length(); ++i) {
         bool eq = !found && i + src.length() <= length();
@@ -552,7 +555,7 @@ func_decl* seq_decl_plugin::mk_assoc_fun(decl_kind k, unsigned arity, sort* cons
     }
     match_right_assoc(*m_sigs[k], arity, domain, range, rng);
     func_decl_info info(m_family_id, k_seq);
-    info.set_right_associative();
+    info.set_right_associative(true);
     return m.mk_func_decl(m_sigs[(rng == m_string)?k_string:k_seq]->m_name, rng, rng, rng, info);
 }
 
@@ -598,7 +601,7 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
             match(*m_sigs[k], arity, domain, range, rng);
             return m.mk_func_decl(symbol("re.allchar"), arity, domain, rng, func_decl_info(m_family_id, k));
         }
-        return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
+        return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, range, func_decl_info(m_family_id, k));
         
 
     case _OP_REGEXP_EMPTY:
@@ -614,7 +617,7 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
             match(*m_sigs[k], arity, domain, range, rng);
             return m.mk_func_decl(symbol("re.nostr"), arity, domain, rng, func_decl_info(m_family_id, k));
         }
-        return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
+        return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, range, func_decl_info(m_family_id, k));
 
     case OP_RE_LOOP:
         switch (arity) {
@@ -822,16 +825,6 @@ app*  seq_util::str::mk_char(char ch) {
     return mk_char(s, 0);
 }
 
-bool seq_util::str::is_char(expr* n, zstring& c) const {
-    if (u.is_char(n)) {
-        c = zstring(to_app(n)->get_decl()->get_parameter(0).get_symbol().bare_str());
-        return true;
-    }
-    else {
-        return false;
-    }
-}
-
 bool seq_util::str::is_string(expr const* n, zstring& s) const {
     if (is_string(n)) {
         s = zstring(to_app(n)->get_decl()->get_parameter(0).get_symbol().bare_str());
@@ -868,7 +861,7 @@ app* seq_util::re::mk_full(sort* s) {
     return m.mk_app(m_fid, OP_RE_FULL_SET, 0, 0, 0, 0, s);
 }
 
-app* seq_util::re::mk_empty(sort* s) {
+app* seq_util::re::mk_empty(sort* s) {    
     return m.mk_app(m_fid, OP_RE_EMPTY_SET, 0, 0, 0, 0, s);    
 }
 

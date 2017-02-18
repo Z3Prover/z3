@@ -665,14 +665,14 @@ func_decl * fpa_decl_plugin::mk_to_real(decl_kind k, unsigned num_parameters, pa
 func_decl * fpa_decl_plugin::mk_to_ieee_bv(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                            unsigned arity, sort * const * domain, sort * range) {
     if (arity != 1)
-        m_manager->raise_exception("invalid number of arguments to to_ieee_bv");
+        m_manager->raise_exception("invalid number of arguments to fp.to_ieee_bv");
     if (!is_float_sort(domain[0]))
         m_manager->raise_exception("sort mismatch, expected argument of FloatingPoint sort");
 
     unsigned float_sz = domain[0]->get_parameter(0).get_int() + domain[0]->get_parameter(1).get_int();
     parameter ps[] = { parameter(float_sz) };
     sort * bv_srt = m_bv_plugin->mk_sort(BV_SORT, 1, ps);
-    symbol name("to_ieee_bv");
+    symbol name("fp.to_ieee_bv");
     return m_manager->mk_func_decl(name, 1, domain, bv_srt, func_decl_info(m_family_id, k));
 }
 
@@ -758,15 +758,15 @@ func_decl * fpa_decl_plugin::mk_internal_to_ieee_bv_unspecified(
     decl_kind k, unsigned num_parameters, parameter const * parameters,
     unsigned arity, sort * const * domain, sort * range) {
     if (arity != 0)
-        m_manager->raise_exception("invalid number of arguments to to_ieee_bv_unspecified; expecting none");
+        m_manager->raise_exception("invalid number of arguments to fp.to_ieee_bv_unspecified; expecting none");
     if (num_parameters != 2)
-        m_manager->raise_exception("invalid number of parameters to to_ieee_bv_unspecified; expecting 2");
+        m_manager->raise_exception("invalid number of parameters to fp.to_ieee_bv_unspecified; expecting 2");
     if (!parameters[0].is_int() || !parameters[1].is_int())
-        m_manager->raise_exception("invalid parameters type provided to to_ieee_bv_unspecified; expecting 2 integers");
+        m_manager->raise_exception("invalid parameters type provided to fp.to_ieee_bv_unspecified; expecting 2 integers");
 
     parameter width_p[1] = { parameter(parameters[0].get_int() + parameters[1].get_int()) };
     sort * bv_srt = m_bv_plugin->mk_sort(m_bv_fid, 1, width_p);
-    return m_manager->mk_func_decl(symbol("to_ieee_bv_unspecified"), 0, domain, bv_srt, func_decl_info(m_family_id, k, num_parameters, parameters));
+    return m_manager->mk_func_decl(symbol("fp.to_ieee_bv_unspecified"), 0, domain, bv_srt, func_decl_info(m_family_id, k, num_parameters, parameters));
 }
 
 
@@ -915,7 +915,8 @@ void fpa_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol cons
     op_names.push_back(builtin_name("to_fp_unsigned", OP_FPA_TO_FP_UNSIGNED));
 
     /* Extensions */
-    op_names.push_back(builtin_name("to_ieee_bv", OP_FPA_TO_IEEE_BV));
+	op_names.push_back(builtin_name("to_ieee_bv", OP_FPA_TO_IEEE_BV));
+    op_names.push_back(builtin_name("fp.to_ieee_bv", OP_FPA_TO_IEEE_BV));
 }
 
 void fpa_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {

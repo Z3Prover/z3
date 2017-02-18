@@ -253,9 +253,9 @@ extern "C" {
 
         This is the operator named `fp' in the SMT FP theory definition.
         Note that \c sign is required to be a bit-vector of size 1. Significand and exponent
-        are required to be greater than 1 and 2 respectively. The FloatingPoint sort
+        are required to be longer than 1 and 2 respectively. The FloatingPoint sort
         of the resulting expression is automatically determined from the bit-vector sizes
-        of the arguments.
+        of the arguments. The exponent is assumed to be in IEEE-754 biased representation.
 
         \param c logical context
         \param sgn sign
@@ -823,6 +823,100 @@ extern "C" {
     unsigned Z3_API Z3_fpa_get_sbits(Z3_context c, Z3_sort s);
 
     /**
+        \brief Checks whether a given floating-point numeral is a NaN.
+
+        \param c logical context
+        \param t a floating-point numeral
+
+        def_API('Z3_fpa_is_numeral_nan', BOOL, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_bool Z3_API Z3_fpa_is_numeral_nan(Z3_context c, Z3_ast t);
+
+    /**
+        \brief Checks whether a given floating-point numeral is a +oo or -oo.
+
+        \param c logical context
+        \param t a floating-point numeral
+
+        def_API('Z3_fpa_is_numeral_inf', BOOL, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_bool Z3_API Z3_fpa_is_numeral_inf(Z3_context c, Z3_ast t);
+
+    /**
+        \brief Checks whether a given floating-point numeral is +zero or -zero.
+
+        \param c logical context
+        \param t a floating-point numeral
+
+        def_API('Z3_fpa_is_numeral_zero', BOOL, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_bool Z3_API Z3_fpa_is_numeral_zero(Z3_context c, Z3_ast t);
+
+    /**
+        \brief Checks whether a given floating-point numeral is normal.
+
+        \param c logical context
+        \param t a floating-point numeral
+
+        def_API('Z3_fpa_is_numeral_normal', BOOL, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_bool Z3_API Z3_fpa_is_numeral_normal(Z3_context c, Z3_ast t);
+
+    /**
+        \brief Checks whether a given floating-point numeral is subnormal.
+
+        \param c logical context
+        \param t a floating-point numeral
+
+        def_API('Z3_fpa_is_numeral_subnormal', BOOL, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_bool Z3_API Z3_fpa_is_numeral_subnormal(Z3_context c, Z3_ast t);
+
+    /**
+        \brief Checks whether a given floating-point numeral is positive.
+
+        \param c logical context
+        \param t a floating-point numeral
+
+        def_API('Z3_fpa_is_numeral_positive', BOOL, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_bool Z3_API Z3_fpa_is_numeral_positive(Z3_context c, Z3_ast t);
+
+    /**
+        \brief Checks whether a given floating-point numeral is negative.
+
+        \param c logical context
+        \param t a floating-point numeral
+
+        def_API('Z3_fpa_is_numeral_negative', BOOL, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_bool Z3_API Z3_fpa_is_numeral_negative(Z3_context c, Z3_ast t);
+
+    /**
+        \brief Retrieves the sign of a floating-point literal as a bit-vector expression.
+
+        \param c logical context
+        \param t a floating-point numeral
+
+        Remarks: NaN is an invalid argument.
+
+        def_API('Z3_fpa_get_numeral_sign_bv', AST, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_fpa_get_numeral_sign_bv(Z3_context c, Z3_ast t);
+
+    /**
+        \brief Retrieves the significand of a floating-point literal as a bit-vector expression.
+
+        \param c logical context
+        \param t a floating-point numeral
+
+        Remarks: NaN is an invalid argument.
+
+        def_API('Z3_fpa_get_numeral_significand_bv', AST, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_fpa_get_numeral_significand_bv(Z3_context c, Z3_ast t);
+
+    /**
         \brief Retrieves the sign of a floating-point literal.
 
         \param c logical context
@@ -858,23 +952,25 @@ extern "C" {
 
         Remarks: This function extracts the significand bits in `t`, without the
         hidden bit or normalization. Sets the Z3_INVALID_ARG error code if the
-        significand does not fit into a uint64.
+        significand does not fit into a uint64. NaN is an invalid argument.
 
         def_API('Z3_fpa_get_numeral_significand_uint64', BOOL, (_in(CONTEXT), _in(AST), _out(UINT64)))
     */
     Z3_bool Z3_API Z3_fpa_get_numeral_significand_uint64(Z3_context c, Z3_ast t, __uint64 * n);
 
     /**
-        \brief Return the exponent value of a floating-point numeral as a string
+        \brief Return the exponent value of a floating-point numeral as a string.
 
         \param c logical context
         \param t a floating-point numeral
+        \param biased flag to indicate whether the result is in biased representation
 
         Remarks: This function extracts the exponent in `t`, without normalization.
+        NaN is an invalid argument.
 
-        def_API('Z3_fpa_get_numeral_exponent_string', STRING, (_in(CONTEXT), _in(AST)))
+    def_API('Z3_fpa_get_numeral_exponent_string', STRING, (_in(CONTEXT), _in(AST), _in(BOOL)))
     */
-    Z3_string Z3_API Z3_fpa_get_numeral_exponent_string(Z3_context c, Z3_ast t);
+    Z3_string Z3_API Z3_fpa_get_numeral_exponent_string(Z3_context c, Z3_ast t, Z3_bool biased);
 
     /**
         \brief Return the exponent value of a floating-point numeral as a signed 64-bit integer
@@ -882,12 +978,28 @@ extern "C" {
         \param c logical context
         \param t a floating-point numeral
         \param n exponent
+        \param biased flag to indicate whether the result is in biased representation
 
         Remarks: This function extracts the exponent in `t`, without normalization.
+        NaN is an invalid argument.
 
-        def_API('Z3_fpa_get_numeral_exponent_int64', BOOL, (_in(CONTEXT), _in(AST), _out(INT64)))
+        def_API('Z3_fpa_get_numeral_exponent_int64', BOOL, (_in(CONTEXT), _in(AST), _out(INT64), _in(BOOL)))
     */
-    Z3_bool Z3_API Z3_fpa_get_numeral_exponent_int64(Z3_context c, Z3_ast t, __int64 * n);
+    Z3_bool Z3_API Z3_fpa_get_numeral_exponent_int64(Z3_context c, Z3_ast t, __int64 * n, Z3_bool biased);
+
+    /**
+        \brief Retrieves the exponent of a floating-point literal as a bit-vector expression.
+
+        \param c logical context
+        \param t a floating-point numeral
+        \param biased flag to indicate whether the result is in biased representation
+
+        Remarks: This function extracts the exponent in `t`, without normalization.
+        NaN is an invalid arguments.
+
+        def_API('Z3_fpa_get_numeral_exponent_bv', AST, (_in(CONTEXT), _in(AST), _in(BOOL)))
+    */
+    Z3_ast Z3_API Z3_fpa_get_numeral_exponent_bv(Z3_context c, Z3_ast t, Z3_bool biased);
 
     /**
         \brief Conversion of a floating-point term into a bit-vector term in IEEE 754-2008 format.

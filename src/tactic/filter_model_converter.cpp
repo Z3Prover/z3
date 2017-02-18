@@ -51,6 +51,9 @@ void filter_model_converter::operator()(model_ref & old_model, unsigned goal_idx
     TRACE("filter_mc", tout << "after filter_model_converter\n"; model_v2_pp(tout, *old_model););
 }
 
+void filter_model_converter::operator()(svector<symbol> & labels, unsigned goal_idx) {
+}
+
 void filter_model_converter::display(std::ostream & out) {
     out << "(filter-model-converter";
     for (unsigned i = 0; i < m_decls.size(); i++) {

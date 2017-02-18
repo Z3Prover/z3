@@ -264,6 +264,10 @@ public:
     bool is_ge(expr const * n) const { return is_app_of(n, m_afid, OP_GE); }
     bool is_lt(expr const * n) const { return is_app_of(n, m_afid, OP_LT); }
     bool is_gt(expr const * n) const { return is_app_of(n, m_afid, OP_GT); }
+    bool is_le(func_decl const * n) const { return is_decl_of(n, m_afid, OP_LE); }
+    bool is_ge(func_decl const * n) const { return is_decl_of(n, m_afid, OP_GE); }
+    bool is_lt(func_decl const * n) const { return is_decl_of(n, m_afid, OP_LT); }
+    bool is_gt(func_decl const * n) const { return is_decl_of(n, m_afid, OP_GT); }
     bool is_add(expr const * n) const { return is_app_of(n, m_afid, OP_ADD); }
     bool is_sub(expr const * n) const { return is_app_of(n, m_afid, OP_SUB); }
     bool is_uminus(expr const * n) const { return is_app_of(n, m_afid, OP_UMINUS); }
@@ -284,6 +288,18 @@ public:
     bool is_int_real(sort const * s) const { return s->get_family_id() == m_afid; }
     bool is_int_real(expr const * n) const { return is_int_real(get_sort(n)); }
 
+    bool is_sin(expr const* n) const { return is_app_of(n, m_afid, OP_SIN); }
+    bool is_cos(expr const* n) const { return is_app_of(n, m_afid, OP_COS); }
+    bool is_tan(expr const* n) const { return is_app_of(n, m_afid, OP_TAN); }
+    bool is_asin(expr const* n) const { return is_app_of(n, m_afid, OP_ASIN); }
+    bool is_acos(expr const* n) const { return is_app_of(n, m_afid, OP_ACOS); }
+    bool is_atan(expr const* n) const { return is_app_of(n, m_afid, OP_ATAN); }
+    bool is_asinh(expr const* n) const { return is_app_of(n, m_afid, OP_ASINH); }
+    bool is_acosh(expr const* n) const { return is_app_of(n, m_afid, OP_ACOSH); }
+    bool is_atanh(expr const* n) const { return is_app_of(n, m_afid, OP_ATANH); }
+    bool is_pi(expr * arg) { return is_app_of(arg, m_afid, OP_PI); }
+    bool is_e(expr * arg) { return is_app_of(arg, m_afid, OP_E); }
+
     MATCH_UNARY(is_uminus);
     MATCH_UNARY(is_to_real);
     MATCH_UNARY(is_to_int);
@@ -300,8 +316,16 @@ public:
     MATCH_BINARY(is_idiv);
     MATCH_BINARY(is_power);
 
-    bool is_pi(expr * arg) { return is_app_of(arg, m_afid, OP_PI); }
-    bool is_e(expr * arg) { return is_app_of(arg, m_afid, OP_E); }
+    MATCH_UNARY(is_sin);
+    MATCH_UNARY(is_asin);
+    MATCH_UNARY(is_asinh);
+    MATCH_UNARY(is_cos);
+    MATCH_UNARY(is_acos);
+    MATCH_UNARY(is_acosh);
+    MATCH_UNARY(is_tan);
+    MATCH_UNARY(is_atan);
+    MATCH_UNARY(is_atanh);
+
 };
 
 class arith_util : public arith_recognizers {
@@ -347,6 +371,9 @@ public:
     }
     app * mk_int(int i) {
         return mk_numeral(rational(i), true);
+    }
+    app * mk_real(int i) {
+        return mk_numeral(rational(i), false);
     }
     app * mk_le(expr * arg1, expr * arg2) const { return m_manager.mk_app(m_afid, OP_LE, arg1, arg2); }
     app * mk_ge(expr * arg1, expr * arg2) const { return m_manager.mk_app(m_afid, OP_GE, arg1, arg2); }
@@ -421,6 +448,104 @@ public:
     expr_ref mk_add_simplify(expr_ref_vector const& args);
     expr_ref mk_add_simplify(unsigned sz, expr* const* args);
 };
+
+
+inline app_ref mk_numeral(rational const& r, app_ref const& x) {
+    arith_util a(x.get_manager());
+    return app_ref(a.mk_numeral(r, r.is_int() && a.is_int(x)), x.get_manager());
+}
+
+inline app_ref operator+(app_ref const& x, app_ref const& y) {
+    arith_util a(x.get_manager());
+    return app_ref(a.mk_add(x, y), x.get_manager());
+}
+
+inline app_ref operator+(app_ref const& x, rational const& y) {
+    return x + mk_numeral(y, x);
+}
+
+inline app_ref operator+(app_ref const& x, int y) {
+    return x + rational(y);
+}
+
+inline app_ref operator+(rational const& x, app_ref const& y) {
+    return mk_numeral(x, y) + y;
+}
+
+inline app_ref operator+(int x, app_ref const& y) {
+    return rational(x) + y;
+}
+
+inline app_ref operator-(app_ref const& x, app_ref const& y) {
+    arith_util a(x.get_manager());
+    return app_ref(a.mk_sub(x, y), x.get_manager());
+}
+
+inline app_ref operator-(app_ref const& x, rational const& y) {
+    return x - mk_numeral(y, x);
+}
+
+inline app_ref operator-(app_ref const& x, int y) {
+    return x - rational(y);
+}
+
+inline app_ref operator-(rational const& x, app_ref const& y) {
+    return mk_numeral(x, y) - y;
+}
+
+inline app_ref operator-(int x, app_ref const& y) {
+    return rational(x) - y;
+}
+
+
+inline app_ref operator*(app_ref const& x, app_ref const& y) {
+    arith_util a(x.get_manager());
+    return app_ref(a.mk_mul(x, y), x.get_manager());
+}
+
+inline app_ref operator*(app_ref const& x, rational const& y) {
+    return x * mk_numeral(y, x);
+}
+
+inline app_ref operator*(rational const& x, app_ref const& y) {
+    return mk_numeral(x, y) * y;
+}
+
+inline app_ref operator*(app_ref const& x, int y) {
+    return x * rational(y);
+}
+
+inline app_ref operator*(int x, app_ref const& y) {
+    return rational(x) * y;
+}
+
+inline app_ref operator<=(app_ref const& x, app_ref const& y) {
+    arith_util a(x.get_manager());
+    return app_ref(a.mk_le(x, y), x.get_manager());
+}
+
+inline app_ref operator<=(app_ref const& x, rational const& y) {
+    return x <= mk_numeral(y, x);
+}
+
+inline app_ref operator<=(app_ref const& x, int y) {
+    return x <= rational(y);
+}
+
+inline app_ref operator>=(app_ref const& x, app_ref const& y) {
+    arith_util a(x.get_manager());
+    return app_ref(a.mk_ge(x, y), x.get_manager());
+}
+
+inline app_ref operator<(app_ref const& x, app_ref const& y) {
+    arith_util a(x.get_manager());
+    return app_ref(a.mk_lt(x, y), x.get_manager());
+}
+
+inline app_ref operator>(app_ref const& x, app_ref const& y) {
+    arith_util a(x.get_manager());
+    return app_ref(a.mk_gt(x, y), x.get_manager());
+}
 
 #endif /* ARITH_DECL_PLUGIN_H_ */
 

@@ -24,7 +24,9 @@ Revision History:
 namespace smt {
 
     struct bool_var_data {
+    private:
         b_justification         m_justification;
+    public:
         unsigned                m_scope_lvl:24;    //!< scope level of when the variable was assigned.
         unsigned                m_mark:1;
         unsigned                m_assumption:1;
@@ -45,6 +47,14 @@ namespace smt {
     public:
         
         unsigned get_intern_level() const { return m_iscope_lvl; }
+
+        b_justification justification() const { return m_justification; }
+
+        void set_axiom() { m_justification = b_justification::mk_axiom(); }
+
+        void set_null_justification() { m_justification = null_b_justification; }
+
+        void set_justification(b_justification const& j) { m_justification = j; }
         
         bool is_atom() const { return m_atom; }
 

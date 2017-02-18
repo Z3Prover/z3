@@ -303,6 +303,7 @@ namespace datalog {
     bool context::karr() const { return m_params->xform_karr(); }
     bool context::scale() const { return m_params->xform_scale(); }
     bool context::magic() const { return m_params->xform_magic(); }
+    bool context::compress_unbound() const { return m_params->xform_compress_unbound(); }
     bool context::quantify_arrays() const { return m_params->xform_quantify_arrays(); }
     bool context::instantiate_quantifiers() const { return m_params->xform_instantiate_quantifiers(); }
 
@@ -1000,14 +1001,20 @@ namespace datalog {
                 if (is_quantifier(body)) {
                     quantifier* q = to_quantifier(body);
                     expr* e = q->get_expr();
-                    VERIFY(m.is_implies(e, body, e2));
-                    fml = m.mk_quantifier(false, q->get_num_decls(),
-                                          q->get_decl_sorts(), q->get_decl_names(),
-                                          body);
+                    if (m.is_implies(e, body, e2)) {
+                        fml = m.mk_quantifier(false, q->get_num_decls(),
+                                              q->get_decl_sorts(), q->get_decl_names(),
+                                              body);
+                    }
+                    else {
+                        fml = body;
+                    }
                 }
                 else {
-                    VERIFY(m.is_implies(body, body, e2));
                     fml = body;
+                    if (m.is_implies(body, body, e2)) {
+                        fml = body;
+                    }
                 }
                 queries.push_back(fml);
             }

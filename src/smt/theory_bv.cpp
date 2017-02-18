@@ -312,6 +312,7 @@ namespace smt {
         SASSERT(v != null_theory_var);
         unsigned sz             = bits.size();
         SASSERT(get_bv_size(n) == sz);
+        m_bits[v].reset();
         for (unsigned i = 0; i < sz; i++) {
             expr * bit          = bits.get(i);
             expr_ref s_bit(m);
@@ -809,6 +810,7 @@ namespace smt {
         theory_var v       = e->get_th_var(get_id());
         unsigned num_args  = n->get_num_args();
         unsigned i         = num_args;
+        m_bits[v].reset();
         while (i > 0) {
             i--;
             theory_var arg = get_arg_var(e, i);
@@ -830,6 +832,7 @@ namespace smt {
         unsigned end       = n->get_decl()->get_parameter(0).get_int();
         SASSERT(start <= end);
         literal_vector & arg_bits = m_bits[arg];
+        m_bits[v].reset();
         for (unsigned i = start; i <= end; ++i)
             add_bit(v, arg_bits[i]);
         find_wpos(v);
@@ -1533,6 +1536,7 @@ namespace smt {
     }
 
     void theory_bv::unmerge_eh(theory_var v1, theory_var v2) {
+                
         // v1 was the root of the equivalence class
         // I must remove the zero_one_bits that are from v2.
 
@@ -1579,7 +1583,7 @@ namespace smt {
 #endif
         get_fixed_value(v, val);
         SASSERT(r);
-        return alloc(expr_wrapper_proc, m_factory->mk_value(val, get_bv_size(v)));
+        return alloc(expr_wrapper_proc, m_factory->mk_num_value(val, get_bv_size(v)));
     }
 
     void theory_bv::display_var(std::ostream & out, theory_var v) const {

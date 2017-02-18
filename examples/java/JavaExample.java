@@ -188,7 +188,7 @@ class JavaExample
             /* do something with the context */
 
             /* be kind to dispose manually and not wait for the GC. */
-            ctx.dispose();
+            ctx.close();
         }
     }
 
@@ -2291,6 +2291,8 @@ class JavaExample
             System.out.println(Version.getMajor());
             System.out.print("Z3 Full Version: ");
             System.out.println(Version.getString());
+            System.out.print("Z3 Full Version String: ");
+            System.out.println(Version.getFullVersion());
 
             p.simpleExample();
 
