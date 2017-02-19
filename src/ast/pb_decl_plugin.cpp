@@ -54,7 +54,7 @@ func_decl * pb_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
         }
         func_decl_info info(m_family_id, k, 1, parameters);
         return m.mk_func_decl(sym, arity, domain, m.mk_bool_sort(), info);
-    }
+    }      
     case OP_PB_GE:
     case OP_PB_LE: 
     case OP_PB_EQ: {
