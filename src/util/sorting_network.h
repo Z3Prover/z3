@@ -558,7 +558,7 @@ Notes:
             m_stats.m_num_compiled_clauses++;
             m_stats.m_num_clause_vars += n;
             literal_vector tmp(n, ls);
-            TRACE("pb", for (unsigned i = 0; i < n; ++i) tout << ls[i] << " "; tout << "\n";);
+            TRACE("pb_verbose", for (unsigned i = 0; i < n; ++i) tout << ls[i] << " "; tout << "\n";);
             ctx.mk_clause(n, tmp.c_ptr());
         }
 

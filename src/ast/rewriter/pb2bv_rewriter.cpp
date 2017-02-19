@@ -96,10 +96,10 @@ struct pb2bv_rewriter::imp {
                   case l_undef: tout << "= "; break;
                   case l_false: tout << ">= "; break;
                   }
-                  tout << m_k << "\n";);
+                  tout << k << "\n";);
             if (k.is_zero()) {
                 if (is_le != l_false) {
-                    return expr_ref(m.mk_not(mk_or(m, sz, args)), m);
+                    return expr_ref(m.mk_not(::mk_or(m, sz, args)), m);
                 }
                 else {
                     return expr_ref(m.mk_true(), m);
@@ -108,6 +108,15 @@ struct pb2bv_rewriter::imp {
             if (k.is_neg()) {
                 return expr_ref((is_le == l_false)?m.mk_true():m.mk_false(), m);
             }
+            
+            expr_ref result(m);
+            switch (is_le) {
+            case l_true:  if (mk_le(sz, args, k, result)) return result; else break;
+            case l_false: if (mk_ge(sz, args, k, result)) return result; else break;
+            case l_undef: if (mk_eq(sz, args, k, result)) return result; else break;
+            }
+
+            // fall back to divide and conquer encoding.
             SASSERT(k.is_pos());
             expr_ref zero(m), bound(m);
             expr_ref_vector es(m), fmls(m);
@@ -139,12 +148,12 @@ struct pb2bv_rewriter::imp {
             }
             switch (is_le) {
             case l_true: 
-                return mk_and(fmls);
+                return ::mk_and(fmls);
             case l_false:
                 if (!es.empty()) {
                     fmls.push_back(bv.mk_ule(bound, es.back()));
                 }
-                return mk_or(fmls);
+                return ::mk_or(fmls);
             case l_undef:
                 if (es.empty()) {
                     fmls.push_back(m.mk_bool_val(k.is_zero()));
@@ -152,10 +161,177 @@ struct pb2bv_rewriter::imp {
                 else {
                     fmls.push_back(m.mk_eq(bound, es.back()));
                 }
-                return mk_and(fmls);
+                return ::mk_and(fmls);
             default:
                 UNREACHABLE();
                 return expr_ref(m.mk_true(), m);
+            }
+        }
+
+        /**
+           \brief MiniSat+ based encoding of PB constraints. 
+           The procedure is described in "Translating Pseudo-Boolean Constraints into SAT "
+           Niklas Een, Niklas Sörensson, JSAT 2006.
+         */
+
+        const unsigned primes[7] = { 2, 3, 5, 7, 11, 13, 17};
+
+        vector<rational> m_min_base;
+        rational         m_min_cost;
+        vector<rational> m_base;
+
+        void create_basis(vector<rational> const& seq, rational carry_in, rational cost) {
+            if (cost >= m_min_cost) {
+                return;
+            }
+            rational delta_cost(0);
+            for (unsigned i = 0; i < seq.size(); ++i) {
+                delta_cost += seq[i];
+            }
+            if (cost + delta_cost < m_min_cost) {
+                m_min_cost = cost + delta_cost;
+                m_min_base = m_base;             
+                m_min_base.push_back(delta_cost + rational::one());
+            }
+            
+            for (unsigned i = 0; i < sizeof(primes)/sizeof(*primes); ++i) {
+                vector<rational> seq1;
+                rational p(primes[i]);
+                rational rest = carry_in;
+                // create seq1
+                for (unsigned j = 0; j < seq.size(); ++j) {
+                    rest += seq[j] % p;
+                    if (seq[j] >= p) {
+                        seq1.push_back(div(seq[j],  p));
+                    }
+                }
+                
+                m_base.push_back(p);
+                create_basis(seq1, div(rest, p), cost + rest);
+                m_base.pop_back();
+            }
+        }
+
+        bool create_basis() {
+            m_base.reset();
+            m_min_cost = rational(INT_MAX);
+            m_min_base.reset();
+            rational cost(0);
+            create_basis(m_coeffs, rational::zero(), cost);
+            m_base = m_min_base;
+            TRACE("pb",
+                  tout << "Base: ";
+                  for (unsigned i = 0; i < m_base.size(); ++i) {
+                      tout << m_base[i] << " ";
+                  }
+                  tout << "\n";);
+            return 
+                !m_base.empty() && 
+                m_base.back().is_unsigned() &&
+                m_base.back().get_unsigned() <= 20*m_base.size();
+        }
+
+        /**
+           \brief Check if 'out mod n >= lim'. 
+         */
+        expr_ref mod_ge(ptr_vector<expr> const& out, unsigned n, unsigned lim) {
+            TRACE("pb", for (unsigned i = 0; i < out.size(); ++i) tout << mk_pp(out[i], m) << " "; tout << "\n";
+                  tout << "n:" << n << " lim: " << lim << "\n";);
+            if (lim == n) {
+                return expr_ref(m.mk_false(), m);
+            }
+            if (lim == 0) {
+                return expr_ref(m.mk_true(), m);
+            }
+            SASSERT(0 < lim && lim < n);
+            expr_ref_vector ors(m);
+            for (unsigned j = 0; j + lim - 1 < out.size(); j += n) {
+                expr_ref tmp(m);
+                tmp = out[j + lim - 1];
+                if (j + n < out.size()) {
+                    tmp = m.mk_and(tmp, m.mk_not(out[j + n]));
+                }
+                ors.push_back(tmp);
+            }
+            return ::mk_or(ors);
+        }
+
+        bool mk_ge(unsigned sz, expr * const* args, rational bound, expr_ref& result) {
+            if (!create_basis()) return false;
+            if (!bound.is_unsigned()) return false;
+            vector<rational> coeffs(m_coeffs);
+            result = m.mk_true();
+            expr_ref_vector carry(m), new_carry(m);
+            for (unsigned i = 0; i < m_base.size(); ++i) {
+                rational b_i = m_base[i];
+                unsigned B   = b_i.get_unsigned();
+                unsigned d_i = (bound % b_i).get_unsigned();
+                bound = div(bound, b_i);                
+                for (unsigned j = 0; j < coeffs.size(); ++j) {
+                    rational c = coeffs[j] % b_i;                    
+                    SASSERT(c.is_unsigned());
+                    for (unsigned k = 0; k < c.get_unsigned(); ++k) {
+                        carry.push_back(args[j]);
+                    }
+                    coeffs[j] = div(coeffs[j], b_i);
+                }
+                TRACE("pb", tout << "Carry: " << carry << "\n";
+                      for (unsigned j = 0; j < coeffs.size(); ++j) tout << coeffs[j] << " ";
+                      tout << "\n";
+                      );
+                ptr_vector<expr> out;
+                m_sort.sorting(carry.size(), carry.c_ptr(), out);
+
+                expr_ref gt = mod_ge(out, B, d_i + 1);
+                expr_ref ge = mod_ge(out, B, d_i);
+                result = mk_or(gt, mk_and(ge, result));                
+                TRACE("pb", tout << result << "\n";);
+
+                new_carry.reset();
+                for (unsigned j = B - 1; j < out.size(); j += B) {
+                    new_carry.push_back(out[j]);
+                }
+                carry.reset();
+                carry.append(new_carry);
+            }
+            TRACE("pb", tout << result << "\n";);
+            return true;
+        }
+
+        expr_ref mk_and(expr_ref& a, expr_ref& b) {
+            if (m.is_true(a)) return b;
+            if (m.is_true(b)) return a;
+            if (m.is_false(a)) return a;
+            if (m.is_false(b)) return b;
+            return expr_ref(m.mk_and(a, b), m);
+        }
+
+        expr_ref mk_or(expr_ref& a, expr_ref& b) {
+            if (m.is_true(a)) return a;
+            if (m.is_true(b)) return b;
+            if (m.is_false(a)) return b;
+            if (m.is_false(b)) return a;
+            return expr_ref(m.mk_or(a, b), m);
+        }
+
+        bool mk_le(unsigned sz, expr * const* args, rational const& k, expr_ref& result) {
+            expr_ref_vector args1(m);
+            rational bound(-k);            
+            for (unsigned i = 0; i < sz; ++i) {
+                args1.push_back(mk_not(args[i]));
+                bound += m_coeffs[i];
+            }
+            return mk_ge(sz, args1.c_ptr(), bound, result);
+        }
+
+        bool mk_eq(unsigned sz, expr * const* args, rational const& k, expr_ref& result) {
+            expr_ref r1(m), r2(m);
+            if (mk_ge(sz, args, k, r1) && mk_le(sz, args, k, r2)) {
+                result = m.mk_and(r1, r2);
+                return true;
+            }
+            else {
+                return false;
             }
         }
 
@@ -403,7 +579,7 @@ struct pb2bv_rewriter::imp {
         }
         
         void mk_clause(unsigned n, literal const* lits) {
-            m_imp.m_lemmas.push_back(mk_or(m, n, lits));
+            m_imp.m_lemmas.push_back(::mk_or(m, n, lits));
         }        
 
         void keep_cardinality_constraints(bool f) {
