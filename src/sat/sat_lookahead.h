@@ -33,6 +33,7 @@ namespace sat {
         literal_vector  m_units;
         unsigned_vector m_units_lim;
         unsigned_vector m_learned_lim;
+        unsigned_vector m_binary;
 
 
         void init() {
@@ -44,6 +45,7 @@ namespace sat {
             m_learned_lim.push_back(s.m_learned.size());
             m_units_lim.push_back(m_units.size());
             m_trail.push_back(lit);
+            m_binary.push_back(0);
             s.push();
             assign(lit);
         }
@@ -58,27 +60,31 @@ namespace sat {
                 s.m_cls_allocator.del_clause(r);
             }
             s.m_learned.shrink(old_sz);
-            literal lits[2] = { m_trail.back(), null_literal };
             unsigned new_unit_sz = m_units_lim.back();
-            for (unsigned i = m_units.size(); i > new_unit_sz; ) {
-                --i;
-                lits[1] = m_units[i];
+            for (unsigned i = new_unit_sz; i < m_units.size(); ++i) {
+                literal lits[2] = { ~m_trail.back(), m_units[i] };
                 clause * r = s.m_cls_allocator.mk_clause(2, lits, true);
                 s.m_learned.push_back(r);
             }
             m_units.shrink(new_unit_sz);
             m_units_lim.pop_back();
             m_trail.pop_back();
+            m_binary.pop_back();
         }
         
-        unsigned diff(unsigned value0) const {
-            unsigned value1 = get_state_value();
-            SASSERT(value1 >= value0);
-            return value1 - value0;
+        unsigned diff() const { return m_binary.back() + m_units.size() - m_units_lim.back(); }
+
+        unsigned mix_diff(unsigned l, unsigned r) const { return l + r + (1 << 10) * l * r; }
+
+        clause const& get_clause(watch_list::iterator it) const {
+            clause_offset cls_off = it->get_clause_offset();
+            return *(s.m_cls_allocator.get_clause(cls_off));
         }
 
-        unsigned mix_diff(unsigned l, unsigned r) const {
-            return l + r + (1 << 10) * l * r;
+        bool is_nary_propagation(clause const& c, literal l) const {
+            bool r = c.size() > 2 && ((c[0] == l && s.value(c[1]) == l_false) || (c[1] == l && s.value(c[0]) == l_false));
+            DEBUG_CODE(if (r) for (unsigned j = 2; j < c.size(); ++j) SASSERT(s.value(c[j]) == l_false););
+            return r;
         }
 
         void get_resolvent_units(literal lit) {
@@ -94,34 +100,33 @@ namespace sat {
                     switch (it->get_kind()) {
                     case watched::TERNARY:
                         if (s.value(it->get_literal1()) == l_false && 
-                            s.value(it->get_literal()) == l_false) {
+                            s.value(it->get_literal2()) == l_false) {
                             m_units.push_back(l);
-                            goto done_watch_list;
+                            goto done_finding_unit;
                         }
                         break;
                     case watched::CLAUSE: {
-                        clause_offset cls_off = it->get_clause_offset();
-                        clause & c = *(s.m_cls_allocator.get_clause(cls_off));
-                        if (c.size() == 2) break;
-                        SASSERT(c.size() > 2);
-                        if (c[0] == l && s.value(c[1]) == l_false) {
-                            DEBUG_CODE(for (unsigned j = 2; j < c.size(); ++j) SASSERT(s.value(c[j]) == l_false););
+                        clause const & c = get_clause(it);
+                        SASSERT(c[0] == l || c[1] == l);
+                        if (is_nary_propagation(c, l)) {
                             m_units.push_back(l);
-                            goto done_watch_list;
-                        } 
-                        if (c[1] == l && s.value(c[0]) == l_false) {
-                            DEBUG_CODE(for (unsigned j = 2; j < c.size(); ++j) SASSERT(s.value(c[j]) == l_false););
-                            m_units.push_back(l);
-                            goto done_watch_list;
-                        } 
+                            goto done_finding_unit;
+                        }
                         break;
                     }
                     default:
                         break;
                     }
                 }
-            done_watch_list:
+            done_finding_unit:
+
+                //
+                // TBD: count binary clauses created by propagation.
+                // They used to be in the watch list of l.index(), 
+                // both new literals in watch list should be unassigned.
+                //
                 continue;
+
             }
         }
 
@@ -131,10 +136,6 @@ namespace sat {
             return l;
         }
 
-        unsigned get_state_value() const {
-            return s.m_learned.size();
-        }
-
         bool choose1(literal& l) {
             literal_vector P;
             pre_select(P);
@@ -142,28 +143,26 @@ namespace sat {
             if (P.empty()) {
                 return true;
             }
-            unsigned value0 = get_state_value();
             unsigned h = 0, count = 1;
-            literal_vector& units = m_units;;
             for (unsigned i = 0; i < P.size(); ++i) {
                 literal lit = P[i];
 
                 push(lit);
-                if (do_double(value0)) double_look();
+                if (do_double()) double_look(P);
                 if (inconsistent()) {
                     pop();
                     assign(~lit);
-                    if (do_double(value0)) double_look();
+                    if (do_double()) double_look(P);
                     if (inconsistent()) return true;
                     continue;
                 }
-                unsigned diff1 = diff(value0);
+                unsigned diff1 = diff();
                 pop();
                 
                 push(~lit);
-                if (do_double(value0)) double_look();
+                if (do_double()) double_look(P);
                 bool unsat2 = inconsistent();
-                unsigned diff2 = diff(value0);
+                unsigned diff2 = diff();
                 pop();
 
                 if (unsat2) {
@@ -173,25 +172,28 @@ namespace sat {
 
                 unsigned mixd = mix_diff(diff1, diff2);
 
+
                 if (mixd > h || (mixd == h && s.m_rand(count) == 0)) {
+                    CTRACE("sat", l != null_literal, tout << lit << " diff1: " << diff1 << " diff2: " << diff2 << "\n";);
+                    if (mixd > h) count = 1; else ++count;
                     h = mixd;
                     l = diff1 < diff2 ? lit : ~lit;
-                    ++count;
                 }
             }
             return l != null_literal;
         }
 
-        void double_look() {
-            literal_vector P;
-            pre_select(P);
+        void double_look(literal_vector const& P) {
+            bool unsat;
             for (unsigned i = 0; !inconsistent() && i < P.size(); ++i) {
                 literal lit = P[i];
+                if (s.value(lit) != l_undef) continue;
 
                 push(lit);
-                bool unsat = inconsistent();
+                unsat = inconsistent();
                 pop();
                 if (unsat) {
+                    TRACE("sat", tout << "unit: " << ~lit << "\n";);
                     assign(~lit);
                     continue;
                 }
@@ -200,6 +202,7 @@ namespace sat {
                 unsat = inconsistent();
                 pop();
                 if (unsat) {
+                    TRACE("sat", tout << "unit: " << lit << "\n";);
                     assign(lit);
                 }
 
@@ -211,6 +214,7 @@ namespace sat {
             s.assign(l, justification());
             s.propagate(false);
             get_resolvent_units(l);
+            TRACE("sat", s.display(tout << l << " @ " << s.scope_lvl() << " " << (inconsistent()?"unsat":"sat") << "\n"););
         }
 
         bool inconsistent() { return s.inconsistent(); }
@@ -218,6 +222,18 @@ namespace sat {
         void pre_select(literal_vector& P) {
             select_variables(P);
             order_by_implication_trees(P);            
+        }
+
+        void check_binary(clause const& c, literal lit1, literal& lit2) {
+            if (c.size() == 2) {
+                if (c[0] == lit1) {
+                    lit2 = c[1];
+                }
+                else {
+                    SASSERT(c[1] == lit1);
+                    lit2 = c[0];
+                }
+            }
         }
 
         void order_by_implication_trees(literal_vector& P) {
@@ -246,28 +262,19 @@ namespace sat {
                         lit2 = it->get_literal();
                         break;
                     case watched::CLAUSE: {
-                        clause_offset cls_off = it->get_clause_offset();
-                        clause & c = *(s.m_cls_allocator.get_clause(cls_off));
-                        if (c.size() == 2) {
-                            if (c[0] == ~lit1) {
-                                lit2 = c[1];
-                            }
-                            else {
-                                SASSERT(c[1] == ~lit1);
-                                lit2 = c[0];
-                            }
-                        }
+                        clause const & c = get_clause(it);
+                        check_binary(c, lit1, lit2);
                         break;
                     }
                     default:
                         break;
                     }
                     
-                    if (lit2 != null_literal && roots.contains(lit2)) {
-                        // lit2 => lit1
+                    if (lit2 != null_literal && roots.contains(~lit2)) {
+                        // ~lit2 => lit1
                         // if lit2 is a root, put it under lit2
-                        parent.setx(lit2.index(), lit1, null_literal);
-                        roots.remove(lit2);
+                        parent.setx((~lit2).index(), lit1, null_literal);
+                        roots.remove(~lit2);
                         roots.insert(lit1);
                         goto found;
                     }
@@ -287,17 +294,8 @@ namespace sat {
                         lit2 = it->get_literal();
                         break;
                     case watched::CLAUSE: {
-                        clause_offset cls_off = it->get_clause_offset();
-                        clause & c = *(s.m_cls_allocator.get_clause(cls_off));
-                        if (c.size() == 2) {
-                            if (c[0] == lit1) {
-                                lit2 = c[1];
-                            }
-                            else {
-                                SASSERT(c[1] == lit1);
-                                lit2 = c[0];
-                            }
-                        }
+                        clause const & c = get_clause(it);
+                        check_binary(c, ~lit1, lit2);
                         break;
                     }
                     default:
@@ -311,19 +309,21 @@ namespace sat {
                         goto found;
                     }
                 }
-                std::cout << "no parents or children of literal " << lit1 << "\n";
                 nodes.push_back(lit1);
                 roots.insert(lit1);                
             found:
                 ;
-            }       
-            std::cout << "implication trees\n";
-            for (unsigned i = 0; i < parent.size(); ++i) {
-                literal p = parent[i];
-                if (p != null_literal) {
-                    std::cout << to_literal(i) << " |-> " << p << "\n";
-                }
-            }
+            }    
+            TRACE("sat", 
+                  tout << "implication trees\n";
+                  for (unsigned i = 0; i < parent.size(); ++i) {
+                      literal p = parent[i];
+                      if (p != null_literal) {
+                          tout << to_literal(i) << " |-> " << p << "\n";
+                      }
+                  });
+
+            // TBD: extract ordering.
             
         }
 
@@ -335,9 +335,8 @@ namespace sat {
             }
         }
 
-        bool do_double(unsigned value0) {
-            unsigned value1 = get_state_value();
-            return !inconsistent() && value1 - value0 > m_delta_trigger;
+        bool do_double() {
+            return !inconsistent() && diff() > m_delta_trigger;
         }
 
         void update_delta_trigger() {
@@ -368,11 +367,11 @@ namespace sat {
                 s.checkpoint();
                 BACKTRACK;
                 literal l = choose();
-                TRACE("sat", tout << l << "\n";);
                 BACKTRACK;
                 if (l == null_literal) {
                     return l_true;
                 }
+                TRACE("sat", tout << "choose: " << l << " " << trail << "\n";);
                 push(l);
                 trail.push_back(l);
             }
