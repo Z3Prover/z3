@@ -378,11 +378,15 @@ struct goal2sat::imp {
         for (unsigned i = 0; i < num_args; ++i) {
             sat::literal lit(m_result_stack[sz - num_args + i]);
             if (!m_solver.is_external(lit.var())) {
+#if 1
+                m_solver.set_external(lit.var());
+#else
                 sat::bool_var w = m_solver.mk_var(true);
                 sat::literal lit2(w, false);
                 mk_clause(lit, ~lit2);
                 mk_clause(~lit, lit2);
                 lit = lit2;
+#endif
             }
             lits.push_back(lit);
         }

@@ -273,8 +273,6 @@ namespace sat {
         reset_coeffs();
         m_num_marks = 0;
         m_bound = 0;
-        m_lemma.reset();        
-        // m_lemma.push_back(null_literal);
         literal consequent = s().m_not_l;
         justification js = s().m_conflict;
         m_conflict_lvl = s().get_max_lvl(consequent, js);
@@ -415,6 +413,51 @@ namespace sat {
             bool_var v = m_active_vars[i];
             slack += get_abs_coeff(v);
         }
+
+        m_lemma.reset();        
+
+#if 1
+        m_lemma.push_back(null_literal);
+        for (unsigned i = 0; 0 <= slack && i < m_active_vars.size(); ++i) { 
+            bool_var v = m_active_vars[i];
+            int coeff = get_coeff(v);
+            lbool val = m_solver->value(v);
+            bool is_true = val == l_true;
+            bool append = coeff != 0 && val != l_undef && (coeff < 0 == is_true);
+
+            if (append) {
+                literal lit(v, !is_true);
+                if (lvl(lit) == m_conflict_lvl) {
+                    if (m_lemma[0] == null_literal) {
+                        slack -= abs(coeff);
+                        m_lemma[0] = ~lit;
+                    }
+                }
+                else {
+                    slack -= abs(coeff);
+                    m_lemma.push_back(~lit);
+                }
+            }
+        }
+
+        if (slack >= 0) {
+            IF_VERBOSE(2, verbose_stream() << "(sat.card bail slack objective not met " << slack << ")\n";);
+            goto bail_out;
+        }
+
+        if (m_lemma[0] == null_literal) {
+            m_lemma[0] = m_lemma.back();
+            m_lemma.pop_back();
+            unsigned level = lvl(m_lemma[0]);
+            for (unsigned i = 1; i < m_lemma.size(); ++i) {
+                if (lvl(m_lemma[i]) > level) {
+                    level = lvl(m_lemma[i]);
+                    std::swap(m_lemma[0], m_lemma[i]);
+                }
+            }
+            IF_VERBOSE(2, verbose_stream() << "(sat.card set level to " << level << " < " << m_conflict_lvl << ")\n";);
+        }        
+#else
         ++idx;
         while (0 <= slack) {            
             literal lit = lits[idx];
@@ -437,12 +480,14 @@ namespace sat {
             SASSERT(idx > 0 || slack < 0);
             --idx;
         }
-
         if (m_lemma.size() >= 2 && lvl(m_lemma[1]) == m_conflict_lvl) {
             // TRACE("sat", tout << "Bail out on no progress " << lit << "\n";);
             IF_VERBOSE(2, verbose_stream() << "(sat.card bail non-asserting resolvent)\n";);
             goto bail_out;
         }
+
+#endif
+
 
         SASSERT(slack < 0);
 

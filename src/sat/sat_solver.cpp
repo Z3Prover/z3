@@ -176,6 +176,28 @@ namespace sat {
         return v;
     }
 
+    void solver::set_external(bool_var v) {
+        if (m_external[v]) return;
+        m_external[v] = true;
+
+        if (!m_ext) return;
+        
+        lbool val = value(v);
+
+        switch (val) {
+        case l_true: {
+            m_ext->asserted(literal(v, false));
+            break;
+        }
+        case l_false: {
+            m_ext->asserted(literal(v, true));
+            break;
+        }
+        default:
+            break;
+        }
+    }
+
     void solver::mk_clause(unsigned num_lits, literal * lits) {
         m_model_is_current = false;
         DEBUG_CODE({

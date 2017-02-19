@@ -304,7 +304,12 @@ public:
     unsigned size() const { return m_set.size(); }
     iterator begin() const { return m_set.begin(); }
     iterator end() const { return m_set.end(); }
-    void reset() { m_set.reset(); m_in_set.reset(); }
+    // void reset() { m_set.reset(); m_in_set.reset(); }
+    void reset() { 
+        unsigned sz = m_set.size();
+        for (unsigned i = 0; i < sz; ++i) m_in_set[m_set[i]] = false;
+        m_set.reset(); 
+    }
     void finalize() { m_set.finalize(); m_in_set.finalize(); }
     tracked_uint_set& operator&=(tracked_uint_set const& other) {
         unsigned j = 0;
