@@ -414,8 +414,29 @@ app * str_util::mk_string_with_escape_characters(std::string & val) {
                 parsedStr.push_back(convChar);
             } else if (escapeChar1 == '0' || escapeChar1 == '1' || escapeChar1 == '2' || escapeChar1 == '3' ||
                     escapeChar1 == '4' || escapeChar1 == '5' || escapeChar1 == '6' || escapeChar1 == '7') {
-                // TODO octal escape
-                NOT_IMPLEMENTED_YET();
+                // octal escape: we expect exactly three octal digits
+                // which means that val[i], val[i+1], val[i+2] must all be octal digits
+                // and that i+2 must be a valid index
+                if (i+2 >= val.length()) {
+                    get_manager().raise_exception("invalid octal escape: exactly three octal digits required");
+                }
+                char c2 = escapeChar1;
+                char c1 = val.at(i+1);
+                char c0 = val.at(i+2);
+                i += 2;
+
+                if (!isdigit(c2) || !isdigit(c1) || !isdigit(c0)) {
+                    get_manager().raise_exception("invalid octal escape: exactly three octal digits required");
+                }
+
+                if (c2 == '8' || c2 == '9' || c1 == '8' || c1 == '9' || c0 == '8' || c0 == '9') {
+                    get_manager().raise_exception("invalid octal escape: exactly three octal digits required");
+                }
+
+                char tmp[4] = {c2, c1, c0, '\0'};
+                long converted = strtol(tmp, NULL, 8);
+                unsigned char convChar = (unsigned char)converted;
+                parsedStr.push_back(convChar);
             } else {
                 // unrecognized escape sequence -- just emit that character
                 parsedStr.push_back(escapeChar1);
