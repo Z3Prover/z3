@@ -65,6 +65,7 @@ struct goal2sat::imp {
     expr_ref_vector             m_trail;
     expr_ref_vector             m_interpreted_atoms;
     bool                        m_default_external;
+    bool                        m_cardinality_solver;
     
     imp(ast_manager & _m, params_ref const & p, sat::solver & s, atom2bool_var & map, dep2asm_map& dep2asm, bool default_external):
         m(_m),
@@ -83,6 +84,8 @@ struct goal2sat::imp {
     void updt_params(params_ref const & p) {
         m_ite_extra       = p.get_bool("ite_extra", true);
         m_max_memory      = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
+        m_cardinality_solver = p.get_bool("cardinality_solver", false);
+        std::cout << p << "\n";
     }
 
     void throw_op_not_handled(std::string const& s) {
@@ -339,7 +342,7 @@ struct goal2sat::imp {
         }
     }
 
-    void convert_iff(app * t, bool root, bool sign) {
+    void convert_iff2(app * t, bool root, bool sign) {
         TRACE("goal2sat", tout << "convert_iff " << root << " " << sign << "\n" << mk_ismt2_pp(t, m) << "\n";);
         unsigned sz = m_result_stack.size();
         SASSERT(sz >= 2);
@@ -372,8 +375,33 @@ struct goal2sat::imp {
         }
     }
 
-    void convert_pb_args(app* t, sat::literal_vector& lits) {
-        unsigned num_args = t->get_num_args();
+    void convert_iff(app * t, bool root, bool sign) {
+        TRACE("goal2sat", tout << "convert_iff " << root << " " << sign << "\n" << mk_ismt2_pp(t, m) << "\n";);
+        unsigned sz = m_result_stack.size();
+        unsigned num = get_num_args(t);
+        SASSERT(sz >= num && num >= 2);
+        if (num == 2) {
+            convert_iff2(t, root, sign);
+            return;
+        }
+        sat::literal_vector lits;
+        convert_pb_args(num, lits);
+        sat::bool_var v = m_solver.mk_var(true);
+        ensure_extension();
+        if (lits.size() % 2 == 0) lits[0].neg();
+        m_ext->add_xor(v, lits);
+        sat::literal lit(v, sign);
+        if (root) {            
+            m_result_stack.reset();
+            mk_clause(lit);
+        }
+        else {
+            m_result_stack.shrink(sz - num);
+            m_result_stack.push_back(lit);
+        }
+    }
+
+    void convert_pb_args(unsigned num_args, sat::literal_vector& lits) {
         unsigned sz = m_result_stack.size();
         for (unsigned i = 0; i < num_args; ++i) {
             sat::literal lit(m_result_stack[sz - num_args + i]);
@@ -396,7 +424,7 @@ struct goal2sat::imp {
         SASSERT(k.is_unsigned());
         sat::literal_vector lits;
         unsigned sz = m_result_stack.size();
-        convert_pb_args(t, lits);
+        convert_pb_args(t->get_num_args(), lits);
         sat::bool_var v = m_solver.mk_var(true);
         sat::literal lit(v, sign);
         m_ext->add_at_least(v, lits, k.get_unsigned());
@@ -415,7 +443,7 @@ struct goal2sat::imp {
         SASSERT(k.is_unsigned());
         sat::literal_vector lits;
         unsigned sz = m_result_stack.size();
-        convert_pb_args(t, lits);
+        convert_pb_args(t->get_num_args(), lits);
         for (unsigned i = 0; i < lits.size(); ++i) {
             lits[i].neg();
         }
@@ -434,7 +462,7 @@ struct goal2sat::imp {
     void convert_eq_k(app* t, rational k, bool root, bool sign) {
         SASSERT(k.is_unsigned());
         sat::literal_vector lits;
-        convert_pb_args(t, lits);
+        convert_pb_args(t->get_num_args(), lits);
         sat::bool_var v1 = m_solver.mk_var(true);
         sat::bool_var v2 = m_solver.mk_var(true);
         sat::literal l1(v1, false), l2(v2, false);
@@ -528,6 +556,41 @@ struct goal2sat::imp {
             UNREACHABLE();
         }
     }
+
+
+    unsigned get_num_args(app* t) {
+        
+        if (m.is_iff(t) && m_cardinality_solver) {
+            unsigned n = 2;
+            while (m.is_iff(t->get_arg(1))) {
+                ++n;
+                t = to_app(t->get_arg(1));
+            }
+            return n;
+        }
+        else {
+            return t->get_num_args();
+        }
+    }
+
+    expr* get_arg(app* t, unsigned idx) {
+        if (m.is_iff(t) && m_cardinality_solver) {        
+            while (idx >= 1) {
+                SASSERT(m.is_iff(t));
+                t = to_app(t->get_arg(1));
+                --idx;
+            }
+            if (m.is_iff(t)) {
+                return t->get_arg(idx);
+            }
+            else {
+                return t;
+            }
+        }
+        else {
+            return t->get_arg(idx);
+        }
+    }
     
     void process(expr * n) {
         //SASSERT(m_result_stack.empty());
@@ -559,9 +622,9 @@ struct goal2sat::imp {
                 visit(t->get_arg(0), root, !sign);
                 continue;
             }
-            unsigned num = t->get_num_args();
+            unsigned num = get_num_args(t);
             while (fr.m_idx < num) {
-                expr * arg = t->get_arg(fr.m_idx);
+                expr * arg = get_arg(t, fr.m_idx);
                 fr.m_idx++;
                 if (!visit(arg, false, false))
                     goto loop;

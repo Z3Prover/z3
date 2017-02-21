@@ -50,6 +50,7 @@ struct pb2bv_rewriter::imp {
         rational     m_k;
         vector<rational> m_coeffs;
         bool m_keep_cardinality_constraints;
+        unsigned m_min_arity;
 
         template<lbool is_le>
         expr_ref mk_le_ge(expr_ref_vector& fmls, expr* a, expr* b, expr* bound) {
@@ -416,7 +417,8 @@ struct pb2bv_rewriter::imp {
             bv(m),
             m_trail(m),
             m_args(m),
-            m_keep_cardinality_constraints(true)
+            m_keep_cardinality_constraints(true),
+            m_min_arity(8)
         {}
 
         bool mk_app(bool full, func_decl * f, unsigned sz, expr * const* args, expr_ref & result) {
@@ -530,27 +532,26 @@ struct pb2bv_rewriter::imp {
         bool mk_pb(bool full, func_decl * f, unsigned sz, expr * const* args, expr_ref & result) {
             SASSERT(f->get_family_id() == pb.get_family_id());
             if (is_or(f)) {
-                if (m_keep_cardinality_constraints) return false;
                 result = m.mk_or(sz, args);
             }
             else if (pb.is_at_most_k(f) && pb.get_k(f).is_unsigned()) {
-                if (m_keep_cardinality_constraints) return false;
+                if (m_keep_cardinality_constraints && f->get_arity() >= m_min_arity) return false;
                 result = m_sort.le(full, pb.get_k(f).get_unsigned(), sz, args);
             }
             else if (pb.is_at_least_k(f) && pb.get_k(f).is_unsigned()) {
-                if (m_keep_cardinality_constraints) return false;
+                if (m_keep_cardinality_constraints && f->get_arity() >= m_min_arity) return false;
                 result = m_sort.ge(full, pb.get_k(f).get_unsigned(), sz, args);
             }
             else if (pb.is_eq(f) && pb.get_k(f).is_unsigned() && pb.has_unit_coefficients(f)) {
-                if (m_keep_cardinality_constraints) return false;
+                if (m_keep_cardinality_constraints && f->get_arity() >= m_min_arity) return false;
                 result = m_sort.eq(full, pb.get_k(f).get_unsigned(), sz, args);
             }
             else if (pb.is_le(f) && pb.get_k(f).is_unsigned() && pb.has_unit_coefficients(f)) {
-                if (m_keep_cardinality_constraints) return false;
+                if (m_keep_cardinality_constraints && f->get_arity() >= m_min_arity) return false;
                 result = m_sort.le(full, pb.get_k(f).get_unsigned(), sz, args);
             }
             else if (pb.is_ge(f) && pb.get_k(f).is_unsigned() && pb.has_unit_coefficients(f)) {
-                if (m_keep_cardinality_constraints) return false;
+                if (m_keep_cardinality_constraints && f->get_arity() >= m_min_arity) return false;
                 result = m_sort.ge(full, pb.get_k(f).get_unsigned(), sz, args);
             }
             else {
