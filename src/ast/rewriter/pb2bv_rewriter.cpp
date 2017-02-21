@@ -26,6 +26,8 @@ Notes:
 #include"ast_pp.h"
 #include"lbool.h"
 
+const unsigned g_primes[7] = { 2, 3, 5, 7, 11, 13, 17};
+
 
 struct pb2bv_rewriter::imp {
 
@@ -175,7 +177,6 @@ struct pb2bv_rewriter::imp {
            Niklas Een, Niklas Sörensson, JSAT 2006.
          */
 
-        const unsigned primes[7] = { 2, 3, 5, 7, 11, 13, 17};
 
         vector<rational> m_min_base;
         rational         m_min_cost;
@@ -195,9 +196,9 @@ struct pb2bv_rewriter::imp {
                 m_min_base.push_back(delta_cost + rational::one());
             }
             
-            for (unsigned i = 0; i < sizeof(primes)/sizeof(*primes); ++i) {
+            for (unsigned i = 0; i < sizeof(g_primes)/sizeof(*g_primes); ++i) {
                 vector<rational> seq1;
-                rational p(primes[i]);
+                rational p(g_primes[i]);
                 rational rest = carry_in;
                 // create seq1
                 for (unsigned j = 0; j < seq.size(); ++j) {
