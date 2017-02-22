@@ -739,7 +739,8 @@ namespace sat {
 
     void card_extension::add_at_least(bool_var v, literal_vector const& lits, unsigned k) {
         unsigned index = 2*m_cards.size();
-        card* c = new (memory::allocate(card::get_obj_size(lits.size()))) card(index, literal(v, false), lits, k);
+        literal lit = v == null_bool_var ? null_literal : literal(v, false);
+        card* c = new (memory::allocate(card::get_obj_size(lits.size()))) card(index, lit, lits, k);
         m_cards.push_back(c);
         if (v == null_bool_var) {
             // it is an axiom.

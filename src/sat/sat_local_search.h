@@ -42,9 +42,6 @@ namespace sat {
             //int coefficient;                   // all constraints are cardinality: coefficient=1
         };
 
-        // parameters of the instance
-        unsigned   num_vars;                     // var index from 1 to num_vars
-        unsigned   num_constraints;              // constraint index from 1 to num_constraint
         
         // objective function: maximize
         svector<ob_term>   ob_constraint;        // the objective function *constraint*, sorted in decending order
@@ -53,6 +50,11 @@ namespace sat {
         // terms arrays
         vector<svector<term> > var_term;         // var_term[i][j] means the j'th term of var i
         vector<svector<term> > constraint_term;  // constraint_term[i][j] means the j'th term of constraint i
+
+        // parameters of the instance
+        unsigned num_vars() const { return var_term.size(); }             // var index from 1 to num_vars
+        unsigned num_constraints() const { return constraint_term.size(); } // constraint index from 1 to num_constraint
+
         
         // information about the variable
         int_vector             coefficient_in_ob_constraint; // initialized to be 0
@@ -62,7 +64,7 @@ namespace sat {
         int_vector             time_stamp;       // the flip time stamp
         bool_vector            conf_change;      // whether its configure changes since its last flip
         int_vector             cscc;             // how many times its constraint state configure changes since its last flip
-        vector<int_vector>     var_neighbor;     // all of its neighborhoods variable
+        vector<bool_var_vector>     var_neighbor;     // all of its neighborhoods variable
         /* TBD: other scores */
         
         // information about the constraints
@@ -94,10 +96,12 @@ namespace sat {
         // for tuning
         int   s_id = 0;                      // strategy id
 
+
         void init();
 
-        void init_orig();
-        void init_greedy();
+        void reinit();
+        void reinit_orig();
+        void reinit_greedy();
 
         void init_cur_solution();
         void init_slack();
@@ -124,7 +128,6 @@ namespace sat {
 
         void add_clause(unsigned sz, literal const* c);
 
-        void add_cardinality(unsigned sz, literal const* c, unsigned k);
 
         // swap the deleted one with the last one and pop
         void sat(int c) {
@@ -141,6 +144,8 @@ namespace sat {
         ~local_search();
 
         void add_soft(literal l, double weight);
+
+        void add_cardinality(unsigned sz, literal const* c, unsigned k);
         
         lbool operator()();
 

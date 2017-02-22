@@ -24,21 +24,40 @@
 namespace sat {
 
     void local_search::init() {
-        constraint_slack.resize(num_constraints + 1);
-        cur_solution.resize(num_vars + 1);
-        // etc. initialize other vectors.
-        init_greedy();
+        constraint_slack.resize(num_constraints(), 0);
+        cur_solution.resize(num_vars(), false);
+        m_index_in_unsat_stack.resize(num_constraints(), 0);
+        coefficient_in_ob_constraint.resize(num_vars(), 0);
+        var_neighbor.reset();
+	for (bool_var v = 0; v < num_vars(); ++v) {
+            bool_vector is_neighbor(num_vars(), false);
+            var_neighbor.push_back(bool_var_vector());
+            for (unsigned i = 0; i < var_term[v].size(); ++ i) {
+                unsigned c = var_term[v][i].constraint_id;
+                for (unsigned j = 0; j < constraint_term[c].size(); ++j) {
+                    bool_var w = constraint_term[c][j].var_id; 
+                    if (w == v || is_neighbor[w]) continue;
+                    is_neighbor[w] = true;
+                    var_neighbor.back().push_back(w);
+                }
+            }
+	}
+    }
+
+    void local_search::reinit() {
+        reinit_greedy();
     }
 
     void local_search::init_cur_solution() {
-        for (unsigned v = 1; v <= num_vars; ++v) {
+        cur_solution.resize(num_vars() + 1, false);
+        for (unsigned v = 0; v < num_vars(); ++v) {
             cur_solution[v] = (rand() % 2 == 1);
         }
     }
 
     // figure out slack, and init unsat stack
     void local_search::init_slack() {
-        for (unsigned c = 1; c <= num_constraints; ++c) {
+        for (unsigned c = 0; c < num_constraints(); ++c) {
             for (unsigned i = 0; i < constraint_term[c].size(); ++i) {
                 unsigned v = constraint_term[c][i].var_id;
                 if (cur_solution[v] == constraint_term[c][i].sense)
@@ -53,7 +72,7 @@ namespace sat {
 
     // figure out variables scores, pscores and sscores
     void local_search::init_scores() {
-        for (unsigned v = 1; v <= num_vars; ++v) {
+        for (unsigned v = 0; v < num_vars(); ++v) {
             for (unsigned i = 0; i < var_term[v].size(); ++i) {
                 int c = var_term[v][i].constraint_id;
                 if (cur_solution[v] != var_term[v][i].sense) {
@@ -81,8 +100,8 @@ namespace sat {
     // init goodvars and okvars stack    
     void local_search::init_goodvars() {
         goodvar_stack.reset();
-        already_in_goodvar_stack.resize(num_vars+1, false);
-        for (unsigned v = 1; v <= num_vars; ++v) {
+        already_in_goodvar_stack.resize(num_vars(), false);
+        for (unsigned v = 0; v < num_vars(); ++v) {
             if (score[v] > 0) { // && conf_change[v] == true
                 already_in_goodvar_stack[v] = true;
                 goodvar_stack.push_back(v);
@@ -90,7 +109,7 @@ namespace sat {
         }
     }
 
-    void local_search::init_orig() {
+    void local_search::reinit_orig() {
         constraint_slack = constraint_k;
         
         // init unsat stack
@@ -102,18 +121,24 @@ namespace sat {
         // init varibale information
         // variable 0 is the virtual variable
 
-        score.resize(num_vars+1, 0);          score[0] = INT_MIN;
-        sscore.resize(num_vars+1, 0);         sscore[0] = INT_MIN;
-        time_stamp.resize(num_vars+1, 0);     time_stamp[0] = max_steps;
-        conf_change.resize(num_vars+1, true); conf_change[0] = false;
-        cscc.resize(num_vars+1, 1);           cscc[0] = 0;
+        score.reset(); 
+        sscore.reset(); 
+        time_stamp.reset(); 
+        conf_change.reset(); 
+        cscc.reset();
+
+        score.resize(num_vars(), 0);          score[0] = INT_MIN;
+        sscore.resize(num_vars(), 0);         sscore[0] = INT_MIN;
+        time_stamp.resize(num_vars(), 0);     time_stamp[0] = max_steps;
+        conf_change.resize(num_vars(), true); conf_change[0] = false;
+        cscc.resize(num_vars(), 1);           cscc[0] = 0;
 
         init_slack();
         init_scores();
         init_goodvars();                
     }
 
-    void local_search::init_greedy() {
+    void local_search::reinit_greedy() {
         constraint_slack = constraint_k;
         
         // init unsat stack
@@ -125,14 +150,20 @@ namespace sat {
         // init varibale information
         // variable 0 is the virtual variable
 
-        score.resize(num_vars+1, 0);          score[0] = INT_MIN;
-        sscore.resize(num_vars+1, 0);         sscore[0] = INT_MIN;
-        time_stamp.resize(num_vars+1, 0);     time_stamp[0] = max_steps;
-        conf_change.resize(num_vars+1, true); conf_change[0] = false;
-        cscc.resize(num_vars+1, 1);           cscc[0] = 0;
-        for (unsigned v = 1; v <= num_vars; ++v) {
+        score.reset(); 
+        sscore.reset(); 
+        time_stamp.reset(); 
+        conf_change.reset(); 
+        cscc.reset();
+
+        score.resize(num_vars(), 0);          score[0] = INT_MIN;
+        sscore.resize(num_vars(), 0);         sscore[0] = INT_MIN;
+        time_stamp.resize(num_vars(), 0);     time_stamp[0] = max_steps;
+        conf_change.resize(num_vars(), true); conf_change[0] = false;
+        cscc.resize(num_vars(), 1);           cscc[0] = 0;
+        for (unsigned v = 0; v < num_vars(); ++v) {
             // greedy here!!
-            if (coefficient_in_ob_constraint[v] != 0)
+            if (coefficient_in_ob_constraint.get(v, 0) != 0)
                 cur_solution[v] = (coefficient_in_ob_constraint[v] > 0);
         }
 
@@ -162,6 +193,7 @@ namespace sat {
         unsigned id = constraint_term.size();
         constraint_term.push_back(svector<term>());
         for (unsigned i = 0; i < sz; ++i) {
+            var_term.resize(c[i].var() + 1);
             term t;
             t.constraint_id = id;
             t.var_id = c[i].var();
@@ -173,6 +205,7 @@ namespace sat {
     }
 
     local_search::local_search(solver& s) {
+
         // copy units
         unsigned trail_sz = s.init_trail_size();
         for (unsigned i = 0; i < trail_sz; ++i) {
@@ -242,10 +275,6 @@ namespace sat {
             //
             SASSERT(ext->m_xors.empty());            
         }
-
-
-        num_vars = s.num_vars();
-        num_constraints = constraint_term.size();
     }
     
     local_search::~local_search() {
@@ -256,17 +285,18 @@ namespace sat {
     }
     
     lbool local_search::operator()() {
-	bool reach_cutoff_time = false;
-	bool reach_known_best_value = false;
-	bool_var flipvar;
+        init();
+        bool reach_cutoff_time = false;
+        bool reach_known_best_value = false;
+        bool_var flipvar;
         double elapsed_time = 0;
         clock_t start = clock(), stop;  // TBD, use stopwatch facility
-	srand(0);                       // TBD, use random facility and parameters to set random seed.
-	set_parameters();
-	// ################## start ######################
-	//cout << "Start initialize and local search, restart in every " << max_steps << " steps" << endl;
-	for (unsigned tries = 0; ; ++tries) {
-            init();
+        srand(0);                       // TBD, use random facility and parameters to set random seed.
+        set_parameters();
+        // ################## start ######################
+        //cout << "Start initialize and local search, restart in every " << max_steps << " steps" << endl;
+        for (unsigned tries = 0; ; ++tries) {
+            reinit();
             for (int step = 1; step <= max_steps; ++step) {
                 // feasible
                 if (m_unsat_stack.empty()) {
@@ -287,11 +317,11 @@ namespace sat {
                 reach_cutoff_time = true;
             if (reach_known_best_value || reach_cutoff_time)
                 break;
-	}
-	if (reach_known_best_value) {
+        }
+        if (reach_known_best_value) {
             std::cout << elapsed_time << "\n";
-	}
-	else
+        }
+        else
             std::cout << -1 << "\n";
         //print_solution();
 
@@ -311,8 +341,8 @@ namespace sat {
 
         // update related clauses and neighbor vars
         svector<term> const& constraints = var_term[flipvar];
-        unsigned num_constraints = constraints.size();
-        for (unsigned i = 0; i < num_constraints; ++i) {
+        unsigned num_cs = constraints.size();
+        for (unsigned i = 0; i < num_cs; ++i) {
             c = constraints[i].constraint_id;
             if (cur_solution[flipvar] == constraints[i].sense) {
                 //++true_terms_count[c];
@@ -427,8 +457,8 @@ namespace sat {
 
     bool local_search::tie_breaker_sat(bool_var v, bool_var best_var)  {
         // most improvement on objective value
-        int v_imp = cur_solution[v] ? -coefficient_in_ob_constraint[v] : coefficient_in_ob_constraint[v];
-        int b_imp = cur_solution[best_var] ? -coefficient_in_ob_constraint[best_var] : coefficient_in_ob_constraint[best_var];
+        int v_imp = cur_solution[v] ? -coefficient_in_ob_constraint.get(v, 0) : coefficient_in_ob_constraint.get(v, 0);
+        int b_imp = cur_solution[best_var] ? -coefficient_in_ob_constraint.get(best_var, 0) : coefficient_in_ob_constraint.get(best_var, 0);
         // break tie 1: max imp
         // break tie 2: conf_change
         // break tie 3: time_stamp
@@ -458,7 +488,7 @@ namespace sat {
 
     bool_var local_search::pick_var() {
         int c, v;
-        bool_var best_var = null_bool_var;
+        bool_var best_var = num_vars()-1;
 
         // SAT Mode
         if (m_unsat_stack.empty()) {
@@ -498,15 +528,15 @@ namespace sat {
 
     void local_search::set_parameters()  {
         if (s_id == 0)
-            max_steps = num_vars;
+            max_steps = num_vars();
         else if (s_id == 1)
-            max_steps = (int) (1.5 * num_vars);
+            max_steps = (int) (1.5 * num_vars());
         else if (s_id == 1)
-            max_steps = 2 * num_vars;
+            max_steps = 2 * num_vars();
         else if (s_id == 2)
-            max_steps = (int) (2.5 * num_vars);
+            max_steps = (int) (2.5 * num_vars());
         else if (s_id == 3)
-            max_steps = 3 * num_vars;
+            max_steps = 3 * num_vars();
         else {
             std::cout << "Invalid strategy id!" << std::endl;
             exit(-1);

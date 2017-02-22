@@ -447,14 +447,15 @@ struct goal2sat::imp {
             lits[i].neg();
         }
         sat::bool_var v = m_solver.mk_var(true);
+        sat::literal lit(v, sign);
         m_ext->add_at_least(v, lits, lits.size() - k.get_unsigned());
         if (root) {
             m_result_stack.reset();
-            mk_clause(sat::literal(v, sign));
+            mk_clause(lit);
         }
         else {
             m_result_stack.shrink(sz - t->get_num_args());
-            m_result_stack.push_back(sat::literal(v, sign));
+            m_result_stack.push_back(lit);
         }        
     }
 
