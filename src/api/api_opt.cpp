@@ -129,6 +129,7 @@ extern "C" {
         cancel_eh<reslimit> eh(mk_c(c)->m().limit());
         unsigned timeout = to_optimize_ptr(o)->get_params().get_uint("timeout", mk_c(c)->get_timeout());
         unsigned rlimit = mk_c(c)->get_rlimit();
+        std::cout << "Timeout: " << timeout << "\n";
         api::context::set_interruptable si(*(mk_c(c)), eh);        
         {
             scoped_timer timer(timeout, &eh);
@@ -137,8 +138,13 @@ extern "C" {
                 r = to_optimize_ptr(o)->optimize();
             }
             catch (z3_exception& ex) {
-                mk_c(c)->handle_exception(ex);
                 r = l_undef;
+                if (ex.msg() == "canceled" && mk_c(c)->m().canceled()) {
+                    to_optimize_ptr(o)->set_reason_unknown(ex.msg());
+                }
+                else {
+                    mk_c(c)->handle_exception(ex);
+                }
             }
             // to_optimize_ref(d).cleanup();
         }

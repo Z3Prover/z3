@@ -85,7 +85,6 @@ struct goal2sat::imp {
         m_ite_extra       = p.get_bool("ite_extra", true);
         m_max_memory      = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
         m_cardinality_solver = p.get_bool("cardinality_solver", false);
-        std::cout << p << "\n";
     }
 
     void throw_op_not_handled(std::string const& s) {
