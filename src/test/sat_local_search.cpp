@@ -65,7 +65,7 @@ static bool build_instance(char const * filename, sat::solver& s, sat::local_sea
 }
 
 void tst_sat_local_search(char ** argv, int argc, int& i) {
-    if (argc != i + 2) {
+    if (argc < i + 2) {
         std::cout << "require dimacs file name\n";
         return;
     }
@@ -75,6 +75,11 @@ void tst_sat_local_search(char ** argv, int argc, int& i) {
     sat::local_search local_search(solver);
     char const* file_name = argv[i + 1];
     ++i;
+    while (i + 1 < argc) {
+        // set other ad hoc parameters.
+        std::cout << argv[i + 1] << "\n";
+        ++i;
+    }
 
     if (!build_instance(file_name, solver, local_search)) {
         return;

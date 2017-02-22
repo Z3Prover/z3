@@ -20,6 +20,7 @@
 #include "sat_local_search.h"
 #include "sat_solver.h"
 #include "card_extension.h"
+#include "sat_params.hpp"
 
 namespace sat {
 
@@ -42,6 +43,7 @@ namespace sat {
                 }
             }
 	}
+        set_parameters();
     }
 
     void local_search::reinit() {
@@ -285,6 +287,8 @@ namespace sat {
     }
     
     lbool local_search::operator()() {
+        sat_params params;
+        std::cout << "my parameter value: " << params.cliff() << "\n";
         init();
         bool reach_cutoff_time = false;
         bool reach_known_best_value = false;
@@ -294,7 +298,7 @@ namespace sat {
         srand(0);                       // TBD, use random facility and parameters to set random seed.
         set_parameters();
         // ################## start ######################
-        //cout << "Start initialize and local search, restart in every " << max_steps << " steps" << endl;
+        std::cout << "Start initialize and local search, restart in every " << max_steps << " steps\n";
         for (unsigned tries = 0; ; ++tries) {
             reinit();
             for (int step = 1; step <= max_steps; ++step) {
