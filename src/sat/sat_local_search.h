@@ -43,14 +43,11 @@ namespace sat {
         };
 
         // parameters of the instance
-        int   num_vars;                          // var index from 1 to num_vars
-        int   num_constraints;                   // constraint index from 1 to num_constraint
-        int   max_constraint_len;
-        int   min_constraint_len;
+        unsigned   num_vars;                     // var index from 1 to num_vars
+        unsigned   num_constraints;              // constraint index from 1 to num_constraint
         
         // objective function: maximize
-        int        ob_num_terms;                   // how many terms are in the objective function
-        ob_term*   ob_constraint;                // the objective function *constraint*, sorting as decending order
+        svector<ob_term>   ob_constraint;        // the objective function *constraint*, sorted in decending order
         
         
         // terms arrays
@@ -58,14 +55,14 @@ namespace sat {
         vector<svector<term> > constraint_term;  // constraint_term[i][j] means the j'th term of constraint i
         
         // information about the variable
-        int_vector          coefficient_in_ob_constraint; // initilized to be 0
+        int_vector             coefficient_in_ob_constraint; // initialized to be 0
         int_vector             score; 
-        int_vector            sscore;           // slack score
+        int_vector             sscore;           // slack score
         
-        int_vector             time_stamp;      // the flip time stamp
-        bool_vector          conf_change;       // whether its configure changes since its last flip
-        int_vector             cscc;            // how many times its constraint state configure changes since its last flip
-        vector<int_vector>     var_neighbor;    // all of its neighborhoods variable
+        int_vector             time_stamp;       // the flip time stamp
+        bool_vector            conf_change;      // whether its configure changes since its last flip
+        int_vector             cscc;             // how many times its constraint state configure changes since its last flip
+        vector<int_vector>     var_neighbor;     // all of its neighborhoods variable
         /* TBD: other scores */
         
         // information about the constraints
@@ -81,6 +78,7 @@ namespace sat {
         // configuration changed decreasing variables (score>0 and conf_change==true)
         int_vector goodvar_stack;
         bool_vector already_in_goodvar_stack;
+
         // information about solution
         bool_vector      cur_solution;        // the current solution
         int              objective_value;     // the objective function value corresponds to the current solution
@@ -97,13 +95,22 @@ namespace sat {
         int   s_id = 0;                      // strategy id
 
         void init();
+
         void init_orig();
         void init_greedy();
+
         void init_cur_solution();
-        int  pick_var();
-        void flip(int v);
-        bool tie_breaker_sat(int, int);
-        bool tie_breaker_ccd(int, int);
+        void init_slack();
+        void init_scores();
+        void init_goodvars();
+        
+        bool_var pick_var();
+
+        void flip(bool_var v);
+
+        bool tie_breaker_sat(bool_var v1, bool_var v2);
+
+        bool tie_breaker_ccd(bool_var v1, bool_var v2);
 
         void set_parameters();
 
@@ -115,13 +122,13 @@ namespace sat {
 
         void unsat(int constraint_id) { m_unsat_stack.push_back(constraint_id); }
 
+        // swap the deleted one with the last one and pop
         void sat(int c) {
             int last_unsat_constraint = m_unsat_stack.back();
-            m_unsat_stack.pop_back();
             int index = m_index_in_unsat_stack[c];
-            // swap the deleted one with the last one and pop
             m_unsat_stack[index] = last_unsat_constraint;
             m_index_in_unsat_stack[last_unsat_constraint] = index;
+            m_unsat_stack.pop_back();
         }
 
     public:

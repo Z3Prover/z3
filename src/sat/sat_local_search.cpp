@@ -18,6 +18,7 @@
   --*/
 
 #include "sat_local_search.h"
+#include "sat_solver.h"
 
 namespace sat {
 
@@ -28,12 +29,68 @@ namespace sat {
         init_greedy();
     }
 
-    void local_search::init_orig() {
-        int    v, c;        
-
-        for (c = 1; c <= num_constraints; ++c) {
-            constraint_slack[c] = constraint_k[c];
+    void local_search::init_cur_solution() {
+        for (unsigned v = 1; v <= num_vars; ++v) {
+            cur_solution[v] = (rand() % 2 == 1);
         }
+    }
+
+    // figure out slack, and init unsat stack
+    void local_search::init_slack() {
+        for (unsigned c = 1; c <= num_constraints; ++c) {
+            for (unsigned i = 0; i < constraint_term[c].size(); ++i) {
+                unsigned v = constraint_term[c][i].var_id;
+                if (cur_solution[v] == constraint_term[c][i].sense)
+                    --constraint_slack[c];
+            }
+            // constraint_slack[c] = constraint_k[c] - true_terms_count[c];
+            // violate the at-most-k constraint
+            if (constraint_slack[c] < 0)
+                unsat(c);
+        }
+    }
+
+    // figure out variables scores, pscores and sscores
+    void local_search::init_scores() {
+        for (unsigned v = 1; v <= num_vars; ++v) {
+            for (unsigned i = 0; i < var_term[v].size(); ++i) {
+                int c = var_term[v][i].constraint_id;
+                if (cur_solution[v] != var_term[v][i].sense) {
+                    // will ++true_terms_count[c]
+                    // will --slack
+                    if (constraint_slack[c] <= 0) {
+                        --sscore[v];
+                        if (constraint_slack[c] == 0)
+                            --score[v];
+                    }
+                }
+                else { // if (cur_solution[v] == var_term[v][i].sense)
+                    // will --true_terms_count[c]
+                    // will ++slack
+                    if (constraint_slack[c] <= -1) {
+                        ++sscore[v];
+                        if (constraint_slack[c] == -1)
+                            ++score[v];
+                    }
+                }
+            }
+        }
+    }
+
+    // init goodvars and okvars stack    
+    void local_search::init_goodvars() {
+        goodvar_stack.reset();
+        already_in_goodvar_stack.resize(num_vars+1, false);
+        for (unsigned v = 1; v <= num_vars; ++v) {
+            if (score[v] > 0) { // && conf_change[v] == true
+                already_in_goodvar_stack[v] = true;
+                goodvar_stack.push_back(v);
+            }
+        }
+    }
+
+    void local_search::init_orig() {
+        constraint_slack = constraint_k;
         
         // init unsat stack
         m_unsat_stack.reset();
@@ -49,69 +106,14 @@ namespace sat {
         time_stamp.resize(num_vars+1, 0);     time_stamp[0] = max_steps;
         conf_change.resize(num_vars+1, true); conf_change[0] = false;
         cscc.resize(num_vars+1, 1);           cscc[0] = 0;
-        
-        // figure out slack, and init unsat stack
-        for (c = 1; c <= num_constraints; ++c) {
-            for (unsigned i = 0; i < constraint_term[c].size(); ++i) {
-                v = constraint_term[c][i].var_id;
-                if (cur_solution[v] == constraint_term[c][i].sense)
-                    --constraint_slack[c];
-            }
-            // constraint_slack[c] = constraint_k[c] - true_terms_count[c];
-            // violate the at-most-k constraint
-            if (constraint_slack[c] < 0)
-                unsat(c);
-        }
-        
-        // figure out variables scores, pscores and sscores
-        for (v = 1; v <= num_vars; ++v) {
-            for (unsigned i = 0; i < var_term[v].size(); ++i) {
-                c = var_term[v][i].constraint_id;
-                if (cur_solution[v] != var_term[v][i].sense) {
-                    // will ++true_terms_count[c]
-                    // will --slack
-                    if (constraint_slack[c] <= 0) {
-                        --sscore[v];
-                        if (constraint_slack[c] == 0)
-                            --score[v];
-                    }
-                }
-                else { // if (cur_solution[v] == var_term[v][i].sense)
-                    // will --true_terms_count[c]
-                    // will ++slack
-                    if (constraint_slack[c] <= -1) {
-                        ++sscore[v];
-                        if (constraint_slack[c] == -1)
-                            ++score[v];
-                    }
-                }
-            }
-        }
-        
-        // TBD: maybe use util\uint_set or tracked_uint_set instead?
-        
-        // init goodvars and okvars stack
-        for (v = 1; v <= num_vars; ++v) {
-            if (score[v] > 0) { // && conf_change[v] == true
-                already_in_goodvar_stack[v] = true;
-                goodvar_stack.push_back(v);
-            }
-            else
-                already_in_goodvar_stack[v] = false;
-        }
-    }
 
-    void local_search::init_cur_solution() {
-        for (int v = 1; v <= num_vars; ++v) {
-            cur_solution[v] = (rand() % 2 == 1);
-        }
+        init_slack();
+        init_scores();
+        init_goodvars();                
     }
 
     void local_search::init_greedy() {
-        int    v, c;
-        for (c = 1; c <= num_constraints; ++c) {
-            constraint_slack[c] = constraint_k[c];
-        }
+        constraint_slack = constraint_k;
         
         // init unsat stack
         m_unsat_stack.reset();
@@ -121,74 +123,21 @@ namespace sat {
         
         // init varibale information
         // variable 0 is the virtual variable
-        score[0] = INT_MIN;
-        sscore[0] = INT_MIN;
-        time_stamp[0] = max_steps;
-        conf_change[0] = false;
-        cscc[0] = 0;
-        for (v = 1; v <= num_vars; ++v) {
-            score[v] = 0;
-            sscore[v] = 0;
-            time_stamp[v] = 0;
-            conf_change[v] = true;
-            cscc[v] = 1;
+
+        score.resize(num_vars+1, 0);          score[0] = INT_MIN;
+        sscore.resize(num_vars+1, 0);         sscore[0] = INT_MIN;
+        time_stamp.resize(num_vars+1, 0);     time_stamp[0] = max_steps;
+        conf_change.resize(num_vars+1, true); conf_change[0] = false;
+        cscc.resize(num_vars+1, 1);           cscc[0] = 0;
+        for (unsigned v = 1; v <= num_vars; ++v) {
             // greedy here!!
-            if (coefficient_in_ob_constraint[v] > 0) {
-                cur_solution[v] = true;
-            }
-            else if (coefficient_in_ob_constraint[v] < 0) {
-                cur_solution[v] = false;
-            }
+            if (coefficient_in_ob_constraint[v] != 0)
+                cur_solution[v] = (coefficient_in_ob_constraint[v] > 0);
         }
-        
-        // figure out slack, and init unsat stack
-        for (c = 1; c <= num_constraints; ++c) {
-            for (unsigned i = 0; i < constraint_term[c].size(); ++i) {
-                v = constraint_term[c][i].var_id;
-                if (cur_solution[v] == constraint_term[c][i].sense)
-                    //++true_terms_count[c];
-                    --constraint_slack[c];
-            }
-            //constraint_slack[c] = constraint_k[c] - true_terms_count[c];
-            // violate the at-most-k constraint
-            if (constraint_slack[c] < 0)
-                unsat(c);
-        }
-        
-        // figure out variables scores, pscores and sscores
-        for (v = 1; v <= num_vars; ++v) {
-            for (unsigned i = 0; i < var_term[v].size(); ++i) {
-                c = var_term[v][i].constraint_id;
-                if (cur_solution[v] != var_term[v][i].sense) {
-                    // will ++true_terms_count[c]
-                    // will --slack
-                    if (constraint_slack[c] <= 0) {
-                        --sscore[v];
-                        if (constraint_slack[c] == 0)
-                            --score[v];
-                    }
-                }
-                else { // if (cur_solution[v] == var_term[v][i].sense)
-                    // will --true_terms_count[c]
-                    // will ++slack
-                    if (constraint_slack[c] <= -1) {
-                        ++sscore[v];
-                        if (constraint_slack[c] == -1)
-                            ++score[v];
-                    }
-                }
-            }
-        }
-        
-        // init goodvars and okvars stack
-        for (v = 1; v <= num_vars; ++v) {
-            if (score[v] > 0) { // && conf_change[v] == true
-                already_in_goodvar_stack[v] = true;
-                goodvar_stack.push_back(v);
-            }
-            else
-                already_in_goodvar_stack[v] = false;
-        }
+
+        init_slack();
+        init_scores();
+        init_goodvars();        
     }
     
 
@@ -206,6 +155,75 @@ namespace sat {
 
     local_search::local_search(solver& s) {
 
+        // TBD: use solver::copy as a guideline for importing state from a solver.
+
+        // TBD initialize variables
+        s.num_vars();
+
+        // copy units
+        unsigned trail_sz = s.init_trail_size();
+        for (unsigned i = 0; i < trail_sz; ++i) {
+            unsigned id = constraint_term.size();
+            term t;
+            t.constraint_id = id;
+            t.var_id = s.m_trail[i].var();
+            t.sense =  s.m_trail[i].sign();
+            var_term[t.var_id].push_back(t);
+            constraint_term.push_back(svector<term>());
+            constraint_term[id].push_back(t);
+            constraint_k.push_back(0);
+        }
+
+        // TBD copy binary:
+        s.m_watches.size();
+        {
+            unsigned sz = s.m_watches.size();
+            for (unsigned l_idx = 0; l_idx < sz; ++l_idx) {
+                literal l = ~to_literal(l_idx);
+                watch_list const & wlist = s.m_watches[l_idx];
+                watch_list::const_iterator it  = wlist.begin();
+                watch_list::const_iterator end = wlist.end();
+                for (; it != end; ++it) {
+                    if (!it->is_binary_non_learned_clause())
+                        continue;
+                    literal l2 = it->get_literal();
+                    if (l.index() > l2.index()) 
+                        continue;
+
+                    unsigned id = constraint_term.size();
+                    constraint_term.push_back(svector<term>());
+                    
+                    // TBD: add clause l, l2;
+
+                    constraint_k.push_back(1);
+                }
+            }
+        }
+
+
+        clause_vector::const_iterator it =  s.m_clauses.begin();
+        clause_vector::const_iterator end = s.m_clauses.end();
+        for (; it != end; ++it) {
+            clause const& c = *(*it);
+            unsigned sz = c.size();
+            unsigned id = constraint_term.size();
+            constraint_term.push_back(svector<term>());
+            for (unsigned i = 0; i < sz; ++i) {
+                term t;
+                t.constraint_id = id;
+                t.var_id = c[i].var();
+                t.sense =  c[i].sign();
+                var_term[t.var_id].push_back(t);
+                constraint_term[id].push_back(t);
+            }
+            constraint_k.push_back(sz-1);
+        }
+
+        // TBD initialize cardinalities from m_ext, retrieve cardinality constraints.
+        // optionally handle xor constraints.
+
+        num_vars = s.num_vars();
+        num_constraints = constraint_term.size();
     }
     
     local_search::~local_search() {
@@ -221,12 +239,12 @@ namespace sat {
     }
 
 
-    void local_search::flip(int flipvar)
+    void local_search::flip(bool_var flipvar)
     {
         // already changed truth value!!!!
         cur_solution[flipvar] = !cur_solution[flipvar];
         
-        int v, c;
+        unsigned v, c;
         int org_flipvar_score = score[flipvar];
         int org_flipvar_sscore = sscore[flipvar];
 
@@ -346,59 +364,45 @@ namespace sat {
         }
     }
 
-    bool local_search::tie_breaker_sat(int v, int best_var)
-    {
+    bool local_search::tie_breaker_sat(bool_var v, bool_var best_var)  {
         // most improvement on objective value
         int v_imp = cur_solution[v] ? -coefficient_in_ob_constraint[v] : coefficient_in_ob_constraint[v];
         int b_imp = cur_solution[best_var] ? -coefficient_in_ob_constraint[best_var] : coefficient_in_ob_constraint[best_var];
         // break tie 1: max imp
-        if (v_imp > b_imp)
-            return true;
-        else if (v_imp == b_imp) {
-            // break tie 2: conf_change
-            if (conf_change[v] && !conf_change[best_var])
-                return true;
-            else if (conf_change[v] == conf_change[best_var]) {
-                // break tie 3: time_stamp
-                if (time_stamp[v] < time_stamp[best_var])
-                    return true;
-            }
-        }
-        return false;
+        // break tie 2: conf_change
+        // break tie 3: time_stamp
+        
+        return 
+            (v_imp > b_imp) ||
+            ((v_imp == b_imp) && 
+             ((conf_change[v] && !conf_change[best_var]) ||
+              ((conf_change[v] == conf_change[best_var]) && 
+               (time_stamp[v] < time_stamp[best_var]))));
     }
 
-    bool local_search::tie_breaker_ccd(int v, int best_var)
-    {
+    bool local_search::tie_breaker_ccd(bool_var v, bool_var best_var)  {
         // break tie 1: max score
-        if (score[v] > score[best_var])
-            return true;
-        else if (score[v] == score[best_var]) {
-            // break tie 2: max sscore
-            if (sscore[v] > sscore[best_var])
-                return true;
-            else if (sscore[v] == sscore[best_var]) {
-                // break tie 3: cscc
-                if (cscc[v] > cscc[best_var])
-                    return true;
-                else if (cscc[v] == cscc[best_var]) {
-                    // break tie 4: oldest one
-                    if (time_stamp[v] < time_stamp[best_var])
-                        return true;
-                }
-            }
-        }
-        return false;
+        // break tie 2: max sscore
+        // break tie 3: cscc
+        // break tie 4: oldest one
+        return 
+             (score[v]  > score[best_var]) ||
+            ((score[v] == score[best_var]) &&
+              (sscore[v]  > sscore[best_var]) ||
+             ((sscore[v] == sscore[best_var]) &&
+               (cscc[v]  > cscc[best_var]) ||
+              ((cscc[v] == cscc[best_var]) && 
+               (time_stamp[v] < time_stamp[best_var]))));
     }
 
-    int local_search::pick_var()
-    {
+    bool_var local_search::pick_var() {
         int c, v;
-        int best_var = 0;
+        bool_var best_var = null_bool_var;
 
         // SAT Mode
         if (m_unsat_stack.empty()) {
             //++as;
-            for (int i = 1; i <= ob_num_terms; ++i) {
+            for (unsigned i = 0; i < ob_constraint.size(); ++i) {
                 v = ob_constraint[i].var_id;
                 if (tie_breaker_sat(v, best_var))
                     best_var = v;

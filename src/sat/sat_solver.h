@@ -155,6 +155,7 @@ namespace sat {
         friend class card_extension;
         friend class parallel;
         friend class lookahead;
+        friend class local_search;
         friend struct mk_stat;
     public:
         solver(params_ref const & p, reslimit& l);
