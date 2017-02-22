@@ -281,7 +281,7 @@ namespace sat {
                 }
 
                 //
-                // lit1 => lit2.
+                // lit1 => lit2.n
                 // if lit2 is a node, put lit1 above lit2
                 //
 
@@ -351,23 +351,34 @@ namespace sat {
             }
         }
 
+        lbool backtrack(literal_vector& trail) {
+            if (inconsistent()) {                       
+                if (trail.empty()) return l_false;      
+                pop();                                  
+                assign(~trail.back());                  
+                trail.pop_back();               
+                return l_true;
+            }
+            return l_undef;
+        }
+
         lbool search() {
             literal_vector trail;
 
-#define BACKTRACK                                       \
-            if (inconsistent()) {                       \
-                if (trail.empty()) return l_false;      \
-                pop();                                  \
-                assign(~trail.back());                  \
-                trail.pop_back();                       \
-                continue;                               \
-            }                                           \
-
             while (true) {
                 s.checkpoint();
-                BACKTRACK;
+                switch (backtrack(trail)) {
+                case l_true: continue;
+                case l_false: return l_false;
+                case l_undef: break;
+                }
+
                 literal l = choose();
-                BACKTRACK;
+                switch (backtrack(trail)) {
+                case l_true: continue;
+                case l_false: return l_false;
+                case l_undef: break;
+                }
                 if (l == null_literal) {
                     return l_true;
                 }
