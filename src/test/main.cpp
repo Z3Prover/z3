@@ -230,6 +230,7 @@ int main(int argc, char ** argv) {
     TST(get_consequences);
     TST(pb2bv);
     TST_ARGV(sat_lookahead);
+    TST_ARGV(sat_local_search);
     //TST_ARGV(hs);
 }
 

@@ -21,10 +21,14 @@ Revision History:
 
 #include"sat_extension.h"
 #include"sat_solver.h"
+#include"scoped_ptr_vector.h"
 
 namespace sat {
     
     class card_extension : public extension {
+
+        friend class local_search;
+
         struct stats {
             unsigned m_num_propagations;
             unsigned m_num_conflicts;
@@ -117,6 +121,8 @@ namespace sat {
 
         ptr_vector<card>    m_cards;
         ptr_vector<xor>     m_xors;
+
+        scoped_ptr_vector<card> m_card_axioms;
 
         // watch literals
         svector<var_info>   m_var_infos;

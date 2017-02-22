@@ -129,7 +129,6 @@ extern "C" {
         cancel_eh<reslimit> eh(mk_c(c)->m().limit());
         unsigned timeout = to_optimize_ptr(o)->get_params().get_uint("timeout", mk_c(c)->get_timeout());
         unsigned rlimit = mk_c(c)->get_rlimit();
-        std::cout << "Timeout: " << timeout << "\n";
         api::context::set_interruptable si(*(mk_c(c)), eh);        
         {
             scoped_timer timer(timeout, &eh);

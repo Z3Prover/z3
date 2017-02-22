@@ -122,6 +122,10 @@ namespace sat {
 
         void unsat(int constraint_id) { m_unsat_stack.push_back(constraint_id); }
 
+        void add_clause(unsigned sz, literal const* c);
+
+        void add_cardinality(unsigned sz, literal const* c, unsigned k);
+
         // swap the deleted one with the last one and pop
         void sat(int c) {
             int last_unsat_constraint = m_unsat_stack.back();

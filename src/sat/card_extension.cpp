@@ -741,9 +741,16 @@ namespace sat {
         unsigned index = 2*m_cards.size();
         card* c = new (memory::allocate(card::get_obj_size(lits.size()))) card(index, literal(v, false), lits, k);
         m_cards.push_back(c);
-        init_watch(v);
-        m_var_infos[v].m_card = c;
-        m_var_trail.push_back(v);
+        if (v == null_bool_var) {
+            // it is an axiom.
+            init_watch(*c, true);
+            m_card_axioms.push_back(c);
+        }
+        else {
+            init_watch(v);
+            m_var_infos[v].m_card = c;
+            m_var_trail.push_back(v);
+        }
     }
 
     void card_extension::add_xor(bool_var v, literal_vector const& lits) {

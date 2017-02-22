@@ -19,6 +19,7 @@
 
 #include "sat_local_search.h"
 #include "sat_solver.h"
+#include "card_extension.h"
 
 namespace sat {
 
@@ -153,29 +154,32 @@ namespace sat {
 
     }
 
+    void local_search::add_clause(unsigned sz, literal const* c) {
+        add_cardinality(sz, c, sz - 1);
+    }
+
+    void local_search::add_cardinality(unsigned sz, literal const* c, unsigned k) {
+        unsigned id = constraint_term.size();
+        constraint_term.push_back(svector<term>());
+        for (unsigned i = 0; i < sz; ++i) {
+            term t;
+            t.constraint_id = id;
+            t.var_id = c[i].var();
+            t.sense =  c[i].sign();
+            var_term[t.var_id].push_back(t);
+            constraint_term[id].push_back(t);
+        }
+        constraint_k.push_back(k);                
+    }
+
     local_search::local_search(solver& s) {
-
-        // TBD: use solver::copy as a guideline for importing state from a solver.
-
-        // TBD initialize variables
-        s.num_vars();
-
         // copy units
         unsigned trail_sz = s.init_trail_size();
         for (unsigned i = 0; i < trail_sz; ++i) {
-            unsigned id = constraint_term.size();
-            term t;
-            t.constraint_id = id;
-            t.var_id = s.m_trail[i].var();
-            t.sense =  s.m_trail[i].sign();
-            var_term[t.var_id].push_back(t);
-            constraint_term.push_back(svector<term>());
-            constraint_term[id].push_back(t);
-            constraint_k.push_back(0);
+            add_clause(1, s.m_trail.c_ptr() + i);
         }
 
-        // TBD copy binary:
-        s.m_watches.size();
+        // copy binary clauses
         {
             unsigned sz = s.m_watches.size();
             for (unsigned l_idx = 0; l_idx < sz; ++l_idx) {
@@ -189,45 +193,62 @@ namespace sat {
                     literal l2 = it->get_literal();
                     if (l.index() > l2.index()) 
                         continue;
-
-                    unsigned id = constraint_term.size();
-                    constraint_term.push_back(svector<term>());
-                    
-                    // TBD: add clause l, l2;
-
-                    constraint_k.push_back(1);
+                    literal ls[2] = { l, l2 };
+                    add_clause(2, ls);
                 }
             }
         }
 
-
+        // copy clauses
         clause_vector::const_iterator it =  s.m_clauses.begin();
         clause_vector::const_iterator end = s.m_clauses.end();
         for (; it != end; ++it) {
-            clause const& c = *(*it);
-            unsigned sz = c.size();
-            unsigned id = constraint_term.size();
-            constraint_term.push_back(svector<term>());
-            for (unsigned i = 0; i < sz; ++i) {
-                term t;
-                t.constraint_id = id;
-                t.var_id = c[i].var();
-                t.sense =  c[i].sign();
-                var_term[t.var_id].push_back(t);
-                constraint_term[id].push_back(t);
-            }
-            constraint_k.push_back(sz-1);
+            clause& c = *(*it);
+            add_clause(c.size(), c.begin());
         }
 
-        // TBD initialize cardinalities from m_ext, retrieve cardinality constraints.
-        // optionally handle xor constraints.
+        // copy cardinality clauses
+        card_extension* ext = dynamic_cast<card_extension*>(s.get_extension());
+        if (ext) {
+            literal_vector lits;
+            unsigned sz = ext->m_cards.size();
+            for (unsigned i = 0; i < sz; ++i) {
+                card_extension::card& c = *ext->m_cards[i];
+                unsigned n = c.size();
+                unsigned k = c.k();
+
+                // c.lit() <=> c.lits() >= k
+                // 
+                //    (c.lits() < k) or c.lit()
+                // =  (c.lits() + (n - k - 1)*~c.lit()) <= n    
+                //
+                //    ~c.lit() or (c.lits() >= k)
+                // =  ~c.lit() or (~c.lits() <= n - k)
+                // =  k*c.lit() + ~c.lits() <= n 
+                // 
+
+                lits.reset();
+                for (unsigned j = 0; j < n; ++j) lits.push_back(c[j]);
+                for (unsigned j = 0; j < n - k - 1; ++j) lits.push_back(~c.lit());
+                add_cardinality(lits.size(), lits.c_ptr(), n);
+                
+                lits.reset();
+                for (unsigned j = 0; j < n; ++j) lits.push_back(~c[j]);
+                for (unsigned j = 0; j < k; ++j) lits.push_back(c.lit());
+                add_cardinality(lits.size(), lits.c_ptr(), n);
+            }
+            //
+            // optionally handle xor constraints.
+            //
+            SASSERT(ext->m_xors.empty());            
+        }
+
 
         num_vars = s.num_vars();
         num_constraints = constraint_term.size();
     }
     
     local_search::~local_search() {
-
     }
     
     void local_search::add_soft(literal l, double weight) {
@@ -235,6 +256,46 @@ namespace sat {
     }
     
     lbool local_search::operator()() {
+	bool reach_cutoff_time = false;
+	bool reach_known_best_value = false;
+	bool_var flipvar;
+        double elapsed_time = 0;
+        clock_t start = clock(), stop;  // TBD, use stopwatch facility
+	srand(0);                       // TBD, use random facility and parameters to set random seed.
+	set_parameters();
+	// ################## start ######################
+	//cout << "Start initialize and local search, restart in every " << max_steps << " steps" << endl;
+	for (unsigned tries = 0; ; ++tries) {
+            init();
+            for (int step = 1; step <= max_steps; ++step) {
+                // feasible
+                if (m_unsat_stack.empty()) {
+                    calculate_and_update_ob();
+                    if (best_objective_value >= best_known_value) {
+                        reach_known_best_value = true;
+                        break;
+                    }
+                }
+                flipvar = pick_var();
+                flip(flipvar);
+                time_stamp[flipvar] = step;
+            }
+            // take a look at watch
+            stop = clock();
+            elapsed_time = (double)(stop - start) / CLOCKS_PER_SEC;
+            if (elapsed_time > cutoff_time)
+                reach_cutoff_time = true;
+            if (reach_known_best_value || reach_cutoff_time)
+                break;
+	}
+	if (reach_known_best_value) {
+            std::cout << elapsed_time << "\n";
+	}
+	else
+            std::cout << -1 << "\n";
+        //print_solution();
+
+        // TBD: adjust return status
         return l_undef;
     }
 
