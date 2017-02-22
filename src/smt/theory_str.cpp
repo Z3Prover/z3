@@ -549,7 +549,6 @@ app * theory_str::mk_regex_rep_var() {
 	TRACE("t_str_axiom_bug", tout << "add " << mk_pp(a, m) << " to m_basicstr_axiom_todo" << std::endl;);
 
 	m_trail.push_back(a);
-	// TODO cross-check which variable sets we need
 	variable_set.insert(a);
 	//internal_variable_set.insert(a);
 	regex_variable_set.insert(a);
@@ -1215,7 +1214,6 @@ void theory_str::instantiate_axiom_Contains(enode * e) {
 
     // quick path, because this is necessary due to rewriter behaviour
     // (at minimum it should fix z3str/concat-006.smt2
-    // TODO: see if it's necessary for other such terms
     if (m_strutil.is_string(ex->get_arg(0)) && m_strutil.is_string(ex->get_arg(1))) {
         TRACE("t_str_detail", tout << "eval constant Contains term " << mk_pp(ex, m) << std::endl;);
         std::string haystackStr = m_strutil.get_string_constant_value(ex->get_arg(0));
@@ -1541,7 +1539,6 @@ void theory_str::instantiate_axiom_Substr(enode * e) {
     expr_ref ts0_contains_ts1(mk_contains(expr->get_arg(0), ts1), m);
 
     expr_ref_vector and_item(m);
-    // TODO simulate this contains check; it causes problems with a few regressions but we might need it for performance
     //and_item.push_back(ts0_contains_ts1);
     and_item.push_back(ctx.mk_eq_atom(expr->get_arg(0), mk_concat(ts0, mk_concat(ts1, ts2))));
     and_item.push_back(ctx.mk_eq_atom(expr->get_arg(1), mk_strlen(ts0)));
@@ -1782,7 +1779,6 @@ void theory_str::reset_eh() {
     m_basicstr_axiom_todo.reset();
     m_str_eq_todo.reset();
     m_concat_axiom_todo.reset();
-    // TODO reset a loooooot more internal stuff
     pop_scope_eh(get_context().get_scope_level());
 }
 
@@ -2377,7 +2373,7 @@ void theory_str::infer_len_concat_arg(expr * n, rational len) {
 		if (arg0Len.is_nonneg()) {
 			axr = ctx.mk_eq_atom(mk_strlen(arg0), mk_int(arg0Len));
 		} else {
-			// TODO negate?
+			// could negate
 		}
 	} else if (arg0_len_exists && !arg1_len_exists) {
 		//if (mk_length(t, arg0) != mk_int(ctx, arg0_len)) {
@@ -2388,7 +2384,7 @@ void theory_str::infer_len_concat_arg(expr * n, rational len) {
 		if (arg1Len.is_nonneg()) {
 			axr = ctx.mk_eq_atom(mk_strlen(arg1), mk_int(arg1Len));
 		} else {
-			// TODO negate?
+			// could negate
 		}
 	} else {
 
@@ -3252,7 +3248,6 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
         } else {
             loopDetected = true;
             if (m_params.m_FiniteOverlapModels) {
-                // TODO this might repeat the case above, we may wish to avoid doing this twice
                 expr_ref tester = set_up_finite_model_test(concatAst1, concatAst2);
                 arrangement_disjunction.push_back(tester);
                 add_theory_aware_branching_info(tester, m_params.m_OverlapTheoryAwarePriority, l_true);
@@ -5556,7 +5551,7 @@ void theory_str::get_grounded_concats(expr* node, std::map<expr*, expr*> & varAl
         else {
             std::vector<expr*> concatNodes;
             concatNodes.push_back(node);
-            groundedMap[node][concatNodes]; // TODO ???
+            groundedMap[node][concatNodes];
         }
     }
 }
@@ -6653,7 +6648,6 @@ void theory_str::finite_model_test(expr * testvar, expr * str) {
                             v_lower_bound == rational::zero();
                         } else if (lower_bound_exists && !upper_bound_exists) {
                             // check some finite portion of the search space
-                            // TODO here and below, factor out the increment to a param
                             v_upper_bound = v_lower_bound + rational(10);
                         } else {
                             // no bounds information
@@ -6678,7 +6672,6 @@ void theory_str::finite_model_test(expr * testvar, expr * str) {
                     expr_ref_vector andList(m);
 
                     for (rational l = v_lower_bound; l <= v_upper_bound; l += rational::one()) {
-                        // TODO integrate with the enhancements in gen_len_test_options()
                         std::string lStr = l.to_string();
                         expr_ref str_indicator(m_strutil.mk_string(lStr), m);
                         expr_ref or_expr(ctx.mk_eq_atom(indicator, str_indicator), m);
@@ -6718,7 +6711,6 @@ void theory_str::more_value_tests(expr * valTester, std::string valTesterValue) 
     if (m_params.m_UseBinarySearch) {
         if (!binary_search_len_tester_stack.contains(fVar) || binary_search_len_tester_stack[fVar].empty()) {
             TRACE("t_str_binary_search", tout << "WARNING: no active length testers for " << mk_pp(fVar, m) << std::endl;);
-            // TODO handle this?
             NOT_IMPLEMENTED_YET();
         }
         expr * effectiveLenInd = binary_search_len_tester_stack[fVar].back();
@@ -6803,7 +6795,6 @@ void theory_str::handle_equality(expr * lhs, expr * rhs) {
 
     /* // temporarily disabled, we are borrowing these testers for something else
     if (m_params.m_FiniteOverlapModels && !finite_model_test_varlists.empty()) {
-        // TODO NEXT
         if (finite_model_test_varlists.contains(lhs)) {
             finite_model_test(lhs, rhs); return;
         } else if (finite_model_test_varlists.contains(rhs)) {
@@ -6878,8 +6869,6 @@ void theory_str::handle_equality(expr * lhs, expr * rhs) {
             }
         }
     }
-
-    // TODO some setup with haveEQLength() which I skip for now, not sure if necessary
 
     instantiate_str_eq_length_axiom(ctx.get_enode(lhs), ctx.get_enode(rhs));
 
@@ -7291,7 +7280,6 @@ void theory_str::pop_scope_eh(unsigned num_scopes) {
 
     sLevel -= num_scopes;
     TRACE("t_str", tout << "pop " << num_scopes << " to " << sLevel << std::endl;);
-    // TODO: figure out what's going out of scope and why
     context & ctx = get_context();
     ast_manager & m = get_manager();
 
@@ -7315,7 +7303,7 @@ void theory_str::pop_scope_eh(unsigned num_scopes) {
             TRACE("t_str_cut_var_map", tout << "remove cut info for " << mk_pp(e, m) << std::endl; print_cut_var(e, tout););
             T_cut * aCut = val.top();
             val.pop();
-            // dealloc(aCut); // TODO find a safer way to do this, it is causing a crash
+            // dealloc(aCut);
         }
         if (val.size() == 0) {
         	cutvarmap_removes.insert(varItor->m_key);
@@ -7331,30 +7319,6 @@ void theory_str::pop_scope_eh(unsigned num_scopes) {
     	}
     }
 
-    /*
-    // see if any internal variables went out of scope
-    for (int check_level = sLevel + num_scopes ; check_level > sLevel; --check_level) {
-        TRACE("t_str_detail", tout << "cleaning up internal variables at scope level " << check_level << std::endl;);
-        std::map<int, std::set<expr*> >::iterator it = internal_variable_scope_levels.find(check_level);
-        if (it != internal_variable_scope_levels.end()) {
-            unsigned count = 0;
-            std::set<expr*> vars = it->second;
-            for (std::set<expr*>::iterator var_it = vars.begin(); var_it != vars.end(); ++var_it) {
-                TRACE("t_str_detail", tout << "clean up variable " << mk_pp(*var_it, get_manager()) << std::endl;);
-                variable_set.erase(*var_it);
-                internal_variable_set.erase(*var_it);
-                regex_variable_set.erase(*var_it);
-                internal_unrollTest_vars.erase(*var_it);
-                count += 1;
-            }
-            TRACE("t_str_detail", tout << "cleaned up " << count << " variables" << std::endl;);
-            vars.clear();
-        }
-    }
-    */
-
-    // TODO use the trail stack to do this for us! requires lots of refactoring
-    // TODO if this works, possibly remove axioms from other vectors as well
     ptr_vector<enode> new_m_basicstr;
     for (ptr_vector<enode>::iterator it = m_basicstr_axiom_todo.begin(); it != m_basicstr_axiom_todo.end(); ++it) {
         enode * e = *it;
@@ -7732,7 +7696,7 @@ int theory_str::ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr
 	    expr * aRoot = NULL;
 	    expr * curr = varItor->first;
 	    do {
-	        if (variable_set.find(curr) != variable_set.end()) { // TODO internal_variable_set?
+	        if (variable_set.find(curr) != variable_set.end()) {
 	            if (aRoot == NULL) {
 	                aRoot = curr;
 	            } else {
@@ -8280,7 +8244,6 @@ bool theory_str::finalcheck_str2int(app * a) {
 		TRACE("t_str_detail", tout << "integer theory has no assignment for " << mk_pp(a, m) << std::endl;);
 		NOT_IMPLEMENTED_YET();
 	}
-	// TODO also check assignment in string theory
 
 	return axiomAdd;
 }
@@ -8303,7 +8266,6 @@ bool theory_str::finalcheck_int2str(app * a) {
             // ignore this. we should already assert the axiom for what happens when the string is ""
         } else {
             // nonempty string --> convert to correct integer value, or disallow it
-            // TODO think about whether we need to persist the axiom in this case?
             rational convertedRepresentation(0);
             rational ten(10);
             bool conversionOK = true;
@@ -8341,7 +8303,6 @@ bool theory_str::finalcheck_int2str(app * a) {
         TRACE("t_str_detail", tout << "string theory has no assignment for " << mk_pp(a, m) << std::endl;);
         NOT_IMPLEMENTED_YET();
     }
-    // TODO also check assignment in integer theory
     return axiomAdd;
 }
 
@@ -8503,7 +8464,6 @@ final_check_status theory_str::final_check_eh() {
     context & ctx = get_context();
     ast_manager & m = get_manager();
 
-    // TODO out-of-scope term debugging, see comment in pop_scope_eh()
     expr_ref_vector assignments(m);
     ctx.get_assignments(assignments);
 
@@ -8811,7 +8771,6 @@ final_check_status theory_str::final_check_eh() {
             expr * freeVar = freeVarItor1->first;
             rational lenValue;
             bool lenValue_exists = get_len_value(freeVar, lenValue);
-            // TODO get_bound_strlen()
             tout << mk_pp(freeVar, m) << " [depCnt = " << freeVarItor1->second << ", length = "
                     << (lenValue_exists ? lenValue.to_string() : "?")
                     << "]" << std::endl;
@@ -8842,7 +8801,6 @@ final_check_status theory_str::final_check_eh() {
     			continue;
     		}
     		*/
-    		// TODO if this variable represents a regular expression, continue
     		expr * toAssert = gen_len_val_options_for_free_var(freeVar, NULL, "");
     		if (toAssert != NULL) {
     			assert_axiom(toAssert);
@@ -9026,12 +8984,10 @@ expr * theory_str::gen_val_options(expr * freeVar, expr * len_indicator, expr * 
 
 	// ----------------------------------------------------------------------------------------
 
-	// TODO refactor this and below to use expr_ref_vector instead of ptr_vector/svect
 	ptr_vector<expr> orList;
 	ptr_vector<expr> andList;
 
 	for (long long i = l; i < h; i++) {
-		// TODO can we share the val_indicator constants with the length tester cache?
 		orList.push_back(m.mk_eq(val_indicator, mk_string(longlong_to_string(i).c_str()) ));
 		if (m_params.m_AggressiveValueTesting) {
 		    literal l = mk_eq(val_indicator, mk_string(longlong_to_string(i).c_str()), false);
@@ -9448,7 +9404,6 @@ expr * theory_str::gen_unroll_conditional_options(expr * var, std::set<expr*> & 
 	// handle out-of-scope entries in unroll_tries_map
 
 	ptr_vector<expr> outOfScopeTesters;
-	// TODO refactor unroll_tries_map and internal_unrollTest_vars to use m_trail_stack
 
 	for (ptr_vector<expr>::iterator it = unroll_tries_map[var][unrolls].begin();
 	        it != unroll_tries_map[var][unrolls].end(); ++it) {
@@ -9807,10 +9762,8 @@ expr * theory_str::binary_search_length_test(expr * freeVar, expr * previousLenT
                 lastTesterConstant = previousLenTesterValue;
                 TRACE("t_str_binary_search", tout << "invoked with previousLenTester info matching top of stack" << std::endl;);
             } else {
-                // this is a bit unexpected
                 TRACE("t_str_binary_search", tout << "WARNING: unexpected reordering of length testers!" << std::endl;);
-                // TODO resolve this case
-                NOT_IMPLEMENTED_YET(); return NULL;
+                UNREACHABLE(); return NULL;
             }
         } else {
             lastTesterConstant = m_strutil.get_string_constant_value(lastTesterValue);
@@ -9822,8 +9775,7 @@ expr * theory_str::binary_search_length_test(expr * freeVar, expr * previousLenT
             if (!binary_search_len_tester_info.find(lastTester, lastBounds)) {
                 // unexpected
                 TRACE("t_str_binary_search", tout << "WARNING: no bounds information available for last tester!" << std::endl;);
-                // TODO resolve this
-                NOT_IMPLEMENTED_YET();
+                UNREACHABLE();
             }
             TRACE("t_str_binary_search", tout << "last bounds are [" << lastBounds.lowerBound << " | " << lastBounds.midPoint << " | " << lastBounds.upperBound << "]!" << lastBounds.windowSize << std::endl;);
             binary_search_info newBounds;
@@ -9833,13 +9785,12 @@ expr * theory_str::binary_search_length_test(expr * freeVar, expr * previousLenT
                 // we double the window size and adjust the bounds
                 if (lastBounds.midPoint == lastBounds.upperBound && lastBounds.upperBound == lastBounds.windowSize) {
                     TRACE("t_str_binary_search", tout << "search hit window size; expanding" << std::endl;);
-                    // TODO is this correct?
                     newBounds.lowerBound = lastBounds.windowSize + rational::one();
                     newBounds.windowSize = lastBounds.windowSize * rational(2);
                     newBounds.upperBound = newBounds.windowSize;
                     newBounds.calculate_midpoint();
                 } else if (false) {
-                    // TODO handle the case where the midpoint can't be increased further
+                    // handle the case where the midpoint can't be increased further
                     // (e.g. a window like [50 | 50 | 50]!64 and we don't answer "50")
                 } else {
                     // general case
@@ -9855,7 +9806,7 @@ expr * theory_str::binary_search_length_test(expr * freeVar, expr * previousLenT
                 refresh_theory_var(newTester);
             } else if (lastTesterConstant == "less") {
                 if (false) {
-                    // TODO handle the case where the midpoint can't be decreased further
+                    // handle the case where the midpoint can't be decreased further
                     // (e.g. a window like [0 | 0 | 0]!64 and we don't answer "0"
                 } else {
                     // general case
@@ -9888,8 +9839,7 @@ expr * theory_str::binary_search_length_test(expr * freeVar, expr * previousLenT
             if (!binary_search_len_tester_info.find(lastTester, lastBounds)) {
                 // unexpected
                 TRACE("t_str_binary_search", tout << "WARNING: no bounds information available for last tester!" << std::endl;);
-                // TODO resolve this
-                NOT_IMPLEMENTED_YET();
+                UNREACHABLE();
             }
             if (lastBounds.midPoint.is_neg()) {
                 TRACE("t_str_binary_search", tout << "WARNING: length search converged on a negative value. Negating this constraint." << std::endl;);
@@ -9960,7 +9910,6 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
         if (!map_effectively_empty) {
             // check whether any entries correspond to variables that went out of scope;
             // if every entry is out of scope then the map counts as being empty
-            // TODO: maybe remove them from the map instead? either here or in pop_scope_eh()
 
             // assume empty and find a counterexample
             map_effectively_empty = true;
@@ -10059,7 +10008,6 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
                                 if (effectiveHasEqcValue) {
                                     effectiveLenIndiStr = m_strutil.get_string_constant_value(effective_eqc_value);
                                 } else {
-                                    // TODO this should be unreachable, but can we really do anything here?
                                     NOT_IMPLEMENTED_YET();
                                 }
                             }
@@ -10091,7 +10039,6 @@ expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTe
                     fvar_lenTester_map[freeVar].push_back(indicator);
                     lenTester_fvar_map.insert(indicator, freeVar);
                 } else {
-                    // TODO make absolutely sure this is safe to do if 'indicator' is technically out of scope
                     indicator = fvar_lenTester_map[freeVar][i];
                     refresh_theory_var(indicator);
                     testNum = i + 1;
@@ -10211,35 +10158,13 @@ void theory_str::process_free_var(std::map<expr*, int> & freeVar_map) {
 		}
 	}
 
-	// TODO here's a great place for debugging info
-
-	// testing: iterate over leafVarSet deterministically
-	if (false) {
-	    // *** TESTING CODE
-	    std::vector<expr*> sortedLeafVarSet;
-	    for (std::set<expr*>::iterator itor1 = leafVarSet.begin(); itor1 != leafVarSet.end(); ++itor1) {
-	        sortedLeafVarSet.push_back(*itor1);
-	    }
-	    std::sort(sortedLeafVarSet.begin(), sortedLeafVarSet.end(), cmpvarnames);
-	    for(std::vector<expr*>::iterator itor1 = sortedLeafVarSet.begin();
-	            itor1 != sortedLeafVarSet.end(); ++itor1) {
-	        expr * toAssert = gen_len_val_options_for_free_var(*itor1, NULL, "");
-	        // gen_len_val_options_for_free_var() can legally return NULL,
-	        // as methods that it calls may assert their own axioms instead.
-	        if (toAssert != NULL) {
-	            assert_axiom(toAssert);
-	        }
-	    }
-	} else {
-	    // *** CODE FROM BEFORE
-	    for(std::set<expr*>::iterator itor1 = leafVarSet.begin();
-	            itor1 != leafVarSet.end(); ++itor1) {
-	        expr * toAssert = gen_len_val_options_for_free_var(*itor1, NULL, "");
-	        // gen_len_val_options_for_free_var() can legally return NULL,
-	        // as methods that it calls may assert their own axioms instead.
-	        if (toAssert != NULL) {
-	            assert_axiom(toAssert);
-	        }
+	for(std::set<expr*>::iterator itor1 = leafVarSet.begin();
+	        itor1 != leafVarSet.end(); ++itor1) {
+	    expr * toAssert = gen_len_val_options_for_free_var(*itor1, NULL, "");
+	    // gen_len_val_options_for_free_var() can legally return NULL,
+	    // as methods that it calls may assert their own axioms instead.
+	    if (toAssert != NULL) {
+	        assert_axiom(toAssert);
 	    }
 	}
 

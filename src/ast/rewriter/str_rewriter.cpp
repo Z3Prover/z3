@@ -38,7 +38,6 @@ void nfa::convert_re(expr * e, unsigned & start, unsigned & end, str_util & m_st
             std::string str = m_strutil.get_string_constant_value(arg_str);
             TRACE("t_str_rw", tout << "build NFA for '" << str << "'" << std::endl;);
 
-            // TODO this assumes the string is not empty
             /*
              * For an n-character string, we make (n-1) intermediate states,
              * labelled i_(0) through i_(n-2).
@@ -219,7 +218,6 @@ br_status str_rewriter::mk_str_CharAt(expr * arg0, expr * arg1, expr_ref & resul
         result = m_strutil.mk_string(resultStr);
         return BR_DONE;
     } else {
-        // TODO if we ever figure out how to assert axioms in here, add the axiom code from Z3str2's strAstReduce.cpp
         return BR_FAILED;
     }
 }
@@ -399,7 +397,6 @@ br_status str_rewriter::mk_str_to_int(expr * arg0, expr_ref & result) {
 
 		// interpret str as a natural number and rewrite to the corresponding integer.
 		// if this is not valid, rewrite to -1
-		// TODO leading zeroes?
 		rational convertedRepresentation(0);
 		rational ten(10);
 		for (unsigned i = 0; i < str.length(); ++i) {
@@ -692,13 +689,11 @@ br_status str_rewriter::mk_eq_core(expr * l, expr * r, expr_ref & result) {
 }
 
 bool str_rewriter::reduce_eq(expr * l, expr * r, expr_ref_vector & lhs, expr_ref_vector & rhs, bool & change) {
-    // TODO inspect seq_rewriter::reduce_eq()
     change = false;
     return true;
 }
 
 bool str_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_vector& lhs, expr_ref_vector& rhs, bool& change) {
-    // TODO inspect seq_rewriter::reduce_eq()
     change = false;
     return true;
 }

@@ -30,8 +30,6 @@ Revision History:
 #include"str_rewriter.h"
 #include"union_find.h"
 
-// TODO refactor: anything that returns an expr* instead returns an expr_ref
-
 namespace smt {
 
     class str_value_factory : public value_factory {
@@ -256,7 +254,6 @@ namespace smt {
 
         theory_str_contain_pair_bool_map_t contain_pair_bool_map;
         //obj_map<expr, obj_pair_set<expr, expr> > contain_pair_idx_map;
-        // TODO Find a better data structure, this is 100% a hack right now
         std::map<expr*, std::set<std::pair<expr*, expr*> > > contain_pair_idx_map;
 
         std::map<std::pair<expr*, std::string>, expr*> regex_in_bool_map;
@@ -458,7 +455,6 @@ namespace smt {
         void check_contain_by_substr(expr * varNode, expr_ref_vector & willEqClass);
         void check_contain_by_eq_nodes(expr * n1, expr * n2);
         bool in_contain_idx_map(expr * n);
-        // TODO refactor these methods to use expr_ref_vector instead of std::vector
         void compute_contains(std::map<expr*, expr*> & varAliasMap,
                 std::map<expr*, expr*> & concatAliasMap, std::map<expr*, expr *> & varConstMap,
                 std::map<expr*, expr*> & concatConstMap, std::map<expr*, std::map<expr*, int> > & varEqConcatMap);
