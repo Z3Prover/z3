@@ -46,8 +46,8 @@ namespace smt {
         bool operator()(bool_var v1, bool_var v2) const {
             double p_v1, p_v2;
             if (!m_theory_var_priority.find(v1, p_v1)) {
-  	        p_v1 = 0.0;
-	    }
+                p_v1 = 0.0;
+            }
             if (!m_theory_var_priority.find(v2, p_v2)) {
                 p_v2 = 0.0;
             }
