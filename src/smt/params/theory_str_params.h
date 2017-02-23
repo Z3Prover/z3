@@ -28,7 +28,7 @@ struct theory_str_params {
      * This is a stronger version of the standard axiom.
      * The Z3str2 axioms can be simulated by setting this to false.
      */
-    bool m_AssertStrongerArrangements;
+    bool m_StrongArrangements;
 
     /*
      * If AggressiveLengthTesting is true, we manipulate the phase of length tester equalities
@@ -81,7 +81,7 @@ struct theory_str_params {
     double m_OverlapTheoryAwarePriority;
 
     theory_str_params(params_ref const & p = params_ref()):
-        m_AssertStrongerArrangements(true),
+        m_StrongArrangements(true),
         m_AggressiveLengthTesting(false),
         m_AggressiveValueTesting(false),
         m_AggressiveUnrollTesting(true),

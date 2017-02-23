@@ -20,7 +20,7 @@ Revision History:
 
 void theory_str_params::updt_params(params_ref const & _p) {
     smt_params_helper p(_p);
-    m_AssertStrongerArrangements = p.str_strong_arrangements();
+    m_StrongArrangements = p.str_strong_arrangements();
     m_AggressiveLengthTesting = p.str_aggressive_length_testing();
     m_AggressiveValueTesting = p.str_aggressive_value_testing();
     m_AggressiveUnrollTesting = p.str_aggressive_unroll_testing();

@@ -3079,7 +3079,7 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
             add_cut_info_merge(t1, sLevel, m);
             add_cut_info_merge(t1, sLevel, y);
 
-            if (m_params.m_AssertStrongerArrangements) {
+            if (m_params.m_StrongArrangements) {
                 expr_ref ax_strong(ctx.mk_eq_atom(ax_l, ax_r), mgr);
                 assert_axiom(ax_strong);
             } else {
@@ -3137,7 +3137,7 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
             add_cut_info_merge(t2, sLevel, x);
             add_cut_info_merge(t2, sLevel, n);
 
-            if (m_params.m_AssertStrongerArrangements) {
+            if (m_params.m_StrongArrangements) {
                 expr_ref ax_strong(ctx.mk_eq_atom(ax_l, ax_r), mgr);
                 assert_axiom(ax_strong);
             } else {
@@ -3272,7 +3272,7 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
         if (!arrangement_disjunction.empty()) {
             expr_ref premise(ctx.mk_eq_atom(concatAst1, concatAst2), mgr);
             expr_ref conclusion(mk_or(arrangement_disjunction), mgr);
-            if (m_params.m_AssertStrongerArrangements) {
+            if (m_params.m_StrongArrangements) {
                 expr_ref ax_strong(ctx.mk_eq_atom(premise, conclusion), mgr);
                 assert_axiom(ax_strong);
             } else {
@@ -3472,7 +3472,7 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 	            add_cut_info_merge(temp1, sLevel, y);
 	            add_cut_info_merge(temp1, sLevel, m);
 
-	            if (m_params.m_AssertStrongerArrangements) {
+	            if (m_params.m_StrongArrangements) {
 	                expr_ref ax_strong(ctx.mk_eq_atom(ax_l, ax_r), mgr);
 	                assert_axiom(ax_strong);
 	            } else {
@@ -3547,7 +3547,7 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 	        expr_ref ax_l(mk_and(l_items), mgr);
 	        expr_ref ax_r(mk_and(r_items), mgr);
 
-	        if (m_params.m_AssertStrongerArrangements) {
+	        if (m_params.m_StrongArrangements) {
 	            expr_ref ax_strong(ctx.mk_eq_atom(ax_l, ax_r), mgr);
 	            assert_axiom(ax_strong);
 	        } else {
@@ -3628,7 +3628,7 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 		if (!arrangement_disjunction.empty()) {
 			expr_ref implyR(mk_or(arrangement_disjunction), mgr);
 
-			if (m_params.m_AssertStrongerArrangements) {
+			if (m_params.m_StrongArrangements) {
 			    expr_ref implyLHS(ctx.mk_eq_atom(concatAst1, concatAst2), mgr);
 			    expr_ref ax_strong(ctx.mk_eq_atom(implyLHS, implyR), mgr);
 			    assert_axiom(ax_strong);
@@ -3816,7 +3816,7 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
             r_items.push_back(ctx.mk_eq_atom(x, prefixAst));
             r_items.push_back(ctx.mk_eq_atom(y, suf_n_concat));
 
-            if (m_params.m_AssertStrongerArrangements) {
+            if (m_params.m_StrongArrangements) {
                 expr_ref ax_strong(ctx.mk_eq_atom(ax_l, mk_and(r_items)), mgr);
                 assert_axiom(ax_strong);
             } else {
@@ -3836,7 +3836,7 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
         expr_ref ax_l(mgr.mk_and(ax_l1, ax_l2), mgr);
         expr_ref ax_r(mgr.mk_and(ctx.mk_eq_atom(x, strAst), ctx.mk_eq_atom(y, n)), mgr);
 
-        if (m_params.m_AssertStrongerArrangements) {
+        if (m_params.m_StrongArrangements) {
             expr_ref ax_strong(ctx.mk_eq_atom(ax_l, ax_r), mgr);
             assert_axiom(ax_strong);
         } else {
@@ -3874,7 +3874,7 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
                 add_cut_info_merge(temp1, sLevel, x);
                 add_cut_info_merge(temp1, sLevel, n);
 
-                if (m_params.m_AssertStrongerArrangements) {
+                if (m_params.m_StrongArrangements) {
                     expr_ref ax_strong(ctx.mk_eq_atom(ax_l, ax_r), mgr);
                     assert_axiom(ax_strong);
                 } else {
@@ -3977,7 +3977,7 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
         if (!arrangement_disjunction.empty()) {
             expr_ref implyR(mk_or(arrangement_disjunction), mgr);
 
-            if (m_params.m_AssertStrongerArrangements) {
+            if (m_params.m_StrongArrangements) {
                 expr_ref ax_lhs(ctx.mk_eq_atom(concatAst1, concatAst2), mgr);
                 expr_ref ax_strong(ctx.mk_eq_atom(ax_lhs, implyR), mgr);
                 assert_axiom(ax_strong);
@@ -4059,7 +4059,7 @@ void theory_str::process_concat_eq_type4(expr * concatAst1, expr * concatAst2) {
             if (!in_same_eqc(tmpAst, n)) {
                 // break down option 4-1
                 expr_ref implyR(ctx.mk_eq_atom(n, tmpAst), mgr);
-                if (m_params.m_AssertStrongerArrangements) {
+                if (m_params.m_StrongArrangements) {
                     expr_ref ax_strong(ctx.mk_eq_atom( ctx.mk_eq_atom(concatAst1, concatAst2), implyR ), mgr);
                     assert_axiom(ax_strong);
                 } else {
@@ -4071,7 +4071,7 @@ void theory_str::process_concat_eq_type4(expr * concatAst1, expr * concatAst2) {
                 //break down option 4-2
                 expr_ref implyR(ctx.mk_eq_atom(n, y), mgr);
 
-                if (m_params.m_AssertStrongerArrangements) {
+                if (m_params.m_StrongArrangements) {
                     expr_ref ax_strong(ctx.mk_eq_atom( ctx.mk_eq_atom(concatAst1, concatAst2), implyR ), mgr);
                     assert_axiom(ax_strong);
                 } else {
@@ -4084,7 +4084,7 @@ void theory_str::process_concat_eq_type4(expr * concatAst1, expr * concatAst2) {
             if (!in_same_eqc(y, tmpAst)) {
                 //break down option 4-3
                 expr_ref implyR(ctx.mk_eq_atom(y, tmpAst), mgr);
-                if (m_params.m_AssertStrongerArrangements) {
+                if (m_params.m_StrongArrangements) {
                     expr_ref ax_strong(ctx.mk_eq_atom( ctx.mk_eq_atom(concatAst1, concatAst2), implyR ), mgr);
                     assert_axiom(ax_strong);
                 } else {
@@ -4161,7 +4161,7 @@ void theory_str::process_concat_eq_type5(expr * concatAst1, expr * concatAst2) {
             expr_ref x_deltaStr(mk_concat(x, mk_string(deltaStr)), mgr);
             if (!in_same_eqc(m, x_deltaStr)) {
                 expr_ref implyR(ctx.mk_eq_atom(m, x_deltaStr), mgr);
-                if (m_params.m_AssertStrongerArrangements) {
+                if (m_params.m_StrongArrangements) {
                     expr_ref ax_strong(ctx.mk_eq_atom( ctx.mk_eq_atom(concatAst1, concatAst2), implyR ), mgr);
                     assert_axiom(ax_strong);
                 } else {
@@ -4172,7 +4172,7 @@ void theory_str::process_concat_eq_type5(expr * concatAst1, expr * concatAst2) {
             // test
             if (!in_same_eqc(x, m)) {
                 expr_ref implyR(ctx.mk_eq_atom(x, m), mgr);
-                if (m_params.m_AssertStrongerArrangements) {
+                if (m_params.m_StrongArrangements) {
                     expr_ref ax_strong(ctx.mk_eq_atom( ctx.mk_eq_atom(concatAst1, concatAst2), implyR ), mgr);
                     assert_axiom(ax_strong);
                 } else {
@@ -4184,7 +4184,7 @@ void theory_str::process_concat_eq_type5(expr * concatAst1, expr * concatAst2) {
             expr_ref m_deltaStr(mk_concat(m, mk_string(deltaStr)), mgr);
             if (!in_same_eqc(x, m_deltaStr)) {
                 expr_ref implyR(ctx.mk_eq_atom(x, m_deltaStr), mgr);
-                if (m_params.m_AssertStrongerArrangements) {
+                if (m_params.m_StrongArrangements) {
                     expr_ref ax_strong(ctx.mk_eq_atom( ctx.mk_eq_atom(concatAst1, concatAst2), implyR ), mgr);
                     assert_axiom(ax_strong);
                 } else {
@@ -4420,7 +4420,7 @@ void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
 
     expr_ref implyR(mk_or(arrangement_disjunction), mgr);
 
-    if (m_params.m_AssertStrongerArrangements) {
+    if (m_params.m_StrongArrangements) {
         expr_ref ax_strong(ctx.mk_eq_atom( ctx.mk_eq_atom(concatAst1, concatAst2), implyR ), mgr);
         assert_axiom(ax_strong);
     } else {
@@ -6515,7 +6515,7 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
         				assert_axiom(negate_ast);
         			} else {
         			    implyR1 = mk_or(arrangement_disjunction);
-        			    if (m_params.m_AssertStrongerArrangements) {
+        			    if (m_params.m_StrongArrangements) {
         			        expr_ref ax_strong(ctx.mk_eq_atom(implyL, implyR1), m);
         			        assert_axiom(ax_strong);
         			    } else {
