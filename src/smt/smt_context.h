@@ -230,8 +230,7 @@ namespace smt {
         // Theory case split
         //
         // -----------------------------------
-        typedef int_hashtable<int_hash, default_eq<int> > int_set;
-        int_set m_all_th_case_split_literals;
+        uint_set m_all_th_case_split_literals;
         vector<literal_vector> m_th_case_split_sets;
         u_map< vector<literal_vector> > m_literal2casesplitsets; // returns the case split literal sets that a literal participates in
         unsigned m_th_case_split_qhead;
