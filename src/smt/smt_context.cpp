@@ -2403,9 +2403,6 @@ namespace smt {
     */
     unsigned context::pop_scope_core(unsigned num_scopes) {
 
-        TRACE("t_str_refcount_hack", tout << "begin pop_scope_core in smt_context" << std::endl;);
-
-
         if (m_manager.has_trace_stream())
             m_manager.trace_stream() << "[pop] " << num_scopes << " " << m_scope_lvl << "\n";
 
@@ -2453,9 +2450,7 @@ namespace smt {
         ptr_vector<theory>::iterator it  = m_theory_set.begin();
         ptr_vector<theory>::iterator end = m_theory_set.end();
         for (; it != end; ++it) {
-            TRACE("t_str_refcount_hack", tout << "begin theory pop_scope_eh" << std::endl;);
             (*it)->pop_scope_eh(num_scopes);
-            TRACE("t_str_refcount_hack", tout << "end theory pop_scope_eh" << std::endl;);
         }
 
         del_justifications(m_justifications, s.m_justifications_lim);
@@ -2482,9 +2477,6 @@ namespace smt {
         reassert_units(units_to_reassert_lim);
         TRACE("pop_scope_detail", tout << "end of pop_scope: \n"; display(tout););
         CASSERT("context", check_invariant());
-
-        TRACE("t_str_refcount_hack", tout << "end pop_scope_core in smt_context" << std::endl;);
-
         return num_bool_vars;
     }
 
