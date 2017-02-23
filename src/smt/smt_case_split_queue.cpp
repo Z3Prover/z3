@@ -1351,35 +1351,25 @@ namespace smt {
             p.m_case_split_strategy = CS_ACTIVITY;
         }
 
-        case_split_queue * baseQueue;
-
-	if (p.m_theory_aware_branching) {
-	  // override
-	  baseQueue = alloc(theory_aware_branching_queue, ctx, p);
-	} else {
-        switch (p.m_case_split_strategy) {
-        case CS_ACTIVITY_DELAY_NEW:
-            baseQueue = alloc(dact_case_split_queue, ctx, p);
-            break;
-        case CS_ACTIVITY_WITH_CACHE:
-            baseQueue = alloc(cact_case_split_queue, ctx, p);
-            break;
-        case CS_RELEVANCY:
-            baseQueue = alloc(rel_case_split_queue, ctx, p);
-            break;
-        case CS_RELEVANCY_ACTIVITY:
-            baseQueue = alloc(rel_act_case_split_queue, ctx, p);
-            break;
-        case CS_RELEVANCY_GOAL:
-            baseQueue = alloc(rel_goal_case_split_queue, ctx, p);
-            break;
-        default:
-            baseQueue = alloc(act_case_split_queue, ctx, p);
-            break;
+        if (p.m_theory_aware_branching) {
+            // override
+            return alloc(theory_aware_branching_queue, ctx, p);
+        } else {
+            switch (p.m_case_split_strategy) {
+            case CS_ACTIVITY_DELAY_NEW:
+                return alloc(dact_case_split_queue, ctx, p);
+            case CS_ACTIVITY_WITH_CACHE:
+                return alloc(cact_case_split_queue, ctx, p);
+            case CS_RELEVANCY:
+                return alloc(rel_case_split_queue, ctx, p);
+            case CS_RELEVANCY_ACTIVITY:
+                return alloc(rel_act_case_split_queue, ctx, p);
+            case CS_RELEVANCY_GOAL:
+                return alloc(rel_goal_case_split_queue, ctx, p);
+            default:
+                return alloc(act_case_split_queue, ctx, p);
+            }
         }
-	}
-
-	return baseQueue;
     }
 
 };
