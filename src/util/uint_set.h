@@ -333,6 +333,45 @@ public:
     }
 };
 
+class indexed_uint_set {
+    unsigned        m_size;
+    unsigned_vector m_elems;
+    unsigned_vector m_index;
+public:
+    indexed_uint_set():
+        m_size(0)
+    {}
+
+    void insert(unsigned x) {
+        SASSERT(!contains(x));
+        m_index.resize(x + 1, UINT_MAX);
+        m_elems.resize(m_size + 1);
+        m_index[x] = m_size;
+        m_elems[m_size] = x;
+        m_size++;
+    }
+    
+    void remove(unsigned x) {
+        SASSERT(contains(x));
+        unsigned y = m_elems[--m_size];
+        if (x != y) {
+            unsigned idx = m_index[x];
+            m_index[y] = idx;
+            m_elems[idx] = y;
+            m_index[x] = m_size;
+            m_elems[m_size] = x; 
+        }
+    }
+
+    bool contains(unsigned x) const { return x < m_index.size() && m_index[x] < m_size && m_elems[m_index[x]] == x; }
+    void reset() { m_size = 0; }
+    bool empty() const { return m_size == 0; }    
+    unsigned size() const { return m_size; }
+    typedef  unsigned_vector::const_iterator iterator;
+    iterator begin() const { return m_elems.begin(); }
+    iterator end() const { return m_elems.begin() + m_size; }
+
+};
 
 #endif /* UINT_SET_H_ */
 
