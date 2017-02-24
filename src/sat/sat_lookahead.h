@@ -25,6 +25,19 @@ namespace sat {
 
         struct config {
             double   m_dl_success;
+            float    m_alpha;
+            float    m_max_score;
+            unsigned m_max_hlevel; 
+            unsigned m_min_cutoff;
+            unsigned m_level_cand;
+
+            config() {
+                m_max_hlevel = 50;
+                m_alpha = 3.5;
+                m_max_score = 20.0;
+                m_min_cutoff = 30;
+                m_level_cand = 600;
+            }
         };
 
         struct statistics {
@@ -35,23 +48,26 @@ namespace sat {
 
         config                 m_config;
         double                 m_delta_trigger; 
-        literal_vector         m_trail;
+
+        literal_vector         m_trail;         // trail of units
         unsigned_vector        m_trail_lim;
-        literal_vector         m_units;
+        literal_vector         m_units;         // units learned during lookahead
         unsigned_vector        m_units_lim;
-        vector<literal_vector> m_binary;        // binary clauses
+        vector<literal_vector> m_binary;        // literal: binary clauses
         unsigned_vector        m_binary_trail;  // trail of added binary clauses
         unsigned_vector        m_binary_trail_lim; 
+        unsigned               m_qhead;         // propagation queue head
+        unsigned_vector        m_qhead_lim;
         clause_vector          m_clauses;       // non-binary clauses
         clause_allocator       m_cls_allocator;        
         bool                   m_inconsistent;
-        unsigned_vector        m_bstamp;        // timestamp for binary implication, one for each literal
+        unsigned_vector        m_bstamp;        // literal: timestamp for binary implication
+        vector<svector<float> >  m_H;           // literal: fitness score
+        svector<float>         m_rating;        // var:     pre-selection rating
         unsigned               m_bstamp_id;     // unique id for binary implication.
-        unsigned               m_qhead;
-        unsigned_vector        m_qhead_lim;
-        char_vector            m_assignment;
-        vector<watch_list>     m_watches;
-        indexed_uint_set       m_free_vars;
+        char_vector            m_assignment;    // literal: assignment 
+        vector<watch_list>     m_watches;       // literal: watch structure
+        indexed_uint_set       m_freevars;
         statistics             m_stats;
 
         void add_binary(literal l1, literal l2) {
@@ -71,7 +87,7 @@ namespace sat {
 
         // -------------------------------------
         // track consequences of binary clauses
-        // see also 72 - 77 in sat11.w
+        // see also 72 - 79 in sat11.w
 
         void inc_bstamp() {
             ++m_bstamp_id;
@@ -84,6 +100,7 @@ namespace sat {
             m_bstamp[l.index()] = m_bstamp_id;
         }
         void set_bstamps(literal l) {
+            inc_bstamp();
             set_bstamp(l);
             literal_vector const& conseq = m_binary[l.index()];
             for (unsigned i = 0; i < conseq.size(); ++i) {
@@ -121,26 +138,96 @@ namespace sat {
          */
         void try_add_binary(literal u, literal v) {
             SASSERT(u.var() != v.var());
-            inc_bstamp();
             set_bstamps(~u);
-            if (is_stamped(~v)) {
-                // u \/ ~v is a binary clause, u \/ v is true => u is a unit literal
-                assign(u);
+            if (is_stamped(~v)) {                
+                assign(u);        // u \/ ~v, u \/ v => u is a unit literal
             }
             else if (!is_stamped(v) && add_tc1(u, v)) {
                 // u \/ v is not in index
-                // all implicants of ~u are stamped.                
-                inc_bstamp();
                 set_bstamps(~v);
                 if (is_stamped(~u)) {
-                    // v \/ ~u is a binary clause, u \/ v is true => v is a unit
-                    assign(v);
+                    assign(v);    // v \/ ~u, u \/ v => v is a unit literal
                 }
                 else if (add_tc1(v, u)) {
                     add_binary(u, v);
                 }
             }
         }
+
+        // -------------------------------------
+        // pre-selection
+        // see also 91 - 102 sat11.w
+
+        void init_pre_selection(unsigned level) {
+            unsigned max_level = m_config.m_max_hlevel;
+            if (level <= 1) {
+                ensure_H(2);
+                h_scores(m_H[0], m_H[1]);
+                for (unsigned j = 0; j < 2; ++j) {
+                    for (unsigned i = 0; i < 2; ++i) {
+                        h_scores(m_H[i + 1], m_H[(i + 2) % 3]);
+                    }
+                }
+                // heur = m_H[1];
+            }
+            else if (level < max_level) {
+                ensure_H(level);
+                h_scores(m_H[level-1], m_H[level]);
+                // heur = m_H[level];
+            }
+            else {
+                ensure_H(max_level);
+                h_scores(m_H[max_level-1], m_H[max_level]);
+                // heur = m_H[max_level];
+            }
+        }
+
+        void ensure_H(unsigned level) {
+            while (m_H.size() <= level) {
+                m_H.push_back(svector<float>());
+                m_H.back().resize(s.num_vars() * 2, 0);
+            }
+        }
+
+        void h_scores(svector<float>& h, svector<float>& hp) {
+            float sum = 0;
+            for (bool_var const* it = m_freevars.begin(), * end = m_freevars.end(); it != end; ++it) {
+                literal l(*it, false);
+                sum += h[l.index()] + h[(~l).index()];
+            }
+            float factor = 2 * m_freevars.size() / sum;
+            float sqfactor = factor * factor;
+            float afactor = factor * m_config.m_alpha;
+            for (bool_var const* it = m_freevars.begin(), * end = m_freevars.end(); it != end; ++it) {
+                literal l(*it, false);
+                float pos = l_score(l,  h, factor, sqfactor, afactor);
+                float neg = l_score(~l, h, factor, sqfactor, afactor);
+                hp[l.index()] = pos;
+                hp[(~l).index()] = neg;
+                m_rating[l.var()] = pos * neg;
+            }
+        }
+
+        float l_score(literal l, svector<float> const& h, float factor, float sqfactor, float afactor) {
+            float sum = 0, tsum = 0;
+            literal_vector::iterator it = m_binary[l.index()].begin(), end = m_binary[l.index()].end();
+            for (; it != end; ++it) {
+                if (is_free(*it)) sum += h[it->index()]; 
+            }
+            // TBD walk ternary clauses.
+            sum = 0.1 + afactor*sum + sqfactor*tsum;
+            return std::min(m_config.m_max_score, sum);
+        }
+
+        bool is_free(literal l) const {
+            return !is_unit(l);
+        }
+        bool is_unit(literal l) const {
+            return false; // TBD track variables that are units
+        }
+
+        // ------------------------------------
+        // initialization
         
         void init_var(bool_var v) {
             m_assignment.push_back(l_undef);
@@ -151,6 +238,7 @@ namespace sat {
             m_watches.push_back(watch_list());
             m_bstamp.push_back(0);
             m_bstamp.push_back(0);
+            m_rating.push_back(0);
         }
 
         void init() {
