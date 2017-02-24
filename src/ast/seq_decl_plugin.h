@@ -79,6 +79,7 @@ enum seq_op_kind {
     _OP_REGEXP_EMPTY,
     _OP_REGEXP_FULL,
     _OP_SEQ_SKOLEM,
+    _OP_RE_UNROLL,
     LAST_SEQ_OP
 };
 
@@ -334,6 +335,7 @@ public:
         MATCH_UNARY(is_opt);
         bool is_loop(expr const* n, expr*& body, unsigned& lo, unsigned& hi);
         bool is_loop(expr const* n, expr*& body, unsigned& lo);
+        bool is_unroll(expr const* n) const { return is_app_of(n, m_fid, _OP_RE_UNROLL); }
     };
     str str;
     re  re;
