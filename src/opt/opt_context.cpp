@@ -1290,6 +1290,15 @@ namespace opt {
         return to_expr(get_upper_as_num(idx));
     }
 
+    void context::to_exprs(inf_eps const& n, expr_ref_vector& es) {
+        rational inf = n.get_infinity();
+        rational r   = n.get_rational();
+        rational eps = n.get_infinitesimal();
+        es.push_back(m_arith.mk_numeral(inf, inf.is_int()));
+        es.push_back(m_arith.mk_numeral(r, r.is_int()));
+        es.push_back(m_arith.mk_numeral(eps, eps.is_int()));
+    }
+
     expr_ref context::to_expr(inf_eps const& n) {
         rational inf = n.get_infinity();
         rational r   = n.get_rational();
@@ -1455,9 +1464,10 @@ namespace opt {
 
     void context::validate_maxsat(symbol const& id) {
         maxsmt& ms = *m_maxsmts.find(id);
+        TRACE("opt", tout << "Validate: " << id << "\n";);
         for (unsigned i = 0; i < m_objectives.size(); ++i) {
             objective const& obj = m_objectives[i];
-            if (obj.m_id == id) {
+            if (obj.m_id == id && obj.m_type == O_MAXSMT) {        
                 SASSERT(obj.m_type == O_MAXSMT);
                 rational value(0);
                 expr_ref val(m);

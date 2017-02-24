@@ -25,6 +25,9 @@ Notes:
 #include"filter_model_converter.h"
 #include"ast_util.h"
 #include"solver2tactic.h"
+#include"smt_solver.h"
+#include"solver.h"
+#include"mus.h"
 
 typedef obj_map<expr, expr *> expr2expr_map;
 
@@ -159,6 +162,8 @@ public:
             ref<filter_model_converter> fmc;
             if (in->unsat_core_enabled()) {
                 extract_clauses_and_dependencies(in, clauses, assumptions, bool2dep, fmc);
+                TRACE("mus", in->display_with_dependencies(tout);
+                      tout << clauses << "\n";);
                 if (in->proofs_enabled() && !assumptions.empty())
                     throw tactic_exception("smt tactic does not support simultaneous generation of proofs and unsat cores");
                 for (unsigned i = 0; i < clauses.size(); ++i) {
@@ -224,8 +229,26 @@ public:
                     pr = m_ctx->get_proof();
                 if (in->unsat_core_enabled()) {
                     unsigned sz = m_ctx->get_unsat_core_size();
+                    expr_ref_vector _core(m);
+                    for (unsigned i = 0; i < sz; ++i) {
+                        _core.push_back(m_ctx->get_unsat_core_expr(i));
+                    }
+                    if (sz > 0 && smt_params_helper(m_params_ref).core_minimize()) {
+                        std::cout << "size1 " << sz << " " << clauses << "\n";
+                        ref<solver> slv = mk_smt_solver(m, m_params_ref, m_logic);
+                        slv->assert_expr(clauses);
+                        mus mus(*slv.get());
+                        mus.add_soft(_core.size(), _core.c_ptr());
+                        lbool got_core = mus.get_mus(_core);
+                        sz = _core.size();
+                        std::cout << "size2 " << sz << "\n";
+                        if (got_core != l_true) {
+                            r = l_undef;
+                            goto undef_case;
+                        }
+                    }
                     for (unsigned i = 0; i < sz; i++) {
-                        expr * b = m_ctx->get_unsat_core_expr(i);
+                        expr * b = _core[i].get();
                         SASSERT(is_uninterp_const(b) && m.is_bool(b));
                         expr * d = bool2dep.find(b);
                         lcore = m.mk_join(lcore, m.mk_leaf(d));
@@ -236,6 +259,7 @@ public:
                 return;
             }
             case l_undef:
+            undef_case:
                 if (m_ctx->canceled()) {
                     throw tactic_exception(Z3_CANCELED_MSG);
                 }

@@ -290,3 +290,5 @@ solver_factory * mk_tactic2solver_factory(tactic * t) {
 solver_factory * mk_tactic_factory2solver_factory(tactic_factory * f) {
     return alloc(tactic_factory2solver_factory, f);
 }
+
+
