@@ -241,7 +241,6 @@ public:
                 return;
             }
             case l_undef:
-            undef_case:
                 if (m_ctx->canceled()) {
                     throw tactic_exception(Z3_CANCELED_MSG);
                 }
