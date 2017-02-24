@@ -38,14 +38,45 @@ static bool is_hex_digit(char ch, unsigned& d) {
     return false;
 }
 
+static bool is_octal_digit(char ch, unsigned& d) {
+    if ('0' <= ch && ch <= '7') {
+        d = ch - '0';
+        return true;
+    }
+    return false;
+}
+
 static bool is_escape_char(char const *& s, unsigned& result) {
-    unsigned d1, d2;
+    unsigned d1, d2, d3;
     if (*s != '\\' || *(s + 1) == 0) {
         return false;
     }
     if (*(s + 1) == 'x' &&
         is_hex_digit(*(s + 2), d1) && is_hex_digit(*(s + 3), d2)) {
         result = d1*16 + d2;
+        s += 4;
+        return true;
+    }
+    /* C-standard octal escapes: either 1, 2, or 3 octal digits,
+     * stopping either at 3 digits or at the first non-digit character.
+     */
+    /* 1 octal digit */
+    if (is_octal_digit(*(s + 1), d1) && !is_octal_digit(*(s + 2), d2)) {
+        result = d1;
+        s += 2;
+        return true;
+    }
+    /* 2 octal digits */
+    if (is_octal_digit(*(s + 1), d1) && is_octal_digit(*(s + 2), d2) &&
+            !is_octal_digit(*(s + 3), d3)) {
+        result = d1 * 8 + d2;
+        s += 3;
+        return true;
+    }
+    /* 3 octal digits */
+    if (is_octal_digit(*(s + 1), d1) && is_octal_digit(*(s + 2), d2) &&
+            is_octal_digit(*(s + 3), d3)) {
+        result = d1*64 + d2*8 + d3;
         s += 4;
         return true;
     }
