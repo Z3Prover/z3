@@ -1,21 +1,21 @@
 /*++
-Copyright (c) 2017 Microsoft Corporation
+  Copyright (c) 2017 Microsoft Corporation
 
-Module Name:
+  Module Name:
 
-    sat_local_search.h
+  sat_local_search.h
 
-Abstract:
+  Abstract:
    
-    Local search module for cardinality clauses.
+  Local search module for cardinality clauses.
 
-Author:
+  Author:
 
-    Sixue Liu 2017-2-21
+  Sixue Liu 2017-2-21
 
-Notes:
+  Notes:
 
---*/
+  --*/
 #ifndef _SAT_LOCAL_SEARCH_H_
 #define _SAT_LOCAL_SEARCH_H_
 
@@ -24,8 +24,33 @@ Notes:
 
 namespace sat {
 
-    class local_search {
+    class local_search_config {
+        unsigned m_seed;
+        unsigned m_cutoff_time;
+        unsigned m_strategy_id;
+        unsigned m_best_known_value;
+    public:
+        local_search_config()
+        {
+            m_seed = 0;
+            m_cutoff_time = 1;
+            m_strategy_id = 0;
+            m_best_known_value = UINT_MAX;
+        }
 
+        unsigned seed() const { return m_seed; }
+        unsigned cutoff_time() const { return m_cutoff_time;  }
+        unsigned strategy_id() const { return m_strategy_id;  }
+        unsigned best_known_value() const { return m_best_known_value;  }
+
+        void set_seed(unsigned s) { m_seed = s;  }
+        void set_cutoff_time(unsigned t) { m_cutoff_time = t;  }
+        void set_strategy_id(unsigned i) { m_strategy_id = i; }
+        void set_best_known_value(unsigned v) { m_best_known_value = v; }
+    };
+
+    class local_search {
+		
         typedef svector<bool> bool_vector;
 
         // data structure for a term in objective function
@@ -52,17 +77,33 @@ namespace sat {
         vector<svector<term> > constraint_term;  // constraint_term[i][j] means the j'th term of constraint i
 
         // parameters of the instance
-        unsigned num_vars() const { return var_term.size(); }             // var index from 1 to num_vars
+        unsigned num_vars() const { return var_term.size() - 1; }             // var index from 1 to num_vars
         unsigned num_constraints() const { return constraint_term.size(); } // constraint index from 1 to num_constraint
 
         
         // information about the variable
         int_vector             coefficient_in_ob_constraint; // initialized to be 0
-        int_vector             score; 
+        // int_vector             score; 
         int_vector             sscore;           // slack score
         
+        struct var_info {
+            bool m_conf_change;                  // whether its configure changes since its last flip
+            bool m_in_goodvar_stack;
+            int  m_score;
+            var_info():
+                m_conf_change(true),
+                m_in_goodvar_stack(false),
+                m_score(0)
+            {}
+        };
+        svector<var_info>       m_var_info;
+
+        inline int score(unsigned v) const { return m_var_info[v].m_score; }
+        inline bool already_in_goodvar_stack(unsigned v) const { return m_var_info[v].m_in_goodvar_stack; }
+        inline bool conf_change(unsigned v) const { return m_var_info[v].m_conf_change; }
+
         int_vector             time_stamp;       // the flip time stamp
-        bool_vector            conf_change;      // whether its configure changes since its last flip
+        // bool_vector            conf_change;      
         int_vector             cscc;             // how many times its constraint state configure changes since its last flip
         vector<bool_var_vector>     var_neighbor;     // all of its neighborhoods variable
         /* TBD: other scores */
@@ -70,8 +111,8 @@ namespace sat {
         // information about the constraints
         int_vector constraint_k;                // the right side k of a constraint
         int_vector constraint_slack;            // =constraint_k[i]-true_terms[i], if >=0 then sat
-        int_vector nb_slack;                    // constraint_k - ob_var(same in ob) - none_ob_true_terms_count. if < 0: some ob var might be flipped to false, result in an ob decreasing
-        bool_vector has_true_ob_terms; 
+        //int_vector nb_slack;                    // constraint_k - ob_var(same in ob) - none_ob_true_terms_count. if < 0: some ob var might be flipped to false, result in an ob decreasing
+        //bool_vector has_true_ob_terms; 
         
         // unsat constraint stack
         int_vector m_unsat_stack;               // store all the unsat constraits
@@ -79,7 +120,7 @@ namespace sat {
         
         // configuration changed decreasing variables (score>0 and conf_change==true)
         int_vector goodvar_stack;
-        bool_vector already_in_goodvar_stack;
+        // bool_vector already_in_goodvar_stack;
 
         // information about solution
         bool_vector      cur_solution;        // the current solution
@@ -92,6 +133,8 @@ namespace sat {
         // cutoff
         int      cutoff_time = 1;            // seconds
         int      max_steps = 2000000000;     // < 2147483647
+        clock_t start, stop;
+        double			best_time;
         
         // for tuning
         int   s_id = 0;                      // strategy id
@@ -101,7 +144,6 @@ namespace sat {
 
         void reinit();
         void reinit_orig();
-        void reinit_greedy();
 
         void init_cur_solution();
         void init_slack();
@@ -124,11 +166,35 @@ namespace sat {
 
         void display(std::ostream& out);
 
-        void unsat(int constraint_id) { m_unsat_stack.push_back(constraint_id); }
+        void print_info();
+
+        bool check_goodvar() {
+            unsigned g = 0;
+            for (unsigned v = 1; v <= num_vars(); ++v) {
+                if (conf_change(v) && score(v) > 0) {
+                    ++g;
+                    if (!already_in_goodvar_stack(v))
+                        std::cout << "3\n";
+                }
+            }
+            if (g == goodvar_stack.size())
+                return true;
+            else {
+                if (g < goodvar_stack.size())
+                    std::cout << "1\n";
+                else
+                    std::cout << "2\n"; // delete too many
+                return false;
+            }
+        }
 
         void add_clause(unsigned sz, literal const* c);
 
 
+        void unsat(int c) {
+            m_index_in_unsat_stack[c] = m_unsat_stack.size();
+            m_unsat_stack.push_back(c);
+        }
         // swap the deleted one with the last one and pop
         void sat(int c) {
             int last_unsat_constraint = m_unsat_stack.back();
@@ -143,13 +209,15 @@ namespace sat {
 
         ~local_search();
 
-        void add_soft(literal l, double weight);
+        void add_soft(int l, int weight);
 
         void add_cardinality(unsigned sz, literal const* c, unsigned k);
         
         lbool operator()();
 
-        
+        local_search_config& config() { return m_config;  }
+
+        local_search_config m_config;
     };
 }
 
