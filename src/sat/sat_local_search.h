@@ -28,14 +28,14 @@ namespace sat {
         unsigned m_seed;
         unsigned m_cutoff_time;
         unsigned m_strategy_id;
-        unsigned m_best_known_value;
+        int      m_best_known_value;
     public:
         local_search_config()
         {
             m_seed = 0;
             m_cutoff_time = 1;
             m_strategy_id = 0;
-            m_best_known_value = UINT_MAX;
+            m_best_known_value = INT_MAX;
         }
 
         unsigned seed() const { return m_seed; }
@@ -48,6 +48,9 @@ namespace sat {
         void set_strategy_id(unsigned i) { m_strategy_id = i; }
         void set_best_known_value(unsigned v) { m_best_known_value = v; }
     };
+
+#define MAX_VARS 5000
+#define MAX_CONSTRAINTS 100
 
     class local_search {
 		
@@ -73,12 +76,13 @@ namespace sat {
         
         
         // terms arrays
-        vector<svector<term> > var_term;         // var_term[i][j] means the j'th term of var i
-        vector<svector<term> > constraint_term;  // constraint_term[i][j] means the j'th term of constraint i
+        svector<term>  var_term[MAX_VARS];         // var_term[i][j] means the j'th term of var i
+        svector<term>  constraint_term[MAX_CONSTRAINTS];  // constraint_term[i][j] means the j'th term of constraint i
+        unsigned m_num_vars, m_num_constraints;
 
         // parameters of the instance
-        unsigned num_vars() const { return var_term.size() - 1; }             // var index from 1 to num_vars
-        unsigned num_constraints() const { return constraint_term.size(); } // constraint index from 1 to num_constraint
+        unsigned num_vars() const { return m_num_vars - 1; }             // var index from 1 to num_vars
+        unsigned num_constraints() const { return m_num_constraints; } // constraint index from 1 to num_constraint
 
         
         // information about the variable
@@ -111,7 +115,7 @@ namespace sat {
         // information about the constraints
         int_vector constraint_k;                // the right side k of a constraint
         int_vector constraint_slack;            // =constraint_k[i]-true_terms[i], if >=0 then sat
-        //int_vector nb_slack;                    // constraint_k - ob_var(same in ob) - none_ob_true_terms_count. if < 0: some ob var might be flipped to false, result in an ob decreasing
+        //int_vector nb_slack;                  // constraint_k - ob_var(same in ob) - none_ob_true_terms_count. if < 0: some ob var might be flipped to false, result in an ob decreasing
         //bool_vector has_true_ob_terms; 
         
         // unsat constraint stack
@@ -126,7 +130,7 @@ namespace sat {
         bool_vector      cur_solution;        // the current solution
         int              objective_value;     // the objective function value corresponds to the current solution
         bool_vector      best_solution;       // the best solution so far
-        int       best_objective_value = 0;   // the objective value corresponds to the best solution so far
+        int       best_objective_value = -1;   // the objective value corresponds to the best solution so far
         // for non-known instance, set as maximal
         int   best_known_value = INT_MAX;   // best known value for this instance
         

@@ -179,10 +179,12 @@ namespace sat {
     }
 
     void local_search::add_cardinality(unsigned sz, literal const* c, unsigned k) {
-        unsigned id = constraint_term.size();
-        constraint_term.push_back(svector<term>());
+        unsigned id = m_num_constraints;
+        ++m_num_constraints;
+        // constraint_term.push_back(svector<term>());
         for (unsigned i = 0; i < sz; ++i) {
-            var_term.reserve(c[i].var() + 1);
+            m_num_vars = std::max(c[i].var() + 1, m_num_vars);
+            // var_term.reserve(c[i].var() + 1);
             term t;
             t.constraint_id = id;
             t.var_id = c[i].var();
@@ -194,6 +196,9 @@ namespace sat {
     }
 
     local_search::local_search(solver& s) {
+
+        m_num_vars = 0;
+        m_num_constraints = 0;
 
         // copy units
         unsigned trail_sz = s.init_trail_size();
@@ -329,6 +334,8 @@ namespace sat {
 
     void local_search::flip(bool_var flipvar)
     {
+		static unsigned_vector hack_vector;
+		hack_vector.reset();
         // already changed truth value!!!!
         cur_solution[flipvar] = !cur_solution[flipvar];
 
@@ -360,6 +367,7 @@ namespace sat {
                         ++cscc[v];
                         //score[v] += constraint_weight[c];
                         ++m_var_info[v].m_score;
+						hack_vector.push_back(v);
                         // slack increasing var
                         if (cur_solution[v] == constraint_term[c][j].sense)
                             ++sscore[v];
@@ -392,6 +400,7 @@ namespace sat {
                         if (cur_solution[v] != constraint_term[c][j].sense) {
                             //score[v] += constraint_weight[c];
                             ++m_var_info[v].m_score;
+							hack_vector.push_back(v);
                             ++sscore[v];
                         }
                     }
@@ -412,9 +421,11 @@ namespace sat {
                     for (unsigned j = 0; j < constraint_term[c].size(); ++j) {
                         v = constraint_term[c][j].var_id;
                         // flip the slack increasing var will satisfy this constraint
-                        if (cur_solution[v] == constraint_term[c][j].sense)
-                            //score[v] += constraint_weight[c];
-                            ++m_var_info[v].m_score;
+						if (cur_solution[v] == constraint_term[c][j].sense) {
+							//score[v] += constraint_weight[c];
+							++m_var_info[v].m_score;
+							hack_vector.push_back(v);
+						}
                     }
                     break;
                 default:
@@ -442,6 +453,7 @@ namespace sat {
         }
         // update all flipvar's neighbor's conf_change to true, add goodvar/okvar
 
+#if 0
         unsigned sz = var_neighbor[flipvar].size();
         for (unsigned i = 0; i < sz; ++i) {
             v = var_neighbor[flipvar][i];
@@ -451,7 +463,18 @@ namespace sat {
                 m_var_info[v].m_in_goodvar_stack = true;
             }
         }
-
+#else
+		unsigned sz = hack_vector.size();
+		for (unsigned i = 0; i < sz; ++i)
+		{
+			v = hack_vector[i];
+			m_var_info[v].m_conf_change = true;
+			if (score(v) > 0 && !already_in_goodvar_stack(v)) {
+				goodvar_stack.push_back(v);
+				m_var_info[v].m_in_goodvar_stack = true;
+			}
+		}
+#endif
     }
 
     bool local_search::tie_breaker_sat(bool_var v, bool_var best_var)  {
