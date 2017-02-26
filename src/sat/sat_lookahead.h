@@ -8,6 +8,7 @@ Module Name:
 Abstract:
    
     Lookahead SAT solver in the style of March.
+    Thanks also to the presentation in sat11.w.    
 
 Author:
 
@@ -158,6 +159,114 @@ namespace sat {
         // pre-selection
         // see also 91 - 102 sat11.w
 
+        struct candidate {
+            bool_var m_var;
+            float    m_rating;
+            candidate(bool_var v, float r): m_var(v), m_rating(r) {}
+        };
+        svector<candidate> m_candidates;
+
+        float get_rating(bool_var v) const { return m_rating[v]; }
+        float get_rating(literal l) const { return get_rating(l.var()); }
+
+        bool_var select(unsigned level) {
+            init_pre_selection(level);
+            unsigned max_num_cand = level == 0 ? m_freevars.size() : m_config.m_level_cand / level;
+            max_num_cand = std::max(m_config.m_min_cutoff, max_num_cand);
+
+            float sum = 0;
+            for (bool newbies = false; ; newbies = true) {
+                sum = init_candidates(level, newbies);
+                if (!m_candidates.empty()) break;
+                if (is_sat()) {
+                    return null_bool_var;
+                }            
+            }
+            SASSERT(!m_candidates.empty());
+            // cut number of candidates down to max_num_cand.
+            // step 1. cut it to at most 2*max_num_cand.
+            // step 2. use a heap to sift through the rest.
+            bool progress = true;
+            while (progress && m_candidates.size() >= max_num_cand * 2) {
+                progress = false;
+                float mean = sum / (float)(m_candidates.size() + 0.0001);
+                sum = 0;
+                for (unsigned i = 0; i < m_candidates.size(); ++i) {
+                    if (m_candidates[i].m_rating >= mean) {
+                        sum += m_candidates[i].m_rating;
+                    }
+                    else {
+                        m_candidates[i] = m_candidates.back();
+                        m_candidates.pop_back();
+                        --i;
+                        progress = true;
+                    }
+                }                
+            }
+            SASSERT(!m_candidates.empty());
+            if (m_candidates.size() > max_num_cand) {
+                unsigned j = m_candidates.size()/2;
+                while (j > 0) {
+                    --j;
+                    sift_up(j);
+                }
+                while (true) {
+                    m_candidates[0] = m_candidates.back();
+                    m_candidates.pop_back();
+                    if (m_candidates.size() == max_num_cand) break;
+                    sift_up(0);
+                }
+            }
+            SASSERT(!m_candidates.empty() && m_candidates.size() <= max_num_cand);
+        }
+
+        void sift_up(unsigned j) {
+            unsigned i = j;
+            candidate c = m_candidates[j];
+            for (unsigned k = 2*j + 1; k < m_candidates.size(); i = k, k = 2*k + 1) {
+                // pick largest parent
+                if (k + 1 < m_candidates.size() && m_candidates[k].m_rating < m_candidates[k+1].m_rating) {
+                    ++k;
+                }
+                if (c.m_rating <= m_candidates[k].m_rating) break;
+                m_candidates[i] = m_candidates[k];
+            }
+            if (i > j) m_candidates[i] = c;
+        }
+
+        float init_candidates(unsigned level, bool newbies) {
+            m_candidates.reset();
+            float sum = 0;
+            for (bool_var const* it = m_freevars.begin(), * end = m_freevars.end(); it != end; ++it) {
+                bool_var x = *it;
+                if (!newbies) {
+                    // TBD filter out candidates based on prefix strings or similar method
+                }
+                m_candidates.push_back(candidate(x, m_rating[x]));
+                sum += m_rating[x];
+            }            
+            return sum;
+        }
+
+        bool is_sat() const {
+            for (bool_var const* it = m_freevars.begin(), * end = m_freevars.end(); it != end; ++it) {
+                literal l(*it, false);
+                literal_vector const& lits1 = m_binary[l.index()];
+                for (unsigned i = 0; i < lits1.size(); ++i) {
+                    if (!is_true(lits1[i])) return false;
+                }
+                literal_vector const& lits2 = m_binary[(~l).index()];
+                for (unsigned i = 0; i < lits2.size(); ++i) {
+                    if (!is_true(lits2[i])) return false;
+                }
+            }
+            for (unsigned i = 0; i < m_clauses.size(); ++i) {
+                clause& c = *m_clauses[i];
+                if (!is_true(c[0]) && !is_true(c[1])) return false;
+            }
+            return true;
+        }
+
         void init_pre_selection(unsigned level) {
             unsigned max_level = m_config.m_max_hlevel;
             if (level <= 1) {
@@ -215,7 +324,7 @@ namespace sat {
                 if (is_free(*it)) sum += h[it->index()]; 
             }
             // TBD walk ternary clauses.
-            sum = 0.1 + afactor*sum + sqfactor*tsum;
+            sum = (float)(0.1 + afactor*sum + sqfactor*tsum);
             return std::min(m_config.m_max_score, sum);
         }
 
@@ -225,6 +334,264 @@ namespace sat {
         bool is_unit(literal l) const {
             return false; // TBD track variables that are units
         }
+
+        // ------------------------------------       
+        // Implication graph
+        // Compute implication ordering and strongly connected components.
+        // sat11.w 103 - 114.
+        
+        struct arcs : public literal_vector {}; 
+        // Knuth uses a shared pool of fixed size for arcs.
+        // Should it be useful we could use this approach tooo 
+        // by changing the arcs abstraction and associated functions.
+
+        struct dfs_info {
+            unsigned m_rank;
+            unsigned m_height;
+            literal  m_parent;
+            arcs     m_next;
+            unsigned m_nextp;
+            literal  m_link;
+            literal  m_min;
+            literal  m_vcomp;
+            dfs_info() { reset(); }
+            void reset() {
+                m_rank = 0;
+                m_height = 0;
+                m_parent = null_literal;
+                m_next.reset();
+                m_link = null_literal;
+                m_min = null_literal;
+                m_vcomp = null_literal;
+                m_nextp = 0;
+            }
+        };
+        
+        literal           m_active; 
+        unsigned          m_rank; 
+        literal           m_settled;
+        vector<dfs_info>  m_dfs;
+        
+        void get_scc() {
+            init_scc();
+            for (unsigned i = 0; i < m_candidates.size(); ++i) {
+                literal lit(m_candidates[i].m_var, false);
+                if (get_rank(lit) == 0) get_scc(lit);
+                if (get_rank(~lit) == 0) get_scc(~lit);
+            }
+        }
+        void init_scc() {
+            inc_bstamp();
+            for (unsigned i = 0; i < m_candidates.size(); ++i) {
+                literal lit(m_candidates[i].m_var, false);
+                init_dfs_info(lit);
+                init_dfs_info(~lit);
+            }
+            for (unsigned i = 0; i < m_candidates.size(); ++i) {
+                literal lit(m_candidates[i].m_var, false);
+                init_arcs(lit);
+                init_arcs(~lit);
+            }
+            // set nextp = 0?
+            m_rank = 0; 
+            m_active = null_literal;
+        }
+        void init_dfs_info(literal l) {
+            unsigned idx = l.index();
+            m_dfs[idx].reset();
+            set_bstamp(l);
+        }
+        // arcs are added in the opposite direction of implications.
+        // So for implications l => u we add arcs u -> l
+        void init_arcs(literal l) {
+            literal_vector const& succ = m_binary[l.index()];
+            for (unsigned i = 0; i < succ.size(); ++i) {
+                literal u = succ[i];
+                SASSERT(u != l);
+                if (u.index() > l.index() && is_stamped(u)) {
+                    add_arc(~l, ~u);
+                    add_arc( u,  l);
+                }
+            }
+        }
+        void add_arc(literal u, literal v) { m_dfs[u.index()].m_next.push_back(v); }
+        bool has_arc(literal v) const { 
+            return m_dfs[v.index()].m_next.size() > m_dfs[v.index()].m_nextp; 
+        } 
+        literal pop_arc(literal u) { return m_dfs[u.index()].m_next[m_dfs[u.index()].m_nextp++]; }
+        unsigned num_next(literal u) const { return m_dfs[u.index()].m_next.size(); }
+        literal get_next(literal u, unsigned i) const { return m_dfs[u.index()].m_next[i]; }
+        literal get_min(literal v) const { return m_dfs[v.index()].m_min; }
+        unsigned get_rank(literal v) const { return m_dfs[v.index()].m_rank; }
+        unsigned get_height(literal v) const { return m_dfs[v.index()].m_height; }
+        literal get_parent(literal u) const { return m_dfs[u.index()].m_parent; }
+        literal get_link(literal u) const { return m_dfs[u.index()].m_link; }
+        literal get_vcomp(literal u) const { return m_dfs[u.index()].m_vcomp; }
+        void set_link(literal v, literal u) { m_dfs[v.index()].m_link = u; }
+        void set_min(literal v, literal u) { m_dfs[v.index()].m_min = u; }
+        void set_rank(literal v, unsigned r) { m_dfs[v.index()].m_rank = r; }
+        void set_height(literal v, unsigned h) { m_dfs[v.index()].m_height = h; }
+        void set_parent(literal v, literal p) { m_dfs[v.index()].m_parent = p; }
+        void set_vcomp(literal v, literal u) { m_dfs[v.index()].m_vcomp = u; }
+        void get_scc(literal v) {
+            set_parent(v, null_literal);
+            activate_scc(v);
+            literal u;
+            do {
+                literal ll = get_min(v);
+                if (!has_arc(v)) {
+                    u = get_parent(v);
+                    if (v == ll) {
+                        found_scc(v);
+                    }
+                    else if (get_rank(ll) < get_rank(get_min(u))) {
+                        set_min(u, ll);
+                    }
+                    v = u;
+                }
+                else {
+                    literal u = pop_arc(v);
+                    unsigned r = get_rank(u);
+                    if (r > 0) {
+                        if (r < get_rank(ll)) set_min(v, u);
+                    }
+                    else {
+                        set_parent(u, v);
+                        v = u;
+                        activate_scc(v);
+                    }
+                }                
+            }
+            while (v != null_literal);
+        }
+        void activate_scc(literal l) {
+            SASSERT(get_rank(l) == 0);
+            set_rank(l, ++m_rank);
+            set_link(l, m_active);
+            set_min(l, l);
+            m_active = l;
+        }
+        // make v root of the scc equivalence class
+        // set vcomp to be the highest rated literal
+        void found_scc(literal v) {
+            literal t = m_active; 
+            m_active = get_link(v);
+            literal best = v;
+            float best_rating = get_rating(v);
+            set_rank(v, UINT_MAX);
+            while (t != v) {
+                SASSERT(t != ~v);
+                set_rank(t, UINT_MAX);
+                set_parent(t, v);
+                float t_rating = get_rating(t);
+                if (t_rating > best_rating) {
+                    best = t;
+                    best_rating = t_rating;
+                }
+                t = get_link(t);
+            }
+            set_parent(v, v);
+            set_vcomp(v, best);
+            if (get_rank(~v) == UINT_MAX) {
+                set_vcomp(v, ~get_vcomp(get_parent(~v))); // TBD check semantics
+            }
+        } 
+
+        // ------------------------------------
+        // lookahead forest
+        // sat11.w 115-121
+
+        literal m_root_child;
+
+        literal get_child(literal u) const { 
+            if (u == null_literal) return m_root_child; 
+            return m_dfs[u.index()].m_min; 
+        }
+        void set_child(literal v, literal u) { 
+            if (v == null_literal) m_root_child = u; 
+            else m_dfs[v.index()].m_min = u; 
+        }
+
+        void construct_forest() {
+            find_heights();
+            construct_lookahead_table();
+        }
+        void find_heights() {
+            literal pp = null_literal;
+            set_child(pp, null_literal);
+            unsigned h = 0;
+            literal w;
+            for (literal u = m_settled; u != null_literal; u = get_link(u)) {
+                literal p = get_parent(u);
+                if (p != pp) { 
+                    h = 0; 
+                    w = null_literal; 
+                    pp = p; 
+                }
+                for (unsigned j = 0; j < num_next(~u); ++j) {
+                    literal v = ~get_next(~u, j);
+                    literal pv = get_parent(v);
+                    if (pv == p) continue;
+                    unsigned hh = get_height(pv);
+                    if (hh >= h) {
+                        h = hh + 1; 
+                        w = pv;
+                    }
+                }
+                if (p == u) { // u is an equivalence class representative
+                    literal v = get_child(w);
+                    set_height(u, h);
+                    set_child(u, null_literal);
+                    set_link(u, v);
+                    set_child(w, u);
+                }
+            }
+        }
+        struct literal_offset {
+            literal  m_lit;
+            unsigned m_offset;
+            literal_offset(literal l): m_lit(l), m_offset(0) {}
+        };
+        svector<literal_offset> m_lookahead;
+        void set_offset(unsigned idx, unsigned offset) {
+            m_lookahead[idx].m_offset = offset;
+        }
+        void set_lookahead(literal l) {
+            m_lookahead.push_back(literal_offset(l));
+        }
+        void construct_lookahead_table() {
+            literal u = get_child(null_literal), v = null_literal;
+            unsigned offset = 0;
+            m_lookahead.reset();
+            while (u != null_literal) {                
+                set_rank(u, m_lookahead.size());
+                set_lookahead(get_vcomp(u));
+                if (null_literal != get_child(u)) {
+                    set_parent(u, v);
+                    v = u;
+                    u = get_child(u);
+                }
+                else {
+                    while (true) {
+                        set_offset(get_rank(u), offset);
+                        offset += 2;
+                        set_parent(u, v == null_literal ? v : get_vcomp(v));
+                        u = get_link(u);
+                        if (u == null_literal && v != null_literal) {
+                            u = v;
+                            v = get_parent(u);
+                        }
+                        else {
+                            break;
+                        }
+                    }
+                }
+            }
+            SASSERT(2*m_lookahead.size() == offset);
+            TRACE("sat", for (unsigned i = 0; i < m_lookahead.size(); ++i) 
+                    tout << m_lookahead[i].m_lit << " : " << m_lookahead[i].m_offset << "\n";);
+        }
+        
 
         // ------------------------------------
         // initialization
@@ -239,6 +606,8 @@ namespace sat {
             m_bstamp.push_back(0);
             m_bstamp.push_back(0);
             m_rating.push_back(0);
+            m_dfs.push_back(dfs_info());
+            m_dfs.push_back(dfs_info());
         }
 
         void init() {
@@ -535,6 +904,7 @@ namespace sat {
 
         bool is_fixed(literal l) const { return value(l) != l_undef; }
         bool is_contrary(literal l) const { return value(l) == l_false; }
+        bool is_true(literal l) const { return value(l) == l_true; }
         void set_conflict() { m_inconsistent = true; }
         lbool value(literal l) const { return static_cast<lbool>(m_assignment[l.index()]); }
         unsigned scope_lvl() const { return m_trail_lim.size(); }
