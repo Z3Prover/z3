@@ -435,6 +435,8 @@ namespace z3 {
         Z3_ast_kind kind() const { Z3_ast_kind r = Z3_get_ast_kind(ctx(), m_ast); check_error(); return r; }
         unsigned hash() const { unsigned r = Z3_get_ast_hash(ctx(), m_ast); check_error(); return r; }
         friend std::ostream & operator<<(std::ostream & out, ast const & n);
+        std::string to_string() const { return std::string(Z3_ast_to_string(ctx(), m_ast)); }
+
 
         /**
            \brief Return true if the ASTs are structurally identical.
@@ -757,7 +759,25 @@ namespace z3 {
             }
             return result;
         }
-           
+
+        Z3_lbool bool_value() const {
+            return Z3_get_bool_value(ctx(), m_ast);
+        }
+
+        expr numerator() const { 
+            assert(is_numeral());
+            Z3_ast r = Z3_get_numerator(ctx(), m_ast);
+            check_error();
+            return expr(ctx(),r);
+        }
+
+
+        expr denominator() const { 
+            assert(is_numeral());
+            Z3_ast r = Z3_get_denominator(ctx(), m_ast);
+            check_error();
+            return expr(ctx(),r);
+        }
 
         operator Z3_app() const { assert(is_app()); return reinterpret_cast<Z3_app>(m_ast); }
 
@@ -875,12 +895,22 @@ namespace z3 {
         friend expr operator*(expr const & a, int b);
         friend expr operator*(int a, expr const & b);
 
-        /**
-           \brief Power operator
-        */
+        /*  \brief Power operator  */
         friend expr pw(expr const & a, expr const & b);
         friend expr pw(expr const & a, int b);
         friend expr pw(int a, expr const & b);
+
+        /* \brief mod operator */
+        friend expr mod(expr const& a, expr const& b);
+        friend expr mod(expr const& a, int b);
+        friend expr mod(int a, expr const& b);
+
+        /* \brief rem operator */
+        friend expr rem(expr const& a, expr const& b);
+        friend expr rem(expr const& a, int b);
+        friend expr rem(int a, expr const& b);
+
+        friend expr is_int(expr const& e);
 
         friend expr operator/(expr const & a, expr const & b);
         friend expr operator/(expr const & a, int b);
@@ -1012,34 +1042,46 @@ namespace z3 {
 
    };
 
+#define _Z3_MK_BIN_(a, b, binop)                        \
+    check_context(a, b);                                \
+    Z3_ast r = binop(a.ctx(), a, b);                    \
+    a.check_error();                                    \
+    return expr(a.ctx(), r);                            \
+
+
     inline expr implies(expr const & a, expr const & b) {
-        check_context(a, b);
-        assert(a.is_bool() && b.is_bool());
-        Z3_ast r = Z3_mk_implies(a.ctx(), a, b);
-        a.check_error();
-        return expr(a.ctx(), r);
+        assert(a.is_bool() && b.is_bool());     
+        _Z3_MK_BIN_(a, b, Z3_mk_implies);
     }
     inline expr implies(expr const & a, bool b) { return implies(a, a.ctx().bool_val(b)); }
     inline expr implies(bool a, expr const & b) { return implies(b.ctx().bool_val(a), b); }
 
 
-    inline expr pw(expr const & a, expr const & b) {
-        assert(a.is_arith() && b.is_arith());
-        check_context(a, b);
-        Z3_ast r = Z3_mk_power(a.ctx(), a, b);
-        a.check_error();
-        return expr(a.ctx(), r);
-    }
+    inline expr pw(expr const & a, expr const & b) { _Z3_MK_BIN_(a, b, Z3_mk_power);   }
     inline expr pw(expr const & a, int b) { return pw(a, a.ctx().num_val(b, a.get_sort())); }
     inline expr pw(int a, expr const & b) { return pw(b.ctx().num_val(a, b.get_sort()), b); }
 
+    inline expr mod(expr const& a, expr const& b) { _Z3_MK_BIN_(a, b, Z3_mk_mod);   }
+    inline expr mod(expr const & a, int b) { return mod(a, a.ctx().num_val(b, a.get_sort())); }
+    inline expr mod(int a, expr const & b) { return mod(b.ctx().num_val(a, b.get_sort()), b); }
 
-    inline expr operator!(expr const & a) {
-        assert(a.is_bool());
-        Z3_ast r = Z3_mk_not(a.ctx(), a);
-        a.check_error();
-        return expr(a.ctx(), r);
-    }
+    inline expr rem(expr const& a, expr const& b) { _Z3_MK_BIN_(a, b, Z3_mk_rem);   }
+    inline expr rem(expr const & a, int b) { return rem(a, a.ctx().num_val(b, a.get_sort())); }
+    inline expr rem(int a, expr const & b) { return rem(b.ctx().num_val(a, b.get_sort()), b); }
+
+#undef _Z3_MK_BIN_
+
+#define _Z3_MK_UN_(a, mkun)                     \
+    Z3_ast r = mkun(a.ctx(), a);                \
+    a.check_error();                            \
+    return expr(a.ctx(), r);                    \
+
+
+    inline expr operator!(expr const & a) { assert(a.is_bool()); _Z3_MK_UN_(a, Z3_mk_not); }
+
+    inline expr is_int(expr const& e) { _Z3_MK_UN_(e, Z3_mk_is_int); }
+
+#undef _Z3_MK_UN_
 
     inline expr operator&&(expr const & a, expr const & b) {
         check_context(a, b);
@@ -1944,6 +1986,8 @@ namespace z3 {
         friend tactic repeat(tactic const & t, unsigned max);
         friend tactic with(tactic const & t, params const & p);
         friend tactic try_for(tactic const & t, unsigned ms);
+        friend tactic par_or(unsigned n, tactic const* tactics);
+        friend tactic par_and_then(tactic const& t1, tactic const& t2);
         param_descrs get_param_descrs() { return param_descrs(ctx(), Z3_tactic_get_param_descrs(ctx(), m_tactic)); }
     };
 
@@ -1977,7 +2021,21 @@ namespace z3 {
         t.check_error();
         return tactic(t.ctx(), r);
     }
+    inline tactic par_or(unsigned n, tactic const* tactics) {
+        if (n == 0) {
+            throw exception("a non-zero number of tactics need to be passed to par_or");
+        }
+        array<Z3_tactic> buffer(n);
+        for (unsigned i = 0; i < n; ++i) buffer[i] = tactics[i];
+        return tactic(tactics[0].ctx(), Z3_tactic_par_or(tactics[0].ctx(), n, buffer.ptr()));
+    }
 
+    inline tactic par_and_then(tactic const & t1, tactic const & t2) {
+        check_context(t1, t2);
+        Z3_tactic r = Z3_tactic_par_and_then(t1.ctx(), t1, t2);
+        t1.check_error();
+        return tactic(t1.ctx(), r);
+    }
 
     class probe : public object {
         Z3_probe m_probe;

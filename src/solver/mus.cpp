@@ -89,6 +89,7 @@ struct mus::imp {
     lbool get_mus1(expr_ref_vector& mus) {
         ptr_vector<expr> unknown(m_lit2expr.size(), m_lit2expr.c_ptr());
         ptr_vector<expr> core_exprs;
+        TRACE("mus", m_solver.display(tout););
         while (!unknown.empty()) { 
             IF_VERBOSE(12, verbose_stream() << "(mus reducing core: " << unknown.size() << " new core: " << mus.size() << ")\n";);
             TRACE("mus", display_vec(tout << "core:  ", unknown); display_vec(tout << "mus:   ", mus););

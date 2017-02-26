@@ -868,6 +868,9 @@ class ExprRef(AstRef):
         _args, sz = _to_ast_array((a, b))
         return BoolRef(Z3_mk_distinct(self.ctx_ref(), 2, _args), self.ctx)
 
+    def params(self):
+        return self.decl().params()
+
     def decl(self):
         """Return the Z3 function declaration associated with a Z3 application.
 
@@ -6716,11 +6719,23 @@ class OptimizeObjective:
         opt = self._opt
         return _to_expr_ref(Z3_optimize_get_upper(opt.ctx.ref(), opt.optimize, self._value), opt.ctx)
 
+    def lower_values(self):
+        opt = self._opt
+        return AstVector(Z3_optimize_get_lower_as_vector(opt.ctx.ref(), opt.optimize, self._value), opt.ctx)
+
+    def upper_values(self):
+        opt = self._opt
+        return AstVector(Z3_optimize_get_upper_as_vector(opt.ctx.ref(), opt.optimize, self._value), opt.ctx)
+
     def value(self):
         if self._is_max:
             return self.upper()
         else:
             return self.lower()
+
+    def __str__(self):
+        return "%s:%s" % (self._value, self._is_max)
+
 
 class Optimize(Z3PPObject):
     """Optimize API provides methods for solving using objective functions and weighted soft constraints"""
@@ -6825,6 +6840,16 @@ class Optimize(Z3PPObject):
         if not isinstance(obj, OptimizeObjective):
             raise Z3Exception("Expecting objective handle returned by maximize/minimize")
         return obj.upper()
+
+    def lower_values(self, obj):
+        if not isinstance(obj, OptimizeObjective):
+            raise Z3Exception("Expecting objective handle returned by maximize/minimize")
+        return obj.lower_values()
+
+    def upper_values(self, obj):
+        if not isinstance(obj, OptimizeObjective):
+            raise Z3Exception("Expecting objective handle returned by maximize/minimize")
+        return obj.upper_values()
 
     def from_file(self, filename):
         """Parse assertions and objectives from a file"""

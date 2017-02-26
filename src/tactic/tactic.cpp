@@ -23,7 +23,6 @@ Notes:
 #include"model_v2_pp.h"
 
 
-
 struct tactic_report::imp {
     char const *    m_id;
     goal const &    m_goal;
@@ -174,6 +173,7 @@ void exec(tactic & t, goal_ref const & in, goal_ref_buffer & result, model_conve
         throw ex;
     }
 }
+
 
 lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, proof_ref & pr, expr_dependency_ref & core, std::string & reason_unknown) {
     bool models_enabled = g->models_enabled();

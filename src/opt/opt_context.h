@@ -207,6 +207,9 @@ namespace opt {
         expr_ref get_lower(unsigned idx);
         expr_ref get_upper(unsigned idx);
 
+        void get_lower(unsigned idx, expr_ref_vector& es) { to_exprs(get_lower_as_num(idx), es); }
+        void get_upper(unsigned idx, expr_ref_vector& es) { to_exprs(get_upper_as_num(idx), es); }
+
         std::string to_string() const;
 
 
@@ -238,6 +241,7 @@ namespace opt {
         lbool adjust_unknown(lbool r);
         bool scoped_lex();
         expr_ref to_expr(inf_eps const& n);
+        void to_exprs(inf_eps const& n, expr_ref_vector& es);
 
         void reset_maxsmts();
         void import_scoped_state();
