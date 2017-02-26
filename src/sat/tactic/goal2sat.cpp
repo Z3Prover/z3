@@ -65,7 +65,7 @@ struct goal2sat::imp {
     expr_ref_vector             m_trail;
     expr_ref_vector             m_interpreted_atoms;
     bool                        m_default_external;
-    bool                        m_cardinality_solver;
+    bool                        m_xor_solver;
     
     imp(ast_manager & _m, params_ref const & p, sat::solver & s, atom2bool_var & map, dep2asm_map& dep2asm, bool default_external):
         m(_m),
@@ -82,9 +82,9 @@ struct goal2sat::imp {
     }
         
     void updt_params(params_ref const & p) {
-        m_ite_extra       = p.get_bool("ite_extra", true);
-        m_max_memory      = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
-        m_cardinality_solver = p.get_bool("cardinality_solver", false);
+        m_ite_extra  = p.get_bool("ite_extra", true);
+        m_max_memory = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
+        m_xor_solver = p.get_bool("xor_solver", false);
     }
 
     void throw_op_not_handled(std::string const& s) {
@@ -560,7 +560,7 @@ struct goal2sat::imp {
 
     unsigned get_num_args(app* t) {
         
-        if (m.is_iff(t) && m_cardinality_solver) {
+        if (m.is_iff(t) && m_xor_solver) {
             unsigned n = 2;
             while (m.is_iff(t->get_arg(1))) {
                 ++n;
@@ -574,7 +574,7 @@ struct goal2sat::imp {
     }
 
     expr* get_arg(app* t, unsigned idx) {
-        if (m.is_iff(t) && m_cardinality_solver) {        
+        if (m.is_iff(t) && m_xor_solver) {        
             while (idx >= 1) {
                 SASSERT(m.is_iff(t));
                 t = to_app(t->get_arg(1));

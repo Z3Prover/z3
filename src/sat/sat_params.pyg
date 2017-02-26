@@ -26,6 +26,6 @@ def_module_params('sat',
                           ('dimacs.core', BOOL, False, 'extract core from DIMACS benchmarks'),
                           ('drat.file', SYMBOL, '', 'file to dump DRAT proofs'),
                           ('drat.check', BOOL, False, 'build up internal proof and check'),
-                          ('cardinality.solver', BOOL, False, 'use cardinality/xor solver'),
-                          ('cliff', UINT, 0, 'my favorite parameter'),
+                          ('cardinality.solver', BOOL, False, 'use cardinality solver'),
+	                  ('xor.solver', BOOL, False, 'use xor solver'),
                        ))
