@@ -830,22 +830,21 @@ namespace sat {
         }
 
         bool choose1(literal& l) {
-            literal_vector P;
-            pre_select(P);
+            
             l = null_literal;
-            if (P.empty()) {
+            if (m_lookahead.empty()) {
                 return true;
             }
             unsigned h = 0, count = 1;
-            for (unsigned i = 0; i < P.size(); ++i) {
-                literal lit = P[i];
+            for (unsigned i = 0; i < m_lookahead.size(); ++i) {
+                literal lit = m_lookahead[i].m_lit;
 
                 push(lit);
-                if (do_double()) double_look(P);
+                if (do_double()) double_look();
                 if (inconsistent()) {
                     pop();
                     assign(~lit);
-                    if (do_double()) double_look(P);
+                    if (do_double()) double_look();
                     if (inconsistent()) return true;
                     continue;
                 }
@@ -853,7 +852,7 @@ namespace sat {
                 pop();
                 
                 push(~lit);
-                if (do_double()) double_look(P);
+                if (do_double()) double_look();
                 bool unsat2 = inconsistent();
                 unsigned diff2 = diff();
                 pop();
@@ -876,10 +875,10 @@ namespace sat {
             return l != null_literal;
         }
 
-        void double_look(literal_vector const& P) {
+        void double_look() {
             bool unsat;
-            for (unsigned i = 0; !inconsistent() && i < P.size(); ++i) {
-                literal lit = P[i];
+            for (unsigned i = 0; !inconsistent() && i < m_lookahead.size(); ++i) {
+                literal lit = m_lookahead[i].m_lit;
                 if (value(lit) != l_undef) continue;
 
                 push(lit);
@@ -927,75 +926,6 @@ namespace sat {
         void set_inconsistent() { m_inconsistent = true; }
         bool inconsistent() { return m_inconsistent; }
 
-        void pre_select(literal_vector& P) {
-            select_variables(P);
-            order_by_implication_trees(P);            
-        }
-
-        void order_by_implication_trees(literal_vector& P) {
-            literal_set roots;
-            literal_vector nodes, parent;
-
-            //
-            // Extract binary clauses in watch list. 
-            // Produce implication graph between literals in P.
-            //
-            
-            for (unsigned i = 0; i < P.size(); ++i) {
-                literal lit1 = P[i], lit2;
-
-                //
-                // lit2 => lit1, where lit2 is a root.
-                // make lit1 a root instead of lit2
-                //
-
-                literal_vector const& lits1 = m_binary[(~lit1).index()];
-                unsigned sz = lits1.size();
-                for (unsigned i = 0; i < sz; ++i) {
-                    literal lit2 = lits1[i];
-                    if (roots.contains(~lit2)) {
-                        // ~lit2 => lit1
-                        // if lit2 is a root, put it under lit2
-                        parent.setx((~lit2).index(), lit1, null_literal);
-                        roots.remove(~lit2);
-                        roots.insert(lit1);
-                        goto found;
-                    }
-                }
-
-                //
-                // lit1 => lit2.n
-                // if lit2 is a node, put lit1 above lit2
-                //
-
-                literal_vector const& lits2 = m_binary[(~lit2).index()];
-                sz = lits2.size();
-                for (unsigned i = 0; i < sz; ++i) {
-                    literal lit2 = lits2[i];
-                    if (nodes.contains(lit2)) {
-                        // lit1 => lit2
-                        parent.setx(lit1.index(), lit2, null_literal);
-                        nodes.insert(lit1);
-                        goto found;
-                    }
-                }
-                nodes.push_back(lit1);
-                roots.insert(lit1);                
-            found:
-                ;
-            }    
-            TRACE("sat", 
-                  tout << "implication trees\n";
-                  for (unsigned i = 0; i < parent.size(); ++i) {
-                      literal p = parent[i];
-                      if (p != null_literal) {
-                          tout << to_literal(i) << " |-> " << p << "\n";
-                      }
-                  });
-
-            // TBD: extract ordering.
-            
-        }
 
         void select_variables(literal_vector& P) {
             for (unsigned i = 0; i < s.num_vars(); ++i) {
