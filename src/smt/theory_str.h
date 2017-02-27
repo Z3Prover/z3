@@ -27,31 +27,12 @@ Revision History:
 #include<set>
 #include<stack>
 #include<vector>
-#include"str_rewriter.h"
+#include<map>
+#include"seq_decl_plugin.h"
 #include"union_find.h"
+#include"theory_seq_empty.h"
 
 namespace smt {
-
-    class str_value_factory : public value_factory {
-        str_util m_util;
-    public:
-        str_value_factory(ast_manager & m, family_id fid) :
-            value_factory(m, fid),
-            m_util(m) {}
-        virtual ~str_value_factory() {}
-        virtual expr * get_some_value(sort * s) {
-            return m_util.mk_string("some value");
-        }
-        virtual bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) {
-            v1 = m_util.mk_string("value 1");
-            v2 = m_util.mk_string("value 2");
-            return true;
-        }
-        virtual expr * get_fresh_value(sort * s) {
-            return m_util.mk_fresh_string();
-        }
-        virtual void register_value(expr * n) { /* Ignore */ }
-    };
 
     // rather than modify obj_pair_map I inherit from it and add my own helper methods
     class theory_str_contain_pair_bool_map_t : public obj_pair_map<expr, expr, expr*> {
@@ -110,12 +91,12 @@ namespace smt {
         typedef union_find<theory_str> th_union_find;
 
         typedef map<rational, expr*, obj_hash<rational>, default_eq<rational> > rational_map;
-        struct str_hash_proc {
-            unsigned operator()(std::string const & s) const {
-            	return string_hash(s.c_str(), static_cast<unsigned>(s.length()), 17);
+        struct zstring_hash_proc {
+            unsigned operator()(zstring const & s) const {
+            	return string_hash(s.encode().c_str(), static_cast<unsigned>(s.length()), 17);
             }
         };
-        typedef map<std::string, expr*, str_hash_proc, default_eq<std::string> > string_map;
+        typedef map<zstring, expr*, zstring_hash_proc, default_eq<zstring> > string_map;
 
     protected:
         theory_str_params const & m_params;
@@ -188,14 +169,14 @@ namespace smt {
 
         bool search_started;
         arith_util m_autil;
-        str_util m_strutil;
+        seq_util u;
         int sLevel;
 
         bool finalCheckProgressIndicator;
 
         expr_ref_vector m_trail; // trail for generated terms
 
-        str_value_factory * m_factory;
+        seq_factory * m_factory;
 
         // terms we couldn't go through set_up_axioms() with because they weren't internalized
         expr_ref_vector m_delayed_axiom_setup_terms;
@@ -259,7 +240,7 @@ namespace smt {
         std::map<std::pair<expr*, std::string>, expr*> regex_in_bool_map;
         std::map<expr*, std::set<std::string> > regex_in_var_reg_str_map;
 
-        std::map<expr*, nfa> regex_nfa_cache; // Regex term --> NFA
+        // std::map<expr*, nfa> regex_nfa_cache; // Regex term --> NFA
 
         char * char_set;
         std::map<char, int> charSetLookupTable;
@@ -327,7 +308,7 @@ namespace smt {
         void assert_implication(expr * premise, expr * conclusion);
         expr * rewrite_implication(expr * premise, expr * conclusion);
 
-        expr * mk_string(std::string str);
+        expr * mk_string(zstring const& str);
         expr * mk_string(const char * str);
 
         app * mk_strlen(expr * e);
@@ -358,48 +339,6 @@ namespace smt {
         app * mk_unroll_bound_var();
         app * mk_unroll_test_var();
         void add_nonempty_constraint(expr * s);
-
-        bool is_concat(app const * a) const { return a->is_app_of(get_id(), OP_STRCAT); }
-        bool is_concat(enode const * n) const { return is_concat(n->get_owner()); }
-        bool is_string(app const * a) const { return a->is_app_of(get_id(), OP_STR); }
-        bool is_string(enode const * n) const { return is_string(n->get_owner()); }
-        bool is_strlen(app const * a) const { return a->is_app_of(get_id(), OP_STRLEN); }
-        bool is_strlen(enode const * n) const { return is_strlen(n->get_owner()); }
-        bool is_CharAt(app const * a) const { return a->is_app_of(get_id(), OP_STR_CHARAT); }
-        bool is_CharAt(enode const * n) const { return is_CharAt(n->get_owner()); }
-        bool is_StartsWith(app const * a) const { return a->is_app_of(get_id(), OP_STR_STARTSWITH); }
-        bool is_StartsWith(enode const * n) const { return is_StartsWith(n->get_owner()); }
-        bool is_EndsWith(app const * a) const { return a->is_app_of(get_id(), OP_STR_ENDSWITH); }
-        bool is_EndsWith(enode const * n) const { return is_EndsWith(n->get_owner()); }
-        bool is_Contains(app const * a) const { return a->is_app_of(get_id(), OP_STR_CONTAINS); }
-        bool is_Contains(enode const * n) const { return is_Contains(n->get_owner()); }
-        bool is_Indexof(app const * a) const { return a->is_app_of(get_id(), OP_STR_INDEXOF); }
-        bool is_Indexof(enode const * n) const { return is_Indexof(n->get_owner()); }
-        bool is_Indexof2(app const * a) const { return a->is_app_of(get_id(), OP_STR_INDEXOF2); }
-        bool is_Indexof2(enode const * n) const { return is_Indexof2(n->get_owner()); }
-        bool is_LastIndexof(app const * a) const { return a->is_app_of(get_id(), OP_STR_LASTINDEXOF); }
-        bool is_LastIndexof(enode const * n) const { return is_LastIndexof(n->get_owner()); }
-        bool is_Substr(app const * a) const { return a->is_app_of(get_id(), OP_STR_SUBSTR); }
-        bool is_Substr(enode const * n) const { return is_Substr(n->get_owner()); }
-        bool is_Replace(app const * a) const { return a->is_app_of(get_id(), OP_STR_REPLACE); }
-        bool is_Replace(enode const * n) const { return is_Replace(n->get_owner()); }
-        bool is_str_to_int(app const * a) const { return a->is_app_of(get_id(), OP_STR_STR2INT); }
-		bool is_str_to_int(enode const * n) const { return is_str_to_int(n->get_owner()); }
-		bool is_int_to_str(app const * a) const { return a->is_app_of(get_id(), OP_STR_INT2STR); }
-        bool is_int_to_str(enode const * n) const { return is_int_to_str(n->get_owner()); }
-
-        bool is_RegexIn(app const * a) const { return a->is_app_of(get_id(), OP_RE_REGEXIN); }
-        bool is_RegexIn(enode const * n) const { return is_RegexIn(n->get_owner()); }
-        bool is_RegexConcat(app const * a) const { return a->is_app_of(get_id(), OP_RE_REGEXCONCAT); }
-        bool is_RegexConcat(enode const * n) const { return is_RegexConcat(n->get_owner()); }
-        bool is_RegexStar(app const * a) const { return a->is_app_of(get_id(), OP_RE_REGEXSTAR); }
-        bool is_RegexStar(enode const * n) const { return is_RegexStar(n->get_owner()); }
-        bool is_RegexUnion(app const * a) const { return a->is_app_of(get_id(), OP_RE_REGEXUNION); }
-        bool is_RegexUnion(enode const * n) const { return is_RegexUnion(n->get_owner()); }
-        bool is_Str2Reg(app const * a) const { return a->is_app_of(get_id(), OP_RE_STR2REGEX); }
-		bool is_Str2Reg(enode const * n) const { return is_Str2Reg(n->get_owner()); }
-		bool is_Unroll(app const * a) const { return a->is_app_of(get_id(), OP_RE_UNROLL); }
-		bool is_Unroll(enode const * n) const { return is_Unroll(n->get_owner()); }
 
         void instantiate_concat_axiom(enode * cat);
         void try_eval_concat(enode * cat);

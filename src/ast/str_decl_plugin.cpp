@@ -14,6 +14,9 @@ Author:
 Revision History:
 
 --*/
+
+#if 0
+
 #include<sstream>
 #include"str_decl_plugin.h"
 #include"string_buffer.h"
@@ -494,3 +497,5 @@ std::string str_util::get_std_regex_str(expr * regex) {
         UNREACHABLE(); return "";
     }
 }
+
+#endif /* disable */

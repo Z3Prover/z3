@@ -17,6 +17,8 @@ Notes:
 
 --*/
 
+#if 0
+
 #include"str_rewriter.h"
 #include"arith_decl_plugin.h"
 #include"ast_pp.h"
@@ -698,3 +700,4 @@ bool str_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_
     return true;
 }
 
+#endif /* disable */

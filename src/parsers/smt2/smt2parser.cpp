@@ -23,7 +23,6 @@ Revision History:
 #include"bv_decl_plugin.h"
 #include"arith_decl_plugin.h"
 #include"seq_decl_plugin.h"
-#include"str_decl_plugin.h"
 #include"ast_pp.h"
 #include"well_sorted.h"
 #include"pattern_validation.h"
@@ -68,7 +67,6 @@ namespace smt2 {
         scoped_ptr<bv_util>               m_bv_util;
         scoped_ptr<arith_util>            m_arith_util;
         scoped_ptr<seq_util>              m_seq_util;
-        scoped_ptr<str_util>              m_str_util;
       
         scoped_ptr<pattern_validator>     m_pattern_validator;
         scoped_ptr<var_shifter>           m_var_shifter;
@@ -284,12 +282,6 @@ namespace smt2 {
             if (m_bv_util.get() == 0)
                 m_bv_util = alloc(bv_util, m());
             return *(m_bv_util.get());
-        }
-
-        str_util & strutil() {
-            if (m_str_util.get() == 0)
-                m_str_util = alloc(str_util, m());
-            return *(m_str_util.get());
         }
 
         pattern_validator & pat_validator() {
@@ -1086,29 +1078,10 @@ namespace smt2 {
             next();
         }
 
-        // sorry, breaking theory_seq for a bit
-	/*
         void parse_string_const() {
             SASSERT(curr() == scanner::STRING_TOKEN);
             expr_stack().push_back(sutil().str.mk_string(symbol(m_scanner.get_string())));
             TRACE("smt2parser", tout << "new string: " << mk_pp(expr_stack().back(), m()) << "\n";);
-	    next();
-	}
-	*/
-
-      void parse_string_const() {
-	parse_string();
-      }
-      
-        void parse_string() {
-            SASSERT(curr() == scanner::STRING_TOKEN);
-            char const *original_token = m_scanner.get_string();
-            size_t bufsize = strlen(original_token);
-            char * buf = alloc_svect(char, bufsize + 1);
-            strncpy(buf, original_token, bufsize);
-            buf[bufsize] = '\0';
-            TRACE("parse_string", tout << "new string constant: " << buf << " length=" << bufsize << "\n";);
-            expr_stack().push_back(strutil().mk_string_with_escape_characters(buf));
             next();
         }
 

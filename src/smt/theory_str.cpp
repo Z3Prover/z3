@@ -44,7 +44,7 @@ theory_str::theory_str(ast_manager & m, theory_str_params const & params):
         /* Internal setup */
         search_started(false),
         m_autil(m),
-        m_strutil(m),
+        u(m),
         sLevel(0),
         finalCheckProgressIndicator(false),
         m_trail(m),
@@ -70,36 +70,26 @@ theory_str::~theory_str() {
     m_trail_stack.reset();
 }
 
-expr * theory_str::mk_string(std::string str) {
+expr * theory_str::mk_string(zstring const& str) {
     if (m_params.m_StringConstantCache) {
         ++totalCacheAccessCount;
         expr * val;
         if (stringConstantCache.find(str, val)) {
-            // cache hit
-            ++cacheHitCount;
-            TRACE("t_str_cache", tout << "cache hit: \"" << str << "\" ("
-                    << cacheHitCount << " hits, " << cacheMissCount << " misses out of "
-                    << totalCacheAccessCount << " accesses)" << std::endl;);
             return val;
         } else {
-            // cache miss
-            ++cacheMissCount;
-            TRACE("t_str_cache", tout << "cache miss: \"" << str << "\" ("
-                            << cacheHitCount << " hits, " << cacheMissCount << " misses out of "
-                            << totalCacheAccessCount << " accesses)" << std::endl;);
-            val = m_strutil.mk_string(str);
+            val = u.str.mk_string(str);
             m_trail.push_back(val);
             stringConstantCache.insert(str, val);
             return val;
         }
     } else {
-        return m_strutil.mk_string(str);
+        return u.str.mk_string(str);
     }
 }
 
 expr * theory_str::mk_string(const char * str) {
-    std::string valStr(str);
-    return mk_string(valStr);
+    symbol sym(str);
+    return u.str.mk_string(sym);
 }
 
 void theory_str::initialize_charset() {
@@ -210,25 +200,6 @@ void theory_str::assert_implication(expr * premise, expr * conclusion) {
 }
 
 bool theory_str::internalize_atom(app * atom, bool gate_ctx) {
-    /*
-    TRACE("t_str", tout << "internalizing atom: " << mk_ismt2_pp(atom, get_manager()) << std::endl;);
-    SASSERT(atom->get_family_id() == get_family_id());
-
-    context & ctx = get_context();
-
-    if (ctx.b_internalized(atom))
-        return true;
-
-    unsigned num_args = atom->get_num_args();
-    for (unsigned i = 0; i < num_args; i++)
-        ctx.internalize(atom->get_arg(i), false);
-
-    literal l(ctx.mk_bool_var(atom));
-
-    ctx.set_var_theory(l.var(), get_id());
-
-    return true;
-    */
     return internalize_term(atom);
 }
 
@@ -267,10 +238,9 @@ bool theory_str::internalize_term(app * term) {
     theory_var v = mk_var(e);
     TRACE("t_str_detail", tout << "term has theory var #" << v << std::endl;);
 
-    if (opt_EagerStringConstantLengthAssertions && m_strutil.is_string(term)) {
+    if (opt_EagerStringConstantLengthAssertions && u.str.is_string(term)) {
         TRACE("t_str", tout << "eagerly asserting length of string term " << mk_pp(term, m) << std::endl;);
         m_basicstr_axiom_todo.insert(e);
-        TRACE("t_str_axiom_bug", tout << "add " << mk_pp(e->get_owner(), m) << " to m_basicstr_axiom_todo" << std::endl;);
     }
     return true;
 }
@@ -295,7 +265,7 @@ void theory_str::refresh_theory_var(expr * e) {
 theory_var theory_str::mk_var(enode* n) {
     TRACE("t_str_detail", tout << "mk_var for " << mk_pp(n->get_owner(), get_manager()) << std::endl;);
     ast_manager & m = get_manager();
-    if (!(is_sort_of(m.get_sort(n->get_owner()), m_strutil.get_fid(), STRING_SORT))) {
+    if (!(is_sort_of(m.get_sort(n->get_owner()), u.get_family_id(), _STRING_SORT))) {
         return null_theory_var;
     }
     if (is_attached_to_var(n)) {
@@ -413,7 +383,7 @@ void theory_str::add_cut_info_merge(expr * destNode, int slevel, expr * srcNode)
 void theory_str::check_and_init_cut_var(expr * node) {
     if (cut_var_map.contains(node)) {
         return;
-    } else if (!m_strutil.is_string(node)) {
+    } else if (!u.str.is_string(node)) {
         add_cut_info_one_node(node, -1, node);
     }
 }
@@ -511,7 +481,7 @@ app * theory_str::mk_str_var(std::string name) {
 
 	TRACE("t_str_detail", tout << "creating string variable " << name << " at scope level " << sLevel << std::endl;);
 
-	sort * string_sort = m.mk_sort(get_family_id(), STRING_SORT);
+	sort * string_sort = u.str.mk_string_sort();
 	app * a = m.mk_fresh_const(name.c_str(), string_sort);
 
 	TRACE("t_str_detail", tout << "a->get_family_id() = " << a->get_family_id() << std::endl
@@ -538,7 +508,7 @@ app * theory_str::mk_regex_rep_var() {
 	context & ctx = get_context();
 	ast_manager & m = get_manager();
 
-	sort * string_sort = m.mk_sort(get_family_id(), STRING_SORT);
+	sort * string_sort = u.str.mk_string_sort();
 	app * a = m.mk_fresh_const("regex", string_sort);
 
 	ctx.internalize(a, false);
@@ -590,7 +560,7 @@ app * theory_str::mk_nonempty_str_var() {
 
     TRACE("t_str_detail", tout << "creating nonempty string variable " << name << " at scope level " << sLevel << std::endl;);
 
-    sort * string_sort = m.mk_sort(get_family_id(), STRING_SORT);
+    sort * string_sort = u.str.mk_string_sort();
     app * a = m.mk_fresh_const(name.c_str(), string_sort);
 
     ctx.internalize(a, false);
@@ -642,8 +612,7 @@ app * theory_str::mk_unroll(expr * n, expr * bound) {
 }
 
 app * theory_str::mk_contains(expr * haystack, expr * needle) {
-    expr * args[2] = {haystack, needle};
-    app * contains = get_manager().mk_app(get_id(), OP_STR_CONTAINS, 0, 0, 2, args);
+    app * contains = u.str.mk_contains(haystack, needle); // TODO double-check semantics/argument order
     m_trail.push_back(contains);
     // immediately force internalization so that axiom setup does not fail
     get_context().internalize(contains, false);
@@ -652,8 +621,8 @@ app * theory_str::mk_contains(expr * haystack, expr * needle) {
 }
 
 app * theory_str::mk_indexof(expr * haystack, expr * needle) {
-    expr * args[2] = {haystack, needle};
-    app * indexof = get_manager().mk_app(get_id(), OP_STR_INDEXOF, 0, 0, 2, args);
+    // TODO check meaning of the third argument here
+    app * indexof = u.str.mk_index(haystack, needle, mk_int(0));
     m_trail.push_back(indexof);
     // immediately force internalization so that axiom setup does not fail
     get_context().internalize(indexof, false);
@@ -663,25 +632,23 @@ app * theory_str::mk_indexof(expr * haystack, expr * needle) {
 
 app * theory_str::mk_strlen(expr * e) {
     /*if (m_strutil.is_string(e)) {*/ if (false) {
-        const char * strval = 0;
-        m_strutil.is_string(e, &strval);
-        int len = strlen(strval);
+        zstring strval;
+        u.str.is_string(e, strval);
+        unsigned int len = strval.length();
         return m_autil.mk_numeral(rational(len), true);
     } else {
         if (false) {
             // use cache
             app * lenTerm = NULL;
             if (!length_ast_map.find(e, lenTerm)) {
-                expr * args[1] = {e};
-                lenTerm = get_manager().mk_app(get_id(), OP_STRLEN, 0, 0, 1, args);
+                lenTerm = u.str.mk_length(e);
                 length_ast_map.insert(e, lenTerm);
                 m_trail.push_back(lenTerm);
             }
             return lenTerm;
         } else {
             // always regen
-            expr * args[1] = {e};
-            return get_manager().mk_app(get_id(), OP_STRLEN, 0, 0, 1, args);
+            return u.str.mk_length(e);
         }
     }
 }
@@ -699,24 +666,22 @@ expr * theory_str::mk_concat_const_str(expr * n1, expr * n2) {
     expr * v1 = get_eqc_value(n1, n1HasEqcValue);
     expr * v2 = get_eqc_value(n2, n2HasEqcValue);
     if (n1HasEqcValue && n2HasEqcValue) {
-        const char * n1_str_tmp;
-        m_strutil.is_string(v1, & n1_str_tmp);
-        std::string n1_str(n1_str_tmp);
-        const char * n2_str_tmp;
-        m_strutil.is_string(v2, & n2_str_tmp);
-        std::string n2_str(n2_str_tmp);
-        std::string result = n1_str + n2_str;
+        zstring n1_str;
+        u.str.is_string(v1, n1_str);
+        zstring n2_str;
+        u.str.is_string(v2, n2_str);
+        zstring result = n1_str + n2_str;
         return mk_string(result);
     } else if (n1HasEqcValue && !n2HasEqcValue) {
-        const char * n1_str_tmp;
-        m_strutil.is_string(v1, & n1_str_tmp);
-        if (strcmp(n1_str_tmp, "") == 0) {
+        zstring n1_str;
+        u.str.is_string(v1, n1_str);
+        if (n1_str.empty()) {
             return n2;
         }
     } else if (!n1HasEqcValue && n2HasEqcValue) {
-        const char * n2_str_tmp;
-        m_strutil.is_string(v2, & n2_str_tmp);
-        if (strcmp(n2_str_tmp, "") == 0) {
+        zstring n2_str;
+        u.str.is_string(v2, n2_str);
+        if (n2_str.empty()) {
             return n1;
         }
     }
@@ -735,38 +700,42 @@ expr * theory_str::mk_concat(expr * n1, expr * n2) {
 	if (n1HasEqcValue && n2HasEqcValue) {
 	    return mk_concat_const_str(n1, n2);
 	} else if (n1HasEqcValue && !n2HasEqcValue) {
-	    bool n2_isConcatFunc = is_concat(to_app(n2));
-	    if (m_strutil.get_string_constant_value(n1) == "") {
+	    bool n2_isConcatFunc = u.str.is_concat(to_app(n2));
+	    zstring n1_str;
+	    u.str.is_string(n1, n1_str);
+	    if (n1_str.empty()) {
 	        return n2;
 	    }
 	    if (n2_isConcatFunc) {
 	        expr * n2_arg0 = to_app(n2)->get_arg(0);
 	        expr * n2_arg1 = to_app(n2)->get_arg(1);
-	        if (m_strutil.is_string(n2_arg0)) {
+	        if (u.str.is_string(n2_arg0)) {
 	            n1 = mk_concat_const_str(n1, n2_arg0); // n1 will be a constant
 	            n2 = n2_arg1;
 	        }
 	    }
 	} else if (!n1HasEqcValue && n2HasEqcValue) {
-	    if (m_strutil.get_string_constant_value(n2) == "") {
+	    zstring n2_str;
+	    u.str.is_string(n2, n2_str);
+	    if (n2_str.empty()) {
 	        return n1;
 	    }
 
-	    if (is_concat(to_app(n1))) {
+	    if (u.str.is_concat(to_app(n1))) {
 	        expr * n1_arg0 = to_app(n1)->get_arg(0);
 	        expr * n1_arg1 = to_app(n1)->get_arg(1);
-	        if (m_strutil.is_string(n1_arg1)) {
+	        if (u.str.is_string(n1_arg1)) {
 	            n1 = n1_arg0;
 	            n2 = mk_concat_const_str(n1_arg1, n2); // n2 will be a constant
 	        }
 	    }
 	} else {
-	    if (is_concat(to_app(n1)) && is_concat(to_app(n2))) {
+	    if (u.str.is_concat(to_app(n1)) && u.str.is_concat(to_app(n2))) {
 	        expr * n1_arg0 = to_app(n1)->get_arg(0);
 	        expr * n1_arg1 = to_app(n1)->get_arg(1);
 	        expr * n2_arg0 = to_app(n2)->get_arg(0);
 	        expr * n2_arg1 = to_app(n2)->get_arg(1);
-	        if (m_strutil.is_string(n1_arg1) && m_strutil.is_string(n2_arg0)) {
+	        if (u.str.is_string(n1_arg1) && u.str.is_string(n2_arg0)) {
 	            expr * tmpN1 = n1_arg0;
 	            expr * tmpN2 = mk_concat_const_str(n1_arg1, n2_arg0);
 	            n1 = mk_concat(tmpN1, tmpN2);
@@ -784,8 +753,7 @@ expr * theory_str::mk_concat(expr * n1, expr * n2) {
 	expr * concatAst = NULL;
 
 	if (!concat_astNode_map.find(n1, n2, concatAst)) {
-	    expr * args[2] = {n1, n2};
-	    concatAst = m.mk_app(get_id(), OP_STRCAT, 0, 0, 2, args);
+	    concatAst = u.str.mk_concat(n1, n2);
 	    m_trail.push_back(concatAst);
 	    concat_astNode_map.insert(n1, n2, concatAst);
 
@@ -841,25 +809,30 @@ void theory_str::propagate() {
 
         for (unsigned i = 0; i < m_library_aware_axiom_todo.size(); ++i) {
         	enode * e = m_library_aware_axiom_todo[i];
-        	if (is_str_to_int(e)) {
+        	app * a = e->get_owner();
+        	if (u.str.is_stoi(a)) {
         		instantiate_axiom_str_to_int(e);
-        	} else if (is_int_to_str(e)) {
+        	} else if (u.str.is_itos(a)) {
         	    instantiate_axiom_int_to_str(e);
-        	} else if (is_CharAt(e)) {
+        	} else if (u.str.is_at(a)) {
         	    instantiate_axiom_CharAt(e);
+        	    /* TODO NEXT: StartsWith/EndsWith -> prefixof/suffixof
         	} else if (is_StartsWith(e)) {
         	    instantiate_axiom_StartsWith(e);
         	} else if (is_EndsWith(e)) {
         	    instantiate_axiom_EndsWith(e);
-        	} else if (is_Contains(e)) {
+        	    */
+        	} else if (u.str.is_contains(a)) {
         	    instantiate_axiom_Contains(e);
-        	} else if (is_Indexof(e)) {
+        	} else if (u.str.is_index(a)) {
         	    instantiate_axiom_Indexof(e);
+        	    /* TODO NEXT: Indexof2/Lastindexof rewrite?
         	} else if (is_Indexof2(e)) {
         	    instantiate_axiom_Indexof2(e);
         	} else if (is_LastIndexof(e)) {
         	    instantiate_axiom_LastIndexof(e);
-        	} else if (is_Substr(e)) {
+        	    */
+        	} else if (u.str.is_substr(a)) {
         	    instantiate_axiom_Substr(e);
         	} else if (is_Replace(e)) {
         	    instantiate_axiom_Replace(e);

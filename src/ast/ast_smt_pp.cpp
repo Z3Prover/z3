@@ -165,7 +165,6 @@ class smt_printer {
     bv_util          m_bvutil;
     seq_util         m_sutil;
     fpa_util         m_futil;
-    str_util         m_strutil;
     family_id        m_basic_fid;
     family_id        m_bv_fid;
     family_id        m_str_fid;
@@ -472,9 +471,6 @@ class smt_printer {
                 pp_marked_expr(n->get_arg(0));
                 m_out << ") bv1[1])";
             }
-        }
-        else if (m_strutil.is_string(n, &str)) {
-            m_out << "\"" << str << "\"";
         }
         else if (m_manager.is_label(n, pos, names) && names.size() >= 1) {
             if (m_is_smt2) {
@@ -839,7 +835,6 @@ public:
         m_bvutil(m),
         m_sutil(m),
         m_futil(m),
-        m_strutil(m),
         m_logic(logic),
         m_AUFLIRA("AUFLIRA"),
         // It's much easier to read those testcases with that.

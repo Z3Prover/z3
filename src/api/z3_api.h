@@ -165,8 +165,6 @@ typedef enum
     Z3_ROUNDING_MODE_SORT,
     Z3_SEQ_SORT,
     Z3_RE_SORT,
-	Z3_STRING_SORT,
-	Z3_REGEX_SORT,
     Z3_UNKNOWN_SORT = 1000
 } Z3_sort_kind;
 

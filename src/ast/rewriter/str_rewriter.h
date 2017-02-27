@@ -17,6 +17,8 @@ Notes:
 
 --*/
 
+#if 0
+
 #include"str_decl_plugin.h"
 #include"arith_decl_plugin.h"
 #include"rewriter_types.h"
@@ -114,3 +116,5 @@ public:
 
     bool matches(std::string input);
 };
+
+#endif /* disable */

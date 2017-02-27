@@ -14,6 +14,9 @@ Author:
 Revision History:
 
 --*/
+
+#if 0
+
 #ifndef _STR_DECL_PLUGIN_H_
 #define _STR_DECL_PLUGIN_H_
 
@@ -211,3 +214,5 @@ public:
 };
 
 #endif /* _STR_DECL_PLUGIN_H_ */
+
+#endif /* disable */

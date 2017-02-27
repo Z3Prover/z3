@@ -81,7 +81,6 @@ namespace api {
         m_fpa_util(m()),
         m_dtutil(m()),
         m_sutil(m()),
-		m_strutil(m()),
         m_last_result(m()),
         m_ast_trail(m()),
         m_pmanager(m_limit) {
@@ -105,7 +104,6 @@ namespace api {
         m_datalog_fid = m().mk_family_id("datalog_relation");
         m_fpa_fid   = m().mk_family_id("fpa");
         m_seq_fid   = m().mk_family_id("seq");
-        m_str_fid   = m().mk_family_id("str");
         m_dt_plugin = static_cast<datatype_decl_plugin*>(m().get_plugin(m_dt_fid));
     
         install_tactics(*this);

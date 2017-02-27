@@ -26,7 +26,6 @@ Revision History:
 #include"arith_decl_plugin.h"
 #include"bv_decl_plugin.h"
 #include"seq_decl_plugin.h"
-#include"str_decl_plugin.h"
 #include"datatype_decl_plugin.h"
 #include"dl_decl_plugin.h"
 #include"fpa_decl_plugin.h"
@@ -62,8 +61,6 @@ namespace api {
         fpa_util                   m_fpa_util;
         datatype_util              m_dtutil;
         seq_util                   m_sutil;
-
-        str_util                   m_strutil;
 
         // Support for old solver API
         smt_params                 m_fparams;
@@ -130,7 +127,6 @@ namespace api {
         fpa_util & fpautil() { return m_fpa_util; }
         datatype_util& dtutil() { return m_dtutil; }
         seq_util& sutil() { return m_sutil; }
-        str_util& strutil() { return m_strutil; }
         family_id get_basic_fid() const { return m_basic_fid; }
         family_id get_array_fid() const { return m_array_fid; }
         family_id get_arith_fid() const { return m_arith_fid; }
