@@ -101,7 +101,30 @@ public class Optimize extends Z3Object
 	{
 	    return opt.GetUpper(handle); 
 	}
-	
+
+    /**
+     * @return a triple representing the upper bound of the objective handle.
+     *
+     * The triple contains values {@code inf, value, eps},
+     * where the objective value is unbounded iff {@code inf} is non-zero,
+     * and otherwise is represented by the expression {@code value + eps * EPSILON},
+     * where {@code EPSILON} is an arbitrarily small real number.
+     */
+	public ArithExpr[] getUpperAsVector()
+    {
+        return opt.GetUpperAsVector(handle);
+    }
+
+    /**
+     * @return a triple representing the upper bound of the objective handle.
+     *
+     * <p>See {@link #getUpperAsVector()} for triple semantics.
+     */
+    public ArithExpr[] getLowerAsVector()
+    {
+        return opt.GetLowerAsVector(handle);
+    }
+
 	/**
 	 * Retrieve the value of an objective.
 	 **/        	   	
@@ -225,6 +248,42 @@ public class Optimize extends Z3Object
     private ArithExpr GetUpper(int index)
     {
         return (ArithExpr)Expr.create(getContext(), Native.optimizeGetUpper(getContext().nCtx(), getNativeObject(), index));
+    }
+
+    /**
+     * @return Triple representing the upper bound for the objective handle.
+     *
+     * <p>See {@link Handle#getUpperAsVector}.
+     */
+    private ArithExpr[] GetUpperAsVector(int index) {
+        return unpackObjectiveValueVector(
+                Native.optimizeGetUpperAsVector(
+                        getContext().nCtx(), getNativeObject(), index
+                )
+        );
+    }
+
+    /**
+     * @return Triple representing the upper bound for the objective handle.
+     *
+     * <p>See {@link Handle#getLowerAsVector}.
+     */
+    private ArithExpr[] GetLowerAsVector(int index) {
+        return unpackObjectiveValueVector(
+                Native.optimizeGetLowerAsVector(
+                        getContext().nCtx(), getNativeObject(), index
+                )
+        );
+    }
+
+    private ArithExpr[] unpackObjectiveValueVector(long nativeVec) {
+        ASTVector vec = new ASTVector(
+                getContext(), nativeVec
+        );
+        return new ArithExpr[] {
+                (ArithExpr) vec.get(0), (ArithExpr) vec.get(1), (ArithExpr) vec.get(2)
+        };
+
     }
 
     /**
