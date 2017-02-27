@@ -75,7 +75,7 @@ public class Optimize extends Z3Object {
     /**
      * Handle to objectives returned by objective functions.
      **/
-    public class Handle {
+    public static class Handle {
 
         private final Optimize opt;
         private final int handle;
