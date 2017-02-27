@@ -219,6 +219,10 @@ namespace sat {
         
         lbool operator()();
 
+        lbool check(unsigned sz, literal const* assumptions) { return l_undef; } // TBD
+
+        void cancel() {} // TBD
+
         local_search_config& config() { return m_config;  }
 
         local_search_config m_config;

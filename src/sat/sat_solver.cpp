@@ -782,7 +782,7 @@ namespace sat {
         pop_to_base_level();
         IF_VERBOSE(2, verbose_stream() << "(sat.sat-solver)\n";);
         SASSERT(at_base_lvl());
-        if (m_config.m_num_threads > 1 && !m_par) {
+        if ((m_config.m_num_threads > 1 || m_local_search) && !m_par) {
             return check_par(num_lits, lits);
         }
         flet<bool> _searching(m_searching, true);
@@ -854,9 +854,17 @@ namespace sat {
         ERROR_EX
     };
 
+    local_search& solver::init_local_search() {
+        if (!m_local_search) {
+            m_local_search = alloc(local_search, *this);
+        }
+        return *m_local_search.get();
+    }
+
+
     lbool solver::check_par(unsigned num_lits, literal const* lits) {
         int num_threads = static_cast<int>(m_config.m_num_threads);
-        int num_extra_solvers = num_threads - 1;
+        int num_extra_solvers = num_threads - 1 + (m_local_search ? 1 : 0);
         sat::parallel par(*this);
         par.reserve(num_threads, 1 << 12);
         par.init_solvers(*this, num_extra_solvers);
@@ -870,7 +878,10 @@ namespace sat {
         for (int i = 0; i < num_threads; ++i) {
             try {                
                 lbool r = l_undef;
-                if (i < num_extra_solvers) {
+                if (m_local_search && i + 1 == num_extra_solvers) {
+                    r = m_local_search->check(num_lits, lits);
+                }
+                else if (i < num_extra_solvers) {
                     r = par.get_solver(i).check(num_lits, lits);
                 }
                 else {
@@ -886,6 +897,9 @@ namespace sat {
                     }
                 }
                 if (first) {
+                    if (m_local_search) {
+                        m_local_search->cancel();
+                    }
                     for (int j = 0; j < num_extra_solvers; ++j) {
                         if (i != j) {
                             par.cancel_solver(j);

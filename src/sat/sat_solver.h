@@ -35,6 +35,7 @@ Revision History:
 #include"sat_mus.h"
 #include"sat_drat.h"
 #include"sat_parallel.h"
+#include"sat_local_search.h"
 #include"params.h"
 #include"statistics.h"
 #include"stopwatch.h"
@@ -89,6 +90,7 @@ namespace sat {
         probing                 m_probing;
         mus                     m_mus;           // MUS for minimal core extraction
         drat                    m_drat;          // DRAT for generating proofs
+        scoped_ptr<local_search> m_local_search;
         bool                    m_inconsistent;
         bool                    m_searching;
         // A conflict is usually a single justification. That is, a justification
@@ -459,6 +461,9 @@ namespace sat {
         lbool find_mutexes(literal_vector const& lits, vector<literal_vector> & mutexes);
 
         lbool get_consequences(literal_vector const& assms, bool_var_vector const& vars, vector<literal_vector>& conseq);
+
+        // initialize and retrieve local search.
+        local_search& init_local_search();
 
     private:
 
