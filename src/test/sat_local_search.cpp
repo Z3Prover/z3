@@ -1,10 +1,13 @@
 #include "sat_local_search.h"
 #include "sat_solver.h"
+#include "cancel_eh.h"
+#include "scoped_ctrl_c.h"
+#include "scoped_timer.h"
 
 static bool build_instance(char const * filename, sat::solver& s, sat::local_search& local_search)
 {
-    char	line[16383];
-    int	cur_term;
+    char  line[16383];
+    int   cur_term;
     // for temperally storage
 
     std::ifstream infile(filename);
@@ -62,7 +65,6 @@ static bool build_instance(char const * filename, sat::solver& s, sat::local_sea
     }
 
     infile.close();
-	
     return true;
 }
 
@@ -78,7 +80,9 @@ void tst_sat_local_search(char ** argv, int argc, int& i) {
     char const* file_name = argv[i + 1];
     ++i;
 
-	int v;
+    int cutoff_time = 1;
+
+    int v;
     while (i + 1 < argc) {
         std::cout << argv[i + 1] << "\n";
         // set other ad hoc parameters.
@@ -86,19 +90,19 @@ void tst_sat_local_search(char ** argv, int argc, int& i) {
             switch (argv[i + 1][1]) {
             case 's': // seed
                 v = atoi(argv[i + 2]);
-                local_search.m_config.set_seed(v);
+                local_search.config().set_seed(v);
                 break;
             case 't': // cutoff_time
                 v = atoi(argv[i + 2]);
-                local_search.m_config.set_cutoff_time(v);
+                cutoff_time = v;
                 break;
             case 'i': // strategy_id
                 v = atoi(argv[i + 2]);
-                local_search.m_config.set_strategy_id(v);
+                local_search.config().set_strategy_id(v);
                 break;
             case 'b': // best_known_value
                 v = atoi(argv[i + 2]);
-                local_search.m_config.set_best_known_value(v);
+                local_search.config().set_best_known_value(v);
                 break;
             default:
                 ++i;
@@ -114,10 +118,13 @@ void tst_sat_local_search(char ** argv, int argc, int& i) {
     }
 
     //std::cout << "local instance built\n";
-    local_search();
 
-    // sat::solver s;
-    // populate the sat solver with clauses and cardinality consrtaints from the input
-    // call the lookahead solver.
-    // TBD
+
+    // set up cancellation/timeout environment.
+
+    cancel_eh<reslimit> eh(local_search.rlimit());
+    scoped_ctrl_c ctrlc(eh, false, true);
+    scoped_timer timer(cutoff_time*1000, &eh);        
+    local_search.check();    
+
 }

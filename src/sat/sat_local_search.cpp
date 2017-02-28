@@ -21,6 +21,7 @@
 #include "sat_solver.h"
 #include "card_extension.h"
 #include "sat_params.hpp"
+#include "timer.h"
 
 namespace sat {
 
@@ -65,7 +66,7 @@ namespace sat {
     void local_search::init_cur_solution() {
         //cur_solution.resize(num_vars() + 1, false);
         for (unsigned v = 0; v < num_vars(); ++v) {
-            cur_solution[v] = (rand() % 2 == 1);
+            cur_solution[v] = (m_rand() % 2 == 1);
         }
     }
 
@@ -138,7 +139,7 @@ namespace sat {
         init_cur_solution();
         
         // init varibale information
-        // variable 0 is the virtual variable
+        // the last variable is the virtual variable
 
         m_vars.back().m_score = INT_MIN;
         m_vars.back().m_conf_change = false;       
@@ -169,8 +170,6 @@ namespace sat {
         if (objective_value > best_objective_value) {
             best_solution = cur_solution;
             best_objective_value = objective_value;
-            stop = clock();
-            best_time = (double)(stop - start) / CLOCKS_PER_SEC;
         }
     }
     
@@ -197,7 +196,8 @@ namespace sat {
         }
     }
 
-    local_search::local_search(solver& s) {
+    local_search::local_search(solver& s) : 
+        m_par(0) {
 
         // copy units
         unsigned trail_sz = s.init_trail_size();
@@ -264,7 +264,7 @@ namespace sat {
                 add_cardinality(lits.size(), lits.c_ptr(), n);
             }
             //
-            // optionally handle xor constraints.
+            // xor constraints should be disabled.
             //
             SASSERT(ext->m_xors.empty());            
         }
@@ -273,24 +273,31 @@ namespace sat {
     local_search::~local_search() {
     }
     
-    void local_search::add_soft(int v, int weight) {
-        // TBD
-        ob_term t;
-        t.var_id = v;
-        t.coefficient = weight;
-        ob_constraint.push_back(t);
+    void local_search::add_soft(bool_var v, int weight) {
+        ob_constraint.push_back(ob_term(v, weight));
+    }
+
+    lbool local_search::check(parallel& p) {
+        flet<parallel*> _p(m_par, &p);
+        return check();
+    }
+
+    lbool local_search::check() {
+        return check(0, 0);
     }
     
-    lbool local_search::operator()() {
+    lbool local_search::check(unsigned sz, literal const* assumptions) {
         //sat_params params;
         //std::cout << "my parameter value: " << params.cliff() << "\n";
+        unsigned num_constraints = m_constraints.size();
+        for (unsigned i = 0; i < sz; ++i) {
+            add_clause(1, assumptions + i);
+        }
         init();
-        bool reach_cutoff_time = false;
         bool reach_known_best_value = false;
         bool_var flipvar;
-        double elapsed_time = 0;
-        //clock_t start = clock(), stop;  // TBD, use stopwatch facility
-        start = clock();
+        timer timer;
+        timer.start();
         // ################## start ######################
         //std::cout << "Start initialize and local search, restart in every " << max_steps << " steps\n";
         unsigned tries, step;
@@ -309,25 +316,20 @@ namespace sat {
                 flip(flipvar);
                 m_vars[flipvar].m_time_stamp = step;
             }
-            if (tries % 10 == 0) {
-                // take a look at watch
-                stop = clock();
-                elapsed_time = (double)(stop - start) / CLOCKS_PER_SEC;
-                std::cout << tries << ": " << elapsed_time << '\n';
-            }
-            if (elapsed_time > cutoff_time)
-                reach_cutoff_time = true;
-            if (reach_known_best_value || reach_cutoff_time)
+            IF_VERBOSE(1, if (tries % 10 == 0) verbose_stream() << tries << ": " << timer.get_seconds() << '\n';);
+
+            if (!m_limit.inc()) 
                 break;
         }
-        if (reach_known_best_value) {
-            std::cout << elapsed_time << "\n";
-        }
-        else {
-            std::cout << -1 << "\n";
-        }
+        IF_VERBOSE(1, verbose_stream() << timer.get_seconds() << " " << (reach_known_best_value ? "reached":"not reached") << "\n";);
+
+        // remove unit clauses from assumptions.
+        m_constraints.shrink(num_constraints);
         //print_solution();
-        std::cout << tries * max_steps + step << '\n';
+        IF_VERBOSE(1, verbose_stream() << tries * max_steps + step << '\n';);
+        if (m_unsat_stack.empty() && ob_constraint.empty()) { // or all variables in ob_constraint are true
+            return l_true;
+        }
         // TBD: adjust return status
         return l_undef;
     }
@@ -354,7 +356,7 @@ namespace sat {
             case -2:  // from -1 to -2
                 for (unsigned j = 0; j < c.size(); ++j) {
                     v = c[j].var();
-                    // flipping the slack increasing var will no long sat this constraint
+                    // flipping the slack increasing var will no longer satisfy this constraint
                     if (is_true(c[j])) {
                         //score[v] -= constraint_weight[c];
                         dec_score(v);
@@ -378,7 +380,7 @@ namespace sat {
                     v = c[j].var();
                     // flip the slack decreasing var will falsify this constraint
                     if (is_false(c[j])) {
-                        //score[v] -= constraint_weight[c];
+                        // score[v] -= constraint_weight[c];
                         dec_score(v);
                         dec_slack_score(v);
                     }
@@ -459,14 +461,13 @@ namespace sat {
                 vi.m_in_goodvar_stack = true;
             }
         }
-
     }
 
     bool local_search::tie_breaker_sat(bool_var v, bool_var best_var)  {
         // most improvement on objective value
         int v_imp = cur_solution[v] ? -coefficient_in_ob_constraint.get(v, 0) : coefficient_in_ob_constraint.get(v, 0);
         int b_imp = cur_solution[best_var] ? -coefficient_in_ob_constraint.get(best_var, 0) : coefficient_in_ob_constraint.get(best_var, 0);
-        //std::cout << v_imp << "\n";
+        // std::cout << v_imp << "\n";
         // break tie 1: max imp
         // break tie 2: conf_change
         // break tie 3: time_stamp
@@ -521,7 +522,7 @@ namespace sat {
         }
 
         // Diversification Mode
-        constraint const& c = m_constraints[m_unsat_stack[rand() % m_unsat_stack.size()]]; // a random unsat constraint
+        constraint const& c = m_constraints[m_unsat_stack[m_rand() % m_unsat_stack.size()]]; // a random unsat constraint
         // Within c, from all slack increasing var, choose the oldest one
         unsigned c_size = c.size();
         for (unsigned i = 0; i < c_size; ++i) {
@@ -534,12 +535,9 @@ namespace sat {
 
     void local_search::set_parameters()  {
 
-        srand(m_config.seed());
-        cutoff_time = m_config.cutoff_time();
+        m_rand.set_seed(m_config.seed());
         s_id = m_config.strategy_id();
         best_known_value = m_config.best_known_value();
-
-
 
         if (s_id == 0)
             max_steps = 2 * num_vars();

@@ -21,30 +21,29 @@
 
 #include "vector.h"
 #include "sat_types.h"
+#include "rlimit.h"
 
 namespace sat {
 
+    class parallel;
+
     class local_search_config {
         unsigned m_seed;
-        unsigned m_cutoff_time;
         unsigned m_strategy_id;
         int      m_best_known_value;
     public:
         local_search_config()
         {
             m_seed = 0;
-            m_cutoff_time = 1;
             m_strategy_id = 0;
             m_best_known_value = INT_MAX;
         }
 
         unsigned seed() const { return m_seed; }
-        unsigned cutoff_time() const { return m_cutoff_time;  }
         unsigned strategy_id() const { return m_strategy_id;  }
         unsigned best_known_value() const { return m_best_known_value;  }
 
         void set_seed(unsigned s) { m_seed = s;  }
-        void set_cutoff_time(unsigned t) { m_cutoff_time = t;  }
         void set_strategy_id(unsigned i) { m_strategy_id = i; }
         void set_best_known_value(unsigned v) { m_best_known_value = v; }
     };
@@ -58,21 +57,8 @@ namespace sat {
         struct ob_term {
             bool_var var_id;                     // variable id, begin with 1
             int coefficient;                     // non-zero integer
+            ob_term(bool_var v, int c): var_id(v), coefficient(c) {}
         };
-
-        // data structure for a term in constraint
-        struct term {
-            bool_var var_id;                     // variable id, begin with 1
-            bool sense;                          // 1 for positive, 0 for negative
-            //int coefficient;                   // all constraints are cardinality: coefficient=1
-        };
-
-        
-        // objective function: maximize
-        svector<ob_term>   ob_constraint;        // the objective function *constraint*, sorted in decending order
-                        
-        // information about the variable
-        int_vector             coefficient_in_ob_constraint; // initialized to be 0
         
         struct var_info {
             bool m_conf_change;                  // whether its configure changes since its last flip
@@ -92,6 +78,24 @@ namespace sat {
             {}
         };
 
+        struct constraint {
+            unsigned        m_k;
+            int             m_slack;
+            literal_vector  m_literals;
+            constraint(unsigned k) : m_k(k), m_slack(0) {}
+            unsigned size() const { return m_literals.size(); }
+            literal const& operator[](unsigned idx) const { return m_literals[idx]; }
+        };
+
+        local_search_config m_config;
+
+        // objective function: maximize
+        svector<ob_term>   ob_constraint;        // the objective function *constraint*, sorted in decending order
+                        
+        // information about the variable
+        int_vector             coefficient_in_ob_constraint; // var! initialized to be 0
+        
+
         vector<var_info>       m_vars;
 
         inline int score(bool_var v) const { return m_vars[v].m_score; }
@@ -107,23 +111,14 @@ namespace sat {
         inline int  time_stamp(bool_var v) const { return m_vars[v].m_time_stamp; }
         inline int  cscc(bool_var v) const { return m_vars[v].m_cscc; }
         inline void inc_cscc(bool_var v) { m_vars[v].m_cscc++; }
-
-        unsigned num_vars() const { return m_vars.size() - 1; }     // var index from 1 to num_vars
         
         /* TBD: other scores */
         
-        struct constraint {
-            unsigned        m_k;
-            int             m_slack;
-            literal_vector  m_literals;
-            constraint(unsigned k) : m_k(k), m_slack(0) {}
-            unsigned size() const { return m_literals.size(); }
-            literal const& operator[](unsigned idx) const { return m_literals[idx]; }
-        };
 
         vector<constraint> m_constraints;
 
         inline bool is_pos(literal t) const { return !t.sign(); }
+        inline bool is_true(bool_var v) const { return cur_solution[v]; }
         inline bool is_true(literal l) const { return cur_solution[l.var()] != l.sign(); }
         inline bool is_false(literal l) const { return cur_solution[l.var()] == l.sign(); }
 
@@ -141,22 +136,21 @@ namespace sat {
         int_vector goodvar_stack;
 
         // information about solution
-        bool_vector      cur_solution;         // the current solution
+        bool_vector      cur_solution;         // !var: the current solution
         int              objective_value;      // the objective function value corresponds to the current solution
-        bool_vector      best_solution;        // the best solution so far
+        bool_vector      best_solution;        // !var: the best solution so far
         int       best_objective_value = -1;   // the objective value corresponds to the best solution so far
         // for non-known instance, set as maximal
         int   best_known_value = INT_MAX;      // best known value for this instance
         
-        // cutoff
-        int      cutoff_time = 1;              // seconds
         unsigned      max_steps = 2000000000;  // < 2147483647
-        clock_t start, stop;
-        double			best_time;
         
         // for tuning
         int   s_id = 0;                        // strategy id
 
+        reslimit    m_limit;
+        random_gen  m_rand;
+        parallel*   m_par;
 
         void init();
         void reinit();
@@ -220,24 +214,31 @@ namespace sat {
             m_unsat_stack.pop_back();
         }
 
+
     public:
         local_search(solver& s);
 
+        reslimit& rlimit() { return m_limit; }
+
         ~local_search();
 
-        void add_soft(int l, int weight);
+        void add_soft(bool_var v, int weight);
 
         void add_cardinality(unsigned sz, literal const* c, unsigned k);
         
-        lbool operator()();
+        lbool check();
 
-        lbool check(unsigned sz, literal const* assumptions) { return l_undef; } // TBD
+        lbool check(unsigned sz, literal const* assumptions);
 
-        void cancel() {} // TBD
+        lbool check(parallel& p);
 
         local_search_config& config() { return m_config;  }
 
-        local_search_config m_config;
+        unsigned num_vars() const { return m_vars.size() - 1; }     // var index from 1 to num_vars
+
+        void set_phase(bool_var v, bool f) {}
+
+        bool get_phase(bool_var v) const { return is_true(v); }
     };
 }
 

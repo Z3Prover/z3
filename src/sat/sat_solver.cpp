@@ -864,7 +864,7 @@ namespace sat {
 
     lbool solver::check_par(unsigned num_lits, literal const* lits) {
         int num_threads = static_cast<int>(m_config.m_num_threads);
-        int num_extra_solvers = num_threads - 1 + (m_local_search ? 1 : 0);
+        int num_extra_solvers = num_threads - 1 - (m_local_search ? 1 : 0);
         sat::parallel par(*this);
         par.reserve(num_threads, 1 << 12);
         par.init_solvers(*this, num_extra_solvers);
@@ -878,7 +878,7 @@ namespace sat {
         for (int i = 0; i < num_threads; ++i) {
             try {                
                 lbool r = l_undef;
-                if (m_local_search && i + 1 == num_extra_solvers) {
+                if (m_local_search && i == num_extra_solvers) {
                     r = m_local_search->check(num_lits, lits);
                 }
                 else if (i < num_extra_solvers) {
@@ -898,7 +898,7 @@ namespace sat {
                 }
                 if (first) {
                     if (m_local_search) {
-                        m_local_search->cancel();
+                        m_local_search->rlimit().cancel();
                     }
                     for (int j = 0; j < num_extra_solvers; ++j) {
                         if (i != j) {

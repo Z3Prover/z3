@@ -106,6 +106,7 @@ namespace sat {
         for (unsigned i = 0; i < num_extra_solvers; ++i) {        
             m_limits.push_back(reslimit());
         }
+        
         for (unsigned i = 0; i < num_extra_solvers; ++i) {
             s.m_params.set_uint("random_seed", s.m_rand());
             if (i == 1 + num_threads/2) {
@@ -204,5 +205,59 @@ namespace sat {
         return (c.size() <= 40 && c.glue() <= 8) || c.glue() <= 2;
     }
 
+    void parallel::set_phase(solver& s) {
+        #pragma omp critical (par_solver)
+        {
+            m_phase.reserve(s.num_vars(), 0);
+            for (unsigned i = 0; i < s.num_vars(); ++i) {
+                if (s.value(i) != l_undef) {
+                    m_phase[i] += (s.value(i) == l_true) ? 1 : -1;
+                    continue;
+                }
+                switch (s.m_phase[i]) {
+                case POS_PHASE:
+                    m_phase[i]++;
+                    break;
+                case NEG_PHASE:
+                    m_phase[i]--;
+                    break;
+                default:
+                    break;
+                }
+            }
+        }
+    }
+
+    void parallel::get_phase(solver& s) {
+        #pragma omp critical (par_solver)
+        {
+            m_phase.reserve(s.num_vars(), 0);
+            for (unsigned i = 0; i < s.num_vars(); ++i) {
+                if (m_phase[i] < 0) {
+                    s.m_phase[i] = NEG_PHASE;
+                }
+                else if (m_phase[i] > 0) {
+                    s.m_phase[i] = POS_PHASE;
+                }
+            }
+        }
+    }
+
+    void parallel::get_phase(local_search& s) {
+        #pragma omp critical (par_solver)
+        {
+            m_phase.reserve(s.num_vars(), 0);
+            for (unsigned i = 0; i < s.num_vars(); ++i) {
+                if (m_phase[i] < 0) {
+                    s.set_phase(i, false);
+                }
+                else if (m_phase[i] > 0) {
+                    s.set_phase(i, true);
+                }
+            }
+        }
+    }
+
+    
 };
 
