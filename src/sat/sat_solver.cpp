@@ -782,6 +782,9 @@ namespace sat {
         pop_to_base_level();
         IF_VERBOSE(2, verbose_stream() << "(sat.sat-solver)\n";);
         SASSERT(at_base_lvl());
+        if (m_config.m_local_search && !m_local_search) {
+            m_local_search = alloc(local_search, *this);
+        }
         if ((m_config.m_num_threads > 1 || m_local_search) && !m_par) {
             return check_par(num_lits, lits);
         }

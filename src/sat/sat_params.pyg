@@ -28,4 +28,5 @@ def_module_params('sat',
                           ('drat.check', BOOL, False, 'build up internal proof and check'),
                           ('cardinality.solver', BOOL, False, 'use cardinality solver'),
 	                  ('xor.solver', BOOL, False, 'use xor solver'),
+                          ('local_search', BOOL, False, 'add local search co-processor to find satisfiable solution'),
                        ))

@@ -300,8 +300,8 @@ namespace sat {
         timer.start();
         // ################## start ######################
         //std::cout << "Start initialize and local search, restart in every " << max_steps << " steps\n";
-        unsigned tries, step;
-        for (tries = 0; ; ++tries) {
+        unsigned tries, step = 0;
+        for (tries = 0; m_limit.inc(); ++tries) {
             reinit();
             for (step = 1; step <= max_steps; ++step) {
                 // feasible
@@ -318,8 +318,10 @@ namespace sat {
             }
             IF_VERBOSE(1, if (tries % 10 == 0) verbose_stream() << tries << ": " << timer.get_seconds() << '\n';);
 
-            if (!m_limit.inc()) 
-                break;
+            // tell the SAT solvers about the phase of variables.
+            if (m_par && tries % 10 == 0) {
+                m_par->set_phase(*this);
+            }
         }
         IF_VERBOSE(1, verbose_stream() << timer.get_seconds() << " " << (reach_known_best_value ? "reached":"not reached") << "\n";);
 
