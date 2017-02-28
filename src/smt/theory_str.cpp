@@ -4877,7 +4877,7 @@ void theory_str::check_contain_by_eqc_val(expr * varNode, expr * constNode) {
                                 cstItor != constList.end(); cstItor++) {
                             zstring pieceStr;
                             u.str.is_string(*cstItor, pieceStr);
-                            if (strConst.contains(pieceStr)) {
+                            if (!strConst.contains(pieceStr)) {
                                 counterEgFound = true;
                                 if (aConcat != substrAst) {
                                     litems.push_back(ctx.mk_eq_atom(substrAst, aConcat));
@@ -5606,7 +5606,7 @@ bool theory_str::is_partial_in_grounded_concat(const std::vector<expr*> & strVec
             for (int i = 0; i < strCnt; i++) {
                 zstring strVal;
                 if (u.str.is_string(strVec[i], strVal)) {
-                    if (strVal.find(subStrVal) != std::string::npos) {
+                    if (strVal.contains(subStrVal)) {
                         return true;
                     }
                 }
@@ -5794,7 +5794,7 @@ bool theory_str::can_concat_eq_str(expr * concat, zstring& str) {
 			expr * oneArg = args[i];
 			zstring arg_str;
 			if (u.str.is_string(oneArg, arg_str)) {
-				if (str.contains(arg_str)) {
+				if (!str.contains(arg_str)) {
 					return false;
 				}
 				sumLen += arg_str.length();
