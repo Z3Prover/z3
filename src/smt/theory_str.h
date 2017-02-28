@@ -110,6 +110,52 @@ namespace smt {
         }
     };
 
+
+    class nfa {
+    protected:
+        bool m_valid;
+        unsigned m_next_id;
+
+        unsigned next_id() {
+            unsigned retval = m_next_id;
+            ++m_next_id;
+            return retval;
+        }
+
+        unsigned m_start_state;
+        unsigned m_end_state;
+
+        std::map<unsigned, std::map<char, unsigned> > transition_map;
+        std::map<unsigned, std::set<unsigned> > epsilon_map;
+
+        void make_transition(unsigned start, char symbol, unsigned end) {
+            transition_map[start][symbol] = end;
+        }
+
+        void make_epsilon_move(unsigned start, unsigned end) {
+            epsilon_map[start].insert(end);
+        }
+
+        // Convert a regular expression to an e-NFA using Thompson's construction
+        void convert_re(expr * e, unsigned & start, unsigned & end, seq_util & u);
+
+    public:
+        nfa(seq_util & u, expr * e)
+    : m_valid(true), m_next_id(0), m_start_state(0), m_end_state(0) {
+            convert_re(e, m_start_state, m_end_state, u);
+        }
+
+        nfa() : m_valid(false), m_next_id(0), m_start_state(0), m_end_state(0) {}
+
+        bool is_valid() const {
+            return m_valid;
+        }
+
+        void epsilon_closure(unsigned start, std::set<unsigned> & closure);
+
+        bool matches(zstring input);
+    };
+
     class theory_str : public theory {
         struct T_cut
         {
@@ -274,7 +320,7 @@ namespace smt {
         std::map<std::pair<expr*, zstring>, expr*> regex_in_bool_map;
         std::map<expr*, std::set<zstring> > regex_in_var_reg_str_map;
 
-        // std::map<expr*, nfa> regex_nfa_cache; // Regex term --> NFA
+        std::map<expr*, nfa> regex_nfa_cache; // Regex term --> NFA
 
         char * char_set;
         std::map<char, int> charSetLookupTable;

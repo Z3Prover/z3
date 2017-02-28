@@ -598,7 +598,7 @@ app * theory_str::mk_unroll(expr * n, expr * bound) {
 	ast_manager & m = get_manager();
 
 	expr * args[2] = {n, bound};
-	app * unrollFunc = get_manager().mk_app(get_id(), OP_RE_UNROLL, 0, 0, 2, args);
+	app * unrollFunc = get_manager().mk_app(get_id(), _OP_RE_UNROLL, 0, 0, 2, args);
 	m_trail.push_back(unrollFunc);
 
 	expr_ref_vector items(m);
@@ -4428,7 +4428,7 @@ void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
 void theory_str::process_unroll_eq_const_str(expr * unrollFunc, expr * constStr) {
 	ast_manager & m = get_manager();
 
-	if (!is_Unroll(to_app(unrollFunc))) {
+	if (!u.re.is_unroll(to_app(unrollFunc))) {
 		return;
 	}
 	if (!u.str.is_string(constStr)) {
@@ -5444,7 +5444,7 @@ void theory_str::get_grounded_concats(expr* node, std::map<expr*, expr*> & varAl
         std::map<expr*, expr*> & concatAliasMap, std::map<expr*, expr*> & varConstMap,
         std::map<expr*, expr*> & concatConstMap, std::map<expr*, std::map<expr*, int> > & varEqConcatMap,
         std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap) {
-    if (is_Unroll(to_app(node))) {
+    if (u.re.is_unroll(to_app(node))) {
         return;
     }
     // **************************************************
@@ -6129,6 +6129,149 @@ bool theory_str::check_concat_len_in_eqc(expr * concat) {
     return no_assertions;
 }
 
+// Convert a regular expression to an e-NFA using Thompson's construction
+void nfa::convert_re(expr * e, unsigned & start, unsigned & end, seq_util & u) {
+    start = next_id();
+    end = next_id();
+    if (u.re.is_to_re(e)) {
+        app * a = to_app(e);
+        expr * arg_str = a->get_arg(0);
+        zstring str;
+        if (u.str.is_string(arg_str, str)) {
+            TRACE("t_str_rw", tout << "build NFA for '" << str << "'" << "\n";);
+
+            /*
+             * For an n-character string, we make (n-1) intermediate states,
+             * labelled i_(0) through i_(n-2).
+             * Then we construct the following transitions:
+             * start --str[0]--> i_(0) --str[1]--> i_(1) --...--> i_(n-2) --str[n-1]--> final
+             */
+            unsigned last = start;
+            for (int i = 0; i <= ((int)str.length()) - 2; ++i) {
+                unsigned i_state = next_id();
+                make_transition(last, str[i], i_state);
+                TRACE("t_str_rw", tout << "string transition " << last << "--" << str[i] << "--> " << i_state << "\n";);
+                last = i_state;
+            }
+            make_transition(last, str[(str.length() - 1)], end);
+            TRACE("t_str_rw", tout << "string transition " << last << "--" << str[(str.length() - 1)] << "--> " << end << "\n";);
+            TRACE("t_str_rw", tout << "string NFA: start = " << start << ", end = " << end << std::endl;);
+        } else {
+            TRACE("t_str_rw", tout << "invalid string constant in Str2Reg" << std::endl;);
+            m_valid = false;
+            return;
+        }
+    } else if (u.re.is_concat(e)){
+        app * a = to_app(e);
+        expr * re1 = a->get_arg(0);
+        expr * re2 = a->get_arg(1);
+        unsigned start1, end1;
+        convert_re(re1, start1, end1, u);
+        unsigned start2, end2;
+        convert_re(re2, start2, end2, u);
+        // start --e--> start1 --...--> end1 --e--> start2 --...--> end2 --e--> end
+        make_epsilon_move(start, start1);
+        make_epsilon_move(end1, start2);
+        make_epsilon_move(end2, end);
+        TRACE("t_str_rw", tout << "concat NFA: start = " << start << ", end = " << end << std::endl;);
+    } else if (u.re.is_union(e)) {
+        app * a = to_app(e);
+        expr * re1 = a->get_arg(0);
+        expr * re2 = a->get_arg(1);
+        unsigned start1, end1;
+        convert_re(re1, start1, end1, u);
+        unsigned start2, end2;
+        convert_re(re2, start2, end2, u);
+
+        // start --e--> start1 ; start --e--> start2
+        // end1 --e--> end ; end2 --e--> end
+        make_epsilon_move(start, start1);
+        make_epsilon_move(start, start2);
+        make_epsilon_move(end1, end);
+        make_epsilon_move(end2, end);
+        TRACE("t_str_rw", tout << "union NFA: start = " << start << ", end = " << end << std::endl;);
+    } else if (u.re.is_star(e)) {
+        app * a = to_app(e);
+        expr * subex = a->get_arg(0);
+        unsigned start_subex, end_subex;
+        convert_re(subex, start_subex, end_subex, u);
+        // start --e--> start_subex, start --e--> end
+        // end_subex --e--> start_subex, end_subex --e--> end
+        make_epsilon_move(start, start_subex);
+        make_epsilon_move(start, end);
+        make_epsilon_move(end_subex, start_subex);
+        make_epsilon_move(end_subex, end);
+        TRACE("t_str_rw", tout << "star NFA: start = " << start << ", end = " << end << std::endl;);
+    } else {
+        TRACE("t_str_rw", tout << "invalid regular expression" << std::endl;);
+        m_valid = false;
+        return;
+    }
+}
+
+void nfa::epsilon_closure(unsigned start, std::set<unsigned> & closure) {
+    std::deque<unsigned> worklist;
+    closure.insert(start);
+    worklist.push_back(start);
+
+    while(!worklist.empty()) {
+        unsigned state = worklist.front();
+        worklist.pop_front();
+        if (epsilon_map.find(state) != epsilon_map.end()) {
+            for (std::set<unsigned>::iterator it = epsilon_map[state].begin();
+                    it != epsilon_map[state].end(); ++it) {
+                unsigned new_state = *it;
+                if (closure.find(new_state) == closure.end()) {
+                    closure.insert(new_state);
+                    worklist.push_back(new_state);
+                }
+            }
+        }
+    }
+}
+
+bool nfa::matches(zstring input) {
+    /*
+     * Keep a set of all states the NFA can currently be in.
+     * Initially this is the e-closure of m_start_state
+     * For each character A in the input string,
+     * the set of next states contains
+     * all states in transition_map[S][A] for each S in current_states,
+     * and all states in epsilon_map[S] for each S in current_states.
+     * After consuming the entire input string,
+     * the match is successful iff current_states contains m_end_state.
+     */
+    std::set<unsigned> current_states;
+    epsilon_closure(m_start_state, current_states);
+    for (unsigned i = 0; i < input.length(); ++i) {
+        char A = input.at(i);
+        std::set<unsigned> next_states;
+        for (std::set<unsigned>::iterator it = current_states.begin();
+                it != current_states.end(); ++it) {
+            unsigned S = *it;
+            // check transition_map
+            if (transition_map[S].find(A) != transition_map[S].end()) {
+                next_states.insert(transition_map[S][A]);
+            }
+        }
+
+        // take e-closure over next_states to compute the actual next_states
+        std::set<unsigned> epsilon_next_states;
+        for (std::set<unsigned>::iterator it = next_states.begin(); it != next_states.end(); ++it) {
+            unsigned S = *it;
+            std::set<unsigned> closure;
+            epsilon_closure(S, closure);
+            epsilon_next_states.insert(closure.begin(), closure.end());
+        }
+        current_states = epsilon_next_states;
+    }
+    if (current_states.find(m_end_state) != current_states.end()) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
 void theory_str::check_regex_in(expr * nn1, expr * nn2) {
     context & ctx = get_context();
     ast_manager & m = get_manager();
@@ -6159,7 +6302,7 @@ void theory_str::check_regex_in(expr * nn1, expr * nn2) {
                         // TODO figure out regex NFA stuff
                         if (regex_nfa_cache.find(regexTerm) == regex_nfa_cache.end()) {
                             TRACE("t_str_detail", tout << "regex_nfa_cache: cache miss" << std::endl;);
-                            regex_nfa_cache[regexTerm] = nfa(m_strutil, regexTerm);
+                            regex_nfa_cache[regexTerm] = nfa(u, regexTerm);
                         } else {
                             TRACE("t_str_detail", tout << "regex_nfa_cache: cache hit" << std::endl;);
                         }
@@ -7385,7 +7528,7 @@ void theory_str::classify_ast_by_type(expr * node, std::map<expr*, int> & varMap
 			if (canskip == 0 && concatMap.find(node) == concatMap.end()) {
 				concatMap[node] = 1;
 			}
-		} else if (is_Unroll(aNode)) {
+		} else if (u.re.is_unroll(aNode)) {
 			// Unroll
 			if (unrollMap.find(node) == unrollMap.end()) {
 				unrollMap[node] = 1;
@@ -7658,7 +7801,7 @@ int theory_str::ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr
 		enode * e_curr = e_currEqc;
 		do {
 			app * curr = e_currEqc->get_owner();
-			if (is_Unroll(curr)) {
+			if (u.re.is_unroll(curr)) {
 				if (aRoot == NULL) {
 					aRoot = curr;
 				}
@@ -7753,7 +7896,7 @@ int theory_str::ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr
 	                if (!is_arg0_emptyStr && !is_arg1_emptyStr) {
 	                    var_eq_concat_map[deAliasNode][curr] = 1;
 	                }
-	            } else if (is_Unroll(to_app(curr))) {
+	            } else if (u.re.is_unroll(to_app(curr))) {
 	                var_eq_unroll_map[deAliasNode][curr] = 1;
 	            }
 
@@ -10191,7 +10334,7 @@ void theory_str::get_eqc_allUnroll(expr * n, expr * &constStr, std::set<expr*> &
     do {
         if (u.str.is_string(to_app(curr))) {
             constStr = curr;
-        } else if (is_Unroll(to_app(curr))) {
+        } else if (u.re.is_unroll(to_app(curr))) {
             if (unrollFuncSet.find(curr) == unrollFuncSet.end()) {
                 unrollFuncSet.insert(curr);
             }
@@ -10210,7 +10353,7 @@ void theory_str::get_eqc_simpleUnroll(expr * n, expr * &constStr, std::set<expr*
 	do {
 		if (u.str.is_string(to_app(curr))) {
 			constStr = curr;
-		} else if (is_Unroll(to_app(curr))) {
+		} else if (u.re.is_unroll(to_app(curr))) {
 			expr * core = to_app(curr)->get_arg(0);
 			if (u.re.is_to_re(to_app(core))) {
 				if (unrollFuncSet.find(curr) == unrollFuncSet.end()) {
