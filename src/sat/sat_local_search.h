@@ -64,7 +64,7 @@ namespace sat {
 
         // data structure for a term in constraint
         struct term {
-            int constraint_id;                   // constraint it belongs to
+            //int constraint_id;                   // constraint it belongs to
             int var_id;                          // variable id, begin with 1
             bool sense;                          // 1 for positive, 0 for negative
             //int coefficient;                   // all constraints are cardinality: coefficient=1
@@ -76,8 +76,10 @@ namespace sat {
         
         
         // terms arrays
-        svector<term>  var_term[MAX_VARS];         // var_term[i][j] means the j'th term of var i
-        svector<term>  constraint_term[MAX_CONSTRAINTS];  // constraint_term[i][j] means the j'th term of constraint i
+        //svector<term>  var_term[MAX_VARS];         // var_term[i][j] means the j'th term of var i
+		int_vector  pos_var_term[MAX_VARS];
+		int_vector  neg_var_term[MAX_VARS];
+		svector<term>  constraint_term[MAX_CONSTRAINTS];  // constraint_term[i][j] means the j'th term of constraint i
         unsigned m_num_vars, m_num_constraints;
 
         // parameters of the instance
@@ -136,7 +138,7 @@ namespace sat {
         
         // cutoff
         int      cutoff_time = 1;            // seconds
-        int      max_steps = 2000000000;     // < 2147483647
+        unsigned      max_steps = 2000000000;     // < 2147483647
         clock_t start, stop;
         double			best_time;
         

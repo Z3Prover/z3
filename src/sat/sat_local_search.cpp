@@ -37,10 +37,11 @@ namespace sat {
         var_neighbor.push_back(bool_var_vector());
 
         for (bool_var v = 1; v <= num_vars(); ++v) {
+			//std::cout << pos_var_term[v].size() << '\t' << neg_var_term[v].size() << '\n';
             bool_vector is_neighbor(num_vars() + 1, false);
             var_neighbor.push_back(bool_var_vector());
-            for (unsigned i = 0; i < var_term[v].size(); ++i) {
-                unsigned c = var_term[v][i].constraint_id;
+            for (unsigned i = 0; i < pos_var_term[v].size(); ++i) {
+                unsigned c = pos_var_term[v][i];
                 for (unsigned j = 0; j < constraint_term[c].size(); ++j) {
                     bool_var w = constraint_term[c][j].var_id; 
                     if (w == v || is_neighbor[w]) continue;
@@ -48,6 +49,15 @@ namespace sat {
                     var_neighbor.back().push_back(w);
                 }
             }
+			for (unsigned i = 0; i < neg_var_term[v].size(); ++i) {
+				unsigned c = neg_var_term[v][i];
+				for (unsigned j = 0; j < constraint_term[c].size(); ++j) {
+					bool_var w = constraint_term[c][j].var_id;
+					if (w == v || is_neighbor[w]) continue;
+					is_neighbor[w] = true;
+					var_neighbor.back().push_back(w);
+				}
+			}
         }
         for (unsigned i = 0; i < ob_constraint.size(); ++i)
             coefficient_in_ob_constraint[ob_constraint[i].var_id] = ob_constraint[i].coefficient;
@@ -84,25 +94,32 @@ namespace sat {
     // figure out variables scores and sscores
     void local_search::init_scores() {
         for (unsigned v = 1; v <= num_vars(); ++v) {
-            for (unsigned i = 0; i < var_term[v].size(); ++i) {
-                int c = var_term[v][i].constraint_id;
-                if (cur_solution[v] != var_term[v][i].sense) {
-                    // will ++true_terms_count[c]
-                    // will --slack
-                    if (constraint_slack[c] <= 0) {
-                        --sscore[v];
-                        if (constraint_slack[c] == 0)
-                            --m_var_info[v].m_score;
-                    }
-                }
-                else { // if (cur_solution[v] == var_term[v][i].sense)
-                    // will --true_terms_count[c]
-                    // will ++slack
-                    if (constraint_slack[c] <= -1) {
-                        ++sscore[v];
-                        if (constraint_slack[c] == -1)
-                            ++m_var_info[v].m_score;
-                    }
+			int_vector truep, falsep;
+			if (cur_solution[v]) {
+				truep = pos_var_term[v];
+				falsep = neg_var_term[v];
+			}
+			else {
+				truep = neg_var_term[v];
+				falsep = pos_var_term[v];
+			}
+			for (unsigned i = 0; i < falsep.size(); ++i) {
+				int c = falsep[i];
+				// will --slack
+				if (constraint_slack[c] <= 0) {
+					--sscore[v];
+					if (constraint_slack[c] == 0)
+						--m_var_info[v].m_score;
+				}
+			}
+			for (unsigned i = 0; i < truep.size(); ++i) {
+				int c = truep[i];
+                // will --true_terms_count[c]
+                // will ++slack
+                if (constraint_slack[c] <= -1) {
+                    ++sscore[v];
+                    if (constraint_slack[c] == -1)
+                        ++m_var_info[v].m_score;
                 }
             }
         }
@@ -186,10 +203,13 @@ namespace sat {
             m_num_vars = std::max(c[i].var() + 1, m_num_vars);
             // var_term.reserve(c[i].var() + 1);
             term t;
-            t.constraint_id = id;
             t.var_id = c[i].var();
             t.sense =  c[i].sign();
-            var_term[t.var_id].push_back(t);
+			if (t.sense)
+				pos_var_term[t.var_id].push_back(id);
+			else
+				neg_var_term[t.var_id].push_back(id);
+            //var_term[t.var_id].push_back(t);
             constraint_term[id].push_back(t);
         }
         constraint_k.push_back(k);                
@@ -305,20 +325,21 @@ namespace sat {
                         reach_known_best_value = true;
                         break;
                     }
-                }
+				}
                 flipvar = pick_var();
                 flip(flipvar);
                 time_stamp[flipvar] = step;
             }
-            // take a look at watch
-            stop = clock();
-            elapsed_time = (double)(stop - start) / CLOCKS_PER_SEC;
-            if (tries % 10 == 0) 
-                std::cout << tries << ": " << elapsed_time << '\n';
+            if (tries % 10 == 0) {
+				// take a look at watch
+				stop = clock();
+				elapsed_time = (double)(stop - start) / CLOCKS_PER_SEC;
+				std::cout << tries << ": " << elapsed_time << '\n';
+			}
             if (elapsed_time > cutoff_time)
                 reach_cutoff_time = true;
-            //if (reach_known_best_value || reach_cutoff_time)
-            //    break;
+            if (reach_known_best_value || reach_cutoff_time)
+                break;
         }
         if (reach_known_best_value) {
             std::cout << elapsed_time << "\n";
@@ -334,8 +355,6 @@ namespace sat {
 
     void local_search::flip(bool_var flipvar)
     {
-		static unsigned_vector hack_vector;
-		hack_vector.reset();
         // already changed truth value!!!!
         cur_solution[flipvar] = !cur_solution[flipvar];
 
@@ -343,95 +362,99 @@ namespace sat {
         int org_flipvar_score = score(flipvar);
         int org_flipvar_sscore = sscore[flipvar];
 
+		int_vector truep, falsep;
+		if (cur_solution[flipvar]) {
+			truep = pos_var_term[flipvar];
+			falsep = neg_var_term[flipvar];
+		}
+		else {
+			truep = neg_var_term[flipvar];
+			falsep = pos_var_term[flipvar];
+		}
+
         // update related clauses and neighbor vars
-        svector<term> const& constraints = var_term[flipvar];
-        unsigned num_cs = constraints.size();
-        for (unsigned i = 0; i < num_cs; ++i) {
-            c = constraints[i].constraint_id;
-            if (cur_solution[flipvar] == constraints[i].sense) {
-                //++true_terms_count[c];
-                --constraint_slack[c];
-                switch (constraint_slack[c]) {
-                case -2:  // from -1 to -2
-                    for (unsigned j = 0; j < constraint_term[c].size(); ++j) {
-                        v = constraint_term[c][j].var_id;
-                        // flipping the slack increasing var will no long sat this constraint
-                        if (cur_solution[v] == constraint_term[c][j].sense)
-                            //score[v] -= constraint_weight[c];
-                            --m_var_info[v].m_score;
-                    }
-                    break;
-                case -1: // from 0 to -1: sat -> unsat
-                    for (unsigned j = 0; j < constraint_term[c].size(); ++j) {
-                        v = constraint_term[c][j].var_id;
-                        ++cscc[v];
-                        //score[v] += constraint_weight[c];
-                        ++m_var_info[v].m_score;
-						hack_vector.push_back(v);
-                        // slack increasing var
-                        if (cur_solution[v] == constraint_term[c][j].sense)
-                            ++sscore[v];
-                    }
-                    unsat(c);
-                    break;
-                case 0: // from 1 to 0
-                    for (unsigned j = 0; j < constraint_term[c].size(); ++j) {
-                        v = constraint_term[c][j].var_id;
-                        // flip the slack decreasing var will falsify this constraint
-                        if (cur_solution[v] != constraint_term[c][j].sense) {
-                            //score[v] -= constraint_weight[c];
-                            --m_var_info[v].m_score;
-                            --sscore[v];
-                        }
-                    }
-                    break;
-                default:
-                    break;
-                }
-            }
-            else { // if (cur_solution[flipvar] != var_term[i].sense)
-                //--true_terms_count[c];
-                ++constraint_slack[c];
-                switch (constraint_slack[c]) {
-                case 1: // from 0 to 1
-                    for (unsigned j = 0; j < constraint_term[c].size(); ++j) {
-                        v = constraint_term[c][j].var_id;
-                        // flip the slack decreasing var will no long falsify this constraint
-                        if (cur_solution[v] != constraint_term[c][j].sense) {
-                            //score[v] += constraint_weight[c];
-                            ++m_var_info[v].m_score;
-							hack_vector.push_back(v);
-                            ++sscore[v];
-                        }
-                    }
-                    break;
-                case 0: // from -1 to 0: unsat -> sat
-                    for (unsigned j = 0; j < constraint_term[c].size(); ++j) {
-                        v = constraint_term[c][j].var_id;
-                        ++cscc[v];
-                        //score[v] -= constraint_weight[c];
-                        --m_var_info[v].m_score;
-                        // slack increasing var no longer sat this var
-                        if (cur_solution[v] == constraint_term[c][j].sense)
-                            --sscore[v];
-                    }
-                    sat(c);
-                    break;
-                case -1: // from -2 to -1
-                    for (unsigned j = 0; j < constraint_term[c].size(); ++j) {
-                        v = constraint_term[c][j].var_id;
-                        // flip the slack increasing var will satisfy this constraint
-						if (cur_solution[v] == constraint_term[c][j].sense) {
-							//score[v] += constraint_weight[c];
-							++m_var_info[v].m_score;
-							hack_vector.push_back(v);
-						}
-                    }
-                    break;
-                default:
-                    break;
-                }
-            }
+		for (unsigned i = 0; i < truep.size(); ++i) {
+			c = truep[i];
+			//++true_terms_count[c];
+			--constraint_slack[c];
+			switch (constraint_slack[c]) {
+			case -2:  // from -1 to -2
+				for (unsigned j = 0; j < constraint_term[c].size(); ++j) {
+					v = constraint_term[c][j].var_id;
+					// flipping the slack increasing var will no long sat this constraint
+					if (cur_solution[v] == constraint_term[c][j].sense)
+						//score[v] -= constraint_weight[c];
+						--m_var_info[v].m_score;
+				}
+				break;
+			case -1: // from 0 to -1: sat -> unsat
+				for (unsigned j = 0; j < constraint_term[c].size(); ++j) {
+					v = constraint_term[c][j].var_id;
+					++cscc[v];
+					//score[v] += constraint_weight[c];
+					++m_var_info[v].m_score;
+					// slack increasing var
+					if (cur_solution[v] == constraint_term[c][j].sense)
+						++sscore[v];
+				}
+				unsat(c);
+				break;
+			case 0: // from 1 to 0
+				for (unsigned j = 0; j < constraint_term[c].size(); ++j) {
+					v = constraint_term[c][j].var_id;
+					// flip the slack decreasing var will falsify this constraint
+					if (cur_solution[v] != constraint_term[c][j].sense) {
+						//score[v] -= constraint_weight[c];
+						--m_var_info[v].m_score;
+						--sscore[v];
+					}
+				}
+				break;
+			default:
+				break;
+			}
+		}
+		for (unsigned i = 0; i < falsep.size(); ++i) {
+			c = falsep[i];
+			//--true_terms_count[c];
+			++constraint_slack[c];
+			switch (constraint_slack[c]) {
+			case 1: // from 0 to 1
+				for (unsigned j = 0; j < constraint_term[c].size(); ++j) {
+					v = constraint_term[c][j].var_id;
+					// flip the slack decreasing var will no long falsify this constraint
+					if (cur_solution[v] != constraint_term[c][j].sense) {
+						//score[v] += constraint_weight[c];
+						++m_var_info[v].m_score;
+						++sscore[v];
+					}
+				}
+				break;
+			case 0: // from -1 to 0: unsat -> sat
+				for (unsigned j = 0; j < constraint_term[c].size(); ++j) {
+					v = constraint_term[c][j].var_id;
+					++cscc[v];
+					//score[v] -= constraint_weight[c];
+					--m_var_info[v].m_score;
+					// slack increasing var no longer sat this var
+					if (cur_solution[v] == constraint_term[c][j].sense)
+						--sscore[v];
+				}
+				sat(c);
+				break;
+			case -1: // from -2 to -1
+				for (unsigned j = 0; j < constraint_term[c].size(); ++j) {
+					v = constraint_term[c][j].var_id;
+					// flip the slack increasing var will satisfy this constraint
+					if (cur_solution[v] == constraint_term[c][j].sense) {
+						//score[v] += constraint_weight[c];
+						++m_var_info[v].m_score;
+					}
+				}
+				break;
+			default:
+				break;
+			}
         }
 
         m_var_info[flipvar].m_score = -org_flipvar_score;
@@ -453,7 +476,6 @@ namespace sat {
         }
         // update all flipvar's neighbor's conf_change to true, add goodvar/okvar
 
-#if 0
         unsigned sz = var_neighbor[flipvar].size();
         for (unsigned i = 0; i < sz; ++i) {
             v = var_neighbor[flipvar][i];
@@ -463,18 +485,7 @@ namespace sat {
                 m_var_info[v].m_in_goodvar_stack = true;
             }
         }
-#else
-		unsigned sz = hack_vector.size();
-		for (unsigned i = 0; i < sz; ++i)
-		{
-			v = hack_vector[i];
-			m_var_info[v].m_conf_change = true;
-			if (score(v) > 0 && !already_in_goodvar_stack(v)) {
-				goodvar_stack.push_back(v);
-				m_var_info[v].m_in_goodvar_stack = true;
-			}
-		}
-#endif
+
     }
 
     bool local_search::tie_breaker_sat(bool_var v, bool_var best_var)  {
@@ -574,7 +585,7 @@ namespace sat {
     }
 
     void local_search::print_info() {
-        for (int v = 1; v <= num_vars(); ++v) {
+        for (unsigned v = 1; v <= num_vars(); ++v) {
             std::cout << var_neighbor[v].size() << '\t' << cur_solution[v] << '\t' << conf_change(v) << '\t' << score(v) << '\t' << sscore[v] << '\n';
         }
     }

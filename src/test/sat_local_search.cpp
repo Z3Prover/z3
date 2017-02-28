@@ -80,31 +80,32 @@ void tst_sat_local_search(char ** argv, int argc, int& i) {
 
 	int v;
     while (i + 1 < argc) {
+        std::cout << argv[i + 1] << "\n";
         // set other ad hoc parameters.
-		if (argv[i + 1][0] == '-' && i + 2 < argc) {
-			switch (argv[i + 1][1]) {
-			case 's': // seed
-				v = atoi(argv[i + 2]);
-				local_search.m_config.set_seed(v);
-				break;
-			case 't': // cutoff_time
-				v = atoi(argv[i + 2]);
-				local_search.m_config.set_cutoff_time(v);
-				break;
-			case 'i': // strategy_id
-				v = atoi(argv[i + 2]);
-				local_search.m_config.set_strategy_id(v);
-				break;
-			case 'b': // best_known_value
-				v = atoi(argv[i + 2]);
-				local_search.m_config.set_best_known_value(v);
-				break;
-			default:
-				++i;
-				v = -1;
-				break;
-			}
-		}
+        if (argv[i + 1][0] == '-' && i + 2 < argc) {
+            switch (argv[i + 1][1]) {
+            case 's': // seed
+                v = atoi(argv[i + 2]);
+                local_search.m_config.set_seed(v);
+                break;
+            case 't': // cutoff_time
+                v = atoi(argv[i + 2]);
+                local_search.m_config.set_cutoff_time(v);
+                break;
+            case 'i': // strategy_id
+                v = atoi(argv[i + 2]);
+                local_search.m_config.set_strategy_id(v);
+                break;
+            case 'b': // best_known_value
+                v = atoi(argv[i + 2]);
+                local_search.m_config.set_best_known_value(v);
+                break;
+            default:
+                ++i;
+                v = -1;
+                break;
+            }
+        }
         ++i;
     }
 
