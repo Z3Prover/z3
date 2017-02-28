@@ -49,8 +49,6 @@ namespace sat {
         void set_best_known_value(unsigned v) { m_best_known_value = v; }
     };
 
-#define MAX_VARS 5000
-#define MAX_CONSTRAINTS 100
 
     class local_search {
 		
@@ -58,14 +56,13 @@ namespace sat {
 
         // data structure for a term in objective function
         struct ob_term {
-            int var_id;                          // variable id, begin with 1
+            bool_var var_id;                          // variable id, begin with 1
             int coefficient;                     // non-zero integer
         };
 
         // data structure for a term in constraint
         struct term {
-            //int constraint_id;                   // constraint it belongs to
-            int var_id;                          // variable id, begin with 1
+            bool_var var_id;                          // variable id, begin with 1
             bool sense;                          // 1 for positive, 0 for negative
             //int coefficient;                   // all constraints are cardinality: coefficient=1
         };
@@ -76,42 +73,46 @@ namespace sat {
         
         
         // terms arrays
-        //svector<term>  var_term[MAX_VARS];         // var_term[i][j] means the j'th term of var i
-		int_vector  pos_var_term[MAX_VARS];
-		int_vector  neg_var_term[MAX_VARS];
-		svector<term>  constraint_term[MAX_CONSTRAINTS];  // constraint_term[i][j] means the j'th term of constraint i
-        unsigned m_num_vars, m_num_constraints;
+        vector<svector<term> > constraint_term;  // constraint_term[i][j] means the j'th term of constraint i
 
         // parameters of the instance
-        unsigned num_vars() const { return m_num_vars - 1; }             // var index from 1 to num_vars
-        unsigned num_constraints() const { return m_num_constraints; } // constraint index from 1 to num_constraint
+        unsigned num_vars() const { return m_vars.size() - 1; }     // var index from 1 to num_vars
+        unsigned num_constraints() const { return constraint_term.size(); } // constraint index from 1 to num_constraint
 
         
         // information about the variable
         int_vector             coefficient_in_ob_constraint; // initialized to be 0
-        // int_vector             score; 
-        int_vector             sscore;           // slack score
+        // int_vector             sscore;           // slack score
         
         struct var_info {
             bool m_conf_change;                  // whether its configure changes since its last flip
             bool m_in_goodvar_stack;
             int  m_score;
+            int  m_slack_score;
+            int_vector m_watch[2];
             var_info():
                 m_conf_change(true),
                 m_in_goodvar_stack(false),
-                m_score(0)
+                m_score(0),
+                m_slack_score(0)
             {}
         };
-        svector<var_info>       m_var_info;
+        svector<var_info>       m_vars;
 
-        inline int score(unsigned v) const { return m_var_info[v].m_score; }
-        inline bool already_in_goodvar_stack(unsigned v) const { return m_var_info[v].m_in_goodvar_stack; }
-        inline bool conf_change(unsigned v) const { return m_var_info[v].m_conf_change; }
+        inline int score(unsigned v) const { return m_vars[v].m_score; }
+        inline void inc_score(bool_var v) { m_vars[v].m_score++; }
+        inline void dec_score(bool_var v) { m_vars[v].m_score--; }
 
-        int_vector             time_stamp;       // the flip time stamp
-        // bool_vector            conf_change;      
-        int_vector             cscc;             // how many times its constraint state configure changes since its last flip
-        vector<bool_var_vector>     var_neighbor;     // all of its neighborhoods variable
+        inline int slack_score(unsigned v) const { return m_vars[v].m_slack_score; }
+        inline void inc_slack_score(bool_var v) { m_vars[v].m_slack_score++; }
+        inline void dec_slack_score(bool_var v) { m_vars[v].m_slack_score--; }
+        
+        inline bool already_in_goodvar_stack(unsigned v) const { return m_vars[v].m_in_goodvar_stack; }
+        inline bool conf_change(unsigned v) const { return m_vars[v].m_conf_change; }
+
+        int_vector               time_stamp;       // the flip time stamp
+        int_vector               cscc;             // how many times its constraint state configure changes since its last flip
+        vector<bool_var_vector>  var_neighbor;     // all of its neighborhoods variable
         /* TBD: other scores */
         
         // information about the constraints
@@ -126,7 +127,6 @@ namespace sat {
         
         // configuration changed decreasing variables (score>0 and conf_change==true)
         int_vector goodvar_stack;
-        // bool_vector already_in_goodvar_stack;
 
         // information about solution
         bool_vector      cur_solution;        // the current solution

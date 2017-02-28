@@ -37,11 +37,10 @@ namespace sat {
         var_neighbor.push_back(bool_var_vector());
 
         for (bool_var v = 1; v <= num_vars(); ++v) {
-			//std::cout << pos_var_term[v].size() << '\t' << neg_var_term[v].size() << '\n';
             bool_vector is_neighbor(num_vars() + 1, false);
             var_neighbor.push_back(bool_var_vector());
-            for (unsigned i = 0; i < pos_var_term[v].size(); ++i) {
-                unsigned c = pos_var_term[v][i];
+            for (unsigned i = 0; i < m_vars[v].m_watch[true].size(); ++i) {
+                unsigned c = m_vars[v].m_watch[true][i];
                 for (unsigned j = 0; j < constraint_term[c].size(); ++j) {
                     bool_var w = constraint_term[c][j].var_id; 
                     if (w == v || is_neighbor[w]) continue;
@@ -49,15 +48,15 @@ namespace sat {
                     var_neighbor.back().push_back(w);
                 }
             }
-			for (unsigned i = 0; i < neg_var_term[v].size(); ++i) {
-				unsigned c = neg_var_term[v][i];
-				for (unsigned j = 0; j < constraint_term[c].size(); ++j) {
-					bool_var w = constraint_term[c][j].var_id;
-					if (w == v || is_neighbor[w]) continue;
-					is_neighbor[w] = true;
-					var_neighbor.back().push_back(w);
-				}
-			}
+            for (unsigned i = 0; i < m_vars[v].m_watch[false].size(); ++i) {
+                unsigned c = m_vars[v].m_watch[false][i];
+                for (unsigned j = 0; j < constraint_term[c].size(); ++j) {
+                    bool_var w = constraint_term[c][j].var_id;
+                    if (w == v || is_neighbor[w]) continue;
+                    is_neighbor[w] = true;
+                    var_neighbor.back().push_back(w);
+                }
+            }
         }
         for (unsigned i = 0; i < ob_constraint.size(); ++i)
             coefficient_in_ob_constraint[ob_constraint[i].var_id] = ob_constraint[i].coefficient;
@@ -91,35 +90,30 @@ namespace sat {
         }
     }
 
-    // figure out variables scores and sscores
+    // figure out variables scores and slack_scores
     void local_search::init_scores() {
         for (unsigned v = 1; v <= num_vars(); ++v) {
-			int_vector truep, falsep;
-			if (cur_solution[v]) {
-				truep = pos_var_term[v];
-				falsep = neg_var_term[v];
-			}
-			else {
-				truep = neg_var_term[v];
-				falsep = pos_var_term[v];
-			}
-			for (unsigned i = 0; i < falsep.size(); ++i) {
-				int c = falsep[i];
-				// will --slack
-				if (constraint_slack[c] <= 0) {
-					--sscore[v];
-					if (constraint_slack[c] == 0)
-						--m_var_info[v].m_score;
-				}
-			}
-			for (unsigned i = 0; i < truep.size(); ++i) {
-				int c = truep[i];
+            bool is_true = cur_solution[v];
+            int_vector& truep = m_vars[v].m_watch[is_true];
+            int_vector& falsep = m_vars[v].m_watch[!is_true];
+
+            for (unsigned i = 0; i < falsep.size(); ++i) {
+                int c = falsep[i];
+                // will --slack
+                if (constraint_slack[c] <= 0) {
+                    dec_slack_score(v);
+                    if (constraint_slack[c] == 0)
+                        dec_score(v);
+                }
+            }
+            for (unsigned i = 0; i < truep.size(); ++i) {
+                int c = truep[i];
                 // will --true_terms_count[c]
                 // will ++slack
                 if (constraint_slack[c] <= -1) {
-                    ++sscore[v];
+                    inc_slack_score(v);
                     if (constraint_slack[c] == -1)
-                        ++m_var_info[v].m_score;
+                        inc_score(v);
                 }
             }
         }
@@ -130,7 +124,7 @@ namespace sat {
         goodvar_stack.reset();
         for (unsigned v = 1; v <= num_vars(); ++v) {
             if (score(v) > 0) { // && conf_change[v] == true
-                m_var_info[v].m_in_goodvar_stack = true;
+                m_vars[v].m_in_goodvar_stack = true;
                 goodvar_stack.push_back(v);
             }
         }
@@ -148,23 +142,24 @@ namespace sat {
         // init varibale information
         // variable 0 is the virtual variable
 
-        m_var_info.reset(); 
-        sscore.reset(); 
-        time_stamp.reset(); 
-        cscc.reset();
-
-        m_var_info.resize(num_vars() + 1, var_info()); 
-        m_var_info[0].m_score = INT_MIN;
-        m_var_info[0].m_conf_change = false;
-        sscore.resize(num_vars() + 1, 0);         sscore[0] = INT_MIN;
-        time_stamp.resize(num_vars() + 1, 0);     time_stamp[0] = max_steps + 1;
-        cscc.resize(num_vars() + 1, 1);           cscc[0] = 0;
-
-
+        time_stamp.reserve(m_vars.size()); 
+        cscc.reserve(m_vars.size());
+        m_vars[0].m_score = INT_MIN;
+        m_vars[0].m_conf_change = false;       
+        m_vars[0].m_slack_score = INT_MIN;
+        cscc[0] = 0;
+        time_stamp[0] = max_steps + 1;
+        for (unsigned i = 1; i < m_vars.size(); ++i) {
+            time_stamp[i] = 0;
+            cscc[i] = 1;
+            m_vars[i].m_conf_change = true;
+            m_vars[i].m_in_goodvar_stack = false;
+            m_vars[i].m_score = 0;
+            m_vars[i].m_slack_score = 0;
+        }         
         init_slack();
         init_scores();
         init_goodvars();
-
     }
     
     void local_search::calculate_and_update_ob() {
@@ -196,29 +191,20 @@ namespace sat {
     }
 
     void local_search::add_cardinality(unsigned sz, literal const* c, unsigned k) {
-        unsigned id = m_num_constraints;
-        ++m_num_constraints;
-        // constraint_term.push_back(svector<term>());
+        unsigned id = num_constraints();
+        constraint_term.push_back(svector<term>());
         for (unsigned i = 0; i < sz; ++i) {
-            m_num_vars = std::max(c[i].var() + 1, m_num_vars);
-            // var_term.reserve(c[i].var() + 1);
+            m_vars.reserve(c[i].var() + 1);
             term t;
             t.var_id = c[i].var();
             t.sense =  c[i].sign();
-			if (t.sense)
-				pos_var_term[t.var_id].push_back(id);
-			else
-				neg_var_term[t.var_id].push_back(id);
-            //var_term[t.var_id].push_back(t);
+            m_vars[t.var_id].m_watch[t.sense].push_back(id);
             constraint_term[id].push_back(t);
         }
         constraint_k.push_back(k);                
     }
 
     local_search::local_search(solver& s) {
-
-        m_num_vars = 0;
-        m_num_constraints = 0;
 
         // copy units
         unsigned trail_sz = s.init_trail_size();
@@ -325,17 +311,17 @@ namespace sat {
                         reach_known_best_value = true;
                         break;
                     }
-				}
+                }
                 flipvar = pick_var();
                 flip(flipvar);
                 time_stamp[flipvar] = step;
             }
             if (tries % 10 == 0) {
-				// take a look at watch
-				stop = clock();
-				elapsed_time = (double)(stop - start) / CLOCKS_PER_SEC;
-				std::cout << tries << ": " << elapsed_time << '\n';
-			}
+                // take a look at watch
+                stop = clock();
+                elapsed_time = (double)(stop - start) / CLOCKS_PER_SEC;
+                std::cout << tries << ": " << elapsed_time << '\n';
+            }
             if (elapsed_time > cutoff_time)
                 reach_cutoff_time = true;
             if (reach_known_best_value || reach_cutoff_time)
@@ -360,107 +346,102 @@ namespace sat {
 
         unsigned v, c;
         int org_flipvar_score = score(flipvar);
-        int org_flipvar_sscore = sscore[flipvar];
+        int org_flipvar_slack_score = slack_score(flipvar);
 
-		int_vector truep, falsep;
-		if (cur_solution[flipvar]) {
-			truep = pos_var_term[flipvar];
-			falsep = neg_var_term[flipvar];
-		}
-		else {
-			truep = neg_var_term[flipvar];
-			falsep = pos_var_term[flipvar];
-		}
+        bool is_true = cur_solution[flipvar];
+        int_vector& truep = m_vars[flipvar].m_watch[is_true];
+        int_vector& falsep = m_vars[flipvar].m_watch[!is_true];
 
         // update related clauses and neighbor vars
-		for (unsigned i = 0; i < truep.size(); ++i) {
-			c = truep[i];
-			//++true_terms_count[c];
-			--constraint_slack[c];
-			switch (constraint_slack[c]) {
-			case -2:  // from -1 to -2
-				for (unsigned j = 0; j < constraint_term[c].size(); ++j) {
-					v = constraint_term[c][j].var_id;
-					// flipping the slack increasing var will no long sat this constraint
-					if (cur_solution[v] == constraint_term[c][j].sense)
-						//score[v] -= constraint_weight[c];
-						--m_var_info[v].m_score;
-				}
-				break;
-			case -1: // from 0 to -1: sat -> unsat
-				for (unsigned j = 0; j < constraint_term[c].size(); ++j) {
-					v = constraint_term[c][j].var_id;
-					++cscc[v];
-					//score[v] += constraint_weight[c];
-					++m_var_info[v].m_score;
-					// slack increasing var
-					if (cur_solution[v] == constraint_term[c][j].sense)
-						++sscore[v];
-				}
-				unsat(c);
-				break;
-			case 0: // from 1 to 0
-				for (unsigned j = 0; j < constraint_term[c].size(); ++j) {
-					v = constraint_term[c][j].var_id;
-					// flip the slack decreasing var will falsify this constraint
-					if (cur_solution[v] != constraint_term[c][j].sense) {
-						//score[v] -= constraint_weight[c];
-						--m_var_info[v].m_score;
-						--sscore[v];
-					}
-				}
-				break;
-			default:
-				break;
-			}
-		}
-		for (unsigned i = 0; i < falsep.size(); ++i) {
-			c = falsep[i];
-			//--true_terms_count[c];
-			++constraint_slack[c];
-			switch (constraint_slack[c]) {
-			case 1: // from 0 to 1
-				for (unsigned j = 0; j < constraint_term[c].size(); ++j) {
-					v = constraint_term[c][j].var_id;
-					// flip the slack decreasing var will no long falsify this constraint
-					if (cur_solution[v] != constraint_term[c][j].sense) {
-						//score[v] += constraint_weight[c];
-						++m_var_info[v].m_score;
-						++sscore[v];
-					}
-				}
-				break;
-			case 0: // from -1 to 0: unsat -> sat
-				for (unsigned j = 0; j < constraint_term[c].size(); ++j) {
-					v = constraint_term[c][j].var_id;
-					++cscc[v];
-					//score[v] -= constraint_weight[c];
-					--m_var_info[v].m_score;
-					// slack increasing var no longer sat this var
-					if (cur_solution[v] == constraint_term[c][j].sense)
-						--sscore[v];
-				}
-				sat(c);
-				break;
-			case -1: // from -2 to -1
-				for (unsigned j = 0; j < constraint_term[c].size(); ++j) {
-					v = constraint_term[c][j].var_id;
-					// flip the slack increasing var will satisfy this constraint
-					if (cur_solution[v] == constraint_term[c][j].sense) {
-						//score[v] += constraint_weight[c];
-						++m_var_info[v].m_score;
-					}
-				}
-				break;
-			default:
-				break;
-			}
+        for (unsigned i = 0; i < truep.size(); ++i) {
+            c = truep[i];
+            //++true_terms_count[c];
+            --constraint_slack[c];
+            switch (constraint_slack[c]) {
+            case -2:  // from -1 to -2
+                for (unsigned j = 0; j < constraint_term[c].size(); ++j) {
+                    v = constraint_term[c][j].var_id;
+                    // flipping the slack increasing var will no long sat this constraint
+                    if (cur_solution[v] == constraint_term[c][j].sense) {
+                        //score[v] -= constraint_weight[c];
+                        dec_score(v);
+                    }
+                }
+                break;
+            case -1: // from 0 to -1: sat -> unsat
+                for (unsigned j = 0; j < constraint_term[c].size(); ++j) {
+                    v = constraint_term[c][j].var_id;
+                    ++cscc[v];
+                    //score[v] += constraint_weight[c];
+                    inc_score(v);
+                    // slack increasing var
+                    if (cur_solution[v] == constraint_term[c][j].sense)
+                        inc_slack_score(v);
+                }
+                unsat(c);
+                break;
+            case 0: // from 1 to 0
+                for (unsigned j = 0; j < constraint_term[c].size(); ++j) {
+                    v = constraint_term[c][j].var_id;
+                    // flip the slack decreasing var will falsify this constraint
+                    if (cur_solution[v] != constraint_term[c][j].sense) {
+                        //score[v] -= constraint_weight[c];
+                        dec_score(v);
+                        dec_slack_score(v);
+                    }
+                }
+                break;
+            default:
+                break;
+            }
+        }
+        for (unsigned i = 0; i < falsep.size(); ++i) {
+            c = falsep[i];
+            //--true_terms_count[c];
+            ++constraint_slack[c];
+            switch (constraint_slack[c]) {
+            case 1: // from 0 to 1
+                for (unsigned j = 0; j < constraint_term[c].size(); ++j) {
+                    v = constraint_term[c][j].var_id;
+                    // flip the slack decreasing var will no long falsify this constraint
+                    if (cur_solution[v] != constraint_term[c][j].sense) {
+                        //score[v] += constraint_weight[c];
+                        inc_score(v);
+                        inc_slack_score(v);
+                    }
+                }
+                break;
+            case 0: // from -1 to 0: unsat -> sat
+                for (unsigned j = 0; j < constraint_term[c].size(); ++j) {
+                    v = constraint_term[c][j].var_id;
+                    ++cscc[v];
+                    //score[v] -= constraint_weight[c];
+                    dec_score(v);
+                    // slack increasing var no longer sat this var
+                    if (cur_solution[v] == constraint_term[c][j].sense)
+                        dec_slack_score(v);
+                }
+                sat(c);
+                break;
+            case -1: // from -2 to -1
+                for (unsigned j = 0; j < constraint_term[c].size(); ++j) {
+                    v = constraint_term[c][j].var_id;
+                    // flip the slack increasing var will satisfy this constraint
+                    if (cur_solution[v] == constraint_term[c][j].sense) {
+                        //score[v] += constraint_weight[c];
+                        inc_score(v);
+                    }
+                }
+                break;
+            default:
+                break;
+            }
         }
 
-        m_var_info[flipvar].m_score = -org_flipvar_score;
-        sscore[flipvar] = -org_flipvar_sscore;
+        m_vars[flipvar].m_score = -org_flipvar_score;
+        m_vars[flipvar].m_slack_score = -org_flipvar_slack_score;
 
-        m_var_info[flipvar].m_conf_change = false;
+        m_vars[flipvar].m_conf_change = false;
         cscc[flipvar] = 0;
 
         /* update CCD */
@@ -471,7 +452,7 @@ namespace sat {
             if (score(v) <= 0) {
                 goodvar_stack[i] = goodvar_stack.back();
                 goodvar_stack.pop_back();
-                m_var_info[v].m_in_goodvar_stack = false;
+                m_vars[v].m_in_goodvar_stack = false;
             }
         }
         // update all flipvar's neighbor's conf_change to true, add goodvar/okvar
@@ -479,10 +460,10 @@ namespace sat {
         unsigned sz = var_neighbor[flipvar].size();
         for (unsigned i = 0; i < sz; ++i) {
             v = var_neighbor[flipvar][i];
-            m_var_info[v].m_conf_change = true;
+            m_vars[v].m_conf_change = true;
             if (score(v) > 0 && !already_in_goodvar_stack(v)) {
                 goodvar_stack.push_back(v);
-                m_var_info[v].m_in_goodvar_stack = true;
+                m_vars[v].m_in_goodvar_stack = true;
             }
         }
 
@@ -507,14 +488,14 @@ namespace sat {
 
     bool local_search::tie_breaker_ccd(bool_var v, bool_var best_var)  {
         // break tie 1: max score
-        // break tie 2: max sscore
+        // break tie 2: max slack_score
         // break tie 3: cscc
         // break tie 4: oldest one
         return 
             ((score(v) > score(best_var)) ||
              ((score(v) == score(best_var)) &&
-              ((sscore[v] > sscore[best_var]) ||
-               ((sscore[v] == sscore[best_var]) &&
+              ((slack_score(v) > slack_score(best_var)) ||
+               ((slack_score(v) == slack_score(best_var)) &&
                 ((cscc[v] > cscc[best_var]) ||
                  ((cscc[v] == cscc[best_var]) && 
                   (time_stamp[v] < time_stamp[best_var])))))));
@@ -586,7 +567,7 @@ namespace sat {
 
     void local_search::print_info() {
         for (unsigned v = 1; v <= num_vars(); ++v) {
-            std::cout << var_neighbor[v].size() << '\t' << cur_solution[v] << '\t' << conf_change(v) << '\t' << score(v) << '\t' << sscore[v] << '\n';
+            std::cout << var_neighbor[v].size() << '\t' << cur_solution[v] << '\t' << conf_change(v) << '\t' << score(v) << '\t' << slack_score(v) << '\n';
         }
     }
 }
