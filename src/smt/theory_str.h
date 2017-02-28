@@ -30,9 +30,43 @@ Revision History:
 #include<map>
 #include"seq_decl_plugin.h"
 #include"union_find.h"
-#include"theory_seq_empty.h"
 
 namespace smt {
+
+    class str_value_factory : public value_factory {
+        seq_util u;
+        symbol_set m_strings;
+        std::string delim;
+        unsigned m_next;
+    public:
+        str_value_factory(ast_manager & m, family_id fid) :
+            value_factory(m, fid),
+            u(m), delim("!"), m_next(0) {}
+        virtual ~str_value_factory() {}
+        virtual expr * get_some_value(sort * s) {
+            return u.str.mk_string("some value");
+        }
+        virtual bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) {
+            v1 = u.str.mk_string("value 1");
+            v2 = u.str.mk_string("value 2");
+            return true;
+        }
+        virtual expr * get_fresh_value(sort * s) {
+            if (u.is_string(s)) {
+                while (true) {
+                    std::ostringstream strm;
+                    strm << delim << std::hex << (m_next++) << std::dec << delim;
+                    symbol sym(strm.str().c_str());
+                    if (m_strings.contains(sym)) continue;
+                    m_strings.insert(sym);
+                    return u.str.mk_string(sym);
+                }
+            } else {
+                UNREACHABLE(); return NULL;
+            }
+        }
+        virtual void register_value(expr * n) { /* Ignore */ }
+    };
 
     // rather than modify obj_pair_map I inherit from it and add my own helper methods
     class theory_str_contain_pair_bool_map_t : public obj_pair_map<expr, expr, expr*> {
@@ -237,8 +271,8 @@ namespace smt {
         //obj_map<expr, obj_pair_set<expr, expr> > contain_pair_idx_map;
         std::map<expr*, std::set<std::pair<expr*, expr*> > > contain_pair_idx_map;
 
-        std::map<std::pair<expr*, std::string>, expr*> regex_in_bool_map;
-        std::map<expr*, std::set<std::string> > regex_in_var_reg_str_map;
+        std::map<std::pair<expr*, zstring>, expr*> regex_in_bool_map;
+        std::map<expr*, std::set<zstring> > regex_in_var_reg_str_map;
 
         // std::map<expr*, nfa> regex_nfa_cache; // Regex term --> NFA
 
@@ -380,7 +414,7 @@ namespace smt {
         bool upper_bound(expr* _e, rational& hi);
 
         bool can_two_nodes_eq(expr * n1, expr * n2);
-        bool can_concat_eq_str(expr * concat, std::string str);
+        bool can_concat_eq_str(expr * concat, zstring& str);
         bool can_concat_eq_concat(expr * concat1, expr * concat2);
         bool check_concat_len_in_eqc(expr * concat);
         bool check_length_consistency(expr * n1, expr * n2);
@@ -462,20 +496,20 @@ namespace smt {
         void process_free_var(std::map<expr*, int> & freeVar_map);
         expr * gen_len_test_options(expr * freeVar, expr * indicator, int tries);
         expr * gen_free_var_options(expr * freeVar, expr * len_indicator,
-        		std::string len_valueStr, expr * valTesterInCbEq, std::string valTesterValueStr);
+        		zstring len_valueStr, expr * valTesterInCbEq, zstring valTesterValueStr);
         expr * gen_val_options(expr * freeVar, expr * len_indicator, expr * val_indicator,
-        		std::string lenStr, int tries);
+        		zstring lenStr, int tries);
         void print_value_tester_list(svector<std::pair<int, expr*> > & testerList);
         bool get_next_val_encode(int_vector & base, int_vector & next);
-        std::string gen_val_string(int len, int_vector & encoding);
+        zstring gen_val_string(int len, int_vector & encoding);
 
         // binary search heuristic
         expr * binary_search_length_test(expr * freeVar, expr * previousLenTester, std::string previousLenTesterValue);
         expr_ref binary_search_case_split(expr * freeVar, expr * tester, binary_search_info & bounds, literal_vector & case_split_lits);
 
         bool free_var_attempt(expr * nn1, expr * nn2);
-        void more_len_tests(expr * lenTester, std::string lenTesterValue);
-        void more_value_tests(expr * valTester, std::string valTesterValue);
+        void more_len_tests(expr * lenTester, zstring lenTesterValue);
+        void more_value_tests(expr * valTester, zstring valTesterValue);
 
         expr * get_alias_index_ast(std::map<expr*, expr*> & aliasIndexMap, expr * node);
         expr * getMostLeftNodeInConcat(expr * node);
@@ -494,10 +528,11 @@ namespace smt {
         void get_eqc_simpleUnroll(expr * n, expr * &constStr, std::set<expr*> & unrollFuncSet);
         void gen_assign_unroll_reg(std::set<expr*> & unrolls);
         expr * gen_assign_unroll_Str2Reg(expr * n, std::set<expr*> & unrolls);
-        expr * gen_unroll_conditional_options(expr * var, std::set<expr*> & unrolls, std::string lcmStr);
-        expr * gen_unroll_assign(expr * var, std::string lcmStr, expr * testerVar, int l, int h);
+        expr * gen_unroll_conditional_options(expr * var, std::set<expr*> & unrolls, zstring lcmStr);
+        expr * gen_unroll_assign(expr * var, zstring lcmStr, expr * testerVar, int l, int h);
         void reduce_virtual_regex_in(expr * var, expr * regex, expr_ref_vector & items);
         void check_regex_in(expr * nn1, expr * nn2);
+        zstring get_std_regex_str(expr * r);
 
         void dump_assignments();
         void initialize_charset();
