@@ -153,8 +153,7 @@ def is_cygwin_mingw():
     return IS_CYGWIN_MINGW
 
 def norm_path(p):
-    # We use '/' on mk_project for convenience
-    return os.path.join(*(p.split('/')))
+    return os.path.expanduser(os.path.normpath(p))
 
 def which(program):
     import os
@@ -1393,7 +1392,7 @@ class DLLComponent(Component):
             shutil.copy('%s.a' % os.path.join(build_path, self.dll_name),
                         '%s.a' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
 
-class PythonComponent(Component): 
+class PythonComponent(Component):
     def __init__(self, name, libz3Component):
         assert isinstance(libz3Component, DLLComponent)
         global PYTHON_ENABLED
@@ -1418,7 +1417,7 @@ class PythonComponent(Component):
 
     def mk_makefile(self, out):
         return
-   
+
 class PythonInstallComponent(Component):
     def __init__(self, name, libz3Component):
         assert isinstance(libz3Component, DLLComponent)
@@ -1521,7 +1520,7 @@ class PythonInstallComponent(Component):
                                       os.path.join('python', 'z3', '*.pyc'),
                                       os.path.join(self.pythonPkgDir,'z3'),
                                       in_prefix=self.in_prefix_install)
-            
+
         if PYTHON_PACKAGE_DIR != distutils.sysconfig.get_python_lib():
             out.write('\t@echo Z3Py was installed at \'%s\', make sure this directory is in your PYTHONPATH environment variable.' % PYTHON_PACKAGE_DIR)
 
@@ -1586,7 +1585,7 @@ class DotNetDLLComponent(Component):
 
     def mk_makefile(self, out):
         global DOTNET_KEY_FILE
-        
+
         if not is_dotnet_enabled():
             return
         cs_fp_files = []
@@ -1631,7 +1630,7 @@ class DotNetDLLComponent(Component):
             else:
                 print("Keyfile '%s' could not be found; %s.dll will be unsigned." % (self.key_file, self.dll_name))
                 self.key_file = None
-                
+
         if not self.key_file is None:
             print("%s.dll will be signed using key '%s'." % (self.dll_name, self.key_file))
             cscCmdLine.append('/keyfile:{}'.format(self.key_file))
@@ -1658,7 +1657,7 @@ class DotNetDLLComponent(Component):
                              )
         else:
             cscCmdLine.extend(['/optimize+'])
-            
+
         if IS_WINDOWS:
             if VS_X64:
                 cscCmdLine.extend(['/platform:x64'])
@@ -1962,7 +1961,7 @@ class MLComponent(Component):
 
             OCAMLMKLIB = 'ocamlmklib'
 
-            LIBZ3 = '-L. -lz3'           
+            LIBZ3 = '-L. -lz3'
             if is_cygwin() and not(is_cygwin_mingw()):
                 LIBZ3 = 'libz3.dll'
 
@@ -2214,7 +2213,7 @@ class PythonExampleComponent(ExampleComponent):
     def mk_win_dist(self, build_path, dist_path):
         full = os.path.join(EXAMPLE_DIR, self.path)
         py = 'example.py'
-        shutil.copyfile(os.path.join(full, py), 
+        shutil.copyfile(os.path.join(full, py),
                         os.path.join(dist_path, INSTALL_BIN_DIR, 'python', py))
 
     def mk_unix_dist(self, build_path, dist_path):
@@ -2263,7 +2262,7 @@ def add_java_dll(name, deps=[], path=None, dll_name=None, package_name=None, man
 def add_python(libz3Component):
     name = 'python'
     reg_component(name, PythonComponent(name, libz3Component))
-    
+
 def add_python_install(libz3Component):
     name = 'python_install'
     reg_component(name, PythonInstallComponent(name, libz3Component))
@@ -2689,7 +2688,7 @@ def get_full_version_string(major, minor, build, revision):
         branch = check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD', '--long'])
         res += " master " + check_output(['git', 'describe'])
     return '"' + res + '"'
-        
+
 # Update files with the version number
 def mk_version_dot_h(major, minor, build, revision):
     c = get_component(UTIL_COMPONENT)
