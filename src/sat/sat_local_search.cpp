@@ -74,7 +74,7 @@ namespace sat {
             constraint & cn = m_constraints[c];
             for (unsigned i = 0; i < cn.size(); ++i) {
                 bool_var v = cn[i].var();
-                if (cur_solution[v] == is_pos(cn[i])) 
+                if (is_true(cn[i]))
                     --cn.m_slack;
             }
             // constraint_slack[c] = constraint_k[c] - true_terms_count[c];
@@ -340,9 +340,9 @@ namespace sat {
         int org_flipvar_score = score(flipvar);
         int org_flipvar_slack_score = slack_score(flipvar);
 
-        bool is_true = cur_solution[flipvar];
-        int_vector& truep = m_vars[flipvar].m_watch[is_true];
-        int_vector& falsep = m_vars[flipvar].m_watch[!is_true];
+        bool flip_is_true = cur_solution[flipvar];
+        int_vector& truep = m_vars[flipvar].m_watch[flip_is_true];
+        int_vector& falsep = m_vars[flipvar].m_watch[!flip_is_true];
 
         // update related clauses and neighbor vars
         for (unsigned i = 0; i < truep.size(); ++i) {
@@ -354,7 +354,7 @@ namespace sat {
                 for (unsigned j = 0; j < c.size(); ++j) {
                     v = c[j].var();
                     // flipping the slack increasing var will no long sat this constraint
-                    if (cur_solution[v] == is_pos(c[j])) {
+                    if (is_true(c[j])) {
                         //score[v] -= constraint_weight[c];
                         dec_score(v);
                     }
@@ -367,7 +367,7 @@ namespace sat {
                     //score[v] += constraint_weight[c];
                     inc_score(v);
                     // slack increasing var
-                    if (cur_solution[v] == is_pos(c[j]))
+                    if (is_true(c[j]))
                         inc_slack_score(v);
                 }
                 unsat(truep[i]);
@@ -376,7 +376,7 @@ namespace sat {
                 for (unsigned j = 0; j < c.size(); ++j) {
                     v = c[j].var();
                     // flip the slack decreasing var will falsify this constraint
-                    if (cur_solution[v] != is_pos(c[j])) {
+                    if (is_false(c[j])) {
                         //score[v] -= constraint_weight[c];
                         dec_score(v);
                         dec_slack_score(v);
@@ -396,7 +396,7 @@ namespace sat {
                 for (unsigned j = 0; j < c.size(); ++j) {
                     v = c[j].var();
                     // flip the slack decreasing var will no long falsify this constraint
-                    if (cur_solution[v] != is_pos(c[j])) {
+                    if (is_false(c[j])) {
                         //score[v] += constraint_weight[c];
                         inc_score(v);
                         inc_slack_score(v);
@@ -410,7 +410,7 @@ namespace sat {
                     //score[v] -= constraint_weight[c];
                     dec_score(v);
                     // slack increasing var no longer sat this var
-                    if (cur_solution[v] == is_pos(c[j]))
+                    if (is_true(c[j]))
                         dec_slack_score(v);
                 }
                 sat(falsep[i]);
@@ -419,7 +419,7 @@ namespace sat {
                 for (unsigned j = 0; j < c.size(); ++j) {
                     v = c[j].var();
                     // flip the slack increasing var will satisfy this constraint
-                    if (cur_solution[v] == is_pos(c[j])) {
+                    if (is_true(c[j])) {
                         //score[v] += constraint_weight[c];
                         inc_score(v);
                     }
@@ -526,7 +526,7 @@ namespace sat {
         unsigned c_size = c.size();
         for (unsigned i = 0; i < c_size; ++i) {
             v = c[i].var();
-            if (cur_solution[v] == is_pos(c[i]) && time_stamp(v) < time_stamp(best_var))
+            if (is_true(c[i]) && time_stamp(v) < time_stamp(best_var))
                 best_var = v;
         }
         return best_var;

@@ -113,9 +113,9 @@ namespace sat {
         /* TBD: other scores */
         
         struct constraint {
-            unsigned       m_k;
-            int            m_slack;
-            svector<literal>  m_literals;
+            unsigned        m_k;
+            int             m_slack;
+            literal_vector  m_literals;
             constraint(unsigned k) : m_k(k), m_slack(0) {}
             unsigned size() const { return m_literals.size(); }
             literal const& operator[](unsigned idx) const { return m_literals[idx]; }
@@ -127,6 +127,8 @@ namespace sat {
         // vector<svector<term> > constraint_term;  // constraint_term[i][j] means the j'th term of constraint i
 
         inline bool is_pos(literal t) const { return !t.sign(); }
+        inline bool is_true(literal l) const { return cur_solution[l.var()] != l.sign(); }
+        inline bool is_false(literal l) const { return cur_solution[l.var()] == l.sign(); }
 
         // parameters of the instance
         unsigned num_constraints() const { return m_constraints.size(); } // constraint index from 1 to num_constraint
