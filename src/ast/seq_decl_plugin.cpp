@@ -473,6 +473,7 @@ void seq_decl_plugin::init() {
     sort* str2TintT[3] = { strT, strT, intT };
     sort* seqAintT[2] = { seqA, intT };
     sort* seq3A[3] = { seqA, seqA, seqA };
+    sort* reTintT[2] = { reT, intT };
     m_sigs.resize(LAST_SEQ_OP);
     // TBD: have (par ..) construct and load parameterized signature from premable.
     m_sigs[OP_SEQ_UNIT]      = alloc(psig, m, "seq.unit",     1, 1, &A, seqA);
@@ -516,6 +517,7 @@ void seq_decl_plugin::init() {
     m_sigs[_OP_REGEXP_EMPTY]      = alloc(psig, m, "re.nostr", 0, 0, 0, reT);
     m_sigs[_OP_REGEXP_FULL]       = alloc(psig, m, "re.allchar", 0, 0, 0, reT);
     m_sigs[_OP_STRING_SUBSTR]     = alloc(psig, m, "str.substr", 0, 3, strTint2T, strT);
+    m_sigs[_OP_RE_UNROLL]         = alloc(psig, m, "_re.unroll", 0, 2, reTintT, strT);
 }
 
 void seq_decl_plugin::set_manager(ast_manager* m, family_id id) {
@@ -672,6 +674,9 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
             m.raise_exception("Incorrect number of arguments passed to loop. Expected 1 regular expression and two integer parameters");
         }
         
+    case _OP_RE_UNROLL:
+        match(*m_sigs[k], arity, domain, range, rng);
+        return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
 
     case OP_STRING_CONST:
         if (!(num_parameters == 1 && arity == 0 && parameters[0].is_symbol())) {
