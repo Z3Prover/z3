@@ -64,7 +64,10 @@ class dt2bv_tactic : public tactic {
                 return;
             }
 
-            if (m_t.is_fd(a)) {
+            if (m_t.is_fd(a) && a->get_num_args() > 0) {
+                m_t.m_non_fd_sorts.insert(get_sort(a));
+            }
+            else if (m_t.is_fd(a)) {
                 m_t.m_fd_sorts.insert(get_sort(a));
             }
             else {
