@@ -81,35 +81,35 @@ namespace sat {
             int  m_slack_score;
             int  m_time_stamp;                   // the flip time stamp                 
             int  m_cscc;                         // how many times its constraint state configure changes since its last flip
+            bool_var_vector m_neighbors;         // neighborhood variables
             int_vector m_watch[2];
             var_info():
                 m_conf_change(true),
                 m_in_goodvar_stack(false),
                 m_score(0),
-                m_slack_score(0)
+                m_slack_score(0),
+                m_cscc(0)
             {}
         };
-        svector<var_info>       m_vars;
 
-        inline int score(unsigned v) const { return m_vars[v].m_score; }
+        vector<var_info>       m_vars;
+
+        inline int score(bool_var v) const { return m_vars[v].m_score; }
         inline void inc_score(bool_var v) { m_vars[v].m_score++; }
         inline void dec_score(bool_var v) { m_vars[v].m_score--; }
 
-        inline int slack_score(unsigned v) const { return m_vars[v].m_slack_score; }
+        inline int slack_score(bool_var v) const { return m_vars[v].m_slack_score; }
         inline void inc_slack_score(bool_var v) { m_vars[v].m_slack_score++; }
         inline void dec_slack_score(bool_var v) { m_vars[v].m_slack_score--; }
         
-        inline bool already_in_goodvar_stack(unsigned v) const { return m_vars[v].m_in_goodvar_stack; }
-        inline bool conf_change(unsigned v) const { return m_vars[v].m_conf_change; }
+        inline bool already_in_goodvar_stack(bool_var v) const { return m_vars[v].m_in_goodvar_stack; }
+        inline bool conf_change(bool_var v) const { return m_vars[v].m_conf_change; }
         inline int  time_stamp(bool_var v) const { return m_vars[v].m_time_stamp; }
         inline int  cscc(bool_var v) const { return m_vars[v].m_cscc; }
         inline void inc_cscc(bool_var v) { m_vars[v].m_cscc++; }
 
         unsigned num_vars() const { return m_vars.size() - 1; }     // var index from 1 to num_vars
-
-
-        vector<bool_var_vector>  var_neighbor;     // all of its neighborhoods variable
-
+        
         /* TBD: other scores */
         
         struct constraint {
@@ -123,19 +123,12 @@ namespace sat {
 
         vector<constraint> m_constraints;
 
-        // terms arrays
-        // vector<svector<term> > constraint_term;  // constraint_term[i][j] means the j'th term of constraint i
-
         inline bool is_pos(literal t) const { return !t.sign(); }
         inline bool is_true(literal l) const { return cur_solution[l.var()] != l.sign(); }
         inline bool is_false(literal l) const { return cur_solution[l.var()] == l.sign(); }
 
-        // parameters of the instance
         unsigned num_constraints() const { return m_constraints.size(); } // constraint index from 1 to num_constraint
 
-        // information about the constraints
-        // int_vector constraint_k;             // the right side k of a constraint
-        // int_vector constraint_slack;         // =constraint_k[i]-true_terms[i], if >=0 then sat
         
         // int_vector nb_slack;                 // constraint_k - ob_var(same in ob) - none_ob_true_terms_count. if < 0: some ob var might be flipped to false, result in an ob decreasing
         // bool_vector has_true_ob_terms; 

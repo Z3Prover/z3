@@ -26,31 +26,32 @@ namespace sat {
 
     void local_search::init() {
 
+        // add sentinel variable.
+        m_vars.push_back(var_info());
+
         best_solution.resize(num_vars() + 1, false);
         cur_solution.resize(num_vars() + 1, false);
         m_index_in_unsat_stack.resize(num_constraints(), 0);
         coefficient_in_ob_constraint.resize(num_vars() + 1, 0);
-        var_neighbor.reset();
 
-        // for dummy var 0
-        var_neighbor.push_back(bool_var_vector());
-
-        for (bool_var v = 1; v <= num_vars(); ++v) {
-            bool_vector is_neighbor(num_vars() + 1, false);
-            var_neighbor.push_back(bool_var_vector());
+        uint_set is_neighbor;
+        for (bool_var v = 0; v < num_vars(); ++v) {
+            is_neighbor.reset();
             bool pol = true;
+            var_info& vi = m_vars[v];
             for (unsigned k = 0; k < 2; pol = !pol, k++) { 
                 for (unsigned i = 0; i < m_vars[v].m_watch[pol].size(); ++i) {
                     constraint const& c = m_constraints[m_vars[v].m_watch[pol][i]];
                     for (unsigned j = 0; j < c.size(); ++j) {
                         bool_var w = c[j].var(); 
-                        if (w == v || is_neighbor[w]) continue;
-                        is_neighbor[w] = true;
-                        var_neighbor.back().push_back(w);
+                        if (w == v || is_neighbor.contains(w)) continue;
+                        is_neighbor.insert(w);
+                        vi.m_neighbors.push_back(w);
                     }
                 }
             }
         }
+
         for (unsigned i = 0; i < ob_constraint.size(); ++i)
             coefficient_in_ob_constraint[ob_constraint[i].var_id] = ob_constraint[i].coefficient;
 
@@ -63,7 +64,7 @@ namespace sat {
 
     void local_search::init_cur_solution() {
         //cur_solution.resize(num_vars() + 1, false);
-        for (unsigned v = 1; v <= num_vars(); ++v) {
+        for (unsigned v = 0; v < num_vars(); ++v) {
             cur_solution[v] = (rand() % 2 == 1);
         }
     }
@@ -86,7 +87,7 @@ namespace sat {
 
     // figure out variables scores and slack_scores
     void local_search::init_scores() {
-        for (unsigned v = 1; v <= num_vars(); ++v) {
+        for (unsigned v = 0; v < num_vars(); ++v) {
             bool is_true = cur_solution[v];
             int_vector& truep = m_vars[v].m_watch[is_true];
             int_vector& falsep = m_vars[v].m_watch[!is_true];
@@ -116,7 +117,7 @@ namespace sat {
     // init goodvars 
     void local_search::init_goodvars() {
         goodvar_stack.reset();
-        for (unsigned v = 1; v <= num_vars(); ++v) {
+        for (unsigned v = 0; v < num_vars(); ++v) {
             if (score(v) > 0) { // && conf_change[v] == true
                 m_vars[v].m_in_goodvar_stack = true;
                 goodvar_stack.push_back(v);
@@ -139,12 +140,12 @@ namespace sat {
         // init varibale information
         // variable 0 is the virtual variable
 
-        m_vars[0].m_score = INT_MIN;
-        m_vars[0].m_conf_change = false;       
-        m_vars[0].m_slack_score = INT_MIN;
-        m_vars[0].m_cscc = 0;
-        m_vars[0].m_time_stamp = max_steps + 1;
-        for (unsigned i = 1; i < m_vars.size(); ++i) {
+        m_vars.back().m_score = INT_MIN;
+        m_vars.back().m_conf_change = false;       
+        m_vars.back().m_slack_score = INT_MIN;
+        m_vars.back().m_cscc = 0;
+        m_vars.back().m_time_stamp = max_steps + 1;
+        for (unsigned i = 0; i < num_vars(); ++i) {
             m_vars[i].m_time_stamp = 0;
             m_vars[i].m_cscc = 1;
             m_vars[i].m_conf_change = true;
@@ -448,13 +449,14 @@ namespace sat {
         }
         // update all flipvar's neighbor's conf_change to true, add goodvar/okvar
 
-        unsigned sz = var_neighbor[flipvar].size();
+        var_info& vi = m_vars[flipvar];
+        unsigned sz = vi.m_neighbors.size();
         for (unsigned i = 0; i < sz; ++i) {
-            v = var_neighbor[flipvar][i];
-            m_vars[v].m_conf_change = true;
+            v = vi.m_neighbors[i];
+            vi.m_conf_change = true;
             if (score(v) > 0 && !already_in_goodvar_stack(v)) {
                 goodvar_stack.push_back(v);
-                m_vars[v].m_in_goodvar_stack = true;
+                vi.m_in_goodvar_stack = true;
             }
         }
 
@@ -493,14 +495,12 @@ namespace sat {
     }
 
     bool_var local_search::pick_var() {
-        int v;
-        bool_var best_var = 0;
-
+        bool_var best_var = m_vars.size()-1;  // sentinel variable
         // SAT Mode
         if (m_unsat_stack.empty()) {
             //++as;
             for (unsigned i = 0; i < ob_constraint.size(); ++i) {
-                v = ob_constraint[i].var_id;
+                bool_var v = ob_constraint[i].var_id;
                 if (tie_breaker_sat(v, best_var))
                     best_var = v;
             }
@@ -513,7 +513,7 @@ namespace sat {
             //++ccd;
             best_var = goodvar_stack[0];
             for (unsigned i = 1; i < goodvar_stack.size(); ++i) {
-                v = goodvar_stack[i];
+                bool_var v = goodvar_stack[i];
                 if (tie_breaker_ccd(v, best_var))
                     best_var = v;
             }
@@ -525,7 +525,7 @@ namespace sat {
         // Within c, from all slack increasing var, choose the oldest one
         unsigned c_size = c.size();
         for (unsigned i = 0; i < c_size; ++i) {
-            v = c[i].var();
+            bool_var v = c[i].var();
             if (is_true(c[i]) && time_stamp(v) < time_stamp(best_var))
                 best_var = v;
         }
@@ -557,8 +557,8 @@ namespace sat {
     }
 
     void local_search::print_info() {
-        for (unsigned v = 1; v <= num_vars(); ++v) {
-            std::cout << var_neighbor[v].size() << '\t' << cur_solution[v] << '\t' << conf_change(v) << '\t' << score(v) << '\t' << slack_score(v) << '\n';
+        for (unsigned v = 0; v < num_vars(); ++v) {
+            std::cout << m_vars[v].m_neighbors.size() << '\t' << cur_solution[v] << '\t' << conf_change(v) << '\t' << score(v) << '\t' << slack_score(v) << '\n';
         }
     }
 }
