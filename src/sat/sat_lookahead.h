@@ -1099,14 +1099,6 @@ namespace sat {
 
         bool inconsistent() { return m_inconsistent; }
 
-        void select_variables(literal_vector& P) {
-            for (unsigned i = 0; i < s.num_vars(); ++i) {
-                if (value(literal(i,false)) == l_undef) {
-                    P.push_back(literal(i, false));
-                }
-            }
-        }
-
         void do_double(literal l) {
             if (!inconsistent() && scope_lvl() > 0 && dl_enabled(l)) {
                 if (get_wnb(l) > m_delta_trigger) {
