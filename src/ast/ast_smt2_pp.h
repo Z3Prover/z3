@@ -56,9 +56,8 @@ public:
     virtual format_ns::format * pp_bv_literal(app * t, bool use_bv_lits, bool bv_neg);
     virtual format_ns::format * pp_arith_literal(app * t, bool decimal, unsigned prec);
     virtual format_ns::format * pp_float_literal(app * t, bool use_bv_lits, bool use_float_real_lits);
-    virtual format_ns::format * pp_str_literal(app * t);
-    virtual format_ns::format * pp_datalog_literal(app * t);
     virtual format_ns::format * pp_string_literal(app * t);
+    virtual format_ns::format * pp_datalog_literal(app * t);
     virtual format_ns::format * pp_sort(sort * s);
     virtual format_ns::format * pp_fdecl_ref(func_decl * f);
     format_ns::format * pp_fdecl_name(symbol const & fname, unsigned & len) const;

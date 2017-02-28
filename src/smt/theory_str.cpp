@@ -887,7 +887,7 @@ void theory_str::try_eval_concat(enode * cat) {
         app * evalArg = worklist.top(); worklist.pop();
         zstring nextStr;
         if (u.str.is_string(evalArg, nextStr)) {
-            flattenedString += nextStr;
+            flattenedString = flattenedString + nextStr;
         } else if (u.str.is_concat(evalArg)) {
             app * arg0 = to_app(evalArg->get_arg(0));
             app * arg1 = to_app(evalArg->get_arg(1));
@@ -1643,9 +1643,10 @@ static zstring str2RegexStr(zstring str) {
       // 12 special chars
       if (nc == '\\' || nc == '^' || nc == '$' || nc == '.' || nc == '|' || nc == '?'
           || nc == '*' || nc == '+' || nc == '(' || nc == ')' || nc == '[' || nc == '{') {
-        res += zstring("\\");
+        res = res + zstring("\\");
       }
-      res += zstring(1, (unsigned)str[i]);
+      char tmp[1] = {(char)str[i]};
+      res = res + zstring(tmp);
     }
     return res;
 }
@@ -2783,11 +2784,9 @@ bool theory_str::will_result_in_overlap(expr * lhs, expr * rhs) {
     // case 2: concat(x, y) = concat(m, "str")
     //*************************************************************
     if (is_concat_eq_type2(new_nn1, new_nn2)) {
-        expr * x = NULL;
-        expr * y = NULL;
-        expr * strAst = NULL;
-        expr * m = NULL;
 
+        expr * y = NULL;
+        expr * m = NULL;
         expr * v1_arg0 = to_app(new_nn1)->get_arg(0);
         expr * v1_arg1 = to_app(new_nn1)->get_arg(1);
         expr * v2_arg0 = to_app(new_nn2)->get_arg(0);
@@ -2795,13 +2794,9 @@ bool theory_str::will_result_in_overlap(expr * lhs, expr * rhs) {
 
         if (u.str.is_string(v1_arg1) && !u.str.is_string(v2_arg1)) {
             m = v1_arg0;
-            strAst = v1_arg1;
-            x = v2_arg0;
             y = v2_arg1;
         } else {
             m = v2_arg0;
-            strAst = v2_arg1;
-            x = v1_arg0;
             y = v1_arg1;
         }
 
@@ -2823,20 +2818,14 @@ bool theory_str::will_result_in_overlap(expr * lhs, expr * rhs) {
         expr * v2_arg1 = to_app(new_nn2)->get_arg(1);
 
         expr * x = NULL;
-        expr * y = NULL;
-        expr * strAst = NULL;
         expr * n = NULL;
 
         if (u.str.is_string(v1_arg0) && !u.str.is_string(v2_arg0)) {
-            strAst = v1_arg0;
             n = v1_arg1;
             x = v2_arg0;
-            y = v2_arg1;
         } else {
-            strAst = v2_arg0;
             n = v2_arg1;
             x = v1_arg0;
-            y = v1_arg1;
         }
         if (has_self_cut(x, n)) {
             TRACE("t_str_detail", tout << "Possible overlap found" << std::endl; print_cut_var(x, tout); print_cut_var(n, tout););
@@ -2870,21 +2859,15 @@ bool theory_str::will_result_in_overlap(expr * lhs, expr * rhs) {
         expr * v2_arg0 = to_app(new_nn2)->get_arg(0);
         expr * v2_arg1 = to_app(new_nn2)->get_arg(1);
 
-        expr * str1Ast = NULL;
         expr * y = NULL;
         expr * m = NULL;
-        expr * str2Ast = NULL;
 
         if (u.str.is_string(v1_arg0)) {
-            str1Ast = v1_arg0;
             y = v1_arg1;
             m = v2_arg0;
-            str2Ast = v2_arg1;
         } else {
-            str1Ast = v2_arg0;
             y = v2_arg1;
             m = v1_arg0;
-            str2Ast = v1_arg1;
         }
         if (has_self_cut(m, y)) {
             TRACE("t_str_detail", tout << "Possible overlap found" << std::endl; print_cut_var(m, tout); print_cut_var(y, tout););
@@ -3159,9 +3142,6 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
 
         // This vector will eventually contain one term for each possible arrangement we explore.
         expr_ref_vector arrangement_disjunction(mgr);
-
-        int option = 0;
-        int pos = 1;
 
         // break option 1: m cuts y
         // len(x) < len(m) || len(y) > len(n)
@@ -3508,16 +3488,13 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 	    //    | m |   str   |
 	    rational lenDelta;
 	    expr_ref_vector l_items(mgr);
-	    int l_count = 0;
 	    l_items.push_back(ctx.mk_eq_atom(concatAst1, concatAst2));
 	    if (x_len_exists && m_len_exists) {
 	        l_items.push_back(ctx.mk_eq_atom(mk_strlen(x), mk_int(x_len)));
 	        l_items.push_back(ctx.mk_eq_atom(mk_strlen(m), mk_int(m_len)));
-	        l_count = 3;
 	        lenDelta = x_len - m_len;
 	    } else {
 	        l_items.push_back(ctx.mk_eq_atom(mk_strlen(y), mk_int(y_len)));
-	        l_count = 2;
 	        lenDelta = str_len - y_len;
 	    }
 	    TRACE("t_str",
@@ -3562,11 +3539,7 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 	    }
 	} else {
 		// Split type -1: no idea about the length...
-		int optionTotal = 2 + strValue.length();
 		expr_ref_vector arrangement_disjunction(mgr);
-
-		int option = 0;
-		int pos = 1;
 
 		expr_ref temp1_strAst(mk_concat(temp1, strAst), mgr);
 
@@ -3904,7 +3877,6 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
         // Split type -1. We know nothing about the length...
 
         expr_ref_vector arrangement_disjunction(mgr);
-        unsigned option = 0;
 
         int pos = 1;
         for (unsigned int i = 0; i <= strValue.length(); i++) {
@@ -4336,7 +4308,6 @@ void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
     }
 
     expr_ref_vector arrangement_disjunction(mgr);
-    int option = 0;
     int pos = 1;
 
     if (!avoidLoopCut || !has_self_cut(m, y)) {
@@ -5602,7 +5573,7 @@ bool theory_str::is_partial_in_grounded_concat(const std::vector<expr*> & strVec
 
     if (subStrCnt == 1) {
         zstring subStrVal;
-        if (u.str.is_string(subStrVec[0]), subStrVal) {
+        if (u.str.is_string(subStrVec[0], subStrVal)) {
             for (int i = 0; i < strCnt; i++) {
                 zstring strVal;
                 if (u.str.is_string(strVec[i], strVal)) {
@@ -5630,7 +5601,7 @@ bool theory_str::is_partial_in_grounded_concat(const std::vector<expr*> & strVec
                 zstring strHeadVal;
                 if (u.str.is_string(strVec[i], strHeadVal)) {
                     if (strHeadVal.length() >= subStrHeadVal.length()) {
-                        std::string suffix = strHeadVal.extract(strHeadVal.length() - subStrHeadVal.length(), subStrHeadVal.length());
+                        zstring suffix = strHeadVal.extract(strHeadVal.length() - subStrHeadVal.length(), subStrHeadVal.length());
                         if (suffix != subStrHeadVal) {
                             firstNodesOK = false;
                         }
@@ -5758,7 +5729,7 @@ void theory_str::compute_contains(std::map<expr*, expr*> & varAliasMap,
 }
 
 bool theory_str::can_concat_eq_str(expr * concat, zstring& str) {
-	int strLen = str.length();
+	unsigned int strLen = str.length();
 	if (u.str.is_concat(to_app(concat))) {
 		ptr_vector<expr> args;
 		get_nodes_in_concat(concat, args);
@@ -6244,7 +6215,7 @@ bool nfa::matches(zstring input) {
     std::set<unsigned> current_states;
     epsilon_closure(m_start_state, current_states);
     for (unsigned i = 0; i < input.length(); ++i) {
-        char A = input.at(i);
+        char A = (char)input[i];
         std::set<unsigned> next_states;
         for (std::set<unsigned>::iterator it = current_states.begin();
                 it != current_states.end(); ++it) {
@@ -6288,12 +6259,12 @@ void theory_str::check_regex_in(expr * nn1, expr * nn2) {
         expr_ref_vector::iterator itor = eqNodeSet.begin();
         for (; itor != eqNodeSet.end(); itor++) {
             if (regex_in_var_reg_str_map.find(*itor) != regex_in_var_reg_str_map.end()) {
-                std::set<std::string>::iterator strItor = regex_in_var_reg_str_map[*itor].begin();
+                std::set<zstring>::iterator strItor = regex_in_var_reg_str_map[*itor].begin();
                 for (; strItor != regex_in_var_reg_str_map[*itor].end(); strItor++) {
-                    std::string regStr = *strItor;
+                    zstring regStr = *strItor;
                     zstring constStrValue;
                     u.str.is_string(constStr, constStrValue);
-                    std::pair<expr*, std::string> key1 = std::make_pair(*itor, regStr);
+                    std::pair<expr*, zstring> key1 = std::make_pair(*itor, regStr);
                     if (regex_in_bool_map.find(key1) != regex_in_bool_map.end()) {
                         expr * boolVar = regex_in_bool_map[key1]; // actually the RegexIn term
                         app * a_regexIn = to_app(boolVar);
@@ -6403,7 +6374,7 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
         		// Inconsistency
         		TRACE("t_str", tout << "inconsistency detected: \""
         				<< arg1_str << "\" + \"" << arg2_str <<
-						"\" != \"" << const_str << "\"\n");
+						"\" != \"" << const_str << "\"" << "\n";);
         		expr_ref equality(ctx.mk_eq_atom(concat, str), m);
         		expr_ref diseq(m.mk_not(equality), m);
         		assert_axiom(diseq);
@@ -6421,7 +6392,7 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
 				TRACE("t_str", tout << "inconsistency detected: \""
 						 << arg2_str <<
 						"\" is longer than \"" << const_str << "\","
-						<< " so cannot be concatenated with anything to form it\n");
+						<< " so cannot be concatenated with anything to form it" << "\n";);
 				expr_ref equality(ctx.mk_eq_atom(newConcat, str), m);
 				expr_ref diseq(m.mk_not(equality), m);
 				assert_axiom(diseq);
@@ -6435,7 +6406,7 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
 					TRACE("t_str", tout << "inconsistency detected: "
 							<< "suffix of concatenation result expected \"" << secondPart << "\", "
 							<< "actually \"" << arg2_str << "\""
-							<< "\n");
+							<< "\n";);
 					expr_ref equality(ctx.mk_eq_atom(newConcat, str), m);
 					expr_ref diseq(m.mk_not(equality), m);
 					assert_axiom(diseq);
@@ -6620,7 +6591,6 @@ void theory_str::solve_concat_eq_str(expr * concat, expr * str) {
         			}
 
         			int concatStrLen = const_str.length();
-        			int xor_pos = 0;
         			int and_count = 1;
 
         			expr_ref_vector arrangement_disjunction(m);
@@ -6701,8 +6671,8 @@ expr_ref theory_str::set_up_finite_model_test(expr * lhs, expr * rhs) {
     }
 
     // make things easy for the core wrt. testvar
-    expr_ref t1(ctx.mk_eq_atom(testvar, u.str.mk_string("")), m);
-    expr_ref t_yes(ctx.mk_eq_atom(testvar, u.str.mk_string("yes")), m);
+    expr_ref t1(ctx.mk_eq_atom(testvar, mk_string("")), m);
+    expr_ref t_yes(ctx.mk_eq_atom(testvar, mk_string("yes")), m);
     expr_ref testvaraxiom(m.mk_or(t1, t_yes), m);
     assert_axiom(testvaraxiom);
 
@@ -6812,8 +6782,8 @@ void theory_str::finite_model_test(expr * testvar, expr * str) {
                     expr_ref_vector andList(m);
 
                     for (rational l = v_lower_bound; l <= v_upper_bound; l += rational::one()) {
-                        std::string lStr = l.to_string();
-                        expr_ref str_indicator(u.str.mk_string(lStr), m);
+                        zstring lStr = zstring(l.to_string().c_str());
+                        expr_ref str_indicator(mk_string(lStr), m);
                         expr_ref or_expr(ctx.mk_eq_atom(indicator, str_indicator), m);
                         orList.push_back(or_expr);
                         expr_ref and_expr(ctx.mk_eq_atom(or_expr, ctx.mk_eq_atom(vLengthExpr, m_autil.mk_numeral(l, true))), m);
@@ -9006,12 +8976,12 @@ zstring theory_str::gen_val_string(int len, int_vector & encoding) {
     SASSERT(charSetSize > 0);
     SASSERT(char_set != NULL);
 
-    zstring re(len, (int) char_set[0]);
+    std::string re(len, char_set[0]);
     for (int i = 0; i < (int) encoding.size() - 1; i++) {
         int idx = encoding[i];
         re[len - 1 - i] = char_set[idx];
     }
-    return re;
+    return zstring(re.c_str());
 }
 
 /*
@@ -9474,7 +9444,7 @@ static int computeLCM(int a, int b) {
 static zstring get_unrolled_string(zstring core, int count) {
 	zstring res("");
 	for (int i = 0; i < count; i++) {
-		res += core;
+		res = res + core;
 	}
 	return res;
 }

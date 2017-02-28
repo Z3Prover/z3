@@ -33,6 +33,8 @@ Revision History:
 
 namespace smt {
 
+    typedef hashtable<symbol, symbol_hash_proc, symbol_eq_proc> symbol_set;
+
     class str_value_factory : public value_factory {
         seq_util u;
         symbol_set m_strings;
@@ -44,11 +46,11 @@ namespace smt {
             u(m), delim("!"), m_next(0) {}
         virtual ~str_value_factory() {}
         virtual expr * get_some_value(sort * s) {
-            return u.str.mk_string("some value");
+            return u.str.mk_string(symbol("some value"));
         }
         virtual bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) {
-            v1 = u.str.mk_string("value 1");
-            v2 = u.str.mk_string("value 2");
+            v1 = u.str.mk_string(symbol("value 1"));
+            v2 = u.str.mk_string(symbol("value 2"));
             return true;
         }
         virtual expr * get_fresh_value(sort * s) {
@@ -256,7 +258,7 @@ namespace smt {
 
         expr_ref_vector m_trail; // trail for generated terms
 
-        seq_factory * m_factory;
+        str_value_factory * m_factory;
 
         // terms we couldn't go through set_up_axioms() with because they weren't internalized
         expr_ref_vector m_delayed_axiom_setup_terms;

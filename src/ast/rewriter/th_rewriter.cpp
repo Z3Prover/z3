@@ -27,7 +27,6 @@ Notes:
 #include"dl_rewriter.h"
 #include"pb_rewriter.h"
 #include"seq_rewriter.h"
-#include"str_rewriter.h"
 #include"rewriter_def.h"
 #include"expr_substitution.h"
 #include"ast_smt2_pp.h"
@@ -46,7 +45,6 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     dl_rewriter         m_dl_rw;
     pb_rewriter         m_pb_rw;
     seq_rewriter        m_seq_rw;
-    str_rewriter        m_str_rw;
     arith_util          m_a_util;
     bv_util             m_bv_util;
     unsigned long long  m_max_memory; // in bytes
@@ -81,7 +79,6 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         m_ar_rw.updt_params(p);
         m_f_rw.updt_params(p);
         m_seq_rw.updt_params(p);
-        m_str_rw.updt_params(p);
         updt_local_params(p);
     }
 
@@ -182,8 +179,6 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                     st = m_ar_rw.mk_eq_core(args[0], args[1], result);
                 else if (s_fid == m_seq_rw.get_fid())
                     st = m_seq_rw.mk_eq_core(args[0], args[1], result);
-                else if (s_fid == m_str_rw.get_fid())
-                    st = m_str_rw.mk_eq_core(args[0], args[1], result);
                 
                 if (st != BR_FAILED)
                     return st;
@@ -220,8 +215,6 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             return m_pb_rw.mk_app_core(f, num, args, result);
         if (fid == m_seq_rw.get_fid())
             return m_seq_rw.mk_app_core(f, num, args, result);
-        if (fid == m_str_rw.get_fid())
-            return m_str_rw.mk_app_core(f, num, args, result);
         return BR_FAILED;
     }
 
@@ -680,7 +673,6 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         m_dl_rw(m),
         m_pb_rw(m),
         m_seq_rw(m),
-        m_str_rw(m),
         m_a_util(m),
         m_bv_util(m),
         m_used_dependencies(m),

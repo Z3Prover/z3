@@ -28,7 +28,6 @@ Revision History:
 #include"datatype_rewriter.h"
 #include"array_rewriter.h"
 #include"fpa_rewriter.h"
-#include"str_rewriter.h"
 #include"rewriter_def.h"
 #include"cooperate.h"
 #include"ast_pp.h"
@@ -46,7 +45,6 @@ struct evaluator_cfg : public default_rewriter_cfg {
     pb_rewriter                     m_pb_rw;
     fpa_rewriter                    m_f_rw;
     seq_rewriter                    m_seq_rw;
-    str_rewriter                    m_str_rw;
     array_util                      m_ar;
     unsigned long long              m_max_memory;
     unsigned                        m_max_steps;
@@ -66,7 +64,6 @@ struct evaluator_cfg : public default_rewriter_cfg {
         m_pb_rw(m),
         m_f_rw(m),
         m_seq_rw(m),
-        m_str_rw(m),
         m_ar(m) {
         bool flat = true;
         m_b_rw.set_flat(flat);
@@ -158,8 +155,6 @@ struct evaluator_cfg : public default_rewriter_cfg {
                     st = m_f_rw.mk_eq_core(args[0], args[1], result);
                 else if (s_fid == m_seq_rw.get_fid())
                     st = m_seq_rw.mk_eq_core(args[0], args[1], result);
-                else if (s_fid == m_str_rw.get_fid())
-                    st = m_str_rw.mk_eq_core(args[0], args[1], result);
                 else if (s_fid == m_ar_rw.get_fid())
                     st = mk_array_eq(args[0], args[1], result);
                 if (st != BR_FAILED)
@@ -182,8 +177,6 @@ struct evaluator_cfg : public default_rewriter_cfg {
             st = m_f_rw.mk_app_core(f, num, args, result);
         else if (fid == m_seq_rw.get_fid())
             st = m_seq_rw.mk_app_core(f, num, args, result);
-        else if (fid == m_str_rw.get_fid())
-            st = m_str_rw.mk_app_core(f, num, args, result);
         else if (fid == m().get_label_family_id() && num == 1) {
             result = args[0];
             st = BR_DONE;

@@ -304,58 +304,6 @@ format * smt2_pp_environment::mk_float(rational const & val) const {
     return mk_string(get_manager(), s.c_str());
 }
 
-format * smt2_pp_environment::pp_str_literal(app * t) {
-    ast_manager & m = get_manager();
-    str_util & u = get_strutil();
-    TRACE("parse_string", tout << "pp_str_literal\n";);
-
-    SASSERT(u.is_string(t));
-    std::string strVal = u.get_string_constant_value(t);
-    string_buffer<> buf;
-    buf << "\"";
-
-    // we want to scan strVal and escape every non-printable character
-    for (unsigned int i = 0; i < strVal.length(); ++i) {
-        char c = strVal.at(i);
-        if (c == '"') {
-            // SMT-LIB 2.5 string escape
-            buf << "\"\"";
-        } else if (isprint(c)) {
-            buf << c;
-        } else if (c == '\a') {
-            buf << "\\a";
-        } else if (c == '\b') {
-            buf << "\\b";
-        } else if (c == '\e') {
-            buf << "\\e";
-        } else if (c == '\f') {
-            buf << "\\f";
-        } else if (c == '\n') {
-            buf << "\\n";
-        } else if (c == '\r') {
-            buf << "\\r";
-        } else if (c == '\t') {
-            buf << "\\t";
-        } else if (c == '\v') {
-            buf << "\\v";
-        } else if (c == '\\') {
-            buf << "\\" << "\\";
-        } else {
-            // general hex escape
-            buf << "\\x";
-            unsigned int cVal = ((unsigned int)c) & 0x000000FF;
-            const char convtable[16] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
-            unsigned int highPart = cVal / 16;
-            unsigned int lowPart = cVal % 16;
-            SASSERT(highPart < 16); SASSERT(lowPart < 16);
-            buf << convtable[highPart] << convtable[lowPart];
-        }
-    }
-
-    buf << "\"";
-    return mk_string(m, buf.c_str());
-}
-
 format * smt2_pp_environment::pp_arith_literal(app * t, bool decimal, unsigned decimal_prec) {
     arith_util & u = get_autil();
     SASSERT(u.is_numeral(t) || u.is_irrational_algebraic_numeral(t));
@@ -665,9 +613,6 @@ class smt2_printer {
         }
         else if (m_env.get_dlutil().is_numeral(c)) {
             f = m_env.pp_datalog_literal(c);
-        }
-        else if (m_env.get_strutil().is_string(c)) {
-            f = m_env.pp_str_literal(c);
         }
         else {
             buffer<symbol> names;

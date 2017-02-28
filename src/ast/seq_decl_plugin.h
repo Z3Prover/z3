@@ -114,7 +114,11 @@ public:
     int  indexof(zstring const& other, int offset) const;
     zstring extract(int lo, int hi) const;
     zstring operator+(zstring const& other) const;
-    std::ostream& operator<<(std::ostream& out) const;
+    bool operator==(const zstring& other) const;
+    bool operator!=(const zstring& other) const;
+
+    friend std::ostream& operator<<(std::ostream &os, const zstring &str);
+    friend bool operator<(const zstring& lhs, const zstring& rhs);
 };
 
 class seq_decl_plugin : public decl_plugin {
