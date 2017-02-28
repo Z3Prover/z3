@@ -492,7 +492,7 @@ namespace smt {
         		std::map<expr*, int> & concatMap, std::map<expr*, int> & unrollMap);
 
         expr * mk_internal_lenTest_var(expr * node, int lTries);
-        expr * gen_len_val_options_for_free_var(expr * freeVar, expr * lenTesterInCbEq, std::string lenTesterValue);
+        expr * gen_len_val_options_for_free_var(expr * freeVar, expr * lenTesterInCbEq, zstring lenTesterValue);
         void process_free_var(std::map<expr*, int> & freeVar_map);
         expr * gen_len_test_options(expr * freeVar, expr * indicator, int tries);
         expr * gen_free_var_options(expr * freeVar, expr * len_indicator,
@@ -504,7 +504,7 @@ namespace smt {
         zstring gen_val_string(int len, int_vector & encoding);
 
         // binary search heuristic
-        expr * binary_search_length_test(expr * freeVar, expr * previousLenTester, std::string previousLenTesterValue);
+        expr * binary_search_length_test(expr * freeVar, expr * previousLenTester, zstring previousLenTesterValue);
         expr_ref binary_search_case_split(expr * freeVar, expr * tester, binary_search_info & bounds, literal_vector & case_split_lits);
 
         bool free_var_attempt(expr * nn1, expr * nn2);

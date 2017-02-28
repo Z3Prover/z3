@@ -9723,7 +9723,7 @@ expr_ref theory_str::binary_search_case_split(expr * freeVar, expr * tester, bin
     return final_term;
 }
 
-expr * theory_str::binary_search_length_test(expr * freeVar, expr * previousLenTester, std::string previousLenTesterValue) {
+expr * theory_str::binary_search_length_test(expr * freeVar, expr * previousLenTester, zstring previousLenTesterValue) {
     ast_manager & m = get_manager();
     context & ctx = get_context();
 
@@ -9889,7 +9889,7 @@ expr * theory_str::binary_search_length_test(expr * freeVar, expr * previousLenT
 //     lenTesterInCbEq != NULL, and its value will be passed by lenTesterValue
 // The difference is that in new_eq_eh(), lenTesterInCbEq and its value have NOT been put into a same eqc
 // -----------------------------------------------------------------------------------------------------
-expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTesterInCbEq, std::string lenTesterValue) {
+expr * theory_str::gen_len_val_options_for_free_var(expr * freeVar, expr * lenTesterInCbEq, zstring lenTesterValue) {
 
 	ast_manager & m = get_manager();
 
