@@ -710,6 +710,9 @@ def mk_java(java_dir, package_name):
                     java_wrapper.write('  }\n')
             elif k == OUT_MANAGED_ARRAY:
                 java_wrapper.write('  *(jlong**)a%s = (jlong*)_a%s;\n' % (i, i))
+
+            elif k == IN and param_type(param) == STRING:
+                java_wrapper.write('  jenv->ReleaseStringUTFChars(a%s, _a%s);\n' % (i, i));
             i = i + 1
         # return
         if result == STRING:
