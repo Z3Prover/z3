@@ -1,7 +1,7 @@
 ############################################
 # Copyright (c) 2012 Microsoft Corporation
-# 
-# Scripts for automatically generating 
+#
+# Scripts for automatically generating
 # Window distribution zip files.
 #
 # Author: Leonardo de Moura (leonardo)
@@ -46,7 +46,7 @@ def mk_dir(d):
 
 def set_build_dir(path):
     global BUILD_DIR, BUILD_X86_DIR, BUILD_X64_DIR
-    BUILD_DIR = path
+    BUILD_DIR = mk_util.norm_path(path)
     BUILD_X86_DIR = os.path.join(path, 'x86')
     BUILD_X64_DIR = os.path.join(path, 'x64')
     mk_dir(BUILD_X86_DIR)
@@ -74,7 +74,7 @@ def display_help():
 def parse_options():
     global FORCE_MK, JAVA_ENABLED, GIT_HASH, DOTNET_ENABLED, DOTNET_KEY_FILE, PYTHON_ENABLED, X86ONLY, X64ONLY
     path = BUILD_DIR
-    options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:hsf', ['build=', 
+    options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:hsf', ['build=',
                                                                    'help',
                                                                    'silent',
                                                                    'force',
@@ -102,7 +102,7 @@ def parse_options():
         elif opt == '--nopython':
             PYTHON_ENABLED = False
         elif opt == '--dotnet-key':
-            DOTNET_KEY_FILE = arg            
+            DOTNET_KEY_FILE = arg
         elif opt == '--nojava':
             JAVA_ENABLED = False
         elif opt == '--githash':
@@ -139,7 +139,7 @@ def mk_build_dir(path, x64):
             opts.append('--python')
         if subprocess.call(opts) != 0:
             raise MKException("Failed to generate build directory at '%s'" % path)
-    
+
 # Create build directories
 def mk_build_dirs():
     mk_build_dir(BUILD_X86_DIR, False)
@@ -176,7 +176,7 @@ def mk_z3(x64):
     cmds = []
     if x64:
         cmds.append('call "%VCINSTALLDIR%vcvarsall.bat" amd64')
-        cmds.append('cd %s' % BUILD_X64_DIR)    
+        cmds.append('cd %s' % BUILD_X64_DIR)
     else:
         cmds.append('call "%VCINSTALLDIR%vcvarsall.bat" x86')
         cmds.append('cd %s' % BUILD_X86_DIR)
@@ -248,12 +248,12 @@ def mk_zips():
 VS_RUNTIME_PATS = [re.compile('vcomp.*\.dll'),
                    re.compile('msvcp.*\.dll'),
                    re.compile('msvcr.*\.dll')]
-                              
+
 # Copy Visual Studio Runtime libraries
-def cp_vs_runtime(x64):    
+def cp_vs_runtime(x64):
     if x64:
         platform = "x64"
-        
+
     else:
         platform = "x86"
     vcdir = os.environ['VCINSTALLDIR']
@@ -261,7 +261,7 @@ def cp_vs_runtime(x64):
     VS_RUNTIME_FILES = []
     for root, dirs, files in os.walk(path):
         for filename in files:
-            if fnmatch(filename, '*.dll'):            
+            if fnmatch(filename, '*.dll'):
                 for pat in VS_RUNTIME_PATS:
                     if pat.match(filename):
                         fname = os.path.join(root, filename)
