@@ -65,8 +65,9 @@ namespace sat {
 
     void local_search::init_cur_solution() {
         //cur_solution.resize(num_vars() + 1, false);
-        for (unsigned v = 0; v < num_vars(); ++v) {
+        for (unsigned v = 1; v < num_vars(); ++v) {
             cur_solution[v] = (m_rand() % 2 == 1);
+            //std::cout << cur_solution[v] << '\n';
         }
     }
 
@@ -92,7 +93,6 @@ namespace sat {
             bool is_true = cur_solution[v];
             int_vector& truep = m_vars[v].m_watch[is_true];
             int_vector& falsep = m_vars[v].m_watch[!is_true];
-
             for (unsigned i = 0; i < falsep.size(); ++i) {
                 constraint& c = m_constraints[falsep[i]];
                 // will --slack
@@ -298,10 +298,13 @@ namespace sat {
         bool_var flipvar;
         timer timer;
         timer.start();
+        bool reach_cutoff_time = false;
+        double elapsed_time;
         // ################## start ######################
         //std::cout << "Start initialize and local search, restart in every " << max_steps << " steps\n";
+        //std::cout << num_vars() << '\n';
         unsigned tries, step = 0;
-        for (tries = 0; m_limit.inc(); ++tries) {
+        for (tries = 1; ; ++tries) {
             reinit();
             for (step = 1; step <= max_steps; ++step) {
                 // feasible
@@ -314,21 +317,36 @@ namespace sat {
                 }
                 flipvar = pick_var();
                 flip(flipvar);
-                m_vars[flipvar].m_time_stamp = step;
-            }
-            IF_VERBOSE(1, if (tries % 10 == 0) verbose_stream() << tries << ": " << timer.get_seconds() << '\n';);
+                //std::cout << flipvar << '\t' << m_unsat_stack.size() << '\n';
+                //std::cout << goodvar_stack.size() << '\n';
 
+                m_vars[flipvar].m_time_stamp = step;
+                //if (!m_limit.inc()) break;pick_flip();
+            }
+            //IF_VERBOSE(1, if (tries % 10 == 0) verbose_stream() << tries << ": " << timer.get_seconds() << '\n';);
+            // the following is for tesing
+            if (tries % 10 == 0) {
+                elapsed_time = timer.get_seconds();
+                //std::cout << tries << '\t' << elapsed_time << '\n';
+                if (elapsed_time > 300) {
+                    reach_cutoff_time = true;
+                    break;
+                }
+            }
             // tell the SAT solvers about the phase of variables.
-            if (m_par && tries % 10 == 0) {
-                m_par->set_phase(*this);
+            //if (m_par && tries % 10 == 0) {
+                //m_par->set_phase(*this);
+            if (reach_known_best_value || reach_cutoff_time) {
+                break;
             }
         }
-        IF_VERBOSE(1, verbose_stream() << timer.get_seconds() << " " << (reach_known_best_value ? "reached":"not reached") << "\n";);
+        std::cout << elapsed_time << '\t' << reach_known_best_value << '\t' << reach_cutoff_time << '\t' << best_objective_value << '\n';
+        //IF_VERBOSE(1, verbose_stream() << timer.get_seconds() << " " << (reach_known_best_value ? "reached":"not reached") << "\n";);
 
         // remove unit clauses from assumptions.
         m_constraints.shrink(num_constraints);
         //print_solution();
-        IF_VERBOSE(1, verbose_stream() << tries * max_steps + step << '\n';);
+        IF_VERBOSE(1, verbose_stream() << (tries - 1) * max_steps + step << '\n';);
         if (m_unsat_stack.empty() && ob_constraint.empty()) { // or all variables in ob_constraint are true
             return l_true;
         }
@@ -434,7 +452,6 @@ namespace sat {
                 break;
             }
         }
-
         m_vars[flipvar].m_score = -org_flipvar_score;
         m_vars[flipvar].m_slack_score = -org_flipvar_slack_score;
         m_vars[flipvar].m_conf_change = false;
@@ -457,10 +474,10 @@ namespace sat {
         unsigned sz = vi.m_neighbors.size();
         for (unsigned i = 0; i < sz; ++i) {
             v = vi.m_neighbors[i];
-            vi.m_conf_change = true;
+            m_vars[v].m_conf_change = true;
             if (score(v) > 0 && !already_in_goodvar_stack(v)) {
                 goodvar_stack.push_back(v);
-                vi.m_in_goodvar_stack = true;
+                m_vars[v].m_in_goodvar_stack = true;
             }
         }
     }
@@ -501,7 +518,7 @@ namespace sat {
         bool_var best_var = m_vars.size()-1;  // sentinel variable
         // SAT Mode
         if (m_unsat_stack.empty()) {
-            //++as;
+            //std::cout << "as\t";
             for (unsigned i = 0; i < ob_constraint.size(); ++i) {
                 bool_var v = ob_constraint[i].var_id;
                 if (tie_breaker_sat(v, best_var))
@@ -527,6 +544,7 @@ namespace sat {
         constraint const& c = m_constraints[m_unsat_stack[m_rand() % m_unsat_stack.size()]]; // a random unsat constraint
         // Within c, from all slack increasing var, choose the oldest one
         unsigned c_size = c.size();
+        //std::cout << "rd\t";
         for (unsigned i = 0; i < c_size; ++i) {
             bool_var v = c[i].var();
             if (is_true(c[i]) && time_stamp(v) < time_stamp(best_var))
@@ -538,11 +556,12 @@ namespace sat {
     void local_search::set_parameters()  {
 
         m_rand.set_seed(m_config.seed());
+        //srand(m_config.seed());
         s_id = m_config.strategy_id();
         best_known_value = m_config.best_known_value();
 
         if (s_id == 0)
-            max_steps = 2 * num_vars();
+            max_steps = 2 * (num_vars() - 1);
         else {
             std::cout << "Invalid strategy id!" << std::endl;
             exit(-1);
@@ -557,8 +576,8 @@ namespace sat {
     }
 
     void local_search::print_info() {
-        for (unsigned v = 0; v < num_vars(); ++v) {
-            std::cout << m_vars[v].m_neighbors.size() << '\t' << cur_solution[v] << '\t' << conf_change(v) << '\t' << score(v) << '\t' << slack_score(v) << '\n';
+        for (unsigned v = 1; v < num_vars(); ++v) {
+            std::cout << v << "\t" << m_vars[v].m_neighbors.size() << '\t' << cur_solution[v] << '\t' << conf_change(v) << '\t' << score(v) << '\t' << slack_score(v) << '\n';
         }
     }
 }
