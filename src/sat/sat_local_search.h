@@ -61,6 +61,9 @@ namespace sat {
         };
         
         struct var_info {
+            bool m_value;                        // current solution
+            unsigned m_bias;                     // bias for current solution in percentage.
+                                                 // if bias is 0, then value is always false, if 100, then always true
             bool m_conf_change;                  // whether its configure changes since its last flip
             bool m_in_goodvar_stack;
             int  m_score;
@@ -70,6 +73,8 @@ namespace sat {
             bool_var_vector m_neighbors;         // neighborhood variables
             int_vector m_watch[2];
             var_info():
+                m_value(true),
+                m_bias(50), 
                 m_conf_change(true),
                 m_in_goodvar_stack(false),
                 m_score(0),
@@ -111,6 +116,8 @@ namespace sat {
         inline int  time_stamp(bool_var v) const { return m_vars[v].m_time_stamp; }
         inline int  cscc(bool_var v) const { return m_vars[v].m_cscc; }
         inline void inc_cscc(bool_var v) { m_vars[v].m_cscc++; }
+
+        inline bool cur_solution(bool_var v) const { return m_vars[v].m_value; }
         
         /* TBD: other scores */
         
@@ -118,9 +125,9 @@ namespace sat {
         vector<constraint> m_constraints;
 
         inline bool is_pos(literal t) const { return !t.sign(); }
-        inline bool is_true(bool_var v) const { return cur_solution[v]; }
-        inline bool is_true(literal l) const { return cur_solution[l.var()] != l.sign(); }
-        inline bool is_false(literal l) const { return cur_solution[l.var()] == l.sign(); }
+        inline bool is_true(bool_var v) const { return cur_solution(v); }
+        inline bool is_true(literal l) const { return cur_solution(l.var()) != l.sign(); }
+        inline bool is_false(literal l) const { return cur_solution(l.var()) == l.sign(); }
 
         unsigned num_constraints() const { return m_constraints.size(); } // constraint index from 1 to num_constraint
 
@@ -136,7 +143,6 @@ namespace sat {
         int_vector goodvar_stack;
 
         // information about solution
-        bool_vector      cur_solution;         // !var: the current solution
         int              objective_value;      // the objective function value corresponds to the current solution
         bool_vector      best_solution;        // !var: the best solution so far
         int       best_objective_value = -1;   // the objective value corresponds to the best solution so far

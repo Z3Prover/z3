@@ -31,7 +31,6 @@ namespace sat {
         m_vars.push_back(var_info());
 
         best_solution.resize(num_vars() + 1, false);
-        cur_solution.resize(num_vars() + 1, false);
         m_index_in_unsat_stack.resize(num_constraints(), 0);
         coefficient_in_ob_constraint.resize(num_vars() + 1, 0);
 
@@ -65,7 +64,7 @@ namespace sat {
 
     void local_search::init_cur_solution() {
         for (unsigned v = 0; v < num_vars(); ++v) {
-            cur_solution[v] = (m_rand() % 2 == 1);
+            m_vars[v].m_value = ((unsigned)(m_rand() % 100) < m_vars[v].m_bias);
         }
     }
 
@@ -88,7 +87,7 @@ namespace sat {
     // figure out variables scores and slack_scores
     void local_search::init_scores() {
         for (unsigned v = 0; v < num_vars(); ++v) {
-            bool is_true = cur_solution[v];
+            bool is_true = cur_solution(v);
             int_vector& truep = m_vars[v].m_watch[is_true];
             int_vector& falsep = m_vars[v].m_watch[!is_true];
             for (unsigned i = 0; i < falsep.size(); ++i) {
@@ -162,11 +161,14 @@ namespace sat {
         objective_value = 0;
         for (i = 0; i < ob_constraint.size(); ++i) {
             v = ob_constraint[i].var_id;
-            if (cur_solution[v])
+            if (cur_solution(v))
                 objective_value += ob_constraint[i].coefficient;
         }
         if (objective_value > best_objective_value) {
-            best_solution = cur_solution;
+            best_solution.reset();
+            for (unsigned v = 0; v < num_vars(); ++v) {
+                best_solution.push_back(cur_solution(v));
+            }
             best_objective_value = objective_value;
         }
     }
@@ -174,7 +176,7 @@ namespace sat {
     bool local_search::all_objectives_are_met() const {
         for (unsigned i = 0; i < ob_constraint.size(); ++i) {
             bool_var v = ob_constraint[i].var_id;            
-            if (!cur_solution[v]) return false;
+            if (!cur_solution(v)) return false;
         }
         return true;
     }
@@ -215,6 +217,9 @@ namespace sat {
             literal t(~c[i]);
             m_vars[t.var()].m_watch[is_pos(t)].push_back(id);
             m_constraints.back().m_literals.push_back(t);
+        }
+        if (sz == 1 && k == 0) {
+            m_vars[c[0].var()].m_bias = c[0].sign() ? 0 : 100;
         }
     }
 
@@ -354,7 +359,7 @@ namespace sat {
 
             // tell the SAT solvers about the phase of variables.
             if (m_par && tries % 10 == 0) {
-                m_par->set_phase(*this);
+                m_par->get_phase(*this);
             }
         }
 
@@ -373,6 +378,7 @@ namespace sat {
             result = l_undef;
         }
         IF_VERBOSE(1, verbose_stream() << "(sat-local-search " << result << ")\n";);
+        IF_VERBOSE(2, display(verbose_stream()););
         return result;
     }
 
@@ -394,13 +400,13 @@ namespace sat {
     void local_search::flip(bool_var flipvar)
     {
         // already changed truth value!!!!
-        cur_solution[flipvar] = !cur_solution[flipvar];
+        m_vars[flipvar].m_value = !cur_solution(flipvar);
 
         unsigned v;
         int org_flipvar_score = score(flipvar);
         int org_flipvar_slack_score = slack_score(flipvar);
 
-        bool flip_is_true = cur_solution[flipvar];
+        bool flip_is_true = cur_solution(flipvar);
         int_vector& truep = m_vars[flipvar].m_watch[flip_is_true];
         int_vector& falsep = m_vars[flipvar].m_watch[!flip_is_true];
 
@@ -521,8 +527,8 @@ namespace sat {
 
     bool local_search::tie_breaker_sat(bool_var v, bool_var best_var)  {
         // most improvement on objective value
-        int v_imp = cur_solution[v] ? -coefficient_in_ob_constraint.get(v, 0) : coefficient_in_ob_constraint.get(v, 0);
-        int b_imp = cur_solution[best_var] ? -coefficient_in_ob_constraint.get(best_var, 0) : coefficient_in_ob_constraint.get(best_var, 0);
+        int v_imp = cur_solution(v) ? -coefficient_in_ob_constraint.get(v, 0) : coefficient_in_ob_constraint.get(v, 0);
+        int b_imp = cur_solution(best_var) ? -coefficient_in_ob_constraint.get(best_var, 0) : coefficient_in_ob_constraint.get(best_var, 0);
         // std::cout << v_imp << "\n";
         // break tie 1: max imp
         // break tie 2: conf_change
@@ -615,14 +621,14 @@ namespace sat {
 
     void local_search::print_info(std::ostream& out) {
         for (unsigned v = 0; v < num_vars(); ++v) {
-            out << "v" << v << "\t" << m_vars[v].m_neighbors.size() << '\t' << cur_solution[v] << '\t' << conf_change(v) << '\t' << score(v) << '\t' << slack_score(v) << '\n';
+            out << "v" << v << "\t" << m_vars[v].m_neighbors.size() << '\t' << cur_solution(v) << '\t' << conf_change(v) << '\t' << score(v) << '\t' << slack_score(v) << '\n';
         }
     }
 
     void local_search::extract_model() {
         m_model.reset();
         for (unsigned v = 0; v < num_vars(); ++v) {
-            m_model.push_back(cur_solution[v] ? l_true : l_false);
+            m_model.push_back(cur_solution(v) ? l_true : l_false);
         }
     }
 
@@ -631,6 +637,9 @@ namespace sat {
             constraint const& c = m_constraints[i];
             display(out, c);
         }        
+        for (bool_var v = 0; v < num_vars(); ++v) {
+            display(out, v, m_vars[v]);
+        }
     }
     
     void local_search::display(std::ostream& out, constraint const& c) const {
@@ -638,7 +647,7 @@ namespace sat {
     }
     
     void local_search::display(std::ostream& out, unsigned v, var_info const& vi) const {
-        out << "v" << v << "\n";
+        out << "v" << v << " := " << (vi.m_value?"true":"false") << " bias: " << vi.m_bias << "\n";
     }
 
     bool local_search::check_goodvar() {
@@ -662,7 +671,9 @@ namespace sat {
     }
 
     void local_search::set_phase(bool_var v, bool f) {
-        std::cout << v << " " << f << "\n";
+        unsigned& bias = m_vars[v].m_bias;
+        if (f && bias < 100) bias++;
+        if (!f && bias > 0) bias--;
     }
 
 }

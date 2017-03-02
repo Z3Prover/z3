@@ -963,6 +963,7 @@ namespace sat {
       \brief import lemmas/units from parallel sat solvers.
      */
     void solver::exchange_par() {
+        if (m_par && at_search_lvl()) m_par->set_phase(*this);
         if (m_par && at_base_lvl()) m_par->get_clauses(*this);
         if (m_par && at_base_lvl()) {
             // SASSERT(scope_lvl() == search_lvl());

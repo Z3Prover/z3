@@ -258,7 +258,7 @@ namespace sat {
         }
     }
 
-    void parallel::set_phase(local_search& s) {
+    void parallel::get_phase(local_search& s) {
         #pragma omp critical (par_solver)
         {
             for (unsigned i = 0; i < m_phase.size(); ++i) {
@@ -273,7 +273,7 @@ namespace sat {
         }
     }
 
-    void parallel::get_phase(local_search& s) {
+    void parallel::set_phase(local_search& s) {
         #pragma omp critical (par_solver)
         {
             m_phase.reserve(s.num_vars(), 0);
