@@ -53,6 +53,7 @@ namespace sat {
         bool enable_add(clause const& c) const;
         void _get_clauses(solver& s);
         void _get_phase(solver& s);
+        void _set_phase(solver& s);
 
         typedef hashtable<unsigned, u_hash, u_eq> index_set;
         literal_vector m_units;

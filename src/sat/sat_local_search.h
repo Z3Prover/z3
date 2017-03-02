@@ -177,11 +177,15 @@ namespace sat {
 
         void calculate_and_update_ob();
 
+        bool all_objectives_are_met() const;
+
         void verify_solution() const;
 
         void verify_constraint(constraint const& c) const;
 
-        void print_info();
+        unsigned constraint_value(constraint const& c) const;
+
+        void print_info(std::ostream& out);
 
         void extract_model();
 
@@ -215,7 +219,7 @@ namespace sat {
 
         unsigned num_vars() const { return m_vars.size() - 1; }     // var index from 1 to num_vars
 
-        void set_phase(bool_var v, bool f) {}
+        void set_phase(bool_var v, bool f);
 
         bool get_phase(bool_var v) const { return is_true(v); }
 

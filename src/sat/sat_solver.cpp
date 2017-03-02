@@ -868,7 +868,6 @@ namespace sat {
             m_local_search = alloc(local_search, *this);
             m_local_search->config().set_seed(m_config.m_random_seed);
         }
-
         int num_threads = static_cast<int>(m_config.m_num_threads) + (use_local_search ? 1 : 0);
         int num_extra_solvers = num_threads - 1 - (use_local_search ? 1 : 0);
 
@@ -891,7 +890,7 @@ namespace sat {
                     r = par.get_solver(i).check(num_lits, lits);
                 }
                 else if (IS_LOCAL_SEARCH(i)) {
-                    r = m_local_search->check(num_lits, lits);
+                    r = m_local_search->check(num_lits, lits, &par);
                 }
                 else {
                     r = check(num_lits, lits);
@@ -903,7 +902,6 @@ namespace sat {
                         finished_id = i;
                         first = true;
                         result = r;
-                        std::cout << finished_id << " " << r << "\n";
                     }
                 }
                 if (first) {
@@ -943,7 +941,6 @@ namespace sat {
             m_core.reset();
             m_core.append(par.get_solver(finished_id).get_core());
         }
-        std::cout << result << " id: " << finished_id << " is-local: " << (IS_LOCAL_SEARCH(finished_id)) << "\n";
         if (result == l_true && finished_id != -1 && IS_LOCAL_SEARCH(finished_id)) {
             set_model(m_local_search->get_model());
         }

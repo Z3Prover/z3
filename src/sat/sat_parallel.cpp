@@ -141,6 +141,7 @@ namespace sat {
             limit = m_units.size();
 
             _get_phase(s);
+            _set_phase(s);
         }
     }
 
@@ -207,9 +208,8 @@ namespace sat {
         return (c.size() <= 40 && c.glue() <= 8) || c.glue() <= 2;
     }
 
-    void parallel::set_phase(solver& s) {
-        #pragma omp critical (par_solver)
-        {
+    void parallel::_set_phase(solver& s) {
+        if (!m_phase.empty()) {
             m_phase.reserve(s.num_vars(), 0);
             for (unsigned i = 0; i < s.num_vars(); ++i) {
                 if (s.value(i) != l_undef) {
@@ -227,6 +227,13 @@ namespace sat {
                     break;
                 }
             }
+        }
+    }
+
+    void parallel::set_phase(solver& s) {
+        #pragma omp critical (par_solver)
+        {
+            _set_phase(s);
         }
     }
 
@@ -254,8 +261,7 @@ namespace sat {
     void parallel::set_phase(local_search& s) {
         #pragma omp critical (par_solver)
         {
-            m_phase.reserve(s.num_vars(), 0);
-            for (unsigned i = 0; i < s.num_vars(); ++i) {
+            for (unsigned i = 0; i < m_phase.size(); ++i) {
                 if (m_phase[i] < 0) {
                     s.set_phase(i, false);
                 }
@@ -263,6 +269,7 @@ namespace sat {
                     s.set_phase(i, true);
                 }
             }
+            m_phase.reserve(s.num_vars(), 0);
         }
     }
 

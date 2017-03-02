@@ -64,10 +64,8 @@ namespace sat {
     }
 
     void local_search::init_cur_solution() {
-        //cur_solution.resize(num_vars() + 1, false);
-        for (unsigned v = 1; v < num_vars(); ++v) {
+        for (unsigned v = 0; v < num_vars(); ++v) {
             cur_solution[v] = (m_rand() % 2 == 1);
-            //std::cout << cur_solution[v] << '\n';
         }
     }
 
@@ -172,6 +170,14 @@ namespace sat {
             best_objective_value = objective_value;
         }
     }
+
+    bool local_search::all_objectives_are_met() const {
+        for (unsigned i = 0; i < ob_constraint.size(); ++i) {
+            bool_var v = ob_constraint[i].var_id;            
+            if (!cur_solution[v]) return false;
+        }
+        return true;
+    }
     
     void local_search::verify_solution() const {
         for (unsigned i = 0; i < m_constraints.size(); ++i) {
@@ -179,14 +185,19 @@ namespace sat {
         }
     }
 
-    void local_search::verify_constraint(constraint const& c) const {
+    unsigned local_search::constraint_value(constraint const& c) const {
         unsigned value = 0;
         for (unsigned i = 0; i < c.size(); ++i) {
             value += is_true(c[i]) ? 1 : 0;
         }
+        return value;
+    }
+
+    void local_search::verify_constraint(constraint const& c) const {
+        unsigned value = constraint_value(c);
         if (c.m_k < value) {
-            display(std::cout << "violated constraint: ", c);
-            std::cout << "value: " << value << "\n";
+            IF_VERBOSE(0, display(verbose_stream() << "violated constraint: ", c);
+                       verbose_stream() << "value: " << value << "\n";);
             UNREACHABLE();
         }
     }
@@ -319,10 +330,6 @@ namespace sat {
         bool_var flipvar;
         timer timer;
         timer.start();
-        // ################## start ######################
-        IF_VERBOSE(1, verbose_stream() << "Unsat stack size: " << m_unsat_stack.size() << "\n";);
-        //std::cout << "Start initialize and local search, restart in every " << max_steps << " steps\n";
-        //std::cout << num_vars() << '\n';
         unsigned tries, step = 0;
         for (tries = 1; m_limit.inc() && !m_unsat_stack.empty(); ++tries) {
             reinit();
@@ -336,29 +343,37 @@ namespace sat {
                 }
                 flipvar = pick_var();
                 flip(flipvar);
-
                 m_vars[flipvar].m_time_stamp = step;
-                //if (!m_limit.inc()) break;pick_flip();
             }
-            IF_VERBOSE(1, if (tries % 10 == 0) verbose_stream() << "(sat-local :tries " << tries << " :steps " << (tries - 1) * max_steps + step 
-                                                                << " :unsat " << m_unsat_stack.size() << " :time " << timer.get_seconds() << ")\n";);
-            // the following is for tesing
+            IF_VERBOSE(1, if (tries % 10 == 0) 
+                              verbose_stream() << "(sat-local-search"
+                                               << " :tries " << tries 
+                                               << " :steps " << (tries - 1) * max_steps + step 
+                                               << " :unsat " << m_unsat_stack.size() 
+                                               << " :time " << timer.get_seconds() << ")\n";);
 
             // tell the SAT solvers about the phase of variables.
-            //if (m_par && tries % 10 == 0) {
-                //m_par->set_phase(*this);
+            if (m_par && tries % 10 == 0) {
+                m_par->set_phase(*this);
+            }
         }
 
         // remove unit clauses from assumptions.
         m_constraints.shrink(num_constraints);
-        //print_solution();
-        if (m_unsat_stack.empty() && ob_constraint.empty()) { // or all variables in ob_constraint are true
+
+        TRACE("sat", display(tout););
+
+        lbool result;
+        if (m_unsat_stack.empty() && all_objectives_are_met()) {
             verify_solution();
             extract_model();
-            return l_true;
+            result = l_true;
         }
-        // TBD: adjust return status
-        return l_undef;
+        else {
+            result = l_undef;
+        }
+        IF_VERBOSE(1, verbose_stream() << "(sat-local-search " << result << ")\n";);
+        return result;
     }
 
 
@@ -589,17 +604,18 @@ namespace sat {
             exit(-1);
         }
 
-        /*std::cout << "seed:\t" << m_config.seed() << '\n';
-          std::cout << "cutoff time:\t" << m_config.cutoff_time() << '\n';
-          std::cout << "strategy id:\t" << m_config.strategy_id() << '\n';
-          std::cout << "best_known_value:\t" << m_config.best_known_value() << '\n';
-          std::cout << "max_steps:\t" << max_steps << '\n';
-        */
+        TRACE("sat", 
+              tout << "seed:\t" << m_config.seed() << '\n';
+              tout << "cutoff time:\t" << m_config.cutoff_time() << '\n';
+              tout << "strategy id:\t" << m_config.strategy_id() << '\n';
+              tout << "best_known_value:\t" << m_config.best_known_value() << '\n';
+              tout << "max_steps:\t" << max_steps << '\n';
+              );
     }
 
-    void local_search::print_info() {
-        for (unsigned v = 1; v < num_vars(); ++v) {
-            std::cout << v << "\t" << m_vars[v].m_neighbors.size() << '\t' << cur_solution[v] << '\t' << conf_change(v) << '\t' << score(v) << '\t' << slack_score(v) << '\n';
+    void local_search::print_info(std::ostream& out) {
+        for (unsigned v = 0; v < num_vars(); ++v) {
+            out << "v" << v << "\t" << m_vars[v].m_neighbors.size() << '\t' << cur_solution[v] << '\t' << conf_change(v) << '\t' << score(v) << '\t' << slack_score(v) << '\n';
         }
     }
 
@@ -614,11 +630,11 @@ namespace sat {
         for (unsigned i = 0; i < m_constraints.size(); ++i) {
             constraint const& c = m_constraints[i];
             display(out, c);
-        }
+        }        
     }
     
     void local_search::display(std::ostream& out, constraint const& c) const {
-        out << c.m_literals << " <= " << c.m_k << "\n";
+        out << c.m_literals << " <= " << c.m_k << " lhs value: " << constraint_value(c) << "\n";
     }
     
     void local_search::display(std::ostream& out, unsigned v, var_info const& vi) const {
@@ -644,4 +660,9 @@ namespace sat {
             return false;
         }
     }
+
+    void local_search::set_phase(bool_var v, bool f) {
+        std::cout << v << " " << f << "\n";
+    }
+
 }
