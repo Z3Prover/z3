@@ -226,6 +226,7 @@ namespace sat {
     local_search::local_search(solver& s) : 
         m_par(0) {
 
+        std::cout << "Parameter1: " << s.m_config.m_local_search_parameter1 << "\n";
         m_vars.reserve(s.num_vars());
 
         // copy units

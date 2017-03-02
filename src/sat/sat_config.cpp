@@ -37,6 +37,7 @@ namespace sat {
         m_psm_glue("psm_glue") {
         m_num_threads = 1;
         m_local_search = false;
+        m_local_search_parameter1 = 0;
         updt_params(p); 
     }
 
@@ -81,6 +82,7 @@ namespace sat {
         m_max_conflicts   = p.max_conflicts();
         m_num_threads     = p.threads();
         m_local_search    = p.local_search();
+        m_local_search_parameter1 = p.local_search_int();
         
         // These parameters are not exposed
         m_simplify_mult1  = _p.get_uint("simplify_mult1", 300);
