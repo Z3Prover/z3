@@ -60,11 +60,11 @@ namespace sat {
 
     void card_extension::init_watch(card& c, bool is_true) {
         clear_watch(c);
-        if (c.lit().sign() == is_true) {
+        if (c.lit() != null_literal && c.lit().sign() == is_true) {
             c.negate();
         }
         TRACE("sat", display(tout << "init watch: ", c, true););
-        SASSERT(value(c.lit()) == l_true);
+        SASSERT(c.lit() == null_literal || value(c.lit()) == l_true);
         unsigned j = 0, sz = c.size(), bound = c.k();
         if (bound == sz) {
             for (unsigned i = 0; i < sz && !s().inconsistent(); ++i) {
@@ -153,12 +153,12 @@ namespace sat {
             if (s().m_config.m_drat) {
                 svector<drat::premise> ps;
                 literal_vector lits;
-                lits.push_back(~c.lit());
+                if (c.lit() != null_literal) lits.push_back(~c.lit());
                 for (unsigned i = c.k(); i < c.size(); ++i) {
                     lits.push_back(c[i]);
                 }
                 lits.push_back(lit);
-                ps.push_back(drat::premise(drat::s_ext(), c.lit()));
+                ps.push_back(drat::premise(drat::s_ext(), c.lit())); // null_literal case.
                 s().m_drat.add(lits, ps);
             }
             s().assign(lit, justification::mk_ext_justification(c.index()));
@@ -220,7 +220,7 @@ namespace sat {
 
     void card_extension::init_watch(xor& x, bool is_true) {
         clear_watch(x);
-        if (x.lit().sign() == is_true) {
+        if (x.lit() != null_literal && x.lit().sign() == is_true) {
             x.negate();
         }
         unsigned sz = x.size();
@@ -261,7 +261,7 @@ namespace sat {
             if (s().m_config.m_drat) {
                 svector<drat::premise> ps;
                 literal_vector lits;
-                lits.push_back(~x.lit());
+                if (x.lit() != null_literal) lits.push_back(~x.lit());
                 for (unsigned i = 1; i < x.size(); ++i) {
                     lits.push_back(x[i]);
                 }
@@ -302,7 +302,7 @@ namespace sat {
         TRACE("sat", tout << "assign: " << x.lit() << ": " << ~alit << "@" << lvl(~alit) << "\n";);
 
         SASSERT(value(alit) != l_undef);
-        SASSERT(value(x.lit()) == l_true);
+        SASSERT(x.lit() == null_literal || value(x.lit()) == l_true);
         unsigned index = 0;
         for (; index <= 2; ++index) {
             if (x[index].var() == alit.var()) break;
@@ -685,7 +685,7 @@ namespace sat {
     void card_extension::process_card(card& c, int offset) {
         literal lit = c.lit();
         SASSERT(c.k() <= c.size());       
-        SASSERT(value(lit) == l_true);
+        SASSERT(lit == null_literal || value(lit) == l_true);
         SASSERT(0 < offset);
         for (unsigned i = c.k(); i < c.size(); ++i) {
             process_antecedent(c[i], offset);
@@ -693,7 +693,9 @@ namespace sat {
         for (unsigned i = 0; i < c.k(); ++i) {
             inc_coeff(c[i], offset);                        
         }
-        process_antecedent(~lit, c.k() * offset);
+        if (lit != null_literal) {
+            process_antecedent(~lit, c.k() * offset);
+        }
     }
 
     void card_extension::process_antecedent(literal l, int offset) {
@@ -742,6 +744,7 @@ namespace sat {
         literal lit = v == null_bool_var ? null_literal : literal(v, false);
         card* c = new (memory::allocate(card::get_obj_size(lits.size()))) card(index, lit, lits, k);
         m_cards.push_back(c);
+        std::cout << lit << "\n";
         if (v == null_bool_var) {
             // it is an axiom.
             init_watch(*c, true);
@@ -815,7 +818,7 @@ namespace sat {
                 }
                 else {
                     xor& x = index2xor(idx);
-                    if (lvl(x.lit()) > 0) r.push_back(x.lit());
+                    if (x.lit() != null_literal && lvl(x.lit()) > 0) r.push_back(x.lit());
                     if (x[1].var() == l.var()) {
                         x.swap(0, 1);
                     }
@@ -885,8 +888,8 @@ namespace sat {
                 }
                 SASSERT(found););
             
-            r.push_back(c.lit());
-            SASSERT(value(c.lit()) == l_true);
+            if (c.lit() != null_literal) r.push_back(c.lit());
+            SASSERT(c.lit() == null_literal || value(c.lit()) == l_true);
             for (unsigned i = c.k(); i < c.size(); ++i) {
                 SASSERT(value(c[i]) == l_false);
                 r.push_back(~c[i]);
@@ -894,9 +897,9 @@ namespace sat {
         }
         else {
             xor& x = index2xor(idx);
-            r.push_back(x.lit());
+            if (x.lit() != null_literal) r.push_back(x.lit());
             TRACE("sat", display(tout << l << " ", x, true););
-            SASSERT(value(x.lit()) == l_true);
+            SASSERT(x.lit() == null_literal || value(x.lit()) == l_true);
             SASSERT(x[0].var() == l.var() || x[1].var() == l.var());
             if (x[0].var() == l.var()) {
                 SASSERT(value(x[1]) != l_undef);
@@ -922,7 +925,7 @@ namespace sat {
 
         SASSERT(0 < bound && bound < sz);
         SASSERT(value(alit) == l_false);
-        SASSERT(value(c.lit()) == l_true);
+        SASSERT(c.lit() == null_literal || value(c.lit()) == l_true);
         unsigned index = 0;
         for (index = 0; index <= bound; ++index) {
             if (c[index] == alit) {
@@ -985,7 +988,7 @@ namespace sat {
             ptr_vector<card>::iterator it = begin, it2 = it, end = cards->end();
             for (; it != end; ++it) {
                 card& c = *(*it);
-                if (value(c.lit()) != l_true) {
+                if (c.lit() != null_literal && value(c.lit()) != l_true) {
                     continue;
                 }
                 switch (add_assign(c, ~l)) {
@@ -1028,7 +1031,7 @@ namespace sat {
             ptr_vector<xor>::iterator it = begin, it2 = it, end = xors->end();
             for (; it != end; ++it) {
                 xor& c = *(*it);
-                if (value(c.lit()) != l_true) {
+                if (c.lit() != null_literal && value(c.lit()) != l_true) {
                     continue;
                 }
                 switch (add_assign(c, ~l)) {
@@ -1101,7 +1104,8 @@ namespace sat {
             for (unsigned i = 0; i < c.size(); ++i) {
                 lits.push_back(c[i]);
             }
-            result->add_at_least(c.lit().var(), lits, c.k());
+            bool_var v = c.lit() == null_literal ? null_bool_var : c.lit().var();
+            result->add_at_least(v, lits, c.k());
         }
         for (unsigned i = 0; i < m_xors.size(); ++i) {
             literal_vector lits;
@@ -1109,7 +1113,8 @@ namespace sat {
             for (unsigned i = 0; i < x.size(); ++i) {
                 lits.push_back(x[i]);
             }
-            result->add_xor(x.lit().var(), lits);
+            bool_var v = x.lit() == null_literal ? null_bool_var : x.lit().var();
+            result->add_xor(v, lits);
         }
         return result;
     }
@@ -1285,7 +1290,7 @@ namespace sat {
         return !parity(x, 0);
     }
     bool card_extension::validate_unit_propagation(card const& c) { 
-        if (value(c.lit()) != l_true) return false;
+        if (c.lit() != null_literal && value(c.lit()) != l_true) return false;
         for (unsigned i = c.k(); i < c.size(); ++i) {
             if (value(c[i]) != l_false) return false;
         }
@@ -1353,7 +1358,7 @@ namespace sat {
                 for (unsigned i = 0; i < c.size(); ++i) {
                     p.push(c[i], offset);
                 }
-                p.push(~c.lit(), offset*c.k());
+                if (c.lit() != null_literal) p.push(~c.lit(), offset*c.k());
             }
             else {
                 literal_vector ls;
@@ -1362,7 +1367,8 @@ namespace sat {
                 for (unsigned i = 0; i < ls.size(); ++i) {
                     p.push(~ls[i], offset);
                 }
-                p.push(~index2xor(index).lit(), offset);
+                literal lxor = index2xor(index).lit();                
+                if (lxor != null_literal) p.push(~lxor, offset);
             }
             break;
         }

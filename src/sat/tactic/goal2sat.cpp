@@ -424,15 +424,15 @@ struct goal2sat::imp {
         sat::literal_vector lits;
         unsigned sz = m_result_stack.size();
         convert_pb_args(t->get_num_args(), lits);
-        sat::bool_var v = m_solver.mk_var(true);
-        sat::literal lit(v, sign);
-        m_ext->add_at_least(v, lits, k.get_unsigned());
-        TRACE("goal2sat", tout << "root: " << root << " lit: " << lit << "\n";);
         if (root) {
             m_result_stack.reset();
-            mk_clause(lit);
+            m_ext->add_at_least(sat::null_bool_var, lits, k.get_unsigned());
         }
         else {
+            sat::bool_var v = m_solver.mk_var(true);
+            sat::literal lit(v, sign);
+            m_ext->add_at_least(v, lits, k.get_unsigned());
+            TRACE("goal2sat", tout << "root: " << root << " lit: " << lit << "\n";);
             m_result_stack.shrink(sz - t->get_num_args());
             m_result_stack.push_back(lit);
         }
@@ -446,14 +446,14 @@ struct goal2sat::imp {
         for (unsigned i = 0; i < lits.size(); ++i) {
             lits[i].neg();
         }
-        sat::bool_var v = m_solver.mk_var(true);
-        sat::literal lit(v, sign);
-        m_ext->add_at_least(v, lits, lits.size() - k.get_unsigned());
         if (root) {
             m_result_stack.reset();
-            mk_clause(lit);
+            m_ext->add_at_least(sat::null_bool_var, lits, lits.size() - k.get_unsigned());
         }
         else {
+            sat::bool_var v = m_solver.mk_var(true);
+            sat::literal lit(v, sign);
+            m_ext->add_at_least(v, lits, lits.size() - k.get_unsigned());
             m_result_stack.shrink(sz - t->get_num_args());
             m_result_stack.push_back(lit);
         }        
@@ -463,9 +463,8 @@ struct goal2sat::imp {
         SASSERT(k.is_unsigned());
         sat::literal_vector lits;
         convert_pb_args(t->get_num_args(), lits);
-        sat::bool_var v1 = m_solver.mk_var(true);
-        sat::bool_var v2 = m_solver.mk_var(true);
-        sat::literal l1(v1, false), l2(v2, false);
+        sat::bool_var v1 = root ? sat::null_bool_var : m_solver.mk_var(true);
+        sat::bool_var v2 = root ? sat::null_bool_var : m_solver.mk_var(true);
         m_ext->add_at_least(v1, lits, k.get_unsigned());        
         for (unsigned i = 0; i < lits.size(); ++i) {
             lits[i].neg();
@@ -473,16 +472,9 @@ struct goal2sat::imp {
         m_ext->add_at_least(v2, lits, lits.size() - k.get_unsigned());
         if (root) {
             m_result_stack.reset();
-            if (sign) {
-                mk_clause(~l1, ~l2);
-            }
-            else {
-                mk_clause(l1);
-                mk_clause(l2);
-            }
-            m_result_stack.reset();
         }
         else {
+            sat::literal l1(v1, false), l2(v2, false);
             sat::bool_var v = m_solver.mk_var();
             sat::literal l(v, false);
             mk_clause(~l, l1);

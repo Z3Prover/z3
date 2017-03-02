@@ -177,10 +177,6 @@ namespace sat {
 
     }
     
-    void local_search::display(std::ostream& out) {
-
-    }
-
     void local_search::add_clause(unsigned sz, literal const* c) {
         add_cardinality(sz, c, sz - 1);
     }
@@ -243,25 +239,38 @@ namespace sat {
                 unsigned n = c.size();
                 unsigned k = c.k();
 
-                // c.lit() <=> c.lits() >= k
-                // 
-                //    (c.lits() < k) or c.lit()
-                // =  (c.lits() + (n - k - 1)*~c.lit()) <= n    
-                //
-                //    ~c.lit() or (c.lits() >= k)
-                // =  ~c.lit() or (~c.lits() <= n - k)
-                // =  k*c.lit() + ~c.lits() <= n 
-                // 
 
-                lits.reset();
-                for (unsigned j = 0; j < n; ++j) lits.push_back(c[j]);
-                for (unsigned j = 0; j < n - k - 1; ++j) lits.push_back(~c.lit());
-                add_cardinality(lits.size(), lits.c_ptr(), n);
-                
-                lits.reset();
-                for (unsigned j = 0; j < n; ++j) lits.push_back(~c[j]);
-                for (unsigned j = 0; j < k; ++j) lits.push_back(c.lit());
-                add_cardinality(lits.size(), lits.c_ptr(), n);
+
+                if (c.lit() == null_literal) {
+                    //    c.lits() >= k 
+                    // <=> 
+                    //    ~c.lits() <= n - k
+                    lits.reset();
+                    for (unsigned j = 0; j < n; ++j) lits.push_back(~c[j]);
+                    add_cardinality(lits.size(), lits.c_ptr(), n - k);
+                }
+                else {
+                    // TBD: this doesn't really work
+                    //
+                    // c.lit() <=> c.lits() >= k
+                    // 
+                    //    (c.lits() < k) or c.lit()
+                    // =  (c.lits() + (n - k - 1)*~c.lit()) <= n    
+                    //
+                    //    ~c.lit() or (c.lits() >= k)
+                    // =  ~c.lit() or (~c.lits() <= n - k)
+                    // =  k*c.lit() + ~c.lits() <= n 
+                    // 
+                    lits.reset();
+                    for (unsigned j = 0; j < n; ++j) lits.push_back(c[j]);
+                    for (unsigned j = 0; j < n - k - 1; ++j) lits.push_back(~c.lit());
+                    add_cardinality(lits.size(), lits.c_ptr(), n);
+                    
+                    lits.reset();
+                    for (unsigned j = 0; j < n; ++j) lits.push_back(~c[j]);
+                    for (unsigned j = 0; j < k; ++j) lits.push_back(c.lit());
+                    add_cardinality(lits.size(), lits.c_ptr(), n);
+                }
             }
             //
             // xor constraints should be disabled.
@@ -277,81 +286,77 @@ namespace sat {
         ob_constraint.push_back(ob_term(v, weight));
     }
 
-    lbool local_search::check(parallel& p) {
-        flet<parallel*> _p(m_par, &p);
-        return check();
-    }
-
     lbool local_search::check() {
         return check(0, 0);
     }
     
-    lbool local_search::check(unsigned sz, literal const* assumptions) {
-        //sat_params params;
-        //std::cout << "my parameter value: " << params.cliff() << "\n";
+    lbool local_search::check(unsigned sz, literal const* assumptions, parallel* p) {
+        flet<parallel*> _p(m_par, p);
+        m_model.reset();
         unsigned num_constraints = m_constraints.size();
         for (unsigned i = 0; i < sz; ++i) {
             add_clause(1, assumptions + i);
         }
         init();
+        reinit();
         bool reach_known_best_value = false;
         bool_var flipvar;
         timer timer;
         timer.start();
-        bool reach_cutoff_time = false;
-        double elapsed_time;
         // ################## start ######################
+        IF_VERBOSE(1, verbose_stream() << "Unsat stack size: " << m_unsat_stack.size() << "\n";);
         //std::cout << "Start initialize and local search, restart in every " << max_steps << " steps\n";
         //std::cout << num_vars() << '\n';
         unsigned tries, step = 0;
-        for (tries = 1; ; ++tries) {
+        for (tries = 1; m_limit.inc() && !m_unsat_stack.empty(); ++tries) {
             reinit();
             for (step = 1; step <= max_steps; ++step) {
                 // feasible
                 if (m_unsat_stack.empty()) {
                     calculate_and_update_ob();
                     if (best_objective_value >= best_known_value) {
-                        reach_known_best_value = true;
                         break;
                     }
                 }
                 flipvar = pick_var();
                 flip(flipvar);
-                //std::cout << flipvar << '\t' << m_unsat_stack.size() << '\n';
-                //std::cout << goodvar_stack.size() << '\n';
 
                 m_vars[flipvar].m_time_stamp = step;
                 //if (!m_limit.inc()) break;pick_flip();
             }
-            //IF_VERBOSE(1, if (tries % 10 == 0) verbose_stream() << tries << ": " << timer.get_seconds() << '\n';);
+            IF_VERBOSE(1, if (tries % 10 == 0) verbose_stream() << tries << ": " << timer.get_seconds() << '\n';);
             // the following is for tesing
-            if (tries % 10 == 0) {
-                elapsed_time = timer.get_seconds();
-                //std::cout << tries << '\t' << elapsed_time << '\n';
-                if (elapsed_time > 300) {
-                    reach_cutoff_time = true;
-                    break;
-                }
-            }
+
             // tell the SAT solvers about the phase of variables.
             //if (m_par && tries % 10 == 0) {
                 //m_par->set_phase(*this);
-            if (reach_known_best_value || reach_cutoff_time) {
-                break;
-            }
         }
-        std::cout << elapsed_time << '\t' << reach_known_best_value << '\t' << reach_cutoff_time << '\t' << best_objective_value << '\n';
-        //IF_VERBOSE(1, verbose_stream() << timer.get_seconds() << " " << (reach_known_best_value ? "reached":"not reached") << "\n";);
 
         // remove unit clauses from assumptions.
         m_constraints.shrink(num_constraints);
         //print_solution();
-        IF_VERBOSE(1, verbose_stream() << (tries - 1) * max_steps + step << '\n';);
+        IF_VERBOSE(1, verbose_stream() << timer.get_seconds() <<  " steps: " << (tries - 1) * max_steps + step << " unsat stack: " << m_unsat_stack.size() << '\n';);
         if (m_unsat_stack.empty() && ob_constraint.empty()) { // or all variables in ob_constraint are true
+            extract_model();
             return l_true;
         }
         // TBD: adjust return status
         return l_undef;
+    }
+
+
+    void local_search::sat(unsigned c) {
+        unsigned last_unsat_constraint = m_unsat_stack.back();
+        int index = m_index_in_unsat_stack[c];
+        m_unsat_stack[index] = last_unsat_constraint;
+        m_index_in_unsat_stack[last_unsat_constraint] = index;
+        m_unsat_stack.pop_back();
+    }
+
+    // swap the deleted one with the last one and pop
+    void local_search::unsat(unsigned c) {
+        m_index_in_unsat_stack[c] = m_unsat_stack.size();
+        m_unsat_stack.push_back(c);
     }
 
     void local_search::flip(bool_var flipvar)
@@ -578,6 +583,48 @@ namespace sat {
     void local_search::print_info() {
         for (unsigned v = 1; v < num_vars(); ++v) {
             std::cout << v << "\t" << m_vars[v].m_neighbors.size() << '\t' << cur_solution[v] << '\t' << conf_change(v) << '\t' << score(v) << '\t' << slack_score(v) << '\n';
+        }
+    }
+
+    void local_search::extract_model() {
+        m_model.reset();
+        for (unsigned v = 0; v < num_vars(); ++v) {
+            m_model.push_back(cur_solution[v] ? l_true : l_false);
+        }
+    }
+
+    void local_search::display(std::ostream& out) const {
+        for (unsigned i = 0; i < m_constraints.size(); ++i) {
+            constraint const& c = m_constraints[i];
+            display(out, c);
+        }
+    }
+    
+    void local_search::display(std::ostream& out, constraint const& c) const {
+        out << c.m_literals << " <= " << c.m_k << "\n";
+    }
+    
+    void local_search::display(std::ostream& out, unsigned v, var_info const& vi) const {
+        out << "v" << v << "\n";
+    }
+
+    bool local_search::check_goodvar() {
+        unsigned g = 0;
+        for (unsigned v = 0; v < num_vars(); ++v) {
+            if (conf_change(v) && score(v) > 0) {
+                ++g;
+                if (!already_in_goodvar_stack(v))
+                    std::cout << "3\n";
+            }
+        }
+        if (g == goodvar_stack.size())
+            return true;
+        else {
+            if (g < goodvar_stack.size())
+                std::cout << "1\n";
+            else
+                std::cout << "2\n"; // delete too many
+            return false;
         }
     }
 }

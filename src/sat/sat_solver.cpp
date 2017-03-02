@@ -782,10 +782,7 @@ namespace sat {
         pop_to_base_level();
         IF_VERBOSE(2, verbose_stream() << "(sat.sat-solver)\n";);
         SASSERT(at_base_lvl());
-        if (m_config.m_local_search && !m_local_search) {
-            m_local_search = alloc(local_search, *this);
-        }
-        if ((m_config.m_num_threads > 1 || m_local_search) && !m_par) {
+        if ((m_config.m_num_threads > 1 || m_config.m_local_search) && !m_par) {
             return check_par(num_lits, lits);
         }
         flet<bool> _searching(m_searching, true);
@@ -866,8 +863,16 @@ namespace sat {
 
 
     lbool solver::check_par(unsigned num_lits, literal const* lits) {
-        int num_threads = static_cast<int>(m_config.m_num_threads);
-        int num_extra_solvers = num_threads - 1 - (m_local_search ? 1 : 0);
+        bool use_local_search = m_config.m_local_search;
+        if (use_local_search) {
+            m_local_search = alloc(local_search, *this);
+        }
+
+        int num_threads = static_cast<int>(m_config.m_num_threads) + (use_local_search ? 1 : 0);
+        int num_extra_solvers = num_threads - 1 - (use_local_search ? 1 : 0);
+
+#define IS_LOCAL_SEARCH(i) i == num_extra_solvers && use_local_search
+
         sat::parallel par(*this);
         par.reserve(num_threads, 1 << 12);
         par.init_solvers(*this, num_extra_solvers);
@@ -881,11 +886,11 @@ namespace sat {
         for (int i = 0; i < num_threads; ++i) {
             try {                
                 lbool r = l_undef;
-                if (m_local_search && i == num_extra_solvers) {
-                    r = m_local_search->check(num_lits, lits);
-                }
-                else if (i < num_extra_solvers) {
+                if (i < num_extra_solvers) {
                     r = par.get_solver(i).check(num_lits, lits);
+                }
+                else if (IS_LOCAL_SEARCH(i)) {
+                    r = m_local_search->check(num_lits, lits);
                 }
                 else {
                     r = check(num_lits, lits);
@@ -897,6 +902,7 @@ namespace sat {
                         finished_id = i;
                         first = true;
                         result = r;
+                        std::cout << finished_id << " " << r << "\n";
                     }
                 }
                 if (first) {
@@ -908,7 +914,7 @@ namespace sat {
                             par.cancel_solver(j);
                         }
                     }
-                    if (i != num_extra_solvers) {
+                    if ((0 <= i && i < num_extra_solvers) || IS_LOCAL_SEARCH(i)) {
                         canceled = !rlimit().inc();
                         if (!canceled) {
                             rlimit().cancel();
@@ -936,10 +942,14 @@ namespace sat {
             m_core.reset();
             m_core.append(par.get_solver(finished_id).get_core());
         }
+        if (result == l_true && finished_id != -1 && IS_LOCAL_SEARCH(finished_id)) {
+            set_model(m_local_search->get_model());
+        }
         if (!canceled) {
             rlimit().reset_cancel();
         }
         set_par(0, 0);
+        m_local_search = 0;
         if (finished_id == -1) {
             switch (ex_kind) {
             case ERROR_EX: throw z3_error(error_code);

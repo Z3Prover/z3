@@ -186,7 +186,7 @@ class opb {
     app_ref parse_id() {
         bool negated = in.parse_token("~");
         if (!in.parse_token("x")) {
-            std::cerr << "(error line " << in.line() << " \"unexpected char: " << ((char)in.ch()) << "\")\n";
+            std::cerr << "(error line " << in.line() << " \"unexpected char: " << ((char)in.ch()) << "\" expected \"x\")\n";
             exit(3);
         }
         app_ref p(m);
@@ -228,10 +228,15 @@ class opb {
         return app_ref(m.mk_ite(e, c, arith.mk_numeral(rational(0), true)), m);
     }
 
-    void parse_objective() {
+    void parse_objective(bool is_min) {
         app_ref t = parse_term();
         while (!in.parse_token(";") && !in.eof()) {
-            t = arith.mk_add(t, parse_term());
+            if (is_min) {
+                t = arith.mk_add(t, parse_term());
+            }
+            else {
+                t = arith.mk_sub(t, parse_term());
+            }
         }
         g_handles.push_back(opt.add_objective(t, false));
     }
@@ -268,7 +273,10 @@ public:
                 in.skip_line();
             }
             else if (in.parse_token("min:")) {
-                parse_objective();
+                parse_objective(true);
+            }
+            else if (in.parse_token("max:")) {
+                parse_objective(false);
             }
             else {
                 parse_constraint();

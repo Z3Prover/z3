@@ -151,6 +151,7 @@ namespace sat {
         reslimit    m_limit;
         random_gen  m_rand;
         parallel*   m_par;
+        model       m_model;
 
         void init();
         void reinit();
@@ -164,6 +165,10 @@ namespace sat {
 
         void flip(bool_var v);
 
+        void unsat(unsigned c);
+
+        void sat(unsigned c);
+
         bool tie_breaker_sat(bool_var v1, bool_var v2);
 
         bool tie_breaker_ccd(bool_var v1, bool_var v2);
@@ -174,48 +179,22 @@ namespace sat {
 
         void verify_solution();
 
-        void display(std::ostream& out);
-
         void print_info();
 
-        bool check_goodvar() {
-            unsigned g = 0;
-            for (unsigned v = 1; v <= num_vars(); ++v) {
-                if (conf_change(v) && score(v) > 0) {
-                    ++g;
-                    if (!already_in_goodvar_stack(v))
-                        std::cout << "3\n";
-                }
-            }
-            if (g == goodvar_stack.size())
-                return true;
-            else {
-                if (g < goodvar_stack.size())
-                    std::cout << "1\n";
-                else
-                    std::cout << "2\n"; // delete too many
-                return false;
-            }
-        }
+        void extract_model();
+
+        bool check_goodvar();
 
         void add_clause(unsigned sz, literal const* c);
 
+        void display(std::ostream& out) const;
 
-        void unsat(int c) {
-            m_index_in_unsat_stack[c] = m_unsat_stack.size();
-            m_unsat_stack.push_back(c);
-        }
-        // swap the deleted one with the last one and pop
-        void sat(int c) {
-            int last_unsat_constraint = m_unsat_stack.back();
-            int index = m_index_in_unsat_stack[c];
-            m_unsat_stack[index] = last_unsat_constraint;
-            m_index_in_unsat_stack[last_unsat_constraint] = index;
-            m_unsat_stack.pop_back();
-        }
+        void display(std::ostream& out, constraint const& c) const;
 
+        void display(std::ostream& out, unsigned v, var_info const& vi) const;
 
     public:
+
         local_search(solver& s);
 
         reslimit& rlimit() { return m_limit; }
@@ -228,9 +207,7 @@ namespace sat {
         
         lbool check();
 
-        lbool check(unsigned sz, literal const* assumptions);
-
-        lbool check(parallel& p);
+        lbool check(unsigned sz, literal const* assumptions, parallel* p = 0);
 
         local_search_config& config() { return m_config;  }
 
@@ -239,6 +216,8 @@ namespace sat {
         void set_phase(bool_var v, bool f) {}
 
         bool get_phase(bool_var v) const { return is_true(v); }
+
+        model& get_model() { return m_model; }
     };
 }
 
