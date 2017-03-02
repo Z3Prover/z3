@@ -60,7 +60,7 @@ namespace sat {
         index_set      m_unit_set;
         literal_vector m_lits;
         vector_pool    m_pool;
-        int_vector     m_phase;
+        svector<lbool> m_phase;
 
         scoped_limits      m_scoped_rlimit;
         vector<reslimit>   m_limits;

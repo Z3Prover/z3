@@ -225,7 +225,7 @@ namespace sat {
 
         unsigned num_vars() const { return m_vars.size() - 1; }     // var index from 1 to num_vars
 
-        void set_phase(bool_var v, bool f);
+        void set_phase(bool_var v, lbool f);
 
         bool get_phase(bool_var v) const { return is_true(v); }
 

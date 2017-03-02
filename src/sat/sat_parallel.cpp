@@ -210,20 +210,21 @@ namespace sat {
 
     void parallel::_set_phase(solver& s) {
         if (!m_phase.empty()) {
-            m_phase.reserve(s.num_vars(), 0);
+            m_phase.reserve(s.num_vars(), l_undef);
             for (unsigned i = 0; i < s.num_vars(); ++i) {
                 if (s.value(i) != l_undef) {
-                    m_phase[i] += (s.value(i) == l_true) ? 1 : -1;
+                    m_phase[i] = s.value(i);
                     continue;
                 }
                 switch (s.m_phase[i]) {
                 case POS_PHASE:
-                    m_phase[i]++;
+                    m_phase[i] = l_true;
                     break;
                 case NEG_PHASE:
-                    m_phase[i]--;
+                    m_phase[i] = l_false;
                     break;
                 default:
+                    m_phase[i] = l_undef;
                     break;
                 }
             }
@@ -246,39 +247,33 @@ namespace sat {
 
     void parallel::_get_phase(solver& s) {
         if (!m_phase.empty()) {
-            m_phase.reserve(s.num_vars(), 0);
+            m_phase.reserve(s.num_vars(), l_undef);
             for (unsigned i = 0; i < s.num_vars(); ++i) {
-                if (m_phase[i] < 0) {
-                    s.m_phase[i] = NEG_PHASE;
-                }
-                else if (m_phase[i] > 0) {
-                    s.m_phase[i] = POS_PHASE;
+                switch (m_phase[i]) {
+                case l_false: s.m_phase[i] = NEG_PHASE; break;
+                case l_true: s.m_phase[i] = POS_PHASE; break;
+                default: break;
                 }
             }
         }
     }
 
-    void parallel::get_phase(local_search& s) {
+   void parallel::get_phase(local_search& s) {
         #pragma omp critical (par_solver)
         {
             for (unsigned i = 0; i < m_phase.size(); ++i) {
-                if (m_phase[i] < 0) {
-                    s.set_phase(i, false);
-                }
-                else if (m_phase[i] > 0) {
-                    s.set_phase(i, true);
-                }
+                s.set_phase(i, m_phase[i]);
             }
-            m_phase.reserve(s.num_vars(), 0);
+            m_phase.reserve(s.num_vars(), l_undef);
         }
     }
 
     void parallel::set_phase(local_search& s) {
         #pragma omp critical (par_solver)
         {
-            m_phase.reserve(s.num_vars(), 0);
+            m_phase.reserve(s.num_vars(), l_undef);
             for (unsigned i = 0; i < s.num_vars(); ++i) {
-                m_phase[i] += (s.get_phase(i) ? 1 : -1);
+                m_phase[i] = s.get_phase(i) ? l_true : l_false;
             }
         }
     }

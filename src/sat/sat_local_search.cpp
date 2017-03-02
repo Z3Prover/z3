@@ -670,10 +670,11 @@ namespace sat {
         }
     }
 
-    void local_search::set_phase(bool_var v, bool f) {
+    void local_search::set_phase(bool_var v, lbool f) {
         unsigned& bias = m_vars[v].m_bias;
-        if (f && bias < 100) bias++;
-        if (!f && bias > 0) bias--;
+        if (f == l_true && bias < 100) bias++;
+        if (f == l_false && bias > 0) bias--;
+        // f == l_undef ?
     }
 
 }
