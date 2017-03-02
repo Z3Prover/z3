@@ -112,13 +112,14 @@ struct pb2bv_rewriter::imp {
                 return expr_ref((is_le == l_false)?m.mk_true():m.mk_false(), m);
             }
             
+#if 0
             expr_ref result(m);
             switch (is_le) {
             case l_true:  if (mk_le(sz, args, k, result)) return result; else break;
             case l_false: if (mk_ge(sz, args, k, result)) return result; else break;
             case l_undef: if (mk_eq(sz, args, k, result)) return result; else break;
             }
-
+#endif
             // fall back to divide and conquer encoding.
             SASSERT(k.is_pos());
             expr_ref zero(m), bound(m);
