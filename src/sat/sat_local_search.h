@@ -177,7 +177,9 @@ namespace sat {
 
         void calculate_and_update_ob();
 
-        void verify_solution();
+        void verify_solution() const;
+
+        void verify_constraint(constraint const& c) const;
 
         void print_info();
 

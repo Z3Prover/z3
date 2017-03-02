@@ -173,14 +173,29 @@ namespace sat {
         }
     }
     
-    void local_search::verify_solution() {
+    void local_search::verify_solution() const {
+        for (unsigned i = 0; i < m_constraints.size(); ++i) {
+            verify_constraint(m_constraints[i]);
+        }
+    }
 
+    void local_search::verify_constraint(constraint const& c) const {
+        unsigned value = 0;
+        for (unsigned i = 0; i < c.size(); ++i) {
+            value += is_true(c[i]) ? 1 : 0;
+        }
+        if (c.m_k < value) {
+            display(std::cout << "violated constraint: ", c);
+            std::cout << "value: " << value << "\n";
+            UNREACHABLE();
+        }
     }
     
     void local_search::add_clause(unsigned sz, literal const* c) {
         add_cardinality(sz, c, sz - 1);
     }
 
+    // ~c <= k
     void local_search::add_cardinality(unsigned sz, literal const* c, unsigned k) {
         unsigned id = m_constraints.size();
         m_constraints.push_back(constraint(k));
@@ -195,6 +210,8 @@ namespace sat {
     local_search::local_search(solver& s) : 
         m_par(0) {
 
+        m_vars.reserve(s.num_vars());
+
         // copy units
         unsigned trail_sz = s.init_trail_size();
         for (unsigned i = 0; i < trail_sz; ++i) {
@@ -205,7 +222,7 @@ namespace sat {
         {
             unsigned sz = s.m_watches.size();
             for (unsigned l_idx = 0; l_idx < sz; ++l_idx) {
-                literal l = ~to_literal(l_idx);
+                literal l1 = ~to_literal(l_idx);
                 watch_list const & wlist = s.m_watches[l_idx];
                 watch_list::const_iterator it  = wlist.begin();
                 watch_list::const_iterator end = wlist.end();
@@ -213,9 +230,9 @@ namespace sat {
                     if (!it->is_binary_non_learned_clause())
                         continue;
                     literal l2 = it->get_literal();
-                    if (l.index() > l2.index()) 
+                    if (l1.index() > l2.index()) 
                         continue;
-                    literal ls[2] = { l, l2 };
+                    literal ls[2] = { l1, l2 };
                     add_clause(2, ls);
                 }
             }
@@ -239,18 +256,17 @@ namespace sat {
                 unsigned n = c.size();
                 unsigned k = c.k();
 
-
-
                 if (c.lit() == null_literal) {
                     //    c.lits() >= k 
                     // <=> 
                     //    ~c.lits() <= n - k
                     lits.reset();
-                    for (unsigned j = 0; j < n; ++j) lits.push_back(~c[j]);
+                    for (unsigned j = 0; j < n; ++j) lits.push_back(c[j]);
                     add_cardinality(lits.size(), lits.c_ptr(), n - k);
                 }
                 else {
-                    // TBD: this doesn't really work
+                    // TBD: this doesn't really work because scores are not properly updated for general PB constraints.
+                    NOT_IMPLEMENTED_YET();
                     //
                     // c.lit() <=> c.lits() >= k
                     // 
@@ -337,6 +353,7 @@ namespace sat {
         //print_solution();
         IF_VERBOSE(1, verbose_stream() << timer.get_seconds() <<  " steps: " << (tries - 1) * max_steps + step << " unsat stack: " << m_unsat_stack.size() << '\n';);
         if (m_unsat_stack.empty() && ob_constraint.empty()) { // or all variables in ob_constraint are true
+            verify_solution();
             extract_model();
             return l_true;
         }
