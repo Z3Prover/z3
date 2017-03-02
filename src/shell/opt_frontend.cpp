@@ -254,6 +254,11 @@ class opb {
                 in.parse_token(";");
                 break;
             }            
+            if (in.parse_token("<=")) {
+                t = arith.mk_le(t, parse_coeff());
+                in.parse_token(";");
+                break;
+            }            
             t = arith.mk_add(t, parse_term());
         }        
         opt.add_hard_constraint(t);

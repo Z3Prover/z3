@@ -340,7 +340,8 @@ namespace sat {
                 m_vars[flipvar].m_time_stamp = step;
                 //if (!m_limit.inc()) break;pick_flip();
             }
-            IF_VERBOSE(1, if (tries % 10 == 0) verbose_stream() << tries << ": " << timer.get_seconds() << '\n';);
+            IF_VERBOSE(1, if (tries % 10 == 0) verbose_stream() << "(sat-local :tries " << tries << " :steps " << (tries - 1) * max_steps + step 
+                                                                << " :unsat " << m_unsat_stack.size() << " :time " << timer.get_seconds() << ")\n";);
             // the following is for tesing
 
             // tell the SAT solvers about the phase of variables.
@@ -351,7 +352,6 @@ namespace sat {
         // remove unit clauses from assumptions.
         m_constraints.shrink(num_constraints);
         //print_solution();
-        IF_VERBOSE(1, verbose_stream() << timer.get_seconds() <<  " steps: " << (tries - 1) * max_steps + step << " unsat stack: " << m_unsat_stack.size() << '\n';);
         if (m_unsat_stack.empty() && ob_constraint.empty()) { // or all variables in ob_constraint are true
             verify_solution();
             extract_model();
