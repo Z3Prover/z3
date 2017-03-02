@@ -336,7 +336,7 @@ bool operator<(const zstring& lhs, const zstring& rhs) {
 
 
 seq_decl_plugin::seq_decl_plugin(): m_init(false),
-                                    m_stringc_sym("StringSequence"),
+                                    m_stringc_sym("String"),
                                     m_charc_sym("Char"),
                                     m_string(0),
                                     m_char(0),

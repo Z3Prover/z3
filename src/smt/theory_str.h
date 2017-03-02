@@ -603,7 +603,7 @@ namespace smt {
         theory_str(ast_manager & m, theory_str_params const & params);
         virtual ~theory_str();
 
-        virtual char const * get_name() const { return "strings"; }
+        virtual char const * get_name() const { return "seq"; }
         virtual void display(std::ostream & out) const;
 
         bool overlapping_variables_detected() const { return loopDetected; }

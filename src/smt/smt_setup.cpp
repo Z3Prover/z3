@@ -825,7 +825,9 @@ namespace smt {
     }
 
     void setup::setup_seq() {
-        m_context.register_plugin(alloc(theory_seq, m_manager));
+        // TODO proper negotiation of theory_str vs. theory_seq
+        //m_context.register_plugin(alloc(theory_seq, m_manager));
+        setup_str();
     }
 
     void setup::setup_card() {

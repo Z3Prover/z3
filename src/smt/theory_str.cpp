@@ -31,7 +31,7 @@ Revision History:
 namespace smt {
 
 theory_str::theory_str(ast_manager & m, theory_str_params const & params):
-        theory(m.mk_family_id("str")),
+        theory(m.mk_family_id("seq")),
         m_params(params),
         /* Options */
         opt_EagerStringConstantLengthAssertions(true),
@@ -266,7 +266,7 @@ void theory_str::refresh_theory_var(expr * e) {
 theory_var theory_str::mk_var(enode* n) {
     TRACE("t_str_detail", tout << "mk_var for " << mk_pp(n->get_owner(), get_manager()) << std::endl;);
     ast_manager & m = get_manager();
-    if (!(is_sort_of(m.get_sort(n->get_owner()), u.get_family_id(), _STRING_SORT))) {
+    if (!(m.get_sort(n->get_owner()) == u.str.mk_string_sort())) {
         return null_theory_var;
     }
     if (is_attached_to_var(n)) {
