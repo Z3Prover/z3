@@ -1,4 +1,28 @@
-add_executable(z3_tptp5 EXCLUDE_FROM_ALL tptp5.cpp tptp5.lex.cpp)
-target_link_libraries(z3_tptp5 PRIVATE libz3)
-target_include_directories(z3_tptp5 PRIVATE "${CMAKE_SOURCE_DIR}/src/api")
-target_include_directories(z3_tptp5 PRIVATE "${CMAKE_SOURCE_DIR}/src/api/c++")
+################################################################################
+# TPTP example
+################################################################################
+project(Z3_TPTP5 CXX)
+cmake_minimum_required(VERSION 2.8.12)
+find_package(Z3
+  REQUIRED
+  CONFIG
+  # `NO_DEFAULT_PATH` is set so that -DZ3_DIR has to be passed to find Z3.
+  # This should prevent us from accidently picking up an installed
+  # copy of Z3. This is here to benefit Z3's build sytem when building
+  # this project. When making your own project you probably shouldn't
+  # use this option.
+  NO_DEFAULT_PATH
+)
+message(STATUS "Z3_FOUND: ${Z3_FOUND}")
+message(STATUS "Found Z3 ${Z3_VERSION_STRING}")
+message(STATUS "Z3_DIR: ${Z3_DIR}")
+
+add_executable(z3_tptp5 tptp5.cpp tptp5.lex.cpp)
+target_include_directories(z3_tptp5 PRIVATE ${Z3_CXX_INCLUDE_DIRS})
+target_link_libraries(z3_tptp5 PRIVATE ${Z3_LIBRARIES})
+
+# FIXME: The Z3 package does not export information on the link flags
+# This is needed for when libz3 is built as a static library
+#if (NOT BUILD_LIBZ3_SHARED)
+#  z3_append_linker_flag_list_to_target(z3_tptp5 ${Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS})
+#endif()

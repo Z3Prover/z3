@@ -1,9 +1,28 @@
-# FIXME: We should build this as an external project and consume
-# Z3 as `find_package(z3 CONFIG)`.
-add_executable(c_example EXCLUDE_FROM_ALL test_capi.c)
-target_link_libraries(c_example PRIVATE libz3)
-target_include_directories(c_example PRIVATE "${CMAKE_SOURCE_DIR}/src/api")
+################################################################################
+# Example C project
+################################################################################
+project(Z3_C_EXAMPLE C)
+cmake_minimum_required(VERSION 2.8.12)
+find_package(Z3
+  REQUIRED
+  CONFIG
+  # `NO_DEFAULT_PATH` is set so that -DZ3_DIR has to be passed to find Z3.
+  # This should prevent us from accidently picking up an installed
+  # copy of Z3. This is here to benefit Z3's build sytem when building
+  # this project. When making your own project you probably shouldn't
+  # use this option.
+  NO_DEFAULT_PATH
+)
+message(STATUS "Z3_FOUND: ${Z3_FOUND}")
+message(STATUS "Found Z3 ${Z3_VERSION_STRING}")
+message(STATUS "Z3_DIR: ${Z3_DIR}")
+
+add_executable(c_example test_capi.c)
+target_include_directories(c_example PRIVATE ${Z3_C_INCLUDE_DIRS})
+target_link_libraries(c_example PRIVATE ${Z3_LIBRARIES})
+
+# FIXME: The Z3 package does not export information on the link flags
 # This is needed for when libz3 is built as a static library
-if (NOT BUILD_LIBZ3_SHARED)
-  z3_append_linker_flag_list_to_target(c_example ${Z3_DEPENDENT_EXTRA_C_LINK_FLAGS})
-endif()
+#if (NOT BUILD_LIBZ3_SHARED)
+#  z3_append_linker_flag_list_to_target(c_example ${Z3_DEPENDENT_EXTRA_C_LINK_FLAGS})
+#endif()
