@@ -294,11 +294,11 @@ if (OPENMP_FOUND)
     # flag by MSVC and breaks the build
     if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang") OR
         ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU"))
-      list(APPEND Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS ${OpenMP_C_FLAGS})
+      list(APPEND Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS ${OpenMP_CXX_FLAGS})
     endif()
     if (("${CMAKE_C_COMPILER_ID}" MATCHES "Clang") OR
         ("${CMAKE_C_COMPILER_ID}" MATCHES "GNU"))
-      list(APPEND Z3_DEPENDENT_EXTRA_C_LINK_FLAGS ${OpenMP_CXX_FLAGS})
+      list(APPEND Z3_DEPENDENT_EXTRA_C_LINK_FLAGS ${OpenMP_C_FLAGS})
     endif()
     unset(CMAKE_REQUIRED_FLAGS)
     message(STATUS "Using OpenMP")
