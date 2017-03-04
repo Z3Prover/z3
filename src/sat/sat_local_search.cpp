@@ -223,8 +223,9 @@ namespace sat {
             m_vars.reserve(c[i].var() + 1);
             literal t(~c[i]);
             m_vars[t.var()].m_watch[is_pos(t)].push_back(id);
-            m_constraints.back().m_literals.push_back(t);
+            m_constraints.back().push(t);
         }
+        m_constraints.back().seal();
         if (sz == 1 && k == 0) {
             m_vars[c[0].var()].m_bias = c[0].sign() ? 0 : 100;
         }
@@ -447,50 +448,55 @@ namespace sat {
         SASSERT(c.m_k < constraint_value(c));
         if (m_rand() % 100 < 98) {
             // take this branch with 98% probability.
-            // display(std::cout, c);
             unsigned best_bsb = 0;
             // find the first one, to fast break the rest    
             unsigned i = 0;
+            literal const* lits = c.m_literals.c_ptr();
+            literal l;
             while (true) {
-                v = c[i].var();
-                if (is_true(c[i])) {
+                l = *lits;
+                if (is_true(l)) {
+                    v = l.var();
                     bool tt = cur_solution(v);
                     int_vector const& falsep = m_vars[v].m_watch[!tt];
-                    for (unsigned j = 0; j < falsep.size(); ++j) {
+                    unsigned sz = falsep.size();
+                    for (unsigned j = 0; j < sz; ++j) {
                         unsigned ci = falsep[j];
                         if (constraint_slack(ci) < 0)
                             ++best_bsb;
                         else if (constraint_slack(ci) == 0)
-                            // >= unsat_stack_fill_pointer is enough
-                            best_bsb += m_constraints.size();
+                            best_bsb += m_unsat_stack.size();
                     }
                     break;
                 }
-                ++i;
+                ++lits;
             }
+            ++lits;
             m_good_vars.push_back(v);
-            for (++i; i < c.size(); ++i) {
-                v = c[i].var();
-                if (is_true(c[i])) {
+            for (; (l = *lits) != null_literal; ++lits) {
+                if (is_true(l)) {
+                    v = l.var();                    
                     bool found = false;
                     unsigned bsb = 0;
                     bool tt = cur_solution(v);
                     int_vector const& falsep = m_vars[v].m_watch[!tt];
-                    for (unsigned j = 0; j < falsep.size() && !found; ++j) {
+                    unsigned sz = falsep.size();
+                    for (unsigned j = 0; j < sz; ++j) {
                         unsigned ci = falsep[j];
                         if (constraint_slack(ci) < 0) {
                             if (bsb == best_bsb) {
                                 found = true;
+                                break;
                             }
                             else {
                                 ++bsb;
                             }
                         }
                         else if (constraint_slack(ci) == 0) {
-                            // >= unsat_stack_fill_pointer is enough
-                            bsb += m_constraints.size();
+                            bsb += m_unsat_stack.size();
                             if (bsb > best_bsb) {
                                 found = true;
+                                break;
                             }
                         }
                     }
