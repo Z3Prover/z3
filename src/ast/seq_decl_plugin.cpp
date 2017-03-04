@@ -284,8 +284,54 @@ zstring zstring::operator+(zstring const& other) const {
     return result;
 }
 
-std::ostream& zstring::operator<<(std::ostream& out) const {
-    return out << encode();
+bool zstring::operator==(const zstring& other) const {
+    // two strings are equal iff they have the same length and characters
+    if (length() != other.length()) {
+        return false;
+    }
+    for (unsigned i = 0; i < length(); ++i) {
+        unsigned Xi = m_buffer[i];
+        unsigned Yi = other[i];
+        if (Xi != Yi) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool zstring::operator!=(const zstring& other) const {
+    return !(*this == other);
+}
+
+std::ostream& operator<<(std::ostream &os, const zstring &str) {
+    return os << str.encode();
+}
+
+bool operator<(const zstring& lhs, const zstring& rhs) {
+    // This has the same semantics as strcmp()
+    unsigned len = lhs.length();
+    if (rhs.length() < len) {
+        len = rhs.length();
+    }
+    for (unsigned i = 0; i < len; ++i) {
+        unsigned Li = lhs[i];
+        unsigned Ri = rhs[i];
+        if (Li < Ri) {
+            return true;
+        } else if (Li > Ri) {
+            return false;
+        } else {
+            continue;
+        }
+    }
+    // at this point, all compared characters are equal,
+    // so decide based on the relative lengths
+    if (lhs.length() < rhs.length()) {
+        return true;
+    } else {
+        return false;
+    }
 }
 
 
