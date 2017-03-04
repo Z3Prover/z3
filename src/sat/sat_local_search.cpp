@@ -329,24 +329,30 @@ namespace sat {
         return check(0, 0);
     }
 
+#define PROGRESS(tries, total_steps)                            \
+    if (tries % 10 == 0 || m_unsat_stack.empty()) {             \
+    IF_VERBOSE(1, verbose_stream() << "(sat-local-search"       \
+               << " :tries " << tries                           \
+               << " :steps " << total_steps                     \
+               << " :unsat " << m_unsat_stack.size()            \
+               << " :time " << timer.get_seconds() << ")\n";);  \
+    }
+
     void local_search::walksat() {
         reinit();
         timer timer;
         timer.start();
-        unsigned step = 0, total_steps = 0, max_steps = (1 << 20);
-        for (unsigned tries = 1; !m_unsat_stack.empty() && m_limit.inc(); ++tries) {
+        unsigned step = 0, total_steps = 0, max_steps = (1 << 17), tries = 0;
+        PROGRESS(tries, total_steps);
+        
+        for (tries = 1; !m_unsat_stack.empty() && m_limit.inc(); ++tries) {
             for (step = 0; step < max_steps && !m_unsat_stack.empty(); ++step) {
                 pick_flip_walksat();
             }
             total_steps += step;
-            if (tries % 10 == 0) {
-                IF_VERBOSE(1, verbose_stream() << "(sat-local-search"
-                           << " :tries " << tries
-                           << " :steps " << total_steps
-                           << " :unsat " << m_unsat_stack.size() 
-                           << " :time " << timer.get_seconds() << ")\n";);
-            }
+            PROGRESS(tries, total_steps);
         }
+        PROGRESS(tries, total_steps);
     }
 
     void local_search::gsat() {
@@ -355,33 +361,30 @@ namespace sat {
         bool_var flipvar;
         timer timer;
         timer.start();
-        unsigned tries, step = 0;
+        unsigned tries, step = 0, total_steps = 0;
         for (tries = 1; m_limit.inc() && !m_unsat_stack.empty(); ++tries) {
             reinit();
-            for (step = 1; step <= max_steps; ++step) {
+            for (step = 1; step <= max_steps; ) {
                 // feasible
                 if (m_unsat_stack.empty()) {
                     calculate_and_update_ob();
                     if (best_objective_value >= best_known_value) {
                         break;
                     }
-                }
+                }                
                 flipvar = pick_var_gsat();
                 flip_gsat(flipvar);
-                m_vars[flipvar].m_time_stamp = step;
+                m_vars[flipvar].m_time_stamp = step++;
             }
-            IF_VERBOSE(1, if (tries % 10 == 0) 
-                              verbose_stream() << "(sat-local-search"
-                                               << " :tries " << tries 
-                                               << " :steps " << (tries - 1) * max_steps + step 
-                                               << " :unsat " << m_unsat_stack.size() 
-                                               << " :time " << timer.get_seconds() << ")\n";);
+            total_steps += step;
+            PROGRESS(tries, total_steps);
 
             // tell the SAT solvers about the phase of variables.
             if (m_par && tries % 10 == 0) {
                 m_par->get_phase(*this);
             }
         }
+        PROGRESS(tries, total_steps);
     }
     
     lbool local_search::check(unsigned sz, literal const* assumptions, parallel* p) {
@@ -442,7 +445,8 @@ namespace sat {
         bool_var v;
         constraint const& c = m_constraints[m_unsat_stack[m_rand() % m_unsat_stack.size()]];
         SASSERT(c.m_k < constraint_value(c));
-        if (m_rand() % 100 < 5) {
+        if (m_rand() % 100 < 98) {
+            // take this branch with 98% probability.
             // display(std::cout, c);
             unsigned best_bsb = 0;
             // find the first one, to fast break the rest    
