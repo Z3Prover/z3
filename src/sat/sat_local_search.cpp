@@ -225,7 +225,6 @@ namespace sat {
             m_vars[t.var()].m_watch[is_pos(t)].push_back(id);
             m_constraints.back().push(t);
         }
-        m_constraints.back().seal();
         if (sz == 1 && k == 0) {
             m_vars[c[0].var()].m_bias = c[0].sign() ? 0 : 100;
         }
@@ -443,64 +442,56 @@ namespace sat {
 
     void local_search::pick_flip_walksat() {
         m_good_vars.reset();
-        bool_var v;
+        bool_var v = null_bool_var;
+        unsigned num_unsat = m_unsat_stack.size();
         constraint const& c = m_constraints[m_unsat_stack[m_rand() % m_unsat_stack.size()]];
         SASSERT(c.m_k < constraint_value(c));
         if (m_rand() % 100 < 98) {
             // take this branch with 98% probability.
-            unsigned best_bsb = 0;
             // find the first one, to fast break the rest    
-            unsigned i = 0;
-            literal const* lits = c.m_literals.c_ptr();
+            unsigned best_bsb = 0;
+            literal_vector::const_iterator cit = c.m_literals.begin(), cend = c.m_literals.end();
             literal l;
-            while (true) {
-                l = *lits;
-                if (is_true(l)) {
-                    v = l.var();
-                    bool tt = cur_solution(v);
-                    int_vector const& falsep = m_vars[v].m_watch[!tt];
-                    unsigned sz = falsep.size();
-                    for (unsigned j = 0; j < sz; ++j) {
-                        unsigned ci = falsep[j];
-                        if (constraint_slack(ci) < 0)
-                            ++best_bsb;
-                        else if (constraint_slack(ci) == 0)
-                            best_bsb += m_unsat_stack.size();
-                    }
-                    break;
-                }
-                ++lits;
+            for (; !is_true(*cit); ++cit) { SASSERT(cit != cend); }
+            l = *cit;
+            v = l.var();
+            bool tt = cur_solution(v);
+            int_vector const& falsep = m_vars[v].m_watch[!tt];
+            int_vector::const_iterator it = falsep.begin(), end = falsep.end();
+            for (; it != end; ++it) {
+                int slack = constraint_slack(*it);
+                if (slack < 0)
+                    ++best_bsb;
+                else if (slack == 0)
+                    best_bsb += num_unsat;
             }
-            ++lits;
             m_good_vars.push_back(v);
-            for (; (l = *lits) != null_literal; ++lits) {
+            ++cit;
+            for (; cit != cend; ++cit) {
+                l = *cit;
                 if (is_true(l)) {
                     v = l.var();                    
-                    bool found = false;
                     unsigned bsb = 0;
-                    bool tt = cur_solution(v);
-                    int_vector const& falsep = m_vars[v].m_watch[!tt];
-                    unsigned sz = falsep.size();
-                    for (unsigned j = 0; j < sz; ++j) {
-                        unsigned ci = falsep[j];
-                        if (constraint_slack(ci) < 0) {
+                    int_vector const& falsep = m_vars[v].m_watch[!cur_solution(v)];
+                    int_vector::const_iterator it = falsep.begin(), end = falsep.end();
+                    for (; it != end; ++it) {
+                        int slack = constraint_slack(*it);
+                        if (slack < 0) {
                             if (bsb == best_bsb) {
-                                found = true;
                                 break;
                             }
                             else {
                                 ++bsb;
                             }
                         }
-                        else if (constraint_slack(ci) == 0) {
-                            bsb += m_unsat_stack.size();
+                        else if (slack == 0) {
+                            bsb += num_unsat;
                             if (bsb > best_bsb) {
-                                found = true;
                                 break;
                             }
                         }
                     }
-                    if (!found) {
+                    if (it == end) {
                         if (bsb < best_bsb) {
                             best_bsb = bsb;
                             m_good_vars.reset();

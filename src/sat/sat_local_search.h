@@ -98,7 +98,6 @@ namespace sat {
             literal_vector  m_literals;
             constraint(unsigned k) : m_k(k), m_slack(0), m_size(0) {}
             void push(literal l) { m_literals.push_back(l); ++m_size; }
-            void seal() { m_literals.push_back(null_literal); }
             unsigned size() const { return m_size; }
             literal const& operator[](unsigned idx) const { return m_literals[idx]; }
         };
