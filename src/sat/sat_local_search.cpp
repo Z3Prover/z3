@@ -187,6 +187,13 @@ namespace sat {
         }
     }
 
+    void local_search::verify_unsat_stack() const {
+        for (unsigned i = 0; i < m_unsat_stack.size(); ++i) {
+            constraint const& c = m_constraints[m_unsat_stack[i]];
+            SASSERT(c.m_k < constraint_value(c));
+        }
+    }
+
     unsigned local_search::constraint_value(constraint const& c) const {
         unsigned value = 0;
         for (unsigned i = 0; i < c.size(); ++i) {
@@ -226,7 +233,6 @@ namespace sat {
     local_search::local_search(solver& s) : 
         m_par(0) {
 
-        std::cout << "Parameter1: " << s.m_config.m_local_search_parameter1 << "\n";
         m_vars.reserve(s.num_vars());
 
         // copy units
@@ -322,15 +328,28 @@ namespace sat {
     lbool local_search::check() {
         return check(0, 0);
     }
-    
-    lbool local_search::check(unsigned sz, literal const* assumptions, parallel* p) {
-        flet<parallel*> _p(m_par, p);
-        m_model.reset();
-        unsigned num_constraints = m_constraints.size();
-        for (unsigned i = 0; i < sz; ++i) {
-            add_clause(1, assumptions + i);
+
+    void local_search::walksat() {
+        reinit();
+        timer timer;
+        timer.start();
+        unsigned step = 0, total_steps = 0, max_steps = (1 << 20);
+        for (unsigned tries = 1; !m_unsat_stack.empty() && m_limit.inc(); ++tries) {
+            for (step = 0; step < max_steps && !m_unsat_stack.empty(); ++step) {
+                pick_flip_walksat();
+            }
+            total_steps += step;
+            if (tries % 10 == 0) {
+                IF_VERBOSE(1, verbose_stream() << "(sat-local-search"
+                           << " :tries " << tries
+                           << " :steps " << total_steps
+                           << " :unsat " << m_unsat_stack.size() 
+                           << " :time " << timer.get_seconds() << ")\n";);
+            }
         }
-        init();
+    }
+
+    void local_search::gsat() {
         reinit();
         bool reach_known_best_value = false;
         bool_var flipvar;
@@ -347,8 +366,8 @@ namespace sat {
                         break;
                     }
                 }
-                flipvar = pick_var();
-                flip(flipvar);
+                flipvar = pick_var_gsat();
+                flip_gsat(flipvar);
                 m_vars[flipvar].m_time_stamp = step;
             }
             IF_VERBOSE(1, if (tries % 10 == 0) 
@@ -363,6 +382,26 @@ namespace sat {
                 m_par->get_phase(*this);
             }
         }
+    }
+    
+    lbool local_search::check(unsigned sz, literal const* assumptions, parallel* p) {
+        flet<parallel*> _p(m_par, p);
+        m_model.reset();
+        unsigned num_constraints = m_constraints.size();
+        for (unsigned i = 0; i < sz; ++i) {
+            add_clause(1, assumptions + i);
+        }
+        init();
+
+        switch (m_config.mode()) {
+        case local_search_mode::gsat:
+            gsat();
+            break;
+        case local_search_mode::wsat:
+            walksat();
+            break;
+        }
+
 
         // remove unit clauses from assumptions.
         m_constraints.shrink(num_constraints);
@@ -398,7 +437,111 @@ namespace sat {
         m_unsat_stack.push_back(c);
     }
 
-    void local_search::flip(bool_var flipvar)
+    void local_search::pick_flip_walksat() {
+        m_good_vars.reset();
+        bool_var v;
+        constraint const& c = m_constraints[m_unsat_stack[m_rand() % m_unsat_stack.size()]];
+        SASSERT(c.m_k < constraint_value(c));
+        if (m_rand() % 100 < 5) {
+            // display(std::cout, c);
+            unsigned best_bsb = 0;
+            // find the first one, to fast break the rest    
+            unsigned i = 0;
+            while (true) {
+                v = c[i].var();
+                if (is_true(c[i])) {
+                    bool tt = cur_solution(v);
+                    int_vector const& falsep = m_vars[v].m_watch[!tt];
+                    for (unsigned j = 0; j < falsep.size(); ++j) {
+                        unsigned ci = falsep[j];
+                        if (constraint_slack(ci) < 0)
+                            ++best_bsb;
+                        else if (constraint_slack(ci) == 0)
+                            // >= unsat_stack_fill_pointer is enough
+                            best_bsb += m_constraints.size();
+                    }
+                    break;
+                }
+                ++i;
+            }
+            m_good_vars.push_back(v);
+            for (++i; i < c.size(); ++i) {
+                v = c[i].var();
+                if (is_true(c[i])) {
+                    bool found = false;
+                    unsigned bsb = 0;
+                    bool tt = cur_solution(v);
+                    int_vector const& falsep = m_vars[v].m_watch[!tt];
+                    for (unsigned j = 0; j < falsep.size() && !found; ++j) {
+                        unsigned ci = falsep[j];
+                        if (constraint_slack(ci) < 0) {
+                            if (bsb == best_bsb) {
+                                found = true;
+                            }
+                            else {
+                                ++bsb;
+                            }
+                        }
+                        else if (constraint_slack(ci) == 0) {
+                            // >= unsat_stack_fill_pointer is enough
+                            bsb += m_constraints.size();
+                            if (bsb > best_bsb) {
+                                found = true;
+                            }
+                        }
+                    }
+                    if (!found) {
+                        if (bsb < best_bsb) {
+                            best_bsb = bsb;
+                            m_good_vars.reset();
+                            m_good_vars.push_back(v);
+                        }
+                        else {// if (bb == best_bb)
+                            m_good_vars.push_back(v);
+                        }
+                    }
+                }
+            }
+        }
+        else {
+            for (unsigned i = 0; i < c.size(); ++i) {
+                if (is_true(c[i])) 
+                    m_good_vars.push_back(c[i].var());
+            }
+        }
+        SASSERT(!m_good_vars.empty());
+        //std::cout << m_good_vars.size() << "\n";
+        flip_walksat(m_good_vars[m_rand() % m_good_vars.size()]);
+    }
+
+    void local_search::flip_walksat(bool_var flipvar) {
+        m_vars[flipvar].m_value = !cur_solution(flipvar);
+
+        bool flip_is_true = cur_solution(flipvar);
+        int_vector& truep = m_vars[flipvar].m_watch[flip_is_true];
+        int_vector& falsep = m_vars[flipvar].m_watch[!flip_is_true];
+
+        for (unsigned i = 0; i < truep.size(); ++i) {
+            unsigned ci = truep[i];
+            constraint& c = m_constraints[ci];
+            --c.m_slack;
+            if (c.m_slack == -1) { // from 0 to -1: sat -> unsat
+                unsat(ci);
+            }
+        }
+        for (unsigned i = 0; i < falsep.size(); ++i) {
+            unsigned ci = falsep[i];
+            constraint& c = m_constraints[ci];
+            ++c.m_slack;
+            if (c.m_slack == 0) { // from -1 to 0: unsat -> sat
+                sat(ci);
+            }
+        }
+
+        // verify_unsat_stack();
+    }
+
+    void local_search::flip_gsat(bool_var flipvar)
     {
         // already changed truth value!!!!
         m_vars[flipvar].m_value = !cur_solution(flipvar);
@@ -558,7 +701,7 @@ namespace sat {
                   (time_stamp(v) < time_stamp(best_var))))))));
     }
 
-    bool_var local_search::pick_var() {
+    bool_var local_search::pick_var_gsat() {
         bool_var best_var = m_vars.size()-1;  // sentinel variable
         // SAT Mode
         if (m_unsat_stack.empty()) {
@@ -613,7 +756,6 @@ namespace sat {
 
         TRACE("sat", 
               tout << "seed:\t" << m_config.seed() << '\n';
-              tout << "cutoff time:\t" << m_config.cutoff_time() << '\n';
               tout << "strategy id:\t" << m_config.strategy_id() << '\n';
               tout << "best_known_value:\t" << m_config.best_known_value() << '\n';
               tout << "max_steps:\t" << max_steps << '\n';
@@ -622,7 +764,12 @@ namespace sat {
 
     void local_search::print_info(std::ostream& out) {
         for (unsigned v = 0; v < num_vars(); ++v) {
-            out << "v" << v << "\t" << m_vars[v].m_neighbors.size() << '\t' << cur_solution(v) << '\t' << conf_change(v) << '\t' << score(v) << '\t' << slack_score(v) << '\n';
+            out << "v" << v << "\t" 
+                << m_vars[v].m_neighbors.size() << '\t' 
+                << cur_solution(v) << '\t' 
+                << conf_change(v)  << '\t' 
+                << score(v)        << '\t' 
+                << slack_score(v)  << '\n';
         }
     }
 

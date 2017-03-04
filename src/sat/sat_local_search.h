@@ -27,25 +27,33 @@ namespace sat {
 
     class parallel;
 
+    enum local_search_mode {
+        gsat,
+        wsat
+    };
+
     class local_search_config {
         unsigned m_seed;
         unsigned m_strategy_id;
         int      m_best_known_value;
+        local_search_mode m_mode;
     public:
-        local_search_config()
-        {
+        local_search_config() {
             m_seed = 0;
             m_strategy_id = 0;
             m_best_known_value = INT_MAX;
+            m_mode = local_search_mode::wsat;
         }
 
         unsigned seed() const { return m_seed; }
         unsigned strategy_id() const { return m_strategy_id;  }
         unsigned best_known_value() const { return m_best_known_value;  }
+        local_search_mode mode() const { return m_mode; }
 
         void set_seed(unsigned s) { m_seed = s;  }
         void set_strategy_id(unsigned i) { m_strategy_id = i; }
         void set_best_known_value(unsigned v) { m_best_known_value = v; }
+        void set_mode(local_search_mode m) { m_mode = m; }
     };
 
 
@@ -131,7 +139,8 @@ namespace sat {
 
         unsigned num_constraints() const { return m_constraints.size(); } // constraint index from 1 to num_constraint
 
-        
+
+        unsigned constraint_slack(unsigned ci) const { return m_constraints[ci].m_slack; }
         // int_vector nb_slack;                 // constraint_k - ob_var(same in ob) - none_ob_true_terms_count. if < 0: some ob var might be flipped to false, result in an ob decreasing
         // bool_vector has_true_ob_terms; 
         
@@ -141,6 +150,8 @@ namespace sat {
         
         // configuration changed decreasing variables (score>0 and conf_change==true)
         int_vector goodvar_stack;
+
+        svector<bool_var>  m_good_vars;        // candidate variables to flip on.
 
         // information about solution
         int              objective_value;      // the objective function value corresponds to the current solution
@@ -167,9 +178,17 @@ namespace sat {
         void init_scores();
         void init_goodvars();
         
-        bool_var pick_var();
+        bool_var pick_var_gsat();
 
-        void flip(bool_var v);
+        void flip_gsat(bool_var v);
+
+        void pick_flip_walksat();
+
+        void flip_walksat(bool_var v);
+
+        void walksat();
+
+        void gsat();
 
         void unsat(unsigned c);
 
@@ -186,6 +205,8 @@ namespace sat {
         bool all_objectives_are_met() const;
 
         void verify_solution() const;
+
+        void verify_unsat_stack() const;
 
         void verify_constraint(constraint const& c) const;
 
