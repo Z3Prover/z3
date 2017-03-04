@@ -143,7 +143,13 @@ endif()
 # so that if those are also shared libraries they are referenced by `libz3.so`.
 target_link_libraries(libz3 PRIVATE ${Z3_DEPENDENT_LIBS})
 
-z3_append_linker_flag_list_to_target(libz3 ${Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS})
+# This is currently only for the OpenMP flags. It needs to be set
+# via `target_link_libraries()` rather than `z3_append_linker_flag_list_to_target()`
+# because when building the `libz3` as a static library when the target is exported
+# the link dependencies need to be exported too.
+foreach (flag_name ${Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS})
+  target_link_libraries(libz3 PRIVATE ${flag_name})
+endforeach()
 
 # Declare which header file are the public header files of libz3
 # these will automatically installed when the libz3 target is installed

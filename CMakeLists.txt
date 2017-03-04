@@ -147,7 +147,6 @@ set(Z3_COMPONENT_CXX_FLAGS "")
 set(Z3_COMPONENT_EXTRA_INCLUDE_DIRS "")
 set(Z3_DEPENDENT_LIBS "")
 set(Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS "")
-set(Z3_DEPENDENT_EXTRA_C_LINK_FLAGS "")
 
 ################################################################################
 # Build type
@@ -296,10 +295,6 @@ if (OPENMP_FOUND)
         ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU"))
       list(APPEND Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS ${OpenMP_CXX_FLAGS})
     endif()
-    if (("${CMAKE_C_COMPILER_ID}" MATCHES "Clang") OR
-        ("${CMAKE_C_COMPILER_ID}" MATCHES "GNU"))
-      list(APPEND Z3_DEPENDENT_EXTRA_C_LINK_FLAGS ${OpenMP_C_FLAGS})
-    endif()
     unset(CMAKE_REQUIRED_FLAGS)
     message(STATUS "Using OpenMP")
 else()
@@ -386,7 +381,6 @@ message(STATUS "Z3_COMPONENT_CXX_FLAGS: ${Z3_COMPONENT_CXX_FLAGS}")
 message(STATUS "Z3_DEPENDENT_LIBS: ${Z3_DEPENDENT_LIBS}")
 message(STATUS "Z3_COMPONENT_EXTRA_INCLUDE_DIRS: ${Z3_COMPONENT_EXTRA_INCLUDE_DIRS}")
 message(STATUS "Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS: ${Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS}")
-message(STATUS "Z3_DEPENDENT_EXTRA_C_LINK_FLAGS: ${Z3_DEPENDENT_EXTRA_C_LINK_FLAGS}")
 
 ################################################################################
 # Z3 installation locations

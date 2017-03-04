@@ -20,9 +20,3 @@ message(STATUS "Z3_DIR: ${Z3_DIR}")
 add_executable(z3_tptp5 tptp5.cpp tptp5.lex.cpp)
 target_include_directories(z3_tptp5 PRIVATE ${Z3_CXX_INCLUDE_DIRS})
 target_link_libraries(z3_tptp5 PRIVATE ${Z3_LIBRARIES})
-
-# FIXME: The Z3 package does not export information on the link flags
-# This is needed for when libz3 is built as a static library
-#if (NOT BUILD_LIBZ3_SHARED)
-#  z3_append_linker_flag_list_to_target(z3_tptp5 ${Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS})
-#endif()

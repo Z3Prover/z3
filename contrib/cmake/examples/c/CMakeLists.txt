@@ -1,7 +1,11 @@
 ################################################################################
 # Example C project
 ################################################################################
-project(Z3_C_EXAMPLE C)
+# NOTE: Even though this is a C project, libz3 uses C++. When using libz3
+# as a static library if we don't configure this project to also support
+# C++ we will use the C linker rather than the C++ linker and will not link
+# the C++ standard library in resulting in a link failure.
+project(Z3_C_EXAMPLE C CXX)
 cmake_minimum_required(VERSION 2.8.12)
 find_package(Z3
   REQUIRED
@@ -20,9 +24,3 @@ message(STATUS "Z3_DIR: ${Z3_DIR}")
 add_executable(c_example test_capi.c)
 target_include_directories(c_example PRIVATE ${Z3_C_INCLUDE_DIRS})
 target_link_libraries(c_example PRIVATE ${Z3_LIBRARIES})
-
-# FIXME: The Z3 package does not export information on the link flags
-# This is needed for when libz3 is built as a static library
-#if (NOT BUILD_LIBZ3_SHARED)
-#  z3_append_linker_flag_list_to_target(c_example ${Z3_DEPENDENT_EXTRA_C_LINK_FLAGS})
-#endif()

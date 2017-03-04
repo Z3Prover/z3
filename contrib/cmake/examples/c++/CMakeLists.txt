@@ -20,9 +20,3 @@ message(STATUS "Z3_DIR: ${Z3_DIR}")
 add_executable(cpp_example example.cpp)
 target_include_directories(cpp_example PRIVATE ${Z3_CXX_INCLUDE_DIRS})
 target_link_libraries(cpp_example PRIVATE ${Z3_LIBRARIES})
-
-# FIXME: The Z3 package does not export information on the link flags
-# This is needed for when libz3 is built as a static library
-#if (NOT BUILD_LIBZ3_SHARED)
-#  z3_append_linker_flag_list_to_target(cpp_example ${Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS})
-#endif()
