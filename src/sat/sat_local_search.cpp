@@ -1,21 +1,21 @@
 /*++
   Copyright (c) 2017 Microsoft Corporation
 
-  Module Name:
+Module Name:
 
   sat_local_search.cpp
 
-  Abstract:
+Abstract:
    
   Local search module for cardinality clauses.
 
-  Author:
+Author:
 
   Sixue Liu 2017-2-21
 
-  Notes:
+Notes:
 
-  --*/
+--*/
 
 #include "sat_local_search.h"
 #include "sat_solver.h"
@@ -27,10 +27,18 @@ namespace sat {
 
     void local_search::init() {
 
+        for (unsigned i = 0; i < m_assumptions.size(); ++i) {
+            add_clause(1, m_assumptions.c_ptr() + i);
+        }
+
         // add sentinel variable.
         m_vars.push_back(var_info());
 
-        best_solution.resize(num_vars() + 1, false);
+        for (unsigned v = 0; v < num_vars(); ++v) {
+            m_vars[v].m_value = (0 == (m_rand() % 2));
+        }
+
+        m_best_solution.resize(num_vars() + 1, false);
         m_index_in_unsat_stack.resize(num_constraints(), 0);
         coefficient_in_ob_constraint.resize(num_vars() + 1, 0);
 
@@ -58,13 +66,12 @@ namespace sat {
         set_parameters();
     }
 
-    void local_search::reinit() {
-        reinit_orig();
-    }
-
     void local_search::init_cur_solution() {
         for (unsigned v = 0; v < num_vars(); ++v) {
-            m_vars[v].m_value = ((unsigned)(m_rand() % 100) < m_vars[v].m_bias);
+            // use bias half the time.
+            if (m_rand() % 100 < 50) {
+                m_vars[v].m_value = ((unsigned)(m_rand() % 100) < m_vars[v].m_bias);
+            }
         }
     }
 
@@ -114,16 +121,16 @@ namespace sat {
 
     // init goodvars 
     void local_search::init_goodvars() {
-        goodvar_stack.reset();
+        m_goodvar_stack.reset();
         for (unsigned v = 0; v < num_vars(); ++v) {
             if (score(v) > 0) { // && conf_change[v] == true
                 m_vars[v].m_in_goodvar_stack = true;
-                goodvar_stack.push_back(v);
+                m_goodvar_stack.push_back(v);
             }
         }
     }
 
-    void local_search::reinit_orig() {
+    void local_search::reinit() {
         for (unsigned i = 0; i < m_constraints.size(); ++i) {
             constraint& c = m_constraints[i];
             c.m_slack = c.m_k;
@@ -132,7 +139,7 @@ namespace sat {
         // init unsat stack
         m_unsat_stack.reset();
         
-        // init solution: random now
+        // init solution using the bias
         init_cur_solution();
         
         // init varibale information
@@ -142,7 +149,7 @@ namespace sat {
         m_vars.back().m_conf_change = false;       
         m_vars.back().m_slack_score = INT_MIN;
         m_vars.back().m_cscc = 0;
-        m_vars.back().m_time_stamp = max_steps + 1;
+        m_vars.back().m_time_stamp = m_max_steps + 1;
         for (unsigned i = 0; i < num_vars(); ++i) {
             m_vars[i].m_time_stamp = 0;
             m_vars[i].m_cscc = 1;
@@ -158,18 +165,18 @@ namespace sat {
     
     void local_search::calculate_and_update_ob() {
         unsigned i, v;
-        objective_value = 0;
+        int objective_value = 0;
         for (i = 0; i < ob_constraint.size(); ++i) {
             v = ob_constraint[i].var_id;
             if (cur_solution(v))
                 objective_value += ob_constraint[i].coefficient;
         }
-        if (objective_value > best_objective_value) {
-            best_solution.reset();
+        if (objective_value > m_best_objective_value) {
+            m_best_solution.reset();
             for (unsigned v = 0; v < num_vars(); ++v) {
-                best_solution.push_back(cur_solution(v));
+                m_best_solution.push_back(cur_solution(v));
             }
-            best_objective_value = objective_value;
+            m_best_objective_value = objective_value;
         }
     }
 
@@ -230,8 +237,13 @@ namespace sat {
         }
     }
 
-    local_search::local_search(solver& s) : 
+    local_search::local_search() : 
         m_par(0) {
+    }
+
+    void local_search::import(solver& s, bool _init) {        
+        m_vars.reset();
+        m_constraints.reset();
 
         m_vars.reserve(s.num_vars());
 
@@ -268,6 +280,7 @@ namespace sat {
             clause& c = *(*it);
             add_clause(c.size(), c.begin());
         }
+        m_num_non_binary_clauses = s.m_clauses.size();
 
         // copy cardinality clauses
         card_extension* ext = dynamic_cast<card_extension*>(s.get_extension());
@@ -316,6 +329,9 @@ namespace sat {
             //
             SASSERT(ext->m_xors.empty());            
         }
+        if (_init) {
+            init();
+        }
     }
     
     local_search::~local_search() {
@@ -329,30 +345,32 @@ namespace sat {
         return check(0, 0);
     }
 
-#define PROGRESS(tries, total_steps)                            \
+#define PROGRESS(tries, flips)                            \
     if (tries % 10 == 0 || m_unsat_stack.empty()) {             \
     IF_VERBOSE(1, verbose_stream() << "(sat-local-search"       \
-               << " :tries " << tries                           \
-               << " :steps " << total_steps                     \
+               << " :flips " << flips                     \
                << " :unsat " << m_unsat_stack.size()            \
-               << " :time " << timer.get_seconds() << ")\n";);  \
+               << " :time " << (timer.get_seconds() < 0.001 ? 0.0 : timer.get_seconds()) << ")\n";); \
     }
 
     void local_search::walksat() {
         reinit();
         timer timer;
         timer.start();
-        unsigned step = 0, total_steps = 0, max_steps = (1 << 17), tries = 0;
-        PROGRESS(tries, total_steps);
+        unsigned step = 0, total_flips = 0, tries = 0;
+        PROGRESS(tries, total_flips);
         
         for (tries = 1; !m_unsat_stack.empty() && m_limit.inc(); ++tries) {
-            for (step = 0; step < max_steps && !m_unsat_stack.empty(); ++step) {
+            for (step = 0; step < m_max_steps && !m_unsat_stack.empty(); ++step) {
                 pick_flip_walksat();
             }
-            total_steps += step;
-            PROGRESS(tries, total_steps);
+            total_flips += step;
+            PROGRESS(tries, total_flips);
+            if (m_par && tries % 30 == 0) {
+                m_par->get_phase(*this);
+                reinit();
+            }
         }
-        PROGRESS(tries, total_steps);
     }
 
     void local_search::gsat() {
@@ -361,14 +379,14 @@ namespace sat {
         bool_var flipvar;
         timer timer;
         timer.start();
-        unsigned tries, step = 0, total_steps = 0;
+        unsigned tries, step = 0, total_flips = 0;
         for (tries = 1; m_limit.inc() && !m_unsat_stack.empty(); ++tries) {
             reinit();
-            for (step = 1; step <= max_steps; ) {
+            for (step = 1; step <= m_max_steps; ) {
                 // feasible
                 if (m_unsat_stack.empty()) {
                     calculate_and_update_ob();
-                    if (best_objective_value >= best_known_value) {
+                    if (m_best_objective_value >= m_best_known_value) {
                         break;
                     }
                 }                
@@ -376,24 +394,21 @@ namespace sat {
                 flip_gsat(flipvar);
                 m_vars[flipvar].m_time_stamp = step++;
             }
-            total_steps += step;
-            PROGRESS(tries, total_steps);
+            total_flips += step;
+            PROGRESS(tries, total_flips);
 
             // tell the SAT solvers about the phase of variables.
             if (m_par && tries % 10 == 0) {
                 m_par->get_phase(*this);
             }
         }
-        PROGRESS(tries, total_steps);
     }
     
     lbool local_search::check(unsigned sz, literal const* assumptions, parallel* p) {
         flet<parallel*> _p(m_par, p);
         m_model.reset();
-        unsigned num_constraints = m_constraints.size();
-        for (unsigned i = 0; i < sz; ++i) {
-            add_clause(1, assumptions + i);
-        }
+        m_assumptions.reset();
+        m_assumptions.append(sz, assumptions);
         init();
 
         switch (m_config.mode()) {
@@ -407,7 +422,7 @@ namespace sat {
 
 
         // remove unit clauses from assumptions.
-        m_constraints.shrink(num_constraints);
+        m_constraints.shrink(num_constraints() - sz);
 
         TRACE("sat", display(tout););
 
@@ -441,7 +456,8 @@ namespace sat {
     }
 
     void local_search::pick_flip_walksat() {
-        m_good_vars.reset();
+        bool_var best_var = null_bool_var;
+        unsigned n = 1;
         bool_var v = null_bool_var;
         unsigned num_unsat = m_unsat_stack.size();
         constraint const& c = m_constraints[m_unsat_stack[m_rand() % m_unsat_stack.size()]];
@@ -454,7 +470,7 @@ namespace sat {
             literal l;
             for (; !is_true(*cit); ++cit) { SASSERT(cit != cend); }
             l = *cit;
-            v = l.var();
+            best_var = v = l.var();
             bool tt = cur_solution(v);
             int_vector const& falsep = m_vars[v].m_watch[!tt];
             int_vector::const_iterator it = falsep.begin(), end = falsep.end();
@@ -465,7 +481,6 @@ namespace sat {
                 else if (slack == 0)
                     best_bsb += num_unsat;
             }
-            m_good_vars.push_back(v);
             ++cit;
             for (; cit != cend; ++cit) {
                 l = *cit;
@@ -494,11 +509,14 @@ namespace sat {
                     if (it == end) {
                         if (bsb < best_bsb) {
                             best_bsb = bsb;
-                            m_good_vars.reset();
-                            m_good_vars.push_back(v);
+                            best_var = v;
+                            n = 1;
                         }
                         else {// if (bb == best_bb)
-                            m_good_vars.push_back(v);
+                            ++n;
+                            if (m_rand() % n == 0) {
+                                best_var = v;
+                            }
                         }
                     }
                 }
@@ -506,32 +524,36 @@ namespace sat {
         }
         else {
             for (unsigned i = 0; i < c.size(); ++i) {
-                if (is_true(c[i])) 
-                    m_good_vars.push_back(c[i].var());
+                if (is_true(c[i])) {
+                    if (m_rand() % n == 0) {
+                        best_var = c[i].var();
+                    }
+                    ++n;
+                }
             }
         }
-        SASSERT(!m_good_vars.empty());
-        //std::cout << m_good_vars.size() << "\n";
-        flip_walksat(m_good_vars[m_rand() % m_good_vars.size()]);
+        flip_walksat(best_var);
     }
 
     void local_search::flip_walksat(bool_var flipvar) {
         m_vars[flipvar].m_value = !cur_solution(flipvar);
 
         bool flip_is_true = cur_solution(flipvar);
-        int_vector& truep = m_vars[flipvar].m_watch[flip_is_true];
-        int_vector& falsep = m_vars[flipvar].m_watch[!flip_is_true];
+        int_vector const& truep = m_vars[flipvar].m_watch[flip_is_true];
+        int_vector const& falsep = m_vars[flipvar].m_watch[!flip_is_true];
 
-        for (unsigned i = 0; i < truep.size(); ++i) {
-            unsigned ci = truep[i];
+        int_vector::const_iterator it = truep.begin(), end = truep.end();
+        for (; it != end; ++it) {
+            unsigned ci = *it;
             constraint& c = m_constraints[ci];
             --c.m_slack;
             if (c.m_slack == -1) { // from 0 to -1: sat -> unsat
                 unsat(ci);
             }
         }
-        for (unsigned i = 0; i < falsep.size(); ++i) {
-            unsigned ci = falsep[i];
+        it = falsep.begin(), end = falsep.end();
+        for (; it != end; ++it) {
+            unsigned ci = *it;
             constraint& c = m_constraints[ci];
             ++c.m_slack;
             if (c.m_slack == 0) { // from -1 to 0: unsat -> sat
@@ -647,12 +669,12 @@ namespace sat {
 
         /* update CCD */
         // remove the vars no longer goodvar in goodvar stack
-        for (unsigned i = goodvar_stack.size(); i > 0;) {
+        for (unsigned i = m_goodvar_stack.size(); i > 0;) {
             --i;
-            v = goodvar_stack[i];
+            v = m_goodvar_stack[i];
             if (score(v) <= 0) {
-                goodvar_stack[i] = goodvar_stack.back();
-                goodvar_stack.pop_back();
+                m_goodvar_stack[i] = m_goodvar_stack.back();
+                m_goodvar_stack.pop_back();
                 m_vars[v].m_in_goodvar_stack = false;
             }
         }
@@ -664,7 +686,7 @@ namespace sat {
             v = vi.m_neighbors[i];
             m_vars[v].m_conf_change = true;
             if (score(v) > 0 && !already_in_goodvar_stack(v)) {
-                goodvar_stack.push_back(v);
+                m_goodvar_stack.push_back(v);
                 m_vars[v].m_in_goodvar_stack = true;
             }
         }
@@ -717,11 +739,11 @@ namespace sat {
 
         // Unsat Mode: CCD > RD
         // CCD mode
-        if (!goodvar_stack.empty()) {
+        if (!m_goodvar_stack.empty()) {
             //++ccd;
-            best_var = goodvar_stack[0];
-            for (unsigned i = 1; i < goodvar_stack.size(); ++i) {
-                bool_var v = goodvar_stack[i];
+            best_var = m_goodvar_stack[0];
+            for (unsigned i = 1; i < m_goodvar_stack.size(); ++i) {
+                bool_var v = m_goodvar_stack[i];
                 if (tie_breaker_ccd(v, best_var))
                     best_var = v;
             }
@@ -742,24 +764,26 @@ namespace sat {
     }
 
     void local_search::set_parameters()  {
-
+        SASSERT(s_id == 0);
         m_rand.set_seed(m_config.seed());
         //srand(m_config.seed());
         s_id = m_config.strategy_id();
-        best_known_value = m_config.best_known_value();
+        m_best_known_value = m_config.best_known_value();
 
-        if (s_id == 0)
-            max_steps = 2 * (num_vars() - 1);
-        else {
-            std::cout << "Invalid strategy id!" << std::endl;
-            exit(-1);
+        switch (m_config.mode()) {
+        case local_search_mode::gsat:
+            m_max_steps = 2 * num_vars();
+            break;
+        case local_search_mode::wsat:
+            m_max_steps = std::min(static_cast<unsigned>(20 * num_vars()), static_cast<unsigned>(1 << 17)); // cut steps off at 100K
+            break;
         }
 
         TRACE("sat", 
               tout << "seed:\t" << m_config.seed() << '\n';
               tout << "strategy id:\t" << m_config.strategy_id() << '\n';
               tout << "best_known_value:\t" << m_config.best_known_value() << '\n';
-              tout << "max_steps:\t" << max_steps << '\n';
+              tout << "max_steps:\t" << m_max_steps << '\n';
               );
     }
 
@@ -808,10 +832,10 @@ namespace sat {
                     std::cout << "3\n";
             }
         }
-        if (g == goodvar_stack.size())
+        if (g == m_goodvar_stack.size())
             return true;
         else {
-            if (g < goodvar_stack.size())
+            if (g < m_goodvar_stack.size())
                 std::cout << "1\n";
             else
                 std::cout << "2\n"; // delete too many

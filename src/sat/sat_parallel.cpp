@@ -139,9 +139,6 @@ namespace sat {
                 }
             }
             limit = m_units.size();
-
-            _get_phase(s);
-            _set_phase(s);
         }
     }
 
@@ -228,6 +225,12 @@ namespace sat {
                     break;
                 }
             }
+            if (90 * m_num_clauses > 100 * s.m_clauses.size() && !m_solver_copy) {
+                // time to update local search with new clauses.
+                IF_VERBOSE(1, verbose_stream() << "(sat-parallel refresh local search " << m_num_clauses << " -> " << s.m_clauses.size() << ")\n";);
+                m_solver_copy = alloc(solver, s.m_params, s.rlimit());
+                m_solver_copy->copy(s);
+            }
         }
     }
 
@@ -261,10 +264,16 @@ namespace sat {
    void parallel::get_phase(local_search& s) {
         #pragma omp critical (par_solver)
         {
+            if (m_solver_copy) {
+                s.import(*m_solver_copy.get(), true);
+                m_solver_copy = 0;
+            }
             for (unsigned i = 0; i < m_phase.size(); ++i) {
                 s.set_phase(i, m_phase[i]);
+                m_phase[i] = l_undef;
             }
             m_phase.reserve(s.num_vars(), l_undef);
+            m_num_clauses = s.num_non_binary_clauses();
         }
     }
 
@@ -275,6 +284,7 @@ namespace sat {
             for (unsigned i = 0; i < s.num_vars(); ++i) {
                 m_phase[i] = s.get_phase(i) ? l_true : l_false;
             }
+            m_num_clauses = s.num_non_binary_clauses();
         }
     }
 

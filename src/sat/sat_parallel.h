@@ -60,7 +60,11 @@ namespace sat {
         index_set      m_unit_set;
         literal_vector m_lits;
         vector_pool    m_pool;
-        svector<lbool> m_phase;
+
+        // for exchange with local search:
+        svector<lbool>     m_phase;
+        unsigned           m_num_clauses;
+        scoped_ptr<solver> m_solver_copy;
 
         scoped_limits      m_scoped_rlimit;
         vector<reslimit>   m_limits;

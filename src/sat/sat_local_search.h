@@ -134,6 +134,10 @@ namespace sat {
 
         vector<constraint> m_constraints;
 
+        literal_vector m_assumptions;
+
+        unsigned m_num_non_binary_clauses;
+
         inline bool is_pos(literal t) const { return !t.sign(); }
         inline bool is_true(bool_var v) const { return cur_solution(v); }
         inline bool is_true(literal l) const { return cur_solution(l.var()) != l.sign(); }
@@ -143,26 +147,23 @@ namespace sat {
 
 
         unsigned constraint_slack(unsigned ci) const { return m_constraints[ci].m_slack; }
-        // int_vector nb_slack;                 // constraint_k - ob_var(same in ob) - none_ob_true_terms_count. if < 0: some ob var might be flipped to false, result in an ob decreasing
-        // bool_vector has_true_ob_terms; 
         
         // unsat constraint stack
-        int_vector m_unsat_stack;               // store all the unsat constraits
-        int_vector m_index_in_unsat_stack;      // which position is a contraint in the unsat_stack
+        unsigned_vector m_unsat_stack;               // store all the unsat constraits
+        unsigned_vector m_index_in_unsat_stack;      // which position is a contraint in the unsat_stack
         
         // configuration changed decreasing variables (score>0 and conf_change==true)
-        int_vector goodvar_stack;
+        bool_var_vector m_goodvar_stack;
 
-        svector<bool_var>  m_good_vars;        // candidate variables to flip on.
 
         // information about solution
-        int              objective_value;      // the objective function value corresponds to the current solution
-        bool_vector      best_solution;        // !var: the best solution so far
-        int       best_objective_value = -1;   // the objective value corresponds to the best solution so far
-        // for non-known instance, set as maximal
-        int   best_known_value = INT_MAX;      // best known value for this instance
+        int              m_objective_value;                 // the objective function value corresponds to the current solution
+        bool_vector      m_best_solution;                   // !var: the best solution so far
+        int              m_best_objective_value = -1;       // the objective value corresponds to the best solution so far
+                                                            // for non-known instance, set as maximal
+        int              m_best_known_value = INT_MAX;      // best known value for this instance
         
-        unsigned      max_steps = 2000000000;  // < 2147483647
+        unsigned         m_max_steps = (1 << 30);
         
         // for tuning
         int   s_id = 0;                        // strategy id
@@ -228,9 +229,10 @@ namespace sat {
 
         void display(std::ostream& out, unsigned v, var_info const& vi) const;
 
+
     public:
 
-        local_search(solver& s);
+        local_search();
 
         reslimit& rlimit() { return m_limit; }
 
@@ -247,6 +249,10 @@ namespace sat {
         local_search_config& config() { return m_config;  }
 
         unsigned num_vars() const { return m_vars.size() - 1; }     // var index from 1 to num_vars
+
+        unsigned num_non_binary_clauses() const { return m_num_non_binary_clauses; }
+
+        void import(solver& s, bool init);        
 
         void set_phase(bool_var v, lbool f);
 

@@ -90,7 +90,6 @@ namespace sat {
         probing                 m_probing;
         mus                     m_mus;           // MUS for minimal core extraction
         drat                    m_drat;          // DRAT for generating proofs
-        scoped_ptr<local_search> m_local_search;
         bool                    m_inconsistent;
         bool                    m_searching;
         // A conflict is usually a single justification. That is, a justification

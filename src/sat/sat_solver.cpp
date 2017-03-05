@@ -82,15 +82,15 @@ namespace sat {
 
     void solver::copy(solver const & src) {
         pop_to_base_level();
-        SASSERT(m_mc.empty() && src.m_mc.empty());
-        SASSERT(at_search_lvl());
         // create new vars
         if (num_vars() < src.num_vars()) {
             for (bool_var v = num_vars(); v < src.num_vars(); v++) {
-                SASSERT(!src.was_eliminated(v));
                 bool ext  = src.m_external[v] != 0;
                 bool dvar = src.m_decision[v] != 0;
                 VERIFY(v == mk_var(ext, dvar));
+                if (src.was_eliminated(v)) {
+                    m_eliminated[v] = true;
+                }
             }
         }
         //
@@ -854,19 +854,14 @@ namespace sat {
         ERROR_EX
     };
 
-    local_search& solver::init_local_search() {
-        if (!m_local_search) {
-            m_local_search = alloc(local_search, *this);
-        }
-        return *m_local_search.get();
-    }
-
 
     lbool solver::check_par(unsigned num_lits, literal const* lits) {
         bool use_local_search = m_config.m_local_search;
+        scoped_ptr<local_search> ls;
         if (use_local_search) {
-            m_local_search = alloc(local_search, *this);
-            m_local_search->config().set_seed(m_config.m_random_seed);
+            ls = alloc(local_search);
+            ls->config().set_seed(m_config.m_random_seed);
+            ls->import(*this, false);
         }
         int num_threads = static_cast<int>(m_config.m_num_threads) + (use_local_search ? 1 : 0);
         int num_extra_solvers = num_threads - 1 - (use_local_search ? 1 : 0);
@@ -890,7 +885,7 @@ namespace sat {
                     r = par.get_solver(i).check(num_lits, lits);
                 }
                 else if (IS_LOCAL_SEARCH(i)) {
-                    r = m_local_search->check(num_lits, lits, &par);
+                    r = ls->check(num_lits, lits, &par);
                 }
                 else {
                     r = check(num_lits, lits);
@@ -905,8 +900,8 @@ namespace sat {
                     }
                 }
                 if (first) {
-                    if (m_local_search) {
-                        m_local_search->rlimit().cancel();
+                    if (ls) {
+                        ls->rlimit().cancel();
                     }
                     for (int j = 0; j < num_extra_solvers; ++j) {
                         if (i != j) {
@@ -942,13 +937,13 @@ namespace sat {
             m_core.append(par.get_solver(finished_id).get_core());
         }
         if (result == l_true && finished_id != -1 && IS_LOCAL_SEARCH(finished_id)) {
-            set_model(m_local_search->get_model());
+            set_model(ls->get_model());
         }
         if (!canceled) {
             rlimit().reset_cancel();
         }
         set_par(0, 0);
-        m_local_search = 0;
+        ls = 0;
         if (finished_id == -1) {
             switch (ex_kind) {
             case ERROR_EX: throw z3_error(error_code);
