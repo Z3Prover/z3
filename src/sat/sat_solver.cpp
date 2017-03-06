@@ -21,6 +21,7 @@ Revision History:
 #include"luby.h"
 #include"trace.h"
 #include"max_cliques.h"
+#include"scoped_ptr_vector.h"
 
 // define to update glue during propagation
 #define UPDATE_GLUE
@@ -782,7 +783,7 @@ namespace sat {
         pop_to_base_level();
         IF_VERBOSE(2, verbose_stream() << "(sat.sat-solver)\n";);
         SASSERT(at_base_lvl());
-        if ((m_config.m_num_threads > 1 || m_config.m_local_search) && !m_par) {
+        if ((m_config.m_num_threads > 1 || m_config.m_local_search > 0) && !m_par) {
             return check_par(num_lits, lits);
         }
         flet<bool> _searching(m_searching, true);
@@ -856,17 +857,20 @@ namespace sat {
 
 
     lbool solver::check_par(unsigned num_lits, literal const* lits) {
-        bool use_local_search = m_config.m_local_search;
-        scoped_ptr<local_search> ls;
-        if (use_local_search) {
-            ls = alloc(local_search);
-            ls->config().set_seed(m_config.m_random_seed);
-            ls->import(*this, false);
+        scoped_ptr_vector<local_search> ls;
+        int num_threads = static_cast<int>(m_config.m_num_threads + m_config.m_local_search);
+        int num_extra_solvers = m_config.m_num_threads - 1;
+        int num_local_search  = static_cast<int>(m_config.m_local_search);
+        for (int i = 0; i < num_local_search; ++i) {
+            local_search* l = alloc(local_search);
+            l->config().set_seed(m_config.m_random_seed);
+            l->import(*this, false);
+            ls.push_back(l);
         }
-        int num_threads = static_cast<int>(m_config.m_num_threads) + (use_local_search ? 1 : 0);
-        int num_extra_solvers = num_threads - 1 - (use_local_search ? 1 : 0);
 
-#define IS_LOCAL_SEARCH(i) i == num_extra_solvers && use_local_search
+#define IS_AUX_SOLVER(i)   (0 <= i && i < num_extra_solvers)
+#define IS_LOCAL_SEARCH(i) (num_extra_solvers <= i && i + 1 < num_threads)
+#define IS_MAIN_SOLVER(i)  (i + 1 == num_threads)
 
         sat::parallel par(*this);
         par.reserve(num_threads, 1 << 12);
@@ -881,11 +885,11 @@ namespace sat {
         for (int i = 0; i < num_threads; ++i) {
             try {                
                 lbool r = l_undef;
-                if (i < num_extra_solvers) {
+                if (IS_AUX_SOLVER(i)) {
                     r = par.get_solver(i).check(num_lits, lits);
                 }
                 else if (IS_LOCAL_SEARCH(i)) {
-                    r = ls->check(num_lits, lits, &par);
+                    r = ls[i-num_extra_solvers]->check(num_lits, lits, &par);
                 }
                 else {
                     r = check(num_lits, lits);
@@ -900,15 +904,15 @@ namespace sat {
                     }
                 }
                 if (first) {
-                    if (ls) {
-                        ls->rlimit().cancel();
+                    for (unsigned j = 0; j < ls.size(); ++j) {
+                        ls[j]->rlimit().cancel();
                     }
                     for (int j = 0; j < num_extra_solvers; ++j) {
                         if (i != j) {
                             par.cancel_solver(j);
                         }
                     }
-                    if ((0 <= i && i < num_extra_solvers) || IS_LOCAL_SEARCH(i)) {
+                    if (!IS_MAIN_SOLVER(i)) {
                         canceled = !rlimit().inc();
                         if (!canceled) {
                             rlimit().cancel();
@@ -926,24 +930,24 @@ namespace sat {
             }
         }
         
-        if (finished_id != -1 && finished_id < num_extra_solvers) {
+        if (IS_AUX_SOLVER(finished_id)) {
             m_stats = par.get_solver(finished_id).m_stats;
         }
-        if (result == l_true && finished_id != -1 && finished_id < num_extra_solvers) {
+        if (result == l_true && IS_AUX_SOLVER(finished_id)) {
             set_model(par.get_solver(finished_id).get_model());
         }
-        else if (result == l_false && finished_id != -1 && finished_id < num_extra_solvers) {
+        else if (result == l_false && IS_AUX_SOLVER(finished_id)) {
             m_core.reset();
             m_core.append(par.get_solver(finished_id).get_core());
         }
-        if (result == l_true && finished_id != -1 && IS_LOCAL_SEARCH(finished_id)) {
-            set_model(ls->get_model());
+        if (result == l_true && IS_LOCAL_SEARCH(finished_id)) {
+            set_model(ls[finished_id - num_extra_solvers]->get_model());
         }
         if (!canceled) {
             rlimit().reset_cancel();
         }
-        set_par(0, 0);
-        ls = 0;
+        set_par(0, 0);        
+        ls.reset();
         if (finished_id == -1) {
             switch (ex_kind) {
             case ERROR_EX: throw z3_error(error_code);
