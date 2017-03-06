@@ -98,6 +98,7 @@ class seq_rewriter {
     re2automaton   m_re2aut;
     expr_ref_vector m_es, m_lhs, m_rhs;
 
+    br_status mk_seq_unit(expr* e, expr_ref& result);
     br_status mk_seq_concat(expr* a, expr* b, expr_ref& result);
     br_status mk_seq_length(expr* a, expr_ref& result);
     br_status mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& result);

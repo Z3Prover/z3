@@ -322,7 +322,13 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     switch(f->get_decl_kind()) {
 
     case OP_SEQ_UNIT:
-        return BR_FAILED;
+        // TODO configuration param
+        if (true) {
+            SASSERT(num_args == 1);
+            return mk_seq_unit(args[0], result);
+        } else {
+            return BR_FAILED;
+        }
     case OP_SEQ_EMPTY:
         return BR_FAILED;
     case OP_RE_PLUS:
@@ -424,6 +430,33 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case _OP_STRING_STRIDOF: 
         UNREACHABLE();
     }
+    return BR_FAILED;
+}
+
+/*
+ * (seq.unit (_ BitVector 8)) ==> String constant
+ */
+br_status seq_rewriter::mk_seq_unit(expr* e, expr_ref& result) {
+    sort * s = m().get_sort(e);
+    bv_util bvu(m());
+
+    if (is_sort_of(s, bvu.get_family_id(), BV_SORT)) {
+        // specifically we want (_ BitVector 8)
+        rational n_val;
+        unsigned int n_size;
+        if (bvu.is_numeral(e, n_val, n_size)) {
+            if (n_size == 8) {
+                // convert to string constant
+                char ch = (char)n_val.get_int32();
+                TRACE("seq", tout << "rewrite seq.unit of 8-bit value " << n_val.to_string() << " to string constant \"" << ch << "\"" << std::endl;);
+                char s_tmp[2] = {ch, '\0'};
+                symbol s(s_tmp);
+                result = m_util.str.mk_string(s);
+                return BR_DONE;
+            }
+        }
+    }
+
     return BR_FAILED;
 }
 
