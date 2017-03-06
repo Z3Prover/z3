@@ -710,11 +710,11 @@ namespace sat {
             m_watches.push_back(watch_list());
             m_bstamp.push_back(0);
             m_bstamp.push_back(0);
+            m_dfs.push_back(dfs_info());
+            m_dfs.push_back(dfs_info());
+            m_lits.push_back(lit_info());
+            m_lits.push_back(lit_info());
             m_rating.push_back(0);
-            m_dfs.push_back(dfs_info());
-            m_dfs.push_back(dfs_info());
-            m_lits.push_back(lit_info());
-            m_lits.push_back(lit_info());
             m_prefix.push_back(prefix());
             m_freevars.insert(v);
         }
@@ -1125,6 +1125,7 @@ namespace sat {
         unsigned scope_lvl() const { return m_trail_lim.size(); }
 
         void assign(literal l) {
+            SASSERT(m_level > 0);
             if (is_undef(l)) {
                 set_true(l);
                 m_trail.push_back(l);

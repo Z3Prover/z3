@@ -91,7 +91,7 @@ namespace sat {
         return false;
     }
 
-    parallel::parallel(solver& s): m_scoped_rlimit(s.rlimit()) {}
+    parallel::parallel(solver& s): m_scoped_rlimit(s.rlimit()), m_num_clauses(0) {}
 
     parallel::~parallel() {
         for (unsigned i = 0; i < m_solvers.size(); ++i) {            
@@ -227,9 +227,11 @@ namespace sat {
             }
             if (90 * m_num_clauses > 100 * s.m_clauses.size() && !m_solver_copy) {
                 // time to update local search with new clauses.
+                // there could be multiple local search engines runing at the same time.
                 IF_VERBOSE(1, verbose_stream() << "(sat-parallel refresh local search " << m_num_clauses << " -> " << s.m_clauses.size() << ")\n";);
                 m_solver_copy = alloc(solver, s.m_params, s.rlimit());
                 m_solver_copy->copy(s);
+                m_num_clauses = s.m_clauses.size();
             }
         }
     }
@@ -264,16 +266,20 @@ namespace sat {
    void parallel::get_phase(local_search& s) {
         #pragma omp critical (par_solver)
         {
-            if (m_solver_copy) {
+            if (m_solver_copy && s.num_non_binary_clauses() > m_solver_copy->m_clauses.size()) {
                 s.import(*m_solver_copy.get(), true);
+                m_num_clauses = s.num_non_binary_clauses();
+                SASSERT(s.num_non_binary_clauses() == m_solver_copy->m_clauses.size());
                 m_solver_copy = 0;
+            }
+            if (m_num_clauses < s.num_non_binary_clauses()) {
+                m_num_clauses = s.num_non_binary_clauses();
             }
             for (unsigned i = 0; i < m_phase.size(); ++i) {
                 s.set_phase(i, m_phase[i]);
                 m_phase[i] = l_undef;
             }
             m_phase.reserve(s.num_vars(), l_undef);
-            m_num_clauses = s.num_non_binary_clauses();
         }
     }
 

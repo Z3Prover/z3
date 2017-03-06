@@ -863,7 +863,7 @@ namespace sat {
         int num_local_search  = static_cast<int>(m_config.m_local_search);
         for (int i = 0; i < num_local_search; ++i) {
             local_search* l = alloc(local_search);
-            l->config().set_seed(m_config.m_random_seed);
+            l->config().set_seed(m_config.m_random_seed + i);
             l->import(*this, false);
             ls.push_back(l);
         }

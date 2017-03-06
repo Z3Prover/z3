@@ -259,6 +259,7 @@ namespace sat {
         bool get_phase(bool_var v) const { return is_true(v); }
 
         model& get_model() { return m_model; }
+
     };
 }
 
