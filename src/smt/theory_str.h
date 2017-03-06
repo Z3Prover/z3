@@ -63,9 +63,14 @@ namespace smt {
                     m_strings.insert(sym);
                     return u.str.mk_string(sym);
                 }
-            } else {
-                UNREACHABLE(); return NULL;
             }
+            sort* seq = 0;
+            if (u.is_re(s, seq)) {
+                expr* v0 = get_fresh_value(seq);
+                return u.re.mk_to_re(v0);
+            }
+            TRACE("t_str", tout << "unexpected sort in get_fresh_value(): " << mk_pp(s, m_manager) << std::endl;);
+            UNREACHABLE(); return NULL;
         }
         virtual void register_value(expr * n) { /* Ignore */ }
     };
