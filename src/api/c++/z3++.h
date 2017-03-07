@@ -1986,6 +1986,8 @@ namespace z3 {
         friend tactic repeat(tactic const & t, unsigned max);
         friend tactic with(tactic const & t, params const & p);
         friend tactic try_for(tactic const & t, unsigned ms);
+        friend tactic par_or(unsigned n, tactic const* tactics);
+        friend tactic par_and_then(tactic const& t1, tactic const& t2);
         param_descrs get_param_descrs() { return param_descrs(ctx(), Z3_tactic_get_param_descrs(ctx(), m_tactic)); }
     };
 
@@ -2019,7 +2021,21 @@ namespace z3 {
         t.check_error();
         return tactic(t.ctx(), r);
     }
+    inline tactic par_or(unsigned n, tactic const* tactics) {
+        if (n == 0) {
+            throw exception("a non-zero number of tactics need to be passed to par_or");
+        }
+        array<Z3_tactic> buffer(n);
+        for (unsigned i = 0; i < n; ++i) buffer[i] = tactics[i];
+        return tactic(tactics[0].ctx(), Z3_tactic_par_or(tactics[0].ctx(), n, buffer.ptr()));
+    }
 
+    inline tactic par_and_then(tactic const & t1, tactic const & t2) {
+        check_context(t1, t2);
+        Z3_tactic r = Z3_tactic_par_and_then(t1.ctx(), t1, t2);
+        t1.check_error();
+        return tactic(t1.ctx(), r);
+    }
 
     class probe : public object {
         Z3_probe m_probe;

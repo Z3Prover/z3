@@ -144,6 +144,23 @@ namespace Microsoft.Z3
             {
                 get { return Lower; }
             }
+
+            /// <summary>
+            /// Retrieve a lower bound for the objective handle.
+            /// </summary>        	   	
+            public ArithExpr[] LowerAsVector
+            {
+                get { return opt.GetLowerAsVector(handle); }
+            }
+
+            /// <summary>
+            /// Retrieve an upper bound for the objective handle.
+            /// </summary>        	   	
+            public ArithExpr[] UpperAsVector
+            {
+                get { return opt.GetUpperAsVector(handle); }
+            }
+
         }
 
         /// <summary>
@@ -253,6 +270,25 @@ namespace Microsoft.Z3
         private ArithExpr GetUpper(uint index)
         {
             return (ArithExpr)Expr.Create(Context, Native.Z3_optimize_get_upper(Context.nCtx, NativeObject, index));
+        }
+
+        /// <summary>
+        /// Retrieve a lower bound for the objective handle.
+        /// </summary>        	
+        private ArithExpr[] GetLowerAsVector(uint index)
+        {
+            ASTVector v = new ASTVector(Context, Native.Z3_optimize_get_lower_as_vector(Context.nCtx, NativeObject, index));
+            return v.ToArithExprArray();
+        }
+
+
+        /// <summary>
+        /// Retrieve an upper bound for the objective handle.
+        /// </summary>        	
+        private ArithExpr[] GetUpperAsVector(uint index)
+        {
+            ASTVector v = new ASTVector(Context, Native.Z3_optimize_get_upper_as_vector(Context.nCtx, NativeObject, index));
+            return v.ToArithExprArray();
         }
 
 	/// <summary>

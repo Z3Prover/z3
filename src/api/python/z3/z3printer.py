@@ -678,7 +678,7 @@ class Formatter:
         if self.fpa_pretty:
             if self.is_infix(k) and n >= 3:            
                 rm = a.arg(0)
-                if z3.is_fprm_value(rm) and z3._dflt_rm(a.ctx).eq(rm):
+                if z3.is_fprm_value(rm) and z3.get_default_rounding_mode(a.ctx).eq(rm):
                     arg1 = to_format(self.pp_expr(a.arg(1), d+1, xs))
                     arg2 = to_format(self.pp_expr(a.arg(2), d+1, xs))
                     r = []

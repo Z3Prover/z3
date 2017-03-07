@@ -85,7 +85,7 @@ struct enum2bv_rewriter::imp {
 
         void throw_non_fd(expr* e) {
             std::stringstream strm;
-            strm << "unabled nested data-type expression " << mk_pp(e, m);
+            strm << "unable to handle nested data-type expression " << mk_pp(e, m);
             throw rewriter_exception(strm.str().c_str());
         }
 
