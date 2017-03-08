@@ -1,7 +1,7 @@
 ############################################
 # Copyright (c) 2013 Microsoft Corporation
-# 
-# Scripts for automatically generating 
+#
+# Scripts for automatically generating
 # Linux/OSX/BSD distribution zip files.
 #
 # Author: Leonardo de Moura (leonardo)
@@ -42,7 +42,7 @@ def mk_dir(d):
 
 def set_build_dir(path):
     global BUILD_DIR
-    BUILD_DIR = path
+    BUILD_DIR = mk_util.norm_path(path)
     mk_dir(BUILD_DIR)
 
 def display_help():
@@ -65,7 +65,7 @@ def display_help():
 def parse_options():
     global FORCE_MK, JAVA_ENABLED, GIT_HASH, DOTNET_ENABLED, DOTNET_KEY_FILE
     path = BUILD_DIR
-    options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:hsf', ['build=', 
+    options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:hsf', ['build=',
                                                                    'help',
                                                                    'silent',
                                                                    'force',
@@ -89,7 +89,7 @@ def parse_options():
         elif opt == '--nodotnet':
             DOTNET_ENABLED = False
         elif opt == '--nopython':
-            PYTHON_ENABLED = False            
+            PYTHON_ENABLED = False
         elif opt == '--dotnet-key':
             DOTNET_KEY_FILE = arg
         elif opt == '--nojava':
@@ -121,7 +121,7 @@ def mk_build_dir(path):
             opts.append('--python')
         if subprocess.call(opts) != 0:
             raise MKException("Failed to generate build directory at '%s'" % path)
-    
+
 # Create build directories
 def mk_build_dirs():
     mk_build_dir(BUILD_DIR)
