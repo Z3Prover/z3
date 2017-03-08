@@ -12,10 +12,6 @@ import shutil
 ML_ENABLED=False
 BUILD_DIR='../build'
 
-def norm_path(p):
-    # We use '/' on mk_project for convenience
-    return os.path.join(*(p.split('/')))
-
 def display_help(exit_code):
     print("mk_api_doc.py: Z3 documentation generator\n")
     print("\nOptions:")
@@ -36,12 +32,12 @@ def parse_options():
 
     for opt, arg in options:
         if opt in ('-b', '--build'):
-            BUILD_DIR = norm_path(arg)
+            BUILD_DIR = mk_util.norm_path(arg)
         elif opt in ('h', '--help'):
             display_help()
             exit(1)
         elif opt in ('--ml'):
-            ML_ENABLED=True            
+            ML_ENABLED=True
         else:
             print("ERROR: Invalid command line option: %s" % opt)
             display_help(1)
@@ -59,7 +55,7 @@ def cleanup_API(inf, outf):
     pat1  = re.compile(".*def_API.*")
     pat2  = re.compile(".*extra_API.*")
     _inf  = open(inf, 'r')
-    _outf = open(outf, 'w') 
+    _outf = open(outf, 'w')
     for line in _inf:
         if not pat1.match(line) and not pat2.match(line):
             _outf.write(line)
@@ -90,9 +86,9 @@ try:
     cleanup_API('../src/api/z3_rcf.h', 'tmp/z3_rcf.h')
     cleanup_API('../src/api/z3_fixedpoint.h', 'tmp/z3_fixedpoint.h')
     cleanup_API('../src/api/z3_optimization.h', 'tmp/z3_optimization.h')
-    cleanup_API('../src/api/z3_interp.h', 'tmp/z3_interp.h')    
+    cleanup_API('../src/api/z3_interp.h', 'tmp/z3_interp.h')
     cleanup_API('../src/api/z3_fpa.h', 'tmp/z3_fpa.h')
-    
+
     print("Removed annotations from z3_api.h.")
     try:
         if subprocess.call(['doxygen', 'z3api.dox']) != 0:
@@ -112,7 +108,7 @@ try:
     os.remove('tmp/z3_interp.h')
     os.remove('tmp/z3_fpa.h')
     print("Removed temporary file header files.")
-    
+
     os.remove('tmp/website.dox')
     print("Removed temporary file website.dox")
     os.remove('tmp/z3py.py')
@@ -130,7 +126,7 @@ try:
             print("ERROR: ocamldoc failed.")
             exit(1)
         print("Generated ML/OCaml documentation.")
-        
+
     print("Documentation was successfully generated at subdirectory './api/html'.")
 except:
     exctype, value = sys.exc_info()[:2]

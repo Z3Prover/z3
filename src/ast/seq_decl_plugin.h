@@ -79,6 +79,7 @@ enum seq_op_kind {
     _OP_REGEXP_EMPTY,
     _OP_REGEXP_FULL,
     _OP_SEQ_SKOLEM,
+    _OP_RE_UNROLL,
     LAST_SEQ_OP
 };
 
@@ -113,7 +114,11 @@ public:
     int  indexof(zstring const& other, int offset) const;
     zstring extract(int lo, int hi) const;
     zstring operator+(zstring const& other) const;
-    std::ostream& operator<<(std::ostream& out) const;
+    bool operator==(const zstring& other) const;
+    bool operator!=(const zstring& other) const;
+
+    friend std::ostream& operator<<(std::ostream &os, const zstring &str);
+    friend bool operator<(const zstring& lhs, const zstring& rhs);
 };
 
 class seq_decl_plugin : public decl_plugin {
@@ -334,6 +339,7 @@ public:
         MATCH_UNARY(is_opt);
         bool is_loop(expr const* n, expr*& body, unsigned& lo, unsigned& hi);
         bool is_loop(expr const* n, expr*& body, unsigned& lo);
+        bool is_unroll(expr const* n) const { return is_app_of(n, m_fid, _OP_RE_UNROLL); }
     };
     str str;
     re  re;
