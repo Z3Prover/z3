@@ -186,6 +186,33 @@ extern "C" {
     */
     Z3_ast Z3_API Z3_optimize_get_upper(Z3_context c, Z3_optimize o, unsigned idx);
 
+
+    /**
+       \brief Retrieve lower bound value or approximation for the i'th optimization objective.
+              The returned vector is of length 3. It always contains numerals.
+              The three numerals are coefficients a, b, c and encode the result of \c Z3_optimize_get_lower
+              a * infinity + b + c * epsilon.
+              
+       \param c - context
+       \param o - optimization context
+       \param idx - index of optimization objective
+
+       def_API('Z3_optimize_get_lower_as_vector', AST_VECTOR, (_in(CONTEXT), _in(OPTIMIZE), _in(UINT)))
+    */
+    Z3_ast_vector Z3_API Z3_optimize_get_lower_as_vector(Z3_context c, Z3_optimize o, unsigned idx);
+
+    /**
+       \brief Retrieve upper bound value or approximation for the i'th optimization objective.
+
+       \param c - context
+       \param o - optimization context
+       \param idx - index of optimization objective
+
+       def_API('Z3_optimize_get_upper_as_vector', AST_VECTOR, (_in(CONTEXT), _in(OPTIMIZE), _in(UINT)))
+    */
+    Z3_ast_vector Z3_API Z3_optimize_get_upper_as_vector(Z3_context c, Z3_optimize o, unsigned idx);
+
+
     /**
        \brief Print the current context as a string.
        \param c - context.

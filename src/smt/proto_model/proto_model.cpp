@@ -93,6 +93,7 @@ bool proto_model::is_select_of_model_value(expr* e) const {
 
 bool proto_model::eval(expr * e, expr_ref & result, bool model_completion) {
     m_eval.set_model_completion(model_completion);
+    m_eval.set_expand_array_equalities(false);
     try {
         m_eval(e, result);
 #if 0

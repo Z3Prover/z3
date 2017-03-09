@@ -25,6 +25,9 @@ Notes:
 #include"filter_model_converter.h"
 #include"ast_util.h"
 #include"solver2tactic.h"
+#include"smt_solver.h"
+#include"solver.h"
+#include"mus.h"
 
 typedef obj_map<expr, expr *> expr2expr_map;
 
@@ -159,6 +162,8 @@ public:
             ref<filter_model_converter> fmc;
             if (in->unsat_core_enabled()) {
                 extract_clauses_and_dependencies(in, clauses, assumptions, bool2dep, fmc);
+                TRACE("mus", in->display_with_dependencies(tout);
+                      tout << clauses << "\n";);
                 if (in->proofs_enabled() && !assumptions.empty())
                     throw tactic_exception("smt tactic does not support simultaneous generation of proofs and unsat cores");
                 for (unsigned i = 0; i < clauses.size(); ++i) {

@@ -35,6 +35,7 @@ public:
 
     ast_manager & m () const;
     void set_model_completion(bool f);
+    void set_expand_array_equalities(bool f);
 
     void updt_params(params_ref const & p);
     static void get_param_descrs(param_descrs & r);

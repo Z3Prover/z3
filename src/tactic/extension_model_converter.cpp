@@ -49,6 +49,7 @@ void extension_model_converter::operator()(model_ref & md, unsigned goal_idx) {
     TRACE("extension_mc", model_v2_pp(tout, *md); display_decls_info(tout, md););
     model_evaluator ev(*(md.get()));
     ev.set_model_completion(true);
+    ev.set_expand_array_equalities(false);
     expr_ref val(m());
     unsigned i = m_vars.size();
     while (i > 0) {
