@@ -42,19 +42,21 @@ namespace sat {
         m_index_in_unsat_stack.resize(num_constraints(), 0);
         coefficient_in_ob_constraint.resize(num_vars() + 1, 0);
 
-        uint_set is_neighbor;
-        for (bool_var v = 0; v < num_vars(); ++v) {
-            is_neighbor.reset();
-            bool pol = true;
-            var_info& vi = m_vars[v];
-            for (unsigned k = 0; k < 2; pol = !pol, k++) { 
-                for (unsigned i = 0; i < m_vars[v].m_watch[pol].size(); ++i) {
-                    constraint const& c = m_constraints[m_vars[v].m_watch[pol][i]];
-                    for (unsigned j = 0; j < c.size(); ++j) {
-                        bool_var w = c[j].var(); 
-                        if (w == v || is_neighbor.contains(w)) continue;
-                        is_neighbor.insert(w);
-                        vi.m_neighbors.push_back(w);
+        if (m_config.mode() == local_search_mode::gsat) {
+            uint_set is_neighbor;
+            for (bool_var v = 0; v < num_vars(); ++v) {
+                is_neighbor.reset();
+                bool pol = true;
+                var_info& vi = m_vars[v];
+                for (unsigned k = 0; k < 2; pol = !pol, k++) { 
+                    for (unsigned i = 0; i < m_vars[v].m_watch[pol].size(); ++i) {
+                        constraint const& c = m_constraints[m_vars[v].m_watch[pol][i]];
+                        for (unsigned j = 0; j < c.size(); ++j) {
+                            bool_var w = c[j].var(); 
+                            if (w == v || is_neighbor.contains(w)) continue;
+                            is_neighbor.insert(w);
+                            vi.m_neighbors.push_back(w);
+                        }
                     }
                 }
             }
@@ -69,7 +71,7 @@ namespace sat {
     void local_search::init_cur_solution() {
         for (unsigned v = 0; v < num_vars(); ++v) {
             // use bias half the time.
-            if (m_rand() % 100 < 50) {
+            if (m_rand() % 100 < 10) {
                 m_vars[v].m_value = ((unsigned)(m_rand() % 100) < m_vars[v].m_bias);
             }
         }
@@ -345,12 +347,12 @@ namespace sat {
         return check(0, 0);
     }
 
-#define PROGRESS(tries, flips)                            \
-    if (tries % 10 == 0 || m_unsat_stack.empty()) {             \
-    IF_VERBOSE(1, verbose_stream() << "(sat-local-search"       \
-               << " :flips " << flips                     \
-               << " :unsat " << m_unsat_stack.size()            \
-               << " :time " << (timer.get_seconds() < 0.001 ? 0.0 : timer.get_seconds()) << ")\n";); \
+#define PROGRESS(tries, flips)                                          \
+    if (tries % 10 == 0 || m_unsat_stack.empty()) {                     \
+        IF_VERBOSE(1, verbose_stream() << "(sat-local-search"           \
+                   << " :flips " << flips                               \
+                   << " :unsat " << m_unsat_stack.size()                \
+                   << " :time " << (timer.get_seconds() < 0.001 ? 0.0 : timer.get_seconds()) << ")\n";); \
     }
 
     void local_search::walksat() {

@@ -100,7 +100,8 @@ namespace sat {
         vector<watch_list>     m_watches;       // literal: watch structure
         svector<lit_info>      m_lits;          // literal: attributes.
         float                  m_weighted_new_binaries; // metric associated with current lookahead1 literal.
-        svector<prefix>        m_prefix;        // var:     prefix where variable participates in propagation
+        unsigned               m_prefix;        // where we are in search tree
+        svector<prefix>        m_vprefix;       // var:     prefix where variable participates in propagation
         indexed_uint_set       m_freevars;
         svector<search_mode>   m_search_modes;  // stack of modes
         search_mode            m_search_mode;   // mode of search
@@ -130,6 +131,34 @@ namespace sat {
                 m_parent.m_level = m_save;
             }
         };
+
+        // ----------------------------------------
+        // prefix updates. I use low order bits and 
+        // skip bit 0 in a bid to reduce details.
+        
+        void flip_prefix() {
+            if (m_trail_lim.size() < 32) {
+                unsigned mask = (1 << m_trail_lim.size());
+                m_prefix &= mask | (mask - 1);
+            }
+        }
+
+        void prune_prefix() {
+            if (m_trail_lim.size() < 32) {
+                m_prefix &= (1 << m_trail_lim.size()) - 1;
+            }
+        }
+
+        void update_prefix(literal l) {
+            bool_var x = l.var();
+
+            unsigned p = m_prefix[x].m_prefix;            
+            if (m_prefix[x].m_length >= m_trail_lim.size() ||
+                ((p | m_prefix) != m_prefix)) {
+                m_prefix[x].m_length = m_trail_lim.size();
+                m_prefix[x].m_prefix = m_prefix;
+            }
+        }
 
         // ----------------------------------------
 
@@ -222,6 +251,8 @@ namespace sat {
                     assign(v);    // v \/ ~u, u \/ v => v is a unit literal
                 }
                 else if (add_tc1(v, u)) {
+                    update_prefix(u);
+                    update_prefix(v);
                     add_binary(u, v);
                 }
             }
@@ -715,7 +746,7 @@ namespace sat {
             m_lits.push_back(lit_info());
             m_lits.push_back(lit_info());
             m_rating.push_back(0);
-            m_prefix.push_back(prefix());
+            m_vprefix.push_back(prefix());
             m_freevars.insert(v);
         }
 
@@ -1154,7 +1185,8 @@ namespace sat {
 
         bool backtrack(literal_vector& trail) {
             if (trail.empty()) return false;      
-            pop();                                  
+            pop();   
+            flip_prefix();
             assign(~trail.back());    
             propagate();
             trail.pop_back();               
@@ -1221,6 +1253,7 @@ namespace sat {
         }
 
         std::ostream& display(std::ostream& out) const {
+            out << std::hex << "Prefix: " << m_prefix << std::dec << "\n";
             display_values(out);
             display_binary(out);
             display_clauses(out);

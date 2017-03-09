@@ -30,8 +30,12 @@ namespace sat {
         friend class local_search;
 
         struct stats {
-            unsigned m_num_propagations;
-            unsigned m_num_conflicts;
+            unsigned m_num_card_propagations;
+            unsigned m_num_card_conflicts;
+            unsigned m_num_card_resolves;
+            unsigned m_num_xor_propagations;
+            unsigned m_num_xor_conflicts;
+            unsigned m_num_xor_resolves;
             stats() { reset(); }
             void reset() { memset(this, 0, sizeof(*this)); }
         };
@@ -172,7 +176,7 @@ namespace sat {
         bool is_card_index(unsigned idx) const { return 0 == (idx & 0x1); }
         card& index2card(unsigned idx) const { SASSERT(is_card_index(idx)); return *m_cards[idx >> 1]; }
         xor& index2xor(unsigned idx) const { SASSERT(!is_card_index(idx)); return *m_xors[idx >> 1]; }
-        void get_xor_antecedents(unsigned index, literal_vector& r);
+        void get_xor_antecedents(literal l, unsigned inddex, justification js, literal_vector& r);
 
 
         template<typename T>

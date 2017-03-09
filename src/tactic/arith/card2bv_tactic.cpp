@@ -48,6 +48,7 @@ public:
     }
 
     virtual void collect_param_descrs(param_descrs & r) {  
+        r.insert("keep_cardinality_constraints", CPK_BOOL, "(default: true) retain cardinality constraints for solver");        
     }
 
     

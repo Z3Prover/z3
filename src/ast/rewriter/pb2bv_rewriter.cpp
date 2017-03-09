@@ -419,8 +419,8 @@ struct pb2bv_rewriter::imp {
             bv(m),
             m_trail(m),
             m_args(m),
-            m_keep_cardinality_constraints(true),
-            m_min_arity(8)
+            m_keep_cardinality_constraints(false),
+            m_min_arity(2)
         {}
 
         bool mk_app(bool full, func_decl * f, unsigned sz, expr * const* args, expr_ref & result) {
@@ -618,12 +618,12 @@ struct pb2bv_rewriter::imp {
         m_fresh(m),
         m_num_translated(0), 
         m_rw(*this, m) {
-        m_rw.keep_cardinality_constraints(p.get_bool("keep_cardinality_constraints", true));
+        m_rw.keep_cardinality_constraints(p.get_bool("keep_cardinality_constraints", false));
     }
 
     void updt_params(params_ref const & p) {
         m_params.append(p);
-        m_rw.keep_cardinality_constraints(m_params.get_bool("keep_cardinality_constraints", true));
+        m_rw.keep_cardinality_constraints(m_params.get_bool("keep_cardinality_constraints", false));
     }
     void collect_param_descrs(param_descrs& r) const {
         r.insert("keep_cardinality_constraints", CPK_BOOL, "(default: true) retain cardinality constraints (don't bit-blast them) and use built-in cardinality solver");

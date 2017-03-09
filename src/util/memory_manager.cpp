@@ -282,6 +282,7 @@ void * memory::allocate(size_t s) {
     if (g_memory_thread_alloc_size > SYNCH_THRESHOLD) {
         synchronize_counters(true);
     }
+
     return static_cast<size_t*>(r) + 1; // we return a pointer to the location after the extra field
 }
 

@@ -146,7 +146,7 @@ namespace sat {
             set_conflict(c, lit); 
             break;
         default:
-            m_stats.m_num_propagations++;
+            m_stats.m_num_card_propagations++;
             m_num_propagations_since_pop++;
             //TRACE("sat", tout << "#prop: " << m_stats.m_num_propagations << " - " << c.lit() << " => " << lit << "\n";);
             SASSERT(validate_unit_propagation(c));
@@ -183,8 +183,10 @@ namespace sat {
     }
 
     void card_extension::set_conflict(card& c, literal lit) {
+        m_stats.m_num_card_conflicts++;
         TRACE("sat", display(tout, c, true); );
         SASSERT(validate_conflict(c));
+        SASSERT(value(lit) == l_false);
         s().set_conflict(justification::mk_ext_justification(c.index()), ~lit);
         SASSERT(s().inconsistent());
     }
@@ -223,6 +225,7 @@ namespace sat {
         if (x.lit() != null_literal && x.lit().sign() == is_true) {
             x.negate();
         }
+        TRACE("sat", display(tout, x, true););
         unsigned sz = x.size();
         unsigned j = 0;
         for (unsigned i = 0; i < sz && j < 2; ++i) {
@@ -234,7 +237,16 @@ namespace sat {
         switch (j) {
         case 0: 
             if (!parity(x, 0)) {
-                set_conflict(x, x[0]);
+                literal_set litset;
+                for (unsigned i = 0; i < sz; ++i) {
+                    litset.insert(x[i]);
+                }
+                literal_vector const& lits = s().m_trail;
+                unsigned idx = lits.size()-1;
+                while (!litset.contains(lits[idx])) {
+                    --idx;
+                }                
+                set_conflict(x, lits[idx]);
             }
             break;
         case 1: 
@@ -249,14 +261,16 @@ namespace sat {
     }
 
     void card_extension::assign(xor& x, literal lit) {
+        SASSERT(!s().inconsistent());
         switch (value(lit)) {
         case l_true: 
             break;
         case l_false: 
             set_conflict(x, lit); 
+            SASSERT(s().inconsistent());
             break;
         default:
-            m_stats.m_num_propagations++;
+            m_stats.m_num_xor_propagations++;
             m_num_propagations_since_pop++;
             if (s().m_config.m_drat) {
                 svector<drat::premise> ps;
@@ -269,6 +283,7 @@ namespace sat {
                 ps.push_back(drat::premise(drat::s_ext(), x.lit()));
                 s().m_drat.add(lits, ps);
             }
+            TRACE("sat", display(tout << lit << " ", x, true););
             s().assign(lit, justification::mk_ext_justification(x.index()));
             break;
         }
@@ -290,8 +305,11 @@ namespace sat {
 
 
     void card_extension::set_conflict(xor& x, literal lit) {
+        m_stats.m_num_xor_conflicts++;
         TRACE("sat", display(tout, x, true); );
+        if (value(lit) == l_true) lit.neg();
         SASSERT(validate_conflict(x));
+        TRACE("sat", display(tout << lit << " ", x, true););
         s().set_conflict(justification::mk_ext_justification(x.index()), ~lit);
         SASSERT(s().inconsistent());
     }
@@ -332,7 +350,7 @@ namespace sat {
             assign(x, p ? ~x[0] : x[0]);            
         }
         else if (!parity(x, 0)) {
-            set_conflict(x, x[0]);
+            set_conflict(x, ~x[1]);
         }      
         return s().inconsistent() ? l_false : l_true;  
     }
@@ -410,6 +428,7 @@ namespace sat {
         m_bound = 0;
         literal consequent = s().m_not_l;
         justification js = s().m_conflict;
+        TRACE("sat", tout << consequent << " " << js << "\n";);
         m_conflict_lvl = s().get_max_lvl(consequent, js);
         if (consequent != null_literal) {
             consequent.neg();
@@ -418,7 +437,6 @@ namespace sat {
         literal_vector const& lits = s().m_trail;
         unsigned idx = lits.size()-1;
         int offset = 1;
-
         DEBUG_CODE(active2pb(m_A););
 
         unsigned init_marks = m_num_marks;
@@ -490,17 +508,18 @@ namespace sat {
                     card& c = index2card(index);
                     m_bound += offset * c.k();
                     process_card(c, offset);
+                    ++m_stats.m_num_card_resolves;
                 }
                 else {
                     // jus.push_back(js);
                     m_lemma.reset();
                     m_bound += offset;
                     inc_coeff(consequent, offset);
-                    get_xor_antecedents(idx, m_lemma);
-                    // get_antecedents(consequent, index, m_lemma);
+                    get_xor_antecedents(consequent, idx, js, m_lemma);
                     for (unsigned i = 0; i < m_lemma.size(); ++i) {
                         process_antecedent(~m_lemma[i], offset);
                     }
+                    ++m_stats.m_num_xor_resolves;
                 }
                 break;
             }
@@ -666,7 +685,6 @@ namespace sat {
             CTRACE("sat", s().is_marked(m_lemma[i].var()), tout << "marked: " << m_lemma[i] << "\n";);
             s().mark(m_lemma[i].var());
         }
-        m_stats.m_num_conflicts++;
 
         return true;
 
@@ -797,19 +815,17 @@ namespace sat {
        The idea is to collect premises based on xor resolvents. 
        Variables that are repeated an even number of times cancel out.
      */
-    void card_extension::get_xor_antecedents(unsigned index, literal_vector& r) {
-        literal_vector const& lits = s().m_trail;
-        literal l = lits[index + 1];
+    void card_extension::get_xor_antecedents(literal l, unsigned index, justification js, literal_vector& r) {
         unsigned level = lvl(l);
         bool_var v = l.var();
-        SASSERT(s().m_justification[v].get_kind() == justification::EXT_JUSTIFICATION);
-        SASSERT(!is_card_index(s().m_justification[v].get_ext_justification_idx()));
+        SASSERT(js.get_kind() == justification::EXT_JUSTIFICATION);
+        SASSERT(!is_card_index(js.get_ext_justification_idx()));
+        TRACE("sat", tout << l << ": " << js << "\n"; tout << s().m_trail << "\n";);
 
         unsigned num_marks = 0;
         unsigned count = 0;
         while (true) {
             ++count;
-            justification js = s().m_justification[v];
             if (js.get_kind() == justification::EXT_JUSTIFICATION) {
                 unsigned idx = js.get_ext_justification_idx();
                 if (is_card_index(idx)) {
@@ -838,7 +854,7 @@ namespace sat {
                 r.push_back(l);
             }
             while (num_marks > 0) {
-                l = lits[index];
+                l = s().m_trail[index];
                 v = l.var();
                 unsigned n = get_parity(v);
                 if (n > 0) {
@@ -859,6 +875,7 @@ namespace sat {
             }
             --index;
             --num_marks;
+            js = s().m_justification[v];
         }
 
         // now walk the defined literals 
@@ -874,6 +891,7 @@ namespace sat {
             reset_parity(lit.var());
         }
         m_parity_trail.reset();
+        TRACE("sat", tout << r << "\n";);
     }
 
     void card_extension::get_antecedents(literal l, ext_justification_idx idx, literal_vector & r) {
@@ -1274,8 +1292,12 @@ namespace sat {
     }
 
     void card_extension::collect_statistics(statistics& st) const {
-        st.update("cardinality propagations", m_stats.m_num_propagations);
-        st.update("cardinality conflicts", m_stats.m_num_conflicts);
+        st.update("cardinality propagations", m_stats.m_num_card_propagations);
+        st.update("cardinality conflicts", m_stats.m_num_card_conflicts);
+        st.update("cardinality resolves", m_stats.m_num_card_resolves);
+        st.update("xor propagations", m_stats.m_num_xor_propagations);
+        st.update("xor conflicts", m_stats.m_num_xor_conflicts);
+        st.update("xor resolves", m_stats.m_num_xor_resolves);
     }
 
     bool card_extension::validate_conflict(card& c) { 
@@ -1310,6 +1332,7 @@ namespace sat {
                 val += coeff;
             }
         }
+        CTRACE("sat", val >= 0, active2pb(m_A); display(tout, m_A););
         return val < 0;
     }
 

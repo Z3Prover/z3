@@ -270,7 +270,6 @@ namespace opt {
 #endif
         solver& s = get_solver();
         s.assert_expr(m_hard_constraints);
-        display_benchmark();
         IF_VERBOSE(1, verbose_stream() << "(optimize:check-sat)\n";);
         lbool is_sat = s.check_sat(0,0);
         TRACE("opt", tout << "initial search result: " << is_sat << "\n";);
@@ -1002,8 +1001,9 @@ namespace opt {
             TRACE("opt", tout << "Term does not evaluate " << term << "\n";);
             return false;
         }
-        if (!m_arith.is_numeral(val, r)) {
-            TRACE("opt", tout << "model does not evaluate objective to a value\n";);
+        unsigned bv_size;
+        if (!m_arith.is_numeral(val, r) && !m_bv.is_numeral(val, r, bv_size)) {
+            TRACE("opt", tout << "model does not evaluate objective to a value, but to " << val << "\n";);
             return false;
         }
         if (r != v) {
@@ -1199,6 +1199,9 @@ namespace opt {
     }
 
     void context::display_benchmark() {
+        display(verbose_stream());
+        return;
+
         if (opt_params(m_params).dump_benchmarks() && 
             sat_enabled() && 
             m_objectives.size() == 1 &&
@@ -1208,6 +1211,8 @@ namespace opt {
             unsigned sz = o.m_terms.size();
             inc_sat_display(verbose_stream(), get_solver(), sz, o.m_terms.c_ptr(), o.m_weights.c_ptr());
         }
+
+        
     }
 
     void context::display(std::ostream& out) {
