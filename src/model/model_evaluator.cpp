@@ -50,6 +50,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
     unsigned                        m_max_steps;
     bool                            m_model_completion;
     bool                            m_cache;
+    bool                            m_array_equalities;
 
     evaluator_cfg(ast_manager & m, model_core & md, params_ref const & p):
         m_model(md),
@@ -81,6 +82,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
         m_max_steps        = p.max_steps();
         m_model_completion = p.completion();
         m_cache            = p.cache();
+        m_array_equalities = p.array_equalities();
     }
 
     ast_manager & m() const { return m_model.get_manager(); }
@@ -264,11 +266,14 @@ struct evaluator_cfg : public default_rewriter_cfg {
 
 
     br_status mk_array_eq(expr* a, expr* b, expr_ref& result) {
-        return BR_FAILED;
         if (a == b) {
             result = m().mk_true();
             return BR_DONE;
         }
+        if (!m_array_equalities) {
+            return BR_FAILED;
+        }
+
         // disabled until made more efficient
         vector<expr_ref_vector> stores1, stores2;
         bool args_are_unique1, args_are_unique2;
@@ -506,6 +511,10 @@ void model_evaluator::get_param_descrs(param_descrs & r) {
 
 void model_evaluator::set_model_completion(bool f) {
     m_imp->cfg().m_model_completion = f;
+}
+
+void model_evaluator::set_expand_array_equalities(bool f) {
+    m_imp->cfg().m_array_equalities = f;
 }
 
 unsigned model_evaluator::get_num_steps() const {

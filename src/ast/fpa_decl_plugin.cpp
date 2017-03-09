@@ -836,7 +836,7 @@ func_decl * fpa_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         return mk_to_ieee_bv(k, num_parameters, parameters, arity, domain, range);
 
     case OP_FPA_INTERNAL_BVWRAP:
-        return mk_internal_bv_wrap(k, num_parameters, parameters, arity, domain, range);    
+        return mk_internal_bv_wrap(k, num_parameters, parameters, arity, domain, range);
     case OP_FPA_INTERNAL_BV2RM:
         return mk_internal_bv2rm(k, num_parameters, parameters, arity, domain, range);
 
@@ -915,7 +915,7 @@ void fpa_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol cons
     op_names.push_back(builtin_name("to_fp_unsigned", OP_FPA_TO_FP_UNSIGNED));
 
     /* Extensions */
-	op_names.push_back(builtin_name("to_ieee_bv", OP_FPA_TO_IEEE_BV));
+    op_names.push_back(builtin_name("to_ieee_bv", OP_FPA_TO_IEEE_BV));
     op_names.push_back(builtin_name("fp.to_ieee_bv", OP_FPA_TO_IEEE_BV));
 }
 

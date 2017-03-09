@@ -112,6 +112,13 @@ else()
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS ${available_build_types})
   endif()
   message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+
+  # Check the selected build type is valid
+  list(FIND available_build_types "${CMAKE_BUILD_TYPE}" _build_type_index)
+  if ("${_build_type_index}" EQUAL "-1")
+    message(FATAL_ERROR "\"${CMAKE_BUILD_TYPE}\" is an invalid build type.\n"
+      "Use one of the following build types ${available_build_types}")
+  endif()
 endif()
 
 # CMAKE_BUILD_TYPE has no meaning for multi-configuration generators

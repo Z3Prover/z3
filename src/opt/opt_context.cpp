@@ -1001,9 +1001,9 @@ namespace opt {
             TRACE("opt", tout << "Term does not evaluate " << term << "\n";);
             return false;
         }
-        unsigned bv_size;
-        if (!m_arith.is_numeral(val, r) && !m_bv.is_numeral(val, r, bv_size)) {
-            TRACE("opt", tout << "model does not evaluate objective to a value, but to " << val << "\n";);
+        unsigned bvsz;
+        if (!m_arith.is_numeral(val, r) && !m_bv.is_numeral(val, r, bvsz)) {
+            TRACE("opt", tout << "model does not evaluate objective to a value\n";);
             return false;
         }
         if (r != v) {
