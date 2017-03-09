@@ -290,7 +290,7 @@ namespace smt {
 
         while (true) {
             lbool r = m_aux_context->check();
-            TRACE("model_checker", tout << "[restricted] model-checker (" << (num_new_instances+1) << ") result: " << to_sat_str(r) << "\n";);
+            TRACE("model_checker", tout << "[restricted] model-checker (" << (num_new_instances+1) << ") result: " << to_sat_str(r) << "\n";);                
             if (r != l_true)
                 break; 
             model_ref cex;
@@ -300,7 +300,7 @@ namespace smt {
             }
             num_new_instances++;
             if (num_new_instances >= m_max_cexs || !add_blocking_clause(cex.get(), sks)) {
-                TRACE("model_checker", tout << "Add blocking clause failed\n";);
+                TRACE("model_checker", tout << "Add blocking clause failed new-instances: " << num_new_instances << " max-cex: " << m_max_cexs << "\n";);
                 // add_blocking_clause failed... stop the search for new counter-examples...
                 break; 
             }
@@ -407,6 +407,7 @@ namespace smt {
                 found_relevant = true;
                 if (m.is_rec_fun_def(q)) {
                     if (!check_rec_fun(q)) {
+                        TRACE("model_checker", tout << "checking recursive function failed\n";);
                         num_failures++;
                     }
                 }
@@ -414,6 +415,7 @@ namespace smt {
                     if (m_params.m_mbqi_trace || get_verbosity_level() >= 5) {
                         verbose_stream() << "(smt.mbqi :failed " << q->get_qid() << ")\n";
                     }
+                    TRACE("model_checker", tout << "checking quantifier " << mk_pp(q, m) << " failed\n";);
                     num_failures++;
                 }
             }
@@ -452,6 +454,7 @@ namespace smt {
     }
 
     bool model_checker::has_new_instances() {
+        TRACE("model_checker", tout << "instances: " << m_new_instances.size() << "\n";);
         return !m_new_instances.empty();
     }
 
