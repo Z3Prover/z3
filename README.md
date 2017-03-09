@@ -189,9 +189,3 @@ python -c 'import z3; print(z3.get_version_string())'
 
 See [``examples/python``](examples/python) for examples.
 
-
-Even though the build instruction says use python scripts/mk_make.py -x --python, this can build a package that works in python3.
-The building should take place inside the Visual C++ 2015 x64 Native Build Tools Prompt`.
-The z3.exe appears to be independent and can work anywhere, you can copy the built version wherever. The libz3.dll needs to be discoverable on the PATH. So you can copy both build/z3.exe and build/libz3.dll into somewhere on the PATH.
-Then the build/python/z3 directory should be copied into the site-packages directory of Python. On Windows, this isn't done automatically, instead you have to find your Windows site-packages: like python3 -c 'import site; print(site.getsitepackages())', then copy the entire directory there.
-Then to test if it finally all works run:
