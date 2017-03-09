@@ -4183,7 +4183,6 @@ namespace smt {
             expr* e = m_asserted_formulas.get_formula(i);
             if (is_quantifier(e)) {
                 quantifier* q = to_quantifier(e);
-                std::cout << mk_pp(q, m) << "\n";
                 if (!m.is_rec_fun_def(q)) continue;
                 SASSERT(q->get_num_patterns() == 1);
                 expr* fn = to_app(q->get_pattern(0))->get_arg(0);
