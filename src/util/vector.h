@@ -374,6 +374,11 @@ public:
         }
     }
 
+    void fill(unsigned sz, T const & elem) {
+        resize(sz);
+        fill(sz, elem);
+    }
+
     bool contains(T const & elem) const {
         const_iterator it  = begin();
         const_iterator e = end();
