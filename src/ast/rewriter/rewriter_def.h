@@ -175,6 +175,38 @@ bool rewriter_tpl<Config>::visit(expr * t, unsigned max_depth) {
 }
 
 template<typename Config>
+bool rewriter_tpl<Config>::constant_fold(app * t, frame & fr) {
+    if (fr.m_i == 1 && m().is_ite(t)) {
+        expr * cond = result_stack()[fr.m_spos].get();
+        expr* arg = 0;
+        if (m().is_true(cond)) {
+            arg = t->get_arg(1);
+        }
+        else if (m().is_false(cond)) {
+            arg = t->get_arg(2);
+        }
+        if (arg) {
+            result_stack().shrink(fr.m_spos);
+            result_stack().push_back(arg);
+            fr.m_state = REWRITE_BUILTIN;
+            unsigned max_depth = fr.m_max_depth;
+            if (visit<false>(arg, fr.m_max_depth)) {
+                m_r = result_stack().back();
+                result_stack().pop_back(); 
+                result_stack().pop_back();
+                result_stack().push_back(m_r);
+                cache_result<false>(t, m_r, m_pr, fr.m_cache_result);
+                frame_stack().pop_back();
+                set_new_child_flag(t);
+            }
+            m_r = 0;
+            return true;
+        }
+    }
+    return false;
+}
+
+template<typename Config>
 template<bool ProofGen>
 void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
     SASSERT(t->get_num_args() > 0);
@@ -183,16 +215,10 @@ void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
     case PROCESS_CHILDREN: {
         unsigned num_args = t->get_num_args();
         while (fr.m_i < num_args) {
-            expr * arg = t->get_arg(fr.m_i);
-            if (fr.m_i >= 1 && m().is_ite(t) && !ProofGen) {
-                expr * cond = result_stack()[fr.m_spos].get();
-                if (m().is_true(cond)) {
-                    arg = t->get_arg(1);
-                }
-                else if (m().is_false(cond)) {
-                    arg = t->get_arg(2);
-                }
+            if (!ProofGen && constant_fold(t, fr)) {
+                return;
             }
+            expr * arg = t->get_arg(fr.m_i);
             fr.m_i++;
             if (!visit<ProofGen>(arg, fr.m_max_depth))
                 return;
