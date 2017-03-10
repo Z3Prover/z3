@@ -7169,6 +7169,10 @@ void theory_str::set_up_axioms(expr * ex) {
             	}
             } else if (u.str.is_at(ap) || u.str.is_extract(ap) || u.str.is_replace(ap)) {
                 m_library_aware_axiom_todo.push_back(n);
+            } else if (u.str.is_itos(ap)) {
+                TRACE("t_str_detail", tout << "found string-integer conversion term: " << mk_pp(ex, get_manager()) << std::endl;);
+                string_int_conversion_terms.push_back(ap);
+                m_library_aware_axiom_todo.push_back(n);
             } else if (ap->get_num_args() == 0 && !u.str.is_string(ap)) {
                 // if ex is a variable, add it to our list of variables
                 TRACE("t_str_detail", tout << "tracking variable " << mk_ismt2_pp(ap, get_manager()) << std::endl;);
@@ -7213,7 +7217,8 @@ void theory_str::set_up_axioms(expr * ex) {
             // TODO indexof2/lastindexof
             if (u.str.is_index(ap) /* || is_Indexof2(ap) || is_LastIndexof(ap) */) {
                 m_library_aware_axiom_todo.push_back(n);
-            } else if (u.str.is_stoi(ap) || u.str.is_itos(ap)) {
+            } else if (u.str.is_stoi(ap)) {
+                TRACE("t_str_detail", tout << "found string-integer conversion term: " << mk_pp(ex, get_manager()) << std::endl;);
             	string_int_conversion_terms.push_back(ap);
             	m_library_aware_axiom_todo.push_back(n);
             }
