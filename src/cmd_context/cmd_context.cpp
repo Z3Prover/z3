@@ -1551,6 +1551,7 @@ void cmd_context::validate_model() {
     p.set_uint("sort_store", true);
     p.set_bool("completion", true);
     model_evaluator evaluator(*(md.get()), p);
+    evaluator.set_expand_array_equalities(false);
     contains_array_op_proc contains_array(m());
     {
         scoped_rlimit _rlimit(m().limit(), 0);

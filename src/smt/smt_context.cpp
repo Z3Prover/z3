@@ -304,7 +304,6 @@ namespace smt {
         TRACE("assign_core", tout << (decision?"decision: ":"propagating: ") << l << " ";              
               display_literal_verbose(tout, l); tout << " level: " << m_scope_lvl << "\n";
               display(tout, j););
-        SASSERT(l.var() < static_cast<int>(m_b_internalized_stack.size()));
         m_assigned_literals.push_back(l);
         m_assignment[l.index()]    = l_true;
         m_assignment[(~l).index()] = l_false;
@@ -319,14 +318,23 @@ namespace smt {
         d.m_phase_available        = true;
         d.m_phase                  = !l.sign();
         TRACE("phase_selection", tout << "saving phase, is_pos: " << d.m_phase << " l: " << l << "\n";);
+
         TRACE("relevancy", 
-              tout << "is_atom: " << d.is_atom() << " is relevant: " << is_relevant_core(bool_var2expr(l.var())) << "\n";);
-        if (d.is_atom() && (m_fparams.m_relevancy_lvl == 0 || (m_fparams.m_relevancy_lvl == 1 && !d.is_quantifier()) || is_relevant_core(bool_var2expr(l.var()))))
+              tout << "is_atom: " << d.is_atom() << " is relevant: " << is_relevant_core(l) << "\n";);
+        if (d.is_atom() && (m_fparams.m_relevancy_lvl == 0 || (m_fparams.m_relevancy_lvl == 1 && !d.is_quantifier()) || is_relevant_core(l)))
             m_atom_propagation_queue.push_back(l);
 
         if (m_manager.has_trace_stream())
             trace_assign(l, j, decision);
         m_case_split_queue->assign_lit_eh(l);
+
+        // a unit is asserted at search level. Mark it as relevant.
+        // this addresses bug... where a literal becomes fixed to true (false)
+        // as a conflict gets assigned misses relevancy (and quantifier instantiation).
+        // 
+        if (false && !decision && relevancy() && at_search_level() && !is_relevant_core(l)) {
+            mark_as_relevant(l);
+        }
     }
     
     bool context::bcp() {
@@ -1634,7 +1642,7 @@ namespace smt {
                     m_atom_propagation_queue.push_back(literal(v, val == l_false));
             }
         }
-        TRACE("propagate_relevancy", tout << "marking as relevant:\n" << mk_bounded_pp(n, m_manager) << "\n";);
+        TRACE("propagate_relevancy", tout << "marking as relevant:\n" << mk_bounded_pp(n, m_manager) << " " << m_scope_lvl << "\n";);
 #ifndef SMTCOMP
         m_case_split_queue->relevant_eh(n);
 #endif
@@ -3737,7 +3745,9 @@ namespace smt {
             // I invoke pop_scope_core instead of pop_scope because I don't want
             // to reset cached generations... I need them to rebuild the literals
             // of the new conflict clause.
+            if (relevancy()) record_relevancy(num_lits, lits);
             unsigned num_bool_vars = pop_scope_core(m_scope_lvl - new_lvl);
+            if (relevancy()) restore_relevancy(num_lits, lits);
             SASSERT(m_scope_lvl == new_lvl);
             // the logical context may still be in conflict after
             // clauses are reinitialized in pop_scope.
@@ -3849,6 +3859,28 @@ namespace smt {
             check_proof(m_unsat_proof);
         }
         return false;
+    }
+    
+    /*
+      \brief we record and restore relevancy information for literals in conflict clauses.
+      A literal may have been marked relevant within the scope that gets popped during
+      conflict resolution. In this case, the literal is no longer marked as relevant after
+      the pop. This can cause quantifier instantiation to miss relevant triggers and thereby
+      cause incmpleteness.
+     */
+    void context::record_relevancy(unsigned n, literal const* lits) {
+        m_relevant_conflict_literals.reset();
+        for (unsigned i = 0; i < n; ++i) {
+            m_relevant_conflict_literals.push_back(is_relevant(lits[i]));
+        }
+    }
+
+    void context::restore_relevancy(unsigned n, literal const* lits) {
+        for (unsigned i = 0; i < n; ++i) {
+            if (m_relevant_conflict_literals[i] && !is_relevant(lits[i])) {
+                mark_as_relevant(lits[i]);
+            }
+        }
     }
 
     void context::get_relevant_labels(expr* cnstr, buffer<symbol> & result) {

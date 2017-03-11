@@ -1103,6 +1103,10 @@ namespace smt {
 
         bool is_relevant_core(expr * n) const { return m_relevancy_propagator->is_relevant(n); }
 
+        svector<bool>  m_relevant_conflict_literals;
+        void record_relevancy(unsigned n, literal const* lits);
+        void restore_relevancy(unsigned n, literal const* lits);
+
     public:
         // event handler for relevancy_propagator class
         void relevant_eh(expr * n);
@@ -1122,6 +1126,10 @@ namespace smt {
         bool is_relevant(literal l) const {
             SASSERT(l != true_literal && l != false_literal);
             return is_relevant(l.var());
+        }
+
+        bool is_relevant_core(literal l) const {
+            return is_relevant_core(bool_var2expr(l.var()));
         }
 
         void mark_as_relevant(expr * n) { m_relevancy_propagator->mark_as_relevant(n); m_relevancy_propagator->propagate(); }
