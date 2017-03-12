@@ -3747,7 +3747,6 @@ namespace smt {
             // of the new conflict clause.
             if (relevancy()) record_relevancy(num_lits, lits);
             unsigned num_bool_vars = pop_scope_core(m_scope_lvl - new_lvl);
-            if (relevancy()) restore_relevancy(num_lits, lits);
             SASSERT(m_scope_lvl == new_lvl);
             // the logical context may still be in conflict after
             // clauses are reinitialized in pop_scope.
@@ -3778,6 +3777,7 @@ namespace smt {
                     }
                 }
             }
+            if (relevancy()) restore_relevancy(num_lits, lits);
             // Resetting the cache manually because I did not invoke pop_scope, but pop_scope_core
             reset_cache_generation();
             TRACE("resolve_conflict_bug", 
