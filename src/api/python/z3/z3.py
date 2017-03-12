@@ -7204,7 +7204,7 @@ def With(t, *args, **keys):
     >>> t((x + 1)*(y + 2) == 0)
     [[2*x + y + x*y == -2]]
     """
-    ctx = keys.get('ctx', None)
+    ctx = keys.pop('ctx', None)
     t = _to_tactic(t, ctx)
     p = args2params(args, keys, t.ctx)
     return Tactic(Z3_tactic_using_params(t.ctx.ref(), t.tactic, p.params), t.ctx)
