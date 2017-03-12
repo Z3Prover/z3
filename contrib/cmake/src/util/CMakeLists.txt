@@ -3,7 +3,9 @@ if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/version.h")
           ${z3_polluted_tree_msg}
   )
 endif()
-configure_file(version.h.in ${CMAKE_CURRENT_BINARY_DIR}/version.h @ONLY)
+
+set(Z3_FULL_VERSION "\"${Z3_FULL_VERSION_STR}\"")
+configure_file(version.h.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/version.h)
 
 z3_add_component(util
   SOURCES
