@@ -35,8 +35,8 @@ set(Z3_VERSION_MAJOR 4)
 set(Z3_VERSION_MINOR 5)
 set(Z3_VERSION_PATCH 1)
 set(Z3_VERSION_TWEAK 0)
-set(Z3_FULL_VERSION 0)
 set(Z3_VERSION "${Z3_VERSION_MAJOR}.${Z3_VERSION_MINOR}.${Z3_VERSION_PATCH}.${Z3_VERSION_TWEAK}")
+set(Z3_FULL_VERSION_STR "${Z3_VERSION}") # Note this might be modified
 message(STATUS "Z3 version ${Z3_VERSION}")
 
 ################################################################################
@@ -74,6 +74,64 @@ endif()
 # Add our CMake module directory to the list of module search directories
 ################################################################################
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
+
+################################################################################
+# Handle git hash and description
+################################################################################
+include(${CMAKE_SOURCE_DIR}/cmake/git_utils.cmake)
+macro(disable_git_describe)
+  message(WARNING "Disabling INCLUDE_GIT_DESCRIBE")
+  set(INCLUDE_GIT_DESCRIBE OFF CACHE BOOL "Include git describe output in version output" FORCE)
+endmacro()
+macro(disable_git_hash)
+  message(WARNING "Disabling INCLUDE_GIT_HASH")
+  set(INCLUDE_GIT_HASH OFF CACHE BOOL "Include git hash in version output" FORCE)
+  unset(Z3GITHASH) # Used in configure_file()
+endmacro()
+option(INCLUDE_GIT_HASH "Include git hash in version output" ON)
+option(INCLUDE_GIT_DESCRIBE "Include git describe output in version output" ON)
+
+set(GIT_DIR "${CMAKE_SOURCE_DIR}/.git")
+if (EXISTS "${GIT_DIR}")
+  # Try to make CMake configure depend on the current git HEAD so that
+  # a re-configure is triggered when the HEAD changes.
+  add_git_dir_dependency("${GIT_DIR}" ADD_GIT_DEP_SUCCESS)
+  if (ADD_GIT_DEP_SUCCESS)
+    if (INCLUDE_GIT_HASH)
+      get_git_head_hash("${GIT_DIR}" Z3GITHASH)
+      if (NOT Z3GITHASH)
+        message(WARNING "Failed to get Git hash")
+        disable_git_hash()
+      endif()
+      message(STATUS "Using Git hash in version output: ${Z3GITHASH}")
+      # This mimics the behaviour of the old build system.
+      string(APPEND Z3_FULL_VERSION_STR " ${Z3GITHASH}")
+    else()
+      message(STATUS "Not using Git hash in version output")
+      unset(Z3GITHASH) # Used in configure_file()
+    endif()
+    if (INCLUDE_GIT_DESCRIBE)
+      get_git_head_describe("${GIT_DIR}" Z3_GIT_DESCRIPTION)
+      if (NOT Z3_GIT_DESCRIPTION)
+        message(WARNING "Failed to get Git description")
+        disable_git_describe()
+      endif()
+      message(STATUS "Using Git description in version output: ${Z3_GIT_DESCRIPTION}")
+      # This mimics the behaviour of the old build system.
+      string(APPEND Z3_FULL_VERSION_STR " ${Z3_GIT_DESCRIPTION}")
+    else()
+      message(STATUS "Not including git descrption in version")
+    endif()
+  else()
+    message(WARNING "Failed to add git dependency.")
+    disable_git_describe()
+    disable_git_hash()
+  endif()
+else()
+  message(STATUS "Failed to find git directory.")
+  disable_git_describe()
+  disable_git_hash()
+endif()
 
 ################################################################################
 # Useful CMake functions/Macros
