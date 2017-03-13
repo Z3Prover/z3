@@ -147,7 +147,6 @@ set(Z3_COMPONENT_CXX_FLAGS "")
 set(Z3_COMPONENT_EXTRA_INCLUDE_DIRS "")
 set(Z3_DEPENDENT_LIBS "")
 set(Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS "")
-set(Z3_DEPENDENT_EXTRA_C_LINK_FLAGS "")
 
 ################################################################################
 # Build type
@@ -294,11 +293,7 @@ if (OPENMP_FOUND)
     # flag by MSVC and breaks the build
     if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang") OR
         ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU"))
-      list(APPEND Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS ${OpenMP_C_FLAGS})
-    endif()
-    if (("${CMAKE_C_COMPILER_ID}" MATCHES "Clang") OR
-        ("${CMAKE_C_COMPILER_ID}" MATCHES "GNU"))
-      list(APPEND Z3_DEPENDENT_EXTRA_C_LINK_FLAGS ${OpenMP_CXX_FLAGS})
+      list(APPEND Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS ${OpenMP_CXX_FLAGS})
     endif()
     unset(CMAKE_REQUIRED_FLAGS)
     message(STATUS "Using OpenMP")
@@ -386,7 +381,6 @@ message(STATUS "Z3_COMPONENT_CXX_FLAGS: ${Z3_COMPONENT_CXX_FLAGS}")
 message(STATUS "Z3_DEPENDENT_LIBS: ${Z3_DEPENDENT_LIBS}")
 message(STATUS "Z3_COMPONENT_EXTRA_INCLUDE_DIRS: ${Z3_COMPONENT_EXTRA_INCLUDE_DIRS}")
 message(STATUS "Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS: ${Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS}")
-message(STATUS "Z3_DEPENDENT_EXTRA_C_LINK_FLAGS: ${Z3_DEPENDENT_EXTRA_C_LINK_FLAGS}")
 
 ################################################################################
 # Z3 installation locations
@@ -398,10 +392,18 @@ set(CMAKE_INSTALL_PKGCONFIGDIR
   PATH
   "Directory to install pkgconfig files"
 )
+
+set(CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR
+  "${CMAKE_INSTALL_LIBDIR}/cmake/z3"
+  CACHE
+  PATH
+  "Directory to install Z3 CMake package files"
+)
 message(STATUS "CMAKE_INSTALL_LIBDIR: \"${CMAKE_INSTALL_LIBDIR}\"")
 message(STATUS "CMAKE_INSTALL_BINDIR: \"${CMAKE_INSTALL_BINDIR}\"")
 message(STATUS "CMAKE_INSTALL_INCLUDEDIR: \"${CMAKE_INSTALL_INCLUDEDIR}\"")
 message(STATUS "CMAKE_INSTALL_PKGCONFIGDIR: \"${CMAKE_INSTALL_PKGCONFIGDIR}\"")
+message(STATUS "CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR: \"${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}\"")
 
 ################################################################################
 # Uninstall rule
@@ -448,6 +450,76 @@ set(Z3_GENERATED_FILE_EXTRA_DEPENDENCIES
 include(${CMAKE_SOURCE_DIR}/cmake/z3_add_component.cmake)
 include(${CMAKE_SOURCE_DIR}/cmake/z3_append_linker_flag_list_to_target.cmake)
 add_subdirectory(src)
+
+################################################################################
+# Create `Z3Config.cmake` and related files for the build tree so clients can
+# use Z3 via CMake.
+################################################################################
+include(CMakePackageConfigHelpers)
+export(EXPORT Z3_EXPORTED_TARGETS
+  NAMESPACE z3::
+  FILE "${CMAKE_BINARY_DIR}/Z3Targets.cmake"
+)
+set(Z3_FIRST_PACKAGE_INCLUDE_DIR "${CMAKE_BINARY_DIR}/src/api")
+set(Z3_SECOND_PACKAGE_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/api")
+set(Z3_CXX_PACKAGE_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/api/c++")
+set(AUTO_GEN_MSG "Automatically generated. DO NOT EDIT")
+set(CONFIG_FILE_TYPE "build tree")
+configure_package_config_file("${CMAKE_SOURCE_DIR}/cmake/Z3Config.cmake.in"
+  "Z3Config.cmake"
+  INSTALL_DESTINATION "${CMAKE_BINARY_DIR}"
+  PATH_VARS
+    Z3_FIRST_PACKAGE_INCLUDE_DIR
+    Z3_SECOND_PACKAGE_INCLUDE_DIR
+    Z3_CXX_PACKAGE_INCLUDE_DIR
+  INSTALL_PREFIX "${CMAKE_BINARY_DIR}"
+)
+unset(Z3_FIRST_PACKAGE_INCLUDE_DIR)
+unset(Z3_SECOND_PACKAGE_INCLUDE_DIR)
+unset(Z3_CXX_PACKAGE_INCLUDE_DIR)
+unset(AUTO_GEN_MSG)
+unset(CONFIG_FILE_TYPE)
+# TODO: Provide a `Z3Version.cmake` file so that clients can specify the version
+# of Z3 they want.
+
+################################################################################
+# Create `Z3Config.cmake` and related files for install tree so clients can use
+# Z3 via CMake.
+################################################################################
+install(EXPORT
+  Z3_EXPORTED_TARGETS
+  FILE "Z3Targets.cmake"
+  NAMESPACE z3::
+  DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
+)
+set(Z3_INSTALL_TREE_CMAKE_CONFIG_FILE "${CMAKE_BINARY_DIR}/cmake/Z3Config.cmake")
+set(Z3_FIRST_PACKAGE_INCLUDE_DIR "${CMAKE_INSTALL_INCLUDEDIR}")
+set(Z3_SECOND_INCLUDE_DIR "")
+set(Z3_CXX_PACKAGE_INCLUDE_DIR "")
+set(AUTO_GEN_MSG "Automatically generated. DO NOT EDIT")
+set(CONFIG_FILE_TYPE "install tree")
+# We use `configure_package_config_file()` to try and create CMake files
+# that are re-locatable so that it doesn't matter if the files aren't placed
+# in the original install prefix.
+configure_package_config_file("${CMAKE_SOURCE_DIR}/cmake/Z3Config.cmake.in"
+  "${Z3_INSTALL_TREE_CMAKE_CONFIG_FILE}"
+  INSTALL_DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
+  PATH_VARS Z3_FIRST_PACKAGE_INCLUDE_DIR
+)
+unset(Z3_FIRST_PACKAGE_INCLUDE_DIR)
+unset(Z3_SECOND_PACKAGE_INCLUDE_DIR)
+unset(Z3_CXX_PACKAGE_INCLUDE_DIR)
+unset(AUTO_GEN_MSG)
+unset(CONFIG_FILE_TYPE)
+
+# Add install rule to install ${Z3_INSTALL_TREE_CMAKE_CONFIG_FILE}
+install(
+  FILES "${Z3_INSTALL_TREE_CMAKE_CONFIG_FILE}"
+  DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
+)
+
+# TODO: Provide a `Z3Version.cmake` file so that clients can specify the version
+# of Z3 they want.
 
 ################################################################################
 # Examples
