@@ -817,12 +817,10 @@ void theory_str::propagate() {
         	    instantiate_axiom_int_to_str(e);
         	} else if (u.str.is_at(a)) {
         	    instantiate_axiom_CharAt(e);
-        	    /* TODO NEXT: StartsWith/EndsWith -> prefixof/suffixof
-        	} else if (is_StartsWith(e)) {
-        	    instantiate_axiom_StartsWith(e);
-        	} else if (is_EndsWith(e)) {
-        	    instantiate_axiom_EndsWith(e);
-        	    */
+        	} else if (u.str.is_prefix(a)) {
+        	    instantiate_axiom_prefixof(e);
+        	} else if (u.str.is_suffix(a)) {
+        	    instantiate_axiom_suffixof(e);
         	} else if (u.str.is_contains(a)) {
         	    instantiate_axiom_Contains(e);
         	} else if (u.str.is_index(a)) {
@@ -1101,64 +1099,26 @@ void theory_str::instantiate_axiom_CharAt(enode * e) {
     assert_axiom(finalAxiom);
 }
 
-void theory_str::instantiate_axiom_StartsWith(enode * e) {
+void theory_str::instantiate_axiom_prefixof(enode * e) {
     context & ctx = get_context();
     ast_manager & m = get_manager();
 
     app * expr = e->get_owner();
     if (axiomatized_terms.contains(expr)) {
-        TRACE("t_str_detail", tout << "already set up StartsWith axiom for " << mk_pp(expr, m) << std::endl;);
+        TRACE("t_str_detail", tout << "already set up prefixof axiom for " << mk_pp(expr, m) << std::endl;);
         return;
     }
     axiomatized_terms.insert(expr);
 
-    TRACE("t_str_detail", tout << "instantiate StartsWith axiom for " << mk_pp(expr, m) << std::endl;);
+    TRACE("t_str_detail", tout << "instantiate prefixof axiom for " << mk_pp(expr, m) << std::endl;);
 
     expr_ref ts0(mk_str_var("ts0"), m);
     expr_ref ts1(mk_str_var("ts1"), m);
 
     expr_ref_vector innerItems(m);
-    innerItems.push_back(ctx.mk_eq_atom(expr->get_arg(0), mk_concat(ts0, ts1)));
-    innerItems.push_back(ctx.mk_eq_atom(mk_strlen(ts0), mk_strlen(expr->get_arg(1))));
-    innerItems.push_back(m.mk_ite(ctx.mk_eq_atom(ts0, expr->get_arg(1)), expr, m.mk_not(expr)));
-    expr_ref then1(m.mk_and(innerItems.size(), innerItems.c_ptr()), m);
-    SASSERT(then1);
-
-    // the top-level condition is Length(arg0) >= Length(arg1).
-    // of course, the integer theory is not so accommodating
-    expr_ref topLevelCond(
-            m_autil.mk_ge(
-                    m_autil.mk_add(
-                            mk_strlen(expr->get_arg(0)), m_autil.mk_mul(mk_int(-1), mk_strlen(expr->get_arg(1)))),
-                    mk_int(0))
-            , m);
-    SASSERT(topLevelCond);
-
-    expr_ref finalAxiom(m.mk_ite(topLevelCond, then1, m.mk_not(expr)), m);
-    SASSERT(finalAxiom);
-    assert_axiom(finalAxiom);
-}
-
-void theory_str::instantiate_axiom_EndsWith(enode * e) {
-    context & ctx = get_context();
-    ast_manager & m = get_manager();
-
-    app * expr = e->get_owner();
-    if (axiomatized_terms.contains(expr)) {
-        TRACE("t_str_detail", tout << "already set up EndsWith axiom for " << mk_pp(expr, m) << std::endl;);
-        return;
-    }
-    axiomatized_terms.insert(expr);
-
-    TRACE("t_str_detail", tout << "instantiate EndsWith axiom for " << mk_pp(expr, m) << std::endl;);
-
-    expr_ref ts0(mk_str_var("ts0"), m);
-    expr_ref ts1(mk_str_var("ts1"), m);
-
-    expr_ref_vector innerItems(m);
-    innerItems.push_back(ctx.mk_eq_atom(expr->get_arg(0), mk_concat(ts0, ts1)));
-    innerItems.push_back(ctx.mk_eq_atom(mk_strlen(ts1), mk_strlen(expr->get_arg(1))));
-    innerItems.push_back(m.mk_ite(ctx.mk_eq_atom(ts1, expr->get_arg(1)), expr, m.mk_not(expr)));
+    innerItems.push_back(ctx.mk_eq_atom(expr->get_arg(1), mk_concat(ts0, ts1)));
+    innerItems.push_back(ctx.mk_eq_atom(mk_strlen(ts0), mk_strlen(expr->get_arg(0))));
+    innerItems.push_back(m.mk_ite(ctx.mk_eq_atom(ts0, expr->get_arg(0)), expr, m.mk_not(expr)));
     expr_ref then1(m.mk_and(innerItems.size(), innerItems.c_ptr()), m);
     SASSERT(then1);
 
@@ -1166,9 +1126,46 @@ void theory_str::instantiate_axiom_EndsWith(enode * e) {
     expr_ref topLevelCond(
             m_autil.mk_ge(
                     m_autil.mk_add(
-                            mk_strlen(expr->get_arg(0)), m_autil.mk_mul(mk_int(-1), mk_strlen(expr->get_arg(1)))),
-                    mk_int(0))
-            , m);
+                            mk_strlen(expr->get_arg(1)), m_autil.mk_mul(mk_int(-1), mk_strlen(expr->get_arg(0)))),
+                            mk_int(0))
+                            , m);
+    SASSERT(topLevelCond);
+
+    expr_ref finalAxiom(m.mk_ite(topLevelCond, then1, m.mk_not(expr)), m);
+    SASSERT(finalAxiom);
+    assert_axiom(finalAxiom);
+}
+
+void theory_str::instantiate_axiom_suffixof(enode * e) {
+    context & ctx = get_context();
+    ast_manager & m = get_manager();
+
+    app * expr = e->get_owner();
+    if (axiomatized_terms.contains(expr)) {
+        TRACE("t_str_detail", tout << "already set up suffixof axiom for " << mk_pp(expr, m) << std::endl;);
+        return;
+    }
+    axiomatized_terms.insert(expr);
+
+    TRACE("t_str_detail", tout << "instantiate suffixof axiom for " << mk_pp(expr, m) << std::endl;);
+
+    expr_ref ts0(mk_str_var("ts0"), m);
+    expr_ref ts1(mk_str_var("ts1"), m);
+
+    expr_ref_vector innerItems(m);
+    innerItems.push_back(ctx.mk_eq_atom(expr->get_arg(1), mk_concat(ts0, ts1)));
+    innerItems.push_back(ctx.mk_eq_atom(mk_strlen(ts1), mk_strlen(expr->get_arg(0))));
+    innerItems.push_back(m.mk_ite(ctx.mk_eq_atom(ts1, expr->get_arg(0)), expr, m.mk_not(expr)));
+    expr_ref then1(m.mk_and(innerItems.size(), innerItems.c_ptr()), m);
+    SASSERT(then1);
+
+    // the top-level condition is Length(arg0) >= Length(arg1)
+    expr_ref topLevelCond(
+            m_autil.mk_ge(
+                    m_autil.mk_add(
+                            mk_strlen(expr->get_arg(1)), m_autil.mk_mul(mk_int(-1), mk_strlen(expr->get_arg(0)))),
+                            mk_int(0))
+                            , m);
     SASSERT(topLevelCond);
 
     expr_ref finalAxiom(m.mk_ite(topLevelCond, then1, m.mk_not(expr)), m);

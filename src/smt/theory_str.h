@@ -433,8 +433,8 @@ namespace smt {
         void instantiate_str_eq_length_axiom(enode * lhs, enode * rhs);
 
         void instantiate_axiom_CharAt(enode * e);
-        void instantiate_axiom_StartsWith(enode * e);
-        void instantiate_axiom_EndsWith(enode * e);
+        void instantiate_axiom_prefixof(enode * e);
+        void instantiate_axiom_suffixof(enode * e);
         void instantiate_axiom_Contains(enode * e);
         void instantiate_axiom_Indexof(enode * e);
         void instantiate_axiom_Indexof2(enode * e);
