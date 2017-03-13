@@ -165,6 +165,8 @@ namespace smt {
         virtual void push() = 0;
         virtual void pop(unsigned num_scopes) = 0;
 
+        
+
     };
 };
 

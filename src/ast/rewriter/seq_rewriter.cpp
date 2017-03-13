@@ -632,14 +632,25 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
     return BR_FAILED;
 }
 
+/*
+ * (str.at s i), constants s/i, i < 0 or i >= |s| ==> (str.at s i) = ""
+ */
 br_status seq_rewriter::mk_seq_at(expr* a, expr* b, expr_ref& result) {
     zstring c;
     rational r;
-    if (m_util.str.is_string(a, c) && m_autil.is_numeral(b, r) && r.is_unsigned()) {
-        unsigned j = r.get_unsigned();
-        if (j < c.length()) {
-            result = m_util.str.mk_string(c.extract(j, 1));
+    if (m_util.str.is_string(a, c) && m_autil.is_numeral(b, r)) {
+        if (r.is_neg()) {
+            result = m_util.str.mk_string(symbol(""));
             return BR_DONE;
+        } else if (r.is_unsigned()) {
+            unsigned j = r.get_unsigned();
+            if (j < c.length()) {
+                result = m_util.str.mk_string(c.extract(j, 1));
+                return BR_DONE;
+            } else {
+                result = m_util.str.mk_string(symbol(""));
+                return BR_DONE;
+            }
         }
     }
     return BR_FAILED;
