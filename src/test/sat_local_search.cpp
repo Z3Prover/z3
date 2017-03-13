@@ -76,7 +76,9 @@ void tst_sat_local_search(char ** argv, int argc, int& i) {
     reslimit limit;
     params_ref params;
     sat::solver solver(params, limit);
-    sat::local_search local_search(solver);
+    sat::local_search local_search;
+
+    local_search.import(solver, true);
     char const* file_name = argv[i + 1];
     ++i;
 

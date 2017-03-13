@@ -152,11 +152,11 @@ namespace sat {
         void update_prefix(literal l) {
             bool_var x = l.var();
 
-            unsigned p = m_prefix[x].m_prefix;            
-            if (m_prefix[x].m_length >= m_trail_lim.size() ||
+            unsigned p = m_vprefix[x].m_prefix;            
+            if (m_vprefix[x].m_length >= m_trail_lim.size() ||
                 ((p | m_prefix) != m_prefix)) {
-                m_prefix[x].m_length = m_trail_lim.size();
-                m_prefix[x].m_prefix = m_prefix;
+                m_vprefix[x].m_length = m_trail_lim.size();
+                m_vprefix[x].m_prefix = m_prefix;
             }
         }
 
