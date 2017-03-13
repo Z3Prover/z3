@@ -160,6 +160,15 @@ namespace sat {
             }
         }
 
+        bool active_prefix(bool_var x) {
+            unsigned lvl = m_trail_lim.size();
+            unsigned p = m_vprefix[x].m_prefix;
+            unsigned l = m_vprefix[x].m_length;
+            if (l > lvl) return false;
+            if (l == lvl || l >= 32) return m_prefix == p;
+            return (m_prefix & ((1 << l) - 1)) == p;
+        }
+
         // ----------------------------------------
 
         void add_binary(literal l1, literal l2) {
@@ -315,6 +324,7 @@ namespace sat {
                     }
                 }                
             }
+            TRACE("sat", display_candidates(tout););
             SASSERT(!m_candidates.empty());
             if (m_candidates.size() > max_num_cand) {
                 unsigned j = m_candidates.size()/2;
@@ -330,6 +340,7 @@ namespace sat {
                 }
             }
             SASSERT(!m_candidates.empty() && m_candidates.size() <= max_num_cand);
+            TRACE("sat", display_candidates(tout););
             return true;
         }
 
@@ -353,13 +364,20 @@ namespace sat {
             for (bool_var const* it = m_freevars.begin(), * end = m_freevars.end(); it != end; ++it) {
                 SASSERT(is_undef(*it));
                 bool_var x = *it;
-                if (!newbies) {
-                    // TBD filter out candidates based on prefix strings or similar method
-                }
-                m_candidates.push_back(candidate(x, m_rating[x]));
-                sum += m_rating[x];                
-            }            
+                if (newbies || active_prefix(x)) {
+                    m_candidates.push_back(candidate(x, m_rating[x]));
+                    sum += m_rating[x];                
+                }           
+            } 
+            TRACE("sat", display_candidates(tout << "sum: " << sum << "\n"););
             return sum;
+        }
+
+        std::ostream& display_candidates(std::ostream& out) const {
+            for (unsigned i = 0; i < m_candidates.size(); ++i) {
+                out << "var: " << m_candidates[i].m_var << " rating: " << m_candidates[i].m_rating << "\n";
+            }          
+            return out;
         }
 
         bool is_sat() const {
@@ -437,7 +455,33 @@ namespace sat {
             for (; it != end; ++it) {
                 if (is_undef(*it)) sum += h[it->index()]; 
             }
-            // TBD walk ternary clauses.
+            watch_list& wlist = m_watches[l.index()];
+            watch_list::iterator wit = wlist.begin(), wend = wlist.end();
+            for (; wit != wend; ++wit) {
+                switch (wit->get_kind()) {
+                case watched::BINARY: 
+                    UNREACHABLE(); 
+                    break;
+                case watched::TERNARY: 
+                    UNREACHABLE(); 
+                    tsum += h[wit->get_literal1().index()] * h[wit->get_literal2().index()]; 
+                    break;
+                case watched::CLAUSE: {
+                    clause_offset cls_off = wit->get_clause_offset();
+                    clause & c = *(s.m_cls_allocator.get_clause(cls_off));
+                    // approximation compared to ternary clause case: 
+                    // we pick two other literals from the clause.
+                    if (c[0] == ~l) {
+                        tsum += h[c[1].index()] * h[c[2].index()];
+                    }
+                    else {
+                        SASSERT(c[1] == ~l);
+                        tsum += h[c[0].index()] * h[c[2].index()];
+                    }
+                    break;
+                }
+                }
+            }
             sum = (float)(0.1 + afactor*sum + sqfactor*tsum);
             return std::min(m_config.m_max_score, sum);
         }
@@ -486,6 +530,7 @@ namespace sat {
                 if (get_rank(lit) == 0) get_scc(lit);
                 if (get_rank(~lit) == 0) get_scc(~lit);
             }
+            TRACE("sat", display_scc(tout););
         }
         void init_scc() {
             inc_bstamp();
@@ -502,6 +547,7 @@ namespace sat {
             // set nextp = 0?
             m_rank = 0; 
             m_active = null_literal;
+            TRACE("sat", display_dfs(tout););
         }
         void init_dfs_info(literal l) {
             unsigned idx = l.index();
@@ -523,6 +569,7 @@ namespace sat {
         }
         void add_arc(literal u, literal v) { m_dfs[u.index()].m_next.push_back(v); }
         bool has_arc(literal v) const { return m_dfs[v.index()].m_next.size() > m_dfs[v.index()].m_nextp; } 
+        arcs get_arcs(literal v) const { return m_dfs[v.index()].m_next; }
         literal pop_arc(literal u) { return m_dfs[u.index()].m_next[m_dfs[u.index()].m_nextp++]; }
         unsigned num_next(literal u) const { return m_dfs[u.index()].m_next.size(); }
         literal get_next(literal u, unsigned i) const { return m_dfs[u.index()].m_next[i]; }
@@ -601,6 +648,30 @@ namespace sat {
                 set_vcomp(v, ~get_vcomp(get_parent(~v))); // TBD check semantics
             }
         } 
+
+        std::ostream& display_dfs(std::ostream& out) const {
+            for (unsigned i = 0; i < m_candidates.size(); ++i) {
+                literal l(m_candidates[i].m_var, false);
+                arcs const& a1 = get_arcs(l);
+                if (!a1.empty()) {
+                    out << l << " -> " << a1 << "\n";
+                }
+                arcs const& a2 = get_arcs(~l);
+                if (!a2.empty()) {
+                    out << ~l << " -> " << a2 << "\n";
+                }
+            }
+            return out;
+        }
+
+        std::ostream& display_scc(std::ostream& out) const {
+            display_dfs(out);
+            for (unsigned i = 0; i < m_candidates.size(); ++i) {
+                literal l(m_candidates[i].m_var, false);
+                out << l << " := " << get_parent(l) << "\n";
+                out << ~l << " := " << get_parent(~l) << "\n";
+            }
+        }
 
         // ------------------------------------
         // lookahead forest
@@ -1026,6 +1097,7 @@ namespace sat {
 
         void compute_wnb() {
             init_wnb();
+            TRACE("sat", display_lookahead(tout); );
             for (unsigned i = 0; !inconsistent() && i < m_lookahead.size(); ++i) {
                 literal lit = m_lookahead[i].m_lit;
                 if (!is_undef(lit)) {
@@ -1045,6 +1117,7 @@ namespace sat {
                 }
             }
             reset_wnb();
+            TRACE("sat", display_lookahead(tout); );
         }
 
         void init_wnb() {
@@ -1083,6 +1156,7 @@ namespace sat {
                     l = diff1 < diff2 ? lit : ~lit;
                 }
             }
+            TRACE("sat", tout << l << "\n";);
             return l;
         }
 
@@ -1150,12 +1224,13 @@ namespace sat {
         }
 
 
-        void set_conflict() { m_inconsistent = true; }
+        void set_conflict() { TRACE("sat", tout << "conflict\n";); m_inconsistent = true; }
         bool inconsistent() { return m_inconsistent; }
 
         unsigned scope_lvl() const { return m_trail_lim.size(); }
 
         void assign(literal l) {
+            TRACE("sat", tout << "assign: " << l << "\n";);
             SASSERT(m_level > 0);
             if (is_undef(l)) {
                 set_true(l);
@@ -1235,6 +1310,18 @@ namespace sat {
             for (unsigned i = 0; i < m_trail.size(); ++i) {
                 literal l = m_trail[i];
                 out << l << " " << m_stamp[l.var()] << "\n";
+            }
+            return out;
+        }
+
+        std::ostream& display_lookahead(std::ostream& out) const {
+            for (unsigned i = 0; i < m_lookahead.size(); ++i) {
+                literal lit = m_lookahead[i].m_lit;
+                unsigned offset = m_lookahead[i].m_offset;
+                out << lit << " offset: " << offset;
+                out << (is_undef(lit)?" undef": (is_true(lit) ? " true": " false"));
+                out << " wnb: " << get_wnb(lit);
+                out << "\n";
             }
             return out;
         }
