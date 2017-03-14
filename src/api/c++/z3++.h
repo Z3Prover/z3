@@ -86,7 +86,13 @@ namespace z3 {
     };
     inline std::ostream & operator<<(std::ostream & out, exception const & e) { out << e.msg(); return out; }
 
-
+#if !defined(Z3_THROW)
+#if __cpp_exceptions || _CPPUNWIND
+#define Z3_THROW(x) throw x
+#else
+#define Z3_THROW(x) {}
+#endif
+#endif // !defined(Z3_THROW)
 
     /**
        \brief Z3 global configuration object.
@@ -165,7 +171,7 @@ namespace z3 {
         Z3_error_code check_error() const {
             Z3_error_code e = Z3_get_error_code(m_ctx);
             if (e != Z3_OK && enable_exceptions())
-                throw exception(Z3_get_error_msg(m_ctx, e));
+                Z3_THROW(exception(Z3_get_error_msg(m_ctx, e)));
             return e;
         }
 
@@ -701,7 +707,7 @@ namespace z3 {
             if (!is_numeral_i(result)) {
                 assert(ctx().enable_exceptions());
                 if (!ctx().enable_exceptions()) return 0;
-                throw exception("numeral does not fit in machine int");
+                Z3_THROW(exception("numeral does not fit in machine int"));
             }
             return result;
         }
@@ -721,7 +727,7 @@ namespace z3 {
             if (!is_numeral_u(result)) {
                 assert(ctx().enable_exceptions());
                 if (!ctx().enable_exceptions()) return 0;
-                throw exception("numeral does not fit in machine uint");
+                Z3_THROW(exception("numeral does not fit in machine uint"));
             }
             return result;
         }
@@ -738,7 +744,7 @@ namespace z3 {
             if (!is_numeral_i64(result)) {
                 assert(ctx().enable_exceptions());
                 if (!ctx().enable_exceptions()) return 0;
-                throw exception("numeral does not fit in machine __int64");
+                Z3_THROW(exception("numeral does not fit in machine __int64"));
             }
             return result;
         }
@@ -755,7 +761,7 @@ namespace z3 {
             if (!is_numeral_u64(result)) {
                 assert(ctx().enable_exceptions());
                 if (!ctx().enable_exceptions()) return 0;
-                throw exception("numeral does not fit in machine __uint64");
+                Z3_THROW(exception("numeral does not fit in machine __uint64"));
             }
             return result;
         }
@@ -1709,7 +1715,7 @@ namespace z3 {
             Z3_bool status = Z3_model_eval(ctx(), m_model, n, model_completion, &r);
             check_error();
             if (status == Z3_FALSE && ctx().enable_exceptions())
-                throw exception("failed to evaluate expression");
+                Z3_THROW(exception("failed to evaluate expression"));
             return expr(ctx(), r);
         }
 
@@ -2033,7 +2039,7 @@ namespace z3 {
     }
     inline tactic par_or(unsigned n, tactic const* tactics) {
         if (n == 0) {
-            throw exception("a non-zero number of tactics need to be passed to par_or");
+            Z3_THROW(exception("a non-zero number of tactics need to be passed to par_or"));
         }
         array<Z3_tactic> buffer(n);
         for (unsigned i = 0; i < n; ++i) buffer[i] = tactics[i];
