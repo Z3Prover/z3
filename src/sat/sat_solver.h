@@ -248,6 +248,20 @@ namespace sat {
             m_num_checkpoints = 0;
             if (memory::get_allocation_size() > m_config.m_max_memory) throw solver_exception(Z3_MAX_MEMORY_MSG);
         }
+
+        // specialy designed for simplifier
+        void checkpoint2() {
+           if (!m_rlimit.inc()) {
+               m_simplifier.free_memory();
+               m_mc.reset();
+               m_model_is_current = false;
+               throw solver_exception(Z3_CANCELED_MSG);
+            }
+            ++m_num_checkpoints;
+            if (m_num_checkpoints < 10) return;
+            m_num_checkpoints = 0;
+        }
+        
         void set_par(par* p);
         bool canceled() { return !m_rlimit.inc(); }
         config const& get_config() { return m_config; }
