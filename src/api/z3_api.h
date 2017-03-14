@@ -4006,7 +4006,7 @@ extern "C" {
        def_API('Z3_mk_pble', AST, (_in(CONTEXT), _in(UINT), _in_array(1,AST), _in_array(1,INT), _in(INT)))
     */
     Z3_ast Z3_API Z3_mk_pble(Z3_context c, unsigned num_args,
-                             Z3_ast const args[], int coeffs[],
+                             Z3_ast const args[], int const coeffs[],
                              int k);
 
     /**
@@ -4017,7 +4017,7 @@ extern "C" {
        def_API('Z3_mk_pbge', AST, (_in(CONTEXT), _in(UINT), _in_array(1,AST), _in_array(1,INT), _in(INT)))
     */
     Z3_ast Z3_API Z3_mk_pbge(Z3_context c, unsigned num_args,
-                             Z3_ast const args[], int coeffs[],
+                             Z3_ast const args[], int const coeffs[],
                              int k);
 
     /**
@@ -4028,7 +4028,7 @@ extern "C" {
        def_API('Z3_mk_pbeq', AST, (_in(CONTEXT), _in(UINT), _in_array(1,AST), _in_array(1,INT), _in(INT)))
     */
     Z3_ast Z3_API Z3_mk_pbeq(Z3_context c, unsigned num_args,
-                             Z3_ast const args[], int coeffs[],
+                             Z3_ast const args[], int const coeffs[],
                              int k);
 
     /**

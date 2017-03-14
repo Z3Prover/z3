@@ -935,7 +935,6 @@ namespace z3 {
 
 
         friend expr operator>=(expr const & a, expr const & b);
-        friend expr wasoperator(expr const & a, expr const & b);
         friend expr operator>=(expr const & a, int b);
         friend expr operator>=(int a, expr const & b);
 
@@ -946,6 +945,12 @@ namespace z3 {
         friend expr operator>(expr const & a, expr const & b);
         friend expr operator>(expr const & a, int b);
         friend expr operator>(int a, expr const & b);
+
+        friend expr pble(expr_vector const& es, int const * coeffs, int bound);
+        friend expr pbge(expr_vector const& es, int const * coeffs, int bound);
+        friend expr pbeq(expr_vector const& es, int const * coeffs, int bound);
+        friend expr atmost(expr_vector const& es, unsigned bound);
+        friend expr atleast(expr_vector const& es, unsigned bound);
 
         friend expr operator&(expr const & a, expr const & b);
         friend expr operator&(expr const & a, int b);
@@ -1566,8 +1571,46 @@ namespace z3 {
         array<Z3_app> vars(xs);
         Z3_ast r = Z3_mk_exists_const(b.ctx(), 0, vars.size(), vars.ptr(), 0, 0, b); b.check_error(); return expr(b.ctx(), r);
     }
-
-
+    inline expr pble(expr_vector const& es, int const* coeffs, int bound) {
+        assert(es.size() > 0);
+        context& ctx = es[0].ctx();
+        array<Z3_ast> _es(es);
+        Z3_ast r = Z3_mk_pble(ctx, _es.size(), _es.ptr(), coeffs, bound);
+        ctx.check_error();
+        return expr(ctx, r);
+    }
+    inline expr pbge(expr_vector const& es, int const* coeffs, int bound) {
+        assert(es.size() > 0);
+        context& ctx = es[0].ctx();
+        array<Z3_ast> _es(es);
+        Z3_ast r = Z3_mk_pbge(ctx, _es.size(), _es.ptr(), coeffs, bound);
+        ctx.check_error();
+        return expr(ctx, r);
+    }
+    inline expr pbeq(expr_vector const& es, int const* coeffs, int bound) {
+        assert(es.size() > 0);
+        context& ctx = es[0].ctx();
+        array<Z3_ast> _es(es);
+        Z3_ast r = Z3_mk_pbeq(ctx, _es.size(), _es.ptr(), coeffs, bound);
+        ctx.check_error();
+        return expr(ctx, r);
+    }
+    inline expr atmost(expr_vector const& es, unsigned bound) {
+        assert(es.size() > 0);
+        context& ctx = es[0].ctx();
+        array<Z3_ast> _es(es);
+        Z3_ast r = Z3_mk_atmost(ctx, _es.size(), _es.ptr(), bound);
+        ctx.check_error();
+        return expr(ctx, r);
+    }
+    inline expr atleast(expr_vector const& es, unsigned bound) {
+        assert(es.size() > 0);
+        context& ctx = es[0].ctx();
+        array<Z3_ast> _es(es);
+        Z3_ast r = Z3_mk_atleast(ctx, _es.size(), _es.ptr(), bound);
+        ctx.check_error();
+        return expr(ctx, r);
+    }
     inline expr sum(expr_vector const& args) {
         assert(args.size() > 0);
         context& ctx = args[0].ctx();
