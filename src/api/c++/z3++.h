@@ -86,7 +86,13 @@ namespace z3 {
     };
     inline std::ostream & operator<<(std::ostream & out, exception const & e) { out << e.msg(); return out; }
 
-
+#if !defined(Z3_THROW)
+#if __cpp_exceptions || _CPPUNWIND
+#define Z3_THROW(x) throw x
+#else
+#define Z3_THROW(x) {}
+#endif
+#endif // !defined(Z3_THROW)
 
     /**
        \brief Z3 global configuration object.
@@ -165,7 +171,7 @@ namespace z3 {
         Z3_error_code check_error() const {
             Z3_error_code e = Z3_get_error_code(m_ctx);
             if (e != Z3_OK && enable_exceptions())
-                throw exception(Z3_get_error_msg(m_ctx, e));
+                Z3_THROW(exception(Z3_get_error_msg(m_ctx, e)));
             return e;
         }
 
@@ -701,7 +707,7 @@ namespace z3 {
             if (!is_numeral_i(result)) {
                 assert(ctx().enable_exceptions());
                 if (!ctx().enable_exceptions()) return 0;
-                throw exception("numeral does not fit in machine int");
+                Z3_THROW(exception("numeral does not fit in machine int"));
             }
             return result;
         }
@@ -721,7 +727,7 @@ namespace z3 {
             if (!is_numeral_u(result)) {
                 assert(ctx().enable_exceptions());
                 if (!ctx().enable_exceptions()) return 0;
-                throw exception("numeral does not fit in machine uint");
+                Z3_THROW(exception("numeral does not fit in machine uint"));
             }
             return result;
         }
@@ -738,7 +744,7 @@ namespace z3 {
             if (!is_numeral_i64(result)) {
                 assert(ctx().enable_exceptions());
                 if (!ctx().enable_exceptions()) return 0;
-                throw exception("numeral does not fit in machine __int64");
+                Z3_THROW(exception("numeral does not fit in machine __int64"));
             }
             return result;
         }
@@ -755,7 +761,7 @@ namespace z3 {
             if (!is_numeral_u64(result)) {
                 assert(ctx().enable_exceptions());
                 if (!ctx().enable_exceptions()) return 0;
-                throw exception("numeral does not fit in machine __uint64");
+                Z3_THROW(exception("numeral does not fit in machine __uint64"));
             }
             return result;
         }
@@ -890,6 +896,7 @@ namespace z3 {
         friend expr operator+(expr const & a, expr const & b);
         friend expr operator+(expr const & a, int b);
         friend expr operator+(int a, expr const & b);
+        friend expr sum(expr_vector const& args);
 
         friend expr operator*(expr const & a, expr const & b);
         friend expr operator*(expr const & a, int b);
@@ -928,7 +935,6 @@ namespace z3 {
 
 
         friend expr operator>=(expr const & a, expr const & b);
-        friend expr wasoperator(expr const & a, expr const & b);
         friend expr operator>=(expr const & a, int b);
         friend expr operator>=(int a, expr const & b);
 
@@ -939,6 +945,12 @@ namespace z3 {
         friend expr operator>(expr const & a, expr const & b);
         friend expr operator>(expr const & a, int b);
         friend expr operator>(int a, expr const & b);
+
+        friend expr pble(expr_vector const& es, int const * coeffs, int bound);
+        friend expr pbge(expr_vector const& es, int const * coeffs, int bound);
+        friend expr pbeq(expr_vector const& es, int const * coeffs, int bound);
+        friend expr atmost(expr_vector const& es, unsigned bound);
+        friend expr atleast(expr_vector const& es, unsigned bound);
 
         friend expr operator&(expr const & a, expr const & b);
         friend expr operator&(expr const & a, int b);
@@ -1559,7 +1571,54 @@ namespace z3 {
         array<Z3_app> vars(xs);
         Z3_ast r = Z3_mk_exists_const(b.ctx(), 0, vars.size(), vars.ptr(), 0, 0, b); b.check_error(); return expr(b.ctx(), r);
     }
-
+    inline expr pble(expr_vector const& es, int const* coeffs, int bound) {
+        assert(es.size() > 0);
+        context& ctx = es[0].ctx();
+        array<Z3_ast> _es(es);
+        Z3_ast r = Z3_mk_pble(ctx, _es.size(), _es.ptr(), coeffs, bound);
+        ctx.check_error();
+        return expr(ctx, r);
+    }
+    inline expr pbge(expr_vector const& es, int const* coeffs, int bound) {
+        assert(es.size() > 0);
+        context& ctx = es[0].ctx();
+        array<Z3_ast> _es(es);
+        Z3_ast r = Z3_mk_pbge(ctx, _es.size(), _es.ptr(), coeffs, bound);
+        ctx.check_error();
+        return expr(ctx, r);
+    }
+    inline expr pbeq(expr_vector const& es, int const* coeffs, int bound) {
+        assert(es.size() > 0);
+        context& ctx = es[0].ctx();
+        array<Z3_ast> _es(es);
+        Z3_ast r = Z3_mk_pbeq(ctx, _es.size(), _es.ptr(), coeffs, bound);
+        ctx.check_error();
+        return expr(ctx, r);
+    }
+    inline expr atmost(expr_vector const& es, unsigned bound) {
+        assert(es.size() > 0);
+        context& ctx = es[0].ctx();
+        array<Z3_ast> _es(es);
+        Z3_ast r = Z3_mk_atmost(ctx, _es.size(), _es.ptr(), bound);
+        ctx.check_error();
+        return expr(ctx, r);
+    }
+    inline expr atleast(expr_vector const& es, unsigned bound) {
+        assert(es.size() > 0);
+        context& ctx = es[0].ctx();
+        array<Z3_ast> _es(es);
+        Z3_ast r = Z3_mk_atleast(ctx, _es.size(), _es.ptr(), bound);
+        ctx.check_error();
+        return expr(ctx, r);
+    }
+    inline expr sum(expr_vector const& args) {
+        assert(args.size() > 0);
+        context& ctx = args[0].ctx();
+        array<Z3_ast> _args(args);
+        Z3_ast r = Z3_mk_add(ctx, _args.size(), _args.ptr());
+        ctx.check_error();
+        return expr(ctx, r);
+    }
 
     inline expr distinct(expr_vector const& args) {
         assert(args.size() > 0);
@@ -1699,7 +1758,7 @@ namespace z3 {
             Z3_bool status = Z3_model_eval(ctx(), m_model, n, model_completion, &r);
             check_error();
             if (status == Z3_FALSE && ctx().enable_exceptions())
-                throw exception("failed to evaluate expression");
+                Z3_THROW(exception("failed to evaluate expression"));
             return expr(ctx(), r);
         }
 
@@ -2023,7 +2082,7 @@ namespace z3 {
     }
     inline tactic par_or(unsigned n, tactic const* tactics) {
         if (n == 0) {
-            throw exception("a non-zero number of tactics need to be passed to par_or");
+            Z3_THROW(exception("a non-zero number of tactics need to be passed to par_or"));
         }
         array<Z3_tactic> buffer(n);
         for (unsigned i = 0; i < n; ++i) buffer[i] = tactics[i];
