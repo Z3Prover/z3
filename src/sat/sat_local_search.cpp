@@ -79,16 +79,18 @@ namespace sat {
 
     // figure out slack, and init unsat stack
     void local_search::init_slack() {
+        for (unsigned v = 0; v < num_vars(); ++v) {
+            bool is_true = cur_solution(v);
+            coeff_vector& truep = m_vars[v].m_watch[is_true];
+            for (unsigned i = 0; i < truep.size(); ++i) {
+                unsigned c = truep[i].m_constraint_id;
+                constraint& cn = m_constraints[c];
+                cn.m_slack -= truep[i].m_coeff;
+            }            
+        }
         for (unsigned c = 0; c < num_constraints(); ++c) {
-            constraint & cn = m_constraints[c];
-            for (unsigned i = 0; i < cn.size(); ++i) {
-                bool_var v = cn[i].var();
-                if (is_true(cn[i]))
-                    --cn.m_slack;
-            }
-            // constraint_slack[c] = constraint_k[c] - true_terms_count[c];
             // violate the at-most-k constraint
-            if (cn.m_slack < 0)
+            if (m_constraints[c].m_slack < 0)
                 unsat(c);
         }
     }
@@ -497,7 +499,7 @@ namespace sat {
                 int slack = constraint_slack(it->m_constraint_id);
                 if (slack < 0)
                     ++best_bsb;
-                else if (slack == 0)
+                else if (slack < static_cast<int>(it->m_coeff))
                     best_bsb += num_unsat;
             }
             ++cit;
@@ -518,7 +520,7 @@ namespace sat {
                                 ++bsb;
                             }
                         }
-                        else if (slack == 0) {
+                        else if (slack < static_cast<int>(it->m_coeff)) {
                             bsb += num_unsat;
                             if (bsb > best_bsb) {
                                 break;
@@ -565,8 +567,9 @@ namespace sat {
         for (; it != end; ++it) {
             unsigned ci = it->m_constraint_id;
             constraint& c = m_constraints[ci];
-            --c.m_slack;
-            if (c.m_slack == -1) { // from 0 to -1: sat -> unsat
+            int old_slack = c.m_slack;
+            c.m_slack -= it->m_coeff;
+            if (c.m_slack < 0 && old_slack >= 0) { // from non-negative to negative: sat -> unsat
                 unsat(ci);
             }
         }
@@ -574,8 +577,9 @@ namespace sat {
         for (; it != end; ++it) {
             unsigned ci = it->m_constraint_id;
             constraint& c = m_constraints[ci];
-            ++c.m_slack;
-            if (c.m_slack == 0) { // from -1 to 0: unsat -> sat
+            int old_slack = c.m_slack;
+            c.m_slack += it->m_coeff;
+            if (c.m_slack >= 0 && old_slack < 0) { // from negative to non-negative: unsat -> sat
                 sat(ci);
             }
         }
