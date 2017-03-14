@@ -890,6 +890,7 @@ namespace z3 {
         friend expr operator+(expr const & a, expr const & b);
         friend expr operator+(expr const & a, int b);
         friend expr operator+(int a, expr const & b);
+        friend expr sum(expr_vector const& args);
 
         friend expr operator*(expr const & a, expr const & b);
         friend expr operator*(expr const & a, int b);
@@ -1560,6 +1561,15 @@ namespace z3 {
         Z3_ast r = Z3_mk_exists_const(b.ctx(), 0, vars.size(), vars.ptr(), 0, 0, b); b.check_error(); return expr(b.ctx(), r);
     }
 
+
+    inline expr sum(expr_vector const& args) {
+        assert(args.size() > 0);
+        context& ctx = args[0].ctx();
+        array<Z3_ast> _args(args);
+        Z3_ast r = Z3_mk_add(ctx, _args.size(), _args.ptr());
+        ctx.check_error();
+        return expr(ctx, r);
+    }
 
     inline expr distinct(expr_vector const& args) {
         assert(args.size() > 0);
