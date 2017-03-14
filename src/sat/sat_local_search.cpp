@@ -50,7 +50,7 @@ namespace sat {
                 var_info& vi = m_vars[v];
                 for (unsigned k = 0; k < 2; pol = !pol, k++) { 
                     for (unsigned i = 0; i < m_vars[v].m_watch[pol].size(); ++i) {
-                        constraint const& c = m_constraints[m_vars[v].m_watch[pol][i]];
+                        constraint const& c = m_constraints[m_vars[v].m_watch[pol][i].m_constraint_id];
                         for (unsigned j = 0; j < c.size(); ++j) {
                             bool_var w = c[j].var(); 
                             if (w == v || is_neighbor.contains(w)) continue;
@@ -97,10 +97,11 @@ namespace sat {
     void local_search::init_scores() {
         for (unsigned v = 0; v < num_vars(); ++v) {
             bool is_true = cur_solution(v);
-            int_vector& truep = m_vars[v].m_watch[is_true];
-            int_vector& falsep = m_vars[v].m_watch[!is_true];
+            coeff_vector& truep = m_vars[v].m_watch[is_true];
+            coeff_vector& falsep = m_vars[v].m_watch[!is_true];
             for (unsigned i = 0; i < falsep.size(); ++i) {
-                constraint& c = m_constraints[falsep[i]];
+                constraint& c = m_constraints[falsep[i].m_constraint_id];
+                SASSERT(falsep[i].m_coeff == 1);
                 // will --slack
                 if (c.m_slack <= 0) {
                     dec_slack_score(v);
@@ -109,7 +110,8 @@ namespace sat {
                 }
             }
             for (unsigned i = 0; i < truep.size(); ++i) {
-                constraint& c = m_constraints[truep[i]];
+                SASSERT(truep[i].m_coeff == 1);
+                constraint& c = m_constraints[truep[i].m_constraint_id];
                 // will --true_terms_count[c]
                 // will ++slack
                 if (c.m_slack <= -1) {
@@ -230,9 +232,23 @@ namespace sat {
         m_constraints.push_back(constraint(k));
         for (unsigned i = 0; i < sz; ++i) {
             m_vars.reserve(c[i].var() + 1);
-            literal t(~c[i]);
-            m_vars[t.var()].m_watch[is_pos(t)].push_back(id);
+            literal t(~c[i]);            
+            m_vars[t.var()].m_watch[is_pos(t)].push_back(pbcoeff(id, 1));
             m_constraints.back().push(t);
+        }
+        if (sz == 1 && k == 0) {
+            m_vars[c[0].var()].m_bias = c[0].sign() ? 0 : 100;
+        }
+    }
+
+    void local_search::add_pb(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k) {
+        unsigned id = m_constraints.size();
+        m_constraints.push_back(constraint(k));
+        for (unsigned i = 0; i < sz; ++i) {
+            m_vars.reserve(c[i].var() + 1);
+            literal t(~c[i]);            
+            m_vars[t.var()].m_watch[is_pos(t)].push_back(pbcoeff(id, coeffs[i]));
+            m_constraints.back().push(t); // add coefficient to constraint?
         }
         if (sz == 1 && k == 0) {
             m_vars[c[0].var()].m_bias = c[0].sign() ? 0 : 100;
@@ -289,6 +305,7 @@ namespace sat {
         if (ext) {
             literal_vector lits;
             unsigned sz = ext->m_cards.size();
+            unsigned_vector coeffs;
             for (unsigned i = 0; i < sz; ++i) {
                 card_extension::card& c = *ext->m_cards[i];
                 unsigned n = c.size();
@@ -303,27 +320,27 @@ namespace sat {
                     add_cardinality(lits.size(), lits.c_ptr(), n - k);
                 }
                 else {
-                    // TBD: this doesn't really work because scores are not properly updated for general PB constraints.
-                    NOT_IMPLEMENTED_YET();
                     //
                     // c.lit() <=> c.lits() >= k
                     // 
                     //    (c.lits() < k) or c.lit()
-                    // =  (c.lits() + (n - k - 1)*~c.lit()) <= n    
+                    // =  (c.lits() + (n - k + 1)*~c.lit()) <= n    
                     //
                     //    ~c.lit() or (c.lits() >= k)
                     // =  ~c.lit() or (~c.lits() <= n - k)
                     // =  k*c.lit() + ~c.lits() <= n 
                     // 
                     lits.reset();
-                    for (unsigned j = 0; j < n; ++j) lits.push_back(c[j]);
-                    for (unsigned j = 0; j < n - k - 1; ++j) lits.push_back(~c.lit());
-                    add_cardinality(lits.size(), lits.c_ptr(), n);
+                    coeffs.reset();
+                    for (unsigned j = 0; j < n; ++j) lits.push_back(c[j]), coeffs.push_back(1);
+                    lits.push_back(~c.lit()); coeffs.push_back(n - k + 1);
+                    add_pb(lits.size(), lits.c_ptr(), coeffs.c_ptr(), n);
                     
                     lits.reset();
-                    for (unsigned j = 0; j < n; ++j) lits.push_back(~c[j]);
-                    for (unsigned j = 0; j < k; ++j) lits.push_back(c.lit());
-                    add_cardinality(lits.size(), lits.c_ptr(), n);
+                    coeffs.reset();
+                    for (unsigned j = 0; j < n; ++j) lits.push_back(~c[j]), coeffs.push_back(1);
+                    lits.push_back(c.lit()); coeffs.push_back(k);
+                    add_pb(lits.size(), lits.c_ptr(), coeffs.c_ptr(), n);
                 }
             }
             //
@@ -474,10 +491,10 @@ namespace sat {
             l = *cit;
             best_var = v = l.var();
             bool tt = cur_solution(v);
-            int_vector const& falsep = m_vars[v].m_watch[!tt];
-            int_vector::const_iterator it = falsep.begin(), end = falsep.end();
+            coeff_vector const& falsep = m_vars[v].m_watch[!tt];
+            coeff_vector::const_iterator it = falsep.begin(), end = falsep.end();
             for (; it != end; ++it) {
-                int slack = constraint_slack(*it);
+                int slack = constraint_slack(it->m_constraint_id);
                 if (slack < 0)
                     ++best_bsb;
                 else if (slack == 0)
@@ -489,10 +506,10 @@ namespace sat {
                 if (is_true(l)) {
                     v = l.var();                    
                     unsigned bsb = 0;
-                    int_vector const& falsep = m_vars[v].m_watch[!cur_solution(v)];
-                    int_vector::const_iterator it = falsep.begin(), end = falsep.end();
+                    coeff_vector const& falsep = m_vars[v].m_watch[!cur_solution(v)];
+                    coeff_vector::const_iterator it = falsep.begin(), end = falsep.end();
                     for (; it != end; ++it) {
-                        int slack = constraint_slack(*it);
+                        int slack = constraint_slack(it->m_constraint_id);
                         if (slack < 0) {
                             if (bsb == best_bsb) {
                                 break;
@@ -541,12 +558,12 @@ namespace sat {
         m_vars[flipvar].m_value = !cur_solution(flipvar);
 
         bool flip_is_true = cur_solution(flipvar);
-        int_vector const& truep = m_vars[flipvar].m_watch[flip_is_true];
-        int_vector const& falsep = m_vars[flipvar].m_watch[!flip_is_true];
+        coeff_vector const& truep = m_vars[flipvar].m_watch[flip_is_true];
+        coeff_vector const& falsep = m_vars[flipvar].m_watch[!flip_is_true];
 
-        int_vector::const_iterator it = truep.begin(), end = truep.end();
+        coeff_vector::const_iterator it = truep.begin(), end = truep.end();
         for (; it != end; ++it) {
-            unsigned ci = *it;
+            unsigned ci = it->m_constraint_id;
             constraint& c = m_constraints[ci];
             --c.m_slack;
             if (c.m_slack == -1) { // from 0 to -1: sat -> unsat
@@ -555,7 +572,7 @@ namespace sat {
         }
         it = falsep.begin(), end = falsep.end();
         for (; it != end; ++it) {
-            unsigned ci = *it;
+            unsigned ci = it->m_constraint_id;
             constraint& c = m_constraints[ci];
             ++c.m_slack;
             if (c.m_slack == 0) { // from -1 to 0: unsat -> sat
@@ -576,12 +593,12 @@ namespace sat {
         int org_flipvar_slack_score = slack_score(flipvar);
 
         bool flip_is_true = cur_solution(flipvar);
-        int_vector& truep = m_vars[flipvar].m_watch[flip_is_true];
-        int_vector& falsep = m_vars[flipvar].m_watch[!flip_is_true];
+        coeff_vector& truep = m_vars[flipvar].m_watch[flip_is_true];
+        coeff_vector& falsep = m_vars[flipvar].m_watch[!flip_is_true];
 
         // update related clauses and neighbor vars
         for (unsigned i = 0; i < truep.size(); ++i) {
-            constraint & c = m_constraints[truep[i]];
+            constraint & c = m_constraints[truep[i].m_constraint_id];
             //++true_terms_count[c];
             --c.m_slack;
             switch (c.m_slack) {
@@ -605,7 +622,7 @@ namespace sat {
                     if (is_true(c[j]))
                         inc_slack_score(v);
                 }
-                unsat(truep[i]);
+                unsat(truep[i].m_constraint_id);
                 break;
             case 0: // from 1 to 0
                 for (unsigned j = 0; j < c.size(); ++j) {
@@ -623,7 +640,7 @@ namespace sat {
             }
         }
         for (unsigned i = 0; i < falsep.size(); ++i) {
-            constraint& c = m_constraints[falsep[i]];
+            constraint& c = m_constraints[falsep[i].m_constraint_id];
             //--true_terms_count[c];
             ++c.m_slack;
             switch (c.m_slack) {
@@ -648,7 +665,7 @@ namespace sat {
                     if (is_true(c[j]))
                         dec_slack_score(v);
                 }
-                sat(falsep[i]);
+                sat(falsep[i].m_constraint_id);
                 break;
             case -1: // from -2 to -1
                 for (unsigned j = 0; j < c.size(); ++j) {

@@ -59,7 +59,14 @@ namespace sat {
 
     class local_search {
 		
+        struct pbcoeff {
+            unsigned m_constraint_id;
+            unsigned m_coeff;
+            pbcoeff(unsigned id, unsigned coeff):
+                m_constraint_id(id), m_coeff(coeff) {}
+        };
         typedef svector<bool> bool_vector;
+        typedef svector<pbcoeff> coeff_vector;
 
         // data structure for a term in objective function
         struct ob_term {
@@ -79,7 +86,7 @@ namespace sat {
             int  m_time_stamp;                   // the flip time stamp                 
             int  m_cscc;                         // how many times its constraint state configure changes since its last flip
             bool_var_vector m_neighbors;         // neighborhood variables
-            int_vector m_watch[2];
+            coeff_vector m_watch[2];
             var_info():
                 m_value(true),
                 m_bias(50), 
@@ -241,6 +248,8 @@ namespace sat {
         void add_soft(bool_var v, int weight);
 
         void add_cardinality(unsigned sz, literal const* c, unsigned k);
+
+        void add_pb(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k);
         
         lbool check();
 
