@@ -11,7 +11,6 @@ void tst_sat_lookahead(char ** argv, int argc, int& i) {
     reslimit limit;
     params_ref params;
     sat::solver solver(params, limit);
-    sat::lookahead lh(solver);
     char const* file_name = argv[i + 1];
     ++i;
 
@@ -24,6 +23,8 @@ void tst_sat_lookahead(char ** argv, int argc, int& i) {
         parse_dimacs(in, solver);
     }
    
+    sat::lookahead lh(solver);
+
     IF_VERBOSE(20, solver.display_status(verbose_stream()););
 
     std::cout << lh.check() << "\n";

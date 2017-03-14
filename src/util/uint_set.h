@@ -344,11 +344,12 @@ public:
 
     void insert(unsigned x) {
         SASSERT(!contains(x));
-        m_index.resize(x + 1, UINT_MAX);
-        m_elems.resize(m_size + 1);
+        m_index.reserve(x + 1, UINT_MAX);
+        m_elems.reserve(m_size + 1);
         m_index[x] = m_size;
         m_elems[m_size] = x;
         m_size++;
+        SASSERT(contains(x));
     }
     
     void remove(unsigned x) {
@@ -361,6 +362,7 @@ public:
             m_index[x] = m_size;
             m_elems[m_size] = x; 
         }
+        SASSERT(!contains(x));
     }
 
     bool contains(unsigned x) const { return x < m_index.size() && m_index[x] < m_size && m_elems[m_index[x]] == x; }
