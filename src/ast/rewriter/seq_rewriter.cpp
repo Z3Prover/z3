@@ -543,15 +543,40 @@ br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
 br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& result) {
     zstring s;
     rational pos, len;
-    if (m_util.str.is_string(a, s) && m_autil.is_numeral(b, pos) && m_autil.is_numeral(c, len) &&
-        pos.is_unsigned() && len.is_unsigned() && pos.get_unsigned() + len.get_unsigned() <= s.length()) {
-        unsigned _pos = pos.get_unsigned();
-        unsigned _len = len.get_unsigned();
-        result = m_util.str.mk_string(s.extract(_pos, _len));
+
+    bool constantBase = m_util.str.is_string(a, s);
+    bool constantPos = m_autil.is_numeral(b, pos);
+    bool constantLen = m_autil.is_numeral(c, len);
+
+    // case 1: pos<0 or len<0
+    // rewrite to ""
+    if ( (constantPos && pos.is_neg()) || (constantLen && len.is_neg()) ) {
+        result = m_util.str.mk_string(symbol(""));
         return BR_DONE;
     }
+    // case 1.1: pos >= length(base)
+    // rewrite to ""
+    if (constantBase && constantPos && pos.get_unsigned() >= s.length()) {
+        result = m_util.str.mk_string(symbol(""));
+        return BR_DONE;
+    }
+
+    if (constantBase && constantPos && constantLen) {
+        if (pos.get_unsigned() + len.get_unsigned() >= s.length()) {
+            // case 2: pos+len goes past the end of the string
+            unsigned _len = s.length() - pos.get_unsigned() + 1;
+            result = m_util.str.mk_string(s.extract(pos.get_unsigned(), _len));
+            return BR_DONE;
+        } else {
+            // case 3: pos+len still within string
+            result = m_util.str.mk_string(s.extract(pos.get_unsigned(), len.get_unsigned()));
+            return BR_DONE;
+        }
+    }
+
     return BR_FAILED;
 }
+
 br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
     zstring c, d;
     if (m_util.str.is_string(a, c) && m_util.str.is_string(b, d)) {
