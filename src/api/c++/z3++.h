@@ -2175,6 +2175,42 @@ namespace z3 {
     };
     inline std::ostream & operator<<(std::ostream & out, optimize const & s) { out << Z3_optimize_to_string(s.ctx(), s.m_opt); return out; }
 
+    class fixedpoint : public object {
+        Z3_fixedpoint m_fp;
+    public:
+        fixedpoint(context& c):object(c) { mfp = Z3_mk_fixedpoint(c); Z3_fixedpoint_inc_ref(c, m_fp); }
+        ~fixedpoint() { Z3_fixedpoint_dec_ref(ctx(), m_fp); }
+        operator Z3_fixedpoint() const { return m_fp; }        
+        void from_string(char const* s) { Z3_fixedpoint_from_string(ctx(), m_fp, s); check_error(); }
+        void from_file(char const* s) { Z3_fixedpoint_from_file(ctx(), m_fp, s); check_error(); }
+        void add_rule(expr& rule, symbol const& name) { Z3_fixedpoint_add_rule(ctx(), m_fp, rule, name); check_error(); }
+        void add_fact(func_decl& f, unsigned const* args) { Z3_fixedpoint_add_fact(ctx(), m_fp, f, f.num_args(), args); check_error(); }
+        check_result query(expr& q) { Z3_lbool r = Z3_fixedpoint_query(ctx(), m_fp, q); check_error(); to_check_result(r); }
+        check_result query(func_decl_vector& relations) { 
+            array<Z3_func_decl> rs(relations);
+            Z3_lbool r = Z3_fixedpoint_query_relations(ctx(), m_fp, rs.size(), rs.ptr()); 
+            check_error(); 
+            return to_check_result(r); 
+        }
+        expr get_answer() { Z3_ast r = Z3_fixedpoint_get_answer(ctx(), m_fp); check_error(); return expr(ctx(), r); }
+        std::string reason_unknown() { return Z3_fixedpoint_get_reason_unknown(ctx(), m_fp); }
+        void update_rule(expr& rule, synbol const& name) { Z3_fixedpoint_update_rule(ctx(), m_fp, rule, name); check_error(); }
+        unsigned get_num_levels(func_decl& p) { unsigned r = Z3_fixedpoint_get_num_levels(ctx(), m_fp, p); check_error(); return r; }
+        expr get_cover_delta(int level, func_decl& p) { return Z3_fixedpoint_get_cover_delta(ctx(), m_fp, level, p); check_error();  }
+        void add_cover(int level, func_decl& p, expr& property) { Z3_fixedpoint_add_cover(ctx(), m_fp, level, p, property); check_error();  }
+        stats statistics() const { Z3_stats r = Z3_fixedpoint_get_statistics(ctx(), m_fp); check_error(); return stats(ctx(), r); }
+        void register_relation(func_decl& p) { Z3_fixedpoint_register_relation(ctx(), m_fp, p); }
+        expr_vector assertions() const { Z3_ast_vector r = Z3_fixedpoint_get_assertions(ctx(), m_fp); check_error(); return expr_vector(ctx(), r); }
+        expr_vector rules() const { Z3_ast_vector r = Z3_fixedpoint_get_rules(ctx(), m_fp); check_error(); return expr_vector(ctx(), r); }
+        void set(params const & p) { Z3_fixedpoint_set_params(ctx(), m_fp, p); check_error(); }
+        std::string help() const { return Z3_fixedpoint_get_help(ctx(), m_fp); }
+        param_descrs get_param_descrs() { return param_descrs(ctx(), Z3_fixedpoint_get_param_descrs(ctx(), m_fp)); }
+        std::string to_string() { return Z3_fixedpoint_to_string(ctx(), m_fp); }
+        void push() { Z3_fixedpoint_push(ctx(), m_fp); check_error(); }
+        void pop() { Z3_fixedpoint_pop(ctx(), m_fp); check_error(); }
+    };
+    inline std::ostream & operator<<(std::ostream & out, fixedpoint const & f) { return out << Z3_fixedpoint_to_string(f.ctx(), f); }
+
     inline tactic fail_if(probe const & p) {
         Z3_tactic r = Z3_tactic_fail_if(p.ctx(), p);
         p.check_error();

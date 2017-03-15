@@ -290,7 +290,7 @@ namespace sat {
                 get_scc();
                 find_heights();
                 construct_lookahead_table();
-            }
+            }            
         }
 
         struct candidate {
@@ -314,7 +314,10 @@ namespace sat {
                 if (!m_candidates.empty()) break;
                 if (is_sat()) {
                     return false;
-                }            
+                }         
+                if (newbies) {
+                    TRACE("sat", tout << sum << "\n";);
+                }
             }
             SASSERT(!m_candidates.empty());
             // cut number of candidates down to max_num_cand.
@@ -398,16 +401,27 @@ namespace sat {
                 literal l(*it, false);
                 literal_vector const& lits1 = m_binary[l.index()];
                 for (unsigned i = 0; i < lits1.size(); ++i) {
-                    if (!is_true(lits1[i])) return false;
+                    if (!is_true(lits1[i])) {
+                        TRACE("sat", tout << l << " " << lits1[i] << "\n";);
+                        return false;
+                    }
                 }
-                literal_vector const& lits2 = m_binary[(~l).index()];
+                l.neg();
+                literal_vector const& lits2 = m_binary[l.index()];
                 for (unsigned i = 0; i < lits2.size(); ++i) {
-                    if (!is_true(lits2[i])) return false;
+                    if (!is_true(lits2[i])) {
+                        TRACE("sat", tout << l << " " << lits2[i] << "\n";);
+                        return false;
+                    }
                 }
             }
             for (unsigned i = 0; i < m_clauses.size(); ++i) {
                 clause& c = *m_clauses[i];
-                if (!is_true(c[0]) && !is_true(c[1])) return false;
+                unsigned j = 0;
+                for (; j < c.size() && !is_true(c[j]); ++j) {}
+                if (j == c.size()) {
+                    return false;
+                }
             }
             return true;
         }
@@ -645,8 +659,8 @@ namespace sat {
             literal best = v;
             float best_rating = get_rating(v);
             set_rank(v, UINT_MAX);
-            m_settled.push_back(t);
             while (t != v) {
+                m_settled.push_back(t);
                 SASSERT(t != ~v);
                 set_rank(t, UINT_MAX);
                 set_parent(t, v);
@@ -657,6 +671,7 @@ namespace sat {
                 }
                 t = get_link(t);
             }
+            m_settled.push_back(v);
             set_parent(v, v);
             set_vcomp(v, best);
             if (get_rank(~v) == UINT_MAX) {
@@ -705,6 +720,7 @@ namespace sat {
         }
 
         void find_heights() {
+            TRACE("sat", tout << m_settled << "\n";);
             literal pp = null_literal;
             set_child(pp, null_literal);
             unsigned h = 0;
