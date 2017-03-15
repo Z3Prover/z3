@@ -24,7 +24,6 @@ Revision History:
 #include"ast_smt_pp.h"
 #include"arith_decl_plugin.h"
 #include"bv_decl_plugin.h"
-#include"str_decl_plugin.h"
 #include"array_decl_plugin.h"
 #include"datatype_decl_plugin.h"
 #include"fpa_decl_plugin.h"

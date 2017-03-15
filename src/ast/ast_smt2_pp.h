@@ -30,7 +30,6 @@ Revision History:
 #include"fpa_decl_plugin.h"
 #include"dl_decl_plugin.h"
 #include"seq_decl_plugin.h"
-#include"str_decl_plugin.h"
 #include"smt2_util.h"
 
 class smt2_pp_environment {
