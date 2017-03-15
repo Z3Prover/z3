@@ -279,7 +279,10 @@ namespace sat {
             unsigned sz = c.size();
             if (sz == 0) {
                 s.set_conflict(justification());
-                return;
+                for (; it != end; ++it, ++it2) {
+                    *it2 = *it;
+                }
+                break;
             }
             if (sz == 1) {
                 s.assign(c[0], justification());

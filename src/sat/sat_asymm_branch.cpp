@@ -188,8 +188,8 @@ namespace sat {
         case 1:
             TRACE("asymm_branch", tout << "produced unit clause: " << c[0] << "\n";);
             s.assign(c[0], justification());
-            s.del_clause(c);
             s.propagate_core(false); 
+            s.del_clause(c);
             SASSERT(s.inconsistent() || s.m_qhead == s.m_trail.size());
             return false; // check_missed_propagation() may fail, since m_clauses is not in a consistent state.
         case 2:
