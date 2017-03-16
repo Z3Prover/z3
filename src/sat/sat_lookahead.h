@@ -547,7 +547,7 @@ namespace sat {
         
         literal           m_active; 
         unsigned          m_rank; 
-        literal_vector    m_settled;
+        literal           m_settled;
         vector<dfs_info>  m_dfs;
         
         void get_scc() {
@@ -574,7 +574,7 @@ namespace sat {
             // set nextp = 0?
             m_rank = 0; 
             m_active = null_literal;
-            m_settled.reset();
+            m_settled = null_literal;
             TRACE("sat", display_dfs(tout););
         }
         void init_dfs_info(literal l) {
@@ -616,30 +616,32 @@ namespace sat {
         void get_scc(literal v) {
             set_parent(v, null_literal);
             activate_scc(v);
-            literal u;
             do {
                 literal ll = get_min(v);
-                if (!has_arc(v)) {
-                    u = get_parent(v);
-                    if (v == ll) {
+                if (has_arc(v)) {
+                    literal u = pop_arc(v);
+                    unsigned r = get_rank(u);
+                    if (r > 0) {
+                        // u was processed before ll                        
+                        if (r < get_rank(ll)) set_min(v, u);
+                    }
+                    else {
+                        // process u in dfs order, add v to dfs stack for u
+                        set_parent(u, v);
+                        v = u;
+                        activate_scc(v);
+                    }
+                }
+                else {
+                    literal u = get_parent(v);
+                    if (v == ll) {                        
                         found_scc(v);
                     }
                     else if (get_rank(ll) < get_rank(get_min(u))) {
                         set_min(u, ll);
                     }
+                    // walk back in the dfs stack
                     v = u;
-                }
-                else {
-                    literal u = pop_arc(v);
-                    unsigned r = get_rank(u);
-                    if (r > 0) {
-                        if (r < get_rank(ll)) set_min(v, u);
-                    }
-                    else {
-                        set_parent(u, v);
-                        v = u;
-                        activate_scc(v);
-                    }
                 }                
             }
             while (v != null_literal);
@@ -659,8 +661,8 @@ namespace sat {
             literal best = v;
             float best_rating = get_rating(v);
             set_rank(v, UINT_MAX);
+            set_link(v, m_settled); m_settled = t; 
             while (t != v) {
-                m_settled.push_back(t);
                 SASSERT(t != ~v);
                 set_rank(t, UINT_MAX);
                 set_parent(t, v);
@@ -671,11 +673,10 @@ namespace sat {
                 }
                 t = get_link(t);
             }
-            m_settled.push_back(v);
             set_parent(v, v);
             set_vcomp(v, best);
             if (get_rank(~v) == UINT_MAX) {
-                set_vcomp(v, ~get_vcomp(get_parent(~v))); // TBD check semantics
+                set_vcomp(v, ~get_vcomp(get_parent(~v)));
             }
         } 
 
@@ -712,6 +713,7 @@ namespace sat {
                 << " rank: " << get_rank(l) 
                 << " height: " << get_height(l) 
                 << " link: " << get_link(l)
+                << " child: " << get_child(l)
                 << " vcomp: " << get_vcomp(l) << "\n";            
             return out;
         }
@@ -732,40 +734,78 @@ namespace sat {
             else m_dfs[v.index()].m_min = u; 
         }
 
+        /*
+          \brief Assign heights to the nodes.
+          Nodes within the same strongly connected component are given the same height.
+          The code assumes that m_settled is topologically sorted such that
+          1. nodes in the same equivalence class come together
+          2. the equivalence class representative is last
+
+        */
         void find_heights() {
-            TRACE("sat", display_scc(tout << m_settled << "\n"););
+            m_root_child = null_literal;
             literal pp = null_literal;
-            set_child(pp, null_literal);
             unsigned h = 0;
-            literal w;
-            for (unsigned i = m_settled.size(); i > 0; ) {
-                literal u = m_settled[--i];
+            literal w, uu;
+            TRACE("sat", 
+                  for (literal u = m_settled; u != null_literal; u = get_link(u)) {
+                      tout << u << " ";
+                  }
+                  tout << "\n";);
+            for (literal u = m_settled; u != null_literal; u = uu) {
+                TRACE("sat", tout << "process: " << u << "\n";);
+                uu = get_link(u);
                 literal p = get_parent(u);
                 if (p != pp) { 
+                    // new equivalence class
                     h = 0; 
                     w = null_literal; 
                     pp = p; 
                 }
-                for (unsigned j = 0; j < num_next(~u); ++j) {
+                // traverse nodes in order of implication
+                unsigned sz = num_next(~u);
+                for (unsigned j = 0; j < sz; ++j) {
                     literal v = ~get_next(~u, j);
+                    TRACE("sat", tout << "child " << v << " link: " << get_link(v) << "\n";);
                     literal pv = get_parent(v);
-                    if (pv == p) continue;
+                    // skip nodes in same equivalence, they will all be processed
+                    if (pv == p) continue; 
                     unsigned hh = get_height(pv);
+                    // update the maximal height descendant
                     if (hh >= h) {
                         h = hh + 1; 
                         w = pv;
                     }
                 }
-                if (p == u) { // u is an equivalence class representative
+                if (p == u) { 
+                    // u is an equivalence class representative
+                    // it is processed last
                     literal v = get_child(w);
                     set_height(u, h);
                     set_child(u, null_literal);
                     set_link(u, v);
                     set_child(w, u);
+                    TRACE("sat", tout << "child(" << w << ") = " << u << " link(" << u << ") = " << v << "\n";);
                 }
             }
-            TRACE("sat", display_scc(tout); );
+            TRACE("sat", 
+                  display_forest(tout, get_child(null_literal));
+                  tout << "\n";
+                  display_scc(tout); );
         }
+        std::ostream& display_forest(std::ostream& out, literal l) {
+            for (literal u = l; u != null_literal; u = get_link(u)) {
+                out << u << " ";
+                l = get_child(u);
+                if (l != null_literal) {
+                    out << "(";
+                    display_forest(out, l);
+                    out << ") ";
+                }
+            }
+            return out;
+        }
+
         struct literal_offset {
             literal  m_lit;
             unsigned m_offset;
