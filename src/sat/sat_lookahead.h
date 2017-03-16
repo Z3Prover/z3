@@ -520,7 +520,7 @@ namespace sat {
         
         struct arcs : public literal_vector {}; 
         // Knuth uses a shared pool of fixed size for arcs.
-        // Should it be useful we could use this approach tooo 
+        // Should it be useful we could use this approach too 
         // by changing the arcs abstraction and associated functions.
 
         struct dfs_info {
@@ -682,14 +682,16 @@ namespace sat {
         std::ostream& display_dfs(std::ostream& out) const {
             for (unsigned i = 0; i < m_candidates.size(); ++i) {
                 literal l(m_candidates[i].m_var, false);
-                arcs const& a1 = get_arcs(l);
-                if (!a1.empty()) {
-                    out << l << " -> " << a1 << "\n";
-                }
-                arcs const& a2 = get_arcs(~l);
-                if (!a2.empty()) {
-                    out << ~l << " -> " << a2 << "\n";
-                }
+                display_dfs(out, l);
+                display_dfs(out, ~l);
+            }
+            return out;
+        }
+
+        std::ostream& display_dfs(std::ostream& out, literal l) const {
+            arcs const& a1 = get_arcs(l);
+            if (!a1.empty()) {
+                out << l << " -> " << a1 << "\n";
             }
             return out;
         }
@@ -698,11 +700,22 @@ namespace sat {
             display_dfs(out);
             for (unsigned i = 0; i < m_candidates.size(); ++i) {
                 literal l(m_candidates[i].m_var, false);
-                out << l << " := " << get_parent(l) << "\n";
-                out << ~l << " := " << get_parent(~l) << "\n";
+                display_scc(out, l);
+                display_scc(out, ~l);
             }
             return out;
         }
+
+        std::ostream& display_scc(std::ostream& out, literal l) const {
+            out << l << " := " << get_parent(l) 
+                << " min: " << get_min(l) 
+                << " rank: " << get_rank(l) 
+                << " height: " << get_height(l) 
+                << " link: " << get_link(l)
+                << " vcomp: " << get_vcomp(l) << "\n";            
+            return out;
+        }
+
 
         // ------------------------------------
         // lookahead forest
@@ -720,13 +733,13 @@ namespace sat {
         }
 
         void find_heights() {
-            TRACE("sat", tout << m_settled << "\n";);
+            TRACE("sat", display_scc(tout << m_settled << "\n"););
             literal pp = null_literal;
             set_child(pp, null_literal);
             unsigned h = 0;
             literal w;
-            for (unsigned i = 0; i < m_settled.size(); ++i) {
-                literal u = m_settled[i];
+            for (unsigned i = m_settled.size(); i > 0; ) {
+                literal u = m_settled[--i];
                 literal p = get_parent(u);
                 if (p != pp) { 
                     h = 0; 
@@ -751,6 +764,7 @@ namespace sat {
                     set_child(w, u);
                 }
             }
+            TRACE("sat", display_scc(tout); );
         }
         struct literal_offset {
             literal  m_lit;
