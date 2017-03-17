@@ -50,6 +50,7 @@ namespace opt {
         if (m_params.m_case_split_strategy == CS_ACTIVITY_DELAY_NEW) {
             m_params.m_relevancy_lvl = 0;
         }
+        // m_params.m_auto_config = false;
     }
 
     unsigned opt_solver::m_dump_count = 0;
