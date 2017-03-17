@@ -1642,7 +1642,7 @@ static zstring str2RegexStr(zstring str) {
           || nc == '*' || nc == '+' || nc == '(' || nc == ')' || nc == '[' || nc == '{') {
         res = res + zstring("\\");
       }
-      char tmp[1] = {(char)str[i]};
+      char tmp[2] = {(char)str[i], '\0'};
       res = res + zstring(tmp);
     }
     return res;
