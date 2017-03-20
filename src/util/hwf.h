@@ -88,9 +88,6 @@ public:
     bool is_pzero(hwf const & x);
 
     bool is_one(hwf const & x);
-    
-    // structural eq
-    bool eq_core(hwf const & x, hwf const & y);
 
     bool eq(hwf const & x, hwf const & y);
     bool lt(hwf const & x, hwf const & y);

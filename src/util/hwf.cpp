@@ -52,6 +52,7 @@ Revision History:
 
 #ifdef USE_INTRINSICS
 #include <emmintrin.h>
+#include <smmintrin.h>
 #endif
 
 hwf_manager::hwf_manager() :
