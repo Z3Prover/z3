@@ -2719,7 +2719,9 @@ bool theory_seq::can_propagate() {
 
 expr_ref theory_seq::canonize(expr* e, dependency*& eqs) {
     expr_ref result = expand(e, eqs);
+    TRACE("seq", tout << mk_pp(e, m) << " expands to " << result << "\n";);
     m_rewrite(result);
+    TRACE("seq", tout << mk_pp(e, m) << " rewrites to " << result << "\n";);
     return result;
 }
 
@@ -4469,10 +4471,11 @@ bool theory_seq::canonizes(bool sign, expr* e) {
     context& ctx = get_context();
     dependency* deps = 0;
     expr_ref cont = canonize(e, deps);
-    TRACE("seq", tout << mk_pp(e, m) << " -> " << cont << "\n";);
+    TRACE("seq", tout << mk_pp(e, m) << " -> " << cont << "\n";
+          if (deps) display_deps(tout, deps););
     if ((m.is_true(cont) && !sign) ||
         (m.is_false(cont) && sign)) {
-        TRACE("seq", display(tout););
+        TRACE("seq", display(tout); tout << ctx.get_assignment(ctx.get_literal(e)) << "\n";);
         propagate_lit(deps, 0, 0, ctx.get_literal(e));
         return true;
     }
