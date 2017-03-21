@@ -517,13 +517,13 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     // case 1: pos<0 or len<0
     // rewrite to ""
     if ( (constantPos && pos.is_neg()) || (constantLen && len.is_neg()) ) {
-        result = m_util.str.mk_string(symbol(""));
+        result = m_util.str.mk_empty(m().get_sort(a));
         return BR_DONE;
     }
     // case 1.1: pos >= length(base)
     // rewrite to ""
     if (constantBase && constantPos && pos.get_unsigned() >= s.length()) {
-        result = m_util.str.mk_string(symbol(""));
+        result = m_util.str.mk_empty(m().get_sort(a));
         return BR_DONE;
     }
 
