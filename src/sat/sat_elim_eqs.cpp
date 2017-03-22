@@ -94,7 +94,7 @@ namespace sat {
                 continue;
             }
             if (!c.frozen())
-                m_solver.dettach_clause(c);
+                m_solver.detach_clause(c);
             // apply substitution
             for (i = 0; i < sz; i++) {
                 SASSERT(!m_solver.was_eliminated(c[i].var()));

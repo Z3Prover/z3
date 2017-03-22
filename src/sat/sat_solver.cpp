@@ -462,25 +462,25 @@ namespace sat {
             return simplify_clause_core<false>(num_lits, lits);
     }
 
-    void solver::dettach_bin_clause(literal l1, literal l2, bool learned) {
+    void solver::detach_bin_clause(literal l1, literal l2, bool learned) {
         get_wlist(~l1).erase(watched(l2, learned));
         get_wlist(~l2).erase(watched(l1, learned));
     }
 
-    void solver::dettach_clause(clause & c) {
+    void solver::detach_clause(clause & c) {
         if (c.size() == 3)
-            dettach_ter_clause(c);
+            detach_ter_clause(c);
         else
-            dettach_nary_clause(c);
+            detach_nary_clause(c);
     }
 
-    void solver::dettach_nary_clause(clause & c) {
+    void solver::detach_nary_clause(clause & c) {
         clause_offset cls_off = get_offset(c);
         erase_clause_watch(get_wlist(~c[0]), cls_off);
         erase_clause_watch(get_wlist(~c[1]), cls_off);
     }
 
-    void solver::dettach_ter_clause(clause & c) {
+    void solver::detach_ter_clause(clause & c) {
         erase_ternary_watch(get_wlist(~c[0]), c[1], c[2]);
         erase_ternary_watch(get_wlist(~c[1]), c[0], c[2]);
         erase_ternary_watch(get_wlist(~c[2]), c[0], c[1]);
@@ -1493,7 +1493,7 @@ namespace sat {
         for (unsigned i = new_sz; i < sz; i++) {
             clause & c = *(m_learned[i]);
             if (can_delete(c)) {
-                dettach_clause(c);
+                detach_clause(c);
                 del_clause(c);
             }
             else {
@@ -1551,7 +1551,7 @@ namespace sat {
                     else {
                         c.inc_inact_rounds();
                         if (c.inact_rounds() > m_config.m_gc_k) {
-                            dettach_clause(c);
+                            detach_clause(c);
                             del_clause(c);
                             m_stats.m_gc_clause++;
                             deleted++;
@@ -1562,7 +1562,7 @@ namespace sat {
                     if (psm(c) > static_cast<unsigned>(c.size() * m_min_d_tk)) {
                         // move to frozen;
                         TRACE("sat_frozen", tout << "freezing size: " << c.size() << " psm: " << psm(c) << " " << c << "\n";);
-                        dettach_clause(c);
+                        detach_clause(c);
                         c.reset_inact_rounds();
                         c.freeze();
                         m_num_frozen++;
@@ -2595,7 +2595,7 @@ namespace sat {
             }
             else {
                 clause & c = *(cw.get_clause());
-                dettach_clause(c);
+                detach_clause(c);
                 attach_clause(c, reinit);
                 if (scope_lvl() > 0 && reinit) {
                     // clause propagated literal, must keep it in the reinit stack.
@@ -2628,7 +2628,7 @@ namespace sat {
         for (unsigned i = 0; i < clauses.size(); ++i) {
             clause & c = *(clauses[i]);
             if (c.contains(lit)) {
-                dettach_clause(c);
+                detach_clause(c);
                 del_clause(c);
             }
             else {
@@ -2646,7 +2646,7 @@ namespace sat {
             literal l1 = m_user_bin_clauses[i].first;
             literal l2 = m_user_bin_clauses[i].second;
             if (nlit == l1 || nlit == l2) {
-                dettach_bin_clause(l1, l2, learned);
+                detach_bin_clause(l1, l2, learned);
             }
         }
     }
