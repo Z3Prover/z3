@@ -4214,6 +4214,7 @@ namespace smt {
         for (unsigned i = 0; i < m_asserted_formulas.get_num_formulas(); ++i) {
             expr* e = m_asserted_formulas.get_formula(i);
             if (is_quantifier(e)) {
+                TRACE("context", tout << mk_pp(e, m) << "\n";);
                 quantifier* q = to_quantifier(e);
                 if (!m.is_rec_fun_def(q)) continue;
                 SASSERT(q->get_num_patterns() == 1);

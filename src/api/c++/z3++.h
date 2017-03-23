@@ -140,7 +140,7 @@ namespace z3 {
     class context {
         bool       m_enable_exceptions;
         Z3_context m_ctx;
-        static void error_handler(Z3_context /*c*/, Z3_error_code /*e*/) { /* do nothing */ }
+        static void error_handler(Z3_context c, Z3_error_code e) { std::cout << "ex\n"; Z3_THROW(exception(Z3_get_error_msg(c, e))); std::cout << "unreach\n"; }
         void init(config & c) {
             m_ctx = Z3_mk_context_rc(c);
             m_enable_exceptions = true;
