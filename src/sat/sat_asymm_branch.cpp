@@ -96,7 +96,6 @@ namespace sat {
                 if (!process(c))
                     continue; // clause was removed
                 *it2 = *it;
-                // throw exception to test bug fix: if (it2 != it) throw solver_exception("trigger bug");
                 ++it2;
             }
             s.m_clauses.set_end(it2);
@@ -129,14 +128,14 @@ namespace sat {
         // check if the clause is already satisfied
         for (i = 0; i < sz; i++) {
             if (s.value(c[i]) == l_true) {
-                s.dettach_clause(c);
+                s.detach_clause(c);
                 s.del_clause(c);
                 return false;
             }
         }
         // try asymmetric branching
         // clause must not be used for propagation
-        s.dettach_clause(c);
+        solver::scoped_detach scoped_d(s, c);
         s.push();
         for (i = 0; i < sz - 1; i++) {
             literal l = c[i];
@@ -154,7 +153,6 @@ namespace sat {
         SASSERT(s.m_qhead == s.m_trail.size());
         if (i == sz - 1) {
             // clause size can't be reduced.
-            s.attach_clause(c);
             return true;
         }
         // clause can be reduced 
@@ -188,19 +186,18 @@ namespace sat {
         case 1:
             TRACE("asymm_branch", tout << "produced unit clause: " << c[0] << "\n";);
             s.assign(c[0], justification());
-            s.del_clause(c);
             s.propagate_core(false); 
+            scoped_d.del_clause();
             SASSERT(s.inconsistent() || s.m_qhead == s.m_trail.size());
             return false; // check_missed_propagation() may fail, since m_clauses is not in a consistent state.
         case 2:
             SASSERT(s.value(c[0]) == l_undef && s.value(c[1]) == l_undef);
             s.mk_bin_clause(c[0], c[1], false);
-            s.del_clause(c);
+            scoped_d.del_clause();
             SASSERT(s.m_qhead == s.m_trail.size());
             return false;
         default:
             c.shrink(new_sz);
-            s.attach_clause(c);
             SASSERT(s.m_qhead == s.m_trail.size());
             return true;
         }

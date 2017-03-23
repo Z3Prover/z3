@@ -70,6 +70,7 @@ void small_object_allocator::reset() {
 
 void small_object_allocator::deallocate(size_t size, void * p) {
     if (size == 0) return;
+
 #if defined(Z3DEBUG) && !defined(_WINDOWS)
     // Valgrind friendly
     memory::deallocate(p);
@@ -93,6 +94,7 @@ void small_object_allocator::deallocate(size_t size, void * p) {
 
 void * small_object_allocator::allocate(size_t size) {
     if (size == 0) return 0;
+
 #if defined(Z3DEBUG) && !defined(_WINDOWS)
     // Valgrind friendly
     return memory::allocate(size);

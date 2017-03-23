@@ -901,7 +901,7 @@ namespace smt {
         objective_term const& objective = m_objectives[v];
         has_shared = false;
         
-        IF_VERBOSE(1,
+        IF_VERBOSE(4,
                    for (unsigned i = 0; i < objective.size(); ++i) {
                        verbose_stream() << objective[i].second 
                                         << " * v" << objective[i].first << " ";
@@ -991,9 +991,12 @@ namespace smt {
                 if (num_nodes <= v && v < num_nodes + num_edges) {
                     unsigned edge_id = v - num_nodes;
                     literal lit = m_edges[edge_id].m_justification;
-                    get_context().literal2expr(lit, tmp);
-                    core.push_back(tmp);
+                    if (lit != null_literal) {
+                        get_context().literal2expr(lit, tmp);
+                        core.push_back(tmp);
+                    }
                 }
+                TRACE("opt", tout << core << "\n";);
             }
             for (unsigned i = 0; i < num_nodes; ++i) {
                 mpq_inf const& val = S.get_value(i);

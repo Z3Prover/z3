@@ -551,13 +551,13 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     // case 1: pos<0 or len<0
     // rewrite to ""
     if ( (constantPos && pos.is_neg()) || (constantLen && len.is_neg()) ) {
-        result = m_util.str.mk_string(symbol(""));
+        result = m_util.str.mk_empty(m().get_sort(a));
         return BR_DONE;
     }
     // case 1.1: pos >= length(base)
     // rewrite to ""
     if (constantBase && constantPos && pos.get_unsigned() >= s.length()) {
-        result = m_util.str.mk_string(symbol(""));
+        result = m_util.str.mk_empty(m().get_sort(a));
         return BR_DONE;
     }
 
@@ -663,20 +663,21 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
 br_status seq_rewriter::mk_seq_at(expr* a, expr* b, expr_ref& result) {
     zstring c;
     rational r;
-    if (m_util.str.is_string(a, c) && m_autil.is_numeral(b, r)) {
+    if (m_autil.is_numeral(b, r)) {
         if (r.is_neg()) {
-            result = m_util.str.mk_string(symbol(""));
+            result = m_util.str.mk_empty(m().get_sort(a));
             return BR_DONE;
-        } else if (r.is_unsigned()) {
-            unsigned j = r.get_unsigned();
-            if (j < c.length()) {
-                result = m_util.str.mk_string(c.extract(j, 1));
-                return BR_DONE;
-            } else {
-                result = m_util.str.mk_string(symbol(""));
-                return BR_DONE;
-            }
+        } 
+        unsigned len = 0;
+        bool bounded = min_length(1, &a, len);
+        if (bounded && r >= rational(len)) {
+            result = m_util.str.mk_empty(m().get_sort(a));
+            return BR_DONE;
         }
+        if (m_util.str.is_string(a, c) && r.is_unsigned() && r < rational(c.length())) {
+            result = m_util.str.mk_string(c.extract(r.get_unsigned(), 1));
+            return BR_DONE;
+        } 
     }
     return BR_FAILED;
 }
@@ -734,6 +735,7 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
     bool isc2 = m_util.str.is_string(b, s2);
     if (isc1 && isc2) {
         result = m().mk_bool_val(s1.prefixof(s2));
+        TRACE("seq", tout << result << "\n";);
         return BR_DONE;
     }
     if (m_util.str.is_empty(a)) {
@@ -747,6 +749,7 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
     expr_ref_vector as(m()), bs(m());
 
     if (a1 != b1 && isc1 && isc2) {
+        TRACE("seq", tout << s1 << " " << s2 << "\n";);
         if (s1.length() <= s2.length()) {
             if (s1.prefixof(s2)) {
                 if (a == a1) {
@@ -791,26 +794,27 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
     m_util.str.get_concat(a, as);
     m_util.str.get_concat(b, bs);
     unsigned i = 0;
-    bool all_values = true;    
     expr_ref_vector eqs(m());
     for (; i < as.size() && i < bs.size(); ++i) {
         expr* a = as[i].get(), *b = bs[i].get();
         if (a == b) {
             continue;
         }
-        all_values &= m().is_value(a) && m().is_value(b);
-        if (all_values) {
-            result = m().mk_false();
-            return BR_DONE;
-        }
         if (m_util.str.is_unit(a) && m_util.str.is_unit(b)) {
             eqs.push_back(m().mk_eq(a, b));
             continue;
         }
+        if (m().is_value(a) && m().is_value(b) && m_util.str.is_string(a) && m_util.str.is_string(b)) {
+            TRACE("seq", tout << mk_pp(a, m()) << " != " << mk_pp(b, m()) << "\n";);
+            result = m().mk_false();
+            return BR_DONE;
+        }
+
         break;
     }
     if (i == as.size()) {
         result = mk_and(eqs);
+        TRACE("seq", tout << result << "\n";);
         if (m().is_true(result)) {
             return BR_DONE;
         }
@@ -822,6 +826,7 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
             eqs.push_back(m().mk_eq(m_util.str.mk_empty(m().get_sort(a)), as[j].get()));
         }
         result = mk_and(eqs);
+        TRACE("seq", tout << result << "\n";);
         return BR_REWRITE3;
     }
     if (i > 0) {
@@ -829,6 +834,7 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
         a = m_util.str.mk_concat(as.size() - i, as.c_ptr() + i);
         b = m_util.str.mk_concat(bs.size() - i, bs.c_ptr() + i); 
         result = m_util.str.mk_prefix(a, b);
+        TRACE("seq", tout << result << "\n";);
         return BR_DONE;
     }
     else {

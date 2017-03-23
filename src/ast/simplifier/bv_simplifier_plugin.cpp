@@ -1517,13 +1517,24 @@ void bv_simplifier_plugin::mk_bv2int(expr * arg, sort* range, expr_ref & result)
         result = m_arith.mk_add(tmp1, tmp2);        
     }
     // commented out to reproduce bug in reduction of int2bv/bv2int
-    else if (m_util.is_concat(arg)) {
-        expr_ref tmp1(m_manager), tmp2(m_manager);
-        unsigned sz2 = get_bv_size(to_app(arg)->get_arg(1));
-        mk_bv2int(to_app(arg)->get_arg(0), range, tmp1);
-        mk_bv2int(to_app(arg)->get_arg(1), range, tmp2);
-        tmp1 = m_arith.mk_mul(m_arith.mk_numeral(power(numeral(2), sz2), true), tmp1);
-        result = m_arith.mk_add(tmp1, tmp2);
+    else if (m_util.is_concat(arg) && to_app(arg)->get_num_args() > 0) {
+        expr_ref_vector args(m_manager);        
+        unsigned num_args = to_app(arg)->get_num_args();
+        for (unsigned i = 0; i < num_args; ++i) {
+            expr_ref tmp(m_manager);
+            mk_bv2int(to_app(arg)->get_arg(i), range, tmp);
+            args.push_back(tmp);
+        }
+        unsigned sz = get_bv_size(to_app(arg)->get_arg(num_args-1));
+        for (unsigned i = num_args - 1; i > 0; ) {
+            expr_ref tmp(m_manager);
+            --i;
+            tmp = args[i].get();
+            tmp = m_arith.mk_mul(m_arith.mk_numeral(power(numeral(2), sz), true), tmp);
+            args[i] = tmp;
+            sz += get_bv_size(to_app(arg)->get_arg(i));
+        }
+        result = m_arith.mk_add(args.size(), args.c_ptr());
     }
     else {
         parameter parameter(range);

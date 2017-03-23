@@ -394,10 +394,6 @@ namespace datalog {
         m_simp(a, simp1_res);
         (*m_rw)(simp1_res.get(), res);
 
-        /*if (simp1_res.get()!=res.get()) {
-            std::cout<<"pre norm:\n"<<mk_pp(simp1_res.get(),m)<<"post norm:\n"<<mk_pp(res.get(),m)<<"\n";
-        }*/
-
         m_simp(res.get(), res);
     }
 

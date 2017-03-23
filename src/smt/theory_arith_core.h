@@ -40,7 +40,7 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::found_underspecified_op(app * n) {
         if (!m_found_underspecified_op) {
-            TRACE("arith", tout << "found non underspecificed expression:\n" << mk_pp(n, get_manager()) << "\n";);
+            TRACE("arith", tout << "found underspecificed expression:\n" << mk_pp(n, get_manager()) << "\n";);
             get_context().push_trail(value_trail<context, bool>(m_found_underspecified_op));
             m_found_underspecified_op = true;
         }
@@ -395,6 +395,7 @@ namespace smt {
 
     template<typename Ext>
     theory_var theory_arith<Ext>::internalize_div(app * n) {
+        if (!m_util.is_numeral(n->get_arg(1))) found_underspecified_op(n);
         found_underspecified_op(n);
         theory_var s      = mk_binary_op(n);
         context & ctx     = get_context();
@@ -418,7 +419,7 @@ namespace smt {
     template<typename Ext>
     theory_var theory_arith<Ext>::internalize_mod(app * n) {
         TRACE("arith_mod", tout << "internalizing...\n" << mk_pp(n, get_manager()) << "\n";);
-        found_underspecified_op(n);
+        if (!m_util.is_numeral(n->get_arg(1))) found_underspecified_op(n);
         theory_var s      = mk_binary_op(n);
         context & ctx     = get_context();
         if (!ctx.relevancy())
@@ -428,7 +429,7 @@ namespace smt {
 
     template<typename Ext>
     theory_var theory_arith<Ext>::internalize_rem(app * n) {
-        found_underspecified_op(n);
+        if (!m_util.is_numeral(n->get_arg(1))) found_underspecified_op(n);
         theory_var s  = mk_binary_op(n);
         context & ctx = get_context();
         if (!ctx.relevancy()) {

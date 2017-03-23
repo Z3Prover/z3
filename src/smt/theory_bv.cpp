@@ -607,12 +607,13 @@ namespace smt {
         }
         expr_ref sum(m);
         arith_simp().mk_add(sz, args.c_ptr(), sum);
+        literal l(mk_eq(n, sum, false));
         TRACE("bv", 
               tout << mk_pp(n, m) << "\n";
               tout << mk_pp(sum, m) << "\n";
+              ctx.display_literal_verbose(tout, l); 
+              tout << "\n";
               );
-
-        literal l(mk_eq(n, sum, false));
        
         ctx.mark_as_relevant(l);
         ctx.mk_th_axiom(get_id(), 1, &l);
