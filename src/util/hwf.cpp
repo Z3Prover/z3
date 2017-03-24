@@ -305,8 +305,8 @@ void hwf_manager::round_to_integral(mpf_rounding_mode rm, hwf const & x, hwf & o
     // same in 32-bit and 64-bit mode. The _mm_round_* intrinsics are SSE4 extensions.
 #ifdef _WINDOWS
 #if defined(USE_INTRINSICS) && \
-    (defined(_WINDOWS) && defined(__AVX__)) || \
-    (!defined(_WINDOWS) && defined(__SSE4_1__) )
+    (defined(_WINDOWS) && (defined(__AVX__) || defined(_M_X64))) || \
+    (!defined(_WINDOWS) && defined(__SSE4_1__))
     switch (rm) {
     case 0: _mm_store_sd(&o.value, _mm_round_pd(_mm_set_sd(x.value), _MM_FROUND_TO_NEAREST_INT)); break;
     case 2: _mm_store_sd(&o.value, _mm_round_pd(_mm_set_sd(x.value), _MM_FROUND_TO_POS_INF)); break;
