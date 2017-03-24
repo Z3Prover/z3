@@ -1019,6 +1019,7 @@ namespace smt {
 
     template<typename Ext>
     theory_var theory_dense_diff_logic<Ext>::add_objective(app* term) {
+        TRACE("opt", tout << mk_pp(term, get_manager()) << "\n";);
         objective_term objective;
         theory_var result = m_objectives.size();
         rational q(1), r(0);
@@ -1053,6 +1054,7 @@ namespace smt {
         ast_manager& m = get_manager();
         objective_term const& t = m_objectives[v];
         expr_ref e(m), f(m), f2(m);
+        TRACE("opt", tout << "mk_ineq " << v << " " << val << "\n";);
         if (t.size() == 1 && t[0].second.is_one()) {
             f = get_enode(t[0].first)->get_owner();
         }
