@@ -52,7 +52,9 @@ Revision History:
 
 #ifdef USE_INTRINSICS
 #include <emmintrin.h>
+#if defined(_MSC_VER) || defined(__SSE4_1__)
 #include <smmintrin.h>
+#endif
 #endif
 
 hwf_manager::hwf_manager() :
