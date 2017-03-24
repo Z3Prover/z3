@@ -1167,8 +1167,6 @@ namespace smt {
 
         void add_rec_funs_to_model();
 
-        bool is_fun_def(expr* f, expr* q, expr_ref& body);
-
     public:
         bool can_propagate() const;
 

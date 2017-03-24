@@ -318,7 +318,7 @@ namespace smt {
 
     bool model_checker::check_rec_fun(quantifier* q) {
         TRACE("model_checker", tout << mk_pp(q, m) << "\n";);
-        SASSERT(q->get_num_patterns() == 1);
+        SASSERT(q->get_num_patterns() == 2); // first pattern is the function, second is the body.
         expr* fn = to_app(q->get_pattern(0))->get_arg(0);
         SASSERT(is_app(fn));
         func_decl* f = to_app(fn)->get_decl();
