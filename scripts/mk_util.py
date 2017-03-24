@@ -2685,8 +2685,8 @@ def get_full_version_string(major, minor, build, revision):
     if GIT_HASH:
         res += " " + GIT_HASH
     if GIT_DESCRIBE:
-        branch = check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD', '--long'])
-        res += " master " + check_output(['git', 'describe'])
+        branch = check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD'])
+        res += " " + branch + " " + check_output(['git', 'describe'])
     return '"' + res + '"'
 
 # Update files with the version number
