@@ -189,10 +189,9 @@ bool rewriter_tpl<Config>::constant_fold(app * t, frame & fr) {
             result_stack().shrink(fr.m_spos);
             result_stack().push_back(arg);
             fr.m_state = REWRITE_BUILTIN;
-            unsigned max_depth = fr.m_max_depth;
             if (visit<false>(arg, fr.m_max_depth)) {
                 m_r = result_stack().back();
-                result_stack().pop_back(); 
+                result_stack().pop_back();
                 result_stack().pop_back();
                 result_stack().push_back(m_r);
                 cache_result<false>(t, m_r, m_pr, fr.m_cache_result);
