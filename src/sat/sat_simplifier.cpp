@@ -149,7 +149,6 @@ namespace sat {
     }
 
     void simplifier::operator()(bool learned) {
-        std::cout << s.rlimit().count() << "\n";
         if (s.inconsistent())
             return;
         if (!m_subsumption && !m_elim_blocked_clauses && !m_resolution)
