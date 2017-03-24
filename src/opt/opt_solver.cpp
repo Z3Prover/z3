@@ -358,6 +358,7 @@ namespace opt {
         }
         smt::theory_opt& opt = get_optimizer();
         smt::theory_var v = m_objective_vars[var];
+        TRACE("opt", tout << "v" << var << " " << val << "\n";);
 
         if (typeid(smt::theory_inf_arith) == typeid(opt)) {
             smt::theory_inf_arith& th = dynamic_cast<smt::theory_inf_arith&>(opt); 
@@ -387,8 +388,32 @@ namespace opt {
             smt::theory_rdl& th = dynamic_cast<smt::theory_rdl&>(opt);
             return th.mk_ge(m_fm, v, val);
         }
+        
+        if (typeid(smt::theory_dense_i) == typeid(opt) &&
+            val.get_infinitesimal().is_zero()) {
+            smt::theory_dense_i& th = dynamic_cast<smt::theory_dense_i&>(opt);
+            return th.mk_ge(m_fm, v, val);
+        }
 
-        // difference logic?
+        if (typeid(smt::theory_dense_mi) == typeid(opt) &&
+            val.get_infinitesimal().is_zero()) {
+            smt::theory_dense_mi& th = dynamic_cast<smt::theory_dense_mi&>(opt);
+            return th.mk_ge(m_fm, v, val);
+        }
+
+        if (typeid(smt::theory_dense_si) == typeid(opt) &&
+            val.get_infinitesimal().is_zero()) {
+            smt::theory_dense_si& th = dynamic_cast<smt::theory_dense_si&>(opt);
+            return th.mk_ge(m_fm, v, val);
+        }
+
+        if (typeid(smt::theory_dense_smi) == typeid(opt) &&
+            val.get_infinitesimal().is_zero()) {
+            smt::theory_dense_smi& th = dynamic_cast<smt::theory_dense_smi&>(opt);
+            return th.mk_ge(m_fm, v, val);
+        }
+        
+        IF_VERBOSE(0, verbose_stream() << "WARNING: unhandled theory " << typeid(opt).name() << "\n";);
         return expr_ref(m.mk_true(), m);
     } 
 
