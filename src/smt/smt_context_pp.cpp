@@ -606,7 +606,7 @@ namespace smt {
         case b_justification::CLAUSE: {
             clause * cls = j.get_clause();
             out << "clause ";
-            if (cls) display_literals_verbose(out, cls->get_num_literals(), cls->begin_literals());
+            if (cls) display_literals(out, cls->get_num_literals(), cls->begin_literals());
             break;
         }
         case b_justification::JUSTIFICATION: {
