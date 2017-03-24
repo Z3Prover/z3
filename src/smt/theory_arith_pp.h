@@ -533,7 +533,7 @@ namespace smt {
     void theory_arith<Ext>::display_bounds_in_smtlib() const {
         char buffer[128];
         static int id = 0;
-#ifdef _WINDOWS
+#if defined(_WINDOWS) && defined(_MSC_VER)
         sprintf_s(buffer, ARRAYSIZE(buffer), "arith_%d.smt", id);
 #else
         sprintf(buffer, "arith_%d.smt", id);

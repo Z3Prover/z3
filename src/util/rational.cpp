@@ -19,7 +19,7 @@ Revision History:
 #include<sstream>
 #include"util.h"
 #include"rational.h"
-#ifdef _WINDOWS
+#if defined(_WINDOWS) && defined(_MSC_VER)
 #include<strsafe.h>
 #endif
 

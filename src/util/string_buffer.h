@@ -81,7 +81,7 @@ public:
 
     void append(int n) {
         char buffer[24]; 
-#ifdef _WINDOWS
+#if defined(_WINDOWS) && defined(_MSC_VER)
         sprintf_s(buffer, ARRAYSIZE(buffer), "%d", n);
 #else
         sprintf(buffer, "%d", n);
@@ -91,7 +91,7 @@ public:
 
     void append(unsigned n) {
         char buffer[24]; 
-#ifdef _WINDOWS
+#if defined(_WINDOWS) && defined(_MSC_VER)
         sprintf_s(buffer, ARRAYSIZE(buffer), "%d", n);
 #else
         sprintf(buffer, "%d", n);
@@ -101,7 +101,7 @@ public:
 
     void append(long n) {
         char buffer[24]; 
-#ifdef _WINDOWS
+#if defined(_WINDOWS) && defined(_MSC_VER)
         sprintf_s(buffer, ARRAYSIZE(buffer), "%ld", n);
 #else
         sprintf(buffer, "%ld", n);

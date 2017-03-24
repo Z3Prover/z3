@@ -17,7 +17,7 @@ Author:
 Revision History:
 
 --*/
-#ifdef _WINDOWS
+#if defined(_WINDOWS) && defined(_MSC_VER)
 #include <string>
 #include <windows.h>
 #include <strsafe.h>

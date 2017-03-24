@@ -51,7 +51,7 @@ COMPILE_TIME_ASSERT(sizeof(int64) == 8);
 #define UINT64_MAX 0xffffffffffffffffull
 #endif
 
-#ifdef _WINDOWS
+#if defined(_WINDOWS) && defined(_MSC_VER)
 #define SSCANF sscanf_s
 #define SPRINTF sprintf_s
 #else

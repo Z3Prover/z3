@@ -205,7 +205,7 @@ static int g_problem_id = 0;
 static char g_buffer[BUFFER_SZ];
 
 char const * get_next_file_name() {
-#ifdef _WINDOWS
+#if defined(_WINDOWS) && defined(_MSC_VER)
     sprintf_s(g_buffer, BUFFER_SZ, "interval_lemma_%d.smt2", g_problem_id);
 #else
     sprintf(g_buffer, "interval_lemma_%d.smt2", g_problem_id);
