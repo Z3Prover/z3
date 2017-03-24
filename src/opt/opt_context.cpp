@@ -273,7 +273,8 @@ namespace opt {
         display_benchmark();
         IF_VERBOSE(1, verbose_stream() << "(optimize:check-sat)\n";);
         lbool is_sat = s.check_sat(0,0);
-        TRACE("opt", tout << "initial search result: " << is_sat << "\n";);
+        TRACE("opt", tout << "initial search result: " << is_sat << "\n";
+              s.display(tout););
         if (is_sat != l_false) {
             s.get_model(m_model);
             s.get_labels(m_labels);
@@ -1034,6 +1035,10 @@ namespace opt {
             term = m_arith.mk_add(args.size(), args.c_ptr());
         }
         else if (m_arith.is_arith_expr(term) && !is_mul_const(term)) {
+            TRACE("opt", tout << "Purifying " << term << "\n";);
+            term = purify(fm, term);
+        }
+        else if (m.is_ite(term)) {
             TRACE("opt", tout << "Purifying " << term << "\n";);
             term = purify(fm, term);
         }

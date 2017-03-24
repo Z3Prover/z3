@@ -868,7 +868,8 @@ namespace smt {
                 e = ctx.get_enode(to_app(n));                
             }
             else {
-                e = ctx.mk_enode(to_app(n), false, false, true);
+                ctx.internalize(n, false);
+                e = ctx.get_enode(n);
             }            
             v = e->get_th_var(get_id());
             if (v == null_theory_var) {
@@ -1008,7 +1009,8 @@ namespace smt {
             inf_eps result(rational(0), r);
             blocker = mk_gt(v, result);
             IF_VERBOSE(10, verbose_stream() << blocker << "\n";);
-            return result;
+            r += m_objective_consts[v];
+            return inf_eps(rational(0), r);
         }
         default:
             TRACE("opt", tout << "unbounded\n"; );        
