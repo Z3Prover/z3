@@ -78,7 +78,19 @@ namespace sat {
 
     lbool simplifier::value(literal l) const { return s.value(l); }
 
-    inline void simplifier::checkpoint() { s.checkpoint(); }
+    void simplifier::checkpoint() {
+        if (s.m_rlimit.inc()) {
+            finalize();
+            s.m_mc.reset();
+            s.m_model_is_current = false;
+            throw solver_exception(Z3_CANCELED_MSG);
+        }
+        ++s.m_num_checkpoints;
+        if (s.m_num_checkpoints < 10) return;
+        s.m_num_checkpoints = 0;
+        if (memory::get_allocation_size() > s.m_config.m_max_memory) throw solver_exception(Z3_MAX_MEMORY_MSG);
+
+    }
 
     void simplifier::register_clauses(clause_vector & cs) {
         std::stable_sort(cs.begin(), cs.end(), size_lt());
@@ -185,7 +197,7 @@ namespace sat {
         m_elim_counter = m_res_limit;
         m_old_num_elim_vars = m_num_elim_vars;
 
-        scoped_finalize _scoped_finalize(*this);
+
 
         do {
             if (m_subsumption)
@@ -200,9 +212,9 @@ namespace sat {
                 break;
         }
         while (!m_sub_todo.empty());
-    }
 
-    void simplifier::scoped_finalize_fn() {
+
+  
         bool vars_eliminated = m_num_elim_vars > m_old_num_elim_vars;
 
         if (m_need_cleanup) {

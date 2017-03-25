@@ -173,13 +173,7 @@ namespace sat {
         struct subsumption_report;
         struct elim_var_report;
 
-        class scoped_finalize {
-            simplifier& s;
-        public:
-            scoped_finalize(simplifier& s) : s(s) {}
-            ~scoped_finalize() { s.scoped_finalize_fn(); }
-        };
-        void scoped_finalize_fn();
+
 
     public:
         simplifier(solver & s, params_ref const & p);
