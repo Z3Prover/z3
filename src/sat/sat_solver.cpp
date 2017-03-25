@@ -101,7 +101,7 @@ namespace sat {
                     if (!it->is_binary_non_learned_clause())
                         continue;
                     literal l2 = it->get_literal();
-                    if (l.index() > l2.index()) 
+                    if (l.index() > l2.index())
                         continue;
                     mk_clause_core(l, l2);
                 }
@@ -223,7 +223,7 @@ namespace sat {
         if (propagate_bin_clause(l1, l2)) {
             if (scope_lvl() == 0)
                 return;
-            if (!learned) 
+            if (!learned)
                 m_clauses_to_reinit.push_back(clause_wrapper(l1, l2));
         }
         m_stats.m_mk_bin_clause++;
@@ -248,7 +248,7 @@ namespace sat {
     void solver::push_reinit_stack(clause & c) {
         TRACE("sat_reinit", tout << "adding to reinit stack: " << c << "\n";);
         m_clauses_to_reinit.push_back(clause_wrapper(c));
-        c.set_reinit_stack(true);    
+        c.set_reinit_stack(true);
     }
 
 
@@ -257,7 +257,7 @@ namespace sat {
         clause * r = m_cls_allocator.mk_clause(3, lits, learned);
         bool reinit = attach_ter_clause(*r);
         if (reinit && !learned) push_reinit_stack(*r);
-        
+
         if (learned)
             m_learned.push_back(r);
         else
@@ -806,22 +806,22 @@ namespace sat {
             m_params.set_uint("random_seed", m_rand());
             if (i == 1 + num_threads/2) {
                 m_params.set_sym("phase", symbol("random"));
-            }                        
+            }
             solvers[i] = alloc(sat::solver, m_params, rlims[i], 0);
             solvers[i]->copy(*this);
             solvers[i]->set_par(&par);
-            scoped_rlimit.push_child(&solvers[i]->rlimit());            
+            scoped_rlimit.push_child(&solvers[i]->rlimit());
         }
         set_par(&par);
         m_params.set_sym("phase", saved_phase);
         int finished_id = -1;
         std::string        ex_msg;
-        par_exception_kind ex_kind;
+        par_exception_kind ex_kind = DEFAULT_EX;
         unsigned error_code = 0;
         lbool result = l_undef;
         #pragma omp parallel for
         for (int i = 0; i < num_threads; ++i) {
-            try {                
+            try {
                 lbool r = l_undef;
                 if (i < num_extra_solvers) {
                     r = solvers[i]->check(num_lits, lits);
@@ -851,7 +851,7 @@ namespace sat {
                             rlims[j].cancel();
                         }
                     }
-                }                
+                }
             }
             catch (z3_error & err) {
                 if (i == 0) {
@@ -871,7 +871,7 @@ namespace sat {
             m_stats = solvers[finished_id]->m_stats;
         }
 
-        for (int i = 0; i < num_extra_solvers; ++i) {            
+        for (int i = 0; i < num_extra_solvers; ++i) {
             dealloc(solvers[i]);
         }
         if (finished_id == -1) {
@@ -1140,7 +1140,7 @@ namespace sat {
             for (unsigned i = 0; !inconsistent() && i < m_assumptions.size(); ++i) {
                 assign(m_assumptions[i], justification());
             }
-            TRACE("sat", 
+            TRACE("sat",
                  for (unsigned i = 0; i < m_assumptions.size(); ++i) {
                      index_set s;
                      if (m_antecedents.find(m_assumptions[i].var(), s)) {
@@ -2037,7 +2037,7 @@ namespace sat {
             }
         }
 
-        literal consequent = m_not_l; 
+        literal consequent = m_not_l;
         justification js   = m_conflict;
 
 
@@ -3115,7 +3115,7 @@ namespace sat {
             literal_pair p(l1, l2);
             if (!seen_bc.contains(p)) {
                 seen_bc.insert(p);
-                mc.add_edge(l1.index(), l2.index());             
+                mc.add_edge(l1.index(), l2.index());
             }
         }
         vector<unsigned_vector> _mutexes;
@@ -3168,7 +3168,7 @@ namespace sat {
     }
 
     void solver::fixup_consequence_core() {
-        index_set s;        
+        index_set s;
         TRACE("sat", tout << m_core << "\n";);
         for (unsigned i = 0; i < m_core.size(); ++i) {
             TRACE("sat", tout << m_core[i] << ": "; display_index_set(tout, m_antecedents.find(m_core[i].var())) << "\n";);
@@ -3218,20 +3218,20 @@ namespace sat {
         while (true) {
             ++num_iterations;
             SASSERT(!inconsistent());
-            
+
             lbool r = bounded_search();
             if (r != l_undef) {
                 fixup_consequence_core();
                 return r;
             }
-            
+
             extract_fixed_consequences(num_units, asms, unfixed_vars, conseq);
 
             if (m_conflicts > m_config.m_max_conflicts) {
                 IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-conflicts = " << m_conflicts << "\")\n";);
                 return l_undef;
             }
-            
+
             restart();
             simplify_problem();
             if (check_inconsistent()) {
@@ -3239,11 +3239,11 @@ namespace sat {
                 return l_false;
             }
             gc();
-            
+
             if (m_config.m_restart_max <= num_iterations) {
                 IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-restarts\")\n";);
                 return l_undef;
-            }            
+            }
         }
     }
 

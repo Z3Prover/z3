@@ -739,8 +739,11 @@ void cmd_context::insert_rec_fun(func_decl* f, expr_ref_vector const& binding, s
     lhs = m().mk_app(f, binding.size(), binding.c_ptr());
     eq  = m().mk_eq(lhs, e);
     if (!ids.empty()) {
-        expr* pat = m().mk_pattern(lhs);
-        eq  = m().mk_forall(ids.size(), f->get_domain(), ids.c_ptr(), eq, 0, m().rec_fun_qid(), symbol::null, 1, &pat);
+        if (!is_app(e)) {
+            throw cmd_exception("Z3 only supports recursive definitions that are proper terms (not binders or variables)");
+        }
+        expr* pats[2] = { m().mk_pattern(lhs), m().mk_pattern(to_app(e)) };
+        eq  = m().mk_forall(ids.size(), f->get_domain(), ids.c_ptr(), eq, 0, m().rec_fun_qid(), symbol::null, 2, pats);
     }
 
     //
