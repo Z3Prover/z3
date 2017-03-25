@@ -19,22 +19,22 @@ Revision History:
 --*/
 #include"macro_util.h"
 #include"occurs.h"
+#include"ast_util.h"
 #include"arith_simplifier_plugin.h"
-#include"basic_simplifier_plugin.h"
 #include"bv_simplifier_plugin.h"
 #include"var_subst.h"
 #include"ast_pp.h"
 #include"ast_ll_pp.h"
-#include"ast_util.h"
 #include"for_each_expr.h"
 #include"well_sorted.h"
+#include"bool_rewriter.h"
 
 macro_util::macro_util(ast_manager & m, simplifier & s):
     m_manager(m),
+    m_bv(m),
     m_simplifier(s),
     m_arith_simp(0),
     m_bv_simp(0),
-    m_basic_simp(0),
     m_forbidden_set(0),
     m_curr_clause(0) {
 }
@@ -55,24 +55,17 @@ bv_simplifier_plugin * macro_util::get_bv_simp() const {
     return m_bv_simp;
 }
 
-basic_simplifier_plugin * macro_util::get_basic_simp() const {
-    if (m_basic_simp == 0) {
-        const_cast<macro_util*>(this)->m_basic_simp = static_cast<basic_simplifier_plugin*>(m_simplifier.get_plugin(m_manager.get_basic_family_id()));
-    }
-    SASSERT(m_basic_simp != 0);
-    return m_basic_simp;
-}
 
 bool macro_util::is_bv(expr * n) const {
-    return get_bv_simp()->is_bv(n);
+    return m_bv.is_bv(n);
 }
 
 bool macro_util::is_bv_sort(sort * s) const {
-    return get_bv_simp()->is_bv_sort(s);
+    return m_bv.is_bv_sort(s);
 }
 
 bool macro_util::is_add(expr * n) const {
-    return get_arith_simp()->is_add(n) || get_bv_simp()->is_add(n);
+    return get_arith_simp()->is_add(n) || m_bv.is_bv_add(n);
 }
 
 bool macro_util::is_times_minus_one(expr * n, expr * & arg) const {
@@ -80,11 +73,11 @@ bool macro_util::is_times_minus_one(expr * n, expr * & arg) const {
 }
 
 bool macro_util::is_le(expr * n) const {
-    return get_arith_simp()->is_le(n) || get_bv_simp()->is_le(n);
+    return get_arith_simp()->is_le(n) || m_bv.is_bv_ule(n) || m_bv.is_bv_sle(n);
 }
 
 bool macro_util::is_le_ge(expr * n) const {
-    return get_arith_simp()->is_le_ge(n) || get_bv_simp()->is_le_ge(n);
+    return get_arith_simp()->is_le_ge(n) || m_bv.is_bv_ule(n) || m_bv.is_bv_sle(n);
 }
 
 poly_simplifier_plugin * macro_util::get_poly_simp_for(sort * s) const {
@@ -102,7 +95,7 @@ app * macro_util::mk_zero(sort * s) const {
 
 void macro_util::mk_sub(expr * t1, expr * t2, expr_ref & r) const {
     if (is_bv(t1)) {
-        get_bv_simp()->mk_sub(t1, t2, r);
+        r = m_bv.mk_bv_sub(t1, t2);
     }
     else {
         get_arith_simp()->mk_sub(t1, t2, r);
@@ -111,7 +104,7 @@ void macro_util::mk_sub(expr * t1, expr * t2, expr_ref & r) const {
 
 void macro_util::mk_add(expr * t1, expr * t2, expr_ref & r) const {
     if (is_bv(t1)) {
-        get_bv_simp()->mk_add(t1, t2, r);
+        r = m_bv.mk_bv_add(t1, t2);
     }
     else {
         get_arith_simp()->mk_add(t1, t2, r);
@@ -429,7 +422,7 @@ void macro_util::quasi_macro_head_to_macro_head(app * qhead, unsigned & num_decl
         new_args.push_back(new_var);
         new_conds.push_back(new_cond);
     }
-    get_basic_simp()->mk_and(new_conds.size(), new_conds.c_ptr(), cond);
+    bool_rewriter(m_manager).mk_and(new_conds.size(), new_conds.c_ptr(), cond);
     head = m_manager.mk_app(qhead->get_decl(), new_args.size(), new_args.c_ptr());
     num_decls = next_var_idx;
 }
@@ -687,7 +680,7 @@ void macro_util::insert_quasi_macro(app * head, unsigned num_decls, expr * def, 
             if (cond == 0)
                 new_cond = extra_cond;
             else
-                get_basic_simp()->mk_and(cond, extra_cond, new_cond);
+                bool_rewriter(m_manager).mk_and(cond, extra_cond, new_cond);
         }
         else {
             hint_to_macro_head(m_manager, head, num_decls, new_head);
@@ -719,20 +712,19 @@ void macro_util::get_rest_clause_as_cond(expr * except_lit, expr_ref & extra_con
     if (m_curr_clause == 0)
         return;
     SASSERT(is_clause(m_manager, m_curr_clause));
-    basic_simplifier_plugin * bs = get_basic_simp();
     expr_ref_buffer neg_other_lits(m_manager);
     unsigned num_lits = get_clause_num_literals(m_manager, m_curr_clause);
     for (unsigned i = 0; i < num_lits; i++) {
         expr * l = get_clause_literal(m_manager, m_curr_clause, i);
         if (l != except_lit) {
             expr_ref neg_l(m_manager);
-            bs->mk_not(l, neg_l);
+            bool_rewriter(m_manager).mk_not(l, neg_l);
             neg_other_lits.push_back(neg_l);
         }
     }
     if (neg_other_lits.empty())
         return;
-    get_basic_simp()->mk_and(neg_other_lits.size(), neg_other_lits.c_ptr(), extra_cond);
+    bool_rewriter(m_manager).mk_and(neg_other_lits.size(), neg_other_lits.c_ptr(), extra_cond);
 }
 
 void macro_util::collect_poly_args(expr * n, expr * exception, ptr_buffer<expr> & args) {
