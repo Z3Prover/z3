@@ -136,9 +136,9 @@ namespace sat {
             TRACE("iff3_finder", 
                   tout << "visiting: " << x << "\n";
                   tout << "pos:\n";
-                  display(tout, s.m_cls_allocator, pos_wlist);
+                  display_watch_list(tout, s.m_cls_allocator, pos_wlist);
                   tout << "\nneg:\n";
-                  display(tout, s.m_cls_allocator, neg_wlist);
+                  display_watch_list(tout, s.m_cls_allocator, neg_wlist);
                   tout << "\n--------------\n";);
             // traverse the ternary clauses x \/ l1 \/ l2
             bool_var curr_v1 = null_bool_var;

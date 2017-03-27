@@ -104,7 +104,7 @@ namespace sat {
     inline bool operator==(literal const & l1, literal const & l2) { return l1.m_val == l2.m_val; }
     inline bool operator!=(literal const & l1, literal const & l2) { return l1.m_val != l2.m_val; }
 
-    inline std::ostream & operator<<(std::ostream & out, literal l) { out << (l.sign() ? "-" : "") << l.var(); return out; }
+    inline std::ostream & operator<<(std::ostream & out, literal l) { if (l == null_literal) out << "null"; else out << (l.sign() ? "-" : "") << l.var(); return out; }
 
     typedef svector<literal> literal_vector;
     typedef std::pair<literal, literal> literal_pair;

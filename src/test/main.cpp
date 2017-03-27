@@ -7,7 +7,8 @@
 #include"debug.h"
 #include"timeit.h"
 #include"warning.h"
-#include "memory_manager.h"
+#include"memory_manager.h"
+#include"gparams.h"
 
 //
 // Unit tests fail by asserting.
@@ -81,6 +82,7 @@ void parse_cmd_line_args(int argc, char ** argv, bool& do_display_usage, bool& t
 	    char * opt_name = arg + 1;
 	    char * opt_arg  = 0;
 	    char * colon    = strchr(arg, ':');
+            char * eq_pos = 0;
 	    if (colon) {
 		opt_arg = colon + 1;
 		*colon  = 0;
@@ -117,6 +119,12 @@ void parse_cmd_line_args(int argc, char ** argv, bool& do_display_usage, bool& t
 		enable_debug(opt_arg);
 	    }
 #endif
+            else if (arg[0] != '"' && (eq_pos = strchr(arg, '='))) {
+                char * key   = arg;
+                *eq_pos      = 0;
+                char * value = eq_pos+1; 
+                gparams::set(key, value);
+            }
 	}
 	i++;
     }

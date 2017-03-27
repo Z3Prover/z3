@@ -1,4 +1,6 @@
 #include "sat_solver.h"
+#include "sat_watched.h"
+#include "statistics.h"
 #include "sat_lookahead.h"
 #include "dimacs.h"
 
@@ -7,7 +9,7 @@ void tst_sat_lookahead(char ** argv, int argc, int& i) {
         std::cout << "require dimacs file name\n";
         return;
     }
-    enable_trace("sat");
+//    enable_trace("sat");
     reslimit limit;
     params_ref params;
     sat::solver solver(params, limit);
@@ -28,4 +30,8 @@ void tst_sat_lookahead(char ** argv, int argc, int& i) {
     IF_VERBOSE(20, solver.display_status(verbose_stream()););
 
     std::cout << lh.check() << "\n";
+
+    statistics st;
+    lh.collect_statistics(st);
+    st.display(std::cout);
 }

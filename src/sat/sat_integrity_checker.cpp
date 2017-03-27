@@ -68,7 +68,7 @@ namespace sat {
         if (c.size() == 3) {
             CTRACE("sat_ter_watch_bug", !contains_watched(s.get_wlist(~c[0]), c[1], c[2]), tout << c << "\n";
                    tout << "watch_list:\n";
-                   sat::display(tout, s.m_cls_allocator, s.get_wlist(~c[0]));
+                   sat::display_watch_list(tout, s.m_cls_allocator, s.get_wlist(~c[0]));
                    tout << "\n";);
             VERIFY(contains_watched(s.get_wlist(~c[0]), c[1], c[2]));
             VERIFY(contains_watched(s.get_wlist(~c[1]), c[0], c[2]));
@@ -176,9 +176,9 @@ namespace sat {
                            tout << "was_eliminated1: " << s.was_eliminated(l.var());
                            tout << " was_eliminated2: " << s.was_eliminated(it2->get_literal().var());
                            tout << " learned: " << it2->is_learned() << "\n";
-                           sat::display(tout, s.m_cls_allocator, wlist);
+                           sat::display_watch_list(tout, s.m_cls_allocator, wlist);
                            tout << "\n";
-                           sat::display(tout, s.m_cls_allocator, s.get_wlist(~(it2->get_literal())));
+                           sat::display_watch_list(tout, s.m_cls_allocator, s.get_wlist(~(it2->get_literal())));
                            tout << "\n";);
                         SASSERT(s.get_wlist(~(it2->get_literal())).contains(watched(l, it2->is_learned())));
                     break;

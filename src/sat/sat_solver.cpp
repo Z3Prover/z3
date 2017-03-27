@@ -2998,7 +2998,7 @@ namespace sat {
             watch_list const & wlist = *it;
             literal l = to_literal(l_idx);
             out << l << ": ";
-            sat::display(out, m_cls_allocator, wlist);
+            sat::display_watch_list(out, m_cls_allocator, wlist);
             out << "\n";
         }
     }

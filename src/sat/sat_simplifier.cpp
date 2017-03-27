@@ -1256,8 +1256,8 @@ namespace sat {
                 }
                 CTRACE("resolve_bug", it2 == end2,
                        tout << ~l1 << " -> ";
-                       display(tout, s.m_cls_allocator, wlist1); tout << "\n" << ~l2 << " -> ";
-                       display(tout, s.m_cls_allocator, wlist2); tout << "\n";);
+                       display_watch_list(tout, s.m_cls_allocator, wlist1); tout << "\n" << ~l2 << " -> ";
+                       display_watch_list(tout, s.m_cls_allocator, wlist2); tout << "\n";);
                 SASSERT(it2 != end2);
                 return;
             }

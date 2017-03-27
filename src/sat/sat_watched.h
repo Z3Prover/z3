@@ -130,7 +130,7 @@ namespace sat {
     inline void erase_ternary_watch(watch_list & wlist, literal l1, literal l2) { wlist.erase(watched(l1, l2)); }
 
     class clause_allocator;
-    void display(std::ostream & out, clause_allocator const & ca, watch_list const & wlist);
+    void display_watch_list(std::ostream & out, clause_allocator const & ca, watch_list const & wlist);
 };
 
 #endif
