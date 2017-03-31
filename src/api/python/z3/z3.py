@@ -3701,12 +3701,8 @@ def Extract(high, low, a):
         high = StringVal(high)
     if is_seq(high):
         s = high
-        offset = _py2expr(low, high.ctx)
-        length = _py2expr(a, high.ctx)
-
-        if __debug__:
-            _z3_assert(is_int(offset) and is_int(length), "Second and third arguments must be integers")
-            return SeqRef(Z3_mk_seq_extract(s.ctx_ref(), s.as_ast(), offset.as_ast(), length.as_ast()), s.ctx)
+        offset, length = _coerce_exprs(low, a, s.ctx)
+        return SeqRef(Z3_mk_seq_extract(s.ctx_ref(), s.as_ast(), offset.as_ast(), length.as_ast()), s.ctx)
     if __debug__:
         _z3_assert(low <= high, "First argument must be greater than or equal to second argument")
         _z3_assert(_is_int(high) and high >= 0 and _is_int(low) and low >= 0, "First and second arguments must be non negative integers")
