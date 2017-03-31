@@ -96,7 +96,7 @@ namespace sat {
             }
             
             // the first two literals must be watched.
-            VERIFY(contains_watched(s.get_wlist(~c[0]), c, s.get_offset(c)));
+           VERIFY(contains_watched(s.get_wlist(~c[0]), c, s.get_offset(c)));
             VERIFY(contains_watched(s.get_wlist(~c[1]), c, s.get_offset(c)));
         }
         return true;

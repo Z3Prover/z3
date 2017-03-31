@@ -4,6 +4,18 @@
 #include "sat_lookahead.h"
 #include "dimacs.h"
 
+static void display_model(sat::model const & m) {
+    for (unsigned i = 1; i < m.size(); i++) {
+        switch (m[i]) {
+        case l_false: std::cout << "-" << i << " ";  break;
+        case l_undef: break;
+        case l_true: std::cout << i << " ";  break;
+        }
+    }
+    std::cout << "\n";
+}
+
+
 void tst_sat_lookahead(char ** argv, int argc, int& i) {
     if (argc != i + 2) {
         std::cout << "require dimacs file name\n";
@@ -29,9 +41,13 @@ void tst_sat_lookahead(char ** argv, int argc, int& i) {
 
     IF_VERBOSE(20, solver.display_status(verbose_stream()););
 
-    std::cout << lh.check() << "\n";
+    lbool is_sat = lh.check();
+    std::cout << is_sat << "\n";
 
     statistics st;
     lh.collect_statistics(st);
     st.display(std::cout);
+    if (is_sat == l_true) {
+        display_model(lh.get_model());
+    }
 }
