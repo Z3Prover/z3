@@ -124,6 +124,7 @@ public:
     virtual bool is_pareto() = 0;
     virtual void set_logic(symbol const& s) = 0;
     virtual bool print_model() const = 0;
+    virtual void get_box_model(model_ref& mdl, unsigned index) = 0;
     virtual void updt_params(params_ref const& p) = 0;
 };
 
