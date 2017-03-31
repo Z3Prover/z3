@@ -69,14 +69,17 @@ extern "C" {
         }
         expr * const* ps = reinterpret_cast<expr * const*>(patterns);
         expr * const* no_ps = reinterpret_cast<expr * const*>(no_patterns);
-        pattern_validator v(mk_c(c)->m());
-        for (unsigned i = 0; i < num_patterns; i++) {
-            if (!v(num_decls, ps[i], 0, 0)) {
-                SET_ERROR_CODE(Z3_INVALID_PATTERN);
-                return 0;
+        symbol qid = to_symbol(quantifier_id);
+        bool is_rec = mk_c(c)->m().rec_fun_qid() == qid;
+        if (!is_rec) {
+            pattern_validator v(mk_c(c)->m());
+            for (unsigned i = 0; i < num_patterns; i++) {
+                if (!v(num_decls, ps[i], 0, 0)) {
+                    SET_ERROR_CODE(Z3_INVALID_PATTERN);
+                    return 0;
+                }
             }
         }
-
         sort* const* ts = reinterpret_cast<sort * const*>(sorts);
         svector<symbol> names;
         for (unsigned i = 0; i < num_decls; ++i) {
@@ -88,7 +91,7 @@ extern "C" {
                 (0 != is_forall),
                 names.size(), ts, names.c_ptr(), to_expr(body),
                 weight,
-                to_symbol(quantifier_id),
+                qid,
                 to_symbol(skolem_id),
                 num_patterns, ps,
                 num_no_patterns, no_ps
