@@ -164,6 +164,9 @@ namespace sat {
 
 
         // information about solution
+        unsigned        best_unsat;
+        double          best_unsat_rate;
+        double          last_best_unsat_rate;
         int              m_objective_value;                 // the objective function value corresponds to the current solution
         bool_vector      m_best_solution;                   // !var: the best solution so far
         int              m_best_objective_value = -1;       // the objective value corresponds to the best solution so far
@@ -172,6 +175,10 @@ namespace sat {
         
         unsigned         m_max_steps = (1 << 30);
         
+        // dynamic noise
+        unsigned noise = 400; // normalized by 10000
+        double noise_delta = 0.05;
+
         // for tuning
         int   s_id = 0;                        // strategy id
 

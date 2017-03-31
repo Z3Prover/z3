@@ -137,6 +137,17 @@ namespace sat {
     }
 
     void local_search::reinit() {
+        // the following methods does NOT converge for pseudo-boolean
+        // can try other way to define "worse" and "better"
+        // the current best noise is below 1000
+        if (best_unsat_rate >= last_best_unsat_rate) {
+            // worse
+            noise = noise - noise * 2 * noise_delta;
+        }
+        else {
+            // better
+            noise = noise + (10000 - noise) * noise_delta;
+        }
         for (unsigned i = 0; i < m_constraints.size(); ++i) {
             constraint& c = m_constraints[i];
             c.m_slack = c.m_k;
@@ -370,11 +381,16 @@ namespace sat {
     if (tries % 10 == 0 || m_unsat_stack.empty()) {                     \
         IF_VERBOSE(1, verbose_stream() << "(sat-local-search"           \
                    << " :flips " << flips                               \
-                   << " :unsat " << m_unsat_stack.size()                \
+                   << " :noise " << noise                               \
+                   << " :unsat " << /*m_unsat_stack.size()*/ best_unsat               \
                    << " :time " << (timer.get_seconds() < 0.001 ? 0.0 : timer.get_seconds()) << ")\n";); \
     }
 
     void local_search::walksat() {
+        best_unsat_rate = 1;
+        last_best_unsat_rate = 1;
+
+
         reinit();
         timer timer;
         timer.start();
@@ -382,12 +398,17 @@ namespace sat {
         PROGRESS(tries, total_flips);
         
         for (tries = 1; !m_unsat_stack.empty() && m_limit.inc(); ++tries) {
+            if (m_unsat_stack.size() < best_unsat) {
+                best_unsat = m_unsat_stack.size();
+                last_best_unsat_rate = best_unsat_rate;
+                best_unsat_rate = (double)m_unsat_stack.size() / num_constraints();
+            }
             for (step = 0; step < m_max_steps && !m_unsat_stack.empty(); ++step) {
                 pick_flip_walksat();
             }
             total_flips += step;
             PROGRESS(tries, total_flips);
-            if (m_par && tries % 30 == 0) {
+            if (m_par && tries % 20 == 0) {
                 m_par->get_phase(*this);
                 reinit();
             }
@@ -483,7 +504,9 @@ namespace sat {
         unsigned num_unsat = m_unsat_stack.size();
         constraint const& c = m_constraints[m_unsat_stack[m_rand() % m_unsat_stack.size()]];
         SASSERT(c.m_k < constraint_value(c));
-        if (m_rand() % 100 < 98) {
+        // TBD: dynamic noise strategy 
+        //if (m_rand() % 100 < 98) {
+        if (m_rand() % 10000 >= noise) {
             // take this branch with 98% probability.
             // find the first one, to fast break the rest    
             unsigned best_bsb = 0;
@@ -533,7 +556,7 @@ namespace sat {
                             best_var = v;
                             n = 1;
                         }
-                        else {// if (bb == best_bb)
+                        else {// if (bsb == best_bb)
                             ++n;
                             if (m_rand() % n == 0) {
                                 best_var = v;

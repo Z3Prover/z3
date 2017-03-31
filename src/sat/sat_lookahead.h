@@ -220,7 +220,7 @@ namespace sat {
         // ----------------------------------------
 
         void add_binary(literal l1, literal l2) {
-            TRACE("sat", tout << "binary: " << l1 << " " << l2 << "\n";);			
+            TRACE("sat", tout << "binary: " << l1 << " " << l2 << "\n";);
             SASSERT(l1 != l2);
             // don't add tautologies and don't add already added binaries
             if (~l1 == l2) return;
@@ -375,7 +375,7 @@ namespace sat {
                 progress = false;
                 float mean = sum / (float)(m_candidates.size() + 0.0001);
                 sum = 0;
-                for (unsigned i = 0; i < m_candidates.size(); ++i) {
+                for (unsigned i = 0; i < m_candidates.size() && m_candidates.size() >= max_num_cand * 2; ++i) {
                     if (m_candidates[i].m_rating >= mean) {
                         sum += m_candidates[i].m_rating;
                     }
@@ -1133,11 +1133,14 @@ namespace sat {
             m_search_mode = lookahead_mode::searching;
             // convert windfalls to binary clauses.
             if (!unsat) {
+                literal nlit = ~lit;
                 for (unsigned i = 0; i < m_wstack.size(); ++i) {
                     ++m_stats.m_windfall_binaries;
+                    literal l2 = m_wstack[i];
                     //update_prefix(~lit);
                     //update_prefix(m_wstack[i]);
-                    add_binary(~lit, m_wstack[i]);
+                    TRACE("sat", tout << "windfall: " << nlit << " " << l2 << "\n";); 
+                    add_binary(nlit, l2);
                 }
             }
             m_wstack.reset();
@@ -1280,6 +1283,9 @@ namespace sat {
                     else {
                         TRACE("sat", tout << "propagating " << l << ": " << c << "\n";);
                         SASSERT(is_undef(c[0]));
+                        DEBUG_CODE(for (unsigned i = 2; i < c.size(); ++i) {
+                                SASSERT(is_false(c[i]));
+                            });
                         *it2 = *it;
                         it2++;
                         propagated(c[0]);
@@ -1354,7 +1360,7 @@ namespace sat {
                     TRACE("sat", tout << "lookahead: " << lit << " @ " << m_lookahead[i].m_offset << "\n";);
                     reset_wnb(lit);
                     push_lookahead1(lit, level);
-                    do_double(lit, base);
+                    //do_double(lit, base);
                     bool unsat = inconsistent();                    
                     pop_lookahead1(lit); 
                     if (unsat) {
@@ -1433,30 +1439,55 @@ namespace sat {
             set_wnb(l, p == null_literal ? 0 : get_wnb(p));
         }
 
-        void update_wnb(literal l, unsigned level) {
-            if (m_weighted_new_binaries == 0) {
-                {
-                    scoped_level _sl(*this, level);
-                    clause_vector::const_iterator it = m_full_watches[l.index()].begin(), end = m_full_watches[l.index()].end();
-                    for (; it != end; ++it) {
-                        clause& c = *(*it);
-                        unsigned sz = c.size();
-                        bool found = false;
-                        
-                        for (unsigned i = 0; !found && i < sz; ++i) {
-                            found = is_true(c[i]);
-                        }
-                        IF_VERBOSE(2, verbose_stream() << "skip autarky\n";);
-                        if (!found) return;
+        bool check_autarky(literal l, unsigned level) {
+            // no propagations are allowed to reduce clauses.
+            clause_vector::const_iterator it  = m_full_watches[l.index()].begin();
+            clause_vector::const_iterator end = m_full_watches[l.index()].end();
+            for (; it != end; ++it) {
+                clause& c = *(*it);
+                unsigned sz = c.size();
+                bool found = false;                
+                for (unsigned i = 0; !found && i < sz; ++i) {
+                    found = is_true(c[i]);
+                    if (found) {
+                        TRACE("sat", tout << c[i] << " is true in " << c << "\n";);
                     }
                 }
-                if (get_wnb(l) == 0) {
+                IF_VERBOSE(2, verbose_stream() << "skip autarky " << l << "\n";);
+                if (!found) return false;
+            }
+            //
+            // bail out if there is a pending binary propagation.
+            // In general, we would have to check, recursively that 
+            // a binary propagation does not create reduced clauses.
+            // 
+            literal_vector const& lits = m_binary[l.index()];
+            TRACE("sat", tout << l << ": " << lits << "\n";);
+            for (unsigned i = 0; i < lits.size(); ++i) {
+                literal l2 = lits[i];
+                if (is_true(l2)) continue;
+                SASSERT(!is_false(l2));
+                return false;
+            }
+
+            return true;
+        }
+
+        void update_wnb(literal l, unsigned level) {
+            if (m_weighted_new_binaries == 0) {
+                if (!check_autarky(l, level)) {
+                    // skip
+                }
+                else if (get_wnb(l) == 0) {
                     ++m_stats.m_autarky_propagations;
                     IF_VERBOSE(1, verbose_stream() << "(sat.lookahead autarky " << l << ")\n";);
-                    TRACE("sat", tout << "autarky: " << l << " @ " << m_stamp[l.var()] << "\n";);
+                    
+                    TRACE("sat", tout << "autarky: " << l << " @ " << m_stamp[l.var()] 
+                          << " " 
+                          << (!m_binary[l.index()].empty() || !m_full_watches[l.index()].empty()) << "\n";);
                     reset_wnb();
                     assign(l);
-                    propagate();
+                    propagate();                    
                     init_wnb();
                 }
                 else {
