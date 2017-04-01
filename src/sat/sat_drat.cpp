@@ -449,6 +449,23 @@ namespace sat {
             }
         }                        
     }
+    void drat::add(literal_vector const& c) {
+        for (unsigned i = 0; i < c.size(); ++i) declare(c[i]);
+        if (m_out) dump(c.size(), c.begin(), status::learned);
+        if (s.m_config.m_drat_check) {
+            switch (c.size()) {
+            case 0: add(); break;
+            case 1: append(c[0], status::learned); break;
+            default: {
+                verify(c.size(), c.begin());
+                clause* cl = s.m_cls_allocator.mk_clause(c.size(), c.c_ptr(), true);
+                append(*cl, status::external);                
+                break;
+            }
+            }
+        }
+    }
+
     void drat::del(literal l) {
         if (m_out) dump(1, &l, status::deleted);
         if (s.m_config.m_drat_check) append(l, status::deleted);

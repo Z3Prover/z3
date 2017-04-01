@@ -142,11 +142,11 @@ namespace sat {
         // the current best noise is below 1000
         if (best_unsat_rate >= last_best_unsat_rate) {
             // worse
-            noise = noise - noise * 2 * noise_delta;
+            m_noise -= m_noise * 2 * m_noise_delta;
         }
         else {
             // better
-            noise = noise + (10000 - noise) * noise_delta;
+            m_noise += (10000 - m_noise) * m_noise_delta;
         }
         for (unsigned i = 0; i < m_constraints.size(); ++i) {
             constraint& c = m_constraints[i];
@@ -381,7 +381,7 @@ namespace sat {
     if (tries % 10 == 0 || m_unsat_stack.empty()) {                     \
         IF_VERBOSE(1, verbose_stream() << "(sat-local-search"           \
                    << " :flips " << flips                               \
-                   << " :noise " << noise                               \
+                   << " :noise " << m_noise                             \
                    << " :unsat " << /*m_unsat_stack.size()*/ best_unsat               \
                    << " :time " << (timer.get_seconds() < 0.001 ? 0.0 : timer.get_seconds()) << ")\n";); \
     }
@@ -506,7 +506,7 @@ namespace sat {
         SASSERT(c.m_k < constraint_value(c));
         // TBD: dynamic noise strategy 
         //if (m_rand() % 100 < 98) {
-        if (m_rand() % 10000 >= noise) {
+        if (m_rand() % 10000 >= m_noise) {
             // take this branch with 98% probability.
             // find the first one, to fast break the rest    
             unsigned best_bsb = 0;

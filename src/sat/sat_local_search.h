@@ -176,8 +176,8 @@ namespace sat {
         unsigned         m_max_steps = (1 << 30);
         
         // dynamic noise
-        unsigned noise = 400; // normalized by 10000
-        double noise_delta = 0.05;
+        double m_noise = 400; // normalized by 10000
+        double m_noise_delta = 0.05;
 
         // for tuning
         int   s_id = 0;                        // strategy id

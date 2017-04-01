@@ -77,12 +77,12 @@ void parse_cmd_line_args(int argc, char ** argv, bool& do_display_usage, bool& t
     int i = 1;
     while (i < argc) {
 	char * arg = argv[i];    
+        char * eq_pos = 0;
 
 	if (arg[0] == '-' || arg[0] == '/') {
 	    char * opt_name = arg + 1;
 	    char * opt_arg  = 0;
 	    char * colon    = strchr(arg, ':');
-            char * eq_pos = 0;
 	    if (colon) {
 		opt_arg = colon + 1;
 		*colon  = 0;
@@ -119,13 +119,19 @@ void parse_cmd_line_args(int argc, char ** argv, bool& do_display_usage, bool& t
 		enable_debug(opt_arg);
 	    }
 #endif
-            else if (arg[0] != '"' && (eq_pos = strchr(arg, '='))) {
-                char * key   = arg;
-                *eq_pos      = 0;
-                char * value = eq_pos+1; 
+	}
+        else if (arg[0] != '"' && (eq_pos = strchr(arg, '='))) {
+            char * key   = arg;
+            *eq_pos      = 0;
+            char * value = eq_pos+1; 
+            try {
                 gparams::set(key, value);
             }
-	}
+            catch (z3_exception& ex) {
+                std::cerr << ex.msg() << "\n";
+            }
+        }            
+
 	i++;
     }
 }

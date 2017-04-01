@@ -57,6 +57,7 @@ namespace sat {
         void append(literal l, status st);
         void append(literal l1, literal l2, status st);
         void append(clause& c, status st);
+
         friend std::ostream& operator<<(std::ostream & out, status st);
         status get_status(bool learned) const;
 
@@ -82,6 +83,7 @@ namespace sat {
         void add(literal l1, literal l2, bool learned);
         void add(clause& c, bool learned);
         void add(literal_vector const& c, svector<premise> const& premises);
+        void add(literal_vector const& c); // add learned clause
 
         bool is_cleaned(clause& c) const;        
         void del(literal l);
