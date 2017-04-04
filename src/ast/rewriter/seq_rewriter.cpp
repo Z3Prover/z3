@@ -12,6 +12,7 @@ Abstract:
 Author:
 
     Nikolaj Bjorner (nbjorner) 2015-12-5
+    Murphy Berzish 2017-02-21
 
 Notes:
 
@@ -548,30 +549,56 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     bool constantPos = m_autil.is_numeral(b, pos);
     bool constantLen = m_autil.is_numeral(c, len);
 
-    // case 1: pos<0 or len<0
+    // case 1: pos<0 or len<=0
     // rewrite to ""
-    if ( (constantPos && pos.is_neg()) || (constantLen && len.is_neg()) ) {
+    if ( (constantPos && pos.is_neg()) || (constantLen && !len.is_pos()) ) {
         result = m_util.str.mk_empty(m().get_sort(a));
         return BR_DONE;
     }
     // case 1.1: pos >= length(base)
     // rewrite to ""
-    if (constantBase && constantPos && pos.get_unsigned() >= s.length()) {
+    if (constantBase && constantPos && pos >= rational(s.length())) {
         result = m_util.str.mk_empty(m().get_sort(a));
         return BR_DONE;
     }
+
+    constantPos &= pos.is_unsigned();
+    constantLen &= len.is_unsigned();
 
     if (constantBase && constantPos && constantLen) {
         if (pos.get_unsigned() + len.get_unsigned() >= s.length()) {
             // case 2: pos+len goes past the end of the string
             unsigned _len = s.length() - pos.get_unsigned() + 1;
             result = m_util.str.mk_string(s.extract(pos.get_unsigned(), _len));
-            return BR_DONE;
         } else {
             // case 3: pos+len still within string
             result = m_util.str.mk_string(s.extract(pos.get_unsigned(), len.get_unsigned()));
-            return BR_DONE;
         }
+        return BR_DONE;
+    }
+
+    if (constantPos && constantLen) {
+        unsigned _pos = pos.get_unsigned();
+        unsigned _len = len.get_unsigned();
+        SASSERT(_len > 0);
+        expr_ref_vector as(m()), bs(m());
+        m_util.str.get_concat(a, as);
+        for (unsigned i = 0; i < as.size() && _len > 0; ++i) {
+            if (m_util.str.is_unit(as[i].get())) {
+                if (_pos == 0) {
+                    bs.push_back(as[i].get());
+                    --_len;
+                }
+                else {
+                    --_pos;
+                }
+            }              
+            else {
+                return BR_FAILED;
+            }
+        }
+        result = m_util.str.mk_concat(bs);
+        return BR_DONE;
     }
 
     return BR_FAILED;
@@ -674,10 +701,33 @@ br_status seq_rewriter::mk_seq_at(expr* a, expr* b, expr_ref& result) {
             result = m_util.str.mk_empty(m().get_sort(a));
             return BR_DONE;
         }
-        if (m_util.str.is_string(a, c) && r.is_unsigned() && r < rational(c.length())) {
-            result = m_util.str.mk_string(c.extract(r.get_unsigned(), 1));
+        if (m_util.str.is_string(a, c)) {
+            if (r.is_unsigned() && r < rational(c.length())) {
+                result = m_util.str.mk_string(c.extract(r.get_unsigned(), 1));
+            }
+            else {
+                result = m_util.str.mk_empty(m().get_sort(a));
+            }
             return BR_DONE;
-        } 
+        }
+        if (r.is_unsigned()) {
+            len = r.get_unsigned();
+            expr_ref_vector as(m());
+            m_util.str.get_concat(a, as);
+            for (unsigned i = 0; i < as.size(); ++i) {
+                if (m_util.str.is_unit(as[i].get())) {
+                    if (len == 0) {
+                        result = as[i].get();
+                        return BR_DONE;
+                    }
+                    --len;
+                }         
+                else {
+                    return BR_FAILED;
+                }
+            }
+        }
+        
     }
     return BR_FAILED;
 }

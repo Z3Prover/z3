@@ -4372,41 +4372,20 @@ namespace smt {
         for (unsigned i = 0; i < m_asserted_formulas.get_num_formulas(); ++i) {
             expr* e = m_asserted_formulas.get_formula(i);
             if (is_quantifier(e)) {
+                TRACE("context", tout << mk_pp(e, m) << "\n";);
                 quantifier* q = to_quantifier(e);
                 if (!m.is_rec_fun_def(q)) continue;
-                SASSERT(q->get_num_patterns() == 1);
+                SASSERT(q->get_num_patterns() == 2);
                 expr* fn = to_app(q->get_pattern(0))->get_arg(0);
+                expr* body = to_app(q->get_pattern(1))->get_arg(0);
                 SASSERT(is_app(fn));
                 func_decl* f = to_app(fn)->get_decl();
-                expr* eq = q->get_expr();
-                expr_ref body(m);
-                if (is_fun_def(fn, q->get_expr(), body)) {
-                    func_interp* fi = alloc(func_interp, m, f->get_arity());
-                    fi->set_else(body);
-                    m_model->register_decl(f, fi);
-                }
+                func_interp* fi = alloc(func_interp, m, f->get_arity());
+                fi->set_else(body);
+                m_model->register_decl(f, fi);            
             }
         }
     }
-
-    bool context::is_fun_def(expr* f, expr* body, expr_ref& result) {
-        expr* t1, *t2, *t3;
-        if (m_manager.is_eq(body, t1, t2) || m_manager.is_iff(body, t1, t2)) {
-            if (t1 == f) return result = t2, true;
-            if (t2 == f) return result = t1, true;
-            return false;
-        }
-        if (m_manager.is_ite(body, t1, t2, t3)) {
-            expr_ref body1(m_manager), body2(m_manager);
-            if (is_fun_def(f, t2, body1) && is_fun_def(f, t3, body2)) {
-                // f is not free in t1
-                result = m_manager.mk_ite(t1, body1, body2);
-                return true;
-            }
-        }
-        return false;
-    }
-
 
 };
 

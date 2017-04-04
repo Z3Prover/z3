@@ -1981,6 +1981,7 @@ bool theory_seq::solve_nc(unsigned idx) {
     }
     if (c != n.contains()) {
         m_ncs.push_back(nc(c, deps));
+        m_new_propagation = true;
         return true;
     }
     return false;
@@ -2400,6 +2401,14 @@ void theory_seq::display(std::ostream & out) const {
             if (lo.is_pos() || !hi.is_minus_one()) {
                 out << mk_pp(e, m) << " [" << lo << ":" << hi << "]\n";
             }
+        }
+    }
+
+    if (!m_ncs.empty()) {
+        out << "Non contains:\n";
+        for (unsigned i = 0; i < m_ncs.size(); ++i) {
+            out << "not " << mk_pp(m_ncs[i].contains(), m) << "\n";
+            display_deps(out << "  <- ", m_ncs[i].deps()); out << "\n";
         }
     }
 
@@ -3496,6 +3505,7 @@ void theory_seq::add_extract_suffix_axiom(expr* e, expr* s, expr* i) {
    let e = at(s, i)
 
    0 <= i < len(s) -> s = xey & len(x) = i & len(e) = 1
+   i < 0 \/ i >= len(s) -> e = empty
 
 */
 void theory_seq::add_at_axiom(expr* e) {
@@ -3509,13 +3519,18 @@ void theory_seq::add_at_axiom(expr* e) {
     expr_ref y = mk_skolem(m_post, s, mk_sub(mk_sub(len_s, i), one));
     expr_ref xey   = mk_concat(x, e, y);
     expr_ref len_x(m_util.str.mk_length(x), m);
+    expr_ref emp(m_util.str.mk_empty(m.get_sort(e)), m);
 
     literal i_ge_0 = mk_literal(m_autil.mk_ge(i, zero));
     literal i_ge_len_s = mk_literal(m_autil.mk_ge(mk_sub(i, m_util.str.mk_length(s)), zero));
 
+
     add_axiom(~i_ge_0, i_ge_len_s, mk_seq_eq(s, xey));
     add_axiom(~i_ge_0, i_ge_len_s, mk_eq(one, len_e, false));
     add_axiom(~i_ge_0, i_ge_len_s, mk_eq(i, len_x, false));
+
+    add_axiom(i_ge_0, mk_eq(s, emp, false));
+    add_axiom(~i_ge_len_s, mk_eq(s, emp, false));
 }
 
 /**

@@ -186,6 +186,7 @@ namespace opt {
         virtual bool print_model() const;
         virtual void set_model(model_ref& _m) { m_model = _m; }
         virtual void get_model(model_ref& _m);
+        virtual void get_box_model(model_ref& _m, unsigned index);
         virtual void fix_model(model_ref& _m);
         virtual void collect_statistics(statistics& stats) const;
         virtual proof* get_proof() { return 0; }

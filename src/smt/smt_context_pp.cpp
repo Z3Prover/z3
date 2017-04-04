@@ -606,14 +606,14 @@ namespace smt {
         case b_justification::CLAUSE: {
             clause * cls = j.get_clause();
             out << "clause ";
-            if (cls) display_literals_verbose(out, cls->get_num_literals(), cls->begin_literals());
+            if (cls) display_literals(out, cls->get_num_literals(), cls->begin_literals());
             break;
         }
         case b_justification::JUSTIFICATION: {
             out << "justification ";
             literal_vector lits;
             const_cast<conflict_resolution&>(*m_conflict_resolution).justification2literals(j.get_justification(), lits);
-            display_literals_verbose(out, lits.size(), lits.c_ptr());
+            display_literals(out, lits.size(), lits.c_ptr());
             break;
         }
         default:

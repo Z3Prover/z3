@@ -100,13 +100,34 @@ public:
 
 ATOMIC_CMD(exit_cmd, "exit", "exit.", ctx.print_success(); throw stop_parser_exception(););
 
-ATOMIC_CMD(get_model_cmd, "get-model", "retrieve model for the last check-sat command", {
-    if (!ctx.is_model_available() || ctx.get_check_sat_result() == 0)
-        throw cmd_exception("model is not available");
-    model_ref m;
-    ctx.get_check_sat_result()->get_model(m);
-    ctx.display_model(m);
-});
+class get_model_cmd : public cmd {
+    unsigned m_index;
+public:
+    get_model_cmd(): cmd("get-model"), m_index(0) {}
+    virtual char const * get_usage() const { return "[<index of box objective>]"; }   
+    virtual char const * get_descr(cmd_context & ctx) const { 
+        return "retrieve model for the last check-sat command.\nSupply optional index if retrieving a model corresponding to a box optimization objective"; 
+    }
+    virtual unsigned get_arity() const { return VAR_ARITY; } 
+    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const { return CPK_UINT; }
+    virtual void set_next_arg(cmd_context & ctx, unsigned index) { m_index = index; }                           
+    virtual void execute(cmd_context & ctx) { 
+        if (!ctx.is_model_available() || ctx.get_check_sat_result() == 0)
+            throw cmd_exception("model is not available");
+        model_ref m;
+        if (m_index > 0 && ctx.get_opt()) {
+            ctx.get_opt()->get_box_model(m, m_index);
+        }
+        else {
+            ctx.get_check_sat_result()->get_model(m);
+        }
+        ctx.display_model(m);
+    }                    
+    virtual void reset(cmd_context& ctx) {
+        m_index = 0;
+    }
+};
+
 
 ATOMIC_CMD(get_assignment_cmd, "get-assignment", "retrieve assignment", {
     if (!ctx.is_model_available() || ctx.get_check_sat_result() == 0)
