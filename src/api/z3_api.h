@@ -1169,10 +1169,6 @@ typedef enum {
     Z3_OP_RE_FULL_SET,
     Z3_OP_RE_COMPLEMENT,
 
-	// theory_str
-	Z3_OP_STR_CONCAT,
-	Z3_OP_STR_LENGTH,
-
     // Auxiliary
     Z3_OP_LABEL = 0x700,
     Z3_OP_LABEL_LIT,
