@@ -16,6 +16,7 @@ Author:
 Revision History:
 --*/
 #include<errno.h>
+#include<limits.h>
 
 #include<string>
 #include<iostream>
