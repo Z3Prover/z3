@@ -78,9 +78,9 @@ int parse(string const & filename, map<string, map_entry> & data) {
             }
 
             map_entry & entry = data[qid];
-            entry.num_instances += atoi(tokens[1].c_str());
-            entry.max_generation = std::max(entry.max_generation, (unsigned)atoi(tokens[2].c_str()));
-            entry.max_cost = max(entry.max_cost, (unsigned)atoi(tokens[3].c_str()));
+            entry.num_instances = atoi(tokens[1].c_str());
+            entry.max_generation = (unsigned)atoi(tokens[2].c_str());
+            entry.max_cost = (unsigned)atoi(tokens[3].c_str());
         }
     }
 
@@ -94,33 +94,56 @@ void display_data(map<string, map_entry> & data) {
          it != data.end();
          it++)
         cout << it->first << ": " << it->second.num_instances <<
-                                  ", " << it->second.max_generation <<
-                                  ", " << it->second.max_cost << endl;
+                             ", " << it->second.max_generation <<
+                             ", " << it->second.max_cost << endl;
 }
 
 
-typedef struct { int d_num_instances, d_max_generation, d_max_cost; } diff_entry;
+typedef struct {
+    int d_num_instances, d_max_generation, d_max_cost;
+    bool left_only, right_only;
+} diff_entry;
+
 typedef struct { string qid; diff_entry e; } diff_item;
 
-bool diff_item_lt_inst(diff_item const & l, diff_item const & r) {
-    return l.e.d_num_instances < r.e.d_num_instances;
+#define DIFF_LT(X) bool diff_item_lt_ ## X (diff_item const & l, diff_item const & r) { \
+    return \
+        l.e.left_only ? (r.e.left_only ? l.qid < r.qid : false) : \
+        l.e.right_only ? (r.e.right_only ? l.qid < r.qid : true) : \
+        r.e.right_only ? false : \
+        r.e.left_only ? true : \
+        l.e.d_ ## X < r.e.d_ ## X ; \
 }
 
-bool diff_item_lt_gen(diff_item const & l, diff_item const & r) {
-    return l.e.d_max_generation< r.e.d_max_generation;
-}
+DIFF_LT(num_instances)
+DIFF_LT(max_generation)
+DIFF_LT(max_cost)
 
-bool diff_item_lt_cost(diff_item const & l, diff_item const & r) {
-    return l.e.d_max_cost < r.e.d_max_cost;
-}
+int indicate(diff_entry const & e, bool suppress_unchanged) {
+    if (e.left_only) {
+        cout << "< ";
+        return INT_MIN;
+    }
+    else if (e.right_only) {
+        cout << "> ";
+        return INT_MAX;
+    }
+    else {
+        int const & delta =
+            (options.find("-si") != options.end()) ? e.d_num_instances :
+            (options.find("-sg") != options.end()) ? e.d_max_generation :
+            (options.find("-sc") != options.end()) ? e.d_max_cost :
+            e.d_num_instances;
 
-void display_indicator(int const & delta, bool suppress_unchanged) {
-    if (delta < 0)
-        cout << "+ ";
-    else if (delta > 0)
-        cout << "- ";
-    else if (delta == 0 && !suppress_unchanged)
-        cout << "= ";
+        if (delta < 0)
+            cout << "+ ";
+        else if (delta > 0)
+            cout << "- ";
+        else if (delta == 0 && !suppress_unchanged)
+            cout << "= ";
+
+        return delta;
+    }
 }
 
 void diff(map<string, map_entry> & left, map<string, map_entry> & right) {
@@ -135,11 +158,37 @@ void diff(map<string, map_entry> & left, map<string, map_entry> & right) {
         map<string, map_entry>::const_iterator rit = right.find(qid);
         if (rit != right.end()) {
             map_entry const & rentry = rit->second;
-
             diff_entry & de = diff_data[qid];
+
+            de.left_only = de.right_only = false;
             de.d_num_instances = lentry.num_instances - rentry.num_instances;
             de.d_max_generation = lentry.max_generation - rentry.max_generation;
             de.d_max_cost = lentry.max_cost - rentry.max_cost;
+        }
+        else {
+            diff_entry & de = diff_data[qid];
+            de.left_only = true;
+            de.right_only = false;
+            de.d_num_instances = lentry.num_instances;
+            de.d_max_generation = lentry.max_generation;
+            de.d_max_cost = lentry.max_cost;
+        }
+    }
+
+    for (map<string, map_entry>::const_iterator rit = right.begin();
+        rit != right.end();
+        rit++) {
+        string const & qid = rit->first;
+        map_entry const & rentry = rit->second;
+
+        map<string, map_entry>::const_iterator lit = left.find(qid);
+        if (lit == left.end()) {
+            diff_entry & de = diff_data[qid];
+            de.left_only = false;
+            de.right_only = true;
+            de.d_num_instances = -(int)rentry.num_instances;
+            de.d_max_generation = -(int)rentry.max_generation;
+            de.d_max_cost = -(int)rentry.max_cost;
         }
     }
 
@@ -153,10 +202,10 @@ void diff(map<string, map_entry> & left, map<string, map_entry> & right) {
     }
 
     stable_sort(flat_data.begin(), flat_data.end(),
-        options.find("-si") != options.end() ? diff_item_lt_inst :
-        options.find("-sg") != options.end() ? diff_item_lt_gen :
-        options.find("-sc") != options.end() ? diff_item_lt_cost :
-        diff_item_lt_inst);
+        options.find("-si") != options.end() ? diff_item_lt_num_instances:
+        options.find("-sg") != options.end() ? diff_item_lt_max_generation :
+        options.find("-sc") != options.end() ? diff_item_lt_max_cost :
+        diff_item_lt_num_instances);
 
     bool suppress_unchanged = options.find("-n") != options.end();
 
@@ -167,15 +216,9 @@ void diff(map<string, map_entry> & left, map<string, map_entry> & right) {
         string const & qid = d.qid;
         diff_entry const & e = d.e;
 
-        int const & delta =
-            (options.find("-si") != options.end()) ? e.d_num_instances :
-            (options.find("-sg") != options.end()) ? e.d_max_generation :
-            (options.find("-sc") != options.end()) ? e.d_max_cost :
-            e.d_num_instances;
+        int delta = indicate(e, suppress_unchanged);
 
-        display_indicator(delta, suppress_unchanged);
-
-        if (delta != 0 || !suppress_unchanged)
+        if (!(delta == 0 && suppress_unchanged))
             cout << qid << " (" <<
                 (e.d_num_instances > 0 ? "" : "+") << -e.d_num_instances << " inst., " <<
                 (e.d_max_generation > 0 ? "" : "+") << -e.d_max_generation << " max. gen., " <<
