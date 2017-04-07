@@ -108,12 +108,14 @@ typedef struct {
 typedef struct { string qid; diff_entry e; } diff_item;
 
 #define DIFF_LT(X) bool diff_item_lt_ ## X (diff_item const & l, diff_item const & r) { \
+    int l_lt_r = l.e.d_ ## X < r.e.d_ ## X; \
+    int l_eq_r = l.e.d_ ## X == r.e.d_ ## X; \
     return \
-        l.e.left_only ? (r.e.left_only ? l.qid < r.qid : false) : \
-        l.e.right_only ? (r.e.right_only ? l.qid < r.qid : true) : \
+        l.e.left_only ? (r.e.left_only ? ((l_eq_r) ? l.qid < r.qid : l_lt_r) : false) : \
+        l.e.right_only ? (r.e.right_only ? ((l_eq_r) ? l.qid < r.qid : l_lt_r) : true) : \
         r.e.right_only ? false : \
         r.e.left_only ? true : \
-        l.e.d_ ## X < r.e.d_ ## X ; \
+        l_lt_r; \
 }
 
 DIFF_LT(num_instances)
