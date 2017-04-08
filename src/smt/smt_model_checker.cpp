@@ -316,7 +316,7 @@ namespace smt {
         return false;
     }
 
-    bool model_checker::check_rec_fun(quantifier* q) {
+    bool model_checker::check_rec_fun(quantifier* q, bool strict_rec_fun) {
         TRACE("model_checker", tout << mk_pp(q, m) << "\n";);
         SASSERT(q->get_num_patterns() == 2); // first pattern is the function, second is the body.
         expr* fn = to_app(q->get_pattern(0))->get_arg(0);
@@ -340,7 +340,7 @@ namespace smt {
                 }
                 sub(q->get_expr(), num_decls, args.c_ptr(), tmp);
                 m_curr_model->eval(tmp, result, true);
-                if (m.is_false(result)) {
+                if (strict_rec_fun ? !m.is_true(result) : m.is_false(result)) {
                     add_instance(q, args, 0);
                     return false;
                 }
@@ -365,10 +365,10 @@ namespace smt {
 
     bool model_checker::check(proto_model * md, obj_map<enode, app *> const & root2value) {
         SASSERT(md != 0);
+
         m_root2value = &root2value;
-        ptr_vector<quantifier>::const_iterator it  = m_qm->begin_quantifiers();
-        ptr_vector<quantifier>::const_iterator end = m_qm->end_quantifiers();
-        if (it == end)
+
+        if (m_qm->num_quantifiers() == 0)
             return true;
 
         if (m_iteration_idx >= m_params.m_mbqi_max_iterations) {
@@ -393,6 +393,36 @@ namespace smt {
         bool found_relevant = false;
         unsigned num_failures = 0;
 
+        check_quantifiers(false, found_relevant, num_failures);
+
+        
+        if (found_relevant)
+            m_iteration_idx++;
+
+        TRACE("model_checker", tout << "model after check:\n"; model_pp(tout, *md););
+        TRACE("model_checker", tout << "model checker result: " << (num_failures == 0) << "\n";);        
+        m_max_cexs += m_params.m_mbqi_max_cexs;
+
+        if (num_failures == 0 && !m_context->validate_model()) {
+            num_failures = 1;
+            // this time force expanding recursive function definitions 
+            // that are not forced true in the current model.
+            check_quantifiers(true, found_relevant, num_failures);
+        }
+        if (num_failures == 0)
+            m_curr_model->cleanup();
+        if (m_params.m_mbqi_trace) {
+            if (num_failures == 0)
+                verbose_stream() << "(smt.mbqi :succeeded true)\n";
+            else
+                verbose_stream() << "(smt.mbqi :num-failures " << num_failures << ")\n";
+        }
+        return num_failures == 0;
+    }
+
+    void model_checker::check_quantifiers(bool strict_rec_fun, bool& found_relevant, unsigned& num_failures) {
+        ptr_vector<quantifier>::const_iterator it  = m_qm->begin_quantifiers();
+        ptr_vector<quantifier>::const_iterator end = m_qm->end_quantifiers();
         for (; it != end; ++it) {
             quantifier * q = *it;
 	    if(!m_qm->mbqi_enabled(q)) continue;
@@ -406,7 +436,7 @@ namespace smt {
                 }
                 found_relevant = true;
                 if (m.is_rec_fun_def(q)) {
-                    if (!check_rec_fun(q)) {
+                    if (!check_rec_fun(q, strict_rec_fun)) {
                         TRACE("model_checker", tout << "checking recursive function failed\n";);
                         num_failures++;
                     }
@@ -420,26 +450,6 @@ namespace smt {
                 }
             }
         }
-        
-        if (found_relevant)
-            m_iteration_idx++;
-
-        TRACE("model_checker", tout << "model after check:\n"; model_pp(tout, *md););
-        TRACE("model_checker", tout << "model checker result: " << (num_failures == 0) << "\n";);        
-        m_max_cexs += m_params.m_mbqi_max_cexs;
-
-        if (num_failures == 0 && !m_context->validate_model()) {
-            num_failures = 1;
-        }
-        if (num_failures == 0)
-            m_curr_model->cleanup();
-        if (m_params.m_mbqi_trace) {
-            if (num_failures == 0)
-                verbose_stream() << "(smt.mbqi :succeeded true)\n";
-            else
-                verbose_stream() << "(smt.mbqi :num-failures " << num_failures << ")\n";
-        }
-        return num_failures == 0;
     }
 
     void model_checker::init_search_eh() {

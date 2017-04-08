@@ -433,6 +433,9 @@ namespace smt {
             if (!is_ground(n)) {
                 continue;
             }
+            if (is_quantifier(n) && m.is_rec_fun_def(to_quantifier(n))) {
+                continue;
+            }
             switch (get_assignment(*it)) {
             case l_undef:
                 break;
