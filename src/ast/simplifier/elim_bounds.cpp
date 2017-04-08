@@ -32,7 +32,7 @@ elim_bounds::elim_bounds(ast_manager & m):
 
    (<= x k)
    (<= (+ x (* -1 y)) k)
-   (<= (+ x (* -1 t)) k)  
+   (<= (+ x (* -1 t)) k)
    (<= (+ t (* -1 x)) k)
 
    x and y are a bound variables, t is a ground term and k is a numeral
@@ -65,14 +65,14 @@ bool elim_bounds::is_bound(expr * n, var * & lower, var * & upper) {
 
     if (neg)
         le = !le;
-    
+
     if (is_var(n)) {
         upper = to_var(n);
     }
     else if (m_util.is_add(n) && to_app(n)->get_num_args() == 2) {
         expr * arg1 = to_app(n)->get_arg(0);
         expr * arg2 = to_app(n)->get_arg(1);
-        if (is_var(arg1)) 
+        if (is_var(arg1))
             upper   = to_var(arg1);
         else if (!is_ground(arg1))
             return false;
@@ -95,7 +95,7 @@ bool elim_bounds::is_bound(expr * n, var * & lower, var * & upper) {
 
     if (!le)
         std::swap(upper, lower);
-    
+
     return true;
 }
 
@@ -188,7 +188,7 @@ void elim_bounds::operator()(quantifier * q, expr_ref & r) {
     }
     quantifier_ref new_q(m_manager);
     new_q = m_manager.update_quantifier(q, new_body);
-    elim_unused_vars(m_manager, new_q, r);
+    elim_unused_vars(m_manager, new_q, params_ref(), r);
     TRACE("elim_bounds", tout << mk_pp(q, m_manager) << "\n" << mk_pp(r, m_manager) << "\n";);
 }
 
@@ -199,10 +199,10 @@ bool elim_bounds_star::visit_quantifier(quantifier * q) {
     visit(q->get_expr(), visited);
     return visited;
 }
- 
+
 void elim_bounds_star::reduce1_quantifier(quantifier * q) {
     if (!q->is_forall() || q->get_num_patterns() != 0) {
-        cache_result(q, q, 0); 
+        cache_result(q, q, 0);
         return;
     }
     quantifier_ref new_q(m);

@@ -152,6 +152,8 @@ protected:
     ptr_vector<app> m_small_ints;
     ptr_vector<app> m_small_reals;
 
+    bool        m_convert_int_numerals_to_real;
+
     func_decl * mk_func_decl(decl_kind k, bool is_real);
     virtual void set_manager(ast_manager * m, family_id id);
     decl_kind fix_kind(decl_kind k, unsigned arity);

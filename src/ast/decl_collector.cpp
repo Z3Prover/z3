@@ -23,8 +23,21 @@ void decl_collector::visit_sort(sort * n) {
     family_id fid = n->get_family_id();
     if (m().is_uninterp(n))
         m_sorts.push_back(n);
-    if (fid == m_dt_fid)
+    if (fid == m_dt_fid) {
         m_sorts.push_back(n);
+
+        unsigned num_cnstr = m_dt_util.get_datatype_num_constructors(n);
+        for (unsigned i = 0; i < num_cnstr; i++) {
+            func_decl * cnstr = m_dt_util.get_datatype_constructors(n)->get(i);
+            m_decls.push_back(cnstr);
+            ptr_vector<func_decl> const & cnstr_acc = *m_dt_util.get_constructor_accessors(cnstr);
+            unsigned num_cas = cnstr_acc.size();
+            for (unsigned j = 0; j < num_cas; j++) {
+                func_decl * accsr = cnstr_acc.get(j);
+                m_decls.push_back(accsr);
+            }
+        }
+    }
 }
 
 bool decl_collector::is_bool(sort * s) {
@@ -38,14 +51,15 @@ void decl_collector::visit_func(func_decl * n) {
             m_preds.push_back(n);
         else
             m_decls.push_back(n);
-    }        
+    }
 }
 
 decl_collector::decl_collector(ast_manager & m, bool preds):
     m_manager(m),
-    m_sep_preds(preds) {
+    m_sep_preds(preds),
+    m_dt_util(m) {
     m_basic_fid = m_manager.get_basic_family_id();
-    m_dt_fid    = m_manager.mk_family_id("datatype");
+    m_dt_fid = m_dt_util.get_family_id();
 }
 
 void decl_collector::visit(ast* n) {
@@ -55,7 +69,7 @@ void decl_collector::visit(ast* n) {
         n = todo.back();
         todo.pop_back();
         if (!m_visited.is_marked(n)) {
-            m_visited.mark(n, true);                
+            m_visited.mark(n, true);
             switch(n->get_kind()) {
             case AST_APP: {
                 app * a = to_app(n);
@@ -64,7 +78,7 @@ void decl_collector::visit(ast* n) {
                 }
                 todo.push_back(a->get_decl());
                 break;
-            }                    
+            }
             case AST_QUANTIFIER: {
                 quantifier * q = to_quantifier(n);
                 unsigned num_decls = q->get_num_decls();
@@ -77,7 +91,7 @@ void decl_collector::visit(ast* n) {
                 }
                 break;
             }
-            case AST_SORT: 
+            case AST_SORT:
                 visit_sort(to_sort(n));
                 break;
             case AST_FUNC_DECL: {

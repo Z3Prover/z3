@@ -342,6 +342,14 @@ namespace opt {
         fix_model(mdl);
     }
 
+    void context::get_box_model(model_ref& mdl, unsigned index) {
+        if (index >= m_box_models.size()) {
+            throw default_exception("index into models is out of bounds");
+        }
+        mdl = m_box_models[index];
+        fix_model(mdl);
+    }
+
     lbool context::execute_min_max(unsigned index, bool committed, bool scoped, bool is_max) {
         if (scoped) get_solver().push();            
         lbool result = m_optsmt.lex(index, is_max);

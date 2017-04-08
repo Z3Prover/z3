@@ -14,7 +14,7 @@ Author:
     Leonardo de Moura (leonardo) 2010-04-02.
 
 Revision History:
-  
+
     Christoph Wintersteiger 2010-04-06: Added implementation.
 
 --*/
@@ -40,7 +40,7 @@ bool distribute_forall::visit_children(expr * n) {
     bool visited = true;
     unsigned j;
     switch(n->get_kind()) {
-    case AST_VAR:        
+    case AST_VAR:
         break;
     case AST_APP:
         j = to_app(n)->get_num_args();
@@ -86,15 +86,15 @@ void distribute_forall::reduce1_app(app * a) {
         SASSERT(is_cached(a->get_arg(j)));
         expr * c = get_cached(a->get_arg(j));
         SASSERT(c!=0);
-        if (c != a->get_arg(j)) 
+        if (c != a->get_arg(j))
             reduced = true;
         m_new_args[j] = c;
-    }    
+    }
 
     if (reduced) {
         na = m_manager.mk_app(a->get_decl(), num_args, m_new_args.c_ptr());
     }
-    
+
     cache_result(a, na);
 }
 
@@ -126,11 +126,11 @@ void distribute_forall::reduce1_quantifier(quantifier * q) {
             quantifier_ref tmp_q(m_manager);
             tmp_q = m_manager.update_quantifier(q, not_arg);
             expr_ref new_q(m_manager);
-            elim_unused_vars(m_manager, tmp_q, new_q);
+            elim_unused_vars(m_manager, tmp_q, params_ref(), new_q);
             new_args.push_back(new_q);
         }
         expr_ref result(m_manager);
-        // m_bsimp.mk_and actually constructs a (not (or ...)) formula, 
+        // m_bsimp.mk_and actually constructs a (not (or ...)) formula,
         // it will also apply basic simplifications.
         m_bsimp.mk_and(new_args.size(), new_args.c_ptr(), result);
         cache_result(q, result);
@@ -148,15 +148,15 @@ void distribute_forall::operator()(expr * f, expr_ref & result) {
 
     while (!m_todo.empty()) {
         expr * e = m_todo.back();
-        if (visit_children(e)) {            
+        if (visit_children(e)) {
             m_todo.pop_back();
             reduce1(e);
-        }                
+        }
     }
 
     result = get_cached(f);
     SASSERT(result!=0);
-    TRACE("distribute_forall", tout << mk_ll_pp(f, m_manager) << "======>\n" 
+    TRACE("distribute_forall", tout << mk_ll_pp(f, m_manager) << "======>\n"
           << mk_ll_pp(result, m_manager););
 }
 
@@ -166,5 +166,5 @@ expr * distribute_forall::get_cached(expr * n) const {
 
 void distribute_forall::cache_result(expr * n, expr * r) {
     SASSERT(r != 0);
-    m_cache.insert(n, r); 
+    m_cache.insert(n, r);
 }
