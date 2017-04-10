@@ -194,7 +194,7 @@ bool arith_rewriter::is_bound(expr * arg1, expr * arg2, op_kind kind, expr_ref &
         }
     }
     expr* t1, *t2;
-    bool is_int;
+    bool is_int = false;
     if (m_util.is_mod(arg2)) {
         std::swap(arg1, arg2);
         switch (kind) {
