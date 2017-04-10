@@ -27,9 +27,9 @@ Notes:
 class pb2bv_solver : public solver_na2as {
     ast_manager&     m;
     params_ref       m_params;
-    expr_ref_vector  m_assertions;
-    ref<solver>      m_solver;
-    pb2bv_rewriter   m_rewriter;
+    mutable expr_ref_vector  m_assertions;
+    mutable ref<solver>      m_solver;
+    mutable pb2bv_rewriter   m_rewriter;
 
 public:
 
@@ -107,8 +107,19 @@ public:
         filter(mdl, 0);
     }
 
+    virtual unsigned get_num_assertions() const {
+        flush_assertions();
+        return m_solver->get_num_assertions();
+    }
+
+    virtual expr * get_assertion(unsigned idx) const {
+        flush_assertions();
+        return m_solver->get_assertion(idx);
+    }
+
+
 private:
-    void flush_assertions() {
+    void flush_assertions() const {
         proof_ref proof(m);
         expr_ref fml(m);
         expr_ref_vector fmls(m);

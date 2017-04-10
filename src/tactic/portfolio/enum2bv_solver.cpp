@@ -163,6 +163,14 @@ public:
         ext(mdl, 0);
     }
 
+    virtual unsigned get_num_assertions() const {
+        return m_solver->get_num_assertions();
+    }
+
+    virtual expr * get_assertion(unsigned idx) const {
+        return m_solver->get_assertion(idx);
+    }
+
 };
 
 solver * mk_enum2bv_solver(ast_manager & m, params_ref const & p, solver* s) {
