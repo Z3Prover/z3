@@ -2345,6 +2345,17 @@ bool theory_seq::add_itos_axiom(expr* e) {
             return false;
         }
         add_axiom(mk_eq(e2, n, false));
+
+#if 1
+        expr_ref num_re(m), opt_re(m);
+        num_re = m_util.re.mk_range(m_util.str.mk_string(symbol("0")), m_util.str.mk_string(symbol("9")));
+        num_re = m_util.re.mk_plus(num_re);
+        opt_re = m_util.re.mk_opt(m_util.re.mk_to_re(m_util.str.mk_string(symbol("-"))));
+        num_re = m_util.re.mk_concat(opt_re, num_re);
+        app_ref in_re(m_util.re.mk_in_re(e, num_re), m);
+        internalize_term(in_re);
+        propagate_in_re(in_re, true);
+#endif
         m_trail_stack.push(push_replay(alloc(replay_axiom, m, e)));
         return true;
     }
