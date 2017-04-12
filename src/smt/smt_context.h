@@ -226,6 +226,9 @@ namespace smt {
         literal2assumption         m_literal2assumption; // maps an expression associated with a literal to the original assumption
         expr_ref_vector            m_unsat_core;
 
+        // Unsat core assumption hint for theory_str
+        bool                       m_use_theory_str_overlap_assumption;
+
         // -----------------------------------
         //
         // Theory case split
@@ -845,6 +848,23 @@ namespace smt {
          * starting with the literal having the highest priority.
          */
         void add_theory_aware_branching_info(bool_var v, double priority, lbool phase);
+
+        // unsat core assumption hint for theory_str
+        void set_use_theory_str_overlap_assumption(bool f) {
+            m_use_theory_str_overlap_assumption = f;
+        }
+
+        bool use_theory_str_overlap_assumption() const {
+            return m_use_theory_str_overlap_assumption;
+        }
+
+        expr_ref get_theory_str_overlap_assumption_term() {
+            return m_theoryStrOverlapAssumption_term;
+        }
+
+    protected:
+        expr_ref m_theoryStrOverlapAssumption_term;
+    public:
 
         // helper function for trail
         void undo_th_case_split(literal l);

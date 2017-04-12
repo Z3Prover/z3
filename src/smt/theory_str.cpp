@@ -4304,6 +4304,8 @@ void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
         add_nonempty_constraint(commonVar);
     }
 
+    bool overlapAssumptionUsed = false;
+
     expr_ref_vector arrangement_disjunction(mgr);
     int pos = 1;
 
@@ -4339,6 +4341,12 @@ void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
         } else {
             TRACE("t_str", tout << "AVOID LOOP: SKIPPED." << std::endl;);
             TRACE("t_str", print_cut_var(m, tout); print_cut_var(y, tout););
+
+            // only add the overlap assumption one time
+            if (!overlapAssumptionUsed) {
+                arrangement_disjunction.push_back(ctx.get_theory_str_overlap_assumption_term());
+                overlapAssumptionUsed = true;
+            }
         }
     }
 
@@ -7239,6 +7247,9 @@ void theory_str::init_search_eh() {
     ast_manager & m = get_manager();
     context & ctx = get_context();
 
+    // safety
+    SASSERT(ctx.use_theory_str_overlap_assumption());
+
     TRACE("t_str_detail",
         tout << "dumping all asserted formulas:" << std::endl;
         unsigned nFormulas = ctx.get_num_asserted_formulas();
@@ -7301,6 +7312,7 @@ void theory_str::new_eq_eh(theory_var x, theory_var y) {
     //TRACE("t_str_detail", tout << "new eq: v#" << x << " = v#" << y << std::endl;);
     TRACE("t_str", tout << "new eq: " << mk_ismt2_pp(get_enode(x)->get_owner(), get_manager()) << " = " <<
                                   mk_ismt2_pp(get_enode(y)->get_owner(), get_manager()) << std::endl;);
+
     /*
     if (m_find.find(x) == m_find.find(y)) {
         return;

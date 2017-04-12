@@ -37,7 +37,7 @@ Revision History:
 #include"model_pp.h"
 #include"ast_smt2_pp.h"
 #include"ast_translation.h"
-#include"theory_str.h"
+#include"theory_seq.h"
 
 namespace smt {
 
@@ -76,6 +76,8 @@ namespace smt {
         m_unsat_proof(m),
         m_unknown("unknown"),
         m_unsat_core(m),
+        m_use_theory_str_overlap_assumption(false),
+        m_theoryStrOverlapAssumption_term(m_manager),
 #ifdef Z3DEBUG
         m_trail_enabled(true),
 #endif
@@ -3269,20 +3271,37 @@ namespace smt {
 
         // PATCH for theory_str:
         // UNSAT + overlapping variables => UNKNOWN
-        if (r == l_false) {
-            ptr_vector<theory>::iterator it  = m_theory_set.begin();
-            ptr_vector<theory>::iterator end = m_theory_set.end();
-            for (; it != end; ++it) {
-                theory * th = *it;
-                if (strcmp(th->get_name(), "strings") == 0) {
-                    theory_str * str = (theory_str*)th;
-                    if (str->overlapping_variables_detected()) {
-                        TRACE("t_str", tout << "WARNING: overlapping variables detected, UNSAT changed to UNKNOWN!" << std::endl;);
-                        TRACE("context", tout << "WARNING: overlapping variables detected in theory_str. UNSAT changed to UNKNOWN!" << std::endl;);
-                        r = l_undef;
-                    }
+        if (r == l_false && use_theory_str_overlap_assumption()) {
+            // check the unsat core for an assumption from theory_str relating to overlaps.
+            // if we find this assumption, we have to answer UNKNOWN
+            // otherwise, we can pass through UNSAT
+            TRACE("t_str", tout << "unsat core:\n";
+            unsigned sz = m_unsat_core.size();
+            for (unsigned i = 0; i < sz; i++) {
+                tout << mk_pp(m_unsat_core.get(i), m_manager) << "\n";
+            });
+
+            bool assumptionFound = false;
+            unsigned sz = m_unsat_core.size();
+            app * target_term = to_app(m_manager.mk_not(m_theoryStrOverlapAssumption_term));
+            internalize_term(target_term);
+            for (unsigned i = 0; i < sz; ++i) {
+                app * core_term = to_app(m_unsat_core.get(i));
+                // not sure if this is the correct way to compare exprs in this context
+                enode * e1;
+                enode * e2;
+                e1 = get_enode(target_term);
+                e2 = get_enode(core_term);
+                if (e1 == e2) {
+                    // found match
+                    TRACE("t_str", tout << "overlap detected in unsat core; changing UNSAT to UNKNOWN" << std::endl;);
+                    assumptionFound = true;
+                    r = l_undef;
                     break;
                 }
+            }
+            if (!assumptionFound) {
+                TRACE("t_str", tout << "no overlaps detected in unsat core, answering UNSAT" << std::endl;);
             }
         }
 
@@ -3302,6 +3321,22 @@ namespace smt {
         SASSERT(m_scope_lvl == 0);
         SASSERT(!m_setup.already_configured());
         setup_context(m_fparams.m_auto_config);
+
+        // theory_str requires the context to be set up with a special assumption.
+        // we need to wait until after setup_context() to know whether this is the case
+        if (m_use_theory_str_overlap_assumption) {
+            TRACE("t_str", tout << "enabling theory_str overlap assumption" << std::endl;);
+            // TODO maybe refactor this a bit
+            symbol strOverlap("!!TheoryStrOverlapAssumption!!");
+            expr_ref_vector assumption(get_manager());
+            seq_util m_sequtil(m_manager);
+            sort * s = m_manager.mk_bool_sort();
+            m_theoryStrOverlapAssumption_term = expr_ref(m_manager.mk_const(strOverlap, s), m_manager);
+            assumption.push_back(m_manager.mk_not(m_theoryStrOverlapAssumption_term));
+            // this might work, even though we already did a bit of setup
+            return check(assumption.size(), assumption.c_ptr(), reset_cancel);
+        }
+
         internalize_assertions();
         lbool r = l_undef;
         if (m_asserted_formulas.inconsistent()) {

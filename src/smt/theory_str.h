@@ -389,7 +389,6 @@ namespace smt {
         // finite model finding data
         // maps a finite model tester var to a list of variables that will be tested
         obj_map<expr, ptr_vector<expr> > finite_model_test_varlists;
-
     protected:
         void assert_axiom(expr * e);
         void assert_implication(expr * premise, expr * conclusion);
