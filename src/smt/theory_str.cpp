@@ -2898,6 +2898,9 @@ bool theory_str::is_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
 void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
     ast_manager & mgr = get_manager();
     context & ctx = get_context();
+
+    bool overlapAssumptionUsed = false;
+
     TRACE("t_str_detail", tout << "process_concat_eq TYPE 1" << std::endl
             << "concatAst1 = " << mk_ismt2_pp(concatAst1, mgr) << std::endl
             << "concatAst2 = " << mk_ismt2_pp(concatAst2, mgr) << std::endl;
@@ -3074,6 +3077,11 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
             } else {
                 TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
                 TRACE("t_str_detail", {print_cut_var(m, tout); print_cut_var(y, tout);});
+
+                if (!overlapAssumptionUsed) {
+                	overlapAssumptionUsed = true;
+                	assert_implication(ax_l, ctx.get_theory_str_overlap_assumption_term());
+                }
             }
         }
     } else if (splitType == 1) {
@@ -3132,6 +3140,11 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
             } else {
                 TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
                 TRACE("t_str_detail", {print_cut_var(m, tout); print_cut_var(y, tout);});
+
+                if (!overlapAssumptionUsed) {
+                	overlapAssumptionUsed = true;
+                	assert_implication(ax_l, ctx.get_theory_str_overlap_assumption_term());
+                }
             }
         }
     } else if (splitType == -1) {
@@ -3183,6 +3196,11 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
             } else {
                 TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
                 TRACE("t_str_detail", {print_cut_var(m, tout); print_cut_var(y, tout);});
+
+                if (!overlapAssumptionUsed) {
+                	overlapAssumptionUsed = true;
+                	arrangement_disjunction.push_back(ctx.get_theory_str_overlap_assumption_term());
+                }
             }
         }
 
@@ -3227,6 +3245,11 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
             } else {
                 TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
                 TRACE("t_str_detail", {print_cut_var(x, tout); print_cut_var(n, tout);});
+
+                if (!overlapAssumptionUsed) {
+                	overlapAssumptionUsed = true;
+                	arrangement_disjunction.push_back(ctx.get_theory_str_overlap_assumption_term());
+                }
             }
         }
 
@@ -3286,6 +3309,9 @@ bool theory_str::is_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 	ast_manager & mgr = get_manager();
 	context & ctx = get_context();
+
+	bool overlapAssumptionUsed = false;
+
 	TRACE("t_str_detail", tout << "process_concat_eq TYPE 2" << std::endl
 			<< "concatAst1 = " << mk_ismt2_pp(concatAst1, mgr) << std::endl
 			<< "concatAst2 = " << mk_ismt2_pp(concatAst2, mgr) << std::endl;
@@ -3466,6 +3492,11 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 	            } else {
 	                TRACE("t_str", tout << "AVOID LOOP: SKIP" << std::endl;);
 	                TRACE("t_str_detail", {print_cut_var(m, tout); print_cut_var(y, tout);});
+
+	                if (!overlapAssumptionUsed) {
+	                	overlapAssumptionUsed = true;
+	                	assert_implication(ax_l, ctx.get_theory_str_overlap_assumption_term());
+	                }
 	            }
 	        }
 	    }
@@ -3567,6 +3598,11 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 				} else {
 				    TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
 				    TRACE("t_str_detail", {print_cut_var(m, tout); print_cut_var(y, tout);});
+
+				    if (!overlapAssumptionUsed) {
+				    	overlapAssumptionUsed = true;
+				    	arrangement_disjunction.push_back(ctx.get_theory_str_overlap_assumption_term());
+				    }
 				}
 			}
 		}
@@ -3636,6 +3672,9 @@ bool theory_str::is_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
 void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
     ast_manager & mgr = get_manager();
     context & ctx = get_context();
+
+    bool overlapAssumptionUsed = false;
+
     TRACE("t_str_detail", tout << "process_concat_eq TYPE 3" << std::endl
             << "concatAst1 = " << mk_ismt2_pp(concatAst1, mgr) << std::endl
             << "concatAst2 = " << mk_ismt2_pp(concatAst2, mgr) << std::endl;
@@ -3861,6 +3900,11 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
                 } else {
                     TRACE("t_str", tout << "AVOID LOOP: SKIPPED" << std::endl;);
                     TRACE("t_str_detail", {print_cut_var(x, tout); print_cut_var(n, tout);});
+
+                    if (!overlapAssumptionUsed) {
+                    	overlapAssumptionUsed = true;
+                    	assert_implication(ax_l, ctx.get_theory_str_overlap_assumption_term());
+                    }
                 }
             }
         }
@@ -3940,6 +3984,11 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
                 } else {
                     TRACE("t_str", tout << "AVOID LOOP: SKIPPED." << std::endl;);
                     TRACE("t_str_detail", {print_cut_var(x, tout); print_cut_var(n, tout);});
+
+                    if (!overlapAssumptionUsed) {
+                    	overlapAssumptionUsed = true;
+                    	arrangement_disjunction.push_back(ctx.get_theory_str_overlap_assumption_term());
+                    }
                 }
             }
         }
