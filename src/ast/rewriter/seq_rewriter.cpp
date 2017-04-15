@@ -1435,6 +1435,7 @@ bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_
     zstring s;
     bool lchange = false;
     SASSERT(lhs.empty());
+    TRACE("seq", tout << ls << "\n"; tout << rs << "\n";);
     // solve from back
     while (true) {
         while (!rs.empty() && m_util.str.is_empty(rs.back())) {
@@ -1552,9 +1553,11 @@ bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_
            head2 < rs.size() && 
            m_util.str.is_string(ls[head1].get(), s1) &&
            m_util.str.is_string(rs[head2].get(), s2)) {
+        TRACE("seq", tout << s1 << " - " << s2 << " " << s1.length() << " " << s2.length() << "\n";);
         unsigned l = std::min(s1.length(), s2.length());
         for (unsigned i = 0; i < l; ++i) {
             if (s1[i] != s2[i]) {
+                TRACE("seq", tout << "different at position " << i << " " << s1[i] << " " << s2[i] << "\n";);
                 return false;
             }
         }
