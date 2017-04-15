@@ -1890,43 +1890,43 @@ public class Context implements AutoCloseable {
     /**
      * Create the empty sequence.
     */
-    public SeqExpr MkEmptySeq(Sort s) 
+    public SeqExpr mkEmptySeq(Sort s) 
     {
 	checkContextMatch(s);
-	return new SeqExpr(this, Native.mkSeqEmpty(nCtx(), s.getNativeObject()));
+	return (SeqExpr) Expr.create(this, Native.mkSeqEmpty(nCtx(), s.getNativeObject()));
     }
 
     /**
      * Create the singleton sequence.
      */
-    public SeqExpr MkUnit(Expr elem) 
+    public SeqExpr mkUnit(Expr elem) 
     {
 	checkContextMatch(elem);
-	return new SeqExpr(this, Native.mkSeqUnit(nCtx(), elem.getNativeObject()));
+	return (SeqExpr) Expr.create(this, Native.mkSeqUnit(nCtx(), elem.getNativeObject()));
     }
     
     /**
      * Create a string constant.
      */
-    public SeqExpr MkString(String s) 
+    public SeqExpr mkString(String s) 
     {
-	return new SeqExpr(this, Native.mkString(nCtx(), s));
+	return (SeqExpr) Expr.create(this, Native.mkString(nCtx(), s));
     }
     
     /**
      * Concatentate sequences.
      */
-    public SeqExpr MkConcat(SeqExpr... t)
+    public SeqExpr mkConcat(SeqExpr... t)
     {
 	checkContextMatch(t);
-	return new SeqExpr(this, Native.mkSeqConcat(nCtx(), t.length, AST.arrayToNative(t)));
+	return (SeqExpr) Expr.create(this, Native.mkSeqConcat(nCtx(), t.length, AST.arrayToNative(t)));
     }
     
     
     /**
      * Retrieve the length of a given sequence.
      */
-    public IntExpr MkLength(SeqExpr s)
+    public IntExpr mkLength(SeqExpr s)
     {
 	checkContextMatch(s);
 	return (IntExpr) Expr.create(this, Native.mkSeqLength(nCtx(), s.getNativeObject()));
@@ -1935,130 +1935,195 @@ public class Context implements AutoCloseable {
     /**
      * Check for sequence prefix.
      */
-    public BoolExpr MkPrefixOf(SeqExpr s1, SeqExpr s2) 
+    public BoolExpr mkPrefixOf(SeqExpr s1, SeqExpr s2) 
     {
 	checkContextMatch(s1, s2);
-	return new BoolExpr(this, Native.mkSeqPrefix(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
+	return (BoolExpr) Expr.create(this, Native.mkSeqPrefix(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
     }
     
     /**
      * Check for sequence suffix.
      */
-    public BoolExpr MkSuffixOf(SeqExpr s1, SeqExpr s2) 
+    public BoolExpr mkSuffixOf(SeqExpr s1, SeqExpr s2) 
     {
 	checkContextMatch(s1, s2);
-	return new BoolExpr(this, Native.mkSeqSuffix(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
+	return (BoolExpr)Expr.create(this, Native.mkSeqSuffix(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
     }
     
     /**
      * Check for sequence containment of s2 in s1.
      */
-    public BoolExpr MkContains(SeqExpr s1, SeqExpr s2) 
+    public BoolExpr mkContains(SeqExpr s1, SeqExpr s2) 
     {
 	checkContextMatch(s1, s2);
-	return new BoolExpr(this, Native.mkSeqContains(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
+	return (BoolExpr) Expr.create(this, Native.mkSeqContains(nCtx(), s1.getNativeObject(), s2.getNativeObject()));
     }
     
     /**
      * Retrieve sequence of length one at index.
      */
-    public SeqExpr MkAt(SeqExpr s, IntExpr index)
+    public SeqExpr mkAt(SeqExpr s, IntExpr index)
     {
 	checkContextMatch(s, index);
-	return new SeqExpr(this, Native.mkSeqAt(nCtx(), s.getNativeObject(), index.getNativeObject()));
+	return (SeqExpr) Expr.create(this, Native.mkSeqAt(nCtx(), s.getNativeObject(), index.getNativeObject()));
     }
     
     /**
      * Extract subsequence.
      */
-    public SeqExpr MkExtract(SeqExpr s, IntExpr offset, IntExpr length)
+    public SeqExpr mkExtract(SeqExpr s, IntExpr offset, IntExpr length)
     {
 	checkContextMatch(s, offset, length);
-	return new SeqExpr(this, Native.mkSeqExtract(nCtx(), s.getNativeObject(), offset.getNativeObject(), length.getNativeObject()));
+	return (SeqExpr) Expr.create(this, Native.mkSeqExtract(nCtx(), s.getNativeObject(), offset.getNativeObject(), length.getNativeObject()));
     }
     
     /**
      * Extract index of sub-string starting at offset.
      */
-    public IntExpr MkIndexOf(SeqExpr s, SeqExpr substr, ArithExpr offset)
+    public IntExpr mkIndexOf(SeqExpr s, SeqExpr substr, ArithExpr offset)
     {
 	checkContextMatch(s, substr, offset);
-	return new IntExpr(this, Native.mkSeqIndex(nCtx(), s.getNativeObject(), substr.getNativeObject(), offset.getNativeObject()));
+	return (IntExpr)Expr.create(this, Native.mkSeqIndex(nCtx(), s.getNativeObject(), substr.getNativeObject(), offset.getNativeObject()));
     }
     
     /**
      * Replace the first occurrence of src by dst in s.
      */
-    public SeqExpr MkReplace(SeqExpr s, SeqExpr src, SeqExpr dst)
+    public SeqExpr mkReplace(SeqExpr s, SeqExpr src, SeqExpr dst)
     {
 	checkContextMatch(s, src, dst);
-	return new SeqExpr(this, Native.mkSeqReplace(nCtx(), s.getNativeObject(), src.getNativeObject(), dst.getNativeObject()));
+	return (SeqExpr) Expr.create(this, Native.mkSeqReplace(nCtx(), s.getNativeObject(), src.getNativeObject(), dst.getNativeObject()));
     }
     
     /**
      * Convert a regular expression that accepts sequence s.
      */
-    public ReExpr MkToRe(SeqExpr s) 
+    public ReExpr mkToRe(SeqExpr s) 
     {
 	checkContextMatch(s);
-	return new ReExpr(this, Native.mkSeqToRe(nCtx(), s.getNativeObject()));            
+	return (ReExpr) Expr.create(this, Native.mkSeqToRe(nCtx(), s.getNativeObject()));            
     }
     
     
     /**
      * Check for regular expression membership.
      */
-    public BoolExpr MkInRe(SeqExpr s, ReExpr re)
+    public BoolExpr mkInRe(SeqExpr s, ReExpr re)
     {
 	checkContextMatch(s, re);
-	return new BoolExpr(this, Native.mkSeqInRe(nCtx(), s.getNativeObject(), re.getNativeObject()));            
+	return (BoolExpr) Expr.create(this, Native.mkSeqInRe(nCtx(), s.getNativeObject(), re.getNativeObject()));            
     }
     
     /**
      * Take the Kleene star of a regular expression.
      */
-    public ReExpr MkStar(ReExpr re)
+    public ReExpr mkStar(ReExpr re)
     {
 	checkContextMatch(re);
-	return new ReExpr(this, Native.mkReStar(nCtx(), re.getNativeObject()));            
+	return (ReExpr) Expr.create(this, Native.mkReStar(nCtx(), re.getNativeObject()));            
     }
+
+    /**
+     * Take the bounded Kleene star of a regular expression.
+     */
+    public ReExpr mkLoop(ReExpr re, uint lo, uint hi = 0)
+    {
+	return (ReExpr) Expr.create(this, Native.mkReLoop(nCtx(), re.getNativeObject(), lo, hi));            
+    }
+
     
     /**
      * Take the Kleene plus of a regular expression.
      */
-    public ReExpr MPlus(ReExpr re)
+    public ReExpr mkPlus(ReExpr re)
     {
 	checkContextMatch(re);
-	return new ReExpr(this, Native.mkRePlus(nCtx(), re.getNativeObject()));            
+	return (ReExpr) Expr.create(this, Native.mkRePlus(nCtx(), re.getNativeObject()));            
     }
     
     /**
      * Create the optional regular expression.
      */
-    public ReExpr MOption(ReExpr re)
+    public ReExpr mkOption(ReExpr re)
     {
 	checkContextMatch(re);
-	return new ReExpr(this, Native.mkReOption(nCtx(), re.getNativeObject()));            
+	return (ReExpr) Expr.create(this, Native.mkReOption(nCtx(), re.getNativeObject()));            
     }
     
     /**
      * Create the concatenation of regular languages.
      */
-    public ReExpr MkConcat(ReExpr... t)
+    public ReExpr mkConcat(ReExpr... t)
     {
 	checkContextMatch(t);
-	return new ReExpr(this, Native.mkReConcat(nCtx(), t.length, AST.arrayToNative(t)));
+	return (ReExpr) Expr.create(this, Native.mkReConcat(nCtx(), t.length, AST.arrayToNative(t)));
     }
     
     /**
      * Create the union of regular languages.
      */
-    public ReExpr MkUnion(ReExpr... t)
+    public ReExpr mkUnion(ReExpr... t)
     {
 	checkContextMatch(t);
-	return new ReExpr(this, Native.mkReUnion(nCtx(), t.length, AST.arrayToNative(t)));
+	return (ReExpr) Expr.create(this, Native.mkReUnion(nCtx(), t.length, AST.arrayToNative(t)));
     }
     
+    
+    /**
+     * Create a range expression.
+     */
+    public ReExpr MkRange(SeqExpr lo, SeqExpr hi) 
+    {
+	checkContextMatch(lo, hi);
+	return (ReExpr) Expr.create(this, Native.mkReRange(nCtx(), lo.getNativeObject(), hi.getNativeObject()));
+    }
+
+
+    /** 
+     * Create an at-most-k constraint.
+     */
+    public BoolExpr mkAtMost(BoolExpr[] args, loong k)
+    {
+	checkContextMatch(args);
+	return (BoolExpr) Expr.create(this, Native.mkAtmost(nCtx(), args.length, AST.arrayToNative(args), k));
+    }
+
+    /**
+     * Create an at-least-k constraint.
+     */
+    public BoolExpr mkAtLeast(BoolExpr[] args, long k)
+    {
+	checkContextMatch(args);
+	return (BoolExpr) Expr.create(this, Native.mkAtleast(nCtx(), args.length, AST.arrayToNative(args), k));
+    }
+
+    /**
+     * Create a pseudo-Boolean less-or-equal constraint.
+     */
+    public BoolExpr mkPBLe(int[] coeffs, BoolExpr[] args, int k)
+    {
+	checkContextMatch(args);
+	return (BoolExpr) Expr.create(this, Native.mkPble(nCtx(), args.length, AST.arrayToNative(args), coeffs, k));
+    }
+
+    /**
+     * Create a pseudo-Boolean greater-or-equal constraint.
+     */
+    public BoolExpr mkPBGe(int[] coeffs, BoolExpr[] args, int k)
+    {
+	checkContextMatch(args);
+	return (BoolExpr) Expr.create(this, Native.mkPbge(nCtx(), args.length, AST.arrayToNative(args), coeffs, k));
+    }
+
+    /**
+     * Create a pseudo-Boolean equal constraint.
+     */
+    public BoolExpr mkPBEq(int[] coeffs, BoolExpr[] args, int k)
+    {
+	checkContextMatch(args);
+	return (BoolExpr) Expr.create(this, Native.mkPbeq(nCtx(), args.length, AST.arrayToNative(args), coeffs, k));
+    }
+
 
     /**
      * Create a Term of a given sort. 
