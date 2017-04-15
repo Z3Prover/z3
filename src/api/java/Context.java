@@ -2026,7 +2026,7 @@ public class Context implements AutoCloseable {
     /**
      * Take the lower and upper-bounded Kleene star of a regular expression.
      */
-    public ReExpr mkLoop(ReExpr re, long lo, long hi)
+    public ReExpr mkLoop(ReExpr re, int lo, int hi)
     {
 	return (ReExpr) Expr.create(this, Native.mkReLoop(nCtx(), re.getNativeObject(), lo, hi));            
     }
@@ -2034,7 +2034,7 @@ public class Context implements AutoCloseable {
     /**
      * Take the lower-bounded Kleene star of a regular expression.
      */
-    public ReExpr mkLoop(ReExpr re, long lo)
+    public ReExpr mkLoop(ReExpr re, int lo)
     {
 	return (ReExpr) Expr.create(this, Native.mkReLoop(nCtx(), re.getNativeObject(), lo, 0));            
     }
@@ -2090,7 +2090,7 @@ public class Context implements AutoCloseable {
     /** 
      * Create an at-most-k constraint.
      */
-    public BoolExpr mkAtMost(BoolExpr[] args, loong k)
+    public BoolExpr mkAtMost(BoolExpr[] args, long k)
     {
 	checkContextMatch(args);
 	return (BoolExpr) Expr.create(this, Native.mkAtmost(nCtx(), args.length, AST.arrayToNative(args), k));
