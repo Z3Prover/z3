@@ -2090,7 +2090,7 @@ public class Context implements AutoCloseable {
     /** 
      * Create an at-most-k constraint.
      */
-    public BoolExpr mkAtMost(BoolExpr[] args, long k)
+    public BoolExpr mkAtMost(BoolExpr[] args, int k)
     {
 	checkContextMatch(args);
 	return (BoolExpr) Expr.create(this, Native.mkAtmost(nCtx(), args.length, AST.arrayToNative(args), k));
@@ -2099,7 +2099,7 @@ public class Context implements AutoCloseable {
     /**
      * Create an at-least-k constraint.
      */
-    public BoolExpr mkAtLeast(BoolExpr[] args, long k)
+    public BoolExpr mkAtLeast(BoolExpr[] args, int k)
     {
 	checkContextMatch(args);
 	return (BoolExpr) Expr.create(this, Native.mkAtleast(nCtx(), args.length, AST.arrayToNative(args), k));
