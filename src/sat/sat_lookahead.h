@@ -282,8 +282,10 @@ namespace sat {
             inc_bstamp();
             set_bstamp(l);
             literal_vector const& conseq = m_binary[l.index()];
-            for (unsigned i = 0; i < conseq.size(); ++i) {
-                set_bstamp(conseq[i]);
+            literal_vector::const_iterator it = conseq.begin(); 
+            literal_vector::const_iterator end = conseq.end();
+            for (; it != end; ++it) {
+                set_bstamp(*it);
             }
         }
         bool is_stamped(literal l) const { return m_bstamp[l.index()] == m_bstamp_id; }
@@ -557,6 +559,7 @@ namespace sat {
             literal_vector::iterator it = m_binary[l.index()].begin(), end = m_binary[l.index()].end();
             for (; it != end; ++it) {
                 if (is_undef(*it)) sum += h[it->index()]; 
+                // if (m_freevars.contains(it->var())) sum += h[it->index()]; 
             }
             watch_list& wlist = m_watches[l.index()];
             watch_list::iterator wit = wlist.begin(), wend = wlist.end();
@@ -568,9 +571,8 @@ namespace sat {
                 case watched::TERNARY: {
                     literal l1 = wit->get_literal1();
                     literal l2 = wit->get_literal2();
-                    if (is_undef(l1) && is_undef(l2)) {
-                        tsum += h[l1.index()] * h[l2.index()]; 
-                    }
+                    // if (is_undef(l1) && is_undef(l2)) 
+                    tsum += h[l1.index()] * h[l2.index()]; 
                     break;
                 }
                 case watched::CLAUSE: {
@@ -1155,14 +1157,19 @@ namespace sat {
             // convert windfalls to binary clauses.
             if (!unsat) {
                 literal nlit = ~lit;
+
                 for (unsigned i = 0; i < m_wstack.size(); ++i) {
-                    ++m_stats.m_windfall_binaries;
                     literal l2 = m_wstack[i];
                     //update_prefix(~lit);
                     //update_prefix(m_wstack[i]);
                     TRACE("sat", tout << "windfall: " << nlit << " " << l2 << "\n";); 
+                    // if we use try_add_binary, then this may produce new assignments
+                    // these assignments get put on m_trail, and they are cleared by
+                    // reset_wnb. We would need to distinguish the trail that comes
+                    // from lookahead levels and the main search level for this to work.
                     add_binary(nlit, l2);
                 }
+                m_stats.m_windfall_binaries += m_wstack.size();
             }
             m_wstack.reset();
         }
@@ -1180,6 +1187,15 @@ namespace sat {
             return r;
         }
 
+        // 
+        // The current version is modeled after CDCL SAT solving data-structures.
+        // It borrows from the watch list data-structure. The cost tradeoffs are somewhat
+        // biased towards CDCL search overheads.
+        // If we walk over the positive occurrences of l, then those clauses can be retired so 
+        // that they don't interfere with calculation of H. Instead of removing clauses from the watch
+        // list one can swap them to the "back" and adjust a size indicator of the watch list
+        // Only the size indicator needs to be updated on backtracking.
+        // 
         void propagate_clauses(literal l) {
             SASSERT(is_true(l));
             if (inconsistent()) return;
@@ -1237,17 +1253,17 @@ namespace sat {
                     break;
                 }
                 case watched::CLAUSE: {
-                    clause_offset cls_off = it->get_clause_offset();
-                    clause & c = *(s.m_cls_allocator.get_clause(cls_off));
                     if (is_true(it->get_blocked_literal())) {
                         *it2 = *it;
                         ++it2;
                         break;
                     }
-
+                    clause_offset cls_off = it->get_clause_offset();
+                    clause & c = *(s.m_cls_allocator.get_clause(cls_off));
                     if (c[0] == ~l)
                         std::swap(c[0], c[1]);
                     if (is_true(c[0])) {
+                        it->set_blocked_literal(c[0]);
                         *it2 = *it;
                         it2++;
                         break;
@@ -1337,13 +1353,21 @@ namespace sat {
         }
 
         void propagate() {
-            for (; m_qhead < m_trail.size(); ++m_qhead) {
-                if (inconsistent()) break;
-                literal l = m_trail[m_qhead];
-                TRACE("sat", tout << "propagate " << l << " @ " << m_level << "\n";);
-                propagate_binary(l);
-                propagate_clauses(l);
+            while (!inconsistent() && m_qhead < m_trail.size()) {
+                unsigned i = m_qhead;
+                unsigned sz = m_trail.size();
+                for (; i < sz && !inconsistent(); ++i) {
+                    literal l = m_trail[i];
+                    TRACE("sat", tout << "propagate " << l << " @ " << m_level << "\n";);
+                    propagate_binary(l);
+                }
+                i = m_qhead;
+                for (; i < sz && !inconsistent(); ++i) {            
+                    propagate_clauses(m_trail[i]);
+                }
+                m_qhead = sz;
             }
+
             TRACE("sat_verbose", display(tout << scope_lvl() << " " << (inconsistent()?"unsat":"sat") << "\n"););
         }
 

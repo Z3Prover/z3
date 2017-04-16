@@ -5,7 +5,7 @@ Module Name:
 
     pb2bv_rewriter.cpp
 
-Abstract:
+Abstralct:
 
     Conversion from pseudo-booleans to bit-vectors.
 
@@ -25,6 +25,7 @@ Notes:
 #include"ast_util.h"
 #include"ast_pp.h"
 #include"lbool.h"
+#include"uint_set.h"
 
 const unsigned g_primes[7] = { 2, 3, 5, 7, 11, 13, 17};
 
@@ -111,7 +112,13 @@ struct pb2bv_rewriter::imp {
             if (k.is_neg()) {
                 return expr_ref((is_le == l_false)?m.mk_true():m.mk_false(), m);
             }
-            
+
+            expr_ref result(m);
+            switch (is_le) {
+            case l_true:  if (mk_le_tot(sz, args, k, result)) return result; else break;
+            case l_false: if (mk_ge_tot(sz, args, k, result)) return result; else break;
+            case l_undef: break;
+            }
 #if 0
             expr_ref result(m);
             switch (is_le) {
@@ -169,6 +176,141 @@ struct pb2bv_rewriter::imp {
             default:
                 UNREACHABLE();
                 return expr_ref(m.mk_true(), m);
+            }
+        }
+
+        /**
+           \brief Totalizer encoding. Based on a version by Miguel.
+         */
+
+        bool mk_le_tot(unsigned sz, expr * const * args, rational const& _k, expr_ref& result) {
+            SASSERT(sz == m_coeffs.size());
+            if (!_k.is_unsigned() || sz == 0) return false;
+            unsigned k = _k.get_unsigned();
+            expr_ref_vector args1(m);
+            rational bound;
+            flip(sz, args, args1, _k, bound);
+            if (bound.get_unsigned() < k) {
+                return mk_ge_tot(sz, args1.c_ptr(), bound, result);
+            }
+            if (k > 20) {
+                return false;
+            }
+            result = m.mk_not(bounded_addition(sz, args, k + 1));
+            TRACE("pb", tout << result << "\n";);
+            return true;
+        }
+
+        bool mk_ge_tot(unsigned sz, expr * const * args, rational const& _k, expr_ref& result) {
+            SASSERT(sz == m_coeffs.size());
+            if (!_k.is_unsigned() || sz == 0) return false;
+            unsigned k = _k.get_unsigned();
+            expr_ref_vector args1(m);
+            rational bound;
+            flip(sz, args, args1, _k, bound);
+            if (bound.get_unsigned() < k) {
+                return mk_le_tot(sz, args1.c_ptr(), bound, result);
+            }
+            if (k > 20) {
+                return false;
+            }
+            result = bounded_addition(sz, args, k);
+            TRACE("pb", tout << result << "\n";);
+            return true;
+        }
+
+        void flip(unsigned sz, expr* const* args, expr_ref_vector& args1, rational const& k, rational& bound) {
+            bound = -k;
+            for (unsigned i = 0; i < sz; ++i) {
+                args1.push_back(mk_not(args[i]));
+                bound += m_coeffs[i];
+            }
+        }
+
+        expr_ref bounded_addition(unsigned sz, expr * const * args, unsigned k) {
+            SASSERT(sz > 0);
+            expr_ref result(m);
+            vector<expr_ref_vector> es;
+            vector<unsigned_vector> coeffs;
+            for (unsigned i = 0; i < m_coeffs.size(); ++i) {
+                unsigned_vector v;
+                expr_ref_vector e(m);
+                unsigned c = m_coeffs[i].get_unsigned();
+                v.push_back(c >= k ? k : c);
+                e.push_back(args[i]);   
+                es.push_back(e);
+                coeffs.push_back(v);
+            }
+            while (es.size() > 1) {
+                for (unsigned i = 0; i + 1 < es.size(); i += 2) {
+                    expr_ref_vector o(m);
+                    unsigned_vector oc;
+                    tot_adder(es[i], coeffs[i], es[i + 1], coeffs[i + 1], k, o, oc);
+                    es[i / 2].set(o);
+                    coeffs[i / 2] = oc;
+                }
+                if ((es.size() % 2) == 1) {
+                    es[es.size() / 2].set(es.back());
+                    coeffs[es.size() / 2] = coeffs.back();
+                }
+                es.shrink((1 + es.size())/2);
+                coeffs.shrink((1 + coeffs.size())/2);
+            }
+            SASSERT(coeffs.size() == 1);
+            SASSERT(coeffs[0].back() <= k);
+            if (coeffs[0].back() == k) {
+                result = es[0].back();
+            }
+            else {
+                result = m.mk_false();
+            }
+            return result;
+        }
+
+        void tot_adder(expr_ref_vector const& l, unsigned_vector const& lc,
+                       expr_ref_vector const& r, unsigned_vector const& rc,
+                       unsigned k,
+                       expr_ref_vector& o, unsigned_vector & oc) {
+            SASSERT(l.size() == lc.size());
+            SASSERT(r.size() == rc.size());
+            uint_set sums;
+            vector<expr_ref_vector> trail;
+            u_map<unsigned> sum2def;
+            for (unsigned i = 0; i <= l.size(); ++i) {
+                for (unsigned j = (i == 0) ? 1 : 0; j <= r.size(); ++j) {
+                    unsigned sum = std::min(k, ((i == 0) ? 0 : lc[i - 1]) + ((j == 0) ? 0 : rc[j - 1]));
+                    sums.insert(sum);                        
+                }
+            }
+            uint_set::iterator it = sums.begin(), end = sums.end();
+            for (; it != end; ++it) {
+                oc.push_back(*it);
+            }            
+            std::sort(oc.begin(), oc.end());
+            DEBUG_CODE(                
+                for (unsigned i = 0; i + 1 < oc.size(); ++i) {
+                    SASSERT(oc[i] < oc[i+1]);
+                });
+            for (unsigned i = 0; i < oc.size(); ++i) {
+                sum2def.insert(oc[i], i);
+                trail.push_back(expr_ref_vector(m));
+            }
+            for (unsigned i = 0; i <= l.size(); ++i) {
+                for (unsigned j = (i == 0) ? 1 : 0; j <= r.size(); ++j) {
+                    if (i != 0 && j != 0 && (lc[i - 1] >= k || rc[j - 1] >= k)) continue;
+                    unsigned sum = std::min(k, ((i == 0) ? 0 : lc[i - 1]) + ((j == 0) ? 0 : rc[j - 1]));
+                    expr_ref_vector ands(m);
+                    if (i != 0) {
+                        ands.push_back(l[i - 1]);
+                    }
+                    if (j != 0) {
+                        ands.push_back(r[j - 1]);
+                    }
+                    trail[sum2def.find(sum)].push_back(::mk_and(ands));
+                }
+            }
+            for (unsigned i = 0; i < oc.size(); ++i) {
+                o.push_back(::mk_or(trail[sum2def.find(oc[i])]));
             }
         }
 
