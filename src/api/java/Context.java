@@ -2057,7 +2057,17 @@ public class Context implements AutoCloseable {
 	checkContextMatch(re);
 	return (ReExpr) Expr.create(this, Native.mkReOption(nCtx(), re.getNativeObject()));            
     }
+
     
+    /**
+     * Create the complement regular expression.
+     */
+    public ReExpr mkComplement(ReExpr re)
+    {
+	checkContextMatch(re);
+	return (ReExpr) Expr.create(this, Native.mkReComplement(nCtx(), re.getNativeObject()));            
+    }    
+
     /**
      * Create the concatenation of regular languages.
      */
@@ -2075,7 +2085,15 @@ public class Context implements AutoCloseable {
 	checkContextMatch(t);
 	return (ReExpr) Expr.create(this, Native.mkReUnion(nCtx(), t.length, AST.arrayToNative(t)));
     }
-    
+
+    /**
+     * Create the intersection of regular languages.
+     */
+    public ReExpr mkIntersect(ReExpr... t)
+    {
+	checkContextMatch(t);
+	return (ReExpr) Expr.create(this, Native.mkReIntersect(nCtx(), t.length, AST.arrayToNative(t)));
+    }    
     
     /**
      * Create a range expression.
