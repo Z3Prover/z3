@@ -875,6 +875,9 @@ namespace sat {
         sat::parallel par(*this);
         par.reserve(num_threads, 1 << 12);
         par.init_solvers(*this, num_extra_solvers);
+        for (unsigned i = 0; i < ls.size(); ++i) {
+            par.push_child(ls[i]->rlimit());
+        }
         int finished_id = -1;
         std::string        ex_msg;
         par_exception_kind ex_kind;
