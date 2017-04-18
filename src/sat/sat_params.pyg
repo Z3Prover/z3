@@ -29,4 +29,5 @@ def_module_params('sat',
                           ('cardinality.solver', BOOL, False, 'use cardinality solver'),
 	                  ('xor.solver', BOOL, False, 'use xor solver'),
                           ('local_search', UINT, 0, 'number of local search threads to find satisfiable solution'),
+                          ('lookahead_search', BOOL, False, 'use lookahead solver')
                        ))

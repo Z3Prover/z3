@@ -20,6 +20,8 @@ Notes:
 #ifndef _SAT_LOOKAHEAD_H_
 #define _SAT_LOOKAHEAD_H_
 
+#include "sat_elim_eqs.h"
+
 namespace sat {
 
     struct pp_prefix {
@@ -33,6 +35,9 @@ namespace sat {
         unsigned d = std::min(63u, p.m_depth);
         for (unsigned i = 0; i <= d; ++i) {
             if (0 != (p.m_prefix & (1ull << i))) out << "1"; else out << "0";
+        }
+        if (d < p.m_depth) {
+            out << " d:" << p.m_depth;
         }
         return out;
     }
@@ -309,6 +314,7 @@ namespace sat {
                         assign(u);        
                         return false;
                     }
+                    IF_VERBOSE(3, verbose_stream() << "tc1: " << u << " " << w << "\n";);
                     add_binary(u, w);
                 }
             }
@@ -367,7 +373,8 @@ namespace sat {
 
         bool select(unsigned level) {
             init_pre_selection(level);
-            unsigned max_num_cand = level == 0 ? m_freevars.size() : m_config.m_level_cand / level;
+            unsigned level_cand = std::max(m_config.m_level_cand, m_freevars.size() / 50);
+            unsigned max_num_cand = level == 0 ? m_freevars.size() : level_cand / level; 
             max_num_cand = std::max(m_config.m_min_cutoff, max_num_cand);
 
             float sum = 0;
@@ -1010,7 +1017,8 @@ namespace sat {
             m_lits.push_back(lit_info());
             m_rating.push_back(0);
             m_vprefix.push_back(prefix());
-            m_freevars.insert(v);
+            if (!s.was_eliminated(v)) 
+                m_freevars.insert(v);
         }
 
         void init() {
@@ -1040,11 +1048,31 @@ namespace sat {
                 }
             }
 
+            copy_clauses(s.m_clauses);
+            copy_clauses(s.m_learned);
+
+            // copy units
+            unsigned trail_sz = s.init_trail_size();
+            for (unsigned i = 0; i < trail_sz; ++i) {
+                literal l = s.m_trail[i];
+				if (!s.was_eliminated(l.var()))
+				{
+					if (s.m_config.m_drat) m_drat.add(l, false);
+					assign(l);
+				}
+            }
+            propagate();
+            m_qhead = m_trail.size();
+            TRACE("sat", s.display(tout); display(tout););
+        }
+
+        void copy_clauses(clause_vector const& clauses) {
             // copy clauses
-            clause_vector::const_iterator it =  s.m_clauses.begin();
-            clause_vector::const_iterator end = s.m_clauses.end();
-            for (; it != end; ++it) {
+            clause_vector::const_iterator it =  clauses.begin();
+            clause_vector::const_iterator end = clauses.end();
+            for (; it != end; ++it) {                
                 clause& c = *(*it);
+                if (c.was_removed()) continue;
                 clause* c1 = m_cls_allocator.mk_clause(c.size(), c.begin(), false);
                 m_clauses.push_back(c1);
                 attach_clause(*c1);
@@ -1053,17 +1081,6 @@ namespace sat {
                 }
                 if (s.m_config.m_drat) m_drat.add(c, false);
             }
-
-            // copy units
-            unsigned trail_sz = s.init_trail_size();
-            for (unsigned i = 0; i < trail_sz; ++i) {
-                literal l = s.m_trail[i];
-                if (s.m_config.m_drat) m_drat.add(l, false);
-                assign(l);
-            }
-            propagate();
-            m_qhead = m_trail.size();
-            TRACE("sat", s.display(tout); display(tout););
         }
 
         // ------------------------------------
@@ -1393,19 +1410,24 @@ namespace sat {
             TRACE("sat", display_lookahead(tout); );
             unsigned base = 2;
             bool change = true;
+            bool first = true;
             while (change && !inconsistent()) {
                 change = false;
                 for (unsigned i = 0; !inconsistent() && i < m_lookahead.size(); ++i) {
+                    s.checkpoint();
                     literal lit = m_lookahead[i].m_lit;
                     if (is_fixed_at(lit, c_fixed_truth)) continue;
                     unsigned level = base + m_lookahead[i].m_offset;
                     if (m_stamp[lit.var()] >= level) {
                         continue;
                     }
+                    if (scope_lvl() == 1) {
+                        IF_VERBOSE(3, verbose_stream() << scope_lvl() << " " << lit << " binary: " << m_binary_trail.size() << " trail: " << m_trail_lim.back() << "\n";);
+                    }
                     TRACE("sat", tout << "lookahead: " << lit << " @ " << m_lookahead[i].m_offset << "\n";);
                     reset_wnb(lit);
                     push_lookahead1(lit, level);
-                    do_double(lit, base);
+                    if (!first) do_double(lit, base);
                     bool unsat = inconsistent();                    
                     pop_lookahead1(lit); 
                     if (unsat) {
@@ -1424,7 +1446,13 @@ namespace sat {
                 if (c_fixed_truth - 2 * m_lookahead.size() < base) {
                     break;
                 }
-                base += 2 * m_lookahead.size();
+                if (first && !change) {
+                    first = false;
+                    change = true;
+                }
+                reset_wnb();
+                init_wnb();
+                // base += 2 * m_lookahead.size();
             }
             reset_wnb();
             TRACE("sat", display_lookahead(tout); );
@@ -1487,6 +1515,7 @@ namespace sat {
         }
 
         bool check_autarky(literal l, unsigned level) {
+            return false;
             // no propagations are allowed to reduce clauses.
             clause_vector::const_iterator it  = m_full_watches[l.index()].begin();
             clause_vector::const_iterator end = m_full_watches[l.index()].end();
@@ -1568,7 +1597,7 @@ namespace sat {
         }
 
         void do_double(literal l, unsigned& base) {
-            if (!inconsistent() && scope_lvl() > 0 && dl_enabled(l)) {                
+            if (!inconsistent() && scope_lvl() > 1 && dl_enabled(l)) {                
                 if (get_wnb(l) > m_delta_trigger) {
                     if (dl_no_overflow(base)) {
                         ++m_stats.m_double_lookahead_rounds;
@@ -1588,6 +1617,7 @@ namespace sat {
             SASSERT(dl_no_overflow(base));
             unsigned dl_truth = base + 2 * m_lookahead.size() * (m_config.m_dl_max_iterations + 1);            
             scoped_level _sl(*this, dl_truth);
+            IF_VERBOSE(2, verbose_stream() << "double: " << l << "\n";);
             init_wnb();
             assign(l);
             propagate();
@@ -1769,9 +1799,6 @@ namespace sat {
             m_drat(s),
             m_level(2),
             m_prefix(0) {
-                m_search_mode = lookahead_mode::searching;
-                scoped_level _sl(*this, c_fixed_truth);
-                init();
         }
 
         ~lookahead() {
@@ -1779,7 +1806,71 @@ namespace sat {
         }
         
         lbool check() {
+            {
+                m_search_mode = lookahead_mode::searching;
+                scoped_level _sl(*this, c_fixed_truth);
+                init();
+            }
             return search();
+        }
+
+        void simplify() {
+            SASSERT(m_prefix == 0);
+            SASSERT(m_watches.empty());
+            m_search_mode = lookahead_mode::searching;
+            scoped_level _sl(*this, c_fixed_truth);
+            init();                
+            if (inconsistent()) return;
+            inc_istamp();            
+            literal l = choose();
+            if (inconsistent()) return;
+            SASSERT(m_trail_lim.empty());
+            unsigned num_units = 0;
+            for (unsigned i = 0; i < m_trail.size(); ++i) {
+                literal lit = m_trail[i];
+                if (s.value(lit) == l_undef && !s.was_eliminated(lit.var())) {
+                    s.m_simplifier.propagate_unit(lit);                    
+                    ++num_units;
+                }
+            }
+            IF_VERBOSE(1, verbose_stream() << "units found: " << num_units << "\n";);
+            
+            s.m_simplifier.subsume();
+            m_lookahead.reset();
+        }
+
+        void scc() {
+            SASSERT(m_prefix == 0);
+            SASSERT(m_watches.empty());
+            m_search_mode = lookahead_mode::searching;
+            scoped_level _sl(*this, c_fixed_truth);
+            init();                
+            if (inconsistent()) return;
+            inc_istamp();
+            m_lookahead.reset();
+            if (select(0)) {
+                // extract equivalences
+                get_scc();
+                if (inconsistent()) return;
+                literal_vector roots;
+                bool_var_vector to_elim;
+                for (unsigned i = 0; i < s.num_vars(); ++i) {
+                    roots.push_back(literal(i, false));
+                }
+                for (unsigned i = 0; i < m_candidates.size(); ++i) {
+                    bool_var v = m_candidates[i].m_var;
+                    literal lit = literal(v, false);
+                    literal p = get_parent(lit);
+                    if (p != null_literal && p.var() != v && !s.is_external(v) && !s.was_eliminated(v) && !s.was_eliminated(p.var())) {
+                        to_elim.push_back(v);
+                        roots[v] = p;
+                    }
+                }
+                IF_VERBOSE(1, verbose_stream() << "eliminate " << to_elim.size() << " variables\n";);
+                elim_eqs elim(s);
+                elim(roots, to_elim);
+            }
+            m_lookahead.reset();
         }
 
         std::ostream& display(std::ostream& out) const {

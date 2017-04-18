@@ -76,7 +76,9 @@ namespace sat {
         lowlink.resize(num_lits, UINT_MAX);
         in_s.resize(num_lits, false);
         literal_vector roots;
-        roots.resize(m_solver.num_vars(), null_literal);
+		for (unsigned i = 0; i < m_solver.num_vars(); ++i) {
+			roots.push_back(literal(i, false));
+		}
         unsigned next_index = 0;
         svector<frame>   frames;
         bool_var_vector  to_elim;

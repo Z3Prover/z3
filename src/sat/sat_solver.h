@@ -141,6 +141,8 @@ namespace sat {
         unsigned                m_par_num_vars;
         bool                    m_par_syncing_clauses;
 
+        statistics              m_lookahead_stats;
+
         void del_clauses(clause * const * begin, clause * const * end);
 
         friend class integrity_checker;
@@ -346,6 +348,7 @@ namespace sat {
         void sort_watch_lits();
         void exchange_par();
         lbool check_par(unsigned num_lits, literal const* lits);
+        lbool lookahead_search();
 
         // -----------------------
         //

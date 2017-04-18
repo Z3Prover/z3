@@ -22,6 +22,7 @@ Revision History:
 #include"trace.h"
 #include"max_cliques.h"
 #include"scoped_ptr_vector.h"
+#include"sat_lookahead.h"
 
 // define to update glue during propagation
 #define UPDATE_GLUE
@@ -783,6 +784,9 @@ namespace sat {
         pop_to_base_level();
         IF_VERBOSE(2, verbose_stream() << "(sat.sat-solver)\n";);
         SASSERT(at_base_lvl());
+        if (m_config.m_lookahead_search && num_lits == 0) {
+            return lookahead_search();
+        }
         if ((m_config.m_num_threads > 1 || m_config.m_local_search > 0) && !m_par) {
             return check_par(num_lits, lits);
         }
@@ -855,6 +859,20 @@ namespace sat {
         ERROR_EX
     };
 
+    lbool solver::lookahead_search() {
+        lookahead lh(*this);
+        lbool r = l_undef;
+        try {
+            r = lh.check();
+            m_model = lh.get_model();
+        }
+        catch (z3_exception&) {
+            lh.collect_statistics(m_lookahead_stats);
+            throw;
+        }
+        lh.collect_statistics(m_lookahead_stats);
+        return r;
+    }
 
     lbool solver::check_par(unsigned num_lits, literal const* lits) {
         scoped_ptr_vector<local_search> ls;
@@ -1294,6 +1312,8 @@ namespace sat {
             CASSERT("sat_missed_prop", check_missed_propagation());
             CASSERT("sat_simplify_bug", check_invariant());
         }
+
+        lookahead(*this).scc();
 
         sort_watch_lits();
         CASSERT("sat_simplify_bug", check_invariant());
@@ -2762,6 +2782,7 @@ namespace sat {
         m_asymm_branch.collect_statistics(st);
         m_probing.collect_statistics(st);
         if (m_ext) m_ext->collect_statistics(st);
+        st.copy(m_lookahead_stats);
     }
 
     void solver::reset_statistics() {
@@ -2770,6 +2791,7 @@ namespace sat {
         m_simplifier.reset_statistics();
         m_asymm_branch.reset_statistics();
         m_probing.reset_statistics();
+        m_lookahead_stats.reset();
     }
 
     // -----------------------
@@ -3605,6 +3627,7 @@ namespace sat {
             if (m_solver.m_num_frozen > 0)
                 out << " :frozen " << m_solver.m_num_frozen;
         }
+        out << " :units " << m_solver.init_trail_size();
         out << " :gc-clause " << m_solver.m_stats.m_gc_clause;
         out << mem_stat();
     }

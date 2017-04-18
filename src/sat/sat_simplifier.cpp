@@ -21,6 +21,7 @@ Revision History:
 #include"sat_simplifier.h"
 #include"sat_simplifier_params.hpp"
 #include"sat_solver.h"
+#include"sat_lookahead.h"
 #include"stopwatch.h"
 #include"trace.h"
 
@@ -204,6 +205,11 @@ namespace sat {
         }
         while (!m_sub_todo.empty());
 
+        if (!learned) {
+            // perform lookahead simplification
+            lookahead(s).simplify();
+        }
+
         bool vars_eliminated = m_num_elim_vars > old_num_elim_vars;
 
         if (m_need_cleanup) {
@@ -219,9 +225,11 @@ namespace sat {
                 cleanup_clauses(s.m_learned, true, true, learned_in_use_lists);
             }
         }
+
         CASSERT("sat_solver", s.check_invariant());
         TRACE("after_simplifier", s.display(tout); tout << "model_converter:\n"; s.m_mc.display(tout););
         finalize();
+
     }
 
     /**

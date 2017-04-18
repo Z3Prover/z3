@@ -144,6 +144,7 @@ namespace sat {
         literal_vector m_assumptions;
 
         unsigned m_num_non_binary_clauses;
+        bool     m_is_pb; 
 
         inline bool is_pos(literal t) const { return !t.sign(); }
         inline bool is_true(bool_var v) const { return cur_solution(v); }

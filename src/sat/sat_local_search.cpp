@@ -71,9 +71,8 @@ namespace sat {
     void local_search::init_cur_solution() {
         for (unsigned v = 0; v < num_vars(); ++v) {
             // use bias with a small probability
-            if (m_rand() % 100 < 3) {
-                //m_vars[v].m_value = ((unsigned)(m_rand() % 100) < m_vars[v].m_bias);
-                m_vars[v].m_value = (50 < m_vars[v].m_bias);
+            if (m_rand() % 100 < 2) {
+                m_vars[v].m_value = ((unsigned)(m_rand() % 100) < m_vars[v].m_bias);
             }
         }
     }
@@ -138,20 +137,24 @@ namespace sat {
     }
 
     void local_search::reinit() {
-        // the following methods does NOT converge for pseudo-boolean
-        // can try other way to define "worse" and "better"
-        // the current best noise is below 1000
-#if 0
-        if (m_best_unsat_rate > m_last_best_unsat_rate) {
-            // worse
-            m_noise -= m_noise * 2 * m_noise_delta;
-            m_best_unsat_rate *= 1000.0;
+
+        if (!m_is_pb) {
+            //
+            // the following methods does NOT converge for pseudo-boolean
+            // can try other way to define "worse" and "better"
+            // the current best noise is below 1000
+            //
+            if (m_best_unsat_rate > m_last_best_unsat_rate) {
+                // worse
+                m_noise -= m_noise * 2 * m_noise_delta;
+                m_best_unsat_rate *= 1000.0;
+            }
+            else {
+                // better
+                m_noise += (10000 - m_noise) * m_noise_delta;
+            }
         }
-        else {
-            // better
-            m_noise += (10000 - m_noise) * m_noise_delta;
-        }
-#endif
+
         for (unsigned i = 0; i < m_constraints.size(); ++i) {
             constraint& c = m_constraints[i];
             c.m_slack = c.m_k;
@@ -264,7 +267,7 @@ namespace sat {
         unsigned id = m_constraints.size();
         m_constraints.push_back(constraint(k));
         for (unsigned i = 0; i < sz; ++i) {
-            m_vars.reserve(c[i].var() + 1);
+            m_vars.reserve(c[i].var() + 1);            
             literal t(~c[i]);            
             m_vars[t.var()].m_watch[is_pos(t)].push_back(pbcoeff(id, coeffs[i]));
             m_constraints.back().push(t); // add coefficient to constraint?
@@ -279,6 +282,7 @@ namespace sat {
     }
 
     void local_search::import(solver& s, bool _init) {        
+        m_is_pb = false;
         m_vars.reset();
         m_constraints.reset();
 
@@ -349,6 +353,7 @@ namespace sat {
                     // =  ~c.lit() or (~c.lits() <= n - k)
                     // =  k*c.lit() + ~c.lits() <= n 
                     // 
+                    m_is_pb = true;
                     lits.reset();
                     coeffs.reset();
                     for (unsigned j = 0; j < n; ++j) lits.push_back(c[j]), coeffs.push_back(1);
@@ -616,8 +621,7 @@ namespace sat {
         // verify_unsat_stack();
     }
 
-    void local_search::flip_gsat(bool_var flipvar)
-    {
+    void local_search::flip_gsat(bool_var flipvar) {
         // already changed truth value!!!!
         m_vars[flipvar].m_value = !cur_solution(flipvar);
 
