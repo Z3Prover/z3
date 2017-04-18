@@ -77,7 +77,6 @@ namespace smt {
         m_unknown("unknown"),
         m_unsat_core(m),
         m_use_theory_str_overlap_assumption(false),
-        m_theoryStrOverlapAssumption_term(m_manager),
 #ifdef Z3DEBUG
         m_trail_enabled(true),
 #endif
@@ -3269,6 +3268,7 @@ namespace smt {
             r = l_undef;
         }
 
+        /*
         // PATCH for theory_str:
         // UNSAT + overlapping variables => UNKNOWN
         if (r == l_false && use_theory_str_overlap_assumption()) {
@@ -3304,6 +3304,7 @@ namespace smt {
                 TRACE("t_str", tout << "no overlaps detected in unsat core, answering UNSAT" << std::endl;);
             }
         }
+        */
 
         return r;
     }
@@ -3322,6 +3323,7 @@ namespace smt {
         SASSERT(!m_setup.already_configured());
         setup_context(m_fparams.m_auto_config);
 
+        /*
         // theory_str requires the context to be set up with a special assumption.
         // we need to wait until after setup_context() to know whether this is the case
         if (m_use_theory_str_overlap_assumption) {
@@ -3335,6 +3337,19 @@ namespace smt {
             assumption.push_back(m_manager.mk_not(m_theoryStrOverlapAssumption_term));
             // this might work, even though we already did a bit of setup
             return check(assumption.size(), assumption.c_ptr(), reset_cancel);
+        }
+        */
+
+        expr_ref_vector theory_assumptions(m_manager);
+        ptr_vector<theory>::iterator it  = m_theory_set.begin();
+        ptr_vector<theory>::iterator end = m_theory_set.end();
+        for (; it != end; ++it) {
+            (*it)->add_theory_assumptions(theory_assumptions);
+        }
+        if (!theory_assumptions.empty()) {
+            TRACE("search", tout << "Adding theory assumptions to context" << std::endl;);
+            // this works even though we already did part of setup
+            return check(theory_assumptions.size(), theory_assumptions.c_ptr(), reset_cancel);
         }
 
         internalize_assertions();

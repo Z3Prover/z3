@@ -178,6 +178,13 @@ namespace smt {
         }
 
         /**
+           \brief This method is called by smt_context before the search starts to get any
+           extra assumptions the theory wants to use. (see theory_str for an example)
+        */
+        virtual void add_theory_assumptions(expr_ref_vector & assumptions) {
+        }
+
+        /**
            \brief This method is invoked before the search starts.
         */
         virtual void init_search_eh() {

@@ -56,6 +56,7 @@ theory_str::theory_str(ast_manager & m, theory_str_params const & params):
         tmpValTestVarCount(0),
         avoidLoopCut(true),
         loopDetected(false),
+        m_theoryStrOverlapAssumption_term(m),
         contains_map(m),
         string_int_conversion_terms(m),
         totalCacheAccessCount(0),
@@ -3080,7 +3081,7 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
 
                 if (!overlapAssumptionUsed) {
                 	overlapAssumptionUsed = true;
-                	assert_implication(ax_l, ctx.get_theory_str_overlap_assumption_term());
+                	assert_implication(ax_l, m_theoryStrOverlapAssumption_term);
                 }
             }
         }
@@ -3143,7 +3144,7 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
 
                 if (!overlapAssumptionUsed) {
                 	overlapAssumptionUsed = true;
-                	assert_implication(ax_l, ctx.get_theory_str_overlap_assumption_term());
+                	assert_implication(ax_l, m_theoryStrOverlapAssumption_term);
                 }
             }
         }
@@ -3199,7 +3200,7 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
 
                 if (!overlapAssumptionUsed) {
                 	overlapAssumptionUsed = true;
-                	arrangement_disjunction.push_back(ctx.get_theory_str_overlap_assumption_term());
+                	arrangement_disjunction.push_back(m_theoryStrOverlapAssumption_term);
                 }
             }
         }
@@ -3248,7 +3249,7 @@ void theory_str::process_concat_eq_type1(expr * concatAst1, expr * concatAst2) {
 
                 if (!overlapAssumptionUsed) {
                 	overlapAssumptionUsed = true;
-                	arrangement_disjunction.push_back(ctx.get_theory_str_overlap_assumption_term());
+                	arrangement_disjunction.push_back(m_theoryStrOverlapAssumption_term);
                 }
             }
         }
@@ -3495,7 +3496,7 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 
 	                if (!overlapAssumptionUsed) {
 	                	overlapAssumptionUsed = true;
-	                	assert_implication(ax_l, ctx.get_theory_str_overlap_assumption_term());
+	                	assert_implication(ax_l, m_theoryStrOverlapAssumption_term);
 	                }
 	            }
 	        }
@@ -3601,7 +3602,7 @@ void theory_str::process_concat_eq_type2(expr * concatAst1, expr * concatAst2) {
 
 				    if (!overlapAssumptionUsed) {
 				    	overlapAssumptionUsed = true;
-				    	arrangement_disjunction.push_back(ctx.get_theory_str_overlap_assumption_term());
+				    	arrangement_disjunction.push_back(m_theoryStrOverlapAssumption_term);
 				    }
 				}
 			}
@@ -3903,7 +3904,7 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
 
                     if (!overlapAssumptionUsed) {
                     	overlapAssumptionUsed = true;
-                    	assert_implication(ax_l, ctx.get_theory_str_overlap_assumption_term());
+                    	assert_implication(ax_l, m_theoryStrOverlapAssumption_term);
                     }
                 }
             }
@@ -3987,7 +3988,7 @@ void theory_str::process_concat_eq_type3(expr * concatAst1, expr * concatAst2) {
 
                     if (!overlapAssumptionUsed) {
                     	overlapAssumptionUsed = true;
-                    	arrangement_disjunction.push_back(ctx.get_theory_str_overlap_assumption_term());
+                    	arrangement_disjunction.push_back(m_theoryStrOverlapAssumption_term);
                     }
                 }
             }
@@ -4393,7 +4394,7 @@ void theory_str::process_concat_eq_type6(expr * concatAst1, expr * concatAst2) {
 
             // only add the overlap assumption one time
             if (!overlapAssumptionUsed) {
-                arrangement_disjunction.push_back(ctx.get_theory_str_overlap_assumption_term());
+                arrangement_disjunction.push_back(m_theoryStrOverlapAssumption_term);
                 overlapAssumptionUsed = true;
             }
         }
@@ -7292,12 +7293,18 @@ void theory_str::set_up_axioms(expr * ex) {
     }
 }
 
+void theory_str::add_theory_assumptions(expr_ref_vector & assumptions) {
+    TRACE("t_str", tout << "add overlap assumption for theory_str" << std::endl;);
+    symbol strOverlap("!!TheoryStrOverlapAssumption!!");
+    seq_util m_sequtil(get_manager());
+    sort * s = get_manager().mk_bool_sort();
+    m_theoryStrOverlapAssumption_term = expr_ref(get_manager().mk_const(strOverlap, s), get_manager());
+    assumptions.push_back(get_manager().mk_not(m_theoryStrOverlapAssumption_term));
+}
+
 void theory_str::init_search_eh() {
     ast_manager & m = get_manager();
     context & ctx = get_context();
-
-    // safety
-    SASSERT(ctx.use_theory_str_overlap_assumption());
 
     TRACE("t_str_detail",
         tout << "dumping all asserted formulas:" << std::endl;

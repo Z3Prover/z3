@@ -291,6 +291,7 @@ namespace smt {
         bool avoidLoopCut;
         bool loopDetected;
         obj_map<expr, std::stack<T_cut*> > cut_var_map;
+        expr_ref m_theoryStrOverlapAssumption_term;
 
         obj_hashtable<expr> variable_set;
         obj_hashtable<expr> internal_variable_set;
@@ -627,6 +628,7 @@ namespace smt {
 
         virtual theory* mk_fresh(context*) { return alloc(theory_str, get_manager(), m_params); }
         virtual void init_search_eh();
+        virtual void add_theory_assumptions(expr_ref_vector & assumptions);
         virtual void relevant_eh(app * n);
         virtual void assign_eh(bool_var v, bool is_true);
         virtual void push_scope_eh();

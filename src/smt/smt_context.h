@@ -849,21 +849,6 @@ namespace smt {
          */
         void add_theory_aware_branching_info(bool_var v, double priority, lbool phase);
 
-        // unsat core assumption hint for theory_str
-        void set_use_theory_str_overlap_assumption(bool f) {
-            m_use_theory_str_overlap_assumption = f;
-        }
-
-        bool use_theory_str_overlap_assumption() const {
-            return m_use_theory_str_overlap_assumption;
-        }
-
-        expr_ref get_theory_str_overlap_assumption_term() {
-            return m_theoryStrOverlapAssumption_term;
-        }
-
-    protected:
-        expr_ref m_theoryStrOverlapAssumption_term;
     public:
 
         // helper function for trail

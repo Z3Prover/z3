@@ -706,7 +706,6 @@ namespace smt {
     }
 
     void setup::setup_QF_S() {
-        m_context.set_use_theory_str_overlap_assumption(true);
         m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
         m_context.register_plugin(alloc(smt::theory_str, m_manager, m_params));
     }
@@ -842,7 +841,6 @@ namespace smt {
 
     void setup::setup_str() {
         setup_arith();
-        m_context.set_use_theory_str_overlap_assumption(true);
         m_context.register_plugin(alloc(theory_str, m_manager, m_params));
     }
 
