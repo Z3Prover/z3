@@ -64,5 +64,6 @@ def_module_params(module_name='smt',
                           ('core.validate', BOOL, False, 'validate unsat core produced by SMT context'),
                           ('core.minimize', BOOL, False, 'minimize unsat core produced by SMT context'),
                           ('core.extend_patterns', BOOL, False, 'extend unsat core with literals that trigger (potential) quantifier instances'),
-                          ('core.extend_patterns.max_distance', UINT, UINT_MAX, 'limits the distance of a pattern-extended unsat core')
+                          ('core.extend_patterns.max_distance', UINT, UINT_MAX, 'limits the distance of a pattern-extended unsat core'),
+                          ('core.extend_nonlocal_patterns', BOOL, False, 'extend unsat cores with literals that have quantifiers with patterns that contain symbols which are not in the quantifier\'s body')
                           ))
