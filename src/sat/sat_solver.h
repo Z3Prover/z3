@@ -160,6 +160,7 @@ namespace sat {
         friend class lookahead;
         friend class local_search;
         friend struct mk_stat;
+        friend class ccc;
     public:
         solver(params_ref const & p, reslimit& l);
         ~solver();
@@ -349,6 +350,7 @@ namespace sat {
         void exchange_par();
         lbool check_par(unsigned num_lits, literal const* lits);
         lbool lookahead_search();
+        lbool do_local_search(unsigned num_lits, literal const* lits);
 
         // -----------------------
         //
@@ -465,7 +467,7 @@ namespace sat {
         lbool get_consequences(literal_vector const& assms, bool_var_vector const& vars, vector<literal_vector>& conseq);
 
         // initialize and retrieve local search.
-        local_search& init_local_search();
+        // local_search& init_local_search();
 
     private:
 

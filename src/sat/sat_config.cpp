@@ -82,6 +82,7 @@ namespace sat {
         m_max_conflicts   = p.max_conflicts();
         m_num_threads     = p.threads();
         m_local_search    = p.local_search();
+        m_local_search_threads    = p.local_search_threads();
         m_lookahead_search = p.lookahead_search();
 
         // These parameters are not exposed

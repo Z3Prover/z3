@@ -787,7 +787,10 @@ namespace sat {
         if (m_config.m_lookahead_search && num_lits == 0) {
             return lookahead_search();
         }
-        if ((m_config.m_num_threads > 1 || m_config.m_local_search > 0) && !m_par) {
+        if (m_config.m_local_search) {
+            return do_local_search(num_lits, lits);
+        }
+        if ((m_config.m_num_threads > 1 || m_config.m_local_search_threads > 0) && !m_par) {
             return check_par(num_lits, lits);
         }
         flet<bool> _searching(m_searching, true);
@@ -859,6 +862,18 @@ namespace sat {
         ERROR_EX
     };
 
+    lbool solver::do_local_search(unsigned num_lits, literal const* lits) {
+        scoped_limits scoped_rl(rlimit());
+        local_search srch;
+        srch.config().set_seed(m_config.m_random_seed);
+        srch.import(*this, false);
+        scoped_rl.push_child(&srch.rlimit());
+        lbool r = srch.check(num_lits, lits, 0);
+        m_model = srch.get_model();
+        // srch.collect_statistics(m_lookahead_stats);
+        return r;
+    }
+
     lbool solver::lookahead_search() {
         lookahead lh(*this);
         lbool r = l_undef;
@@ -876,9 +891,9 @@ namespace sat {
 
     lbool solver::check_par(unsigned num_lits, literal const* lits) {
         scoped_ptr_vector<local_search> ls;
-        int num_threads = static_cast<int>(m_config.m_num_threads + m_config.m_local_search);
+        int num_threads = static_cast<int>(m_config.m_num_threads + m_config.m_local_search_threads);
         int num_extra_solvers = m_config.m_num_threads - 1;
-        int num_local_search  = static_cast<int>(m_config.m_local_search);
+        int num_local_search  = static_cast<int>(m_config.m_local_search_threads);
         for (int i = 0; i < num_local_search; ++i) {
             local_search* l = alloc(local_search);
             l->config().set_seed(m_config.m_random_seed + i);

@@ -28,6 +28,7 @@ def_module_params('sat',
                           ('drat.check', BOOL, False, 'build up internal proof and check'),
                           ('cardinality.solver', BOOL, False, 'use cardinality solver'),
 	                  ('xor.solver', BOOL, False, 'use xor solver'),
-                          ('local_search', UINT, 0, 'number of local search threads to find satisfiable solution'),
+                          ('local_search_threads', UINT, 0, 'number of local search threads to find satisfiable solution'),
+                          ('local_search', BOOL, False, 'use local search instead of CDCL'),
                           ('lookahead_search', BOOL, False, 'use lookahead solver')
                        ))

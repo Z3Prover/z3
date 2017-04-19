@@ -26,8 +26,7 @@ namespace sat {
         m_index(index),
         m_lit(lit),
         m_k(k),
-        m_size(lits.size())
-    {
+        m_size(lits.size()) {
         for (unsigned i = 0; i < lits.size(); ++i) {
             m_lits[i] = lits[i];
         }
@@ -40,6 +39,27 @@ namespace sat {
         }
         m_k = m_size - m_k + 1;
         SASSERT(m_size >= m_k && m_k > 0);
+    }
+
+    card_extension::pb::pb(unsigned index, literal lit, svector<card_extension::wliteral> const& wlits, unsigned k):
+        m_index(index),
+        m_lit(lit),
+        m_k(k),
+        m_size(wlits.size()) {
+        for (unsigned i = 0; i < wlits.size(); ++i) {
+            m_wlits[i] = wlits[i];
+        }
+    }
+
+    void card_extension::pb::negate() {
+        m_lit.neg();
+        unsigned w = 0;
+        for (unsigned i = 0; i < m_size; ++i) {
+            m_wlits[i].second.neg();
+            w += m_wlits[i].first;
+        }
+        m_k = w - m_k + 1;
+        SASSERT(w >= m_k && m_k > 0);
     }
 
     card_extension::xor::xor(unsigned index, literal lit, literal_vector const& lits):
@@ -191,6 +211,15 @@ namespace sat {
         SASSERT(s().inconsistent());
     }
 
+    // pb:
+    void card_extension::init_watch(pb& p, bool is_true) {
+        NOT_IMPLEMENTED_YET();
+    }
+
+
+
+
+    // xor:
     void card_extension::clear_watch(xor& x) {
         unwatch_literal(x[0], &x);
         unwatch_literal(x[1], &x);         
@@ -510,7 +539,7 @@ namespace sat {
                     process_card(c, offset);
                     ++m_stats.m_num_card_resolves;
                 }
-                else {
+                else if (is_xor_index(index)) {
                     // jus.push_back(js);
                     m_lemma.reset();
                     m_bound += offset;
@@ -520,6 +549,12 @@ namespace sat {
                         process_antecedent(~m_lemma[i], offset);
                     }
                     ++m_stats.m_num_xor_resolves;
+                }
+                else if (is_pb_index(index)) {
+                    NOT_IMPLEMENTED_YET();
+                }
+                else {
+                    UNREACHABLE();
                 }
                 break;
             }
@@ -758,7 +793,7 @@ namespace sat {
     }
 
     void card_extension::add_at_least(bool_var v, literal_vector const& lits, unsigned k) {
-        unsigned index = 2*m_cards.size();
+        unsigned index = 4*m_cards.size();
         literal lit = v == null_bool_var ? null_literal : literal(v, false);
         card* c = new (memory::allocate(card::get_obj_size(lits.size()))) card(index, lit, lits, k);
         m_cards.push_back(c);
@@ -774,9 +809,26 @@ namespace sat {
         }
     }
 
+    void card_extension::add_pb_ge(bool_var v, svector<wliteral> const& wlits, unsigned k) {
+        unsigned index = 4*m_pb.size() + 0x11;
+        literal lit = v == null_bool_var ? null_literal : literal(v, false);
+        pb* p = new (memory::allocate(pb::get_obj_size(wlits.size()))) pb(index, lit, wlits, k);
+        m_pb.push_back(p);
+        if (v == null_bool_var) {
+            init_watch(*p, true);
+            m_pb_axioms.push_back(p);
+        }
+        else {
+            init_watch(v);
+            m_var_infos[v].m_pb = p;
+            m_var_trail.push_back(v);
+        }
+    }
+
+
     void card_extension::add_xor(bool_var v, literal_vector const& lits) {
         m_has_xor = true;
-        unsigned index = 2*m_xors.size()+1;
+        unsigned index = 4*m_xors.size() + 0x01;
         xor* x = new (memory::allocate(xor::get_obj_size(lits.size()))) xor(index, literal(v, false), lits);
         m_xors.push_back(x);
         init_watch(v);
@@ -819,7 +871,7 @@ namespace sat {
         unsigned level = lvl(l);
         bool_var v = l.var();
         SASSERT(js.get_kind() == justification::EXT_JUSTIFICATION);
-        SASSERT(!is_card_index(js.get_ext_justification_idx()));
+        SASSERT(is_xor_index(js.get_ext_justification_idx()));
         TRACE("sat", tout << l << ": " << js << "\n"; tout << s().m_trail << "\n";);
 
         unsigned num_marks = 0;
@@ -828,7 +880,7 @@ namespace sat {
             ++count;
             if (js.get_kind() == justification::EXT_JUSTIFICATION) {
                 unsigned idx = js.get_ext_justification_idx();
-                if (is_card_index(idx)) {
+                if (!is_xor_index(idx)) {
                     r.push_back(l);
                 }
                 else {
@@ -912,7 +964,7 @@ namespace sat {
                 r.push_back(~c[i]);
             }
         }
-        else {
+        else if (is_xor_index(idx)) {
             xor& x = index2xor(idx);
             if (x.lit() != null_literal) r.push_back(x.lit());
             TRACE("sat", display(tout << l << " ", x, true););
@@ -930,6 +982,12 @@ namespace sat {
                 SASSERT(value(x[i]) != l_undef);
                 r.push_back(value(x[i]) == l_true ? x[i] : ~x[i]);                
             }
+        }
+        else if (is_pb_index(idx)) {
+            NOT_IMPLEMENTED_YET();
+        }
+        else {
+            UNREACHABLE();
         }
     }
 
@@ -1281,12 +1339,18 @@ namespace sat {
             }
             out << ">= " << c.k();
         }
-        else {
+        else if (is_xor_index(idx)) {
             xor& x = index2xor(idx);
             out << "xor " << x.lit() << ": ";
             for (unsigned i = 0; i < x.size(); ++i) {
                 out << x[i] << " ";
             }            
+        }
+        else if (is_pb_index(idx)) {
+            NOT_IMPLEMENTED_YET();
+        }
+        else {
+            UNREACHABLE();
         }
         return out;
     }
@@ -1382,7 +1446,7 @@ namespace sat {
                 }
                 if (c.lit() != null_literal) p.push(~c.lit(), offset*c.k());
             }
-            else {
+            else if (is_xor_index(index)) {
                 literal_vector ls;
                 get_antecedents(lit, index, ls);                
                 p.reset(offset);
@@ -1391,6 +1455,12 @@ namespace sat {
                 }
                 literal lxor = index2xor(index).lit();                
                 if (lxor != null_literal) p.push(~lxor, offset);
+            }
+            else if (is_pb_index(index)) {
+                NOT_IMPLEMENTED_YET();
+            }
+            else {
+                UNREACHABLE();
             }
             break;
         }

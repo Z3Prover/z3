@@ -61,6 +61,8 @@ namespace sat {
     class lookahead {
         solver& s;
 
+        friend class ccc;
+
         struct config {
             double   m_dl_success;
             float    m_alpha;
@@ -70,6 +72,7 @@ namespace sat {
             unsigned m_level_cand;
             float    m_delta_rho;
             unsigned m_dl_max_iterations;
+            unsigned m_tc1_limit;
 
             config() {
                 m_max_hlevel = 50;
@@ -79,6 +82,7 @@ namespace sat {
                 m_level_cand = 600;
                 m_delta_rho = (float)0.9995;
                 m_dl_max_iterations = 32;
+                m_tc1_limit = 10000000;
             }
         };
 
@@ -126,6 +130,8 @@ namespace sat {
         vector<literal_vector> m_binary;        // literal: binary clauses
         unsigned_vector        m_binary_trail;  // trail of added binary clauses
         unsigned_vector        m_binary_trail_lim; 
+        unsigned               m_num_tc1;
+        unsigned_vector        m_num_tc1_lim;
         unsigned               m_qhead;         // propagation queue head
         unsigned_vector        m_qhead_lim;
         clause_vector          m_clauses;       // non-binary clauses
@@ -314,8 +320,11 @@ namespace sat {
                         assign(u);        
                         return false;
                     }
-                    IF_VERBOSE(3, verbose_stream() << "tc1: " << u << " " << w << "\n";);
-                    add_binary(u, w);
+                    if (m_num_tc1 < m_config.m_tc1_limit) {
+                        ++m_num_tc1;
+                        IF_VERBOSE(3, verbose_stream() << "tc1: " << u << " " << w << "\n";);
+                        add_binary(u, w);
+                    }
                 }
             }
             return true;
@@ -1055,11 +1064,10 @@ namespace sat {
             unsigned trail_sz = s.init_trail_size();
             for (unsigned i = 0; i < trail_sz; ++i) {
                 literal l = s.m_trail[i];
-				if (!s.was_eliminated(l.var()))
-				{
-					if (s.m_config.m_drat) m_drat.add(l, false);
-					assign(l);
-				}
+                if (!s.was_eliminated(l.var())) {
+                    if (s.m_config.m_drat) m_drat.add(l, false);
+                    assign(l);
+                }
             }
             propagate();
             m_qhead = m_trail.size();
@@ -1090,6 +1098,7 @@ namespace sat {
             SASSERT(m_search_mode == lookahead_mode::searching);
             m_binary_trail_lim.push_back(m_binary_trail.size());
             m_trail_lim.push_back(m_trail.size());
+            m_num_tc1_lim.push_back(m_num_tc1);
             m_retired_clause_lim.push_back(m_retired_clauses.size());
             m_retired_ternary_lim.push_back(m_retired_ternary.size());
             m_qhead_lim.push_back(m_qhead);
@@ -1116,6 +1125,9 @@ namespace sat {
             }
             m_trail.shrink(old_sz); // reset assignment.
             m_trail_lim.pop_back();
+            
+            m_num_tc1 = m_num_tc1_lim.back();
+            m_num_tc1_lim.pop_back();
 
             // unretire clauses
             old_sz = m_retired_clause_lim.back();
@@ -1792,11 +1804,17 @@ namespace sat {
             return out;
         }
 
+        void init_search() {
+            m_search_mode = lookahead_mode::searching;
+            scoped_level _sl(*this, c_fixed_truth);
+            init();            
+        }
 
     public:
         lookahead(solver& s) : 
             s(s), 
             m_drat(s),
+            m_num_tc1(0),
             m_level(2),
             m_prefix(0) {
         }
@@ -1806,11 +1824,7 @@ namespace sat {
         }
         
         lbool check() {
-            {
-                m_search_mode = lookahead_mode::searching;
-                scoped_level _sl(*this, c_fixed_truth);
-                init();
-            }
+            init_search();
             return search();
         }
 

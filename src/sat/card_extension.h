@@ -58,6 +58,26 @@ namespace sat {
             void swap(unsigned i, unsigned j) { std::swap(m_lits[i], m_lits[j]); }
             void negate();                       
         };
+        
+        typedef std::pair<unsigned, literal> wliteral;
+
+        class pb {
+            unsigned       m_index;
+            literal        m_lit;
+            unsigned       m_k;
+            unsigned       m_size;
+            wliteral       m_wlits[0];
+        public:
+            static size_t get_obj_size(unsigned num_lits) { return sizeof(card) + num_lits * sizeof(wliteral); }
+            pb(unsigned index, literal lit, svector<wliteral> const& wlits, unsigned k);
+            unsigned index() const { return m_index; }
+            literal lit() const { return m_lit; }
+            wliteral operator[](unsigned i) const { return m_wlits[i]; }
+            unsigned k() const { return m_k; }
+            unsigned size() const { return m_size; }
+            void swap(unsigned i, unsigned j) { std::swap(m_wlits[i], m_wlits[j]); }
+            void negate();                       
+        };
 
         class xor {
             unsigned       m_index;
@@ -85,20 +105,28 @@ namespace sat {
 
         typedef ptr_vector<card> card_watch;
         typedef ptr_vector<xor> xor_watch;
+        typedef ptr_vector<pb>  pb_watch;
         struct var_info {
             card_watch* m_card_watch[2];
+            pb_watch*   m_pb_watch[2];
             xor_watch*  m_xor_watch;
             card*       m_card;
+            pb*         m_pb;
             xor*        m_xor;
-            var_info(): m_xor_watch(0), m_card(0), m_xor(0) {
+            var_info(): m_xor_watch(0), m_card(0), m_xor(0), m_pb(0) {
                 m_card_watch[0] = 0;
                 m_card_watch[1] = 0;
+                m_pb_watch[0] = 0;
+                m_pb_watch[1] = 0;
             }
             void reset() {
                 dealloc(m_card);
                 dealloc(m_xor);
+                dealloc(m_pb);
                 dealloc(card_extension::set_tag_non_empty(m_card_watch[0]));
                 dealloc(card_extension::set_tag_non_empty(m_card_watch[1]));
+                dealloc(card_extension::set_tag_non_empty(m_pb_watch[0]));
+                dealloc(card_extension::set_tag_non_empty(m_pb_watch[1]));
                 dealloc(card_extension::set_tag_non_empty(m_xor_watch));
             }
         };
@@ -125,8 +153,10 @@ namespace sat {
 
         ptr_vector<card>    m_cards;
         ptr_vector<xor>     m_xors;
+        ptr_vector<pb>      m_pb;
 
         scoped_ptr_vector<card> m_card_axioms;
+        scoped_ptr_vector<pb>   m_pb_axioms;
 
         // watch literals
         svector<var_info>   m_var_infos;
@@ -173,10 +203,16 @@ namespace sat {
         lbool add_assign(xor& x, literal alit);
         void asserted_xor(literal l, ptr_vector<xor>* xors, xor* x);
 
-        bool is_card_index(unsigned idx) const { return 0 == (idx & 0x1); }
-        card& index2card(unsigned idx) const { SASSERT(is_card_index(idx)); return *m_cards[idx >> 1]; }
-        xor& index2xor(unsigned idx) const { SASSERT(!is_card_index(idx)); return *m_xors[idx >> 1]; }
+        bool is_card_index(unsigned idx) const { return 0x00 == (idx & 0x11); }
+        bool is_xor_index(unsigned idx) const { return 0x01 == (idx & 0x11); }
+        bool is_pb_index(unsigned idx) const { return 0x11 == (idx & 0x11); }
+        card& index2card(unsigned idx) const { SASSERT(is_card_index(idx)); return *m_cards[idx >> 2]; }
+        xor& index2xor(unsigned idx) const { SASSERT(!is_card_index(idx)); return *m_xors[idx >> 2]; }
+        pb&  index2pb(unsigned idx) const { SASSERT(is_pb_index(idx)); return *m_pb[idx >> 2]; }
+
         void get_xor_antecedents(literal l, unsigned inddex, justification js, literal_vector& r);
+
+        void init_watch(pb& p, bool is_true);
 
 
         template<typename T>
@@ -233,6 +269,7 @@ namespace sat {
         virtual ~card_extension();
         virtual void set_solver(solver* s) { m_solver = s; }
         void    add_at_least(bool_var v, literal_vector const& lits, unsigned k);
+        void    add_pb_ge(bool_var v, svector<wliteral> const& wlits, unsigned k);
         void    add_xor(bool_var v, literal_vector const& lits);
         virtual void propagate(literal l, ext_constraint_idx idx, bool & keep);
         virtual bool resolve_conflict();
