@@ -54,7 +54,7 @@ sudo make install
 ```
 
 Note by default ``g++`` is used as the C++ compiler if it is available. If you
-would prefer to use Clang change the ``mk_make.py`` line to
+would prefer to use Clang change the ``mk_make.py`` invocation to:
 
 ```bash
 CXX=clang++ CC=clang python scripts/mk_make.py
