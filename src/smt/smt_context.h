@@ -1094,7 +1094,7 @@ namespace smt {
 
         void reset_assumptions();
 
-        void mk_unsat_core();
+        lbool mk_unsat_core();
 
         void validate_unsat_core();
 

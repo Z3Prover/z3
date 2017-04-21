@@ -3211,11 +3211,11 @@ namespace smt {
         m_assumptions.reset();
     }
 
-    void context::mk_unsat_core() {
+    lbool context::mk_unsat_core() {
         SASSERT(inconsistent());
         if (!tracking_assumptions()) {
             SASSERT(m_assumptions.empty());
-            return; 
+            return l_false;
         }
         uint_set already_found_assumptions;
         literal_vector::const_iterator it  = m_conflict_resolution->begin_unsat_core();
@@ -3240,7 +3240,19 @@ namespace smt {
               for (unsigned i = 0; i < sz; i++) {
                   tout << mk_pp(m_unsat_core.get(i), m_manager) << "\n";
               });
-        validate_unsat_core();        
+        validate_unsat_core();
+        // theory validation of unsat core
+
+        ptr_vector<theory>::iterator th_it  = m_theory_set.begin();
+        ptr_vector<theory>::iterator th_end = m_theory_set.end();
+        for (; th_it != th_end; ++th_it) {
+            lbool theory_result = (*th_it)->validate_unsat_core(m_unsat_core);
+            if (theory_result == l_undef) {
+                return l_undef;
+            }
+        }
+
+        return l_false;
     }
 
     /**
@@ -3267,45 +3279,6 @@ namespace smt {
         if (r == l_true && get_cancel_flag()) {
             r = l_undef;
         }
-
-        /*
-        // PATCH for theory_str:
-        // UNSAT + overlapping variables => UNKNOWN
-        if (r == l_false && use_theory_str_overlap_assumption()) {
-            // check the unsat core for an assumption from theory_str relating to overlaps.
-            // if we find this assumption, we have to answer UNKNOWN
-            // otherwise, we can pass through UNSAT
-            TRACE("t_str", tout << "unsat core:\n";
-            unsigned sz = m_unsat_core.size();
-            for (unsigned i = 0; i < sz; i++) {
-                tout << mk_pp(m_unsat_core.get(i), m_manager) << "\n";
-            });
-
-            bool assumptionFound = false;
-            unsigned sz = m_unsat_core.size();
-            app * target_term = to_app(m_manager.mk_not(m_theoryStrOverlapAssumption_term));
-            internalize_term(target_term);
-            for (unsigned i = 0; i < sz; ++i) {
-                app * core_term = to_app(m_unsat_core.get(i));
-                // not sure if this is the correct way to compare exprs in this context
-                enode * e1;
-                enode * e2;
-                e1 = get_enode(target_term);
-                e2 = get_enode(core_term);
-                if (e1 == e2) {
-                    // found match
-                    TRACE("t_str", tout << "overlap detected in unsat core; changing UNSAT to UNKNOWN" << std::endl;);
-                    assumptionFound = true;
-                    r = l_undef;
-                    break;
-                }
-            }
-            if (!assumptionFound) {
-                TRACE("t_str", tout << "no overlaps detected in unsat core, answering UNSAT" << std::endl;);
-            }
-        }
-        */
-
         return r;
     }
 
@@ -3322,23 +3295,6 @@ namespace smt {
         SASSERT(m_scope_lvl == 0);
         SASSERT(!m_setup.already_configured());
         setup_context(m_fparams.m_auto_config);
-
-        /*
-        // theory_str requires the context to be set up with a special assumption.
-        // we need to wait until after setup_context() to know whether this is the case
-        if (m_use_theory_str_overlap_assumption) {
-            TRACE("t_str", tout << "enabling theory_str overlap assumption" << std::endl;);
-            // TODO maybe refactor this a bit
-            symbol strOverlap("!!TheoryStrOverlapAssumption!!");
-            expr_ref_vector assumption(get_manager());
-            seq_util m_sequtil(m_manager);
-            sort * s = m_manager.mk_bool_sort();
-            m_theoryStrOverlapAssumption_term = expr_ref(m_manager.mk_const(strOverlap, s), m_manager);
-            assumption.push_back(m_manager.mk_not(m_theoryStrOverlapAssumption_term));
-            // this might work, even though we already did a bit of setup
-            return check(assumption.size(), assumption.c_ptr(), reset_cancel);
-        }
-        */
 
         expr_ref_vector theory_assumptions(m_manager);
         ptr_vector<theory>::iterator it  = m_theory_set.begin();
@@ -3413,7 +3369,7 @@ namespace smt {
             (*it)->setup();
     }
 
-    lbool context::check(unsigned num_assumptions, expr * const * assumptions, bool reset_cancel) {
+    lbool context::check(unsigned ext_num_assumptions, expr * const * ext_assumptions, bool reset_cancel) {
         m_stats.m_num_checks++;
         TRACE("check_bug", tout << "STARTING check(num_assumptions, assumptions)\n";
               tout << "inconsistent: " << inconsistent() << ", m_unsat_core.empty(): " << m_unsat_core.empty() << "\n";
@@ -3424,6 +3380,22 @@ namespace smt {
             m_unsat_core.reset();
         if (!check_preamble(reset_cancel))
             return l_undef;
+
+        expr_ref_vector theory_assumptions(m_manager);
+        for (unsigned i = 0; i < ext_num_assumptions; ++i) {
+            theory_assumptions.push_back(ext_assumptions[i]);
+        }
+        ptr_vector<theory>::iterator it  = m_theory_set.begin();
+        ptr_vector<theory>::iterator end = m_theory_set.end();
+        for (; it != end; ++it) {
+            (*it)->add_theory_assumptions(theory_assumptions);
+        }
+        if (!theory_assumptions.empty()) {
+            TRACE("search", tout << "Adding theory assumptions to context" << std::endl;);
+        }
+        unsigned num_assumptions = theory_assumptions.size();
+        expr * const * assumptions = theory_assumptions.c_ptr();
+
         if (!validate_assumptions(num_assumptions, assumptions))
             return l_undef;
         TRACE("check_bug", tout << "inconsistent: " << inconsistent() << ", m_unsat_core.empty(): " << m_unsat_core.empty() << "\n";);
@@ -3447,13 +3419,13 @@ namespace smt {
                 TRACE("after_internalization", display(tout););
                 if (inconsistent()) {
                     VERIFY(!resolve_conflict()); // build the proof
-                    mk_unsat_core();
-                    r = l_false;
+                    r = mk_unsat_core();
                 }
                 else {
                     r = search();
-                    if (r == l_false)
-                        mk_unsat_core();
+                    if (r == l_false) {
+                        r = mk_unsat_core(); // validation may change an l_false to l_undef here
+                    }
                 }
             }
         }

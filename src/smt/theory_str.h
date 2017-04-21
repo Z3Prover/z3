@@ -629,6 +629,7 @@ namespace smt {
         virtual theory* mk_fresh(context*) { return alloc(theory_str, get_manager(), m_params); }
         virtual void init_search_eh();
         virtual void add_theory_assumptions(expr_ref_vector & assumptions);
+        virtual lbool validate_unsat_core(expr_ref_vector & unsat_core);
         virtual void relevant_eh(app * n);
         virtual void assign_eh(bool_var v, bool is_true);
         virtual void push_scope_eh();

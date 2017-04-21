@@ -200,6 +200,14 @@ namespace smt {
         }
 
         /**
+           \brief This method is called from the smt_context when an unsat core is generated.
+           The theory may change the answer to UNKNOWN by returning l_undef from this method.
+        */
+        virtual lbool validate_unsat_core(expr_ref_vector & unsat_core) {
+            return l_false;
+        }
+
+        /**
            \brief Parametric theories (e.g. Arrays) should implement this method.
            See example in context::is_shared
         */
