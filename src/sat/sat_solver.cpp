@@ -23,6 +23,7 @@ Revision History:
 #include"max_cliques.h"
 #include"scoped_ptr_vector.h"
 #include"sat_lookahead.h"
+#include"sat_ccc.h"
 
 // define to update glue during propagation
 #define UPDATE_GLUE
@@ -790,6 +791,9 @@ namespace sat {
         if (m_config.m_local_search) {
             return do_local_search(num_lits, lits);
         }
+        if (m_config.m_ccc && num_lits == 0) {
+            return do_ccc();
+        }
         if ((m_config.m_num_threads > 1 || m_config.m_local_search_threads > 0) && !m_par) {
             return check_par(num_lits, lits);
         }
@@ -871,6 +875,13 @@ namespace sat {
         lbool r = srch.check(num_lits, lits, 0);
         m_model = srch.get_model();
         // srch.collect_statistics(m_lookahead_stats);
+        return r;
+    }
+
+    lbool solver::do_ccc() {
+        ccc c(*this);
+        lbool r = c.search();
+        m_model = c.get_model();
         return r;
     }
 

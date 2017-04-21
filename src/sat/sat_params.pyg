@@ -30,5 +30,6 @@ def_module_params('sat',
 	                  ('xor.solver', BOOL, False, 'use xor solver'),
                           ('local_search_threads', UINT, 0, 'number of local search threads to find satisfiable solution'),
                           ('local_search', BOOL, False, 'use local search instead of CDCL'),
-                          ('lookahead_search', BOOL, False, 'use lookahead solver')
+                          ('lookahead_search', BOOL, False, 'use lookahead solver'),
+                          ('ccc', BOOL, False, 'use Concurrent Cube and Conquer solver')
                        ))

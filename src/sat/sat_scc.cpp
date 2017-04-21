@@ -76,20 +76,18 @@ namespace sat {
         lowlink.resize(num_lits, UINT_MAX);
         in_s.resize(num_lits, false);
         literal_vector roots;
-		for (unsigned i = 0; i < m_solver.num_vars(); ++i) {
-			roots.push_back(literal(i, false));
-		}
+		roots.resize(m_solver.num_vars(), null_literal);
         unsigned next_index = 0;
         svector<frame>   frames;
         bool_var_vector  to_elim;
         
-        for (unsigned l_idx = 0; l_idx < num_lits; l_idx++) {
-            if (index[l_idx] != UINT_MAX)
-                continue;
-            if (m_solver.was_eliminated(to_literal(l_idx).var()))
-                continue;
-            
-            m_solver.checkpoint();
+		for (unsigned l_idx = 0; l_idx < num_lits; l_idx++) {
+			if (index[l_idx] != UINT_MAX)
+				continue;
+			if (m_solver.was_eliminated(to_literal(l_idx).var()))
+				continue;
+
+			m_solver.checkpoint();
 
 #define NEW_NODE(LIDX) {                                                        \
                 index[LIDX]   = next_index;                                     \
@@ -100,121 +98,122 @@ namespace sat {
                 watch_list & wlist = m_solver.get_wlist(LIDX);                  \
                 frames.push_back(frame(LIDX, wlist.begin(), wlist.end()));      \
             }
-            
-            NEW_NODE(l_idx);
-            
-            while (!frames.empty()) {
-            loop:
-                frame & fr         = frames.back();
-                unsigned l_idx     = fr.m_lidx;
-                if (!fr.m_first) {
-                    // after visiting child
-                    literal l2 = fr.m_it->get_literal();
-                    unsigned l2_idx = l2.index();
-                    SASSERT(index[l2_idx] != UINT_MAX);
-                    if (lowlink[l2_idx] < lowlink[l_idx])
-                        lowlink[l_idx] = lowlink[l2_idx];
-                    fr.m_it++;
-                }
-                fr.m_first = false;
-                while (fr.m_it != fr.m_end) {
-                    if (!fr.m_it->is_binary_clause()) {
-                        fr.m_it++;
-                        continue;
-                    }
-                    literal l2 = fr.m_it->get_literal();
-                    unsigned l2_idx = l2.index();
-                    if (index[l2_idx] == UINT_MAX) {
-                        NEW_NODE(l2_idx);
-                        goto loop;
-                    }
-                    else if (in_s[l2_idx]) {
-                        if (index[l2_idx] < lowlink[l_idx])
-                            lowlink[l_idx] = index[l2_idx];
-                    }
-                    fr.m_it++;
-                }
-                // visited all successors
-                if (lowlink[l_idx] == index[l_idx]) {
-                    // found new SCC
-                    CTRACE("scc_cycle", s.back() != l_idx, {
-                          tout << "cycle: ";
-                          unsigned j = s.size() - 1;
-                          unsigned l2_idx;
-                          do {
-                              l2_idx = s[j];
-                              j--;
-                              tout << to_literal(l2_idx) << " ";
-                          }
-                          while (l2_idx != l_idx);
-                          tout << "\n";
-                    });
-                    
-                    SASSERT(!s.empty());
-                    literal l  = to_literal(l_idx);
-                    bool_var v = l.var();
-                    if (roots[v] != null_literal) {
-                        // variable was already assigned... just consume stack
-                        TRACE("scc_detail", tout << "consuming stack...\n";);
-                        unsigned l2_idx;
-                        do {
-                            l2_idx = s.back();
-                            s.pop_back();
-                            in_s[l2_idx]  = false;
-                            SASSERT(roots[to_literal(l2_idx).var()].var() == roots[v].var());
-                        }
-                        while (l2_idx != l_idx);
-                    }
-                    else {
-                        // check if the SCC has an external variable, and check for conflicts
-                        TRACE("scc_detail", tout << "assigning roots...\n";);
-                        literal  r = null_literal;
-                        unsigned j = s.size() - 1;
-                        unsigned l2_idx;
-                        do {
-                            l2_idx = s[j];
-                            j--;
-                            if (to_literal(l2_idx) == ~l) {
-                                m_solver.set_conflict(justification());
-                                return 0;
-                            }
-                            if (m_solver.is_external(to_literal(l2_idx).var())) {
-                                r = to_literal(l2_idx);
-                                break;
-                            }
-                        }
-                        while (l2_idx != l_idx);
-                        
-                        if (r == null_literal) {
-                            // SCC does not contain external variable
-                            r = to_literal(l_idx);
-                        }
-                        
-                        TRACE("scc_detail", tout << "r: " << r << "\n";);
 
-                        do {
-                            l2_idx = s.back();
-                            s.pop_back();
-                            in_s[l2_idx]  = false;
-                            literal  l2 = to_literal(l2_idx);
-                            bool_var v2 = l2.var();
-                            if (roots[v2] == null_literal) {
-                                if (l2.sign()) {
-                                    roots[v2] = ~r;
-                                }
-                                else {
-                                    roots[v2] = r;
-                                }
-                                if (v2 != r.var()) 
-                                    to_elim.push_back(v2);
-                            }
-                        }
-                        while (l2_idx != l_idx);
-                    }
-                }
-                frames.pop_back();
-            }
-        }
+			NEW_NODE(l_idx);
+
+			while (!frames.empty()) {
+			loop:
+				frame & fr = frames.back();
+				unsigned l_idx = fr.m_lidx;
+				if (!fr.m_first) {
+					// after visiting child
+					literal l2 = fr.m_it->get_literal();
+					unsigned l2_idx = l2.index();
+					SASSERT(index[l2_idx] != UINT_MAX);
+					if (lowlink[l2_idx] < lowlink[l_idx])
+						lowlink[l_idx] = lowlink[l2_idx];
+					fr.m_it++;
+				}
+				fr.m_first = false;
+				while (fr.m_it != fr.m_end) {
+					if (!fr.m_it->is_binary_clause()) {
+						fr.m_it++;
+						continue;
+					}
+					literal l2 = fr.m_it->get_literal();
+					unsigned l2_idx = l2.index();
+					if (index[l2_idx] == UINT_MAX) {
+						NEW_NODE(l2_idx);
+						goto loop;
+					}
+					else if (in_s[l2_idx]) {
+						if (index[l2_idx] < lowlink[l_idx])
+							lowlink[l_idx] = index[l2_idx];
+					}
+					fr.m_it++;
+				}
+				// visited all successors
+				if (lowlink[l_idx] == index[l_idx]) {
+					// found new SCC
+					CTRACE("scc_cycle", s.back() != l_idx, {
+						  tout << "cycle: ";
+						  unsigned j = s.size() - 1;
+						  unsigned l2_idx;
+						  do {
+							  l2_idx = s[j];
+							  j--;
+							  tout << to_literal(l2_idx) << " ";
+						  } while (l2_idx != l_idx);
+						  tout << "\n";
+					});
+
+					SASSERT(!s.empty());
+					literal l = to_literal(l_idx);
+					bool_var v = l.var();
+					if (roots[v] != null_literal) {
+						// variable was already assigned... just consume stack
+						TRACE("scc_detail", tout << "consuming stack...\n";);
+						unsigned l2_idx;
+						do {
+							l2_idx = s.back();
+							s.pop_back();
+							in_s[l2_idx] = false;
+							SASSERT(roots[to_literal(l2_idx).var()].var() == roots[v].var());
+						} while (l2_idx != l_idx);
+					}
+					else {
+						// check if the SCC has an external variable, and check for conflicts
+						TRACE("scc_detail", tout << "assigning roots...\n";);
+						literal  r = null_literal;
+						unsigned j = s.size() - 1;
+						unsigned l2_idx;
+						do {
+							l2_idx = s[j];
+							j--;
+							if (to_literal(l2_idx) == ~l) {
+								m_solver.set_conflict(justification());
+								return 0;
+							}
+							if (m_solver.is_external(to_literal(l2_idx).var())) {
+								r = to_literal(l2_idx);
+								break;
+							}
+						} while (l2_idx != l_idx);
+
+						if (r == null_literal) {
+							// SCC does not contain external variable
+							r = to_literal(l_idx);
+						}
+
+						TRACE("scc_detail", tout << "r: " << r << "\n";);
+
+						do {
+							l2_idx = s.back();
+							s.pop_back();
+							in_s[l2_idx] = false;
+							literal  l2 = to_literal(l2_idx);
+							bool_var v2 = l2.var();
+							if (roots[v2] == null_literal) {
+								if (l2.sign()) {
+									roots[v2] = ~r;
+								}
+								else {
+									roots[v2] = r;
+								}
+								if (v2 != r.var())
+									to_elim.push_back(v2);
+							}
+						} while (l2_idx != l_idx);
+					}
+				}
+				frames.pop_back();
+			}
+		}
+		for (unsigned i = 0; i < m_solver.num_vars(); ++i) {
+			if (roots[i] == null_literal) {
+				roots[i] = literal(i, false);
+			}			
+		}
         TRACE("scc", for (unsigned i = 0; i < roots.size(); i++) { tout << i << " -> " << roots[i] << "\n"; }
               tout << "to_elim: "; for (unsigned i = 0; i < to_elim.size(); i++) tout << to_elim[i] << " "; tout << "\n";);
         m_num_elim += to_elim.size();

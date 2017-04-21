@@ -38,6 +38,7 @@ namespace sat {
         m_num_threads = 1;
         m_local_search = 0;
         m_lookahead_search = false;
+        m_ccc = false;
         updt_params(p); 
     }
 
@@ -84,6 +85,7 @@ namespace sat {
         m_local_search    = p.local_search();
         m_local_search_threads    = p.local_search_threads();
         m_lookahead_search = p.lookahead_search();
+        m_ccc = p.ccc();
 
         // These parameters are not exposed
         m_simplify_mult1  = _p.get_uint("simplify_mult1", 300);
