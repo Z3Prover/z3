@@ -1059,7 +1059,7 @@ namespace smt {
 
         void reset_assumptions();
 
-        void get_theory_assumptions(expr_ref_vector & theory_assumptions);
+        void add_theory_assumptions(expr_ref_vector & theory_assumptions);
 
         lbool mk_unsat_core();
 
