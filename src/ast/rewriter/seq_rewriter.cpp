@@ -60,7 +60,12 @@ expr_ref sym_expr::accept(expr* e) {
 }
 
 std::ostream& sym_expr::display(std::ostream& out) const {
-    return out << m_t;
+    switch (m_ty) {
+    case t_char: return out << m_t;
+    case t_range: return out << m_t << ":" << m_s;
+    case t_pred: return out << m_t;
+    }
+    return out << "expression type not recognized";
 }
 
 struct display_expr1 {
@@ -237,6 +242,7 @@ eautomaton* re2automaton::re2aut(expr* e) {
             unsigned nb = s1.num_bits();
             expr_ref _start(bv.mk_numeral(start, nb), m);
             expr_ref _stop(bv.mk_numeral(stop, nb), m);
+            TRACE("seq", tout << "Range: " << start << " " << stop << "\n";);
             a = alloc(eautomaton, sm, sym_expr::mk_range(_start, _stop));
             return a.detach();
         }
@@ -679,6 +685,29 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
     if (m_util.str.is_extract(b, x, y, z) && x == a) {
         result = m().mk_true();
         return BR_DONE;
+    }
+    bool all_units = true;
+    for (unsigned i = 0; i < bs.size(); ++i) { 
+        all_units = m_util.str.is_unit(bs[i].get());
+    }
+    for (unsigned i = 0; i < as.size(); ++i) { 
+        all_units = m_util.str.is_unit(as[i].get());
+    }
+    if (all_units) {
+        if (as.size() < bs.size()) {
+            result = m().mk_false();
+            return BR_DONE;
+        }
+        expr_ref_vector ors(m());
+        for (unsigned i = 0; i < as.size() - bs.size() + 1; ++i) {
+            expr_ref_vector ands(m());
+            for (unsigned j = 0; j < bs.size(); ++j) {
+                ands.push_back(m().mk_eq(as[i + j].get(), bs[j].get()));
+            }
+            ors.push_back(::mk_and(ands));
+        }
+        result = ::mk_or(ors);
+        return BR_REWRITE_FULL;
     }
 
     return BR_FAILED;
@@ -1502,6 +1531,7 @@ bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_
     zstring s;
     bool lchange = false;
     SASSERT(lhs.empty());
+    TRACE("seq", tout << ls << "\n"; tout << rs << "\n";);
     // solve from back
     while (true) {
         while (!rs.empty() && m_util.str.is_empty(rs.back())) {
@@ -1619,9 +1649,11 @@ bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_
            head2 < rs.size() && 
            m_util.str.is_string(ls[head1].get(), s1) &&
            m_util.str.is_string(rs[head2].get(), s2)) {
+        TRACE("seq", tout << s1 << " - " << s2 << " " << s1.length() << " " << s2.length() << "\n";);
         unsigned l = std::min(s1.length(), s2.length());
         for (unsigned i = 0; i < l; ++i) {
             if (s1[i] != s2[i]) {
+                TRACE("seq", tout << "different at position " << i << " " << s1[i] << " " << s2[i] << "\n";);
                 return false;
             }
         }
