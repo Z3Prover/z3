@@ -3281,13 +3281,21 @@ namespace smt {
                 TRACE("after_internalization", display(tout););
                 if (inconsistent()) {
                     VERIFY(!resolve_conflict()); // build the proof
-                    mk_unsat_core();
-                    r = l_false;
+                    lbool result = mk_unsat_core();
+                    if (result == l_undef) {
+                        r = l_undef;
+                    } else {
+                        r = l_false;
+                    }
                 }
                 else {
                     r = search();
-                    if (r == l_false)
-                        mk_unsat_core();
+                    if (r == l_false) {
+                        lbool result = mk_unsat_core();
+                        if (result == l_undef) {
+                            r = l_undef;
+                        }
+                    }
                 }
             }
         }
