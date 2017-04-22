@@ -29,15 +29,16 @@ namespace sat {
             unsigned m_id;
             unsigned m_depth;
             literal  m_last;
+            literal  m_blocked;
             unsigned m_parent;
-            decision(unsigned id, unsigned d, literal last, unsigned parent_id):
-                m_id(id), m_depth(d), m_last(last), m_parent(parent_id) {}
+            decision(unsigned id, unsigned d, literal last, literal blocked, unsigned parent_id):
+                m_id(id), m_depth(d), m_last(last), m_blocked(blocked), m_parent(parent_id) {}
             decision(): m_id(0), m_depth(0), m_last(null_literal), m_parent(0) {}
             
             std::ostream& pp(std::ostream& out) const;
         };
 
-        solver&         s;    
+        solver&         m_s;    
         queue<unsigned> m_solved;
         queue<decision> m_decisions;
         model           m_model;
@@ -56,8 +57,14 @@ namespace sat {
         };
 
         lbool conquer(solver& s);
+        bool  cube_decision(solver& s, svector<decision>& decisions);
+
         lbool bounded_search(solver& s, svector<decision>& decisions);
         lbool cube();
+        bool  push_decision(solver& s, decision const& d);
+
+        lbool cube2();
+        lbool cube2(unsigned& branch_id, svector<decision>& decisions, lookahead& lh);
 
         void replay_decisions(solver& s, svector<decision>& decisions);
 
@@ -69,9 +76,11 @@ namespace sat {
 
         void check_non_model(char const* fn, svector<decision> const& decisions);
 
+        bool contains_branch(svector<decision> const& decisions, unsigned branch_id) const;
+
     public:
 
-        ccc(solver& s): s(s) {}
+        ccc(solver& s): m_s(s) {}
 
         lbool search();
 
