@@ -3072,11 +3072,11 @@ namespace smt {
         m_assumptions.reset();
     }
 
-    void context::mk_unsat_core() {
+    lbool context::mk_unsat_core() {
         SASSERT(inconsistent());
         if (!tracking_assumptions()) {
             SASSERT(m_assumptions.empty());
-            return; 
+            return l_false;
         }
         uint_set already_found_assumptions;
         literal_vector::const_iterator it  = m_conflict_resolution->begin_unsat_core();
@@ -3101,7 +3101,17 @@ namespace smt {
               for (unsigned i = 0; i < sz; i++) {
                   tout << mk_pp(m_unsat_core.get(i), m_manager) << "\n";
               });
-        validate_unsat_core();        
+        validate_unsat_core();
+        // theory validation of unsat core
+        ptr_vector<theory>::iterator th_it = m_theory_set.begin();
+        ptr_vector<theory>::iterator th_end = m_theory_set.end();
+        for (; th_it != th_end; ++th_it) {
+            lbool theory_result = (*th_it)->validate_unsat_core(m_unsat_core);
+            if (theory_result == l_undef) {
+                return l_undef;
+            }
+        }
+        return l_false;
     }
 
     /**
@@ -3144,6 +3154,14 @@ namespace smt {
         SASSERT(m_scope_lvl == 0);
         SASSERT(!m_setup.already_configured());
         setup_context(m_fparams.m_auto_config);
+
+        expr_ref_vector theory_assumptions(m_manager);
+        get_theory_assumptions(theory_assumptions);
+        if (!theory_assumptions.empty()) {
+            TRACE("search", tout << "Adding theory assumptions to context" << std::endl;);
+            return check(theory_assumptions.size(), theory_assumptions.c_ptr(), reset_cancel, true);
+        }
+
         internalize_assertions();
         lbool r = l_undef;
         if (m_asserted_formulas.inconsistent()) {
@@ -3205,7 +3223,15 @@ namespace smt {
             (*it)->setup();
     }
 
-    lbool context::check(unsigned num_assumptions, expr * const * assumptions, bool reset_cancel) {
+    void context::get_theory_assumptions(expr_ref_vector & theory_assumptions) {
+        ptr_vector<theory>::iterator it = m_theory_set.begin();
+        ptr_vector<theory>::iterator end = m_theory_set.end();
+        for (; it != end; ++it) {
+            (*it)->add_theory_assumptions(theory_assumptions);
+        }
+    }
+
+    lbool context::check(unsigned ext_num_assumptions, expr * const * ext_assumptions, bool reset_cancel, bool already_did_theory_assumptions) {
         m_stats.m_num_checks++;
         TRACE("check_bug", tout << "STARTING check(num_assumptions, assumptions)\n";
               tout << "inconsistent: " << inconsistent() << ", m_unsat_core.empty(): " << m_unsat_core.empty() << "\n";
@@ -3216,6 +3242,22 @@ namespace smt {
             m_unsat_core.reset();
         if (!check_preamble(reset_cancel))
             return l_undef;
+
+        expr_ref_vector all_assumptions(m_manager);
+        for (unsigned i = 0; i < ext_num_assumptions; ++i) {
+            all_assumptions.push_back(ext_assumptions[i]);
+        }
+        if (!already_did_theory_assumptions) {
+            ptr_vector<theory>::iterator it = m_theory_set.begin();
+            ptr_vector<theory>::iterator end = m_theory_set.end();
+            for (; it != end; ++it) {
+                (*it)->add_theory_assumptions(all_assumptions);
+            }
+        }
+
+        unsigned num_assumptions = all_assumptions.size();
+        expr * const * assumptions = all_assumptions.c_ptr();
+
         if (!validate_assumptions(num_assumptions, assumptions))
             return l_undef;
         TRACE("check_bug", tout << "inconsistent: " << inconsistent() << ", m_unsat_core.empty(): " << m_unsat_core.empty() << "\n";);
@@ -3239,13 +3281,21 @@ namespace smt {
                 TRACE("after_internalization", display(tout););
                 if (inconsistent()) {
                     VERIFY(!resolve_conflict()); // build the proof
-                    mk_unsat_core();
-                    r = l_false;
+                    lbool result = mk_unsat_core();
+                    if (result == l_undef) {
+                        r = l_undef;
+                    } else {
+                        r = l_false;
+                    }
                 }
                 else {
                     r = search();
-                    if (r == l_false)
-                        mk_unsat_core();
+                    if (r == l_false) {
+                        lbool result = mk_unsat_core();
+                        if (result == l_undef) {
+                            r = l_undef;
+                        }
+                    }
                 }
             }
         }
