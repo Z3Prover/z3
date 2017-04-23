@@ -874,7 +874,7 @@ namespace sat {
         scoped_rl.push_child(&srch.rlimit());
         lbool r = srch.check(num_lits, lits, 0);
         m_model = srch.get_model();
-        // srch.collect_statistics(m_lookahead_stats);
+        // srch.collect_statistics(m_aux_stats);
         return r;
     }
 
@@ -882,6 +882,7 @@ namespace sat {
         ccc c(*this);
         lbool r = c.search();
         m_model = c.get_model();
+        c.collect_statistics(m_aux_stats);
         return r;
     }
 
@@ -893,10 +894,10 @@ namespace sat {
             m_model = lh.get_model();
         }
         catch (z3_exception&) {
-            lh.collect_statistics(m_lookahead_stats);
+            lh.collect_statistics(m_aux_stats);
             throw;
         }
-        lh.collect_statistics(m_lookahead_stats);
+        lh.collect_statistics(m_aux_stats);
         return r;
     }
 
@@ -2808,7 +2809,7 @@ namespace sat {
         m_asymm_branch.collect_statistics(st);
         m_probing.collect_statistics(st);
         if (m_ext) m_ext->collect_statistics(st);
-        st.copy(m_lookahead_stats);
+        st.copy(m_aux_stats);
     }
 
     void solver::reset_statistics() {
@@ -2817,7 +2818,7 @@ namespace sat {
         m_simplifier.reset_statistics();
         m_asymm_branch.reset_statistics();
         m_probing.reset_statistics();
-        m_lookahead_stats.reset();
+        m_aux_stats.reset();
     }
 
     // -----------------------

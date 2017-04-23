@@ -141,7 +141,7 @@ namespace sat {
         unsigned                m_par_num_vars;
         bool                    m_par_syncing_clauses;
 
-        statistics              m_lookahead_stats;
+        statistics              m_aux_stats;
 
         void del_clauses(clause * const * begin, clause * const * end);
 

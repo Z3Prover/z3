@@ -24,6 +24,7 @@ Revision History:
 #include<iostream>
 #include<climits>
 #include<limits>
+#include"z3_omp.h"
 
 #ifndef SIZE_MAX
 #define SIZE_MAX std::numeric_limits<std::size_t>::max()
@@ -182,16 +183,26 @@ void set_verbosity_level(unsigned lvl);
 unsigned get_verbosity_level();
 std::ostream& verbose_stream();
 void set_verbose_stream(std::ostream& str);
+bool is_threaded();
 
-#define IF_VERBOSE(LVL, CODE) { if (get_verbosity_level() >= LVL) { CODE } } ((void) 0)
+  
+#define IF_VERBOSE(LVL, CODE) {                                 \
+    if (get_verbosity_level() >= LVL) {                         \
+        if (is_threaded()) {                                    \
+            LOCK_CODE(CODE);                                    \
+        }                                                       \
+        else {                                                  \
+            CODE;                                               \
+        }                                                       \
+    } } ((void) 0)              
 
-#ifdef _EXTERNAL_RELEASE
-#define IF_IVERBOSE(LVL, CODE) ((void) 0)
-#else
-#define IF_IVERBOSE(LVL, CODE) { if (get_verbosity_level() >= LVL) { CODE } } ((void) 0)
-#endif
-
-
+#define LOCK_CODE(CODE)                         \
+    {                                           \
+    __pragma(omp critical (verbose_lock))      \
+    {                                           \
+    CODE;                                       \
+    }                                           \
+    }                                           
 
 template<typename T>
 struct default_eq {

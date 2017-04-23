@@ -161,8 +161,7 @@ namespace sat {
         lookahead_mode         m_search_mode;   // mode of search
         stats                  m_stats;
         model                  m_model; 
-        literal                m_blocked_literal;
-
+ 
         // ---------------------------------------
         // truth values
 
@@ -1713,8 +1712,7 @@ namespace sat {
                 if (trail.empty()) return false;      
                 pop();   
                 flip_prefix();
-                m_blocked_literal = trail.back();
-                assign(~m_blocked_literal); 
+                assign(~trail.back());
                 trail.pop_back();
                 propagate();
             }

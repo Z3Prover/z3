@@ -17,6 +17,9 @@ Revision History:
 
 --*/
 
+#ifdef _WINDOWS
+#include "windows.h"
+#endif
 #include"util.h"
 
 static unsigned g_verbosity_level = 0;
@@ -33,6 +36,19 @@ static std::ostream* g_verbose_stream = &std::cerr;
 
 void set_verbose_stream(std::ostream& str) {
     g_verbose_stream = &str;
+}
+
+static int g_thread_id = 0;
+static bool g_is_threaded = false;
+
+bool is_threaded() {
+    if (g_is_threaded) return true;
+#ifdef _WINDOWS
+    int thid = GetCurrentThreadId();
+    g_is_threaded = g_thread_id != thid && g_thread_id != 0;
+    g_thread_id = thid;
+#endif
+    return g_is_threaded;
 }
 
 std::ostream& verbose_stream() {
