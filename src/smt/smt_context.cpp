@@ -76,7 +76,6 @@ namespace smt {
         m_unsat_proof(m),
         m_unknown("unknown"),
         m_unsat_core(m),
-        m_use_theory_str_overlap_assumption(false),
 #ifdef Z3DEBUG
         m_trail_enabled(true),
 #endif
