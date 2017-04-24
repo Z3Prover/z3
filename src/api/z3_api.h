@@ -1500,7 +1500,7 @@ extern "C" {
        All main interaction with Z3 happens in the context of a \c Z3_context.
 
        In contrast to #Z3_mk_context_rc, the life time of Z3_ast objects
-       are determined by the scope level of #Z3_push and #Z3_pop.
+       are determined by the scope level of #Z3_solver_push and #Z3_solver_pop.
        In other words, a Z3_ast object remains valid until there is a
        call to Z3_pop that takes the current scope below the level where
        the object was created.
