@@ -703,15 +703,15 @@ INPUT_ENCODING         = UTF-8
 # *.f90 *.f *.for *.vhd *.vhdl
 
 FILE_PATTERNS          = website.dox \
-			 z3_api.h \
-			 z3_algebraic.h \
-			 z3_polynomial.h \
-			 z3_rcf.h \
-			 z3_interp.h \
-			 z3_fpa.h \
+                         z3_api.h \
+                         z3_algebraic.h \
+                         z3_polynomial.h \
+                         z3_rcf.h \
+                         z3_interp.h \
+                         z3_fpa.h \
                          z3++.h \
                          z3py.py \
-						 *.cs \
+                         *.cs \
                          *.java
 
 # The RECURSIVE tag can be used to turn specify whether or not subdirectories
