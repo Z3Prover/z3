@@ -50,15 +50,16 @@ def mk_dir(d):
     if not os.path.exists(d):
         os.makedirs(d)
 
-# Eliminate def_API and extra_API directives from file 'inf'.
+# Eliminate def_API, extra_API, and def_Type directives from file 'inf'.
 # The result is stored in 'outf'.
 def cleanup_API(inf, outf):
     pat1  = re.compile(".*def_API.*")
     pat2  = re.compile(".*extra_API.*")
+    pat3  = re.compile(r".*def_Type\(.*")
     _inf  = open(inf, 'r')
     _outf = open(outf, 'w')
     for line in _inf:
-        if not pat1.match(line) and not pat2.match(line):
+        if not pat1.match(line) and not pat2.match(line) and not pat3.match(line):
             _outf.write(line)
 
 try:
