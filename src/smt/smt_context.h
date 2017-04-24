@@ -226,9 +226,6 @@ namespace smt {
         literal2assumption         m_literal2assumption; // maps an expression associated with a literal to the original assumption
         expr_ref_vector            m_unsat_core;
 
-        // Unsat core assumption hint for theory_str
-        bool                       m_use_theory_str_overlap_assumption;
-
         // -----------------------------------
         //
         // Theory case split
@@ -1094,7 +1091,7 @@ namespace smt {
 
         void reset_assumptions();
 
-        void get_theory_assumptions(expr_ref_vector & theory_assumptions);
+        void add_theory_assumptions(expr_ref_vector & theory_assumptions);
 
         lbool mk_unsat_core();
 

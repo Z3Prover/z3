@@ -2244,7 +2244,7 @@ namespace z3 {
         void from_file(char const* s) { Z3_fixedpoint_from_file(ctx(), m_fp, s); check_error(); }
         void add_rule(expr& rule, symbol const& name) { Z3_fixedpoint_add_rule(ctx(), m_fp, rule, name); check_error(); }
         void add_fact(func_decl& f, unsigned * args) { Z3_fixedpoint_add_fact(ctx(), m_fp, f, f.arity(), args); check_error(); }
-        check_result query(expr& q) { Z3_lbool r = Z3_fixedpoint_query(ctx(), m_fp, q); check_error(); to_check_result(r); }
+        check_result query(expr& q) { Z3_lbool r = Z3_fixedpoint_query(ctx(), m_fp, q); check_error(); return to_check_result(r); }
         check_result query(func_decl_vector& relations) { 
             array<Z3_func_decl> rs(relations);
             Z3_lbool r = Z3_fixedpoint_query_relations(ctx(), m_fp, rs.size(), rs.ptr()); 

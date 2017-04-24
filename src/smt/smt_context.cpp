@@ -3295,7 +3295,7 @@ namespace smt {
         setup_context(m_fparams.m_auto_config);
 
         expr_ref_vector theory_assumptions(m_manager);
-        get_theory_assumptions(theory_assumptions);
+        add_theory_assumptions(theory_assumptions);
         if (!theory_assumptions.empty()) {
             TRACE("search", tout << "Adding theory assumptions to context" << std::endl;);
             return check(theory_assumptions.size(), theory_assumptions.c_ptr(), reset_cancel, true);
@@ -3362,7 +3362,7 @@ namespace smt {
             (*it)->setup();
     }
 
-    void context::get_theory_assumptions(expr_ref_vector & theory_assumptions) {
+    void context::add_theory_assumptions(expr_ref_vector & theory_assumptions) {
         ptr_vector<theory>::iterator it = m_theory_set.begin();
         ptr_vector<theory>::iterator end = m_theory_set.end();
         for (; it != end; ++it) {
@@ -3382,16 +3382,9 @@ namespace smt {
         if (!check_preamble(reset_cancel))
             return l_undef;
 
-        expr_ref_vector all_assumptions(m_manager);
-        for (unsigned i = 0; i < ext_num_assumptions; ++i) {
-            all_assumptions.push_back(ext_assumptions[i]);
-        }
+        expr_ref_vector all_assumptions(m_manager, ext_num_assumptions, ext_assumptions);
         if (!already_did_theory_assumptions) {
-            ptr_vector<theory>::iterator it = m_theory_set.begin();
-            ptr_vector<theory>::iterator end = m_theory_set.end();
-            for (; it != end; ++it) {
-                (*it)->add_theory_assumptions(all_assumptions);
-            }
+            add_theory_assumptions(all_assumptions);            
         }
 
         unsigned num_assumptions = all_assumptions.size();
@@ -3420,12 +3413,20 @@ namespace smt {
                 TRACE("after_internalization", display(tout););
                 if (inconsistent()) {
                     VERIFY(!resolve_conflict()); // build the proof
-                    r = mk_unsat_core();
+                    lbool result = mk_unsat_core();
+                    if (result == l_undef) {
+                        r = l_undef;
+                    } else {
+                        r = l_false;
+                    }
                 }
                 else {
                     r = search();
                     if (r == l_false) {
-                        r = mk_unsat_core(); // validation may change an l_false to l_undef here
+                        lbool result = mk_unsat_core();
+                        if (result == l_undef) {
+                            r = l_undef;
+                        }
                     }
                 }
             }
