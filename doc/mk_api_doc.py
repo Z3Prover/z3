@@ -123,17 +123,12 @@ try:
     doxygen_config_file = temp_path('z3api.cfg')
     configure_file('z3api.cfg.in', doxygen_config_file, doxygen_config_substitutions)
 
-    fi = open('website.dox', 'r')
-    fo = open(temp_path('website.dox'), 'w')
-
-    for line in fi:
-        if (line != '[ML]\n'):
-            fo.write(line)
-        elif (ML_ENABLED):
-            fo.write('   - <a class="el" href="ml/index.html">ML/OCaml API</a>\n')
-    fi.close()
-    fo.close()
-
+    website_dox_substitutions = {}
+    if ML_ENABLED:
+        website_dox_substitutions['OCAML_API'] = '\n   - <a class="el" href="ml/index.html">ML/OCaml API</a>\n'
+    else:
+        website_dox_substitutions['OCAML_API'] = ''
+    configure_file('website.dox.in', temp_path('website.dox'), website_dox_substitutions)
 
     mk_dir(os.path.join(OUTPUT_DIRECTORY, 'html'))
     shutil.copyfile('../src/api/python/z3/z3.py', temp_path('z3py.py'))
