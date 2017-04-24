@@ -4844,7 +4844,7 @@ void theory_str::check_contain_by_eqc_val(expr * varNode, expr * constNode) {
             // we only want to inspect the Contains terms where either of strAst or substrAst
             // are equal to varNode.
 
-            TRACE("t_str_detail", tout << "considering Contains with strAst = "str", substrAst = " << mk_pp(substrAst, m) << "..." << std::endl;);
+            TRACE("t_str_detail", tout << "considering Contains with strAst = " << mk_pp(strAst, m) << ", substrAst = " << mk_pp(substrAst, m) << "..." << std::endl;);
 
             if (varNode != strAst && varNode != substrAst) {
                 TRACE("str", tout << "varNode not equal to strAst or substrAst, skip" << std::endl;);
@@ -4873,7 +4873,7 @@ void theory_str::check_contain_by_eqc_val(expr * varNode, expr * constNode) {
                     zstring subStrConst;
                     u.str.is_string(substrValue, subStrConst);
 
-                    TRACE("t_str_detail", tout << "strConst = "str", subStrConst = " << subStrConst << "\n";);
+                    TRACE("t_str_detail", tout << "strConst = " << strConst << ", subStrConst = " << subStrConst << "\n";);
 
                     if (strConst.contains(subStrConst)) {
                         //implyR = ctx.mk_eq(ctx, boolVar, Z3_mk_true(ctx));
@@ -4983,7 +4983,7 @@ void theory_str::check_contain_by_substr(expr * varNode, expr_ref_vector & willE
             // we only want to inspect the Contains terms where either of strAst or substrAst
             // are equal to varNode.
 
-            TRACE("t_str_detail", tout << "considering Contains with strAst = "str", substrAst = " << mk_pp(substrAst, m) << "..." << std::endl;);
+            TRACE("t_str_detail", tout << "considering Contains with strAst = " << mk_pp(strAst, m) << ", substrAst = " << mk_pp(substrAst, m) << "..." << std::endl;);
 
             if (varNode != strAst && varNode != substrAst) {
                 TRACE("str", tout << "varNode not equal to strAst or substrAst, skip" << std::endl;);
@@ -6181,7 +6181,6 @@ void nfa::convert_re(expr * e, unsigned & start, unsigned & end, seq_util & u) {
             }
             make_transition(last, str[(str.length() - 1)], end);
             TRACE("str", tout << "string transition " << last << "--" << str[(str.length() - 1)] << "--> " << end << "\n";);
-            TRACE("t_str_rw", tout << "str", end = " << end << std::endl;);
         } else {
             TRACE("str", tout << "invalid string constant in Str2Reg" << std::endl;);
             m_valid = false;

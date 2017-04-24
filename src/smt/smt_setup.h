@@ -94,7 +94,7 @@ namespace smt {
         void setup_bv();
         void setup_arith();
         void setup_dl();
-        void setup_seq();
+        void setup_seq(static_features const & st);
         void setup_card();
         void setup_i_arith();
         void setup_mi_arith();

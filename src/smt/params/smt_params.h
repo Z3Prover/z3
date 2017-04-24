@@ -216,6 +216,13 @@ struct smt_params : public preprocessor_params,
     bool                m_dump_goal_as_smt;
     bool                m_auto_config;
 
+    // -----------------------------------
+    //
+    // Solver selection
+    //
+    // -----------------------------------
+    symbol m_string_solver;
+
     smt_params(params_ref const & p = params_ref()):
         m_display_proof(false),
         m_display_dot_proof(false),
@@ -286,7 +293,8 @@ struct smt_params : public preprocessor_params,
         m_at_labels_cex(false),
         m_check_at_labels(false),
         m_dump_goal_as_smt(false),
-        m_auto_config(true) {
+        m_auto_config(true),
+        m_string_solver(symbol("auto")){
         updt_local_params(p);
     }
 

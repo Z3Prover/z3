@@ -41,6 +41,7 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_max_conflicts = p.max_conflicts();
     m_core_validate = p.core_validate();
     m_logic = _p.get_sym("logic", m_logic);
+    m_string_solver = _p.get_sym("string_solver", m_string_solver);
     model_params mp(_p);
     m_model_compact = mp.compact();
     if (_p.get_bool("arith.greatest_error_pivot", false))

@@ -206,7 +206,7 @@ namespace smt {
     void setup::setup_QF_BVRE() {
         setup_QF_BV();
         setup_QF_LIA();
-        setup_seq();
+        m_context.register_plugin(alloc(theory_seq, m_manager));
     }
 
     void setup::setup_QF_UF(static_features const & st) {
@@ -824,10 +824,21 @@ namespace smt {
         m_context.register_plugin(mk_theory_dl(m_manager));
     }
 
-    void setup::setup_seq() {
-        // TODO proper negotiation of theory_str vs. theory_seq
-        //m_context.register_plugin(alloc(theory_seq, m_manager));
-        setup_str();
+    void setup::setup_seq(static_features const & st) {
+        // check params for what to do here when it's ambiguous
+        if (m_params.m_string_solver == "z3str3") {
+            setup_str();
+        } else if (m_params.m_string_solver == "seq") {
+            m_context.register_plugin(alloc(theory_seq, m_manager));
+        } else if (m_params.m_string_solver == "auto") {
+            if (st.m_has_seq_non_str) {
+                m_context.register_plugin(alloc(theory_seq, m_manager));
+            } else {
+                setup_str();
+            }
+        } else {
+            throw default_exception("invalid parameter for smt.string_solver, valid options are 'z3str3', 'seq', 'auto'");
+        }
     }
 
     void setup::setup_card() {
@@ -850,10 +861,10 @@ namespace smt {
         setup_bv();
         setup_datatypes();
         setup_dl();
-        setup_seq();
+        // setup_seq()
+        m_context.register_plugin(alloc(theory_seq, m_manager));
         setup_card();
         setup_fpa();
-        setup_str();
     }
 
     void setup::setup_unknown(static_features & st) {
@@ -866,7 +877,7 @@ namespace smt {
             setup_datatypes();
             setup_bv();
             setup_dl();
-            setup_seq();
+            setup_seq(st);
             setup_card();
             setup_fpa();
             return;
