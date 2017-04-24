@@ -3324,7 +3324,7 @@ namespace sat {
             if (is_sat == l_true) {
                 delete_unfixed(unfixed_lits, unfixed_vars);
             }
-            extract_fixed_consequences(num_units, assumptions, unfixed_vars, conseq);
+            extract_fixed_consequences(num_units, assumptions, unfixed_vars, conseq); 
             update_unfixed_literals(unfixed_lits, unfixed_vars);
             IF_VERBOSE(1, verbose_stream() << "(sat.get-consequences"
                        << " iterations: " << num_iterations
