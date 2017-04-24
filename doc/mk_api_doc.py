@@ -17,9 +17,10 @@ ML_ENABLED=False
 BUILD_DIR='../build'
 DOXYGEN_EXE='doxygen'
 TEMP_DIR=os.path.join(os.getcwd(), 'tmp')
+OUTPUT_DIRECTORY=os.path.join(os.getcwd(), 'api')
 
 def parse_options():
-    global ML_ENABLED, BUILD_DIR, DOXYGEN_EXE, TEMP_DIR
+    global ML_ENABLED, BUILD_DIR, DOXYGEN_EXE, TEMP_DIR, OUTPUT_DIRECTORY
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-b',
         '--build',
@@ -42,11 +43,17 @@ def parse_options():
         help='Path to directory to use as temporary directory. '
              '(default: %(default)s)',
     )
+    parser.add_argument('--output-dir',
+        dest='output_dir',
+        default=OUTPUT_DIRECTORY,
+        help='Path to output directory (default: %(default)s)',
+    )
     pargs = parser.parse_args()
     ML_ENABLED = pargs.ml
     BUILD_DIR = pargs.build
     DOXYGEN_EXE = pargs.doxygen_executable
     TEMP_DIR = pargs.temp_dir
+    OUTPUT_DIRECTORY = pargs.output_dir
     return
 
 def mk_dir(d):
@@ -65,6 +72,41 @@ def cleanup_API(inf, outf):
         if not pat1.match(line) and not pat2.match(line) and not pat3.match(line):
             _outf.write(line)
 
+def configure_file(template_file_path, output_file_path, substitutions):
+    """
+        Read a template file ``template_file_path``, perform substitutions
+        found in the ``substitutions`` dictionary and write the result to
+        the output file ``output_file_path``.
+
+        The template file should contain zero or more template strings of the
+        form ``@NAME@``.
+
+        The substitutions dictionary maps old strings (without the ``@``
+        symbols) to their replacements.
+    """
+    assert isinstance(template_file_path, str)
+    assert isinstance(output_file_path, str)
+    assert isinstance(substitutions, dict)
+    assert len(template_file_path) > 0
+    assert len(output_file_path) > 0
+    print("Generating {} from {}".format(output_file_path, template_file_path))
+
+    if not os.path.exists(template_file_path):
+        raise Exception('Could not find template file "{}"'.format(template_file_path))
+
+    # Read whole template file into string
+    template_string = None
+    with open(template_file_path, 'r') as f:
+        template_string = f.read()
+
+    # Do replacements
+    for (old_string, replacement) in substitutions.items():
+        template_string = template_string.replace('@{}@'.format(old_string), replacement)
+
+    # Write the string to the file
+    with open(output_file_path, 'w') as f:
+        f.write(template_string)
+
 try:
     parse_options()
 
@@ -73,6 +115,13 @@ try:
     # Short-hand for path to temporary file
     def temp_path(path):
         return os.path.join(TEMP_DIR, path)
+
+    # Create configuration file from template
+    doxygen_config_substitutions = {
+        'OUTPUT_DIRECTORY': OUTPUT_DIRECTORY,
+    }
+    doxygen_config_file = temp_path('z3api.cfg')
+    configure_file('z3api.cfg.in', doxygen_config_file, doxygen_config_substitutions)
 
     fi = open('website.dox', 'r')
     fo = open(temp_path('website.dox'), 'w')
@@ -86,7 +135,7 @@ try:
     fo.close()
 
 
-    mk_dir('api/html')
+    mk_dir(os.path.join(OUTPUT_DIRECTORY, 'html'))
     shutil.copyfile('../src/api/python/z3/z3.py', temp_path('z3py.py'))
     cleanup_API('../src/api/z3_api.h', temp_path('z3_api.h'))
     cleanup_API('../src/api/z3_ast_containers.h', temp_path('z3_ast_containers.h'))
@@ -100,7 +149,7 @@ try:
 
     print("Removed annotations from z3_api.h.")
     try:
-        if subprocess.call([DOXYGEN_EXE, 'z3api.dox']) != 0:
+        if subprocess.call([DOXYGEN_EXE, doxygen_config_file]) != 0:
             print("ERROR: doxygen returned nonzero return code")
             exit(1)
     except:
@@ -111,17 +160,18 @@ try:
     print("Removed temporary directory \"{}\"".format(TEMP_DIR))
     sys.path.append('../src/api/python/z3')
     pydoc.writedoc('z3')
-    shutil.move('z3.html', 'api/html/z3.html')
+    shutil.move('z3.html', os.path.join(OUTPUT_DIRECTORY, 'html', 'z3.html'))
     print("Generated Python documentation.")
 
     if ML_ENABLED:
-        mk_dir('api/html/ml')
-        if subprocess.call(['ocamldoc', '-html', '-d', 'api\html\ml', '-sort', '-hide', 'Z3', '-I', '%s/api/ml' % BUILD_DIR, '../src/api/ml/z3enums.mli', '../src/api/ml/z3.mli']) != 0:
+        ml_output_dir = os.path.join(OUTPUT_DIRECTORY, 'html', 'ml')
+        mk_dir(ml_output_dir)
+        if subprocess.call(['ocamldoc', '-html', '-d', ml_output_dir, '-sort', '-hide', 'Z3', '-I', '%s/api/ml' % BUILD_DIR, '../src/api/ml/z3enums.mli', '../src/api/ml/z3.mli']) != 0:
             print("ERROR: ocamldoc failed.")
             exit(1)
         print("Generated ML/OCaml documentation.")
 
-    print("Documentation was successfully generated at subdirectory './api/html'.")
+    print("Documentation was successfully generated at subdirectory '{}'.".format(OUTPUT_DIRECTORY))
 except Exception:
     exctype, value = sys.exc_info()[:2]
     print("ERROR: failed to generate documentation: %s" % value)
