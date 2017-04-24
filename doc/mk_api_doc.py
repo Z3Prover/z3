@@ -16,9 +16,10 @@ import shutil
 ML_ENABLED=False
 BUILD_DIR='../build'
 DOXYGEN_EXE='doxygen'
+TEMP_DIR=os.path.join(os.getcwd(), 'tmp')
 
 def parse_options():
-    global ML_ENABLED, BUILD_DIR, DOXYGEN_EXE
+    global ML_ENABLED, BUILD_DIR, DOXYGEN_EXE, TEMP_DIR
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-b',
         '--build',
@@ -35,10 +36,17 @@ def parse_options():
         default=DOXYGEN_EXE,
         help='Doxygen executable to use (default: %(default)s)',
     )
+    parser.add_argument('--temp-dir',
+        dest='temp_dir',
+        default=TEMP_DIR,
+        help='Path to directory to use as temporary directory. '
+             '(default: %(default)s)',
+    )
     pargs = parser.parse_args()
     ML_ENABLED = pargs.ml
     BUILD_DIR = pargs.build
     DOXYGEN_EXE = pargs.doxygen_executable
+    TEMP_DIR = pargs.temp_dir
     return
 
 def mk_dir(d):
@@ -60,8 +68,14 @@ def cleanup_API(inf, outf):
 try:
     parse_options()
 
+    print("Creating temporary directory \"{}\"".format(TEMP_DIR))
+    mk_dir(TEMP_DIR)
+    # Short-hand for path to temporary file
+    def temp_path(path):
+        return os.path.join(TEMP_DIR, path)
+
     fi = open('website.dox', 'r')
-    fo = open('website-adj.dox', 'w')
+    fo = open(temp_path('website.dox'), 'w')
 
     for line in fi:
         if (line != '[ML]\n'):
@@ -71,20 +85,18 @@ try:
     fi.close()
     fo.close()
 
+
     mk_dir('api/html')
-    mk_dir('tmp')
-    shutil.copyfile('website-adj.dox', 'tmp/website.dox')
-    os.remove('website-adj.dox')
-    shutil.copyfile('../src/api/python/z3/z3.py', 'tmp/z3py.py')
-    cleanup_API('../src/api/z3_api.h', 'tmp/z3_api.h')
-    cleanup_API('../src/api/z3_ast_containers.h', 'tmp/z3_ast_containers.h')
-    cleanup_API('../src/api/z3_algebraic.h', 'tmp/z3_algebraic.h')
-    cleanup_API('../src/api/z3_polynomial.h', 'tmp/z3_polynomial.h')
-    cleanup_API('../src/api/z3_rcf.h', 'tmp/z3_rcf.h')
-    cleanup_API('../src/api/z3_fixedpoint.h', 'tmp/z3_fixedpoint.h')
-    cleanup_API('../src/api/z3_optimization.h', 'tmp/z3_optimization.h')
-    cleanup_API('../src/api/z3_interp.h', 'tmp/z3_interp.h')
-    cleanup_API('../src/api/z3_fpa.h', 'tmp/z3_fpa.h')
+    shutil.copyfile('../src/api/python/z3/z3.py', temp_path('z3py.py'))
+    cleanup_API('../src/api/z3_api.h', temp_path('z3_api.h'))
+    cleanup_API('../src/api/z3_ast_containers.h', temp_path('z3_ast_containers.h'))
+    cleanup_API('../src/api/z3_algebraic.h', temp_path('z3_algebraic.h'))
+    cleanup_API('../src/api/z3_polynomial.h', temp_path('z3_polynomial.h'))
+    cleanup_API('../src/api/z3_rcf.h', temp_path('z3_rcf.h'))
+    cleanup_API('../src/api/z3_fixedpoint.h', temp_path('z3_fixedpoint.h'))
+    cleanup_API('../src/api/z3_optimization.h', temp_path('z3_optimization.h'))
+    cleanup_API('../src/api/z3_interp.h', temp_path('z3_interp.h'))
+    cleanup_API('../src/api/z3_fpa.h', temp_path('z3_fpa.h'))
 
     print("Removed annotations from z3_api.h.")
     try:
@@ -95,23 +107,8 @@ try:
         print("ERROR: failed to execute 'doxygen', make sure doxygen (http://www.doxygen.org) is available in your system.")
         exit(1)
     print("Generated C and .NET API documentation.")
-    os.remove('tmp/z3_api.h')
-    os.remove('tmp/z3_ast_containers.h')
-    os.remove('tmp/z3_algebraic.h')
-    os.remove('tmp/z3_polynomial.h')
-    os.remove('tmp/z3_rcf.h')
-    os.remove('tmp/z3_fixedpoint.h')
-    os.remove('tmp/z3_optimization.h')
-    os.remove('tmp/z3_interp.h')
-    os.remove('tmp/z3_fpa.h')
-    print("Removed temporary file header files.")
-
-    os.remove('tmp/website.dox')
-    print("Removed temporary file website.dox")
-    os.remove('tmp/z3py.py')
-    print("Removed temporary file z3py.py")
-    os.removedirs('tmp')
-    print("Removed temporary directory tmp.")
+    shutil.rmtree(os.path.realpath(TEMP_DIR))
+    print("Removed temporary directory \"{}\"".format(TEMP_DIR))
     sys.path.append('../src/api/python/z3')
     pydoc.writedoc('z3')
     shutil.move('z3.html', 'api/html/z3.html')
