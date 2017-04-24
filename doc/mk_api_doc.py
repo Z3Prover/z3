@@ -119,6 +119,7 @@ try:
     # Create configuration file from template
     doxygen_config_substitutions = {
         'OUTPUT_DIRECTORY': OUTPUT_DIRECTORY,
+        'TEMP_DIR': TEMP_DIR
     }
     doxygen_config_file = temp_path('z3api.cfg')
     configure_file('z3api.cfg.in', doxygen_config_file, doxygen_config_substitutions)
