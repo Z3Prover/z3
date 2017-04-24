@@ -59,7 +59,9 @@ namespace sat {
     }
 
     class lookahead {
-        solver& s;
+        solver&    m_s;
+        unsigned   m_num_vars;
+        reslimit   m_rlimit;
 
         friend class ccc;
 
@@ -243,14 +245,20 @@ namespace sat {
             m_binary[(~l2).index()].push_back(l1);
             m_binary_trail.push_back((~l1).index());
             ++m_stats.m_add_binary;
-            if (s.m_config.m_drat) validate_binary(l1, l2);
+            if (m_s.m_config.m_drat) validate_binary(l1, l2);
         }
 
         void del_binary(unsigned idx) {
             // TRACE("sat", display(tout << "Delete " << to_literal(idx) << "\n"););
             literal_vector & lits = m_binary[idx];
-            literal l = lits.back();
+            if (lits.empty()) IF_VERBOSE(0, verbose_stream() << "empty literals\n";);
+            literal l = lits.back();			
             lits.pop_back();
+            if (m_binary[(~l).index()].back() != ~to_literal(idx)) {
+                IF_VERBOSE(0, verbose_stream() << "pop bad literal: " << idx << " " << (~l).index() << "\n";);
+            }
+            if (m_binary[(~l).index()].empty())
+                IF_VERBOSE(0, verbose_stream() << "empty binary\n";);
             m_binary[(~l).index()].pop_back();
             ++m_stats.m_del_binary;
         }
@@ -547,7 +555,7 @@ namespace sat {
         void ensure_H(unsigned level) {
             while (m_H.size() <= level) {
                 m_H.push_back(svector<float>());
-                m_H.back().resize(s.num_vars() * 2, 0);
+                m_H.back().resize(m_num_vars * 2, 0);
             }
         }
 
@@ -574,6 +582,9 @@ namespace sat {
             float sum = 0, tsum = 0;
             literal_vector::iterator it = m_binary[l.index()].begin(), end = m_binary[l.index()].end();
             for (; it != end; ++it) {
+                bool_var v = it->var();
+                if (it->index() >= h.size())
+                    IF_VERBOSE(0, verbose_stream() << l << " " << *it << " " << h.size() << "\n";);
                 if (is_undef(*it)) sum += h[it->index()]; 
                 // if (m_freevars.contains(it->var())) sum += h[it->index()]; 
             }
@@ -593,7 +604,7 @@ namespace sat {
                 }
                 case watched::CLAUSE: {
                     clause_offset cls_off = wit->get_clause_offset();
-                    clause & c = *(s.m_cls_allocator.get_clause(cls_off));
+                    clause & c = *(m_cls_allocator.get_clause(cls_off));
                     // approximation compared to ternary clause case: 
                     // we pick two other literals from the clause.
                     if (c[0] == ~l) {
@@ -1026,26 +1037,26 @@ namespace sat {
             m_lits.push_back(lit_info());
             m_rating.push_back(0);
             m_vprefix.push_back(prefix());
-            if (!s.was_eliminated(v)) 
+            if (!m_s.was_eliminated(v)) 
                 m_freevars.insert(v);
         }
 
         void init() {
-            m_delta_trigger = s.num_vars()/10;
+            m_delta_trigger = m_num_vars/10;
             m_config.m_dl_success = 0.8;
             m_inconsistent = false;
             m_qhead = 0;
             m_bstamp_id = 0;
 
-            for (unsigned i = 0; i < s.num_vars(); ++i) {
+            for (unsigned i = 0; i < m_num_vars; ++i) {
                 init_var(i);
             }
 
             // copy binary clauses
-            unsigned sz = s.m_watches.size();
+            unsigned sz = m_s.m_watches.size();
             for (unsigned l_idx = 0; l_idx < sz; ++l_idx) {
                 literal l = ~to_literal(l_idx);
-                watch_list const & wlist = s.m_watches[l_idx];
+                watch_list const & wlist = m_s.m_watches[l_idx];
                 watch_list::const_iterator it  = wlist.begin();
                 watch_list::const_iterator end = wlist.end();
                 for (; it != end; ++it) {
@@ -1057,21 +1068,21 @@ namespace sat {
                 }
             }
 
-            copy_clauses(s.m_clauses);
-            copy_clauses(s.m_learned);
+            copy_clauses(m_s.m_clauses);
+            copy_clauses(m_s.m_learned);
 
             // copy units
-            unsigned trail_sz = s.init_trail_size();
+            unsigned trail_sz = m_s.init_trail_size();
             for (unsigned i = 0; i < trail_sz; ++i) {
-                literal l = s.m_trail[i];
-                if (!s.was_eliminated(l.var())) {
-                    if (s.m_config.m_drat) m_drat.add(l, false);
+                literal l = m_s.m_trail[i];
+                if (!m_s.was_eliminated(l.var())) {
+                    if (m_s.m_config.m_drat) m_drat.add(l, false);
                     assign(l);
                 }
             }
             propagate();
             m_qhead = m_trail.size();
-            TRACE("sat", s.display(tout); display(tout););
+            TRACE("sat", m_s.display(tout); display(tout););
         }
 
         void copy_clauses(clause_vector const& clauses) {
@@ -1087,7 +1098,7 @@ namespace sat {
                 for (unsigned i = 0; i < c.size(); ++i) {
                     m_full_watches[(~c[i]).index()].push_back(c1);
                 }
-                if (s.m_config.m_drat) m_drat.add(c, false);
+                if (m_s.m_config.m_drat) m_drat.add(c, false);
             }
         }
 
@@ -1207,7 +1218,7 @@ namespace sat {
 
         clause const& get_clause(watch_list::iterator it) const {
             clause_offset cls_off = it->get_clause_offset();
-            return *(s.m_cls_allocator.get_clause(cls_off));
+            return *(m_cls_allocator.get_clause(cls_off));
         }
 
         bool is_nary_propagation(clause const& c, literal l) const {
@@ -1288,7 +1299,7 @@ namespace sat {
                         break;
                     }
                     clause_offset cls_off = it->get_clause_offset();
-                    clause & c = *(s.m_cls_allocator.get_clause(cls_off));
+                    clause & c = *(m_cls_allocator.get_clause(cls_off));
                     if (c[0] == ~l)
                         std::swap(c[0], c[1]);
                     if (is_true(c[0])) {
@@ -1426,7 +1437,7 @@ namespace sat {
             while (change && !inconsistent()) {
                 change = false;
                 for (unsigned i = 0; !inconsistent() && i < m_lookahead.size(); ++i) {
-                    s.checkpoint();
+                    checkpoint();
                     literal lit = m_lookahead[i].m_lit;
                     if (is_fixed_at(lit, c_fixed_truth)) continue;
                     unsigned level = base + m_lookahead[i].m_offset;
@@ -1501,7 +1512,7 @@ namespace sat {
                 float mixd = mix_diff(diff1, diff2);
 
                 if (mixd == h) ++count;
-                if (mixd > h || (mixd == h && s.m_rand(count) == 0)) {
+                if (mixd > h || (mixd == h && m_s.m_rand(count) == 0)) {
                     CTRACE("sat", l != null_literal, tout << lit << " mix diff: " << mixd << "\n";);
                     if (mixd > h) count = 1;
                     h = mixd;
@@ -1666,7 +1677,7 @@ namespace sat {
         unsigned scope_lvl() const { return m_trail_lim.size(); }
 
         void validate_assign(literal l) {
-            if (s.m_config.m_drat && m_search_mode == lookahead_mode::searching) {
+            if (m_s.m_config.m_drat && m_search_mode == lookahead_mode::searching) {
                 m_assumptions.push_back(l);
                 m_drat.add(m_assumptions);
                 m_assumptions.pop_back();
@@ -1727,7 +1738,7 @@ namespace sat {
             while (true) {
                 TRACE("sat", display(tout););
                 inc_istamp();
-                s.checkpoint();
+                checkpoint();
                 if (inconsistent()) {
                     if (!backtrack(trail)) return l_false;
                     continue;
@@ -1751,7 +1762,7 @@ namespace sat {
 
         void init_model() {
             m_model.reset();
-            for (unsigned i = 0; i < s.num_vars(); ++i) {
+            for (unsigned i = 0; i < m_num_vars; ++i) {
                 lbool val;
                 literal lit(i, false);
                 if (is_undef(lit)) {
@@ -1810,17 +1821,30 @@ namespace sat {
             init();            
         }
 
+        void checkpoint() {
+            if (!m_rlimit.inc()) {
+                throw solver_exception(Z3_CANCELED_MSG);
+            }
+            if (memory::get_allocation_size() > m_s.m_config.m_max_memory) {
+                throw solver_exception(Z3_MAX_MEMORY_MSG);
+            }
+        }
+
+
     public:
         lookahead(solver& s) : 
-            s(s), 
+            m_s(s),
+            m_num_vars(s.num_vars()),
             m_drat(s),
             m_num_tc1(0),
             m_level(2),
             m_prefix(0) {
+            m_s.rlimit().push_child(&m_rlimit);
         }
 
         ~lookahead() {
             del_clauses();
+            m_s.rlimit().pop_child();
         }
         
         lbool check() {
@@ -1842,14 +1866,14 @@ namespace sat {
             unsigned num_units = 0;
             for (unsigned i = 0; i < m_trail.size(); ++i) {
                 literal lit = m_trail[i];
-                if (s.value(lit) == l_undef && !s.was_eliminated(lit.var())) {
-                    s.m_simplifier.propagate_unit(lit);                    
+                if (m_s.value(lit) == l_undef && !m_s.was_eliminated(lit.var())) {
+                    m_s.m_simplifier.propagate_unit(lit);                    
                     ++num_units;
                 }
             }
             IF_VERBOSE(1, verbose_stream() << "units found: " << num_units << "\n";);
             
-            s.m_simplifier.subsume();
+            m_s.m_simplifier.subsume();
             m_lookahead.reset();
         }
 
@@ -1868,20 +1892,20 @@ namespace sat {
                 if (inconsistent()) return;
                 literal_vector roots;
                 bool_var_vector to_elim;
-                for (unsigned i = 0; i < s.num_vars(); ++i) {
+                for (unsigned i = 0; i < m_num_vars; ++i) {
                     roots.push_back(literal(i, false));
                 }
                 for (unsigned i = 0; i < m_candidates.size(); ++i) {
                     bool_var v = m_candidates[i].m_var;
                     literal lit = literal(v, false);
                     literal p = get_parent(lit);
-                    if (p != null_literal && p.var() != v && !s.is_external(v) && !s.was_eliminated(v) && !s.was_eliminated(p.var())) {
+                    if (p != null_literal && p.var() != v && !m_s.is_external(v) && !m_s.was_eliminated(v) && !m_s.was_eliminated(p.var())) {
                         to_elim.push_back(v);
                         roots[v] = p;
                     }
                 }
                 IF_VERBOSE(1, verbose_stream() << "eliminate " << to_elim.size() << " variables\n";);
-                elim_eqs elim(s);
+                elim_eqs elim(m_s);
                 elim(roots, to_elim);
             }
             m_lookahead.reset();

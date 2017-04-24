@@ -67,7 +67,7 @@ namespace sat {
         bool  cube_decision(solver& s, svector<decision>& decisions, unsigned thread_id);
 
         lbool bounded_search(solver& s, svector<decision>& decisions, unsigned thread_id);
-        bool  push_decision(solver& s, decision const& d, unsigned thread_id);
+        bool  push_decision(solver& s, svector<decision> const& decisions, decision const& d, unsigned thread_id);
         lbool cube();
         lbool cube(svector<decision>& decisions, lookahead& lh);
         void  put_decision(decision const& d);

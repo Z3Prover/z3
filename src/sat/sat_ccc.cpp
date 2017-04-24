@@ -35,7 +35,7 @@ using namespace sat;
 
 std::ostream& ccc::decision::pp(std::ostream& out) const {
     out << "(" 
-        << " id:" << m_id 
+        << "id:" << m_id 
         << " l:" << m_literal 
         << " d:" << m_depth;
     if (m_spawn_id != 0) {
@@ -187,9 +187,9 @@ void ccc::replay_decisions(solver& s, svector<decision>& decisions, unsigned thr
     s.propagate(true);
     for (unsigned i = s.scope_lvl(); !s.inconsistent() && i < decisions.size(); ++i) {
         decision const& d = decisions[i];
-        IF_VERBOSE(2, verbose_stream() << "replay " << d.get_literal(thread_id) << " " << s.value(d.get_literal(thread_id)) << "\n";);
+        IF_VERBOSE(2, verbose_stream() << thread_id << ": replay " << d.get_literal(thread_id) << " " << s.value(d.get_literal(thread_id)) << "\n";);
         
-        if (!push_decision(s, d, thread_id)) {
+        if (!push_decision(s, decisions, d, thread_id)) {
             // negation of decision is implied.
             // check_non_model("replay", decisions);
             decisions.resize(i);
@@ -214,7 +214,7 @@ bool ccc::get_solved(svector<decision>& decisions) {
                 if (branch_id == d.m_id) {
                     if (d.m_spawn_id == thread_id) {
                         SASSERT(d.m_spawn_id > 0);
-                        free_conquer(thread_id);                        
+                        free_conquer(thread_id);
                         IF_VERBOSE(1, verbose_stream() << "close " << i << "\n";);
                         d.close();
                     }
@@ -258,10 +258,18 @@ bool ccc::get_decision(unsigned thread_id, decision& d) {
     return result;
 }
 
-bool ccc::push_decision(solver& s, decision const& d, unsigned thread_id) {
+bool ccc::push_decision(solver& s, svector<decision> const& decisions, decision const& d, unsigned thread_id) {
     literal lit = d.get_literal(thread_id);
     switch (s.value(lit)) {
     case l_false:
+        // TBD: we leak conquer threads if they backjump below spawn point.
+        if (decisions.empty() && decisions.back().m_spawn_id == thread_id && decisions.back().m_id != d.m_id) {
+            IF_VERBOSE(0, verbose_stream() << "LEAK avoided\n";);
+            #pragma omp critical (ccc_solved)
+            {
+                m_solved.push(solution(thread_id, decisions.back().m_id));
+            }            
+        }
         #pragma omp critical (ccc_solved)
         {
             m_solved.push(solution(thread_id, d.m_id));
@@ -311,11 +319,11 @@ bool ccc::cube_decision(solver& s, svector<decision>& decisions, unsigned thread
     SASSERT(s.m_qhead == s.m_trail.size());
     SASSERT(s.scope_lvl() == decisions.size());
     literal lit = d.get_literal(thread_id);
-    IF_VERBOSE(1, verbose_stream() << "cube " << decisions.size() << " " << d.get_literal(thread_id) << "\n";);
-    IF_VERBOSE(2, pp(verbose_stream() << "push ", decisions) << " @ " << s.scope_lvl() << " " << s.value(lit) << "\n";
+    IF_VERBOSE(1, verbose_stream() << thread_id << ": cube " << decisions.size() << " " << d.get_literal(thread_id) << "\n";);
+    IF_VERBOSE(2, pp(verbose_stream() << thread_id << ": push ", decisions) << " @ " << s.scope_lvl() << " " << s.value(lit) << "\n";
                if (s.value(lit) == l_false) verbose_stream() << "level: " << s.lvl(lit) << "\n";);
     
-    if (push_decision(s, d, thread_id)) {
+    if (push_decision(s, decisions, d, thread_id)) {
         decisions.push_back(d);
     }    
 
