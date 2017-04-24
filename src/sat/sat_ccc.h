@@ -41,7 +41,7 @@ namespace sat {
 
             void close() { SASSERT(m_spawn_id > 0); m_spawn_id = -m_spawn_id; }
             bool is_closed() const { return m_spawn_id < 0; }
-            void negate() { m_literal.neg(); m_spawn_id = 0; }
+            void negate() { m_literal.neg();  }
             literal get_literal(unsigned thread_id) const { return thread_id == m_spawn_id ? ~m_literal : m_literal; }
             std::ostream& pp(std::ostream& out) const;
         };
@@ -50,6 +50,15 @@ namespace sat {
             unsigned m_thread_id;
             unsigned m_branch_id;
             solution(unsigned t, unsigned s): m_thread_id(t), m_branch_id(s) {}
+        };
+
+        struct stats {
+            unsigned m_spawn_closed;
+            unsigned m_cdcl_closed;
+            stats() { reset(); }
+            void reset() {
+                memset(this, 0, sizeof(*this));
+            }
         };
 
         solver&         m_s;    
@@ -61,7 +70,8 @@ namespace sat {
         unsigned        m_branch_id;
         unsigned_vector m_free_threads;
         unsigned        m_last_closure_level;
-        ::statistics    m_stats;
+        ::statistics    m_lh_stats;
+        stats           m_ccc_stats;
 
         lbool conquer(solver& s, unsigned thread_id);
         bool  cube_decision(solver& s, svector<decision>& decisions, unsigned thread_id);
@@ -73,6 +83,8 @@ namespace sat {
         void  put_decision(decision const& d);
         bool  get_decision(unsigned thread_id, decision& d);
         bool  get_solved(svector<decision>& decisions);
+
+        void update_closure_level(decision const& d, int offset);
 
         void replay_decisions(solver& s, svector<decision>& decisions, unsigned thread_id);
 
@@ -95,7 +107,11 @@ namespace sat {
 
         model const& get_model() const { return m_model; }
               
-        void collect_statistics(::statistics& st) { st.copy(m_stats); }
+        void collect_statistics(::statistics& st) { 
+            st.copy(m_lh_stats);
+            st.update("ccc-spawn-closed", m_ccc_stats.m_spawn_closed);
+            st.update("ccc-cdcl-closed", m_ccc_stats.m_cdcl_closed);
+        }
     };
 }
 

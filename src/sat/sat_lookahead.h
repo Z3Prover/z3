@@ -344,6 +344,9 @@ namespace sat {
         void try_add_binary(literal u, literal v) {
             SASSERT(m_search_mode == lookahead_mode::searching);
             SASSERT(u.var() != v.var());
+            if (!is_undef(u) || !is_undef(v)) {
+                IF_VERBOSE(0, verbose_stream() << "adding assigned binary " << v << " " << u << "\n";);
+            }
             set_bstamps(~u);
             if (is_stamped(~v)) {         
                 TRACE("sat", tout << "try_add_binary: " << u << "\n";);       
@@ -1120,6 +1123,7 @@ namespace sat {
         }
 
         void pop() { 
+            if (m_assumptions.empty()) IF_VERBOSE(0, verbose_stream() << "empty pop\n";);
             m_assumptions.pop_back();
             m_inconsistent = false;
             SASSERT(m_search_mode == lookahead_mode::searching);
