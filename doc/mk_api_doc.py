@@ -13,11 +13,13 @@ ML_ENABLED=False
 BUILD_DIR='../build'
 
 def display_help(exit_code):
+    assert isinstance(exit_code, int)
     print("mk_api_doc.py: Z3 documentation generator\n")
     print("\nOptions:")
     print("  -h, --help                    display this message.")
     print("  -b <subdir>, --build=<subdir> subdirectory where Z3 is built (default: ../build).")
     print("  --ml                          include ML/OCaml API documentation.")
+    sys.exit(exit_code)
 
 def parse_options():
     global ML_ENABLED, BUILD_DIR
@@ -34,8 +36,7 @@ def parse_options():
         if opt in ('-b', '--build'):
             BUILD_DIR = mk_util.norm_path(arg)
         elif opt in ('h', '--help'):
-            display_help()
-            exit(1)
+            display_help(0)
         elif opt in ('--ml'):
             ML_ENABLED=True
         else:
@@ -128,7 +129,7 @@ try:
         print("Generated ML/OCaml documentation.")
 
     print("Documentation was successfully generated at subdirectory './api/html'.")
-except:
+except Exception:
     exctype, value = sys.exc_info()[:2]
     print("ERROR: failed to generate documentation: %s" % value)
     exit(1)
