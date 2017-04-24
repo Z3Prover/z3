@@ -1,5 +1,9 @@
 # Copyright (c) Microsoft Corporation 2015
+"""
+Z3 API documentation generator script
+"""
 
+import argparse
 import os
 import shutil
 import re
@@ -12,39 +16,23 @@ import shutil
 ML_ENABLED=False
 BUILD_DIR='../build'
 
-def display_help(exit_code):
-    assert isinstance(exit_code, int)
-    print("mk_api_doc.py: Z3 documentation generator\n")
-    print("\nOptions:")
-    print("  -h, --help                    display this message.")
-    print("  -b <subdir>, --build=<subdir> subdirectory where Z3 is built (default: ../build).")
-    print("  --ml                          include ML/OCaml API documentation.")
-    sys.exit(exit_code)
-
 def parse_options():
     global ML_ENABLED, BUILD_DIR
-
-    try:
-        options, remainder = getopt.gnu_getopt(sys.argv[1:],
-                                               'b:h',
-                                               ['build=', 'help', 'ml'])
-    except:
-        print("ERROR: Invalid command line option")
-        display_help(1)
-
-    for opt, arg in options:
-        if opt in ('-b', '--build'):
-            BUILD_DIR = mk_util.norm_path(arg)
-        elif opt in ('h', '--help'):
-            display_help(0)
-        elif opt in ('--ml'):
-            ML_ENABLED=True
-        else:
-            print("ERROR: Invalid command line option: %s" % opt)
-            display_help(1)
-
-
-
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('-b',
+        '--build',
+        default=BUILD_DIR,
+        help='Directory where Z3 is built (default: %(default)s)',
+    )
+    parser.add_argument('--ml',
+        action='store_true',
+        default=False,
+        help='Include ML/OCaml API documentation'
+    )
+    pargs = parser.parse_args()
+    ML_ENABLED = pargs.ml
+    BUILD_DIR = pargs.build
+    return
 
 def mk_dir(d):
     if not os.path.exists(d):
