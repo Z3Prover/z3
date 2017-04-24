@@ -15,9 +15,10 @@ import shutil
 
 ML_ENABLED=False
 BUILD_DIR='../build'
+DOXYGEN_EXE='doxygen'
 
 def parse_options():
-    global ML_ENABLED, BUILD_DIR
+    global ML_ENABLED, BUILD_DIR, DOXYGEN_EXE
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-b',
         '--build',
@@ -29,9 +30,15 @@ def parse_options():
         default=False,
         help='Include ML/OCaml API documentation'
     )
+    parser.add_argument('--doxygen-executable',
+        dest='doxygen_executable',
+        default=DOXYGEN_EXE,
+        help='Doxygen executable to use (default: %(default)s)',
+    )
     pargs = parser.parse_args()
     ML_ENABLED = pargs.ml
     BUILD_DIR = pargs.build
+    DOXYGEN_EXE = pargs.doxygen_executable
     return
 
 def mk_dir(d):
@@ -81,7 +88,7 @@ try:
 
     print("Removed annotations from z3_api.h.")
     try:
-        if subprocess.call(['doxygen', 'z3api.dox']) != 0:
+        if subprocess.call([DOXYGEN_EXE, 'z3api.dox']) != 0:
             print("ERROR: doxygen returned nonzero return code")
             exit(1)
     except:
