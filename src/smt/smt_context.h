@@ -1377,14 +1377,17 @@ namespace smt {
         typedef hashtable<unsigned, u_hash, u_eq> index_set;
         //typedef uint_set index_set;
         u_map<index_set> m_antecedents;
-        void extract_fixed_consequences(literal lit, obj_map<expr, expr*>& var2val, obj_map<expr, expr*> const& var2orig, index_set const& assumptions, expr_ref_vector& conseq);
-        void extract_fixed_consequences(unsigned& idx, obj_map<expr, expr*>& var2val, obj_map<expr, expr*> const& var2orig, index_set const& assumptions, expr_ref_vector& conseq);
+        obj_map<expr, expr*> m_var2orig;
+        obj_map<expr, expr*> m_assumption2orig;
+        obj_map<expr, expr*> m_var2val;
+        void extract_fixed_consequences(literal lit, index_set const& assumptions, expr_ref_vector& conseq);
+        void extract_fixed_consequences(unsigned& idx, index_set const& assumptions, expr_ref_vector& conseq);
 
         void display_consequence_progress(std::ostream& out, unsigned it, unsigned nv, unsigned fixed, unsigned unfixed, unsigned eq);
 
-        unsigned delete_unfixed(obj_map<expr, expr*>& var2val, expr_ref_vector& unfixed);
+        unsigned delete_unfixed(expr_ref_vector& unfixed);
 
-        unsigned extract_fixed_eqs(obj_map<expr, expr*>& var2val, obj_map<expr, expr*> const& var2orig, expr_ref_vector& conseq);
+        unsigned extract_fixed_eqs(expr_ref_vector& conseq);
 
         expr_ref antecedent2fml(index_set const& ante);
 
