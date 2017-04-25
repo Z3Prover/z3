@@ -682,7 +682,7 @@ WARN_LOGFILE           =
 # with spaces.
 
 INPUT                  = "@TEMP_DIR@" \
-                         ../src/api/c++ \
+                         "@CXX_API_SEARCH_PATHS@" \
                          @DOTNET_API_SEARCH_PATHS@ @JAVA_API_SEARCH_PATHS@
 
 # This tag can be used to specify the character encoding of the source files

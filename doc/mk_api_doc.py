@@ -24,6 +24,7 @@ DOTNET_ENABLED=True
 JAVA_ENABLED=True
 DOTNET_API_SEARCH_PATHS=['../src/api/dotnet']
 JAVA_API_SEARCH_PATHS=['../src/api/java']
+SCRIPT_DIR=os.path.abspath(os.path.dirname(__file__))
 
 def parse_options():
     global ML_ENABLED, BUILD_DIR, DOXYGEN_EXE, TEMP_DIR, OUTPUT_DIRECTORY
@@ -172,11 +173,15 @@ try:
     # Short-hand for path to temporary file
     def temp_path(path):
         return os.path.join(TEMP_DIR, path)
+    # Short-hand for path to file in `doc` directory
+    def doc_path(path):
+        return os.path.join(SCRIPT_DIR, path)
 
     # Create configuration file from template
     doxygen_config_substitutions = {
         'OUTPUT_DIRECTORY': OUTPUT_DIRECTORY,
-        'TEMP_DIR': TEMP_DIR
+        'TEMP_DIR': TEMP_DIR,
+        'CXX_API_SEARCH_PATHS': doc_path('../src/api/c++'),
     }
 
     if Z3PY_ENABLED:
@@ -211,7 +216,10 @@ try:
         doxygen_config_substitutions['JAVA_API_SEARCH_PATHS'] = ''
 
     doxygen_config_file = temp_path('z3api.cfg')
-    configure_file('z3api.cfg.in', doxygen_config_file, doxygen_config_substitutions)
+    configure_file(
+        doc_path('z3api.cfg.in'),
+        doxygen_config_file,
+        doxygen_config_substitutions)
 
     website_dox_substitutions = {}
     bullet_point_prefix='\n   - '
@@ -245,20 +253,23 @@ try:
                 prefix=bullet_point_prefix)
     else:
         website_dox_substitutions['OCAML_API'] = ''
-    configure_file('website.dox.in', temp_path('website.dox'), website_dox_substitutions)
+    configure_file(
+        doc_path('website.dox.in'),
+        temp_path('website.dox'),
+        website_dox_substitutions)
 
     mk_dir(os.path.join(OUTPUT_DIRECTORY, 'html'))
     if Z3PY_ENABLED:
-        shutil.copyfile('../src/api/python/z3/z3.py', temp_path('z3py.py'))
-    cleanup_API('../src/api/z3_api.h', temp_path('z3_api.h'))
-    cleanup_API('../src/api/z3_ast_containers.h', temp_path('z3_ast_containers.h'))
-    cleanup_API('../src/api/z3_algebraic.h', temp_path('z3_algebraic.h'))
-    cleanup_API('../src/api/z3_polynomial.h', temp_path('z3_polynomial.h'))
-    cleanup_API('../src/api/z3_rcf.h', temp_path('z3_rcf.h'))
-    cleanup_API('../src/api/z3_fixedpoint.h', temp_path('z3_fixedpoint.h'))
-    cleanup_API('../src/api/z3_optimization.h', temp_path('z3_optimization.h'))
-    cleanup_API('../src/api/z3_interp.h', temp_path('z3_interp.h'))
-    cleanup_API('../src/api/z3_fpa.h', temp_path('z3_fpa.h'))
+        shutil.copyfile(doc_path('../src/api/python/z3/z3.py'), temp_path('z3py.py'))
+    cleanup_API(doc_path('../src/api/z3_api.h'), temp_path('z3_api.h'))
+    cleanup_API(doc_path('../src/api/z3_ast_containers.h'), temp_path('z3_ast_containers.h'))
+    cleanup_API(doc_path('../src/api/z3_algebraic.h'), temp_path('z3_algebraic.h'))
+    cleanup_API(doc_path('../src/api/z3_polynomial.h'), temp_path('z3_polynomial.h'))
+    cleanup_API(doc_path('../src/api/z3_rcf.h'), temp_path('z3_rcf.h'))
+    cleanup_API(doc_path('../src/api/z3_fixedpoint.h'), temp_path('z3_fixedpoint.h'))
+    cleanup_API(doc_path('../src/api/z3_optimization.h'), temp_path('z3_optimization.h'))
+    cleanup_API(doc_path('../src/api/z3_interp.h'), temp_path('z3_interp.h'))
+    cleanup_API(doc_path('../src/api/z3_fpa.h'), temp_path('z3_fpa.h'))
 
     print("Removed annotations from z3_api.h.")
     try:
@@ -282,7 +293,7 @@ try:
     if ML_ENABLED:
         ml_output_dir = os.path.join(OUTPUT_DIRECTORY, 'html', 'ml')
         mk_dir(ml_output_dir)
-        if subprocess.call(['ocamldoc', '-html', '-d', ml_output_dir, '-sort', '-hide', 'Z3', '-I', '%s/api/ml' % BUILD_DIR, '../src/api/ml/z3enums.mli', '../src/api/ml/z3.mli']) != 0:
+        if subprocess.call(['ocamldoc', '-html', '-d', ml_output_dir, '-sort', '-hide', 'Z3', '-I', '%s/api/ml' % BUILD_DIR, doc_path('../src/api/ml/z3enums.mli'), doc_path('../src/api/ml/z3.mli')]) != 0:
             print("ERROR: ocamldoc failed.")
             exit(1)
         print("Generated ML/OCaml documentation.")
