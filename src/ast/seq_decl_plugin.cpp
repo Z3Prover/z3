@@ -126,13 +126,14 @@ static bool is_escape_char(char const *& s, unsigned& result) {
 zstring::zstring(encoding enc): m_encoding(enc) {}
 
 zstring::zstring(char const* s, encoding enc): m_encoding(enc) {
+    unsigned mask = 0xFF; // TBD for UTF
     while (*s) {
         unsigned ch;
         if (is_escape_char(s, ch)) {
-            m_buffer.push_back(ch);
+            m_buffer.push_back(ch & mask);
         }
         else {
-            m_buffer.push_back(*s);
+            m_buffer.push_back(*s & mask);
             ++s;
         }
     }

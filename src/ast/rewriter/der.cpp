@@ -36,7 +36,7 @@ static bool is_neg_var(ast_manager & m, expr * e, unsigned num_decls) {
 
 /**
    \brief Return true if \c e is of the form (not (= VAR t)) or (not (iff VAR t)) or (iff VAR t) or (iff (not VAR) t) or (VAR IDX) or (not (VAR IDX)).
-   The last case can be viewed 
+   The last case can be viewed
 */
 bool der::is_var_diseq(expr * e, unsigned num_decls, var * & v, expr_ref & t) {
     // (not (= VAR t)) and (not (iff VAR t)) cases
@@ -49,7 +49,7 @@ bool der::is_var_diseq(expr * e, unsigned num_decls, var * & v, expr_ref & t) {
             return false;
         if (!is_var(lhs, num_decls))
             std::swap(lhs, rhs);
-        SASSERT(is_var(lhs, num_decls));        
+        SASSERT(is_var(lhs, num_decls));
         // Remark: Occurs check is not necessary here... the top-sort procedure will check for cycles...
         // if (occurs(lhs, rhs)) {
         //  return false;
@@ -67,7 +67,7 @@ bool der::is_var_diseq(expr * e, unsigned num_decls, var * & v, expr_ref & t) {
         if (is_var(lhs, num_decls) || is_var(rhs, num_decls)) {
             if (!is_var(lhs, num_decls))
                 std::swap(lhs, rhs);
-            SASSERT(is_var(lhs, num_decls));            
+            SASSERT(is_var(lhs, num_decls));
             // Remark: Occurs check is not necessary here... the top-sort procedure will check for cycles...
             // if (occurs(lhs, rhs)) {
             //    return false;
@@ -83,11 +83,11 @@ bool der::is_var_diseq(expr * e, unsigned num_decls, var * & v, expr_ref & t) {
             if (!is_neg_var(m_manager, lhs, num_decls))
                 std::swap(lhs, rhs);
             SASSERT(is_neg_var(m_manager, lhs, num_decls));
-            expr * lhs_var = to_app(lhs)->get_arg(0);       
+            expr * lhs_var = to_app(lhs)->get_arg(0);
             // Remark: Occurs check is not necessary here... the top-sort procedure will check for cycles...
             // if (occurs(lhs_var, rhs)) {
             //    return false;
-            // }     
+            // }
             v = to_var(lhs_var);
             t = rhs;
             TRACE("der", tout << mk_pp(e, m_manager) << "\n";);
@@ -134,11 +134,11 @@ void der::operator()(quantifier * q, expr_ref & r, proof_ref & pr) {
             pr = m_manager.mk_transitivity(pr, curr_pr);
         }
     } while (q != r && is_quantifier(r));
-    
+
     // Eliminate variables that have become unused
     if (reduced && is_forall(r)) {
         quantifier * q = to_quantifier(r);
-        elim_unused_vars(m_manager, q, r);
+        elim_unused_vars(m_manager, q, params_ref(), r);
         if (m_manager.proofs_enabled()) {
             proof * p1 = m_manager.mk_elim_unused_vars(q, r);
             pr = m_manager.mk_transitivity(pr, p1);
@@ -153,24 +153,24 @@ void der::reduce1(quantifier * q, expr_ref & r, proof_ref & pr) {
         r  = q;
         return;
     }
-    
+
     expr * e = q->get_expr();
     unsigned num_decls = q->get_num_decls();
     var * v = 0;
-    expr_ref t(m_manager);    
+    expr_ref t(m_manager);
 
     if (m_manager.is_or(e)) {
         unsigned num_args = to_app(e)->get_num_args();
         unsigned i = 0;
         unsigned diseq_count = 0;
         unsigned largest_vinx = 0;
-                
+
         m_map.reset();
         m_pos2var.reset();
         m_inx2var.reset();
-        
+
         m_pos2var.reserve(num_args, -1);
-        
+
         // Find all disequalities
         for (; i < num_args; i++) {
             if (is_var_diseq(to_app(e)->get_arg(i), num_decls, v, t)) {
@@ -192,7 +192,7 @@ void der::reduce1(quantifier * q, expr_ref & r, proof_ref & pr) {
             get_elimination_order();
             SASSERT(m_order.size() <= diseq_count); // some might be missing because of cycles
 
-            if (!m_order.empty()) {            
+            if (!m_order.empty()) {
                 create_substitution(largest_vinx + 1);
                 apply_substitution(q, r);
             }
@@ -202,22 +202,22 @@ void der::reduce1(quantifier * q, expr_ref & r, proof_ref & pr) {
             r = q;
         }
     }
-    // Remark: get_elimination_order/top-sort checks for cycles, but it is not invoked for unit clauses. 
+    // Remark: get_elimination_order/top-sort checks for cycles, but it is not invoked for unit clauses.
     // So, we must perform a occurs check here.
     else if (is_var_diseq(e, num_decls, v, t) && !occurs(v, t)) {
         r = m_manager.mk_false();
     }
-    else 
+    else
         r = q;
-    
+
     if (m_manager.proofs_enabled()) {
         pr = r == q ? 0 : m_manager.mk_der(q, r);
-    }    
+    }
 }
 
 void der_sort_vars(ptr_vector<var> & vars, ptr_vector<expr> & definitions, unsigned_vector & order) {
     order.reset();
-    
+
     // eliminate self loops, and definitions containing quantifiers.
     bool found = false;
     for (unsigned i = 0; i < definitions.size(); i++) {
@@ -228,7 +228,7 @@ void der_sort_vars(ptr_vector<var> & vars, ptr_vector<expr> & definitions, unsig
         else
             found = true; // found at least one candidate
     }
-    
+
     if (!found)
         return;
 
@@ -329,14 +329,14 @@ void der::get_elimination_order() {
     // der::top_sort ts(m_manager);
     der_sort_vars(m_inx2var, m_map, m_order);
 
-    TRACE("der", 
+    TRACE("der",
             tout << "Elimination m_order:" << std::endl;
             for(unsigned i=0; i<m_order.size(); i++)
             {
                 if (i != 0) tout << ",";
                 tout << m_order[i];
             }
-            tout << std::endl;            
+            tout << std::endl;
           );
 }
 
@@ -359,24 +359,24 @@ void der::create_substitution(unsigned sz) {
 
 void der::apply_substitution(quantifier * q, expr_ref & r) {
     expr * e = q->get_expr();
-    unsigned num_args=to_app(e)->get_num_args();    
-    
+    unsigned num_args=to_app(e)->get_num_args();
+
     // get a new expression
     m_new_args.reset();
     for(unsigned i = 0; i < num_args; i++) {
         int x = m_pos2var[i];
-        if (x != -1 && m_map[x] != 0) 
+        if (x != -1 && m_map[x] != 0)
             continue; // this is a disequality with definition (vanishes)
-                
+
         m_new_args.push_back(to_app(e)->get_arg(i));
     }
 
     unsigned sz = m_new_args.size();
     expr_ref t(m_manager);
     t = (sz == 1) ? m_new_args[0] : m_manager.mk_or(sz, m_new_args.c_ptr());
-    expr_ref new_e(m_manager);    
+    expr_ref new_e(m_manager);
     m_subst(t, m_subst_map.size(), m_subst_map.c_ptr(), new_e);
-    
+
     // don't forget to update the quantifier patterns
     expr_ref_buffer  new_patterns(m_manager);
     expr_ref_buffer  new_no_patterns(m_manager);
@@ -392,7 +392,7 @@ void der::apply_substitution(quantifier * q, expr_ref & r) {
         new_no_patterns.push_back(new_nopat);
     }
 
-    r = m_manager.update_quantifier(q, new_patterns.size(), new_patterns.c_ptr(), 
+    r = m_manager.update_quantifier(q, new_patterns.size(), new_patterns.c_ptr(),
                                     new_no_patterns.size(), new_no_patterns.c_ptr(), new_e);
 }
 
@@ -404,9 +404,9 @@ struct der_rewriter_cfg : public default_rewriter_cfg {
 
     ast_manager & m() const { return m_der.m(); }
 
-    bool reduce_quantifier(quantifier * old_q, 
-                           expr * new_body, 
-                           expr * const * new_patterns, 
+    bool reduce_quantifier(quantifier * old_q,
+                           expr * new_body,
+                           expr * const * new_patterns,
                            expr * const * new_no_patterns,
                            expr_ref & result,
                            proof_ref & result_pr) {

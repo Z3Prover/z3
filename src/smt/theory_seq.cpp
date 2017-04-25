@@ -255,6 +255,11 @@ final_check_status theory_seq::final_check_eh() {
         TRACE("seq", tout << ">>solve_eqs\n";);
         return FC_CONTINUE;
     }
+    if (check_contains()) {
+        ++m_stats.m_propagate_contains;
+        TRACE("seq", tout << ">>propagate_contains\n";);
+        return FC_CONTINUE;
+    }
     if (solve_nqs(0)) {
         ++m_stats.m_solve_nqs;
         TRACE("seq", tout << ">>solve_nqs\n";);
@@ -288,11 +293,6 @@ final_check_status theory_seq::final_check_eh() {
     if (propagate_automata()) {
         ++m_stats.m_propagate_automata;
         TRACE("seq", tout << ">>propagate_automata\n";);
-        return FC_CONTINUE;
-    }
-    if (check_contains()) {
-        ++m_stats.m_propagate_contains;
-        TRACE("seq", tout << ">>propagate_contains\n";);
         return FC_CONTINUE;
     }
     if (is_solved()) {
@@ -1159,7 +1159,7 @@ bool theory_seq::check_extensionality() {
 }
 
 /*
-  \brief check negated contains constriants.
+  \brief check negated contains constraints.
  */
 bool theory_seq::check_contains() {
     context & ctx = get_context();
@@ -1197,6 +1197,11 @@ bool theory_seq::is_solved() {
     if (false && !m_nqs.empty()) {
         TRACE("seq", display_disequation(tout << "(seq.giveup ", m_nqs[0]); tout << " is unsolved)\n";);
         IF_VERBOSE(10, display_disequation(verbose_stream() << "(seq.giveup ", m_nqs[0]); verbose_stream() << " is unsolved)\n";);
+        return false;
+    }
+    if (!m_ncs.empty()) {
+        TRACE("seq", display_nc(tout << "(seq.giveup ", m_ncs[0]); tout << " is unsolved)\n";);
+        IF_VERBOSE(10, display_nc(verbose_stream() << "(seq.giveup ", m_ncs[0]); verbose_stream() << " is unsolved)\n";);
         return false;
     }
 
@@ -1984,6 +1989,22 @@ bool theory_seq::solve_nc(unsigned idx) {
         m_new_propagation = true;
         return true;
     }
+
+    expr* e1, *e2;
+    if (m.is_eq(c, e1, e2)) {
+        literal eq = mk_eq(e1, e2, false);
+        propagate_lit(deps, 0, 0, ~eq);
+        return true;
+    }
+
+    if (m.is_or(c)) {
+        for (unsigned i = 0; i < to_app(c)->get_num_args(); ++i) {
+            expr_ref ci(to_app(c)->get_arg(i), m);
+            m_ncs.push_back(nc(ci, deps));
+        }
+        m_new_propagation = true;
+        return true;
+    }
     return false;
 }
 
@@ -2345,6 +2366,17 @@ bool theory_seq::add_itos_axiom(expr* e) {
             return false;
         }
         add_axiom(mk_eq(e2, n, false));
+
+#if 1
+        expr_ref num_re(m), opt_re(m);
+        num_re = m_util.re.mk_range(m_util.str.mk_string(symbol("0")), m_util.str.mk_string(symbol("9")));
+        num_re = m_util.re.mk_plus(num_re);
+        opt_re = m_util.re.mk_opt(m_util.re.mk_to_re(m_util.str.mk_string(symbol("-"))));
+        num_re = m_util.re.mk_concat(opt_re, num_re);
+        app_ref in_re(m_util.re.mk_in_re(e, num_re), m);
+        internalize_term(in_re);
+        propagate_in_re(in_re, true);
+#endif
         m_trail_stack.push(push_replay(alloc(replay_axiom, m, e)));
         return true;
     }
@@ -2407,11 +2439,15 @@ void theory_seq::display(std::ostream & out) const {
     if (!m_ncs.empty()) {
         out << "Non contains:\n";
         for (unsigned i = 0; i < m_ncs.size(); ++i) {
-            out << "not " << mk_pp(m_ncs[i].contains(), m) << "\n";
-            display_deps(out << "  <- ", m_ncs[i].deps()); out << "\n";
+            display_nc(out, m_ncs[i]);
         }
     }
 
+}
+
+void theory_seq::display_nc(std::ostream& out, nc const& nc) const {
+    out << "not " << mk_pp(nc.contains(), m) << "\n";
+    display_deps(out << "  <- ", nc.deps()); out << "\n";
 }
 
 void theory_seq::display_equations(std::ostream& out) const {

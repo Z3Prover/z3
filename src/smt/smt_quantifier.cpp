@@ -397,6 +397,10 @@ namespace smt {
         return m_imp->m_quantifiers.end();
     }
 
+    unsigned quantifier_manager::num_quantifiers() const {
+        return m_imp->m_quantifiers.size();
+    }
+
     // The default plugin uses E-matching, MBQI and quick-checker
     class default_qm_plugin : public quantifier_manager_plugin {
         quantifier_manager *        m_qm;

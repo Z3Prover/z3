@@ -154,6 +154,8 @@ namespace sat {
         if (!m_subsumption && !m_elim_blocked_clauses && !m_resolution)
             return;
 
+        // solver::scoped_disable_checkpoint _scoped_disable_checkpoint(s);
+        
         initialize();
 
         CASSERT("sat_solver", s.check_invariant());
@@ -167,7 +169,6 @@ namespace sat {
         CASSERT("sat_solver", s.check_invariant());
         m_need_cleanup = false;
         m_use_list.init(s.num_vars());
-        init_visited();
         m_learned_in_use_lists = false;
         if (learned) {
             register_clauses(s.m_learned);

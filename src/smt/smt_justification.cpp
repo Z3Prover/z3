@@ -246,13 +246,15 @@ namespace smt {
 
     simple_justification::simple_justification(region & r, unsigned num_lits, literal const * lits):
         m_num_literals(num_lits) {
-        m_literals = new (r) literal[num_lits];
-        memcpy(m_literals, lits, sizeof(literal) * num_lits);
+        if (num_lits != 0) {
+            m_literals = new (r) literal[num_lits];
+            memcpy(m_literals, lits, sizeof(literal) * num_lits);
 #ifdef Z3DEBUG
-        for (unsigned i = 0; i < num_lits; i++) {
-            SASSERT(lits[i] != null_literal);
-        }
+            for (unsigned i = 0; i < num_lits; i++) {
+                SASSERT(lits[i] != null_literal);
+            }
 #endif
+        }
     }
 
     void simple_justification::get_antecedents(conflict_resolution & cr) {

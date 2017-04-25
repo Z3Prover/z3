@@ -29,11 +29,12 @@ Notes:
 #include"bound_manager.h"
 #include"used_vars.h"
 #include"var_subst.h"
+#include"gparams.h"
 
 #ifndef _EXTERNAL_RELEASE
 
-BINARY_SYM_CMD(get_quantifier_body_cmd, 
-               "dbg-get-qbody", 
+BINARY_SYM_CMD(get_quantifier_body_cmd,
+               "dbg-get-qbody",
                "<symbol> <quantifier>",
                "store the body of the quantifier in the global variable <symbol>",
                CPK_EXPR,
@@ -43,8 +44,8 @@ BINARY_SYM_CMD(get_quantifier_body_cmd,
     store_expr_ref(ctx, m_sym, to_quantifier(arg)->get_expr());
 });
 
-BINARY_SYM_CMD(set_cmd, 
-               "dbg-set", 
+BINARY_SYM_CMD(set_cmd,
+               "dbg-set",
                "<symbol> <term>",
                "store <term> in the global variable <symbol>",
                CPK_EXPR,
@@ -57,7 +58,7 @@ UNARY_CMD(pp_var_cmd, "dbg-pp-var", "<symbol>", "pretty print a global variable 
     expr * t = get_expr_ref(ctx, arg);
     SASSERT(t != 0);
     ctx.display(ctx.regular_stream(), t);
-    ctx.regular_stream() << std::endl; 
+    ctx.regular_stream() << std::endl;
 });
 
 BINARY_SYM_CMD(shift_vars_cmd,
@@ -71,7 +72,7 @@ BINARY_SYM_CMD(shift_vars_cmd,
     var_shifter s(ctx.m());
     s(t, arg, r);
     store_expr_ref(ctx, m_sym, r.get());
-});               
+});
 
 UNARY_CMD(pp_shared_cmd, "dbg-pp-shared", "<term>", "display shared subterms of the given term", CPK_EXPR, expr *, {
     shared_occs s(ctx.m());
@@ -81,7 +82,7 @@ UNARY_CMD(pp_shared_cmd, "dbg-pp-shared", "<term>", "display shared subterms of 
     shared_occs::iterator end = s.end_shared();
     for (; it != end; ++it) {
         expr * curr = *it;
-        ctx.regular_stream() << std::endl << "  "; 
+        ctx.regular_stream() << std::endl << "  ";
         ctx.display(ctx.regular_stream(), curr, 2);
     }
     ctx.regular_stream() << ")" << std::endl;
@@ -112,7 +113,7 @@ public:
         if (m_idx == 1) return CPK_SYMBOL_LIST;
         return CPK_SYMBOL;
     }
-    virtual void set_next_arg(cmd_context & ctx, symbol const & s) { 
+    virtual void set_next_arg(cmd_context & ctx, symbol const & s) {
         if (m_idx == 0) {
             m_source = get_expr_ref(ctx, s);
         }
@@ -146,24 +147,24 @@ UNARY_CMD(bool_rewriter_cmd, "dbg-bool-rewriter", "<term>", "apply the Boolean r
     bool_rewriter_star r(ctx.m(), p);
     r(arg, t);
     ctx.display(ctx.regular_stream(), t);
-    ctx.regular_stream() << std::endl; 
+    ctx.regular_stream() << std::endl;
 });
 
 UNARY_CMD(bool_frewriter_cmd, "dbg-bool-flat-rewriter", "<term>", "apply the Boolean (flattening) rewriter to the given term", CPK_EXPR, expr *, {
     expr_ref t(ctx.m());
-    { 
+    {
         params_ref p;
         p.set_bool("flat", true);
         bool_rewriter_star r(ctx.m(), p);
         r(arg, t);
     }
     ctx.display(ctx.regular_stream(), t);
-    ctx.regular_stream() << std::endl; 
+    ctx.regular_stream() << std::endl;
 });
 
 UNARY_CMD(elim_and_cmd, "dbg-elim-and", "<term>", "apply the Boolean rewriter (eliminating AND operator and flattening) to the given term", CPK_EXPR, expr *, {
     expr_ref t(ctx.m());
-    { 
+    {
         params_ref p;
         p.set_bool("flat", true);
         p.set_bool("elim_and", true);
@@ -171,7 +172,7 @@ UNARY_CMD(elim_and_cmd, "dbg-elim-and", "<term>", "apply the Boolean rewriter (e
         r(arg, t);
     }
     ctx.display(ctx.regular_stream(), t);
-    ctx.regular_stream() << std::endl; 
+    ctx.regular_stream() << std::endl;
 });
 
 class lt_cmd : public cmd {
@@ -192,7 +193,7 @@ public:
     }
     virtual void execute(cmd_context & ctx) {
         bool r = lt(m_t1, m_t2);
-        ctx.regular_stream() << (r ? "true" : "false") << std::endl; 
+        ctx.regular_stream() << (r ? "true" : "false") << std::endl;
     }
 };
 
@@ -249,7 +250,7 @@ UNARY_CMD(set_next_id, "dbg-set-next-id", "<unsigned>", "set the next expression
 
 UNARY_CMD(used_vars_cmd, "dbg-used-vars", "<expr>", "test used_vars functor", CPK_EXPR, expr *, {
     used_vars proc;
-    if (is_quantifier(arg)) 
+    if (is_quantifier(arg))
         arg = to_quantifier(arg)->get_expr();
     proc(arg);
     ctx.regular_stream() << "(vars";
@@ -258,7 +259,7 @@ UNARY_CMD(used_vars_cmd, "dbg-used-vars", "<expr>", "test used_vars functor", CP
         ctx.regular_stream() << "\n  (" << std::left << std::setw(6) << i << " ";
         if (s != 0)
             ctx.display(ctx.regular_stream(), s, 10);
-        else 
+        else
             ctx.regular_stream() << "<not-used>";
         ctx.regular_stream() << ")";
     }
@@ -271,7 +272,7 @@ UNARY_CMD(elim_unused_vars_cmd, "dbg-elim-unused-vars", "<expr>", "eliminate unu
         return;
     }
     expr_ref r(ctx.m());
-    elim_unused_vars(ctx.m(), to_quantifier(arg), r);
+    elim_unused_vars(ctx.m(), to_quantifier(arg), gparams::get(), r);
     SASSERT(!is_quantifier(r) || !to_quantifier(r)->may_have_unused_vars());
     ctx.display(ctx.regular_stream(), r);
     ctx.regular_stream() << std::endl;
@@ -287,18 +288,18 @@ public:
     virtual char const * get_descr() const { return "instantiate the quantifier using the given expressions."; }
     virtual unsigned get_arity() const { return 2; }
     virtual void prepare(cmd_context & ctx) { m_q = 0; m_args.reset(); }
-    
+
     virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const {
         if (m_q == 0) return CPK_EXPR;
         else return CPK_EXPR_LIST;
     }
-    
+
     virtual void set_next_arg(cmd_context & ctx, expr * s) {
         if (!is_quantifier(s))
             throw cmd_exception("invalid command, quantifier expected.");
         m_q = to_quantifier(s);
     }
-    
+
     virtual void set_next_arg(cmd_context & ctx, unsigned num, expr * const * ts) {
         if (num != m_q->get_num_decls())
             throw cmd_exception("invalid command, mismatch between the number of quantified variables and the number of arguments.");
@@ -331,7 +332,7 @@ public:
 class instantiate_nested_cmd : public instantiate_cmd_core {
 public:
     instantiate_nested_cmd():instantiate_cmd_core("dbg-instantiate-nested") {}
-    
+
     virtual char const * get_descr() const { return "instantiate the quantifier nested in the outermost quantifier, this command is used to test the instantiation procedure with quantifiers that contain free variables."; }
 
     virtual void set_next_arg(cmd_context & ctx, expr * s) {

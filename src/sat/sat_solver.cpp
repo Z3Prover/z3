@@ -33,6 +33,7 @@ namespace sat {
 
     solver::solver(params_ref const & p, reslimit& l, extension * ext):
         m_rlimit(l),
+        m_checkpoint_enabled(true),
         m_config(p),
         m_ext(ext),
         m_par(0),
