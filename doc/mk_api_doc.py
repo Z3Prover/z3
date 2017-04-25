@@ -165,7 +165,9 @@ try:
     print("Generated C and .NET API documentation.")
     shutil.rmtree(os.path.realpath(TEMP_DIR))
     print("Removed temporary directory \"{}\"".format(TEMP_DIR))
-    sys.path.append(os.path.dirname(Z3PY_PACKAGE_PATH))
+    # Put z3py at the beginning of the search path to try to avoid picking up
+    # an installed copy of Z3py.
+    sys.path.insert(0, os.path.dirname(Z3PY_PACKAGE_PATH))
     pydoc.writedoc('z3')
     shutil.move('z3.html', os.path.join(OUTPUT_DIRECTORY, 'html', 'z3.html'))
     print("Generated Python documentation.")
