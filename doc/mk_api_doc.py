@@ -19,9 +19,13 @@ DOXYGEN_EXE='doxygen'
 TEMP_DIR=os.path.join(os.getcwd(), 'tmp')
 OUTPUT_DIRECTORY=os.path.join(os.getcwd(), 'api')
 Z3PY_PACKAGE_PATH='../src/api/python/z3'
+Z3PY_ENABLED=True
+DOTNET_ENABLED=True
+JAVA_ENABLED=True
 
 def parse_options():
-    global ML_ENABLED, BUILD_DIR, DOXYGEN_EXE, TEMP_DIR, OUTPUT_DIRECTORY, Z3PY_PACKAGE_PATH
+    global ML_ENABLED, BUILD_DIR, DOXYGEN_EXE, TEMP_DIR, OUTPUT_DIRECTORY
+    global Z3PY_PACKAGE_PATH, Z3PY_ENABLED, DOTNET_ENABLED, JAVA_ENABLED
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-b',
         '--build',
@@ -54,6 +58,28 @@ def parse_options():
         default=Z3PY_PACKAGE_PATH,
         help='Path to directory containing Z3py package (default: %(default)s)',
     )
+    # FIXME: I would prefer not to have negative options (i.e.  `--z3py`
+    # instead of `--no-z3py`) but historically these bindings have been on by
+    # default so we have options to disable generating documentation for these
+    # bindings rather than enable them.
+    parser.add_argument('--no-z3py',
+        dest='no_z3py',
+        action='store_true',
+        default=False,
+        help='Do not generate documentation for Python bindings',
+    )
+    parser.add_argument('--no-dotnet',
+        dest='no_dotnet',
+        action='store_true',
+        default=False,
+        help='Do not generate documentation for .NET bindings',
+    )
+    parser.add_argument('--no-java',
+        dest='no_java',
+        action='store_true',
+        default=False,
+        help='Do not generate documentation for Java bindings',
+    )
     pargs = parser.parse_args()
     ML_ENABLED = pargs.ml
     BUILD_DIR = pargs.build
@@ -65,6 +91,9 @@ def parse_options():
         raise Exception('"{}" does not exist'.format(Z3PY_PACKAGE_PATH))
     if not os.path.basename(Z3PY_PACKAGE_PATH) == 'z3':
         raise Exception('"{}" does not end with "z3"'.format(Z3PY_PACKAGE_PATH))
+    Z3PY_ENABLED = not pargs.no_z3py
+    DOTNET_ENABLED = not pargs.no_dotnet
+    JAVA_ENABLED = not pargs.no_java
     return
 
 def mk_dir(d):
@@ -132,18 +161,70 @@ try:
         'OUTPUT_DIRECTORY': OUTPUT_DIRECTORY,
         'TEMP_DIR': TEMP_DIR
     }
+
+    if Z3PY_ENABLED:
+        print("Z3Py documentation enabled")
+        doxygen_config_substitutions['PYTHON_API_FILES'] = 'z3.py'
+    else:
+        print("Z3Py documentation disabled")
+        doxygen_config_substitutions['PYTHON_API_FILES'] = ''
+    if DOTNET_ENABLED:
+        print(".NET documentation enabled")
+        doxygen_config_substitutions['DOTNET_API_FILES'] = '*.cs'
+        doxygen_config_substitutions['DOTNET_API_SEARCH_PATHS'] = '../src/api/dotnet'
+    else:
+        print(".NET documentation disabled")
+        doxygen_config_substitutions['DOTNET_API_FILES'] = ''
+        doxygen_config_substitutions['DOTNET_API_SEARCH_PATHS'] = ''
+    if JAVA_ENABLED:
+        print("Java documentation enabled")
+        doxygen_config_substitutions['JAVA_API_FILES'] = '*.java'
+        doxygen_config_substitutions['JAVA_API_SEARCH_PATHS'] = '../src/api/java'
+    else:
+        print("Java documentation disabled")
+        doxygen_config_substitutions['JAVA_API_FILES'] = ''
+        doxygen_config_substitutions['JAVA_API_SEARCH_PATHS'] = ''
+
     doxygen_config_file = temp_path('z3api.cfg')
     configure_file('z3api.cfg.in', doxygen_config_file, doxygen_config_substitutions)
 
     website_dox_substitutions = {}
+    bullet_point_prefix='\n   - '
+    if Z3PY_ENABLED:
+        website_dox_substitutions['PYTHON_API'] = (
+            '{prefix}<a class="el" href="namespacez3py.html">Python API</a> '
+            '(also available in <a class="el" href="z3.html">pydoc format</a>)'
+            ).format(
+                prefix=bullet_point_prefix)
+    else:
+        website_dox_substitutions['PYTHON_API'] = ''
+    if DOTNET_ENABLED:
+        website_dox_substitutions['DOTNET_API'] = (
+            '{prefix}'
+            '<a class="el" href="class_microsoft_1_1_z3_1_1_context.html">'
+            '.NET API</a>').format(
+                prefix=bullet_point_prefix)
+    else:
+        website_dox_substitutions['DOTNET_API'] = ''
+    if JAVA_ENABLED:
+        website_dox_substitutions['JAVA_API'] = (
+            '{prefix}<a class="el" href="namespacecom_1_1microsoft_1_1z3.html">'
+            'Java API</a>').format(
+                prefix=bullet_point_prefix)
+    else:
+        website_dox_substitutions['JAVA_API'] = ''
     if ML_ENABLED:
-        website_dox_substitutions['OCAML_API'] = '\n   - <a class="el" href="ml/index.html">ML/OCaml API</a>\n'
+        website_dox_substitutions['OCAML_API'] = (
+            '<a class="el" href="ml/index.html">ML/OCaml API</a>'
+            ).format(
+                prefix=bullet_point_prefix)
     else:
         website_dox_substitutions['OCAML_API'] = ''
     configure_file('website.dox.in', temp_path('website.dox'), website_dox_substitutions)
 
     mk_dir(os.path.join(OUTPUT_DIRECTORY, 'html'))
-    shutil.copyfile('../src/api/python/z3/z3.py', temp_path('z3py.py'))
+    if Z3PY_ENABLED:
+        shutil.copyfile('../src/api/python/z3/z3.py', temp_path('z3py.py'))
     cleanup_API('../src/api/z3_api.h', temp_path('z3_api.h'))
     cleanup_API('../src/api/z3_ast_containers.h', temp_path('z3_ast_containers.h'))
     cleanup_API('../src/api/z3_algebraic.h', temp_path('z3_algebraic.h'))
@@ -162,15 +243,16 @@ try:
     except:
         print("ERROR: failed to execute 'doxygen', make sure doxygen (http://www.doxygen.org) is available in your system.")
         exit(1)
-    print("Generated C and .NET API documentation.")
+    print("Generated Doxygen based documentation")
     shutil.rmtree(os.path.realpath(TEMP_DIR))
     print("Removed temporary directory \"{}\"".format(TEMP_DIR))
-    # Put z3py at the beginning of the search path to try to avoid picking up
-    # an installed copy of Z3py.
-    sys.path.insert(0, os.path.dirname(Z3PY_PACKAGE_PATH))
-    pydoc.writedoc('z3')
-    shutil.move('z3.html', os.path.join(OUTPUT_DIRECTORY, 'html', 'z3.html'))
-    print("Generated Python documentation.")
+    if Z3PY_ENABLED:
+        # Put z3py at the beginning of the search path to try to avoid picking up
+        # an installed copy of Z3py.
+        sys.path.insert(0, os.path.dirname(Z3PY_PACKAGE_PATH))
+        pydoc.writedoc('z3')
+        shutil.move('z3.html', os.path.join(OUTPUT_DIRECTORY, 'html', 'z3.html'))
+        print("Generated pydoc Z3Py documentation.")
 
     if ML_ENABLED:
         ml_output_dir = os.path.join(OUTPUT_DIRECTORY, 'html', 'ml')
