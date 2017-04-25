@@ -18,9 +18,10 @@ BUILD_DIR='../build'
 DOXYGEN_EXE='doxygen'
 TEMP_DIR=os.path.join(os.getcwd(), 'tmp')
 OUTPUT_DIRECTORY=os.path.join(os.getcwd(), 'api')
+Z3PY_PACKAGE_PATH='../src/api/python/z3'
 
 def parse_options():
-    global ML_ENABLED, BUILD_DIR, DOXYGEN_EXE, TEMP_DIR, OUTPUT_DIRECTORY
+    global ML_ENABLED, BUILD_DIR, DOXYGEN_EXE, TEMP_DIR, OUTPUT_DIRECTORY, Z3PY_PACKAGE_PATH
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-b',
         '--build',
@@ -48,12 +49,22 @@ def parse_options():
         default=OUTPUT_DIRECTORY,
         help='Path to output directory (default: %(default)s)',
     )
+    parser.add_argument('--z3py-package-path',
+        dest='z3py_package_path',
+        default=Z3PY_PACKAGE_PATH,
+        help='Path to directory containing Z3py package (default: %(default)s)',
+    )
     pargs = parser.parse_args()
     ML_ENABLED = pargs.ml
     BUILD_DIR = pargs.build
     DOXYGEN_EXE = pargs.doxygen_executable
     TEMP_DIR = pargs.temp_dir
     OUTPUT_DIRECTORY = pargs.output_dir
+    Z3PY_PACKAGE_PATH = pargs.z3py_package_path
+    if not os.path.exists(Z3PY_PACKAGE_PATH):
+        raise Exception('"{}" does not exist'.format(Z3PY_PACKAGE_PATH))
+    if not os.path.basename(Z3PY_PACKAGE_PATH) == 'z3':
+        raise Exception('"{}" does not end with "z3"'.format(Z3PY_PACKAGE_PATH))
     return
 
 def mk_dir(d):
@@ -154,7 +165,7 @@ try:
     print("Generated C and .NET API documentation.")
     shutil.rmtree(os.path.realpath(TEMP_DIR))
     print("Removed temporary directory \"{}\"".format(TEMP_DIR))
-    sys.path.append('../src/api/python/z3')
+    sys.path.append(os.path.dirname(Z3PY_PACKAGE_PATH))
     pydoc.writedoc('z3')
     shutil.move('z3.html', os.path.join(OUTPUT_DIRECTORY, 'html', 'z3.html'))
     print("Generated Python documentation.")
