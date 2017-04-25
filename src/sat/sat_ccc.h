@@ -42,7 +42,14 @@ namespace sat {
             void close() { SASSERT(m_spawn_id > 0); m_spawn_id = -m_spawn_id; }
             bool is_closed() const { return m_spawn_id < 0; }
             void negate() { m_literal.neg();  }
-            literal get_literal(unsigned thread_id) const { return thread_id == m_spawn_id ? ~m_literal : m_literal; }
+            bool is_left() const { return 0 == (m_id & 0x1); }
+            bool is_spawned(unsigned thread_id) const { return m_spawn_id == thread_id; }
+
+            // the left branch has an even branch_id.
+            // the branch is spawned if it is even and the spawn_id is the same as the thread_id, and furthermore it is exploring the left branch.
+            // it may explore the right branch, but is then not in a spawned mode. 
+            // we retain the spawn id so that the spawned thread can be re-spun.
+            literal get_literal(unsigned thread_id) const { return ((m_id & 0x1) == 0 && thread_id == m_spawn_id) ? ~m_literal : m_literal; }
             std::ostream& pp(std::ostream& out) const;
         };
 
@@ -50,6 +57,7 @@ namespace sat {
             unsigned m_thread_id;
             unsigned m_branch_id;
             solution(unsigned t, unsigned s): m_thread_id(t), m_branch_id(s) {}
+            solution(): m_thread_id(0), m_branch_id(0) {}
         };
 
         struct stats {
@@ -60,6 +68,22 @@ namespace sat {
                 memset(this, 0, sizeof(*this));
             }
         };
+
+       struct conquer {
+           ccc&              super;
+           solver            s;
+           svector<decision> decisions;
+           unsigned          thread_id;
+           bool              m_spawned;
+           conquer(ccc& super, params_ref const& p, reslimit& l, unsigned tid): super(super), s(p, l), thread_id(tid), m_spawned(false) {}
+
+           lbool search();
+           bool  cube_decision();           
+           lbool bounded_search();
+           bool  push_decision(decision const& d);
+           void  pop_decision(decision const& d);
+           void  replay_decisions();
+       };
 
         solver&         m_s;    
         queue<solution> m_solved;
@@ -72,21 +96,15 @@ namespace sat {
         unsigned        m_last_closure_level;
         ::statistics    m_lh_stats;
         stats           m_ccc_stats;
-
-        lbool conquer(solver& s, unsigned thread_id);
-        bool  cube_decision(solver& s, svector<decision>& decisions, unsigned thread_id);
-
-        lbool bounded_search(solver& s, svector<decision>& decisions, unsigned thread_id);
-        bool  push_decision(solver& s, svector<decision> const& decisions, decision const& d, unsigned thread_id);
+ 
         lbool cube();
         lbool cube(svector<decision>& decisions, lookahead& lh);
         void  put_decision(decision const& d);
-        bool  get_decision(unsigned thread_id, decision& d);
         bool  get_solved(svector<decision>& decisions);
+        bool  get_decision(unsigned thread_id, decision& d);
 
         void update_closure_level(decision const& d, int offset);
 
-        void replay_decisions(solver& s, svector<decision>& decisions, unsigned thread_id);
 
         static std::ostream& pp(std::ostream& out, svector<decision> const& v);
 

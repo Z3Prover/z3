@@ -127,6 +127,7 @@ lbool ccc::cube(svector<decision>& decisions, lookahead& lh) {
             lh.push(~l, lh.c_fixed_truth);
             decisions.back().negate();
             decisions.back().m_id = branch2;
+            decisions.back().m_spawn_id = 0;
             r = cube(decisions, lh);
             if (r == l_false) {
                 lh.pop();
@@ -141,6 +142,7 @@ void ccc::update_closure_level(decision const& d, int offset) {
     m_last_closure_level = (d.m_depth + 3*m_last_closure_level) / 4 + offset;                        
 }
 
+
 unsigned ccc::spawn_conquer(svector<decision> const& decisions) {
     unsigned result = 0;
     //
@@ -152,20 +154,89 @@ unsigned ccc::spawn_conquer(svector<decision> const& decisions) {
     if (!m_free_threads.empty() && m_last_closure_level >= decisions.size()) {
         result = m_free_threads.back();
         m_free_threads.pop_back();
-        IF_VERBOSE(0, verbose_stream() << "spawn " << decisions.size() << " " << result << "\n";);       
+        IF_VERBOSE(0, verbose_stream() << "spawn " << result << " with " << decisions.size() << " decisions\n";);       
     }
     return result;
 }
 
 void ccc::free_conquer(unsigned thread_id) {
     if (thread_id != 0) {
+        IF_VERBOSE(0, verbose_stream() << "free conquer " << thread_id << "\n";);
         m_free_threads.push_back(thread_id);
     }
 }
 
+bool ccc::get_solved(svector<decision>& decisions) {
+    // check if CDCL solver got ahead.
+    bool do_pop = false;
+    while (true) {
+        solution sol;
+        bool is_empty = true;
+        #pragma omp critical (ccc_solved)
+        {
+            if (do_pop) m_solved.pop_front();
+            if (!m_solved.empty()) {
+                sol = m_solved.top();
+                is_empty = false;
+            }
+        } 
+        if (is_empty) {
+            return false;
+        }
+        do_pop = true;
+        unsigned branch_id = sol.m_branch_id;
+        unsigned thread_id = sol.m_thread_id;
+        free_conquer(thread_id);
+        for (unsigned i = decisions.size(); i > 0; ) {
+            --i;
+            decision& d = decisions[i];
+            if (branch_id == d.m_id) {
+                if (d.m_spawn_id == thread_id && thread_id != 0) {
+                    SASSERT(d.m_spawn_id > 0);
+                    IF_VERBOSE(0, verbose_stream() << thread_id << ": spawn close " << branch_id << " "  << " " << d.m_depth << "\n";);
+                    ++m_ccc_stats.m_spawn_closed;
+                    d.close();
+                    update_closure_level(d, -1);
+                    break;
+                }
+                else {
+                    IF_VERBOSE(0, verbose_stream() << thread_id << ": conquer " << branch_id << " " << d.m_depth << " " << decisions.size() << " " << d.get_literal(thread_id) << "\n";);
+                    ++m_ccc_stats.m_cdcl_closed;
+                    update_closure_level(d, 1);
+                    return true;
+                }
+            }
+            // branch is even, d has moved to the next branch
+            if (branch_id == (d.m_id & ~0x1) && d.m_spawn_id == thread_id && thread_id != 0) {
+                IF_VERBOSE(0, verbose_stream() << thread_id << ": spawn conquer " << branch_id << " "  << " " << d.m_depth << "\n";);
+                ++m_ccc_stats.m_cdcl_closed;
+                update_closure_level(d, 1);
+                return true;
+            }
+        }        
+    }
+}
 
-lbool ccc::conquer(solver& s, unsigned thread_id) {
-    SASSERT(thread_id > 0);
+void ccc::put_decision(decision const& d) {
+    for (unsigned i = 0; i < m_num_conquer; ++i) {
+       #pragma omp critical (ccc_decisions)
+        {
+            while (!m_decisions[i].empty()) {
+                decision d = m_decisions[i].back();
+                if (d.m_depth < d.m_depth || d.m_spawn_id != 0) {
+                    break;
+                }
+                m_decisions[i].pop_back();
+            }
+            m_decisions[i].push(d);
+        }
+    }
+}
+
+// ---------------------
+// conquer state machine
+
+lbool ccc::conquer::search() {
     try {
         if (s.inconsistent()) return l_false;
         s.init_search();
@@ -174,13 +245,11 @@ lbool ccc::conquer(solver& s, unsigned thread_id) {
         s.cleanup();
         s.simplify_problem();
         if (s.inconsistent()) return l_false;
-
-        svector<decision> decisions;
         
         while (true) {
             SASSERT(!s.inconsistent());
             
-            lbool r = bounded_search(s, decisions, thread_id);
+            lbool r = bounded_search();
             if (r != l_undef)
                 return r;
                         
@@ -195,102 +264,47 @@ lbool ccc::conquer(solver& s, unsigned thread_id) {
     }
 }
 
-void ccc::replay_decisions(solver& s, svector<decision>& decisions, unsigned thread_id) {
+void ccc::conquer::replay_decisions() {
     s.propagate(true);
     for (unsigned i = s.scope_lvl(); !s.inconsistent() && i < decisions.size(); ++i) {
         decision const& d = decisions[i];
         IF_VERBOSE(2, verbose_stream() << thread_id << ": replay " << d.get_literal(thread_id) << " " << s.value(d.get_literal(thread_id)) << "\n";);
         
-        if (!push_decision(s, decisions, d, thread_id)) {
+        if (!push_decision(d)) {
             // negation of decision is implied.
-            // check_non_model("replay", decisions);
-            decisions.resize(i);
-            return;
+            IF_VERBOSE(0, verbose_stream() << thread_id << ": backjump to level " << i << " of " << decisions.size() << "\n";);
+            while (decisions.size() > i) {
+                pop_decision(decisions.back());
+                decisions.pop_back();
+            }
+            break;
+        }
+
+        if (d.m_spawn_id == thread_id && d.is_left()) {
+            // we pushed the right branch on this thread.
+            IF_VERBOSE(0, verbose_stream() << thread_id << ": skip left branch on level " << i + 1 << " of " << decisions.size() << "\n";);
+            break;
         }
     }
 }
 
-bool ccc::get_solved(svector<decision>& decisions) {
-    // check if CDCL solver got ahead.
-    bool found = false;
+void ccc::conquer::pop_decision(decision const& d) {
+    unsigned tid = 0;
+    if (d.is_spawned(thread_id)) {
+        tid = thread_id;
+        m_spawned = false;
+        IF_VERBOSE(0, verbose_stream() << thread_id << " retire spawn\n";);
+    }
     #pragma omp critical (ccc_solved)
     {
-        while (!m_solved.empty()) {
-            solution const& sol = m_solved.top();
-            unsigned branch_id = sol.m_branch_id;
-            unsigned thread_id = sol.m_thread_id;
-            SASSERT(thread_id > 0);
-            free_conquer(thread_id);
-            for (unsigned i = decisions.size(); i > 0; ) {
-                --i;
-                decision& d = decisions[i];
-                if (branch_id == d.m_id) {
-                    if (d.m_spawn_id == thread_id && thread_id != 0) {
-                        SASSERT(d.m_spawn_id > 0);
-                        IF_VERBOSE(0, verbose_stream() << "spawn close " << branch_id << " " << thread_id << " " << d.m_depth << "\n";);
-                        ++m_ccc_stats.m_spawn_closed;
-                        d.close();
-                        update_closure_level(d, -1);
-                    }
-                    else {
-                        IF_VERBOSE(0, verbose_stream() << "conquer " << branch_id << " " << thread_id << " " << d.m_depth << " " << d.get_literal(thread_id) << "\n";);
-                        found = true;
-                        ++m_ccc_stats.m_cdcl_closed;
-                        update_closure_level(d, 1);
-                    }
-                    break;
-                }
-                // branch is even, d has moved to the next branch
-                if (branch_id == (d.m_id & ~0x1) && d.m_spawn_id == thread_id && thread_id != 0) {
-                    IF_VERBOSE(0, verbose_stream() << "spawn conquer " << branch_id << " " << thread_id << " " << d.m_depth << "\n";);
-                    found = true;
-                    ++m_ccc_stats.m_cdcl_closed;
-                    update_closure_level(d, 1);
-                    break;
-                }
-            }
-            if (found) {
-                break;
-            }
-            // IF_VERBOSE(1, verbose_stream() << "not found: " << branch_id << " " << decisions.size() << "\n";);
-            m_solved.pop();            
-        }
-    }
-
-    return found;
-}
-
-void ccc::put_decision(decision const& d) {
-    #pragma omp critical (ccc_decisions)
-    {
-        for (unsigned i = 0; i < m_num_conquer; ++i) {
-            m_decisions[i].push(d);
-        }
+        super.m_solved.push(solution(tid, d.m_id));
     }
 }
 
-bool ccc::get_decision(unsigned thread_id, decision& d) {
-    SASSERT(0 < thread_id && thread_id <= m_decisions.size());
-    bool result = false;
-    #pragma omp critical (ccc_decisions)
-    {
-        if (!m_decisions[thread_id - 1].empty()) {
-            d = m_decisions[thread_id - 1].pop();
-            result = true;
-        }
-    }
-    return result;
-}
-
-bool ccc::push_decision(solver& s, svector<decision> const& decisions, decision const& d, unsigned thread_id) {
+bool ccc::conquer::push_decision(decision const& d) {
     literal lit = d.get_literal(thread_id);
     switch (s.value(lit)) {
     case l_false:
-        thread_id = (d.m_spawn_id == thread_id || (!decisions.empty() && decisions.back().m_spawn_id == thread_id)) ? thread_id : 0;
-        #pragma omp critical (ccc_solved)
-        {
-            m_solved.push(solution(thread_id, d.m_id));
-        }
         //TBD:
         s.m_restart_threshold = s.m_config.m_restart_initial;
         //s.m_conflicts_since_last_restart = 0;
@@ -304,68 +318,110 @@ bool ccc::push_decision(solver& s, svector<decision> const& decisions, decision 
         s.propagate(true);
         break;
     }
+    m_spawned |= d.is_spawned(thread_id);
     return true;
 }
 
-bool ccc::cube_decision(solver& s, svector<decision>& decisions, unsigned thread_id) {
+bool ccc::conquer::cube_decision() {
     decision d;
     bool use_cube_decision = false;
     SASSERT(s.m_qhead == s.m_trail.size());
 
- get_cube:
-    if (!get_decision(thread_id, d)) {
-        return false;
-    }
-    
-    if (!decisions.empty() && decisions.back().m_depth + 1 < d.m_depth) {
-        goto get_cube;
-    }
+    while (true) {
+        if (!super.get_decision(thread_id, d)) {
+            return false;
+        }
 
-    if (!decisions.empty() && decisions.back().m_spawn_id == thread_id && decisions.back().m_depth < d.m_depth) {
-        goto get_cube;
+        if (d.is_spawned(thread_id)) IF_VERBOSE(0, verbose_stream() << thread_id << ": spawned d:" << d.m_depth << " decisions: " << decisions.size() << "\n";);
+    
+        if (!decisions.empty() && decisions.back().m_depth + 1 < d.m_depth) {
+            if (d.is_spawned(thread_id)) {
+                pop_decision(d);
+            }           
+        }
+        else {
+            break;
+        }
+    }    
+    SASSERT(decisions.empty() || decisions.back().m_depth + 1 >= d.m_depth);
+
+    if (!decisions.empty() && decisions.back().is_spawned(thread_id) && decisions.back().m_depth == d.m_depth) {
+        SASSERT(d.m_spawn_id == 0);
+        SASSERT(decisions.back().is_left());
+        SASSERT(!d.is_left());
+        IF_VERBOSE(0, verbose_stream() << thread_id << " inherit spawn\n";);
+        d.m_spawn_id = thread_id;
+        decisions.back().m_spawn_id = 0;
+        m_spawned = false;
     }
+    SASSERT(decisions.empty() || decisions.back().m_depth + 1 >= d.m_depth);
 
     while (!decisions.empty() && decisions.back().m_depth >= d.m_depth) {
         // check_non_model("cube decision", decisions);
+        if (decisions.back().is_spawned(thread_id)) {
+            pop_decision(decisions.back());
+        }
         decisions.pop_back();
     }
 
     SASSERT(decisions.empty() || decisions.back().m_depth + 1 == d.m_depth);
     SASSERT(decisions.empty() || decisions.back().m_id == d.m_parent);
+    if (m_spawned) {
+        decisions.push_back(d);
+        return true;
+    }
+
     s.pop_reinit(s.scope_lvl() - decisions.size());
     SASSERT(s.m_qhead == s.m_trail.size());
     SASSERT(s.scope_lvl() == decisions.size());
     literal lit = d.get_literal(thread_id);
-    IF_VERBOSE(1, verbose_stream() << thread_id << ": cube " << decisions.size() << " " << d.get_literal(thread_id) << "\n";);
+    IF_VERBOSE(0, verbose_stream() << thread_id << ": cube " << decisions.size() << " " << d.get_literal(thread_id) << "\n";);
     IF_VERBOSE(2, pp(verbose_stream() << thread_id << ": push ", decisions) << " @ " << s.scope_lvl() << " " << s.value(lit) << "\n";
                if (s.value(lit) == l_false) verbose_stream() << "level: " << s.lvl(lit) << "\n";);
     
-    if (push_decision(s, decisions, d, thread_id)) {
+    if (push_decision(d)) {
         decisions.push_back(d);
     }    
+    else {
+        pop_decision(d);
+    }
 
     return true;
 }
 
-lbool ccc::bounded_search(solver& s, svector<decision>& decisions, unsigned thread_id) {    
+lbool ccc::conquer::bounded_search() {    
     while (true) {
         s.checkpoint();
         bool done = false;
         while (!done) {
-            replay_decisions(s, decisions, thread_id);
+            replay_decisions();
             lbool is_sat = s.propagate_and_backjump_step(done); 
             if (is_sat != l_true) return is_sat;
         }
 
         s.gc();
         
-        if (!cube_decision(s, decisions, thread_id) && !s.decide()) {
+        if (!cube_decision() && !s.decide()) {
             lbool is_sat = s.final_check();
             if (is_sat != l_undef) {
                 return is_sat;
             }
         }
     }
+}
+
+
+bool ccc::get_decision(unsigned thread_id, decision& d) {
+    SASSERT(0 < thread_id && thread_id <= m_decisions.size());
+    bool result = false;
+    #pragma omp critical (ccc_decisions)
+    {
+        if (!m_decisions[thread_id - 1].empty()) {
+            d = m_decisions[thread_id - 1].pop_front();
+            result = true;
+        }
+    }
+    return result;
 }
 
 
@@ -381,7 +437,7 @@ lbool ccc::search() {
 
     scoped_limits      scoped_rlimit(m_s.rlimit());
     vector<reslimit>   limits;
-    ptr_vector<solver> solvers;
+    ptr_vector<conquer> solvers;
     int finished_id = -1;
     std::string        ex_msg;
     par_exception_kind ex_kind;
@@ -395,10 +451,10 @@ lbool ccc::search() {
     for (int i = 1; i < num_threads; ++i) {
         limits.push_back(reslimit());
         m_s.m_params.set_uint("random_seed", m_s.m_rand());
-        solver* s1 = alloc(sat::solver, m_s.m_params, limits.back());
+        conquer* s1 = alloc(conquer, *this, m_s.m_params, limits.back(), i);
         solvers.push_back(s1);
-        s1->copy(m_s);
-        scoped_rlimit.push_child(&s1->rlimit());            
+        s1->s.copy(m_s);
+        scoped_rlimit.push_child(&(s1->s.rlimit()));            
         m_decisions.push_back(queue<decision>());
     }    
     for (unsigned i = 1; i < m_num_conquer; ++i) {
@@ -413,7 +469,7 @@ lbool ccc::search() {
                 r = cube();
             }
             else {
-                r = conquer(*solvers[i-1], i);
+                r = solvers[i-1]->search();
             }
             bool first = false;
             #pragma omp critical (par_solver)
@@ -426,7 +482,7 @@ lbool ccc::search() {
             }
             if (first) {
                 for (unsigned j = 0; j < solvers.size(); ++j) {
-                    solvers[j]->rlimit().cancel();
+                    solvers[j]->s.rlimit().cancel();
                 }
                 // cancel lookahead solver:
                 m_cancel = true;
@@ -444,11 +500,11 @@ lbool ccc::search() {
 
     if (finished_id > 0 && result == l_true) {
         // set model from auxiliary solver
-        m_model = solvers[finished_id - 1]->get_model();
+        m_model = solvers[finished_id - 1]->s.get_model();
     }
 
     for (unsigned i = 0; i < solvers.size(); ++i) {            
-        solvers[i]->collect_statistics(m_lh_stats);
+        solvers[i]->s.collect_statistics(m_lh_stats);
         dealloc(solvers[i]);
     }
     

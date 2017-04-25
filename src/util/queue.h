@@ -41,7 +41,7 @@ public:
         return m_elems[m_head];
     }
 
-    T pop() { 
+    T pop_front() { 
         SASSERT(!empty());
         m_capacity = std::max(m_capacity, m_elems.size());
         SASSERT(m_head < m_elems.size()); 
@@ -55,6 +55,18 @@ public:
         return m_elems[m_head++];        
     }
 
+
+    T back() const {
+        return m_elems[m_elems.size() - 1];
+    }
+
+    T pop_back() {
+        SASSERT(!empty());
+        SASSERT(m_head < m_elems.size()); 
+        T result = back();
+        m_elems.shrink(m_elems.size() - 1);
+        return result;
+    }
 };
 
 #endif
