@@ -234,7 +234,7 @@ try:
     if DOTNET_ENABLED:
         website_dox_substitutions['DOTNET_API'] = (
             '{prefix}'
-            '<a class="el" href="class_microsoft_1_1_z3_1_1_context.html">'
+            '<a class="el" href="namespace_microsoft_1_1_z3.html">'
             '.NET API</a>').format(
                 prefix=bullet_point_prefix)
     else:
