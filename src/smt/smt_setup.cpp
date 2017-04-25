@@ -832,6 +832,7 @@ namespace smt {
             m_context.register_plugin(alloc(theory_seq, m_manager));
         } else if (m_params.m_string_solver == "auto") {
             if (st.m_has_seq_non_str) {
+                NOT_IMPLEMENTED_YET();
                 m_context.register_plugin(alloc(theory_seq, m_manager));
             } else {
                 setup_str();
@@ -856,13 +857,15 @@ namespace smt {
     }
 
     void setup::setup_unknown() {
+        static_features st(m_manager);
+        st.collect(m_context.get_num_asserted_formulas(), m_context.get_asserted_formulas());
+
         setup_arith();
         setup_arrays();
         setup_bv();
         setup_datatypes();
         setup_dl();
-        // setup_seq()
-        m_context.register_plugin(alloc(theory_seq, m_manager));
+        setup_seq(st);
         setup_card();
         setup_fpa();
     }
@@ -966,7 +969,14 @@ namespace smt {
             return;
         }
 
-        // TODO setup_str() by features
+        if (st.num_theories() == 2 && st.m_has_str && !st.m_has_seq_non_str) {
+            setup_QF_S();
+            return;
+        }
+
+        if (st.num_theories() == 2 && st.m_has_seq_non_str) {
+            m_context.register_plugin(alloc(theory_seq, m_manager));
+        }
 
         setup_unknown();
     }

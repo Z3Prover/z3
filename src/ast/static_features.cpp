@@ -284,8 +284,9 @@ void static_features::update_core(expr * e) {
         m_has_arrays = true;
     if (!m_has_str && m_sequtil.str.is_string_term(e))
         m_has_str = true;
-    if (!m_has_seq_non_str && m_sequtil.is_seq(e))
+    if (!m_has_seq_non_str && m_sequtil.str.is_non_string_sequence(e)) {
         m_has_seq_non_str = true;
+    }
     if (is_app(e)) {
         family_id fid = to_app(e)->get_family_id();
         mark_theory(fid);

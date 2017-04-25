@@ -278,6 +278,17 @@ public:
             return is_sort_of(s, m_fid, _STRING_SORT);
         }
 
+        bool is_non_string_sequence(expr const * n) const {
+            if (is_string_term(n))
+                return false;
+
+            sort * s = get_sort(n);
+            if (u.is_seq(s) && !u.is_string(s)) {
+                return true;
+            }
+            return false;
+        }
+
         MATCH_BINARY(is_concat);
         MATCH_UNARY(is_length);
         MATCH_TERNARY(is_extract);
