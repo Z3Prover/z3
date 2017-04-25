@@ -22,10 +22,13 @@ Z3PY_PACKAGE_PATH='../src/api/python/z3'
 Z3PY_ENABLED=True
 DOTNET_ENABLED=True
 JAVA_ENABLED=True
+DOTNET_API_SEARCH_PATHS=['../src/api/dotnet']
+JAVA_API_SEARCH_PATHS=['../src/api/java']
 
 def parse_options():
     global ML_ENABLED, BUILD_DIR, DOXYGEN_EXE, TEMP_DIR, OUTPUT_DIRECTORY
     global Z3PY_PACKAGE_PATH, Z3PY_ENABLED, DOTNET_ENABLED, JAVA_ENABLED
+    global DOTNET_API_SEARCH_PATHS, JAVA_API_SEARCH_PATHS
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-b',
         '--build',
@@ -80,6 +83,18 @@ def parse_options():
         default=False,
         help='Do not generate documentation for Java bindings',
     )
+    parser.add_argument('--dotnet-search-paths',
+        dest='dotnet_search_paths',
+        nargs='+',
+        default=DOTNET_API_SEARCH_PATHS,
+        help='Specify one or more path to look for .NET files (default: %(default)s).',
+    )
+    parser.add_argument('--java-search-paths',
+        dest='java_search_paths',
+        nargs='+',
+        default=JAVA_API_SEARCH_PATHS,
+        help='Specify one or more paths to look for Java files (default: %(default)s).',
+    )
     pargs = parser.parse_args()
     ML_ENABLED = pargs.ml
     BUILD_DIR = pargs.build
@@ -94,6 +109,8 @@ def parse_options():
     Z3PY_ENABLED = not pargs.no_z3py
     DOTNET_ENABLED = not pargs.no_dotnet
     JAVA_ENABLED = not pargs.no_java
+    DOTNET_API_SEARCH_PATHS = pargs.dotnet_search_paths
+    JAVA_API_SEARCH_PATHS = pargs.java_search_paths
     return
 
 def mk_dir(d):
@@ -171,7 +188,11 @@ try:
     if DOTNET_ENABLED:
         print(".NET documentation enabled")
         doxygen_config_substitutions['DOTNET_API_FILES'] = '*.cs'
-        doxygen_config_substitutions['DOTNET_API_SEARCH_PATHS'] = '../src/api/dotnet'
+        dotnet_api_search_path_str = ""
+        for p in DOTNET_API_SEARCH_PATHS:
+            # Quote path so that paths with spaces are handled correctly
+            dotnet_api_search_path_str += "\"{}\" ".format(p)
+        doxygen_config_substitutions['DOTNET_API_SEARCH_PATHS'] = dotnet_api_search_path_str
     else:
         print(".NET documentation disabled")
         doxygen_config_substitutions['DOTNET_API_FILES'] = ''
@@ -179,7 +200,11 @@ try:
     if JAVA_ENABLED:
         print("Java documentation enabled")
         doxygen_config_substitutions['JAVA_API_FILES'] = '*.java'
-        doxygen_config_substitutions['JAVA_API_SEARCH_PATHS'] = '../src/api/java'
+        java_api_search_path_str = ""
+        for p in JAVA_API_SEARCH_PATHS:
+            # Quote path so that paths with spaces are handled correctly
+            java_api_search_path_str += "\"{}\" ".format(p)
+        doxygen_config_substitutions['JAVA_API_SEARCH_PATHS'] = java_api_search_path_str
     else:
         print("Java documentation disabled")
         doxygen_config_substitutions['JAVA_API_FILES'] = ''
