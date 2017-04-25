@@ -52,7 +52,7 @@ PROJECT_LOGO           =
 # If a relative path is entered, it will be relative to the location
 # where doxygen was started. If left blank the current directory will be used.
 
-OUTPUT_DIRECTORY       = @OUTPUT_DIRECTORY@
+OUTPUT_DIRECTORY       = "@OUTPUT_DIRECTORY@"
 
 # If the CREATE_SUBDIRS tag is set to YES, then doxygen will create
 # 4096 sub-directories (in 2 levels) under the output directory of each output
@@ -681,7 +681,7 @@ WARN_LOGFILE           =
 # directories like "/usr/src/myproject". Separate the files or directories
 # with spaces.
 
-INPUT                  = @TEMP_DIR@ \
+INPUT                  = "@TEMP_DIR@" \
                          ../src/api/c++ \
                          @DOTNET_API_SEARCH_PATHS@ @JAVA_API_SEARCH_PATHS@
 
