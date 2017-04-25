@@ -832,7 +832,6 @@ namespace smt {
             m_context.register_plugin(alloc(theory_seq, m_manager));
         } else if (m_params.m_string_solver == "auto") {
             if (st.m_has_seq_non_str) {
-                NOT_IMPLEMENTED_YET();
                 m_context.register_plugin(alloc(theory_seq, m_manager));
             } else {
                 setup_str();
@@ -967,15 +966,6 @@ namespace smt {
         if (st.num_theories() == 2 && st.has_uf() && st.m_has_arrays && st.m_has_int) {
             setup_QF_AUFLIA();
             return;
-        }
-
-        if (st.num_theories() == 2 && st.m_has_str && !st.m_has_seq_non_str) {
-            setup_QF_S();
-            return;
-        }
-
-        if (st.num_theories() == 2 && st.m_has_seq_non_str) {
-            m_context.register_plugin(alloc(theory_seq, m_manager));
         }
 
         setup_unknown();
