@@ -573,7 +573,7 @@ void seq_decl_plugin::set_manager(ast_manager* m, family_id id) {
     m_char = bv.mk_sort(8);
     m->inc_ref(m_char);
     parameter param(m_char);
-    m_string = m->mk_sort(symbol("String"), sort_info(m_family_id, SEQ_SORT, 1, &param));
+    m_string = m->mk_sort(symbol("StringSequence"), sort_info(m_family_id, SEQ_SORT, 1, &param));
     m->inc_ref(m_string);
     parameter paramS(m_string);
     m_re = m->mk_sort(m_family_id, RE_SORT, 1, &paramS);
@@ -831,7 +831,9 @@ void seq_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol 
     init();
     sort_names.push_back(builtin_name("Seq",   SEQ_SORT));
     sort_names.push_back(builtin_name("RegEx", RE_SORT));
+    // SMT-LIB 2.5 compatibility
     sort_names.push_back(builtin_name("String", _STRING_SORT));
+    sort_names.push_back(builtin_name("StringSequence", _STRING_SORT));
 }
 
 app* seq_decl_plugin::mk_string(symbol const& s) {
