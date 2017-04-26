@@ -541,6 +541,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
                 placeholder_arg |= is_placeholder(args[i]);
             }
             try {
+                TRACE("duality", print_expr(tout, e); tout << "\n";);
                 opr f = op(e);
                 if(f == Equal && args[0] == args[1]) res = mk_true();
                 else if(f == And) res = my_and(args);
@@ -853,6 +854,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
 
     ast simplify_rotate_eq2leq(const ast &pl, const ast &neg_equality, const ast &pf){
         if(pl == arg(pf,1)){
+            TRACE("duality", print_expr(tout, pl); print_expr(tout << "\n", neg_equality); print_expr(tout << "\n", pf); tout << "\n";);
             ast cond = mk_true();
             ast equa = sep_cond(arg(pf,0),cond);
             if(is_equivrel_chain(equa)){
@@ -1870,10 +1872,13 @@ class iz3proof_itp_impl : public iz3proof_itp {
 
     ast chain_ineqs(opr comp_op, LitType t, const ast &chain, const ast &lhs, const ast &rhs){
         if(is_true(chain)){
-            if(lhs != rhs)
+            if (lhs != rhs) {
+                TRACE("duality", print_expr(tout, lhs); tout << " "; print_expr(tout, rhs); tout << "\n";);
                 throw bad_ineq_inference();
+            }
             return make(Leq,make_int(rational(0)),make_int(rational(0)));
         }
+        TRACE("duality", print_expr(tout, chain); print_expr(tout << "\n", lhs); tout << " "; print_expr(tout, rhs); tout << "\n";);
         ast last = chain_last(chain);
         ast rest = chain_rest(chain);
         ast mid = subst_in_pos(rhs,rewrite_pos(last),rewrite_lhs(last));

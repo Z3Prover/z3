@@ -247,6 +247,7 @@ namespace sat {
         unsigned num_clauses() const;
         unsigned num_restarts() const { return m_restarts; }
         bool is_external(bool_var v) const { return m_external[v] != 0; }
+        void set_external(bool_var v) { m_external[v] = true; }
         bool was_eliminated(bool_var v) const { return m_eliminated[v] != 0; }
         unsigned scope_lvl() const { return m_scope_lvl; }
         lbool value(literal l) const { return static_cast<lbool>(m_assignment[l.index()]); }

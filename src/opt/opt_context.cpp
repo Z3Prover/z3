@@ -1235,7 +1235,7 @@ namespace opt {
             out << " (";
             display_objective(out, obj);
             if (get_lower_as_num(i) != get_upper_as_num(i)) {
-                out << "  (" << get_lower(i) << " " << get_upper(i) << ")";
+                out << "  (interval " << get_lower(i) << " " << get_upper(i) << ")";
             }
             else {
                 out << " " << get_lower(i);
