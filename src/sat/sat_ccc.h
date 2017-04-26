@@ -62,6 +62,7 @@ namespace sat {
 
         struct stats {
             unsigned m_spawn_closed;
+            unsigned m_spawn_opened;
             unsigned m_cdcl_closed;
             stats() { reset(); }
             void reset() {
@@ -70,12 +71,13 @@ namespace sat {
         };
 
        struct conquer {
-           ccc&              super;
+           reslimit          m_limit;
+           ccc&              m_ccc;
            solver            s;
            svector<decision> decisions;
            unsigned          thread_id;
            bool              m_spawned;
-           conquer(ccc& super, params_ref const& p, reslimit& l, unsigned tid): super(super), s(p, l), thread_id(tid), m_spawned(false) {}
+           conquer(ccc& super, params_ref const& p, unsigned tid): m_ccc(super), s(p, m_limit), thread_id(tid), m_spawned(false) {}
 
            lbool search();
            bool  cube_decision();           
@@ -85,26 +87,34 @@ namespace sat {
            void  replay_decisions();
        };
 
+        struct cuber {
+            ccc&              m_ccc;
+            lookahead         lh;
+            unsigned          m_branch_id;
+            unsigned          m_last_closure_level;
+            unsigned_vector   m_free_threads;
+            svector<decision> decisions;
+
+            cuber(ccc& c);
+            lbool search();
+            lbool research();
+            bool get_solved();
+            void update_closure_level(decision const& d, int offset);            
+            unsigned spawn_conquer();
+            void     free_conquer(unsigned thread_id);
+        };
+
         solver&         m_s;    
         queue<solution> m_solved;
         vector<queue<decision> > m_decisions;
         unsigned        m_num_conquer;
         model           m_model;
         volatile bool   m_cancel;
-        unsigned        m_branch_id;
-        unsigned_vector m_free_threads;
-        unsigned        m_last_closure_level;
         ::statistics    m_lh_stats;
         stats           m_ccc_stats;
  
-        lbool cube();
-        lbool cube(svector<decision>& decisions, lookahead& lh);
         void  put_decision(decision const& d);
-        bool  get_solved(svector<decision>& decisions);
         bool  get_decision(unsigned thread_id, decision& d);
-
-        void update_closure_level(decision const& d, int offset);
-
 
         static std::ostream& pp(std::ostream& out, svector<decision> const& v);
 
@@ -114,8 +124,6 @@ namespace sat {
 
         void check_non_model(char const* fn, svector<decision> const& decisions);
 
-        unsigned spawn_conquer(svector<decision> const& decisions);
-        void     free_conquer(unsigned thread_id);
 
     public:
 
@@ -129,6 +137,7 @@ namespace sat {
             st.copy(m_lh_stats);
             st.update("ccc-spawn-closed", m_ccc_stats.m_spawn_closed);
             st.update("ccc-cdcl-closed", m_ccc_stats.m_cdcl_closed);
+            st.update("ccc-spawn-opened", m_ccc_stats.m_spawn_opened);
         }
     };
 }
