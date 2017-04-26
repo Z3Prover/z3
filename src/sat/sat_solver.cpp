@@ -3284,13 +3284,17 @@ namespace sat {
             checkpoint();
             literal_set::iterator it = unfixed_lits.begin(), end = unfixed_lits.end();
             unsigned num_resolves = 0;
+            unsigned num_fixed = 0;
+            unsigned num_assigned = 0;
             lbool is_sat = l_true;
             for (; it != end; ++it) {
-                literal lit = *it;
+                literal lit = *it;                
                 if (value(lit) != l_undef) {
+                    ++num_fixed;
                     continue;
                 }
                 push();
+                ++num_assigned;
                 assign(~lit, justification());
                 propagate(false);
                 while (inconsistent()) {
@@ -3307,8 +3311,18 @@ namespace sat {
                     break;
                 }
             }
+            if (scope_lvl() == 1) {
+                it = unfixed_lits.begin();
+                for (; it != end; ++it) {
+                    literal lit = *it;
+                    if (value(lit) == l_true) {
+                        VERIFY(extract_fixed_consequences(lit, assumptions, unfixed_vars, conseq));
+                    }
+                }
+            }
             if (is_sat == l_true) {
                 if (scope_lvl() == 1 && num_resolves > 0) {
+                    IF_VERBOSE(1, verbose_stream() << "(sat.get-consequences backjump)\n";);
                     is_sat = l_undef;
                 }
                 else {
@@ -3331,6 +3345,8 @@ namespace sat {
                        << " iterations: " << num_iterations
                        << " variables: " << unfixed_lits.size()
                        << " fixed: " << conseq.size()
+                       << " status: " << is_sat 
+                       << " pre-assigned: " << num_fixed                        
                        << " unfixed: " << lits.size() - conseq.size() - unfixed_lits.size()
                        << ")\n";);
 
