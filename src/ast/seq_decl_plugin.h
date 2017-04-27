@@ -275,18 +275,12 @@ public:
 
         bool is_string_term(expr const * n) const {
             sort * s = get_sort(n);
-            return is_sort_of(s, m_fid, _STRING_SORT);
+            return (u.is_seq(s) && u.is_string(s));
         }
 
         bool is_non_string_sequence(expr const * n) const {
-            if (is_string_term(n))
-                return false;
-
             sort * s = get_sort(n);
-            if (u.is_seq(s) && !u.is_string(s)) {
-                return true;
-            }
-            return false;
+            return (u.is_seq(s) && !u.is_string(s));
         }
 
         MATCH_BINARY(is_concat);
