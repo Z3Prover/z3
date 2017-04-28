@@ -153,13 +153,13 @@ set(Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS "")
 # Build type
 ################################################################################
 message(STATUS "CMake generator: ${CMAKE_GENERATOR}")
+set(available_build_types Debug Release RelWithDebInfo MinSizeRel)
 if (DEFINED CMAKE_CONFIGURATION_TYPES)
   # Multi-configuration build (e.g. Visual Studio and Xcode). Here
   # CMAKE_BUILD_TYPE doesn't matter
   message(STATUS "Available configurations: ${CMAKE_CONFIGURATION_TYPES}")
 else()
   # Single configuration generator (e.g. Unix Makefiles, Ninja)
-  set(available_build_types Debug Release RelWithDebInfo MinSizeRel)
   if(NOT CMAKE_BUILD_TYPE)
     message(STATUS "CMAKE_BUILD_TYPE is not set. Setting default")
     message(STATUS "The available build types are: ${available_build_types}")
@@ -373,6 +373,28 @@ if (BUILD_LIBZ3_SHARED)
     z3_add_cxx_flag("-fPIC" REQUIRED)
   endif()
 endif()
+
+################################################################################
+# Report default CMake flags
+################################################################################
+# This is mainly for debugging.
+message(STATUS "CMAKE_CXX_FLAGS: \"${CMAKE_CXX_FLAGS}\"")
+message(STATUS "CMAKE_EXE_LINKER_FLAGS: \"${CMAKE_EXE_LINKER_FLAGS}\"")
+message(STATUS "CMAKE_STATIC_LINKER_FLAGS: \"${CMAKE_STATIC_LINKER_FLAGS}\"")
+message(STATUS "CMAKE_SHARED_LINKER_FLAGS: \"${CMAKE_SHARED_LINKER_FLAGS}\"")
+if (DEFINED CMAKE_CONFIGURATION_TYPES)
+  # Multi configuration generator
+  string(TOUPPER "${available_build_types}" build_types_to_report)
+else()
+  # Single configuration generator
+  string(TOUPPER "${CMAKE_BUILD_TYPE}" build_types_to_report)
+endif()
+foreach (_build_type ${build_types_to_report})
+  message(STATUS "CMAKE_CXX_FLAGS_${_build_type}: \"${CMAKE_CXX_FLAGS_${_build_type}}\"")
+  message(STATUS "CMAKE_EXE_LINKER_FLAGS_${_build_type}: \"${CMAKE_EXE_LINKER_FLAGS_${_build_type}}\"")
+  message(STATUS "CMAKE_SHARED_LINKER_FLAGS_${_build_type}: \"${CMAKE_SHARED_LINKER_FLAGS_${_build_type}}\"")
+  message(STATUS "CMAKE_STATIC_LINKER_FLAGS_${_build_type}: \"${CMAKE_STATIC_LINKER_FLAGS_${_build_type}}\"")
+endforeach()
 
 ################################################################################
 # Report Z3_COMPONENT flags
