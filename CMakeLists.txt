@@ -324,6 +324,15 @@ if (("${TARGET_ARCHITECTURE}" STREQUAL "x86_64") OR ("${TARGET_ARCHITECTURE}" ST
   unset(SSE_FLAGS)
 endif()
 
+# FIXME: Remove "x.." when CMP0054 is set to NEW
+if ("x${CMAKE_CXX_COMPILER_ID}" STREQUAL "xMSVC")
+  # This is the default for MSVC already but to replicate the
+  # python/Makefile build system behaviour this flag is set
+  # explicitly.
+  z3_add_cxx_flag("/fp:precise" REQUIRED)
+endif()
+# There doesn't seem to be an equivalent for clang/gcc
+
 ################################################################################
 # Threading support
 ################################################################################
