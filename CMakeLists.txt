@@ -43,10 +43,13 @@ message(STATUS "Z3 version ${Z3_VERSION}")
 # Set various useful variables depending on CMake version
 ################################################################################
 if (("${CMAKE_VERSION}" VERSION_EQUAL "3.2") OR ("${CMAKE_VERSION}" VERSION_GREATER "3.2"))
-  # In CMake >= 3.2 add_custom_command() supports a ``USES_TERMINAL`` argument
+  # In CMake >= 3.2 add_custom_command() and add_custom_target()
+  # supports a ``USES_TERMINAL`` argument
   set(ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG "USES_TERMINAL")
+  set(ADD_CUSTOM_TARGET_USES_TERMINAL_ARG "USES_TERMINAL")
 else()
   set(ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG "")
+  set(ADD_CUSTOM_TARGET_USES_TERMINAL_ARG "")
 endif()
 
 ################################################################################
@@ -527,4 +530,15 @@ install(
 option(ENABLE_EXAMPLE_TARGETS "Build Z3 api examples" ON)
 if (ENABLE_EXAMPLE_TARGETS)
   add_subdirectory(examples)
+endif()
+
+################################################################################
+# Documentation
+################################################################################
+option(BUILD_DOCUMENTATION "Build API documentation" OFF)
+if (BUILD_DOCUMENTATION)
+  message(STATUS "Building documentation enabled")
+  add_subdirectory(doc)
+else()
+  message(STATUS "Building documentation disabled")
 endif()

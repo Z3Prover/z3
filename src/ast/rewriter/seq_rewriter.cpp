@@ -329,13 +329,8 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     switch(f->get_decl_kind()) {
 
     case OP_SEQ_UNIT:
-        // TODO configuration param
-        if (true) {
-            SASSERT(num_args == 1);
-            return mk_seq_unit(args[0], result);
-        } else {
-            return BR_FAILED;
-        }
+        SASSERT(num_args == 1);
+        return mk_seq_unit(args[0], result);
     case OP_SEQ_EMPTY:
         return BR_FAILED;
     case OP_RE_PLUS:
