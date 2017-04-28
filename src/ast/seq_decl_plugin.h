@@ -275,7 +275,7 @@ public:
 
         bool is_string_term(expr const * n) const {
             sort * s = get_sort(n);
-            return (u.is_seq(s) && u.is_string(s));
+            return u.is_string(s);
         }
 
         bool is_non_string_sequence(expr const * n) const {
