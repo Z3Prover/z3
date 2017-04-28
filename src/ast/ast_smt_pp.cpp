@@ -166,7 +166,6 @@ class smt_printer {
     fpa_util         m_futil;
     family_id        m_basic_fid;
     family_id        m_bv_fid;
-    family_id        m_str_fid;
     family_id        m_arith_fid;
     family_id        m_array_fid;
     family_id        m_dt_fid;
@@ -846,7 +845,6 @@ public:
         m_bv_fid    = m.mk_family_id("bv");
         m_arith_fid = m.mk_family_id("arith");
         m_array_fid = m.mk_family_id("array");
-        m_str_fid   = m.mk_family_id("str");
         m_dt_fid    = m.mk_family_id("datatype");
         m_fpa_fid   = m.mk_family_id("fpa");
     }
