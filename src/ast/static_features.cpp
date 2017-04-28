@@ -25,6 +25,7 @@ static_features::static_features(ast_manager & m):
     m_bvutil(m),
     m_arrayutil(m),
     m_fpautil(m),
+    m_sequtil(m),
     m_bfid(m.get_basic_family_id()),
     m_afid(m.mk_family_id("arith")),
     m_lfid(m.mk_family_id("label")),
@@ -77,6 +78,8 @@ void static_features::reset() {
     m_has_real                             = false; 
     m_has_bv                               = false;
     m_has_fpa                              = false;
+    m_has_str                              = false;
+    m_has_seq_non_str                      = false;
     m_has_arrays                           = false;
     m_arith_k_sum                          .reset();
     m_num_arith_terms                      = 0;
@@ -279,6 +282,11 @@ void static_features::update_core(expr * e) {
         m_has_fpa = true;
     if (!m_has_arrays && m_arrayutil.is_array(e))
         m_has_arrays = true;
+    if (!m_has_str && m_sequtil.str.is_string_term(e))
+        m_has_str = true;
+    if (!m_has_seq_non_str && m_sequtil.str.is_non_string_sequence(e)) {
+        m_has_seq_non_str = true;
+    }
     if (is_app(e)) {
         family_id fid = to_app(e)->get_family_id();
         mark_theory(fid);
