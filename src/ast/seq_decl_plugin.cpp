@@ -831,7 +831,9 @@ void seq_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol 
     init();
     sort_names.push_back(builtin_name("Seq",   SEQ_SORT));
     sort_names.push_back(builtin_name("RegEx", RE_SORT));
+    // SMT-LIB 2.5 compatibility
     sort_names.push_back(builtin_name("String", _STRING_SORT));
+    sort_names.push_back(builtin_name("StringSequence", _STRING_SORT));
 }
 
 app* seq_decl_plugin::mk_string(symbol const& s) {
