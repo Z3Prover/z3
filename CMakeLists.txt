@@ -24,9 +24,7 @@ if (NOT (EXISTS "${CMAKE_SOURCE_DIR}/src/CMakeLists.txt"))
           "``python contrib/cmake/bootstrap.py create``")
 endif()
 
-# This overrides the default flags for the different CMAKE_BUILD_TYPEs
-set(CMAKE_USER_MAKE_RULES_OVERRIDE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/compiler_flags_override.cmake")
-project(Z3 C CXX)
+project(Z3 CXX)
 
 ################################################################################
 # Project version
