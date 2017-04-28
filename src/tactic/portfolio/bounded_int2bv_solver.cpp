@@ -34,19 +34,19 @@ Notes:
 class bounded_int2bv_solver : public solver_na2as {
     ast_manager&     m;
     params_ref       m_params;
-    bv_util          m_bv;
-    arith_util       m_arith;
-    expr_ref_vector  m_assertions;
+    mutable bv_util          m_bv;
+    mutable arith_util       m_arith;
+    mutable expr_ref_vector  m_assertions;
     ref<solver>      m_solver;
-    ptr_vector<bound_manager> m_bounds;
-    func_decl_ref_vector  m_bv_fns;
-    func_decl_ref_vector  m_int_fns;
+    mutable ptr_vector<bound_manager> m_bounds;
+    mutable func_decl_ref_vector  m_bv_fns;
+    mutable func_decl_ref_vector  m_int_fns;
     unsigned_vector       m_bv_fns_lim;
-    obj_map<func_decl, func_decl*> m_int2bv;
-    obj_map<func_decl, func_decl*> m_bv2int;
-    obj_map<func_decl, rational>   m_bv2offset;
-    bv2int_rewriter_ctx   m_rewriter_ctx;
-    bv2int_rewriter_star  m_rewriter;
+    mutable obj_map<func_decl, func_decl*> m_int2bv;
+    mutable obj_map<func_decl, func_decl*> m_bv2int;
+    mutable obj_map<func_decl, rational>   m_bv2offset;
+    mutable bv2int_rewriter_ctx   m_rewriter_ctx;
+    mutable bv2int_rewriter_star  m_rewriter;
 
 public:
 
@@ -78,7 +78,19 @@ public:
     }
 
     virtual void assert_expr(expr * t) {
+        unsigned i = m_assertions.size();
         m_assertions.push_back(t);
+        while (i < m_assertions.size()) {
+            t = m_assertions[i].get();
+            if (m.is_and(t)) {
+                m_assertions.append(to_app(t)->get_num_args(), to_app(t)->get_args());
+                m_assertions[i] = m_assertions.back();
+                m_assertions.pop_back();
+            }
+            else {
+                ++i;
+            }
+        }
     }
 
     virtual void push_core() {
@@ -184,7 +196,7 @@ private:
         }
         filter_model_converter filter(m);
         for (unsigned i = 0; i < m_bv_fns.size(); ++i) {
-            filter.insert(m_bv_fns[i]);
+            filter.insert(m_bv_fns[i].get());
         }
         filter(mdl, 0);
     }
@@ -205,13 +217,13 @@ private:
         ext(mdl, 0);
     }
 
-    void accumulate_sub(expr_safe_replace& sub) {
+    void accumulate_sub(expr_safe_replace& sub) const {
         for (unsigned i = 0; i < m_bounds.size(); ++i) {
             accumulate_sub(sub, *m_bounds[i]);
         }
     }
 
-    void accumulate_sub(expr_safe_replace& sub, bound_manager& bm) {
+    void accumulate_sub(expr_safe_replace& sub, bound_manager& bm) const {
         bound_manager::iterator it = bm.begin(), end = bm.end();
         for (; it != end; ++it) {
             expr* e = *it;
@@ -252,19 +264,20 @@ private:
                 sub.insert(e, t);
             }
             else {
-                IF_VERBOSE(1,
-                           verbose_stream() << "unprocessed entry: " << mk_pp(e, m) << "\n";
-                           if (bm.has_lower(e, lo, s1)) {
-                               verbose_stream() << "lower: " << lo << " " << s1 << "\n";
-                           }
-                           if (bm.has_upper(e, hi, s2)) {
-                               verbose_stream() << "upper: " << hi << " " << s2 << "\n";
-                           });
+                TRACE("pb", 
+                      tout << "unprocessed entry: " << mk_pp(e, m) << "\n";
+                      if (bm.has_lower(e, lo, s1)) {
+                          tout << "lower: " << lo << " " << s1 << "\n";
+                      }
+                      if (bm.has_upper(e, hi, s2)) {
+                          tout << "upper: " << hi << " " << s2 << "\n";
+                      });
             }
         }
     }
 
-    unsigned get_num_bits(rational const& k) {
+
+    unsigned get_num_bits(rational const& k) const {
         SASSERT(!k.is_neg());
         SASSERT(k.is_int());
         rational two(2);
@@ -277,11 +290,13 @@ private:
         return num_bits;
     }
 
-    void flush_assertions() {
+    void flush_assertions() const {
+        if (m_assertions.empty()) return;
         bound_manager& bm = *m_bounds.back();
         for (unsigned i = 0; i < m_assertions.size(); ++i) {
             bm(m_assertions[i].get());
         }
+        TRACE("int2bv", bm.display(tout););
         expr_safe_replace sub(m);
         accumulate_sub(sub);
         proof_ref proof(m);
@@ -304,6 +319,17 @@ private:
         m_assertions.reset();
         m_rewriter.reset();
     }
+
+    virtual unsigned get_num_assertions() const {
+        flush_assertions();
+        return m_solver->get_num_assertions();
+    }
+
+    virtual expr * get_assertion(unsigned idx) const {
+        flush_assertions();
+        return m_solver->get_assertion(idx);
+    }
+
 };
 
 solver * mk_bounded_int2bv_solver(ast_manager & m, params_ref const & p, solver* s) {

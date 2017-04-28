@@ -86,7 +86,13 @@ namespace z3 {
     };
     inline std::ostream & operator<<(std::ostream & out, exception const & e) { out << e.msg(); return out; }
 
-
+#if !defined(Z3_THROW)
+#if __cpp_exceptions || _CPPUNWIND
+#define Z3_THROW(x) throw x
+#else
+#define Z3_THROW(x) {}
+#endif
+#endif // !defined(Z3_THROW)
 
     /**
        \brief Z3 global configuration object.
@@ -165,7 +171,7 @@ namespace z3 {
         Z3_error_code check_error() const {
             Z3_error_code e = Z3_get_error_code(m_ctx);
             if (e != Z3_OK && enable_exceptions())
-                throw exception(Z3_get_error_msg(m_ctx, e));
+                Z3_THROW(exception(Z3_get_error_msg(m_ctx, e)));
             return e;
         }
 
@@ -701,7 +707,7 @@ namespace z3 {
             if (!is_numeral_i(result)) {
                 assert(ctx().enable_exceptions());
                 if (!ctx().enable_exceptions()) return 0;
-                throw exception("numeral does not fit in machine int");
+                Z3_THROW(exception("numeral does not fit in machine int"));
             }
             return result;
         }
@@ -721,7 +727,7 @@ namespace z3 {
             if (!is_numeral_u(result)) {
                 assert(ctx().enable_exceptions());
                 if (!ctx().enable_exceptions()) return 0;
-                throw exception("numeral does not fit in machine uint");
+                Z3_THROW(exception("numeral does not fit in machine uint"));
             }
             return result;
         }
@@ -738,7 +744,7 @@ namespace z3 {
             if (!is_numeral_i64(result)) {
                 assert(ctx().enable_exceptions());
                 if (!ctx().enable_exceptions()) return 0;
-                throw exception("numeral does not fit in machine __int64");
+                Z3_THROW(exception("numeral does not fit in machine __int64"));
             }
             return result;
         }
@@ -755,7 +761,7 @@ namespace z3 {
             if (!is_numeral_u64(result)) {
                 assert(ctx().enable_exceptions());
                 if (!ctx().enable_exceptions()) return 0;
-                throw exception("numeral does not fit in machine __uint64");
+                Z3_THROW(exception("numeral does not fit in machine __uint64"));
             }
             return result;
         }
@@ -890,6 +896,7 @@ namespace z3 {
         friend expr operator+(expr const & a, expr const & b);
         friend expr operator+(expr const & a, int b);
         friend expr operator+(int a, expr const & b);
+        friend expr sum(expr_vector const& args);
 
         friend expr operator*(expr const & a, expr const & b);
         friend expr operator*(expr const & a, int b);
@@ -928,7 +935,6 @@ namespace z3 {
 
 
         friend expr operator>=(expr const & a, expr const & b);
-        friend expr wasoperator(expr const & a, expr const & b);
         friend expr operator>=(expr const & a, int b);
         friend expr operator>=(int a, expr const & b);
 
@@ -939,6 +945,12 @@ namespace z3 {
         friend expr operator>(expr const & a, expr const & b);
         friend expr operator>(expr const & a, int b);
         friend expr operator>(int a, expr const & b);
+
+        friend expr pble(expr_vector const& es, int const * coeffs, int bound);
+        friend expr pbge(expr_vector const& es, int const * coeffs, int bound);
+        friend expr pbeq(expr_vector const& es, int const * coeffs, int bound);
+        friend expr atmost(expr_vector const& es, unsigned bound);
+        friend expr atleast(expr_vector const& es, unsigned bound);
 
         friend expr operator&(expr const & a, expr const & b);
         friend expr operator&(expr const & a, int b);
@@ -1559,7 +1571,54 @@ namespace z3 {
         array<Z3_app> vars(xs);
         Z3_ast r = Z3_mk_exists_const(b.ctx(), 0, vars.size(), vars.ptr(), 0, 0, b); b.check_error(); return expr(b.ctx(), r);
     }
-
+    inline expr pble(expr_vector const& es, int const* coeffs, int bound) {
+        assert(es.size() > 0);
+        context& ctx = es[0].ctx();
+        array<Z3_ast> _es(es);
+        Z3_ast r = Z3_mk_pble(ctx, _es.size(), _es.ptr(), coeffs, bound);
+        ctx.check_error();
+        return expr(ctx, r);
+    }
+    inline expr pbge(expr_vector const& es, int const* coeffs, int bound) {
+        assert(es.size() > 0);
+        context& ctx = es[0].ctx();
+        array<Z3_ast> _es(es);
+        Z3_ast r = Z3_mk_pbge(ctx, _es.size(), _es.ptr(), coeffs, bound);
+        ctx.check_error();
+        return expr(ctx, r);
+    }
+    inline expr pbeq(expr_vector const& es, int const* coeffs, int bound) {
+        assert(es.size() > 0);
+        context& ctx = es[0].ctx();
+        array<Z3_ast> _es(es);
+        Z3_ast r = Z3_mk_pbeq(ctx, _es.size(), _es.ptr(), coeffs, bound);
+        ctx.check_error();
+        return expr(ctx, r);
+    }
+    inline expr atmost(expr_vector const& es, unsigned bound) {
+        assert(es.size() > 0);
+        context& ctx = es[0].ctx();
+        array<Z3_ast> _es(es);
+        Z3_ast r = Z3_mk_atmost(ctx, _es.size(), _es.ptr(), bound);
+        ctx.check_error();
+        return expr(ctx, r);
+    }
+    inline expr atleast(expr_vector const& es, unsigned bound) {
+        assert(es.size() > 0);
+        context& ctx = es[0].ctx();
+        array<Z3_ast> _es(es);
+        Z3_ast r = Z3_mk_atleast(ctx, _es.size(), _es.ptr(), bound);
+        ctx.check_error();
+        return expr(ctx, r);
+    }
+    inline expr sum(expr_vector const& args) {
+        assert(args.size() > 0);
+        context& ctx = args[0].ctx();
+        array<Z3_ast> _args(args);
+        Z3_ast r = Z3_mk_add(ctx, _args.size(), _args.ptr());
+        ctx.check_error();
+        return expr(ctx, r);
+    }
 
     inline expr distinct(expr_vector const& args) {
         assert(args.size() > 0);
@@ -1699,7 +1758,7 @@ namespace z3 {
             Z3_bool status = Z3_model_eval(ctx(), m_model, n, model_completion, &r);
             check_error();
             if (status == Z3_FALSE && ctx().enable_exceptions())
-                throw exception("failed to evaluate expression");
+                Z3_THROW(exception("failed to evaluate expression"));
             return expr(ctx(), r);
         }
 
@@ -2023,7 +2082,7 @@ namespace z3 {
     }
     inline tactic par_or(unsigned n, tactic const* tactics) {
         if (n == 0) {
-            throw exception("a non-zero number of tactics need to be passed to par_or");
+            Z3_THROW(exception("a non-zero number of tactics need to be passed to par_or"));
         }
         array<Z3_tactic> buffer(n);
         for (unsigned i = 0; i < n; ++i) buffer[i] = tactics[i];
@@ -2178,14 +2237,14 @@ namespace z3 {
     class fixedpoint : public object {
         Z3_fixedpoint m_fp;
     public:
-        fixedpoint(context& c):object(c) { mfp = Z3_mk_fixedpoint(c); Z3_fixedpoint_inc_ref(c, m_fp); }
+        fixedpoint(context& c):object(c) { m_fp = Z3_mk_fixedpoint(c); Z3_fixedpoint_inc_ref(c, m_fp); }
         ~fixedpoint() { Z3_fixedpoint_dec_ref(ctx(), m_fp); }
         operator Z3_fixedpoint() const { return m_fp; }        
         void from_string(char const* s) { Z3_fixedpoint_from_string(ctx(), m_fp, s); check_error(); }
         void from_file(char const* s) { Z3_fixedpoint_from_file(ctx(), m_fp, s); check_error(); }
         void add_rule(expr& rule, symbol const& name) { Z3_fixedpoint_add_rule(ctx(), m_fp, rule, name); check_error(); }
-        void add_fact(func_decl& f, unsigned const* args) { Z3_fixedpoint_add_fact(ctx(), m_fp, f, f.num_args(), args); check_error(); }
-        check_result query(expr& q) { Z3_lbool r = Z3_fixedpoint_query(ctx(), m_fp, q); check_error(); to_check_result(r); }
+        void add_fact(func_decl& f, unsigned * args) { Z3_fixedpoint_add_fact(ctx(), m_fp, f, f.arity(), args); check_error(); }
+        check_result query(expr& q) { Z3_lbool r = Z3_fixedpoint_query(ctx(), m_fp, q); check_error(); return to_check_result(r); }
         check_result query(func_decl_vector& relations) { 
             array<Z3_func_decl> rs(relations);
             Z3_lbool r = Z3_fixedpoint_query_relations(ctx(), m_fp, rs.size(), rs.ptr()); 
@@ -2194,9 +2253,13 @@ namespace z3 {
         }
         expr get_answer() { Z3_ast r = Z3_fixedpoint_get_answer(ctx(), m_fp); check_error(); return expr(ctx(), r); }
         std::string reason_unknown() { return Z3_fixedpoint_get_reason_unknown(ctx(), m_fp); }
-        void update_rule(expr& rule, synbol const& name) { Z3_fixedpoint_update_rule(ctx(), m_fp, rule, name); check_error(); }
+        void update_rule(expr& rule, symbol const& name) { Z3_fixedpoint_update_rule(ctx(), m_fp, rule, name); check_error(); }
         unsigned get_num_levels(func_decl& p) { unsigned r = Z3_fixedpoint_get_num_levels(ctx(), m_fp, p); check_error(); return r; }
-        expr get_cover_delta(int level, func_decl& p) { return Z3_fixedpoint_get_cover_delta(ctx(), m_fp, level, p); check_error();  }
+        expr get_cover_delta(int level, func_decl& p) { 
+            Z3_ast r = Z3_fixedpoint_get_cover_delta(ctx(), m_fp, level, p); 
+            check_error();  
+            return expr(ctx(), r);
+        }
         void add_cover(int level, func_decl& p, expr& property) { Z3_fixedpoint_add_cover(ctx(), m_fp, level, p, property); check_error();  }
         stats statistics() const { Z3_stats r = Z3_fixedpoint_get_statistics(ctx(), m_fp); check_error(); return stats(ctx(), r); }
         void register_relation(func_decl& p) { Z3_fixedpoint_register_relation(ctx(), m_fp, p); }
@@ -2205,11 +2268,15 @@ namespace z3 {
         void set(params const & p) { Z3_fixedpoint_set_params(ctx(), m_fp, p); check_error(); }
         std::string help() const { return Z3_fixedpoint_get_help(ctx(), m_fp); }
         param_descrs get_param_descrs() { return param_descrs(ctx(), Z3_fixedpoint_get_param_descrs(ctx(), m_fp)); }
-        std::string to_string() { return Z3_fixedpoint_to_string(ctx(), m_fp); }
+        std::string to_string() { return Z3_fixedpoint_to_string(ctx(), m_fp, 0, 0); }
+        std::string to_string(expr_vector const& queries) {
+            array<Z3_ast> qs(queries);
+            return Z3_fixedpoint_to_string(ctx(), m_fp, qs.size(), qs.ptr()); 
+        }
         void push() { Z3_fixedpoint_push(ctx(), m_fp); check_error(); }
         void pop() { Z3_fixedpoint_pop(ctx(), m_fp); check_error(); }
     };
-    inline std::ostream & operator<<(std::ostream & out, fixedpoint const & f) { return out << Z3_fixedpoint_to_string(f.ctx(), f); }
+    inline std::ostream & operator<<(std::ostream & out, fixedpoint const & f) { return out << Z3_fixedpoint_to_string(f.ctx(), f, 0, 0); }
 
     inline tactic fail_if(probe const & p) {
         Z3_tactic r = Z3_tactic_fail_if(p.ctx(), p);

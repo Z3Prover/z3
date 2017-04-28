@@ -868,7 +868,8 @@ namespace smt {
                 e = ctx.get_enode(to_app(n));                
             }
             else {
-                e = ctx.mk_enode(to_app(n), false, false, true);
+                ctx.internalize(n, false);
+                e = ctx.get_enode(n);
             }            
             v = e->get_th_var(get_id());
             if (v == null_theory_var) {
@@ -901,7 +902,7 @@ namespace smt {
         objective_term const& objective = m_objectives[v];
         has_shared = false;
         
-        IF_VERBOSE(1,
+        IF_VERBOSE(4,
                    for (unsigned i = 0; i < objective.size(); ++i) {
                        verbose_stream() << objective[i].second 
                                         << " * v" << objective[i].first << " ";
@@ -991,9 +992,12 @@ namespace smt {
                 if (num_nodes <= v && v < num_nodes + num_edges) {
                     unsigned edge_id = v - num_nodes;
                     literal lit = m_edges[edge_id].m_justification;
-                    get_context().literal2expr(lit, tmp);
-                    core.push_back(tmp);
+                    if (lit != null_literal) {
+                        get_context().literal2expr(lit, tmp);
+                        core.push_back(tmp);
+                    }
                 }
+                TRACE("opt", tout << core << "\n";);
             }
             for (unsigned i = 0; i < num_nodes; ++i) {
                 mpq_inf const& val = S.get_value(i);
@@ -1005,7 +1009,8 @@ namespace smt {
             inf_eps result(rational(0), r);
             blocker = mk_gt(v, result);
             IF_VERBOSE(10, verbose_stream() << blocker << "\n";);
-            return result;
+            r += m_objective_consts[v];
+            return inf_eps(rational(0), r);
         }
         default:
             TRACE("opt", tout << "unbounded\n"; );        
@@ -1016,6 +1021,7 @@ namespace smt {
 
     template<typename Ext>
     theory_var theory_dense_diff_logic<Ext>::add_objective(app* term) {
+        TRACE("opt", tout << mk_pp(term, get_manager()) << "\n";);
         objective_term objective;
         theory_var result = m_objectives.size();
         rational q(1), r(0);
@@ -1050,6 +1056,7 @@ namespace smt {
         ast_manager& m = get_manager();
         objective_term const& t = m_objectives[v];
         expr_ref e(m), f(m), f2(m);
+        TRACE("opt", tout << "mk_ineq " << v << " " << val << "\n";);
         if (t.size() == 1 && t[0].second.is_one()) {
             f = get_enode(t[0].first)->get_owner();
         }

@@ -38,6 +38,7 @@ namespace smt {
         bool                 m_minimizing_core;
         bool                 m_core_extend_patterns;
         unsigned             m_core_extend_patterns_max_distance;
+        bool                 m_core_extend_nonlocal_patterns;
         obj_map<expr, expr*> m_name2assertion;
 
     public:
@@ -48,13 +49,15 @@ namespace smt {
             m_context(m, m_smt_params),
             m_minimizing_core(false),
             m_core_extend_patterns(false),
-            m_core_extend_patterns_max_distance(UINT_MAX) {
+            m_core_extend_patterns_max_distance(UINT_MAX),
+            m_core_extend_nonlocal_patterns(false) {
             m_logic = l;
             if (m_logic != symbol::null)
                 m_context.set_logic(m_logic);
             smt_params_helper smth(p);
             m_core_extend_patterns = smth.core_extend_patterns();
             m_core_extend_patterns_max_distance = smth.core_extend_patterns_max_distance();
+            m_core_extend_nonlocal_patterns = smth.core_extend_nonlocal_patterns();
         }
 
         virtual solver * translate(ast_manager & m, params_ref const & p) {
@@ -81,6 +84,8 @@ namespace smt {
             m_context.updt_params(p);
             smt_params_helper smth(p);
             m_core_extend_patterns = smth.core_extend_patterns();
+            m_core_extend_patterns_max_distance = smth.core_extend_patterns_max_distance();
+            m_core_extend_nonlocal_patterns = smth.core_extend_nonlocal_patterns();
         }
 
         virtual void collect_param_descrs(param_descrs & r) {
@@ -172,6 +177,8 @@ namespace smt {
 
             if (m_core_extend_patterns)
                 add_pattern_literals_to_core(r);
+            if (m_core_extend_nonlocal_patterns)
+                add_nonlocal_pattern_literals_to_core(r);
         }
 
         virtual void get_model(model_ref & m) {
@@ -250,7 +257,7 @@ namespace smt {
             }
         };
 
-        void collect_pattern_func_decls(expr_ref & e, func_decl_set & fds) {
+        void collect_pattern_fds(expr_ref & e, func_decl_set & fds) {
             collect_pattern_fds_proc p(get_manager(), fds);
             expr_mark visited;
             for_each_expr(p, visited, e);
@@ -295,7 +302,7 @@ namespace smt {
                     expr_ref name(core[i], m);
                     SASSERT(m_name2assertion.contains(name));
                     expr_ref assrtn(m_name2assertion.find(name), m);
-                    collect_pattern_func_decls(assrtn, pattern_fds);
+                    collect_pattern_fds(assrtn, pattern_fds);
                 }
 
                 if (!pattern_fds.empty()) {
@@ -315,6 +322,55 @@ namespace smt {
 
                 if (new_core_literals.empty())
                     break;
+            }
+        }
+
+        struct collect_body_fds_proc {
+            ast_manager & m;
+            func_decl_set & m_fds;
+            collect_body_fds_proc(ast_manager & m, func_decl_set & fds) :
+                m(m), m_fds(fds) {
+            }
+            void operator()(var * n) {}
+            void operator()(app * n) {}
+            void operator()(quantifier * n) {
+                collect_fds_proc p(m, m_fds);
+                expr_fast_mark1 visited;
+                quick_for_each_expr(p, visited, n->get_expr());
+            }
+        };
+
+        void collect_body_func_decls(expr_ref & e, func_decl_set & fds) {
+            ast_manager & m = get_manager();
+            collect_body_fds_proc p(m, fds);
+            expr_mark visited;
+            for_each_expr(p, visited, e);
+        }
+
+        void add_nonlocal_pattern_literals_to_core(ptr_vector<expr> & core) {
+            ast_manager & m = get_manager();
+
+            obj_map<expr, expr*>::iterator it = m_name2assertion.begin();
+            obj_map<expr, expr*>::iterator end = m_name2assertion.end();
+            for (unsigned i = 0; it != end; it++, i++) {
+                expr_ref name(it->m_key, m);
+                expr_ref assrtn(it->m_value, m);
+
+                if (!core.contains(name)) {
+                    func_decl_set pattern_fds, body_fds;
+                    collect_pattern_fds(assrtn, pattern_fds);
+                    collect_body_func_decls(assrtn, body_fds);
+
+                    func_decl_set::iterator pit = pattern_fds.begin();
+                    func_decl_set::iterator pend= pattern_fds.end();
+                    for (; pit != pend; pit++) {
+                        func_decl * fd = *pit;
+                        if (!body_fds.contains(fd)) {
+                            core.insert(name);
+                            break;
+                        }
+                    }
+                }
             }
         }
     };

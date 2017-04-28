@@ -91,6 +91,9 @@ namespace sat {
         unsigned               m_num_sub_res;
         unsigned               m_num_elim_lits;
 
+        bool                   m_learned_in_use_lists;
+        unsigned               m_old_num_elim_vars;
+
         struct size_lt {
             bool operator()(clause const * c1, clause const * c2) const { return c1->size() > c2->size(); }
         };
@@ -167,6 +170,14 @@ namespace sat {
         struct blocked_cls_report;
         struct subsumption_report;
         struct elim_var_report;
+
+        class scoped_finalize {
+            simplifier& s;
+        public:
+            scoped_finalize(simplifier& s) : s(s) {}
+            ~scoped_finalize() { s.scoped_finalize_fn(); }
+        };
+        void scoped_finalize_fn();
 
     public:
         simplifier(solver & s, params_ref const & p);

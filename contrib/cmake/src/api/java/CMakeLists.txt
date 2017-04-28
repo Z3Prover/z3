@@ -44,7 +44,6 @@ target_link_libraries(z3java PRIVATE libz3)
 # Z3's components to build ``Native.cpp`` lets do the same for now.
 target_compile_options(z3java PRIVATE ${Z3_COMPONENT_CXX_FLAGS})
 target_compile_definitions(z3java PRIVATE ${Z3_COMPONENT_CXX_DEFINES})
-z3_append_linker_flag_list_to_target(z3java ${Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS})
 target_include_directories(z3java PRIVATE
   "${CMAKE_SOURCE_DIR}/src/api"
   "${CMAKE_BINARY_DIR}/src/api"

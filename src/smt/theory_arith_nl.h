@@ -339,8 +339,13 @@ namespace smt {
               tout << mk_pp(var, get_manager()) << "\n";
               tout << "power " << power << ": " << expt(i, power) << "\n";
               display_interval(tout << "target before: ", target); tout << "\n";);
+
         i.expt(power);
         target *= i;
+
+        get_manager().limit().inc((target.is_lower_open() || target.minus_infinity()) ? 1 : target.get_lower_value().bitsize());
+        get_manager().limit().inc((target.is_upper_open() || target.plus_infinity()) ? 1 : target.get_upper_value().bitsize());
+
         TRACE("non_linear", display_interval(tout << "target after: ", target); tout << "\n";);
     }
 

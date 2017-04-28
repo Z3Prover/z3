@@ -52,7 +52,7 @@ extern "C" {
     }
 
     Z3_ast Z3_API Z3_mk_pble(Z3_context c, unsigned num_args,
-                             Z3_ast const args[], int _coeffs[],
+                             Z3_ast const args[], int const _coeffs[],
                              int k) {
         Z3_TRY;
         LOG_Z3_mk_pble(c, num_args, args, _coeffs, k);
@@ -70,7 +70,7 @@ extern "C" {
     }
 
     Z3_ast Z3_API Z3_mk_pbge(Z3_context c, unsigned num_args,
-                             Z3_ast const args[], int _coeffs[],
+                             Z3_ast const args[], int const _coeffs[],
                              int k) {
         Z3_TRY;
         LOG_Z3_mk_pble(c, num_args, args, _coeffs, k);
@@ -88,7 +88,7 @@ extern "C" {
     }
 
     Z3_ast Z3_API Z3_mk_pbeq(Z3_context c, unsigned num_args,
-                             Z3_ast const args[], int _coeffs[],
+                             Z3_ast const args[], int const _coeffs[],
                              int k) {
         Z3_TRY;
         LOG_Z3_mk_pble(c, num_args, args, _coeffs, k);

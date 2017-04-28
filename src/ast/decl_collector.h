@@ -21,6 +21,7 @@ Revision History:
 #define SMT_DECL_COLLECTOR_H_
 
 #include"ast.h"
+#include"datatype_decl_plugin.h"
 
 class decl_collector {
     ast_manager &         m_manager;
@@ -28,9 +29,10 @@ class decl_collector {
     ptr_vector<sort>      m_sorts;
     ptr_vector<func_decl> m_decls;
     ptr_vector<func_decl> m_preds;
-    ast_mark m_visited;
-    family_id m_basic_fid;
-    family_id m_dt_fid;
+    ast_mark              m_visited;
+    family_id             m_basic_fid;
+    family_id             m_dt_fid;
+    datatype_util         m_dt_util;
 
     void visit_sort(sort* n);
     bool is_bool(sort* s);

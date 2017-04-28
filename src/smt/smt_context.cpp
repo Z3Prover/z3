@@ -304,7 +304,6 @@ namespace smt {
         TRACE("assign_core", tout << (decision?"decision: ":"propagating: ") << l << " ";              
               display_literal_verbose(tout, l); tout << " level: " << m_scope_lvl << "\n";
               display(tout, j););
-        SASSERT(l.var() < static_cast<int>(m_b_internalized_stack.size()));
         m_assigned_literals.push_back(l);
         m_assignment[l.index()]    = l_true;
         m_assignment[(~l).index()] = l_false;
@@ -319,14 +318,23 @@ namespace smt {
         d.m_phase_available        = true;
         d.m_phase                  = !l.sign();
         TRACE("phase_selection", tout << "saving phase, is_pos: " << d.m_phase << " l: " << l << "\n";);
+
         TRACE("relevancy", 
-              tout << "is_atom: " << d.is_atom() << " is relevant: " << is_relevant_core(bool_var2expr(l.var())) << "\n";);
-        if (d.is_atom() && (m_fparams.m_relevancy_lvl == 0 || (m_fparams.m_relevancy_lvl == 1 && !d.is_quantifier()) || is_relevant_core(bool_var2expr(l.var()))))
+              tout << "is_atom: " << d.is_atom() << " is relevant: " << is_relevant_core(l) << "\n";);
+        if (d.is_atom() && (m_fparams.m_relevancy_lvl == 0 || (m_fparams.m_relevancy_lvl == 1 && !d.is_quantifier()) || is_relevant_core(l)))
             m_atom_propagation_queue.push_back(l);
 
         if (m_manager.has_trace_stream())
             trace_assign(l, j, decision);
         m_case_split_queue->assign_lit_eh(l);
+
+        // a unit is asserted at search level. Mark it as relevant.
+        // this addresses bug... where a literal becomes fixed to true (false)
+        // as a conflict gets assigned misses relevancy (and quantifier instantiation).
+        // 
+        if (false && !decision && relevancy() && at_search_level() && !is_relevant_core(l)) {
+            mark_as_relevant(l);
+        }
     }
     
     bool context::bcp() {
@@ -1634,7 +1642,7 @@ namespace smt {
                     m_atom_propagation_queue.push_back(literal(v, val == l_false));
             }
         }
-        TRACE("propagate_relevancy", tout << "marking as relevant:\n" << mk_bounded_pp(n, m_manager) << "\n";);
+        TRACE("propagate_relevancy", tout << "marking as relevant:\n" << mk_bounded_pp(n, m_manager) << " " << m_scope_lvl << "\n";);
 #ifndef SMTCOMP
         m_case_split_queue->relevant_eh(n);
 #endif
@@ -3073,11 +3081,11 @@ namespace smt {
         m_assumptions.reset();
     }
 
-    void context::mk_unsat_core() {
+    lbool context::mk_unsat_core() {
         SASSERT(inconsistent());
         if (!tracking_assumptions()) {
             SASSERT(m_assumptions.empty());
-            return; 
+            return l_false;
         }
         uint_set already_found_assumptions;
         literal_vector::const_iterator it  = m_conflict_resolution->begin_unsat_core();
@@ -3102,7 +3110,17 @@ namespace smt {
               for (unsigned i = 0; i < sz; i++) {
                   tout << mk_pp(m_unsat_core.get(i), m_manager) << "\n";
               });
-        validate_unsat_core();        
+        validate_unsat_core();
+        // theory validation of unsat core
+        ptr_vector<theory>::iterator th_it = m_theory_set.begin();
+        ptr_vector<theory>::iterator th_end = m_theory_set.end();
+        for (; th_it != th_end; ++th_it) {
+            lbool theory_result = (*th_it)->validate_unsat_core(m_unsat_core);
+            if (theory_result == l_undef) {
+                return l_undef;
+            }
+        }
+        return l_false;
     }
 
     /**
@@ -3145,6 +3163,14 @@ namespace smt {
         SASSERT(m_scope_lvl == 0);
         SASSERT(!m_setup.already_configured());
         setup_context(m_fparams.m_auto_config);
+
+        expr_ref_vector theory_assumptions(m_manager);
+        add_theory_assumptions(theory_assumptions);
+        if (!theory_assumptions.empty()) {
+            TRACE("search", tout << "Adding theory assumptions to context" << std::endl;);
+            return check(theory_assumptions.size(), theory_assumptions.c_ptr(), reset_cancel, true);
+        }
+
         internalize_assertions();
         lbool r = l_undef;
         if (m_asserted_formulas.inconsistent()) {
@@ -3206,7 +3232,15 @@ namespace smt {
             (*it)->setup();
     }
 
-    lbool context::check(unsigned num_assumptions, expr * const * assumptions, bool reset_cancel) {
+    void context::add_theory_assumptions(expr_ref_vector & theory_assumptions) {
+        ptr_vector<theory>::iterator it = m_theory_set.begin();
+        ptr_vector<theory>::iterator end = m_theory_set.end();
+        for (; it != end; ++it) {
+            (*it)->add_theory_assumptions(theory_assumptions);
+        }
+    }
+
+    lbool context::check(unsigned ext_num_assumptions, expr * const * ext_assumptions, bool reset_cancel, bool already_did_theory_assumptions) {
         m_stats.m_num_checks++;
         TRACE("check_bug", tout << "STARTING check(num_assumptions, assumptions)\n";
               tout << "inconsistent: " << inconsistent() << ", m_unsat_core.empty(): " << m_unsat_core.empty() << "\n";
@@ -3217,6 +3251,15 @@ namespace smt {
             m_unsat_core.reset();
         if (!check_preamble(reset_cancel))
             return l_undef;
+
+        expr_ref_vector all_assumptions(m_manager, ext_num_assumptions, ext_assumptions);
+        if (!already_did_theory_assumptions) {
+            add_theory_assumptions(all_assumptions);            
+        }
+
+        unsigned num_assumptions = all_assumptions.size();
+        expr * const * assumptions = all_assumptions.c_ptr();
+
         if (!validate_assumptions(num_assumptions, assumptions))
             return l_undef;
         TRACE("check_bug", tout << "inconsistent: " << inconsistent() << ", m_unsat_core.empty(): " << m_unsat_core.empty() << "\n";);
@@ -3240,13 +3283,21 @@ namespace smt {
                 TRACE("after_internalization", display(tout););
                 if (inconsistent()) {
                     VERIFY(!resolve_conflict()); // build the proof
-                    mk_unsat_core();
-                    r = l_false;
+                    lbool result = mk_unsat_core();
+                    if (result == l_undef) {
+                        r = l_undef;
+                    } else {
+                        r = l_false;
+                    }
                 }
                 else {
                     r = search();
-                    if (r == l_false)
-                        mk_unsat_core();
+                    if (r == l_false) {
+                        lbool result = mk_unsat_core();
+                        if (result == l_undef) {
+                            r = l_undef;
+                        }
+                    }
                 }
             }
         }
@@ -3750,6 +3801,7 @@ namespace smt {
             // I invoke pop_scope_core instead of pop_scope because I don't want
             // to reset cached generations... I need them to rebuild the literals
             // of the new conflict clause.
+            if (relevancy()) record_relevancy(num_lits, lits);
             unsigned num_bool_vars = pop_scope_core(m_scope_lvl - new_lvl);
             SASSERT(m_scope_lvl == new_lvl);
             // the logical context may still be in conflict after
@@ -3781,6 +3833,7 @@ namespace smt {
                     }
                 }
             }
+            if (relevancy()) restore_relevancy(num_lits, lits);
             // Resetting the cache manually because I did not invoke pop_scope, but pop_scope_core
             reset_cache_generation();
             TRACE("resolve_conflict_bug", 
@@ -3862,6 +3915,28 @@ namespace smt {
             check_proof(m_unsat_proof);
         }
         return false;
+    }
+    
+    /*
+      \brief we record and restore relevancy information for literals in conflict clauses.
+      A literal may have been marked relevant within the scope that gets popped during
+      conflict resolution. In this case, the literal is no longer marked as relevant after
+      the pop. This can cause quantifier instantiation to miss relevant triggers and thereby
+      cause incmpleteness.
+     */
+    void context::record_relevancy(unsigned n, literal const* lits) {
+        m_relevant_conflict_literals.reset();
+        for (unsigned i = 0; i < n; ++i) {
+            m_relevant_conflict_literals.push_back(is_relevant(lits[i]));
+        }
+    }
+
+    void context::restore_relevancy(unsigned n, literal const* lits) {
+        for (unsigned i = 0; i < n; ++i) {
+            if (m_relevant_conflict_literals[i] && !is_relevant(lits[i])) {
+                mark_as_relevant(lits[i]);
+            }
+        }
     }
 
     void context::get_relevant_labels(expr* cnstr, buffer<symbol> & result) {
@@ -4195,41 +4270,20 @@ namespace smt {
         for (unsigned i = 0; i < m_asserted_formulas.get_num_formulas(); ++i) {
             expr* e = m_asserted_formulas.get_formula(i);
             if (is_quantifier(e)) {
+                TRACE("context", tout << mk_pp(e, m) << "\n";);
                 quantifier* q = to_quantifier(e);
                 if (!m.is_rec_fun_def(q)) continue;
-                SASSERT(q->get_num_patterns() == 1);
+                SASSERT(q->get_num_patterns() == 2);
                 expr* fn = to_app(q->get_pattern(0))->get_arg(0);
+                expr* body = to_app(q->get_pattern(1))->get_arg(0);
                 SASSERT(is_app(fn));
                 func_decl* f = to_app(fn)->get_decl();
-                expr* eq = q->get_expr();
-                expr_ref body(m);
-                if (is_fun_def(fn, q->get_expr(), body)) {
-                    func_interp* fi = alloc(func_interp, m, f->get_arity());
-                    fi->set_else(body);
-                    m_model->register_decl(f, fi);
-                }
+                func_interp* fi = alloc(func_interp, m, f->get_arity());
+                fi->set_else(body);
+                m_model->register_decl(f, fi);            
             }
         }
     }
-
-    bool context::is_fun_def(expr* f, expr* body, expr_ref& result) {
-        expr* t1, *t2, *t3;
-        if (m_manager.is_eq(body, t1, t2) || m_manager.is_iff(body, t1, t2)) {
-            if (t1 == f) return result = t2, true;
-            if (t2 == f) return result = t1, true;
-            return false;
-        }
-        if (m_manager.is_ite(body, t1, t2, t3)) {
-            expr_ref body1(m_manager), body2(m_manager);
-            if (is_fun_def(f, t2, body1) && is_fun_def(f, t3, body2)) {
-                // f is not free in t1
-                result = m_manager.mk_ite(t1, body1, body2);
-                return true;
-            }
-        }
-        return false;
-    }
-
 
 };
 

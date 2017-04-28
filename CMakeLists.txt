@@ -35,18 +35,21 @@ set(Z3_VERSION_MAJOR 4)
 set(Z3_VERSION_MINOR 5)
 set(Z3_VERSION_PATCH 1)
 set(Z3_VERSION_TWEAK 0303)
-set(Z3_FULL_VERSION 0)
 set(Z3_VERSION "${Z3_VERSION_MAJOR}.${Z3_VERSION_MINOR}.${Z3_VERSION_PATCH}.${Z3_VERSION_TWEAK}")
+set(Z3_FULL_VERSION_STR "${Z3_VERSION}") # Note this might be modified
 message(STATUS "Z3 version ${Z3_VERSION}")
 
 ################################################################################
 # Set various useful variables depending on CMake version
 ################################################################################
 if (("${CMAKE_VERSION}" VERSION_EQUAL "3.2") OR ("${CMAKE_VERSION}" VERSION_GREATER "3.2"))
-  # In CMake >= 3.2 add_custom_command() supports a ``USES_TERMINAL`` argument
+  # In CMake >= 3.2 add_custom_command() and add_custom_target()
+  # supports a ``USES_TERMINAL`` argument
   set(ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG "USES_TERMINAL")
+  set(ADD_CUSTOM_TARGET_USES_TERMINAL_ARG "USES_TERMINAL")
 else()
   set(ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG "")
+  set(ADD_CUSTOM_TARGET_USES_TERMINAL_ARG "")
 endif()
 
 ################################################################################
@@ -76,6 +79,64 @@ endif()
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
 
 ################################################################################
+# Handle git hash and description
+################################################################################
+include(${CMAKE_SOURCE_DIR}/cmake/git_utils.cmake)
+macro(disable_git_describe)
+  message(WARNING "Disabling INCLUDE_GIT_DESCRIBE")
+  set(INCLUDE_GIT_DESCRIBE OFF CACHE BOOL "Include git describe output in version output" FORCE)
+endmacro()
+macro(disable_git_hash)
+  message(WARNING "Disabling INCLUDE_GIT_HASH")
+  set(INCLUDE_GIT_HASH OFF CACHE BOOL "Include git hash in version output" FORCE)
+  unset(Z3GITHASH) # Used in configure_file()
+endmacro()
+option(INCLUDE_GIT_HASH "Include git hash in version output" ON)
+option(INCLUDE_GIT_DESCRIBE "Include git describe output in version output" ON)
+
+set(GIT_DIR "${CMAKE_SOURCE_DIR}/.git")
+if (EXISTS "${GIT_DIR}")
+  # Try to make CMake configure depend on the current git HEAD so that
+  # a re-configure is triggered when the HEAD changes.
+  add_git_dir_dependency("${GIT_DIR}" ADD_GIT_DEP_SUCCESS)
+  if (ADD_GIT_DEP_SUCCESS)
+    if (INCLUDE_GIT_HASH)
+      get_git_head_hash("${GIT_DIR}" Z3GITHASH)
+      if (NOT Z3GITHASH)
+        message(WARNING "Failed to get Git hash")
+        disable_git_hash()
+      endif()
+      message(STATUS "Using Git hash in version output: ${Z3GITHASH}")
+      # This mimics the behaviour of the old build system.
+      string(APPEND Z3_FULL_VERSION_STR " ${Z3GITHASH}")
+    else()
+      message(STATUS "Not using Git hash in version output")
+      unset(Z3GITHASH) # Used in configure_file()
+    endif()
+    if (INCLUDE_GIT_DESCRIBE)
+      get_git_head_describe("${GIT_DIR}" Z3_GIT_DESCRIPTION)
+      if (NOT Z3_GIT_DESCRIPTION)
+        message(WARNING "Failed to get Git description")
+        disable_git_describe()
+      endif()
+      message(STATUS "Using Git description in version output: ${Z3_GIT_DESCRIPTION}")
+      # This mimics the behaviour of the old build system.
+      string(APPEND Z3_FULL_VERSION_STR " ${Z3_GIT_DESCRIPTION}")
+    else()
+      message(STATUS "Not including git descrption in version")
+    endif()
+  else()
+    message(WARNING "Failed to add git dependency.")
+    disable_git_describe()
+    disable_git_hash()
+  endif()
+else()
+  message(STATUS "Failed to find git directory.")
+  disable_git_describe()
+  disable_git_hash()
+endif()
+
+################################################################################
 # Useful CMake functions/Macros
 ################################################################################
 include(CheckCXXSourceCompiles)
@@ -89,7 +150,6 @@ set(Z3_COMPONENT_CXX_FLAGS "")
 set(Z3_COMPONENT_EXTRA_INCLUDE_DIRS "")
 set(Z3_DEPENDENT_LIBS "")
 set(Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS "")
-set(Z3_DEPENDENT_EXTRA_C_LINK_FLAGS "")
 
 ################################################################################
 # Build type
@@ -236,11 +296,7 @@ if (OPENMP_FOUND)
     # flag by MSVC and breaks the build
     if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang") OR
         ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU"))
-      list(APPEND Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS ${OpenMP_C_FLAGS})
-    endif()
-    if (("${CMAKE_C_COMPILER_ID}" MATCHES "Clang") OR
-        ("${CMAKE_C_COMPILER_ID}" MATCHES "GNU"))
-      list(APPEND Z3_DEPENDENT_EXTRA_C_LINK_FLAGS ${OpenMP_CXX_FLAGS})
+      list(APPEND Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS ${OpenMP_CXX_FLAGS})
     endif()
     unset(CMAKE_REQUIRED_FLAGS)
     message(STATUS "Using OpenMP")
@@ -328,7 +384,6 @@ message(STATUS "Z3_COMPONENT_CXX_FLAGS: ${Z3_COMPONENT_CXX_FLAGS}")
 message(STATUS "Z3_DEPENDENT_LIBS: ${Z3_DEPENDENT_LIBS}")
 message(STATUS "Z3_COMPONENT_EXTRA_INCLUDE_DIRS: ${Z3_COMPONENT_EXTRA_INCLUDE_DIRS}")
 message(STATUS "Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS: ${Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS}")
-message(STATUS "Z3_DEPENDENT_EXTRA_C_LINK_FLAGS: ${Z3_DEPENDENT_EXTRA_C_LINK_FLAGS}")
 
 ################################################################################
 # Z3 installation locations
@@ -340,10 +395,18 @@ set(CMAKE_INSTALL_PKGCONFIGDIR
   PATH
   "Directory to install pkgconfig files"
 )
+
+set(CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR
+  "${CMAKE_INSTALL_LIBDIR}/cmake/z3"
+  CACHE
+  PATH
+  "Directory to install Z3 CMake package files"
+)
 message(STATUS "CMAKE_INSTALL_LIBDIR: \"${CMAKE_INSTALL_LIBDIR}\"")
 message(STATUS "CMAKE_INSTALL_BINDIR: \"${CMAKE_INSTALL_BINDIR}\"")
 message(STATUS "CMAKE_INSTALL_INCLUDEDIR: \"${CMAKE_INSTALL_INCLUDEDIR}\"")
 message(STATUS "CMAKE_INSTALL_PKGCONFIGDIR: \"${CMAKE_INSTALL_PKGCONFIGDIR}\"")
+message(STATUS "CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR: \"${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}\"")
 
 ################################################################################
 # Uninstall rule
@@ -392,9 +455,90 @@ include(${CMAKE_SOURCE_DIR}/cmake/z3_append_linker_flag_list_to_target.cmake)
 add_subdirectory(src)
 
 ################################################################################
+# Create `Z3Config.cmake` and related files for the build tree so clients can
+# use Z3 via CMake.
+################################################################################
+include(CMakePackageConfigHelpers)
+export(EXPORT Z3_EXPORTED_TARGETS
+  NAMESPACE z3::
+  FILE "${CMAKE_BINARY_DIR}/Z3Targets.cmake"
+)
+set(Z3_FIRST_PACKAGE_INCLUDE_DIR "${CMAKE_BINARY_DIR}/src/api")
+set(Z3_SECOND_PACKAGE_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/api")
+set(Z3_CXX_PACKAGE_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/api/c++")
+set(AUTO_GEN_MSG "Automatically generated. DO NOT EDIT")
+set(CONFIG_FILE_TYPE "build tree")
+configure_package_config_file("${CMAKE_SOURCE_DIR}/cmake/Z3Config.cmake.in"
+  "Z3Config.cmake"
+  INSTALL_DESTINATION "${CMAKE_BINARY_DIR}"
+  PATH_VARS
+    Z3_FIRST_PACKAGE_INCLUDE_DIR
+    Z3_SECOND_PACKAGE_INCLUDE_DIR
+    Z3_CXX_PACKAGE_INCLUDE_DIR
+  INSTALL_PREFIX "${CMAKE_BINARY_DIR}"
+)
+unset(Z3_FIRST_PACKAGE_INCLUDE_DIR)
+unset(Z3_SECOND_PACKAGE_INCLUDE_DIR)
+unset(Z3_CXX_PACKAGE_INCLUDE_DIR)
+unset(AUTO_GEN_MSG)
+unset(CONFIG_FILE_TYPE)
+# TODO: Provide a `Z3Version.cmake` file so that clients can specify the version
+# of Z3 they want.
+
+################################################################################
+# Create `Z3Config.cmake` and related files for install tree so clients can use
+# Z3 via CMake.
+################################################################################
+install(EXPORT
+  Z3_EXPORTED_TARGETS
+  FILE "Z3Targets.cmake"
+  NAMESPACE z3::
+  DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
+)
+set(Z3_INSTALL_TREE_CMAKE_CONFIG_FILE "${CMAKE_BINARY_DIR}/cmake/Z3Config.cmake")
+set(Z3_FIRST_PACKAGE_INCLUDE_DIR "${CMAKE_INSTALL_INCLUDEDIR}")
+set(Z3_SECOND_INCLUDE_DIR "")
+set(Z3_CXX_PACKAGE_INCLUDE_DIR "")
+set(AUTO_GEN_MSG "Automatically generated. DO NOT EDIT")
+set(CONFIG_FILE_TYPE "install tree")
+# We use `configure_package_config_file()` to try and create CMake files
+# that are re-locatable so that it doesn't matter if the files aren't placed
+# in the original install prefix.
+configure_package_config_file("${CMAKE_SOURCE_DIR}/cmake/Z3Config.cmake.in"
+  "${Z3_INSTALL_TREE_CMAKE_CONFIG_FILE}"
+  INSTALL_DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
+  PATH_VARS Z3_FIRST_PACKAGE_INCLUDE_DIR
+)
+unset(Z3_FIRST_PACKAGE_INCLUDE_DIR)
+unset(Z3_SECOND_PACKAGE_INCLUDE_DIR)
+unset(Z3_CXX_PACKAGE_INCLUDE_DIR)
+unset(AUTO_GEN_MSG)
+unset(CONFIG_FILE_TYPE)
+
+# Add install rule to install ${Z3_INSTALL_TREE_CMAKE_CONFIG_FILE}
+install(
+  FILES "${Z3_INSTALL_TREE_CMAKE_CONFIG_FILE}"
+  DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
+)
+
+# TODO: Provide a `Z3Version.cmake` file so that clients can specify the version
+# of Z3 they want.
+
+################################################################################
 # Examples
 ################################################################################
 option(ENABLE_EXAMPLE_TARGETS "Build Z3 api examples" ON)
 if (ENABLE_EXAMPLE_TARGETS)
   add_subdirectory(examples)
+endif()
+
+################################################################################
+# Documentation
+################################################################################
+option(BUILD_DOCUMENTATION "Build API documentation" OFF)
+if (BUILD_DOCUMENTATION)
+  message(STATUS "Building documentation enabled")
+  add_subdirectory(doc)
+else()
+  message(STATUS "Building documentation disabled")
 endif()

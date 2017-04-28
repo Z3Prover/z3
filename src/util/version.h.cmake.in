@@ -1,0 +1,8 @@
+// automatically generated file.
+#define Z3_MAJOR_VERSION   @Z3_VERSION_MAJOR@
+#define Z3_MINOR_VERSION   @Z3_VERSION_MINOR@
+#define Z3_BUILD_NUMBER    @Z3_VERSION_PATCH@
+#define Z3_REVISION_NUMBER @Z3_VERSION_TWEAK@
+
+#define Z3_FULL_VERSION    @Z3_FULL_VERSION@
+#cmakedefine Z3GITHASH @Z3GITHASH@

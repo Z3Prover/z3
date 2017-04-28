@@ -126,6 +126,12 @@ namespace datalog {
         app* s;
         var* v;
 
+        // disable Ackerman reduction if head contains a non-variable or non-constant argument.
+        for (unsigned i = 0; i < to_app(head)->get_num_args(); ++i) {
+            expr* arg = to_app(head)->get_arg(i);            
+            if (!is_var(arg) && !m.is_value(arg)) return false;
+        }
+
         for (unsigned i = 0; i < conjs.size(); ++i) {
             expr* e = conjs[i].get();
             if (is_select_eq_var(e, s, v)) {
@@ -281,6 +287,7 @@ namespace datalog {
         m_rewriter(body);
         sub(head);
         m_rewriter(head);
+        TRACE("dl", tout << body << " => " << head << "\n";);
         change = ackermanize(r, body, head);
         if (!change) {
             rules.add_rule(&r);

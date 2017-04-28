@@ -570,6 +570,7 @@ namespace smt {
         void display_disequation(std::ostream& out, ne const& e) const;
         void display_deps(std::ostream& out, dependency* deps) const;
         void display_deps(std::ostream& out, literal_vector const& lits, enode_pair_vector const& eqs) const;
+        void display_nc(std::ostream& out, nc const& nc) const;
     public:
         theory_seq(ast_manager& m);
         virtual ~theory_seq();

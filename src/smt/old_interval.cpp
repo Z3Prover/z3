@@ -81,7 +81,7 @@ ext_numeral & ext_numeral::operator*=(ext_numeral const & other) {
         m_value.reset();
         return *this;
     }
-    
+
     if (is_infinite() || other.is_infinite()) {
         if (sign() == other.sign())
             m_kind = PLUS_INFINITY;
@@ -203,7 +203,7 @@ interval::interval(v_dependency_manager & m, rational const & val, v_dependency 
     m_lower_dep(l_dep),
     m_upper_dep(u_dep) {
 }
- 
+
 /**
    \brief Create intervals (-oo, val], (-oo, val), [val, oo), (val, oo)
 */
@@ -271,8 +271,8 @@ interval & interval::operator-=(interval const & other) {
     return operator+=(tmp);
 }
 
-v_dependency * interval::join(v_dependency * d1, v_dependency * d2, v_dependency * d3, v_dependency * d4) { 
-    return m_manager.mk_join(m_manager.mk_join(d1, d2), m_manager.mk_join(d3,d4)); 
+v_dependency * interval::join(v_dependency * d1, v_dependency * d2, v_dependency * d3, v_dependency * d4) {
+    return m_manager.mk_join(m_manager.mk_join(d1, d2), m_manager.mk_join(d3,d4));
 }
 
 /**
@@ -318,7 +318,7 @@ interval & interval::operator*=(interval const & other) {
     v_dependency * d_d = other.m_upper_dep;
 
     TRACE("interval_bug", tout << "operator*= " << *this << " " << other << "\n";);
-    
+
     if (is_N()) {
         if (other.is_N()) {
             // x <= b <= 0, y <= d <= 0 --> b*d <= x*y
@@ -452,7 +452,7 @@ interval & interval::operator*=(interval const & other) {
             m_upper_dep  = m_upper.is_infinite() ? 0 : join(b_d, d_d, a_d);
         }
         else {
-            // 0 <= a <= x, 0 <= c <= y --> a*c <= x*y 
+            // 0 <= a <= x, 0 <= c <= y --> a*c <= x*y
             // x <= b, y <= d --> x*y <= b*d (uses the fact that x is pos (a is not negative) or y is pos (c is not negative))
             TRACE("interval_bug", tout << "(P, P)\n";);
             SASSERT(other.is_P());
@@ -467,7 +467,7 @@ interval & interval::operator*=(interval const & other) {
         }
     }
     TRACE("interval_bug", tout << "operator*= result: " << *this << "\n";);
-    CTRACE("interval", !(!(contains_zero1 || contains_zero2) || contains_zero()), 
+    CTRACE("interval", !(!(contains_zero1 || contains_zero2) || contains_zero()),
            tout << "contains_zero1: " << contains_zero1 << ", contains_zero2: " << contains_zero2 << ", contains_zero(): " << contains_zero() << "\n";);
     SASSERT(!(contains_zero1 || contains_zero2) || contains_zero());
     return *this;
@@ -482,7 +482,7 @@ bool interval::contains_zero() const {
           tout << "m_upper.is_zero:  " << m_upper.is_zero() << "\n";
           tout << "m_upper_open:     " << m_upper_open << "\n";
           tout << "result:           " << ((m_lower.is_neg() || (m_lower.is_zero() && !m_lower_open)) && (m_upper.is_pos() || (m_upper.is_zero() && !m_upper_open))) << "\n";);
-    return 
+    return
         (m_lower.is_neg() || (m_lower.is_zero() && !m_lower_open)) &&
         (m_upper.is_pos() || (m_upper.is_zero() && !m_upper_open));
 }
@@ -510,7 +510,7 @@ interval & interval::inv() {
         ext_numeral new_upper;
         if (m_lower.is_zero()) {
             SASSERT(m_lower_open);
-            ext_numeral plus_infinity(true); 
+            ext_numeral plus_infinity(true);
             new_upper = plus_infinity;
         }
         else {
@@ -595,7 +595,7 @@ void interval::expt(unsigned n) {
         else if (m_upper.is_neg()) {
             // [l, u]^n = [u^n, l^n] if u < 0
             // a <= x <= b < 0   -->  x^n <= a^n (use lower and upper bound -- need the fact that x is negative)
-            // x <= b < 0        -->  b^n <= x^n 
+            // x <= b < 0        -->  b^n <= x^n
             std::swap(m_lower, m_upper);
             std::swap(m_lower_open, m_upper_open);
             std::swap(m_lower_dep, m_upper_dep);
@@ -614,7 +614,7 @@ void interval::expt(unsigned n) {
                 m_upper      = m_lower;
                 m_upper_open = m_lower_open;
             }
-            m_upper_dep  = m_upper.is_infinite() ? 0 : m_manager.mk_join(m_lower_dep, m_upper_dep); 
+            m_upper_dep  = m_upper.is_infinite() ? 0 : m_manager.mk_join(m_lower_dep, m_upper_dep);
             m_lower      = ext_numeral(0);
             m_lower_open = false;
             m_lower_dep  = 0;

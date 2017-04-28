@@ -315,6 +315,8 @@ protected:
     template<bool ProofGen>
     void process_app(app * t, frame & fr);
 
+    bool constant_fold(app* t, frame& fr);
+
     template<bool ProofGen>
     void process_quantifier(quantifier * q, frame & fr);
 

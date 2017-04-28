@@ -33,8 +33,8 @@ simplifier::simplifier(ast_manager & m):
     m_ac_support(true) {
 }
 
-void simplifier::register_plugin(plugin * p) { 
-    m_plugins.register_plugin(p); 
+void simplifier::register_plugin(plugin * p) {
+    m_plugins.register_plugin(p);
 }
 
 simplifier::~simplifier() {
@@ -46,13 +46,13 @@ void simplifier::enable_ac_support(bool flag) {
     ptr_vector<plugin>::const_iterator it  = m_plugins.begin();
     ptr_vector<plugin>::const_iterator end = m_plugins.end();
     for (; it != end; ++it) {
-        if (*it != 0) 
+        if (*it != 0)
             (*it)->enable_ac_support(flag);
     }
 }
 
 /**
-   \brief External interface for the simplifier. 
+   \brief External interface for the simplifier.
    A client will invoke operator()(s, r, p) to simplify s.
    The result is stored in r.
    When proof generation is enabled, a proof for the equivalence (or equisatisfiability)
@@ -69,14 +69,14 @@ void simplifier::operator()(expr * s, expr_ref & r, proof_ref & p) {
     proof * result_proof;
     switch (m.proof_mode()) {
     case PGM_DISABLED: // proof generation is disabled.
-        reduce_core(s); 
+        reduce_core(s);
         // after executing reduce_core, the result of the simplification is in the cache
         get_cached(s, result, result_proof);
         r = result;
         p = m.mk_undef_proof();
         break;
     case PGM_COARSE: // coarse proofs... in this case, we do not produce a step by step (fine grain) proof to show the equivalence (or equisatisfiability) of s an r.
-        m_subst_proofs.reset(); // m_subst_proofs is an auxiliary vector that is used to justify substitutions. See comment on method get_subst. 
+        m_subst_proofs.reset(); // m_subst_proofs is an auxiliary vector that is used to justify substitutions. See comment on method get_subst.
         reduce_core(s);
         get_cached(s, result, result_proof);
         r = result;
@@ -163,7 +163,7 @@ bool simplifier::visit_children(expr * n) {
         // The method ast_manager::mk_app is used to create the flat version of an AC operator.
         // In Z3 1.x, we used multi-ary operators. This creates problems for the superposition engine.
         // So, starting at Z3 2.x, only boolean operators can be multi-ary.
-        // Example: 
+        // Example:
         //    (and (and a b) (and c d)) --> (and a b c d)
         //    (+ (+ a b) (+ c d)) --> (+ a (+ b (+ c d)))
         // Remark: The flattening is only applied if m_ac_support is true.
@@ -178,7 +178,7 @@ bool simplifier::visit_children(expr * n) {
             }
             return visited;
         }
-    case AST_QUANTIFIER: 
+    case AST_QUANTIFIER:
         return visit_quantifier(to_quantifier(n));
     default:
         UNREACHABLE();
@@ -188,7 +188,7 @@ bool simplifier::visit_children(expr * n) {
 
 /**
    \brief Visit the children of n assuming it is an AC (associative-commutative) operator.
-   
+
    For example, if n is of the form (+ (+ a b) (+ c d)), this method
    will return true if the nodes a, b, c and d have been already simplified.
    The nodes (+ a b) and (+ c d) are not really checked.
@@ -216,7 +216,7 @@ bool simplifier::visit_ac(app * n) {
             expr * arg  = n->get_arg(i);
             if (is_app_of(arg, decl))
                 todo.push_back(to_app(arg));
-            else 
+            else
                 visit(arg, visited);
         }
     }
@@ -319,7 +319,7 @@ void simplifier::reduce1_app_core(app * n) {
             proof * p;
             if (n == r)
                 p = 0;
-            else if (r != s) 
+            else if (r != s)
                 // we use a "theory rewrite generic proof" to justify the step
                 // s = (decl arg_0' ... arg_{n-1}') --> r
                 p = m.mk_transitivity(p1, m.mk_rewrite(s, r));
@@ -368,7 +368,7 @@ void simplifier::reduce1_ac_app_core(app * n) {
     proof_ref  p1(m);
     mk_ac_congruent_term(n, n_c, p1);
     TRACE("ac", tout << "expr:\n" << mk_pp(n, m) << "\ncongruent term:\n" << mk_pp(n_c, m) << "\n";);
-    expr_ref r(m); 
+    expr_ref r(m);
     func_decl * decl = n->get_decl();
     family_id fid    = decl->get_family_id();
     plugin * p       = get_plugin(fid);
@@ -415,7 +415,7 @@ void simplifier::reduce1_ac_app_core(app * n) {
         proof * p;
         if (n == r.get())
             p = 0;
-        else if (r.get() != n_c.get()) 
+        else if (r.get() != n_c.get())
             p = m.mk_transitivity(p1, m.mk_rewrite(n_c, r));
         else
             p = p1;
@@ -434,7 +434,7 @@ void simplifier::dump_rewrite_lemma(func_decl * decl, unsigned num_args, expr * 
         sprintf_s(buffer, ARRAYSIZE(buffer), "lemma_%d.smt", g_rewrite_lemma_id);
 #else
         sprintf(buffer, "rewrite_lemma_%d.smt", g_rewrite_lemma_id);
-#endif        
+#endif
         ast_smt_pp pp(m);
         pp.set_benchmark_name("rewrite_lemma");
         pp.set_status("unsat");
@@ -450,7 +450,7 @@ void simplifier::dump_rewrite_lemma(func_decl * decl, unsigned num_args, expr * 
 /**
    \brief Return in \c result an expression \c e equivalent to <tt>(f args[0] ... args[num_args - 1])</tt>, and
    store in \c pr a proof for <tt>(= (f args[0] ... args[num_args - 1]) e)</tt>
-   
+
    If e is identical to (f args[0] ... args[num_args - 1]), then pr is set to 0.
 */
 void simplifier::mk_app(func_decl * decl, unsigned num_args, expr * const * args, expr_ref & result) {
@@ -474,7 +474,7 @@ void simplifier::mk_app(func_decl * decl, unsigned num_args, expr * const * args
         //dump_rewrite_lemma(decl, num_args, args, result.get());
         return;
     }
-	
+
     result = m.mk_app(decl, num_args, args);
 }
 
@@ -494,17 +494,17 @@ void simplifier::mk_congruent_term(app * n, app_ref & r, proof_ref & p) {
         proof * arg_proof;
         get_cached(arg, new_arg, arg_proof);
 
-        CTRACE("simplifier_bug", (arg != new_arg) != (arg_proof != 0), 
+        CTRACE("simplifier_bug", (arg != new_arg) != (arg_proof != 0),
                tout << mk_ll_pp(arg, m) << "\n---->\n" << mk_ll_pp(new_arg, m) << "\n";
                tout << "#" << arg->get_id() << " #" << new_arg->get_id() << "\n";
                tout << arg << " " << new_arg << "\n";);
-        
-        
+
+
         if (arg != new_arg) {
             has_new_args = true;
             proofs.push_back(arg_proof);
             SASSERT(arg_proof);
-        } 
+        }
         else {
             SASSERT(arg_proof == 0);
         }
@@ -526,10 +526,10 @@ void simplifier::mk_congruent_term(app * n, app_ref & r, proof_ref & p) {
 /**
    \brief Store the new arguments of \c n in result. Store in p a proof for
    (= n (f result[0] ... result[num_args - 1])), where f is the function symbol of n.
-   
+
    If there are no new arguments or fine grain proofs are disabled, then p is set to 0.
 
-   Return true there are new arguments. 
+   Return true there are new arguments.
 */
 bool simplifier::get_args(app * n, ptr_vector<expr> & result, proof_ref & p) {
     bool has_new_args  = false;
@@ -565,10 +565,10 @@ bool simplifier::get_args(app * n, ptr_vector<expr> & result, proof_ref & p) {
 void simplifier::mk_ac_congruent_term(app * n, app_ref & r, proof_ref & p) {
     SASSERT(m_ac_support);
     func_decl * f = n->get_decl();
-    
+
     m_ac_cache.reset();
     m_ac_pr_cache.reset();
-    
+
     ptr_buffer<app>   todo;
     ptr_buffer<expr>  new_args;
     ptr_buffer<proof> new_arg_prs;
@@ -621,7 +621,7 @@ void simplifier::mk_ac_congruent_term(app * n, app_ref & r, proof_ref & p) {
             todo.pop_back();
             if (!has_new_arg) {
                 m_ac_cache.insert(curr, curr);
-                if (m.fine_grain_proofs()) 
+                if (m.fine_grain_proofs())
                     m_ac_pr_cache.insert(curr, 0);
             }
             else {
@@ -634,7 +634,7 @@ void simplifier::mk_ac_congruent_term(app * n, app_ref & r, proof_ref & p) {
             }
         }
     }
-    
+
     SASSERT(m_ac_cache.contains(n));
     app *   new_n = 0;
     m_ac_cache.find(n, new_n);
@@ -646,7 +646,7 @@ void simplifier::mk_ac_congruent_term(app * n, app_ref & r, proof_ref & p) {
     }
 }
 
-#define White 0 
+#define White 0
 #define Grey  1
 #define Black 2
 
@@ -688,7 +688,7 @@ void simplifier::ac_top_sort(app * n, ptr_buffer<expr> & result) {
     while (!todo.empty()) {
         expr * curr = todo.back();
         int color;
-        obj_map<expr, int>::obj_map_entry * entry = colors.insert_if_not_there2(curr, White); 
+        obj_map<expr, int>::obj_map_entry * entry = colors.insert_if_not_there2(curr, White);
         SASSERT(entry);
         color = entry->get_data().m_value;
         switch (color) {
@@ -731,7 +731,7 @@ void simplifier::get_ac_args(app * n, ptr_vector<expr> & args, vector<rational> 
     ac_top_sort(n, sorted_exprs);
     SASSERT(!sorted_exprs.empty());
     SASSERT(sorted_exprs[sorted_exprs.size()-1] == n);
-    
+
     TRACE("ac", tout << mk_ll_pp(n, m, true, false) << "#" << n->get_id() << "\nsorted expressions...\n";
           for (unsigned i = 0; i < sorted_exprs.size(); i++) {
               tout << "#" << sorted_exprs[i]->get_id() << " ";
@@ -747,7 +747,7 @@ void simplifier::get_ac_args(app * n, ptr_vector<expr> & args, vector<rational> 
         expr * curr = sorted_exprs[j];
         rational mult;
         m_ac_mults.find(curr, mult);
-        SASSERT(!mult.is_zero());        
+        SASSERT(!mult.is_zero());
         if (is_app_of(curr, decl)) {
             unsigned num_args = to_app(curr)->get_num_args();
             for (unsigned i = 0; i < num_args; i++) {
@@ -772,16 +772,16 @@ void simplifier::reduce1_quantifier(quantifier * q) {
 
     quantifier_ref q1(m);
     proof * p1 = 0;
-    
-    if (is_quantifier(new_body) && 
+
+    if (is_quantifier(new_body) &&
         to_quantifier(new_body)->is_forall() == q->is_forall() &&
         !to_quantifier(q)->has_patterns() &&
         !to_quantifier(new_body)->has_patterns()) {
-        
+
         quantifier * nested_q = to_quantifier(new_body);
 
         ptr_buffer<sort> sorts;
-        buffer<symbol>   names;   
+        buffer<symbol>   names;
         sorts.append(q->get_num_decls(), q->get_decl_sorts());
         names.append(q->get_num_decls(), q->get_decl_names());
         sorts.append(nested_q->get_num_decls(), nested_q->get_decl_sorts());
@@ -797,7 +797,7 @@ void simplifier::reduce1_quantifier(quantifier * q) {
                                      q->get_skid(),
                                      0, 0, 0, 0);
         SASSERT(is_well_sorted(m, q1));
-        
+
         if (m.fine_grain_proofs()) {
             quantifier * q0 = m.update_quantifier(q, new_body);
             proof * p0 = q == q0 ? 0 : m.mk_quant_intro(q, q0, new_body_pr);
@@ -817,13 +817,13 @@ void simplifier::reduce1_quantifier(quantifier * q) {
             get_cached(q->get_pattern(i), new_pattern, new_pattern_pr);
             if (m.is_pattern(new_pattern)) {
                 new_patterns.push_back(new_pattern);
-            }            
+            }
         }
         num = q->get_num_no_patterns();
         for (unsigned i = 0; i < num; i++) {
             get_cached(q->get_no_pattern(i), new_pattern, new_pattern_pr);
             new_no_patterns.push_back(new_pattern);
-        } 
+        }
 
         remove_duplicates(new_patterns);
         remove_duplicates(new_no_patterns);
@@ -833,7 +833,7 @@ void simplifier::reduce1_quantifier(quantifier * q) {
                                      q->get_decl_sorts(),
                                      q->get_decl_names(),
                                      new_body,
-                                     q->get_weight(), 
+                                     q->get_weight(),
                                      q->get_qid(),
                                      q->get_skid(),
                                      new_patterns.size(),
@@ -850,10 +850,10 @@ void simplifier::reduce1_quantifier(quantifier * q) {
             p1 = q == q1 ? 0 : m.mk_quant_intro(q, q1, new_body_pr);
         }
     }
-    
+
     expr_ref r(m);
-    elim_unused_vars(m, q1, r);
-    
+    elim_unused_vars(m, q1, params_ref(), r);
+
     proof * pr = 0;
     if (m.fine_grain_proofs()) {
         proof * p2 = 0;
@@ -871,7 +871,7 @@ void simplifier::reduce1_quantifier(quantifier * q) {
 void simplifier::borrow_plugins(simplifier const & s) {
     ptr_vector<plugin>::const_iterator it  = s.begin_plugins();
     ptr_vector<plugin>::const_iterator end = s.end_plugins();
-    for (; it != end; ++it) 
+    for (; it != end; ++it)
         register_plugin(*it);
 }
 
@@ -882,7 +882,7 @@ void simplifier::enable_presimp() {
     enable_ac_support(false);
     ptr_vector<plugin>::const_iterator it  = begin_plugins();
     ptr_vector<plugin>::const_iterator end = end_plugins();
-    for (; it != end; ++it) 
+    for (; it != end; ++it)
         (*it)->enable_presimp(true);
 }
 
@@ -905,7 +905,7 @@ bool subst_simplifier::get_subst(expr * n, expr_ref & r, proof_ref & p) {
         m_subst_map->get(n, _r, _p);
         r = _r;
         p = _p;
-        if (m.coarse_grain_proofs()) 
+        if (m.coarse_grain_proofs())
             m_subst_proofs.push_back(p);
         return true;
     }
@@ -917,7 +917,7 @@ static void push_core(ast_manager & m, expr * e, proof * pr, expr_ref_vector & r
     TRACE("preprocessor",
           tout << mk_pp(e, m) << "\n";
           if (pr) tout << mk_ll_pp(pr, m) << "\n\n";);
-    if (m.is_true(e)) 
+    if (m.is_true(e))
         return;
     result.push_back(e);
     if (m.proofs_enabled())
@@ -952,9 +952,9 @@ void push_assertion(ast_manager & m, expr * e, proof * pr, expr_ref_vector & res
     CTRACE("push_assertion", !(pr == 0 || m.is_undef_proof(pr) || m.get_fact(pr) == e),
            tout << mk_pp(e, m) << "\n" << mk_pp(m.get_fact(pr), m) << "\n";);
     SASSERT(pr == 0 || m.is_undef_proof(pr) || m.get_fact(pr) == e);
-    if (m.is_and(e)) 
+    if (m.is_and(e))
         push_and(m, to_app(e), pr, result, result_prs);
-    else if (m.is_not(e) && m.is_or(to_app(e)->get_arg(0))) 
+    else if (m.is_not(e) && m.is_or(to_app(e)->get_arg(0)))
         push_not_or(m, to_app(to_app(e)->get_arg(0)), pr, result, result_prs);
     else
         push_core(m, e, pr, result, result_prs);

@@ -74,6 +74,7 @@ namespace sat {
         struct abort_solver {};
     protected:
         reslimit&               m_rlimit;
+        bool                    m_checkpoint_enabled;
         config                  m_config;
         stats                   m_stats;
         scoped_ptr<extension>   m_ext;
@@ -210,15 +211,44 @@ namespace sat {
         bool attach_nary_clause(clause & c);
         void attach_clause(clause & c, bool & reinit);
         void attach_clause(clause & c) { bool reinit; attach_clause(c, reinit); }
+        class scoped_detach {
+            solver& s;
+            clause& c;
+            bool m_deleted;
+        public:
+            scoped_detach(solver& s, clause& c): s(s), c(c), m_deleted(false) {
+                s.detach_clause(c);
+            }            
+            ~scoped_detach() {
+                if (!m_deleted) s.attach_clause(c);
+            }
+
+            void del_clause() {
+                if (!m_deleted) {
+                    s.del_clause(c);
+                    m_deleted = true;
+                }
+            }
+        };
+        class scoped_disable_checkpoint {
+            solver& s;
+        public:
+            scoped_disable_checkpoint(solver& s): s(s) {
+                s.m_checkpoint_enabled = false;
+            }            
+            ~scoped_disable_checkpoint() {
+                s.m_checkpoint_enabled = true;
+            }
+        };
         unsigned select_watch_lit(clause const & cls, unsigned starting_at) const;
         unsigned select_learned_watch_lit(clause const & cls) const;
         bool simplify_clause(unsigned & num_lits, literal * lits) const;
         template<bool lvl0>
         bool simplify_clause_core(unsigned & num_lits, literal * lits) const;
-        void dettach_bin_clause(literal l1, literal l2, bool learned);
-        void dettach_clause(clause & c);
-        void dettach_nary_clause(clause & c);
-        void dettach_ter_clause(clause & c);
+        void detach_bin_clause(literal l1, literal l2, bool learned);
+        void detach_clause(clause & c);
+        void detach_nary_clause(clause & c);
+        void detach_ter_clause(clause & c);
         void push_reinit_stack(clause & c);
 
         // -----------------------
@@ -257,6 +287,7 @@ namespace sat {
         lbool status(clause const & c) const;        
         clause_offset get_offset(clause const & c) const { return m_cls_allocator.get_offset(&c); }
         void checkpoint() {
+            if (!m_checkpoint_enabled) return;
             if (!m_rlimit.inc()) {
                 m_mc.reset();
                 m_model_is_current = false;
