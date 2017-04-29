@@ -44,4 +44,11 @@ if (WARNINGS_AS_ERRORS)
   message(STATUS "Treating compiler warnings as errors")
 else()
   message(STATUS "Not treating compiler warnings as errors")
+  # FIXME: Remove "x.." when CMP0054 is set to NEW
+  if ("x${CMAKE_CXX_COMPILER_ID}" STREQUAL "xMSVC")
+    # Warnings as errors is off by default for MSVC so setting this
+    # is not necessary but this duplicates the behaviour of the old
+    # build system.
+    list(APPEND Z3_COMPONENT_CXX_FLAGS "/WX-")
+  endif()
 endif()
