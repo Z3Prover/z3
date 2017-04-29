@@ -149,3 +149,13 @@ set(STACK_SIZE_MSVC_LINKER 8388608)
 # says this only matters for executables which is why this is not being
 # set for CMAKE_SHARED_LINKER_FLAGS or CMAKE_STATIC_LINKER_FLAGS.
 string(APPEND CMAKE_EXE_LINKER_FLAGS " /STACK:${STACK_SIZE_MSVC_LINKER}")
+
+# The original build system passes `/SUBSYSTEM:<X>` to the linker where `<X>`
+# depends on what is being linked. Where `<X>` is `CONSOLE` for executables
+# and `WINDOWS` for shard libraries.
+# We don't need to pass `/SUBSYSTEM:CONSOLE` because CMake will do this for
+# us when building executables because we don't pass the `WIN32` argument to
+# `add_executable()`.
+# FIXME: We probably don't need this. https://msdn.microsoft.com/en-us/library/fcc1zstk.aspx
+# suggests that `/SUBSYSTEM:` only matters for executables.
+string(APPEND CMAKE_SHARED_LINKER_FLAGS " /SUBSYSTEM:WINDOWS")
