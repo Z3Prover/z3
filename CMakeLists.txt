@@ -24,6 +24,7 @@ if (NOT (EXISTS "${CMAKE_SOURCE_DIR}/src/CMakeLists.txt"))
           "``python contrib/cmake/bootstrap.py create``")
 endif()
 
+set(CMAKE_USER_MAKE_RULES_OVERRIDE_CXX "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cxx_compiler_flags_overrides.cmake")
 project(Z3 CXX)
 
 ################################################################################
