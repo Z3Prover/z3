@@ -1,0 +1,112 @@
+# This file ether sets or notes various compiler and linker flags for MSVC that
+# were defined by the old python/Makefile based build system but
+# don't obviously belong in the other sections in the CMake build system.
+
+################################################################################
+# Compiler definitions
+################################################################################
+# FIXME: All the commented out defines should be removed once
+# we are confident it is correct to not set them.
+set(Z3_MSVC_LEGACY_DEFINES
+  # Don't set `_DEBUG`. The old build sytem sets this but this
+  # is wrong. MSVC will set this depending on which runtime is being used.
+  # See https://msdn.microsoft.com/en-us/library/b0084kay.aspx
+  # _DEBUG
+
+  # The old build system only set `UNICODE` and `_UNICODE` for x86_64 release.
+  # That seems completly wrong so set it for all configurations.
+  # According to https://blogs.msdn.microsoft.com/oldnewthing/20040212-00/?p=40643/
+  # `UNICODE` affects Windows headers and `_UNICODE` affects C runtime header files.
+  # There is some discussion of this define at https://msdn.microsoft.com/en-us/library/dybsewaf.aspx
+  UNICODE
+  _UNICODE
+)
+
+if ("${TARGET_ARCHITECTURE}" STREQUAL "x86_64")
+  list(APPEND Z3_MSVC_LEGACY_DEFINES ""
+    # Don't set `_LIB`. The old build system sets this for x86_64 release
+    # build. This flag doesn't seem to be documented but a stackoverflow
+    # post hints that this is usually set when building a static library.
+    # See http://stackoverflow.com/questions/35034683/how-to-tell-if-current-project-is-dll-or-static-lib
+    # This seems wrong give that the old build system set this regardless
+    # whether or not libz3 was static or shared so its probably best
+    # to not set for now.
+    #$<$<CONFIG:Release>:_LIB>
+    #$<$<CONFIG:RelWithDebInfo>:_LIB>
+
+    # Don't set `_CONSOLE`. The old build system sets for all configurations
+    # except x86_64 release. It seems ( https://codeyarns.com/2010/12/02/visual-c-windows-and-console-subsystems/ )
+    # that `_CONSOLE` used to be defined by older Visual C++ environments.
+    # Setting this undocumented option seems like a bad idea so let's not do it.
+    #$<$<CONFIG:Debug:_CONSOLE>
+    #$<$<CONFIG:MinSizeRel:_CONSOLE>
+
+    # Don't set `ASYNC_COMMANDS`. The old build system sets this for x86_64
+    # release but this macro does not appear to be used anywhere and is not
+    # documented so don't set it for now.
+    #$<$<CONFIG:Release>:ASYNC_COMMANDS>
+    #$<$<CONFIG:RelWithDebInfo>:ASYNC_COMMANDS>
+  )
+else()
+  list(APPEND Z3_MSVC_LEGACY_DEFINES ""
+    # Don't set `_CONSOLE`. See reasoning above.
+    #_CONSOLE
+  )
+endif()
+
+# Note we don't set WIN32 or _WINDOWS because
+# CMake provides that for us. As a sanity check make sure the option
+# is present.
+if (NOT "${CMAKE_CXX_FLAGS}" MATCHES "/D[ ]*WIN32")
+  message(FATAL_ERROR "\"/D WIN32\" is missing")
+endif()
+if (NOT "${CMAKE_CXX_FLAGS}" MATCHES "/D[ ]*_WINDOWS")
+  message(FATAL_ERROR "\"/D _WINDOWS\" is missing")
+endif()
+
+list(APPEND Z3_COMPONENT_CXX_DEFINES ${Z3_MSVC_LEGACY_DEFINES})
+
+################################################################################
+# Compiler flags
+################################################################################
+# By default in MSVC this is on but the old build system set this explicitly so
+# for completeness set it too.
+# See https://msdn.microsoft.com/en-us/library/dh8che7s.aspx
+z3_add_cxx_flag("/Zc:wchar_t" REQUIRED)
+# By default in MSVC this on but the old build system set this explicitly so
+# for completeness set it too.
+z3_add_cxx_flag("/Zc:forScope" REQUIRED)
+
+# FIXME: We might want to move this out somewhere else if we decide
+# we want to set `-fno-omit-frame-pointer` for gcc/clang.
+# No omit frame pointer
+set(NO_OMIT_FRAME_POINTER_MSVC_FLAG "/Oy-")
+CHECK_CXX_COMPILER_FLAG(${NO_OMIT_FRAME_POINTER_MSVC_FLAG} HAS_MSVC_NO_OMIT_FRAME_POINTER)
+if (NOT HAS_MSVC_NO_OMIT_FRAME_POINTER)
+  message(FATAL_ERROR "${NO_OMIT_FRAME_POINTER_MSVC_FLAG} flag not supported")
+endif()
+
+# FIXME: This doesn't make a huge amount of sense but the old
+# build system kept the frame pointer for all configurations
+# except x86_64 release (I don't know why the frame pointer
+# is kept for i686 release).
+if ("${TARGET_ARCHITECTURE}" STREQUAL "x86_64")
+  list(APPEND Z3_COMPONENT_CXX_FLAGS
+    $<$<CONFIG:Debug>:${NO_OMIT_FRAME_POINTER_MSVC_FLAG}>
+    $<$<CONFIG:MinSizeRel>:${NO_OMIT_FRAME_POINTER_MSVC_FLAG}>
+  )
+else()
+  list(APPEND Z3_COMPONENT_CXX_FLAGS ${NO_OMIT_FRAME_POINTER_MSVC_FLAG})
+endif()
+
+if (("${TARGET_ARCHITECTURE}" STREQUAL "x86_64") OR ("${TARGET_ARCHITECTURE}" STREQUAL "i686"))
+  # Use __cdecl calling convention. Apparently this is MSVC's default
+  # but the old build system set it so for completeness set it too.
+  # See https://msdn.microsoft.com/en-us/library/46t77ak2.aspx
+  z3_add_cxx_flag("/Gd" REQUIRED)
+endif()
+
+# FIXME: The old build system explicitly disables code analysis.
+# I don't know why. Duplicate this behaviour for now.
+# See https://msdn.microsoft.com/en-us/library/ms173498.aspx
+z3_add_cxx_flag("/analyze-" REQUIRED)

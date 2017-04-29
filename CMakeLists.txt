@@ -389,6 +389,14 @@ endif()
 include(${CMAKE_SOURCE_DIR}/cmake/compiler_lto.cmake)
 
 ################################################################################
+# MSVC specific flags inherited from old build system
+################################################################################
+# FIXME: Remove "x.." when CMP0054 is set to NEW
+if ("x${CMAKE_CXX_COMPILER_ID}" STREQUAL "xMSVC")
+  include(${CMAKE_SOURCE_DIR}/cmake/msvc_legacy_quirks.cmake)
+endif()
+
+################################################################################
 # Report default CMake flags
 ################################################################################
 # This is mainly for debugging.
