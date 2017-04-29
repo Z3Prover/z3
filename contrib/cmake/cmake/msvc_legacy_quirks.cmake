@@ -159,3 +159,36 @@ string(APPEND CMAKE_EXE_LINKER_FLAGS " /STACK:${STACK_SIZE_MSVC_LINKER}")
 # FIXME: We probably don't need this. https://msdn.microsoft.com/en-us/library/fcc1zstk.aspx
 # suggests that `/SUBSYSTEM:` only matters for executables.
 string(APPEND CMAKE_SHARED_LINKER_FLAGS " /SUBSYSTEM:WINDOWS")
+
+# FIXME: The following linker flags are weird. They are set in all configurations
+# in the old build system except release x86_64. We try to emulate this here but
+# this is likely the wrong thing to do.
+foreach (_build_type ${_build_types_as_upper})
+  if ("${TARGET_ARCHITECTURE}" STREQUAL "x86_64" AND
+      ("${_build_type}" STREQUAL "RELEASE" OR
+      "${_build_type}"  STREQUAL "RELWITHDEBINFO")
+      )
+    message(AUTHOR_WARNING "Skipping legacy linker MSVC options for x86_64 ${_build_type}")
+  else()
+    # Linker optimizations.
+    # See https://msdn.microsoft.com/en-us/library/bxwfs976.aspx
+    string(APPEND CMAKE_EXE_LINKER_FLAGS_${_build_type} " /OPT:REF /OPT:ICF")
+    string(APPEND CMAKE_SHARED_LINKER_FLAGS_${_build_type} " /OPT:REF /OPT:ICF")
+
+    # FIXME: This is not necessary. This is MSVC's default.
+    # See https://msdn.microsoft.com/en-us/library/b1kw34cb.aspx
+    string(APPEND CMAKE_EXE_LINKER_FLAGS_${_build_type} " /TLBID:1")
+    string(APPEND CMAKE_SHARED_LINKER_FLAGS_${_build_type} " /TLBID:1")
+
+    # FIXME: This is not necessary. This is MSVC's default.
+    # Address space layout randomization
+    # See https://msdn.microsoft.com/en-us/library/bb384887.aspx
+    string(APPEND CMAKE_EXE_LINKER_FLAGS_${_build_type} " /DYNAMICBASE")
+    string(APPEND CMAKE_SHARED_LINKER_FLAGS_${_build_type} " /DYNAMICBASE:NO")
+
+    # FIXME: This is not necessary. This is MSVC's default.
+    # Indicate that the executable is compatible with DEP
+    # See https://msdn.microsoft.com/en-us/library/ms235442.aspx
+    string(APPEND CMAKE_EXE_LINKER_FLAGS_${_build_type} " /NXCOMPAT")
+  endif()
+endforeach()
