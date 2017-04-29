@@ -118,7 +118,6 @@ z3_add_cxx_flag("/analyze-" REQUIRED)
 # By default CMake enables incremental linking for Debug and RelWithDebInfo
 # builds. The old build sytem disables it for all builds so try to do the same
 # by changing all configurations if necessary
-
 string(TOUPPER "${available_build_types}" _build_types_as_upper)
 foreach (_build_type ${_build_types_as_upper})
   foreach (t EXE SHARED STATIC)
@@ -141,3 +140,12 @@ foreach (_build_type ${_build_types_as_upper})
     set(CMAKE_${t}_LINKER_FLAGS_${_build_type} "${_replaced_linker_flags}")
   endforeach()
 endforeach()
+
+# The original build system passes `/STACK:` to the linker.
+# This size comes from the original build system.
+# FIXME: What is the rationale behind this?
+set(STACK_SIZE_MSVC_LINKER 8388608)
+# MSVC documentation (https://msdn.microsoft.com/en-us/library/35yc2tc3.aspx)
+# says this only matters for executables which is why this is not being
+# set for CMAKE_SHARED_LINKER_FLAGS or CMAKE_STATIC_LINKER_FLAGS.
+string(APPEND CMAKE_EXE_LINKER_FLAGS " /STACK:${STACK_SIZE_MSVC_LINKER}")
