@@ -110,3 +110,34 @@ endif()
 # I don't know why. Duplicate this behaviour for now.
 # See https://msdn.microsoft.com/en-us/library/ms173498.aspx
 z3_add_cxx_flag("/analyze-" REQUIRED)
+
+################################################################################
+# Linker flags
+################################################################################
+
+# By default CMake enables incremental linking for Debug and RelWithDebInfo
+# builds. The old build sytem disables it for all builds so try to do the same
+# by changing all configurations if necessary
+
+string(TOUPPER "${available_build_types}" _build_types_as_upper)
+foreach (_build_type ${_build_types_as_upper})
+  foreach (t EXE SHARED STATIC)
+    set(_replacement "/INCREMENTAL:NO")
+    # Remove any existing incremental flags
+    string(REGEX REPLACE
+      "/INCREMENTAL:YES"
+      "${_replacement}"
+      _replaced_linker_flags
+      "${CMAKE_${t}_LINKER_FLAGS_${_build_type}}")
+    string(REGEX REPLACE
+      "(/INCREMENTAL$)|(/INCREMENTAL )"
+      "${_replacement} "
+      _replaced_linker_flags
+      "${_replaced_linker_flags}")
+    if (NOT "${_replaced_linker_flags}" MATCHES "${_replacement}")
+      # Flag not present. Add it
+      string(APPEND _replaced_linker_flags " ${_replacement}")
+    endif()
+    set(CMAKE_${t}_LINKER_FLAGS_${_build_type} "${_replaced_linker_flags}")
+  endforeach()
+endforeach()
