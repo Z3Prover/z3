@@ -271,9 +271,9 @@ static void cnf_backbones(bool use_chunk, char const* file_name) {
 
 void tst_cnf_backbones(char ** argv, int argc, int& i) {
     if (i + 1 < argc) {
-        bool use_chunk = (i + 2 < argc && argv[i + 2] == std::string("chunk"));
+        bool use_chunk = (i + 2 < argc && argv[i + 1] == std::string("chunk"));
+        if (use_chunk) ++i;        
         cnf_backbones(use_chunk, argv[i + 1]);
         ++i;
-        if (use_chunk) ++i;
     }
 }
