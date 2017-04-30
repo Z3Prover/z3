@@ -3874,8 +3874,8 @@ void theory_seq::new_eq_eh(dependency* deps, enode* n1, enode* n2) {
     }
     else if (n1 != n2 && m_util.is_re(n1->get_owner())) {
         warning_msg("equality between regular expressions is not yet supported");
-        eautomaton* a1 = get_automaton(n1->get_owner());
-        eautomaton* a2 = get_automaton(n2->get_owner());
+        // eautomaton* a1 = get_automaton(n1->get_owner());
+        // eautomaton* a2 = get_automaton(n2->get_owner());
         // eautomaton* b1 = mk_difference(*a1, *a2);
         // eautomaton* b2 = mk_difference(*a2, *a1);
         // eautomaton* c = mk_union(*b1, *b2);
