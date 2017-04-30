@@ -2219,7 +2219,7 @@ namespace smt2 {
                 throw cmd_exception("invalid get-value command, empty list of terms");
             next();
             unsigned index = 0;
-            if (curr_is_keyword() && curr_id() == ":model_index") {
+            if (curr_is_keyword() && (curr_id() == ":model-index" || curr_id() == ":model_index")) {
                 next();
                 check_int("integer index expected to indexed model evaluation");
                 if (!curr_numeral().is_unsigned()) 
