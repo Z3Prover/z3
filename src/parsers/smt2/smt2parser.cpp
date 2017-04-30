@@ -2218,11 +2218,27 @@ namespace smt2 {
             if (m_cached_strings.empty())
                 throw cmd_exception("invalid get-value command, empty list of terms");
             next();
+            unsigned index = 0;
+            if (curr_is_keyword() && curr_id() == ":model_index") {
+                next();
+                check_int("integer index expected to indexed model evaluation");
+                if (!curr_numeral().is_unsigned()) 
+                    throw parser_exception("expected unsigned integer index to model evaluation");
+                index = curr_numeral().get_unsigned();
+                next();
+            }
+
             check_rparen("invalid get-value command, ')' expected");
             if (!m_ctx.is_model_available() || m_ctx.get_check_sat_result() == 0)
                 throw cmd_exception("model is not available");
             model_ref md;
-            m_ctx.get_check_sat_result()->get_model(md);
+            if (index == 0) {
+                m_ctx.get_check_sat_result()->get_model(md);
+            }
+            else {
+                m_ctx.get_opt()->get_box_model(md, index);
+
+            }
             m_ctx.regular_stream() << "(";
             expr ** expr_it  = expr_stack().c_ptr() + spos;
             expr ** expr_end = expr_it + m_cached_strings.size();
