@@ -3500,7 +3500,13 @@ static void back_remove(sat::literal_vector& lits, sat::literal l) {
     }
 
     bool solver::check_domain(literal lit, literal lit2) {
-        return m_antecedents.contains(lit2.var());
+        if (!m_antecedents.contains(lit2.var())) {
+            m_todo_antecedents.push_back(lit2);
+            return false;
+        }
+        else {
+            return true;
+        }
     }
 
     bool solver::extract_assumptions(literal lit, index_set& s) {
@@ -3565,8 +3571,16 @@ static void back_remove(sat::literal_vector& lits, sat::literal l) {
             s.insert(lit.index());
         }
         else {
+            SASSERT(m_todo_antecedents.empty());
             if (!extract_assumptions(lit, s)) {
-                return false;
+                SASSERT(!m_todo_antecedents.empty());
+                while (!m_todo_antecedents.empty()) {
+                    index_set s1;
+                    if (extract_assumptions(m_todo_antecedents.back(), s1)) {
+                        m_todo_antecedents.pop_back();
+                    }
+                }
+                VERIFY (extract_assumptions(lit, s));
             }
             add_assumption(lit);
         }

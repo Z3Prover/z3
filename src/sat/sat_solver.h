@@ -481,6 +481,7 @@ namespace sat {
         typedef hashtable<unsigned, u_hash, u_eq> index_set;
 
         u_map<index_set>       m_antecedents;
+        literal_vector         m_todo_antecedents;
         vector<literal_vector> m_binary_clause_graph;
 
         bool extract_assumptions(literal lit, index_set& s);
