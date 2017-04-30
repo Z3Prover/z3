@@ -3291,6 +3291,9 @@ namespace sat {
                 literal lit = *it;                
                 if (value(lit) != l_undef) {
                     ++num_fixed;
+                    if (value(lit) == l_true && lvl(lit) == 1) {
+                        VERIFY(extract_fixed_consequences(lit, assumptions, unfixed_vars, conseq));
+                    }
                     continue;
                 }
                 push();
