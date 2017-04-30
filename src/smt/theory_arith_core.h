@@ -465,7 +465,7 @@ namespace smt {
         TRACE("arith_axiom", tout << mk_pp(ante, m) << "\n" << mk_pp(conseq, m) << "\n";
               tout << s_ante << "\n" << s_conseq << "\n";);
 
-        literal lits[2] = {l_ante, l_conseq};
+        // literal lits[2] = {l_ante, l_conseq};
         mk_clause(l_ante, l_conseq, 0, 0);
         if (ctx.relevancy()) {
             if (l_ante == false_literal) {

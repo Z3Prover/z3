@@ -24,9 +24,8 @@ if (NOT (EXISTS "${CMAKE_SOURCE_DIR}/src/CMakeLists.txt"))
           "``python contrib/cmake/bootstrap.py create``")
 endif()
 
-# This overrides the default flags for the different CMAKE_BUILD_TYPEs
-set(CMAKE_USER_MAKE_RULES_OVERRIDE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/compiler_flags_override.cmake")
-project(Z3 C CXX)
+set(CMAKE_USER_MAKE_RULES_OVERRIDE_CXX "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cxx_compiler_flags_overrides.cmake")
+project(Z3 CXX)
 
 ################################################################################
 # Project version
@@ -43,10 +42,13 @@ message(STATUS "Z3 version ${Z3_VERSION}")
 # Set various useful variables depending on CMake version
 ################################################################################
 if (("${CMAKE_VERSION}" VERSION_EQUAL "3.2") OR ("${CMAKE_VERSION}" VERSION_GREATER "3.2"))
-  # In CMake >= 3.2 add_custom_command() supports a ``USES_TERMINAL`` argument
+  # In CMake >= 3.2 add_custom_command() and add_custom_target()
+  # supports a ``USES_TERMINAL`` argument
   set(ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG "USES_TERMINAL")
+  set(ADD_CUSTOM_TARGET_USES_TERMINAL_ARG "USES_TERMINAL")
 else()
   set(ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG "")
+  set(ADD_CUSTOM_TARGET_USES_TERMINAL_ARG "")
 endif()
 
 ################################################################################
@@ -152,13 +154,13 @@ set(Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS "")
 # Build type
 ################################################################################
 message(STATUS "CMake generator: ${CMAKE_GENERATOR}")
+set(available_build_types Debug Release RelWithDebInfo MinSizeRel)
 if (DEFINED CMAKE_CONFIGURATION_TYPES)
   # Multi-configuration build (e.g. Visual Studio and Xcode). Here
   # CMAKE_BUILD_TYPE doesn't matter
   message(STATUS "Available configurations: ${CMAKE_CONFIGURATION_TYPES}")
 else()
   # Single configuration generator (e.g. Unix Makefiles, Ninja)
-  set(available_build_types Debug Release RelWithDebInfo MinSizeRel)
   if(NOT CMAKE_BUILD_TYPE)
     message(STATUS "CMAKE_BUILD_TYPE is not set. Setting default")
     message(STATUS "The available build types are: ${available_build_types}")
@@ -323,6 +325,15 @@ if (("${TARGET_ARCHITECTURE}" STREQUAL "x86_64") OR ("${TARGET_ARCHITECTURE}" ST
   unset(SSE_FLAGS)
 endif()
 
+# FIXME: Remove "x.." when CMP0054 is set to NEW
+if ("x${CMAKE_CXX_COMPILER_ID}" STREQUAL "xMSVC")
+  # This is the default for MSVC already but to replicate the
+  # python/Makefile build system behaviour this flag is set
+  # explicitly.
+  z3_add_cxx_flag("/fp:precise" REQUIRED)
+endif()
+# There doesn't seem to be an equivalent for clang/gcc
+
 ################################################################################
 # Threading support
 ################################################################################
@@ -372,6 +383,41 @@ if (BUILD_LIBZ3_SHARED)
     z3_add_cxx_flag("-fPIC" REQUIRED)
   endif()
 endif()
+
+################################################################################
+# Link time optimization
+################################################################################
+include(${CMAKE_SOURCE_DIR}/cmake/compiler_lto.cmake)
+
+################################################################################
+# MSVC specific flags inherited from old build system
+################################################################################
+# FIXME: Remove "x.." when CMP0054 is set to NEW
+if ("x${CMAKE_CXX_COMPILER_ID}" STREQUAL "xMSVC")
+  include(${CMAKE_SOURCE_DIR}/cmake/msvc_legacy_quirks.cmake)
+endif()
+
+################################################################################
+# Report default CMake flags
+################################################################################
+# This is mainly for debugging.
+message(STATUS "CMAKE_CXX_FLAGS: \"${CMAKE_CXX_FLAGS}\"")
+message(STATUS "CMAKE_EXE_LINKER_FLAGS: \"${CMAKE_EXE_LINKER_FLAGS}\"")
+message(STATUS "CMAKE_STATIC_LINKER_FLAGS: \"${CMAKE_STATIC_LINKER_FLAGS}\"")
+message(STATUS "CMAKE_SHARED_LINKER_FLAGS: \"${CMAKE_SHARED_LINKER_FLAGS}\"")
+if (DEFINED CMAKE_CONFIGURATION_TYPES)
+  # Multi configuration generator
+  string(TOUPPER "${available_build_types}" build_types_to_report)
+else()
+  # Single configuration generator
+  string(TOUPPER "${CMAKE_BUILD_TYPE}" build_types_to_report)
+endif()
+foreach (_build_type ${build_types_to_report})
+  message(STATUS "CMAKE_CXX_FLAGS_${_build_type}: \"${CMAKE_CXX_FLAGS_${_build_type}}\"")
+  message(STATUS "CMAKE_EXE_LINKER_FLAGS_${_build_type}: \"${CMAKE_EXE_LINKER_FLAGS_${_build_type}}\"")
+  message(STATUS "CMAKE_SHARED_LINKER_FLAGS_${_build_type}: \"${CMAKE_SHARED_LINKER_FLAGS_${_build_type}}\"")
+  message(STATUS "CMAKE_STATIC_LINKER_FLAGS_${_build_type}: \"${CMAKE_STATIC_LINKER_FLAGS_${_build_type}}\"")
+endforeach()
 
 ################################################################################
 # Report Z3_COMPONENT flags
@@ -527,4 +573,15 @@ install(
 option(ENABLE_EXAMPLE_TARGETS "Build Z3 api examples" ON)
 if (ENABLE_EXAMPLE_TARGETS)
   add_subdirectory(examples)
+endif()
+
+################################################################################
+# Documentation
+################################################################################
+option(BUILD_DOCUMENTATION "Build API documentation" OFF)
+if (BUILD_DOCUMENTATION)
+  message(STATUS "Building documentation enabled")
+  add_subdirectory(doc)
+else()
+  message(STATUS "Building documentation disabled")
 endif()

@@ -3141,6 +3141,101 @@ namespace sat {
     //
     // -----------------------
 
+static void prune_unfixed(sat::literal_vector& lambda, sat::model const& m) {
+    for (unsigned i = 0; i < lambda.size(); ++i) {
+        if ((m[lambda[i].var()] == l_false) != lambda[i].sign()) {
+            lambda[i] = lambda.back();
+            lambda.pop_back();
+            --i;
+        }
+    }
+}
+
+// Algorithm 7: Corebased Algorithm with Chunking
+
+static void back_remove(sat::literal_vector& lits, sat::literal l) {
+    for (unsigned i = lits.size(); i > 0; ) {
+        --i;
+        if (lits[i] == l) {
+            lits[i] = lits.back();
+            lits.pop_back();
+            return;
+        }
+    }
+    std::cout << "UNREACHABLE\n";
+}
+
+    static void brute_force_consequences(sat::solver& s, sat::literal_vector const& asms, sat::literal_vector const& gamma, vector<sat::literal_vector>& conseq) {
+    for (unsigned i = 0; i < gamma.size(); ++i) {
+        sat::literal nlit = ~gamma[i];
+        sat::literal_vector asms1(asms);
+        asms1.push_back(nlit);
+        lbool r = s.check(asms1.size(), asms1.c_ptr());
+        if (r == l_false) {
+            conseq.push_back(s.get_core());
+        }
+    }
+}
+
+    static lbool core_chunking(sat::solver& s, model const& m, sat::bool_var_vector const& vars, sat::literal_vector const& asms, vector<sat::literal_vector>& conseq, unsigned K) {
+        sat::literal_vector lambda;
+        for (unsigned i = 0; i < vars.size(); i++) {
+            lambda.push_back(sat::literal(i, m[vars[i]] == l_false));
+        }
+        while (!lambda.empty()) {
+            IF_VERBOSE(1, verbose_stream() << "(sat-backbone-core " << lambda.size() << " " << conseq.size() << ")\n";);
+            unsigned k = std::min(K, lambda.size());
+            sat::literal_vector gamma, omegaN;
+            for (unsigned i = 0; i < k; ++i) {
+                sat::literal l = lambda[lambda.size() - i - 1];
+                gamma.push_back(l);
+                omegaN.push_back(~l);
+            }
+            while (true) {
+                sat::literal_vector asms1(asms);
+                asms1.append(omegaN);
+                lbool r = s.check(asms1.size(), asms1.c_ptr());
+                if (r == l_true) {
+                    IF_VERBOSE(1, verbose_stream() << "(sat) " << omegaN << "\n";);
+                    prune_unfixed(lambda, s.get_model());
+                    break;
+                }
+                sat::literal_vector const& core = s.get_core();
+                sat::literal_vector occurs;
+                IF_VERBOSE(1, verbose_stream() << "(core " << core.size() << ")\n";);
+                for (unsigned i = 0; i < omegaN.size(); ++i) {
+                    if (core.contains(omegaN[i])) {
+                        occurs.push_back(omegaN[i]);
+                    }
+                }
+                if (occurs.size() == 1) {
+                    sat::literal lit = occurs.back();
+                    sat::literal nlit = ~lit;
+                    conseq.push_back(core);
+                    back_remove(lambda, ~lit);
+                    back_remove(gamma, ~lit);
+                    s.mk_clause(1, &nlit);
+                }
+                for (unsigned i = 0; i < omegaN.size(); ++i) {
+                    if (occurs.contains(omegaN[i])) {
+                        omegaN[i] = omegaN.back();
+                        omegaN.pop_back();
+                        --i;
+                    }
+                }
+                if (omegaN.empty() && occurs.size() > 1) {
+                    brute_force_consequences(s, asms, gamma, conseq);
+                    for (unsigned i = 0; i < gamma.size(); ++i) {
+                        back_remove(lambda, gamma[i]);
+                    }
+                    break;
+                }
+            }
+        }
+        return l_true;
+    }
+
+
     lbool solver::get_consequences(literal_vector const& asms, bool_var_vector const& vars, vector<literal_vector>& conseq) {
         literal_vector lits;
         lbool is_sat = l_true;
@@ -3163,6 +3258,9 @@ namespace sat {
             default: break;
             }
         }
+
+        // is_sat = core_chunking(*this, mdl, vars, asms, conseq, 100);
+
         is_sat = get_consequences(asms, lits, conseq);
         set_model(mdl);
         return is_sat;
@@ -3310,7 +3408,7 @@ namespace sat {
                     propagate(false);
                     ++num_resolves;
                 }
-                if (scope_lvl() == 1) {
+                if (false && scope_lvl() == 1) {
                     break;
                 }
             }

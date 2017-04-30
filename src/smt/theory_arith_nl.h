@@ -444,7 +444,7 @@ namespace smt {
         m_asserted_bounds.push_back(new_bound);
         // copy justification to new bound
         dependency2new_bound(dep, *new_bound);
-        TRACE("buggy_bound", new_bound->display(*this, tout); tout << "\n";);
+        TRACE("non_linear", new_bound->display(*this, tout); tout << "\n";);
     }
 
     /**
@@ -457,8 +457,19 @@ namespace smt {
         bool r = false;
         if (!i.minus_infinity()) {
             inf_numeral new_lower(i.get_lower_value());
-            if (i.is_lower_open())
-                new_lower += get_epsilon(v);
+            if (i.is_lower_open()) {
+                if (is_int(v)) {
+                    if (new_lower.is_int()) {
+                        new_lower += rational::one();
+                    }
+                    else {
+                        new_lower = ceil(new_lower.get_rational());
+                    }
+                }
+                else {
+                    new_lower += get_epsilon(v);
+                }
+            }
             bound * old_lower = lower(v);
             if (old_lower == 0 || new_lower > old_lower->get_value()) {
                 TRACE("non_linear", tout << "NEW lower bound for v" << v << " " << new_lower << "\n";
@@ -469,8 +480,19 @@ namespace smt {
         }
         if (!i.plus_infinity()) {
             inf_numeral new_upper(i.get_upper_value());
-            if (i.is_upper_open())
-                new_upper -= get_epsilon(v);
+            if (i.is_upper_open()) {
+                if (is_int(v)) {
+                    if (new_upper.is_int()) {
+                        new_upper -= rational::one();
+                    }
+                    else {
+                        new_upper = floor(new_upper.get_rational());
+                    }
+                }
+                else {
+                    new_upper -= get_epsilon(v);
+                }
+            }
             bound * old_upper = upper(v);
             if (old_upper == 0 || new_upper < old_upper->get_value()) {
                 TRACE("non_linear", tout << "NEW upper bound for v" << v << " " << new_upper << "\n";
@@ -819,6 +841,7 @@ namespace smt {
             if (is_fixed(_var))
                 r *= lower_bound(_var).get_rational();
         }
+        TRACE("arith", tout << mk_pp(m, get_manager()) << " " << r << "\n";);
         return r;
     }
 
@@ -896,7 +919,7 @@ namespace smt {
 
             // Assert the equality
             // (= (* x_1 ... x_n) k)
-            TRACE("non_linear", tout << "all variables are fixed.\n";);
+            TRACE("non_linear", tout << "all variables are fixed, and bound is: " << k << "\n";);
             new_lower    = alloc(derived_bound, v, inf_numeral(k), B_LOWER);
             new_upper    = alloc(derived_bound, v, inf_numeral(k), B_UPPER);
         }
@@ -953,7 +976,8 @@ namespace smt {
         new_upper->m_eqs.append(new_lower->m_eqs);
 
         TRACE("non_linear",
-              tout << "lower: " << new_lower << " upper: " << new_upper << "\n";
+              new_lower->display(*this, tout << "lower: "); tout << "\n";
+              new_upper->display(*this, tout << "upper: "); tout << "\n";
               for (unsigned j = 0; j < new_upper->m_lits.size(); ++j) {
                   ctx.display_detailed_literal(tout, new_upper->m_lits[j]);
                   tout << " ";

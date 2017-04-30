@@ -329,7 +329,8 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     switch(f->get_decl_kind()) {
 
     case OP_SEQ_UNIT:
-        return BR_FAILED;
+        SASSERT(num_args == 1);
+        return mk_seq_unit(args[0], result);
     case OP_SEQ_EMPTY:
         return BR_FAILED;
     case OP_RE_PLUS:
@@ -351,7 +352,8 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         SASSERT(num_args == 2);
         return mk_re_union(args[0], args[1], result);
     case OP_RE_RANGE:
-        return BR_FAILED;    
+        SASSERT(num_args == 2);
+        return mk_re_range(args[0], args[1], result);
     case OP_RE_INTERSECT:
         SASSERT(num_args == 2);
         return mk_re_inter(args[0], args[1], result);
@@ -431,6 +433,33 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case _OP_STRING_STRIDOF: 
         UNREACHABLE();
     }
+    return BR_FAILED;
+}
+
+/*
+ * (seq.unit (_ BitVector 8)) ==> String constant
+ */
+br_status seq_rewriter::mk_seq_unit(expr* e, expr_ref& result) {
+    sort * s = m().get_sort(e);
+    bv_util bvu(m());
+
+    if (is_sort_of(s, bvu.get_family_id(), BV_SORT)) {
+        // specifically we want (_ BitVector 8)
+        rational n_val;
+        unsigned int n_size;
+        if (bvu.is_numeral(e, n_val, n_size)) {
+            if (n_size == 8) {
+                // convert to string constant
+                char ch = (char)n_val.get_int32();
+                TRACE("seq", tout << "rewrite seq.unit of 8-bit value " << n_val.to_string() << " to string constant \"" << ch << "\"" << std::endl;);
+                char s_tmp[2] = {ch, '\0'};
+                symbol s(s_tmp);
+                result = m_util.str.mk_string(s);
+                return BR_DONE;
+            }
+        }
+    }
+
     return BR_FAILED;
 }
 
@@ -1402,6 +1431,39 @@ br_status seq_rewriter::mk_re_star(expr* a, expr_ref& result) {
 }
 
 /*
+ * (re.range c_1 c_n) = (re.union (str.to.re c1) (str.to.re c2) ... (str.to.re cn))
+ */
+br_status seq_rewriter::mk_re_range(expr* lo, expr* hi, expr_ref& result) {
+    TRACE("seq", tout << "rewrite re.range [" << mk_pp(lo, m()) << " " << mk_pp(hi, m()) << "]\n";);
+    zstring str_lo, str_hi;
+    if (m_util.str.is_string(lo, str_lo) && m_util.str.is_string(hi, str_hi)) {
+        if (str_lo.length() == 1 && str_hi.length() == 1) {
+            unsigned int c1 = str_lo[0];
+            unsigned int c2 = str_hi[0];
+            if (c1 > c2) {
+                // exchange c1 and c2
+                unsigned int tmp = c1;
+                c2 = c1;
+                c1 = tmp;
+            }
+            zstring s(c1);
+            expr_ref acc(m_util.re.mk_to_re(m_util.str.mk_string(s)), m());
+            for (unsigned int ch = c1 + 1; ch <= c2; ++ch) {
+                zstring s_ch(ch);
+                expr_ref acc2(m_util.re.mk_to_re(m_util.str.mk_string(s_ch)), m());
+                acc = m_util.re.mk_union(acc, acc2);
+            }
+            result = acc;
+            return BR_REWRITE2;
+        } else {
+            m().raise_exception("string constants in re.range must have length 1");
+        }
+    }
+
+    return BR_FAILED;
+}
+
+/*
    emp+ = emp
    all+ = all
    a*+ = a*
@@ -1430,9 +1492,9 @@ br_status seq_rewriter::mk_re_plus(expr* a, expr_ref& result) {
         return BR_DONE;
     }
 
-    return BR_FAILED;
-//  result = m_util.re.mk_concat(a, m_util.re.mk_star(a));
-//  return BR_REWRITE2;
+    //return BR_FAILED;
+    result = m_util.re.mk_concat(a, m_util.re.mk_star(a));
+    return BR_REWRITE2;
 }
 
 br_status seq_rewriter::mk_re_opt(expr* a, expr_ref& result) {

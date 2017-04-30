@@ -273,6 +273,15 @@ public:
         bool is_in_re(expr const* n)    const { return is_app_of(n, m_fid, OP_SEQ_IN_RE); }
         bool is_unit(expr const* n)     const { return is_app_of(n, m_fid, OP_SEQ_UNIT); }
 
+        bool is_string_term(expr const * n) const {
+            sort * s = get_sort(n);
+            return u.is_string(s);
+        }
+
+        bool is_non_string_sequence(expr const * n) const {
+            sort * s = get_sort(n);
+            return (u.is_seq(s) && !u.is_string(s));
+        }
 
         MATCH_BINARY(is_concat);
         MATCH_UNARY(is_length);
