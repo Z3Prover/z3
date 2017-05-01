@@ -74,7 +74,6 @@ namespace smt {
         m_unsat_proof(m),
         m_unknown("unknown"),
         m_unsat_core(m),
-        m_th_case_split_qhead(0),
 #ifdef Z3DEBUG
         m_trail_enabled(true),
 #endif
@@ -340,7 +339,6 @@ namespace smt {
     
     bool context::bcp() {
         SASSERT(!inconsistent());
-        m_th_case_split_qhead = m_qhead;
         while (m_qhead < m_assigned_literals.size()) {
             if (get_cancel_flag()) {
                 return true;
@@ -1770,7 +1768,7 @@ namespace smt {
             unsigned qhead = m_qhead;
             if (!bcp())
                 return false;
-            if (!propagate_th_case_split())
+            if (!propagate_th_case_split(qhead))
                 return false;
             if (get_cancel_flag()) {
                 m_qhead = qhead;
@@ -2979,16 +2977,13 @@ namespace smt {
         TRACE("theory_case_split", display_literals_verbose(tout << "theory case split: ", num_lits, lits); tout << std::endl;);
         // If we don't use the theory case split heuristic,
         // for each pair of literals (l1, l2) we add the clause (~l1 OR ~l2)
-        // to enforce the condition that more than one literal can't be
-        // assigned 'true' simultaneously.
+        // to enforce the condition that at most one literal can be assigned 'true'.
         if (!m_fparams.m_theory_case_split) {
             for (unsigned i = 0; i < num_lits; ++i) {
                 for (unsigned j = i+1; j < num_lits; ++j) {
                     literal l1 = lits[i];
                     literal l2 = lits[j];
-                    literal excl[2] = {~l1, ~l2};
-                    justification * j_excl = 0;
-                    mk_clause(2, excl, j_excl);
+                    mk_clause(~l1, ~l2, (justification*) 0);
                 }
             }
         } else {
@@ -3010,11 +3005,11 @@ namespace smt {
                 m_literal2casesplitsets[l.index()].push_back(new_case_split);
             }
             TRACE("theory_case_split", tout << "tracking case split literal set { ";
-            for (unsigned i = 0; i < num_lits; ++i) {
-                tout << lits[i].index() << " ";
-            }
-            tout << "}" << std::endl;
-            );
+                  for (unsigned i = 0; i < num_lits; ++i) {
+                      tout << lits[i].index() << " ";
+                  }
+                  tout << "}" << std::endl;
+                  );
         }
     }
 
@@ -3027,7 +3022,7 @@ namespace smt {
         }
     }
 
-    bool context::propagate_th_case_split() {
+    bool context::propagate_th_case_split(unsigned qhead) {
         if (m_all_th_case_split_literals.empty())
             return true;
 
@@ -3035,34 +3030,34 @@ namespace smt {
         // not counting any literals that get assigned by this method
         // this relies on bcp() to give us its old m_qhead and therefore
         // bcp() should always be called before this method
-        unsigned assigned_literal_idx = m_th_case_split_qhead;
+
         unsigned assigned_literal_end = m_assigned_literals.size();
-        while(assigned_literal_idx < assigned_literal_end) {
-            literal l = m_assigned_literals[assigned_literal_idx];
+        for (; qhead < assigned_literal_end; ++qhead) {
+            literal l = m_assigned_literals[qhead];
             TRACE("theory_case_split", tout << "check literal " << l.index() << std::endl; display_literal_verbose(tout, l); tout << std::endl;);
-            ++assigned_literal_idx;
             // check if this literal participates in any theory case split
-            if (m_all_th_case_split_literals.contains(l.index())) {
-                TRACE("theory_case_split", tout << "assigned literal " << l.index() << " is a theory case split literal" << std::endl;);
-                // now find the sets of literals which contain l
-                vector<literal_vector> const& case_split_sets = m_literal2casesplitsets[l.index()];
-                for (vector<literal_vector>::const_iterator it = case_split_sets.begin(); it != case_split_sets.end(); ++it) {
-                    literal_vector case_split_set = *it;
-                    TRACE("theory_case_split", tout << "found case split set { ";
-                    for(literal_vector::iterator set_it = case_split_set.begin(); set_it != case_split_set.end(); ++set_it) {
-                        tout << set_it->index() << " ";
-                    }
-                    tout << "}" << std::endl;);
-                    for(literal_vector::iterator set_it = case_split_set.begin(); set_it != case_split_set.end(); ++set_it) {
-                        literal l2 = *set_it;
-                        if (l2 != l) {
-                            b_justification js(l);
-                            TRACE("theory_case_split", tout << "case split literal "; l2.display(tout, m_manager, m_bool_var2expr.c_ptr()););
-                            assign(~l2, js);
-                            if (inconsistent()) {
-                                TRACE("theory_case_split", tout << "conflict detected!" << std::endl;);
-                                return false;
-                            }
+            if (!m_all_th_case_split_literals.contains(l.index())) {
+                continue;
+            }
+            TRACE("theory_case_split", tout << "assigned literal " << l.index() << " is a theory case split literal" << std::endl;);
+            // now find the sets of literals which contain l
+            vector<literal_vector> const& case_split_sets = m_literal2casesplitsets[l.index()];
+            for (vector<literal_vector>::const_iterator it = case_split_sets.begin(); it != case_split_sets.end(); ++it) {
+                literal_vector case_split_set = *it;
+                TRACE("theory_case_split", tout << "found case split set { ";
+                      for(literal_vector::iterator set_it = case_split_set.begin(); set_it != case_split_set.end(); ++set_it) {
+                          tout << set_it->index() << " ";
+                      }
+                      tout << "}" << std::endl;);
+                for(literal_vector::iterator set_it = case_split_set.begin(); set_it != case_split_set.end(); ++set_it) {
+                    literal l2 = *set_it;
+                    if (l2 != l) {
+                        b_justification js(l);
+                        TRACE("theory_case_split", tout << "case split literal "; l2.display(tout, m_manager, m_bool_var2expr.c_ptr()););
+                        assign(~l2, js);
+                        if (inconsistent()) {
+                            TRACE("theory_case_split", tout << "conflict detected!" << std::endl;);
+                            return false;
                         }
                     }
                 }

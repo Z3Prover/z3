@@ -234,7 +234,6 @@ namespace smt {
         uint_set m_all_th_case_split_literals;
         vector<literal_vector> m_th_case_split_sets;
         u_map< vector<literal_vector> > m_literal2casesplitsets; // returns the case split literal sets that a literal participates in
-        unsigned m_th_case_split_qhead;
 
         // -----------------------------------
         //
@@ -844,7 +843,7 @@ namespace smt {
         // helper function for trail
         void undo_th_case_split(literal l);
 
-	bool propagate_th_case_split();
+	bool propagate_th_case_split(unsigned qhead);
 
         bool_var mk_bool_var(expr * n);
 
