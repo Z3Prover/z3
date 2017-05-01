@@ -62,7 +62,6 @@ namespace smt {
         m_is_diseq_tmp(0),
         m_units_to_reassert(m_manager),
         m_qhead(0),
-        m_th_case_split_qhead(0),
         m_simp_qhead(0),
         m_simp_counter(0),
         m_bvar_inc(1.0),
@@ -75,6 +74,7 @@ namespace smt {
         m_unsat_proof(m),
         m_unknown("unknown"),
         m_unsat_core(m),
+        m_th_case_split_qhead(0),
 #ifdef Z3DEBUG
         m_trail_enabled(true),
 #endif
