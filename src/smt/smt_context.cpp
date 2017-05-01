@@ -3057,19 +3057,8 @@ namespace smt {
                         literal l2 = *set_it;
                         if (l2 != l) {
                             b_justification js(l);
-                            switch (get_assignment(l2)) {
-                                case l_false:
-                                    TRACE("theory_case_split", tout << "case split literal " << l2.index() << " is already assigned False" << std::endl;);
-                                    break;
-                                case l_undef:
-                                    TRACE("theory_case_split", tout << "case split literal " << l2.index() << " is not assigned" << std::endl;);
-                                    assign(~l2, js);
-                                    break;
-                                case l_true:
-                                    TRACE("theory_case_split", tout << "case split literal " << l2.index() << " is already assigned True" << std::endl;);
-                                    assign(~l2, js);
-                                    break;
-                            }
+                            TRACE("theory_case_split", tout << "case split literal "; l2.display(tout, m_manager, m_bool_var2expr.c_ptr()););
+                            assign(~l2, js);
                             if (inconsistent()) {
                                 TRACE("theory_case_split", tout << "conflict detected!" << std::endl;);
                                 return false;
