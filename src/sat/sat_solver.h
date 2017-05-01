@@ -498,7 +498,11 @@ namespace sat {
 
         void extract_fixed_consequences(unsigned& start, literal_set const& assumptions, bool_var_set& unfixed, vector<literal_vector>& conseq);
 
-        bool extract_fixed_consequences(literal lit, literal_set const& assumptions, bool_var_set& unfixed, vector<literal_vector>& conseq);
+        void extract_fixed_consequences(literal_set const& unfixed_lits, literal_set const& assumptions, bool_var_set& unfixed, vector<literal_vector>& conseq);
+
+        void extract_fixed_consequences(literal lit, literal_set const& assumptions, bool_var_set& unfixed, vector<literal_vector>& conseq);
+
+        bool extract_fixed_consequences1(literal lit, literal_set const& assumptions, bool_var_set& unfixed, vector<literal_vector>& conseq);
 
         void update_unfixed_literals(literal_set& unfixed_lits, bool_var_set& unfixed_vars);
 

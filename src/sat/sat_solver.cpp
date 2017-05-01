@@ -3180,7 +3180,7 @@ static void back_remove(sat::literal_vector& lits, sat::literal l) {
     static lbool core_chunking(sat::solver& s, model const& m, sat::bool_var_vector const& vars, sat::literal_vector const& asms, vector<sat::literal_vector>& conseq, unsigned K) {
         sat::literal_vector lambda;
         for (unsigned i = 0; i < vars.size(); i++) {
-            lambda.push_back(sat::literal(i, m[vars[i]] == l_false));
+            lambda.push_back(sat::literal(vars[i], m[vars[i]] == l_false));
         }
         while (!lambda.empty()) {
             IF_VERBOSE(1, verbose_stream() << "(sat-backbone-core " << lambda.size() << " " << conseq.size() << ")\n";);
@@ -3259,9 +3259,9 @@ static void back_remove(sat::literal_vector& lits, sat::literal l) {
             }
         }
 
-        // is_sat = core_chunking(*this, mdl, vars, asms, conseq, 100);
+        is_sat = core_chunking(*this, mdl, vars, asms, conseq, 100);
 
-        is_sat = get_consequences(asms, lits, conseq);
+        // is_sat = get_consequences(asms, lits, conseq);
         set_model(mdl);
         return is_sat;
     }
@@ -3371,13 +3371,14 @@ static void back_remove(sat::literal_vector& lits, sat::literal l) {
         propagate(false);
         if (check_inconsistent()) return l_false;
 
-        unsigned num_units = 0, num_iterations = 0;
-        extract_fixed_consequences(num_units, assumptions, unfixed_vars, conseq);
+        unsigned num_iterations = 0;
+        extract_fixed_consequences(unfixed_lits, assumptions, unfixed_vars, conseq); 
         update_unfixed_literals(unfixed_lits, unfixed_vars);
         while (!unfixed_lits.empty()) {
             if (scope_lvl() > 1) {
                 pop(scope_lvl() - 1);
             }
+            propagate(false);
             ++num_iterations;
             checkpoint();
             literal_set::iterator it = unfixed_lits.begin(), end = unfixed_lits.end();
@@ -3389,8 +3390,9 @@ static void back_remove(sat::literal_vector& lits, sat::literal l) {
                 literal lit = *it;                
                 if (value(lit) != l_undef) {
                     ++num_fixed;
-                    if (value(lit) == l_true && lvl(lit) == 1) {
-                        VERIFY(extract_fixed_consequences(lit, assumptions, unfixed_vars, conseq));
+                    if (lvl(lit) <= 1) {
+                        SASSERT(value(lit) == l_true);
+                        extract_fixed_consequences(lit, assumptions, unfixed_vars, conseq);
                     }
                     continue;
                 }
@@ -3409,18 +3411,13 @@ static void back_remove(sat::literal_vector& lits, sat::literal l) {
                     ++num_resolves;
                 }
                 if (false && scope_lvl() == 1) {
+                    is_sat = l_undef;
                     break;
                 }
             }
-            if (scope_lvl() == 1) {
-                it = unfixed_lits.begin();
-                for (; it != end; ++it) {
-                    literal lit = *it;
-                    if (value(lit) == l_true) {
-                        VERIFY(extract_fixed_consequences(lit, assumptions, unfixed_vars, conseq));
-                    }
-                }
-            }
+
+            extract_fixed_consequences(unfixed_lits, assumptions, unfixed_vars, conseq);
+
             if (is_sat == l_true) {
                 if (scope_lvl() == 1 && num_resolves > 0) {
                     IF_VERBOSE(1, verbose_stream() << "(sat.get-consequences backjump)\n";);
@@ -3431,6 +3428,7 @@ static void back_remove(sat::literal_vector& lits, sat::literal l) {
                     if (is_sat == l_undef) {
                         restart();
                     }
+                    extract_fixed_consequences(unfixed_lits, assumptions, unfixed_vars, conseq);
                 }
             }
             if (is_sat == l_false) {
@@ -3440,7 +3438,6 @@ static void back_remove(sat::literal_vector& lits, sat::literal l) {
             if (is_sat == l_true) {
                 delete_unfixed(unfixed_lits, unfixed_vars);
             }
-            extract_fixed_consequences(num_units, assumptions, unfixed_vars, conseq); 
             update_unfixed_literals(unfixed_lits, unfixed_vars);
             IF_VERBOSE(1, verbose_stream() << "(sat.get-consequences"
                        << " iterations: " << num_iterations
@@ -3492,19 +3489,27 @@ static void back_remove(sat::literal_vector& lits, sat::literal l) {
         SASSERT(!inconsistent());
         unsigned sz = m_trail.size();
         for (unsigned i = start; i < sz && lvl(m_trail[i]) <= 1; ++i) {
-            if (!extract_fixed_consequences(m_trail[i], assumptions, unfixed, conseq)) {
-                for (i = 0; i < sz && lvl(m_trail[i]) <= 1; ++i) {
-                    VERIFY(extract_fixed_consequences(m_trail[i], assumptions, unfixed, conseq));
-                }
-                break;
-            }
+            extract_fixed_consequences(m_trail[i], assumptions, unfixed, conseq);
         }
         start = sz;
     }
 
+    void solver::extract_fixed_consequences(literal_set const& unfixed_lits, literal_set const& assumptions, bool_var_set& unfixed_vars, vector<literal_vector>& conseq) {
+        literal_set::iterator it = unfixed_lits.begin(), end = unfixed_lits.end();
+        for (; it != end; ++it) {
+            literal lit = *it;
+            if (lvl(lit) <= 1) {
+                SASSERT(value(lit) == l_true);
+                extract_fixed_consequences(lit, assumptions, unfixed_vars, conseq);
+            }
+        }
+    }
+
     bool solver::check_domain(literal lit, literal lit2) {
         if (!m_antecedents.contains(lit2.var())) {
+            SASSERT(value(lit2) == l_true);
             m_todo_antecedents.push_back(lit2);
+            TRACE("sat", tout << "todo: " << lit2 << " " << value(lit2) << "\n";);
             return false;
         }
         else {
@@ -3514,16 +3519,17 @@ static void back_remove(sat::literal_vector& lits, sat::literal l) {
 
     bool solver::extract_assumptions(literal lit, index_set& s) {
         justification js = m_justification[lit.var()];
+        TRACE("sat", tout << lit << " " << js << "\n";);
         switch (js.get_kind()) {
         case justification::NONE:
             break;
         case justification::BINARY:
-            if (!check_domain(lit, js.get_literal())) return false;
+            if (!check_domain(lit, ~js.get_literal())) return false;
             s |= m_antecedents.find(js.get_literal().var());
             break;
         case justification::TERNARY:
-            if (!check_domain(lit, js.get_literal1())) return false;
-            if (!check_domain(lit, js.get_literal2())) return false;
+            if (!check_domain(lit, ~js.get_literal1()) ||
+                !check_domain(lit, ~js.get_literal2())) return false;
             s |= m_antecedents.find(js.get_literal1().var());
             s |= m_antecedents.find(js.get_literal2().var());
             break;
@@ -3531,7 +3537,7 @@ static void back_remove(sat::literal_vector& lits, sat::literal l) {
             clause & c = *(m_cls_allocator.get_clause(js.get_clause_offset()));
             for (unsigned i = 0; i < c.size(); ++i) {
                 if (c[i] != lit) {
-                    if (!check_domain(lit, c[i])) return false;
+                    if (!check_domain(lit, ~c[i])) return false;
                     s |= m_antecedents.find(c[i].var());
                 }
             }
@@ -3565,7 +3571,7 @@ static void back_remove(sat::literal_vector& lits, sat::literal l) {
     }
 
 
-    bool solver::extract_fixed_consequences(literal lit, literal_set const& assumptions, bool_var_set& unfixed, vector<literal_vector>& conseq) {
+    bool solver::extract_fixed_consequences1(literal lit, literal_set const& assumptions, bool_var_set& unfixed, vector<literal_vector>& conseq) {
         index_set s;
         if (m_antecedents.contains(lit.var())) {
             return true;
@@ -3574,16 +3580,9 @@ static void back_remove(sat::literal_vector& lits, sat::literal l) {
             s.insert(lit.index());
         }
         else {
-            SASSERT(m_todo_antecedents.empty());
             if (!extract_assumptions(lit, s)) {
                 SASSERT(!m_todo_antecedents.empty());
-                while (!m_todo_antecedents.empty()) {
-                    index_set s1;
-                    if (extract_assumptions(m_todo_antecedents.back(), s1)) {
-                        m_todo_antecedents.pop_back();
-                    }
-                }
-                VERIFY (extract_assumptions(lit, s));
+                return false;
             }
             add_assumption(lit);
         }
@@ -3599,6 +3598,16 @@ static void back_remove(sat::literal_vector& lits, sat::literal l) {
             conseq.push_back(cons);
         }
         return true;
+    }
+
+    void solver::extract_fixed_consequences(literal lit, literal_set const& assumptions, bool_var_set& unfixed, vector<literal_vector>& conseq) {
+        SASSERT(m_todo_antecedents.empty());
+        m_todo_antecedents.push_back(lit);
+        while (!m_todo_antecedents.empty()) {
+            if (extract_fixed_consequences1(m_todo_antecedents.back(), assumptions, unfixed, conseq)) {
+                m_todo_antecedents.pop_back();
+            }
+        }
     }
 
     void solver::asymmetric_branching() {

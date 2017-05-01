@@ -172,6 +172,7 @@ namespace smt {
         bool get_fixed_value(theory_var v, numeral & result) const;
         void internalize_num(app * n);
         void internalize_add(app * n);
+        void internalize_sub(app * n);
         void internalize_mul(app * n);
         void internalize_udiv(app * n);
         void internalize_sdiv(app * n);

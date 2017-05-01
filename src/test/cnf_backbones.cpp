@@ -152,14 +152,13 @@ static void brute_force_consequences(sat::solver& s, sat::literal_vector const& 
 
 static lbool core_chunking(sat::solver& s, sat::bool_var_vector& vars, sat::literal_vector const& asms, vector<sat::literal_vector>& conseq, unsigned K) {
     lbool r = s.check(asms.size(), asms.c_ptr());
-    display_status(r);
     if (r != l_true) {
         return r;
     }
     sat::model const & m = s.get_model();
     sat::literal_vector lambda, backbones;
-    for (unsigned i = 1; i < m.size(); i++) {
-        lambda.push_back(sat::literal(i, m[i] == l_false));
+    for (unsigned i = 0; i < vars.size(); i++) {
+        lambda.push_back(sat::literal(vars[i], m[vars[i]] == l_false));
     }
     while (!lambda.empty()) {
         IF_VERBOSE(1, verbose_stream() << "(sat-backbone-core " << lambda.size() << " " << backbones.size() << ")\n";);
@@ -270,10 +269,15 @@ static void cnf_backbones(bool use_chunk, char const* file_name) {
 }
 
 void tst_cnf_backbones(char ** argv, int argc, int& i) {
+    bool use_chunk = i + 1 < argc && argv[i + 1] == std::string("chunk");
+    if (use_chunk) ++i;     
+    char const* file = "";
     if (i + 1 < argc) {
-        bool use_chunk = (i + 2 < argc && argv[i + 1] == std::string("chunk"));
-        if (use_chunk) ++i;        
-        cnf_backbones(use_chunk, argv[i + 1]);
-        ++i;
+        file = argv[i + 1];
     }
+    else {
+        file = argv[1];
+    }
+    cnf_backbones(use_chunk, file);
+    ++i;
 }
