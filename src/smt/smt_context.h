@@ -228,6 +228,16 @@ namespace smt {
 
         // -----------------------------------
         //
+        // Theory case split
+        //
+        // -----------------------------------
+        uint_set m_all_th_case_split_literals;
+        vector<literal_vector> m_th_case_split_sets;
+        u_map< vector<literal_vector> > m_literal2casesplitsets; // returns the case split literal sets that a literal participates in
+        unsigned m_th_case_split_qhead;
+
+        // -----------------------------------
+        //
         // Accessors
         //
         // -----------------------------------
@@ -820,6 +830,21 @@ namespace smt {
 
         void mk_th_axiom(theory_id tid, literal l1, literal l2, literal l3, unsigned num_params = 0, parameter * params = 0);
 
+        /*
+         * Provide a hint to the core solver that the specified literals form a "theory case split".
+         * The core solver will enforce the condition that exactly one of these literals can be
+         * assigned 'true' at any time.
+         * We assume that the theory solver has already asserted the disjunction of these literals
+         * or some other axiom that means at least one of them must be assigned 'true'.
+         */
+        void mk_th_case_split(unsigned num_lits, literal * lits);
+
+    public:
+
+        // helper function for trail
+        void undo_th_case_split(literal l);
+
+	bool propagate_th_case_split();
 
         bool_var mk_bool_var(expr * n);
 
