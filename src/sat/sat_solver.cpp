@@ -3259,9 +3259,9 @@ static void back_remove(sat::literal_vector& lits, sat::literal l) {
             }
         }
 
-        is_sat = core_chunking(*this, mdl, vars, asms, conseq, 100);
+        // is_sat = core_chunking(*this, mdl, vars, asms, conseq, 100);
 
-        // is_sat = get_consequences(asms, lits, conseq);
+        is_sat = get_consequences(asms, lits, conseq);
         set_model(mdl);
         return is_sat;
     }
