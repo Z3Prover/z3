@@ -46,6 +46,9 @@ namespace smt {
         virtual void next_case_split(bool_var & next, lbool & phase) = 0;
         virtual void display(std::ostream & out) = 0;
         virtual ~case_split_queue() {}
+
+        // theory-aware branching hint
+        virtual void add_theory_aware_branching_info(bool_var v, double priority, lbool phase) {}
     };
 
     case_split_queue * mk_case_split_queue(context & ctx, smt_params & p);
