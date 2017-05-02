@@ -110,6 +110,7 @@ struct smt_params : public preprocessor_params,
     unsigned            m_rel_case_split_order;
     bool                m_lookahead_diseq;
     bool                m_theory_case_split;
+    bool                m_theory_aware_branching;
 
     // -----------------------------------
     //
@@ -240,6 +241,8 @@ struct smt_params : public preprocessor_params,
         m_case_split_strategy(CS_ACTIVITY_DELAY_NEW),
         m_rel_case_split_order(0),
         m_lookahead_diseq(false),
+        m_theory_case_split(false),
+        m_theory_aware_branching(false),
         m_delay_units(false),
         m_delay_units_threshold(32),
         m_theory_resolve(false),
