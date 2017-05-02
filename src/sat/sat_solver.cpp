@@ -3523,6 +3523,7 @@ namespace sat {
     bool solver::extract_assumptions(literal lit, index_set& s) {
         justification js = m_justification[lit.var()];
         TRACE("sat", tout << lit << " " << js << "\n";);
+        bool all_found = true;
         switch (js.get_kind()) {
         case justification::NONE:
             break;
@@ -3540,8 +3541,12 @@ namespace sat {
             clause & c = *(m_cls_allocator.get_clause(js.get_clause_offset()));
             for (unsigned i = 0; i < c.size(); ++i) {
                 if (c[i] != lit) {
-                    if (!check_domain(lit, ~c[i])) return false;
-                    s |= m_antecedents.find(c[i].var());
+                    if (check_domain(lit, ~c[i]) && all_found) {
+                        s |= m_antecedents.find(c[i].var());
+                    }
+                    else {
+                        all_found = false;
+                    }
                 }
             }
             break;
@@ -3551,8 +3556,12 @@ namespace sat {
             literal_vector::iterator it  = m_ext_antecedents.begin();
             literal_vector::iterator end = m_ext_antecedents.end();
             for (; it != end; ++it) {
-                if (!check_domain(lit, *it)) return false;
-                s |= m_antecedents.find(it->var());
+                if (check_domain(lit, *it) && all_found) {
+                    s |= m_antecedents.find(it->var());
+                }
+                else {
+                    all_found = false;
+                }
             }
             break;
         }
@@ -3561,7 +3570,7 @@ namespace sat {
             break;
         }
         TRACE("sat", display_index_set(tout << lit << ": " , s) << "\n";);
-        return true;
+        return all_found;
     }
 
     std::ostream& solver::display_index_set(std::ostream& out, index_set const& s) const {
