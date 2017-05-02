@@ -30,7 +30,6 @@ Revision History:
 
 namespace datalog {
 
-    class execution_context;
     class instruction_block;
     class rel_context;
 

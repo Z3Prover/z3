@@ -481,6 +481,7 @@ namespace sat {
         typedef hashtable<unsigned, u_hash, u_eq> index_set;
 
         u_map<index_set>       m_antecedents;
+        literal_vector         m_todo_antecedents;
         vector<literal_vector> m_binary_clause_graph;
 
         bool extract_assumptions(literal lit, index_set& s);
@@ -497,7 +498,11 @@ namespace sat {
 
         void extract_fixed_consequences(unsigned& start, literal_set const& assumptions, bool_var_set& unfixed, vector<literal_vector>& conseq);
 
-        bool extract_fixed_consequences(literal lit, literal_set const& assumptions, bool_var_set& unfixed, vector<literal_vector>& conseq);
+        void extract_fixed_consequences(literal_set const& unfixed_lits, literal_set const& assumptions, bool_var_set& unfixed, vector<literal_vector>& conseq);
+
+        void extract_fixed_consequences(literal lit, literal_set const& assumptions, bool_var_set& unfixed, vector<literal_vector>& conseq);
+
+        bool extract_fixed_consequences1(literal lit, literal_set const& assumptions, bool_var_set& unfixed, vector<literal_vector>& conseq);
 
         void update_unfixed_literals(literal_set& unfixed_lits, bool_var_set& unfixed_vars);
 

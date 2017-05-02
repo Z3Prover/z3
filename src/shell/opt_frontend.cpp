@@ -20,12 +20,12 @@ static opt::context* g_opt = 0;
 static double g_start_time = 0;
 static unsigned_vector g_handles;
 
-class stream_buffer {
+class opt_stream_buffer {
     std::istream & m_stream;
     int            m_val;
     unsigned       m_line;
 public:    
-    stream_buffer(std::istream & s):
+    opt_stream_buffer(std::istream & s):
         m_stream(s),
         m_line(0) {
         m_val = m_stream.get();
@@ -111,7 +111,7 @@ public:
 class wcnf {
     opt::context&  opt;
     ast_manager&   m;
-    stream_buffer& in;
+    opt_stream_buffer& in;
 
     app_ref read_clause(unsigned& weight) {
         int     parsed_lit;
@@ -141,7 +141,7 @@ class wcnf {
 
 public:
     
-    wcnf(opt::context& opt, stream_buffer& in): opt(opt), m(opt.get_manager()), in(in) {
+    wcnf(opt::context& opt, opt_stream_buffer& in): opt(opt), m(opt.get_manager()), in(in) {
         opt.set_clausal(true);
     }
     
@@ -180,7 +180,7 @@ public:
 class opb {
     opt::context&  opt;
     ast_manager&   m;
-    stream_buffer& in;
+    opt_stream_buffer& in;
     arith_util     arith;
 
     app_ref parse_id() {
@@ -254,7 +254,7 @@ class opb {
         opt.add_hard_constraint(t);
     }
 public:
-    opb(opt::context& opt, stream_buffer& in): 
+    opb(opt::context& opt, opt_stream_buffer& in): 
         opt(opt), m(opt.get_manager()), 
         in(in), arith(m) {}
 
@@ -335,7 +335,7 @@ static unsigned parse_opt(std::istream& in, bool is_wcnf) {
     g_opt = &opt;
     params_ref p = gparams::get_module("opt");
     opt.updt_params(p);
-    stream_buffer _in(in);
+    opt_stream_buffer _in(in);
     if (is_wcnf) {
         wcnf wcnf(opt, _in);
         wcnf.parse();

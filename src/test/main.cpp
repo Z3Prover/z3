@@ -8,6 +8,7 @@
 #include"timeit.h"
 #include"warning.h"
 #include "memory_manager.h"
+#include"gparams.h"
 
 //
 // Unit tests fail by asserting.
@@ -75,7 +76,7 @@ void display_usage() {
 void parse_cmd_line_args(int argc, char ** argv, bool& do_display_usage, bool& test_all) {
     int i = 1;
     while (i < argc) {
-	char * arg = argv[i];    
+	char * arg = argv[i], *eq_pos = 0;
 
 	if (arg[0] == '-' || arg[0] == '/') {
 	    char * opt_name = arg + 1;
@@ -118,6 +119,17 @@ void parse_cmd_line_args(int argc, char ** argv, bool& do_display_usage, bool& t
 	    }
 #endif
 	}
+        else if (arg[0] != '"' && (eq_pos = strchr(arg, '='))) {
+            char * key   = arg;
+            *eq_pos      = 0;
+            char * value = eq_pos+1; 
+            try {
+                gparams::set(key, value);
+            }
+            catch (z3_exception& ex) {
+                std::cerr << ex.msg() << "\n";
+            }
+        }            
 	i++;
     }
 }

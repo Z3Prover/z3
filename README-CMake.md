@@ -292,6 +292,7 @@ The following useful options can be passed to CMake whilst configuring.
     when running the ``install`` target.
 * ``ALWAYS_BUILD_DOCS`` - BOOL. If set to ``TRUE`` and ``BUILD_DOCUMENTATION`` is ``TRUE`` then documentation for API bindings will always be built.
     Disabling this is useful for faster incremental builds. The documentation can be manually built by invoking the ``api_docs`` target.
+* ``LINK_TIME_OPTIMIZATION`` - BOOL. If set to ``TRUE`` link time optimization will be enabled.
 
 On the command line these can be passed to ``cmake`` using the ``-D`` option. In ``ccmake`` and ``cmake-gui`` these can be set in the user interface.
 

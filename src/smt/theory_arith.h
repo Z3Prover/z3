@@ -552,6 +552,7 @@ namespace smt {
         bool is_int(theory_var v) const { return m_data[v].m_is_int; }
         bool is_int_src(theory_var v) const { return m_util.is_int(var2expr(v)); }
         bool is_real(theory_var v) const { return !is_int(v); }
+        bool is_real_src(theory_var v) const { return !is_int_src(v); }
         bool get_implied_old_value(theory_var v, inf_numeral & r) const;
         inf_numeral const & get_implied_value(theory_var v) const;
         inf_numeral const & get_quasi_base_value(theory_var v) const { return get_implied_value(v); }

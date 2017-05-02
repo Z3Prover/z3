@@ -405,7 +405,6 @@ namespace smt {
     bool context::validate_justification(bool_var v, bool_var_data const& d, b_justification const& j) {
         if (j.get_kind() == b_justification::CLAUSE && v != true_bool_var) {
             clause* cls = j.get_clause();
-            unsigned num_lits = cls->get_num_literals();
             literal l = cls->get_literal(0);
             if (l.var() != v) {
                 l = cls->get_literal(1);
