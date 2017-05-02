@@ -257,6 +257,7 @@ static void cnf_backbones(bool use_chunk, char const* file_name) {
         vars.push_back(i);        
         g_solver->set_external(i);
     }
+    num_vars = g_solver->num_vars();
     lbool r;
     if (use_chunk) {
         r = core_chunking(*g_solver, vars, assumptions, conseq, 100);
