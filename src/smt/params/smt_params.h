@@ -66,7 +66,8 @@ enum case_split_strategy {
     CS_ACTIVITY_WITH_CACHE, // case split based on activity and cache the activity
     CS_RELEVANCY, // case split based on relevancy
     CS_RELEVANCY_ACTIVITY, // case split based on relevancy and activity
-    CS_RELEVANCY_GOAL // based on relevancy and the current goal
+    CS_RELEVANCY_GOAL, // based on relevancy and the current goal
+    CS_ACTIVITY_THEORY_AWARE_BRANCHING // activity-based case split, but theory solvers can manipulate activity
 };
 
 struct smt_params : public preprocessor_params, 
@@ -110,7 +111,6 @@ struct smt_params : public preprocessor_params,
     unsigned            m_rel_case_split_order;
     bool                m_lookahead_diseq;
     bool                m_theory_case_split;
-    bool                m_theory_aware_branching;
 
     // -----------------------------------
     //
@@ -242,7 +242,6 @@ struct smt_params : public preprocessor_params,
         m_rel_case_split_order(0),
         m_lookahead_diseq(false),
         m_theory_case_split(false),
-        m_theory_aware_branching(false),
         m_delay_units(false),
         m_delay_units_threshold(32),
         m_theory_resolve(false),

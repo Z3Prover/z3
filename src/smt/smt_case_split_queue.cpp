@@ -1164,9 +1164,10 @@ namespace smt {
         virtual void pop_scope(unsigned num_scopes) {}
 
         virtual void next_case_split(bool_var & next, lbool & phase) {
-            phase = l_undef;
-
-            if (m_context.get_random_value() < static_cast<int>(m_params.m_random_var_freq * random_gen::max_value())) {
+            int threshold = static_cast<int>(m_params.m_random_var_freq * random_gen::max_value());
+            SASSERT(threshold >= 0);
+            if (m_context.get_random_value() < threshold) {
+                SASSERT(m_context.get_num_b_internalized() > 0);
                 next = m_context.get_random_value() % m_context.get_num_b_internalized(); 
                 TRACE("random_split", tout << "next: " << next << " get_assignment(next): " << m_context.get_assignment(next) << "\n";);
                 if (m_context.get_assignment(next) == l_undef)
@@ -1237,25 +1238,21 @@ namespace smt {
             warning_msg("auto configuration (option AUTO_CONFIG) must be disabled to use option CASE_SPLIT=3, 4 or 5");
             p.m_case_split_strategy = CS_ACTIVITY;
         }
-
-        if (p.m_theory_aware_branching) {
-            // override
+        switch (p.m_case_split_strategy) {
+        case CS_ACTIVITY_DELAY_NEW:
+            return alloc(dact_case_split_queue, ctx, p);
+        case CS_ACTIVITY_WITH_CACHE:
+            return alloc(cact_case_split_queue, ctx, p);
+        case CS_RELEVANCY:
+            return alloc(rel_case_split_queue, ctx, p);
+        case CS_RELEVANCY_ACTIVITY:
+            return alloc(rel_act_case_split_queue, ctx, p);
+        case CS_RELEVANCY_GOAL:
+            return alloc(rel_goal_case_split_queue, ctx, p);
+        case CS_ACTIVITY_THEORY_AWARE_BRANCHING:
             return alloc(theory_aware_branching_queue, ctx, p);
-        } else {
-            switch (p.m_case_split_strategy) {
-            case CS_ACTIVITY_DELAY_NEW:
-                return alloc(dact_case_split_queue, ctx, p);
-            case CS_ACTIVITY_WITH_CACHE:
-                return alloc(cact_case_split_queue, ctx, p);
-            case CS_RELEVANCY:
-                return alloc(rel_case_split_queue, ctx, p);
-            case CS_RELEVANCY_ACTIVITY:
-                return alloc(rel_act_case_split_queue, ctx, p);
-            case CS_RELEVANCY_GOAL:
-                return alloc(rel_goal_case_split_queue, ctx, p);
-            default:
-                return alloc(act_case_split_queue, ctx, p);
-            }
+        default:
+            return alloc(act_case_split_queue, ctx, p);
         }
     }
 
