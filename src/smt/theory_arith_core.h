@@ -3269,7 +3269,7 @@ namespace smt {
     template<typename Ext>
     bool theory_arith<Ext>::get_lower(enode * n, expr_ref & r) {        
         theory_var v = n->get_th_var(get_id());
-        bound * b = (v == null_theory_var) ? 0 : lower(v);
+        bound* b = (v == null_theory_var) ? 0 : lower(v);
         return b && to_expr(b->get_value(), is_int(v), r);
     }
     
