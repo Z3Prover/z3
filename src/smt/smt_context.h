@@ -838,12 +838,20 @@ namespace smt {
          */
         void mk_th_case_split(unsigned num_lits, literal * lits);
 
+
+        /*
+         * Provide a hint to the branching heuristic about the priority of a "theory-aware literal".
+         * Literals marked in this way will always be branched on before unmarked literals,
+         * starting with the literal having the highest priority.
+         */
+        void add_theory_aware_branching_info(bool_var v, double priority, lbool phase);
+
     public:
 
         // helper function for trail
         void undo_th_case_split(literal l);
 
-	bool propagate_th_case_split(unsigned qhead);
+        bool propagate_th_case_split(unsigned qhead);
 
         bool_var mk_bool_var(expr * n);
 

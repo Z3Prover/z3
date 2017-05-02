@@ -3022,6 +3022,10 @@ namespace smt {
         }
     }
 
+    void context::add_theory_aware_branching_info(bool_var v, double priority, lbool phase) {
+        m_case_split_queue->add_theory_aware_branching_info(v, priority, phase);
+    }
+
     bool context::propagate_th_case_split(unsigned qhead) {
         if (m_all_th_case_split_literals.empty())
             return true;
