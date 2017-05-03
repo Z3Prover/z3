@@ -120,6 +120,8 @@ namespace smt {
             setup_QF_FP();
         else if (m_logic == "QF_FPBV" || m_logic == "QF_BVFP")
             setup_QF_FPBV();
+        else if (m_logic == "QF_S")
+            setup_QF_S();
         else
             setup_unknown();
     }
@@ -161,6 +163,8 @@ namespace smt {
                  setup_QF_BVRE();
             else if (m_logic == "QF_AUFLIA")
                 setup_QF_AUFLIA(st);
+            else if (m_logic == "QF_S")
+                setup_QF_S();
             else if (m_logic == "AUFLIA")
                 setup_AUFLIA(st);
             else if (m_logic == "AUFLIRA")
@@ -201,7 +205,7 @@ namespace smt {
     void setup::setup_QF_BVRE() {
         setup_QF_BV();
         setup_QF_LIA();
-        setup_seq();
+        m_context.register_plugin(alloc(theory_seq, m_manager));
     }
 
     void setup::setup_QF_UF(static_features const & st) {
@@ -700,6 +704,10 @@ namespace smt {
         m_context.register_plugin(alloc(smt::theory_fpa, m_manager));
     }
 
+    void setup::setup_QF_S() {
+        m_context.register_plugin(alloc(smt::theory_seq, m_manager));
+    }
+
     bool is_arith(static_features const & st) {
         return st.m_num_arith_ineqs > 0 || st.m_num_arith_terms > 0 || st.m_num_arith_eqs > 0;
     }
@@ -814,8 +822,21 @@ namespace smt {
         m_context.register_plugin(mk_theory_dl(m_manager));
     }
 
-    void setup::setup_seq() {
-        m_context.register_plugin(alloc(theory_seq, m_manager));
+    void setup::setup_seq(static_features const & st) {
+        // check params for what to do here when it's ambiguous
+        if (m_params.m_string_solver == "z3str3") {
+            setup_str();
+        } else if (m_params.m_string_solver == "seq") {
+            m_context.register_plugin(alloc(smt::theory_seq, m_manager));
+        } else if (m_params.m_string_solver == "auto") {
+            if (st.m_has_seq_non_str) {
+                m_context.register_plugin(alloc(smt::theory_seq, m_manager));
+            } else {
+                setup_str();
+            }
+        } else {
+            throw default_exception("invalid parameter for smt.string_solver, valid options are 'z3str3', 'seq', 'auto'");
+        }
     }
 
     void setup::setup_card() {
@@ -827,13 +848,20 @@ namespace smt {
         m_context.register_plugin(alloc(theory_fpa, m_manager));
     }
 
+    void setup::setup_str() {
+        m_context.register_plugin(alloc(smt::theory_seq, m_manager));
+    }
+
     void setup::setup_unknown() {
+        static_features st(m_manager);
+        st.collect(m_context.get_num_asserted_formulas(), m_context.get_asserted_formulas());
+
         setup_arith();
         setup_arrays();
         setup_bv();
         setup_datatypes();
         setup_dl();
-        setup_seq();
+        setup_seq(st);
         setup_card();
         setup_fpa();
     }
@@ -848,7 +876,7 @@ namespace smt {
             setup_datatypes();
             setup_bv();
             setup_dl();
-            setup_seq();
+            setup_seq(st);
             setup_card();
             setup_fpa();
             return;
