@@ -406,7 +406,7 @@ namespace opt {
             if (r == l_true && !get_lower_as_num(i).is_finite()) {
                 return r;
             }
-            if (r == l_true && i + 1 < m_objectives.size()) {
+            if (r == l_true && i + 1 < m_objectives.size() && get_lower_as_num(i).is_finite()) {
                 update_lower();
             }
         }
