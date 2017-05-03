@@ -7305,7 +7305,7 @@ lbool theory_str::validate_unsat_core(expr_ref_vector & unsat_core) {
     bool assumptionFound = false;
 
     app * target_term = to_app(get_manager().mk_not(m_theoryStrOverlapAssumption_term));
-    internalize_term(target_term);
+    get_context().internalize(target_term, false);
     for (unsigned i = 0; i < unsat_core.size(); ++i) {
         app * core_term = to_app(unsat_core.get(i));
         // not sure if this is the correct way to compare terms in this context
