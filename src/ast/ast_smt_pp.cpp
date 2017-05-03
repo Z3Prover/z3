@@ -406,7 +406,6 @@ class smt_printer {
 
     void visit_app(app* n) {
         rational val;
-        const char *str;
         bool is_int, pos;
         buffer<symbol> names;
         unsigned bv_size;

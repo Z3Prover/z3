@@ -66,8 +66,7 @@ namespace smt2 {
 
         scoped_ptr<bv_util>               m_bv_util;
         scoped_ptr<arith_util>            m_arith_util;
-        scoped_ptr<seq_util>              m_seq_util;
-      
+        scoped_ptr<seq_util>              m_seq_util;      
         scoped_ptr<pattern_validator>     m_pattern_validator;
         scoped_ptr<var_shifter>           m_var_shifter;
 

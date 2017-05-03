@@ -186,6 +186,14 @@ namespace smt {
         }
 
         /**
+           \brief This method is called from the smt_context when an unsat core is generated.
+           The theory may change the answer to UNKNOWN by returning l_undef from this method.
+        */
+        virtual lbool validate_unsat_core(expr_ref_vector & unsat_core) {
+            return l_false;
+        }
+	
+        /**
            \brief This method is invoked before the search starts.
         */
         virtual void init_search_eh() {
@@ -198,14 +206,6 @@ namespace smt {
         */
         virtual final_check_status final_check_eh() {
             return FC_DONE;
-        }
-
-        /**
-           \brief This method is called from the smt_context when an unsat core is generated.
-           The theory may change the answer to UNKNOWN by returning l_undef from this method.
-        */
-        virtual lbool validate_unsat_core(expr_ref_vector & unsat_core) {
-            return l_false;
         }
 
         /**
