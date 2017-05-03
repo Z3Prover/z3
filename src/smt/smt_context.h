@@ -838,6 +838,7 @@ namespace smt {
          */
         void mk_th_case_split(unsigned num_lits, literal * lits);
 
+
         /*
          * Provide a hint to the branching heuristic about the priority of a "theory-aware literal".
          * Literals marked in this way will always be branched on before unmarked literals,

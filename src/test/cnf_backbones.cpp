@@ -246,13 +246,15 @@ static void cnf_backbones(bool use_chunk, char const* file_name) {
     vector<sat::literal_vector> conseq;
     sat::bool_var_vector vars;
     sat::literal_vector assumptions;
+    unsigned num_vars = solver.num_vars();
     if (p.get_bool("dimacs.core", false)) {
         g_solver = &solver2;        
         vector<sat::literal_vector> tracking_clauses;
         track_clauses(solver, solver2, assumptions, tracking_clauses);
     }
-
-    for (unsigned i = 1; i < g_solver->num_vars(); ++i) {
+    // remove this line to limit variables to exclude assumptions
+    num_vars = g_solver->num_vars();
+    for (unsigned i = 1; i < num_vars; ++i) {
         vars.push_back(i);        
         g_solver->set_external(i);
     }
