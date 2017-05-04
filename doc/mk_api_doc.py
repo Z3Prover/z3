@@ -103,15 +103,17 @@ def parse_options():
     TEMP_DIR = pargs.temp_dir
     OUTPUT_DIRECTORY = pargs.output_dir
     Z3PY_PACKAGE_PATH = pargs.z3py_package_path
-    if not os.path.exists(Z3PY_PACKAGE_PATH):
-        raise Exception('"{}" does not exist'.format(Z3PY_PACKAGE_PATH))
-    if not os.path.basename(Z3PY_PACKAGE_PATH) == 'z3':
-        raise Exception('"{}" does not end with "z3"'.format(Z3PY_PACKAGE_PATH))
     Z3PY_ENABLED = not pargs.no_z3py
     DOTNET_ENABLED = not pargs.no_dotnet
     JAVA_ENABLED = not pargs.no_java
     DOTNET_API_SEARCH_PATHS = pargs.dotnet_search_paths
     JAVA_API_SEARCH_PATHS = pargs.java_search_paths
+
+    if Z3PY_ENABLED:
+        if not os.path.exists(Z3PY_PACKAGE_PATH):
+            raise Exception('"{}" does not exist'.format(Z3PY_PACKAGE_PATH))
+        if not os.path.basename(Z3PY_PACKAGE_PATH) == 'z3':
+            raise Exception('"{}" does not end with "z3"'.format(Z3PY_PACKAGE_PATH))
     return
 
 def mk_dir(d):
