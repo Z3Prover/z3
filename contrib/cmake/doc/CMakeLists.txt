@@ -67,7 +67,6 @@ add_custom_target(api_docs ${ALWAYS_BUILD_DOCS_ARG}
   ${JAVA_API_OPTIONS}
   DEPENDS
     ${DOC_EXTRA_DEPENDS}
-  BYPRODUCTS "${DOC_DEST_DIR}"
   COMMENT "Generating documentation"
   ${ADD_CUSTOM_TARGET_USES_TERMINAL_ARG}
 )
