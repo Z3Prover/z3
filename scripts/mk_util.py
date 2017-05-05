@@ -1633,6 +1633,8 @@ class DotNetDLLComponent(Component):
 
         if not self.key_file is None:
             print("%s.dll will be signed using key '%s'." % (self.dll_name, self.key_file))
+            if (self.key_file.find(' ') != -1):
+                self.key_file = '"' + self.key_file + '"'
             cscCmdLine.append('/keyfile:{}'.format(self.key_file))
 
         cscCmdLine.extend( ['/unsafe+',
