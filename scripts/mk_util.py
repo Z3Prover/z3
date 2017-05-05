@@ -2421,6 +2421,7 @@ def mk_config():
                 FOCI2 = False
         if GIT_HASH:
             CPPFLAGS = '%s -DZ3GITHASH=%s' % (CPPFLAGS, GIT_HASH)
+        CXXFLAGS = '%s -std=c++11' % CXXFLAGS
         CXXFLAGS = '%s -fvisibility=hidden -c' % CXXFLAGS
         FPMATH = test_fpmath(CXX)
         CXXFLAGS = '%s %s' % (CXXFLAGS, FPMATH_FLAGS)
@@ -2445,8 +2446,8 @@ def mk_config():
             CXXFLAGS   = '%s -Wno-unknown-pragmas -Wno-overloaded-virtual -Wno-unused-value' % CXXFLAGS
         sysname, _, _, _, machine = os.uname()
         if sysname == 'Darwin':
-            SO_EXT    = '.dylib'
-            SLIBFLAGS = '-dynamiclib'
+            SO_EXT         = '.dylib'
+            SLIBFLAGS      = '-dynamiclib'
         elif sysname == 'Linux':
             CXXFLAGS       = '%s -fno-strict-aliasing -D_LINUX_' % CXXFLAGS
             OS_DEFINES     = '-D_LINUX_'
