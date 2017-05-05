@@ -1673,6 +1673,13 @@ zstring theory_str::get_std_regex_str(expr * regex) {
         expr * reg1Ast = a_regex->get_arg(0);
         zstring reg1Str = get_std_regex_str(reg1Ast);
         return  zstring("(") + reg1Str + zstring(")*");
+    } else if (u.re.is_range(a_regex)) {
+        expr * range1 = a_regex->get_arg(0);
+        expr * range2 = a_regex->get_arg(1);
+        zstring range1val, range2val;
+        u.str.is_string(range1, range1val);
+        u.str.is_string(range2, range2val);
+        return zstring("[") + range1val + zstring("-") + range2val + zstring("]");
     } else {
         TRACE("str", tout << "BUG: unrecognized regex term " << mk_pp(regex, get_manager()) << std::endl;);
         UNREACHABLE(); return zstring("");
@@ -1752,6 +1759,36 @@ void theory_str::instantiate_axiom_RegexIn(enode * e) {
     	expr_ref finalAxiom(mk_and(items), m);
     	SASSERT(finalAxiom);
     	assert_axiom(finalAxiom);
+    } else if (u.re.is_range(regex)) {
+        // (re.range "A" "Z") unfolds to (re.union "A" "B" ... "Z");
+        // we rewrite to expr IFF (str = "A" or str = "B" or ... or str = "Z")
+        expr_ref lo(regex->get_arg(0), m);
+        expr_ref hi(regex->get_arg(1), m);
+        zstring str_lo, str_hi;
+        SASSERT(u.str.is_string(lo));
+        SASSERT(u.str.is_string(hi));
+        u.str.is_string(lo, str_lo);
+        u.str.is_string(hi, str_hi);
+        SASSERT(str_lo.length() == 1);
+        SASSERT(str_hi.length() == 1);
+        unsigned int c1 = str_lo[0];
+        unsigned int c2 = str_hi[0];
+        if (c1 > c2) {
+            // exchange
+            unsigned int tmp = c1;
+            c1 = c2;
+            c2 = tmp;
+        }
+        expr_ref_vector range_cases(m);
+        for (unsigned int ch = c1; ch <= c2; ++ch) {
+            zstring s_ch(ch);
+            expr_ref rhs(ctx.mk_eq_atom(str, u.str.mk_string(s_ch)), m);
+            range_cases.push_back(rhs);
+        }
+        expr_ref rhs(mk_or(range_cases), m);
+        expr_ref finalAxiom(m.mk_iff(ex, rhs), m);
+        SASSERT(finalAxiom);
+        assert_axiom(finalAxiom);
     } else {
     	TRACE("str", tout << "ERROR: unknown regex expression " << mk_pp(regex, m) << "!" << std::endl;);
     	NOT_IMPLEMENTED_YET();
@@ -6165,7 +6202,6 @@ void nfa::convert_re(expr * e, unsigned & start, unsigned & end, seq_util & u) {
         zstring str;
         if (u.str.is_string(arg_str, str)) {
             TRACE("str", tout << "build NFA for '" << str << "'" << "\n";);
-
             /*
              * For an n-character string, we make (n-1) intermediate states,
              * labelled i_(0) through i_(n-2).
@@ -6227,6 +6263,33 @@ void nfa::convert_re(expr * e, unsigned & start, unsigned & end, seq_util & u) {
         make_epsilon_move(end_subex, start_subex);
         make_epsilon_move(end_subex, end);
         TRACE("str", tout << "star NFA: start = " << start << ", end = " << end << std::endl;);
+    } else if (u.re.is_range(e)) {
+        // range('a', 'z')
+        // start --'a'--> end
+        // start --'b'--> end
+        // ...
+        // start --'z'--> end
+        app * a = to_app(e);
+        expr * c1 = a->get_arg(0);
+        expr * c2 = a->get_arg(1);
+        zstring s_c1, s_c2;
+        u.str.is_string(c1, s_c1);
+        u.str.is_string(c2, s_c2);
+
+        unsigned int id1 = s_c1[0];
+        unsigned int id2 = s_c2[0];
+        if (id1 > id2) {
+            unsigned int tmp = id1;
+            id1 = id2;
+            id2 = tmp;
+        }
+
+        for (unsigned int i = id1; i <= id2; ++i) {
+            char ch = (char)i;
+            make_transition(start, ch, end);
+        }
+
+        TRACE("str", tout << "range NFA: start = " << start << ", end = " << end << std::endl;);
     } else {
         TRACE("str", tout << "invalid regular expression" << std::endl;);
         m_valid = false;
@@ -9429,6 +9492,39 @@ void theory_str::reduce_virtual_regex_in(expr * var, expr * regex, expr_ref_vect
 		items.push_back(ctx.mk_eq_atom(var, unrollFunc));
 		items.push_back(ctx.mk_eq_atom(mk_strlen(var), mk_strlen(unrollFunc)));
 		return;
+	}
+	// re.range
+	else if (u.re.is_range(regexFuncDecl)) {
+	    // var in range("a", "z")
+	    // ==>
+	    // (var = "a" or var = "b" or ... or var = "z")
+	    expr_ref lo(regexFuncDecl->get_arg(0), mgr);
+	    expr_ref hi(regexFuncDecl->get_arg(1), mgr);
+	    zstring str_lo, str_hi;
+	    SASSERT(u.str.is_string(lo));
+	    SASSERT(u.str.is_string(hi));
+	    u.str.is_string(lo, str_lo);
+	    u.str.is_string(hi, str_hi);
+	    SASSERT(str_lo.length() == 1);
+	    SASSERT(str_hi.length() == 1);
+	    unsigned int c1 = str_lo[0];
+	    unsigned int c2 = str_hi[0];
+	    if (c1 > c2) {
+	        // exchange
+	        unsigned int tmp = c1;
+	        c1 = c2;
+	        c2 = tmp;
+	    }
+	    expr_ref_vector range_cases(mgr);
+	    for (unsigned int ch = c1; ch <= c2; ++ch) {
+	        zstring s_ch(ch);
+	        expr_ref rhs(ctx.mk_eq_atom(var, u.str.mk_string(s_ch)), mgr);
+	        range_cases.push_back(rhs);
+	    }
+	    expr_ref rhs(mk_or(range_cases), mgr);
+	    SASSERT(rhs);
+	    assert_axiom(rhs);
+	    return;
 	} else {
 		get_manager().raise_exception("unrecognized regex operator");
 		UNREACHABLE();
