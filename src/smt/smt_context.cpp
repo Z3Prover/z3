@@ -37,7 +37,6 @@ Revision History:
 #include"model_pp.h"
 #include"ast_smt2_pp.h"
 #include"ast_translation.h"
-#include"theory_seq.h"
 
 namespace smt {
 
