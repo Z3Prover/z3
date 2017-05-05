@@ -2448,8 +2448,9 @@ namespace smt {
         
         ptr_vector<theory>::iterator it  = m_theory_set.begin();
         ptr_vector<theory>::iterator end = m_theory_set.end();
-        for (; it != end; ++it)
+        for (; it != end; ++it) {
             (*it)->pop_scope_eh(num_scopes);
+        }
 
         del_justifications(m_justifications, s.m_justifications_lim);
 
@@ -3013,6 +3014,10 @@ namespace smt {
         }
     }
 
+    void context::add_theory_aware_branching_info(bool_var v, double priority, lbool phase) {
+        m_case_split_queue->add_theory_aware_branching_info(v, priority, phase);
+    }
+
     void context::undo_th_case_split(literal l) {
         m_all_th_case_split_literals.remove(l.index());
         if (m_literal2casesplitsets.contains(l.index())) {
@@ -3020,10 +3025,6 @@ namespace smt {
                 m_literal2casesplitsets[l.index()].pop_back();
             }
         }
-    }
-
-    void context::add_theory_aware_branching_info(bool_var v, double priority, lbool phase) {
-        m_case_split_queue->add_theory_aware_branching_info(v, priority, phase);
     }
 
     bool context::propagate_th_case_split(unsigned qhead) {
@@ -3034,7 +3035,7 @@ namespace smt {
         // not counting any literals that get assigned by this method
         // this relies on bcp() to give us its old m_qhead and therefore
         // bcp() should always be called before this method
-
+	
         unsigned assigned_literal_end = m_assigned_literals.size();
         for (; qhead < assigned_literal_end; ++qhead) {
             literal l = m_assigned_literals[qhead];

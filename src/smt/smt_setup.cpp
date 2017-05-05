@@ -33,6 +33,7 @@ Revision History:
 #include"theory_seq.h"
 #include"theory_pb.h"
 #include"theory_fpa.h"
+#include"theory_str.h"
 
 namespace smt {
 
@@ -205,7 +206,7 @@ namespace smt {
     void setup::setup_QF_BVRE() {
         setup_QF_BV();
         setup_QF_LIA();
-        setup_seq();
+        m_context.register_plugin(alloc(theory_seq, m_manager));
     }
 
     void setup::setup_QF_UF(static_features const & st) {
@@ -705,7 +706,8 @@ namespace smt {
     }
 
     void setup::setup_QF_S() {
-        setup_seq();
+        m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
+        m_context.register_plugin(alloc(smt::theory_str, m_manager, m_params));
     }
 
     bool is_arith(static_features const & st) {
@@ -853,7 +855,8 @@ namespace smt {
     }
 
     void setup::setup_str() {
-        m_context.register_plugin(alloc(smt::theory_seq, m_manager));
+        setup_arith();
+        m_context.register_plugin(alloc(theory_str, m_manager, m_params));
     }
 
     void setup::setup_seq() {

@@ -25,6 +25,7 @@ Revision History:
 #include"theory_arith_params.h"
 #include"theory_array_params.h"
 #include"theory_bv_params.h"
+#include"theory_str_params.h"
 #include"theory_pb_params.h"
 #include"theory_datatype_params.h"
 #include"preprocessor_params.h"
@@ -76,6 +77,7 @@ struct smt_params : public preprocessor_params,
                     public theory_arith_params, 
                     public theory_array_params, 
                     public theory_bv_params,
+                    public theory_str_params,
                     public theory_pb_params,
                     public theory_datatype_params {
     bool             m_display_proof;
@@ -111,6 +113,7 @@ struct smt_params : public preprocessor_params,
     unsigned            m_rel_case_split_order;
     bool                m_lookahead_diseq;
     bool                m_theory_case_split;
+    bool                m_theory_aware_branching;
 
     // -----------------------------------
     //
@@ -248,6 +251,8 @@ struct smt_params : public preprocessor_params,
         m_case_split_strategy(CS_ACTIVITY_DELAY_NEW),
         m_rel_case_split_order(0),
         m_lookahead_diseq(false),
+        m_theory_case_split(false),
+        m_theory_aware_branching(false),
         m_delay_units(false),
         m_delay_units_threshold(32),
         m_theory_resolve(false),
@@ -290,7 +295,7 @@ struct smt_params : public preprocessor_params,
         m_check_at_labels(false),
         m_dump_goal_as_smt(false),
         m_auto_config(true),
-        m_string_solver(symbol("seq")){
+        m_string_solver(symbol("auto")){
         updt_local_params(p);
     }
 
