@@ -1903,7 +1903,6 @@ namespace smt {
     }
 
     void theory_str::group_terms_by_eqc(expr * n, std::set<expr*> & concats, std::set<expr*> & vars, std::set<expr*> & consts) {
-        context & ctx = get_context();
         expr * eqcNode = n;
         do {
             app * ast = to_app(eqcNode);
@@ -4822,7 +4821,6 @@ namespace smt {
     }
 
     expr * theory_str::collect_eq_nodes(expr * n, expr_ref_vector & eqcSet) {
-        context & ctx = get_context();
         expr * constStrNode = NULL;
 
         expr * ex = n;
@@ -4873,8 +4871,6 @@ namespace smt {
                 if (!contain_pair_bool_map.find(strAst, substrAst, boolVar)) {
                     TRACE("str", tout << "warning: no entry for boolVar in contain_pair_bool_map" << std::endl;);
                 }
-                // boolVar is actually a Contains term
-                app * containsApp = to_app(boolVar);
 
                 // we only want to inspect the Contains terms where either of strAst or substrAst
                 // are equal to varNode.
@@ -5012,8 +5008,6 @@ namespace smt {
                 if (!contain_pair_bool_map.find(strAst, substrAst, boolVar)) {
                     TRACE("str", tout << "warning: no entry for boolVar in contain_pair_bool_map" << std::endl;);
                 }
-                // boolVar is actually a Contains term
-                app * containsApp = to_app(boolVar);
 
                 // we only want to inspect the Contains terms where either of strAst or substrAst
                 // are equal to varNode.
@@ -5421,7 +5415,6 @@ namespace smt {
             return;
         }
 
-        context & ctx = get_context();
         ast_manager & m = get_manager();
         TRACE("str", tout << "consistency check for contains wrt. " << mk_pp(n1, m) << " and " << mk_pp(n2, m) << std::endl;);
 
@@ -6171,8 +6164,6 @@ namespace smt {
     // Modified signature: returns true if nothing was learned, or false if at least one axiom was asserted.
     // (This is used for deferred consistency checking)
     bool theory_str::check_concat_len_in_eqc(expr * concat) {
-        context & ctx = get_context();
-
         bool no_assertions = true;
 
         expr * eqc_n = concat;
@@ -7542,7 +7533,6 @@ namespace smt {
     void theory_str::pop_scope_eh(unsigned num_scopes) {
         sLevel -= num_scopes;
         TRACE("str", tout << "pop " << num_scopes << " to " << sLevel << std::endl;);
-        context & ctx = get_context();
         ast_manager & m = get_manager();
 
         TRACE_CODE(if (is_trace_enabled("t_str_dump_assign_on_scope_change")) { dump_assignments(); });
@@ -10023,7 +10013,6 @@ namespace smt {
 
     expr * theory_str::binary_search_length_test(expr * freeVar, expr * previousLenTester, zstring previousLenTesterValue) {
         ast_manager & m = get_manager();
-        context & ctx = get_context();
 
         if (binary_search_len_tester_stack.contains(freeVar) && !binary_search_len_tester_stack[freeVar].empty()) {
             TRACE("str", tout << "checking existing length testers for " << mk_pp(freeVar, m) << std::endl;
@@ -10353,7 +10342,6 @@ namespace smt {
     }
 
     void theory_str::get_concats_in_eqc(expr * n, std::set<expr*> & concats) {
-        context & ctx = get_context();
 
         expr * eqcNode = n;
         do {
@@ -10502,7 +10490,6 @@ namespace smt {
     void theory_str::get_eqc_simpleUnroll(expr * n, expr * &constStr, std::set<expr*> & unrollFuncSet) {
         constStr = NULL;
         unrollFuncSet.clear();
-        context & ctx = get_context();
 
         expr * curr = n;
         do {
@@ -10571,12 +10558,11 @@ namespace smt {
         TRACE("str", tout << "mk_value for: " << mk_ismt2_pp(n->get_owner(), get_manager()) <<
               " (sort " << mk_ismt2_pp(get_manager().get_sort(n->get_owner()), get_manager()) << ")" << std::endl;);
         ast_manager & m = get_manager();
-        context & ctx = get_context();
         app_ref owner(m);
         owner = n->get_owner();
 
         // If the owner is not internalized, it doesn't have an enode associated.
-        SASSERT(ctx.e_internalized(owner));
+        SASSERT(get_context().e_internalized(owner));
 
         app * val = mk_value_helper(owner);
         if (val != NULL) {
