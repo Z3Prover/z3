@@ -4844,7 +4844,6 @@ namespace smt {
      * Collect constant strings (from left to right) in an AST node.
      */
     void theory_str::get_const_str_asts_in_node(expr * node, expr_ref_vector & astList) {
-        ast_manager & m = get_manager();
         if (u.str.is_string(node)) {
             astList.push_back(node);
             //} else if (getNodeType(t, node) == my_Z3_Func) {
@@ -5519,7 +5518,6 @@ namespace smt {
         // ---------------------------------------------------------
 
         context & ctx = get_context();
-        ast_manager & m = get_manager();
 
         // const strings: node is de-aliased
         if (u.str.is_string(node)) {
@@ -7351,7 +7349,7 @@ namespace smt {
 
     void theory_str::add_theory_assumptions(expr_ref_vector & assumptions) {
         TRACE("str", tout << "add overlap assumption for theory_str" << std::endl;);
-        char* strOverlap = "!!TheoryStrOverlapAssumption!!";
+        const char* strOverlap = "!!TheoryStrOverlapAssumption!!";
         seq_util m_sequtil(get_manager());
         sort * s = get_manager().mk_bool_sort();
         m_theoryStrOverlapAssumption_term = expr_ref(mk_fresh_const(strOverlap, s), get_manager());
@@ -7359,8 +7357,6 @@ namespace smt {
     }
 
     lbool theory_str::validate_unsat_core(expr_ref_vector & unsat_core) {
-        bool assumptionFound = false;
-
         app * target_term = to_app(get_manager().mk_not(m_theoryStrOverlapAssumption_term));
         get_context().internalize(target_term, false);
         for (unsigned i = 0; i < unsat_core.size(); ++i) {
@@ -7372,7 +7368,6 @@ namespace smt {
             e2 = get_context().get_enode(core_term);
             if (e1 == e2) {
                 TRACE("str", tout << "overlap detected in unsat core, changing UNSAT to UNKNOWN" << std::endl;);
-                assumptionFound = true;
                 return l_undef;
             }
         }
@@ -7483,7 +7478,6 @@ namespace smt {
     }
 
     void theory_str::recursive_check_variable_scope(expr * ex) {
-        context & ctx = get_context();
         ast_manager & m = get_manager();
 
         if (is_app(ex)) {
@@ -7551,7 +7545,7 @@ namespace smt {
             std::stack<T_cut*> & val = cut_var_map[varItor->m_key];
             while ((val.size() > 0) && (val.top()->level != 0) && (val.top()->level >= sLevel)) {
                 TRACE("str", tout << "remove cut info for " << mk_pp(e, m) << std::endl; print_cut_var(e, tout););
-                T_cut * aCut = val.top();
+                // T_cut * aCut = val.top();
                 val.pop();
                 // dealloc(aCut);
             }
@@ -8571,8 +8565,6 @@ namespace smt {
                 return;
             }
             if (u.str.is_concat(aNode)) {
-                expr * arg0 = aNode->get_arg(0);
-                expr * arg1 = aNode->get_arg(1);
                 if (concatSet.find(node) == concatSet.end()) {
                     concatSet.insert(node);
                 }
@@ -8592,7 +8584,6 @@ namespace smt {
 
         TRACE("str", tout << "propagate_length_within_eqc: " << mk_ismt2_pp(var, m) << std::endl ;);
 
-        enode * n_eq_enode = ctx.get_enode(var);
         rational varLen;
         if (! get_len_value(var, varLen)) {
             bool hasLen = false;
@@ -8686,7 +8677,6 @@ namespace smt {
                 expr * var = *it;
                 rational lenValue;
                 expr_ref varlen (mk_strlen(var), m) ;
-                bool allLeafResolved = true;
                 if (! get_value(varlen, lenValue)) {
                     if (propagate_length_within_eqc(var)) {
                         axiomAdded = true;
@@ -8806,7 +8796,7 @@ namespace smt {
                 bool concat_lhs_haseqc, concat_rhs_haseqc, var_haseqc;
                 expr * concat_lhs_str = get_eqc_value(concat_lhs, concat_lhs_haseqc);
                 expr * concat_rhs_str = get_eqc_value(concat_rhs, concat_rhs_haseqc);
-                expr * var_str = get_eqc_value(var, var_haseqc);
+                get_eqc_value(var, var_haseqc);
                 if (concat_lhs_haseqc && concat_rhs_haseqc && !var_haseqc) {
                     TRACE("str", tout << "backpropagate into " << mk_pp(var, m) << " = " << mk_pp(concat, m) << std::endl
                           << "LHS ~= " << mk_pp(concat_lhs_str, m) << " RHS ~= " << mk_pp(concat_rhs_str, m) << std::endl;);
@@ -10358,8 +10348,6 @@ namespace smt {
     }
 
     void theory_str::get_var_in_eqc(expr * n, std::set<expr*> & varSet) {
-        context & ctx = get_context();
-
         expr * eqcNode = n;
         do {
             if (variable_set.find(eqcNode) != variable_set.end()) {
@@ -10476,7 +10464,6 @@ namespace smt {
     void theory_str::get_eqc_allUnroll(expr * n, expr * &constStr, std::set<expr*> & unrollFuncSet) {
         constStr = NULL;
         unrollFuncSet.clear();
-        context & ctx = get_context();
 
         expr * curr = n;
         do {
