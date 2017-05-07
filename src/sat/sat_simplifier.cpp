@@ -191,7 +191,7 @@ namespace sat {
         m_elim_counter = m_res_limit;
         m_old_num_elim_vars = m_num_elim_vars;
 
-        scoped_finalize _scoped_finalize(*this);
+        // scoped_finalize _scoped_finalize(*this);
 
         do {
             if (m_subsumption)
