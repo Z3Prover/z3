@@ -7351,10 +7351,10 @@ namespace smt {
 
     void theory_str::add_theory_assumptions(expr_ref_vector & assumptions) {
         TRACE("str", tout << "add overlap assumption for theory_str" << std::endl;);
-        symbol strOverlap("!!TheoryStrOverlapAssumption!!");
+        char* strOverlap = "!!TheoryStrOverlapAssumption!!";
         seq_util m_sequtil(get_manager());
         sort * s = get_manager().mk_bool_sort();
-        m_theoryStrOverlapAssumption_term = expr_ref(get_manager().mk_const(strOverlap, s), get_manager());
+        m_theoryStrOverlapAssumption_term = expr_ref(mk_fresh_const(strOverlap, s), get_manager());
         assumptions.push_back(get_manager().mk_not(m_theoryStrOverlapAssumption_term));
     }
 

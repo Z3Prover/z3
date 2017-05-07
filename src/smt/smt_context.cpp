@@ -3115,11 +3115,18 @@ namespace smt {
     }
 
     bool is_valid_assumption(ast_manager & m, expr * assumption) {
+        expr* arg;
         if (!m.is_bool(assumption))
             return false;
         if (is_uninterp_const(assumption))
             return true;
-        if (m.is_not(assumption) && is_uninterp_const(to_app(assumption)->get_arg(0)))
+        if (m.is_not(assumption, arg) && is_uninterp_const(arg))
+            return true;
+        if (!is_app(assumption)) 
+            return false;
+        if (to_app(assumption)->get_num_args() == 0)
+            return true;
+        if (m.is_not(assumption, arg) && is_app(arg) && to_app(arg)->get_num_args() == 0)
             return true;
         return false;
     }
