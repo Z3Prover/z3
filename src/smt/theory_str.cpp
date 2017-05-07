@@ -440,6 +440,11 @@ namespace smt {
         return mk_int_var("$$_xor");
     }
 
+    app * theory_str::mk_fresh_const(char const* name, sort* s) {
+        return u.mk_skolem(symbol(name), 0, 0, s);
+    }
+
+
     app * theory_str::mk_int_var(std::string name) {
         context & ctx = get_context();
         ast_manager & m = get_manager();
@@ -447,7 +452,7 @@ namespace smt {
         TRACE("str", tout << "creating integer variable " << name << " at scope level " << sLevel << std::endl;);
 
         sort * int_sort = m.mk_sort(m_autil.get_family_id(), INT_SORT);
-        app * a = m.mk_fresh_const(name.c_str(), int_sort);
+        app * a = mk_fresh_const(name.c_str(), int_sort);
 
         ctx.internalize(a, false);
         SASSERT(ctx.get_enode(a) != NULL);
@@ -482,7 +487,7 @@ namespace smt {
         TRACE("str", tout << "creating string variable " << name << " at scope level " << sLevel << std::endl;);
 
         sort * string_sort = u.str.mk_string_sort();
-        app * a = m.mk_fresh_const(name.c_str(), string_sort);
+        app * a = mk_fresh_const(name.c_str(), string_sort);
 
         TRACE("str", tout << "a->get_family_id() = " << a->get_family_id() << std::endl
               << "this->get_family_id() = " << this->get_family_id() << std::endl;);
@@ -509,7 +514,7 @@ namespace smt {
         ast_manager & m = get_manager();
 
         sort * string_sort = u.str.mk_string_sort();
-        app * a = m.mk_fresh_const("regex", string_sort);
+        app * a = mk_fresh_const("regex", string_sort);
 
         ctx.internalize(a, false);
         SASSERT(ctx.get_enode(a) != NULL);
@@ -561,7 +566,7 @@ namespace smt {
         TRACE("str", tout << "creating nonempty string variable " << name << " at scope level " << sLevel << std::endl;);
 
         sort * string_sort = u.str.mk_string_sort();
-        app * a = m.mk_fresh_const(name.c_str(), string_sort);
+        app * a = mk_fresh_const(name.c_str(), string_sort);
 
         ctx.internalize(a, false);
         SASSERT(ctx.get_enode(a) != NULL);

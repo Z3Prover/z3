@@ -403,6 +403,7 @@ protected:
     expr * mk_concat_const_str(expr * n1, expr * n2);
     app * mk_contains(expr * haystack, expr * needle);
     app * mk_indexof(expr * haystack, expr * needle);
+    app * mk_fresh_const(char const* name, sort* s);
 
     literal mk_literal(expr* _e);
     app * mk_int(int n);
