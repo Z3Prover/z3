@@ -213,6 +213,16 @@ endif()
 include(${CMAKE_SOURCE_DIR}/cmake/z3_add_cxx_flag.cmake)
 
 ################################################################################
+# C++ language version
+################################################################################
+# FIXME: Use CMake's own mechanism for selecting language version
+if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU") OR ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang"))
+  z3_add_cxx_flag("-std=c++11" REQUIRED)
+else()
+  message(AUTHOR_WARNING "Not setting C++ language version for compiler")
+endif()
+
+################################################################################
 # Platform detection
 ################################################################################
 if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
@@ -323,16 +333,6 @@ if (("${TARGET_ARCHITECTURE}" STREQUAL "x86_64") OR ("${TARGET_ARCHITECTURE}" ST
     list(APPEND Z3_COMPONENT_CXX_FLAGS ${SSE_FLAGS})
   endif()
   unset(SSE_FLAGS)
-endif()
-
-################################################################################
-# C++ language version
-################################################################################
-# FIXME: Use CMake's own mechanism for selecting language version
-if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU") OR ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang"))
-  z3_add_cxx_flag("-std=c++11" REQUIRED)
-else()
-  message(AUTHOR_WARNING "Not setting C++ language version for compiler")
 endif()
 
 
