@@ -325,6 +325,18 @@ if (("${TARGET_ARCHITECTURE}" STREQUAL "x86_64") OR ("${TARGET_ARCHITECTURE}" ST
   unset(SSE_FLAGS)
 endif()
 
+################################################################################
+# C++ language version
+################################################################################
+# FIXME: Use CMake's own mechanism for selecting language version
+if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU") OR ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang"))
+  z3_add_cxx_flag("-std=c++11" REQUIRED)
+else()
+  message(AUTHOR_WARNING "Not setting C++ language version for compiler")
+endif()
+
+
+
 # FIXME: Remove "x.." when CMP0054 is set to NEW
 if ("x${CMAKE_CXX_COMPILER_ID}" STREQUAL "xMSVC")
   # This is the default for MSVC already but to replicate the
