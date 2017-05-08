@@ -3701,12 +3701,8 @@ def Extract(high, low, a):
         high = StringVal(high)
     if is_seq(high):
         s = high
-        offset = _py2expr(low, high.ctx)
-        length = _py2expr(a, high.ctx)
-
-        if __debug__:
-            _z3_assert(is_int(offset) and is_int(length), "Second and third arguments must be integers")
-            return SeqRef(Z3_mk_seq_extract(s.ctx_ref(), s.as_ast(), offset.as_ast(), length.as_ast()), s.ctx)
+        offset, length = _coerce_exprs(low, a, s.ctx)
+        return SeqRef(Z3_mk_seq_extract(s.ctx_ref(), s.as_ast(), offset.as_ast(), length.as_ast()), s.ctx)
     if __debug__:
         _z3_assert(low <= high, "First argument must be greater than or equal to second argument")
         _z3_assert(_is_int(high) and high >= 0 and _is_int(low) and low >= 0, "First and second arguments must be non negative integers")
@@ -6198,7 +6194,7 @@ class Solver(Z3PPObject):
         >>> s.consequences([a],[b,c,d])
         (sat, [Implies(a, b), Implies(a, c)])
         >>> s.consequences([Not(c),d],[a,b,c,d])
-        (sat, [Implies(Not(c), Not(c)), Implies(d, d), Implies(Not(c), Not(b)), Implies(Not(c), Not(a))])
+        (sat, [Implies(d, d), Implies(Not(c), Not(c)), Implies(Not(c), Not(b)), Implies(Not(c), Not(a))])
         """
         if isinstance(assumptions, list):
             _asms = AstVector(None, self.ctx)
@@ -7204,7 +7200,7 @@ def With(t, *args, **keys):
     >>> t((x + 1)*(y + 2) == 0)
     [[2*x + y + x*y == -2]]
     """
-    ctx = keys.get('ctx', None)
+    ctx = keys.pop('ctx', None)
     t = _to_tactic(t, ctx)
     p = args2params(args, keys, t.ctx)
     return Tactic(Z3_tactic_using_params(t.ctx.ref(), t.tactic, p.params), t.ctx)

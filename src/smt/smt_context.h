@@ -228,6 +228,15 @@ namespace smt {
 
         // -----------------------------------
         //
+        // Theory case split
+        //
+        // -----------------------------------
+        uint_set m_all_th_case_split_literals;
+        vector<literal_vector> m_th_case_split_sets;
+        u_map< vector<literal_vector> > m_literal2casesplitsets; // returns the case split literal sets that a literal participates in
+
+        // -----------------------------------
+        //
         // Accessors
         //
         // -----------------------------------
@@ -827,6 +836,29 @@ namespace smt {
 
         void mk_th_axiom(theory_id tid, literal l1, literal l2, literal l3, unsigned num_params = 0, parameter * params = 0);
 
+        /*
+         * Provide a hint to the core solver that the specified literals form a "theory case split".
+         * The core solver will enforce the condition that exactly one of these literals can be
+         * assigned 'true' at any time.
+         * We assume that the theory solver has already asserted the disjunction of these literals
+         * or some other axiom that means at least one of them must be assigned 'true'.
+         */
+        void mk_th_case_split(unsigned num_lits, literal * lits);
+
+
+        /*
+         * Provide a hint to the branching heuristic about the priority of a "theory-aware literal".
+         * Literals marked in this way will always be branched on before unmarked literals,
+         * starting with the literal having the highest priority.
+         */
+        void add_theory_aware_branching_info(bool_var v, double priority, lbool phase);
+
+    public:
+
+        // helper function for trail
+        void undo_th_case_split(literal l);
+
+        bool propagate_th_case_split(unsigned qhead);
 
         bool_var mk_bool_var(expr * n);
 
@@ -1066,7 +1098,9 @@ namespace smt {
 
         void reset_assumptions();
 
-        void mk_unsat_core();
+        void add_theory_assumptions(expr_ref_vector & theory_assumptions);
+
+        lbool mk_unsat_core();
 
         void validate_unsat_core();
 
@@ -1110,6 +1144,10 @@ namespace smt {
 
         bool is_relevant_core(expr * n) const { return m_relevancy_propagator->is_relevant(n); }
 
+        svector<bool>  m_relevant_conflict_literals;
+        void record_relevancy(unsigned n, literal const* lits);
+        void restore_relevancy(unsigned n, literal const* lits);
+
     public:
         // event handler for relevancy_propagator class
         void relevant_eh(expr * n);
@@ -1129,6 +1167,10 @@ namespace smt {
         bool is_relevant(literal l) const {
             SASSERT(l != true_literal && l != false_literal);
             return is_relevant(l.var());
+        }
+
+        bool is_relevant_core(literal l) const {
+            return is_relevant_core(bool_var2expr(l.var()));
         }
 
         void mark_as_relevant(expr * n) { m_relevancy_propagator->mark_as_relevant(n); m_relevancy_propagator->propagate(); }
@@ -1165,8 +1207,6 @@ namespace smt {
         bool propagate();
 
         void add_rec_funs_to_model();
-
-        bool is_fun_def(expr* f, expr* q, expr_ref& body);
 
     public:
         bool can_propagate() const;
@@ -1378,14 +1418,17 @@ namespace smt {
         typedef hashtable<unsigned, u_hash, u_eq> index_set;
         //typedef uint_set index_set;
         u_map<index_set> m_antecedents;
-        void extract_fixed_consequences(literal lit, obj_map<expr, expr*>& var2val, index_set const& assumptions, expr_ref_vector& conseq);
-        void extract_fixed_consequences(unsigned& idx, obj_map<expr, expr*>& var2val, index_set const& assumptions, expr_ref_vector& conseq);
+        obj_map<expr, expr*> m_var2orig;
+        obj_map<expr, expr*> m_assumption2orig;
+        obj_map<expr, expr*> m_var2val;
+        void extract_fixed_consequences(literal lit, index_set const& assumptions, expr_ref_vector& conseq);
+        void extract_fixed_consequences(unsigned& idx, index_set const& assumptions, expr_ref_vector& conseq);
 
         void display_consequence_progress(std::ostream& out, unsigned it, unsigned nv, unsigned fixed, unsigned unfixed, unsigned eq);
 
-        unsigned delete_unfixed(obj_map<expr, expr*>& var2val, expr_ref_vector& unfixed);
+        unsigned delete_unfixed(expr_ref_vector& unfixed);
 
-        unsigned extract_fixed_eqs(obj_map<expr, expr*>& var2val, expr_ref_vector& conseq);
+        unsigned extract_fixed_eqs(expr_ref_vector& conseq);
 
         expr_ref antecedent2fml(index_set const& ante);
 
@@ -1442,7 +1485,7 @@ namespace smt {
 
         void pop(unsigned num_scopes);
 
-        lbool check(unsigned num_assumptions = 0, expr * const * assumptions = 0, bool reset_cancel = true);
+        lbool check(unsigned num_assumptions = 0, expr * const * assumptions = 0, bool reset_cancel = true, bool already_did_theory_assumptions = false);
 
         lbool get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq, expr_ref_vector& unfixed);
 

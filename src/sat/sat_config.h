@@ -58,7 +58,10 @@ namespace sat {
         unsigned           m_burst_search;
         unsigned           m_max_conflicts;
         unsigned           m_num_threads;
-        unsigned           m_local_search;
+        unsigned           m_local_search_threads;
+        bool               m_local_search;
+        bool               m_lookahead_search;
+        bool               m_ccc;
 
         unsigned           m_simplify_mult1;
         double             m_simplify_mult2;

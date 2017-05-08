@@ -31,6 +31,8 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_restart_strategy = static_cast<restart_strategy>(p.restart_strategy());
     m_restart_factor = p.restart_factor();
     m_case_split_strategy = static_cast<case_split_strategy>(p.case_split());
+    m_theory_case_split = p.theory_case_split();
+    m_theory_aware_branching = p.theory_aware_branching();
     m_delay_units = p.delay_units();
     m_delay_units_threshold = p.delay_units_threshold();
     m_preprocess = _p.get_bool("preprocess", true); // hidden parameter
@@ -39,6 +41,7 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_max_conflicts = p.max_conflicts();
     m_core_validate = p.core_validate();
     m_logic = _p.get_sym("logic", m_logic);
+    m_string_solver = p.string_solver();
     model_params mp(_p);
     m_model_compact = mp.compact();
     if (_p.get_bool("arith.greatest_error_pivot", false))

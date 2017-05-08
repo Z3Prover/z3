@@ -91,6 +91,8 @@ namespace smt {
 
         ptr_vector<quantifier>::const_iterator begin_quantifiers() const;
         ptr_vector<quantifier>::const_iterator end_quantifiers() const;
+        unsigned num_quantifiers() const;
+        
     };
 
     class quantifier_manager_plugin {

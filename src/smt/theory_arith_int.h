@@ -206,7 +206,8 @@ namespace smt {
         numeral k     = ceil(get_value(v));
         rational _k   = k.to_rational();
         expr_ref bound(get_manager());
-        bound  = m_util.mk_ge(get_enode(v)->get_owner(), m_util.mk_numeral(_k, true));
+        expr* e = get_enode(v)->get_owner();
+        bound  = m_util.mk_ge(e, m_util.mk_numeral(_k, m_util.is_int(e)));
         TRACE("arith_int", tout << mk_bounded_pp(bound, get_manager()) << "\n";);
         context & ctx = get_context();
         ctx.internalize(bound, true);
@@ -371,7 +372,7 @@ namespace smt {
         
         ctx.mk_th_axiom(get_id(), l1, l2);
        
-        TRACE("theory_arith_int", 
+        TRACE("arith_int", 
               tout << "cut: (or " << mk_pp(p1, get_manager()) << " " << mk_pp(p2, get_manager()) << ")\n";
               );
 
@@ -1407,6 +1408,7 @@ namespace smt {
             if (m_params.m_arith_int_eq_branching && branch_infeasible_int_equality()) {
                 return FC_CONTINUE;
             }
+
             theory_var int_var = find_infeasible_int_base_var();
             if (int_var != null_theory_var) {
                 TRACE("arith_int", tout << "v" << int_var << " does not have an integer assignment: " << get_value(int_var) << "\n";);

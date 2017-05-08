@@ -28,7 +28,7 @@ struct defined_names::impl {
     typedef obj_map<expr, proof *> expr2proof;
     ast_manager &    m_manager;
     symbol           m_z3name;
-    
+
     /**
        \brief Mapping from expressions to their names. A name is an application.
        If the expression does not have free variables, then the name is just a constant.
@@ -38,25 +38,25 @@ struct defined_names::impl {
        \brief Mapping from expressions to the apply-def proof.
        That is, for each expression e, m_expr2proof[e] is the
        proof e and m_expr2name[2] are observ. equivalent.
-       
+
        This mapping is not used if proof production is disabled.
     */
     expr2proof       m_expr2proof;
-    
+
     /**
        \brief Domain of m_expr2name. It is used to keep the expressions
        alive and for backtracking
     */
-    expr_ref_vector  m_exprs; 
+    expr_ref_vector  m_exprs;
     expr_ref_vector  m_names;        //!< Range of m_expr2name. It is used to keep the names alive.
     proof_ref_vector m_apply_proofs; //!< Range of m_expr2proof. It is used to keep the def-intro proofs alive.
-    
-    
+
+
     unsigned_vector m_lims;          //!< Backtracking support.
-    
+
     impl(ast_manager & m, char const * prefix);
     virtual ~impl();
-    
+
     app * gen_name(expr * e, sort_ref_buffer & var_sorts, buffer<symbol> & var_names);
     void cache_new_name(expr * e, app * name);
     void cache_new_name_intro_proof(expr * e, proof * pr);
@@ -106,7 +106,7 @@ app * defined_names::impl::gen_name(expr * e, sort_ref_buffer & var_sorts, buffe
     for (unsigned i = 0; i < num_vars; i++) {
         sort * s = uv.get(i);
         if (s) {
-            domain.push_back(s); 
+            domain.push_back(s);
             new_args.push_back(m_manager.mk_var(i, s));
             var_sorts.push_back(s);
         }
@@ -162,7 +162,7 @@ void defined_names::impl::bound_vars(sort_ref_buffer const & sorts, buffer<symbo
                                 1, symbol::null, symbol::null,
                                 1, patterns);
         TRACE("mk_definition_bug", tout << "before elim_unused_vars:\n" << mk_ismt2_pp(q, m_manager) << "\n";);
-        elim_unused_vars(m_manager, q, result);
+        elim_unused_vars(m_manager, q, params_ref(), result);
         TRACE("mk_definition_bug", tout << "after elim_unused_vars:\n" << mk_ismt2_pp(result, m_manager) << "\n";);
     }
 }
@@ -207,7 +207,7 @@ bool defined_names::impl::mk_name(expr * e, expr_ref & new_def, proof_ref & new_
 
     app *   n_ptr;
     if (m_expr2name.find(e, n_ptr)) {
-        TRACE("mk_definition_bug", tout << "name for expression is already cached..., returning false...\n";);        
+        TRACE("mk_definition_bug", tout << "name for expression is already cached..., returning false...\n";);
         n = n_ptr;
         if (m_manager.proofs_enabled()) {
             proof * pr_ptr = 0;
@@ -220,19 +220,19 @@ bool defined_names::impl::mk_name(expr * e, expr_ref & new_def, proof_ref & new_
     else {
         sort_ref_buffer  var_sorts(m_manager);
         buffer<symbol>   var_names;
-        
+
         n = gen_name(e, var_sorts, var_names);
         cache_new_name(e, n);
-        
+
         TRACE("mk_definition_bug", tout << "name: " << mk_ismt2_pp(n, m_manager) << "\n";);
         // variables are in reverse order in quantifiers
         std::reverse(var_sorts.c_ptr(), var_sorts.c_ptr() + var_sorts.size());
         std::reverse(var_names.c_ptr(), var_names.c_ptr() + var_names.size());
- 
+
         mk_definition(e, n, var_sorts, var_names, new_def);
- 
+
        TRACE("mk_definition_bug", tout << "new_def:\n" << mk_ismt2_pp(new_def, m_manager) << "\n";);
-    
+
         if (m_manager.proofs_enabled()) {
             new_def_pr = m_manager.mk_def_intro(new_def);
             pr         = m_manager.mk_apply_def(e, n, new_def_pr);
@@ -311,11 +311,11 @@ void defined_names::reset() {
     m_pos_impl->reset();
 }
 
-unsigned defined_names::get_num_names() const { 
+unsigned defined_names::get_num_names() const {
     return m_impl->get_num_names() + m_pos_impl->get_num_names();
 }
 
-func_decl * defined_names::get_name_decl(unsigned i) const { 
+func_decl * defined_names::get_name_decl(unsigned i) const {
     SASSERT(i < get_num_names());
     unsigned n1 = m_impl->get_num_names();
     return i < n1 ? m_impl->get_name_decl(i) : m_pos_impl->get_name_decl(i - n1);

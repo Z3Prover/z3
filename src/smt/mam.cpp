@@ -3942,7 +3942,7 @@ namespace smt {
 #endif
         
         virtual void on_match(quantifier * qa, app * pat, unsigned num_bindings, enode * const * bindings, unsigned max_generation, ptr_vector<enode> & used_enodes) {
-            TRACE("trigger_bug", tout << "found match\n";);
+            TRACE("trigger_bug", tout << "found match " << mk_pp(qa, m_ast_manager) << "\n";);
 #ifdef Z3DEBUG
             if (m_check_missing_instances) {
                 if (!m_context.slow_contains_instance(qa, num_bindings, bindings)) {

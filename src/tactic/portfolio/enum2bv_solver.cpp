@@ -137,8 +137,10 @@ public:
                 SASSERT(num.is_unsigned());
                 expr_ref head(m);
                 ptr_vector<func_decl> const& enums = *dt.get_datatype_constructors(f->get_range());
-                head = m.mk_eq(m.mk_const(f), m.mk_const(enums[num.get_unsigned()]));
-                consequences[i] = m.mk_implies(a, head);
+                if (enums.size() > num.get_unsigned()) {
+                    head = m.mk_eq(m.mk_const(f), m.mk_const(enums[num.get_unsigned()]));
+                    consequences[i] = m.mk_implies(a, head);
+                }
             }
         }
         return r;
@@ -161,6 +163,14 @@ public:
             
         }
         ext(mdl, 0);
+    }
+
+    virtual unsigned get_num_assertions() const {
+        return m_solver->get_num_assertions();
+    }
+
+    virtual expr * get_assertion(unsigned idx) const {
+        return m_solver->get_assertion(idx);
     }
 
 };

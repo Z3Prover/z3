@@ -52,6 +52,9 @@ Revision History:
 
 #ifdef USE_INTRINSICS
 #include <emmintrin.h>
+#if defined(_MSC_VER) || defined(__SSE4_1__)
+#include <smmintrin.h>
+#endif
 #endif
 
 hwf_manager::hwf_manager() :
@@ -303,7 +306,9 @@ void hwf_manager::round_to_integral(mpf_rounding_mode rm, hwf const & x, hwf & o
     // According to the Intel Architecture manual, the x87-instrunction FRNDINT is the
     // same in 32-bit and 64-bit mode. The _mm_round_* intrinsics are SSE4 extensions.
 #ifdef _WINDOWS
-#ifdef USE_INTRINSICS
+#if defined(USE_INTRINSICS) && \
+    (defined(_WINDOWS) && (defined(__AVX__) || defined(_M_X64))) || \
+    (!defined(_WINDOWS) && defined(__SSE4_1__))
     switch (rm) {
     case 0: _mm_store_sd(&o.value, _mm_round_pd(_mm_set_sd(x.value), _MM_FROUND_TO_NEAREST_INT)); break;
     case 2: _mm_store_sd(&o.value, _mm_round_pd(_mm_set_sd(x.value), _MM_FROUND_TO_POS_INF)); break;

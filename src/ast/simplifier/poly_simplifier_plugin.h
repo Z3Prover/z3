@@ -37,7 +37,7 @@ protected:
     expr * mk_add(expr * arg1, expr * arg2) { expr * args[2] = { arg1, arg2 }; return mk_add(2, args); }
     expr * mk_mul(unsigned num_args, expr * const * args);
     expr * mk_mul(expr * arg1, expr * arg2) { expr * args[2] = { arg1, arg2 }; return mk_mul(2, args); }
-    expr * mk_sub(unsigned num_args, expr * const * args) { return m_manager.mk_app(m_fid, m_SUB, num_args, args); }
+    // expr * mk_sub(unsigned num_args, expr * const * args) { return m_manager.mk_app(m_fid, m_SUB, num_args, args); }
     expr * mk_uminus(expr * arg) { return m_manager.mk_app(m_fid, m_UMINUS, arg); }
 
     void process_monomial(unsigned num_args, expr * const * args, numeral & k, ptr_buffer<expr> & result);

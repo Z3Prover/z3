@@ -59,9 +59,9 @@ namespace smt {
         SASSERT(n->trans_reaches(n->get_root()));
         while (n) {
             if (Set)
-                n->set_mark();
+                n->set_mark2();
             else
-                n->unset_mark();
+                n->unset_mark2();
             n = n->m_trans.m_target;
         }
     }
@@ -84,7 +84,7 @@ namespace smt {
         mark_enodes_in_trans<true>(n1);
         while (true) {
             SASSERT(n2);
-            if (n2->is_marked()) {
+            if (n2->is_marked2()) {
                 mark_enodes_in_trans<false>(n1);
                 return n2;
             }

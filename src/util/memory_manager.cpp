@@ -57,6 +57,7 @@ static void throw_out_of_memory() {
     {
         g_memory_out_of_memory = true;
     }
+
     if (g_exit_when_out_of_memory) {
         std::cerr << g_out_of_memory_msg << "\n";
         exit(ERR_MEMOUT);

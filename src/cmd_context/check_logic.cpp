@@ -187,6 +187,7 @@ struct check_logic::imp {
             m_bvs         = true;
             m_uf          = true;
             m_ints        = true;
+            m_nonlinear   = true; // non-linear 0-1 variables may get eliminated
         }
         else {
             m_unknown_logic = true;

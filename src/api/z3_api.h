@@ -1500,7 +1500,7 @@ extern "C" {
        All main interaction with Z3 happens in the context of a \c Z3_context.
 
        In contrast to #Z3_mk_context_rc, the life time of Z3_ast objects
-       are determined by the scope level of #Z3_push and #Z3_pop.
+       are determined by the scope level of #Z3_solver_push and #Z3_solver_pop.
        In other words, a Z3_ast object remains valid until there is a
        call to Z3_pop that takes the current scope below the level where
        the object was created.
@@ -3091,8 +3091,8 @@ extern "C" {
        \brief Create a numeral of a given sort.
 
        \param c logical context.
-       \param numeral A string representing the numeral value in decimal notation. The string may be of the form \code{[num]*[.[num]*][E[+|-][num]+]}.
-                      If the given sort is a real, then the numeral can be a rational, that is, a string of the form \ccode{[num]* / [num]*}.
+       \param numeral A string representing the numeral value in decimal notation. The string may be of the form `[num]*[.[num]*][E[+|-][num]+]`.
+                      If the given sort is a real, then the numeral can be a rational, that is, a string of the form `[num]* / [num]*` .
        \param ty The sort of the numeral. In the current implementation, the given sort can be an int, real, finite-domain, or bit-vectors of arbitrary size.
 
        \sa Z3_mk_int
@@ -3306,7 +3306,7 @@ extern "C" {
     Z3_ast Z3_API Z3_mk_seq_replace(Z3_context c, Z3_ast s, Z3_ast src, Z3_ast dst);
 
     /**
-       \brief Retrieve from \s the unit sequence positioned at position \c index.
+       \brief Retrieve from \c s the unit sequence positioned at position \c index.
 
        def_API('Z3_mk_seq_at' ,AST ,(_in(CONTEXT), _in(AST), _in(AST)))
      */
@@ -4006,7 +4006,7 @@ extern "C" {
        def_API('Z3_mk_pble', AST, (_in(CONTEXT), _in(UINT), _in_array(1,AST), _in_array(1,INT), _in(INT)))
     */
     Z3_ast Z3_API Z3_mk_pble(Z3_context c, unsigned num_args,
-                             Z3_ast const args[], int coeffs[],
+                             Z3_ast const args[], int const coeffs[],
                              int k);
 
     /**
@@ -4017,7 +4017,7 @@ extern "C" {
        def_API('Z3_mk_pbge', AST, (_in(CONTEXT), _in(UINT), _in_array(1,AST), _in_array(1,INT), _in(INT)))
     */
     Z3_ast Z3_API Z3_mk_pbge(Z3_context c, unsigned num_args,
-                             Z3_ast const args[], int coeffs[],
+                             Z3_ast const args[], int const coeffs[],
                              int k);
 
     /**
@@ -4028,7 +4028,7 @@ extern "C" {
        def_API('Z3_mk_pbeq', AST, (_in(CONTEXT), _in(UINT), _in_array(1,AST), _in_array(1,INT), _in(INT)))
     */
     Z3_ast Z3_API Z3_mk_pbeq(Z3_context c, unsigned num_args,
-                             Z3_ast const args[], int coeffs[],
+                             Z3_ast const args[], int const coeffs[],
                              int k);
 
     /**

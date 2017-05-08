@@ -58,6 +58,7 @@ z3_add_component(smt
     theory_opt.cpp
     theory_pb.cpp
     theory_seq.cpp
+    theory_str.cpp
     theory_utvpi.cpp
     theory_wmaxsat.cpp
     uses_theory.cpp

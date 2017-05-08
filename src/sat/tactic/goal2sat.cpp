@@ -419,6 +419,103 @@ struct goal2sat::imp {
         }
     }
 
+    typedef std::pair<unsigned, sat::literal> wliteral;
+
+    void check_unsigned(rational const& c) {
+        if (!c.is_unsigned()) {
+            throw default_exception("unsigned coefficient expected");
+        }
+    }
+
+    void convert_to_wlits(app* t, sat::literal_vector const& lits, svector<wliteral>& wlits) {
+        for (unsigned i = 0; i < lits.size(); ++i) {
+            rational c = pb.get_coeff(t, i);
+            check_unsigned(c);
+            wlits.push_back(std::make_pair(c.get_unsigned(), lits[i]));
+        }
+    }
+
+    void convert_pb_args(app* t, svector<wliteral>& wlits) {
+        sat::literal_vector lits;
+        convert_pb_args(t->get_num_args(), lits);
+        convert_to_wlits(t, lits, wlits);        
+    }
+
+    void convert_pb_ge(app* t, bool root, bool sign) {
+        rational k = pb.get_k(t);
+        check_unsigned(k);                
+        svector<wliteral> wlits;
+        convert_pb_args(t, wlits);
+        unsigned sz = m_result_stack.size();
+        if (root) {
+            m_result_stack.reset();
+            m_ext->add_pb_ge(sat::null_bool_var, wlits, k.get_unsigned());
+        }
+        else {
+            sat::bool_var v = m_solver.mk_var(true);
+            sat::literal lit(v, sign);
+            m_ext->add_pb_ge(v, wlits, k.get_unsigned());
+            TRACE("goal2sat", tout << "root: " << root << " lit: " << lit << "\n";);
+            m_result_stack.shrink(sz - t->get_num_args());
+            m_result_stack.push_back(lit);
+        }
+    }
+
+    void convert_pb_le(app* t, bool root, bool sign) {
+        rational k = pb.get_k(t);
+        k.neg();
+        svector<wliteral> wlits;
+        convert_pb_args(t, wlits);
+        for (unsigned i = 0; i < wlits.size(); ++i) {
+            wlits[i].second.neg();
+            k += rational(wlits[i].first);
+        }
+        check_unsigned(k);
+        unsigned sz = m_result_stack.size();
+        if (root) {
+            m_result_stack.reset();
+            m_ext->add_pb_ge(sat::null_bool_var, wlits, k.get_unsigned());
+        }
+        else {
+            sat::bool_var v = m_solver.mk_var(true);
+            sat::literal lit(v, sign);
+            m_ext->add_pb_ge(v, wlits, k.get_unsigned());
+            TRACE("goal2sat", tout << "root: " << root << " lit: " << lit << "\n";);
+            m_result_stack.shrink(sz - t->get_num_args());
+            m_result_stack.push_back(lit);
+        }
+    }
+
+    void convert_pb_eq(app* t, bool root, bool sign) {
+        rational k = pb.get_k(t);
+        SASSERT(k.is_unsigned());
+        svector<wliteral> wlits;
+        convert_pb_args(t, wlits);
+        sat::bool_var v1 = root ? sat::null_bool_var : m_solver.mk_var(true);
+        sat::bool_var v2 = root ? sat::null_bool_var : m_solver.mk_var(true);
+        m_ext->add_pb_ge(v1, wlits, k.get_unsigned());        
+        k.neg();
+        for (unsigned i = 0; i < wlits.size(); ++i) {
+            wlits[i].second.neg();
+            k += rational(wlits[i].first);
+        }
+        check_unsigned(k);
+        m_ext->add_pb_ge(v2, wlits, k.get_unsigned());
+        if (root) {
+            m_result_stack.reset();
+        }
+        else {
+            sat::literal l1(v1, false), l2(v2, false);
+            sat::bool_var v = m_solver.mk_var();
+            sat::literal l(v, false);
+            mk_clause(~l, l1);
+            mk_clause(~l, l2);
+            mk_clause(~l1, ~l2, l);
+            m_result_stack.shrink(m_result_stack.size() - t->get_num_args());
+            m_result_stack.push_back(l);
+        }
+    }
+
     void convert_at_least_k(app* t, rational k, bool root, bool sign) {
         SASSERT(k.is_unsigned());
         sat::literal_vector lits;
@@ -529,16 +626,28 @@ struct goal2sat::imp {
                 convert_at_least_k(t, pb.get_k(t), root, sign);
                 break;
             case OP_PB_LE:
-                SASSERT(pb.has_unit_coefficients(t));
-                convert_at_most_k(t, pb.get_k(t), root, sign);
+                if (pb.has_unit_coefficients(t)) {
+                    convert_at_most_k(t, pb.get_k(t), root, sign);
+                }
+                else {
+                    convert_pb_le(t, root, sign);
+                }
                 break;
             case OP_PB_GE:
-                SASSERT(pb.has_unit_coefficients(t));
-                convert_at_least_k(t, pb.get_k(t), root, sign);
+                if (pb.has_unit_coefficients(t)) {
+                    convert_at_least_k(t, pb.get_k(t), root, sign);
+                }
+                else {
+                    convert_pb_ge(t, root, sign);
+                }
                 break;
             case OP_PB_EQ:
-                SASSERT(pb.has_unit_coefficients(t));
-                convert_eq_k(t, pb.get_k(t), root, sign);
+                if (pb.has_unit_coefficients(t)) {
+                    convert_eq_k(t, pb.get_k(t), root, sign);
+                }
+                else {
+                    convert_pb_eq(t, root, sign);
+                }
                 break;
             default:
                 UNREACHABLE();

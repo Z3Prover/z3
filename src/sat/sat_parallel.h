@@ -78,6 +78,8 @@ namespace sat {
 
         void init_solvers(solver& s, unsigned num_extra_solvers);
 
+        void push_child(reslimit& rl);
+
         // reserve space
         void reserve(unsigned num_owners, unsigned sz) { m_pool.reserve(num_owners, sz); }
 

@@ -62,10 +62,10 @@ public:
 
 private:
     ast_manager &               m_manager;
+    bv_util                     m_bv;
     simplifier &                m_simplifier;
     arith_simplifier_plugin *   m_arith_simp;
     bv_simplifier_plugin    *   m_bv_simp;
-    basic_simplifier_plugin *   m_basic_simp;
     obj_hashtable<func_decl> *  m_forbidden_set;
 
     bool is_forbidden(func_decl * f) const { return m_forbidden_set != 0 && m_forbidden_set->contains(f); }
@@ -99,7 +99,6 @@ public:
 
     arith_simplifier_plugin * get_arith_simp() const;
     bv_simplifier_plugin * get_bv_simp() const;
-    basic_simplifier_plugin * get_basic_simp() const;
 
     bool is_macro_head(expr * n, unsigned num_decls) const;
     bool is_left_simple_macro(expr * n, unsigned num_decls, app_ref & head, expr_ref & def) const;

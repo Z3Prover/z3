@@ -1007,7 +1007,7 @@ namespace pdr {
         return m_cache[l];
     }
 
-    void model_search::erase_children(model_node& n, bool backtrack) {        
+    void model_search::erase_children(model_node& n, bool backtrack) {
         ptr_vector<model_node> todo, nodes;
         todo.append(n.children());
         remove_goal(n);
@@ -2241,7 +2241,7 @@ namespace pdr {
         vars.append(aux_vars.size(), aux_vars.c_ptr());
 
         scoped_ptr<expr_replacer> rep;
-        qe_lite qe(m);
+        qe_lite qe(m, m_params.p);
         expr_ref phi1 = m_pm.mk_and(Phi);
         qe(vars, phi1);
         TRACE("pdr", tout << "Eliminated\n" << mk_pp(phi1, m) << "\n";);

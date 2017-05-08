@@ -115,10 +115,14 @@ namespace sat {
             m_solvers[i] = alloc(sat::solver, s.m_params, m_limits[i]);
             m_solvers[i]->copy(s);
             m_solvers[i]->set_par(this, i);
-            m_scoped_rlimit.push_child(&m_solvers[i]->rlimit());            
+            push_child(m_solvers[i]->rlimit());            
         }
         s.set_par(this, num_extra_solvers);
         s.m_params.set_sym("phase", saved_phase);        
+    }
+
+    void parallel::push_child(reslimit& rl) {
+        m_scoped_rlimit.push_child(&rl);            
     }
 
 
@@ -268,12 +272,6 @@ namespace sat {
         {
             if (m_solver_copy && s.num_non_binary_clauses() > m_solver_copy->m_clauses.size()) {
                 s.import(*m_solver_copy.get(), true);
-                m_num_clauses = s.num_non_binary_clauses();
-                SASSERT(s.num_non_binary_clauses() == m_solver_copy->m_clauses.size());
-                m_solver_copy = 0;
-            }
-            if (m_num_clauses < s.num_non_binary_clauses()) {
-                m_num_clauses = s.num_non_binary_clauses();
             }
             for (unsigned i = 0; i < m_phase.size(); ++i) {
                 s.set_phase(i, m_phase[i]);

@@ -1002,14 +1002,6 @@ class smt2_printer {
         reset_stacks();
         SASSERT(&(r.get_manager()) == &(fm()));
         m_soccs(n);
-        TRACE("smt2_pp_shared",
-              tout << "shared terms for:\n" << mk_pp(n, m()) << "\n";
-              tout << "------>\n";
-              shared_occs::iterator it  = m_soccs.begin_shared();
-              shared_occs::iterator end = m_soccs.end_shared();
-              for (; it != end; ++it) {
-                  tout << mk_pp(*it, m()) << "\n";
-              });
         m_root = n;
         push_frame(n, true);
         while (!m_frame_stack.empty()) {

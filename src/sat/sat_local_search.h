@@ -144,6 +144,7 @@ namespace sat {
         literal_vector m_assumptions;
 
         unsigned m_num_non_binary_clauses;
+        bool     m_is_pb; 
 
         inline bool is_pos(literal t) const { return !t.sign(); }
         inline bool is_true(bool_var v) const { return cur_solution(v); }
@@ -164,9 +165,9 @@ namespace sat {
 
 
         // information about solution
-        unsigned        best_unsat;
-        double          best_unsat_rate;
-        double          last_best_unsat_rate;
+        unsigned         m_best_unsat;
+        double           m_best_unsat_rate;
+        double           m_last_best_unsat_rate;
         int              m_objective_value;                 // the objective function value corresponds to the current solution
         bool_vector      m_best_solution;                   // !var: the best solution so far
         int              m_best_objective_value = -1;       // the objective value corresponds to the best solution so far
@@ -176,7 +177,7 @@ namespace sat {
         unsigned         m_max_steps = (1 << 30);
         
         // dynamic noise
-        double m_noise = 400; // normalized by 10000
+        double m_noise = 9800; // normalized by 10000
         double m_noise_delta = 0.05;
 
         // for tuning

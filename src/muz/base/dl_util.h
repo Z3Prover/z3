@@ -29,6 +29,7 @@ Revision History:
 #include"substitution.h"
 #include"ast_counter.h"
 #include"statistics.h"
+#include"stopwatch.h"
 #include"lbool.h"
 
 namespace datalog {

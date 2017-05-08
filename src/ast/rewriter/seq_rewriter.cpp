@@ -12,6 +12,7 @@ Abstract:
 Author:
 
     Nikolaj Bjorner (nbjorner) 2015-12-5
+    Murphy Berzish 2017-02-21
 
 Notes:
 
@@ -59,7 +60,12 @@ expr_ref sym_expr::accept(expr* e) {
 }
 
 std::ostream& sym_expr::display(std::ostream& out) const {
-    return out << m_t;
+    switch (m_ty) {
+    case t_char: return out << m_t;
+    case t_range: return out << m_t << ":" << m_s;
+    case t_pred: return out << m_t;
+    }
+    return out << "expression type not recognized";
 }
 
 struct display_expr1 {
@@ -236,6 +242,7 @@ eautomaton* re2automaton::re2aut(expr* e) {
             unsigned nb = s1.num_bits();
             expr_ref _start(bv.mk_numeral(start, nb), m);
             expr_ref _stop(bv.mk_numeral(stop, nb), m);
+            TRACE("seq", tout << "Range: " << start << " " << stop << "\n";);
             a = alloc(eautomaton, sm, sym_expr::mk_range(_start, _stop));
             return a.detach();
         }
@@ -322,7 +329,8 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     switch(f->get_decl_kind()) {
 
     case OP_SEQ_UNIT:
-        return BR_FAILED;
+        SASSERT(num_args == 1);
+        return mk_seq_unit(args[0], result);
     case OP_SEQ_EMPTY:
         return BR_FAILED;
     case OP_RE_PLUS:
@@ -344,7 +352,8 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         SASSERT(num_args == 2);
         return mk_re_union(args[0], args[1], result);
     case OP_RE_RANGE:
-        return BR_FAILED;    
+        SASSERT(num_args == 2);
+        return mk_re_range(args[0], args[1], result);
     case OP_RE_INTERSECT:
         SASSERT(num_args == 2);
         return mk_re_inter(args[0], args[1], result);
@@ -424,6 +433,33 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case _OP_STRING_STRIDOF: 
         UNREACHABLE();
     }
+    return BR_FAILED;
+}
+
+/*
+ * (seq.unit (_ BitVector 8)) ==> String constant
+ */
+br_status seq_rewriter::mk_seq_unit(expr* e, expr_ref& result) {
+    sort * s = m().get_sort(e);
+    bv_util bvu(m());
+
+    if (is_sort_of(s, bvu.get_family_id(), BV_SORT)) {
+        // specifically we want (_ BitVector 8)
+        rational n_val;
+        unsigned int n_size;
+        if (bvu.is_numeral(e, n_val, n_size)) {
+            if (n_size == 8) {
+                // convert to string constant
+                char ch = (char)n_val.get_int32();
+                TRACE("seq", tout << "rewrite seq.unit of 8-bit value " << n_val.to_string() << " to string constant \"" << ch << "\"" << std::endl;);
+                char s_tmp[2] = {ch, '\0'};
+                symbol s(s_tmp);
+                result = m_util.str.mk_string(s);
+                return BR_DONE;
+            }
+        }
+    }
+
     return BR_FAILED;
 }
 
@@ -509,15 +545,66 @@ br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
 br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& result) {
     zstring s;
     rational pos, len;
-    if (m_util.str.is_string(a, s) && m_autil.is_numeral(b, pos) && m_autil.is_numeral(c, len) &&
-        pos.is_unsigned() && len.is_unsigned() && pos.get_unsigned() + len.get_unsigned() <= s.length()) {
-        unsigned _pos = pos.get_unsigned();
-        unsigned _len = len.get_unsigned();
-        result = m_util.str.mk_string(s.extract(_pos, _len));
+
+    bool constantBase = m_util.str.is_string(a, s);
+    bool constantPos = m_autil.is_numeral(b, pos);
+    bool constantLen = m_autil.is_numeral(c, len);
+
+    // case 1: pos<0 or len<=0
+    // rewrite to ""
+    if ( (constantPos && pos.is_neg()) || (constantLen && !len.is_pos()) ) {
+        result = m_util.str.mk_empty(m().get_sort(a));
         return BR_DONE;
     }
+    // case 1.1: pos >= length(base)
+    // rewrite to ""
+    if (constantBase && constantPos && pos >= rational(s.length())) {
+        result = m_util.str.mk_empty(m().get_sort(a));
+        return BR_DONE;
+    }
+
+    constantPos &= pos.is_unsigned();
+    constantLen &= len.is_unsigned();
+
+    if (constantBase && constantPos && constantLen) {
+        if (pos.get_unsigned() + len.get_unsigned() >= s.length()) {
+            // case 2: pos+len goes past the end of the string
+            unsigned _len = s.length() - pos.get_unsigned() + 1;
+            result = m_util.str.mk_string(s.extract(pos.get_unsigned(), _len));
+        } else {
+            // case 3: pos+len still within string
+            result = m_util.str.mk_string(s.extract(pos.get_unsigned(), len.get_unsigned()));
+        }
+        return BR_DONE;
+    }
+
+    if (constantPos && constantLen) {
+        unsigned _pos = pos.get_unsigned();
+        unsigned _len = len.get_unsigned();
+        SASSERT(_len > 0);
+        expr_ref_vector as(m()), bs(m());
+        m_util.str.get_concat(a, as);
+        for (unsigned i = 0; i < as.size() && _len > 0; ++i) {
+            if (m_util.str.is_unit(as[i].get())) {
+                if (_pos == 0) {
+                    bs.push_back(as[i].get());
+                    --_len;
+                }
+                else {
+                    --_pos;
+                }
+            }              
+            else {
+                return BR_FAILED;
+            }
+        }
+        result = m_util.str.mk_concat(bs);
+        return BR_DONE;
+    }
+
     return BR_FAILED;
 }
+
 br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
     zstring c, d;
     if (m_util.str.is_string(a, c) && m_util.str.is_string(b, d)) {
@@ -594,19 +681,77 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
         result = m().mk_true();
         return BR_DONE;
     }
+    bool all_units = true;
+    for (unsigned i = 0; i < bs.size(); ++i) { 
+        all_units = m_util.str.is_unit(bs[i].get());
+    }
+    for (unsigned i = 0; i < as.size(); ++i) { 
+        all_units = m_util.str.is_unit(as[i].get());
+    }
+    if (all_units) {
+        if (as.size() < bs.size()) {
+            result = m().mk_false();
+            return BR_DONE;
+        }
+        expr_ref_vector ors(m());
+        for (unsigned i = 0; i < as.size() - bs.size() + 1; ++i) {
+            expr_ref_vector ands(m());
+            for (unsigned j = 0; j < bs.size(); ++j) {
+                ands.push_back(m().mk_eq(as[i + j].get(), bs[j].get()));
+            }
+            ors.push_back(::mk_and(ands));
+        }
+        result = ::mk_or(ors);
+        return BR_REWRITE_FULL;
+    }
 
     return BR_FAILED;
 }
 
+/*
+ * (str.at s i), constants s/i, i < 0 or i >= |s| ==> (str.at s i) = ""
+ */
 br_status seq_rewriter::mk_seq_at(expr* a, expr* b, expr_ref& result) {
     zstring c;
     rational r;
-    if (m_util.str.is_string(a, c) && m_autil.is_numeral(b, r) && r.is_unsigned()) {
-        unsigned j = r.get_unsigned();
-        if (j < c.length()) {
-            result = m_util.str.mk_string(c.extract(j, 1));
+    if (m_autil.is_numeral(b, r)) {
+        if (r.is_neg()) {
+            result = m_util.str.mk_empty(m().get_sort(a));
+            return BR_DONE;
+        } 
+        unsigned len = 0;
+        bool bounded = min_length(1, &a, len);
+        if (bounded && r >= rational(len)) {
+            result = m_util.str.mk_empty(m().get_sort(a));
             return BR_DONE;
         }
+        if (m_util.str.is_string(a, c)) {
+            if (r.is_unsigned() && r < rational(c.length())) {
+                result = m_util.str.mk_string(c.extract(r.get_unsigned(), 1));
+            }
+            else {
+                result = m_util.str.mk_empty(m().get_sort(a));
+            }
+            return BR_DONE;
+        }
+        if (r.is_unsigned()) {
+            len = r.get_unsigned();
+            expr_ref_vector as(m());
+            m_util.str.get_concat(a, as);
+            for (unsigned i = 0; i < as.size(); ++i) {
+                if (m_util.str.is_unit(as[i].get())) {
+                    if (len == 0) {
+                        result = as[i].get();
+                        return BR_DONE;
+                    }
+                    --len;
+                }         
+                else {
+                    return BR_FAILED;
+                }
+            }
+        }
+        
     }
     return BR_FAILED;
 }
@@ -664,6 +809,7 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
     bool isc2 = m_util.str.is_string(b, s2);
     if (isc1 && isc2) {
         result = m().mk_bool_val(s1.prefixof(s2));
+        TRACE("seq", tout << result << "\n";);
         return BR_DONE;
     }
     if (m_util.str.is_empty(a)) {
@@ -677,6 +823,7 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
     expr_ref_vector as(m()), bs(m());
 
     if (a1 != b1 && isc1 && isc2) {
+        TRACE("seq", tout << s1 << " " << s2 << "\n";);
         if (s1.length() <= s2.length()) {
             if (s1.prefixof(s2)) {
                 if (a == a1) {
@@ -721,26 +868,27 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
     m_util.str.get_concat(a, as);
     m_util.str.get_concat(b, bs);
     unsigned i = 0;
-    bool all_values = true;    
     expr_ref_vector eqs(m());
     for (; i < as.size() && i < bs.size(); ++i) {
         expr* a = as[i].get(), *b = bs[i].get();
         if (a == b) {
             continue;
         }
-        all_values &= m().is_value(a) && m().is_value(b);
-        if (all_values) {
-            result = m().mk_false();
-            return BR_DONE;
-        }
         if (m_util.str.is_unit(a) && m_util.str.is_unit(b)) {
             eqs.push_back(m().mk_eq(a, b));
             continue;
         }
+        if (m().is_value(a) && m().is_value(b) && m_util.str.is_string(a) && m_util.str.is_string(b)) {
+            TRACE("seq", tout << mk_pp(a, m()) << " != " << mk_pp(b, m()) << "\n";);
+            result = m().mk_false();
+            return BR_DONE;
+        }
+
         break;
     }
     if (i == as.size()) {
         result = mk_and(eqs);
+        TRACE("seq", tout << result << "\n";);
         if (m().is_true(result)) {
             return BR_DONE;
         }
@@ -752,6 +900,7 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
             eqs.push_back(m().mk_eq(m_util.str.mk_empty(m().get_sort(a)), as[j].get()));
         }
         result = mk_and(eqs);
+        TRACE("seq", tout << result << "\n";);
         return BR_REWRITE3;
     }
     if (i > 0) {
@@ -759,6 +908,7 @@ br_status seq_rewriter::mk_seq_prefix(expr* a, expr* b, expr_ref& result) {
         a = m_util.str.mk_concat(as.size() - i, as.c_ptr() + i);
         b = m_util.str.mk_concat(bs.size() - i, bs.c_ptr() + i); 
         result = m_util.str.mk_prefix(a, b);
+        TRACE("seq", tout << result << "\n";);
         return BR_DONE;
     }
     else {
@@ -1281,6 +1431,40 @@ br_status seq_rewriter::mk_re_star(expr* a, expr_ref& result) {
 }
 
 /*
+ * (re.range c_1 c_n) = (re.union (str.to.re c1) (str.to.re c2) ... (str.to.re cn))
+ */
+br_status seq_rewriter::mk_re_range(expr* lo, expr* hi, expr_ref& result) {
+    return BR_FAILED;
+    TRACE("seq", tout << "rewrite re.range [" << mk_pp(lo, m()) << " " << mk_pp(hi, m()) << "]\n";);
+    zstring str_lo, str_hi;
+    if (m_util.str.is_string(lo, str_lo) && m_util.str.is_string(hi, str_hi)) {
+        if (str_lo.length() == 1 && str_hi.length() == 1) {
+            unsigned int c1 = str_lo[0];
+            unsigned int c2 = str_hi[0];
+            if (c1 > c2) {
+                // exchange c1 and c2
+                unsigned int tmp = c1;
+                c2 = c1;
+                c1 = tmp;
+            }
+            zstring s(c1);
+            expr_ref acc(m_util.re.mk_to_re(m_util.str.mk_string(s)), m());
+            for (unsigned int ch = c1 + 1; ch <= c2; ++ch) {
+                zstring s_ch(ch);
+                expr_ref acc2(m_util.re.mk_to_re(m_util.str.mk_string(s_ch)), m());
+                acc = m_util.re.mk_union(acc, acc2);
+            }
+            result = acc;
+            return BR_REWRITE2;
+        } else {
+            m().raise_exception("string constants in re.range must have length 1");
+        }
+    }
+
+    return BR_FAILED;
+}
+
+/*
    emp+ = emp
    all+ = all
    a*+ = a*
@@ -1309,9 +1493,9 @@ br_status seq_rewriter::mk_re_plus(expr* a, expr_ref& result) {
         return BR_DONE;
     }
 
-    return BR_FAILED;
-//  result = m_util.re.mk_concat(a, m_util.re.mk_star(a));
-//  return BR_REWRITE2;
+    //return BR_FAILED;
+    result = m_util.re.mk_concat(a, m_util.re.mk_star(a));
+    return BR_REWRITE2;
 }
 
 br_status seq_rewriter::mk_re_opt(expr* a, expr_ref& result) {
@@ -1343,6 +1527,7 @@ bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_
     zstring s;
     bool lchange = false;
     SASSERT(lhs.empty());
+    TRACE("seq", tout << ls << "\n"; tout << rs << "\n";);
     // solve from back
     while (true) {
         while (!rs.empty() && m_util.str.is_empty(rs.back())) {
@@ -1460,9 +1645,11 @@ bool seq_rewriter::reduce_eq(expr_ref_vector& ls, expr_ref_vector& rs, expr_ref_
            head2 < rs.size() && 
            m_util.str.is_string(ls[head1].get(), s1) &&
            m_util.str.is_string(rs[head2].get(), s2)) {
+        TRACE("seq", tout << s1 << " - " << s2 << " " << s1.length() << " " << s2.length() << "\n";);
         unsigned l = std::min(s1.length(), s2.length());
         for (unsigned i = 0; i < l; ++i) {
             if (s1[i] != s2[i]) {
+                TRACE("seq", tout << "different at position " << i << " " << s1[i] << " " << s2[i] << "\n";);
                 return false;
             }
         }

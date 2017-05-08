@@ -24,9 +24,9 @@ class distribute_forall_tactic : public tactic {
         ast_manager & m;
 
         rw_cfg(ast_manager & _m):m(_m) {}
-        bool reduce_quantifier(quantifier * old_q, 
-                               expr * new_body, 
-                               expr * const * new_patterns, 
+        bool reduce_quantifier(quantifier * old_q,
+                               expr * new_body,
+                               expr * const * new_patterns,
                                expr * const * new_no_patterns,
                                expr_ref & result,
                                proof_ref & result_pr) {
@@ -34,7 +34,7 @@ class distribute_forall_tactic : public tactic {
             if (!old_q->is_forall()) {
                 return false;
             }
-            
+
             if (m.is_not(new_body) && m.is_or(to_app(new_body)->get_arg(0))) {
                 // (forall X (not (or F1 ... Fn)))
                 // -->
@@ -50,13 +50,13 @@ class distribute_forall_tactic : public tactic {
                     quantifier_ref tmp_q(m);
                     tmp_q = m.update_quantifier(old_q, not_arg);
                     expr_ref new_q(m);
-                    elim_unused_vars(m, tmp_q, new_q);
+                    elim_unused_vars(m, tmp_q, params_ref(), new_q);
                     new_args.push_back(new_q);
                 }
                 result = m.mk_and(new_args.size(), new_args.c_ptr());
                 return true;
             }
-            
+
             if (m.is_and(new_body)) {
                 // (forall X (and F1 ... Fn))
                 // -->
@@ -70,20 +70,20 @@ class distribute_forall_tactic : public tactic {
                     quantifier_ref tmp_q(m);
                     tmp_q = m.update_quantifier(old_q, arg);
                     expr_ref new_q(m);
-                    elim_unused_vars(m, tmp_q, new_q);
+                    elim_unused_vars(m, tmp_q, params_ref(), new_q);
                     new_args.push_back(new_q);
                 }
                 result = m.mk_and(new_args.size(), new_args.c_ptr());
                 return true;
             }
-            
+
             return false;
         }
     };
 
     struct rw : public rewriter_tpl<rw_cfg> {
         rw_cfg m_cfg;
-        
+
         rw(ast_manager & m, bool proofs_enabled):
             rewriter_tpl<rw_cfg>(m, proofs_enabled, m_cfg),
             m_cfg(m) {
@@ -99,19 +99,19 @@ public:
         return alloc(distribute_forall_tactic);
     }
 
-    virtual void operator()(goal_ref const & g, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
+    virtual void operator()(goal_ref const & g,
+                            goal_ref_buffer & result,
+                            model_converter_ref & mc,
                             proof_converter_ref & pc,
                             expr_dependency_ref & core) {
         SASSERT(g->is_well_sorted());
         ast_manager & m = g->m();
         bool produce_proofs = g->proofs_enabled();
         rw r(m, produce_proofs);
-        m_rw = &r;        
+        m_rw = &r;
         mc = 0; pc = 0; core = 0; result.reset();
         tactic_report report("distribute-forall", *g);
-        
+
         expr_ref   new_curr(m);
         proof_ref  new_pr(m);
         unsigned size = g->size();
@@ -126,12 +126,12 @@ public:
             }
             g->update(idx, new_curr, new_pr, g->dep(idx));
         }
-        
+
         g->inc_depth();
         result.push_back(g.get());
         TRACE("distribute-forall", g->display(tout););
         SASSERT(g->is_well_sorted());
-        m_rw = 0;        
+        m_rw = 0;
     }
 
     virtual void cleanup() {}

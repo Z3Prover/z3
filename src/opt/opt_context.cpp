@@ -272,7 +272,8 @@ namespace opt {
         s.assert_expr(m_hard_constraints);
         IF_VERBOSE(1, verbose_stream() << "(optimize:check-sat)\n";);
         lbool is_sat = s.check_sat(0,0);
-        TRACE("opt", tout << "initial search result: " << is_sat << "\n";);
+        TRACE("opt", tout << "initial search result: " << is_sat << "\n";
+              s.display(tout););
         if (is_sat != l_false) {
             s.get_model(m_model);
             s.get_labels(m_labels);
@@ -337,6 +338,14 @@ namespace opt {
 
     void context::get_model(model_ref& mdl) {
         mdl = m_model;
+        fix_model(mdl);
+    }
+
+    void context::get_box_model(model_ref& mdl, unsigned index) {
+        if (index >= m_box_models.size()) {
+            throw default_exception("index into models is out of bounds");
+        }
+        mdl = m_box_models[index];
         fix_model(mdl);
     }
 
@@ -1036,6 +1045,10 @@ namespace opt {
             TRACE("opt", tout << "Purifying " << term << "\n";);
             term = purify(fm, term);
         }
+        else if (m.is_ite(term)) {
+            TRACE("opt", tout << "Purifying " << term << "\n";);
+            term = purify(fm, term);
+        }
         if (fm) {
             m_model_converter = concat(m_model_converter.get(), fm.get());
         }
@@ -1226,7 +1239,7 @@ namespace opt {
             out << " (";
             display_objective(out, obj);
             if (get_lower_as_num(i) != get_upper_as_num(i)) {
-                out << "  (" << get_lower(i) << " " << get_upper(i) << ")";
+                out << "  (interval " << get_lower(i) << " " << get_upper(i) << ")";
             }
             else {
                 out << " " << get_lower(i);

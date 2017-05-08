@@ -126,13 +126,14 @@ static bool is_escape_char(char const *& s, unsigned& result) {
 zstring::zstring(encoding enc): m_encoding(enc) {}
 
 zstring::zstring(char const* s, encoding enc): m_encoding(enc) {
+    unsigned mask = 0xFF; // TBD for UTF
     while (*s) {
         unsigned ch;
         if (is_escape_char(s, ch)) {
-            m_buffer.push_back(ch);
+            m_buffer.push_back(ch & mask);
         }
         else {
-            m_buffer.push_back(*s);
+            m_buffer.push_back(*s & mask);
             ++s;
         }
     }
@@ -830,7 +831,9 @@ void seq_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol 
     init();
     sort_names.push_back(builtin_name("Seq",   SEQ_SORT));
     sort_names.push_back(builtin_name("RegEx", RE_SORT));
+    // SMT-LIB 2.5 compatibility
     sort_names.push_back(builtin_name("String", _STRING_SORT));
+    sort_names.push_back(builtin_name("StringSequence", _STRING_SORT));
 }
 
 app* seq_decl_plugin::mk_string(symbol const& s) {

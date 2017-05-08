@@ -273,6 +273,15 @@ public:
         bool is_in_re(expr const* n)    const { return is_app_of(n, m_fid, OP_SEQ_IN_RE); }
         bool is_unit(expr const* n)     const { return is_app_of(n, m_fid, OP_SEQ_UNIT); }
 
+        bool is_string_term(expr const * n) const {
+            sort * s = get_sort(n);
+            return u.is_string(s);
+        }
+
+        bool is_non_string_sequence(expr const * n) const {
+            sort * s = get_sort(n);
+            return (u.is_seq(s) && !u.is_string(s));
+        }
 
         MATCH_BINARY(is_concat);
         MATCH_UNARY(is_length);
@@ -304,6 +313,7 @@ public:
 
         app* mk_to_re(expr* s) { return m.mk_app(m_fid, OP_SEQ_TO_RE, 1, &s); }
         app* mk_in_re(expr* s, expr* r) { return m.mk_app(m_fid, OP_SEQ_IN_RE, s, r); }
+        app* mk_range(expr* s1, expr* s2) { return m.mk_app(m_fid, OP_RE_RANGE, s1, s2); }
         app* mk_concat(expr* r1, expr* r2) { return m.mk_app(m_fid, OP_RE_CONCAT, r1, r2); }
         app* mk_union(expr* r1, expr* r2) { return m.mk_app(m_fid, OP_RE_UNION, r1, r2); }
         app* mk_inter(expr* r1, expr* r2) { return m.mk_app(m_fid, OP_RE_INTERSECT, r1, r2); }

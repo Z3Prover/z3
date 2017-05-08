@@ -21,6 +21,7 @@ Revision History:
 #include"sat_simplifier.h"
 #include"sat_simplifier_params.hpp"
 #include"sat_solver.h"
+#include"sat_lookahead.h"
 #include"stopwatch.h"
 #include"trace.h"
 
@@ -158,6 +159,8 @@ namespace sat {
         if (!m_subsumption && !m_elim_blocked_clauses && !m_resolution)
             return;
 
+        // solver::scoped_disable_checkpoint _scoped_disable_checkpoint(s);
+        
         initialize();
 
         CASSERT("sat_solver", s.check_invariant());
@@ -171,14 +174,12 @@ namespace sat {
         CASSERT("sat_solver", s.check_invariant());
         m_need_cleanup = false;
         m_use_list.init(s.num_vars());
-        init_visited();
-        bool learned_in_use_lists = false;
+        m_learned_in_use_lists = false;
         if (learned) {
             register_clauses(s.m_learned);
-            learned_in_use_lists = true;
+            m_learned_in_use_lists = true;
         }
         register_clauses(s.m_clauses);
-
 
         if (!learned && (m_elim_blocked_clauses || m_elim_blocked_clauses_at == m_num_calls))
             elim_blocked_clauses();
@@ -188,7 +189,9 @@ namespace sat {
 
         m_sub_counter  = m_subsumption_limit;
         m_elim_counter = m_res_limit;
-        unsigned old_num_elim_vars = m_num_elim_vars;
+        m_old_num_elim_vars = m_num_elim_vars;
+
+        // scoped_finalize _scoped_finalize(*this);
 
         do {
             if (m_subsumption)
@@ -204,24 +207,31 @@ namespace sat {
         }
         while (!m_sub_todo.empty());
 
-        bool vars_eliminated = m_num_elim_vars > old_num_elim_vars;
+        if (!learned) {
+            // perform lookahead simplification
+            lookahead(s).simplify();
+        }
+
+        bool vars_eliminated = m_num_elim_vars > m_old_num_elim_vars;
 
         if (m_need_cleanup) {
             TRACE("after_simplifier", tout << "cleanning watches...\n";);
             cleanup_watches();
-            cleanup_clauses(s.m_learned, true, vars_eliminated,  learned_in_use_lists);
+            cleanup_clauses(s.m_learned, true, vars_eliminated,  m_learned_in_use_lists);
             cleanup_clauses(s.m_clauses, false, vars_eliminated, true);
         }
         else {
             TRACE("after_simplifier", tout << "skipping cleanup...\n";);
             if (vars_eliminated) {
                 // must remove learned clauses with eliminated variables
-                cleanup_clauses(s.m_learned, true, true, learned_in_use_lists);
+                cleanup_clauses(s.m_learned, true, true, m_learned_in_use_lists);
             }
         }
+
         CASSERT("sat_solver", s.check_invariant());
         TRACE("after_simplifier", s.display(tout); tout << "model_converter:\n"; s.m_mc.display(tout););
         finalize();
+
     }
 
     /**
@@ -283,7 +293,7 @@ namespace sat {
             unsigned sz = c.size();
             if (sz == 0) {
                 s.set_conflict(justification());
-                for (; it != end; ++it) {
+                for (; it != end; ++it, ++it2) {
                     *it2 = *it;
                     ++it2;
                 }

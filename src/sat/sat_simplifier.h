@@ -91,6 +91,9 @@ namespace sat {
         unsigned               m_num_sub_res;
         unsigned               m_num_elim_lits;
 
+        bool                   m_learned_in_use_lists;
+        unsigned               m_old_num_elim_vars;
+
         struct size_lt {
             bool operator()(clause const * c1, clause const * c2) const { return c1->size() > c2->size(); }
         };
@@ -130,13 +133,11 @@ namespace sat {
 
         bool cleanup_clause(clause & c, bool in_use_list);
         bool cleanup_clause(literal_vector & c);
-        void propagate_unit(literal l);
         void elim_lit(clause & c, literal l);
         void elim_dup_bins();
         bool subsume_with_binaries();
         void mark_as_not_learned_core(watch_list & wlist, literal l2);
         void mark_as_not_learned(literal l1, literal l2);
-        void subsume();
 
         void cleanup_watches();
         void cleanup_clauses(clause_vector & cs, bool learned, bool vars_eliminated, bool in_use_lists);
@@ -170,6 +171,14 @@ namespace sat {
         struct subsumption_report;
         struct elim_var_report;
 
+        class scoped_finalize {
+            simplifier& s;
+        public:
+            scoped_finalize(simplifier& s) : s(s) {}
+            ~scoped_finalize() { s.scoped_finalize_fn(); }
+        };
+        void scoped_finalize_fn();
+
     public:
         simplifier(solver & s, params_ref const & p);
         ~simplifier();
@@ -191,6 +200,10 @@ namespace sat {
 
         void collect_statistics(statistics & st) const;
         void reset_statistics();
+
+        void propagate_unit(literal l);
+        void subsume();
+
     };
 };
 

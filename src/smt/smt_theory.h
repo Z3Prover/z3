@@ -178,6 +178,22 @@ namespace smt {
         }
 
         /**
+           \brief This method is called by smt_context before the search starts
+           to get any extra assumptions the theory wants to use.
+           (See theory_str for an example)
+        */
+        virtual void add_theory_assumptions(expr_ref_vector & assumptions) {
+        }
+
+        /**
+           \brief This method is called from the smt_context when an unsat core is generated.
+           The theory may change the answer to UNKNOWN by returning l_undef from this method.
+        */
+        virtual lbool validate_unsat_core(expr_ref_vector & unsat_core) {
+            return l_false;
+        }
+	
+        /**
            \brief This method is invoked before the search starts.
         */
         virtual void init_search_eh() {

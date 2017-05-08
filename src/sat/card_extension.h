@@ -36,6 +36,9 @@ namespace sat {
             unsigned m_num_xor_propagations;
             unsigned m_num_xor_conflicts;
             unsigned m_num_xor_resolves;
+            unsigned m_num_pb_propagations;
+            unsigned m_num_pb_conflicts;
+            unsigned m_num_pb_resolves;
             stats() { reset(); }
             void reset() { memset(this, 0, sizeof(*this)); }
         };
@@ -56,6 +59,34 @@ namespace sat {
             unsigned k() const { return m_k; }
             unsigned size() const { return m_size; }
             void swap(unsigned i, unsigned j) { std::swap(m_lits[i], m_lits[j]); }
+            void negate();                       
+        };
+        
+        typedef std::pair<unsigned, literal> wliteral;
+
+        class pb {
+            unsigned       m_index;
+            literal        m_lit;
+            unsigned       m_k;
+            unsigned       m_size;
+            unsigned       m_slack;
+            unsigned       m_num_watch;
+            unsigned       m_max_sum;
+            wliteral       m_wlits[0];
+        public:
+            static size_t get_obj_size(unsigned num_lits) { return sizeof(card) + num_lits * sizeof(wliteral); }
+            pb(unsigned index, literal lit, svector<wliteral> const& wlits, unsigned k);
+            unsigned index() const { return m_index; }
+            literal lit() const { return m_lit; }
+            wliteral operator[](unsigned i) const { return m_wlits[i]; }
+            unsigned k() const { return m_k; }
+            unsigned size() const { return m_size; }
+            unsigned slack() const { return m_slack; }
+            void set_slack(unsigned s) { m_slack = s; }
+            unsigned num_watch() const { return m_num_watch; }
+            unsigned max_sum() const { return m_max_sum; }
+            void set_num_watch(unsigned s) { m_num_watch = s; }
+            void swap(unsigned i, unsigned j) { std::swap(m_wlits[i], m_wlits[j]); }
             void negate();                       
         };
 
@@ -85,20 +116,28 @@ namespace sat {
 
         typedef ptr_vector<card> card_watch;
         typedef ptr_vector<xor> xor_watch;
+        typedef ptr_vector<pb>  pb_watch;
         struct var_info {
             card_watch* m_card_watch[2];
+            pb_watch*   m_pb_watch[2];
             xor_watch*  m_xor_watch;
             card*       m_card;
+            pb*         m_pb;
             xor*        m_xor;
-            var_info(): m_xor_watch(0), m_card(0), m_xor(0) {
+            var_info(): m_xor_watch(0), m_card(0), m_xor(0), m_pb(0) {
                 m_card_watch[0] = 0;
                 m_card_watch[1] = 0;
+                m_pb_watch[0] = 0;
+                m_pb_watch[1] = 0;
             }
             void reset() {
                 dealloc(m_card);
                 dealloc(m_xor);
+                dealloc(m_pb);
                 dealloc(card_extension::set_tag_non_empty(m_card_watch[0]));
                 dealloc(card_extension::set_tag_non_empty(m_card_watch[1]));
+                dealloc(card_extension::set_tag_non_empty(m_pb_watch[0]));
+                dealloc(card_extension::set_tag_non_empty(m_pb_watch[1]));
                 dealloc(card_extension::set_tag_non_empty(m_xor_watch));
             }
         };
@@ -125,8 +164,10 @@ namespace sat {
 
         ptr_vector<card>    m_cards;
         ptr_vector<xor>     m_xors;
+        ptr_vector<pb>      m_pbs;
 
         scoped_ptr_vector<card> m_card_axioms;
+        scoped_ptr_vector<pb>   m_pb_axioms;
 
         // watch literals
         svector<var_info>   m_var_infos;
@@ -145,6 +186,9 @@ namespace sat {
         bool              m_has_xor;
         unsigned_vector   m_parity_marks;
         literal_vector    m_parity_trail;
+
+        unsigned_vector   m_pb_undef;
+
         void     ensure_parity_size(bool_var v);
         unsigned get_parity(bool_var v);
         void     inc_parity(bool_var v);
@@ -163,6 +207,7 @@ namespace sat {
         void unwatch_literal(literal w, card* c);
 
         // xor specific functionality
+        void copy_xor(card_extension& result);
         void clear_watch(xor& x);
         void watch_literal(xor& x, literal lit);
         void unwatch_literal(literal w, xor* x);
@@ -172,11 +217,28 @@ namespace sat {
         bool parity(xor const& x, unsigned offset) const;
         lbool add_assign(xor& x, literal alit);
         void asserted_xor(literal l, ptr_vector<xor>* xors, xor* x);
+        void get_xor_antecedents(literal l, unsigned index, justification js, literal_vector& r);
 
-        bool is_card_index(unsigned idx) const { return 0 == (idx & 0x1); }
-        card& index2card(unsigned idx) const { SASSERT(is_card_index(idx)); return *m_cards[idx >> 1]; }
-        xor& index2xor(unsigned idx) const { SASSERT(!is_card_index(idx)); return *m_xors[idx >> 1]; }
-        void get_xor_antecedents(literal l, unsigned inddex, justification js, literal_vector& r);
+
+        bool is_card_index(unsigned idx) const { return 0x00 == (idx & 0x11); }
+        bool is_xor_index(unsigned idx) const { return 0x01 == (idx & 0x11); }
+        bool is_pb_index(unsigned idx) const { return 0x11 == (idx & 0x11); }
+        card& index2card(unsigned idx) const { SASSERT(is_card_index(idx)); return *m_cards[idx >> 2]; }
+        xor& index2xor(unsigned idx) const { SASSERT(!is_card_index(idx)); return *m_xors[idx >> 2]; }
+        pb&  index2pb(unsigned idx) const { SASSERT(is_pb_index(idx)); return *m_pbs[idx >> 2]; }
+
+
+        // pb functionality
+        void copy_pb(card_extension& result);
+        void asserted_pb(literal l, ptr_vector<pb>* pbs, pb* p);
+        void init_watch(pb& p, bool is_true);
+        lbool add_assign(pb& p, literal alit);
+        void watch_literal(pb& p, wliteral lit);
+        void clear_watch(pb& p);
+        void set_conflict(pb& p, literal lit);
+        void assign(pb& p, literal l);
+        void unwatch_literal(literal w, pb* p);
+        void get_pb_antecedents(literal l, pb const& p, literal_vector & r);
 
 
         template<typename T>
@@ -224,6 +286,7 @@ namespace sat {
 
         void display(std::ostream& out, ineq& p) const;
         void display(std::ostream& out, card& c, bool values) const;
+        void display(std::ostream& out, pb& p, bool values) const;
         void display(std::ostream& out, xor& c, bool values) const;
         void display_watch(std::ostream& out, bool_var v) const;
         void display_watch(std::ostream& out, bool_var v, bool sign) const;
@@ -233,6 +296,7 @@ namespace sat {
         virtual ~card_extension();
         virtual void set_solver(solver* s) { m_solver = s; }
         void    add_at_least(bool_var v, literal_vector const& lits, unsigned k);
+        void    add_pb_ge(bool_var v, svector<wliteral> const& wlits, unsigned k);
         void    add_xor(bool_var v, literal_vector const& lits);
         virtual void propagate(literal l, ext_constraint_idx idx, bool & keep);
         virtual bool resolve_conflict();

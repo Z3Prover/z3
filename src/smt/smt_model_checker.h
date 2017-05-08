@@ -59,7 +59,8 @@ namespace smt {
         void assert_neg_q_m(quantifier * q, expr_ref_vector & sks);
         bool add_blocking_clause(model * cex, expr_ref_vector & sks);
         bool check(quantifier * q);
-        bool check_rec_fun(quantifier* q);
+        bool check_rec_fun(quantifier* q, bool strict_rec_fun);
+        void check_quantifiers(bool strict_rec_fun, bool& found_relevant, unsigned& num_failures);
 
         struct instance {
             quantifier * m_q;

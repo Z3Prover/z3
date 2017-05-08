@@ -25,6 +25,7 @@ Revision History:
 #include"theory_arith_params.h"
 #include"theory_array_params.h"
 #include"theory_bv_params.h"
+#include"theory_str_params.h"
 #include"theory_pb_params.h"
 #include"theory_datatype_params.h"
 #include"preprocessor_params.h"
@@ -66,7 +67,8 @@ enum case_split_strategy {
     CS_ACTIVITY_WITH_CACHE, // case split based on activity and cache the activity
     CS_RELEVANCY, // case split based on relevancy
     CS_RELEVANCY_ACTIVITY, // case split based on relevancy and activity
-    CS_RELEVANCY_GOAL // based on relevancy and the current goal
+    CS_RELEVANCY_GOAL, // based on relevancy and the current goal
+    CS_ACTIVITY_THEORY_AWARE_BRANCHING // activity-based case split, but theory solvers can manipulate activity
 };
 
 struct smt_params : public preprocessor_params, 
@@ -75,6 +77,7 @@ struct smt_params : public preprocessor_params,
                     public theory_arith_params, 
                     public theory_array_params, 
                     public theory_bv_params,
+                    public theory_str_params,
                     public theory_pb_params,
                     public theory_datatype_params {
     bool             m_display_proof;
@@ -109,6 +112,8 @@ struct smt_params : public preprocessor_params,
     case_split_strategy m_case_split_strategy;
     unsigned            m_rel_case_split_order;
     bool                m_lookahead_diseq;
+    bool                m_theory_case_split;
+    bool                m_theory_aware_branching;
 
     // -----------------------------------
     //
@@ -212,6 +217,13 @@ struct smt_params : public preprocessor_params,
     bool                m_dump_goal_as_smt;
     bool                m_auto_config;
 
+    // -----------------------------------
+    //
+    // Solver selection
+    //
+    // -----------------------------------
+    symbol m_string_solver;
+
     smt_params(params_ref const & p = params_ref()):
         m_display_proof(false),
         m_display_dot_proof(false),
@@ -239,6 +251,8 @@ struct smt_params : public preprocessor_params,
         m_case_split_strategy(CS_ACTIVITY_DELAY_NEW),
         m_rel_case_split_order(0),
         m_lookahead_diseq(false),
+        m_theory_case_split(false),
+        m_theory_aware_branching(false),
         m_delay_units(false),
         m_delay_units_threshold(32),
         m_theory_resolve(false),
@@ -280,7 +294,8 @@ struct smt_params : public preprocessor_params,
         m_at_labels_cex(false),
         m_check_at_labels(false),
         m_dump_goal_as_smt(false),
-        m_auto_config(true) {
+        m_auto_config(true),
+        m_string_solver(symbol("auto")){
         updt_local_params(p);
     }
 

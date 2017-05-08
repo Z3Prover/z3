@@ -98,13 +98,13 @@ namespace sat {
                 watch_list & wlist = m_solver.get_wlist(LIDX);                  \
                 frames.push_back(frame(LIDX, wlist.begin(), wlist.end()));      \
             }
-            
+
             NEW_NODE(l_idx);
-            
+
             while (!frames.empty()) {
             loop:
-                frame & fr         = frames.back();
-                unsigned l_idx     = fr.m_lidx;
+                frame & fr = frames.back();
+                unsigned l_idx = fr.m_lidx;
                 if (!fr.m_first) {
                     // after visiting child
                     literal l2 = fr.m_it->get_literal();
@@ -136,20 +136,19 @@ namespace sat {
                 if (lowlink[l_idx] == index[l_idx]) {
                     // found new SCC
                     CTRACE("scc_cycle", s.back() != l_idx, {
-                          tout << "cycle: ";
-                          unsigned j = s.size() - 1;
-                          unsigned l2_idx;
-                          do {
-                              l2_idx = s[j];
-                              j--;
-                              tout << to_literal(l2_idx) << " ";
-                          }
-                          while (l2_idx != l_idx);
-                          tout << "\n";
-                    });
+                            tout << "cycle: ";
+                            unsigned j = s.size() - 1;
+                            unsigned l2_idx;
+                            do {
+                                l2_idx = s[j];
+                                j--;
+                                tout << to_literal(l2_idx) << " ";
+                            } while (l2_idx != l_idx);
+                            tout << "\n";
+                        });
                     
                     SASSERT(!s.empty());
-                    literal l  = to_literal(l_idx);
+                    literal l = to_literal(l_idx);
                     bool_var v = l.var();
                     if (roots[v] != null_literal) {
                         // variable was already assigned... just consume stack
@@ -158,10 +157,9 @@ namespace sat {
                         do {
                             l2_idx = s.back();
                             s.pop_back();
-                            in_s[l2_idx]  = false;
+                            in_s[l2_idx] = false;
                             SASSERT(roots[to_literal(l2_idx).var()].var() == roots[v].var());
-                        }
-                        while (l2_idx != l_idx);
+                        } while (l2_idx != l_idx);
                     }
                     else {
                         // check if the SCC has an external variable, and check for conflicts
@@ -180,20 +178,19 @@ namespace sat {
                                 r = to_literal(l2_idx);
                                 break;
                             }
-                        }
-                        while (l2_idx != l_idx);
-                        
+                        } while (l2_idx != l_idx);
+
                         if (r == null_literal) {
                             // SCC does not contain external variable
                             r = to_literal(l_idx);
                         }
-                        
+
                         TRACE("scc_detail", tout << "r: " << r << "\n";);
 
                         do {
                             l2_idx = s.back();
                             s.pop_back();
-                            in_s[l2_idx]  = false;
+                            in_s[l2_idx] = false;
                             literal  l2 = to_literal(l2_idx);
                             bool_var v2 = l2.var();
                             if (roots[v2] == null_literal) {
@@ -203,14 +200,18 @@ namespace sat {
                                 else {
                                     roots[v2] = r;
                                 }
-                                if (v2 != r.var()) 
+                                if (v2 != r.var())
                                     to_elim.push_back(v2);
                             }
-                        }
-                        while (l2_idx != l_idx);
+                        } while (l2_idx != l_idx);
                     }
                 }
                 frames.pop_back();
+            }
+        }
+        for (unsigned i = 0; i < m_solver.num_vars(); ++i) {
+            if (roots[i] == null_literal) {
+                roots[i] = literal(i, false);
             }
         }
         TRACE("scc", for (unsigned i = 0; i < roots.size(); i++) { tout << i << " -> " << roots[i] << "\n"; }

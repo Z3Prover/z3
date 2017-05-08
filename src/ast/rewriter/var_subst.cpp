@@ -39,10 +39,16 @@ void var_subst::operator()(expr * n, unsigned num_args, expr * const * args, exp
           tout << mk_ismt2_pp(result, m_reducer.m()) << "\n";);
 }
 
+unused_vars_eliminator::unused_vars_eliminator(ast_manager & m, params_ref const & params) :
+    m(m), m_subst(m), m_params(params)
+{
+    m_ignore_patterns_on_ground_qbody = m_params.get_bool("ignore_patterns_on_ground_qbody", true);
+}
+
 void unused_vars_eliminator::operator()(quantifier* q, expr_ref & result) {
     SASSERT(is_well_sorted(m, q));
-    if (is_ground(q->get_expr())) {
-        // ignore patterns if the body is a ground formula.
+    if (m_ignore_patterns_on_ground_qbody && is_ground(q->get_expr())) {
+        // Ignore patterns if the body is a ground formula.
         result = q->get_expr();
         return;
     }
@@ -146,8 +152,8 @@ void unused_vars_eliminator::operator()(quantifier* q, expr_ref & result) {
     SASSERT(is_well_sorted(m, result));
 }
 
-void elim_unused_vars(ast_manager & m, quantifier * q, expr_ref & result) {
-    unused_vars_eliminator el(m);
+void elim_unused_vars(ast_manager & m, quantifier * q, params_ref const & params, expr_ref & result) {
+    unused_vars_eliminator el(m, params);
     el(q, result);
 }
 

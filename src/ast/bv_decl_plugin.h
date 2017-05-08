@@ -406,11 +406,11 @@ public:
     app * mk_bv_not(expr * arg) { return m_manager.mk_app(get_fid(), OP_BNOT, arg); }
     app * mk_bv_xor(unsigned num, expr * const * args) { return m_manager.mk_app(get_fid(), OP_BXOR, num, args);  }
     app * mk_bv_neg(expr * arg) { return m_manager.mk_app(get_fid(), OP_BNEG, arg); }
-    app * mk_bv_urem(expr * arg1, expr * arg2) { return m_manager.mk_app(get_fid(), OP_BUREM, arg1, arg2); }
-    app * mk_bv_srem(expr * arg1, expr * arg2) { return m_manager.mk_app(get_fid(), OP_BSREM, arg1, arg2); }
-    app * mk_bv_add(expr * arg1, expr * arg2) { return m_manager.mk_app(get_fid(), OP_BADD, arg1, arg2); }
-    app * mk_bv_sub(expr * arg1, expr * arg2) { return m_manager.mk_app(get_fid(), OP_BSUB, arg1, arg2); }
-    app * mk_bv_mul(expr * arg1, expr * arg2) { return m_manager.mk_app(get_fid(), OP_BMUL, arg1, arg2); }
+    app * mk_bv_urem(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BUREM, arg1, arg2); }
+    app * mk_bv_srem(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BSREM, arg1, arg2); }
+    app * mk_bv_add(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BADD, arg1, arg2); }
+    app * mk_bv_sub(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BSUB, arg1, arg2); }
+    app * mk_bv_mul(expr * arg1, expr * arg2) const { return m_manager.mk_app(get_fid(), OP_BMUL, arg1, arg2); }
     app * mk_zero_extend(unsigned n, expr* e) {
         parameter p(n);
         return m_manager.mk_app(get_fid(), OP_ZERO_EXT, 1, &p, 1, &e);

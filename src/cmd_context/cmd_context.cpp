@@ -249,6 +249,7 @@ protected:
     array_util    m_arutil;
     fpa_util      m_futil;
     seq_util      m_sutil;
+
     datalog::dl_decl_util m_dlutil;
 
     format_ns::format * pp_fdecl_name(symbol const & s, func_decls const & fs, func_decl * f, unsigned & len) {
@@ -277,6 +278,7 @@ public:
     virtual array_util & get_arutil() { return m_arutil; }
     virtual fpa_util & get_futil() { return m_futil; }
     virtual seq_util & get_sutil() { return m_sutil; }
+
     virtual datalog::dl_decl_util& get_dlutil() { return m_dlutil; }
     virtual bool uses(symbol const & s) const {
         return
@@ -527,6 +529,9 @@ bool cmd_context::logic_has_fpa() const {
     return !has_logic() || smt_logics::logic_has_fpa(m_logic);
 }
 
+bool cmd_context::logic_has_str() const {
+    return !has_logic() || m_logic == "QF_S";
+}
 
 bool cmd_context::logic_has_array() const {
     return !has_logic() || smt_logics::logic_has_array(m_logic);
@@ -568,7 +573,6 @@ void cmd_context::init_manager_core(bool new_manager) {
         load_plugin(symbol("seq"),      logic_has_seq(), fids);
         load_plugin(symbol("fpa"),      logic_has_fpa(), fids);
         load_plugin(symbol("pb"),       logic_has_pb(), fids);
-
         svector<family_id>::iterator it  = fids.begin();
         svector<family_id>::iterator end = fids.end();
         for (; it != end; ++it) {
@@ -615,7 +619,6 @@ void cmd_context::init_external_manager() {
     m_pmanager = alloc(pdecl_manager, *m_manager);
     init_manager_core(false);
 }
-
 
 bool cmd_context::set_logic(symbol const & s) {
     if (has_logic())
@@ -739,8 +742,11 @@ void cmd_context::insert_rec_fun(func_decl* f, expr_ref_vector const& binding, s
     lhs = m().mk_app(f, binding.size(), binding.c_ptr());
     eq  = m().mk_eq(lhs, e);
     if (!ids.empty()) {
-        expr* pat = m().mk_pattern(lhs);
-        eq  = m().mk_forall(ids.size(), f->get_domain(), ids.c_ptr(), eq, 0, m().rec_fun_qid(), symbol::null, 1, &pat);
+        if (!is_app(e)) {
+            throw cmd_exception("Z3 only supports recursive definitions that are proper terms (not binders or variables)");
+        }
+        expr* pats[2] = { m().mk_pattern(lhs), m().mk_pattern(to_app(e)) };
+        eq  = m().mk_forall(ids.size(), f->get_domain(), ids.c_ptr(), eq, 0, m().rec_fun_qid(), symbol::null, 2, pats);
     }
 
     //
@@ -1551,6 +1557,7 @@ void cmd_context::validate_model() {
     p.set_uint("sort_store", true);
     p.set_bool("completion", true);
     model_evaluator evaluator(*(md.get()), p);
+    evaluator.set_expand_array_equalities(false);
     contains_array_op_proc contains_array(m());
     {
         scoped_rlimit _rlimit(m().limit(), 0);

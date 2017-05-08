@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 #include<sstream>
+#include<cstring>
 #include"ast.h"
 #include"ast_pp.h"
 #include"ast_ll_pp.h"

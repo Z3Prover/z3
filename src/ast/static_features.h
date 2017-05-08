@@ -24,6 +24,7 @@ Revision History:
 #include"bv_decl_plugin.h"
 #include"array_decl_plugin.h"
 #include"fpa_decl_plugin.h"
+#include"seq_decl_plugin.h"
 #include"map.h"
 
 struct static_features {
@@ -32,6 +33,7 @@ struct static_features {
     bv_util                  m_bvutil;
     array_util               m_arrayutil;
     fpa_util                 m_fpautil;
+    seq_util                 m_sequtil;
     family_id                m_bfid;
     family_id                m_afid;
     family_id                m_lfid;    
@@ -77,6 +79,8 @@ struct static_features {
     bool                     m_has_real;        //
     bool                     m_has_bv;          //
     bool                     m_has_fpa;         //
+    bool                     m_has_str;         // has String-typed terms
+    bool                     m_has_seq_non_str; // has non-String-typed Sequence terms
     bool                     m_has_arrays;      //
     rational                 m_arith_k_sum;     // sum of the numerals in arith atoms.
     unsigned                 m_num_arith_terms;
