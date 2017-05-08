@@ -1768,6 +1768,8 @@ namespace smt {
             unsigned qhead = m_qhead;
             if (!bcp())
                 return false;
+            if (!propagate_th_case_split(qhead))
+                return false;
             if (get_cancel_flag()) {
                 m_qhead = qhead;
                 return true;
@@ -2455,8 +2457,9 @@ namespace smt {
         
         ptr_vector<theory>::iterator it  = m_theory_set.begin();
         ptr_vector<theory>::iterator end = m_theory_set.end();
-        for (; it != end; ++it)
+        for (; it != end; ++it) {
             (*it)->pop_scope_eh(num_scopes);
+        }
 
         del_justifications(m_justifications, s.m_justifications_lim);
 
@@ -2969,6 +2972,115 @@ namespace smt {
         assert_expr_core(e, pr);
     }
 
+    class case_split_insert_trail : public trail<context> {
+        literal l;
+    public:
+        case_split_insert_trail(literal l):
+            l(l) {
+        }
+        virtual void undo(context & ctx) {
+            ctx.undo_th_case_split(l);
+        }
+    };
+
+    void context::mk_th_case_split(unsigned num_lits, literal * lits) {
+        TRACE("theory_case_split", display_literals_verbose(tout << "theory case split: ", num_lits, lits); tout << std::endl;);
+        // If we don't use the theory case split heuristic,
+        // for each pair of literals (l1, l2) we add the clause (~l1 OR ~l2)
+        // to enforce the condition that at most one literal can be assigned 'true'.
+        if (!m_fparams.m_theory_case_split) {
+            for (unsigned i = 0; i < num_lits; ++i) {
+                for (unsigned j = i+1; j < num_lits; ++j) {
+                    literal l1 = lits[i];
+                    literal l2 = lits[j];
+                    mk_clause(~l1, ~l2, (justification*) 0);
+                }
+            }
+        } else {
+            literal_vector new_case_split;
+            for (unsigned i = 0; i < num_lits; ++i) {
+                literal l = lits[i];
+                SASSERT(!m_all_th_case_split_literals.contains(l.index()));
+                m_all_th_case_split_literals.insert(l.index());
+                push_trail(case_split_insert_trail(l));
+                new_case_split.push_back(l);
+            }
+            m_th_case_split_sets.push_back(new_case_split);
+            push_trail(push_back_vector<context, vector<literal_vector> >(m_th_case_split_sets));
+            for (unsigned i = 0; i < num_lits; ++i) {
+                literal l = lits[i];
+                if (!m_literal2casesplitsets.contains(l.index())) {
+                    m_literal2casesplitsets.insert(l.index(), vector<literal_vector>());
+                }
+                m_literal2casesplitsets[l.index()].push_back(new_case_split);
+            }
+            TRACE("theory_case_split", tout << "tracking case split literal set { ";
+                  for (unsigned i = 0; i < num_lits; ++i) {
+                      tout << lits[i].index() << " ";
+                  }
+                  tout << "}" << std::endl;
+                  );
+        }
+    }
+
+    void context::add_theory_aware_branching_info(bool_var v, double priority, lbool phase) {
+        m_case_split_queue->add_theory_aware_branching_info(v, priority, phase);
+    }
+
+    void context::undo_th_case_split(literal l) {
+        m_all_th_case_split_literals.remove(l.index());
+        if (m_literal2casesplitsets.contains(l.index())) {
+            if (!m_literal2casesplitsets[l.index()].empty()) {
+                m_literal2casesplitsets[l.index()].pop_back();
+            }
+        }
+    }
+
+    bool context::propagate_th_case_split(unsigned qhead) {
+        if (m_all_th_case_split_literals.empty())
+            return true;
+
+        // iterate over all literals assigned since the last time this method was called,
+        // not counting any literals that get assigned by this method
+        // this relies on bcp() to give us its old m_qhead and therefore
+        // bcp() should always be called before this method
+	
+        unsigned assigned_literal_end = m_assigned_literals.size();
+        for (; qhead < assigned_literal_end; ++qhead) {
+            literal l = m_assigned_literals[qhead];
+            TRACE("theory_case_split", tout << "check literal " << l.index() << std::endl; display_literal_verbose(tout, l); tout << std::endl;);
+            // check if this literal participates in any theory case split
+            if (!m_all_th_case_split_literals.contains(l.index())) {
+                continue;
+            }
+            TRACE("theory_case_split", tout << "assigned literal " << l.index() << " is a theory case split literal" << std::endl;);
+            // now find the sets of literals which contain l
+            vector<literal_vector> const& case_split_sets = m_literal2casesplitsets[l.index()];
+            for (vector<literal_vector>::const_iterator it = case_split_sets.begin(); it != case_split_sets.end(); ++it) {
+                literal_vector case_split_set = *it;
+                TRACE("theory_case_split", tout << "found case split set { ";
+                      for(literal_vector::iterator set_it = case_split_set.begin(); set_it != case_split_set.end(); ++set_it) {
+                          tout << set_it->index() << " ";
+                      }
+                      tout << "}" << std::endl;);
+                for(literal_vector::iterator set_it = case_split_set.begin(); set_it != case_split_set.end(); ++set_it) {
+                    literal l2 = *set_it;
+                    if (l2 != l) {
+                        b_justification js(l);
+                        TRACE("theory_case_split", tout << "case split literal "; l2.display(tout, m_manager, m_bool_var2expr.c_ptr()););
+                        assign(~l2, js);
+                        if (inconsistent()) {
+                            TRACE("theory_case_split", tout << "conflict detected!" << std::endl;);
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+        // if we get here without detecting a conflict, we're fine
+        return true;
+    }
+
     bool context::reduce_assertions() {
         if (!m_asserted_formulas.inconsistent()) {
             SASSERT(at_base_level());
@@ -3012,11 +3124,18 @@ namespace smt {
     }
 
     bool is_valid_assumption(ast_manager & m, expr * assumption) {
+        expr* arg;
         if (!m.is_bool(assumption))
             return false;
         if (is_uninterp_const(assumption))
             return true;
-        if (m.is_not(assumption) && is_uninterp_const(to_app(assumption)->get_arg(0)))
+        if (m.is_not(assumption, arg) && is_uninterp_const(arg))
+            return true;
+        if (!is_app(assumption)) 
+            return false;
+        if (to_app(assumption)->get_num_args() == 0)
+            return true;
+        if (m.is_not(assumption, arg) && is_app(arg) && to_app(arg)->get_num_args() == 0)
             return true;
         return false;
     }

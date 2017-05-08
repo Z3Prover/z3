@@ -131,7 +131,6 @@ void parse_cmd_line_args(int argc, char ** argv, bool& do_display_usage, bool& t
                 std::cerr << ex.msg() << "\n";
             }
         }            
-
 	i++;
     }
 }
@@ -243,12 +242,9 @@ int main(int argc, char ** argv) {
     TST(model_evaluator);
     TST(get_consequences);
     TST(pb2bv);
-<<<<<<< HEAD
     TST_ARGV(sat_lookahead);
     TST_ARGV(sat_local_search);
-=======
     TST_ARGV(cnf_backbones);
->>>>>>> 69aa5ca877f5de0a2c00515d0fe86a797b95701a
     //TST_ARGV(hs);
 }
 

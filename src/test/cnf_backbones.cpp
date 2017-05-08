@@ -64,6 +64,56 @@ static void display_status(lbool r) {
     }
 }
 
+static void track_clause(sat::solver& dst,
+                         sat::literal_vector& lits,
+                         sat::literal_vector& assumptions,
+                         vector<sat::literal_vector>& tracking_clauses) {
+    sat::literal lit = sat::literal(dst.mk_var(true, false), false);
+    tracking_clauses.set(lit.var(), lits);
+    lits.push_back(~lit);
+    dst.mk_clause(lits.size(), lits.c_ptr());
+    assumptions.push_back(lit);            
+}
+
+
+static void track_clauses(sat::solver const& src, 
+                          sat::solver& dst, 
+                          sat::literal_vector& assumptions,
+                          vector<sat::literal_vector>& tracking_clauses) {
+    for (sat::bool_var v = 0; v < src.num_vars(); ++v) {
+        dst.mk_var(false, true);
+    }
+    sat::literal_vector lits;
+    sat::literal lit;
+    sat::clause * const * it  = src.begin_clauses();
+    sat::clause * const * end = src.end_clauses();
+    svector<sat::solver::bin_clause> bin_clauses;
+    src.collect_bin_clauses(bin_clauses, false);
+    tracking_clauses.reserve(2*src.num_vars() + static_cast<unsigned>(end - it) + bin_clauses.size());
+
+    for (sat::bool_var v = 1; v < src.num_vars(); ++v) {
+        if (src.value(v) != l_undef) {
+            bool sign = src.value(v) == l_false;
+            lits.reset();
+            lits.push_back(sat::literal(v, sign));
+            track_clause(dst, lits, assumptions, tracking_clauses);
+        }
+    }
+    for (; it != end; ++it) {
+        lits.reset();
+        sat::clause& cls = *(*it);
+        lits.append(static_cast<unsigned>(cls.end()-cls.begin()), cls.begin());
+        track_clause(dst, lits, assumptions, tracking_clauses);
+    }
+    for (unsigned i = 0; i < bin_clauses.size(); ++i) {
+        lits.reset();
+        lits.push_back(bin_clauses[i].first);
+        lits.push_back(bin_clauses[i].second);        
+        track_clause(dst, lits, assumptions, tracking_clauses);
+    }
+}
+
+
 static void prune_unfixed(sat::literal_vector& lambda, sat::model const& m) {
     for (unsigned i = 0; i < lambda.size(); ++i) {
         if ((m[lambda[i].var()] == l_false) != lambda[i].sign()) {
@@ -88,26 +138,27 @@ static void back_remove(sat::literal_vector& lits, sat::literal l) {
     std::cout << "UNREACHABLE\n";
 }
 
-static void brute_force_consequences(sat::solver& s, sat::literal_vector const& gamma, sat::literal_vector& backbones) {
+static void brute_force_consequences(sat::solver& s, sat::literal_vector const& asms, sat::literal_vector const& gamma, sat::literal_vector& backbones) {
     for (unsigned i = 0; i < gamma.size(); ++i) {
         sat::literal nlit = ~gamma[i];
-        lbool r = s.check(1, &nlit);
+        sat::literal_vector asms1(asms);
+        asms1.push_back(nlit);
+        lbool r = s.check(asms1.size(), asms1.c_ptr());
         if (r == l_false) {
             backbones.push_back(gamma[i]);
         }
     }
 }
 
-static lbool core_chunking(sat::solver& s, sat::bool_var_vector& vars, vector<sat::literal_vector>& conseq, unsigned K) {
-    lbool r = s.check();
-    display_status(r);
+static lbool core_chunking(sat::solver& s, sat::bool_var_vector& vars, sat::literal_vector const& asms, vector<sat::literal_vector>& conseq, unsigned K) {
+    lbool r = s.check(asms.size(), asms.c_ptr());
     if (r != l_true) {
         return r;
     }
     sat::model const & m = s.get_model();
     sat::literal_vector lambda, backbones;
-    for (unsigned i = 1; i < m.size(); i++) {
-        lambda.push_back(sat::literal(i, m[i] == l_false));
+    for (unsigned i = 0; i < vars.size(); i++) {
+        lambda.push_back(sat::literal(vars[i], m[vars[i]] == l_false));
     }
     while (!lambda.empty()) {
         IF_VERBOSE(1, verbose_stream() << "(sat-backbone-core " << lambda.size() << " " << backbones.size() << ")\n";);
@@ -119,7 +170,9 @@ static lbool core_chunking(sat::solver& s, sat::bool_var_vector& vars, vector<sa
             omegaN.push_back(~l);
         }
         while (true) {
-            r = s.check(omegaN.size(), omegaN.c_ptr());
+            sat::literal_vector asms1(asms);
+            asms1.append(omegaN);
+            r = s.check(asms1.size(), asms1.c_ptr());
             if (r == l_true) {
                 IF_VERBOSE(1, verbose_stream() << "(sat) " << omegaN << "\n";);
                 prune_unfixed(lambda, s.get_model());
@@ -149,7 +202,7 @@ static lbool core_chunking(sat::solver& s, sat::bool_var_vector& vars, vector<sa
                 }
             }
             if (omegaN.empty() && occurs.size() > 1) {
-                brute_force_consequences(s, gamma, backbones);
+                brute_force_consequences(s, asms, gamma, backbones);
                 for (unsigned i = 0; i < gamma.size(); ++i) {
                     back_remove(lambda, gamma[i]);
                 }
@@ -173,7 +226,8 @@ static void cnf_backbones(bool use_chunk, char const* file_name) {
     params_ref p = gparams::get_module("sat");
     p.set_bool("produce_models", true);
     reslimit limit;
-    sat::solver solver(p, limit, 0);
+    sat::solver solver(p, limit);
+    sat::solver solver2(p, limit);
     g_solver = &solver;
 
     if (file_name) {
@@ -192,16 +246,24 @@ static void cnf_backbones(bool use_chunk, char const* file_name) {
     vector<sat::literal_vector> conseq;
     sat::bool_var_vector vars;
     sat::literal_vector assumptions;
-    for (unsigned i = 1; i < solver.num_vars(); ++i) {
+    unsigned num_vars = solver.num_vars();
+    if (p.get_bool("dimacs.core", false)) {
+        g_solver = &solver2;        
+        vector<sat::literal_vector> tracking_clauses;
+        track_clauses(solver, solver2, assumptions, tracking_clauses);
+    }
+    // remove this line to limit variables to exclude assumptions
+    num_vars = g_solver->num_vars();
+    for (unsigned i = 1; i < num_vars; ++i) {
         vars.push_back(i);        
-        solver.set_external(i);
+        g_solver->set_external(i);
     }
     lbool r;
     if (use_chunk) {
-        r = core_chunking(solver, vars, conseq, 100);
+        r = core_chunking(*g_solver, vars, assumptions, conseq, 100);
     }
     else {
-        r = solver.get_consequences(assumptions, vars, conseq);
+        r = g_solver->get_consequences(assumptions, vars, conseq);
     }
     std::cout << vars.size() << " " << conseq.size() << "\n";
     display_status(r);
@@ -209,10 +271,15 @@ static void cnf_backbones(bool use_chunk, char const* file_name) {
 }
 
 void tst_cnf_backbones(char ** argv, int argc, int& i) {
+    bool use_chunk = i + 1 < argc && argv[i + 1] == std::string("chunk");
+    if (use_chunk) ++i;     
+    char const* file = "";
     if (i + 1 < argc) {
-        bool use_chunk = (i + 2 < argc && argv[i + 2] == std::string("chunk"));
-        cnf_backbones(use_chunk, argv[i + 1]);
-        ++i;
-        if (use_chunk) ++i;
+        file = argv[i + 1];
     }
+    else {
+        file = argv[1];
+    }
+    cnf_backbones(use_chunk, file);
+    ++i;
 }

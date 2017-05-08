@@ -762,6 +762,21 @@ namespace smt {
         TRACE("bv", tout << mk_pp(cond, get_manager()) << "\n"; tout << l << "\n";); \
     }
 
+    void theory_bv::internalize_sub(app *n) {
+        SASSERT(!get_context().e_internalized(n));                      
+        SASSERT(n->get_num_args() == 2);                                                
+        process_args(n);                                                                
+        ast_manager & m = get_manager();                                                
+        enode * e       = mk_enode(n);                                                  
+        expr_ref_vector arg1_bits(m), arg2_bits(m), bits(m);                            
+        get_arg_bits(e, 0, arg1_bits);                                                  
+        get_arg_bits(e, 1, arg2_bits);                                                  
+        SASSERT(arg1_bits.size() == arg2_bits.size());                                  
+        expr_ref carry(m);
+        m_bb.mk_subtracter(arg1_bits.size(), arg1_bits.c_ptr(), arg2_bits.c_ptr(), bits, carry);    
+        init_bits(e, bits);                                                                
+    }
+
     MK_UNARY(internalize_not,       mk_not);
     MK_UNARY(internalize_redand,    mk_redand);
     MK_UNARY(internalize_redor,     mk_redor);
@@ -848,6 +863,7 @@ namespace smt {
         switch (term->get_decl_kind()) {
         case OP_BV_NUM:         internalize_num(term); return true;
         case OP_BADD:           internalize_add(term); return true;
+        case OP_BSUB:           internalize_sub(term); return true;
         case OP_BMUL:           internalize_mul(term); return true;
         case OP_BSDIV_I:        internalize_sdiv(term); return true;
         case OP_BUDIV_I:        internalize_udiv(term); return true;
