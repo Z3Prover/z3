@@ -10059,7 +10059,7 @@ namespace smt {
                 }
                 TRACE("str", tout << "last bounds are [" << lastBounds.lowerBound << " | " << lastBounds.midPoint << " | " << lastBounds.upperBound << "]!" << lastBounds.windowSize << std::endl;);
                 binary_search_info newBounds;
-                expr * newTester;
+                expr * newTester = 0;
                 if (lastTesterConstant == "more") {
                     // special case: if the midpoint, upper bound, and window size are all equal,
                     // we double the window size and adjust the bounds
