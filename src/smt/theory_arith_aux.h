@@ -2201,16 +2201,19 @@ namespace smt {
         int num       = get_num_vars();
         for (theory_var v = 0; v < num; v++) {
             enode * n        = get_enode(v);
-            TRACE("func_interp_bug", tout << "#" << n->get_owner_id() << " -> " << m_value[v] << "\n";);
-            if (!is_relevant_and_shared(n))
+            TRACE("func_interp_bug", tout << mk_pp(n->get_owner(), get_manager()) << " -> " << m_value[v] << " root #" << n->get_root()->get_owner_id() << " " << is_relevant_and_shared(n) << "\n";);
+            if (!is_relevant_and_shared(n)) {
                 continue;
+            }
             theory_var other = null_theory_var;
             other = m_var_value_table.insert_if_not_there(v);
-            if (other == v)
+            if (other == v) {
                 continue;
+            }
             enode * n2 = get_enode(other);
-            if (n->get_root() == n2->get_root())
+            if (n->get_root() == n2->get_root()) {
                 continue;
+            }
             TRACE("func_interp_bug", tout << "adding to assume_eq queue #" << n->get_owner_id() << " #" << n2->get_owner_id() << "\n";);
             m_assume_eq_candidates.push_back(std::make_pair(other, v));
             result = true;

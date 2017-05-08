@@ -30,6 +30,7 @@ public:
     static bool logic_has_bv(symbol const & s);
     static bool logic_has_array(symbol const & s);
     static bool logic_has_seq(symbol const & s);
+    static bool logic_has_str(symbol const & s);
     static bool logic_has_fpa(symbol const & s);
     static bool logic_has_horn(symbol const& s);
     static bool logic_has_pb(symbol const& s);

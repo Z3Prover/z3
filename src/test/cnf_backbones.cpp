@@ -252,12 +252,12 @@ static void cnf_backbones(bool use_chunk, char const* file_name) {
         vector<sat::literal_vector> tracking_clauses;
         track_clauses(solver, solver2, assumptions, tracking_clauses);
     }
-
+    // remove this line to limit variables to exclude assumptions
+    num_vars = g_solver->num_vars();
     for (unsigned i = 1; i < num_vars; ++i) {
         vars.push_back(i);        
         g_solver->set_external(i);
     }
-    num_vars = g_solver->num_vars();
     lbool r;
     if (use_chunk) {
         r = core_chunking(*g_solver, vars, assumptions, conseq, 100);

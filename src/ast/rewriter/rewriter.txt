@@ -7,6 +7,7 @@ The following classes implement theory specific rewriting rules:
   - array_rewriter
   - datatype_rewriter
   - fpa_rewriter
+  - seq_rewriter
 
 Each of them provide the method
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result)
