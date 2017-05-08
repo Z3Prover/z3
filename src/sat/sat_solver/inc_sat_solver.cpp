@@ -216,7 +216,8 @@ public:
         m_params.append(p);
         sat_params p1(p);
         m_params.set_bool("elim_vars", false);
-        m_params.set_bool("keep_cardinality_constraints", p1.cardinality_solver());
+        m_params.set_bool("keep_cardinality_constraints", p1.pb_solver() || p1.cardinality_solver());
+        m_params.set_bool("keep_pb_constraints", p1.pb_solver());
         m_params.set_bool("xor_solver", p1.xor_solver());
         m_solver.updt_params(m_params);
         m_optimize_model = m_params.get_bool("optimize_model", false);

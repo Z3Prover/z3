@@ -49,6 +49,9 @@ namespace sat {
         m_max_sum(0) {
         for (unsigned i = 0; i < wlits.size(); ++i) {
             m_wlits[i] = wlits[i];
+            if (m_max_sum + wlits[i].first < m_max_sum) {
+                throw default_exception("addition of pb coefficients overflows");
+            }
             m_max_sum += wlits[i].first;
         }
     }

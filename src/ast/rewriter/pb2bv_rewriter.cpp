@@ -53,6 +53,7 @@ struct pb2bv_rewriter::imp {
         rational     m_k;
         vector<rational> m_coeffs;
         bool m_keep_cardinality_constraints;
+        bool m_keep_pb_constraints;
         unsigned m_min_arity;
 
         template<lbool is_le>
@@ -565,6 +566,7 @@ struct pb2bv_rewriter::imp {
             m_trail(m),
             m_args(m),
             m_keep_cardinality_constraints(false),
+            m_keep_pb_constraints(false),
             m_min_arity(2)
         {}
 
@@ -701,8 +703,30 @@ struct pb2bv_rewriter::imp {
                 if (m_keep_cardinality_constraints && f->get_arity() >= m_min_arity) return false;
                 result = m_sort.ge(full, pb.get_k(f).get_unsigned(), sz, args);
             }
+            else if (pb.is_eq(f) && pb.get_k(f).is_unsigned() && has_small_coefficients(f) && m_keep_pb_constraints) {
+                return false;
+            }
+            else if (pb.is_le(f) && pb.get_k(f).is_unsigned() && has_small_coefficients(f) && m_keep_pb_constraints) {
+                return false;
+            }
+            else if (pb.is_ge(f) && pb.get_k(f).is_unsigned() && has_small_coefficients(f) && m_keep_pb_constraints) {
+                return false;
+            }
             else {
                 result = mk_bv(f, sz, args);
+            }
+            return true;
+        }
+
+        bool has_small_coefficients(func_decl* f) {
+            unsigned sz = f->get_arity();
+            unsigned sum = 0;
+            for (unsigned i = 0; i < sz; ++i) {
+                rational c = pb.get_coeff(f, i);
+                if (!c.is_unsigned()) return false;
+                unsigned sum1 = sum + c.get_unsigned();
+                if (sum1 < sum) return false;
+                sum = sum1;
             }
             return true;
         }
@@ -733,6 +757,10 @@ struct pb2bv_rewriter::imp {
         void keep_cardinality_constraints(bool f) {
             m_keep_cardinality_constraints = f;
         }
+
+        void keep_pb_constraints(bool f) {
+            m_keep_pb_constraints = f;
+        }
     };
 
     struct card2bv_rewriter_cfg : public default_rewriter_cfg {
@@ -745,6 +773,7 @@ struct pb2bv_rewriter::imp {
         }
         card2bv_rewriter_cfg(imp& i, ast_manager & m):m_r(i, m) {}
         void keep_cardinality_constraints(bool f) { m_r.keep_cardinality_constraints(f); }
+        void keep_pb_constraints(bool f) { m_r.keep_pb_constraints(f); }
     };
     
     class card_pb_rewriter : public rewriter_tpl<card2bv_rewriter_cfg> {
@@ -754,6 +783,7 @@ struct pb2bv_rewriter::imp {
             rewriter_tpl<card2bv_rewriter_cfg>(m, false, m_cfg),
             m_cfg(i, m) {}
         void keep_cardinality_constraints(bool f) { m_cfg.keep_cardinality_constraints(f); }
+        void keep_pb_constraints(bool f) { m_cfg.keep_pb_constraints(f); }
     };
 
     card_pb_rewriter m_rw;
@@ -764,14 +794,17 @@ struct pb2bv_rewriter::imp {
         m_num_translated(0), 
         m_rw(*this, m) {
         m_rw.keep_cardinality_constraints(p.get_bool("keep_cardinality_constraints", false));
+        m_rw.keep_pb_constraints(p.get_bool("keep_pb_constraints", false));
     }
 
     void updt_params(params_ref const & p) {
         m_params.append(p);
         m_rw.keep_cardinality_constraints(m_params.get_bool("keep_cardinality_constraints", false));
+        m_rw.keep_pb_constraints(m_params.get_bool("keep_pb_constraints", false));
     }
     void collect_param_descrs(param_descrs& r) const {
         r.insert("keep_cardinality_constraints", CPK_BOOL, "(default: true) retain cardinality constraints (don't bit-blast them) and use built-in cardinality solver");
+        r.insert("keep_pb_constraints", CPK_BOOL, "(default: true) retain pb constraints (don't bit-blast them) and use built-in pb solver");
     }
 
     unsigned get_num_steps() const { return m_rw.get_num_steps(); }
