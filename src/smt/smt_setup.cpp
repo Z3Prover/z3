@@ -720,7 +720,10 @@ namespace smt {
     }
 
     void setup::setup_r_arith() {
-        m_context.register_plugin(alloc(smt::theory_lra, m_manager, m_params));
+        m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
+        
+        // Disabled in initial commit of LRA additions
+        // m_context.register_plugin(alloc(smt::theory_lra, m_manager, m_params));
     }
 
     void setup::setup_mi_arith() {
