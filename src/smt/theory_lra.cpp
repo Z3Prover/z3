@@ -260,7 +260,7 @@ namespace smt {
         struct var_value_hash {
             imp & m_th;
             var_value_hash(imp & th):m_th(th) {}
-            unsigned operator()(theory_var v) const { return std::hash<lean::impq>()(m_th.get_ivalue(v)); }
+            unsigned operator()(theory_var v) const { return (unsigned)std::hash<lean::impq>()(m_th.get_ivalue(v)); }
         };
         int_hashtable<var_value_hash, var_value_eq>   m_model_eqs;
 
@@ -1307,7 +1307,7 @@ namespace smt {
                 set_conflict();
             }
             else {
-                for (size_t i = 0; !m.canceled() && !ctx().inconsistent() && i < bp.m_ibounds.size(); ++i) {
+                for (unsigned i = 0; !m.canceled() && !ctx().inconsistent() && i < bp.m_ibounds.size(); ++i) {
                     propagate_lp_solver_bound(bp.m_ibounds[i]);
                 }
             }

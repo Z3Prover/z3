@@ -43,7 +43,7 @@ struct conversion_helper {
 
 template<>
 struct conversion_helper <double> {
-    static double conversion_helper <double>::get_upper_bound(const column_info<mpq> & ci) {
+    static double get_upper_bound(const column_info<mpq> & ci) {
         if (!ci.upper_bound_is_strict())
             return ci.get_upper_bound().get_double();
         double eps = 0.00001;
