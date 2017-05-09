@@ -184,7 +184,7 @@ void random_updater::remove_value(numeric_pair<mpq>& v) {
     lean_assert(it != m_values.end());
     it->second--;
     if (it->second == 0)
-        m_values.erase(it);
+        m_values.erase((std::unordered_map<numeric_pair<mpq>, unsigned>::const_iterator)it);
 }
 
 void random_updater::add_column_to_sets(unsigned j) {

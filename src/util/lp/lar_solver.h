@@ -1691,7 +1691,10 @@ public:
 
     bool explanation_is_correct(const vector<std::pair<mpq, unsigned>>& explanation) const {
 #ifdef LEAN_DEBUG
+#if 0
+        // disabled as 'kind' is not assigned
         lconstraint_kind kind;
+        the_relations_are_of_same_type(explanation, kind);
         lean_assert(the_left_sides_sum_to_zero(explanation));
         mpq rs = sum_of_right_sides_of_explanation(explanation);
         switch (kind) {
@@ -1709,6 +1712,7 @@ public:
             lean_assert(false);
             return false;
         }
+#endif
 #endif
         return true;
     }

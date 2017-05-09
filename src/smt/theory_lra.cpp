@@ -1246,7 +1246,6 @@ namespace smt {
             if (!can_propagate()) {
                 return;
             }
-            unsigned qhead = m_asserted_qhead;
             while (m_asserted_qhead < m_asserted_atoms.size() && !ctx().inconsistent()) {
                 bool_var bv  = m_asserted_atoms[m_asserted_qhead].m_bv;
                 bool is_true = m_asserted_atoms[m_asserted_qhead].m_is_true;
@@ -1835,7 +1834,6 @@ namespace smt {
         // bounds propagation.
         // 
         void propagate_bound_compound(bool_var bv, bool is_true, lp::bound& b) {
-            lp::bound_kind k = b.get_bound_kind();
             theory_var v = b.get_var();
             TRACE("arith", tout << mk_pp(get_owner(v), m) << "\n";);
             if (static_cast<unsigned>(v) >= m_use_list.size()) {
