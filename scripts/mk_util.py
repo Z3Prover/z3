@@ -1004,7 +1004,7 @@ class Component:
         out.write('%s =' % include_defs)
         for dep in self.deps:
             out.write(' -I%s' % get_component(dep).to_src_dir)
-        out.write(' -I../src')
+        out.write(' -I%s' % os.path.join(REV_BUILD_DIR,"src"))
         out.write('\n')
         mk_dir(os.path.join(BUILD_DIR, self.build_dir))
         if VS_PAR and IS_WINDOWS:
