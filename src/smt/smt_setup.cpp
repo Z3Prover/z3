@@ -20,6 +20,7 @@ Revision History:
 #include"smt_setup.h"
 #include"static_features.h"
 #include"theory_arith.h"
+#include"theory_lra.h"
 #include"theory_dense_diff_logic.h"
 #include"theory_diff_logic.h"
 #include"theory_utvpi.h"
@@ -442,7 +443,7 @@ namespace smt {
         m_params.m_arith_propagate_eqs = false;
         m_params.m_eliminate_term_ite  = true;
         m_params.m_nnf_cnf             = false;
-        setup_mi_arith();
+        setup_r_arith();
     }
 
     void setup::setup_QF_LRA(static_features const & st) {
@@ -467,7 +468,7 @@ namespace smt {
             m_params.m_restart_adaptive      = false;
         }
         m_params.m_arith_small_lemma_size = 32;
-        setup_mi_arith();
+        setup_r_arith();
     }
 
     void setup::setup_QF_LIA() {
@@ -539,7 +540,7 @@ namespace smt {
         m_params.m_relevancy_lvl       = 0;
         m_params.m_arith_reflect       = false; 
         m_params.m_nnf_cnf             = false;
-        setup_mi_arith();
+        setup_r_arith();
     }
 
     void setup::setup_QF_BV() {
@@ -716,6 +717,10 @@ namespace smt {
 
     void setup::setup_i_arith() {
         m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));
+    }
+
+    void setup::setup_r_arith() {
+        m_context.register_plugin(alloc(smt::theory_lra, m_manager, m_params));
     }
 
     void setup::setup_mi_arith() {
