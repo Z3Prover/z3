@@ -305,6 +305,7 @@ public:
     MATCH_UNARY(is_uminus);
     MATCH_UNARY(is_to_real);
     MATCH_UNARY(is_to_int);
+    MATCH_UNARY(is_is_int);
     MATCH_BINARY(is_sub);
     MATCH_BINARY(is_add);
     MATCH_BINARY(is_mul);
@@ -376,6 +377,9 @@ public:
     }
     app * mk_real(int i) {
         return mk_numeral(rational(i), false);
+    }
+    app * mk_real(rational const& r) {
+        return mk_numeral(r, false);
     }
     app * mk_le(expr * arg1, expr * arg2) const { return m_manager.mk_app(m_afid, OP_LE, arg1, arg2); }
     app * mk_ge(expr * arg1, expr * arg2) const { return m_manager.mk_app(m_afid, OP_GE, arg1, arg2); }
