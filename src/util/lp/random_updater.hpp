@@ -180,7 +180,7 @@ void random_updater::add_value(numeric_pair<mpq>& v) {
 }
 
 void random_updater::remove_value(numeric_pair<mpq>& v) {
-    auto it = m_values.find(v);
+    std::unordered_map<numeric_pair<mpq>, unsigned>::iterator it = m_values.find(v);
     lean_assert(it != m_values.end());
     it->second--;
     if (it->second == 0)
