@@ -16,8 +16,7 @@ class binary_heap_priority_queue {
     // indexing for A starts from 1
     vector<unsigned> m_heap; // keeps the elements of the queue
     vector<int> m_heap_inverse; // o = m_heap[m_heap_inverse[o]]
-    unsigned m_heap_size = 0;
-
+    unsigned m_heap_size;
     // is is the child place in heap
     void swap_with_parent(unsigned i);
     void put_at(unsigned i, unsigned h);
@@ -29,7 +28,7 @@ public:
 public:
     void remove(unsigned o);
     unsigned size() const { return m_heap_size; }
-    binary_heap_priority_queue(): m_heap(1) {} // the empty constructror
+    binary_heap_priority_queue(): m_heap(1), m_heap_size(0) {} // the empty constructror
     // n is the initial queue capacity.
     // The capacity will be enlarged two times automatically if needed
     binary_heap_priority_queue(unsigned n);

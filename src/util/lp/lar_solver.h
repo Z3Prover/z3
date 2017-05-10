@@ -35,7 +35,7 @@ namespace lean {
 class lar_solver : public column_namer {
     //////////////////// fields //////////////////////////
     lp_settings m_settings;
-    stacked_value<lp_status> m_status = OPTIMAL;
+    stacked_value<lp_status> m_status;
     stacked_value<simplex_strategy_enum> m_simplex_strategy;
 	std::unordered_map<unsigned, var_index> m_ext_vars_to_columns;
     vector<unsigned> m_columns_to_ext_vars_or_term_indices;
@@ -46,13 +46,13 @@ class lar_solver : public column_namer {
     int_set m_columns_with_changed_bound;
     int_set m_rows_with_changed_bounds;
 	int_set m_basic_columns_with_changed_cost;
-    stacked_value<int> m_infeasible_column_index = -1; // such can be found at the initialization step
+    stacked_value<int> m_infeasible_column_index; // such can be found at the initialization step
     stacked_value<unsigned> m_term_count;
     vector<lar_term*> m_terms;
     vector<lar_term*> m_orig_terms;
-    const var_index m_terms_start_index = 1000000;
+    const var_index m_terms_start_index;
     indexed_vector<mpq> m_column_buffer;    
-    std::function<column_type (unsigned)> m_column_type_function = [this] (unsigned j) {return m_mpq_lar_core_solver.m_column_types()[j];};    
+    std::function<column_type (unsigned)> m_column_type_function;    
 public:
     lar_core_solver m_mpq_lar_core_solver;
 	unsigned constraint_count() const {
@@ -83,7 +83,12 @@ public:
     lar_solver() : m_mpq_lar_core_solver(
                                          m_settings,
                                          *this
-                                         ) {}
+                                         ),
+                   m_status(OPTIMAL),
+                   m_infeasible_column_index(-1),
+                   m_terms_start_index(1000000),
+                   m_column_type_function ([this] (unsigned j) {return m_mpq_lar_core_solver.m_column_types()[j];})    
+    {}
     
     void set_propagate_bounds_on_pivoted_rows_mode(bool v) {
         m_mpq_lar_core_solver.m_r_solver.m_pivoted_rows = v? (& m_rows_with_changed_bounds) : nullptr;

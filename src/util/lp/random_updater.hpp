@@ -12,7 +12,9 @@ namespace lean {
 
 random_updater::random_updater(
                                lar_core_solver & lar_core_solver,
-                               const vector<unsigned> & column_indices) : m_core_solver(lar_core_solver) {
+                               const vector<unsigned> & column_indices) :
+    m_core_solver(lar_core_solver),
+    range(100000) {
     for (unsigned j : column_indices)
         add_column_to_sets(j);
 }

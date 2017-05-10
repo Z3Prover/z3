@@ -17,7 +17,7 @@ namespace lean {
 
 template <typename T, typename X> // X represents the type of the x variable and the bounds
 class lp_core_solver_base {    
-    unsigned m_total_iterations = 0;
+    unsigned m_total_iterations;
     unsigned inc_total_iterations() { ++m_settings.st().m_total_iterations; return m_total_iterations++; }
 private:
     lp_status m_status;
@@ -25,7 +25,7 @@ public:
     bool current_x_is_feasible() const { return m_inf_set.size() == 0; }
     bool current_x_is_infeasible() const { return m_inf_set.size() != 0; }
     int_set m_inf_set;
-    bool m_using_infeas_costs = false;
+    bool m_using_infeas_costs;
 
 
     vector<unsigned> m_columns_nz; // m_columns_nz[i] keeps an approximate value of non zeroes the i-th column
@@ -42,23 +42,23 @@ public:
     lp_settings & m_settings;
     vector<T> m_y; // the buffer for yB = cb
     // a device that is able to solve Bx=c, xB=d, and change the basis
-    lu<T, X> * m_factorization = nullptr;
+    lu<T, X> * m_factorization;
     const column_namer & m_column_names;
     indexed_vector<T> m_w; // the vector featuring in 24.3 of the Chvatal book
     vector<T> m_d; // the vector of reduced costs
     indexed_vector<T> m_ed; // the solution of B*m_ed = a
-    unsigned m_iters_with_no_cost_growing = 0;
+    unsigned m_iters_with_no_cost_growing;
     const vector<column_type> & m_column_types;
     const vector<X> & m_low_bounds;
     const vector<X> & m_upper_bounds;
     vector<T> m_column_norms; // the approximate squares of column norms that help choosing a profitable column
     vector<X> m_copy_of_xB;
-    unsigned m_basis_sort_counter = 0;
+    unsigned m_basis_sort_counter;
     vector<T> m_steepest_edge_coefficients;
     vector<unsigned> m_trace_of_basis_change_vector; // the even positions are entering, the odd positions are leaving
-    bool m_tracing_basis_changes = false;
-    int_set* m_pivoted_rows = nullptr;
-    bool m_look_for_feasible_solution_only = false;
+    bool m_tracing_basis_changes;
+    int_set* m_pivoted_rows;
+    bool m_look_for_feasible_solution_only;
     void start_tracing_basis_changes() {
         m_trace_of_basis_change_vector.resize(0);
         m_tracing_basis_changes = true;

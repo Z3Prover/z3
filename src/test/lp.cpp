@@ -1077,7 +1077,7 @@ bool get_double_from_args_parser(const char * option, argument_parser & args_par
 
 void update_settings(argument_parser & args_parser, lp_settings& settings) {
     unsigned n;
-    settings.m_simplex_strategy = simplex_strategy_enum::no_tableau;
+    settings.m_simplex_strategy = simplex_strategy_enum::lu;
     if (get_int_from_args_parser("--rep_frq", args_parser, n))
         settings.report_frequency = n;
     else

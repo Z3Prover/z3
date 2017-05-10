@@ -25,7 +25,7 @@ class lar_core_solver  {
     // to grow and is set to -1  otherwise
     int m_sign_of_entering_delta;
     vector<std::pair<mpq, unsigned>> m_infeasible_linear_combination;
-    int m_infeasible_sum_sign = 0; // todo: get rid of this field
+    int m_infeasible_sum_sign; // todo: get rid of this field
     vector<numeric_pair<mpq>> m_right_sides_dummy;
     vector<mpq> m_costs_dummy;
     vector<double> m_d_right_sides_dummy;

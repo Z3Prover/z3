@@ -46,11 +46,6 @@ template void lean::permutation_matrix<lean::mpq, lean::numeric_pair<lean::mpq> 
 template void lean::permutation_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >::apply_reverse_from_left_to_T(vector<lean::mpq>&);
 template void lean::permutation_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >::apply_reverse_from_right_to_T(vector<lean::mpq >&);
 template void lean::permutation_matrix<double, double>::multiply_by_permutation_from_right(lean::permutation_matrix<double, double>&);
-
-#ifdef LEAN_DEBUG
-template bool lean::permutation_generator<double, double>::move_next();
-template lean::permutation_generator<double, double>::permutation_generator(unsigned int);
-#endif
 template lean::permutation_matrix<double, double>::permutation_matrix(unsigned int);
 template void lean::permutation_matrix<double, double>::apply_reverse_from_left_to_X(vector<double> &);
 template void  lean::permutation_matrix< lean::mpq, lean::mpq>::apply_reverse_from_left_to_X(vector<lean::mpq> &);

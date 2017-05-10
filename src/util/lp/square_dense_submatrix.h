@@ -42,7 +42,7 @@ public:
     unsigned m_index_start;
     unsigned m_dim;
     vector<T> m_v;
-    sparse_matrix<T, X> * m_parent = nullptr;
+    sparse_matrix<T, X> * m_parent;
     permutation_matrix<T, X>  m_row_permutation;
     indexed_vector<T> m_work_vector;
 public:

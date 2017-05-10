@@ -9,11 +9,12 @@
 namespace lean {
 struct iterator_on_term_with_basis_var:linear_combination_iterator<mpq> {
     std::unordered_map<unsigned, mpq>::const_iterator m_i; // the offset in term coeffs
-    bool m_term_j_returned = false;
+    bool m_term_j_returned;
     const lar_term & m_term;
     unsigned m_term_j;
     unsigned size() const {return static_cast<unsigned>(m_term.m_coeffs.size() + 1);}
     iterator_on_term_with_basis_var(const lar_term & t, unsigned term_j) :
+        m_term_j_returned(false),
         m_i(t.m_coeffs.begin()),
         m_term(t),
         m_term_j(term_j) {}

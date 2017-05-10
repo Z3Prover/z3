@@ -80,7 +80,6 @@ void run_solver(lp_params & params, char const * mps_file_name) {
     solver->settings().set_message_ostream(&std::cout);
     solver->settings().report_frequency = params.rep_freq();
     solver->settings().print_statistics = params.print_stats();
-    solver->settings().presolve_with_double_solver_for_lar = params.presolve_with_dbl();
     solver->find_maximal_solution();
 
     *(solver->settings().get_message_ostream()) << "status is " << lp_status_to_string(solver->get_status()) << std::endl;

@@ -38,13 +38,13 @@ public:
     vector<breakpoint<X>> m_breakpoints;
     binary_heap_priority_queue<X> m_breakpoint_indices_queue;
     indexed_vector<T> m_beta; // see Swietanowski working vector beta for column norms
-    T m_epsilon_of_reduced_cost = T(1)/T(10000000);
+    T m_epsilon_of_reduced_cost;
     vector<T> m_costs_backup;
     T m_converted_harris_eps;
     unsigned m_inf_row_index_for_tableau;
     bool m_bland_mode_tableau;
     int_set m_left_basis_tableau;
-    unsigned m_bland_mode_threshold = 1000;
+    unsigned m_bland_mode_threshold;
     unsigned m_left_basis_repeated;
     vector<unsigned> m_leaving_candidates;
     //    T m_converted_harris_eps = convert_struct<T, double>::convert(this->m_settings.harris_feasibility_tolerance);
@@ -905,6 +905,8 @@ public:
                                   column_type_array,
                                   low_bound_values,
                                   upper_bound_values),
+        m_epsilon_of_reduced_cost(T(1)/T(10000000)),
+        m_bland_mode_threshold(1000),
         m_beta(A.row_count()) {
 
         if (!(numeric_traits<T>::precise())) {

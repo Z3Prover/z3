@@ -16,12 +16,15 @@ namespace lean {
 template <typename T> struct numeric_pair; // forward definition
 class lar_core_solver; // forward definition
 class random_updater {
-    unsigned range = 100000;
+    unsigned range ;
     struct interval {
-        bool upper_bound_is_set = false;
+        bool upper_bound_is_set;
         numeric_pair<mpq> upper_bound;
-        bool low_bound_is_set = false;
+        bool low_bound_is_set;
         numeric_pair<mpq> low_bound;
+        interval() : upper_bound_is_set(false),
+                     low_bound_is_set(false) {}
+        
         void set_low_bound(const numeric_pair<mpq> & v) {
             if (low_bound_is_set) {
                 low_bound = std::max(v, low_bound);

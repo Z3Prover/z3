@@ -101,16 +101,14 @@ struct numeric_pair {
 
     numeric_pair(T xp, T yp) : x(xp), y(yp) {}
 
-
     template <typename X>
     numeric_pair(const X & n) : x(n), y(0) {
     }
     
-    template <typename X>
-    numeric_pair(const numeric_pair<X> & n) : x(n.x), y(n.y) {}
+    numeric_pair(const numeric_pair<T> & n) : x(n.x), y(n.y) {}
     
     template <typename X, typename Y>
-    numeric_pair(X xp, Y yp) : numeric_pair(convert_struct<T, X>::convert(xp), convert_struct<T, Y>::convert(yp)) {}
+    numeric_pair(X xp, Y yp) : x(convert_struct<T, X>::convert(xp)), y(convert_struct<T, Y>::convert(yp)) {}
 
     bool operator<(const numeric_pair& a) const {
         return x < a.x || (x == a.x && y < a.y);
