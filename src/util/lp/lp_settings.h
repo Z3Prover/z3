@@ -25,9 +25,10 @@ enum class column_type  {
         };
 
 enum class simplex_strategy_enum {
+    undecided = 3,
     tableau_rows = 0,
     tableau_costs = 1,
-    no_tableau = 2
+    lu = 2
 };
 
 std::string column_type_to_string(column_type t);
@@ -236,8 +237,13 @@ public:
         return m_simplex_strategy;
     }
 
+	bool use_lu() const {
+		return m_simplex_strategy == simplex_strategy_enum::lu;
+	}
+
     bool use_tableau() const {
-        return m_simplex_strategy != simplex_strategy_enum::no_tableau;
+		return m_simplex_strategy == simplex_strategy_enum::tableau_rows ||
+			m_simplex_strategy == simplex_strategy_enum::tableau_costs;
     }
 
     bool use_tableau_rows() const {
@@ -257,6 +263,7 @@ public:
     static unsigned long random_next;
     unsigned max_row_length_for_bound_propagation = 300;
     bool backup_costs = true;
+    unsigned column_number_threshold_for_using_lu_in_lar_solver = 4000;
 }; // end of lp_settings class
 
 

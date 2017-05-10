@@ -60,7 +60,7 @@ template <typename T, typename X> void lp_core_solver_base<T, X>::
 init() {
     my_random_init(m_settings.random_seed);
     allocate_basis_heading();
-    if (!use_tableau())
+    if (m_settings.use_lu())
         init_factorization(m_factorization, m_A, m_basis, m_settings);
 }
 

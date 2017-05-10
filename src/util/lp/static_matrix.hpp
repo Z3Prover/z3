@@ -29,7 +29,6 @@ template <typename T, typename X> void static_matrix<T, X>::scan_row_ii_to_offse
 
 
 template <typename T, typename X> bool static_matrix<T, X>::pivot_row_to_row_given_cell(unsigned i, column_cell & c, unsigned pivot_col) {
-    //    std::cout << "ddd = " << ++lp_settings::ddd<< std::endl;
     unsigned ii = c.m_i;
     lean_assert(i < row_count() && ii < column_count());
     lean_assert(i != ii);

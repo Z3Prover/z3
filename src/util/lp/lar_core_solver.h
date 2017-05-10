@@ -216,8 +216,6 @@ public:
 
     
     void pop(unsigned k) {
-        m_stacked_simplex_strategy.pop(k);
-        bool use_tableau = m_stacked_simplex_strategy() != simplex_strategy_enum::no_tableau;
         // rationals
         if (!settings().use_tableau()) 
             m_r_A.pop(k);
@@ -232,7 +230,7 @@ public:
         m_r_x.resize(m_r_A.column_count());
         m_r_solver.m_costs.resize(m_r_A.column_count());
         m_r_solver.m_d.resize(m_r_A.column_count());
-        if(!use_tableau)
+        if(!settings().use_tableau())
             pop_markowitz_counts(k);
         m_d_A.pop(k);
         if (m_d_solver.m_factorization != nullptr) {
@@ -242,13 +240,14 @@ public:
         
         m_d_x.resize(m_d_A.column_count());
         pop_basis(k);
-
+        m_stacked_simplex_strategy.pop(k);
+        settings().simplex_strategy() = m_stacked_simplex_strategy;
         lean_assert(m_r_solver.basis_heading_is_correct());
         lean_assert(!need_to_presolve_with_double_solver() || m_d_solver.basis_heading_is_correct());
     }
 
     bool need_to_presolve_with_double_solver() const {
-        return settings().presolve_with_double_solver_for_lar && !settings().use_tableau();
+        return settings().simplex_strategy() == simplex_strategy_enum::lu;
     }
 
     template <typename L>
@@ -774,8 +773,8 @@ public:
     }
 
     
-    mpq find_delta_for_strict_bounds() const{
-        mpq delta = numeric_traits<mpq>::one();
+    mpq find_delta_for_strict_bounds(const mpq & initial_delta) const{
+        mpq delta = initial_delta;
         for (unsigned j = 0; j < m_r_A.column_count(); j++ ) {
             if (low_bound_is_set(j))
                 update_delta(delta, m_r_low_bounds[j], m_r_x[j]);
