@@ -63,5 +63,7 @@ template void static_matrix<mpq, numeric_pair<mpq> >::set(unsigned int, unsigned
 template bool lean::static_matrix<double, double>::pivot_row_to_row_given_cell(unsigned int, column_cell &, unsigned int);
 template bool lean::static_matrix<lean::mpq, lean::mpq>::pivot_row_to_row_given_cell(unsigned int, column_cell& , unsigned int);
 template bool lean::static_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >::pivot_row_to_row_given_cell(unsigned int, column_cell&, unsigned int);
+template void lean::static_matrix<lean::mpq, lean::numeric_pair<lean::mpq> >::remove_element(vector<lean::row_cell<lean::mpq>, true, unsigned int>&, lean::row_cell<lean::mpq>&);
+
 }
 

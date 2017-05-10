@@ -17,6 +17,7 @@ template void lean::lp_primal_core_solver<lean::mpq, lean::numeric_pair<lean::mp
 template unsigned lp_primal_core_solver<double, double>::solve();
 template unsigned lp_primal_core_solver<double, double>::solve_with_tableau();
 template unsigned lp_primal_core_solver<mpq, mpq>::solve();
+template unsigned lp_primal_core_solver<mpq, numeric_pair<mpq> >::solve();
 template void lean::lp_primal_core_solver<double, double>::clear_breakpoints();
 template bool lean::lp_primal_core_solver<lean::mpq, lean::mpq>::update_basis_and_x_tableau(int, int, lean::mpq const&);
 template bool lean::lp_primal_core_solver<double, double>::update_basis_and_x_tableau(int, int, double const&);
