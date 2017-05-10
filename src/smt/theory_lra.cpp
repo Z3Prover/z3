@@ -143,7 +143,6 @@ namespace smt {
         theory_lra&          th;
         ast_manager&         m;
         theory_arith_params& m_arith_params;
-        lp_params            m_lp_params;    // seeded from global parameters.
         arith_util           a;
 
         arith_eq_adapter     m_arith_eq_adapter;
@@ -282,14 +281,16 @@ namespace smt {
         expr*  get_owner(theory_var v) const { return get_enode(v)->get_owner(); }        
 
         void init_solver() {
+            if (m_solver) return;
+            lp_params lp(ctx().get_params());
             m_solver = alloc(lean::lar_solver); 
             m_theory_var2var_index.reset();
             m_solver->settings().set_resource_limit(m_resource_limit);
-            m_solver->settings().simplex_strategy() = static_cast<lean::simplex_strategy_enum>(m_lp_params.simplex_strategy());
-            m_solver->settings().presolve_with_double_solver_for_lar = m_lp_params.presolve_with_dbl();
+            m_solver->settings().simplex_strategy() = static_cast<lean::simplex_strategy_enum>(lp.simplex_strategy());
+            m_solver->settings().presolve_with_double_solver_for_lar = lp.presolve_with_dbl();
             reset_variable_values();
             m_solver->settings().bound_propagation() = BP_NONE != propagation_mode();
-            m_solver->set_propagate_bounds_on_pivoted_rows_mode(m_lp_params.bprop_on_pivoted_rows());
+            m_solver->set_propagate_bounds_on_pivoted_rows_mode(lp.bprop_on_pivoted_rows());
             //m_solver->settings().set_ostream(0);
         }
 
@@ -646,9 +647,11 @@ namespace smt {
         
 
     public:
-        imp(theory_lra& th, ast_manager& m, theory_arith_params& p): 
-            th(th), m(m), m_arith_params(p), a(m), 
-            m_arith_eq_adapter(th, p, a),
+        imp(theory_lra& th, ast_manager& m, theory_arith_params& ap): 
+            th(th), m(m), 
+            m_arith_params(ap), 
+            a(m), 
+            m_arith_eq_adapter(th, ap, a),            
             m_internalize_head(0),
             m_delay_constraints(false), 
             m_delayed_terms(m),
@@ -656,14 +659,18 @@ namespace smt {
             m_asserted_qhead(0), 
             m_assume_eq_head(0),
             m_num_conflicts(0),
+            m_solver(0),
             m_model_eqs(DEFAULT_HASHTABLE_INITIAL_CAPACITY, var_value_hash(*this), var_value_eq(*this)),
             m_resource_limit(*this) {
-            init_solver();
         }
         
         ~imp() {
             del_bounds(0);
             std::for_each(m_internalize_states.begin(), m_internalize_states.end(), delete_proc<internalize_state>());
+        }
+
+        void init(context* ctx) {
+            init_solver();
         }
         
         bool internalize_atom(app * atom, bool gate_ctx) {
@@ -2008,7 +2015,7 @@ namespace smt {
 
         bool proofs_enabled() const { return m.proofs_enabled(); }
 
-        bool use_tableau() const { return m_lp_params.simplex_strategy() < 2; }
+        bool use_tableau() const { return lp_params(ctx().get_params()).simplex_strategy() < 2; }
 
         void set_upper_bound(lean::var_index vi, lean::constraint_index ci, rational const& v) { set_bound(vi, ci, v, false);  }
 
@@ -2517,9 +2524,9 @@ namespace smt {
         }        
     };
     
-    theory_lra::theory_lra(ast_manager& m, theory_arith_params& p):
+    theory_lra::theory_lra(ast_manager& m, theory_arith_params& ap):
         theory(m.get_family_id("arith")) {
-        m_imp = alloc(imp, *this, m, p);
+        m_imp = alloc(imp, *this, m, ap);
     }    
     theory_lra::~theory_lra() {
         dealloc(m_imp);
@@ -2529,6 +2536,7 @@ namespace smt {
     }
     void theory_lra::init(context * ctx) {
         theory::init(ctx);
+        m_imp->init(ctx);
     }
     bool theory_lra::internalize_atom(app * atom, bool gate_ctx) {
         return m_imp->internalize_atom(atom, gate_ctx);

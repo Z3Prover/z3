@@ -423,7 +423,7 @@ public:
 
     void find_feasible_solution();
 
-    bool is_tiny() const {return this->m_m < 10 && this->m_n < 20;}
+    // bool is_tiny() const {return this->m_m < 10 && this->m_n < 20;}
 
     void one_iteration();
     void one_iteration_tableau();
