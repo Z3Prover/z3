@@ -505,7 +505,7 @@ namespace smt {
         struct var_value_eq {
             theory_arith & m_th;
             var_value_eq(theory_arith & th):m_th(th) {}
-            bool operator()(theory_var v1, theory_var v2) const { return m_th.get_value(v1) == m_th.get_value(v2) && m_th.is_int(v1) == m_th.is_int(v2); }
+            bool operator()(theory_var v1, theory_var v2) const { return m_th.get_value(v1) == m_th.get_value(v2) && m_th.is_int_src(v1) == m_th.is_int_src(v2); }
         };
 
         typedef int_hashtable<var_value_hash, var_value_eq> var_value_table;

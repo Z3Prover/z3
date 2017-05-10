@@ -1434,6 +1434,7 @@ br_status seq_rewriter::mk_re_star(expr* a, expr_ref& result) {
  * (re.range c_1 c_n) = (re.union (str.to.re c1) (str.to.re c2) ... (str.to.re cn))
  */
 br_status seq_rewriter::mk_re_range(expr* lo, expr* hi, expr_ref& result) {
+    return BR_FAILED;
     TRACE("seq", tout << "rewrite re.range [" << mk_pp(lo, m()) << " " << mk_pp(hi, m()) << "]\n";);
     zstring str_lo, str_hi;
     if (m_util.str.is_string(lo, str_lo) && m_util.str.is_string(hi, str_hi)) {

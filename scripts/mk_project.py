@@ -11,6 +11,7 @@ from mk_util import *
 def init_project_def():
     set_version(4, 5, 1, 0)
     add_lib('util', [])
+    add_lib('lp', ['util'], 'util/lp')
     add_lib('polynomial', ['util'], 'math/polynomial')
     add_lib('sat', ['util'])
     add_lib('nlsat', ['polynomial', 'sat'])
@@ -52,7 +53,7 @@ def init_project_def():
     add_lib('smt_params', ['ast', 'simplifier', 'pattern', 'bit_blaster'], 'smt/params')
     add_lib('proto_model', ['model', 'simplifier', 'smt_params'], 'smt/proto_model')
     add_lib('smt', ['bit_blaster', 'macros', 'normal_forms', 'cmd_context', 'proto_model',
-                    'substitution', 'grobner', 'euclid', 'simplex', 'proof_checker', 'pattern', 'parser_util', 'fpa'])
+                    'substitution', 'grobner', 'euclid', 'simplex', 'proof_checker', 'pattern', 'parser_util', 'fpa', 'lp'])
     add_lib('bv_tactics', ['tactic', 'bit_blaster', 'core_tactics'], 'tactic/bv')
     add_lib('fuzzing', ['ast'], 'test/fuzzing')
     add_lib('smt_tactic', ['smt'], 'smt/tactic')

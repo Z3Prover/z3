@@ -774,8 +774,13 @@ def extract_c_includes(fname):
     linenum = 1
     for line in f:
         m1 = std_inc_pat.match(line)
-        if m1:
-            result.append(m1.group(1))
+        if m1: 
+            root_file_name = m1.group(1)
+            slash_pos =  root_file_name.rfind('/')
+            if slash_pos >= 0  and root_file_name.find("..") < 0 : #it is a hack for lp include files that behave as continued from "src"
+                print(root_file_name)
+                root_file_name = root_file_name[slash_pos+1:]
+            result.append(root_file_name)
         elif not system_inc_pat.match(line) and non_std_inc_pat.match(line):
             raise MKException("Invalid #include directive at '%s':%s" % (fname, line))
         linenum = linenum + 1
@@ -999,6 +1004,7 @@ class Component:
         out.write('%s =' % include_defs)
         for dep in self.deps:
             out.write(' -I%s' % get_component(dep).to_src_dir)
+        out.write(' -I%s' % os.path.join(REV_BUILD_DIR,"src"))
         out.write('\n')
         mk_dir(os.path.join(BUILD_DIR, self.build_dir))
         if VS_PAR and IS_WINDOWS:

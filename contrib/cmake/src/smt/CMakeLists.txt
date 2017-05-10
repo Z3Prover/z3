@@ -55,9 +55,11 @@ z3_add_component(smt
     theory_dl.cpp
     theory_dummy.cpp
     theory_fpa.cpp
+    theory_lra.cpp
     theory_opt.cpp
     theory_pb.cpp
     theory_seq.cpp
+    theory_str.cpp
     theory_utvpi.cpp
     theory_wmaxsat.cpp
     uses_theory.cpp
@@ -68,6 +70,7 @@ z3_add_component(smt
     euclid
     fpa
     grobner
+    lp
     macros
     normal_forms
     parser_util
