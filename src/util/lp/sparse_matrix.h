@@ -44,17 +44,17 @@ class sparse_matrix
         }
     };
 
-    unsigned m_n_of_active_elems;
+    unsigned                          m_n_of_active_elems;
     binary_heap_upair_queue<unsigned> m_pivot_queue;
 public:
     vector<vector<indexed_value<T>>>  m_rows;
-    vector<col_header> m_columns;
-    permutation_matrix<T, X>  m_row_permutation;
-    permutation_matrix<T, X>  m_column_permutation;
+    vector<col_header>                m_columns;
+    permutation_matrix<T, X>          m_row_permutation;
+    permutation_matrix<T, X>          m_column_permutation;
     // m_work_pivot_vector[j] = offset of elementh of j-th column in the row we are pivoting to
     // if the column is not present then m_work_pivot_vector[j] is -1
-    vector<int> m_work_pivot_vector;
-    vector<bool> m_processed;
+    vector<int>                       m_work_pivot_vector;
+    vector<bool>                      m_processed;
     unsigned get_n_of_active_elems() const { return m_n_of_active_elems; }
 
 #ifdef LEAN_DEBUG

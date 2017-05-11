@@ -28,37 +28,37 @@ public:
     bool m_using_infeas_costs;
 
 
-    vector<unsigned> m_columns_nz; // m_columns_nz[i] keeps an approximate value of non zeroes the i-th column
-    vector<unsigned> m_rows_nz; // m_rows_nz[i] keeps an approximate value of non zeroes in the i-th row
-    indexed_vector<T> m_pivot_row_of_B_1;  // the pivot row of the reverse of B
-    indexed_vector<T> m_pivot_row; // this is the real pivot row of the simplex tableu
+    vector<unsigned>      m_columns_nz; // m_columns_nz[i] keeps an approximate value of non zeroes the i-th column
+    vector<unsigned>      m_rows_nz; // m_rows_nz[i] keeps an approximate value of non zeroes in the i-th row
+    indexed_vector<T>     m_pivot_row_of_B_1;  // the pivot row of the reverse of B
+    indexed_vector<T>     m_pivot_row; // this is the real pivot row of the simplex tableu
     static_matrix<T, X> & m_A; // the matrix A
-    vector<X> & m_b; // the right side
-    vector<unsigned> & m_basis;
-    vector<unsigned>& m_nbasis;
-    vector<int>& m_basis_heading;
-    vector<X> & m_x; // a feasible solution, the fist time set in the constructor
-    vector<T> & m_costs;
-    lp_settings & m_settings;
-    vector<T> m_y; // the buffer for yB = cb
+    vector<X> &           m_b; // the right side
+    vector<unsigned> &    m_basis;
+    vector<unsigned>&     m_nbasis;
+    vector<int>&          m_basis_heading;
+    vector<X> &           m_x; // a feasible solution, the fist time set in the constructor
+    vector<T> &           m_costs;
+    lp_settings &         m_settings;
+    vector<T>             m_y; // the buffer for yB = cb
     // a device that is able to solve Bx=c, xB=d, and change the basis
-    lu<T, X> * m_factorization;
-    const column_namer & m_column_names;
-    indexed_vector<T> m_w; // the vector featuring in 24.3 of the Chvatal book
-    vector<T> m_d; // the vector of reduced costs
-    indexed_vector<T> m_ed; // the solution of B*m_ed = a
-    unsigned m_iters_with_no_cost_growing;
+    lu<T, X> *            m_factorization;
+    const column_namer &  m_column_names;
+    indexed_vector<T>     m_w; // the vector featuring in 24.3 of the Chvatal book
+    vector<T>             m_d; // the vector of reduced costs
+    indexed_vector<T>     m_ed; // the solution of B*m_ed = a
+    unsigned              m_iters_with_no_cost_growing;
     const vector<column_type> & m_column_types;
-    const vector<X> & m_low_bounds;
-    const vector<X> & m_upper_bounds;
-    vector<T> m_column_norms; // the approximate squares of column norms that help choosing a profitable column
-    vector<X> m_copy_of_xB;
-    unsigned m_basis_sort_counter;
-    vector<T> m_steepest_edge_coefficients;
-    vector<unsigned> m_trace_of_basis_change_vector; // the even positions are entering, the odd positions are leaving
-    bool m_tracing_basis_changes;
-    int_set* m_pivoted_rows;
-    bool m_look_for_feasible_solution_only;
+    const vector<X> &     m_low_bounds;
+    const vector<X> &     m_upper_bounds;
+    vector<T>             m_column_norms; // the approximate squares of column norms that help choosing a profitable column
+    vector<X>             m_copy_of_xB;
+    unsigned              m_basis_sort_counter;
+    vector<T>             m_steepest_edge_coefficients;
+    vector<unsigned>      m_trace_of_basis_change_vector; // the even positions are entering, the odd positions are leaving
+    bool                  m_tracing_basis_changes;
+    int_set*              m_pivoted_rows;
+    bool                  m_look_for_feasible_solution_only;
     void start_tracing_basis_changes() {
         m_trace_of_basis_change_vector.resize(0);
         m_tracing_basis_changes = true;

@@ -24,6 +24,7 @@ lp_core_solver_base(static_matrix<T, X> & A,
                     const vector<X> & upper_bound_values):
     m_status(FEASIBLE),
     m_inf_set(A.column_count()),
+    m_using_infeas_costs(false),
     m_pivot_row_of_B_1(A.row_count()),
     m_pivot_row(A.column_count()),
     m_A(A),
@@ -45,14 +46,14 @@ lp_core_solver_base(static_matrix<T, X> & A,
     m_upper_bounds(upper_bound_values),
     m_column_norms(m_n()),
     m_copy_of_xB(m_m()),
-    m_steepest_edge_coefficients(A.column_count()),
-    m_total_iterations(0),
-    m_using_infeas_costs(false),
-    m_iters_with_no_cost_growing(0),
     m_basis_sort_counter(0),
+    m_steepest_edge_coefficients(A.column_count()),
     m_tracing_basis_changes(false),
     m_pivoted_rows(nullptr),
-    m_look_for_feasible_solution_only(false) {
+    m_look_for_feasible_solution_only(false),
+    m_total_iterations(0),
+    m_iters_with_no_cost_growing(0)
+ {
     lean_assert(bounds_for_boxed_are_set_correctly());    
     init();
     init_basis_heading_and_non_basic_columns_vector();

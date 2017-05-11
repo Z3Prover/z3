@@ -36,12 +36,12 @@ void sparse_matrix<T, X>::copy_B(static_matrix<T, X> const &A, vector<unsigned> 
 // constructor that copies columns of the basis from A
 template <typename T, typename X>
 sparse_matrix<T, X>::sparse_matrix(static_matrix<T, X> const &A, vector<unsigned> & basis) :
+    m_n_of_active_elems(0),
     m_pivot_queue(A.row_count()),
     m_row_permutation(A.row_count()),
     m_column_permutation(A.row_count()),
     m_work_pivot_vector(A.row_count(), -1),
-    m_processed(A.row_count()),
-    m_n_of_active_elems(0) {
+    m_processed(A.row_count()) {
     init_row_headers();
     init_column_headers();
     copy_B(A, basis);
