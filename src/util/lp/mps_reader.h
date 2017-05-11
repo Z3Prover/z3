@@ -93,12 +93,12 @@ template <typename T, typename X>
 class mps_reader {
     enum row_type { Cost, Less_or_equal, Greater_or_equal, Equal };
     struct bound {
+        T    m_low;
+        T    m_upper;
         bool m_low_is_set;
-        T m_low;
         bool m_upper_is_set;
-        T m_upper;
         bool m_value_is_fixed;
-        T m_fixed_value;
+        T    m_fixed_value;
         bool m_free;
         // constructor
         bound() : m_low(numeric_traits<T>::zero()),
@@ -132,8 +132,8 @@ class mps_reader {
         }
     };
 
-    std::string m_file_name;
     bool m_is_OK;
+    std::string m_file_name;
     std::unordered_map<std::string, row *> m_rows;
     std::unordered_map<std::string, column *> m_columns;
     std::unordered_map<std::string, unsigned> m_names_to_var_index;
@@ -747,7 +747,8 @@ public:
 
     mps_reader(std::string file_name):
         m_is_OK(true),
-        m_file_name(file_name), m_file_stream(file_name),
+        m_file_name(file_name), 
+        m_file_stream(file_name),
         m_cost_line_count(0),
         m_line_number(0),
         m_message_stream(& std::cout) {}

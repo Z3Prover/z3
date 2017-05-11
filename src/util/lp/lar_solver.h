@@ -80,14 +80,11 @@ public:
     }
 
 
-    lar_solver() : m_mpq_lar_core_solver(
-                                         m_settings,
-                                         *this
-                                         ),
-                   m_status(OPTIMAL),
+    lar_solver() : m_status(OPTIMAL),
                    m_infeasible_column_index(-1),
                    m_terms_start_index(1000000),
-                   m_column_type_function ([this] (unsigned j) {return m_mpq_lar_core_solver.m_column_types()[j];})    
+                   m_column_type_function ([this] (unsigned j) {return m_mpq_lar_core_solver.m_column_types()[j];}),
+                   m_mpq_lar_core_solver(m_settings, *this)
     {}
     
     void set_propagate_bounds_on_pivoted_rows_mode(bool v) {
