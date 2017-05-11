@@ -905,8 +905,8 @@ public:
                                   column_type_array,
                                   low_bound_values,
                                   upper_bound_values),
-        m_epsilon_of_reduced_cost(T(1)/T(10000000)),
         m_beta(A.row_count()),
+        m_epsilon_of_reduced_cost(T(1)/T(10000000)),
         m_bland_mode_threshold(1000) {
 
         if (!(numeric_traits<T>::precise())) {

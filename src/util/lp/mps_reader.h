@@ -122,12 +122,15 @@ class mps_reader {
         row_type m_type;
         std::string m_name;
         std::unordered_map<std::string, T> m_row_columns;
-        T m_right_side;
         unsigned m_index;
+        T m_right_side;
         T m_range;
-        row(row_type type, std::string name, unsigned index) : m_type(type), m_name(name), m_index(index),
-                                                               m_right_side(zero_of_type<T>()),
-                                                               m_range(zero_of_type<T>())
+        row(row_type type, std::string name, unsigned index) :
+            m_type(type),
+            m_name(name),
+            m_index(index),
+            m_right_side(zero_of_type<T>()),
+            m_range(zero_of_type<T>())
         {
         }
     };
