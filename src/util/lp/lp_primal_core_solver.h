@@ -89,7 +89,7 @@ public:
     //     if (choices.size() == 1)
     //         return choices[0];
         
-    //     unsigned k = m_settings.random_next() % choices.size();
+    //     unsigned k = this->m_settings.random_next() % choices.size();
     //     return choices[k];
     //     #endif
     // }
@@ -287,7 +287,7 @@ public:
                 choices.clear();
                 choices.push_back(&rc);
             } else if (damage == num_of_non_free_basics &&
-                       this->m_A.m_columns[j].size() <= len && (m_settings.random_next() % 2)) {
+                       this->m_A.m_columns[j].size() <= len && (this->m_settings.random_next() % 2)) {
                 choices.push_back(&rc);
                 len = this->m_A.m_columns[j].size();
             }
@@ -299,7 +299,7 @@ public:
             return -1;
         }
         const row_cell<T>* rc = choices.size() == 1? choices[0] :
-            choices[m_settings.random_next() % choices.size()];
+            choices[this->m_settings.random_next() % choices.size()];
 
         a_ent = rc->m_value;
         return rc->m_j;
