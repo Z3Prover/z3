@@ -118,7 +118,10 @@ lu<T, X>::lu(static_matrix<T, X> const & A,
     m_r_wave(m_dim),
     m_U(A, basis), // create the square matrix that eventually will be factorized
     m_settings(settings),
-    m_row_eta_work_vector(A.row_count()){
+    m_row_eta_work_vector(A.row_count()),
+    m_status(LU_status::OK),
+    m_failure(false),
+    m_refactor_counter(0) {
     lean_assert(!(numeric_traits<T>::precise() && settings.use_tableau()));
 #ifdef LEAN_DEBUG
     debug_test_of_basis(A, basis);

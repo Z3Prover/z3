@@ -40,7 +40,8 @@ sparse_matrix<T, X>::sparse_matrix(static_matrix<T, X> const &A, vector<unsigned
     m_row_permutation(A.row_count()),
     m_column_permutation(A.row_count()),
     m_work_pivot_vector(A.row_count(), -1),
-    m_processed(A.row_count()) {
+    m_processed(A.row_count()),
+    m_n_of_active_elems(0) {
     init_row_headers();
     init_column_headers();
     copy_B(A, basis);

@@ -315,7 +315,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::init_run_tab
             this->m_column_norm_update_counter = 0;
             init_column_norms();
         }
-        if (this->m_settings.m_simplex_strategy == simplex_strategy_enum::tableau_rows)
+        if (this->m_settings.simplex_strategy() == simplex_strategy_enum::tableau_rows)
             init_tableau_rows();
         lean_assert(this->reduced_costs_are_correct_tableau());
         lean_assert(!this->need_to_pivot_to_basis_tableau());

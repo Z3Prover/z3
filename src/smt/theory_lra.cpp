@@ -148,8 +148,6 @@ namespace smt {
         arith_eq_adapter     m_arith_eq_adapter;
 
         vector<rational>    m_columns;
-        int m_print_counter = 0;
-
         // temporary values kept during internalization
         struct internalize_state {
             expr_ref_vector     m_terms;                     
@@ -287,7 +285,6 @@ namespace smt {
             m_theory_var2var_index.reset();
             m_solver->settings().set_resource_limit(m_resource_limit);
             m_solver->settings().simplex_strategy() = static_cast<lean::simplex_strategy_enum>(lp.simplex_strategy());
-            m_solver->settings().presolve_with_double_solver_for_lar = lp.presolve_with_dbl();
             reset_variable_values();
             m_solver->settings().bound_propagation() = BP_NONE != propagation_mode();
             m_solver->set_propagate_bounds_on_pivoted_rows_mode(lp.bprop_on_pivoted_rows());
@@ -1985,7 +1982,6 @@ namespace smt {
         typedef pair_hash<obj_hash<rational>, bool_hash> value_sort_pair_hash;
         typedef map<value_sort_pair, theory_var, value_sort_pair_hash, default_eq<value_sort_pair> > value2var;
         value2var               m_fixed_var_table;
-        const lean::constraint_index null_index = static_cast<lean::constraint_index>(-1);
 
         void propagate_eqs(lean::var_index vi, lean::constraint_index ci, lean::lconstraint_kind k, lp::bound& b) {
             if (propagate_eqs()) {
@@ -2029,10 +2025,10 @@ namespace smt {
             lean::var_index ti = m_solver->adjust_term_index(vi);
             auto& vec = is_lower ? m_lower_terms : m_upper_terms;
             if (vec.size() <= ti) {
-                vec.resize(ti + 1, constraint_bound(null_index, rational()));
+                vec.resize(ti + 1, constraint_bound(UINT_MAX, rational()));
             }
             constraint_bound& b = vec[ti];
-            if (b.first == null_index || (is_lower? b.second < v : b.second > v)) {
+            if (b.first == UINT_MAX || (is_lower? b.second < v : b.second > v)) {
                 ctx().push_trail(vector_value_trail<context, constraint_bound>(vec, ti));
                 b.first = ci;
                 b.second = v;
@@ -2052,7 +2048,7 @@ namespace smt {
                 rational val;
                 TRACE("arith", tout << vi << " " << v << "\n";);
                 if (v != null_theory_var && a.is_numeral(get_owner(v), val) && bound == val) {
-                    ci = null_constraint_index;
+                    ci = UINT_MAX;
                     return bound == val;
                 }
 
@@ -2060,7 +2056,7 @@ namespace smt {
                 if (vec.size() > ti) {
                     constraint_bound& b = vec[ti];
                     ci = b.first;
-                    return ci != null_index && bound == b.second;
+                    return ci != UINT_MAX && bound == b.second;
                 }
                 else {
                     return false;
@@ -2144,22 +2140,10 @@ namespace smt {
             if (m_solver->A_r().row_count() > m_stats.m_max_rows)
                 m_stats.m_max_rows = m_solver->A_r().row_count();
             TRACE("arith_verbose", display(tout););
-            bool print = false && m_print_counter++ % 1000 == 0;
-            stopwatch sw;
-            if (print) {
-                sw.start();
-            }
             lean::lp_status status = m_solver->find_feasible_solution();
-            if (print) {
-                sw.stop();
-            }
             m_stats.m_num_iterations = m_solver->settings().st().m_total_iterations;
             m_stats.m_num_factorizations = m_solver->settings().st().m_num_factorizations;
             m_stats.m_need_to_solve_inf = m_solver->settings().st().m_need_to_solve_inf;
-            if (print) {
-                IF_VERBOSE(0, verbose_stream() << status << " " << sw.get_seconds() << " " << m_stats.m_num_iterations << " " << m_print_counter << "\n";);
-            }
-            //m_stats.m_num_iterations_with_no_progress += m_solver->settings().st().m_iters_with_no_cost_growing;
 
             switch (status) {
             case lean::lp_status::INFEASIBLE:
@@ -2182,10 +2166,11 @@ namespace smt {
         literal_vector      m_core;
         svector<enode_pair> m_eqs;
         vector<parameter>   m_params;
-        lean::constraint_index const null_constraint_index = UINT_MAX;
+
+        // lean::constraint_index const null_constraint_index = UINT_MAX; // not sure what a correct fix is
 
         void set_evidence(lean::constraint_index idx) {
-            if (idx == null_constraint_index) {
+            if (idx == UINT_MAX) {
                 return;
             }
             switch (m_constraint_sources[idx]) {

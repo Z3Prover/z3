@@ -15,7 +15,7 @@
 namespace lean {
 template <typename T, typename X>
 class lp_primal_simplex: public lp_solver<T, X> {
-    lp_primal_core_solver<T, X> * m_core_solver = nullptr;
+    lp_primal_core_solver<T, X> * m_core_solver;
     vector<X> m_low_bounds;
 private:
     unsigned original_rows() { return this->m_external_rows_to_core_solver_rows.size(); }
@@ -28,7 +28,7 @@ private:
 
     void set_scaled_costs();
 public:
-    lp_primal_simplex() {}
+    lp_primal_simplex(): m_core_solver(nullptr) {}
 
     column_info<T> * get_or_create_column_info(unsigned column);
 

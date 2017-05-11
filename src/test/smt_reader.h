@@ -56,10 +56,11 @@ namespace lean {
         struct formula_constraint {
             lconstraint_kind m_kind;
             std::vector<std::pair<mpq, std::string>> m_coeffs;
-            mpq m_right_side = numeric_traits<mpq>::zero();
+            mpq m_right_side;
             void add_pair(mpq c, std::string name) {
                 m_coeffs.push_back(make_pair(c, name));
             }
+            formula_constraint() : m_right_side(numeric_traits<mpq>::zero()) {}
         };
 
         lisp_elem m_formula_lisp_elem;
@@ -69,9 +70,11 @@ namespace lean {
         std::string m_file_name;
         std::ifstream m_file_stream;
         std::string m_line;
-        bool m_is_OK = true;
-        unsigned m_line_number = 0;
-        smt_reader(std::string file_name): 
+        bool m_is_OK;
+        unsigned m_line_number;
+        smt_reader(std::string file_name):
+            m_is_OK(true),
+            m_line_number(0),
             m_file_name(file_name), m_file_stream(file_name) {
         }
 

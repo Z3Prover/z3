@@ -1,4 +1,4 @@
-# Z3's CMake build system
+    # Z3's CMake build system
 
 [CMake](https://cmake.org/) is a "meta build system" that reads a description
 of the project written in the ``CMakeLists.txt`` files and emits a build

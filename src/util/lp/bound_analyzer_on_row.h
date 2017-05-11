@@ -19,9 +19,9 @@ class bound_analyzer_on_row {
     
     linear_combination_iterator<mpq> & m_it;
     unsigned m_row_or_term_index;
-    int m_column_of_u = -1; // index of an unlimited from above monoid
+    int m_column_of_u; // index of an unlimited from above monoid
     // -1 means that such a value is not found, -2 means that at least two of such monoids were found
-    int m_column_of_l = -1; // index of an unlimited from below monoid
+    int m_column_of_l; // index of an unlimited from below monoid
     impq m_rs;
     bound_propagator & m_bp;
 public :
@@ -36,7 +36,9 @@ public :
         m_it(it),
         m_row_or_term_index(row_or_term_index),
         m_rs(rs),
-        m_bp(bp)
+        m_bp(bp),
+        m_column_of_u(-1),
+        m_column_of_l(-1)
     {}
 
 

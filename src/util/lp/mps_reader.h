@@ -93,22 +93,28 @@ template <typename T, typename X>
 class mps_reader {
     enum row_type { Cost, Less_or_equal, Greater_or_equal, Equal };
     struct bound {
-        bool m_low_is_set = true;
+        bool m_low_is_set;
         T m_low;
-        bool m_upper_is_set = false;
+        bool m_upper_is_set;
         T m_upper;
-        bool m_value_is_fixed = false;
+        bool m_value_is_fixed;
         T m_fixed_value;
-        bool m_free = false;
+        bool m_free;
         // constructor
-        bound() : m_low(numeric_traits<T>::zero()) {} // it seems all mps files I have seen have the default low value 0 on a variable
+        bound() : m_low(numeric_traits<T>::zero()),
+                  m_low_is_set(true),
+                  m_upper_is_set(false),
+                  m_value_is_fixed(false),
+                  m_free(false) {} // it seems all mps files I have seen have the default low value 0 on a variable
     };
 
     struct column {
         std::string m_name;
-        bound * m_bound = nullptr;
+        bound * m_bound;
         unsigned m_index;
-        column(std::string name, unsigned index): m_name(name), m_index(index) {
+        column(std::string name, unsigned index): m_name(name),
+                                                  m_bound(nullptr),
+                                                  m_index(index) {
         }
     };
 
@@ -116,15 +122,18 @@ class mps_reader {
         row_type m_type;
         std::string m_name;
         std::unordered_map<std::string, T> m_row_columns;
-        T m_right_side = numeric_traits<T>::zero();
+        T m_right_side;
         unsigned m_index;
-        T m_range = numeric_traits<T>::zero();
-        row(row_type type, std::string name, unsigned index) : m_type(type), m_name(name), m_index(index) {
+        T m_range;
+        row(row_type type, std::string name, unsigned index) : m_type(type), m_name(name), m_index(index),
+                                                               m_right_side(zero_of_type<T>()),
+                                                               m_range(zero_of_type<T>())
+        {
         }
     };
 
     std::string m_file_name;
-    bool m_is_OK = true;
+    bool m_is_OK;
     std::unordered_map<std::string, row *> m_rows;
     std::unordered_map<std::string, column *> m_columns;
     std::unordered_map<std::string, unsigned> m_names_to_var_index;
@@ -133,9 +142,9 @@ class mps_reader {
     std::string m_cost_row_name;
     std::ifstream m_file_stream;
     // needed to adjust the index row
-    unsigned m_cost_line_count = 0;
-    unsigned m_line_number = 0;
-    std::ostream * m_message_stream = & std::cout;
+    unsigned m_cost_line_count;
+    unsigned m_line_number;
+    std::ostream * m_message_stream;
 
     void set_m_ok_to_false() {
         *m_message_stream << "setting m_is_OK to false" << std::endl;
@@ -737,8 +746,11 @@ public:
     }
 
     mps_reader(std::string file_name):
-        m_file_name(file_name), m_file_stream(file_name) {
-    }
+        m_is_OK(true),
+        m_file_name(file_name), m_file_stream(file_name),
+        m_cost_line_count(0),
+        m_line_number(0),
+        m_message_stream(& std::cout) {}
     void read() {
         if (!m_file_stream.is_open()){
             set_m_ok_to_false();

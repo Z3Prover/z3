@@ -16,7 +16,6 @@ template <typename T, typename X> class lp_core_solver_base; // forward definiti
 template <typename T, typename X>
 class core_solver_pretty_printer {
     std::ostream & m_out;
-    template<typename A> using vector = vector<A>;
     typedef std::string string;
     lp_core_solver_base<T, X> & m_core_solver;
     vector<unsigned> m_column_widths;
@@ -34,15 +33,15 @@ class core_solver_pretty_printer {
     std::string m_cost_title;
     std::string m_basis_heading_title;
     std::string m_x_title;
-    std::string m_low_bounds_title = "low";
-    std::string m_upp_bounds_title = "upp";
-    std::string m_exact_norm_title = "exact cn";
-    std::string m_approx_norm_title = "approx cn";
+    std::string m_low_bounds_title;
+    std::string m_upp_bounds_title;
+    std::string m_exact_norm_title;
+    std::string m_approx_norm_title;
 
 
     unsigned ncols() { return m_core_solver.m_A.column_count(); }
     unsigned nrows() { return m_core_solver.m_A.row_count(); }
-    unsigned m_artificial_start = std::numeric_limits<unsigned>::max();
+    unsigned m_artificial_start;
     indexed_vector<T> m_w_buff;
     indexed_vector<T> m_ed_buff;
     vector<T> m_exact_column_norms;

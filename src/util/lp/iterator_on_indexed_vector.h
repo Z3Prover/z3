@@ -8,8 +8,11 @@ namespace lean {
 template <typename T>
 struct iterator_on_indexed_vector:linear_combination_iterator<T> {
     const indexed_vector<T> & m_v;
-    unsigned m_offset = 0;
-    iterator_on_indexed_vector(const indexed_vector<T> & v) : m_v(v){}
+    unsigned m_offset;
+    iterator_on_indexed_vector(const indexed_vector<T> & v) :
+        m_v(v),
+        m_offset(0)
+    {}
     unsigned size() const { return m_v.m_index.size(); }
     bool next(T & a, unsigned & i) {
         if (m_offset >= m_v.m_index.size())
