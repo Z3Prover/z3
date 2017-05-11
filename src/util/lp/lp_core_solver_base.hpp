@@ -64,8 +64,7 @@ allocate_basis_heading() { // the rest of initilization will be handled by the f
     lean_assert(basis_heading_is_correct());
 }
 template <typename T, typename X> void lp_core_solver_base<T, X>::
-init() {
-    my_random_init(m_settings.random_seed);
+init() {    
     allocate_basis_heading();
     if (m_settings.use_lu())
         init_factorization(m_factorization, m_A, m_basis, m_settings);

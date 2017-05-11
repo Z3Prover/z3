@@ -537,7 +537,7 @@ template <typename T, typename X> unsigned lp_dual_core_solver<T, X>::get_number
     if (this->m_m() > 300) {
         s = (unsigned)((s / 100.0) * this->m_settings.percent_of_entering_to_check);
     }
-    return my_random() % s + 1;
+    return m_settings.random_next() % s + 1;
 }
 
 template <typename T, typename X> bool lp_dual_core_solver<T, X>::delta_keeps_the_sign(int initial_delta_sign, const T & delta) {
@@ -715,7 +715,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::update_xb_afte
 
 template <typename T, typename X> void lp_dual_core_solver<T, X>::one_iteration() {
     unsigned number_of_rows_to_try = get_number_of_rows_to_try_for_leaving();
-    unsigned offset_in_rows = my_random() % this->m_m();
+    unsigned offset_in_rows = m_settings.random_next() % this->m_m();
     if (this->get_status() == TENTATIVE_DUAL_UNBOUNDED) {
         number_of_rows_to_try = this->m_m();
     } else {

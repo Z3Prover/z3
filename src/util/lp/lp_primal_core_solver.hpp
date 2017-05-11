@@ -199,7 +199,7 @@ int lp_primal_core_solver<T, X>::choose_entering_column_presize(unsigned number_
             entering_iter = non_basis_iter;
             if (number_of_benefitial_columns_to_go_over)
                 number_of_benefitial_columns_to_go_over--;
-        } else if (t == j_nz && my_random() % 2 == 0) {
+        } else if (t == j_nz && m_settings.random_next() % 2 == 0) {
             entering_iter = non_basis_iter;
         }
     }// while (number_of_benefitial_columns_to_go_over && initial_offset_in_non_basis != offset_in_nb);
@@ -268,7 +268,7 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::advance_on_so
         if (slope_at_entering * m_sign_of_entering_delta > - m_epsilon_of_reduced_cost) { // the slope started to increase infeasibility
             break;
         } else {
-            if ((numeric_traits<T>::precise() == false) || ( numeric_traits<T>::is_zero(slope_at_entering) && my_random() % 2 == 0)) {
+            if ((numeric_traits<T>::precise() == false) || ( numeric_traits<T>::is_zero(slope_at_entering) && m_settings.random_next() % 2 == 0)) {
                 // it is not cost benefitial to advance the delta more, so just break to increas the randomness
                 break;
             }
@@ -307,7 +307,7 @@ find_leaving_on_harris_theta(X const & harris_theta, X & t) {
     // we also know that harris_theta is limited, so we will find a leaving
     zero_harris_eps();
     unsigned steps = this->m_ed.m_index.size();
-    unsigned k = my_random() % steps;
+    unsigned k = m_settings.random_next() % steps;
     unsigned initial_k = k;
     do {
         unsigned i = this->m_ed.m_index[k];
@@ -398,7 +398,7 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
         return find_leaving_and_t_with_breakpoints(entering, t);
     bool unlimited = true;
     unsigned steps = this->m_ed.m_index.size();
-    unsigned k = my_random() % steps;
+    unsigned k = m_settings.random_next() % steps;
     unsigned initial_k = k;
     unsigned row_min_nz = this->m_n() + 1;
     m_leaving_candidates.clear();
@@ -454,7 +454,7 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
         t = ratio;
         return entering;
     }
-    k = my_random() % m_leaving_candidates.size();
+    k = m_settings.random_next() % m_leaving_candidates.size();
     return m_leaving_candidates[k];
 }
 
@@ -833,7 +833,7 @@ template <typename T, typename X>  unsigned lp_primal_core_solver<T, X>::get_num
     if (ret == 0) {
         return 0;
     }
-    return std::max(static_cast<unsigned>(my_random() % ret), 1u);
+    return std::max(static_cast<unsigned>(m_settings.random_next() % ret), 1u);
 }
 
 template <typename T, typename X> void lp_primal_core_solver<T, X>::print_column_norms(std::ostream & out) {
@@ -961,7 +961,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::init_column_
     for (unsigned j = 0; j < this->m_n(); j++) {
         this->m_column_norms[j] = T(static_cast<int>(this->m_A.m_columns[j].size() + 1)) 
             
-            + T(static_cast<int>(my_random() % 10000)) / T(100000);
+            + T(static_cast<int>(m_settings.random_next() % 10000)) / T(100000);
     }
 }
 

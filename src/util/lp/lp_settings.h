@@ -71,8 +71,6 @@ template <typename X> bool is_epsilon_small(const X & v, const double& eps);    
 
 int get_millisecond_count();
 int get_millisecond_span(int start_time);
-unsigned my_random();
-void my_random_init(long unsigned seed);
 
 
 class lp_resource_limit {
@@ -111,6 +109,7 @@ private:
     std::ostream* m_message_out;
 
     stats  m_stats;
+    random_gen m_rand;
 
 public:
     unsigned reps_in_scaler;
@@ -194,16 +193,15 @@ public:
                     m_bound_propagation ( true),
                     presolve_with_double_solver_for_lar(true),
                     m_simplex_strategy(simplex_strategy_enum::tableau_rows),
-                  report_frequency(1000),
-                  print_statistics(false),
-                  column_norms_update_frequency(12000),
-                  scale_with_ratio(true),
-                  density_threshold(0.7),
-                  use_breakpoints_in_feasibility_search(false),
-                  random_seed(1),
-                  max_row_length_for_bound_propagation(300),
-                  backup_costs(true),
-                  column_number_threshold_for_using_lu_in_lar_solver(4000)
+                    report_frequency(1000),
+                    print_statistics(false),
+                    column_norms_update_frequency(12000),
+                    scale_with_ratio(true),
+                    density_threshold(0.7),
+                    use_breakpoints_in_feasibility_search(false),
+                    max_row_length_for_bound_propagation(300),
+                    backup_costs(true),
+                    column_number_threshold_for_using_lu_in_lar_solver(4000)
     {}
 
     void set_resource_limit(lp_resource_limit& lim) { m_resource_limit = &lim; }
@@ -305,8 +303,8 @@ public:
     static unsigned ddd; // used for debugging    
 #endif
     bool use_breakpoints_in_feasibility_search;
-    unsigned random_seed;
-    static unsigned long random_next;
+    unsigned random_next() { return m_rand(); }
+    void random_seed(unsigned s) { m_rand.set_seed(s); }
     unsigned max_row_length_for_bound_propagation;
     bool backup_costs;
     unsigned column_number_threshold_for_using_lu_in_lar_solver;
