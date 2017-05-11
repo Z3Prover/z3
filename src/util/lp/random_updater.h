@@ -16,7 +16,6 @@ namespace lean {
 template <typename T> struct numeric_pair; // forward definition
 class lar_core_solver; // forward definition
 class random_updater {
-    unsigned range ;
     struct interval {
         bool upper_bound_is_set;
         numeric_pair<mpq> upper_bound;
@@ -61,6 +60,7 @@ class random_updater {
     };
     std::set<var_index> m_var_set;
     lar_core_solver & m_core_solver;
+    unsigned range;
     linear_combination_iterator<mpq>* m_column_j; // the actual column
     interval find_shift_interval(unsigned j);
     interval get_interval_of_non_basic_var(unsigned j);

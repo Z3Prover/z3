@@ -628,7 +628,7 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::backup_an
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::init_run() {
     this->m_basis_sort_counter = 0; // to initiate the sort of the basis
     this->set_total_iterations(0);
-    this->m_iters_with_no_cost_growing = 0;
+    this->iters_with_no_cost_growing() = 0;
     init_inf_set();
     if (this->current_x_is_feasible() && this->m_look_for_feasible_solution_only)
         return;
@@ -664,7 +664,7 @@ void lp_primal_core_solver<T, X>::advance_on_entering_equal_leaving(int entering
         this->init_lu();
         if (!this->find_x_by_solving()) {
             this->restore_x(entering, t * m_sign_of_entering_delta);
-            this->m_iters_with_no_cost_growing++;
+            this->iters_with_no_cost_growing()++;
             LP_OUT(this->m_settings, "failing in advance_on_entering_equal_leaving for entering = " << entering << std::endl);
             return;
         }
@@ -679,7 +679,7 @@ void lp_primal_core_solver<T, X>::advance_on_entering_equal_leaving(int entering
     if (need_to_switch_costs() ||!this->current_x_is_feasible()) {
         init_reduced_costs();
     }
-    this->m_iters_with_no_cost_growing = 0;
+    this->iters_with_no_cost_growing() = 0;
 }
 
 template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_entering_and_leaving(int entering, int leaving, X & t) {
@@ -699,14 +699,14 @@ template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_en
     if (!pivot_compare_result){;}
     else if (pivot_compare_result == 2) { // the sign is changed, cannot continue
         this->set_status(UNSTABLE);
-        this->m_iters_with_no_cost_growing++;
+        this->iters_with_no_cost_growing()++;
         return;
     } else {
         lean_assert(pivot_compare_result == 1);
         this->init_lu();
         if (this->m_factorization == nullptr || this->m_factorization->get_status() != LU_status::OK) {
             this->set_status(UNSTABLE);
-            this->m_iters_with_no_cost_growing++;
+            this->iters_with_no_cost_growing()++;
             return;
         }
     }
@@ -728,7 +728,7 @@ template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_en
     }
 
     if (!is_zero(t)) {
-        this->m_iters_with_no_cost_growing = 0;
+        this->iters_with_no_cost_growing() = 0;
         init_infeasibility_after_update_x_if_inf(leaving);
     }
 
@@ -783,7 +783,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_e
         this->init_lu();
         init_reduced_costs();
         if (refresh_result == 2) {
-            this->m_iters_with_no_cost_growing++;
+            this->iters_with_no_cost_growing()++;
             return;
         }
     }
@@ -934,7 +934,7 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
              &&
              this->get_status() != INFEASIBLE
              &&
-             this->m_iters_with_no_cost_growing <= this->m_settings.max_number_of_iterations_with_no_improvements
+             this->iters_with_no_cost_growing() <= this->m_settings.max_number_of_iterations_with_no_improvements
              &&
              this->total_iterations() <= this->m_settings.max_total_number_of_iterations
              &&

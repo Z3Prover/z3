@@ -18,6 +18,7 @@ namespace lean {
 template <typename T, typename X> // X represents the type of the x variable and the bounds
 class lp_core_solver_base {    
     unsigned m_total_iterations;
+    unsigned m_iters_with_no_cost_growing;
     unsigned inc_total_iterations() { ++m_settings.st().m_total_iterations; return m_total_iterations++; }
 private:
     lp_status m_status;
@@ -47,7 +48,6 @@ public:
     indexed_vector<T>     m_w; // the vector featuring in 24.3 of the Chvatal book
     vector<T>             m_d; // the vector of reduced costs
     indexed_vector<T>     m_ed; // the solution of B*m_ed = a
-    unsigned              m_iters_with_no_cost_growing;
     const vector<column_type> & m_column_types;
     const vector<X> &     m_low_bounds;
     const vector<X> &     m_upper_bounds;
@@ -678,6 +678,13 @@ public:
                 lean_assert(is_zero(this->m_costs[j]));
         }
         return true;
-}
+    }
+    unsigned & iters_with_no_cost_growing() {
+        return m_iters_with_no_cost_growing;
+    }
+
+    const unsigned & iters_with_no_cost_growing() const {
+        return m_iters_with_no_cost_growing;
+    }
 };
 }
