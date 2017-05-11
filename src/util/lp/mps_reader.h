@@ -796,7 +796,7 @@ public:
         auto it = m_names_to_var_index.find(s);
         if (it != m_names_to_var_index.end())
             return it->second;
-        unsigned ret = m_names_to_var_index.size();
+        unsigned ret = static_cast<unsigned>(m_names_to_var_index.size());
         m_names_to_var_index[s] = ret;
         return ret;
     }

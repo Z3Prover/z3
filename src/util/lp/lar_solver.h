@@ -37,7 +37,7 @@ class lar_solver : public column_namer {
     lp_settings m_settings;
     stacked_value<lp_status> m_status;
     stacked_value<simplex_strategy_enum> m_simplex_strategy;
-	std::unordered_map<unsigned, var_index> m_ext_vars_to_columns;
+    std::unordered_map<unsigned, var_index> m_ext_vars_to_columns;
     vector<unsigned> m_columns_to_ext_vars_or_term_indices;
     stacked_vector<ul_pair> m_vars_to_ul_pairs;
     vector<lar_base_constraint*> m_constraints;
@@ -45,7 +45,7 @@ class lar_solver : public column_namer {
     // the set of column indices j such that bounds have changed for j
     int_set m_columns_with_changed_bound;
     int_set m_rows_with_changed_bounds;
-	int_set m_basic_columns_with_changed_cost;
+    int_set m_basic_columns_with_changed_cost;
     stacked_value<int> m_infeasible_column_index; // such can be found at the initialization step
     stacked_value<unsigned> m_term_count;
     vector<lar_term*> m_terms;
@@ -55,12 +55,12 @@ class lar_solver : public column_namer {
     std::function<column_type (unsigned)> m_column_type_function;    
 public:
     lar_core_solver m_mpq_lar_core_solver;
-	unsigned constraint_count() const {
-		return m_constraints.size();
-	}
-	const lar_base_constraint& get_constraint(unsigned ci) const {
-		return *(m_constraints[ci]);
-	}
+    unsigned constraint_count() const {
+        return m_constraints.size();
+    }
+    const lar_base_constraint& get_constraint(unsigned ci) const {
+        return *(m_constraints[ci]);
+    }
 
     ////////////////// methods ////////////////////////////////
     static_matrix<mpq, numeric_pair<mpq>> & A_r() { return m_mpq_lar_core_solver.m_r_A;}
@@ -117,8 +117,8 @@ public:
     }
 
 
-	bool use_lu() const { return m_settings.simplex_strategy() == simplex_strategy_enum::lu; }
-
+    bool use_lu() const { return m_settings.simplex_strategy() == simplex_strategy_enum::lu; }
+    
     bool sizes_are_correct() const {
         lean_assert(strategy_is_undecided() || !m_mpq_lar_core_solver.need_to_presolve_with_double_solver() || A_r().column_count() == A_d().column_count());
         lean_assert(A_r().column_count() == m_mpq_lar_core_solver.m_r_solver.m_column_types.size());
@@ -348,10 +348,10 @@ public:
         //        new linear_combination_iterator_on_vector<mpq>(m_terms[adjust_term_index(term_index)]->coeffs_as_vector());
     }
 
-	unsigned adjust_column_index_to_term_index(unsigned j) const {
-		unsigned ext_var_or_term = m_columns_to_ext_vars_or_term_indices[j];
-		return ext_var_or_term < m_terms_start_index ? j : ext_var_or_term;
-	}
+    unsigned adjust_column_index_to_term_index(unsigned j) const {
+        unsigned ext_var_or_term = m_columns_to_ext_vars_or_term_indices[j];
+        return ext_var_or_term < m_terms_start_index ? j : ext_var_or_term;
+    }
     
     void propagate_bounds_on_a_term(const lar_term& t, bound_propagator & bp, unsigned term_offset) {
         lean_assert(false); // not implemented

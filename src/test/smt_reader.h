@@ -367,7 +367,7 @@ namespace lean {
             if (it!= m_name_to_var_index.end())
                 return it->second;
 
-            unsigned ret= m_name_to_var_index.size();
+            unsigned ret = static_cast<unsigned>(m_name_to_var_index.size());
             m_name_to_var_index[s] = ret;
             return ret;
         }

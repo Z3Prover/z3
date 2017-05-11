@@ -29,7 +29,7 @@ var_index add_var(unsigned ext_j) {
 
 void register_new_ext_var_index(unsigned ext_v) {
     lean_assert(!contains(m_ext_vars_to_columns, ext_v));
-    unsigned j = m_ext_vars_to_columns.size();
+    unsigned j = static_cast<unsigned>(m_ext_vars_to_columns.size());
     m_ext_vars_to_columns[ext_v] = j;
     lean_assert(m_columns_to_ext_vars_or_term_indices.size() == j);
     m_columns_to_ext_vars_or_term_indices.push_back(ext_v);
@@ -104,7 +104,7 @@ var_index add_term(const vector<std::pair<mpq, var_index>> & coeffs,
     m_terms.push_back(new lar_term(coeffs, m_v));
     m_orig_terms.push_back(new lar_term(coeffs, m_v));
     unsigned adjusted_term_index = m_terms.size() - 1;
-	var_index ret = m_terms_start_index + adjusted_term_index;
+    var_index ret = m_terms_start_index + adjusted_term_index;
     if (use_tableau() && !coeffs.empty()) {
         add_row_for_term(m_orig_terms.back(), ret);
         if (m_settings.bound_propagation())
