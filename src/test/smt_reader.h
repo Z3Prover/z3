@@ -66,16 +66,17 @@ namespace lean {
         lisp_elem m_formula_lisp_elem;
 
         std::unordered_map<std::string, unsigned> m_name_to_var_index;
-        std::vector<formula_constraint> m_constraints;
-        std::string m_file_name;
-        std::ifstream m_file_stream;
-        std::string m_line;
-        bool m_is_OK;
-        unsigned m_line_number;
+        std::vector<formula_constraint>           m_constraints;
+        bool                                      m_is_OK;
+        unsigned                                  m_line_number;
+        std::string                               m_file_name;
+        std::ifstream                             m_file_stream;
+        std::string                               m_line;
         smt_reader(std::string file_name):
             m_is_OK(true),
             m_line_number(0),
-            m_file_name(file_name), m_file_stream(file_name) {
+            m_file_name(file_name), 
+            m_file_stream(file_name) {
         }
 
         void set_error() {
