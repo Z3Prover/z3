@@ -231,6 +231,9 @@ void adjust_initial_state() {
         break;
     case simplex_strategy_enum::tableau_costs:
         lean_assert(false); // not implemented
+    case simplex_strategy_enum::undecided:
+        adjust_initial_state_for_tableau_rows();
+        break;
     }
 }
 
