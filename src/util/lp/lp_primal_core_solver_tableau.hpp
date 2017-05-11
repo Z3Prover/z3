@@ -62,7 +62,7 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::choose_enteri
             if (number_of_benefitial_columns_to_go_over)
                 number_of_benefitial_columns_to_go_over--;
         }
-        else if (t == j_nz && m_settings.random_next() % 2 == 0) {
+        else if (t == j_nz && this->m_settings.random_next() % 2 == 0) {
             entering_iter = non_basis_iter;
         }
     }// while (number_of_benefitial_columns_to_go_over && initial_offset_in_non_basis != offset_in_nb);
@@ -293,7 +293,7 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
     }
     if (m_leaving_candidates.size() == 1)
         return m_leaving_candidates[0];
-    k = m_settings.random_next() % m_leaving_candidates.size();
+    k = this->m_settings.random_next() % m_leaving_candidates.size();
     return m_leaving_candidates[k];
 }
 template <typename T, typename X> void lp_primal_core_solver<T, X>::init_run_tableau() {
