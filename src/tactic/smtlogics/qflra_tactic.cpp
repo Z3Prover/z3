@@ -72,5 +72,17 @@ tactic * mk_qflra_tactic(ast_manager & m, params_ref const & p) {
     //                            using_params(mk_smt_tactic(), pivot_p)),
     //                    p);
 
+#if 0
+
+    params_ref simplex_0, simplex_1, simplex_2;
+    simplex_0.set("lp.simplex_strategy", 0);    
+    simplex_1.set("lp.simplex_strategy", 1);    
+    simplex_2.set("lp.simplex_strategy", 1);
+    
+    tactic* lp_par = par_or(using_params(mk_smt_tactic(), simplex_0), 
+                            using_params(mk_smt_tactic(), simplex_1), 
+                            using_params(mk_smt_tactic(), simplex_2));
+                            
+#endif
     return using_params(using_params(mk_smt_tactic(), pivot_p), p);
 }

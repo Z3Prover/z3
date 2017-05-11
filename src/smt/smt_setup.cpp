@@ -471,12 +471,16 @@ namespace smt {
         setup_r_arith();
     }
 
+    void setup::setup_QF_LIRA(static_features const& st) {
+        setup_mi_arith();
+    }
+
     void setup::setup_QF_LIA() {
         TRACE("setup", tout << "setup_QF_LIA(st)\n";);
         m_params.m_relevancy_lvl       = 0;
         m_params.m_arith_expand_eqs    = true;
         m_params.m_arith_reflect       = false; 
-        m_params.m_arith_propagate_eqs = false;
+        m_params.m_arith_propagate_eqs = false; 
         m_params.m_nnf_cnf             = false;
         setup_i_arith();
     }
@@ -721,8 +725,8 @@ namespace smt {
 
     void setup::setup_r_arith() {
         // to disable theory lra
-        m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));        
-        // m_context.register_plugin(alloc(smt::theory_lra, m_manager, m_params));
+        // m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));        
+        m_context.register_plugin(alloc(smt::theory_lra, m_manager, m_params));
     }
 
     void setup::setup_mi_arith() {
@@ -936,7 +940,9 @@ namespace smt {
         }
         
         if (st.num_theories() == 1 && is_arith(st)) {
-            if (st.m_has_real)
+            if (st.m_has_int && st.m_has_real) 
+                setup_QF_LIRA(st);
+            else if (st.m_has_real)
                 setup_QF_LRA(st);
             else
                 setup_QF_LIA(st);

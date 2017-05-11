@@ -65,6 +65,7 @@ namespace smt {
         void setup_QF_LRA();
         void setup_QF_LRA(static_features const & st);
         void setup_QF_LIA();
+        void setup_QF_LIRA(static_features const& st);
         void setup_QF_LIA(static_features const & st);
         void setup_QF_UFLIA();
         void setup_QF_UFLIA(static_features & st);
