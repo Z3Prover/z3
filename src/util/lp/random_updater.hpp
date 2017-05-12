@@ -136,7 +136,7 @@ void random_updater::shift_var(unsigned j, interval & r) {
 }
 
 numeric_pair<mpq> random_updater::get_random_from_interval(interval & r) {
-    unsigned rand = my_random();
+    unsigned rand = m_core_solver.settings().random_next();
     if ((!r.low_bound_is_set)  && (!r.upper_bound_is_set))
         return numeric_pair<mpq>(rand % range, 0);
     if (r.low_bound_is_set  && (!r.upper_bound_is_set))

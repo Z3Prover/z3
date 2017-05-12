@@ -67,15 +67,6 @@ int get_millisecond_span(int start_time) {
 
 
 
-void my_random_init(long unsigned seed) {
-    lp_settings::random_next = seed;   
-}
-
-unsigned my_random() {
-    lp_settings::random_next = lp_settings::random_next * 1103515245 + 12345;
-    return((unsigned)(lp_settings::random_next/65536) % 32768);
-}
-
 template <typename T>
 bool vectors_are_equal(T * a, vector<T>  &b, unsigned n) {
     if (numeric_traits<T>::precise()) {
@@ -126,7 +117,6 @@ bool vectors_are_equal(const vector<T> & a, const vector<T>  &b) {
     }
     return true;
 }
-unsigned long lp_settings::random_next = 1;
 #ifdef LEAN_DEBUG
 unsigned lp_settings::ddd = 0;
 #endif

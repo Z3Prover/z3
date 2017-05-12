@@ -367,7 +367,7 @@ public:
                       s.m_x[j] = s.m_low_bounds[j];
                       break;
                   case column_type::boxed:
-                      if (my_random() % 2) {
+                      if (settings().random_next() % 2) {
                           s.m_x[j] = s.m_low_bounds[j];
                       } else {
                           s.m_x[j] = s.m_upper_bounds[j];

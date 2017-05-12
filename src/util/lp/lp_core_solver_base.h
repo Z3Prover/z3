@@ -348,7 +348,7 @@ public:
             if (x_is_at_bound(j))
                 break; // we should preserve x if possible
             // snap randomly
-            if (my_random() % 2 == 1) 
+            if (m_settings.random_next() % 2 == 1) 
                 m_x[j] = m_low_bounds[j];
             else
                 m_x[j] = m_upper_bounds[j];
