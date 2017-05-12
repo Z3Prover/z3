@@ -605,13 +605,13 @@ void lu<T, X>::process_column(int j) {
     unsigned pi, pj;
     bool success = m_U.get_pivot_for_column(pi, pj, m_settings.c_partial_pivoting, j);
     if (!success) {
-        LP_OUT(m_settings, "get_pivot returned false: cannot find the pivot for column " << j << std::endl);
+        //        LP_OUT(m_settings, "get_pivot returned false: cannot find the pivot for column " << j << std::endl);
         m_failure = true;
         return;
     }
 
     if (static_cast<int>(pi) == -1) {
-        LP_OUT(m_settings, "cannot find the pivot for column " << j << std::endl);
+        // LP_OUT(m_settings, "cannot find the pivot for column " << j << std::endl);
         m_failure = true;
         return;
     }

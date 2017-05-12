@@ -253,7 +253,6 @@ public :
             if (str)
                 strict = true;
         }
-
         bound /= l_coeff;
         if (is_pos(l_coeff)) {
             limit_j(m_column_of_l, bound, true, false, strict);

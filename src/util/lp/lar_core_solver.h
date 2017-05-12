@@ -599,7 +599,7 @@ public:
         }
 
         if (no_r_lu()) { // it is the case where m_d_solver gives a degenerated basis, we need to roll back
-            std::cout << "no_r_lu" << std::endl;
+            //            std::cout << "no_r_lu" << std::endl;
             catch_up_in_lu_in_reverse(changes_of_basis, m_r_solver);
             m_r_solver.find_feasible_solution();
             m_d_basis = m_r_basis;
