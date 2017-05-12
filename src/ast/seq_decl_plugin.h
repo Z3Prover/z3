@@ -182,7 +182,11 @@ public:
 
     virtual bool is_value(app * e) const;
 
-    virtual bool is_unique_value(app * e) const { return is_value(e); }
+    virtual bool is_unique_value(app * e) const { return false; }
+
+    virtual bool are_equal(app* a, app* b) const;
+
+    virtual bool are_distinct(app* a, app* b) const;
 
     virtual expr * get_some_value(sort * s);
 

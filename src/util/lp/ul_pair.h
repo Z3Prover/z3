@@ -32,14 +32,14 @@ inline bool compare(const std::pair<mpq, var_index> & a, const std::pair<mpq, va
 }
 
 class ul_pair {
-    constraint_index m_low_bound_witness = static_cast<constraint_index>(-1);
-    constraint_index m_upper_bound_witness = static_cast<constraint_index>(-1);
+    constraint_index m_low_bound_witness;
+    constraint_index m_upper_bound_witness;
 public:
     constraint_index& low_bound_witness() {return m_low_bound_witness;}
     constraint_index low_bound_witness() const {return m_low_bound_witness;}
     constraint_index& upper_bound_witness() { return m_upper_bound_witness;}
     constraint_index upper_bound_witness() const {return m_upper_bound_witness;}
-    row_index m_i = static_cast<row_index>(-1);
+    row_index m_i;
     bool operator!=(const ul_pair & p) const {
         return !(*this == p);
     }
@@ -50,8 +50,15 @@ public:
             m_i == p.m_i;
     }
 	// empty constructor
-	ul_pair(){}
-    ul_pair(row_index ri) : m_i(ri) {}
+	ul_pair() :
+        m_low_bound_witness(static_cast<constraint_index>(-1)),
+        m_upper_bound_witness(static_cast<constraint_index>(-1)),
+        m_i(static_cast<row_index>(-1))
+{}
+    ul_pair(row_index ri) :
+        m_low_bound_witness(static_cast<constraint_index>(-1)),
+        m_upper_bound_witness(static_cast<constraint_index>(-1)),
+        m_i(ri) {}
     ul_pair(const ul_pair & o): m_low_bound_witness(o.m_low_bound_witness), m_upper_bound_witness(o.m_upper_bound_witness), m_i(o.m_i) {}
 };
 

@@ -26,8 +26,9 @@ namespace smt {
     class theory_lra : public theory, public theory_opt {
         class imp;
         imp* m_imp;
+
     public:
-        theory_lra(ast_manager& m, theory_arith_params& params);
+        theory_lra(ast_manager& m, theory_arith_params& ap);
         virtual ~theory_lra();
         virtual theory* mk_fresh(context* new_ctx);
         virtual char const* get_name() const { return "lra"; }

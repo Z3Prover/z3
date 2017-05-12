@@ -111,6 +111,7 @@ template <typename T, typename X>
 lu<T, X>::lu(static_matrix<T, X> const & A,
              vector<unsigned>& basis,
              lp_settings & settings):
+    m_status(LU_status::OK),
     m_dim(A.row_count()),
     m_A(A),
     m_Q(m_dim),
@@ -118,7 +119,9 @@ lu<T, X>::lu(static_matrix<T, X> const & A,
     m_r_wave(m_dim),
     m_U(A, basis), // create the square matrix that eventually will be factorized
     m_settings(settings),
-    m_row_eta_work_vector(A.row_count()){
+    m_failure(false),
+    m_row_eta_work_vector(A.row_count()),
+    m_refactor_counter(0) {
     lean_assert(!(numeric_traits<T>::precise() && settings.use_tableau()));
 #ifdef LEAN_DEBUG
     debug_test_of_basis(A, basis);
@@ -602,13 +605,13 @@ void lu<T, X>::process_column(int j) {
     unsigned pi, pj;
     bool success = m_U.get_pivot_for_column(pi, pj, m_settings.c_partial_pivoting, j);
     if (!success) {
-        LP_OUT(m_settings, "get_pivot returned false: cannot find the pivot for column " << j << std::endl);
+        //        LP_OUT(m_settings, "get_pivot returned false: cannot find the pivot for column " << j << std::endl);
         m_failure = true;
         return;
     }
 
     if (static_cast<int>(pi) == -1) {
-        LP_OUT(m_settings, "cannot find the pivot for column " << j << std::endl);
+        // LP_OUT(m_settings, "cannot find the pivot for column " << j << std::endl);
         m_failure = true;
         return;
     }

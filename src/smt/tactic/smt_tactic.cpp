@@ -21,6 +21,7 @@ Notes:
 #include"smt_kernel.h"
 #include"smt_params.h"
 #include"smt_params_helper.hpp"
+#include"lp_params.hpp"
 #include"rewriter_types.h"
 #include"filter_model_converter.h"
 #include"ast_util.h"
@@ -64,6 +65,10 @@ public:
         return m_params;
     }
 
+    params_ref & params() {
+        return m_params_ref;
+    }
+
     void updt_params_core(params_ref const & p) {
         m_candidate_models     = p.get_bool("candidate_models", false);
         m_fail_if_inconclusive = p.get_bool("fail_if_inconclusive", true);
@@ -73,6 +78,7 @@ public:
         TRACE("smt_tactic", tout << "updt_params: " << p << "\n";);
         updt_params_core(p);
         fparams().updt_params(p);
+        m_params_ref.copy(p);
         m_logic = p.get_sym(symbol("logic"), m_logic);
         if (m_logic != symbol::null && m_ctx) {
             m_ctx->set_logic(m_logic);
@@ -84,6 +90,7 @@ public:
         r.insert("candidate_models", CPK_BOOL, "(default: false) create candidate models even when quantifier or theory reasoning is incomplete.");
         r.insert("fail_if_inconclusive", CPK_BOOL, "(default: true) fail if found unsat (sat) for under (over) approximated goal.");
         smt_params_helper::collect_param_descrs(r);
+        lp_params::collect_param_descrs(r);
     }
 
 
@@ -112,10 +119,12 @@ public:
     struct scoped_init_ctx {
         smt_tactic & m_owner;
         smt_params   m_params; // smt-setup overwrites parameters depending on the current assertions.
+        params_ref   m_params_ref;
 
         scoped_init_ctx(smt_tactic & o, ast_manager & m):m_owner(o) {
             m_params = o.fparams();
-            smt::kernel * new_ctx = alloc(smt::kernel, m, m_params);
+            m_params_ref = o.params();
+            smt::kernel * new_ctx = alloc(smt::kernel, m, m_params, m_params_ref);
             TRACE("smt_tactic", tout << "logic: " << o.m_logic << "\n";);
             new_ctx->set_logic(o.m_logic);
             if (o.m_callback) {

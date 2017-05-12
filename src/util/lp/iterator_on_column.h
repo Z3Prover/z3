@@ -11,7 +11,7 @@ template <typename T, typename X>
 struct iterator_on_column:linear_combination_iterator<T> {
     const vector<column_cell>& m_column; // the offset in term coeffs
     const static_matrix<T, X> & m_A;
-    int m_i = -1; // the initial offset in the column
+    int m_i; // the initial offset in the column
     unsigned size() const { return m_column.size(); }
     iterator_on_column(const vector<column_cell>& column, const static_matrix<T,X> & A) // the offset in term coeffs
         :

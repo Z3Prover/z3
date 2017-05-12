@@ -83,7 +83,8 @@ template <typename T> void binary_heap_priority_queue<T>::remove(unsigned o) {
 template <typename T> binary_heap_priority_queue<T>::binary_heap_priority_queue(unsigned n) :
     m_priorities(n),
     m_heap(n + 1), // because the indexing for A starts from 1
-    m_heap_inverse(n, -1)
+    m_heap_inverse(n, -1),
+    m_heap_size(0)
 { }
 
 

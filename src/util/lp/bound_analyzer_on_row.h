@@ -18,12 +18,13 @@ namespace lean {
 class bound_analyzer_on_row {
     
     linear_combination_iterator<mpq> & m_it;
-    unsigned m_row_or_term_index;
-    int m_column_of_u = -1; // index of an unlimited from above monoid
-    // -1 means that such a value is not found, -2 means that at least two of such monoids were found
-    int m_column_of_l = -1; // index of an unlimited from below monoid
-    impq m_rs;
-    bound_propagator & m_bp;
+    bound_propagator &                 m_bp;
+    unsigned           m_row_or_term_index;
+    int                m_column_of_u; // index of an unlimited from above monoid
+                               // -1 means that such a value is not found, -2 means that at least two of such monoids were found
+    int                m_column_of_l; // index of an unlimited from below monoid
+    impq               m_rs;
+
 public :
     // constructor
     bound_analyzer_on_row(
@@ -34,9 +35,11 @@ public :
                           )
         :
         m_it(it),
+        m_bp(bp),
         m_row_or_term_index(row_or_term_index),
-        m_rs(rs),
-        m_bp(bp)
+        m_column_of_u(-1),
+        m_column_of_l(-1),
+        m_rs(rs)
     {}
 
 
@@ -250,7 +253,6 @@ public :
             if (str)
                 strict = true;
         }
-
         bound /= l_coeff;
         if (is_pos(l_coeff)) {
             limit_j(m_column_of_l, bound, true, false, strict);

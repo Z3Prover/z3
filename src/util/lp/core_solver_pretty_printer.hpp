@@ -23,6 +23,12 @@ core_solver_pretty_printer<T, X>::core_solver_pretty_printer(lp_core_solver_base
     m_rs(ncols(), zero_of_type<X>()),
     m_w_buff(core_solver.m_w),
     m_ed_buff(core_solver.m_ed) {
+    m_low_bounds_title = "low";
+    m_upp_bounds_title = "upp";
+    m_exact_norm_title = "exact cn";
+    m_approx_norm_title = "approx cn";
+    m_artificial_start = std::numeric_limits<unsigned>::max();
+
     m_column_widths.resize(core_solver.m_A.column_count(), 0),
     init_m_A_and_signs();
     init_costs();

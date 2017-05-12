@@ -22,8 +22,11 @@ lp_core_solver_base(static_matrix<T, X> & A,
                     const vector<column_type> & column_types,
                     const vector<X> & low_bound_values,
                     const vector<X> & upper_bound_values):
+    m_total_iterations(0),
+    m_iters_with_no_cost_growing(0),
     m_status(FEASIBLE),
     m_inf_set(A.column_count()),
+    m_using_infeas_costs(false),
     m_pivot_row_of_B_1(A.row_count()),
     m_pivot_row(A.column_count()),
     m_A(A),
@@ -45,7 +48,11 @@ lp_core_solver_base(static_matrix<T, X> & A,
     m_upper_bounds(upper_bound_values),
     m_column_norms(m_n()),
     m_copy_of_xB(m_m()),
-    m_steepest_edge_coefficients(A.column_count()) {
+    m_basis_sort_counter(0),
+    m_steepest_edge_coefficients(A.column_count()),
+    m_tracing_basis_changes(false),
+    m_pivoted_rows(nullptr),
+    m_look_for_feasible_solution_only(false) {
     lean_assert(bounds_for_boxed_are_set_correctly());    
     init();
     init_basis_heading_and_non_basic_columns_vector();
@@ -57,10 +64,9 @@ allocate_basis_heading() { // the rest of initilization will be handled by the f
     lean_assert(basis_heading_is_correct());
 }
 template <typename T, typename X> void lp_core_solver_base<T, X>::
-init() {
-    my_random_init(m_settings.random_seed);
+init() {    
     allocate_basis_heading();
-    if (!use_tableau())
+    if (m_settings.use_lu())
         init_factorization(m_factorization, m_A, m_basis, m_settings);
 }
 
@@ -527,13 +533,19 @@ update_basis_and_x(int entering, int leaving, X const & tt) {
             init_factorization(m_factorization, m_A, m_basis, m_settings);
             if (!find_x_by_solving()) {
                 restore_x(entering, tt);
-                lean_assert(!A_mult_x_is_off());
+                if(A_mult_x_is_off()) {
+                    m_status = FLOATING_POINT_ERROR;
+                    m_iters_with_no_cost_growing++;
+                    return false;
+                }
+                    
                 init_factorization(m_factorization, m_A, m_basis, m_settings);
                 m_iters_with_no_cost_growing++;
                 if (m_factorization->get_status() != LU_status::OK) {
                     std::stringstream s;
-                    s << "failing refactor on off_result for entering = " << entering << ", leaving = " << leaving << " total_iterations = " << total_iterations();
-                    throw_exception(s.str());
+                    //                    s << "failing refactor on off_result for entering = " << entering << ", leaving = " << leaving << " total_iterations = " << total_iterations();
+                    m_status = FLOATING_POINT_ERROR;
+                    return false;
                 }
                 return false;
             }

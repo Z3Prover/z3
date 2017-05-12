@@ -56,23 +56,27 @@ namespace lean {
         struct formula_constraint {
             lconstraint_kind m_kind;
             std::vector<std::pair<mpq, std::string>> m_coeffs;
-            mpq m_right_side = numeric_traits<mpq>::zero();
+            mpq m_right_side;
             void add_pair(mpq c, std::string name) {
                 m_coeffs.push_back(make_pair(c, name));
             }
+            formula_constraint() : m_right_side(numeric_traits<mpq>::zero()) {}
         };
 
         lisp_elem m_formula_lisp_elem;
 
         std::unordered_map<std::string, unsigned> m_name_to_var_index;
-        std::vector<formula_constraint> m_constraints;
-        std::string m_file_name;
-        std::ifstream m_file_stream;
-        std::string m_line;
-        bool m_is_OK = true;
-        unsigned m_line_number = 0;
-        smt_reader(std::string file_name): 
-            m_file_name(file_name), m_file_stream(file_name) {
+        std::vector<formula_constraint>           m_constraints;
+        bool                                      m_is_OK;
+        unsigned                                  m_line_number;
+        std::string                               m_file_name;
+        std::ifstream                             m_file_stream;
+        std::string                               m_line;
+        smt_reader(std::string file_name):
+            m_is_OK(true),
+            m_line_number(0),
+            m_file_name(file_name), 
+            m_file_stream(file_name) {
         }
 
         void set_error() {
@@ -364,7 +368,7 @@ namespace lean {
             if (it!= m_name_to_var_index.end())
                 return it->second;
 
-            unsigned ret= m_name_to_var_index.size();
+            unsigned ret = static_cast<unsigned>(m_name_to_var_index.size());
             m_name_to_var_index[s] = ret;
             return ret;
         }

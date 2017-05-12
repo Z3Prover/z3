@@ -11,6 +11,7 @@
 #include "util/lp/lp_primal_core_solver.hpp"
 #include "util/lp/lp_primal_core_solver_tableau.hpp"
 namespace lean {
+
 template void lp_primal_core_solver<double, double>::find_feasible_solution();
 template void lean::lp_primal_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::find_feasible_solution();
 
@@ -22,4 +23,5 @@ template void lean::lp_primal_core_solver<double, double>::clear_breakpoints();
 template bool lean::lp_primal_core_solver<lean::mpq, lean::mpq>::update_basis_and_x_tableau(int, int, lean::mpq const&);
 template bool lean::lp_primal_core_solver<double, double>::update_basis_and_x_tableau(int, int, double const&);
 template bool lean::lp_primal_core_solver<lean::mpq, lean::numeric_pair<lean::mpq> >::update_basis_and_x_tableau(int, int, lean::numeric_pair<lean::mpq> const&);
+
 }

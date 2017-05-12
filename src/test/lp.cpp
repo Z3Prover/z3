@@ -34,6 +34,10 @@ Author: Lev Nachmanson
 namespace lean {
 unsigned seed = 1;
 
+    random_gen g_rand;
+    static unsigned my_random() {
+        return g_rand();
+    }
 struct simple_column_namer:public column_namer
 {
     std::string get_column_name(unsigned j) const override {
@@ -1077,7 +1081,7 @@ bool get_double_from_args_parser(const char * option, argument_parser & args_par
 
 void update_settings(argument_parser & args_parser, lp_settings& settings) {
     unsigned n;
-    settings.m_simplex_strategy = simplex_strategy_enum::no_tableau;
+    settings.m_simplex_strategy = simplex_strategy_enum::lu;
     if (get_int_from_args_parser("--rep_frq", args_parser, n))
         settings.report_frequency = n;
     else
@@ -1104,7 +1108,7 @@ void update_settings(argument_parser & args_parser, lp_settings& settings) {
         settings.harris_feasibility_tolerance = d;
     }
     if (get_int_from_args_parser("--random_seed", args_parser, n)) {
-        settings.random_seed = n;
+        settings.random_seed(n);
     }
     if (get_int_from_args_parser("--simplex_strategy", args_parser, n)) {
         settings.simplex_strategy() = static_cast<simplex_strategy_enum>(n);

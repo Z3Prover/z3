@@ -32,21 +32,21 @@ class lp_primal_core_solver:public lp_core_solver_base<T, X> {
 public:
     // m_sign_of_entering is set to 1 if the entering variable needs
     // to grow and is set to -1  otherwise
-    unsigned m_column_norm_update_counter;
-    T m_enter_price_eps;
-    int m_sign_of_entering_delta;
+    unsigned       m_column_norm_update_counter;
+    T              m_enter_price_eps;
+    int            m_sign_of_entering_delta;
     vector<breakpoint<X>> m_breakpoints;
     binary_heap_priority_queue<X> m_breakpoint_indices_queue;
     indexed_vector<T> m_beta; // see Swietanowski working vector beta for column norms
-    T m_epsilon_of_reduced_cost = T(1)/T(10000000);
-    vector<T> m_costs_backup;
-    T m_converted_harris_eps;
-    unsigned m_inf_row_index_for_tableau;
-    bool m_bland_mode_tableau;
-    int_set m_left_basis_tableau;
-    unsigned m_bland_mode_threshold = 1000;
-    unsigned m_left_basis_repeated;
-    vector<unsigned> m_leaving_candidates;
+    T                 m_epsilon_of_reduced_cost;
+    vector<T>         m_costs_backup;
+    T                 m_converted_harris_eps;
+    unsigned          m_inf_row_index_for_tableau;
+    bool              m_bland_mode_tableau;
+    int_set           m_left_basis_tableau;
+    unsigned          m_bland_mode_threshold;
+    unsigned          m_left_basis_repeated;
+    vector<unsigned>  m_leaving_candidates;
     //    T m_converted_harris_eps = convert_struct<T, double>::convert(this->m_settings.harris_feasibility_tolerance);
     std::list<unsigned> m_non_basis_list;
     void sort_non_basis();
@@ -76,10 +76,10 @@ public:
     //             choices.clear();
     //             choices.push_back(i);
     //             len = row_len;
-    //             if (my_random() % 10) break;
+    //             if (m_settings.random_next() % 10) break;
     //         } else if (row_len == len) {
     //             choices.push_back(i);
-    //             if (my_random() % 10) break;
+    //             if (m_settings.random_next() % 10) break;
     //         }
     //     }
 
@@ -89,7 +89,7 @@ public:
     //     if (choices.size() == 1)
     //         return choices[0];
         
-    //     unsigned k = my_random() % choices.size();
+    //     unsigned k = this->m_settings.random_next() % choices.size();
     //     return choices[k];
     //     #endif
     // }
@@ -287,7 +287,7 @@ public:
                 choices.clear();
                 choices.push_back(&rc);
             } else if (damage == num_of_non_free_basics &&
-                       this->m_A.m_columns[j].size() <= len && (my_random() % 2)) {
+                       this->m_A.m_columns[j].size() <= len && (this->m_settings.random_next() % 2)) {
                 choices.push_back(&rc);
                 len = this->m_A.m_columns[j].size();
             }
@@ -299,7 +299,7 @@ public:
             return -1;
         }
         const row_cell<T>* rc = choices.size() == 1? choices[0] :
-            choices[my_random() % choices.size()];
+            choices[this->m_settings.random_next() % choices.size()];
 
         a_ent = rc->m_value;
         return rc->m_j;
@@ -423,7 +423,7 @@ public:
 
     void find_feasible_solution();
 
-    bool is_tiny() const {return this->m_m < 10 && this->m_n < 20;}
+    // bool is_tiny() const {return this->m_m < 10 && this->m_n < 20;}
 
     void one_iteration();
     void one_iteration_tableau();
@@ -905,7 +905,9 @@ public:
                                   column_type_array,
                                   low_bound_values,
                                   upper_bound_values),
-        m_beta(A.row_count()) {
+        m_beta(A.row_count()),
+        m_epsilon_of_reduced_cost(T(1)/T(10000000)),
+        m_bland_mode_threshold(1000) {
 
         if (!(numeric_traits<T>::precise())) {
             m_converted_harris_eps = convert_struct<T, double>::convert(this->m_settings.harris_feasibility_tolerance);

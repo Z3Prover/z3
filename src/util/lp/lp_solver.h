@@ -39,10 +39,10 @@ protected:
     T get_column_cost_value(unsigned j, column_info<T> * ci) const;
 public:
     unsigned m_total_iterations;
-    static_matrix<T, X>* m_A = nullptr; // this is the matrix of constraints
+    static_matrix<T, X>* m_A; // this is the matrix of constraints
     vector<T> m_b; // the right side vector
-    unsigned m_first_stage_iterations = 0;
-    unsigned m_second_stage_iterations = 0;
+    unsigned m_first_stage_iterations;
+    unsigned m_second_stage_iterations;
     std::unordered_map<unsigned, lp_constraint<T, X>> m_constraints;
     std::unordered_map<var_index, column_info<T>*> m_map_from_var_index_to_column_info;
     std::unordered_map<unsigned, std::unordered_map<unsigned, T> > m_A_values;
@@ -52,8 +52,8 @@ public:
     std::unordered_map<unsigned, unsigned> m_core_solver_columns_to_external_columns;
     vector<T> m_column_scale;
     std::unordered_map<unsigned, std::string>  m_name_map;
-    unsigned m_artificials = 0;
-    unsigned m_slacks = 0;
+    unsigned m_artificials;
+    unsigned m_slacks;
     vector<column_type> m_column_types;
     vector<T> m_costs;
     vector<T> m_x;
@@ -63,10 +63,17 @@ public:
     vector<int> m_heading;
 
 
-    lp_status m_status = lp_status::UNKNOWN;
+    lp_status m_status;
 
     lp_settings m_settings;
-    lp_solver() {}
+    lp_solver():
+        m_A(nullptr), // this is the matrix of constraints
+        m_first_stage_iterations (0),
+        m_second_stage_iterations (0),
+        m_artificials (0),
+        m_slacks (0),
+        m_status(lp_status::UNKNOWN)
+    {}
 
     unsigned row_count() const { return this->m_A->row_count(); }
 
@@ -231,14 +238,6 @@ protected:
     void print_statistics_on_A(std::ostream & out)  {
         out << "extended A[" << this->m_A->row_count() << "," << this->m_A->column_count() << "]" << std::endl;
     }
-
-    struct row_tighten_stats {
-        unsigned n_of_new_bounds = 0;
-        unsigned n_of_fixed = 0;
-        bool is_obsolete = false;
-    };
-    
-
 
 public:
     lp_settings & settings() { return m_settings;}

@@ -25,7 +25,7 @@ class lar_core_solver  {
     // to grow and is set to -1  otherwise
     int m_sign_of_entering_delta;
     vector<std::pair<mpq, unsigned>> m_infeasible_linear_combination;
-    int m_infeasible_sum_sign = 0; // todo: get rid of this field
+    int m_infeasible_sum_sign; // todo: get rid of this field
     vector<numeric_pair<mpq>> m_right_sides_dummy;
     vector<mpq> m_costs_dummy;
     vector<double> m_d_right_sides_dummy;
@@ -216,8 +216,6 @@ public:
 
     
     void pop(unsigned k) {
-        m_stacked_simplex_strategy.pop(k);
-        bool use_tableau = m_stacked_simplex_strategy() != simplex_strategy_enum::no_tableau;
         // rationals
         if (!settings().use_tableau()) 
             m_r_A.pop(k);
@@ -232,7 +230,7 @@ public:
         m_r_x.resize(m_r_A.column_count());
         m_r_solver.m_costs.resize(m_r_A.column_count());
         m_r_solver.m_d.resize(m_r_A.column_count());
-        if(!use_tableau)
+        if(!settings().use_tableau())
             pop_markowitz_counts(k);
         m_d_A.pop(k);
         if (m_d_solver.m_factorization != nullptr) {
@@ -242,13 +240,14 @@ public:
         
         m_d_x.resize(m_d_A.column_count());
         pop_basis(k);
-
+        m_stacked_simplex_strategy.pop(k);
+        settings().simplex_strategy() = m_stacked_simplex_strategy;
         lean_assert(m_r_solver.basis_heading_is_correct());
         lean_assert(!need_to_presolve_with_double_solver() || m_d_solver.basis_heading_is_correct());
     }
 
     bool need_to_presolve_with_double_solver() const {
-        return settings().presolve_with_double_solver_for_lar && !settings().use_tableau();
+        return settings().simplex_strategy() == simplex_strategy_enum::lu;
     }
 
     template <typename L>
@@ -368,7 +367,7 @@ public:
                       s.m_x[j] = s.m_low_bounds[j];
                       break;
                   case column_type::boxed:
-                      if (my_random() % 2) {
+                      if (settings().random_next() % 2) {
                           s.m_x[j] = s.m_low_bounds[j];
                       } else {
                           s.m_x[j] = s.m_upper_bounds[j];
@@ -600,7 +599,7 @@ public:
         }
 
         if (no_r_lu()) { // it is the case where m_d_solver gives a degenerated basis, we need to roll back
-            std::cout << "no_r_lu" << std::endl;
+            //            std::cout << "no_r_lu" << std::endl;
             catch_up_in_lu_in_reverse(changes_of_basis, m_r_solver);
             m_r_solver.find_feasible_solution();
             m_d_basis = m_r_basis;
@@ -774,8 +773,8 @@ public:
     }
 
     
-    mpq find_delta_for_strict_bounds() const{
-        mpq delta = numeric_traits<mpq>::one();
+    mpq find_delta_for_strict_bounds(const mpq & initial_delta) const{
+        mpq delta = initial_delta;
         for (unsigned j = 0; j < m_r_A.column_count(); j++ ) {
             if (low_bound_is_set(j))
                 update_delta(delta, m_r_low_bounds[j], m_r_x[j]);

@@ -7,12 +7,14 @@
 namespace lean {
 template <typename T>
 struct iterator_on_pivot_row:linear_combination_iterator<T> {
-    bool m_basis_returned = false;
+    bool m_basis_returned;
     const indexed_vector<T> & m_v;
     unsigned m_basis_j;
     iterator_on_indexed_vector<T> m_it;
     unsigned size() const { return m_it.size(); }
-    iterator_on_pivot_row(const indexed_vector<T> & v, unsigned basis_j) : m_v(v), m_basis_j(basis_j), m_it(v) {}
+    iterator_on_pivot_row(const indexed_vector<T> & v, unsigned basis_j) :
+        m_basis_returned(false),
+        m_v(v), m_basis_j(basis_j), m_it(v) {}
     bool next(T & a, unsigned & i) {
         if (m_basis_returned == false) {
             m_basis_returned = true;

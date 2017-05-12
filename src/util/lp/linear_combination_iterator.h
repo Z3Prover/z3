@@ -16,7 +16,7 @@ struct linear_combination_iterator {
 template <typename T>
 struct linear_combination_iterator_on_vector : linear_combination_iterator<T> {
     vector<std::pair<T, unsigned>> & m_vector;
-    int m_offset = 0;
+    int m_offset;
     bool next(T & a, unsigned & i) {
         if(m_offset >= m_vector.size())
             return false;
@@ -40,7 +40,10 @@ struct linear_combination_iterator_on_vector : linear_combination_iterator<T> {
     linear_combination_iterator<T> * clone() {
         return new linear_combination_iterator_on_vector(m_vector);
     }
-    linear_combination_iterator_on_vector(vector<std::pair<T, unsigned>> & vec): m_vector(vec) {}
+    linear_combination_iterator_on_vector(vector<std::pair<T, unsigned>> & vec):
+        m_vector(vec),
+        m_offset(0)
+    {}
     unsigned size() const { return m_vector.size(); }
 };
 

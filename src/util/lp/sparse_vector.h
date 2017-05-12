@@ -20,7 +20,7 @@ public:
     }
 #ifdef LEAN_DEBUG
     T operator[] (unsigned i) const {
-        for (auto t : m_data) {
+        for (auto &t : m_data) {
             if (t.first == i) return t.second;
         }
         return numeric_traits<T>::zero();
