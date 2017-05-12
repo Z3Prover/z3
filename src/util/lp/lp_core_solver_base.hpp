@@ -533,13 +533,19 @@ update_basis_and_x(int entering, int leaving, X const & tt) {
             init_factorization(m_factorization, m_A, m_basis, m_settings);
             if (!find_x_by_solving()) {
                 restore_x(entering, tt);
-                lean_assert(!A_mult_x_is_off());
+                if(A_mult_x_is_off()) {
+                    m_status = FLOATING_POINT_ERROR;
+                    m_iters_with_no_cost_growing++;
+                    return false;
+                }
+                    
                 init_factorization(m_factorization, m_A, m_basis, m_settings);
                 m_iters_with_no_cost_growing++;
                 if (m_factorization->get_status() != LU_status::OK) {
                     std::stringstream s;
-                    s << "failing refactor on off_result for entering = " << entering << ", leaving = " << leaving << " total_iterations = " << total_iterations();
-                    throw_exception(s.str());
+                    //                    s << "failing refactor on off_result for entering = " << entering << ", leaving = " << leaving << " total_iterations = " << total_iterations();
+                    m_status = FLOATING_POINT_ERROR;
+                    return false;
                 }
                 return false;
             }
