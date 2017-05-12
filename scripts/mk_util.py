@@ -2959,7 +2959,11 @@ def get_platform_toolset_str():
     if len(tokens) < 2:
         return default
     else:
-        return 'v' + tokens[0] + tokens[1]
+        if tokens[0] == "15": 
+            # Visual Studio 2017 reports 15.* but the PlatformToolsetVersion is 141
+            return "v141"
+        else:
+            return 'v' + tokens[0] + tokens[1]
 
 def mk_vs_proj_property_groups(f, name, target_ext, type):
     f.write('  <ItemGroup Label="ProjectConfigurations">\n')
