@@ -5552,8 +5552,8 @@ namespace smt {
                     for (; arg1_grdItor != groundedMap[arg1DeAlias].end(); arg1_grdItor++) {
                         std::vector<expr*> ndVec;
                         ndVec.insert(ndVec.end(), arg0_grdItor->first.begin(), arg0_grdItor->first.end());
-                        int arg0VecSize = arg0_grdItor->first.size();
-                        int arg1VecSize = arg1_grdItor->first.size();
+                        size_t arg0VecSize = arg0_grdItor->first.size();
+                        size_t arg1VecSize = arg1_grdItor->first.size();
                         if (arg0VecSize > 0 && arg1VecSize > 0 && u.str.is_string(arg0_grdItor->first[arg0VecSize - 1]) && u.str.is_string(arg1_grdItor->first[0])) {
                             ndVec.pop_back();
                             ndVec.push_back(mk_concat(arg0_grdItor->first[arg0VecSize - 1], arg1_grdItor->first[0]));
@@ -5645,8 +5645,8 @@ namespace smt {
     }
 
     bool theory_str::is_partial_in_grounded_concat(const std::vector<expr*> & strVec, const std::vector<expr*> & subStrVec) {
-        int strCnt = strVec.size();
-        int subStrCnt = subStrVec.size();
+        size_t strCnt = strVec.size();
+        size_t subStrCnt = subStrVec.size();
 
         if (strCnt == 0 || subStrCnt == 0) {
             return false;
@@ -5717,7 +5717,7 @@ namespace smt {
                 }
 
                 // tail nodes
-                int tailIdx = i + subStrCnt - 1;
+                size_t tailIdx = i + subStrCnt - 1;
                 zstring subStrTailVal;
                 if (u.str.is_string(subStrVec[subStrCnt - 1], subStrTailVal)) {
                     zstring strTailVal;
@@ -8251,7 +8251,7 @@ namespace smt {
                         }
                     }
                     if (lId == -1)
-                        lId = mLMap.size();
+                        lId = static_cast<int>(mLMap.size());
                     for (std::set<expr*>::iterator itor2 = nSet.begin(); itor2 != nSet.end(); itor2++) {
                         bool itorHasEqcValue = false;
                         get_eqc_value(*itor2, itorHasEqcValue);
@@ -8290,7 +8290,7 @@ namespace smt {
                         }
                     }
                     if (rId == -1)
-                        rId = mRMap.size();
+                        rId = static_cast<int>(mRMap.size());
                     for (itor2 = nSet.begin(); itor2 != nSet.end(); itor2++) {
                         bool rHasEqcValue = false;
                         get_eqc_value(*itor2, rHasEqcValue);
@@ -9182,7 +9182,7 @@ namespace smt {
         // ----------------------------------------------------------------------------------------
         int len = atoi(lenStr.encode().c_str());
         bool coverAll = false;
-        svector<int_vector> options;
+        vector<int_vector, true, long long> options;
         int_vector base;
 
         TRACE("str", tout
@@ -9234,9 +9234,9 @@ namespace smt {
         for (long long i = l; i < h; i++) {
             orList.push_back(m.mk_eq(val_indicator, mk_string(longlong_to_string(i).c_str()) ));
             if (m_params.m_AggressiveValueTesting) {
-                literal l = mk_eq(val_indicator, mk_string(longlong_to_string(i).c_str()), false);
-                ctx.mark_as_relevant(l);
-                ctx.force_phase(l);
+                literal lit = mk_eq(val_indicator, mk_string(longlong_to_string(i).c_str()), false);
+                ctx.mark_as_relevant(lit);
+                ctx.force_phase(lit);
             }
 
             zstring aStr = gen_val_string(len, options[i - l]);
