@@ -5914,8 +5914,14 @@ namespace smt {
         app * n2_curr = to_app(n2);
 
         // case 0: n1_curr is const string, n2_curr is const string
-        if (u.str.is_string(n1_curr) && u.str.is_string(n2_curr)) {
-            if (n1_curr != n2_curr) {
+        zstring n1_curr_str, n2_curr_str;
+        if (u.str.is_string(n1_curr, n1_curr_str) && u.str.is_string(n2_curr, n2_curr_str)) {
+            TRACE("str", tout << "checking string constants: n1=" << n1_curr_str << ", n2=" << n2_curr_str << std::endl;);
+            if (n1_curr_str == n2_curr_str) {
+                // TODO(mtrberzi) potential correction: if n1_curr != n2_curr,
+                // assert that these two terms are in fact equal, because they ought to be
+                return true;
+            } else {
                 return false;
             }
         }
