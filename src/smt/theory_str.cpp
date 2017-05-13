@@ -60,6 +60,7 @@ namespace smt {
         totalCacheAccessCount(0),
         cacheHitCount(0),
         cacheMissCount(0),
+        m_fresh_id(0),
         m_find(*this),
         m_trail_stack(*this)
     {
@@ -441,7 +442,12 @@ namespace smt {
     }
 
     app * theory_str::mk_fresh_const(char const* name, sort* s) {
-        return u.mk_skolem(symbol(name), 0, 0, s);
+        string_buffer<64> buffer;
+        buffer << name;
+        buffer << "!tmp";
+        buffer << m_fresh_id;
+        m_fresh_id++;
+        return u.mk_skolem(symbol(buffer.c_str()), 0, 0, s);
     }
 
 
