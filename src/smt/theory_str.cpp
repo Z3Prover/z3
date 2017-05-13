@@ -6870,7 +6870,7 @@ namespace smt {
                                 // easiest case. we will search within these bounds
                             } else if (upper_bound_exists && !lower_bound_exists) {
                                 // search between 0 and the upper bound
-                                v_lower_bound == rational::zero();
+                                v_lower_bound = rational::zero();
                             } else if (lower_bound_exists && !upper_bound_exists) {
                                 // check some finite portion of the search space
                                 v_upper_bound = v_lower_bound + rational(10);
@@ -7358,7 +7358,7 @@ namespace smt {
         const char* strOverlap = "!!TheoryStrOverlapAssumption!!";
         seq_util m_sequtil(get_manager());
         sort * s = get_manager().mk_bool_sort();
-        m_theoryStrOverlapAssumption_term = expr_ref(mk_fresh_const(strOverlap, s), get_manager());
+        m_theoryStrOverlapAssumption_term = expr_ref(get_manager().mk_fresh_const(strOverlap, s), get_manager());
         assumptions.push_back(get_manager().mk_not(m_theoryStrOverlapAssumption_term));
     }
 
