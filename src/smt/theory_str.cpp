@@ -60,6 +60,7 @@ namespace smt {
         totalCacheAccessCount(0),
         cacheHitCount(0),
         cacheMissCount(0),
+        m_fresh_id(0),
         m_find(*this),
         m_trail_stack(*this)
     {
@@ -441,7 +442,12 @@ namespace smt {
     }
 
     app * theory_str::mk_fresh_const(char const* name, sort* s) {
-        return u.mk_skolem(symbol(name), 0, 0, s);
+        string_buffer<64> buffer;
+        buffer << name;
+        buffer << "!tmp";
+        buffer << m_fresh_id;
+        m_fresh_id++;
+        return u.mk_skolem(symbol(buffer.c_str()), 0, 0, s);
     }
 
 
@@ -5908,8 +5914,14 @@ namespace smt {
         app * n2_curr = to_app(n2);
 
         // case 0: n1_curr is const string, n2_curr is const string
-        if (u.str.is_string(n1_curr) && u.str.is_string(n2_curr)) {
-            if (n1_curr != n2_curr) {
+        zstring n1_curr_str, n2_curr_str;
+        if (u.str.is_string(n1_curr, n1_curr_str) && u.str.is_string(n2_curr, n2_curr_str)) {
+            TRACE("str", tout << "checking string constants: n1=" << n1_curr_str << ", n2=" << n2_curr_str << std::endl;);
+            if (n1_curr_str == n2_curr_str) {
+                // TODO(mtrberzi) potential correction: if n1_curr != n2_curr,
+                // assert that these two terms are in fact equal, because they ought to be
+                return true;
+            } else {
                 return false;
             }
         }
@@ -6864,7 +6876,7 @@ namespace smt {
                                 // easiest case. we will search within these bounds
                             } else if (upper_bound_exists && !lower_bound_exists) {
                                 // search between 0 and the upper bound
-                                v_lower_bound == rational::zero();
+                                v_lower_bound = rational::zero();
                             } else if (lower_bound_exists && !upper_bound_exists) {
                                 // check some finite portion of the search space
                                 v_upper_bound = v_lower_bound + rational(10);
@@ -7352,7 +7364,7 @@ namespace smt {
         const char* strOverlap = "!!TheoryStrOverlapAssumption!!";
         seq_util m_sequtil(get_manager());
         sort * s = get_manager().mk_bool_sort();
-        m_theoryStrOverlapAssumption_term = expr_ref(mk_fresh_const(strOverlap, s), get_manager());
+        m_theoryStrOverlapAssumption_term = expr_ref(get_manager().mk_fresh_const(strOverlap, s), get_manager());
         assumptions.push_back(get_manager().mk_not(m_theoryStrOverlapAssumption_term));
     }
 
