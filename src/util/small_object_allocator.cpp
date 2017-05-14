@@ -68,7 +68,6 @@ void small_object_allocator::reset() {
 
 #define MASK ((1 << PTR_ALIGNMENT) - 1)
 
-#include <windows.h>
 
 void small_object_allocator::deallocate(size_t size, void * p) {
     if (size == 0) return;
