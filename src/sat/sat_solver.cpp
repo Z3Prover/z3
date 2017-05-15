@@ -97,6 +97,7 @@ namespace sat {
                 }
             }
         }
+
         //
         // register the extension before performing assignments.
         // the assignments may call back into the extension.

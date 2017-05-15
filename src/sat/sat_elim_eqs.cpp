@@ -78,7 +78,7 @@ namespace sat {
         clause_vector::iterator end = cs.end();
         for (; it != end; ++it) {
             clause & c     = *(*it);
-            TRACE("elim_eqs", tout << "processing: " << c << "\n";);
+            TRACE("sats", tout << "processing: " << c << "\n";);
             unsigned sz    = c.size();
             unsigned i;
             for (i = 0; i < sz; i++) {
@@ -101,7 +101,12 @@ namespace sat {
                 c[i] = norm(roots, c[i]);
             }
             std::sort(c.begin(), c.end());
-            TRACE("elim_eqs", tout << "after normalization/sorting: " << c << "\n";);
+            TRACE("sats", tout << "after normalization/sorting: " << c << "\n"; tout.flush(););
+            DEBUG_CODE({
+                for (unsigned i = 0; i < sz; i++) {
+                    CTRACE("sats", c[i] != norm(roots, c[i]), tout << c[i] << " " << norm(roots, c[i]) << "\n"; tout.flush(););
+                    SASSERT(c[i] == norm(roots, c[i]));
+                } });
             // remove duplicates, and check if it is a tautology
             literal l_prev = null_literal;
             unsigned j = 0;

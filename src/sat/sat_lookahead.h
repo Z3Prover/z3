@@ -723,9 +723,10 @@ namespace sat {
         void set_min(literal v, literal u) { m_dfs[v.index()].m_min = u; }
         void set_rank(literal v, unsigned r) { m_dfs[v.index()].m_rank = r; }
         void set_height(literal v, unsigned h) { m_dfs[v.index()].m_height = h; }
-        void set_parent(literal v, literal p) { TRACE("sat", tout << v << " <- " << p << "\n";); m_dfs[v.index()].m_parent = p; }
+        void set_parent(literal v, literal p) { TRACE("scc", tout << v << " <- " << p << "\n";); m_dfs[v.index()].m_parent = p; }
         void set_vcomp(literal v, literal u) { m_dfs[v.index()].m_vcomp = u; }
         void get_scc(literal v) {
+            TRACE("scc", tout << v << "\n";);
             set_parent(v, null_literal);
             activate_scc(v);
             do {
@@ -1065,7 +1066,9 @@ namespace sat {
                 for (; it != end; ++it) {
                     if (!it->is_binary_non_learned_clause())
                         continue;
-                    literal l2 = it->get_literal();
+                    literal l2 = it->get_literal();                    
+                    SASSERT(!m_s.was_eliminated(l.var()));
+                    SASSERT(!m_s.was_eliminated(l2.var()));
                     if (l.index() < l2.index()) 
                         add_binary(l, l2);
                 }
@@ -1100,6 +1103,7 @@ namespace sat {
                 attach_clause(*c1);
                 for (unsigned i = 0; i < c.size(); ++i) {
                     m_full_watches[(~c[i]).index()].push_back(c1);
+                    SASSERT(!m_s.was_eliminated(c[i].var()));
                 }
                 if (m_s.m_config.m_drat) m_drat.add(c, false);
             }
@@ -1906,6 +1910,12 @@ namespace sat {
                     if (p != null_literal && p.var() != v && !m_s.is_external(v) && !m_s.was_eliminated(v) && !m_s.was_eliminated(p.var())) {
                         to_elim.push_back(v);
                         roots[v] = p;
+                        SASSERT(get_parent(p) == p);
+                        set_parent(~p, ~p);
+                        SASSERT(get_parent(~p) == ~p);
+                        if (v == 5904 || v == 5903) {
+                            std::cout << lit << " " << p << "\n";
+                        }
                     }
                 }
                 IF_VERBOSE(1, verbose_stream() << "eliminate " << to_elim.size() << " variables\n";);

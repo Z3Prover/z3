@@ -207,11 +207,6 @@ namespace sat {
         }
         while (!m_sub_todo.empty());
 
-        if (!learned) {
-            // perform lookahead simplification
-            lookahead(s).simplify();
-        }
-
         bool vars_eliminated = m_num_elim_vars > m_old_num_elim_vars;
 
         if (m_need_cleanup) {
@@ -230,6 +225,12 @@ namespace sat {
 
         CASSERT("sat_solver", s.check_invariant());
         TRACE("after_simplifier", s.display(tout); tout << "model_converter:\n"; s.m_mc.display(tout););
+
+        if (!learned) {
+            // perform lookahead simplification
+            lookahead(s).simplify();
+        }
+
         finalize();
 
     }
