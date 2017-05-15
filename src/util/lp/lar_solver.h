@@ -30,6 +30,8 @@
 #include "util/lp/iterator_on_row.h"
 #include "util/lp/quick_xplain.h"
 #include "util/lp/conversion_helper.h"
+#include "util/lp/int_solver.h"
+
 namespace lean {
 
 class lar_solver : public column_namer {
@@ -256,88 +258,6 @@ public:
         }
     }
 
-    /*
-      void process_new_implied_evidence_for_low_bound(
-      implied_bound_explanation& implied_evidence, // not pushed yet
-      vector<bound_evidence> & bound_evidences,
-      std::unordered_map<unsigned, unsigned> & improved_low_bounds) {
-
-      unsigned existing_index;
-      if (try_get_val(improved_low_bounds, implied_evidence.m_j, existing_index)) {
-      // we are improving the existent bound
-      bound_evidences[existing_index] = fill_bound_evidence(implied_evidence);
-      } else {
-      improved_low_bounds[implied_evidence.m_j] = bound_evidences.size();
-      bound_evidences.push_back(fill_bound_evidence(implied_evidence));
-      }
-      }
-    
-      void fill_bound_evidence_on_term(implied_bound & ie, implied_bound& be) {
-      lean_assert(false);
-      }
-      void fill_implied_bound_on_row(implied_bound & ie, implied_bound& be) {
-      iterator_on_row<mpq> it(A_r().m_rows[ie.m_row_or_term_index]);
-      mpq a; unsigned j;
-      bool toggle = ie.m_coeff_before_j_is_pos;
-      if (!ie.m_is_low_bound)
-      toggle = !toggle;
-      while (it.next(a, j)) {
-      if (j == ie.m_j) continue;
-      const ul_pair & ul = m_vars_to_ul_pairs[j];
-            
-      if (is_neg(a)) { // so the monoid has a positive coeff on the right side
-      constraint_index witness = toggle ? ul.m_low_bound_witness : ul.m_upper_bound_witness;
-      lean_assert(is_valid(witness));
-      be.m_explanation.emplace_back(a, witness);
-      }
-      }
-      }
-    */
-    /*
-      implied_bound fill_implied_bound_for_low_bound(implied_bound& ie) {
-      implied_bound be(ie.m_j, ie.m_bound.y.is_zero() ? GE : GT, ie.m_bound.x);
-      if (is_term(ie.m_row_or_term_index)) {
-      fill_implied_bound_for_low_bound_on_term(ie, be);
-      }
-      else {
-      fill_implied_bound_for_low_bound_on_row(ie, be);
-      }
-      return be;
-      }
-
-      implied_bound fill_implied_bound_for_upper_bound(implied_bound& implied_evidence) {
-      lean_assert(false);
-        
-      be.m_j = implied_evidence.m_j;
-      be.m_bound = implied_evidence.m_bound.x;
-      be.m_kind = implied_evidence.m_bound.y.is_zero() ? LE : LT;
-      for (auto t : implied_evidence.m_vector_of_bound_signatures) {
-      const ul_pair & ul = m_vars_to_ul_pairs[t.m_column_index];
-      constraint_index witness = t.m_low_bound ? ul.m_low_bound_witness : ul.m_upper_bound_witness;
-      lean_assert(is_valid(witness));
-      be.m_explanation.emplace_back(t.m_coeff, witness);
-      }
-        
-      }
-    */
-    /*
-      void process_new_implied_evidence_for_upper_bound(
-      implied_bound& implied_evidence, 
-      vector<implied_bound> & implied_bounds,
-      std::unordered_map<unsigned, unsigned> & improved_upper_bounds) {
-      unsigned existing_index;
-      if (try_get_val(improved_upper_bounds, implied_evidence.m_j, existing_index)) {
-      implied_bound & be = implied_bounds[existing_index];
-      be.m_explanation.clear();
-      // we are improving the existent bound improve the existing bound
-      be = fill_implied_bound_for_upper_bound(implied_evidence);
-      } else {
-      improved_upper_bounds[implied_evidence.m_j] = implied_bounds.size();
-      implied_bounds.push_back(fill_implied_bound_for_upper_bound(implied_evidence));
-      }
-      }
-    */
-    //    implied_bound * get_existing_
   
     linear_combination_iterator<mpq> * create_new_iter_from_term(unsigned term_index) const {
         lean_assert(false); // not implemented
