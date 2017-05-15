@@ -251,18 +251,15 @@ namespace sat {
         void del_binary(unsigned idx) {
             // TRACE("sat", display(tout << "Delete " << to_literal(idx) << "\n"););
             literal_vector & lits = m_binary[idx];
-            if (lits.empty()) IF_VERBOSE(0, verbose_stream() << "empty literals\n";);
+            SASSERT(!lits.empty());
             literal l = lits.back();			
-            lits.pop_back();
-            if (m_binary[(~l).index()].back() != ~to_literal(idx)) {
-                IF_VERBOSE(0, verbose_stream() << "pop bad literal: " << idx << " " << (~l).index() << "\n";);
-            }
-            if (m_binary[(~l).index()].empty())
-                IF_VERBOSE(0, verbose_stream() << "empty binary\n";);
+            lits.pop_back();            
+            SASSERT(!m_binary[(~l).index()].empty());
+            IF_VERBOSE(0, if (m_binary[(~l).index()].back() != ~to_literal(idx)) verbose_stream() << "pop bad literal: " << idx << " " << (~l).index() << "\n";);
+            SASSERT(m_binary[(~l).index()].back() == ~to_literal(idx));
             m_binary[(~l).index()].pop_back();
             ++m_stats.m_del_binary;
         }
-
 
         void validate_binary(literal l1, literal l2) {
             if (m_search_mode == lookahead_mode::searching) {
@@ -1856,6 +1853,9 @@ namespace sat {
             return search();
         }
 
+        /**
+           \brief simplify set of clauses by extracting units from a lookahead at base level.
+         */
         void simplify() {
             SASSERT(m_prefix == 0);
             SASSERT(m_watches.empty());
@@ -1875,12 +1875,38 @@ namespace sat {
                     ++num_units;
                 }
             }
-            IF_VERBOSE(1, verbose_stream() << "units found: " << num_units << "\n";);
+            IF_VERBOSE(1, verbose_stream() << "(sat-lookahead :units " << num_units << ")\n";);
             
             m_s.m_simplifier.subsume();
             m_lookahead.reset();
         }
 
+        //
+        // there can be two sets of equivalence classes.
+        // example:
+        // a -> !b
+        // b -> !a
+        // c -> !a
+        // we pick as root the Boolean variable with the largest value.
+        // 
+        literal get_root(bool_var v) {
+            literal lit(v, false);
+            literal r1 = get_parent(lit);
+            literal r2 = get_parent(literal(r1.var(), false));
+            CTRACE("sat", r1 != get_parent(literal(r2.var(), false)), 
+                   tout << r1 << " " << r2 << "\n";);
+            SASSERT(r1.var() == get_parent(literal(r2.var(), false)).var());
+            if (r1.var() >= r2.var()) {
+                return r1;
+            }
+            else {
+                return r1.sign() ? ~r2 : r2;
+            }
+        }
+
+        /**
+           \brief extract equivalence classes of variables and simplify clauses using these.
+        */
         void scc() {
             SASSERT(m_prefix == 0);
             SASSERT(m_watches.empty());
@@ -1901,14 +1927,13 @@ namespace sat {
                 }
                 for (unsigned i = 0; i < m_candidates.size(); ++i) {
                     bool_var v = m_candidates[i].m_var;
-                    literal lit = literal(v, false);
-                    literal p = get_parent(lit);
+                    literal p = get_root(v);
                     if (p != null_literal && p.var() != v && !m_s.is_external(v) && !m_s.was_eliminated(v) && !m_s.was_eliminated(p.var())) {
                         to_elim.push_back(v);
                         roots[v] = p;
                     }
                 }
-                IF_VERBOSE(1, verbose_stream() << "eliminate " << to_elim.size() << " variables\n";);
+                IF_VERBOSE(1, verbose_stream() << "(sat-lookahead :equivalences " << to_elim.size() << ")\n";);
                 elim_eqs elim(m_s);
                 elim(roots, to_elim);
             }

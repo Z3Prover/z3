@@ -1341,7 +1341,11 @@ namespace sat {
             CASSERT("sat_simplify_bug", check_invariant());
         }
 
-        lookahead(*this).scc();
+        if (m_config.m_lookahead_simplify) {
+            lookahead lh(*this);
+            lh.scc();
+            lh.collect_statistics(m_aux_stats);
+        }
 
         sort_watch_lits();
         CASSERT("sat_simplify_bug", check_invariant());

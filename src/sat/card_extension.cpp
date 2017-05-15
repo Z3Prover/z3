@@ -482,7 +482,7 @@ namespace sat {
         }
     }
 
-    void card_extension::display(std::ostream& out, pb& p, bool values) const {
+    void card_extension::display(std::ostream& out, pb const& p, bool values) const {
         out << p.lit() << "[" << p.size() << "]";
         if (p.lit() != null_literal && values) {
             out << "@(" << value(p.lit());
@@ -835,8 +835,9 @@ namespace sat {
 
 
     bool card_extension::resolve_conflict() {        
-        if (0 == m_num_propagations_since_pop) 
+        if (0 == m_num_propagations_since_pop) {
             return false;
+        }
         reset_coeffs();
         m_num_marks = 0;
         m_bound = 0;
@@ -941,6 +942,7 @@ namespace sat {
                     m_bound += offset;
                     inc_coeff(consequent, offset);
                     get_pb_antecedents(consequent, p, m_lemma);
+                    TRACE("sat", tout << m_lemma << "\n";);
                     for (unsigned i = 0; i < m_lemma.size(); ++i) {
                         process_antecedent(~m_lemma[i], offset);
                     }
@@ -1187,6 +1189,7 @@ namespace sat {
 
     void card_extension::add_at_least(bool_var v, literal_vector const& lits, unsigned k) {
         unsigned index = 4*m_cards.size();
+        SASSERT(is_card_index(index));
         literal lit = v == null_bool_var ? null_literal : literal(v, false);
         card* c = new (memory::allocate(card::get_obj_size(lits.size()))) card(index, lit, lits, k);
         m_cards.push_back(c);
@@ -1203,7 +1206,8 @@ namespace sat {
     }
 
     void card_extension::add_pb_ge(bool_var v, svector<wliteral> const& wlits, unsigned k) {
-        unsigned index = 4*m_pbs.size() + 0x11;
+        unsigned index = 4*m_pbs.size() + 0x3;
+        SASSERT(is_pb_index(index));
         literal lit = v == null_bool_var ? null_literal : literal(v, false);
         pb* p = new (memory::allocate(pb::get_obj_size(wlits.size()))) pb(index, lit, wlits, k);
         m_pbs.push_back(p);
@@ -1221,7 +1225,8 @@ namespace sat {
 
     void card_extension::add_xor(bool_var v, literal_vector const& lits) {
         m_has_xor = true;
-        unsigned index = 4*m_xors.size() + 0x01;
+        unsigned index = 4*m_xors.size() + 0x1;
+        SASSERT(is_xor_index(index));
         xor* x = new (memory::allocate(xor::get_obj_size(lits.size()))) xor(index, literal(v, false), lits);
         m_xors.push_back(x);
         init_watch(v);
@@ -1358,46 +1363,50 @@ namespace sat {
         SASSERT(max_sum < k);
     }
 
+    void card_extension::get_card_antecedents(literal l, card const& c, literal_vector& r) {
+        DEBUG_CODE(
+            bool found = false;
+            for (unsigned i = 0; !found && i < c.k(); ++i) {
+                found = c[i] == l;
+            }
+            SASSERT(found););
+        
+        if (c.lit() != null_literal) r.push_back(c.lit());
+        SASSERT(c.lit() == null_literal || value(c.lit()) == l_true);
+        for (unsigned i = c.k(); i < c.size(); ++i) {
+            SASSERT(value(c[i]) == l_false);
+            r.push_back(~c[i]);
+        }
+    }
+
+    void card_extension::get_xor_antecedents(literal l, xor const& x, literal_vector& r) {
+        if (x.lit() != null_literal) r.push_back(x.lit());
+        // TRACE("sat", display(tout << l << " ", x, true););
+        SASSERT(x.lit() == null_literal || value(x.lit()) == l_true);
+        SASSERT(x[0].var() == l.var() || x[1].var() == l.var());
+        if (x[0].var() == l.var()) {
+            SASSERT(value(x[1]) != l_undef);
+            r.push_back(value(x[1]) == l_true ? x[1] : ~x[1]);                
+        }
+        else {
+            SASSERT(value(x[0]) != l_undef);
+            r.push_back(value(x[0]) == l_true ? x[0] : ~x[0]);                
+        }
+        for (unsigned i = 2; i < x.size(); ++i) {
+            SASSERT(value(x[i]) != l_undef);
+            r.push_back(value(x[i]) == l_true ? x[i] : ~x[i]);                
+        }
+    }
+
     void card_extension::get_antecedents(literal l, ext_justification_idx idx, literal_vector & r) {
         if (is_card_index(idx)) {
-            card& c = index2card(idx);
-        
-            DEBUG_CODE(
-                bool found = false;
-                for (unsigned i = 0; !found && i < c.k(); ++i) {
-                    found = c[i] == l;
-                }
-                SASSERT(found););
-            
-            if (c.lit() != null_literal) r.push_back(c.lit());
-            SASSERT(c.lit() == null_literal || value(c.lit()) == l_true);
-            for (unsigned i = c.k(); i < c.size(); ++i) {
-                SASSERT(value(c[i]) == l_false);
-                r.push_back(~c[i]);
-            }
+            get_card_antecedents(l, index2card(idx), r);
         }
         else if (is_xor_index(idx)) {
-            xor& x = index2xor(idx);
-            if (x.lit() != null_literal) r.push_back(x.lit());
-            TRACE("sat", display(tout << l << " ", x, true););
-            SASSERT(x.lit() == null_literal || value(x.lit()) == l_true);
-            SASSERT(x[0].var() == l.var() || x[1].var() == l.var());
-            if (x[0].var() == l.var()) {
-                SASSERT(value(x[1]) != l_undef);
-                r.push_back(value(x[1]) == l_true ? x[1] : ~x[1]);                
-            }
-            else {
-                SASSERT(value(x[0]) != l_undef);
-                r.push_back(value(x[0]) == l_true ? x[0] : ~x[0]);                
-            }
-            for (unsigned i = 2; i < x.size(); ++i) {
-                SASSERT(value(x[i]) != l_undef);
-                r.push_back(value(x[i]) == l_true ? x[i] : ~x[i]);                
-            }
+            get_xor_antecedents(l, index2xor(idx), r);
         }
         else if (is_pb_index(idx)) {
-            pb const& p = index2pb(idx);
-            get_pb_antecedents(l, p, r);
+            get_pb_antecedents(l, index2pb(idx), r);
         }
         else {
             UNREACHABLE();
@@ -1635,7 +1644,7 @@ namespace sat {
         out << ">= " << ineq.m_k << "\n";
     }
 
-    void card_extension::display(std::ostream& out, xor& x, bool values) const {
+    void card_extension::display(std::ostream& out, xor const& x, bool values) const {
         out << "xor " << x.lit();
         if (x.lit() != null_literal && values) {
             out << "@(" << value(x.lit());
@@ -1664,7 +1673,7 @@ namespace sat {
         out << "\n";
     }
 
-    void card_extension::display(std::ostream& out, card& c, bool values) const {
+    void card_extension::display(std::ostream& out, card const& c, bool values) const {
         out << c.lit() << "[" << c.size() << "]";
         if (c.lit() != null_literal && values) {
             out << "@(" << value(c.lit());
@@ -1728,10 +1737,7 @@ namespace sat {
             pb& p = index2pb(idx);
             out << "pb " << p.lit() << ": ";
             for (unsigned i = 0; i < p.size(); ++i) {
-                if (p[i].first != 1) {
-                    out << p[i].first << " ";
-                }
-                out << p[i].second << " ";
+                out << p[i].first << "*" << p[i].second << " ";
             }
             out << ">= " << p.k();
         }

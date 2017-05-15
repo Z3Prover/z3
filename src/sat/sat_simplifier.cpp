@@ -207,10 +207,6 @@ namespace sat {
         }
         while (!m_sub_todo.empty());
 
-        if (!learned) {
-            // perform lookahead simplification
-            lookahead(s).simplify();
-        }
 
         bool vars_eliminated = m_num_elim_vars > m_old_num_elim_vars;
 
@@ -226,6 +222,13 @@ namespace sat {
                 // must remove learned clauses with eliminated variables
                 cleanup_clauses(s.m_learned, true, true, m_learned_in_use_lists);
             }
+        }
+
+        if (!learned && s.m_config.m_lookahead_simplify) {
+            // perform lookahead simplification
+            lookahead lh(s);
+            lh.simplify();
+            lh.collect_statistics(s.m_aux_stats);
         }
 
         CASSERT("sat_solver", s.check_invariant());
