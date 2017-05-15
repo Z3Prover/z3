@@ -223,6 +223,13 @@ namespace sat {
             }
         }
 
+        if (!learned && s.m_config.m_lookahead_simplify) {
+            // perform lookahead simplification
+            lookahead lh(s);
+            lh.simplify();
+            lh.collect_statistics(s.m_aux_stats);
+        }
+
         CASSERT("sat_solver", s.check_invariant());
         TRACE("after_simplifier", s.display(tout); tout << "model_converter:\n"; s.m_mc.display(tout););
 

@@ -74,7 +74,7 @@ namespace sat {
             unsigned       m_max_sum;
             wliteral       m_wlits[0];
         public:
-            static size_t get_obj_size(unsigned num_lits) { return sizeof(card) + num_lits * sizeof(wliteral); }
+            static size_t get_obj_size(unsigned num_lits) { return sizeof(pb) + num_lits * sizeof(wliteral); }
             pb(unsigned index, literal lit, svector<wliteral> const& wlits, unsigned k);
             unsigned index() const { return m_index; }
             literal lit() const { return m_lit; }
@@ -205,6 +205,8 @@ namespace sat {
         void reset_coeffs();
         void reset_marked_literals();
         void unwatch_literal(literal w, card* c);
+        void get_card_antecedents(literal l, card const& c, literal_vector & r);
+
 
         // xor specific functionality
         void copy_xor(card_extension& result);
@@ -218,13 +220,14 @@ namespace sat {
         lbool add_assign(xor& x, literal alit);
         void asserted_xor(literal l, ptr_vector<xor>* xors, xor* x);
         void get_xor_antecedents(literal l, unsigned index, justification js, literal_vector& r);
+        void get_xor_antecedents(literal l, xor const& x, literal_vector & r);
 
 
-        bool is_card_index(unsigned idx) const { return 0x00 == (idx & 0x11); }
-        bool is_xor_index(unsigned idx) const { return 0x01 == (idx & 0x11); }
-        bool is_pb_index(unsigned idx) const { return 0x11 == (idx & 0x11); }
+        bool is_card_index(unsigned idx) const { return 0x0 == (idx & 0x3); }
+        bool is_xor_index(unsigned idx) const { return 0x1 == (idx & 0x3); }
+        bool is_pb_index(unsigned idx) const { return 0x3 == (idx & 0x3); }
         card& index2card(unsigned idx) const { SASSERT(is_card_index(idx)); return *m_cards[idx >> 2]; }
-        xor& index2xor(unsigned idx) const { SASSERT(!is_card_index(idx)); return *m_xors[idx >> 2]; }
+        xor& index2xor(unsigned idx) const { SASSERT(is_xor_index(idx)); return *m_xors[idx >> 2]; }
         pb&  index2pb(unsigned idx) const { SASSERT(is_pb_index(idx)); return *m_pbs[idx >> 2]; }
 
 
@@ -285,9 +288,9 @@ namespace sat {
         bool validate_resolvent();
 
         void display(std::ostream& out, ineq& p) const;
-        void display(std::ostream& out, card& c, bool values) const;
-        void display(std::ostream& out, pb& p, bool values) const;
-        void display(std::ostream& out, xor& c, bool values) const;
+        void display(std::ostream& out, card const& c, bool values) const;
+        void display(std::ostream& out, pb const& p, bool values) const;
+        void display(std::ostream& out, xor const& c, bool values) const;
         void display_watch(std::ostream& out, bool_var v) const;
         void display_watch(std::ostream& out, bool_var v, bool sign) const;
 
