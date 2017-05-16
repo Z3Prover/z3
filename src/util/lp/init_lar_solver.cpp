@@ -2,14 +2,15 @@
   Copyright (c) 2017 Microsoft Corporation
   Author: Lev Nachmanson
 */
+#include "util/lp/lar_solver.h"
 
-// here we are inside lean::lar_solver class
+namespace lean {
 
-bool strategy_is_undecided() const {
+bool lar_solver::strategy_is_undecided() const {
     return m_settings.simplex_strategy() == simplex_strategy_enum::undecided;
 }
 
-var_index add_var(unsigned ext_j) {
+var_index lar_solver::add_var(unsigned ext_j) {
     var_index i;
     lean_assert (ext_j < m_terms_start_index); 
 
@@ -27,7 +28,7 @@ var_index add_var(unsigned ext_j) {
     return i;
 }
 
-void register_new_ext_var_index(unsigned ext_v) {
+void lar_solver::register_new_ext_var_index(unsigned ext_v) {
     lean_assert(!contains(m_ext_vars_to_columns, ext_v));
     unsigned j = static_cast<unsigned>(m_ext_vars_to_columns.size());
     m_ext_vars_to_columns[ext_v] = j;
@@ -35,7 +36,7 @@ void register_new_ext_var_index(unsigned ext_v) {
     m_columns_to_ext_vars_or_term_indices.push_back(ext_v);
 }
 
-void add_non_basic_var_to_core_fields(unsigned ext_j) {
+void lar_solver::add_non_basic_var_to_core_fields(unsigned ext_j) {
     register_new_ext_var_index(ext_j);
     m_mpq_lar_core_solver.m_column_types.push_back(column_type::free_column);
     m_columns_with_changed_bound.increase_size_by_one();
@@ -44,7 +45,7 @@ void add_non_basic_var_to_core_fields(unsigned ext_j) {
         add_new_var_to_core_fields_for_doubles(false);
 }
 
-void add_new_var_to_core_fields_for_doubles(bool register_in_basis) {
+void lar_solver::add_new_var_to_core_fields_for_doubles(bool register_in_basis) {
     unsigned j = A_d().column_count();
     A_d().add_column();
     lean_assert(m_mpq_lar_core_solver.m_d_x.size() == j);
@@ -63,7 +64,7 @@ void add_new_var_to_core_fields_for_doubles(bool register_in_basis) {
     }
 }
 
-void add_new_var_to_core_fields_for_mpq(bool register_in_basis) {
+void lar_solver::add_new_var_to_core_fields_for_mpq(bool register_in_basis) {
     unsigned j = A_r().column_count();
     A_r().add_column();
     lean_assert(m_mpq_lar_core_solver.m_r_x.size() == j);
@@ -88,7 +89,7 @@ void add_new_var_to_core_fields_for_mpq(bool register_in_basis) {
 }
 
 
-var_index add_term_undecided(const vector<std::pair<mpq, var_index>> & coeffs,
+var_index lar_solver::add_term_undecided(const vector<std::pair<mpq, var_index>> & coeffs,
                              const mpq &m_v) {
     m_terms.push_back(new lar_term(coeffs, m_v));
     m_orig_terms.push_back(new lar_term(coeffs, m_v));
@@ -96,7 +97,7 @@ var_index add_term_undecided(const vector<std::pair<mpq, var_index>> & coeffs,
 }
 
 // terms
-var_index add_term(const vector<std::pair<mpq, var_index>> & coeffs,
+var_index lar_solver::add_term(const vector<std::pair<mpq, var_index>> & coeffs,
                    const mpq &m_v) {
     if (strategy_is_undecided())
         return add_term_undecided(coeffs, m_v);
@@ -114,13 +115,13 @@ var_index add_term(const vector<std::pair<mpq, var_index>> & coeffs,
     return ret;
 }
 
-void add_row_for_term(const lar_term * term, unsigned term_ext_index) {
+void lar_solver::add_row_for_term(const lar_term * term, unsigned term_ext_index) {
     lean_assert(sizes_are_correct());
     add_row_from_term_no_constraint(term, term_ext_index);
     lean_assert(sizes_are_correct());
 }
 
-void add_row_from_term_no_constraint(const lar_term * term, unsigned term_ext_index) {
+void lar_solver::add_row_from_term_no_constraint(const lar_term * term, unsigned term_ext_index) {
     register_new_ext_var_index(term_ext_index);
     // j will be a new variable
 	unsigned j = A_r().column_count();
@@ -140,7 +141,7 @@ void add_row_from_term_no_constraint(const lar_term * term, unsigned term_ext_in
         fill_last_row_of_A_d(A_d(), term);
 }
 
-void add_basic_var_to_core_fields() {
+void lar_solver::add_basic_var_to_core_fields() {
     bool use_lu = m_mpq_lar_core_solver.need_to_presolve_with_double_solver();
     lean_assert(!use_lu || A_r().column_count() == A_d().column_count());
     m_mpq_lar_core_solver.m_column_types.push_back(column_type::free_column);
@@ -151,7 +152,7 @@ void add_basic_var_to_core_fields() {
         add_new_var_to_core_fields_for_doubles(true);
 }
 
-constraint_index add_var_bound(var_index j, lconstraint_kind kind, const mpq & right_side)  {
+constraint_index lar_solver::add_var_bound(var_index j, lconstraint_kind kind, const mpq & right_side)  {
 	constraint_index ci = m_constraints.size();
     if (!is_term(j)) { // j is a var
         auto vc = new lar_var_constraint(j, kind, right_side);
@@ -164,7 +165,7 @@ constraint_index add_var_bound(var_index j, lconstraint_kind kind, const mpq & r
     return ci;
 }
 
-void update_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index) {
+void lar_solver::update_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index) {
     switch(m_mpq_lar_core_solver.m_column_types[j]) {
     case column_type::free_column:
         update_free_column_type_and_bound(j, kind, right_side, constr_index);
@@ -186,7 +187,7 @@ void update_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq 
     }
 }
 
-void add_var_bound_on_constraint_for_term(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci) {
+void lar_solver::add_var_bound_on_constraint_for_term(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci) {
     lean_assert(is_term(j));
     unsigned adjusted_term_index = adjust_term_index(j);
     unsigned term_j;
@@ -201,7 +202,7 @@ void add_var_bound_on_constraint_for_term(var_index j, lconstraint_kind kind, co
 }
 
 
-void add_constraint_from_term_and_create_new_column_row(unsigned term_j, const lar_term* term,
+void lar_solver::add_constraint_from_term_and_create_new_column_row(unsigned term_j, const lar_term* term,
                                                         lconstraint_kind kind, const mpq & right_side) {
 
     add_row_from_term_no_constraint(term, term_j);
@@ -211,7 +212,7 @@ void add_constraint_from_term_and_create_new_column_row(unsigned term_j, const l
     lean_assert(A_r().column_count() == m_mpq_lar_core_solver.m_r_solver.m_costs.size());
 }
 
-void decide_on_strategy_and_adjust_initial_state() {
+void lar_solver::decide_on_strategy_and_adjust_initial_state() {
 	lean_assert(strategy_is_undecided());
 	if (m_vars_to_ul_pairs.size() > m_settings.column_number_threshold_for_using_lu_in_lar_solver) {
         m_settings.simplex_strategy() = simplex_strategy_enum::lu;
@@ -221,7 +222,7 @@ void decide_on_strategy_and_adjust_initial_state() {
     adjust_initial_state();
 }
 
-void adjust_initial_state() {
+void lar_solver::adjust_initial_state() {
     switch (m_settings.simplex_strategy()) {
     case simplex_strategy_enum::lu:
         adjust_initial_state_for_lu();
@@ -237,7 +238,7 @@ void adjust_initial_state() {
     }
 }
 
-void adjust_initial_state_for_lu() {
+void lar_solver::adjust_initial_state_for_lu() {
     copy_from_mpq_matrix(A_d());
 	unsigned n = A_d().column_count();
 	m_mpq_lar_core_solver.m_d_x.resize(n);
@@ -265,7 +266,7 @@ void adjust_initial_state_for_lu() {
         }*/
 }
 
-void adjust_initial_state_for_tableau_rows() {
+void lar_solver::adjust_initial_state_for_tableau_rows() {
     for (unsigned j = 0; j < m_terms.size(); j++) {
         if (contains(m_ext_vars_to_columns, j + m_terms_start_index))
             continue;
@@ -274,7 +275,7 @@ void adjust_initial_state_for_tableau_rows() {
 }
 
 // this fills the last row of A_d and sets the basis column: -1 in the last column of the row
-void fill_last_row_of_A_d(static_matrix<double, double> & A, const lar_term* ls) {
+void lar_solver::fill_last_row_of_A_d(static_matrix<double, double> & A, const lar_term* ls) {
     lean_assert(A.row_count() > 0);
     lean_assert(A.column_count() > 0);
     unsigned last_row = A.row_count() - 1;
@@ -290,7 +291,7 @@ void fill_last_row_of_A_d(static_matrix<double, double> & A, const lar_term* ls)
     A.set(last_row, basis_j, - 1 );
 }
 
-void update_free_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_ind) {
+void lar_solver::update_free_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_ind) {
     mpq y_of_bound(0);
     switch (kind) {
     case LT:
@@ -330,7 +331,7 @@ void update_free_column_type_and_bound(var_index j, lconstraint_kind kind, const
     m_columns_with_changed_bound.insert(j);
 }
 
-void update_upper_bound_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci) {
+void lar_solver::update_upper_bound_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci) {
     lean_assert(m_mpq_lar_core_solver.m_column_types()[j] == column_type::upper_bound);
     mpq y_of_bound(0);
     switch (kind) {
@@ -387,7 +388,7 @@ void update_upper_bound_column_type_and_bound(var_index j, lconstraint_kind kind
     }
 }
     
-void update_boxed_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci) {
+void lar_solver::update_boxed_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci) {
     lean_assert(m_status == INFEASIBLE || (m_mpq_lar_core_solver.m_column_types()[j] == column_type::boxed && m_mpq_lar_core_solver.m_r_low_bounds()[j] < m_mpq_lar_core_solver.m_r_upper_bounds()[j]));
     mpq y_of_bound(0);
     switch (kind) {
@@ -457,7 +458,7 @@ void update_boxed_column_type_and_bound(var_index j, lconstraint_kind kind, cons
                 
     }
 }
-void update_low_bound_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci) {
+void lar_solver::update_low_bound_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci) {
     lean_assert(m_mpq_lar_core_solver.m_column_types()[j] == column_type::low_bound);
     mpq y_of_bound(0);
     switch (kind) {
@@ -513,7 +514,7 @@ void update_low_bound_column_type_and_bound(var_index j, lconstraint_kind kind, 
     }
 }
 
-void update_fixed_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci) {
+void lar_solver::update_fixed_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci) {
     lean_assert(m_status == INFEASIBLE || (m_mpq_lar_core_solver.m_column_types()[j] == column_type::fixed && m_mpq_lar_core_solver.m_r_low_bounds()[j] == m_mpq_lar_core_solver.m_r_upper_bounds()[j]));
     lean_assert(m_status == INFEASIBLE || (m_mpq_lar_core_solver.m_r_low_bounds()[j].y.is_zero() && m_mpq_lar_core_solver.m_r_upper_bounds()[j].y.is_zero()));
     auto v = numeric_pair<mpq>(right_side, mpq(0));
@@ -574,3 +575,4 @@ void update_fixed_column_type_and_bound(var_index j, lconstraint_kind kind, cons
     }
 }
     
+}

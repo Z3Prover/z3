@@ -8,7 +8,7 @@ z3_add_component(lp
     dense_matrix_instances.cpp
     eta_matrix_instances.cpp
     indexed_vector_instances.cpp
-    lar_solver.cpp
+    lar_solver_instances.cpp
     lar_core_solver_instances.cpp
     lp_core_solver_base_instances.cpp
     lp_dual_core_solver_instances.cpp
