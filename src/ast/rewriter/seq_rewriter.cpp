@@ -447,16 +447,12 @@ br_status seq_rewriter::mk_seq_unit(expr* e, expr_ref& result) {
         // specifically we want (_ BitVector 8)
         rational n_val;
         unsigned int n_size;
-        if (bvu.is_numeral(e, n_val, n_size)) {
-            if (n_size == 8) {
-                // convert to string constant
-                char ch = (char)n_val.get_int32();
-                TRACE("seq", tout << "rewrite seq.unit of 8-bit value " << n_val.to_string() << " to string constant \"" << ch << "\"" << std::endl;);
-                char s_tmp[2] = {ch, '\0'};
-                symbol s(s_tmp);
-                result = m_util.str.mk_string(s);
-                return BR_DONE;
-            }
+        if (bvu.is_numeral(e, n_val, n_size) && n_size == 8) {
+            // convert to string constant
+            zstring str(n_val.get_unsigned());
+            TRACE("seq", tout << "rewrite seq.unit of 8-bit value " << n_val.to_string() << " to string constant \"" << str<< "\"" << std::endl;);
+            result = m_util.str.mk_string(str);
+            return BR_DONE;
         }
     }
 
