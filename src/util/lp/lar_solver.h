@@ -396,5 +396,11 @@ public:
     void pop_tableau();
     void clean_inf_set_of_r_solver_after_pop();
     void shrink_explanation_to_minimum(vector<std::pair<mpq, constraint_index>> & explanation) const;
+    inline
+    bool column_is_integer(unsigned j) const {
+        unsigned ext_var = m_columns_to_ext_vars_or_term_indices[j];
+        return m_ext_vars_to_columns.find(ext_var)->second.is_integer();
+    }
+    inline bool column_is_real(unsigned j) const { return !column_is_integer(j); }
 };
 }

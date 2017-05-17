@@ -25,6 +25,7 @@ var_index lar_solver::add_var(unsigned ext_j, bool is_integer) {
     m_vars_to_ul_pairs.push_back (ul_pair(static_cast<unsigned>(-1)));
     add_non_basic_var_to_core_fields(ext_j);
     lean_assert(sizes_are_correct());
+    lean_assert(!column_is_integer(i));
     return i;
 }
 
