@@ -10,15 +10,15 @@ bool lar_solver::strategy_is_undecided() const {
     return m_settings.simplex_strategy() == simplex_strategy_enum::undecided;
 }
 
-var_index lar_solver::add_var(unsigned ext_j) {
+var_index lar_solver::add_var(unsigned ext_j, bool is_integer) {
     var_index i;
     lean_assert (ext_j < m_terms_start_index); 
 
     if (ext_j >= m_terms_start_index)
         throw 0; // todo : what is the right way to exit?
-            
-    if (try_get_val(m_ext_vars_to_columns, ext_j, i)) {
-        return i;
+    auto it = m_ext_vars_to_columns.find(ext_j);
+    if (it != m_ext_vars_to_columns.end()) {
+        return it->second.ext_j();
     }
     lean_assert(m_vars_to_ul_pairs.size() == A_r().column_count());
     i = A_r().column_count();
@@ -31,7 +31,7 @@ var_index lar_solver::add_var(unsigned ext_j) {
 void lar_solver::register_new_ext_var_index(unsigned ext_v) {
     lean_assert(!contains(m_ext_vars_to_columns, ext_v));
     unsigned j = static_cast<unsigned>(m_ext_vars_to_columns.size());
-    m_ext_vars_to_columns[ext_v] = j;
+    m_ext_vars_to_columns.insert(std::make_pair(ext_v, ext_var_info(j)));
     lean_assert(m_columns_to_ext_vars_or_term_indices.size() == j);
     m_columns_to_ext_vars_or_term_indices.push_back(ext_v);
 }
@@ -190,8 +190,9 @@ void lar_solver::update_column_type_and_bound(var_index j, lconstraint_kind kind
 void lar_solver::add_var_bound_on_constraint_for_term(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci) {
     lean_assert(is_term(j));
     unsigned adjusted_term_index = adjust_term_index(j);
-    unsigned term_j;
-    if (try_get_val(m_ext_vars_to_columns, j, term_j)) {
+    auto it = m_ext_vars_to_columns.find(j);
+    if (it != m_ext_vars_to_columns.end()) {
+        unsigned term_j = it->second.ext_j();
         mpq rs = right_side - m_orig_terms[adjusted_term_index]->m_v;
         m_constraints.push_back(new lar_term_constraint(m_orig_terms[adjusted_term_index], kind, right_side));
         update_column_type_and_bound(term_j, kind, rs, ci);

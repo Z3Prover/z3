@@ -224,14 +224,18 @@ const lar_base_constraint& lar_solver::get_constraint(unsigned ci) const {
         int j_sign = (ib.m_coeff_before_j_is_pos ? 1 :-1) * bound_sign;
         unsigned m_j = ib.m_j;
         if (is_term(m_j)) {
-            m_j = m_ext_vars_to_columns[m_j];
+            auto it = m_ext_vars_to_columns.find(m_j);
+            lean_assert(it != m_ext_vars_to_columns.end());
+            m_j = it->second.ext_j();
         }
         for (auto const& r : A_r().m_rows[i]) {
             unsigned j = r.m_j;
             mpq const& a = r.get_val();
             if (j == m_j) continue;
             if (is_term(j)) {
-                j = m_ext_vars_to_columns[j];
+                auto it = m_ext_vars_to_columns.find(j);
+                lean_assert(it != m_ext_vars_to_columns.end());
+                j = it->second.ext_j();
             } 
             int a_sign = is_pos(a)? 1: -1;
             int sign = j_sign * a_sign;

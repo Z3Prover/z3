@@ -35,11 +35,20 @@
 namespace lean {
 
 class lar_solver : public column_namer {
+    class ext_var_info {
+        unsigned m_ext_j; // the external index
+        bool m_is_integer;
+    public:
+        ext_var_info(unsigned j): ext_var_info(j, false) {}
+        ext_var_info(unsigned j , bool is_int) : m_ext_j(j), m_is_integer(is_int) {}
+        unsigned ext_j() const { return m_ext_j;}
+        bool is_integer() const {return m_is_integer;}
+    };
     //////////////////// fields //////////////////////////
     lp_settings m_settings;
     stacked_value<lp_status> m_status;
     stacked_value<simplex_strategy_enum> m_simplex_strategy;
-    std::unordered_map<unsigned, var_index> m_ext_vars_to_columns;
+    std::unordered_map<unsigned, ext_var_info> m_ext_vars_to_columns;
     vector<unsigned> m_columns_to_ext_vars_or_term_indices;
     stacked_vector<ul_pair> m_vars_to_ul_pairs;
     vector<lar_base_constraint*> m_constraints;
@@ -74,7 +83,7 @@ public:
     // init region
     bool strategy_is_undecided() const;
 
-    var_index add_var(unsigned ext_j);
+    var_index add_var(unsigned ext_j, bool is_integer);
 
     void register_new_ext_var_index(unsigned ext_v);
 
