@@ -2691,8 +2691,8 @@ void test_term() {
     lar_solver solver;
     unsigned _x = 0;
     unsigned _y = 1;
-    var_index x = solver.add_var(_x);
-    var_index y = solver.add_var(_y);
+    var_index x = solver.add_var(_x, false);
+    var_index y = solver.add_var(_y, false);
 
     vector<std::pair<mpq, var_index>> term_ls;
     term_ls.push_back(std::pair<mpq, var_index>((int)1, x));
@@ -2719,8 +2719,8 @@ void test_term() {
 
 void test_evidence_for_total_inf_simple(argument_parser & args_parser) {
     lar_solver solver;
-    var_index x = solver.add_var(0);
-    var_index y = solver.add_var(1);
+    var_index x = solver.add_var(0, false);
+    var_index y = solver.add_var(1, false);
     solver.add_var_bound(x, LE, -mpq(1));
     solver.add_var_bound(y, GE, mpq(0));
     vector<std::pair<mpq, var_index>> ls;
@@ -2754,9 +2754,9 @@ If b becomes basic variable, then it is likely the old solver ends up with a row
             return true; 
         };   
     lar_solver ls;
-    unsigned a = ls.add_var(0);
-    unsigned b = ls.add_var(1);
-    unsigned c = ls.add_var(2);
+    unsigned a = ls.add_var(0, false);
+    unsigned b = ls.add_var(1, false);
+    unsigned c = ls.add_var(2, false);
     vector<std::pair<mpq, var_index>> coeffs;
     coeffs.push_back(std::pair<mpq, var_index>(1, a));
     coeffs.push_back(std::pair<mpq, var_index>(-1, c));
@@ -2819,8 +2819,8 @@ If x9 becomes basic variable, then it is likely the old solver ends up with a ro
 }
 void test_bound_propagation_one_row() {
     lar_solver ls;
-    unsigned x0 = ls.add_var(0);
-    unsigned x1 = ls.add_var(1);
+    unsigned x0 = ls.add_var(0, false);
+    unsigned x1 = ls.add_var(1, false);
     vector<std::pair<mpq, var_index>> c;
     c.push_back(std::pair<mpq, var_index>(1, x0));
     c.push_back(std::pair<mpq, var_index>(-1, x1));
@@ -2833,8 +2833,8 @@ void test_bound_propagation_one_row() {
 } 
 void test_bound_propagation_one_row_with_bounded_vars() {
     lar_solver ls;
-    unsigned x0 = ls.add_var(0);
-    unsigned x1 = ls.add_var(1);
+    unsigned x0 = ls.add_var(0, false);
+    unsigned x1 = ls.add_var(1, false);
     vector<std::pair<mpq, var_index>> c;
     c.push_back(std::pair<mpq, var_index>(1, x0));
     c.push_back(std::pair<mpq, var_index>(-1, x1));
@@ -2849,8 +2849,8 @@ void test_bound_propagation_one_row_with_bounded_vars() {
 }
 void test_bound_propagation_one_row_mixed() {
     lar_solver ls;
-    unsigned x0 = ls.add_var(0);
-    unsigned x1 = ls.add_var(1);
+    unsigned x0 = ls.add_var(0, false);
+    unsigned x1 = ls.add_var(1, false);
     vector<std::pair<mpq, var_index>> c;
     c.push_back(std::pair<mpq, var_index>(1, x0));
     c.push_back(std::pair<mpq, var_index>(-1, x1));
@@ -2864,9 +2864,9 @@ void test_bound_propagation_one_row_mixed() {
 
 void test_bound_propagation_two_rows() {
     lar_solver ls;
-    unsigned x = ls.add_var(0);
-    unsigned y = ls.add_var(1);
-    unsigned z = ls.add_var(2);
+    unsigned x = ls.add_var(0, false);
+    unsigned y = ls.add_var(1, false);
+    unsigned z = ls.add_var(2, false);
     vector<std::pair<mpq, var_index>> c;
     c.push_back(std::pair<mpq, var_index>(1, x));
     c.push_back(std::pair<mpq, var_index>(2, y));
@@ -2888,9 +2888,9 @@ void test_bound_propagation_two_rows() {
 void test_total_case_u() {
     std::cout << "test_total_case_u\n";
     lar_solver ls;
-    unsigned x = ls.add_var(0);
-    unsigned y = ls.add_var(1);
-    unsigned z = ls.add_var(2);
+    unsigned x = ls.add_var(0, false);
+    unsigned y = ls.add_var(1, false);
+    unsigned z = ls.add_var(2, false);
     vector<std::pair<mpq, var_index>> c;
     c.push_back(std::pair<mpq, var_index>(1, x));
     c.push_back(std::pair<mpq, var_index>(2, y));
@@ -2914,9 +2914,9 @@ bool contains_j_kind(unsigned j, lconstraint_kind kind, const mpq & rs, const ve
 void test_total_case_l(){
     std::cout << "test_total_case_l\n";
     lar_solver ls;
-    unsigned x = ls.add_var(0);
-    unsigned y = ls.add_var(1);
-    unsigned z = ls.add_var(2);
+    unsigned x = ls.add_var(0, false);
+    unsigned y = ls.add_var(1, false);
+    unsigned z = ls.add_var(2, false);
     vector<std::pair<mpq, var_index>> c;
     c.push_back(std::pair<mpq, var_index>(1, x));
     c.push_back(std::pair<mpq, var_index>(2, y));

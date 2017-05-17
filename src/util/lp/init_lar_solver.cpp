@@ -2,8 +2,10 @@
   Copyright (c) 2017 Microsoft Corporation
   Author: Lev Nachmanson
 */
-#include "util/lp/lar_solver.h"
+// this file represents the intiialization functionality of lar_solver
 
+
+#include "util/lp/lar_solver.h"
 namespace lean {
 
 bool lar_solver::strategy_is_undecided() const {
