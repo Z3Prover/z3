@@ -655,7 +655,7 @@ class mps_reader {
       sense   interval
       G   [rhs, rhs + |range|]
       L   [rhs - |range|, rhs]
-      E   [rhs, rhs + |range|]     if range ¡İ 0 [rhs - |range|, rhs]     if range < 0
+      E   [rhs, rhs + |range|]     if range in [rhs - |range|, rhs]     if range < 0
       where |range| is range's absolute value.
     */
 
