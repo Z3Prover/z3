@@ -60,7 +60,6 @@ class lar_solver : public column_namer {
     stacked_value<int> m_infeasible_column_index; // such can be found at the initialization step
     stacked_value<unsigned> m_term_count;
     vector<lar_term*> m_terms;
-    vector<lar_term*> m_orig_terms;
     const var_index m_terms_start_index;
     indexed_vector<mpq> m_column_buffer;    
     std::function<column_type (unsigned)> m_column_type_function;    
@@ -255,8 +254,7 @@ public:
     void set_low_bound_witness(var_index j, constraint_index ci);
 
 
-    void substitute_terms(const mpq & mult,
-                          const vector<std::pair<mpq, var_index>>& left_side_with_terms,
+    void substitute_terms_in_linear_expression( const vector<std::pair<mpq, var_index>>& left_side_with_terms,
                           vector<std::pair<mpq, var_index>> &left_side, mpq & right_side) const;
 
 
@@ -337,6 +335,9 @@ public:
     bool the_relations_are_of_same_type(const vector<std::pair<mpq, unsigned>> & evidence, lconstraint_kind & the_kind_of_sum) const;
 
     static void register_in_map(std::unordered_map<var_index, mpq> & coeffs, const lar_base_constraint & cn, const mpq & a);
+    static void register_one_coeff_in_map(std::unordered_map<var_index, mpq> & coeffs, const mpq & a, unsigned j);
+
+
     bool the_left_sides_sum_to_zero(const vector<std::pair<mpq, unsigned>> & evidence) const;
 
     bool the_right_sides_do_not_sum_to_zero(const vector<std::pair<mpq, unsigned>> & evidence);

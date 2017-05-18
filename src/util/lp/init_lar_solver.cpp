@@ -95,7 +95,6 @@ void lar_solver::add_new_var_to_core_fields_for_mpq(bool register_in_basis) {
 var_index lar_solver::add_term_undecided(const vector<std::pair<mpq, var_index>> & coeffs,
                              const mpq &m_v) {
     m_terms.push_back(new lar_term(coeffs, m_v));
-    m_orig_terms.push_back(new lar_term(coeffs, m_v));
     return m_terms_start_index +  m_terms.size() - 1;
 }
 
@@ -106,11 +105,10 @@ var_index lar_solver::add_term(const vector<std::pair<mpq, var_index>> & coeffs,
         return add_term_undecided(coeffs, m_v);
 
     m_terms.push_back(new lar_term(coeffs, m_v));
-    m_orig_terms.push_back(new lar_term(coeffs, m_v));
     unsigned adjusted_term_index = m_terms.size() - 1;
     var_index ret = m_terms_start_index + adjusted_term_index;
     if (use_tableau() && !coeffs.empty()) {
-        add_row_for_term(m_orig_terms.back(), ret);
+        add_row_for_term(m_terms.back(), ret);
         if (m_settings.bound_propagation())
             m_rows_with_changed_bounds.insert(A_r().row_count() - 1);
     } 
@@ -196,15 +194,36 @@ void lar_solver::add_var_bound_on_constraint_for_term(var_index j, lconstraint_k
     auto it = m_ext_vars_to_columns.find(j);
     if (it != m_ext_vars_to_columns.end()) {
         unsigned term_j = it->second.ext_j();
-        mpq rs = right_side - m_orig_terms[adjusted_term_index]->m_v;
-        m_constraints.push_back(new lar_term_constraint(m_orig_terms[adjusted_term_index], kind, right_side));
+        mpq rs = right_side - m_terms[adjusted_term_index]->m_v;
+        m_constraints.push_back(new lar_term_constraint(m_terms[adjusted_term_index], kind, right_side));
         update_column_type_and_bound(term_j, kind, rs, ci);
     }
     else {
-        add_constraint_from_term_and_create_new_column_row(j, m_orig_terms[adjusted_term_index], kind, right_side);
+        add_constraint_from_term_and_create_new_column_row(j, m_terms[adjusted_term_index], kind, right_side);
     }
 }
 
+constraint_index lar_solver::add_constraint(const vector<std::pair<mpq, var_index>>& left_side_with_terms, lconstraint_kind kind_par, const mpq& right_side_parm) {
+    this->print_linear_combination_of_column_indices(left_side_with_terms, std::cout);
+    std::cout << std::endl;
+    vector<std::pair<mpq, var_index>> left_side;
+    mpq rs = - right_side_parm;
+    std::cout << "before rs = " << rs << std::endl;
+    substitute_terms_in_linear_expression(left_side_with_terms, left_side, rs);
+    std::cout << "after rs = " << rs << std::endl;
+    
+    this->print_linear_combination_of_column_indices(left_side, std::cout);
+    std::cout << std::endl;
+    
+    unsigned term_index = add_term(left_side, zero_of_type<mpq>());
+    constraint_index ci = m_constraints.size();
+    add_var_bound_on_constraint_for_term(term_index, kind_par, -rs, ci);
+    std::cout << "constraint = ";
+    print_constraint(ci, std::cout);
+    std::cout << std::endl;
+
+    return ci;
+}
 
 void lar_solver::add_constraint_from_term_and_create_new_column_row(unsigned term_j, const lar_term* term,
                                                         lconstraint_kind kind, const mpq & right_side) {
