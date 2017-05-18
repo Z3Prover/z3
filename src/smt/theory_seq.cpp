@@ -2176,6 +2176,8 @@ bool theory_seq::simplify_and_solve_eqs() {
     return m_new_propagation || ctx.inconsistent();
 }
 
+void theory_seq::internalize_eq_eh(app * atom, bool_var v) {}
+
 
 bool theory_seq::internalize_term(app* term) {
     context & ctx   = get_context();

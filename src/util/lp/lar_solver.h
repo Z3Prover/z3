@@ -62,7 +62,6 @@ class lar_solver : public column_namer {
     vector<lar_term*> m_terms;
     const var_index m_terms_start_index;
     indexed_vector<mpq> m_column_buffer;    
-    std::function<column_type (unsigned)> m_column_type_function;    
 public:
     lar_core_solver m_mpq_lar_core_solver;
     unsigned constraint_count() const;
