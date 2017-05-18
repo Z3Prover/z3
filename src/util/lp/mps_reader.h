@@ -651,11 +651,11 @@ class mps_reader {
 
     /*
       If rhs is a constraint's right-hand-side value and range is the constraint's range value, then the range interval is defined according to the following table:
-
       sense   interval
       G   [rhs, rhs + |range|]
       L   [rhs - |range|, rhs]
-      E   [rhs, rhs + |range|]     if range in [rhs - |range|, rhs]     if range < 0
+      E   [rhs, rhs + |range|]     if range > 0,
+          [rhs - |range|, rhs]     if range < 0
       where |range| is range's absolute value.
     */
 
