@@ -557,9 +557,6 @@ void lar_solver::substitute_terms_in_linear_expression(const vector<std::pair<mp
             register_one_coeff_in_map(coeffs, t.first, j);
         } else {
             const lar_term & term = * m_terms[adjust_term_index(t.second)];
-            std::cout << "term = ";
-            print_term(term, std::cout);
-            std::cout << std::endl;
             for (auto & p : term.coeffs()){
                 register_one_coeff_in_map(coeffs, t.first * p.second , p.first);
             }

@@ -2705,9 +2705,16 @@ void test_term() {
     ls.push_back(std::pair<mpq, var_index>((int)1, z));
     
     solver.add_constraint(ls, lconstraint_kind::EQ, mpq(0));
+    ls.clear();
+    ls.push_back(std::pair<mpq, var_index>((int)1, x));
+    solver.add_constraint(ls, lconstraint_kind::LT, mpq(0));
+    ls.push_back(std::pair<mpq, var_index>((int)2, y));
+    solver.add_constraint(ls, lconstraint_kind::GT, mpq(0));
     auto status = solver.solve();
     std::cout << lp_status_to_string(status) << std::endl;
     std::unordered_map<var_index, mpq> model;
+    if (status != OPTIMAL)
+        return;
     solver.get_model(model);
     
     for (auto & t : model) {

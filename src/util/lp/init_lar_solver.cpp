@@ -204,24 +204,12 @@ void lar_solver::add_var_bound_on_constraint_for_term(var_index j, lconstraint_k
 }
 
 constraint_index lar_solver::add_constraint(const vector<std::pair<mpq, var_index>>& left_side_with_terms, lconstraint_kind kind_par, const mpq& right_side_parm) {
-    this->print_linear_combination_of_column_indices(left_side_with_terms, std::cout);
-    std::cout << std::endl;
     vector<std::pair<mpq, var_index>> left_side;
     mpq rs = - right_side_parm;
-    std::cout << "before rs = " << rs << std::endl;
     substitute_terms_in_linear_expression(left_side_with_terms, left_side, rs);
-    std::cout << "after rs = " << rs << std::endl;
-    
-    this->print_linear_combination_of_column_indices(left_side, std::cout);
-    std::cout << std::endl;
-    
     unsigned term_index = add_term(left_side, zero_of_type<mpq>());
     constraint_index ci = m_constraints.size();
     add_var_bound_on_constraint_for_term(term_index, kind_par, -rs, ci);
-    std::cout << "constraint = ";
-    print_constraint(ci, std::cout);
-    std::cout << std::endl;
-
     return ci;
 }
 
