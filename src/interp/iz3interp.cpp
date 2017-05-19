@@ -35,7 +35,6 @@
 
 #include "iz3profiling.h"
 #include "iz3translate.h"
-#include "iz3foci.h"
 #include "iz3proof.h"
 #include "iz3hash.h"
 #include "iz3interp.h"
@@ -167,22 +166,6 @@ struct frame_reducer {
 #endif  
 
 
-#if 0
-static lbool test_secondary(context ctx,
-                            int num, 
-                            ast *cnsts,
-                            ast *interps,
-                            int *parents = 0
-                            ){
-    iz3secondary *sp = iz3foci::create(ctx,num,parents);
-    std::vector<ast> frames(num), interpolants(num-1);
-    std::copy(cnsts,cnsts+num,frames.begin());
-    int res = sp->interpolate(frames,interpolants);
-    if(res == 0)
-        std::copy(interpolants.begin(),interpolants.end(),interps);
-    return res ? L_TRUE : L_FALSE;
-}                         
-#endif
     
 template<class T>
 struct killme {
@@ -213,11 +196,7 @@ public:
                         const std::vector<int> &parents,
                         std::vector<ast> &interps
                         ){
-        int num = cnsts.size();
-        iz3secondary *sp = iz3foci::create(this,num,(int *)(parents.empty()?0:&parents[0]));
-        int res = sp->interpolate(cnsts, interps);
-        if(res != 0)
-            throw iz3_exception("secondary failed");
+        throw iz3_exception("secondary interpolating prover not supported");
     }                         
 
     void proof_to_interpolant(z3pf proof,
@@ -248,10 +227,9 @@ public:
         if(is_linear(parents_vec))
             parents_vec.clear();
 
-        // create a secondary prover
-        iz3secondary *sp = iz3foci::create(this,num,parents_vec.empty()?0:&parents_vec[0]);
-        sp_killer.set(sp); // kill this on exit
-      
+        // secondary prover no longer supported
+        iz3secondary *sp = NULL;
+
 #define BINARY_INTERPOLATION
 #ifndef BINARY_INTERPOLATION    
         // create a translator
