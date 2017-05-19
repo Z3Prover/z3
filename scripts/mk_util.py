@@ -778,7 +778,7 @@ def extract_c_includes(fname):
             root_file_name = m1.group(1)
             slash_pos =  root_file_name.rfind('/')
             if slash_pos >= 0  and root_file_name.find("..") < 0 : #it is a hack for lp include files that behave as continued from "src"
-                print(root_file_name)
+                # print(root_file_name)
                 root_file_name = root_file_name[slash_pos+1:]
             result.append(root_file_name)
         elif not system_inc_pat.match(line) and non_std_inc_pat.match(line):
