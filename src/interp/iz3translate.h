@@ -53,12 +53,8 @@ class iz3translation : public iz3base {
      : iz3base(mgr,_cnsts,_parents,_theory)  {}
 };
 
-//#define IZ3_TRANSLATE_DIRECT2
-#ifdef _FOCI2
-#define IZ3_TRANSLATE_DIRECT
-#else
+// To use a secondary prover, define IZ3_TRANSLATE_DIRECT instead of this
 #define IZ3_TRANSLATE_FULL
-#endif
 
 #endif
 
