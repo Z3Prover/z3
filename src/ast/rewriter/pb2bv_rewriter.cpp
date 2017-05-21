@@ -54,6 +54,8 @@ struct pb2bv_rewriter::imp {
         vector<rational> m_coeffs;
         bool m_keep_cardinality_constraints;
         bool m_keep_pb_constraints;
+        bool m_pb_num_system;
+        bool m_pb_totalizer;
         unsigned m_min_arity;
 
         template<lbool is_le>
@@ -114,23 +116,24 @@ struct pb2bv_rewriter::imp {
                 return expr_ref((is_le == l_false)?m.mk_true():m.mk_false(), m);
             }
 
-#if 0
-            expr_ref result(m);
-            switch (is_le) {
-            case l_true:  if (mk_le_tot(sz, args, k, result)) return result; else break;
-            case l_false: if (mk_ge_tot(sz, args, k, result)) return result; else break;
-            case l_undef: break;
+            if (m_pb_totalizer) {
+                expr_ref result(m);
+                switch (is_le) {
+                case l_true:  if (mk_le_tot(sz, args, k, result)) return result; else break;
+                case l_false: if (mk_ge_tot(sz, args, k, result)) return result; else break;
+                case l_undef: break;
+                }
             }
-#endif
+            
+            if (m_pb_num_system) {
+                expr_ref result(m);
+                switch (is_le) {
+                case l_true:  if (mk_le(sz, args, k, result)) return result; else break;
+                case l_false: if (mk_ge(sz, args, k, result)) return result; else break;
+                case l_undef: if (mk_eq(sz, args, k, result)) return result; else break;
+                }
+            }
 
-#if 0
-            expr_ref result(m);
-            switch (is_le) {
-            case l_true:  if (mk_le(sz, args, k, result)) return result; else break;
-            case l_false: if (mk_ge(sz, args, k, result)) return result; else break;
-            case l_undef: if (mk_eq(sz, args, k, result)) return result; else break;
-            }
-#endif
             // fall back to divide and conquer encoding.
             SASSERT(k.is_pos());
             expr_ref zero(m), bound(m);
@@ -397,22 +400,30 @@ struct pb2bv_rewriter::imp {
             for (unsigned j = 0; j + lim - 1 < out.size(); j += n) {
                 expr_ref tmp(m);
                 tmp = out[j + lim - 1];
-                if (j + n < out.size()) {
-                    tmp = m.mk_and(tmp, m.mk_not(out[j + n]));
+                if (j + n - 1 < out.size()) {
+                    tmp = m.mk_and(tmp, m.mk_not(out[j + n - 1]));
                 }
                 ors.push_back(tmp);
             }
             return ::mk_or(ors);
         }
 
+        // x0 + 5x1 + 3x2 >= k
+        // x0 x1 x1 -> s0 s1 s2
+        // s2 x1 x2 -> s3 s4 s5
+        // k = 7: s5 or (s4 & not s2 & s0)
+        // k = 6: s4
+        // k = 5: s4 or (s3 & not s2 & s1)
+        // k = 4: s4 or (s3 & not s2 & s0)
+        // k = 3: s3
+        // 
         bool mk_ge(unsigned sz, expr * const* args, rational bound, expr_ref& result) {
             if (!create_basis()) return false;
             if (!bound.is_unsigned()) return false;
             vector<rational> coeffs(m_coeffs);
             result = m.mk_true();
             expr_ref_vector carry(m), new_carry(m);
-            for (unsigned i = 0; i < m_base.size(); ++i) {
-                rational b_i = m_base[i];
+            for (rational b_i : m_base) {
                 unsigned B   = b_i.get_unsigned();
                 unsigned d_i = (bound % b_i).get_unsigned();
                 bound = div(bound, b_i);                
@@ -425,16 +436,16 @@ struct pb2bv_rewriter::imp {
                     coeffs[j] = div(coeffs[j], b_i);
                 }
                 TRACE("pb", tout << "Carry: " << carry << "\n";
-                      for (unsigned j = 0; j < coeffs.size(); ++j) tout << coeffs[j] << " ";
+                      for (auto c : coeffs) tout << c << " ";
                       tout << "\n";
                       );
                 ptr_vector<expr> out;
                 m_sort.sorting(carry.size(), carry.c_ptr(), out);
-
+                
                 expr_ref gt = mod_ge(out, B, d_i + 1);
                 expr_ref ge = mod_ge(out, B, d_i);
                 result = mk_or(gt, mk_and(ge, result));                
-                TRACE("pb", tout << result << "\n";);
+                TRACE("pb", tout << "b: " << b_i << " d: " << d_i << " gt: " << gt << " ge: " << ge << " " << result << "\n";);
 
                 new_carry.reset();
                 for (unsigned j = B - 1; j < out.size(); j += B) {
@@ -443,7 +454,10 @@ struct pb2bv_rewriter::imp {
                 carry.reset();
                 carry.append(new_carry);
             }
-            TRACE("pb", tout << result << "\n";);
+            if (!carry.empty()) {
+                result = m.mk_or(result, carry[0].get());
+            }
+            TRACE("pb", tout << "Carry: " << carry << " result: " << result << "\n";);
             return true;
         }
 
@@ -567,6 +581,8 @@ struct pb2bv_rewriter::imp {
             m_args(m),
             m_keep_cardinality_constraints(false),
             m_keep_pb_constraints(false),
+            m_pb_num_system(false),
+            m_pb_totalizer(false),
             m_min_arity(2)
         {}
 
@@ -761,6 +777,14 @@ struct pb2bv_rewriter::imp {
         void keep_pb_constraints(bool f) {
             m_keep_pb_constraints = f;
         }
+
+        void pb_num_system(bool f) {
+            m_pb_num_system = f;
+        }
+
+        void pb_totalizer(bool f) {
+            m_pb_totalizer = f;
+        }
     };
 
     struct card2bv_rewriter_cfg : public default_rewriter_cfg {
@@ -774,6 +798,8 @@ struct pb2bv_rewriter::imp {
         card2bv_rewriter_cfg(imp& i, ast_manager & m):m_r(i, m) {}
         void keep_cardinality_constraints(bool f) { m_r.keep_cardinality_constraints(f); }
         void keep_pb_constraints(bool f) { m_r.keep_pb_constraints(f); }
+        void pb_num_system(bool f) { m_r.pb_num_system(f); }
+        void pb_totalizer(bool f) { m_r.pb_totalizer(f); }
     };
     
     class card_pb_rewriter : public rewriter_tpl<card2bv_rewriter_cfg> {
@@ -784,27 +810,59 @@ struct pb2bv_rewriter::imp {
             m_cfg(i, m) {}
         void keep_cardinality_constraints(bool f) { m_cfg.keep_cardinality_constraints(f); }
         void keep_pb_constraints(bool f) { m_cfg.keep_pb_constraints(f); }
+        void pb_num_system(bool f) { m_cfg.pb_num_system(f); }
+        void pb_totalizer(bool f) { m_cfg.pb_totalizer(f); }
     };
 
     card_pb_rewriter m_rw;
     
+    bool keep_cardinality() const {
+        params_ref const& p = m_params;
+        return 
+            p.get_bool("keep_cardinality_constraints", false) ||
+            p.get_bool("sat.cardinality.solver", false) ||
+            p.get_bool("cardinality.solver", false) || keep_pb();
+    }
+
+    bool keep_pb() const {
+        params_ref const& p = m_params;
+        return 
+            p.get_bool("keep_pb_constraints", false) ||
+            p.get_bool("sat.pb.solver", false) ||
+            p.get_bool("pb.solver", false);
+    }
+
+    bool pb_num_system() const {
+        return m_params.get_bool("pb_num_system", false);
+    }
+
+    bool pb_totalizer() const {
+        return m_params.get_bool("pb_totalizer", false);
+    }
+
     imp(ast_manager& m, params_ref const& p): 
         m(m), m_params(p), m_lemmas(m),
         m_fresh(m),
         m_num_translated(0), 
         m_rw(*this, m) {
-        m_rw.keep_cardinality_constraints(p.get_bool("keep_cardinality_constraints", false));
-        m_rw.keep_pb_constraints(p.get_bool("keep_pb_constraints", false));
+        m_rw.keep_cardinality_constraints(keep_cardinality());
+        m_rw.keep_pb_constraints(keep_pb());
+        m_rw.pb_num_system(pb_num_system());
+        m_rw.pb_totalizer(pb_totalizer());
     }
 
     void updt_params(params_ref const & p) {
         m_params.append(p);
-        m_rw.keep_cardinality_constraints(m_params.get_bool("keep_cardinality_constraints", false));
-        m_rw.keep_pb_constraints(m_params.get_bool("keep_pb_constraints", false));
+        m_rw.keep_cardinality_constraints(keep_cardinality());
+        m_rw.keep_pb_constraints(keep_pb());
+        m_rw.pb_num_system(pb_num_system());
+        m_rw.pb_totalizer(pb_totalizer());
     }
     void collect_param_descrs(param_descrs& r) const {
         r.insert("keep_cardinality_constraints", CPK_BOOL, "(default: true) retain cardinality constraints (don't bit-blast them) and use built-in cardinality solver");
         r.insert("keep_pb_constraints", CPK_BOOL, "(default: true) retain pb constraints (don't bit-blast them) and use built-in pb solver");
+        r.insert("pb_num_system", CPK_BOOL, "(default: false) use pb number system encoding");
+        r.insert("pb_totalizer", CPK_BOOL, "(default: false) use pb totalizer encoding");
     }
 
     unsigned get_num_steps() const { return m_rw.get_num_steps(); }

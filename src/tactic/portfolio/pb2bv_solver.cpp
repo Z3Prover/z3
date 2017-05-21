@@ -20,6 +20,7 @@ Notes:
 #include "solver_na2as.h"
 #include "tactic.h"
 #include "pb2bv_rewriter.h"
+#include "th_rewriter.h"
 #include "filter_model_converter.h"
 #include "ast_pp.h"
 #include "model_smt2_pp.h"
@@ -29,6 +30,7 @@ class pb2bv_solver : public solver_na2as {
     params_ref       m_params;
     mutable expr_ref_vector  m_assertions;
     mutable ref<solver>      m_solver;
+    mutable th_rewriter      m_th_rewriter;
     mutable pb2bv_rewriter   m_rewriter;
 
 public:
@@ -39,6 +41,7 @@ public:
         m_params(p),
         m_assertions(m),
         m_solver(s),
+        m_th_rewriter(m, p),
         m_rewriter(m, p)
     {
     }
@@ -121,10 +124,11 @@ public:
 private:
     void flush_assertions() const {
         proof_ref proof(m);
-        expr_ref fml(m);
+        expr_ref fml1(m), fml(m);
         expr_ref_vector fmls(m);
         for (unsigned i = 0; i < m_assertions.size(); ++i) {
-            m_rewriter(m_assertions[i].get(), fml, proof);
+            m_th_rewriter(m_assertions[i].get(), fml1, proof);
+            m_rewriter(fml1, fml, proof);
             m_solver->assert_expr(fml);
         }
         m_rewriter.flush_side_constraints(fmls);

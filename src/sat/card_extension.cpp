@@ -250,7 +250,7 @@ namespace sat {
                     p.swap(i, j);
                 }
                 if (slack < bound) {
-                    slack += p[i].first;
+                    slack += p[j].first;
                     ++num_watch;
                 }
                 ++j;
@@ -267,7 +267,7 @@ namespace sat {
         if (slack < bound) {
             literal lit = p[j].second;
             SASSERT(value(p[j].second) == l_false);
-            for (unsigned i = j + 1; j < sz; ++i) {
+            for (unsigned i = j + 1; i < sz; ++i) {
                 if (lvl(lit) < lvl(p[i].second)) {
                     lit = p[i].second;
                 }
@@ -386,16 +386,24 @@ namespace sat {
         p.swap(num_watch, index);
 
         if (slack < bound + m_a_max) {
-            while (!s().inconsistent() && !m_pb_undef.empty()) {
+            TRACE("sat", display(tout, p, false); for(auto j : m_pb_undef) tout << j << "\n";);
+            literal_vector to_assign;
+            while (!m_pb_undef.empty()) {
                 index1 = m_pb_undef.back();
                 literal lit = p[index1].second;
+                TRACE("sat", tout << index1 << " " << lit << "\n";);
                 if (slack >= bound + p[index1].first) {
                     break;
                 }
                 m_pb_undef.pop_back();
+                to_assign.push_back(lit);
+            }
+
+            for (literal lit : to_assign) {
+                if (s().inconsistent()) break;
                 if (value(lit) == l_undef) {
                     assign(p, lit);
-                }
+                }				
             }
         }
 
@@ -474,7 +482,8 @@ namespace sat {
     }
 
     void card_extension::display(std::ostream& out, pb const& p, bool values) const {
-        out << p.lit() << "[ watch: " << p.num_watch() << ", slack: " << p.slack() << "]";
+        if (p.lit() != null_literal) out << p.lit();
+        out << "[watch: " << p.num_watch() << ", slack: " << p.slack() << "]";
         if (p.lit() != null_literal && values) {
             out << "@(" << value(p.lit());
             if (value(p.lit()) != l_undef) {
@@ -1350,7 +1359,25 @@ namespace sat {
         if (p.lit() != null_literal) r.push_back(p.lit());
         SASSERT(p.lit() == null_literal || value(p.lit()) == l_true);
         TRACE("sat", display(tout, p, true););
-        for (unsigned i = p.num_watch(); i < p.size(); ++i) {
+
+        // unsigned coeff = get_coeff(p, l);
+        unsigned coeff = 0;
+        for (unsigned j = 0; j < p.num_watch(); ++j) {
+            if (p[j].second == l) {
+                coeff = p[j].first;
+                break;
+            }
+        }
+        unsigned slack = p.slack() - coeff;
+        unsigned i = p.num_watch();
+
+        // skip entries that are not required for unit propagation.
+        // slack - coeff + w_head < k
+        unsigned h = 0;
+        for (; i < p.size() && p[i].first + h + slack < p.k(); ++i) { 
+            h += p[i].first;
+        }
+        for (; i < p.size(); ++i) {
             literal lit = p[i].second;
             SASSERT(l_false == value(lit));
             r.push_back(~lit);
@@ -1714,7 +1741,9 @@ namespace sat {
     std::ostream& card_extension::display_justification(std::ostream& out, ext_justification_idx idx) const {
         if (is_card_index(idx)) {
             card& c = index2card(idx);
-            out << "bound " << c.lit() << ": ";
+            out << "bound ";
+            if (c.lit() != null_literal) out << c.lit();
+            out << ": ";
             for (unsigned i = 0; i < c.size(); ++i) {
                 out << c[i] << " ";
             }
@@ -1722,14 +1751,18 @@ namespace sat {
         }
         else if (is_xor_index(idx)) {
             xor& x = index2xor(idx);
-            out << "xor " << x.lit() << ": ";
+            out << "xor ";
+            if (x.lit() != null_literal) out << x.lit();
+            out << ": ";
             for (unsigned i = 0; i < x.size(); ++i) {
                 out << x[i] << " ";
             }            
         }
         else if (is_pb_index(idx)) {
             pb& p = index2pb(idx);
-            out << "pb " << p.lit() << ": ";
+            out << "pb ";
+            if (p.lit() != null_literal) out << p.lit();
+            out << ": ";
             for (unsigned i = 0; i < p.size(); ++i) {
                 out << p[i].first << "*" << p[i].second << " ";
             }
@@ -1773,26 +1806,16 @@ namespace sat {
     bool card_extension::validate_unit_propagation(pb const& p, literal alit) { 
         if (p.lit() != null_literal && value(p.lit()) != l_true) return false;
 
-        unsigned k = p.k();
         unsigned sum = 0;
-        unsigned a_min = 0;
         TRACE("sat", display(tout << "validate: " << alit << "\n", p, true););
         for (unsigned i = 0; i < p.size(); ++i) {
             literal lit = p[i].second;
             lbool val = value(lit);
-            if (val == l_false) {
-                // no-op
-            }
-            else if (lit == alit) {
-                a_min = p[i].first;
-                sum += p[i].first;
-            }
-            else {
+            if (val != l_false && lit != alit) {
                 sum += p[i].first;
             }
         }
-        return sum < k + a_min;
-        return true;
+        return sum < p.k();
     }
 
     bool card_extension::validate_lemma() { 
