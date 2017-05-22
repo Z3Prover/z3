@@ -319,6 +319,23 @@ else()
 endif()
 
 ################################################################################
+# API Log sync
+################################################################################
+option(API_LOG_SYNC
+  "Use locking when logging Z3 API calls (experimental)"
+  OFF
+)
+if (API_LOG_SYNC)
+  if (NOT USE_OPENMP)
+    message(FATAL_ERROR "API_LOG_SYNC feature requires OpenMP")
+  endif()
+  list(APPEND Z3_COMPONENT_CXX_DEFINES "-DZ3_LOG_SYNC")
+  message(STATUS "Using API_LOG_SYNC")
+else()
+  message(STATUS "Not using API_LOG_SYNC")
+endif()
+
+################################################################################
 # FP math
 ################################################################################
 # FIXME: Support ARM "-mfpu=vfp -mfloat-abi=hard"
