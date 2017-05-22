@@ -423,6 +423,7 @@ struct pb2bv_rewriter::imp {
             vector<rational> coeffs(m_coeffs);
             result = m.mk_true();
             expr_ref_vector carry(m), new_carry(m);
+            m_base.push_back(bound + rational::one());
             for (rational b_i : m_base) {
                 unsigned B   = b_i.get_unsigned();
                 unsigned d_i = (bound % b_i).get_unsigned();
@@ -454,14 +455,11 @@ struct pb2bv_rewriter::imp {
                 carry.reset();
                 carry.append(new_carry);
             }
-            if (!carry.empty()) {
-                result = m.mk_or(result, carry[0].get());
-            }
-            TRACE("pb", tout << "Carry: " << carry << " result: " << result << "\n";);
+            TRACE("pb", tout << "bound: " << bound << " Carry: " << carry << " result: " << result << "\n";);
             return true;
         }
 
-        expr_ref mk_and(expr_ref& a, expr_ref& b) {
+         expr_ref mk_and(expr_ref& a, expr_ref& b) {
             if (m.is_true(a)) return b;
             if (m.is_true(b)) return a;
             if (m.is_false(a)) return a;

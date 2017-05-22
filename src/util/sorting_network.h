@@ -337,7 +337,7 @@ Notes:
         }
 
         literal mk_at_most_1(bool full, unsigned n, literal const* xs, literal_vector& ors, bool use_ors) {
-            TRACE("pb", tout << (full?"full":"partial") << " ";
+            TRACE("pb_verbose", tout << (full?"full":"partial") << " ";
                   for (unsigned i = 0; i < n; ++i) tout << xs[i] << " ";
                   tout << "\n";);
 
@@ -513,7 +513,7 @@ Notes:
             for (unsigned i = 0; i < N; ++i) {
                 in.push_back(ctx.mk_not(xs[i]));
             }
-            TRACE("pb", 
+            TRACE("pb_verbose", 
                   pp(tout << N << ": ", in);                  
                   tout << " ~ " << k << "\n";);
             return true;
@@ -595,7 +595,7 @@ Notes:
         }
 
         void card(unsigned k, unsigned n, literal const* xs, literal_vector& out) {
-            TRACE("pb", tout << "card k: " << k << " n: " << n << "\n";);
+            TRACE("pb_verbose", tout << "card k: " << k << " n: " << n << "\n";);
             if (n <= k) {
                 psort_nw<psort_expr>::sorting(n, xs, out);
             }
@@ -609,7 +609,7 @@ Notes:
                 card(k, n-l, xs + l, out2);
                 smerge(k, out1.size(), out1.c_ptr(), out2.size(), out2.c_ptr(), out);
             }
-            TRACE("pb", tout << "card k: " << k << " n: " << n << "\n";
+            TRACE("pb_verbose", tout << "card k: " << k << " n: " << n << "\n";
                   pp(tout << "in:", n, xs) << "\n";
                   pp(tout << "out:", out) << "\n";);
 
@@ -637,7 +637,7 @@ Notes:
         void merge(unsigned a, literal const* as, 
                    unsigned b, literal const* bs,                    
                    literal_vector& out) {
-            TRACE("pb", tout << "merge a: " << a << " b: " << b << "\n";);
+            TRACE("pb_verbose", tout << "merge a: " << a << " b: " << b << "\n";);
             if (a == 1 && b == 1) {
                 literal y1 = mk_max(as[0], bs[0]);
                 literal y2 = mk_min(as[0], bs[0]);
@@ -672,7 +672,7 @@ Notes:
                       odd_b.size(), odd_b.c_ptr(), out2);
                 interleave(out1, out2, out); 
             }
-            TRACE("pb", tout << "merge a: " << a << " b: " << b << "\n";
+            TRACE("pb_verbose", tout << "merge a: " << a << " b: " << b << "\n";
                   pp(tout << "a:", a, as) << "\n";
                   pp(tout << "b:", b, bs) << "\n";
                   pp(tout << "out:", out) << "\n";);
@@ -709,7 +709,7 @@ Notes:
         void interleave(literal_vector const& as, 
                         literal_vector const& bs,
                         literal_vector& out) {
-            TRACE("pb", tout << "interleave: " << as.size() << " " << bs.size() << "\n";);
+            TRACE("pb_verbose", tout << "interleave: " << as.size() << " " << bs.size() << "\n";);
             SASSERT(as.size() >= bs.size());
             SASSERT(as.size() <= bs.size() + 2);
             SASSERT(!as.empty());
@@ -729,7 +729,7 @@ Notes:
                 out.push_back(as[sz+1]);
             }
             SASSERT(out.size() == as.size() + bs.size());
-            TRACE("pb", tout << "interleave: " << as.size() << " " << bs.size() << "\n";
+            TRACE("pb_verbose", tout << "interleave: " << as.size() << " " << bs.size() << "\n";
                   pp(tout << "a: ", as) << "\n";
                   pp(tout << "b: ", bs) << "\n";
                   pp(tout << "out: ", out) << "\n";);
@@ -741,7 +741,7 @@ Notes:
         
     public:
         void sorting(unsigned n, literal const* xs, literal_vector& out) {
-            TRACE("pb", tout << "sorting: " << n << "\n";);
+            TRACE("pb_verbose", tout << "sorting: " << n << "\n";);
             switch(n) {
             case 0: 
                 break;
@@ -766,7 +766,7 @@ Notes:
                 }
                 break;
             }
-            TRACE("pb", tout << "sorting: " << n << "\n";
+            TRACE("pb_verbose", tout << "sorting: " << n << "\n";
                   pp(tout << "in:", n, xs) << "\n"; 
                   pp(tout << "out:", out) << "\n";);
         }
@@ -802,7 +802,7 @@ Notes:
                     unsigned a, literal const* as,
                     unsigned b, literal const* bs, 
                     literal_vector& out) {
-            TRACE("pb", tout << "smerge: c:" << c << " a:" << a << " b:" << b << "\n";);
+            TRACE("pb_verbose", tout << "smerge: c:" << c << " a:" << a << " b:" << b << "\n";);
             if (a == 1 && b == 1 && c == 1) {
                 literal y = mk_max(as[0], bs[0]);
                 if (m_t != GE) {
@@ -876,7 +876,7 @@ Notes:
                     out.push_back(y);
                 }
             }
-            TRACE("pb", tout << "smerge: c:" << c << " a:" << a << " b:" << b << "\n";
+            TRACE("pb_verbose", tout << "smerge: c:" << c << " a:" << a << " b:" << b << "\n";
                   pp(tout << "a:", a, as) << "\n";
                   pp(tout << "b:", b, bs) << "\n";
                   pp(tout << "out:", out) << "\n";
@@ -920,7 +920,7 @@ Notes:
             unsigned a, literal const* as, 
             unsigned b, literal const* bs,                    
             literal_vector& out) {
-            TRACE("pb", tout << "dsmerge: c:" << c << " a:" << a << " b:" << b << "\n";);
+            TRACE("pb_verbose", tout << "dsmerge: c:" << c << " a:" << a << " b:" << b << "\n";);
             SASSERT(a <= c);
             SASSERT(b <= c);
             SASSERT(a + b >= c);
@@ -979,7 +979,7 @@ Notes:
 
         void dsorting(unsigned m, unsigned n, literal const* xs, 
                       literal_vector& out) {
-            TRACE("pb", tout << "dsorting m: " << m << " n: " << n << "\n";);
+            TRACE("pb_verbose", tout << "dsorting m: " << m << " n: " << n << "\n";);
             SASSERT(m <= n);
             literal_vector lits;
             for (unsigned i = 0; i < m; ++i) {
@@ -1014,7 +1014,7 @@ Notes:
 
         void add_subset(bool polarity, unsigned k, unsigned offset, literal_vector& lits, 
                         unsigned n, literal const* xs) {
-            TRACE("pb", tout << "k:" << k << " offset: " << offset << " n: " << n << " ";
+            TRACE("pb_verbose", tout << "k:" << k << " offset: " << offset << " n: " << n << " ";
                   pp(tout, lits) << "\n";);
             SASSERT(k + offset <= n);
             if (k == 0) {
