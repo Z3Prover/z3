@@ -1,0 +1,12 @@
+def_module_params('lp', 
+                  export=True,
+                  params=(
+                  ('rep_freq', UINT, 0, 'the report frequency, in how many iterations print the cost and other info '),
+                   ('min', BOOL, False, 'minimize cost'),
+                   ('print_stats', BOOL, False, 'print statistic'),
+                   ('simplex_strategy', UINT, 0, 'simplex strategy for the solver'),
+                   ('bprop_on_pivoted_rows', BOOL, True, 'propagate bounds on rows changed by the pivot operation')
+                          ))           
+
+
+    

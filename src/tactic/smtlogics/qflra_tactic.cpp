@@ -22,7 +22,6 @@ Notes:
 #include"solve_eqs_tactic.h"
 #include"elim_uncnstr_tactic.h"
 #include"smt_tactic.h"
-// include"mip_tactic.h"
 #include"recover_01_tactic.h"
 #include"ctx_simplify_tactic.h"
 #include"probe_arith.h"
@@ -72,5 +71,18 @@ tactic * mk_qflra_tactic(ast_manager & m, params_ref const & p) {
     //                            using_params(mk_smt_tactic(), pivot_p)),
     //                    p);
 
+#if 0
+
+    params_ref simplex_0, simplex_1, simplex_2;
+    simplex_0.set_uint("lp.simplex_strategy", 0);    
+    simplex_1.set_uint("lp.simplex_strategy", 1);    
+    simplex_2.set_uint("lp.simplex_strategy", 2);
+    
+    return par(using_params(mk_smt_tactic(), simplex_0), 
+               using_params(mk_smt_tactic(), simplex_1), 
+               using_params(mk_smt_tactic(), simplex_2));
+#else
     return using_params(using_params(mk_smt_tactic(), pivot_p), p);
+#endif
+
 }

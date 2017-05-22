@@ -14,7 +14,8 @@ namespace lean {
 lar_core_solver::lar_core_solver(
                                  lp_settings & settings,
                                  const column_namer & column_names
-):
+                                 ):
+    m_infeasible_sum_sign(0),
     m_r_solver(m_r_A,
                     m_right_sides_dummy,
                     m_r_x,

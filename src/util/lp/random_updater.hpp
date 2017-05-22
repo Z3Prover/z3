@@ -12,7 +12,9 @@ namespace lean {
 
 random_updater::random_updater(
                                lar_core_solver & lar_core_solver,
-                               const vector<unsigned> & column_indices) : m_core_solver(lar_core_solver) {
+                               const vector<unsigned> & column_indices) :
+    m_core_solver(lar_core_solver),
+    range(100000) {
     for (unsigned j : column_indices)
         add_column_to_sets(j);
 }
@@ -134,7 +136,7 @@ void random_updater::shift_var(unsigned j, interval & r) {
 }
 
 numeric_pair<mpq> random_updater::get_random_from_interval(interval & r) {
-    unsigned rand = my_random();
+    unsigned rand = m_core_solver.settings().random_next();
     if ((!r.low_bound_is_set)  && (!r.upper_bound_is_set))
         return numeric_pair<mpq>(rand % range, 0);
     if (r.low_bound_is_set  && (!r.upper_bound_is_set))
@@ -180,11 +182,11 @@ void random_updater::add_value(numeric_pair<mpq>& v) {
 }
 
 void random_updater::remove_value(numeric_pair<mpq>& v) {
-    auto it = m_values.find(v);
+    std::unordered_map<numeric_pair<mpq>, unsigned>::iterator it = m_values.find(v);
     lean_assert(it != m_values.end());
     it->second--;
     if (it->second == 0)
-        m_values.erase(it);
+        m_values.erase((std::unordered_map<numeric_pair<mpq>, unsigned>::const_iterator)it);
 }
 
 void random_updater::add_column_to_sets(unsigned j) {

@@ -132,42 +132,4 @@ class permutation_matrix : public tail_matrix<T, X> {
         
     }; // end of the permutation class
 
-#ifdef LEAN_DEBUG
-template <typename T, typename X>
-class permutation_generator {
-    unsigned m_n;
-    permutation_generator* m_lower;
-    bool m_done = false;
-    permutation_matrix<T, X> m_current;
-    unsigned m_last;
-public:
-    permutation_generator(unsigned n);
-    permutation_generator(const permutation_generator & o);
-    bool move_next();
-
-    ~permutation_generator() {
-        if (m_lower != nullptr) {
-            delete m_lower;
-        }
-    }
-
-    permutation_matrix<T, X> *current() {
-        return &m_current;
-    }
-};
-
-template <typename T, typename X>
-inline unsigned number_of_inversions(permutation_matrix<T, X> & p);
-
-template <typename T, typename X>
-int sign(permutation_matrix<T, X> & p) {
-    return is_even(number_of_inversions(p))? 1: -1;
-}
-
-template <typename T, typename X>
-T det_val_on_perm(permutation_matrix<T, X>* u, const matrix<T, X>& m);
-
-template <typename T, typename X>
-T determinant(const matrix<T, X>& m);
-#endif
 }

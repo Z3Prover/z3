@@ -20,8 +20,8 @@ template <typename  T>
 class binary_heap_upair_queue {
     binary_heap_priority_queue<T> m_q;
     std::unordered_map<upair, unsigned> m_pairs_to_index;
-    vector<upair> m_pairs; // inverse to index
-    vector<unsigned> m_available_spots;
+    svector<upair> m_pairs; // inverse to index
+    svector<unsigned> m_available_spots;
 public:
     binary_heap_upair_queue(unsigned size);
 

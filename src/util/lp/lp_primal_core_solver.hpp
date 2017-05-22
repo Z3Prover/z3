@@ -199,7 +199,7 @@ int lp_primal_core_solver<T, X>::choose_entering_column_presize(unsigned number_
             entering_iter = non_basis_iter;
             if (number_of_benefitial_columns_to_go_over)
                 number_of_benefitial_columns_to_go_over--;
-        } else if (t == j_nz && my_random() % 2 == 0) {
+        } else if (t == j_nz && this->m_settings.random_next() % 2 == 0) {
             entering_iter = non_basis_iter;
         }
     }// while (number_of_benefitial_columns_to_go_over && initial_offset_in_non_basis != offset_in_nb);
@@ -268,7 +268,7 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::advance_on_so
         if (slope_at_entering * m_sign_of_entering_delta > - m_epsilon_of_reduced_cost) { // the slope started to increase infeasibility
             break;
         } else {
-            if ((numeric_traits<T>::precise() == false) || ( numeric_traits<T>::is_zero(slope_at_entering) && my_random() % 2 == 0)) {
+            if ((numeric_traits<T>::precise() == false) || ( numeric_traits<T>::is_zero(slope_at_entering) && this->m_settings.random_next() % 2 == 0)) {
                 // it is not cost benefitial to advance the delta more, so just break to increas the randomness
                 break;
             }
@@ -307,7 +307,7 @@ find_leaving_on_harris_theta(X const & harris_theta, X & t) {
     // we also know that harris_theta is limited, so we will find a leaving
     zero_harris_eps();
     unsigned steps = this->m_ed.m_index.size();
-    unsigned k = my_random() % steps;
+    unsigned k = this->m_settings.random_next() % steps;
     unsigned initial_k = k;
     do {
         unsigned i = this->m_ed.m_index[k];
@@ -398,7 +398,7 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
         return find_leaving_and_t_with_breakpoints(entering, t);
     bool unlimited = true;
     unsigned steps = this->m_ed.m_index.size();
-    unsigned k = my_random() % steps;
+    unsigned k = this->m_settings.random_next() % steps;
     unsigned initial_k = k;
     unsigned row_min_nz = this->m_n() + 1;
     m_leaving_candidates.clear();
@@ -454,7 +454,7 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
         t = ratio;
         return entering;
     }
-    k = my_random() % m_leaving_candidates.size();
+    k = this->m_settings.random_next() % m_leaving_candidates.size();
     return m_leaving_candidates[k];
 }
 
@@ -628,7 +628,7 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::backup_an
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::init_run() {
     this->m_basis_sort_counter = 0; // to initiate the sort of the basis
     this->set_total_iterations(0);
-    this->m_iters_with_no_cost_growing = 0;
+    this->iters_with_no_cost_growing() = 0;
     init_inf_set();
     if (this->current_x_is_feasible() && this->m_look_for_feasible_solution_only)
         return;
@@ -664,7 +664,7 @@ void lp_primal_core_solver<T, X>::advance_on_entering_equal_leaving(int entering
         this->init_lu();
         if (!this->find_x_by_solving()) {
             this->restore_x(entering, t * m_sign_of_entering_delta);
-            this->m_iters_with_no_cost_growing++;
+            this->iters_with_no_cost_growing()++;
             LP_OUT(this->m_settings, "failing in advance_on_entering_equal_leaving for entering = " << entering << std::endl);
             return;
         }
@@ -679,7 +679,7 @@ void lp_primal_core_solver<T, X>::advance_on_entering_equal_leaving(int entering
     if (need_to_switch_costs() ||!this->current_x_is_feasible()) {
         init_reduced_costs();
     }
-    this->m_iters_with_no_cost_growing = 0;
+    this->iters_with_no_cost_growing() = 0;
 }
 
 template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_entering_and_leaving(int entering, int leaving, X & t) {
@@ -699,14 +699,14 @@ template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_en
     if (!pivot_compare_result){;}
     else if (pivot_compare_result == 2) { // the sign is changed, cannot continue
         this->set_status(UNSTABLE);
-        this->m_iters_with_no_cost_growing++;
+        this->iters_with_no_cost_growing()++;
         return;
     } else {
         lean_assert(pivot_compare_result == 1);
         this->init_lu();
         if (this->m_factorization == nullptr || this->m_factorization->get_status() != LU_status::OK) {
             this->set_status(UNSTABLE);
-            this->m_iters_with_no_cost_growing++;
+            this->iters_with_no_cost_growing()++;
             return;
         }
     }
@@ -728,7 +728,7 @@ template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_en
     }
 
     if (!is_zero(t)) {
-        this->m_iters_with_no_cost_growing = 0;
+        this->iters_with_no_cost_growing() = 0;
         init_infeasibility_after_update_x_if_inf(leaving);
     }
 
@@ -783,7 +783,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_e
         this->init_lu();
         init_reduced_costs();
         if (refresh_result == 2) {
-            this->m_iters_with_no_cost_growing++;
+            this->iters_with_no_cost_growing()++;
             return;
         }
     }
@@ -833,7 +833,7 @@ template <typename T, typename X>  unsigned lp_primal_core_solver<T, X>::get_num
     if (ret == 0) {
         return 0;
     }
-    return std::max(static_cast<unsigned>(my_random() % ret), 1u);
+    return std::max(static_cast<unsigned>(this->m_settings.random_next() % ret), 1u);
 }
 
 template <typename T, typename X> void lp_primal_core_solver<T, X>::print_column_norms(std::ostream & out) {
@@ -934,7 +934,7 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
              &&
              this->get_status() != INFEASIBLE
              &&
-             this->m_iters_with_no_cost_growing <= this->m_settings.max_number_of_iterations_with_no_improvements
+             this->iters_with_no_cost_growing() <= this->m_settings.max_number_of_iterations_with_no_improvements
              &&
              this->total_iterations() <= this->m_settings.max_total_number_of_iterations
              &&
@@ -961,7 +961,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::init_column_
     for (unsigned j = 0; j < this->m_n(); j++) {
         this->m_column_norms[j] = T(static_cast<int>(this->m_A.m_columns[j].size() + 1)) 
             
-            + T(static_cast<int>(my_random() % 10000)) / T(100000);
+            + T(static_cast<int>(this->m_settings.random_next() % 10000)) / T(100000);
     }
 }
 

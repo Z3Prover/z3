@@ -8,8 +8,8 @@ namespace lean {
 template <typename T>
 struct iterator_on_row:linear_combination_iterator<T> {
     const vector<row_cell<T>> & m_row;
-    unsigned m_i= 0; // offset
-    iterator_on_row(const vector<row_cell<T>> & row) : m_row(row)
+    unsigned m_i; // offset
+    iterator_on_row(const vector<row_cell<T>> & row) : m_row(row), m_i(0)
     {}
     unsigned size() const { return m_row.size(); }
     bool next(T & a, unsigned & i) {

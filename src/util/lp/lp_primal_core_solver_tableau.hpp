@@ -62,7 +62,7 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::choose_enteri
             if (number_of_benefitial_columns_to_go_over)
                 number_of_benefitial_columns_to_go_over--;
         }
-        else if (t == j_nz && my_random() % 2 == 0) {
+        else if (t == j_nz && this->m_settings.random_next() % 2 == 0) {
             entering_iter = non_basis_iter;
         }
     }// while (number_of_benefitial_columns_to_go_over && initial_offset_in_non_basis != offset_in_nb);
@@ -169,7 +169,7 @@ unsigned lp_primal_core_solver<T, X>::solve_with_tableau() {
              &&
              this->get_status() != INFEASIBLE
              &&
-             this->m_iters_with_no_cost_growing <= this->m_settings.max_number_of_iterations_with_no_improvements
+             this->iters_with_no_cost_growing() <= this->m_settings.max_number_of_iterations_with_no_improvements
              &&
              this->total_iterations() <= this->m_settings.max_total_number_of_iterations
              &&
@@ -202,7 +202,7 @@ template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_en
         }
         this->update_basis_and_x_tableau(entering, leaving, t);
         lean_assert(this->A_mult_x_is_off() == false);
-        this->m_iters_with_no_cost_growing = 0;
+        this->iters_with_no_cost_growing() = 0;
     } else {
         this->pivot_column_tableau(entering, this->m_basis_heading[leaving]);
         this->change_basis(entering, leaving);
@@ -233,7 +233,7 @@ void lp_primal_core_solver<T, X>::advance_on_entering_equal_leaving_tableau(int 
     if (need_to_switch_costs()) {
         init_reduced_costs_tableau();
     }
-    this->m_iters_with_no_cost_growing = 0;
+    this->iters_with_no_cost_growing() = 0;
 }
 template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_and_t_tableau(unsigned entering, X & t) {
     unsigned k = 0;
@@ -293,7 +293,7 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
     }
     if (m_leaving_candidates.size() == 1)
         return m_leaving_candidates[0];
-    k = my_random() % m_leaving_candidates.size();
+    k = this->m_settings.random_next() % m_leaving_candidates.size();
     return m_leaving_candidates[k];
 }
 template <typename T, typename X> void lp_primal_core_solver<T, X>::init_run_tableau() {
@@ -302,7 +302,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::init_run_tab
         lean_assert(basis_columns_are_set_correctly());
         this->m_basis_sort_counter = 0; // to initiate the sort of the basis
         this->set_total_iterations(0);
-        this->m_iters_with_no_cost_growing = 0;
+        this->iters_with_no_cost_growing() = 0;
 		lean_assert(this->inf_set_is_correct());
         if (this->current_x_is_feasible() && this->m_look_for_feasible_solution_only)
             return;
@@ -315,7 +315,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::init_run_tab
             this->m_column_norm_update_counter = 0;
             init_column_norms();
         }
-        if (this->m_settings.m_simplex_strategy == simplex_strategy_enum::tableau_rows)
+        if (this->m_settings.simplex_strategy() == simplex_strategy_enum::tableau_rows)
             init_tableau_rows();
         lean_assert(this->reduced_costs_are_correct_tableau());
         lean_assert(!this->need_to_pivot_to_basis_tableau());

@@ -60,6 +60,7 @@ namespace smt {
         totalCacheAccessCount(0),
         cacheHitCount(0),
         cacheMissCount(0),
+        m_fresh_id(0),
         m_find(*this),
         m_trail_stack(*this)
     {
@@ -441,7 +442,12 @@ namespace smt {
     }
 
     app * theory_str::mk_fresh_const(char const* name, sort* s) {
-        return u.mk_skolem(symbol(name), 0, 0, s);
+        string_buffer<64> buffer;
+        buffer << name;
+        buffer << "!tmp";
+        buffer << m_fresh_id;
+        m_fresh_id++;
+        return u.mk_skolem(symbol(buffer.c_str()), 0, 0, s);
     }
 
 
@@ -5552,8 +5558,8 @@ namespace smt {
                     for (; arg1_grdItor != groundedMap[arg1DeAlias].end(); arg1_grdItor++) {
                         std::vector<expr*> ndVec;
                         ndVec.insert(ndVec.end(), arg0_grdItor->first.begin(), arg0_grdItor->first.end());
-                        int arg0VecSize = arg0_grdItor->first.size();
-                        int arg1VecSize = arg1_grdItor->first.size();
+                        size_t arg0VecSize = arg0_grdItor->first.size();
+                        size_t arg1VecSize = arg1_grdItor->first.size();
                         if (arg0VecSize > 0 && arg1VecSize > 0 && u.str.is_string(arg0_grdItor->first[arg0VecSize - 1]) && u.str.is_string(arg1_grdItor->first[0])) {
                             ndVec.pop_back();
                             ndVec.push_back(mk_concat(arg0_grdItor->first[arg0VecSize - 1], arg1_grdItor->first[0]));
@@ -5645,8 +5651,8 @@ namespace smt {
     }
 
     bool theory_str::is_partial_in_grounded_concat(const std::vector<expr*> & strVec, const std::vector<expr*> & subStrVec) {
-        int strCnt = strVec.size();
-        int subStrCnt = subStrVec.size();
+        size_t strCnt = strVec.size();
+        size_t subStrCnt = subStrVec.size();
 
         if (strCnt == 0 || subStrCnt == 0) {
             return false;
@@ -5717,7 +5723,7 @@ namespace smt {
                 }
 
                 // tail nodes
-                int tailIdx = i + subStrCnt - 1;
+                size_t tailIdx = i + subStrCnt - 1;
                 zstring subStrTailVal;
                 if (u.str.is_string(subStrVec[subStrCnt - 1], subStrTailVal)) {
                     zstring strTailVal;
@@ -5908,8 +5914,14 @@ namespace smt {
         app * n2_curr = to_app(n2);
 
         // case 0: n1_curr is const string, n2_curr is const string
-        if (u.str.is_string(n1_curr) && u.str.is_string(n2_curr)) {
-            if (n1_curr != n2_curr) {
+        zstring n1_curr_str, n2_curr_str;
+        if (u.str.is_string(n1_curr, n1_curr_str) && u.str.is_string(n2_curr, n2_curr_str)) {
+            TRACE("str", tout << "checking string constants: n1=" << n1_curr_str << ", n2=" << n2_curr_str << std::endl;);
+            if (n1_curr_str == n2_curr_str) {
+                // TODO(mtrberzi) potential correction: if n1_curr != n2_curr,
+                // assert that these two terms are in fact equal, because they ought to be
+                return true;
+            } else {
                 return false;
             }
         }
@@ -6864,7 +6876,7 @@ namespace smt {
                                 // easiest case. we will search within these bounds
                             } else if (upper_bound_exists && !lower_bound_exists) {
                                 // search between 0 and the upper bound
-                                v_lower_bound == rational::zero();
+                                v_lower_bound = rational::zero();
                             } else if (lower_bound_exists && !upper_bound_exists) {
                                 // check some finite portion of the search space
                                 v_upper_bound = v_lower_bound + rational(10);
@@ -8251,7 +8263,7 @@ namespace smt {
                         }
                     }
                     if (lId == -1)
-                        lId = mLMap.size();
+                        lId = static_cast<int>(mLMap.size());
                     for (std::set<expr*>::iterator itor2 = nSet.begin(); itor2 != nSet.end(); itor2++) {
                         bool itorHasEqcValue = false;
                         get_eqc_value(*itor2, itorHasEqcValue);
@@ -8290,7 +8302,7 @@ namespace smt {
                         }
                     }
                     if (rId == -1)
-                        rId = mRMap.size();
+                        rId = static_cast<int>(mRMap.size());
                     for (itor2 = nSet.begin(); itor2 != nSet.end(); itor2++) {
                         bool rHasEqcValue = false;
                         get_eqc_value(*itor2, rHasEqcValue);
@@ -9182,7 +9194,7 @@ namespace smt {
         // ----------------------------------------------------------------------------------------
         int len = atoi(lenStr.encode().c_str());
         bool coverAll = false;
-        svector<int_vector> options;
+        vector<int_vector, true, long long> options;
         int_vector base;
 
         TRACE("str", tout
@@ -9227,16 +9239,16 @@ namespace smt {
               );
 
         // ----------------------------------------------------------------------------------------
-
+        
         ptr_vector<expr> orList;
         ptr_vector<expr> andList;
 
         for (long long i = l; i < h; i++) {
             orList.push_back(m.mk_eq(val_indicator, mk_string(longlong_to_string(i).c_str()) ));
             if (m_params.m_AggressiveValueTesting) {
-                literal l = mk_eq(val_indicator, mk_string(longlong_to_string(i).c_str()), false);
-                ctx.mark_as_relevant(l);
-                ctx.force_phase(l);
+                literal lit = mk_eq(val_indicator, mk_string(longlong_to_string(i).c_str()), false);
+                ctx.mark_as_relevant(lit);
+                ctx.force_phase(lit);
             }
 
             zstring aStr = gen_val_string(len, options[i - l]);

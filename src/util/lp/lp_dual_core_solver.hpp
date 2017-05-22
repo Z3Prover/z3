@@ -429,7 +429,7 @@ template <typename T, typename X> bool lp_dual_core_solver<T, X>::basis_change_a
     if (snap_runaway_nonbasic_column(m_p)) {
         if (!this->find_x_by_solving()) {
             revert_to_previous_basis();
-            this->m_iters_with_no_cost_growing++;
+            this->iters_with_no_cost_growing()++;
             return false;
         }
     }
@@ -437,7 +437,7 @@ template <typename T, typename X> bool lp_dual_core_solver<T, X>::basis_change_a
     if (!problem_is_dual_feasible()) {
         // todo : shift the costs!!!!
         revert_to_previous_basis();
-        this->m_iters_with_no_cost_growing++;
+        this->iters_with_no_cost_growing()++;
         return false;
     }
 
@@ -537,7 +537,7 @@ template <typename T, typename X> unsigned lp_dual_core_solver<T, X>::get_number
     if (this->m_m() > 300) {
         s = (unsigned)((s / 100.0) * this->m_settings.percent_of_entering_to_check);
     }
-    return my_random() % s + 1;
+    return this->m_settings.random_next() % s + 1;
 }
 
 template <typename T, typename X> bool lp_dual_core_solver<T, X>::delta_keeps_the_sign(int initial_delta_sign, const T & delta) {
@@ -715,7 +715,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::update_xb_afte
 
 template <typename T, typename X> void lp_dual_core_solver<T, X>::one_iteration() {
     unsigned number_of_rows_to_try = get_number_of_rows_to_try_for_leaving();
-    unsigned offset_in_rows = my_random() % this->m_m();
+    unsigned offset_in_rows = this->m_settings.random_next() % this->m_m();
     if (this->get_status() == TENTATIVE_DUAL_UNBOUNDED) {
         number_of_rows_to_try = this->m_m();
     } else {
@@ -730,14 +730,14 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::solve() { // s
     lean_assert(problem_is_dual_feasible());
     lean_assert(this->basis_heading_is_correct());
     this->set_total_iterations(0);
-    this->m_iters_with_no_cost_growing = 0;
+    this->iters_with_no_cost_growing() = 0;
     do {
         if (this->print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over("", *this->m_settings.get_message_ostream())){
             return;
         }
         one_iteration();
     } while (this->get_status() != FLOATING_POINT_ERROR && this->get_status() != DUAL_UNBOUNDED && this->get_status() != OPTIMAL &&
-             this->m_iters_with_no_cost_growing <= this->m_settings.max_number_of_iterations_with_no_improvements
+             this->iters_with_no_cost_growing() <= this->m_settings.max_number_of_iterations_with_no_improvements
              && this->total_iterations() <= this->m_settings.max_total_number_of_iterations);
 }
 }

@@ -15,26 +15,26 @@ inline bool is_valid(unsigned j) { return static_cast<int>(j) >= 0;}
 template <typename T>
 class column_info {
     std::string m_name;
-    bool m_low_bound_is_set = false;
-    bool m_low_bound_is_strict = false;
-    bool m_upper_bound_is_set = false;
-    bool m_upper_bound_is_strict = false;
-    T m_low_bound;
-    T m_upper_bound;
-    T m_cost = numeric_traits<T>::zero();
-    T m_fixed_value;
-    bool m_is_fixed = false;
-    unsigned m_column_index = static_cast<unsigned>(-1);
+    bool        m_low_bound_is_set;
+    bool        m_low_bound_is_strict;
+    bool        m_upper_bound_is_set;
+    bool        m_upper_bound_is_strict;
+    T           m_low_bound;
+    T           m_upper_bound;
+    T           m_fixed_value;
+    bool        m_is_fixed;
+    T           m_cost;
+    unsigned    m_column_index;
 public:
     bool operator==(const column_info & c) const {
-        return     m_name == c.m_name &&
+        return m_name == c.m_name &&
             m_low_bound_is_set == c.m_low_bound_is_set &&
             m_low_bound_is_strict == c.m_low_bound_is_strict &&
             m_upper_bound_is_set == c.m_upper_bound_is_set&&
             m_upper_bound_is_strict == c.m_upper_bound_is_strict&&
             (!m_low_bound_is_set || m_low_bound == c.m_low_bound) &&
             (!m_upper_bound_is_set || m_upper_bound == c.m_upper_bound) &&
-            m_cost == c.m_cost&&
+            m_cost == c.m_cost &&
             m_is_fixed == c.m_is_fixed &&
             (!m_is_fixed || m_fixed_value == c.m_fixed_value) &&
             m_column_index == c.m_column_index;
@@ -44,9 +44,24 @@ public:
         m_column_index = j;
     }
     // the default constructor
-    column_info() {}
-
-    column_info(unsigned column_index) : m_column_index(column_index) {
+    column_info():
+        m_low_bound_is_set(false),
+        m_low_bound_is_strict(false),
+        m_upper_bound_is_set (false),
+        m_upper_bound_is_strict (false),
+        m_is_fixed(false),
+        m_cost(numeric_traits<T>::zero()),
+        m_column_index(static_cast<unsigned>(-1))
+    {}
+    
+    column_info(unsigned column_index) :
+        m_low_bound_is_set(false),
+        m_low_bound_is_strict(false),
+        m_upper_bound_is_set (false),
+        m_upper_bound_is_strict (false),
+        m_is_fixed(false),
+        m_cost(numeric_traits<T>::zero()),
+        m_column_index(column_index) {
     }
 
     column_info(const column_info & ci) {

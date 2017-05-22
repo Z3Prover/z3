@@ -110,25 +110,25 @@ enum class LU_status { OK, Degenerated};
 // Using Suhl-Suhl method described in the dissertation of Achim Koberstein, Chapter 5
 template <typename T, typename X>
 class lu {
-    LU_status m_status = LU_status::OK;
+    LU_status m_status;
 public:
     // the fields
-    unsigned m_dim;
+    unsigned                   m_dim;
     static_matrix<T, X> const &m_A;
-    permutation_matrix<T, X> m_Q;
-    permutation_matrix<T, X> m_R;
-    permutation_matrix<T, X> m_r_wave;
-    sparse_matrix<T, X> m_U;
+    permutation_matrix<T, X>   m_Q;
+    permutation_matrix<T, X>   m_R;
+    permutation_matrix<T, X>   m_r_wave;
+    sparse_matrix<T, X>        m_U;
     square_dense_submatrix<T, X>* m_dense_LU;
     
     vector<tail_matrix<T, X> *> m_tail;
-    lp_settings & m_settings;
-    bool m_failure = false;
-    indexed_vector<T> m_row_eta_work_vector;
-    indexed_vector<T> m_w_for_extension;
-    indexed_vector<T> m_y_copy;
-    indexed_vector<unsigned> m_ii; //to optimize the work with the m_index fields
-    unsigned m_refactor_counter = 0;
+    lp_settings &               m_settings;
+    bool                        m_failure;
+    indexed_vector<T>           m_row_eta_work_vector;
+    indexed_vector<T>           m_w_for_extension;
+    indexed_vector<T>           m_y_copy;
+    indexed_vector<unsigned>    m_ii; //to optimize the work with the m_index fields
+    unsigned                    m_refactor_counter;
     // constructor
     // if A is an m by n matrix then basis has length m and values in [0,n); the values are all different
     // they represent the set of m columns
