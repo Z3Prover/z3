@@ -187,6 +187,7 @@ endif()
 # Note for some reason we have to leave off ``-D`` here otherwise
 # we get ``-D-DZ3DEBUG`` passed to the compiler
 list(APPEND Z3_COMPONENT_CXX_DEFINES $<$<CONFIG:Debug>:Z3DEBUG>)
+list(APPEND Z3_COMPONENT_CXX_DEFINES $<$<CONFIG:Debug>:LEAN_DEBUG>)
 list(APPEND Z3_COMPONENT_CXX_DEFINES $<$<CONFIG:Release>:_EXTERNAL_RELEASE>)
 list(APPEND Z3_COMPONENT_CXX_DEFINES $<$<CONFIG:RelWithDebInfo>:_EXTERNAL_RELEASE>)
 
@@ -211,6 +212,16 @@ endif()
 # Function for detecting C++ compiler flag support
 ################################################################################
 include(${CMAKE_SOURCE_DIR}/cmake/z3_add_cxx_flag.cmake)
+
+################################################################################
+# C++ language version
+################################################################################
+# FIXME: Use CMake's own mechanism for selecting language version
+if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU") OR ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang"))
+  z3_add_cxx_flag("-std=c++11" REQUIRED)
+else()
+  message(AUTHOR_WARNING "Not setting C++ language version for compiler")
+endif()
 
 ################################################################################
 # Platform detection
@@ -244,6 +255,7 @@ else()
   message(FATAL_ERROR "Platform \"${CMAKE_SYSTEM_NAME}\" not recognised")
 endif()
 
+list(APPEND Z3_COMPONENT_EXTRA_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/src")
 
 ################################################################################
 # GNU multiple precision library support
@@ -287,6 +299,7 @@ if (USE_OPENMP)
     message(WARNING "OpenMP support was requested but your compiler doesn't support it")
   endif()
 endif()
+
 if (OPENMP_FOUND)
     list(APPEND Z3_COMPONENT_CXX_FLAGS ${OpenMP_CXX_FLAGS})
     # GCC and Clang need to have additional flags passed to the linker.
@@ -324,6 +337,8 @@ if (("${TARGET_ARCHITECTURE}" STREQUAL "x86_64") OR ("${TARGET_ARCHITECTURE}" ST
   endif()
   unset(SSE_FLAGS)
 endif()
+
+
 
 # FIXME: Remove "x.." when CMP0054 is set to NEW
 if ("x${CMAKE_CXX_COMPILER_ID}" STREQUAL "xMSVC")

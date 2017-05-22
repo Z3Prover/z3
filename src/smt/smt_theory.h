@@ -337,14 +337,14 @@ namespace smt {
         
         virtual void collect_statistics(::statistics & st) const {
         }
-
-        void display_app(std::ostream & out, app * n) const;
-
-        void display_flat_app(std::ostream & out, app * n) const;
         
-        void display_var_def(std::ostream & out, theory_var v) const { return display_app(out, get_enode(v)->get_owner()); }
+        std::ostream& display_app(std::ostream & out, app * n) const;
         
-        void display_var_flat_def(std::ostream & out, theory_var v) const { return display_flat_app(out, get_enode(v)->get_owner()); }
+        std::ostream& display_flat_app(std::ostream & out, app * n) const;
+        
+        std::ostream& display_var_def(std::ostream & out, theory_var v) const { return display_app(out, get_enode(v)->get_owner()); }
+        
+        std::ostream& display_var_flat_def(std::ostream & out, theory_var v) const { return display_flat_app(out, get_enode(v)->get_owner());  }
 
         /**
            \brief Assume eqs between variable that are equal with respect to the given table.

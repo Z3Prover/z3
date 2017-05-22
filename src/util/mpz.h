@@ -593,6 +593,15 @@ public:
         }
     }
 
+    bool lt(mpz const& a, int b) {
+        if (is_small(a)) {
+            return a.m_val < b;
+        }
+        else {
+            return lt(a, mpz(b));
+        }
+    }
+
     bool lt(mpz const & a, mpz const & b) {
         if (is_small(a) && is_small(b)) {
             return a.m_val < b.m_val;

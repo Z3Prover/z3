@@ -26,6 +26,7 @@ Notes:
 #include "theory_diff_logic.h"
 #include "theory_dense_diff_logic.h"
 #include "theory_pb.h"
+#include "theory_lra.h"
 #include "ast_pp.h"
 #include "ast_smt_pp.h"
 #include "pp_params.hpp"
@@ -142,6 +143,9 @@ namespace opt {
         }
         else if (typeid(smt::theory_dense_si&) == typeid(*arith_theory)) {   
             return dynamic_cast<smt::theory_dense_si&>(*arith_theory); 
+        }
+        else if (typeid(smt::theory_lra&) == typeid(*arith_theory)) {
+            return dynamic_cast<smt::theory_lra&>(*arith_theory); 
         }
         else {
             UNREACHABLE();
@@ -401,6 +405,14 @@ namespace opt {
             return th.mk_ge(m_fm, v, val);
         }
 
+
+        if (typeid(smt::theory_lra) == typeid(opt)) {
+            smt::theory_lra& th = dynamic_cast<smt::theory_lra&>(opt); 
+            SASSERT(val.is_finite());
+            return th.mk_ge(m_fm, v, val.get_numeral());            
+        }
+
+        // difference logic?
         if (typeid(smt::theory_dense_si) == typeid(opt) &&
             val.get_infinitesimal().is_zero()) {
             smt::theory_dense_si& th = dynamic_cast<smt::theory_dense_si&>(opt);
