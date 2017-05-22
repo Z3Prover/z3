@@ -26,6 +26,7 @@ Notes:
 #include"ast_pp.h"
 #include"lbool.h"
 #include"uint_set.h"
+#include"gparams.h"
 
 const unsigned g_primes[7] = { 2, 3, 5, 7, 11, 13, 17};
 
@@ -819,7 +820,9 @@ struct pb2bv_rewriter::imp {
         return 
             p.get_bool("keep_cardinality_constraints", false) ||
             p.get_bool("sat.cardinality.solver", false) ||
-            p.get_bool("cardinality.solver", false) || keep_pb();
+            p.get_bool("cardinality.solver", false) || 
+            gparams::get_module("sat").get_bool("cardinality.solver", false) ||
+            keep_pb();
     }
 
     bool keep_pb() const {
@@ -827,7 +830,8 @@ struct pb2bv_rewriter::imp {
         return 
             p.get_bool("keep_pb_constraints", false) ||
             p.get_bool("sat.pb.solver", false) ||
-            p.get_bool("pb.solver", false);
+            p.get_bool("pb.solver", false) ||
+            gparams::get_module("sat").get_bool("pb.solver", false);
     }
 
     bool pb_num_system() const {

@@ -1937,23 +1937,25 @@ namespace sat {
     void solver::learn_lemma_and_backjump() {
         TRACE("sat_lemma", tout << "new lemma size: " << m_lemma.size() << "\n" << m_lemma << "\n";);
 
-        if (m_config.m_minimize_lemmas) {
-            minimize_lemma();
-            reset_lemma_var_marks();
-            if (m_config.m_dyn_sub_res)
-                dyn_sub_res();
-            TRACE("sat_lemma", tout << "new lemma (after minimization) size: " << m_lemma.size() << "\n" << m_lemma << "\n";);
-        }
-        else
-            reset_lemma_var_marks();
-
-        literal_vector::iterator it  = m_lemma.begin();
-        literal_vector::iterator end = m_lemma.end();
         unsigned new_scope_lvl       = 0;
-        ++it;
-        for(; it != end; ++it) {
-            bool_var var = (*it).var();
-            new_scope_lvl = std::max(new_scope_lvl, lvl(var));
+        if (!m_lemma.empty()) {
+            if (m_config.m_minimize_lemmas) {
+                minimize_lemma();
+                reset_lemma_var_marks();
+                if (m_config.m_dyn_sub_res)
+                    dyn_sub_res();
+                TRACE("sat_lemma", tout << "new lemma (after minimization) size: " << m_lemma.size() << "\n" << m_lemma << "\n";);
+            }
+            else
+                reset_lemma_var_marks();
+
+            literal_vector::iterator it  = m_lemma.begin();
+            literal_vector::iterator end = m_lemma.end();
+            ++it;
+            for(; it != end; ++it) {
+                bool_var var = (*it).var();
+                new_scope_lvl = std::max(new_scope_lvl, lvl(var));
+            }
         }
 
         unsigned glue = num_diff_levels(m_lemma.size(), m_lemma.c_ptr());
@@ -2389,6 +2391,7 @@ namespace sat {
        assigned at level 0.
     */
     void solver::minimize_lemma() {
+        SASSERT(!m_lemma.empty());
         SASSERT(m_unmark.empty());
         //m_unmark.reset();
         updt_lemma_lvl_set();

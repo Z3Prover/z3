@@ -1025,7 +1025,6 @@ namespace sat {
 
         m_lemma.reset();        
 
-#if 1
         m_lemma.push_back(null_literal);
         for (unsigned i = 0; 0 <= slack && i < m_active_vars.size(); ++i) { 
             bool_var v = m_active_vars[i];
@@ -1048,6 +1047,7 @@ namespace sat {
             }
         }
 
+#if 0
         if (jus.size() > 1) {
             std::cout << jus.size() << "\n";
             for (unsigned i = 0; i < jus.size(); ++i) {
@@ -1057,6 +1057,7 @@ namespace sat {
             active2pb(m_A);
             display(std::cout, m_A);
         }
+#endif
 
 
         if (slack >= 0) {
@@ -1067,7 +1068,7 @@ namespace sat {
         if (m_lemma[0] == null_literal) {
             m_lemma[0] = m_lemma.back();
             m_lemma.pop_back();
-            unsigned level = lvl(m_lemma[0]);
+            unsigned level = m_lemma.empty() ? 0 : lvl(m_lemma[0]);
             for (unsigned i = 1; i < m_lemma.size(); ++i) {
                 if (lvl(m_lemma[i]) > level) {
                     level = lvl(m_lemma[i]);
@@ -1076,37 +1077,6 @@ namespace sat {
             }
             IF_VERBOSE(2, verbose_stream() << "(sat.card set level to " << level << " < " << m_conflict_lvl << ")\n";);
         }        
-#else
-        ++idx;
-        while (0 <= slack) {            
-            literal lit = lits[idx];
-            bool_var v = lit.var();
-            if (m_active_var_set.contains(v)) {
-                int coeff = get_coeff(v);
-                if (coeff < 0 && !lit.sign()) {
-                    slack += coeff;
-                    m_lemma.push_back(~lit);
-                }
-                else if (coeff > 0 && lit.sign()) {
-                    slack -= coeff;
-                    m_lemma.push_back(~lit);
-                }
-            }
-            if (idx == 0 && slack >= 0) {
-                IF_VERBOSE(2, verbose_stream() << "(sat.card non-asserting)\n";);
-                goto bail_out;
-            }
-            SASSERT(idx > 0 || slack < 0);
-            --idx;
-        }
-        if (m_lemma.size() >= 2 && lvl(m_lemma[1]) == m_conflict_lvl) {
-            // TRACE("sat", tout << "Bail out on no progress " << lit << "\n";);
-            IF_VERBOSE(2, verbose_stream() << "(sat.card bail non-asserting resolvent)\n";);
-            goto bail_out;
-        }
-
-#endif
-
 
         SASSERT(slack < 0);
 
@@ -1118,7 +1088,7 @@ namespace sat {
             svector<drat::premise> ps; // TBD fill in
             s().m_drat.add(m_lemma, ps);
         }
-        
+
         s().m_lemma.reset();
         s().m_lemma.append(m_lemma);
         for (unsigned i = 1; i < m_lemma.size(); ++i) {
