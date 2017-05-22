@@ -275,18 +275,6 @@ else()
 endif()
 
 ################################################################################
-# FOCI2 support
-################################################################################
-# FIXME: What is this?
-option(USE_FOCI2 "Use FOCI2" OFF)
-if (USE_FOCI2)
-  message(FATAL_ERROR "TODO")
-  message(STATUS "Using FOCI2")
-else()
-  message(STATUS "Not using FOCI2")
-endif()
-
-################################################################################
 # OpenMP support
 ################################################################################
 option(USE_OPENMP "Use OpenMP" ON)
