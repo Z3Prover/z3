@@ -1932,15 +1932,13 @@ namespace sat {
                 for (unsigned i = 0; i < m_candidates.size(); ++i) {
                     bool_var v = m_candidates[i].m_var;
                     literal p = get_root(v);
-                    if (p != null_literal && p.var() != v && !m_s.is_external(v) && !m_s.was_eliminated(v) && !m_s.was_eliminated(p.var())) {
+                    if (p != null_literal && p.var() != v && !m_s.is_external(v) && 
+                        !m_s.was_eliminated(v) && !m_s.was_eliminated(p.var())) {
                         to_elim.push_back(v);
                         roots[v] = p;
                         SASSERT(get_parent(p) == p);
                         set_parent(~p, ~p);
                         SASSERT(get_parent(~p) == ~p);
-                        if (v == 5904 || v == 5903) {
-                            std::cout << lit << " " << p << "\n";
-                        }
                     }
                 }
                 IF_VERBOSE(1, verbose_stream() << "(sat-lookahead :equivalences " << to_elim.size() << ")\n";);
