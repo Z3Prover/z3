@@ -19,8 +19,9 @@ z3_add_component(lp
     lp_solver_instances.cpp
     lu_instances.cpp
     matrix_instances.cpp
+    nra_solver.cpp
     permutation_matrix_instances.cpp
-	quick_xplain.cpp
+    quick_xplain.cpp
     row_eta_matrix_instances.cpp
     scaler_instances.cpp
     sparse_matrix_instances.cpp
