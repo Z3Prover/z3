@@ -232,6 +232,7 @@ br_status pb_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
     }    
 
     bool is_eq = f->get_decl_kind() == OP_PB_EQ;
+    br_status st = BR_DONE;
     
     pb_ast_rewriter_util pbu(m);
     pb_rewriter_util<pb_ast_rewriter_util> util(pbu);
@@ -249,11 +250,14 @@ br_status pb_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
     default: {
         bool all_unit = true;
         unsigned sz = vec.size();
+        rational slack(0);
         m_args.reset();
         m_coeffs.reset();
         for (unsigned i = 0; i < sz; ++i) {
             m_args.push_back(vec[i].first);
             m_coeffs.push_back(vec[i].second);
+            SASSERT(vec[i].second.is_pos());
+            slack += vec[i].second;
             all_unit &= m_coeffs.back().is_one();
         }
         if (is_eq) {
@@ -271,7 +275,42 @@ br_status pb_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
             result = mk_and(m, sz, m_args.c_ptr());
         }
         else {
-            result = m_util.mk_ge(sz, m_coeffs.c_ptr(), m_args.c_ptr(), k);
+            expr_ref_vector conj(m), disj(m);
+            for (unsigned i = 0; i < m_args.size(); ++i) {
+                rational& c = m_coeffs[i];
+                if (slack < c + k) {
+                    conj.push_back(m_args[i]);
+                    slack -= c;
+                    k -= c;
+                }
+                else if (c >= k) {
+                    slack -= c;
+                    disj.push_back(m_args[i]);
+                }
+                else {
+                    continue;
+                }
+                m_args[i] = m_args.back();
+                m_coeffs[i] = m_coeffs.back();
+                --i;
+                m_args.pop_back();
+                m_coeffs.pop_back();
+            }
+            sz = m_coeffs.size();
+            if (slack < k) {
+                conj.push_back(m.mk_false());
+            }
+            else if (k.is_pos() && sz > 0) {
+                conj.push_back(m_util.mk_ge(sz, m_coeffs.c_ptr(), m_args.c_ptr(), k));
+            }
+            result = mk_and(conj);
+            if (!disj.empty()) {
+                disj.push_back(result);
+                result = mk_or(disj);
+            }
+            if (!disj.empty() || conj.size() > 1) {
+                st = BR_REWRITE3;
+            }
         }
         break;
     }
@@ -286,7 +325,7 @@ br_status pb_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
     TRACE("pb_validate",
           validate_rewrite(f, num_args, args, result););
           
-    return BR_DONE;
+    return st;
 }
 
 

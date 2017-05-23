@@ -504,6 +504,7 @@ struct pb2bv_rewriter::imp {
             for (unsigned i = 0; i < sz; ++i) {
                 m_coeffs.push_back(pb.get_coeff(f, i));
             }
+            CTRACE("pb", k.is_neg(), tout << expr_ref(m.mk_app(f, sz, args), m) << "\n";);
             SASSERT(!k.is_neg());
             switch (kind) {
             case OP_PB_GE:
