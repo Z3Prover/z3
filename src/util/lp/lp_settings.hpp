@@ -53,9 +53,15 @@ lp_status lp_status_from_string(std::string status) {
     return lp_status::UNKNOWN; // it is unreachable
 }
 int get_millisecond_count() {
+#ifdef __OpenBSD__
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return tv.tv_usec / 1000 + (tv.tv_sec & 0xfffff) * 1000;
+#else
     timeb tb;
     ftime(&tb);
     return tb.millitm + (tb.time & 0xfffff) * 1000;
+#endif
 }
 
 int get_millisecond_span(int start_time) {
@@ -108,7 +114,7 @@ bool vectors_are_equal(const vector<T> & a, const vector<T>  &b) {
                 da /= amax;
                 db /= amax;
             }
-                
+
             if (fabs(da - db) > 0.000001) {
                 // std::cout << "a[" << i <<"] = " << a[i] << ", but " << "b[" << i <<"] = " << b[i] << std::endl;
                 return false;
