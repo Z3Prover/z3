@@ -876,6 +876,36 @@ bool seq_decl_plugin::is_value(app* e) const {
     }
 }
 
+bool seq_decl_plugin::are_equal(app* a, app* b) const {
+    if (a == b) return true;
+    // handle concatenations
+    return false;
+}
+
+bool seq_decl_plugin::are_distinct(app* a, app* b) const {
+    if (a == b) {
+        return false;
+    }
+    if (is_app_of(a, m_family_id, OP_STRING_CONST) &&
+        is_app_of(b, m_family_id, OP_STRING_CONST)) {
+        return true;
+    }
+    if (is_app_of(a, m_family_id, OP_SEQ_UNIT) && 
+        is_app_of(b, m_family_id, OP_SEQ_UNIT)) {
+        return true;
+    }
+    if (is_app_of(a, m_family_id, OP_SEQ_EMPTY) && 
+        is_app_of(b, m_family_id, OP_SEQ_UNIT)) {
+        return true;
+    }
+    if (is_app_of(b, m_family_id, OP_SEQ_EMPTY) && 
+        is_app_of(a, m_family_id, OP_SEQ_UNIT)) {
+        return true;
+    }    
+    return false;
+}
+
+
 expr* seq_decl_plugin::get_some_value(sort* s) {
     seq_util util(*m_manager);
     if (util.is_seq(s)) {

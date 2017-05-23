@@ -497,7 +497,9 @@ public:
         STRACE("mpz", tout << "[mpz] 0 - " << to_string(a) << " == ";); 
         if (is_small(a) && a.m_val == INT_MIN) {
             // neg(INT_MIN) is not a small int
+            MPZ_BEGIN_CRITICAL();
             set_big_i64(a, - static_cast<long long>(INT_MIN)); 
+            MPZ_END_CRITICAL();
             return;
         }
 #ifndef _MP_GMP
@@ -518,7 +520,9 @@ public:
             if (a.m_val < 0) {
                 if (a.m_val == INT_MIN) {
                     // abs(INT_MIN) is not a small int
+                    MPZ_BEGIN_CRITICAL();
                     set_big_i64(a, - static_cast<long long>(INT_MIN)); 
+                    MPZ_END_CRITICAL();
                 }
                 else
                     a.m_val = -a.m_val;
@@ -590,6 +594,15 @@ public:
             bool res = big_compare(a, b) == 0;
             MPZ_END_CRITICAL();
             return res;
+        }
+    }
+
+    bool lt(mpz const& a, int b) {
+        if (is_small(a)) {
+            return a.m_val < b;
+        }
+        else {
+            return lt(a, mpz(b));
         }
     }
 

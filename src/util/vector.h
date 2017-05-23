@@ -117,6 +117,10 @@ public:
     }
 
     vector(SZ s) {
+        if (s == 0) {
+            m_data = 0;
+            return;
+        }
         SZ * mem = reinterpret_cast<SZ*>(memory::allocate(sizeof(T) * s + sizeof(SZ) * 2));
         *mem = s; 
         mem++;
@@ -184,6 +188,8 @@ public:
         }
     }
 
+    void clear() { reset(); }
+
     bool empty() const { 
         return m_data == 0 || reinterpret_cast<SZ *>(m_data)[SIZE_IDX] == 0; 
     }
@@ -217,6 +223,33 @@ public:
     const_iterator end() const { 
         return m_data + size(); 
     }
+
+    class reverse_iterator {
+        T* v;
+    public:
+        reverse_iterator(T* v):v(v) {}
+        
+        T operator*() { return *v; }
+        reverse_iterator operator++(int) {
+            reverse_iterator tmp = *this;
+            --v;
+            return tmp;
+        }
+        reverse_iterator& operator++() {
+            --v;
+            return *this;
+        }
+
+        bool operator==(reverse_iterator const& other) const {
+            return other.v == v;
+        }
+        bool operator!=(reverse_iterator const& other) const {
+            return other.v != v;
+        }
+    };
+
+    reverse_iterator rbegin() { return reverse_iterator(end() - 1); }
+    reverse_iterator rend() { return reverse_iterator(begin() - 1); }
 
     void set_end(iterator it) {
         if (m_data) {
@@ -362,8 +395,8 @@ public:
     void reverse() {
         SZ sz = size();
         for (SZ i = 0; i < sz/2; ++i) {
-           std::swap(m_data[i], m_data[sz-i-1]);
-       }
+            std::swap(m_data[i], m_data[sz-i-1]);
+        }
     }
 
     void fill(T const & elem) {
@@ -461,15 +494,22 @@ struct vector_hash : public vector_hash_tpl<Hash, vector<typename Hash::data> > 
 template<typename Hash>
 struct svector_hash : public vector_hash_tpl<Hash, svector<typename Hash::data> > {};
 
-
-// Specialize vector<std::string> to be inaccessible.
+#include <vector>
+// Specialize vector<std::string> to be an instance of std::vector instead.
 // This will catch any regression of issue #564 and #420.
-// Use std::vector<std::string> instead.
+
 template <>
-class vector<std::string, true, unsigned> {
-private:
-    vector<std::string, true, unsigned>();
+class vector<std::string, true, unsigned> : public std::vector<std::string> {
+public:
+    vector(vector<std::string, true, unsigned> const& other): std::vector<std::string>(other) {}
+    vector(size_t sz, char const* s): std::vector<std::string>(sz, s) {}
+    vector() {}
+
+    void reset() { clear(); }
+   
+    
 };
+
 
 
 #endif /* VECTOR_H_ */

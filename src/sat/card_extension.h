@@ -232,10 +232,12 @@ namespace sat {
 
 
         // pb functionality
+        unsigned m_a_max;
         void copy_pb(card_extension& result);
         void asserted_pb(literal l, ptr_vector<pb>* pbs, pb* p);
         void init_watch(pb& p, bool is_true);
         lbool add_assign(pb& p, literal alit);
+        void add_index(pb& p, unsigned index, literal lit);
         void watch_literal(pb& p, wliteral lit);
         void clear_watch(pb& p);
         void set_conflict(pb& p, literal lit);
@@ -280,6 +282,7 @@ namespace sat {
         bool validate_assign(literal_vector const& lits, literal lit);
         bool validate_lemma();
         bool validate_unit_propagation(card const& c);
+        bool validate_unit_propagation(pb const& p, literal lit);
         bool validate_conflict(literal_vector const& lits, ineq& p);
 
         ineq m_A, m_B, m_C;

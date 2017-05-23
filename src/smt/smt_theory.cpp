@@ -54,7 +54,7 @@ namespace smt {
         }
     }
 
-    void theory::display_app(std::ostream & out, app * n) const {
+    std::ostream& theory::display_app(std::ostream & out, app * n) const {
         func_decl * d = n->get_decl();
         if (n->get_num_args() == 0) {
             out << d->get_name();
@@ -73,9 +73,10 @@ namespace smt {
         else {
             out << "#" << n->get_id();
         }
+        return out;
     }
 
-    void theory::display_flat_app(std::ostream & out, app * n) const {
+    std::ostream& theory::display_flat_app(std::ostream & out, app * n) const {
         func_decl * d = n->get_decl();
         if (n->get_num_args() == 0) {
             out << d->get_name();
@@ -106,6 +107,7 @@ namespace smt {
         else {
             out << "#" << n->get_id();
         }
+        return out;
     }
     
     bool theory::is_relevant_and_shared(enode * n) const {

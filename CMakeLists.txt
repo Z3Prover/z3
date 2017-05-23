@@ -188,6 +188,7 @@ endif()
 # Note for some reason we have to leave off ``-D`` here otherwise
 # we get ``-D-DZ3DEBUG`` passed to the compiler
 list(APPEND Z3_COMPONENT_CXX_DEFINES $<$<CONFIG:Debug>:Z3DEBUG>)
+list(APPEND Z3_COMPONENT_CXX_DEFINES $<$<CONFIG:Debug>:LEAN_DEBUG>)
 list(APPEND Z3_COMPONENT_CXX_DEFINES $<$<CONFIG:Release>:_EXTERNAL_RELEASE>)
 list(APPEND Z3_COMPONENT_CXX_DEFINES $<$<CONFIG:RelWithDebInfo>:_EXTERNAL_RELEASE>)
 
@@ -212,6 +213,16 @@ endif()
 # Function for detecting C++ compiler flag support
 ################################################################################
 include(${CMAKE_SOURCE_DIR}/cmake/z3_add_cxx_flag.cmake)
+
+################################################################################
+# C++ language version
+################################################################################
+# FIXME: Use CMake's own mechanism for selecting language version
+if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU") OR ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang"))
+  z3_add_cxx_flag("-std=c++11" REQUIRED)
+else()
+  message(AUTHOR_WARNING "Not setting C++ language version for compiler")
+endif()
 
 ################################################################################
 # Platform detection
@@ -245,6 +256,7 @@ else()
   message(FATAL_ERROR "Platform \"${CMAKE_SYSTEM_NAME}\" not recognised")
 endif()
 
+list(APPEND Z3_COMPONENT_EXTRA_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/src")
 
 ################################################################################
 # GNU multiple precision library support
@@ -264,18 +276,6 @@ else()
 endif()
 
 ################################################################################
-# FOCI2 support
-################################################################################
-# FIXME: What is this?
-option(USE_FOCI2 "Use FOCI2" OFF)
-if (USE_FOCI2)
-  message(FATAL_ERROR "TODO")
-  message(STATUS "Using FOCI2")
-else()
-  message(STATUS "Not using FOCI2")
-endif()
-
-################################################################################
 # OpenMP support
 ################################################################################
 option(USE_OPENMP "Use OpenMP" ON)
@@ -288,6 +288,7 @@ if (USE_OPENMP)
     message(WARNING "OpenMP support was requested but your compiler doesn't support it")
   endif()
 endif()
+
 if (OPENMP_FOUND)
     list(APPEND Z3_COMPONENT_CXX_FLAGS ${OpenMP_CXX_FLAGS})
     # GCC and Clang need to have additional flags passed to the linker.
@@ -304,6 +305,23 @@ else()
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_NO_OMP_")
   message(STATUS "Not using OpenMP")
   set(USE_OPENMP OFF CACHE BOOL "Use OpenMP" FORCE)
+endif()
+
+################################################################################
+# API Log sync
+################################################################################
+option(API_LOG_SYNC
+  "Use locking when logging Z3 API calls (experimental)"
+  OFF
+)
+if (API_LOG_SYNC)
+  if (NOT USE_OPENMP)
+    message(FATAL_ERROR "API_LOG_SYNC feature requires OpenMP")
+  endif()
+  list(APPEND Z3_COMPONENT_CXX_DEFINES "-DZ3_LOG_SYNC")
+  message(STATUS "Using API_LOG_SYNC")
+else()
+  message(STATUS "Not using API_LOG_SYNC")
 endif()
 
 ################################################################################
@@ -325,6 +343,8 @@ if (("${TARGET_ARCHITECTURE}" STREQUAL "x86_64") OR ("${TARGET_ARCHITECTURE}" ST
   endif()
   unset(SSE_FLAGS)
 endif()
+
+
 
 # FIXME: Remove "x.." when CMP0054 is set to NEW
 if ("x${CMAKE_CXX_COMPILER_ID}" STREQUAL "xMSVC")

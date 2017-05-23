@@ -35,8 +35,9 @@ Revision History:
 #include"error_codes.h"
 #include"gparams.h"
 #include"env_params.h"
+#include "lp_frontend.h"
 
-typedef enum { IN_UNSPECIFIED, IN_SMTLIB, IN_SMTLIB_2, IN_DATALOG, IN_DIMACS, IN_WCNF, IN_OPB, IN_Z3_LOG } input_kind;
+typedef enum { IN_UNSPECIFIED, IN_SMTLIB, IN_SMTLIB_2, IN_DATALOG, IN_DIMACS, IN_WCNF, IN_OPB, IN_Z3_LOG, IN_MPS } input_kind;
 
 std::string         g_aux_input_file;
 char const *        g_input_file          = 0;
@@ -342,6 +343,10 @@ int STD_CALL main(int argc, char ** argv) {
                 else if (strcmp(ext, "smt") == 0) {
                     g_input_kind = IN_SMTLIB;
                 }
+                else if (strcmp(ext, "mps") == 0 || strcmp(ext, "sif") == 0 ||
+                         strcmp(ext, "MPS") == 0 || strcmp(ext, "SIF") == 0) {
+                    g_input_kind = IN_MPS;
+                }
             }
     }
         switch (g_input_kind) {
@@ -366,6 +371,9 @@ int STD_CALL main(int argc, char ** argv) {
             break;
         case IN_Z3_LOG:
             replay_z3_log(g_input_file);
+            break;
+        case IN_MPS:
+            return_value = read_mps_file(g_input_file);
             break;
         default:
             UNREACHABLE();

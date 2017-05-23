@@ -240,6 +240,7 @@ int main(int argc, char ** argv) {
     TST(pdr);
     TST_ARGV(ddnf);
     TST(model_evaluator);
+    TST_ARGV(lp);
     TST(get_consequences);
     TST(pb2bv);
     TST_ARGV(sat_lookahead);

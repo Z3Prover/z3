@@ -52,6 +52,9 @@ public:
 
     rational(mpz const & z) { m().set(m_val, z); }
 
+    rational(double  z) { UNREACHABLE(); }
+
+    
     explicit rational(char const * v) { m().set(m_val, v); }
 
     struct i64 {};
@@ -127,6 +130,12 @@ public:
         return *this;
     }
 
+    rational & operator=(int v) {
+        *this = rational(v);
+        return *this;
+    }
+    rational & operator=(double v) { UNREACHABLE(); return *this; }
+
     friend inline rational numerator(rational const & r) { rational result; m().get_numerator(r.m_val, result.m_val); return result; }
     
     friend inline rational denominator(rational const & r) { rational result; m().get_denominator(r.m_val, result.m_val); return result; }
@@ -134,6 +143,11 @@ public:
     rational & operator+=(rational const & r) { 
         m().add(m_val, r.m_val, m_val);
         return *this; 
+    }
+
+    rational & operator+=(int r) {
+        (*this) += rational(r);
+        return *this;
     }
 
     rational & operator-=(rational const & r) { 
@@ -394,6 +408,7 @@ public:
         return num_bits;
     }
 
+    
 };
 
 inline bool operator!=(rational const & r1, rational const & r2) { 
@@ -404,6 +419,10 @@ inline bool operator>(rational const & r1, rational const & r2) {
     return operator<(r2, r1); 
 }
 
+inline bool operator<(rational const & r1, int r2) {
+	return r1 < rational(r2);
+}
+
 inline bool operator<=(rational const & r1, rational const & r2) { 
     return !operator>(r1, r2); 
 }
@@ -412,12 +431,41 @@ inline bool operator>=(rational const & r1, rational const & r2) {
     return !operator<(r1, r2); 
 }
 
+inline bool operator>(rational const & a, int b) {
+    return a > rational(b);
+}
+
+inline bool operator!=(rational const & a, int b) {
+    return !(a == rational(b));
+}
+
+inline bool operator==(rational const & a, int b) {
+    return a == rational(b);
+}
+
 inline rational operator+(rational const & r1, rational const & r2) { 
     return rational(r1) += r2; 
 }
 
+inline rational operator+(int r1, rational const & r2) {
+	return rational(r1) + r2;
+}
+
+inline rational operator+(rational const & r1, int r2) {
+	return r1 + rational(r2);
+}
+
+
 inline rational operator-(rational const & r1, rational const & r2) { 
     return rational(r1) -= r2; 
+}
+
+inline rational operator-(rational const & r1, int r2) {
+	return r1 - rational(r2);
+}
+
+inline rational operator-(int r1, rational const & r2) {
+	return rational(r1) - r2;
 }
 
 inline rational operator-(rational const & r) { 
@@ -430,8 +478,23 @@ inline rational operator*(rational const & r1, rational const & r2) {
     return rational(r1) *= r2; 
 }
 
+inline rational operator*(rational const & r1, int r2) {
+    return r1 * rational(r2);
+}
+inline rational operator*(int  r1, rational const & r2) {
+    return rational(r1) * r2;
+}
+
 inline rational operator/(rational const & r1, rational const & r2) { 
     return rational(r1) /= r2; 
+}
+
+inline rational operator/(rational const & r1, int r2) {
+	return r1 / rational(r2);
+}
+
+inline rational operator/(int r1, rational const &	r2) {
+	return rational(r1) / r2;
 }
 
 inline rational power(rational const & r, unsigned p) {
