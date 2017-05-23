@@ -16,6 +16,13 @@ namespace lean {
 typedef unsigned var_index;
 typedef unsigned constraint_index;
 typedef unsigned row_index;
+
+enum class final_check_status {
+	DONE,
+	CONTINUE,
+	GIVEUP
+};
+
 enum class column_type  {
     free_column = 0,
         low_bound = 1,

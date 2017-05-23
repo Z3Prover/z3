@@ -401,6 +401,7 @@ public:
         unsigned ext_var = m_columns_to_ext_vars_or_term_indices[j];
         return m_ext_vars_to_columns.find(ext_var)->second.is_integer();
     }
-    inline bool column_is_real(unsigned j) const { return !column_is_integer(j); }
+    inline bool column_is_real(unsigned j) const { return !column_is_integer(j); }	
+	final_check_status check_int_feasibility();
 };
 }
