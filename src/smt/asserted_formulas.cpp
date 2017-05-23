@@ -505,7 +505,7 @@ void asserted_formulas::NAME() {                                                
     TRACE(LABEL, display(tout););                                                                                       \
 }
 
-MK_SIMPLE_SIMPLIFIER(apply_distribute_forall, distribute_forall functor(m, *m_bsimp), "distribute_forall", "distribute-forall");
+MK_SIMPLE_SIMPLIFIER(apply_distribute_forall, distribute_forall functor(m), "distribute_forall", "distribute-forall");
 
 void asserted_formulas::reduce_and_solve() {
     IF_IVERBOSE(10, verbose_stream() << "(smt.reducing)\n";);
