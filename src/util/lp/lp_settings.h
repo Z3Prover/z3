@@ -8,9 +8,9 @@
 #include <string>
 #include <algorithm>
 #include <limits>
-#include <sys/timeb.h>
 #include <iomanip>
 #include "util/lp/lp_utils.h"
+#include "util/stopwatch.h"
 
 namespace lean {
 typedef unsigned var_index;
@@ -69,10 +69,6 @@ enum non_basic_column_value_position { at_low_bound, at_upper_bound, at_fixed, f
 
 template <typename X> bool is_epsilon_small(const X & v, const double& eps);    // forward definition
 
-int get_millisecond_count();
-int get_millisecond_span(int start_time);
-
-
 class lp_resource_limit {
 public:
     virtual bool get_cancel_flag() = 0;
@@ -92,12 +88,13 @@ struct lp_settings {
 private:
     class default_lp_resource_limit : public lp_resource_limit {
         lp_settings& m_settings;
-        int m_start_time;
+        stopwatch    m_sw;
     public:
-        default_lp_resource_limit(lp_settings& s): m_settings(s), m_start_time(get_millisecond_count()) {}
+        default_lp_resource_limit(lp_settings& s): m_settings(s) {
+            m_sw.start();
+        }
         virtual bool get_cancel_flag() {
-            int span_in_mills = get_millisecond_span(m_start_time);
-            return (span_in_mills / 1000.0  > m_settings.time_limit);
+            return (m_sw.get_current_seconds()  > m_settings.time_limit);
         }
     };
 

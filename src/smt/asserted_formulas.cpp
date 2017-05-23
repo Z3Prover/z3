@@ -677,25 +677,25 @@ void asserted_formulas::propagate_booleans() {
         cont        = false;
         unsigned i  = m_asserted_qhead;
         unsigned sz = m_asserted_formulas.size();
-#define PROCESS() {                                                                                                             \
-            expr * n    = m_asserted_formulas.get(i);                                                                           \
-            proof * pr  = m_asserted_formula_prs.get(i, 0);                                                                     \
-            expr_ref new_n(m);                                                                                          \
-            proof_ref new_pr(m);                                                                                        \
-            m_simplifier(n, new_n, new_pr);                                                                                     \
-            m_asserted_formulas.set(i, new_n);                                                                                  \
-            if (m.proofs_enabled()) {                                                                                   \
-                new_pr = m.mk_modus_ponens(pr, new_pr);                                                                 \
-                m_asserted_formula_prs.set(i, new_pr);                                                                          \
-            }                                                                                                                   \
-            if (n != new_n) {                                                                                                   \
-                cont = true;                                                                                                    \
-                modified = true;                                                                                                \
-            }                                                                                                                   \
-            if (m.is_not(new_n))                                                                                        \
-                m_simplifier.cache_result(to_app(new_n)->get_arg(0), m.mk_false(), m.mk_iff_false(new_pr));     \
-            else                                                                                                                \
-                m_simplifier.cache_result(new_n, m.mk_true(), m.mk_iff_true(new_pr));                           \
+#define PROCESS() {                                                     \
+            expr * n    = m_asserted_formulas.get(i);                   \
+            proof * pr  = m_asserted_formula_prs.get(i, 0);             \
+            expr_ref new_n(m);                                          \
+            proof_ref new_pr(m);                                        \
+            m_simplifier(n, new_n, new_pr);                             \
+            m_asserted_formulas.set(i, new_n);                          \
+            if (m.proofs_enabled()) {                                   \
+                new_pr = m.mk_modus_ponens(pr, new_pr);                 \
+                m_asserted_formula_prs.set(i, new_pr);                  \
+            }                                                           \
+            if (n != new_n) {                                           \
+                cont = true;                                            \
+                modified = true;                                        \
+            }                                                           \
+            if (m.is_not(new_n))                                        \
+                m_simplifier.cache_result(to_app(new_n)->get_arg(0), m.mk_false(), m.mk_iff_false(new_pr)); \
+            else                                                        \
+                m_simplifier.cache_result(new_n, m.mk_true(), m.mk_iff_true(new_pr)); \
         }
         for (; i < sz; i++) {
             PROCESS();
@@ -715,43 +715,43 @@ void asserted_formulas::propagate_booleans() {
 }
 
 #define MK_SIMPLIFIER(NAME, FUNCTOR, TAG, MSG, REDUCE)                  \
-bool asserted_formulas::NAME() {                                        \
-    IF_IVERBOSE(10, verbose_stream() << "(smt." << MSG << ")\n";);     \
-    TRACE(TAG, ast_mark visited; display_ll(tout, visited););           \
-    FUNCTOR;                                                            \
-    bool changed = false;                                               \
-    expr_ref_vector  new_exprs(m);                              \
-    proof_ref_vector new_prs(m);                                \
-    unsigned i  = m_asserted_qhead;                                     \
-    unsigned sz = m_asserted_formulas.size();                           \
-    for (; i < sz; i++) {                                               \
-        expr * n    = m_asserted_formulas.get(i);                       \
-        proof * pr  = m_asserted_formula_prs.get(i, 0);                 \
-        expr_ref  new_n(m);                                     \
-        proof_ref new_pr(m);                                    \
-        functor(n, new_n, new_pr);                                      \
-        if (n == new_n.get()) {                                         \
-            push_assertion(n, pr, new_exprs, new_prs);                  \
-        }                                                               \
-        else if (m.proofs_enabled()) {                          \
-            changed = true;                                             \
-            if (!new_pr) new_pr = m.mk_rewrite(n, new_n);       \
-            new_pr = m.mk_modus_ponens(pr, new_pr);             \
-            push_assertion(new_n, new_pr, new_exprs, new_prs);          \
-        }                                                               \
-        else {                                                          \
-            changed = true;                                             \
-            push_assertion(new_n, 0, new_exprs, new_prs);               \
-        }                                                               \
-    }                                                                   \
-    swap_asserted_formulas(new_exprs, new_prs);                         \
-    TRACE(TAG, ast_mark visited; display_ll(tout, visited););           \
-    if (changed && REDUCE) {                                            \
-        reduce_and_solve();                                             \
+    bool asserted_formulas::NAME() {                                    \
+        IF_IVERBOSE(10, verbose_stream() << "(smt." << MSG << ")\n";);  \
         TRACE(TAG, ast_mark visited; display_ll(tout, visited););       \
-    }                                                                   \
-    return changed;                                                     \
-}
+        FUNCTOR;                                                        \
+        bool changed = false;                                           \
+        expr_ref_vector  new_exprs(m);                                  \
+        proof_ref_vector new_prs(m);                                    \
+        unsigned i  = m_asserted_qhead;                                 \
+        unsigned sz = m_asserted_formulas.size();                       \
+        for (; i < sz; i++) {                                           \
+            expr * n    = m_asserted_formulas.get(i);                   \
+            proof * pr  = m_asserted_formula_prs.get(i, 0);             \
+            expr_ref  new_n(m);                                         \
+            proof_ref new_pr(m);                                        \
+            functor(n, new_n, new_pr);                                  \
+            if (n == new_n.get()) {                                     \
+                push_assertion(n, pr, new_exprs, new_prs);              \
+            }                                                           \
+            else if (m.proofs_enabled()) {                              \
+                changed = true;                                         \
+                if (!new_pr) new_pr = m.mk_rewrite(n, new_n);           \
+                new_pr = m.mk_modus_ponens(pr, new_pr);                 \
+                push_assertion(new_n, new_pr, new_exprs, new_prs);      \
+            }                                                           \
+            else {                                                      \
+                changed = true;                                         \
+                push_assertion(new_n, 0, new_exprs, new_prs);           \
+            }                                                           \
+        }                                                               \
+        swap_asserted_formulas(new_exprs, new_prs);                     \
+        TRACE(TAG, ast_mark visited; display_ll(tout, visited););       \
+        if (changed && REDUCE) {                                        \
+            reduce_and_solve();                                         \
+            TRACE(TAG, ast_mark visited; display_ll(tout, visited););   \
+        }                                                               \
+        return changed;                                                 \
+    }
 
 MK_SIMPLIFIER(pull_cheap_ite_trees, pull_cheap_ite_tree_star functor(m, m_simplifier), "pull_cheap_ite_trees", "pull-cheap-ite-trees", false);
 
@@ -803,30 +803,30 @@ MK_SIMPLIFIER(cheap_quant_fourier_motzkin, elim_bounds_star functor(m), "elim_bo
 
 MK_SIMPLIFIER(elim_bvs_from_quantifiers, bv_elim_star functor(m), "bv_elim", "eliminate-bit-vectors-from-quantifiers", true);
 
-#define LIFT_ITE(NAME, FUNCTOR, MSG)                                                                                            \
-void asserted_formulas::NAME() {                                                                                                \
-    IF_IVERBOSE(10, verbose_stream() << "(smt." << MSG << ")\n";);            \
-    TRACE("lift_ite", display(tout););                                                                                          \
-    FUNCTOR;                                                                                                                    \
-    unsigned i  = m_asserted_qhead;                                                                                             \
-    unsigned sz = m_asserted_formulas.size();                                                                                   \
-    for (; i < sz; i++) {                                                                                                       \
-        expr * n    = m_asserted_formulas.get(i);                                                                               \
-        proof * pr  = m_asserted_formula_prs.get(i, 0);                                                                         \
-        expr_ref  new_n(m);                                                                                             \
-        proof_ref new_pr(m);                                                                                            \
-        functor(n, new_n, new_pr);                                                                                              \
-        TRACE("lift_ite_step", tout << mk_pp(n, m) << "\n";);                                                           \
-        IF_IVERBOSE(10000, verbose_stream() << "lift before: " << get_num_exprs(n)  << ", after: " << get_num_exprs(new_n) << "\n";);  \
-        m_asserted_formulas.set(i, new_n);                                                                                      \
-        if (m.proofs_enabled()) {                                                                                       \
-            new_pr = m.mk_modus_ponens(pr, new_pr);                                                                     \
-            m_asserted_formula_prs.set(i, new_pr);                                                                              \
-        }                                                                                                                       \
-    }                                                                                                                           \
-    TRACE("lift_ite", display(tout););                                                                                          \
-    reduce_and_solve();                                                                                                         \
-}
+#define LIFT_ITE(NAME, FUNCTOR, MSG)                                    \
+    void asserted_formulas::NAME() {                                    \
+        IF_IVERBOSE(10, verbose_stream() << "(smt." << MSG << ")\n";);  \
+        TRACE("lift_ite", display(tout););                              \
+        FUNCTOR;                                                        \
+        unsigned i  = m_asserted_qhead;                                 \
+        unsigned sz = m_asserted_formulas.size();                       \
+        for (; i < sz; i++) {                                           \
+            expr * n    = m_asserted_formulas.get(i);                   \
+            proof * pr  = m_asserted_formula_prs.get(i, 0);             \
+            expr_ref  new_n(m);                                         \
+            proof_ref new_pr(m);                                        \
+            functor(n, new_n, new_pr);                                  \
+            TRACE("lift_ite_step", tout << mk_pp(n, m) << "\n";);       \
+            IF_IVERBOSE(10000, verbose_stream() << "lift before: " << get_num_exprs(n)  << ", after: " << get_num_exprs(new_n) << "\n";); \
+            m_asserted_formulas.set(i, new_n);                          \
+            if (m.proofs_enabled()) {                                   \
+                new_pr = m.mk_modus_ponens(pr, new_pr);                 \
+                m_asserted_formula_prs.set(i, new_pr);                  \
+            }                                                           \
+        }                                                               \
+        TRACE("lift_ite", display(tout););                              \
+        reduce_and_solve();                                             \
+    }
 
 LIFT_ITE(lift_ite, push_app_ite functor(m_simplifier, m_params.m_lift_ite == LI_CONSERVATIVE), "lifting ite");
 LIFT_ITE(ng_lift_ite, ng_push_app_ite functor(m_simplifier, m_params.m_ng_lift_ite == LI_CONSERVATIVE), "lifting ng ite");

@@ -52,19 +52,6 @@ lp_status lp_status_from_string(std::string status) {
     lean_unreachable();
     return lp_status::UNKNOWN; // it is unreachable
 }
-int get_millisecond_count() {
-    timeb tb;
-    ftime(&tb);
-    return tb.millitm + (tb.time & 0xfffff) * 1000;
-}
-
-int get_millisecond_span(int start_time) {
-    int span = get_millisecond_count() - start_time;
-    if (span < 0)
-        span += 0x100000 * 1000;
-    return span;
-}
-
 
 
 template <typename T>
