@@ -8,7 +8,9 @@
 #include <string>
 #include <algorithm>
 #include <limits>
+#ifndef __OpenBSD__
 #include <sys/timeb.h>
+#endif
 #include <iomanip>
 #include "util/lp/lp_utils.h"
 
@@ -148,7 +150,7 @@ public:
     double relative_primal_feasibility_tolerance; // page 71 of the PhD thesis of Achim Koberstein
 
     bool m_bound_propagation;
-    
+
     bool bound_progation() const {
         return m_bound_propagation;
     }
@@ -156,7 +158,7 @@ public:
     bool& bound_propagation() {
         return m_bound_propagation;
     }
-    
+
     lp_settings() : m_default_resource_limit(*this),
                     m_resource_limit(&m_default_resource_limit),
                     m_debug_out( &std::cout),
@@ -176,7 +178,7 @@ public:
                     drop_tolerance ( 1e-14),
                     tolerance_for_artificials ( 1e-4),
                     can_be_taken_to_basis_tolerance ( 0.00001),
-                  
+
                     percent_of_entering_to_check ( 5),// we try to find a profitable column in a percentage of the columns
                     use_scaling ( true),
                     scaling_maximum ( 1),
@@ -209,7 +211,7 @@ public:
 
     void set_debug_ostream(std::ostream* out) { m_debug_out = out; }
     void set_message_ostream(std::ostream* out) { m_message_out = out; }
-    
+
     std::ostream* get_debug_ostream() { return m_debug_out; }
     std::ostream* get_message_ostream() { return m_message_out; }
     stats& st() { return m_stats; }
@@ -293,14 +295,14 @@ public:
     bool use_tableau_rows() const {
         return m_simplex_strategy == simplex_strategy_enum::tableau_rows;
     }
-    
+
     int report_frequency;
     bool print_statistics;
     unsigned column_norms_update_frequency;
     bool scale_with_ratio;
     double density_threshold; // need to tune it up, todo
 #ifdef LEAN_DEBUG
-    static unsigned ddd; // used for debugging    
+    static unsigned ddd; // used for debugging
 #endif
     bool use_breakpoints_in_feasibility_search;
     unsigned random_next() { return m_rand(); }
