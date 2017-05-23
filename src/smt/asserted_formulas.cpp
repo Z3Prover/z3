@@ -43,7 +43,7 @@ Revision History:
 #include"quasi_macros.h"
 
 asserted_formulas::asserted_formulas(ast_manager & m, smt_params & p):
-    m_manager(m),
+    m(m),
     m_params(p),
     m_pre_simplifier(m),
     m_simplifier(m),
@@ -63,7 +63,7 @@ asserted_formulas::asserted_formulas(ast_manager & m, smt_params & p):
     setup_simplifier_plugins(m_simplifier, m_bsimp, arith_simp, m_bvsimp);
     SASSERT(m_bsimp != 0);
     SASSERT(arith_simp != 0);
-    m_macro_finder = alloc(macro_finder, m_manager, m_macro_manager);
+    m_macro_finder = alloc(macro_finder, m, m_macro_manager);
 
     basic_simplifier_plugin * basic_simp = 0;
     bv_simplifier_plugin * bv_simp = 0;
@@ -90,16 +90,16 @@ void asserted_formulas::setup() {
 }
 
 void asserted_formulas::setup_simplifier_plugins(simplifier & s, basic_simplifier_plugin * & bsimp, arith_simplifier_plugin * & asimp, bv_simplifier_plugin * & bvsimp) {
-    bsimp = alloc(basic_simplifier_plugin, m_manager);
+    bsimp = alloc(basic_simplifier_plugin, m);
     s.register_plugin(bsimp);
-    asimp = alloc(arith_simplifier_plugin, m_manager, *bsimp, m_params);
+    asimp = alloc(arith_simplifier_plugin, m, *bsimp, m_params);
     s.register_plugin(asimp);
-    s.register_plugin(alloc(array_simplifier_plugin, m_manager, *bsimp, s, m_params));
-    bvsimp = alloc(bv_simplifier_plugin, m_manager, *bsimp, m_params);
+    s.register_plugin(alloc(array_simplifier_plugin, m, *bsimp, s, m_params));
+    bvsimp = alloc(bv_simplifier_plugin, m, *bsimp, m_params);
     s.register_plugin(bvsimp);
-    s.register_plugin(alloc(datatype_simplifier_plugin, m_manager, *bsimp));    
-    s.register_plugin(alloc(fpa_simplifier_plugin, m_manager, *bsimp));
-    s.register_plugin(alloc(seq_simplifier_plugin, m_manager, *bsimp));
+    s.register_plugin(alloc(datatype_simplifier_plugin, m, *bsimp));    
+    s.register_plugin(alloc(fpa_simplifier_plugin, m, *bsimp));
+    s.register_plugin(alloc(seq_simplifier_plugin, m, *bsimp));
 }
 
 void asserted_formulas::init(unsigned num_formulas, expr * const * formulas, proof * const * prs) {
@@ -108,7 +108,7 @@ void asserted_formulas::init(unsigned num_formulas, expr * const * formulas, pro
     SASSERT(!m_inconsistent);
     SASSERT(m_scopes.empty());
     m_asserted_formulas.append(num_formulas, formulas);
-    if (m_manager.proofs_enabled())
+    if (m.proofs_enabled())
         m_asserted_formula_prs.append(num_formulas, prs);
 }
 
@@ -125,9 +125,9 @@ void asserted_formulas::push_assertion(expr * e, proof * pr, expr_ref_vector & r
         SASSERT(!result.empty());
         return;
     }
-    if (m_manager.is_false(e))
+    if (m.is_false(e))
         m_inconsistent = true;
-    ::push_assertion(m_manager, e, pr, result, result_prs);
+    ::push_assertion(m, e, pr, result, result_prs);
 }
 
 void asserted_formulas::set_eliminate_and(bool flag) {
@@ -145,13 +145,13 @@ void asserted_formulas::assert_expr(expr * e, proof * _in_pr) {
         push_assertion(e, _in_pr, m_asserted_formulas, m_asserted_formula_prs);
         return;
     }
-    proof_ref  in_pr(_in_pr, m_manager);
-    expr_ref   r1(m_manager);
-    proof_ref  pr1(m_manager);
-    expr_ref   r2(m_manager);
-    proof_ref  pr2(m_manager);
-    TRACE("assert_expr_before_simp", tout << mk_ll_pp(e, m_manager) << "\n";);
-    TRACE("assert_expr_bug", tout << mk_pp(e, m_manager) << "\n";);
+    proof_ref  in_pr(_in_pr, m);
+    expr_ref   r1(m);
+    proof_ref  pr1(m);
+    expr_ref   r2(m);
+    proof_ref  pr2(m);
+    TRACE("assert_expr_before_simp", tout << mk_ll_pp(e, m) << "\n";);
+    TRACE("assert_expr_bug", tout << mk_pp(e, m) << "\n";);
     if (m_params.m_pre_simplifier) {
         m_pre_simplifier(e, r1, pr1);
     }
@@ -161,14 +161,14 @@ void asserted_formulas::assert_expr(expr * e, proof * _in_pr) {
     }
     set_eliminate_and(false); // do not eliminate and before nnf.
     m_simplifier(r1, r2, pr2);
-    TRACE("assert_expr_bug", tout << "after...\n" << mk_pp(r1, m_manager) << "\n";);
-    if (m_manager.proofs_enabled()) {
+    TRACE("assert_expr_bug", tout << "after...\n" << mk_pp(r1, m) << "\n";);
+    if (m.proofs_enabled()) {
         if (e == r2)
             pr2 = in_pr;
         else
-            pr2 = m_manager.mk_modus_ponens(in_pr, m_manager.mk_transitivity(pr1, pr2));
+            pr2 = m.mk_modus_ponens(in_pr, m.mk_transitivity(pr1, pr2));
     }
-    TRACE("assert_expr_after_simp", tout << mk_ll_pp(r1, m_manager) << "\n";);
+    TRACE("assert_expr_after_simp", tout << mk_ll_pp(r1, m) << "\n";);
     push_assertion(r2, pr2, m_asserted_formulas, m_asserted_formula_prs);
     TRACE("asserted_formulas_bug", tout << "after assert_expr\n"; display(tout););
 }
@@ -176,7 +176,7 @@ void asserted_formulas::assert_expr(expr * e, proof * _in_pr) {
 void asserted_formulas::assert_expr(expr * e) {
     if (inconsistent()) 
         return;
-    assert_expr(e, m_manager.mk_asserted(e));
+    assert_expr(e, m.mk_asserted(e));
 }
 
 void asserted_formulas::get_assertions(ptr_vector<expr> & result) {
@@ -184,13 +184,13 @@ void asserted_formulas::get_assertions(ptr_vector<expr> & result) {
 }
 
 void asserted_formulas::push_scope() {
-    SASSERT(inconsistent() || m_asserted_qhead == m_asserted_formulas.size() || m_manager.canceled());
+    SASSERT(inconsistent() || m_asserted_qhead == m_asserted_formulas.size() || m.canceled());
     TRACE("asserted_formulas_scopes", tout << "push:\n"; display(tout););
     m_scopes.push_back(scope());
     m_macro_manager.push_scope();
     scope & s = m_scopes.back();
     s.m_asserted_formulas_lim    = m_asserted_formulas.size();
-    SASSERT(inconsistent() || s.m_asserted_formulas_lim == m_asserted_qhead || m_manager.canceled());
+    SASSERT(inconsistent() || s.m_asserted_formulas_lim == m_asserted_qhead || m.canceled());
     s.m_inconsistent_old         = m_inconsistent;
     m_defined_names.push();
     m_bv_sharing.push_scope();
@@ -206,7 +206,7 @@ void asserted_formulas::pop_scope(unsigned num_scopes) {
     m_inconsistent      = s.m_inconsistent_old;
     m_defined_names.pop(num_scopes);
     m_asserted_formulas.shrink(s.m_asserted_formulas_lim);
-    if (m_manager.proofs_enabled())
+    if (m.proofs_enabled())
         m_asserted_formula_prs.shrink(s.m_asserted_formulas_lim);
     m_asserted_qhead    = s.m_asserted_formulas_lim;
     m_scopes.shrink(new_lvl);
@@ -228,7 +228,7 @@ void asserted_formulas::reset() {
 #ifdef Z3DEBUG
 bool asserted_formulas::check_well_sorted() const {
     for (unsigned i = 0; i < m_asserted_formulas.size(); i++) { 
-        if (!is_well_sorted(m_manager, m_asserted_formulas.get(i))) return false; 
+        if (!is_well_sorted(m, m_asserted_formulas.get(i))) return false; 
     }
     return true;
 }
@@ -322,7 +322,7 @@ void asserted_formulas::display(std::ostream & out) const {
     for (unsigned i = 0; i < m_asserted_formulas.size(); i++) {
         if (i == m_asserted_qhead)
             out << "[HEAD] ==>\n";
-        out << mk_pp(m_asserted_formulas.get(i), m_manager) << "\n";
+        out << mk_pp(m_asserted_formulas.get(i), m) << "\n";
     }
     out << "inconsistent: " << inconsistent() << "\n";
 }
@@ -331,7 +331,7 @@ void asserted_formulas::display_ll(std::ostream & out, ast_mark & pp_visited) co
     if (!m_asserted_formulas.empty()) {
         unsigned sz = m_asserted_formulas.size();
         for (unsigned i = 0; i < sz; i++) 
-            ast_def_ll_pp(out, m_manager, m_asserted_formulas.get(i), pp_visited, true, false);
+            ast_def_ll_pp(out, m, m_asserted_formulas.get(i), pp_visited, true, false);
         out << "asserted formulas:\n";
         for (unsigned i = 0; i < sz; i++) 
             out << "#" << m_asserted_formulas[i]->get_id() << " ";
@@ -346,23 +346,23 @@ void asserted_formulas::reduce_asserted_formulas() {
     if (inconsistent()) {
         return;
     }
-    expr_ref_vector  new_exprs(m_manager);
-    proof_ref_vector new_prs(m_manager);
+    expr_ref_vector  new_exprs(m);
+    proof_ref_vector new_prs(m);
     unsigned i  = m_asserted_qhead;
     unsigned sz = m_asserted_formulas.size();
     for (; i < sz && !inconsistent(); i++) {
         expr * n    = m_asserted_formulas.get(i);
         SASSERT(n != 0);
         proof * pr  = m_asserted_formula_prs.get(i, 0);
-        expr_ref new_n(m_manager);
-        proof_ref new_pr(m_manager);
+        expr_ref new_n(m);
+        proof_ref new_pr(m);
         m_simplifier(n, new_n, new_pr);
-        TRACE("reduce_asserted_formulas", tout << mk_pp(n, m_manager) << " -> " << mk_pp(new_n, m_manager) << "\n";);
+        TRACE("reduce_asserted_formulas", tout << mk_pp(n, m) << " -> " << mk_pp(new_n, m) << "\n";);
         if (n == new_n.get()) {
             push_assertion(n, pr, new_exprs, new_prs);
         }
         else {
-            new_pr = m_manager.mk_modus_ponens(pr, new_pr);
+            new_pr = m.mk_modus_ponens(pr, new_pr);
             push_assertion(new_n, new_pr, new_exprs, new_prs);
         }
         if (canceled()) {
@@ -376,15 +376,15 @@ void asserted_formulas::swap_asserted_formulas(expr_ref_vector & new_exprs, proo
     SASSERT(!inconsistent() || !new_exprs.empty());
     m_asserted_formulas.shrink(m_asserted_qhead);
     m_asserted_formulas.append(new_exprs);
-    if (m_manager.proofs_enabled()) {
+    if (m.proofs_enabled()) {
         m_asserted_formula_prs.shrink(m_asserted_qhead);
         m_asserted_formula_prs.append(new_prs);
     }
 }
 
 void asserted_formulas::find_macros_core() {
-    expr_ref_vector  new_exprs(m_manager);
-    proof_ref_vector new_prs(m_manager);
+    expr_ref_vector  new_exprs(m);
+    proof_ref_vector new_prs(m);
     unsigned sz = m_asserted_formulas.size();
     m_macro_finder->operator()(sz - m_asserted_qhead, m_asserted_formulas.c_ptr() + m_asserted_qhead, 
                                m_asserted_formula_prs.c_ptr() + m_asserted_qhead, new_exprs, new_prs);
@@ -407,9 +407,9 @@ void asserted_formulas::expand_macros() {
 void asserted_formulas::apply_quasi_macros() {
     IF_IVERBOSE(10, verbose_stream() << "(smt.find-quasi-macros)\n";);
     TRACE("before_quasi_macros", display(tout););
-    expr_ref_vector  new_exprs(m_manager);
-    proof_ref_vector new_prs(m_manager);      
-    quasi_macros proc(m_manager, m_macro_manager, m_simplifier);    
+    expr_ref_vector  new_exprs(m);
+    proof_ref_vector new_prs(m);      
+    quasi_macros proc(m, m_macro_manager, m_simplifier);    
     while (proc(m_asserted_formulas.size() - m_asserted_qhead, 
                 m_asserted_formulas.c_ptr() + m_asserted_qhead, 
                 m_asserted_formula_prs.c_ptr() + m_asserted_qhead,
@@ -424,27 +424,27 @@ void asserted_formulas::apply_quasi_macros() {
 
 void asserted_formulas::nnf_cnf() {
     IF_IVERBOSE(10, verbose_stream() << "(smt.nnf)\n";);
-    nnf              apply_nnf(m_manager, m_defined_names);
-    expr_ref_vector  new_exprs(m_manager);
-    proof_ref_vector new_prs(m_manager);
-    expr_ref_vector  push_todo(m_manager);
-    proof_ref_vector push_todo_prs(m_manager);
+    nnf              apply_nnf(m, m_defined_names);
+    expr_ref_vector  new_exprs(m);
+    proof_ref_vector new_prs(m);
+    expr_ref_vector  push_todo(m);
+    proof_ref_vector push_todo_prs(m);
     
     unsigned i  = m_asserted_qhead;
     unsigned sz = m_asserted_formulas.size();
     TRACE("nnf_bug", tout << "i: " << i << " sz: " << sz << "\n";);
     for (; i < sz; i++) {
         expr * n    = m_asserted_formulas.get(i);
-        TRACE("nnf_bug", tout << "processing:\n" << mk_pp(n, m_manager) << "\n";);
+        TRACE("nnf_bug", tout << "processing:\n" << mk_pp(n, m) << "\n";);
         proof * pr  = m_asserted_formula_prs.get(i, 0);
-        expr_ref   r1(m_manager);
-        proof_ref  pr1(m_manager);
-        CASSERT("well_sorted",is_well_sorted(m_manager, n));
+        expr_ref   r1(m);
+        proof_ref  pr1(m);
+        CASSERT("well_sorted",is_well_sorted(m, n));
         push_todo.reset();
         push_todo_prs.reset();
         apply_nnf(n, push_todo, push_todo_prs, r1, pr1);
-        CASSERT("well_sorted",is_well_sorted(m_manager, r1));
-        pr = m_manager.mk_modus_ponens(pr, pr1);
+        CASSERT("well_sorted",is_well_sorted(m, r1));
+        pr = m.mk_modus_ponens(pr, pr1);
         push_todo.push_back(r1);
         push_todo_prs.push_back(pr);
 
@@ -456,13 +456,13 @@ void asserted_formulas::nnf_cnf() {
             expr * n   = push_todo.get(k);
             proof * pr = 0;
             m_simplifier(n, r1, pr1);
-            CASSERT("well_sorted",is_well_sorted(m_manager, r1));
+            CASSERT("well_sorted",is_well_sorted(m, r1));
             if (canceled()) {
                 return;
             }        
             
-            if (m_manager.proofs_enabled())
-                pr = m_manager.mk_modus_ponens(push_todo_prs.get(k), pr1);
+            if (m.proofs_enabled())
+                pr = m.mk_modus_ponens(push_todo_prs.get(k), pr1);
             else
                 pr = 0;
             push_assertion(r1, pr, new_exprs, new_prs);
@@ -476,23 +476,23 @@ void asserted_formulas::NAME() {                                                
     IF_IVERBOSE(10, verbose_stream() << "(smt." << MSG << ")\n";);     \
     TRACE(LABEL, tout << "before:\n"; display(tout););                                                                  \
     FUNCTOR_DEF;                                                                                                        \
-    expr_ref_vector  new_exprs(m_manager);                                                                              \
-    proof_ref_vector new_prs(m_manager);                                                                                \
+    expr_ref_vector  new_exprs(m);                                                                              \
+    proof_ref_vector new_prs(m);                                                                                \
     unsigned i  = m_asserted_qhead;                                                                                     \
     unsigned sz = m_asserted_formulas.size();                                                                           \
     for (; i < sz; i++) {                                                                                               \
         expr * n    = m_asserted_formulas.get(i);                                                                       \
         proof * pr  = m_asserted_formula_prs.get(i, 0);                                                                 \
-        expr_ref new_n(m_manager);                                                                                      \
+        expr_ref new_n(m);                                                                                      \
         functor(n, new_n);                                                                                              \
-        TRACE("simplifier_simple_step", tout << mk_pp(n, m_manager) << "\n" << mk_pp(new_n, m_manager) << "\n";);       \
+        TRACE("simplifier_simple_step", tout << mk_pp(n, m) << "\n" << mk_pp(new_n, m) << "\n";);       \
         if (n == new_n.get()) {                                                                                         \
             push_assertion(n, pr, new_exprs, new_prs);                                                                  \
         }                                                                                                               \
-        else if (m_manager.proofs_enabled()) {                                                                          \
-            proof_ref new_pr(m_manager);                                                                                \
-            new_pr = m_manager.mk_rewrite_star(n, new_n, 0, 0);            \
-            new_pr = m_manager.mk_modus_ponens(pr, new_pr);                                                             \
+        else if (m.proofs_enabled()) {                                                                          \
+            proof_ref new_pr(m);                                                                                \
+            new_pr = m.mk_rewrite_star(n, new_n, 0, 0);            \
+            new_pr = m.mk_modus_ponens(pr, new_pr);                                                             \
             push_assertion(new_n, new_pr, new_exprs, new_prs);                                                          \
         }                                                                                                               \
         else {                                                                                                          \
@@ -505,7 +505,7 @@ void asserted_formulas::NAME() {                                                
     TRACE(LABEL, display(tout););                                                                                       \
 }
 
-MK_SIMPLE_SIMPLIFIER(apply_distribute_forall, distribute_forall functor(m_manager, *m_bsimp), "distribute_forall", "distribute-forall");
+MK_SIMPLE_SIMPLIFIER(apply_distribute_forall, distribute_forall functor(m, *m_bsimp), "distribute_forall", "distribute-forall");
 
 void asserted_formulas::reduce_and_solve() {
     IF_IVERBOSE(10, verbose_stream() << "(smt.reducing)\n";);
@@ -516,22 +516,22 @@ void asserted_formulas::reduce_and_solve() {
 void asserted_formulas::infer_patterns() {
     IF_IVERBOSE(10, verbose_stream() << "(smt.pattern-inference)\n";);
     TRACE("before_pattern_inference", display(tout););
-    pattern_inference infer(m_manager, m_params);
-    expr_ref_vector  new_exprs(m_manager);
-    proof_ref_vector new_prs(m_manager);
+    pattern_inference infer(m, m_params);
+    expr_ref_vector  new_exprs(m);
+    proof_ref_vector new_prs(m);
     unsigned i  = m_asserted_qhead;
     unsigned sz = m_asserted_formulas.size();
     for (; i < sz; i++) {
         expr * n    = m_asserted_formulas.get(i);
         proof * pr  = m_asserted_formula_prs.get(i, 0);
-        expr_ref  new_n(m_manager);
-        proof_ref new_pr(m_manager);
+        expr_ref  new_n(m);
+        proof_ref new_pr(m);
         infer(n, new_n, new_pr);
         if (n == new_n.get()) {
             push_assertion(n, pr, new_exprs, new_prs);
         }
-        else if (m_manager.proofs_enabled()) {
-            new_pr = m_manager.mk_modus_ponens(pr, new_pr);
+        else if (m.proofs_enabled()) {
+            new_pr = m.mk_modus_ponens(pr, new_pr);
             push_assertion(new_n, new_pr, new_exprs, new_prs);
         }
         else {
@@ -554,16 +554,16 @@ void asserted_formulas::commit(unsigned new_qhead) {
 void asserted_formulas::eliminate_term_ite() {
     IF_IVERBOSE(10, verbose_stream() << "(smt.eliminating-ite-term)\n";);
     TRACE("before_elim_term_ite", display(tout););
-    elim_term_ite   elim(m_manager, m_defined_names);
-    expr_ref_vector  new_exprs(m_manager);
-    proof_ref_vector new_prs(m_manager);
+    elim_term_ite   elim(m, m_defined_names);
+    expr_ref_vector  new_exprs(m);
+    proof_ref_vector new_prs(m);
     unsigned i  = m_asserted_qhead;
     unsigned sz = m_asserted_formulas.size();
     for (; i < sz; i++) {
         expr * n    = m_asserted_formulas.get(i);
         proof * pr  = m_asserted_formula_prs.get(i, 0);
-        expr_ref  new_n(m_manager);
-        proof_ref new_pr(m_manager);
+        expr_ref  new_n(m);
+        proof_ref new_pr(m);
         elim(n, new_exprs, new_prs, new_n, new_pr);
         SASSERT(new_n.get() != 0);
         DEBUG_CODE({
@@ -574,8 +574,8 @@ void asserted_formulas::eliminate_term_ite() {
         if (n == new_n.get()) {
             push_assertion(n, pr, new_exprs, new_prs);
         }
-        else if (m_manager.proofs_enabled()) {
-            new_pr = m_manager.mk_modus_ponens(pr, new_pr);
+        else if (m.proofs_enabled()) {
+            new_pr = m.mk_modus_ponens(pr, new_pr);
             push_assertion(new_n, new_pr, new_exprs, new_prs);
         }
         else {
@@ -602,31 +602,31 @@ void asserted_formulas::propagate_values() {
     // - new_exprs2 is the set R
     //
     // The loop also updates the m_cache. It adds the entries x -> n to it.
-    expr_ref_vector  new_exprs1(m_manager);
-    proof_ref_vector new_prs1(m_manager);
-    expr_ref_vector  new_exprs2(m_manager);
-    proof_ref_vector new_prs2(m_manager);
+    expr_ref_vector  new_exprs1(m);
+    proof_ref_vector new_prs1(m);
+    expr_ref_vector  new_exprs2(m);
+    proof_ref_vector new_prs2(m);
     unsigned sz = m_asserted_formulas.size();
     for (unsigned i = 0; i < sz; i++) {
-        expr_ref   n(m_asserted_formulas.get(i), m_manager);
-        proof_ref pr(m_asserted_formula_prs.get(i, 0), m_manager);
-        TRACE("simplifier", tout << mk_pp(n, m_manager) << "\n";);
+        expr_ref   n(m_asserted_formulas.get(i), m);
+        proof_ref pr(m_asserted_formula_prs.get(i, 0), m);
+        TRACE("simplifier", tout << mk_pp(n, m) << "\n";);
         expr* lhs, *rhs;
-        if (m_manager.is_eq(n, lhs, rhs) &&
-            (m_manager.is_value(lhs) || m_manager.is_value(rhs))) {
-            if (m_manager.is_value(lhs)) {
+        if (m.is_eq(n, lhs, rhs) &&
+            (m.is_value(lhs) || m.is_value(rhs))) {
+            if (m.is_value(lhs)) {
                 std::swap(lhs, rhs);
-                n  = m_manager.mk_eq(lhs, rhs);
-                pr = m_manager.mk_symmetry(pr);
+                n  = m.mk_eq(lhs, rhs);
+                pr = m.mk_symmetry(pr);
             }
-            if (!m_manager.is_value(lhs) && !m_simplifier.is_cached(lhs)) {
+            if (!m.is_value(lhs) && !m_simplifier.is_cached(lhs)) {
                 if (i >= m_asserted_qhead) {
                     new_exprs1.push_back(n);
-                    if (m_manager.proofs_enabled())
+                    if (m.proofs_enabled())
                         new_prs1.push_back(pr);
                 }
-                TRACE("propagate_values", tout << "found:\n" << mk_pp(lhs, m_manager) << "\n->\n" << mk_pp(rhs, m_manager) << "\n";
-                      if (pr) tout << "proof: " << mk_pp(pr, m_manager) << "\n";);
+                TRACE("propagate_values", tout << "found:\n" << mk_pp(lhs, m) << "\n->\n" << mk_pp(rhs, m) << "\n";
+                      if (pr) tout << "proof: " << mk_pp(pr, m) << "\n";);
                 m_simplifier.cache_result(lhs, rhs, pr);
                 found = true;
                 continue;
@@ -634,7 +634,7 @@ void asserted_formulas::propagate_values() {
         }
         if (i >= m_asserted_qhead) {
             new_exprs2.push_back(n);
-            if (m_manager.proofs_enabled())
+            if (m.proofs_enabled())
                 new_prs2.push_back(pr);
         }
     }
@@ -646,14 +646,14 @@ void asserted_formulas::propagate_values() {
         for (unsigned i = 0; i < sz; i++) {
             expr * n    = new_exprs2.get(i);
             proof * pr  = new_prs2.get(i, 0);
-            expr_ref new_n(m_manager);
-            proof_ref new_pr(m_manager);
+            expr_ref new_n(m);
+            proof_ref new_pr(m);
             m_simplifier(n, new_n, new_pr);
             if (n == new_n.get()) {
                 push_assertion(n, pr, new_exprs1, new_prs1);
             }
             else {
-                new_pr = m_manager.mk_modus_ponens(pr, new_pr);
+                new_pr = m.mk_modus_ponens(pr, new_pr);
                 push_assertion(new_n, new_pr, new_exprs1, new_prs1);
             }
         }
@@ -680,22 +680,22 @@ void asserted_formulas::propagate_booleans() {
 #define PROCESS() {                                                                                                             \
             expr * n    = m_asserted_formulas.get(i);                                                                           \
             proof * pr  = m_asserted_formula_prs.get(i, 0);                                                                     \
-            expr_ref new_n(m_manager);                                                                                          \
-            proof_ref new_pr(m_manager);                                                                                        \
+            expr_ref new_n(m);                                                                                          \
+            proof_ref new_pr(m);                                                                                        \
             m_simplifier(n, new_n, new_pr);                                                                                     \
             m_asserted_formulas.set(i, new_n);                                                                                  \
-            if (m_manager.proofs_enabled()) {                                                                                   \
-                new_pr = m_manager.mk_modus_ponens(pr, new_pr);                                                                 \
+            if (m.proofs_enabled()) {                                                                                   \
+                new_pr = m.mk_modus_ponens(pr, new_pr);                                                                 \
                 m_asserted_formula_prs.set(i, new_pr);                                                                          \
             }                                                                                                                   \
             if (n != new_n) {                                                                                                   \
                 cont = true;                                                                                                    \
                 modified = true;                                                                                                \
             }                                                                                                                   \
-            if (m_manager.is_not(new_n))                                                                                        \
-                m_simplifier.cache_result(to_app(new_n)->get_arg(0), m_manager.mk_false(), m_manager.mk_iff_false(new_pr));     \
+            if (m.is_not(new_n))                                                                                        \
+                m_simplifier.cache_result(to_app(new_n)->get_arg(0), m.mk_false(), m.mk_iff_false(new_pr));     \
             else                                                                                                                \
-                m_simplifier.cache_result(new_n, m_manager.mk_true(), m_manager.mk_iff_true(new_pr));                           \
+                m_simplifier.cache_result(new_n, m.mk_true(), m.mk_iff_true(new_pr));                           \
         }
         for (; i < sz; i++) {
             PROCESS();
@@ -720,23 +720,23 @@ bool asserted_formulas::NAME() {                                        \
     TRACE(TAG, ast_mark visited; display_ll(tout, visited););           \
     FUNCTOR;                                                            \
     bool changed = false;                                               \
-    expr_ref_vector  new_exprs(m_manager);                              \
-    proof_ref_vector new_prs(m_manager);                                \
+    expr_ref_vector  new_exprs(m);                              \
+    proof_ref_vector new_prs(m);                                \
     unsigned i  = m_asserted_qhead;                                     \
     unsigned sz = m_asserted_formulas.size();                           \
     for (; i < sz; i++) {                                               \
         expr * n    = m_asserted_formulas.get(i);                       \
         proof * pr  = m_asserted_formula_prs.get(i, 0);                 \
-        expr_ref  new_n(m_manager);                                     \
-        proof_ref new_pr(m_manager);                                    \
+        expr_ref  new_n(m);                                     \
+        proof_ref new_pr(m);                                    \
         functor(n, new_n, new_pr);                                      \
         if (n == new_n.get()) {                                         \
             push_assertion(n, pr, new_exprs, new_prs);                  \
         }                                                               \
-        else if (m_manager.proofs_enabled()) {                          \
+        else if (m.proofs_enabled()) {                          \
             changed = true;                                             \
-            if (!new_pr) new_pr = m_manager.mk_rewrite(n, new_n);       \
-            new_pr = m_manager.mk_modus_ponens(pr, new_pr);             \
+            if (!new_pr) new_pr = m.mk_rewrite(n, new_n);       \
+            new_pr = m.mk_modus_ponens(pr, new_pr);             \
             push_assertion(new_n, new_pr, new_exprs, new_prs);          \
         }                                                               \
         else {                                                          \
@@ -753,19 +753,19 @@ bool asserted_formulas::NAME() {                                        \
     return changed;                                                     \
 }
 
-MK_SIMPLIFIER(pull_cheap_ite_trees, pull_cheap_ite_tree_star functor(m_manager, m_simplifier), "pull_cheap_ite_trees", "pull-cheap-ite-trees", false);
+MK_SIMPLIFIER(pull_cheap_ite_trees, pull_cheap_ite_tree_star functor(m, m_simplifier), "pull_cheap_ite_trees", "pull-cheap-ite-trees", false);
 
-MK_SIMPLIFIER(pull_nested_quantifiers, pull_nested_quant functor(m_manager), "pull_nested_quantifiers", "pull-nested-quantifiers", false);
+MK_SIMPLIFIER(pull_nested_quantifiers, pull_nested_quant functor(m), "pull_nested_quantifiers", "pull-nested-quantifiers", false);
 
 proof * asserted_formulas::get_inconsistency_proof() const {
     if (!inconsistent())
         return 0;
-    if (!m_manager.proofs_enabled())
+    if (!m.proofs_enabled())
         return 0;
     unsigned sz = m_asserted_formulas.size();
     for (unsigned i = 0; i < sz; i++) {
         expr * f = m_asserted_formulas.get(i);
-        if (m_manager.is_false(f))
+        if (m.is_false(f))
             return m_asserted_formula_prs.get(i);
     }
     UNREACHABLE();
@@ -780,14 +780,14 @@ void asserted_formulas::refine_inj_axiom() {
     for (; i < sz; i++) {
         expr * n    = m_asserted_formulas.get(i);
         proof * pr  = m_asserted_formula_prs.get(i, 0);
-        expr_ref new_n(m_manager);
-        if (is_quantifier(n) && simplify_inj_axiom(m_manager, to_quantifier(n), new_n)) {
-            TRACE("inj_axiom", tout << "simplifying...\n" << mk_pp(n, m_manager) << "\n" << mk_pp(new_n, m_manager) << "\n";);
+        expr_ref new_n(m);
+        if (is_quantifier(n) && simplify_inj_axiom(m, to_quantifier(n), new_n)) {
+            TRACE("inj_axiom", tout << "simplifying...\n" << mk_pp(n, m) << "\n" << mk_pp(new_n, m) << "\n";);
             m_asserted_formulas.set(i, new_n);
-            if (m_manager.proofs_enabled()) {
-                proof_ref new_pr(m_manager);     
-                new_pr = m_manager.mk_rewrite(n, new_n);
-                new_pr = m_manager.mk_modus_ponens(pr, new_pr);
+            if (m.proofs_enabled()) {
+                proof_ref new_pr(m);     
+                new_pr = m.mk_rewrite(n, new_n);
+                new_pr = m.mk_modus_ponens(pr, new_pr);
                 m_asserted_formula_prs.set(i, new_pr);
             }
         }
@@ -797,11 +797,11 @@ void asserted_formulas::refine_inj_axiom() {
 
 MK_SIMPLIFIER(apply_bit2int, bit2int& functor = m_bit2int, "bit2int", "propagate-bit-vector-over-integers", true);
 
-MK_SIMPLIFIER(cheap_quant_fourier_motzkin, elim_bounds_star functor(m_manager), "elim_bounds", "cheap-fourier-motzkin", true);
+MK_SIMPLIFIER(cheap_quant_fourier_motzkin, elim_bounds_star functor(m), "elim_bounds", "cheap-fourier-motzkin", true);
 
 
 
-MK_SIMPLIFIER(elim_bvs_from_quantifiers, bv_elim_star functor(m_manager), "bv_elim", "eliminate-bit-vectors-from-quantifiers", true);
+MK_SIMPLIFIER(elim_bvs_from_quantifiers, bv_elim_star functor(m), "bv_elim", "eliminate-bit-vectors-from-quantifiers", true);
 
 #define LIFT_ITE(NAME, FUNCTOR, MSG)                                                                                            \
 void asserted_formulas::NAME() {                                                                                                \
@@ -813,14 +813,14 @@ void asserted_formulas::NAME() {                                                
     for (; i < sz; i++) {                                                                                                       \
         expr * n    = m_asserted_formulas.get(i);                                                                               \
         proof * pr  = m_asserted_formula_prs.get(i, 0);                                                                         \
-        expr_ref  new_n(m_manager);                                                                                             \
-        proof_ref new_pr(m_manager);                                                                                            \
+        expr_ref  new_n(m);                                                                                             \
+        proof_ref new_pr(m);                                                                                            \
         functor(n, new_n, new_pr);                                                                                              \
-        TRACE("lift_ite_step", tout << mk_pp(n, m_manager) << "\n";);                                                           \
+        TRACE("lift_ite_step", tout << mk_pp(n, m) << "\n";);                                                           \
         IF_IVERBOSE(10000, verbose_stream() << "lift before: " << get_num_exprs(n)  << ", after: " << get_num_exprs(new_n) << "\n";);  \
         m_asserted_formulas.set(i, new_n);                                                                                      \
-        if (m_manager.proofs_enabled()) {                                                                                       \
-            new_pr = m_manager.mk_modus_ponens(pr, new_pr);                                                                     \
+        if (m.proofs_enabled()) {                                                                                       \
+            new_pr = m.mk_modus_ponens(pr, new_pr);                                                                     \
             m_asserted_formula_prs.set(i, new_pr);                                                                              \
         }                                                                                                                       \
     }                                                                                                                           \
@@ -848,12 +848,12 @@ void asserted_formulas::max_bv_sharing() {
     for (; i < sz; i++) {
         expr * n    = m_asserted_formulas.get(i);
         proof * pr  = m_asserted_formula_prs.get(i, 0);
-        expr_ref new_n(m_manager);
-        proof_ref new_pr(m_manager);
+        expr_ref new_n(m);
+        proof_ref new_pr(m);
         m_bv_sharing(n, new_n, new_pr);
         m_asserted_formulas.set(i, new_n);
-        if (m_manager.proofs_enabled()) {
-            new_pr = m_manager.mk_modus_ponens(pr, new_pr);
+        if (m.proofs_enabled()) {
+            new_pr = m.mk_modus_ponens(pr, new_pr);
             m_asserted_formula_prs.set(i, new_pr);
         }
     }
