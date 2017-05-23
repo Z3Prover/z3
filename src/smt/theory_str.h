@@ -350,6 +350,8 @@ protected:
     unsigned long cacheHitCount;
     unsigned long cacheMissCount;
 
+    unsigned m_fresh_id;
+
     // cache mapping each string S to Length(S)
     obj_map<expr, app*> length_ast_map;
 

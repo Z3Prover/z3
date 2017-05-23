@@ -2,7 +2,6 @@ z3_add_component(interp
   SOURCES
     iz3base.cpp
     iz3checker.cpp
-    iz3foci.cpp
     iz3interp.cpp
     iz3mgr.cpp
     iz3pp.cpp

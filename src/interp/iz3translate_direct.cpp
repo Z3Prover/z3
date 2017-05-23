@@ -332,7 +332,7 @@ public:
         }
     }
 
-    // get the lits of a Z3 clause as foci terms
+    // get the lits of a Z3 clause as secondary prover terms
     void get_Z3_lits(ast t, std::vector<ast> &lits){
         opr dk = op(t);
         if(dk == False)
@@ -666,9 +666,9 @@ public:
 #endif 
 
         // interpolate using secondary prover
-        profiling::timer_start("foci");
+        profiling::timer_start("secondary prover");
         int sat = secondary->interpolate(preds,itps);
-        profiling::timer_stop("foci");
+        profiling::timer_stop("secondary prover");
 
         std::cout << "lemma done" << std::endl;
 
@@ -1495,7 +1495,7 @@ public:
         return find_nll(new_proofs);
     }
 
-    // translate a Z3 proof term into a foci proof term
+    // translate a Z3 proof term into a secondary prover proof term
 
     Iproof::node translate_main(ast proof, non_local_lits *nll, bool expect_clause = true){
         non_local_lits *old_nll = nll;

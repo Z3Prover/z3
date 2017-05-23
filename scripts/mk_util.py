@@ -96,8 +96,6 @@ VER_BUILD=None
 VER_REVISION=None
 PREFIX=sys.prefix
 GMP=False
-FOCI2=False
-FOCI2LIB=''
 VS_PAR=False
 VS_PAR_NUM=8
 GPROF=False
@@ -257,13 +255,6 @@ def test_gmp(cc):
     t.commit()
     return exec_compiler_cmd([cc, CPPFLAGS, 'tstgmp.cpp', LDFLAGS, '-lgmp']) == 0
 
-def test_foci2(cc,foci2lib):
-    if is_verbose():
-        print("Testing FOCI2...")
-    t = TempFile('tstfoci2.cpp')
-    t.add('#include<foci2.h>\nint main() { foci2 *f = foci2::create("lia"); return 0; }\n')
-    t.commit()
-    return exec_compiler_cmd([cc, CPPFLAGS, '-Isrc/interp', 'tstfoci2.cpp', LDFLAGS, foci2lib]) == 0
 
 def test_openmp(cc):
     if not USE_OMP:
@@ -650,7 +641,6 @@ def display_help(exit_code):
     if not IS_WINDOWS:
         print("  -g, --gmp                     use GMP.")
         print("  --gprof                       enable gprof")
-    print("  -f <path> --foci2=<path>      use foci2 library at path")
     print("  --noomp                       disable OpenMP and all features that require it.")
     print("  --log-sync                    synchronize access to API log files to enable multi-thread API logging.")
     print("")
@@ -678,13 +668,13 @@ def display_help(exit_code):
 # Parse configuration option for mk_make script
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
-    global DOTNET_ENABLED, DOTNET_KEY_FILE, JAVA_ENABLED, ML_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, FOCI2, FOCI2LIB, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, GIT_DESCRIBE, PYTHON_INSTALL_ENABLED, PYTHON_ENABLED
+    global DOTNET_ENABLED, DOTNET_KEY_FILE, JAVA_ENABLED, ML_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, GIT_DESCRIBE, PYTHON_INSTALL_ENABLED, PYTHON_ENABLED
     global LINUX_X64, SLOW_OPTIMIZE, USE_OMP, LOG_SYNC
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:],
                                                'b:df:sxhmcvtnp:gj',
                                                ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj',
-                                                'trace', 'dotnet', 'dotnet-key=', 'staticlib', 'prefix=', 'gmp', 'foci2=', 'java', 'parallel=', 'gprof',
+                                                'trace', 'dotnet', 'dotnet-key=', 'staticlib', 'prefix=', 'gmp', 'java', 'parallel=', 'gprof',
                                                 'githash=', 'git-describe', 'x86', 'ml', 'optimize', 'noomp', 'pypkgdir=', 'python', 'staticbin', 'log-sync'])
     except:
         print("ERROR: Invalid command line option")
@@ -735,9 +725,6 @@ def parse_options():
             VS_PAR_NUM = int(arg)
         elif opt in ('-g', '--gmp'):
             GMP = True
-        elif opt in ('-f', '--foci2'):
-            FOCI2 = True
-            FOCI2LIB = arg
         elif opt in ('-j', '--java'):
             JAVA_ENABLED = True
         elif opt == '--gprof':
@@ -778,7 +765,7 @@ def extract_c_includes(fname):
             root_file_name = m1.group(1)
             slash_pos =  root_file_name.rfind('/')
             if slash_pos >= 0  and root_file_name.find("..") < 0 : #it is a hack for lp include files that behave as continued from "src"
-                print(root_file_name)
+                # print(root_file_name)
                 root_file_name = root_file_name[slash_pos+1:]
             result.append(root_file_name)
         elif not system_inc_pat.match(line) and non_std_inc_pat.match(line):
@@ -1181,7 +1168,6 @@ class ExeComponent(Component):
         for dep in deps:
             c_dep = get_component(dep)
             out.write(' ' + c_dep.get_link_name())
-        out.write(' ' + FOCI2LIB)
         out.write(' $(LINK_EXTRA_FLAGS)\n')
         out.write('%s: %s\n\n' % (self.name, exefile))
 
@@ -1307,7 +1293,6 @@ class DLLComponent(Component):
             if dep not in self.reexports:
                 c_dep = get_component(dep)
                 out.write(' ' + c_dep.get_link_name())
-        out.write(' ' + FOCI2LIB)
         out.write(' $(SLINK_EXTRA_FLAGS)')
         if IS_WINDOWS:
             out.write(' /DEF:%s.def' % os.path.join(self.to_src_dir, self.name))
@@ -2307,7 +2292,7 @@ def mk_config():
     if ONLY_MAKEFILES:
         return
     config = open(os.path.join(BUILD_DIR, 'config.mk'), 'w')
-    global CXX, CC, GMP, FOCI2, CPPFLAGS, CXXFLAGS, LDFLAGS, EXAMP_DEBUG_FLAG, FPMATH_FLAGS, HAS_OMP, LOG_SYNC
+    global CXX, CC, GMP, CPPFLAGS, CXXFLAGS, LDFLAGS, EXAMP_DEBUG_FLAG, FPMATH_FLAGS, HAS_OMP, LOG_SYNC
     if IS_WINDOWS:
         config.write(
             'CC=cl\n'
@@ -2417,14 +2402,6 @@ def mk_config():
             SLIBEXTRAFLAGS = '%s -lgmp' % SLIBEXTRAFLAGS
         else:
             CPPFLAGS = '%s -D_MP_INTERNAL' % CPPFLAGS
-        if FOCI2:
-            if test_foci2(CXX,FOCI2LIB):
-                LDFLAGS  = '%s %s' % (LDFLAGS,FOCI2LIB)
-                SLIBEXTRAFLAGS = '%s %s' % (SLIBEXTRAFLAGS,FOCI2LIB)
-                CPPFLAGS = '%s -D_FOCI2' % CPPFLAGS
-            else:
-                print("FAILED\n")
-                FOCI2 = False
         if GIT_HASH:
             CPPFLAGS = '%s -DZ3GITHASH=%s' % (CPPFLAGS, GIT_HASH)
         CXXFLAGS = '%s -std=c++11' % CXXFLAGS
