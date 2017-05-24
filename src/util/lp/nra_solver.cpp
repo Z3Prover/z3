@@ -6,6 +6,8 @@
 #pragma once
 #include "util/lp/nra_solver.h"
 #include "nlsat/nlsat_solver.h"
+#include "math/polynomial/polynomial.h"
+#include "util/map.h"
 
 namespace lp {
 
@@ -13,6 +15,7 @@ namespace lp {
         lean::lar_solver& s;
         reslimit      m_limit;  // TBD: extract from lar_solver
         params_ref    m_params; // TBD: pass from outside
+        u_map<polynomial::var> m_lp2nl;  // map from lar_solver variables to nlsat::solver variables
 
         struct mon_eq {
             mon_eq(lean::var_index v, svector<lean::var_index> const& vs):
@@ -78,7 +81,7 @@ namespace lp {
            In addition to checking satisfiability we would also need
            to identify equalities in the model that should be assumed
            with the remaining solver.
-
+           
            TBD: use partial model from lra_solver to prime the state of nlsat_solver.
         */
         lbool check_nlsat() {
@@ -88,15 +91,44 @@ namespace lp {
             for (auto const& m : m_monomials) {
                 add_monomial_eq(solver, m);
             }
-            lbool r = solver.check();
+            lbool r = solver.check(); // TBD: get assumptions from literals that are asserted above level 0.
             if (r == l_true) {
                 // TBD extract model.
+                // check interface equalities
             }
             return r;
         }                
 
         void add_monomial_eq(nlsat::solver& solver, mon_eq const& m) {
-            
+            polynomial::manager& pm = solver.pm();
+            svector<polynomial::var> vars;
+            for (auto v : m.m_vs) {
+                vars.push_back(lp2nl(solver, v));
+            }
+            polynomial::monomial_ref m1(pm.mk_monomial(vars.size(), vars.c_ptr()), pm);
+            polynomial::monomial_ref m2(pm.mk_monomial(lp2nl(solver, m.m_v), 1), pm);
+            polynomial::monomial* mls[2] = { m1, m2 };
+            polynomial::scoped_numeral_vector coeffs(pm.m());
+            coeffs.push_back(mpz(1));
+            coeffs.push_back(mpz(-1));
+            polynomial::polynomial_ref p(pm.mk_polynomial(2, coeffs.c_ptr(), mls),  pm);
+            polynomial::polynomial* ps[1] = { p };
+            bool even[1] = { false };
+            nlsat::literal lit = solver.mk_ineq_literal(nlsat::atom::kind::EQ, 1, ps, even);
+            solver.mk_clause(1, &lit, 0);
+        }
+
+        
+        // translate var_index into polynomial::var that are declared on nlsat::solver.
+        
+
+        polynomial::var lp2nl(nlsat::solver& solver, lean::var_index v) {
+            polynomial::var r;
+            if (!m_lp2nl.find(v, r)) {
+                r = solver.mk_var(false); // TBD: is it s.column_is_integer(v), if then the function should take a var_index and not unsigned; s.is_int(v);
+                m_lp2nl.insert(v, r);
+            }
+            return r;
         }
     };
 
