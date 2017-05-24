@@ -30,6 +30,8 @@ z3_add_component(lp
     random_updater_instances.cpp      
   COMPONENT_DEPENDENCIES
     util
+    polynomial
+    nlsat
   PYG_FILES
     lp_params.pyg
 )

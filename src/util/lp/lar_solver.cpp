@@ -31,7 +31,9 @@ lar_solver::lar_solver() : m_status(OPTIMAL),
                            m_infeasible_column_index(-1),
                            m_terms_start_index(1000000),
                            m_mpq_lar_core_solver(m_settings, *this)
-{}
+{
+    m_nra = alloc(nra::solver, *this);
+}
     
 void lar_solver::set_propagate_bounds_on_pivoted_rows_mode(bool v) {
     m_mpq_lar_core_solver.m_r_solver.m_pivoted_rows = v? (& m_rows_with_changed_bounds) : nullptr;
@@ -330,6 +332,7 @@ void lar_solver::push() {
     m_term_count.push();
     m_constraint_count = m_constraints.size();
     m_constraint_count.push();
+    m_nra->push();
 }
 
 void lar_solver::clean_large_elements_after_pop(unsigned n, int_set& set) {
@@ -385,6 +388,7 @@ void lar_solver::pop(unsigned k) {
     m_settings.simplex_strategy() = m_simplex_strategy;
     lean_assert(sizes_are_correct());
     lean_assert((!m_settings.use_tableau()) || m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
+    m_nra->pop(k);
 }
     
 vector<constraint_index> lar_solver::get_all_constraint_indices() const {
@@ -1083,6 +1087,15 @@ void lar_solver::get_infeasibility_explanation(vector<std::pair<mpq, constraint_
     get_infeasibility_explanation_for_inf_sign(explanation, inf_row, inf_sign);
     lean_assert(explanation_is_correct(explanation));
 }
+
+final_check_status lar_solver::check_nra(nra_model_t& model, explanation_t& explanation) {
+    return m_nra->check(model, explanation);
+}
+
+void lar_solver::add_monomial(var_index v, svector<var_index> const& vars) {
+    m_nra->add_monomial(v, vars.size(), vars.c_ptr());
+}
+
 
 void lar_solver::get_infeasibility_explanation_for_inf_sign(
                                                             vector<std::pair<mpq, constraint_index>> & explanation,

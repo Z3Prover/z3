@@ -415,6 +415,31 @@ namespace smt {
             }
         }
 
+        void internalize_mul(app* t) {
+            SASSERT(a.is_mul(t));
+            mk_enode(t);
+            theory_var v = mk_var(t);
+            svector<lean::var_index> vars;
+            ptr_vector<expr> todo;
+            todo.push_back(t);
+            while (!todo.empty()) {
+                expr* n = todo.back();
+                todo.pop_back();
+                expr* n1, *n2;
+                if (a.is_mul(n, n1, n2)) {
+                    todo.push_back(n1);
+                    todo.push_back(n2);
+                }
+                else {
+                    if (!ctx().e_internalized(n)) {
+                        ctx().internalize(n, false);
+                    }
+                    vars.push_back(get_var_index(mk_var(n)));
+                }
+            }
+            // m_solver->add_monomial(get_var_index(v), vars);
+        }
+
         enode * mk_enode(app * n) {
             if (ctx().e_internalized(n)) {
                 return get_enode(n);
@@ -1166,18 +1191,41 @@ namespace smt {
             else if (m_solver->get_status() != lean::lp_status::OPTIMAL) {
                 is_sat = make_feasible();
             }
+            final_check_status st = FC_DONE;
             switch (is_sat) {
             case l_true:
+                
                 if (delayed_assume_eqs()) {
                     return FC_CONTINUE;
                 }
                 if (assume_eqs()) {
                     return FC_CONTINUE;
                 }
-                if (m_not_handled != 0) {                    
-                    return FC_GIVEUP;
+
+                switch (check_lia()) {
+                case l_true:
+                    break;
+                case l_false:
+                    return FC_CONTINUE;
+                case l_undef:
+                    st = FC_GIVEUP;
+                    break;
                 }
-                return FC_DONE;
+                
+                switch (check_nra()) {
+                case l_true:
+                    break;
+                case l_false:
+                    return FC_CONTINUE;
+                case l_undef:
+                    st = FC_GIVEUP;
+                    break;
+                }
+                if (m_not_handled != 0) {                    
+                    st = FC_GIVEUP;
+                }
+
+                return st;
             case l_false:
                 set_conflict();
                 return FC_CONTINUE;
@@ -1190,6 +1238,28 @@ namespace smt {
             return FC_GIVEUP;
         }
 
+        lbool check_lia() {
+            if (m.canceled()) return l_undef;
+            return l_true;
+        }
+
+        lbool check_nra() {
+            if (m.canceled()) return l_undef;
+            return l_true;
+            // TBD:
+            switch (m_solver->check_nra(m_variable_values, m_explanation)) {
+            case lean::final_check_status::DONE:
+                return l_true;
+            case lean::final_check_status::CONTINUE:
+                return l_true; // ?? why have a continue at this level ??
+            case lean::final_check_status::UNSAT: 
+                set_conflict1();
+                return l_false;
+            case lean::final_check_status::GIVEUP:
+                return l_undef;
+            }
+            return l_true;
+        }
 
         /**
            \brief We must redefine this method, because theory of arithmetic contains
@@ -2197,11 +2267,15 @@ namespace smt {
         }
 
         void set_conflict() {
+            m_solver->get_infeasibility_explanation(m_explanation);
+            set_conflict1();
+        }
+
+        void set_conflict1() {
             m_eqs.reset();
             m_core.reset();
             m_params.reset();
             m_explanation.clear();
-            m_solver->get_infeasibility_explanation(m_explanation);
             // m_solver->shrink_explanation_to_minimum(m_explanation); // todo, enable when perf is fixed
             /*
             static unsigned cn = 0;
