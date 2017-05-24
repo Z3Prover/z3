@@ -330,6 +330,7 @@ void lar_solver::push() {
     m_term_count.push();
     m_constraint_count = m_constraints.size();
     m_constraint_count.push();
+    m_nra->push();
 }
 
 void lar_solver::clean_large_elements_after_pop(unsigned n, int_set& set) {
@@ -385,6 +386,7 @@ void lar_solver::pop(unsigned k) {
     m_settings.simplex_strategy() = m_simplex_strategy;
     lean_assert(sizes_are_correct());
     lean_assert((!m_settings.use_tableau()) || m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
+    m_nra->pop(k);
 }
     
 vector<constraint_index> lar_solver::get_all_constraint_indices() const {
@@ -1082,6 +1084,10 @@ void lar_solver::get_infeasibility_explanation(vector<std::pair<mpq, constraint_
     auto inf_row = m_mpq_lar_core_solver.get_infeasibility_info(inf_sign);
     get_infeasibility_explanation_for_inf_sign(explanation, inf_row, inf_sign);
     lean_assert(explanation_is_correct(explanation));
+}
+
+final_check_status lar_solver::check_nra(nra_model_t& model, explanation_t& explanation) {
+    return m_nra->check(model, explanation);
 }
 
 void lar_solver::get_infeasibility_explanation_for_inf_sign(

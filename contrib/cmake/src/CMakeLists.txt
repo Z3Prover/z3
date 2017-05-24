@@ -35,10 +35,10 @@ endforeach()
 # raised if you try to declare a component is dependent on another component
 # that has not yet been declared.
 add_subdirectory(util)
-add_subdirectory(util/lp)
 add_subdirectory(math/polynomial)
 add_subdirectory(sat)
 add_subdirectory(nlsat)
+add_subdirectory(util/lp)
 add_subdirectory(math/hilbert)
 add_subdirectory(math/simplex)
 add_subdirectory(math/automata)

@@ -4,14 +4,17 @@
 */
 
 #pragma once
+#include "util/lp/lar_solver.h"
 #include "util/lp/nra_solver.h"
 #include "nlsat/nlsat_solver.h"
 #include "math/polynomial/polynomial.h"
+#include "math/polynomial/algebraic_numbers.h"
 #include "util/map.h"
 
-namespace lp {
 
-    struct nra_solver::imp {
+namespace nra {
+
+    struct solver::imp {
         lean::lar_solver& s;
         reslimit      m_limit;  // TBD: extract from lar_solver
         params_ref    m_params; // TBD: pass from outside
@@ -27,13 +30,25 @@ namespace lp {
         vector<mon_eq>                   m_monomials;
         unsigned_vector                  m_lim;
         mutable std::unordered_map<lean::var_index, rational> m_variable_values; // current model
+        vector<std::pair<rational, unsigned>> m_core;
 
         imp(lean::lar_solver& s): 
             s(s) {
         }
 
-        lean::final_check_status check_feasible() {
-            return lean::final_check_status::GIVEUP;
+        lean::final_check_status check_feasible(lean::nra_model_t& m, lean::explanation_t& ex) {
+            if (m_monomials.empty()) {
+                return lean::final_check_status::DONE;
+            }
+            if (check_assignments()) {
+                return lean::final_check_status::DONE;
+            }
+            switch (check_nlsat(m, ex)) {
+            case l_undef: return lean::final_check_status::GIVEUP;
+            case l_true: lean::final_check_status::DONE;
+            case l_false: lean::final_check_status::UNSAT;
+            }
+            return lean::final_check_status::DONE;
         }
 
         void add(lean::var_index v, unsigned sz, lean::var_index const* vs) {
@@ -84,21 +99,57 @@ namespace lp {
            
            TBD: use partial model from lra_solver to prime the state of nlsat_solver.
         */
-        lbool check_nlsat() {
+        lbool check_nlsat(lean::nra_model_t& model, lean::explanation_t& ex) {
             nlsat::solver solver(m_limit, m_params);
+            m_lp2nl.reset();
             // add linear inequalities from lra_solver
             for (unsigned i = 0; i < s.constraint_count(); ++i) {
-                add_constraint(solver, s.get_constraint(i));
+                add_constraint(solver, i);
             }
+
             // add polynomial definitions.
             for (auto const& m : m_monomials) {
                 add_monomial_eq(solver, m);
             }
-            lbool r = solver.check(); // TBD: get assumptions from literals that are asserted above level 0.
-            if (r == l_true) {
-                // TBD extract model.
-                // check interface equalities
+            // TBD: add variable bounds?
+
+            lbool r = solver.check(); 
+            switch (r) {
+            case l_true: {
+                nlsat::anum_manager& am = solver.am();
+                model.clear();
+                for (auto kv : m_lp2nl) {
+                    kv.m_key;
+                    nlsat::anum const& v = solver.value(kv.m_value);
+                    if (is_int(kv.m_key) && !am.is_int(v)) {
+                        // the nlsat solver should already have returned unknown.
+                        TRACE("lp", tout << "Value is not integer " << kv.m_key << "\n";);
+                        return l_undef;
+                    }
+                    if (!am.is_rational(v)) {
+                        // TBD extract and convert model.
+                        TRACE("lp", tout << "Cannot handle algebraic numbers\n";);
+                        return l_undef;
+                    }
+                    rational r;
+                    am.to_rational(v, r);
+                    model[kv.m_key] = r;
+                }
+                break;
             }
+            case l_false: {
+                ex.reset();
+                vector<nlsat::assumption, false> core;
+                solver.get_core(core);
+                for (auto c : core) {
+                    unsigned idx = static_cast<unsigned>(static_cast<imp*>(c) - this);
+                    ex.push_back(std::pair<rational, unsigned>(rational(1), idx));
+                }
+                break;
+            }
+            case l_undef:
+                break;
+            }            
             return r;
         }                
 
@@ -121,7 +172,8 @@ namespace lp {
             solver.mk_clause(1, &lit, 0);
         }
 
-        void add_constraint(nlsat::solver& solver, lean::lar_base_constraint const& c) {
+        void add_constraint(nlsat::solver& solver, unsigned idx) {
+            lean::lar_base_constraint const& c = s.get_constraint(idx);
             polynomial::manager& pm = solver.pm();
             auto k = c.m_kind;
             auto rhs = c.m_right_side;
@@ -139,58 +191,68 @@ namespace lp {
             }
             rhs *= den;
             polynomial::polynomial_ref p(pm.mk_linear(sz, coeffs.c_ptr(), vars.c_ptr(), -rhs), pm);
+            polynomial::polynomial* ps[1] = { p };
+            bool is_even[1] = { false };
             nlsat::literal lit;
             switch (k) {
             case lean::lconstraint_kind::LE:
-                // lit = ~solver.mk_ineq_literal(nlsat::atom::kind::GT, );
+                lit = ~solver.mk_ineq_literal(nlsat::atom::kind::GT, 1, ps, is_even);
                 break;
             case lean::lconstraint_kind::GE:
+                lit = ~solver.mk_ineq_literal(nlsat::atom::kind::LT, 1, ps, is_even);
+                break;
             case lean::lconstraint_kind::LT:
+                lit = solver.mk_ineq_literal(nlsat::atom::kind::LT, 1, ps, is_even);
+                break;
             case lean::lconstraint_kind::GT:
+                lit = solver.mk_ineq_literal(nlsat::atom::kind::GT, 1, ps, is_even);
+                break;
             case lean::lconstraint_kind::EQ:
+                lit = solver.mk_ineq_literal(nlsat::atom::kind::EQ, 1, ps, is_even);
                 break;
             }
 
-            // solver.mk_clause();
+            nlsat::assumption a = this + idx;
+            solver.mk_clause(1, &lit, a);
+        }               
 
-            // c.get_free_coeff_of_left_side();
+        bool is_int(lean::var_index v) {
+            // TBD: is it s.column_is_integer(v), if then the function should take a var_index and not unsigned; s.is_int(v);
+            return false;
         }
-
-        
-        // translate var_index into polynomial::var that are declared on nlsat::solver.
-        
 
         polynomial::var lp2nl(nlsat::solver& solver, lean::var_index v) {
             polynomial::var r;
             if (!m_lp2nl.find(v, r)) {
-                r = solver.mk_var(false); // TBD: is it s.column_is_integer(v), if then the function should take a var_index and not unsigned; s.is_int(v);
+                r = solver.mk_var(is_int(v));
                 m_lp2nl.insert(v, r);
             }
             return r;
         }
+
     };
 
-    nra_solver::nra_solver(lean::lar_solver& s) {
+    solver::solver(lean::lar_solver& s) {
         m_imp = alloc(imp, s);
     }
 
-    nra_solver::~nra_solver() {
+    solver::~solver() {
         dealloc(m_imp);
     }
 
-    void nra_solver::add_monomial(lean::var_index v, unsigned sz, lean::var_index const* vs) {
+    void solver::add_monomial(lean::var_index v, unsigned sz, lean::var_index const* vs) {
         m_imp->add(v, sz, vs);
     }
 
-    lean::final_check_status nra_solver::check_feasible() {
-        return m_imp->check_feasible();
+    lean::final_check_status solver::check(lean::nra_model_t& m, lean::explanation_t& ex) {
+        return m_imp->check_feasible(m, ex);
     }
 
-    void nra_solver::push() {
+    void solver::push() {
         m_imp->push();
     }
 
-    void nra_solver::pop(unsigned n) {
+    void solver::pop(unsigned n) {
         m_imp->pop(n);
     }
 }

@@ -70,6 +70,7 @@ z3_add_component(smt
     euclid
     fpa
     grobner
+    nlsat
     lp
     macros
     normal_forms
