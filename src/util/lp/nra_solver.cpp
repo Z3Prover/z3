@@ -87,6 +87,9 @@ namespace lp {
         lbool check_nlsat() {
             nlsat::solver solver(m_limit, m_params);
             // add linear inequalities from lra_solver
+            for (unsigned i = 0; i < s.constraint_count(); ++i) {
+                add_constraint(solver, s.get_constraint(i));
+            }
             // add polynomial definitions.
             for (auto const& m : m_monomials) {
                 add_monomial_eq(solver, m);
@@ -116,6 +119,41 @@ namespace lp {
             bool even[1] = { false };
             nlsat::literal lit = solver.mk_ineq_literal(nlsat::atom::kind::EQ, 1, ps, even);
             solver.mk_clause(1, &lit, 0);
+        }
+
+        void add_constraint(nlsat::solver& solver, lean::lar_base_constraint const& c) {
+            polynomial::manager& pm = solver.pm();
+            auto k = c.m_kind;
+            auto rhs = c.m_right_side;
+            auto lhs = c.get_left_side_coefficients();
+            unsigned sz = lhs.size();
+            svector<polynomial::var> vars;
+            rational den = denominator(rhs);
+            for (auto kv : lhs) {
+                vars.push_back(lp2nl(solver, kv.second));
+                den = lcm(den, denominator(kv.first));
+            }
+            vector<rational> coeffs;
+            for (auto kv : lhs) {
+                coeffs.push_back(den * kv.first);
+            }
+            rhs *= den;
+            polynomial::polynomial_ref p(pm.mk_linear(sz, coeffs.c_ptr(), vars.c_ptr(), -rhs), pm);
+            nlsat::literal lit;
+            switch (k) {
+            case lean::lconstraint_kind::LE:
+                // lit = ~solver.mk_ineq_literal(nlsat::atom::kind::GT, );
+                break;
+            case lean::lconstraint_kind::GE:
+            case lean::lconstraint_kind::LT:
+            case lean::lconstraint_kind::GT:
+            case lean::lconstraint_kind::EQ:
+                break;
+            }
+
+            // solver.mk_clause();
+
+            // c.get_free_coeff_of_left_side();
         }
 
         
