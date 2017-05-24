@@ -1381,7 +1381,8 @@ void lar_solver::shrink_explanation_to_minimum(vector<std::pair<mpq, constraint_
     lean_assert(this->explanation_is_correct(explanation));
 }
 
-final_check_status check_int_feasibility() {
+final_check_status lar_solver::check_int_feasibility() {
+    std::cout << "lar_solver::check_int_feasibility()\n";
 	return final_check_status::GIVEUP;
 }
 } // namespace lean
