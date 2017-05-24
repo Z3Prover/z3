@@ -1387,8 +1387,14 @@ void lar_solver::shrink_explanation_to_minimum(vector<std::pair<mpq, constraint_
     lean_assert(this->explanation_is_correct(explanation));
 }
 
-final_check_status check_int_feasibility() {
-	return final_check_status::GIVEUP;
+final_check_status lar_solver::check_int_feasibility() {
+    unsigned n = A_r().column_count();
+    for (unsigned j = 0; j < n; j++) {
+        if (column_is_integer(j) && column_value_is_integer(j))
+            continue;
+        return final_check_status::GIVEUP;
+    }
+	return final_check_status::DONE;
 }
 } // namespace lean
 

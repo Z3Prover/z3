@@ -42,6 +42,5 @@ namespace nra {
         void push();
         
         void pop(unsigned n);
-        
     };
 }
