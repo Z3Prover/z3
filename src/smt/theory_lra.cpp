@@ -415,6 +415,31 @@ namespace smt {
             }
         }
 
+        void internalize_mul(app* t) {
+            SASSERT(a.is_mul(t));
+            mk_enode(t);
+            theory_var v = mk_var(t);
+            svector<lean::var_index> vars;
+            ptr_vector<expr> todo;
+            todo.push_back(t);
+            while (!todo.empty()) {
+                expr* n = todo.back();
+                todo.pop_back();
+                expr* n1, *n2;
+                if (a.is_mul(n, n1, n2)) {
+                    todo.push_back(n1);
+                    todo.push_back(n2);
+                }
+                else {
+                    if (!ctx().e_internalized(n)) {
+                        ctx().internalize(n, false);
+                    }
+                    vars.push_back(get_var_index(mk_var(n)));
+                }
+            }
+            // m_solver->add_monomial(get_var_index(v), vars);
+        }
+
         enode * mk_enode(app * n) {
             if (ctx().e_internalized(n)) {
                 return get_enode(n);

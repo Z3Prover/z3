@@ -1092,6 +1092,11 @@ final_check_status lar_solver::check_nra(nra_model_t& model, explanation_t& expl
     return m_nra->check(model, explanation);
 }
 
+void lar_solver::add_monomial(var_index v, svector<var_index> const& vars) {
+    m_nra->add_monomial(v, vars.size(), vars.c_ptr());
+}
+
+
 void lar_solver::get_infeasibility_explanation_for_inf_sign(
                                                             vector<std::pair<mpq, constraint_index>> & explanation,
                                                             const vector<std::pair<mpq, unsigned>> & inf_row,

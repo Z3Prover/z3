@@ -205,6 +205,8 @@ public:
     lp_status find_feasible_solution();
    
     final_check_status check_nra(nra_model_t& model, explanation_t& explanation);    
+
+    void add_monomial(var_index v, svector<var_index> const& vars);
     
     lp_status solve();
 
