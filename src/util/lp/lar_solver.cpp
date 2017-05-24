@@ -31,7 +31,9 @@ lar_solver::lar_solver() : m_status(OPTIMAL),
                            m_infeasible_column_index(-1),
                            m_terms_start_index(1000000),
                            m_mpq_lar_core_solver(m_settings, *this)
-{}
+{
+    m_nra = alloc(nra::solver, *this);
+}
     
 void lar_solver::set_propagate_bounds_on_pivoted_rows_mode(bool v) {
     m_mpq_lar_core_solver.m_r_solver.m_pivoted_rows = v? (& m_rows_with_changed_bounds) : nullptr;

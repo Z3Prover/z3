@@ -30,7 +30,6 @@ namespace nra {
         vector<mon_eq>                   m_monomials;
         unsigned_vector                  m_lim;
         mutable std::unordered_map<lean::var_index, rational> m_variable_values; // current model
-        vector<std::pair<rational, unsigned>> m_core;
 
         imp(lean::lar_solver& s): 
             s(s) {
