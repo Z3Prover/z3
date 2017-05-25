@@ -31,7 +31,6 @@
 #include "util/lp/quick_xplain.h"
 #include "util/lp/conversion_helper.h"
 #include "util/lp/int_solver.h"
-#include "util/lp/nra_solver.h"
 
 namespace lean {
 
@@ -64,7 +63,6 @@ class lar_solver : public column_namer {
     vector<lar_term*> m_terms;
     const var_index m_terms_start_index;
     indexed_vector<mpq> m_column_buffer;
-    scoped_ptr<nra::solver> m_nra;
 public:
     lar_core_solver m_mpq_lar_core_solver;
     unsigned constraint_count() const;
@@ -204,8 +202,6 @@ public:
 
     lp_status find_feasible_solution();
    
-    final_check_status check_nra(nra_model_t& model, explanation_t& explanation);    
-
     void add_monomial(var_index v, svector<var_index> const& vars);
     
     lp_status solve();

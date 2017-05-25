@@ -26,8 +26,6 @@ enum class final_check_status {
 
 typedef vector<std::pair<mpq, constraint_index>> explanation_t;
 
-typedef std::unordered_map<lean::var_index, rational> nra_model_t;
-
 
 enum class column_type  {
     free_column = 0,

@@ -35,6 +35,7 @@ Revision History:
 #include "smt/smt_model_generator.h"
 #include "smt/arith_eq_adapter.h"
 #include "util/nat_set.h"
+#include "util/lp/nra_solver.h"
 #include "tactic/filter_model_converter.h"
 
 namespace lp {
@@ -144,10 +145,10 @@ namespace smt {
         ast_manager&         m;
         theory_arith_params& m_arith_params;
         arith_util           a;
-
         arith_eq_adapter     m_arith_eq_adapter;
+        vector<rational>     m_columns;
+      
 
-        vector<rational>    m_columns;
         // temporary values kept during internalization
         struct internalize_state {
             expr_ref_vector     m_terms;                     
@@ -248,6 +249,8 @@ namespace smt {
 
         unsigned               m_num_conflicts;
 
+        scoped_ptr<nra::solver> m_nra;
+        bool                    m_use_nra_model;
 
         struct var_value_eq {
             imp & m_th;
@@ -290,6 +293,16 @@ namespace smt {
             m_solver->set_propagate_bounds_on_pivoted_rows_mode(lp.bprop_on_pivoted_rows());
             //m_solver->settings().set_ostream(0);
         }
+
+        void ensure_nra() {
+            if (!m_nra) {
+                m_nra = alloc(nra::solver, *m_solver.get(), m.limit(), ctx().get_params());
+                for (unsigned i = 0; i < m_scopes.size(); ++i) {
+                    m_nra->push();
+                }
+            }
+        }
+
 
         void found_not_handled(expr* n) {
             m_not_handled = n;
@@ -456,7 +469,8 @@ namespace smt {
             }
             TRACE("arith", tout << mk_pp(t, m) << "\n";);
             if (!_has_var) {
-                m_solver->add_monomial(get_var_index(v), vars);
+                ensure_nra();
+                m_nra->add_monomial(get_var_index(v), vars.size(), vars.c_ptr());
             }
         }
 
@@ -711,7 +725,8 @@ namespace smt {
             m_num_conflicts(0),
             m_model_eqs(DEFAULT_HASHTABLE_INITIAL_CAPACITY, var_value_hash(*this), var_value_eq(*this)),
             m_solver(0),
-            m_resource_limit(*this) {
+            m_resource_limit(*this),
+            m_use_nra_model(false) {
         }
         
         ~imp() {
@@ -868,6 +883,7 @@ namespace smt {
             s.m_underspecified_lim = m_underspecified.size();
             s.m_var_trail_lim = m_var_trail.size();
             if (!m_delay_constraints) m_solver->push();
+            if (m_nra) m_nra->push();
         }
 
         void pop_scope_eh(unsigned num_scopes) {
@@ -900,6 +916,7 @@ namespace smt {
             // VERIFY(l_false != make_feasible());
             m_new_bounds.reset();
             m_to_check.reset();
+            if (m_nra) m_nra->pop(num_scopes);
             TRACE("arith", tout << "num scopes: " << num_scopes << " new scope level: " << m_scopes.size() << "\n";);
         }
 
@@ -1272,21 +1289,23 @@ namespace smt {
         }
 
         lbool check_nra() {
+            m_use_nra_model = false;
             if (m.canceled()) return l_undef;
-            // return l_true;
-            // TBD:
-            switch (m_solver->check_nra(m_variable_values, m_explanation)) {
-            case lean::final_check_status::DONE:
-                return l_true;
-            case lean::final_check_status::CONTINUE:
-                return l_true; // ?? why have a continue at this level ??
-            case lean::final_check_status::UNSAT: 
+            if (!m_nra) return l_true;
+            if (!m_nra->need_check()) return l_true;
+            lbool r = m_nra->check(m_explanation);
+            switch (r) {
+            case l_false:
                 set_conflict1();
-                return l_false;
-            case lean::final_check_status::GIVEUP:
-                return l_undef;
+                break;
+            case l_true:
+                m_use_nra_model = true;
+                // TBD: check equalities
+                break;
+            default:
+                break;
             }
-            return l_true;
+            return r;
         }
 
         /**
@@ -2355,9 +2374,16 @@ namespace smt {
         model_value_proc * mk_value(enode * n, model_generator & mg) {
             theory_var v = n->get_th_var(get_id());
             expr* o = n->get_owner();
-            rational r = get_value(v);
-            if (a.is_int(o) && !r.is_int()) r = floor(r);
-            return alloc(expr_wrapper_proc, m_factory->mk_value(r,  m.get_sort(o)));
+            if (m_use_nra_model) {
+                SASSERT(m_nra);
+                app* e = a.mk_numeral(m_nra->value(m_theory_var2var_index[v]), a.is_int(o));
+                return alloc(expr_wrapper_proc, e);
+            }
+            else {
+                rational r = get_value(v);
+                if (a.is_int(o) && !r.is_int()) r = floor(r);
+                return alloc(expr_wrapper_proc, m_factory->mk_value(r,  m.get_sort(o)));
+            }
         }
 
         bool get_value(enode* n, expr_ref& r) {
