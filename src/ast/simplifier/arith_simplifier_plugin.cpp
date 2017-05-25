@@ -267,9 +267,54 @@ void arith_simplifier_plugin::mk_idiv(expr * arg1, expr * arg2, expr_ref & resul
     bool is_int;
     if (m_util.is_numeral(arg1, v1, is_int) && m_util.is_numeral(arg2, v2, is_int) && !v2.is_zero())
         result = m_util.mk_numeral(div(v1, v2), is_int);
+    else if (divides(arg2, arg1, result)) {
+        result = m_util.mk_mul(result, m_util.mk_idiv(arg2, arg2));
+    }
     else 
         result = m_util.mk_idiv(arg1, arg2);
 }
+
+bool arith_simplifier_plugin::divides(expr* d, expr* n, expr_ref& quot) {
+    ast_manager& m = m_manager;
+    if (d == n) {
+        quot = m_util.mk_numeral(rational(1), m_util.is_int(d));
+        return true;
+    }
+    if (m_util.is_mul(n)) {
+        expr_ref_vector muls(m);
+        muls.push_back(n);
+        expr* n1, *n2;
+        rational r1, r2;
+        for (unsigned i = 0; i < muls.size(); ++i) {
+            if (m_util.is_mul(muls[i].get(), n1, n2)) {
+                muls[i] = n1;
+                muls.push_back(n2);
+                --i;
+            }
+        }
+        if (m_util.is_numeral(d, r1) && !r1.is_zero()) {
+            for (unsigned i = 0; i < muls.size(); ++i) {
+                if (m_util.is_numeral(muls[i].get(), r2) && (r2 / r1).is_int()) {
+                    muls[i] = m_util.mk_numeral(r2 / r1, m_util.is_int(d));
+                    quot = m_util.mk_mul(muls.size(), muls.c_ptr());
+                    return true;
+                }            
+            }
+        }
+        else {
+            for (unsigned i = 0; i < muls.size(); ++i) {
+                if (d == muls[i].get()) {
+                    muls[i] = muls.back();
+                    muls.pop_back();
+                    quot = m_util.mk_mul(muls.size(), muls.c_ptr());
+                    return true;
+                }            
+            }
+        }
+    }
+    return false;
+}
+
 
 void arith_simplifier_plugin::prop_mod_const(expr * e, unsigned depth, numeral const& k, expr_ref& result) {
     SASSERT(m_util.is_int(e));
