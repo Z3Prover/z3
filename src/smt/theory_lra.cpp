@@ -425,8 +425,11 @@ namespace smt {
 
         void internalize_mul(app* t, theory_var& v, rational& r) {
             SASSERT(a.is_mul(t));
-            internalize_args(t);
-            mk_enode(t);
+            bool _has_var = has_var(t);
+            if (!_has_var) {
+                internalize_args(t);
+                mk_enode(t);
+            }
             r = rational::one();
             rational r1;
             v = mk_var(t);
@@ -451,7 +454,10 @@ namespace smt {
                     vars.push_back(get_var_index(mk_var(n)));
                 }
             }
-            m_solver->add_monomial(get_var_index(v), vars);
+            TRACE("arith", tout << mk_pp(t, m) << "\n";);
+            if (!_has_var) {
+                m_solver->add_monomial(get_var_index(v), vars);
+            }
         }
 
         enode * mk_enode(app * n) {
@@ -496,6 +502,14 @@ namespace smt {
 
         bool reflect(app* n) const {
             return m_arith_params.m_arith_reflect || is_underspecified(n);          
+        }
+
+        bool has_var(expr* n) {
+            if (!ctx().e_internalized(n)) {
+                return false;
+            }
+            enode* e = get_enode(n);
+            return th.is_attached_to_var(e);
         }
 
         theory_var mk_var(expr* n, bool internalize = true) {
@@ -2281,6 +2295,7 @@ namespace smt {
         }
 
         void set_conflict() {
+            m_explanation.clear();
             m_solver->get_infeasibility_explanation(m_explanation);
             set_conflict1();
         }
@@ -2289,7 +2304,6 @@ namespace smt {
             m_eqs.reset();
             m_core.reset();
             m_params.reset();
-            m_explanation.clear();
             // m_solver->shrink_explanation_to_minimum(m_explanation); // todo, enable when perf is fixed
             /*
             static unsigned cn = 0;
@@ -2340,7 +2354,10 @@ namespace smt {
 
         model_value_proc * mk_value(enode * n, model_generator & mg) {
             theory_var v = n->get_th_var(get_id());
-            return alloc(expr_wrapper_proc, m_factory->mk_value(get_value(v), m.get_sort(n->get_owner())));
+            expr* o = n->get_owner();
+            rational r = get_value(v);
+            if (a.is_int(o) && !r.is_int()) r = floor(r);
+            return alloc(expr_wrapper_proc, m_factory->mk_value(r,  m.get_sort(o)));
         }
 
         bool get_value(enode* n, expr_ref& r) {
@@ -2366,6 +2383,7 @@ namespace smt {
             if (dump_lemmas()) {
                 ctx().display_lemma_as_smt_problem(m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), false_literal);
             }
+            if (m_arith_params.m_arith_mode == AS_LRA) return true;
             context nctx(m, ctx().get_fparams(), ctx().get_params());
             add_background(nctx);
             bool result = l_true != nctx.check();
@@ -2378,6 +2396,7 @@ namespace smt {
             if (dump_lemmas()) {                
                 ctx().display_lemma_as_smt_problem(m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), lit);
             }
+            if (m_arith_params.m_arith_mode == AS_LRA) return true;
             context nctx(m, ctx().get_fparams(), ctx().get_params());
             m_core.push_back(~lit);
             add_background(nctx);
@@ -2389,6 +2408,7 @@ namespace smt {
         }
 
         bool validate_eq(enode* x, enode* y) {
+            if (m_arith_params.m_arith_mode == AS_LRA) return true;
             context nctx(m, ctx().get_fparams(), ctx().get_params());
             add_background(nctx);
             nctx.assert_expr(m.mk_not(m.mk_eq(x->get_owner(), y->get_owner())));
