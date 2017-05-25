@@ -418,6 +418,7 @@ public:
         const impq & v = m_mpq_lar_core_solver.m_r_x[j];
         return impq_is_int(v);
     }
+
     inline bool column_is_real(unsigned j) const { return !column_is_integer(j); }	
 	final_check_status check_int_feasibility();
 };
