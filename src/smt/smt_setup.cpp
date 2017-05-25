@@ -724,8 +724,6 @@ namespace smt {
     }
 
     void setup::setup_r_arith() {
-        // to disable theory lra
-        // m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));        
         m_context.register_plugin(alloc(smt::theory_lra, m_manager, m_params));
     }
 
@@ -788,6 +786,9 @@ namespace smt {
             break;
         case AS_OPTINF:
             m_context.register_plugin(alloc(smt::theory_inf_arith, m_manager, m_params));            
+            break;
+        case AS_LRA:
+            setup_r_arith();
             break;
         default:
             if (m_params.m_arith_int_only && int_only)

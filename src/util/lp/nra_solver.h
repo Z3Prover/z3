@@ -42,5 +42,10 @@ namespace nra {
         void push();
         
         void pop(unsigned n);
+
+        /*
+          \brief display state
+         */
+        std::ostream& display(std::ostream& out) const;
     };
 }

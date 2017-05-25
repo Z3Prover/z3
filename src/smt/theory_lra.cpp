@@ -366,6 +366,14 @@ namespace smt {
                     terms[index] = n1;
                     st.terms_to_internalize().push_back(n2);
                 }
+                else if (a.is_mul(n)) {
+                    theory_var v;
+                    internalize_mul(to_app(n), v, r);
+                    coeffs[index] *= r;
+                    coeffs[vars.size()] = coeffs[index];
+                    vars.push_back(v);
+                    ++index;
+                }
                 else if (a.is_numeral(n, r)) {
                     coeff += coeffs[index]*r;
                     ++index;
@@ -415,10 +423,13 @@ namespace smt {
             }
         }
 
-        void internalize_mul(app* t) {
+        void internalize_mul(app* t, theory_var& v, rational& r) {
             SASSERT(a.is_mul(t));
+            internalize_args(t);
             mk_enode(t);
-            theory_var v = mk_var(t);
+            r = rational::one();
+            rational r1;
+            v = mk_var(t);
             svector<lean::var_index> vars;
             ptr_vector<expr> todo;
             todo.push_back(t);
@@ -430,6 +441,9 @@ namespace smt {
                     todo.push_back(n1);
                     todo.push_back(n2);
                 }
+                else if (a.is_numeral(n, r1)) {
+                    r *= r1;
+                }
                 else {
                     if (!ctx().e_internalized(n)) {
                         ctx().internalize(n, false);
@@ -437,7 +451,7 @@ namespace smt {
                     vars.push_back(get_var_index(mk_var(n)));
                 }
             }
-            // m_solver->add_monomial(get_var_index(v), vars);
+            m_solver->add_monomial(get_var_index(v), vars);
         }
 
         enode * mk_enode(app * n) {
@@ -1245,7 +1259,7 @@ namespace smt {
 
         lbool check_nra() {
             if (m.canceled()) return l_undef;
-            return l_true;
+            // return l_true;
             // TBD:
             switch (m_solver->check_nra(m_variable_values, m_explanation)) {
             case lean::final_check_status::DONE:

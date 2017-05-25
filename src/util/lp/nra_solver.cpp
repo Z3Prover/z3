@@ -21,8 +21,8 @@ namespace nra {
         u_map<polynomial::var> m_lp2nl;  // map from lar_solver variables to nlsat::solver variables
 
         struct mon_eq {
-            mon_eq(lean::var_index v, svector<lean::var_index> const& vs):
-                m_v(v), m_vs(vs) {}
+            mon_eq(lean::var_index v, unsigned sz, lean::var_index const* vs):
+                m_v(v), m_vs(sz, vs) {}
             lean::var_index          m_v;
             svector<lean::var_index> m_vs;
         };
@@ -44,14 +44,14 @@ namespace nra {
             }
             switch (check_nlsat(m, ex)) {
             case l_undef: return lean::final_check_status::GIVEUP;
-            case l_true: lean::final_check_status::DONE;
-            case l_false: lean::final_check_status::UNSAT;
+            case l_true: return lean::final_check_status::DONE;
+            case l_false: return lean::final_check_status::UNSAT;
             }
             return lean::final_check_status::DONE;
         }
 
         void add(lean::var_index v, unsigned sz, lean::var_index const* vs) {
-            m_monomials.push_back(mon_eq(v, svector<lean::var_index>(sz, vs)));
+            m_monomials.push_back(mon_eq(v, sz, vs));
         }
 
         void push() {
@@ -60,7 +60,6 @@ namespace nra {
 
         void pop(unsigned n) {
             if (n == 0) return;
-            SASSERT(n < m_lim.size());
             m_monomials.shrink(m_lim[m_lim.size() - n]);
             m_lim.shrink(m_lim.size() - n);       
         }
@@ -112,7 +111,9 @@ namespace nra {
             }
             // TBD: add variable bounds?
 
+
             lbool r = solver.check(); 
+            TRACE("arith", solver.display(tout << r << "\n"););
             switch (r) {
             case l_true: {
                 nlsat::anum_manager& am = solver.am();
@@ -143,6 +144,7 @@ namespace nra {
                 for (auto c : core) {
                     unsigned idx = static_cast<unsigned>(static_cast<imp*>(c) - this);
                     ex.push_back(std::pair<rational, unsigned>(rational(1), idx));
+                    TRACE("arith", tout << "ex: " << idx << "\n";);
                 }
                 break;
             }
@@ -172,12 +174,12 @@ namespace nra {
         }
 
         void add_constraint(nlsat::solver& solver, unsigned idx) {
-            lean::lar_base_constraint const& c = s.get_constraint(idx);
-            polynomial::manager& pm = solver.pm();
+            auto& c = s.get_constraint(idx);
+            auto& pm = solver.pm();
             auto k = c.m_kind;
             auto rhs = c.m_right_side;
             auto lhs = c.get_left_side_coefficients();
-            unsigned sz = lhs.size();
+            auto sz = lhs.size();
             svector<polynomial::var> vars;
             rational den = denominator(rhs);
             for (auto kv : lhs) {
@@ -229,6 +231,17 @@ namespace nra {
             return r;
         }
 
+        std::ostream& display(std::ostream& out) const {
+            for (auto m : m_monomials) {
+                out << "v" << m.m_v << " = ";
+                for (auto v : m.m_vs) {
+                    out << "v" << v << " ";
+                }
+                out << "\n";
+            }
+            return out;
+        }
+
     };
 
     solver::solver(lean::lar_solver& s) {
@@ -254,4 +267,9 @@ namespace nra {
     void solver::pop(unsigned n) {
         m_imp->pop(n);
     }
+
+    std::ostream& solver::display(std::ostream& out) const {
+        return m_imp->display(out);
+    }
+
 }
