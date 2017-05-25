@@ -31,6 +31,7 @@
 #include "util/lp/quick_xplain.h"
 #include "util/lp/conversion_helper.h"
 #include "util/lp/int_solver.h"
+#include "util/lp/nra_solver.h"
 
 namespace lean {
 
@@ -200,9 +201,7 @@ public:
 
     void set_status(lp_status s);
 
-    lp_status find_feasible_solution();
-   
-    void add_monomial(var_index v, svector<var_index> const& vars);
+    lp_status find_feasible_solution();   
     
     lp_status solve();
 
@@ -414,6 +413,7 @@ public:
         const impq & v = m_mpq_lar_core_solver.m_r_x[j];
         return impq_is_int(v);
     }
+
     inline bool column_is_real(unsigned j) const { return !column_is_integer(j); }	
 	final_check_status check_int_feasibility();
 };

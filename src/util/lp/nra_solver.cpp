@@ -121,6 +121,7 @@ namespace nra {
                     TRACE("arith", tout << "ex: " << idx << "\n";);
                 }
                 break;
+
             case l_undef:
                 break;
             }            

@@ -17,7 +17,7 @@ namespace lean {
 
 namespace nra {
 
-    typedef std::unordered_map<lean::var_index, rational> nra_model_t;
+
 
     class solver {
         struct imp;
