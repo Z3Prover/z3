@@ -622,7 +622,7 @@ public:
         m_status(":status"),
         m_reason_unknown(":reason-unknown"),
         m_all_statistics(":all-statistics"),
-        m_assertion_stack_levels("assertion-stack-levels") {
+        m_assertion_stack_levels(":assertion-stack-levels") {
     }
     virtual char const * get_usage() const { return "<keyword>"; }
     virtual char const * get_descr(cmd_context & ctx) const { return "get information."; }
