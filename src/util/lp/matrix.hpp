@@ -58,8 +58,8 @@ unsigned get_width_of_column(unsigned j, vector<vector<std::string>> & A) {
     unsigned r = 0;
     for (unsigned i = 0; i < A.size(); i++) {
         vector<std::string> & t = A[i];
-        std::string str= t[j];
-        unsigned s = str.size();
+        std::string str = t[j];
+        unsigned s = static_cast<unsigned>(str.size());
         if (r < s) {
             r = s;
         }
@@ -69,8 +69,8 @@ unsigned get_width_of_column(unsigned j, vector<vector<std::string>> & A) {
 
 void print_matrix_with_widths(vector<vector<std::string>> & A, vector<unsigned> & ws, std::ostream & out) {
     for (unsigned i = 0; i < A.size(); i++) {
-        for (unsigned j = 0; j < A[i].size(); j++) {
-            print_blanks(ws[j] - A[i][j].size(), out);
+        for (unsigned j = 0; j < static_cast<unsigned>(A[i].size()); j++) {
+            print_blanks(ws[j] - static_cast<unsigned>(A[i][j].size()), out);
             out << A[i][j] << " ";
         }
         out << std::endl;

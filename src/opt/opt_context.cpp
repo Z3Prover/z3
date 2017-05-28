@@ -318,11 +318,6 @@ namespace opt {
         return r;
     }
 
-    bool context::print_model() const {
-        opt_params optp(m_params);
-        return optp.print_model();
-    }
-
     void context::get_base_model(model_ref& mdl) {
         mdl = m_model;
     }

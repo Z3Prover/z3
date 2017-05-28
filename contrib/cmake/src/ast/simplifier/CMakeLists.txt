@@ -10,7 +10,6 @@ z3_add_component(simplifier
     bv_simplifier_params.cpp
     bv_simplifier_plugin.cpp
     datatype_simplifier_plugin.cpp
-    distribute_forall.cpp
     elim_bounds.cpp
     fpa_simplifier_plugin.cpp
     inj_axiom.cpp

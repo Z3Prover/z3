@@ -44,6 +44,12 @@ namespace sat {
         GC_PSM_GLUE
     };
 
+    enum branching_heuristic {
+        BH_VSIDS,
+        BH_CHB,
+        BH_LRB
+    };
+
     struct config {
         unsigned long long m_max_memory;
         phase_selection    m_phase;
@@ -95,6 +101,14 @@ namespace sat {
         symbol             m_glue_psm;        
         symbol             m_psm_glue;        
         
+        // branching heuristic settings.
+        branching_heuristic m_branching_heuristic;
+        bool               m_anti_exploration;
+        double             m_step_size_init;
+        double             m_step_size_dec;
+        double             m_step_size_min;
+        double             m_reward_multiplier;
+        double             m_reward_offset;
         config(params_ref const & p);
         void updt_params(params_ref const & p);
         static void collect_param_descrs(param_descrs & d);

@@ -110,8 +110,17 @@ namespace sat {
         svector<char>           m_eliminated;
         svector<char>           m_external;
         svector<unsigned>       m_level; 
+        // branch variable selection:
         svector<unsigned>       m_activity;
         unsigned                m_activity_inc;
+        svector<uint64>         m_last_conflict;
+        svector<uint64>         m_last_propagation;
+        svector<uint64>         m_participated;
+        svector<uint64>         m_canceled;
+        svector<uint64>         m_reasoned;
+        int                     m_action;
+        double                  m_step_size;
+        // phase
         svector<char>           m_phase; 
         svector<char>           m_prev_phase;
         svector<char>           m_assigned_since_gc;
@@ -554,6 +563,12 @@ namespace sat {
 
     private:
         void rescale_activity();
+
+        void update_chb_activity(bool is_sat, unsigned qhead);
+
+        void update_lrb_reasoned();
+
+        void update_lrb_reasoned(literal lit);
 
         // -----------------------
         //

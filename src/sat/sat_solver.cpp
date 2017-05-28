@@ -174,6 +174,11 @@ namespace sat {
         m_phase.push_back(PHASE_NOT_AVAILABLE);
         m_prev_phase.push_back(PHASE_NOT_AVAILABLE);
         m_assigned_since_gc.push_back(false);
+        m_last_conflict.push_back(0);
+        m_last_propagation.push_back(0);
+        m_participated.push_back(0);
+        m_canceled.push_back(0);
+        m_reasoned.push_back(0);
         m_case_split_queue.mk_var_eh(v);
         m_simplifier.insert_elim_todo(v);
         SASSERT(!was_eliminated(v));
@@ -580,6 +585,29 @@ namespace sat {
         if (m_ext && m_external[v])
             m_ext->asserted(l);
 
+        switch (m_config.m_branching_heuristic) {
+        case BH_VSIDS: 
+            break;
+        case BH_CHB:
+            m_last_propagation[v] = m_stats.m_conflict;
+            break;
+        case BH_LRB: 
+            m_participated[v] = 0;
+            m_reasoned[v] = 0;
+            break;
+        }
+        if (m_config.m_anti_exploration) {
+            uint64 age = m_stats.m_conflict - m_canceled[v];
+            if (age > 0) {
+                double decay = pow(0.95, age);
+                m_activity[v] = static_cast<unsigned>(m_activity[v] * decay);
+                // NB. MapleSAT does not update canceled.
+                m_canceled[v] = m_stats.m_conflict;
+                m_case_split_queue.activity_changed_eh(v, false);
+            }
+        }
+
+
         SASSERT(!l.sign() || m_phase[v] == NEG_PHASE);
         SASSERT(l.sign()  || m_phase[v] == POS_PHASE);
 
@@ -771,7 +799,11 @@ namespace sat {
     }
 
     bool solver::propagate(bool update) {
+        unsigned qhead = m_qhead;
         bool r = propagate_core(update);
+        if (m_config.m_branching_heuristic == BH_CHB) {
+            update_chb_activity(r, qhead);
+        }
         CASSERT("sat_propagate", check_invariant());
         CASSERT("sat_missed_prop", check_missed_propagation());
         return r;
@@ -1064,6 +1096,18 @@ namespace sat {
         }
 
         while (!m_case_split_queue.empty()) {
+            if (m_config.m_anti_exploration) {
+                next = m_case_split_queue.min_var();
+                auto age = m_stats.m_conflict - m_canceled[next];
+                while (age > 0) {
+                    double decay = pow(0.95, age);
+                    m_activity[next] = static_cast<unsigned>(m_activity[next] * pow(0.95, age));
+                    m_case_split_queue.activity_changed_eh(next, false);
+                    m_canceled[next] = m_stats.m_conflict;
+                    next = m_case_split_queue.min_var();
+                    age = m_stats.m_conflict - m_canceled[next];                    
+                }
+            }
             next = m_case_split_queue.next_var();
             if (value(next) == l_undef && !was_eliminated(next))
                 return next;
@@ -1828,6 +1872,9 @@ namespace sat {
         m_conflicts_since_restart++;
         m_conflicts_since_gc++;
         m_stats.m_conflict++;
+        if (m_step_size > m_config.m_step_size_min) {
+            m_step_size -= m_config.m_step_size_dec;
+        }
 
         m_conflict_lvl = get_max_lvl(m_not_l, m_conflict);
         TRACE("sat", tout << "conflict detected at level " << m_conflict_lvl << " for ";
@@ -2175,7 +2222,16 @@ namespace sat {
         SASSERT(var < num_vars());
         if (!is_marked(var) && var_lvl > 0) {
             mark(var);
-            inc_activity(var);
+            switch (m_config.m_branching_heuristic) {
+            case BH_VSIDS:
+                inc_activity(var);
+                break;
+            case BH_CHB:
+                m_last_conflict[var] = m_stats.m_conflict;
+                break;
+            default:
+                break;
+            }
             if (var_lvl == m_conflict_lvl)
                 num_marks++;
             else
@@ -2431,6 +2487,9 @@ namespace sat {
        \brief Reset the mark of the variables in the current lemma.
     */
     void solver::reset_lemma_var_marks() {
+        if (m_config.m_branching_heuristic == BH_LRB) {
+            update_lrb_reasoned();
+        }        
         literal_vector::iterator it  = m_lemma.begin();
         literal_vector::iterator end = m_lemma.end();
         SASSERT(!is_marked((*it).var()));
@@ -2438,6 +2497,58 @@ namespace sat {
         for(; it != end; ++it) {
             bool_var var = (*it).var();
             reset_mark(var);
+        }
+    }
+
+    void solver::update_lrb_reasoned() {
+        unsigned sz = m_lemma.size();
+        SASSERT(!is_marked(m_lemma[0].var()));
+        mark(m_lemma[0].var());
+        for (unsigned i = m_lemma.size(); i > 0; ) {
+            --i;
+            justification js = m_justification[m_lemma[i].var()];
+            switch (js.get_kind()) {
+            case justification::NONE:
+                break;                    
+            case justification::BINARY:
+                update_lrb_reasoned(js.get_literal());
+                break;
+            case justification::TERNARY:
+                update_lrb_reasoned(js.get_literal1());
+                update_lrb_reasoned(js.get_literal2());
+                break;
+            case justification::CLAUSE: {
+                clause & c = *(m_cls_allocator.get_clause(js.get_clause_offset()));
+                for (unsigned i = 0; i < c.size(); ++i) {
+                    update_lrb_reasoned(c[i]);
+                }
+                break;
+            }
+            case justification::EXT_JUSTIFICATION: {
+                fill_ext_antecedents(m_lemma[i], js);
+                literal_vector::iterator it  = m_ext_antecedents.begin();
+                literal_vector::iterator end = m_ext_antecedents.end();
+                for (; it != end; ++it) {
+                    update_lrb_reasoned(*it);
+                }
+                break;
+            }
+            }
+        }
+        reset_mark(m_lemma[0].var());
+        for (unsigned i = m_lemma.size(); i > sz; ) {
+            --i;
+            reset_mark(m_lemma[i].var());
+        }
+        m_lemma.shrink(sz);
+    }
+
+    void solver::update_lrb_reasoned(literal lit) {
+        bool_var v = lit.var();
+        if (!is_marked(v)) {
+            mark(v);
+            m_reasoned[v]++;
+            m_lemma.push_back(lit);
         }
     }
 
@@ -2617,6 +2728,18 @@ namespace sat {
             bool_var v = l.var();
             SASSERT(value(v) == l_undef);
             m_case_split_queue.unassign_var_eh(v);
+            if (m_config.m_branching_heuristic == BH_LRB) {
+                uint64 interval = m_stats.m_conflict - m_last_propagation[v];
+                if (interval > 0) {
+                    auto activity = m_activity[v];
+                    auto reward = (m_config.m_reward_offset * (m_participated[v] + m_reasoned[v])) / interval;
+                    m_activity[v] = static_cast<unsigned>(m_step_size * reward + ((1 - m_step_size) * activity));
+                    m_case_split_queue.activity_changed_eh(v, m_activity[v] > activity);
+                }
+            }
+            if (m_config.m_anti_exploration) {
+                m_canceled[v] = m_stats.m_conflict;
+            }
         }
         m_trail.shrink(old_sz);
         m_qhead = old_sz;
@@ -2799,6 +2922,8 @@ namespace sat {
         m_probing.updt_params(p);
         m_scc.updt_params(p);
         m_rand.set_seed(m_config.m_random_seed);
+
+        m_step_size = m_config.m_step_size_init;
     }
 
     void solver::collect_param_descrs(param_descrs & d) {
@@ -2836,12 +2961,25 @@ namespace sat {
     // -----------------------
 
     void solver::rescale_activity() {
+        SASSERT(m_config.m_branching_heuristic == BH_VSIDS);
         svector<unsigned>::iterator it  = m_activity.begin();
         svector<unsigned>::iterator end = m_activity.end();
         for (; it != end; ++it) {
             *it >>= 14;
         }
         m_activity_inc >>= 14;
+    }
+
+    void solver::update_chb_activity(bool is_sat, unsigned qhead) {
+        SASSERT(m_config.m_branching_heuristic == BH_CHB);
+        double multiplier = m_config.m_reward_offset * (is_sat ? m_config.m_reward_multiplier : 1.0);
+        for (unsigned i = qhead; i < m_trail.size(); ++i) {
+            auto v = m_trail[i].var();
+            auto reward = multiplier / (m_stats.m_conflict - m_last_conflict[v] + 1);
+            auto activity = m_activity[v];
+            m_activity[v] = static_cast<unsigned>(m_step_size * reward + ((1.0 - m_step_size) * activity));
+            m_case_split_queue.activity_changed_eh(v, m_activity[v] > activity);
+        }
     }
 
     // -----------------------
