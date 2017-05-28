@@ -1742,13 +1742,17 @@ mpf_exp_t mpf_manager::mk_top_exp(unsigned ebits) {
 
 mpf_exp_t mpf_manager::mk_min_exp(unsigned ebits) {
     SASSERT(ebits > 0);
+    // smallest two's complement with ebits is -2^(ebits - 1)
     mpf_exp_t r = m_mpz_manager.get_int64(m_powers2.m1(ebits-1, true));
-    return r+1;
+    // add 1, as the bit pattern 0xFFF..FFF designates NaN
+    return r + 1;
 }
 
 mpf_exp_t mpf_manager::mk_max_exp(unsigned ebits) {
     SASSERT(ebits > 0);
-    return m_mpz_manager.get_int64(m_powers2.m1(ebits-1, false));
+    // largest two's complement with ebits is 2^(ebits - 1) - 1
+    mpf_exp_t r = m_mpz_manager.get_int64(m_powers2.m1(ebits-1, false));
+    return r - 1;
 }
 
 mpf_exp_t mpf_manager::bias_exp(unsigned ebits, mpf_exp_t unbiased_exponent) {

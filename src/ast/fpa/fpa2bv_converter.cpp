@@ -3552,13 +3552,17 @@ void fpa2bv_converter::mk_bot_exp(unsigned sz, expr_ref & result) {
 
 void fpa2bv_converter::mk_min_exp(unsigned ebits, expr_ref & result) {
     SASSERT(ebits >= 2);
+    // smallest two's complement with ebits is -2^(ebits - 1)
     const mpz & z = m_mpf_manager.m_powers2.m1(ebits-1, true);
+    // add 1, as the bit pattern 0xFFF..FFF designates NaN
     result = m_bv_util.mk_numeral(z + mpz(1), ebits);
 }
 
 void fpa2bv_converter::mk_max_exp(unsigned ebits, expr_ref & result) {
     SASSERT(ebits >= 2);
-    result = m_bv_util.mk_numeral(m_mpf_manager.m_powers2.m1(ebits-1, false), ebits);
+    // largest two's complement with ebits is 2^(ebits - 1) - 1
+    const mpz & z = m_mpf_manager.m_powers2.m1(ebits-1, false);
+    result = m_bv_util.mk_numeral(z - mpz(1), ebits);
 }
 
 void fpa2bv_converter::mk_leading_zeros(expr * e, unsigned max_bits, expr_ref & result) {
