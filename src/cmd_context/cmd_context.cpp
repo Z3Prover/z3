@@ -638,7 +638,7 @@ bool cmd_context::set_logic(symbol const & s) {
 
 std::string cmd_context::reason_unknown() const {
     if (m_check_sat_result.get() == 0)
-        throw cmd_exception("state of the most recent check-sat command is not known");
+        return "state of the most recent check-sat command is not known";
     return m_check_sat_result->reason_unknown();
 }
 
