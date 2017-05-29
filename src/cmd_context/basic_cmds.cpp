@@ -852,9 +852,7 @@ void install_basic_cmds(cmd_context & ctx) {
     ctx.insert(alloc(builtin_cmd, "declare-datatypes", "(<symbol>*) (<datatype-declaration>+)", "declare mutually recursive datatypes.\n<datatype-declaration> ::= (<symbol> <constructor-decl>+)\n<constructor-decl> ::= (<symbol> <accessor-decl>*)\n<accessor-decl> ::= (<symbol> <sort>)\nexample: (declare-datatypes (T) ((BinTree (leaf (value T)) (node (left BinTree) (right BinTree)))))"));
     ctx.insert(alloc(builtin_cmd, "check-sat-asuming", "( hprop_literali* )", "check sat assuming a collection of literals"));
 
-    // ctx.insert(alloc(builtin_cmd, "define-fun-rec", "hfun-defi", "define a function satisfying recursive equations"));
-    // ctx.insert(alloc(builtin_cmd, "define-funs-rec", "( hfun_decin+1 ) ( htermin+1 )", "define multiple mutually recursive functions"));
-    // ctx.insert(alloc(get_unsat_assumptions_cmd));
+    ctx.insert(alloc(get_unsat_assumptions_cmd));
     ctx.insert(alloc(reset_assertions_cmd));
 }
 
