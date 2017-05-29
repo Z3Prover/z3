@@ -530,10 +530,6 @@ bool cmd_context::logic_has_fpa() const {
     return !has_logic() || smt_logics::logic_has_fpa(m_logic);
 }
 
-bool cmd_context::logic_has_str() const {
-    return !has_logic() || m_logic == "QF_S";
-}
-
 bool cmd_context::logic_has_array() const {
     return !has_logic() || smt_logics::logic_has_array(m_logic);
 }
