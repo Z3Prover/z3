@@ -153,5 +153,5 @@ bool smt_logics::logic_has_pb(symbol const& s) {
 }
 
 bool smt_logics::logic_has_datatype(symbol const& s) {
-    return s == "QF_FD";
+    return s == "QF_FD" || s == "ALL";
 }

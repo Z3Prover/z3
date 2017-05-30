@@ -126,7 +126,7 @@ public class Expr extends AST
         if (isApp() && args.length != getNumArgs()) {
             throw new Z3Exception("Number of arguments does not match");
         }
-        return new Expr(getContext(), Native.updateTerm(getContext().nCtx(), getNativeObject(),
+        return Expr.create(getContext(), Native.updateTerm(getContext().nCtx(), getNativeObject(),
                 args.length, Expr.arrayToNative(args)));
     }
 
