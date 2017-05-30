@@ -494,6 +494,7 @@ namespace smt {
 
         sort * string_sort = u.str.mk_string_sort();
         app * a = mk_fresh_const(name.c_str(), string_sort);
+        m_trail.push_back(a);
 
         TRACE("str", tout << "a->get_family_id() = " << a->get_family_id() << std::endl
               << "this->get_family_id() = " << this->get_family_id() << std::endl;);
@@ -507,7 +508,6 @@ namespace smt {
         m_basicstr_axiom_todo.push_back(ctx.get_enode(a));
         TRACE("str", tout << "add " << mk_pp(a, m) << " to m_basicstr_axiom_todo" << std::endl;);
 
-        m_trail.push_back(a);
         variable_set.insert(a);
         internal_variable_set.insert(a);
         track_variable_scope(a);
@@ -521,6 +521,7 @@ namespace smt {
 
         sort * string_sort = u.str.mk_string_sort();
         app * a = mk_fresh_const("regex", string_sort);
+        m_trail.push_back(a);
 
         ctx.internalize(a, false);
         SASSERT(ctx.get_enode(a) != NULL);
@@ -529,7 +530,6 @@ namespace smt {
         m_basicstr_axiom_todo.push_back(ctx.get_enode(a));
         TRACE("str", tout << "add " << mk_pp(a, m) << " to m_basicstr_axiom_todo" << std::endl;);
 
-        m_trail.push_back(a);
         variable_set.insert(a);
         //internal_variable_set.insert(a);
         regex_variable_set.insert(a);
