@@ -103,7 +103,7 @@ static tactic * mk_qfbv_tactic(ast_manager& m, params_ref const & p, tactic* sat
     tactic * st = main_p(and_then(preamble_st,
                                   // If the user sets HI_DIV0=false, then the formula may contain uninterpreted function
                                   // symbols. In this case, we should not use the `sat', but instead `smt'. Alternatively,
-								  // the UFs can be eliminated by eager ackermannization in the preamble.
+                                  // the UFs can be eliminated by eager ackermannization in the preamble.
                                   cond(mk_is_qfbv_eq_probe(),
                                        and_then(mk_bv1_blaster_tactic(m),
                                                 using_params(smt, solver_p)),

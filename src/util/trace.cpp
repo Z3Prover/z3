@@ -52,7 +52,7 @@ void disable_trace(const char * tag) {
 
 bool is_trace_enabled(const char * tag) {
     return g_enable_all_trace_tags || 
-		(g_enabled_trace_tags && get_enabled_trace_tags().contains(const_cast<char *>(tag)));
+        (g_enabled_trace_tags && get_enabled_trace_tags().contains(const_cast<char *>(tag)));
 }
 
 void close_trace() {
