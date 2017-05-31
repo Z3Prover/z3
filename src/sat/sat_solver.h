@@ -309,7 +309,7 @@ namespace sat {
         }
         void set_par(parallel* p, unsigned id);
         bool canceled() { return !m_rlimit.inc(); }
-        config const& get_config() { return m_config; }
+        config const& get_config() const { return m_config; }
         extension* get_extension() const { return m_ext.get(); }
         void       set_extension(extension* e);
         typedef std::pair<literal, literal> bin_clause;

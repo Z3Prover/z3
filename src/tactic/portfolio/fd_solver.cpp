@@ -18,11 +18,13 @@ Notes:
 --*/
 
 #include "fd_solver.h"
+#include "fd_tactic.h"
 #include "tactic.h"
 #include "inc_sat_solver.h"
 #include "enum2bv_solver.h"
 #include "pb2bv_solver.h"
 #include "bounded_int2bv_solver.h"
+#include "solver/solver2tactic.h"
 
 solver * mk_fd_solver(ast_manager & m, params_ref const & p) {
     solver* s = mk_inc_sat_solver(m, p);
@@ -30,4 +32,8 @@ solver * mk_fd_solver(ast_manager & m, params_ref const & p) {
     s = mk_pb2bv_solver(m, p, s);
     s = mk_bounded_int2bv_solver(m, p, s);
     return s;
+}
+
+tactic * mk_fd_tactic(ast_manager & m, params_ref const& p) {
+    return mk_solver2tactic(mk_fd_solver(m, p));
 }

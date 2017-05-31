@@ -262,6 +262,13 @@ void goal::get_formulas(ptr_vector<expr> & result) {
     }
 }
 
+void goal::get_formulas(expr_ref_vector & result) {
+    unsigned sz = size();
+    for (unsigned i = 0; i < sz; i++) {
+        result.push_back(form(i));
+    }
+}
+
 void goal::update(unsigned i, expr * f, proof * pr, expr_dependency * d) {
     // KLM: don't know why this assertion is no longer true
     // SASSERT(proofs_enabled() == (pr != 0 && !m().is_undef_proof(pr)));

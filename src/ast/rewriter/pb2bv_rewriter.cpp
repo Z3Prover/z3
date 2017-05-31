@@ -822,8 +822,7 @@ struct pb2bv_rewriter::imp {
             p.get_bool("keep_cardinality_constraints", false) ||
             p.get_bool("sat.cardinality.solver", false) ||
             p.get_bool("cardinality.solver", false) || 
-            gparams::get_module("sat").get_bool("cardinality.solver", false) ||
-            keep_pb();
+            gparams::get_module("sat").get_bool("cardinality.solver", false);
     }
 
     bool keep_pb() const {
