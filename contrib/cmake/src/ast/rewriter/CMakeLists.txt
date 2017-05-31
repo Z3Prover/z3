@@ -8,6 +8,7 @@ z3_add_component(rewriter
     bv_rewriter.cpp
     datatype_rewriter.cpp
     der.cpp
+    distribute_forall.cpp
     dl_rewriter.cpp
     enum2bv_rewriter.cpp
     expr_replacer.cpp
