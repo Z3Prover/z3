@@ -809,6 +809,16 @@ namespace sat {
         return r;
     }
 
+    literal solver::select_lookahead(bool_var_vector const& vars) {
+        lookahead lh(*this);
+        literal result = lh.select_lookahead(vars);
+        if (result == null_literal) {
+            set_conflict(justification());
+        }
+        // extract unit literals from lh
+        return result;
+    }
+
     // -----------------------
     //
     // Search

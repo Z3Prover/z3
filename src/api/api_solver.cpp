@@ -477,4 +477,60 @@ extern "C" {
         Z3_CATCH_RETURN(Z3_L_UNDEF);        
     }
 
+    Z3_ast Z3_API Z3_solver_lookahead(Z3_context c,
+                                      Z3_solver s,
+                                      Z3_ast_vector candidates)  {
+        Z3_TRY;
+        LOG_Z3_solver_lookahead(c, s, candidates);
+        ast_manager& m = mk_c(c)->m();
+        expr_ref_vector _candidates(m);
+        ast_ref_vector const& __candidates = to_ast_vector_ref(candidates);
+        for (auto & e : __candidates) {
+            if (!is_expr(e)) {
+                SET_ERROR_CODE(Z3_INVALID_USAGE);
+                return 0;
+            }
+            _candidates.push_back(to_expr(e));
+        }
+
+        expr_ref result(m);
+        unsigned timeout     = to_solver(s)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
+        unsigned rlimit      = to_solver(s)->m_params.get_uint("rlimit", mk_c(c)->get_rlimit());
+        bool     use_ctrl_c  = to_solver(s)->m_params.get_bool("ctrl_c", false);
+        cancel_eh<reslimit> eh(mk_c(c)->m().limit());
+        api::context::set_interruptable si(*(mk_c(c)), eh);
+        {
+            scoped_ctrl_c ctrlc(eh, false, use_ctrl_c);
+            scoped_timer timer(timeout, &eh);
+            scoped_rlimit _rlimit(mk_c(c)->m().limit(), rlimit);
+            try {
+                result = to_solver_ref(s)->lookahead(_candidates);
+            }
+            catch (z3_exception & ex) {
+                mk_c(c)->handle_exception(ex);
+                return 0;
+            }
+        }
+        mk_c(c)->save_ast_trail(result);
+        RETURN_Z3(of_ast(result));
+        Z3_CATCH_RETURN(0);
+    }
+    
+    Z3_ast_vector Z3_API Z3_solver_get_lemmas(Z3_context c, Z3_solver s)  {
+        Z3_TRY;
+        LOG_Z3_solver_get_lemmas(c, s);
+        RESET_ERROR_CODE();
+        ast_manager& m = mk_c(c)->m();
+        init_solver(c, s);
+        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
+        mk_c(c)->save_object(v);
+        expr_ref_vector lemmas(m);
+        to_solver_ref(s)->get_lemmas(lemmas);
+        for (expr* e : lemmas) {
+            v->m_ast_vector.push_back(e);
+        }
+        RETURN_Z3(of_ast_vector(v));                
+        Z3_CATCH_RETURN(0);
+    }
+
 };

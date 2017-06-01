@@ -384,6 +384,7 @@ namespace sat {
             candidate(bool_var v, float r): m_var(v), m_rating(r) {}
         };
         svector<candidate> m_candidates;
+        uint_set           m_select_lookahead_vars;
 
         float get_rating(bool_var v) const { return m_rating[v]; }
         float get_rating(literal l) const { return get_rating(l.var()); }
@@ -468,7 +469,11 @@ namespace sat {
             for (bool_var const* it = m_freevars.begin(), * end = m_freevars.end(); it != end; ++it) {
                 SASSERT(is_undef(*it));
                 bool_var x = *it;
-                if (newbies || active_prefix(x)) {
+                if (!m_select_lookahead_vars.empty() && m_select_lookahead_vars.contains(x)) {
+                    m_candidates.push_back(candidate(x, m_rating[x]));
+                    sum += m_rating[x];                
+                }
+                else if (newbies || active_prefix(x)) {
                     m_candidates.push_back(candidate(x, m_rating[x]));
                     sum += m_rating[x];                
                 }           
@@ -1851,6 +1856,31 @@ namespace sat {
         lbool check() {
             init_search();
             return search();
+        }
+
+        literal select_lookahead(bool_var_vector const& vars) {
+            m_search_mode = lookahead_mode::searching;
+            scoped_level _sl(*this, c_fixed_truth);
+            init();                
+            if (inconsistent()) return null_literal;
+            inc_istamp();            
+            for (auto v : vars) {
+                m_select_lookahead_vars.insert(v);
+            }
+            literal l = choose();
+            m_select_lookahead_vars.reset();
+            if (inconsistent()) return null_literal;
+
+            // assign unit literals that were found during search for lookahead.
+            unsigned num_assigned = 0;
+            for (literal lit : m_trail) {
+                if (!m_s.was_eliminated(lit.var()) && m_s.value(lit) != l_true) {
+                    m_s.assign(lit, justification());
+                    ++num_assigned;
+                }
+            }
+            IF_VERBOSE(1, verbose_stream() << "(sat-lookahead :units " << num_assigned << ")\n";);
+            return l;
         }
 
         /**

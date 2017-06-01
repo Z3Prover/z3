@@ -352,6 +352,8 @@ namespace sat {
         model_converter const & get_model_converter() const { return m_mc; }
         void set_model(model const& mdl);
 
+        literal select_lookahead(bool_var_vector const& vars);
+
     protected:
         unsigned m_conflicts;
         unsigned m_restarts;

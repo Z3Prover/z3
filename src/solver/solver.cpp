@@ -162,3 +162,9 @@ bool solver::is_literal(ast_manager& m, expr* e) {
     return is_uninterp_const(e) || (m.is_not(e, e) && is_uninterp_const(e));
 }
 
+expr_ref solver::lookahead(expr_ref_vector const& candidates) {
+    ast_manager& m = candidates.get_manager();
+    return expr_ref(m.mk_true(), m);
+}
+
+

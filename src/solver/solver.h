@@ -173,6 +173,17 @@ public:
     virtual lbool preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores);
 
     /**
+       \brief extract a lookahead candidates for branching.
+    */
+
+    virtual expr_ref lookahead(expr_ref_vector const& candidates);
+
+    /**
+       \brief extract learned lemmas.
+    */
+    virtual void get_lemmas(expr_ref_vector& lemmas) {}
+
+    /**
        \brief Display the content of this solver.
     */
     virtual std::ostream& display(std::ostream & out) const;
