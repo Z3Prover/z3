@@ -6927,9 +6927,9 @@ namespace smt {
         ast_manager & m = get_manager();
         if (lenTester_fvar_map.contains(lenTester)) {
             expr * fVar = lenTester_fvar_map[lenTester];
-            expr * toAssert = gen_len_val_options_for_free_var(fVar, lenTester, lenTesterValue);
+			expr_ref toAssert(gen_len_val_options_for_free_var(fVar, lenTester, lenTesterValue), m);
             TRACE("str", tout << "asserting more length tests for free variable " << mk_ismt2_pp(fVar, m) << std::endl;);
-            if (toAssert != NULL) {
+            if (toAssert) {
                 assert_axiom(toAssert);
             }
         }
@@ -9173,7 +9173,7 @@ namespace smt {
         }
     }
 
-    expr * theory_str::gen_val_options(expr * freeVar, expr * len_indicator, expr * val_indicator,
+    expr* theory_str::gen_val_options(expr * freeVar, expr * len_indicator, expr * val_indicator,
                                        zstring lenStr, int tries) {
         ast_manager & m = get_manager();
         context & ctx = get_context();
@@ -9288,8 +9288,7 @@ namespace smt {
         }
         expr_ref assertL = mk_and(andList);
         // (assertL => valTestAssert) <=> (!assertL OR valTestAssert)
-        valTestAssert = m.mk_or(m.mk_not(assertL), valTestAssert);
-        return valTestAssert;
+        return m.mk_or(m.mk_not(assertL), valTestAssert);
     }
 
     expr * theory_str::gen_free_var_options(expr * freeVar, expr * len_indicator,
@@ -9354,7 +9353,7 @@ namespace smt {
                           << " doesn't have an equivalence class value." << std::endl;);
                     refresh_theory_var(aTester);
 
-                    expr * makeupAssert = gen_val_options(freeVar, len_indicator, aTester, len_valueStr, i);
+                    expr_ref makeupAssert(gen_val_options(freeVar, len_indicator, aTester, len_valueStr, i), m);
 
                     TRACE("str", tout << "var: " << mk_ismt2_pp(freeVar, m) << std::endl
                           << mk_ismt2_pp(makeupAssert, m) << std::endl;);
@@ -9376,8 +9375,7 @@ namespace smt {
                     fvar_valueTester_map[freeVar][len].push_back(std::make_pair(sLevel, valTester));
                     print_value_tester_list(fvar_valueTester_map[freeVar][len]);
                 }
-                expr * nextAssert = gen_val_options(freeVar, len_indicator, valTester, len_valueStr, i + 1);
-                return nextAssert;
+                return gen_val_options(freeVar, len_indicator, valTester, len_valueStr, i + 1);
             }
 
             return NULL;
