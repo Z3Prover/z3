@@ -252,6 +252,29 @@ namespace Microsoft.Z3
             return lboolToStatus(r);
         }
 
+	/// <summary>
+	/// Select a lookahead literal from the set of supplied candidates.
+	/// </summary>
+	public BoolExpr Lookahead(IEnumerable<BoolExpr> candidates) 
+	{
+             ASTVector cands = new ASTVector(Context);
+             foreach (var c in candidates) cands.Push(c);
+	     return (BoolExpr)Expr.Create(Context, Native.Z3_solver_lookahead(Context.nCtx, NativeObject, cands.NativeObject));
+        }
+
+	/// <summary>
+	/// Retrieve set of lemmas that have been inferred by solver.
+	/// </summary>
+	public BoolExpr[] Lemmas
+        {
+	    get 
+	    {
+	        var r = Native.Z3_solver_get_lemmas(Context.nCtx, NativeObject);
+	        var v = new ASTVector(Context, r);
+                return v.ToBoolExprArray();
+            }
+        }
+
         /// <summary>
         /// The model of the last <c>Check</c>.
         /// </summary>

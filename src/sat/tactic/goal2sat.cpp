@@ -137,7 +137,7 @@ struct goal2sat::imp {
                 sat::bool_var v = m_solver.mk_var(ext);
                 m_map.insert(t, v);
                 l = sat::literal(v, sign);
-                TRACE("goal2sat", tout << "new_var: " << v << "\n" << mk_ismt2_pp(t, m) << "\n";);
+                TRACE("sat", tout << "new_var: " << v << ": " << mk_ismt2_pp(t, m) << "\n";);
                 if (ext && !is_uninterp_const(t)) {
                     m_interpreted_atoms.push_back(t);
                 }
@@ -993,6 +993,7 @@ struct sat2goal::imp {
     expr_ref_vector         m_lit2expr;
     unsigned long long      m_max_memory;
     bool                    m_learned;
+    unsigned                m_glue;
     
     imp(ast_manager & _m, params_ref const & p):m(_m), m_lit2expr(m) {
         updt_params(p);
@@ -1000,6 +1001,7 @@ struct sat2goal::imp {
 
     void updt_params(params_ref const & p) {
         m_learned        = p.get_bool("learned", false);
+        m_glue           = p.get_uint("glue", UINT_MAX);
         m_max_memory     = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
     }
 
@@ -1042,18 +1044,69 @@ struct sat2goal::imp {
         return m_lit2expr.get(l.index());
     }
 
-    void assert_clauses(sat::clause * const * begin, sat::clause * const * end, goal & r) {
+    void assert_pb(goal& r, sat::card_extension::pb const& p) {
+        pb_util pb(m);
+        ptr_buffer<expr> lits;
+        vector<rational> coeffs;
+        for (unsigned i = 0; i < p.size(); ++i) {
+            lits.push_back(lit2expr(p[i].second));
+            coeffs.push_back(rational(p[i].first));
+        }
+        rational k(p.k());
+        expr_ref fml(pb.mk_ge(p.size(), coeffs.c_ptr(), lits.c_ptr(), k), m);
+        
+        if (p.lit() != sat::null_literal) {
+            fml = m.mk_eq(lit2expr(p.lit()), fml);            
+        }
+        r.assert_expr(fml);
+    }
+
+    void assert_card(goal& r, sat::card_extension::card const& c) {
+        pb_util pb(m);
+        ptr_buffer<expr> lits;
+        for (unsigned i = 0; i < c.size(); ++i) {
+            lits.push_back(lit2expr(c[i]));
+        }
+        expr_ref fml(pb.mk_at_most_k(c.size(), lits.c_ptr(), c.k()), m);
+        
+        if (c.lit() != sat::null_literal) {
+            fml = m.mk_eq(lit2expr(c.lit()), fml);            
+        }
+        r.assert_expr(fml);
+    }
+
+    void assert_xor(goal & r, sat::card_extension::xor const& x) {
+        ptr_buffer<expr> lits;
+        for (unsigned i = 0; i < x.size(); ++i) {
+            lits.push_back(lit2expr(x[i]));
+        }
+        expr_ref fml(m.mk_xor(x.size(), lits.c_ptr()), m);
+        
+        if (x.lit() != sat::null_literal) {
+            fml = m.mk_eq(lit2expr(x.lit()), fml);            
+        }
+        r.assert_expr(fml);
+    }
+
+    void assert_clauses(sat::solver const & s, sat::clause * const * begin, sat::clause * const * end, goal & r, bool asserted) {
         ptr_buffer<expr> lits;
         for (sat::clause * const * it = begin; it != end; it++) {
             checkpoint();
             lits.reset();
             sat::clause const & c = *(*it);
             unsigned sz = c.size();
-            for (unsigned i = 0; i < sz; i++) {
-                lits.push_back(lit2expr(c[i]));
+            if (asserted || m_learned || c.glue() <= s.get_config().m_gc_small_lbd) {
+                for (unsigned i = 0; i < sz; i++) {
+                    lits.push_back(lit2expr(c[i]));
+                }
+                r.assert_expr(m.mk_or(lits.size(), lits.c_ptr()));
             }
-            r.assert_expr(m.mk_or(lits.size(), lits.c_ptr()));
         }
+    }
+
+    sat::card_extension* get_card_extension(sat::solver const& s) {
+        sat::extension* ext = s.get_extension();
+        return dynamic_cast<sat::card_extension*>(ext);
     }
 
     void operator()(sat::solver const & s, atom2bool_var const & map, goal & r, model_converter_ref & mc) {
@@ -1087,9 +1140,22 @@ struct sat2goal::imp {
             r.assert_expr(m.mk_or(lit2expr(it->first), lit2expr(it->second)));
         }
         // collect clauses
-        assert_clauses(s.begin_clauses(), s.end_clauses(), r);
-        if (m_learned)
-            assert_clauses(s.begin_learned(), s.end_learned(), r);
+        assert_clauses(s, s.begin_clauses(), s.end_clauses(), r, true);
+        assert_clauses(s, s.begin_learned(), s.end_learned(), r, false);
+
+        // TBD: collect assertions from plugin
+        sat::card_extension* ext = get_card_extension(s);
+        if (ext) {
+            for (unsigned i = 0; i < ext->num_pb(); ++i) {
+                assert_pb(r, ext->get_pb(i));
+            }
+            for (unsigned i = 0; i < ext->num_card(); ++i) {
+                assert_card(r, ext->get_card(i));
+            }
+            for (unsigned i = 0; i < ext->num_xor(); ++i) {
+                assert_xor(r, ext->get_xor(i));
+            }
+        }
     }
 
 };
@@ -1100,6 +1166,7 @@ sat2goal::sat2goal():m_imp(0) {
 void sat2goal::collect_param_descrs(param_descrs & r) {
     insert_max_memory(r);
     r.insert("learned", CPK_BOOL, "(default: false) collect also learned clauses.");
+    r.insert("glue", CPK_UINT, "(default: max-int) collect learned clauses with glue level below parameter.");
 }
 
 struct sat2goal::scoped_set_imp {

@@ -126,6 +126,27 @@ namespace sat {
         m_drat_file       = p.drat_file();
         m_drat            = (m_drat_check || m_drat_file != symbol("")) && p.threads() == 1;
         m_dyn_sub_res     = p.dyn_sub_res();
+
+        // Parameters used in Liang, Ganesh, Poupart, Czarnecki AAAI 2016.
+        m_branching_heuristic = BH_VSIDS;
+        if (p.branching_heuristic() == symbol("vsids")) {
+            m_branching_heuristic = BH_VSIDS;
+        }
+        else if (p.branching_heuristic() == symbol("chb")) {
+            m_branching_heuristic = BH_CHB;
+        }
+        else if (p.branching_heuristic() == symbol("lrb")) {
+            m_branching_heuristic = BH_LRB;
+        }
+        else {
+            throw sat_param_exception("invalid branching heuristic: accepted heuristics are 'vsids', 'lrb' or 'chb'");
+        }
+        m_anti_exploration = m_branching_heuristic != BH_VSIDS;
+        m_step_size_init = 0.40;
+        m_step_size_dec  = 0.000001;
+        m_step_size_min  = 0.06;
+        m_reward_multiplier = 0.9;
+        m_reward_offset = 1000000.0;
     }
 
     void config::collect_param_descrs(param_descrs & r) {

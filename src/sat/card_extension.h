@@ -42,7 +42,8 @@ namespace sat {
             stats() { reset(); }
             void reset() { memset(this, 0, sizeof(*this)); }
         };
-        
+
+    public:        
         class card {
             unsigned       m_index;
             literal        m_lit;
@@ -105,6 +106,7 @@ namespace sat {
             void swap(unsigned i, unsigned j) { std::swap(m_lits[i], m_lits[j]); }
             void negate() { m_lits[0].neg(); }
         };
+    protected:
 
         struct ineq {
             literal_vector  m_lits;
@@ -304,6 +306,13 @@ namespace sat {
         void    add_at_least(bool_var v, literal_vector const& lits, unsigned k);
         void    add_pb_ge(bool_var v, svector<wliteral> const& wlits, unsigned k);
         void    add_xor(bool_var v, literal_vector const& lits);
+        unsigned num_pb() const { return m_pbs.size(); }
+        pb const&      get_pb(unsigned i) const { return *m_pbs[i]; }
+        unsigned num_card() const { return m_cards.size(); }
+        card const&    get_card(unsigned i) const { return *m_cards[i]; }
+        unsigned num_xor() const { return m_xors.size(); }
+        xor const&     get_xor(unsigned i) const { return *m_xors[i]; }
+
         virtual void propagate(literal l, ext_constraint_idx idx, bool & keep);
         virtual bool resolve_conflict();
         virtual void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r);

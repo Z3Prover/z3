@@ -110,8 +110,17 @@ namespace sat {
         svector<char>           m_eliminated;
         svector<char>           m_external;
         svector<unsigned>       m_level; 
+        // branch variable selection:
         svector<unsigned>       m_activity;
         unsigned                m_activity_inc;
+        svector<uint64>         m_last_conflict;
+        svector<uint64>         m_last_propagation;
+        svector<uint64>         m_participated;
+        svector<uint64>         m_canceled;
+        svector<uint64>         m_reasoned;
+        int                     m_action;
+        double                  m_step_size;
+        // phase
         svector<char>           m_phase; 
         svector<char>           m_prev_phase;
         svector<char>           m_assigned_since_gc;
@@ -300,7 +309,7 @@ namespace sat {
         }
         void set_par(parallel* p, unsigned id);
         bool canceled() { return !m_rlimit.inc(); }
-        config const& get_config() { return m_config; }
+        config const& get_config() const { return m_config; }
         extension* get_extension() const { return m_ext.get(); }
         void       set_extension(extension* e);
         typedef std::pair<literal, literal> bin_clause;
@@ -342,6 +351,8 @@ namespace sat {
         literal_vector const& get_core() const { return m_core; }
         model_converter const & get_model_converter() const { return m_mc; }
         void set_model(model const& mdl);
+
+        literal select_lookahead(bool_var_vector const& vars);
 
     protected:
         unsigned m_conflicts;
@@ -554,6 +565,12 @@ namespace sat {
 
     private:
         void rescale_activity();
+
+        void update_chb_activity(bool is_sat, unsigned qhead);
+
+        void update_lrb_reasoned();
+
+        void update_lrb_reasoned(literal lit);
 
         // -----------------------
         //

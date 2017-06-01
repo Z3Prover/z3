@@ -50,7 +50,8 @@ void rule_properties::collect(rule_set const& rules) {
         }
         for (unsigned i = 0; m_inf_sort.empty() && i < r->get_decl()->get_arity(); ++i) {
             sort* d = r->get_decl()->get_domain(i);
-            if (!m.is_bool(d) && !m_dl.is_finite_sort(d) && !m_bv.is_bv_sort(d)) {
+            sort_size sz = d->get_num_elements();
+            if (!sz.is_finite()) {
                 m_inf_sort.push_back(m_rule);
             }
         }

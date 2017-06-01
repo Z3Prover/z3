@@ -66,7 +66,11 @@ class inc_sat_solver : public solver {
     expr_dependency_ref m_dep_core;
     svector<double>     m_weights;
     std::string         m_unknown;
-
+    // access formulas after they have been pre-processed and handled by the sat solver.
+    // this allows to access the internal state of the SAT solver and carry on partial results.
+    bool                m_internalized;           // are formulas internalized?
+    bool                m_internalized_converted; // have internalized formulas been converted back
+    expr_ref_vector     m_internalized_fmls;      // formulas in internalized format
 
     typedef obj_map<expr, sat::literal> dep2asm_t;
 public:
@@ -81,7 +85,10 @@ public:
         m_map(m),
         m_num_scopes(0),
         m_dep_core(m),
-        m_unknown("no reason given") {
+        m_unknown("no reason given"),
+        m_internalized(false), 
+        m_internalized_converted(false), 
+        m_internalized_fmls(m) {
         updt_params(p);
         init_preprocess();
     }
@@ -141,6 +148,8 @@ public:
         if (r != l_true) return r;
         r = internalize_assumptions(sz, assumptions, dep2asm);
         if (r != l_true) return r;
+        m_internalized = true;
+        m_internalized_converted = false;
 
         r = m_solver.check(m_asms.size(), m_asms.c_ptr());
         
@@ -170,8 +179,11 @@ public:
         m_fmls_head_lim.push_back(m_fmls_head);
         if (m_bb_rewriter) m_bb_rewriter->push();
         m_map.push();
+        m_internalized = true;
+        m_internalized_converted = false;
     }
     virtual void pop(unsigned n) {
+        m_internalized = false;
         if (n > m_num_scopes) {   // allow inc_sat_solver to
             n = m_num_scopes;     // take over for another solver.
         }
@@ -204,6 +216,7 @@ public:
     }
     virtual ast_manager& get_manager() const { return m; }
     virtual void assert_expr(expr * t) {
+        m_internalized = false;
         TRACE("goal2sat", tout << mk_pp(t, m) << "\n";);
         m_fmls.push_back(t);
     }
@@ -240,6 +253,28 @@ public:
     virtual proof * get_proof() {
         UNREACHABLE();
         return 0;
+    }
+
+    virtual expr_ref lookahead(expr_ref_vector const& candidates) { 
+        sat::bool_var_vector vars;
+        u_map<expr*> var2candidate;
+        for (auto c : candidates) {
+            // TBD: check membership
+            sat::bool_var v = m_map.to_bool_var(c);
+            SASSERT(v != sat::null_bool_var);
+            vars.push_back(v);
+            var2candidate.insert(v, c);
+        }
+        sat::literal l = m_solver.select_lookahead(vars);
+        if (l == sat::null_literal) {
+            return expr_ref(m.mk_true(), m);
+        }
+        expr* e;
+        if (!var2candidate.find(l.var(), e)) {
+            // TBD: if candidate set is empty, then do something else.
+            e = m.mk_true();
+        }
+        return expr_ref(l.sign() ? m.mk_not(e) : e, m);
     }
 
     virtual lbool get_consequences_core(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq) {
@@ -320,9 +355,18 @@ public:
     virtual void get_labels(svector<symbol> & r) {
     }
     virtual unsigned get_num_assertions() const {
-        return m_fmls.size();
+        const_cast<inc_sat_solver*>(this)->convert_internalized();
+        if (m_internalized && m_internalized_converted) {            
+            return m_internalized_fmls.size();
+        }
+        else {
+            return m_fmls.size();
+        }
     }
     virtual expr * get_assertion(unsigned idx) const {
+        if (m_internalized && m_internalized_converted) {
+            return m_internalized_fmls[idx];
+        }
         return m_fmls[idx];
     }
     virtual unsigned get_num_assumptions() const {
@@ -330,6 +374,32 @@ public:
     }
     virtual expr * get_assumption(unsigned idx) const {
         return m_asmsf[idx];
+    }
+
+    void convert_internalized() {
+        if (!m_internalized) return;
+        sat2goal s2g;
+        model_converter_ref mc;
+        goal g(m, false, false, false);
+        s2g(m_solver, m_map, m_params, g, mc);
+        extract_model();
+        if (!m_model) {
+            m_model = alloc(model, m);
+        }
+        model_ref mdl = m_model;
+        if (m_mc) (*m_mc)(mdl);
+        for (unsigned i = 0; i < mdl->get_num_constants(); ++i) {
+            func_decl* c = mdl->get_constant(i);
+            expr_ref eq(m.mk_eq(m.mk_const(c), mdl->get_const_interp(c)), m);
+            g.assert_expr(eq);
+        }
+        m_internalized_fmls.reset();
+        g.get_formulas(m_internalized_fmls);
+        // g.display(std::cout);
+        m_internalized_converted = true;
+ //       if (mc) mc->display(std::cout << "mc");
+ //       if (m_mc) m_mc->display(std::cout << "m_mc\n");
+ //       if (m_mc0) m_mc0->display(std::cout << "m_mc0\n");
     }
 
     void init_preprocess() {
@@ -374,7 +444,7 @@ private:
         init_preprocess();
         SASSERT(g->models_enabled());
         SASSERT(!g->proofs_enabled());
-        TRACE("goal2sat", g->display(tout););
+        TRACE("sat", g->display(tout););
         try {
             (*m_preprocess)(g, m_subgoals, m_mc, m_pc, m_dep_core);
         }
@@ -391,7 +461,7 @@ private:
         }
         g = m_subgoals[0];
         expr_ref_vector atoms(m);
-        TRACE("goal2sat", g->display_with_dependencies(tout););
+        TRACE("sat", g->display_with_dependencies(tout););
         m_goal2sat(*g, m_params, m_solver, m_map, dep2asm, true);
         m_goal2sat.get_interpreted_atoms(atoms);
         if (!atoms.empty()) {

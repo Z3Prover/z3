@@ -22,7 +22,6 @@ Revision History:
 #define DISTRIBUTE_FORALL_H_
 
 #include"ast.h"
-#include"basic_simplifier_plugin.h"
 #include"act_cache.h"
 
 /**
@@ -47,7 +46,6 @@ Revision History:
 class distribute_forall {
     typedef act_cache expr_map;
     ast_manager &             m_manager;
-    basic_simplifier_plugin & m_bsimp; // useful for constructing formulas and/or/not in simplified form.
     ptr_vector<expr>          m_todo;
     expr_map                  m_cache;
     ptr_vector<expr>          m_new_args;
@@ -57,7 +55,7 @@ class distribute_forall {
 
 
 public:
-    distribute_forall(ast_manager & m, basic_simplifier_plugin & p);
+    distribute_forall(ast_manager & m);
 
     /**
        \brief Apply the distribute_forall transformation (when possible) to all universal quantifiers in \c f.

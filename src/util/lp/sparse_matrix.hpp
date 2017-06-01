@@ -1050,8 +1050,8 @@ bool sparse_matrix<T, X>::get_pivot_for_column(unsigned &i, unsigned &j, int c_p
         if (i_inv < k) continue;
         unsigned j_inv = adjust_column_inverse(j);
         if (j_inv < k) continue;
-        int small = elem_is_too_small(i, j, c_partial_pivoting);
-        if (!small) {
+        int _small = elem_is_too_small(i, j, c_partial_pivoting);
+        if (!_small) {
 #ifdef LEAN_DEBUG
             // if (!really_best_pivot(i, j, c_partial_pivoting, k)) {
             //     print_active_matrix(k);
@@ -1063,7 +1063,7 @@ bool sparse_matrix<T, X>::get_pivot_for_column(unsigned &i, unsigned &j, int c_p
             j = j_inv;
             return true;
         }
-        if (small != 2) { // 2 means that the pair is not in the matrix
+        if (_small != 2) { // 2 means that the pair is not in the matrix
             pivots_candidates_that_are_too_small.push_back(std::make_pair(i, j));
         }
     }

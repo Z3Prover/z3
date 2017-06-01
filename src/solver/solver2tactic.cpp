@@ -150,7 +150,21 @@ public:
             if (m.canceled()) {
                 throw tactic_exception(Z3_CANCELED_MSG);
             }
-            throw tactic_exception(local_solver->reason_unknown().c_str());
+            if (in->models_enabled()) {
+                model_ref mdl;
+                local_solver->get_model(mdl);
+                if (mdl) {
+                    mc = model2model_converter(mdl.get());
+                    mc = concat(fmc.get(), mc.get());
+                }
+            }
+            in->reset();
+            unsigned sz = local_solver->get_num_assertions();
+            for (unsigned i = 0; i < sz; ++i) {
+                in->assert_expr(local_solver->get_assertion(i));
+            }
+            result.push_back(in.get());
+            break;
         }
         local_solver->collect_statistics(m_st);
     }

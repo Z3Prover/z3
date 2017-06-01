@@ -26,4 +26,5 @@ class solver;
 
 solver * mk_fd_solver(ast_manager & m, params_ref const & p);
 
+
 #endif

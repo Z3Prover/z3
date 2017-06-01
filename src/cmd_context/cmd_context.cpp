@@ -326,6 +326,7 @@ cmd_context::cmd_context(bool main_ctx, ast_manager * m, symbol const & l):
     m_numeral_as_real(false),
     m_ignore_check(false),
     m_exit_on_error(false),
+    m_processing_pareto(false),
     m_manager(m),
     m_own_manager(m == 0),
     m_manager_initialized(false),
@@ -1130,6 +1131,7 @@ void cmd_context::insert_aux_pdecl(pdecl * p) {
 }
 
 void cmd_context::reset(bool finalize) {
+    m_processing_pareto = false;
     m_logic = symbol::null;
     m_check_sat_result = 0;
     m_numeral_as_real = false;
@@ -1174,6 +1176,7 @@ void cmd_context::reset(bool finalize) {
 }
 
 void cmd_context::assert_expr(expr * t) {
+    m_processing_pareto = false;
     if (!m_check_logic(t))
         throw cmd_exception(m_check_logic.get_last_error());
     m_check_sat_result = 0;
@@ -1186,6 +1189,7 @@ void cmd_context::assert_expr(expr * t) {
 }
 
 void cmd_context::assert_expr(symbol const & name, expr * t) {
+    m_processing_pareto = false;
     if (!m_check_logic(t))
         throw cmd_exception(m_check_logic.get_last_error());
     if (!produce_unsat_cores() || name == symbol::null) {
@@ -1286,6 +1290,7 @@ static void restore(ast_manager & m, ptr_vector<expr> & c, unsigned old_sz) {
 }
 
 void cmd_context::restore_assertions(unsigned old_sz) {
+    m_processing_pareto = false;
     if (!has_manager()) {
         // restore_assertions invokes m(), so if cmd_context does not have a manager, it will try to create one.
         SASSERT(old_sz == m_assertions.size());
@@ -1303,6 +1308,7 @@ void cmd_context::restore_assertions(unsigned old_sz) {
 
 void cmd_context::pop(unsigned n) {
     m_check_sat_result = 0;
+    m_processing_pareto = false;
     if (n == 0)
         return;
     unsigned lvl     = m_scopes.size();
@@ -1333,7 +1339,7 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
     unsigned rlimit  = m_params.m_rlimit;
     scoped_watch sw(*this);
     lbool r;
-    bool was_pareto = false, was_opt = false;
+    bool was_opt = false;
 
     if (m_opt && !m_opt->empty()) {
         was_opt = true;
@@ -1342,21 +1348,15 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
         scoped_ctrl_c ctrlc(eh);
         scoped_timer timer(timeout, &eh);
         scoped_rlimit _rlimit(m().limit(), rlimit);
-        ptr_vector<expr> cnstr(m_assertions);
-        cnstr.append(num_assumptions, assumptions);
-        get_opt()->set_hard_constraints(cnstr);
+        if (!m_processing_pareto) {
+            ptr_vector<expr> cnstr(m_assertions);
+            cnstr.append(num_assumptions, assumptions);
+            get_opt()->set_hard_constraints(cnstr);
+        }
         try {
             r = get_opt()->optimize();
-            while (r == l_true && get_opt()->is_pareto()) {
-                was_pareto = true;
-                get_opt()->display_assignment(regular_stream());
-                regular_stream() << "\n";
-                if (get_opt()->print_model()) {
-                    model_ref mdl;
-                    get_opt()->get_model(mdl);
-                    display_model(mdl);
-                }
-                r = get_opt()->optimize();
+            if (r == l_true && get_opt()->is_pareto()) {
+                m_processing_pareto = true;
             }
         }
         catch (z3_error & ex) {
@@ -1366,8 +1366,8 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
             get_opt()->display_assignment(regular_stream());
             throw cmd_exception(ex.msg());
         }
-        if (was_pareto && r == l_false) {
-            r = l_true;
+        if (m_processing_pareto && r != l_true) {
+            m_processing_pareto = false;
         }
         get_opt()->set_status(r);
     }
@@ -1400,7 +1400,7 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
         validate_model();
     }
     validate_check_sat_result(r);
-    if (was_opt && r != l_false && !was_pareto) {
+    if (was_opt && r != l_false && !m_processing_pareto) {
         get_opt()->display_assignment(regular_stream());
     }
 

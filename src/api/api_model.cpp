@@ -349,10 +349,10 @@ extern "C" {
     //
     // ----------------------------
 
+#if 0
     void Z3_API Z3_del_model(Z3_context c, Z3_model  m) {
         Z3_model_dec_ref(c, m);
     }
-
     unsigned Z3_API Z3_get_model_num_constants(Z3_context c, Z3_model m) {
         return Z3_model_get_num_consts(c, m);
     }
@@ -368,6 +368,7 @@ extern "C" {
     Z3_func_decl Z3_API Z3_get_model_func_decl(Z3_context c, Z3_model m, unsigned i) {
         return Z3_model_get_func_decl(c, m, i);
     }
+#endif
     
 
     unsigned get_model_func_num_entries_core(Z3_context c, Z3_model m, unsigned i) {

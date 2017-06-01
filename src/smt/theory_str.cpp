@@ -7304,7 +7304,7 @@ namespace smt {
                     TRACE("str", tout << "variable " << mk_ismt2_pp(ap, get_manager()) << " is #" << v << std::endl;);
                 }
             }
-        } else if (ex_sort == bool_sort) {
+        } else if (ex_sort == bool_sort && !is_quantifier(ex)) {
             TRACE("str", tout << "setting up axioms for " << mk_ismt2_pp(ex, get_manager()) <<
                   ": expr is of sort Bool" << std::endl;);
             // set up axioms for boolean terms
@@ -7351,7 +7351,7 @@ namespace smt {
 
         // if expr is an application, recursively inspect all arguments
         if (is_app(ex)) {
-            app * term = (app*)ex;
+            app * term = to_app(ex);
             unsigned num_args = term->get_num_args();
             for (unsigned i = 0; i < num_args; i++) {
                 set_up_axioms(term->get_arg(i));

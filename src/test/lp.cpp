@@ -1159,12 +1159,14 @@ void solve_mps_double(std::string file_name, bool look_for_min, unsigned max_ite
     
     lp_solver<double, double> * solver =  reader.create_solver(dual);
     setup_solver(max_iterations, time_limit, look_for_min, args_parser, solver);
-    int begin = get_millisecond_count();
+    stopwatch sw;
+    sw.start();
     if (dual) {
         std::cout << "solving for dual" << std::endl;
     }
     solver->find_maximal_solution();
-    int span = get_millisecond_span(begin);
+    sw.stop();
+    double span = sw.get_seconds(); 
     std::cout << "Status: " << lp_status_to_string(solver->get_status()) << std::endl;
     if (solver->get_status() == lp_status::OPTIMAL) {
         if (reader.column_names().size() < 20) {
@@ -1213,7 +1215,8 @@ void solve_mps_rational(std::string file_name, bool look_for_min, unsigned max_i
     if (reader.is_ok()) {
         auto * solver =  reader.create_solver(dual);
         setup_solver(max_iterations, time_limit, look_for_min, args_parser, solver);
-        int begin = get_millisecond_count();
+        stopwatch sw;
+        sw.start();
         solver->find_maximal_solution();
         std::cout << "Status: " << lp_status_to_string(solver->get_status()) << std::endl;
 
@@ -1227,7 +1230,7 @@ void solve_mps_rational(std::string file_name, bool look_for_min, unsigned max_i
             }
             std::cout << "cost = " << cost.get_double() << std::endl;
         }
-        std::cout << "processed in " << get_millisecond_span(begin) / 1000.0 << " seconds, running for " << solver->m_total_iterations << " iterations" << std::endl;
+        std::cout << "processed in " << sw.get_current_seconds() / 1000.0 << " seconds, running for " << solver->m_total_iterations << " iterations" << std::endl;
         delete solver;
     } else {
         std::cout << "cannot process " << file_name << std::endl;
@@ -2426,9 +2429,10 @@ void run_lar_solver(argument_parser & args_parser, lar_solver * solver, mps_read
         std::cout << "status = " << lp_status_to_string(solver->get_status()) <<  std::endl;
         return;
     }
-    int begin = get_millisecond_count();
+    stopwatch sw;
+    sw.start();
     lp_status status = solver->solve();
-    std::cout << "status is " <<  lp_status_to_string(status) << ", processed for " << get_millisecond_span(begin) / 1000.0 <<" seconds, and " << solver->get_total_iterations() << " iterations" << std::endl;
+    std::cout << "status is " <<  lp_status_to_string(status) << ", processed for " << sw.get_current_seconds() <<" seconds, and " << solver->get_total_iterations() << " iterations" << std::endl;
     if (solver->get_status() == INFEASIBLE) {
         vector<std::pair<lean::mpq, constraint_index>> evidence;
         solver->get_infeasibility_explanation(evidence);
