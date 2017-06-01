@@ -18,7 +18,6 @@ Notes:
 --*/
 
 #include "fd_solver.h"
-#include "fd_tactic.h"
 #include "tactic.h"
 #include "inc_sat_solver.h"
 #include "enum2bv_solver.h"
