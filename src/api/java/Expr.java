@@ -1278,6 +1278,26 @@ public class Expr extends AST
     }
 
     /**
+     * Check whether expression is a string constant.
+     * @return a boolean
+     */
+    public boolean isString() 
+    {
+        return isApp() && Native.isString(getContext().nCtx(), getNativeObject());
+    }
+
+    /**
+     * Retrieve string corresponding to string constant.
+     * Remark: the expression should be a string constant, (isString() should return true).
+     * @throws Z3Exception on error
+     * @return a string
+     */
+    public String getString()
+    {
+	return Native.getString(getContext().nCtx(), getNativeObject());
+    }
+
+    /**
      * Indicates whether the term is a binary equivalence modulo namings.
      * Remarks: This binary predicate is used in proof terms. It captures
      * equisatisfiability and equivalence modulo renamings.

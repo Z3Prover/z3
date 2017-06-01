@@ -797,6 +797,22 @@ namespace Microsoft.Z3
         public bool IsLabelLit { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_LABEL_LIT; } }
         #endregion
 
+        #region Sequences and Strings
+
+        /// <summary>
+        /// Check whether expression is a string constant.
+        /// </summary>
+        /// <returns>a Boolean</returns>
+        public bool IsString  { get { return IsApp && 0 != Native.Z3_is_string(Context.nCtx, NativeObject); } }
+
+        /// <summary>
+        /// Retrieve string corresponding to string constant.
+        /// </summary>
+        /// <remarks>the expression should be a string constant, (IsString should be true).</remarks>
+        public string String { get { return Native.Z3_get_string(Context.nCtx, NativeObject); } }        
+
+        #endregion
+
         #region Proof Terms
         /// <summary>
         /// Indicates whether the term is a binary equivalence modulo namings.

@@ -330,9 +330,9 @@ protected:
 
     std::map<expr*, nfa> regex_nfa_cache; // Regex term --> NFA
 
-    char * char_set;
-    std::map<char, int> charSetLookupTable;
-    int charSetSize;
+    svector<char> char_set;
+    svector<int>  charSetLookupTable;
+    int           charSetSize;
 
     obj_pair_map<expr, expr, expr*> concat_astNode_map;
 
