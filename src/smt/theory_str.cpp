@@ -5565,7 +5565,7 @@ namespace smt {
                         if (arg0VecSize > 0 && arg1VecSize > 0 && u.str.is_string(arg0_grdItor->first[arg0VecSize - 1]) && u.str.is_string(arg1_grdItor->first[0])) {
                             ndVec.pop_back();
                             ndVec.push_back(mk_concat(arg0_grdItor->first[arg0VecSize - 1], arg1_grdItor->first[0]));
-                            for (int i = 1; i < arg1VecSize; i++) {
+                            for (size_t i = 1; i < arg1VecSize; i++) {
                                 ndVec.push_back(arg1_grdItor->first[i]);
                             }
                         } else {
@@ -5668,7 +5668,7 @@ namespace smt {
         if (subStrCnt == 1) {
             zstring subStrVal;
             if (u.str.is_string(subStrVec[0], subStrVal)) {
-                for (int i = 0; i < strCnt; i++) {
+                for (size_t i = 0; i < strCnt; i++) {
                     zstring strVal;
                     if (u.str.is_string(strVec[i], strVal)) {
                         if (strVal.contains(subStrVal)) {
@@ -5677,7 +5677,7 @@ namespace smt {
                     }
                 }
             } else {
-                for (int i = 0; i < strCnt; i++) {
+                for (size_t i = 0; i < strCnt; i++) {
                     if (strVec[i] == subStrVec[0]) {
                         return true;
                     }
@@ -5685,7 +5685,7 @@ namespace smt {
             }
             return false;
         } else {
-            for (int i = 0; i <= (strCnt - subStrCnt); i++) {
+            for (size_t i = 0; i <= (strCnt - subStrCnt); i++) {
                 // The first node in subStrVect should be
                 //   * constant: a suffix of a note in strVec[i]
                 //   * variable:
@@ -5714,7 +5714,7 @@ namespace smt {
 
                 // middle nodes
                 bool midNodesOK = true;
-                for (int j = 1; j < subStrCnt - 1; j++) {
+                for (size_t j = 1; j < subStrCnt - 1; j++) {
                     if (subStrVec[j] != strVec[i + j]) {
                         midNodesOK = false;
                         break;

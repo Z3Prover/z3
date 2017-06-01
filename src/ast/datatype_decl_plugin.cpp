@@ -935,9 +935,9 @@ bool datatype_util::is_recursive(sort * ty) {
 
 
 bool datatype_util::is_enum_sort(sort* s) {
-	if (!is_datatype(s)) {
-		return false;
-	}
+    if (!is_datatype(s)) {
+        return false;
+    }
     bool r = false;
     if (m_is_enum.find(s, r))
         return r;
