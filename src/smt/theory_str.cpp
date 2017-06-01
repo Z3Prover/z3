@@ -100,7 +100,6 @@ namespace smt {
             // valid C strings can't contain the null byte ('\0')
             charSetSize = 255;
             char_set.resize(256, 0);            
-            charSetLookupTable.resize(256, 0);
             int idx = 0;
             // small letters
             for (int i = 97; i < 123; i++) {
@@ -160,7 +159,6 @@ namespace smt {
             const char setset[] = { 'a', 'b', 'c' };
             int fSize = sizeof(setset) / sizeof(char);
             char_set.resize(fSize, 0);
-            charSetLookupTable.resize(fSize, 0);
             charSetSize = fSize;
             for (int i = 0; i < charSetSize; i++) {
                 char_set[i] = setset[i];
