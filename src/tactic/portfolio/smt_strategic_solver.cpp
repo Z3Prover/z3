@@ -38,7 +38,6 @@ Notes:
 #include"smt_solver.h"
 #include"inc_sat_solver.h"
 #include"fd_solver.h"
-#include"fd_tactic.h"
 #include"bv_rewriter.h"
 #include"solver2tactic.h"
 
