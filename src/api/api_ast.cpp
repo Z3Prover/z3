@@ -1124,6 +1124,20 @@ extern "C" {
             case OP_SEQ_TO_RE: return Z3_OP_SEQ_TO_RE;
             case OP_SEQ_IN_RE: return Z3_OP_SEQ_IN_RE;
 
+            case _OP_STRING_STRREPL: return Z3_OP_SEQ_REPLACE;
+            case _OP_STRING_CONCAT: return Z3_OP_SEQ_CONCAT;
+            case _OP_STRING_LENGTH: return Z3_OP_SEQ_LENGTH;
+            case _OP_STRING_STRCTN: return Z3_OP_SEQ_CONTAINS;
+            case _OP_STRING_PREFIX: return Z3_OP_SEQ_PREFIX;
+            case _OP_STRING_SUFFIX: return Z3_OP_SEQ_SUFFIX;
+            case _OP_STRING_IN_REGEXP: return Z3_OP_SEQ_IN_RE;
+            case _OP_STRING_TO_REGEXP: return Z3_OP_SEQ_TO_RE;
+            case _OP_STRING_CHARAT: return Z3_OP_SEQ_AT;
+            case _OP_STRING_SUBSTR: return Z3_OP_SEQ_EXTRACT;
+            case _OP_STRING_STRIDOF: return Z3_OP_SEQ_INDEX;
+            case _OP_REGEXP_EMPTY: return Z3_OP_RE_EMPTY_SET;
+            case _OP_REGEXP_FULL: return Z3_OP_RE_FULL_SET;
+
             case OP_STRING_STOI: return Z3_OP_STR_TO_INT;
             case OP_STRING_ITOS: return Z3_OP_INT_TO_STR;
 
