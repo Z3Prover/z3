@@ -48,6 +48,7 @@ protected:
 
     void div_monomial(expr_ref_vector& monomials, numeral const& g);
     void get_monomial_gcd(expr_ref_vector& monomials, numeral& g);
+    bool divides(expr* d, expr* n, expr_ref& quot);
 
 public:
     arith_simplifier_plugin(ast_manager & m, basic_simplifier_plugin & b, arith_simplifier_params & p);
