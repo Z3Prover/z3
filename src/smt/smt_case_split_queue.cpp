@@ -51,9 +51,9 @@ namespace smt {
             if (!m_theory_var_priority.find(v2, p_v2)) {
                 p_v2 = 0.0;
             }
-	    // add clause activity
-	    p_v1 += m_activity[v1];
-	    p_v2 += m_activity[v2];
+        // add clause activity
+        p_v1 += m_activity[v1];
+        p_v2 += m_activity[v2];
             return p_v1 > p_v2;
         }
     };

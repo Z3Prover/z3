@@ -330,9 +330,9 @@ protected:
 
     std::map<expr*, nfa> regex_nfa_cache; // Regex term --> NFA
 
-    char * char_set;
-    std::map<char, int> charSetLookupTable;
-    int charSetSize;
+    svector<char> char_set;
+    std::map<char, int>  charSetLookupTable;
+    int           charSetSize;
 
     obj_pair_map<expr, expr, expr*> concat_astNode_map;
 
@@ -553,7 +553,7 @@ protected:
     expr * gen_len_test_options(expr * freeVar, expr * indicator, int tries);
     expr * gen_free_var_options(expr * freeVar, expr * len_indicator,
             zstring len_valueStr, expr * valTesterInCbEq, zstring valTesterValueStr);
-    expr * gen_val_options(expr * freeVar, expr * len_indicator, expr * val_indicator,
+    expr* gen_val_options(expr * freeVar, expr * len_indicator, expr * val_indicator,
             zstring lenStr, int tries);
     void print_value_tester_list(svector<std::pair<int, expr*> > & testerList);
     bool get_next_val_encode(int_vector & base, int_vector & next);

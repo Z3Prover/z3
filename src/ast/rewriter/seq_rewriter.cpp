@@ -92,25 +92,25 @@ public:
         expr_ref fml(m.mk_true(), m);
         return sym_expr::mk_pred(fml, m.mk_bool_sort());
     }
-	virtual T mk_and(T x, T y) {
-		if (x->is_char() && y->is_char()) {
-			if (x->get_char() == y->get_char()) {
-				return x;
-			}
-			if (m.are_distinct(x->get_char(), y->get_char())) {
-				expr_ref fml(m.mk_false(), m);
-				return sym_expr::mk_pred(fml, x->get_sort());
-			}
-		}
+    virtual T mk_and(T x, T y) {
+        if (x->is_char() && y->is_char()) {
+            if (x->get_char() == y->get_char()) {
+                return x;
+            }
+            if (m.are_distinct(x->get_char(), y->get_char())) {
+                expr_ref fml(m.mk_false(), m);
+                return sym_expr::mk_pred(fml, x->get_sort());
+            }
+        }
 
-		sort* s = x->get_sort();
-		if (m.is_bool(s)) s = y->get_sort();
-		var_ref v(m.mk_var(0, s), m);
-		expr_ref fml1 = x->accept(v);
-		expr_ref fml2 = y->accept(v);
-		if (m.is_true(fml1)) {
-			return y;
-		}
+        sort* s = x->get_sort();
+        if (m.is_bool(s)) s = y->get_sort();
+        var_ref v(m.mk_var(0, s), m);
+        expr_ref fml1 = x->accept(v);
+        expr_ref fml2 = y->accept(v);
+        if (m.is_true(fml1)) {
+            return y;
+        }
         if (m.is_true(fml2)) return x;
         expr_ref fml(m.mk_and(fml1, fml2), m);
         return sym_expr::mk_pred(fml, x->get_sort());
@@ -178,10 +178,10 @@ public:
         return sym_expr::mk_pred(fml, x->get_sort());
     }
 
-	/*virtual vector<std::pair<vector<bool>, T>> generate_min_terms(vector<T> constraints){
-		
-		return 0;
-	}*/
+    /*virtual vector<std::pair<vector<bool>, T>> generate_min_terms(vector<T> constraints){
+        
+        return 0;
+    }*/
 };
 
 re2automaton::re2automaton(ast_manager& m): m(m), u(m), bv(m), m_ba(0), m_sa(0) {}
