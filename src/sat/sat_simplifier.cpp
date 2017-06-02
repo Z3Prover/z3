@@ -233,11 +233,6 @@ namespace sat {
         CASSERT("sat_solver", s.check_invariant());
         TRACE("after_simplifier", s.display(tout); tout << "model_converter:\n"; s.m_mc.display(tout););
 
-        if (!learned) {
-            // perform lookahead simplification
-            lookahead(s).simplify();
-        }
-
         finalize();
 
     }

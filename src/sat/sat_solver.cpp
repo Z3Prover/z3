@@ -57,6 +57,7 @@ namespace sat {
         m_scope_lvl(0),
         m_search_lvl(0),
         m_params(p) {
+        init_reason_unknown();
         updt_params(p);
         m_conflicts_since_gc      = 0;
         m_conflicts               = 0;
@@ -826,6 +827,7 @@ namespace sat {
     //
     // -----------------------
     lbool solver::check(unsigned num_lits, literal const* lits) {
+        init_reason_unknown();
         pop_to_base_level();
         IF_VERBOSE(2, verbose_stream() << "(sat.sat-solver)\n";);
         SASSERT(at_base_lvl());
@@ -872,6 +874,7 @@ namespace sat {
             if (check_inconsistent()) return l_false;
 
             if (m_config.m_max_conflicts == 0) {
+                m_reason_unknown = "sat.max.conflicts";
                 IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-conflicts = 0\")\n";);
                 return l_undef;
             }
@@ -884,6 +887,7 @@ namespace sat {
                     return r;
 
                 if (m_conflicts > m_config.m_max_conflicts) {
+                    m_reason_unknown = "sat.max.conflicts";
                     IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-conflicts = " << m_conflicts << "\")\n";);
                     return l_undef;
                 }
@@ -894,6 +898,7 @@ namespace sat {
                 gc();
 
                 if (m_config.m_restart_max <= m_restarts) {
+                    m_reason_unknown = "sat.max.restarts";
                     IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-restarts\")\n";);
                     return l_undef;
                 }
@@ -901,6 +906,7 @@ namespace sat {
             }
         }
         catch (abort_solver) {
+            m_reason_unknown = "sat.giveup";
             return l_undef;
         }
     }

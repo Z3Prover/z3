@@ -151,6 +151,7 @@ public:
         m_internalized = true;
         m_internalized_converted = false;
 
+        init_reason_unknown();
         r = m_solver.check(m_asms.size(), m_asms.c_ptr());
         
         switch (r) {
@@ -166,6 +167,7 @@ public:
             }
             break;
         default:
+            set_reason_unknown(m_solver.get_reason_unknown());
             break;
         }
         return r;
@@ -345,7 +347,9 @@ public:
         return l_true;
     }
 
-
+    void init_reason_unknown() {
+        m_unknown = "no reason given";
+    }
     virtual std::string reason_unknown() const {
         return m_unknown;
     }

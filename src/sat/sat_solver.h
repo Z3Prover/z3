@@ -132,6 +132,8 @@ namespace sat {
         unsigned                m_search_lvl;
         literal_vector          m_trail;
         clause_wrapper_vector   m_clauses_to_reinit;
+        std::string             m_reason_unknown;
+
         struct scope {
             unsigned m_trail_lim;
             unsigned m_clauses_to_reinit_lim;
@@ -351,6 +353,7 @@ namespace sat {
         literal_vector const& get_core() const { return m_core; }
         model_converter const & get_model_converter() const { return m_mc; }
         void set_model(model const& mdl);
+        char const* get_reason_unknown() const { return m_reason_unknown.c_str(); }
 
         literal select_lookahead(bool_var_vector const& vars);
 
@@ -374,6 +377,7 @@ namespace sat {
         
         literal_vector m_min_core;
         bool           m_min_core_valid;
+        void init_reason_unknown() { m_reason_unknown = "no reason given"; }
         void init_assumptions(unsigned num_lits, literal const* lits);
         void reassert_min_core();
         void update_min_core();
