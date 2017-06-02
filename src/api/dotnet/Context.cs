@@ -3390,7 +3390,7 @@ namespace Microsoft.Z3
         /// </summary>
         /// <seealso cref="ParseSMTLIBString"/>
         /// <returns>A conjunction of assertions in the scope (up to push/pop) at the end of the string.</returns>
-        public BoolExpr ParseSMTLIB2String(string str, Symbol[] sortNames = null, Sort[] sorts = null, Symbol[] declNames = null, FuncDecl[] decls = null)
+        public BoolExpr[] ParseSMTLIB2String(string str, Symbol[] sortNames = null, Sort[] sorts = null, Symbol[] declNames = null, FuncDecl[] decls = null)
         {
             Contract.Ensures(Contract.Result<BoolExpr>() != null);
 
@@ -3400,16 +3400,17 @@ namespace Microsoft.Z3
             uint cd = AST.ArrayLength(decls);
             if (csn != cs || cdn != cd)
                 throw new Z3Exception("Argument size mismatch");
-            return (BoolExpr)Expr.Create(this, Native.Z3_parse_smtlib2_string(nCtx, str,
+            ASTVector assertions = new ASTVector(this, Native.Z3_parse_smtlib2_string(nCtx, str,
                 AST.ArrayLength(sorts), Symbol.ArrayToNative(sortNames), AST.ArrayToNative(sorts),
                 AST.ArrayLength(decls), Symbol.ArrayToNative(declNames), AST.ArrayToNative(decls)));
+            return assertions.ToBoolExprArray();
         }
 
         /// <summary>
         /// Parse the given file using the SMT-LIB2 parser.
         /// </summary>
         /// <seealso cref="ParseSMTLIB2String"/>
-        public BoolExpr ParseSMTLIB2File(string fileName, Symbol[] sortNames = null, Sort[] sorts = null, Symbol[] declNames = null, FuncDecl[] decls = null)
+        public BoolExpr[] ParseSMTLIB2File(string fileName, Symbol[] sortNames = null, Sort[] sorts = null, Symbol[] declNames = null, FuncDecl[] decls = null)
         {
             Contract.Ensures(Contract.Result<BoolExpr>() != null);
 
@@ -3419,9 +3420,10 @@ namespace Microsoft.Z3
             uint cd = AST.ArrayLength(decls);
             if (csn != cs || cdn != cd)
                 throw new Z3Exception("Argument size mismatch");
-            return (BoolExpr)Expr.Create(this, Native.Z3_parse_smtlib2_file(nCtx, fileName,
+            ASTVector assertions = new ASTVector(this, Native.Z3_parse_smtlib2_file(nCtx, fileName,
                 AST.ArrayLength(sorts), Symbol.ArrayToNative(sortNames), AST.ArrayToNative(sorts),
                 AST.ArrayLength(decls), Symbol.ArrayToNative(declNames), AST.ArrayToNative(decls)));
+            return assertions.ToBoolExprArray();
         }
         #endregion
 

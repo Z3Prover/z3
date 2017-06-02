@@ -2632,13 +2632,16 @@ void reference_counter_example() {
 */
 void smt2parser_example() {
     Z3_context ctx;
-    Z3_ast fs;
+    Z3_ast_vector fs;
     printf("\nsmt2parser_example\n");
     LOG_MSG("smt2parser_example");
 
     ctx = mk_context();
     fs  = Z3_parse_smtlib2_string(ctx, "(declare-fun a () (_ BitVec 8)) (assert (bvuge a #x10)) (assert (bvule a #xf0))", 0, 0, 0, 0, 0, 0);
-    printf("formulas: %s\n", Z3_ast_to_string(ctx, fs));
+    Z3_ast_vector_inc_ref(ctx, fs);
+    printf("formulas: %s\n", Z3_ast_vector_to_string(ctx, fs));
+    Z3_ast_vector_dec_ref(ctx, fs);
+
     Z3_del_context(ctx);
 }
 

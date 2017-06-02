@@ -511,12 +511,13 @@ extern "C" {
         try {
             std::string foo(filename);
             if (foo.size() >= 5 && foo.substr(foo.size() - 5) == ".smt2"){
-                Z3_ast assrts = Z3_parse_smtlib2_file(ctx, filename, 0, 0, 0, 0, 0, 0);
-                Z3_app app = Z3_to_app(ctx, assrts);
-                int nconjs = Z3_get_app_num_args(ctx, app);
+                Z3_ast_vector assrts = Z3_parse_smtlib2_file(ctx, filename, 0, 0, 0, 0, 0, 0);
+                Z3_ast_vector_inc_ref(ctx, assrts);
+                unsigned nconjs = Z3_ast_vector_size(ctx, assrts);
                 assertions.resize(nconjs);
-                for (int k = 0; k < nconjs; k++)
-                    assertions[k] = Z3_get_app_arg(ctx, app, k);
+                for (unsigned k = 0; k < nconjs; k++)
+                    assertions[k] = Z3_ast_vector_get(ctx, assrts, k);
+                // Z3_ast_vector_dec_ref(ctx, assrts) is unsafe
             }
             else {
                 Z3_parse_smtlib_file(ctx, filename, 0, 0, 0, 0, 0, 0);
