@@ -326,7 +326,6 @@ public:
         return l_true;
     }
 
-
     virtual std::string reason_unknown() const {
         return m_unknown;
     }
