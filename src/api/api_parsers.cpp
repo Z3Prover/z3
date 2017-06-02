@@ -24,6 +24,7 @@ Revision History:
 #include"smt2parser.h"
 #include"smtparser.h"
 #include"solver_na2as.h"
+#include"api_ast_vector.h"
 
 extern "C" {
 
@@ -252,7 +253,7 @@ extern "C" {
     // ---------------
     // Support for SMTLIB2
 
-    Z3_ast parse_smtlib2_stream(bool exec, Z3_context c, std::istream& is,
+    Z3_ast_vector parse_smtlib2_stream(bool exec, Z3_context c, std::istream& is,
                                 unsigned num_sorts,
                                 Z3_symbol const sort_names[],
                                 Z3_sort const sorts[],
@@ -262,6 +263,9 @@ extern "C" {
         Z3_TRY;
         cmd_context ctx(false, &(mk_c(c)->m()));
         ctx.set_ignore_check(true);
+        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
+        mk_c(c)->save_object(v);
+        
         for (unsigned i = 0; i < num_decls; ++i) {
            ctx.insert(to_symbol(decl_names[i]), to_func_decl(decls[i]));
         }
@@ -271,16 +275,18 @@ extern "C" {
         }
         if (!parse_smt2_commands(ctx, is)) {
             SET_ERROR_CODE(Z3_PARSER_ERROR);
-            return of_ast(mk_c(c)->m().mk_true());
+            return of_ast_vector(v);
         }
         ptr_vector<expr>::const_iterator it  = ctx.begin_assertions();
         ptr_vector<expr>::const_iterator end = ctx.end_assertions();
-        unsigned size = static_cast<unsigned>(end - it);
-        return of_ast(mk_c(c)->mk_and(size, it));
+        for (; it != end; ++it) {
+            v->m_ast_vector.push_back(*it);
+        }
+        return of_ast_vector(v);
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_ast Z3_API Z3_parse_smtlib2_string(Z3_context c, Z3_string str,
+    Z3_ast_vector Z3_API Z3_parse_smtlib2_string(Z3_context c, Z3_string str,
                                           unsigned num_sorts,
                                           Z3_symbol const sort_names[],
                                           Z3_sort const sorts[],
@@ -291,12 +297,12 @@ extern "C" {
         LOG_Z3_parse_smtlib2_string(c, str, num_sorts, sort_names, sorts, num_decls, decl_names, decls);
         std::string s(str);
         std::istringstream is(s);
-        Z3_ast r = parse_smtlib2_stream(false, c, is, num_sorts, sort_names, sorts, num_decls, decl_names, decls);
+        Z3_ast_vector r = parse_smtlib2_stream(false, c, is, num_sorts, sort_names, sorts, num_decls, decl_names, decls);
         RETURN_Z3(r);
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_ast Z3_API Z3_parse_smtlib2_file(Z3_context c, Z3_string file_name,
+    Z3_ast_vector Z3_API Z3_parse_smtlib2_file(Z3_context c, Z3_string file_name,
                                         unsigned num_sorts,
                                         Z3_symbol const sort_names[],
                                         Z3_sort const sorts[],
@@ -310,7 +316,7 @@ extern "C" {
             SET_ERROR_CODE(Z3_PARSER_ERROR);
             return 0;
         }
-        Z3_ast r = parse_smtlib2_stream(false, c, is, num_sorts, sort_names, sorts, num_decls, decl_names, decls);
+        Z3_ast_vector r = parse_smtlib2_stream(false, c, is, num_sorts, sort_names, sorts, num_decls, decl_names, decls);
         RETURN_Z3(r);
         Z3_CATCH_RETURN(0);
     }

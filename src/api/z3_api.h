@@ -5059,9 +5059,9 @@ extern "C" {
        It returns a formula comprising of the conjunction of assertions in the scope
        (up to push/pop) at the end of the string.
 
-       def_API('Z3_parse_smtlib2_string', AST, (_in(CONTEXT), _in(STRING), _in(UINT), _in_array(2, SYMBOL), _in_array(2, SORT), _in(UINT), _in_array(5, SYMBOL), _in_array(5, FUNC_DECL)))
+       def_API('Z3_parse_smtlib2_string', AST_VECTOR, (_in(CONTEXT), _in(STRING), _in(UINT), _in_array(2, SYMBOL), _in_array(2, SORT), _in(UINT), _in_array(5, SYMBOL), _in_array(5, FUNC_DECL)))
     */
-    Z3_ast Z3_API Z3_parse_smtlib2_string(Z3_context c,
+    Z3_ast_vector Z3_API Z3_parse_smtlib2_string(Z3_context c,
                                           Z3_string str,
                                           unsigned num_sorts,
                                           Z3_symbol const sort_names[],
@@ -5073,9 +5073,9 @@ extern "C" {
     /**
        \brief Similar to #Z3_parse_smtlib2_string, but reads the benchmark from a file.
 
-       def_API('Z3_parse_smtlib2_file', AST, (_in(CONTEXT), _in(STRING), _in(UINT), _in_array(2, SYMBOL), _in_array(2, SORT), _in(UINT), _in_array(5, SYMBOL), _in_array(5, FUNC_DECL)))
+       def_API('Z3_parse_smtlib2_file', AST_VECTOR, (_in(CONTEXT), _in(STRING), _in(UINT), _in_array(2, SYMBOL), _in_array(2, SORT), _in(UINT), _in_array(5, SYMBOL), _in_array(5, FUNC_DECL)))
     */
-    Z3_ast Z3_API Z3_parse_smtlib2_file(Z3_context c,
+    Z3_ast_vector Z3_API Z3_parse_smtlib2_file(Z3_context c,
                                         Z3_string file_name,
                                         unsigned num_sorts,
                                         Z3_symbol const sort_names[],
@@ -6045,7 +6045,6 @@ extern "C" {
 
     Z3_ast_vector Z3_API Z3_solver_get_lemmas(Z3_context c, Z3_solver s);
 
-       
     /**
        \brief Retrieve the model for the last #Z3_solver_check or #Z3_solver_check_assumptions
 
@@ -6054,7 +6053,6 @@ extern "C" {
 
        def_API('Z3_solver_get_model', MODEL, (_in(CONTEXT), _in(SOLVER)))
     */
-
     Z3_model Z3_API Z3_solver_get_model(Z3_context c, Z3_solver s);
 
     /**
