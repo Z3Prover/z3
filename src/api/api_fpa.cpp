@@ -208,6 +208,14 @@ extern "C" {
         return Z3_mk_fpa_sort(c, 11, 53);
     }
 
+    Z3_sort Z3_API Z3_mk_fpa_sort_extended(Z3_context c) {
+        return Z3_mk_fpa_sort(c, 16, 64);
+    }
+
+    Z3_sort Z3_API Z3_mk_fpa_sort_80(Z3_context c) {
+        return Z3_mk_fpa_sort(c, 16, 64);
+    }
+
     Z3_sort Z3_API Z3_mk_fpa_sort_quadruple(Z3_context c) {
         return Z3_mk_fpa_sort(c, 15, 113);
     }

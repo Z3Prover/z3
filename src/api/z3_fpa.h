@@ -195,6 +195,24 @@ extern "C" {
     Z3_sort Z3_API Z3_mk_fpa_sort_64(Z3_context c);
 
     /**
+        \brief Create the extended-precision (80-bit) FloatingPoint sort.
+
+        \param c logical context
+
+        def_API('Z3_mk_fpa_sort_extended', SORT, (_in(CONTEXT),))
+    */
+    Z3_sort Z3_API Z3_mk_fpa_sort_extended(Z3_context c);
+
+    /**
+        \brief Create the extended-precision (80-bit) FloatingPoint sort.
+
+        \param c logical context
+
+        def_API('Z3_mk_fpa_sort_80', SORT, (_in(CONTEXT),))
+    */
+    Z3_sort Z3_API Z3_mk_fpa_sort_80(Z3_context c);
+
+    /**
         \brief Create the quadruple-precision (128-bit) FloatingPoint sort.
 
         \param c logical context

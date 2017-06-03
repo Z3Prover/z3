@@ -8230,6 +8230,16 @@ def FloatDouble(ctx=None):
     ctx = _get_ctx(ctx)
     return FPSortRef(Z3_mk_fpa_sort_double(ctx.ref()), ctx)
 
+def Float80(ctx=None):
+    """Floating-point 80-bit (extended) sort."""
+    ctx = _get_ctx(ctx)
+    return FPSortRef(Z3_mk_fpa_sort_80(ctx.ref()), ctx)
+
+def FloatExtended(ctx=None):
+    """Floating-point 80-bit (extended) sort."""
+    ctx = _get_ctx(ctx)
+    return FPSortRef(Z3_mk_fpa_sort_extended(ctx.ref()), ctx)
+
 def Float128(ctx=None):
     """Floating-point 128-bit (quadruple) sort."""
     ctx = _get_ctx(ctx)
