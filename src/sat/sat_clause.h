@@ -73,6 +73,8 @@ namespace sat {
         bool check_approx() const; // for debugging
         literal * begin() { return m_lits; }
         literal * end() { return m_lits + m_size; }
+        literal const * begin() const { return m_lits; }
+        literal const * end() const { return m_lits + m_size; }
         bool contains(literal l) const;
         bool contains(bool_var v) const;
         bool satisfied_by(model const & m) const;

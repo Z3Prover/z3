@@ -3004,7 +3004,8 @@ namespace sat {
     // Iterators
     //
     // -----------------------
-    void solver::collect_bin_clauses(svector<bin_clause> & r, bool learned) const {
+    void solver::collect_bin_clauses(svector<bin_clause> & r, bool learned, bool learned_only) const {
+        SASSERT(learned || !learned_only);  
         unsigned sz = m_watches.size();
         for (unsigned l_idx = 0; l_idx < sz; l_idx++) {
             literal l = to_literal(l_idx);
@@ -3016,6 +3017,8 @@ namespace sat {
                 if (!it->is_binary_clause())
                     continue;
                 if (!learned && it->is_learned())
+                    continue;
+                else if (learned && learned_only && !it->is_learned()) 
                     continue;
                 literal l2 = it->get_literal();
                 if (l.index() > l2.index())
@@ -3327,7 +3330,6 @@ namespace sat {
         m_user_bin_clauses.reset();
         m_binary_clause_graph.reset();
         collect_bin_clauses(m_user_bin_clauses, true);
-        collect_bin_clauses(m_user_bin_clauses, false);
         hashtable<literal_pair, pair_hash<literal_hash, literal_hash>, default_eq<literal_pair> > seen_bc;
         for (unsigned i = 0; i < m_user_bin_clauses.size(); ++i) {
             literal l1 = m_user_bin_clauses[i].first;

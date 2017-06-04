@@ -302,6 +302,15 @@ public:
         }
         return expr_ref(lit2expr[l.index()].get(), m);
     }
+    virtual void get_lemmas(expr_ref_vector & lemmas) { 
+        IF_VERBOSE(1, verbose_stream() << "(sat-get-lemmas " << lemmas.size() << ")\n";);
+        if (!m_internalized) return;
+        sat2goal s2g;
+        goal g(m, false, false, false);
+        s2g.get_learned(m_solver, m_map, m_params, lemmas);
+        // TBD: handle externals properly.
+    }
+
 
     virtual lbool get_consequences_core(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq) {
         init_preprocess();
@@ -426,9 +435,9 @@ public:
         g.get_formulas(m_internalized_fmls);
         // g.display(std::cout);
         m_internalized_converted = true;
- //       if (mc) mc->display(std::cout << "mc");
- //       if (m_mc) m_mc->display(std::cout << "m_mc\n");
- //       if (m_mc0) m_mc0->display(std::cout << "m_mc0\n");
+        // if (mc) mc->display(std::cout << "mc");
+        // if (m_mc) m_mc->display(std::cout << "m_mc\n");
+        // if (m_mc0) m_mc0->display(std::cout << "m_mc0\n");
     }
 
     void init_preprocess() {

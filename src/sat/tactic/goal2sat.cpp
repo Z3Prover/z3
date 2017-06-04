@@ -36,6 +36,7 @@ Notes:
 #include"model_v2_pp.h"
 #include"tactic.h"
 #include"ast_pp.h"
+#include"ast_util.h"
 #include"pb_decl_plugin.h"
 #include"card_extension.h"
 #include<sstream>
@@ -1143,7 +1144,6 @@ struct sat2goal::imp {
         assert_clauses(s, s.begin_clauses(), s.end_clauses(), r, true);
         assert_clauses(s, s.begin_learned(), s.end_learned(), r, false);
 
-        // TBD: collect assertions from plugin
         sat::card_extension* ext = get_card_extension(s);
         if (ext) {
             for (unsigned i = 0; i < ext->num_pb(); ++i) {
@@ -1157,6 +1157,73 @@ struct sat2goal::imp {
             }
         }
     }
+
+    void add_clause(sat::literal_vector const& lits, expr_ref_vector& lemmas) {
+        expr_ref_vector lemma(m);
+        for (sat::literal l : lits) {
+            expr* e = m_lit2expr.get(l.index(), 0);
+            if (!e) return;
+            lemma.push_back(e);
+        }
+        lemmas.push_back(mk_or(lemma));
+    }
+
+    void add_clause(sat::clause const& c, expr_ref_vector& lemmas) {
+        expr_ref_vector lemma(m);
+        for (sat::literal l : c) {
+            expr* e = m_lit2expr.get(l.index(), 0);
+            if (!e) return;
+            lemma.push_back(e);
+        }
+        lemmas.push_back(mk_or(lemma));
+    }
+
+    void get_learned(sat::solver const& s, atom2bool_var const& map, expr_ref_vector& lemmas) {
+        if (s.inconsistent()) {
+            lemmas.push_back(m.mk_false());
+            return;
+        }
+
+        unsigned num_vars = s.num_vars();
+        m_lit2expr.resize(num_vars * 2);
+        map.mk_inv(m_lit2expr);
+
+        sat::literal_vector lits;
+        // collect units
+        for (sat::bool_var v = 0; v < num_vars; v++) {
+            checkpoint();
+            lits.reset();
+            switch (s.value(v)) {
+            case l_true:
+                lits.push_back(sat::literal(v, false));
+                add_clause(lits, lemmas);
+                break;
+            case l_false:
+                lits.push_back(sat::literal(v, false));
+                add_clause(lits, lemmas);
+                break;
+            case l_undef:
+                break;
+            }
+        }
+        // collect learned binary clauses
+        svector<sat::solver::bin_clause> bin_clauses;
+        s.collect_bin_clauses(bin_clauses, true, true);
+        svector<sat::solver::bin_clause>::iterator it  = bin_clauses.begin();
+        svector<sat::solver::bin_clause>::iterator end = bin_clauses.end();
+        for (; it != end; ++it) {
+            checkpoint();
+            lits.reset();
+            lits.push_back(it->first);
+            lits.push_back(it->second);
+            add_clause(lits, lemmas);
+        }
+        // collect clauses
+        for (sat::clause const* c : s.learned()) {
+            add_clause(*c, lemmas);
+        }
+    }
+
 
 };
 
@@ -1184,5 +1251,11 @@ void sat2goal::operator()(sat::solver const & t, atom2bool_var const & m, params
     imp proc(g.m(), p);
     scoped_set_imp set(this, &proc);
     proc(t, m, g, mc);
+}
+
+void sat2goal::get_learned(sat::solver const & t, atom2bool_var const & m, params_ref const& p, expr_ref_vector& lemmas) {
+    imp proc(lemmas.get_manager(), p);
+    scoped_set_imp set(this, &proc);
+    proc.get_learned(t, m, lemmas);
 }
 

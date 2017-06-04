@@ -85,6 +85,13 @@ public:
        or memory consumption limit is reached (set with param :max-memory).
     */
     void operator()(sat::solver const & t, atom2bool_var const & m, params_ref const & p, goal & s, model_converter_ref & mc);
+
+
+    /**
+       \brief extract learned clauses only that are in the domain of m.
+       
+     */
+    void get_learned(sat::solver const& s, atom2bool_var const& m, params_ref const& p, expr_ref_vector& learned);
     
 };
 
