@@ -282,24 +282,25 @@ public:
 
     virtual expr_ref lookahead(expr_ref_vector const& candidates) { 
         sat::bool_var_vector vars;
-        u_map<expr*> var2candidate;
+        expr_ref_vector lit2expr(m);
+        m_map.mk_inv(lit2expr);
         for (auto c : candidates) {
-            // TBD: check membership
             sat::bool_var v = m_map.to_bool_var(c);
-            SASSERT(v != sat::null_bool_var);
-            vars.push_back(v);
-            var2candidate.insert(v, c);
+            if (v != sat::null_bool_var) {
+                vars.push_back(v);
+            }
+        }
+        if (vars.empty()) {
+            return expr_ref(m.mk_true(), m);
         }
         sat::literal l = m_solver.select_lookahead(vars);
+        if (m_solver.inconsistent()) {
+            return expr_ref(m.mk_false(), m);
+        }
         if (l == sat::null_literal) {
             return expr_ref(m.mk_true(), m);
         }
-        expr* e;
-        if (!var2candidate.find(l.var(), e)) {
-            // TBD: if candidate set is empty, then do something else.
-            e = m.mk_true();
-        }
-        return expr_ref(l.sign() ? m.mk_not(e) : e, m);
+        return expr_ref(lit2expr[l.index()].get(), m);
     }
 
     virtual lbool get_consequences_core(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq) {
