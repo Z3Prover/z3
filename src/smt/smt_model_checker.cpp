@@ -279,7 +279,7 @@ namespace smt {
             m_aux_context->pop(1);
             return r == l_false; // quantifier is satisfied by m_curr_model
         }
-		
+        
         model_ref complete_cex;
         m_aux_context->get_model(complete_cex); 
         
@@ -425,7 +425,7 @@ namespace smt {
         ptr_vector<quantifier>::const_iterator end = m_qm->end_quantifiers();
         for (; it != end; ++it) {
             quantifier * q = *it;
-	    if(!m_qm->mbqi_enabled(q)) continue;
+        if(!m_qm->mbqi_enabled(q)) continue;
             TRACE("model_checker", 
                   tout << "Check: " << mk_pp(q, m) << "\n";
                   tout << m_context->get_assignment(q) << "\n";);

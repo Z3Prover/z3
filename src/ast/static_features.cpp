@@ -391,7 +391,7 @@ void static_features::process(expr * e, bool form_ctx, bool or_and_ctx, bool ite
     if (is_marked(e)) {
         m_num_sharing++;
         return;
-    }	
+    }    
     if (stack_depth > m_max_stack_depth) {
         return;
     }

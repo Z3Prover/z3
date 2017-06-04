@@ -1728,7 +1728,7 @@ namespace pdr {
 
     void context::validate_search() {
         expr_ref tr = m_search.get_trace(*this);
-		TRACE("pdr", tout << tr << "\n";);
+        TRACE("pdr", tout << tr << "\n";);
         smt::kernel solver(m, get_fparams());
         solver.assert_expr(tr);
         lbool res = solver.check();

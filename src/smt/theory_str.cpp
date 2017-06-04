@@ -25,6 +25,7 @@
 #include<algorithm>
 #include"theory_seq_empty.h"
 #include"theory_arith.h"
+#include"ast_util.h"
 
 namespace smt {
     
@@ -98,7 +99,7 @@ namespace smt {
         if (defaultCharset) {
             // valid C strings can't contain the null byte ('\0')
             charSetSize = 255;
-            char_set = alloc_svect(char, charSetSize);
+            char_set.resize(256, 0);            
             int idx = 0;
             // small letters
             for (int i = 97; i < 123; i++) {
@@ -157,8 +158,7 @@ namespace smt {
         } else {
             const char setset[] = { 'a', 'b', 'c' };
             int fSize = sizeof(setset) / sizeof(char);
-
-            char_set = alloc_svect(char, fSize);
+            char_set.resize(fSize, 0);
             charSetSize = fSize;
             for (int i = 0; i < charSetSize; i++) {
                 char_set[i] = setset[i];
@@ -494,6 +494,7 @@ namespace smt {
 
         sort * string_sort = u.str.mk_string_sort();
         app * a = mk_fresh_const(name.c_str(), string_sort);
+        m_trail.push_back(a);
 
         TRACE("str", tout << "a->get_family_id() = " << a->get_family_id() << std::endl
               << "this->get_family_id() = " << this->get_family_id() << std::endl;);
@@ -507,7 +508,6 @@ namespace smt {
         m_basicstr_axiom_todo.push_back(ctx.get_enode(a));
         TRACE("str", tout << "add " << mk_pp(a, m) << " to m_basicstr_axiom_todo" << std::endl;);
 
-        m_trail.push_back(a);
         variable_set.insert(a);
         internal_variable_set.insert(a);
         track_variable_scope(a);
@@ -521,6 +521,7 @@ namespace smt {
 
         sort * string_sort = u.str.mk_string_sort();
         app * a = mk_fresh_const("regex", string_sort);
+        m_trail.push_back(a);
 
         ctx.internalize(a, false);
         SASSERT(ctx.get_enode(a) != NULL);
@@ -529,7 +530,6 @@ namespace smt {
         m_basicstr_axiom_todo.push_back(ctx.get_enode(a));
         TRACE("str", tout << "add " << mk_pp(a, m) << " to m_basicstr_axiom_todo" << std::endl;);
 
-        m_trail.push_back(a);
         variable_set.insert(a);
         //internal_variable_set.insert(a);
         regex_variable_set.insert(a);
@@ -5563,7 +5563,7 @@ namespace smt {
                         if (arg0VecSize > 0 && arg1VecSize > 0 && u.str.is_string(arg0_grdItor->first[arg0VecSize - 1]) && u.str.is_string(arg1_grdItor->first[0])) {
                             ndVec.pop_back();
                             ndVec.push_back(mk_concat(arg0_grdItor->first[arg0VecSize - 1], arg1_grdItor->first[0]));
-                            for (int i = 1; i < arg1VecSize; i++) {
+                            for (size_t i = 1; i < arg1VecSize; i++) {
                                 ndVec.push_back(arg1_grdItor->first[i]);
                             }
                         } else {
@@ -5666,7 +5666,7 @@ namespace smt {
         if (subStrCnt == 1) {
             zstring subStrVal;
             if (u.str.is_string(subStrVec[0], subStrVal)) {
-                for (int i = 0; i < strCnt; i++) {
+                for (size_t i = 0; i < strCnt; i++) {
                     zstring strVal;
                     if (u.str.is_string(strVec[i], strVal)) {
                         if (strVal.contains(subStrVal)) {
@@ -5675,7 +5675,7 @@ namespace smt {
                     }
                 }
             } else {
-                for (int i = 0; i < strCnt; i++) {
+                for (size_t i = 0; i < strCnt; i++) {
                     if (strVec[i] == subStrVec[0]) {
                         return true;
                     }
@@ -5683,7 +5683,7 @@ namespace smt {
             }
             return false;
         } else {
-            for (int i = 0; i <= (strCnt - subStrCnt); i++) {
+            for (size_t i = 0; i <= (strCnt - subStrCnt); i++) {
                 // The first node in subStrVect should be
                 //   * constant: a suffix of a note in strVec[i]
                 //   * variable:
@@ -5712,7 +5712,7 @@ namespace smt {
 
                 // middle nodes
                 bool midNodesOK = true;
-                for (int j = 1; j < subStrCnt - 1; j++) {
+                for (size_t j = 1; j < subStrCnt - 1; j++) {
                     if (subStrVec[j] != strVec[i + j]) {
                         midNodesOK = false;
                         break;
@@ -6927,9 +6927,9 @@ namespace smt {
         ast_manager & m = get_manager();
         if (lenTester_fvar_map.contains(lenTester)) {
             expr * fVar = lenTester_fvar_map[lenTester];
-            expr * toAssert = gen_len_val_options_for_free_var(fVar, lenTester, lenTesterValue);
+			expr_ref toAssert(gen_len_val_options_for_free_var(fVar, lenTester, lenTesterValue), m);
             TRACE("str", tout << "asserting more length tests for free variable " << mk_ismt2_pp(fVar, m) << std::endl;);
-            if (toAssert != NULL) {
+            if (toAssert) {
                 assert_axiom(toAssert);
             }
         }
@@ -9123,7 +9123,7 @@ namespace smt {
 
     zstring theory_str::gen_val_string(int len, int_vector & encoding) {
         SASSERT(charSetSize > 0);
-        SASSERT(char_set != NULL);
+        SASSERT(!char_set.empty());
 
         std::string re(len, char_set[0]);
         for (int i = 0; i < (int) encoding.size() - 1; i++) {
@@ -9173,7 +9173,7 @@ namespace smt {
         }
     }
 
-    expr * theory_str::gen_val_options(expr * freeVar, expr * len_indicator, expr * val_indicator,
+    expr* theory_str::gen_val_options(expr * freeVar, expr * len_indicator, expr * val_indicator,
                                        zstring lenStr, int tries) {
         ast_manager & m = get_manager();
         context & ctx = get_context();
@@ -9240,8 +9240,7 @@ namespace smt {
 
         // ----------------------------------------------------------------------------------------
         
-        ptr_vector<expr> orList;
-        ptr_vector<expr> andList;
+        expr_ref_vector orList(m), andList(m);
 
         for (long long i = l; i < h; i++) {
             orList.push_back(m.mk_eq(val_indicator, mk_string(longlong_to_string(i).c_str()) ));
@@ -9262,7 +9261,7 @@ namespace smt {
             } else {
                 strAst = mk_string(aStr);
             }
-            andList.push_back(m.mk_eq(orList[orList.size() - 1], m.mk_eq(freeVar, strAst)));
+            andList.push_back(m.mk_eq(orList[orList.size() - 1].get(), m.mk_eq(freeVar, strAst)));
         }
         if (!coverAll) {
             orList.push_back(m.mk_eq(val_indicator, mk_string("more")));
@@ -9273,21 +9272,8 @@ namespace smt {
             }
         }
 
-        expr ** or_items = alloc_svect(expr*, orList.size());
-        expr ** and_items = alloc_svect(expr*, andList.size() + 1);
-
-        for (int i = 0; i < (int) orList.size(); i++) {
-            or_items[i] = orList[i];
-        }
-        if (orList.size() > 1)
-            and_items[0] = m.mk_or(orList.size(), or_items);
-        else
-            and_items[0] = or_items[0];
-
-        for (int i = 0; i < (int) andList.size(); i++) {
-            and_items[i + 1] = andList[i];
-        }
-        expr * valTestAssert = m.mk_and(andList.size() + 1, and_items);
+        andList.push_back(mk_or(orList));
+        expr_ref valTestAssert = mk_and(andList);
 
         // ---------------------------------------
         // If the new value tester is $$_val_x_16_i
@@ -9300,20 +9286,9 @@ namespace smt {
             if (vTester != val_indicator)
                 andList.push_back(m.mk_eq(vTester, mk_string("more")));
         }
-        expr * assertL = NULL;
-        if (andList.size() == 1) {
-            assertL = andList[0];
-        } else {
-            expr ** and_items = alloc_svect(expr*, andList.size());
-            for (int i = 0; i < (int) andList.size(); i++) {
-                and_items[i] = andList[i];
-            }
-            assertL = m.mk_and(andList.size(), and_items);
-        }
-
+        expr_ref assertL = mk_and(andList);
         // (assertL => valTestAssert) <=> (!assertL OR valTestAssert)
-        valTestAssert = m.mk_or(m.mk_not(assertL), valTestAssert);
-        return valTestAssert;
+        return m.mk_or(m.mk_not(assertL), valTestAssert);
     }
 
     expr * theory_str::gen_free_var_options(expr * freeVar, expr * len_indicator,
@@ -9378,7 +9353,7 @@ namespace smt {
                           << " doesn't have an equivalence class value." << std::endl;);
                     refresh_theory_var(aTester);
 
-                    expr * makeupAssert = gen_val_options(freeVar, len_indicator, aTester, len_valueStr, i);
+                    expr_ref makeupAssert(gen_val_options(freeVar, len_indicator, aTester, len_valueStr, i), m);
 
                     TRACE("str", tout << "var: " << mk_ismt2_pp(freeVar, m) << std::endl
                           << mk_ismt2_pp(makeupAssert, m) << std::endl;);
@@ -9400,8 +9375,7 @@ namespace smt {
                     fvar_valueTester_map[freeVar][len].push_back(std::make_pair(sLevel, valTester));
                     print_value_tester_list(fvar_valueTester_map[freeVar][len]);
                 }
-                expr * nextAssert = gen_val_options(freeVar, len_indicator, valTester, len_valueStr, i + 1);
-                return nextAssert;
+                return gen_val_options(freeVar, len_indicator, valTester, len_valueStr, i + 1);
             }
 
             return NULL;

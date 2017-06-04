@@ -3035,7 +3035,7 @@ namespace smt {
         // not counting any literals that get assigned by this method
         // this relies on bcp() to give us its old m_qhead and therefore
         // bcp() should always be called before this method
-	
+    
         unsigned assigned_literal_end = m_assigned_literals.size();
         for (; qhead < assigned_literal_end; ++qhead) {
             literal l = m_assigned_literals[qhead];
