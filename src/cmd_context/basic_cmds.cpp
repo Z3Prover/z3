@@ -250,7 +250,7 @@ ATOMIC_CMD(get_assertions_cmd, "get-assertions", "retrieve asserted terms when i
 
 
 
-ATOMIC_CMD(reset_assertions_cmd, "reset-assertions", "reset all asserted formulas (but retain definitions and declarations)", ctx.reset_assertions(););
+ATOMIC_CMD(reset_assertions_cmd, "reset-assertions", "reset all asserted formulas (but retain definitions and declarations)", ctx.reset_assertions(); ctx.print_success(););
 
 UNARY_CMD(set_logic_cmd, "set-logic", "<symbol>", "set the background logic.", CPK_SYMBOL, symbol const &, 
           if (ctx.set_logic(arg))
