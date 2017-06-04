@@ -506,42 +506,39 @@ extern "C" {
     static std::string read_msg;
     static std::vector<Z3_ast> read_theory;
 
-    static bool iZ3_parse(Z3_context ctx, const char *filename, const char **error, svector<Z3_ast> &assertions){
+    static Z3_ast_vector iZ3_parse(Z3_context ctx, const char *filename, const char ** error){
         read_error.clear();
         try {
             std::string foo(filename);
             if (foo.size() >= 5 && foo.substr(foo.size() - 5) == ".smt2"){
                 Z3_ast_vector assrts = Z3_parse_smtlib2_file(ctx, filename, 0, 0, 0, 0, 0, 0);
                 Z3_ast_vector_inc_ref(ctx, assrts);
-                unsigned nconjs = Z3_ast_vector_size(ctx, assrts);
-                assertions.resize(nconjs);
-                for (unsigned k = 0; k < nconjs; k++)
-                    assertions[k] = Z3_ast_vector_get(ctx, assrts, k);
-                // Z3_ast_vector_dec_ref(ctx, assrts) is unsafe
+                return assrts;
             }
             else {
                 Z3_parse_smtlib_file(ctx, filename, 0, 0, 0, 0, 0, 0);
                 int numa = Z3_get_smtlib_num_assumptions(ctx);
                 int numf = Z3_get_smtlib_num_formulas(ctx);
-                int num = numa + numf;
+                Z3_ast_vector assrts = Z3_mk_ast_vector(ctx);
+                Z3_ast_vector_inc_ref(ctx, assrts);                
 
-                assertions.resize(num);
-                for (int j = 0; j < num; j++){
-                    if (j < numa)
-                        assertions[j] = Z3_get_smtlib_assumption(ctx, j);
-                    else
-                        assertions[j] = Z3_get_smtlib_formula(ctx, j - numa);
+                for (int j = 0; j < numa; j++){
+                    Z3_ast_vector_push(ctx, assrts, Z3_get_smtlib_assumption(ctx, j));
                 }
+                for (int j = 0; j < numf; j++){
+                    Z3_ast_vector_push(ctx, assrts, Z3_get_smtlib_formula(ctx, j));
+                }
+                return assrts;
             }
         }
         catch (...) {
             read_error << "SMTLIB parse error: " << Z3_get_smtlib_error(ctx);
             read_msg = read_error.str();
             *error = read_msg.c_str();
-            return false;
+            return 0;
         }
         Z3_set_error_handler(ctx, 0);
-        return true;
+        return 0;
     }
 
 
@@ -554,23 +551,23 @@ extern "C" {
         if (file_params.find("THEORY") != file_params.end())
             num_theory = atoi(file_params["THEORY"].c_str());
 
-        svector<Z3_ast> assertions;
-        if (!iZ3_parse(ctx, filename, error, assertions))
+        Z3_ast_vector assertions = iZ3_parse(ctx, filename, error);
+        if (assertions == 0)
             return false;
 
-        if (num_theory > assertions.size())
-            num_theory = assertions.size();
-        unsigned num = assertions.size() - num_theory;
+        if (num_theory > Z3_ast_vector_size(ctx, assertions))
+            num_theory = Z3_ast_vector_size(ctx, assertions);
+        unsigned num = Z3_ast_vector_size(ctx, assertions) - num_theory;
 
         read_cnsts.resize(num);
         read_parents.resize(num);
         read_theory.resize(num_theory);
 
         for (unsigned j = 0; j < num_theory; j++)
-            read_theory[j] = assertions[j];
+            read_theory[j] = Z3_ast_vector_get(ctx, assertions, j);
         for (unsigned j = 0; j < num; j++)
-            read_cnsts[j] = assertions[j + num_theory];
-
+            read_cnsts[j] = Z3_ast_vector_get(ctx, assertions, j + num_theory);
+        
         if (ret_num_theory)
             *ret_num_theory = num_theory;
         if (theory)
@@ -579,6 +576,7 @@ extern "C" {
         if (!parents){
             *_num = num;
             *cnsts = &read_cnsts[0];
+            Z3_ast_vector_dec_ref(ctx, assertions);
             return true;
         }
 
@@ -650,9 +648,11 @@ extern "C" {
         *_num = num;
         *cnsts = &read_cnsts[0];
         *parents = &read_parents[0];
+        Z3_ast_vector_dec_ref(ctx, assertions);
         return true;
 
     fail:
+        Z3_ast_vector_dec_ref(ctx, assertions);
         read_msg = read_error.str();
         *error = read_msg.c_str();
         return false;
