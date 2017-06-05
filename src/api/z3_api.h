@@ -5349,6 +5349,9 @@ extern "C" {
 
     /**
        \brief Add a new formula \c a to the given goal.
+        Conjunctions are split into separate formulas.
+        If the formula \c a is \c true, then nothing is added.
+        If the formula \c a is \c false, then the entire goal is replaced by the formula \c false.
 
        def_API('Z3_goal_assert', VOID, (_in(CONTEXT), _in(GOAL), _in(AST)))
     */
