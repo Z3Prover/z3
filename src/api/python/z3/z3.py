@@ -1304,8 +1304,10 @@ class BoolSortRef(SortRef):
         if isinstance(val, bool):
             return BoolVal(val, self.ctx)
         if __debug__:
-            _z3_assert(is_expr(val), "True, False or Z3 Boolean expression expected. Received %s" % val)
-            _z3_assert(self.eq(val.sort()), "Value cannot be converted into a Z3 Boolean value")
+            if not is_expr(val):
+               _z3_assert(is_expr(val), "True, False or Z3 Boolean expression expected. Received %s" % val)
+            if not self.eq(val.sort()):
+               _z3_assert(self.eq(val.sort()), "Value cannot be converted into a Z3 Boolean value")
         return val
 
     def subsort(self, other):

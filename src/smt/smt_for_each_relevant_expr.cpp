@@ -23,7 +23,7 @@ Revision History:
 
 namespace smt {
 
-	bool check_at_labels::check(expr* n) {
+    bool check_at_labels::check(expr* n) {
         m_first = true;
         return count_at_labels_pos(n) <= 1;
     }

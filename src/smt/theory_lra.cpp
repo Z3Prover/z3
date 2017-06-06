@@ -487,7 +487,7 @@ namespace smt {
                 result = m_theory_var2var_index[v];
             }
             if (result == UINT_MAX) {
-                result = m_solver->add_var(v);
+                result = m_solver->add_var(v); // TBD: is_int(v);
                 m_theory_var2var_index.setx(v, result, UINT_MAX);
                 m_var_index2theory_var.setx(result, v, UINT_MAX);
                 m_var_trail.push_back(v);

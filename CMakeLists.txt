@@ -275,18 +275,6 @@ else()
 endif()
 
 ################################################################################
-# FOCI2 support
-################################################################################
-# FIXME: What is this?
-option(USE_FOCI2 "Use FOCI2" OFF)
-if (USE_FOCI2)
-  message(FATAL_ERROR "TODO")
-  message(STATUS "Using FOCI2")
-else()
-  message(STATUS "Not using FOCI2")
-endif()
-
-################################################################################
 # OpenMP support
 ################################################################################
 option(USE_OPENMP "Use OpenMP" ON)
@@ -316,6 +304,23 @@ else()
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_NO_OMP_")
   message(STATUS "Not using OpenMP")
   set(USE_OPENMP OFF CACHE BOOL "Use OpenMP" FORCE)
+endif()
+
+################################################################################
+# API Log sync
+################################################################################
+option(API_LOG_SYNC
+  "Use locking when logging Z3 API calls (experimental)"
+  OFF
+)
+if (API_LOG_SYNC)
+  if (NOT USE_OPENMP)
+    message(FATAL_ERROR "API_LOG_SYNC feature requires OpenMP")
+  endif()
+  list(APPEND Z3_COMPONENT_CXX_DEFINES "-DZ3_LOG_SYNC")
+  message(STATUS "Using API_LOG_SYNC")
+else()
+  message(STATUS "Not using API_LOG_SYNC")
 endif()
 
 ################################################################################

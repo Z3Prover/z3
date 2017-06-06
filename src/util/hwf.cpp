@@ -29,7 +29,7 @@ Revision History:
 #include<fenv.h>
 #endif
 
-#if defined(__x86_64__) || defined(_M_X64) ||	\
+#if defined(__x86_64__) || defined(_M_X64) ||    \
     defined(__i386) || defined(_M_IX86)
 #define USE_INTRINSICS
 #endif

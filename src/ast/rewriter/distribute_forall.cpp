@@ -20,12 +20,12 @@ Revision History:
 --*/
 #include"var_subst.h"
 #include"ast_ll_pp.h"
-
+#include"ast_util.h"
 #include"distribute_forall.h"
+#include"bool_rewriter.h"
 
-distribute_forall::distribute_forall(ast_manager & m, basic_simplifier_plugin & p) :
+distribute_forall::distribute_forall(ast_manager & m) :
     m_manager(m),
-    m_bsimp(p),
     m_cache(m) {
 }
 
@@ -109,6 +109,8 @@ void distribute_forall::reduce1_quantifier(quantifier * q) {
 
     expr * e = get_cached(q->get_expr());
     if (m_manager.is_not(e) && m_manager.is_or(to_app(e)->get_arg(0))) {
+        bool_rewriter br(m_manager);
+
         // found target for simplification
         // (forall X (not (or F1 ... Fn)))
         // -->
@@ -121,8 +123,7 @@ void distribute_forall::reduce1_quantifier(quantifier * q) {
         for (unsigned i = 0; i < num_args; i++) {
             expr * arg = or_e->get_arg(i);
             expr_ref not_arg(m_manager);
-            // m_bsimp.mk_not applies basic simplifications. For example, if arg is of the form (not a), then it will return a.
-            m_bsimp.mk_not(arg, not_arg);
+            br.mk_not(arg, not_arg);
             quantifier_ref tmp_q(m_manager);
             tmp_q = m_manager.update_quantifier(q, not_arg);
             expr_ref new_q(m_manager);
@@ -132,7 +133,7 @@ void distribute_forall::reduce1_quantifier(quantifier * q) {
         expr_ref result(m_manager);
         // m_bsimp.mk_and actually constructs a (not (or ...)) formula,
         // it will also apply basic simplifications.
-        m_bsimp.mk_and(new_args.size(), new_args.c_ptr(), result);
+        br.mk_and(new_args.size(), new_args.c_ptr(), result);
         cache_result(q, result);
     }
     else {

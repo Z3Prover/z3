@@ -115,22 +115,22 @@ void format2ostream(std::ostream & out, char const* msg, va_list args) {
     while (true) {
         int nc = VPRF(buff.c_ptr(), buff.size(), msg, args);                                                
 #if !defined(_WINDOWS) && defined(_AMD64_)
-	// For some strange reason, on Linux 64-bit version, va_list args is reset by vsnprintf.
-	// Z3 crashes when trying to use va_list args again.
+    // For some strange reason, on Linux 64-bit version, va_list args is reset by vsnprintf.
+    // Z3 crashes when trying to use va_list args again.
         // Hack: I truncate the message instead of expanding the buffer to make sure that
         // va_list args is only used once.
-	END_ERR_HANDLER();
-	if (nc < 0) {
-	  // vsnprintf didn't work, so we just print the msg
-	  out << msg; 
-	  return;
-	}
-	if (nc >= static_cast<int>(buff.size())) {
+    END_ERR_HANDLER();
+    if (nc < 0) {
+      // vsnprintf didn't work, so we just print the msg
+      out << msg; 
+      return;
+    }
+    if (nc >= static_cast<int>(buff.size())) {
           // truncate the message
           buff[buff.size() - 1] = 0;
-	}
+    }
         out << buff.c_ptr();
-	return;
+    return;
 #else
         if (nc >= 0 && nc < static_cast<int>(buff.size()))
             break; // success

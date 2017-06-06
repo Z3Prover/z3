@@ -250,7 +250,7 @@ ATOMIC_CMD(get_assertions_cmd, "get-assertions", "retrieve asserted terms when i
 
 
 
-ATOMIC_CMD(reset_assertions_cmd, "reset-assertions", "reset all asserted formulas (but retain definitions and declarations)", ctx.reset_assertions(););
+ATOMIC_CMD(reset_assertions_cmd, "reset-assertions", "reset all asserted formulas (but retain definitions and declarations)", ctx.reset_assertions(); ctx.print_success(););
 
 UNARY_CMD(set_logic_cmd, "set-logic", "<symbol>", "set the background logic.", CPK_SYMBOL, symbol const &, 
           if (ctx.set_logic(arg))
@@ -622,7 +622,7 @@ public:
         m_status(":status"),
         m_reason_unknown(":reason-unknown"),
         m_all_statistics(":all-statistics"),
-        m_assertion_stack_levels("assertion-stack-levels") {
+        m_assertion_stack_levels(":assertion-stack-levels") {
     }
     virtual char const * get_usage() const { return "<keyword>"; }
     virtual char const * get_descr(cmd_context & ctx) const { return "get information."; }
@@ -652,7 +652,7 @@ public:
             ctx.regular_stream() << "(:status " << ctx.get_status() << ")" << std::endl;
         }
         else if (opt == m_reason_unknown) {
-            ctx.regular_stream() << "(:reason-unknown \"" << ctx.reason_unknown() << "\")" << std::endl;
+            ctx.regular_stream() << "(:reason-unknown \"" << escaped(ctx.reason_unknown().c_str()) << "\")" << std::endl;
         }
         else if (opt == m_all_statistics) {
             ctx.display_statistics();
@@ -852,9 +852,7 @@ void install_basic_cmds(cmd_context & ctx) {
     ctx.insert(alloc(builtin_cmd, "declare-datatypes", "(<symbol>*) (<datatype-declaration>+)", "declare mutually recursive datatypes.\n<datatype-declaration> ::= (<symbol> <constructor-decl>+)\n<constructor-decl> ::= (<symbol> <accessor-decl>*)\n<accessor-decl> ::= (<symbol> <sort>)\nexample: (declare-datatypes (T) ((BinTree (leaf (value T)) (node (left BinTree) (right BinTree)))))"));
     ctx.insert(alloc(builtin_cmd, "check-sat-asuming", "( hprop_literali* )", "check sat assuming a collection of literals"));
 
-    // ctx.insert(alloc(builtin_cmd, "define-fun-rec", "hfun-defi", "define a function satisfying recursive equations"));
-    // ctx.insert(alloc(builtin_cmd, "define-funs-rec", "( hfun_decin+1 ) ( htermin+1 )", "define multiple mutually recursive functions"));
-    // ctx.insert(alloc(get_unsat_assumptions_cmd));
+    ctx.insert(alloc(get_unsat_assumptions_cmd));
     ctx.insert(alloc(reset_assertions_cmd));
 }
 

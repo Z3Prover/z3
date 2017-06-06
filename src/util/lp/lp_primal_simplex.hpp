@@ -152,7 +152,6 @@ template <typename T, typename X> void lp_primal_simplex<T, X>::set_core_solver_
 
 
 template <typename T, typename X> void lp_primal_simplex<T, X>::find_maximal_solution() {
-    int preprocessing_start_time = get_millisecond_count();
     if (this->problem_is_empty()) {
         this->m_status = lp_status::EMPTY;
         return;
@@ -169,7 +168,6 @@ template <typename T, typename X> void lp_primal_simplex<T, X>::find_maximal_sol
     fill_acceptable_values_for_x();
     this->count_slacks_and_artificials();
     set_core_solver_bounds();
-    update_time_limit_from_starting_time(preprocessing_start_time);
     solve_with_total_inf();
 }
 

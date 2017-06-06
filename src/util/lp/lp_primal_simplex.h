@@ -55,10 +55,6 @@ public:
     
     void set_core_solver_bounds();
 
-    void update_time_limit_from_starting_time(int start_time) {
-        this->m_settings.time_limit -= (get_millisecond_span(start_time) / 1000.);
-    }
-
     void find_maximal_solution();
 
     void fill_A_x_and_basis_for_stage_one_total_inf();
