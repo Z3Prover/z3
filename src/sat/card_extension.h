@@ -21,7 +21,9 @@ Revision History:
 
 #include"sat_extension.h"
 #include"sat_solver.h"
+#include"sat_lookahead.h"
 #include"scoped_ptr_vector.h"
+
 
 namespace sat {
     
@@ -116,52 +118,8 @@ namespace sat {
             void push(literal l, unsigned c) { m_lits.push_back(l); m_coeffs.push_back(c); }
         };
 
-        typedef ptr_vector<card> card_watch;
-        typedef ptr_vector<xor> xor_watch;
-        typedef ptr_vector<pb>  pb_watch;
-        struct var_info {
-            card_watch* m_card_watch[2];
-            pb_watch*   m_pb_watch[2];
-            xor_watch*  m_xor_watch;
-            card*       m_card;
-            pb*         m_pb;
-            xor*        m_xor;
-            var_info(): m_xor_watch(0), m_card(0), m_xor(0), m_pb(0) {
-                m_card_watch[0] = 0;
-                m_card_watch[1] = 0;
-                m_pb_watch[0] = 0;
-                m_pb_watch[1] = 0;
-            }
-            void reset() {
-                dealloc(m_card);
-                dealloc(m_xor);
-                dealloc(m_pb);
-                dealloc(card_extension::set_tag_non_empty(m_card_watch[0]));
-                dealloc(card_extension::set_tag_non_empty(m_card_watch[1]));
-                dealloc(card_extension::set_tag_non_empty(m_pb_watch[0]));
-                dealloc(card_extension::set_tag_non_empty(m_pb_watch[1]));
-                dealloc(card_extension::set_tag_non_empty(m_xor_watch));
-            }
-        };
-        
-        template<typename T>
-        static ptr_vector<T>* set_tag_empty(ptr_vector<T>* c) {
-            return TAG(ptr_vector<T>*, c, 1);
-        }
-
-        template<typename T>
-        static bool is_tag_empty(ptr_vector<T> const* c) {
-            return !c || GET_TAG(c) == 1;
-        }
-
-        template<typename T>
-        static ptr_vector<T>* set_tag_non_empty(ptr_vector<T>* c) {
-            return UNTAG(ptr_vector<T>*, c);
-        }
-
-
-
         solver*             m_solver;
+        lookahead*          m_lookahead;
         stats               m_stats;        
 
         ptr_vector<card>    m_cards;
@@ -172,9 +130,8 @@ namespace sat {
         scoped_ptr_vector<pb>   m_pb_axioms;
 
         // watch literals
-        svector<var_info>   m_var_infos;
-        unsigned_vector     m_var_trail;
-        unsigned_vector     m_var_lim;       
+        unsigned_vector     m_index_trail;
+        unsigned_vector     m_index_lim;       
 
         // conflict resolution
         unsigned          m_num_marks;
@@ -185,7 +142,6 @@ namespace sat {
         tracked_uint_set  m_active_var_set;
         literal_vector    m_lemma;
         unsigned          m_num_propagations_since_pop;
-        bool              m_has_xor;
         unsigned_vector   m_parity_marks;
         literal_vector    m_parity_trail;
 
@@ -206,7 +162,7 @@ namespace sat {
         void clear_watch(card& c);
         void reset_coeffs();
         void reset_marked_literals();
-        void unwatch_literal(literal w, card* c);
+        void unwatch_literal(literal w, card& c);
         void get_card_antecedents(literal l, card const& c, literal_vector & r);
 
 
@@ -214,13 +170,12 @@ namespace sat {
         void copy_xor(card_extension& result);
         void clear_watch(xor& x);
         void watch_literal(xor& x, literal lit);
-        void unwatch_literal(literal w, xor* x);
+        void unwatch_literal(literal w, xor& x);
         void init_watch(xor& x, bool is_true);
         void assign(xor& x, literal lit);
         void set_conflict(xor& x, literal lit);
         bool parity(xor const& x, unsigned offset) const;
         lbool add_assign(xor& x, literal alit);
-        void asserted_xor(literal l, ptr_vector<xor>* xors, xor* x);
         void get_xor_antecedents(literal l, unsigned index, justification js, literal_vector& r);
         void get_xor_antecedents(literal l, xor const& x, literal_vector & r);
 
@@ -236,7 +191,6 @@ namespace sat {
         // pb functionality
         unsigned m_a_max;
         void copy_pb(card_extension& result);
-        void asserted_pb(literal l, ptr_vector<pb>* pbs, pb* p);
         void init_watch(pb& p, bool is_true);
         lbool add_assign(pb& p, literal alit);
         void add_index(pb& p, unsigned index, literal lit);
@@ -244,28 +198,18 @@ namespace sat {
         void clear_watch(pb& p);
         void set_conflict(pb& p, literal lit);
         void assign(pb& p, literal l);
-        void unwatch_literal(literal w, pb* p);
+        void unwatch_literal(literal w, pb& p);
         void get_pb_antecedents(literal l, pb const& p, literal_vector & r);
 
-
-        template<typename T>
-        bool remove(ptr_vector<T>& ts, T* t) {
-            unsigned sz = ts.size();
-            for (unsigned j = 0; j < sz; ++j) {
-                if (ts[j] == t) {                        
-                    std::swap(ts[j], ts[sz-1]);
-                    ts.pop_back();
-                    return sz == 1;
-                }
-            }
-            return false;
-        }
-    
-
-
-        inline lbool value(literal lit) const { return m_solver->value(lit); }
+        inline lbool value(literal lit) const { return m_lookahead ? m_lookahead->value(lit) : m_solver->value(lit); }
         inline unsigned lvl(literal lit) const { return m_solver->lvl(lit); }
         inline unsigned lvl(bool_var v) const { return m_solver->lvl(v); }
+        inline bool inconsistent() const { return m_lookahead ? m_lookahead->inconsistent() : m_solver->inconsistent(); }
+        inline watch_list& get_wlist(literal l) { return m_lookahead ? m_lookahead->get_wlist(l) : m_solver->get_wlist(l); }
+        inline void assign(literal l, justification j) { if (m_lookahead) m_lookahead->assign(l); else m_solver->assign(l, j); }
+        inline void set_conflict(justification j, literal l) { if (m_lookahead) m_lookahead->set_conflict(); else m_solver->set_conflict(j, l); }
+        inline config const& get_config() const { return m_solver->get_config(); }
+        inline void drat_add(literal_vector const& c, svector<drat::premise> const& premises) { m_solver->m_drat.add(c, premises); }
 
 
         void normalize_active_coeffs();
@@ -296,13 +240,12 @@ namespace sat {
         void display(std::ostream& out, card const& c, bool values) const;
         void display(std::ostream& out, pb const& p, bool values) const;
         void display(std::ostream& out, xor const& c, bool values) const;
-        void display_watch(std::ostream& out, bool_var v) const;
-        void display_watch(std::ostream& out, bool_var v, bool sign) const;
 
     public:
         card_extension();
         virtual ~card_extension();
         virtual void set_solver(solver* s) { m_solver = s; }
+        virtual void set_lookahead(lookahead* l) { m_lookahead = l; }
         void    add_at_least(bool_var v, literal_vector const& lits, unsigned k);
         void    add_pb_ge(bool_var v, svector<wliteral> const& wlits, unsigned k);
         void    add_xor(bool_var v, literal_vector const& lits);

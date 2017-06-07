@@ -124,6 +124,7 @@ namespace sat {
     };
 
     class solver;
+    class lookahead;
     class clause;
     class clause_wrapper;
     class integrity_checker;

@@ -79,12 +79,6 @@ namespace sat {
         }
     }
 
-    void card_extension::init_watch(bool_var v) {
-        if (m_var_infos.size() <= static_cast<unsigned>(v)) {
-            m_var_infos.resize(static_cast<unsigned>(v)+100);
-        }
-    }
-
     void card_extension::init_watch(card& c, bool is_true) {
         clear_watch(c);
         if (c.lit() != null_literal && c.lit().sign() == is_true) {
@@ -94,7 +88,7 @@ namespace sat {
         SASSERT(c.lit() == null_literal || value(c.lit()) == l_true);
         unsigned j = 0, sz = c.size(), bound = c.k();
         if (bound == sz) {
-            for (unsigned i = 0; i < sz && !s().inconsistent(); ++i) {
+            for (unsigned i = 0; i < sz && !inconsistent(); ++i) {
                 assign(c, c[i]);
             }
             return;
@@ -135,7 +129,7 @@ namespace sat {
             set_conflict(c, alit);
         }
         else if (j == bound) {
-            for (unsigned i = 0; i < bound && !s().inconsistent(); ++i) {
+            for (unsigned i = 0; i < bound && !inconsistent(); ++i) {
                 assign(c, c[i]);                
             }
         }
@@ -149,20 +143,12 @@ namespace sat {
     void card_extension::clear_watch(card& c) {
         unsigned sz = std::min(c.k() + 1, c.size());
         for (unsigned i = 0; i < sz; ++i) {
-            unwatch_literal(c[i], &c);            
+            unwatch_literal(c[i], c);            
         }
     }
 
-    void card_extension::unwatch_literal(literal lit, card* c) {
-        if (m_var_infos.size() <= static_cast<unsigned>(lit.var())) {
-            return;
-        }
-        ptr_vector<card>*& cards = m_var_infos[lit.var()].m_card_watch[lit.sign()];
-        if (!is_tag_empty(cards)) {
-            if (remove(*cards, c)) {
-                cards = set_tag_empty(cards);
-            }        
-        }
+    void card_extension::unwatch_literal(literal lit, card& c) {
+        get_wlist(~lit).erase(watched(c.index()));
     }
 
     void card_extension::assign(card& c, literal lit) {
@@ -177,7 +163,7 @@ namespace sat {
             m_num_propagations_since_pop++;
             //TRACE("sat", tout << "#prop: " << m_stats.m_num_propagations << " - " << c.lit() << " => " << lit << "\n";);
             SASSERT(validate_unit_propagation(c));
-            if (s().m_config.m_drat) {
+            if (get_config().m_drat) {
                 svector<drat::premise> ps;
                 literal_vector lits;
                 if (c.lit() != null_literal) lits.push_back(~c.lit());
@@ -186,27 +172,16 @@ namespace sat {
                 }
                 lits.push_back(lit);
                 ps.push_back(drat::premise(drat::s_ext(), c.lit())); // null_literal case.
-                s().m_drat.add(lits, ps);
+                drat_add(lits, ps);
             }
-            s().assign(lit, justification::mk_ext_justification(c.index()));
+            assign(lit, justification::mk_ext_justification(c.index()));
             break;
         }
     }
 
     void card_extension::watch_literal(card& c, literal lit) {
         TRACE("sat_verbose", tout << "watch: " << lit << "\n";);
-        init_watch(lit.var());
-        ptr_vector<card>* cards = m_var_infos[lit.var()].m_card_watch[lit.sign()];
-        if (cards == 0) {
-            cards = alloc(ptr_vector<card>);
-            m_var_infos[lit.var()].m_card_watch[lit.sign()] = cards;
-        }
-        else if (is_tag_empty(cards)) {
-            cards = set_tag_non_empty(cards);
-            m_var_infos[lit.var()].m_card_watch[lit.sign()] = cards;            
-        }
-        TRACE("sat_verbose", tout << "insert: " << lit.var() << " " << lit.sign() << "\n";);
-        cards->push_back(&c);
+        get_wlist(~lit).push_back(watched(c.index()));
     }
 
     void card_extension::set_conflict(card& c, literal lit) {
@@ -214,8 +189,8 @@ namespace sat {
         TRACE("sat", display(tout, c, true); );
         SASSERT(validate_conflict(c));
         SASSERT(value(lit) == l_false);
-        s().set_conflict(justification::mk_ext_justification(c.index()), ~lit);
-        SASSERT(s().inconsistent());
+        set_conflict(justification::mk_ext_justification(c.index()), ~lit);
+        SASSERT(inconsistent());
     }
 
     // pb:
@@ -322,7 +297,7 @@ namespace sat {
     lbool card_extension::add_assign(pb& p, literal alit) {
 
         TRACE("sat", display(tout << "assign: " << alit << "\n", p, true););
-        SASSERT(!s().inconsistent());
+        SASSERT(!inconsistent());
         unsigned sz = p.size();
         unsigned bound = p.k();
         unsigned num_watch = p.num_watch();
@@ -332,7 +307,7 @@ namespace sat {
         SASSERT(num_watch <= sz);
         SASSERT(num_watch > 0);
         unsigned index = 0;
-        m_a_max = 0;
+        m_a_max = 0;        
         m_pb_undef.reset();
         for (; index < num_watch; ++index) {
             literal lit = p[index].second;
@@ -364,7 +339,7 @@ namespace sat {
             }
         }
 
-        SASSERT(!s().inconsistent());
+        SASSERT(!inconsistent());
         DEBUG_CODE(for (auto idx : m_pb_undef) { SASSERT(value(p[idx].second) == l_undef); });
 
         if (slack < bound) {
@@ -400,7 +375,7 @@ namespace sat {
             }
 
             for (literal lit : to_assign) {
-                if (s().inconsistent()) break;
+                if (inconsistent()) break;
                 if (value(lit) == l_undef) {
                     assign(p, lit);
                 }				
@@ -415,37 +390,18 @@ namespace sat {
 
     void card_extension::watch_literal(pb& p, wliteral l) {
         literal lit = l.second;
-        init_watch(lit.var());
-        ptr_vector<pb>* pbs = m_var_infos[lit.var()].m_pb_watch[lit.sign()];
-        if (pbs == 0) {
-            pbs = alloc(ptr_vector<pb>);
-            m_var_infos[lit.var()].m_pb_watch[lit.sign()] = pbs;
-        }
-        else if (is_tag_empty(pbs)) {
-            pbs = set_tag_non_empty(pbs);
-            m_var_infos[lit.var()].m_pb_watch[lit.sign()] = pbs;            
-        }
-        TRACE("sat_verbose", tout << "insert: " << lit.var() << " " << lit.sign() << "\n";);
-        pbs->push_back(&p);
+        get_wlist(~lit).push_back(watched(p.index()));
     }
 
     void card_extension::clear_watch(pb& p) {
         unsigned sz = p.size();
         for (unsigned i = 0; i < sz; ++i) {
-            unwatch_literal(p[i].second, &p);            
+            unwatch_literal(p[i].second, p);            
         }
     }
     
-    void card_extension::unwatch_literal(literal lit, pb* p) {
-        if (m_var_infos.size() <= static_cast<unsigned>(lit.var())) {
-            return;
-        }
-        pb_watch*& pbs = m_var_infos[lit.var()].m_pb_watch[lit.sign()];
-        if (!is_tag_empty(pbs)) {
-            if (remove(*pbs, p)) {
-                pbs = set_tag_empty(pbs);
-            }        
-        }
+    void card_extension::unwatch_literal(literal lit, pb& p) {
+        get_wlist(~lit).erase(watched(p.index()));        
     }
 
     void card_extension::set_conflict(pb& p, literal lit) {
@@ -453,8 +409,8 @@ namespace sat {
         TRACE("sat", display(tout, p, true); );
         // SASSERT(validate_conflict(p));
         SASSERT(value(lit) == l_false);
-        s().set_conflict(justification::mk_ext_justification(p.index()), ~lit);
-        SASSERT(s().inconsistent());
+        set_conflict(justification::mk_ext_justification(p.index()), ~lit);
+        SASSERT(inconsistent());
     }
 
     void card_extension::assign(pb& p, literal lit) {
@@ -468,15 +424,15 @@ namespace sat {
             SASSERT(validate_unit_propagation(p, lit));
             m_stats.m_num_pb_propagations++;
             m_num_propagations_since_pop++;
-            if (s().m_config.m_drat) {
+            if (get_config().m_drat) {
                 svector<drat::premise> ps;
                 literal_vector lits;
                 get_pb_antecedents(lit, p, lits);
                 lits.push_back(lit);
                 ps.push_back(drat::premise(drat::s_ext(), p.lit()));
-                s().m_drat.add(lits, ps);
+                drat_add(lits, ps);
             }
-            s().assign(lit, justification::mk_ext_justification(p.index()));
+            assign(lit, justification::mk_ext_justification(p.index()));
             break;
         }
     }
@@ -513,53 +469,6 @@ namespace sat {
         out << ">= " << p.k()  << "\n";
     }
 
-    void card_extension::asserted_pb(literal l, ptr_vector<pb>* pbs, pb* p0) {
-        TRACE("sat", tout << "literal: " << l << " has pb: " << !is_tag_empty(pbs) << " p0 != 0: " << (p0 != 0) << "\n";);
-        if (!is_tag_empty(pbs)) {
-            ptr_vector<pb>::iterator begin = pbs->begin();
-            ptr_vector<pb>::iterator it = begin, it2 = it, end = pbs->end();
-            for (; it != end; ++it) {
-                pb& p = *(*it);
-                if (p.lit() != null_literal && value(p.lit()) != l_true) {
-                    continue;
-                }
-                switch (add_assign(p, ~l)) {
-                case l_true: // unit propagation, keep watching the literal
-                    if (it2 != it) {
-                        *it2 = *it;
-                    }
-                    ++it2;
-                    break;
-                case l_false: // conflict.
-                    SASSERT(s().inconsistent());
-                    for (; it != end; ++it, ++it2) {
-                        *it2 = *it;
-                    }
-                    pbs->set_end(it2);
-                    return;                
-                case l_undef: // watch literal was swapped
-                    if (s().inconsistent()) {
-                        ++it;
-                        for (; it != end; ++it, ++it2) {
-                            *it2 = *it;
-                        }
-                        pbs->set_end(it2);
-                        return;
-                    }
-                    break; 
-                }
-            }
-            pbs->set_end(it2);
-            if (pbs->empty()) {
-                m_var_infos[l.var()].m_pb_watch[!l.sign()] = set_tag_empty(pbs);
-            }
-        }
-
-        if (p0 != 0 && !s().inconsistent()) {
-            init_watch(*p0, !l.sign());
-        }        
-    }
-
     // xor:
 
     void card_extension::copy_xor(card_extension& result) {
@@ -575,20 +484,12 @@ namespace sat {
     }
 
     void card_extension::clear_watch(xor& x) {
-        unwatch_literal(x[0], &x);
-        unwatch_literal(x[1], &x);         
+        unwatch_literal(x[0], x);
+        unwatch_literal(x[1], x);         
     }
 
-    void card_extension::unwatch_literal(literal lit, xor* c) {
-        if (m_var_infos.size() <= static_cast<unsigned>(lit.var())) {
-            return;
-        }
-        xor_watch*& xors = m_var_infos[lit.var()].m_xor_watch;
-        if (!is_tag_empty(xors)) {
-            if (remove(*xors, c)) {
-                xors = set_tag_empty(xors);
-            }        
-        }
+    void card_extension::unwatch_literal(literal lit, xor& c) {
+        get_wlist(~lit).erase(watched(c.index()));
     }
 
     bool card_extension::parity(xor const& x, unsigned offset) const {
@@ -620,16 +521,15 @@ namespace sat {
         switch (j) {
         case 0: 
             if (!parity(x, 0)) {
-                literal_set litset;
-                for (unsigned i = 0; i < sz; ++i) {
-                    litset.insert(x[i]);
+                unsigned l = lvl(x[0]);
+                j = 1;
+                for (unsigned i = 1; i < sz; ++i) {
+                    if (lvl(x[i]) > l) {
+                        j = i;
+                        l = lvl(x[i]);
+                    } 
                 }
-                literal_vector const& lits = s().m_trail;
-                unsigned idx = lits.size()-1;
-                while (!litset.contains(lits[idx])) {
-                    --idx;
-                }                
-                set_conflict(x, lits[idx]);
+                set_conflict(x, x[j]);
             }
             break;
         case 1: 
@@ -644,18 +544,18 @@ namespace sat {
     }
 
     void card_extension::assign(xor& x, literal lit) {
-        SASSERT(!s().inconsistent());
+        SASSERT(!inconsistent());
         switch (value(lit)) {
         case l_true: 
             break;
         case l_false: 
             set_conflict(x, lit); 
-            SASSERT(s().inconsistent());
+            SASSERT(inconsistent());
             break;
         default:
             m_stats.m_num_xor_propagations++;
             m_num_propagations_since_pop++;
-            if (s().m_config.m_drat) {
+            if (get_config().m_drat) {
                 svector<drat::premise> ps;
                 literal_vector lits;
                 if (x.lit() != null_literal) lits.push_back(~x.lit());
@@ -664,25 +564,17 @@ namespace sat {
                 }
                 lits.push_back(lit);
                 ps.push_back(drat::premise(drat::s_ext(), x.lit()));
-                s().m_drat.add(lits, ps);
+                drat_add(lits, ps);
             }
             TRACE("sat", display(tout << lit << " ", x, true););
-            s().assign(lit, justification::mk_ext_justification(x.index()));
+            assign(lit, justification::mk_ext_justification(x.index()));
             break;
         }
     }
 
     void card_extension::watch_literal(xor& x, literal lit) {
         TRACE("sat_verbose", tout << "watch: " << lit << "\n";);
-        init_watch(lit.var());
-        xor_watch*& xors = m_var_infos[lit.var()].m_xor_watch;
-        if (xors == 0) {
-            xors = alloc(ptr_vector<xor>);
-        }
-        else if (is_tag_empty(xors)) {
-            xors = set_tag_non_empty(xors);
-        }
-        xors->push_back(&x);
+        get_wlist(~lit).push_back(watched(x.index()));
         TRACE("sat_verbose", tout << "insert: " << lit.var() << " " << lit.sign() << "\n";);
     }
 
@@ -693,8 +585,8 @@ namespace sat {
         if (value(lit) == l_true) lit.neg();
         SASSERT(validate_conflict(x));
         TRACE("sat", display(tout << lit << " ", x, true););
-        s().set_conflict(justification::mk_ext_justification(x.index()), ~lit);
-        SASSERT(s().inconsistent());
+        set_conflict(justification::mk_ext_justification(x.index()), ~lit);
+        SASSERT(inconsistent());
     }
 
     lbool card_extension::add_assign(xor& x, literal alit) {
@@ -735,48 +627,8 @@ namespace sat {
         else if (!parity(x, 0)) {
             set_conflict(x, ~x[1]);
         }      
-        return s().inconsistent() ? l_false : l_true;  
+        return inconsistent() ? l_false : l_true;  
     }
-
-    void card_extension::asserted_xor(literal l, ptr_vector<xor>* xors, xor* x) {
-        TRACE("sat", tout << l << " " << !is_tag_empty(xors) << " " << (x != 0) << "\n";);
-        if (!is_tag_empty(xors)) {
-            ptr_vector<xor>::iterator begin = xors->begin();
-            ptr_vector<xor>::iterator it = begin, it2 = it, end = xors->end();
-            for (; it != end; ++it) {
-                xor& c = *(*it);
-                if (c.lit() != null_literal && value(c.lit()) != l_true) {
-                    continue;
-                }
-                switch (add_assign(c, ~l)) {
-                case l_false: // conflict
-                    for (; it != end; ++it, ++it2) {
-                        *it2 = *it;
-                    }
-                    SASSERT(s().inconsistent());
-                    xors->set_end(it2);
-                    return;
-                case l_undef: // watch literal was swapped
-                    break;
-                case l_true: // unit propagation, keep watching the literal
-                    if (it2 != it) {
-                        *it2 = *it;
-                    }
-                    ++it2;
-                    break;
-                }
-            }
-            xors->set_end(it2);
-            if (xors->empty()) {
-                m_var_infos[l.var()].m_xor_watch = set_tag_empty(xors);
-            }
-        }
-
-        if (x != 0 && !s().inconsistent()) {
-            init_watch(*x, !l.sign());
-        }
-    }
-
     
     void card_extension::normalize_active_coeffs() {
         while (!m_active_var_set.empty()) m_active_var_set.erase();
@@ -840,7 +692,6 @@ namespace sat {
         }
         m_active_vars.reset();
     }
-
 
     bool card_extension::resolve_conflict() {        
         if (0 == m_num_propagations_since_pop) {
@@ -1084,9 +935,9 @@ namespace sat {
         
         TRACE("sat", tout << m_lemma << "\n";);
 
-        if (s().m_config.m_drat) {
+        if (get_config().m_drat) {
             svector<drat::premise> ps; // TBD fill in
-            s().m_drat.add(m_lemma, ps);
+            drat_add(m_lemma, ps);
         }
 
         s().m_lemma.reset();
@@ -1155,16 +1006,11 @@ namespace sat {
         return p;        
     }
 
-    card_extension::card_extension(): m_solver(0), m_has_xor(false) {        
+    card_extension::card_extension(): m_solver(0), m_lookahead(0) {        
         TRACE("sat", tout << this << "\n";);
     }
 
     card_extension::~card_extension() {
-        for (unsigned i = 0; i < m_var_infos.size(); ++i) {
-            m_var_infos[i].reset();
-        }
-        m_var_trail.reset();
-        m_var_lim.reset();
         m_stats.reset();
     }
 
@@ -1180,9 +1026,9 @@ namespace sat {
             m_card_axioms.push_back(c);
         }
         else {
-            init_watch(v);
-            m_var_infos[v].m_card = c;
-            m_var_trail.push_back(v);
+            get_wlist(literal(v, false)).push_back(index);
+            get_wlist(literal(v, true)).push_back(index);
+            m_index_trail.push_back(index);
         }
     }
 
@@ -1197,27 +1043,57 @@ namespace sat {
             m_pb_axioms.push_back(p);
         }
         else {
-            init_watch(v);
-            m_var_infos[v].m_pb = p;
-            m_var_trail.push_back(v);
+            get_wlist(literal(v, false)).push_back(index);
+            get_wlist(literal(v, true)).push_back(index);
+            m_index_trail.push_back(index);
         }
     }
 
 
     void card_extension::add_xor(bool_var v, literal_vector const& lits) {
-        m_has_xor = true;
         unsigned index = 4*m_xors.size() + 0x1;
         SASSERT(is_xor_index(index));
+        SASSERT(v != null_bool_var);
         xor* x = new (memory::allocate(xor::get_obj_size(lits.size()))) xor(index, literal(v, false), lits);
         m_xors.push_back(x);
-        init_watch(v);
-        m_var_infos[v].m_xor = x;
-        m_var_trail.push_back(v);
+        get_wlist(literal(v, false)).push_back(index);
+        get_wlist(literal(v, true)).push_back(index);
+        m_index_trail.push_back(index);
     }
 
 
     void card_extension::propagate(literal l, ext_constraint_idx idx, bool & keep) {
-        UNREACHABLE();
+        TRACE("sat", tout << l << " " << idx << "\n";);
+        if (is_pb_index(idx)) {
+            pb& p = index2pb(idx);
+            if (l.var() == p.lit().var()) {
+                init_watch(p, !l.sign());
+            }
+            else {
+                keep = l_undef != add_assign(p, ~l);
+            }
+        }
+        else if (is_card_index(idx)) {
+            card& c = index2card(idx);
+            if (l.var() == c.lit().var()) {
+                init_watch(c, !l.sign());
+            }
+            else {
+                keep = l_undef != add_assign(c, ~l);
+            }
+        }
+        else if (is_xor_index(idx)) {
+            xor& x = index2xor(idx);
+            if (l.var() == x.lit().var()) {
+                init_watch(x, !l.sign());
+            }
+            else {
+                keep = l_undef != add_assign(x, ~l);
+            }
+        }
+        else {
+            UNREACHABLE();
+        }
     }
 
 
@@ -1454,100 +1330,53 @@ namespace sat {
         }
         SASSERT(validate_unit_propagation(c));
         
-        for (unsigned i = 0; i < bound && !s().inconsistent(); ++i) {
+        for (unsigned i = 0; i < bound && !inconsistent(); ++i) {
             assign(c, c[i]);
         }
 
-        return s().inconsistent() ? l_false : l_true;
+        return inconsistent() ? l_false : l_true;
     }
 
     void card_extension::asserted(literal l) {
-        bool_var v = l.var();
-        if (s().inconsistent()) return;
-        if (v >= m_var_infos.size()) return;
-        var_info& vinfo = m_var_infos[v];
-        ptr_vector<card>* cards = vinfo.m_card_watch[!l.sign()];
-        ptr_vector<xor>* xors = vinfo.m_xor_watch;
-        ptr_vector<pb>* pbs = vinfo.m_pb_watch[!l.sign()];
-        pb* p = vinfo.m_pb;
-        card* crd = vinfo.m_card;
-        xor* x = vinfo.m_xor;
-
-        if (!is_tag_empty(cards)) {
-            ptr_vector<card>::iterator begin = cards->begin();
-            ptr_vector<card>::iterator it = begin, it2 = it, end = cards->end();
-            for (; it != end; ++it) {
-                card& c = *(*it);
-                if (c.lit() != null_literal && value(c.lit()) != l_true) {
-                    continue;
-                }
-                switch (add_assign(c, ~l)) {
-                case l_false: // conflict
-                    for (; it != end; ++it, ++it2) {
-                        *it2 = *it;
-                    }
-                    SASSERT(s().inconsistent());
-                    cards->set_end(it2);
-                    return;
-                case l_undef: // watch literal was swapped
-                    break;
-                case l_true: // unit propagation, keep watching the literal
-                    if (it2 != it) {
-                        *it2 = *it;
-                    }
-                    ++it2;
-                    break;
-                }
-            }
-            cards->set_end(it2);
-            if (cards->empty()) {
-                m_var_infos[v].m_card_watch[!l.sign()] = set_tag_empty(cards);
-            }
-        }
-
-        if (crd != 0 && !s().inconsistent()) {
-            init_watch(*crd, !l.sign());
-        }
-        
-        if ((!is_tag_empty(pbs) || p) && !s().inconsistent()) {
-            asserted_pb(l, pbs, p);
-        }
-
-        if (m_has_xor && !s().inconsistent()) {
-            asserted_xor(l, xors, x);
-        }
     }
 
 
     check_result card_extension::check() { return CR_DONE; }
 
     void card_extension::push() {
-        m_var_lim.push_back(m_var_trail.size());
+        m_index_lim.push_back(m_index_trail.size());
     }
 
     void card_extension::pop(unsigned n) {        
         TRACE("sat_verbose", tout << "pop:" << n << "\n";);
-        unsigned new_lim = m_var_lim.size() - n;
-        unsigned sz = m_var_lim[new_lim];
-        while (m_var_trail.size() > sz) {
-            bool_var v = m_var_trail.back();
-            m_var_trail.pop_back();
-            if (v != null_bool_var) {
-                card* c = m_var_infos[v].m_card;
-                if (c) {
-                    clear_watch(*c);
-                    m_var_infos[v].m_card = 0;
-                    dealloc(c);
-                }
-                xor* x = m_var_infos[v].m_xor;
-                if (x) {
-                    clear_watch(*x);
-                    m_var_infos[v].m_xor = 0;
-                    dealloc(x);
-                }
+        unsigned new_lim = m_index_lim.size() - n;
+        unsigned sz = m_index_lim[new_lim];
+        while (m_index_trail.size() > sz) {
+            unsigned index = m_index_trail.back();
+            m_index_trail.pop_back();
+            if (is_card_index(index)) {
+                SASSERT(m_cards.back()->index() == index);
+                clear_watch(*m_cards.back());
+                dealloc(m_cards.back());
+                m_cards.pop_back();
+            }
+            else if (is_pb_index(index)) {
+                SASSERT(m_pbs.back()->index() == index);
+                clear_watch(*m_pbs.back());
+                dealloc(m_pbs.back());
+                m_pbs.pop_back();
+            }
+            else if (is_xor_index(index)) {
+                SASSERT(m_xors.back()->index() == index);
+                clear_watch(*m_xors.back());
+                dealloc(m_xors.back());
+                m_xors.pop_back();
+            }
+            else {
+                UNREACHABLE();
             }
         }
-        m_var_lim.resize(new_lim);
+        m_index_lim.resize(new_lim);
         m_num_propagations_since_pop = 0;
     }
 
@@ -1601,30 +1430,6 @@ namespace sat {
         lits.reset();
         for (; it != end; ++it) {
             lits.push_back(*it);
-        }
-    }
-
-     void card_extension::display_watch(std::ostream& out, bool_var v, bool sign) const {
-        card_watch const* w = m_var_infos[v].m_card_watch[sign];
-        if (!is_tag_empty(w)) {
-            card_watch const& wl = *w;
-            out << literal(v, sign) << " |-> ";
-            for (unsigned i = 0; i < wl.size(); ++i) {
-                out << wl[i]->lit() << " ";
-            }
-            out << "\n";        
-        }
-    }
-
-    void card_extension::display_watch(std::ostream& out, bool_var v) const {
-        xor_watch const* w = m_var_infos[v].m_xor_watch;
-        if (!is_tag_empty(w)) {
-            xor_watch const& wl = *w;
-            out << "v" << v << " |-> ";
-            for (unsigned i = 0; i < wl.size(); ++i) {
-                out << wl[i]->lit() << " ";
-            }
-            out << "\n";        
         }
     }
 
@@ -1694,17 +1499,6 @@ namespace sat {
     }
 
     std::ostream& card_extension::display(std::ostream& out) const {
-        for (unsigned vi = 0; vi < m_var_infos.size(); ++vi) {
-            display_watch(out, vi, false);
-            display_watch(out, vi, true);
-            display_watch(out, vi);
-        }
-        for (unsigned vi = 0; vi < m_var_infos.size(); ++vi) {
-            card* c = m_var_infos[vi].m_card;
-            if (c) display(out, *c, false);
-            xor* x = m_var_infos[vi].m_xor;
-            if (x) display(out, *x, false);
-        }
         return out;
     }
 

@@ -779,13 +779,13 @@ namespace sat {
                 case watched::EXT_CONSTRAINT:
                     SASSERT(m_ext);
                     m_ext->propagate(l, it->get_ext_constraint_idx(), keep);
-                    if (keep) {
-                        *it2 = *it;
-                        it2++;
-                    }
                     if (m_inconsistent) {
                         CONFLICT_CLEANUP();
                         return false;
+                    }
+                    if (keep) {
+                        *it2 = *it;
+                        it2++;
                     }
                     break;
                 default:

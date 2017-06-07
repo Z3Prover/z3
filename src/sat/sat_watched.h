@@ -103,7 +103,7 @@ namespace sat {
         }
 
         bool is_ext_constraint() const { return get_kind() == EXT_CONSTRAINT; }
-        ext_constraint_idx get_ext_constraint_idx() const { SASSERT(is_ext_constraint()); return m_val2; }
+        ext_constraint_idx get_ext_constraint_idx() const { SASSERT(is_ext_constraint()); return m_val1; }
         
         bool operator==(watched const & w) const { return m_val1 == w.m_val1 && m_val2 == w.m_val2; }
         bool operator!=(watched const & w) const { return !operator==(w); }

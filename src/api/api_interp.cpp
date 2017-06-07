@@ -542,14 +542,15 @@ extern "C" {
     }
 
 
-    int Z3_read_interpolation_problem(Z3_context ctx, unsigned *_num, Z3_ast *cnsts[], unsigned *parents[], const char *filename, Z3_string_ptr error, unsigned *ret_num_theory, Z3_ast *theory[]){
+    int Z3_read_interpolation_problem(Z3_context ctx, Z3_ast_vector cnsts, unsigned* _num, unsigned* parents[], const char *filename, Z3_string_ptr error, Z3_ast_vector theory){
 
         hash_map<std::string, std::string> file_params;
         get_file_params(filename, file_params);
 
         unsigned num_theory = 0;
-        if (file_params.find("THEORY") != file_params.end())
+        if (file_params.find("THEORY") != file_params.end()) {
             num_theory = atoi(file_params["THEORY"].c_str());
+        }
 
         Z3_ast_vector assertions = iZ3_parse(ctx, filename, error);
         if (assertions == 0)
@@ -559,23 +560,15 @@ extern "C" {
             num_theory = Z3_ast_vector_size(ctx, assertions);
         unsigned num = Z3_ast_vector_size(ctx, assertions) - num_theory;
 
-        read_cnsts.resize(num);
         read_parents.resize(num);
-        read_theory.resize(num_theory);
 
-        for (unsigned j = 0; j < num_theory; j++)
-            read_theory[j] = Z3_ast_vector_get(ctx, assertions, j);
-        for (unsigned j = 0; j < num; j++)
-            read_cnsts[j] = Z3_ast_vector_get(ctx, assertions, j + num_theory);
+        for (unsigned j = 0; theory && j < num_theory; j++)
+            Z3_ast_vector_push(ctx, theory, Z3_ast_vector_get(ctx, assertions, j));
         
-        if (ret_num_theory)
-            *ret_num_theory = num_theory;
-        if (theory)
-            *theory = &read_theory[0];
-
+        for (unsigned j = 0; j < num; j++)
+            Z3_ast_vector_push(ctx, cnsts, Z3_ast_vector_get(ctx, assertions, j + num_theory));
+        
         if (!parents){
-            *_num = num;
-            *cnsts = &read_cnsts[0];
             Z3_ast_vector_dec_ref(ctx, assertions);
             return true;
         }
@@ -586,7 +579,7 @@ extern "C" {
         hash_map<Z3_ast, int> pred_map;
 
         for (unsigned j = 0; j < num; j++){
-            Z3_ast lhs = 0, rhs = read_cnsts[j];
+            Z3_ast lhs = 0, rhs = Z3_ast_vector_get(ctx, cnsts, j);
 
             if (Z3_get_decl_kind(ctx, Z3_get_app_decl(ctx, Z3_to_app(ctx, rhs))) == Z3_OP_IMPLIES){
                 Z3_app app1 = Z3_to_app(ctx, rhs);
@@ -627,7 +620,7 @@ extern "C" {
                         read_error << "formula " << j + 1 << ": should be (implies {children} fmla parent)";
                         goto fail;
                     }
-                    read_cnsts[j] = lhs;
+                    Z3_ast_vector_set(ctx, cnsts, j, lhs);
                     Z3_ast name = rhs;
                     if (pred_map.find(name) != pred_map.end()){
                         read_error << "formula " << j + 1 << ": duplicate symbol";
@@ -646,7 +639,6 @@ extern "C" {
             }
 
         *_num = num;
-        *cnsts = &read_cnsts[0];
         *parents = &read_parents[0];
         Z3_ast_vector_dec_ref(ctx, assertions);
         return true;

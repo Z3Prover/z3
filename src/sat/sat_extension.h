@@ -33,6 +33,7 @@ namespace sat {
     public:
         virtual ~extension() {}
         virtual void set_solver(solver* s) = 0;
+        virtual void set_lookahead(lookahead* s) = 0;
         virtual void propagate(literal l, ext_constraint_idx idx, bool & keep) = 0;
         virtual void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r) = 0;
         virtual void asserted(literal l) = 0;
