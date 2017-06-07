@@ -48,6 +48,7 @@ DEFINE_TYPE(Z3_rcf_num);
 /*@{*/
 
 /** @name Types
+    @{
 
    Most of the types in the C API are opaque pointers.
 
@@ -5238,7 +5239,6 @@ extern "C" {
        def_API('Z3_get_error_msg', STRING, (_in(CONTEXT), _in(ERROR_CODE)))
     */
     Z3_string Z3_API Z3_get_error_msg(Z3_context c, Z3_error_code err);
-    /*@}*/
 
     /**
        \brief Return a string describing the given error code.
