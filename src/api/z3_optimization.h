@@ -75,7 +75,7 @@ extern "C" {
        \brief Add a maximization constraint.
        \param c - context
        \param o - optimization context
-       \param a - arithmetical term
+       \param t - arithmetical term
        def_API('Z3_optimize_maximize', UINT, (_in(CONTEXT), _in(OPTIMIZE), _in(AST)))
     */
     unsigned Z3_API Z3_optimize_maximize(Z3_context c, Z3_optimize o, Z3_ast t);
@@ -84,7 +84,7 @@ extern "C" {
        \brief Add a minimization constraint.
        \param c - context
        \param o - optimization context
-       \param a - arithmetical term
+       \param t - arithmetical term
 
        def_API('Z3_optimize_minimize', UINT, (_in(CONTEXT), _in(OPTIMIZE), _in(AST)))
     */
