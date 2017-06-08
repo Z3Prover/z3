@@ -447,59 +447,11 @@ namespace sat {
             return search();
         }
 
-        literal select_lookahead(bool_var_vector const& vars) {
-            scoped_ext _sext(*this);
-            m_search_mode = lookahead_mode::searching;
-            scoped_level _sl(*this, c_fixed_truth);
-            init();                
-            if (inconsistent()) return null_literal;
-            inc_istamp();            
-            for (auto v : vars) {
-                m_select_lookahead_vars.insert(v);
-            }
-            literal l = choose();
-            m_select_lookahead_vars.reset();
-            if (inconsistent()) return null_literal;
-
-            // assign unit literals that were found during search for lookahead.
-            unsigned num_assigned = 0;
-            for (literal lit : m_trail) {
-                if (!m_s.was_eliminated(lit.var()) && m_s.value(lit) != l_true) {
-                    m_s.assign(lit, justification());
-                    ++num_assigned;
-                }
-            }
-            IF_VERBOSE(1, verbose_stream() << "(sat-lookahead :units " << num_assigned << ")\n";);
-            return l;
-        }
-
+        literal select_lookahead(bool_var_vector const& vars);
         /**
            \brief simplify set of clauses by extracting units from a lookahead at base level.
          */
-        void simplify() {
-            SASSERT(m_prefix == 0);
-            SASSERT(m_watches.empty());
-            m_search_mode = lookahead_mode::searching;
-            scoped_level _sl(*this, c_fixed_truth);
-            init();                
-            if (inconsistent()) return;
-            inc_istamp();            
-            literal l = choose();
-            if (inconsistent()) return;
-            SASSERT(m_trail_lim.empty());
-            unsigned num_units = 0;
-            for (unsigned i = 0; i < m_trail.size(); ++i) {
-                literal lit = m_trail[i];
-                if (m_s.value(lit) == l_undef && !m_s.was_eliminated(lit.var())) {
-                    m_s.m_simplifier.propagate_unit(lit);                    
-                    ++num_units;
-                }
-            }
-            IF_VERBOSE(1, verbose_stream() << "(sat-lookahead :units " << num_units << ")\n";);
-            
-            m_s.m_simplifier.subsume();
-            m_lookahead.reset();
-        }
+        void simplify();
 
         //
         // there can be two sets of equivalence classes.
@@ -509,104 +461,17 @@ namespace sat {
         // c -> !a
         // we pick as root the Boolean variable with the largest value.
         // 
-        literal get_root(bool_var v) {
-            literal lit(v, false);
-            literal r1 = get_parent(lit);
-            literal r2 = get_parent(literal(r1.var(), false));
-            CTRACE("sat", r1 != get_parent(literal(r2.var(), false)), 
-                   tout << r1 << " " << r2 << "\n";);
-            SASSERT(r1.var() == get_parent(literal(r2.var(), false)).var());
-            if (r1.var() >= r2.var()) {
-                return r1;
-            }
-            else {
-                return r1.sign() ? ~r2 : r2;
-            }
-        }
-
+        literal get_root(bool_var v);
+ 
         /**
            \brief extract equivalence classes of variables and simplify clauses using these.
         */
-        void scc() {
-            SASSERT(m_prefix == 0);
-            SASSERT(m_watches.empty());
-            m_search_mode = lookahead_mode::searching;
-            scoped_level _sl(*this, c_fixed_truth);
-            init();                
-            if (inconsistent()) return;
-            inc_istamp();
-            m_lookahead.reset();
-            if (select(0)) {
-                // extract equivalences
-                get_scc();
-                if (inconsistent()) return;
-                literal_vector roots;
-                bool_var_vector to_elim;
-                for (unsigned i = 0; i < m_num_vars; ++i) {
-                    roots.push_back(literal(i, false));
-                }
-                for (unsigned i = 0; i < m_candidates.size(); ++i) {
-                    bool_var v = m_candidates[i].m_var;
-                    literal p = get_root(v);
-                    if (p != null_literal && p.var() != v && !m_s.is_external(v) && 
-                        !m_s.was_eliminated(v) && !m_s.was_eliminated(p.var())) {
-                        to_elim.push_back(v);
-                        roots[v] = p;
-                        SASSERT(get_parent(p) == p);
-                        set_parent(~p, ~p);
-                        SASSERT(get_parent(~p) == ~p);
-                    }
-                }
-                IF_VERBOSE(1, verbose_stream() << "(sat-lookahead :equivalences " << to_elim.size() << ")\n";);
-                elim_eqs elim(m_s);
-                elim(roots, to_elim);
-            }
-            m_lookahead.reset();
-        }
+        void scc();
 
-        std::ostream& display(std::ostream& out) const {
-            out << "Prefix: " << pp_prefix(m_prefix, m_trail_lim.size()) << "\n";
-            out << "Level: " << m_level << "\n";
-            display_values(out);
-            display_binary(out);
-            display_clauses(out);
-            out << "free vars: ";
-            for (bool_var const* it = m_freevars.begin(), * end = m_freevars.end(); it != end; ++it) {
-                out << *it << " ";
-            }
-            out << "\n";
-            for (unsigned i = 0; i < m_watches.size(); ++i) {
-                watch_list const& wl = m_watches[i];
-                if (!wl.empty()) {
-                    sat::display_watch_list(out << to_literal(i) << " -> ", m_cls_allocator, wl);
-                    out << "\n";
-                }
-            }
-            return out;
-        }
+        std::ostream& display(std::ostream& out) const;
+        model const& get_model();
 
-        model const& get_model() {
-            if (m_model.empty()) {
-                init_model();
-            }
-            return m_model;
-        }
-
-        void collect_statistics(statistics& st) const {
-            st.update("lh bool var", m_vprefix.size());
-            st.update("lh clauses",  m_clauses.size());
-            st.update("lh add binary", m_stats.m_add_binary);
-            st.update("lh del binary", m_stats.m_del_binary);
-            st.update("lh add ternary", m_stats.m_add_ternary);
-            st.update("lh del ternary", m_stats.m_del_ternary);
-            st.update("lh propagations", m_stats.m_propagations);
-            st.update("lh decisions", m_stats.m_decisions);
-            st.update("lh windfalls", m_stats.m_windfall_binaries);
-            st.update("lh autarky propagations", m_stats.m_autarky_propagations);
-            st.update("lh autarky equivalences", m_stats.m_autarky_equivalences); 
-            st.update("lh double lookahead propagations", m_stats.m_double_lookahead_propagations);
-            st.update("lh double lookahead rounds", m_stats.m_double_lookahead_rounds);
-        }
+        void collect_statistics(statistics& st) const;
               
     };
 }

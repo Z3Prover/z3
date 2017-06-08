@@ -727,269 +727,279 @@ namespace sat {
     }
 
 
-        // ------------------------------------
-        // clause management
+    // ------------------------------------
+    // clause management
 
     void lookahead::attach_clause(clause& c) {
-            if (c.size() == 3) { 
-                attach_ternary(c[0], c[1], c[2]);
-            }
-            else {
-                literal block_lit = c[c.size() >> 2];
-                clause_offset cls_off = m_cls_allocator.get_offset(&c);
-                m_watches[(~c[0]).index()].push_back(watched(block_lit, cls_off));
-                m_watches[(~c[1]).index()].push_back(watched(block_lit, cls_off));
-                SASSERT(is_undef(c[0]));
-                SASSERT(is_undef(c[1]));
-            }
+        if (c.size() == 3) { 
+            attach_ternary(c[0], c[1], c[2]);
         }
-
-        void lookahead::detach_clause(clause& c) {
+        else {
+            literal block_lit = c[c.size() >> 2];
             clause_offset cls_off = m_cls_allocator.get_offset(&c);
-            m_retired_clauses.push_back(&c);
-            erase_clause_watch(get_wlist(~c[0]), cls_off);
-            erase_clause_watch(get_wlist(~c[1]), cls_off);
+            m_watches[(~c[0]).index()].push_back(watched(block_lit, cls_off));
+            m_watches[(~c[1]).index()].push_back(watched(block_lit, cls_off));
+            SASSERT(is_undef(c[0]));
+            SASSERT(is_undef(c[1]));
         }
+    }
 
-        void lookahead::del_clauses() {
-            clause * const* end = m_clauses.end();
-            clause * const * it = m_clauses.begin();
-            for (; it != end; ++it) {
-                m_cls_allocator.del_clause(*it);
-            }
-        }
+    void lookahead::detach_clause(clause& c) {
+        clause_offset cls_off = m_cls_allocator.get_offset(&c);
+        m_retired_clauses.push_back(&c);
+        erase_clause_watch(get_wlist(~c[0]), cls_off);
+        erase_clause_watch(get_wlist(~c[1]), cls_off);
+    }
 
-        void lookahead::detach_ternary(literal l1, literal l2, literal l3) {
-            ++m_stats.m_del_ternary;
-            m_retired_ternary.push_back(ternary(l1, l2, l3));
-            // implicitly erased: erase_ternary_watch(get_wlist(~l1), l2, l3);
-            erase_ternary_watch(get_wlist(~l2), l1, l3);
-            erase_ternary_watch(get_wlist(~l3), l1, l2);
+    void lookahead::del_clauses() {
+        clause * const* end = m_clauses.end();
+        clause * const * it = m_clauses.begin();
+        for (; it != end; ++it) {
+            m_cls_allocator.del_clause(*it);
         }
+    }
+
+    void lookahead::detach_ternary(literal l1, literal l2, literal l3) {
+        ++m_stats.m_del_ternary;
+        m_retired_ternary.push_back(ternary(l1, l2, l3));
+        // implicitly erased: erase_ternary_watch(get_wlist(~l1), l2, l3);
+        erase_ternary_watch(get_wlist(~l2), l1, l3);
+        erase_ternary_watch(get_wlist(~l3), l1, l2);
+    }
 
     void lookahead::attach_ternary(ternary const& t) {
-            attach_ternary(t.m_u, t.m_v, t.m_w);
-        }
+        attach_ternary(t.m_u, t.m_v, t.m_w);
+    }
 
     void lookahead::attach_ternary(literal l1, literal l2, literal l3) {
-            ++m_stats.m_add_ternary;
-            TRACE("sat", tout << l1 << " " << l2 << " " << l3 << "\n";);
-            m_watches[(~l1).index()].push_back(watched(l2, l3));
-            m_watches[(~l2).index()].push_back(watched(l1, l3));
-            m_watches[(~l3).index()].push_back(watched(l1, l2));            
-        }
+        ++m_stats.m_add_ternary;
+        TRACE("sat", tout << l1 << " " << l2 << " " << l3 << "\n";);
+        m_watches[(~l1).index()].push_back(watched(l2, l3));
+        m_watches[(~l2).index()].push_back(watched(l1, l3));
+        m_watches[(~l3).index()].push_back(watched(l1, l2));            
+    }
 
-        // ------------------------------------
-        // initialization
+    // ------------------------------------
+    // initialization
         
     void lookahead::init_var(bool_var v) {
-            m_binary.push_back(literal_vector());
-            m_binary.push_back(literal_vector());
-            m_watches.push_back(watch_list());
-            m_watches.push_back(watch_list());
-            m_full_watches.push_back(clause_vector());
-            m_full_watches.push_back(clause_vector());
-            m_bstamp.push_back(0);
-            m_bstamp.push_back(0);
-            m_stamp.push_back(0);
-            m_dfs.push_back(dfs_info());
-            m_dfs.push_back(dfs_info());
-            m_lits.push_back(lit_info());
-            m_lits.push_back(lit_info());
-            m_rating.push_back(0);
-            m_vprefix.push_back(prefix());
-            if (!m_s.was_eliminated(v)) 
-                m_freevars.insert(v);
-        }
+        m_binary.push_back(literal_vector());
+        m_binary.push_back(literal_vector());
+        m_watches.push_back(watch_list());
+        m_watches.push_back(watch_list());
+        m_full_watches.push_back(clause_vector());
+        m_full_watches.push_back(clause_vector());
+        m_bstamp.push_back(0);
+        m_bstamp.push_back(0);
+        m_stamp.push_back(0);
+        m_dfs.push_back(dfs_info());
+        m_dfs.push_back(dfs_info());
+        m_lits.push_back(lit_info());
+        m_lits.push_back(lit_info());
+        m_rating.push_back(0);
+        m_vprefix.push_back(prefix());
+        if (!m_s.was_eliminated(v)) 
+            m_freevars.insert(v);
+    }
 
     void lookahead::init() {
-            m_delta_trigger = m_num_vars/10;
-            m_config.m_dl_success = 0.8;
-            m_inconsistent = false;
-            m_qhead = 0;
-            m_bstamp_id = 0;
+        m_delta_trigger = m_num_vars/10;
+        m_config.m_dl_success = 0.8;
+        m_inconsistent = false;
+        m_qhead = 0;
+        m_bstamp_id = 0;
 
-            for (unsigned i = 0; i < m_num_vars; ++i) {
-                init_var(i);
-            }
-
-            // copy binary clauses
-            unsigned sz = m_s.m_watches.size();
-            for (unsigned l_idx = 0; l_idx < sz; ++l_idx) {
-                literal l = ~to_literal(l_idx);
-                watch_list const & wlist = m_s.m_watches[l_idx];
-                watch_list::const_iterator it  = wlist.begin();
-                watch_list::const_iterator end = wlist.end();
-                for (; it != end; ++it) {
-                    if (!it->is_binary_non_learned_clause())
-                        continue;
-                    literal l2 = it->get_literal();                    
-                    SASSERT(!m_s.was_eliminated(l.var()));
-                    SASSERT(!m_s.was_eliminated(l2.var()));
-                    if (l.index() < l2.index()) 
-                        add_binary(l, l2);
-                }
-            }
-
-            copy_clauses(m_s.m_clauses);
-            copy_clauses(m_s.m_learned);
-
-            // copy units
-            unsigned trail_sz = m_s.init_trail_size();
-            for (unsigned i = 0; i < trail_sz; ++i) {
-                literal l = m_s.m_trail[i];
-                if (!m_s.was_eliminated(l.var())) {
-                    if (m_s.m_config.m_drat) m_drat.add(l, false);
-                    assign(l);
-                }
-            }
-            propagate();
-            m_qhead = m_trail.size();
-            TRACE("sat", m_s.display(tout); display(tout););
+        for (unsigned i = 0; i < m_num_vars; ++i) {
+            init_var(i);
         }
+
+        // copy binary clauses
+        unsigned sz = m_s.m_watches.size();
+        for (unsigned l_idx = 0; l_idx < sz; ++l_idx) {
+            literal l = ~to_literal(l_idx);
+            watch_list const & wlist = m_s.m_watches[l_idx];
+            watch_list::const_iterator it  = wlist.begin();
+            watch_list::const_iterator end = wlist.end();
+            for (; it != end; ++it) {
+                if (!it->is_binary_non_learned_clause())
+                    continue;
+                literal l2 = it->get_literal();                    
+                SASSERT(!m_s.was_eliminated(l.var()));
+                SASSERT(!m_s.was_eliminated(l2.var()));
+                if (l.index() < l2.index()) 
+                    add_binary(l, l2);
+            }
+        }
+
+        copy_clauses(m_s.m_clauses);
+        copy_clauses(m_s.m_learned);
+
+        // copy units
+        unsigned trail_sz = m_s.init_trail_size();
+        for (unsigned i = 0; i < trail_sz; ++i) {
+            literal l = m_s.m_trail[i];
+            if (!m_s.was_eliminated(l.var())) {
+                if (m_s.m_config.m_drat) m_drat.add(l, false);
+                assign(l);
+            }
+        }
+        
+        // copy externals:
+        for (unsigned idx = 0; idx < m_watches.size(); ++idx) {
+            watch_list const& wl = m_watches[idx];
+            for (watched const& w : wl) {
+                if (w.is_ext_constraint()) {
+                    m_watches[idx].push_back(w);
+                }
+            }
+        }
+        propagate();
+        m_qhead = m_trail.size();
+        TRACE("sat", m_s.display(tout); display(tout););
+    }
 
     void lookahead::copy_clauses(clause_vector const& clauses) {
-            // copy clauses
-            clause_vector::const_iterator it =  clauses.begin();
-            clause_vector::const_iterator end = clauses.end();
-            for (; it != end; ++it) {                
-                clause& c = *(*it);
-                if (c.was_removed()) continue;
-                clause* c1 = m_cls_allocator.mk_clause(c.size(), c.begin(), false);
-                m_clauses.push_back(c1);
-                attach_clause(*c1);
-                for (unsigned i = 0; i < c.size(); ++i) {
-                    m_full_watches[(~c[i]).index()].push_back(c1);
-                    SASSERT(!m_s.was_eliminated(c[i].var()));
-                }
-                if (m_s.m_config.m_drat) m_drat.add(c, false);
+        // copy clauses
+        clause_vector::const_iterator it =  clauses.begin();
+        clause_vector::const_iterator end = clauses.end();
+        for (; it != end; ++it) {                
+            clause& c = *(*it);
+            if (c.was_removed()) continue;
+            clause* c1 = m_cls_allocator.mk_clause(c.size(), c.begin(), false);
+            m_clauses.push_back(c1);
+            attach_clause(*c1);
+            for (unsigned i = 0; i < c.size(); ++i) {
+                m_full_watches[(~c[i]).index()].push_back(c1);
+                SASSERT(!m_s.was_eliminated(c[i].var()));
             }
+            if (m_s.m_config.m_drat) m_drat.add(c, false);
         }
+    }
 
     // ------------------------------------
     // search
     
 
-        void lookahead::push(literal lit, unsigned level) { 
-            SASSERT(m_search_mode == lookahead_mode::searching);
-            m_binary_trail_lim.push_back(m_binary_trail.size());
-            m_trail_lim.push_back(m_trail.size());
-            m_num_tc1_lim.push_back(m_num_tc1);
-            m_retired_clause_lim.push_back(m_retired_clauses.size());
-            m_retired_ternary_lim.push_back(m_retired_ternary.size());
-            m_qhead_lim.push_back(m_qhead);
-            scoped_level _sl(*this, level);
-            m_assumptions.push_back(~lit);
-            assign(lit);
-            propagate();
-        }
+    void lookahead::push(literal lit, unsigned level) { 
+        SASSERT(m_search_mode == lookahead_mode::searching);
+        m_binary_trail_lim.push_back(m_binary_trail.size());
+        m_trail_lim.push_back(m_trail.size());
+        m_num_tc1_lim.push_back(m_num_tc1);
+        m_retired_clause_lim.push_back(m_retired_clauses.size());
+        m_retired_ternary_lim.push_back(m_retired_ternary.size());
+        m_qhead_lim.push_back(m_qhead);
+        scoped_level _sl(*this, level);
+        m_assumptions.push_back(~lit);
+        assign(lit);
+        propagate();
+    }
 
     void lookahead::pop() { 
-            if (m_assumptions.empty()) IF_VERBOSE(0, verbose_stream() << "empty pop\n";);
-            m_assumptions.pop_back();
-            m_inconsistent = false;
-            SASSERT(m_search_mode == lookahead_mode::searching);
+        if (m_assumptions.empty()) IF_VERBOSE(0, verbose_stream() << "empty pop\n";);
+        m_assumptions.pop_back();
+        m_inconsistent = false;
+        SASSERT(m_search_mode == lookahead_mode::searching);
 
-            // m_freevars only for main search 
-            // undo assignments
-            unsigned old_sz = m_trail_lim.back();
-            for (unsigned i = m_trail.size(); i > old_sz; ) {
-                --i;
-                literal l = m_trail[i];
-                set_undef(l);
-                TRACE("sat", tout << "inserting free var v" << l.var() << "\n";);
-                m_freevars.insert(l.var());
-            }
-            m_trail.shrink(old_sz); // reset assignment.
-            m_trail_lim.pop_back();
-            
-            m_num_tc1 = m_num_tc1_lim.back();
-            m_num_tc1_lim.pop_back();
-
-            // unretire clauses
-            old_sz = m_retired_clause_lim.back();
-            for (unsigned i = old_sz; i < m_retired_clauses.size(); ++i) {
-                attach_clause(*m_retired_clauses[i]);
-            }
-            m_retired_clauses.resize(old_sz);
-            m_retired_clause_lim.pop_back();
-
-            old_sz = m_retired_ternary_lim.back();
-            for (unsigned i = old_sz; i < m_retired_ternary.size(); ++i) {
-                attach_ternary(m_retired_ternary[i]);
-            }
-            m_retired_ternary.shrink(old_sz);
-            m_retired_ternary_lim.pop_back();
-            
-            // remove local binary clauses
-            old_sz = m_binary_trail_lim.back();            
-            for (unsigned i = m_binary_trail.size(); i > old_sz; ) {
-                del_binary(m_binary_trail[--i]);
-            }
-            m_binary_trail.shrink(old_sz);
-            m_binary_trail_lim.pop_back();
-            
-            // reset propagation queue
-            m_qhead = m_qhead_lim.back();
-            m_qhead_lim.pop_back();            
-        }        
-
-        bool lookahead::push_lookahead2(literal lit, unsigned level) {
-            scoped_level _sl(*this, level);
-            SASSERT(m_search_mode == lookahead_mode::lookahead1);
-            m_search_mode = lookahead_mode::lookahead2;
-            assign(lit);
-            propagate();
-            bool unsat = inconsistent();
-            SASSERT(m_search_mode == lookahead_mode::lookahead2);
-            m_search_mode = lookahead_mode::lookahead1;
-            m_inconsistent = false;
-            return unsat;
+        // m_freevars only for main search 
+        // undo assignments
+        unsigned old_sz = m_trail_lim.back();
+        for (unsigned i = m_trail.size(); i > old_sz; ) {
+            --i;
+            literal l = m_trail[i];
+            set_undef(l);
+            TRACE("sat", tout << "inserting free var v" << l.var() << "\n";);
+            m_freevars.insert(l.var());
         }
+        m_trail.shrink(old_sz); // reset assignment.
+        m_trail_lim.pop_back();
+            
+        m_num_tc1 = m_num_tc1_lim.back();
+        m_num_tc1_lim.pop_back();
+
+        // unretire clauses
+        old_sz = m_retired_clause_lim.back();
+        for (unsigned i = old_sz; i < m_retired_clauses.size(); ++i) {
+            attach_clause(*m_retired_clauses[i]);
+        }
+        m_retired_clauses.resize(old_sz);
+        m_retired_clause_lim.pop_back();
+
+        old_sz = m_retired_ternary_lim.back();
+        for (unsigned i = old_sz; i < m_retired_ternary.size(); ++i) {
+            attach_ternary(m_retired_ternary[i]);
+        }
+        m_retired_ternary.shrink(old_sz);
+        m_retired_ternary_lim.pop_back();
+            
+        // remove local binary clauses
+        old_sz = m_binary_trail_lim.back();            
+        for (unsigned i = m_binary_trail.size(); i > old_sz; ) {
+            del_binary(m_binary_trail[--i]);
+        }
+        m_binary_trail.shrink(old_sz);
+        m_binary_trail_lim.pop_back();
+            
+        // reset propagation queue
+        m_qhead = m_qhead_lim.back();
+        m_qhead_lim.pop_back();            
+    }        
+
+    bool lookahead::push_lookahead2(literal lit, unsigned level) {
+        scoped_level _sl(*this, level);
+        SASSERT(m_search_mode == lookahead_mode::lookahead1);
+        m_search_mode = lookahead_mode::lookahead2;
+        assign(lit);
+        propagate();
+        bool unsat = inconsistent();
+        SASSERT(m_search_mode == lookahead_mode::lookahead2);
+        m_search_mode = lookahead_mode::lookahead1;
+        m_inconsistent = false;
+        return unsat;
+    }
 
     void lookahead::push_lookahead1(literal lit, unsigned level) {
-            SASSERT(m_search_mode == lookahead_mode::searching);
-            m_search_mode = lookahead_mode::lookahead1;
-            scoped_level _sl(*this, level);
-            assign(lit);
-            propagate();
-        }
+        SASSERT(m_search_mode == lookahead_mode::searching);
+        m_search_mode = lookahead_mode::lookahead1;
+        scoped_level _sl(*this, level);
+        assign(lit);
+        propagate();
+    }
 
     void lookahead::pop_lookahead1(literal lit) {
-            bool unsat = inconsistent();
-            SASSERT(m_search_mode == lookahead_mode::lookahead1);
-            m_inconsistent = false;
-            m_search_mode = lookahead_mode::searching;
-            // convert windfalls to binary clauses.
-            if (!unsat) {
-                literal nlit = ~lit;
+        bool unsat = inconsistent();
+        SASSERT(m_search_mode == lookahead_mode::lookahead1);
+        m_inconsistent = false;
+        m_search_mode = lookahead_mode::searching;
+        // convert windfalls to binary clauses.
+        if (!unsat) {
+            literal nlit = ~lit;
 
-                for (unsigned i = 0; i < m_wstack.size(); ++i) {
-                    literal l2 = m_wstack[i];
-                    //update_prefix(~lit);
-                    //update_prefix(m_wstack[i]);
-                    TRACE("sat", tout << "windfall: " << nlit << " " << l2 << "\n";); 
-                    // if we use try_add_binary, then this may produce new assignments
-                    // these assignments get put on m_trail, and they are cleared by
-                    // reset_wnb. We would need to distinguish the trail that comes
-                    // from lookahead levels and the main search level for this to work.
-                    add_binary(nlit, l2);
-                }
-                m_stats.m_windfall_binaries += m_wstack.size();
+            for (unsigned i = 0; i < m_wstack.size(); ++i) {
+                literal l2 = m_wstack[i];
+                //update_prefix(~lit);
+                //update_prefix(m_wstack[i]);
+                TRACE("sat", tout << "windfall: " << nlit << " " << l2 << "\n";); 
+                // if we use try_add_binary, then this may produce new assignments
+                // these assignments get put on m_trail, and they are cleared by
+                // reset_wnb. We would need to distinguish the trail that comes
+                // from lookahead levels and the main search level for this to work.
+                add_binary(nlit, l2);
             }
-            m_wstack.reset();
+            m_stats.m_windfall_binaries += m_wstack.size();
         }
+        m_wstack.reset();
+    }
 
-        clause const& lookahead::get_clause(watch_list::iterator it) const {
-            clause_offset cls_off = it->get_clause_offset();
-            return *(m_cls_allocator.get_clause(cls_off));
-        }
+    clause const& lookahead::get_clause(watch_list::iterator it) const {
+        clause_offset cls_off = it->get_clause_offset();
+        return *(m_cls_allocator.get_clause(cls_off));
+    }
 
     bool lookahead::is_nary_propagation(clause const& c, literal l) const {
-            bool r = c.size() > 2 && ((c[0] == l && is_false(c[1])) || (c[1] == l && is_false(c[0])));
-            DEBUG_CODE(if (r) for (unsigned j = 2; j < c.size(); ++j) SASSERT(is_false(c[j])););
-            return r;
-        }
+        bool r = c.size() > 2 && ((c[0] == l && is_false(c[1])) || (c[1] == l && is_false(c[0])));
+        DEBUG_CODE(if (r) for (unsigned j = 2; j < c.size(); ++j) SASSERT(is_false(c[j])););
+        return r;
+    }
 
 
     // 
@@ -1285,296 +1295,293 @@ namespace sat {
 
 
     void lookahead::reset_wnb(literal l) {
-            m_weighted_new_binaries = 0;
+        m_weighted_new_binaries = 0;
 
-            // inherit propagation effect from parent.
-            literal p = get_parent(l);
-            set_wnb(l, p == null_literal ? 0 : get_wnb(p));
-        }
+        // inherit propagation effect from parent.
+        literal p = get_parent(l);
+        set_wnb(l, p == null_literal ? 0 : get_wnb(p));
+    }
 
     bool lookahead::check_autarky(literal l, unsigned level) {
-            return false;
-            // no propagations are allowed to reduce clauses.
-            clause_vector::const_iterator it  = m_full_watches[l.index()].begin();
-            clause_vector::const_iterator end = m_full_watches[l.index()].end();
-            for (; it != end; ++it) {
-                clause& c = *(*it);
-                unsigned sz = c.size();
-                bool found = false;                
-                for (unsigned i = 0; !found && i < sz; ++i) {
-                    found = is_true(c[i]);
-                    if (found) {
-                        TRACE("sat", tout << c[i] << " is true in " << c << "\n";);
-                    }
+        return false;
+        // no propagations are allowed to reduce clauses.
+        clause_vector::const_iterator it  = m_full_watches[l.index()].begin();
+        clause_vector::const_iterator end = m_full_watches[l.index()].end();
+        for (; it != end; ++it) {
+            clause& c = *(*it);
+            unsigned sz = c.size();
+            bool found = false;                
+            for (unsigned i = 0; !found && i < sz; ++i) {
+                found = is_true(c[i]);
+                if (found) {
+                    TRACE("sat", tout << c[i] << " is true in " << c << "\n";);
                 }
-                IF_VERBOSE(2, verbose_stream() << "skip autarky " << l << "\n";);
-                if (!found) return false;
             }
-            //
-            // bail out if there is a pending binary propagation.
-            // In general, we would have to check, recursively that 
-            // a binary propagation does not create reduced clauses.
-            // 
-            literal_vector const& lits = m_binary[l.index()];
-            TRACE("sat", tout << l << ": " << lits << "\n";);
-            for (unsigned i = 0; i < lits.size(); ++i) {
-                literal l2 = lits[i];
-                if (is_true(l2)) continue;
-                SASSERT(!is_false(l2));
-                return false;
-            }
-
-            return true;
+            IF_VERBOSE(2, verbose_stream() << "skip autarky " << l << "\n";);
+            if (!found) return false;
         }
+        //
+        // bail out if there is a pending binary propagation.
+        // In general, we would have to check, recursively that 
+        // a binary propagation does not create reduced clauses.
+        // 
+        literal_vector const& lits = m_binary[l.index()];
+        TRACE("sat", tout << l << ": " << lits << "\n";);
+        for (unsigned i = 0; i < lits.size(); ++i) {
+            literal l2 = lits[i];
+            if (is_true(l2)) continue;
+            SASSERT(!is_false(l2));
+            return false;
+        }
+
+        return true;
+    }
 
 
     void lookahead::update_wnb(literal l, unsigned level) {
-            if (m_weighted_new_binaries == 0) {
-                if (!check_autarky(l, level)) {
-                    // skip
-                }
-                else if (get_wnb(l) == 0) {
-                    ++m_stats.m_autarky_propagations;
-                    IF_VERBOSE(1, verbose_stream() << "(sat.lookahead autarky " << l << ")\n";);
+        if (m_weighted_new_binaries == 0) {
+            if (!check_autarky(l, level)) {
+                // skip
+            }
+            else if (get_wnb(l) == 0) {
+                ++m_stats.m_autarky_propagations;
+                IF_VERBOSE(1, verbose_stream() << "(sat.lookahead autarky " << l << ")\n";);
                     
-                    TRACE("sat", tout << "autarky: " << l << " @ " << m_stamp[l.var()] 
-                          << " " 
-                          << (!m_binary[l.index()].empty() || !m_full_watches[l.index()].empty()) << "\n";);
-                    reset_wnb();
-                    assign(l);
-                    propagate();                    
-                    init_wnb();
+                TRACE("sat", tout << "autarky: " << l << " @ " << m_stamp[l.var()] 
+                      << " " 
+                      << (!m_binary[l.index()].empty() || !m_full_watches[l.index()].empty()) << "\n";);
+                reset_wnb();
+                assign(l);
+                propagate();                    
+                init_wnb();
+            }
+            else {
+                ++m_stats.m_autarky_equivalences;
+                // l => p is known, but p => l is possibly not. 
+                // add p => l.
+                // justification: any consequence of l
+                // that is not a consequence of p does not
+                // reduce the clauses.
+                literal p = get_parent(l);
+                SASSERT(p != null_literal);
+                if (m_stamp[p.var()] > m_stamp[l.var()]) {
+                    TRACE("sat", tout << "equivalence " << l << " == " << p << "\n"; display(tout););
+                    IF_VERBOSE(1, verbose_stream() << "(sat.lookahead equivalence " << l << " == " << p << ")\n";);
+                    add_binary(~l, p);
+                    set_level(l, p);
                 }
-                else {
-                    ++m_stats.m_autarky_equivalences;
-                    // l => p is known, but p => l is possibly not. 
-                    // add p => l.
-                    // justification: any consequence of l
-                    // that is not a consequence of p does not
-                    // reduce the clauses.
-                    literal p = get_parent(l);
-                    SASSERT(p != null_literal);
-                    if (m_stamp[p.var()] > m_stamp[l.var()]) {
-                        TRACE("sat", tout << "equivalence " << l << " == " << p << "\n"; display(tout););
-                        IF_VERBOSE(1, verbose_stream() << "(sat.lookahead equivalence " << l << " == " << p << ")\n";);
-                        add_binary(~l, p);
-                        set_level(l, p);
-                    }
+            }
+        }
+        else {
+            inc_wnb(l, m_weighted_new_binaries);
+        }
+    }
+
+    void lookahead::do_double(literal l, unsigned& base) {
+        if (!inconsistent() && scope_lvl() > 1 && dl_enabled(l)) {                
+            if (get_wnb(l) > m_delta_trigger) {
+                if (dl_no_overflow(base)) {
+                    ++m_stats.m_double_lookahead_rounds;
+                    double_look(l, base);
+                    m_delta_trigger = get_wnb(l);
+                    dl_disable(l);
                 }
             }
             else {
-                inc_wnb(l, m_weighted_new_binaries);
+                m_delta_trigger *= m_config.m_delta_rho;
             }
         }
-
-    void lookahead::do_double(literal l, unsigned& base) {
-            if (!inconsistent() && scope_lvl() > 1 && dl_enabled(l)) {                
-                if (get_wnb(l) > m_delta_trigger) {
-                    if (dl_no_overflow(base)) {
-                        ++m_stats.m_double_lookahead_rounds;
-                        double_look(l, base);
-                        m_delta_trigger = get_wnb(l);
-                        dl_disable(l);
-                    }
-                }
-                else {
-                    m_delta_trigger *= m_config.m_delta_rho;
-                }
-            }
-        }
+    }
 
     void lookahead::double_look(literal l, unsigned& base) {
-            SASSERT(!inconsistent());
-            SASSERT(dl_no_overflow(base));
-            unsigned dl_truth = base + 2 * m_lookahead.size() * (m_config.m_dl_max_iterations + 1);            
-            scoped_level _sl(*this, dl_truth);
-            IF_VERBOSE(2, verbose_stream() << "double: " << l << "\n";);
-            init_wnb();
-            assign(l);
-            propagate();
-            bool change = true;
-            unsigned num_iterations = 0;
-            while (change && num_iterations < m_config.m_dl_max_iterations && !inconsistent()) {
-                change = false;
-                num_iterations++;
-                base += 2*m_lookahead.size();
-                for (unsigned i = 0; !inconsistent() && i < m_lookahead.size(); ++i) {
-                    literal lit = m_lookahead[i].m_lit;
-                    if (is_fixed_at(lit, dl_truth)) continue;                    
-                    if (push_lookahead2(lit, base + m_lookahead[i].m_offset)) {
-                        TRACE("sat", tout << "unit: " << ~lit << "\n";);
-                        ++m_stats.m_double_lookahead_propagations;
-                        SASSERT(m_level == dl_truth);
-                        reset_wnb();
-                        assign(~lit);
-                        propagate();
-                        change = true;
-                        init_wnb();
-                    }
+        SASSERT(!inconsistent());
+        SASSERT(dl_no_overflow(base));
+        unsigned dl_truth = base + 2 * m_lookahead.size() * (m_config.m_dl_max_iterations + 1);            
+        scoped_level _sl(*this, dl_truth);
+        IF_VERBOSE(2, verbose_stream() << "double: " << l << "\n";);
+        init_wnb();
+        assign(l);
+        propagate();
+        bool change = true;
+        unsigned num_iterations = 0;
+        while (change && num_iterations < m_config.m_dl_max_iterations && !inconsistent()) {
+            change = false;
+            num_iterations++;
+            base += 2*m_lookahead.size();
+            for (unsigned i = 0; !inconsistent() && i < m_lookahead.size(); ++i) {
+                literal lit = m_lookahead[i].m_lit;
+                if (is_fixed_at(lit, dl_truth)) continue;                    
+                if (push_lookahead2(lit, base + m_lookahead[i].m_offset)) {
+                    TRACE("sat", tout << "unit: " << ~lit << "\n";);
+                    ++m_stats.m_double_lookahead_propagations;
+                    SASSERT(m_level == dl_truth);
+                    reset_wnb();
+                    assign(~lit);
+                    propagate();
+                    change = true;
+                    init_wnb();
                 }
-                SASSERT(dl_truth - 2 * m_lookahead.size() > base);
             }
-            reset_wnb();
-            SASSERT(m_level == dl_truth);            
-            base = dl_truth;
+            SASSERT(dl_truth - 2 * m_lookahead.size() > base);
         }
+        reset_wnb();
+        SASSERT(m_level == dl_truth);            
+        base = dl_truth;
+    }
 
     void lookahead::validate_assign(literal l) {
-            if (m_s.m_config.m_drat && m_search_mode == lookahead_mode::searching) {
-                m_assumptions.push_back(l);
-                m_drat.add(m_assumptions);
-                m_assumptions.pop_back();
-            }
+        if (m_s.m_config.m_drat && m_search_mode == lookahead_mode::searching) {
+            m_assumptions.push_back(l);
+            m_drat.add(m_assumptions);
+            m_assumptions.pop_back();
         }
+    }
 
     void lookahead::assign(literal l) {
-            SASSERT(m_level > 0);
-            if (is_undef(l)) {
-                TRACE("sat", tout << "assign: " << l << " @ " << m_level << " " << m_trail_lim.size() << " " << m_search_mode << "\n";);
-                set_true(l);
-                m_trail.push_back(l);
-                if (m_search_mode == lookahead_mode::searching) {
-                    m_stats.m_propagations++;
-                    TRACE("sat", tout << "removing free var v" << l.var() << "\n";);
-                    m_freevars.remove(l.var());
-                    validate_assign(l);
-                }
-            }
-            else if (is_false(l)) {
-                TRACE("sat", tout << "conflict: " << l << " @ " << m_level << " " << m_search_mode << "\n";);
-                SASSERT(!is_true(l));
-                validate_assign(l);                
-                set_conflict(); 
+        SASSERT(m_level > 0);
+        if (is_undef(l)) {
+            TRACE("sat", tout << "assign: " << l << " @ " << m_level << " " << m_trail_lim.size() << " " << m_search_mode << "\n";);
+            set_true(l);
+            m_trail.push_back(l);
+            if (m_search_mode == lookahead_mode::searching) {
+                m_stats.m_propagations++;
+                TRACE("sat", tout << "removing free var v" << l.var() << "\n";);
+                m_freevars.remove(l.var());
+                validate_assign(l);
             }
         }
+        else if (is_false(l)) {
+            TRACE("sat", tout << "conflict: " << l << " @ " << m_level << " " << m_search_mode << "\n";);
+            SASSERT(!is_true(l));
+            validate_assign(l);                
+            set_conflict(); 
+        }
+    }
 
     void lookahead::propagated(literal l) {
-            assign(l);
-            switch (m_search_mode) {
-            case lookahead_mode::searching:
-                break;
-            case lookahead_mode::lookahead1:
-                m_wstack.push_back(l);
-                break;
-            case lookahead_mode::lookahead2:
-                break;
-            }
+        assign(l);
+        switch (m_search_mode) {
+        case lookahead_mode::searching:
+            break;
+        case lookahead_mode::lookahead1:
+            m_wstack.push_back(l);
+            break;
+        case lookahead_mode::lookahead2:
+            break;
         }
+    }
 
-        bool lookahead::backtrack(literal_vector& trail) {
-            while (inconsistent()) {
-                if (trail.empty()) return false;      
-                pop();   
-                flip_prefix();
-                assign(~trail.back());
-                trail.pop_back();
-                propagate();
-            }
-            return true;
+    bool lookahead::backtrack(literal_vector& trail) {
+        while (inconsistent()) {
+            if (trail.empty()) return false;      
+            pop();   
+            flip_prefix();
+            assign(~trail.back());
+            trail.pop_back();
+            propagate();
         }
+        return true;
+    }
 
-        lbool lookahead::search() {
-            m_model.reset();
-            scoped_level _sl(*this, c_fixed_truth);
-            literal_vector trail;
-            m_search_mode = lookahead_mode::searching;
-            while (true) {
-                TRACE("sat", display(tout););
-                inc_istamp();
-                checkpoint();
-                if (inconsistent()) {
-                    if (!backtrack(trail)) return l_false;
-                    continue;
-                }
-                literal l = choose();
-                if (inconsistent()) {
-                    if (!backtrack(trail)) return l_false;
-                    continue;
-                }
-                if (l == null_literal) {
-                    return l_true;
-                }
-                TRACE("sat", tout << "choose: " << l << " " << trail << "\n";);
-                ++m_stats.m_decisions;
-                IF_VERBOSE(1, verbose_stream() << "select " << pp_prefix(m_prefix, m_trail_lim.size()) << ": " << l << " " << m_trail.size() << "\n";);
-                push(l, c_fixed_truth);
-                trail.push_back(l);
-                SASSERT(inconsistent() || !is_unsat());
+    lbool lookahead::search() {
+        m_model.reset();
+        scoped_level _sl(*this, c_fixed_truth);
+        literal_vector trail;
+        m_search_mode = lookahead_mode::searching;
+        while (true) {
+            TRACE("sat", display(tout););
+            inc_istamp();
+            checkpoint();
+            if (inconsistent()) {
+                if (!backtrack(trail)) return l_false;
+                continue;
             }
+            literal l = choose();
+            if (inconsistent()) {
+                if (!backtrack(trail)) return l_false;
+                continue;
+            }
+            if (l == null_literal) {
+                return l_true;
+            }
+            TRACE("sat", tout << "choose: " << l << " " << trail << "\n";);
+            ++m_stats.m_decisions;
+            IF_VERBOSE(1, verbose_stream() << "select " << pp_prefix(m_prefix, m_trail_lim.size()) << ": " << l << " " << m_trail.size() << "\n";);
+            push(l, c_fixed_truth);
+            trail.push_back(l);
+            SASSERT(inconsistent() || !is_unsat());
         }
+    }
 
-        void lookahead::init_model() {
-            m_model.reset();
-            for (unsigned i = 0; i < m_num_vars; ++i) {
-                lbool val;
-                literal lit(i, false);
-                if (is_undef(lit)) {
-                    val = l_undef;
-                }
-                if (is_true(lit)) {
-                    val = l_true;
-                }
-                else {
-                    val = l_false;
-                }
-                m_model.push_back(val);
+    void lookahead::init_model() {
+        m_model.reset();
+        for (unsigned i = 0; i < m_num_vars; ++i) {
+            lbool val;
+            literal lit(i, false);
+            if (is_undef(lit)) {
+                val = l_undef;
             }
+            if (is_true(lit)) {
+                val = l_true;
+            }
+            else {
+                val = l_false;
+            }
+            m_model.push_back(val);
         }
+    }
 
     std::ostream& lookahead::display_binary(std::ostream& out) const {
-            for (unsigned i = 0; i < m_binary.size(); ++i) {
-                literal_vector const& lits = m_binary[i];
-                if (!lits.empty()) {
-                    out << to_literal(i) << " -> " << lits << "\n";
-                }
+        for (unsigned i = 0; i < m_binary.size(); ++i) {
+            literal_vector const& lits = m_binary[i];
+            if (!lits.empty()) {
+                out << to_literal(i) << " -> " << lits << "\n";
             }
-            return out;
         }
+        return out;
+    }
 
-        std::ostream& lookahead::display_clauses(std::ostream& out) const {
-            for (unsigned i = 0; i < m_clauses.size(); ++i) {
-                out << *m_clauses[i] << "\n";
-            }
-            return out;
+    std::ostream& lookahead::display_clauses(std::ostream& out) const {
+        for (unsigned i = 0; i < m_clauses.size(); ++i) {
+            out << *m_clauses[i] << "\n";
         }
+        return out;
+    }
 
     std::ostream& lookahead::display_values(std::ostream& out) const {
-            for (unsigned i = 0; i < m_trail.size(); ++i) {
-                literal l = m_trail[i];
-                out << l << "\n";
-            }
-            return out;
+        for (unsigned i = 0; i < m_trail.size(); ++i) {
+            literal l = m_trail[i];
+            out << l << "\n";
         }
+        return out;
+    }
 
-        std::ostream& lookahead::display_lookahead(std::ostream& out) const {
-            for (unsigned i = 0; i < m_lookahead.size(); ++i) {
-                literal lit = m_lookahead[i].m_lit;
-                unsigned offset = m_lookahead[i].m_offset;
-                out << lit << "\toffset: " << offset;
-                out << (is_undef(lit)?" undef": (is_true(lit) ? " true": " false"));
-                out << " wnb: " << get_wnb(lit);
-                out << "\n";
-            }
-            return out;
+    std::ostream& lookahead::display_lookahead(std::ostream& out) const {
+        for (unsigned i = 0; i < m_lookahead.size(); ++i) {
+            literal lit = m_lookahead[i].m_lit;
+            unsigned offset = m_lookahead[i].m_offset;
+            out << lit << "\toffset: " << offset;
+            out << (is_undef(lit)?" undef": (is_true(lit) ? " true": " false"));
+            out << " wnb: " << get_wnb(lit);
+            out << "\n";
         }
+        return out;
+    }
 
     void lookahead::init_search() {
-            m_search_mode = lookahead_mode::searching;
-            scoped_level _sl(*this, c_fixed_truth);
-            init();            
-        }
+        m_search_mode = lookahead_mode::searching;
+        scoped_level _sl(*this, c_fixed_truth);
+        init();            
+    }
 
     void lookahead::checkpoint() {
-            if (!m_rlimit.inc()) {
-                throw solver_exception(Z3_CANCELED_MSG);
-            }
-            if (memory::get_allocation_size() > m_s.m_config.m_max_memory) {
-                throw solver_exception(Z3_MAX_MEMORY_MSG);
-            }
+        if (!m_rlimit.inc()) {
+            throw solver_exception(Z3_CANCELED_MSG);
         }
-
-
-
+        if (memory::get_allocation_size() > m_s.m_config.m_max_memory) {
+            throw solver_exception(Z3_MAX_MEMORY_MSG);
+        }
+    }
 
     literal lookahead::choose() {
         literal l = null_literal;
@@ -1593,5 +1600,166 @@ namespace sat {
         return l;
     }
 
+
+    literal lookahead::select_lookahead(bool_var_vector const& vars) {
+        scoped_ext _sext(*this);
+        m_search_mode = lookahead_mode::searching;
+        scoped_level _sl(*this, c_fixed_truth);
+        init();                
+        if (inconsistent()) return null_literal;
+        inc_istamp();            
+        for (auto v : vars) {
+            m_select_lookahead_vars.insert(v);
+        }
+        literal l = choose();
+        m_select_lookahead_vars.reset();
+        if (inconsistent()) return null_literal;
+
+        // assign unit literals that were found during search for lookahead.
+        unsigned num_assigned = 0;
+        for (literal lit : m_trail) {
+            if (!m_s.was_eliminated(lit.var()) && m_s.value(lit) != l_true) {
+                m_s.assign(lit, justification());
+                ++num_assigned;
+            }
+        }
+        IF_VERBOSE(1, verbose_stream() << "(sat-lookahead :units " << num_assigned << ")\n";);
+        return l;
+    }
+
+    /**
+       \brief simplify set of clauses by extracting units from a lookahead at base level.
+    */
+    void lookahead::simplify() {
+        SASSERT(m_prefix == 0);
+        SASSERT(m_watches.empty());
+        m_search_mode = lookahead_mode::searching;
+        scoped_level _sl(*this, c_fixed_truth);
+        init();                
+        if (inconsistent()) return;
+        inc_istamp();            
+        literal l = choose();
+        if (inconsistent()) return;
+        SASSERT(m_trail_lim.empty());
+        unsigned num_units = 0;
+        for (unsigned i = 0; i < m_trail.size(); ++i) {
+            literal lit = m_trail[i];
+            if (m_s.value(lit) == l_undef && !m_s.was_eliminated(lit.var())) {
+                m_s.m_simplifier.propagate_unit(lit);                    
+                ++num_units;
+            }
+        }
+        IF_VERBOSE(1, verbose_stream() << "(sat-lookahead :units " << num_units << ")\n";);
+            
+        m_s.m_simplifier.subsume();
+        m_lookahead.reset();
+    }
+
+    //
+    // there can be two sets of equivalence classes.
+    // example:
+    // a -> !b
+    // b -> !a
+    // c -> !a
+    // we pick as root the Boolean variable with the largest value.
+    // 
+    literal lookahead::get_root(bool_var v) {
+        literal lit(v, false);
+        literal r1 = get_parent(lit);
+        literal r2 = get_parent(literal(r1.var(), false));
+        CTRACE("sat", r1 != get_parent(literal(r2.var(), false)), 
+               tout << r1 << " " << r2 << "\n";);
+        SASSERT(r1.var() == get_parent(literal(r2.var(), false)).var());
+        if (r1.var() >= r2.var()) {
+            return r1;
+        }
+        else {
+            return r1.sign() ? ~r2 : r2;
+        }
+    }
+
+    /**
+       \brief extract equivalence classes of variables and simplify clauses using these.
+    */
+    void lookahead::scc() {
+        SASSERT(m_prefix == 0);
+        SASSERT(m_watches.empty());
+        m_search_mode = lookahead_mode::searching;
+        scoped_level _sl(*this, c_fixed_truth);
+        init();                
+        if (inconsistent()) return;
+        inc_istamp();
+        m_lookahead.reset();
+        if (select(0)) {
+            // extract equivalences
+            get_scc();
+            if (inconsistent()) return;
+            literal_vector roots;
+            bool_var_vector to_elim;
+            for (unsigned i = 0; i < m_num_vars; ++i) {
+                roots.push_back(literal(i, false));
+            }
+            for (unsigned i = 0; i < m_candidates.size(); ++i) {
+                bool_var v = m_candidates[i].m_var;
+                literal p = get_root(v);
+                if (p != null_literal && p.var() != v && !m_s.is_external(v) && 
+                    !m_s.was_eliminated(v) && !m_s.was_eliminated(p.var())) {
+                    to_elim.push_back(v);
+                    roots[v] = p;
+                    SASSERT(get_parent(p) == p);
+                    set_parent(~p, ~p);
+                    SASSERT(get_parent(~p) == ~p);
+                }
+            }
+            IF_VERBOSE(1, verbose_stream() << "(sat-lookahead :equivalences " << to_elim.size() << ")\n";);
+            elim_eqs elim(m_s);
+            elim(roots, to_elim);
+        }
+        m_lookahead.reset();
+    }
+
+    std::ostream& lookahead::display(std::ostream& out) const {
+        out << "Prefix: " << pp_prefix(m_prefix, m_trail_lim.size()) << "\n";
+        out << "Level: " << m_level << "\n";
+        display_values(out);
+        display_binary(out);
+        display_clauses(out);
+        out << "free vars: ";
+        for (bool_var const* it = m_freevars.begin(), * end = m_freevars.end(); it != end; ++it) {
+            out << *it << " ";
+        }
+        out << "\n";
+        for (unsigned i = 0; i < m_watches.size(); ++i) {
+            watch_list const& wl = m_watches[i];
+            if (!wl.empty()) {
+                sat::display_watch_list(out << to_literal(i) << " -> ", m_cls_allocator, wl);
+                out << "\n";
+            }
+        }
+        return out;
+    }
+
+    model const& lookahead::get_model() {
+        if (m_model.empty()) {
+            init_model();
+        }
+        return m_model;
+    }
+
+    void lookahead::collect_statistics(statistics& st) const {
+        st.update("lh bool var", m_vprefix.size());
+        st.update("lh clauses",  m_clauses.size());
+        st.update("lh add binary", m_stats.m_add_binary);
+        st.update("lh del binary", m_stats.m_del_binary);
+        st.update("lh add ternary", m_stats.m_add_ternary);
+        st.update("lh del ternary", m_stats.m_del_ternary);
+        st.update("lh propagations", m_stats.m_propagations);
+        st.update("lh decisions", m_stats.m_decisions);
+        st.update("lh windfalls", m_stats.m_windfall_binaries);
+        st.update("lh autarky propagations", m_stats.m_autarky_propagations);
+        st.update("lh autarky equivalences", m_stats.m_autarky_equivalences); 
+        st.update("lh double lookahead propagations", m_stats.m_double_lookahead_propagations);
+        st.update("lh double lookahead rounds", m_stats.m_double_lookahead_rounds);
+    }
 
 }
