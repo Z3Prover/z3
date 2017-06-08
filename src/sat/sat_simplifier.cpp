@@ -78,7 +78,7 @@ namespace sat {
 
     lbool simplifier::value(literal l) const { return s.value(l); }
 
-    inline void simplifier::checkpoint() { s.checkpoint(); }
+    inline void simplifier::checkpoint() { s.checkpoint2(); }
 
     void simplifier::register_clauses(clause_vector & cs) {
         std::stable_sort(cs.begin(), cs.end(), size_lt());
@@ -123,6 +123,16 @@ namespace sat {
     void simplifier::init_visited() {
         m_visited.reset();
         m_visited.resize(2*s.num_vars(), false);
+    }
+
+   // called after timeout in simplifier 
+    void simplifier::free_memory() {
+        m_use_list.finalize();
+        m_sub_todo.finalize();
+        m_sub_bin_todo.finalize();
+        m_visited.finalize();
+        m_bs_cs.finalize();
+        m_bs_ls.finalize();
     }
 
     void simplifier::finalize() {

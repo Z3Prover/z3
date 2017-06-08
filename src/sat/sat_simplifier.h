@@ -198,6 +198,8 @@ namespace sat {
         void updt_params(params_ref const & p);
         static void collect_param_descrs(param_descrs & d);
 
+        void free_memory();
+
         void finalize();
 
         void collect_statistics(statistics & st) const;
