@@ -68,12 +68,12 @@ namespace sat {
 
         struct config {
             double   m_dl_success;
-            float    m_alpha;
-            float    m_max_score;
+            double   m_alpha;
+            double   m_max_score;
             unsigned m_max_hlevel; 
             unsigned m_min_cutoff;
             unsigned m_level_cand;
-            float    m_delta_rho;
+            double   m_delta_rho;
             unsigned m_dl_max_iterations;
             unsigned m_tc1_limit;
 
@@ -83,7 +83,7 @@ namespace sat {
                 m_max_score = 20.0;
                 m_min_cutoff = 30;
                 m_level_cand = 600;
-                m_delta_rho = (float)0.9995;
+                m_delta_rho = (double)0.9995;
                 m_dl_max_iterations = 32;
                 m_tc1_limit = 10000000;
             }
@@ -96,7 +96,7 @@ namespace sat {
         };
 
         struct lit_info {
-            float     m_wnb;
+            double     m_wnb;
             unsigned  m_double_lookahead;
             lit_info(): m_wnb(0), m_double_lookahead(0) {}
         };
@@ -145,9 +145,9 @@ namespace sat {
         clause_allocator       m_cls_allocator;        
         bool                   m_inconsistent;
         unsigned_vector        m_bstamp;        // literal: timestamp for binary implication
-        vector<svector<float> >  m_H;           // literal: fitness score
-        svector<float>*        m_heur;          // current fitness 
-        svector<float>         m_rating;        // var:     pre-selection rating
+        vector<svector<double> >  m_H;           // literal: fitness score
+        svector<double>*        m_heur;          // current fitness 
+        svector<double>         m_rating;        // var:     pre-selection rating
         unsigned               m_bstamp_id;     // unique id for binary implication.
         unsigned               m_istamp_id;     // unique id for managing double lookaheads
         unsigned_vector        m_stamp;         // var: timestamp with truth value        
@@ -156,7 +156,7 @@ namespace sat {
         vector<watch_list>     m_watches;       // literal: watch structure
         svector<lit_info>      m_lits;          // literal: attributes.
         vector<clause_vector>  m_full_watches;  // literal: full watch list, used to ensure that autarky reduction is sound
-        float                  m_weighted_new_binaries; // metric associated with current lookahead1 literal.
+        double                  m_weighted_new_binaries; // metric associated with current lookahead1 literal.
         literal_vector         m_wstack;        // windofall stack that is populated in lookahead1 mode
         uint64                 m_prefix;        // where we are in search tree
         svector<prefix>        m_vprefix;       // var:     prefix where variable participates in propagation
@@ -244,24 +244,24 @@ namespace sat {
 
         struct candidate {
             bool_var m_var;
-            float    m_rating;
-            candidate(bool_var v, float r): m_var(v), m_rating(r) {}
+            double    m_rating;
+            candidate(bool_var v, double r): m_var(v), m_rating(r) {}
         };
         svector<candidate> m_candidates;
         uint_set           m_select_lookahead_vars;
 
-        float get_rating(bool_var v) const { return m_rating[v]; }
-        float get_rating(literal l) const { return get_rating(l.var()); }
+        double get_rating(bool_var v) const { return m_rating[v]; }
+        double get_rating(literal l) const { return get_rating(l.var()); }
         bool select(unsigned level);
         void sift_up(unsigned j);
-        float init_candidates(unsigned level, bool newbies);
+        double init_candidates(unsigned level, bool newbies);
         std::ostream& display_candidates(std::ostream& out) const;
         bool is_unsat() const;
         bool is_sat() const;
         void init_pre_selection(unsigned level);
         void ensure_H(unsigned level);
-        void h_scores(svector<float>& h, svector<float>& hp);
-        float l_score(literal l, svector<float> const& h, float factor, float sqfactor, float afactor);
+        void h_scores(svector<double>& h, svector<double>& hp);
+        double l_score(literal l, svector<double> const& h, double factor, double sqfactor, double afactor);
 
         // ------------------------------------       
         // Implication graph
@@ -378,7 +378,7 @@ namespace sat {
         bool push_lookahead2(literal lit, unsigned level);
         void push_lookahead1(literal lit, unsigned level);
         void pop_lookahead1(literal lit);
-        float mix_diff(float l, float r) const { return l + r + (1 << 10) * l * r; }
+        double mix_diff(double l, double r) const { return l + r + (1 << 10) * l * r; }
         clause const& get_clause(watch_list::iterator it) const;
         bool is_nary_propagation(clause const& c, literal l) const;
         void propagate_clauses(literal l);
@@ -390,9 +390,9 @@ namespace sat {
         void reset_wnb();
         literal select_literal();
 
-        void set_wnb(literal l, float f) { m_lits[l.index()].m_wnb = f; }
-        void inc_wnb(literal l, float f) { m_lits[l.index()].m_wnb += f; }
-        float get_wnb(literal l) const { return m_lits[l.index()].m_wnb; }
+        void set_wnb(literal l, double f) { m_lits[l.index()].m_wnb = f; }
+        void inc_wnb(literal l, double f) { m_lits[l.index()].m_wnb += f; }
+        double get_wnb(literal l) const { return m_lits[l.index()].m_wnb; }
             
         void reset_wnb(literal l);
         bool check_autarky(literal l, unsigned level);
