@@ -151,7 +151,7 @@ namespace sat {
                 }
                 if (m_num_tc1 < m_config.m_tc1_limit) {
                     ++m_num_tc1;
-                    IF_VERBOSE(3, verbose_stream() << "tc1: " << u << " " << w << "\n";);
+                    IF_VERBOSE(30, verbose_stream() << "tc1: " << u << " " << w << "\n";);
                     add_binary(u, w);
                 }
             }
@@ -285,9 +285,11 @@ namespace sat {
         for (bool_var const* it = m_freevars.begin(), * end = m_freevars.end(); it != end; ++it) {
             SASSERT(is_undef(*it));
             bool_var x = *it;
-            if (!m_select_lookahead_vars.empty() && m_select_lookahead_vars.contains(x)) {
-                m_candidates.push_back(candidate(x, m_rating[x]));
-                sum += m_rating[x];                
+            if (!m_select_lookahead_vars.empty()) {
+                if (m_select_lookahead_vars.contains(x)) {
+                    m_candidates.push_back(candidate(x, m_rating[x]));
+                    sum += m_rating[x];
+                }                
             }
             else if (newbies || active_prefix(x)) {
                 m_candidates.push_back(candidate(x, m_rating[x]));
@@ -1214,7 +1216,7 @@ namespace sat {
                     continue;
                 }
                 if (scope_lvl() == 1) {
-                    IF_VERBOSE(3, verbose_stream() << scope_lvl() << " " << lit << " binary: " << m_binary_trail.size() << " trail: " << m_trail_lim.back() << "\n";);
+                    IF_VERBOSE(30, verbose_stream() << scope_lvl() << " " << lit << " binary: " << m_binary_trail.size() << " trail: " << m_trail_lim.back() << "\n";);
                 }
                 TRACE("sat", tout << "lookahead: " << lit << " @ " << m_lookahead[i].m_offset << "\n";);
                 reset_wnb(lit);
@@ -1602,12 +1604,13 @@ namespace sat {
 
 
     literal lookahead::select_lookahead(bool_var_vector const& vars) {
+        IF_VERBOSE(1, verbose_stream() << "(sat-select " << vars.size() << ")\n";);
         scoped_ext _sext(*this);
         m_search_mode = lookahead_mode::searching;
         scoped_level _sl(*this, c_fixed_truth);
         init();                
         if (inconsistent()) return null_literal;
-        inc_istamp();            
+        inc_istamp();        
         for (auto v : vars) {
             m_select_lookahead_vars.insert(v);
         }

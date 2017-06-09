@@ -176,7 +176,7 @@ public:
        \brief extract a lookahead candidates for branching.
     */
 
-    virtual expr_ref lookahead(expr_ref_vector const& candidates);
+    virtual expr_ref lookahead(expr_ref_vector const& candidates) = 0;
 
     /**
        \brief extract learned lemmas.

@@ -281,8 +281,10 @@ public:
     }
 
     virtual expr_ref lookahead(expr_ref_vector const& candidates) { 
+        IF_VERBOSE(1, verbose_stream() << "(sat-lookahead " << candidates.size() << ")\n";);
         sat::bool_var_vector vars;
         expr_ref_vector lit2expr(m);
+        lit2expr.resize(m_solver.num_vars() * 2);
         m_map.mk_inv(lit2expr);
         for (auto c : candidates) {
             sat::bool_var v = m_map.to_bool_var(c);
@@ -290,17 +292,21 @@ public:
                 vars.push_back(v);
             }
         }
+        IF_VERBOSE(1, verbose_stream() << "vars: " << vars.size() << "\n";);
         if (vars.empty()) {
             return expr_ref(m.mk_true(), m);
         }
         sat::literal l = m_solver.select_lookahead(vars);
         if (m_solver.inconsistent()) {
+            IF_VERBOSE(1, verbose_stream() << "(sat-lookahead inconsistent)\n";);
             return expr_ref(m.mk_false(), m);
         }
         if (l == sat::null_literal) {
             return expr_ref(m.mk_true(), m);
         }
-        return expr_ref(lit2expr[l.index()].get(), m);
+        expr_ref result(lit2expr[l.index()].get(), m);
+        IF_VERBOSE(1, verbose_stream() << "solution: " << l << " " << result << "\n";);
+        return result;
     }
     virtual void get_lemmas(expr_ref_vector & lemmas) { 
         IF_VERBOSE(1, verbose_stream() << "(sat-get-lemmas " << lemmas.size() << ")\n";);

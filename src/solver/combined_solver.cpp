@@ -274,6 +274,10 @@ public:
         return m_solver1->get_num_assumptions() + m_solver2->get_num_assumptions();
     }
 
+    virtual expr_ref lookahead(expr_ref_vector const& candidates) { 
+        return m_solver1->lookahead(candidates); 
+    }
+
     virtual expr * get_assumption(unsigned idx) const {
         unsigned c1 = m_solver1->get_num_assumptions();
         if (idx < c1) return m_solver1->get_assumption(idx);

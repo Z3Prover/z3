@@ -75,6 +75,12 @@ public:
     virtual expr * get_assertion(unsigned idx) const;
 
     virtual ast_manager& get_manager() const; 
+
+    virtual expr_ref lookahead(expr_ref_vector const& candidates) {
+        ast_manager& m = get_manager();
+        std::cout << "tactic2solver\n";
+        return expr_ref(m.mk_true(), m);
+    }
 };
 
 ast_manager& tactic2solver::get_manager() const { return m_assertions.get_manager(); }
