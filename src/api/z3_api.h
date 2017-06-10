@@ -48,6 +48,7 @@ DEFINE_TYPE(Z3_rcf_num);
 /*@{*/
 
 /** @name Types
+    @{
 
    Most of the types in the C API are opaque pointers.
 
@@ -5238,7 +5239,6 @@ extern "C" {
        def_API('Z3_get_error_msg', STRING, (_in(CONTEXT), _in(ERROR_CODE)))
     */
     Z3_string Z3_API Z3_get_error_msg(Z3_context c, Z3_error_code err);
-    /*@}*/
 
     /**
        \brief Return a string describing the given error code.
@@ -5349,6 +5349,10 @@ extern "C" {
 
     /**
        \brief Add a new formula \c a to the given goal.
+        Conjunctions are split into separate formulas.
+        If the goal is \c false, adding new formulas is a no-op.
+        If the formula \c a is \c true, then nothing is added.
+        If the formula \c a is \c false, then the entire goal is replaced by the formula \c false.
 
        def_API('Z3_goal_assert', VOID, (_in(CONTEXT), _in(GOAL), _in(AST)))
     */
