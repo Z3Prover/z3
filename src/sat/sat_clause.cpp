@@ -130,23 +130,19 @@ namespace sat {
 
     clause * clause_allocator::get_clause(clause_offset cls_off) const {
 #if defined(_AMD64_)
-#if defined (Z3DEBUG)
-        clause const* result;
         if (((cls_off & c_alignment_mask) == c_last_segment)) {
             unsigned id = cls_off >> c_cls_alignment;
-            bool check = m_last_seg_id2cls.find(id, result);
-            SASSERT(check);
-            return const_cast<clause*>(result);
+            return const_cast<clause*>(m_last_seg_id2cls[id]);
         }
-#endif
         return reinterpret_cast<clause *>(m_segments[cls_off & c_alignment_mask] + (static_cast<size_t>(cls_off) & ~c_alignment_mask));
 #else
         return reinterpret_cast<clause *>(cls_off);
 #endif
     }
 
+
+    clause_offset clause_allocator::get_offset(clause const * cls) const {
 #if defined(_AMD64_)
-    unsigned clause_allocator::get_segment(clause const* cls) {
         size_t ptr = reinterpret_cast<size_t>(cls);
 
         SASSERT((ptr & c_alignment_mask) == 0);
@@ -154,41 +150,18 @@ namespace sat {
         unsigned i = 0;
         for (i = 0; i < m_num_segments; ++i)
             if (m_segments[i] == ptr)
-                return i;
-        i = m_num_segments;
+                return static_cast<clause_offset>(reinterpret_cast<size_t>(cls)) + i;
+        SASSERT(i == m_num_segments);
         SASSERT(i <= c_last_segment);
-#if defined(Z3DEBUG)
         if (i == c_last_segment) {
-            if (!m_last_seg_id2cls.contains(cls->id()))
-                m_last_seg_id2cls.insert(cls->id(), cls);
+            m_last_seg_id2cls.setx(cls->id(), cls, 0);
+            return (cls->id() << c_cls_alignment) | c_last_segment;
         }
         else {
             ++m_num_segments;
             m_segments[i] = ptr;
+            return static_cast<clause_offset>(reinterpret_cast<size_t>(cls)) + i;
         }
-#else
-        if (i == c_last_segment) {
-            throw default_exception("segment out of range");
-        }
-        m_segments[i] = ptr;
-        ++m_num_segments;
-#endif
-
-        return i;
-    }
-#endif
-
-    clause_offset clause_allocator::get_offset(clause const * cls) const {
-#if defined(_AMD64_)
-        unsigned segment = const_cast<clause_allocator*>(this)->get_segment(cls);
-#if defined(Z3DEBUG)
-        SASSERT(segment <= c_last_segment);
-        if (segment == c_last_segment) {
-            SASSERT(m_last_seg_id2cls.contains(cls->id()));
-            return (cls->id() << c_cls_alignment) | c_last_segment;
-        }
-#endif
-        return static_cast<unsigned>(reinterpret_cast<size_t>(cls)) + segment;
 #else
         return reinterpret_cast<size_t>(cls);
 #endif
@@ -207,9 +180,6 @@ namespace sat {
         TRACE("sat_clause", tout << "delete: " << cls->id() << " " << *cls << "\n";);
         m_id_gen.recycle(cls->id());
 #if defined(_AMD64_)
-#if defined(Z3DEBUG)
-        m_last_seg_id2cls.remove(cls->id());
-#endif
 #endif
         size_t size = clause::get_obj_size(cls->m_capacity);
         cls->~clause();

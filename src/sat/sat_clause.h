@@ -132,15 +132,13 @@ namespace sat {
         small_object_allocator m_allocator;
         id_gen                 m_id_gen;
 #if defined(_AMD64_)
-        unsigned get_segment(clause const* cls);
         static const unsigned  c_cls_alignment = 3;
         static const unsigned  c_last_segment  = (1ull << c_cls_alignment) - 1ull;
         static const size_t    c_alignment_mask = (1ull << c_cls_alignment) - 1ull;
-        unsigned               m_num_segments;
-        size_t                 m_segments[c_last_segment];
-#if defined(Z3DEBUG)
-        u_map<clause const*>   m_last_seg_id2cls;
-#endif
+        mutable unsigned               m_num_segments;
+        mutable size_t                 m_segments[c_last_segment];
+        mutable svector<size_t>        m_aux_segments;
+        mutable ptr_vector<clause const> m_last_seg_id2cls;
 #endif
     public:
         clause_allocator();
