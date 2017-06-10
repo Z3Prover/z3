@@ -214,7 +214,7 @@ static void print_core(cmd_context& ctx) {
     ctx.regular_stream() << ")" << std::endl;                   
 }
 
-TOMIC_CMD(get_unsat_core_cmd, "get-unsat-core", "retrieve unsat core", {
+ATOMIC_CMD(get_unsat_core_cmd, "get-unsat-core", "retrieve unsat core", {
         if (!ctx.produce_unsat_cores())
             throw cmd_exception("unsat core construction is not enabled, use command (set-option :produce-unsat-cores true)");
         if (!ctx.has_manager() ||
