@@ -613,8 +613,8 @@ private:
             VERIFY(asm2dep.find(core[i].index(), e));
             if (asm2fml.contains(e)) {
                 e = asm2fml.find(e);
-                m_core.push_back(e);
             }
+            m_core.push_back(e);
         }
     }
 
