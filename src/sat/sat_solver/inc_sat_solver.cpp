@@ -597,16 +597,14 @@ private:
         extract_asm2dep(dep2asm, asm2dep);
         sat::literal_vector const& core = m_solver.get_core();
         TRACE("sat",
-              dep2asm_t::iterator it2 = dep2asm.begin();
-              dep2asm_t::iterator end2 = dep2asm.end();
-              for (; it2 != end2; ++it2) {
-                  tout << mk_pp(it2->m_key, m) << " |-> " << sat::literal(it2->m_value) << "\n";
+              for (auto kv : dep2asm) {
+                  tout << mk_pp(kv.m_key, m) << " |-> " << sat::literal(kv.m_value) << "\n";
               }
-              tout << "core: ";
-              for (unsigned i = 0; i < core.size(); ++i) {
-                  tout << core[i] << " ";
+              tout << "asm2fml: ";
+              for (auto kv : asm2fml) {
+                  tout << mk_pp(kv.m_key, m) << " |-> " << mk_pp(kv.m_value, m) << "\n";
               }
-              tout << "\n";
+              tout << "core: "; for (auto c : core) tout << c << " ";  tout << "\n";
               );
 
         m_core.reset();
@@ -615,8 +613,8 @@ private:
             VERIFY(asm2dep.find(core[i].index(), e));
             if (asm2fml.contains(e)) {
                 e = asm2fml.find(e);
+                m_core.push_back(e);
             }
-            m_core.push_back(e);
         }
     }
 
