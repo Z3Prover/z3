@@ -198,20 +198,21 @@ ATOMIC_CMD(get_proof_cmd, "get-proof", "retrieve proof", {
     }
 });
 
-#define PRINT_CORE()                                            \
-    ptr_vector<expr> core;                                      \
-    ctx.get_check_sat_result()->get_unsat_core(core);           \
-    ctx.regular_stream() << "(";                                \
-    ptr_vector<expr>::const_iterator it  = core.begin();        \
-    ptr_vector<expr>::const_iterator end = core.end();          \
-    for (bool first = true; it != end; ++it) {                  \
-    if (first)                                                  \
-        first = false;                                          \
-    else                                                        \
-        ctx.regular_stream() << " ";                            \
-    ctx.regular_stream() << mk_ismt2_pp(*it, ctx.m());          \
-    }                                                           \
-    ctx.regular_stream() << ")" << std::endl;                   \
+static void print_core(cmd_context& ctx) {
+    ptr_vector<expr> core;                                      
+    ctx.get_check_sat_result()->get_unsat_core(core);           
+    ctx.regular_stream() << "(";                                
+    ptr_vector<expr>::const_iterator it  = core.begin();        
+    ptr_vector<expr>::const_iterator end = core.end();          
+    for (bool first = true; it != end; ++it) {                  
+    if (first)                                                  
+        first = false;                                          
+    else                                                        
+        ctx.regular_stream() << " ";                            
+    ctx.regular_stream() << mk_ismt2_pp(*it, ctx.m());          
+    }                                                           
+    ctx.regular_stream() << ")" << std::endl;                   
+}
 
 ATOMIC_CMD(get_unsat_core_cmd, "get-unsat-core", "retrieve unsat core", {
         if (!ctx.produce_unsat_cores())
@@ -219,7 +220,7 @@ ATOMIC_CMD(get_unsat_core_cmd, "get-unsat-core", "retrieve unsat core", {
         if (!ctx.has_manager() ||
             ctx.cs_state() != cmd_context::css_unsat)
             throw cmd_exception("unsat core is not available");
-        PRINT_CORE();
+        print_core(ctx);
     });
 
 ATOMIC_CMD(get_unsat_assumptions_cmd, "get-unsat-assumptions", "retrieve subset of assumptions sufficient for unsatisfiability", {
@@ -228,7 +229,7 @@ ATOMIC_CMD(get_unsat_assumptions_cmd, "get-unsat-assumptions", "retrieve subset 
         if (!ctx.has_manager() || ctx.cs_state() != cmd_context::css_unsat) {
             throw cmd_exception("unsat assumptions is not available");
         }
-        PRINT_CORE();
+        print_core(ctx);
     });
 
 
