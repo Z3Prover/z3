@@ -100,6 +100,7 @@ public:
         rational weight = ps().get_rat(symbol("weight"), rational::one());
         symbol id = ps().get_sym(symbol("id"), symbol::null);        
         get_opt(ctx, m_opt).add_soft_constraint(m_formula, weight, id);
+        ctx.print_success();
         reset(ctx);
     }
 
@@ -131,6 +132,7 @@ public:
             throw cmd_exception("malformed objective term: it cannot be a quantifier or bound variable");
         }
         get_opt(ctx, m_opt).add_objective(to_app(t), m_is_max);
+        ctx.print_success();
     }
 
     virtual void failure_cleanup(cmd_context & ctx) {
