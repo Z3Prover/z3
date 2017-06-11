@@ -255,11 +255,13 @@ namespace Microsoft.Z3
 	/// <summary>
 	/// Select a lookahead literal from the set of supplied candidates.
 	/// </summary>
-	public BoolExpr Lookahead(IEnumerable<BoolExpr> candidates) 
+	public BoolExpr Lookahead(IEnumerable<BoolExpr> assumptions, IEnumerable<BoolExpr> candidates) 
 	{
              ASTVector cands = new ASTVector(Context);
              foreach (var c in candidates) cands.Push(c);
-	     return (BoolExpr)Expr.Create(Context, Native.Z3_solver_lookahead(Context.nCtx, NativeObject, cands.NativeObject));
+             ASTVector assums = new ASTVector(Context);
+             foreach (var c in assumptions) assums.Push(c);
+	     return (BoolExpr)Expr.Create(Context, Native.Z3_solver_lookahead(Context.nCtx, NativeObject, assums.NativeObject, cands.NativeObject));
         }
 
 	/// <summary>

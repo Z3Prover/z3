@@ -219,7 +219,7 @@ namespace smt {
             return m_context.get_formulas()[idx];
         }
 
-        virtual expr_ref lookahead(expr_ref_vector const& candidates) { 
+        virtual expr_ref lookahead(expr_ref_vector const& assumptions, expr_ref_vector const& candidates) { 
             ast_manager& m = get_manager();
             return expr_ref(m.mk_true(), m);
         }

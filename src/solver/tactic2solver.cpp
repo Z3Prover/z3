@@ -76,7 +76,7 @@ public:
 
     virtual ast_manager& get_manager() const; 
 
-    virtual expr_ref lookahead(expr_ref_vector const& candidates) {
+    virtual expr_ref lookahead(expr_ref_vector const& assumptions, expr_ref_vector const& candidates) {
         ast_manager& m = get_manager();
         std::cout << "tactic2solver\n";
         return expr_ref(m.mk_true(), m);

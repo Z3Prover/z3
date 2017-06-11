@@ -199,6 +199,14 @@ namespace sat {
             ~scoped_ext();
         };
 
+        class scoped_assumptions {
+            lookahead& p;
+            literal_vector lits;
+        public:
+            scoped_assumptions(lookahead& p, literal_vector const& lits);
+            ~scoped_assumptions();
+        };
+
         // -------------------------------------
         // prefix updates. I use low order bits.
         
@@ -447,7 +455,7 @@ namespace sat {
             return search();
         }
 
-        literal select_lookahead(bool_var_vector const& vars);
+        literal select_lookahead(literal_vector const& assumptions, bool_var_vector const& vars);
         /**
            \brief simplify set of clauses by extracting units from a lookahead at base level.
          */

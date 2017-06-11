@@ -479,18 +479,27 @@ extern "C" {
 
     Z3_ast Z3_API Z3_solver_lookahead(Z3_context c,
                                       Z3_solver s,
+                                      Z3_ast_vector assumptions,
                                       Z3_ast_vector candidates)  {
         Z3_TRY;
-        LOG_Z3_solver_lookahead(c, s, candidates);
+        LOG_Z3_solver_lookahead(c, s, assumptions, candidates);
         ast_manager& m = mk_c(c)->m();
-        expr_ref_vector _candidates(m);
+        expr_ref_vector _candidates(m), _assumptions(m);
         ast_ref_vector const& __candidates = to_ast_vector_ref(candidates);
+        ast_ref_vector const& __assumptions = to_ast_vector_ref(assumptions);
         for (auto & e : __candidates) {
             if (!is_expr(e)) {
                 SET_ERROR_CODE(Z3_INVALID_USAGE);
                 return 0;
             }
             _candidates.push_back(to_expr(e));
+        }
+        for (auto & e : __assumptions) {
+            if (!is_expr(e)) {
+                SET_ERROR_CODE(Z3_INVALID_USAGE);
+                return 0;
+            }
+            _assumptions.push_back(to_expr(e));
         }
 
         expr_ref result(m);
@@ -504,7 +513,7 @@ extern "C" {
             scoped_timer timer(timeout, &eh);
             scoped_rlimit _rlimit(mk_c(c)->m().limit(), rlimit);
             try {
-                result = to_solver_ref(s)->lookahead(_candidates);
+                result = to_solver_ref(s)->lookahead(_assumptions, _candidates);
             }
             catch (z3_exception & ex) {
                 mk_c(c)->handle_exception(ex);

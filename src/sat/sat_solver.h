@@ -355,7 +355,7 @@ namespace sat {
         void set_model(model const& mdl);
         char const* get_reason_unknown() const { return m_reason_unknown.c_str(); }
 
-        literal select_lookahead(bool_var_vector const& vars);
+        literal select_lookahead(literal_vector const& assumptions, bool_var_vector const& vars);
 
     protected:
         unsigned m_conflicts;

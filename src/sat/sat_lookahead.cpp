@@ -30,6 +30,18 @@ namespace sat {
         if (p.m_s.m_ext) p.m_s.m_ext->set_lookahead(0); 
     }
 
+    lookahead::scoped_assumptions::scoped_assumptions(lookahead& p, literal_vector const& lits): p(p), lits(lits) {
+        for (auto l : lits) {
+            p.push(l, p.c_fixed_truth);
+        }
+    }
+    lookahead::scoped_assumptions::~scoped_assumptions() {
+        for (auto l : lits) {
+            p.pop();
+        }
+    }
+
+
     void lookahead::flip_prefix() {
         if (m_trail_lim.size() < 64) {
             uint64 mask = (1ull << m_trail_lim.size());
@@ -1612,7 +1624,7 @@ namespace sat {
     }
 
 
-    literal lookahead::select_lookahead(bool_var_vector const& vars) {
+    literal lookahead::select_lookahead(literal_vector const& assumptions, bool_var_vector const& vars) {
         IF_VERBOSE(1, verbose_stream() << "(sat-select " << vars.size() << ")\n";);
         scoped_ext _sext(*this);
         m_search_mode = lookahead_mode::searching;
@@ -1623,19 +1635,25 @@ namespace sat {
         for (auto v : vars) {
             m_select_lookahead_vars.insert(v);
         }
+        
+        scoped_assumptions _sa(*this, assumptions);
         literal l = choose();
         m_select_lookahead_vars.reset();
-        if (inconsistent()) return null_literal;
+        if (inconsistent()) l = null_literal;
 
+#if 0
         // assign unit literals that were found during search for lookahead.
-        unsigned num_assigned = 0;
-        for (literal lit : m_trail) {
-            if (!m_s.was_eliminated(lit.var()) && m_s.value(lit) != l_true) {
-                m_s.assign(lit, justification());
-                ++num_assigned;
+        if (assumptions.empty()) {
+            unsigned num_assigned = 0;
+            for (literal lit : m_trail) {
+                if (!m_s.was_eliminated(lit.var()) && m_s.value(lit) != l_true) {
+                    m_s.assign(lit, justification());
+                    ++num_assigned;
+                }
             }
+            IF_VERBOSE(1, verbose_stream() << "(sat-lookahead :units " << num_assigned << ")\n";);
         }
-        IF_VERBOSE(1, verbose_stream() << "(sat-lookahead :units " << num_assigned << ")\n";);
+#endif
         return l;
     }
 

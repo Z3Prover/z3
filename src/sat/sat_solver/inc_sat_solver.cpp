@@ -148,6 +148,8 @@ public:
 
     virtual lbool check_sat(unsigned sz, expr * const * assumptions) {
         m_solver.pop_to_base_level();
+        m_core.reset();
+        if (m_solver.inconsistent()) return l_false;
         expr_ref_vector _assumptions(m);
         obj_map<expr, expr*> asm2fml;
         for (unsigned i = 0; i < sz; ++i) {
@@ -280,9 +282,10 @@ public:
         return 0;
     }
 
-    virtual expr_ref lookahead(expr_ref_vector const& candidates) { 
+    virtual expr_ref lookahead(expr_ref_vector const& assumptions, expr_ref_vector const& candidates) { 
         IF_VERBOSE(1, verbose_stream() << "(sat-lookahead " << candidates.size() << ")\n";);
         sat::bool_var_vector vars;
+        sat::literal_vector lits;
         expr_ref_vector lit2expr(m);
         lit2expr.resize(m_solver.num_vars() * 2);
         m_map.mk_inv(lit2expr);
@@ -292,11 +295,29 @@ public:
                 vars.push_back(v);
             }
         }
+        for (auto c : assumptions) {
+            SASSERT(is_literal(c));
+            sat::bool_var v = sat::null_bool_var;
+            bool sign = false;
+            expr* e = c;
+            while (m.is_not(e, e)) {
+                sign = !sign;
+            }
+            if (is_uninterp_const(e)) {
+                v = m_map.to_bool_var(e);
+            }
+            if (v != sat::null_bool_var) {
+                lits.push_back(sat::literal(v, sign));
+            }
+            else {
+                IF_VERBOSE(0, verbose_stream() << "WARNING: could not handle " << mk_pp(c, m) << "\n";);
+        }
+        }
         IF_VERBOSE(1, verbose_stream() << "vars: " << vars.size() << "\n";);
         if (vars.empty()) {
             return expr_ref(m.mk_true(), m);
         }
-        sat::literal l = m_solver.select_lookahead(vars);
+        sat::literal l = m_solver.select_lookahead(lits, vars);
         if (m_solver.inconsistent()) {
             IF_VERBOSE(1, verbose_stream() << "(sat-lookahead inconsistent)\n";);
             return expr_ref(m.mk_false(), m);
@@ -715,7 +736,7 @@ private:
             if (asm2fml.contains(e)) {
                 e = asm2fml.find(e);
             }
-            m_core.push_back(e);
+            m_core.push_back(e);            
         }
     }
 

@@ -6028,10 +6028,10 @@ extern "C" {
        \brief select a literal from the list of candidate propositional variables to split on.
        If the candidate list is empty, then the solver chooses a formula based on its internal state.
        
-       def_API('Z3_solver_lookahead', AST, (_in(CONTEXT), _in(SOLVER), _in(AST_VECTOR)))
+       def_API('Z3_solver_lookahead', AST, (_in(CONTEXT), _in(SOLVER), _in(AST_VECTOR), _in(AST_VECTOR)))
     */
 
-    Z3_ast Z3_API Z3_solver_lookahead(Z3_context c, Z3_solver s, Z3_ast_vector candidates);
+    Z3_ast Z3_API Z3_solver_lookahead(Z3_context c, Z3_solver s, Z3_ast_vector assumptions, Z3_ast_vector candidates);
 
 
     /**

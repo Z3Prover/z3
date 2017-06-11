@@ -811,14 +811,9 @@ namespace sat {
         return r;
     }
 
-    literal solver::select_lookahead(bool_var_vector const& vars) {
+    literal solver::select_lookahead(literal_vector const& assumptions, bool_var_vector const& vars) {
         lookahead lh(*this);
-        literal result = lh.select_lookahead(vars);
-        if (result == null_literal) {
-            set_conflict(justification());
-        }
-        // extract unit literals from lh
-        return result;
+        return lh.select_lookahead(assumptions, vars);
     }
 
     // -----------------------
@@ -851,8 +846,8 @@ namespace sat {
         }
 #endif
         try {
-            if (inconsistent()) return l_false;
             init_search();
+            if (inconsistent()) return l_false;
             propagate(false);
             if (inconsistent()) return l_false;
             init_assumptions(num_lits, lits);
