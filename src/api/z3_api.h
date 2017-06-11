@@ -5839,7 +5839,7 @@ extern "C" {
 
        Unlike `Z3_mk_solver()` this solver
          - Does not attempt to apply any logic specific tactics.
-         - Does not changes its behaviour based on whether it used
+         - Does not change its behaviour based on whether it used
            incrementally/non-incrementally.
 
        Note that these differences can result in very different performance
