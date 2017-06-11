@@ -5795,9 +5795,35 @@ extern "C" {
     /** @name Solvers*/
     /*@{*/
     /**
-       \brief Create a new (incremental) solver. This solver also uses a
-       set of builtin tactics for handling the first check-sat command, and
-       check-sat commands that take more than a given number of milliseconds to be solved.
+       \brief Create a new solver. This solver is a "combined solver" (see
+       combined_solver module) that internally uses a non-incremental (solver1) and an
+       incremental solver (solver2). This combined solver changes its behaviour based
+       on how it is used and how its parameters are set.
+
+       If the solver is used in a non incremental way (i.e. no calls to
+       `Z3_solver_push()` or `Z3_solver_pop()`, and no calls to
+       `Z3_solver_assert()` or `Z3_solver_assert_and_track()` after checking
+       satisfiability without an intervening `Z3_solver_reset()`) then solver1
+       will be used. This solver will apply Z3's "default" tactic.
+
+       The "default" tactic will attempt to probe the logic used by the
+       assertions and will apply a specialized tactic if one is supported.
+       Otherwise the general `(and-then simplify smt)` tactic will be used.
+
+       If the solver is used in an incremental way then the combined solver
+       will switch to using solver2 (which behaves similarly to the general
+       "smt" tactic).
+
+       Note however it is possible to set the `solver2_timeout`,
+       `solver2_unknown`, and `ignore_solver1` parameters of the combined
+       solver to change its behaviour.
+
+       The function #Z3_solver_get_model retrieves a model if the
+       assertions is satisfiable (i.e., the result is \c
+       Z3_L_TRUE) and model construction is enabled.
+       The function #Z3_solver_get_model can also be used even
+       if the result is \c Z3_L_UNDEF, but the returned model
+       is not guaranteed to satisfy quantified assertions.
 
        \remark User must use #Z3_solver_inc_ref and #Z3_solver_dec_ref to manage solver objects.
        Even if the context was created using #Z3_mk_context instead of #Z3_mk_context_rc.
@@ -5807,7 +5833,17 @@ extern "C" {
     Z3_solver Z3_API Z3_mk_solver(Z3_context c);
 
     /**
-       \brief Create a new (incremental) solver.
+       \brief Create a new incremental solver.
+
+       This is equivalent to applying the "smt" tactic.
+
+       Unlike `Z3_mk_solver()` this solver
+         - Does not attempt to apply any logic specific tactics.
+         - Does not changes its behaviour based on whether it used
+           incrementally/non-incrementally.
+
+       Note that these differences can result in very different performance
+       compared to `Z3_mk_solver()`.
 
        The function #Z3_solver_get_model retrieves a model if the
        assertions is satisfiable (i.e., the result is \c
