@@ -149,7 +149,7 @@ ATOMIC_CMD(get_assignment_cmd, "get-assignment", "retrieve assignment", {
                     first = false;
                 else
                     ctx.regular_stream() << " ";
-                ctx.regular_stream() << "(" << name << " " << (ctx.m().is_true(val) ? "true" : "false") << ")";
+                ctx.regular_stream() << "(" << escaped(name.str().c_str()) << " " << (ctx.m().is_true(val) ? "true" : "false") << ")";
             }
         }
     }
