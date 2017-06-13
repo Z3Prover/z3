@@ -241,6 +241,16 @@ public:
             assert_expr(t);
         }
     }
+
+    virtual void assert_lemma(expr* e) {
+        dep2asm_t dep2asm;
+        goal_ref g = alloc(goal, m, true, false); // models, maybe cores are enabled
+        for (unsigned i = m_fmls_head ; i < m_fmls.size(); ++i) {
+            g->assert_expr(m_fmls[i].get());
+        }
+        VERIFY(l_undef != internalize_goal(g, dep2asm, true));        
+    }
+
     virtual ast_manager& get_manager() const { return m; }
     virtual void assert_expr(expr * t) {
         m_internalized = false;
@@ -501,7 +511,7 @@ public:
 private:
 
 
-    lbool internalize_goal(goal_ref& g, dep2asm_t& dep2asm) {
+    lbool internalize_goal(goal_ref& g, dep2asm_t& dep2asm, bool is_lemma) {
         m_mc.reset();
         m_pc.reset();
         m_dep_core.reset();
@@ -527,7 +537,7 @@ private:
         g = m_subgoals[0];
         expr_ref_vector atoms(m);
         TRACE("sat", g->display_with_dependencies(tout););
-        m_goal2sat(*g, m_params, m_solver, m_map, dep2asm, true);
+        m_goal2sat(*g, m_params, m_solver, m_map, dep2asm, true, is_lemma);
         m_goal2sat.get_interpreted_atoms(atoms);
         if (!atoms.empty()) {
             std::stringstream strm;
@@ -552,7 +562,7 @@ private:
         for (unsigned i = 0; i < get_num_assumptions(); ++i) {
             g->assert_expr(get_assumption(i), m.mk_leaf(get_assumption(i)));
         }
-        lbool res = internalize_goal(g, dep2asm);
+        lbool res = internalize_goal(g, dep2asm, false);
         if (res == l_true) {
             extract_assumptions(sz, asms, dep2asm);
         }
@@ -673,7 +683,7 @@ private:
         for (unsigned i = m_fmls_head ; i < m_fmls.size(); ++i) {
             g->assert_expr(m_fmls[i].get());
         }
-        lbool res = internalize_goal(g, dep2asm);
+        lbool res = internalize_goal(g, dep2asm, false);
         if (res != l_undef) {
             m_fmls_head = m_fmls.size();
         }

@@ -91,6 +91,12 @@ public:
     virtual void assert_expr(expr * t, expr * a) = 0;
 
     /**
+       \brief Add a lemma to the assertion stack. A lemma is assumed to be a consequence of already
+       asserted formulas. The solver is free to ignore lemmas.
+    */
+    virtual void assert_lemma(expr * t) = 0;
+
+    /**
        \brief Create a backtracking point.
     */
     virtual void push() = 0;

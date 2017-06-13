@@ -203,10 +203,10 @@ namespace sat {
         //
         // -----------------------
         bool_var mk_var(bool ext = false, bool dvar = true);
-        void mk_clause(literal_vector const& lits) { mk_clause(lits.size(), lits.c_ptr()); }
-        void mk_clause(unsigned num_lits, literal * lits);
-        void mk_clause(literal l1, literal l2);
-        void mk_clause(literal l1, literal l2, literal l3);
+        void mk_clause(literal_vector const& lits, bool learned = false) { mk_clause(lits.size(), lits.c_ptr(), learned); }
+        void mk_clause(unsigned num_lits, literal * lits, bool learned = false);
+        void mk_clause(literal l1, literal l2, bool learned = false);
+        void mk_clause(literal l1, literal l2, literal l3, bool learned = false);
 
     protected:
         void del_clause(clause & c);

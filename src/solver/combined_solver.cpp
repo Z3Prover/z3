@@ -179,6 +179,12 @@ public:
         m_solver2->assert_expr(t, a);
     }
 
+    virtual void assert_lemma(expr* t) {
+        m_solver1->assert_lemma(t);
+        if (m_solver2_initialized)
+            m_solver2->assert_lemma(t);
+    }
+
     virtual void push() {
         switch_inc_mode();
         m_solver1->push();

@@ -182,6 +182,21 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Assert a lemma (or multiple) into the solver.
+        /// </summary>        
+        public void AssertLemma(params BoolExpr[] constraints)
+        {
+            Contract.Requires(constraints != null);
+            Contract.Requires(Contract.ForAll(constraints, c => c != null));
+
+            Context.CheckContextMatch<BoolExpr>(constraints);
+            foreach (BoolExpr a in constraints)
+            {
+                Native.Z3_solver_assert_lemma(Context.nCtx, NativeObject, a.NativeObject);
+            }
+        }
+
+        /// <summary>
         /// The number of assertions in the solver.
         /// </summary>
         public uint NumAssertions

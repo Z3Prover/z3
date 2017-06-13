@@ -92,6 +92,7 @@ namespace opt {
         virtual void collect_param_descrs(param_descrs & r);
         virtual void collect_statistics(statistics & st) const;
         virtual void assert_expr(expr * t);
+        virtual void assert_lemma(expr* t) {}
         virtual void push_core();
         virtual void pop_core(unsigned n);
         virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions);        

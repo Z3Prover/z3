@@ -55,6 +55,7 @@ public:
     virtual void set_produce_models(bool f) { m_produce_models = f; }
 
     virtual void assert_expr(expr * t);
+    virtual void assert_lemma(expr * t);
 
     virtual void push_core();
     virtual void pop_core(unsigned n);
@@ -113,6 +114,9 @@ void tactic2solver::collect_param_descrs(param_descrs & r) {
 void tactic2solver::assert_expr(expr * t) {
     m_assertions.push_back(t);
     m_result = 0;
+}
+
+void tactic2solver::assert_lemma(expr * t) {    
 }
 
 void tactic2solver::push_core() {

@@ -116,6 +116,10 @@ namespace smt {
             m_name2assertion.insert(a, t);
         }
 
+        virtual void assert_lemma(expr* t) {
+            // no-op
+        }
+
         virtual void push_core() {
             m_context.push();
         }

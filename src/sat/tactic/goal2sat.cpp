@@ -67,6 +67,7 @@ struct goal2sat::imp {
     expr_ref_vector             m_interpreted_atoms;
     bool                        m_default_external;
     bool                        m_xor_solver;
+    bool                        m_is_lemma;
     
     imp(ast_manager & _m, params_ref const & p, sat::solver & s, atom2bool_var & map, dep2asm_map& dep2asm, bool default_external):
         m(_m),
@@ -77,7 +78,8 @@ struct goal2sat::imp {
         m_dep2asm(dep2asm),
         m_trail(m),
         m_interpreted_atoms(m),
-        m_default_external(default_external) {
+        m_default_external(default_external),
+        m_is_lemma(false) {
         updt_params(p);
         m_true = sat::null_bool_var;
     }
@@ -98,19 +100,21 @@ struct goal2sat::imp {
         m_solver.mk_clause(1, &l);
     }
 
+    void set_lemma_mode(bool f) { m_is_lemma = f; }
+
     void mk_clause(sat::literal l1, sat::literal l2) {
         TRACE("goal2sat", tout << "mk_clause: " << l1 << " " << l2 << "\n";);
-        m_solver.mk_clause(l1, l2);
+        m_solver.mk_clause(l1, l2, m_is_lemma);
     }
 
     void mk_clause(sat::literal l1, sat::literal l2, sat::literal l3) {
         TRACE("goal2sat", tout << "mk_clause: " << l1 << " " << l2 << " " << l3 << "\n";);
-        m_solver.mk_clause(l1, l2, l3);
+        m_solver.mk_clause(l1, l2, l3, m_is_lemma);
     }
 
     void mk_clause(unsigned num, sat::literal * lits) {
         TRACE("goal2sat", tout << "mk_clause: "; for (unsigned i = 0; i < num; i++) tout << lits[i] << " "; tout << "\n";);
-        m_solver.mk_clause(num, lits);
+        m_solver.mk_clause(num, lits, m_is_lemma);
     }
 
     sat::bool_var mk_true() {
@@ -863,9 +867,10 @@ struct goal2sat::scoped_set_imp {
 };
 
 
-void goal2sat::operator()(goal const & g, params_ref const & p, sat::solver & t, atom2bool_var & m, dep2asm_map& dep2asm, bool default_external) {
+void goal2sat::operator()(goal const & g, params_ref const & p, sat::solver & t, atom2bool_var & m, dep2asm_map& dep2asm, bool default_external, bool is_lemma) {
     imp proc(g.m(), p, t, m, dep2asm, default_external);
     scoped_set_imp set(this, &proc);
+    proc.set_lemma_mode(is_lemma);
     proc(g);
     dealloc(m_interpreted_atoms);
     m_interpreted_atoms = alloc(expr_ref_vector, g.m());

@@ -209,7 +209,7 @@ namespace sat {
         }
     }
 
-    void solver::mk_clause(unsigned num_lits, literal * lits) {
+    void solver::mk_clause(unsigned num_lits, literal * lits, bool learned) {
         m_model_is_current = false;
         DEBUG_CODE({
             for (unsigned i = 0; i < num_lits; i++)
@@ -217,24 +217,24 @@ namespace sat {
         });
 
         if (m_user_scope_literals.empty()) {
-            mk_clause_core(num_lits, lits, false);
+            mk_clause_core(num_lits, lits, learned);
         }
         else {
             m_aux_literals.reset();
             m_aux_literals.append(num_lits, lits);
             m_aux_literals.append(m_user_scope_literals);
-            mk_clause_core(m_aux_literals.size(), m_aux_literals.c_ptr(), false);
+            mk_clause_core(m_aux_literals.size(), m_aux_literals.c_ptr(), learned);
         }
     }
 
-    void solver::mk_clause(literal l1, literal l2) {
+    void solver::mk_clause(literal l1, literal l2, bool learned) {
         literal ls[2] = { l1, l2 };
-        mk_clause(2, ls);
+        mk_clause(2, ls, learned);
     }
 
-    void solver::mk_clause(literal l1, literal l2, literal l3) {
+    void solver::mk_clause(literal l1, literal l2, literal l3, bool learned) {
         literal ls[3] = { l1, l2, l3 };
-        mk_clause(3, ls);
+        mk_clause(3, ls, learned);
     }
 
     void solver::del_clause(clause& c) {
