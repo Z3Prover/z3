@@ -60,10 +60,10 @@ public class FuncDecl extends AST
     }
 
     /**
-     * Translates (copies) the AST to the Context {@code ctx}.
+     * Translates (copies) the function declaration to the Context {@code ctx}.
      * @param ctx A context
      *
-     * @return A copy of the AST which is associated with {@code ctx}
+     * @return A copy of the function declaration which is associated with {@code ctx}
      * @throws Z3Exception on error
      **/
     public FuncDecl translate(Context ctx)
