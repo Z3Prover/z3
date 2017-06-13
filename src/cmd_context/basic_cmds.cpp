@@ -149,7 +149,14 @@ ATOMIC_CMD(get_assignment_cmd, "get-assignment", "retrieve assignment", {
                     first = false;
                 else
                     ctx.regular_stream() << " ";
-                ctx.regular_stream() << "(" << escaped(name.str().c_str()) << " " << (ctx.m().is_true(val) ? "true" : "false") << ")";
+                ctx.regular_stream() << "(";
+                if (is_smt2_quoted_symbol(name)) {
+                    ctx.regular_stream() << mk_smt2_quoted_symbol(name);
+                }
+                else {
+                    ctx.regular_stream() << name;
+                }
+                ctx.regular_stream() << " " << (ctx.m().is_true(val) ? "true" : "false") << ")";
             }
         }
     }
