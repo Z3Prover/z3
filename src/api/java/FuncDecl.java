@@ -1,6 +1,6 @@
 /**
 Copyright (c) 2012-2014 Microsoft Corporation
-   
+
 Module Name:
 
     FuncDecl.java
@@ -12,8 +12,8 @@ Author:
     @author Christoph Wintersteiger (cwinter) 2012-03-15
 
 Notes:
-    
-**/ 
+
+**/
 
 package com.microsoft.z3;
 
@@ -60,6 +60,24 @@ public class FuncDecl extends AST
     }
 
     /**
+     * Translates (copies) the AST to the Context {@code ctx}.
+     * @param ctx A context
+     *
+     * @return A copy of the AST which is associated with {@code ctx}
+     * @throws Z3Exception on error
+     **/
+    public FuncDecl translate(Context ctx)
+    {
+
+        if (getContext() == ctx) {
+            return this;
+        } else {
+            return new FuncDecl(ctx, Native.translate(getContext().nCtx(),
+                getNativeObject(), ctx.nCtx()));
+        }
+    }
+
+    /**
      * The arity of the function declaration
      **/
     public int getArity()
@@ -68,7 +86,7 @@ public class FuncDecl extends AST
     }
 
     /**
-     * The size of the domain of the function declaration 
+     * The size of the domain of the function declaration
      * @see #getArity
      **/
     public int getDomainSize()
@@ -324,7 +342,7 @@ public class FuncDecl extends AST
     }
 
     FuncDecl(Context ctx, Symbol name, Sort[] domain, Sort range)
-           
+
     {
         super(ctx, Native.mkFuncDecl(ctx.nCtx(), name.getNativeObject(),
                 AST.arrayLength(domain), AST.arrayToNative(domain),
@@ -333,7 +351,7 @@ public class FuncDecl extends AST
     }
 
     FuncDecl(Context ctx, String prefix, Sort[] domain, Sort range)
-           
+
     {
         super(ctx, Native.mkFreshFuncDecl(ctx.nCtx(), prefix,
                 AST.arrayLength(domain), AST.arrayToNative(domain),
@@ -351,7 +369,7 @@ public class FuncDecl extends AST
     }
 
     /**
-     * Create expression that applies function to arguments. 
+     * Create expression that applies function to arguments.
      **/
     public Expr apply(Expr ... args)
     {
