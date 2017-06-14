@@ -159,7 +159,7 @@ protected:
     bool                         m_produce_assignments;
     status                       m_status;
     bool                         m_numeral_as_real;
-    bool                         m_ignore_check; // used by the API to disable check-sat() commands when parsing SMT 2.0 files.
+    bool                         m_ignore_check;      // used by the API to disable check-sat() commands when parsing SMT 2.0 files.
     bool                         m_processing_pareto; // used when re-entering check-sat for pareto front.
     bool                         m_exit_on_error;
     
