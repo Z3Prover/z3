@@ -3567,8 +3567,8 @@ void theory_seq::add_at_axiom(expr* e) {
     add_axiom(~i_ge_0, i_ge_len_s, mk_eq(one, len_e, false));
     add_axiom(~i_ge_0, i_ge_len_s, mk_eq(i, len_x, false));
 
-    add_axiom(i_ge_0, mk_eq(s, emp, false));
-    add_axiom(~i_ge_len_s, mk_eq(s, emp, false));
+    add_axiom(i_ge_0, mk_eq(e, emp, false));
+    add_axiom(~i_ge_len_s, mk_eq(e, emp, false));
 }
 
 /**

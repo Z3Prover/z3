@@ -342,6 +342,5 @@ namespace Microsoft.Z3
             Context.CheckContextMatch<Expr>(args);
             return Expr.Create(Context, this, args);
         }
-
     }
 }
