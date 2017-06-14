@@ -194,14 +194,7 @@ public class Expr extends AST
      **/
     public Expr translate(Context ctx)
     {
-        if (getContext() == ctx) {
-            return this;
-        } else {
-            return Expr.create(
-                ctx,
-                Native.translate(getContext().nCtx(), getNativeObject(),
-                    ctx.nCtx()));
-        }
+        return (Expr) super.translate(ctx);
     }
 
     /**

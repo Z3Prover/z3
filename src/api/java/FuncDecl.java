@@ -68,13 +68,7 @@ public class FuncDecl extends AST
      **/
     public FuncDecl translate(Context ctx)
     {
-
-        if (getContext() == ctx) {
-            return this;
-        } else {
-            return new FuncDecl(ctx, Native.translate(getContext().nCtx(),
-                getNativeObject(), ctx.nCtx()));
-        }
+        return (FuncDecl) super.translate(ctx);
     }
 
     /**
