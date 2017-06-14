@@ -1298,6 +1298,15 @@ public class Expr extends AST
     }
 
     /**
+     * Check whether expression is a concatenation
+     * @return a boolean
+     */
+    public boolean isConcat() 
+    {
+        return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SEQ_CONCAT;
+    }
+
+    /**
      * Indicates whether the term is a binary equivalence modulo namings.
      * Remarks: This binary predicate is used in proof terms. It captures
      * equisatisfiability and equivalence modulo renamings.
