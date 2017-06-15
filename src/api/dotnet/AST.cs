@@ -14,7 +14,7 @@ Author:
     Christoph Wintersteiger (cwinter) 2012-03-16
 
 Notes:
-    
+
 --*/
 
 using System;
@@ -25,7 +25,7 @@ using System.Diagnostics.Contracts;
 namespace Microsoft.Z3
 {
     /// <summary>
-    /// The abstract syntax tree (AST) class. 
+    /// The abstract syntax tree (AST) class.
     /// </summary>
     [ContractVerification(true)]
     public class AST : Z3Object, IComparable
@@ -35,7 +35,7 @@ namespace Microsoft.Z3
         /// </summary>
         /// <param name="a">An AST</param>
         /// <param name="b">An AST</param>
-        /// <returns>True if <paramref name="a"/> and <paramref name="b"/> are from the same context 
+        /// <returns>True if <paramref name="a"/> and <paramref name="b"/> are from the same context
         /// and represent the same sort; false otherwise.</returns>
         public static bool operator ==(AST a, AST b)
         {
@@ -51,7 +51,7 @@ namespace Microsoft.Z3
         /// </summary>
         /// <param name="a">An AST</param>
         /// <param name="b">An AST</param>
-        /// <returns>True if <paramref name="a"/> and <paramref name="b"/> are not from the same context 
+        /// <returns>True if <paramref name="a"/> and <paramref name="b"/> are not from the same context
         /// or represent different sorts; false otherwise.</returns>
         public static bool operator !=(AST a, AST b)
         {
@@ -120,12 +120,12 @@ namespace Microsoft.Z3
             if (ReferenceEquals(Context, ctx))
                 return this;
             else
-                return new AST(ctx, Native.Z3_translate(Context.nCtx, NativeObject, ctx.nCtx));
+                return Create(ctx, Native.Z3_translate(Context.nCtx, NativeObject, ctx.nCtx));
         }
 
         /// <summary>
         /// The kind of the AST.
-        /// </summary>    
+        /// </summary>
         public Z3_ast_kind ASTKind
         {
             get { return (Z3_ast_kind)Native.Z3_get_ast_kind(Context.nCtx, NativeObject); }
@@ -224,10 +224,10 @@ namespace Microsoft.Z3
             {
                 Native.Z3_dec_ref(ctx.nCtx, obj);
             }
-        };        
+        };
 
         internal override void IncRef(IntPtr o)
-        {            
+        {
             // Console.WriteLine("AST IncRef()");
             if (Context == null || o == IntPtr.Zero)
                 return;

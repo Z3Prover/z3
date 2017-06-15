@@ -87,12 +87,10 @@ public class AST extends Z3Object implements Comparable<AST>
      **/
     public AST translate(Context ctx)
     {
-
         if (getContext() == ctx) {
             return this;
         } else {
-            return new AST(ctx, Native.translate(getContext().nCtx(),
-                getNativeObject(), ctx.nCtx()));
+            return create(ctx, Native.translate(getContext().nCtx(), getNativeObject(), ctx.nCtx()));
         }
     }
 
