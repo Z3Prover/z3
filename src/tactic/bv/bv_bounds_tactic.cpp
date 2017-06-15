@@ -291,7 +291,7 @@ class bv_bounds_simplifier : public ctx_simplify_tactic::simplifier {
         }
         return set;
     }
-#endifx
+#endif
 
 public:
     bv_bounds_simplifier(ast_manager& m, params_ref const& p) : m(m), m_params(p), m_bv(m) {
