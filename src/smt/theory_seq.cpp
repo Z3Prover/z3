@@ -3927,8 +3927,6 @@ void theory_seq::new_eq_eh(dependency* deps, enode* n1, enode* n2) {
     }
     else if (n1 != n2 && m_util.is_re(n1->get_owner())) {
         // ignore
-        UNREACHABLE();
-
         // eautomaton* a1 = get_automaton(n1->get_owner());
         // eautomaton* a2 = get_automaton(n2->get_owner());
         // eautomaton* b1 = mk_difference(*a1, *a2);

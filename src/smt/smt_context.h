@@ -980,10 +980,6 @@ namespace smt {
 
         void push_eq(enode * lhs, enode * rhs, eq_justification const & js) {
             SASSERT(lhs != rhs);
-            {
-                seq_util u(get_manager());
-                SASSERT(!u.is_re(lhs->get_owner()));
-            }
             m_eq_propagation_queue.push_back(new_eq(lhs, rhs, js));
         }
 
