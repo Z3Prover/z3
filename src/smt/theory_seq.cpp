@@ -2180,6 +2180,8 @@ void theory_seq::internalize_eq_eh(app * atom, bool_var v) {
 }
 
 bool theory_seq::internalize_atom(app* a, bool) {
+    return internalize_term(a);
+#if 0
     context & ctx   = get_context();
     bool_var bv = ctx.mk_bool_var(a);
     ctx.set_var_theory(bv, get_id());
@@ -2199,11 +2201,12 @@ bool theory_seq::internalize_atom(app* a, bool) {
     }
     UNREACHABLE();
     return internalize_term(a);
+#endif
 }
 
 bool theory_seq::internalize_re(expr* e) {
     expr* e1, *e2;
-    unsigned lc;
+    unsigned lc, uc;
     if (m_util.re.is_to_re(e, e1)) {
         return internalize_term(to_app(e1));
     }
@@ -2211,6 +2214,7 @@ bool theory_seq::internalize_re(expr* e) {
         m_util.re.is_plus(e, e1) ||
         m_util.re.is_opt(e, e1) ||
         m_util.re.is_loop(e, e1, lc) ||
+        m_util.re.is_loop(e, e1, lc, uc) ||
         m_util.re.is_complement(e, e1)) {
         return internalize_re(e1);
     }
@@ -3013,6 +3017,7 @@ void theory_seq::deque_axiom(expr* n) {
         add_length_axiom(n);
     }
     else if (m_util.str.is_empty(n) && !has_length(n) && !m_length.empty()) {
+        ensure_enode(n);
         enforce_length(get_context().get_enode(n));
     }
     else if (m_util.str.is_index(n)) {
@@ -4046,7 +4051,7 @@ void theory_seq::relevant_eh(app* n) {
     }
 
     expr* arg;
-    if (m_util.str.is_length(n, arg) && !has_length(arg)) {
+    if (m_util.str.is_length(n, arg) && !has_length(arg) && get_context().e_internalized(arg)) {
         enforce_length(get_context().get_enode(arg));
     }
 }
