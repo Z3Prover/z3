@@ -2176,8 +2176,59 @@ bool theory_seq::simplify_and_solve_eqs() {
     return m_new_propagation || ctx.inconsistent();
 }
 
-void theory_seq::internalize_eq_eh(app * atom, bool_var v) {}
+void theory_seq::internalize_eq_eh(app * atom, bool_var v) {
+}
 
+bool theory_seq::internalize_atom(app* a, bool) {
+    context & ctx   = get_context();
+    bool_var bv = ctx.mk_bool_var(a);
+    ctx.set_var_theory(bv, get_id());
+    ctx.mark_as_relevant(bv);
+
+    expr* e1, *e2;
+    if (m_util.str.is_in_re(a, e1, e2)) {        
+        return internalize_term(to_app(e1)) && internalize_re(e2);
+    }
+    if (m_util.str.is_contains(a, e1, e2) ||
+        m_util.str.is_prefix(a, e1, e2) ||
+        m_util.str.is_suffix(a, e1, e2)) {
+        return internalize_term(to_app(e1)) && internalize_term(to_app(e2));        
+    }
+    if (is_accept(a) || is_reject(a) || is_skolem(m_eq, a) || is_step(a) || is_skolem(symbol("seq.is_digit"), a)) {
+        return true;
+    }
+    UNREACHABLE();
+    return internalize_term(a);
+}
+
+bool theory_seq::internalize_re(expr* e) {
+    expr* e1, *e2;
+    unsigned lc;
+    if (m_util.re.is_to_re(e, e1)) {
+        return internalize_term(to_app(e1));
+    }
+    if (m_util.re.is_star(e, e1) ||
+        m_util.re.is_plus(e, e1) ||
+        m_util.re.is_opt(e, e1) ||
+        m_util.re.is_loop(e, e1, lc) ||
+        m_util.re.is_complement(e, e1)) {
+        return internalize_re(e1);
+    }
+    if (m_util.re.is_union(e, e1, e2) ||
+        m_util.re.is_intersection(e, e1, e2) ||
+        m_util.re.is_concat(e, e1, e2)) {
+        return internalize_re(e1) && internalize_re(e2);
+    }
+    if (m_util.re.is_full(e) ||
+        m_util.re.is_empty(e)) {
+        return true;
+    }
+    if (m_util.re.is_range(e, e1, e2)) {
+        return internalize_term(to_app(e1)) && internalize_term(to_app(e2));
+    }
+    UNREACHABLE();
+    return internalize_term(to_app(e));
+}
 
 bool theory_seq::internalize_term(app* term) {
     context & ctx   = get_context();
@@ -3875,7 +3926,9 @@ void theory_seq::new_eq_eh(dependency* deps, enode* n1, enode* n2) {
         enforce_length_coherence(n1, n2);
     }
     else if (n1 != n2 && m_util.is_re(n1->get_owner())) {
-        warning_msg("equality between regular expressions is not yet supported");
+        // ignore
+        UNREACHABLE();
+
         // eautomaton* a1 = get_automaton(n1->get_owner());
         // eautomaton* a2 = get_automaton(n2->get_owner());
         // eautomaton* b1 = mk_difference(*a1, *a2);
