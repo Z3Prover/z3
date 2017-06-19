@@ -318,7 +318,7 @@ class AstRef(Z3PPObject):
             raise Z3Exception("Symbolic expressions cannot be cast to concrete Boolean values.")
 
     def sexpr(self):
-        """Return an string representing the AST node in s-expression notation.
+        """Return a string representing the AST node in s-expression notation.
 
         >>> x = Int('x')
         >>> ((x + 1)*x).sexpr()
