@@ -2180,8 +2180,12 @@ void theory_seq::internalize_eq_eh(app * atom, bool_var v) {
 }
 
 bool theory_seq::internalize_atom(app* a, bool) {
-    return internalize_term(a);
 #if 0
+    return internalize_term(a);
+#else
+    if (is_skolem(m_eq, a)) {
+        return internalize_term(a);
+    }
     context & ctx   = get_context();
     bool_var bv = ctx.mk_bool_var(a);
     ctx.set_var_theory(bv, get_id());
@@ -2196,7 +2200,7 @@ bool theory_seq::internalize_atom(app* a, bool) {
         m_util.str.is_suffix(a, e1, e2)) {
         return internalize_term(to_app(e1)) && internalize_term(to_app(e2));        
     }
-    if (is_accept(a) || is_reject(a) || is_skolem(m_eq, a) || is_step(a) || is_skolem(symbol("seq.is_digit"), a)) {
+    if (is_accept(a) || is_reject(a) || is_step(a) || is_skolem(symbol("seq.is_digit"), a)) {
         return true;
     }
     UNREACHABLE();
