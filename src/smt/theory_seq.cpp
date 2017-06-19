@@ -2180,7 +2180,7 @@ void theory_seq::internalize_eq_eh(app * atom, bool_var v) {
 }
 
 bool theory_seq::internalize_atom(app* a, bool) {
-#if 0
+#if 1
     return internalize_term(a);
 #else
     if (is_skolem(m_eq, a)) {
