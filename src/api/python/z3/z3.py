@@ -50,6 +50,7 @@ from fractions import Fraction
 import sys
 import io
 import math
+import copy
 
 if sys.version < '3':
     def _is_int(v):
@@ -287,6 +288,9 @@ class AstRef(Z3PPObject):
     def __del__(self):
         if self.ctx.ref() is not None:
            Z3_dec_ref(self.ctx.ref(), self.as_ast())
+
+    def __deepcopy__(self, memo={}):
+        return _to_ast_ref(self.ast, self.ctx)
 
     def __str__(self):
         return obj_to_string(self)
@@ -4357,6 +4361,11 @@ class Datatype:
         self.name         = name
         self.constructors = []
 
+    def __deepcopy__(self, memo={}):
+        r = Datatype(self.name, self.ctx)
+        r.constructors = copy.deepcopy(self.constructors)
+        return r
+
     def declare_core(self, name, rec_name, *args):
         if __debug__:
             _z3_assert(isinstance(name, str), "String expected")
@@ -4647,10 +4656,16 @@ class ParamsRef:
 
     Consider using the function `args2params` to create instances of this object.
     """
-    def __init__(self, ctx=None):
+    def __init__(self, ctx=None, params=None):
         self.ctx    = _get_ctx(ctx)
-        self.params = Z3_mk_params(self.ctx.ref())
+        if params is None:
+            self.params = Z3_mk_params(self.ctx.ref())
+        else:
+            self.params = params
         Z3_params_inc_ref(self.ctx.ref(), self.params)
+
+    def __deepcopy__(self, memo={}):
+        return ParamsRef(self.ctx, self.params)
 
     def __del__(self):
         if self.ctx.ref() is not None:
@@ -4710,6 +4725,9 @@ class ParamDescrsRef:
         self.ctx    = _get_ctx(ctx)
         self.descr  = descr
         Z3_param_descrs_inc_ref(self.ctx.ref(), self.descr)
+
+    def __deepcopy__(self, memo={}):
+        return ParamsDescrsRef(self.descr, self.ctx)
 
     def __del__(self):
         if self.ctx.ref() is not None:
@@ -4771,6 +4789,9 @@ class Goal(Z3PPObject):
         if self.goal is None:
             self.goal   = Z3_mk_goal(self.ctx.ref(), models, unsat_cores, proofs)
         Z3_goal_inc_ref(self.ctx.ref(), self.goal)
+
+    def __deepcopy__(self, memo={}):
+        return Goal(False, False, False, self.ctx, self.goal)
 
     def __del__(self):
         if self.goal is not None and self.ctx.ref() is not None:
@@ -5034,6 +5055,9 @@ class AstVector(Z3PPObject):
             self.ctx    = ctx
         Z3_ast_vector_inc_ref(self.ctx.ref(), self.vector)
 
+    def __deepcopy__(self, memo={}):
+        return AstVector(self.vector, self.ctx)
+
     def __del__(self):
         if self.vector is not None and self.ctx.ref() is not None:
             Z3_ast_vector_dec_ref(self.ctx.ref(), self.vector)
@@ -5169,6 +5193,9 @@ class AstMap:
             self.ctx    = ctx
         Z3_ast_map_inc_ref(self.ctx.ref(), self.map)
 
+    def __deepcopy__(self, memo={}):
+        return AstMap(self.map, self.ctx)
+
     def __del__(self):
         if self.map is not None and self.ctx.ref() is not None:
             Z3_ast_map_dec_ref(self.ctx.ref(), self.map)
@@ -5284,6 +5311,9 @@ class FuncEntry:
         self.ctx   = ctx
         Z3_func_entry_inc_ref(self.ctx.ref(), self.entry)
 
+    def __deepcopy__(self, memo={}):
+        return FuncEntry(self.entry, self.ctx)
+
     def __del__(self):
         if self.ctx.ref() is not None:
            Z3_func_entry_dec_ref(self.ctx.ref(), self.entry)
@@ -5389,6 +5419,9 @@ class FuncInterp(Z3PPObject):
         self.ctx = ctx
         if self.f is not None:
             Z3_func_interp_inc_ref(self.ctx.ref(), self.f)
+
+    def __deepcopy__(self, memo={}):
+        return FuncInterp(self.f, self.ctx)
 
     def __del__(self):
         if self.f is not None and self.ctx.ref() is not None:
@@ -5499,6 +5532,9 @@ class ModelRef(Z3PPObject):
         self.model = m
         self.ctx   = ctx
         Z3_model_inc_ref(self.ctx.ref(), self.model)
+
+    def __deepcopy__(self, memo={}):
+        return ModelRef(self.m, self.ctx)
 
     def __del__(self):
         if self.ctx.ref() is not None:
@@ -5776,6 +5812,9 @@ class Statistics:
         self.ctx   = ctx
         Z3_stats_inc_ref(self.ctx.ref(), self.stats)
 
+    def __deepcopy__(self, memo={}):
+        return Statistics(self.stats, self.ctx)
+
     def __del__(self):
         if self.ctx.ref() is not None:
            Z3_stats_dec_ref(self.ctx.ref(), self.stats)
@@ -5910,6 +5949,9 @@ class CheckSatResult:
     def __init__(self, r):
         self.r = r
 
+    def __deepcopy__(self, memo={}):
+        return CheckSatResult(self.r)
+
     def __eq__(self, other):
         return isinstance(other, CheckSatResult) and self.r == other.r
 
@@ -5948,6 +5990,9 @@ class Solver(Z3PPObject):
         else:
             self.solver = solver
         Z3_solver_inc_ref(self.ctx.ref(), self.solver)
+
+    def __deepcopy__(self, memo={}):
+        return Solver(self.solver, self.ctx)
 
     def __del__(self):
         if self.solver is not None and self.ctx.ref() is not None:
@@ -6369,6 +6414,9 @@ class Fixedpoint(Z3PPObject):
         Z3_fixedpoint_inc_ref(self.ctx.ref(), self.fixedpoint)
         self.vars = []
 
+    def __deepcopy__(self, memo={}):
+        return FixedPoint(self.fixedpoint, self.ctx)
+
     def __del__(self):
         if self.fixedpoint is not None and self.ctx.ref() is not None:
             Z3_fixedpoint_dec_ref(self.ctx.ref(), self.fixedpoint)
@@ -6743,6 +6791,9 @@ class Optimize(Z3PPObject):
         self.optimize = Z3_mk_optimize(self.ctx.ref())
         Z3_optimize_inc_ref(self.ctx.ref(), self.optimize)
 
+    def __deepcopy__(self, memo={}):
+        return Optimize(self.optimize, self.ctx)
+
     def __del__(self):
         if self.optimize is not None and self.ctx.ref() is not None:
             Z3_optimize_dec_ref(self.ctx.ref(), self.optimize)
@@ -6895,6 +6946,9 @@ class ApplyResult(Z3PPObject):
         self.ctx    = ctx
         Z3_apply_result_inc_ref(self.ctx.ref(), self.result)
 
+    def __deepcopy__(self, memo={}):
+        return ApplyResult(self.result, self.ctx)
+
     def __del__(self):
         if self.ctx.ref() is not None:
             Z3_apply_result_dec_ref(self.ctx.ref(), self.result)
@@ -7022,6 +7076,9 @@ class Tactic:
             except Z3Exception:
                 raise Z3Exception("unknown tactic '%s'" % tactic)
         Z3_tactic_inc_ref(self.ctx.ref(), self.tactic)
+
+    def __deepcopy__(self, memo={}):
+        return Tactic(self.tactic, self.ctx)
 
     def __del__(self):
         if self.tactic is not None and self.ctx.ref() is not None:
@@ -7294,6 +7351,9 @@ class Probe:
             except Z3Exception:
                 raise Z3Exception("unknown probe '%s'" % probe)
         Z3_probe_inc_ref(self.ctx.ref(), self.probe)
+
+    def __deepcopy__(self, memo={}):
+        return Probe(self.probe, self.ctx)
 
     def __del__(self):
         if self.probe is not None and self.ctx.ref() is not None:

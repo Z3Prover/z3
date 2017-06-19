@@ -149,7 +149,14 @@ ATOMIC_CMD(get_assignment_cmd, "get-assignment", "retrieve assignment", {
                     first = false;
                 else
                     ctx.regular_stream() << " ";
-                ctx.regular_stream() << "(" << name << " " << (ctx.m().is_true(val) ? "true" : "false") << ")";
+                ctx.regular_stream() << "(";
+                if (is_smt2_quoted_symbol(name)) {
+                    ctx.regular_stream() << mk_smt2_quoted_symbol(name);
+                }
+                else {
+                    ctx.regular_stream() << name;
+                }
+                ctx.regular_stream() << " " << (ctx.m().is_true(val) ? "true" : "false") << ")";
             }
         }
     }
@@ -198,20 +205,21 @@ ATOMIC_CMD(get_proof_cmd, "get-proof", "retrieve proof", {
     }
 });
 
-#define PRINT_CORE()                                            \
-    ptr_vector<expr> core;                                      \
-    ctx.get_check_sat_result()->get_unsat_core(core);           \
-    ctx.regular_stream() << "(";                                \
-    ptr_vector<expr>::const_iterator it  = core.begin();        \
-    ptr_vector<expr>::const_iterator end = core.end();          \
-    for (bool first = true; it != end; ++it) {                  \
-    if (first)                                                  \
-        first = false;                                          \
-    else                                                        \
-        ctx.regular_stream() << " ";                            \
-    ctx.regular_stream() << mk_ismt2_pp(*it, ctx.m());          \
-    }                                                           \
-    ctx.regular_stream() << ")" << std::endl;                   \
+static void print_core(cmd_context& ctx) {
+    ptr_vector<expr> core;                                      
+    ctx.get_check_sat_result()->get_unsat_core(core);           
+    ctx.regular_stream() << "(";                                
+    ptr_vector<expr>::const_iterator it  = core.begin();        
+    ptr_vector<expr>::const_iterator end = core.end();          
+    for (bool first = true; it != end; ++it) {                  
+    if (first)                                                  
+        first = false;                                          
+    else                                                        
+        ctx.regular_stream() << " ";                            
+    ctx.regular_stream() << mk_ismt2_pp(*it, ctx.m());          
+    }                                                           
+    ctx.regular_stream() << ")" << std::endl;                   
+}
 
 ATOMIC_CMD(get_unsat_core_cmd, "get-unsat-core", "retrieve unsat core", {
         if (!ctx.produce_unsat_cores())
@@ -219,7 +227,7 @@ ATOMIC_CMD(get_unsat_core_cmd, "get-unsat-core", "retrieve unsat core", {
         if (!ctx.has_manager() ||
             ctx.cs_state() != cmd_context::css_unsat)
             throw cmd_exception("unsat core is not available");
-        PRINT_CORE();
+        print_core(ctx);
     });
 
 ATOMIC_CMD(get_unsat_assumptions_cmd, "get-unsat-assumptions", "retrieve subset of assumptions sufficient for unsatisfiability", {
@@ -228,7 +236,7 @@ ATOMIC_CMD(get_unsat_assumptions_cmd, "get-unsat-assumptions", "retrieve subset 
         if (!ctx.has_manager() || ctx.cs_state() != cmd_context::css_unsat) {
             throw cmd_exception("unsat assumptions is not available");
         }
-        PRINT_CORE();
+        print_core(ctx);
     });
 
 
@@ -250,7 +258,7 @@ ATOMIC_CMD(get_assertions_cmd, "get-assertions", "retrieve asserted terms when i
 
 
 
-ATOMIC_CMD(reset_assertions_cmd, "reset-assertions", "reset all asserted formulas (but retain definitions and declarations)", ctx.reset_assertions(););
+ATOMIC_CMD(reset_assertions_cmd, "reset-assertions", "reset all asserted formulas (but retain definitions and declarations)", ctx.reset_assertions(); ctx.print_success(););
 
 UNARY_CMD(set_logic_cmd, "set-logic", "<symbol>", "set the background logic.", CPK_SYMBOL, symbol const &, 
           if (ctx.set_logic(arg))
@@ -266,7 +274,7 @@ UNARY_CMD(pp_cmd, "display", "<term>", "display the given term.", CPK_EXPR, expr
     ctx.regular_stream() << std::endl; 
 });
 
-UNARY_CMD(echo_cmd, "echo", "<string>", "display the given string", CPK_STRING, char const *, ctx.regular_stream() << arg << std::endl;);
+UNARY_CMD(echo_cmd, "echo", "<string>", "display the given string", CPK_STRING, char const *, ctx.regular_stream() << "\"" << arg << "\"" << std::endl;);
 
 
 class set_get_option_cmd : public cmd {
