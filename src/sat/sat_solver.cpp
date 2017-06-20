@@ -1194,9 +1194,9 @@ namespace sat {
             return l_true;
         if (!resolve_conflict())
             return l_false;
-        if (m_conflicts > m_config.m_max_conflicts)
+        if (m_conflicts > m_config.m_max_conflicts) 
             return l_undef;
-        if (m_conflicts_since_restart > m_restart_threshold)
+        if (m_conflicts_since_restart > m_restart_threshold) 
             return l_undef;
         if (at_base_lvl()) {
             cleanup(); // cleaner may propagate frozen clauses

@@ -197,6 +197,14 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Assert a lemma (or multiple) into the solver.
+        /// </summary>        
+        public void AddLemma(IEnumerable<BoolExpr> constraints)
+        {
+            AssertLemma(constraints.ToArray());
+        }
+
+        /// <summary>
         /// The number of assertions in the solver.
         /// </summary>
         public uint NumAssertions
