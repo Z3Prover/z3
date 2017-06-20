@@ -274,10 +274,9 @@ UNARY_CMD(pp_cmd, "display", "<term>", "display the given term.", CPK_EXPR, expr
     ctx.regular_stream() << std::endl;
 });
 
-UNARY_CMD(pp_cmd, "display", "<term>", "display the given term.", CPK_EXPR, expr *, {
-    ctx.display(ctx.regular_stream(), arg);
-    ctx.regular_stream() << std::endl;
-});
+UNARY_CMD(echo_cmd, "echo", "<string>", "display the given string", CPK_STRING, char const *,
+    bool smt2c = ctx.params().m_smtlib2_compliant;
+    ctx.regular_stream() << (smt2c ? "\"" : "") << arg << (smt2c ? "\"" : "") << std::endl;);
 
 
 class set_get_option_cmd : public cmd {
