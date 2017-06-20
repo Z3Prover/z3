@@ -1412,7 +1412,7 @@ namespace smt {
               << "max gain: " << max_gain << "\n";);           
                 
 
-        SASSERT(max_gain.is_minus_one() || !max_gain.is_neg());
+        SASSERT(max_gain.is_minu
         SASSERT(min_gain.is_minus_one() || min_gain.is_one());
         SASSERT(is_int(x) == min_gain.is_one());
 
@@ -1458,7 +1458,7 @@ namespace smt {
             normalize_gain(min_gain.get_rational(), max_gain);
         }
 
-        if (is_int(x_i) && !max_gain.is_rational()) {
+        if (is_int(x_i) && !max_gain.is_int()) {
             max_gain = inf_numeral(floor(max_gain));
             normalize_gain(min_gain.get_rational(), max_gain);
         }
@@ -1483,7 +1483,7 @@ namespace smt {
             }
         }
         TRACE("opt",
-              tout << "v" << x_i << " a_ij " << a_ij << " "
+              tout << "v" << x_i << (is_int(x_i)?" int":" real") << " a_ij " << a_ij << " "
               << "min gain: " << min_gain << " " 
               << "max gain: " << max_gain << " tighter: "
               << (is_tighter?"true":"false") << "\n";);
@@ -1696,6 +1696,7 @@ namespace smt {
                   if (lower(x_j)) tout << "lower x_j: " << lower_bound(x_j) << " ";
                   tout << "value x_j: " << get_value(x_j) << "\n";
                   );
+
             pivot<true>(x_i, x_j, a_ij, false);
                         
             SASSERT(is_non_base(x_i));

@@ -1034,8 +1034,10 @@ namespace smt {
             lbool   val  = get_assignment(curr);
             switch(val) {
             case l_false:
+                TRACE("simplify_aux_clause_literals", display_literal(tout << get_assign_level(curr) << " " << get_scope_level() << " ", curr); tout << "\n"; );
                 simp_lits.push_back(~curr);
-                break; // ignore literal
+                break; // ignore literal                
+                // fall through
             case l_undef:
                 if (curr == ~prev)
                     return false; // clause is equivalent to true
