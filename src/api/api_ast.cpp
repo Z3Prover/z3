@@ -558,6 +558,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_get_sort(c, a);
         RESET_ERROR_CODE();
+        CHECK_IS_EXPR(a, 0);
         Z3_sort r = of_sort(mk_c(c)->m().get_sort(to_expr(a)));
         RETURN_Z3(r);
         Z3_CATCH_RETURN(0);

@@ -1491,8 +1491,10 @@ namespace fm {
             unsigned sz = g.size();
             for (unsigned i = 0; i < sz; i++) {
                 expr * f = g[i];
-                if (is_occ(f))
+                if (is_occ(f)) {
+                    TRACE("qe_lite", tout << "OCC: " << mk_ismt2_pp(f, m) << "\n";);
                     continue;
+                }
                 TRACE("qe_lite", tout << "not OCC:\n" << mk_ismt2_pp(f, m) << "\n";);
                 quick_for_each_expr(proc, visited, f);
             }
@@ -2221,6 +2223,9 @@ namespace fm {
         void operator()(expr_ref_vector& fmls) {
             init(fmls);
             init_use_list(fmls);
+            for (auto & f : fmls) {
+                if (has_quantifiers(f)) return;
+            }
             if (m_inconsistent) {
                 m_new_fmls.reset();
                 m_new_fmls.push_back(m.mk_false());
