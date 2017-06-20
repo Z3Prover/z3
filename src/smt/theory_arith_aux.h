@@ -1412,7 +1412,7 @@ namespace smt {
               << "max gain: " << max_gain << "\n";);           
                 
 
-        SASSERT(max_gain.is_minu
+        SASSERT(max_gain.is_minus_one() || max_gain.is_one());
         SASSERT(min_gain.is_minus_one() || min_gain.is_one());
         SASSERT(is_int(x) == min_gain.is_one());
 
