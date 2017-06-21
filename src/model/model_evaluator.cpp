@@ -125,7 +125,6 @@ struct evaluator_cfg : public default_rewriter_cfg {
             expr * val = m_model.get_const_interp(f);
             if (val != 0) {
                 result = val;
-                expand_value(result);
                 return BR_DONE;
             }
 
@@ -274,7 +273,6 @@ struct evaluator_cfg : public default_rewriter_cfg {
             return BR_FAILED;
         }
 
-        // disabled until made more efficient
         vector<expr_ref_vector> stores1, stores2;
         bool args_are_unique1, args_are_unique2;
         expr_ref else1(m()), else2(m());
@@ -489,6 +487,10 @@ struct model_evaluator::imp : public rewriter_tpl<evaluator_cfg> {
         m_cfg(md.get_manager(), md, p) {
         set_cancel_check(false);
     }
+
+    void expand_value (expr_ref &val) {
+        m_cfg.expand_value (val);
+    }
 };
 
 model_evaluator::model_evaluator(model_core & md, params_ref const & p) {
@@ -537,14 +539,12 @@ void model_evaluator::reset(params_ref const & p) {
 void model_evaluator::operator()(expr * t, expr_ref & result) {
     TRACE("model_evaluator", tout << mk_ismt2_pp(t, m()) << "\n";);
     m_imp->operator()(t, result);
+    m_imp->expand_value(result);
 }
 
 expr_ref model_evaluator::operator()(expr * t) {
     TRACE("model_evaluator", tout << mk_ismt2_pp(t, m()) << "\n";);
     expr_ref result(m());
-    m_imp->operator()(t, result);
+    this->operator()(t, result);
     return result;
 }
-
-
-
