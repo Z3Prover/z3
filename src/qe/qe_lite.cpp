@@ -788,12 +788,13 @@ namespace ar {
         }
 
         /**
-           Ex A. A[x] = t & Phi where x \not\in A, t. A \not\in t, x
+           Ex A. A[x] = t & Phi[A] where x \not\in A, t. A \not\in t, x
            =>
            Ex A. Phi[store(A,x,t)]
 
+           (Not implemented)
            Perhaps also:
-           Ex A. store(A,y,z)[x] = t & Phi where x \not\in A, t, y, z, A \not\in y z, t
+           Ex A. store(A,y,z)[x] = t & Phi[A] where x \not\in A, t, y, z, A \not\in y z, t
            =>
            Ex A, v . (x = y => z = t) & Phi[store(store(A,x,t),y,v)]
 
@@ -822,7 +823,8 @@ namespace ar {
                 expr_safe_replace rep(m);
                 rep.insert(A, B);
                 expr_ref tmp(m);
-                std::cout << mk_pp(e1, m) << " = " << mk_pp(e2, m) << "\n";
+                TRACE("qe_lite",
+                      tout << mk_pp(e1, m) << " = " << mk_pp(e2, m) << "\n";);
                 for (unsigned j = 0; j < conjs.size(); ++j) {
                     if (i == j) {
                         conjs[j] = m.mk_true();
