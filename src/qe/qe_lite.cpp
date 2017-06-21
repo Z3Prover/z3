@@ -49,6 +49,7 @@ namespace eq {
 
         ptr_vector<expr> m_map;
         int_vector       m_pos2var;
+        int_vector       m_var2pos;
         ptr_vector<var>  m_inx2var;
         unsigned_vector  m_order;
         expr_ref_vector  m_subst_map;
@@ -541,6 +542,7 @@ namespace eq {
             largest_vinx = 0;
             m_map.reset();
             m_pos2var.reset();
+            m_var2pos.reset();
             m_inx2var.reset();
             m_pos2var.reserve(num_args, -1);
 
@@ -560,9 +562,47 @@ namespace eq {
                             m_map[idx] = t;
                             m_inx2var[idx] = v;
                             m_pos2var[i] = idx;
+                            m_var2pos.reserve(idx + 1, -1);
+                            m_var2pos[idx] = i;
                             def_count++;
                             largest_vinx = std::max(idx, largest_vinx);
                             m_new_exprs.push_back(t);
+                        }
+                        else if (!m.is_value(m_map[idx])) {
+                            // check if the new definition is simpler
+                            expr *old_def = m_map[idx];
+
+                            // -- prefer values
+                            if (m.is_value(t)) {
+                                m_pos2var[m_var2pos[idx]] = -1;
+                                m_pos2var[i] = idx;
+                                m_var2pos[idx] = i;
+                                m_map[idx] = t;
+                                m_new_exprs.push_back(t);
+                          }
+                          // -- prefer ground
+                          else if (is_app(t) && to_app(t)->is_ground() &&
+                                   (!is_app(old_def) ||
+                                    !to_app(old_def)->is_ground())) {
+                              m_pos2var[m_var2pos[idx]] = -1;
+                              m_pos2var[i] = idx;
+                              m_var2pos[idx] = i;
+                              m_map[idx] = t;
+                              m_new_exprs.push_back(t);
+                          }
+                          // -- prefer constants
+                          else if (is_uninterp_const(t)
+                                   /* && !is_uninterp_const(old_def) */){
+                              m_pos2var[m_var2pos[idx]] = -1;
+                              m_pos2var[i] = idx;
+                              m_var2pos[idx] = i;
+                              m_map[idx] = t;
+                              m_new_exprs.push_back(t);
+                          }
+                          TRACE ("qe_def",
+                                 tout << "Replacing definition of VAR " << idx << " from "
+                                 << mk_pp(old_def, m) << " to " << mk_pp(t, m)
+                                 << " inferred from: " << mk_pp(args[i], m) << "\n";);
                         }
                     }
                 }
