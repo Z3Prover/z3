@@ -57,6 +57,7 @@ endfunction()
 #   [PYG_FILES pygfile1 [pygfile2...]]
 #   [TACTIC_HEADERS header_file1 [header_file2...]]
 #   [EXTRA_REGISTER_MODULE_HEADERS header_file1 [header_file2...]]
+#   [MEMORY_INIT_FINALIZER_HEADERS header_file1 [header_file2...]]
 # )
 #
 # Declares a Z3 component (as a CMake "object library") with target name
@@ -93,11 +94,15 @@ endfunction()
 # The optional ``EXTRA_REGISTER_MODULE_HEADERS`` keyword should be followed by a list
 # of one or more header files that contain module registration declarations.
 # NOTE: The header files generated from ``.pyg`` files don't need to be included.
+#
+# The optional ``MEMORY_INIT_FINALIZER_HEADERS`` keyword should be followed by a list
+# of one or more header files that contain memory initializer/finalizer declarations
+# (i.e. ``ADD_INITIALIZER()`` or ``ADD_FINALIZER()``).
 macro(z3_add_component component_name)
   CMAKE_PARSE_ARGUMENTS("Z3_MOD"
     "NOT_LIBZ3_COMPONENT"
     ""
-    "SOURCES;COMPONENT_DEPENDENCIES;PYG_FILES;TACTIC_HEADERS;EXTRA_REGISTER_MODULE_HEADERS" ${ARGN})
+    "SOURCES;COMPONENT_DEPENDENCIES;PYG_FILES;TACTIC_HEADERS;EXTRA_REGISTER_MODULE_HEADERS;MEMORY_INIT_FINALIZER_HEADERS" ${ARGN})
   message(STATUS "Adding component ${component_name}")
   # Note: We don't check the sources exist here because
   # they might be generated files that don't exist yet.
@@ -175,6 +180,22 @@ macro(z3_add_component component_name)
     )
   endforeach()
   unset(_full_extra_register_module_header)
+
+  # Add memory initializer/finalizer headers to global property
+  set_property(GLOBAL PROPERTY Z3_${component_name}_MEM_INIT_FINALIZER_HEADERS "")
+  foreach (memory_init_finalizer_header ${Z3_MOD_MEMORY_INIT_FINALIZER_HEADERS})
+    set(_full_memory_init_finalizer_header_path
+      "${CMAKE_CURRENT_SOURCE_DIR}/${memory_init_finalizer_header}")
+    if (NOT (EXISTS "${_full_memory_init_finalizer_header_path}"))
+      message(FATAL_ERROR "\"${_full_memory_init_finalizer_header_path}\" does not exist")
+    endif()
+    set_property(GLOBAL
+      APPEND
+      PROPERTY Z3_${component_name}_MEM_INIT_FINALIZER_HEADERS
+      "${_full_memory_init_finalizer_header_path}"
+    )
+  endforeach()
+  unset(_full_memory_init_finalizer_header_path)
 
   # Using "object" libraries here means we have a convenient
   # name to refer to a component in CMake but we don't actually
@@ -297,18 +318,31 @@ macro(z3_add_memory_initializer_rule)
     list(APPEND _search_paths ${_dep_include_dirs})
   endforeach()
   list(APPEND _search_paths "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}")
+
+  # Get header files that declare initializers and finalizers
+  set(_mem_init_finalize_headers "")
+  foreach (dependency ${_expanded_components})
+    get_property(_dep_mem_init_finalize_headers
+      GLOBAL
+      PROPERTY Z3_${dependency}_MEM_INIT_FINALIZER_HEADERS
+    )
+    list(APPEND _mem_init_finalize_headers ${_dep_mem_init_finalize_headers})
+  endforeach()
+
   add_custom_command(OUTPUT "mem_initializer.cpp"
     COMMAND "${PYTHON_EXECUTABLE}"
     "${CMAKE_SOURCE_DIR}/scripts/mk_mem_initializer_cpp.py"
     "${CMAKE_CURRENT_BINARY_DIR}"
-    ${_search_paths}
+    ${_mem_init_finalize_headers}
     DEPENDS "${CMAKE_SOURCE_DIR}/scripts/mk_mem_initializer_cpp.py"
             ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
-            ${_expanded_components}
+            ${_mem_init_finalize_headers}
     COMMENT "Generating \"${CMAKE_CURRENT_BINARY_DIR}/mem_initializer.cpp\""
     ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
     VERBATIM
   )
+  unset(_mem_init_finalize_headers)
+  unset(_expanded_components)
 endmacro()
 
 macro(z3_add_gparams_register_modules_rule)
