@@ -18,4 +18,6 @@ z3_add_component(cmd_context
     interp
     rewriter
     solver
+  EXTRA_REGISTER_MODULE_HEADERS
+    context_params.h
 )

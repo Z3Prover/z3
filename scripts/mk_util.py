@@ -2763,7 +2763,8 @@ def mk_gparams_register_modules(cnames, path):
     for cname in cnames:
         c = get_component(cname)
         component_src_dirs.append(c.src_dir)
-    generated_file = mk_genfile_common.mk_gparams_register_modules_internal(component_src_dirs, path)
+    h_files_full_path = get_header_files_for_components(component_src_dirs)
+    generated_file = mk_genfile_common.mk_gparams_register_modules_internal(h_files_full_path, path)
     if VERBOSE:
         print("Generated '{}'".format(generated_file))
 

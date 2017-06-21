@@ -11,5 +11,7 @@ z3_add_component(polynomial
     util
   PYG_FILES
     algebraic_params.pyg
+  EXTRA_REGISTER_MODULE_HEADERS
+    polynomial.h
 )
 

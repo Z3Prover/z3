@@ -59,4 +59,6 @@ z3_add_component(util
     util.cpp
     warning.cpp
     z3_exception.cpp
+  EXTRA_REGISTER_MODULE_HEADERS
+    env_params.h
 )

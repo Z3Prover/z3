@@ -8,4 +8,6 @@ z3_add_component(normal_forms
     rewriter
   PYG_FILES
     nnf_params.pyg
+  EXTRA_REGISTER_MODULE_HEADERS
+    nnf.h
 )

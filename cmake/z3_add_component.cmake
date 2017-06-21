@@ -56,6 +56,7 @@ endfunction()
 #   [COMPONENT_DEPENDENCIES component1 [component2...]]
 #   [PYG_FILES pygfile1 [pygfile2...]]
 #   [TACTIC_HEADERS header_file1 [header_file2...]]
+#   [EXTRA_REGISTER_MODULE_HEADERS header_file1 [header_file2...]]
 # )
 #
 # Declares a Z3 component (as a CMake "object library") with target name
@@ -81,17 +82,28 @@ endfunction()
 # The optional ``PYG_FILES`` keyword should be followed by a list of one or
 # more ``<NAME>.pyg`` files that should used to be generate
 # ``<NAME>_params.hpp`` header files used by the ``component_name``.
+# This generated file will automatically be scanned for the register module
+# declarations (i.e. ``REG_PARAMS()``, ``REG_MODULE_PARAMS()``, and
+# ``REG_MODULE_DESCRIPTION()``).
 #
 # The optional ``TACTIC_HEADERS`` keyword should be followed by a list of one or
 # more header files that declare a tactic and/or a probe that is part of this
 # component (see ``ADD_TACTIC()`` and ``ADD_PROBE()``).
+#
+# The optional ``EXTRA_REGISTER_MODULE_HEADERS`` keyword should be followed by a list
+# of one or more header files that contain module registration declarations.
+# NOTE: The header files generated from ``.pyg`` files don't need to be included.
 macro(z3_add_component component_name)
-  CMAKE_PARSE_ARGUMENTS("Z3_MOD" "NOT_LIBZ3_COMPONENT" "" "SOURCES;COMPONENT_DEPENDENCIES;PYG_FILES;TACTIC_HEADERS" ${ARGN})
+  CMAKE_PARSE_ARGUMENTS("Z3_MOD"
+    "NOT_LIBZ3_COMPONENT"
+    ""
+    "SOURCES;COMPONENT_DEPENDENCIES;PYG_FILES;TACTIC_HEADERS;EXTRA_REGISTER_MODULE_HEADERS" ${ARGN})
   message(STATUS "Adding component ${component_name}")
   # Note: We don't check the sources exist here because
   # they might be generated files that don't exist yet.
 
   set(_list_generated_headers "")
+  set_property(GLOBAL PROPERTY Z3_${component_name}_REGISTER_MODULE_HEADERS "")
   foreach (pyg_file ${Z3_MOD_PYG_FILES})
     set(_full_pyg_file_path "${CMAKE_CURRENT_SOURCE_DIR}/${pyg_file}")
     if (NOT (EXISTS "${_full_pyg_file_path}"))
@@ -116,6 +128,18 @@ macro(z3_add_component component_name)
       VERBATIM
     )
     list(APPEND _list_generated_headers "${_full_output_file_path}")
+
+    # FIXME: This implicit dependency of a generated file depending on
+    # generated files was inherited from the old build system.
+
+    # Typically generated headers contain `REG_PARAMS()`, `REG_MODULE_PARAMS()`
+    # and `REG_MODULE_DESCRIPTION()` declarations so add to the list of
+    # header files to scan.
+    set_property(GLOBAL
+      APPEND
+      PROPERTY Z3_${component_name}_REGISTER_MODULE_HEADERS
+      "${_full_output_file_path}"
+    )
   endforeach()
   unset(_full_include_dir_path)
   unset(_full_output_file_path)
@@ -135,6 +159,22 @@ macro(z3_add_component component_name)
     )
   endforeach()
   unset(_full_tactic_header_file_path)
+
+  # Add additional register module headers
+  foreach (extra_register_module_header ${Z3_MOD_EXTRA_REGISTER_MODULE_HEADERS})
+    set(_full_extra_register_module_header_path
+      "${CMAKE_CURRENT_SOURCE_DIR}/${extra_register_module_header}"
+    )
+    if (NOT (EXISTS "${_full_extra_register_module_header_path}"))
+      message(FATAL_ERROR "\"${_full_extra_register_module_header_path}\" does not exist")
+    endif()
+    set_property(GLOBAL
+      APPEND
+      PROPERTY Z3_${component_name}_REGISTER_MODULE_HEADERS
+      "${_full_extra_register_module_header_path}"
+    )
+  endforeach()
+  unset(_full_extra_register_module_header)
 
   # Using "object" libraries here means we have a convenient
   # name to refer to a component in CMake but we don't actually
@@ -282,23 +322,27 @@ macro(z3_add_gparams_register_modules_rule)
     )
   endif()
   z3_expand_dependencies(_expanded_components ${ARGN})
-  # Get paths to search
-  set(_search_paths "")
+
+  # Get the list of header files to parse
+  set(_register_module_header_files "")
   foreach (dependency ${_expanded_components})
-    get_property(_dep_include_dirs GLOBAL PROPERTY Z3_${dependency}_INCLUDES)
-    list(APPEND _search_paths ${_dep_include_dirs})
+    get_property(_component_register_module_header_files GLOBAL PROPERTY Z3_${dependency}_REGISTER_MODULE_HEADERS)
+    list(APPEND _register_module_header_files ${_component_register_module_header_files})
   endforeach()
-  list(APPEND _search_paths "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}")
+  unset(_component_register_module_header_files)
+
   add_custom_command(OUTPUT "gparams_register_modules.cpp"
     COMMAND "${PYTHON_EXECUTABLE}"
     "${CMAKE_SOURCE_DIR}/scripts/mk_gparams_register_modules_cpp.py"
     "${CMAKE_CURRENT_BINARY_DIR}"
-    ${_search_paths}
+    ${_register_module_header_files}
     DEPENDS "${CMAKE_SOURCE_DIR}/scripts/mk_gparams_register_modules_cpp.py"
             ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
-            ${_expanded_components}
+            ${_register_module_header_files}
     COMMENT "Generating \"${CMAKE_CURRENT_BINARY_DIR}/gparams_register_modules.cpp\""
     ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
     VERBATIM
   )
+  unset(_expanded_components)
+  unset(_register_module_header_files)
 endmacro()
