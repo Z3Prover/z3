@@ -2712,12 +2712,22 @@ def mk_all_assembly_infos(major, minor, build, revision):
             else:
                 raise MKException("Failed to find assembly template info file '%s'" % assembly_info_template)
 
+def get_header_files_for_components(component_src_dirs):
+    assert isinstance(component_src_dirs, list)
+    h_files_full_path = []
+    for component_src_dir in sorted(component_src_dirs):
+        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(component_src_dir))
+        h_files = list(map(lambda p: os.path.join(component_src_dir, p), h_files))
+        h_files_full_path.extend(h_files)
+    return h_files_full_path
+
 def mk_install_tactic_cpp(cnames, path):
     component_src_dirs = []
     for cname in cnames:
         c = get_component(cname)
         component_src_dirs.append(c.src_dir)
-    generated_file = mk_genfile_common.mk_install_tactic_cpp_internal(component_src_dirs, path)
+    h_files_full_path = get_header_files_for_components(component_src_dirs)
+    generated_file = mk_genfile_common.mk_install_tactic_cpp_internal(h_files_full_path, path)
     if VERBOSE:
         print("Generated '{}'".format(generated_file))
 

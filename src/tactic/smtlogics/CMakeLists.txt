@@ -28,4 +28,18 @@ z3_add_component(smtlogic_tactics
     smt_tactic
   PYG_FILES
     qfufbv_tactic_params.pyg
+  TACTIC_HEADERS
+    nra_tactic.h
+    qfaufbv_tactic.h
+    qfauflia_tactic.h
+    qfbv_tactic.h
+    qfidl_tactic.h
+    qflia_tactic.h
+    qflra_tactic.h
+    qfnia_tactic.h
+    qfnra_tactic.h
+    qfuf_tactic.h
+    qfufbv_tactic.h
+    qfufnra_tactic.h
+    quant_tactics.h
 )

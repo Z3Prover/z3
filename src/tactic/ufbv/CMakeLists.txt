@@ -11,4 +11,9 @@ z3_add_component(ufbv_tactic
     normal_forms
     rewriter
     smt_tactic
+  TACTIC_HEADERS
+    macro_finder_tactic.h
+    quasi_macros_tactic.h
+    ufbv_rewriter_tactic.h
+    ufbv_tactic.h
 )

@@ -55,6 +55,7 @@ endfunction()
 #   SOURCES source1 [source2...]
 #   [COMPONENT_DEPENDENCIES component1 [component2...]]
 #   [PYG_FILES pygfile1 [pygfile2...]]
+#   [TACTIC_HEADERS header_file1 [header_file2...]]
 # )
 #
 # Declares a Z3 component (as a CMake "object library") with target name
@@ -81,8 +82,11 @@ endfunction()
 # more ``<NAME>.pyg`` files that should used to be generate
 # ``<NAME>_params.hpp`` header files used by the ``component_name``.
 #
+# The optional ``TACTIC_HEADERS`` keyword should be followed by a list of one or
+# more header files that declare a tactic and/or a probe that is part of this
+# component (see ``ADD_TACTIC()`` and ``ADD_PROBE()``).
 macro(z3_add_component component_name)
-  CMAKE_PARSE_ARGUMENTS("Z3_MOD" "NOT_LIBZ3_COMPONENT" "" "SOURCES;COMPONENT_DEPENDENCIES;PYG_FILES" ${ARGN})
+  CMAKE_PARSE_ARGUMENTS("Z3_MOD" "NOT_LIBZ3_COMPONENT" "" "SOURCES;COMPONENT_DEPENDENCIES;PYG_FILES;TACTIC_HEADERS" ${ARGN})
   message(STATUS "Adding component ${component_name}")
   # Note: We don't check the sources exist here because
   # they might be generated files that don't exist yet.
@@ -116,6 +120,21 @@ macro(z3_add_component component_name)
   unset(_full_include_dir_path)
   unset(_full_output_file_path)
   unset(_output_file)
+
+  # Add tactic/probe headers to global property
+  set_property(GLOBAL PROPERTY Z3_${component_name}_TACTIC_HEADERS "")
+  foreach (tactic_header ${Z3_MOD_TACTIC_HEADERS})
+    set(_full_tactic_header_file_path "${CMAKE_CURRENT_SOURCE_DIR}/${tactic_header}")
+    if (NOT (EXISTS "${_full_tactic_header_file_path}"))
+      message(FATAL_ERROR "\"${_full_tactic_header_file_path}\" does not exist")
+    endif()
+    set_property(GLOBAL
+      APPEND
+      PROPERTY Z3_${component_name}_TACTIC_HEADERS
+      "${_full_tactic_header_file_path}"
+    )
+  endforeach()
+  unset(_full_tactic_header_file_path)
 
   # Using "object" libraries here means we have a convenient
   # name to refer to a component in CMake but we don't actually
@@ -191,25 +210,33 @@ macro(z3_add_install_tactic_rule)
     )
   endif()
   z3_expand_dependencies(_expanded_components ${ARGN})
-  # Get paths to search
-  set(_search_paths "")
+
+  # Get header files that declare tactics/probes
+  set(_tactic_header_files "")
   foreach (dependency ${_expanded_components})
-    get_property(_dep_include_dirs GLOBAL PROPERTY Z3_${dependency}_INCLUDES)
-    list(APPEND _search_paths ${_dep_include_dirs})
+    get_property(_component_tactic_header_files
+      GLOBAL
+      PROPERTY Z3_${dependency}_TACTIC_HEADERS
+    )
+    list(APPEND _tactic_header_files ${_component_tactic_header_files})
   endforeach()
+  unset(_component_tactic_header_files)
+
   list(APPEND _search_paths "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}")
   add_custom_command(OUTPUT "install_tactic.cpp"
     COMMAND "${PYTHON_EXECUTABLE}"
     "${CMAKE_SOURCE_DIR}/scripts/mk_install_tactic_cpp.py"
     "${CMAKE_CURRENT_BINARY_DIR}"
-    ${_search_paths}
+    ${_tactic_header_files}
     DEPENDS "${CMAKE_SOURCE_DIR}/scripts/mk_install_tactic_cpp.py"
             ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
-            ${_expanded_components}
+            ${_tactic_header_files}
     COMMENT "Generating \"${CMAKE_CURRENT_BINARY_DIR}/install_tactic.cpp\""
     ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
     VERBATIM
   )
+  unset(_expanded_components)
+  unset(_tactic_header_files)
 endmacro()
 
 macro(z3_add_memory_initializer_rule)

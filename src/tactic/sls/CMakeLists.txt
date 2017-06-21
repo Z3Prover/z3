@@ -10,4 +10,6 @@ z3_add_component(sls_tactic
     tactic
   PYG_FILES
     sls_params.pyg
+  TACTIC_HEADERS
+    sls_tactic.h
 )

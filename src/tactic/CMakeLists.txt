@@ -18,4 +18,8 @@ z3_add_component(tactic
   COMPONENT_DEPENDENCIES
     ast
     model
+  TACTIC_HEADERS
+    probe.h
+    sine_filter.h
+    tactic.h
 )
