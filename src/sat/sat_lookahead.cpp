@@ -367,6 +367,7 @@ namespace sat {
     }
 
     void lookahead::init_pre_selection(unsigned level) {
+        if (!m_config.m_use_ternary_reward) return;
         unsigned max_level = m_config.m_max_hlevel;
         if (level <= 1) {
             ensure_H(2);
@@ -888,6 +889,12 @@ namespace sat {
         for (; it != end; ++it) {                
             clause& c = *(*it);
             if (c.was_removed()) continue;
+#if 0
+            // enable when there is a non-ternary reward system.
+            if (c.size() > 3) {
+                m_config.m_use_ternary_reward = false;
+            }
+#endif
             clause* c1 = m_cls_allocator.mk_clause(c.size(), c.begin(), false);
             m_clauses.push_back(c1);
             attach_clause(*c1);
@@ -1004,7 +1011,7 @@ namespace sat {
                 TRACE("sat", tout << "windfall: " << nlit << " " << l2 << "\n";); 
                 // if we use try_add_binary, then this may produce new assignments
                 // these assignments get put on m_trail, and they are cleared by
-                // reset_wnb. We would need to distinguish the trail that comes
+                // reset_lookahead_reward. We would need to distinguish the trail that comes
                 // from lookahead levels and the main search level for this to work.
                 add_binary(nlit, l2);
             }
@@ -1079,7 +1086,7 @@ namespace sat {
                         skip = true;
                         break;
                     case lookahead_mode::lookahead1:
-                        m_weighted_new_binaries += (*m_heur)[l1.index()] * (*m_heur)[l2.index()];
+                        update_binary_clause_reward(l1, l2);
                         break;
                     case lookahead2:
                         break;
@@ -1133,20 +1140,14 @@ namespace sat {
                             try_add_binary(c[0], c[1]);
                             break;
                         case lookahead_mode::lookahead1:
-                            m_weighted_new_binaries += (*m_heur)[c[0].index()]* (*m_heur)[c[1].index()];
+                            update_binary_clause_reward(c[0], c[1]);
                             break;
                         case lookahead_mode::lookahead2:
                             break;
                         }
                     }
-                    else if (found && m_search_mode == lookahead_mode::lookahead1 && m_weighted_new_binaries == 0) {
-                        // leave a trail that some clause was reduced but potentially not an autarky
-                        l_it  = c.begin() + 2;
-                        found = false;
-                        for (; l_it != l_end && !found; found = is_true(*l_it), ++l_it) ;
-                        if (!found) {
-                            m_weighted_new_binaries = (double)0.001;
-                        }
+                    else if (found && m_search_mode == lookahead_mode::lookahead1) {
+                        update_nary_clause_reward(c);
                     }
                     break; 
                 }
@@ -1192,6 +1193,53 @@ namespace sat {
         wlist.set_end(it2);        
     }
 
+    void lookahead::update_binary_clause_reward(literal l1, literal l2) {
+        SASSERT(!is_false(l1));
+        SASSERT(!is_false(l2));
+        if (m_config.m_use_ternary_reward) {
+            m_lookahead_reward += (*m_heur)[l1.index()] * (*m_heur)[l2.index()];
+        }
+        else {
+            m_lookahead_reward += 0.5 * (literal_occs(l1) + literal_occs(l2));
+        }
+    }
+
+    void lookahead::update_nary_clause_reward(clause const& c) {
+        if (m_config.m_use_ternary_reward && m_lookahead_reward != 0) {
+            return;
+        }
+        literal const * l_it  = c.begin() + 2, *l_end = c.end();
+        unsigned sz = 0;
+        for (; l_it != l_end; ++l_it) {
+            if (is_true(*l_it)) return;
+            if (!is_false(*l_it)) ++sz;
+        }
+        if (!m_config.m_use_ternary_reward) {
+            SASSERT(sz > 0);
+            double to_add = 0;
+            for (literal l : c) {
+                if (!is_false(l)) {
+                    to_add += literal_occs(l);
+                } 
+            }
+            m_lookahead_reward += pow(sz, -2) * to_add;
+        }
+        else {
+            m_lookahead_reward = (double)0.001;            
+        }
+    }
+
+    // Sum_{ clause C that contains ~l } 1 / |C|
+    double lookahead::literal_occs(literal l) {
+        double result = m_binary[l.index()].size();
+        for (clause const* c : m_full_watches[l.index()]) {
+            if (!is_true((*c)[0]) && !is_true((*c)[1])) {
+                result += 1.0 / c->size();
+            }
+        }
+        return result;
+    }
+
     void lookahead::propagate_binary(literal l) {
         literal_vector const& lits = m_binary[l.index()];
         TRACE("sat", tout << l << " => " << lits << "\n";);
@@ -1200,6 +1248,7 @@ namespace sat {
             assign(lits[i]);
         }
     }
+
 
     void lookahead::propagate() {
         while (!inconsistent() && m_qhead < m_trail.size()) {
@@ -1220,8 +1269,8 @@ namespace sat {
         TRACE("sat_verbose", display(tout << scope_lvl() << " " << (inconsistent()?"unsat":"sat") << "\n"););
     }
 
-    void lookahead::compute_wnb() {
-        init_wnb();
+    void lookahead::compute_lookahead_reward() {
+        init_lookahead_reward();
         TRACE("sat", display_lookahead(tout); );
         unsigned base = 2;
         bool change = true;
@@ -1240,21 +1289,21 @@ namespace sat {
                     IF_VERBOSE(30, verbose_stream() << scope_lvl() << " " << lit << " binary: " << m_binary_trail.size() << " trail: " << m_trail_lim.back() << "\n";);
                 }
                 TRACE("sat", tout << "lookahead: " << lit << " @ " << m_lookahead[i].m_offset << "\n";);
-                reset_wnb(lit);
+                reset_lookahead_reward(lit);
                 push_lookahead1(lit, level);
                 if (!first) do_double(lit, base);
                 bool unsat = inconsistent();                    
                 pop_lookahead1(lit); 
                 if (unsat) {
                     TRACE("sat", tout << "backtracking and settting " << ~lit << "\n";);
-                    reset_wnb();
+                    reset_lookahead_reward();
                     assign(~lit);
                     propagate();
-                    init_wnb();
+                    init_lookahead_reward();
                     change = true;
                 }
                 else {
-                    update_wnb(lit, level);                        
+                    update_lookahead_reward(lit, level);                        
                 }
                 SASSERT(inconsistent() || !is_unsat());
             }
@@ -1265,23 +1314,23 @@ namespace sat {
                 first = false;
                 change = true;
             }
-            reset_wnb();
-            init_wnb();
+            reset_lookahead_reward();
+            init_lookahead_reward();
             // base += 2 * m_lookahead.size();
         }
-        reset_wnb();
+        reset_lookahead_reward();
         TRACE("sat", display_lookahead(tout); );
     }
 
-    void lookahead::init_wnb() {
-        TRACE("sat", tout << "init_wnb: " << m_qhead << "\n";);
+    void lookahead::init_lookahead_reward() {
+        TRACE("sat", tout << "init_lookahead_reward: " << m_qhead << "\n";);
         m_qhead_lim.push_back(m_qhead);
         m_trail_lim.push_back(m_trail.size());
     }
 
-    void lookahead::reset_wnb() {
+    void lookahead::reset_lookahead_reward() {
         m_qhead = m_qhead_lim.back();
-        TRACE("sat", tout << "reset_wnb: " << m_qhead << "\n";);
+        TRACE("sat", tout << "reset_lookahead_reward: " << m_qhead << "\n";);
         unsigned old_sz = m_trail_lim.back();
         for (unsigned i = old_sz; i < m_trail.size(); ++i) {
             set_undef(m_trail[i]);
@@ -1300,7 +1349,7 @@ namespace sat {
             if (lit.sign() || !is_undef(lit)) {
                 continue;
             }
-            double diff1 = get_wnb(lit), diff2 = get_wnb(~lit);
+            double diff1 = get_lookahead_reward(lit), diff2 = get_lookahead_reward(~lit);
             double mixd = mix_diff(diff1, diff2);
 
             if (mixd == h) ++count;
@@ -1317,12 +1366,13 @@ namespace sat {
     }
 
 
-    void lookahead::reset_wnb(literal l) {
-        m_weighted_new_binaries = 0;
+    void lookahead::reset_lookahead_reward(literal l) {
+
+        m_lookahead_reward = 0;
 
         // inherit propagation effect from parent.
         literal p = get_parent(l);
-        set_wnb(l, p == null_literal ? 0 : get_wnb(p));
+        set_lookahead_reward(l, p == null_literal ? 0 : get_lookahead_reward(p));
     }
 
     bool lookahead::check_autarky(literal l, unsigned level) {
@@ -1361,22 +1411,22 @@ namespace sat {
     }
 
 
-    void lookahead::update_wnb(literal l, unsigned level) {
-        if (m_weighted_new_binaries == 0) {
+    void lookahead::update_lookahead_reward(literal l, unsigned level) {
+        if (m_lookahead_reward == 0) {
             if (!check_autarky(l, level)) {
                 // skip
             }
-            else if (get_wnb(l) == 0) {
+            else if (get_lookahead_reward(l) == 0) {
                 ++m_stats.m_autarky_propagations;
                 IF_VERBOSE(1, verbose_stream() << "(sat.lookahead autarky " << l << ")\n";);
                     
                 TRACE("sat", tout << "autarky: " << l << " @ " << m_stamp[l.var()] 
                       << " " 
                       << (!m_binary[l.index()].empty() || !m_full_watches[l.index()].empty()) << "\n";);
-                reset_wnb();
+                reset_lookahead_reward();
                 assign(l);
                 propagate();                    
-                init_wnb();
+                init_lookahead_reward();
             }
             else {
                 ++m_stats.m_autarky_equivalences;
@@ -1396,17 +1446,17 @@ namespace sat {
             }
         }
         else {
-            inc_wnb(l, m_weighted_new_binaries);
+            inc_lookahead_reward(l, m_lookahead_reward);
         }
     }
 
     void lookahead::do_double(literal l, unsigned& base) {
         if (!inconsistent() && scope_lvl() > 1 && dl_enabled(l)) {                
-            if (get_wnb(l) > m_delta_trigger) {
+            if (get_lookahead_reward(l) > m_delta_trigger) {
                 if (dl_no_overflow(base)) {
                     ++m_stats.m_double_lookahead_rounds;
                     double_look(l, base);
-                    m_delta_trigger = get_wnb(l);
+                    m_delta_trigger = get_lookahead_reward(l);
                     dl_disable(l);
                 }
             }
@@ -1422,7 +1472,7 @@ namespace sat {
         unsigned dl_truth = base + 2 * m_lookahead.size() * (m_config.m_dl_max_iterations + 1);            
         scoped_level _sl(*this, dl_truth);
         IF_VERBOSE(2, verbose_stream() << "double: " << l << "\n";);
-        init_wnb();
+        init_lookahead_reward();
         assign(l);
         propagate();
         bool change = true;
@@ -1438,16 +1488,16 @@ namespace sat {
                     TRACE("sat", tout << "unit: " << ~lit << "\n";);
                     ++m_stats.m_double_lookahead_propagations;
                     SASSERT(m_level == dl_truth);
-                    reset_wnb();
+                    reset_lookahead_reward();
                     assign(~lit);
                     propagate();
                     change = true;
-                    init_wnb();
+                    init_lookahead_reward();
                 }
             }
             SASSERT(dl_truth - 2 * m_lookahead.size() > base);
         }
-        reset_wnb();
+        reset_lookahead_reward();
         SASSERT(m_level == dl_truth);            
         base = dl_truth;
     }
@@ -1585,7 +1635,7 @@ namespace sat {
             unsigned offset = m_lookahead[i].m_offset;
             out << lit << "\toffset: " << offset;
             out << (is_undef(lit)?" undef": (is_true(lit) ? " true": " false"));
-            out << " wnb: " << get_wnb(lit);
+            out << " lookahead_reward: " << get_lookahead_reward(lit);
             out << "\n";
         }
         return out;
@@ -1613,7 +1663,7 @@ namespace sat {
             if (m_lookahead.empty()) {
                 break;
             }
-            compute_wnb();
+            compute_lookahead_reward();
             if (inconsistent()) {
                 break;
             }

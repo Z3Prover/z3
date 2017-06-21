@@ -76,6 +76,7 @@ namespace sat {
             double   m_delta_rho;
             unsigned m_dl_max_iterations;
             unsigned m_tc1_limit;
+            bool     m_use_ternary_reward;
 
             config() {
                 m_max_hlevel = 50;
@@ -86,6 +87,7 @@ namespace sat {
                 m_delta_rho = (double)0.9995;
                 m_dl_max_iterations = 32;
                 m_tc1_limit = 10000000;
+                m_use_ternary_reward = true;
             }
         };
 
@@ -96,9 +98,9 @@ namespace sat {
         };
 
         struct lit_info {
-            double     m_wnb;
+            double     m_lookahead_reward;
             unsigned  m_double_lookahead;
-            lit_info(): m_wnb(0), m_double_lookahead(0) {}
+            lit_info(): m_lookahead_reward(0), m_double_lookahead(0) {}
         };
 
         struct stats {
@@ -156,7 +158,7 @@ namespace sat {
         vector<watch_list>     m_watches;       // literal: watch structure
         svector<lit_info>      m_lits;          // literal: attributes.
         vector<clause_vector>  m_full_watches;  // literal: full watch list, used to ensure that autarky reduction is sound
-        double                  m_weighted_new_binaries; // metric associated with current lookahead1 literal.
+        double                 m_lookahead_reward; // metric associated with current lookahead1 literal.
         literal_vector         m_wstack;        // windofall stack that is populated in lookahead1 mode
         uint64                 m_prefix;        // where we are in search tree
         svector<prefix>        m_vprefix;       // var:     prefix where variable participates in propagation
@@ -393,18 +395,21 @@ namespace sat {
         void propagate_binary(literal l);
         void propagate();
         literal choose();
-        void compute_wnb();
-        void init_wnb();
-        void reset_wnb();
+        void compute_lookahead_reward();
+        void init_lookahead_reward();
+        void reset_lookahead_reward();
         literal select_literal();
+        void update_binary_clause_reward(literal l1, literal l2);
+        void update_nary_clause_reward(clause const& c);
+        double literal_occs(literal l);
 
-        void set_wnb(literal l, double f) { m_lits[l.index()].m_wnb = f; }
-        void inc_wnb(literal l, double f) { m_lits[l.index()].m_wnb += f; }
-        double get_wnb(literal l) const { return m_lits[l.index()].m_wnb; }
+        void set_lookahead_reward(literal l, double f) { m_lits[l.index()].m_lookahead_reward = f; }
+        void inc_lookahead_reward(literal l, double f) { m_lits[l.index()].m_lookahead_reward += f; }
+        double get_lookahead_reward(literal l) const { return m_lits[l.index()].m_lookahead_reward; }
             
-        void reset_wnb(literal l);
+        void reset_lookahead_reward(literal l);
         bool check_autarky(literal l, unsigned level);
-        void update_wnb(literal l, unsigned level);
+        void update_lookahead_reward(literal l, unsigned level);
         bool dl_enabled(literal l) const { return m_lits[l.index()].m_double_lookahead != m_istamp_id; }
         void dl_disable(literal l) { m_lits[l.index()].m_double_lookahead = m_istamp_id; }
         bool dl_no_overflow(unsigned base) const { return base + 2 * m_lookahead.size() * static_cast<uint64>(m_config.m_dl_max_iterations + 1) < c_fixed_truth; }
