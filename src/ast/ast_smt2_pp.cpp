@@ -557,7 +557,14 @@ class smt2_printer {
         format * f;
         if (v->get_idx() < m_var_names.size()) {
             symbol s = m_var_names[m_var_names.size() - v->get_idx() - 1];
-            f = mk_string(m(), s.str().c_str());
+            std::string vname;
+            if (is_smt2_quoted_symbol (s)) {
+                vname = mk_smt2_quoted_symbol (s);
+            }
+            else {
+                vname = s.str();
+            }
+            f = mk_string(m(), vname.c_str ());
         }
         else {
             // fallback... it is not supposed to happen when the printer is correctly used.
@@ -884,7 +891,14 @@ class smt2_printer {
         symbol * it = m_var_names.end() - num_decls;
         for (unsigned i = 0; i < num_decls; i++, it++) {
             format * fs[1] = { m_env.pp_sort(q->get_decl_sort(i)) };
-            buf.push_back(mk_seq1<format**,f2f>(m(), fs, fs+1, f2f(), it->str().c_str()));
+            std::string var_name;
+            if (is_smt2_quoted_symbol (*it)) {
+                var_name = mk_smt2_quoted_symbol (*it);
+            }
+            else {
+              var_name = it->str ();\
+            }
+            buf.push_back(mk_seq1<format**,f2f>(m(), fs, fs+1, f2f(), var_name.c_str ()));
         }
         return mk_seq5(m(), buf.begin(), buf.end(), f2f());
     }
