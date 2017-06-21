@@ -82,7 +82,7 @@ class dt2bv_tactic : public tactic {
 
         void operator()(var * v) {
             if (m_t.is_fd(v)) {
-                m_t.m_fd_sorts.insert(get_sort(v));
+                m_t.m_non_fd_sorts.insert(get_sort(v));
             }
         }
 
