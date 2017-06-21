@@ -22,7 +22,7 @@ Revision History:
     input:  x, z
     output: x, y
 
-    Let x_i, y_i, z_i be incides into the vectors x, y, z.
+    Let x_i, y_i, z_i be indices into the vectors x, y, z.
 
     Suppose that positions in P and R are annotated with what is
     slicable.

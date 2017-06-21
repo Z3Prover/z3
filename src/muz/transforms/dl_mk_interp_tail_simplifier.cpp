@@ -84,7 +84,7 @@ namespace datalog {
         mk_rule_inliner::remove_duplicate_tails(m_tail, m_neg);
 
         SASSERT(m_tail.size() == m_neg.size());
-        res = m_context.get_rule_manager().mk(m_head, m_tail.size(), m_tail.c_ptr(), m_neg.c_ptr());
+        res = m_context.get_rule_manager().mk(m_head, m_tail.size(), m_tail.c_ptr(), m_neg.c_ptr(),m_rule->name());
         res->set_accounting_parent_object(m_context, m_rule);
         res->norm_vars(res.get_manager());
     }
@@ -557,7 +557,7 @@ namespace datalog {
             }
 
             SASSERT(m_tail.size() == m_tail_neg.size());
-            res = m_context.get_rule_manager().mk(head, m_tail.size(), m_tail.c_ptr(), m_tail_neg.c_ptr());
+            res = m_context.get_rule_manager().mk(head, m_tail.size(), m_tail.c_ptr(), m_tail_neg.c_ptr(), r->name());
             res->set_accounting_parent_object(m_context, r);
         }
         else {
