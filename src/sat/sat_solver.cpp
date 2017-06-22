@@ -1355,6 +1355,7 @@ namespace sat {
         m_luby_idx                = 1;
         m_gc_threshold            = m_config.m_gc_initial;
         m_restarts                = 0;
+        m_conflicts               = 0;
         m_min_d_tk                = 1.0;
         m_search_lvl              = 0;
         m_stopwatch.reset();
@@ -1399,6 +1400,7 @@ namespace sat {
 
         if (m_config.m_lookahead_simplify) {
             lookahead lh(*this);
+            lh.simplify();
             lh.scc();
             lh.collect_statistics(m_aux_stats);
         }

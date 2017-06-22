@@ -841,6 +841,7 @@ namespace sat {
         unsigned sz = m_s.m_watches.size();
         for (unsigned l_idx = 0; l_idx < sz; ++l_idx) {
             literal l = ~to_literal(l_idx);
+            if (m_s.was_eliminated(l.var())) continue;
             watch_list const & wlist = m_s.m_watches[l_idx];
             watch_list::const_iterator it  = wlist.begin();
             watch_list::const_iterator end = wlist.end();
@@ -848,9 +849,7 @@ namespace sat {
                 if (!it->is_binary_non_learned_clause())
                     continue;
                 literal l2 = it->get_literal();                    
-                SASSERT(!m_s.was_eliminated(l.var()));
-                SASSERT(!m_s.was_eliminated(l2.var()));
-                if (l.index() < l2.index()) 
+                if (l.index() < l2.index() && !m_s.was_eliminated(l2.var()))
                     add_binary(l, l2);
             }
         }
@@ -895,6 +894,12 @@ namespace sat {
                 m_config.m_use_ternary_reward = false;
             }
 #endif
+            bool was_eliminated = false;
+            for (unsigned i = 0; !was_eliminated && i < c.size(); ++i) {
+                was_eliminated = m_s.was_eliminated(c[i].var());
+            }
+            if (was_eliminated) continue;
+
             clause* c1 = m_cls_allocator.mk_clause(c.size(), c.begin(), false);
             m_clauses.push_back(c1);
             attach_clause(*c1);
@@ -1519,7 +1524,9 @@ namespace sat {
             if (m_search_mode == lookahead_mode::searching) {
                 m_stats.m_propagations++;
                 TRACE("sat", tout << "removing free var v" << l.var() << "\n";);
-                m_freevars.remove(l.var());
+                if (l.var() > m_freevars.max_var()) std::cout << "bigger than max-var: " << l << " " << " " << m_freevars.max_var() << "\n";
+                if (!m_freevars.contains(l.var())) std::cout << "does not contain: " << l << " eliminated: " << m_s.was_eliminated(l.var()) << "\n";
+                if (m_freevars.contains(l.var())) { m_freevars.remove(l.var()); }
                 validate_assign(l);
             }
         }
@@ -1722,16 +1729,20 @@ namespace sat {
         if (inconsistent()) return;
         SASSERT(m_trail_lim.empty());
         unsigned num_units = 0;
-        for (unsigned i = 0; i < m_trail.size(); ++i) {
+        
+        for (unsigned i = 0; i < m_trail.size() && !m_s.inconsistent(); ++i) {
             literal lit = m_trail[i];
             if (m_s.value(lit) == l_undef && !m_s.was_eliminated(lit.var())) {
-                m_s.m_simplifier.propagate_unit(lit);                    
+                m_s.assign(lit, justification());
                 ++num_units;
             }
-        }
+        }        
         IF_VERBOSE(1, verbose_stream() << "(sat-lookahead :units " << num_units << ")\n";);
-            
-        m_s.m_simplifier.subsume();
+         
+        if (num_units > 0 && !m_s.inconsistent()) {
+            m_s.propagate_core(false);
+            m_s.m_simplifier(false);
+        }
         m_lookahead.reset();
     }
 

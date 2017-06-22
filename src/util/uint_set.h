@@ -369,6 +369,7 @@ public:
     void reset() { m_size = 0; }
     bool empty() const { return m_size == 0; }    
     unsigned size() const { return m_size; }
+    unsigned max_var() const { return m_index.size(); }
     typedef  unsigned_vector::const_iterator iterator;
     iterator begin() const { return m_elems.begin(); }
     iterator end() const { return m_elems.begin() + m_size; }

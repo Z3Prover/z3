@@ -166,10 +166,7 @@ namespace sat {
         CASSERT("sat_solver", s.check_invariant());
         TRACE("before_simplifier", s.display(tout););
 
-        m_sub_todo.reset();
-        m_sub_bin_todo.reset();
         s.m_cleaner(true);
-        m_last_sub_trail_sz = s.m_trail.size();
         TRACE("after_cleanup", s.display(tout););
         CASSERT("sat_solver", s.check_invariant());
         m_need_cleanup = false;
@@ -221,13 +218,6 @@ namespace sat {
                 // must remove learned clauses with eliminated variables
                 cleanup_clauses(s.m_learned, true, true, m_learned_in_use_lists);
             }
-        }
-
-        if (!learned && s.m_config.m_lookahead_simplify) {
-            // perform lookahead simplification
-            lookahead lh(s);
-            lh.simplify();
-            lh.collect_statistics(s.m_aux_stats);
         }
 
         CASSERT("sat_solver", s.check_invariant());
