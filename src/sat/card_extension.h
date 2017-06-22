@@ -82,6 +82,9 @@ namespace sat {
             unsigned index() const { return m_index; }
             literal lit() const { return m_lit; }
             wliteral operator[](unsigned i) const { return m_wlits[i]; }
+            wliteral const* begin() const { return m_wlits; }
+            wliteral const* end() const { return (wliteral const*)m_wlits + m_size; }
+
             unsigned k() const { return m_k; }
             unsigned size() const { return m_size; }
             unsigned slack() const { return m_slack; }

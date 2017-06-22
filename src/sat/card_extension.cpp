@@ -241,7 +241,7 @@ namespace sat {
 
         if (slack < bound) {
             literal lit = p[j].second;
-            SASSERT(value(p[j].second) == l_false);
+            SASSERT(value(lit) == l_false);
             for (unsigned i = j + 1; i < sz; ++i) {
                 if (lvl(lit) < lvl(p[i].second)) {
                     lit = p[i].second;
@@ -365,7 +365,10 @@ namespace sat {
             literal_vector to_assign;
             while (!m_pb_undef.empty()) {
                 index1 = m_pb_undef.back();
+                if (index1 == num_watch) index1 = index; // it was swapped with index above.
                 literal lit = p[index1].second;
+                if (value(lit) != l_undef) std::cout << "not undef: " << index1 << " " << lit << " " << value(lit) << "\n";
+                SASSERT(value(lit) == l_undef);
                 TRACE("sat", tout << index1 << " " << lit << "\n";);
                 if (slack >= bound + p[index1].first) {
                     break;
@@ -376,9 +379,7 @@ namespace sat {
 
             for (literal lit : to_assign) {
                 if (inconsistent()) break;
-                if (value(lit) == l_undef) {
-                    assign(p, lit);
-                }				
+                assign(p, lit);
             }
         }
 
@@ -594,8 +595,8 @@ namespace sat {
         unsigned sz = x.size();
         TRACE("sat", tout << "assign: " << x.lit() << ": " << ~alit << "@" << lvl(~alit) << "\n";);
 
-        SASSERT(value(alit) != l_undef);
         SASSERT(x.lit() == null_literal || value(x.lit()) == l_true);
+        SASSERT(value(alit) != l_undef);
         unsigned index = 0;
         for (; index <= 2; ++index) {
             if (x[index].var() == alit.var()) break;
@@ -791,9 +792,7 @@ namespace sat {
                     m_bound += offset;
                     inc_coeff(consequent, offset);
                     get_xor_antecedents(consequent, idx, js, m_lemma);
-                    for (unsigned i = 0; i < m_lemma.size(); ++i) {
-                        process_antecedent(~m_lemma[i], offset);
-                    }
+                    for (literal l : m_lemma) process_antecedent(~l, offset);
                     ++m_stats.m_num_xor_resolves;
                 }
                 else if (is_pb_index(index)) {
@@ -803,9 +802,7 @@ namespace sat {
                     inc_coeff(consequent, offset);
                     get_pb_antecedents(consequent, p, m_lemma);
                     TRACE("sat", display(tout, p, true); tout << m_lemma << "\n";);
-                    for (unsigned i = 0; i < m_lemma.size(); ++i) {
-                        process_antecedent(~m_lemma[i], offset);
-                    }
+                    for (literal l : m_lemma) process_antecedent(~l, offset);
                     ++m_stats.m_num_pb_resolves;
                 }
                 else {
@@ -1063,11 +1060,15 @@ namespace sat {
 
 
     void card_extension::propagate(literal l, ext_constraint_idx idx, bool & keep) {
+        SASSERT(value(l) == l_true);
         TRACE("sat", tout << l << " " << idx << "\n";);
         if (is_pb_index(idx)) {
             pb& p = index2pb(idx);
             if (l.var() == p.lit().var()) {
                 init_watch(p, !l.sign());
+            }
+            else if (p.lit() != null_literal && value(p.lit()) != l_true) {
+                keep = false;
             }
             else {
                 keep = l_undef != add_assign(p, ~l);
@@ -1078,6 +1079,9 @@ namespace sat {
             if (l.var() == c.lit().var()) {
                 init_watch(c, !l.sign());
             }
+            else if (c.lit() != null_literal && value(c.lit()) != l_true) {
+                keep = false;
+            }
             else {
                 keep = l_undef != add_assign(c, ~l);
             }
@@ -1086,6 +1090,9 @@ namespace sat {
             xor& x = index2xor(idx);
             if (l.var() == x.lit().var()) {
                 init_watch(x, !l.sign());
+            }
+            else if (x.lit() != null_literal && value(x.lit()) != l_true) {
+                keep = false;
             }
             else {
                 keep = l_undef != add_assign(x, ~l);
@@ -1206,6 +1213,16 @@ namespace sat {
         SASSERT(p.lit() == null_literal || value(p.lit()) == l_true);
         TRACE("sat", display(tout, p, true););
 
+        if (value(l) == l_false) {
+            for (wliteral wl : p) {
+                literal lit = wl.second;
+                if (lit != l && value(lit) == l_false) {
+                    r.push_back(~lit);
+                } 
+            }
+            return;
+        }
+
         // unsigned coeff = get_coeff(p, l);
         unsigned coeff = 0;
         for (unsigned j = 0; j < p.num_watch(); ++j) {
@@ -1214,6 +1231,13 @@ namespace sat {
                 break;
             }
         }
+        if (coeff == 0) {
+            
+            std::cout << l << " coeff: " << coeff << "\n";
+            display(std::cout, p, true);                
+        }
+
+        SASSERT(coeff > 0);
         unsigned slack = p.slack() - coeff;
         unsigned i = p.num_watch();
 
@@ -1225,6 +1249,10 @@ namespace sat {
         }
         for (; i < p.size(); ++i) {
             literal lit = p[i].second;
+            if (l_false != value(lit)) {
+                std::cout << l << " index: " << i << " slack: " << slack << " h: " << h << " coeff: " << coeff << "\n";
+                display(std::cout, p, true);                
+            }
             SASSERT(l_false == value(lit));
             r.push_back(~lit);
         }

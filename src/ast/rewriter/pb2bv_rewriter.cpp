@@ -831,15 +831,17 @@ struct pb2bv_rewriter::imp {
             p.get_bool("keep_pb_constraints", false) ||
             p.get_bool("sat.pb.solver", false) ||
             p.get_bool("pb.solver", false) ||
-            gparams::get_module("sat").get_bool("pb.solver", false);
+            gparams::get_module("sat").get_sym("pb.solver", symbol()) == symbol("solver") ;
     }
 
     bool pb_num_system() const {
-        return m_params.get_bool("pb_num_system", false);
+        return m_params.get_bool("pb_num_system", false) ||
+            gparams::get_module("sat").get_sym("pb.solver", symbol()) == symbol("sorting");
     }
 
     bool pb_totalizer() const {
-        return m_params.get_bool("pb_totalizer", false);
+        return m_params.get_bool("pb_totalizer", false) ||
+            gparams::get_module("sat").get_sym("pb.solver", symbol()) == symbol("totalizer");
     }
 
     imp(ast_manager& m, params_ref const& p): 

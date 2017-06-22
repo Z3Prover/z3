@@ -333,8 +333,21 @@ public:
         reset();
     }
 
-    void inc_ref() { m_ref_count++; }
-    void dec_ref() { SASSERT(m_ref_count > 0); m_ref_count--; if (m_ref_count == 0) dealloc(this); }
+    void inc_ref() { 
+        #pragma omp critical (params)
+        {
+            m_ref_count++;         
+        }
+    }
+    void dec_ref() { 
+        bool is_last;
+        SASSERT(m_ref_count > 0); 
+        #pragma omp critical (params)
+        {
+            is_last = 0 == --m_ref_count;         
+        }
+        if (is_last) dealloc(this); 
+    }
 
     bool empty() const { return m_entries.empty(); }
     bool contains(symbol const & k) const;
@@ -343,7 +356,6 @@ public:
     void reset();
     void reset(symbol const & k);
     void reset(char const * k);
-
 
     void validate(param_descrs const & p) {
         svector<params::entry>::iterator it  = m_entries.begin();  

@@ -50,6 +50,13 @@ namespace sat {
         BH_LRB
     };
 
+    enum pb_solver {
+        PB_SOLVER,
+        PB_CIRCUIT,
+        PB_SORTING,
+        PB_TOTALIZER
+    };
+
     struct config {
         unsigned long long m_max_memory;
         phase_selection    m_phase;
@@ -99,7 +106,9 @@ namespace sat {
         symbol             m_psm;        
         symbol             m_glue;        
         symbol             m_glue_psm;        
-        symbol             m_psm_glue;        
+        symbol             m_psm_glue;      
+
+        pb_solver          m_pb_solver;
         
         // branching heuristic settings.
         branching_heuristic m_branching_heuristic;

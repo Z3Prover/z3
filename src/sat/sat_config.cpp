@@ -147,6 +147,24 @@ namespace sat {
         m_step_size_min  = 0.06;
         m_reward_multiplier = 0.9;
         m_reward_offset = 1000000.0;
+
+        // PB parameters
+        s = p.pb_solver();
+        if (s == symbol("circuit")) {
+            m_pb_solver = PB_CIRCUIT;
+        }
+        else if (s == symbol("sorting")) {
+            m_pb_solver = PB_SORTING;
+        }
+        else if (s == symbol("totalizer")) {
+            m_pb_solver = PB_TOTALIZER;
+        }
+        else if (s == symbol("solver")) {
+            m_pb_solver = PB_SOLVER;
+        }
+        else {
+            throw sat_param_exception("invalid PB solver");
+        }
     }
 
     void config::collect_param_descrs(param_descrs & r) {

@@ -1961,10 +1961,8 @@ namespace sat {
             }
             case justification::EXT_JUSTIFICATION: {
                 fill_ext_antecedents(consequent, js);
-                literal_vector::iterator it  = m_ext_antecedents.begin();
-                literal_vector::iterator end = m_ext_antecedents.end();
-                for (; it != end; ++it)
-                    process_antecedent(*it, num_marks);
+                for (literal l : m_ext_antecedents) 
+                    process_antecedent(l, num_marks);
                 break;
             }
             default:
@@ -2082,10 +2080,9 @@ namespace sat {
         }
         case justification::EXT_JUSTIFICATION: {
             fill_ext_antecedents(consequent, js);
-            literal_vector::iterator it  = m_ext_antecedents.begin();
-            literal_vector::iterator end = m_ext_antecedents.end();
-            for (; it != end; ++it)
-                process_antecedent_for_unsat_core(*it);
+            for (literal l : m_ext_antecedents) {
+                process_antecedent_for_unsat_core(l);
+            }
             break;
         }
         default:
@@ -2199,10 +2196,9 @@ namespace sat {
             SASSERT(not_l != null_literal);
             r = lvl(not_l);
             fill_ext_antecedents(~not_l, js);
-            literal_vector::iterator it  = m_ext_antecedents.begin();
-            literal_vector::iterator end = m_ext_antecedents.end();
-            for (; it != end; ++it)
-                r = std::max(r, lvl(*it));
+            for (literal l : m_ext_antecedents) {
+                r = std::max(r, lvl(l));
+            }
             return r;
         }
         default:
@@ -2414,10 +2410,8 @@ namespace sat {
             case justification::EXT_JUSTIFICATION: {
                 literal consequent(var, value(var) == l_false);
                 fill_ext_antecedents(consequent, js);
-                literal_vector::iterator it  = m_ext_antecedents.begin();
-                literal_vector::iterator end = m_ext_antecedents.end();
-                for (; it != end; ++it) {
-                    if (!process_antecedent_for_minimization(*it)) {
+                for (literal l : m_ext_antecedents) {
+                    if (!process_antecedent_for_minimization(l)) {
                         reset_unmark(old_size);
                         return false;
                     }
@@ -2540,10 +2534,8 @@ namespace sat {
             }
             case justification::EXT_JUSTIFICATION: {
                 fill_ext_antecedents(m_lemma[i], js);
-                literal_vector::iterator it  = m_ext_antecedents.begin();
-                literal_vector::iterator end = m_ext_antecedents.end();
-                for (; it != end; ++it) {
-                    update_lrb_reasoned(*it);
+                for (literal l : m_ext_antecedents) {
+                    update_lrb_reasoned(l);
                 }
                 break;
             }
@@ -3776,11 +3768,9 @@ namespace sat {
         }
         case justification::EXT_JUSTIFICATION: {
             fill_ext_antecedents(lit, js);
-            literal_vector::iterator it  = m_ext_antecedents.begin();
-            literal_vector::iterator end = m_ext_antecedents.end();
-            for (; it != end; ++it) {
-                if (check_domain(lit, *it) && all_found) {
-                    s |= m_antecedents.find(it->var());
+            for (literal l : m_ext_antecedents) {
+                if (check_domain(lit, l) && all_found) {
+                    s |= m_antecedents.find(l.var());
                 }
                 else {
                     all_found = false;
