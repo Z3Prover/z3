@@ -202,8 +202,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
     void expand_value(expr_ref& val) {
         vector<expr_ref_vector> stores;
         expr_ref else_case(m());
-        bool args_are_unique;
-        if (m_ar.is_array(val) && extract_array_func_interp(val, stores, else_case, args_are_unique)) {
+        bool _unused;
+        if (m_ar.is_array(val) && extract_array_func_interp(val, stores, else_case, _unused)) {
             sort* srt = m().get_sort(val);
             val = m_ar.mk_const_array(srt, else_case);
             for (unsigned i = stores.size(); i > 0; ) {
