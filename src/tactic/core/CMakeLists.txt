@@ -3,7 +3,7 @@ z3_add_component(core_tactics
     blast_term_ite_tactic.cpp
     cofactor_elim_term_ite.cpp
     cofactor_term_ite_tactic.cpp
-    collect_statistics_tactic.cpp  
+    collect_statistics_tactic.cpp
     ctx_simplify_tactic.cpp
     der_tactic.cpp
     distribute_forall_tactic.cpp
@@ -23,5 +23,24 @@ z3_add_component(core_tactics
   COMPONENT_DEPENDENCIES
     normal_forms
     tactic
+  TACTIC_HEADERS
+    blast_term_ite_tactic.h
+    cofactor_term_ite_tactic.h
+    collect_statistics_tactic.h
+    ctx_simplify_tactic.h
+    der_tactic.h
+    distribute_forall_tactic.h
+    elim_term_ite_tactic.h
+    elim_uncnstr_tactic.h
+    nnf_tactic.h
+    occf_tactic.h
+    pb_preprocess_tactic.h
+    propagate_values_tactic.h
+    reduce_args_tactic.h
+    simplify_tactic.h
+    solve_eqs_tactic.h
+    split_clause_tactic.h
+    symmetry_reduce_tactic.h
+    tseitin_cnf_tactic.h
 )
 

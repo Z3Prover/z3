@@ -4,4 +4,6 @@ z3_add_component(nlsat_smt_tactic
   COMPONENT_DEPENDENCIES
     nlsat_tactic
     smt_tactic
+  TACTIC_HEADERS
+    nl_purify_tactic.h
 )

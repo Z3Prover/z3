@@ -59,4 +59,13 @@ z3_add_component(util
     util.cpp
     warning.cpp
     z3_exception.cpp
+  EXTRA_REGISTER_MODULE_HEADERS
+    env_params.h
+  MEMORY_INIT_FINALIZER_HEADERS
+    debug.h
+    gparams.h
+    prime_generator.h
+    rational.h
+    symbol.h
+    trace.h
 )

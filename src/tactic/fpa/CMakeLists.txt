@@ -11,4 +11,7 @@ z3_add_component(fpa_tactics
     sat_tactic
     smtlogic_tactics
     smt_tactic
+  TACTIC_HEADERS
+    fpa2bv_tactic.h
+    qffp_tactic.h
 )

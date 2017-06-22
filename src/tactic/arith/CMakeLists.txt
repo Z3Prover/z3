@@ -28,4 +28,23 @@ z3_add_component(arith_tactics
   COMPONENT_DEPENDENCIES
     core_tactics
     sat
+  TACTIC_HEADERS
+    add_bounds_tactic.h
+    card2bv_tactic.h
+    degree_shift_tactic.h
+    diff_neq_tactic.h
+    elim01_tactic.h
+    eq2bv_tactic.h
+    factor_tactic.h
+    fix_dl_var_tactic.h
+    fm_tactic.h
+    lia2pb_tactic.h
+    lia2card_tactic.h
+    nla2bv_tactic.h
+    normalize_bounds_tactic.h
+    pb2bv_tactic.h
+    probe_arith.h
+    propagate_ineqs_tactic.h
+    purify_arith_tactic.h
+    recover_01_tactic.h
 )
