@@ -60,7 +60,7 @@ namespace sat {
         init_reason_unknown();
         updt_params(p);
         m_conflicts_since_gc      = 0;
-        m_conflicts               = 0;
+        m_conflicts_since_init    = 0;
         m_next_simplify           = 0;
         m_num_checkpoints         = 0;
     }
@@ -881,9 +881,9 @@ namespace sat {
                 if (r != l_undef)
                     return r;
 
-                if (m_conflicts > m_config.m_max_conflicts) {
+                if (m_conflicts_since_init > m_config.m_max_conflicts) {
                     m_reason_unknown = "sat.max.conflicts";
-                    IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-conflicts = " << m_conflicts << "\")\n";);
+                    IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-conflicts = " << m_conflicts_since_init << "\")\n";);
                     return l_undef;
                 }
 
@@ -1194,7 +1194,7 @@ namespace sat {
             return l_true;
         if (!resolve_conflict())
             return l_false;
-        if (m_conflicts > m_config.m_max_conflicts) 
+        if (m_conflicts_since_init > m_config.m_max_conflicts) 
             return l_undef;
         if (m_conflicts_since_restart > m_restart_threshold) 
             return l_undef;
@@ -1355,7 +1355,7 @@ namespace sat {
         m_luby_idx                = 1;
         m_gc_threshold            = m_config.m_gc_initial;
         m_restarts                = 0;
-        m_conflicts               = 0;
+        m_conflicts_since_init    = 0;
         m_min_d_tk                = 1.0;
         m_search_lvl              = 0;
         m_stopwatch.reset();
@@ -1371,7 +1371,7 @@ namespace sat {
 
     */
     void solver::simplify_problem() {
-        if (m_conflicts < m_next_simplify) {
+        if (m_conflicts_since_init < m_next_simplify) {
             return;
         }
         IF_VERBOSE(2, verbose_stream() << "(sat.simplify)\n";);
@@ -1429,9 +1429,9 @@ namespace sat {
             m_next_simplify = m_config.m_restart_initial * m_config.m_simplify_mult1;
         }
         else {
-            m_next_simplify = static_cast<unsigned>(m_conflicts * m_config.m_simplify_mult2);
-            if (m_next_simplify > m_conflicts + m_config.m_simplify_max)
-                m_next_simplify = m_conflicts + m_config.m_simplify_max;
+            m_next_simplify = static_cast<unsigned>(m_conflicts_since_init * m_config.m_simplify_mult2);
+            if (m_next_simplify > m_conflicts_since_init + m_config.m_simplify_max)
+                m_next_simplify = m_conflicts_since_init + m_config.m_simplify_max;
         }
     }
 
@@ -1882,7 +1882,7 @@ namespace sat {
 
     bool solver::resolve_conflict_core() {
 
-        m_conflicts++;
+        m_conflicts_since_init++;
         m_conflicts_since_restart++;
         m_conflicts_since_gc++;
         m_stats.m_conflict++;
@@ -3551,8 +3551,8 @@ namespace sat {
 
             extract_fixed_consequences(num_units, asms, unfixed_vars, conseq);
 
-            if (m_conflicts > m_config.m_max_conflicts) {
-                IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-conflicts = " << m_conflicts << "\")\n";);
+            if (m_conflicts_since_init > m_config.m_max_conflicts) {
+                IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-conflicts = " << m_conflicts_since_init << "\")\n";);
                 return l_undef;
             }
 

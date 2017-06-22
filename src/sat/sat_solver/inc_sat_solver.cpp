@@ -323,7 +323,6 @@ public:
                 IF_VERBOSE(0, verbose_stream() << "WARNING: could not handle " << mk_pp(c, m) << "\n";);
         }
         }
-        IF_VERBOSE(1, verbose_stream() << "vars: " << vars.size() << "\n";);
         if (vars.empty()) {
             return expr_ref(m.mk_true(), m);
         }
@@ -336,15 +335,14 @@ public:
             return expr_ref(m.mk_true(), m);
         }
         expr_ref result(lit2expr[l.index()].get(), m);
-        IF_VERBOSE(1, verbose_stream() << "solution: " << l << " " << result << "\n";);
         return result;
     }
     virtual void get_lemmas(expr_ref_vector & lemmas) { 
-        IF_VERBOSE(1, verbose_stream() << "(sat-get-lemmas " << lemmas.size() << ")\n";);
         if (!m_internalized) return;
         sat2goal s2g;
         goal g(m, false, false, false);
         s2g.get_learned(m_solver, m_map, m_params, lemmas);
+        IF_VERBOSE(1, verbose_stream() << "(sat :lemmas " << lemmas.size() << ")\n";);
         // TBD: handle externals properly.
     }
 

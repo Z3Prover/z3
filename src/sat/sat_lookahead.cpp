@@ -299,7 +299,6 @@ namespace sat {
             bool_var x = *it;
             if (!m_select_lookahead_vars.empty()) {
                 if (m_select_lookahead_vars.contains(x)) {
-                    // IF_VERBOSE(1, verbose_stream() << x << " " << m_rating[x] << "\n";);
                     m_candidates.push_back(candidate(x, m_rating[x]));
                     sum += m_rating[x];
                 }                
@@ -309,7 +308,6 @@ namespace sat {
                 sum += m_rating[x];                
             }           
         } 
-        IF_VERBOSE(1, verbose_stream() << " " << sum << " " << m_candidates.size() << "\n";);
         TRACE("sat", display_candidates(tout << "sum: " << sum << "\n"););
         return sum;
     }
@@ -424,12 +422,9 @@ namespace sat {
         literal_vector::iterator it = m_binary[l.index()].begin(), end = m_binary[l.index()].end();
         for (; it != end; ++it) {
             bool_var v = it->var();
-            if (it->index() >= h.size())
-                IF_VERBOSE(0, verbose_stream() << l << " " << *it << " " << h.size() << "\n";);
             if (is_undef(*it)) sum += h[it->index()]; 
             // if (m_freevars.contains(it->var())) sum += h[it->index()]; 
         }
-        // std::cout << "sum: " << sum << "\n";
         watch_list& wlist = m_watches[l.index()];
         watch_list::iterator wit = wlist.begin(), wend = wlist.end();
         for (; wit != wend; ++wit) {
@@ -930,7 +925,7 @@ namespace sat {
     }
 
     void lookahead::pop() { 
-        if (m_assumptions.empty()) IF_VERBOSE(0, verbose_stream() << "empty pop\n";);
+        SASSERT(!m_assumptions.empty());
         m_assumptions.pop_back();
         m_inconsistent = false;
         SASSERT(m_search_mode == lookahead_mode::searching);

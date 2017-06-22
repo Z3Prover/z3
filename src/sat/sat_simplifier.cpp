@@ -21,7 +21,6 @@ Revision History:
 #include"sat_simplifier.h"
 #include"sat_simplifier_params.hpp"
 #include"sat_solver.h"
-#include"sat_lookahead.h"
 #include"stopwatch.h"
 #include"trace.h"
 

@@ -358,7 +358,7 @@ namespace sat {
         literal select_lookahead(literal_vector const& assumptions, bool_var_vector const& vars);
 
     protected:
-        unsigned m_conflicts;
+        unsigned m_conflicts_since_init;
         unsigned m_restarts;
         unsigned m_conflicts_since_restart;
         unsigned m_restart_threshold;
