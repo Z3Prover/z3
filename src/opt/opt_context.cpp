@@ -1313,17 +1313,18 @@ namespace opt {
         rational r   = n.get_rational();
         rational eps = n.get_infinitesimal();
         expr_ref_vector args(m);
+        bool is_int = eps.is_zero() && r.is_int();
         if (!inf.is_zero()) {
-            expr* oo = m.mk_const(symbol("oo"), m_arith.mk_int());
+            expr* oo = m.mk_const(symbol("oo"), is_int ? m_arith.mk_int() : m_arith.mk_real());
             if (inf.is_one()) {
                 args.push_back(oo);
             }
             else {
-                args.push_back(m_arith.mk_mul(m_arith.mk_numeral(inf, inf.is_int()), oo));
+                args.push_back(m_arith.mk_mul(m_arith.mk_numeral(inf, is_int), oo));
             }
         }
         if (!r.is_zero()) {
-            args.push_back(m_arith.mk_numeral(r, r.is_int()));
+            args.push_back(m_arith.mk_numeral(r, is_int));
         }
         if (!eps.is_zero()) {
             expr* ep = m.mk_const(symbol("epsilon"), m_arith.mk_real());
@@ -1331,7 +1332,7 @@ namespace opt {
                 args.push_back(ep);
             }
             else {
-                args.push_back(m_arith.mk_mul(m_arith.mk_numeral(eps, eps.is_int()), ep));
+                args.push_back(m_arith.mk_mul(m_arith.mk_numeral(eps, is_int), ep));
             }
         }
         switch(args.size()) {
