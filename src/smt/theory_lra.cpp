@@ -2386,16 +2386,16 @@ namespace smt {
 
         app_ref mk_obj(theory_var v) {
             lean::var_index vi = m_theory_var2var_index[v];
+            bool is_int = a.is_int(get_enode(v)->get_owner());
             if (m_solver->is_term(vi)) {                
                 expr_ref_vector args(m);
                 const lean::lar_term& term = m_solver->get_term(vi);
                 for (auto & ti : term.m_coeffs) {
                     theory_var w = m_var_index2theory_var[ti.first];
                     expr* o = get_enode(w)->get_owner();
-                    args.push_back(a.mk_mul(a.mk_numeral(ti.second, a.is_int(o)), o));
+                    args.push_back(a.mk_mul(a.mk_numeral(ti.second, is_int), o));
                 }
-                rational r = term.m_v;
-                args.push_back(a.mk_numeral(r, r.is_int()));
+                args.push_back(a.mk_numeral(term.m_v, is_int));
                 return app_ref(a.mk_add(args.size(), args.c_ptr()), m);
             }
             else {
@@ -2408,11 +2408,12 @@ namespace smt {
             rational r = val.get_rational();
             bool is_strict =  val.get_infinitesimal().is_pos();
             app_ref b(m);
+            bool is_int = a.is_int(get_enode(v)->get_owner());
             if (is_strict) {
-                b = a.mk_le(mk_obj(v), a.mk_numeral(r, r.is_int()));
+                b = a.mk_le(mk_obj(v), a.mk_numeral(r, is_int));
             }
             else {
-                b = a.mk_ge(mk_obj(v), a.mk_numeral(r, r.is_int()));
+                b = a.mk_ge(mk_obj(v), a.mk_numeral(r, is_int));
             }
             if (!ctx().b_internalized(b)) {
                 fm.insert(b->get_decl());
