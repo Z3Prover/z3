@@ -789,7 +789,7 @@ namespace datalog {
                 tail.push_back(to_app(e));                
             }
                         
-            new_rule = rm.mk(head.get(), tail.size(), tail.c_ptr(), (const bool*) 0);        
+            new_rule = rm.mk(head.get(), tail.size(), tail.c_ptr(), (const bool*) 0, r.name());        
 
             rm.fix_unbound_vars(new_rule, false);
 
