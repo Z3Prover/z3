@@ -7,7 +7,7 @@ set(generated_files
 # Sanity check
 foreach (gen_file ${generated_files})
   if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${gen_file}")
-    message(FATAL_ERROR "\"${CMAKE_CURRENT_SOURCE_DIR}/${gen_files}\""
+    message(FATAL_ERROR "\"${CMAKE_CURRENT_SOURCE_DIR}/${gen_file}\""
             ${z3_polluted_tree_msg})
   endif()
 endforeach()
