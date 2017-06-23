@@ -1360,7 +1360,6 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
             throw ex;
         }
         catch (z3_exception & ex) {
-            get_opt()->display_assignment(regular_stream());
             throw cmd_exception(ex.msg());
         }
         if (m_processing_pareto && r != l_true) {
@@ -1398,7 +1397,7 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
     }
     validate_check_sat_result(r);
     if (was_opt && r != l_false && !m_processing_pareto) {
-        get_opt()->display_assignment(regular_stream());
+        // get_opt()->display_assignment(regular_stream());
     }
 
     if (r == l_true && m_params.m_dump_models) {
