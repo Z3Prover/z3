@@ -108,6 +108,8 @@ namespace sat {
             literal lit() const { return m_lit; }
             literal operator[](unsigned i) const { return m_lits[i]; }
             unsigned size() const { return m_size; }
+            literal const* begin() const { return m_lits; }
+            literal const* end() const { return (literal const*)m_lits + m_size; }
             void swap(unsigned i, unsigned j) { std::swap(m_lits[i], m_lits[j]); }
             void negate() { m_lits[0].neg(); }
         };
@@ -167,7 +169,7 @@ namespace sat {
         void reset_marked_literals();
         void unwatch_literal(literal w, card& c);
         void get_card_antecedents(literal l, card const& c, literal_vector & r);
-
+        void copy_card(card_extension& result);
 
         // xor specific functionality
         void copy_xor(card_extension& result);
@@ -243,6 +245,10 @@ namespace sat {
         void display(std::ostream& out, card const& c, bool values) const;
         void display(std::ostream& out, pb const& p, bool values) const;
         void display(std::ostream& out, xor const& c, bool values) const;
+
+        void add_at_least(literal l, literal_vector const& lits, unsigned k);
+        void add_pb_ge(literal l, svector<wliteral> const& wlits, unsigned k);
+        void add_xor(literal l, literal_vector const& lits);
 
     public:
         card_extension();

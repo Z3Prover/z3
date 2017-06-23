@@ -202,8 +202,7 @@ namespace sat {
             for (unsigned i = 0; i < p.size(); ++i) {
                 wlits.push_back(p[i]);
             }
-            bool_var v = p.lit() == null_literal ? null_bool_var : p.lit().var();
-            result.add_pb_ge(v, wlits, p.k());
+            result.add_pb_ge(p.lit(), wlits, p.k());
         }
     }
 
@@ -439,21 +438,18 @@ namespace sat {
     }
 
     void card_extension::display(std::ostream& out, pb const& p, bool values) const {
-        if (p.lit() != null_literal) out << p.lit();
-        out << "[watch: " << p.num_watch() << ", slack: " << p.slack() << "]";
+        if (p.lit() != null_literal) out << p.lit() << " == ";
         if (p.lit() != null_literal && values) {
+            out << "[watch: " << p.num_watch() << ", slack: " << p.slack() << "]";
             out << "@(" << value(p.lit());
             if (value(p.lit()) != l_undef) {
                 out << ":" << lvl(p.lit());
             }
             out << "): ";
         }
-        else {
-            out << ": ";
-        }
-        for (unsigned i = 0; i < p.size(); ++i) {
-            literal l = p[i].second;
-            unsigned w = p[i].first;
+        for (wliteral wl : p) {
+            literal l = wl.second;
+            unsigned w = wl.first;
             if (w > 1) out << w << " * ";
             out << l;
             if (values) {
@@ -476,11 +472,10 @@ namespace sat {
         for (unsigned i = 0; i < m_xors.size(); ++i) {
             literal_vector lits;
             xor& x = *m_xors[i];
-            for (unsigned i = 0; i < x.size(); ++i) {
-                lits.push_back(x[i]);
+            for (literal l : x) {
+                lits.push_back(l);
             }
-            bool_var v = x.lit() == null_literal ? null_bool_var : x.lit().var();
-            result.add_xor(v, lits);
+            result.add_xor(x.lit(), lits);
         }
     }
 
@@ -1011,53 +1006,63 @@ namespace sat {
         m_stats.reset();
     }
 
-    void card_extension::add_at_least(bool_var v, literal_vector const& lits, unsigned k) {
+    void card_extension::add_at_least(literal lit, literal_vector const& lits, unsigned k) {
         unsigned index = 4*m_cards.size();
         SASSERT(is_card_index(index));
-        literal lit = v == null_bool_var ? null_literal : literal(v, false);
         card* c = new (memory::allocate(card::get_obj_size(lits.size()))) card(index, lit, lits, k);
         m_cards.push_back(c);
-        if (v == null_bool_var) {
+        if (lit == null_literal) {
             // it is an axiom.
             init_watch(*c, true);
             m_card_axioms.push_back(c);
         }
         else {
-            get_wlist(literal(v, false)).push_back(index);
-            get_wlist(literal(v, true)).push_back(index);
+            get_wlist(lit).push_back(index);
+            get_wlist(~lit).push_back(index);
+            m_index_trail.push_back(index);
+        }
+    }
+
+    void card_extension::add_at_least(bool_var v, literal_vector const& lits, unsigned k) {
+        literal lit = v == null_bool_var ? null_literal : literal(v, false);
+        add_at_least(lit, lits, k);
+    }
+
+    void card_extension::add_pb_ge(literal lit, svector<wliteral> const& wlits, unsigned k) {
+        unsigned index = 4*m_pbs.size() + 0x3;
+        SASSERT(is_pb_index(index));
+        pb* p = new (memory::allocate(pb::get_obj_size(wlits.size()))) pb(index, lit, wlits, k);
+        m_pbs.push_back(p);
+        if (lit == null_literal) {
+            init_watch(*p, true);
+            m_pb_axioms.push_back(p);
+        }
+        else {
+            get_wlist(lit).push_back(index);
+            get_wlist(~lit).push_back(index);
             m_index_trail.push_back(index);
         }
     }
 
     void card_extension::add_pb_ge(bool_var v, svector<wliteral> const& wlits, unsigned k) {
-        unsigned index = 4*m_pbs.size() + 0x3;
-        SASSERT(is_pb_index(index));
         literal lit = v == null_bool_var ? null_literal : literal(v, false);
-        pb* p = new (memory::allocate(pb::get_obj_size(wlits.size()))) pb(index, lit, wlits, k);
-        m_pbs.push_back(p);
-        if (v == null_bool_var) {
-            init_watch(*p, true);
-            m_pb_axioms.push_back(p);
-        }
-        else {
-            get_wlist(literal(v, false)).push_back(index);
-            get_wlist(literal(v, true)).push_back(index);
-            m_index_trail.push_back(index);
-        }
+        add_pb_ge(lit, wlits, k);
     }
 
 
     void card_extension::add_xor(bool_var v, literal_vector const& lits) {
-        unsigned index = 4*m_xors.size() + 0x1;
-        SASSERT(is_xor_index(index));
-        SASSERT(v != null_bool_var);
-        xor* x = new (memory::allocate(xor::get_obj_size(lits.size()))) xor(index, literal(v, false), lits);
-        m_xors.push_back(x);
-        get_wlist(literal(v, false)).push_back(index);
-        get_wlist(literal(v, true)).push_back(index);
-        m_index_trail.push_back(index);
+        add_xor(literal(v, false), lits);
     }
 
+    void card_extension::add_xor(literal lit, literal_vector const& lits) {
+        unsigned index = 4*m_xors.size() + 0x1;
+        SASSERT(is_xor_index(index));
+        xor* x = new (memory::allocate(xor::get_obj_size(lits.size()))) xor(index, lit, lits);
+        m_xors.push_back(x);
+        get_wlist(lit).push_back(index);
+        get_wlist(~lit).push_back(index);
+        m_index_trail.push_back(index);
+    }
 
     void card_extension::propagate(literal l, ext_constraint_idx idx, bool & keep) {
         SASSERT(value(l) == l_true);
@@ -1412,18 +1417,20 @@ namespace sat {
     void card_extension::clauses_modifed() {}
     lbool card_extension::get_phase(bool_var v) { return l_undef; }
 
-    extension* card_extension::copy(solver* s) {
-        card_extension* result = alloc(card_extension);
-        result->set_solver(s);
+    void card_extension::copy_card(card_extension& result) {
         for (unsigned i = 0; i < m_cards.size(); ++i) {
             literal_vector lits;
             card& c = *m_cards[i];
             for (unsigned i = 0; i < c.size(); ++i) {
                 lits.push_back(c[i]);
             }
-            bool_var v = c.lit() == null_literal ? null_bool_var : c.lit().var();
-            result->add_at_least(v, lits, c.k());
+            result.add_at_least(c.lit(), lits, c.k());
         }
+    }
+    extension* card_extension::copy(solver* s) {
+        card_extension* result = alloc(card_extension);
+        result->set_solver(s);
+        copy_card(*result);
         copy_xor(*result);
         copy_pb(*result);
         return result;
@@ -1498,16 +1505,18 @@ namespace sat {
     }
 
     void card_extension::display(std::ostream& out, card const& c, bool values) const {
-        out << c.lit() << "[" << c.size() << "]";
-        if (c.lit() != null_literal && values) {
-            out << "@(" << value(c.lit());
-            if (value(c.lit()) != l_undef) {
-                out << ":" << lvl(c.lit());
+        if (c.lit() != null_literal) {
+            if (values) {
+                out << c.lit() << "[" << c.size() << "]";
+                out << "@(" << value(c.lit());
+                if (value(c.lit()) != l_undef) {
+                    out << ":" << lvl(c.lit());
+                }
+                out << "): ";
             }
-            out << "): ";
-        }
-        else {
-            out << ": ";
+            else {
+                out << c.lit() << " == ";
+            }
         }
         for (unsigned i = 0; i < c.size(); ++i) {
             literal l = c[i];
@@ -1527,6 +1536,15 @@ namespace sat {
     }
 
     std::ostream& card_extension::display(std::ostream& out) const {
+        for (card* c : m_cards) {
+            display(out, *c, false);
+        }
+        for (pb* p : m_pbs) {
+            display(out, *p, false);
+        }
+        for (xor* x : m_xors) {
+            display(out, *x, false);
+        }
         return out;
     }
 

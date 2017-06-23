@@ -96,6 +96,9 @@ namespace sat {
                 if (src.was_eliminated(v)) {
                     m_eliminated[v] = true;
                 }
+                m_phase[v] = src.m_phase[v];
+                m_prev_phase[v] = src.m_prev_phase[v];
+                // m_activity[v] = src.m_activity[v], but then update case_split_queue ? 
             }
         }
 
@@ -117,14 +120,14 @@ namespace sat {
             unsigned sz = src.m_watches.size();
             for (unsigned l_idx = 0; l_idx < sz; ++l_idx) {
                 literal l = ~to_literal(l_idx);
+                if (src.was_eliminated(l.var())) continue;
                 watch_list const & wlist = src.m_watches[l_idx];
-                watch_list::const_iterator it  = wlist.begin();
-                watch_list::const_iterator end = wlist.end();
-                for (; it != end; ++it) {
-                    if (!it->is_binary_non_learned_clause())
+                for (auto & wi : wlist) {
+                    if (!wi.is_binary_non_learned_clause())
                         continue;
-                    literal l2 = it->get_literal();
-                    if (l.index() > l2.index())
+                    literal l2 = wi.get_literal();
+                    if (l.index() > l2.index() ||
+                        src.was_eliminated(l2.var()))
                         continue;
                     mk_clause_core(l, l2);
                 }
@@ -133,15 +136,23 @@ namespace sat {
 
         {
             literal_vector buffer;
-            // copy clause
-            clause_vector::const_iterator it  = src.m_clauses.begin();
-            clause_vector::const_iterator end = src.m_clauses.end();
-            for (; it != end; ++it) {
-                clause const & c = *(*it);
+            // copy clauses
+            for (clause* c : src.m_clauses) {
                 buffer.reset();
-                for (unsigned i = 0; i < c.size(); i++)
-                    buffer.push_back(c[i]);
+                for (literal l : *c) buffer.push_back(l);
                 mk_clause_core(buffer);
+            }
+            // copy high quality lemmas
+            for (clause* c : src.m_learned) {
+                if (c->glue() <= 2 || (c->size() <= 40 && c->glue() <= 8)) {
+                    buffer.reset();
+                    for (literal l : *c) buffer.push_back(l);
+                    clause* c1 = mk_clause_core(buffer.size(), buffer.c_ptr(), true);
+                    if (c1) {
+                        c1->set_glue(c->glue());
+                        c1->set_psm(c->psm());
+                    }
+                }
             }
         }
 

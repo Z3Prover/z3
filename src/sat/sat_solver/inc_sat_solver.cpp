@@ -45,7 +45,6 @@ class inc_sat_solver : public solver {
     sat::solver     m_solver;
     goal2sat        m_goal2sat;
     params_ref      m_params;
-    bool            m_optimize_model; // parameter
     expr_ref_vector m_fmls;
     expr_ref_vector m_asmsf;
     unsigned_vector m_fmls_lim;
@@ -77,7 +76,7 @@ public:
     inc_sat_solver(ast_manager& m, params_ref const& p):
         m(m), 
         m_solver(p, m.limit()),
-        m_params(p), m_optimize_model(false),
+        m_params(p), 
         m_fmls(m),
         m_asmsf(m),
         m_fmls_head(0),
@@ -96,20 +95,24 @@ public:
     virtual ~inc_sat_solver() {}
 
     virtual solver* translate(ast_manager& dst_m, params_ref const& p) {
-        ast_translation tr(m, dst_m);
         if (m_num_scopes > 0) {
             throw default_exception("Cannot translate sat solver at non-base level");
         }
+        ast_translation tr(m, dst_m);
+        m_solver.pop_to_base_level();
         inc_sat_solver* result = alloc(inc_sat_solver, dst_m, p);
-        expr_ref fml(dst_m);
-        for (unsigned i = 0; i < m_fmls.size(); ++i) {
-            fml = tr(m_fmls[i].get());
-            result->m_fmls.push_back(fml);
-        }
-        for (unsigned i = 0; i < m_asmsf.size(); ++i) {
-            fml = tr(m_asmsf[i].get());
-            result->m_asmsf.push_back(fml);
-        }
+        result->m_solver.copy(m_solver);
+        result->m_fmls_head = m_fmls_head;
+        for (expr* f : m_fmls) result->m_fmls.push_back(tr(f));
+        for (expr* f : m_asmsf) result->m_asmsf.push_back(tr(f));
+        for (auto & kv : m_map) result->m_map.insert(tr(kv.m_key), kv.m_value);
+        for (unsigned l : m_fmls_lim) result->m_fmls_lim.push_back(l);
+        for (unsigned a : m_asms_lim) result->m_asms_lim.push_back(a);
+        for (unsigned h : m_fmls_head_lim) result->m_fmls_head_lim.push_back(h);
+        for (expr* f : m_internalized_fmls) result->m_internalized_fmls.push_back(tr(f));
+        if (m_mc0.get()) result->m_mc0 = m_mc0->translate(tr);
+        result->m_internalized = m_internalized;
+        result->m_internalized_converted = m_internalized_converted;
         return result;
     }
 
@@ -272,7 +275,6 @@ public:
         m_params.set_bool("pb_totalizer", m_solver.get_config().m_pb_solver == sat::PB_TOTALIZER);
         m_params.set_bool("xor_solver", p1.xor_solver());
         m_solver.updt_params(m_params);
-        m_optimize_model = m_params.get_bool("optimize_model", false);
 
     }
     virtual void collect_statistics(statistics & st) const {
@@ -383,9 +385,9 @@ public:
         // extract original fixed variables
         u_map<expr*> asm2dep;
         extract_asm2dep(dep2asm, asm2dep);
-        for (unsigned i = 0; i < vars.size(); ++i) {
+        for (auto v : vars) {
             expr_ref cons(m);
-            if (extract_fixed_variable(dep2asm, asm2dep, vars[i], bool_var2conseq, lconseq, cons)) {
+            if (extract_fixed_variable(dep2asm, asm2dep, v, bool_var2conseq, lconseq, cons)) {
                 conseq.push_back(cons);
             }
         }
@@ -407,11 +409,10 @@ public:
         }
         vector<sat::literal_vector> ls_mutexes;
         m_solver.find_mutexes(ls, ls_mutexes);
-        for (unsigned i = 0; i < ls_mutexes.size(); ++i) {
-            sat::literal_vector const ls_mutex = ls_mutexes[i];
+        for (sat::literal_vector const& ls_mutex : ls_mutexes) {
             expr_ref_vector mutex(m);
-            for (unsigned j = 0; j < ls_mutex.size(); ++j) {
-                mutex.push_back(lit2var.find(ls_mutex[j].index()));
+            for (sat::literal l : ls_mutex) {
+                mutex.push_back(lit2var.find(l.index()));
             }
             mutexes.push_back(mutex);
         }

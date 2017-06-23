@@ -1102,11 +1102,9 @@ namespace sat {
 
     unsigned simplifier::get_num_non_learned_bin(literal l) const {
         unsigned r = 0;
-        watch_list const & wlist  = get_wlist(~l);
-        watch_list::const_iterator it  = wlist.begin();
-        watch_list::const_iterator end = wlist.end();
-        for (; it != end; ++it) {
-            if (it->is_binary_non_learned_clause())
+        watch_list const & wlist = get_wlist(~l);
+        for (auto & w : wlist) {
+            if (w.is_binary_non_learned_clause())
                 r++;
         }
         return r;
@@ -1133,10 +1131,7 @@ namespace sat {
 
     void simplifier::order_vars_for_elim(bool_var_vector & r) {
         svector<bool_var_and_cost> tmp;
-        bool_var_set::iterator it  = m_elim_todo.begin();
-        bool_var_set::iterator end = m_elim_todo.end();
-        for (; it != end; ++it) {
-            bool_var v = *it;
+        for (bool_var v : m_elim_todo) {
             if (is_external(v))
                 continue;
             if (was_eliminated(v))
@@ -1149,17 +1144,10 @@ namespace sat {
         m_elim_todo.reset();
         std::stable_sort(tmp.begin(), tmp.end(), bool_var_and_cost_lt());
         TRACE("elim_vars",
-              svector<bool_var_and_cost>::iterator it  = tmp.begin();
-              svector<bool_var_and_cost>::iterator end = tmp.end();
-              for (; it != end; ++it) {
-                  tout << "(" << it->first << ", " << it->second << ") ";
-              }
+              for (auto& p : tmp) tout << "(" << p.first << ", " << p.second << ") ";
               tout << "\n";);
-        svector<bool_var_and_cost>::iterator it2  = tmp.begin();
-        svector<bool_var_and_cost>::iterator end2 = tmp.end();
-        for (; it2 != end2; ++it2) {
-            r.push_back(it2->first);
-        }
+        for (auto& p : tmp) 
+            r.push_back(p.first);
     }
 
     /**
@@ -1175,11 +1163,9 @@ namespace sat {
         }
 
         watch_list & wlist = get_wlist(~l);
-        watch_list::iterator it2  = wlist.begin();
-        watch_list::iterator end2 = wlist.end();
-        for (; it2 != end2; ++it2) {
-            if (it2->is_binary_non_learned_clause()) {
-                r.push_back(clause_wrapper(l, it2->get_literal()));
+        for (auto & w : wlist) {
+            if (w.is_binary_non_learned_clause()) {
+                r.push_back(clause_wrapper(l, w.get_literal()));
                 SASSERT(r.back().size() == 2);
             }
         }
@@ -1199,7 +1185,7 @@ namespace sat {
         bool res = true;
         unsigned sz = c1.size();
         m_elim_counter -= sz;
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             literal l2 = c1[i];
             if (l == l2)
                 continue;
@@ -1210,7 +1196,7 @@ namespace sat {
         literal not_l = ~l;
         sz = c2.size();
         m_elim_counter -= sz;
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             literal l2 = c2[i];
             if (not_l == l2)
                 continue;
@@ -1223,7 +1209,7 @@ namespace sat {
         }
 
         sz = c1.size();
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             literal l2 = c1[i];
             if (l == l2)
                 continue;
@@ -1234,10 +1220,9 @@ namespace sat {
 
     void simplifier::save_clauses(model_converter::entry & mc_entry, clause_wrapper_vector const & cs) {
         model_converter & mc = s.m_mc;
-        clause_wrapper_vector::const_iterator it  = cs.begin();
-        clause_wrapper_vector::const_iterator end = cs.end();
-        for (; it != end; ++it)
-            mc.insert(mc_entry, *it);
+        for (auto & e : cs) {
+            mc.insert(mc_entry, e);
+        }
     }
 
     void simplifier::add_non_learned_binary_clause(literal l1, literal l2) {
@@ -1273,11 +1258,9 @@ namespace sat {
     */
     void simplifier::remove_bin_clauses(literal l) {
         watch_list & wlist = get_wlist(~l);
-        watch_list::iterator it  = wlist.begin();
-        watch_list::iterator end = wlist.end();
-        for (; it != end; ++it) {
-            if (it->is_binary_clause()) {
-                literal l2 = it->get_literal();
+        for (auto & w : wlist) {
+            if (w.is_binary_clause()) {
+                literal l2 = w.get_literal();
                 watch_list & wlist2 = get_wlist(~l2);
                 watch_list::iterator it2  = wlist2.begin();
                 watch_list::iterator itprev = it2;
@@ -1292,7 +1275,7 @@ namespace sat {
                     itprev++;
                 }
                 wlist2.set_end(itprev);
-                m_sub_bin_todo.erase(bin_clause(l, l2, it->is_learned()));
+                m_sub_bin_todo.erase(bin_clause(l, l2, w.is_learned()));
             }
         }
         TRACE("bin_clause_bug", tout << "collapsing watch_list of: " << l << "\n";);
@@ -1484,13 +1467,10 @@ namespace sat {
         bool_var_vector vars;
         order_vars_for_elim(vars);
 
-        bool_var_vector::iterator it  = vars.begin();
-        bool_var_vector::iterator end = vars.end();
-        for (; it != end; ++it) {
+        for (bool_var v : vars) {
             checkpoint();
             if (m_elim_counter < 0)
                 return;
-            bool_var v = *it;
             if (try_eliminate(v)) {
                 m_num_elim_vars++;
             }
