@@ -4332,10 +4332,9 @@ namespace smt {
               );
         failure fl = get_last_search_failure();
         if (fl == MEMOUT || fl == CANCELED || fl == TIMEOUT || fl == NUM_CONFLICTS || fl == RESOURCE_LIMIT) {
-            return;
+            TRACE("get_model", tout << "last search failure: " << fl << "\n";);
         }
-
-        if (m_fparams.m_model || m_fparams.m_model_on_final_check || m_qmanager->model_based()) {
+        else if (m_fparams.m_model || m_fparams.m_model_on_final_check || m_qmanager->model_based()) {
             m_model_generator->reset();
             m_proto_model = m_model_generator->mk_model();
             m_qmanager->adjust_model(m_proto_model.get());
@@ -4346,6 +4345,9 @@ namespace smt {
             if (m_fparams.m_model_compact)
                 m_proto_model->compress();
             TRACE("mbqi_bug", tout << "after cleanup:\n"; model_pp(tout, *m_proto_model););
+        }        
+        else {
+
         }
     }
 
