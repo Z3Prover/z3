@@ -99,7 +99,9 @@ function(get_git_head_hash GIT_DIR OUTPUT_VAR)
     message(FATAL_ERROR \""${GIT_DIR}\" is not an absolute path")
   endif()
   find_package(Git)
-  if (NOT Git_FOUND)
+  # NOTE: Use `GIT_FOUND` rather than `Git_FOUND` which was only
+  # available in CMake >= 3.5
+  if (NOT GIT_FOUND)
     set(${OUTPUT_VAR} "GIT-NOTFOUND" PARENT_SCOPE)
     return()
   endif()
@@ -146,7 +148,9 @@ function(get_git_head_describe GIT_DIR OUTPUT_VAR)
     message(FATAL_ERROR \""${GIT_DIR}\" is not an absolute path")
   endif()
   find_package(Git)
-  if (NOT Git_FOUND)
+  # NOTE: Use `GIT_FOUND` rather than `Git_FOUND` which was only
+  # available in CMake >= 3.5
+  if (NOT GIT_FOUND)
     set(${OUTPUT_VAR} "GIT-NOTFOUND" PARENT_SCOPE)
     return()
   endif()
