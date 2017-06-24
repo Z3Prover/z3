@@ -524,10 +524,18 @@ add_subdirectory(src)
 # use Z3 via CMake.
 ################################################################################
 include(CMakePackageConfigHelpers)
-export(EXPORT Z3_EXPORTED_TARGETS
-  NAMESPACE z3::
-  FILE "${CMAKE_BINARY_DIR}/Z3Targets.cmake"
-)
+if ("${CMAKE_VERSION}" VERSION_LESS "3.0")
+  # FIXME: Remove this once we drop support for CMake 2.8.12
+  export(TARGETS libz3
+    NAMESPACE z3::
+    FILE "${CMAKE_BINARY_DIR}/Z3Targets.cmake"
+  )
+else()
+  export(EXPORT Z3_EXPORTED_TARGETS
+    NAMESPACE z3::
+    FILE "${CMAKE_BINARY_DIR}/Z3Targets.cmake"
+  )
+endif()
 set(Z3_FIRST_PACKAGE_INCLUDE_DIR "${CMAKE_BINARY_DIR}/src/api")
 set(Z3_SECOND_PACKAGE_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/api")
 set(Z3_CXX_PACKAGE_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/api/c++")
