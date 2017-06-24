@@ -22,6 +22,13 @@ endif()
 set(CMAKE_USER_MAKE_RULES_OVERRIDE_CXX "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cxx_compiler_flags_overrides.cmake")
 project(Z3 CXX)
 
+if ("${CMAKE_VERSION}" VERSION_LESS "3.4")
+  # FIXME: Drop this when we upgrade to newer CMake versions.
+  # HACK: Although we don't need C language support if it is not
+  # enabled CMake's `FindThreads` module fails in old CMake versions.
+  enable_language(C)
+endif()
+
 ################################################################################
 # Project version
 ################################################################################
