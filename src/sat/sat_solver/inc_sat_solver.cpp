@@ -113,6 +113,17 @@ public:
         if (m_mc0.get()) result->m_mc0 = m_mc0->translate(tr);
         result->m_internalized = m_internalized;
         result->m_internalized_converted = m_internalized_converted;
+#if 0
+        static unsigned file_no = 0;
+        #pragma omp critical (print_sat)
+        {
+            ++file_no;
+            std::ostringstream ostrm;
+            ostrm << "s" << file_no << ".txt";
+            std::ofstream ous(ostrm.str());
+            result->m_solver.display(ous);
+        }
+#endif
         return result;
     }
 
@@ -538,7 +549,7 @@ private:
         g = m_subgoals[0];
         expr_ref_vector atoms(m);
         TRACE("sat", g->display_with_dependencies(tout););
-        m_goal2sat(*g, m_params, m_solver, m_map, dep2asm, true, is_lemma);
+        m_goal2sat(*g, m_params, m_solver, m_map, dep2asm, false, is_lemma);
         m_goal2sat.get_interpreted_atoms(atoms);
         if (!atoms.empty()) {
             std::stringstream strm;

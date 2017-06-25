@@ -60,7 +60,7 @@ namespace sat {
                 out << "(" << it->get_blocked_literal() << " " << *(ca.get_clause(it->get_clause_offset())) << ")";
                 break;
             case watched::EXT_CONSTRAINT:
-                out << it->get_ext_constraint_idx();
+                out << "ext: " << it->get_ext_constraint_idx();
                 break;
             default: 
                 UNREACHABLE();

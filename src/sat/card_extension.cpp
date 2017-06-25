@@ -51,10 +51,17 @@ namespace sat {
         m_max_sum(0) {
         for (unsigned i = 0; i < wlits.size(); ++i) {
             m_wlits[i] = wlits[i];
-            if (m_max_sum + wlits[i].first < m_max_sum) {
+        }
+        update_max_sum();
+    }
+
+    void card_extension::pb::update_max_sum() {
+        m_max_sum = 0;
+        for (unsigned i = 0; i < size(); ++i) {
+            if (m_max_sum + m_wlits[i].first < m_max_sum) {
                 throw default_exception("addition of pb coefficients overflows");
             }
-            m_max_sum += wlits[i].first;
+            m_max_sum += m_wlits[i].first;
         }
     }
 
@@ -196,13 +203,12 @@ namespace sat {
     // pb:
 
     void card_extension::copy_pb(card_extension& result) {
-        for (unsigned i = 0; i < m_pbs.size(); ++i) {
+        for (pb* p : m_pbs) {
             svector<wliteral> wlits;
-            pb& p = *m_pbs[i];
-            for (unsigned i = 0; i < p.size(); ++i) {
-                wlits.push_back(p[i]);
+            for (wliteral w : *p) {
+                wlits.push_back(w);
             }
-            result.add_pb_ge(p.lit(), wlits, p.k());
+            result.add_pb_ge(p->lit(), wlits, p->k());
         }
     }
 
@@ -437,6 +443,151 @@ namespace sat {
         }
     }
 
+    void card_extension::unit_propagation_simplification(literal lit, literal_vector const& lits) {
+        if (lit == null_literal) {
+            for (literal l : lits) {
+                if (value(l) == l_undef) {
+                    s().assign(l, justification());
+                }
+            }
+        }
+        else {
+            // add clauses for: p.lit() <=> conjunction of undef literals
+            SASSERT(value(lit) == l_undef);
+            literal_vector cl;
+            cl.push_back(lit);
+            for (literal l : lits) {
+                if (value(l) == l_undef) {
+                    s().mk_clause(~lit, l);
+                    cl.push_back(~l);
+                }
+            }    
+            s().mk_clause(cl);
+        }
+    }
+
+    bool card_extension::is_cardinality(pb const& p) {
+        if (p.size() == 0) return false;
+        unsigned w = p[0].first;
+        for (unsigned i = 1; i < p.size(); ++i) {
+            if (w != p[i].first) return false;
+        }
+        return true;
+    }
+
+    void card_extension::simplify2(pb& p) {
+        if (is_cardinality(p)) {
+            literal_vector lits(p.literals());
+            unsigned k = (p.k() + p[0].first - 1) / p[0].first;
+            add_at_least(p.lit(), lits, k);
+            remove_constraint(p);
+            return;
+        }
+        if (p.lit() == null_literal) {
+            unsigned max_sum = p.max_sum();
+            unsigned sz = p.size();
+            for (unsigned i = 0; i < sz; ++i) {
+                wliteral wl = p[i];
+                if (p.k() > max_sum - wl.first) {
+                    std::cout << "unit literal\n";
+                }
+            }
+        }
+    }
+
+    void card_extension::simplify(pb& p) {
+        s().pop_to_base_level();
+        if (p.lit() != null_literal && value(p.lit()) == l_false) {
+            return;
+            init_watch(p, !p.lit().sign());
+            std::cout << "pb: flip sign\n";
+        }
+        if (p.lit() != null_literal && value(p.lit()) == l_true) {
+            std::cout << "literal is assigned at base level " << s().at_base_lvl() << "\n";
+            SASSERT(lvl(p.lit()) == 0);
+            nullify_tracking_literal(p);
+        }
+
+        SASSERT(p.lit() == null_literal || value(p.lit()) == l_undef);
+
+        unsigned true_val = 0, slack = 0, num_false = 0;
+        for (wliteral wl : p) {
+            switch (value(wl.second)) {
+            case l_true: true_val += wl.first; break;
+            case l_false: ++num_false; break;
+            default: slack += wl.first; break;
+            }
+        }
+        if (true_val == 0 && num_false == 0) {
+            // no op
+        }
+        else if (true_val >= p.k()) {
+            std::cout << "tautology\n";
+            if (p.lit() != null_literal) {
+                std::cout << "tautology at level 0\n";
+                s().assign(p.lit(), justification());
+            }        
+            remove_constraint(p);
+        }
+        else if (slack + true_val < p.k()) {
+            if (p.lit() != null_literal) {
+                s().assign(~p.lit(), justification());
+            }
+            else {
+                std::cout << "unsat during simplification\n";
+                s().set_conflict(justification());
+            }
+            remove_constraint(p);
+        }
+        else if (slack + true_val == p.k()) {
+            std::cout << "unit propagation\n";
+            literal_vector lits(p.literals());
+            unit_propagation_simplification(p.lit(), lits);
+            remove_constraint(p);
+        }
+        else {
+            std::cout << "pb value at base: " << true_val << " false: " <<  num_false << " size: " << p.size() << " k: " << p.k() << "\n";
+            unsigned sz = p.size();
+            clear_watch(p);
+            for (unsigned i = 0; i < sz; ++i) {
+                if (value(p[i].second) != l_undef) {
+                    --sz;
+                    p.swap(i, sz);
+                    --i;
+                }
+            }
+            std::cout << "new size: " << sz << " old size " << p.size() << "\n";
+            p.update_size(sz);
+            p.update_k(p.k() - true_val);
+            // display(std::cout, c, true);
+            if (p.lit() == null_literal) {
+                init_watch(p, true);
+            }
+            else {
+                SASSERT(value(p.lit()) == l_undef);
+                // c will be watched once c.lit() is assigned.
+            }
+            simplify2(p);
+        }
+    }
+
+    void card_extension::nullify_tracking_literal(pb& p) {
+        if (p.lit() != null_literal) {
+            get_wlist(p.lit()).erase(watched(p.index()));
+            get_wlist(~p.lit()).erase(watched(p.index()));
+            p.nullify_literal();
+        }
+    }
+
+    void card_extension::remove_constraint(pb& p) {
+        clear_watch(p);
+        nullify_tracking_literal(p);
+        m_pbs[index2position(p.index())] = 0;
+        dealloc(&p);   
+    }
+
+
+
     void card_extension::display(std::ostream& out, pb const& p, bool values) const {
         if (p.lit() != null_literal) out << p.lit() << " == ";
         if (p.lit() != null_literal && values) {
@@ -469,13 +620,10 @@ namespace sat {
     // xor:
 
     void card_extension::copy_xor(card_extension& result) {
-        for (unsigned i = 0; i < m_xors.size(); ++i) {
+        for (xor* x : m_xors) {
             literal_vector lits;
-            xor& x = *m_xors[i];
-            for (literal l : x) {
-                lits.push_back(l);
-            }
-            result.add_xor(x.lit(), lits);
+            for (literal l : *x) lits.push_back(l);
+            result.add_xor(x->lit(), lits);
         }
     }
 
@@ -872,7 +1020,7 @@ namespace sat {
         for (unsigned i = 0; 0 <= slack && i < m_active_vars.size(); ++i) { 
             bool_var v = m_active_vars[i];
             int coeff = get_coeff(v);
-            lbool val = m_solver->value(v);
+            lbool val = s().value(v);
             bool is_true = val == l_true;
             bool append = coeff != 0 && val != l_undef && (coeff < 0 == is_true);
             if (append) {
@@ -1004,22 +1152,8 @@ namespace sat {
 
     card_extension::~card_extension() {
         m_stats.reset();
-    }
-
-    void card_extension::add_at_least(literal lit, literal_vector const& lits, unsigned k) {
-        unsigned index = 4*m_cards.size();
-        SASSERT(is_card_index(index));
-        card* c = new (memory::allocate(card::get_obj_size(lits.size()))) card(index, lit, lits, k);
-        m_cards.push_back(c);
-        if (lit == null_literal) {
-            // it is an axiom.
-            init_watch(*c, true);
-            m_card_axioms.push_back(c);
-        }
-        else {
-            get_wlist(lit).push_back(index);
-            get_wlist(~lit).push_back(index);
-            m_index_trail.push_back(index);
+        while (!m_index_trail.empty()) {
+            clear_index_trail_back();
         }
     }
 
@@ -1028,19 +1162,42 @@ namespace sat {
         add_at_least(lit, lits, k);
     }
 
+    void card_extension::add_at_least(literal lit, literal_vector const& lits, unsigned k) {
+        unsigned index = 4*m_cards.size();
+        SASSERT(is_card_index(index));
+        card* c = new (memory::allocate(card::get_obj_size(lits.size()))) card(index, lit, lits, k);
+        if (lit != null_literal) s().set_external(lit.var());
+        m_cards.push_back(c);
+        init_watch(*c);
+    }
+   
+    void card_extension::init_watch(card& c) {
+        unsigned index = c.index();
+        literal lit = c.lit();
+        m_index_trail.push_back(index);
+        if (lit == null_literal) {
+            // it is an axiom.
+            init_watch(c, true);
+        }
+        else {
+            get_wlist(lit).push_back(index);
+            get_wlist(~lit).push_back(index);
+        }
+    }
+
     void card_extension::add_pb_ge(literal lit, svector<wliteral> const& wlits, unsigned k) {
         unsigned index = 4*m_pbs.size() + 0x3;
         SASSERT(is_pb_index(index));
         pb* p = new (memory::allocate(pb::get_obj_size(wlits.size()))) pb(index, lit, wlits, k);
         m_pbs.push_back(p);
+        m_index_trail.push_back(index);
         if (lit == null_literal) {
             init_watch(*p, true);
-            m_pb_axioms.push_back(p);
         }
         else {
+            s().set_external(lit.var());
             get_wlist(lit).push_back(index);
             get_wlist(~lit).push_back(index);
-            m_index_trail.push_back(index);
         }
     }
 
@@ -1059,6 +1216,8 @@ namespace sat {
         SASSERT(is_xor_index(index));
         xor* x = new (memory::allocate(xor::get_obj_size(lits.size()))) xor(index, lit, lits);
         m_xors.push_back(x);
+        s().set_external(lit.var());
+        for (literal l : lits) s().set_external(l.var());
         get_wlist(lit).push_back(index);
         get_wlist(~lit).push_back(index);
         m_index_trail.push_back(index);
@@ -1069,8 +1228,9 @@ namespace sat {
         TRACE("sat", tout << l << " " << idx << "\n";);
         if (is_pb_index(idx)) {
             pb& p = index2pb(idx);
-            if (l.var() == p.lit().var()) {
+            if (p.lit() != null_literal && l.var() == p.lit().var()) {
                 init_watch(p, !l.sign());
+                keep = true;
             }
             else if (p.lit() != null_literal && value(p.lit()) != l_true) {
                 keep = false;
@@ -1081,8 +1241,9 @@ namespace sat {
         }
         else if (is_card_index(idx)) {
             card& c = index2card(idx);
-            if (l.var() == c.lit().var()) {
+            if (c.lit() != null_literal && l.var() == c.lit().var()) {
                 init_watch(c, !l.sign());
+                keep = true;
             }
             else if (c.lit() != null_literal && value(c.lit()) != l_true) {
                 keep = false;
@@ -1263,6 +1424,10 @@ namespace sat {
         }
     }
 
+    void card_extension::simplify(xor& x) {
+        // no-op
+    }
+
     void card_extension::get_card_antecedents(literal l, card const& c, literal_vector& r) {
         DEBUG_CODE(
             bool found = false;
@@ -1313,6 +1478,109 @@ namespace sat {
         }
     }
 
+    void card_extension::nullify_tracking_literal(card& c) {
+        if (c.lit() != null_literal) {
+            get_wlist(c.lit()).erase(watched(c.index()));
+            get_wlist(~c.lit()).erase(watched(c.index()));
+            c.nullify_literal();
+        }
+    }
+
+    void card_extension::remove_constraint(card& c) {
+        clear_watch(c);
+        nullify_tracking_literal(c);
+        m_cards[index2position(c.index())] = 0;
+        dealloc(&c);   
+    }
+
+    void card_extension::simplify(card& c) {
+        SASSERT(c.lit() == null_literal || value(c.lit()) != l_false);
+        if (c.lit() != null_literal && value(c.lit()) == l_false) {
+            std::ofstream ous("unit.txt");
+            s().display(ous);
+            s().display_watches(ous);
+            display(ous, c, true);
+            exit(1);
+            return;
+            init_watch(c, !c.lit().sign());
+            std::cout << "card: flip sign\n";
+        }
+        if (c.lit() != null_literal && value(c.lit()) == l_true) {
+            std::cout << "literal is assigned at base level " << value(c.lit()) << " " << s().at_base_lvl() << "\n";
+            SASSERT(lvl(c.lit()) == 0);
+            nullify_tracking_literal(c);
+        }
+        if (c.lit() == null_literal && c.k() == 1) {            
+            std::cout << "create clause\n";
+            literal_vector lits;
+            for (literal l : c) lits.push_back(l);
+            s().mk_clause(lits);
+            remove_constraint(c);
+            return;
+        }
+
+        SASSERT(c.lit() == null_literal || value(c.lit()) == l_undef);
+
+        unsigned num_true = 0, num_false = 0;
+        for (literal l : c) {
+            switch (value(l)) {
+            case l_true: ++num_true; break;
+            case l_false: ++num_false; break;
+            default: break;
+            }
+        }
+
+        if (num_false + num_true == 0) {
+            // no simplification
+            return;
+        }
+        else if (num_true >= c.k()) {
+            std::cout << "tautology\n";
+            if (c.lit() != null_literal) {
+                std::cout << "tautology at level 0\n";
+                s().assign(c.lit(), justification());                        
+            }
+            remove_constraint(c);
+        }
+        else if (num_false + c.k() > c.size()) {
+            if (c.lit() != null_literal) {
+                std::cout << "falsity at level 0\n";
+                s().assign(~c.lit(), justification());                
+                remove_constraint(c);
+            }
+            else {
+                std::cout << "unsat during simplification\n";
+            }
+        }
+        else if (num_false + c.k() == c.size()) {
+            std::cout << "unit propagations : " << c.size() - num_false - num_true << "\n";
+            literal_vector lits(c.literals());
+            unit_propagation_simplification(c.lit(), lits);
+            remove_constraint(c);
+        }
+        else {
+            std::cout << "literals assigned at base: " << num_true + num_false << " " << c.size() << " k: " << c.k() << "\n";
+            unsigned sz = c.size();
+            clear_watch(c);
+            for (unsigned i = 0; i < sz; ++i) {
+                if (value(c[i]) != l_undef) {
+                    --sz;
+                    c.swap(i, sz);
+                    --i;
+                }
+            }
+            std::cout << "new size: " << sz << " old size " << c.size() << "\n";
+            c.update_size(sz);
+            c.update_k(c.k() - num_true);
+            if (c.lit() == null_literal) {
+                init_watch(c, true);
+            }
+            else {
+                SASSERT(value(c.lit()) == l_undef);
+                // c will be watched once c.lit() is assigned.
+            }
+        }
+    }
 
     lbool card_extension::add_assign(card& c, literal alit) {
         // literal is assigned to false.        
@@ -1380,51 +1648,110 @@ namespace sat {
         m_index_lim.push_back(m_index_trail.size());
     }
 
+    void card_extension::clear_index_trail_back() {
+        unsigned index = m_index_trail.back();
+        m_index_trail.pop_back();
+        if (is_card_index(index)) {
+            card* c = m_cards.back();
+            if (c) {
+                SASSERT(c->index() == index);
+                clear_watch(*c); // can skip during finalization
+                dealloc(c);
+            }
+            m_cards.pop_back();
+        }
+        else if (is_pb_index(index)) {
+            pb* p = m_pbs.back();
+            if (p) {
+                SASSERT(p->index() == index);
+                clear_watch(*p); // can skip during finalization
+                dealloc(p);
+            }
+            m_pbs.pop_back();
+        }
+        else if (is_xor_index(index)) {
+            xor* x = m_xors.back();
+            if (x) {
+                SASSERT(x->index() == index);
+                clear_watch(*x); // can skip during finalization
+                dealloc(x);
+            }
+            m_xors.pop_back();
+        }
+        else {
+            UNREACHABLE();
+        }
+    }
+
     void card_extension::pop(unsigned n) {        
         TRACE("sat_verbose", tout << "pop:" << n << "\n";);
         unsigned new_lim = m_index_lim.size() - n;
         unsigned sz = m_index_lim[new_lim];
         while (m_index_trail.size() > sz) {
-            unsigned index = m_index_trail.back();
-            m_index_trail.pop_back();
-            if (is_card_index(index)) {
-                SASSERT(m_cards.back()->index() == index);
-                clear_watch(*m_cards.back());
-                dealloc(m_cards.back());
-                m_cards.pop_back();
-            }
-            else if (is_pb_index(index)) {
-                SASSERT(m_pbs.back()->index() == index);
-                clear_watch(*m_pbs.back());
-                dealloc(m_pbs.back());
-                m_pbs.pop_back();
-            }
-            else if (is_xor_index(index)) {
-                SASSERT(m_xors.back()->index() == index);
-                clear_watch(*m_xors.back());
-                dealloc(m_xors.back());
-                m_xors.pop_back();
-            }
-            else {
-                UNREACHABLE();
-            }
+            clear_index_trail_back();
         }
         m_index_lim.resize(new_lim);
         m_num_propagations_since_pop = 0;
     }
 
-    void card_extension::simplify() {}
+    void card_extension::simplify() {
+        s().pop_to_base_level();
+        for (card* c : m_cards) {
+            if (c) simplify(*c);
+        }
+        for (pb* p : m_pbs) {
+            if (p) simplify(*p);
+        }
+        for (xor* x : m_xors) {
+            if (x) simplify(*x);
+        }
+        gc();
+    }
+
+    void card_extension::gc() {
+        
+        // remove constraints where indicator literal isn't used.
+        sat::use_list use_list;
+        use_list.init(s().num_vars());
+        svector<bool> var_used(s().num_vars(), false);
+        for (clause* c : s().m_clauses) if (!c->frozen()) use_list.insert(*c);
+        for (card* c : m_cards) if (c) for (literal l : *c) var_used[l.var()] = true;
+        for (pb* p : m_pbs) if (p) for (wliteral wl : *p) var_used[wl.second.var()] = true;
+        for (xor* x : m_xors) if (x) for (literal l : *x) var_used[l.var()] = true;
+        for (card* c : m_cards) {
+            if (c && c->lit() != null_literal && !var_used[c->lit().var()] && use_list.get(c->lit()).empty() && use_list.get(~c->lit()).empty()) {
+                remove_constraint(*c);
+            }
+        }
+        for (pb* p : m_pbs) {
+            if (p && p->lit() != null_literal && !var_used[p->lit().var()] && use_list.get(p->lit()).empty() && use_list.get(~p->lit()).empty()) {
+                remove_constraint(*p);
+            }
+        }
+        // take ownership of interface variables
+        for (card* c : m_cards) if (c && c->lit() != null_literal) var_used[c->lit().var()] = true;
+        for (pb* p : m_pbs) if (p && p->lit() != null_literal) var_used[p->lit().var()] = true;
+        // set variables to be non-external if they are not used in theory constraints.
+        unsigned ext = 0;
+        for (unsigned v = 0; v < s().num_vars(); ++v) {
+            if (s().is_external(v) && !var_used[v]) {
+                s().set_non_external(v);
+                ++ext;
+            }            
+        }
+        std::cout << "non-external variables " << ext << "\n";
+
+    }
+
     void card_extension::clauses_modifed() {}
+
     lbool card_extension::get_phase(bool_var v) { return l_undef; }
 
     void card_extension::copy_card(card_extension& result) {
-        for (unsigned i = 0; i < m_cards.size(); ++i) {
+        for (card* c : m_cards) {
             literal_vector lits;
-            card& c = *m_cards[i];
-            for (unsigned i = 0; i < c.size(); ++i) {
-                lits.push_back(c[i]);
-            }
-            result.add_at_least(c.lit(), lits, c.k());
+            for (literal l : *c) lits.push_back(l);
+            result.add_at_least(c->lit(), lits, c->k());
         }
     }
     extension* card_extension::copy(solver* s) {
@@ -1537,13 +1864,13 @@ namespace sat {
 
     std::ostream& card_extension::display(std::ostream& out) const {
         for (card* c : m_cards) {
-            display(out, *c, false);
+            if (c) display(out, *c, false);
         }
         for (pb* p : m_pbs) {
-            display(out, *p, false);
+            if (p) display(out, *p, false);
         }
         for (xor* x : m_xors) {
-            display(out, *x, false);
+            if (x) display(out, *x, false);
         }
         return out;
     }

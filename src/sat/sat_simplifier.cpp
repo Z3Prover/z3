@@ -35,10 +35,6 @@ namespace sat {
     void use_list::insert(clause & c) {
         unsigned sz = c.size();
         for (unsigned i = 0; i < sz; i++) {
-            if (m_use_list.size() <= c[i].index()) {
-                std::cout << c[i] << "\n";
-                std::cout << m_use_list.size() << "\n";
-            }
             m_use_list[c[i].index()].insert(c);
         }
     }
@@ -86,14 +82,11 @@ namespace sat {
 
     void simplifier::register_clauses(clause_vector & cs) {
         std::stable_sort(cs.begin(), cs.end(), size_lt());
-        clause_vector::iterator it  = cs.begin();
-        clause_vector::iterator end = cs.end();
-        for (; it != end; ++it) {
-            clause & c = *(*it);
-            if (!c.frozen()) {
-                m_use_list.insert(c);
-                if (c.strengthened())
-                    m_sub_todo.insert(c);
+        for (clause* c : cs) {
+            if (!c->frozen()) {
+                m_use_list.insert(*c);
+                if (c->strengthened())
+                    m_sub_todo.insert(*c);
             }
         }
     }
@@ -1358,16 +1351,12 @@ namespace sat {
         TRACE("resolution_detail", tout << "collecting number of after_clauses\n";);
         unsigned before_clauses = num_pos + num_neg;
         unsigned after_clauses  = 0;
-        clause_wrapper_vector::iterator it1  = m_pos_cls.begin();
-        clause_wrapper_vector::iterator end1 = m_pos_cls.end();
-        for (; it1 != end1; ++it1) {
-            clause_wrapper_vector::iterator it2  = m_neg_cls.begin();
-            clause_wrapper_vector::iterator end2 = m_neg_cls.end();
-            for (; it2 != end2; ++it2) {
+        for (clause_wrapper& c1 : m_pos_cls) {
+            for (clause_wrapper& c2 : m_neg_cls) {
                 m_new_cls.reset();
-                if (resolve(*it1, *it2, pos_l, m_new_cls)) {
-                    TRACE("resolution_detail", tout << *it1 << "\n" << *it2 << "\n-->\n";
-                          for (unsigned i = 0; i < m_new_cls.size(); i++) tout << m_new_cls[i] << " "; tout << "\n";);
+                if (resolve(c1, c2, pos_l, m_new_cls)) {
+                    TRACE("resolution_detail", tout << c1 << "\n" << c2 << "\n-->\n";
+                          for (literal l : m_new_cls) tout << l << " "; tout << "\n";);
                     after_clauses++;
                     if (after_clauses > before_clauses) {
                         TRACE("resolution", tout << "too many after clauses: " << after_clauses << "\n";);
@@ -1393,16 +1382,12 @@ namespace sat {
 
         m_elim_counter -= num_pos * num_neg + before_lits;
 
-        it1  = m_pos_cls.begin();
-        end1 = m_pos_cls.end();
-        for (; it1 != end1; ++it1) {
-            clause_wrapper_vector::iterator it2  = m_neg_cls.begin();
-            clause_wrapper_vector::iterator end2 = m_neg_cls.end();
-            for (; it2 != end2; ++it2) {
+        for (auto & c1 : m_pos_cls) {
+            for (auto & c2 : m_neg_cls) {
                 m_new_cls.reset();
-                if (!resolve(*it1, *it2, pos_l, m_new_cls))
+                if (!resolve(c1, c2, pos_l, m_new_cls))
                     continue;
-                TRACE("resolution_new_cls", tout << *it1 << "\n" << *it2 << "\n-->\n" << m_new_cls << "\n";);
+                TRACE("resolution_new_cls", tout << c1 << "\n" << c2 << "\n-->\n" << m_new_cls << "\n";);
                 if (cleanup_clause(m_new_cls))
                     continue; // clause is already satisfied.
                 switch (m_new_cls.size()) {
@@ -1470,7 +1455,7 @@ namespace sat {
         for (bool_var v : vars) {
             checkpoint();
             if (m_elim_counter < 0)
-                return;
+                break;
             if (try_eliminate(v)) {
                 m_num_elim_vars++;
             }

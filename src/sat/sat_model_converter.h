@@ -59,6 +59,7 @@ namespace sat {
         model_converter();
         ~model_converter();
         void operator()(model & m) const;
+        model_converter& operator=(model_converter const& other);
 
         entry & mk(kind k, bool_var v);
         void insert(entry & e, clause const & c);

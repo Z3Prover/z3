@@ -32,6 +32,13 @@ namespace sat {
     void model_converter::reset() {
         m_entries.finalize();
     }
+
+    model_converter& model_converter::operator=(model_converter const& other) {
+        reset();
+        m_entries.append(other.m_entries);
+        return *this;
+    }
+
     
     void model_converter::operator()(model & m) const {
         vector<entry>::const_iterator begin = m_entries.begin();

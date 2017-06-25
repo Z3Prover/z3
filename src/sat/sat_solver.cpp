@@ -66,6 +66,7 @@ namespace sat {
     }
 
     solver::~solver() {
+		m_ext = 0;
         SASSERT(check_invariant());
         TRACE("sat", tout << "Delete clauses\n";);
         del_clauses(m_clauses.begin(), m_clauses.end());
@@ -159,6 +160,7 @@ namespace sat {
         m_user_scope_literals.reset();
         m_user_scope_literals.append(src.m_user_scope_literals);
 
+        m_mc = src.m_mc;
     }
 
     // -----------------------
@@ -196,6 +198,10 @@ namespace sat {
         m_simplifier.insert_elim_todo(v);
         SASSERT(!was_eliminated(v));
         return v;
+    }
+
+    void solver::set_non_external(bool_var v) {
+        m_external[v] = false;
     }
 
     void solver::set_external(bool_var v) {
@@ -1444,6 +1450,20 @@ namespace sat {
             if (m_next_simplify > m_conflicts_since_init + m_config.m_simplify_max)
                 m_next_simplify = m_conflicts_since_init + m_config.m_simplify_max;
         }
+
+#if 1
+        static unsigned file_no = 0;
+        #pragma omp critical (print_sat)
+        {
+            ++file_no;
+            std::ostringstream ostrm;
+            ostrm << "s" << file_no << ".txt";
+            std::ofstream ous(ostrm.str());
+            display(ous);
+        }
+#endif
+
+
     }
 
     void solver::sort_watch_lits() {

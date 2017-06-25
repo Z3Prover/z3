@@ -274,6 +274,7 @@ namespace sat {
         unsigned num_restarts() const { return m_restarts; }
         bool is_external(bool_var v) const { return m_external[v] != 0; }
         void set_external(bool_var v);
+        void set_non_external(bool_var v);
         bool was_eliminated(bool_var v) const { return m_eliminated[v] != 0; }
         unsigned scope_lvl() const { return m_scope_lvl; }
         unsigned search_lvl() const { return m_search_lvl; }
