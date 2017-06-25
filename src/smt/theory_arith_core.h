@@ -1984,7 +1984,7 @@ namespace smt {
                         a_kj = r2[it->m_row_idx].m_coeff;
                         a_kj.neg();
                         add_row(it->m_row_id, a_kj, r_id, apply_gcd_test);
-                        get_manager().limit().inc(r1_sz + r2.size());
+                        get_manager().limit().inc((r1_sz + r2.size()) * (a_kj.storage_size()));
                     }
                 }
                 else { 
