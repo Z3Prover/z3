@@ -39,7 +39,7 @@ class help_cmd : public cmd {
         ctx.regular_stream() << " (" << s;
         if (usage)
             ctx.regular_stream() << " " << escaped(usage, true) << ")\n";
-        else 
+        else
             ctx.regular_stream() << ")\n";
         if (descr) {
             ctx.regular_stream() << "    " << escaped(descr, true, 4) << "\n";
@@ -62,7 +62,7 @@ public:
         }
         m_cmds.push_back(s);
     }
-    
+
     typedef std::pair<symbol, cmd*> named_cmd;
     struct named_cmd_lt {
         bool operator()(named_cmd const & c1, named_cmd const & c2) const { return c1.first.str() < c2.first.str(); }
@@ -104,14 +104,14 @@ class get_model_cmd : public cmd {
     unsigned m_index;
 public:
     get_model_cmd(): cmd("get-model"), m_index(0) {}
-    virtual char const * get_usage() const { return "[<index of box objective>]"; }   
-    virtual char const * get_descr(cmd_context & ctx) const { 
-        return "retrieve model for the last check-sat command.\nSupply optional index if retrieving a model corresponding to a box optimization objective"; 
+    virtual char const * get_usage() const { return "[<index of box objective>]"; }
+    virtual char const * get_descr(cmd_context & ctx) const {
+        return "retrieve model for the last check-sat command.\nSupply optional index if retrieving a model corresponding to a box optimization objective";
     }
-    virtual unsigned get_arity() const { return VAR_ARITY; } 
+    virtual unsigned get_arity() const { return VAR_ARITY; }
     virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const { return CPK_UINT; }
-    virtual void set_next_arg(cmd_context & ctx, unsigned index) { m_index = index; }                           
-    virtual void execute(cmd_context & ctx) { 
+    virtual void set_next_arg(cmd_context & ctx, unsigned index) { m_index = index; }
+    virtual void execute(cmd_context & ctx) {
         if (!ctx.is_model_available() || ctx.get_check_sat_result() == 0)
             throw cmd_exception("model is not available");
         model_ref m;
@@ -122,7 +122,7 @@ public:
             ctx.get_check_sat_result()->get_model(m);
         }
         ctx.display_model(m);
-    }                    
+    }
     virtual void reset(cmd_context& ctx) {
         m_index = 0;
     }
@@ -149,7 +149,14 @@ ATOMIC_CMD(get_assignment_cmd, "get-assignment", "retrieve assignment", {
                     first = false;
                 else
                     ctx.regular_stream() << " ";
-                ctx.regular_stream() << "(" << name << " " << (ctx.m().is_true(val) ? "true" : "false") << ")";
+                ctx.regular_stream() << "(";
+                if (is_smt2_quoted_symbol(name)) {
+                    ctx.regular_stream() << mk_smt2_quoted_symbol(name);
+                }
+                else {
+                    ctx.regular_stream() << name;
+                }
+                ctx.regular_stream() << " " << (ctx.m().is_true(val) ? "true" : "false") << ")";
             }
         }
     }
@@ -160,11 +167,11 @@ class cmd_is_declared : public ast_smt_pp::is_declared {
     cmd_context& m_ctx;
 public:
     cmd_is_declared(cmd_context& ctx): m_ctx(ctx) {}
-    
-    virtual bool operator()(func_decl* d) const { 
+
+    virtual bool operator()(func_decl* d) const {
         return m_ctx.is_func_decl(d->get_name());
     }
-    virtual bool operator()(sort* s) const { 
+    virtual bool operator()(sort* s) const {
         return m_ctx.is_sort_decl(s->get_name());
     }
 };
@@ -182,13 +189,13 @@ ATOMIC_CMD(get_proof_cmd, "get-proof", "retrieve proof", {
     if (ctx.well_sorted_check_enabled() && !is_well_sorted(ctx.m(), pr)) {
         throw cmd_exception("proof is not well sorted");
     }
-    
+
     pp_params params;
     if (params.pretty_proof()) {
         ctx.regular_stream() << mk_pp(pr, ctx.m()) << std::endl;
     }
     else {
-        // TODO: reimplement a new SMT2 pretty printer 
+        // TODO: reimplement a new SMT2 pretty printer
         ast_smt_pp pp(ctx.m());
         cmd_is_declared isd(ctx);
         pp.set_is_declared(&isd);
@@ -198,20 +205,21 @@ ATOMIC_CMD(get_proof_cmd, "get-proof", "retrieve proof", {
     }
 });
 
-#define PRINT_CORE()                                            \
-    ptr_vector<expr> core;                                      \
-    ctx.get_check_sat_result()->get_unsat_core(core);           \
-    ctx.regular_stream() << "(";                                \
-    ptr_vector<expr>::const_iterator it  = core.begin();        \
-    ptr_vector<expr>::const_iterator end = core.end();          \
-    for (bool first = true; it != end; ++it) {                  \
-    if (first)                                                  \
-        first = false;                                          \
-    else                                                        \
-        ctx.regular_stream() << " ";                            \
-    ctx.regular_stream() << mk_ismt2_pp(*it, ctx.m());          \
-    }                                                           \
-    ctx.regular_stream() << ")" << std::endl;                   \
+static void print_core(cmd_context& ctx) {
+    ptr_vector<expr> core;
+    ctx.get_check_sat_result()->get_unsat_core(core);
+    ctx.regular_stream() << "(";
+    ptr_vector<expr>::const_iterator it  = core.begin();
+    ptr_vector<expr>::const_iterator end = core.end();
+    for (bool first = true; it != end; ++it) {
+    if (first)
+        first = false;
+    else
+        ctx.regular_stream() << " ";
+    ctx.regular_stream() << mk_ismt2_pp(*it, ctx.m());
+    }
+    ctx.regular_stream() << ")" << std::endl;
+}
 
 ATOMIC_CMD(get_unsat_core_cmd, "get-unsat-core", "retrieve unsat core", {
         if (!ctx.produce_unsat_cores())
@@ -219,7 +227,7 @@ ATOMIC_CMD(get_unsat_core_cmd, "get-unsat-core", "retrieve unsat core", {
         if (!ctx.has_manager() ||
             ctx.cs_state() != cmd_context::css_unsat)
             throw cmd_exception("unsat core is not available");
-        PRINT_CORE();
+        print_core(ctx);
     });
 
 ATOMIC_CMD(get_unsat_assumptions_cmd, "get-unsat-assumptions", "retrieve subset of assumptions sufficient for unsatisfiability", {
@@ -228,7 +236,7 @@ ATOMIC_CMD(get_unsat_assumptions_cmd, "get-unsat-assumptions", "retrieve subset 
         if (!ctx.has_manager() || ctx.cs_state() != cmd_context::css_unsat) {
             throw cmd_exception("unsat assumptions is not available");
         }
-        PRINT_CORE();
+        print_core(ctx);
     });
 
 
@@ -250,9 +258,9 @@ ATOMIC_CMD(get_assertions_cmd, "get-assertions", "retrieve asserted terms when i
 
 
 
-ATOMIC_CMD(reset_assertions_cmd, "reset-assertions", "reset all asserted formulas (but retain definitions and declarations)", ctx.reset_assertions(););
+ATOMIC_CMD(reset_assertions_cmd, "reset-assertions", "reset all asserted formulas (but retain definitions and declarations)", ctx.reset_assertions(); ctx.print_success(););
 
-UNARY_CMD(set_logic_cmd, "set-logic", "<symbol>", "set the background logic.", CPK_SYMBOL, symbol const &, 
+UNARY_CMD(set_logic_cmd, "set-logic", "<symbol>", "set the background logic.", CPK_SYMBOL, symbol const &,
           if (ctx.set_logic(arg))
               ctx.print_success();
           else {
@@ -261,12 +269,14 @@ UNARY_CMD(set_logic_cmd, "set-logic", "<symbol>", "set the background logic.", C
           }
           );
 
-UNARY_CMD(pp_cmd, "display", "<term>", "display the given term.", CPK_EXPR, expr *, { 
+UNARY_CMD(pp_cmd, "display", "<term>", "display the given term.", CPK_EXPR, expr *, {
     ctx.display(ctx.regular_stream(), arg);
-    ctx.regular_stream() << std::endl; 
+    ctx.regular_stream() << std::endl;
 });
 
-UNARY_CMD(echo_cmd, "echo", "<string>", "display the given string", CPK_STRING, char const *, ctx.regular_stream() << arg << std::endl;);
+UNARY_CMD(echo_cmd, "echo", "<string>", "display the given string", CPK_STRING, char const *,
+    bool smt2c = ctx.params().m_smtlib2_compliant;
+    ctx.regular_stream() << (smt2c ? "\"" : "") << arg << (smt2c ? "\"" : "") << std::endl;);
 
 
 class set_get_option_cmd : public cmd {
@@ -297,18 +307,18 @@ protected:
     symbol      m_reproducible_resource_limit;
 
     bool is_builtin_option(symbol const & s) const {
-        return 
-            s == m_print_success || s == m_print_warning || s == m_expand_definitions || 
+        return
+            s == m_print_success || s == m_print_warning || s == m_expand_definitions ||
             s == m_interactive_mode || s == m_produce_proofs || s == m_produce_unsat_cores || s == m_produce_unsat_assumptions ||
             s == m_produce_models || s == m_produce_assignments || s == m_produce_interpolants ||
-            s == m_regular_output_channel || s == m_diagnostic_output_channel || 
+            s == m_regular_output_channel || s == m_diagnostic_output_channel ||
             s == m_random_seed || s == m_verbosity || s == m_global_decls || s == m_global_declarations ||
             s == m_produce_assertions || s == m_reproducible_resource_limit;
     }
 
 public:
     set_get_option_cmd(char const * name):
-        cmd(name), 
+        cmd(name),
         m_true("true"),
         m_false("false"),
         m_print_success(":print-success"),
@@ -340,7 +350,7 @@ public:
 class set_option_cmd : public set_get_option_cmd {
     bool        m_unsupported;
     symbol      m_option;
-    
+
     bool to_bool(symbol const & value) const {
         if (value != m_true && value != m_false)
             throw cmd_exception("invalid option value, true/false expected");
@@ -361,7 +371,7 @@ class set_option_cmd : public set_get_option_cmd {
             throw cmd_exception(msg);
         }
     }
-    
+
     void set_param(cmd_context & ctx, char const * value) {
         try {
             gparams::set(m_option, value);
@@ -458,11 +468,11 @@ public:
 
     virtual void prepare(cmd_context & ctx) { m_unsupported = false; m_option = symbol::null; }
 
-    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const { 
+    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const {
         return m_option == symbol::null ? CPK_KEYWORD : CPK_OPTION_VALUE;
     }
 
-    virtual void set_next_arg(cmd_context & ctx, symbol const & opt) { 
+    virtual void set_next_arg(cmd_context & ctx, symbol const & opt) {
         if (m_option == symbol::null) {
             m_option = opt;
         }
@@ -517,7 +527,7 @@ class get_option_cmd : public set_get_option_cmd {
     static void print_bool(cmd_context & ctx, bool b) {
         ctx.regular_stream() << (b ? "true" : "false") << std::endl;
     }
-    
+
     static void print_unsigned(cmd_context & ctx, unsigned v) {
         ctx.regular_stream() << v << std::endl;
     }
@@ -534,11 +544,11 @@ public:
     virtual char const * get_descr(cmd_context & ctx) const { return "get configuration option."; }
     virtual unsigned get_arity() const { return 1; }
     virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const { return CPK_KEYWORD; }
-    virtual void set_next_arg(cmd_context & ctx, symbol const & opt) { 
+    virtual void set_next_arg(cmd_context & ctx, symbol const & opt) {
         if (opt == m_print_success) {
-            print_bool(ctx, ctx.print_success_enabled()); 
+            print_bool(ctx, ctx.print_success_enabled());
         }
-        // TODO: 
+        // TODO:
         // else if (opt == m_print_warning) {
         // print_bool(ctx, );
         // }
@@ -628,7 +638,7 @@ public:
     virtual char const * get_descr(cmd_context & ctx) const { return "get information."; }
     virtual unsigned get_arity() const { return 1; }
     virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const { return CPK_KEYWORD; }
-    virtual void set_next_arg(cmd_context & ctx, symbol const & opt) { 
+    virtual void set_next_arg(cmd_context & ctx, symbol const & opt) {
         if (opt == m_error_behavior) {
             if (ctx.exit_on_error())
                 ctx.regular_stream() << "(:error-behavior immediate-exit)" << std::endl;
@@ -684,12 +694,12 @@ public:
     virtual char const * get_descr(cmd_context & ctx) const { return "set information."; }
     virtual unsigned get_arity() const { return 2; }
     virtual void prepare(cmd_context & ctx) { m_info = symbol::null; }
-    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const { 
-        return m_info == symbol::null ? CPK_KEYWORD : CPK_OPTION_VALUE; 
+    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const {
+        return m_info == symbol::null ? CPK_KEYWORD : CPK_OPTION_VALUE;
     }
     virtual void set_next_arg(cmd_context & ctx, rational const & val) {}
     virtual void set_next_arg(cmd_context & ctx, char const * val) {}
-    virtual void set_next_arg(cmd_context & ctx, symbol const & s) { 
+    virtual void set_next_arg(cmd_context & ctx, symbol const & s) {
         if (m_info == symbol::null) {
             m_info = s;
         }
@@ -737,7 +747,7 @@ public:
     virtual char const * get_descr(cmd_context & ctx) const { return "declare a new array map operator with name <symbol> using the given function declaration.\n<func-decl-ref> ::= <symbol>\n                  | (<symbol> (<sort>*) <sort>)\n                  | ((_ <symbol> <numeral>+) (<sort>*) <sort>)\nThe last two cases are used to disumbiguate between declarations with the same name and/or select (indexed) builtin declarations.\nFor more details about the the array map operator, see 'Generalized and Efficient Array Decision Procedures' (FMCAD 2009).\nExample: (declare-map set-union (Int) (or (Bool Bool) Bool))\nDeclares a new function (declare-fun set-union ((Array Int Bool) (Array Int Bool)) (Array Int Bool)).\nThe instance of the map axiom for this new declaration is:\n(forall ((a1 (Array Int Bool)) (a2 (Array Int Bool)) (i Int)) (= (select (set-union a1 a2) i) (or (select a1 i) (select a2 i))))"; }
     virtual unsigned get_arity() const { return 3; }
     virtual void prepare(cmd_context & ctx) { m_name = symbol::null; m_domain.reset(); }
-    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const { 
+    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const {
         if (m_name == symbol::null) return CPK_SYMBOL;
         if (m_domain.empty()) return CPK_SORT_LIST;
         return CPK_FUNC_DECL;
@@ -748,10 +758,10 @@ public:
             throw cmd_exception("invalid map declaration, empty sort list");
         m_domain.append(num, slist);
     }
-    virtual void set_next_arg(cmd_context & ctx, func_decl * f) { 
-        m_f = f; 
-        if (m_f->get_arity() == 0) 
-            throw cmd_exception("invalid map declaration, function declaration must have arity > 0"); 
+    virtual void set_next_arg(cmd_context & ctx, func_decl * f) {
+        m_f = f;
+        if (m_f->get_arity() == 0)
+            throw cmd_exception("invalid map declaration, function declaration must have arity > 0");
     }
     virtual void reset(cmd_context & ctx) {
         m_array_fid = null_family_id;
@@ -790,7 +800,7 @@ public:
     virtual char const * get_descr(cmd_context & ctx) const { return "retrieve consequences that fix values for supplied variables"; }
     virtual unsigned get_arity() const { return 2; }
     virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const { return CPK_EXPR_LIST; }
-    virtual void set_next_arg(cmd_context & ctx, unsigned num, expr * const * tlist) { 
+    virtual void set_next_arg(cmd_context & ctx, unsigned num, expr * const * tlist) {
         if (m_count == 0) {
             m_assumptions.append(num, tlist);
             ++m_count;
@@ -850,7 +860,7 @@ void install_basic_cmds(cmd_context & ctx) {
     ctx.insert(alloc(builtin_cmd, "declare-fun", "<symbol> (<sort>*) <sort>", "declare a new function/constant."));
     ctx.insert(alloc(builtin_cmd, "declare-const", "<symbol> <sort>", "declare a new constant."));
     ctx.insert(alloc(builtin_cmd, "declare-datatypes", "(<symbol>*) (<datatype-declaration>+)", "declare mutually recursive datatypes.\n<datatype-declaration> ::= (<symbol> <constructor-decl>+)\n<constructor-decl> ::= (<symbol> <accessor-decl>*)\n<accessor-decl> ::= (<symbol> <sort>)\nexample: (declare-datatypes (T) ((BinTree (leaf (value T)) (node (left BinTree) (right BinTree)))))"));
-    ctx.insert(alloc(builtin_cmd, "check-sat-asuming", "( hprop_literali* )", "check sat assuming a collection of literals"));
+    ctx.insert(alloc(builtin_cmd, "check-sat-assuming", "( hprop_literali* )", "check sat assuming a collection of literals"));
 
     ctx.insert(alloc(get_unsat_assumptions_cmd));
     ctx.insert(alloc(reset_assertions_cmd));

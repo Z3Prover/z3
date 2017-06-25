@@ -280,7 +280,7 @@ namespace datalog {
         new_tail.push_back(create_magic_literal(new_head));
         negations.push_back(false);
 
-        rule * nr = m_context.get_rule_manager().mk(new_head, new_tail.size(), new_tail.c_ptr(), negations.c_ptr());
+        rule * nr = m_context.get_rule_manager().mk(new_head, new_tail.size(), new_tail.c_ptr(), negations.c_ptr(), r->name());
         result.add_rule(nr);
         nr->set_accounting_parent_object(m_context, r);
     }

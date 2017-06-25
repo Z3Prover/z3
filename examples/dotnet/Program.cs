@@ -2152,6 +2152,31 @@ namespace test_mapi
             Console.WriteLine("OK, model: {0}", s.Model.ToString());
         }
 
+        public static void TranslationExample()
+        {
+            Context ctx1 = new Context();
+            Context ctx2 = new Context();
+
+            Sort s1 = ctx1.IntSort;
+            Sort s2 = ctx2.IntSort;
+            Sort s3 = s1.Translate(ctx2);
+
+            Console.WriteLine(s1 == s2);
+            Console.WriteLine(s1.Equals(s2));
+            Console.WriteLine(s2.Equals(s3));
+            Console.WriteLine(s1.Equals(s3));
+
+            Expr e1 = ctx1.MkIntConst("e1");
+            Expr e2 = ctx2.MkIntConst("e1");
+            Expr e3 = e1.Translate(ctx2);
+
+            Console.WriteLine(e1 == e2);
+            Console.WriteLine(e1.Equals(e2));
+            Console.WriteLine(e2.Equals(e3));
+            Console.WriteLine(e1.Equals(e3));
+        }
+
+
         static void Main(string[] args)
         {
             try
@@ -2224,6 +2249,8 @@ namespace test_mapi
                     QuantifierExample3(ctx);
                     QuantifierExample4(ctx);
                 }
+
+                TranslationExample();
 
                 Log.Close();
                 if (Log.isOpen())

@@ -341,8 +341,8 @@ namespace smt {
 
         virtual void init(context* ctx);
         virtual final_check_status final_check_eh();
-        virtual bool internalize_atom(app* atom, bool) { return internalize_term(atom); }
-        virtual bool internalize_term(app*);
+        virtual bool internalize_atom(app* atom, bool);
+        virtual bool internalize_term(app*);        
         virtual void internalize_eq_eh(app * atom, bool_var v);
         virtual void new_eq_eh(theory_var, theory_var);
         virtual void new_diseq_eh(theory_var, theory_var);
@@ -387,6 +387,7 @@ namespace smt {
                            vector<rational> const& ll, vector<rational> const& rl);
         bool set_empty(expr* x);
         bool is_complex(eq const& e);
+        bool internalize_re(expr* e);
 
         bool check_extensionality();
         bool check_contains();

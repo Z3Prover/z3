@@ -784,7 +784,7 @@ namespace datalog {
 
         SASSERT(tail.size()==tail_neg.size());
         rule_ref old_r = r;
-        r = mk(head, tail.size(), tail.c_ptr(), tail_neg.c_ptr());
+        r = mk(head, tail.size(), tail.c_ptr(), tail_neg.c_ptr(), old_r->name());
         r->set_accounting_parent_object(m_ctx, old_r);
     }
 
@@ -1003,6 +1003,7 @@ namespace datalog {
 
     void rule::display(context & ctx, std::ostream & out) const {
         ast_manager & m = ctx.get_manager();
+        out << m_name.str () << ":\n";
         //out << mk_pp(m_head, m);
         output_predicate(ctx, m_head, out);
         if (m_tail_size == 0) {

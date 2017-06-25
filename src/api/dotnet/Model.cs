@@ -19,6 +19,7 @@ Notes:
 
 using System;
 using System.Diagnostics.Contracts;
+using System.Collections.Generic;
 
 namespace Microsoft.Z3
 {
@@ -128,6 +129,24 @@ namespace Microsoft.Z3
                 for (uint i = 0; i < n; i++)
                     res[i] = new FuncDecl(Context, Native.Z3_model_get_const_decl(Context.nCtx, NativeObject, i));
                 return res;
+            }
+        }
+
+        /// <summary>
+        /// Enumerate constants in model.
+        /// </summary>
+        public IEnumerable<KeyValuePair<FuncDecl, Expr>> Consts
+        {
+            get
+            {
+                uint nc = NumConsts;
+                for (uint i = 0; i < nc; ++i)
+                {
+                    var f = new FuncDecl(Context, Native.Z3_model_get_const_decl(Context.nCtx, NativeObject, i));
+                    IntPtr n = Native.Z3_model_get_const_interp(Context.nCtx, NativeObject, f.NativeObject);
+                    if (n == IntPtr.Zero) continue;
+                    yield return new KeyValuePair<FuncDecl, Expr>(f, Expr.Create(Context, n));
+                }
             }
         }
 

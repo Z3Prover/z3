@@ -1405,6 +1405,7 @@ namespace smt {
             switch (js.get_kind()) {
             case b_justification::CLAUSE: {
                 clause * cls = js.get_clause();
+                TRACE("unsat_core_bug", m_ctx.display_clause_detail(tout, cls););
                 unsigned num_lits = cls->get_num_literals();
                 unsigned i        = 0;
                 if (consequent != false_literal) {
@@ -1422,8 +1423,9 @@ namespace smt {
                     process_antecedent_for_unsat_core(~l);
                 }
                 justification * js = cls->get_justification();
-                if (js)
+                if (js) {
                     process_justification_for_unsat_core(js);
+                }
                 break;
             }
             case b_justification::BIN_CLAUSE:

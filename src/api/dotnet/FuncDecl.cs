@@ -14,7 +14,7 @@ Author:
     Christoph Wintersteiger (cwinter) 2012-03-16
 
 Notes:
-    
+
 --*/
 
 using System;
@@ -23,7 +23,7 @@ using System.Diagnostics.Contracts;
 namespace Microsoft.Z3
 {
     /// <summary>
-    /// Function declarations. 
+    /// Function declarations.
     /// </summary>
     [ContractVerification(true)]
     public class FuncDecl : AST
@@ -62,7 +62,7 @@ namespace Microsoft.Z3
 
         /// <summary>
         /// A hash code.
-        /// </summary>    
+        /// </summary>
         public override int GetHashCode()
         {
             return base.GetHashCode();
@@ -205,7 +205,7 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
-        /// Function declarations can have Parameters associated with them. 
+        /// Function declarations can have Parameters associated with them.
         /// </summary>
         public class Parameter
         {
@@ -316,6 +316,17 @@ namespace Microsoft.Z3
         #endregion
 
         /// <summary>
+        /// Translates (copies) the function declaration to the Context <paramref name="ctx"/>.
+        /// </summary>
+        /// <param name="ctx">A context</param>
+        /// <returns>A copy of the function declaration which is associated with <paramref name="ctx"/></returns>
+        new public FuncDecl Translate(Context ctx)
+        {
+            return (FuncDecl) base.Translate(ctx);
+        }
+
+
+        /// <summary>
         /// Create expression that applies function to arguments.
         /// </summary>
         /// <param name="args"></param>
@@ -342,6 +353,5 @@ namespace Microsoft.Z3
             Context.CheckContextMatch<Expr>(args);
             return Expr.Create(Context, this, args);
         }
-
     }
 }

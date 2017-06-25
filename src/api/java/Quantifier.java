@@ -146,6 +146,19 @@ public class Quantifier extends BoolExpr
     }
 
     /**
+     * Translates (copies) the quantifier to the Context {@code ctx}.
+     * 
+     * @param ctx A context
+     * 
+     * @return A copy of the quantifier which is associated with {@code ctx}
+     * @throws Z3Exception on error
+     **/
+    public Quantifier translate(Context ctx)
+    {
+        return (Quantifier) super.translate(ctx);
+    }
+
+    /**
      * Create a quantified expression.
      *
      * @param patterns Nullable patterns
