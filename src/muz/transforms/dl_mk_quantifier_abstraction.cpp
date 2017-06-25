@@ -142,7 +142,8 @@ namespace datalog {
         m(ctx.get_manager()),
         m_ctx(ctx),
         a(m),
-        m_refs(m) {        
+        m_refs(m),
+        m_mc(NULL){        
     }
 
     mk_quantifier_abstraction::~mk_quantifier_abstraction() {        

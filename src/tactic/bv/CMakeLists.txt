@@ -15,4 +15,14 @@ z3_add_component(bv_tactics
     bit_blaster
     core_tactics
     tactic
+  TACTIC_HEADERS
+    bit_blaster_tactic.h
+    bv1_blaster_tactic.h
+    bv_bound_chk_tactic.h
+    bv_bounds_tactic.h
+    bv_size_reduction_tactic.h
+    bvarray2uf_tactic.h
+    dt2bv_tactic.h
+    elim_small_bv_tactic.h
+    max_bv_sharing_tactic.h
 )

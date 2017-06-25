@@ -16,4 +16,6 @@ z3_add_component(portfolio
     smtlogic_tactics
     subpaving_tactic
     ufbv_tactic
+  TACTIC_HEADERS
+    default_tactic.h
 )

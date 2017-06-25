@@ -2,7 +2,7 @@
 # for other components then we should refactor this code into
 # z3_add_component()
 if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/database.h")
-  message(FATAL_ERROR "The generated file \"database.h\""
+  message(FATAL_ERROR "The generated file \"${CMAKE_CURRENT_SOURCE_DIR}/database.h\""
           ${z3_polluted_tree_msg})
 endif()
 

@@ -667,6 +667,8 @@ public:
     expr * get_arg(unsigned idx) const { SASSERT(idx < m_num_args); return m_args[idx]; }
     expr * const * get_args() const { return m_args; }
     unsigned get_size() const { return get_obj_size(get_num_args()); }
+    expr * const * begin() const { return m_args; }
+    expr * const * end() const { return m_args + m_num_args; }
 
     unsigned get_depth() const { return flags()->m_depth; }
     bool is_ground() const { return flags()->m_ground; }

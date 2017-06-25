@@ -13,4 +13,6 @@ z3_add_component(fp
     pdr
     rel
     tab
+  TACTIC_HEADERS
+    horn_tactic.h
 )

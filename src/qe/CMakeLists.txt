@@ -23,6 +23,13 @@ z3_add_component(qe
     nlsat_tactic
     nlsat
     sat
-    smt   
-    tactic 
+    smt
+    tactic
+  TACTIC_HEADERS
+    nlqsat.h
+    qe_lite.h
+    qe_sat_tactic.h
+    qe_tactic.h
+    qsat.h
+    vsubst_tactic.h
 )

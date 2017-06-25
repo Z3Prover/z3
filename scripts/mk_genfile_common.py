@@ -587,7 +587,7 @@ def mk_def_file_internal(defname, dll_name, export_header_files):
 ###############################################################################
 # Functions for generating ``gparams_register_modules.cpp``
 ###############################################################################
-def mk_gparams_register_modules_internal(component_src_dirs, path):
+def mk_gparams_register_modules_internal(h_files_full_path, path):
     """
         Generate a ``gparams_register_modules.cpp`` file in the directory ``path``.
         Returns the path to the generated file.
@@ -600,7 +600,7 @@ def mk_gparams_register_modules_internal(component_src_dirs, path):
 
         This procedure is invoked by gparams::init()
     """
-    assert isinstance(component_src_dirs, list)
+    assert isinstance(h_files_full_path, list)
     assert check_dir_exists(path)
     cmds = []    
     mod_cmds = []
@@ -612,11 +612,6 @@ def mk_gparams_register_modules_internal(component_src_dirs, path):
     reg_pat = re.compile('[ \t]*REG_PARAMS\(\'([^\']*)\'\)')
     reg_mod_pat = re.compile('[ \t]*REG_MODULE_PARAMS\(\'([^\']*)\', *\'([^\']*)\'\)')
     reg_mod_descr_pat = re.compile('[ \t]*REG_MODULE_DESCRIPTION\(\'([^\']*)\', *\'([^\']*)\'\)')
-    h_files_full_path = []
-    for component_src_dir in component_src_dirs:
-        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(component_src_dir))
-        h_files = list(map(lambda p: os.path.join(component_src_dir, p), h_files))
-        h_files_full_path.extend(h_files)
     for h_file in sorted_headers_by_component(h_files_full_path):
         added_include = False
         with open(h_file, 'r') as fin:
@@ -651,7 +646,7 @@ def mk_gparams_register_modules_internal(component_src_dirs, path):
 # Functions/data structures for generating ``install_tactics.cpp``
 ###############################################################################
 
-def mk_install_tactic_cpp_internal(component_src_dirs, path):
+def mk_install_tactic_cpp_internal(h_files_full_path, path):
     """
         Generate a ``install_tactics.cpp`` file in the directory ``path``.
         Returns the path the generated file.
@@ -662,9 +657,10 @@ def mk_install_tactic_cpp_internal(component_src_dirs, path):
         void install_tactics(tactic_manager & ctx)
         ```
 
-        It installs all tactics found in the given component directories
-        ``component_src_dirs`` The procedure looks for ``ADD_TACTIC`` commands
-        in the ``.h``  and ``.hpp`` files of these components.
+        It installs all tactics declared in the given header files
+        ``h_files_full_path`` The procedure looks for ``ADD_TACTIC`` and
+        ``ADD_PROBE``commands in the ``.h``  and ``.hpp`` files of these
+        components.
     """
     ADD_TACTIC_DATA = []
     ADD_PROBE_DATA = []
@@ -679,7 +675,7 @@ def mk_install_tactic_cpp_internal(component_src_dirs, path):
         'ADD_PROBE': ADD_PROBE,
     }
 
-    assert isinstance(component_src_dirs, list)
+    assert isinstance(h_files_full_path, list)
     assert check_dir_exists(path)
     fullname = os.path.join(path, 'install_tactic.cpp')
     fout  = open(fullname, 'w')
@@ -689,11 +685,6 @@ def mk_install_tactic_cpp_internal(component_src_dirs, path):
     fout.write('#include"cmd_context.h"\n')
     tactic_pat   = re.compile('[ \t]*ADD_TACTIC\(.*\)')
     probe_pat    = re.compile('[ \t]*ADD_PROBE\(.*\)')
-    h_files_full_path = []
-    for component_src_dir in sorted(component_src_dirs):
-        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(component_src_dir))
-        h_files = list(map(lambda p: os.path.join(component_src_dir, p), h_files))
-        h_files_full_path.extend(h_files)
     for h_file in sorted_headers_by_component(h_files_full_path):
         added_include = False
         with open(h_file, 'r') as fin:
@@ -740,7 +731,7 @@ def mk_install_tactic_cpp_internal(component_src_dirs, path):
 # Functions for generating ``mem_initializer.cpp``
 ###############################################################################
 
-def mk_mem_initializer_cpp_internal(component_src_dirs, path):
+def mk_mem_initializer_cpp_internal(h_files_full_path, path):
     """
         Generate a ``mem_initializer.cpp`` file in the directory ``path``.
         Returns the path to the generated file.
@@ -754,7 +745,7 @@ def mk_mem_initializer_cpp_internal(component_src_dirs, path):
 
        These procedures are invoked by the Z3 memory_manager
     """
-    assert isinstance(component_src_dirs, list)
+    assert isinstance(h_files_full_path, list)
     assert check_dir_exists(path)
     initializer_cmds = []
     finalizer_cmds   = []
@@ -765,11 +756,6 @@ def mk_mem_initializer_cpp_internal(component_src_dirs, path):
     # ADD_INITIALIZER with priority
     initializer_prio_pat = re.compile('[ \t]*ADD_INITIALIZER\(\'([^\']*)\',[ \t]*(-?[0-9]*)\)')
     finalizer_pat        = re.compile('[ \t]*ADD_FINALIZER\(\'([^\']*)\'\)')
-    h_files_full_path = []
-    for component_src_dir in sorted(component_src_dirs):
-        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(component_src_dir))
-        h_files = list(map(lambda p: os.path.join(component_src_dir, p), h_files))
-        h_files_full_path.extend(h_files)
     for h_file in sorted_headers_by_component(h_files_full_path):
         added_include = False
         with open(h_file, 'r') as fin:
