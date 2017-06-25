@@ -127,7 +127,7 @@ namespace sat {
 
 
     void parallel::exchange(solver& s, literal_vector const& in, unsigned& limit, literal_vector& out) {
-        if (s.m_par_syncing_clauses) return;
+        if (s.get_config().m_num_threads == 1 || s.m_par_syncing_clauses) return;
         flet<bool> _disable_sync_clause(s.m_par_syncing_clauses, true);
         #pragma omp critical (par_solver)
         {
@@ -147,11 +147,11 @@ namespace sat {
     }
 
     void parallel::share_clause(solver& s, literal l1, literal l2) {        
-        if (s.m_par_syncing_clauses) return;
+        if (s.get_config().m_num_threads == 1 || s.m_par_syncing_clauses) return;
         flet<bool> _disable_sync_clause(s.m_par_syncing_clauses, true);
+        IF_VERBOSE(3, verbose_stream() << s.m_par_id << ": share " <<  l1 << " " << l2 << "\n";);
         #pragma omp critical (par_solver)
         {
-            IF_VERBOSE(3, verbose_stream() << s.m_par_id << ": share " <<  l1 << " " << l2 << "\n";);
             m_pool.begin_add_vector(s.m_par_id, 2);
             m_pool.add_vector_elem(l1.index());
             m_pool.add_vector_elem(l2.index());            
@@ -160,13 +160,13 @@ namespace sat {
     }
 
     void parallel::share_clause(solver& s, clause const& c) {        
-        if (!enable_add(c) || s.m_par_syncing_clauses) return;
+        if (s.get_config().m_num_threads == 1 || !enable_add(c) || s.m_par_syncing_clauses) return;
         flet<bool> _disable_sync_clause(s.m_par_syncing_clauses, true);
         unsigned n = c.size();
         unsigned owner = s.m_par_id;
+        IF_VERBOSE(3, verbose_stream() << owner << ": share " <<  c << "\n";);
         #pragma omp critical (par_solver)
         {
-            IF_VERBOSE(3, verbose_stream() << owner << ": share " <<  c << "\n";);
             m_pool.begin_add_vector(owner, n);                
             for (unsigned i = 0; i < n; ++i) {
                 m_pool.add_vector_elem(c[i].index());
@@ -229,7 +229,8 @@ namespace sat {
                     break;
                 }
             }
-            if (90 * m_num_clauses > 100 * s.m_clauses.size() && !m_solver_copy) {
+            IF_VERBOSE(1, verbose_stream() << "set phase: " << m_num_clauses << " " << s.m_clauses.size() << " " << m_solver_copy << "\n";);
+            if (m_num_clauses == 0 || (m_num_clauses > s.m_clauses.size())) {
                 // time to update local search with new clauses.
                 // there could be multiple local search engines runing at the same time.
                 IF_VERBOSE(1, verbose_stream() << "(sat-parallel refresh local search " << m_num_clauses << " -> " << s.m_clauses.size() << ")\n";);

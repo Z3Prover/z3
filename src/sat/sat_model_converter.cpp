@@ -34,8 +34,7 @@ namespace sat {
     }
 
     model_converter& model_converter::operator=(model_converter const& other) {
-        reset();
-        m_entries.append(other.m_entries);
+        copy(other);
         return *this;
     }
 
@@ -50,10 +49,7 @@ namespace sat {
             // and the following procedure flips its value.
             bool sat = false;
             bool var_sign = false;
-            literal_vector::const_iterator it2  = it->m_clauses.begin();
-            literal_vector::const_iterator end2 = it->m_clauses.end();
-            for (; it2 != end2; ++it2) {
-                literal l  = *it2;
+            for (literal l : it->m_clauses) {
                 if (l == null_literal) {
                     // end of clause
                     if (!sat) {
@@ -80,9 +76,7 @@ namespace sat {
             DEBUG_CODE({
                 // all clauses must be satisfied
                 bool sat = false;
-                it2 = it->m_clauses.begin();
-                for (; it2 != end2; ++it2) {
-                    literal l = *it2;
+                for (literal l : it->m_clauses) {
                     if (l == null_literal) {
                         SASSERT(sat);
                         sat = false;
@@ -145,10 +139,7 @@ namespace sat {
         SASSERT(c.contains(e.var()));
         SASSERT(m_entries.begin() <= &e);
         SASSERT(&e < m_entries.end());
-        unsigned sz = c.size();
-        for (unsigned i = 0; i < sz; i++) {
-            e.m_clauses.push_back(c[i]);
-        }
+        for (literal l : c) e.m_clauses.push_back(l);
         e.m_clauses.push_back(null_literal);
         TRACE("sat_mc_bug", tout << "adding: " << c << "\n";);
     }
@@ -168,10 +159,10 @@ namespace sat {
         SASSERT(m_entries.begin() <= &e);
         SASSERT(&e < m_entries.end());
         unsigned sz = c.size();
-        for (unsigned i = 0; i < sz; i++)
+        for (unsigned i = 0; i < sz; ++i) 
             e.m_clauses.push_back(c[i]);
         e.m_clauses.push_back(null_literal);
-        TRACE("sat_mc_bug", tout << "adding (wrapper): "; for (unsigned i = 0; i < c.size(); i++) tout << c[i] << " "; tout << "\n";);
+        TRACE("sat_mc_bug", tout << "adding (wrapper): "; for (literal l : c) tout << l << " "; tout << "\n";);
     }
 
     bool model_converter::check_invariant(unsigned num_vars) const {
@@ -186,12 +177,10 @@ namespace sat {
                 it2++;
                 for (; it2 != end; ++it2) {
                     SASSERT(it2->var() != it->var());
-                    literal_vector::const_iterator it3  = it2->m_clauses.begin();
-                    literal_vector::const_iterator end3 = it2->m_clauses.end();
-                    for (; it3 != end3; ++it3) {
-                        CTRACE("sat_model_converter", it3->var() == it->var(), tout << "var: " << it->var() << "\n"; display(tout););
-                        SASSERT(it3->var() != it->var());
-                        SASSERT(*it3 == null_literal || it3->var() < num_vars);
+                    for (literal l : it2->m_clauses) {
+                        CTRACE("sat_model_converter", l.var() == it->var(), tout << "var: " << it->var() << "\n"; display(tout););
+                        SASSERT(l.var() != it->var());
+                        SASSERT(l == null_literal || l.var() < num_vars);
                     }
                 }
             }
@@ -201,28 +190,24 @@ namespace sat {
 
     void model_converter::display(std::ostream & out) const {
         out << "(sat::model-converter";
-        vector<entry>::const_iterator it  = m_entries.begin();
-        vector<entry>::const_iterator end = m_entries.end();
-        for (; it != end; ++it) {
-            out << "\n  (" << (it->get_kind() == ELIM_VAR ? "elim" : "blocked") << " " << it->var();
+        for (auto & entry : m_entries) {
+            out << "\n  (" << (entry.get_kind() == ELIM_VAR ? "elim" : "blocked") << " " << entry.var();
             bool start = true;
-            literal_vector::const_iterator it2  = it->m_clauses.begin();
-            literal_vector::const_iterator end2 = it->m_clauses.end();
-            for (; it2 != end2; ++it2) {
+            for (literal l : entry.m_clauses) {
                 if (start) {
                     out << "\n    (";
                     start = false;
                 }
                 else {
-                    if (*it2 != null_literal)
+                    if (l != null_literal)
                         out << " ";
                 }
-                if (*it2 == null_literal) {
+                if (l == null_literal) {
                     out << ")";
                     start = true;
                     continue;
                 }
-                out << *it2;
+                out << l;
             }
             out << ")";
         }    
@@ -230,18 +215,12 @@ namespace sat {
     }
 
     void model_converter::copy(model_converter const & src) {
-        vector<entry>::const_iterator it  = src.m_entries.begin();
-        vector<entry>::const_iterator end = src.m_entries.end();
-        for (; it != end; ++it)
-            m_entries.push_back(*it);
+        reset();
+        m_entries.append(src.m_entries);
     }
 
     void model_converter::collect_vars(bool_var_set & s) const {
-        vector<entry>::const_iterator it  = m_entries.begin();
-        vector<entry>::const_iterator end = m_entries.end();
-        for (; it != end; ++it) {
-            s.insert(it->m_var);
-        }
+        for (entry const & e : m_entries) s.insert(e.m_var);
     }
 
 };

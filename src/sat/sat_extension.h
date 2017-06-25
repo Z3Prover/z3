@@ -42,6 +42,9 @@ namespace sat {
         virtual void push() = 0;
         virtual void pop(unsigned n) = 0;
         virtual void simplify() = 0;
+        // have a way to replace l by r in all constraints
+        virtual bool set_root(literal l, literal r) { return false; }
+        virtual void flush_roots() {}
         virtual void clauses_modifed() = 0;
         virtual lbool get_phase(bool_var v) = 0;
         virtual std::ostream& display(std::ostream& out) const = 0;

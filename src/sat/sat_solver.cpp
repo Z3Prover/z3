@@ -1072,9 +1072,8 @@ namespace sat {
       \brief import lemmas/units from parallel sat solvers.
      */
     void solver::exchange_par() {
-        if (m_par && at_search_lvl()) m_par->set_phase(*this);
-        if (m_par && at_base_lvl()) m_par->get_clauses(*this);
-        if (m_par && at_base_lvl()) {
+        if (m_par && at_base_lvl() && m_config.m_num_threads > 1) m_par->get_clauses(*this);
+        if (m_par && at_base_lvl() && m_config.m_num_threads > 1) {
             // SASSERT(scope_lvl() == search_lvl());
             // TBD: import also dependencies of assumptions.
             unsigned sz = init_trail_size();
@@ -1463,7 +1462,17 @@ namespace sat {
         }
 #endif
 
+        if (m_par) m_par->set_phase(*this);
 
+
+    }
+
+    bool solver::set_root(literal l, literal r) {
+        return !m_ext || m_ext->set_root(l, r);
+    }
+
+    void solver::flush_roots() {
+        if (m_ext) m_ext->flush_roots();
     }
 
     void solver::sort_watch_lits() {

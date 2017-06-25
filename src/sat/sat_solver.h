@@ -315,6 +315,8 @@ namespace sat {
         config const& get_config() const { return m_config; }
         extension* get_extension() const { return m_ext.get(); }
         void       set_extension(extension* e);
+        bool       set_root(literal l, literal r);
+        void       flush_roots();
         typedef std::pair<literal, literal> bin_clause;
     protected:
         watch_list & get_wlist(literal l) { return m_watches[l.index()]; }

@@ -189,7 +189,8 @@ namespace sat {
             literal  l(v, false);
             literal r  = roots[v];
             SASSERT(v != r.var());
-            if (m_solver.is_external(v)) {
+            if (m_solver.is_external(v) && !m_solver.set_root(l, r)) {
+                std::cout << "skip: " << l << " == " << r << "\n";
                 // cannot really eliminate v, since we have to notify extension of future assignments
                 m_solver.mk_bin_clause(~l, r, false);
                 m_solver.mk_bin_clause(l, ~r, false);
@@ -201,6 +202,7 @@ namespace sat {
                 mc.insert(e, ~l, r);
                 mc.insert(e,  l, ~r);
             }
+            m_solver.flush_roots();
         }
     }
 

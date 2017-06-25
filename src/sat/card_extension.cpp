@@ -41,6 +41,28 @@ namespace sat {
         SASSERT(m_size >= m_k && m_k > 0);
     }
 
+    std::ostream& operator<<(std::ostream& out, card_extension::card const& c) {
+        if (c.lit() != null_literal) {
+            out << c.lit() << " == ";
+        }
+        for (literal l : c) {
+            out << l << " ";
+        }
+        return out << " >= " << c.k();
+    }
+
+    std::ostream& operator<<(std::ostream& out, card_extension::pb const& p) {
+        if (p.lit() != null_literal) {
+            out << p.lit() << " == ";
+        }
+        for (card_extension::wliteral wl : p) {
+            if (wl.first != 1) out << wl.first << " * ";
+            out << wl.second << " ";
+        }
+        return out << " >= " << p.k();
+    }
+
+
     card_extension::pb::pb(unsigned index, literal lit, svector<card_extension::wliteral> const& wlits, unsigned k):
         m_index(index),
         m_lit(lit),
@@ -204,6 +226,7 @@ namespace sat {
 
     void card_extension::copy_pb(card_extension& result) {
         for (pb* p : m_pbs) {
+            if (!p) continue;
             svector<wliteral> wlits;
             for (wliteral w : *p) {
                 wlits.push_back(w);
@@ -366,13 +389,12 @@ namespace sat {
         p.swap(num_watch, index);
 
         if (slack < bound + m_a_max) {
-            TRACE("sat", display(tout, p, false); for(auto j : m_pb_undef) tout << j << "\n";);
+            TRACE("sat", tout << p; for(auto j : m_pb_undef) tout << j << "\n";);
             literal_vector to_assign;
             while (!m_pb_undef.empty()) {
                 index1 = m_pb_undef.back();
                 if (index1 == num_watch) index1 = index; // it was swapped with index above.
                 literal lit = p[index1].second;
-                if (value(lit) != l_undef) std::cout << "not undef: " << index1 << " " << lit << " " << value(lit) << "\n";
                 SASSERT(value(lit) == l_undef);
                 TRACE("sat", tout << index1 << " " << lit << "\n";);
                 if (slack >= bound + p[index1].first) {
@@ -484,12 +506,12 @@ namespace sat {
             return;
         }
         if (p.lit() == null_literal) {
-            unsigned max_sum = p.max_sum();
-            unsigned sz = p.size();
-            for (unsigned i = 0; i < sz; ++i) {
-                wliteral wl = p[i];
-                if (p.k() > max_sum - wl.first) {
-                    std::cout << "unit literal\n";
+            for (wliteral wl : p) {
+                if (p.k() > p.max_sum() - wl.first) {
+                    TRACE("sat", 
+                          tout << "unit literal " << wl.second << "\n";
+                          display(tout, p, true););
+                    s().assign(wl.second, justification());
                 }
             }
         }
@@ -498,12 +520,11 @@ namespace sat {
     void card_extension::simplify(pb& p) {
         s().pop_to_base_level();
         if (p.lit() != null_literal && value(p.lit()) == l_false) {
+            TRACE("sat", tout << "pb: flip sign " << p << "\n";);
             return;
             init_watch(p, !p.lit().sign());
-            std::cout << "pb: flip sign\n";
         }
         if (p.lit() != null_literal && value(p.lit()) == l_true) {
-            std::cout << "literal is assigned at base level " << s().at_base_lvl() << "\n";
             SASSERT(lvl(p.lit()) == 0);
             nullify_tracking_literal(p);
         }
@@ -522,9 +543,9 @@ namespace sat {
             // no op
         }
         else if (true_val >= p.k()) {
-            std::cout << "tautology\n";
+            // std::cout << "tautology\n";
             if (p.lit() != null_literal) {
-                std::cout << "tautology at level 0\n";
+                // std::cout << "tautology at level 0\n";
                 s().assign(p.lit(), justification());
             }        
             remove_constraint(p);
@@ -534,19 +555,19 @@ namespace sat {
                 s().assign(~p.lit(), justification());
             }
             else {
-                std::cout << "unsat during simplification\n";
+                IF_VERBOSE(0, verbose_stream() << "unsat during simplification\n";);
                 s().set_conflict(justification());
             }
             remove_constraint(p);
         }
         else if (slack + true_val == p.k()) {
-            std::cout << "unit propagation\n";
+            // std::cout << "unit propagation\n";
             literal_vector lits(p.literals());
             unit_propagation_simplification(p.lit(), lits);
             remove_constraint(p);
         }
         else {
-            std::cout << "pb value at base: " << true_val << " false: " <<  num_false << " size: " << p.size() << " k: " << p.k() << "\n";
+            // std::cout << "pb value at base: " << true_val << " false: " <<  num_false << " size: " << p.size() << " k: " << p.k() << "\n";
             unsigned sz = p.size();
             clear_watch(p);
             for (unsigned i = 0; i < sz; ++i) {
@@ -556,10 +577,10 @@ namespace sat {
                     --i;
                 }
             }
-            std::cout << "new size: " << sz << " old size " << p.size() << "\n";
+            // std::cout << "new size: " << sz << " old size " << p.size() << "\n";
             p.update_size(sz);
             p.update_k(p.k() - true_val);
-            // display(std::cout, c, true);
+            // display(verbose_stream(), c, true);
             if (p.lit() == null_literal) {
                 init_watch(p, true);
             }
@@ -568,6 +589,7 @@ namespace sat {
                 // c will be watched once c.lit() is assigned.
             }
             simplify2(p);
+            m_simplify_change = true;
         }
     }
 
@@ -1397,11 +1419,8 @@ namespace sat {
                 break;
             }
         }
-        if (coeff == 0) {
-            
-            std::cout << l << " coeff: " << coeff << "\n";
-            display(std::cout, p, true);                
-        }
+
+        CTRACE("sat", coeff == 0, display(tout << l << " coeff: " << coeff << "\n", p, true);); 
 
         SASSERT(coeff > 0);
         unsigned slack = p.slack() - coeff;
@@ -1415,10 +1434,9 @@ namespace sat {
         }
         for (; i < p.size(); ++i) {
             literal lit = p[i].second;
-            if (l_false != value(lit)) {
-                std::cout << l << " index: " << i << " slack: " << slack << " h: " << h << " coeff: " << coeff << "\n";
-                display(std::cout, p, true);                
-            }
+            CTRACE("sat", l_false != value(lit),
+                   tout << l << " index: " << i << " slack: " << slack << " h: " << h << " coeff: " << coeff << "\n";
+                   display(tout, p, true);); 
             SASSERT(l_false == value(lit));
             r.push_back(~lit);
         }
@@ -1496,6 +1514,8 @@ namespace sat {
     void card_extension::simplify(card& c) {
         SASSERT(c.lit() == null_literal || value(c.lit()) != l_false);
         if (c.lit() != null_literal && value(c.lit()) == l_false) {
+            return;
+#if 0
             std::ofstream ous("unit.txt");
             s().display(ous);
             s().display_watches(ous);
@@ -1503,15 +1523,13 @@ namespace sat {
             exit(1);
             return;
             init_watch(c, !c.lit().sign());
-            std::cout << "card: flip sign\n";
+#endif
         }
         if (c.lit() != null_literal && value(c.lit()) == l_true) {
-            std::cout << "literal is assigned at base level " << value(c.lit()) << " " << s().at_base_lvl() << "\n";
             SASSERT(lvl(c.lit()) == 0);
             nullify_tracking_literal(c);
         }
         if (c.lit() == null_literal && c.k() == 1) {            
-            std::cout << "create clause\n";
             literal_vector lits;
             for (literal l : c) lits.push_back(l);
             s().mk_clause(lits);
@@ -1535,31 +1553,29 @@ namespace sat {
             return;
         }
         else if (num_true >= c.k()) {
-            std::cout << "tautology\n";
             if (c.lit() != null_literal) {
-                std::cout << "tautology at level 0\n";
                 s().assign(c.lit(), justification());                        
             }
             remove_constraint(c);
         }
         else if (num_false + c.k() > c.size()) {
             if (c.lit() != null_literal) {
-                std::cout << "falsity at level 0\n";
                 s().assign(~c.lit(), justification());                
                 remove_constraint(c);
             }
             else {
-                std::cout << "unsat during simplification\n";
+                IF_VERBOSE(1, verbose_stream() << "(sat detected unsat)\n";);
             }
         }
         else if (num_false + c.k() == c.size()) {
-            std::cout << "unit propagations : " << c.size() - num_false - num_true << "\n";
+            TRACE("sat", tout << "unit propagations : " << c.size() - num_false - num_true << "\n";);
             literal_vector lits(c.literals());
             unit_propagation_simplification(c.lit(), lits);
             remove_constraint(c);
         }
         else {
-            std::cout << "literals assigned at base: " << num_true + num_false << " " << c.size() << " k: " << c.k() << "\n";
+            TRACE("sat", tout << "literals assigned at base: " << num_true + num_false << " " << c.size() << " k: " << c.k() << "\n";);
+
             unsigned sz = c.size();
             clear_watch(c);
             for (unsigned i = 0; i < sz; ++i) {
@@ -1569,7 +1585,6 @@ namespace sat {
                     --i;
                 }
             }
-            std::cout << "new size: " << sz << " old size " << c.size() << "\n";
             c.update_size(sz);
             c.update_k(c.k() - num_true);
             if (c.lit() == null_literal) {
@@ -1579,6 +1594,7 @@ namespace sat {
                 SASSERT(value(c.lit()) == l_undef);
                 // c will be watched once c.lit() is assigned.
             }
+            m_simplify_change = true;
         }
     }
 
@@ -1696,51 +1712,551 @@ namespace sat {
 
     void card_extension::simplify() {
         s().pop_to_base_level();
-        for (card* c : m_cards) {
-            if (c) simplify(*c);
-        }
-        for (pb* p : m_pbs) {
-            if (p) simplify(*p);
-        }
-        for (xor* x : m_xors) {
-            if (x) simplify(*x);
-        }
-        gc();
+        unsigned trail_sz;
+        do {
+            m_simplify_change = false;
+            trail_sz = s().init_trail_size();
+            for (card* c : m_cards) {
+                if (c) simplify(*c);
+            }
+            for (pb* p : m_pbs) {
+                if (p) simplify(*p);
+            }
+            for (xor* x : m_xors) {
+                if (x) simplify(*x);
+            }            
+            gc();
+        }        
+        while (m_simplify_change || trail_sz < s().init_trail_size());
+        // or could create queue of constraints that are affected
     }
 
+    bool card_extension::set_root(literal l, literal r) { 
+        for (unsigned i = m_roots.size(); i < 2 * s().num_vars(); ++i) {
+            m_roots.push_back(to_literal(i));
+        }
+        m_roots[l.index()] = r;
+        m_roots[(~l).index()] = ~r;
+        return true;
+    }
+
+    void card_extension::flush_roots() {
+        if (m_roots.empty()) return;
+        m_visited.resize(s().num_vars()*2, false);
+        for (card* c : m_cards) {
+            if (c) flush_roots(*c);
+        }
+        for (pb* p : m_pbs) {
+            if (p) flush_roots(*p);
+        }
+        for (xor* x : m_xors) {
+            if (x) flush_roots(*x);
+        }
+        
+        // display(std::cout << "flush roots\n");
+    }
+
+    void card_extension::flush_roots(card& c) {
+        bool found = c.lit() != null_literal && m_roots[c.lit().index()] != c.lit();
+        for (literal l : c) {
+            if (found) break;
+            found = m_roots[l.index()] != l;
+        }
+        if (!found) return;
+        clear_watch(c);        
+        // this could create duplicate literals
+        for (unsigned i = 0; i < c.size(); ++i) {
+            c[i] = m_roots[c[i].index()];            
+        }
+        bool found_dup = false;
+        for (literal l : c) {
+            if (is_marked(l)) {
+                found_dup = true;
+            }
+            else {
+                mark_visited(l);
+                mark_visited(~l);
+            }
+        }
+        for (literal l : c) {
+            unmark_visited(l);
+            unmark_visited(~l);
+        }
+        if (found_dup) {
+            recompile(c);
+            return;
+        }
+
+        if (c.lit() != null_literal && m_roots[c.lit().index()] != c.lit()) {
+            literal r = m_roots[c.lit().index()];
+            nullify_tracking_literal(c);
+            c.update_literal(r);
+            get_wlist(r).push_back(c.index());
+            get_wlist(~r).push_back(c.index());
+        }        
+    
+        if (c.lit() == null_literal || value(c.lit()) == l_true) {    
+            init_watch(c, true);
+        }
+    }
+
+    void card_extension::recompile(card& c) {
+        m_count.resize(2*s().num_vars(), 0);
+        for (literal l : c) {
+            ++m_count[l.index()];
+        }
+        unsigned k = c.k();
+        bool is_card = true;
+        unsigned sz = c.size();
+        for (unsigned i = 0; i < sz && 0 < k; ++i) {
+            literal l = c[i];
+            while (k > 0 &&
+                   m_count[l.index()] > 0 &&
+                   m_count[(~l).index()] > 0) {
+                --m_count[l.index()];
+                --m_count[(~l).index()];
+                --k;
+            }
+            unsigned w = m_count[l.index()];
+            if (w > 0) {
+                is_card &= w == 1;
+            }
+            else {
+                c.swap(i, sz - 1);
+                --sz;
+                --i;
+            }
+        }
+        c.update_size(sz);
+        c.update_k(k);
+
+        svector<wliteral> wlits;
+        if (!is_card) {            
+            for (literal l : c) {
+                unsigned w = m_count[l.index()];
+                if (w > 0) {
+                    wlits.push_back(wliteral(w, l));
+                }
+            }
+        }
+
+        // clear counts:
+        for (literal l : c) {
+            m_count[l.index()] = 0;
+        }
+
+        if (k == 0) {
+            remove_constraint(c);
+            return;
+        }
+
+        literal root = null_literal;
+        if (c.lit() != null_literal) root = m_roots[c.lit().index()];
+
+        if (!is_card) {            
+            TRACE("sat", tout << "replacing by pb: " << c << "\n";);
+            remove_constraint(c);
+            add_pb_ge(root, wlits, k);
+        }
+        else {
+            if (c.lit() != root) {
+                nullify_tracking_literal(c);
+                c.update_literal(root);
+                get_wlist(root).push_back(c.index());
+                get_wlist(~root).push_back(c.index());            
+            }
+            if (c.lit() == null_literal || value(c.lit()) == l_true) {
+                init_watch(c, true);
+            }
+        }
+        
+    }
+
+    void card_extension::recompile(pb& p) {
+        m_count.resize(2*s().num_vars(), 0);
+        for (wliteral wl : p) {
+            m_count[wl.second.index()] += wl.first;
+        }
+        unsigned k = p.k();
+        unsigned sz = p.size();
+        for (unsigned i = 0; i < sz && 0 < k; ++i) {
+            wliteral wl = p[i];
+            literal l = wl.second;
+            if (m_count[l.index()] >= m_count[(~l).index()]) {
+                if (k < m_count[(~l).index()]) {
+                    k = 0;
+                    break;
+                }
+                k -= m_count[(~l).index()];
+                m_count[l.index()] -= m_count[(~l).index()];
+            }
+            unsigned w = m_count[l.index()];
+            if (w == 0) {
+                p.swap(i, sz - 1);
+                --sz;
+                --i;
+            }
+            else {
+                p[i] = wliteral(w, l);
+            }
+        }
+        // clear counts:
+        for (wliteral wl : p) {
+            m_count[wl.second.index()] = 0;
+        }
+
+        if (k == 0) {
+            remove_constraint(p);
+            return;
+        }
+
+        p.update_size(sz);
+        p.update_k(k);
+
+        literal root = null_literal;
+        if (p.lit() != null_literal) root = m_roots[p.lit().index()];
+
+        // std::cout << "simplified " << p << "\n";
+        if (p.lit() != root) {
+            nullify_tracking_literal(p);
+            p.update_literal(root);
+            get_wlist(root).push_back(p.index());
+            get_wlist(~root).push_back(p.index());            
+        }
+        if (p.lit() == null_literal || value(p.lit()) == l_true) {
+            init_watch(p, true);
+        }
+    }
+
+    void card_extension::flush_roots(pb& p) {
+        bool found = p.lit() != null_literal && m_roots[p.lit().index()] != p.lit();
+        for (wliteral wl : p) {
+            if (found) break;
+            found = m_roots[wl.second.index()] != wl.second;
+        }
+        if (!found) return;
+        clear_watch(p);        
+        // this could create duplicate literals
+        for (unsigned i = 0; i < p.size(); ++i) {
+            p[i].second = m_roots[p[i].second.index()];            
+        }
+        if (p.lit() != null_literal && m_roots[p.lit().index()] != p.lit()) {
+            literal r = m_roots[p.lit().index()];
+            nullify_tracking_literal(p);
+            p.update_literal(r);
+            get_wlist(r).push_back(p.index());
+            get_wlist(~r).push_back(p.index());
+        }
+
+        bool found_dup = false;
+        for (wliteral wl : p) {
+            if (is_marked(wl.second)) {
+                found_dup = true;
+                // std::cout << "Dup: " << wl.second << "\n";
+            }
+            else {
+                mark_visited(wl.second);
+                mark_visited(~(wl.second));
+            }
+        }
+        for (wliteral wl : p) {
+            unmark_visited(wl.second);
+            unmark_visited(~(wl.second));
+        }
+        if (found_dup) {
+            // std::cout << "FOUND DUP " << p << "\n";
+            recompile(p);
+            return;
+        }
+        // review for potential incompleteness: if p.lit() == l_false, do propagations happen?
+        if (p.lit() == null_literal || value(p.lit()) == l_true) {    
+            init_watch(p, true);
+        }
+    }
+
+    void card_extension::flush_roots(xor& x) {
+        NOT_IMPLEMENTED_YET();
+    }
+
+
+    unsigned card_extension::get_num_non_learned_bin(literal l) {
+        return s().m_simplifier.get_num_non_learned_bin(l);
+    }
+
+    /*
+      \brief garbage collection.
+      This entails 
+      - finding pure literals, 
+      - setting literals that are not used in the extension to non-external.
+      - subsumption
+      - resolution 
+      - blocked literals
+     */
     void card_extension::gc() {
         
         // remove constraints where indicator literal isn't used.
-        sat::use_list use_list;
-        use_list.init(s().num_vars());
-        svector<bool> var_used(s().num_vars(), false);
-        for (clause* c : s().m_clauses) if (!c->frozen()) use_list.insert(*c);
-        for (card* c : m_cards) if (c) for (literal l : *c) var_used[l.var()] = true;
-        for (pb* p : m_pbs) if (p) for (wliteral wl : *p) var_used[wl.second.var()] = true;
-        for (xor* x : m_xors) if (x) for (literal l : *x) var_used[l.var()] = true;
+        m_visited.resize(s().num_vars()*2, false);
+        m_clause_use_list.init(s().num_vars());
+        m_var_used.reset();
+        m_var_used.resize(s().num_vars(), false);
+        m_card_use_list.reset();
+        m_card_use_list.resize(2*s().num_vars(), false);
+        for (clause* c : s().m_clauses) if (!c->frozen()) m_clause_use_list.insert(*c);
+        for (card* c : m_cards) { 
+            if (c) {
+                if (c->lit() != null_literal) {
+                    m_card_use_list[c->lit().index()].push_back(c->index());
+                    m_card_use_list[(~c->lit()).index()].push_back(c->index());
+                    for (literal l : *c) m_card_use_list[(~l).index()].push_back(c->index());
+
+                }
+                for (literal l : *c) {
+                    m_var_used[l.var()] = true;
+                    m_card_use_list[l.index()].push_back(c->index());
+                }  
+            }
+        }
+        for (pb* p : m_pbs) {
+            if (p) {
+                if (p->lit() != null_literal) {
+                    m_card_use_list[p->lit().index()].push_back(p->index());
+                    m_card_use_list[(~p->lit()).index()].push_back(p->index());
+                    for (wliteral wl : *p) m_card_use_list[(~wl.second).index()].push_back(p->index());
+                }
+                for (wliteral wl : *p) {
+                    literal l = wl.second;
+                    m_var_used[l.var()] = true; 
+                    m_card_use_list[l.index()].push_back(p->index());
+                }
+            }
+        }
+        for (xor* x : m_xors) {
+            if (x) {
+                m_card_use_list[x->lit().index()].push_back(x->index());
+                m_card_use_list[(~x->lit()).index()].push_back(x->index());
+                m_var_used[x->lit().var()] = true;
+                for (literal l : *x) {
+                    m_var_used[l.var()] = true;
+                    m_card_use_list[l.index()].push_back(x->index());
+                    m_card_use_list[(~l).index()].push_back(x->index());
+                }
+            }
+        }
         for (card* c : m_cards) {
-            if (c && c->lit() != null_literal && !var_used[c->lit().var()] && use_list.get(c->lit()).empty() && use_list.get(~c->lit()).empty()) {
+            if (c && c->lit() != null_literal && 
+                !m_var_used[c->lit().var()] && 
+                m_clause_use_list.get(c->lit()).empty() && 
+                m_clause_use_list.get(~c->lit()).empty() &&
+                get_num_non_learned_bin(c->lit()) == 0 && 
+                get_num_non_learned_bin(~c->lit()) == 0) {
                 remove_constraint(*c);
             }
         }
         for (pb* p : m_pbs) {
-            if (p && p->lit() != null_literal && !var_used[p->lit().var()] && use_list.get(p->lit()).empty() && use_list.get(~p->lit()).empty()) {
+            if (p && p->lit() != null_literal && 
+                !m_var_used[p->lit().var()] && 
+                m_clause_use_list.get(p->lit()).empty() && 
+                m_clause_use_list.get(~p->lit()).empty() &&
+                get_num_non_learned_bin(p->lit()) == 0 && 
+                get_num_non_learned_bin(~p->lit()) == 0) {
                 remove_constraint(*p);
             }
         }
         // take ownership of interface variables
-        for (card* c : m_cards) if (c && c->lit() != null_literal) var_used[c->lit().var()] = true;
-        for (pb* p : m_pbs) if (p && p->lit() != null_literal) var_used[p->lit().var()] = true;
+        for (card* c : m_cards) if (c && c->lit() != null_literal) m_var_used[c->lit().var()] = true;
+        for (pb* p : m_pbs) if (p && p->lit() != null_literal) m_var_used[p->lit().var()] = true;
+
         // set variables to be non-external if they are not used in theory constraints.
         unsigned ext = 0;
         for (unsigned v = 0; v < s().num_vars(); ++v) {
-            if (s().is_external(v) && !var_used[v]) {
+            if (s().is_external(v) && !m_var_used[v]) {
                 s().set_non_external(v);
                 ++ext;
             }            
         }
-        std::cout << "non-external variables " << ext << "\n";
 
+        // eliminate pure literals
+        unsigned pure_literals = 0;
+        for (unsigned v = 0; v < s().num_vars(); ++v) {
+            if (!m_var_used[v]) continue;
+            literal lit(v, false);
+            if (!m_card_use_list[lit.index()].empty() && m_card_use_list[(~lit).index()].empty() && m_clause_use_list.get(~lit).empty() && 
+                get_num_non_learned_bin(~lit) == 0) {
+                s().assign(lit, justification());
+                ++pure_literals;
+                continue;
+            }
+            lit.neg();
+            if (!m_card_use_list[lit.index()].empty() && m_card_use_list[(~lit).index()].empty() && m_clause_use_list.get(~lit).empty() && get_num_non_learned_bin(~lit) == 0) {
+                s().assign(lit, justification());
+                ++pure_literals;
+            }
+        }        
+        IF_VERBOSE(10, 
+                   verbose_stream() << "non-external variables converted: " << ext << "\n";
+                   verbose_stream() << "pure literals converted: " << pure_literals << "\n";);
+
+        m_cleanup_clauses = false;
+        for (card* c : m_cards) {
+            if (c && c->k() > 1) {
+                subsumption(*c);
+            }
+        }
+        if (m_cleanup_clauses) {
+            clause_vector::iterator it = s().m_clauses.begin();
+            clause_vector::iterator end = s().m_clauses.end();
+            clause_vector::iterator it2 = it;
+            for (; it != end; ++it) {
+                clause* c = *it;
+                if (c->was_removed()) {
+                    s().detach_clause(*c);
+                    s().del_clause(*c);
+                }
+                else {
+                    if (it2 != it) {
+                        *it2 = *it;
+                    }
+                    ++it2;
+                }
+            }
+            s().m_clauses.set_end(it2);
+        }
+    }
+
+    /*
+      \brief subsumption between two cardinality constraints
+      - A >= k       subsumes A + B >= k' for k' <= k
+      - A + A' >= k  subsumes A + B >= k' for k' + |A'| <= k
+      - A + lit >= k self subsumes A + ~lit + B >= k' into A + B >= k' for k' <= k
+      - TBD: consider version that generalizes self-subsumption to more than one literal
+        A + ~L + B >= k'   =>    A + B >= k'    if A + A' + L >= k and k' + |L| + |A'| <= k
+     */
+    bool card_extension::subsumes(card& c1, card& c2, literal_vector & comp) {
+        if (c2.lit() != null_literal) return false; // perhaps support this?
+
+        unsigned c2_exclusive = 0;
+        unsigned common = 0;
+        comp.empty();
+        for (literal l : c2) {
+            if (is_marked(l)) {
+                ++common;
+            }
+            else if (!is_marked(~l)) {
+                ++c2_exclusive;
+            }
+            else {
+                comp.push_back(l);
+            }
+        }
+
+        unsigned c1_exclusive = c1.size() - common - comp.size();
+
+        return c1_exclusive + c2.k() + comp.size() <= c1.k();
+    }
+
+    bool card_extension::subsumes(card& c1, clause& c2, literal_vector & comp) {
+        unsigned c2_exclusive = 0;
+        unsigned common = 0;
+        comp.reset();
+        for (literal l : c2) {
+            if (is_marked(l)) {
+                ++common;
+            }
+            else if (!is_marked(~l)) {
+                ++c2_exclusive;
+            }
+            else {
+                comp.push_back(l);
+            }
+        }
+
+        if (!comp.empty()) {
+            // self-subsumption is TBD.
+            return false;
+        }
+        unsigned c1_exclusive = c1.size() - common - comp.size();
+        if (c1_exclusive + 1 <= c1.k()) {
+            return true;
+        }
+
+        return false;
+    }
+
+    literal card_extension::get_min_occurrence_literal(card const& c) {
+        unsigned occ_count = UINT_MAX;
+        literal lit = null_literal;
+        for (literal l : c) {
+            unsigned occ_count1 = m_card_use_list[l.index()].size();
+            if (occ_count1 < occ_count) {
+                lit = l;
+                occ_count = occ_count1;
+            }
+        }
+        return lit;
+    }
+
+    void card_extension::subsumption(card& c1) {
+        if (c1.lit() != null_literal) {
+            return;
+        }
+        literal lit = get_min_occurrence_literal(c1);
+        literal_vector slit;
+        // maybe index over (~lit) to catch self-subsumption.
+
+        for (literal l : c1) mark_visited(l);  
+
+        for (unsigned index : m_card_use_list[lit.index()]) {
+            if (!is_card_index(index) || index == c1.index()) {
+                continue;
+            }
+            // c2 could be null
+            card* c = m_cards[index2position(index)];
+            if (!c) continue;
+            card& c2 = *c;
+
+            SASSERT(c1.index() != c2.index());
+            if (subsumes(c1, c2, slit)) {
+                if (slit.empty()) {
+                    TRACE("sat", tout << "subsume cardinality\n" << c1.index() << ":" << c1 << "\n" << c2.index() << ":" << c2 << "\n";);
+                    remove_constraint(c2);
+                }
+                else {
+                    TRACE("sat", tout << "self subsume carinality\n";);
+#if 0
+                    clear_watch(c2);                    
+                    for (unsigned i = 0; i < c2.size(); ++i) {
+                        if (slit == c2[i]) {
+                            c2.swap(i, c2.size() -1);
+                            break;
+                        }
+                    }
+                    c2.update_size(c2.size() - 1);
+                    init_watch(c2, true);
+                    m_simplify_change = true;
+#endif
+                }
+            }
+        }
+        
+        // same for clauses...
+        clause_use_list::iterator it = m_clause_use_list.get(lit).mk_iterator();
+        while (!it.at_end()) {
+            clause& c2 = it.curr();
+            if (!c2.was_removed() && subsumes(c1, c2, slit)) {
+                if (slit.empty()) {
+                    TRACE("sat", tout << "remove\n" << c1 << "\n" << c2 << "\n";);
+                    c2.set_removed(true);
+                    m_cleanup_clauses = true;
+                }
+                else {
+                    // remove literal slit from c2.
+                    TRACE("sat", tout << "TBD remove literals " << slit << " from " << c2 << "\n";);
+                }
+            }            
+            it.next();
+        }
+
+        for (literal l : c1) unmark_visited(l);
     }
 
     void card_extension::clauses_modifed() {}
@@ -1749,6 +2265,7 @@ namespace sat {
 
     void card_extension::copy_card(card_extension& result) {
         for (card* c : m_cards) {
+            if (!c) continue;
             literal_vector lits;
             for (literal l : *c) lits.push_back(l);
             result.add_at_least(c->lit(), lits, c->k());
@@ -1864,10 +2381,10 @@ namespace sat {
 
     std::ostream& card_extension::display(std::ostream& out) const {
         for (card* c : m_cards) {
-            if (c) display(out, *c, false);
+            if (c) out << *c << "\n";
         }
         for (pb* p : m_pbs) {
-            if (p) display(out, *p, false);
+            if (p) out << *p << "\n";
         }
         for (xor* x : m_xors) {
             if (x) display(out, *x, false);
@@ -2092,7 +2609,7 @@ namespace sat {
             unsigned coeff;
             if (coeffs.find(lit.index(), coeff)) {
                 if (coeff > m_C.m_coeffs[i] && m_C.m_coeffs[i] < m_C.m_k) {
-                    std::cout << i << ": " << m_C.m_coeffs[i] << " " << m_C.m_k << "\n";
+                    IF_VERBOSE(0, verbose_stream() << i << ": " << m_C.m_coeffs[i] << " " << m_C.m_k << "\n";);
                     goto violated;
                 }
                 coeffs.remove(lit.index());
@@ -2105,13 +2622,13 @@ namespace sat {
         return true;
 
     violated:
-        display(std::cout, m_A);
-        display(std::cout, m_B);
-        display(std::cout, m_C);
-        u_map<unsigned>::iterator it = coeffs.begin(), end = coeffs.end();
-        for (; it != end; ++it) {
-            std::cout << to_literal(it->m_key) << ": " << it->m_value << "\n";
-        }
+        IF_VERBOSE(0, 
+                   display(verbose_stream(), m_A);
+                   display(verbose_stream(), m_B);
+                   display(verbose_stream(), m_C);
+                   for (auto& e : coeffs) {
+                       verbose_stream() << to_literal(e.m_key) << ": " << e.m_value << "\n";
+                   });
         
         return false;
     }

@@ -394,6 +394,7 @@ namespace sat {
                    << " :flips " << flips                               \
                    << " :noise " << m_noise                             \
                    << " :unsat " << /*m_unsat_stack.size()*/ m_best_unsat               \
+                   << " :constraints " << m_constraints.size()          \
                    << " :time " << (timer.get_seconds() < 0.001 ? 0.0 : timer.get_seconds()) << ")\n";); \
     }
 
@@ -419,7 +420,7 @@ namespace sat {
             }
             total_flips += step;
             PROGRESS(tries, total_flips);
-            if (m_par && tries % 20 == 0) {
+            if (m_par && tries % 1 == 0) {
                 m_par->get_phase(*this);
                 reinit();
             }
@@ -489,7 +490,7 @@ namespace sat {
             result = l_undef;
         }
         IF_VERBOSE(1, verbose_stream() << "(sat-local-search " << result << ")\n";);
-        IF_VERBOSE(2, display(verbose_stream()););
+        IF_VERBOSE(20, display(verbose_stream()););
         return result;
     }
 
@@ -810,7 +811,6 @@ namespace sat {
         constraint const& c = m_constraints[m_unsat_stack[m_rand() % m_unsat_stack.size()]]; // a random unsat constraint
         // Within c, from all slack increasing var, choose the oldest one
         unsigned c_size = c.size();
-        //std::cout << "rd\t";
         for (unsigned i = 0; i < c_size; ++i) {
             bool_var v = c[i].var();
             if (is_true(c[i]) && time_stamp(v) < time_stamp(best_var))

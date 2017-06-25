@@ -354,17 +354,15 @@ namespace sat {
        Otherwise return false
     */
     bool simplifier::subsumes1(clause const & c1, clause const & c2, literal & l) {
-        unsigned sz2 = c2.size();
-        for (unsigned i = 0; i < sz2; i++)
-            mark_visited(c2[i]);
+        for (literal lit : c2) 
+            mark_visited(lit);
 
         bool r = true;
         l = null_literal;
-        unsigned sz1 = c1.size();
-        for (unsigned i = 0; i < sz1; i++) {
-            if (!is_marked(c1[i])) {
-                if (l == null_literal && is_marked(~c1[i])) {
-                    l = ~c1[i];
+        for (literal lit : c1) {
+            if (!is_marked(lit)) {
+                if (l == null_literal && is_marked(~lit)) {
+                    l = ~lit;
                 }
                 else {
                     l = null_literal;
@@ -374,8 +372,8 @@ namespace sat {
             }
         }
 
-        for (unsigned i = 0; i < sz2; i++)
-            unmark_visited(c2[i]);
+        for (literal lit : c2) 
+            unmark_visited(lit);
         return r;
     }
 
@@ -964,40 +962,37 @@ namespace sat {
             if (!process_var(l.var())) {
                 return;
             }
+
+            m_to_remove.reset();
             {
-                m_to_remove.reset();
-                {
-                    clause_use_list & occs = s.m_use_list.get(l);
-                    clause_use_list::iterator it = occs.mk_iterator();
-                    while (!it.at_end()) {
-                        clause & c = it.curr();
-                        m_counter -= c.size();
-                        SASSERT(c.contains(l));
-                        s.mark_all_but(c, l);
-                        if (all_tautology(l)) {
-                            TRACE("blocked_clause", tout << "new blocked clause: " << c << "\n";);
-                            if (new_entry == 0)
-                                new_entry = &(mc.mk(model_converter::BLOCK_LIT, l.var()));
-                            m_to_remove.push_back(&c);
-                            s.m_num_blocked_clauses++;
-                            mc.insert(*new_entry, c);
-                            unsigned sz = c.size();
-                            for (unsigned i = 0; i < sz; i++) {
-                                literal lit = c[i];
-                                if (lit != l && process_var(lit.var())) {
-                                    m_queue.decreased(~lit);
-                                }
+                clause_use_list & occs = s.m_use_list.get(l);
+                clause_use_list::iterator it = occs.mk_iterator();
+                while (!it.at_end()) {
+                    clause & c = it.curr();
+                    m_counter -= c.size();
+                    SASSERT(c.contains(l));
+                    s.mark_all_but(c, l);
+                    if (all_tautology(l)) {
+                        TRACE("blocked_clause", tout << "new blocked clause: " << c << "\n";);
+                        if (new_entry == 0)
+                            new_entry = &(mc.mk(model_converter::BLOCK_LIT, l.var()));
+                        m_to_remove.push_back(&c);
+                        s.m_num_blocked_clauses++;
+                        mc.insert(*new_entry, c);
+                        unsigned sz = c.size();
+                        for (unsigned i = 0; i < sz; i++) {
+                            literal lit = c[i];
+                            if (lit != l && process_var(lit.var())) {
+                                m_queue.decreased(~lit);
                             }
                         }
-                        s.unmark_all(c);
-                        it.next();
                     }
-                }
-                clause_vector::iterator it  = m_to_remove.begin();
-                clause_vector::iterator end = m_to_remove.end();
-                for (; it != end; ++it) {
-                    s.remove_clause(*(*it));
-                }
+                    s.unmark_all(c);
+                    it.next();
+                    }
+            }
+            for (clause* c : m_to_remove) {
+                s.remove_clause(*c);
             }
             {
                 watch_list & wlist = s.get_wlist(~l);

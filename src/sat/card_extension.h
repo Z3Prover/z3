@@ -59,6 +59,7 @@ namespace sat {
             unsigned index() const { return m_index; }
             literal lit() const { return m_lit; }
             literal operator[](unsigned i) const { return m_lits[i]; }
+            literal& operator[](unsigned i) { return m_lits[i]; }
             literal const* begin() const { return m_lits; }
             literal const* end() const { return static_cast<literal const*>(m_lits) + m_size; }
             unsigned k() const { return m_k; }
@@ -67,9 +68,12 @@ namespace sat {
             void negate();                     
             void update_size(unsigned sz) { SASSERT(sz <= m_size); m_size = sz; }
             void update_k(unsigned k) { m_k = k; }
+            void update_literal(literal l) { m_lit = l; }
             void nullify_literal() { m_lit = null_literal; }
-            literal_vector literals() const { return literal_vector(m_size, m_lits); }
+            literal_vector literals() const { return literal_vector(m_size, m_lits); }            
         };
+
+        friend std::ostream& operator<<(std::ostream& out, card const& c);
         
         typedef std::pair<unsigned, literal> wliteral;
 
@@ -89,6 +93,7 @@ namespace sat {
             unsigned index() const { return m_index; }
             literal lit() const { return m_lit; }
             wliteral operator[](unsigned i) const { return m_wlits[i]; }
+            wliteral& operator[](unsigned i) { return m_wlits[i]; }
             wliteral const* begin() const { return m_wlits; }
             wliteral const* end() const { return static_cast<wliteral const*>(m_wlits) + m_size; }
 
@@ -102,10 +107,13 @@ namespace sat {
             void swap(unsigned i, unsigned j) { std::swap(m_wlits[i], m_wlits[j]); }
             void negate();                       
             void update_size(unsigned sz) { m_size = sz; update_max_sum(); }
-            void update_k(unsigned k) { m_k = k; }            
+            void update_k(unsigned k) { m_k = k; }
+            void update_literal(literal l) { m_lit = l; }            
             void nullify_literal() { m_lit = null_literal; }
             literal_vector literals() const { literal_vector lits; for (auto wl : *this) lits.push_back(wl.second); return lits; }
         };
+
+        friend std::ostream& operator<<(std::ostream& out, pb const& p);
 
         class xor {
             unsigned       m_index;
@@ -168,8 +176,26 @@ namespace sat {
         void clear_index_trail_back();
 
         solver& s() const { return *m_solver; }
+        
+        // simplification routines
 
+        svector<bool>             m_visited;
+        vector<svector<unsigned>> m_card_use_list;
+        use_list                  m_clause_use_list;
+        svector<bool>             m_var_used;
+        bool                      m_simplify_change;
+        bool                      m_cleanup_clauses;
+        literal_vector            m_roots;
+        unsigned_vector           m_count;
         void gc();
+        bool subsumes(card& c1, card& c2, literal_vector& comp);
+        bool subsumes(card& c1, clause& c2, literal_vector& comp);
+        void mark_visited(literal l) { m_visited[l.index()] = true; }
+        void unmark_visited(literal l) { m_visited[l.index()] = false; }
+        bool is_marked(literal l) const { return m_visited[l.index()] != 0; }
+        unsigned get_num_non_learned_bin(literal l);
+        literal get_min_occurrence_literal(card const& c);
+        void subsumption(card& c1);
 
         // cardinality
         void init_watch(card& c);
@@ -189,6 +215,8 @@ namespace sat {
         void nullify_tracking_literal(card& c);
         void remove_constraint(card& c);
         void unit_propagation_simplification(literal lit, literal_vector const& lits);
+        void flush_roots(card& c);
+        void recompile(card& c);
 
         // xor specific functionality
         void copy_xor(card_extension& result);
@@ -203,6 +231,7 @@ namespace sat {
         void get_xor_antecedents(literal l, unsigned index, justification js, literal_vector& r);
         void get_xor_antecedents(literal l, xor const& x, literal_vector & r);
         void simplify(xor& x);
+        void flush_roots(xor& x);
 
 
         bool is_card_index(unsigned idx) const { return 0x0 == (idx & 0x3); }
@@ -231,6 +260,8 @@ namespace sat {
         bool is_cardinality(pb const& p);
         void nullify_tracking_literal(pb& p);
         void remove_constraint(pb& p);
+        void flush_roots(pb& p);
+        void recompile(pb& p);
 
         inline lbool value(literal lit) const { return m_lookahead ? m_lookahead->value(lit) : m_solver->value(lit); }
         inline unsigned lvl(literal lit) const { return m_solver->lvl(lit); }
@@ -301,6 +332,8 @@ namespace sat {
         virtual void simplify();
         virtual void clauses_modifed();
         virtual lbool get_phase(bool_var v);
+        virtual bool set_root(literal l, literal r);
+        virtual void flush_roots();
         virtual std::ostream& display(std::ostream& out) const;
         virtual std::ostream& display_justification(std::ostream& out, ext_justification_idx idx) const;
         virtual void collect_statistics(statistics& st) const;
