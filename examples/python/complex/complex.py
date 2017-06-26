@@ -6,6 +6,10 @@
 #
 # Author: Leonardo de Moura (leonardo)
 ############################################
+from __future__ import print_function
+import sys
+if sys.version_info.major >= 3:
+    from functools import reduce
 from z3 import *
 
 def _to_complex(a):
@@ -53,7 +57,7 @@ class ComplexExpr:
             return self
         if k < 0:
             return (self ** (-k)).inv()
-        return reduce(lambda x, y: x * y, [self for _ in xrange(k)], ComplexExpr(1, 0))
+        return reduce(lambda x, y: x * y, [self for _ in range(k)], ComplexExpr(1, 0))
 
     def inv(self):
         den = self.r*self.r + self.i*self.i
@@ -62,6 +66,12 @@ class ComplexExpr:
     def __div__(self, other):
         inv_other = _to_complex(other).inv()
         return self.__mul__(inv_other)
+
+    if sys.version_info.major >= 3:
+      # In python 3 the meaning of the '/' operator
+      # was changed.
+      def __truediv__(self, other):
+        return self.__div__(other)
 
     def __rdiv__(self, other):
         other = _to_complex(other)
@@ -113,5 +123,5 @@ print(s.model())
 s.add(x.i != 1)
 print(s.check())
 # print(s.model())
-print ((3 + I) ** 2)/(5 - I)
-print ((3 + I) ** -3)/(5 - I)
+print(((3 + I) ** 2)/(5 - I))
+print(((3 + I) ** -3)/(5 - I))

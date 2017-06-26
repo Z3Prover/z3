@@ -4,7 +4,7 @@
 # adjacent entries fall in the range 0,..,n-1
 # This is known as the "The All-Interval Series Problem"
 # See http://www.csplib.org/Problems/prob007/
-
+from __future__ import print_function
 from z3 import *
 import time
 
@@ -56,7 +56,7 @@ def process_model(s, xij, n):
                block += [xij[i][j]]
                k = j
         values += [k]
-    print values
+    print(values)
     sys.stdout.flush()
     return block
 
@@ -68,9 +68,9 @@ def all_models(n):
         block = process_model(s, xij, n)
         s.add(Not(And(block)))
         count += 1
-    print s.statistics()
-    print time.clock() - start
-    print count
+    print(s.statistics())
+    print(time.clock() - start)
+    print(count)
 
 set_option(verbose=1)  
 all_models(12)
