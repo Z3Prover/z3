@@ -45,11 +45,6 @@ def enumerate_sets(solver):
         else:
            break
 
-class CompareSetSize():
-   def __call__(self, s1, s2):
-       return len(s1) < len(s2) 
-
-
 class MSSSolver:
    s = Solver()
    varcache = {}
@@ -157,7 +152,7 @@ class MSSSolver:
        mcs = [x for x in self.orig_soft_vars if not is_true(self.model[x])]
        self.s.add(Or(mcs))
        core_literals = set([])
-       cores.sort(CompareSetSize()) 
+       cores.sort(key=lambda element: len(element))
        for core in cores:
            if len(core & core_literals) == 0:
               self.relax_core(core)

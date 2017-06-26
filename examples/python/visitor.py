@@ -1,5 +1,5 @@
 # Copyright (c) Microsoft Corporation 2015
-
+from __future__ import print_function
 from z3 import *
 
 def visitor(e, seen):
@@ -22,8 +22,8 @@ fml = x + x + y > 2
 seen = {}
 for e in visitor(fml, seen):
     if is_const(e) and e.decl().kind() == Z3_OP_UNINTERPRETED:
-        print "Variable", e
+        print("Variable", e)
     else:
-        print e
+        print(e)
     
 
