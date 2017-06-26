@@ -196,6 +196,7 @@ void pb_rewriter::dump_pb_rewrite(expr* fml) {
 }
 
 br_status pb_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
+    if (m_util.is_aux_bool(f)) return BR_FAILED;
     ast_manager& m = result.get_manager();
     rational sum(0), maxsum(0);
     for (unsigned i = 0; i < num_args; ++i) {
