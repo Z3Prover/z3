@@ -23,6 +23,22 @@ ExternalProject_Add(c_example
 )
 set_target_properties(c_example PROPERTIES EXCLUDE_FROM_ALL TRUE)
 
+################################################################################
+# Build maxsat example project using libz3's C API as an external project
+################################################################################
+ExternalProject_Add(c_maxsat_example
+  DEPENDS libz3
+  # Configure step
+  SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/maxsat"
+  CMAKE_ARGS "-DZ3_DIR=${CMAKE_BINARY_DIR}"
+  # Build step
+  ${EXTERNAL_PROJECT_BUILD_ALWAYS_ARG}
+  BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/c_maxsat_example_build_dir"
+  # Install Step
+  INSTALL_COMMAND "${CMAKE_COMMAND}" -E echo "" # Dummy command
+)
+set_target_properties(c_maxsat_example PROPERTIES EXCLUDE_FROM_ALL TRUE)
+
 
 ################################################################################
 # Build example project using libz3's C++ API as an external project
