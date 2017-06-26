@@ -1139,6 +1139,7 @@ lp_primal_core_solver<T, X>::get_infeasibility_cost_for_column(unsigned j) const
         break;
     default:
         lean_assert(false);
+        ret = numeric_traits<T>::zero(); // does not matter
         break;
     }
     
