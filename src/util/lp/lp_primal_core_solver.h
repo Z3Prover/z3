@@ -460,6 +460,7 @@ public:
             break;
         default:
             lean_assert(false);
+            new_val_for_leaving = numeric_traits<T>::zero(); // does not matter
         }
         return j;
     }
