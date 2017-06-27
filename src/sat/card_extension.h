@@ -41,6 +41,9 @@ namespace sat {
             unsigned m_num_pb_propagations;
             unsigned m_num_pb_conflicts;
             unsigned m_num_pb_resolves;
+            unsigned m_num_bin_subsumes;
+            unsigned m_num_clause_subsumes;
+            unsigned m_num_card_subsumes;
             stats() { reset(); }
             void reset() { memset(this, 0, sizeof(*this)); }
         };
@@ -190,6 +193,10 @@ namespace sat {
         void gc();
         bool subsumes(card& c1, card& c2, literal_vector& comp);
         bool subsumes(card& c1, clause& c2, literal_vector& comp);
+        bool subsumed(card& c1, literal l1, literal l2);
+        void binary_subsumption(card& c1, literal lit);
+        void clause_subsumption(card& c1, literal lit);
+        void card_subsumption(card& c1, literal lit);
         void mark_visited(literal l) { m_visited[l.index()] = true; }
         void unmark_visited(literal l) { m_visited[l.index()] = false; }
         bool is_marked(literal l) const { return m_visited[l.index()] != 0; }

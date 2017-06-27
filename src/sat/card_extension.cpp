@@ -2097,11 +2097,17 @@ namespace sat {
                    verbose_stream() << "pure literals converted: " << pure_literals << "\n";);
 
         m_cleanup_clauses = false;
+        unsigned bin_sub = m_stats.m_num_bin_subsumes;
+        unsigned clause_sub = m_stats.m_num_clause_subsumes;
+        unsigned card_sub = m_stats.m_num_card_subsumes;
         for (card* c : m_cards) {
             if (c && c->k() > 1) {
                 subsumption(*c);
             }
         }
+        IF_VERBOSE(1, verbose_stream() << "binary subsumes: " << m_stats.m_num_bin_subsumes - bin_sub << "\n";);
+        IF_VERBOSE(1, verbose_stream() << "clause subsumes: " << m_stats.m_num_clause_subsumes - clause_sub << "\n";);
+        IF_VERBOSE(1, verbose_stream() << "card subsumes: " << m_stats.m_num_card_subsumes - card_sub << "\n";);
         if (m_cleanup_clauses) {
             clause_vector::iterator it = s().m_clauses.begin();
             clause_vector::iterator end = s().m_clauses.end();
@@ -2195,16 +2201,8 @@ namespace sat {
         return lit;
     }
 
-    void card_extension::subsumption(card& c1) {
-        if (c1.lit() != null_literal) {
-            return;
-        }
-        literal lit = get_min_occurrence_literal(c1);
+    void card_extension::card_subsumption(card& c1, literal lit) {
         literal_vector slit;
-        // maybe index over (~lit) to catch self-subsumption.
-
-        for (literal l : c1) mark_visited(l);  
-
         for (unsigned index : m_card_use_list[lit.index()]) {
             if (!is_card_index(index) || index == c1.index()) {
                 continue;
@@ -2219,9 +2217,11 @@ namespace sat {
                 if (slit.empty()) {
                     TRACE("sat", tout << "subsume cardinality\n" << c1.index() << ":" << c1 << "\n" << c2.index() << ":" << c2 << "\n";);
                     remove_constraint(c2);
+                    ++m_stats.m_num_card_subsumes;
                 }
                 else {
                     TRACE("sat", tout << "self subsume carinality\n";);
+                    IF_VERBOSE(0, verbose_stream() << "self-subsume cardinality is TBD\n";);
 #if 0
                     clear_watch(c2);                    
                     for (unsigned i = 0; i < c2.size(); ++i) {
@@ -2237,25 +2237,65 @@ namespace sat {
                 }
             }
         }
-        
-        // same for clauses...
+    }
+
+    void card_extension::clause_subsumption(card& c1, literal lit) {
+        literal_vector slit;
         clause_use_list::iterator it = m_clause_use_list.get(lit).mk_iterator();
         while (!it.at_end()) {
             clause& c2 = it.curr();
             if (!c2.was_removed() && subsumes(c1, c2, slit)) {
                 if (slit.empty()) {
                     TRACE("sat", tout << "remove\n" << c1 << "\n" << c2 << "\n";);
-                    c2.set_removed(true);
-                    m_cleanup_clauses = true;
+                    //c2.set_removed(true);
+                    //m_cleanup_clauses = true;
+                    ++m_stats.m_num_clause_subsumes;
                 }
                 else {
+                    IF_VERBOSE(0, verbose_stream() << "self-subsume clause is TBD\n";);
                     // remove literal slit from c2.
                     TRACE("sat", tout << "TBD remove literals " << slit << " from " << c2 << "\n";);
                 }
             }            
             it.next();
         }
+    }
 
+    void card_extension::binary_subsumption(card& c1, literal lit) {
+        SASSERT(is_marked(lit));
+        watch_list & wlist = get_wlist(~lit);
+        watch_list::iterator it = wlist.begin();
+        watch_list::iterator it2 = it;
+        watch_list::iterator end = wlist.end();
+        for (; it != end; ++it) {
+            watched w = *it;
+            if (w.is_binary_clause() && is_marked(w.get_literal())) {
+                ++m_stats.m_num_bin_subsumes;
+                IF_VERBOSE(10, verbose_stream() << c1 << " subsumes (" << lit << " " << w.get_literal() << ")\n";);
+            }
+            else {
+                if (it != it2) {
+                    *it2 = *it;
+                }
+                ++it2;
+            }
+        }
+        if (it != it2) {
+            wlist.set_end(it2);
+        }
+    }
+
+    void card_extension::subsumption(card& c1) {
+        if (c1.lit() != null_literal) {
+            return;
+        }
+        for (literal l : c1) mark_visited(l);  
+        for (unsigned i = 0; i < std::min(c1.size(), c1.k() + 1); ++i) {
+            literal lit = c1[i];
+            card_subsumption(c1, lit);
+            clause_subsumption(c1, lit);
+            binary_subsumption(c1, lit);                   
+        }
         for (literal l : c1) unmark_visited(l);
     }
 
