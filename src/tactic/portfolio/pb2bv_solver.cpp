@@ -49,7 +49,7 @@ public:
     virtual ~pb2bv_solver() {}
 
     virtual solver* translate(ast_manager& m, params_ref const& p) {
-
+        flush_assertions();
         return alloc(pb2bv_solver, m, p, m_solver->translate(m, p));
     }
     

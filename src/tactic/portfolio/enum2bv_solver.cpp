@@ -50,7 +50,7 @@ public:
 
     virtual ~enum2bv_solver() {}
 
-    virtual solver* translate(ast_manager& m, params_ref const& p) {
+    virtual solver* translate(ast_manager& m, params_ref const& p) {        
         return alloc(enum2bv_solver, m, p, m_solver->translate(m, p));
     }
     

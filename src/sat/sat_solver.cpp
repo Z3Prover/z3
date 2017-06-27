@@ -1415,10 +1415,16 @@ namespace sat {
         }
 
         if (m_config.m_lookahead_simplify) {
-            lookahead lh(*this);
-            lh.simplify();
-            lh.scc();
-            lh.collect_statistics(m_aux_stats);
+            {
+                lookahead lh(*this);
+                lh.simplify();
+                lh.collect_statistics(m_aux_stats);
+            }
+            {
+                lookahead lh(*this);
+                lh.scc();
+                lh.collect_statistics(m_aux_stats);
+            }
         }
 
         sort_watch_lits();
@@ -1450,7 +1456,7 @@ namespace sat {
                 m_next_simplify = m_conflicts_since_init + m_config.m_simplify_max;
         }
 
-#if 1
+#if 0
         static unsigned file_no = 0;
         #pragma omp critical (print_sat)
         {

@@ -162,7 +162,7 @@ namespace sat {
         for (unsigned i = 0; i < sz; ++i) 
             e.m_clauses.push_back(c[i]);
         e.m_clauses.push_back(null_literal);
-        TRACE("sat_mc_bug", tout << "adding (wrapper): "; for (literal l : c) tout << l << " "; tout << "\n";);
+        // TRACE("sat_mc_bug", tout << "adding (wrapper): "; for (literal l : c) tout << l << " "; tout << "\n";);
     }
 
     bool model_converter::check_invariant(unsigned num_vars) const {

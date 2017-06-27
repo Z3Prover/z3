@@ -1734,11 +1734,14 @@ namespace sat {
         }        
         IF_VERBOSE(1, verbose_stream() << "(sat-lookahead :units " << num_units << ")\n";);
          
-        if (num_units > 0 && !m_s.inconsistent()) {
+        if (m_s.inconsistent()) return;
+
+        if (num_units > 0) {
             m_s.propagate_core(false);
             m_s.m_simplifier(false);
         }
         m_lookahead.reset();
+        
     }
 
     //

@@ -73,8 +73,17 @@ public:
         }
     }
 
-    virtual solver* translate(ast_manager& m, params_ref const& p) {
-        return alloc(bounded_int2bv_solver, m, p, m_solver->translate(m, p));
+    virtual solver* translate(ast_manager& dst_m, params_ref const& p) {
+        flush_assertions();
+        bounded_int2bv_solver* result = alloc(bounded_int2bv_solver, dst_m, p, m_solver->translate(dst_m, p));
+        ast_translation tr(m, dst_m);
+        for (auto& kv : m_int2bv) result->m_int2bv.insert(tr(kv.m_key), tr(kv.m_value));        
+        for (auto& kv : m_bv2int) result->m_bv2int.insert(tr(kv.m_key), tr(kv.m_value));
+        for (auto& kv : m_bv2offset) result->m_bv2offset.insert(tr(kv.m_key), kv.m_value);
+        for (func_decl* f : m_bv_fns) result->m_bv_fns.push_back(tr(f));
+        for (func_decl* f : m_int_fns) result->m_int_fns.push_back(tr(f));
+        for (bound_manager* b : m_bounds) result->m_bounds.push_back(b->translate(dst_m));
+        return result;
     }
 
     virtual void assert_expr(expr * t) {

@@ -281,106 +281,109 @@ namespace sat {
             for (unsigned i = 0; i < num_watch; ++i) {
                 watch_literal(p, p[i]);
             }
-            p.set_slack(slack);
-            p.set_num_watch(num_watch);
-        }
-        TRACE("sat", display(tout << "init watch: ", p, true););
-    }
+p.set_slack(slack);
+p.set_num_watch(num_watch);
+		}
+		TRACE("sat", display(tout << "init watch: ", p, true););
+	}
 
-    /*
-      Chai Kuhlmann:
-      Lw - set of watched literals
-      Lu - set of unwatched literals that are not false
-      
-      Lw = Lw \ { alit }
-      Sw -= value
-      a_max = max { a | l in Lw u Lu, l = undef }
-      while (Sw < k + a_max & Lu != 0) {
-          a_s = max { a | l in Lu }
-          Sw += a_s
-          Lw = Lw u {l_s}
-          Lu = Lu \ {l_s}
-      }
-      if (Sw < k) conflict
-      while (Sw < k + a_max) {
-          assign (l_max)
-          a_max = max { ai | li in Lw, li = undef }
-      }
-      ASSERT(Sw >= bound)
-      return no-conflict
+	/*
+	  Chai Kuhlmann:
+	  Lw - set of watched literals
+	  Lu - set of unwatched literals that are not false
 
-      a_max index: index of non-false literal with maximal weight.
-      
-        
-    */
-    void card_extension::add_index(pb& p, unsigned index, literal lit) {
-        if (value(lit) == l_undef) {
-            m_pb_undef.push_back(index);
-            if (p[index].first > m_a_max) {
-                m_a_max = p[index].first;
-            }
-        }
-    }
+	  Lw = Lw \ { alit }
+	  Sw -= value
+	  a_max = max { a | l in Lw u Lu, l = undef }
+	  while (Sw < k + a_max & Lu != 0) {
+		  a_s = max { a | l in Lu }
+		  Sw += a_s
+		  Lw = Lw u {l_s}
+		  Lu = Lu \ {l_s}
+	  }
+	  if (Sw < k) conflict
+	  while (Sw < k + a_max) {
+		  assign (l_max)
+		  a_max = max { ai | li in Lw, li = undef }
+	  }
+	  ASSERT(Sw >= bound)
+	  return no-conflict
 
-    lbool card_extension::add_assign(pb& p, literal alit) {
+	  a_max index: index of non-false literal with maximal weight.
 
-        TRACE("sat", display(tout << "assign: " << alit << "\n", p, true););
-        SASSERT(!inconsistent());
-        unsigned sz = p.size();
-        unsigned bound = p.k();
-        unsigned num_watch = p.num_watch();
-        unsigned slack = p.slack();
-        SASSERT(value(alit) == l_false);
-        SASSERT(p.lit() == null_literal || value(p.lit()) == l_true);
-        SASSERT(num_watch <= sz);
-        SASSERT(num_watch > 0);
-        unsigned index = 0;
-        m_a_max = 0;        
-        m_pb_undef.reset();
-        for (; index < num_watch; ++index) {
-            literal lit = p[index].second;
-            if (lit == alit) {
-                break;
-            }
-            add_index(p, index, lit);
-        }
-        SASSERT(index < num_watch);
 
-        unsigned index1 = index + 1;
-        for (; m_a_max == 0 && index1 < num_watch; ++index1) {
-            add_index(p, index1, p[index1].second);
-        }
+	*/
+	void card_extension::add_index(pb& p, unsigned index, literal lit) {
+		if (value(lit) == l_undef) {
+			m_pb_undef.push_back(index);
+			if (p[index].first > m_a_max) {
+				m_a_max = p[index].first;
+			}
+		}
+	}
 
-        unsigned val = p[index].first;
-        SASSERT(value(p[index].second) == l_false);
-        SASSERT(val <= slack);
-        slack -= val;
-        // find literals to swap with:            
-        for (unsigned j = num_watch; j < sz && slack < bound + m_a_max; ++j) {
-            literal lit = p[j].second;
-            if (value(lit) != l_false) {
-                slack += p[j].first;
-                watch_literal(p, p[j]);
-                p.swap(num_watch, j);
-                add_index(p, num_watch, lit);
-                ++num_watch;
-            }
-        }
+	lbool card_extension::add_assign(pb& p, literal alit) {
 
-        SASSERT(!inconsistent());
-        DEBUG_CODE(for (auto idx : m_pb_undef) { SASSERT(value(p[idx].second) == l_undef); });
+		TRACE("sat", display(tout << "assign: " << alit << "\n", p, true););
+		SASSERT(!inconsistent());
+		unsigned sz = p.size();
+		unsigned bound = p.k();
+		unsigned num_watch = p.num_watch();
+		unsigned slack = p.slack();
+		SASSERT(value(alit) == l_false);
+		SASSERT(p.lit() == null_literal || value(p.lit()) == l_true);
+		SASSERT(num_watch <= sz);
+		SASSERT(num_watch > 0);
+		unsigned index = 0;
+		m_a_max = 0;
+		m_pb_undef.reset();
+		for (; index < num_watch; ++index) {
+			literal lit = p[index].second;
+			if (lit == alit) {
+				break;
+			}
+			add_index(p, index, lit);
+		}
+		SASSERT(index < num_watch);
 
-        if (slack < bound) {
-            // maintain watching the literal
-            slack += val;
-            p.set_slack(slack);
-            p.set_num_watch(num_watch);
-            SASSERT(bound <= slack);
-            TRACE("sat", tout << "conflict " << alit << "\n";);
-            set_conflict(p, alit);
-            return l_false;
-        }
+		unsigned index1 = index + 1;
+		for (; m_a_max == 0 && index1 < num_watch; ++index1) {
+			add_index(p, index1, p[index1].second);
+		}
 
+		unsigned val = p[index].first;
+		SASSERT(value(p[index].second) == l_false);
+		SASSERT(val <= slack);
+		slack -= val;
+		// find literals to swap with:            
+		for (unsigned j = num_watch; j < sz && slack < bound + m_a_max; ++j) {
+			literal lit = p[j].second;
+			if (value(lit) != l_false) {
+				slack += p[j].first;
+				watch_literal(p, p[j]);
+				p.swap(num_watch, j);
+				add_index(p, num_watch, lit);
+				++num_watch;
+			}
+		}
+
+		SASSERT(!inconsistent());
+		DEBUG_CODE(for (auto idx : m_pb_undef) { SASSERT(value(p[idx].second) == l_undef); });
+
+		if (slack < bound) {
+			// maintain watching the literal
+			slack += val;
+			p.set_slack(slack);
+			p.set_num_watch(num_watch);
+			SASSERT(bound <= slack);
+			TRACE("sat", tout << "conflict " << alit << "\n";);
+			set_conflict(p, alit);
+			return l_false;
+		}
+
+		if (index > p.size() || num_watch > p.size()) {
+ 		     std::cout << "size: " << p.size() << "index: " << index << " num watch: " << num_watch << "\n";
+		}
         // swap out the watched literal.
         --num_watch;
         SASSERT(num_watch > 0);
@@ -1711,6 +1714,7 @@ namespace sat {
     }
 
     void card_extension::simplify() {
+        return;
         s().pop_to_base_level();
         unsigned trail_sz;
         do {
