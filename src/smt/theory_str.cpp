@@ -21,14 +21,13 @@
 #include"ast_pp.h"
 #include"ast_ll_pp.h"
 #include<list>
-#include<vector>
 #include<algorithm>
 #include"theory_seq_empty.h"
 #include"theory_arith.h"
 #include"ast_util.h"
 
 namespace smt {
-    
+
     theory_str::theory_str(ast_manager & m, theory_str_params const & params):
         theory(m.mk_family_id("seq")),
         m_params(params),
@@ -99,7 +98,7 @@ namespace smt {
         if (defaultCharset) {
             // valid C strings can't contain the null byte ('\0')
             charSetSize = 255;
-            char_set.resize(256, 0);            
+            char_set.resize(256, 0);
             int idx = 0;
             // small letters
             for (int i = 97; i < 123; i++) {
@@ -9217,8 +9216,8 @@ namespace smt {
             coverAll = get_next_val_encode(val_range_map[lastestValIndi], base);
         }
 
-        long long l = (tries) * distance;
-        long long h = l;
+        size_t l = (tries) * distance;
+        size_t h = l;
         for (int i = 0; i < distance; i++) {
             if (coverAll)
                 break;
@@ -9239,10 +9238,10 @@ namespace smt {
               );
 
         // ----------------------------------------------------------------------------------------
-        
+
         expr_ref_vector orList(m), andList(m);
 
-        for (long long i = l; i < h; i++) {
+        for (size_t i = l; i < h; i++) {
             orList.push_back(m.mk_eq(val_indicator, mk_string(longlong_to_string(i).c_str()) ));
             if (m_params.m_AggressiveValueTesting) {
                 literal lit = mk_eq(val_indicator, mk_string(longlong_to_string(i).c_str()), false);
