@@ -444,6 +444,7 @@ public:
     void init_lu();
     int pivots_in_column_and_row_are_different(int entering, int leaving) const;
     void pivot_fixed_vars_from_basis();
+    bool pivot_column_general(unsigned j, unsigned j_basic, indexed_vector<T> & w);
     bool pivot_for_tableau_on_basis();
     bool pivot_row_for_tableau_on_basis(unsigned row);
     void init_basic_part_of_basis_heading() {
@@ -583,8 +584,8 @@ public:
         default:
             SASSERT(false);
         }
-        std::cout << "basis heading = " << m_basis_heading[j] << std::endl;
-        std::cout << "x = " << m_x[j] << std::endl;
+        out << "basis heading = " << m_basis_heading[j] << std::endl;
+        out << "x = " << m_x[j] << std::endl;
         /*
         std::cout << "cost = " << m_costs[j] << std::endl;
         std:: cout << "m_d = " << m_d[j] << std::endl;*/

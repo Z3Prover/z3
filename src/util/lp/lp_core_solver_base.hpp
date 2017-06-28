@@ -938,7 +938,27 @@ template <typename T, typename X>  void lp_core_solver_base<T, X>::transpose_row
     transpose_basis(i, j);
     m_A.transpose_rows(i, j);
 }
-
+// j is the new basic column, j_basic - the leaving column
+template <typename T, typename X> bool lp_core_solver_base<T, X>::pivot_column_general(unsigned j, unsigned j_basic, indexed_vector<T> & w)  {
+    unsigned row_index = m_basis_heading[j_basic];
+    change_basis(j, j_basic);
+    if (m_settings.m_simplex_strategy == simplex_strategy_enum::lu) {
+        if (m_factorization->need_to_refactor()) {
+            init_lu();
+        } else {
+            m_factorization->prepare_entering(j, w); // to init vector w
+            m_factorization->replace_column(zero_of_type<T>(), w, row_index);
+        }
+        if (m_factorization->get_status() != LU_status::OK) {
+            change_basis(j_basic, j);
+            init_lu();
+            return false;
+        }
+    } else { // the tableau case
+        pivot_column_tableau(j, row_index);
+    }
+    return true;
+}
 template <typename T, typename X>  void lp_core_solver_base<T, X>::pivot_fixed_vars_from_basis() {
     // run over basis and non-basis at the same time
     indexed_vector<T> w(m_basis.size()); // the buffer
@@ -958,23 +978,11 @@ template <typename T, typename X>  void lp_core_solver_base<T, X>::pivot_fixed_v
             if (j >= m_nbasis.size())
                 break;
             j++;
-            if (m_factorization->need_to_refactor()) {
-                change_basis(jj, ii);
-                init_lu();
-            } else {
-                m_factorization->prepare_entering(jj, w); // to init vector w
-                m_factorization->replace_column(zero_of_type<T>(), w, m_basis_heading[ii]);
-                change_basis(jj, ii);
-            }
-            if (m_factorization->get_status() != LU_status::OK) {
-                change_basis(ii, jj);
-                init_lu();
-            } else {
+            if (!pivot_column_general(jj, ii, w))
                 break;
             }
         }
         SASSERT(m_factorization->get_status()== LU_status::OK);
-    }
 }
 
 template <typename T, typename X> bool 

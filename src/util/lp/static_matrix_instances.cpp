@@ -17,7 +17,13 @@ Revision History:
 
 
 --*/
+=======
+/*
+  Copyright (c) 2017 Microsoft Corporation
+  Author: Lev Nachmanson
+*/
 #include <memory>
+#include "util/vector.h"
 #include <set>
 #include <utility>
 #include "util/vector.h"

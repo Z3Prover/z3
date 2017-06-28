@@ -48,7 +48,10 @@ public:
         operator const B&() const {
             return m_vec.m_vector[m_i];
         }
-
+        
+        bool operator==(B const& other) const {
+            return m_vec.m_vector[m_i] == other;
+        }
     };
 
     class ref_const {

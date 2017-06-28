@@ -203,6 +203,11 @@ struct numeric_pair {
     std::string to_string() const {
         return std::string("(") + T_to_string(x) + ", "  + T_to_string(y) + ")";
     }
+
+    bool is_int() const {
+        return x.is_int() && y.is_zero();
+    }
+    
 };
 
 
@@ -328,4 +333,26 @@ struct convert_struct<double, double> {
 template <typename X> bool is_epsilon_small(const X & v, const double &eps) { return convert_struct<X, double>::is_epsilon_small(v, eps);}
 template <typename X> bool below_bound_numeric(const X & x, const X & bound, const double& eps) { return convert_struct<X, double>::below_bound_numeric(x, bound, eps);}
 template <typename X> bool above_bound_numeric(const X & x, const X & bound, const double& eps) { return convert_struct<X, double>::above_bound_numeric(x, bound, eps);}
+template  <typename T>  T floor(const numeric_pair<T> & r) {
+    if (r.x.is_int()) {
+        if (r.y.is_nonneg()) {
+            return r.x;
+        }
+        return r.x - mpq::one();
+    }
+    
+    return floor(r.x);
+}
+
+template <typename T> T ceil(const numeric_pair<T> & r) {
+    if (r.x.is_int()) {
+        if (r.y.is_nonpos()) {
+            return r.x;
+        }
+        return r.x + mpq::one();
+    }
+    
+    return ceil(r.x);
+}
+
 }
