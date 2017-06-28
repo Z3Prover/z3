@@ -348,7 +348,15 @@ void assert_at_most_k(Z3_context ctx, Z3_solver s, unsigned n, Z3_ast * lits, un
 */
 void assert_at_most_one(Z3_context ctx, Z3_solver s, unsigned n, Z3_ast * lits) 
 {
-  assert_at_most_k(ctx, s, n, lits, 1);
+    assert_at_most_k(ctx, s, n, lits, 1);
+}
+
+
+Z3_solver mk_solver(Z3_context ctx)
+{
+    Z3_solver r = Z3_mk_solver(ctx);
+    Z3_solver_inc_ref(ctx, r);
+    return r;
 }
 
 /**
@@ -357,8 +365,7 @@ void assert_at_most_one(Z3_context ctx, Z3_solver s, unsigned n, Z3_ast * lits)
 void tst_at_most_one() 
 {
     Z3_context ctx = mk_context();
-    Z3_solver s = Z3_mk_solver(ctx);
-    Z3_solver_inc_ref(ctx, s);
+    Z3_solver s    = mk_solver(ctx);
     Z3_ast k1      = mk_bool_var(ctx, "k1");
     Z3_ast k2      = mk_bool_var(ctx, "k2");
     Z3_ast k3      = mk_bool_var(ctx, "k3");
@@ -460,7 +467,7 @@ int naive_maxsat(Z3_context ctx, Z3_solver s, unsigned num_hard_cnstrs, Z3_ast *
             printf("unsat\n");
             return num_soft_cnstrs - k - 1;
         }
-	m = Z3_solver_get_model(ctx, s);
+    m = Z3_solver_get_model(ctx, s);
         Z3_model_inc_ref(ctx, m);
         num_disabled = get_num_disabled_soft_constraints(ctx, m, num_soft_cnstrs, aux_vars);
         Z3_model_dec_ref(ctx, m);
@@ -523,7 +530,7 @@ int fu_malik_maxsat_step(Z3_context ctx, Z3_solver s, unsigned num_soft_cnstrs, 
             unsigned j;
             // check whether assumption[i] is in the core or not
             for (j = 0; j < core_size; j++) {
-  	        if (assumptions[i] == Z3_ast_vector_get(ctx, core, j))
+              if (assumptions[i] == Z3_ast_vector_get(ctx, core, j))
                     break;
             }
             if (j < core_size) {
@@ -607,8 +614,7 @@ int smtlib_maxsat(char * file_name, int approach)
     Z3_ast * hard_cnstrs, * soft_cnstrs;
     unsigned result = 0;
     ctx = mk_context();
-    s = Z3_mk_solver(ctx);
-    Z3_solver_inc_ref(ctx, s);
+    s = mk_solver(ctx);
     Z3_parse_smtlib_file(ctx, file_name, 0, 0, 0, 0, 0, 0);
     hard_cnstrs = get_hard_constraints(ctx, &num_hard_cnstrs);
     soft_cnstrs = get_soft_constraints(ctx, &num_soft_cnstrs);
