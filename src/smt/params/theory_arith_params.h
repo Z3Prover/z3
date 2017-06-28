@@ -23,12 +23,13 @@ Revision History:
 #include "util/params.h"
 
 enum arith_solver_id {
-    AS_NO_ARITH,
-    AS_DIFF_LOGIC,
-    AS_ARITH,
-    AS_DENSE_DIFF_LOGIC,
-    AS_UTVPI,
-    AS_OPTINF
+    AS_NO_ARITH,              // 0
+    AS_DIFF_LOGIC,            // 1
+    AS_ARITH,                 // 2
+    AS_DENSE_DIFF_LOGIC,      // 3
+    AS_UTVPI,                 // 4
+    AS_OPTINF,                // 5
+    AS_LRA                    // 6
 };
 
 enum bound_prop_mode {

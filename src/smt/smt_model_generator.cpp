@@ -387,6 +387,7 @@ namespace smt {
             enode * n = *it3;
             if (is_uninterp_const(n->get_owner()) && m_context->is_relevant(n)) {
                 func_decl * d = n->get_owner()->get_decl();
+                TRACE("mg_top_sort", tout << d->get_name() << " " << (m_hidden_ufs.contains(d)?"hidden":"visible") << "\n";);
                 if (m_hidden_ufs.contains(d)) continue;
                 expr * val    = get_value(n);
                 m_model->register_decl(d, val);

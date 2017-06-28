@@ -98,8 +98,8 @@ public:
             loc = one_of_type<T>(); // use as a characteristic function
         } 
     }
-    
 
+    
     void clear();
     void clear_all();
     const T& operator[] (unsigned i) const {

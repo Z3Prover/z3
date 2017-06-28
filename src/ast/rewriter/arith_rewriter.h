@@ -95,6 +95,7 @@ class arith_rewriter : public poly_rewriter<arith_rewriter_core> {
     expr_ref neg_monomial(expr * e) const;
     expr * mk_sin_value(rational const & k);
     app * mk_sqrt(rational const & k);
+    bool divides(expr* d, expr* n, expr_ref& quot);
 
 public:
     arith_rewriter(ast_manager & m, params_ref const & p = params_ref()):

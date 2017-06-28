@@ -35,7 +35,7 @@ void quick_xplain::copy_constraint_and_add_constraint_vars(const lar_constraint&
     vector < std::pair<mpq, unsigned>> ls;
     for (auto & p : lar_c.get_left_side_coefficients()) {
         unsigned j = p.second;
-        unsigned lj = m_qsol.add_var(j);
+        unsigned lj = m_qsol.add_var(j, false);
         ls.push_back(std::make_pair(p.first, lj));
     }
     m_constraints_in_local_vars.push_back(lar_constraint(ls, lar_c.m_kind, lar_c.m_right_side));
@@ -109,7 +109,7 @@ bool quick_xplain::is_feasible(const vector<unsigned> & x, unsigned k) const {
         vector < std::pair<mpq, unsigned>> ls;
         const lar_constraint & c = m_constraints_in_local_vars[i];
         for (auto & p : c.get_left_side_coefficients()) {
-            unsigned lj = l.add_var(p.second);
+            unsigned lj = l.add_var(p.second, false);
             ls.push_back(std::make_pair(p.first, lj));
         }
         l.add_constraint(ls, c.m_kind, c.m_right_side);

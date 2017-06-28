@@ -19,17 +19,16 @@ Notes:
 #ifndef POLYNOMIAL_H_
 #define POLYNOMIAL_H_
 
-#include "util/mpz.h"
-#include "util/rational.h"
-#include "util/obj_ref.h"
-#include "util/ref_vector.h"
-#include "util/z3_exception.h"
-#include "util/scoped_numeral.h"
-#include "util/scoped_numeral_vector.h"
-#include "util/params.h"
-#include "util/mpbqi.h"
-#include "util/rlimit.h"
-#include "util/lbool.h"
+#include"util/mpz.h"
+#include"util/rational.h"
+#include"util/obj_ref.h"
+#include"util/ref_vector.h"
+#include"util/z3_exception.h"
+#include"util/scoped_numeral.h"
+#include"util/scoped_numeral_vector.h"
+#include"util/params.h"
+#include"util/mpbqi.h"
+#include"util/rlimit.h"
 
 class small_object_allocator;
 
