@@ -796,6 +796,37 @@ public:
             return new iterator_on_indexed_vector<mpq>(m_r_solver.m_ed);
         }
     }
+
+    bool column_is_fixed(unsigned j) const {
+        return m_column_types()[j] == column_type::fixed ||
+            ( m_column_types()[j] == column_type::boxed &&
+              m_r_solver.m_low_bounds[j] == m_r_solver.m_upper_bounds[j]);
+    }
+
+    const impq & low_bound(unsigned j) const {
+        lean_assert(m_column_types()[j] == column_type::fixed ||
+                    m_column_types()[j] == column_type::boxed ||
+                    m_column_types()[j] == column_type::low_bound);
+        return m_r_low_bounds[j];
+    }
+
+    const impq & upper_bound(unsigned j) const {
+        lean_assert(m_column_types()[j] == column_type::fixed ||
+                    m_column_types()[j] == column_type::boxed ||
+                    m_column_types()[j] == column_type::upper_bound);
+        return m_r_upper_bounds[j];
+    }
+
     
+    const bool column_is_bounded(unsigned j) const {
+        switch(m_column_types()[j]) {
+        case column_type::fixed:
+        case column_type::boxed:
+            return true;
+        default:
+            return false;
+        }
+    }
+
 };
 }

@@ -35,7 +35,10 @@ Revision History:
 #include "smt/smt_model_generator.h"
 #include "smt/arith_eq_adapter.h"
 #include "util/nat_set.h"
+#include "util/lp/nra_solver.h"
 #include "tactic/filter_model_converter.h"
+#include "math/polynomial/algebraic_numbers.h"
+#include "math/polynomial/polynomial.h"
 
 namespace lp {
     enum bound_kind { lower_t, upper_t };
@@ -87,16 +90,12 @@ namespace lp {
         unsigned m_bounds_propagations;
         unsigned m_num_iterations;
         unsigned m_num_iterations_with_no_progress;
-        unsigned m_num_factorizations;
         unsigned m_need_to_solve_inf;
         unsigned m_fixed_eqs;
         unsigned m_conflicts;
         unsigned m_bound_propagations1;
         unsigned m_bound_propagations2;
         unsigned m_assert_diseq;
-        unsigned m_make_feasible;
-        unsigned m_max_cols;
-        unsigned m_max_rows;
         stats() { reset(); }
         void reset() {
             memset(this, 0, sizeof(*this));
@@ -118,9 +117,6 @@ namespace smt {
             unsigned m_bounds_lim;
             unsigned m_asserted_qhead;            
             unsigned m_asserted_atoms_lim;
-            unsigned m_delayed_terms_lim;
-            unsigned m_delayed_equalities_lim;
-            unsigned m_delayed_defs_lim;
             unsigned m_underspecified_lim;
             unsigned m_var_trail_lim;
             expr*    m_not_handled;
@@ -144,10 +140,10 @@ namespace smt {
         ast_manager&         m;
         theory_arith_params& m_arith_params;
         arith_util           a;
-
         arith_eq_adapter     m_arith_eq_adapter;
+        vector<rational>     m_columns;
+      
 
-        vector<rational>    m_columns;
         // temporary values kept during internalization
         struct internalize_state {
             expr_ref_vector     m_terms;                     
@@ -198,14 +194,6 @@ namespace smt {
         };
        
         typedef vector<std::pair<rational, lean::var_index>> var_coeffs;
-        struct delayed_def {
-            vector<rational>    m_coeffs;
-            svector<theory_var> m_vars;
-            rational            m_coeff;
-            theory_var          m_var;
-            delayed_def(svector<theory_var> const& vars, vector<rational> const& coeffs, rational const& r, theory_var v):
-                m_coeffs(coeffs), m_vars(vars), m_coeff(r), m_var(v) {}
-        };
 
         svector<lean::var_index> m_theory_var2var_index;   // translate from theory variables to lar vars
         svector<theory_var>      m_var_index2theory_var;   // reverse map from lp_solver variables to theory variables  
@@ -224,11 +212,7 @@ namespace smt {
         svector<enode_pair>                           m_equalities;      // asserted rows corresponding to equalities.
         svector<theory_var>                           m_definitions;     // asserted rows corresponding to definitions
 
-        bool                   m_delay_constraints;    // configuration
         svector<delayed_atom>  m_asserted_atoms;        
-        app_ref_vector         m_delayed_terms;        
-        svector<std::pair<theory_var, theory_var>> m_delayed_equalities;
-        vector<delayed_def>    m_delayed_defs;
         expr*                  m_not_handled;
         ptr_vector<app>        m_underspecified;
         unsigned_vector        m_var_trail;
@@ -248,16 +232,36 @@ namespace smt {
 
         unsigned               m_num_conflicts;
 
+        // non-linear arithmetic
+        scoped_ptr<nra::solver> m_nra;
+        bool                    m_use_nra_model;
+        scoped_ptr<scoped_anum> m_a1, m_a2;
+
+        // integer arithmetic
+        scoped_ptr<lean::int_solver> m_lia;
+
 
         struct var_value_eq {
             imp & m_th;
             var_value_eq(imp & th):m_th(th) {}
-            bool operator()(theory_var v1, theory_var v2) const { return m_th.get_ivalue(v1) == m_th.get_ivalue(v2) && m_th.is_int(v1) == m_th.is_int(v2); }
+            bool operator()(theory_var v1, theory_var v2) const { 
+                if (m_th.is_int(v1) != m_th.is_int(v2)) {
+                    return false;
+                }
+                return m_th.is_eq(v1, v2);
+            }
         };
         struct var_value_hash {
             imp & m_th;
             var_value_hash(imp & th):m_th(th) {}
-            unsigned operator()(theory_var v) const { return (unsigned)std::hash<lean::impq>()(m_th.get_ivalue(v)); }
+            unsigned operator()(theory_var v) const { 
+                if (m_th.m_use_nra_model) {
+                    return m_th.is_int(v);
+                }
+                else {
+                    return (unsigned)std::hash<lean::impq>()(m_th.get_ivalue(v)); 
+                }
+            }
         };
         int_hashtable<var_value_hash, var_value_eq>   m_model_eqs;
 
@@ -289,14 +293,25 @@ namespace smt {
             m_solver->settings().bound_propagation() = BP_NONE != propagation_mode();
             m_solver->set_propagate_bounds_on_pivoted_rows_mode(lp.bprop_on_pivoted_rows());
             //m_solver->settings().set_ostream(0);
+            m_lia = alloc(lean::int_solver, m_solver.get());
         }
+
+        void ensure_nra() {
+            if (!m_nra) {
+                m_nra = alloc(nra::solver, *m_solver.get(), m.limit(), ctx().get_params());
+                for (unsigned i = 0; i < m_scopes.size(); ++i) {
+                    m_nra->push();
+                }
+            }
+        }
+
 
         void found_not_handled(expr* n) {
             m_not_handled = n;
             if (is_app(n) && is_underspecified(to_app(n))) {
+                TRACE("arith", tout << "Unhandled: " << mk_pp(n, m) << "\n";);
                 m_underspecified.push_back(to_app(n));
             }
-            TRACE("arith", tout << "Unhandled: " << mk_pp(n, m) << "\n";);
         }
 
         bool is_numeral(expr* term, rational& r) {
@@ -366,6 +381,14 @@ namespace smt {
                     terms[index] = n1;
                     st.terms_to_internalize().push_back(n2);
                 }
+                else if (a.is_mul(n)) {
+                    theory_var v;
+                    internalize_mul(to_app(n), v, r);
+                    coeffs[index] *= r;
+                    coeffs[vars.size()] = coeffs[index];
+                    vars.push_back(v);
+                    ++index;
+                }
                 else if (a.is_numeral(n, r)) {
                     coeff += coeffs[index]*r;
                     ++index;
@@ -415,6 +438,44 @@ namespace smt {
             }
         }
 
+        void internalize_mul(app* t, theory_var& v, rational& r) {
+            SASSERT(a.is_mul(t));
+            bool _has_var = has_var(t);
+            if (!_has_var) {
+                internalize_args(t);
+                mk_enode(t);
+            }
+            r = rational::one();
+            rational r1;
+            v = mk_var(t);
+            svector<lean::var_index> vars;
+            ptr_vector<expr> todo;
+            todo.push_back(t);
+            while (!todo.empty()) {
+                expr* n = todo.back();
+                todo.pop_back();
+                expr* n1, *n2;
+                if (a.is_mul(n, n1, n2)) {
+                    todo.push_back(n1);
+                    todo.push_back(n2);
+                }
+                else if (a.is_numeral(n, r1)) {
+                    r *= r1;
+                }
+                else {
+                    if (!ctx().e_internalized(n)) {
+                        ctx().internalize(n, false);
+                    }
+                    vars.push_back(get_var_index(mk_var(n)));
+                }
+            }
+            TRACE("arith", tout << mk_pp(t, m) << "\n";);
+            if (!_has_var) {
+                ensure_nra();
+                m_nra->add_monomial(get_var_index(v), vars.size(), vars.c_ptr());
+            }
+        }
+
         enode * mk_enode(app * n) {
             if (ctx().e_internalized(n)) {
                 return get_enode(n);
@@ -459,6 +520,14 @@ namespace smt {
             return m_arith_params.m_arith_reflect || is_underspecified(n);          
         }
 
+        bool has_var(expr* n) {
+            if (!ctx().e_internalized(n)) {
+                return false;
+            }
+            enode* e = get_enode(n);
+            return th.is_attached_to_var(e);
+        }
+
         theory_var mk_var(expr* n, bool internalize = true) {
             if (!ctx().e_internalized(n)) {
                 ctx().internalize(n, false);                
@@ -487,7 +556,7 @@ namespace smt {
                 result = m_theory_var2var_index[v];
             }
             if (result == UINT_MAX) {
-                result = m_solver->add_var(v); // TBD: is_int(v);
+                result = m_solver->add_var(v, is_int(v));
                 m_theory_var2var_index.setx(v, result, UINT_MAX);
                 m_var_index2theory_var.setx(result, v, UINT_MAX);
                 m_var_trail.push_back(v);
@@ -548,14 +617,6 @@ namespace smt {
             m_constraint_sources.setx(index, definition_source, null_source);
             m_definitions.setx(index, v, null_theory_var);
             ++m_stats.m_add_rows;
-        }
-
-        void internalize_eq(delayed_def const& d) {
-            scoped_internalize_state st(*this);
-            st.vars().append(d.m_vars);
-            st.coeffs().append(d.m_coeffs);            
-            init_left_side(st);
-            add_def_constraint(m_solver->add_constraint(m_left_side, lean::EQ, -d.m_coeff), d.m_var);
         }
         
         void internalize_eq(theory_var v1, theory_var v2) {                  
@@ -650,15 +711,14 @@ namespace smt {
             a(m), 
             m_arith_eq_adapter(th, ap, a),            
             m_internalize_head(0),
-            m_delay_constraints(false), 
-            m_delayed_terms(m),
             m_not_handled(0),
             m_asserted_qhead(0), 
             m_assume_eq_head(0),
             m_num_conflicts(0),
             m_model_eqs(DEFAULT_HASHTABLE_INITIAL_CAPACITY, var_value_hash(*this), var_value_eq(*this)),
             m_solver(0),
-            m_resource_limit(*this) {
+            m_resource_limit(*this),
+            m_use_nra_model(false) {
         }
         
         ~imp() {
@@ -671,12 +731,8 @@ namespace smt {
         }
         
         bool internalize_atom(app * atom, bool gate_ctx) {
-            if (m_delay_constraints) {
-                return internalize_atom_lazy(atom, gate_ctx);
-            }
-            else {
-                return internalize_atom_strict(atom, gate_ctx);
-            }
+            return internalize_atom_strict(atom, gate_ctx);
+            
         }
 
         bool internalize_atom_strict(app * atom, bool gate_ctx) {
@@ -710,53 +766,10 @@ namespace smt {
             //add_use_lists(b);
             return true;
         }
-
-        bool internalize_atom_lazy(app * atom, bool gate_ctx) {
-            SASSERT(!ctx().b_internalized(atom));
-            bool_var bv = ctx().mk_bool_var(atom);
-            ctx().set_var_theory(bv, get_id());
-            expr* n1, *n2;
-            rational r;
-            lp::bound_kind k;
-            theory_var v = null_theory_var;
-            scoped_internalize_state st(*this);
-            if (a.is_le(atom, n1, n2) && is_numeral(n2, r) && is_app(n1)) {
-                v = internalize_def(to_app(n1), st);
-                k = lp::upper_t;
-            }
-            else if (a.is_ge(atom, n1, n2) && is_numeral(n2, r) && is_app(n1)) {
-                v = internalize_def(to_app(n1), st);
-                k = lp::lower_t;
-            }    
-            else {
-                TRACE("arith", tout << "Could not internalize " << mk_pp(atom, m) << "\n";);
-                found_not_handled(atom);
-                return true;
-            }
-            lp::bound* b = alloc(lp::bound, bv, v, r, k);
-            m_bounds[v].push_back(b);
-            updt_unassigned_bounds(v, +1);
-            m_bounds_trail.push_back(v);
-            m_bool_var2bound.insert(bv, b);
-            TRACE("arith", tout << "Internalized " << mk_pp(atom, m) << "\n";);
-            if (!is_unit_var(st) && m_bounds[v].size() == 1) {
-                m_delayed_defs.push_back(delayed_def(st.vars(), st.coeffs(), st.coeff(), v)); 
-            }
-            return true;
-        }
         
         bool internalize_term(app * term) {
             if (ctx().e_internalized(term) && th.is_attached_to_var(ctx().get_enode(term))) {
                 // skip
-            }
-            else if (m_delay_constraints) {
-                scoped_internalize_state st(*this);
-                linearize_term(term, st);  // ensure that a theory_var was created.
-                SASSERT(ctx().e_internalized(term));
-                if(!th.is_attached_to_var(ctx().get_enode(term))) {
-                    mk_var(term);
-                }
-                m_delayed_terms.push_back(term);
             }
             else {
                 internalize_def(term);
@@ -783,13 +796,8 @@ namespace smt {
         }
 
         void new_eq_eh(theory_var v1, theory_var v2) {
-            if (m_delay_constraints) {
-                m_delayed_equalities.push_back(std::make_pair(v1, v2));
-            }
-            else {
-                // or internalize_eq(v1, v2);
-                m_arith_eq_adapter.new_eq_eh(v1, v2);
-            }
+            // or internalize_eq(v1, v2);
+            m_arith_eq_adapter.new_eq_eh(v1, v2);            
         }
 
         bool use_diseqs() const {
@@ -808,13 +816,11 @@ namespace smt {
             s.m_bounds_lim = m_bounds_trail.size();
             s.m_asserted_qhead = m_asserted_qhead;
             s.m_asserted_atoms_lim = m_asserted_atoms.size();
-            s.m_delayed_terms_lim = m_delayed_terms.size();
-            s.m_delayed_equalities_lim = m_delayed_equalities.size();
-            s.m_delayed_defs_lim = m_delayed_defs.size();
             s.m_not_handled = m_not_handled;
             s.m_underspecified_lim = m_underspecified.size();
             s.m_var_trail_lim = m_var_trail.size();
-            if (!m_delay_constraints) m_solver->push();
+            m_solver->push();
+            if (m_nra) m_nra->push();
         }
 
         void pop_scope_eh(unsigned num_scopes) {
@@ -835,18 +841,16 @@ namespace smt {
                 m_theory_var2var_index[m_var_trail[i]] = UINT_MAX;
             }
             m_asserted_atoms.shrink(m_scopes[old_size].m_asserted_atoms_lim);
-            m_delayed_terms.shrink(m_scopes[old_size].m_delayed_terms_lim);
-            m_delayed_defs.shrink(m_scopes[old_size].m_delayed_defs_lim);
-            m_delayed_equalities.shrink(m_scopes[old_size].m_delayed_equalities_lim);
             m_asserted_qhead = m_scopes[old_size].m_asserted_qhead;
             m_underspecified.shrink(m_scopes[old_size].m_underspecified_lim);
             m_var_trail.shrink(m_scopes[old_size].m_var_trail_lim);
             m_not_handled = m_scopes[old_size].m_not_handled;
             m_scopes.resize(old_size);            
-            if (!m_delay_constraints) m_solver->pop(num_scopes);
+            m_solver->pop(num_scopes);
             // VERIFY(l_false != make_feasible());
             m_new_bounds.reset();
             m_to_check.reset();
+            if (m_nra) m_nra->pop(num_scopes);
             TRACE("arith", tout << "num scopes: " << num_scopes << " new scope level: " << m_scopes.size() << "\n";);
         }
 
@@ -1080,7 +1084,9 @@ namespace smt {
                   }
                   tout << "\n";
                   );
-            m_solver->random_update(vars.size(), vars.c_ptr());
+            if (!m_use_nra_model) {
+                m_solver->random_update(vars.size(), vars.c_ptr());
+            }
             m_model_eqs.reset();
             TRACE("arith", display(tout););
             
@@ -1130,54 +1136,69 @@ namespace smt {
                 enode* n2 = get_enode(v2);
                 m_assume_eq_head++;
                 CTRACE("arith", 
-                       get_ivalue(v1) == get_ivalue(v2) && n1->get_root() != n2->get_root(),
+                       is_eq(v1, v2) && n1->get_root() != n2->get_root(),
                        tout << "assuming eq: v" << v1 << " = v" << v2 << "\n";);
-                if (get_ivalue(v1) == get_ivalue(v2) &&  n1->get_root() != n2->get_root() && th.assume_eq(n1, n2)) {
+                if (is_eq(v1, v2) &&  n1->get_root() != n2->get_root() && th.assume_eq(n1, n2)) {
                     return true;
                 }
             }
             return false;
         }
 
+        bool is_eq(theory_var v1, theory_var v2) {
+            if (m_use_nra_model) {
+                return m_nra->am().eq(nl_value(v1, *m_a1), nl_value(v2, *m_a2));
+            }
+            else {
+                return get_ivalue(v1) == get_ivalue(v2); 
+            }
+        }
+
         bool has_delayed_constraints() const {
-            return !(m_asserted_atoms.empty() && m_delayed_terms.empty() && m_delayed_equalities.empty());
+            return !m_asserted_atoms.empty();
         }
 
         final_check_status final_check_eh() {
+            m_use_nra_model = false;
             lbool is_sat = l_true;
-            if (m_delay_constraints) {
-                init_solver();
-                for (unsigned i = 0; i < m_asserted_atoms.size(); ++i) {
-                    bool_var bv = m_asserted_atoms[i].m_bv;
-                    assert_bound(bv, m_asserted_atoms[i].m_is_true, *m_bool_var2bound.find(bv));
-                }
-                for (unsigned i = 0; i < m_delayed_terms.size(); ++i) {
-                    internalize_def(m_delayed_terms[i].get());
-                }
-                for (unsigned i = 0; i < m_delayed_defs.size(); ++i) {
-                    internalize_eq(m_delayed_defs[i]);
-                }
-                for (unsigned i = 0; i < m_delayed_equalities.size(); ++i) {
-                    std::pair<theory_var, theory_var> const& eq = m_delayed_equalities[i];
-                    internalize_eq(eq.first, eq.second);
-                }
+            if (m_solver->get_status() != lean::lp_status::OPTIMAL) {
                 is_sat = make_feasible();
             }
-            else if (m_solver->get_status() != lean::lp_status::OPTIMAL) {
-                is_sat = make_feasible();
-            }
+            final_check_status st = FC_DONE;
             switch (is_sat) {
             case l_true:
+                
                 if (delayed_assume_eqs()) {
                     return FC_CONTINUE;
                 }
                 if (assume_eqs()) {
                     return FC_CONTINUE;
                 }
-                if (m_not_handled != 0) {                    
-                    return FC_GIVEUP;
+
+                switch (check_lia()) {
+                case l_true:
+                    break;
+                case l_false:
+                    return FC_CONTINUE;
+                case l_undef:
+                    st = FC_GIVEUP;
+                    break;
                 }
-                return FC_DONE;
+                
+                switch (check_nra()) {
+                case l_true:
+                    break;
+                case l_false:
+                    return FC_CONTINUE;
+                case l_undef:
+                    st = FC_GIVEUP;
+                    break;
+                }
+                if (m_not_handled != 0) {                    
+                    st = FC_GIVEUP;
+                }
+
+                return st;
             case l_false:
                 set_conflict();
                 return FC_CONTINUE;
@@ -1190,6 +1211,70 @@ namespace smt {
             return FC_GIVEUP;
         }
 
+        // create a bound atom representing term >= k
+        lp::bound* mk_bound(lean::lar_term const& term, rational const& k) {
+            NOT_IMPLEMENTED_YET();
+            lp::bound_kind bkind = lp::bound_kind::lower_t;
+            bool_var bv = null_bool_var; 
+            theory_var v = null_theory_var;
+            lp::bound* result = alloc(lp::bound, bv, v, k, bkind);
+            return result;
+        }
+
+        lbool check_lia() {
+            std::cout << "called check_lia()\n";
+            lean::lar_term term;
+            lean::mpq k;
+            lean::explanation ex; // TBD, this should be streamlined accross different explanations
+            switch(m_lia->check(term, k, ex)) {
+            case lean::lia_move::ok:
+                return l_true;
+            case lean::lia_move::branch:
+                // branch on term <= k
+                NOT_IMPLEMENTED_YET();
+                return l_false;
+            case lean::lia_move::cut:
+                // m_explanation implies term <= k
+                m_explanation = ex.m_explanation;
+                NOT_IMPLEMENTED_YET();
+                return l_false;
+            case lean::lia_move::conflict:
+                // ex contains unsat core
+                m_explanation = ex.m_explanation;
+                set_conflict1();
+                return l_false;
+            case lean::lia_move::give_up:
+                return l_undef;
+            default:
+                UNREACHABLE();
+            }
+            return l_undef;
+        }
+
+        lbool check_nra() {
+            m_use_nra_model = false;
+            if (m.canceled()) return l_undef;
+            if (!m_nra) return l_true;
+            if (!m_nra->need_check()) return l_true;
+            m_a1 = 0; m_a2 = 0;
+            lbool r = m_nra->check(m_explanation);
+            m_a1 = alloc(scoped_anum, m_nra->am());
+            m_a2 = alloc(scoped_anum, m_nra->am());
+            switch (r) {
+            case l_false:
+                set_conflict1();
+                break;
+            case l_true:
+                m_use_nra_model = true;
+                if (assume_eqs()) {
+                    return l_false;
+                }
+                break;
+            default:
+                break;
+            }
+            return r;
+        }
 
         /**
            \brief We must redefine this method, because theory of arithmetic contains
@@ -1259,14 +1344,13 @@ namespace smt {
 #else
                 propagate_bound(bv, is_true, b);
 #endif
-                if (!m_delay_constraints) {
-                    lp::bound& b = *m_bool_var2bound.find(bv);
-                    assert_bound(bv, is_true, b);
-                }
+                lp::bound& b = *m_bool_var2bound.find(bv);
+                assert_bound(bv, is_true, b);
+                
 
                 ++m_asserted_qhead;
             }
-            if (m_delay_constraints || ctx().inconsistent()) {
+            if (ctx().inconsistent()) {
                 m_to_check.reset();
                 return;
             }
@@ -2133,18 +2217,8 @@ namespace smt {
         }
 
         lbool make_feasible() {
-            reset_variable_values();
-            ++m_stats.m_make_feasible;
-            if (m_solver->A_r().column_count() > m_stats.m_max_cols)
-                m_stats.m_max_cols = m_solver->A_r().column_count();
-            if (m_solver->A_r().row_count() > m_stats.m_max_rows)
-                m_stats.m_max_rows = m_solver->A_r().row_count();
+            auto status = m_solver->find_feasible_solution();
             TRACE("arith_verbose", display(tout););
-            lean::lp_status status = m_solver->find_feasible_solution();
-            m_stats.m_num_iterations = m_solver->settings().st().m_total_iterations;
-            m_stats.m_num_factorizations = m_solver->settings().st().m_num_factorizations;
-            m_stats.m_need_to_solve_inf = m_solver->settings().st().m_need_to_solve_inf;
-
             switch (status) {
             case lean::lp_status::INFEASIBLE:
                 return l_false;
@@ -2197,11 +2271,15 @@ namespace smt {
         }
 
         void set_conflict() {
+            m_explanation.clear();
+            m_solver->get_infeasibility_explanation(m_explanation);
+            set_conflict1();
+        }
+
+        void set_conflict1() {
             m_eqs.reset();
             m_core.reset();
             m_params.reset();
-            m_explanation.clear();
-            m_solver->get_infeasibility_explanation(m_explanation);
             // m_solver->shrink_explanation_to_minimum(m_explanation); // todo, enable when perf is fixed
             /*
             static unsigned cn = 0;
@@ -2250,9 +2328,43 @@ namespace smt {
             TRACE("arith", display(tout););
         }
 
+        nlsat::anum const& nl_value(theory_var v, scoped_anum& r) {
+            SASSERT(m_nra);
+            SASSERT(m_use_nra_model);
+            lean::var_index vi = m_theory_var2var_index[v];
+            if (m_solver->is_term(vi)) {
+                lean::lar_term const& term = m_solver->get_term(vi);
+                scoped_anum r1(m_nra->am());
+                m_nra->am().set(r, term.m_v.to_mpq());
+                
+                for (auto const coeff : term.m_coeffs) {
+                    lean::var_index wi = coeff.first;
+                    m_nra->am().set(r1, coeff.second.to_mpq());
+                    m_nra->am().mul(m_nra->value(wi), r1, r1);
+                    m_nra->am().add(r1, r, r);
+                }
+                return r;
+            }
+            else {
+                return m_nra->value(vi);
+            }
+        }
+
         model_value_proc * mk_value(enode * n, model_generator & mg) {
             theory_var v = n->get_th_var(get_id());
-            return alloc(expr_wrapper_proc, m_factory->mk_value(get_value(v), m.get_sort(n->get_owner())));
+            expr* o = n->get_owner();
+            if (m_use_nra_model) {
+                anum const& an = nl_value(v, *m_a1);
+                if (a.is_int(o) && !m_nra->am().is_int(an)) {
+                    return alloc(expr_wrapper_proc, a.mk_numeral(rational::zero(), a.is_int(o)));
+                }
+                return alloc(expr_wrapper_proc, a.mk_numeral(nl_value(v, *m_a1), a.is_int(o)));
+            }
+            else {
+                rational r = get_value(v);
+                if (a.is_int(o) && !r.is_int()) r = floor(r);
+                return alloc(expr_wrapper_proc, m_factory->mk_value(r,  m.get_sort(o)));
+            }
         }
 
         bool get_value(enode* n, expr_ref& r) {
@@ -2278,6 +2390,7 @@ namespace smt {
             if (dump_lemmas()) {
                 ctx().display_lemma_as_smt_problem(m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), false_literal);
             }
+            if (m_arith_params.m_arith_mode == AS_LRA) return true;
             context nctx(m, ctx().get_fparams(), ctx().get_params());
             add_background(nctx);
             bool result = l_true != nctx.check();
@@ -2290,6 +2403,7 @@ namespace smt {
             if (dump_lemmas()) {                
                 ctx().display_lemma_as_smt_problem(m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), lit);
             }
+            if (m_arith_params.m_arith_mode == AS_LRA) return true;
             context nctx(m, ctx().get_fparams(), ctx().get_params());
             m_core.push_back(~lit);
             add_background(nctx);
@@ -2301,6 +2415,7 @@ namespace smt {
         }
 
         bool validate_eq(enode* x, enode* y) {
+            if (m_arith_params.m_arith_mode == AS_LRA) return true;
             context nctx(m, ctx().get_fparams(), ctx().get_params());
             add_background(nctx);
             nctx.assert_expr(m.mk_not(m.mk_eq(x->get_owner(), y->get_owner())));
@@ -2496,7 +2611,7 @@ namespace smt {
             st.update("arith-rows", m_stats.m_add_rows);
             st.update("arith-propagations", m_stats.m_bounds_propagations);
             st.update("arith-iterations", m_stats.m_num_iterations);
-            st.update("arith-factorizations", m_stats.m_num_factorizations);
+            st.update("arith-factorizations", m_solver->settings().st().m_num_factorizations);
             st.update("arith-pivots", m_stats.m_need_to_solve_inf);
             st.update("arith-plateau-iterations", m_stats.m_num_iterations_with_no_progress);
             st.update("arith-fixed-eqs", m_stats.m_fixed_eqs);
@@ -2504,9 +2619,9 @@ namespace smt {
             st.update("arith-bound-propagations-lp", m_stats.m_bound_propagations1);
             st.update("arith-bound-propagations-cheap", m_stats.m_bound_propagations2);
             st.update("arith-diseq", m_stats.m_assert_diseq);
-            st.update("arith-make-feasible", m_stats.m_make_feasible);
-            st.update("arith-max-columns", m_stats.m_max_cols);
-            st.update("arith-max-rows", m_stats.m_max_rows);
+            st.update("arith-make-feasible", m_solver->settings().st().m_make_feasible);
+            st.update("arith-max-columns", m_solver->settings().st().m_max_cols);
+            st.update("arith-max-rows", m_solver->settings().st().m_max_rows);
         }        
     };
     

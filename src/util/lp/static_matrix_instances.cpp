@@ -2,8 +2,8 @@
   Copyright (c) 2017 Microsoft Corporation
   Author: Lev Nachmanson
 */
-#include "util/vector.h"
 #include <memory>
+#include "util/vector.h"
 #include <set>
 #include <utility>
 #include "util/lp/static_matrix.hpp"

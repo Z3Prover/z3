@@ -623,6 +623,7 @@ namespace nlsat {
             unsigned sz = cs.size();
             for (unsigned i = 0; i < sz; i++)
                 del_clause(cs[i]);
+			cs.reset();
         }
 
         void del_clauses() {
