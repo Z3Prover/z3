@@ -1368,12 +1368,23 @@ namespace sat {
         TRACE("sat", display(tout, p, true););
 
         if (value(l) == l_false) {
+            unsigned slack = 0;
+            unsigned miss = 0;
             for (wliteral wl : p) {
                 literal lit = wl.second;
                 if (lit != l && value(lit) == l_false) {
                     r.push_back(~lit);
+                    miss += wl.first;
                 } 
+                else {
+                    slack += wl.first;
+                }
             }
+#if 0
+            std::cout << p << "\n";
+            std::cout << r << "\n";
+            std::cout << "slack:" << slack << " miss: " << miss << "\n";
+#endif
             return;
         }
 
@@ -1770,7 +1781,7 @@ namespace sat {
     }
 
     void ba_solver::recompile(card& c) {
-        IF_VERBOSE(0, verbose_stream() << "re: " << c << "\n";);
+        // IF_VERBOSE(0, verbose_stream() << "re: " << c << "\n";);
         m_weights.resize(2*s().num_vars(), 0);
         for (literal l : c) {
             ++m_weights[l.index()];
@@ -1836,7 +1847,7 @@ namespace sat {
             add_pb_ge(root, wlits, k);
         }
         else {
-            IF_VERBOSE(0, verbose_stream() << "new: " << c << "\n";);
+            // IF_VERBOSE(0, verbose_stream() << "new: " << c << "\n";);
             if (c.lit() != root) {
                 nullify_tracking_literal(c);
                 c.update_literal(root);
@@ -1851,7 +1862,7 @@ namespace sat {
     }
 
     void ba_solver::recompile(pb& p) {
-        IF_VERBOSE(0, verbose_stream() << "re: " << p << "\n";);
+        // IF_VERBOSE(0, verbose_stream() << "re: " << p << "\n";);
         m_weights.resize(2*s().num_vars(), 0);
         for (wliteral wl : p) {
             m_weights[wl.second.index()] += wl.first;
@@ -1911,7 +1922,7 @@ namespace sat {
         literal root = null_literal;
         if (p.lit() != null_literal) root = m_roots[p.lit().index()];
 
-        IF_VERBOSE(0, verbose_stream() << "new: " << p << "\n";);
+        // IF_VERBOSE(0, verbose_stream() << "new: " << p << "\n";);
 
         // std::cout << "simplified " << p << "\n";
         if (p.lit() != root) {
