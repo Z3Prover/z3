@@ -391,6 +391,7 @@ namespace sat {
         void reinit_assumptions();
         bool tracking_assumptions() const;
         bool is_assumption(literal l) const;
+        bool is_assumption(bool_var v) const;
         void simplify_problem();
         void mk_model();
         bool check_model(model const & m) const;

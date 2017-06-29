@@ -41,7 +41,7 @@ namespace sat {
             BINARY = 0, TERNARY, CLAUSE, EXT_CONSTRAINT
         };
     private:
-        unsigned m_val1;
+        size_t   m_val1;
         unsigned m_val2; 
     public:
         watched(literal l, bool learned):
@@ -82,18 +82,18 @@ namespace sat {
         kind get_kind() const { return static_cast<kind>(m_val2 & 3); }
        
         bool is_binary_clause() const { return get_kind() == BINARY; }
-        literal get_literal() const { SASSERT(is_binary_clause()); return to_literal(m_val1); }
+        literal get_literal() const { SASSERT(is_binary_clause()); return to_literal(static_cast<unsigned>(m_val1)); }
         void set_literal(literal l) { SASSERT(is_binary_clause()); m_val1 = l.to_uint(); }
         bool is_learned() const { SASSERT(is_binary_clause()); return (m_val2 >> 2) == 1; }
         bool is_binary_non_learned_clause() const { return m_val2 == 0; }
         void mark_not_learned() { SASSERT(is_learned()); m_val2 = static_cast<unsigned>(BINARY); SASSERT(!is_learned()); }
         
         bool is_ternary_clause() const { return get_kind() == TERNARY; }
-        literal get_literal1() const { SASSERT(is_ternary_clause()); return to_literal(m_val1); }
+        literal get_literal1() const { SASSERT(is_ternary_clause()); return to_literal(static_cast<unsigned>(m_val1)); }
         literal get_literal2() const { SASSERT(is_ternary_clause()); return to_literal(m_val2 >> 2); }
 
         bool is_clause() const { return get_kind() == CLAUSE; }
-        clause_offset get_clause_offset() const { SASSERT(is_clause()); return m_val1; }
+        clause_offset get_clause_offset() const { SASSERT(is_clause()); return static_cast<clause_offset>(m_val1); }
         literal get_blocked_literal() const { SASSERT(is_clause()); return to_literal(m_val2 >> 2); }
         void set_clause_offset(clause_offset c) { SASSERT(is_clause()); m_val1 = c; }
         void set_blocked_literal(literal l) { SASSERT(is_clause()); m_val2 = static_cast<unsigned>(CLAUSE) + (l.to_uint() << 2); }

@@ -25,9 +25,10 @@ namespace sat {
     public:
         enum kind { NONE, BINARY, TERNARY, CLAUSE, EXT_JUSTIFICATION };
     private:
-        unsigned m_val1;
+        size_t m_val1;
         unsigned m_val2; 
         justification(ext_justification_idx idx, kind k):m_val1(idx), m_val2(k) {}
+        unsigned val1() const { return static_cast<unsigned>(m_val1); }
     public:
         justification():m_val1(0), m_val2(NONE) {}
         explicit justification(literal l):m_val1(l.to_uint()), m_val2(BINARY) {}
@@ -40,14 +41,14 @@ namespace sat {
         bool is_none() const { return m_val2 == NONE; }
         
         bool is_binary_clause() const { return m_val2 == BINARY; }
-        literal get_literal() const { SASSERT(is_binary_clause()); return to_literal(m_val1); }
+        literal get_literal() const { SASSERT(is_binary_clause()); return to_literal(val1()); }
 
         bool is_ternary_clause() const { return get_kind() == TERNARY; }
-        literal get_literal1() const { SASSERT(is_ternary_clause()); return to_literal(m_val1); }
+        literal get_literal1() const { SASSERT(is_ternary_clause()); return to_literal(val1()); }
         literal get_literal2() const { SASSERT(is_ternary_clause()); return to_literal(m_val2 >> 3); }
 
         bool is_clause() const { return m_val2 == CLAUSE; }
-        clause_offset get_clause_offset() const { return m_val1; }
+        clause_offset get_clause_offset() const { return val1(); }
         
         bool is_ext_justification() const { return m_val2 == EXT_JUSTIFICATION; }
         ext_justification_idx get_ext_justification_idx() const { return m_val1; }

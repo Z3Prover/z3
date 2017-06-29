@@ -1362,6 +1362,10 @@ namespace sat {
         return tracking_assumptions() && m_assumption_set.contains(l);
     }
 
+    bool solver::is_assumption(bool_var v) const {
+        return is_assumption(literal(v, false)) || is_assumption(literal(v, true));
+    }
+
     void solver::init_search() {
         m_model_is_current        = false;
         m_phase_counter           = 0;

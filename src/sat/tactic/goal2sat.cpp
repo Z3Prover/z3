@@ -1151,14 +1151,18 @@ struct sat2goal::imp {
 
         sat::card_extension* ext = get_card_extension(s);
         if (ext) {
-            for (unsigned i = 0; i < ext->num_pb(); ++i) {
-                assert_pb(r, ext->get_pb(i));
-            }
-            for (unsigned i = 0; i < ext->num_card(); ++i) {
-                assert_card(r, ext->get_card(i));
-            }
-            for (unsigned i = 0; i < ext->num_xor(); ++i) {
-                assert_xor(r, ext->get_xor(i));
+            for (auto* c : ext->constraints()) {
+                switch (c->tag()) {
+                case sat::card_extension::card_t: 
+                    assert_card(r, c->to_card());
+                    break;
+                case sat::card_extension::pb_t: 
+                    assert_pb(r, c->to_pb());
+                    break;
+                case sat::card_extension::xor_t: 
+                    assert_xor(r, c->to_xor());
+                    break;
+                }
             }
         }
     }

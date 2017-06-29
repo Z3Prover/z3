@@ -326,51 +326,57 @@ namespace sat {
         // copy cardinality clauses
         card_extension* ext = dynamic_cast<card_extension*>(s.get_extension());
         if (ext) {
-            literal_vector lits;
-            unsigned sz = ext->m_cards.size();
             unsigned_vector coeffs;
-            for (unsigned i = 0; i < sz; ++i) {
-                card_extension::card& c = *ext->m_cards[i];
-                unsigned n = c.size();
-                unsigned k = c.k();
-
-                if (c.lit() == null_literal) {
-                    //    c.lits() >= k 
-                    // <=> 
-                    //    ~c.lits() <= n - k
-                    lits.reset();
-                    for (unsigned j = 0; j < n; ++j) lits.push_back(c[j]);
-                    add_cardinality(lits.size(), lits.c_ptr(), n - k);
-                }
-                else {
-                    //
-                    // c.lit() <=> c.lits() >= k
-                    // 
-                    //    (c.lits() < k) or c.lit()
-                    // =  (c.lits() + (n - k + 1)*~c.lit()) <= n    
-                    //
-                    //    ~c.lit() or (c.lits() >= k)
-                    // =  ~c.lit() or (~c.lits() <= n - k)
-                    // =  k*c.lit() + ~c.lits() <= n 
-                    // 
-                    m_is_pb = true;
-                    lits.reset();
-                    coeffs.reset();
-                    for (unsigned j = 0; j < n; ++j) lits.push_back(c[j]), coeffs.push_back(1);
-                    lits.push_back(~c.lit()); coeffs.push_back(n - k + 1);
-                    add_pb(lits.size(), lits.c_ptr(), coeffs.c_ptr(), n);
+            literal_vector lits;
+            for (card_extension::constraint* cp : ext->m_constraints) {
+                switch (cp->tag()) {
+                case card_extension::card_t: {
+                    card_extension::card const& c = cp->to_card();
+                    unsigned n = c.size();
+                    unsigned k = c.k();
                     
-                    lits.reset();
-                    coeffs.reset();
-                    for (unsigned j = 0; j < n; ++j) lits.push_back(~c[j]), coeffs.push_back(1);
-                    lits.push_back(c.lit()); coeffs.push_back(k);
-                    add_pb(lits.size(), lits.c_ptr(), coeffs.c_ptr(), n);
+                    if (c.lit() == null_literal) {
+                        //    c.lits() >= k 
+                        // <=> 
+                        //    ~c.lits() <= n - k
+                        lits.reset();
+                        for (unsigned j = 0; j < n; ++j) lits.push_back(c[j]);
+                        add_cardinality(lits.size(), lits.c_ptr(), n - k);
+                    }
+                    else {
+                        //
+                        // c.lit() <=> c.lits() >= k
+                        // 
+                        //    (c.lits() < k) or c.lit()
+                        // =  (c.lits() + (n - k + 1)*~c.lit()) <= n    
+                        //
+                        //    ~c.lit() or (c.lits() >= k)
+                        // =  ~c.lit() or (~c.lits() <= n - k)
+                        // =  k*c.lit() + ~c.lits() <= n 
+                        // 
+                        m_is_pb = true;
+                        lits.reset();
+                        coeffs.reset();
+                        for (unsigned j = 0; j < n; ++j) lits.push_back(c[j]), coeffs.push_back(1);
+                        lits.push_back(~c.lit()); coeffs.push_back(n - k + 1);
+                        add_pb(lits.size(), lits.c_ptr(), coeffs.c_ptr(), n);
+                        
+                        lits.reset();
+                        coeffs.reset();
+                        for (unsigned j = 0; j < n; ++j) lits.push_back(~c[j]), coeffs.push_back(1);
+                        lits.push_back(c.lit()); coeffs.push_back(k);
+                        add_pb(lits.size(), lits.c_ptr(), coeffs.c_ptr(), n);
+                    }
+                    break;
+                }
+                case card_extension::pb_t:
+                    NOT_IMPLEMENTED_YET();
+                    break;
+                case card_extension::xor_t:
+                    NOT_IMPLEMENTED_YET();
+                    break;
                 }
             }
-            //
-            // xor constraints should be disabled.
-            //
-            SASSERT(ext->m_xors.empty());            
         }
         if (_init) {
             init();

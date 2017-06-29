@@ -49,42 +49,70 @@ namespace sat {
         };
 
     public:        
-        class card {
-            unsigned       m_index;
-            literal        m_lit;
-            unsigned       m_k;
-            unsigned       m_size;
-            literal        m_lits[0];
+        enum tag_t {
+            card_t,
+            pb_t,
+            xor_t
+        };
 
+        class card;
+        class pb;
+        class xor;
+
+        class constraint {
+        protected:
+            tag_t          m_tag;
+            bool           m_removed;
+            literal        m_lit;
+            unsigned       m_size;
+        public:
+            constraint(tag_t t, literal l, unsigned sz): m_tag(t), m_removed(false), m_lit(l), m_size(sz) {}
+            ext_constraint_idx index() const { return reinterpret_cast<ext_constraint_idx>(this); }
+            tag_t tag() const { return m_tag; }
+            literal lit() const { return m_lit; }
+            unsigned size() const { return m_size; }
+            void update_size(unsigned sz) { SASSERT(sz <= m_size); m_size = sz; }
+            void update_literal(literal l) { m_lit = l; }
+            bool was_removed() const { return m_removed; }
+            void remove() { m_removed = true; }
+            void nullify_literal() { m_lit = null_literal; }
+
+
+            card& to_card();
+            pb&  to_pb();
+            xor& to_xor();
+            card const& to_card() const;
+            pb const&  to_pb() const;
+            xor const& to_xor() const;
+            bool is_card() const { return m_tag == card_t; }
+            bool is_pb() const { return m_tag == pb_t; }
+            bool is_xor() const { return m_tag == xor_t; }
+        };
+
+        friend std::ostream& operator<<(std::ostream& out, constraint const& c);
+
+        class card : public constraint {
+            unsigned       m_k;
+            literal        m_lits[0];
         public:
             static size_t get_obj_size(unsigned num_lits) { return sizeof(card) + num_lits * sizeof(literal); }
-            card(unsigned index, literal lit, literal_vector const& lits, unsigned k);
-            unsigned index() const { return m_index; }
-            literal lit() const { return m_lit; }
+            card(literal lit, literal_vector const& lits, unsigned k);
             literal operator[](unsigned i) const { return m_lits[i]; }
             literal& operator[](unsigned i) { return m_lits[i]; }
             literal const* begin() const { return m_lits; }
             literal const* end() const { return static_cast<literal const*>(m_lits) + m_size; }
             unsigned k() const { return m_k; }
-            unsigned size() const { return m_size; }
             void swap(unsigned i, unsigned j) { std::swap(m_lits[i], m_lits[j]); }
             void negate();                     
-            void update_size(unsigned sz) { SASSERT(sz <= m_size); m_size = sz; }
             void update_k(unsigned k) { m_k = k; }
-            void update_literal(literal l) { m_lit = l; }
-            void nullify_literal() { m_lit = null_literal; }
             literal_vector literals() const { return literal_vector(m_size, m_lits); }            
         };
 
-        friend std::ostream& operator<<(std::ostream& out, card const& c);
         
         typedef std::pair<unsigned, literal> wliteral;
 
-        class pb {
-            unsigned       m_index;
-            literal        m_lit;
+        class pb : public constraint {
             unsigned       m_k;
-            unsigned       m_size;
             unsigned       m_slack;
             unsigned       m_num_watch;
             unsigned       m_max_sum;
@@ -92,8 +120,7 @@ namespace sat {
             void update_max_sum();
         public:
             static size_t get_obj_size(unsigned num_lits) { return sizeof(pb) + num_lits * sizeof(wliteral); }
-            pb(unsigned index, literal lit, svector<wliteral> const& wlits, unsigned k);
-            unsigned index() const { return m_index; }
+            pb(literal lit, svector<wliteral> const& wlits, unsigned k);
             literal lit() const { return m_lit; }
             wliteral operator[](unsigned i) const { return m_wlits[i]; }
             wliteral& operator[](unsigned i) { return m_wlits[i]; }
@@ -101,7 +128,6 @@ namespace sat {
             wliteral const* end() const { return static_cast<wliteral const*>(m_wlits) + m_size; }
 
             unsigned k() const { return m_k; }
-            unsigned size() const { return m_size; }
             unsigned slack() const { return m_slack; }
             void set_slack(unsigned s) { m_slack = s; }
             unsigned num_watch() const { return m_num_watch; }
@@ -109,32 +135,23 @@ namespace sat {
             void set_num_watch(unsigned s) { m_num_watch = s; }
             void swap(unsigned i, unsigned j) { std::swap(m_wlits[i], m_wlits[j]); }
             void negate();                       
-            void update_size(unsigned sz) { m_size = sz; update_max_sum(); }
             void update_k(unsigned k) { m_k = k; }
-            void update_literal(literal l) { m_lit = l; }            
-            void nullify_literal() { m_lit = null_literal; }
             literal_vector literals() const { literal_vector lits; for (auto wl : *this) lits.push_back(wl.second); return lits; }
         };
 
-        friend std::ostream& operator<<(std::ostream& out, pb const& p);
-
-        class xor {
-            unsigned       m_index;
-            literal        m_lit;
-            unsigned       m_size;
+        class xor : public constraint {
             literal        m_lits[0];
         public:
             static size_t get_obj_size(unsigned num_lits) { return sizeof(xor) + num_lits * sizeof(literal); }
-            xor(unsigned index, literal lit, literal_vector const& lits);
-            unsigned index() const { return m_index; }
-            literal lit() const { return m_lit; }
+            xor(literal lit, literal_vector const& lits);
             literal operator[](unsigned i) const { return m_lits[i]; }
-            unsigned size() const { return m_size; }
             literal const* begin() const { return m_lits; }
             literal const* end() const { return static_cast<literal const*>(m_lits) + m_size; }
             void swap(unsigned i, unsigned j) { std::swap(m_lits[i], m_lits[j]); }
             void negate() { m_lits[0].neg(); }
         };
+
+
     protected:
 
         struct ineq {
@@ -149,13 +166,10 @@ namespace sat {
         lookahead*          m_lookahead;
         stats               m_stats;        
 
-        ptr_vector<card>    m_cards;
-        ptr_vector<xor>     m_xors;
-        ptr_vector<pb>      m_pbs;
+        ptr_vector<constraint> m_constraints;
 
         // watch literals
-        unsigned_vector     m_index_trail;
-        unsigned_vector     m_index_lim;       
+        unsigned_vector     m_constraint_lim;       
 
         // conflict resolution
         unsigned          m_num_marks;
@@ -176,20 +190,22 @@ namespace sat {
         void     inc_parity(bool_var v);
         void     reset_parity(bool_var v);
 
-        void clear_index_trail_back();
+        void pop_constraint();
 
         solver& s() const { return *m_solver; }
-        
+
+
         // simplification routines
 
         svector<bool>             m_visited;
-        vector<svector<unsigned>> m_card_use_list;
+        vector<svector<constraint*>>    m_cnstr_use_list;
         use_list                  m_clause_use_list;
         svector<bool>             m_var_used;
         bool                      m_simplify_change;
-        bool                      m_cleanup_clauses;
+        bool                      m_clause_removed;
+        bool                      m_constraint_removed;
         literal_vector            m_roots;
-        unsigned_vector           m_count;
+        unsigned_vector           m_weights;
         void gc();
         bool subsumes(card& c1, card& c2, literal_vector& comp);
         bool subsumes(card& c1, clause& c2, literal_vector& comp);
@@ -203,33 +219,37 @@ namespace sat {
         unsigned get_num_non_learned_bin(literal l);
         literal get_min_occurrence_literal(card const& c);
         void subsumption(card& c1);
+        void cleanup_clauses();
+        void cleanup_constraints();
+
+        // constraints
+        void unwatch_literal(literal w, constraint& c);
+        void watch_literal(literal w, constraint& c);
+        void watch_literal(wliteral w, pb& p);
+        void add_constraint(constraint* c);
+        void init_watch(constraint& c, bool is_true);
+        void init_watch(bool_var v);
+        lbool add_assign(constraint& c, literal l);
+        void simplify(constraint& c);
+        void nullify_tracking_literal(constraint& c);
 
         // cardinality
-        void init_watch(card& c);
         void init_watch(card& c, bool is_true);
-        void init_watch(bool_var v);
         void assign(card& c, literal lit);
         lbool add_assign(card& c, literal lit);
-        void watch_literal(card& c, literal lit);
         void set_conflict(card& c, literal lit);
         void clear_watch(card& c);
         void reset_coeffs();
         void reset_marked_literals();
-        void unwatch_literal(literal w, card& c);
         void get_card_antecedents(literal l, card const& c, literal_vector & r);
-        void copy_card(card_extension& result);
         void simplify(card& c);
-        void nullify_tracking_literal(card& c);
         void remove_constraint(card& c);
         void unit_propagation_simplification(literal lit, literal_vector const& lits);
         void flush_roots(card& c);
         void recompile(card& c);
 
         // xor specific functionality
-        void copy_xor(card_extension& result);
         void clear_watch(xor& x);
-        void watch_literal(xor& x, literal lit);
-        void unwatch_literal(literal w, xor& x);
         void init_watch(xor& x, bool is_true);
         void assign(xor& x, literal lit);        
         void set_conflict(xor& x, literal lit);
@@ -240,32 +260,21 @@ namespace sat {
         void simplify(xor& x);
         void flush_roots(xor& x);
 
-
-        bool is_card_index(unsigned idx) const { return 0x0 == (idx & 0x3); }
-        bool is_xor_index(unsigned idx) const { return 0x1 == (idx & 0x3); }
-        bool is_pb_index(unsigned idx) const { return 0x3 == (idx & 0x3); }
-        unsigned index2position(unsigned idx) const { return idx >> 2; }
-        card& index2card(unsigned idx) const { SASSERT(is_card_index(idx)); return *m_cards[idx >> 2]; }
-        xor& index2xor(unsigned idx) const { SASSERT(is_xor_index(idx)); return *m_xors[idx >> 2]; }
-        pb&  index2pb(unsigned idx) const { SASSERT(is_pb_index(idx)); return *m_pbs[idx >> 2]; }
-
+        
+        constraint& index2constraint(size_t idx) const { return *reinterpret_cast<constraint*>(idx); }        
 
         // pb functionality
         unsigned m_a_max;
-        void copy_pb(card_extension& result);
         void init_watch(pb& p, bool is_true);
         lbool add_assign(pb& p, literal alit);
         void add_index(pb& p, unsigned index, literal lit);
-        void watch_literal(pb& p, wliteral lit);
         void clear_watch(pb& p);
         void set_conflict(pb& p, literal lit);
         void assign(pb& p, literal l);
-        void unwatch_literal(literal w, pb& p);
         void get_pb_antecedents(literal l, pb const& p, literal_vector & r);
         void simplify(pb& p);
         void simplify2(pb& p);
         bool is_cardinality(pb const& p);
-        void nullify_tracking_literal(pb& p);
         void remove_constraint(pb& p);
         void flush_roots(pb& p);
         void recompile(pb& p);
@@ -322,12 +331,6 @@ namespace sat {
         void    add_at_least(bool_var v, literal_vector const& lits, unsigned k);
         void    add_pb_ge(bool_var v, svector<wliteral> const& wlits, unsigned k);
         void    add_xor(bool_var v, literal_vector const& lits);
-        unsigned num_pb() const { return m_pbs.size(); }
-        pb const&      get_pb(unsigned i) const { return *m_pbs[i]; }
-        unsigned num_card() const { return m_cards.size(); }
-        card const&    get_card(unsigned i) const { return *m_cards[i]; }
-        unsigned num_xor() const { return m_xors.size(); }
-        xor const&     get_xor(unsigned i) const { return *m_xors[i]; }
 
         virtual void propagate(literal l, ext_constraint_idx idx, bool & keep);
         virtual bool resolve_conflict();
@@ -346,6 +349,9 @@ namespace sat {
         virtual void collect_statistics(statistics& st) const;
         virtual extension* copy(solver* s);
         virtual void find_mutexes(literal_vector& lits, vector<literal_vector> & mutexes);
+
+        ptr_vector<constraint> const & constraints() const { return m_constraints; }
+
     };
 
 };

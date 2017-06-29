@@ -244,7 +244,6 @@ namespace sat {
 
         void display(std::ostream& out, unsigned v, var_info const& vi) const;
 
-
     public:
 
         local_search();

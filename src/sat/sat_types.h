@@ -110,8 +110,8 @@ namespace sat {
     typedef std::pair<literal, literal> literal_pair;
 
     typedef unsigned clause_offset;
-    typedef unsigned ext_constraint_idx;
-    typedef unsigned ext_justification_idx;
+    typedef size_t ext_constraint_idx;
+    typedef size_t ext_justification_idx;
 
     struct literal2unsigned { unsigned operator()(literal l) const { return l.to_uint(); } };
 

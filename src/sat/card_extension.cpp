@@ -22,12 +22,40 @@ Revision History:
 
 namespace sat {
 
-    card_extension::card::card(unsigned index, literal lit, literal_vector const& lits, unsigned k):
-        m_index(index),
-        m_lit(lit),
-        m_k(k),
-        m_size(lits.size()) {
-        for (unsigned i = 0; i < lits.size(); ++i) {
+    card_extension::card& card_extension::constraint::to_card() {
+        SASSERT(is_card());
+        return static_cast<card&>(*this);
+    }
+
+    card_extension::card const& card_extension::constraint::to_card() const{
+        SASSERT(is_card());
+        return static_cast<card const&>(*this);
+    }
+
+    card_extension::pb& card_extension::constraint::to_pb() {
+        SASSERT(is_pb());
+        return static_cast<pb&>(*this);
+    }
+
+    card_extension::pb const& card_extension::constraint::to_pb() const{
+        SASSERT(is_pb());
+        return static_cast<pb const&>(*this);
+    }
+
+    card_extension::xor& card_extension::constraint::to_xor() {
+        SASSERT(is_xor());
+        return static_cast<xor&>(*this);
+    }
+
+    card_extension::xor const& card_extension::constraint::to_xor() const{
+        SASSERT(is_xor());
+        return static_cast<xor const&>(*this);
+    }
+
+    card_extension::card::card(literal lit, literal_vector const& lits, unsigned k):
+        constraint(card_t, lit, lits.size()),
+        m_k(k) {
+        for (unsigned i = 0; i < size(); ++i) {
             m_lits[i] = lits[i];
         }
     }
@@ -41,37 +69,47 @@ namespace sat {
         SASSERT(m_size >= m_k && m_k > 0);
     }
 
-    std::ostream& operator<<(std::ostream& out, card_extension::card const& c) {
-        if (c.lit() != null_literal) {
-            out << c.lit() << " == ";
+    std::ostream& operator<<(std::ostream& out, card_extension::constraint const& cnstr) {
+        if (cnstr.lit() != null_literal) out << cnstr.lit() << " == ";
+        switch (cnstr.tag()) {
+        case card_extension::card_t: {
+            card_extension::card const& c = cnstr.to_card();
+            for (literal l : c) {
+                out << l << " ";
+            }
+            out << " >= " << c.k();
+            break;
         }
-        for (literal l : c) {
-            out << l << " ";
+        case card_extension::pb_t: {
+            card_extension::pb const& p = cnstr.to_pb();
+            for (card_extension::wliteral wl : p) {
+                if (wl.first != 1) out << wl.first << " * ";
+                out << wl.second << " ";
+            }
+            out << " >= " << p.k();
+            break;
         }
-        return out << " >= " << c.k();
+        case card_extension::xor_t: {
+            card_extension::xor const& x = cnstr.to_xor();
+            for (unsigned i = 0; i < x.size(); ++i) {
+                out << x[i] << " ";
+                if (i + 1 < x.size()) out << "x ";
+            }            
+            break;
+        }
+        default:
+            UNREACHABLE();
+        }
+        return out;
     }
 
-    std::ostream& operator<<(std::ostream& out, card_extension::pb const& p) {
-        if (p.lit() != null_literal) {
-            out << p.lit() << " == ";
-        }
-        for (card_extension::wliteral wl : p) {
-            if (wl.first != 1) out << wl.first << " * ";
-            out << wl.second << " ";
-        }
-        return out << " >= " << p.k();
-    }
-
-
-    card_extension::pb::pb(unsigned index, literal lit, svector<card_extension::wliteral> const& wlits, unsigned k):
-        m_index(index),
-        m_lit(lit),
+    card_extension::pb::pb(literal lit, svector<card_extension::wliteral> const& wlits, unsigned k):
+        constraint(pb_t, lit, wlits.size()),
         m_k(k),
-        m_size(wlits.size()),
         m_slack(0),
         m_num_watch(0),
         m_max_sum(0) {
-        for (unsigned i = 0; i < wlits.size(); ++i) {
+        for (unsigned i = 0; i < size(); ++i) {
             m_wlits[i] = wlits[i];
         }
         update_max_sum();
@@ -97,13 +135,11 @@ namespace sat {
         m_k = w - m_k + 1;
         SASSERT(w >= m_k && m_k > 0);
     }
-
-    card_extension::xor::xor(unsigned index, literal lit, literal_vector const& lits):
-        m_index(index),
-        m_lit(lit),
-        m_size(lits.size())
+    
+    card_extension::xor::xor(literal lit, literal_vector const& lits):
+        constraint(xor_t, lit, lits.size())
     {
-        for (unsigned i = 0; i < lits.size(); ++i) {
+        for (unsigned i = 0; i < size(); ++i) {
             m_lits[i] = lits[i];
         }
     }
@@ -164,7 +200,7 @@ namespace sat {
         }
         else {
             for (unsigned i = 0; i <= bound; ++i) {
-                watch_literal(c, c[i]);
+                watch_literal(c[i], c);
             }
         }
     }
@@ -176,8 +212,12 @@ namespace sat {
         }
     }
 
-    void card_extension::unwatch_literal(literal lit, card& c) {
+    void card_extension::unwatch_literal(literal lit, constraint& c) {
         get_wlist(~lit).erase(watched(c.index()));
+    }
+
+    void card_extension::watch_literal(literal lit, constraint& c) {
+        get_wlist(~lit).push_back(watched(c.index()));
     }
 
     void card_extension::assign(card& c, literal lit) {
@@ -208,11 +248,6 @@ namespace sat {
         }
     }
 
-    void card_extension::watch_literal(card& c, literal lit) {
-        TRACE("sat_verbose", tout << "watch: " << lit << "\n";);
-        get_wlist(~lit).push_back(watched(c.index()));
-    }
-
     void card_extension::set_conflict(card& c, literal lit) {
         m_stats.m_num_card_conflicts++;
         TRACE("sat", display(tout, c, true); );
@@ -224,16 +259,6 @@ namespace sat {
 
     // pb:
 
-    void card_extension::copy_pb(card_extension& result) {
-        for (pb* p : m_pbs) {
-            if (!p) continue;
-            svector<wliteral> wlits;
-            for (wliteral w : *p) {
-                wlits.push_back(w);
-            }
-            result.add_pb_ge(p->lit(), wlits, p->k());
-        }
-    }
 
     // watch a prefix of literals, such that the slack of these is >= k
     void card_extension::init_watch(pb& p, bool is_true) {
@@ -279,111 +304,112 @@ namespace sat {
         }
         else {            
             for (unsigned i = 0; i < num_watch; ++i) {
-                watch_literal(p, p[i]);
+                watch_literal(p[i], p);
             }
-p.set_slack(slack);
-p.set_num_watch(num_watch);
-		}
-		TRACE("sat", display(tout << "init watch: ", p, true););
-	}
+            p.set_slack(slack);
+            p.set_num_watch(num_watch);
+        }
+        TRACE("sat", display(tout << "init watch: ", p, true););
+    }
 
-	/*
-	  Chai Kuhlmann:
-	  Lw - set of watched literals
-	  Lu - set of unwatched literals that are not false
+    /*
+      Chai Kuhlmann:
+      Lw - set of watched literals
+      Lu - set of unwatched literals that are not false
+      
+      Lw = Lw \ { alit }
+      Sw -= value
+      a_max = max { a | l in Lw u Lu, l = undef }
+      while (Sw < k + a_max & Lu != 0) {
+        a_s = max { a | l in Lu }
+        Sw += a_s
+        Lw = Lw u {l_s}
+        Lu = Lu \ {l_s}
+     }
+     if (Sw < k) conflict
+     while (Sw < k + a_max) {
+         assign (l_max)
+         a_max = max { ai | li in Lw, li = undef }
+     }
+     ASSERT(Sw >= bound)
+     return no-conflict
 
-	  Lw = Lw \ { alit }
-	  Sw -= value
-	  a_max = max { a | l in Lw u Lu, l = undef }
-	  while (Sw < k + a_max & Lu != 0) {
-		  a_s = max { a | l in Lu }
-		  Sw += a_s
-		  Lw = Lw u {l_s}
-		  Lu = Lu \ {l_s}
-	  }
-	  if (Sw < k) conflict
-	  while (Sw < k + a_max) {
-		  assign (l_max)
-		  a_max = max { ai | li in Lw, li = undef }
-	  }
-	  ASSERT(Sw >= bound)
-	  return no-conflict
-
-	  a_max index: index of non-false literal with maximal weight.
+     a_max index: index of non-false literal with maximal weight.
 
 
-	*/
-	void card_extension::add_index(pb& p, unsigned index, literal lit) {
-		if (value(lit) == l_undef) {
-			m_pb_undef.push_back(index);
-			if (p[index].first > m_a_max) {
-				m_a_max = p[index].first;
-			}
-		}
-	}
-
-	lbool card_extension::add_assign(pb& p, literal alit) {
-
-		TRACE("sat", display(tout << "assign: " << alit << "\n", p, true););
-		SASSERT(!inconsistent());
-		unsigned sz = p.size();
-		unsigned bound = p.k();
-		unsigned num_watch = p.num_watch();
-		unsigned slack = p.slack();
-		SASSERT(value(alit) == l_false);
-		SASSERT(p.lit() == null_literal || value(p.lit()) == l_true);
-		SASSERT(num_watch <= sz);
-		SASSERT(num_watch > 0);
-		unsigned index = 0;
-		m_a_max = 0;
-		m_pb_undef.reset();
-		for (; index < num_watch; ++index) {
-			literal lit = p[index].second;
-			if (lit == alit) {
-				break;
-			}
-			add_index(p, index, lit);
-		}
-		SASSERT(index < num_watch);
-
-		unsigned index1 = index + 1;
-		for (; m_a_max == 0 && index1 < num_watch; ++index1) {
-			add_index(p, index1, p[index1].second);
-		}
-
-		unsigned val = p[index].first;
-		SASSERT(value(p[index].second) == l_false);
-		SASSERT(val <= slack);
-		slack -= val;
-		// find literals to swap with:            
-		for (unsigned j = num_watch; j < sz && slack < bound + m_a_max; ++j) {
-			literal lit = p[j].second;
-			if (value(lit) != l_false) {
-				slack += p[j].first;
-				watch_literal(p, p[j]);
-				p.swap(num_watch, j);
-				add_index(p, num_watch, lit);
-				++num_watch;
-			}
-		}
-
-		SASSERT(!inconsistent());
-		DEBUG_CODE(for (auto idx : m_pb_undef) { SASSERT(value(p[idx].second) == l_undef); });
-
-		if (slack < bound) {
-			// maintain watching the literal
-			slack += val;
-			p.set_slack(slack);
-			p.set_num_watch(num_watch);
-			SASSERT(bound <= slack);
-			TRACE("sat", tout << "conflict " << alit << "\n";);
-			set_conflict(p, alit);
-			return l_false;
-		}
-
-		if (index > p.size() || num_watch > p.size()) {
- 		     std::cout << "size: " << p.size() << "index: " << index << " num watch: " << num_watch << "\n";
-		}
+    */
+    void card_extension::add_index(pb& p, unsigned index, literal lit) {
+        if (value(lit) == l_undef) {
+            m_pb_undef.push_back(index);
+            if (p[index].first > m_a_max) {
+                m_a_max = p[index].first;
+            }
+        }
+    }
+    
+    lbool card_extension::add_assign(pb& p, literal alit) {
+        
+        TRACE("sat", display(tout << "assign: " << alit << "\n", p, true););
+        SASSERT(!inconsistent());
+        unsigned sz = p.size();
+        unsigned bound = p.k();
+        unsigned num_watch = p.num_watch();
+        unsigned slack = p.slack();
+        SASSERT(value(alit) == l_false);
+        SASSERT(p.lit() == null_literal || value(p.lit()) == l_true);
+        SASSERT(num_watch <= sz);
+        SASSERT(num_watch > 0);
+        unsigned index = 0;
+        m_a_max = 0;
+        m_pb_undef.reset();
+        for (; index < num_watch; ++index) {
+            literal lit = p[index].second;
+            if (lit == alit) {
+                break;
+            }
+            add_index(p, index, lit);
+        }
+        SASSERT(index < num_watch);
+        
+        unsigned index1 = index + 1;
+        for (; m_a_max == 0 && index1 < num_watch; ++index1) {
+            add_index(p, index1, p[index1].second);
+        }
+        
+        unsigned val = p[index].first;
+        SASSERT(value(p[index].second) == l_false);
+        SASSERT(val <= slack);
+        slack -= val;
+        // find literals to swap with:            
+        for (unsigned j = num_watch; j < sz && slack < bound + m_a_max; ++j) {
+            literal lit = p[j].second;
+            if (value(lit) != l_false) {
+                slack += p[j].first;
+                watch_literal(p[j], p);
+                p.swap(num_watch, j);
+                add_index(p, num_watch, lit);
+                ++num_watch;
+            }
+        }
+        
+        SASSERT(!inconsistent());
+        DEBUG_CODE(for (auto idx : m_pb_undef) { SASSERT(value(p[idx].second) == l_undef); });
+        
+        if (slack < bound) {
+            // maintain watching the literal
+            slack += val;
+            p.set_slack(slack);
+            p.set_num_watch(num_watch);
+            SASSERT(bound <= slack);
+            TRACE("sat", tout << "conflict " << alit << "\n";);
+            set_conflict(p, alit);
+            return l_false;
+        }
+        
+        if (index > p.size() || num_watch > p.size() || num_watch == 0) {
+            display(std::cout, p, true);
+            std::cout << "size: " << p.size() << "index: " << index << " num watch: " << num_watch << "\n";
+        }
         // swap out the watched literal.
         --num_watch;
         SASSERT(num_watch > 0);
@@ -419,9 +445,8 @@ p.set_num_watch(num_watch);
         return l_undef;
     }
 
-    void card_extension::watch_literal(pb& p, wliteral l) {
-        literal lit = l.second;
-        get_wlist(~lit).push_back(watched(p.index()));
+    void card_extension::watch_literal(wliteral l, pb& p) {
+        watch_literal(l.second, p);
     }
 
     void card_extension::clear_watch(pb& p) {
@@ -431,10 +456,6 @@ p.set_num_watch(num_watch);
         }
     }
     
-    void card_extension::unwatch_literal(literal lit, pb& p) {
-        get_wlist(~lit).erase(watched(p.index()));        
-    }
-
     void card_extension::set_conflict(pb& p, literal lit) {
         m_stats.m_num_pb_conflicts++;
         TRACE("sat", display(tout, p, true); );
@@ -596,22 +617,12 @@ p.set_num_watch(num_watch);
         }
     }
 
-    void card_extension::nullify_tracking_literal(pb& p) {
-        if (p.lit() != null_literal) {
-            get_wlist(p.lit()).erase(watched(p.index()));
-            get_wlist(~p.lit()).erase(watched(p.index()));
-            p.nullify_literal();
-        }
-    }
-
     void card_extension::remove_constraint(pb& p) {
         clear_watch(p);
         nullify_tracking_literal(p);
-        m_pbs[index2position(p.index())] = 0;
-        dealloc(&p);   
+        p.remove();
+        m_constraint_removed = true;
     }
-
-
 
     void card_extension::display(std::ostream& out, pb const& p, bool values) const {
         if (p.lit() != null_literal) out << p.lit() << " == ";
@@ -644,21 +655,9 @@ p.set_num_watch(num_watch);
 
     // xor:
 
-    void card_extension::copy_xor(card_extension& result) {
-        for (xor* x : m_xors) {
-            literal_vector lits;
-            for (literal l : *x) lits.push_back(l);
-            result.add_xor(x->lit(), lits);
-        }
-    }
-
     void card_extension::clear_watch(xor& x) {
         unwatch_literal(x[0], x);
         unwatch_literal(x[1], x);         
-    }
-
-    void card_extension::unwatch_literal(literal lit, xor& c) {
-        get_wlist(~lit).erase(watched(c.index()));
     }
 
     bool card_extension::parity(xor const& x, unsigned offset) const {
@@ -706,8 +705,8 @@ p.set_num_watch(num_watch);
             break;
         default: 
             SASSERT(j == 2);
-            watch_literal(x, x[0]);
-            watch_literal(x, x[1]);
+            watch_literal(x[0], x);
+            watch_literal(x[1], x);
             break;
         }
     }
@@ -741,13 +740,6 @@ p.set_num_watch(num_watch);
         }
     }
 
-    void card_extension::watch_literal(xor& x, literal lit) {
-        TRACE("sat_verbose", tout << "watch: " << lit << "\n";);
-        get_wlist(~lit).push_back(watched(x.index()));
-        TRACE("sat_verbose", tout << "insert: " << lit.var() << " " << lit.sign() << "\n";);
-    }
-
-
     void card_extension::set_conflict(xor& x, literal lit) {
         m_stats.m_num_xor_conflicts++;
         TRACE("sat", display(tout, x, true); );
@@ -780,7 +772,7 @@ p.set_num_watch(num_watch);
             literal lit2 = x[i];
             if (value(lit2) == l_undef) {
                 x.swap(index, i);
-                watch_literal(x, lit2);
+                watch_literal(lit2, x);
                 return l_undef;
             }
         }
@@ -947,24 +939,17 @@ p.set_num_watch(num_watch);
                 break;
             }
             case justification::EXT_JUSTIFICATION: {
-                unsigned index = js.get_ext_justification_idx();
-                if (is_card_index(index)) {
-                    card& c = index2card(index);
+                constraint& cnstr = index2constraint(js.get_ext_justification_idx());
+                switch (cnstr.tag()) {
+                case card_t: {
+                    card& c = cnstr.to_card();
                     m_bound += offset * c.k();
                     process_card(c, offset);
                     ++m_stats.m_num_card_resolves;
+                    break;
                 }
-                else if (is_xor_index(index)) {
-                    // jus.push_back(js);
-                    m_lemma.reset();
-                    m_bound += offset;
-                    inc_coeff(consequent, offset);
-                    get_xor_antecedents(consequent, idx, js, m_lemma);
-                    for (literal l : m_lemma) process_antecedent(~l, offset);
-                    ++m_stats.m_num_xor_resolves;
-                }
-                else if (is_pb_index(index)) {
-                    pb& p = index2pb(index);
+                case pb_t: {
+                    pb& p = cnstr.to_pb();
                     m_lemma.reset();
                     m_bound += offset;
                     inc_coeff(consequent, offset);
@@ -972,9 +957,21 @@ p.set_num_watch(num_watch);
                     TRACE("sat", display(tout, p, true); tout << m_lemma << "\n";);
                     for (literal l : m_lemma) process_antecedent(~l, offset);
                     ++m_stats.m_num_pb_resolves;
+                    break;
                 }
-                else {
+                case xor_t: {
+                    // jus.push_back(js);
+                    m_lemma.reset();
+                    m_bound += offset;
+                    inc_coeff(consequent, offset);
+                    get_xor_antecedents(consequent, idx, js, m_lemma);
+                    for (literal l : m_lemma) process_antecedent(~l, offset);
+                    ++m_stats.m_num_xor_resolves;
+                    break;
+                }
+                default:
                     UNREACHABLE();
+                    break;
                 }
                 break;
             }
@@ -1177,8 +1174,8 @@ p.set_num_watch(num_watch);
 
     card_extension::~card_extension() {
         m_stats.reset();
-        while (!m_index_trail.empty()) {
-            clear_index_trail_back();
+        while (!m_constraints.empty()) {
+            pop_constraint();
         }
     }
 
@@ -1188,42 +1185,45 @@ p.set_num_watch(num_watch);
     }
 
     void card_extension::add_at_least(literal lit, literal_vector const& lits, unsigned k) {
-        unsigned index = 4*m_cards.size();
-        SASSERT(is_card_index(index));
-        card* c = new (memory::allocate(card::get_obj_size(lits.size()))) card(index, lit, lits, k);
-        if (lit != null_literal) s().set_external(lit.var());
-        m_cards.push_back(c);
-        init_watch(*c);
-    }
-   
-    void card_extension::init_watch(card& c) {
-        unsigned index = c.index();
-        literal lit = c.lit();
-        m_index_trail.push_back(index);
-        if (lit == null_literal) {
-            // it is an axiom.
-            init_watch(c, true);
-        }
-        else {
-            get_wlist(lit).push_back(index);
-            get_wlist(~lit).push_back(index);
-        }
+        card* c = new (memory::allocate(card::get_obj_size(lits.size()))) card(lit, lits, k);
+        add_constraint(c);
     }
 
-    void card_extension::add_pb_ge(literal lit, svector<wliteral> const& wlits, unsigned k) {
-        unsigned index = 4*m_pbs.size() + 0x3;
-        SASSERT(is_pb_index(index));
-        pb* p = new (memory::allocate(pb::get_obj_size(wlits.size()))) pb(index, lit, wlits, k);
-        m_pbs.push_back(p);
-        m_index_trail.push_back(index);
+    void card_extension::add_constraint(constraint* c) {
+        m_constraints.push_back(c);
+        literal lit = c->lit();
         if (lit == null_literal) {
-            init_watch(*p, true);
+            init_watch(*c, true);
         }
         else {
             s().set_external(lit.var());
-            get_wlist(lit).push_back(index);
-            get_wlist(~lit).push_back(index);
+            get_wlist(lit).push_back(c->index());
+            get_wlist(~lit).push_back(c->index());
         }
+    }
+
+
+    void card_extension::init_watch(constraint& c, bool is_true) {
+        switch (c.tag()) {
+        case card_t: init_watch(c.to_card(), is_true); break;
+        case pb_t: init_watch(c.to_pb(), is_true); break;
+        case xor_t: init_watch(c.to_xor(), is_true); break;
+        }
+    }   
+
+    lbool card_extension::add_assign(constraint& c, literal l) {
+        switch (c.tag()) {
+        case card_t: return add_assign(c.to_card(), l); 
+        case pb_t: return add_assign(c.to_pb(), l); 
+        case xor_t: return add_assign(c.to_xor(), l); 
+        }
+        UNREACHABLE();
+        return l_undef;
+    }
+
+    void card_extension::add_pb_ge(literal lit, svector<wliteral> const& wlits, unsigned k) {
+        pb* p = new (memory::allocate(pb::get_obj_size(wlits.size()))) pb(lit, wlits, k);
+        add_constraint(p);
     }
 
     void card_extension::add_pb_ge(bool_var v, svector<wliteral> const& wlits, unsigned k) {
@@ -1231,66 +1231,29 @@ p.set_num_watch(num_watch);
         add_pb_ge(lit, wlits, k);
     }
 
-
     void card_extension::add_xor(bool_var v, literal_vector const& lits) {
         add_xor(literal(v, false), lits);
     }
 
     void card_extension::add_xor(literal lit, literal_vector const& lits) {
-        unsigned index = 4*m_xors.size() + 0x1;
-        SASSERT(is_xor_index(index));
-        xor* x = new (memory::allocate(xor::get_obj_size(lits.size()))) xor(index, lit, lits);
-        m_xors.push_back(x);
-        s().set_external(lit.var());
-        for (literal l : lits) s().set_external(l.var());
-        get_wlist(lit).push_back(index);
-        get_wlist(~lit).push_back(index);
-        m_index_trail.push_back(index);
+        xor* x = new (memory::allocate(xor::get_obj_size(lits.size()))) xor(lit, lits);
+        add_constraint(x);
+        for (literal l : lits) s().set_external(l.var()); // TBD: determine if goal2sat does this.
     }
 
     void card_extension::propagate(literal l, ext_constraint_idx idx, bool & keep) {
         SASSERT(value(l) == l_true);
         TRACE("sat", tout << l << " " << idx << "\n";);
-        if (is_pb_index(idx)) {
-            pb& p = index2pb(idx);
-            if (p.lit() != null_literal && l.var() == p.lit().var()) {
-                init_watch(p, !l.sign());
-                keep = true;
-            }
-            else if (p.lit() != null_literal && value(p.lit()) != l_true) {
-                keep = false;
-            }
-            else {
-                keep = l_undef != add_assign(p, ~l);
-            }
+        constraint& c = index2constraint(idx);
+        if (c.lit() != null_literal && l.var() == c.lit().var()) {
+            init_watch(c, !l.sign());
+            keep = true;
         }
-        else if (is_card_index(idx)) {
-            card& c = index2card(idx);
-            if (c.lit() != null_literal && l.var() == c.lit().var()) {
-                init_watch(c, !l.sign());
-                keep = true;
-            }
-            else if (c.lit() != null_literal && value(c.lit()) != l_true) {
-                keep = false;
-            }
-            else {
-                keep = l_undef != add_assign(c, ~l);
-            }
-        }
-        else if (is_xor_index(idx)) {
-            xor& x = index2xor(idx);
-            if (l.var() == x.lit().var()) {
-                init_watch(x, !l.sign());
-            }
-            else if (x.lit() != null_literal && value(x.lit()) != l_true) {
-                keep = false;
-            }
-            else {
-                keep = l_undef != add_assign(x, ~l);
-            }
+        else if (c.lit() != null_literal && value(c.lit()) != l_true) {
+            keep = false;
         }
         else {
-            UNREACHABLE();
+            keep = l_undef != add_assign(c, ~l);
         }
     }
 
@@ -1324,7 +1287,7 @@ p.set_num_watch(num_watch);
         unsigned level = lvl(l);
         bool_var v = l.var();
         SASSERT(js.get_kind() == justification::EXT_JUSTIFICATION);
-        SASSERT(is_xor_index(js.get_ext_justification_idx()));
+        SASSERT(index2constraint(index).is_xor());
         TRACE("sat", tout << l << ": " << js << "\n"; tout << s().m_trail << "\n";);
 
         unsigned num_marks = 0;
@@ -1332,12 +1295,12 @@ p.set_num_watch(num_watch);
         while (true) {
             ++count;
             if (js.get_kind() == justification::EXT_JUSTIFICATION) {
-                unsigned idx = js.get_ext_justification_idx();
-                if (!is_xor_index(idx)) {
+                constraint& c = index2constraint(js.get_ext_justification_idx());
+                if (!c.is_xor()) {
                     r.push_back(l);
                 }
                 else {
-                    xor& x = index2xor(idx);
+                    xor& x = c.to_xor();
                     if (x.lit() != null_literal && lvl(x.lit()) > 0) r.push_back(x.lit());
                     if (x[1].var() == l.var()) {
                         x.swap(0, 1);
@@ -1485,21 +1448,16 @@ p.set_num_watch(num_watch);
     }
 
     void card_extension::get_antecedents(literal l, ext_justification_idx idx, literal_vector & r) {
-        if (is_card_index(idx)) {
-            get_card_antecedents(l, index2card(idx), r);
-        }
-        else if (is_xor_index(idx)) {
-            get_xor_antecedents(l, index2xor(idx), r);
-        }
-        else if (is_pb_index(idx)) {
-            get_pb_antecedents(l, index2pb(idx), r);
-        }
-        else {
-            UNREACHABLE();
+        constraint& c = index2constraint(idx);
+        switch (c.tag()) {
+        case card_t: get_card_antecedents(l, c.to_card(), r); break;
+        case pb_t: get_pb_antecedents(l, c.to_pb(), r); break;
+        case xor_t: get_xor_antecedents(l, c.to_xor(), r); break;
+        default: UNREACHABLE(); break;
         }
     }
 
-    void card_extension::nullify_tracking_literal(card& c) {
+    void card_extension::nullify_tracking_literal(constraint& c) {
         if (c.lit() != null_literal) {
             get_wlist(c.lit()).erase(watched(c.index()));
             get_wlist(~c.lit()).erase(watched(c.index()));
@@ -1510,8 +1468,8 @@ p.set_num_watch(num_watch);
     void card_extension::remove_constraint(card& c) {
         clear_watch(c);
         nullify_tracking_literal(c);
-        m_cards[index2position(c.index())] = 0;
-        dealloc(&c);   
+        c.remove();
+        m_constraint_removed = true;
     }
 
     void card_extension::simplify(card& c) {
@@ -1628,7 +1586,7 @@ p.set_num_watch(num_watch);
             literal lit2 = c[i];
             if (value(lit2) != l_false) {
                 c.swap(index, i);
-                watch_literal(c, lit2);
+                watch_literal(lit2, c);
                 return l_undef;
             }
         }
@@ -1664,78 +1622,78 @@ p.set_num_watch(num_watch);
     check_result card_extension::check() { return CR_DONE; }
 
     void card_extension::push() {
-        m_index_lim.push_back(m_index_trail.size());
+        m_constraint_lim.push_back(m_constraints.size());
     }
 
-    void card_extension::clear_index_trail_back() {
-        unsigned index = m_index_trail.back();
-        m_index_trail.pop_back();
-        if (is_card_index(index)) {
-            card* c = m_cards.back();
-            if (c) {
-                SASSERT(c->index() == index);
-                clear_watch(*c); // can skip during finalization
-                dealloc(c);
-            }
-            m_cards.pop_back();
-        }
-        else if (is_pb_index(index)) {
-            pb* p = m_pbs.back();
-            if (p) {
-                SASSERT(p->index() == index);
-                clear_watch(*p); // can skip during finalization
-                dealloc(p);
-            }
-            m_pbs.pop_back();
-        }
-        else if (is_xor_index(index)) {
-            xor* x = m_xors.back();
-            if (x) {
-                SASSERT(x->index() == index);
-                clear_watch(*x); // can skip during finalization
-                dealloc(x);
-            }
-            m_xors.pop_back();
-        }
-        else {
+    void card_extension::pop_constraint() {
+        constraint* c = m_constraints.back();
+        m_constraints.pop_back();
+        nullify_tracking_literal(*c);
+        switch (c->tag()) {
+        case card_t:
+            clear_watch(c->to_card());
+            break;
+        case pb_t:
+            clear_watch(c->to_pb());
+            break;
+        case xor_t:
+            clear_watch(c->to_xor());
+            break;
+        default:
             UNREACHABLE();
         }
+        dealloc(c);
     }
 
     void card_extension::pop(unsigned n) {        
         TRACE("sat_verbose", tout << "pop:" << n << "\n";);
-        unsigned new_lim = m_index_lim.size() - n;
-        unsigned sz = m_index_lim[new_lim];
-        while (m_index_trail.size() > sz) {
-            clear_index_trail_back();
+        unsigned new_lim = m_constraint_lim.size() - n;
+        unsigned sz = m_constraint_lim[new_lim];
+        while (m_constraints.size() > sz) {
+            pop_constraint();
         }
-        m_index_lim.resize(new_lim);
+        m_constraint_lim.resize(new_lim);
         m_num_propagations_since_pop = 0;
+    }
+
+    void card_extension::simplify(constraint& c) {
+        switch (c.tag()) {
+        case card_t:
+            simplify(c.to_card());
+            break;
+        case pb_t:
+            simplify(c.to_pb());
+            break;
+        case xor_t:
+            simplify(c.to_xor());
+            break;
+        default:
+            UNREACHABLE();
+        }                
     }
 
     void card_extension::simplify() {
         return;
-        s().pop_to_base_level();
+        if (!s().at_base_lvl()) s().pop_to_base_level();
         unsigned trail_sz;
         do {
             m_simplify_change = false;
+            m_clause_removed = false;
+            m_constraint_removed = false;
             trail_sz = s().init_trail_size();
-            for (card* c : m_cards) {
-                if (c) simplify(*c);
-            }
-            for (pb* p : m_pbs) {
-                if (p) simplify(*p);
-            }
-            for (xor* x : m_xors) {
-                if (x) simplify(*x);
-            }            
+            for (constraint* c : m_constraints) simplify(*c);
             gc();
+            cleanup_clauses();
+            cleanup_constraints();
         }        
         while (m_simplify_change || trail_sz < s().init_trail_size());
         // or could create queue of constraints that are affected
     }
 
     bool card_extension::set_root(literal l, literal r) { 
+        if (s().is_assumption(l.var())) {
+            return false;
+        }
         for (unsigned i = m_roots.size(); i < 2 * s().num_vars(); ++i) {
             m_roots.push_back(to_literal(i));
         }
@@ -1747,16 +1705,23 @@ p.set_num_watch(num_watch);
     void card_extension::flush_roots() {
         if (m_roots.empty()) return;
         m_visited.resize(s().num_vars()*2, false);
-        for (card* c : m_cards) {
-            if (c) flush_roots(*c);
+        m_constraint_removed = false;
+        for (constraint* c : m_constraints) {
+            switch (c->tag()) {
+            case card_t:
+                flush_roots(c->to_card());
+                break;
+            case pb_t:
+                flush_roots(c->to_pb());
+                break;
+            case xor_t:
+                flush_roots(c->to_xor());
+                break;
+            default:
+                UNREACHABLE();
+            }                
         }
-        for (pb* p : m_pbs) {
-            if (p) flush_roots(*p);
-        }
-        for (xor* x : m_xors) {
-            if (x) flush_roots(*x);
-        }
-        
+        cleanup_constraints();
         // display(std::cout << "flush roots\n");
     }
 
@@ -1805,49 +1770,53 @@ p.set_num_watch(num_watch);
     }
 
     void card_extension::recompile(card& c) {
-        m_count.resize(2*s().num_vars(), 0);
+        IF_VERBOSE(0, verbose_stream() << "re: " << c << "\n";);
+        m_weights.resize(2*s().num_vars(), 0);
         for (literal l : c) {
-            ++m_count[l.index()];
+            ++m_weights[l.index()];
         }
         unsigned k = c.k();
         bool is_card = true;
         unsigned sz = c.size();
+        unsigned_vector coeffs;
         for (unsigned i = 0; i < sz && 0 < k; ++i) {
             literal l = c[i];
-            while (k > 0 &&
-                   m_count[l.index()] > 0 &&
-                   m_count[(~l).index()] > 0) {
-                --m_count[l.index()];
-                --m_count[(~l).index()];
-                --k;
-            }
-            unsigned w = m_count[l.index()];
-            if (w > 0) {
-                is_card &= w == 1;
-            }
-            else {
+            unsigned w = m_weights[l.index()];
+            unsigned w2 = m_weights[(~l).index()];
+            if (w == 0 || w < w2) {
                 c.swap(i, sz - 1);
                 --sz;
                 --i;
+            }
+            else if (k <= w2) {
+                k = 0;
+                break;
+            }
+            else {
+                SASSERT(w2 <= w && w2 < k);
+                k -= w2;
+                w -= w2;
+                m_weights[(~l).index()] = 0;        
+                m_weights[l.index()] = 0;        
+                if (w == 0) {
+                    c.swap(i, sz - 1);
+                    --sz;
+                    --i;
+                }    
+                else {
+                    is_card &= (w == 1);
+                    coeffs.push_back(w);
+                }
             }
         }
         c.update_size(sz);
         c.update_k(k);
 
-        svector<wliteral> wlits;
-        if (!is_card) {            
-            for (literal l : c) {
-                unsigned w = m_count[l.index()];
-                if (w > 0) {
-                    wlits.push_back(wliteral(w, l));
-                }
-            }
-        }
-
-        // clear counts:
+        // clear weights
         for (literal l : c) {
-            m_count[l.index()] = 0;
-        }
+            m_weights[l.index()] = 0;
+            m_weights[(~l).index()] = 0;
+        }       
 
         if (k == 0) {
             remove_constraint(c);
@@ -1859,10 +1828,15 @@ p.set_num_watch(num_watch);
 
         if (!is_card) {            
             TRACE("sat", tout << "replacing by pb: " << c << "\n";);
+            svector<wliteral> wlits;
+            for (unsigned i = 0; i < sz; ++i) {
+                wlits.push_back(wliteral(coeffs[i], c[i]));
+            }
             remove_constraint(c);
             add_pb_ge(root, wlits, k);
         }
         else {
+            IF_VERBOSE(0, verbose_stream() << "new: " << c << "\n";);
             if (c.lit() != root) {
                 nullify_tracking_literal(c);
                 c.update_literal(root);
@@ -1877,36 +1851,47 @@ p.set_num_watch(num_watch);
     }
 
     void card_extension::recompile(pb& p) {
-        m_count.resize(2*s().num_vars(), 0);
+        IF_VERBOSE(0, verbose_stream() << "re: " << p << "\n";);
+        m_weights.resize(2*s().num_vars(), 0);
         for (wliteral wl : p) {
-            m_count[wl.second.index()] += wl.first;
+            m_weights[wl.second.index()] += wl.first;
         }
         unsigned k = p.k();
         unsigned sz = p.size();
         for (unsigned i = 0; i < sz && 0 < k; ++i) {
             wliteral wl = p[i];
             literal l = wl.second;
-            if (m_count[l.index()] >= m_count[(~l).index()]) {
-                if (k < m_count[(~l).index()]) {
-                    k = 0;
-                    break;
-                }
-                k -= m_count[(~l).index()];
-                m_count[l.index()] -= m_count[(~l).index()];
-            }
-            unsigned w = m_count[l.index()];
-            if (w == 0) {
+            unsigned w = m_weights[l.index()];
+            unsigned w2 = m_weights[(~l).index()];
+            if (w == 0 || w < w2) {
                 p.swap(i, sz - 1);
                 --sz;
                 --i;
             }
+            else if (k <= w2) {
+                k = 0;
+                break;
+            }
             else {
-                p[i] = wliteral(w, l);
+                SASSERT(w2 <= w && w2 < k);
+                k -= w2;
+                w -= w2;
+                m_weights[l.index()] = 0;
+                m_weights[(~l).index()] = 0;        
+                if (w == 0) {
+                    p.swap(i, sz - 1);
+                    --sz;
+                    --i;
+                }    
+                else {
+                    p[i] = wliteral(w, l);            
+                }
             }
         }
-        // clear counts:
+        // clear weights
         for (wliteral wl : p) {
-            m_count[wl.second.index()] = 0;
+            m_weights[wl.second.index()] = 0;
+            m_weights[(~wl.second).index()] = 0;
         }
 
         if (k == 0) {
@@ -1917,8 +1902,16 @@ p.set_num_watch(num_watch);
         p.update_size(sz);
         p.update_k(k);
 
+        for (unsigned i = 0; i < sz; ++i) {
+            wliteral wl = p[i];
+            unsigned w = std::min(k, wl.first);
+            p[i] = wliteral(w, wl.second);
+        }
+
         literal root = null_literal;
         if (p.lit() != null_literal) root = m_roots[p.lit().index()];
+
+        IF_VERBOSE(0, verbose_stream() << "new: " << p << "\n";);
 
         // std::cout << "simplified " << p << "\n";
         if (p.lit() != root) {
@@ -2003,77 +1996,90 @@ p.set_num_watch(num_watch);
         m_clause_use_list.init(s().num_vars());
         m_var_used.reset();
         m_var_used.resize(s().num_vars(), false);
-        m_card_use_list.reset();
-        m_card_use_list.resize(2*s().num_vars(), false);
-        for (clause* c : s().m_clauses) if (!c->frozen()) m_clause_use_list.insert(*c);
-        for (card* c : m_cards) { 
-            if (c) {
-                if (c->lit() != null_literal) {
-                    m_card_use_list[c->lit().index()].push_back(c->index());
-                    m_card_use_list[(~c->lit()).index()].push_back(c->index());
-                    for (literal l : *c) m_card_use_list[(~l).index()].push_back(c->index());
-
-                }
-                for (literal l : *c) {
-                    m_var_used[l.var()] = true;
-                    m_card_use_list[l.index()].push_back(c->index());
-                }  
-            }
+        m_cnstr_use_list.reset();
+        m_cnstr_use_list.resize(2*s().num_vars());
+        for (clause* c : s().m_clauses) {
+            if (!c->frozen()) 
+                m_clause_use_list.insert(*c);
         }
-        for (pb* p : m_pbs) {
-            if (p) {
-                if (p->lit() != null_literal) {
-                    m_card_use_list[p->lit().index()].push_back(p->index());
-                    m_card_use_list[(~p->lit()).index()].push_back(p->index());
-                    for (wliteral wl : *p) m_card_use_list[(~wl.second).index()].push_back(p->index());
-                }
-                for (wliteral wl : *p) {
+        for (constraint* cp : m_constraints) {
+            literal lit = cp->lit();
+            if (lit != null_literal) {
+                m_cnstr_use_list[lit.index()].push_back(cp);
+                m_cnstr_use_list[(~lit).index()].push_back(cp);
+            }
+            switch (cp->tag()) {
+            case card_t: {
+                card& c = cp->to_card();
+                for (literal l : c) {
+                    m_var_used[l.var()] = true;
+                    m_cnstr_use_list[l.index()].push_back(&c);
+                    if (lit != null_literal) m_cnstr_use_list[(~l).index()].push_back(&c);
+                }  
+                break;
+            }
+            case pb_t: {
+                pb& p = cp->to_pb();
+                for (wliteral wl : p) {
                     literal l = wl.second;
                     m_var_used[l.var()] = true; 
-                    m_card_use_list[l.index()].push_back(p->index());
+                    m_cnstr_use_list[l.index()].push_back(&p);
+                    if (lit != null_literal) m_cnstr_use_list[(~l).index()].push_back(&p);
                 }
+                break;
             }
-        }
-        for (xor* x : m_xors) {
-            if (x) {
-                m_card_use_list[x->lit().index()].push_back(x->index());
-                m_card_use_list[(~x->lit()).index()].push_back(x->index());
-                m_var_used[x->lit().var()] = true;
-                for (literal l : *x) {
+            case xor_t: {
+                xor& x = cp->to_xor();
+                m_var_used[x.lit().var()] = true;
+                for (literal l : x) {
                     m_var_used[l.var()] = true;
-                    m_card_use_list[l.index()].push_back(x->index());
-                    m_card_use_list[(~l).index()].push_back(x->index());
+                    m_cnstr_use_list[l.index()].push_back(&x);
+                    m_cnstr_use_list[(~l).index()].push_back(&x);
+                }             
+                break;
+            }
+            }
+        }
+        for (constraint* cp : m_constraints) {
+            switch (cp->tag()) {
+            case card_t: {
+                card& c = cp->to_card();
+                if (c.lit() != null_literal && 
+                    !m_var_used[c.lit().var()] && 
+                    m_clause_use_list.get(c.lit()).empty() && 
+                    m_clause_use_list.get(~c.lit()).empty() &&
+                    get_num_non_learned_bin(c.lit()) == 0 && 
+                    get_num_non_learned_bin(~c.lit()) == 0) {
+                    remove_constraint(c);
                 }
+                break;
+            }
+            case pb_t: {
+                pb& p = cp->to_pb();
+                if (p.lit() != null_literal && 
+                    !m_var_used[p.lit().var()] && 
+                    m_clause_use_list.get(p.lit()).empty() && 
+                    m_clause_use_list.get(~p.lit()).empty() &&
+                    get_num_non_learned_bin(p.lit()) == 0 && 
+                    get_num_non_learned_bin(~p.lit()) == 0) {
+                    remove_constraint(p);
+                }
+                break;
+            }
+            default:
+                break;
             }
         }
-        for (card* c : m_cards) {
-            if (c && c->lit() != null_literal && 
-                !m_var_used[c->lit().var()] && 
-                m_clause_use_list.get(c->lit()).empty() && 
-                m_clause_use_list.get(~c->lit()).empty() &&
-                get_num_non_learned_bin(c->lit()) == 0 && 
-                get_num_non_learned_bin(~c->lit()) == 0) {
-                remove_constraint(*c);
-            }
-        }
-        for (pb* p : m_pbs) {
-            if (p && p->lit() != null_literal && 
-                !m_var_used[p->lit().var()] && 
-                m_clause_use_list.get(p->lit()).empty() && 
-                m_clause_use_list.get(~p->lit()).empty() &&
-                get_num_non_learned_bin(p->lit()) == 0 && 
-                get_num_non_learned_bin(~p->lit()) == 0) {
-                remove_constraint(*p);
-            }
-        }
+
         // take ownership of interface variables
-        for (card* c : m_cards) if (c && c->lit() != null_literal) m_var_used[c->lit().var()] = true;
-        for (pb* p : m_pbs) if (p && p->lit() != null_literal) m_var_used[p->lit().var()] = true;
+        for (constraint* cp : m_constraints) {
+            if (cp->lit() != null_literal) m_var_used[cp->lit().var()] = true;
+        }
 
         // set variables to be non-external if they are not used in theory constraints.
         unsigned ext = 0;
         for (unsigned v = 0; v < s().num_vars(); ++v) {
-            if (s().is_external(v) && !m_var_used[v]) {
+            if (s().is_external(v) && !m_var_used[v] && !s().is_assumption(v)) {
                 s().set_non_external(v);
                 ++ext;
             }            
@@ -2084,14 +2090,14 @@ p.set_num_watch(num_watch);
         for (unsigned v = 0; v < s().num_vars(); ++v) {
             if (!m_var_used[v]) continue;
             literal lit(v, false);
-            if (!m_card_use_list[lit.index()].empty() && m_card_use_list[(~lit).index()].empty() && m_clause_use_list.get(~lit).empty() && 
+            if (!m_cnstr_use_list[lit.index()].empty() && m_cnstr_use_list[(~lit).index()].empty() && m_clause_use_list.get(~lit).empty() && 
                 get_num_non_learned_bin(~lit) == 0) {
                 s().assign(lit, justification());
                 ++pure_literals;
                 continue;
             }
             lit.neg();
-            if (!m_card_use_list[lit.index()].empty() && m_card_use_list[(~lit).index()].empty() && m_clause_use_list.get(~lit).empty() && get_num_non_learned_bin(~lit) == 0) {
+            if (!m_cnstr_use_list[lit.index()].empty() && m_cnstr_use_list[(~lit).index()].empty() && m_clause_use_list.get(~lit).empty() && get_num_non_learned_bin(~lit) == 0) {
                 s().assign(lit, justification());
                 ++pure_literals;
             }
@@ -2100,37 +2106,69 @@ p.set_num_watch(num_watch);
                    verbose_stream() << "non-external variables converted: " << ext << "\n";
                    verbose_stream() << "pure literals converted: " << pure_literals << "\n";);
 
-        m_cleanup_clauses = false;
         unsigned bin_sub = m_stats.m_num_bin_subsumes;
         unsigned clause_sub = m_stats.m_num_clause_subsumes;
         unsigned card_sub = m_stats.m_num_card_subsumes;
-        for (card* c : m_cards) {
-            if (c && c->k() > 1) {
-                subsumption(*c);
+        for (constraint* cp : m_constraints) {
+            switch (cp->tag()) {
+            case card_t: {
+                card& c = cp->to_card();
+                if (c.k() > 1) subsumption(c);
+                break;
+            }
+            default:
+                break;                
             }
         }
         IF_VERBOSE(1, verbose_stream() << "binary subsumes: " << m_stats.m_num_bin_subsumes - bin_sub << "\n";);
         IF_VERBOSE(1, verbose_stream() << "clause subsumes: " << m_stats.m_num_clause_subsumes - clause_sub << "\n";);
         IF_VERBOSE(1, verbose_stream() << "card subsumes: " << m_stats.m_num_card_subsumes - card_sub << "\n";);
-        if (m_cleanup_clauses) {
-            clause_vector::iterator it = s().m_clauses.begin();
-            clause_vector::iterator end = s().m_clauses.end();
-            clause_vector::iterator it2 = it;
-            for (; it != end; ++it) {
-                clause* c = *it;
-                if (c->was_removed()) {
-                    s().detach_clause(*c);
-                    s().del_clause(*c);
-                }
-                else {
-                    if (it2 != it) {
-                        *it2 = *it;
-                    }
-                    ++it2;
-                }
+
+    }
+
+    void card_extension::cleanup_clauses() {
+        if (!m_clause_removed) return;
+        // version in simplify first clears 
+        // all watch literals, then reinserts them.
+        // this ensures linear time cleanup.
+        clause_vector::iterator it = s().m_clauses.begin();
+        clause_vector::iterator end = s().m_clauses.end();
+        clause_vector::iterator it2 = it;
+        for (; it != end; ++it) {
+            clause* c = *it;
+            if (c->was_removed()) {
+                s().detach_clause(*c);
+                s().del_clause(*c);
             }
-            s().m_clauses.set_end(it2);
+            else {
+                if (it2 != it) {
+                    *it2 = *it;
+                }
+                ++it2;
+            }
         }
+        s().m_clauses.set_end(it2);        
+    }
+    
+    void card_extension::cleanup_constraints() {
+        if (!m_constraint_removed) return;
+        ptr_vector<constraint>::iterator it = m_constraints.begin();
+        ptr_vector<constraint>::iterator it2 = it;
+        ptr_vector<constraint>::iterator end = m_constraints.end();
+        for (; it != end; ++it) {
+            constraint& c = *(*it);
+            if (c.was_removed()) {
+                dealloc(&c);
+            }
+            else {
+                if (it != it2) {
+                    *it2 = *it;
+                }
+                ++it2;
+            }
+        }
+        m_constraints.set_end(it2);
+        m_constraint_removed = false;
     }
 
     /*
@@ -2196,7 +2234,7 @@ p.set_num_watch(num_watch);
         unsigned occ_count = UINT_MAX;
         literal lit = null_literal;
         for (literal l : c) {
-            unsigned occ_count1 = m_card_use_list[l.index()].size();
+            unsigned occ_count1 = m_cnstr_use_list[l.index()].size();
             if (occ_count1 < occ_count) {
                 lit = l;
                 occ_count = occ_count1;
@@ -2207,14 +2245,11 @@ p.set_num_watch(num_watch);
 
     void card_extension::card_subsumption(card& c1, literal lit) {
         literal_vector slit;
-        for (unsigned index : m_card_use_list[lit.index()]) {
-            if (!is_card_index(index) || index == c1.index()) {
+        for (constraint* c : m_cnstr_use_list[lit.index()]) {
+            if (!c || c->tag() != card_t || c == &c1) {
                 continue;
             }
-            // c2 could be null
-            card* c = m_cards[index2position(index)];
-            if (!c) continue;
-            card& c2 = *c;
+            card& c2 = c->to_card();
 
             SASSERT(c1.index() != c2.index());
             if (subsumes(c1, c2, slit)) {
@@ -2252,7 +2287,7 @@ p.set_num_watch(num_watch);
                 if (slit.empty()) {
                     TRACE("sat", tout << "remove\n" << c1 << "\n" << c2 << "\n";);
                     //c2.set_removed(true);
-                    //m_cleanup_clauses = true;
+                    //m_clause_removed = true;
                     ++m_stats.m_num_clause_subsumes;
                 }
                 else {
@@ -2307,28 +2342,51 @@ p.set_num_watch(num_watch);
 
     lbool card_extension::get_phase(bool_var v) { return l_undef; }
 
-    void card_extension::copy_card(card_extension& result) {
-        for (card* c : m_cards) {
-            if (!c) continue;
-            literal_vector lits;
-            for (literal l : *c) lits.push_back(l);
-            result.add_at_least(c->lit(), lits, c->k());
-        }
-    }
+
     extension* card_extension::copy(solver* s) {
         card_extension* result = alloc(card_extension);
         result->set_solver(s);
-        copy_card(*result);
-        copy_xor(*result);
-        copy_pb(*result);
+        literal_vector lits;
+        svector<wliteral> wlits;
+        for (constraint* cp : m_constraints) {
+            switch (cp->tag()) {
+            case card_t: {
+                card const& c = cp->to_card();
+                lits.reset();
+                for (literal l : c) lits.push_back(l);
+                result->add_at_least(c.lit(), lits, c.k());        
+                break;
+            }
+            case pb_t: {
+                pb const& p = cp->to_pb();
+                wlits.reset();
+                for (wliteral w : p) {
+                    wlits.push_back(w);
+                }
+                result->add_pb_ge(p.lit(), wlits, p.k());
+                break;
+            }
+            case xor_t: {
+                xor const& x = cp->to_xor();
+                lits.reset();
+                for (literal l : x) lits.push_back(l);
+                result->add_xor(x.lit(), lits);        
+                break;
+            }
+            default:
+                UNREACHABLE();
+            }                
+        }
+
         return result;
     }
 
     void card_extension::find_mutexes(literal_vector& lits, vector<literal_vector> & mutexes) {
         literal_set slits(lits);
         bool change = false;
-        for (unsigned i = 0; i < m_cards.size(); ++i) {
-            card& c = *m_cards[i];
+        for (constraint* cp : m_constraints) {
+            if (!cp->is_card()) continue;
+            card const& c = cp->to_card();
             if (c.size() == c.k() + 1) {
                 literal_vector mux;
                 for (unsigned j = 0; j < c.size(); ++j) {
@@ -2424,52 +2482,27 @@ p.set_num_watch(num_watch);
     }
 
     std::ostream& card_extension::display(std::ostream& out) const {
-        for (card* c : m_cards) {
-            if (c) out << *c << "\n";
-        }
-        for (pb* p : m_pbs) {
-            if (p) out << *p << "\n";
-        }
-        for (xor* x : m_xors) {
-            if (x) display(out, *x, false);
+        for (constraint const* c : m_constraints) {
+            switch (c->tag()) {
+            case card_t: 
+                out << c->to_card() << "\n";
+                break;
+            case pb_t:
+                out << c->to_pb() << "\n";
+                break;
+            case xor_t:
+                display(out, c->to_xor(), false);
+                break;
+            default:
+                UNREACHABLE();
+            }                
         }
         return out;
     }
 
     std::ostream& card_extension::display_justification(std::ostream& out, ext_justification_idx idx) const {
-        if (is_card_index(idx)) {
-            card& c = index2card(idx);
-            out << "bound ";
-            if (c.lit() != null_literal) out << c.lit();
-            out << ": ";
-            for (unsigned i = 0; i < c.size(); ++i) {
-                out << c[i] << " ";
-            }
-            out << ">= " << c.k();
-        }
-        else if (is_xor_index(idx)) {
-            xor& x = index2xor(idx);
-            out << "xor ";
-            if (x.lit() != null_literal) out << x.lit();
-            out << ": ";
-            for (unsigned i = 0; i < x.size(); ++i) {
-                out << x[i] << " ";
-            }            
-        }
-        else if (is_pb_index(idx)) {
-            pb& p = index2pb(idx);
-            out << "pb ";
-            if (p.lit() != null_literal) out << p.lit();
-            out << ": ";
-            for (unsigned i = 0; i < p.size(); ++i) {
-                out << p[i].first << "*" << p[i].second << " ";
-            }
-            out << ">= " << p.k();
-        }
-        else {
-            UNREACHABLE();
-        }
-        return out;
+        constraint const& cnstr = index2constraint(idx);
+        return out << index2constraint(idx);
     }
 
     void card_extension::collect_statistics(statistics& st) const {
@@ -2546,61 +2579,68 @@ p.set_num_watch(num_watch);
         }
     }
 
-    void card_extension::justification2pb(justification const& js, literal lit, unsigned offset, ineq& p) {
+    void card_extension::justification2pb(justification const& js, literal lit, unsigned offset, ineq& ineq) {
         switch (js.get_kind()) {
         case justification::NONE:
-            p.reset(offset);
-            p.push(lit, offset);
+            ineq.reset(offset);
+            ineq.push(lit, offset);
             break;
         case justification::BINARY:
-            p.reset(offset);
-            p.push(lit, offset);
-            p.push(js.get_literal(), offset);
+            ineq.reset(offset);
+            ineq.push(lit, offset);
+            ineq.push(js.get_literal(), offset);
             break;
         case justification::TERNARY:
-            p.reset(offset);
-            p.push(lit, offset);
-            p.push(js.get_literal1(), offset);
-            p.push(js.get_literal2(), offset);
+            ineq.reset(offset);
+            ineq.push(lit, offset);
+            ineq.push(js.get_literal1(), offset);
+            ineq.push(js.get_literal2(), offset);
             break;
         case justification::CLAUSE: {
-            p.reset(offset);
+            ineq.reset(offset);
             clause & c = *(s().m_cls_allocator.get_clause(js.get_clause_offset()));
             unsigned sz  = c.size();
             for (unsigned i = 0; i < sz; i++)
-                p.push(c[i], offset);
+                ineq.push(c[i], offset);
             break;
         }
         case justification::EXT_JUSTIFICATION: {
-            unsigned index = js.get_ext_justification_idx();
-            if (is_card_index(index)) {
-                card& c = index2card(index);
-                p.reset(offset*c.k());
+            ext_justification_idx index = js.get_ext_justification_idx();
+            constraint& cnstr = index2constraint(index);
+            switch (cnstr.tag()) {
+            case card_t: {
+                card& c = cnstr.to_card();
+                ineq.reset(offset*c.k());
                 for (unsigned i = 0; i < c.size(); ++i) {
-                    p.push(c[i], offset);
+                    ineq.push(c[i], offset);
                 }
-                if (c.lit() != null_literal) p.push(~c.lit(), offset*c.k());
+                if (c.lit() != null_literal) ineq.push(~c.lit(), offset*c.k());                
+                break;
             }
-            else if (is_xor_index(index)) {
+            case pb_t: {
+                pb& p = cnstr.to_pb();
+                ineq.reset(p.k());
+                for (unsigned i = 0; i < p.size(); ++i) {
+                    ineq.push(p[i].second, p[i].first);
+                }
+                if (p.lit() != null_literal) ineq.push(~p.lit(), p.k());
+                break;
+            }
+            case xor_t: {
+                xor& x = cnstr.to_xor();
                 literal_vector ls;
-                get_antecedents(lit, index, ls);                
-                p.reset(offset);
+                get_xor_antecedents(lit, x, ls);                
+                ineq.reset(offset);
                 for (unsigned i = 0; i < ls.size(); ++i) {
-                    p.push(~ls[i], offset);
+                    ineq.push(~ls[i], offset);
                 }
-                literal lxor = index2xor(index).lit();                
-                if (lxor != null_literal) p.push(~lxor, offset);
+                literal lxor = x.lit();                
+                if (lxor != null_literal) ineq.push(~lxor, offset);
+                break;
             }
-            else if (is_pb_index(index)) {
-                pb& pb = index2pb(index);
-                p.reset(pb.k());
-                for (unsigned i = 0; i < pb.size(); ++i) {
-                    p.push(pb[i].second, pb[i].first);
-                }
-                if (pb.lit() != null_literal) p.push(~pb.lit(), pb.k());
-            }
-            else {
+            default:
                 UNREACHABLE();
+                break;
             }
             break;
         }
