@@ -1641,6 +1641,7 @@ namespace sat {
             UNREACHABLE();
             break;
         }
+        if (m_ext) m_ext->gc();
         m_conflicts_since_gc = 0;
         m_gc_threshold += m_config.m_gc_increment;
         CASSERT("sat_gc_bug", check_invariant());
@@ -3148,26 +3149,16 @@ namespace sat {
     }
 
     unsigned solver::num_clauses() const {
-        unsigned num_cls = 0;
-        num_cls += m_trail.size(); // units;
-        vector<watch_list>::const_iterator it  = m_watches.begin();
-        vector<watch_list>::const_iterator end = m_watches.end();
-        for (unsigned l_idx = 0; it != end; ++it, ++l_idx) {
-            literal l = ~to_literal(l_idx);
-            watch_list const & wlist = *it;
-            watch_list::const_iterator it2  = wlist.begin();
-            watch_list::const_iterator end2 = wlist.end();
-            for (; it2 != end2; ++it2) {
-                if (it2->is_binary_clause() && l.index() < it2->get_literal().index())
+        unsigned num_cls = m_trail.size(); // units;
+        unsigned l_idx = 0;
+        for (auto const& wl : m_watches) {
+            literal l = ~to_literal(l_idx++);
+            for (auto const& w : wl) {
+                if (w.is_binary_clause() && l.index() < w.get_literal().index())
                     num_cls++;
             }
         }
-        clause_vector const * vs[2] = { &m_clauses, &m_learned };
-        for (unsigned i = 0; i < 2; i++) {
-            clause_vector const & cs = *(vs[i]);
-            num_cls += cs.size();
-        }
-        return num_cls;
+        return num_cls + m_clauses.size() + m_learned.size();
     }
 
     void solver::display_dimacs(std::ostream & out) const {
@@ -3175,28 +3166,21 @@ namespace sat {
         for (unsigned i = 0; i < m_trail.size(); i++) {
             out << dimacs_lit(m_trail[i]) << " 0\n";
         }
-        vector<watch_list>::const_iterator it  = m_watches.begin();
-        vector<watch_list>::const_iterator end = m_watches.end();
-        for (unsigned l_idx = 0; it != end; ++it, ++l_idx) {
-            literal l = ~to_literal(l_idx);
-            watch_list const & wlist = *it;
-            watch_list::const_iterator it2  = wlist.begin();
-            watch_list::const_iterator end2 = wlist.end();
-            for (; it2 != end2; ++it2) {
-                if (it2->is_binary_clause() && l.index() < it2->get_literal().index())
-                    out << dimacs_lit(l) << " " << dimacs_lit(it2->get_literal()) << " 0\n";
+        unsigned l_idx = 0;
+        for (auto const& wlist : m_watches) {
+            literal l = ~to_literal(l_idx++);
+            for (auto const& w : wlist) {
+                if (w.is_binary_clause() && l.index() < w.get_literal().index())
+                    out << dimacs_lit(l) << " " << dimacs_lit(w.get_literal()) << " 0\n";
             }
         }
         clause_vector const * vs[2] = { &m_clauses, &m_learned };
         for (unsigned i = 0; i < 2; i++) {
             clause_vector const & cs = *(vs[i]);
-            clause_vector::const_iterator it  = cs.begin();
-            clause_vector::const_iterator end = cs.end();
-            for (; it != end; ++it) {
-                clause const & c = *(*it);
-                unsigned sz = c.size();
-                for (unsigned j = 0; j < sz; j++)
-                    out << dimacs_lit(c[j]) << " ";
+            for (auto cp : cs) {
+                for (literal l : *cp) {
+                    out << dimacs_lit(l) << " ";
+                }
                 out << "0\n";
             }
         }
@@ -3269,9 +3253,8 @@ namespace sat {
     */
     bool solver::is_unit(clause const & c) const {
         bool found_undef = false;
-        unsigned sz = c.size();
-        for (unsigned i = 0; i < sz; i++) {
-            switch (value(c[i])) {
+        for (literal l : c) {
+            switch (value(l)) {
             case l_undef:
                 if (found_undef)
                     return false;

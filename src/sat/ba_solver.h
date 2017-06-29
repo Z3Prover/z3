@@ -32,15 +32,9 @@ namespace sat {
         friend class local_search;
 
         struct stats {
-            unsigned m_num_card_propagations;
-            unsigned m_num_card_conflicts;
-            unsigned m_num_card_resolves;
-            unsigned m_num_xor_propagations;
-            unsigned m_num_xor_conflicts;
-            unsigned m_num_xor_resolves;
-            unsigned m_num_pb_propagations;
-            unsigned m_num_pb_conflicts;
-            unsigned m_num_pb_resolves;
+            unsigned m_num_propagations;
+            unsigned m_num_conflicts;
+            unsigned m_num_resolves;
             unsigned m_num_bin_subsumes;
             unsigned m_num_clause_subsumes;
             unsigned m_num_card_subsumes;
@@ -64,9 +58,11 @@ namespace sat {
             tag_t          m_tag;
             bool           m_removed;
             literal        m_lit;
+            unsigned       m_glue;
             unsigned       m_size;
+            size_t         m_obj_size;
         public:
-            constraint(tag_t t, literal l, unsigned sz): m_tag(t), m_removed(false), m_lit(l), m_size(sz) {}
+            constraint(tag_t t, literal l, unsigned sz, size_t osz): m_tag(t), m_removed(false), m_lit(l), m_glue(0), m_size(sz), m_obj_size(osz) {}
             ext_constraint_idx index() const { return reinterpret_cast<ext_constraint_idx>(this); }
             tag_t tag() const { return m_tag; }
             literal lit() const { return m_lit; }
@@ -76,8 +72,10 @@ namespace sat {
             bool was_removed() const { return m_removed; }
             void remove() { m_removed = true; }
             void nullify_literal() { m_lit = null_literal; }
+            unsigned glue() const { return m_glue; }
+            void set_glue(unsigned g) { m_glue = g; }
 
-
+            size_t obj_size() const { return m_obj_size; }
             card& to_card();
             pb&  to_pb();
             xor& to_xor();
@@ -117,7 +115,6 @@ namespace sat {
             unsigned       m_num_watch;
             unsigned       m_max_sum;
             wliteral       m_wlits[0];
-            void update_max_sum();
         public:
             static size_t get_obj_size(unsigned num_lits) { return sizeof(pb) + num_lits * sizeof(wliteral); }
             pb(literal lit, svector<wliteral> const& wlits, unsigned k);
@@ -136,6 +133,7 @@ namespace sat {
             void swap(unsigned i, unsigned j) { std::swap(m_wlits[i], m_wlits[j]); }
             void negate();                       
             void update_k(unsigned k) { m_k = k; }
+            void update_max_sum();
             literal_vector literals() const { literal_vector lits; for (auto wl : *this) lits.push_back(wl.second); return lits; }
         };
 
@@ -162,14 +160,15 @@ namespace sat {
             void push(literal l, unsigned c) { m_lits.push_back(l); m_coeffs.push_back(c); }
         };
 
-        solver*             m_solver;
-        lookahead*          m_lookahead;
-        stats               m_stats;        
+        solver*                m_solver;
+        lookahead*             m_lookahead;
+        stats                  m_stats; 
+        small_object_allocator m_allocator;
+       
 
         ptr_vector<constraint> m_constraints;
-
-        // watch literals
-        unsigned_vector     m_constraint_lim;       
+        ptr_vector<constraint> m_learned;
+        unsigned_vector        m_constraint_lim;       
 
         // conflict resolution
         unsigned          m_num_marks;
@@ -190,8 +189,6 @@ namespace sat {
         void     inc_parity(bool_var v);
         void     reset_parity(bool_var v);
 
-        void pop_constraint();
-
         solver& s() const { return *m_solver; }
 
 
@@ -206,7 +203,6 @@ namespace sat {
         bool                      m_constraint_removed;
         literal_vector            m_roots;
         unsigned_vector           m_weights;
-        void gc();
         bool subsumes(card& c1, card& c2, literal_vector& comp);
         bool subsumes(card& c1, clause& c2, literal_vector& comp);
         bool subsumed(card& c1, literal l1, literal l2);
@@ -218,11 +214,22 @@ namespace sat {
         bool is_marked(literal l) const { return m_visited[l.index()] != 0; }
         unsigned get_num_non_learned_bin(literal l);
         literal get_min_occurrence_literal(card const& c);
+        void init_use_lists();
+        void remove_unused_defs();
+        unsigned set_non_external();
+        unsigned elim_pure();
+        void subsumption();
         void subsumption(card& c1);
+        void gc_half(char const* _method);
+
         void cleanup_clauses();
         void cleanup_constraints();
+        void cleanup_constraints(ptr_vector<constraint>& cs);
+        void remove_constraint(constraint& c);
 
         // constraints
+        constraint& index2constraint(size_t idx) const { return *reinterpret_cast<constraint*>(idx); }        
+        void pop_constraint();
         void unwatch_literal(literal w, constraint& c);
         void watch_literal(literal w, constraint& c);
         void watch_literal(wliteral w, pb& p);
@@ -232,18 +239,20 @@ namespace sat {
         lbool add_assign(constraint& c, literal l);
         void simplify(constraint& c);
         void nullify_tracking_literal(constraint& c);
+        void set_conflict(constraint& c, literal lit);
+        void assign(constraint& c, literal lit);
+        void get_antecedents(literal l, constraint const& c, literal_vector & r);
+        bool validate_conflict(constraint const& c) const;
+        bool validate_unit_propagation(constraint const& c, literal alit) const;
 
         // cardinality
         void init_watch(card& c, bool is_true);
-        void assign(card& c, literal lit);
         lbool add_assign(card& c, literal lit);
-        void set_conflict(card& c, literal lit);
         void clear_watch(card& c);
         void reset_coeffs();
         void reset_marked_literals();
-        void get_card_antecedents(literal l, card const& c, literal_vector & r);
+        void get_antecedents(literal l, card const& c, literal_vector & r);
         void simplify(card& c);
-        void remove_constraint(card& c);
         void unit_propagation_simplification(literal lit, literal_vector const& lits);
         void flush_roots(card& c);
         void recompile(card& c);
@@ -251,34 +260,27 @@ namespace sat {
         // xor specific functionality
         void clear_watch(xor& x);
         void init_watch(xor& x, bool is_true);
-        void assign(xor& x, literal lit);        
-        void set_conflict(xor& x, literal lit);
         bool parity(xor const& x, unsigned offset) const;
         lbool add_assign(xor& x, literal alit);
         void get_xor_antecedents(literal l, unsigned index, justification js, literal_vector& r);
-        void get_xor_antecedents(literal l, xor const& x, literal_vector & r);
+        void get_antecedents(literal l, xor const& x, literal_vector & r);
         void simplify(xor& x);
         void flush_roots(xor& x);
-
         
-        constraint& index2constraint(size_t idx) const { return *reinterpret_cast<constraint*>(idx); }        
-
         // pb functionality
         unsigned m_a_max;
         void init_watch(pb& p, bool is_true);
         lbool add_assign(pb& p, literal alit);
         void add_index(pb& p, unsigned index, literal lit);
         void clear_watch(pb& p);
-        void set_conflict(pb& p, literal lit);
-        void assign(pb& p, literal l);
-        void get_pb_antecedents(literal l, pb const& p, literal_vector & r);
+        void get_antecedents(literal l, pb const& p, literal_vector & r);
         void simplify(pb& p);
         void simplify2(pb& p);
         bool is_cardinality(pb const& p);
-        void remove_constraint(pb& p);
         void flush_roots(pb& p);
         void recompile(pb& p);
 
+        // access solver
         inline lbool value(literal lit) const { return m_lookahead ? m_lookahead->value(lit) : m_solver->value(lit); }
         inline unsigned lvl(literal lit) const { return m_solver->lvl(lit); }
         inline unsigned lvl(bool_var v) const { return m_solver->lvl(v); }
@@ -301,12 +303,14 @@ namespace sat {
         void cut();
 
         // validation utilities
-        bool validate_conflict(card& c);
-        bool validate_conflict(xor& x);
+        bool validate_conflict(card const& c) const;
+        bool validate_conflict(xor const& x) const;
+        bool validate_conflict(pb const& p) const;
         bool validate_assign(literal_vector const& lits, literal lit);
         bool validate_lemma();
-        bool validate_unit_propagation(card const& c);
-        bool validate_unit_propagation(pb const& p, literal lit);
+        bool validate_unit_propagation(card const& c, literal alit) const;
+        bool validate_unit_propagation(pb const& p, literal alit) const;
+        bool validate_unit_propagation(xor const& x, literal alit) const;
         bool validate_conflict(literal_vector const& lits, ineq& p);
 
         ineq m_A, m_B, m_C;
@@ -315,6 +319,7 @@ namespace sat {
         bool validate_resolvent();
 
         void display(std::ostream& out, ineq& p) const;
+        void display(std::ostream& out, constraint const& c, bool values) const;
         void display(std::ostream& out, card const& c, bool values) const;
         void display(std::ostream& out, pb const& p, bool values) const;
         void display(std::ostream& out, xor const& c, bool values) const;
@@ -349,6 +354,7 @@ namespace sat {
         virtual void collect_statistics(statistics& st) const;
         virtual extension* copy(solver* s);
         virtual void find_mutexes(literal_vector& lits, vector<literal_vector> & mutexes);
+        virtual void gc(); 
 
         ptr_vector<constraint> const & constraints() const { return m_constraints; }
 
