@@ -38,7 +38,7 @@ Notes:
 #include"ast_pp.h"
 #include"ast_util.h"
 #include"pb_decl_plugin.h"
-#include"card_extension.h"
+#include"ba_solver.h"
 #include<sstream>
 
 struct goal2sat::imp {
@@ -52,7 +52,7 @@ struct goal2sat::imp {
     };
     ast_manager &               m;
     pb_util                     pb;
-    sat::card_extension*        m_ext;
+    sat::ba_solver*        m_ext;
     svector<frame>              m_frame_stack;
     svector<sat::literal>       m_result_stack;
     obj_map<app, sat::literal>  m_cache;
@@ -591,11 +591,11 @@ struct goal2sat::imp {
         if (!m_ext) {
             sat::extension* ext = m_solver.get_extension();
             if (ext) {
-                m_ext = dynamic_cast<sat::card_extension*>(ext);
+                m_ext = dynamic_cast<sat::ba_solver*>(ext);
                 SASSERT(m_ext);
             }
             if (!m_ext) {
-                m_ext = alloc(sat::card_extension);
+                m_ext = alloc(sat::ba_solver);
                 m_solver.set_extension(m_ext);
             }
         }
@@ -1050,7 +1050,7 @@ struct sat2goal::imp {
         return m_lit2expr.get(l.index());
     }
 
-    void assert_pb(goal& r, sat::card_extension::pb const& p) {
+    void assert_pb(goal& r, sat::ba_solver::pb const& p) {
         pb_util pb(m);
         ptr_buffer<expr> lits;
         vector<rational> coeffs;
@@ -1067,7 +1067,7 @@ struct sat2goal::imp {
         r.assert_expr(fml);
     }
 
-    void assert_card(goal& r, sat::card_extension::card const& c) {
+    void assert_card(goal& r, sat::ba_solver::card const& c) {
         pb_util pb(m);
         ptr_buffer<expr> lits;
         for (unsigned i = 0; i < c.size(); ++i) {
@@ -1081,7 +1081,7 @@ struct sat2goal::imp {
         r.assert_expr(fml);
     }
 
-    void assert_xor(goal & r, sat::card_extension::xor const& x) {
+    void assert_xor(goal & r, sat::ba_solver::xor const& x) {
         ptr_buffer<expr> lits;
         for (unsigned i = 0; i < x.size(); ++i) {
             lits.push_back(lit2expr(x[i]));
@@ -1110,9 +1110,9 @@ struct sat2goal::imp {
         }
     }
 
-    sat::card_extension* get_card_extension(sat::solver const& s) {
+    sat::ba_solver* get_ba_solver(sat::solver const& s) {
         sat::extension* ext = s.get_extension();
-        return dynamic_cast<sat::card_extension*>(ext);
+        return dynamic_cast<sat::ba_solver*>(ext);
     }
 
     void operator()(sat::solver const & s, atom2bool_var const & map, goal & r, model_converter_ref & mc) {
@@ -1149,17 +1149,17 @@ struct sat2goal::imp {
         assert_clauses(s, s.begin_clauses(), s.end_clauses(), r, true);
         assert_clauses(s, s.begin_learned(), s.end_learned(), r, false);
 
-        sat::card_extension* ext = get_card_extension(s);
+        sat::ba_solver* ext = get_ba_solver(s);
         if (ext) {
             for (auto* c : ext->constraints()) {
                 switch (c->tag()) {
-                case sat::card_extension::card_t: 
+                case sat::ba_solver::card_t: 
                     assert_card(r, c->to_card());
                     break;
-                case sat::card_extension::pb_t: 
+                case sat::ba_solver::pb_t: 
                     assert_pb(r, c->to_pb());
                     break;
-                case sat::card_extension::xor_t: 
+                case sat::ba_solver::xor_t: 
                     assert_xor(r, c->to_xor());
                     break;
                 }

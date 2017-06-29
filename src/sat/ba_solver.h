@@ -3,7 +3,7 @@ Copyright (c) 2017 Microsoft Corporation
 
 Module Name:
 
-    card_extension.h
+    ba_solver.h
 
 Abstract:
 
@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#ifndef CARD_EXTENSION_H_
-#define CARD_EXTENSION_H_
+#ifndef BA_SOLVER_H_
+#define BA_SOLVER_H_
 
 #include"sat_extension.h"
 #include"sat_solver.h"
@@ -27,7 +27,7 @@ Revision History:
 
 namespace sat {
     
-    class card_extension : public extension {
+    class ba_solver : public extension {
 
         friend class local_search;
 
@@ -324,8 +324,8 @@ namespace sat {
         void add_xor(literal l, literal_vector const& lits);
 
     public:
-        card_extension();
-        virtual ~card_extension();
+        ba_solver();
+        virtual ~ba_solver();
         virtual void set_solver(solver* s) { m_solver = s; }
         virtual void set_lookahead(lookahead* l) { m_lookahead = l; }
         void    add_at_least(bool_var v, literal_vector const& lits, unsigned k);

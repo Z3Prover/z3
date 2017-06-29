@@ -20,7 +20,7 @@ Notes:
 #include "solver.h"
 #include "tactical.h"
 #include "sat_solver.h"
-#include "card_extension.h"
+#include "ba_solver.h"
 #include "tactic2solver.h"
 #include "aig_tactic.h"
 #include "propagate_values_tactic.h"

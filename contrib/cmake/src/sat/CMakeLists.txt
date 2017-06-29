@@ -1,6 +1,6 @@
 z3_add_component(sat
   SOURCES
-    card_extension.cpp
+    ba_solver.cpp
     dimacs.cpp
     sat_asymm_branch.cpp
     sat_ccc.cpp

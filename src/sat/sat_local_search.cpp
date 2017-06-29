@@ -19,7 +19,7 @@ Notes:
 
 #include "sat_local_search.h"
 #include "sat_solver.h"
-#include "card_extension.h"
+#include "ba_solver.h"
 #include "sat_params.hpp"
 #include "timer.h"
 
@@ -324,14 +324,14 @@ namespace sat {
         m_num_non_binary_clauses = s.m_clauses.size();
 
         // copy cardinality clauses
-        card_extension* ext = dynamic_cast<card_extension*>(s.get_extension());
+        ba_solver* ext = dynamic_cast<ba_solver*>(s.get_extension());
         if (ext) {
             unsigned_vector coeffs;
             literal_vector lits;
-            for (card_extension::constraint* cp : ext->m_constraints) {
+            for (ba_solver::constraint* cp : ext->m_constraints) {
                 switch (cp->tag()) {
-                case card_extension::card_t: {
-                    card_extension::card const& c = cp->to_card();
+                case ba_solver::card_t: {
+                    ba_solver::card const& c = cp->to_card();
                     unsigned n = c.size();
                     unsigned k = c.k();
                     
@@ -369,10 +369,10 @@ namespace sat {
                     }
                     break;
                 }
-                case card_extension::pb_t:
+                case ba_solver::pb_t:
                     NOT_IMPLEMENTED_YET();
                     break;
-                case card_extension::xor_t:
+                case ba_solver::xor_t:
                     NOT_IMPLEMENTED_YET();
                     break;
                 }

@@ -64,7 +64,7 @@ namespace sat {
         reslimit   m_rlimit;
 
         friend class ccc;
-        friend class card_extension;
+        friend class ba_solver;
 
         struct config {
             double   m_dl_success;

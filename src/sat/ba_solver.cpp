@@ -3,7 +3,7 @@ Copyright (c) 2017 Microsoft Corporation
 
 Module Name:
 
-    card_extension.cpp
+    ba_solver.cpp
 
 Abstract:
 
@@ -17,42 +17,42 @@ Revision History:
 
 --*/
 
-#include"card_extension.h"
+#include"ba_solver.h"
 #include"sat_types.h"
 
 namespace sat {
 
-    card_extension::card& card_extension::constraint::to_card() {
+    ba_solver::card& ba_solver::constraint::to_card() {
         SASSERT(is_card());
         return static_cast<card&>(*this);
     }
 
-    card_extension::card const& card_extension::constraint::to_card() const{
+    ba_solver::card const& ba_solver::constraint::to_card() const{
         SASSERT(is_card());
         return static_cast<card const&>(*this);
     }
 
-    card_extension::pb& card_extension::constraint::to_pb() {
+    ba_solver::pb& ba_solver::constraint::to_pb() {
         SASSERT(is_pb());
         return static_cast<pb&>(*this);
     }
 
-    card_extension::pb const& card_extension::constraint::to_pb() const{
+    ba_solver::pb const& ba_solver::constraint::to_pb() const{
         SASSERT(is_pb());
         return static_cast<pb const&>(*this);
     }
 
-    card_extension::xor& card_extension::constraint::to_xor() {
+    ba_solver::xor& ba_solver::constraint::to_xor() {
         SASSERT(is_xor());
         return static_cast<xor&>(*this);
     }
 
-    card_extension::xor const& card_extension::constraint::to_xor() const{
+    ba_solver::xor const& ba_solver::constraint::to_xor() const{
         SASSERT(is_xor());
         return static_cast<xor const&>(*this);
     }
 
-    card_extension::card::card(literal lit, literal_vector const& lits, unsigned k):
+    ba_solver::card::card(literal lit, literal_vector const& lits, unsigned k):
         constraint(card_t, lit, lits.size()),
         m_k(k) {
         for (unsigned i = 0; i < size(); ++i) {
@@ -60,7 +60,7 @@ namespace sat {
         }
     }
 
-    void card_extension::card::negate() {
+    void ba_solver::card::negate() {
         m_lit.neg();
         for (unsigned i = 0; i < m_size; ++i) {
             m_lits[i].neg();
@@ -69,28 +69,28 @@ namespace sat {
         SASSERT(m_size >= m_k && m_k > 0);
     }
 
-    std::ostream& operator<<(std::ostream& out, card_extension::constraint const& cnstr) {
+    std::ostream& operator<<(std::ostream& out, ba_solver::constraint const& cnstr) {
         if (cnstr.lit() != null_literal) out << cnstr.lit() << " == ";
         switch (cnstr.tag()) {
-        case card_extension::card_t: {
-            card_extension::card const& c = cnstr.to_card();
+        case ba_solver::card_t: {
+            ba_solver::card const& c = cnstr.to_card();
             for (literal l : c) {
                 out << l << " ";
             }
             out << " >= " << c.k();
             break;
         }
-        case card_extension::pb_t: {
-            card_extension::pb const& p = cnstr.to_pb();
-            for (card_extension::wliteral wl : p) {
+        case ba_solver::pb_t: {
+            ba_solver::pb const& p = cnstr.to_pb();
+            for (ba_solver::wliteral wl : p) {
                 if (wl.first != 1) out << wl.first << " * ";
                 out << wl.second << " ";
             }
             out << " >= " << p.k();
             break;
         }
-        case card_extension::xor_t: {
-            card_extension::xor const& x = cnstr.to_xor();
+        case ba_solver::xor_t: {
+            ba_solver::xor const& x = cnstr.to_xor();
             for (unsigned i = 0; i < x.size(); ++i) {
                 out << x[i] << " ";
                 if (i + 1 < x.size()) out << "x ";
@@ -103,7 +103,7 @@ namespace sat {
         return out;
     }
 
-    card_extension::pb::pb(literal lit, svector<card_extension::wliteral> const& wlits, unsigned k):
+    ba_solver::pb::pb(literal lit, svector<ba_solver::wliteral> const& wlits, unsigned k):
         constraint(pb_t, lit, wlits.size()),
         m_k(k),
         m_slack(0),
@@ -115,7 +115,7 @@ namespace sat {
         update_max_sum();
     }
 
-    void card_extension::pb::update_max_sum() {
+    void ba_solver::pb::update_max_sum() {
         m_max_sum = 0;
         for (unsigned i = 0; i < size(); ++i) {
             if (m_max_sum + m_wlits[i].first < m_max_sum) {
@@ -125,7 +125,7 @@ namespace sat {
         }
     }
 
-    void card_extension::pb::negate() {
+    void ba_solver::pb::negate() {
         m_lit.neg();
         unsigned w = 0;
         for (unsigned i = 0; i < m_size; ++i) {
@@ -136,7 +136,7 @@ namespace sat {
         SASSERT(w >= m_k && m_k > 0);
     }
     
-    card_extension::xor::xor(literal lit, literal_vector const& lits):
+    ba_solver::xor::xor(literal lit, literal_vector const& lits):
         constraint(xor_t, lit, lits.size())
     {
         for (unsigned i = 0; i < size(); ++i) {
@@ -144,7 +144,7 @@ namespace sat {
         }
     }
 
-    void card_extension::init_watch(card& c, bool is_true) {
+    void ba_solver::init_watch(card& c, bool is_true) {
         clear_watch(c);
         if (c.lit() != null_literal && c.lit().sign() == is_true) {
             c.negate();
@@ -205,22 +205,22 @@ namespace sat {
         }
     }
 
-    void card_extension::clear_watch(card& c) {
+    void ba_solver::clear_watch(card& c) {
         unsigned sz = std::min(c.k() + 1, c.size());
         for (unsigned i = 0; i < sz; ++i) {
             unwatch_literal(c[i], c);            
         }
     }
 
-    void card_extension::unwatch_literal(literal lit, constraint& c) {
+    void ba_solver::unwatch_literal(literal lit, constraint& c) {
         get_wlist(~lit).erase(watched(c.index()));
     }
 
-    void card_extension::watch_literal(literal lit, constraint& c) {
+    void ba_solver::watch_literal(literal lit, constraint& c) {
         get_wlist(~lit).push_back(watched(c.index()));
     }
 
-    void card_extension::assign(card& c, literal lit) {
+    void ba_solver::assign(card& c, literal lit) {
         switch (value(lit)) {
         case l_true: 
             break;
@@ -248,7 +248,7 @@ namespace sat {
         }
     }
 
-    void card_extension::set_conflict(card& c, literal lit) {
+    void ba_solver::set_conflict(card& c, literal lit) {
         m_stats.m_num_card_conflicts++;
         TRACE("sat", display(tout, c, true); );
         SASSERT(validate_conflict(c));
@@ -261,7 +261,7 @@ namespace sat {
 
 
     // watch a prefix of literals, such that the slack of these is >= k
-    void card_extension::init_watch(pb& p, bool is_true) {
+    void ba_solver::init_watch(pb& p, bool is_true) {
         clear_watch(p);
         if (p.lit() != null_literal && p.lit().sign() == is_true) {
             p.negate();
@@ -338,7 +338,7 @@ namespace sat {
 
 
     */
-    void card_extension::add_index(pb& p, unsigned index, literal lit) {
+    void ba_solver::add_index(pb& p, unsigned index, literal lit) {
         if (value(lit) == l_undef) {
             m_pb_undef.push_back(index);
             if (p[index].first > m_a_max) {
@@ -347,7 +347,7 @@ namespace sat {
         }
     }
     
-    lbool card_extension::add_assign(pb& p, literal alit) {
+    lbool ba_solver::add_assign(pb& p, literal alit) {
         
         TRACE("sat", display(tout << "assign: " << alit << "\n", p, true););
         SASSERT(!inconsistent());
@@ -445,18 +445,18 @@ namespace sat {
         return l_undef;
     }
 
-    void card_extension::watch_literal(wliteral l, pb& p) {
+    void ba_solver::watch_literal(wliteral l, pb& p) {
         watch_literal(l.second, p);
     }
 
-    void card_extension::clear_watch(pb& p) {
+    void ba_solver::clear_watch(pb& p) {
         unsigned sz = p.size();
         for (unsigned i = 0; i < sz; ++i) {
             unwatch_literal(p[i].second, p);            
         }
     }
     
-    void card_extension::set_conflict(pb& p, literal lit) {
+    void ba_solver::set_conflict(pb& p, literal lit) {
         m_stats.m_num_pb_conflicts++;
         TRACE("sat", display(tout, p, true); );
         // SASSERT(validate_conflict(p));
@@ -465,7 +465,7 @@ namespace sat {
         SASSERT(inconsistent());
     }
 
-    void card_extension::assign(pb& p, literal lit) {
+    void ba_solver::assign(pb& p, literal lit) {
         switch (value(lit)) {
         case l_true: 
             break;
@@ -489,7 +489,7 @@ namespace sat {
         }
     }
 
-    void card_extension::unit_propagation_simplification(literal lit, literal_vector const& lits) {
+    void ba_solver::unit_propagation_simplification(literal lit, literal_vector const& lits) {
         if (lit == null_literal) {
             for (literal l : lits) {
                 if (value(l) == l_undef) {
@@ -512,7 +512,7 @@ namespace sat {
         }
     }
 
-    bool card_extension::is_cardinality(pb const& p) {
+    bool ba_solver::is_cardinality(pb const& p) {
         if (p.size() == 0) return false;
         unsigned w = p[0].first;
         for (unsigned i = 1; i < p.size(); ++i) {
@@ -521,7 +521,7 @@ namespace sat {
         return true;
     }
 
-    void card_extension::simplify2(pb& p) {
+    void ba_solver::simplify2(pb& p) {
         if (is_cardinality(p)) {
             literal_vector lits(p.literals());
             unsigned k = (p.k() + p[0].first - 1) / p[0].first;
@@ -541,7 +541,7 @@ namespace sat {
         }
     }
 
-    void card_extension::simplify(pb& p) {
+    void ba_solver::simplify(pb& p) {
         s().pop_to_base_level();
         if (p.lit() != null_literal && value(p.lit()) == l_false) {
             TRACE("sat", tout << "pb: flip sign " << p << "\n";);
@@ -617,14 +617,14 @@ namespace sat {
         }
     }
 
-    void card_extension::remove_constraint(pb& p) {
+    void ba_solver::remove_constraint(pb& p) {
         clear_watch(p);
         nullify_tracking_literal(p);
         p.remove();
         m_constraint_removed = true;
     }
 
-    void card_extension::display(std::ostream& out, pb const& p, bool values) const {
+    void ba_solver::display(std::ostream& out, pb const& p, bool values) const {
         if (p.lit() != null_literal) out << p.lit() << " == ";
         if (p.lit() != null_literal && values) {
             out << "[watch: " << p.num_watch() << ", slack: " << p.slack() << "]";
@@ -655,12 +655,12 @@ namespace sat {
 
     // xor:
 
-    void card_extension::clear_watch(xor& x) {
+    void ba_solver::clear_watch(xor& x) {
         unwatch_literal(x[0], x);
         unwatch_literal(x[1], x);         
     }
 
-    bool card_extension::parity(xor const& x, unsigned offset) const {
+    bool ba_solver::parity(xor const& x, unsigned offset) const {
         bool odd = false;
         unsigned sz = x.size();
         for (unsigned i = offset; i < sz; ++i) {
@@ -672,7 +672,7 @@ namespace sat {
         return odd;
     }
 
-    void card_extension::init_watch(xor& x, bool is_true) {
+    void ba_solver::init_watch(xor& x, bool is_true) {
         clear_watch(x);
         if (x.lit() != null_literal && x.lit().sign() == is_true) {
             x.negate();
@@ -711,7 +711,7 @@ namespace sat {
         }
     }
 
-    void card_extension::assign(xor& x, literal lit) {
+    void ba_solver::assign(xor& x, literal lit) {
         SASSERT(!inconsistent());
         switch (value(lit)) {
         case l_true: 
@@ -740,7 +740,7 @@ namespace sat {
         }
     }
 
-    void card_extension::set_conflict(xor& x, literal lit) {
+    void ba_solver::set_conflict(xor& x, literal lit) {
         m_stats.m_num_xor_conflicts++;
         TRACE("sat", display(tout, x, true); );
         if (value(lit) == l_true) lit.neg();
@@ -750,7 +750,7 @@ namespace sat {
         SASSERT(inconsistent());
     }
 
-    lbool card_extension::add_assign(xor& x, literal alit) {
+    lbool ba_solver::add_assign(xor& x, literal alit) {
         // literal is assigned     
         unsigned sz = x.size();
         TRACE("sat", tout << "assign: " << x.lit() << ": " << ~alit << "@" << lvl(~alit) << "\n";);
@@ -791,7 +791,7 @@ namespace sat {
         return inconsistent() ? l_false : l_true;  
     }
     
-    void card_extension::normalize_active_coeffs() {
+    void ba_solver::normalize_active_coeffs() {
         while (!m_active_var_set.empty()) m_active_var_set.erase();
         unsigned i = 0, j = 0, sz = m_active_vars.size();
         for (; i < sz; ++i) {
@@ -808,7 +808,7 @@ namespace sat {
         m_active_vars.shrink(sz);
     }
 
-    void card_extension::inc_coeff(literal l, int offset) {
+    void ba_solver::inc_coeff(literal l, int offset) {
         SASSERT(offset > 0);
         bool_var v = l.var();
         SASSERT(v != null_bool_var);
@@ -839,22 +839,22 @@ namespace sat {
         }
     }
 
-    int card_extension::get_coeff(bool_var v) const {
+    int ba_solver::get_coeff(bool_var v) const {
         return m_coeffs.get(v, 0);
     }
 
-    int card_extension::get_abs_coeff(bool_var v) const {
+    int ba_solver::get_abs_coeff(bool_var v) const {
         return abs(get_coeff(v));
     }
 
-    void card_extension::reset_coeffs() {
+    void ba_solver::reset_coeffs() {
         for (unsigned i = 0; i < m_active_vars.size(); ++i) {
             m_coeffs[m_active_vars[i]] = 0;
         }
         m_active_vars.reset();
     }
 
-    bool card_extension::resolve_conflict() {        
+    bool ba_solver::resolve_conflict() {        
         if (0 == m_num_propagations_since_pop) {
             return false;
         }
@@ -1123,7 +1123,7 @@ namespace sat {
         return false;
     }
 
-    void card_extension::process_card(card& c, int offset) {
+    void ba_solver::process_card(card& c, int offset) {
         literal lit = c.lit();
         SASSERT(c.k() <= c.size());       
         SASSERT(lit == null_literal || value(lit) == l_true);
@@ -1139,7 +1139,7 @@ namespace sat {
         }
     }
 
-    void card_extension::process_antecedent(literal l, int offset) {
+    void ba_solver::process_antecedent(literal l, int offset) {
         SASSERT(value(l) == l_false);
         bool_var v = l.var();
         unsigned level = lvl(v);
@@ -1152,7 +1152,7 @@ namespace sat {
         inc_coeff(l, offset);                
     }   
 
-    literal card_extension::get_asserting_literal(literal p) {
+    literal ba_solver::get_asserting_literal(literal p) {
         if (get_abs_coeff(p.var()) != 0) {
             return p;
         }
@@ -1168,28 +1168,28 @@ namespace sat {
         return p;        
     }
 
-    card_extension::card_extension(): m_solver(0), m_lookahead(0) {        
+    ba_solver::ba_solver(): m_solver(0), m_lookahead(0) {        
         TRACE("sat", tout << this << "\n";);
     }
 
-    card_extension::~card_extension() {
+    ba_solver::~ba_solver() {
         m_stats.reset();
         while (!m_constraints.empty()) {
             pop_constraint();
         }
     }
 
-    void card_extension::add_at_least(bool_var v, literal_vector const& lits, unsigned k) {
+    void ba_solver::add_at_least(bool_var v, literal_vector const& lits, unsigned k) {
         literal lit = v == null_bool_var ? null_literal : literal(v, false);
         add_at_least(lit, lits, k);
     }
 
-    void card_extension::add_at_least(literal lit, literal_vector const& lits, unsigned k) {
+    void ba_solver::add_at_least(literal lit, literal_vector const& lits, unsigned k) {
         card* c = new (memory::allocate(card::get_obj_size(lits.size()))) card(lit, lits, k);
         add_constraint(c);
     }
 
-    void card_extension::add_constraint(constraint* c) {
+    void ba_solver::add_constraint(constraint* c) {
         m_constraints.push_back(c);
         literal lit = c->lit();
         if (lit == null_literal) {
@@ -1203,7 +1203,7 @@ namespace sat {
     }
 
 
-    void card_extension::init_watch(constraint& c, bool is_true) {
+    void ba_solver::init_watch(constraint& c, bool is_true) {
         switch (c.tag()) {
         case card_t: init_watch(c.to_card(), is_true); break;
         case pb_t: init_watch(c.to_pb(), is_true); break;
@@ -1211,7 +1211,7 @@ namespace sat {
         }
     }   
 
-    lbool card_extension::add_assign(constraint& c, literal l) {
+    lbool ba_solver::add_assign(constraint& c, literal l) {
         switch (c.tag()) {
         case card_t: return add_assign(c.to_card(), l); 
         case pb_t: return add_assign(c.to_pb(), l); 
@@ -1221,27 +1221,27 @@ namespace sat {
         return l_undef;
     }
 
-    void card_extension::add_pb_ge(literal lit, svector<wliteral> const& wlits, unsigned k) {
+    void ba_solver::add_pb_ge(literal lit, svector<wliteral> const& wlits, unsigned k) {
         pb* p = new (memory::allocate(pb::get_obj_size(wlits.size()))) pb(lit, wlits, k);
         add_constraint(p);
     }
 
-    void card_extension::add_pb_ge(bool_var v, svector<wliteral> const& wlits, unsigned k) {
+    void ba_solver::add_pb_ge(bool_var v, svector<wliteral> const& wlits, unsigned k) {
         literal lit = v == null_bool_var ? null_literal : literal(v, false);
         add_pb_ge(lit, wlits, k);
     }
 
-    void card_extension::add_xor(bool_var v, literal_vector const& lits) {
+    void ba_solver::add_xor(bool_var v, literal_vector const& lits) {
         add_xor(literal(v, false), lits);
     }
 
-    void card_extension::add_xor(literal lit, literal_vector const& lits) {
+    void ba_solver::add_xor(literal lit, literal_vector const& lits) {
         xor* x = new (memory::allocate(xor::get_obj_size(lits.size()))) xor(lit, lits);
         add_constraint(x);
         for (literal l : lits) s().set_external(l.var()); // TBD: determine if goal2sat does this.
     }
 
-    void card_extension::propagate(literal l, ext_constraint_idx idx, bool & keep) {
+    void ba_solver::propagate(literal l, ext_constraint_idx idx, bool & keep) {
         SASSERT(value(l) == l_true);
         TRACE("sat", tout << l << " " << idx << "\n";);
         constraint& c = index2constraint(idx);
@@ -1258,22 +1258,22 @@ namespace sat {
     }
 
 
-    void card_extension::ensure_parity_size(bool_var v) {
+    void ba_solver::ensure_parity_size(bool_var v) {
         if (m_parity_marks.size() <= static_cast<unsigned>(v)) {
             m_parity_marks.resize(static_cast<unsigned>(v) + 1, 0);
         }
     }
     
-    unsigned card_extension::get_parity(bool_var v) {
+    unsigned ba_solver::get_parity(bool_var v) {
         return m_parity_marks.get(v, 0);
     }
 
-    void card_extension::inc_parity(bool_var v) {
+    void ba_solver::inc_parity(bool_var v) {
         ensure_parity_size(v);
         m_parity_marks[v]++;
     }
 
-    void card_extension::reset_parity(bool_var v) {
+    void ba_solver::reset_parity(bool_var v) {
         ensure_parity_size(v);
         m_parity_marks[v] = 0;
     }
@@ -1283,7 +1283,7 @@ namespace sat {
        The idea is to collect premises based on xor resolvents. 
        Variables that are repeated an even number of times cancel out.
      */
-    void card_extension::get_xor_antecedents(literal l, unsigned index, justification js, literal_vector& r) {
+    void ba_solver::get_xor_antecedents(literal l, unsigned index, justification js, literal_vector& r) {
         unsigned level = lvl(l);
         bool_var v = l.var();
         SASSERT(js.get_kind() == justification::EXT_JUSTIFICATION);
@@ -1362,7 +1362,7 @@ namespace sat {
         TRACE("sat", tout << r << "\n";);
     }
 
-    void card_extension::get_pb_antecedents(literal l, pb const& p, literal_vector& r) {
+    void ba_solver::get_pb_antecedents(literal l, pb const& p, literal_vector& r) {
         if (p.lit() != null_literal) r.push_back(p.lit());
         SASSERT(p.lit() == null_literal || value(p.lit()) == l_true);
         TRACE("sat", display(tout, p, true););
@@ -1408,11 +1408,11 @@ namespace sat {
         }
     }
 
-    void card_extension::simplify(xor& x) {
+    void ba_solver::simplify(xor& x) {
         // no-op
     }
 
-    void card_extension::get_card_antecedents(literal l, card const& c, literal_vector& r) {
+    void ba_solver::get_card_antecedents(literal l, card const& c, literal_vector& r) {
         DEBUG_CODE(
             bool found = false;
             for (unsigned i = 0; !found && i < c.k(); ++i) {
@@ -1428,7 +1428,7 @@ namespace sat {
         }
     }
 
-    void card_extension::get_xor_antecedents(literal l, xor const& x, literal_vector& r) {
+    void ba_solver::get_xor_antecedents(literal l, xor const& x, literal_vector& r) {
         if (x.lit() != null_literal) r.push_back(x.lit());
         // TRACE("sat", display(tout << l << " ", x, true););
         SASSERT(x.lit() == null_literal || value(x.lit()) == l_true);
@@ -1447,7 +1447,7 @@ namespace sat {
         }
     }
 
-    void card_extension::get_antecedents(literal l, ext_justification_idx idx, literal_vector & r) {
+    void ba_solver::get_antecedents(literal l, ext_justification_idx idx, literal_vector & r) {
         constraint& c = index2constraint(idx);
         switch (c.tag()) {
         case card_t: get_card_antecedents(l, c.to_card(), r); break;
@@ -1457,7 +1457,7 @@ namespace sat {
         }
     }
 
-    void card_extension::nullify_tracking_literal(constraint& c) {
+    void ba_solver::nullify_tracking_literal(constraint& c) {
         if (c.lit() != null_literal) {
             get_wlist(c.lit()).erase(watched(c.index()));
             get_wlist(~c.lit()).erase(watched(c.index()));
@@ -1465,14 +1465,14 @@ namespace sat {
         }
     }
 
-    void card_extension::remove_constraint(card& c) {
+    void ba_solver::remove_constraint(card& c) {
         clear_watch(c);
         nullify_tracking_literal(c);
         c.remove();
         m_constraint_removed = true;
     }
 
-    void card_extension::simplify(card& c) {
+    void ba_solver::simplify(card& c) {
         SASSERT(c.lit() == null_literal || value(c.lit()) != l_false);
         if (c.lit() != null_literal && value(c.lit()) == l_false) {
             return;
@@ -1559,7 +1559,7 @@ namespace sat {
         }
     }
 
-    lbool card_extension::add_assign(card& c, literal alit) {
+    lbool ba_solver::add_assign(card& c, literal alit) {
         // literal is assigned to false.        
         unsigned sz = c.size();
         unsigned bound = c.k();
@@ -1615,17 +1615,17 @@ namespace sat {
         return inconsistent() ? l_false : l_true;
     }
 
-    void card_extension::asserted(literal l) {
+    void ba_solver::asserted(literal l) {
     }
 
 
-    check_result card_extension::check() { return CR_DONE; }
+    check_result ba_solver::check() { return CR_DONE; }
 
-    void card_extension::push() {
+    void ba_solver::push() {
         m_constraint_lim.push_back(m_constraints.size());
     }
 
-    void card_extension::pop_constraint() {
+    void ba_solver::pop_constraint() {
         constraint* c = m_constraints.back();
         m_constraints.pop_back();
         nullify_tracking_literal(*c);
@@ -1645,7 +1645,7 @@ namespace sat {
         dealloc(c);
     }
 
-    void card_extension::pop(unsigned n) {        
+    void ba_solver::pop(unsigned n) {        
         TRACE("sat_verbose", tout << "pop:" << n << "\n";);
         unsigned new_lim = m_constraint_lim.size() - n;
         unsigned sz = m_constraint_lim[new_lim];
@@ -1656,7 +1656,7 @@ namespace sat {
         m_num_propagations_since_pop = 0;
     }
 
-    void card_extension::simplify(constraint& c) {
+    void ba_solver::simplify(constraint& c) {
         switch (c.tag()) {
         case card_t:
             simplify(c.to_card());
@@ -1672,7 +1672,7 @@ namespace sat {
         }                
     }
 
-    void card_extension::simplify() {
+    void ba_solver::simplify() {
         return;
         if (!s().at_base_lvl()) s().pop_to_base_level();
         unsigned trail_sz;
@@ -1690,7 +1690,7 @@ namespace sat {
         // or could create queue of constraints that are affected
     }
 
-    bool card_extension::set_root(literal l, literal r) { 
+    bool ba_solver::set_root(literal l, literal r) { 
         if (s().is_assumption(l.var())) {
             return false;
         }
@@ -1702,7 +1702,7 @@ namespace sat {
         return true;
     }
 
-    void card_extension::flush_roots() {
+    void ba_solver::flush_roots() {
         if (m_roots.empty()) return;
         m_visited.resize(s().num_vars()*2, false);
         m_constraint_removed = false;
@@ -1725,7 +1725,7 @@ namespace sat {
         // display(std::cout << "flush roots\n");
     }
 
-    void card_extension::flush_roots(card& c) {
+    void ba_solver::flush_roots(card& c) {
         bool found = c.lit() != null_literal && m_roots[c.lit().index()] != c.lit();
         for (literal l : c) {
             if (found) break;
@@ -1769,7 +1769,7 @@ namespace sat {
         }
     }
 
-    void card_extension::recompile(card& c) {
+    void ba_solver::recompile(card& c) {
         IF_VERBOSE(0, verbose_stream() << "re: " << c << "\n";);
         m_weights.resize(2*s().num_vars(), 0);
         for (literal l : c) {
@@ -1850,7 +1850,7 @@ namespace sat {
         
     }
 
-    void card_extension::recompile(pb& p) {
+    void ba_solver::recompile(pb& p) {
         IF_VERBOSE(0, verbose_stream() << "re: " << p << "\n";);
         m_weights.resize(2*s().num_vars(), 0);
         for (wliteral wl : p) {
@@ -1925,7 +1925,7 @@ namespace sat {
         }
     }
 
-    void card_extension::flush_roots(pb& p) {
+    void ba_solver::flush_roots(pb& p) {
         bool found = p.lit() != null_literal && m_roots[p.lit().index()] != p.lit();
         for (wliteral wl : p) {
             if (found) break;
@@ -1971,12 +1971,12 @@ namespace sat {
         }
     }
 
-    void card_extension::flush_roots(xor& x) {
+    void ba_solver::flush_roots(xor& x) {
         NOT_IMPLEMENTED_YET();
     }
 
 
-    unsigned card_extension::get_num_non_learned_bin(literal l) {
+    unsigned ba_solver::get_num_non_learned_bin(literal l) {
         return s().m_simplifier.get_num_non_learned_bin(l);
     }
 
@@ -1989,7 +1989,7 @@ namespace sat {
       - resolution 
       - blocked literals
      */
-    void card_extension::gc() {
+    void ba_solver::gc() {
         
         // remove constraints where indicator literal isn't used.
         m_visited.resize(s().num_vars()*2, false);
@@ -2126,7 +2126,7 @@ namespace sat {
 
     }
 
-    void card_extension::cleanup_clauses() {
+    void ba_solver::cleanup_clauses() {
         if (!m_clause_removed) return;
         // version in simplify first clears 
         // all watch literals, then reinserts them.
@@ -2150,7 +2150,7 @@ namespace sat {
         s().m_clauses.set_end(it2);        
     }
     
-    void card_extension::cleanup_constraints() {
+    void ba_solver::cleanup_constraints() {
         if (!m_constraint_removed) return;
         ptr_vector<constraint>::iterator it = m_constraints.begin();
         ptr_vector<constraint>::iterator it2 = it;
@@ -2179,7 +2179,7 @@ namespace sat {
       - TBD: consider version that generalizes self-subsumption to more than one literal
         A + ~L + B >= k'   =>    A + B >= k'    if A + A' + L >= k and k' + |L| + |A'| <= k
      */
-    bool card_extension::subsumes(card& c1, card& c2, literal_vector & comp) {
+    bool ba_solver::subsumes(card& c1, card& c2, literal_vector & comp) {
         if (c2.lit() != null_literal) return false; // perhaps support this?
 
         unsigned c2_exclusive = 0;
@@ -2202,7 +2202,7 @@ namespace sat {
         return c1_exclusive + c2.k() + comp.size() <= c1.k();
     }
 
-    bool card_extension::subsumes(card& c1, clause& c2, literal_vector & comp) {
+    bool ba_solver::subsumes(card& c1, clause& c2, literal_vector & comp) {
         unsigned c2_exclusive = 0;
         unsigned common = 0;
         comp.reset();
@@ -2230,7 +2230,7 @@ namespace sat {
         return false;
     }
 
-    literal card_extension::get_min_occurrence_literal(card const& c) {
+    literal ba_solver::get_min_occurrence_literal(card const& c) {
         unsigned occ_count = UINT_MAX;
         literal lit = null_literal;
         for (literal l : c) {
@@ -2243,7 +2243,7 @@ namespace sat {
         return lit;
     }
 
-    void card_extension::card_subsumption(card& c1, literal lit) {
+    void ba_solver::card_subsumption(card& c1, literal lit) {
         literal_vector slit;
         for (constraint* c : m_cnstr_use_list[lit.index()]) {
             if (!c || c->tag() != card_t || c == &c1) {
@@ -2278,7 +2278,7 @@ namespace sat {
         }
     }
 
-    void card_extension::clause_subsumption(card& c1, literal lit) {
+    void ba_solver::clause_subsumption(card& c1, literal lit) {
         literal_vector slit;
         clause_use_list::iterator it = m_clause_use_list.get(lit).mk_iterator();
         while (!it.at_end()) {
@@ -2300,7 +2300,7 @@ namespace sat {
         }
     }
 
-    void card_extension::binary_subsumption(card& c1, literal lit) {
+    void ba_solver::binary_subsumption(card& c1, literal lit) {
         SASSERT(is_marked(lit));
         watch_list & wlist = get_wlist(~lit);
         watch_list::iterator it = wlist.begin();
@@ -2324,7 +2324,7 @@ namespace sat {
         }
     }
 
-    void card_extension::subsumption(card& c1) {
+    void ba_solver::subsumption(card& c1) {
         if (c1.lit() != null_literal) {
             return;
         }
@@ -2338,13 +2338,13 @@ namespace sat {
         for (literal l : c1) unmark_visited(l);
     }
 
-    void card_extension::clauses_modifed() {}
+    void ba_solver::clauses_modifed() {}
 
-    lbool card_extension::get_phase(bool_var v) { return l_undef; }
+    lbool ba_solver::get_phase(bool_var v) { return l_undef; }
 
 
-    extension* card_extension::copy(solver* s) {
-        card_extension* result = alloc(card_extension);
+    extension* ba_solver::copy(solver* s) {
+        ba_solver* result = alloc(ba_solver);
         result->set_solver(s);
         literal_vector lits;
         svector<wliteral> wlits;
@@ -2381,7 +2381,7 @@ namespace sat {
         return result;
     }
 
-    void card_extension::find_mutexes(literal_vector& lits, vector<literal_vector> & mutexes) {
+    void ba_solver::find_mutexes(literal_vector& lits, vector<literal_vector> & mutexes) {
         literal_set slits(lits);
         bool change = false;
         for (constraint* cp : m_constraints) {
@@ -2414,14 +2414,14 @@ namespace sat {
         }
     }
 
-    void card_extension::display(std::ostream& out, ineq& ineq) const {
+    void ba_solver::display(std::ostream& out, ineq& ineq) const {
         for (unsigned i = 0; i < ineq.m_lits.size(); ++i) {
             out << ineq.m_coeffs[i] << "*" << ineq.m_lits[i] << " ";
         }
         out << ">= " << ineq.m_k << "\n";
     }
 
-    void card_extension::display(std::ostream& out, xor const& x, bool values) const {
+    void ba_solver::display(std::ostream& out, xor const& x, bool values) const {
         out << "xor " << x.lit();
         if (x.lit() != null_literal && values) {
             out << "@(" << value(x.lit());
@@ -2450,7 +2450,7 @@ namespace sat {
         out << "\n";
     }
 
-    void card_extension::display(std::ostream& out, card const& c, bool values) const {
+    void ba_solver::display(std::ostream& out, card const& c, bool values) const {
         if (c.lit() != null_literal) {
             if (values) {
                 out << c.lit() << "[" << c.size() << "]";
@@ -2481,7 +2481,7 @@ namespace sat {
         out << ">= " << c.k()  << "\n";
     }
 
-    std::ostream& card_extension::display(std::ostream& out) const {
+    std::ostream& ba_solver::display(std::ostream& out) const {
         for (constraint const* c : m_constraints) {
             switch (c->tag()) {
             case card_t: 
@@ -2500,12 +2500,12 @@ namespace sat {
         return out;
     }
 
-    std::ostream& card_extension::display_justification(std::ostream& out, ext_justification_idx idx) const {
+    std::ostream& ba_solver::display_justification(std::ostream& out, ext_justification_idx idx) const {
         constraint const& cnstr = index2constraint(idx);
         return out << index2constraint(idx);
     }
 
-    void card_extension::collect_statistics(statistics& st) const {
+    void ba_solver::collect_statistics(statistics& st) const {
         st.update("cardinality propagations", m_stats.m_num_card_propagations);
         st.update("cardinality conflicts", m_stats.m_num_card_conflicts);
         st.update("cardinality resolves", m_stats.m_num_card_resolves);
@@ -2517,24 +2517,24 @@ namespace sat {
         st.update("pb resolves", m_stats.m_num_pb_resolves);
     }
 
-    bool card_extension::validate_conflict(card& c) { 
+    bool ba_solver::validate_conflict(card& c) { 
         if (!validate_unit_propagation(c)) return false;
         for (unsigned i = 0; i < c.k(); ++i) {
             if (value(c[i]) == l_false) return true;
         }
         return false;
     }
-    bool card_extension::validate_conflict(xor& x) {
+    bool ba_solver::validate_conflict(xor& x) {
         return !parity(x, 0);
     }
-    bool card_extension::validate_unit_propagation(card const& c) { 
+    bool ba_solver::validate_unit_propagation(card const& c) { 
         if (c.lit() != null_literal && value(c.lit()) != l_true) return false;
         for (unsigned i = c.k(); i < c.size(); ++i) {
             if (value(c[i]) != l_false) return false;
         }
         return true;
     }
-    bool card_extension::validate_unit_propagation(pb const& p, literal alit) { 
+    bool ba_solver::validate_unit_propagation(pb const& p, literal alit) { 
         if (p.lit() != null_literal && value(p.lit()) != l_true) return false;
 
         unsigned sum = 0;
@@ -2549,7 +2549,7 @@ namespace sat {
         return sum < p.k();
     }
 
-    bool card_extension::validate_lemma() { 
+    bool ba_solver::validate_lemma() { 
         int val = -m_bound;
         normalize_active_coeffs();
         for (unsigned i = 0; i < m_active_vars.size(); ++i) {
@@ -2568,7 +2568,7 @@ namespace sat {
         return val < 0;
     }
 
-    void card_extension::active2pb(ineq& p) {
+    void ba_solver::active2pb(ineq& p) {
         normalize_active_coeffs();
         p.reset(m_bound);
         for (unsigned i = 0; i < m_active_vars.size(); ++i) {
@@ -2579,7 +2579,7 @@ namespace sat {
         }
     }
 
-    void card_extension::justification2pb(justification const& js, literal lit, unsigned offset, ineq& ineq) {
+    void ba_solver::justification2pb(justification const& js, literal lit, unsigned offset, ineq& ineq) {
         switch (js.get_kind()) {
         case justification::NONE:
             ineq.reset(offset);
@@ -2653,7 +2653,7 @@ namespace sat {
 
     // validate that m_A & m_B implies m_C
 
-    bool card_extension::validate_resolvent() {
+    bool ba_solver::validate_resolvent() {
         u_map<unsigned> coeffs;
         unsigned k = m_A.m_k + m_B.m_k;
         for (unsigned i = 0; i < m_A.m_lits.size(); ++i) {
@@ -2717,7 +2717,7 @@ namespace sat {
         return false;
     }
 
-    bool card_extension::validate_conflict(literal_vector const& lits, ineq& p) { 
+    bool ba_solver::validate_conflict(literal_vector const& lits, ineq& p) { 
         for (unsigned i = 0; i < lits.size(); ++i) {
             if (value(lits[i]) != l_false) {
                 TRACE("sat", tout << "literal " << lits[i] << " is not false\n";);

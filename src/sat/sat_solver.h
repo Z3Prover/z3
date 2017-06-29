@@ -167,7 +167,7 @@ namespace sat {
         friend class iff3_finder;
         friend class mus;
         friend class drat;
-        friend class card_extension;
+        friend class ba_solver;
         friend class parallel;
         friend class lookahead;
         friend class local_search;
