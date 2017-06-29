@@ -62,8 +62,9 @@ namespace sat {
             }
         }
 
-        for (unsigned i = 0; i < ob_constraint.size(); ++i)
-            coefficient_in_ob_constraint[ob_constraint[i].var_id] = ob_constraint[i].coefficient;
+        for (auto const& c : ob_constraint) {
+            coefficient_in_ob_constraint[c.var_id] = c.coefficient;
+        }
 
         set_parameters();
     }
@@ -357,7 +358,7 @@ namespace sat {
                         m_is_pb = true;
                         lits.reset();
                         coeffs.reset();
-                        for (unsigned j = 0; j < n; ++j) lits.push_back(c[j]), coeffs.push_back(1);
+                        for (literal l : c) lits.push_back(l), coeffs.push_back(1);
                         lits.push_back(~c.lit()); coeffs.push_back(n - k + 1);
                         add_pb(lits.size(), lits.c_ptr(), coeffs.c_ptr(), n);
                         
@@ -369,9 +370,41 @@ namespace sat {
                     }
                     break;
                 }
-                case ba_solver::pb_t:
-                    NOT_IMPLEMENTED_YET();
+                case ba_solver::pb_t: {
+                    ba_solver::pb const& p = cp->to_pb();
+                    lits.reset();
+                    coeffs.reset();
+                    m_is_pb = true;
+                    unsigned sum = 0;
+                    for (ba_solver::wliteral wl : p) sum += wl.first;
+
+                    if (p.lit() == null_literal) {
+                        //   w1 + .. + w_n >= k
+                        // <=> 
+                        //  ~wl + ... + ~w_n <= sum_of_weights - k
+                        for (ba_solver::wliteral wl : p) lits.push_back(~(wl.second)), coeffs.push_back(wl.first);
+                        add_pb(lits.size(), lits.c_ptr(), coeffs.c_ptr(), sum - p.k());
+                    }
+                    else {
+                        //    lit <=> w1 + .. + w_n >= k
+                        // <=>
+                        //     lit or w1 + .. + w_n <= k - 1
+                        //    ~lit or w1 + .. + w_n >= k
+                        // <=> 
+                        //     (sum - k + 1)*~lit + w1 + .. + w_n <= sum
+                        //     k*lit + ~wl + ... + ~w_n <= sum
+                        lits.push_back(p.lit()), coeffs.push_back(p.k());
+                        for (ba_solver::wliteral wl : p) lits.push_back(~(wl.second)), coeffs.push_back(wl.first);
+                        add_pb(lits.size(), lits.c_ptr(), coeffs.c_ptr(), sum);
+
+                        lits.reset();
+                        coeffs.reset();
+                        lits.push_back(~p.lit()), coeffs.push_back(sum + 1 - p.k());
+                        for (ba_solver::wliteral wl : p) lits.push_back(wl.second), coeffs.push_back(wl.first);
+                        add_pb(lits.size(), lits.c_ptr(), coeffs.c_ptr(), sum);
+                    }
                     break;
+                }
                 case ba_solver::xor_t:
                     NOT_IMPLEMENTED_YET();
                     break;
@@ -585,10 +618,10 @@ namespace sat {
             }
         }
         else {
-            for (unsigned i = 0; i < c.size(); ++i) {
-                if (is_true(c[i])) {
+            for (literal l : c) {
+                if (is_true(l)) {
                     if (m_rand() % n == 0) {
-                        best_var = c[i].var();
+                        best_var = l.var();
                     }
                     ++n;
                 }
@@ -647,32 +680,32 @@ namespace sat {
             --c.m_slack;
             switch (c.m_slack) {
             case -2:  // from -1 to -2
-                for (unsigned j = 0; j < c.size(); ++j) {
-                    v = c[j].var();
+                for (literal l : c) {
+                    v = l.var();
                     // flipping the slack increasing var will no longer satisfy this constraint
-                    if (is_true(c[j])) {
+                    if (is_true(l)) {
                         //score[v] -= constraint_weight[c];
                         dec_score(v);
                     }
                 }
                 break;
             case -1: // from 0 to -1: sat -> unsat
-                for (unsigned j = 0; j < c.size(); ++j) {
-                    v = c[j].var();
+                for (literal l : c) {
+                    v = l.var();
                     inc_cscc(v);
                     //score[v] += constraint_weight[c];
                     inc_score(v);
                     // slack increasing var
-                    if (is_true(c[j]))
+                    if (is_true(l))
                         inc_slack_score(v);
                 }
                 unsat(truep[i].m_constraint_id);
                 break;
             case 0: // from 1 to 0
-                for (unsigned j = 0; j < c.size(); ++j) {
-                    v = c[j].var();
+                for (literal l : c) {
+                    v = l.var();
                     // flip the slack decreasing var will falsify this constraint
-                    if (is_false(c[j])) {
+                    if (is_false(l)) {
                         // score[v] -= constraint_weight[c];
                         dec_score(v);
                         dec_slack_score(v);
@@ -683,16 +716,16 @@ namespace sat {
                 break;
             }
         }
-        for (unsigned i = 0; i < falsep.size(); ++i) {
-            constraint& c = m_constraints[falsep[i].m_constraint_id];
+        for (pbcoeff const& f : falsep) {
+            constraint& c = m_constraints[f.m_constraint_id];
             //--true_terms_count[c];
             ++c.m_slack;
             switch (c.m_slack) {
             case 1: // from 0 to 1
-                for (unsigned j = 0; j < c.size(); ++j) {
-                    v = c[j].var();
+                for (literal l : c) {
+                    v = l.var();
                     // flip the slack decreasing var will no long falsify this constraint
-                    if (is_false(c[j])) {
+                    if (is_false(l)) {
                         //score[v] += constraint_weight[c];
                         inc_score(v);
                         inc_slack_score(v);
@@ -700,22 +733,22 @@ namespace sat {
                 }
                 break;
             case 0: // from -1 to 0: unsat -> sat
-                for (unsigned j = 0; j < c.size(); ++j) {
-                    v = c[j].var();
+                for (literal l : c) {
+                    v = l.var();
                     inc_cscc(v);
                     //score[v] -= constraint_weight[c];
                     dec_score(v);
                     // slack increasing var no longer sat this var
-                    if (is_true(c[j]))
+                    if (is_true(l))
                         dec_slack_score(v);
                 }
-                sat(falsep[i].m_constraint_id);
+                sat(f.m_constraint_id);
                 break;
             case -1: // from -2 to -1
-                for (unsigned j = 0; j < c.size(); ++j) {
-                    v = c[j].var();
+                for (literal l : c) {
+                    v = l.var();
                     // flip the slack increasing var will satisfy this constraint
-                    if (is_true(c[j])) {
+                    if (is_true(l)) {
                         //score[v] += constraint_weight[c];
                         inc_score(v);
                     }
@@ -745,8 +778,7 @@ namespace sat {
 
         var_info& vi = m_vars[flipvar];
         unsigned sz = vi.m_neighbors.size();
-        for (unsigned i = 0; i < sz; ++i) {
-            v = vi.m_neighbors[i];
+        for (auto v : vi.m_neighbors) {
             m_vars[v].m_conf_change = true;
             if (score(v) > 0 && !already_in_goodvar_stack(v)) {
                 m_goodvar_stack.push_back(v);
@@ -792,8 +824,8 @@ namespace sat {
         // SAT Mode
         if (m_unsat_stack.empty()) {
             //std::cout << "as\t";
-            for (unsigned i = 0; i < ob_constraint.size(); ++i) {
-                bool_var v = ob_constraint[i].var_id;
+            for (auto const& c : ob_constraint) {
+                bool_var v = c.var_id;
                 if (tie_breaker_sat(v, best_var))
                     best_var = v;
             }
@@ -805,8 +837,7 @@ namespace sat {
         if (!m_goodvar_stack.empty()) {
             //++ccd;
             best_var = m_goodvar_stack[0];
-            for (unsigned i = 1; i < m_goodvar_stack.size(); ++i) {
-                bool_var v = m_goodvar_stack[i];
+            for (bool_var v : m_goodvar_stack) {
                 if (tie_breaker_ccd(v, best_var))
                     best_var = v;
             }
@@ -816,10 +847,9 @@ namespace sat {
         // Diversification Mode
         constraint const& c = m_constraints[m_unsat_stack[m_rand() % m_unsat_stack.size()]]; // a random unsat constraint
         // Within c, from all slack increasing var, choose the oldest one
-        unsigned c_size = c.size();
-        for (unsigned i = 0; i < c_size; ++i) {
-            bool_var v = c[i].var();
-            if (is_true(c[i]) && time_stamp(v) < time_stamp(best_var))
+        for (literal l : c) {
+            bool_var v = l.var();
+            if (is_true(l) && time_stamp(v) < time_stamp(best_var))
                 best_var = v;
         }
         return best_var;
@@ -868,8 +898,7 @@ namespace sat {
     }
 
     void local_search::display(std::ostream& out) const {
-        for (unsigned i = 0; i < m_constraints.size(); ++i) {
-            constraint const& c = m_constraints[i];
+        for (constraint const& c : m_constraints) {
             display(out, c);
         }        
         for (bool_var v = 0; v < num_vars(); ++v) {

@@ -107,6 +107,8 @@ namespace sat {
             void push(literal l) { m_literals.push_back(l); ++m_size; }
             unsigned size() const { return m_size; }
             literal const& operator[](unsigned idx) const { return m_literals[idx]; }
+            literal const* begin() const { return m_literals.begin(); }
+            literal const* end() const { return m_literals.end(); }
         };
 
         local_search_config m_config;
