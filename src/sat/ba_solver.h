@@ -74,6 +74,7 @@ namespace sat {
             void nullify_literal() { m_lit = null_literal; }
             unsigned glue() const { return m_glue; }
             void set_glue(unsigned g) { m_glue = g; }
+            
 
             size_t obj_size() const { return m_obj_size; }
             card& to_card();
@@ -85,6 +86,9 @@ namespace sat {
             bool is_card() const { return m_tag == card_t; }
             bool is_pb() const { return m_tag == pb_t; }
             bool is_xor() const { return m_tag == xor_t; }
+            
+            virtual bool is_watching(literal l) const { return false; };
+            virtual literal_vector literals() const { return literal_vector(); }
         };
 
         friend std::ostream& operator<<(std::ostream& out, constraint const& c);
@@ -103,7 +107,8 @@ namespace sat {
             void swap(unsigned i, unsigned j) { std::swap(m_lits[i], m_lits[j]); }
             void negate();                     
             void update_k(unsigned k) { m_k = k; }
-            literal_vector literals() const { return literal_vector(m_size, m_lits); }            
+            virtual literal_vector literals() const { return literal_vector(m_size, m_lits); }            
+            virtual bool is_watching(literal l) const;
         };
 
         
@@ -122,7 +127,7 @@ namespace sat {
             wliteral operator[](unsigned i) const { return m_wlits[i]; }
             wliteral& operator[](unsigned i) { return m_wlits[i]; }
             wliteral const* begin() const { return m_wlits; }
-            wliteral const* end() const { return static_cast<wliteral const*>(m_wlits) + m_size; }
+            wliteral const* end() const { return begin() + m_size; }
 
             unsigned k() const { return m_k; }
             unsigned slack() const { return m_slack; }
@@ -134,7 +139,8 @@ namespace sat {
             void negate();                       
             void update_k(unsigned k) { m_k = k; }
             void update_max_sum();
-            literal_vector literals() const { literal_vector lits; for (auto wl : *this) lits.push_back(wl.second); return lits; }
+            virtual literal_vector literals() const { literal_vector lits; for (auto wl : *this) lits.push_back(wl.second); return lits; }
+            virtual bool is_watching(literal l) const;
         };
 
         class xor : public constraint {
@@ -144,9 +150,11 @@ namespace sat {
             xor(literal lit, literal_vector const& lits);
             literal operator[](unsigned i) const { return m_lits[i]; }
             literal const* begin() const { return m_lits; }
-            literal const* end() const { return static_cast<literal const*>(m_lits) + m_size; }
+            literal const* end() const { return begin() + m_size; }
             void swap(unsigned i, unsigned j) { std::swap(m_lits[i], m_lits[j]); }
             void negate() { m_lits[0].neg(); }
+            virtual bool is_watching(literal l) const;
+            virtual literal_vector literals() const { return literal_vector(size(), begin()); }
         };
 
 
@@ -244,6 +252,9 @@ namespace sat {
         void get_antecedents(literal l, constraint const& c, literal_vector & r);
         bool validate_conflict(constraint const& c) const;
         bool validate_unit_propagation(constraint const& c, literal alit) const;
+        void attach_constraint(constraint const& c);
+        void detach_constraint(constraint const& c);
+        bool is_true(constraint const& c) const;
 
         // cardinality
         void init_watch(card& c, bool is_true);
@@ -256,6 +267,7 @@ namespace sat {
         void unit_propagation_simplification(literal lit, literal_vector const& lits);
         void flush_roots(card& c);
         void recompile(card& c);
+        lbool value(card const& c) const;
 
         // xor specific functionality
         void clear_watch(xor& x);
@@ -266,6 +278,7 @@ namespace sat {
         void get_antecedents(literal l, xor const& x, literal_vector & r);
         void simplify(xor& x);
         void flush_roots(xor& x);
+        lbool value(xor const& x) const;
         
         // pb functionality
         unsigned m_a_max;
@@ -279,6 +292,7 @@ namespace sat {
         bool is_cardinality(pb const& p);
         void flush_roots(pb& p);
         void recompile(pb& p);
+        lbool value(pb const& p) const;
 
         // access solver
         inline lbool value(literal lit) const { return m_lookahead ? m_lookahead->value(lit) : m_solver->value(lit); }
@@ -286,6 +300,7 @@ namespace sat {
         inline unsigned lvl(bool_var v) const { return m_solver->lvl(v); }
         inline bool inconsistent() const { return m_lookahead ? m_lookahead->inconsistent() : m_solver->inconsistent(); }
         inline watch_list& get_wlist(literal l) { return m_lookahead ? m_lookahead->get_wlist(l) : m_solver->get_wlist(l); }
+        inline watch_list const& get_wlist(literal l) const { return m_lookahead ? m_lookahead->get_wlist(l) : m_solver->get_wlist(l); }
         inline void assign(literal l, justification j) { if (m_lookahead) m_lookahead->assign(l); else m_solver->assign(l, j); }
         inline void set_conflict(justification j, literal l) { if (m_lookahead) m_lookahead->set_conflict(); else m_solver->set_conflict(j, l); }
         inline config const& get_config() const { return m_solver->get_config(); }
@@ -312,6 +327,10 @@ namespace sat {
         bool validate_unit_propagation(pb const& p, literal alit) const;
         bool validate_unit_propagation(xor const& x, literal alit) const;
         bool validate_conflict(literal_vector const& lits, ineq& p);
+        bool validate_watch_literals() const;
+        bool validate_watch_literal(literal lit) const;
+        bool validate_watched_constraint(constraint const& c) const;
+        bool is_watching(literal lit, constraint const& c) const;
 
         ineq m_A, m_B, m_C;
         void active2pb(ineq& p);
@@ -357,6 +376,8 @@ namespace sat {
         virtual void gc(); 
 
         ptr_vector<constraint> const & constraints() const { return m_constraints; }
+
+        virtual void validate();
 
     };
 

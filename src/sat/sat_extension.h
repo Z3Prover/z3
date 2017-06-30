@@ -53,6 +53,7 @@ namespace sat {
         virtual extension* copy(solver* s) = 0;       
         virtual void find_mutexes(literal_vector& lits, vector<literal_vector> & mutexes) = 0;
         virtual void gc() = 0;
+        virtual void validate() = 0;
     };
 
 };

@@ -372,6 +372,7 @@ namespace sat {
         void attach_ternary(ternary const& t);
         void attach_ternary(literal l1, literal l2, literal l3);
         watch_list& get_wlist(literal l) { return m_watches[l.index()]; }
+        watch_list const& get_wlist(literal l) const { return m_watches[l.index()]; }
 
         // ------------------------------------
         // initialization

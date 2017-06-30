@@ -39,7 +39,7 @@ namespace sat {
         return false;                                           
     }
 
-    void display_watch_list(std::ostream & out, clause_allocator const & ca, watch_list const & wlist) {
+    std::ostream& display_watch_list(std::ostream & out, clause_allocator const & ca, watch_list const & wlist) {
         watch_list::const_iterator it  = wlist.begin();
         watch_list::const_iterator end = wlist.end();
         for (bool first = true; it != end; ++it) {
@@ -66,6 +66,7 @@ namespace sat {
                 UNREACHABLE();
             }
         }
+        return out;
     }
 
 };

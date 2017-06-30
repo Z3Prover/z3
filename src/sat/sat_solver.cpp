@@ -1391,6 +1391,7 @@ namespace sat {
 
     */
     void solver::simplify_problem() {
+        if (m_ext) m_ext->validate();
         if (m_conflicts_since_init < m_next_simplify) {
             return;
         }
@@ -1403,12 +1404,15 @@ namespace sat {
         SASSERT(at_base_lvl());
 
         m_cleaner();
+        if (m_ext) m_ext->validate();
         CASSERT("sat_simplify_bug", check_invariant());
 
         m_scc();
+        if (m_ext) m_ext->validate();
         CASSERT("sat_simplify_bug", check_invariant());
 
         m_simplifier(false);
+        if (m_ext) m_ext->validate();
         CASSERT("sat_simplify_bug", check_invariant());
         CASSERT("sat_missed_prop", check_missed_propagation());
 
@@ -1417,6 +1421,7 @@ namespace sat {
             CASSERT("sat_missed_prop", check_missed_propagation());
             CASSERT("sat_simplify_bug", check_invariant());
         }
+        if (m_ext) m_ext->validate();
 
         if (m_config.m_lookahead_simplify) {
             {
@@ -1435,10 +1440,12 @@ namespace sat {
         CASSERT("sat_simplify_bug", check_invariant());
 
         m_probing();
+        if (m_ext) m_ext->validate();
         CASSERT("sat_missed_prop", check_missed_propagation());
         CASSERT("sat_simplify_bug", check_invariant());
 
         m_asymm_branch();
+        if (m_ext) m_ext->validate();
         CASSERT("sat_missed_prop", check_missed_propagation());
         CASSERT("sat_simplify_bug", check_invariant());
 
@@ -1460,21 +1467,7 @@ namespace sat {
                 m_next_simplify = m_conflicts_since_init + m_config.m_simplify_max;
         }
 
-#if 0
-        static unsigned file_no = 0;
-        #pragma omp critical (print_sat)
-        {
-            ++file_no;
-            std::ostringstream ostrm;
-            ostrm << "s" << file_no << ".txt";
-            std::ofstream ous(ostrm.str());
-            display(ous);
-        }
-#endif
-
         if (m_par) m_par->set_phase(*this);
-
-
     }
 
     bool solver::set_root(literal l, literal r) {

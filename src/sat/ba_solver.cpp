@@ -69,6 +69,14 @@ namespace sat {
         SASSERT(m_size >= m_k && m_k > 0);
     }
 
+    bool ba_solver::card::is_watching(literal l) const {
+        unsigned sz = std::min(k() + 1, size());
+        for (unsigned i = 0; i < sz; ++i) {
+            if ((*this)[i] == l) return true;
+        }
+        return false;
+    }
+
     std::ostream& operator<<(std::ostream& out, ba_solver::constraint const& cnstr) {
         if (cnstr.lit() != null_literal) out << cnstr.lit() << " == ";
         switch (cnstr.tag()) {
@@ -135,12 +143,26 @@ namespace sat {
         m_k = w - m_k + 1;
         SASSERT(w >= m_k && m_k > 0);
     }
+
+    bool ba_solver::pb::is_watching(literal l) const {
+        for (unsigned i = 0; i < m_num_watch; ++i) {
+            if ((*this)[i].second == l) return true;
+        }
+        return false;
+    }
+
     
     ba_solver::xor::xor(literal lit, literal_vector const& lits):
     constraint(xor_t, lit, lits.size(), get_obj_size(lits.size())) {
         for (unsigned i = 0; i < size(); ++i) {
             m_lits[i] = lits[i];
         }
+    }
+
+    bool ba_solver::xor::is_watching(literal l) const {
+        return 
+            l == (*this)[0] || l == (*this)[1] ||
+            ~l == (*this)[0] || ~l == (*this)[1];            
     }
 
     void ba_solver::init_watch(card& c, bool is_true) {
@@ -209,14 +231,6 @@ namespace sat {
         for (unsigned i = 0; i < sz; ++i) {
             unwatch_literal(c[i], c);            
         }
-    }
-
-    void ba_solver::unwatch_literal(literal lit, constraint& c) {
-        get_wlist(~lit).erase(watched(c.index()));
-    }
-
-    void ba_solver::watch_literal(literal lit, constraint& c) {
-        get_wlist(~lit).push_back(watched(c.index()));
     }
 
     void ba_solver::set_conflict(constraint& c, literal lit) {
@@ -510,7 +524,6 @@ namespace sat {
     }
 
     void ba_solver::simplify(pb& p) {
-        s().pop_to_base_level();
         if (p.lit() != null_literal && value(p.lit()) == l_false) {
             TRACE("sat", tout << "pb: flip sign " << p << "\n";);
             return;
@@ -629,6 +642,8 @@ namespace sat {
     void ba_solver::clear_watch(xor& x) {
         unwatch_literal(x[0], x);
         unwatch_literal(x[1], x);         
+        unwatch_literal(~x[0], x);
+        unwatch_literal(~x[1], x);         
     }
 
     bool ba_solver::parity(xor const& x, unsigned offset) const {
@@ -678,6 +693,8 @@ namespace sat {
             SASSERT(j == 2);
             watch_literal(x[0], x);
             watch_literal(x[1], x);
+            watch_literal(~x[0], x);
+            watch_literal(~x[1], x);
             break;
         }
     }
@@ -1157,6 +1174,14 @@ namespace sat {
             s().set_external(lit.var());
             get_wlist(lit).push_back(c->index());
             get_wlist(~lit).push_back(c->index());
+            if (!validate_watched_constraint(*c)) {
+                std::cout << "wrong: " << *c << "\n";
+            }
+        }        
+        if (lit.var() == 102770) {
+            display(std::cout, *c, true);
+            display_watch_list(std::cout, s().m_cls_allocator, get_wlist(lit)) << "\n";
+            display_watch_list(std::cout, s().m_cls_allocator, get_wlist(~lit)) << "\n";
         }
     }
 
@@ -1208,6 +1233,7 @@ namespace sat {
         if (c.lit() != null_literal && l.var() == c.lit().var()) {
             init_watch(c, !l.sign());
             keep = true;
+            if (!inconsistent()) validate_watched_constraint(c);
         }
         else if (c.lit() != null_literal && value(c.lit()) != l_true) {
             keep = false;
@@ -1215,6 +1241,7 @@ namespace sat {
         else {
             keep = l_undef != add_assign(c, ~l);
         }
+        std::cout << c.lit() << " " << l << " " << keep << "\n";
     }
 
 
@@ -1444,10 +1471,21 @@ namespace sat {
         }
     }
 
+    // ----------------------------
+    // constraint generic methods
+
     void ba_solver::get_antecedents(literal l, ext_justification_idx idx, literal_vector & r) {
         get_antecedents(l, index2constraint(idx), r);
     }
     
+    void ba_solver::unwatch_literal(literal lit, constraint& c) {
+        get_wlist(~lit).erase(watched(c.index()));
+    }
+
+    void ba_solver::watch_literal(literal lit, constraint& c) {
+        get_wlist(~lit).push_back(watched(c.index()));
+    }
+
     void ba_solver::get_antecedents(literal l, constraint const& c, literal_vector& r) {
         switch (c.tag()) {
         case card_t: get_antecedents(l, c.to_card(), r); break;
@@ -1457,7 +1495,38 @@ namespace sat {
         }
     }
 
+    void ba_solver::nullify_tracking_literal(constraint& c) {
+        if (c.lit() != null_literal) {
+            get_wlist(c.lit()).erase(watched(c.index()));
+            get_wlist(~c.lit()).erase(watched(c.index()));
+            c.nullify_literal();
+        }
+    }
+
+    void ba_solver::remove_constraint(constraint& c) {
+        nullify_tracking_literal(c);
+        switch (c.tag()) {
+        case card_t:
+            clear_watch(c.to_card());
+            break;
+        case pb_t:
+            clear_watch(c.to_pb());
+            break;
+        case xor_t:
+            clear_watch(c.to_xor());
+            break;
+        default:
+            UNREACHABLE();
+        }
+        c.remove();
+        m_constraint_removed = true;
+    }
+
+    // --------------------------------
+    // validation
+
     bool ba_solver::validate_unit_propagation(constraint const& c, literal l) const {
+        return true;
         switch (c.tag()) {
         case card_t:  return validate_unit_propagation(c.to_card(), l); 
         case pb_t: return validate_unit_propagation(c.to_pb(), l);
@@ -1468,11 +1537,139 @@ namespace sat {
     }
 
     bool ba_solver::validate_conflict(constraint const& c) const {
+        return true;
         switch (c.tag()) {
         case card_t:  return validate_conflict(c.to_card()); 
         case pb_t: return validate_conflict(c.to_pb());
         case xor_t: return validate_conflict(c.to_xor());
         default: UNREACHABLE(); break;
+        }
+        return false;
+    }
+
+    bool ba_solver::is_true(constraint const& c) const {
+        lbool v1 = c.lit() == null_literal ? l_true : value(c.lit());
+        if (v1 == l_undef) return false;
+        switch (c.tag()) {
+        case card_t:  return v1 == value(c.to_card()); 
+        case pb_t: return v1 == value(c.to_pb());
+        case xor_t: return v1 == value(c.to_xor());
+        default: UNREACHABLE(); break;
+        }
+        return false;        
+    }
+
+    lbool ba_solver::value(card const& c) const {
+        unsigned trues = 0, undefs = 0;
+        for (literal l : c) {
+            switch (value(l)) {
+            case l_true: trues++; break;
+            case l_undef: undefs++; break;
+            default: break;
+            }
+        }
+        if (trues + undefs < c.k()) return l_false;
+        if (trues >= c.k()) return l_true;
+        return l_undef;        
+    }
+
+    lbool ba_solver::value(pb const& p) const {
+        unsigned trues = 0, undefs = 0;
+        for (wliteral wl : p) {
+            switch (value(wl.second)) {
+            case l_true: trues += wl.first; break;
+            case l_undef: undefs += wl.first; break;
+            default: break;
+            }
+        }
+        if (trues + undefs < p.k()) return l_false;
+        if (trues >= p.k()) return l_true;
+        return l_undef;        
+    }
+
+    lbool ba_solver::value(xor const& x) const {
+        bool odd = false;
+        
+        for (auto l : x) {
+            switch (value(l)) {
+            case l_true: odd = !odd; break;
+            case l_false: break;
+            default: return l_undef;
+            }
+        }
+        return odd ? l_true : l_false;
+    }
+
+    void ba_solver::validate() {
+        if (validate_watch_literals()) {
+            for (constraint* c : m_constraints) {
+                if (!validate_watched_constraint(*c)) break;
+            }
+        }
+    }
+
+    bool ba_solver::validate_watch_literals() const {
+        for (unsigned v = 0; v < s().num_vars(); ++v) {
+            literal lit(v, false);
+            if (lvl(lit) == 0) continue;
+            if (!validate_watch_literal(lit)) return false;
+            if (!validate_watch_literal(~lit)) return false;
+        }        
+        return true;
+    }
+
+    bool ba_solver::validate_watch_literal(literal lit) const {
+        if (lvl(lit) == 0) return true;
+        for (auto const & w : get_wlist(lit)) {
+            if (w.get_kind() == watched::EXT_CONSTRAINT) {
+                constraint const& c = index2constraint(w.get_ext_constraint_idx());
+                if (!c.is_watching(~lit)) {
+                    std::cout << lit << " " << lvl(lit) << " is not watched in " << c << "\n";
+                    display(std::cout, c, true);
+                    UNREACHABLE();
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    bool ba_solver::validate_watched_constraint(constraint const& c) const {
+        if (c.lit() != null_literal && value(c.lit()) != l_true) return true;
+        if (c.lit() != null_literal && lvl(c.lit()) != 0) {
+            if (!is_watching(c.lit(), c) || !is_watching(~c.lit(), c)) {
+                std::cout << "Definition literal is not watched " << c.lit() << " " << c << "\n";
+                display_watch_list(std::cout, s().m_cls_allocator, get_wlist(c.lit())) << "\n";
+                display_watch_list(std::cout, s().m_cls_allocator, get_wlist(~c.lit())) << "\n";
+                return false;
+            }
+        }
+        if (is_true(c)) {
+            return true;
+        }
+        literal_vector lits(c.literals());
+        for (literal l : lits) {
+            if (lvl(l) == 0) continue;
+            bool found = is_watching(l, c);
+            if (found != c.is_watching(l)) {
+                std::cout << "Discrepancy of watched literal: " << l << ": " << c.index() << " " << c << (found?" is watched, but shouldn't be":" not watched, but should be") << "\n";
+                display_watch_list(std::cout << l << ": ", s().m_cls_allocator, get_wlist(l)) << "\n";
+                display_watch_list(std::cout << ~l << ": ", s().m_cls_allocator, get_wlist(~l)) << "\n";
+                std::cout << "value: " << value(l) << " level: " << lvl(l) << "\n";
+                display(std::cout, c, true);
+                if (c.lit() != null_literal) std::cout << value(c.lit()) << "\n";
+                UNREACHABLE();
+                exit(1);
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    bool ba_solver::is_watching(literal lit, constraint const& c) const {
+        for (auto w : get_wlist(~lit)) {
+            if (w.get_kind() == watched::EXT_CONSTRAINT && w.get_ext_constraint_idx() == c.index()) 
+                return true;
         }
         return false;
     }
@@ -1505,33 +1702,6 @@ namespace sat {
         m_learned.shrink(j);
         IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat-gc :strategy " << st_name << " :deleted " << (sz - j) << ")\n";);
 
-    }
-
-    void ba_solver::nullify_tracking_literal(constraint& c) {
-        if (c.lit() != null_literal) {
-            get_wlist(c.lit()).erase(watched(c.index()));
-            get_wlist(~c.lit()).erase(watched(c.index()));
-            c.nullify_literal();
-        }
-    }
-
-    void ba_solver::remove_constraint(constraint& c) {
-        nullify_tracking_literal(c);
-        switch (c.tag()) {
-        case card_t:
-            clear_watch(c.to_card());
-            break;
-        case pb_t:
-            clear_watch(c.to_pb());
-            break;
-        case xor_t:
-            clear_watch(c.to_xor());
-            break;
-        default:
-            UNREACHABLE();
-        }
-        c.remove();
-        m_constraint_removed = true;
     }
 
     void ba_solver::simplify(card& c) {
@@ -1722,7 +1892,7 @@ namespace sat {
 
     void ba_solver::simplify() {
         return;
-        if (!s().at_base_lvl()) s().pop_to_base_level();
+        SASSERT(s().at_base_lvl());
         unsigned trail_sz;
         do {
             m_simplify_change = false;
@@ -1760,6 +1930,10 @@ namespace sat {
 
     void ba_solver::flush_roots() {
         if (m_roots.empty()) return;
+
+        std::cout << "pre\n";
+        validate();
+
         m_visited.resize(s().num_vars()*2, false);
         m_constraint_removed = false;
         for (constraint* c : m_constraints) {
@@ -1778,6 +1952,8 @@ namespace sat {
             }                
         }
         cleanup_constraints();
+        std::cout << "post\n";
+        validate();
         // display(std::cout << "flush roots\n");
     }
 
@@ -1907,7 +2083,7 @@ namespace sat {
     }
 
     void ba_solver::recompile(pb& p) {
-        // IF_VERBOSE(0, verbose_stream() << "re: " << p << "\n";);
+        IF_VERBOSE(0, verbose_stream() << "re: " << p << "\n";);
         m_weights.resize(2*s().num_vars(), 0);
         for (wliteral wl : p) {
             m_weights[wl.second.index()] += wl.first;
@@ -1965,11 +2141,10 @@ namespace sat {
         p.update_k(k);
         p.update_max_sum();
 
-
         literal root = null_literal;
         if (p.lit() != null_literal) root = m_roots[p.lit().index()];
 
-        // IF_VERBOSE(0, verbose_stream() << "new: " << p << "\n";);
+        IF_VERBOSE(0, verbose_stream() << "new: " << p << "\n";);
 
         // std::cout << "simplified " << p << "\n";
         if (p.lit() != root) {
