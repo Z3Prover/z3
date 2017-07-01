@@ -1,0 +1,68 @@
+cache:
+  # This persistent cache is used to cache the building of
+  # docker base images.
+  directories:
+    - $DOCKER_TRAVIS_CI_CACHE_DIR
+sudo: required
+language: cpp
+services:
+  - docker
+env:
+  global:
+    # This environment variable tells the `travis_ci_linux_entry_point.sh`
+    # script to look for a cached Docker image.
+    - DOCKER_TRAVIS_CI_CACHE_DIR=$HOME/.cache/docker
+  # Configurations
+  matrix:
+###############################################################################
+# Ubuntu 16.04 LTS
+###############################################################################
+    # 64-bit GCC 5.4 RelWithDebInfo
+    - LINUX_BASE=ubuntu_16.04 C_COMPILER=/usr/bin/gcc-5 CXX_COMPILER=/usr/bin/g++-5 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=RelWithDebInfo
+    # 64-bit Clang 3.9 RelWithDebInfo
+    - LINUX_BASE=ubuntu_16.04 C_COMPILER=/usr/bin/clang-3.9 CXX_COMPILER=/usr/bin/clang++-3.9 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=RelWithDebInfo
+
+    # 64-bit GCC 5.4 Debug
+    - LINUX_BASE=ubuntu_16.04 C_COMPILER=/usr/bin/gcc-5 CXX_COMPILER=/usr/bin/g++-5 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=Debug
+    # 64-bit Clang Debug
+    - LINUX_BASE=ubuntu_16.04 C_COMPILER=/usr/bin/clang-3.9 CXX_COMPILER=/usr/bin/clang++-3.9 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=Debug
+
+    # 32-bit GCC 5.4 RelWithDebInfo
+    - LINUX_BASE=ubuntu32_16.04 C_COMPILER=/usr/bin/gcc-5 CXX_COMPILER=/usr/bin/g++-5 TARGET_ARCH=i686 Z3_BUILD_TYPE=RelWithDebInfo
+
+    # Both of the two configurations below build the docs because the current
+    # implementation uses python as part of the building process.
+    # TODO: Teach one of the configurations to upload built docs somewhere.
+    # Test with Python 3 and API docs
+    - LINUX_BASE=ubuntu_16.04 PYTHON_EXECUTABLE=/usr/bin/python3 BUILD_DOCS=1
+    # Test with LibGMP and API docs
+    - LINUX_BASE=ubuntu_16.04 TARGET_ARCH=x86_64 USE_LIBGMP=1 BUILD_DOCS=1 PYTHON_EXECUTABLE=/usr/bin/python2.7
+
+    # Test without OpenMP
+    - LINUX_BASE=ubuntu_16.04 C_COMPILER=/usr/bin/gcc-5 CXX_COMPILER=/usr/bin/g++-5 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=RelWithDebInfo USE_OPENMP=0
+
+    # Unix Makefile generator build
+    - LINUX_BASE=ubuntu_16.04 C_COMPILER=/usr/bin/gcc-5 CXX_COMPILER=/usr/bin/g++-5 TARGET_ARCH=x86_64 Z3_CMAKE_GENERATOR="Unix Makefiles"
+
+    # LTO build
+    - LINUX_BASE=ubuntu_16.04 C_COMPILER=/usr/bin/gcc-5 CXX_COMPILER=/usr/bin/g++-5 TARGET_ARCH=x86_64 USE_LTO=1
+
+    # Static build. Note we have disable building the bindings because they won't work with a static libz3
+    - LINUX_BASE=ubuntu_16.04 C_COMPILER=/usr/bin/gcc-5 CXX_COMPILER=/usr/bin/g++-5 TARGET_ARCH=x86_64 Z3_STATIC_BUILD=1 DOTNET_BINDINGS=0 JAVA_BINDINGS=0 PYTHON_BINDINGS=0
+
+###############################################################################
+# Ubuntu 14.04 LTS
+###############################################################################
+    # GCC 4.8
+    # 64-bit GCC 4.8 RelWithDebInfo
+    - LINUX_BASE=ubuntu_14.04 C_COMPILER=/usr/bin/gcc-4.8 CXX_COMPILER=/usr/bin/g++-4.8 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=RelWithDebInfo
+    # 64-bit GCC 4.8 Debug
+    - LINUX_BASE=ubuntu_14.04 C_COMPILER=/usr/bin/gcc-4.8 CXX_COMPILER=/usr/bin/g++-4.8 TARGET_ARCH=x86_64 Z3_BUILD_TYPE=Debug
+
+# TODO: OSX support
+#matrix:
+#  include:
+#    - os: osx
+#      osx_image: xcode 8.2
+script:
+  - contrib/ci/scripts/travis_ci_entry_point.sh
