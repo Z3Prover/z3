@@ -1074,7 +1074,7 @@ expr_ref theory_seq::mk_first(expr* s) {
 
 
 void theory_seq::mk_decompose(expr* e, expr_ref& head, expr_ref& tail) {
-    expr* e1, *e2;
+    expr* e1 = 0, *e2 = 0;
     zstring s;
     if (m_util.str.is_empty(e)) {
         head = m_util.str.mk_unit(mk_nth(e, m_autil.mk_int(0)));
@@ -1401,7 +1401,7 @@ bool theory_seq::occurs(expr* a, expr* b) {
      // true if a occurs under an interpreted function or under left/right selector.
     SASSERT(is_var(a));
     SASSERT(m_todo.empty());
-    expr* e1, *e2;
+    expr* e1 = 0, *e2 = 0;
     m_todo.push_back(b);
     while (!m_todo.empty()) {
         b = m_todo.back();
@@ -1990,7 +1990,7 @@ bool theory_seq::solve_nc(unsigned idx) {
         return true;
     }
 
-    expr* e1, *e2;
+    expr* e1 = 0, *e2 = 0;
     if (m.is_eq(c, e1, e2)) {
         literal eq = mk_eq(e1, e2, false);
         propagate_lit(deps, 0, 0, ~eq);
@@ -2316,7 +2316,7 @@ bool theory_seq::check_int_string() {
 
 bool theory_seq::add_stoi_axiom(expr* e) {
     context& ctx = get_context();
-    expr* n;
+    expr* n = 0;
     rational val;
     TRACE("seq", tout << mk_pp(e, m) << "\n";);
     VERIFY(m_util.str.is_stoi(e, n));    
@@ -2398,7 +2398,7 @@ expr_ref theory_seq::digit2int(expr* ch) {
 bool theory_seq::add_itos_axiom(expr* e) {
     context& ctx = get_context();
     rational val;
-    expr* n;
+    expr* n = 0;
     TRACE("seq", tout << mk_pp(e, m) << "\n";);
     VERIFY(m_util.str.is_itos(e, n));
     if (get_num_value(n, val)) {
@@ -3197,7 +3197,7 @@ void theory_seq::add_indexof_axiom(expr* i) {
 
 */
 void theory_seq::add_replace_axiom(expr* r) {
-    expr* a, *s, *t;
+    expr* a = 0, *s = 0, *t = 0;
     VERIFY(m_util.str.is_replace(r, a, s, t));
     expr_ref x  = mk_skolem(m_indexof_left, a, s);
     expr_ref y  = mk_skolem(m_indexof_right, a, s);
@@ -3330,7 +3330,7 @@ void theory_seq::add_itos_length_axiom(expr* len) {
 
 void theory_seq::propagate_in_re(expr* n, bool is_true) {
     TRACE("seq", tout << mk_pp(n, m) << " <- " << (is_true?"true":"false") << "\n";);
-    expr* e1, *e2;
+    expr* e1 = 0, *e2 = 0;
     VERIFY(m_util.str.is_in_re(n, e1, e2));
 
     expr_ref tmp(n, m);
@@ -3462,7 +3462,7 @@ bool theory_seq::get_length(expr* e, rational& val) const {
     if (!tha) return false;
     rational val1;
     expr_ref len(m), len_val(m);
-    expr* e1, *e2;
+    expr* e1 = 0, *e2 = 0;
     ptr_vector<expr> todo;
     todo.push_back(e);
     val.reset();
@@ -3522,7 +3522,7 @@ bool theory_seq::get_length(expr* e, rational& val) const {
 */
 
 void theory_seq::add_extract_axiom(expr* e) {
-    expr* s, *i, *l;
+    expr* s = 0, *i = 0, *l = 0;
     VERIFY(m_util.str.is_extract(e, s, i, l));
     if (is_tail(s, i, l)) {
         add_tail_axiom(e, s);
@@ -3682,7 +3682,7 @@ void theory_seq::add_at_axiom(expr* e) {
 */
 void theory_seq::propagate_step(literal lit, expr* step) {
     SASSERT(get_context().get_assignment(lit) == l_true);
-    expr* re, *acc, *s, *idx, *i, *j;
+    expr* re = 0, *acc = 0, *s = 0, *idx = 0, *i = 0, *j = 0;
     VERIFY(is_step(step, s, idx, re, i, j, acc));
     TRACE("seq", tout << mk_pp(step, m) << " -> " << mk_pp(acc, m) << "\n";);
     propagate_lit(0, 1, &lit, mk_literal(acc));
@@ -3843,7 +3843,7 @@ void theory_seq::propagate_eq(dependency* deps, literal_vector const& _lits, exp
 void theory_seq::assign_eh(bool_var v, bool is_true) {
     context & ctx = get_context();
     expr* e = ctx.bool_var2expr(v);
-    expr* e1, *e2;
+    expr* e1 = 0, *e2 = 0;
     expr_ref f(m);
     bool change = false;
     literal lit(v, !is_true);
@@ -4191,7 +4191,7 @@ expr_ref theory_seq::mk_step(expr* s, expr* idx, expr* re, unsigned i, unsigned 
    rej(s, idx, re, i) -> len(s) > idx     if i is final
 */
 void theory_seq::propagate_acc_rej_length(literal lit, expr* e) {
-    expr *s, * idx, *re;
+    expr *s = 0, *idx = 0, *re = 0;
     unsigned src;
     eautomaton* aut = 0;
     bool is_acc;
@@ -4220,7 +4220,7 @@ bool theory_seq::add_accept2step(expr* acc, bool& change) {
 
     TRACE("seq", tout << mk_pp(acc, m) << "\n";);
     SASSERT(ctx.get_assignment(acc) == l_true);
-    expr *e, * idx, *re;
+    expr *e = 0, *idx = 0, *re = 0;
     expr_ref step(m);
     unsigned src;
     eautomaton* aut = 0;
@@ -4299,7 +4299,7 @@ bool theory_seq::add_accept2step(expr* acc, bool& change) {
 bool theory_seq::add_step2accept(expr* step, bool& change) {
     context& ctx = get_context();
     SASSERT(ctx.get_assignment(step) == l_true);
-    expr* re, *_acc, *s, *idx, *i, *j;
+    expr* re = 0, *_acc = 0, *s = 0, *idx = 0, *i = 0, *j = 0;
     VERIFY(is_step(step, s, idx, re, i, j, _acc));
     literal acc1 = mk_accept(s, idx,  re, i);
     switch (ctx.get_assignment(acc1)) {
@@ -4348,7 +4348,7 @@ Recall we also have:
 bool theory_seq::add_reject2reject(expr* rej, bool& change) {
     context& ctx = get_context();
     SASSERT(ctx.get_assignment(rej) == l_true);
-    expr* s, *idx, *re;
+    expr* s = 0, *idx = 0, *re = 0;
     unsigned src;
     rational r;
     eautomaton* aut = 0;
@@ -4410,7 +4410,7 @@ bool theory_seq::add_reject2reject(expr* rej, bool& change) {
 
 void theory_seq::propagate_not_prefix(expr* e) {
     context& ctx = get_context();
-    expr* e1, *e2;
+    expr* e1 = 0, *e2 = 0;
     VERIFY(m_util.str.is_prefix(e, e1, e2));
     literal lit = ctx.get_literal(e);
     SASSERT(ctx.get_assignment(lit) == l_false);
@@ -4439,7 +4439,7 @@ void theory_seq::propagate_not_prefix(expr* e) {
 
 void theory_seq::propagate_not_prefix2(expr* e) {
     context& ctx = get_context();
-    expr* e1, *e2;
+    expr* e1 = 0, *e2 = 0;
     VERIFY(m_util.str.is_prefix(e, e1, e2));
     literal lit = ctx.get_literal(e);
     SASSERT(ctx.get_assignment(lit) == l_false);

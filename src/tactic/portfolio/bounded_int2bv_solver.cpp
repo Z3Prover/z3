@@ -168,7 +168,7 @@ public:
 
         // translate bit-vector consequences back to integer values
         for (unsigned i = 0; i < consequences.size(); ++i) {
-            expr* a, *b, *u, *v;
+            expr* a = 0, *b = 0, *u = 0, *v = 0;
             func_decl* f;
             rational num;
             unsigned bvsize;
@@ -228,7 +228,7 @@ private:
         for (; it != end; ++it) {
             expr* e = *it;
             rational lo, hi;
-            bool s1, s2;
+            bool s1 = false, s2 = false;
             SASSERT(is_uninterp_const(e));
             func_decl* f = to_app(e)->get_decl();
 

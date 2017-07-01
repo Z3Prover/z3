@@ -294,7 +294,7 @@ namespace datalog {
     }
 
     table_relation_plugin & relation_manager::get_table_relation_plugin(table_plugin & tp) {
-        table_relation_plugin * res;
+        table_relation_plugin * res = 0;
         VERIFY( m_table_relation_plugins.find(&tp, res) );
         return *res;
     }
