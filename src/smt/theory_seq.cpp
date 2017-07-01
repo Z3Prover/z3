@@ -2246,10 +2246,7 @@ bool theory_seq::internalize_term(app* term) {
         return true;
     }
     TRACE("seq_verbose", tout << mk_pp(term, m) << "\n";);
-    unsigned num_args = term->get_num_args();
-    expr* arg;
-    for (unsigned i = 0; i < num_args; i++) {
-        arg = term->get_arg(i);
+    for (expr* arg : *term) {
         mk_var(ensure_enode(arg));
     }
     if (m.is_bool(term)) {
@@ -2602,9 +2599,9 @@ void theory_seq::collect_statistics(::statistics & st) const {
 
 void theory_seq::init_model(expr_ref_vector const& es) {
     expr_ref new_s(m);
-    for (unsigned i = 0; i < es.size(); ++i) {
+    for (expr* e : es) {
         dependency* eqs = 0;
-        expr_ref s = canonize(es[i], eqs);
+        expr_ref s = canonize(e, eqs);
         if (is_var(s)) {
             new_s = m_factory->get_fresh_value(m.get_sort(s));
             m_rep.update(s, new_s, eqs);
@@ -2615,13 +2612,11 @@ void theory_seq::init_model(expr_ref_vector const& es) {
 void theory_seq::init_model(model_generator & mg) {
     m_factory = alloc(seq_factory, get_manager(), get_family_id(), mg.get_model());
     mg.register_factory(m_factory);
-    for (unsigned j = 0; j < m_nqs.size(); ++j) {
-        ne const& n = m_nqs[j];
+    for (ne const& n : m_nqs) {
         m_factory->register_value(n.l());
         m_factory->register_value(n.r());  
     }
-    for (unsigned j = 0; j < m_nqs.size(); ++j) {
-        ne const& n = m_nqs[j];
+    for (ne const& n : m_nqs) {
         for (unsigned i = 0; i < n.ls().size(); ++i) {
             init_model(n.ls(i));
             init_model(n.rs(i));
