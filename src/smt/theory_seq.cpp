@@ -2879,7 +2879,9 @@ expr_ref theory_seq::try_expand(expr* e, dependency*& eqs){
     expr_ref result(m);
     expr_dep ed;
     if (m_rep.find_cache(e, ed)) {
-        eqs = m_dm.mk_join(eqs, ed.second);
+        if (e != ed.first) {
+            eqs = m_dm.mk_join(eqs, ed.second);
+        }
         result = ed.first;
     }
     else {
@@ -2889,9 +2891,9 @@ expr_ref theory_seq::try_expand(expr* e, dependency*& eqs){
 }
 expr_ref theory_seq::expand1(expr* e0, dependency*& eqs) {
     expr_ref result(m);
-    dependency* deps = 0;
-    result = try_expand(e0, deps);
+    result = try_expand(e0, eqs);
     if (result) return result;
+    dependency* deps = 0;
     expr* e = m_rep.find(e0, deps);
     expr* e1, *e2, *e3;
     expr_ref arg1(m), arg2(m);
