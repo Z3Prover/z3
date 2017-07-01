@@ -2863,77 +2863,121 @@ bool theory_seq::canonize(expr_ref_vector const& es, expr_ref_vector& result, de
     return change;
 }
 
-
-expr_ref theory_seq::expand(expr* e0, dependency*& eqs) {
+expr_ref theory_seq::expand(expr* e, dependency*& eqs) {
+    unsigned sz = m_expand_todo.size();
+    m_expand_todo.push_back(e);
     expr_ref result(m);
-    dependency* deps = 0;
+    while (m_expand_todo.size() != sz) {
+        expr* e = m_expand_todo.back();
+        result = expand1(e, eqs);
+        if (result.get()) m_expand_todo.pop_back();
+    }
+    return result;
+}
+ 
+expr_ref theory_seq::try_expand(expr* e, dependency*& eqs){
+    expr_ref result(m);
     expr_dep ed;
-    if (m_rep.find_cache(e0, ed)) {
+    if (m_rep.find_cache(e, ed)) {
         eqs = m_dm.mk_join(eqs, ed.second);
         result = ed.first;
-        return result;
     }
+    else {
+        m_expand_todo.push_back(e);
+    }
+    return result;
+}
+expr_ref theory_seq::expand1(expr* e0, dependency*& eqs) {
+    expr_ref result(m);
+    dependency* deps = 0;
+    result = try_expand(e0, deps);
+    if (result) return result;
     expr* e = m_rep.find(e0, deps);
     expr* e1, *e2, *e3;
+    expr_ref arg1(m), arg2(m);
     context& ctx = get_context();
     if (m_util.str.is_concat(e, e1, e2)) {
-        result = mk_concat(expand(e1, deps), expand(e2, deps));
+        arg1 = try_expand(e1, deps);
+        arg2 = try_expand(e2, deps);
+        if (!arg1 || !arg2) return result;
+        result = mk_concat(arg1, arg2);
     }
     else if (m_util.str.is_empty(e) || m_util.str.is_string(e)) {
         result = e;
     }
     else if (m_util.str.is_prefix(e, e1, e2)) {
-        result = m_util.str.mk_prefix(expand(e1, deps), expand(e2, deps));
+        arg1 = try_expand(e1, deps);
+        arg2 = try_expand(e2, deps);
+        if (!arg1 || !arg2) return result;
+        result = m_util.str.mk_prefix(arg1, arg2);
     }
     else if (m_util.str.is_suffix(e, e1, e2)) {
-        result = m_util.str.mk_suffix(expand(e1, deps), expand(e2, deps));
+        arg1 = try_expand(e1, deps);
+        arg2 = try_expand(e2, deps);
+        if (!arg1 || !arg2) return result;
+        result = m_util.str.mk_suffix(arg1, arg2);
     }
     else if (m_util.str.is_contains(e, e1, e2)) {
-        result = m_util.str.mk_contains(expand(e1, deps), expand(e2, deps));
+        arg1 = try_expand(e1, deps);
+        arg2 = try_expand(e2, deps);
+        if (!arg1 || !arg2) return result;
+        result = m_util.str.mk_contains(arg1, arg2);
     }
     else if (m_util.str.is_unit(e, e1)) {
-        result = m_util.str.mk_unit(expand(e1, deps));
+        arg1 = try_expand(e1, deps);
+        if (!arg1) return result;
+        result = m_util.str.mk_unit(arg1);
     }
     else if (m_util.str.is_index(e, e1, e2)) {
-        result = m_util.str.mk_index(expand(e1, deps), expand(e2, deps), m_autil.mk_int(0));
+        arg1 = try_expand(e1, deps);
+        arg2 = try_expand(e2, deps);
+        if (!arg1 || !arg2) return result;
+        result = m_util.str.mk_index(arg1, arg2, m_autil.mk_int(0));
     }
     else if (m_util.str.is_index(e, e1, e2, e3)) {
-        result = m_util.str.mk_index(expand(e1, deps), expand(e2, deps), e3);
+        arg1 = try_expand(e1, deps);
+        arg2 = try_expand(e2, deps);
+        if (!arg1 || !arg2) return result;
+        result = m_util.str.mk_index(arg1, arg2, e3);
     }
     else if (m.is_ite(e, e1, e2, e3)) {
         if (ctx.e_internalized(e) && ctx.e_internalized(e2) && ctx.get_enode(e)->get_root() == ctx.get_enode(e2)->get_root()) {
-            result = expand(e2, deps);
+            result = try_expand(e2, deps);
+            if (!result) return result;
             add_dependency(deps, ctx.get_enode(e), ctx.get_enode(e2));
         }
         else if (ctx.e_internalized(e) && ctx.e_internalized(e2) && ctx.get_enode(e)->get_root() == ctx.get_enode(e3)->get_root()) {
-            result = expand(e3, deps);
+            result = try_expand(e3, deps);
+            if (!result) return result;
             add_dependency(deps, ctx.get_enode(e), ctx.get_enode(e3));
         }
         else {
-        literal lit(mk_literal(e1));
+            literal lit(mk_literal(e1));
 #if 0
-        expr_ref sk_ite = mk_sk_ite(e1, e2, e3);
-        add_axiom(~lit, mk_eq(e2, sk_ite, false));
-        add_axiom( lit, mk_eq(e3, sk_ite, false));
-        result = sk_ite;
-
+            expr_ref sk_ite = mk_sk_ite(e1, e2, e3);
+            add_axiom(~lit, mk_eq(e2, sk_ite, false));
+            add_axiom( lit, mk_eq(e3, sk_ite, false));
+            result = sk_ite;
+            
 #else
-        switch (ctx.get_assignment(lit)) {
-        case l_true:
-            deps = m_dm.mk_join(deps, m_dm.mk_leaf(assumption(lit)));
-            result = expand(e2, deps);
-            break;
-        case l_false:
-            deps = m_dm.mk_join(deps, m_dm.mk_leaf(assumption(~lit)));
-            result = expand(e3, deps);
-            break;
-        case l_undef:
-            result = e;            
-            m_reset_cache = true;
-            TRACE("seq", tout << "undef: " << result << "\n";
-                  tout << lit << "@ level: " << ctx.get_scope_level() << "\n";);
-            break;
-        }
+            switch (ctx.get_assignment(lit)) {
+            case l_true:
+                deps = m_dm.mk_join(deps, m_dm.mk_leaf(assumption(lit)));
+                result = try_expand(e2, deps);
+                if (!result) return result;
+                break;
+            case l_false:
+                deps = m_dm.mk_join(deps, m_dm.mk_leaf(assumption(~lit)));
+                result = try_expand(e3, deps);
+                if (!result) return result;
+                break;
+            case l_undef:
+                result = e;            
+                m_reset_cache = true;
+                TRACE("seq", tout << "undef: " << result << "\n";
+                      tout << lit << "@ level: " << ctx.get_scope_level() << "\n";);
+                break;
+            }
 #endif
         }
     }
