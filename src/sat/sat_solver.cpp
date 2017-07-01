@@ -1391,7 +1391,6 @@ namespace sat {
 
     */
     void solver::simplify_problem() {
-        if (m_ext) m_ext->validate();
         if (m_conflicts_since_init < m_next_simplify) {
             return;
         }
@@ -1404,15 +1403,12 @@ namespace sat {
         SASSERT(at_base_lvl());
 
         m_cleaner();
-        if (m_ext) m_ext->validate();
         CASSERT("sat_simplify_bug", check_invariant());
 
         m_scc();
-        if (m_ext) m_ext->validate();
         CASSERT("sat_simplify_bug", check_invariant());
 
         m_simplifier(false);
-        if (m_ext) m_ext->validate();
         CASSERT("sat_simplify_bug", check_invariant());
         CASSERT("sat_missed_prop", check_missed_propagation());
 
@@ -1421,7 +1417,6 @@ namespace sat {
             CASSERT("sat_missed_prop", check_missed_propagation());
             CASSERT("sat_simplify_bug", check_invariant());
         }
-        if (m_ext) m_ext->validate();
 
         if (m_config.m_lookahead_simplify) {
             {
@@ -1440,12 +1435,10 @@ namespace sat {
         CASSERT("sat_simplify_bug", check_invariant());
 
         m_probing();
-        if (m_ext) m_ext->validate();
         CASSERT("sat_missed_prop", check_missed_propagation());
         CASSERT("sat_simplify_bug", check_invariant());
 
         m_asymm_branch();
-        if (m_ext) m_ext->validate();
         CASSERT("sat_missed_prop", check_missed_propagation());
         CASSERT("sat_simplify_bug", check_invariant());
 
@@ -1468,6 +1461,18 @@ namespace sat {
         }
 
         if (m_par) m_par->set_phase(*this);
+
+#if 0
+        static unsigned file_no = 0;
+        #pragma omp critical (print_sat)
+        {
+            ++file_no;
+            std::ostringstream ostrm;
+            ostrm << "s" << file_no << ".txt";
+            std::ofstream ous(ostrm.str());
+            display(ous);
+        }
+#endif
     }
 
     bool solver::set_root(literal l, literal r) {
@@ -3358,17 +3363,17 @@ namespace sat {
         vector<unsigned_vector> _mutexes;
         literal_vector _lits(lits);
         if (m_ext) {
-            m_ext->find_mutexes(_lits, mutexes);
+            // m_ext->find_mutexes(_lits, mutexes);
         }
         unsigned_vector ps;
         for (unsigned i = 0; i < _lits.size(); ++i) {
             ps.push_back(_lits[i].index());
         }
         mc.cliques(ps, _mutexes);
-        for (unsigned i = 0; i < _mutexes.size(); ++i) {
+        for (auto const& mux : _mutexes) {
             literal_vector clique;
-            for (unsigned j = 0; j < _mutexes[i].size(); ++j) {
-                clique.push_back(to_literal(_mutexes[i][j]));
+            for (auto const& idx : mux) {
+                clique.push_back(to_literal(idx));
             }
             mutexes.push_back(clique);
         }

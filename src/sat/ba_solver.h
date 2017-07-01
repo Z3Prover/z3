@@ -67,14 +67,13 @@ namespace sat {
             tag_t tag() const { return m_tag; }
             literal lit() const { return m_lit; }
             unsigned size() const { return m_size; }
-            void update_size(unsigned sz) { SASSERT(sz <= m_size); m_size = sz; }
+            void set_size(unsigned sz) { SASSERT(sz <= m_size); m_size = sz; }
             void update_literal(literal l) { m_lit = l; }
             bool was_removed() const { return m_removed; }
             void remove() { m_removed = true; }
             void nullify_literal() { m_lit = null_literal; }
             unsigned glue() const { return m_glue; }
-            void set_glue(unsigned g) { m_glue = g; }
-            
+            void set_glue(unsigned g) { m_glue = g; }            
 
             size_t obj_size() const { return m_obj_size; }
             card& to_card();
@@ -87,14 +86,29 @@ namespace sat {
             bool is_pb() const { return m_tag == pb_t; }
             bool is_xor() const { return m_tag == xor_t; }
             
-            virtual bool is_watching(literal l) const { return false; };
-            virtual literal_vector literals() const { return literal_vector(); }
+            virtual bool is_watching(literal l) const { UNREACHABLE(); return false; };
+            virtual literal_vector literals() const { UNREACHABLE(); return literal_vector(); }
+            virtual void swap(unsigned i, unsigned j) { UNREACHABLE(); }
+            virtual literal get_lit(unsigned i) const { UNREACHABLE(); return null_literal; }
+            virtual void set_lit(unsigned i, literal l) { UNREACHABLE(); }
+            virtual bool well_formed() const { return true; }
         };
 
         friend std::ostream& operator<<(std::ostream& out, constraint const& c);
 
-        class card : public constraint {
+        // base class for pb and cardinality constraints
+        class pb_base : public constraint {
+        protected:
             unsigned       m_k;
+        public:
+            pb_base(tag_t t, literal l, unsigned sz, size_t osz, unsigned k): constraint(t, l, sz, osz), m_k(k) {}
+            virtual void set_k(unsigned k) { m_k = k; }
+            virtual unsigned get_coeff(unsigned i) const { UNREACHABLE(); return 0; }
+            unsigned k() const { return m_k; }
+            virtual bool well_formed() const;
+        };
+
+        class card : public pb_base {
             literal        m_lits[0];
         public:
             static size_t get_obj_size(unsigned num_lits) { return sizeof(card) + num_lits * sizeof(literal); }
@@ -103,23 +117,24 @@ namespace sat {
             literal& operator[](unsigned i) { return m_lits[i]; }
             literal const* begin() const { return m_lits; }
             literal const* end() const { return static_cast<literal const*>(m_lits) + m_size; }
-            unsigned k() const { return m_k; }
-            void swap(unsigned i, unsigned j) { std::swap(m_lits[i], m_lits[j]); }
             void negate();                     
-            void update_k(unsigned k) { m_k = k; }
+            virtual void swap(unsigned i, unsigned j) { std::swap(m_lits[i], m_lits[j]); }
             virtual literal_vector literals() const { return literal_vector(m_size, m_lits); }            
             virtual bool is_watching(literal l) const;
+            virtual literal get_lit(unsigned i) const { return m_lits[i]; }
+            virtual void set_lit(unsigned i, literal l) { m_lits[i] = l; }
+            virtual unsigned get_coeff(unsigned i) const { return 1; }
         };
 
         
         typedef std::pair<unsigned, literal> wliteral;
 
-        class pb : public constraint {
-            unsigned       m_k;
+        class pb : public pb_base {
             unsigned       m_slack;
             unsigned       m_num_watch;
             unsigned       m_max_sum;
             wliteral       m_wlits[0];
+            void update_max_sum();
         public:
             static size_t get_obj_size(unsigned num_lits) { return sizeof(pb) + num_lits * sizeof(wliteral); }
             pb(literal lit, svector<wliteral> const& wlits, unsigned k);
@@ -129,18 +144,20 @@ namespace sat {
             wliteral const* begin() const { return m_wlits; }
             wliteral const* end() const { return begin() + m_size; }
 
-            unsigned k() const { return m_k; }
             unsigned slack() const { return m_slack; }
             void set_slack(unsigned s) { m_slack = s; }
             unsigned num_watch() const { return m_num_watch; }
             unsigned max_sum() const { return m_max_sum; }
             void set_num_watch(unsigned s) { m_num_watch = s; }
-            void swap(unsigned i, unsigned j) { std::swap(m_wlits[i], m_wlits[j]); }
+            bool is_cardinality() const;
             void negate();                       
-            void update_k(unsigned k) { m_k = k; }
-            void update_max_sum();
+            virtual void set_k(unsigned k) { m_k = k; update_max_sum(); }
+            virtual void swap(unsigned i, unsigned j) { std::swap(m_wlits[i], m_wlits[j]); }
             virtual literal_vector literals() const { literal_vector lits; for (auto wl : *this) lits.push_back(wl.second); return lits; }
             virtual bool is_watching(literal l) const;
+            virtual literal get_lit(unsigned i) const { return m_wlits[i].second; }
+            virtual void set_lit(unsigned i, literal l) { m_wlits[i].second = l; }
+            virtual unsigned get_coeff(unsigned i) const { return m_wlits[i].first; }
         };
 
         class xor : public constraint {
@@ -151,10 +168,13 @@ namespace sat {
             literal operator[](unsigned i) const { return m_lits[i]; }
             literal const* begin() const { return m_lits; }
             literal const* end() const { return begin() + m_size; }
-            void swap(unsigned i, unsigned j) { std::swap(m_lits[i], m_lits[j]); }
             void negate() { m_lits[0].neg(); }
+            virtual void swap(unsigned i, unsigned j) { std::swap(m_lits[i], m_lits[j]); }
             virtual bool is_watching(literal l) const;
             virtual literal_vector literals() const { return literal_vector(size(), begin()); }
+            virtual literal get_lit(unsigned i) const { return m_lits[i]; }
+            virtual void set_lit(unsigned i, literal l) { m_lits[i] = l; }
+            virtual bool well_formed() const;
         };
 
 
@@ -205,7 +225,6 @@ namespace sat {
         svector<bool>             m_visited;
         vector<svector<constraint*>>    m_cnstr_use_list;
         use_list                  m_clause_use_list;
-        svector<bool>             m_var_used;
         bool                      m_simplify_change;
         bool                      m_clause_removed;
         bool                      m_constraint_removed;
@@ -226,9 +245,12 @@ namespace sat {
         void remove_unused_defs();
         unsigned set_non_external();
         unsigned elim_pure();
+        bool elim_pure(literal lit);
         void subsumption();
         void subsumption(card& c1);
         void gc_half(char const* _method);
+        void mutex_reduction();
+        unsigned use_count(literal lit) const { return m_cnstr_use_list[lit.index()].size() + m_clause_use_list.get(lit).size(); }
 
         void cleanup_clauses();
         void cleanup_constraints();
@@ -244,6 +266,7 @@ namespace sat {
         void add_constraint(constraint* c);
         void init_watch(constraint& c, bool is_true);
         void init_watch(bool_var v);
+        void clear_watch(constraint& c);
         lbool add_assign(constraint& c, literal l);
         void simplify(constraint& c);
         void nullify_tracking_literal(constraint& c);
@@ -254,7 +277,12 @@ namespace sat {
         bool validate_unit_propagation(constraint const& c, literal alit) const;
         void attach_constraint(constraint const& c);
         void detach_constraint(constraint const& c);
-        bool is_true(constraint const& c) const;
+        lbool eval(constraint const& c) const;
+        lbool eval(lbool a, lbool b) const;
+        void assert_unconstrained(literal lit, literal_vector const& lits);
+        void flush_roots(constraint& c);
+        void recompile(constraint& c);
+
 
         // cardinality
         void init_watch(card& c, bool is_true);
@@ -263,11 +291,9 @@ namespace sat {
         void reset_coeffs();
         void reset_marked_literals();
         void get_antecedents(literal l, card const& c, literal_vector & r);
-        void simplify(card& c);
-        void unit_propagation_simplification(literal lit, literal_vector const& lits);
         void flush_roots(card& c);
         void recompile(card& c);
-        lbool value(card const& c) const;
+        lbool eval(card const& c) const;
 
         // xor specific functionality
         void clear_watch(xor& x);
@@ -278,7 +304,7 @@ namespace sat {
         void get_antecedents(literal l, xor const& x, literal_vector & r);
         void simplify(xor& x);
         void flush_roots(xor& x);
-        lbool value(xor const& x) const;
+        lbool eval(xor const& x) const;
         
         // pb functionality
         unsigned m_a_max;
@@ -287,14 +313,15 @@ namespace sat {
         void add_index(pb& p, unsigned index, literal lit);
         void clear_watch(pb& p);
         void get_antecedents(literal l, pb const& p, literal_vector & r);
-        void simplify(pb& p);
+        void simplify(pb_base& p);
         void simplify2(pb& p);
         bool is_cardinality(pb const& p);
         void flush_roots(pb& p);
         void recompile(pb& p);
-        lbool value(pb const& p) const;
+        lbool eval(pb const& p) const;
 
         // access solver
+        inline lbool value(bool_var v) const { return value(literal(v, false)); }
         inline lbool value(literal lit) const { return m_lookahead ? m_lookahead->value(lit) : m_solver->value(lit); }
         inline unsigned lvl(literal lit) const { return m_solver->lvl(lit); }
         inline unsigned lvl(bool_var v) const { return m_solver->lvl(v); }
@@ -344,7 +371,7 @@ namespace sat {
         void display(std::ostream& out, xor const& c, bool values) const;
 
         void add_at_least(literal l, literal_vector const& lits, unsigned k);
-        void add_pb_ge(literal l, svector<wliteral> const& wlits, unsigned k);
+        pb const& add_pb_ge(literal l, svector<wliteral> const& wlits, unsigned k);
         void add_xor(literal l, literal_vector const& lits);
 
     public:
