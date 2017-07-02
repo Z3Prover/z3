@@ -17,8 +17,10 @@ Revision History:
 
 --*/
 
-#include"ba_solver.h"
-#include"sat_types.h"
+#include "sat/ba_solver.h"
+#include "sat/sat_types.h"
+#include "util/lp/lar_solver.h"
+
 
 namespace sat {
 
@@ -217,13 +219,13 @@ namespace sat {
         TRACE("sat", display(tout << "init watch: ", c, true););
         SASSERT(c.lit() == null_literal || value(c.lit()) == l_true);
         unsigned j = 0, sz = c.size(), bound = c.k();
+        // put the non-false literals into the head.
+
         if (bound == sz) {
-            for (unsigned i = 0; i < sz && !inconsistent(); ++i) {
-                assign(c, c[i]);
-            }
+            for (literal l : c) assign(c, l);
             return;
         }
-        // put the non-false literals into the head.
+
         for (unsigned i = 0; i < sz; ++i) {
             if (value(c[i]) != l_false) {
                 if (j != i) {
@@ -259,7 +261,7 @@ namespace sat {
             set_conflict(c, alit);
         }
         else if (j == bound) {
-            for (unsigned i = 0; i < bound && !inconsistent(); ++i) {
+            for (unsigned i = 0; i < bound; ++i) {
                 assign(c, c[i]);                
             }
         }
@@ -291,6 +293,7 @@ namespace sat {
     }
 
     void ba_solver::assign(constraint& c, literal lit) {
+        if (inconsistent()) return;
         switch (value(lit)) {
         case l_true: 
             break;
@@ -330,7 +333,7 @@ namespace sat {
         unsigned sz = p.size(), bound = p.k();
 
         // put the non-false literals into the head.
-        unsigned slack = 0, num_watch = 0, j = 0;
+        unsigned slack = 0, slack1 = 0, num_watch = 0, j = 0;
         for (unsigned i = 0; i < sz; ++i) {
             if (value(p[i].second) != l_false) {
                 if (j != i) {
@@ -339,6 +342,9 @@ namespace sat {
                 if (slack < bound) {
                     slack += p[j].first;
                     ++num_watch;
+                }
+                else {
+                    slack1 += p[j].first;
                 }
                 ++j;
             }
@@ -367,6 +373,15 @@ namespace sat {
             }
             p.set_slack(slack);
             p.set_num_watch(num_watch);
+
+            // slack is tight:
+            if (slack + slack1 == bound) {
+                SASSERT(slack1 == 0);
+                SASSERT(j == num_watch);
+                for (unsigned i = 0; i < j; ++i) {
+                    assign(p, p[i].second);
+                }
+            }
         }
         TRACE("sat", display(tout << "init watch: ", p, true););
     }
@@ -394,9 +409,8 @@ namespace sat {
      return no-conflict
 
      a_max index: index of non-false literal with maximal weight.
-
-
     */
+
     void ba_solver::add_index(pb& p, unsigned index, literal lit) {
         if (value(lit) == l_undef) {
             m_pb_undef.push_back(index);
@@ -501,7 +515,6 @@ namespace sat {
             }
 
             for (literal lit : to_assign) {
-                if (inconsistent()) break;
                 assign(p, lit);
             }
         }
@@ -570,6 +583,7 @@ namespace sat {
     void ba_solver::simplify(pb_base& p) {
         if (p.lit() != null_literal && value(p.lit()) == l_false) {
             TRACE("sat", tout << "pb: flip sign " << p << "\n";);
+            IF_VERBOSE(0, verbose_stream() << "signed is flipped " << p << "\n";);
             return;
             init_watch(p, !p.lit().sign());
         }
@@ -722,10 +736,12 @@ namespace sat {
                         l = lvl(x[i]);
                     } 
                 }
+                SASSERT(x.lit() == null_literal || value(x.lit()) == l_true);
                 set_conflict(x, x[j]);
             }
             break;
         case 1: 
+            SASSERT(x.lit() == null_literal || value(x.lit()) == l_true);
             assign(x, parity(x, 1) ? ~x[0] : x[0]);
             break;
         default: 
@@ -752,6 +768,7 @@ namespace sat {
         }
         if (index == 2) {
             // literal is no longer watched.
+            UNREACHABLE();
             return l_undef;
         }
         SASSERT(x[index].var() == alit.var());
@@ -796,8 +813,7 @@ namespace sat {
                 ++j;
             }
         }
-        sz = j;
-        m_active_vars.shrink(sz);
+        m_active_vars.shrink(j);
     }
 
     void ba_solver::inc_coeff(literal l, int offset) {
@@ -857,23 +873,18 @@ namespace sat {
         m_bound = 0;
         literal consequent = s().m_not_l;
         justification js = s().m_conflict;
-        TRACE("sat", tout << consequent << " " << js << "\n";);
-        TRACE("sat", s().display(tout););
+        TRACE("sat", tout << consequent << " " << js << "\n"; s().display(tout););
         m_conflict_lvl = s().get_max_lvl(consequent, js);
         if (consequent != null_literal) {
             consequent.neg();
             process_antecedent(consequent, 1);
         }
         literal_vector const& lits = s().m_trail;
-        unsigned idx = lits.size()-1;
+        unsigned idx = lits.size() - 1;
         int offset = 1;
         DEBUG_CODE(active2pb(m_A););
 
         unsigned init_marks = m_num_marks;
-
-        vector<justification> jus;
-
-        // if (null_literal != consequent) std::cout << "resolve " << consequent << " " << value(consequent) << "\n";
 
         do {
 
@@ -889,7 +900,7 @@ namespace sat {
                 goto bail_out;
             }
 
-            // TRACE("sat", display(tout, m_A););
+            TRACE("sat_verbose", display(tout, m_A););
             TRACE("sat", tout << "process consequent: " << consequent << ":\n"; s().display_justification(tout, js) << "\n";);
             SASSERT(offset > 0);
             SASSERT(m_bound >= 0);
@@ -992,7 +1003,8 @@ namespace sat {
                 m_A = m_C;);
 
             TRACE("sat", display(tout << "conflict:\n", m_A););
-            // cut();
+
+            cut();
 
         process_next_resolvent:
             
@@ -1040,9 +1052,10 @@ namespace sat {
         }
 
         m_lemma.reset();        
-
         m_lemma.push_back(null_literal);
-        for (unsigned i = 0; 0 <= slack && i < m_active_vars.size(); ++i) { 
+        unsigned num_skipped = 0;
+        int asserting_coeff = 0;
+        for (unsigned i = 0; /* 0 <= slack && */ i < m_active_vars.size(); ++i) { 
             bool_var v = m_active_vars[i];
             int coeff = get_coeff(v);
             lbool val = value(v);
@@ -1052,8 +1065,17 @@ namespace sat {
                 literal lit(v, !is_true);
                 if (lvl(lit) == m_conflict_lvl) {
                     if (m_lemma[0] == null_literal) {
-                        slack -= abs(coeff);
+                        asserting_coeff = abs(coeff);
+                        slack -= asserting_coeff;
                         m_lemma[0] = ~lit;
+                    }
+                    else {
+                        ++num_skipped;
+                        if (asserting_coeff < abs(coeff)) {
+                            m_lemma[0] = ~lit;
+                            slack -= (abs(coeff) - asserting_coeff);
+                            asserting_coeff = abs(coeff);
+                        }
                     }
                 }
                 else {
@@ -1063,21 +1085,9 @@ namespace sat {
             }
         }
 
-#if 0
-        if (jus.size() > 1) {
-            std::cout << jus.size() << "\n";
-            for (unsigned i = 0; i < jus.size(); ++i) {
-                s().display_justification(std::cout, jus[i]); std::cout << "\n";
-            }
-            std::cout << m_lemma << "\n";
-            active2pb(m_A);
-            display(std::cout, m_A);
-        }
-#endif
-
 
         if (slack >= 0) {
-            IF_VERBOSE(2, verbose_stream() << "(sat.card bail slack objective not met " << slack << ")\n";);
+            IF_VERBOSE(2, verbose_stream() << "(sat.card slack: " << slack << " skipped: " << num_skipped << ")\n";);
             goto bail_out;
         }
 
@@ -1094,6 +1104,7 @@ namespace sat {
             IF_VERBOSE(2, verbose_stream() << "(sat.card set level to " << level << " < " << m_conflict_lvl << ")\n";);
         }        
 
+        if (slack < -1) std::cout << "lemma: " << m_lemma << " >= " << -slack << "\n";
         SASSERT(slack < 0);
 
         SASSERT(validate_conflict(m_lemma, m_A));
@@ -1137,6 +1148,49 @@ namespace sat {
             --idx;
         }
         return false;
+    }
+
+    void ba_solver::cut() {
+        unsigned g = 0;
+        int sum_of_units = 0;
+        for (bool_var v : m_active_vars) {
+            if (1 == get_abs_coeff(v) && ++sum_of_units >= m_bound) return;            
+        }
+        //active2pb(m_A);
+        //display(std::cout << "units can be removed\n", m_A, true);
+
+        for (unsigned i = 0; g != 1 && i < m_active_vars.size(); ++i) {
+            bool_var v = m_active_vars[i];
+            int coeff = get_abs_coeff(v);
+            if (coeff == 0) {
+                continue;
+            }
+            if (coeff == 1) return;
+            if (m_bound < coeff) {                
+                if (get_coeff(v) > 0) {
+                    m_coeffs[v] = m_bound;
+                }
+                else {
+                    m_coeffs[v] = -m_bound;
+                }
+                coeff = m_bound;
+            }
+            SASSERT(0 < coeff && coeff <= m_bound);
+            if (g == 0) {
+                g = static_cast<unsigned>(coeff);
+            }
+            else {
+                g = u_gcd(g, static_cast<unsigned>(coeff));
+            }
+        }
+        if (g >= 2) {
+            normalize_active_coeffs();
+            for (unsigned i = 0; i < m_active_vars.size(); ++i) {
+                m_coeffs[m_active_vars[i]] /= g;                
+            }
+            m_bound = (m_bound + g - 1) / g;
+            std::cout << "CUT " << g << "\n";
+        }        
     }
 
     void ba_solver::process_card(card& c, int offset) {
@@ -1745,7 +1799,11 @@ namespace sat {
         unsigned bound = c.k();
         TRACE("sat", tout << "assign: " << c.lit() << ": " << ~alit << "@" << lvl(~alit) << "\n";);
 
-        SASSERT(0 < bound && bound < sz);
+        SASSERT(0 < bound && bound <= sz);
+        if (bound == sz) {
+            set_conflict(c, alit);
+            return l_false;
+        }
         SASSERT(value(alit) == l_false);
         SASSERT(c.lit() == null_literal || value(c.lit()) == l_true);
         unsigned index = 0;
@@ -1786,7 +1844,7 @@ namespace sat {
         if (index != bound) {
             c.swap(index, bound);
         }        
-        for (unsigned i = 0; i < bound && !inconsistent(); ++i) {
+        for (unsigned i = 0; i < bound; ++i) {
             assign(c, c[i]);
         }
 
@@ -1823,7 +1881,7 @@ namespace sat {
     }
 
     void ba_solver::simplify(constraint& c) {
-        if (!s().at_base_lvl()) s().pop_to_base_level();
+        SASSERT(s().at_base_lvl());
         switch (c.tag()) {
         case card_t:
             simplify(c.to_card());
@@ -1844,7 +1902,7 @@ namespace sat {
         unsigned trail_sz;
         do {
             trail_sz = s().init_trail_size();
-            IF_VERBOSE(1, verbose_stream() << "(bool-algebra-solver simplify-begin " << trail_sz << ")\n";);
+            IF_VERBOSE(1, verbose_stream() << "(bool-algebra-solver simplify-begin :trail " << trail_sz << ")\n";);
             m_simplify_change = false;
             m_clause_removed = false;
             m_constraint_removed = false;
@@ -1860,8 +1918,8 @@ namespace sat {
         }        
         while (m_simplify_change || trail_sz < s().init_trail_size());
 
-        mutex_reduction();
-        // or could create queue of constraints that are affected
+        // mutex_reduction();
+        // if (s().m_clauses.size() < 80000) lp_lookahead_reduction();
     }
 
     void ba_solver::mutex_reduction() {
@@ -1872,12 +1930,122 @@ namespace sat {
         }
         vector<literal_vector> mutexes;
         s().find_mutexes(lits, mutexes);
-        std::cout << "mutexes: " << mutexes.size() << "\n";
         for (literal_vector& mux : mutexes) {
             if (mux.size() > 2) {
-                std::cout << "mux: " << mux << "\n";
+                IF_VERBOSE(1, verbose_stream() << "mux: " << mux << "\n";);
                 for (unsigned i = 0; i < mux.size(); ++i) mux[i].neg(); 
                 add_at_least(null_literal, mux, mux.size() - 1);
+            }
+        }
+    }
+
+    // ----------------------------------
+    // lp based relaxation 
+
+    void ba_solver::lp_add_var(int coeff, lean::var_index v, lhs_t& lhs, rational& rhs) {
+        if (coeff < 0) {
+            rhs += rational(coeff);
+        }
+        lhs.push_back(std::make_pair(rational(coeff), v));
+    }
+
+    void ba_solver::lp_add_clause(lean::lar_solver& s, svector<lean::var_index> const& vars, clause const& c) {
+        lhs_t lhs;
+        rational rhs;
+        if (c.frozen()) return;
+        rhs = rational::one();
+        for (literal l : c) {
+            lp_add_var(l.sign() ? -1 : 1, vars[l.var()], lhs, rhs);
+        }
+        s.add_constraint(lhs, lean::GE, rhs);
+    }
+
+    void ba_solver::lp_lookahead_reduction() {
+        lean::lar_solver solver;
+        solver.settings().set_message_ostream(&std::cout);
+        solver.settings().set_debug_ostream(&std::cout);
+        solver.settings().print_statistics = true;
+        solver.settings().report_frequency = 1000;
+        // solver.settings().simplex_strategy() = lean::simplex_strategy_enum::lu; - runs out of memory
+        // TBD: set rlimit on the solver
+        svector<lean::var_index> vars;
+        for (unsigned i = 0; i < s().num_vars(); ++i) {
+            lean::var_index v = solver.add_var(i, false);
+            vars.push_back(v);
+            solver.add_var_bound(v, lean::GE, rational::zero());
+            solver.add_var_bound(v, lean::LE, rational::one());
+            switch (value(v)) {
+            case l_true: solver.add_var_bound(v, lean::GE, rational::one()); break;
+            case l_false: solver.add_var_bound(v, lean::LE, rational::zero()); break;
+            default: break;
+            }
+        }
+        lhs_t lhs;
+        rational rhs;
+        for (clause* c : s().m_clauses) {            
+            lp_add_clause(solver, vars, *c);
+        }
+        for (clause* c : s().m_learned) {            
+            lp_add_clause(solver, vars, *c);
+        }
+        for (constraint const* c : m_constraints) {
+            if (c->lit() != null_literal) continue; // ignore definitions for now.
+            switch (c->tag()) {
+            case card_t:
+            case pb_t: {
+                pb_base const& p = dynamic_cast<pb_base const&>(*c);
+                rhs = rational(p.k());
+                lhs.reset();
+                for (unsigned i = 0; i < p.size(); ++i) {
+                    literal l = p.get_lit(i);
+                    int co = p.get_coeff(i);
+                    lp_add_var(l.sign() ? -co : co, vars[l.var()], lhs, rhs);
+                }
+                solver.add_constraint(lhs, lean::GE, rhs);
+                break;
+            }
+            default:
+                // ignore xor
+                break;
+            }
+        }
+        std::cout << "lp solve\n";
+        std::cout.flush();
+
+        lean::lp_status st = solver.solve();
+        if (st == lean::INFEASIBLE) {
+            std::cout << "infeasible\n";
+            s().set_conflict(justification());
+            return;
+        }
+        std::cout << "feasible\n";
+        std::cout.flush();
+        for (unsigned i = 0; i < s().num_vars(); ++i) {
+            lean::var_index v = vars[i];
+            if (value(v) != l_undef) continue;
+            // TBD: take initial model into account to limit queries.
+            std::cout << "solve v" << v << "\n";
+            std::cout.flush();
+            solver.push();
+            solver.add_var_bound(v, lean::GE, rational::one());
+            st = solver.solve();
+            solver.pop(1);
+            if (st == lean::INFEASIBLE) {
+                std::cout << "found unit: " << literal(v, true) << "\n";
+                s().assign(literal(v, true), justification());
+                solver.add_var_bound(v, lean::LE, rational::zero());
+                continue;
+            }
+
+            solver.push();
+            solver.add_var_bound(v, lean::LE, rational::zero());
+            st = solver.solve();
+            solver.pop(1);
+            if (st == lean::INFEASIBLE) {
+                std::cout << "found unit: " << literal(v, false) << "\n";
+                s().assign(literal(v, false), justification());
+                solver.add_var_bound(v, lean::GE, rational::zero());
+                continue;
             }
         }
     }
@@ -2004,7 +2172,7 @@ namespace sat {
     }
 
     void ba_solver::recompile(pb& p) {
-        IF_VERBOSE(0, verbose_stream() << "re: " << p << "\n";);
+        // IF_VERBOSE(2, verbose_stream() << "re: " << p << "\n";);
         m_weights.resize(2*s().num_vars(), 0);
         for (wliteral wl : p) {
             m_weights[wl.second.index()] += wl.first;
@@ -2055,7 +2223,7 @@ namespace sat {
         p.set_k(k);
         SASSERT(p.well_formed());
 
-        IF_VERBOSE(0, verbose_stream() << "new: " << p << "\n";);
+        IF_VERBOSE(20, verbose_stream() << "new: " << p << "\n";);
 
         if (p.lit() == null_literal || value(p.lit()) == l_true) {
             init_watch(p, true);
@@ -2390,7 +2558,7 @@ namespace sat {
                     ++m_stats.m_num_card_subsumes;
                 }
                 else {
-                    TRACE("sat", tout << "self subsume carinality\n";);
+                    TRACE("sat", tout << "self subsume cardinality\n";);
                     IF_VERBOSE(0, 
                                verbose_stream() << "self-subsume cardinality is TBD\n"; 
                                verbose_stream() << c1 << "\n";
@@ -2412,7 +2580,7 @@ namespace sat {
         }
     }
 
-    void ba_solver::clause_subsumption(card& c1, literal lit) {
+    void ba_solver::clause_subsumption(card& c1, literal lit, clause_vector& removed_clauses) {
         SASSERT(!c1.was_removed());
         literal_vector slit;
         clause_use_list::iterator it = m_clause_use_list.get(lit).mk_iterator();
@@ -2421,8 +2589,7 @@ namespace sat {
             if (!c2.was_removed() && subsumes(c1, c2, slit)) {
                 if (slit.empty()) {
                     TRACE("sat", tout << "remove\n" << c1 << "\n" << c2 << "\n";);
-                    c2.set_removed(true);
-                    m_clause_removed = true;
+                    removed_clauses.push_back(&c2);
                     ++m_stats.m_num_clause_subsumes;
                 }
                 else {
@@ -2466,14 +2633,20 @@ namespace sat {
         if (c1.lit() != null_literal) {
             return;
         }
+        clause_vector removed_clauses;
         for (literal l : c1) mark_visited(l);  
         for (unsigned i = 0; i < std::min(c1.size(), c1.k() + 1); ++i) {
             literal lit = c1[i];            
             card_subsumption(c1, lit);
-            clause_subsumption(c1, lit);
+            clause_subsumption(c1, lit, removed_clauses);
             binary_subsumption(c1, lit);                   
         }
         for (literal l : c1) unmark_visited(l);
+        m_clause_removed |= !removed_clauses.empty();
+        for (clause *c : removed_clauses) {
+            c->set_removed(true);
+            m_clause_use_list.erase(*c);
+        }
     }
 
     void ba_solver::clauses_modifed() {}
@@ -2550,9 +2723,10 @@ namespace sat {
         }
     }
 
-    void ba_solver::display(std::ostream& out, ineq& ineq) const {
+    void ba_solver::display(std::ostream& out, ineq& ineq, bool values) const {
         for (unsigned i = 0; i < ineq.m_lits.size(); ++i) {
             out << ineq.m_coeffs[i] << "*" << ineq.m_lits[i] << " ";
+            if (values) out << value(ineq.m_lits[i]) << " ";
         }
         out << ">= " << ineq.m_k << "\n";
     }
@@ -2619,25 +2793,12 @@ namespace sat {
 
     std::ostream& ba_solver::display(std::ostream& out) const {
         for (constraint const* c : m_constraints) {
-            switch (c->tag()) {
-            case card_t: 
-                out << c->to_card() << "\n";
-                break;
-            case pb_t:
-                out << c->to_pb() << "\n";
-                break;
-            case xor_t:
-                display(out, c->to_xor(), false);
-                break;
-            default:
-                UNREACHABLE();
-            }                
+            out << (*c) << "\n";
         }
         return out;
     }
 
     std::ostream& ba_solver::display_justification(std::ostream& out, ext_justification_idx idx) const {
-        constraint const& cnstr = index2constraint(idx);
         return out << index2constraint(idx);
     }
 

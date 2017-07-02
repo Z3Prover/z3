@@ -2096,7 +2096,7 @@ namespace smt {
             for (unsigned i = 0; i < m_active_vars.size(); ++i) {
                 m_coeffs[m_active_vars[i]] /= g;                
             }
-            m_bound /= g;
+            m_bound = (m_bound + g - 1) / g;
             std::cout << "CUT " << g << "\n";
             TRACE("pb", display_resolved_lemma(tout << "cut\n"););
         }

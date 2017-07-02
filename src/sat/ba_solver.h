@@ -23,6 +23,7 @@ Revision History:
 #include"sat_solver.h"
 #include"sat_lookahead.h"
 #include"scoped_ptr_vector.h"
+#include"util/lp/lar_solver.h"
 
 
 namespace sat {
@@ -206,6 +207,7 @@ namespace sat {
         int               m_bound;
         tracked_uint_set  m_active_var_set;
         literal_vector    m_lemma;
+        literal_vector    m_skipped;
         unsigned          m_num_propagations_since_pop;
         unsigned_vector   m_parity_marks;
         literal_vector    m_parity_trail;
@@ -234,7 +236,7 @@ namespace sat {
         bool subsumes(card& c1, clause& c2, literal_vector& comp);
         bool subsumed(card& c1, literal l1, literal l2);
         void binary_subsumption(card& c1, literal lit);
-        void clause_subsumption(card& c1, literal lit);
+        void clause_subsumption(card& c1, literal lit, clause_vector& removed_clauses);
         void card_subsumption(card& c1, literal lit);
         void mark_visited(literal l) { m_visited[l.index()] = true; }
         void unmark_visited(literal l) { m_visited[l.index()] = false; }
@@ -250,6 +252,12 @@ namespace sat {
         void subsumption(card& c1);
         void gc_half(char const* _method);
         void mutex_reduction();
+
+        typedef vector<std::pair<rational, lean::var_index>> lhs_t;
+        void lp_lookahead_reduction();
+        void lp_add_var(int coeff, lean::var_index v, lhs_t& lhs, rational& rhs);
+        void lp_add_clause(lean::lar_solver& s, svector<lean::var_index> const& vars, clause const& c);
+
         unsigned use_count(literal lit) const { return m_cnstr_use_list[lit.index()].size() + m_clause_use_list.get(lit).size(); }
 
         void cleanup_clauses();
@@ -364,7 +372,7 @@ namespace sat {
         void justification2pb(justification const& j, literal lit, unsigned offset, ineq& p);
         bool validate_resolvent();
 
-        void display(std::ostream& out, ineq& p) const;
+        void display(std::ostream& out, ineq& p, bool values = false) const;
         void display(std::ostream& out, constraint const& c, bool values) const;
         void display(std::ostream& out, card const& c, bool values) const;
         void display(std::ostream& out, pb const& p, bool values) const;
