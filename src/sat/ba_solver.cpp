@@ -2842,11 +2842,13 @@ namespace sat {
 
     bool ba_solver::validate_lemma() { 
         int val = -m_bound;
-        normalize_active_coeffs();
+        while (!m_active_var_set.empty()) m_active_var_set.erase();
         for (bool_var v : m_active_vars) {
+            if (m_active_var_set.contains(v)) continue;            
             int coeff = get_coeff(v);
+            if (coeff == 0) continue;
+            m_active_var_set.insert(v);
             literal lit(v, false);
-            SASSERT(coeff != 0);
             if (coeff < 0 && value(lit) != l_true) {
                 val -= coeff;
             }
@@ -2859,9 +2861,13 @@ namespace sat {
     }
 
     void ba_solver::active2pb(ineq& p) {
-        normalize_active_coeffs();
+        while (!m_active_var_set.empty()) m_active_var_set.erase();
         p.reset(m_bound);
         for (bool_var v : m_active_vars) {
+            if (m_active_var_set.contains(v)) continue;            
+            int coeff = get_coeff(v);
+            if (coeff == 0) continue;
+            m_active_var_set.insert(v);
             literal lit(v, get_coeff(v) < 0);
             p.m_lits.push_back(lit);
             p.m_coeffs.push_back(get_abs_coeff(v));
