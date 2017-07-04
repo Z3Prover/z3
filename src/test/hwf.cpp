@@ -44,19 +44,19 @@ static void bug_to_rational() {
     unsynch_mpq_manager mq;
     scoped_mpq r(mq);
 
-    double ad, rd;
+    double ad = 0, rd = 0;
 
     m.set(a, 0.0);
     m.to_rational(a, r);
     ad = m.to_double(a);
     rd = mq.get_double(r);
-    SASSERT(ad == rd);
+    VERIFY(ad == rd);
 
     m.set(a, 1.0);
     m.to_rational(a, r);
     ad = m.to_double(a);
     rd = mq.get_double(r);
-    SASSERT(ad == rd);
+    VERIFY(ad == rd);
 
     m.set(a, 1.5);
     m.to_rational(a, r);

@@ -77,6 +77,7 @@ static void dump_heap(const int_heap2 & h, std::ostream & out) {
 }
 
 static void tst2() {
+    (void)dump_heap;
     int_heap2 h(N);
     for (int i = 0; i < N * 10; i++) {
         if (i % 1000 == 0) std::cout << "i: " << i << std::endl;

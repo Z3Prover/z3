@@ -88,6 +88,7 @@ private:
         expr_ref_vector& factors = poly.factors();
         expr_ref_vector& coefficients = poly.coefficients();
         expr_ref& coefficient = poly.coefficient();
+        (void) coefficient;
 
         m_rw(term);
 

@@ -35,6 +35,7 @@ static void add_clause(sat::solver& s, random_gen& r, trail_t& t) {
 }
 
 static void display_state(std::ostream& out, sat::solver& s, trail_t& t) {
+    (void)t;
     s.display(out);
 }
 
