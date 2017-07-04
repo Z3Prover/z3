@@ -232,11 +232,11 @@ namespace smt {
         for (unsigned i = 0; i < num_args; ++i) {
             enode * arg = e->get_arg(i);
             theory_var v_arg = mk_var(arg);
-            TRACE("str", tout << "arg has theory var #" << v_arg << std::endl;);
+            TRACE("str", tout << "arg has theory var #" << v_arg << std::endl;); (void)v_arg;
         }
 
         theory_var v = mk_var(e);
-        TRACE("str", tout << "term has theory var #" << v << std::endl;);
+        TRACE("str", tout << "term has theory var #" << v << std::endl;); (void)v;
 
         if (opt_EagerStringConstantLengthAssertions && u.str.is_string(term)) {
             TRACE("str", tout << "eagerly asserting length of string term " << mk_pp(term, m) << std::endl;);
@@ -257,7 +257,7 @@ namespace smt {
 
     void theory_str::refresh_theory_var(expr * e) {
         enode * en = ensure_enode(e);
-        theory_var v = mk_var(en);
+        theory_var v = mk_var(en); (void)v;
         TRACE("str", tout << "refresh " << mk_pp(e, get_manager()) << ": v#" << v << std::endl;);
         m_basicstr_axiom_todo.push_back(en);
     }
@@ -487,7 +487,6 @@ namespace smt {
 
     app * theory_str::mk_str_var(std::string name) {
         context & ctx = get_context();
-        ast_manager & m = get_manager();
 
         TRACE("str", tout << "creating string variable " << name << " at scope level " << sLevel << std::endl;);
 
@@ -505,7 +504,7 @@ namespace smt {
         // this might help??
         mk_var(ctx.get_enode(a));
         m_basicstr_axiom_todo.push_back(ctx.get_enode(a));
-        TRACE("str", tout << "add " << mk_pp(a, m) << " to m_basicstr_axiom_todo" << std::endl;);
+        TRACE("str", tout << "add " << mk_pp(a, get_manager()) << " to m_basicstr_axiom_todo" << std::endl;);
 
         variable_set.insert(a);
         internal_variable_set.insert(a);
@@ -516,7 +515,6 @@ namespace smt {
 
     app * theory_str::mk_regex_rep_var() {
         context & ctx = get_context();
-        ast_manager & m = get_manager();
 
         sort * string_sort = u.str.mk_string_sort();
         app * a = mk_fresh_const("regex", string_sort);
@@ -527,7 +525,7 @@ namespace smt {
         SASSERT(ctx.e_internalized(a));
         mk_var(ctx.get_enode(a));
         m_basicstr_axiom_todo.push_back(ctx.get_enode(a));
-        TRACE("str", tout << "add " << mk_pp(a, m) << " to m_basicstr_axiom_todo" << std::endl;);
+        TRACE("str", tout << "add " << mk_pp(a, get_manager()) << " to m_basicstr_axiom_todo" << std::endl;);
 
         variable_set.insert(a);
         //internal_variable_set.insert(a);
@@ -933,8 +931,7 @@ namespace smt {
         SASSERT(len_xy);
 
         // build RHS: start by extracting x and y from Concat(x, y)
-        unsigned nArgs = a_cat->get_num_args();
-        SASSERT(nArgs == 2);
+        SASSERT(a_cat->get_num_args() == 2);
         app * a_x = to_app(a_cat->get_arg(0));
         app * a_y = to_app(a_cat->get_arg(1));
 
@@ -2054,7 +2051,7 @@ namespace smt {
                               << "* |parent| = " << rational_to_string_if_exists(parentLen, parentLen_exists) << std::endl
                               << "* |arg0| = " << rational_to_string_if_exists(arg0Len, arg0Len_exists) << std::endl
                               << "* |arg1| = " << rational_to_string_if_exists(arg1Len, arg1Len_exists) << std::endl;
-                              );
+                              ); (void)arg0Len_exists;
 
                         if (parentLen_exists && !arg1Len_exists) {
                             TRACE("str", tout << "make up len for arg1" << std::endl;);
@@ -2125,7 +2122,8 @@ namespace smt {
                               << "* |parent| = " << rational_to_string_if_exists(parentLen, parentLen_exists) << std::endl
                               << "* |arg0| = " << rational_to_string_if_exists(arg0Len, arg0Len_exists) << std::endl
                               << "* |arg1| = " << rational_to_string_if_exists(arg1Len, arg1Len_exists) << std::endl;
-                              );
+                              ); (void)arg1Len_exists;
+
                         if (parentLen_exists && !arg0Len_exists) {
                             TRACE("str", tout << "make up len for arg0" << std::endl;);
                             expr_ref implyL11(m.mk_and(ctx.mk_eq_atom(mk_strlen(a_parent), mk_int(parentLen)),
@@ -4496,8 +4494,6 @@ namespace smt {
     }
 
     void theory_str::process_unroll_eq_const_str(expr * unrollFunc, expr * constStr) {
-        ast_manager & m = get_manager();
-
         if (!u.re.is_unroll(to_app(unrollFunc))) {
             return;
         }
@@ -4509,8 +4505,8 @@ namespace smt {
         zstring strValue;
         u.str.is_string(constStr, strValue);
 
-        TRACE("str", tout << "unrollFunc: " << mk_pp(unrollFunc, m) << std::endl
-              << "constStr: " << mk_pp(constStr, m) << std::endl;);
+        TRACE("str", tout << "unrollFunc: " << mk_pp(unrollFunc, get_manager()) << std::endl
+              << "constStr: " << mk_pp(constStr, get_manager()) << std::endl;);
 
         if (strValue == "") {
             return;
@@ -4807,17 +4803,16 @@ namespace smt {
     bool theory_str::in_same_eqc(expr * n1, expr * n2) {
         if (n1 == n2) return true;
         context & ctx = get_context();
-        ast_manager & m = get_manager();
 
         // similar to get_eqc_value(), make absolutely sure
         // that we've set this up properly for the context
 
         if (!ctx.e_internalized(n1)) {
-            TRACE("str", tout << "WARNING: expression " << mk_ismt2_pp(n1, m) << " was not internalized" << std::endl;);
+            TRACE("str", tout << "WARNING: expression " << mk_ismt2_pp(n1, get_manager()) << " was not internalized" << std::endl;);
             ctx.internalize(n1, false);
         }
         if (!ctx.e_internalized(n2)) {
-            TRACE("str", tout << "WARNING: expression " << mk_ismt2_pp(n2, m) << " was not internalized" << std::endl;);
+            TRACE("str", tout << "WARNING: expression " << mk_ismt2_pp(n2, get_manager()) << " was not internalized" << std::endl;);
             ctx.internalize(n2, false);
         }
 
@@ -4876,7 +4871,7 @@ namespace smt {
                 expr * strAst = itor1->first;
                 expr * substrAst = itor1->second;
 
-                expr * boolVar;
+                expr * boolVar = NULL;
                 if (!contain_pair_bool_map.find(strAst, substrAst, boolVar)) {
                     TRACE("str", tout << "warning: no entry for boolVar in contain_pair_bool_map" << std::endl;);
                 }
@@ -5013,7 +5008,7 @@ namespace smt {
                 expr * strAst = itor1->first;
                 expr * substrAst = itor1->second;
 
-                expr * boolVar;
+                expr * boolVar = NULL;
                 if (!contain_pair_bool_map.find(strAst, substrAst, boolVar)) {
                     TRACE("str", tout << "warning: no entry for boolVar in contain_pair_bool_map" << std::endl;);
                 }
@@ -5624,7 +5619,6 @@ namespace smt {
     }
 
     void theory_str::print_grounded_concat(expr * node, std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap) {
-        ast_manager & m = get_manager();
         TRACE("str", tout << mk_pp(node, m) << std::endl;);
         if (groundedMap.find(node) != groundedMap.end()) {
             std::map<std::vector<expr*>, std::set<expr*> >::iterator itor = groundedMap[node].begin();
@@ -5633,13 +5627,13 @@ namespace smt {
                       tout << "\t[grounded] ";
                       std::vector<expr*>::const_iterator vIt = itor->first.begin();
                       for (; vIt != itor->first.end(); ++vIt) {
-                          tout << mk_pp(*vIt, m) << ", ";
+                          tout << mk_pp(*vIt, get_manager()) << ", ";
                       }
                       tout << std::endl;
                       tout << "\t[condition] ";
                       std::set<expr*>::iterator sIt = itor->second.begin();
                       for (; sIt != itor->second.end(); sIt++) {
-                          tout << mk_pp(*sIt, m) << ", ";
+                          tout << mk_pp(*sIt, get_manager()) << ", ";
                       }
                       tout << std::endl;
                       );
@@ -6935,7 +6929,7 @@ namespace smt {
     }
 
     void theory_str::more_value_tests(expr * valTester, zstring valTesterValue) {
-        ast_manager & m = get_manager();
+        ast_manager & m = get_manager(); (void)m;
 
         expr * fVar = valueTester_fvar_map[valTester];
         if (m_params.m_UseBinarySearch) {
@@ -6990,17 +6984,16 @@ namespace smt {
     }
 
     bool theory_str::free_var_attempt(expr * nn1, expr * nn2) {
-        ast_manager & m = get_manager();
         zstring nn2_str;
         if (internal_lenTest_vars.contains(nn1) && u.str.is_string(nn2, nn2_str)) {
-            TRACE("str", tout << "acting on equivalence between length tester var " << mk_ismt2_pp(nn1, m)
-                  << " and constant " << mk_ismt2_pp(nn2, m) << std::endl;);
+            TRACE("str", tout << "acting on equivalence between length tester var " << mk_pp(nn1, get_manager())
+                  << " and constant " << mk_pp(nn2, get_manager()) << std::endl;);
             more_len_tests(nn1, nn2_str);
             return true;
         } else if (internal_valTest_vars.contains(nn1) && u.str.is_string(nn2, nn2_str)) {
             if (nn2_str == "more") {
-                TRACE("str", tout << "acting on equivalence between value var " << mk_ismt2_pp(nn1, m)
-                      << " and constant " << mk_ismt2_pp(nn2, m) << std::endl;);
+                TRACE("str", tout << "acting on equivalence between value var " << mk_pp(nn1, get_manager())
+                      << " and constant " << mk_pp(nn2, get_manager()) << std::endl;);
                 more_value_tests(nn1, nn2_str);
             }
             return true;
@@ -7301,6 +7294,7 @@ namespace smt {
                     // this might help??
                     theory_var v = mk_var(n);
                     TRACE("str", tout << "variable " << mk_ismt2_pp(ap, get_manager()) << " is #" << v << std::endl;);
+                    (void)v;
                 }
             }
         } else if (ex_sort == bool_sort && !is_quantifier(ex)) {
@@ -7387,7 +7381,6 @@ namespace smt {
     }
 
     void theory_str::init_search_eh() {
-        ast_manager & m = get_manager();
         context & ctx = get_context();
 
         TRACE("str",
@@ -7395,7 +7388,7 @@ namespace smt {
               unsigned nFormulas = ctx.get_num_asserted_formulas();
               for (unsigned i = 0; i < nFormulas; ++i) {
                   expr * ex = ctx.get_asserted_formula(i);
-                  tout << mk_ismt2_pp(ex, m) << (ctx.is_relevant(ex) ? " (rel)" : " (NOT REL)") << std::endl;
+                  tout << mk_pp(ex, get_manager()) << (ctx.is_relevant(ex) ? " (rel)" : " (NOT REL)") << std::endl;
               }
               );
         /*
@@ -7409,36 +7402,6 @@ namespace smt {
             expr * ex = ctx.get_asserted_formula(i);
             set_up_axioms(ex);
         }
-
-        /*
-         * Similar recursive descent, except over all initially assigned terms.
-         * This is done to find equalities between terms, etc. that we otherwise
-         * might not get a chance to see.
-         */
-
-        /*
-          expr_ref_vector assignments(m);
-          ctx.get_assignments(assignments);
-          for (expr_ref_vector::iterator i = assignments.begin(); i != assignments.end(); ++i) {
-          expr * ex = *i;
-          if (m.is_eq(ex)) {
-          TRACE("str", tout << "processing assignment " << mk_ismt2_pp(ex, m) <<
-          ": expr is equality" << std::endl;);
-          app * eq = (app*)ex;
-          SASSERT(eq->get_num_args() == 2);
-          expr * lhs = eq->get_arg(0);
-          expr * rhs = eq->get_arg(1);
-
-          enode * e_lhs = ctx.get_enode(lhs);
-          enode * e_rhs = ctx.get_enode(rhs);
-          std::pair<enode*,enode*> eq_pair(e_lhs, e_rhs);
-          m_str_eq_todo.push_back(eq_pair);
-          } else {
-          TRACE("str", tout << "processing assignment " << mk_ismt2_pp(ex, m)
-          << ": expr ignored" << std::endl;);
-          }
-          }
-        */
 
         // this might be cheating but we need to make sure that certain maps are populated
         // before the first call to new_eq_eh()
@@ -7475,8 +7438,7 @@ namespace smt {
     }
 
     void theory_str::assign_eh(bool_var v, bool is_true) {
-        context & ctx = get_context();
-        TRACE("str", tout << "assert: v" << v << " #" << ctx.bool_var2expr(v)->get_id() << " is_true: " << is_true << std::endl;);
+        TRACE("str", tout << "assert: v" << v << " #" << get_context().bool_var2expr(v)->get_id() << " is_true: " << is_true << std::endl;);
     }
 
     void theory_str::push_scope_eh() {
@@ -7543,7 +7505,6 @@ namespace smt {
     void theory_str::pop_scope_eh(unsigned num_scopes) {
         sLevel -= num_scopes;
         TRACE("str", tout << "pop " << num_scopes << " to " << sLevel << std::endl;);
-        ast_manager & m = get_manager();
 
         TRACE_CODE(if (is_trace_enabled("t_str_dump_assign_on_scope_change")) { dump_assignments(); });
 
@@ -7552,10 +7513,9 @@ namespace smt {
 
         obj_map<expr, std::stack<T_cut *> >::iterator varItor = cut_var_map.begin();
         while (varItor != cut_var_map.end()) {
-            expr * e = varItor->m_key;
             std::stack<T_cut*> & val = cut_var_map[varItor->m_key];
             while ((val.size() > 0) && (val.top()->level != 0) && (val.top()->level >= sLevel)) {
-                TRACE("str", tout << "remove cut info for " << mk_pp(e, m) << std::endl; print_cut_var(e, tout););
+                TRACE("str", tout << "remove cut info for " << mk_pp(e, get_manager()) << std::endl; print_cut_var(e, tout););
                 // T_cut * aCut = val.top();
                 val.pop();
                 // dealloc(aCut);
@@ -7577,8 +7537,7 @@ namespace smt {
         ptr_vector<enode> new_m_basicstr;
         for (ptr_vector<enode>::iterator it = m_basicstr_axiom_todo.begin(); it != m_basicstr_axiom_todo.end(); ++it) {
             enode * e = *it;
-            app * a = e->get_owner();
-            TRACE("str", tout << "consider deleting " << mk_pp(a, get_manager())
+            TRACE("str", tout << "consider deleting " << mk_pp(e->get_owner(), get_manager())
                   << ", enode scope level is " << e->get_iscope_lvl()
                   << std::endl;);
             if (e->get_iscope_lvl() <= (unsigned)sLevel) {
@@ -8861,7 +8820,7 @@ namespace smt {
                     continue;
                 }
                 bool hasEqcValue = false;
-                expr * eqcString = get_eqc_value(itor->first, hasEqcValue);
+                get_eqc_value(itor->first, hasEqcValue);
                 if (!hasEqcValue) {
                     TRACE("str", tout << "found free variable " << mk_pp(itor->first, m) << std::endl;);
                     needToAssignFreeVars = true;
@@ -9104,7 +9063,6 @@ namespace smt {
     }
 
     void theory_str::print_value_tester_list(svector<std::pair<int, expr*> > & testerList) {
-        ast_manager & m = get_manager();
         TRACE("str",
               int ss = testerList.size();
               tout << "valueTesterList = {";
@@ -9113,7 +9071,7 @@ namespace smt {
                       tout << std::endl;
                   }
                   tout << "(" << testerList[i].first << ", ";
-                  tout << mk_ismt2_pp(testerList[i].second, m);
+                  tout << mk_pp(testerList[i].second, get_manager());
                   tout << "), ";
               }
               tout << std::endl << "}" << std::endl;
@@ -9345,8 +9303,7 @@ namespace smt {
                 }
 
                 bool anEqcHasValue = false;
-                // Z3_ast anEqc = get_eqc_value(t, aTester, anEqcHasValue);
-                expr * aTester_eqc_value = get_eqc_value(aTester, anEqcHasValue);
+                get_eqc_value(aTester, anEqcHasValue);
                 if (!anEqcHasValue) {
                     TRACE("str", tout << "value tester " << mk_ismt2_pp(aTester, m)
                           << " doesn't have an equivalence class value." << std::endl;);
@@ -9513,8 +9470,8 @@ namespace smt {
             items.reset();
 
             rational low, high;
-            bool low_exists = lower_bound(cntInUnr, low);
-            bool high_exists = upper_bound(cntInUnr, high);
+            bool low_exists = lower_bound(cntInUnr, low); (void)low_exists;
+            bool high_exists = upper_bound(cntInUnr, high); (void)high_exists;
 
             TRACE("str",
                   tout << "unroll " << mk_pp(unrFunc, mgr) << std::endl;
@@ -10265,7 +10222,7 @@ namespace smt {
                                       } else {
                                           tout << "no eqc string constant";
                                       }
-                                      tout << std::endl;);
+                                      tout << std::endl;); (void)effectiveInScope;
                                 if (effectiveLenInd == lenTesterInCbEq) {
                                     effectiveLenIndiStr = lenTesterValue;
                                 } else {
@@ -10350,7 +10307,6 @@ namespace smt {
 
     void theory_str::process_free_var(std::map<expr*, int> & freeVar_map) {
         context & ctx = get_context();
-        ast_manager & m = get_manager();
 
         std::set<expr*> eqcRepSet;
         std::set<expr*> leafVarSet;
@@ -10377,7 +10333,7 @@ namespace smt {
                 }
             }
             if (duplicated && dupVar != NULL) {
-                TRACE("str", tout << "Duplicated free variable found:" << mk_ismt2_pp(freeVar, m)
+                TRACE("str", tout << "Duplicated free variable found:" << mk_pp(freeVar, get_manager())
                       << " = " << mk_ismt2_pp(dupVar, m) << " (SKIP)" << std::endl;);
                 continue;
             } else {
