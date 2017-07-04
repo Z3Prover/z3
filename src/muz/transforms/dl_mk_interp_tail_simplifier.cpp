@@ -250,7 +250,7 @@ namespace datalog {
         bool detect_equivalences(expr_ref_vector& v, bool inside_disjunction)
         {
             bool have_pair = false;
-            unsigned prev_pair_idx;
+            unsigned prev_pair_idx = 0;
             arg_pair ap;
 
             unsigned read_idx = 0;
@@ -296,21 +296,20 @@ namespace datalog {
         br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, 
             proof_ref & result_pr)
         {
-
             if (m.is_not(f) && (m.is_and(args[0]) || m.is_or(args[0]))) {
-                SASSERT(num==1);
+                SASSERT(num == 1);
                 expr_ref tmp(m);
                 app* a = to_app(args[0]);
                 m_app_args.reset();
-                for (unsigned i = 0; i < a->get_num_args(); ++i) {
-                    m_brwr.mk_not(a->get_arg(i), tmp);
+                for (expr* arg : *a) {
+                    m_brwr.mk_not(arg, tmp);
                     m_app_args.push_back(tmp);
                 }
                 if (m.is_and(args[0])) {
-                    result = m.mk_or(m_app_args.size(), m_app_args.c_ptr());
+                    result = mk_or(m_app_args); 
                 }
                 else {
-                    result = m.mk_and(m_app_args.size(), m_app_args.c_ptr());
+                    result = mk_and(m_app_args); 
                 }
                 return BR_REWRITE2;
             }

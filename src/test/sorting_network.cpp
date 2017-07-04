@@ -364,15 +364,13 @@ void test_at_most_1(unsigned n, bool full) {
     for (unsigned i = 0; i < ext.m_clauses.size(); ++i) {
         solver.assert_expr(ext.m_clauses[i].get());
     }
-    lbool res;
     if (full) {
         solver.push();
         solver.assert_expr(m.mk_not(m.mk_eq(result1, result2)));
 
         std::cout << result1 << "\n";
 
-        res = solver.check();
-        SASSERT(res == l_false);
+        VERIFY(l_false == solver.check());
 
         solver.pop(1);
     }
@@ -390,8 +388,7 @@ void test_at_most_1(unsigned n, bool full) {
             std::cout << atom << "\n";
             if (is_true) ++k;
         }
-        res = solver.check();
-        SASSERT(res == l_true);
+        VERIFY(l_false == solver.check());
         if (k > 1) {
             solver.assert_expr(result1);
         }
@@ -402,8 +399,7 @@ void test_at_most_1(unsigned n, bool full) {
         else {
             solver.assert_expr(m.mk_not(result1));
         }
-        res = solver.check();
-        SASSERT(res == l_false);
+        VERIFY(l_false == solver.check());
         solver.pop(1);
     }
 }
