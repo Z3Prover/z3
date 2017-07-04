@@ -147,6 +147,7 @@ void tst_div2k(synch_mpz_manager & m, mpz const & v, unsigned k) {
     m.power(two, k, pw);
     m.machine_div(v, pw, y);
     bool is_eq = m.eq(x, y);
+    (void)is_eq;
     CTRACE("mpz_2k", !is_eq, tout << "div: " << m.to_string(v) << ", k: " << k << " r: " << m.to_string(x) << ", expected: " << m.to_string(y) << "\n";);
     SASSERT(is_eq);
     m.del(x);
@@ -174,6 +175,7 @@ void tst_mul2k(synch_mpz_manager & m, mpz const & v, unsigned k) {
     m.power(two, k, pw);
     m.mul(v, pw, y);
     bool is_eq = m.eq(x, y);
+    (void)is_eq;
     CTRACE("mpz_2k", !is_eq, tout << "mul: " << m.to_string(v) << ", k: " << k << " r: " << m.to_string(x) << ", expected: " << m.to_string(y) << "\n";);
     SASSERT(is_eq);
     m.del(x);

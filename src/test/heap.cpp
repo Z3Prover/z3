@@ -47,12 +47,13 @@ static void tst1() {
     for (; it != end; ++it) {
         SASSERT(h.contains(*it));
     }
-    int last = -1;
     while (!h.empty()) {
         int m1 = h.min_value();
         int m2 = h.erase_min();
+        (void)m1;
+        (void)m2;
         SASSERT(m1 == m2);
-        SASSERT(last < m2);
+        SASSERT(-1 < m2);
     }
 }
 
