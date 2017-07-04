@@ -34,11 +34,11 @@ namespace sat {
         virtual ~extension() {}
         virtual void set_solver(solver* s) = 0;
         virtual void set_lookahead(lookahead* s) = 0;
-        virtual void propagate(literal l, ext_constraint_idx idx, bool & keep) = 0;
+        virtual bool propagate(literal l, ext_constraint_idx idx) = 0;
         virtual void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r) = 0;
         virtual void asserted(literal l) = 0;
         virtual check_result check() = 0;
-        virtual bool resolve_conflict() { return false; } // stores result in sat::solver::m_lemma
+        virtual lbool resolve_conflict() { return l_undef; } // stores result in sat::solver::m_lemma
         virtual void push() = 0;
         virtual void pop(unsigned n) = 0;
         virtual void simplify() = 0;
@@ -53,6 +53,7 @@ namespace sat {
         virtual extension* copy(solver* s) = 0;       
         virtual void find_mutexes(literal_vector& lits, vector<literal_vector> & mutexes) = 0;
         virtual void gc() = 0;
+        virtual void pop_reinit() = 0;
         virtual void validate() = 0;
     };
 

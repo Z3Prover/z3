@@ -1170,10 +1170,10 @@ namespace sat {
                 break;
             }
             case watched::EXT_CONSTRAINT: {
-                bool keep = true;
                 SASSERT(m_s.m_ext);
-                m_s.m_ext->propagate(l, it->get_ext_constraint_idx(), keep);
+                bool keep = m_s.m_ext->propagate(l, it->get_ext_constraint_idx());
                 if (m_inconsistent) {
+                    if (!keep) ++it;
                     set_conflict();                        
                 }
                 else if (keep) {

@@ -62,9 +62,12 @@ namespace sat {
             unsigned       m_glue;
             unsigned       m_size;
             size_t         m_obj_size;
+            bool           m_learned;
+            unsigned       m_id;
         public:
-            constraint(tag_t t, literal l, unsigned sz, size_t osz): m_tag(t), m_removed(false), m_lit(l), m_glue(0), m_size(sz), m_obj_size(osz) {}
+            constraint(tag_t t, unsigned id, literal l, unsigned sz, size_t osz): m_tag(t), m_removed(false), m_lit(l), m_glue(0), m_size(sz), m_obj_size(osz), m_learned(false), m_id(id) {}
             ext_constraint_idx index() const { return reinterpret_cast<ext_constraint_idx>(this); }
+            unsigned id() const { return m_id; }
             tag_t tag() const { return m_tag; }
             literal lit() const { return m_lit; }
             unsigned size() const { return m_size; }
@@ -75,6 +78,8 @@ namespace sat {
             void nullify_literal() { m_lit = null_literal; }
             unsigned glue() const { return m_glue; }
             void set_glue(unsigned g) { m_glue = g; }            
+            void set_learned(bool f) { m_learned = f; }
+            bool learned() const { return m_learned; }            
 
             size_t obj_size() const { return m_obj_size; }
             card& to_card();
@@ -102,7 +107,7 @@ namespace sat {
         protected:
             unsigned       m_k;
         public:
-            pb_base(tag_t t, literal l, unsigned sz, size_t osz, unsigned k): constraint(t, l, sz, osz), m_k(k) {}
+            pb_base(tag_t t, unsigned id, literal l, unsigned sz, size_t osz, unsigned k): constraint(t, id, l, sz, osz), m_k(k) {}
             virtual void set_k(unsigned k) { m_k = k; }
             virtual unsigned get_coeff(unsigned i) const { UNREACHABLE(); return 0; }
             unsigned k() const { return m_k; }
@@ -113,7 +118,7 @@ namespace sat {
             literal        m_lits[0];
         public:
             static size_t get_obj_size(unsigned num_lits) { return sizeof(card) + num_lits * sizeof(literal); }
-            card(literal lit, literal_vector const& lits, unsigned k);
+            card(unsigned id, literal lit, literal_vector const& lits, unsigned k);
             literal operator[](unsigned i) const { return m_lits[i]; }
             literal& operator[](unsigned i) { return m_lits[i]; }
             literal const* begin() const { return m_lits; }
@@ -138,7 +143,7 @@ namespace sat {
             void update_max_sum();
         public:
             static size_t get_obj_size(unsigned num_lits) { return sizeof(pb) + num_lits * sizeof(wliteral); }
-            pb(literal lit, svector<wliteral> const& wlits, unsigned k);
+            pb(unsigned id, literal lit, svector<wliteral> const& wlits, unsigned k);
             literal lit() const { return m_lit; }
             wliteral operator[](unsigned i) const { return m_wlits[i]; }
             wliteral& operator[](unsigned i) { return m_wlits[i]; }
@@ -165,7 +170,7 @@ namespace sat {
             literal        m_lits[0];
         public:
             static size_t get_obj_size(unsigned num_lits) { return sizeof(xor) + num_lits * sizeof(literal); }
-            xor(literal lit, literal_vector const& lits);
+            xor(unsigned id, literal lit, literal_vector const& lits);
             literal operator[](unsigned i) const { return m_lits[i]; }
             literal const* begin() const { return m_lits; }
             literal const* end() const { return begin() + m_size; }
@@ -197,7 +202,10 @@ namespace sat {
 
         ptr_vector<constraint> m_constraints;
         ptr_vector<constraint> m_learned;
-        unsigned_vector        m_constraint_lim;       
+        ptr_vector<constraint> m_constraint_to_reinit;
+        unsigned_vector        m_constraint_to_reinit_lim;
+        unsigned               m_constraint_to_reinit_last_sz;
+        unsigned               m_constraint_id;
 
         // conflict resolution
         unsigned          m_num_marks;
@@ -272,7 +280,7 @@ namespace sat {
         void watch_literal(literal w, constraint& c);
         void watch_literal(wliteral w, pb& p);
         void add_constraint(constraint* c);
-        void init_watch(constraint& c, bool is_true);
+        bool init_watch(constraint& c, bool is_true);
         void init_watch(bool_var v);
         void clear_watch(constraint& c);
         lbool add_assign(constraint& c, literal l);
@@ -290,10 +298,11 @@ namespace sat {
         void assert_unconstrained(literal lit, literal_vector const& lits);
         void flush_roots(constraint& c);
         void recompile(constraint& c);
+        unsigned next_id() { return m_constraint_id++; }
 
 
         // cardinality
-        void init_watch(card& c, bool is_true);
+        bool init_watch(card& c, bool is_true);
         lbool add_assign(card& c, literal lit);
         void clear_watch(card& c);
         void reset_coeffs();
@@ -305,7 +314,7 @@ namespace sat {
 
         // xor specific functionality
         void clear_watch(xor& x);
-        void init_watch(xor& x, bool is_true);
+        bool init_watch(xor& x, bool is_true);
         bool parity(xor const& x, unsigned offset) const;
         lbool add_assign(xor& x, literal alit);
         void get_xor_antecedents(literal l, unsigned index, justification js, literal_vector& r);
@@ -316,7 +325,7 @@ namespace sat {
         
         // pb functionality
         unsigned m_a_max;
-        void init_watch(pb& p, bool is_true);
+        bool init_watch(pb& p, bool is_true);
         lbool add_assign(pb& p, literal alit);
         void add_index(pb& p, unsigned index, literal lit);
         void clear_watch(pb& p);
@@ -342,6 +351,7 @@ namespace sat {
         inline void drat_add(literal_vector const& c, svector<drat::premise> const& premises) { m_solver->m_drat.add(c, premises); }
 
 
+        void reset_active_var_set();
         void normalize_active_coeffs();
         void inc_coeff(literal l, int offset);
         int get_coeff(bool_var v) const;
@@ -351,6 +361,7 @@ namespace sat {
         void process_antecedent(literal l, int offset);
         void process_card(card& c, int offset);
         void cut();
+        bool create_asserting_lemma();
 
         // validation utilities
         bool validate_conflict(card const& c) const;
@@ -360,6 +371,7 @@ namespace sat {
         bool validate_lemma();
         bool validate_unit_propagation(card const& c, literal alit) const;
         bool validate_unit_propagation(pb const& p, literal alit) const;
+        bool validate_unit_propagation(pb const& p, literal_vector const& r, literal alit) const;
         bool validate_unit_propagation(xor const& x, literal alit) const;
         bool validate_conflict(literal_vector const& lits, ineq& p);
         bool validate_watch_literals() const;
@@ -369,6 +381,8 @@ namespace sat {
 
         ineq m_A, m_B, m_C;
         void active2pb(ineq& p);
+        constraint* active2constraint();
+        card* active2card();
         void justification2pb(justification const& j, literal lit, unsigned offset, ineq& p);
         bool validate_resolvent();
 
@@ -378,9 +392,9 @@ namespace sat {
         void display(std::ostream& out, pb const& p, bool values) const;
         void display(std::ostream& out, xor const& c, bool values) const;
 
-        void add_at_least(literal l, literal_vector const& lits, unsigned k);
-        pb const& add_pb_ge(literal l, svector<wliteral> const& wlits, unsigned k);
-        void add_xor(literal l, literal_vector const& lits);
+        card& add_at_least(literal l, literal_vector const& lits, unsigned k, bool learned);
+        pb& add_pb_ge(literal l, svector<wliteral> const& wlits, unsigned k, bool learned);
+        xor& add_xor(literal l, literal_vector const& lits, bool learned);
 
     public:
         ba_solver();
@@ -391,8 +405,8 @@ namespace sat {
         void    add_pb_ge(bool_var v, svector<wliteral> const& wlits, unsigned k);
         void    add_xor(bool_var v, literal_vector const& lits);
 
-        virtual void propagate(literal l, ext_constraint_idx idx, bool & keep);
-        virtual bool resolve_conflict();
+        virtual bool propagate(literal l, ext_constraint_idx idx);
+        virtual lbool resolve_conflict();
         virtual void get_antecedents(literal l, ext_justification_idx idx, literal_vector & r);
         virtual void asserted(literal l);
         virtual check_result check();
@@ -408,6 +422,7 @@ namespace sat {
         virtual void collect_statistics(statistics& st) const;
         virtual extension* copy(solver* s);
         virtual void find_mutexes(literal_vector& lits, vector<literal_vector> & mutexes);
+        virtual void pop_reinit();
         virtual void gc(); 
 
         ptr_vector<constraint> const & constraints() const { return m_constraints; }

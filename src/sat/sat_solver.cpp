@@ -795,8 +795,12 @@ namespace sat {
                 }
                 case watched::EXT_CONSTRAINT:
                     SASSERT(m_ext);
-                    m_ext->propagate(l, it->get_ext_constraint_idx(), keep);
+                    keep = m_ext->propagate(l, it->get_ext_constraint_idx());
                     if (m_inconsistent) {
+                        if (!keep) {
+                            std::cout << "CONFLICT - but throw away current watch literal\n";
+                            ++it;
+                        }
                         CONFLICT_CLEANUP();
                         return false;
                     }
@@ -1955,9 +1959,17 @@ namespace sat {
 
         forget_phase_of_vars(m_conflict_lvl);
 
-        if (m_ext && m_ext->resolve_conflict()) {
-            learn_lemma_and_backjump();
-            return true;
+        if (m_ext) {
+            switch (m_ext->resolve_conflict()) {
+            case l_true:
+                learn_lemma_and_backjump();
+                return true;
+            case l_undef:
+                break;
+            case l_false:
+                // backjumping was taken care of internally.
+                return true;
+            }
         }
 
         m_lemma.reset();
@@ -2770,6 +2782,8 @@ namespace sat {
         m_scope_lvl -= num_scopes;
         m_scopes.shrink(new_lvl);
         reinit_clauses(s.m_clauses_to_reinit_lim);
+        if (m_ext)
+            m_ext->pop_reinit();
     }
 
     void solver::unassign_vars(unsigned old_sz) {
