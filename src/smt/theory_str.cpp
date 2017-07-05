@@ -1984,7 +1984,8 @@ namespace smt {
         return NULL;
     }
 
-    static inline std::string rational_to_string_if_exists(const rational & x, bool x_exists) {
+    // trace code helper
+    inline std::string rational_to_string_if_exists(const rational & x, bool x_exists) {
         if (x_exists) {
             return x.to_string();
         } else {
@@ -4651,7 +4652,7 @@ namespace smt {
         }
     }
 
-    bool theory_str::get_value(expr* e, rational& val) const {
+    bool theory_str::get_arith_value(expr* e, rational& val) const {
         if (opt_DisableIntegerTheoryIntegration) {
             TRACE("str", tout << "WARNING: integer theory integration disabled" << std::endl;);
             return false;
@@ -4780,7 +4781,7 @@ namespace smt {
                         }
                     });
 
-                if (ctx.e_internalized(len) && get_value(len, val1)) {
+                if (ctx.e_internalized(len) && get_arith_value(len, val1)) {
                     val += val1;
                     TRACE("str", tout << "integer theory: subexpression " << mk_ismt2_pp(len, m) << " has length " << val1 << std::endl;);
                 }
@@ -8439,7 +8440,7 @@ namespace smt {
 
         // check integer theory
         rational Ival;
-        bool Ival_exists = get_value(a, Ival);
+        bool Ival_exists = get_arith_value(a, Ival);
         if (Ival_exists) {
             TRACE("str", tout << "integer theory assigns " << mk_pp(a, m) << " = " << Ival.to_string() << std::endl;);
             // if that value is not -1, we can assert (str.to-int S) = Ival --> S = "Ival"
@@ -8610,7 +8611,7 @@ namespace smt {
             rational lenValue;
             expr_ref concatlenExpr (mk_strlen(concat), m) ;
             bool allLeafResolved = true;
-            if (! get_value(concatlenExpr, lenValue)) {
+            if (! get_arith_value(concatlenExpr, lenValue)) {
                 // the length fo concat is unresolved yet
                 if (get_len_value(concat, lenValue)) {
                     // but all leaf nodes have length information
@@ -8647,7 +8648,7 @@ namespace smt {
                 expr * var = *it;
                 rational lenValue;
                 expr_ref varlen (mk_strlen(var), m) ;
-                if (! get_value(varlen, lenValue)) {
+                if (! get_arith_value(varlen, lenValue)) {
                     if (propagate_length_within_eqc(var)) {
                         axiomAdded = true;
                     }
@@ -9479,7 +9480,7 @@ namespace smt {
                   bool unrLenValue_exists = get_len_value(unrFunc, unrLenValue);
                   tout << "unroll length: " << (unrLenValue_exists ? unrLenValue.to_string() : "?") << std::endl;
                   rational cntInUnrValue;
-                  bool cntHasValue = get_value(cntInUnr, cntInUnrValue);
+                  bool cntHasValue = get_arith_value(cntInUnr, cntInUnrValue);
                   tout << "unroll count: " << (cntHasValue ? cntInUnrValue.to_string() : "?")
                   << " low = "
                   << (low_exists ? low.to_string() : "?")
