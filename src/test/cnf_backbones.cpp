@@ -38,6 +38,7 @@ static void STD_CALL on_ctrl_c(int) {
     raise(SIGINT);
 }
 
+#if 0
 static void display_model(sat::solver const & s) {
     sat::model const & m = s.get_model();
     for (unsigned i = 1; i < m.size(); i++) {
@@ -49,6 +50,7 @@ static void display_model(sat::solver const & s) {
     }
     std::cout << "\n";
 }
+#endif
 
 static void display_status(lbool r) {
     switch (r) {

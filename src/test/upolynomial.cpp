@@ -164,7 +164,7 @@ static void check_roots(mpbq_vector const & roots, mpbq_vector const & lowers, m
         for (unsigned j = 0; j < roots.size(); j++) {
             if (to_rational(roots[j]) == r) {
                 SASSERT(!visited[j]);
-                SASSERT(!found);
+                VERIFY(!found);
                 found = true;
                 visited[j] = true;
             }
@@ -172,7 +172,7 @@ static void check_roots(mpbq_vector const & roots, mpbq_vector const & lowers, m
         for (unsigned j = 0; j < lowers.size(); j++) {
             unsigned j_prime = j + roots.size();
             if (to_rational(lowers[j]) < r && r < to_rational(uppers[j])) {
-                SASSERT(!found);
+                VERIFY(!found);
                 SASSERT(!visited[j_prime]);
                 found = true;
                 visited[j_prime] = true;

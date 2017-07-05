@@ -89,6 +89,7 @@ private:
         expr_ref_vector& coefficients = poly.coefficients();
         expr_ref& coefficient = poly.coefficient();
         (void) coefficient;
+        (void) coefficients;
 
         m_rw(term);
 
@@ -171,7 +172,7 @@ static expr_ref mk_mul(arith_util& arith, unsigned num_args, expr* const* args) 
 
 static void nf(expr_ref& term) {
     ast_manager& m = term.get_manager();
-    expr *e1, *e2;
+    expr *e1 = 0, *e2 = 0;
 
     th_rewriter rw(m);
     arith_util arith(m);

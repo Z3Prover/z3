@@ -15,11 +15,12 @@ using namespace datalog;
 
 
 void tst_dl_context() {
-    symbol relations[] = { symbol("tr_skip"), symbol("tr_sparse"), symbol("tr_hashtable"), symbol("smt_relation2")  };
 
     return;
 
 #if 0
+    symbol relations[] = { symbol("tr_skip"), symbol("tr_sparse"), symbol("tr_hashtable"), symbol("smt_relation2")  };
+
     const unsigned rel_cnt = sizeof(relations)/sizeof(symbol);
     const char * test_file = "c:\\tvm\\src\\benchmarks\\datalog\\t0.datalog";
 
