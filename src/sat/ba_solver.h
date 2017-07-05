@@ -98,6 +98,7 @@ namespace sat {
             virtual literal get_lit(unsigned i) const { UNREACHABLE(); return null_literal; }
             virtual void set_lit(unsigned i, literal l) { UNREACHABLE(); }
             virtual bool well_formed() const { return true; }
+            virtual void negate() { UNREACHABLE(); }
         };
 
         friend std::ostream& operator<<(std::ostream& out, constraint const& c);
@@ -123,7 +124,7 @@ namespace sat {
             literal& operator[](unsigned i) { return m_lits[i]; }
             literal const* begin() const { return m_lits; }
             literal const* end() const { return static_cast<literal const*>(m_lits) + m_size; }
-            void negate();                     
+            virtual void negate();                     
             virtual void swap(unsigned i, unsigned j) { std::swap(m_lits[i], m_lits[j]); }
             virtual literal_vector literals() const { return literal_vector(m_size, m_lits); }            
             virtual bool is_watching(literal l) const;
@@ -156,7 +157,7 @@ namespace sat {
             unsigned max_sum() const { return m_max_sum; }
             void set_num_watch(unsigned s) { m_num_watch = s; }
             bool is_cardinality() const;
-            void negate();                       
+            virtual void negate();                       
             virtual void set_k(unsigned k) { m_k = k; update_max_sum(); }
             virtual void swap(unsigned i, unsigned j) { std::swap(m_wlits[i], m_wlits[j]); }
             virtual literal_vector literals() const { literal_vector lits; for (auto wl : *this) lits.push_back(wl.second); return lits; }
@@ -174,7 +175,7 @@ namespace sat {
             literal operator[](unsigned i) const { return m_lits[i]; }
             literal const* begin() const { return m_lits; }
             literal const* end() const { return begin() + m_size; }
-            void negate() { m_lits[0].neg(); }
+            virtual void negate() { m_lits[0].neg(); }
             virtual void swap(unsigned i, unsigned j) { std::swap(m_lits[i], m_lits[j]); }
             virtual bool is_watching(literal l) const;
             virtual literal_vector literals() const { return literal_vector(size(), begin()); }
@@ -257,6 +258,7 @@ namespace sat {
         unsigned elim_pure();
         bool elim_pure(literal lit);
         void subsumption();
+        void subsumption(constraint& c1);
         void subsumption(card& c1);
         void gc_half(char const* _method);
         void mutex_reduction();
@@ -270,7 +272,7 @@ namespace sat {
 
         void cleanup_clauses();
         void cleanup_constraints();
-        void cleanup_constraints(ptr_vector<constraint>& cs);
+        void cleanup_constraints(ptr_vector<constraint>& cs, bool learned);
         void remove_constraint(constraint& c);
 
         // constraints
@@ -279,6 +281,7 @@ namespace sat {
         void unwatch_literal(literal w, constraint& c);
         void watch_literal(literal w, constraint& c);
         void watch_literal(wliteral w, pb& p);
+        bool is_watched(literal l, constraint const& c) const;
         void add_constraint(constraint* c);
         bool init_watch(constraint& c, bool is_true);
         void init_watch(bool_var v);
@@ -298,6 +301,7 @@ namespace sat {
         void assert_unconstrained(literal lit, literal_vector const& lits);
         void flush_roots(constraint& c);
         void recompile(constraint& c);
+        void split_root(constraint& c);
         unsigned next_id() { return m_constraint_id++; }
 
 
@@ -330,6 +334,7 @@ namespace sat {
         void add_index(pb& p, unsigned index, literal lit);
         void clear_watch(pb& p);
         void get_antecedents(literal l, pb const& p, literal_vector & r);
+        void split_root(pb_base& p);
         void simplify(pb_base& p);
         void simplify2(pb& p);
         bool is_cardinality(pb const& p);
@@ -377,6 +382,7 @@ namespace sat {
         bool validate_watch_literals() const;
         bool validate_watch_literal(literal lit) const;
         bool validate_watched_constraint(constraint const& c) const;
+        bool validate_watch(pb const& p) const;
         bool is_watching(literal lit, constraint const& c) const;
 
         ineq m_A, m_B, m_C;

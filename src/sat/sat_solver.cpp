@@ -1406,21 +1406,28 @@ namespace sat {
 
         SASSERT(at_base_lvl());
 
+
         m_cleaner();
         CASSERT("sat_simplify_bug", check_invariant());
 
         m_scc();
         CASSERT("sat_simplify_bug", check_invariant());
 
+        m_ext->validate();
+
         m_simplifier(false);
         CASSERT("sat_simplify_bug", check_invariant());
         CASSERT("sat_missed_prop", check_missed_propagation());
+
+        m_ext->validate();
 
         if (!m_learned.empty()) {
             m_simplifier(true);
             CASSERT("sat_missed_prop", check_missed_propagation());
             CASSERT("sat_simplify_bug", check_invariant());
         }
+
+        m_ext->validate();
 
         if (m_config.m_lookahead_simplify) {
             {
@@ -1435,12 +1442,17 @@ namespace sat {
             }
         }
 
+
         sort_watch_lits();
         CASSERT("sat_simplify_bug", check_invariant());
+
+        m_ext->validate();
 
         m_probing();
         CASSERT("sat_missed_prop", check_missed_propagation());
         CASSERT("sat_simplify_bug", check_invariant());
+
+        m_ext->validate();
 
         m_asymm_branch();
         CASSERT("sat_missed_prop", check_missed_propagation());
@@ -1900,9 +1912,7 @@ namespace sat {
     */
     unsigned solver::psm(clause const & c) const {
         unsigned r  = 0;
-        unsigned sz = c.size();
-        for (unsigned i = 0; i < sz; i++) {
-            literal l = c[i];
+        for (literal l : c) {
             if (l.sign()) {
                 if (m_phase[l.var()] == NEG_PHASE)
                     r++;

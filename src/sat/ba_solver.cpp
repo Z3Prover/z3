@@ -325,6 +325,7 @@ namespace sat {
     // -------------------
     // pb
 
+    static unsigned _bad_id = 11111111; // 2759; //
 
     // watch a prefix of literals, such that the slack of these is >= k
     bool ba_solver::init_watch(pb& p, bool is_true) {
@@ -343,7 +344,7 @@ namespace sat {
                 if (j != i) {
                     p.swap(i, j);
                 }
-                if (slack < bound) {
+                if (slack <= bound) {
                     slack += p[j].first;
                     ++num_watch;
                 }
@@ -352,6 +353,9 @@ namespace sat {
                 }
                 ++j;
             }
+        }
+        if (p.id() == _bad_id) {
+            std::cout << "watch " << num_watch << " out of " << sz << "\n";
         }
         DEBUG_CODE(
             bool is_false = false;
@@ -378,6 +382,8 @@ namespace sat {
             }
             p.set_slack(slack);
             p.set_num_watch(num_watch);
+
+            validate_watch(p);
 
             TRACE("sat", display(tout << "init watch: ", p, true););
 
@@ -424,7 +430,6 @@ namespace sat {
         }
     }
     
-    static unsigned _bad_id = 62390000;
 
 #define BADLOG(_cmd_) if (p.id() == _bad_id) { _cmd_; }
     
@@ -462,12 +467,16 @@ namespace sat {
         }
         if (index == num_watch) {
             _bad_id = p.id();
-            std::cout << p.id() << "\n";
+            std::cout << "BAD: " << p.id() << "\n";
             display(std::cout, p, true);
             std::cout << "alit: " << alit << "\n";
             std::cout << "num watch " << num_watch << "\n";
+            exit(0);
             return l_undef;
         }
+
+        validate_watch(p);
+        
 
         SASSERT(index < num_watch);
         unsigned index1 = index + 1;
@@ -485,6 +494,9 @@ namespace sat {
             literal lit = p[j].second;
             if (value(lit) != l_false) {
                 slack += p[j].first;
+                if (is_watched(p[j].second, p)) {
+                    std::cout << "Swap literal already watched: " << p[j].second << "\n";
+                }
                 watch_literal(p[j], p);
                 p.swap(num_watch, j);
                 add_index(p, num_watch, lit);
@@ -501,6 +513,7 @@ namespace sat {
             slack += val;
             p.set_slack(slack);
             p.set_num_watch(num_watch);
+            validate_watch(p);
             BADLOG(display(std::cout << "conflict: " << alit << " watch: " << p.num_watch() << " size: " << p.size(), p, true));            
             SASSERT(bound <= slack);
             TRACE("sat", tout << "conflict " << alit << "\n";);
@@ -519,8 +532,6 @@ namespace sat {
         p.set_slack(slack);
         p.set_num_watch(num_watch);
         p.swap(num_watch, index);
-
-        BADLOG(std::cout << "swap watched: " << alit << " watch: " << p.num_watch() << " size: " << p.size() << " slack: " << p.slack() << "\n");
 
         // 
         // slack >= bound, but slack - w(l) < bound 
@@ -544,6 +555,8 @@ namespace sat {
 
         TRACE("sat", display(tout << "assign: " << alit << "\n", p, true););
 
+        BADLOG(std::cout << "unwatch " << alit << " watch: " << p.num_watch() << " size: " << p.size() << " slack: " << p.slack() << " " << inconsistent() << "\n");
+
         return l_undef;
     }
 
@@ -552,7 +565,12 @@ namespace sat {
     }
 
     void ba_solver::clear_watch(pb& p) {
-        for (wliteral wl : p) unwatch_literal(wl.second, p);            
+        validate_watch(p);
+        for (unsigned i = 0; i < p.num_watch(); ++i) {
+            unwatch_literal(p[i].second, p);          
+        }  
+        p.set_num_watch(0);
+        validate_watch(p);
     }
 
     /*
@@ -583,6 +601,7 @@ namespace sat {
 
     void ba_solver::simplify2(pb& p) {
         return;
+
         if (p.is_cardinality()) {
             literal_vector lits(p.literals());
             unsigned k = (p.k() + p[0].first - 1) / p[0].first;
@@ -605,11 +624,12 @@ namespace sat {
     void ba_solver::simplify(pb_base& p) {
         if (p.lit() != null_literal && value(p.lit()) == l_false) {
             TRACE("sat", tout << "pb: flip sign " << p << "\n";);
-            IF_VERBOSE(0, verbose_stream() << "signed is flipped " << p << "\n";);
+            IF_VERBOSE(0, verbose_stream() << "sign is flipped " << p << "\n";);
             return;
             init_watch(p, !p.lit().sign());
         }
-        if (p.lit() != null_literal && value(p.lit()) == l_true) {
+        bool nullify = p.lit() != null_literal && value(p.lit()) == l_true;
+        if (nullify) {
             SASSERT(lvl(p.lit()) == 0);
             nullify_tracking_literal(p);
         }
@@ -625,7 +645,9 @@ namespace sat {
             }
         }
         if (true_val == 0 && num_false == 0) {
-            // no op
+            if (nullify) {
+                init_watch(p, true);
+            }
         }
         else if (true_val >= p.k()) {
             if (p.lit() != null_literal) {
@@ -658,8 +680,10 @@ namespace sat {
                     --i;
                 }
             }
+            if (p.id() == _bad_id) display(std::cout << "simplify ", p, true);
             p.set_size(sz);
             p.set_k(p.k() - true_val);
+            if (p.id() == _bad_id) display(std::cout << "simplified ", p, true);
             // display(verbose_stream(), c, true);
             if (p.lit() == null_literal) {
                 init_watch(p, true);
@@ -1307,6 +1331,7 @@ namespace sat {
     }
 
     ba_solver::card& ba_solver::add_at_least(literal lit, literal_vector const& lits, unsigned k, bool learned) {
+        if (k == 1) UNREACHABLE();
         void * mem = m_allocator.allocate(card::get_obj_size(lits.size()));
         card* c = new (mem) card(next_id(), lit, lits, k);
         c->set_learned(learned);
@@ -1326,7 +1351,7 @@ namespace sat {
             m_constraints.push_back(c);
         }
         literal lit = c->lit();
-        if (c->learned()) {
+        if (c->learned() && !s().at_base_lvl()) {
             SASSERT(lit == null_literal);
             // gets initialized after backjump.
             m_constraint_to_reinit.push_back(c);
@@ -1402,7 +1427,7 @@ namespace sat {
             return true;
         }
         else if (c.lit() != null_literal && value(c.lit()) != l_true) {
-            return false;
+            return true;
         }
         else {
             return l_undef != add_assign(c, ~l);
@@ -1632,12 +1657,26 @@ namespace sat {
     void ba_solver::get_antecedents(literal l, ext_justification_idx idx, literal_vector & r) {
         get_antecedents(l, index2constraint(idx), r);
     }
+
+    bool ba_solver::is_watched(literal lit, constraint const& c) const {
+        return get_wlist(~lit).contains(watched(c.index()));
+    }
     
     void ba_solver::unwatch_literal(literal lit, constraint& c) {
+        if (c.id() == _bad_id) { std::cout << "unwatch " << lit << "\n"; }            
         get_wlist(~lit).erase(watched(c.index()));
+        if (is_watched(lit, c)) {
+            std::cout << "Not deleted " << lit << "\n";
+        }
     }
 
     void ba_solver::watch_literal(literal lit, constraint& c) {
+        if (is_watched(lit, c)) {
+            std::cout << "Already watched " << lit << "\n";
+            UNREACHABLE();
+            exit(0);
+        }
+        if (c.id() == _bad_id) { std::cout << "watch " << lit << "\n"; }            
         get_wlist(~lit).push_back(watched(c.index()));
     }
 
@@ -1757,11 +1796,18 @@ namespace sat {
     }
 
     void ba_solver::validate() {
-        if (validate_watch_literals()) {
-            for (constraint* c : m_constraints) {
-                if (!validate_watched_constraint(*c)) break;
-            }
+        if (!validate_watch_literals()) {
+            return;
         }
+        for (constraint* c : m_constraints) {
+            if (!validate_watched_constraint(*c)) 
+                return;
+        }
+        for (constraint* c : m_learned) {
+            if (!validate_watched_constraint(*c)) 
+                return;
+        }
+    
     }
 
     bool ba_solver::validate_watch_literals() const {
@@ -1791,9 +1837,12 @@ namespace sat {
     }
 
     bool ba_solver::validate_watched_constraint(constraint const& c) const {
+        if (c.is_pb() && !validate_watch(c.to_pb())) {
+            return false;
+        }
         if (c.lit() != null_literal && value(c.lit()) != l_true) return true;
         if (c.lit() != null_literal && lvl(c.lit()) != 0) {
-            if (!is_watching(c.lit(), c) || !is_watching(~c.lit(), c)) {
+            if (!is_watched(c.lit(), c) || !is_watched(~c.lit(), c)) {
                 std::cout << "Definition literal is not watched " << c.lit() << " " << c << "\n";
                 display_watch_list(std::cout, s().m_cls_allocator, get_wlist(c.lit())) << "\n";
                 display_watch_list(std::cout, s().m_cls_allocator, get_wlist(~c.lit())) << "\n";
@@ -1806,9 +1855,10 @@ namespace sat {
         literal_vector lits(c.literals());
         for (literal l : lits) {
             if (lvl(l) == 0) continue;
-            bool found = is_watching(l, c);
+            bool found = is_watched(l, c);
             if (found != c.is_watching(l)) {
-                std::cout << "Discrepancy of watched literal: " << l << ": " << c.id() << " " << c << (found?" is watched, but shouldn't be":" not watched, but should be") << "\n";
+
+                std::cout << "Discrepancy of watched literal: " << l << " id: " << c.id() << " clause: " << c << (found?" is watched, but shouldn't be":" not watched, but should be") << "\n";
                 display_watch_list(std::cout << l << ": ", s().m_cls_allocator, get_wlist(l)) << "\n";
                 display_watch_list(std::cout << ~l << ": ", s().m_cls_allocator, get_wlist(~l)) << "\n";
                 std::cout << "value: " << value(l) << " level: " << lvl(l) << "\n";
@@ -1821,15 +1871,21 @@ namespace sat {
         }
         return true;
     }
-    
-    bool ba_solver::is_watching(literal lit, constraint const& c) const {
-        for (auto w : get_wlist(~lit)) {
-            if (w.get_kind() == watched::EXT_CONSTRAINT && w.get_ext_constraint_idx() == c.index()) 
-                return true;
+
+    bool ba_solver::validate_watch(pb const& p) const {
+        for (unsigned i = 0; i < p.size(); ++i) {
+            literal l = p[i].second;
+            if (lvl(l) != 0 && is_watched(l, p) != i < p.num_watch()) {
+                std::cout << "DISCREPANCY: " << l << " at " << i << " for " << p.num_watch() << " index: " << p.id() << "\n";
+                display(std::cout, p, true);
+                UNREACHABLE();
+                return false;
+            }
         }
-        return false;
+        return true;
     }
 
+    
     /**
        \brief Lex on (glue, size)
     */
@@ -1844,7 +1900,7 @@ namespace sat {
     void ba_solver::gc() {
         std::stable_sort(m_learned.begin(), m_learned.end(), constraint_glue_lt());
         gc_half("glue");
-        cleanup_constraints(m_learned);
+        cleanup_constraints(m_learned, true);
     }
 
     void ba_solver::gc_half(char const* st_name) {
@@ -1942,7 +1998,7 @@ namespace sat {
         // if (sz < m_constraint_to_reinit.size()) std::cout << "REINIT " << s().scope_lvl() << " " << m_constraint_to_reinit.size() - sz << "\n";
         for (unsigned i = sz; i < m_constraint_to_reinit.size(); ++i) {
             constraint* c = m_constraint_to_reinit[i];
-            if (!init_watch(*c, true)) {
+            if (!init_watch(*c, true) && !s().at_base_lvl()) {
                 m_constraint_to_reinit[sz++] = c;
             }
         }
@@ -2145,6 +2201,9 @@ namespace sat {
         for (constraint* c : m_constraints) {
             flush_roots(*c);
         }
+        for (constraint* c : m_learned) {
+            flush_roots(*c);
+        }
         cleanup_constraints();
 
         // validate();
@@ -2170,6 +2229,7 @@ namespace sat {
     }
 
     void ba_solver::recompile(card& c) {
+        if (c.id() == _bad_id) std::cout << "recompile: " << c << "\n";
         // IF_VERBOSE(0, verbose_stream() << "re: " << c << "\n";);
         m_weights.resize(2*s().num_vars(), 0);
         for (literal l : c) {
@@ -2220,8 +2280,15 @@ namespace sat {
             return;
         }
 
+        if (k == 1) {
+            literal_vector lits(c.size(), c.begin());
+            s().mk_clause(lits.size(), lits.c_ptr(), c.learned());
+            remove_constraint(c);
+            return;
+        }
+
         c.set_size(sz);
-        c.set_k(k);
+        c.set_k(k);        
 
         if (!is_card) {            
             TRACE("sat", tout << "replacing by pb: " << c << "\n";);
@@ -2236,16 +2303,125 @@ namespace sat {
         }
         else {
             // IF_VERBOSE(1, verbose_stream() << "new: " << c << "\n";);
+            if (c.id() == _bad_id) std::cout << "init: " << c << "\n";
             if (c.lit() == null_literal || value(c.lit()) == l_true) {
                 init_watch(c, true);
             }
             SASSERT(c.well_formed());
+        }        
+    }
+
+
+    void ba_solver::split_root(constraint& c) {
+        switch (c.tag()) {
+        case card_t: split_root(c.to_card()); break;
+        case pb_t: split_root(c.to_pb()); break;
+        case xor_t: NOT_IMPLEMENTED_YET(); break;
         }
+    }
+
+    /*
+      \brief slit PB constraint into two because root is reused in arguments.
+    
+      x <=> a*x + B*y >= k
+     
+      x => a*x + By >= k
+      ~x => a*x + By < k
+     
+      k*~x + a*x + By >= k
+      (B+a-k + 1)*x + a*~x + B*~y >= B + a - k + 1
+
+      (k - a) * ~x + By >= k - a
+      k' * x + B'y >= k'
+       
+    */
+    
+    void ba_solver::split_root(pb_base& p) {
+        SASSERT(p.lit() != null_literal);
+        SASSERT(!p.learned());
+        m_weights.resize(2*s().num_vars(), 0);
+        unsigned k = p.k();
+        unsigned w, w1, w2;
+        literal root = p.lit();
+        m_weights[(~root).index()] = k;
+        for (unsigned i = 0; i < p.size(); ++i) {
+            literal l = p.get_lit(i);
+            m_weights[l.index()] += p.get_coeff(i);
+        }
+        for (unsigned i = 0; i < p.size(); ++i) {
+            literal l = p.get_lit(i);
+            w1 = m_weights[l.index()];
+            w2 = m_weights[(~l).index()];
+            if (w1 > w2) {
+                if (w2 > k) {
+                    // constraint is true
+                    return;
+                }
+                k -= w2;
+                m_weights[(~l).index()] = 0;
+                m_weights[l.index()] = w1 - w2;
+            }
+        }
+        w1 = m_weights[(~root).index()];
+        w2 = m_weights[root.index()];
+        if (w1 > w2) {
+            if (w2 > k) {
+                return;
+            }
+            k -= w2;
+            m_weights[(~root).index()] = 0;
+            m_weights[root.index()] = w1 - w2;            
+        }
+        if (k == 0) {
+            return;
+        }
+        // ~root * (k - a) + p >= k - a
+
+        svector<wliteral> wlits;
+        bool units = true;
+        for (unsigned i = 0; i < p.size(); ++i) {
+            literal l = p.get_lit(i);
+            w = m_weights[l.index()];
+            if (w != 0) {
+                wlits.push_back(wliteral(w, l));
+                units &= w == 1;
+            } 
+            m_weights[l.index()] = 0;
+        }
+        w = m_weights[(~root).index()];
+        if (w != 0) {
+            wlits.push_back(wliteral(w, ~root));
+            units &= w == 1;
+        } 
+        m_weights[(~root).index()] = 0;
+
+        for (wliteral wl : wlits) {
+            std::cout << wl.first << " * " << wl.second << " ";
+        }
+        std::cout << " >= " << k << "\n";
         
+        if (k == 1) {
+            std::cout << "CLAUSE\n";
+        }
+        if (units) {
+            literal_vector lits;
+            for (wliteral wl : wlits) lits.push_back(wl.second);
+            add_at_least(null_literal, lits, k, false);
+        }
+        else {
+            add_pb_ge(null_literal, wlits, k, false);
+        }
+
+        DEBUG_CODE(
+            for (unsigned i = 0; i < p.size(); ++i) {
+                SASSERT(m_weights[p.get_lit(i).index()] == 0);
+            });
+        SASSERT(m_weights[(~root).index()] == 0);
     }
 
     void ba_solver::recompile(pb& p) {
         // IF_VERBOSE(2, verbose_stream() << "re: " << p << "\n";);
+        SASSERT(p.num_watch() == 0);
         m_weights.resize(2*s().num_vars(), 0);
         for (wliteral wl : p) {
             m_weights[wl.second.index()] += wl.first;
@@ -2296,8 +2472,13 @@ namespace sat {
         p.set_k(k);
         SASSERT(p.well_formed());
 
+        if (p.id() == _bad_id) {
+            display(std::cout << "recompile: ", p, true);
+        }
+
         IF_VERBOSE(20, verbose_stream() << "new: " << p << "\n";);
 
+        // this could become a cardinality constraint by now.
         if (p.lit() == null_literal || value(p.lit()) == l_true) {
             init_watch(p, true);
         }
@@ -2316,15 +2497,17 @@ namespace sat {
             c.set_lit(i, m_roots[c.get_lit(i).index()]);            
         }
 
+        literal root = null_literal;
         if (c.lit() != null_literal && m_roots[c.lit().index()] != c.lit()) {
-            literal r = m_roots[c.lit().index()];
+            root = m_roots[c.lit().index()];
             nullify_tracking_literal(c);
-            c.update_literal(r);
-            get_wlist(r).push_back(c.index());
-            get_wlist(~r).push_back(c.index());
+            c.update_literal(root);
+            get_wlist(root).push_back(c.index());
+            get_wlist(~root).push_back(c.index());
         }
 
         bool found_dup = false;
+        bool found_root = false;
         for (unsigned i = 0; i < c.size(); ++i) {
             literal l = c.get_lit(i);
             if (is_marked(l)) {
@@ -2340,18 +2523,27 @@ namespace sat {
             literal l = c.get_lit(i);
             unmark_visited(l);
             unmark_visited(~l);
+            found_root |= l.var() == root.var();
         }
 
-        if (found_dup) {
-            // std::cout << "FOUND DUP " << p << "\n";
+        if (found_root) {
+            display(std::cout << "the root was found within the list of literals " << c.id() << "\n", c, true);
+            split_root(c);
+            c.negate();
+            split_root(c);
+            remove_constraint(c);
+        }
+        else if (found_dup) {
+            if (c.id() == _bad_id) { std::cout << "FOUND DUP " << c << "\n"; }
             recompile(c);
-            return;
         }
-        // review for potential incompleteness: if c.lit() == l_false, do propagations happen?
-        if (c.lit() == null_literal || value(c.lit()) == l_true) {    
-            init_watch(c, true);
+        else {
+            // review for potential incompleteness: if c.lit() == l_false, do propagations happen?
+            if (c.lit() == null_literal || value(c.lit()) == l_true) {    
+                init_watch(c, true);
+            }
+            SASSERT(c.well_formed());
         }
-        SASSERT(c.well_formed());
     }
 
     unsigned ba_solver::get_num_non_learned_bin(literal l) {
@@ -2480,22 +2672,24 @@ namespace sat {
         unsigned bin_sub = m_stats.m_num_bin_subsumes;
         unsigned clause_sub = m_stats.m_num_clause_subsumes;
         unsigned card_sub = m_stats.m_num_card_subsumes;
-        for (constraint* cp : m_constraints) {
-            if (cp->was_removed()) continue;
-            switch (cp->tag()) {
-            case card_t: {
-                card& c = cp->to_card();
-                if (c.k() > 1) subsumption(c);
-                break;
-            }
-            default:
-                break;                
-            }
-        }
+        for (constraint* c : m_constraints) subsumption(*c);
+        for (constraint* c : m_learned) subsumption(*c);
         IF_VERBOSE(1, verbose_stream() << "binary subsumes: " << m_stats.m_num_bin_subsumes - bin_sub << "\n";);
         IF_VERBOSE(1, verbose_stream() << "clause subsumes: " << m_stats.m_num_clause_subsumes - clause_sub << "\n";);
         IF_VERBOSE(1, verbose_stream() << "card subsumes: " << m_stats.m_num_card_subsumes - card_sub << "\n";);
+    }
 
+    void ba_solver::subsumption(constraint& cnstr) {
+        if (cnstr.was_removed()) return;
+        switch (cnstr.tag()) {
+        case card_t: {
+            card& c = cnstr.to_card();
+            if (c.k() > 1) subsumption(c);
+            break;
+        }
+        default:
+            break;                
+        }
     }
 
     void ba_solver::cleanup_clauses() {
@@ -2524,12 +2718,12 @@ namespace sat {
     
     void ba_solver::cleanup_constraints() {
         if (!m_constraint_removed) return;
-        cleanup_constraints(m_constraints);
-        cleanup_constraints(m_learned);
+        cleanup_constraints(m_constraints, false);
+        cleanup_constraints(m_learned, true);
         m_constraint_removed = false;
     }
 
-    void ba_solver::cleanup_constraints(ptr_vector<constraint>& cs) {
+    void ba_solver::cleanup_constraints(ptr_vector<constraint>& cs, bool learned) {
         ptr_vector<constraint>::iterator it = cs.begin();
         ptr_vector<constraint>::iterator it2 = it;
         ptr_vector<constraint>::iterator end = cs.end();
@@ -2537,6 +2731,9 @@ namespace sat {
             constraint& c = *(*it);
             if (c.was_removed()) {
                 m_allocator.deallocate(c.obj_size(), &c);
+            }
+            else if (learned && !c.learned()) {
+                m_constraints.push_back(&c);
             }
             else {
                 if (it != it2) {
@@ -2629,6 +2826,7 @@ namespace sat {
                     TRACE("sat", tout << "subsume cardinality\n" << c1.index() << ":" << c1 << "\n" << c2.index() << ":" << c2 << "\n";);
                     remove_constraint(c2);
                     ++m_stats.m_num_card_subsumes;
+                    c1.set_learned(false);
                 }
                 else {
                     TRACE("sat", tout << "self subsume cardinality\n";);
@@ -2664,6 +2862,7 @@ namespace sat {
                     TRACE("sat", tout << "remove\n" << c1 << "\n" << c2 << "\n";);
                     removed_clauses.push_back(&c2);
                     ++m_stats.m_num_clause_subsumes;
+                    c1.set_learned(false);
                 }
                 else {
                     IF_VERBOSE(0, verbose_stream() << "self-subsume clause is TBD\n";);
@@ -2688,6 +2887,9 @@ namespace sat {
             if (w.is_binary_clause() && is_marked(w.get_literal())) {
                 ++m_stats.m_num_bin_subsumes;
                 // IF_VERBOSE(10, verbose_stream() << c1 << " subsumes (" << lit << " " << w.get_literal() << ")\n";);
+                if (!w.is_binary_non_learned_clause()) {
+                    c1.set_learned(false);
+                }
             }
             else {
                 if (it != it2) {
@@ -2868,6 +3070,12 @@ namespace sat {
         for (constraint const* c : m_constraints) {
             out << (*c) << "\n";
         }
+        if (!m_learned.empty()) {
+            out << "learned:\n";
+        }
+        for (constraint const* c : m_learned) {
+            out << (*c) << "\n";
+        }
         return out;
     }
 
@@ -2985,16 +3193,14 @@ namespace sat {
         }
         if (sum >= UINT_MAX/2) return 0;
         if (all_one) {
-            card& c = add_at_least(null_literal, lits, m_bound, true);
-            return &c;
+            return &add_at_least(null_literal, lits, m_bound, true);
         }
         else {
             svector<wliteral> wlits;
             for (unsigned i = 0; i < lits.size(); ++i) {
                 wlits.push_back(wliteral(coeffs[i], lits[i]));
             }
-            pb& p = add_pb_ge(null_literal, wlits, m_bound, true);
-            return &p;
+            return &add_pb_ge(null_literal, wlits, m_bound, true);
         }
     }
     

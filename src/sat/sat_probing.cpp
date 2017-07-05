@@ -96,10 +96,8 @@ namespace sat {
                 cache_bins(l, old_tr_sz);
             s.pop(1);
 
-            literal_vector::iterator it  = m_to_assert.begin();
-            literal_vector::iterator end = m_to_assert.end();
-            for (; it != end; ++it) {
-                s.assign(*it, justification());
+            for (literal l : m_to_assert) {
+                s.assign(l, justification());
                 m_num_assigned++;
             }
         }
