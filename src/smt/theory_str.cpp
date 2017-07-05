@@ -5619,7 +5619,7 @@ namespace smt {
     }
 
     void theory_str::print_grounded_concat(expr * node, std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap) {
-        TRACE("str", tout << mk_pp(node, m) << std::endl;);
+        TRACE("str", tout << mk_pp(node, get_manager()) << std::endl;);
         if (groundedMap.find(node) != groundedMap.end()) {
             std::map<std::vector<expr*>, std::set<expr*> >::iterator itor = groundedMap[node].begin();
             for (; itor != groundedMap[node].end(); ++itor) {
@@ -7515,7 +7515,7 @@ namespace smt {
         while (varItor != cut_var_map.end()) {
             std::stack<T_cut*> & val = cut_var_map[varItor->m_key];
             while ((val.size() > 0) && (val.top()->level != 0) && (val.top()->level >= sLevel)) {
-                TRACE("str", tout << "remove cut info for " << mk_pp(e, get_manager()) << std::endl; print_cut_var(e, tout););
+                // TRACE("str", tout << "remove cut info for " << mk_pp(e, get_manager()) << std::endl; print_cut_var(e, tout););
                 // T_cut * aCut = val.top();
                 val.pop();
                 // dealloc(aCut);
@@ -8828,7 +8828,7 @@ namespace smt {
                     // break;
                 } else {
                     // debug
-                    TRACE("str", tout << "variable " << mk_pp(itor->first, m) << " = " << mk_pp(eqcString, m) << std::endl;);
+                    // TRACE("str", tout << "variable " << mk_pp(itor->first, m) << " = " << mk_pp(eqcString, m) << std::endl;);
                 }
             }
         }
@@ -9315,8 +9315,8 @@ namespace smt {
                           << mk_ismt2_pp(makeupAssert, m) << std::endl;);
                     assert_axiom(makeupAssert);
                 } else {
-                    TRACE("str", tout << "value tester " << mk_ismt2_pp(aTester, m)
-                          << " == " << mk_ismt2_pp(aTester_eqc_value, m) << std::endl;);
+                    // TRACE("str", tout << "value tester " << mk_ismt2_pp(aTester, m)
+                    //      << " == " << mk_ismt2_pp(aTester_eqc_value, m) << std::endl;);
                 }
             }
 
@@ -10334,7 +10334,7 @@ namespace smt {
             }
             if (duplicated && dupVar != NULL) {
                 TRACE("str", tout << "Duplicated free variable found:" << mk_pp(freeVar, get_manager())
-                      << " = " << mk_ismt2_pp(dupVar, m) << " (SKIP)" << std::endl;);
+                      << " = " << mk_ismt2_pp(dupVar, get_manager()) << " (SKIP)" << std::endl;);
                 continue;
             } else {
                 eqcRepSet.insert(freeVar);
