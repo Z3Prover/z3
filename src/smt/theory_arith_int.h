@@ -200,10 +200,12 @@ namespace smt {
         SASSERT(is_int(v));
         SASSERT(!get_value(v).is_int());
         m_stats.m_branches++;
-        TRACE("arith_int", tout << "branching v" << v << " = " << get_value(v) << "\n";
-              display_var(tout, v););
         numeral k     = ceil(get_value(v));
         rational _k   = k.to_rational();
+        TRACE("arith_int", tout << "branching v" << v << " = " << get_value(v) << "\n";
+              display_var(tout, v);
+              tout << "k = " << k << ", _k = "<< _k << std::endl;
+              );
         expr_ref bound(get_manager());
         expr* e = get_enode(v)->get_owner();
         bound  = m_util.mk_ge(e, m_util.mk_numeral(_k, m_util.is_int(e)));
