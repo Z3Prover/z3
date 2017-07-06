@@ -940,7 +940,9 @@ template <typename T, typename X>  void lp_core_solver_base<T, X>::transpose_row
 }
 // j is the new basic column, j_basic - the leaving column
 template <typename T, typename X> bool lp_core_solver_base<T, X>::pivot_column_general(unsigned j, unsigned j_basic, indexed_vector<T> & w)  {
-    unsigned row_index = m_basis_heading[j_basic];
+	lean_assert(m_basis_heading[j] < 0);
+	lean_assert(m_basis_heading[j_basic] >= 0);
+	unsigned row_index = m_basis_heading[j_basic];
     change_basis(j, j_basic);
     if (m_settings.m_simplex_strategy == simplex_strategy_enum::lu) {
         if (m_factorization->need_to_refactor()) {
@@ -955,15 +957,16 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::pivot_column_g
             return false;
         }
     } else { // the tableau case
-        pivot_column_tableau(j, row_index);
+       return pivot_column_tableau(j, row_index);
     }
-    return true;
 }
+
 template <typename T, typename X>  void lp_core_solver_base<T, X>::pivot_fixed_vars_from_basis() {
     // run over basis and non-basis at the same time
     indexed_vector<T> w(m_basis.size()); // the buffer
     unsigned i = 0; // points to basis
     unsigned j = 0; // points to nonbasis
+	
     for (; i < m_basis.size() && j < m_nbasis.size(); i++) {
         unsigned ii = m_basis[i];
         unsigned jj;
@@ -978,11 +981,19 @@ template <typename T, typename X>  void lp_core_solver_base<T, X>::pivot_fixed_v
             if (j >= m_nbasis.size())
                 break;
             j++;
+<<<<<<< a4275bb735828a40f94571cae4765f8be8225423
             if (!pivot_column_general(jj, ii, w))
                 break;
             }
         }
         SASSERT(m_factorization->get_status()== LU_status::OK);
+=======
+			if (!pivot_column_general(jj, ii, w))
+				return; // total failure
+			break;
+        } 
+    }
+>>>>>>> fix a bug in pivot_fixed_vars_from_basis
 }
 
 template <typename T, typename X> bool 

@@ -493,6 +493,7 @@ public:
     }
     
     void change_basis(unsigned entering, unsigned leaving) {
+
         SASSERT(m_basis_heading[entering] < 0);
         
         int place_in_basis =  m_basis_heading[leaving];
