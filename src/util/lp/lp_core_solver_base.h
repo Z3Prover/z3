@@ -479,6 +479,7 @@ public:
     
     void change_basis(unsigned entering, unsigned leaving) {
         lean_assert(m_basis_heading[entering] < 0);
+		lean_assert(m_basis_heading[leaving] >= 0);
         
         int place_in_basis =  m_basis_heading[leaving];
         int place_in_non_basis = - m_basis_heading[entering] - 1;
