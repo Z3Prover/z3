@@ -455,6 +455,7 @@ namespace sat {
         svector<char> m_diff_levels;
         unsigned num_diff_levels(unsigned num, literal const * lits);
         bool     num_diff_levels_below(unsigned num, literal const* lits, unsigned max_glue, unsigned& glue);
+        bool     num_diff_false_levels_below(unsigned num, literal const* lits, unsigned max_glue, unsigned& glue);
 
         // lemma minimization
         typedef approx_set_tpl<unsigned, u2u, unsigned> level_approx_set;

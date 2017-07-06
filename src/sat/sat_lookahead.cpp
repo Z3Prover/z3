@@ -887,7 +887,7 @@ namespace sat {
             // enable when there is a non-ternary reward system.
             if (c.size() > 3) {
                 m_config.m_use_ternary_reward = false;
-            }
+            }            
 #endif
             bool was_eliminated = false;
             for (unsigned i = 0; !was_eliminated && i < c.size(); ++i) {

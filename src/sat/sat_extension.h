@@ -54,7 +54,7 @@ namespace sat {
         virtual void find_mutexes(literal_vector& lits, vector<literal_vector> & mutexes) = 0;
         virtual void gc() = 0;
         virtual void pop_reinit() = 0;
-        virtual void validate() = 0;
+        virtual bool validate() = 0;
     };
 
 };

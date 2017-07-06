@@ -39,6 +39,8 @@ namespace sat {
             unsigned m_num_bin_subsumes;
             unsigned m_num_clause_subsumes;
             unsigned m_num_card_subsumes;
+            unsigned m_num_cut;
+            unsigned m_num_gc;
             stats() { reset(); }
             void reset() { memset(this, 0, sizeof(*this)); }
         };
@@ -388,7 +390,7 @@ namespace sat {
         ineq m_A, m_B, m_C;
         void active2pb(ineq& p);
         constraint* active2constraint();
-        card* active2card();
+        constraint* active2card();
         void justification2pb(justification const& j, literal lit, unsigned offset, ineq& p);
         bool validate_resolvent();
 
@@ -398,9 +400,9 @@ namespace sat {
         void display(std::ostream& out, pb const& p, bool values) const;
         void display(std::ostream& out, xor const& c, bool values) const;
 
-        card& add_at_least(literal l, literal_vector const& lits, unsigned k, bool learned);
-        pb& add_pb_ge(literal l, svector<wliteral> const& wlits, unsigned k, bool learned);
-        xor& add_xor(literal l, literal_vector const& lits, bool learned);
+        constraint* add_at_least(literal l, literal_vector const& lits, unsigned k, bool learned);
+        constraint* add_pb_ge(literal l, svector<wliteral> const& wlits, unsigned k, bool learned);
+        constraint* add_xor(literal l, literal_vector const& lits, bool learned);
 
     public:
         ba_solver();
@@ -433,7 +435,7 @@ namespace sat {
 
         ptr_vector<constraint> const & constraints() const { return m_constraints; }
 
-        virtual void validate();
+        virtual bool validate();
 
     };
 

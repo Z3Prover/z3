@@ -1406,20 +1406,15 @@ namespace sat {
 
         SASSERT(at_base_lvl());
 
-
         m_cleaner();
         CASSERT("sat_simplify_bug", check_invariant());
 
         m_scc();
         CASSERT("sat_simplify_bug", check_invariant());
 
-        m_ext->validate();
-
         m_simplifier(false);
         CASSERT("sat_simplify_bug", check_invariant());
         CASSERT("sat_missed_prop", check_missed_propagation());
-
-        m_ext->validate();
 
         if (!m_learned.empty()) {
             m_simplifier(true);
@@ -1427,7 +1422,6 @@ namespace sat {
             CASSERT("sat_simplify_bug", check_invariant());
         }
 
-        m_ext->validate();
 
         if (m_config.m_lookahead_simplify) {
             {
@@ -1446,13 +1440,9 @@ namespace sat {
         sort_watch_lits();
         CASSERT("sat_simplify_bug", check_invariant());
 
-        m_ext->validate();
-
         m_probing();
         CASSERT("sat_missed_prop", check_missed_propagation());
         CASSERT("sat_simplify_bug", check_invariant());
-
-        m_ext->validate();
 
         m_asymm_branch();
         CASSERT("sat_missed_prop", check_missed_propagation());
@@ -2398,6 +2388,26 @@ namespace sat {
         return glue < max_glue;        
     }
 
+    bool solver::num_diff_false_levels_below(unsigned num, literal const* lits, unsigned max_glue, unsigned& glue) {
+        m_diff_levels.reserve(scope_lvl() + 1, false);
+        glue = 0;
+        unsigned i = 0;
+        for (; i < num && glue < max_glue; i++) {
+            if (value(lits[i]) == l_false) {
+                unsigned lit_lvl = lvl(lits[i]);
+                if (m_diff_levels[lit_lvl] == false) {
+                    m_diff_levels[lit_lvl] = true;
+                    glue++;
+                }
+            }
+        }
+        num = i;
+        // reset m_diff_levels.
+        for (i = 0; i < num; i++)
+            m_diff_levels[lvl(lits[i])] = false;
+        return glue < max_glue;        
+    }
+
 
     /**
        \brief Process an antecedent for lemma minimization.
@@ -3100,6 +3110,7 @@ namespace sat {
         if (!m_rlimit.inc()) return true;
         integrity_checker checker(*this);
         SASSERT(checker());
+        SASSERT(!m_ext || m_ext->validate());
         return true;
     }
 
