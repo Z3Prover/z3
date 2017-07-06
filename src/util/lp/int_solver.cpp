@@ -101,6 +101,186 @@ int int_solver::find_inf_int_boxed_base_column_with_smallest_range() {
     
 }
 
+bool int_solver::mk_gomory_cut(unsigned row_index, explanation & ex) {
+    lean_assert(false);
+    return true;
+    /*
+    const auto & row = m_lar_solver->A_r().m_rows[row_index];
+            // The following assertion is wrong. It may be violated in mixed-integer problems.
+    // SASSERT(!all_coeff_int(r));
+    theory_var x_i = r.get_base_var();
+        
+    SASSERT(is_int(x_i));
+    // The following assertion is wrong. It may be violated in mixed-real-interger problems.
+    // The check is_gomory_cut_target will discard rows where any variable contains infinitesimals.
+    // SASSERT(m_value[x_i].is_rational()); // infinitesimals are not used for integer variables
+    SASSERT(!m_value[x_i].is_int());     // the base variable is not assigned to an integer value.
+
+    if (constrain_free_vars(r) || !is_gomory_cut_target(r)) {
+        TRACE("gomory_cut", tout << "failed to apply gomory cut:\n";
+              tout << "constrain_free_vars(r):  " << constrain_free_vars(r) << "\n";);
+        return false;
+    }
+
+    TRACE("gomory_cut", tout << "applying cut at:\n"; display_row_info(tout, r););
+        
+    antecedents ante(*this);
+
+    m_stats.m_gomory_cuts++;
+
+    // gomory will be   pol >= k
+    numeral k(1);
+    buffer<row_entry> pol;
+        
+    numeral f_0  = Ext::fractional_part(m_value[x_i]);
+    numeral one_minus_f_0 = numeral(1) - f_0; 
+    SASSERT(!f_0.is_zero());
+    SASSERT(!one_minus_f_0.is_zero());
+        
+    numeral lcm_den(1);
+    unsigned num_ints = 0;
+
+    typename vector<row_entry>::const_iterator it  = r.begin_entries();
+    typename vector<row_entry>::const_iterator end = r.end_entries();
+    for (; it != end; ++it) {
+        if (!it->is_dead() && it->m_var != x_i) {
+            theory_var x_j   = it->m_var;
+            numeral a_ij = it->m_coeff;
+            a_ij.neg();  // make the used format compatible with the format used in: Integrating Simplex with DPLL(T)
+            if (is_real(x_j)) {
+                numeral new_a_ij;
+                if (at_lower(x_j)) {
+                    if (a_ij.is_pos()) {
+                        new_a_ij  =  a_ij / one_minus_f_0;
+                    }
+                    else {
+                        new_a_ij  =  a_ij / f_0;
+                        new_a_ij.neg();
+                    }
+                    k.addmul(new_a_ij, lower_bound(x_j).get_rational());
+                    lower(x_j)->push_justification(ante, new_a_ij, coeffs_enabled());
+                }
+                else {
+                    SASSERT(at_upper(x_j));
+                    if (a_ij.is_pos()) {
+                        new_a_ij =   a_ij / f_0; 
+                        new_a_ij.neg(); // the upper terms are inverted.
+                    }
+                    else {
+                        new_a_ij =   a_ij / one_minus_f_0; 
+                    }
+                    k.addmul(new_a_ij, upper_bound(x_j).get_rational());
+                    upper(x_j)->push_justification(ante, new_a_ij, coeffs_enabled());
+                }
+                TRACE("gomory_cut_detail", tout << a_ij << "*v" << x_j << " k: " << k << "\n";);
+                pol.push_back(row_entry(new_a_ij, x_j));
+            }
+            else {
+                ++num_ints;
+                SASSERT(is_int(x_j));
+                numeral f_j = Ext::fractional_part(a_ij);
+                TRACE("gomory_cut_detail", 
+                      tout << a_ij << "*v" << x_j << "\n";
+                      tout << "fractional_part: " << Ext::fractional_part(a_ij) << "\n";
+                      tout << "f_j: " << f_j << "\n";
+                      tout << "f_0: " << f_0 << "\n";
+                      tout << "one_minus_f_0: " << one_minus_f_0 << "\n";);
+                if (!f_j.is_zero()) {
+                    numeral new_a_ij;
+                    if (at_lower(x_j)) {
+                        if (f_j <= one_minus_f_0) {
+                            new_a_ij = f_j / one_minus_f_0;
+                        }
+                        else {
+                            new_a_ij = (numeral(1) - f_j) / f_0;
+                        }
+                        k.addmul(new_a_ij, lower_bound(x_j).get_rational());
+                        lower(x_j)->push_justification(ante, new_a_ij, coeffs_enabled());
+                    }
+                    else {
+                        SASSERT(at_upper(x_j));
+                        if (f_j <= f_0) {
+                            new_a_ij = f_j / f_0;
+                        }
+                        else {
+                            new_a_ij = (numeral(1) - f_j) / one_minus_f_0;
+                        }
+                        new_a_ij.neg(); // the upper terms are inverted
+                        k.addmul(new_a_ij, upper_bound(x_j).get_rational());
+                        upper(x_j)->push_justification(ante, new_a_ij, coeffs_enabled());
+                    }
+                    TRACE("gomory_cut_detail", tout << "new_a_ij: " << new_a_ij << " k: " << k << "\n";);
+                    pol.push_back(row_entry(new_a_ij, x_j));
+                    lcm_den = lcm(lcm_den, denominator(new_a_ij));
+                }
+            }
+        }
+    }
+
+    CTRACE("empty_pol", pol.empty(), display_row_info(tout, r););
+
+    expr_ref bound(get_manager());
+    if (pol.empty()) {
+        SASSERT(k.is_pos());
+        // conflict 0 >= k where k is positive
+        set_conflict(ante, ante, "gomory-cut");
+        return true;
+    }
+    else if (pol.size() == 1) {
+        theory_var v = pol[0].m_var;
+        k /= pol[0].m_coeff;
+        bool is_lower = pol[0].m_coeff.is_pos();
+        if (is_int(v) && !k.is_int()) {
+            k = is_lower?ceil(k):floor(k);
+        }
+        rational _k = k.to_rational();
+        if (is_lower)
+            bound = m_util.mk_ge(get_enode(v)->get_owner(), m_util.mk_numeral(_k, is_int(v)));
+        else
+            bound = m_util.mk_le(get_enode(v)->get_owner(), m_util.mk_numeral(_k, is_int(v)));
+    }
+    else { 
+        if (num_ints > 0) {
+            lcm_den = lcm(lcm_den, denominator(k));
+            TRACE("gomory_cut_detail", tout << "k: " << k << " lcm_den: " << lcm_den << "\n";
+                  for (unsigned i = 0; i < pol.size(); i++) {
+                      tout << pol[i].m_coeff << " " << pol[i].m_var << "\n";
+                  }
+                  tout << "k: " << k << "\n";);
+            SASSERT(lcm_den.is_pos());
+            if (!lcm_den.is_one()) {
+                // normalize coefficients of integer parameters to be integers.
+                unsigned n = pol.size();
+                for (unsigned i = 0; i < n; i++) {
+                    pol[i].m_coeff *= lcm_den;
+                    SASSERT(!is_int(pol[i].m_var) || pol[i].m_coeff.is_int());
+                }
+                k *= lcm_den;
+            }
+            TRACE("gomory_cut_detail", tout << "after *lcm\n";
+                  for (unsigned i = 0; i < pol.size(); i++) {
+                      tout << pol[i].m_coeff << " * v" << pol[i].m_var << "\n";
+                  }
+                  tout << "k: " << k << "\n";);
+        }
+        mk_polynomial_ge(pol.size(), pol.c_ptr(), k.to_rational(), bound);            
+    }
+    TRACE("gomory_cut", tout << "new cut:\n" << bound << "\n"; ante.display(tout););
+    literal l     = null_literal;
+    context & ctx = get_context();
+    ctx.internalize(bound, true);
+    l = ctx.get_literal(bound);
+    ctx.mark_as_relevant(l);
+    dump_lemmas(l, ante);
+    ctx.assign(l, ctx.mk_justification(
+                                       gomory_cut_justification(
+                                                                get_id(), ctx.get_region(), 
+                                                                ante.lits().size(), ante.lits().c_ptr(), 
+                                                                ante.eqs().size(), ante.eqs().c_ptr(), ante, l)));
+    return true;
+    */
+
+}
 lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
     lean_assert(is_feasible());
     init_inf_int_set();
@@ -129,32 +309,35 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
 
     if ((++m_branch_cut_counter) % settings().m_int_branch_cut_threshold == 0) {
         move_non_base_vars_to_bounds();
-        /*
-        if (!make_feasible()) {
-            TRACE("arith_int", tout << "failed to move variables to bounds.\n";);
-            failed();
-            return FC_CONTINUE;
+        lp_status st = m_lar_solver->find_feasible_solution();
+        if (st != lp_status::FEASIBLE && st != lp_status::OPTIMAL) {
+            return lia_move::give_up;
         }
-        int int_var = find_inf_int_base_var();
-        if (int_var != null_int) {
-            TRACE("arith_int", tout << "v" << int_var << " does not have an integer assignment: " << get_value(int_var) << "\n";);
-            SASSERT(is_base(int_var));
-            row const & r = m_rows[get_var_row(int_var)];
-            if (!mk_gomory_cut(r)) {
+        int j = find_inf_int_base_column();
+        if (j != -1) {
+            TRACE("arith_int", tout << "j = " << j << " does not have an integer assignment: " << get_value(j) << "\n";);
+            unsigned row_index = m_lar_solver->m_mpq_lar_core_solver.m_r_heading[j];
+            if (!mk_gomory_cut(row_index, ex)) {
+                return lia_move::give_up;
                 // silent failure
             }
-            return FC_CONTINUE;
-            }*/
+            return lia_move::cut;
+        }
     }
     else {
         int j = find_inf_int_base_column();
-        /*
         if (j != -1) {
-            TRACE("arith_int", tout << "v" << j << " does not have an integer assignment: " << get_value(j) << "\n";);
-            // apply branching 
-            branch_infeasible_int_var(int_var);
-            return false;
-            }*/
+            TRACE("arith_int", tout << "j" << j << " does not have an integer assignment: " << get_value(j) << "\n";);
+
+            lean_assert(t.is_empty());
+            t.add_to_map(j, mpq(1));
+            k = floor(get_value(j));
+            TRACE("arith_int", tout << "branching v" << j << " = " << get_value(j) << "\n";
+              display_column(tout, j);
+              tout << "k = " << k << std::endl;
+              );
+            return lia_move::branch;
+        }
     }
     //    return true;
     return lia_move::give_up;
@@ -259,7 +442,6 @@ mpq get_denominators_lcm(iterator_on_row<mpq> &it) {
     
 bool int_solver::gcd_test_for_row(static_matrix<mpq, numeric_pair<mpq>> & A, unsigned i, explanation & ex) {
     iterator_on_row<mpq> it(A.m_rows[i]);
-    std::cout << "gcd_test_for_row(" << i << ")\n";
     mpq lcm_den = get_denominators_lcm(it);
     mpq consts(0);
     mpq gcds(0);
@@ -350,8 +532,6 @@ bool int_solver::ext_gcd_test(iterator_on_row<mpq> & it,
                               mpq const & least_coeff, 
                               mpq const & lcm_den,
                               mpq const & consts, explanation& ex) {
-
-    std::cout << "calling ext_gcd_test" << std::endl;
     mpq gcds(0);
     mpq l(consts);
     mpq u(consts);

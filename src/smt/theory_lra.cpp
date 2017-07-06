@@ -55,13 +55,15 @@ namespace lra_lp {
     class bound {
         smt::bool_var    m_bv;
         smt::theory_var  m_var;
+        bool             m_is_int;
         rational         m_value;
         bound_kind       m_bound_kind;
 
     public:
-        bound(smt::bool_var bv, smt::theory_var v, rational const & val, bound_kind k):
+        bound(smt::bool_var bv, smt::theory_var v, bool is_int, rational const & val, bound_kind k):
             m_bv(bv),
             m_var(v),
+            m_is_int(is_int),
             m_value(val),
             m_bound_kind(k) {
         }
@@ -69,12 +71,20 @@ namespace lra_lp {
         smt::theory_var get_var() const { return m_var; }
         smt::bool_var get_bv() const { return m_bv; }
         bound_kind get_bound_kind() const { return m_bound_kind; }
+        bool is_int() const { return m_is_int; }
         rational const& get_value() const { return m_value; }
         inf_rational get_value(bool is_true) const {
             if (is_true) return inf_rational(m_value);                         // v >= value or v <= value
-            if (m_bound_kind == lower_t) return inf_rational(m_value, false);  // v <= value - epsilon
-            return inf_rational(m_value, true);                                // v >= value + epsilon
-        }
+
+            if (m_is_int) {
+                if (m_bound_kind == lower_t) return inf_rational(m_value - rational::one()); // v <= value - 1
+                return inf_rational(m_value + rational::one());                              // v >= value + 1
+            }
+            else {
+                if (m_bound_kind == lower_t) return inf_rational(m_value, false);  // v <= value - epsilon
+                return inf_rational(m_value, true);                                // v >= value + epsilon
+            }
+        } 
         virtual std::ostream& display(std::ostream& out) const {
             return out << "v" << get_var() << "  " << get_bound_kind() << " " << m_value;
         }
@@ -305,7 +315,6 @@ namespace smt {
                 }
             }
         }
-
 
         void found_not_handled(expr* n) {
             m_not_handled = n;
@@ -762,7 +771,7 @@ namespace smt {
                 found_not_handled(atom);
                 return true;
             }
-            lra_lp::bound* b = alloc(lra_lp::bound, bv, v, r, k);
+            lp::bound* b = alloc(lp::bound, bv, v, is_int(v), r, k);
             m_bounds[v].push_back(b);
             updt_unassigned_bounds(v, +1);
             m_bounds_trail.push_back(v);
@@ -1217,33 +1226,49 @@ namespace smt {
             return FC_GIVEUP;
         }
 
-        // create a bound atom representing term >= k
-        lp::bound* mk_bound(lean::lar_term const& term, rational const& k) {
-            NOT_IMPLEMENTED_YET();
-            lp::bound_kind bkind = lp::bound_kind::lower_t;
-            bool_var bv = null_bool_var; 
-            theory_var v = null_theory_var;
-            lp::bound* result = alloc(lp::bound, bv, v, k, bkind);
-            return result;
+        // create a bound atom representing term <= k
+        app_ref mk_bound(lean::lar_term const& term, rational const& k) {
+            SASSERT(k.is_int());
+            app_ref t = mk_term(term, true);
+            app_ref atom(a.mk_le(t, a.mk_numeral(k, true)), m);
+            TRACE("arith", tout << atom << "\n";
+                  m_solver->print_term(term, tout << "bound atom: "); tout << " <= " << k << "\n";
+                  display(tout);
+                  );
+            ctx().internalize(atom, true);
+            ctx().mark_as_relevant(atom.get());
+            return atom;
         }
 
         lbool check_lia() {
-            std::cout << "called check_lia()\n";
+            if (m.canceled()) return l_undef;
             lean::lar_term term;
             lean::mpq k;
             lean::explanation ex; // TBD, this should be streamlined accross different explanations
             switch(m_lia->check(term, k, ex)) {
             case lean::lia_move::ok:
                 return l_true;
-            case lean::lia_move::branch:
+            case lean::lia_move::branch: {
+                (void)mk_bound(term, k);
                 // branch on term <= k
-                NOT_IMPLEMENTED_YET();
+                // at this point we have a new unassigned atom that the 
+                // SAT core assigns a value to
                 return l_false;
-            case lean::lia_move::cut:
+            }
+            case lean::lia_move::cut: {
                 // m_explanation implies term <= k
-                m_explanation = ex.m_explanation;
-                NOT_IMPLEMENTED_YET();
+                app_ref b = mk_bound(term, k);
+                m_eqs.reset();
+                m_core.reset();
+                m_params.reset();
+                for (auto const& ev : ex.m_explanation) {
+                    if (!ev.first.is_zero()) { 
+                        set_evidence(ev.second);
+                    }
+                }
+                assign(literal(ctx().get_bool_var(b), false));
                 return l_false;
+            }
             case lean::lia_move::conflict:
                 // ex contains unsat core
                 m_explanation = ex.m_explanation;
@@ -2052,7 +2077,15 @@ namespace smt {
                 ++m_stats.m_assert_upper;
             }
             auto vi = get_var_index(b.get_var());
-            auto ci = m_solver->add_var_bound(vi, k, b.get_value());
+            rational bound = b.get_value();
+            lean::constraint_index ci;
+            if (is_int && !is_true) {
+                rational bound = b.get_value(false).get_rational();
+                ci = m_solver->add_var_bound(vi, k, bound);
+            }
+            else {
+                ci = m_solver->add_var_bound(vi, k, b.get_value());
+            }
             TRACE("arith", tout << "v" << b.get_var() << "\n";);
             add_ineq_constraint(ci, literal(bv, !is_true));
 
@@ -2522,8 +2555,21 @@ namespace smt {
                     expr* o = get_enode(w)->get_owner();
                     args.push_back(a.mk_mul(a.mk_numeral(ti.second, is_int), o));
                 }
+            }
+            if (!term.m_v.is_zero()) {
                 args.push_back(a.mk_numeral(term.m_v, is_int));
-                return app_ref(a.mk_add(args.size(), args.c_ptr()), m);
+            }
+            if (args.size() == 1) {
+                return app_ref(to_app(args[0].get()), m);
+            }
+            return app_ref(a.mk_add(args.size(), args.c_ptr()), m);
+        }
+
+        app_ref mk_obj(theory_var v) {
+            lean::var_index vi = m_theory_var2var_index[v];
+            bool is_int = a.is_int(get_enode(v)->get_owner());
+            if (m_solver->is_term(vi)) {           
+                return mk_term(m_solver->get_term(vi), is_int);
             }
             else {
                 theory_var w = m_var_index2theory_var[vi];
