@@ -959,6 +959,7 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::pivot_column_g
     } else { // the tableau case
        return pivot_column_tableau(j, row_index);
     }
+    return true;
 }
 
 template <typename T, typename X>  void lp_core_solver_base<T, X>::pivot_fixed_vars_from_basis() {
