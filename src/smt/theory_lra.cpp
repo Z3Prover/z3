@@ -316,6 +316,7 @@ namespace smt {
             }
         }
 
+
         void found_not_handled(expr* n) {
             m_not_handled = n;
             if (is_app(n) && is_underspecified(to_app(n))) {
@@ -425,9 +426,6 @@ namespace smt {
                 else {
                     if (is_app(n)) {
                         internalize_args(to_app(n));
-                    }
-                    if (a.is_int(n)) {
-                        found_not_handled(n);
                     }
                     theory_var v = mk_var(n);
                     coeffs[vars.size()] = coeffs[index];
@@ -1196,6 +1194,7 @@ namespace smt {
                 case l_false:
                     return FC_CONTINUE;
                 case l_undef:
+                    TRACE("arith", tout << "check-lia giveup\n";);
                     st = FC_GIVEUP;
                     break;
                 }
@@ -1206,23 +1205,27 @@ namespace smt {
                 case l_false:
                     return FC_CONTINUE;
                 case l_undef:
+                    TRACE("arith", tout << "check-nra giveup\n";);
                     st = FC_GIVEUP;
                     break;
                 }
-                if (m_not_handled != 0) {                    
+                if (m_not_handled != 0) {            
+                    TRACE("arith", tout << "unhandled operator " << mk_pp(m_not_handled, m) << "\n";);        
                     st = FC_GIVEUP;
                 }
-
+                
                 return st;
             case l_false:
                 set_conflict();
                 return FC_CONTINUE;
             case l_undef:
+                TRACE("arith", tout << "check feasiable is undef\n";);
                 return m.canceled() ? FC_CONTINUE : FC_GIVEUP;
             default:
                 UNREACHABLE();
                 break;
             }
+            TRACE("arith", tout << "default giveup\n";);
             return FC_GIVEUP;
         }
 
@@ -1275,10 +1278,12 @@ namespace smt {
                 set_conflict1();
                 return l_false;
             case lean::lia_move::give_up:
+                TRACE("arith", tout << "lia giveup\n";);
                 return l_undef;
             default:
                 UNREACHABLE();
             }
+            UNREACHABLE();
             return l_undef;
         }
 
@@ -1301,6 +1306,8 @@ namespace smt {
                     return l_false;
                 }
                 break;
+            case l_undef:
+                TRACE("arith", tout << "nra-undef\n";);
             default:
                 break;
             }
