@@ -72,14 +72,34 @@ void func_decls::finalize(ast_manager & m) {
     m_decls = 0;
 }
 
+bool func_decls::signatures_collide(func_decl* f, func_decl* g) const {
+    if (f == g) {
+        return true;
+    }
+    if (f->get_arity() != g->get_arity() || f->get_range() == g->get_range()) {
+        return false;
+    }
+    for (unsigned i = 0; i < f->get_arity(); ++i) {
+        if (f->get_domain(i) != g->get_domain(i)) 
+            return false;
+    }
+    // they have the same type arguments, but different range types.
+    return true;
+}
+
 bool func_decls::contains(func_decl * f) const {
     if (GET_TAG(m_decls) == 0) {
-        return UNTAG(func_decl*, m_decls) == f;
+        func_decl* g = UNTAG(func_decl*, m_decls);
+        if (!g) return false;
+        return signatures_collide(f, g);
     }
     else {
         func_decl_set * fs = UNTAG(func_decl_set *, m_decls);
-        return fs->contains(f);
+        for (func_decl* g : *fs) {
+            if (signatures_collide(f, g)) return true;
+        }
     }
+    return false;
 }
 
 bool func_decls::insert(ast_manager & m, func_decl * f) {
@@ -661,7 +681,7 @@ void cmd_context::insert(symbol const & s, func_decl * f) {
         msg += f->get_arity() == 0 ? "constant" : "function";
         msg += " '";
         msg += s.str();
-        msg += "' (with the given signature) already declared";
+        msg += "' (with the given signature) already declared with an overlapping signature";
         throw cmd_exception(msg.c_str());
     }
     if (s != f->get_name()) {
