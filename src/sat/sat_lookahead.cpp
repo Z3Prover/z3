@@ -852,6 +852,8 @@ namespace sat {
         copy_clauses(m_s.m_clauses);
         copy_clauses(m_s.m_learned);
 
+        m_config.m_use_ternary_reward &= !m_s.m_ext;
+
         // copy units
         unsigned trail_sz = m_s.init_trail_size();
         for (unsigned i = 0; i < trail_sz; ++i) {
@@ -883,12 +885,10 @@ namespace sat {
         for (; it != end; ++it) {                
             clause& c = *(*it);
             if (c.was_removed()) continue;
-#if 0
             // enable when there is a non-ternary reward system.
             if (c.size() > 3) {
                 m_config.m_use_ternary_reward = false;
             }            
-#endif
             bool was_eliminated = false;
             for (unsigned i = 0; !was_eliminated && i < c.size(); ++i) {
                 was_eliminated = m_s.was_eliminated(c[i].var());
@@ -1042,6 +1042,14 @@ namespace sat {
     // Only the size indicator needs to be updated on backtracking.
     // 
 
+    class lookahead_literal_occs_fun : public literal_occs_fun {
+        lookahead& lh;
+    public:
+        lookahead_literal_occs_fun(lookahead& lh): lh(lh) {}
+        double operator()(literal l) { return lh.literal_occs(l); }
+    };
+
+
     void lookahead::propagate_clauses(literal l) {
         SASSERT(is_true(l));
         if (inconsistent()) return;
@@ -1172,6 +1180,10 @@ namespace sat {
             case watched::EXT_CONSTRAINT: {
                 SASSERT(m_s.m_ext);
                 bool keep = m_s.m_ext->propagate(l, it->get_ext_constraint_idx());
+                if (m_search_mode == lookahead_mode::lookahead1) {
+                    lookahead_literal_occs_fun literal_occs_fn(*this);
+                    m_lookahead_reward += m_s.m_ext->get_reward(l, it->get_ext_constraint_idx(), literal_occs_fn);
+                }
                 if (m_inconsistent) {
                     if (!keep) ++it;
                     set_conflict();                        
@@ -1222,7 +1234,7 @@ namespace sat {
                     to_add += literal_occs(l);
                 } 
             }
-            m_lookahead_reward += pow(sz, -2) * to_add;
+            m_lookahead_reward += pow(0.5, sz) * to_add;
         }
         else {
             m_lookahead_reward = (double)0.001;            

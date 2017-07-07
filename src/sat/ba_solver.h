@@ -191,9 +191,9 @@ namespace sat {
 
         struct ineq {
             literal_vector  m_lits;
-            unsigned_vector m_coeffs;
-            unsigned        m_k;
-            void reset(unsigned k) { m_lits.reset(); m_coeffs.reset(); m_k = k; }
+            svector<uint64> m_coeffs;
+            uint64        m_k;
+            void reset(uint64 k) { m_lits.reset(); m_coeffs.reset(); m_k = k; }
             void push(literal l, unsigned c) { m_lits.push_back(l); m_coeffs.push_back(c); }
         };
 
@@ -213,9 +213,9 @@ namespace sat {
         // conflict resolution
         unsigned          m_num_marks;
         unsigned          m_conflict_lvl;
-        svector<int>      m_coeffs;
+        svector<int64>    m_coeffs;
         svector<bool_var> m_active_vars;
-        int               m_bound;
+        int64             m_bound;
         tracked_uint_set  m_active_var_set;
         literal_vector    m_lemma;
         literal_vector    m_skipped;
@@ -246,6 +246,9 @@ namespace sat {
         bool subsumes(card& c1, card& c2, literal_vector& comp);
         bool subsumes(card& c1, clause& c2, literal_vector& comp);
         bool subsumed(card& c1, literal l1, literal l2);
+        bool subsumes(pb const& p1, pb_base const& p2);
+        void subsumes(pb& p1, literal lit);
+        void subsumption(pb& p1);
         void binary_subsumption(card& c1, literal lit);
         void clause_subsumption(card& c1, literal lit, clause_vector& removed_clauses);
         void card_subsumption(card& c1, literal lit);
@@ -259,7 +262,6 @@ namespace sat {
         unsigned set_non_external();
         unsigned elim_pure();
         bool elim_pure(literal lit);
-        void subsumption();
         void subsumption(constraint& c1);
         void subsumption(card& c1);
         void gc_half(char const* _method);
@@ -317,6 +319,8 @@ namespace sat {
         void flush_roots(card& c);
         void recompile(card& c);
         lbool eval(card const& c) const;
+        double get_reward(card const& c, literal_occs_fun& occs) const;
+
 
         // xor specific functionality
         void clear_watch(xor& x);
@@ -343,6 +347,7 @@ namespace sat {
         void flush_roots(pb& p);
         void recompile(pb& p);
         lbool eval(pb const& p) const;
+        double get_reward(pb const& p, literal_occs_fun& occs) const;
 
         // access solver
         inline lbool value(bool_var v) const { return value(literal(v, false)); }
@@ -358,15 +363,18 @@ namespace sat {
         inline void drat_add(literal_vector const& c, svector<drat::premise> const& premises) { m_solver->m_drat.add(c, premises); }
 
 
+        mutable bool m_overflow;
         void reset_active_var_set();
         void normalize_active_coeffs();
-        void inc_coeff(literal l, int offset);
-        int get_coeff(bool_var v) const;
-        int get_abs_coeff(bool_var v) const;       
+        void inc_coeff(literal l, int64 offset);
+        int64 get_coeff(bool_var v) const;
+        int64 get_abs_coeff(bool_var v) const;       
+        int   get_int_coeff(bool_var v) const;
+        unsigned get_bound() const;
 
         literal get_asserting_literal(literal conseq);
-        void process_antecedent(literal l, int offset);
-        void process_card(card& c, int offset);
+        void process_antecedent(literal l, int64 offset);
+        void process_card(card& c, int64 offset);
         void cut();
         bool create_asserting_lemma();
 
@@ -432,6 +440,7 @@ namespace sat {
         virtual void find_mutexes(literal_vector& lits, vector<literal_vector> & mutexes);
         virtual void pop_reinit();
         virtual void gc(); 
+        virtual double get_reward(literal l, ext_justification_idx idx, literal_occs_fun& occs) const;
 
         ptr_vector<constraint> const & constraints() const { return m_constraints; }
 

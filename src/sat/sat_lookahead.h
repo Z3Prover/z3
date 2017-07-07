@@ -402,8 +402,7 @@ namespace sat {
         literal select_literal();
         void update_binary_clause_reward(literal l1, literal l2);
         void update_nary_clause_reward(clause const& c);
-        double literal_occs(literal l);
-
+ 
         void set_lookahead_reward(literal l, double f) { m_lits[l.index()].m_lookahead_reward = f; }
         void inc_lookahead_reward(literal l, double f) { m_lits[l.index()].m_lookahead_reward += f; }
         double get_lookahead_reward(literal l) const { return m_lits[l.index()].m_lookahead_reward; }
@@ -486,6 +485,8 @@ namespace sat {
         model const& get_model();
 
         void collect_statistics(statistics& st) const;
+
+       double literal_occs(literal l);
               
     };
 }
