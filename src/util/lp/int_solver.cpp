@@ -745,7 +745,7 @@ void int_solver::display_column(std::ostream & out, unsigned j) const {
 
 bool int_solver::inf_int_set_is_correct() const {
     for (unsigned j = 0; j < m_lar_solver->A_r().column_count(); j++) {
-        if (m_inf_int_set.contains(j) != is_int(j) && (!value_is_int(j)))
+        if (m_inf_int_set.contains(j) != (is_int(j) && (!value_is_int(j))))
             return false;
     }
     return true;
@@ -758,7 +758,7 @@ bool int_solver::column_is_int_inf(unsigned j) const {
 void int_solver::init_inf_int_set() {
     m_inf_int_set.clear();
     m_inf_int_set.resize(m_lar_solver->A_r().column_count());
-    for (unsigned j : m_lar_solver->m_mpq_lar_core_solver.m_r_basis) {
+	for (unsigned j = 0; j < m_lar_solver->A_r().column_count(); j++) {
         if (column_is_int_inf(j))
             m_inf_int_set.insert(j);
     }
