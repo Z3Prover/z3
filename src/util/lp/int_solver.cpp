@@ -11,11 +11,12 @@ void int_solver::fix_non_base_columns() {
     auto & lcs = m_lar_solver->m_mpq_lar_core_solver;
     for (unsigned j : lcs.m_r_nbasis) {
         if (column_is_int_inf(j)) {
-            set_value(j, floor(lcs.m_r_x[j].x));
+            set_value_for_nbasic_column(j, floor(lcs.m_r_x[j].x));
         }
     }
     if (m_lar_solver->find_feasible_solution() == INFEASIBLE)
         failed();
+	lean_assert(is_feasible() && inf_int_set_is_correct());
 }
 
 void int_solver::failed() {
@@ -307,13 +308,9 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
         
     */
     m_lar_solver->pivot_fixed_vars_from_basis();
-	lean_assert(m_lar_solver->m_mpq_lar_core_solver.r_basis_is_OK());
-    patch_int_infeasible_columns();
-	lean_assert(m_lar_solver->m_mpq_lar_core_solver.r_basis_is_OK());
+	patch_int_infeasible_columns();
 	fix_non_base_columns();
-	lean_assert(m_lar_solver->m_mpq_lar_core_solver.r_basis_is_OK());
-	lean_assert(is_feasible());
-    TRACE("arith_int_rows", trace_inf_rows(););
+	TRACE("arith_int_rows", trace_inf_rows(););
     
     if (find_inf_int_base_column() == -1)
         return lia_move::ok;
@@ -363,19 +360,19 @@ void int_solver::move_non_base_vars_to_bounds() {
         switch (lcs.m_column_types()[j]) {
         case column_type::boxed:
             if (val != lcs.m_r_low_bounds()[j] && val != lcs.m_r_upper_bounds()[j])
-                set_value(j, lcs.m_r_low_bounds()[j]);
+                set_value_for_nbasic_column(j, lcs.m_r_low_bounds()[j]);
             break;
         case column_type::low_bound:
             if (val != lcs.m_r_low_bounds()[j])
-                set_value(j, lcs.m_r_low_bounds()[j]);
+                set_value_for_nbasic_column(j, lcs.m_r_low_bounds()[j]);
             break;
         case column_type::upper_bound:
             if (val != lcs.m_r_upper_bounds()[j])
-                set_value(j, lcs.m_r_upper_bounds()[j]);
+                set_value_for_nbasic_column(j, lcs.m_r_upper_bounds()[j]);
             break;
         default:
             if (is_int(j) && !val.is_int()) {
-                set_value(j, impq(floor(val)));
+                set_value_for_nbasic_column(j, impq(floor(val)));
             }
         }
     }
@@ -383,7 +380,8 @@ void int_solver::move_non_base_vars_to_bounds() {
 
 
 
-void int_solver::set_value(unsigned j, const impq & new_val) {
+void int_solver::set_value_for_nbasic_column(unsigned j, const impq & new_val) {
+	lean_assert(!is_base(j));
     auto & x = m_lar_solver->m_mpq_lar_core_solver.m_r_x[j];
     if (!m_old_values_set.contains(j)) {
         m_old_values_set.insert(j);
@@ -392,7 +390,12 @@ void int_solver::set_value(unsigned j, const impq & new_val) {
     auto delta = new_val - x;
     x = new_val;
     m_lar_solver->change_basic_x_by_delta_on_column(j, delta);
-    update_column_in_inf_set_set(j);
+    update_column_in_int_inf_set(j);
+	auto * it = get_column_iterator(j);
+	unsigned i;
+	while (it->next(i))
+		update_column_in_int_inf_set(m_lar_solver->m_mpq_lar_core_solver.m_r_basis[i]);
+	delete it;
 }
 
 void int_solver::patch_int_infeasible_columns() {
@@ -425,22 +428,23 @@ void int_solver::patch_int_infeasible_columns() {
                 TRACE("patch_int",
                       tout << "patching with l: " << l << '\n';);
                 
-                set_value(j, l);
+                set_value_for_nbasic_column(j, l);
             } else {
                 TRACE("patch_int", 
                       tout << "not patching " << l << "\n";);
             }
         } else if (!inf_u) {
             u = m_is_one? floor(u) : m * floor(u / m);
-            set_value(j, u);
+            set_value_for_nbasic_column(j, u);
             TRACE("patch_int",
                   tout << "patching with u: " << u << '\n';);
         } else {
-            set_value(j, impq(0));
+            set_value_for_nbasic_column(j, impq(0));
             TRACE("patch_int",
                   tout << "patching with 0\n";);
         }
-    }
+		lean_assert(is_feasible() && inf_int_set_is_correct());
+	}
 }
 
 mpq get_denominators_lcm(iterator_on_row<mpq> &it) {
@@ -777,7 +781,7 @@ void int_solver::init_inf_int_set() {
     }
 }
 
-void int_solver::update_column_in_inf_set_set(unsigned j) {
+void int_solver::update_column_in_int_inf_set(unsigned j) {
     if (is_int(j) && (!value_is_int(j)))
         m_inf_int_set.insert(j);
     else

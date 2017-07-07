@@ -963,6 +963,7 @@ template <typename T, typename X>  void lp_core_solver_base<T, X>::pivot_fixed_v
         unsigned jj;
 
         if (get_column_type(ii) != column_type::fixed) continue;
+		//todo run over the row here!!!!!
         while (j < m_nbasis.size()) {
             for (; j < m_nbasis.size(); j++) {
                 jj = m_nbasis[j];

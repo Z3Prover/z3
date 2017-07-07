@@ -81,7 +81,7 @@ private:
     bool is_base(unsigned j) const;
     bool is_boxed(unsigned j) const;
     bool value_is_int(unsigned j) const;
-    void set_value(unsigned j, const impq & new_val);
+    void set_value_for_nbasic_column(unsigned j, const impq & new_val);
     void fix_non_base_columns();
     void failed();
     bool is_feasible() const;
@@ -89,7 +89,7 @@ private:
     void display_column(std::ostream & out, unsigned j) const;
     bool inf_int_set_is_correct() const;
     void init_inf_int_set();
-    void update_column_in_inf_set_set(unsigned j);
+    void update_column_in_int_inf_set(unsigned j);
     bool column_is_int_inf(unsigned j) const;
     void trace_inf_rows() const;
     int find_inf_int_base_column();
