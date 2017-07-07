@@ -281,9 +281,18 @@ bool int_solver::mk_gomory_cut(unsigned row_index, explanation & ex) {
     */
 
 }
+
+void int_solver::init_check_data() {
+	init_inf_int_set();
+	unsigned n = m_lar_solver->A_r().column_count();
+	m_old_values_set.resize(n);
+	m_old_values_data.resize(n);
+}
+
 lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
-    lean_assert(is_feasible());
-    init_inf_int_set();
+	lean_assert(m_lar_solver->m_mpq_lar_core_solver.r_basis_is_OK());
+	lean_assert(is_feasible());
+	init_check_data();
     lean_assert(inf_int_set_is_correct());
     // currently it is a reimplementation of
     // final_check_status theory_arith<Ext>::check_int_feasibility()
@@ -298,9 +307,12 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
         
     */
     m_lar_solver->pivot_fixed_vars_from_basis();
+	lean_assert(m_lar_solver->m_mpq_lar_core_solver.r_basis_is_OK());
     patch_int_infeasible_columns();
-    fix_non_base_columns();
-    lean_assert(is_feasible());
+	lean_assert(m_lar_solver->m_mpq_lar_core_solver.r_basis_is_OK());
+	fix_non_base_columns();
+	lean_assert(m_lar_solver->m_mpq_lar_core_solver.r_basis_is_OK());
+	lean_assert(is_feasible());
     TRACE("arith_int_rows", trace_inf_rows(););
     
     if (find_inf_int_base_column() == -1)
@@ -339,7 +351,8 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
             return lia_move::branch;
         }
     }
-    //    return true;
+	lean_assert(m_lar_solver->m_mpq_lar_core_solver.r_basis_is_OK());
+	//    return true;
     return lia_move::give_up;
 }
 
