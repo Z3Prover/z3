@@ -215,7 +215,7 @@ namespace sat {
         unsigned          m_conflict_lvl;
         svector<int64>    m_coeffs;
         svector<bool_var> m_active_vars;
-        int64             m_bound;
+        unsigned          m_bound;
         tracked_uint_set  m_active_var_set;
         literal_vector    m_lemma;
         literal_vector    m_skipped;
@@ -366,15 +366,16 @@ namespace sat {
         mutable bool m_overflow;
         void reset_active_var_set();
         void normalize_active_coeffs();
-        void inc_coeff(literal l, int64 offset);
+        void inc_coeff(literal l, unsigned offset);
         int64 get_coeff(bool_var v) const;
-        int64 get_abs_coeff(bool_var v) const;       
+        unsigned get_abs_coeff(bool_var v) const;       
         int   get_int_coeff(bool_var v) const;
         unsigned get_bound() const;
+        void inc_bound(int64 i);
 
         literal get_asserting_literal(literal conseq);
-        void process_antecedent(literal l, int64 offset);
-        void process_card(card& c, int64 offset);
+        void process_antecedent(literal l, unsigned offset);
+        void process_card(card& c, unsigned offset);
         void cut();
         bool create_asserting_lemma();
 
