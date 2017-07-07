@@ -98,5 +98,6 @@ private:
     void move_non_base_vars_to_bounds();
     void branch_infeasible_int_var(unsigned);
     bool mk_gomory_cut(unsigned row_index, explanation & ex);
+	void init_check_data();
 };
 }
