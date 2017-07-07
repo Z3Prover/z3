@@ -137,7 +137,8 @@ void goal::push_back(expr * f, proof * pr, expr_dependency * d) {
 }
 
 void goal::quick_process(bool save_first, expr_ref& f, expr_dependency * d) {
-    if (!m().is_and(f) && !(m().is_not(f) && m().is_or(to_app(f)->get_arg(0)))) {
+    expr* g = 0;
+    if (!m().is_and(f) && !(m().is_not(f, g) && m().is_or(g))) {
         if (!save_first) {
             push_back(f, 0, d);
         }
@@ -170,8 +171,8 @@ void goal::quick_process(bool save_first, expr_ref& f, expr_dependency * d) {
                 todo.push_back(expr_pol(t->get_arg(i), false));
             }
         }
-        else if (m().is_not(curr)) {
-            todo.push_back(expr_pol(to_app(curr)->get_arg(0), !pol));
+        else if (m().is_not(curr, g)) {
+            todo.push_back(expr_pol(g, !pol));
         }
         else {
             if (!pol) {

@@ -5376,7 +5376,10 @@ extern "C" {
 
     /**
        \brief Add a new formula \c a to the given goal.
-        Conjunctions are split into separate formulas.
+        The formula is split according to the following procedure that is applied
+        until a fixed-point:
+           Conjunctions are split into separate formulas.
+           Negations are distributed over disjunctions, resulting in separate formulas.
         If the goal is \c false, adding new formulas is a no-op.
         If the formula \c a is \c true, then nothing is added.
         If the formula \c a is \c false, then the entire goal is replaced by the formula \c false.
