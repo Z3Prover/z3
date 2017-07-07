@@ -939,26 +939,32 @@ template <typename T, typename X>  void lp_core_solver_base<T, X>::transpose_row
     m_A.transpose_rows(i, j);
 }
 // j is the new basic column, j_basic - the leaving column
-template <typename T, typename X> bool lp_core_solver_base<T, X>::pivot_column_general(unsigned j, unsigned j_basic, indexed_vector<T> & w)  {
-    lean_assert(m_basis_heading[j] < 0);
-    lean_assert(m_basis_heading[j_basic] >= 0);
-    unsigned row_index = m_basis_heading[j_basic];
-    change_basis(j, j_basic);
-    if (m_settings.m_simplex_strategy == simplex_strategy_enum::lu) {
-        if (m_factorization->need_to_refactor()) {
-            init_lu();
-        } else {
-            m_factorization->prepare_entering(j, w); // to init vector w
-            m_factorization->replace_column(zero_of_type<T>(), w, row_index);
-        }
-        if (m_factorization->get_status() != LU_status::OK) {
-            change_basis(j_basic, j);
-            init_lu();
-            return false;
-        }
-    } else { // the tableau case
-       return pivot_column_tableau(j, row_index);
-    }
+template <typename T, typename X> bool lp_core_solver_base<T, X>::pivot_column_general(unsigned j, unsigned j_basic, indexed_vector<T> & w) {
+	lean_assert(m_basis_heading[j] < 0);
+	lean_assert(m_basis_heading[j_basic] >= 0);
+	unsigned row_index = m_basis_heading[j_basic];
+	if (m_settings.m_simplex_strategy == simplex_strategy_enum::lu) {
+		if (m_factorization->need_to_refactor()) {
+			init_lu();
+		}
+		else {
+			m_factorization->prepare_entering(j, w); // to init vector w
+			m_factorization->replace_column(zero_of_type<T>(), w, row_index);
+		}
+		if (m_factorization->get_status() != LU_status::OK) {
+			init_lu();
+			return false;
+		}
+		else {
+			change_basis(j, j_basic);
+		}
+	}
+	else { // the tableau case
+		if (pivot_column_tableau(j, row_index))
+			change_basis(j, j_basic);
+		else return false;
+	}
+	return true;
 }
 
 template <typename T, typename X>  void lp_core_solver_base<T, X>::pivot_fixed_vars_from_basis() {
@@ -981,10 +987,10 @@ template <typename T, typename X>  void lp_core_solver_base<T, X>::pivot_fixed_v
             if (j >= m_nbasis.size())
                 break;
             j++;
-            if (!pivot_column_general(jj, ii, w))
-                return; // total failure
-            break;
-        }
+            if (pivot_column_general(jj, ii, w))
+                break;
+        } 
+    }
 }
 
 template <typename T, typename X> bool 
