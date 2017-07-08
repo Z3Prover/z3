@@ -703,5 +703,14 @@ public:
     const unsigned & iters_with_no_cost_growing() const {
         return m_iters_with_no_cost_growing;
     }
+
+    linear_combination_iterator<T> * get_iterator_on_row(unsigned i) {
+        if (m_settings.use_tableau())
+            return new iterator_on_row<T>(m_A.m_rows[i]);
+        calculate_pivot_row(i);
+        return new iterator_on_pivot_row<T>(m_pivot_row, m_basis[i]);
+    }
+
+    void calculate_pivot_row(unsigned i);
 };
 }
