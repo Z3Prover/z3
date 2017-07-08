@@ -648,6 +648,10 @@ void lar_solver::change_basic_x_by_delta_on_column(unsigned j, const numeric_pai
                 m_basic_columns_with_changed_cost.insert(bj);
             }
             m_mpq_lar_core_solver.m_r_solver.update_column_in_inf_set(bj);
+            TRACE("change_x_del",
+                  tout << "changed basis column " << bj << ", it is " <<
+                  ( m_mpq_lar_core_solver.m_r_solver.column_is_feasible(bj)?  "feas":"inf") << std::endl;);
+                  
         }
     } else {
         m_column_buffer.clear();

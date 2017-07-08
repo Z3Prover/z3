@@ -145,23 +145,7 @@ int lar_core_solver::column_is_out_of_bounds(unsigned j) {
 
 
 void lar_core_solver::calculate_pivot_row(unsigned i) {
-    lean_assert(!m_r_solver.use_tableau());
-    lean_assert(m_r_solver.m_pivot_row.is_OK());
-    m_r_solver.m_pivot_row_of_B_1.clear();
-    m_r_solver.m_pivot_row_of_B_1.resize(m_r_solver.m_m());
-    m_r_solver.m_pivot_row.clear();
-    m_r_solver.m_pivot_row.resize(m_r_solver.m_n());
-    if (m_r_solver.m_settings.use_tableau()) {
-        unsigned basis_j = m_r_solver.m_basis[i];
-        for (auto & c : m_r_solver.m_A.m_rows[i]) {
-            if (c.m_j != basis_j)
-                m_r_solver.m_pivot_row.set_value(c.get_val(), c.m_j);
-        }
-        return;
-    }
-
-    m_r_solver.calculate_pivot_row_of_B_1(i);
-    m_r_solver.calculate_pivot_row_when_pivot_row_of_B1_is_ready(i);
+    m_r_solver.calculate_pivot_row(i);
 }
 
 

@@ -8,15 +8,21 @@
 namespace lean {
 
 void int_solver::fix_non_base_columns() {
+	lean_assert(is_feasible() && inf_int_set_is_correct());
     auto & lcs = m_lar_solver->m_mpq_lar_core_solver;
+    bool change = false;
     for (unsigned j : lcs.m_r_nbasis) {
         if (column_is_int_inf(j)) {
+            change = true;
             set_value_for_nbasic_column(j, floor(lcs.m_r_x[j].x));
         }
     }
+    if (!change)
+        return;
     if (m_lar_solver->find_feasible_solution() == INFEASIBLE)
         failed();
-	lean_assert(is_feasible() && inf_int_set_is_correct());
+    init_inf_int_set();
+    lean_assert(is_feasible() && inf_int_set_is_correct());
 }
 
 void int_solver::failed() {
@@ -390,8 +396,9 @@ void int_solver::set_value_for_nbasic_column(unsigned j, const impq & new_val) {
     auto delta = new_val - x;
     x = new_val;
     m_lar_solver->change_basic_x_by_delta_on_column(j, delta);
-    update_column_in_int_inf_set(j);
+
 	auto * it = get_column_iterator(j);
+    update_column_in_int_inf_set(j);
 	unsigned i;
 	while (it->next(i))
 		update_column_in_int_inf_set(m_lar_solver->m_mpq_lar_core_solver.m_r_basis[i]);
@@ -711,7 +718,7 @@ bool int_solver::get_freedom_interval_for_column(unsigned x_j, bool & inf_l, imp
         else {
             if (x_i_upper) {
                 impq new_l = x_j_val + ((x_i_val - lcs.m_r_upper_bounds()[x_i]) / a_ij);
-                set_lower(l, inf_u, new_l);
+                set_lower(l, inf_l, new_l);
                 if (!inf_l && !inf_u && l == u) break;;                
             }
             if (x_i_lower) {
@@ -730,7 +737,11 @@ bool int_solver::get_freedom_interval_for_column(unsigned x_j, bool & inf_l, imp
           if (inf_l) tout << "-oo"; else tout << l;
           tout << "; ";
           if (inf_u) tout << "oo";  else tout << u;
-          tout << "]\n";);
+          tout << "]\n";
+          tout << "val = " << get_value(x_j) << "\n";
+          );
+    lean_assert(inf_l || l <= get_value(x_j));
+    lean_assert(inf_u || u >= get_value(x_j));
     return true;
 
 }

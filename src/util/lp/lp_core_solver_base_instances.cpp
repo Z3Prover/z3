@@ -129,3 +129,4 @@ template bool lean::lp_core_solver_base<lean::mpq, lean::mpq>::inf_set_is_correc
 template bool lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::infeasibility_costs_are_correct() const;
 template bool lean::lp_core_solver_base<lean::mpq, lean::mpq >::infeasibility_costs_are_correct() const;
 template bool lean::lp_core_solver_base<double, double >::infeasibility_costs_are_correct() const;
+template void lean::lp_core_solver_base<lean::mpq, lean::numeric_pair<lean::mpq> >::calculate_pivot_row(unsigned int);

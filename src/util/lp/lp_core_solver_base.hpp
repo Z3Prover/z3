@@ -956,26 +956,23 @@ template <typename T, typename X>  void lp_core_solver_base<T, X>::pivot_fixed_v
     // run over basis and non-basis at the same time
     indexed_vector<T> w(m_basis.size()); // the buffer
     unsigned i = 0; // points to basis
-    unsigned j = 0; // points to nonbasis
-    
-    for (; i < m_basis.size() && j < m_nbasis.size(); i++) {
-        unsigned ii = m_basis[i];
-        unsigned jj;
+    for (; i < m_basis.size(); i++) {
+        unsigned basic_j = m_basis[i];
 
-        if (get_column_type(ii) != column_type::fixed) continue;
-		//todo run over the row here!!!!!
-        while (j < m_nbasis.size()) {
-            for (; j < m_nbasis.size(); j++) {
-                jj = m_nbasis[j];
-                if (get_column_type(jj) != column_type::fixed)
+        if (get_column_type(basic_j) != column_type::fixed) continue;
+		//todo run over the row here!!!!! call get_iterator_on_row();
+        T a;
+        unsigned j;
+        auto * it = get_iterator_on_row(i);
+        while (it->next(a, j)) {
+            if (j == basic_j)
+                continue;
+            if (get_column_type(j) != column_type::fixed) {
+                if (pivot_column_general(j, basic_j, w))
                     break;
             }
-            if (j >= m_nbasis.size())
-                break;
-            j++;
-			if (pivot_column_general(jj, ii, w))
-				break;
-        } 
+        }
+        delete it;
     }
 }
 
@@ -1032,5 +1029,27 @@ lp_core_solver_base<T, X>::infeasibility_cost_is_correct_for_column(unsigned j) 
         return true;
     }
 }
+
+template <typename T, typename X>
+void lp_core_solver_base<T, X>::calculate_pivot_row(unsigned i) {
+    lean_assert(!use_tableau());
+    lean_assert(m_pivot_row.is_OK());
+    m_pivot_row_of_B_1.clear();
+    m_pivot_row_of_B_1.resize(m_m());
+    m_pivot_row.clear();
+    m_pivot_row.resize(m_n());
+    if (m_settings.use_tableau()) {
+        unsigned basis_j = m_basis[i];
+        for (auto & c : m_A.m_rows[i]) {
+            if (c.m_j != basis_j)
+                m_pivot_row.set_value(c.get_val(), c.m_j);
+        }
+        return;
+    }
+
+    calculate_pivot_row_of_B_1(i);
+    calculate_pivot_row_when_pivot_row_of_B1_is_ready(i);
+}
+
 
 }
