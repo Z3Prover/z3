@@ -12,7 +12,7 @@
 Several online tutorials for Z3Py are available at:
 http://rise4fun.com/Z3Py/tutorial/guide
 
-Please send feedback, comments and/or corrections to leonardo@microsoft.com. Your comments are very valuable.
+Please send feedback, comments and/or corrections on the Issue tracker for https://github.com/Z3prover/z3.git. Your comments are very valuable.
 
 Small example:
 
