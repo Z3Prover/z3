@@ -89,7 +89,7 @@ public :
     void analyze_i_for_upper(unsigned i) {
         mpq l;
         bool strict = false;
-        SASSERT(is_zero(l));
+        lp_assert(is_zero(l));
         for (unsigned k = 0; k < m_index.size(); k++) {
             if (k == i)
                 continue;
@@ -180,7 +180,7 @@ public :
 
     void analyze_i_for_lower(unsigned i) {
         mpq l;
-        SASSERT(is_zero(l));
+        lp_assert(is_zero(l));
         bool strict = false;
         for (unsigned k = 0; k < m_index.size(); k++) {
             if (k == i)

@@ -5,7 +5,7 @@
 
 #include "util/lp/lar_solver.cpp"
 
-template void  lean::lar_solver::copy_from_mpq_matrix<double,double>(class lean::static_matrix<double,double> &);
+template void  lp::lar_solver::copy_from_mpq_matrix<double,double>(class lp::static_matrix<double,double> &);
 
 
 

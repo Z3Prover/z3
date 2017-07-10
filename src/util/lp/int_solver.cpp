@@ -5,10 +5,10 @@
 
 #include "util/lp/int_solver.h"
 #include "util/lp/lar_solver.h"
-namespace lean {
+namespace lp {
 
 void int_solver::fix_non_base_columns() {
-	lean_assert(is_feasible() && inf_int_set_is_correct());
+	lp_assert(is_feasible() && inf_int_set_is_correct());
     auto & lcs = m_lar_solver->m_mpq_lar_core_solver;
     bool change = false;
     for (unsigned j : lcs.m_r_nbasis) {
@@ -22,7 +22,7 @@ void int_solver::fix_non_base_columns() {
     if (m_lar_solver->find_feasible_solution() == INFEASIBLE)
         failed();
     init_inf_int_set();
-    lean_assert(is_feasible() && inf_int_set_is_correct());
+    lp_assert(is_feasible() && inf_int_set_is_correct());
 }
 
 void int_solver::failed() {
@@ -30,11 +30,11 @@ void int_solver::failed() {
     
     for (unsigned j : m_old_values_set.m_index) {
         lcs.m_r_x[j] = m_old_values_data[j];
-        lean_assert(lcs.m_r_solver.column_is_feasible(j));
+        lp_assert(lcs.m_r_solver.column_is_feasible(j));
         lcs.m_r_solver.remove_column_from_inf_set(j);
     }
-    lean_assert(lcs.m_r_solver.calc_current_x_is_feasible_include_non_basis());
-    lean_assert(lcs.m_r_solver.current_x_is_feasible());
+    lp_assert(lcs.m_r_solver.calc_current_x_is_feasible_include_non_basis());
+    lp_assert(lcs.m_r_solver.current_x_is_feasible());
     m_old_values_set.clear();
 }
 
@@ -78,7 +78,7 @@ int int_solver::find_inf_int_boxed_base_column_with_smallest_range() {
     lar_core_solver & lcs = m_lar_solver->m_mpq_lar_core_solver;
 
     for (int j : m_inf_int_set.m_index) {
-        lean_assert(is_base(j) && column_is_int_inf(j));
+        lp_assert(is_base(j) && column_is_int_inf(j));
         if (!is_boxed(j))
             continue;
         new_range  = lcs.m_r_upper_bounds()[j].x - lcs.m_r_low_bounds()[j].x;
@@ -109,7 +109,7 @@ int int_solver::find_inf_int_boxed_base_column_with_smallest_range() {
 }
 
 bool int_solver::mk_gomory_cut(unsigned row_index, explanation & ex) {
-    lean_assert(false);
+    lp_assert(false);
     return true;
     /*
     const auto & row = m_lar_solver->A_r().m_rows[row_index];
@@ -297,10 +297,10 @@ void int_solver::init_check_data() {
 }
 
 lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
-	lean_assert(m_lar_solver->m_mpq_lar_core_solver.r_basis_is_OK());
-	lean_assert(is_feasible());
+	lp_assert(m_lar_solver->m_mpq_lar_core_solver.r_basis_is_OK());
+	lp_assert(is_feasible());
 	init_check_data();
-    lean_assert(inf_int_set_is_correct());
+    lp_assert(inf_int_set_is_correct());
     // currently it is a reimplementation of
     // final_check_status theory_arith<Ext>::check_int_feasibility()
     // from theory_arith_int.h
@@ -348,7 +348,7 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
         if (j != -1) {
             TRACE("arith_int", tout << "j" << j << " does not have an integer assignment: " << get_value(j) << "\n";);
 
-            lean_assert(t.is_empty());
+            lp_assert(t.is_empty());
             t.add_to_map(j, mpq(1));
             k = floor(get_value(j));
             TRACE("arith_int", tout << "branching v" << j << " = " << get_value(j) << "\n";
@@ -358,7 +358,7 @@ lia_move int_solver::check(lar_term& t, mpq& k, explanation& ex) {
             return lia_move::branch;
         }
     }
-	lean_assert(m_lar_solver->m_mpq_lar_core_solver.r_basis_is_OK());
+	lp_assert(m_lar_solver->m_mpq_lar_core_solver.r_basis_is_OK());
 	//    return true;
     return lia_move::give_up;
 }
@@ -390,7 +390,8 @@ void int_solver::move_non_base_vars_to_bounds() {
 
 
 
-void int_solver::set_value(unsigned j, const impq & new_val) {
+void int_solver::set_value_for_nbasic_column(unsigned j, const impq & new_val) {
+	lp_assert(!is_base(j));
     auto & x = m_lar_solver->m_mpq_lar_core_solver.m_r_x[j];
     if (!m_old_values_set.contains(j)) {
         m_old_values_set.insert(j);
@@ -453,6 +454,7 @@ void int_solver::patch_int_infeasible_columns() {
             TRACE("patch_int",
                   tout << "patching with 0\n";);
         }
+		lp_assert(is_feasible() && inf_int_set_is_correct());
     }
 }
 
@@ -623,7 +625,7 @@ linear_combination_iterator<mpq> * int_solver::get_column_iterator(unsigned j) {
 int_solver::int_solver(lar_solver* lar_slv) :
     m_lar_solver(lar_slv),
     m_branch_cut_counter(0) {
-    lean_assert(m_old_values_set.size() == 0);
+    lp_assert(m_old_values_set.size() == 0);
     m_old_values_set.resize(lar_slv->A_r().column_count());
     m_old_values_data.resize(lar_slv->A_r().column_count(), zero_of_type<impq>());    
 }
@@ -742,8 +744,8 @@ bool int_solver::get_freedom_interval_for_column(unsigned x_j, bool & inf_l, imp
           tout << "]\n";
           tout << "val = " << get_value(x_j) << "\n";
           );
-    lean_assert(inf_l || l <= get_value(x_j));
-    lean_assert(inf_u || u >= get_value(x_j));
+    lp_assert(inf_l || l <= get_value(x_j));
+    lp_assert(inf_u || u >= get_value(x_j));
     return true;
 
 }
@@ -760,7 +762,7 @@ bool int_solver::value_is_int(unsigned j) const {
 
 bool int_solver::is_feasible() const {
     auto & lcs = m_lar_solver->m_mpq_lar_core_solver;
-    lean_assert(
+    lp_assert(
                 lcs.m_r_solver.calc_current_x_is_feasible_include_non_basis() ==
                 lcs.m_r_solver.current_x_is_feasible());
     return lcs.m_r_solver.current_x_is_feasible();

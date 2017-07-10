@@ -390,7 +390,7 @@ inline void print_blanks(int n, std::ostream & out) {
 // after a push of the last element we ensure that the vector increases
 // we also suppose that before the last push the vector was increasing
 inline void ensure_increasing(vector<unsigned> & v) {
-    SASSERT(v.size() > 0);
+    lp_assert(v.size() > 0);
     unsigned j = v.size() - 1;
     for (; j > 0; j-- )
         if (v[j] <= v[j - 1]) {

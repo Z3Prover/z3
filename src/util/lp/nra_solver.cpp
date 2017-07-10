@@ -14,23 +14,23 @@
 namespace nra {
 
     struct mon_eq {
-        mon_eq(lean::var_index v, unsigned sz, lean::var_index const* vs):
+        mon_eq(lp::var_index v, unsigned sz, lp::var_index const* vs):
             m_v(v), m_vs(sz, vs) {}
-        lean::var_index          m_v;
-        svector<lean::var_index> m_vs;
+        lp::var_index          m_v;
+        svector<lp::var_index> m_vs;
     };
 
     struct solver::imp {
-        lean::lar_solver&      s;
+        lp::lar_solver&      s;
         reslimit&              m_limit;  
         params_ref             m_params; 
         u_map<polynomial::var> m_lp2nl;  // map from lar_solver variables to nlsat::solver variables
         scoped_ptr<nlsat::solver>  m_nlsat;
         vector<mon_eq>         m_monomials;
         unsigned_vector        m_monomials_lim;
-        mutable std::unordered_map<lean::var_index, rational> m_variable_values; // current model
+        mutable std::unordered_map<lp::var_index, rational> m_variable_values; // current model
 
-        imp(lean::lar_solver& s, reslimit& lim, params_ref const& p): 
+        imp(lp::lar_solver& s, reslimit& lim, params_ref const& p): 
             s(s), 
             m_limit(lim),
             m_params(p) {
@@ -40,7 +40,7 @@ namespace nra {
             return !m_monomials.empty() && !check_assignments();
         }
 
-        void add(lean::var_index v, unsigned sz, lean::var_index const* vs) {
+        void add(lp::var_index v, unsigned sz, lp::var_index const* vs) {
             m_monomials.push_back(mon_eq(v, sz, vs));
         }
 
@@ -87,7 +87,7 @@ namespace nra {
            TBD: use partial model from lra_solver to prime the state of nlsat_solver.
            TBD: explore more incremental ways of applying nlsat (using assumptions)
         */
-        lbool check(lean::explanation_t& ex) {
+        lbool check(lp::explanation_t& ex) {
             SASSERT(need_check());
             m_nlsat = alloc(nlsat::solver, m_limit, m_params);
             m_lp2nl.reset();
@@ -168,31 +168,31 @@ namespace nra {
             nlsat::literal lit;
             nlsat::assumption a = this + idx;
             switch (k) {
-            case lean::lconstraint_kind::LE:
+            case lp::lconstraint_kind::LE:
                 lit = ~m_nlsat->mk_ineq_literal(nlsat::atom::kind::GT, 1, ps, is_even);
                 break;
-            case lean::lconstraint_kind::GE:
+            case lp::lconstraint_kind::GE:
                 lit = ~m_nlsat->mk_ineq_literal(nlsat::atom::kind::LT, 1, ps, is_even);
                 break;
-            case lean::lconstraint_kind::LT:
+            case lp::lconstraint_kind::LT:
                 lit = m_nlsat->mk_ineq_literal(nlsat::atom::kind::LT, 1, ps, is_even);
                 break;
-            case lean::lconstraint_kind::GT:
+            case lp::lconstraint_kind::GT:
                 lit = m_nlsat->mk_ineq_literal(nlsat::atom::kind::GT, 1, ps, is_even);
                 break;
-            case lean::lconstraint_kind::EQ:
+            case lp::lconstraint_kind::EQ:
                 lit = m_nlsat->mk_ineq_literal(nlsat::atom::kind::EQ, 1, ps, is_even);                
                 break;
             }
             m_nlsat->mk_clause(1, &lit, a);
         }               
 
-        bool is_int(lean::var_index v) {
+        bool is_int(lp::var_index v) {
             return s.var_is_int(v);
         }
 
 
-        polynomial::var lp2nl(lean::var_index v) {
+        polynomial::var lp2nl(lp::var_index v) {
             polynomial::var r;
             if (!m_lp2nl.find(v, r)) {
                 r = m_nlsat->mk_var(is_int(v));
@@ -201,7 +201,7 @@ namespace nra {
             return r;
         }
 
-        nlsat::anum const& value(lean::var_index v) const {
+        nlsat::anum const& value(lp::var_index v) const {
            return m_nlsat->value(m_lp2nl.find(v));
         }
 
@@ -221,7 +221,7 @@ namespace nra {
         }
     };
 
-    solver::solver(lean::lar_solver& s, reslimit& lim, params_ref const& p) {
+    solver::solver(lp::lar_solver& s, reslimit& lim, params_ref const& p) {
         m_imp = alloc(imp, s, lim, p);
     }
 
@@ -229,11 +229,11 @@ namespace nra {
         dealloc(m_imp);
     }
 
-    void solver::add_monomial(lean::var_index v, unsigned sz, lean::var_index const* vs) {
+    void solver::add_monomial(lp::var_index v, unsigned sz, lp::var_index const* vs) {
         m_imp->add(v, sz, vs);
     }
 
-    lbool solver::check(lean::explanation_t& ex) {
+    lbool solver::check(lp::explanation_t& ex) {
         return m_imp->check(ex);
     }
 
@@ -253,7 +253,7 @@ namespace nra {
         return m_imp->display(out);
     }
 
-    nlsat::anum const& solver::value(lean::var_index v) const {
+    nlsat::anum const& solver::value(lp::var_index v) const {
         return m_imp->value(v);
     }
 

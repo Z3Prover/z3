@@ -26,8 +26,16 @@ Revision History:
 #include "../sstream.h"
 #include "../z3_exception.h"
 
+#else
+ // include "util/numerics/mpq.h"
+ // include "util/numerics/numeric_traits.h"
+#endif
 namespace lp {
-    typedef rational mpq; // rename rationals
+#ifdef lp_for_z3 // rename rationals
+    typedef rational mpq;
+#else
+    typedef lp::mpq mpq;
+#endif
 
 
 template <typename T>
@@ -77,8 +85,8 @@ template <typename X, typename Y>
 struct convert_struct {
     static X convert(const Y & y){ return X(y);}
     static bool is_epsilon_small(const X & x,  const double & y) { return std::abs(numeric_traits<X>::get_double(x)) < y; }
-    static bool below_bound_numeric(const X &, const X &, const Y &) { /*SASSERT(false);*/ return false;}
-    static bool above_bound_numeric(const X &, const X &, const Y &) { /*SASSERT(false);*/ return false; }
+    static bool below_bound_numeric(const X &, const X &, const Y &) { /*lp_unreachable();*/ return false;}
+    static bool above_bound_numeric(const X &, const X &, const Y &) { /*lp_unreachable();*/ return false; }
 };
 
 
@@ -148,7 +156,7 @@ struct numeric_pair {
     }
 
     numeric_pair operator/(const numeric_pair &) const {
-        // SASSERT(false);
+        // lp_unreachable();
     }
 
 
@@ -157,7 +165,7 @@ struct numeric_pair {
     }
 
     numeric_pair operator*(const numeric_pair & /*a*/) const  {
-        // SASSERT(false);
+        // lp_unreachable();
     }
 
     numeric_pair&  operator+=(const numeric_pair & a) {
@@ -234,7 +242,7 @@ numeric_pair<T> operator/(const numeric_pair<T> & r, const X & a) {
 }
 
 // template <numeric_pair, typename T>  bool precise() { return numeric_traits<T>::precise();}
-template <typename T> double get_double(const lp::numeric_pair<T> & ) { /* SASSERT(false); */ return 0;}
+template <typename T> double get_double(const lp::numeric_pair<T> & ) { /* lp_unreachable(); */ return 0;}
 template <typename T>
 class numeric_traits<lp::numeric_pair<T>> {
   public:
@@ -242,7 +250,7 @@ class numeric_traits<lp::numeric_pair<T>> {
     static lp::numeric_pair<T> zero() { return lp::numeric_pair<T>(numeric_traits<T>::zero(), numeric_traits<T>::zero()); }
     static bool is_zero(const lp::numeric_pair<T> & v) { return numeric_traits<T>::is_zero(v.x) && numeric_traits<T>::is_zero(v.y); }
     static double get_double(const lp::numeric_pair<T> & v){ return numeric_traits<T>::get_double(v.x); } // just return the double of the first coordinate
-    static double one() { /*SASSERT(false);*/ return 0;}
+    static double one() { /*lp_unreachable();*/ return 0;}
     static bool is_pos(const numeric_pair<T> &p) {
         return numeric_traits<T>::is_pos(p.x) ||
             (numeric_traits<T>::is_zero(p.x) && numeric_traits<T>::is_pos(p.y));
@@ -272,11 +280,11 @@ struct convert_struct<numeric_pair<T>, double> {
         return convert_struct<T, double>::is_epsilon_small(p.x, eps) && convert_struct<T, double>::is_epsilon_small(p.y, eps);
     }
     static bool below_bound_numeric(const numeric_pair<T> &, const numeric_pair<T> &, const double &) {
-        // SASSERT(false);
+        // lp_unreachable();
         return false;
     }
     static bool above_bound_numeric(const numeric_pair<T> &, const numeric_pair<T> &, const double &) {
-        // SASSERT(false);
+        // lp_unreachable();
         return false;
     }
 };

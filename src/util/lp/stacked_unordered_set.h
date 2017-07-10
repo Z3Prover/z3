@@ -96,7 +96,7 @@ public:
             for (auto & t : d.m_erased) {
                 m_set.insert(t);
             }
-            SASSERT(d.m_deb_copy == m_set);
+            lp_assert(d.m_deb_copy == m_set);
             m_stack.pop();
         }
     }

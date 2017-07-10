@@ -40,7 +40,7 @@ inline std::string lconstraint_kind_string(lconstraint_kind t) {
     case GT: return std::string(">");
     case EQ: return std::string("=");
     }
-    SASSERT(false);
+    lp_unreachable();
     return std::string(); // it is unreachable
 }
 
@@ -88,7 +88,7 @@ public:
         :  lar_base_constraint(kind, right_side), m_coeffs(left_side) {}
     
     lar_constraint(const lar_base_constraint & c) {
-        SASSERT(false); // should not be called : todo!
+        lp_assert(false); // should not be called : todo!
     }
 
     unsigned size() const override {

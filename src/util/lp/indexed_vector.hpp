@@ -56,13 +56,13 @@ template <typename T>
 void indexed_vector<T>::resize(unsigned data_size) {
     clear();
     m_data.resize(data_size, numeric_traits<T>::zero());
-    SASSERT(is_OK());
+    lp_assert(is_OK());
 }
 
 template <typename T>
 void indexed_vector<T>::set_value(const T& value, unsigned index) {
     m_data[index] = value;
-    SASSERT(std::find(m_index.begin(), m_index.end(), index) == m_index.end());
+    lp_assert(std::find(m_index.begin(), m_index.end(), index) == m_index.end());
     m_index.push_back(index);
 }
 

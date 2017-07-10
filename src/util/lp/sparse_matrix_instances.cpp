@@ -39,7 +39,7 @@ template void sparse_matrix<double, double>::remove_element(vector<indexed_value
 template void     sparse_matrix<double, double>::replace_column(unsigned int, indexed_vector<double>&, lp_settings&);
 template void     sparse_matrix<double, double>::set(unsigned int, unsigned int, double);
 template void     sparse_matrix<double, double>::set_max_in_row(vector<indexed_value<double> >&);
-template bool sparse_matrix<double, double>::set_row_from_work_vector_and_clean_work_vector_not_adjusted(unsigned int, indexed_vector<double>&, lp_settings&);
+template bool sparse_matrix<double, double>::set_row_from_work_vector_and_clp_work_vector_not_adjusted(unsigned int, indexed_vector<double>&, lp_settings&);
 template bool sparse_matrix<double, double>::shorten_active_matrix(unsigned int, eta_matrix<double, double>*);
 template void sparse_matrix<double, double>::solve_y_U(vector<double>&) const;
 template sparse_matrix<double, double>::sparse_matrix(static_matrix<double, double> const&, vector<unsigned int>&);
@@ -56,7 +56,7 @@ template void  sparse_matrix<mpq, mpq>::prepare_for_factorization();
 template void   sparse_matrix<mpq, mpq>::remove_element(vector<indexed_value<mpq>> &, indexed_value<mpq>&);
 template void     sparse_matrix<mpq, mpq>::replace_column(unsigned int, indexed_vector<mpq>&, lp_settings&);
 template void     sparse_matrix<mpq, mpq>::set_max_in_row(vector<indexed_value<mpq>>&);
-template bool sparse_matrix<mpq, mpq>::set_row_from_work_vector_and_clean_work_vector_not_adjusted(unsigned int, indexed_vector<mpq>&, lp_settings&);
+template bool sparse_matrix<mpq, mpq>::set_row_from_work_vector_and_clp_work_vector_not_adjusted(unsigned int, indexed_vector<mpq>&, lp_settings&);
 template bool sparse_matrix<mpq, mpq>::shorten_active_matrix(unsigned int, eta_matrix<mpq, mpq>*);
 template void     sparse_matrix<mpq, mpq>::solve_y_U(vector<mpq>&) const;
 template sparse_matrix<mpq, mpq>::sparse_matrix(static_matrix<mpq, mpq> const&, vector<unsigned int>&);
@@ -72,7 +72,7 @@ template void     sparse_matrix<mpq, numeric_pair<mpq>>::prepare_for_factorizati
 template void     sparse_matrix<mpq, numeric_pair<mpq>>::remove_element(vector<indexed_value<mpq>>&, indexed_value<mpq>&);
 template void     sparse_matrix<mpq, numeric_pair<mpq>>::replace_column(unsigned int, indexed_vector<mpq>&, lp_settings&);
 template void     sparse_matrix<mpq, numeric_pair<mpq>>::set_max_in_row(vector<indexed_value<mpq>>&);
-template bool sparse_matrix<mpq, numeric_pair<mpq>>::set_row_from_work_vector_and_clean_work_vector_not_adjusted(unsigned int, indexed_vector<mpq>&, lp_settings&);
+template bool sparse_matrix<mpq, numeric_pair<mpq>>::set_row_from_work_vector_and_clp_work_vector_not_adjusted(unsigned int, indexed_vector<mpq>&, lp_settings&);
 template bool     sparse_matrix<mpq, numeric_pair<mpq>>::shorten_active_matrix(unsigned int, eta_matrix<mpq, numeric_pair<mpq> >*);
 template void     sparse_matrix<mpq, numeric_pair<mpq>>::solve_y_U(vector<mpq>&) const;
 template sparse_matrix<mpq, numeric_pair<mpq>>::sparse_matrix(static_matrix<mpq, numeric_pair<mpq> > const&, vector<unsigned int>&);
@@ -82,7 +82,7 @@ template void sparse_matrix<mpq, numeric_pair<mpq>>::double_solve_U_y<mpq>(index
 template void sparse_matrix<mpq, numeric_pair<mpq> >::double_solve_U_y<numeric_pair<mpq> >(indexed_vector<numeric_pair<mpq>>&, const lp_settings&);
 template void lp::sparse_matrix<double, double>::solve_U_y_indexed_only<double>(lp::indexed_vector<double>&, const lp_settings&, vector<unsigned> &);
 template void lp::sparse_matrix<lp::mpq, lp::mpq>::solve_U_y_indexed_only<lp::mpq>(lp::indexed_vector<lp::mpq>&, const lp_settings &, vector<unsigned> &);
-#ifdef Z3DEBUG
+#ifdef LEAN_DEBUG
 template bool sparse_matrix<double, double>::is_upper_triangular_and_maximums_are_set_correctly_in_rows(lp_settings&) const;
 template bool sparse_matrix<mpq, mpq>::is_upper_triangular_and_maximums_are_set_correctly_in_rows(lp_settings&) const;
 template bool sparse_matrix<mpq, numeric_pair<mpq> >::is_upper_triangular_and_maximums_are_set_correctly_in_rows(lp_settings&) const;

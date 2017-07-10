@@ -75,7 +75,7 @@ public:
     /// return the first element of the queue and removes it from the queue
     unsigned dequeue();
     unsigned peek() const {
-        SASSERT(m_heap_size > 0);
+        lp_assert(m_heap_size > 0);
         return m_heap[1];
     }
 #ifdef Z3DEBUG

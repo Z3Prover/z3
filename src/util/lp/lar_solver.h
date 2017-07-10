@@ -462,7 +462,7 @@ public:
     vector<unsigned> get_list_of_all_var_indices() const;
     void push();
 
-    static void clean_large_elements_after_pop(unsigned n, int_set& set);
+    static void clp_large_elements_after_pop(unsigned n, int_set& set);
 
     static void shrink_inf_set_after_pop(unsigned n, int_set & set);
 
@@ -1275,7 +1275,7 @@ public:
     void remove_last_column_from_basis_tableau(unsigned j);
     void remove_column_from_tableau(unsigned j);
     void pop_tableau();
-    void clean_inf_set_of_r_solver_after_pop();
+    void clp_inf_set_of_r_solver_after_pop();
     void shrink_explanation_to_minimum(vector<std::pair<mpq, constraint_index>> & explanation) const;
 
     bool column_represents_row_in_tableau(unsigned j) {

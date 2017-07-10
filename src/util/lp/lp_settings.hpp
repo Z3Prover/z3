@@ -29,7 +29,7 @@ std::string column_type_to_string(column_type t) {
     case column_type::low_bound:   return "low_bound";
     case column_type::upper_bound: return "upper_bound";
     case column_type::free_column: return "free_column";
-    default:  SASSERT(false);
+    default:  lp_unreachable();
     }
     return "unknown"; // it is unreachable
 }
@@ -49,7 +49,7 @@ const char* lp_status_to_string(lp_status status) {
     case EMPTY: return "EMPTY";
     case UNSTABLE: return "UNSTABLE";
     default:
-        SASSERT(false);
+        lp_unreachable();
     }
     return "UNKNOWN";  // it is unreachable
 }
@@ -64,7 +64,7 @@ lp_status lp_status_from_string(std::string status) {
     if (status == "TIME_EXHAUSTED") return lp_status::TIME_EXHAUSTED;
     if (status == "ITERATIONS_EXHAUSTED") return lp_status::ITERATIONS_EXHAUSTED;
     if (status == "EMPTY") return lp_status::EMPTY;
-    SASSERT(false);
+    lp_unreachable();
     return lp_status::UNKNOWN; // it is unreachable
 }
 

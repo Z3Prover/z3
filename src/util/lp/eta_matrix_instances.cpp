@@ -21,7 +21,7 @@ Revision History:
 #include "util/vector.h"
 #include "util/lp/numeric_pair.h"
 #include "util/lp/eta_matrix.hpp"
-#ifdef Z3DEBUG
+#ifdef LEAN_DEBUG
 template double lp::eta_matrix<double, double>::get_elem(unsigned int, unsigned int) const;
 template lp::mpq lp::eta_matrix<lp::mpq, lp::mpq>::get_elem(unsigned int, unsigned int) const;
 template lp::mpq lp::eta_matrix<lp::mpq, lp::numeric_pair<lp::mpq> >::get_elem(unsigned int, unsigned int) const;

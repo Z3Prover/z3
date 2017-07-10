@@ -163,7 +163,7 @@ template <typename T, typename X> void core_solver_pretty_printer<T, X>::adjust_
     case column_type::free_column:
         break;
     default:
-        SASSERT(false);
+        lp_assert(false);
         break;
     }
 }
@@ -372,7 +372,7 @@ template <typename T, typename X> void core_solver_pretty_printer<T, X>::print_g
         unsigned width = m_column_widths[col];
         string s = row[col];
         int number_of_blanks = width - static_cast<unsigned>(s.size());
-        SASSERT(number_of_blanks >= 0);
+        lp_assert(number_of_blanks >= 0);
         print_blanks(number_of_blanks, m_out);
         m_out << s << ' ';
         if (col < row.size() - 1) {
@@ -383,7 +383,7 @@ template <typename T, typename X> void core_solver_pretty_printer<T, X>::print_g
 
     string rs = T_to_string(rst);
     int nb = m_rs_width - static_cast<int>(rs.size());
-    SASSERT(nb >= 0);
+    lp_assert(nb >= 0);
     print_blanks(nb + 1, m_out);
     m_out << rs << std::endl;
 }

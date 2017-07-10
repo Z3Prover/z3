@@ -20,7 +20,7 @@ Revision History:
 #include "util/vector.h"
 #include "util/lp/binary_heap_priority_queue.h"
 namespace lp {
-// this is the child place in the heap
+// is is the child place in heap
 template <typename T> void binary_heap_priority_queue<T>::swap_with_parent(unsigned i) {
     unsigned parent = m_heap[i >> 1];
     put_at(i >> 1, m_heap[i]);
@@ -48,8 +48,8 @@ template <typename T> void binary_heap_priority_queue<T>::decrease_priority(unsi
 template <typename T> bool binary_heap_priority_queue<T>::is_consistent() const {
     for (int i = 0; i < m_heap_inverse.size(); i++) {
         int i_index = m_heap_inverse[i];
-        SASSERT(i_index <= static_cast<int>(m_heap_size));
-        SASSERT(i_index == -1 || m_heap[i_index] == i);
+        lp_assert(i_index <= static_cast<int>(m_heap_size));
+        lp_assert(i_index == -1 || m_heap[i_index] == i);
     }
     for (unsigned i = 1; i < m_heap_size; i++) {
         unsigned ch = i << 1;
@@ -71,7 +71,7 @@ template <typename T> void binary_heap_priority_queue<T>::remove(unsigned o) {
     if (o_in_heap == -1)  {
         return;  // nothing to do
     }
-    SASSERT(static_cast<unsigned>(o_in_heap) <= m_heap_size);
+    lp_assert(static_cast<unsigned>(o_in_heap) <= m_heap_size);
     if (static_cast<unsigned>(o_in_heap) < m_heap_size) {
         put_at(o_in_heap, m_heap[m_heap_size--]);
         if (m_priorities[m_heap[o_in_heap]] > priority_of_o) {
@@ -88,11 +88,11 @@ template <typename T> void binary_heap_priority_queue<T>::remove(unsigned o) {
             }
         }
     } else {
-        SASSERT(static_cast<unsigned>(o_in_heap) == m_heap_size);
+        lp_assert(static_cast<unsigned>(o_in_heap) == m_heap_size);
         m_heap_size--;
     }
     m_heap_inverse[o] = -1;
-    // SASSERT(is_consistent());
+    // lp_assert(is_consistent());
 }
 // n is the initial queue capacity.
 // The capacity will be enlarged two times automatically if needed
@@ -118,7 +118,7 @@ template <typename T> void binary_heap_priority_queue<T>::put_to_heap(unsigned i
 template <typename T> void binary_heap_priority_queue<T>::enqueue_new(unsigned o, const T& priority) {
     m_heap_size++;
     int i = m_heap_size;
-    SASSERT(o < m_priorities.size());
+    lp_assert(o < m_priorities.size());
     m_priorities[o] = priority;
     put_at(i, o);
     while (i > 1 && m_priorities[m_heap[i >> 1]] > priority) {
@@ -150,7 +150,7 @@ template <typename T> void binary_heap_priority_queue<T>::change_priority_for_ex
 
 /// return the first element of the queue and removes it from the queue
 template <typename T> unsigned binary_heap_priority_queue<T>::dequeue_and_get_priority(T & priority) {
-    SASSERT(m_heap_size != 0);
+    lp_assert(m_heap_size != 0);
     int ret = m_heap[1];
     priority = m_priorities[ret];
     put_the_last_at_the_top_and_fix_the_heap();
@@ -184,7 +184,7 @@ template <typename T> void binary_heap_priority_queue<T>::put_the_last_at_the_to
 }
 /// return the first element of the queue and removes it from the queue
 template <typename T> unsigned binary_heap_priority_queue<T>::dequeue() {
-    SASSERT(m_heap_size > 0);
+    lp_assert(m_heap_size > 0);
     int ret = m_heap[1];
     put_the_last_at_the_top_and_fix_the_heap();
     m_heap_inverse[ret] = -1;

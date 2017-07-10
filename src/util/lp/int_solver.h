@@ -9,7 +9,7 @@
 #include "util/lp/int_set.h"
 #include "util/lp/lar_term.h"
 
-namespace lean {
+namespace lp {
 class lar_solver;
 template <typename T, typename X>
 struct lp_constraint;
