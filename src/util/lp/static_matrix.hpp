@@ -76,7 +76,7 @@ template <typename T, typename X> bool static_matrix<T, X>::pivot_row_to_row_giv
         }
     }
     
-    // clp the work vector
+    // clean the work vector
     for (unsigned k = 0; k < prev_size_ii; k++) {
         m_vector_of_row_offsets[ii_row_vals[k].m_j] = -1;
     }

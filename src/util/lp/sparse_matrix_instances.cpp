@@ -39,7 +39,7 @@ template void sparse_matrix<double, double>::remove_element(vector<indexed_value
 template void     sparse_matrix<double, double>::replace_column(unsigned int, indexed_vector<double>&, lp_settings&);
 template void     sparse_matrix<double, double>::set(unsigned int, unsigned int, double);
 template void     sparse_matrix<double, double>::set_max_in_row(vector<indexed_value<double> >&);
-template bool sparse_matrix<double, double>::set_row_from_work_vector_and_clp_work_vector_not_adjusted(unsigned int, indexed_vector<double>&, lp_settings&);
+template bool sparse_matrix<double, double>::set_row_from_work_vector_and_clean_work_vector_not_adjusted(unsigned int, indexed_vector<double>&, lp_settings&);
 template bool sparse_matrix<double, double>::shorten_active_matrix(unsigned int, eta_matrix<double, double>*);
 template void sparse_matrix<double, double>::solve_y_U(vector<double>&) const;
 template sparse_matrix<double, double>::sparse_matrix(static_matrix<double, double> const&, vector<unsigned int>&);
@@ -56,7 +56,7 @@ template void  sparse_matrix<mpq, mpq>::prepare_for_factorization();
 template void   sparse_matrix<mpq, mpq>::remove_element(vector<indexed_value<mpq>> &, indexed_value<mpq>&);
 template void     sparse_matrix<mpq, mpq>::replace_column(unsigned int, indexed_vector<mpq>&, lp_settings&);
 template void     sparse_matrix<mpq, mpq>::set_max_in_row(vector<indexed_value<mpq>>&);
-template bool sparse_matrix<mpq, mpq>::set_row_from_work_vector_and_clp_work_vector_not_adjusted(unsigned int, indexed_vector<mpq>&, lp_settings&);
+template bool sparse_matrix<mpq, mpq>::set_row_from_work_vector_and_clean_work_vector_not_adjusted(unsigned int, indexed_vector<mpq>&, lp_settings&);
 template bool sparse_matrix<mpq, mpq>::shorten_active_matrix(unsigned int, eta_matrix<mpq, mpq>*);
 template void     sparse_matrix<mpq, mpq>::solve_y_U(vector<mpq>&) const;
 template sparse_matrix<mpq, mpq>::sparse_matrix(static_matrix<mpq, mpq> const&, vector<unsigned int>&);
@@ -72,7 +72,7 @@ template void     sparse_matrix<mpq, numeric_pair<mpq>>::prepare_for_factorizati
 template void     sparse_matrix<mpq, numeric_pair<mpq>>::remove_element(vector<indexed_value<mpq>>&, indexed_value<mpq>&);
 template void     sparse_matrix<mpq, numeric_pair<mpq>>::replace_column(unsigned int, indexed_vector<mpq>&, lp_settings&);
 template void     sparse_matrix<mpq, numeric_pair<mpq>>::set_max_in_row(vector<indexed_value<mpq>>&);
-template bool sparse_matrix<mpq, numeric_pair<mpq>>::set_row_from_work_vector_and_clp_work_vector_not_adjusted(unsigned int, indexed_vector<mpq>&, lp_settings&);
+template bool sparse_matrix<mpq, numeric_pair<mpq>>::set_row_from_work_vector_and_clean_work_vector_not_adjusted(unsigned int, indexed_vector<mpq>&, lp_settings&);
 template bool     sparse_matrix<mpq, numeric_pair<mpq>>::shorten_active_matrix(unsigned int, eta_matrix<mpq, numeric_pair<mpq> >*);
 template void     sparse_matrix<mpq, numeric_pair<mpq>>::solve_y_U(vector<mpq>&) const;
 template sparse_matrix<mpq, numeric_pair<mpq>>::sparse_matrix(static_matrix<mpq, numeric_pair<mpq> > const&, vector<unsigned int>&);

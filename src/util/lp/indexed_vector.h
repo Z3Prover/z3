@@ -110,7 +110,7 @@ public:
         return m_data[i];
     }
 
-    void clp_up() {
+    void clean_up() {
 #if 0==1
         for (unsigned k = 0; k < m_index.size(); k++) {
             unsigned i = m_index[k];
@@ -164,7 +164,7 @@ public:
         }
     }
 
-    void restore_index_and_clp_from_data() {
+    void restore_index_and_clean_from_data() {
         m_index.resize(0);
         for (unsigned i = 0; i < m_data.size(); i++) {
             T & v = m_data[i];

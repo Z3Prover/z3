@@ -220,7 +220,7 @@ protected:
 
     unsigned try_to_remove_some_rows();
 
-    void clpup();
+    void cleanup();
 
     void map_external_rows_to_core_solver_rows();
 
