@@ -20,7 +20,7 @@
 #include "util/lp/eta_matrix.h"
 #include "util/lp/binary_heap_upair_queue.h"
 #include "util/lp/sparse_matrix.h"
-namespace lean {
+namespace lp {
 template <typename T, typename X>
 class square_dense_submatrix : public tail_matrix<T, X> {
     // the submatrix uses the permutations of the parent matrix to access the elements
@@ -30,11 +30,11 @@ class square_dense_submatrix : public tail_matrix<T, X> {
         ref(unsigned i, square_dense_submatrix & s) :
             m_i_offset((i - s.m_index_start) * s.m_dim), m_s(s){}
         T & operator[] (unsigned j) {
-            lean_assert(j >= m_s.m_index_start);
+            lp_assert(j >= m_s.m_index_start);
             return m_s.m_v[m_i_offset + m_s.adjust_column(j) - m_s.m_index_start];
         }
         const T & operator[] (unsigned j) const {
-            lean_assert(j >= m_s.m_index_start);
+            lp_assert(j >= m_s.m_index_start);
             return m_s.m_v[m_i_offset + m_s.adjust_column(j) - m_s.m_index_start];
         }
     };
@@ -58,8 +58,8 @@ public:
     bool is_dense() const { return true; }
     
     ref operator[] (unsigned i) {
-        lean_assert(i >= m_index_start);
-        lean_assert(i < m_parent->dimension());
+        lp_assert(i >= m_index_start);
+        lp_assert(i < m_parent->dimension());
         return ref(i, *this);
     }
 
@@ -148,7 +148,7 @@ public:
                 }
             }
         }
-        lean_assert(wcopy.is_OK());
+        lp_assert(wcopy.is_OK());
         apply_from_right(w.m_data);
         w.m_index.clear();
         if (numeric_traits<T>::precise()) {
@@ -167,11 +167,11 @@ public:
             }
         }
 #else
-        lean_assert(w.is_OK());
-        lean_assert(m_work_vector.is_OK());
+        lp_assert(w.is_OK());
+        lp_assert(m_work_vector.is_OK());
         m_work_vector.resize(w.data_size());
         m_work_vector.clear();
-        lean_assert(m_work_vector.is_OK());
+        lp_assert(m_work_vector.is_OK());
         unsigned end = m_index_start + m_dim;
         for (unsigned k : w.m_index) {
             // find j such that k = adjust_row_inverse(j)
@@ -187,8 +187,8 @@ public:
                 }
             }
         }
-        m_work_vector.clean_up();
-        lean_assert(m_work_vector.is_OK());
+        m_work_vector.clp_up();
+        lp_assert(m_work_vector.is_OK());
         w = m_work_vector;
 #endif
     }

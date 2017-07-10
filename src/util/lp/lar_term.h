@@ -4,7 +4,7 @@
 */
 #pragma once
 #include "util/lp/indexed_vector.h"
-namespace lean {
+namespace lp {
 struct lar_term {
     // the term evaluates to sum of m_coeffs + m_v
     std::unordered_map<unsigned, mpq> m_coeffs;

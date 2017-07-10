@@ -5,7 +5,7 @@
 
 #pragma once
 
-namespace lean {
+namespace lp {
 enum breakpoint_type {
     low_break, upper_break, fixed_break
 };

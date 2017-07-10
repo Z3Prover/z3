@@ -9,7 +9,7 @@
 #include <string>
 #include <algorithm>
 #include "util/lp/lp_settings.h"
-namespace lean {
+namespace lp {
 inline bool is_valid(unsigned j) { return static_cast<int>(j) >= 0;}
 
 template <typename T>
@@ -100,11 +100,11 @@ public:
     }
 
     T get_low_bound() const {
-        lean_assert(m_low_bound_is_set);
+        lp_assert(m_low_bound_is_set);
         return m_low_bound;
     }
     T get_upper_bound() const {
-        lean_assert(m_upper_bound_is_set);
+        lp_assert(m_upper_bound_is_set);
         return m_upper_bound;
     }
 
@@ -156,7 +156,7 @@ public:
     }
 
     T get_fixed_value() const {
-        lean_assert(m_is_fixed);
+        lp_assert(m_is_fixed);
         return m_fixed_value;
     }
 

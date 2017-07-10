@@ -8,7 +8,7 @@
 #include <unordered_map>
 #include <set>
 #include <stack>
-namespace lean {
+namespace lp {
 
 
 template <typename A, typename B,
@@ -33,10 +33,10 @@ public:
             m_map.emplace_replace(m_key, b);
             return *this;
         }
-        ref & operator=(const ref & b) { lean_assert(false); return *this; }
+        ref & operator=(const ref & b) { lp_assert(false); return *this; }
         operator const B&() const {
             auto it = m_map.m_map.find(m_key);
-            lean_assert(it != m_map.m_map.end());
+            lp_assert(it != m_map.m_map.end());
             return it->second;
         }
     };
@@ -73,7 +73,7 @@ public:
     const B & operator[]( const A & a) const {
         auto it = m_map.find(a);
         if (it == m_map.end()) {
-            lean_assert(false);
+            lp_assert(false);
         }
 
         return it->second;
@@ -128,7 +128,7 @@ public:
             for (auto & t: d.m_original_changed) {
                 m_map[t.first] = t.second;
             }
-            //            lean_assert(d.m_deb_copy == m_map);
+            //            lp_assert(d.m_deb_copy == m_map);
             m_stack.pop();
         }
     }
@@ -142,7 +142,7 @@ public:
         delta & d = m_stack.top();
         auto it = m_map.find(key);
         if (it == m_map.end()) {
-            lean_assert(d.m_new.find(key) == d.m_new.end());
+            lp_assert(d.m_new.find(key) == d.m_new.end());
             return;
         }
         auto &orig_changed = d.m_original_changed;
@@ -151,7 +151,7 @@ public:
             if (orig_changed.find(key) == orig_changed.end())
                 orig_changed.emplace(it->first, it->second); // need to restore
         } else { // k is new
-            lean_assert(orig_changed.find(key) == orig_changed.end());
+            lp_assert(orig_changed.find(key) == orig_changed.end());
             d.m_new.erase(nit);
         }
 

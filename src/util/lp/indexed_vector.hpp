@@ -5,7 +5,7 @@
 #include "util/vector.h"
 #include "util/lp/indexed_vector.h"
 #include "util/lp/lp_settings.h"
-namespace lean {
+namespace lp {
 
 template <typename T>
 void print_vector(const vector<T> & t, std::ostream & out) {
@@ -41,13 +41,13 @@ template <typename T>
 void indexed_vector<T>::resize(unsigned data_size) {
     clear();
     m_data.resize(data_size, numeric_traits<T>::zero());
-    lean_assert(is_OK());
+    lp_assert(is_OK());
 }
 
 template <typename T>
 void indexed_vector<T>::set_value(const T& value, unsigned index) {
     m_data[index] = value;
-    lean_assert(std::find(m_index.begin(), m_index.end(), index) == m_index.end());
+    lp_assert(std::find(m_index.begin(), m_index.end(), index) == m_index.end());
     m_index.push_back(index);
 }
 

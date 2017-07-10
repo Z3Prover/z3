@@ -10,7 +10,7 @@
 #include <utility>
 #include "util/lp/column_info.h"
 
-namespace lean {
+namespace lp {
 
     enum lconstraint_kind {
         LE = -2, LT = -1 , GE = 2, GT = 1, EQ = 0

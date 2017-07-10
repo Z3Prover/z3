@@ -5,7 +5,7 @@
 */
 #include <string>
 #include "util/lp/linear_combination_iterator.h"
-namespace lean {
+namespace lp {
 class column_namer {
 public:
     virtual std::string get_column_name(unsigned j) const = 0;

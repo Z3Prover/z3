@@ -21,7 +21,7 @@
 #include "util/lp/binary_heap_upair_queue.h"
 #include "util/lp/numeric_pair.h"
 #include "util/lp/int_set.h"
-namespace lean {
+namespace lp {
 // it is a square matrix
 template <typename T, typename X>
 class sparse_matrix
@@ -190,13 +190,13 @@ public:
 
     // set the max val as well
     // returns false if the resulting row is all zeroes, and true otherwise
-    bool set_row_from_work_vector_and_clean_work_vector_not_adjusted(unsigned i0, indexed_vector<T> & work_vec,
+    bool set_row_from_work_vector_and_clp_work_vector_not_adjusted(unsigned i0, indexed_vector<T> & work_vec,
                                                                      lp_settings & settings);
 
 
     // set the max val as well
     // returns false if the resulting row is all zeroes, and true otherwise
-    bool set_row_from_work_vector_and_clean_work_vector(unsigned i0);
+    bool set_row_from_work_vector_and_clp_work_vector(unsigned i0);
 
     void remove_zero_elements_and_set_data_on_existing_elements(unsigned row);
 
@@ -206,19 +206,19 @@ public:
     void multiply_from_right(permutation_matrix<T, X>& p) {
         //            m_dense = m_dense * p;
         m_column_permutation.multiply_by_permutation_from_right(p);
-        //            lean_assert(*this == m_dense);
+        //            lp_assert(*this == m_dense);
     }
 
     void multiply_from_left(permutation_matrix<T, X>& p) {
         //            m_dense = p * m_dense;
         m_row_permutation.multiply_by_permutation_from_left(p);
-        //            lean_assert(*this == m_dense);
+        //            lp_assert(*this == m_dense);
     }
 
     void multiply_from_left_with_reverse(permutation_matrix<T, X>& p) {
         //            m_dense = p * m_dense;
         m_row_permutation.multiply_by_permutation_reverse_from_left(p);
-        //            lean_assert(*this == m_dense);
+        //            lp_assert(*this == m_dense);
     }
 
     // adding delta columns at the end of the matrix
@@ -231,13 +231,13 @@ public:
         // dense_matrix<T, X> d(*this);
         m_column_permutation.transpose_from_left(a, b);
         // d.swap_columns(a, b);
-        // lean_assert(*this == d);
+        // lp_assert(*this == d);
     }
 
     void swap_rows(unsigned a, unsigned b) {
         m_row_permutation.transpose_from_right(a, b);
         //            m_dense.swap_rows(a, b);
-        //            lean_assert(*this == m_dense);
+        //            lp_assert(*this == m_dense);
     }
 
     void divide_row_by_constant(unsigned i, const T & t, lp_settings & settings);
@@ -393,7 +393,7 @@ public:
     void process_index_recursively_for_y_U(unsigned j, vector<unsigned>  & sorted_rows);
     void resize(unsigned new_dim) {
         unsigned old_dim = dimension();
-        lean_assert(new_dim >= old_dim);
+        lp_assert(new_dim >= old_dim);
         for (unsigned j = old_dim; j < new_dim; j++) {
             m_rows.push_back(vector<indexed_value<T>>());
             m_columns.push_back(col_header());

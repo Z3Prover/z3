@@ -11,7 +11,7 @@
 #include <stdlib.h>     /* exit, EXIT_FAILURE */
 #include "util/lp/lp_utils.h"
 #include "util/lp/static_matrix.h"
-namespace lean {
+namespace lp {
 // for scaling an LP
 template <typename T, typename X>
 class scaler {
@@ -31,7 +31,7 @@ public:
         m_scaling_maximum(scaling_maximum),
         m_column_scale(column_scale),
         m_settings(settings) {
-        lean_assert(m_column_scale.size() == 0);
+        lp_assert(m_column_scale.size() == 0);
         m_column_scale.resize(m_A.column_count(), numeric_traits<T>::one());
     }
 

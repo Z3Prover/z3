@@ -5,7 +5,7 @@
 #pragma once
 #include "util/lp/lp_settings.h"
 #include "util/lp/lar_constraints.h"
-namespace lean {
+namespace lp {
 struct bound_signature {
     unsigned m_i;
     bool m_at_low;

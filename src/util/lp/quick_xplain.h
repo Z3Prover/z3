@@ -7,7 +7,7 @@ Author: Lev Nachmanson
 #include "util/vector.h"
 #include <unordered_set>
 
-namespace lean {
+namespace lp {
     class lar_solver; // forward definition
    
     class quick_xplain {
