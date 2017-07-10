@@ -190,13 +190,13 @@ public:
 
     // set the max val as well
     // returns false if the resulting row is all zeroes, and true otherwise
-    bool set_row_from_work_vector_and_clp_work_vector_not_adjusted(unsigned i0, indexed_vector<T> & work_vec,
+    bool set_row_from_work_vector_and_clean_work_vector_not_adjusted(unsigned i0, indexed_vector<T> & work_vec,
                                                                      lp_settings & settings);
 
 
     // set the max val as well
     // returns false if the resulting row is all zeroes, and true otherwise
-    bool set_row_from_work_vector_and_clp_work_vector(unsigned i0);
+    bool set_row_from_work_vector_and_clean_work_vector(unsigned i0);
 
     void remove_zero_elements_and_set_data_on_existing_elements(unsigned row);
 

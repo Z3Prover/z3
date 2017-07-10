@@ -316,9 +316,6 @@ void lar_solver::fill_explanation_from_infeasible_column(vector<std::pair<mpq, c
 
     
 unsigned lar_solver::get_total_iterations() const { return m_mpq_lar_core_solver.m_r_solver.total_iterations(); }
-// see http://research.microsoft.com/projects/z3/smt07.pdf
-// This method searches for a feasible solution with as many different values of variables, reverenced in vars, as it can find
-// Attention, after a call to this method the non-basic variables don't necesserarly stick to their bounds anymore
 vector<unsigned> lar_solver::get_list_of_all_var_indices() const {
     vector<unsigned> ret;
     for (unsigned j = 0; j < m_mpq_lar_core_solver.m_r_heading.size(); j++)
@@ -338,7 +335,7 @@ void lar_solver::push() {
     m_constraint_count.push();
 }
 
-void lar_solver::clp_large_elements_after_pop(unsigned n, int_set& set) {
+void lar_solver::clean_large_elements_after_pop(unsigned n, int_set& set) {
     vector<int> to_remove;
     for (unsigned j: set.m_index)
         if (j >= n)
@@ -348,7 +345,7 @@ void lar_solver::clp_large_elements_after_pop(unsigned n, int_set& set) {
 }
 
 void lar_solver::shrink_inf_set_after_pop(unsigned n, int_set & set) {
-    clp_large_elements_after_pop(n, set);
+    clean_large_elements_after_pop(n, set);
     set.resize(n);
 }
 
@@ -367,10 +364,10 @@ void lar_solver::pop(unsigned k) {
     m_vars_to_ul_pairs.pop(k);
 
     m_mpq_lar_core_solver.pop(k);
-    clp_large_elements_after_pop(n, m_columns_with_changed_bound);
+    clean_large_elements_after_pop(n, m_columns_with_changed_bound);
     unsigned m = A_r().row_count();
-    clp_large_elements_after_pop(m, m_rows_with_changed_bounds);
-    clp_inf_set_of_r_solver_after_pop();
+    clean_large_elements_after_pop(m, m_rows_with_changed_bounds);
+    clean_inf_set_of_r_solver_after_pop();
     lp_assert(m_settings.simplex_strategy() == simplex_strategy_enum::undecided ||
                 (!use_tableau()) || m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
         
@@ -1346,9 +1343,9 @@ void lar_solver::pop_tableau() {
     lp_assert(m_mpq_lar_core_solver.m_r_solver.basis_heading_is_correct());
 }
 
-void lar_solver::clp_inf_set_of_r_solver_after_pop() {
+void lar_solver::clean_inf_set_of_r_solver_after_pop() {
     vector<unsigned> became_feas;
-    clp_large_elements_after_pop(A_r().column_count(), m_mpq_lar_core_solver.m_r_solver.m_inf_set);
+    clean_large_elements_after_pop(A_r().column_count(), m_mpq_lar_core_solver.m_r_solver.m_inf_set);
     std::unordered_set<unsigned> basic_columns_with_changed_cost;
     auto inf_index_copy = m_mpq_lar_core_solver.m_r_solver.m_inf_set.m_index;
     for (auto j: inf_index_copy) {

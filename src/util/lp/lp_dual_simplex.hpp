@@ -335,7 +335,7 @@ template <typename T, typename X> void lp_dual_simplex<T, X>::find_maximal_solut
 
     this->flip_costs(); // do it for now, todo ( remove the flipping)
 
-    this->clpup();
+    this->cleanup();
     if (this->m_status == INFEASIBLE) {
         return;
     }

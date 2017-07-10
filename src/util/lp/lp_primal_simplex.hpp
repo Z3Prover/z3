@@ -157,7 +157,7 @@ template <typename T, typename X> void lp_primal_simplex<T, X>::find_maximal_sol
         return;
     }
 
-    this->clpup();
+    this->cleanup();
     this->fill_matrix_A_and_init_right_side();
     if (this->m_status == lp_status::INFEASIBLE) {
         return;
