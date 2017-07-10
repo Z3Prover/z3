@@ -897,7 +897,7 @@ bool lar_solver::all_constraints_hold() const {
     if (m_settings.get_cancel_flag())
         return true;
     std::unordered_map<var_index, mpq> var_map;
-    get_model(var_map);
+    get_model_do_not_care_about_diff_vars(var_map);
     
     for (unsigned i = 0; i < m_constraints.size(); i++) {
         if (!constraint_holds(*m_constraints[i], var_map)) {
@@ -1136,6 +1136,14 @@ void lar_solver::get_model(std::unordered_map<var_index, mpq> & variable_values)
         }
     } while (i != m_mpq_lar_core_solver.m_r_x.size());
 }
+
+void lar_solver::get_model_do_not_care_about_diff_vars(std::unordered_map<var_index, mpq> & variable_values) const {
+    for (unsigned i = 0; i < m_mpq_lar_core_solver.m_r_x.size(); i++ ) {
+        const impq & rp = m_mpq_lar_core_solver.m_r_x[i];
+        variable_values[i] = rp.x + rp.y;
+    }
+}
+
 
 std::string lar_solver::get_variable_name(var_index vi) const {
     return get_column_name(vi);
