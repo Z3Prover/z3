@@ -713,14 +713,14 @@ template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_en
     int pivot_compare_result = this->pivots_in_column_and_row_are_different(entering, leaving);
     if (!pivot_compare_result){;}
     else if (pivot_compare_result == 2) { // the sign is changed, cannot continue
-        this->set_status(UNSTABLE);
+        this->set_status(lp_status::UNSTABLE);
         this->iters_with_no_cost_growing()++;
         return;
     } else {
         lp_assert(pivot_compare_result == 1);
         this->init_lu();
         if (this->m_factorization == nullptr || this->m_factorization->get_status() != LU_status::OK) {
-            this->set_status(UNSTABLE);
+            this->set_status(lp_status::UNSTABLE);
             this->iters_with_no_cost_growing()++;
             return;
         }
@@ -732,10 +732,10 @@ template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_en
             t = -t;
     }
     if (!this->update_basis_and_x(entering, leaving, t)) {
-        if (this->get_status() == FLOATING_POINT_ERROR)
+        if (this->get_status() == lp_status::FLOATING_POINT_ERROR)
             return;
         if (this->m_look_for_feasible_solution_only) {
-            this->set_status(FLOATING_POINT_ERROR);
+            this->set_status(lp_status::FLOATING_POINT_ERROR);
             return;
         }
         init_reduced_costs();
@@ -748,7 +748,7 @@ template <typename T, typename X>void lp_primal_core_solver<T, X>::advance_on_en
     }
 
     if (this->current_x_is_feasible()) {
-        this->set_status(FEASIBLE);
+        this->set_status(lp_status::FEASIBLE);
         if (this->m_look_for_feasible_solution_only)
             return;
     }
@@ -775,7 +775,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_e
     X t;
     int leaving = find_leaving_and_t_precise(entering, t);
     if (leaving == -1) {
-        this->set_status(UNBOUNDED);
+        this->set_status(lp_status::UNBOUNDED);
         return;
     }
     advance_on_entering_and_leaving(entering, leaving, t);
@@ -791,7 +791,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_e
     int refresh_result = refresh_reduced_cost_at_entering_and_check_that_it_is_off(entering);
     if (refresh_result) {
         if (this->m_look_for_feasible_solution_only) {
-            this->set_status(FLOATING_POINT_ERROR);
+            this->set_status(lp_status::FLOATING_POINT_ERROR);
             return;
         }
 
@@ -814,19 +814,19 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_e
             //  }
             
                 
-            if (this->get_status() == UNSTABLE) {
-                this->set_status(FLOATING_POINT_ERROR);
+            if (this->get_status() == lp_status::UNSTABLE) {
+                this->set_status(lp_status::FLOATING_POINT_ERROR);
                 return;
             }
             init_infeasibility_costs();
-            this->set_status(UNSTABLE);
+            this->set_status(lp_status::UNSTABLE);
 
             return;
         }
-        if (this->get_status() == TENTATIVE_UNBOUNDED) {
-            this->set_status(UNBOUNDED);
+        if (this->get_status() == lp_status::TENTATIVE_UNBOUNDED) {
+            this->set_status(lp_status::UNBOUNDED);
         } else {
-            this->set_status(TENTATIVE_UNBOUNDED);
+            this->set_status(lp_status::TENTATIVE_UNBOUNDED);
         }
         return;
     }
@@ -840,7 +840,7 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::push_forw
 
 template <typename T, typename X>  unsigned lp_primal_core_solver<T, X>::get_number_of_non_basic_column_to_try_for_enter() {
     unsigned ret = static_cast<unsigned>(this->m_nbasis.size());
-    if (this->get_status() == TENTATIVE_UNBOUNDED)
+    if (this->get_status() == lp_status::TENTATIVE_UNBOUNDED)
         return ret; // we really need to find entering with a large reduced cost
     if (ret > 300) {
         ret = (unsigned)(ret * this->m_settings.percent_of_entering_to_check / 100);
@@ -867,12 +867,12 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
     
     init_run();
     if (this->current_x_is_feasible() && this->m_look_for_feasible_solution_only) {
-        this->set_status(FEASIBLE);
+        this->set_status(lp_status::FEASIBLE);
         return 0;
     }
         
     if ((!numeric_traits<T>::precise()) && this->A_mult_x_is_off()) {
-        this->set_status(FLOATING_POINT_ERROR);
+        this->set_status(lp_status::FLOATING_POINT_ERROR);
         return 0;
     }
     do {
@@ -882,8 +882,8 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
         one_iteration();
         lp_assert(!this->m_using_infeas_costs || this->costs_on_nbasis_are_zeros());
         switch (this->get_status()) {
-        case OPTIMAL:  // double check that we are at optimum
-        case INFEASIBLE:
+        case lp_status::OPTIMAL:  // double check that we are at optimum
+        case lp_status::INFEASIBLE:
             if (this->m_look_for_feasible_solution_only && this->current_x_is_feasible())
                 break;
             if (!numeric_traits<T>::precise()) {
@@ -892,7 +892,7 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
                 this->init_lu();
                 
                 if (this->m_factorization->get_status() != LU_status::OK) {
-                    this->set_status (FLOATING_POINT_ERROR);
+                    this->set_status (lp_status::FLOATING_POINT_ERROR);
                     break;
                 }
                 init_reduced_costs();
@@ -900,7 +900,7 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
                     decide_on_status_when_cannot_find_entering();
                     break;
                 }
-                this->set_status(UNKNOWN);
+                this->set_status(lp_status::UNKNOWN);
             } else { // precise case
                 if (this->m_look_for_feasible_solution_only) { // todo: keep the reduced costs correct all the time!
                     init_reduced_costs();
@@ -908,31 +908,31 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
                         decide_on_status_when_cannot_find_entering();
                         break;
                     }
-                    this->set_status(UNKNOWN);
+                    this->set_status(lp_status::UNKNOWN);
                 }
             }
             break;
-        case TENTATIVE_UNBOUNDED:
+        case lp_status::TENTATIVE_UNBOUNDED:
             this->init_lu();
             if (this->m_factorization->get_status() != LU_status::OK) {
-                this->set_status(FLOATING_POINT_ERROR);
+                this->set_status(lp_status::FLOATING_POINT_ERROR);
                 break;
             }
                 
             init_reduced_costs();
             break;
-        case UNBOUNDED:
+        case lp_status::UNBOUNDED:
             if (this->current_x_is_infeasible()) {
                 init_reduced_costs();
-                this->set_status(UNKNOWN);
+                this->set_status(lp_status::UNKNOWN);
             }
             break;
 
-        case UNSTABLE:
+        case lp_status::UNSTABLE:
             lp_assert(! (numeric_traits<T>::precise()));
             this->init_lu();
             if (this->m_factorization->get_status() != LU_status::OK) {
-                this->set_status(FLOATING_POINT_ERROR);
+                this->set_status(lp_status::FLOATING_POINT_ERROR);
                 break;
             }
             init_reduced_costs();
@@ -941,13 +941,13 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
         default:
             break; // do nothing
         }
-    } while (this->get_status() != FLOATING_POINT_ERROR
+    } while (this->get_status() != lp_status::FLOATING_POINT_ERROR
              &&
-             this->get_status() != UNBOUNDED
+             this->get_status() != lp_status::UNBOUNDED
              &&
-             this->get_status() != OPTIMAL
+             this->get_status() != lp_status::OPTIMAL
              &&
-             this->get_status() != INFEASIBLE
+             this->get_status() != lp_status::INFEASIBLE
              &&
              this->iters_with_no_cost_growing() <= this->m_settings.max_number_of_iterations_with_no_improvements
              &&
@@ -955,7 +955,7 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
              &&
              !(this->current_x_is_feasible() && this->m_look_for_feasible_solution_only));
 
-    lp_assert(this->get_status() == FLOATING_POINT_ERROR
+    lp_assert(this->get_status() == lp_status::FLOATING_POINT_ERROR
                 ||
                 this->current_x_is_feasible() == false
                 ||
@@ -1043,7 +1043,7 @@ template <typename T, typename X>    T lp_primal_core_solver<T, X>::calculate_no
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::find_feasible_solution() {
     this->m_look_for_feasible_solution_only = true;
     lp_assert(this->non_basic_columns_are_set_correctly());
-    this->set_status(UNKNOWN);
+    this->set_status(lp_status::UNKNOWN);
     solve();
 }
 
@@ -1087,15 +1087,15 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::fill_breakpo
 
 
 template <typename T, typename X> bool lp_primal_core_solver<T, X>::done() {
-    if (this->get_status() == OPTIMAL || this->get_status() == FLOATING_POINT_ERROR) return true;
-    if (this->get_status() == INFEASIBLE) {
+    if (this->get_status() == lp_status::OPTIMAL || this->get_status() == lp_status::FLOATING_POINT_ERROR) return true;
+    if (this->get_status() == lp_status::INFEASIBLE) {
         return true;
     }
     if (this->m_iters_with_no_cost_growing >= this->m_settings.max_number_of_iterations_with_no_improvements) {
-        this->get_status() = ITERATIONS_EXHAUSTED; return true;
+        this->get_status() = lp_status::ITERATIONS_EXHAUSTED; return true;
     }
     if (this->total_iterations() >= this->m_settings.max_total_number_of_iterations) {
-        this->get_status() = ITERATIONS_EXHAUSTED; return true;
+        this->get_status() = lp_status::ITERATIONS_EXHAUSTED; return true;
     }
     return false;
 }

@@ -39,7 +39,7 @@ lp_core_solver_base(static_matrix<T, X> & A,
                     const vector<X> & upper_bound_values):
     m_total_iterations(0),
     m_iters_with_no_cost_growing(0),
-    m_status(FEASIBLE),
+    m_status(lp_status::FEASIBLE),
     m_inf_set(A.column_count()),
     m_using_infeas_costs(false),
     m_pivot_row_of_B_1(A.row_count()),
@@ -549,7 +549,7 @@ update_basis_and_x(int entering, int leaving, X const & tt) {
             if (!find_x_by_solving()) {
                 restore_x(entering, tt);
                 if(A_mult_x_is_off()) {
-                    m_status = FLOATING_POINT_ERROR;
+                    m_status = lp_status::FLOATING_POINT_ERROR;
                     m_iters_with_no_cost_growing++;
                     return false;
                 }
@@ -559,7 +559,7 @@ update_basis_and_x(int entering, int leaving, X const & tt) {
                 if (m_factorization->get_status() != LU_status::OK) {
                     std::stringstream s;
                     //                    s << "failing refactor on off_result for entering = " << entering << ", leaving = " << leaving << " total_iterations = " << total_iterations();
-                    m_status = FLOATING_POINT_ERROR;
+                    m_status = lp_status::FLOATING_POINT_ERROR;
                     return false;
                 }
                 return false;
@@ -581,19 +581,19 @@ update_basis_and_x(int entering, int leaving, X const & tt) {
     init_lu();
     if (m_factorization->get_status() != LU_status::OK) {
         if (m_look_for_feasible_solution_only && !precise()) {
-            m_status = UNSTABLE;
+            m_status = lp_status::UNSTABLE;
             delete m_factorization;
             m_factorization = nullptr;
             return false; 
         }
         //        LP_OUT(m_settings, "failing refactor for entering = " << entering << ", leaving = " << leaving << " total_iterations = " << total_iterations() << std::endl);
         restore_x_and_refactor(entering, leaving, tt);
-        if (m_status == FLOATING_POINT_ERROR)
+        if (m_status == lp_status::FLOATING_POINT_ERROR)
             return false;
         lp_assert(!A_mult_x_is_off());
         m_iters_with_no_cost_growing++;
         //        LP_OUT(m_settings, "rolled back after failing of init_factorization()" << std::endl);
-        m_status = UNSTABLE;
+        m_status = lp_status::UNSTABLE;
         return false;
     }
     return true;
@@ -975,7 +975,6 @@ template <typename T, typename X>  void lp_core_solver_base<T, X>::pivot_fixed_v
         unsigned basic_j = m_basis[i];
 
         if (get_column_type(basic_j) != column_type::fixed) continue;
-		//todo run over the row here!!!!! call get_iterator_on_row();
         T a;
         unsigned j;
         auto * it = get_iterator_on_row(i);

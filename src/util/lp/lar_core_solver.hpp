@@ -260,7 +260,7 @@ void lar_core_solver::solve() {
     lp_assert(m_r_solver.non_basic_columns_are_set_correctly());
     lp_assert(m_r_solver.inf_set_is_correct());
     if (m_r_solver.current_x_is_feasible() && m_r_solver.m_look_for_feasible_solution_only) {
-        m_r_solver.set_status(OPTIMAL);
+        m_r_solver.set_status(lp_status::OPTIMAL);
         return;
     }
     ++settings().st().m_need_to_solve_inf;
@@ -270,8 +270,8 @@ void lar_core_solver::solve() {
         prefix_d();
         lar_solution_signature solution_signature;
         vector<unsigned> changes_of_basis = find_solution_signature_with_doubles(solution_signature);
-        if (m_d_solver.get_status() == TIME_EXHAUSTED) {
-            m_r_solver.set_status(TIME_EXHAUSTED);
+        if (m_d_solver.get_status() == lp_status::TIME_EXHAUSTED) {
+            m_r_solver.set_status(lp_status::TIME_EXHAUSTED);
             return;
         }
         if (settings().use_tableau())
@@ -292,10 +292,10 @@ void lar_core_solver::solve() {
             m_r_solver.solve();
         lp_assert(!settings().use_tableau() || r_basis_is_OK());
     }
-    if (m_r_solver.get_status() == INFEASIBLE) {
+    if (m_r_solver.get_status() == lp_status::INFEASIBLE) {
         fill_not_improvable_zero_sum();
-    } else if (m_r_solver.get_status() != UNBOUNDED) {
-        m_r_solver.set_status(OPTIMAL);
+    } else if (m_r_solver.get_status() != lp_status::UNBOUNDED) {
+        m_r_solver.set_status(lp_status::OPTIMAL);
     }
     lp_assert(r_basis_is_OK());
     lp_assert(m_r_solver.non_basic_columns_are_set_correctly());

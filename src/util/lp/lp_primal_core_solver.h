@@ -484,7 +484,7 @@ public:
         X new_val_for_leaving;
         int leaving = find_leaving_tableau_rows(new_val_for_leaving);
         if (leaving == -1) {
-            this->set_status(OPTIMAL);
+            this->set_status(lp_status::OPTIMAL);
             return;
         }
 
@@ -500,14 +500,14 @@ public:
         T a_ent;
         int entering = find_beneficial_column_in_row_tableau_rows(this->m_basis_heading[leaving], a_ent);
         if (entering == -1) {
-            this->set_status(INFEASIBLE);
+            this->set_status(lp_status::INFEASIBLE);
             return;
         }
         X theta = (this->m_x[leaving] - new_val_for_leaving) / a_ent;
         advance_on_entering_and_leaving_tableau_rows(entering, leaving, theta );
         lp_assert(this->m_x[leaving] == new_val_for_leaving);
         if (this->current_x_is_feasible())
-            this->set_status(OPTIMAL);
+            this->set_status(lp_status::OPTIMAL);
     }
 
     void fill_breakpoints_array(unsigned entering);
@@ -523,7 +523,7 @@ public:
 
     void decide_on_status_when_cannot_find_entering() {
         lp_assert(!need_to_switch_costs());
-        this->set_status(this->current_x_is_feasible()? OPTIMAL: INFEASIBLE);
+        this->set_status(this->current_x_is_feasible()? lp_status::OPTIMAL: lp_status::INFEASIBLE);
     }
 
     // void limit_theta_on_basis_column_for_feas_case_m_neg(unsigned j, const T & m, X & theta) {
@@ -930,7 +930,7 @@ public:
         } else {
             m_converted_harris_eps = zero_of_type<T>();
         }
-        this->set_status(UNKNOWN);
+        this->set_status(lp_status::UNKNOWN);
     }
 
     // constructor

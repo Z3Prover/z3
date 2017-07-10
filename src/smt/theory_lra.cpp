@@ -1172,6 +1172,7 @@ namespace smt {
         }
 
         final_check_status final_check_eh() {
+            TRACE("lar_solver", tout << "ddd=" <<++lp::lp_settings::ddd << std::endl;);
             m_use_nra_model = false;
             lbool is_sat = l_true;
             if (m_solver->get_status() != lp::lp_status::OPTIMAL) {

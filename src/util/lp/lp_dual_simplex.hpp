@@ -22,23 +22,23 @@ namespace lp{
 
 template <typename T, typename X> void lp_dual_simplex<T, X>::decide_on_status_after_stage1() {
     switch (m_core_solver->get_status()) {
-    case OPTIMAL:
+    case lp_status::OPTIMAL:
         if (this->m_settings.abs_val_is_smaller_than_artificial_tolerance(m_core_solver->get_cost())) {
-            this->m_status = FEASIBLE;
+            this->m_status = lp_status::FEASIBLE;
         } else {
-            this->m_status = UNBOUNDED;
+            this->m_status = lp_status::UNBOUNDED;
         }
         break;
-    case DUAL_UNBOUNDED:
+    case lp_status::DUAL_UNBOUNDED:
         lp_unreachable();
-    case ITERATIONS_EXHAUSTED:
-        this->m_status = ITERATIONS_EXHAUSTED;
+    case lp_status::ITERATIONS_EXHAUSTED:
+        this->m_status = lp_status::ITERATIONS_EXHAUSTED;
         break;
-    case TIME_EXHAUSTED:
-        this->m_status = TIME_EXHAUSTED;
+    case lp_status::TIME_EXHAUSTED:
+        this->m_status = lp_status::TIME_EXHAUSTED;
         break;
-    case FLOATING_POINT_ERROR:
-        this->m_status = FLOATING_POINT_ERROR;
+    case lp_status::FLOATING_POINT_ERROR:
+        this->m_status = lp_status::FLOATING_POINT_ERROR;
         break;
     default:
         lp_unreachable();
@@ -114,20 +114,20 @@ template <typename T, typename X> void lp_dual_simplex<T, X>::solve_for_stage2()
     m_core_solver->solve_yB(m_core_solver->m_y);
     m_core_solver->fill_reduced_costs_from_m_y_by_rows();
     m_core_solver->start_with_initial_basis_and_make_it_dual_feasible();
-    m_core_solver->set_status(FEASIBLE);
+    m_core_solver->set_status(lp_status::FEASIBLE);
     m_core_solver->solve();
     switch (m_core_solver->get_status()) {
-    case OPTIMAL:
-        this->m_status = OPTIMAL;
+    case lp_status::OPTIMAL:
+        this->m_status = lp_status::OPTIMAL;
         break;
-    case DUAL_UNBOUNDED:
-        this->m_status = INFEASIBLE;
+    case lp_status::DUAL_UNBOUNDED:
+        this->m_status = lp_status::INFEASIBLE;
         break;
-    case TIME_EXHAUSTED:
-        this->m_status = TIME_EXHAUSTED;
+    case lp_status::TIME_EXHAUSTED:
+        this->m_status = lp_status::TIME_EXHAUSTED;
         break;
-    case FLOATING_POINT_ERROR:
-        this->m_status = FLOATING_POINT_ERROR;
+    case lp_status::FLOATING_POINT_ERROR:
+        this->m_status = lp_status::FLOATING_POINT_ERROR;
         break;
     default:
         lp_unreachable();
@@ -166,7 +166,7 @@ template <typename T, typename X> void lp_dual_simplex<T, X>::stage1() {
     m_core_solver->start_with_initial_basis_and_make_it_dual_feasible();
     if (this->m_settings.abs_val_is_smaller_than_artificial_tolerance(m_core_solver->get_cost())) {
         // skipping stage 1
-        m_core_solver->set_status(OPTIMAL);
+        m_core_solver->set_status(lp_status::OPTIMAL);
         m_core_solver->set_total_iterations(0);
     } else {
         m_core_solver->solve();
@@ -351,7 +351,7 @@ template <typename T, typename X> void lp_dual_simplex<T, X>::find_maximal_solut
     this->flip_costs(); // do it for now, todo ( remove the flipping)
 
     this->cleanup();
-    if (this->m_status == INFEASIBLE) {
+    if (this->m_status == lp_status::INFEASIBLE) {
         return;
     }
     this->fill_matrix_A_and_init_right_side();
@@ -361,7 +361,7 @@ template <typename T, typename X> void lp_dual_simplex<T, X>::find_maximal_solut
     fill_first_stage_solver_fields();
     copy_m_b_aside_and_set_it_to_zeros();
     stage1();
-    if (this->m_status == FEASIBLE) {
+    if (this->m_status == lp_status::FEASIBLE) {
         stage2();
     }
 }
